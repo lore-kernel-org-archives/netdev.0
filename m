@@ -1,77 +1,91 @@
-From: "Abodunrin, Akeem G" <akeem.g.abodunrin@intel.com>
-Subject: RE: [net-next 07/10] igb: Added rcu_lock to avoid race
-Date: Wed, 26 Jun 2013 16:42:19 +0000
-Message-ID: <CFEEE81102D91947B9CC368106979EBA4388266B@ORSMSX105.amr.corp.intel.com>
-References: <1372244122-17664-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1372244122-17664-8-git-send-email-jeffrey.t.kirsher@intel.com>
- <1372245628.3301.172.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 1/2] lib: vsprintf: add IPv4/v6 generic %pig/%pIg format specifier
+Date: Wed, 26 Jun 2013 19:01:12 +0200
+Message-ID: <1372266073-11998-2-git-send-email-dborkman@redhat.com>
+References: <1372266073-11998-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:33426 "EHLO mga09.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44444 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751359Ab3FZQmU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Jun 2013 12:42:20 -0400
-In-Reply-To: <1372245628.3301.172.camel@edumazet-glaptop>
-Content-Language: en-US
+	id S1751285Ab3FZRBR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jun 2013 13:01:17 -0400
+In-Reply-To: <1372266073-11998-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
-YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogV2VkbmVzZGF5LCBKdW5lIDI2
-LCAyMDEzIDQ6MjAgQU0NCj4gVG86IEtpcnNoZXIsIEplZmZyZXkgVA0KPiBDYzogZGF2ZW1AZGF2
-ZW1sb2Z0Lm5ldDsgQWJvZHVucmluLCBBa2VlbSBHOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0K
-PiBnb3Nwb0ByZWRoYXQuY29tOyBzYXNzbWFubkByZWRoYXQuY29tDQo+IFN1YmplY3Q6IFJlOiBb
-bmV0LW5leHQgMDcvMTBdIGlnYjogQWRkZWQgcmN1X2xvY2sgdG8gYXZvaWQgcmFjZQ0KPiANCj4g
-T24gV2VkLCAyMDEzLTA2LTI2IGF0IDAzOjU1IC0wNzAwLCBKZWZmIEtpcnNoZXIgd3JvdGU6DQo+
-ID4gRnJvbTogIkFrZWVtIEcuIEFib2R1bnJpbiIgPGFrZWVtLmcuYWJvZHVucmluQGludGVsLmNv
-bT4NCj4gPg0KPiA+IFRoaXMgcGF0Y2ggYWRkcyByY3VfbG9jayB0byBhdm9pZCBwb3NzaWJsZSBy
-YWNlIGNvbmRpdGlvbiB3aXRoDQo+ID4gaWdiX3VwZGF0ZV9zdGF0cyBmdW5jdGlvbiBhY2Nlc3Np
-bmcgdGhlIHJpbmdzIGluIGZyZWVfIHFfdmVjdG9yLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTog
-QWtlZW0gRyBBYm9kdW5yaW4gPGFrZWVtLmcuYWJvZHVucmluQGludGVsLmNvbT4NCj4gPiBUZXN0
-ZWQtYnk6IEFhcm9uIEJyb3duIDxhYXJvbi5mLmJyb3duQGludGVsLmNvbT4NCj4gPiBTaWduZWQt
-b2ZmLWJ5OiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4gPiAt
-LS0NCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9tYWluLmMgfCA3ICsr
-KysrKy0NCj4gPiAgMSBmaWxlIGNoYW5nZWQsIDYgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigt
-KQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9p
-Z2JfbWFpbi5jDQo+ID4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX21haW4u
-Yw0KPiA+IGluZGV4IDcxMTJlNTIuLmM3NGFkNzggMTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9tYWluLmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC9l
-dGhlcm5ldC9pbnRlbC9pZ2IvaWdiX21haW4uYw0KPiA+IEBAIC03MDUsNiArNzA1LDggQEAgc3Rh
-dGljIHZvaWQgX19leGl0IGlnYl9leGl0X21vZHVsZSh2b2lkKQ0KPiA+ICAJZGNhX3VucmVnaXN0
-ZXJfbm90aWZ5KCZkY2Ffbm90aWZpZXIpOw0KPiA+ICAjZW5kaWYNCj4gPiAgCXBjaV91bnJlZ2lz
-dGVyX2RyaXZlcigmaWdiX2RyaXZlcik7DQo+ID4gKw0KPiA+ICsJcmN1X2JhcnJpZXIoKTsgLyog
-V2FpdCBmb3IgY29tcGxldGlvbiBvZiBjYWxsX3JjdSgpJ3MgKi8NCj4gPiAgfQ0KPiA+DQo+IA0K
-PiBUaGlzIGlzIG5vdCBuZWVkZWQuDQo+IA0KPiBJZiB0aGlzIGlzIHJlYWxseSBuZWVkZWQsIGEg
-YmV0dGVyIGNvbW1lbnQgd291bGQgYmUgd2VsY29tZWQgOykNCg0KVGhhbmtzIEVyaWMhDQoNCkkg
-YmVsaWV2ZSB3ZSBuZWVkIHRoaXMgdG8gbWFrZSBzdXJlIG1lbW9yeSBpcyByZWxlYXNlZCBiZWZv
-cmUgcmVtb3ZpbmcgZHJpdmVyIGNvZGUgZnJvbSB0aGUga2VybmVsLCBlc3BlY2lhbGx5IHdpdGgg
-ZWFjaCBjYWxsIHRvIHJjdSAtIHRoYXQgaXMgdGhlIHJlYXNvbiBmb3IgdGhlIGNvbW1lbnQgIldh
-aXQgZm9yIGNvbXBsZXRpb24gb2YgY2FsbF9yY3UoKSdzIi4NCg0KUmVnYXJkcywNCn5Ba2VlbQ0K
-DQo+IA0KPiA+ICBtb2R1bGVfZXhpdChpZ2JfZXhpdF9tb2R1bGUpOw0KPiA+IEBAIC0xMDEzLDcg
-KzEwMTUsNyBAQCBzdGF0aWMgdm9pZCBpZ2JfZnJlZV9xX3ZlY3RvcihzdHJ1Y3QgaWdiX2FkYXB0
-ZXINCj4gKmFkYXB0ZXIsIGludCB2X2lkeCkNCj4gPiAgCWFkYXB0ZXItPnFfdmVjdG9yW3ZfaWR4
-XSA9IE5VTEw7DQo+ID4gIAluZXRpZl9uYXBpX2RlbCgmcV92ZWN0b3ItPm5hcGkpOw0KPiA+DQo+
-ID4gLQkvKiBpeGdiZV9nZXRfc3RhdHM2NCgpIG1pZ2h0IGFjY2VzcyB0aGUgcmluZ3Mgb24gdGhp
-cyB2ZWN0b3IsDQo+ID4gKwkvKiBpZ2JfZ2V0X3N0YXRzNjQoKSBtaWdodCBhY2Nlc3MgdGhlIHJp
-bmdzIG9uIHRoaXMgdmVjdG9yLA0KPiA+ICAJICogd2UgbXVzdCB3YWl0IGEgZ3JhY2UgcGVyaW9k
-IGJlZm9yZSBmcmVlaW5nIGl0Lg0KPiA+ICAJICovDQo+ID4gIAlrZnJlZV9yY3UocV92ZWN0b3Is
-IHJjdSk7DQo+ID4gQEAgLTQ4NjAsNiArNDg2Miw4IEBAIHZvaWQgaWdiX3VwZGF0ZV9zdGF0cyhz
-dHJ1Y3QgaWdiX2FkYXB0ZXINCj4gPiAqYWRhcHRlciwNCj4gPg0KPiA+ICAJYnl0ZXMgPSAwOw0K
-PiA+ICAJcGFja2V0cyA9IDA7DQo+ID4gKw0KPiA+ICsJcmN1X3JlYWRfbG9jaygpOw0KPiA+ICAJ
-Zm9yIChpID0gMDsgaSA8IGFkYXB0ZXItPm51bV9yeF9xdWV1ZXM7IGkrKykgew0KPiA+ICAJCXUz
-MiBycWRwYyA9IHJkMzIoRTEwMDBfUlFEUEMoaSkpOw0KPiA+ICAJCXN0cnVjdCBpZ2JfcmluZyAq
-cmluZyA9IGFkYXB0ZXItPnJ4X3JpbmdbaV07IEBAIC00ODk1LDYgKzQ4OTksNw0KPiBAQA0KPiA+
-IHZvaWQgaWdiX3VwZGF0ZV9zdGF0cyhzdHJ1Y3QgaWdiX2FkYXB0ZXIgKmFkYXB0ZXIsDQo+ID4g
-IAl9DQo+ID4gIAluZXRfc3RhdHMtPnR4X2J5dGVzID0gYnl0ZXM7DQo+ID4gIAluZXRfc3RhdHMt
-PnR4X3BhY2tldHMgPSBwYWNrZXRzOw0KPiA+ICsJcmN1X3JlYWRfdW5sb2NrKCk7DQo+ID4NCj4g
-PiAgCS8qIHJlYWQgc3RhdHMgcmVnaXN0ZXJzICovDQo+ID4gIAlhZGFwdGVyLT5zdGF0cy5jcmNl
-cnJzICs9IHJkMzIoRTEwMDBfQ1JDRVJSUyk7DQo+IA0KDQo=
+In order to avoid making code that deals with printing both, IPv4 and
+IPv6 addresses, unnecessary complicated as for example ...
+
+  if (sa.sa_family == AF_INET6)
+    printk("... %pI6 ...", sin6_addr);
+  else
+    printk("... %pI4 ...", sin_addr.s_addr);
+
+... it would be better to introduce a format specifier that can deal
+with those kind of situations internally; just as we have a "struct
+sockaddr" for generic mapping into "struct sockaddr_in" or "struct
+sockaddr_in6" as e.g. done in "union sctp_addr". Then, we could
+reduce the above statement into something like:
+
+  printk("... %pIg ..", &sockaddr);
+
+While we're at it, support for both %pig/%pIg, where 'g' stands for
+generic, comes for free. In case our pointer is NULL, pointer() then
+deals with that already at an earlier point in time internally.
+
+Likely, there are many other areas than just SCTP in the kernel to make
+use of this extension as well.
+
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ lib/vsprintf.c | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
+
+diff --git a/lib/vsprintf.c b/lib/vsprintf.c
+index e149c64..7243742 100644
+--- a/lib/vsprintf.c
++++ b/lib/vsprintf.c
+@@ -1004,10 +1004,10 @@ int kptr_restrict __read_mostly;
+  * - 'MF' For a 6-byte MAC FDDI address, it prints the address
+  *       with a dash-separated hex notation
+  * - '[mM]R' For a 6-byte MAC address, Reverse order (Bluetooth)
+- * - 'I' [46] for IPv4/IPv6 addresses printed in the usual way
++ * - 'I' [46g] for IPv4/IPv6 addresses printed in the usual way
+  *       IPv4 uses dot-separated decimal without leading 0's (1.2.3.4)
+  *       IPv6 uses colon separated network-order 16 bit hex with leading 0's
+- * - 'i' [46] for 'raw' IPv4/IPv6 addresses
++ * - 'i' [46g] for 'raw' IPv4/IPv6 addresses
+  *       IPv6 omits the colons (01020304...0f)
+  *       IPv4 uses dot-separated decimal with leading 0's (010.123.045.006)
+  * - '[Ii]4[hnbl]' IPv4 addresses in host, network, big or little endian order
+@@ -1093,6 +1093,18 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
+ 			return ip6_addr_string(buf, end, ptr, spec, fmt);
+ 		case '4':
+ 			return ip4_addr_string(buf, end, ptr, spec, fmt);
++		case 'g':
++			{
++				const struct sockaddr *sa = ptr;
++
++				if (sa->sa_family == AF_INET6) {
++					ptr = &((struct sockaddr_in6 *) sa)->sin6_addr;
++					return ip6_addr_string(buf, end, ptr, spec, fmt);
++				} else {
++					ptr = &((struct sockaddr_in *) sa)->sin_addr.s_addr;
++					return ip4_addr_string(buf, end, ptr, spec, fmt);
++				}
++			}
+ 		}
+ 		break;
+ 	case 'U':
+@@ -1370,6 +1382,8 @@ qualifier:
+  * %pI6 print an IPv6 address with colons
+  * %pi6 print an IPv6 address without colons
+  * %pI6c print an IPv6 address as specified by RFC 5952
++ * %pIg depending on sa_family of 'struct sockaddr *' switch to %pI6/%pI4
++ * %pig depending on sa_family of 'struct sockaddr *' switch to %pi6/%pi4
+  * %pU[bBlL] print a UUID/GUID in big or little endian using lower or upper
+  *   case.
+  * %*ph[CDN] a variable-length hex string with a separator (supports up to 64
+-- 
+1.7.11.7
