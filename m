@@ -1,35 +1,153 @@
 From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: [PATCH v1 0/3] pch_gbe: few clean ups to the driver
-Date: Wed, 26 Jun 2013 19:13:34 +0300
-Message-ID: <1372263217-1938-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Subject: [PATCH v1 3/3] pch_gbe: use managed functions pcim_* and devm_*
+Date: Wed, 26 Jun 2013 19:13:37 +0300
+Message-ID: <1372263217-1938-4-git-send-email-andriy.shevchenko@linux.intel.com>
+References: <1372263217-1938-1-git-send-email-andriy.shevchenko@linux.intel.com>
 Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Darren Hart <dvhart@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:19170 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:21190 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752680Ab3FZQNq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Jun 2013 12:13:46 -0400
+	id S1752680Ab3FZQNr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jun 2013 12:13:47 -0400
+In-Reply-To: <1372263217-1938-1-git-send-email-andriy.shevchenko@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are three clean ups to the driver.
-Darren, can you incorporate this series to your Minnow board support?
-Or if this goes first, consider rebase on top.
+This makes the error handling much more simpler than open-coding everything and
+in addition makes the probe function smaller an tidier.
 
-Andy Shevchenko (3):
-  pch_gbe: remove inline keyword for exported functions
-  pch_gbe: convert pr_* to netdev_*
-  pch_gbe: use managed functions pcim_* and devm_*
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+---
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 50 +++++++---------------
+ 1 file changed, 15 insertions(+), 35 deletions(-)
 
- drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |   2 +
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c    |  48 ++--
- .../ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c    |   2 +-
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 279 +++++++++++----------
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c  |  61 +++--
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c    |  23 +-
- drivers/staging/media/lirc/lirc_igorplugusb.c      |   2 +-
- 7 files changed, 237 insertions(+), 180 deletions(-)
-
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index c2a6dc4..1f13556 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -634,15 +634,15 @@ static void pch_gbe_mac_set_pause_packet(struct pch_gbe_hw *hw)
+  */
+ static int pch_gbe_alloc_queues(struct pch_gbe_adapter *adapter)
+ {
+-	adapter->tx_ring = kzalloc(sizeof(*adapter->tx_ring), GFP_KERNEL);
++	adapter->tx_ring = devm_kzalloc(&adapter->pdev->dev,
++					sizeof(*adapter->tx_ring), GFP_KERNEL);
+ 	if (!adapter->tx_ring)
+ 		return -ENOMEM;
+ 
+-	adapter->rx_ring = kzalloc(sizeof(*adapter->rx_ring), GFP_KERNEL);
+-	if (!adapter->rx_ring) {
+-		kfree(adapter->tx_ring);
++	adapter->rx_ring = devm_kzalloc(&adapter->pdev->dev,
++					sizeof(*adapter->rx_ring), GFP_KERNEL);
++	if (!adapter->rx_ring)
+ 		return -ENOMEM;
+-	}
+ 	return 0;
+ }
+ 
+@@ -2584,13 +2584,7 @@ static void pch_gbe_remove(struct pci_dev *pdev)
+ 
+ 	pch_gbe_hal_phy_hw_reset(&adapter->hw);
+ 
+-	kfree(adapter->tx_ring);
+-	kfree(adapter->rx_ring);
+-
+-	iounmap(adapter->hw.reg);
+-	pci_release_regions(pdev);
+ 	free_netdev(netdev);
+-	pci_disable_device(pdev);
+ }
+ 
+ static int pch_gbe_probe(struct pci_dev *pdev,
+@@ -2600,7 +2594,7 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 	struct pch_gbe_adapter *adapter;
+ 	int ret;
+ 
+-	ret = pci_enable_device(pdev);
++	ret = pcim_enable_device(pdev);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -2613,24 +2607,22 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 			if (ret) {
+ 				dev_err(&pdev->dev, "ERR: No usable DMA "
+ 					"configuration, aborting\n");
+-				goto err_disable_device;
++				return ret;
+ 			}
+ 		}
+ 	}
+ 
+-	ret = pci_request_regions(pdev, KBUILD_MODNAME);
++	ret = pcim_iomap_regions(pdev, 1 << PCH_GBE_PCI_BAR, pci_name(pdev));
+ 	if (ret) {
+ 		dev_err(&pdev->dev,
+ 			"ERR: Can't reserve PCI I/O and memory resources\n");
+-		goto err_disable_device;
++		return ret;
+ 	}
+ 	pci_set_master(pdev);
+ 
+ 	netdev = alloc_etherdev((int)sizeof(struct pch_gbe_adapter));
+-	if (!netdev) {
+-		ret = -ENOMEM;
+-		goto err_release_pci;
+-	}
++	if (!netdev)
++		return -ENOMEM;
+ 	SET_NETDEV_DEV(netdev, &pdev->dev);
+ 
+ 	pci_set_drvdata(pdev, netdev);
+@@ -2638,18 +2630,14 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 	adapter->netdev = netdev;
+ 	adapter->pdev = pdev;
+ 	adapter->hw.back = adapter;
+-	adapter->hw.reg = pci_iomap(pdev, PCH_GBE_PCI_BAR, 0);
+-	if (!adapter->hw.reg) {
+-		ret = -EIO;
+-		dev_err(&pdev->dev, "Can't ioremap\n");
+-		goto err_free_netdev;
+-	}
++	adapter->hw.reg = pcim_iomap_table(pdev)[PCH_GBE_PCI_BAR];
+ 
+ 	adapter->ptp_pdev = pci_get_bus_and_slot(adapter->pdev->bus->number,
+ 					       PCI_DEVFN(12, 4));
+ 	if (ptp_filter_init(ptp_filter, ARRAY_SIZE(ptp_filter))) {
+ 		dev_err(&pdev->dev, "Bad ptp filter\n");
+-		return -EINVAL;
++		ret = -EINVAL;
++		goto err_free_netdev;
+ 	}
+ 
+ 	netdev->netdev_ops = &pch_gbe_netdev_ops;
+@@ -2667,7 +2655,7 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 	/* setup the private structure */
+ 	ret = pch_gbe_sw_init(adapter);
+ 	if (ret)
+-		goto err_iounmap;
++		goto err_free_netdev;
+ 
+ 	/* Initialize PHY */
+ 	ret = pch_gbe_init_phy(adapter);
+@@ -2723,16 +2711,8 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 
+ err_free_adapter:
+ 	pch_gbe_hal_phy_hw_reset(&adapter->hw);
+-	kfree(adapter->tx_ring);
+-	kfree(adapter->rx_ring);
+-err_iounmap:
+-	iounmap(adapter->hw.reg);
+ err_free_netdev:
+ 	free_netdev(netdev);
+-err_release_pci:
+-	pci_release_regions(pdev);
+-err_disable_device:
+-	pci_disable_device(pdev);
+ 	return ret;
+ }
+ 
 -- 
 1.8.3.1
