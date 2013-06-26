@@ -1,61 +1,83 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: Re: [PATCH net-next v1 1/1] net: fec: Add VLAN receive HW support.
-Date: Wed, 26 Jun 2013 12:45:18 +0100
-Message-ID: <51CAD44E.6030308@mentor.com>
-References: <Jim Baxter <jim_baxter@mentor.com> <1372204524-27798-1-git-send-email-jim_baxter@mentor.com> <9848F2DB572E5649BA045B288BE08FBE014FE4E1@039-SN2MPN1-023.039d.mgd.msft.net> <51CABDD0.7050606@mentor.com> <9848F2DB572E5649BA045B288BE08FBE01501A58@039-SN2MPN1-023.039d.mgd.msft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Li Frank-B20596 <B20596@freescale.com>,
-	Estevam Fabio-R49496 <r49496@freescale.com>,
-	Lucas Stach <l.stach@pengutronix.de>,
-	Shawn Guo <shawn.guo@linaro.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Duan Fugang-B38611 <B38611@freescale.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH] xfrm: add LINUX_MIB_XFRMACQUIREERROR statistic counter
+Date: Wed, 26 Jun 2013 14:01:38 +0200
+Message-ID: <1372248098-19876-2-git-send-email-steffen.klassert@secunet.com>
+References: <1372248098-19876-1-git-send-email-steffen.klassert@secunet.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:52674 "EHLO
-	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751683Ab3FZLpX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 07:45:23 -0400
-In-Reply-To: <9848F2DB572E5649BA045B288BE08FBE01501A58@039-SN2MPN1-023.039d.mgd.msft.net>
+Received: from a.mx.secunet.com ([195.81.216.161]:54339 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752018Ab3FZMCI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jun 2013 08:02:08 -0400
+In-Reply-To: <1372248098-19876-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26/06/13 12:18, Duan Fugang-B38611 wrote:
-> On 06/26/13 18:09, Jim Baxter wrote:
-> 
->>> In addition,
->>> 	1.	enet IP support hw VLAN detect such as imx28-fec, imx6q-fec and mvf600-fec, so you can add the "BD_ENET_RX_VLAN " to those platform driver_data.
->> I have only tested it on the i.MX6, if someone wants to check it on the
->> imx28 later they can add it to that option.
-> 
->>> 	2.	Enable the VLAN tag extraction with "NETIF_F_HW_VLAN_CTAG_RX" feature in .ndo_fix_features, which is configured by user.
->> What do you mean by this, I am only enabling the VLAN code if (ndev->features & NETIF_F_HW_VLAN_CTAG_RX) is set. I am pretty sure this is set by
-> 
-> You can enable the feature like below, which is reasonable.
-> .ndo_fix_features   = fec_enet_fix_features
-> 
-> static netdev_features_t fec_enet_fix_features (struct net_device *dev, 
->         netdev_features_t features)
-> {
->         struct fec_enet_private *fep = netdev_priv(dev);
-> 	  const struct platform_device_id *id_entry =
-> 					platform_get_device_id(fep->pdev);
-> 
-> 	  if (id_entry->driver_data & FEC_QUIRK_HAS_VLAN)
->         	features |= NETIF_F_HW_VLAN_CTAG_RX;
-> 
-> 	  return features;
-> }
-> 
-> 
-> Thank you,
-> Andy
-> 
-> 
+From: Fan Du <fan.du@windriver.com>
 
-I currently set the features in fec_enet_init() along with setting
-hw_features, is fec_enet_fix_features() a more correct design for driver
-implementation point?
+When host ping its peer, ICMP echo request packet triggers IPsec
+policy, then host negotiates SA secret with its peer. After IKE
+installed SA for OUT direction, but before SA for IN direction
+installed, host get ICMP echo reply from its peer. At the time
+being, the SA state for IN direction could be XFRM_STATE_ACQ,
+then the received packet will be dropped after adding
+LINUX_MIB_XFRMINSTATEINVALID statistic.
+
+Adding a LINUX_MIB_XFRMACQUIREERROR statistic counter for such
+scenario when SA in larval state is much clearer for user than
+LINUX_MIB_XFRMINSTATEINVALID which indicates the SA is totally
+bad.
+
+Signed-off-by: Fan Du <fan.du@windriver.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ include/uapi/linux/snmp.h |    1 +
+ net/xfrm/xfrm_input.c     |    5 +++++
+ net/xfrm/xfrm_proc.c      |    1 +
+ 3 files changed, 7 insertions(+)
+
+diff --git a/include/uapi/linux/snmp.h b/include/uapi/linux/snmp.h
+index df2e8b4..ea17542 100644
+--- a/include/uapi/linux/snmp.h
++++ b/include/uapi/linux/snmp.h
+@@ -287,6 +287,7 @@ enum
+ 	LINUX_MIB_XFRMOUTPOLERROR,		/* XfrmOutPolError */
+ 	LINUX_MIB_XFRMFWDHDRERROR,		/* XfrmFwdHdrError*/
+ 	LINUX_MIB_XFRMOUTSTATEINVALID,		/* XfrmOutStateInvalid */
++	LINUX_MIB_XFRMACQUIREERROR,		/* XfrmAcquireError */
+ 	__LINUX_MIB_XFRMMAX
+ };
+ 
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index ab2bb42..8884399 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -163,6 +163,11 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 		skb->sp->xvec[skb->sp->len++] = x;
+ 
+ 		spin_lock(&x->lock);
++		if (unlikely(x->km.state == XFRM_STATE_ACQ)) {
++			XFRM_INC_STATS(net, LINUX_MIB_XFRMACQUIREERROR);
++			goto drop_unlock;
++		}
++
+ 		if (unlikely(x->km.state != XFRM_STATE_VALID)) {
+ 			XFRM_INC_STATS(net, LINUX_MIB_XFRMINSTATEINVALID);
+ 			goto drop_unlock;
+diff --git a/net/xfrm/xfrm_proc.c b/net/xfrm/xfrm_proc.c
+index c721b0d..80cd1e5 100644
+--- a/net/xfrm/xfrm_proc.c
++++ b/net/xfrm/xfrm_proc.c
+@@ -44,6 +44,7 @@ static const struct snmp_mib xfrm_mib_list[] = {
+ 	SNMP_MIB_ITEM("XfrmOutPolError", LINUX_MIB_XFRMOUTPOLERROR),
+ 	SNMP_MIB_ITEM("XfrmFwdHdrError", LINUX_MIB_XFRMFWDHDRERROR),
+ 	SNMP_MIB_ITEM("XfrmOutStateInvalid", LINUX_MIB_XFRMOUTSTATEINVALID),
++	SNMP_MIB_ITEM("XfrmAcquireError", LINUX_MIB_XFRMACQUIREERROR),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+-- 
+1.7.9.5
