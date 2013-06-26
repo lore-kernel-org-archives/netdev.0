@@ -1,74 +1,139 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: Re: [PATCH v2 15/45] rcu: Use get/put_online_cpus_atomic() to prevent
- CPU offline
-Date: Wed, 26 Jun 2013 19:39:40 +0530
-Message-ID: <51CAF624.6060004@linux.vnet.ibm.com>
-References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com> <20130625202755.16593.67819.stgit@srivatsabhat.in.ibm.com> <20130625220026.GG3828@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, rusty@rustcorp.com.au, mingo@kernel.org,
-	akpm@linux-foundation.org, namhyung@kernel.org, walken@google.com,
-	vincent.guittot@linaro.org, laijs@cn.fujitsu.com,
-	rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
-	xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, fweisbec@gmail.com,
-	zhong@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
-	linux-pm@vger.kernel.org, linux-arch@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Dipankar Sarma <dipankar@in.ibm.com>
-To: paulmck@linux.vnet.ibm.com
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20130625220026.GG3828@linux.vnet.ibm.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH for/net-next 0/8] Add Mellanox mlx5 driver for Connect-IB devices
+Date: Wed, 26 Jun 2013 17:22:09 +0300
+Message-ID: <1372256537-21328-1-git-send-email-ogerlitz@mellanox.com>
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+	eli@dev.mellanox.co.il, moshel@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: roland@kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:42740 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752146Ab3FZOWw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jun 2013 10:22:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/26/2013 03:30 AM, Paul E. McKenney wrote:
-> On Wed, Jun 26, 2013 at 01:57:55AM +0530, Srivatsa S. Bhat wrote:
->> Once stop_machine() is gone from the CPU offline path, we won't be able
->> to depend on disabling preemption to prevent CPUs from going offline
->> from under us.
->>
->> In RCU code, rcu_implicit_dynticks_qs() checks if a CPU is offline,
->> while being protected by a spinlock. Use the get/put_online_cpus_atomic()
->> APIs to prevent CPUs from going offline, while invoking from atomic context.
-> 
-> I am not completely sure that this is needed.  Here is a (quite possibly
-> flawed) argument for its not being needed:
-> 
-> o	rcu_gp_init() holds off CPU-hotplug operations during
-> 	grace-period initialization.  Therefore, RCU will avoid
-> 	looking for quiescent states from CPUs that were offline
-> 	(and thus in an extended quiescent state) at the beginning
-> 	of the grace period.
-> 
-> o	If force_qs_rnp() is looking for a quiescent state from
-> 	a given CPU, and if it senses that CPU as being offline,
-> 	then even without synchronization we know that the CPU
-> 	was offline some time during the current grace period.
-> 
-> 	After all, it was online at the beginning of the grace
-> 	period (otherwise, we would not be looking at it at all),
-> 	and our later sampling of its state must have therefore
-> 	happened after the start of the grace period.  Given that
-> 	the grace period has not yet ended, it also has to happened
-> 	before the end of the grace period.
-> 
-> o	Therefore, we should be able to sample the offline state
-> 	without synchronization.
->
+From: Eli Cohen <eli@mellanox.com>
 
-Thanks a lot for explaining the synchronization design in detail, Paul!
-I agree that get/put_online_cpus_atomic() is not necessary here.
+The patches that follow constitute the driver for Mellanox's 5th generation
+of HCAs named Connect-IB.
 
-Regarding the debug checks under CONFIG_DEBUG_HOTPLUG_CPU, to avoid
-false-positives, I'm thinking of introducing a few _nocheck() variants,
-on a case-by-case basis, like cpu_is_offline_nocheck() (useful here in RCU)
-and for_each_online_cpu_nocheck() (useful in percpu-counter code, as
-pointed out by Tejun Heo). These fine synchronization details are kinda
-hard to encapsulate in that debug logic, so we can use the _nocheck()
-variants here to avoid getting splats when running with DEBUG_HOTPLUG_CPU
-enabled.
+The driver is comprised of two kernel modules: mlx5_ib and mlx5_core. This
+partitioning resembles what we have for mlx4 with the substantial difference
+that mlx5_ib is the pci device driver and not mlx5_core.
 
-Regards,
-Srivatsa S. Bhat
+mlx5_core provides general functionality that is intended to be used by
+other Mellanox devices that will be introduced in the future. In this sense,
+it can be perceived as a library. mlx5_ib has a similar role as any hardware
+device under drivers/infiniband/hw.
+
+The patches are partitioned to avoid exceeding the 100KB vger.kernel.org
+limitation. They are divided such that the first three ones have the code
+of the mlx5_core driver, and the last five the code of the mlx5_ib driver.
+
+Only the last patch per driver adds the Makefiles and Kconfigs, to make
+things robust for future bisections.
+
+PPC is not yet supported but support will be included in the near future.
+
+changes from V0:
+ - Per Dave's request, cross posting to both netdev and linux-rdma, to see 
+   if there are comments from netdev on the core driver.
+
+Eli Cohen (8):
+  net/mlx5: Mellanox Connect-IB, core driver part 1/3
+  net/mlx5: Mellanox Connect-IB, core driver part 2/3
+  net/mlx5: Mellanox Connect-IB, core driver part 3/3
+  IB/mlx5: Mellanox Connect-IB, IB driver part 1/5
+  IB/mlx5: Mellanox Connect-IB, IB driver part 2/5
+  IB/mlx5: Mellanox Connect-IB, IB driver part 3/5
+  IB/mlx5: Mellanox Connect-IB, IB driver part 4/5
+  IB/mlx5: Mellanox Connect-IB, IB driver part 5/5
+
+ MAINTAINERS                                        |   22 +
+ drivers/infiniband/Kconfig                         |    1 +
+ drivers/infiniband/Makefile                        |    1 +
+ drivers/infiniband/hw/mlx5/Kconfig                 |   10 +
+ drivers/infiniband/hw/mlx5/Makefile                |    4 +
+ drivers/infiniband/hw/mlx5/ah.c                    |   95 +
+ drivers/infiniband/hw/mlx5/cq.c                    |  851 +++++++
+ drivers/infiniband/hw/mlx5/doorbell.c              |  100 +
+ drivers/infiniband/hw/mlx5/mad.c                   |  143 ++
+ drivers/infiniband/hw/mlx5/main.c                  | 1512 ++++++++++++
+ drivers/infiniband/hw/mlx5/mem.c                   |  194 ++
+ drivers/infiniband/hw/mlx5/mlx5_ib.h               |  593 +++++
+ drivers/infiniband/hw/mlx5/mr.c                    | 1025 ++++++++
+ drivers/infiniband/hw/mlx5/qp.c                    | 2549 ++++++++++++++++++++
+ drivers/infiniband/hw/mlx5/srq.c                   |  481 ++++
+ drivers/infiniband/hw/mlx5/user.h                  |  123 +
+ drivers/net/ethernet/mellanox/Kconfig              |    1 +
+ drivers/net/ethernet/mellanox/Makefile             |    1 +
+ drivers/net/ethernet/mellanox/mlx5/core/Kconfig    |   18 +
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |    6 +
+ drivers/net/ethernet/mellanox/mlx5/core/alloc.c    |  244 ++
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c      | 1497 ++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/cq.c       |  226 ++
+ drivers/net/ethernet/mellanox/mlx5/core/debugfs.c  |  600 +++++
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c       |  523 ++++
+ drivers/net/ethernet/mellanox/mlx5/core/fw.c       |  187 ++
+ drivers/net/ethernet/mellanox/mlx5/core/health.c   |  216 ++
+ drivers/net/ethernet/mellanox/mlx5/core/mad.c      |   80 +
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |  483 ++++
+ drivers/net/ethernet/mellanox/mlx5/core/mcg.c      |  108 +
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |   96 +
+ drivers/net/ethernet/mellanox/mlx5/core/mr.c       |  138 ++
+ .../net/ethernet/mellanox/mlx5/core/pagealloc.c    |  438 ++++
+ drivers/net/ethernet/mellanox/mlx5/core/pd.c       |  103 +
+ drivers/net/ethernet/mellanox/mlx5/core/port.c     |  106 +
+ drivers/net/ethernet/mellanox/mlx5/core/qp.c       |  303 +++
+ drivers/net/ethernet/mellanox/mlx5/core/srq.c      |  225 ++
+ drivers/net/ethernet/mellanox/mlx5/core/uar.c      |  225 ++
+ include/linux/mlx5/cmd.h                           |   51 +
+ include/linux/mlx5/cq.h                            |  166 ++
+ include/linux/mlx5/device.h                        |  886 +++++++
+ include/linux/mlx5/doorbell.h                      |   81 +
+ include/linux/mlx5/driver.h                        |  763 ++++++
+ include/linux/mlx5/qp.h                            |  467 ++++
+ include/linux/mlx5/srq.h                           |   41 +
+ 45 files changed, 15983 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/infiniband/hw/mlx5/Kconfig
+ create mode 100644 drivers/infiniband/hw/mlx5/Makefile
+ create mode 100644 drivers/infiniband/hw/mlx5/ah.c
+ create mode 100644 drivers/infiniband/hw/mlx5/cq.c
+ create mode 100644 drivers/infiniband/hw/mlx5/doorbell.c
+ create mode 100644 drivers/infiniband/hw/mlx5/mad.c
+ create mode 100644 drivers/infiniband/hw/mlx5/main.c
+ create mode 100644 drivers/infiniband/hw/mlx5/mem.c
+ create mode 100644 drivers/infiniband/hw/mlx5/mlx5_ib.h
+ create mode 100644 drivers/infiniband/hw/mlx5/mr.c
+ create mode 100644 drivers/infiniband/hw/mlx5/qp.c
+ create mode 100644 drivers/infiniband/hw/mlx5/srq.c
+ create mode 100644 drivers/infiniband/hw/mlx5/user.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/Kconfig
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/Makefile
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/alloc.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/cq.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/eq.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fw.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/health.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/mad.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/main.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/mcg.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/mr.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/pd.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/port.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/qp.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/srq.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/uar.c
+ create mode 100644 include/linux/mlx5/cmd.h
+ create mode 100644 include/linux/mlx5/cq.h
+ create mode 100644 include/linux/mlx5/device.h
+ create mode 100644 include/linux/mlx5/doorbell.h
+ create mode 100644 include/linux/mlx5/driver.h
+ create mode 100644 include/linux/mlx5/qp.h
+ create mode 100644 include/linux/mlx5/srq.h
