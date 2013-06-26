@@ -1,44 +1,74 @@
-From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Subject: Re: linux-next: build failure after merge of the final tree
- (net-next tree related)
-Date: Wed, 26 Jun 2013 08:07:37 +0000
-Message-ID: <4881796E12491D4BB15146FE0209CE643F603C48@DE02WEMBXB.internal.synopsys.com>
-References: <20130626175610.8a8b6606fd9a5b6269398059@canb.auug.org.au>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: Re: [PATCH v2 29/45] kvm/vmx: Use get/put_online_cpus_atomic() to
+ prevent CPU offline
+Date: Wed, 26 Jun 2013 13:36:46 +0530
+Message-ID: <51CAA116.2060906@linux.vnet.ibm.com>
+References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com> <20130625203043.16593.1600.stgit@srivatsabhat.in.ibm.com> <51CA9C5E.1030609@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
+	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
+	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
+	walken@google.com, vincent.guittot@linaro.org,
+	laijs@cn.fujitsu.com, rostedt@goodmis.org,
+	wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com,
+	sbw@mit.edu, fweisbec@gmail.com, zhong@linux.vnet.ibm.com,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Gleb Natapov <gleb@redhat.com>, Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	kvm@vger.kernel.org
+To: Paolo Bonzini <pbonzini@redhat.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <51CA9C5E.1030609@redhat.com>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/26/2013 11:56 AM, Stephen Rothwell wrote:
-> Hi all,
->
-> After merging the final tree, today's linux-next build (powerpc
-> allyesconfig) failed like this:
-[]
-> Caused by commit e4f2379db6c6 ("ethernet/arc/arc_emac - Add new driver")
-> from the net-next tree.
->
-> I have reverted that commit for today.
+On 06/26/2013 01:16 PM, Paolo Bonzini wrote:
+> Il 25/06/2013 22:30, Srivatsa S. Bhat ha scritto:
+>> -	cpu = get_cpu();
+>> +	cpu = get_online_cpus_atomic();
+>>  	vmx_vcpu_load(&vmx->vcpu, cpu);
+>>  	vmx->vcpu.cpu = cpu;
+>>  	err = vmx_vcpu_setup(vmx);
+>>  	vmx_vcpu_put(&vmx->vcpu);
+>> -	put_cpu();
+>> +	put_online_cpus_atomic();
+> 
+> The new API has a weird name.  Why are you adding new functions instead
+> of just modifying get/put_cpu?
+> 
 
-I've just sent a patch that fixes reported issues (both errors and 
-warnings).
-===
-[PATCH] arc_emac: fix compile-time errors & warnings on PPC64
-===
-So it could be merged with initial patch.
+Because the purpose of those two functions are distinctly different
+from each other.
 
-Or I may send another cumulative re-spin.
+get/put_cpu() is used to disable preemption on the local CPU. (Which
+also disables offlining the local CPU during that critical section).
 
-What's the best way?
+What this patchset deals with is synchronizing with offline of *any*
+CPU. Typically, we use get_online_cpus()/put_online_cpus() for that
+purpose. But they can't be used in atomic context, because they take
+mutex locks and hence can sleep.
+
+So the code that executes in atomic context and which wants to prevent
+*any* CPU from going offline, used to disable preemption around its
+critical section. Disabling preemption prevents stop_machine(), and
+CPU offline (of *any* CPU) was done via stop_machine(). So disabling
+preemption disabled any CPU from going offline, as a *side-effect*.
+
+And this patchset prepares the ground for getting rid of stop_machine()
+in the CPU offline path. Which means, disabling preemption only prevents
+the *local* CPU from going offline. So if code in atomic context wants
+to prevent any CPU from going offline, we need a new set of APIs, like
+get/put_online_cpus(), but which can be invoked from atomic context.
+That's why I named it as get/put_online_cpus_atomic().
+
+One of the key points here is that we want to preserve get/put_cpu()
+as it is, since its purpose is different - disable preemption and
+offline of the local CPU. There is no reason to change that API, its
+useful as it is.
 
 Regards,
-Alexey
+Srivatsa S. Bhat
