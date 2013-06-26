@@ -1,86 +1,65 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH v2 net-next 2/2] sit: add support of x-netns
-Date: Wed, 26 Jun 2013 15:49:07 +0200
-Message-ID: <51CAF153.4070809@6wind.com>
-References: <51C9A4E3.2060906@6wind.com> <1372170295-4717-1-git-send-email-nicolas.dichtel@6wind.com> <1372170295-4717-3-git-send-email-nicolas.dichtel@6wind.com> <20130625.165612.1653110297729408070.davem@davemloft.net>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Subject: [PATCH v3 net-next 0/2] sit: allow to switch netns during encap/decap
+Date: Wed, 26 Jun 2013 16:11:26 +0200
+Message-ID: <1372255888-4792-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <51CADB72.3090206@6wind.com>
 Cc: netdev@vger.kernel.org, ebiederm@xmission.com, bcrl@kvack.org,
 	ravi.mlists@gmail.com, bhutchings@solarflare.com,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: David Miller <davem@davemloft.net>
+	eric.dumazet@gmail.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:32799 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751902Ab3FZNtK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 09:49:10 -0400
-Received: by mail-wg0-f45.google.com with SMTP id j13so10667121wgh.24
-        for <netdev@vger.kernel.org>; Wed, 26 Jun 2013 06:49:09 -0700 (PDT)
-In-Reply-To: <20130625.165612.1653110297729408070.davem@davemloft.net>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:43630 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751467Ab3FZOL7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 10:11:59 -0400
+In-Reply-To: <51CADB72.3090206@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 26/06/2013 01:56, David Miller a =E9crit :
-> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Date: Tue, 25 Jun 2013 16:24:55 +0200
->
->> @@ -453,6 +454,8 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, stru=
-ct sk_buff *skb,
->>   	tstats->rx_bytes +=3D skb->len;
->>   	u64_stats_update_end(&tstats->syncp);
->>
->> +	skb_scrub_packet(skb);
->> +
->>   	if (tunnel->dev->type =3D=3D ARPHRD_ETHER) {
->>   		skb->protocol =3D eth_type_trans(skb, tunnel->dev);
->>   		skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
->
-> I can't see how this can be ok.
->
-> If something in netfilter depends upon the state you are clearing out
-> here, someone's packet filtering setup is going to break.
-Just for the record, note that nf_reset() is already called in=20
-iptunnel_pull_header() and iptunnel_xmit().
-Hence 4in4 (ipip and sit) and gre tunnels are already reseting netfilte=
-r state.
-6in4 (sit) do it only in xmit path and Xin6 (ip6_tunnel) never.
 
-We can also notice that nf_reset() was added by the commit 3d7b46cd20e3=
-=20
-"ip_tunnel: push generic protocol handling to ip_tunnel module." (net-n=
-ext only)=20
-in rx path.
+This patch is a follow up of the thread "switching network namespace midway":
+http://marc.info/?t=135101459500004&r=1&w=2
 
-The nf_reset() of xmit path of 4in4 (ipip) is here for years (at least =
-2.6.12).
-=46or gre, it has been added by c54419321455 "GRE: Refactor GRE tunneli=
-ng code."=20
-(v3.10-rc1).
+The goal of this serie is to add x-netns support for the module sit, ie the
+encapsulation addresses and the network device are not owned by the same
+namespace.
 
-It seems that the code is different depending of the type of the tunnel=
-=2E If we=20
-omit skb_orphan() (and maybe another one?, to be done only when changin=
-g=20
-namespace), it can be good to have a common function to have the same b=
-ehavior=20
-for each tunnel.
+Example to configure a tunnel:
 
-Maybe something like:
-void skb_scrub_packet(bool netnschange)
-{
-	if (netnschange)
-	        skb_orphan(skb);
-         skb->tstamp.tv64 =3D 0;
-         skb->pkt_type =3D PACKET_HOST;
-         skb->skb_iif =3D 0;
-         skb_dst_drop(skb);
-         skb->mark =3D 0;
-         secpath_reset(skb);
-         nf_reset(skb);
-         nf_reset_trace(skb);
-}
+modprobe sit
+ip netns add netns1
+ip link add sit1 type sit remote 10.16.0.121 local 10.16.0.249
+ip l s sit1 netns netns1
+ip netns exec netns1 ip l s lo up
+ip netns exec netns1 ip l s sit1 up
+ip netns exec netns1 ip a a dev sit1 192.168.2.123 remote 192.168.2.121
+ip netns exec netns1 ip -6 a a dev sit1 2001:1234::123 remote 2001:1234::121
 
-What's your opinion?
+Once this serie is approved, I will add the same feature for the module ipip and
+ip6_tunnel.
+
+v3:
+  put again the test about netns before calling skb_scrub_packet()
+  add a missing skb_scrub_packet() call in ip_tunnel_xmit()
+
+v2:
+  rename dev_cleanup_skb to skb_scrub_packet
+  move skb_scrub_packet to skbuff.c
+  fix netns cleanup
+  remove string comparison in netns cleanup
+  add a comment about FB device
+  call skb_scrub_packet() unconditionnaly
+  remove 'RFC'
+
+ include/linux/skbuff.h   |  1 +
+ include/net/ip_tunnels.h |  1 +
+ net/core/dev.c           | 11 +----------
+ net/core/skbuff.c        | 23 +++++++++++++++++++++++
+ net/ipv4/ip_tunnel.c     | 10 +++++++++-
+ net/ipv6/sit.c           | 42 ++++++++++++++++++++++++++++++++----------
+ 6 files changed, 67 insertions(+), 21 deletions(-)
+
+Comments are welcome.
+
+Regards,
+Nicolas
