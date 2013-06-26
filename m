@@ -1,31 +1,101 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next] ipv6: rearm router solicitaion timer when setting
- new tokenized address
-Date: Wed, 26 Jun 2013 19:16:45 +0200
-Message-ID: <51CB21FD.3060602@redhat.com>
-References: <20130626014149.GB20081@order.stressinduktion.org>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next 1/2] lib: vsprintf: add IPv4/v6 generic %pig/%pIg
+ format specifier
+Date: Wed, 26 Jun 2013 13:27:19 -0400
+Message-ID: <51CB2477.6070903@gmail.com>
+References: <1372266073-11998-1-git-send-email-dborkman@redhat.com> <1372266073-11998-2-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42380 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751893Ab3FZRQw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Jun 2013 13:16:52 -0400
-In-Reply-To: <20130626014149.GB20081@order.stressinduktion.org>
+Received: from mail-gh0-f181.google.com ([209.85.160.181]:53463 "EHLO
+	mail-gh0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751841Ab3FZR12 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 13:27:28 -0400
+In-Reply-To: <1372266073-11998-2-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/26/2013 03:41 AM, Hannes Frederic Sowa wrote:
-> When a new tokenized address gets installed we send out just one
-> router solicition. We should send out `rtr_solicits' in case one router
-> advertisment got lost.
+On 06/26/2013 01:01 PM, Daniel Borkmann wrote:
+> In order to avoid making code that deals with printing both, IPv4 and
+> IPv6 addresses, unnecessary complicated as for example ...
 >
-> So, rearm the timer as we do in addrconf_dad_complete.
+>    if (sa.sa_family == AF_INET6)
+>      printk("... %pI6 ...", sin6_addr);
+>    else
+>      printk("... %pI4 ...", sin_addr.s_addr);
 >
-> Cc: Daniel Borkmann <dborkman@redhat.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ... it would be better to introduce a format specifier that can deal
+> with those kind of situations internally; just as we have a "struct
+> sockaddr" for generic mapping into "struct sockaddr_in" or "struct
+> sockaddr_in6" as e.g. done in "union sctp_addr". Then, we could
+> reduce the above statement into something like:
+>
+>    printk("... %pIg ..", &sockaddr);
+>
+> While we're at it, support for both %pig/%pIg, where 'g' stands for
+> generic, comes for free. In case our pointer is NULL, pointer() then
+> deals with that already at an earlier point in time internally.
+>
+> Likely, there are many other areas than just SCTP in the kernel to make
+> use of this extension as well.
+>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> ---
+>   lib/vsprintf.c | 18 ++++++++++++++++--
+>   1 file changed, 16 insertions(+), 2 deletions(-)
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+I think you should also update Documentation/printk-formats.txt
+
+-vlad
+
+>
+> diff --git a/lib/vsprintf.c b/lib/vsprintf.c
+> index e149c64..7243742 100644
+> --- a/lib/vsprintf.c
+> +++ b/lib/vsprintf.c
+> @@ -1004,10 +1004,10 @@ int kptr_restrict __read_mostly;
+>    * - 'MF' For a 6-byte MAC FDDI address, it prints the address
+>    *       with a dash-separated hex notation
+>    * - '[mM]R' For a 6-byte MAC address, Reverse order (Bluetooth)
+> - * - 'I' [46] for IPv4/IPv6 addresses printed in the usual way
+> + * - 'I' [46g] for IPv4/IPv6 addresses printed in the usual way
+>    *       IPv4 uses dot-separated decimal without leading 0's (1.2.3.4)
+>    *       IPv6 uses colon separated network-order 16 bit hex with leading 0's
+> - * - 'i' [46] for 'raw' IPv4/IPv6 addresses
+> + * - 'i' [46g] for 'raw' IPv4/IPv6 addresses
+>    *       IPv6 omits the colons (01020304...0f)
+>    *       IPv4 uses dot-separated decimal with leading 0's (010.123.045.006)
+>    * - '[Ii]4[hnbl]' IPv4 addresses in host, network, big or little endian order
+> @@ -1093,6 +1093,18 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
+>   			return ip6_addr_string(buf, end, ptr, spec, fmt);
+>   		case '4':
+>   			return ip4_addr_string(buf, end, ptr, spec, fmt);
+> +		case 'g':
+> +			{
+> +				const struct sockaddr *sa = ptr;
+> +
+> +				if (sa->sa_family == AF_INET6) {
+> +					ptr = &((struct sockaddr_in6 *) sa)->sin6_addr;
+> +					return ip6_addr_string(buf, end, ptr, spec, fmt);
+> +				} else {
+> +					ptr = &((struct sockaddr_in *) sa)->sin_addr.s_addr;
+> +					return ip4_addr_string(buf, end, ptr, spec, fmt);
+> +				}
+> +			}
+>   		}
+>   		break;
+>   	case 'U':
+> @@ -1370,6 +1382,8 @@ qualifier:
+>    * %pI6 print an IPv6 address with colons
+>    * %pi6 print an IPv6 address without colons
+>    * %pI6c print an IPv6 address as specified by RFC 5952
+> + * %pIg depending on sa_family of 'struct sockaddr *' switch to %pI6/%pI4
+> + * %pig depending on sa_family of 'struct sockaddr *' switch to %pi6/%pi4
+>    * %pU[bBlL] print a UUID/GUID in big or little endian using lower or upper
+>    *   case.
+>    * %*ph[CDN] a variable-length hex string with a separator (supports up to 64
+>
