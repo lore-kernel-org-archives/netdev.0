@@ -1,7 +1,7 @@
 From: Duan Fugang-B38611 <B38611@freescale.com>
 Subject: RE: [PATCH net-next v1 1/1] net: fec: Add VLAN receive HW support.
-Date: Wed, 26 Jun 2013 02:22:06 +0000
-Message-ID: <9848F2DB572E5649BA045B288BE08FBE014FE487@039-SN2MPN1-023.039d.mgd.msft.net>
+Date: Wed, 26 Jun 2013 02:31:40 +0000
+Message-ID: <9848F2DB572E5649BA045B288BE08FBE014FE4E1@039-SN2MPN1-023.039d.mgd.msft.net>
 References: <Jim Baxter <jim_baxter@mentor.com>
  <1372204524-27798-1-git-send-email-jim_baxter@mentor.com>
 Mime-Version: 1.0
@@ -13,18 +13,32 @@ Cc: Li Frank-B20596 <B20596@freescale.com>,
 	Shawn Guo <shawn.guo@linaro.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Ben Hutchings <bhutchings@solarflare.com>
-To: Jim Baxter <jim_baxter@mentor.com>,
+To: Duan Fugang-B38611 <B38611@freescale.com>,
+	Jim Baxter <jim_baxter@mentor.com>,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co9ehsobe003.messaging.microsoft.com ([207.46.163.26]:10384
+Received: from co9ehsobe005.messaging.microsoft.com ([207.46.163.28]:26839
 	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751805Ab3FZCWK convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S1751251Ab3FZCbp convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jun 2013 22:22:10 -0400
-In-Reply-To: <1372204524-27798-1-git-send-email-jim_baxter@mentor.com>
+	Tue, 25 Jun 2013 22:31:45 -0400
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+In addition,
+	1.	enet IP support hw VLAN detect such as imx28-fec, imx6q-fec and mvf600-fec, so you can add the "BD_ENET_RX_VLAN " to those platform driver_data.
+	2.	Enable the VLAN tag extraction with "NETIF_F_HW_VLAN_CTAG_RX" feature in .ndo_fix_features, which is configured by user.
+
+Thanks,
+Andy
+
+-----Original Message-----
+From: Duan Fugang-B38611 
+Sent: Wednesday, June 26, 2013 10:22 AM
+To: 'Jim Baxter'; David S. Miller
+Cc: Li Frank-B20596; Estevam Fabio-R49496; Lucas Stach; Shawn Guo; netdev@vger.kernel.org; Ben Hutchings
+Subject: RE: [PATCH net-next v1 1/1] net: fec: Add VLAN receive HW support.
 
 Comments.[Andy] 
 
