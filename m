@@ -1,100 +1,237 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [PATCH 8/8] pch_gbe: Add MinnowBoard support
-Date: Tue, 25 Jun 2013 20:25:59 -0700
-Message-ID: <68829d6a-a419-49a7-9df9-c9fa80f45aed@email.android.com>
-References: <cover.1372211451.git.dvhart@linux.intel.com> <6c27e79870ec93f7a8c6692d4bcfebaee589fa6b.1372211451.git.dvhart@linux.intel.com> <CAErSpo4PuKOqKM19Ra5D_jCH0SEtNTo95_EhyXVxYAB3J_27zg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-	danders@circuitco.com, vishal.l.verma@intel.com,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Bjorn Helgaas <bhelgaas@google.com>,
-	Darren Hart <dvhart@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAErSpo4PuKOqKM19Ra5D_jCH0SEtNTo95_EhyXVxYAB3J_27zg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chris Healy <cphealy@gmail.com>
+Subject: [PATCH 1/1] fec: Add support for reading RMON registers
+Date: Tue, 25 Jun 2013 21:25:08 -0700
+Message-ID: <1372220708-27147-1-git-send-email-cphealy@gmail.com>
+Cc: <netdev@vger.kernel.org>, Chris Healy <cphealy@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Frank Li <Frank.Li@freescale.com>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Ruslan Sushko <rsushko@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f42.google.com ([209.85.213.42]:59442 "EHLO
+	mail-yh0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750718Ab3FZEZQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 00:25:16 -0400
+Received: by mail-yh0-f42.google.com with SMTP id c41so6252766yho.15
+        for <netdev@vger.kernel.org>; Tue, 25 Jun 2013 21:25:15 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The same subsystem (not subdevice!) ID is used for all devices on the Minnowboard itself.
+Add ethtool operation to read RMON registers.
 
-Bjorn Helgaas <bhelgaas@google.com> wrote:
+Tested against net-next on i.MX28.
 
->On Tue, Jun 25, 2013 at 7:53 PM, Darren Hart <dvhart@linux.intel.com>
->wrote:
->> The MinnowBoard uses an AR803x PHY with the PCH GBE.
->>
->> It does not implement the RGMII 2ns TX clock delay in the trace
->routing
->> nor via strapping. Add a detection method for the board and the PHY
->and
->> enable the tx clock delay via the registers.
->>
->> This PHY will hibernate without link for 10 seconds. Ensure the PHY
->is
->> awake for probe and then disable hibernation. A future improvement
->would
->> be to convert pch_gbe to using PHYLIB and making sure we can wake the
->> PHY at the necessary times rather than permanently disabling it.
->>
->> Use the MinnowBoard PCI subsystem ID to identify the board and setup
->the
->> appropriate callbacks in a new pci_id driver_data structure.
->>
->> Signed-off-by: Darren Hart <dvhart@linux.intel.com>
->> Cc: "David S. Miller" <davem@davemloft.net>
->> Cc: "H. Peter Anvin" <hpa@zytor.com>
->> Cc: Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>
->> Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
->> Cc: netdev@vger.kernel.org
->> ---
->>  drivers/net/ethernet/oki-semi/pch_gbe/Kconfig      |  1 +
->>  drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |  2 +
->>  .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 32 ++++++++
->>  .../net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c    | 89
->++++++++++++++++++++++
->>  .../net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h    |  2 +
->>  5 files changed, 126 insertions(+)
->> ...
->
->> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
->b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
->> index 6667a6b..6f0b9e3 100644
->> --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
->> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
->>...
->> +static struct pch_gbe_privdata pch_gbe_minnowboard_privdata = {
->> +       .phy_reset = minnow_phy_reset,
->> +       .phy_tx_clk_delay = pch_gbe_phy_tx_clk_delay,
->> +};
->> +
->>  static DEFINE_PCI_DEVICE_TABLE(pch_gbe_pcidev_id) = {
->>         {.vendor = PCI_VENDOR_ID_INTEL,
->>          .device = PCI_DEVICE_ID_INTEL_IOH1_GBE,
->> +        .subvendor = PCI_VENDOR_ID_CIRCUITCO,
->> +        .subdevice = PCI_DEVICE_ID_CIRCUITCO_MINNOWBOARD,
->
->"MINNOWBOARD" seems like a pretty generic name for something that
->probably refers only to the gigabit ethernet device in the EG20T.  If
->you expect to use that same subdevice ID on other devices, I guess we
->can add PCI_DEVICE_ID_CIRCUITCO_MINNOWBOARD to pci_ids.h.  If it will
->only be used for the gigabit ethernet device, we would normally not
->add a #define for it and would just use the hex constant here (see the
->comment at the top of pci_ids.h).
->
->> +        .class = (PCI_CLASS_NETWORK_ETHERNET << 8),
->> +        .class_mask = (0xFFFF00),
->> +        .driver_data = (unsigned long) &pch_gbe_minnowboard_privdata
->> +        },
->> +       {.vendor = PCI_VENDOR_ID_INTEL,
->> +        .device = PCI_DEVICE_ID_INTEL_IOH1_GBE,
->>          .subvendor = PCI_ANY_ID,
->>          .subdevice = PCI_ANY_ID,
->>          .class = (PCI_CLASS_NETWORK_ETHERNET << 8),
+Signed-off-by: Chris Healy <cphealy@gmail.com>
+---
+ drivers/net/ethernet/freescale/fec.h      |  55 ++++++++++++++
+ drivers/net/ethernet/freescale/fec_main.c | 114 ++++++++++++++++++++++++++++++
+ 2 files changed, 169 insertions(+)
 
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index e3ed6c5..8362a03 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -60,6 +60,61 @@
+ #define BM_MIIGSK_CFGR_RMII		0x01
+ #define BM_MIIGSK_CFGR_FRCONT_10M	0x40
+ 
++#define RMON_T_DROP		0x200 /* Count of frames not cntd correctly */
++#define RMON_T_PACKETS		0x204 /* RMON TX packet count */
++#define RMON_T_BC_PKT		0x208 /* RMON TX broadcast pkts */
++#define RMON_T_MC_PKT		0x20C /* RMON TX multicast pkts */
++#define RMON_T_CRC_ALIGN	0x210 /* RMON TX pkts with CRC align err */
++#define RMON_T_UNDERSIZE	0x214 /* RMON TX pkts < 64 bytes, good CRC */
++#define RMON_T_OVERSIZE		0x218 /* RMON TX pkts > MAX_FL bytes good CRC */
++#define RMON_T_FRAG		0x21C /* RMON TX pkts < 64 bytes, bad CRC */
++#define RMON_T_JAB		0x220 /* RMON TX pkts > MAX_FL bytes, bad CRC */
++#define RMON_T_COL		0x224 /* RMON TX collision count */
++#define RMON_T_P64		0x228 /* RMON TX 64 byte pkts */
++#define RMON_T_P65TO127		0x22C /* RMON TX 65 to 127 byte pkts */
++#define RMON_T_P128TO255	0x230 /* RMON TX 128 to 255 byte pkts */
++#define RMON_T_P256TO511	0x234 /* RMON TX 256 to 511 byte pkts */
++#define RMON_T_P512TO1023	0x238 /* RMON TX 512 to 1023 byte pkts */
++#define RMON_T_P1024TO2047	0x23C /* RMON TX 1024 to 2047 byte pkts */
++#define RMON_T_P_GTE2048	0x240 /* RMON TX pkts > 2048 bytes */
++#define RMON_T_OCTETS		0x244 /* RMON TX octets */
++#define IEEE_T_DROP		0x248 /* Count of frames not counted crtly */
++#define IEEE_T_FRAME_OK		0x24C /* Frames tx'd OK */
++#define IEEE_T_1COL		0x250 /* Frames tx'd with single collision */
++#define IEEE_T_MCOL		0x254 /* Frames tx'd with multiple collision */
++#define IEEE_T_DEF		0x258 /* Frames tx'd after deferral delay */
++#define IEEE_T_LCOL		0x25C /* Frames tx'd with late collision */
++#define IEEE_T_EXCOL		0x260 /* Frames tx'd with excesv collisions */
++#define IEEE_T_MACERR		0x264 /* Frames tx'd with TX FIFO underrun */
++#define IEEE_T_CSERR		0x268 /* Frames tx'd with carrier sense err */
++#define IEEE_T_SQE		0x26C /* Frames tx'd with SQE err */
++#define IEEE_T_FDXFC		0x270 /* Flow control pause frames tx'd */
++#define IEEE_T_OCTETS_OK	0x274 /* Octet count for frames tx'd w/o err */
++#define RMON_R_PACKETS		0x284 /* RMON RX packet count */
++#define RMON_R_BC_PKT		0x288 /* RMON RX broadcast pkts */
++#define RMON_R_MC_PKT		0x28C /* RMON RX multicast pkts */
++#define RMON_R_CRC_ALIGN	0x290 /* RMON RX pkts with CRC alignment err */
++#define RMON_R_UNDERSIZE	0x294 /* RMON RX pkts < 64 bytes, good CRC */
++#define RMON_R_OVERSIZE		0x298 /* RMON RX pkts > MAX_FL bytes good CRC */
++#define RMON_R_FRAG		0x29C /* RMON RX pkts < 64 bytes, bad CRC */
++#define RMON_R_JAB		0x2A0 /* RMON RX pkts > MAX_FL bytes, bad CRC */
++#define RMON_R_RESVD_O		0x2A4 /* Reserved */
++#define RMON_R_P64		0x2A8 /* RMON RX 64 byte pkts */
++#define RMON_R_P65TO127		0x2AC /* RMON RX 65 to 127 byte pkts */
++#define RMON_R_P128TO255	0x2B0 /* RMON RX 128 to 255 byte pkts */
++#define RMON_R_P256TO511	0x2B4 /* RMON RX 256 to 511 byte pkts */
++#define RMON_R_P512TO1023	0x2B8 /* RMON RX 512 to 1023 byte pkts */
++#define RMON_R_P1024TO2047	0x2BC /* RMON RX 1024 to 2047 byte pkts */
++#define RMON_R_P_GTE2048	0x2C0 /* RMON RX pkts > 2048 bytes */
++#define RMON_R_OCTETS		0x2C4 /* RMON RX octets */
++#define IEEE_R_DROP		0x2C8 /* Count frames not counted correctly */
++#define IEEE_R_FRAME_OK		0x2CC /* Frames rx'd OK */
++#define IEEE_R_CRC		0x2D0 /* Frames rx'd with CRC err */
++#define IEEE_R_ALIGN		0x2D4 /* Frames rx'd with alignment err */
++#define IEEE_R_MACERR		0x2D8 /* Receive FIFO overflow count */
++#define IEEE_R_FDXFC		0x2DC /* Flow control pause frames rx'd */
++#define IEEE_R_OCTETS_OK	0x2E0 /* Octet cnt for frames rx'd w/o err */
++
+ #else
+ 
+ #define FEC_ECNTRL		0x000 /* Ethernet control reg */
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 46f2544..ed6180e 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -604,6 +604,14 @@ fec_restart(struct net_device *ndev, int duplex)
+ 	if (fep->bufdesc_ex)
+ 		ecntl |= (1 << 4);
+ 
++#ifndef CONFIG_M5272
++	/* Disable, clear, and enable the MIB */
++	writel(1 << 31, fep->hwp + FEC_MIB_CTRLSTAT);
++	for (i = RMON_T_DROP; i < IEEE_R_OCTETS_OK; i++)
++		writel(0, fep->hwp + i);
++	writel(0, fep->hwp + FEC_MIB_CTRLSTAT);
++#endif
++
+ 	/* And last, enable the transmit and receive processing */
+ 	writel(ecntl, fep->hwp + FEC_ECNTRL);
+ 	writel(0, fep->hwp + FEC_R_DES_ACTIVE);
+@@ -1435,6 +1443,107 @@ static int fec_enet_set_pauseparam(struct net_device *ndev,
+ 	return 0;
+ }
+ 
++#ifndef CONFIG_M5272
++static const struct fec_stat {
++	char name[ETH_GSTRING_LEN];
++	u16 offset;
++} fec_stats[] = {
++	/* RMON TX */
++	{ "tx_dropped", RMON_T_DROP },
++	{ "tx_packets", RMON_T_PACKETS },
++	{ "tx_broadcast", RMON_T_BC_PKT },
++	{ "tx_multicast", RMON_T_MC_PKT },
++	{ "tx_crc_errors", RMON_T_CRC_ALIGN },
++	{ "tx_undersize", RMON_T_UNDERSIZE },
++	{ "tx_oversize", RMON_T_OVERSIZE },
++	{ "tx_fragment", RMON_T_FRAG },
++	{ "tx_jabber", RMON_T_JAB },
++	{ "tx_collision", RMON_T_COL },
++	{ "tx_64byte", RMON_T_P64 },
++	{ "tx_65to127byte", RMON_T_P65TO127 },
++	{ "tx_128to255byte", RMON_T_P128TO255 },
++	{ "tx_256to511byte", RMON_T_P256TO511 },
++	{ "tx_512to1023byte", RMON_T_P512TO1023 },
++	{ "tx_1024to2047byte", RMON_T_P1024TO2047 },
++	{ "tx_GTE2048byte", RMON_T_P_GTE2048 },
++	{ "tx_octets", RMON_T_OCTETS },
++
++	/* IEEE TX */
++	{ "IEEE_tx_drop", IEEE_T_DROP },
++	{ "IEEE_tx_frame_ok", IEEE_T_FRAME_OK },
++	{ "IEEE_tx_1col", IEEE_T_1COL },
++	{ "IEEE_tx_mcol", IEEE_T_MCOL },
++	{ "IEEE_tx_def", IEEE_T_DEF },
++	{ "IEEE_tx_lcol", IEEE_T_LCOL },
++	{ "IEEE_tx_excol", IEEE_T_EXCOL },
++	{ "IEEE_tx_macerr", IEEE_T_MACERR },
++	{ "IEEE_tx_cserr", IEEE_T_CSERR },
++	{ "IEEE_tx_sqe", IEEE_T_SQE },
++	{ "IEEE_tx_fdxfc", IEEE_T_FDXFC },
++	{ "IEEE_tx_octets_ok", IEEE_T_OCTETS_OK },
++
++	/* RMON RX */
++	{ "rx_packets", RMON_R_PACKETS },
++	{ "rx_broadcast", RMON_R_BC_PKT },
++	{ "rx_multicast", RMON_R_MC_PKT },
++	{ "rx_crc_errors", RMON_R_CRC_ALIGN },
++	{ "rx_undersize", RMON_R_UNDERSIZE },
++	{ "rx_oversize", RMON_R_OVERSIZE },
++	{ "rx_fragment", RMON_R_FRAG },
++	{ "rx_jabber", RMON_R_JAB },
++	{ "rx_64byte", RMON_R_P64 },
++	{ "rx_65to127byte", RMON_R_P65TO127 },
++	{ "rx_128to255byte", RMON_R_P128TO255 },
++	{ "rx_256to511byte", RMON_R_P256TO511 },
++	{ "rx_512to1023byte", RMON_R_P512TO1023 },
++	{ "rx_1024to2047byte", RMON_R_P1024TO2047 },
++	{ "rx_GTE2048byte", RMON_R_P_GTE2048 },
++	{ "rx_octets", RMON_R_OCTETS },
++
++	/* IEEE RX */
++	{ "IEEE_rx_drop", IEEE_R_DROP },
++	{ "IEEE_rx_frame_ok", IEEE_R_FRAME_OK },
++	{ "IEEE_rx_crc", IEEE_R_CRC },
++	{ "IEEE_rx_align", IEEE_R_ALIGN },
++	{ "IEEE_rx_macerr", IEEE_R_MACERR },
++	{ "IEEE_rx_fdxfc", IEEE_R_FDXFC },
++	{ "IEEE_rx_octets_ok", IEEE_R_OCTETS_OK },
++};
++
++static void fec_enet_get_ethtool_stats(struct net_device *dev,
++	struct ethtool_stats *stats, u64 *data)
++{
++	struct fec_enet_private *fep = netdev_priv(dev);
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(fec_stats); i++)
++		data[i] = readl(fep->hwp + fec_stats[i].offset);
++}
++
++static void fec_enet_get_strings(struct net_device *netdev,
++	u32 stringset, u8 *data)
++{
++	int i;
++	switch (stringset) {
++	case ETH_SS_STATS:
++		for (i = 0; i < ARRAY_SIZE(fec_stats); i++)
++			memcpy(data + i * ETH_GSTRING_LEN,
++				fec_stats[i].name, ETH_GSTRING_LEN);
++		break;
++	}
++}
++
++static int fec_enet_get_sset_count(struct net_device *dev, int sset)
++{
++	switch (sset) {
++	case ETH_SS_STATS:
++		return ARRAY_SIZE(fec_stats);
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++#endif
++
+ static int fec_enet_nway_reset(struct net_device *dev)
+ {
+ 	struct fec_enet_private *fep = netdev_priv(dev);
+@@ -1455,6 +1564,11 @@ static const struct ethtool_ops fec_enet_ethtool_ops = {
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_ts_info		= fec_enet_get_ts_info,
+ 	.nway_reset		= fec_enet_nway_reset,
++#ifndef CONFIG_M5272
++	.get_ethtool_stats	= fec_enet_get_ethtool_stats,
++	.get_strings		= fec_enet_get_strings,
++	.get_sset_count		= fec_enet_get_sset_count,
++#endif
+ };
+ 
+ static int fec_enet_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
 -- 
-Sent from my mobile phone. Please excuse brevity and lack of formatting.
+1.8.1.2
