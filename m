@@ -1,82 +1,64 @@
-From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
-Subject: Re: [PATCH] arch/arc: angel4.dts - add description for "arc_emac"
-Date: Wed, 26 Jun 2013 15:11:52 +0530
-Message-ID: <51CAB760.3050008@synopsys.com>
-References: <1372239469-28537-1-git-send-email-abrodkin@synopsys.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC] about "net: orphan frags on receive" insanity
+Date: Wed, 26 Jun 2013 12:56:42 +0300
+Message-ID: <20130626095642.GA20982@redhat.com>
+References: <1372235039.3301.126.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	Andy Shevchenko <andy.shevchenko@gmail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Joe Perches <joe@perches.com>,
-	Mischa Jonker <Mischa.Jonker@synopsys.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	"Grant Likely" <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>,
-	<devicetree-discuss@lists.ozlabs.org>,
-	Florian Fainelli <florian@openwrt.org>
-To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372239469-28537-1-git-send-email-abrodkin@synopsys.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55943 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751831Ab3FZJz4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jun 2013 05:55:56 -0400
+Content-Disposition: inline
+In-Reply-To: <1372235039.3301.126.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/26/2013 03:07 PM, Alexey Brodkin wrote:
-> With this patch we introduce DT "arc_emac" description for ARCangel4.
-> Description is based on info/example in
-> "Documentation/devicetree/bindings/net/arc_emac.txt".
->
-> Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
->
-> Cc: Andy Shevchenko <andy.shevchenko@gmail.com>
-> Cc: Francois Romieu <romieu@fr.zoreil.com>
-> Cc: Joe Perches <joe@perches.com>
-> Cc: Vineet Gupta <vgupta@synopsys.com>
-> Cc: Mischa Jonker <mjonker@synopsys.com>
-> Cc: Arnd Bergmann <arnd@arndb.de>
-> Cc: Grant Likely <grant.likely@linaro.org>
-> Cc: Rob Herring <rob.herring@calxeda.com>
-> Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: linux-kernel@vger.kernel.org
-> Cc: devicetree-discuss@lists.ozlabs.org
-> Cc: Florian Fainelli <florian@openwrt.org>
-> ---
->  arch/arc/boot/dts/angel4.dts |   16 ++++++++++++++++
->  1 file changed, 16 insertions(+)
->
-> diff --git a/arch/arc/boot/dts/angel4.dts b/arch/arc/boot/dts/angel4.dts
-> index bae4f93..4fb2d6f 100644
-> --- a/arch/arc/boot/dts/angel4.dts
-> +++ b/arch/arc/boot/dts/angel4.dts
-> @@ -51,5 +51,21 @@
->  			current-speed = <115200>;
->  			status = "okay";
->  		};
-> +
-> +		ethernet@c0fc2000 {
-> +			compatible = "snps,arc-emac";
-> +			reg = <0xc0fc2000 0x3c>;
-> +			interrupts = <6>;
-> +			mac-address = [ 00 11 22 33 44 55 ];
-> +			clock-frequency = <80000000>;
-> +			max-speed = <100>;
-> +			phy = <&phy0>;
-> +
-> +			#address-cells = <1>;
-> +			#size-cells = <0>;
-> +			phy0: ethernet-phy@0 {
-> +				reg = <1>;
-> +			};
-> +		};
->  	};
->  };
+On Wed, Jun 26, 2013 at 01:23:59AM -0700, Eric Dumazet wrote:
+> Michael
+> 
+> Following commit added 400 bytes into __netif_receive_skb_core()
+> 
+> Could we revert it, and fix the problem into the callers instead ?
+> 
+> Thanks
+> 
+> 
+> 
+> commit 1080e512d44d4f67b8beb8edf25a1bbcb1066dc7
+> Author: Michael S. Tsirkin <mst@redhat.com>
+> Date:   Fri Jul 20 09:23:17 2012 +0000
+> 
+>     net: orphan frags on receive
+>     
+>     zero copy packets are normally sent to the outside
+>     network, but bridging, tun etc might loop them
+>     back to host networking stack. If this happens
+>     destructors will never be called, so orphan
+>     the frags immediately on receive.
+>     
+>     Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
 
-This looks good - for completeness sake, can you also send a patch to remove
-legacy hardcodings for irq/mem-map from arch/arc/plat-arcfpga/include/*
+Please don't just revert it.
 
--Vineet
+Packets can cross e.g. the bridge and end up on the external
+interface, in which case that NIC guarantees that
+they will get transmitted eventually, so it's safe
+to transmit from guest memory, or they can end up
+in the host stack where they can stay indefinitely,
+in this case we need to orphan frags so guest networking
+can keep going.
+
+What do you suggest exactly?
+
+Also, I'll have to look at the generated binary - when I
+coded this up, compiler seemed to only put a
+conditional branch on the fast path, this shouldn't
+be all that expensive.
+
+-- 
+MST
