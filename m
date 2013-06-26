@@ -1,56 +1,86 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/10] e1000e: restore call to pci_clear_master()
-Date: Wed, 26 Jun 2013 03:55:21 -0700
-Message-ID: <1372244122-17664-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/10] ixgbe: Use pci_vfs_assigned instead of ixgbe_vfs_are_assigned
+Date: Wed, 26 Jun 2013 03:55:14 -0700
+Message-ID: <1372244122-17664-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1372244122-17664-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Dean Nelson <dnelson@redhat.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:33178 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:61757 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751824Ab3FZKza (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Jun 2013 06:55:30 -0400
+	id S1751711Ab3FZKz0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jun 2013 06:55:26 -0400
 In-Reply-To: <1372244122-17664-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dean Nelson <dnelson@redhat.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-In attempting to resolve a minor merge conflict, commit e5f2ef7ab4690d2e8faa
-(Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net) accidently
-dropped a call to pci_clear_master() that was intended to remain in place.
+This change makes it so that the ixgbe driver uses the generic helper
+pci_vfs_assigned instead of the ixgbe specific function
+ixgbe_vfs_are_assigned.
 
-Commit 4e0855dff094b0d56d6b (e1000e: fix pci-device enable-counter balance)
-replaced a call to pci_disable_device() by one to pci_clear_master(). And then
-commit 66148babe728f3e00e13 (e1000e: fix runtime power management transitions)
-deleted a number of lines starting two lines following that call.
-
-This patch restores the call to pci_clear_master() in __e1000_shutdown().
-
-v2: added summary lines (enclosed in parens) following commit IDs
-
-Signed-off-by: Dean Nelson <dnelson@redhat.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Acked-by: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 35 +-------------------------
+ 1 file changed, 1 insertion(+), 34 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 77f81cb..5475cf4 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -5995,6 +5995,8 @@ static int __e1000_shutdown(struct pci_dev *pdev, bool runtime)
- 	 */
- 	e1000e_release_hw_control(adapter);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index a85d5f4..6369fb9 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -173,39 +173,6 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
+ 	ixgbe_disable_sriov(adapter);
+ }
  
-+	pci_clear_master(pdev);
-+
- 	/* The pci-e switch on some quad port adapters will report a
- 	 * correctable error when the MAC transitions from D0 to D3.  To
- 	 * prevent this we need to mask off the correctable errors on the
+-static bool ixgbe_vfs_are_assigned(struct ixgbe_adapter *adapter)
+-{
+-	struct pci_dev *pdev = adapter->pdev;
+-	struct pci_dev *vfdev;
+-	int dev_id;
+-
+-	switch (adapter->hw.mac.type) {
+-	case ixgbe_mac_82599EB:
+-		dev_id = IXGBE_DEV_ID_82599_VF;
+-		break;
+-	case ixgbe_mac_X540:
+-		dev_id = IXGBE_DEV_ID_X540_VF;
+-		break;
+-	default:
+-		return false;
+-	}
+-
+-	/* loop through all the VFs to see if we own any that are assigned */
+-	vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, NULL);
+-	while (vfdev) {
+-		/* if we don't own it we don't care */
+-		if (vfdev->is_virtfn && vfdev->physfn == pdev) {
+-			/* if it is assigned we cannot release it */
+-			if (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
+-				return true;
+-		}
+-
+-		vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, vfdev);
+-	}
+-
+-	return false;
+-}
+-
+ #endif /* #ifdef CONFIG_PCI_IOV */
+ int ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
+ {
+@@ -235,7 +202,7 @@ int ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
+ 	 * without causing issues, so just leave the hardware
+ 	 * available but disabled
+ 	 */
+-	if (ixgbe_vfs_are_assigned(adapter)) {
++	if (pci_vfs_assigned(adapter->pdev)) {
+ 		e_dev_warn("Unloading driver while VFs are assigned - VFs will not be deallocated\n");
+ 		return -EPERM;
+ 	}
 -- 
 1.7.11.7
