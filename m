@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 2/3] pch_gbe: convert pr_* to netdev_*
-Date: Wed, 26 Jun 2013 13:41:08 -0700 (PDT)
-Message-ID: <20130626.134108.1845027788447841042.davem@davemloft.net>
-References: <1372263217-1938-1-git-send-email-andriy.shevchenko@linux.intel.com>
-	<1372263217-1938-3-git-send-email-andriy.shevchenko@linux.intel.com>
+Subject: Re: [PATCH net-next] sit: fix 4in4 + IPsec scenario
+Date: Wed, 26 Jun 2013 13:42:25 -0700 (PDT)
+Message-ID: <20130626.134225.986538495628136526.davem@davemloft.net>
+References: <1372261233-19648-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dvhart@linux.intel.com
-To: andriy.shevchenko@linux.intel.com
+Cc: netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47198 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47207 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751444Ab3FZUlJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 16:41:09 -0400
-In-Reply-To: <1372263217-1938-3-git-send-email-andriy.shevchenko@linux.intel.com>
+	with ESMTP id S1750843Ab3FZUmZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 16:42:25 -0400
+In-Reply-To: <1372261233-19648-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Date: Wed, 26 Jun 2013 19:13:36 +0300
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Wed, 26 Jun 2013 17:40:33 +0200
 
-> diff --git a/drivers/staging/media/lirc/lirc_igorplugusb.c b/drivers/staging/media/lirc/lirc_igorplugusb.c
-> index 28c8b0b..25df7cf 100644
-> --- a/drivers/staging/media/lirc/lirc_igorplugusb.c
-> +++ b/drivers/staging/media/lirc/lirc_igorplugusb.c
-> @@ -408,7 +408,7 @@ static int igorplugusb_remote_probe(struct usb_interface *intf,
->  	dprintk(DRIVER_NAME "[%d]: bytes_in_key=%zu maxp=%d\n",
->  		devnum, CODE_LENGTH, maxp);
->  
-> -	ir = devm_kzalloc(&intf->dev, sizeof(*ir), GFP_KERNEL);
-> +	ir = devm_kzalloc(&dev->dev, sizeof(*ir), GFP_KERNEL);
->  	if (!ir)
->  		return -ENOMEM;
->  
+> Since commit 32b8a8e59c9c "sit: add IPv4 over IPv4 support",
+> tunnel->parms.iph.protocol is 0 when both 4in4 and 6in4 are setup, but
+> xfrm_lookup() is called only when proto is != 0, thus we need to pass the real
+> value.
+> 
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-This definitely wasn't supposed to be in this patch series.
-
-Please repost this set with this hunk removed.
+Applied, thanks.
