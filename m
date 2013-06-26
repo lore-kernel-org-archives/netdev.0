@@ -1,155 +1,84 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/10] ixgbe: Retain VLAN filtering in promiscuous + VT mode
-Date: Wed, 26 Jun 2013 03:55:13 -0700
-Message-ID: <1372244122-17664-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1372244122-17664-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/10][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 26 Jun 2013 03:55:12 -0700
+Message-ID: <1372244122-17664-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:12049 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751569Ab3FZKz0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Jun 2013 06:55:26 -0400
-In-Reply-To: <1372244122-17664-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751166Ab3FZKzZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jun 2013 06:55:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+This series contains updates to ixgbe, e100, igb, and e1000e.
 
-When using the new bridge FDB interface to allow SR-IOV virtual function
-network devices to communicate with SW bridged network devices the
-physical function is placed into promiscuous mode and hardware VLAN
-filtering is disabled.  This defeats the ability to use VLAN tagging
-to isolate user networks.  When the device is in promiscuous mode and
-VT mode simultaneously ensure that VLAN hardware filtering remains
-enabled.
+Alex provides a ixgbe patch to use the generic helper pci_vfs_assigned
+instead of the ixgbe specific function ixgbe_vfs_are_assigned.
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 11 ++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 66 ++++++++++++++++++++++++++
- 2 files changed, 75 insertions(+), 2 deletions(-)
+Greg provides 2 ixgbe patches, the first patch retains VLAN filtering
+in promiscuous mode because using the new bridge FDB interface to allow
+SR-IOV virtual function network devices to communicate with SW bridged
+network devices the physical function is placed into promiscuous mode
+and hardware VLAN filtering is disabled.  The second patch fixes a typo
+where the code should use a bitwise "and" rather than a logical "and".
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 047ebaa..30b4f5b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3724,8 +3724,15 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 		hw->addr_ctrl.user_set_promisc = true;
- 		fctrl |= (IXGBE_FCTRL_UPE | IXGBE_FCTRL_MPE);
- 		vmolr |= (IXGBE_VMOLR_ROPE | IXGBE_VMOLR_MPE);
--		/* don't hardware filter vlans in promisc mode */
--		ixgbe_vlan_filter_disable(adapter);
-+		/* Only disable hardware filter vlans in promiscuous mode
-+		 * if SR-IOV and VMDQ are disabled - otherwise ensure
-+		 * that hardware VLAN filters remain enabled.
-+		 */
-+		if (!(adapter->flags & (IXGBE_FLAG_VMDQ_ENABLED |
-+					IXGBE_FLAG_SRIOV_ENABLED)))
-+			ixgbe_vlan_filter_disable(adapter);
-+		else
-+			ixgbe_vlan_filter_enable(adapter);
- 	} else {
- 		if (netdev->flags & IFF_ALLMULTI) {
- 			fctrl |= IXGBE_FCTRL_MPE;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 1e7d587..a85d5f4 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -768,6 +768,29 @@ static int ixgbe_set_vf_mac_addr(struct ixgbe_adapter *adapter,
- 	return ixgbe_set_vf_mac(adapter, vf, new_mac) < 0;
- }
- 
-+static int ixgbe_find_vlvf_entry(struct ixgbe_hw *hw, u32 vlan)
-+{
-+	u32 vlvf;
-+	s32 regindex;
-+
-+	/* short cut the special case */
-+	if (vlan == 0)
-+		return 0;
-+
-+	/* Search for the vlan id in the VLVF entries */
-+	for (regindex = 1; regindex < IXGBE_VLVF_ENTRIES; regindex++) {
-+		vlvf = IXGBE_READ_REG(hw, IXGBE_VLVF(regindex));
-+		if ((vlvf & VLAN_VID_MASK) == vlan)
-+			break;
-+	}
-+
-+	/* Return a negative value if not found */
-+	if (regindex >= IXGBE_VLVF_ENTRIES)
-+		regindex = -1;
-+
-+	return regindex;
-+}
-+
- static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
- 				 u32 *msgbuf, u32 vf)
- {
-@@ -775,6 +798,9 @@ static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
- 	int add = (msgbuf[0] & IXGBE_VT_MSGINFO_MASK) >> IXGBE_VT_MSGINFO_SHIFT;
- 	int vid = (msgbuf[1] & IXGBE_VLVF_VLANID_MASK);
- 	int err;
-+	s32 reg_ndx;
-+	u32 vlvf;
-+	u32 bits;
- 	u8 tcs = netdev_get_num_tc(adapter->netdev);
- 
- 	if (adapter->vfinfo[vf].pf_vlan || tcs) {
-@@ -790,10 +816,50 @@ static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
- 	else if (adapter->vfinfo[vf].vlan_count)
- 		adapter->vfinfo[vf].vlan_count--;
- 
-+	/* in case of promiscuous mode any VLAN filter set for a VF must
-+	 * also have the PF pool added to it.
-+	 */
-+	if (add && adapter->netdev->flags & IFF_PROMISC)
-+		err = ixgbe_set_vf_vlan(adapter, add, vid, VMDQ_P(0));
-+
- 	err = ixgbe_set_vf_vlan(adapter, add, vid, vf);
- 	if (!err && adapter->vfinfo[vf].spoofchk_enabled)
- 		hw->mac.ops.set_vlan_anti_spoofing(hw, true, vf);
- 
-+	/* Go through all the checks to see if the VLAN filter should
-+	 * be wiped completely.
-+	 */
-+	if (!add && adapter->netdev->flags & IFF_PROMISC) {
-+		reg_ndx = ixgbe_find_vlvf_entry(hw, vid);
-+		if (reg_ndx < 0)
-+			goto out;
-+		vlvf = IXGBE_READ_REG(hw, IXGBE_VLVF(reg_ndx));
-+		/* See if any other pools are set for this VLAN filter
-+		 * entry other than the PF.
-+		 */
-+		if (VMDQ_P(0) < 32) {
-+			bits = IXGBE_READ_REG(hw, IXGBE_VLVFB(reg_ndx * 2));
-+			bits &= ~(1 << VMDQ_P(0));
-+			bits |= IXGBE_READ_REG(hw,
-+					       IXGBE_VLVFB(reg_ndx * 2) + 1);
-+		} else {
-+			bits = IXGBE_READ_REG(hw,
-+					      IXGBE_VLVFB(reg_ndx * 2) + 1);
-+			bits &= ~(1 << (VMDQ_P(0) - 32));
-+			bits |= IXGBE_READ_REG(hw, IXGBE_VLVFB(reg_ndx * 2));
-+		}
-+
-+		/* If the filter was removed then ensure PF pool bit
-+		 * is cleared if the PF only added itself to the pool
-+		 * because the PF is in promiscuous mode.
-+		 */
-+		if ((vlvf && VLAN_VID_MASK) == vid &&
-+		    !test_bit(vid, adapter->active_vlans) && !bits)
-+			ixgbe_set_vf_vlan(adapter, add, vid, VMDQ_P(0));
-+	}
-+
-+out:
-+
- 	return err;
- }
- 
+Andy Shevchenko provides an e100 patch to dump small buffers via %*ph.
+
+Akeem provides three patches against igb.  The first resets the link when
+a user enables/disables EEE when link is up.  The second changes register
+read to "just-read" without returning a value for hardware to accurately
+latch the register value.  His third patch adds rcu_lock to avoid possible
+race conditions with igb_update_stats.
+
+Mitch provides a igb patch to fix an issue where MSI-X interrupts are required
+for SR-IOV operation/functionality.
+
+Dean (from Redhat) provides a patch to resolve minor merger conflicts.
+
+Wei Yang provides a e1000e patch to remove duplicate assignment of default
+Rx/Tx ring size.
+
+The following are changes since commit 8599b52e14a1611dcb563289421bee76751f1d53:
+  bonding: add an option to fail when any of arp_ip_target is inaccessible
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Akeem G. Abodunrin (3):
+  igb: Reset the link when EEE setting changed
+  igb: Read register for latch_on without return value
+  igb: Added rcu_lock to avoid race
+
+Alexander Duyck (1):
+  ixgbe: Use pci_vfs_assigned instead of ixgbe_vfs_are_assigned
+
+Andy Shevchenko (1):
+  e100: dump small buffers via %*ph
+
+Dean Nelson (1):
+  e1000e: restore call to pci_clear_master()
+
+Greg Rose (2):
+  ixgbe: Retain VLAN filtering in promiscuous + VT mode
+  ixgbe: Fix typo
+
+Mitch A Williams (1):
+  igb: don't allow SR-IOV without MSI-X
+
+Wei Yang (1):
+  e1000e: Remove duplicate assignment of default rx/tx ring size
+
+ drivers/net/ethernet/intel/e100.c              |  15 ++--
+ drivers/net/ethernet/intel/e1000e/netdev.c     |   6 +-
+ drivers/net/ethernet/intel/igb/e1000_82575.c   |   9 +--
+ drivers/net/ethernet/intel/igb/igb_ethtool.c   |   4 +-
+ drivers/net/ethernet/intel/igb/igb_main.c      |  26 ++++---
+ drivers/net/ethernet/intel/igb/igb_ptp.c       |   8 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |  11 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 101 ++++++++++++++++---------
+ 8 files changed, 110 insertions(+), 70 deletions(-)
+
 -- 
 1.7.11.7
