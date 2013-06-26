@@ -1,51 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3.10-rc7] net: fix kernel deadlock with interface
- rename and netdev name retrieval.
-Date: Wed, 26 Jun 2013 09:33:34 -0700
-Message-ID: <1372264414.3301.198.camel@edumazet-glaptop>
-References: <1372260222-8597-1-git-send-email-nschichan@freebox.fr>
+From: "Abodunrin, Akeem G" <akeem.g.abodunrin@intel.com>
+Subject: RE: [net-next 07/10] igb: Added rcu_lock to avoid race
+Date: Wed, 26 Jun 2013 16:42:19 +0000
+Message-ID: <CFEEE81102D91947B9CC368106979EBA4388266B@ORSMSX105.amr.corp.intel.com>
+References: <1372244122-17664-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1372244122-17664-8-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1372245628.3301.172.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>
-To: Nicolas Schichan <nschichan@freebox.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372260222-8597-1-git-send-email-nschichan@freebox.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:33426 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751359Ab3FZQmU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jun 2013 12:42:20 -0400
+In-Reply-To: <1372245628.3301.172.camel@edumazet-glaptop>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-06-26 at 17:23 +0200, Nicolas Schichan wrote:
-> When the kernel (compiled with CONFIG_PREEMPT=n) is performing the
-> rename of a network interface, it can end up waiting for a workqueue
-> to complete. If userland is able to invoke a SIOCGIFNAME ioctl or a
-> SO_BINDTODEVICE getsockopt in between, the kernel will deadlock due to
-> the fact that read_secklock_begin() will spin forever waiting for the
-> writer process (the one doing the interface rename) to update the
-> devnet_rename_seq sequence.
-> 
-> This patch fixes the problem by adding a helper (netdev_get_name())
-> and using it in the code handling the SIOCGIFNAME ioctl and
-> SO_BINDTODEVICE setsockopt.
-> 
-> The netdev_get_name() helper uses raw_seqcount_begin() to avoid
-> spinning forever, waiting for devnet_rename_seq->sequence to become
-> even. cond_resched() is used in the contended case, before retrying
-> the access to give the writer process a chance to finish.
-> 
-> The use of raw_seqcount_begin() will incur some unneeded work in the
-> reader process in the contended case, but this is better than
-> deadlocking the system.
-> 
-> Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
-> ---
-
-This goes back to commit c91f6df2db49
-("sockopt: Change getsockopt() of SO_BINDTODEVICE to return an interface
-name") in linux-3.8
-
-Acked-by: Eric Dumazet <edumazet@google.com>
-
-Thanks Nicolas
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
+YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogV2VkbmVzZGF5LCBKdW5lIDI2
+LCAyMDEzIDQ6MjAgQU0NCj4gVG86IEtpcnNoZXIsIEplZmZyZXkgVA0KPiBDYzogZGF2ZW1AZGF2
+ZW1sb2Z0Lm5ldDsgQWJvZHVucmluLCBBa2VlbSBHOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0K
+PiBnb3Nwb0ByZWRoYXQuY29tOyBzYXNzbWFubkByZWRoYXQuY29tDQo+IFN1YmplY3Q6IFJlOiBb
+bmV0LW5leHQgMDcvMTBdIGlnYjogQWRkZWQgcmN1X2xvY2sgdG8gYXZvaWQgcmFjZQ0KPiANCj4g
+T24gV2VkLCAyMDEzLTA2LTI2IGF0IDAzOjU1IC0wNzAwLCBKZWZmIEtpcnNoZXIgd3JvdGU6DQo+
+ID4gRnJvbTogIkFrZWVtIEcuIEFib2R1bnJpbiIgPGFrZWVtLmcuYWJvZHVucmluQGludGVsLmNv
+bT4NCj4gPg0KPiA+IFRoaXMgcGF0Y2ggYWRkcyByY3VfbG9jayB0byBhdm9pZCBwb3NzaWJsZSBy
+YWNlIGNvbmRpdGlvbiB3aXRoDQo+ID4gaWdiX3VwZGF0ZV9zdGF0cyBmdW5jdGlvbiBhY2Nlc3Np
+bmcgdGhlIHJpbmdzIGluIGZyZWVfIHFfdmVjdG9yLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTog
+QWtlZW0gRyBBYm9kdW5yaW4gPGFrZWVtLmcuYWJvZHVucmluQGludGVsLmNvbT4NCj4gPiBUZXN0
+ZWQtYnk6IEFhcm9uIEJyb3duIDxhYXJvbi5mLmJyb3duQGludGVsLmNvbT4NCj4gPiBTaWduZWQt
+b2ZmLWJ5OiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4gPiAt
+LS0NCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9tYWluLmMgfCA3ICsr
+KysrKy0NCj4gPiAgMSBmaWxlIGNoYW5nZWQsIDYgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigt
+KQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9p
+Z2JfbWFpbi5jDQo+ID4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX21haW4u
+Yw0KPiA+IGluZGV4IDcxMTJlNTIuLmM3NGFkNzggMTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9tYWluLmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC9l
+dGhlcm5ldC9pbnRlbC9pZ2IvaWdiX21haW4uYw0KPiA+IEBAIC03MDUsNiArNzA1LDggQEAgc3Rh
+dGljIHZvaWQgX19leGl0IGlnYl9leGl0X21vZHVsZSh2b2lkKQ0KPiA+ICAJZGNhX3VucmVnaXN0
+ZXJfbm90aWZ5KCZkY2Ffbm90aWZpZXIpOw0KPiA+ICAjZW5kaWYNCj4gPiAgCXBjaV91bnJlZ2lz
+dGVyX2RyaXZlcigmaWdiX2RyaXZlcik7DQo+ID4gKw0KPiA+ICsJcmN1X2JhcnJpZXIoKTsgLyog
+V2FpdCBmb3IgY29tcGxldGlvbiBvZiBjYWxsX3JjdSgpJ3MgKi8NCj4gPiAgfQ0KPiA+DQo+IA0K
+PiBUaGlzIGlzIG5vdCBuZWVkZWQuDQo+IA0KPiBJZiB0aGlzIGlzIHJlYWxseSBuZWVkZWQsIGEg
+YmV0dGVyIGNvbW1lbnQgd291bGQgYmUgd2VsY29tZWQgOykNCg0KVGhhbmtzIEVyaWMhDQoNCkkg
+YmVsaWV2ZSB3ZSBuZWVkIHRoaXMgdG8gbWFrZSBzdXJlIG1lbW9yeSBpcyByZWxlYXNlZCBiZWZv
+cmUgcmVtb3ZpbmcgZHJpdmVyIGNvZGUgZnJvbSB0aGUga2VybmVsLCBlc3BlY2lhbGx5IHdpdGgg
+ZWFjaCBjYWxsIHRvIHJjdSAtIHRoYXQgaXMgdGhlIHJlYXNvbiBmb3IgdGhlIGNvbW1lbnQgIldh
+aXQgZm9yIGNvbXBsZXRpb24gb2YgY2FsbF9yY3UoKSdzIi4NCg0KUmVnYXJkcywNCn5Ba2VlbQ0K
+DQo+IA0KPiA+ICBtb2R1bGVfZXhpdChpZ2JfZXhpdF9tb2R1bGUpOw0KPiA+IEBAIC0xMDEzLDcg
+KzEwMTUsNyBAQCBzdGF0aWMgdm9pZCBpZ2JfZnJlZV9xX3ZlY3RvcihzdHJ1Y3QgaWdiX2FkYXB0
+ZXINCj4gKmFkYXB0ZXIsIGludCB2X2lkeCkNCj4gPiAgCWFkYXB0ZXItPnFfdmVjdG9yW3ZfaWR4
+XSA9IE5VTEw7DQo+ID4gIAluZXRpZl9uYXBpX2RlbCgmcV92ZWN0b3ItPm5hcGkpOw0KPiA+DQo+
+ID4gLQkvKiBpeGdiZV9nZXRfc3RhdHM2NCgpIG1pZ2h0IGFjY2VzcyB0aGUgcmluZ3Mgb24gdGhp
+cyB2ZWN0b3IsDQo+ID4gKwkvKiBpZ2JfZ2V0X3N0YXRzNjQoKSBtaWdodCBhY2Nlc3MgdGhlIHJp
+bmdzIG9uIHRoaXMgdmVjdG9yLA0KPiA+ICAJICogd2UgbXVzdCB3YWl0IGEgZ3JhY2UgcGVyaW9k
+IGJlZm9yZSBmcmVlaW5nIGl0Lg0KPiA+ICAJICovDQo+ID4gIAlrZnJlZV9yY3UocV92ZWN0b3Is
+IHJjdSk7DQo+ID4gQEAgLTQ4NjAsNiArNDg2Miw4IEBAIHZvaWQgaWdiX3VwZGF0ZV9zdGF0cyhz
+dHJ1Y3QgaWdiX2FkYXB0ZXINCj4gPiAqYWRhcHRlciwNCj4gPg0KPiA+ICAJYnl0ZXMgPSAwOw0K
+PiA+ICAJcGFja2V0cyA9IDA7DQo+ID4gKw0KPiA+ICsJcmN1X3JlYWRfbG9jaygpOw0KPiA+ICAJ
+Zm9yIChpID0gMDsgaSA8IGFkYXB0ZXItPm51bV9yeF9xdWV1ZXM7IGkrKykgew0KPiA+ICAJCXUz
+MiBycWRwYyA9IHJkMzIoRTEwMDBfUlFEUEMoaSkpOw0KPiA+ICAJCXN0cnVjdCBpZ2JfcmluZyAq
+cmluZyA9IGFkYXB0ZXItPnJ4X3JpbmdbaV07IEBAIC00ODk1LDYgKzQ4OTksNw0KPiBAQA0KPiA+
+IHZvaWQgaWdiX3VwZGF0ZV9zdGF0cyhzdHJ1Y3QgaWdiX2FkYXB0ZXIgKmFkYXB0ZXIsDQo+ID4g
+IAl9DQo+ID4gIAluZXRfc3RhdHMtPnR4X2J5dGVzID0gYnl0ZXM7DQo+ID4gIAluZXRfc3RhdHMt
+PnR4X3BhY2tldHMgPSBwYWNrZXRzOw0KPiA+ICsJcmN1X3JlYWRfdW5sb2NrKCk7DQo+ID4NCj4g
+PiAgCS8qIHJlYWQgc3RhdHMgcmVnaXN0ZXJzICovDQo+ID4gIAlhZGFwdGVyLT5zdGF0cy5jcmNl
+cnJzICs9IHJkMzIoRTEwMDBfQ1JDRVJSUyk7DQo+IA0KDQo=
