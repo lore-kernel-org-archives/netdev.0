@@ -1,79 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [netlink] WARNING: at mm/vmalloc.c:1487 __vunmap()
-Date: Wed, 26 Jun 2013 05:42:38 -0700
-Message-ID: <1372250558.3301.194.camel@edumazet-glaptop>
-References: <20130614220119.GA12954@localhost>
-	 <20130617200938.GA14567@localhost>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: oops in udpv6_sendmsg
+Date: Wed, 26 Jun 2013 15:07:48 +0200
+Message-ID: <20130626130748.GC20081@order.stressinduktion.org>
+References: <1364865839.5113.165.camel@edumazet-glaptop> <20130417010213.GA9027@redhat.com> <1366164132.3205.21.camel@edumazet-glaptop> <20130417141138.GA17648@redhat.com> <1366208856.3205.23.camel@edumazet-glaptop> <1366214751.3205.29.camel@edumazet-glaptop> <20130625212851.GA20081@order.stressinduktion.org> <1372238557.3301.145.camel@edumazet-glaptop> <1372238996.3301.149.camel@edumazet-glaptop> <1372245307.3301.171.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Fengguang Wu <fengguang.wu@intel.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130617200938.GA14567@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: Dave Jones <davej@redhat.com>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:39007 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751276Ab3FZNHt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 09:07:49 -0400
+Content-Disposition: inline
+In-Reply-To: <1372245307.3301.171.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-06-17 at 22:09 +0200, Pablo Neira Ayuso wrote:
+On Wed, Jun 26, 2013 at 04:15:07AM -0700, Eric Dumazet wrote:
+> Following patch fixes the problem for me :
 
-> I've been trying to trigger this bug here with no success using
-> different communication configurations (userspace <-> userspace,
-> userspace <-> kernelspace).
+Cool, thanks Eric!
+
+> [PATCH] ipv6: ip6_sk_dst_check() must not assume ipv6 dst
 > 
+> It's possible to use AF_INET6 sockets and to connect to an IPv4
+> destination. After this, socket dst cache is a pointer to a rtable,
+> not rt6_info.
 
-I got more success with trinity ;)
+That was my hunch, too. I was unsure where we should destroy the lingering dst.
 
-> The address that vfree shows seems good to me and we always set
-> skb->head to NULL after releasing the network buffer.
+> ip6_sk_dst_check() should check the socket dst cache is IPv6, or else
+> various corruptions/crashes can happen.
 > 
-> This patch also exposes the vmalloc infrastructure to user-space,
-> which is something that didn't happen so far. Not sure if Trinity is
-> uncovering a bug there.
+> Dave Jones can reproduce immediate crash with 
+> trinity -q -l off -n -c sendmsg -c connect
+> 
+> With help from Hannes Frederic Sowa
+> 
+> Reported-by: Dave Jones <davej@redhat.com>
+> Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Nope there are several issues :
+Patch looks good. It also fixes some panics I have seen down lower in
+the netfilter ipv6 code I saw while testing, which I thought may be a
+different issue.
 
-1) bug in netlink_alloc_large_skb() because it doesn't account
-for sizeof(struct skb_shared_info) overhead and initialization.
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-2) Also, skb_clone() on such skb should be forbidden.
+Thanks,
 
-   Example, nl_fib_input() does a nskb = skb_clone(skb)
-
-If skb is freed before nskb, then nskb wont know skb->head must be freed
-by vfree()
-
-I don't know...
-
-3) Do we really need this vmalloc stuff, because it sounds like we are
-going to add yet another test in fast path (in skb_free_head())
-
-4) Or we must track all skb_clone() netlink calls to attach a destructor
-to properly to the vfree()
-
-
-[1]
- BUG: unable to handle kernel paging request at ffffc90018a39001
- IP: [<ffffffff814cdeef>] skb_clone+0x1f/0xb0
- PGD c7f40f067 PUD 67f81b067 PMD 65de02067 PTE 0
- Oops: 0000 [#1] [ 1931.190995] scsi_nl_rcv_msg: discarding partial skb
- gsmi: Log Shutdown Reason 0x03
- CPU: 1 PID: 4157 Comm: trinity-child1 Tainted: G        W    3.10.0-smp-DEV #148
- task: ffff880c5fb647f0 ti: ffff880c5ff6c000 task.ti: ffff880c5ff6c000
- RIP: 0010:[<ffffffff814cdeef>]  [<ffffffff814cdeef>] skb_clone+0x1f/0xb0
- RSP: 0018:ffff880c5ff6db18  EFLAGS: 00010282
- RAX: 0000000000002000 RBX: ffff88065fed8ec0 RCX: 0000000060fd8cb3
- RDX: ffffc90018a37000 RSI: 00000000000000d0 RDI: ffff88065fed8ec0
- RBP: ffff880c5ff6db28 R08: ffffc90018a39000 R09: 0000000000000001
- R10: ffffc90018a38fff R11: 0000000000000000 R12: 00000000000000d0
- R13: ffff880c266a0000 R14: ffff88065fed8ec0 R15: 0000000000000000
- FS:  000000000264d880(0063) GS:ffff88067fc20000(0000) knlGS:0000000000000000
- CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
- CR2: ffffc90018a39001 CR3: 0000000c5b8af000 CR4: 00000000000007e0
- Call Trace:
- [<ffffffff8154b086>] nl_fib_input+0x46/0x140
- [<ffffffff815057ed>] netlink_unicast+0x13d/0x1f0
- [<ffffffff81505b95>] netlink_sendmsg+0x2f5/0x3f0
- [<ffffffff814c366e>] sock_aio_write+0x15e/0x180
- [<ffffffff81193743>] do_sync_readv_writev+0x73/0xb0
- [<ffffffff81194e5b>] do_readv_writev+0xdb/0x2c0
+  Hannes
