@@ -1,56 +1,48 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH v2 net-next 2/2] sit: add support of x-netns
-Date: Tue, 25 Jun 2013 18:35:30 -0700
-Message-ID: <87d2r964d9.fsf@xmission.com>
-References: <51C9A4E3.2060906@6wind.com>
-	<1372170295-4717-1-git-send-email-nicolas.dichtel@6wind.com>
-	<1372170295-4717-3-git-send-email-nicolas.dichtel@6wind.com>
-	<20130625.165612.1653110297729408070.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next] ipv6: rearm router solicitaion timer when setting new tokenized address
+Date: Wed, 26 Jun 2013 03:41:49 +0200
+Message-ID: <20130626014149.GB20081@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org, bcrl@kvack.org,
-	ravi.mlists@gmail.com, bhutchings@solarflare.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: dborkman@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out04.mta.xmission.com ([166.70.13.234]:57968 "EHLO
-	out04.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752144Ab3FZBgK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 21:36:10 -0400
-In-Reply-To: <20130625.165612.1653110297729408070.davem@davemloft.net> (David
-	Miller's message of "Tue, 25 Jun 2013 16:56:12 -0700 (PDT)")
+Received: from order.stressinduktion.org ([87.106.68.36]:37931 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751263Ab3FZBlu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 21:41:50 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+When a new tokenized address gets installed we send out just one
+router solicition. We should send out `rtr_solicits' in case one router
+advertisment got lost.
 
-> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Date: Tue, 25 Jun 2013 16:24:55 +0200
->
->> @@ -453,6 +454,8 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
->>  	tstats->rx_bytes += skb->len;
->>  	u64_stats_update_end(&tstats->syncp);
->>  
->> +	skb_scrub_packet(skb);
->> +
->>  	if (tunnel->dev->type == ARPHRD_ETHER) {
->>  		skb->protocol = eth_type_trans(skb, tunnel->dev);
->>  		skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
->
-> I can't see how this can be ok.
->
-> If something in netfilter depends upon the state you are clearing out
-> here, someone's packet filtering setup is going to break.
->
-> I'm not applying these patches, sorry.
+So, rearm the timer as we do in addrconf_dad_complete.
 
-How can netfilter depend on the state of a packet inside of a tunnel?
+Cc: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/ipv6/addrconf.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-How can it even make sense?
-
-Or is your concern that we unintentionally allowed this in the past so
-to avoid breaking binary compatibility we should continue in case
-someone somewhere cares?
-
-I really can't see how this could possibly be an intentional feature.
-
-Eric
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index afaf3cd..4e4cc1f 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4361,8 +4361,11 @@ static int inet6_set_iftoken(struct inet6_dev *idev, struct in6_addr *token)
+ 
+ 	write_lock_bh(&idev->lock);
+ 
+-	if (update_rs)
++	if (update_rs) {
+ 		idev->if_flags |= IF_RS_SENT;
++		idev->rs_probes = 1;
++		addrconf_mod_rs_timer(idev, idev->cnf.rtr_solicit_interval);
++	}
+ 
+ 	/* Well, that's kinda nasty ... */
+ 	list_for_each_entry(ifp, &idev->addr_list, if_list) {
+-- 
+1.8.1.4
