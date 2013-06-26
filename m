@@ -1,67 +1,56 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: Re: [PATCH net-next v1 1/1] net: fec: Add VLAN receive HW support.
-Date: Wed, 26 Jun 2013 11:09:20 +0100
-Message-ID: <51CABDD0.7050606@mentor.com>
-References: <Jim Baxter <jim_baxter@mentor.com> <1372204524-27798-1-git-send-email-jim_baxter@mentor.com> <9848F2DB572E5649BA045B288BE08FBE014FE4E1@039-SN2MPN1-023.039d.mgd.msft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] about "net: orphan frags on receive" insanity
+Date: Wed, 26 Jun 2013 03:12:23 -0700
+Message-ID: <1372241543.3301.157.camel@edumazet-glaptop>
+References: <1372235039.3301.126.camel@edumazet-glaptop>
+	 <20130626095642.GA20982@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Li Frank-B20596 <B20596@freescale.com>,
-	Estevam Fabio-R49496 <r49496@freescale.com>,
-	Lucas Stach <l.stach@pengutronix.de>,
-	Shawn Guo <shawn.guo@linaro.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Duan Fugang-B38611 <B38611@freescale.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:42541 "EHLO
-	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751166Ab3FZKJZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 06:09:25 -0400
-In-Reply-To: <9848F2DB572E5649BA045B288BE08FBE014FE4E1@039-SN2MPN1-023.039d.mgd.msft.net>
+Received: from mail-ee0-f44.google.com ([74.125.83.44]:60018 "EHLO
+	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751762Ab3FZKMV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 06:12:21 -0400
+Received: by mail-ee0-f44.google.com with SMTP id c13so7239651eek.17
+        for <netdev@vger.kernel.org>; Wed, 26 Jun 2013 03:12:20 -0700 (PDT)
+In-Reply-To: <20130626095642.GA20982@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26/06/13 03:31, Duan Fugang-B38611 wrote:
-> In addition,
-> 	1.	enet IP support hw VLAN detect such as imx28-fec, imx6q-fec and mvf600-fec, so you can add the "BD_ENET_RX_VLAN " to those platform driver_data.
-I have only tested it on the i.MX6, if someone wants to check it on the
-imx28 later they can add it to that option.
+On Wed, 2013-06-26 at 12:56 +0300, Michael S. Tsirkin wrote:
 
-> 	2.	Enable the VLAN tag extraction with "NETIF_F_HW_VLAN_CTAG_RX" feature in .ndo_fix_features, which is configured by user.
-What do you mean by this, I am only enabling the VLAN code if
-(ndev->features & NETIF_F_HW_VLAN_CTAG_RX) is set. I am pretty sure this
-is set by
+> Please don't just revert it.
 
->   */
-> -#define PKT_MAXBUF_SIZE		1518
-> +#define PKT_MAXBUF_SIZE		1522
->  #define PKT_MINBUF_SIZE		64
-> -#define PKT_MAXBLR_SIZE		1520
-> +#define PKT_MAXBLR_SIZE		1540
-> [Andy]Pls define the MAXBLR size to 1536, which is multiplied by 64
-> 	 #define PKT_MAXBLR_SIZE         1536
-I will change this.
+I said "revert and fix the callers"
 
+> 
+> Packets can cross e.g. the bridge and end up on the external
+> interface, in which case that NIC guarantees that
+> they will get transmitted eventually, so it's safe
+> to transmit from guest memory, or they can end up
+> in the host stack where they can stay indefinitely,
+> in this case we need to orphan frags so guest networking
+> can keep going.
+> 
+> What do you suggest exactly?
+> 
+> Also, I'll have to look at the generated binary - when I
+> coded this up, compiler seemed to only put a
+> conditional branch on the fast path, this shouldn't
+> be all that expensive.
 
-> +			int payload_offset = (2 * ETH_ALEN);
->  			skb_reserve(skb, NET_IP_ALIGN);
->  			skb_put(skb, pkt_len - 4);	/* Make room */
-> -			skb_copy_to_linear_data(skb, data, pkt_len - 4);
-> +
-> +			/* Extract the frame data without the VLAN header. */
-> +			skb_copy_to_linear_data(skb, data, (2 * ETH_ALEN));
-> +			if (vlan_packet_rcvd)
-> +				payload_offset = (2 * ETH_ALEN) + VLAN_HLEN;
-> +			skb_copy_to_linear_data_offset(skb, (2 * ETH_ALEN),
-> +					data + payload_offset,
-> +					pkt_len - 4 - (2 * ETH_ALEN));
-> +
-> [Andy] because the IP don't support HW VLAN tag extraction, it need sw to do it. It is ok for me. 
-Yes it needs to be done in software as the Ethernet card only detects
-the VLAN packet, doing it here is more efficient then the kernel doing it.
+Then look again. Its 400 bytes right now.
 
+I suggested to call this only from the impacted callers.
 
-Thank you,
-Jim
+VM are fine, but if we slow down bare metal to close the gap, or make
+appealing kernel bypass, that's not very fair.
+
+Why normal frames received from real NIC should pay this price, I don't
+know.
+
+The conditional branch might sound not expensive, but the cache line
+miss on skb_shinfo(skb)->tx_flags is expensive.
