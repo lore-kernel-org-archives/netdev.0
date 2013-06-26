@@ -1,127 +1,76 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Subject: Re: [PATCH] loopback: set pkt_type to PACKET_HOST explicitly
-Date: Wed, 26 Jun 2013 18:37:51 +0900
-Message-ID: <20130626093751.GB8524@valinux.co.jp>
-References: <0cd1047a2432736459fabbe97a8fb81c449fd827.1372232028.git.yamahata@valinux.co.jp> <1372236022.3301.128.camel@edumazet-glaptop>
+From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Subject: [PATCH] arch/arc: angel4.dts - add description for "arc_emac"
+Date: Wed, 26 Jun 2013 13:37:49 +0400
+Message-ID: <1372239469-28537-1-git-send-email-abrodkin@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, murphy.mccauley@gmail.com,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Jesse Gross <jesse@nicira.com>, dev@openvswitch.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.valinux.co.jp ([210.128.90.3]:60631 "EHLO
-	mail.valinux.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752091Ab3FZJhw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 05:37:52 -0400
-Content-Disposition: inline
-In-Reply-To: <1372236022.3301.128.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
+	Andy Shevchenko <andy.shevchenko@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	"Joe Perches" <joe@perches.com>,
+	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
+	Mischa Jonker <Mischa.Jonker@synopsys.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <rob.herring@calxeda.com>,
+	"Paul Gortmaker" <paul.gortmaker@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	<linux-kernel@vger.kernel.org>,
+	<devicetree-discuss@lists.ozlabs.org>,
+	Florian Fainelli <florian@openwrt.org>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 26, 2013 at 01:40:22AM -0700, Eric Dumazet wrote:
-> On Wed, 2013-06-26 at 16:34 +0900, Isaku Yamahata wrote:
-> > Reset pkt_type to PACKET_HOST when loopback device receives packet
-> > before calling eth_type_trans()
-> > 
-> > ip-encapsulated packets can be handled by localhost. But skb->pkt_type
-> > can be PACKET_OTHERHOST when packet comes into ip tunnel device. In that case,
-> > the packet is dropped by ip_rcv() because loopback_xmit() doesn't set
-> > skb->pkt_type to PACKET_HOST.
-> > 
-> > netns A |                     root netns                      | netns B
-> >    veth<->veth=bridge=gretap <-loop back-> gretap=bridge=veth<->veth
-> > 
-> > arp packet ->
-> > pkt_type
-> >          BROADCAST----loopback_xmit()-->ip_rcv()------------------->
-> > 
-> >                                                              <- arp reply
-> >                                                                 pkt_type
-> >                        ip_rcv()<---loopback_xmit()-----OTHERHOST
-> >                        drop
-> > 
-> > sample operations
-> >   ip link add tapa type gretap remote 172.17.107.4 local 172.17.107.3
-> >   ip link add tapb type gretap remote 172.17.107.3 local 172.17.107.4
-> >   ip link set tapa up
-> >   ip link set tapb up
-> >   ip address add 172.17.107.3 dev tapa
-> >   ip address add 172.17.107.4 dev tapb
-> >   ip route get 172.17.107.3
-> >   > local 172.17.107.3 dev lo  src 172.17.107.3
-> >   >    cache <local>
-> >   ip route get 172.17.107.4
-> >   > local 172.17.107.4 dev lo  src 172.17.107.4
-> >   >    cache <local>
-> >   ip link add vetha type veth peer name vetha-peer
-> >   ip link add vethb type veth peer name vethb-peer
-> >   brctl addbr bra
-> >   brctl addbr brb
-> >   brctl addif bra tapa
-> >   brctl addif bra vetha-peer
-> >   brctl addif brb tapb
-> >   brctl addif brb vethb-peer
-> >   brctl show
-> >   > bridge name     bridge id               STP enabled     interfaces
-> >   > bra             8000.6ea21e758ff1       no              tapa
-> >   >                                                         vetha-peer
-> >   > brb             8000.420020eb92d5       no              tapb
-> >   >                                                         vethb-peer
-> >   ip link set vetha-peer up
-> >   ip link set vethb-peer up
-> >   ip link set bra up
-> >   ip link set brb up
-> >   ip netns add a
-> >   ip netns add b
-> >   ip link set vetha netns a
-> >   ip link set vethb netns b
-> >   ip netns exec a ip address add 10.0.0.3/24 dev vetha
-> >   ip netns exec b ip address add 10.0.0.4/24 dev vethb
-> >   ip netns exec a ip link set vetha up
-> >   ip netns exec b ip link set vethb up
-> >   ip netns exec a arping -I vetha 10.0.0.4
-> >   ARPING 10.0.0.4 from 10.0.0.3 vetha
-> >   ^CSent 2 probes (2 broadcast(s))
-> >   Received 0 response(s)
-> > 
-> > Cc: Pravin B Shelar <pshelar@nicira.com>
-> > Cc: Jesse Gross <jesse@nicira.com>
-> > Cc: dev@openvswitch.org
-> > Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
-> > ---
-> >  drivers/net/loopback.c |    6 ++++++
-> >  1 file changed, 6 insertions(+)
-> > 
-> > diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-> > index fcbf680..2694638 100644
-> > --- a/drivers/net/loopback.c
-> > +++ b/drivers/net/loopback.c
-> > @@ -82,6 +82,12 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
-> >  	 */
-> >  	skb_dst_force(skb);
-> >  
-> > +	/* pkt_type is not always PACKET_HOST because
-> > +	 * this skb comes from  other components.
-> > +	 * Since eth_type_trans() sets pkt_type _except_ PACKET_HOST case,
-> > +	 * set it explicitly.
-> > +	 */
-> > +	skb->pkt_type = PACKET_HOST;
-> >  	skb->protocol = eth_type_trans(skb, dev);
-> >  
-> >  	/* it's OK to use per_cpu_ptr() because BHs are off */
-> 
-> 
-> It sounds really strange to me.
-> 
-> This is not loopback duty to change pkt_type.
-> 
-> Where (and why) exactly pkt_type is set to PACKET_OTHERHOST ?
+With this patch we introduce DT "arc_emac" description for ARCangel4.
+Description is based on info/example in
+"Documentation/devicetree/bindings/net/arc_emac.txt".
 
-veth does. vethb-peer in the above example.
-(veth_xmit() -> dev_forward_skb() -> eth_type_trans())
-The destination mac address of arp reply is set to the one of
-vetha (!= vethb-peer). So vethb-peer sets pkt_type to OTHERHOST.
-bridge and gretap doesn't touch skb->pkt_type.
+Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
+
+Cc: Andy Shevchenko <andy.shevchenko@gmail.com>
+Cc: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Joe Perches <joe@perches.com>
+Cc: Vineet Gupta <vgupta@synopsys.com>
+Cc: Mischa Jonker <mjonker@synopsys.com>
+Cc: Arnd Bergmann <arnd@arndb.de>
+Cc: Grant Likely <grant.likely@linaro.org>
+Cc: Rob Herring <rob.herring@calxeda.com>
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org
+Cc: devicetree-discuss@lists.ozlabs.org
+Cc: Florian Fainelli <florian@openwrt.org>
+---
+ arch/arc/boot/dts/angel4.dts |   16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/arch/arc/boot/dts/angel4.dts b/arch/arc/boot/dts/angel4.dts
+index bae4f93..4fb2d6f 100644
+--- a/arch/arc/boot/dts/angel4.dts
++++ b/arch/arc/boot/dts/angel4.dts
+@@ -51,5 +51,21 @@
+ 			current-speed = <115200>;
+ 			status = "okay";
+ 		};
++
++		ethernet@c0fc2000 {
++			compatible = "snps,arc-emac";
++			reg = <0xc0fc2000 0x3c>;
++			interrupts = <6>;
++			mac-address = [ 00 11 22 33 44 55 ];
++			clock-frequency = <80000000>;
++			max-speed = <100>;
++			phy = <&phy0>;
++
++			#address-cells = <1>;
++			#size-cells = <0>;
++			phy0: ethernet-phy@0 {
++				reg = <1>;
++			};
++		};
+ 	};
+ };
 -- 
-yamahata
+1.7.10.4
