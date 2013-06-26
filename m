@@ -1,32 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] fec: Add support for reading RMON registers
-Date: Wed, 26 Jun 2013 15:46:15 -0700 (PDT)
-Message-ID: <20130626.154615.144627726991411622.davem@davemloft.net>
-References: <1372227532-27467-1-git-send-email-cphealy@gmail.com>
+Subject: Re: [PATCH 1/2] dlci: acquire rtnl_lock before calling
+ __dev_get_by_name()
+Date: Wed, 26 Jun 2013 15:46:26 -0700 (PDT)
+Message-ID: <20130626.154626.1312386779386420575.davem@davemloft.net>
+References: <51CA9872.5050700@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Frank.Li@freescale.com, fabio.estevam@freescale.com,
-	linux@roeck-us.net, rsushko@gmail.com, netdev@vger.kernel.org
-To: cphealy@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48421 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752842Ab3FZWqQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 18:46:16 -0400
-In-Reply-To: <1372227532-27467-1-git-send-email-cphealy@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: lizefan@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51CA9872.5050700@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Chris Healy <cphealy@gmail.com>
-Date: Tue, 25 Jun 2013 23:18:52 -0700
+From: Li Zefan <lizefan@huawei.com>
+Date: Wed, 26 Jun 2013 15:29:54 +0800
 
-> Add ethtool operation to read RMON registers.
+> Otherwise the net device returned can be freed at anytime.
 > 
-> Tested against net-next on i.MX28.
-> 
-> v2: make conditional on #ifndef CONFIG_M5272
-> 
-> Signed-off-by: Chris Healy <cphealy@gmail.com>
+> Signed-off-by: Li Zefan <lizefan@huawei.com>
 
-Applied, thanks.
+Applied and queued up for -stable.
