@@ -1,39 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] loopback: set pkt_type to PACKET_HOST explicitly
-Date: Wed, 26 Jun 2013 15:29:30 -0700 (PDT)
-Message-ID: <20130626.152930.1401552744929449732.davem@davemloft.net>
-References: <0cd1047a2432736459fabbe97a8fb81c449fd827.1372232028.git.yamahata@valinux.co.jp>
-	<1372236022.3301.128.camel@edumazet-glaptop>
-	<20130626093751.GB8524@valinux.co.jp>
+Subject: Re: [PATCH v2] fec: Add support for reading RMON registers
+Date: Wed, 26 Jun 2013 15:46:15 -0700 (PDT)
+Message-ID: <20130626.154615.144627726991411622.davem@davemloft.net>
+References: <1372227532-27467-1-git-send-email-cphealy@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	murphy.mccauley@gmail.com, pshelar@nicira.com, jesse@nicira.com,
-	dev@openvswitch.org
-To: yamahata@valinux.co.jp
+Cc: Frank.Li@freescale.com, fabio.estevam@freescale.com,
+	linux@roeck-us.net, rsushko@gmail.com, netdev@vger.kernel.org
+To: cphealy@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48262 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48421 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753281Ab3FZW3b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 18:29:31 -0400
-In-Reply-To: <20130626093751.GB8524@valinux.co.jp>
+	with ESMTP id S1752842Ab3FZWqQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 18:46:16 -0400
+In-Reply-To: <1372227532-27467-1-git-send-email-cphealy@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 26 Jun 2013 18:37:51 +0900
+From: Chris Healy <cphealy@gmail.com>
+Date: Tue, 25 Jun 2013 23:18:52 -0700
 
-> veth does. vethb-peer in the above example.
-> (veth_xmit() -> dev_forward_skb() -> eth_type_trans())
-> The destination mac address of arp reply is set to the one of
-> vetha (!= vethb-peer). So vethb-peer sets pkt_type to OTHERHOST.
-> bridge and gretap doesn't touch skb->pkt_type.
+> Add ethtool operation to read RMON registers.
+> 
+> Tested against net-next on i.MX28.
+> 
+> v2: make conditional on #ifndef CONFIG_M5272
+> 
+> Signed-off-by: Chris Healy <cphealy@gmail.com>
 
-I think the dev_forward_skb() assignment of pkt_type should be done
-after the call to eth_type_trans().
-
-That's the whole point, we know we're looping the packet back to a
-local device on this host.
-
-I'm not applying this loopback patch, sorry.
+Applied, thanks.
