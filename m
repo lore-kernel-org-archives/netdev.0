@@ -1,71 +1,111 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Doing specific RTM_GETLINK or RTM_GETADDR
-Date: Thu, 27 Jun 2013 00:23:30 +0100
-Message-ID: <20130626232330.GD1394@casper.infradead.org>
-References: <1967300F-6CEE-4D0F-8889-0CBC32DD3CD8@redfish-solutions.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: RE: [PATCH net-next 4/8] qlcnic: Add support for PEX DMA method to
+ read memory section of adapter dump
+Date: Wed, 26 Jun 2013 23:43:14 +0000
+Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A4DAE09@avmb2.qlogic.org>
+References: <1371832261-18930-1-git-send-email-jitendra.kalsaria@qlogic.com>
+ <1371832261-18930-5-git-send-email-jitendra.kalsaria@qlogic.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B72A0@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: libnl@lists.infradead.org, netdev@vger.kernel.org
-To: Philip Prindeville <philipp_subx@redfish-solutions.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Dept-NX Linux NIC Driver
+	<Dept_NX_Linux_NIC_Driver@qlogic.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:50338 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753102Ab3FZXXc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 19:23:32 -0400
-Content-Disposition: inline
-In-Reply-To: <1967300F-6CEE-4D0F-8889-0CBC32DD3CD8@redfish-solutions.com>
+Received: from co9ehsobe001.messaging.microsoft.com ([207.46.163.24]:9216 "EHLO
+	co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753313Ab3FZXnU convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jun 2013 19:43:20 -0400
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B72A0@saturn3.aculab.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CCed netdev as this is ultimatively a kernel issue
+> -----Original Message-----
+> From: David Laight [mailto:David.Laight@ACULAB.COM]
+> Sent: Monday, June 24, 2013 1:56 AM
+> To: Jitendra Kalsaria; David Miller
+> Cc: netdev; Sony Chacko; Shahed Shaikh; Dept-NX Linux NIC Driver
+> Subject: RE: [PATCH net-next 4/8] qlcnic: Add support for PEX DMA method
+> to read memory section of adapter dump
+> 
+> > From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+> >
+> > This patch adds support to read memory section of adapter dump using
+> > PEX DMA method. This method significantly improves total adapter dump
+> > collection time.
+> 
+> Which DMA engine is this using?
+> My first thought was that it was the one in the CSB bridge (which ought to
+> have a shared interface), but the structures don't seem to match the code I
+> have for that.
+> 
 
-On 06/24/13 at 01:42pm, Philip Prindeville wrote:
-> I couldn't find documentation that said specifically if one can do a NLM_F_REQUEST | NLM_F_MATCH on a specific ifindex for an RTM_GETLINK or RTM_GETADDR.
-> 
-> I'm running Fedora (3.9.4) but also some older versions including uClinux and 2.6.39 (embedded) where this needs to work as well.
-> 
-> Even the following trivial query:
-> 
-> 	msg = (struct nlmsghdr *) buf;
-> 	memset(msg, 0, sizeof(*msg));
-> 
-> 	msg->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
-> 	msg->nlmsg_type = RTM_GETLINK;
-> 	msg->nlmsg_flags = NLM_F_REQUEST | NLM_F_MATCH;
-> 	msg->nlmsg_pid = 0;
-> 	msg->nlmsg_seq = iter->seq++;
-> 
-> 	NLMSG_DUMP(msg, "send2");
-> 
-> 	info = (struct ifinfomsg *) NLMSG_DATA(msg);
-> 	memset(info, 0, sizeof(*info));
-> 
-> 	info->ifi_family = AF_NETLINK;
-> 	info->ifi_index = iter->ifindex;
-> 
-> 
-> results in ALL of the interfaces being reported back (ditto for RTM_GETADDR). So if the NLM_F_MATCH flag doesn't control that, I don't understand what does.
-> 
-> Also, I was looking for documentation about (1) what version IFLA_AF_SPEC was introduced, and (2) how to parse it but I couldn't find that either.
-> 
-> If this isn't the correct place to ask, please let me know. 
+It's not the one in the CSB bridge.
 
-This is a bug that dates back as long as Netlink exists. What
-would be expected:
+> ...
+> > +struct qlcnic_pex_dma_descriptor {
+> > +	u32	read_data_size;
+> > +	u32	dma_desc_cmd;
+> > +	u32	src_addr_low;
+> > +	u32	src_addr_high;
+> > +	u32	dma_bus_addr_low;
+> > +	u32	dma_bus_addr_high;
+> > +	u32	rsvd[6];
+> > +} __packed;
+> 
+> Why __packed??
+> Why are the structures following also marked __packed.
+> 
 
-NLM_F_MATCH: Return single match
-NLM_F_DUMP: Dump complete tree
+ No need of __packed. Will remove in follow up patch.
 
-The following still makes sense:
-NLM_F_DUMP = (NLM_F_ROOT | NLM_F_MATCH)
+> ...
+> > +	/* Wait for DMA to complete */
+> > +	temp_addr = dma_base_addr + QLC_DMA_CMD_STATUS_CTRL;
+> > +	for (i = 0; i < 400; i++) {
+> > +		dma_sts = qlcnic_ind_rd(adapter, temp_addr);
+> > +
+> > +		if (dma_sts & BIT_1)
+> > +			usleep_range(250, 500);
+> > +		else
+> > +			break;
+> > +	}
+> 
+> Do these DMA actually take long enough to need to sleep for completion?
+> I'd have thought that they'd normally finish almost immediately.
+> Sleeping might be reasonable as a 'last hope' check.
+> 
 
-The problem is this:
-net/core/rtnetlink.c:   if (kind == 2 && nlh->nlmsg_flags&NLM_F_DUMP)
+We need to call sleep to cover worst case scenarios and we have encountered issues without sleep.
+In the follow up patch we will be using usleep_range(50, 100).
 
-So if either NLM_F_MATCH or NLM_F_DUMP is set we dump the complete
-tree. I have classified this as bug when I saw it but there is not
-much we can do. A lot of applications expect it to behave like that.
-Changing it now might break a lot.
+> I'd also consider putting the 'wait for complete' code into a separate function
+> - allowing overlapped operations.
+> 
 
-Workaround is to leave otu NLM_F_MATCH alltogether, that will
-result in a single match.
+Sure. I will create a separate function.
+
+> ...
+> > +
+> > +	if ((tmpl_hdr->version & 0xffffff) >= 0x20001)
+> > +		ahw->fw_dump.use_pex_dma = true;
+> > +	else
+> > +		ahw->fw_dump.use_pex_dma = false;
+> 
+> You know what's wrong with the above....
+
+Yes. Got it.  Masking is not done properly. It should be
+if ((tmpl_hdr->version & 0xfffff) >= 0x20001)
+
+Thanks for review comments.
+
+-Shahed
+> 
+> 	David
