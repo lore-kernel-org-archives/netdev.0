@@ -1,53 +1,56 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/10] e1000e: Remove duplicate assignment of default rx/tx ring size
-Date: Wed, 26 Jun 2013 03:55:22 -0700
-Message-ID: <1372244122-17664-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/10] e1000e: restore call to pci_clear_master()
+Date: Wed, 26 Jun 2013 03:55:21 -0700
+Message-ID: <1372244122-17664-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1372244122-17664-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Wei Yang <weiyang@linux.vnet.ibm.com>, netdev@vger.kernel.org,
+Cc: Dean Nelson <dnelson@redhat.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:33178 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752014Ab3FZKzb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Jun 2013 06:55:31 -0400
+	id S1751824Ab3FZKza (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jun 2013 06:55:30 -0400
 In-Reply-To: <1372244122-17664-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
+From: Dean Nelson <dnelson@redhat.com>
 
-tx_ring/rx_ring size is assigned in function e1000_alloc_queues(), which is
-called by e1000_sw_init() in the early stage of e1000_probe().
+In attempting to resolve a minor merge conflict, commit e5f2ef7ab4690d2e8faa
+(Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net) accidently
+dropped a call to pci_clear_master() that was intended to remain in place.
 
-This patch just remove the duplicate assignment of this default ring size
-value.
+Commit 4e0855dff094b0d56d6b (e1000e: fix pci-device enable-counter balance)
+replaced a call to pci_disable_device() by one to pci_clear_master(). And then
+commit 66148babe728f3e00e13 (e1000e: fix runtime power management transitions)
+deleted a number of lines starting two lines following that call.
 
-Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
-Reviewed-by: Gavin Shan <shangw@linux.vnet.ibm.com>
-Reviewed-by: Da Yu Qiu <qiudayu@cn.ibm.com>
+This patch restores the call to pci_clear_master() in __e1000_shutdown().
+
+v2: added summary lines (enclosed in parens) following commit IDs
+
+Signed-off-by: Dean Nelson <dnelson@redhat.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Acked-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 4 ----
- 1 file changed, 4 deletions(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 5475cf4..40e6232 100644
+index 77f81cb..5475cf4 100644
 --- a/drivers/net/ethernet/intel/e1000e/netdev.c
 +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -6725,10 +6725,6 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	adapter->hw.fc.current_mode = e1000_fc_default;
- 	adapter->hw.phy.autoneg_advertised = 0x2f;
- 
--	/* ring size defaults */
--	adapter->rx_ring->count = E1000_DEFAULT_RXD;
--	adapter->tx_ring->count = E1000_DEFAULT_TXD;
--
- 	/* Initial Wake on LAN setting - If APM wake is enabled in
- 	 * the EEPROM, enable the ACPI Magic Packet filter
+@@ -5995,6 +5995,8 @@ static int __e1000_shutdown(struct pci_dev *pdev, bool runtime)
  	 */
+ 	e1000e_release_hw_control(adapter);
+ 
++	pci_clear_master(pdev);
++
+ 	/* The pci-e switch on some quad port adapters will report a
+ 	 * correctable error when the MAC transitions from D0 to D3.  To
+ 	 * prevent this we need to mask off the correctable errors on the
 -- 
 1.7.11.7
