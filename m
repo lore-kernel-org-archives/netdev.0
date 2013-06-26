@@ -1,54 +1,58 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: Re: [PATCH v2 15/45] rcu: Use get/put_online_cpus_atomic() to prevent
- CPU offline
-Date: Wed, 26 Jun 2013 23:58:48 +0530
-Message-ID: <51CB32E0.3040106@linux.vnet.ibm.com>
-References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com> <20130625202755.16593.67819.stgit@srivatsabhat.in.ibm.com> <20130625220026.GG3828@linux.vnet.ibm.com> <51CAF624.6060004@linux.vnet.ibm.com> <AE90C24D6B3A694183C094C60CF0A2F6026B72AA@saturn3.aculab.com> <20130626143424.GN3828@linux.vnet.ibm.com> <1372258271.18733.256.camel@gandalf.local.home> <20130626152148.GA4405@mtj.dyndns.org> <1372260823.18733.263.camel@gandalf.local.home> <20130626172948.GD4405@mtj.dyndns.org>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 1/2] lib: vsprintf: add IPv4/v6 generic %pig/%pIg
+ format specifier
+Date: Wed, 26 Jun 2013 20:35:13 +0200
+Message-ID: <51CB3461.9020703@redhat.com>
+References: <1372266073-11998-1-git-send-email-dborkman@redhat.com> <1372266073-11998-2-git-send-email-dborkman@redhat.com> <51CB2477.6070903@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Steven Rostedt <rostedt@goodmis.org>, peterz@infradead.org,
-	fweisbec@gmail.com, oleg@redhat.com, walken@google.com,
-	mingo@kernel.org, linux-arch@vger.kernel.org,
-	vincent.guittot@linaro.org, xiaoguangrong@linux.vnet.ibm.com,
-	wangyun@linux.vnet.ibm.com, paulmck@linux.vnet.ibm.com,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	rusty@rustcorp.com.au, namhyung@kernel.org, tglx@linutronix.de,
-	laijs@cn.fujitsu.com, zhong@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, sbw@mit.edu,
-	David Laight <David.Laight@ACULAB.COM>,
-	akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <20130626172948.GD4405@mtj.dyndns.org>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:12863 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751585Ab3FZSfT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jun 2013 14:35:19 -0400
+In-Reply-To: <51CB2477.6070903@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/26/2013 10:59 PM, Tejun Heo wrote:
-> Hello,
-> 
-> On Wed, Jun 26, 2013 at 11:33:43AM -0400, Steven Rostedt wrote:
->> I thought the whole deal with this patchset was to remove stop_machine
->> from CPU hotplug. Why halt all CPUs just to remove one? stomp_machine()
->> is extremely intrusive for the entire system, where as one CPU making
->> sure all CPUs schedule isn't very intrusive at all.
+On 06/26/2013 07:27 PM, Vlad Yasevich wrote:
+> On 06/26/2013 01:01 PM, Daniel Borkmann wrote:
+>> In order to avoid making code that deals with printing both, IPv4 and
+>> IPv6 addresses, unnecessary complicated as for example ...
 >>
->> I didn't think the idea of this patch set was to make CPU hotplug
->> faster, just less intrusive to the system.
-> 
-> Yeap, removal of stop_machine is a great improvement in itself.
+>>    if (sa.sa_family == AF_INET6)
+>>      printk("... %pI6 ...", sin6_addr);
+>>    else
+>>      printk("... %pI4 ...", sin_addr.s_addr);
+>>
+>> ... it would be better to introduce a format specifier that can deal
+>> with those kind of situations internally; just as we have a "struct
+>> sockaddr" for generic mapping into "struct sockaddr_in" or "struct
+>> sockaddr_in6" as e.g. done in "union sctp_addr". Then, we could
+>> reduce the above statement into something like:
+>>
+>>    printk("... %pIg ..", &sockaddr);
+>>
+>> While we're at it, support for both %pig/%pIg, where 'g' stands for
+>> generic, comes for free. In case our pointer is NULL, pointer() then
+>> deals with that already at an earlier point in time internally.
+>>
+>> Likely, there are many other areas than just SCTP in the kernel to make
+>> use of this extension as well.
+>>
+>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>> ---
+>>   lib/vsprintf.c | 18 ++++++++++++++++--
+>>   1 file changed, 16 insertions(+), 2 deletions(-)
+>
+> I think you should also update Documentation/printk-formats.txt
 
-Absolutely. To make hotplug less intrusive on the system.
+If you prefer, I could do a follow-up patch, otherwise I'd send a v2 of
+the set by tomorrow if there's nothing else, let me know.
 
->  ISTR
-> mentions of hot-unplug latency but I could be mistaken.  Srivatsa, can
-> you please chime in on that?
-> 
-
-Yes, we were discussing hot-unplug latency for use-cases such as
-suspend/resume. We didn't want to make those operations slower in the
-process of removing stop_machine() from hotplug.
-
-Regards,
-Srivatsa S. Bhat
-
+Thanks,
+Daniel
