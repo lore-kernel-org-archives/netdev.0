@@ -1,113 +1,81 @@
-From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Subject: [PATCH v2] arch/arc: angel4.dts - add description for "arc_emac"
-Date: Wed, 26 Jun 2013 14:02:18 +0400
-Message-ID: <1372240938-28733-1-git-send-email-abrodkin@synopsys.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH v2 net-next 2/2] sit: add support of x-netns
+Date: Wed, 26 Jun 2013 03:03:22 -0700
+Message-ID: <87ppv942ad.fsf@xmission.com>
+References: <1372170295-4717-3-git-send-email-nicolas.dichtel@6wind.com>
+	<20130625.165612.1653110297729408070.davem@davemloft.net>
+	<87d2r964d9.fsf@xmission.com>
+	<20130625.224810.293452557691677283.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
-	Andy Shevchenko <andy.shevchenko@gmail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	"Joe Perches" <joe@perches.com>,
-	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
-	Mischa Jonker <Mischa.Jonker@synopsys.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	"Paul Gortmaker" <paul.gortmaker@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>,
-	<devicetree-discuss@lists.ozlabs.org>,
-	Florian Fainelli <florian@openwrt.org>
-To: <netdev@vger.kernel.org>
+Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org, bcrl@kvack.org,
+	ravi.mlists@gmail.com, bhutchings@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from us02smtp1.synopsys.com ([198.182.60.75]:38871 "EHLO
-	vaxjo.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751506Ab3FZKCe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 06:02:34 -0400
+Received: from out01.mta.xmission.com ([166.70.13.231]:56665 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751542Ab3FZKD6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 06:03:58 -0400
+In-Reply-To: <20130625.224810.293452557691677283.davem@davemloft.net> (David
+	Miller's message of "Tue, 25 Jun 2013 22:48:10 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With this patch we introduce DT "arc_emac" description for ARCangel4.
-Description is based on info/example in
-"Documentation/devicetree/bindings/net/arc_emac.txt".
+David Miller <davem@davemloft.net> writes:
 
-Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Tue, 25 Jun 2013 18:35:30 -0700
+>
+>> David Miller <davem@davemloft.net> writes:
+>> 
+>>> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>>> Date: Tue, 25 Jun 2013 16:24:55 +0200
+>>>
+>>>> @@ -453,6 +454,8 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
+>>>>  	tstats->rx_bytes += skb->len;
+>>>>  	u64_stats_update_end(&tstats->syncp);
+>>>>  
+>>>> +	skb_scrub_packet(skb);
+>>>> +
+>>>>  	if (tunnel->dev->type == ARPHRD_ETHER) {
+>>>>  		skb->protocol = eth_type_trans(skb, tunnel->dev);
+>>>>  		skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
+>>>
+>>> I can't see how this can be ok.
+>>>
+>>> If something in netfilter depends upon the state you are clearing out
+>>> here, someone's packet filtering setup is going to break.
+>>>
+>>> I'm not applying these patches, sorry.
+>> 
+>> How can netfilter depend on the state of a packet inside of a tunnel?
+>> 
+>> How can it even make sense?
+>> 
+>> Or is your concern that we unintentionally allowed this in the past so
+>> to avoid breaking binary compatibility we should continue in case
+>> someone somewhere cares?
+>> 
+>> I really can't see how this could possibly be an intentional feature.
+>
+> You can make all of these issues go away by only clearing the SKB
+> meta state when namespaces are actually changing as we go through
+> the tunnel.
 
-Cc: Andy Shevchenko <andy.shevchenko@gmail.com>
-Cc: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Joe Perches <joe@perches.com>
-Cc: Vineet Gupta <vgupta@synopsys.com>
-Cc: Mischa Jonker <mjonker@synopsys.com>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Grant Likely <grant.likely@linaro.org>
-Cc: Rob Herring <rob.herring@calxeda.com>
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: linux-kernel@vger.kernel.org
-Cc: devicetree-discuss@lists.ozlabs.org
-Cc: Florian Fainelli <florian@openwrt.org>
+I have spent some time thinking about the cases where I have had an
+opportunity to use the marks on packets and it turns out that if I had
+been using a tunnel with any of those configurations leaving the marks
+on would have either broken my configuration or at the very least have
+required me to make certain I changed those marks.
 
----
+So I really think this is a bug fix, for a long standing bug in a rare
+corner case of kernel behavior that people just haven't noticed.   Which
+is why I suggested to Nicolas Ditchtel that he remove the test to see if
+we were changing network namespaces before scrubbing the packet.
 
-This re-spin also removes obsolete mentions of IRQ number and
-base-address of arc_emac from "plat_arcfpga".
----
- arch/arc/boot/dts/angel4.dts                |   16 ++++++++++++++++
- arch/arc/plat-arcfpga/include/plat/irq.h    |    2 --
- arch/arc/plat-arcfpga/include/plat/memmap.h |    2 --
- 3 files changed, 16 insertions(+), 4 deletions(-)
+That said I won't object if Nocolas Ditchel resends his patches with
+that test put back in.  I just think it is silly and when someone
+finally gets bit by the bug and complains we will have to go through and
+remove the test.
 
-diff --git a/arch/arc/boot/dts/angel4.dts b/arch/arc/boot/dts/angel4.dts
-index bae4f93..4fb2d6f 100644
---- a/arch/arc/boot/dts/angel4.dts
-+++ b/arch/arc/boot/dts/angel4.dts
-@@ -51,5 +51,21 @@
- 			current-speed = <115200>;
- 			status = "okay";
- 		};
-+
-+		ethernet@c0fc2000 {
-+			compatible = "snps,arc-emac";
-+			reg = <0xc0fc2000 0x3c>;
-+			interrupts = <6>;
-+			mac-address = [ 00 11 22 33 44 55 ];
-+			clock-frequency = <80000000>;
-+			max-speed = <100>;
-+			phy = <&phy0>;
-+
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			phy0: ethernet-phy@0 {
-+				reg = <1>;
-+			};
-+		};
- 	};
- };
-diff --git a/arch/arc/plat-arcfpga/include/plat/irq.h b/arch/arc/plat-arcfpga/include/plat/irq.h
-index 41e3356..6adbc53 100644
---- a/arch/arc/plat-arcfpga/include/plat/irq.h
-+++ b/arch/arc/plat-arcfpga/include/plat/irq.h
-@@ -16,8 +16,6 @@
- #define UART1_IRQ	10
- #define UART2_IRQ	11
- 
--#define VMAC_IRQ	6
--
- #define IDE_IRQ		13
- #define PCI_IRQ		14
- #define PS2_IRQ		15
-diff --git a/arch/arc/plat-arcfpga/include/plat/memmap.h b/arch/arc/plat-arcfpga/include/plat/memmap.h
-index 1663f33..5c78e61 100644
---- a/arch/arc/plat-arcfpga/include/plat/memmap.h
-+++ b/arch/arc/plat-arcfpga/include/plat/memmap.h
-@@ -15,8 +15,6 @@
- #define UART0_BASE              0xC0FC1000
- #define UART1_BASE              0xC0FC1100
- 
--#define VMAC_REG_BASEADDR       0xC0FC2000
--
- #define IDE_CONTROLLER_BASE     0xC0FC9000
- 
- #define AHB_PCI_HOST_BRG_BASE   0xC0FD0000
--- 
-1.7.10.4
+Eric
