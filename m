@@ -1,76 +1,107 @@
-From: Li Zefan <lizefan@huawei.com>
-Subject: [PATCH 2/2] dlci: validate the net device in dlci_del()
-Date: Wed, 26 Jun 2013 15:31:58 +0800
-Message-ID: <51CA98EE.4050801@huawei.com>
-References: <51CA9872.5050700@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="GB2312"
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<trinity@vger.kernel.org>, Li Jinyue <lijinyue@huawei.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <trinity-owner@vger.kernel.org>
-In-Reply-To: <51CA9872.5050700@huawei.com>
-Sender: trinity-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Subject: [PATCH] loopback: set pkt_type to PACKET_HOST explicitly
+Date: Wed, 26 Jun 2013 16:34:52 +0900
+Message-ID: <0cd1047a2432736459fabbe97a8fb81c449fd827.1372232028.git.yamahata@valinux.co.jp>
+Cc: yamahata@valinux.co.jp, murphy.mccauley@gmail.com,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>, dev@openvswitch.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.valinux.co.jp ([210.128.90.3]:51830 "EHLO
+	mail.valinux.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751856Ab3FZHey (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 03:34:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We triggered an oops while running trinity with 3.4 kernel:
+Reset pkt_type to PACKET_HOST when loopback device receives packet
+before calling eth_type_trans()
 
-BUG: unable to handle kernel paging request at 0000000100000d07
-IP: [<ffffffffa0109738>] dlci_ioctl+0xd8/0x2d4 [dlci]
-PGD 640c0d067 PUD 0
-Oops: 0000 [#1] PREEMPT SMP
-CPU 3
-...
-Pid: 7302, comm: trinity-child3 Not tainted 3.4.24.09+ 40 Huawei Technologies Co., Ltd. Tecal RH2285          /BC11BTSA
-RIP: 0010:[<ffffffffa0109738>]  [<ffffffffa0109738>] dlci_ioctl+0xd8/0x2d4 [dlci]
-...
-Call Trace:
-  [<ffffffff8137c5c3>] sock_ioctl+0x153/0x280
-  [<ffffffff81195494>] do_vfs_ioctl+0xa4/0x5e0
-  [<ffffffff8118354a>] ? fget_light+0x3ea/0x490
-  [<ffffffff81195a1f>] sys_ioctl+0x4f/0x80
-  [<ffffffff81478b69>] system_call_fastpath+0x16/0x1b
-...
+ip-encapsulated packets can be handled by localhost. But skb->pkt_type
+can be PACKET_OTHERHOST when packet comes into ip tunnel device. In that case,
+the packet is dropped by ip_rcv() because loopback_xmit() doesn't set
+skb->pkt_type to PACKET_HOST.
 
-It's because the net device is not a dlci device.
+netns A |                     root netns                      | netns B
+   veth<->veth=bridge=gretap <-loop back-> gretap=bridge=veth<->veth
 
-Reported-by: Li Jinyue <lijinyue@huawei.com>
-Signed-off-by: Li Zefan <lizefan@huawei.com>
-Cc: stable@vger.kernel.org
+arp packet ->
+pkt_type
+         BROADCAST----loopback_xmit()-->ip_rcv()------------------->
+
+                                                             <- arp reply
+                                                                pkt_type
+                       ip_rcv()<---loopback_xmit()-----OTHERHOST
+                       drop
+
+sample operations
+  ip link add tapa type gretap remote 172.17.107.4 local 172.17.107.3
+  ip link add tapb type gretap remote 172.17.107.3 local 172.17.107.4
+  ip link set tapa up
+  ip link set tapb up
+  ip address add 172.17.107.3 dev tapa
+  ip address add 172.17.107.4 dev tapb
+  ip route get 172.17.107.3
+  > local 172.17.107.3 dev lo  src 172.17.107.3
+  >    cache <local>
+  ip route get 172.17.107.4
+  > local 172.17.107.4 dev lo  src 172.17.107.4
+  >    cache <local>
+  ip link add vetha type veth peer name vetha-peer
+  ip link add vethb type veth peer name vethb-peer
+  brctl addbr bra
+  brctl addbr brb
+  brctl addif bra tapa
+  brctl addif bra vetha-peer
+  brctl addif brb tapb
+  brctl addif brb vethb-peer
+  brctl show
+  > bridge name     bridge id               STP enabled     interfaces
+  > bra             8000.6ea21e758ff1       no              tapa
+  >                                                         vetha-peer
+  > brb             8000.420020eb92d5       no              tapb
+  >                                                         vethb-peer
+  ip link set vetha-peer up
+  ip link set vethb-peer up
+  ip link set bra up
+  ip link set brb up
+  ip netns add a
+  ip netns add b
+  ip link set vetha netns a
+  ip link set vethb netns b
+  ip netns exec a ip address add 10.0.0.3/24 dev vetha
+  ip netns exec b ip address add 10.0.0.4/24 dev vethb
+  ip netns exec a ip link set vetha up
+  ip netns exec b ip link set vethb up
+  ip netns exec a arping -I vetha 10.0.0.4
+  ARPING 10.0.0.4 from 10.0.0.3 vetha
+  ^CSent 2 probes (2 broadcast(s))
+  Received 0 response(s)
+
+Cc: Pravin B Shelar <pshelar@nicira.com>
+Cc: Jesse Gross <jesse@nicira.com>
+Cc: dev@openvswitch.org
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- drivers/net/wan/dlci.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ drivers/net/loopback.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/wan/dlci.c b/drivers/net/wan/dlci.c
-index 1f6e053..6a8a382 100644
---- a/drivers/net/wan/dlci.c
-+++ b/drivers/net/wan/dlci.c
-@@ -384,6 +384,7 @@ static int dlci_del(struct dlci_add *dlci)
- 	struct frad_local	*flp;
- 	struct net_device	*master, *slave;
- 	int			err;
-+	bool			found = false;
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index fcbf680..2694638 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -82,6 +82,12 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
+ 	 */
+ 	skb_dst_force(skb);
  
- 	rtnl_lock();
++	/* pkt_type is not always PACKET_HOST because
++	 * this skb comes from  other components.
++	 * Since eth_type_trans() sets pkt_type _except_ PACKET_HOST case,
++	 * set it explicitly.
++	 */
++	skb->pkt_type = PACKET_HOST;
+ 	skb->protocol = eth_type_trans(skb, dev);
  
-@@ -394,6 +395,17 @@ static int dlci_del(struct dlci_add *dlci)
- 		goto out;
- 	}
- 
-+	list_for_each_entry(dlp, &dlci_devs, list) {
-+		if (dlp->master == master) {
-+			found = true;
-+			break;
-+		}
-+	}
-+	if (!found) {
-+		err = -ENODEV;
-+		goto out;
-+	}
-+
- 	if (netif_running(master)) {
- 		err = -EBUSY;
- 		goto out;
+ 	/* it's OK to use per_cpu_ptr() because BHs are off */
 -- 
-1.8.0.2
+1.7.10.4
