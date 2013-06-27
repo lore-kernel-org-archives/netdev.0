@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v3 16/45] rcu: Use cpu_is_offline_nocheck() to avoid
- false-positive warnings
-Date: Fri, 28 Jun 2013 01:25:17 +0530
-Message-ID: <20130627195517.29830.64108.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v3 17/45] tick-broadcast: Use get/put_online_cpus_atomic() to
+ prevent CPU offline
+Date: Fri, 28 Jun 2013 01:25:37 +0530
+Message-ID: <20130627195536.29830.580.stgit@srivatsabhat.in.ibm.com>
 References: <20130627195136.29830.10445.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,68 +13,94 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Dipankar Sarma <dipankar@in.ibm.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
 	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
 	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
 	walken@google.com, vincent.guittot@linaro.org,
 	laijs@cn.fujitsu.com, David.Laight@aculab.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp02.au.ibm.com ([202.81.31.144]:57345 "EHLO
-	e23smtp02.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754583Ab3F0T6w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jun 2013 15:58:52 -0400
-Received: from /spool/local
-	by e23smtp02.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <srivatsa.bhat@linux.vnet.ibm.com>;
-	Fri, 28 Jun 2013 05:49:10 +1000
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20130627195136.29830.10445.stgit@srivatsabhat.in.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In RCU code, rcu_implicit_dynticks_qs() checks if a CPU is offline,
-while being protected by a spinlock. At first, it appears as if we need to
-use the get/put_online_cpus_atomic() APIs to properly synchronize with CPU
-hotplug, once we get rid of stop_machine(). However, RCU has adequate
-synchronization with CPU hotplug, making that unnecessary. But since the
-locking details are non-trivial, it is hard to teach this to the rudimentary
-hotplug locking validator.
+Once stop_machine() is gone from the CPU offline path, we won't be able
+to depend on disabling preemption to prevent CPUs from going offline
+from under us.
 
-So use the _nocheck() variants of the cpu accessor functions to prevent false-
-positive warnings from the CPU hotplug debug code. Also, add a comment
-explaining the hotplug synchronization design used in RCU, so that its easy
-to see why it is justified to use the _nocheck() variants.
+Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
+offline, while invoking from atomic context.
 
-Cc: Dipankar Sarma <dipankar@in.ibm.com>
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- kernel/rcutree.c |   12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
+ kernel/time/tick-broadcast.c |    8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/kernel/rcutree.c b/kernel/rcutree.c
-index cf3adc6..ced28a45 100644
---- a/kernel/rcutree.c
-+++ b/kernel/rcutree.c
-@@ -794,7 +794,17 @@ static int rcu_implicit_dynticks_qs(struct rcu_data *rdp)
- 	if (ULONG_CMP_GE(rdp->rsp->gp_start + 2, jiffies))
- 		return 0;  /* Grace period is not old enough. */
- 	barrier();
--	if (cpu_is_offline(rdp->cpu)) {
-+
-+	/*
-+	 * It is safe to use the _nocheck() version of cpu_is_offline() here
-+	 * (to avoid false-positive warnings from CPU hotplug debug code),
-+	 * because:
-+	 * 1. rcu_gp_init() holds off CPU hotplug operations during grace
-+	 *    period initialization.
-+	 * 2. The current grace period has not ended yet.
-+	 * So it is safe to sample the offline state without synchronization.
-+	 */
-+	if (cpu_is_offline_nocheck(rdp->cpu)) {
- 		trace_rcu_fqs(rdp->rsp->name, rdp->gpnum, rdp->cpu, "ofl");
- 		rdp->offline_fqs++;
- 		return 1;
+diff --git a/kernel/time/tick-broadcast.c b/kernel/time/tick-broadcast.c
+index 9d96a54..1e4ac45 100644
+--- a/kernel/time/tick-broadcast.c
++++ b/kernel/time/tick-broadcast.c
+@@ -227,12 +227,14 @@ static void tick_do_broadcast(struct cpumask *mask)
+  */
+ static void tick_do_periodic_broadcast(void)
+ {
++	get_online_cpus_atomic();
+ 	raw_spin_lock(&tick_broadcast_lock);
+ 
+ 	cpumask_and(tmpmask, cpu_online_mask, tick_broadcast_mask);
+ 	tick_do_broadcast(tmpmask);
+ 
+ 	raw_spin_unlock(&tick_broadcast_lock);
++	put_online_cpus_atomic();
+ }
+ 
+ /*
+@@ -335,11 +337,13 @@ out:
+  */
+ void tick_broadcast_on_off(unsigned long reason, int *oncpu)
+ {
++	get_online_cpus_atomic();
+ 	if (!cpumask_test_cpu(*oncpu, cpu_online_mask))
+ 		printk(KERN_ERR "tick-broadcast: ignoring broadcast for "
+ 		       "offline CPU #%d\n", *oncpu);
+ 	else
+ 		tick_do_broadcast_on_off(&reason);
++	put_online_cpus_atomic();
+ }
+ 
+ /*
+@@ -505,6 +509,7 @@ static void tick_handle_oneshot_broadcast(struct clock_event_device *dev)
+ 	ktime_t now, next_event;
+ 	int cpu, next_cpu = 0;
+ 
++	get_online_cpus_atomic();
+ 	raw_spin_lock(&tick_broadcast_lock);
+ again:
+ 	dev->next_event.tv64 = KTIME_MAX;
+@@ -562,6 +567,7 @@ again:
+ 			goto again;
+ 	}
+ 	raw_spin_unlock(&tick_broadcast_lock);
++	put_online_cpus_atomic();
+ }
+ 
+ /*
+@@ -756,6 +762,7 @@ void tick_broadcast_switch_to_oneshot(void)
+ 	struct clock_event_device *bc;
+ 	unsigned long flags;
+ 
++	get_online_cpus_atomic();
+ 	raw_spin_lock_irqsave(&tick_broadcast_lock, flags);
+ 
+ 	tick_broadcast_device.mode = TICKDEV_MODE_ONESHOT;
+@@ -764,6 +771,7 @@ void tick_broadcast_switch_to_oneshot(void)
+ 		tick_broadcast_setup_oneshot(bc);
+ 
+ 	raw_spin_unlock_irqrestore(&tick_broadcast_lock, flags);
++	put_online_cpus_atomic();
+ }
+ 
+ 
