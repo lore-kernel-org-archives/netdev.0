@@ -1,62 +1,77 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next v2 2/2] net: sctp: rework debugging framework
- to use pr_debug and friends
-Date: Thu, 27 Jun 2013 17:14:32 +0200
-Message-ID: <51CC56D8.4020805@redhat.com>
-References: <1372326225-19203-1-git-send-email-dborkman@redhat.com>  <1372326225-19203-3-git-send-email-dborkman@redhat.com> <1372344595.2060.15.camel@joe-AO722>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC Patch net-next 2/5] net: introduce generic inet_pton()
+Date: Thu, 27 Jun 2013 16:32:04 +0100
+Message-ID: <1372347124.2436.3.camel@bwh-desktop.uk.level5networks.com>
+References: <1372315398-19683-1-git-send-email-amwang@redhat.com>
+	 <1372315398-19683-3-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22462 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751893Ab3F0POm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Jun 2013 11:14:42 -0400
-In-Reply-To: <1372344595.2060.15.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, Daniel Borkmann <dborkman@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	"Jiri Pirko" <jiri@resnulli.us>,
+	Eric Dumazet <edumazet@google.com>,
+	<linux-kernel@vger.kernel.org>
+To: Cong Wang <amwang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1372315398-19683-3-git-send-email-amwang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/27/2013 04:49 PM, Joe Perches wrote:
-> On Thu, 2013-06-27 at 11:43 +0200, Daniel Borkmann wrote:
->>    - Changed %pIg into %pIS, thanks Joe Perches
->
-> Hi Daniel.
->
->> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> []
->> +	pr_debug("%s: association:%p addr:%pIS port:%d\n",
->> +		 __func__, asoc, &peer->ipaddr.sa,
->> +		 ntohs(peer->ipaddr.v4.sin_port));
->
-> This is why I think %pIS should have an option
-> to print port/flow, etc.
+On Thu, 2013-06-27 at 14:43 +0800, Cong Wang wrote:
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+> ---
+>  include/net/inet_addr.h |   20 ++++++++++++++++++++
+>  net/core/netpoll.c      |   24 ++----------------------
+>  2 files changed, 22 insertions(+), 22 deletions(-)
+> 
+> diff --git a/include/net/inet_addr.h b/include/net/inet_addr.h
+> index 66a16fe..1379287 100644
+> --- a/include/net/inet_addr.h
+> +++ b/include/net/inet_addr.h
+> @@ -4,6 +4,7 @@
+>  #include <linux/in.h>
+>  #include <linux/in6.h>
+>  #include <linux/socket.h>
+> +#include <linux/inet.h>
+>  #include <net/addrconf.h>
+>  
+>  union inet_addr {
+> @@ -59,4 +60,23 @@ static inline bool inet_addr_multicast(const union inet_addr *ipa)
+>  }
+>  #endif
+>  
+> +static inline int inet_pton(const char *str, union inet_addr *addr)
+> +{
+> +	const char *end;
+> +
+> +	if (!strchr(str, ':') &&
+> +	    in4_pton(str, -1, (void *)addr, -1, &end) > 0) {
+> +		if (!*end)
+> +			return 0;
+> +	}
+> +	if (in6_pton(str, -1, addr->sin6.sin6_addr.s6_addr, -1, &end) > 0) {
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +		if (!*end)
+> +			return 1;
+> +#else
+> +		return -1;
+> +#endif
+> +	}
+> +	return -1;
+> +}
+[...]
 
-Ok, agreed, that will be more clean and can be applied there.
+The return values for this are awful.  I think the return value should
+be 0 for success or -EINVAL on error.
 
-I'll work that in, and when finished send a 3rd version of the set.
+The caller can then check addr->sa.sa_family if they want to know the
+address family immediately.
 
-Thanks Joe!
+Ben.
 
-> In this case it's using v4 and you are mixing
-> unknown and known forms.  It looks untidy.
-> You should probably use peer->sa.sin_port instead.
->
->> @@ -636,12 +638,8 @@ struct sctp_transport *sctp_assoc_add_peer(struct sctp_association *asoc,
->>   	/* AF_INET and AF_INET6 share common port field. */
->>   	port = ntohs(addr->v4.sin_port);
->>
->> -	SCTP_DEBUG_PRINTK_IPADDR("sctp_assoc_add_peer:association %p addr: ",
->> -				 " port: %d state:%d\n",
->> -				 asoc,
->> -				 addr,
->> -				 port,
->> -				 peer_state);
->> +	pr_debug("%s: association:%p addr:%pIS port:%d state:%d\n", __func__,
->> +		 asoc, &addr->sa,port , peer_state);
->
-> here too, but port may be unused when !CONFIG_DEBUG
->
-> I didn't look at the rest of the patch.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
