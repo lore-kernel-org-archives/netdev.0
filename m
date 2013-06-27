@@ -1,66 +1,69 @@
-From: Chris Boot <bootc@bootc.net>
-Subject: Re: PANIC at net/xfrm/xfrm_output.c:125 (3.9.4)
-Date: Thu, 27 Jun 2013 23:07:50 +0100
-Message-ID: <51CCB7B6.10504@bootc.net>
-References: <51B03EAC.6080508@bootc.net> <20130606113840.511a72c3@vostro> <51C367DC.8050808@bootc.net> <20130626.151736.1797290996825764087.davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [RFC Patch net-next 2/5] net: introduce generic inet_pton()
+Date: Fri, 28 Jun 2013 02:30:10 +0400
+Message-ID: <51CCBCF2.5050007@cogentembedded.com>
+References: <1372315398-19683-1-git-send-email-amwang@redhat.com> <1372315398-19683-3-git-send-email-amwang@redhat.com> <51CC49C7.9010800@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: timo.teras@iki.fi, fan.du@windriver.com, sakiwit@gmail.com,
-	steffen.klassert@secunet.com, herbert@gondor.hengli.com.au,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Daniel Borkmann <dborkman@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Eric Dumazet <edumazet@google.com>,
+	linux-kernel@vger.kernel.org
+To: Cong Wang <amwang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130626.151736.1797290996825764087.davem@davemloft.net>
+In-Reply-To: <51CC49C7.9010800@cogentembedded.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 26/06/2013 23:17, David Miller wrote:
-> From: Chris Boot <bootc@bootc.net>
-> Date: Thu, 20 Jun 2013 21:36:44 +0100
-> 
->> On 06/06/2013 09:38, Timo Teras wrote:
->>> On Thu, 06 Jun 2013 08:47:56 +0100
->>> Chris Boot <bootc@bootc.net> wrote:
->>> 
->>>> On 06/06/13 02:24, Fan Du wrote:
->>>>> Hello Chris/Jean
->>>>>
->>>>> This issue might have already been fixed by this:
->>>>> https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/net/xfrm/xfrm_output.c?id=497574c72c9922cf20c12aed15313c389f722fa0
->>>>>
->>>>>
->>>>> Hope it helps.
->>>>
->>>> Hi Fan, Jean,
->>>>
->>>> Thanks, that looks like it's the patch for exactly my problem.
->>>> Unfortunately I can't test it until next week now. :-/
->>>>
->>>> Timo/Dave: are there any plans to push this into 3.10-rc and/or
->>>> stable? I seem to be able to hit the issue pretty reliably.
->>> 
->>> It is already present in 3.10-rc3 [1], and Dave has it queued for
->>> 3.9-stable [2].
->>> 
->>> - Timo
->>> 
->>> [1] http://lwn.net/Articles/551922/
->>> [2] http://patchwork.ozlabs.org/patch/245594/
->> 
->> I'm just wondering if this patch has got lost in the cracks; I reported
->> the issue in 3.9.4 and 3.9.7 is just out without any sign of it. Have I
->> missed something?
-> 
-> It got submitted to -stable last week.
+On 06/27/2013 06:18 PM, Sergei Shtylyov wrote:
 
-Dave,
+>> Signed-off-by: Cong Wang <amwang@redhat.com>
+>> ---
+>>   include/net/inet_addr.h |   20 ++++++++++++++++++++
+>>   net/core/netpoll.c      |   24 ++----------------------
+>>   2 files changed, 22 insertions(+), 22 deletions(-)
 
-Thank you, I see it's in 3.9.8 that has been just released.
+>> diff --git a/include/net/inet_addr.h b/include/net/inet_addr.h
+>> index 66a16fe..1379287 100644
+>> --- a/include/net/inet_addr.h
+>> +++ b/include/net/inet_addr.h
+[...]
+>> @@ -59,4 +60,23 @@ static inline bool inet_addr_multicast(const union
+>> inet_addr *ipa)
+>>   }
+>>   #endif
+>>
+>> +static inline int inet_pton(const char *str, union inet_addr *addr)
+>> +{
+>> +    const char *end;
+>> +
+>> +    if (!strchr(str, ':') &&
+>> +        in4_pton(str, -1, (void *)addr, -1, &end) > 0) {
+>> +        if (!*end)
+>> +            return 0;
+>> +    }
+>> +    if (in6_pton(str, -1, addr->sin6.sin6_addr.s6_addr, -1, &end) > 0) {
+>> +#if IS_ENABLED(CONFIG_IPV6)
+>> +        if (!*end)
 
-Cheers,
-Chris
+>     How about:
 
--- 
-Chris Boot
-bootc@bootc.net
+>          if (IS_ENABLED(CONFIG_IPV6) && !*end)
+
+>> +            return 1;
+>> +#else
+
+    Sorry, managed to miss #else... #if could be avoided anyway, tho 
+this could require an extra patch.
+
+>> +        return -1;
+>> +#endif
+>> +    }
+>> +    return -1;
+>> +}
+>>   #endif
+
+WBR, Sergei
