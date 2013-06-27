@@ -1,52 +1,55 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH 6/7] drivers: ssb: Kconfig: Amend SSB_EMBEDDED
- dependencies
-Date: Thu, 27 Jun 2013 13:30:10 +0200
-Message-ID: <20130627113010.GU7171@linux-mips.org>
-References: <1371477641-7989-1-git-send-email-markos.chandras@imgtec.com>
- <1371477641-7989-7-git-send-email-markos.chandras@imgtec.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mips@linux-mips.org, sibyte-users@bitmover.com,
-	netdev@vger.kernel.org, Michael Buesch <m@bues.ch>
-To: Markos Chandras <markos.chandras@imgtec.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] nlmon: fix comparison in nlmon_is_valid_mtu
+Date: Thu, 27 Jun 2013 13:44:26 +0200
+Message-ID: <1372333466-29913-1-git-send-email-dborkman@redhat.com>
+Cc: dan.carpenter@oracle.com, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([78.24.191.182]:57262 "EHLO
-	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751003Ab3F0LaX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jun 2013 07:30:23 -0400
-Received: from localhost.localdomain ([127.0.0.1]:52211 "EHLO linux-mips.org"
-        rhost-flags-OK-OK-OK-FAIL) by eddie.linux-mips.org with ESMTP
-        id S6818020Ab3F0LaVvblvy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Jun 2013 13:30:21 +0200
-Content-Disposition: inline
-In-Reply-To: <1371477641-7989-7-git-send-email-markos.chandras@imgtec.com>
+Received: from mx1.redhat.com ([209.132.183.28]:54106 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752069Ab3F0Lo3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Jun 2013 07:44:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 17, 2013 at 03:00:40PM +0100, Markos Chandras wrote:
+This patch fixes the following warning introduced in e4fc408e0e99
+("packet: nlmon: virtual netlink monitoring device for packet
+sockets") reported by Dan Carpenter:
 
-> SSB_EMBEDDED needs functions from driver_pcicore which are only
-> available if SSD_DRIVER_HOSTMODE is selected so make it
-> depend on that symbol.
-> 
-> Fixes the following linking problem:
-> 
-> drivers/ssb/embedded.c:202:
-> undefined reference to `ssb_pcicore_plat_dev_init'
-> drivers/built-in.o: In function `ssb_pcibios_map_irq':
-> drivers/ssb/embedded.c:247:
-> undefined reference to `ssb_pcicore_pcibios_map_irq'
-> 
-> Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
-> Acked-by: Steven J. Hill <Steven.Hill@imgtec.com>
-> Cc: sibyte-users@bitmover.com
-> Cc: netdev@vger.kernel.org
-> Cc: Michael Buesch <m@bues.ch>
+warning: "drivers/net/nlmon.c:31 nlmon_is_valid_mtu()
+	 warn: always true condition '(new_mtu <= ((~0 >> 1))) =>
+				      (s32min-s32max <= s32max)'"
 
-No comments received but Florian acked it over IRC so applied.
+Thus, we should simply remove the test against INT_MAX. Next to that
+we also need to explicitly cast the sizeof() case as the comparison
+is type promoted to unsigned long so negative values are then
+valid instead of invalid. While at it, this also adds a comment about
+Netlink and MTUs.
 
-And btw, why is sibyte-users on cc - we don't want to disrupt the silence
-of that list too badly ;-)
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ Thanks again Dan! Note that this only concerns net-next, not net.
 
-  Ralf
+ drivers/net/nlmon.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/nlmon.c b/drivers/net/nlmon.c
+index dc364be..0fad94d 100644
+--- a/drivers/net/nlmon.c
++++ b/drivers/net/nlmon.c
+@@ -28,7 +28,11 @@ static netdev_tx_t nlmon_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ static int nlmon_is_valid_mtu(int new_mtu)
+ {
+-	return new_mtu >= sizeof(struct nlmsghdr) && new_mtu <= INT_MAX;
++	/* Note that in netlink we do not really have an upper limit. On
++	 * default, we use NLMSG_GOODSIZE. Here at least we should make
++	 * sure that it's at least the header size.
++	 */
++	return new_mtu >= (int) sizeof(struct nlmsghdr);
+ }
+ 
+ static int nlmon_change_mtu(struct net_device *dev, int new_mtu)
+-- 
+1.7.11.7
