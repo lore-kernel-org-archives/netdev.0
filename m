@@ -1,99 +1,63 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2013-06-27
-Date: Thu, 27 Jun 2013 15:23:34 +0200
-Message-ID: <51CC3CD6.6050505@pengutronix.de>
+From: Roman Mamedov <rm@romanrm.ru>
+Subject: Re: [PATCH RESEND] ipv6: add anti-spoofing checks for 6to4 and 6rd
+Date: Thu, 27 Jun 2013 13:49:59 +0000 (UTC)
+Message-ID: <loom.20130627T154125-104@post.gmane.org>
+References: <20130123100248.GB7317@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="----enig2UADIOHJDRAJPHDBQRCTF"
-Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:45748 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752933Ab3F0NzG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Jun 2013 09:55:06 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1UsCf9-0004lE-Qy
+	for netdev@vger.kernel.org; Thu, 27 Jun 2013 15:55:03 +0200
+Received: from 5.45.183.23 ([5.45.183.23])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 27 Jun 2013 15:55:03 +0200
+Received: from rm by 5.45.183.23 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 27 Jun 2013 15:55:03 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
-------enig2UADIOHJDRAJPHDBQRCTF
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Hannes Frederic Sowa <hannes <at> stressinduktion.org> writes:
 
-Hello David,
+> 
+> This patch adds anti-spoofing checks in sit.c as specified in RFC3964
+> section 5.2 for 6to4 and RFC5969 section 12 for 6rd. I left out the
+> checks which could easily be implemented with netfilter.
+> 
+> Specifically this patch adds following logic (based loosely on the
+> pseudocode in RFC3964 section 5.2):
+> 
+> if prefix (inner_src_v6) == rd6_prefix (2002::/16 is the default)
+>         and outer_src_v4 != embedded_ipv4 (inner_src_v6)
+>                 drop
+> if prefix (inner_dst_v6) == rd6_prefix (or 2002::/16 is the default)
+>         and outer_dst_v4 != embedded_ipv4 (inner_dst_v6)
+>                 drop
+> accept
+> 
+> To accomplish the specified security checks proposed by above RFCs,
+> it is still necessary to employ uRPF filters with netfilter. These new
+> checks only kick in if the employed addresses are within the 2002::/16 or
+> another range specified by the 6rd-prefix (which defaults to 2002::/16).
 
-this is a pull-request for net-next/master. It consists of three
-patches by Fabio Estevam and me, which convert the flexcan transceiver
-switching to DT[1] and a patch by Sachin Kamat, which cleans up the
-at91_can driver a bit.
+Hello,
 
-[1] These patches touch arch/arm/mach-imx, so I collected Acked-bys
-from Shawn Guo and Sascha Hauer.
+This broke access to all 6to4 destinations from any unrelated sit tunnels.
 
-regards,
-Marc
+For example users of tunnelbroker.net IPv6 tunnel service (2001:470::/32)
+can no longer communicate with anyone using 6to4 anywhere on the internet.
 
----
+In general, any host, routing to/from which happens to traverse a sit
+tunnel (using native IPv6 ranges), can no longer successfully send
+packets to a 6to4 destination.
 
-The following changes since commit 38ae92dc215e939897f17861d658f882d0eaab=
-0f:
-
-  fec: Add support for reading RMON registers (2013-06-26 15:45:14 -0700)=
-
-
-are available in the git repository at:
-
-  git://gitorious.org/linux-can/linux-can-next.git for-davem
-
-for you to fetch changes up to 1f3e4b0cc4deb9d740261273fbbf5ea95c8434d0:
-
-  can: at91_can: Use of_match_ptr() (2013-06-27 15:15:42 +0200)
-
-----------------------------------------------------------------
-Fabio Estevam (2):
-      can: flexcan: Use a regulator to control the CAN transceiver
-      ARM: imx: flexcan: Remove platform file
-
-Marc Kleine-Budde (1):
-      ARM: imx: prepare for removal of flexcan_platform_data
-
-Sachin Kamat (1):
-      can: at91_can: Use of_match_ptr()
-
- .../devicetree/bindings/net/can/fsl-flexcan.txt    |  2 +
- arch/arm/boot/dts/imx28-evk.dts                    | 12 ++++++
- arch/arm/mach-imx/devices-imx25.h                  |  8 ++--
- arch/arm/mach-imx/devices-imx35.h                  |  8 ++--
- arch/arm/mach-imx/devices/devices-common.h         |  4 +-
- arch/arm/mach-imx/devices/platform-flexcan.c       |  5 +--
- arch/arm/mach-imx/eukrea_mbimxsd25-baseboard.c     |  2 +-
- arch/arm/mach-imx/eukrea_mbimxsd35-baseboard.c     |  2 +-
- arch/arm/mach-imx/mach-mx25_3ds.c                  |  2 +-
- arch/arm/mach-imx/mach-pcm043.c                    |  2 +-
- arch/arm/mach-mxs/mach-mxs.c                       | 50 +---------------=
-------
- drivers/net/can/at91_can.c                         |  4 +-
- drivers/net/can/flexcan.c                          | 25 +++++------
- include/linux/can/platform/flexcan.h               | 20 ---------
- 14 files changed, 44 insertions(+), 102 deletions(-)
- delete mode 100644 include/linux/can/platform/flexcan.h
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
-------enig2UADIOHJDRAJPHDBQRCTF
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlHMPNYACgkQjTAFq1RaXHPAIACeKwT9+B75whQgDmJJvXFDkN77
-bV0AnjtRxLojD4klCK8xo1U2aENlVDgB
-=ETui
------END PGP SIGNATURE-----
-
-------enig2UADIOHJDRAJPHDBQRCTF--
+Thanks
