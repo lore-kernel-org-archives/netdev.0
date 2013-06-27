@@ -1,63 +1,43 @@
 From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 15/45] rcu: Use get/put_online_cpus_atomic() to prevent CPU offline
-Date: Thu, 27 Jun 2013 09:54:41 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B72AB@saturn3.aculab.com>
-References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com> <20130625202755.16593.67819.stgit@srivatsabhat.in.ibm.com> <20130625220026.GG3828@linux.vnet.ibm.com> <51CAF624.6060004@linux.vnet.ibm.com> <AE90C24D6B3A694183C094C60CF0A2F6026B72AA@saturn3.aculab.com> <20130626143424.GN3828@linux.vnet.ibm.com> <1372258271.18733.256.camel@gandalf.local.home> <20130626152148.GA4405@mtj.dyndns.org> <51CB3159.8000509@linux.vnet.ibm.com>
+Subject: RE: [PATCH net-next 4/8] qlcnic: Add support for PEX DMA method to read memory section of adapter dump
+Date: Thu, 27 Jun 2013 09:56:17 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B72AC@saturn3.aculab.com>
+References: <1371832261-18930-1-git-send-email-jitendra.kalsaria@qlogic.com> <1371832261-18930-5-git-send-email-jitendra.kalsaria@qlogic.com> <AE90C24D6B3A694183C094C60CF0A2F6026B72A0@saturn3.aculab.com> <262CB373A6D1F14F9B81E82F74F77D5A4DAE09@avmb2.qlogic.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="Windows-1252"
 Content-Transfer-Encoding: 8BIT
-Cc: "Steven Rostedt" <rostedt@goodmis.org>,
-	<paulmck@linux.vnet.ibm.com>, <peterz@infradead.org>,
-	<fweisbec@gmail.com>, <linux-kernel@vger.kernel.org>,
-	<walken@google.com>, <mingo@kernel.org>,
-	<linux-arch@vger.kernel.org>, <vincent.guittot@linaro.org>,
-	<xiaoguangrong@linux.vnet.ibm.com>, <wangyun@linux.vnet.ibm.com>,
-	<nikunj@linux.vnet.ibm.com>, <linux-pm@vger.kernel.org>,
-	<rusty@rustcorp.com.au>, <namhyung@kernel.org>,
-	<tglx@linutronix.de>, <laijs@cn.fujitsu.com>,
-	<zhong@linux.vnet.ibm.com>, <netdev@vger.kernel.org>,
-	<oleg@redhat.com>, <sbw@mit.edu>, <akpm@linux-foundation.org>,
-	<linuxppc-dev@lists.ozlabs.org>
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
-	"Tejun Heo" <tj@kernel.org>
-Return-path: <linux-pm-owner@vger.kernel.org>
+Cc: "netdev" <netdev@vger.kernel.org>,
+	"Sony Chacko" <sony.chacko@qlogic.com>,
+	"Dept-NX Linux NIC Driver" <Dept_NX_Linux_NIC_Driver@qlogic.com>
+To: "Shahed Shaikh" <shahed.shaikh@qlogic.com>,
+	"Jitendra Kalsaria" <jitendra.kalsaria@qlogic.com>,
+	"David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:53111 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752093Ab3F0I4y convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jun 2013 04:56:54 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 16265-10 for <netdev@vger.kernel.org>;
+ Thu, 27 Jun 2013 09:56:51 +0100 (BST)
 Content-class: urn:content-classes:message
-In-Reply-To: <51CB3159.8000509@linux.vnet.ibm.com>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <262CB373A6D1F14F9B81E82F74F77D5A4DAE09@avmb2.qlogic.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> >>> It would also increase the latency of CPU-hotunplug operations.
-> >>
-> >> Is that a big deal?
+> > > +	if ((tmpl_hdr->version & 0xffffff) >= 0x20001)
+> > > +		ahw->fw_dump.use_pex_dma = true;
+> > > +	else
+> > > +		ahw->fw_dump.use_pex_dma = false;
 > >
-> > I thought that was the whole deal with this patchset - making cpu
-> > hotunplugs lighter and faster mostly for powersaving.  That said, just
-> > removing stop_machine call would be a pretty good deal and I don't
-> > know how meaningful reducing CPU hotunplug latency is.  Srivatsa?
-> >
+> > You know what's wrong with the above....
 > 
-> Keeping the hotunplug latency is important for suspend/resume, where
-> we take all non-boot CPUs in a loop. That's an interesting use-case
-> where intrusiveness doesn't matter much, but latency does. So yes,
-> making CPU hotplug faster is also one of the goals of this patchset.
+> Yes. Got it.  Masking is not done properly. It should be
+> if ((tmpl_hdr->version & 0xfffff) >= 0x20001)
 
-If you are removing all but one of the cpu, the you only need
-one rcu cycle (remove everything from the list first).
-
-I'd also guess that you can't suspend a cpu until you can sleep
-the process that is running on it - so if a process has pre-emption
-disabled you aren't going to complete suspend until the process
-sleeps (this wouldn't be true if you suspended the cpu with its
-current stack - but if suspend is removing the non-boot cpus first
-it must be doing so from the scheduler idle loop).
-
-If you are doing suspend for aggressive power saving, then all the
-processes (and processors) will already be idle. However you
-probably wouldn't want the memory accesses to determine this on
-a large NUMA system with 1024+ processors.
+Try:
+	ahw->fw_dump.use_pex_dma = (tmpl_hdr->version & 0xfffff) >= 0x20001;
 
 	David
-
-
-
