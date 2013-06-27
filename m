@@ -1,63 +1,42 @@
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: RE: [PATCH net-next 4/8] qlcnic: Add support for PEX DMA method to
- read memory section of adapter dump
-Date: Thu, 27 Jun 2013 14:29:14 +0000
-Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A4DB24F@avmb2.qlogic.org>
-References: <1371832261-18930-1-git-send-email-jitendra.kalsaria@qlogic.com>
- <1371832261-18930-5-git-send-email-jitendra.kalsaria@qlogic.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B72A0@saturn3.aculab.com>
- <262CB373A6D1F14F9B81E82F74F77D5A4DAE09@avmb2.qlogic.org>
- <AE90C24D6B3A694183C094C60CF0A2F6026B72AC@saturn3.aculab.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2 2/3] pch_gbe: convert pr_* to netdev_*
+Date: Thu, 27 Jun 2013 07:33:59 -0700
+Message-ID: <1372343639.2060.6.camel@joe-AO722>
+References: <1372324994-27793-1-git-send-email-andriy.shevchenko@linux.intel.com>
+	 <1372324994-27793-3-git-send-email-andriy.shevchenko@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	Dept-NX Linux NIC Driver
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: David Laight <David.Laight@ACULAB.COM>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Darren Hart <dvhart@linux.intel.com>
+To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db9lp0250.outbound.messaging.microsoft.com ([213.199.154.250]:59330
-	"EHLO db9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751663Ab3F0O3X convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Jun 2013 10:29:23 -0400
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B72AC@saturn3.aculab.com>
-Content-Language: en-US
+Received: from perches-mx.perches.com ([206.117.179.246]:46400 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753725Ab3F0Od7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Jun 2013 10:33:59 -0400
+In-Reply-To: <1372324994-27793-3-git-send-email-andriy.shevchenko@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2013-06-27 at 12:23 +0300, Andy Shevchenko wrote:
+> We may use nice macros to prefix our messages with proper device name.
+[]
+> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+[]
+> @@ -573,7 +581,7 @@ u16 pch_gbe_mac_ctrl_miim(struct pch_gbe_hw *hw, u32 addr, u32 dir, u32 reg,
+>  	}
+>  	spin_unlock_irqrestore(&hw->miim_lock, flags);
+>  
+> -	pr_debug("PHY %s: reg=%d, data=0x%04X\n",
+> +	netdev_dbg(adapter->netdev, "PHY %s: reg=%d, data=0x%04X\n",
+>  		 dir == PCH_GBE_MIIM_OPER_READ ? "READ" : "WRITE", reg,
+>  		 dir == PCH_GBE_MIIM_OPER_READ ? data_out : data);
 
+Hi Andy.
 
-> -----Original Message-----
-> From: David Laight [mailto:David.Laight@ACULAB.COM]
-> Sent: Thursday, June 27, 2013 1:56 AM
-> To: Shahed Shaikh; Jitendra Kalsaria; David Miller
-> Cc: netdev; Sony Chacko; Dept-NX Linux NIC Driver
-> Subject: RE: [PATCH net-next 4/8] qlcnic: Add support for PEX DMA method
-> to read memory section of adapter dump
-> 
-> > > > +	if ((tmpl_hdr->version & 0xffffff) >= 0x20001)
-> > > > +		ahw->fw_dump.use_pex_dma = true;
-> > > > +	else
-> > > > +		ahw->fw_dump.use_pex_dma = false;
-> > >
-> > > You know what's wrong with the above....
-> >
-> > Yes. Got it.  Masking is not done properly. It should be if
-> > ((tmpl_hdr->version & 0xfffff) >= 0x20001)
-> 
-> Try:
-> 	ahw->fw_dump.use_pex_dma = (tmpl_hdr->version & 0xfffff) >=
-> 0x20001;
-> 
-Ok. Thanks David.
+Please make sure to realign the additional
+arguments on subsequent lines to the open
+parenthesis.
 
--Shahed
-
-> 	David
-> 
-> 
-> 
+(there are several of these)
