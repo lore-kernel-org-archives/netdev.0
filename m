@@ -1,44 +1,66 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH net-next 2/2] ipv6: resend MLD report if a link-local
- address completes DAD
-Date: Thu, 27 Jun 2013 19:04:48 -0300
-Message-ID: <20130627220448.GB25037@obelix.rh>
-References: <20130626220701.GA26180@order.stressinduktion.org>
+From: Chris Boot <bootc@bootc.net>
+Subject: Re: PANIC at net/xfrm/xfrm_output.c:125 (3.9.4)
+Date: Thu, 27 Jun 2013 23:07:50 +0100
+Message-ID: <51CCB7B6.10504@bootc.net>
+References: <51B03EAC.6080508@bootc.net> <20130606113840.511a72c3@vostro> <51C367DC.8050808@bootc.net> <20130626.151736.1797290996825764087.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	dlstevens@us.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6882 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753249Ab3F0WEx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Jun 2013 18:04:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20130626220701.GA26180@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: timo.teras@iki.fi, fan.du@windriver.com, sakiwit@gmail.com,
+	steffen.klassert@secunet.com, herbert@gondor.hengli.com.au,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130626.151736.1797290996825764087.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 27, 2013 at 12:07:01AM +0200, Hannes Frederic Sowa wrote:
-> RFC3590/RFC3810 specifies we should resend MLD reports as soon as a
-> valid link-local address is available.
+On 26/06/2013 23:17, David Miller wrote:
+> From: Chris Boot <bootc@bootc.net>
+> Date: Thu, 20 Jun 2013 21:36:44 +0100
 > 
-> We now use the valid_ll_addr_cnt to check if it is necessary to resend
-> a new report.
+>> On 06/06/2013 09:38, Timo Teras wrote:
+>>> On Thu, 06 Jun 2013 08:47:56 +0100
+>>> Chris Boot <bootc@bootc.net> wrote:
+>>> 
+>>>> On 06/06/13 02:24, Fan Du wrote:
+>>>>> Hello Chris/Jean
+>>>>>
+>>>>> This issue might have already been fixed by this:
+>>>>> https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/net/xfrm/xfrm_output.c?id=497574c72c9922cf20c12aed15313c389f722fa0
+>>>>>
+>>>>>
+>>>>> Hope it helps.
+>>>>
+>>>> Hi Fan, Jean,
+>>>>
+>>>> Thanks, that looks like it's the patch for exactly my problem.
+>>>> Unfortunately I can't test it until next week now. :-/
+>>>>
+>>>> Timo/Dave: are there any plans to push this into 3.10-rc and/or
+>>>> stable? I seem to be able to hit the issue pretty reliably.
+>>> 
+>>> It is already present in 3.10-rc3 [1], and Dave has it queued for
+>>> 3.9-stable [2].
+>>> 
+>>> - Timo
+>>> 
+>>> [1] http://lwn.net/Articles/551922/
+>>> [2] http://patchwork.ozlabs.org/patch/245594/
+>> 
+>> I'm just wondering if this patch has got lost in the cracks; I reported
+>> the issue in 3.9.4 and 3.9.7 is just out without any sign of it. Have I
+>> missed something?
 > 
-> Changes since Flavio Leitner's version:
-> a) adapt for valid_ll_addr_cnt
-> b) resend first reports directly in the path and just arm the timer for
->    mc_qrv-1 resends.
-> 
-> Reported-by: Flavio Leitner <fleitner@redhat.com>
-> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> Cc: David Stevens <dlstevens@us.ibm.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Flavio Leitner <fbl@redhat.com>
-> ---
+> It got submitted to -stable last week.
 
-Looks good as well and fixes the issue I had.
-(my signed-off is there already)
-Thanks,
---
-fbl
+Dave,
+
+Thank you, I see it's in 3.9.8 that has been just released.
+
+Cheers,
+Chris
+
+-- 
+Chris Boot
+bootc@bootc.net
