@@ -1,98 +1,153 @@
-From: Luis Henriques <luis.henriques@canonical.com>
-Subject: [ 3.5.y.z extended stable ] Patch "sctp: fully initialize sctp_outq in sctp_outq_init" has been added to staging queue
-Date: Thu, 27 Jun 2013 13:53:19 +0100
-Message-ID: <1372337599-20855-1-git-send-email-luis.henriques@canonical.com>
-Cc: "West Steve (NSN - US/Fort Worth)" <steve.west@nsn.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, Luis Henriques <luis.henriques@canonical.com>,
-	kernel-team@lists.ubuntu.com
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:60914 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752866Ab3F0MxY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jun 2013 08:53:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Yijing Wang <wangyijing@huawei.com>
+Subject: [PATCH 2/6] net/trivial: replace numeric with standard PM state macros
+Date: Thu, 27 Jun 2013 20:53:42 +0800
+Message-ID: <1372337622-26076-1-git-send-email-wangyijing@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>, Hanjun Guo <guohanjun@huawei.com>,
+	Yijing Wang <wangyijing@huawei.com>, <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is a note to let you know that I have just added a patch titled
+Use standard PM state macros PCI_Dx instead of numeric 0/1/2..
 
-    sctp: fully initialize sctp_outq in sctp_outq_init
-
-to the linux-3.5.y-queue branch of the 3.5.y.z extended stable tree 
-which can be found at:
-
- http://kernel.ubuntu.com/git?p=ubuntu/linux.git;a=shortlog;h=refs/heads/linux-3.5.y-queue
-
-If you, or anyone else, feels it should not be added to this tree, please 
-reply to this email.
-
-For more information about the 3.5.y.z tree, see
-https://wiki.ubuntu.com/Kernel/Dev/ExtendedStable
-
-Thanks.
--Luis
-
-------
-
->From 8c4ca7424b40797da7ac9f4f7e04ea71a57e8b71 Mon Sep 17 00:00:00 2001
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Wed, 12 Jun 2013 14:26:44 -0400
-Subject: [PATCH] sctp: fully initialize sctp_outq in sctp_outq_init
-
-commit c5c7774d7eb4397891edca9ebdf750ba90977a69 upstream.
-
-In commit 2f94aabd9f6c925d77aecb3ff020f1cc12ed8f86
-(refactor sctp_outq_teardown to insure proper re-initalization)
-we modified sctp_outq_teardown to use sctp_outq_init to fully re-initalize the
-outq structure.  Steve West recently asked me why I removed the q->error = 0
-initalization from sctp_outq_teardown.  I did so because I was operating under
-the impression that sctp_outq_init would properly initalize that value for us,
-but it doesn't.  sctp_outq_init operates under the assumption that the outq
-struct is all 0's (as it is when called from sctp_association_init), but using
-it in __sctp_outq_teardown violates that assumption. We should do a memset in
-sctp_outq_init to ensure that the entire structure is in a known state there
-instead.
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-Reported-by: "West, Steve (NSN - US/Fort Worth)" <steve.west@nsn.com>
-CC: Vlad Yasevich <vyasevich@gmail.com>
-CC: netdev@vger.kernel.org
-CC: davem@davemloft.net
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-[ luis: backported to 3.5: adjusted context ]
-Signed-off-by: Luis Henriques <luis.henriques@canonical.com>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 ---
- net/sctp/outqueue.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/8390/ne2k-pci.c             |    2 +-
+ drivers/net/ethernet/emulex/benet/be_main.c      |    4 ++--
+ drivers/net/ethernet/intel/e100.c                |    4 ++--
+ drivers/net/ethernet/myricom/myri10ge/myri10ge.c |    2 +-
+ drivers/net/ethernet/realtek/8139cp.c            |    2 +-
+ drivers/net/ethernet/ti/tlan.c                   |    2 +-
+ drivers/net/ethernet/via/via-velocity.c          |    2 +-
+ drivers/net/wireless/orinoco/orinoco_pci.h       |    2 +-
+ 8 files changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index 0716290..8259db2 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -205,6 +205,8 @@ static inline int sctp_cacc_skip(struct sctp_transport *primary,
-  */
- void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
+diff --git a/drivers/net/ethernet/8390/ne2k-pci.c b/drivers/net/ethernet/8390/ne2k-pci.c
+index 587a885..9220108 100644
+--- a/drivers/net/ethernet/8390/ne2k-pci.c
++++ b/drivers/net/ethernet/8390/ne2k-pci.c
+@@ -676,7 +676,7 @@ static int ne2k_pci_resume (struct pci_dev *pdev)
+ 	struct net_device *dev = pci_get_drvdata (pdev);
+ 	int rc;
+ 
+-	pci_set_power_state(pdev, 0);
++	pci_set_power_state(pdev, PCI_D0);
+ 	pci_restore_state(pdev);
+ 
+ 	rc = pci_enable_device(pdev);
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index a0b4be5..f4994ae 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -4390,7 +4390,7 @@ static int be_resume(struct pci_dev *pdev)
+ 	if (status)
+ 		return status;
+ 
+-	pci_set_power_state(pdev, 0);
++	pci_set_power_state(pdev, PCI_D0);
+ 	pci_restore_state(pdev);
+ 
+ 	/* tell fw we're ready to fire cmds */
+@@ -4486,7 +4486,7 @@ static pci_ers_result_t be_eeh_reset(struct pci_dev *pdev)
+ 		return PCI_ERS_RESULT_DISCONNECT;
+ 
+ 	pci_set_master(pdev);
+-	pci_set_power_state(pdev, 0);
++	pci_set_power_state(pdev, PCI_D0);
+ 	pci_restore_state(pdev);
+ 
+ 	/* Check if card is ok and fw is ready */
+diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
+index d2bea3f..5115ae7 100644
+--- a/drivers/net/ethernet/intel/e100.c
++++ b/drivers/net/ethernet/intel/e100.c
+@@ -3069,7 +3069,7 @@ static int e100_resume(struct pci_dev *pdev)
+ 	pci_set_power_state(pdev, PCI_D0);
+ 	pci_restore_state(pdev);
+ 	/* ack any pending wake events, disable PME */
+-	pci_enable_wake(pdev, 0, 0);
++	pci_enable_wake(pdev, PCI_D0, 0);
+ 
+ 	/* disable reverse auto-negotiation */
+ 	if (nic->phy == phy_82552_v) {
+@@ -3160,7 +3160,7 @@ static void e100_io_resume(struct pci_dev *pdev)
+ 	struct nic *nic = netdev_priv(netdev);
+ 
+ 	/* ack any pending wake events, disable PME */
+-	pci_enable_wake(pdev, 0, 0);
++	pci_enable_wake(pdev, PCI_D0, 0);
+ 
+ 	netif_device_attach(netdev);
+ 	if (netif_running(netdev)) {
+diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+index 7be9788..967bae8 100644
+--- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
++++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+@@ -3299,7 +3299,7 @@ static int myri10ge_resume(struct pci_dev *pdev)
+ 	if (mgp == NULL)
+ 		return -EINVAL;
+ 	netdev = mgp->dev;
+-	pci_set_power_state(pdev, 0);	/* zeros conf space as a side effect */
++	pci_set_power_state(pdev, PCI_D0);	/* zeros conf space as a side effect */
+ 	msleep(5);		/* give card time to respond */
+ 	pci_read_config_word(mgp->pdev, PCI_VENDOR_ID, &vendor);
+ 	if (vendor == 0xffff) {
+diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+index 0352345..e6acb9f 100644
+--- a/drivers/net/ethernet/realtek/8139cp.c
++++ b/drivers/net/ethernet/realtek/8139cp.c
+@@ -1817,7 +1817,7 @@ static int cp_set_eeprom(struct net_device *dev,
+ /* Put the board into D3cold state and wait for WakeUp signal */
+ static void cp_set_d3_state (struct cp_private *cp)
  {
-+	memset(q, 0, sizeof(struct sctp_outq));
-+
- 	q->asoc = asoc;
- 	INIT_LIST_HEAD(&q->out_chunk_list);
- 	INIT_LIST_HEAD(&q->control_chunk_list);
-@@ -212,13 +214,7 @@ void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
- 	INIT_LIST_HEAD(&q->sacked);
- 	INIT_LIST_HEAD(&q->abandoned);
-
--	q->fast_rtx = 0;
--	q->outstanding_bytes = 0;
- 	q->empty = 1;
--	q->cork  = 0;
--
--	q->malloced = 0;
--	q->out_qlen = 0;
+-	pci_enable_wake (cp->pdev, 0, 1); /* Enable PME# generation */
++	pci_enable_wake(cp->pdev, PCI_D0, 1); /* Enable PME# generation */
+ 	pci_set_power_state (cp->pdev, PCI_D3hot);
  }
-
- /* Free the outqueue structure and any related pending chunks.
---
-1.8.1.2
+ 
+diff --git a/drivers/net/ethernet/ti/tlan.c b/drivers/net/ethernet/ti/tlan.c
+index 60c400f..c80b1d5 100644
+--- a/drivers/net/ethernet/ti/tlan.c
++++ b/drivers/net/ethernet/ti/tlan.c
+@@ -372,7 +372,7 @@ static int tlan_resume(struct pci_dev *pdev)
+ 
+ 	pci_set_power_state(pdev, PCI_D0);
+ 	pci_restore_state(pdev);
+-	pci_enable_wake(pdev, 0, 0);
++	pci_enable_wake(pdev, PCI_D0, 0);
+ 	netif_device_attach(dev);
+ 
+ 	if (netif_running(dev))
+diff --git a/drivers/net/ethernet/via/via-velocity.c b/drivers/net/ethernet/via/via-velocity.c
+index fb62489..f5d7c3f 100644
+--- a/drivers/net/ethernet/via/via-velocity.c
++++ b/drivers/net/ethernet/via/via-velocity.c
+@@ -3082,7 +3082,7 @@ static int velocity_resume(struct pci_dev *pdev)
+ 		return 0;
+ 
+ 	pci_set_power_state(pdev, PCI_D0);
+-	pci_enable_wake(pdev, 0, 0);
++	pci_enable_wake(pdev, PCI_D0, 0);
+ 	pci_restore_state(pdev);
+ 
+ 	mac_wol_reset(vptr->mac_regs);
+diff --git a/drivers/net/wireless/orinoco/orinoco_pci.h b/drivers/net/wireless/orinoco/orinoco_pci.h
+index ea7231a..43f5b9f 100644
+--- a/drivers/net/wireless/orinoco/orinoco_pci.h
++++ b/drivers/net/wireless/orinoco/orinoco_pci.h
+@@ -38,7 +38,7 @@ static int orinoco_pci_resume(struct pci_dev *pdev)
+ 	struct net_device *dev = priv->ndev;
+ 	int err;
+ 
+-	pci_set_power_state(pdev, 0);
++	pci_set_power_state(pdev, PCI_D0);
+ 	err = pci_enable_device(pdev);
+ 	if (err) {
+ 		printk(KERN_ERR "%s: pci_enable_device failed on resume\n",
+-- 
+1.7.1
