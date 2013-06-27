@@ -1,7 +1,7 @@
 From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: [PATCH v2 1/3] pch_gbe: remove inline keyword for exported functions
-Date: Thu, 27 Jun 2013 12:23:12 +0300
-Message-ID: <1372324994-27793-2-git-send-email-andriy.shevchenko@linux.intel.com>
+Subject: [PATCH v2 3/3] pch_gbe: use managed functions pcim_* and devm_*
+Date: Thu, 27 Jun 2013 12:23:14 +0300
+Message-ID: <1372324994-27793-4-git-send-email-andriy.shevchenko@linux.intel.com>
 References: <1372324994-27793-1-git-send-email-andriy.shevchenko@linux.intel.com>
 Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 To: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
@@ -10,155 +10,145 @@ To: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:56377 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752176Ab3F0JXX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Jun 2013 05:23:23 -0400
+	id S1751353Ab3F0JXY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Jun 2013 05:23:24 -0400
 In-Reply-To: <1372324994-27793-1-git-send-email-andriy.shevchenko@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no much sense to mark functions inline that are going to be used in
-the other compile modules.
+This makes the error handling much more simpler than open-coding everything and
+in addition makes the probe function smaller an tidier.
 
 Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 ---
- drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c | 21 +++++++++++----------
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c    |  2 +-
- drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c |  3 +--
- 3 files changed, 13 insertions(+), 13 deletions(-)
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 50 +++++++---------------
+ 1 file changed, 15 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c
-index 5ae03e8..82e72b2 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c
-@@ -19,6 +19,7 @@
-  */
- #include "pch_gbe.h"
- #include "pch_gbe_phy.h"
-+#include "pch_gbe_api.h"
- 
- /* bus type values */
- #define pch_gbe_bus_type_unknown	0
-@@ -112,7 +113,7 @@ static void pch_gbe_plat_init_function_pointers(struct pch_gbe_hw *hw)
-  *	0:	Successfully
-  *	ENOSYS:	Function is not registered
-  */
--inline s32 pch_gbe_hal_setup_init_funcs(struct pch_gbe_hw *hw)
-+s32 pch_gbe_hal_setup_init_funcs(struct pch_gbe_hw *hw)
- {
- 	if (!hw->reg) {
- 		pr_err("ERROR: Registers not mapped\n");
-@@ -126,7 +127,7 @@ inline s32 pch_gbe_hal_setup_init_funcs(struct pch_gbe_hw *hw)
-  * pch_gbe_hal_get_bus_info - Obtain bus information for adapter
-  * @hw:	Pointer to the HW structure
-  */
--inline void pch_gbe_hal_get_bus_info(struct pch_gbe_hw *hw)
-+void pch_gbe_hal_get_bus_info(struct pch_gbe_hw *hw)
- {
- 	if (!hw->func->get_bus_info)
- 		pr_err("ERROR: configuration\n");
-@@ -141,7 +142,7 @@ inline void pch_gbe_hal_get_bus_info(struct pch_gbe_hw *hw)
-  *	0:	Successfully
-  *	ENOSYS:	Function is not registered
-  */
--inline s32 pch_gbe_hal_init_hw(struct pch_gbe_hw *hw)
-+s32 pch_gbe_hal_init_hw(struct pch_gbe_hw *hw)
- {
- 	if (!hw->func->init_hw) {
- 		pr_err("ERROR: configuration\n");
-@@ -159,7 +160,7 @@ inline s32 pch_gbe_hal_init_hw(struct pch_gbe_hw *hw)
-  *	0:	Successfully
-  *	Negative value:	Failed
-  */
--inline s32 pch_gbe_hal_read_phy_reg(struct pch_gbe_hw *hw, u32 offset,
-+s32 pch_gbe_hal_read_phy_reg(struct pch_gbe_hw *hw, u32 offset,
- 					u16 *data)
- {
- 	if (!hw->func->read_phy_reg)
-@@ -176,7 +177,7 @@ inline s32 pch_gbe_hal_read_phy_reg(struct pch_gbe_hw *hw, u32 offset,
-  *	0:	Successfully
-  *	Negative value:	Failed
-  */
--inline s32 pch_gbe_hal_write_phy_reg(struct pch_gbe_hw *hw, u32 offset,
-+s32 pch_gbe_hal_write_phy_reg(struct pch_gbe_hw *hw, u32 offset,
- 					u16 data)
- {
- 	if (!hw->func->write_phy_reg)
-@@ -188,7 +189,7 @@ inline s32 pch_gbe_hal_write_phy_reg(struct pch_gbe_hw *hw, u32 offset,
-  * pch_gbe_hal_phy_hw_reset - Hard PHY reset
-  * @hw:	    Pointer to the HW structure
-  */
--inline void pch_gbe_hal_phy_hw_reset(struct pch_gbe_hw *hw)
-+void pch_gbe_hal_phy_hw_reset(struct pch_gbe_hw *hw)
- {
- 	if (!hw->func->reset_phy)
- 		pr_err("ERROR: configuration\n");
-@@ -200,7 +201,7 @@ inline void pch_gbe_hal_phy_hw_reset(struct pch_gbe_hw *hw)
-  * pch_gbe_hal_phy_sw_reset - Soft PHY reset
-  * @hw:	    Pointer to the HW structure
-  */
--inline void pch_gbe_hal_phy_sw_reset(struct pch_gbe_hw *hw)
-+void pch_gbe_hal_phy_sw_reset(struct pch_gbe_hw *hw)
- {
- 	if (!hw->func->sw_reset_phy)
- 		pr_err("ERROR: configuration\n");
-@@ -215,7 +216,7 @@ inline void pch_gbe_hal_phy_sw_reset(struct pch_gbe_hw *hw)
-  *	0:	Successfully
-  *	ENOSYS:	Function is not registered
-  */
--inline s32 pch_gbe_hal_read_mac_addr(struct pch_gbe_hw *hw)
-+s32 pch_gbe_hal_read_mac_addr(struct pch_gbe_hw *hw)
- {
- 	if (!hw->func->read_mac_addr) {
- 		pr_err("ERROR: configuration\n");
-@@ -228,7 +229,7 @@ inline s32 pch_gbe_hal_read_mac_addr(struct pch_gbe_hw *hw)
-  * pch_gbe_hal_power_up_phy - Power up PHY
-  * @hw:	Pointer to the HW structure
-  */
--inline void pch_gbe_hal_power_up_phy(struct pch_gbe_hw *hw)
-+void pch_gbe_hal_power_up_phy(struct pch_gbe_hw *hw)
- {
- 	if (hw->func->power_up_phy)
- 		hw->func->power_up_phy(hw);
-@@ -238,7 +239,7 @@ inline void pch_gbe_hal_power_up_phy(struct pch_gbe_hw *hw)
-  * pch_gbe_hal_power_down_phy - Power down PHY
-  * @hw:	Pointer to the HW structure
-  */
--inline void pch_gbe_hal_power_down_phy(struct pch_gbe_hw *hw)
-+void pch_gbe_hal_power_down_phy(struct pch_gbe_hw *hw)
- {
- 	if (hw->func->power_down_phy)
- 		hw->func->power_down_phy(hw);
 diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-index 0c1c65a..16d5ffa 100644
+index c2a6dc4..1f13556 100644
 --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
 +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-@@ -287,7 +287,7 @@ static int hwtstamp_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
- 	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
+@@ -634,15 +634,15 @@ static void pch_gbe_mac_set_pause_packet(struct pch_gbe_hw *hw)
+  */
+ static int pch_gbe_alloc_queues(struct pch_gbe_adapter *adapter)
+ {
+-	adapter->tx_ring = kzalloc(sizeof(*adapter->tx_ring), GFP_KERNEL);
++	adapter->tx_ring = devm_kzalloc(&adapter->pdev->dev,
++					sizeof(*adapter->tx_ring), GFP_KERNEL);
+ 	if (!adapter->tx_ring)
+ 		return -ENOMEM;
+ 
+-	adapter->rx_ring = kzalloc(sizeof(*adapter->rx_ring), GFP_KERNEL);
+-	if (!adapter->rx_ring) {
+-		kfree(adapter->tx_ring);
++	adapter->rx_ring = devm_kzalloc(&adapter->pdev->dev,
++					sizeof(*adapter->rx_ring), GFP_KERNEL);
++	if (!adapter->rx_ring)
+ 		return -ENOMEM;
+-	}
+ 	return 0;
  }
  
--inline void pch_gbe_mac_load_mac_addr(struct pch_gbe_hw *hw)
-+static inline void pch_gbe_mac_load_mac_addr(struct pch_gbe_hw *hw)
- {
- 	iowrite32(0x01, &hw->reg->MAC_ADDR_LOAD);
- }
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c
-index 28bb960..b97c657 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c
-@@ -235,7 +235,7 @@ void pch_gbe_phy_power_down(struct pch_gbe_hw *hw)
-  * pch_gbe_phy_set_rgmii - RGMII interface setting
-  * @hw:	            Pointer to the HW structure
-  */
--inline void pch_gbe_phy_set_rgmii(struct pch_gbe_hw *hw)
-+void pch_gbe_phy_set_rgmii(struct pch_gbe_hw *hw)
- {
- 	pch_gbe_phy_sw_reset(hw);
- }
-@@ -270,5 +270,4 @@ void pch_gbe_phy_init_setting(struct pch_gbe_hw *hw)
- 	pch_gbe_phy_read_reg_miic(hw, PHY_PHYSP_CONTROL, &mii_reg);
- 	mii_reg |= PHYSP_CTRL_ASSERT_CRS_TX;
- 	pch_gbe_phy_write_reg_miic(hw, PHY_PHYSP_CONTROL, mii_reg);
+@@ -2584,13 +2584,7 @@ static void pch_gbe_remove(struct pci_dev *pdev)
+ 
+ 	pch_gbe_hal_phy_hw_reset(&adapter->hw);
+ 
+-	kfree(adapter->tx_ring);
+-	kfree(adapter->rx_ring);
 -
+-	iounmap(adapter->hw.reg);
+-	pci_release_regions(pdev);
+ 	free_netdev(netdev);
+-	pci_disable_device(pdev);
  }
+ 
+ static int pch_gbe_probe(struct pci_dev *pdev,
+@@ -2600,7 +2594,7 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 	struct pch_gbe_adapter *adapter;
+ 	int ret;
+ 
+-	ret = pci_enable_device(pdev);
++	ret = pcim_enable_device(pdev);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -2613,24 +2607,22 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 			if (ret) {
+ 				dev_err(&pdev->dev, "ERR: No usable DMA "
+ 					"configuration, aborting\n");
+-				goto err_disable_device;
++				return ret;
+ 			}
+ 		}
+ 	}
+ 
+-	ret = pci_request_regions(pdev, KBUILD_MODNAME);
++	ret = pcim_iomap_regions(pdev, 1 << PCH_GBE_PCI_BAR, pci_name(pdev));
+ 	if (ret) {
+ 		dev_err(&pdev->dev,
+ 			"ERR: Can't reserve PCI I/O and memory resources\n");
+-		goto err_disable_device;
++		return ret;
+ 	}
+ 	pci_set_master(pdev);
+ 
+ 	netdev = alloc_etherdev((int)sizeof(struct pch_gbe_adapter));
+-	if (!netdev) {
+-		ret = -ENOMEM;
+-		goto err_release_pci;
+-	}
++	if (!netdev)
++		return -ENOMEM;
+ 	SET_NETDEV_DEV(netdev, &pdev->dev);
+ 
+ 	pci_set_drvdata(pdev, netdev);
+@@ -2638,18 +2630,14 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 	adapter->netdev = netdev;
+ 	adapter->pdev = pdev;
+ 	adapter->hw.back = adapter;
+-	adapter->hw.reg = pci_iomap(pdev, PCH_GBE_PCI_BAR, 0);
+-	if (!adapter->hw.reg) {
+-		ret = -EIO;
+-		dev_err(&pdev->dev, "Can't ioremap\n");
+-		goto err_free_netdev;
+-	}
++	adapter->hw.reg = pcim_iomap_table(pdev)[PCH_GBE_PCI_BAR];
+ 
+ 	adapter->ptp_pdev = pci_get_bus_and_slot(adapter->pdev->bus->number,
+ 					       PCI_DEVFN(12, 4));
+ 	if (ptp_filter_init(ptp_filter, ARRAY_SIZE(ptp_filter))) {
+ 		dev_err(&pdev->dev, "Bad ptp filter\n");
+-		return -EINVAL;
++		ret = -EINVAL;
++		goto err_free_netdev;
+ 	}
+ 
+ 	netdev->netdev_ops = &pch_gbe_netdev_ops;
+@@ -2667,7 +2655,7 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 	/* setup the private structure */
+ 	ret = pch_gbe_sw_init(adapter);
+ 	if (ret)
+-		goto err_iounmap;
++		goto err_free_netdev;
+ 
+ 	/* Initialize PHY */
+ 	ret = pch_gbe_init_phy(adapter);
+@@ -2723,16 +2711,8 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 
+ err_free_adapter:
+ 	pch_gbe_hal_phy_hw_reset(&adapter->hw);
+-	kfree(adapter->tx_ring);
+-	kfree(adapter->rx_ring);
+-err_iounmap:
+-	iounmap(adapter->hw.reg);
+ err_free_netdev:
+ 	free_netdev(netdev);
+-err_release_pci:
+-	pci_release_regions(pdev);
+-err_disable_device:
+-	pci_disable_device(pdev);
+ 	return ret;
+ }
+ 
 -- 
 1.8.3.1
