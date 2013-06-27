@@ -1,63 +1,81 @@
-From: Roman Mamedov <rm@romanrm.ru>
-Subject: Re: [PATCH RESEND] ipv6: add anti-spoofing checks for 6to4 and 6rd
-Date: Thu, 27 Jun 2013 13:49:59 +0000 (UTC)
-Message-ID: <loom.20130627T154125-104@post.gmane.org>
-References: <20130123100248.GB7317@order.stressinduktion.org>
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: Re: [PATCH net-next v1 1/1] net: fec: Add VLAN receive HW support.
+Date: Thu, 27 Jun 2013 15:03:14 +0100
+Message-ID: <51CC4622.9080702@mentor.com>
+References: <Jim Baxter <jim_baxter@mentor.com>  <1372204524-27798-1-git-send-email-jim_baxter@mentor.com>  <9848F2DB572E5649BA045B288BE08FBE014FE4E1@039-SN2MPN1-023.039d.mgd.msft.net>  <51CABDD0.7050606@mentor.com>  <9848F2DB572E5649BA045B288BE08FBE01501A58@039-SN2MPN1-023.039d.mgd.msft.net>  <51CAD44E.6030308@mentor.com> <1372326283.4134.15.camel@weser.hi.pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Duan Fugang-B38611 <B38611@freescale.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Li Frank-B20596 <B20596@freescale.com>,
+	Estevam Fabio-R49496 <r49496@freescale.com>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Lucas Stach <l.stach@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:45748 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752933Ab3F0NzG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Jun 2013 09:55:06 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UsCf9-0004lE-Qy
-	for netdev@vger.kernel.org; Thu, 27 Jun 2013 15:55:03 +0200
-Received: from 5.45.183.23 ([5.45.183.23])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 27 Jun 2013 15:55:03 +0200
-Received: from rm by 5.45.183.23 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 27 Jun 2013 15:55:03 +0200
+Received: from relay1.mentorg.com ([192.94.38.131]:34306 "EHLO
+	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751541Ab3F0ODS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jun 2013 10:03:18 -0400
+In-Reply-To: <1372326283.4134.15.camel@weser.hi.pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa <hannes <at> stressinduktion.org> writes:
-
+On 27/06/13 10:44, Lucas Stach wrote:
+> Am Mittwoch, den 26.06.2013, 12:45 +0100 schrieb Jim Baxter:
+>> On 26/06/13 12:18, Duan Fugang-B38611 wrote:
+>>> On 06/26/13 18:09, Jim Baxter wrote:
+>>>
+>>>>> In addition,
+>>>>> 	1.	enet IP support hw VLAN detect such as imx28-fec, imx6q-fec and mvf600-fec, so you can add the "BD_ENET_RX_VLAN " to those platform driver_data.
+>>>> I have only tested it on the i.MX6, if someone wants to check it on the
+>>>> imx28 later they can add it to that option.
+>>>
+>>>>> 	2.	Enable the VLAN tag extraction with "NETIF_F_HW_VLAN_CTAG_RX" feature in .ndo_fix_features, which is configured by user.
+>>>> What do you mean by this, I am only enabling the VLAN code if (ndev->features & NETIF_F_HW_VLAN_CTAG_RX) is set. I am pretty sure this is set by
+>>>
+>>> You can enable the feature like below, which is reasonable.
+>>> .ndo_fix_features   = fec_enet_fix_features
+>>>
+>>> static netdev_features_t fec_enet_fix_features (struct net_device *dev, 
+>>>         netdev_features_t features)
+>>> {
+>>>         struct fec_enet_private *fep = netdev_priv(dev);
+>>> 	  const struct platform_device_id *id_entry =
+>>> 					platform_get_device_id(fep->pdev);
+>>>
+>>> 	  if (id_entry->driver_data & FEC_QUIRK_HAS_VLAN)
+>>>         	features |= NETIF_F_HW_VLAN_CTAG_RX;
+>>>
+>>> 	  return features;
+>>> }
+>>>
+>>>
+>>> Thank you,
+>>> Andy
+>>>
+>>>
+>>
+>> I currently set the features in fec_enet_init() along with setting
+>> hw_features, is fec_enet_fix_features() a more correct design for driver
+>> implementation point?
+>>
+> I agree that VLAN tag extraction should not be enabled by default, but
+> at the users request. But according to the documentation there is no
+> need to implement the fix_features callback for this to work.
 > 
-> This patch adds anti-spoofing checks in sit.c as specified in RFC3964
-> section 5.2 for 6to4 and RFC5969 section 12 for 6rd. I left out the
-> checks which could easily be implemented with netfilter.
+> Just only set the hw_features on init, the networking core should take
+> care of never trying to enable a feature not found in there.
 > 
-> Specifically this patch adds following logic (based loosely on the
-> pseudocode in RFC3964 section 5.2):
+> Regards,
+> Lucas
 > 
-> if prefix (inner_src_v6) == rd6_prefix (2002::/16 is the default)
->         and outer_src_v4 != embedded_ipv4 (inner_src_v6)
->                 drop
-> if prefix (inner_dst_v6) == rd6_prefix (or 2002::/16 is the default)
->         and outer_dst_v4 != embedded_ipv4 (inner_dst_v6)
->                 drop
-> accept
-> 
-> To accomplish the specified security checks proposed by above RFCs,
-> it is still necessary to employ uRPF filters with netfilter. These new
-> checks only kick in if the employed addresses are within the 2002::/16 or
-> another range specified by the 6rd-prefix (which defaults to 2002::/16).
+Hi Lucas,
 
-Hello,
+Yes that is how the patch currently operates, the user can still choose
+whether the feature is enabled.
 
-This broke access to all 6to4 destinations from any unrelated sit tunnels.
-
-For example users of tunnelbroker.net IPv6 tunnel service (2001:470::/32)
-can no longer communicate with anyone using 6to4 anywhere on the internet.
-
-In general, any host, routing to/from which happens to traverse a sit
-tunnel (using native IPv6 ranges), can no longer successfully send
-packets to a 6to4 destination.
-
-Thanks
+Thank you,
+Jim
