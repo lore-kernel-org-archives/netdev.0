@@ -1,73 +1,62 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [RFC Patch net-next 2/5] net: introduce generic inet_pton()
-Date: Thu, 27 Jun 2013 18:18:47 +0400
-Message-ID: <51CC49C7.9010800@cogentembedded.com>
-References: <1372315398-19683-1-git-send-email-amwang@redhat.com> <1372315398-19683-3-git-send-email-amwang@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RESEND] ipv6: add anti-spoofing checks for 6to4 and 6rd
+Date: Thu, 27 Jun 2013 16:19:10 +0200
+Message-ID: <20130627141910.GC18553@order.stressinduktion.org>
+References: <20130123100248.GB7317@order.stressinduktion.org> <loom.20130627T154125-104@post.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Daniel Borkmann <dborkman@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Eric Dumazet <edumazet@google.com>,
-	linux-kernel@vger.kernel.org
-To: Cong Wang <amwang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372315398-19683-3-git-send-email-amwang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Roman Mamedov <rm@romanrm.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:41526 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752067Ab3F0OTM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jun 2013 10:19:12 -0400
+Content-Disposition: inline
+In-Reply-To: <loom.20130627T154125-104@post.gmane.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Thu, Jun 27, 2013 at 01:49:59PM +0000, Roman Mamedov wrote:
+> Hannes Frederic Sowa <hannes <at> stressinduktion.org> writes:
+> 
+> > 
+> > This patch adds anti-spoofing checks in sit.c as specified in RFC3964
+> > section 5.2 for 6to4 and RFC5969 section 12 for 6rd. I left out the
+> > checks which could easily be implemented with netfilter.
+> > 
+> > Specifically this patch adds following logic (based loosely on the
+> > pseudocode in RFC3964 section 5.2):
+> > 
+> > if prefix (inner_src_v6) == rd6_prefix (2002::/16 is the default)
+> >         and outer_src_v4 != embedded_ipv4 (inner_src_v6)
+> >                 drop
+> > if prefix (inner_dst_v6) == rd6_prefix (or 2002::/16 is the default)
+> >         and outer_dst_v4 != embedded_ipv4 (inner_dst_v6)
+> >                 drop
+> > accept
+> > 
+> > To accomplish the specified security checks proposed by above RFCs,
+> > it is still necessary to employ uRPF filters with netfilter. These new
+> > checks only kick in if the employed addresses are within the 2002::/16 or
+> > another range specified by the 6rd-prefix (which defaults to 2002::/16).
+> 
+> This broke access to all 6to4 destinations from any unrelated sit tunnels.
+> 
+> For example users of tunnelbroker.net IPv6 tunnel service (2001:470::/32)
+> can no longer communicate with anyone using 6to4 anywhere on the internet.
+> 
+> In general, any host, routing to/from which happens to traverse a sit
+> tunnel (using native IPv6 ranges), can no longer successfully send
+> packets to a 6to4 destination.
 
-On 27-06-2013 10:43, Cong Wang wrote:
+Hmpf. :/
 
-> Signed-off-by: Cong Wang <amwang@redhat.com>
-> ---
->   include/net/inet_addr.h |   20 ++++++++++++++++++++
->   net/core/netpoll.c      |   24 ++----------------------
->   2 files changed, 22 insertions(+), 22 deletions(-)
+Indeed, I will revisit the patch. I had several test-cases with 6rd and 6to4
+but tested static tunnel configs only once.
 
-> diff --git a/include/net/inet_addr.h b/include/net/inet_addr.h
-> index 66a16fe..1379287 100644
-> --- a/include/net/inet_addr.h
-> +++ b/include/net/inet_addr.h
-> @@ -4,6 +4,7 @@
->   #include <linux/in.h>
->   #include <linux/in6.h>
->   #include <linux/socket.h>
-> +#include <linux/inet.h>
->   #include <net/addrconf.h>
->
->   union inet_addr {
-> @@ -59,4 +60,23 @@ static inline bool inet_addr_multicast(const union inet_addr *ipa)
->   }
->   #endif
->
-> +static inline int inet_pton(const char *str, union inet_addr *addr)
-> +{
-> +	const char *end;
-> +
-> +	if (!strchr(str, ':') &&
-> +	    in4_pton(str, -1, (void *)addr, -1, &end) > 0) {
-> +		if (!*end)
-> +			return 0;
-> +	}
-> +	if (in6_pton(str, -1, addr->sin6.sin6_addr.s6_addr, -1, &end) > 0) {
-> +#if IS_ENABLED(CONFIG_IPV6)
-> +		if (!*end)
+I'll try to provide a fix as soon as I am at home again.
 
-    How about:
+Sorry and thanks for the report,
 
-		if (IS_ENABLED(CONFIG_IPV6) && !*end)
-
-> +			return 1;
-> +#else
-> +		return -1;
-> +#endif
-> +	}
-> +	return -1;
-> +}
->   #endif
-
-WBR, Sergei
+  Hannes
