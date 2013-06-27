@@ -1,38 +1,38 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Subject: [PATCH 6/6] ssb/trivial: replace numeric with standard PM state macros
-Date: Thu, 27 Jun 2013 21:00:11 +0800
-Message-ID: <1372338011-29248-1-git-send-email-wangyijing@huawei.com>
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: Re: [PATCH] net: fec: reset rx mode when do suspend/resume or link
+ status change
+Date: Thu, 27 Jun 2013 21:15:05 +0800
+Message-ID: <20130627131503.GC2695@S2101-09.ap.freescale.net>
+References: <1372309759-5067-1-git-send-email-B38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Hanjun Guo <guohanjun@huawei.com>,
-	Yijing Wang <wangyijing@huawei.com>
-To: Michael Buesch <m@bues.ch>, Jiri Kosina <trivial@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <b20596@freescale.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <bhutchings@solarflare.com>,
+	<R49496@freescale.com>, <stephen@networkplumber.org>
+To: Fugang Duan <B38611@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db9lp0249.outbound.messaging.microsoft.com ([213.199.154.249]:57368
+	"EHLO db9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751819Ab3F0NPQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jun 2013 09:15:16 -0400
+Content-Disposition: inline
+In-Reply-To: <1372309759-5067-1-git-send-email-B38611@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use standard PM state macros PCI_Dx instead of numeric 0/1/2..
+On Thu, Jun 27, 2013 at 01:09:19PM +0800, Fugang Duan wrote:
+> When do suspend/resume, or plug/unplug network cable, or net watchdog
+> timeout process, fec_restart reinit the enet group hash table to zero.
+> 
+> It is not reasonable for this, so re-config the enet group hash table
+> when these actions happen.
+> 
+> Signed-off-by: Fugang Duan  <B38611@freescale.com>
+> ---
+>  drivers/net/ethernet/freescale/fec_main.c |  153 ++++++++++++++---------------
+>  1 files changed, 76 insertions(+), 77 deletions(-)
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
----
- drivers/ssb/pcihost_wrapper.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+A forward declaration of set_multicast_list() can simply save these
+dramatic diff stat?
 
-diff --git a/drivers/ssb/pcihost_wrapper.c b/drivers/ssb/pcihost_wrapper.c
-index 32ed1fa..69161bb 100644
---- a/drivers/ssb/pcihost_wrapper.c
-+++ b/drivers/ssb/pcihost_wrapper.c
-@@ -38,7 +38,7 @@ static int ssb_pcihost_resume(struct pci_dev *dev)
- 	struct ssb_bus *ssb = pci_get_drvdata(dev);
- 	int err;
- 
--	pci_set_power_state(dev, 0);
-+	pci_set_power_state(dev, PCI_D0);
- 	err = pci_enable_device(dev);
- 	if (err)
- 		return err;
--- 
-1.7.1
+Shawn
