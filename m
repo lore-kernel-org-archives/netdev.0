@@ -1,47 +1,51 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [RFC Patch net-next 1/5] net: introduce generic union inet_addr
-Date: Thu, 27 Jun 2013 10:14:30 +0200
-Message-ID: <51CBF466.4050705@redhat.com>
-References: <1372315398-19683-1-git-send-email-amwang@redhat.com>  <1372315398-19683-2-git-send-email-amwang@redhat.com> <1372318969.24799.70.camel@smile>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [PATCH] drivers/ptp/Kconfig: add "depends on HAS_IOMEM" for 'PTP_1588_CLOCK_PCH'
+Date: Thu, 27 Jun 2013 16:21:19 +0800
+Message-ID: <51CBF5FF.7090509@asianux.com>
+References: <51CB8CB7.6010006@asianux.com> <CAMuHMdVY07PmR-qY-cfgd6X+zHM30oAFMd6oMRZ1NOvXcDS8YQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, Vlad Yasevich <vyasevic@redhat.com>
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372318969.24799.70.camel@smile>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Richard Weinberger <richard@nod.at>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from intranet.asianux.com ([58.214.24.6]:4203 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752241Ab3F0IWM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jun 2013 04:22:12 -0400
+In-Reply-To: <CAMuHMdVY07PmR-qY-cfgd6X+zHM30oAFMd6oMRZ1NOvXcDS8YQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/27/2013 09:42 AM, Andy Shevchenko wrote:
-> On Thu, 2013-06-27 at 14:43 +0800, Cong Wang wrote:
->> Cc: Daniel Borkmann <dborkman@redhat.com>
->> Signed-off-by: Cong Wang <amwang@redhat.com>
->
-> I was about to answer for the Daniel's patch about %pig.
->
-> Daniel, could you resend your patch series to the LKML, since it touches
-> lib/vsprintf.c.
+On 06/27/2013 02:48 PM, Geert Uytterhoeven wrote:
+> On Thu, Jun 27, 2013 at 2:52 AM, Chen Gang <gang.chen@asianux.com> wr=
+ote:
+>> > The related driver need depend on HAS_IOMEM, or may be built under=
+ UML
+>> > architecture.
+>> >
+>> > The related error (with allmodconfig, without pcap):
+>> >
+>> >     CC [M]  drivers/ptp/ptp_pch.o
+>> >   drivers/ptp/ptp_pch.c: In function =E2=80=98pch_remove=E2=80=99:
+>> >   drivers/ptp/ptp_pch.c:571:3: error: implicit declaration of func=
+tion =E2=80=98iounmap=E2=80=99 [-Werror=3Dimplicit-function-declaration=
+]
+>> >   drivers/ptp/ptp_pch.c: In function =E2=80=98pch_probe=E2=80=99:
+>> >   drivers/ptp/ptp_pch.c:621:2: error: implicit declaration of func=
+tion =E2=80=98ioremap=E2=80=99 [-Werror=3Dimplicit-function-declaration=
+]
+>> >   drivers/ptp/ptp_pch.c:621:13: warning: assignment makes pointer =
+from integer without a cast [enabled by default]
+>> >   cc1: some warnings being treated as errors
+>> >
+>> > Signed-off-by: Chen Gang <gang.chen@asianux.com>
+> Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-Agreed. Will put lkml into CC for the vsprintf change.
+Thanks.
 
-> Also, regarding to your patch 2/2, could it be possible to split it to
-> two parts: first substitutes SCTP macros not related to IP addresses and
-> second one is explicitly targeting against SCTP_DEBUG_PRINTK_IPADDR ?
-
-Well, as Vlad, one of the SCTP maintainers, already went through this patch
-and I've already applied the few changes he requested, I'd like not to put
-too much burden on yet another round of review, as the rest of the code
-stays as is.
-
-> By the way, in some places in 2/2 you didn't change open coded function
-> name to the '"%s: ...", __func__, ...'.
-
-Right, but those messages are rather more of generic nature. I went through
-all of this in detail, and I think it's okay like that.
-
-> Cong, I don't think is a good idea to update lib/ code and net/ code in
-> one patch, since that are logically a bit different. lib/ code sounds
-> more common, it's better if it leads separately this series.
+--=20
+Chen Gang
