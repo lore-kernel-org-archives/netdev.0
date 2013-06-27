@@ -1,42 +1,67 @@
-From: Rick Jones <rick.jones2@hp.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
 Subject: Re: Understanding lock contention in __udp4_lib_mcast_deliver
-Date: Thu, 27 Jun 2013 13:46:58 -0700
-Message-ID: <51CCA4C2.7050301@hp.com>
-References: <20130627192218.GA5936@sbohrermbp13-local.rgmadvisors.com> <51CC996F.3020507@hp.com> <20130627202008.GB5936@sbohrermbp13-local.rgmadvisors.com>
+Date: Fri, 28 Jun 2013 00:39:38 +0300
+Message-ID: <CAJZOPZLmbMsOAPhZ6GkY8EHReNjiHbRFw8XF8J5eCdVhb5jFFA@mail.gmail.com>
+References: <20130627192218.GA5936@sbohrermbp13-local.rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
 Cc: netdev@vger.kernel.org
 To: Shawn Bohrer <sbohrer@rgmadvisors.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:39896 "EHLO
-	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752773Ab3F0UrA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jun 2013 16:47:00 -0400
-In-Reply-To: <20130627202008.GB5936@sbohrermbp13-local.rgmadvisors.com>
+Received: from mail-qe0-f49.google.com ([209.85.128.49]:40335 "EHLO
+	mail-qe0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752773Ab3F0Vjj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jun 2013 17:39:39 -0400
+Received: by mail-qe0-f49.google.com with SMTP id cz11so421052qeb.8
+        for <netdev@vger.kernel.org>; Thu, 27 Jun 2013 14:39:38 -0700 (PDT)
+In-Reply-To: <20130627192218.GA5936@sbohrermbp13-local.rgmadvisors.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/27/2013 01:20 PM, Shawn Bohrer wrote:
-> On Thu, Jun 27, 2013 at 12:58:39PM -0700, Rick Jones wrote:
->> Are there other processes showing _raw_spin_lock time?  It may be
->> more clear to add a --sort symbol,dso or some such to your perf
->> report command.  Because what you show there suggests less than 1%
->> of the active cycles are in _raw_spin_lock.
+On Thu, Jun 27, 2013 at 10:22 PM, Shawn Bohrer <sbohrer@rgmadvisors.com> wrote:
+> I'm looking for opportunities to improve the multicast receive
+> performance for our application, and I thought I'd spend some time
+> trying to understand what I thought might be a small/simple
+> improvement.  Profiling with perf I see that there is spin_lock
+> contention in __udp4_lib_mcast_deliver:
 >
-> You think I'm wasting time going after small potatoes huh?
+> 0.68%  swapper  [kernel.kallsyms]               [k] _raw_spin_lock
+>        |
+>        --- _raw_spin_lock
+>           |
+>           |--24.13%-- perf_adjust_freq_unthr_context.part.21
+>           |
+>           |--22.40%-- scheduler_tick
+>           |
+>           |--14.96%-- __udp4_lib_mcast_deliver
+>
+> The lock appears to be the udp_hslot lock protecting sockets that have
+> been hashed based on the local port.  My application contains multiple
+> processes and each process listens on multiple multicast sockets.  We
+> open one socket per multicast addr:port per machine.  All of the local
+> UDP ports are unique.  The UDP hash table has 65536 entries and it
+> appears the hash function is simply the port number plus a
+> contribution from the network namespace (I believe the namespace part
+> should be constant since we're not not using network namespaces.
+> Perhaps I should disable CONFIG_NET_NS).
+>
+> $ dmesg | grep "UDP hash"
+> [    0.606472] UDP hash table entries: 65536 (order: 9, 2097152 bytes)
+>
+> At this point I'm confused why there is any contention over this
+> spin_lock.  We should have enough hash table entries to avoid
+> collisions and all of our ports are unique.  Assuming that part is
+> true I could imagine contention if the kernel is processing two
+> packets for the same multicast addr:port in parallel but is that
+> possible?  I'm using a Mellanox ConnectX-3 card that has multiple
+> receive queues but I've always thought that all packets for a given
+> srcip:srcport:destip:destport would all be delivered to a single queue
+> and thus not processed in parallel.
 
-Perhaps.  I also find it difficult to see the potatoes' (symbols') big 
-picture in perf's default sorting :)
+But for a given dest mcast ip / udp port you can have multiple senders
+where each has different source ucast ip / udp port, isn't that?
+anyway if you disable the udp_rss module param you can be sure that
+all traffic to dest mcast group goes to one ring, still this ring will
+be the only one active, so I am not this is wise.
 
-> On a normal system it looks like it is about .12% total which is
-> indeed small but my thinking was that I should be able to make that
-> go to 0 easily by ensuring we use unique ports and only have one
-> socket per multicast addr:port.  Now that I've failed at making it go
-> to 0 I would mostly like to understand what part of my thinking was
-> flawed. Or perhaps I can make it go to zero if I do ...
-
-How do you know that time is actually contention and not simply acquire 
-and release overhead?
-
-rick jones
+Or.
