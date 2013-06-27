@@ -1,48 +1,91 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH] drivers: net: cpsw: add newline after MACID log
-Date: Thu, 27 Jun 2013 15:21:53 +0530
-Message-ID: <51CC0B39.6000404@ti.com>
-References: <1372326047-28074-1-git-send-email-zonque@gmail.com>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: Re: [PATCH v2 15/45] rcu: Use get/put_online_cpus_atomic() to prevent
+ CPU offline
+Date: Thu, 27 Jun 2013 15:36:11 +0530
+Message-ID: <51CC0E93.1080608@linux.vnet.ibm.com>
+References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com> <20130625202755.16593.67819.stgit@srivatsabhat.in.ibm.com> <20130625220026.GG3828@linux.vnet.ibm.com> <51CAF624.6060004@linux.vnet.ibm.com> <AE90C24D6B3A694183C094C60CF0A2F6026B72AA@saturn3.aculab.com> <20130626143424.GN3828@linux.vnet.ibm.com> <1372258271.18733.256.camel@gandalf.local.home> <20130626152148.GA4405@mtj.dyndns.org> <51CB3159.8000509@linux.vnet.ibm.com> <AE90C24D6B3A694183C094C60CF0A2F6026B72AB@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
-To: Daniel Mack <zonque@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:38620 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750806Ab3F0JwP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jun 2013 05:52:15 -0400
-In-Reply-To: <1372326047-28074-1-git-send-email-zonque@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Tejun Heo <tj@kernel.org>, peterz@infradead.org,
+	fweisbec@gmail.com, oleg@redhat.com, walken@google.com,
+	mingo@kernel.org, linux-arch@vger.kernel.org,
+	vincent.guittot@linaro.org, xiaoguangrong@linux.vnet.ibm.com,
+	wangyun@linux.vnet.ibm.com, paulmck@linux.vnet.ibm.com,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	rusty@rustcorp.com.au, Steven Rostedt <rostedt@goodmis.org>,
+	namhyung@kernel.org, tglx@linutronix.de, laijs@cn.fujitsu.com,
+	zhong@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, sbw@mit.edu,
+	akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B72AB@saturn3.aculab.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 6/27/2013 3:10 PM, Daniel Mack wrote:
-> Cosmetic patch to add a newline after logging the device's MACID.
->
-> Signed-off-by: Daniel Mack <zonque@gmail.com>
-> ---
->   drivers/net/ethernet/ti/cpsw.c | 4 ++--
->   1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-> index d1a769f..e10328d 100644
-> --- a/drivers/net/ethernet/ti/cpsw.c
-> +++ b/drivers/net/ethernet/ti/cpsw.c
-> @@ -1698,10 +1698,10 @@ static int cpsw_probe(struct platform_device *pdev)
->   
->   	if (is_valid_ether_addr(data->slave_data[0].mac_addr)) {
->   		memcpy(priv->mac_addr, data->slave_data[0].mac_addr, ETH_ALEN);
-> -		pr_info("Detected MACID = %pM", priv->mac_addr);
-> +		pr_info("Detected MACID = %pM\n", priv->mac_addr);
->   	} else {
->   		eth_random_addr(priv->mac_addr);
-> -		pr_info("Random MACID = %pM", priv->mac_addr);
-> +		pr_info("Random MACID = %pM\n", priv->mac_addr);
->   	}
->   
->   	memcpy(ndev->dev_addr, priv->mac_addr, ETH_ALEN);
-Acked-by: Mugunthan V  N <mugunthanvnm@ti.com>
+On 06/27/2013 02:24 PM, David Laight wrote:
+>>>>> It would also increase the latency of CPU-hotunplug operations.
+>>>>
+>>>> Is that a big deal?
+>>>
+>>> I thought that was the whole deal with this patchset - making cpu
+>>> hotunplugs lighter and faster mostly for powersaving.  That said, just
+>>> removing stop_machine call would be a pretty good deal and I don't
+>>> know how meaningful reducing CPU hotunplug latency is.  Srivatsa?
+>>>
+>>
+>> Keeping the hotunplug latency is important for suspend/resume, where
+>> we take all non-boot CPUs in a loop. That's an interesting use-case
+>> where intrusiveness doesn't matter much, but latency does. So yes,
+>> making CPU hotplug faster is also one of the goals of this patchset.
+> 
+> If you are removing all but one of the cpu, the you only need
+> one rcu cycle (remove everything from the list first).
+> 
 
-Regards
-Mugunthan V N
+Hmm, yeah, but IIRC, back when we discussed this last time[1], we felt that
+would make the code a little bit hard to understand. But I think we can
+give it a shot to see how that goes and decide based on that. So thanks
+for bringing that up again!
+
+BTW, one thing I'd like to emphasize again here is that we will not use
+the RCU-like concept to have 2 different masks - a stable online mask
+and an actual online mask (this is one of the approaches that we had
+discussed earlier[2]). The reason why we don't wanna go down that path is,
+its hard to determine who can survive by just looking at the stable online
+mask, and who needs to be aware of the actual online mask. That will
+surely lead to more bugs and headache.
+
+So the use of an RCU-like concept here would only be to ensure that all
+preempt-disabled sections complete, and we can switch the synchronization
+scheme to global rwlocks, like what we had proposed earlier[3]. So, that
+still requires call-sites to be converted from preempt_disable() to
+get/put_online_cpus_atomic().
+
+I just wanted to clarify where exactly the RCU concept would fit in,
+in the stop-machine() replacement scheme...
+
+
+> I'd also guess that you can't suspend a cpu until you can sleep
+> the process that is running on it - so if a process has pre-emption
+> disabled you aren't going to complete suspend until the process
+> sleeps (this wouldn't be true if you suspended the cpu with its
+> current stack - but if suspend is removing the non-boot cpus first
+> it must be doing so from the scheduler idle loop).
+> 
+> If you are doing suspend for aggressive power saving, then all the
+> processes (and processors) will already be idle. However you
+> probably wouldn't want the memory accesses to determine this on
+> a large NUMA system with 1024+ processors.
+> 
+
+References:
+
+[1]. http://lkml.indiana.edu/hypermail/linux/kernel/1212.2/01979.html
+[2]. http://thread.gmane.org/gmane.linux.kernel/1405145/focus=29336
+[3]. http://thread.gmane.org/gmane.linux.documentation/9520/focus=1443258
+     http://thread.gmane.org/gmane.linux.power-management.general/29464/focus=1407948
+
+Regards,
+Srivatsa S. Bhat
