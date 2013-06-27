@@ -1,39 +1,37 @@
-From: David Chang <dchang@suse.com>
-Subject: [PATCH 2/2 net-next] usbnet: ax88179_178a: add .reset_resume hook
-Date: Thu, 27 Jun 2013 17:16:43 +0800
-Message-ID: <1372324603-4556-2-git-send-email-dchang@suse.com>
-References: <1372324603-4556-1-git-send-email-dchang@suse.com>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jlee@suse.com,
-	David Chang <dchang@suse.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372324603-4556-1-git-send-email-dchang@suse.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH v2 0/3] pch_gbe: few clean ups to the driver
+Date: Thu, 27 Jun 2013 12:23:11 +0300
+Message-ID: <1372324994-27793-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Darren Hart <dvhart@linux.intel.com>,
+	Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:35839 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751353Ab3F0JXW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Jun 2013 05:23:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+There are three clean ups to the driver.
 
-I tested with the AX88179 usb dongle, if without .reset_resume hook,
-after S3/S4 resume you have to enable network interface or reload the
-dirver module manually otherwise the network interface can not work.
+Since v1:
+ - remove hunk that is not belong the topic
+ - address Joe's comments
 
-Signed-off-by: David Chang <dchang@suse.com>
----
- drivers/net/usb/ax88179_178a.c | 1 +
- 1 file changed, 1 insertion(+)
+Andy Shevchenko (3):
+  pch_gbe: remove inline keyword for exported functions
+  pch_gbe: convert pr_* to netdev_*
+  pch_gbe: use managed functions pcim_* and devm_*
 
-diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
-index 7ce243b..1e3c302 100644
---- a/drivers/net/usb/ax88179_178a.c
-+++ b/drivers/net/usb/ax88179_178a.c
-@@ -1433,6 +1433,7 @@ static struct usb_driver ax88179_178a_driver = {
- 	.probe =	usbnet_probe,
- 	.suspend =	ax88179_suspend,
- 	.resume =	ax88179_resume,
-+	.reset_resume =	ax88179_resume,
- 	.disconnect =	usbnet_disconnect,
- 	.supports_autosuspend = 1,
- 	.disable_hub_initiated_lpm = 1,
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |   2 +
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c    |  70 ++++--
+ .../ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c    |   2 +-
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 279 +++++++++++----------
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c  |  61 +++--
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c    |  26 +-
+ 6 files changed, 251 insertions(+), 189 deletions(-)
+
 -- 
-1.8.1.4
+1.8.3.1
