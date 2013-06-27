@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v3 12/45] migration: Use raw_spin_lock/unlock since interrupts
- are already disabled
-Date: Fri, 28 Jun 2013 01:24:32 +0530
-Message-ID: <20130627195432.29830.52228.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v3 09/45] CPU hotplug: Convert preprocessor macros to static
+ inline functions
+Date: Fri, 28 Jun 2013 01:24:11 +0530
+Message-ID: <20130627195411.29830.50898.stgit@srivatsabhat.in.ibm.com>
 References: <20130627195136.29830.10445.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,8 +13,9 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ingo Molnar <mingo@redhat.com>,
-	Peter Zijlstra <peterz@infradead.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tejun Heo <tj@kernel.org>, "Rafael J. Wysocki" <rjw@sisk.pl>,
 	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
@@ -26,36 +27,42 @@ In-Reply-To: <20130627195136.29830.10445.stgit@srivatsabhat.in.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We need not use the raw_spin_lock_irqsave/restore primitives because
-all CPU_DYING notifiers run with interrupts disabled. So just use
-raw_spin_lock/unlock.
+Convert the macros in the CPU hotplug code to static inline C functions.
 
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Tejun Heo <tj@kernel.org>
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- kernel/sched/core.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ include/linux/cpu.h |    9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 9d870bf..ad8a554 100644
---- a/kernel/sched/core.c
-+++ b/kernel/sched/core.c
-@@ -4675,14 +4675,14 @@ migration_call(struct notifier_block *nfb, unsigned long action, void *hcpu)
- 	case CPU_DYING:
- 		sched_ttwu_pending();
- 		/* Update our root-domain */
--		raw_spin_lock_irqsave(&rq->lock, flags);
-+		raw_spin_lock(&rq->lock); /* IRQs already disabled */
- 		if (rq->rd) {
- 			BUG_ON(!cpumask_test_cpu(cpu, rq->rd->span));
- 			set_rq_offline(rq);
- 		}
- 		migrate_tasks(cpu);
- 		BUG_ON(rq->nr_running != 1); /* the migration thread */
--		raw_spin_unlock_irqrestore(&rq->lock, flags);
-+		raw_spin_unlock(&rq->lock);
- 		break;
+diff --git a/include/linux/cpu.h b/include/linux/cpu.h
+index a57b25a..85431a0 100644
+--- a/include/linux/cpu.h
++++ b/include/linux/cpu.h
+@@ -202,10 +202,8 @@ static inline void cpu_hotplug_driver_unlock(void)
  
- 	case CPU_DEAD:
+ #else		/* CONFIG_HOTPLUG_CPU */
+ 
+-#define get_online_cpus()	do { } while (0)
+-#define put_online_cpus()	do { } while (0)
+-#define cpu_hotplug_disable()	do { } while (0)
+-#define cpu_hotplug_enable()	do { } while (0)
++static inline void get_online_cpus(void) {}
++static inline void put_online_cpus(void) {}
+ 
+ static inline unsigned int get_online_cpus_atomic(void)
+ {
+@@ -222,6 +220,9 @@ static inline void put_online_cpus_atomic(void)
+ 	preempt_enable();
+ }
+ 
++static inline void cpu_hotplug_disable(void) {}
++static inline void cpu_hotplug_enable(void) {}
++
+ #define hotcpu_notifier(fn, pri)	do { (void)(fn); } while (0)
+ /* These aren't inline functions due to a GCC bug. */
+ #define register_hotcpu_notifier(nb)	({ (void)(nb); 0; })
