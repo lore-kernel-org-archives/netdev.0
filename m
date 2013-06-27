@@ -1,108 +1,98 @@
-From: Richard Genoud <richard.genoud@gmail.com>
-Subject: Re: RTL8192CU on ARM not working
-Date: Thu, 27 Jun 2013 14:13:31 +0200
-Message-ID: <CACQ1gAiHVxjnt2qx5Y9dEMAbZs5Ki_wEHLhOjDRcPc+xjBU76A@mail.gmail.com>
-References: <20130627081225.GJ5803@lukather>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Larry.Finger@lwfinger.net, chaoming_li@realsil.com.cn,
-	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-	Brian Lilly <brian@crystalfontz.com>,
-	Brent-Crosby <brent@crystalfontz.com>, Jim Wall <jimwall@q.com>,
-	Thomas Petazzoni <thomas@free-electrons.com>
-To: Maxime Ripard <maxime.ripard@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130627081225.GJ5803@lukather>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Luis Henriques <luis.henriques@canonical.com>
+Subject: [ 3.5.y.z extended stable ] Patch "sctp: fully initialize sctp_outq in sctp_outq_init" has been added to staging queue
+Date: Thu, 27 Jun 2013 13:53:19 +0100
+Message-ID: <1372337599-20855-1-git-send-email-luis.henriques@canonical.com>
+Cc: "West Steve (NSN - US/Fort Worth)" <steve.west@nsn.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, Luis Henriques <luis.henriques@canonical.com>,
+	kernel-team@lists.ubuntu.com
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:60914 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752866Ab3F0MxY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jun 2013 08:53:24 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2013/6/27 Maxime Ripard <maxime.ripard@free-electrons.com>:
-> Hi everyone,
->
-> I'm currently trying to use a RTL8192CU on an ARM (Freescale imx28,
-> armv5) platform, using 3.10-rc3.
->
-> Trouble is, while the chip is correctly detected and you can use iw on it
-> without any problem it seems, once you start an association to an access
-> point, the association goes on, seems to associate, displaying a WARN()
-> message [1] and then, after what looks like a random amount of time (could
-> be right away, could be after a few minutes), deassociate [2].
->
-> During the time where it's associated, we never seem to transmit any
-> packets, while iw reports packets being sent, I guess we can assume that
-> they are actually never transmitted as well [3].
->
-> What seems odd to me as well is that the signal power reported for the access
-> point is excessively high when using iw scan (10 dbm), and once connected, the
-> signal strength is -64dbm, which makes quite a huge difference.
->
-> Do you have any suggestions on how to solve this issue?
->
-> Thanks,
-> Maxime
->
->
-> [1]:
-> # iw wlan0 connect FreeWifi 2447
-> # [  485.010858] wlan0: authenticate with f4:ca:e5:c9:f5:91
-> [  485.065514] wlan0: send auth to f4:ca:e5:c9:f5:91 (try 1/3)
-> [  485.075963] wlan0: authenticated
-> [  485.088915] wlan0: associate with f4:ca:e5:c9:f5:91 (try 1/3)
-> [  485.117137] wlan0: RX AssocResp from f4:ca:e5:c9:f5:91 (capab=0x401 status=0 aid=1)
-> [  485.130607] wlan0: associated
-> [  486.917555] ------------[ cut here ]------------
-> [  486.922277] WARNING: at kernel/workqueue.c:1365 __queue_work+0x1f0/0x2f4()
-> [  486.929175] Modules linked in:
-> [  486.932284] CPU: 0 PID: 615 Comm: kworker/0:2 Not tainted 3.10.0-rc3 #2
-> [  486.938958] Workqueue: rtl92c_usb rtl_watchdog_wq_callback
-> [  486.944548] [<c00147dc>] (unwind_backtrace+0x0/0xf0) from [<c00120a0>] (show_stack+0x10/0x14)
-> [  486.953132] [<c00120a0>] (show_stack+0x10/0x14) from [<c001d2ec>] (warn_slowpath_common+0x4c/0x68)
-> [  486.962140] [<c001d2ec>] (warn_slowpath_common+0x4c/0x68) from [<c001d324>] (warn_slowpath_null+0x1c/0x24)
-> [  486.971844] [<c001d324>] (warn_slowpath_null+0x1c/0x24) from [<c003769c>] (__queue_work+0x1f0/0x2f4)
-> [  486.981025] [<c003769c>] (__queue_work+0x1f0/0x2f4) from [<c0037830>] (queue_work_on+0x80/0x88)
-> [  486.989777] [<c0037830>] (queue_work_on+0x80/0x88) from [<c0267ca4>] (rtl_watchdog_wq_callback+0x5dc/0x8bc)
-> [  486.999572] [<c0267ca4>] (rtl_watchdog_wq_callback+0x5dc/0x8bc) from [<c0038cbc>] (process_one_work+0x1c0/0x4c8)
-> [  487.009795] [<c0038cbc>] (process_one_work+0x1c0/0x4c8) from [<c0039684>] (worker_thread+0x140/0x3ac)
-> [  487.019065] [<c0039684>] (worker_thread+0x140/0x3ac) from [<c003f914>] (kthread+0xa4/0xb0)
-> [  487.027381] [<c003f914>] (kthread+0xa4/0xb0) from [<c000f0c0>] (ret_from_fork+0x14/0x34)
-> [  487.035498] ---[ end trace 93341a0c249e647e ]---
->
->
-> [2]:
->
-> # [  786.086127] wlan0: deauthenticated from f4:ca:e5:c9:f5:91 (Reason: 2)
-> [  786.126368] cfg80211: Calling CRDA to update world regulatory domain
->
->
-> [3]:
-> # iw wlan0 station dump
-> Station f4:ca:e5:c9:f5:91 (on wlan0)
->         inactive time:  55430 ms
->         rx bytes:       77826
->         rx packets:     1026
->         tx packets:     2
->         tx retries:     0
->         tx failed:      0
->         signal:         -64 dBm
->         signal avg:     -63 dBm
->         tx bitrate:     1.0 MBit/s
->         authorized:     yes
->         authenticated:  yes
->         preamble:       long
->         WMM/WME:        yes
->         MFP:            no
->         TDLS peer:      no
+This is a note to let you know that I have just added a patch titled
 
-Hi Maxime,
+    sctp: fully initialize sctp_outq in sctp_outq_init
 
-You should have a look at https://lkml.org/lkml/2013/6/11/300
-(in short, use 3.10-rc7)
+to the linux-3.5.y-queue branch of the 3.5.y.z extended stable tree 
+which can be found at:
 
-The warning is still there, but I managed use this device on ARM
-(sam9g35) as a client.
+ http://kernel.ubuntu.com/git?p=ubuntu/linux.git;a=shortlog;h=refs/heads/linux-3.5.y-queue
 
-Regards,
-Richard
+If you, or anyone else, feels it should not be added to this tree, please 
+reply to this email.
+
+For more information about the 3.5.y.z tree, see
+https://wiki.ubuntu.com/Kernel/Dev/ExtendedStable
+
+Thanks.
+-Luis
+
+------
+
+>From 8c4ca7424b40797da7ac9f4f7e04ea71a57e8b71 Mon Sep 17 00:00:00 2001
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Wed, 12 Jun 2013 14:26:44 -0400
+Subject: [PATCH] sctp: fully initialize sctp_outq in sctp_outq_init
+
+commit c5c7774d7eb4397891edca9ebdf750ba90977a69 upstream.
+
+In commit 2f94aabd9f6c925d77aecb3ff020f1cc12ed8f86
+(refactor sctp_outq_teardown to insure proper re-initalization)
+we modified sctp_outq_teardown to use sctp_outq_init to fully re-initalize the
+outq structure.  Steve West recently asked me why I removed the q->error = 0
+initalization from sctp_outq_teardown.  I did so because I was operating under
+the impression that sctp_outq_init would properly initalize that value for us,
+but it doesn't.  sctp_outq_init operates under the assumption that the outq
+struct is all 0's (as it is when called from sctp_association_init), but using
+it in __sctp_outq_teardown violates that assumption. We should do a memset in
+sctp_outq_init to ensure that the entire structure is in a known state there
+instead.
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Reported-by: "West, Steve (NSN - US/Fort Worth)" <steve.west@nsn.com>
+CC: Vlad Yasevich <vyasevich@gmail.com>
+CC: netdev@vger.kernel.org
+CC: davem@davemloft.net
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+[ luis: backported to 3.5: adjusted context ]
+Signed-off-by: Luis Henriques <luis.henriques@canonical.com>
+---
+ net/sctp/outqueue.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
+
+diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+index 0716290..8259db2 100644
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -205,6 +205,8 @@ static inline int sctp_cacc_skip(struct sctp_transport *primary,
+  */
+ void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
+ {
++	memset(q, 0, sizeof(struct sctp_outq));
++
+ 	q->asoc = asoc;
+ 	INIT_LIST_HEAD(&q->out_chunk_list);
+ 	INIT_LIST_HEAD(&q->control_chunk_list);
+@@ -212,13 +214,7 @@ void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
+ 	INIT_LIST_HEAD(&q->sacked);
+ 	INIT_LIST_HEAD(&q->abandoned);
+
+-	q->fast_rtx = 0;
+-	q->outstanding_bytes = 0;
+ 	q->empty = 1;
+-	q->cork  = 0;
+-
+-	q->malloced = 0;
+-	q->out_qlen = 0;
+ }
+
+ /* Free the outqueue structure and any related pending chunks.
+--
+1.8.1.2
