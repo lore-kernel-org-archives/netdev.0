@@ -1,77 +1,63 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v3 16/45] rcu: Use cpu_is_offline_nocheck() to avoid
- false-positive warnings
-Date: Thu, 27 Jun 2013 13:12:46 -0700
-Message-ID: <20130627201246.GA3828@linux.vnet.ibm.com>
-References: <20130627195136.29830.10445.stgit@srivatsabhat.in.ibm.com>
- <20130627195517.29830.64108.stgit@srivatsabhat.in.ibm.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Subject: Re: Understanding lock contention in __udp4_lib_mcast_deliver
+Date: Thu, 27 Jun 2013 15:20:08 -0500
+Message-ID: <20130627202008.GB5936@sbohrermbp13-local.rgmadvisors.com>
+References: <20130627192218.GA5936@sbohrermbp13-local.rgmadvisors.com>
+ <51CC996F.3020507@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, rusty@rustcorp.com.au, mingo@kernel.org,
-	akpm@linux-foundation.org, namhyung@kernel.org, walken@google.com,
-	vincent.guittot@linaro.org, laijs@cn.fujitsu.com,
-	David.Laight@aculab.com, rostedt@goodmis.org,
-	wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com,
-	sbw@mit.edu, fweisbec@gmail.com, zhong@linux.vnet.ibm.com,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Dipankar Sarma <dipankar@in.ibm.com>
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog125.obsmtp.com ([74.125.149.153]:34884 "EHLO
+	na3sys009aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752933Ab3F0UUS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jun 2013 16:20:18 -0400
+Received: by mail-vb0-f51.google.com with SMTP id x17so1079203vbf.10
+        for <netdev@vger.kernel.org>; Thu, 27 Jun 2013 13:20:12 -0700 (PDT)
+In-Reply-To: <51CC996F.3020507@hp.com>
 Content-Disposition: inline
-In-Reply-To: <20130627195517.29830.64108.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 28, 2013 at 01:25:17AM +0530, Srivatsa S. Bhat wrote:
-> In RCU code, rcu_implicit_dynticks_qs() checks if a CPU is offline,
-> while being protected by a spinlock. At first, it appears as if we need to
-> use the get/put_online_cpus_atomic() APIs to properly synchronize with CPU
-> hotplug, once we get rid of stop_machine(). However, RCU has adequate
-> synchronization with CPU hotplug, making that unnecessary. But since the
-> locking details are non-trivial, it is hard to teach this to the rudimentary
-> hotplug locking validator.
+On Thu, Jun 27, 2013 at 12:58:39PM -0700, Rick Jones wrote:
+> On 06/27/2013 12:22 PM, Shawn Bohrer wrote:
+> >I'm looking for opportunities to improve the multicast receive
+> >performance for our application, and I thought I'd spend some time
+> >trying to understand what I thought might be a small/simple
+> >improvement.  Profiling with perf I see that there is spin_lock
+> >contention in __udp4_lib_mcast_deliver:
+> >
+> >0.68%  swapper  [kernel.kallsyms]               [k] _raw_spin_lock
+> >        |
+> >        --- _raw_spin_lock
+> >           |
+> >           |--24.13%-- perf_adjust_freq_unthr_context.part.21
+> >           |
+> >           |--22.40%-- scheduler_tick
+> >           |
+> >           |--14.96%-- __udp4_lib_mcast_deliver
 > 
-> So use the _nocheck() variants of the cpu accessor functions to prevent false-
-> positive warnings from the CPU hotplug debug code. Also, add a comment
-> explaining the hotplug synchronization design used in RCU, so that its easy
-> to see why it is justified to use the _nocheck() variants.
-> 
-> Cc: Dipankar Sarma <dipankar@in.ibm.com>
-> Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+> Are there other processes showing _raw_spin_lock time?  It may be
+> more clear to add a --sort symbol,dso or some such to your perf
+> report command.  Because what you show there suggests less than 1%
+> of the active cycles are in _raw_spin_lock.
 
-Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+You think I'm wasting time going after small potatoes huh?  On a
+normal system it looks like it is about .12% total which is indeed
+small but my thinking was that I should be able to make that go to 0
+easily by ensuring we use unique ports and only have one socket per
+multicast addr:port.  Now that I've failed at making it go to 0 I
+would mostly like to understand what part of my thinking was flawed.
+Or perhaps I can make it go to zero if I do ...
 
-> ---
-> 
->  kernel/rcutree.c |   12 +++++++++++-
->  1 file changed, 11 insertions(+), 1 deletion(-)
-> 
-> diff --git a/kernel/rcutree.c b/kernel/rcutree.c
-> index cf3adc6..ced28a45 100644
-> --- a/kernel/rcutree.c
-> +++ b/kernel/rcutree.c
-> @@ -794,7 +794,17 @@ static int rcu_implicit_dynticks_qs(struct rcu_data *rdp)
->  	if (ULONG_CMP_GE(rdp->rsp->gp_start + 2, jiffies))
->  		return 0;  /* Grace period is not old enough. */
->  	barrier();
-> -	if (cpu_is_offline(rdp->cpu)) {
-> +
-> +	/*
-> +	 * It is safe to use the _nocheck() version of cpu_is_offline() here
-> +	 * (to avoid false-positive warnings from CPU hotplug debug code),
-> +	 * because:
-> +	 * 1. rcu_gp_init() holds off CPU hotplug operations during grace
-> +	 *    period initialization.
-> +	 * 2. The current grace period has not ended yet.
-> +	 * So it is safe to sample the offline state without synchronization.
-> +	 */
-> +	if (cpu_is_offline_nocheck(rdp->cpu)) {
->  		trace_rcu_fqs(rdp->rsp->name, rdp->gpnum, rdp->cpu, "ofl");
->  		rdp->offline_fqs++;
->  		return 1;
-> 
+--
+Shawn
+
+-- 
+
+---------------------------------------------------------------
+This email, along with any attachments, is confidential. If you 
+believe you received this message in error, please contact the 
+sender immediately and delete all copies of the message.  
+Thank you.
