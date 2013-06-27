@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v3 18/45] time/clocksource: Use get/put_online_cpus_atomic()
- to prevent CPU offline
-Date: Fri, 28 Jun 2013 01:25:55 +0530
-Message-ID: <20130627195554.29830.38682.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v3 19/45] softirq: Use get/put_online_cpus_atomic() to prevent
+ CPU offline
+Date: Fri, 28 Jun 2013 01:26:01 +0530
+Message-ID: <20130627195601.29830.15576.stgit@srivatsabhat.in.ibm.com>
 References: <20130627195136.29830.10445.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,8 +13,11 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	John Stultz <john.stultz@linaro.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
 	Thomas Gleixner <tglx@linutronix.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Sedat Dilek <sedat.dilek@gmail.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
 	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
@@ -33,55 +36,36 @@ from under us.
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
 offline, while invoking from atomic context.
 
-Cc: John Stultz <john.stultz@linaro.org>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
 Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Sedat Dilek <sedat.dilek@gmail.com>
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- kernel/time/clocksource.c |    5 +++++
- 1 file changed, 5 insertions(+)
+ kernel/softirq.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/kernel/time/clocksource.c b/kernel/time/clocksource.c
-index e713ef7..c4bbc25 100644
---- a/kernel/time/clocksource.c
-+++ b/kernel/time/clocksource.c
-@@ -30,6 +30,7 @@
- #include <linux/sched.h> /* for spin_unlock_irq() using preempt_count() m68k */
- #include <linux/tick.h>
- #include <linux/kthread.h>
-+#include <linux/cpu.h>
+diff --git a/kernel/softirq.c b/kernel/softirq.c
+index 3d6833f..c289722 100644
+--- a/kernel/softirq.c
++++ b/kernel/softirq.c
+@@ -644,14 +644,17 @@ static void remote_softirq_receive(void *data)
  
- #include "tick-internal.h"
- 
-@@ -252,6 +253,7 @@ static void clocksource_watchdog(unsigned long data)
- 	int64_t wd_nsec, cs_nsec;
- 	int next_cpu, reset_pending;
- 
-+	get_online_cpus_atomic();
- 	spin_lock(&watchdog_lock);
- 	if (!watchdog_running)
- 		goto out;
-@@ -329,6 +331,7 @@ static void clocksource_watchdog(unsigned long data)
- 	add_timer_on(&watchdog_timer, next_cpu);
- out:
- 	spin_unlock(&watchdog_lock);
-+	put_online_cpus_atomic();
- }
- 
- static inline void clocksource_start_watchdog(void)
-@@ -367,6 +370,7 @@ static void clocksource_enqueue_watchdog(struct clocksource *cs)
+ static int __try_remote_softirq(struct call_single_data *cp, int cpu, int softirq)
  {
- 	unsigned long flags;
- 
 +	get_online_cpus_atomic();
- 	spin_lock_irqsave(&watchdog_lock, flags);
- 	if (cs->flags & CLOCK_SOURCE_MUST_VERIFY) {
- 		/* cs is a clocksource to be watched. */
-@@ -386,6 +390,7 @@ static void clocksource_enqueue_watchdog(struct clocksource *cs)
- 	/* Check if the watchdog timer needs to be started. */
- 	clocksource_start_watchdog();
- 	spin_unlock_irqrestore(&watchdog_lock, flags);
-+	put_online_cpus_atomic();
- }
+ 	if (cpu_online(cpu)) {
+ 		cp->func = remote_softirq_receive;
+ 		cp->info = &softirq;
+ 		cp->flags = 0;
  
- static void clocksource_dequeue_watchdog(struct clocksource *cs)
+ 		__smp_call_function_single(cpu, cp, 0);
++		put_online_cpus_atomic();
+ 		return 0;
+ 	}
++	put_online_cpus_atomic();
+ 	return 1;
+ }
+ #else /* CONFIG_USE_GENERIC_SMP_HELPERS */
