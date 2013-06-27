@@ -1,40 +1,34 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: Re: [RFC Patch net-next 1/5] net: introduce generic union inet_addr
-Date: Thu, 27 Jun 2013 10:42:49 +0300
-Message-ID: <1372318969.24799.70.camel@smile>
-References: <1372315398-19683-1-git-send-email-amwang@redhat.com>
-	 <1372315398-19683-2-git-send-email-amwang@redhat.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 1/2] lib: vsprintf: add IPv4/v6 generic %pig/%pIg
+ format specifier
+Date: Thu, 27 Jun 2013 09:47:57 +0200
+Message-ID: <51CBEE2D.1080209@redhat.com>
+References: <1372266073-11998-1-git-send-email-dborkman@redhat.com> <1372266073-11998-2-git-send-email-dborkman@redhat.com> <kqg4vt$1hv$1@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, Daniel Borkmann <dborkman@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-To: Cong Wang <amwang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372315398-19683-2-git-send-email-amwang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35305 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751241Ab3F0HsA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Jun 2013 03:48:00 -0400
+In-Reply-To: <kqg4vt$1hv$1@ger.gmane.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-06-27 at 14:43 +0800, Cong Wang wrote: 
-> Cc: Daniel Borkmann <dborkman@redhat.com>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+On 06/27/2013 03:37 AM, Cong Wang wrote:
+> On Wed, 26 Jun 2013 at 17:01 GMT, Daniel Borkmann <dborkman@redhat.com> wrote:
+>> In order to avoid making code that deals with printing both, IPv4 and
+>> IPv6 addresses, unnecessary complicated as for example ...
+>>
+>>    if (sa.sa_family == AF_INET6)
+>>      printk("... %pI6 ...", sin6_addr);
+>>    else
+>>      printk("... %pI4 ...", sin_addr.s_addr);
+>>
+>
+> "%pI6c" is more friendly than "%pI6".
 
-I was about to answer for the Daniel's patch about %pig.
-
-Daniel, could you resend your patch series to the LKML, since it touches
-lib/vsprintf.c.
-Also, regarding to your patch 2/2, could it be possible to split it to
-two parts: first substitutes SCTP macros not related to IP addresses and
-second one is explicitly targeting against SCTP_DEBUG_PRINTK_IPADDR ?
-By the way, in some places in 2/2 you didn't change open coded function
-name to the '"%s: ...", __func__, ...'.
-
-Cong, I don't think is a good idea to update lib/ code and net/ code in
-one patch, since that are logically a bit different. lib/ code sounds
-more common, it's better if it leads separately this series.
-
-
--- 
-Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Intel Finland Oy
+Sure, but that was just an example as stated above.
