@@ -1,92 +1,77 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v3 28/45] perf/x86: Use get/put_online_cpus_atomic() to
- prevent CPU offline
-Date: Fri, 28 Jun 2013 01:27:18 +0530
-Message-ID: <20130627195718.29830.42774.stgit@srivatsabhat.in.ibm.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH v3 16/45] rcu: Use cpu_is_offline_nocheck() to avoid
+ false-positive warnings
+Date: Thu, 27 Jun 2013 13:12:46 -0700
+Message-ID: <20130627201246.GA3828@linux.vnet.ibm.com>
 References: <20130627195136.29830.10445.stgit@srivatsabhat.in.ibm.com>
+ <20130627195517.29830.64108.stgit@srivatsabhat.in.ibm.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
-	xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, fweisbec@gmail.com,
-	zhong@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
-	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
+	oleg@redhat.com, rusty@rustcorp.com.au, mingo@kernel.org,
+	akpm@linux-foundation.org, namhyung@kernel.org, walken@google.com,
+	vincent.guittot@linaro.org, laijs@cn.fujitsu.com,
+	David.Laight@aculab.com, rostedt@goodmis.org,
+	wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com,
+	sbw@mit.edu, fweisbec@gmail.com, zhong@linux.vnet.ibm.com,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Paul Mackerras <paulus@samba.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
-	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
-	walken@google.com, vincent.guittot@linaro.org,
-	laijs@cn.fujitsu.com, David.Laight@aculab.com
+	Dipankar Sarma <dipankar@in.ibm.com>
+To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130627195136.29830.10445.stgit@srivatsabhat.in.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <20130627195517.29830.64108.stgit@srivatsabhat.in.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The CPU_DYING notifier modifies the per-cpu pointer pmu->box, and this can
-race with functions such as uncore_pmu_to_box() and uncore_pci_remove() when
-we remove stop_machine() from the CPU offline path. So protect them using
-get/put_online_cpus_atomic().
+On Fri, Jun 28, 2013 at 01:25:17AM +0530, Srivatsa S. Bhat wrote:
+> In RCU code, rcu_implicit_dynticks_qs() checks if a CPU is offline,
+> while being protected by a spinlock. At first, it appears as if we need to
+> use the get/put_online_cpus_atomic() APIs to properly synchronize with CPU
+> hotplug, once we get rid of stop_machine(). However, RCU has adequate
+> synchronization with CPU hotplug, making that unnecessary. But since the
+> locking details are non-trivial, it is hard to teach this to the rudimentary
+> hotplug locking validator.
+> 
+> So use the _nocheck() variants of the cpu accessor functions to prevent false-
+> positive warnings from the CPU hotplug debug code. Also, add a comment
+> explaining the hotplug synchronization design used in RCU, so that its easy
+> to see why it is justified to use the _nocheck() variants.
+> 
+> Cc: Dipankar Sarma <dipankar@in.ibm.com>
+> Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: "H. Peter Anvin" <hpa@zytor.com>
-Cc: x86@kernel.org
-Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
----
+Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 
- arch/x86/kernel/cpu/perf_event_intel_uncore.c |    6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/arch/x86/kernel/cpu/perf_event_intel_uncore.c b/arch/x86/kernel/cpu/perf_event_intel_uncore.c
-index 9dd9975..7c2a064 100644
---- a/arch/x86/kernel/cpu/perf_event_intel_uncore.c
-+++ b/arch/x86/kernel/cpu/perf_event_intel_uncore.c
-@@ -1,3 +1,4 @@
-+#include <linux/cpu.h>
- #include "perf_event_intel_uncore.h"
- 
- static struct intel_uncore_type *empty_uncore[] = { NULL, };
-@@ -2630,6 +2631,7 @@ uncore_pmu_to_box(struct intel_uncore_pmu *pmu, int cpu)
- 	if (box)
- 		return box;
- 
-+	get_online_cpus_atomic();
- 	raw_spin_lock(&uncore_box_lock);
- 	list_for_each_entry(box, &pmu->box_list, list) {
- 		if (box->phys_id == topology_physical_package_id(cpu)) {
-@@ -2639,6 +2641,7 @@ uncore_pmu_to_box(struct intel_uncore_pmu *pmu, int cpu)
- 		}
- 	}
- 	raw_spin_unlock(&uncore_box_lock);
-+	put_online_cpus_atomic();
- 
- 	return *per_cpu_ptr(pmu->box, cpu);
- }
-@@ -3229,6 +3232,7 @@ static void uncore_pci_remove(struct pci_dev *pdev)
- 	list_del(&box->list);
- 	raw_spin_unlock(&uncore_box_lock);
- 
-+	get_online_cpus_atomic();
- 	for_each_possible_cpu(cpu) {
- 		if (*per_cpu_ptr(pmu->box, cpu) == box) {
- 			*per_cpu_ptr(pmu->box, cpu) = NULL;
-@@ -3237,6 +3241,8 @@ static void uncore_pci_remove(struct pci_dev *pdev)
- 	}
- 
- 	WARN_ON_ONCE(atomic_read(&box->refcnt) != 1);
-+	put_online_cpus_atomic();
-+
- 	kfree(box);
- }
- 
+> ---
+> 
+>  kernel/rcutree.c |   12 +++++++++++-
+>  1 file changed, 11 insertions(+), 1 deletion(-)
+> 
+> diff --git a/kernel/rcutree.c b/kernel/rcutree.c
+> index cf3adc6..ced28a45 100644
+> --- a/kernel/rcutree.c
+> +++ b/kernel/rcutree.c
+> @@ -794,7 +794,17 @@ static int rcu_implicit_dynticks_qs(struct rcu_data *rdp)
+>  	if (ULONG_CMP_GE(rdp->rsp->gp_start + 2, jiffies))
+>  		return 0;  /* Grace period is not old enough. */
+>  	barrier();
+> -	if (cpu_is_offline(rdp->cpu)) {
+> +
+> +	/*
+> +	 * It is safe to use the _nocheck() version of cpu_is_offline() here
+> +	 * (to avoid false-positive warnings from CPU hotplug debug code),
+> +	 * because:
+> +	 * 1. rcu_gp_init() holds off CPU hotplug operations during grace
+> +	 *    period initialization.
+> +	 * 2. The current grace period has not ended yet.
+> +	 * So it is safe to sample the offline state without synchronization.
+> +	 */
+> +	if (cpu_is_offline_nocheck(rdp->cpu)) {
+>  		trace_rcu_fqs(rdp->rsp->name, rdp->gpnum, rdp->cpu, "ofl");
+>  		rdp->offline_fqs++;
+>  		return 1;
+> 
