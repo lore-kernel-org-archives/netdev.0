@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v3 37/45] m32r: Use get/put_online_cpus_atomic() to prevent
+Subject: [PATCH v3 39/45] mn10300: Use get/put_online_cpus_atomic() to prevent
  CPU offline
-Date: Fri, 28 Jun 2013 01:29:21 +0530
-Message-ID: <20130627195920.29830.11441.stgit@srivatsabhat.in.ibm.com>
+Date: Fri, 28 Jun 2013 01:29:35 +0530
+Message-ID: <20130627195935.29830.37304.stgit@srivatsabhat.in.ibm.com>
 References: <20130627195136.29830.10445.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,17 +13,18 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Hirokazu Takata <takata@linux-m32r.org>,
-	linux-m32r@ml.linux-m32r.org, linux-m32r-ja@ml.linux-m32r.org,
+	David Howells <dhowells@redhat.com>,
+	Koichi Yasutake <yasutake.koichi@jp.panasonic.com>,
+	linux-am33-list@redhat.com,
 	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
 	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
 	walken@google.com, vincent.guittot@linaro.org,
 	laijs@cn.fujitsu.com, David.Laight@aculab.com
-Return-path: <linux-arch-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20130627195136.29830.10445.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-arch-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Once stop_machine() is gone from the CPU offline path, we won't be able
@@ -33,85 +34,123 @@ from under us.
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
 offline, while invoking from atomic context.
 
-Cc: Hirokazu Takata <takata@linux-m32r.org>
-Cc: linux-m32r@ml.linux-m32r.org
-Cc: linux-m32r-ja@ml.linux-m32r.org
+Cc: David Howells <dhowells@redhat.com>
+Cc: Koichi Yasutake <yasutake.koichi@jp.panasonic.com>
+Cc: linux-am33-list@redhat.com
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- arch/m32r/kernel/smp.c |   16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+ arch/mn10300/mm/cache-smp.c |    3 +++
+ arch/mn10300/mm/tlb-smp.c   |   17 +++++++++--------
+ 2 files changed, 12 insertions(+), 8 deletions(-)
 
-diff --git a/arch/m32r/kernel/smp.c b/arch/m32r/kernel/smp.c
-index ce7aea3..ffafdba 100644
---- a/arch/m32r/kernel/smp.c
-+++ b/arch/m32r/kernel/smp.c
-@@ -151,7 +151,7 @@ void smp_flush_cache_all(void)
- 	cpumask_t cpumask;
- 	unsigned long *mask;
- 
--	preempt_disable();
-+	get_online_cpus_atomic();
- 	cpumask_copy(&cpumask, cpu_online_mask);
- 	cpumask_clear_cpu(smp_processor_id(), &cpumask);
- 	spin_lock(&flushcache_lock);
-@@ -162,7 +162,7 @@ void smp_flush_cache_all(void)
- 	while (flushcache_cpumask)
- 		mb();
- 	spin_unlock(&flushcache_lock);
--	preempt_enable();
-+	put_online_cpus_atomic();
- }
- 
- void smp_flush_cache_all_interrupt(void)
-@@ -197,12 +197,12 @@ void smp_flush_tlb_all(void)
+diff --git a/arch/mn10300/mm/cache-smp.c b/arch/mn10300/mm/cache-smp.c
+index 2d23b9e..406357d 100644
+--- a/arch/mn10300/mm/cache-smp.c
++++ b/arch/mn10300/mm/cache-smp.c
+@@ -13,6 +13,7 @@
+ #include <linux/mman.h>
+ #include <linux/threads.h>
+ #include <linux/interrupt.h>
++#include <linux/cpu.h>
+ #include <asm/page.h>
+ #include <asm/pgtable.h>
+ #include <asm/processor.h>
+@@ -91,6 +92,7 @@ void smp_cache_interrupt(void)
+ void smp_cache_call(unsigned long opr_mask,
+ 		    unsigned long start, unsigned long end)
  {
- 	unsigned long flags;
- 
--	preempt_disable();
 +	get_online_cpus_atomic();
- 	local_irq_save(flags);
- 	__flush_tlb_all();
- 	local_irq_restore(flags);
- 	smp_call_function(flush_tlb_all_ipi, NULL, 1);
--	preempt_enable();
+ 	smp_cache_mask = opr_mask;
+ 	smp_cache_start = start;
+ 	smp_cache_end = end;
+@@ -102,4 +104,5 @@ void smp_cache_call(unsigned long opr_mask,
+ 	while (!cpumask_empty(&smp_cache_ipi_map))
+ 		/* nothing. lockup detection does not belong here */
+ 		mb();
++	put_online_cpus_atomic();
+ }
+diff --git a/arch/mn10300/mm/tlb-smp.c b/arch/mn10300/mm/tlb-smp.c
+index 3e57faf..8856fd3 100644
+--- a/arch/mn10300/mm/tlb-smp.c
++++ b/arch/mn10300/mm/tlb-smp.c
+@@ -23,6 +23,7 @@
+ #include <linux/sched.h>
+ #include <linux/profile.h>
+ #include <linux/smp.h>
++#include <linux/cpu.h>
+ #include <asm/tlbflush.h>
+ #include <asm/bitops.h>
+ #include <asm/processor.h>
+@@ -61,7 +62,7 @@ void smp_flush_tlb(void *unused)
+ {
+ 	unsigned long cpu_id;
+ 
+-	cpu_id = get_cpu();
++	cpu_id = get_online_cpus_atomic();
+ 
+ 	if (!cpumask_test_cpu(cpu_id, &flush_cpumask))
+ 		/* This was a BUG() but until someone can quote me the line
+@@ -82,7 +83,7 @@ void smp_flush_tlb(void *unused)
+ 	cpumask_clear_cpu(cpu_id, &flush_cpumask);
+ 	smp_mb__after_clear_bit();
+ out:
+-	put_cpu();
 +	put_online_cpus_atomic();
  }
  
- /*==========================================================================*
-@@ -250,7 +250,7 @@ void smp_flush_tlb_mm(struct mm_struct *mm)
- 	unsigned long *mmc;
- 	unsigned long flags;
+ /**
+@@ -144,7 +145,7 @@ void flush_tlb_mm(struct mm_struct *mm)
+ {
+ 	cpumask_t cpu_mask;
  
 -	preempt_disable();
 +	get_online_cpus_atomic();
- 	cpu_id = smp_processor_id();
- 	mmc = &mm->context[cpu_id];
  	cpumask_copy(&cpu_mask, mm_cpumask(mm));
-@@ -268,7 +268,7 @@ void smp_flush_tlb_mm(struct mm_struct *mm)
+ 	cpumask_clear_cpu(smp_processor_id(), &cpu_mask);
+ 
+@@ -152,7 +153,7 @@ void flush_tlb_mm(struct mm_struct *mm)
  	if (!cpumask_empty(&cpu_mask))
- 		flush_tlb_others(cpu_mask, mm, NULL, FLUSH_ALL);
+ 		flush_tlb_others(cpu_mask, mm, FLUSH_ALL);
  
 -	preempt_enable();
 +	put_online_cpus_atomic();
  }
  
- /*==========================================================================*
-@@ -320,7 +320,7 @@ void smp_flush_tlb_page(struct vm_area_struct *vma, unsigned long va)
- 	unsigned long *mmc;
- 	unsigned long flags;
+ /**
+@@ -163,7 +164,7 @@ void flush_tlb_current_task(void)
+ 	struct mm_struct *mm = current->mm;
+ 	cpumask_t cpu_mask;
  
 -	preempt_disable();
 +	get_online_cpus_atomic();
- 	cpu_id = smp_processor_id();
- 	mmc = &mm->context[cpu_id];
  	cpumask_copy(&cpu_mask, mm_cpumask(mm));
-@@ -341,7 +341,7 @@ void smp_flush_tlb_page(struct vm_area_struct *vma, unsigned long va)
+ 	cpumask_clear_cpu(smp_processor_id(), &cpu_mask);
+ 
+@@ -171,7 +172,7 @@ void flush_tlb_current_task(void)
  	if (!cpumask_empty(&cpu_mask))
- 		flush_tlb_others(cpu_mask, mm, vma, va);
+ 		flush_tlb_others(cpu_mask, mm, FLUSH_ALL);
  
 -	preempt_enable();
 +	put_online_cpus_atomic();
  }
  
- /*==========================================================================*
+ /**
+@@ -184,7 +185,7 @@ void flush_tlb_page(struct vm_area_struct *vma, unsigned long va)
+ 	struct mm_struct *mm = vma->vm_mm;
+ 	cpumask_t cpu_mask;
+ 
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 	cpumask_copy(&cpu_mask, mm_cpumask(mm));
+ 	cpumask_clear_cpu(smp_processor_id(), &cpu_mask);
+ 
+@@ -192,7 +193,7 @@ void flush_tlb_page(struct vm_area_struct *vma, unsigned long va)
+ 	if (!cpumask_empty(&cpu_mask))
+ 		flush_tlb_others(cpu_mask, mm, va);
+ 
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ 
+ /**
