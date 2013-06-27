@@ -1,95 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [netlink] WARNING: at mm/vmalloc.c:1487 __vunmap()
-Date: Thu, 27 Jun 2013 01:30:35 -0700
-Message-ID: <1372321835.3301.221.camel@edumazet-glaptop>
-References: <20130614220119.GA12954@localhost>
-	 <20130617200938.GA14567@localhost>
-	 <1372250558.3301.194.camel@edumazet-glaptop>
-	 <20130627082238.GA6346@localhost>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [RFC Patch net-next 0/5] net: introduce generic type and helpers
+ for IP address
+Date: Thu, 27 Jun 2013 10:33:08 +0200
+Message-ID: <51CBF8C4.7000901@redhat.com>
+References: <1372315398-19683-1-git-send-email-amwang@redhat.com>  <51CBE3AA.5070008@redhat.com> <1372320510.26333.7.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Fengguang Wu <fengguang.wu@intel.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130627082238.GA6346@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48318 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752730Ab3F0IdM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Jun 2013 04:33:12 -0400
+In-Reply-To: <1372320510.26333.7.camel@cr0>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-06-27 at 10:22 +0200, Pablo Neira Ayuso wrote:
-> Hi Eric,
-> 
-> Thanks for looking into this.
-> 
-> On Wed, Jun 26, 2013 at 05:42:38AM -0700, Eric Dumazet wrote:
-> [...]
-> > Nope there are several issues :
-> > 
-> > 1) bug in netlink_alloc_large_skb() because it doesn't account
-> > for sizeof(struct skb_shared_info) overhead and initialization.
-> 
-> Indeed, I can send a fix for this.
-> 
-> > 2) Also, skb_clone() on such skb should be forbidden.
-> > 
-> >    Example, nl_fib_input() does a nskb = skb_clone(skb)
-> >
-> > If skb is freed before nskb, then nskb wont know skb->head must be freed
-> > by vfree()
-> > 
-> > I don't know...
-> > 
-> > 3) Do we really need this vmalloc stuff, because it sounds like we are
-> > going to add yet another test in fast path (in skb_free_head())
-> 
-> We want to send atomic rule-set updates via netlink in one single
-> batch message to kernel space. Without vmalloc, I can send up to
-> ~20000 rule updates in one single batch.
-> 
-> We considered splitting the updates in smaller batches to make netlink
-> happy, but then a process has to own the rule-set base until it has
-> finished the update to avoid any interference. However, a broken
-> user-space program may (ab)use such ownership to prevents others from
-> updating the rule-set.
-> 
-> > 4) Or we must track all skb_clone() netlink calls to attach a destructor
-> > to properly to the vfree()
-> 
-> Perhaps we can add a new specific function for this, netlink_skb_clone?
-> 
+On 06/27/2013 10:08 AM, Cong Wang wrote:
+> On Thu, 2013-06-27 at 09:03 +0200, Daniel Borkmann wrote:
+>> Hi Amerigo,
+>>
+>> On 06/27/2013 08:43 AM, Cong Wang wrote:
+>>> As IPv6 becomes popular, more and more subsystems begin to support IPv6,
+>>> therefore we need a generic IP address type, in case of duplicates.
+>>> Also we will also need some helpers to compare, print, check the generic
+>>> IP address.
+>>>
+>>> This patchset introduce a new type union inet_addr as a union of IPv4
+>>> and IPv6 address, and some helper functions that will be used by existing
+>>> code and in the future VXLAN module.
+>>>
+>>> This patchset only does compile test, since it is still RFC.
+>>
+>> This patch already does that which I've sent yesterday before yours ...
+>>
+>>     [PATCH net-next 1/2] lib: vsprintf: add IPv4/v6 generic %pig/%pIg format specifier
+>>
+>> ... and resend with the set today in the morning as v2 with provided
+>> feedback applied. Can't you base yours on top of that?
+>
+> Since your patch is not yet merged, so why not just drop yours (of
+> course, if no objection for mine)? :)
+>
+> IOW, even if your patch got merged, then I would probably partially
+> revert it when I rebase mine on top of yours, which seems ugly, right?
+>
+> Again, I have no objection to your patch, just I don't want to partially
+> revert it when I rebase on top of it.
+>
+> What do you think?
 
-You have also to track the kfree_skb() calls done before
-you set skb->destructor.
+I'm sorry Amerigo, but I think this is totally uncalled for. I'm also not just
+taking your patches, extend them for example and submit them by myself requesting
+yours to be dropped instead. The likelihood that you came up with the same idea
+independently at the /very same time/ I consider quite low. So therefore, you must
+have done this after seeing this set. Please rebase them on top of this after we
+have agreed upon the two patches, even if it reverts stuff, and then we can further
+discuss your changes.
 
-Or set skb->destructor right after netlink_alloc_large_skb()
-
-> I'll be fine to track skb_clone in existing netlink families and
-> replace it by such call in case you don't find this solution too
-> hackish.
-
-Let see if you can do that, I'll test and review the patches.
-
-I suggest you use build_skb() as in :
-
-static struct sk_buff *netlink_alloc_large_skb(unsigned int size, bool broadcast)
-{
-        struct sk_buff *skb;
-        void *data;
-
-        if (size <= NLMSG_GOODSIZE || broadcast)
-                return alloc_skb(size, GFP_KERNEL);
-
-        size = SKB_DATA_ALIGN(size) +
-               SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-
-        data = vmalloc(size);
-        if (!data)
-                return NULL;
-        skb = build_skb(data, size);
-        if (!skb)
-                vfree(data);
-        else
-                skb->head_frag = 0;
-        return skb;
-}
+Thanks !
