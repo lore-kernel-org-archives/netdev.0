@@ -1,43 +1,51 @@
 From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v1 2/3] pch_gbe: convert pr_* to netdev_*
-Date: Wed, 26 Jun 2013 17:59:30 -0700
-Message-ID: <1372294770.2172.22.camel@joe-AO722>
-References: <1372263217-1938-1-git-send-email-andriy.shevchenko@linux.intel.com>
-	 <1372263217-1938-3-git-send-email-andriy.shevchenko@linux.intel.com>
+Subject: Re: [PATCH net-next 1/2] lib: vsprintf: add IPv4/v6 generic
+ %pig/%pIg format specifier
+Date: Wed, 26 Jun 2013 18:05:04 -0700
+Message-ID: <1372295104.2172.26.camel@joe-AO722>
+References: <1372266073-11998-1-git-send-email-dborkman@redhat.com>
+	 <1372266073-11998-2-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Darren Hart <dvhart@linux.intel.com>
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:60142 "EHLO
+Received: from perches-mx.perches.com ([206.117.179.246]:52974 "EHLO
 	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751557Ab3F0A7c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Jun 2013 20:59:32 -0400
-In-Reply-To: <1372263217-1938-3-git-send-email-andriy.shevchenko@linux.intel.com>
+	id S1751731Ab3F0BFG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jun 2013 21:05:06 -0400
+In-Reply-To: <1372266073-11998-2-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-06-26 at 19:13 +0300, Andy Shevchenko wrote:
-> We may use nice macros to prefix our messages with proper device name.
+On Wed, 2013-06-26 at 19:01 +0200, Daniel Borkmann wrote:
+> In order to avoid making code that deals with printing both, IPv4 and
+> IPv6 addresses, unnecessary complicated as for example ...
+> 
+>   if (sa.sa_family == AF_INET6)
+>     printk("... %pI6 ...", sin6_addr);
+>   else
+>     printk("... %pI4 ...", sin_addr.s_addr);
 []
-> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c
+> diff --git a/lib/vsprintf.c b/lib/vsprintf.c
 []
-> @@ -131,10 +133,12 @@ s32 pch_gbe_phy_get_id(struct pch_gbe_hw *hw)
->   */
->  s32 pch_gbe_phy_read_reg_miic(struct pch_gbe_hw *hw, u32 offset, u16 *data)
->  {
-> +	struct pch_gbe_adapter *adapter = pch_gbe_hw_to_adapter(hw);
->  	struct pch_gbe_phy_info *phy = &hw->phy;
->  
->  	if (offset > PHY_MAX_REG_ADDRESS) {
-> -		pr_err("PHY Address %d is out of range\n", offset);
-> +		netdev_err(adapter->netdev, "PHY Address %d is out of range\n",
-> +			   offset);
+> @@ -1093,6 +1093,18 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
+[]
+> +		case 'g':
+> +			{
 
-For all the patch blocks in this set, I suggest taking
-these reverences only when necessary.
+This is overly indented.
 
-Assigning them at the beginning of the function seems
-wasteful when these may not be used at all.
+Just use:
+		case 'g': {
+			etc...
+
+(%pig looks poorly named though)
+
+I'd prefer "%piS" for "struct sockaddr"
+
+Some other options might be to add port, flowinfo or scope,
+
+See: http://patchwork.ozlabs.org/patch/31480/
