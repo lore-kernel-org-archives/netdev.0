@@ -1,63 +1,68 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [RFC Patch net-next 0/5] net: introduce generic type and helpers
- for IP address
-Date: Thu, 27 Jun 2013 10:33:08 +0200
-Message-ID: <51CBF8C4.7000901@redhat.com>
-References: <1372315398-19683-1-git-send-email-amwang@redhat.com>  <51CBE3AA.5070008@redhat.com> <1372320510.26333.7.camel@cr0>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net-next] ipv4: use next hop exceptions also for input
+ routes
+Date: Thu, 27 Jun 2013 11:52:14 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1306271146550.2436@ja.ssi.bg>
+References: <1372318025-7634-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="280144257-1976251345-1372323135=:2436"
+Cc: netdev@vger.kernel.org
+To: =?UTF-8?Q?Timo_Ter=C3=A4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48318 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752730Ab3F0IdM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Jun 2013 04:33:12 -0400
-In-Reply-To: <1372320510.26333.7.camel@cr0>
+Received: from ja.ssi.bg ([178.16.129.10]:55706 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752760Ab3F0Iqo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Jun 2013 04:46:44 -0400
+In-Reply-To: <1372318025-7634-1-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/27/2013 10:08 AM, Cong Wang wrote:
-> On Thu, 2013-06-27 at 09:03 +0200, Daniel Borkmann wrote:
->> Hi Amerigo,
->>
->> On 06/27/2013 08:43 AM, Cong Wang wrote:
->>> As IPv6 becomes popular, more and more subsystems begin to support IPv6,
->>> therefore we need a generic IP address type, in case of duplicates.
->>> Also we will also need some helpers to compare, print, check the generic
->>> IP address.
->>>
->>> This patchset introduce a new type union inet_addr as a union of IPv4
->>> and IPv6 address, and some helper functions that will be used by existing
->>> code and in the future VXLAN module.
->>>
->>> This patchset only does compile test, since it is still RFC.
->>
->> This patch already does that which I've sent yesterday before yours ...
->>
->>     [PATCH net-next 1/2] lib: vsprintf: add IPv4/v6 generic %pig/%pIg format specifier
->>
->> ... and resend with the set today in the morning as v2 with provided
->> feedback applied. Can't you base yours on top of that?
->
-> Since your patch is not yet merged, so why not just drop yours (of
-> course, if no objection for mine)? :)
->
-> IOW, even if your patch got merged, then I would probably partially
-> revert it when I rebase mine on top of yours, which seems ugly, right?
->
-> Again, I have no objection to your patch, just I don't want to partially
-> revert it when I rebase on top of it.
->
-> What do you think?
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-I'm sorry Amerigo, but I think this is totally uncalled for. I'm also not just
-taking your patches, extend them for example and submit them by myself requesting
-yours to be dropped instead. The likelihood that you came up with the same idea
-independently at the /very same time/ I consider quite low. So therefore, you must
-have done this after seeing this set. Please rebase them on top of this after we
-have agreed upon the two patches, even if it reverts stuff, and then we can further
-discuss your changes.
+--280144257-1976251345-1372323135=:2436
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
 
-Thanks !
+
+	Hello,
+
+On Thu, 27 Jun 2013, Timo Teräs wrote:
+
+> Commit d2d68ba9 (ipv4: Cache input routes in fib_info nexthops)
+> assmued that "locally destined, and routed packets, never trigger
+> PMTU events or redirects that will be processed by us".
+> 
+> However, it seems that tunnel devices do trigger PMTU events in certain
+> cases. At least ip_gre, ip6_gre, sit, and ipip do use the inner flow's
+> skb_dst(skb)->ops->update_pmtu to propage mtu information from the
+> outer flows. These can cause the inner flow mtu to be decreased. If
+> next hop exceptions are not consulted for pmtu, IP fragmentation will
+> not be done properly for these routes.
+> 
+> It also seems that we really need to have the PMTU information always
+> for netfilter TCPMSS clamp-to-pmtu feature to work properly.
+> 
+> So for the time being, cache separate copies of input routes for
+> each next hop exception.
+> 
+> Signed-off-by: Timo Teräs <timo.teras@iki.fi>
+
+	Looks good to me
+
+Reviewed-by: Julian Anastasov <ja@ssi.bg>
+
+> ---
+> Seems that the previous send was marked as RFC, and got no review
+> comments. No alternate patches seem to have been committed either.
+> 
+> I'm resending now without RFC tag, and rebased against current
+> net-next. I've been using this locally for several weeks and have
+> not found any problems, and this does fix the two regression bugs
+> mentioned above.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
+--280144257-1976251345-1372323135=:2436--
