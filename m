@@ -1,33 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net: Unmap fragment page once iterator is done
-Date: Thu, 27 Jun 2013 16:22:11 -0700 (PDT)
-Message-ID: <20130627.162211.776450676036196766.davem@davemloft.net>
-References: <20130625.162054.890870423042371628.davem@davemloft.net>
-	<CANeycqrP6n5GU-Ty17B2_6de_vruAxYNsOQ3WGSEAVDD=NBx2A@mail.gmail.com>
-	<CANeycqoqOPwEQqvvhQy3HJ8t7ViLORqvP3bpnP7zPeuLu1qMRA@mail.gmail.com>
+From: Sven-Thorsten Dietrich <sven@vyatta.com>
+Subject: [PATCH] Set the correct RTNL family for multicast netconf messages
+Date: Thu, 27 Jun 2013 16:44:47 -0700
+Message-ID: <1372376687.21767.10.camel@imac-linux.luckyscavenger.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: wedsonaf@gmail.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"nicolas.dichtel@6wind.com" <nicolas.dichtel@6wind.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Mike Davison <Mike.Davison@vyatta.com>
+To: LKML <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANeycqoqOPwEQqvvhQy3HJ8t7ViLORqvP3bpnP7zPeuLu1qMRA@mail.gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Wedson Almeida Filho <wedsonaf@gmail.com>
-Date: Thu, 27 Jun 2013 15:03:40 -0700
-
->>> This patch doesn't even come close to applying to the net-next tree,
->>> please respin this patch properly and resubmit.
->>
->> Where can I pull the net-next tree from?
->> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git?
-> 
-> David, would you mind clarifying where I can find net-next? The only
-> one I could find was the one I mention above and it already has my
-> patch in it (though with the previous comment).
-
-Yes that is where my net-next tree is, as clearly stated the
-"NETWORKING [GENERAL]" sercion of the MAINTAINERS file.
+VGhlcmUgbWF5IGJlIG90aGVyIGNhc2VzIHRoYXQgcmVxdWlyZSBhIHNwZWNpYWwgY2FzZSwgc28g
+SSBjaG9zZSB0aGUgc3dpdGNoIGFwcHJvYWNoLg0KDQpQbGVhc2Ugbm90ZSwgdGhhdCBhbGwgb3Ro
+ZXIgbWVzc2FnZXMgZnJvbSBpcG1yWzZdLmMgY29ycmVjdGx5IHNldCB0aGUgZmFtaWx5LCB3aGls
+ZSB0aGVzZSBkbyBub3QuDQoNClRoYW5rcw0KDQpTdmVuDQoNCg0KDQpTdWJqZWN0OiBTZXQgY29y
+cmVjdCBSVE5MIGZhbWlseSBmb3IgbXVsdGljYXN0IG5ldGNvbmYgbWVzc2FnZXMNCkZyb206IFN2
+ZW4tVGhvcnN0ZW4gRGlldHJpY2ggc3ZlbkB2eWF0dGEuY29tIFRodSBKdW4gMjcgMTY6NDA6MTcg
+MjAxMyAtMDcwMA0KRGF0ZTogVGh1IEp1biAyNyAxNjo0MDoxNyAyMDEzIC0wNzAwOg0KDQoNCmRp
+ZmYgLS1naXQgYS9uZXQvaXB2NC9kZXZpbmV0LmMgYi9uZXQvaXB2NC9kZXZpbmV0LmMNCmluZGV4
+IGRmYzM5ZDQuLjY5NTg1OGIgMTAwNjQ0DQotLS0gYS9uZXQvaXB2NC9kZXZpbmV0LmMNCisrKyBi
+L25ldC9pcHY0L2RldmluZXQuYw0KQEAgLTE3MDUsNyArMTcwNSwxNiBAQCBzdGF0aWMgaW50IGlu
+ZXRfbmV0Y29uZl9maWxsX2RldmNvbmYoc3RydWN0IHNrX2J1ZmYgKnNrYiwgaW50IGlmaW5kZXgs
+DQogCQlyZXR1cm4gLUVNU0dTSVpFOw0KIA0KIAluY20gPSBubG1zZ19kYXRhKG5saCk7DQotCW5j
+bS0+bmNtX2ZhbWlseSA9IEFGX0lORVQ7DQorDQorCXN3aXRjaCAodHlwZSkgew0KKwkJY2FzZSBO
+RVRDT05GQV9NQ19GT1JXQVJESU5HOg0KKwkJCW5jbS0+bmNtX2ZhbWlseSA9IFJUTkxfRkFNSUxZ
+X0lQTVI7DQorCQkJYnJlYWs7DQorDQorCQlkZWZhdWx0Og0KKwkJCW5jbS0+bmNtX2ZhbWlseSA9
+IEFGX0lORVQ7DQorCQkJYnJlYWs7DQorCX0NCiANCiAJaWYgKG5sYV9wdXRfczMyKHNrYiwgTkVU
+Q09ORkFfSUZJTkRFWCwgaWZpbmRleCkgPCAwKQ0KIAkJZ290byBubGFfcHV0X2ZhaWx1cmU7DQpk
+aWZmIC0tZ2l0IGEvbmV0L2lwdjYvYWRkcmNvbmYuYyBiL25ldC9pcHY2L2FkZHJjb25mLmMNCmlu
+ZGV4IDRhYjRjMzguLmExNzdkYTQgMTAwNjQ0DQotLS0gYS9uZXQvaXB2Ni9hZGRyY29uZi5jDQor
+KysgYi9uZXQvaXB2Ni9hZGRyY29uZi5jDQpAQCAtNDkyLDcgKzQ5MiwxNiBAQCBzdGF0aWMgaW50
+IGluZXQ2X25ldGNvbmZfZmlsbF9kZXZjb25mKHN0cnVjdCBza19idWZmICpza2IsIGludCBpZmlu
+ZGV4LA0KIAkJcmV0dXJuIC1FTVNHU0laRTsNCiANCiAJbmNtID0gbmxtc2dfZGF0YShubGgpOw0K
+LQluY20tPm5jbV9mYW1pbHkgPSBBRl9JTkVUNjsNCisNCisJc3dpdGNoICh0eXBlKSB7DQorCQlj
+YXNlIE5FVENPTkZBX01DX0ZPUldBUkRJTkc6DQorCQkJbmNtLT5uY21fZmFtaWx5ID0gUlROTF9G
+QU1JTFlfSVA2TVI7DQorCQkJYnJlYWs7DQorDQorCQlkZWZhdWx0Og0KKwkJCW5jbS0+bmNtX2Zh
+bWlseSA9IEFGX0lORVQ2Ow0KKwkJCWJyZWFrOw0KKwl9DQogDQogCWlmIChubGFfcHV0X3MzMihz
+a2IsIE5FVENPTkZBX0lGSU5ERVgsIGlmaW5kZXgpIDwgMCkNCiAJCWdvdG8gbmxhX3B1dF9mYWls
+dXJlOw0KDQo=
