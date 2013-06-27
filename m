@@ -1,44 +1,99 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH] net: fec: reset rx mode when do suspend/resume or link
- status change
-Date: Thu, 27 Jun 2013 10:21:14 -0300
-Message-ID: <CAOMZO5DJ0hfXEdXK8etztoW0QorvCkX1j48EQ478+6O0tKWURA@mail.gmail.com>
-References: <1372309759-5067-1-git-send-email-B38611@freescale.com>
-	<20130627131503.GC2695@S2101-09.ap.freescale.net>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2013-06-27
+Date: Thu, 27 Jun 2013 15:23:34 +0200
+Message-ID: <51CC3CD6.6050505@pengutronix.de>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="----enig2UADIOHJDRAJPHDBQRCTF"
+Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+------enig2UADIOHJDRAJPHDBQRCTF
 Content-Type: text/plain; charset=UTF-8
-Cc: Fugang Duan <B38611@freescale.com>, b20596@freescale.com,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, R49496@freescale.com,
-	stephen@networkplumber.org,
-	christoph.muellner@theobroma-systems.com
-To: Shawn Guo <shawn.guo@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f181.google.com ([209.85.220.181]:59065 "EHLO
-	mail-vc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751530Ab3F0NVP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jun 2013 09:21:15 -0400
-Received: by mail-vc0-f181.google.com with SMTP id lf11so257639vcb.40
-        for <netdev@vger.kernel.org>; Thu, 27 Jun 2013 06:21:15 -0700 (PDT)
-In-Reply-To: <20130627131503.GC2695@S2101-09.ap.freescale.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-On Thu, Jun 27, 2013 at 10:15 AM, Shawn Guo <shawn.guo@linaro.org> wrote:
-> On Thu, Jun 27, 2013 at 01:09:19PM +0800, Fugang Duan wrote:
->> When do suspend/resume, or plug/unplug network cable, or net watchdog
->> timeout process, fec_restart reinit the enet group hash table to zero.
->>
->> It is not reasonable for this, so re-config the enet group hash table
->> when these actions happen.
->>
->> Signed-off-by: Fugang Duan  <B38611@freescale.com>
->> ---
->>  drivers/net/ethernet/freescale/fec_main.c |  153 ++++++++++++++---------------
->>  1 files changed, 76 insertions(+), 77 deletions(-)
->
-> A forward declaration of set_multicast_list() can simply save these
-> dramatic diff stat?
+Hello David,
 
-Correct, and this has been already been posted:
-http://patchwork.ozlabs.org/patch/253290/
+this is a pull-request for net-next/master. It consists of three
+patches by Fabio Estevam and me, which convert the flexcan transceiver
+switching to DT[1] and a patch by Sachin Kamat, which cleans up the
+at91_can driver a bit.
+
+[1] These patches touch arch/arm/mach-imx, so I collected Acked-bys
+from Shawn Guo and Sascha Hauer.
+
+regards,
+Marc
+
+---
+
+The following changes since commit 38ae92dc215e939897f17861d658f882d0eaab=
+0f:
+
+  fec: Add support for reading RMON registers (2013-06-26 15:45:14 -0700)=
+
+
+are available in the git repository at:
+
+  git://gitorious.org/linux-can/linux-can-next.git for-davem
+
+for you to fetch changes up to 1f3e4b0cc4deb9d740261273fbbf5ea95c8434d0:
+
+  can: at91_can: Use of_match_ptr() (2013-06-27 15:15:42 +0200)
+
+----------------------------------------------------------------
+Fabio Estevam (2):
+      can: flexcan: Use a regulator to control the CAN transceiver
+      ARM: imx: flexcan: Remove platform file
+
+Marc Kleine-Budde (1):
+      ARM: imx: prepare for removal of flexcan_platform_data
+
+Sachin Kamat (1):
+      can: at91_can: Use of_match_ptr()
+
+ .../devicetree/bindings/net/can/fsl-flexcan.txt    |  2 +
+ arch/arm/boot/dts/imx28-evk.dts                    | 12 ++++++
+ arch/arm/mach-imx/devices-imx25.h                  |  8 ++--
+ arch/arm/mach-imx/devices-imx35.h                  |  8 ++--
+ arch/arm/mach-imx/devices/devices-common.h         |  4 +-
+ arch/arm/mach-imx/devices/platform-flexcan.c       |  5 +--
+ arch/arm/mach-imx/eukrea_mbimxsd25-baseboard.c     |  2 +-
+ arch/arm/mach-imx/eukrea_mbimxsd35-baseboard.c     |  2 +-
+ arch/arm/mach-imx/mach-mx25_3ds.c                  |  2 +-
+ arch/arm/mach-imx/mach-pcm043.c                    |  2 +-
+ arch/arm/mach-mxs/mach-mxs.c                       | 50 +---------------=
+------
+ drivers/net/can/at91_can.c                         |  4 +-
+ drivers/net/can/flexcan.c                          | 25 +++++------
+ include/linux/can/platform/flexcan.h               | 20 ---------
+ 14 files changed, 44 insertions(+), 102 deletions(-)
+ delete mode 100644 include/linux/can/platform/flexcan.h
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+------enig2UADIOHJDRAJPHDBQRCTF
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlHMPNYACgkQjTAFq1RaXHPAIACeKwT9+B75whQgDmJJvXFDkN77
+bV0AnjtRxLojD4klCK8xo1U2aENlVDgB
+=ETui
+-----END PGP SIGNATURE-----
+
+------enig2UADIOHJDRAJPHDBQRCTF--
