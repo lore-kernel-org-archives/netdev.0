@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v3 22/45] block: Use get/put_online_cpus_atomic() to prevent
- CPU offline
-Date: Fri, 28 Jun 2013 01:26:35 +0530
-Message-ID: <20130627195634.29830.41449.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v3 24/45] infiniband: ehca: Use get/put_online_cpus_atomic()
+ to prevent CPU offline
+Date: Fri, 28 Jun 2013 01:26:48 +0530
+Message-ID: <20130627195648.29830.64721.stgit@srivatsabhat.in.ibm.com>
 References: <20130627195136.29830.10445.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,25 +13,22 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jens Axboe <axboe@kernel.dk>,
+	Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	linux-rdma@vger.kernel.org,
 	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
 	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
 	walken@google.com, vincent.guittot@linaro.org,
 	laijs@cn.fujitsu.com, David.Laight@aculab.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp03.in.ibm.com ([122.248.162.3]:32842 "EHLO
-	e28smtp03.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754665Ab3F0T76 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jun 2013 15:59:58 -0400
-Received: from /spool/local
-	by e28smtp03.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <srivatsa.bhat@linux.vnet.ibm.com>;
-	Fri, 28 Jun 2013 01:23:52 +0530
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20130627195136.29830.10445.stgit@srivatsabhat.in.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Once stop_machine() is gone from the CPU offline path, we won't be able
 to depend on disabling preemption to prevent CPUs from going offline
@@ -40,33 +37,59 @@ from under us.
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
 offline, while invoking from atomic context.
 
-Cc: Jens Axboe <axboe@kernel.dk>
+Cc: Hoang-Nam Nguyen <hnguyen@de.ibm.com>
+Cc: Christoph Raisch <raisch@de.ibm.com>
+Cc: Roland Dreier <roland@kernel.org>
+Cc: Sean Hefty <sean.hefty@intel.com>
+Cc: Hal Rosenstock <hal.rosenstock@gmail.com>
+Cc: linux-rdma@vger.kernel.org
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- block/blk-softirq.c |    3 +++
- 1 file changed, 3 insertions(+)
+ drivers/infiniband/hw/ehca/ehca_irq.c |    5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/block/blk-softirq.c b/block/blk-softirq.c
-index 467c8de..bbab3d3 100644
---- a/block/blk-softirq.c
-+++ b/block/blk-softirq.c
-@@ -58,6 +58,7 @@ static void trigger_softirq(void *data)
-  */
- static int raise_blk_irq(int cpu, struct request *rq)
- {
+diff --git a/drivers/infiniband/hw/ehca/ehca_irq.c b/drivers/infiniband/hw/ehca/ehca_irq.c
+index 8615d7c..ace901e 100644
+--- a/drivers/infiniband/hw/ehca/ehca_irq.c
++++ b/drivers/infiniband/hw/ehca/ehca_irq.c
+@@ -43,6 +43,7 @@
+ 
+ #include <linux/slab.h>
+ #include <linux/smpboot.h>
++#include <linux/cpu.h>
+ 
+ #include "ehca_classes.h"
+ #include "ehca_irq.h"
+@@ -703,6 +704,7 @@ static void queue_comp_task(struct ehca_cq *__cq)
+ 	int cq_jobs;
+ 	unsigned long flags;
+ 
 +	get_online_cpus_atomic();
- 	if (cpu_online(cpu)) {
- 		struct call_single_data *data = &rq->csd;
+ 	cpu_id = find_next_online_cpu(pool);
+ 	BUG_ON(!cpu_online(cpu_id));
  
-@@ -66,8 +67,10 @@ static int raise_blk_irq(int cpu, struct request *rq)
- 		data->flags = 0;
- 
- 		__smp_call_function_single(cpu, data, 0);
-+		put_online_cpus_atomic();
- 		return 0;
+@@ -720,6 +722,7 @@ static void queue_comp_task(struct ehca_cq *__cq)
+ 		BUG_ON(!cct || !thread);
  	}
+ 	__queue_comp_task(__cq, cct, thread);
 +	put_online_cpus_atomic();
- 
- 	return 1;
  }
+ 
+ static void run_comp_task(struct ehca_cpu_comp_task *cct)
+@@ -759,6 +762,7 @@ static void comp_task_park(unsigned int cpu)
+ 	list_splice_init(&cct->cq_list, &list);
+ 	spin_unlock_irq(&cct->task_lock);
+ 
++	get_online_cpus_atomic();
+ 	cpu = find_next_online_cpu(pool);
+ 	target = per_cpu_ptr(pool->cpu_comp_tasks, cpu);
+ 	thread = *per_cpu_ptr(pool->cpu_comp_threads, cpu);
+@@ -768,6 +772,7 @@ static void comp_task_park(unsigned int cpu)
+ 		__queue_comp_task(cq, target, thread);
+ 	}
+ 	spin_unlock_irq(&target->task_lock);
++	put_online_cpus_atomic();
+ }
+ 
+ static void comp_task_stop(unsigned int cpu, bool online)
