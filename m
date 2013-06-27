@@ -1,140 +1,238 @@
-From: Joe Jin <joe.jin@oracle.com>
-Subject: Re: kernel panic in skb_copy_bits
-Date: Thu, 27 Jun 2013 15:15:33 +0800
-Message-ID: <51CBE695.9010207@oracle.com>
-References: <51CBAA48.3080802@oracle.com> <1372311118.3301.214.camel@edumazet-glaptop>
+From: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
+Subject: [PATCH net-next] ipv4: use next hop exceptions also for input routes
+Date: Thu, 27 Jun 2013 10:27:05 +0300
+Message-ID: <1372318025-7634-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Frank Blaschka <frank.blaschka@de.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"zheng.x.li@oracle.com" <zheng.x.li@oracle.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372311118.3301.214.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f49.google.com ([209.85.214.49]:62427 "EHLO
+	mail-bk0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752240Ab3F0H06 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jun 2013 03:26:58 -0400
+Received: by mail-bk0-f49.google.com with SMTP id mz10so123608bkb.8
+        for <netdev@vger.kernel.org>; Thu, 27 Jun 2013 00:26:57 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+Commit d2d68ba9 (ipv4: Cache input routes in fib_info nexthops)
+assmued that "locally destined, and routed packets, never trigger
+PMTU events or redirects that will be processed by us".
 
-Thanks for you response, will test it and get back to you.
+However, it seems that tunnel devices do trigger PMTU events in certain
+cases. At least ip_gre, ip6_gre, sit, and ipip do use the inner flow's
+skb_dst(skb)->ops->update_pmtu to propage mtu information from the
+outer flows. These can cause the inner flow mtu to be decreased. If
+next hop exceptions are not consulted for pmtu, IP fragmentation will
+not be done properly for these routes.
 
-Regards,
-Joe
-On 06/27/13 13:31, Eric Dumazet wrote:
-> On Thu, 2013-06-27 at 10:58 +0800, Joe Jin wrote:
->> Hi,
->>
->> When we do fail over test with iscsi + multipath by reset the switches
->> on OVM(2.6.39) we hit the panic:
->>
->> BUG: unable to handle kernel paging request at ffff88006d9e8d48
->> IP: [<ffffffff812605bb>] memcpy+0xb/0x120
->> PGD 1798067 PUD 1fd2067 PMD 213f067 PTE 0
->> Oops: 0000 [#1] SMP 
->> CPU 7 
->> Modules linked in: dm_nfs tun nfs fscache auth_rpcgss nfs_acl xen_blkback xen_netback xen_gntdev xen_evtchn lockd sunrpc bridge stp llc bonding be2iscsi iscsi_boot_sysfs ib_iser rdma_cm ib_cm iw_cm ib_sa ib_mad ib_core ib_addr iscsi_tcp bnx2i cnic uio ipv6 cxgb3i libcxgbi cxgb3 mdio dm_round_robin dm_multipath libiscsi_tcp libiscsi scsi_transport_iscsi xenfs xen_privcmd video sbs sbshc acpi_memhotplug acpi_ipmi ipmi_msghandler parport_pc lp parport ixgbe dca sr_mod cdrom bnx2 radeon ttm drm_kms_helper drm snd_seq_dummy i2c_algo_bit i2c_core snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device snd_pcm_oss snd_mixer_oss serio_raw snd_pcm snd_timer snd soundcore snd_page_alloc iTCO_wdt pcspkr iTCO_vendor_support pata_acpi dcdbas i5k_amb ata_generic hwmon floppy ghes i5000_edac edac_core h
- ed dm_snapshot dm_zero dm_mirror dm_region_hash dm_log dm_mod usb_storage lpfc scsi_transport_fc scsi_tgt ata_piix sg shpchp mptsas mptscsih mptbase scsi_transport_sas sd_mod crc_t10dif ext!
- 3!
->   j!
->>  bd mbcache
->>
->>
->> Pid: 0, comm: swapper Tainted: G        W   2.6.39-300.32.1.el5uek #1 Dell Inc. PowerEdge 2950/0DP246
->> RIP: e030:[<ffffffff812605bb>]  [<ffffffff812605bb>] memcpy+0xb/0x120
->> RSP: e02b:ffff8801003c3d58  EFLAGS: 00010246
->> RAX: ffff880076b9e280 RBX: ffff8800714d2c00 RCX: 0000000000000057
->> RDX: 0000000000000000 RSI: ffff88006d9e8d48 RDI: ffff880076b9e280
->> RBP: ffff8801003c3dc0 R08: 00000000000bf723 R09: 0000000000000000
->> R10: 0000000000000000 R11: 000000000000000a R12: 0000000000000034
->> R13: 0000000000000034 R14: 00000000000002b8 R15: 00000000000005a8
->> FS:  00007fc1e852a6e0(0000) GS:ffff8801003c0000(0000) knlGS:0000000000000000
->> CS:  e033 DS: 002b ES: 002b CR0: 000000008005003b
->> CR2: ffff88006d9e8d48 CR3: 000000006370b000 CR4: 0000000000002660
->> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
->> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
->> Process swapper (pid: 0, threadinfo ffff880077ac0000, task ffff880077abe240)
->> Stack:
->>  ffffffff8142db21 0000000000000000 ffff880076b9e280 ffff8800637097f0
->>  000002ec00000000 00000000000002b8 ffff880077ac0000 0000000000000000
->>  ffff8800637097f0 ffff880066c9a7c0 00000000fffffdb4 000000000000024c
->> Call Trace:
->>  <IRQ> 
->>  [<ffffffff8142db21>] ? skb_copy_bits+0x1c1/0x2e0
->>  [<ffffffff8142f173>] skb_copy+0xf3/0x120
->>  [<ffffffff81447fbc>] neigh_timer_handler+0x1ac/0x350
->>  [<ffffffff810573fe>] ? account_idle_ticks+0xe/0x10
->>  [<ffffffff81447e10>] ? neigh_alloc+0x180/0x180
->>  [<ffffffff8107dbaa>] call_timer_fn+0x4a/0x110
->>  [<ffffffff81447e10>] ? neigh_alloc+0x180/0x180
->>  [<ffffffff8107f82a>] run_timer_softirq+0x13a/0x220
->>  [<ffffffff81075c39>] __do_softirq+0xb9/0x1d0
->>  [<ffffffff810d9678>] ? handle_percpu_irq+0x48/0x70
->>  [<ffffffff81511d3c>] call_softirq+0x1c/0x30
->>  [<ffffffff810172e5>] do_softirq+0x65/0xa0
->>  [<ffffffff8107656b>] irq_exit+0xab/0xc0
->>  [<ffffffff812f97d5>] xen_evtchn_do_upcall+0x35/0x50
->>  [<ffffffff81511d8e>] xen_do_hypervisor_callback+0x1e/0x30
->>  <EOI> 
->>  [<ffffffff810013aa>] ? xen_hypercall_sched_op+0xa/0x20
->>  [<ffffffff810013aa>] ? xen_hypercall_sched_op+0xa/0x20
->>  [<ffffffff8100a0b0>] ? xen_safe_halt+0x10/0x20
->>  [<ffffffff8101dfeb>] ? default_idle+0x5b/0x170
->>  [<ffffffff81014ac6>] ? cpu_idle+0xc6/0xf0
->>  [<ffffffff8100a8c9>] ? xen_irq_enable_direct_reloc+0x4/0x4
->>  [<ffffffff814f7bbe>] ? cpu_bringup_and_idle+0xe/0x10
->> Code: 01 c6 43 4c 04 19 c0 4c 8b 65 f0 4c 8b 6d f8 83 e0 fc 83 c0 08 88 43 4d 48 8b 5d e8 c9 c3 90 90 48 89 f8 89 d1 c1 e9 03 83 e2 07 <f3> 48 a5 89 d1 f3 a4 c3 20 48 83 ea 20 4c 8b 06 4c 8b 4e 08 4c 
->> RIP  [<ffffffff812605bb>] memcpy+0xb/0x120
->>  RSP <ffff8801003c3d58>
->> CR2: ffff88006d9e8d48
->>
->> Reviewed vmcore I found the skb->users is 1 at the moment, checked network neighbour 
->> history I found skb_get() be replaced by skb_copy by commit 7e36763b2c:
->>
->> commit 7e36763b2c204d59de4e88087f84a2c0c8421f25                               
->> Author: Frank Blaschka <frank.blaschka@de.ibm.com>                            
->> Date:   Mon Mar 3 12:16:04 2008 -0800
->>
->>     [NET]: Fix race in generic address resolution.                            
->>         
->>     neigh_update sends skb from neigh->arp_queue while neigh_timer_handler    
->>     has increased skbs refcount and calls solicit with the                    
->>     skb. neigh_timer_handler should not increase skbs refcount but make a     
->>     copy of the skb and do solicit with the copy.                             
->>     
->>     Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>                 
->>     Signed-off-by: David S. Miller <davem@davemloft.net>                      
->>
->> So can you please give some details of the race? per vmcore seems like the skb data
->> be freed, I suspected skb_get() lost at somewhere?
->> I reverted above commit the panic not occurred during our testing.
->>
->> Any input will appreciate!
-> 
-> Well, fact is that your crash is happening in skb_copy().
-> 
-> Frank patch is OK. I suspect using skb_clone() would work too,
-> so if these skb were fclone ready, chance of an GFP_ATOMIC allocation
-> error would be smaller.
-> 
-> So something is providing a wrong skb at the very beginning.
-> 
-> You could try to do a early skb_copy to catch the bug and see in the
-> stack trace what produced this buggy skb.
-> 
-> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> index 5c56b21..a7a51fd 100644
-> --- a/net/core/neighbour.c
-> +++ b/net/core/neighbour.c
-> @@ -1010,6 +1010,7 @@ int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
->  				NEIGH_CACHE_STAT_INC(neigh->tbl, unres_discards);
->  			}
->  			skb_dst_force(skb);
-> +			kfree_skb(skb_copy(skb, GFP_ATOMIC));
->  			__skb_queue_tail(&neigh->arp_queue, skb);
->  			neigh->arp_queue_len_bytes += skb->truesize;
->  		}
-> 
-> 
+It also seems that we really need to have the PMTU information always
+for netfilter TCPMSS clamp-to-pmtu feature to work properly.
+
+So for the time being, cache separate copies of input routes for
+each next hop exception.
+
+Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
+---
+Seems that the previous send was marked as RFC, and got no review
+comments. No alternate patches seem to have been committed either.
+
+I'm resending now without RFC tag, and rebased against current
+net-next. I've been using this locally for several weeks and have
+not found any problems, and this does fix the two regression bugs
+mentioned above.
+
+ include/net/ip_fib.h     |  3 ++-
+ net/ipv4/fib_semantics.c |  3 ++-
+ net/ipv4/route.c         | 65 +++++++++++++++++++++++++++++++++++++---=
+--------
+ 3 files changed, 54 insertions(+), 17 deletions(-)
+
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 44424e9..aac8553 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -56,7 +56,8 @@ struct fib_nh_exception {
+ 	u32				fnhe_pmtu;
+ 	__be32				fnhe_gw;
+ 	unsigned long			fnhe_expires;
+-	struct rtable __rcu		*fnhe_rth;
++	struct rtable __rcu		*fnhe_rth_input;
++	struct rtable __rcu		*fnhe_rth_output;
+ 	unsigned long			fnhe_stamp;
+ };
+=20
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 8f6cb7a..d5dbca5 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -169,7 +169,8 @@ static void free_nh_exceptions(struct fib_nh *nh)
+ 		=09
+ 			next =3D rcu_dereference_protected(fnhe->fnhe_next, 1);
+=20
+-			rt_fibinfo_free(&fnhe->fnhe_rth);
++			rt_fibinfo_free(&fnhe->fnhe_rth_input);
++			rt_fibinfo_free(&fnhe->fnhe_rth_output);
+=20
+ 			kfree(fnhe);
+=20
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index f3fa42e..a9a54a2 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -565,10 +565,25 @@ static inline void rt_free(struct rtable *rt)
+=20
+ static DEFINE_SPINLOCK(fnhe_lock);
+=20
++static void fnhe_flush_routes(struct fib_nh_exception *fnhe)
++{
++	struct rtable *rt;
++
++	rt =3D rcu_dereference(fnhe->fnhe_rth_input);
++	if (rt) {
++		RCU_INIT_POINTER(fnhe->fnhe_rth_input, NULL);
++		rt_free(rt);
++	}
++	rt =3D rcu_dereference(fnhe->fnhe_rth_output);
++	if (rt) {
++		RCU_INIT_POINTER(fnhe->fnhe_rth_output, NULL);
++		rt_free(rt);
++	}
++}
++
+ static struct fib_nh_exception *fnhe_oldest(struct fnhe_hash_bucket *h=
+ash)
+ {
+ 	struct fib_nh_exception *fnhe, *oldest;
+-	struct rtable *orig;
+=20
+ 	oldest =3D rcu_dereference(hash->chain);
+ 	for (fnhe =3D rcu_dereference(oldest->fnhe_next); fnhe;
+@@ -576,11 +591,7 @@ static struct fib_nh_exception *fnhe_oldest(struct=
+ fnhe_hash_bucket *hash)
+ 		if (time_before(fnhe->fnhe_stamp, oldest->fnhe_stamp))
+ 			oldest =3D fnhe;
+ 	}
+-	orig =3D rcu_dereference(oldest->fnhe_rth);
+-	if (orig) {
+-		RCU_INIT_POINTER(oldest->fnhe_rth, NULL);
+-		rt_free(orig);
+-	}
++	fnhe_flush_routes(oldest);
+ 	return oldest;
+ }
+=20
+@@ -644,7 +655,10 @@ static void update_or_create_fnhe(struct fib_nh *n=
+h, __be32 daddr, __be32 gw,
+ 			fnhe->fnhe_expires =3D max(1UL, expires);
+ 		}
+ 		/* Update all cached dsts too */
+-		rt =3D rcu_dereference(fnhe->fnhe_rth);
++		rt =3D rcu_dereference(fnhe->fnhe_rth_input);
++		if (rt)
++			fill_route_from_fnhe(rt, fnhe);
++		rt =3D rcu_dereference(fnhe->fnhe_rth_output);
+ 		if (rt)
+ 			fill_route_from_fnhe(rt, fnhe);
+ 	} else {
+@@ -668,6 +682,10 @@ static void update_or_create_fnhe(struct fib_nh *n=
+h, __be32 daddr, __be32 gw,
+ 		 * stale, so anyone caching it rechecks if this exception
+ 		 * applies to them.
+ 		 */
++		rt =3D rcu_dereference(nh->nh_rth_input);
++		if (rt)
++			rt->dst.obsolete =3D DST_OBSOLETE_KILL;
++
+ 		for_each_possible_cpu(i) {
+ 			struct rtable __rcu **prt;
+ 			prt =3D per_cpu_ptr(nh->nh_pcpu_rth_output, i);
+@@ -1242,25 +1260,36 @@ static bool rt_bind_exception(struct rtable *rt=
+, struct fib_nh_exception *fnhe,
+ 	spin_lock_bh(&fnhe_lock);
+=20
+ 	if (daddr =3D=3D fnhe->fnhe_daddr) {
++		struct rtable __rcu **porig;
++		struct rtable *orig;
+ 		int genid =3D fnhe_genid(dev_net(rt->dst.dev));
+-		struct rtable *orig =3D rcu_dereference(fnhe->fnhe_rth);
++
++		if (rt_is_input_route(rt))
++			porig =3D &fnhe->fnhe_rth_input;
++		else
++			porig =3D &fnhe->fnhe_rth_output;
++		orig =3D rcu_dereference(*porig);
+=20
+ 		if (fnhe->fnhe_genid !=3D genid) {
+ 			fnhe->fnhe_genid =3D genid;
+ 			fnhe->fnhe_gw =3D 0;
+ 			fnhe->fnhe_pmtu =3D 0;
+ 			fnhe->fnhe_expires =3D 0;
++			fnhe_flush_routes(fnhe);
++			orig =3D NULL;
+ 		}
+ 		fill_route_from_fnhe(rt, fnhe);
+ 		if (!rt->rt_gateway)
+ 			rt->rt_gateway =3D daddr;
+=20
+-		rcu_assign_pointer(fnhe->fnhe_rth, rt);
+-		if (orig)
+-			rt_free(orig);
++		if (!(rt->dst.flags & DST_NOCACHE)) {
++			rcu_assign_pointer(*porig, rt);
++			if (orig)
++				rt_free(orig);
++			ret =3D true;
++		}
+=20
+ 		fnhe->fnhe_stamp =3D jiffies;
+-		ret =3D true;
+ 	}
+ 	spin_unlock_bh(&fnhe_lock);
+=20
+@@ -1492,6 +1521,7 @@ static int __mkroute_input(struct sk_buff *skb,
+ 			   struct in_device *in_dev,
+ 			   __be32 daddr, __be32 saddr, u32 tos)
+ {
++	struct fib_nh_exception *fnhe;
+ 	struct rtable *rth;
+ 	int err;
+ 	struct in_device *out_dev;
+@@ -1538,8 +1568,13 @@ static int __mkroute_input(struct sk_buff *skb,
+ 		}
+ 	}
+=20
++	fnhe =3D find_exception(&FIB_RES_NH(*res), daddr);
+ 	if (do_cache) {
+-		rth =3D rcu_dereference(FIB_RES_NH(*res).nh_rth_input);
++		if (fnhe !=3D NULL)
++			rth =3D rcu_dereference(fnhe->fnhe_rth_input);
++		else
++			rth =3D rcu_dereference(FIB_RES_NH(*res).nh_rth_input);
++
+ 		if (rt_cache_valid(rth)) {
+ 			skb_dst_set_noref(skb, &rth->dst);
+ 			goto out;
+@@ -1567,7 +1602,7 @@ static int __mkroute_input(struct sk_buff *skb,
+ 	rth->dst.input =3D ip_forward;
+ 	rth->dst.output =3D ip_output;
+=20
+-	rt_set_nexthop(rth, daddr, res, NULL, res->fi, res->type, itag);
++	rt_set_nexthop(rth, daddr, res, fnhe, res->fi, res->type, itag);
+ 	skb_dst_set(skb, &rth->dst);
+ out:
+ 	err =3D 0;
+@@ -1882,7 +1917,7 @@ static struct rtable *__mkroute_output(const stru=
+ct fib_result *res,
+=20
+ 		fnhe =3D find_exception(nh, fl4->daddr);
+ 		if (fnhe)
+-			prth =3D &fnhe->fnhe_rth;
++			prth =3D &fnhe->fnhe_rth_output;
+ 		else {
+ 			if (unlikely(fl4->flowi4_flags &
+ 				     FLOWI_FLAG_KNOWN_NH &&
+--=20
+1.8.3.1
