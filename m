@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: fa_type and fib_info - a question
-Date: Thu, 27 Jun 2013 16:17:44 -0700 (PDT)
-Message-ID: <20130627.161744.674336032974965021.davem@davemloft.net>
-References: <CAJJAcoeMwSTbSPCQYJa8e5ZNVqWRkP63PzLd3S2bAquD5uZk4g@mail.gmail.com>
+Subject: Re: [PATCH v3] net: Unmap fragment page once iterator is done
+Date: Thu, 27 Jun 2013 16:22:11 -0700 (PDT)
+Message-ID: <20130627.162211.776450676036196766.davem@davemloft.net>
+References: <20130625.162054.890870423042371628.davem@davemloft.net>
+	<CANeycqrP6n5GU-Ty17B2_6de_vruAxYNsOQ3WGSEAVDD=NBx2A@mail.gmail.com>
+	<CANeycqoqOPwEQqvvhQy3HJ8t7ViLORqvP3bpnP7zPeuLu1qMRA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dshwatrz@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32946 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753707Ab3F0XRr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jun 2013 19:17:47 -0400
-In-Reply-To: <CAJJAcoeMwSTbSPCQYJa8e5ZNVqWRkP63PzLd3S2bAquD5uZk4g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sergei.shtylyov@cogentembedded.com, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: wedsonaf@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANeycqoqOPwEQqvvhQy3HJ8t7ViLORqvP3bpnP7zPeuLu1qMRA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Shwatrz <dshwatrz@gmail.com>
-Date: Thu, 27 Jun 2013 22:16:12 +0300
+From: Wedson Almeida Filho <wedsonaf@gmail.com>
+Date: Thu, 27 Jun 2013 15:03:40 -0700
 
-> Why does fib_alias contain an fa_type member and also fib_info contain
-> a fib_type member?  A fib_alias must refer to some fib_info object via
-> the fa_info pointer. Are there cases when fa_type can differ from
-> fib_type? or is it so only for some legacy reason?
+>>> This patch doesn't even come close to applying to the net-next tree,
+>>> please respin this patch properly and resubmit.
+>>
+>> Where can I pull the net-next tree from?
+>> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git?
+> 
+> David, would you mind clarifying where I can find net-next? The only
+> one I could find was the one I mention above and it already has my
+> patch in it (though with the previous comment).
 
-It's just a simplification that hasn't been done yet.  They should
-both be exactly the same and be derived from cfg->fc_type.
+Yes that is where my net-next tree is, as clearly stated the
+"NETWORKING [GENERAL]" sercion of the MAINTAINERS file.
