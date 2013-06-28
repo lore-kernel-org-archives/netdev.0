@@ -1,73 +1,68 @@
-From: <Narendra_K@Dell.com>
-Subject: [RFC PATCH net-next] net: Include phys_port identifier in the
- RTM_NEWLINK message
-Date: Fri, 28 Jun 2013 21:04:43 +0530
-Message-ID: <20130628153424.GA4340@fedora-17-guest.blr.amer.dell.com>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: fix broken locking in x25 ioctl error paths
+Date: Fri, 28 Jun 2013 11:36:08 -0400
+Message-ID: <20130628153608.GA12488@redhat.com>
+References: <20130628151453.GA29428@redhat.com>
+ <1372432775.3301.285.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <bhutchings@solarflare.com>, <john.r.fastabend@intel.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausxippc101.us.dell.com ([143.166.85.207]:1335 "EHLO
-	ausxippc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750818Ab3F1PgF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 11:36:05 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:11153 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751511Ab3F1PgR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Jun 2013 11:36:17 -0400
+Content-Disposition: inline
+In-Reply-To: <1372432775.3301.285.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a new netlink attribute 'IFLA_PHYS_PORT' to identify
-the 'phys_port' identifier and includes the 'phys_port' identifier
-in the RTM_NEWLINK message.
+On Fri, Jun 28, 2013 at 08:19:35AM -0700, Eric Dumazet wrote:
+ > On Fri, 2013-06-28 at 11:14 -0400, Dave Jones wrote:
+ > > Two of the x25 ioctl cases have error paths that break out of the function without
+ > > unlocking the socket, leading to this warning:
+ > > 
+ > > 
+ > > ================================================
+ > > [ BUG: lock held when returning to user space! ]
+ > > 3.10.0-rc7+ #36 Not tainted
+ > > ------------------------------------------------
+ > > trinity-child2/31407 is leaving the kernel with locks still held!
+ > > 1 lock held by trinity-child2/31407:
+ > >  #0:  (sk_lock-AF_X25){+.+.+.}, at: [<ffffffffa024b6da>] x25_ioctl+0x8a/0x740 [x25]
+ > > 
+ > > Signed-off-by: Dave Jones <davej@redhat.com>
+ > > 
+ > > diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+ > > index 37ca969..2c1e633 100644
+ > > --- a/net/x25/af_x25.c
+ > > +++ b/net/x25/af_x25.c
+ > > @@ -1584,10 +1584,11 @@ out_cud_release:
+ > >  		rc = -EINVAL;
+ > >  		lock_sock(sk);
+ > >  		if (sk->sk_state != TCP_CLOSE)
+ > > -			break;
+ > > +			goto out_callaccpt_release;
+ > >  		clear_bit(X25_ACCPT_APPRV_FLAG, &x25->flags);
+ > > -		release_sock(sk);
+ > >  		rc = 0;
+ > > +out_callaccpt_release:
+ > > +		release_sock(sk);
+ > >  		break;
+ > >  	}
+ > 
+ > Or :
+ > 
+ > lock_sock(sk);
+ > if (sk->sk_state == TCP_CLOSE) {
+ >     clear_bit(X25_ACCPT_APPRV_FLAG, &x25->flags);
+ >     rc = 0;
+ > }
+ > release_sock(sk);
+ > break;
 
-Signed-off-by: Narendra K <narendra_k@dell.com>
----
- include/uapi/linux/if_link.h | 1 +
- net/core/rtnetlink.c         | 7 +++++++
- 2 files changed, 8 insertions(+)
+I can do that if it's preferred. I just copied the same style
+as the existing cases.
 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 03f6170..6dc4476 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -143,6 +143,7 @@ enum {
- 	IFLA_NUM_TX_QUEUES,
- 	IFLA_NUM_RX_QUEUES,
- 	IFLA_CARRIER,
-+	IFLA_PHYS_PORT,
- 	__IFLA_MAX
- };
- 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 9007533..ade66a3 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -751,6 +751,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + nla_total_size(sizeof(struct rtnl_link_stats64))
- 	       + nla_total_size(MAX_ADDR_LEN) /* IFLA_ADDRESS */
- 	       + nla_total_size(MAX_ADDR_LEN) /* IFLA_BROADCAST */
-+	       + nla_total_size(MAX_ADDR_LEN) /* IFLA_PHYS_PORT */
- 	       + nla_total_size(4) /* IFLA_TXQLEN */
- 	       + nla_total_size(4) /* IFLA_WEIGHT */
- 	       + nla_total_size(4) /* IFLA_MTU */
-@@ -913,6 +914,12 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			goto nla_put_failure;
- 	}
- 
-+	if (dev->phys_port.port_id_len) {
-+		if (nla_put(skb, IFLA_PHYS_PORT, dev->phys_port.port_id_len,
-+			    dev->phys_port.port_id))
-+			goto nla_put_failure;
-+	}
-+
- 	attr = nla_reserve(skb, IFLA_STATS,
- 			sizeof(struct rtnl_link_stats));
- 	if (attr == NULL)
--- 
-1.8.0.1
-
--- 
-With regards,
-Narendra K
-Linux Engineering
-Dell Inc.
+	Dave
