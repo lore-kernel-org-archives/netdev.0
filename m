@@ -1,37 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 0/2] sit: allow to switch netns during
- encap/decap
-Date: Thu, 27 Jun 2013 22:36:21 -0700 (PDT)
-Message-ID: <20130627.223621.1852663736303796496.davem@davemloft.net>
-References: <51CADB72.3090206@6wind.com>
-	<1372255888-4792-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Darren Hart <dvhart@linux.intel.com>
+Subject: Re: [PATCH 8/8] pch_gbe: Add MinnowBoard support
+Date: Thu, 27 Jun 2013 22:37:02 -0700
+Message-ID: <1372397822.9243.22.camel@envy.home>
+References: <cover.1372211451.git.dvhart@linux.intel.com>
+	 <6c27e79870ec93f7a8c6692d4bcfebaee589fa6b.1372211451.git.dvhart@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com, bcrl@kvack.org,
-	ravi.mlists@gmail.com, bhutchings@solarflare.com,
-	eric.dumazet@gmail.com
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36039 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751132Ab3F1FgW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 01:36:22 -0400
-In-Reply-To: <1372255888-4792-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "H. Peter Anvin" <hpa@zytor.com>, peter.p.waskiewicz.jr@intel.com,
+	andriy.shevchenko@linux.intel.com, danders@circuitco.com,
+	vishal.l.verma@intel.com, "David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <6c27e79870ec93f7a8c6692d4bcfebaee589fa6b.1372211451.git.dvhart@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Wed, 26 Jun 2013 16:11:26 +0200
-
-> This patch is a follow up of the thread "switching network namespace midway":
-> http://marc.info/?t=135101459500004&r=1&w=2
+On Tue, 2013-06-25 at 18:53 -0700, Darren Hart wrote:
+> The MinnowBoard uses an AR803x PHY with the PCH GBE.
 > 
-> The goal of this serie is to add x-netns support for the module sit, ie the
-> encapsulation addresses and the network device are not owned by the same
-> namespace.
+> It does not implement the RGMII 2ns TX clock delay in the trace routing
+> nor via strapping. Add a detection method for the board and the PHY and
+> enable the tx clock delay via the registers.
+> 
+> This PHY will hibernate without link for 10 seconds. Ensure the PHY is
+> awake for probe and then disable hibernation. A future improvement would
+> be to convert pch_gbe to using PHYLIB and making sure we can wake the
+> PHY at the necessary times rather than permanently disabling it.
+> 
+> Use the MinnowBoard PCI subsystem ID to identify the board and setup the
+> appropriate callbacks in a new pci_id driver_data structure.
+> 
 
-Ok, applied.
 
-And yes I agree we should look into making tunnel's behave consistently
-wrt. SKB orphaning, cleaning netfilter state, etc.
+Per the discussion on the minnowboard platform drivers in this series
+(which provide the minnow_phy_reset() function), I will be rewriting
+this patch to provide its own phy_physical_reset() or similar which will
+look like the other two phy functions I've added and will take a GPIO
+line as an argument, determined by pci_id.
+
+Please disregard this patch for now.
+
+Thanks,
+
+
+-- 
+Darren Hart
+Intel Open Source Technology Center
+Yocto Project - Technical Lead - Linux Kernel
