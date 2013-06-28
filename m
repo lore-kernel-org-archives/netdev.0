@@ -1,35 +1,46 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next v3 1/2] lib: vsprintf: add IPv4/v6 generic
- %p[Ii]S[pfs] format specifier
-Date: Fri, 28 Jun 2013 09:30:39 -0700
-Message-ID: <1372437039.29380.19.camel@joe-AO722>
-References: <1372421131-1672-1-git-send-email-dborkman@redhat.com>
-	 <1372421131-1672-2-git-send-email-dborkman@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] net: Check the argument for listen(2)
+Date: Fri, 28 Jun 2013 18:32:34 +0200
+Message-ID: <20130628163234.GA651@order.stressinduktion.org>
+References: <1372436076-61436-1-git-send-email-xiaosuo@gmail.com> <1372436942.3301.286.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372421131-1672-2-git-send-email-dborkman@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:43859 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754226Ab3F1Qcf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 12:32:35 -0400
+Content-Disposition: inline
+In-Reply-To: <1372436942.3301.286.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-06-28 at 14:05 +0200, Daniel Borkmann wrote:
+On Fri, Jun 28, 2013 at 09:29:02AM -0700, Eric Dumazet wrote:
+> On Sat, 2013-06-29 at 00:14 +0800, Changli Gao wrote:
+> > --- a/net/ipv4/af_inet.c
+> > +++ b/net/ipv4/af_inet.c
+> > @@ -198,6 +198,9 @@ int inet_listen(struct socket *sock, int backlog)
+> >  	unsigned char old_state;
+> >  	int err;
+> >  
+> > +	if (backlog >= (1 << 16))
+> > +		return EINVAL;
+> > +
+> >  	lock_sock(sk);
+> >  
+> >  	err = -EINVAL;
+> 
+> This seems pretty buggy to me.
+> 
+> 1) EINVAL is not -EINVAL
+> 
+> 2) This might break existing applications.
 
-> +static noinline_for_stack
-> +char *ip4_addr_string_sa(char *buf, char *end, const struct sockaddr_in *sa,
-> +			 struct printf_spec spec, const char *fmt)
-> +{
-> +	bool have_p = (fmt[2] && fmt[2] == 'p');
+Yes, we should clamp the value to netdev_max_backlog.
 
-	bool have_p = fmt[2] == 'p';
+Greetings,
 
-you don't need the first "fmt[2] &&"
-but I can imagine a case where the other flow/scope types
-could be specified generically and the 'p' may not be in
-array index 2
-
-I think you should probably do the same while loop like
-the ip6_addr_string_sa block.
+  Hannes
