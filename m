@@ -1,50 +1,103 @@
-From: "Steinar H. Gunderson" <sesse@google.com>
-Subject: Re: [PATCH v3] iwl3945: better skb management in rx path
-Date: Sat, 29 Jun 2013 01:05:02 +0200
-Message-ID: <CAMQErF45ZTdBDuGJ_zOZ=v28=Fj+LSNowKt_Bn6UVi5h14gt5A@mail.gmail.com>
-References: <1372421021.3301.263.camel@edumazet-glaptop>
-	<CAMcMvshEdsFZ2PVEpaq0e2P4L+cksshjB56x2YvA4wt3T+3__w@mail.gmail.com>
-	<1372431024.3301.277.camel@edumazet-glaptop>
-	<1372431906.3301.283.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Paul Stewart <pstew@google.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH v3] openvswitch: Add Kconfig dependency on GRE-DEMUX.
+Date: Fri, 28 Jun 2013 16:07:40 -0700
+Message-ID: <1372460860-19052-1-git-send-email-pshelar@nicira.com>
+Cc: rdunlap@infradead.org, bhutchings@solarflare.com,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>
+To: netdev@vger.kernel.org, dev@openvswitch.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:36246 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750818Ab3F1XFD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 19:05:03 -0400
-Received: by mail-pd0-f177.google.com with SMTP id p10so1302305pdj.22
-        for <netdev@vger.kernel.org>; Fri, 28 Jun 2013 16:05:02 -0700 (PDT)
-In-Reply-To: <1372431906.3301.283.camel@edumazet-glaptop>
+Received: from na3sys009aog130.obsmtp.com ([74.125.149.143]:49277 "HELO
+	na3sys009aog130.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752082Ab3F1XHs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 19:07:48 -0400
+Received: by mail-pd0-f172.google.com with SMTP id z10so1307324pdj.17
+        for <netdev@vger.kernel.org>; Fri, 28 Jun 2013 16:07:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/6/28 Eric Dumazet <eric.dumazet@gmail.com>:
-> Steinar reported reallocations of skb->head with IPv6, leading to
-> a warning in skb_try_coalesce()
->
-> It turns out iwl3945 has several problems :
->
-> 1) skb->truesize is underestimated.
->    We really consume PAGE_SIZE bytes for a fragment,
->    not the frame length.
-> 2) 128 bytes of initial headroom is a bit low and forces reallocation=
-s.
-> 3) We can avoid consuming a full page for small enough frames.
+Openvswitch uses function from NET_IPGRE_DEMUX module.
+Add Kconfig dependency to fix following compilation errors:
+http://marc.info/?l=linux-netdev&m=137244035226634
 
-I'm running 3.9.8 plus this patch (hand-applied since GMail mangled
-it=E2=80=A6), and so far, it seems to work fine. Well, network-manager =
-still
-doesn't like Cisco's band-select feature, so from time to time I get
-network freezes while it's trying to roam from 5 GHz to 2.4 GHz, but
-that's hardly iwl3945's fault.
+CC: Jesse Gross <jesse@nicira.com>
+Reported-by: Randy Dunlap <rdunlap@infradead.org>
+Signed-off-by: Pravin Shelar <pshelar@nicira.com>
+---
+v2-v3:
+ - Added openvswitch gre config option.
+ - add INET dependency.
+v1-v2:
+ - use select to resolve dependency.
+---
+ net/openvswitch/Kconfig     |   16 ++++++++++++++--
+ net/openvswitch/vport-gre.c |    5 +++--
+ net/openvswitch/vport.c     |    2 +-
+ 3 files changed, 18 insertions(+), 5 deletions(-)
 
-/* Steinar */
---=20
-Software Engineer, Google Switzerland
+diff --git a/net/openvswitch/Kconfig b/net/openvswitch/Kconfig
+index 9fbc04a..27ee56b 100644
+--- a/net/openvswitch/Kconfig
++++ b/net/openvswitch/Kconfig
+@@ -19,8 +19,6 @@ config OPENVSWITCH
+ 	  which is able to accept configuration from a variety of sources and
+ 	  translate it into packet processing rules.
+ 
+-	  Open vSwitch GRE support depends on CONFIG_NET_IPGRE_DEMUX.
+-
+ 	  See http://openvswitch.org for more information and userspace
+ 	  utilities.
+ 
+@@ -28,3 +26,17 @@ config OPENVSWITCH
+ 	  called openvswitch.
+ 
+ 	  If unsure, say N.
++
++config OPENVSWITCH_GRE
++	bool "Open vSwitch GRE tunneling support"
++	depends on INET
++	depends on OPENVSWITCH
++	depends on NET_IPGRE_DEMUX && !(OPENVSWITCH=y && NET_IPGRE_DEMUX=m)
++	default y
++	---help---
++	  If you say Y here, then the Open vSwitch will be able create GRE
++	  vport.
++
++	  Say N to exclude this support and reduce the binary size.
++
++	  If unsure, say Y.
+diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
+index 943e5c4..493e977 100644
+--- a/net/openvswitch/vport-gre.c
++++ b/net/openvswitch/vport-gre.c
+@@ -16,7 +16,7 @@
+  * 02110-1301, USA
+  */
+ 
+-#if IS_ENABLED(CONFIG_NET_IPGRE_DEMUX)
++#ifdef CONFIG_OPENVSWITCH_GRE
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+ 
+ #include <linux/if.h>
+@@ -271,4 +271,5 @@ const struct vport_ops ovs_gre_vport_ops = {
+ 	.get_name	= gre_get_name,
+ 	.send		= gre_tnl_send,
+ };
+-#endif
++
++#endif /* OPENVSWITCH_GRE */
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index ba81294..d4c7fa0 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -39,7 +39,7 @@ static const struct vport_ops *vport_ops_list[] = {
+ 	&ovs_netdev_vport_ops,
+ 	&ovs_internal_vport_ops,
+ 
+-#if IS_ENABLED(CONFIG_NET_IPGRE_DEMUX)
++#ifdef CONFIG_OPENVSWITCH_GRE
+ 	&ovs_gre_vport_ops,
+ #endif
+ };
+-- 
+1.7.1
