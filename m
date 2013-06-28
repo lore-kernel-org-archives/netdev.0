@@ -1,112 +1,123 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH v2] openvswitch: Add Kconfig dependency on GRE-DEMUX.
-Date: Fri, 28 Jun 2013 14:45:33 -0700
-Message-ID: <CALnjE+rNmqFnrUsTDk1LOf18ioGj4EAEZds5E8rjRsqGouiyVQ@mail.gmail.com>
-References: <1372448395-30095-1-git-send-email-pshelar@nicira.com>
-	<51CDF979.7040605@infradead.org>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: Adding support for ARINC429 into the Linux kernel
+Date: Fri, 28 Jun 2013 14:53:44 -0700
+Message-ID: <20130628215344.GA9437@roeck-us.net>
+References: <20130619202954.GA5594@roeck-us.net>
+ <201306192345.31106.arnd@arndb.de>
+ <20130620041001.GA1099@roeck-us.net>
+ <201306201052.53898.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, dev@openvswitch.org,
-	bhutchings@solarflare.com, Jesse Gross <jesse@nicira.com>
-To: Randy Dunlap <rdunlap@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog102.obsmtp.com ([74.125.149.69]:43522 "HELO
-	na3sys009aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752729Ab3F1Vpe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 17:45:34 -0400
-Received: by mail-qa0-f50.google.com with SMTP id l18so902121qak.2
-        for <netdev@vger.kernel.org>; Fri, 28 Jun 2013 14:45:33 -0700 (PDT)
-In-Reply-To: <51CDF979.7040605@infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201306201052.53898.arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 28, 2013 at 2:00 PM, Randy Dunlap <rdunlap@infradead.org> wrote:
-> On 06/28/13 12:39, Pravin B Shelar wrote:
->> Openvswitch uses function from NET_IPGRE_DEMUX module.
->> Add Kconfig dependency to fix following compilation errors:
->> http://marc.info/?l=linux-netdev&m=137244035226634
->>
->> CC: Jesse Gross <jesse@nicira.com>
->> Reported-by: Randy Dunlap <rdunlap@infradead.org>
->> Signed-off-by: Pravin Shelar <pshelar@nicira.com>
->
-> Well, that works if CONFIG_INET is enabled, but if I disable that
-> kconfig symbol and then rebuild, this is what happens:
->
->
-> net/openvswitch/vport-gre.c: In function 'gre_tnl_send':
-> net/openvswitch/vport-gre.c:179:2: error: implicit declaration of function 'iptunnel_xmit' [-Werror=implicit-function-declaration]
->
->
-It looks like config bug, I am getting config warning msg with config
-you mentioned.
-scripts/kconfig/conf --silentoldconfig Kconfig
-warning: (OPENVSWITCH) selects NET_IPGRE_DEMUX which has unmet direct
-dependencies (NET && INET)
-warning: (OPENVSWITCH) selects NET_IPGRE_DEMUX which has unmet direct
-dependencies (NET && INET)
+On Thu, Jun 20, 2013 at 10:52:53AM +0200, Arnd Bergmann wrote:
+> On Thursday 20 June 2013, Guenter Roeck wrote:
+> > On Wed, Jun 19, 2013 at 11:45:30PM +0200, Arnd Bergmann wrote:
+> > > On Wednesday 19 June 2013, Guenter Roeck wrote:
+> > > 
+> > > Since this is a standard protocol, a driver that just supports a specific
+> > > chip (1a) would be the worst option IMHO.
+> > > 
+> > It would not be optimal, but straightforward and easy to implement.
+> 
+> The most important aspect would be the user interface: We should not
+> merge a driver that implements a character device (or something else)
+> in a way that would not be compatible with a general subsystem. I think
+> designing a generic interface is the hard part here, much more so than
+> implementing an abstraction layer.
+> 
+> > > A character device and a network protocol both sound reasonable, but
+> > > it really depends on the use cases:
+> > > 
+> > > * Does Linux act both as the sender and receiver, or do you want to
+> > >   support just one of the cases (which?)?
+> > > 
+> > Both, depending on the use case. Some of those are
+> > 
+> > 1) ACARS -
+> >    http://en.wikipedia.org/wiki/Aircraft_Communications_Addressing_and_Reporting_System
+> >    Rx and tx
+> > 
+> > 2) CIDS - Cabin Intercommunication Data System
+> >    Rx and tx
+> > 
+> > 3) IRS (Inertial Reference System) and FMS (Flight Management System)
+> >    Rx only
+> 
+> Ok, I see.
+> 
+> > > * Would you expect to always just transfer a single 32-bit word, or
+> > >   are there larger chunks of logically contigous data? What are typical
+> > >   and maximum sizes for those?
+> > > 
+> > The raw protocol is chunks of 32 bit (Logical Data Unit, or LDU), which
+> > the protocol refers to as 'physical layer'. Broadcast messages such as
+> > those from IRS and FMS use this format.
+> > 
+> > There is also bit-oriented data. The two protocols I am aware of are "Bit-
+> > Oriented File Transfer Protocol", and "Bit-Oriented Media Access Control
+> > (MAC) Protocol", which is supposed to be IEEE 802 compliant. Packet size
+> > is 3 to 255 LDUs for FTP and 3 to 1023 LDUs for the MAC protocol.
+> > Both include a SOF and EOF marker, so the actual data size would be 1-253
+> > or 1-1021 LDUs. Each LDU carries 20 bit, and partial words are possible
+> > in 4-bit increments, which means the data transfer size is 4 to 20,420 bit
+> > (2,552.5 bytes) for the MAC protocol, and 4 to 5,060 bit (632.5 bytes)
+> > for FTP.
+> > 
+> > Bit-oriented data is commonly used for ACARS and CIDS, where bi-directional
+> > communication is used.
+> > 
+> > Details are available in Specification ARINC-429P3-19-2009, sections 2.5 and 3.0.
+> > You should be able to find it on the web if you are interested.
+> 
+> Ok, this sounds like it would make a network type interface more
+> practical, at least for the 802 specific parts.
+> 
+> > > * Would you expect the kernel to filter for specific data on the
+> > >   receiver side?
+> > > 
+> > Each LDU has an 8-bit label. Applications listen for specific sets of labels.
+> > The chips have a configurable hardware filter; if there are not enough hardware
+> > filters, the kernel would have to do the filtering. Either case, the kernel
+> > has to select protocol receivers (sockets or open file descriptors) based
+> > on bind/registration information. For example, one aplication may register
+> > for label 1,3,5, and 7, and another for labels 1, 3, 12, and 14. So there can
+> > be overlaps.
+> 
+> Ok
+> 
+> > > * Would a user space receiver want to always see all data from one
+> > >   sender, or only the latest word?
+> > > 
+> > The receiver would want to receive all data for the labels it has registered
+> > for.
+> > 
+> > Hope this helps. Note that, at least as first step, I only envision to handle
+> > 4-byte units and pass those to/from user-space. Implementing the two link layer
+> > protocols would probably make sense, especially with the socket interface,
+> > but that would be a second step.
+> 
+> My vote would be for a new socket family for the low-level protocol,
+> with room for extension later to support the advanced features.
+> 
+> This should be one of the simplest socket implementations possible, if
+> you just need to send and receive 32 bit words, and can bind to a
+> a set of labels for rx as you described above.
+> 
+> The only possible concern I see with that interface is slightly higher
+> latency than what you would be able to get with a straight read/write
+> based character device.
+> 
+Any further feedback on this ?
 
-----
-anyways after discussing it with Jesse, I am going to add config
-option for OVS-GRE which depends on INET and NET_IPGRE_DEMUX.
+Key question: Would a new address family have a chance of being accepted ?
 
-Thanks.
-
->> ---
->> v1-v2:
->> - use select to resolve dependency.
->> ---
->>  net/openvswitch/Kconfig     |    1 +
->>  net/openvswitch/vport-gre.c |    2 --
->>  net/openvswitch/vport.c     |    3 ---
->>  3 files changed, 1 insertions(+), 5 deletions(-)
->>
->> diff --git a/net/openvswitch/Kconfig b/net/openvswitch/Kconfig
->> index 9fbc04a..deaa9bb 100644
->> --- a/net/openvswitch/Kconfig
->> +++ b/net/openvswitch/Kconfig
->> @@ -4,6 +4,7 @@
->>
->>  config OPENVSWITCH
->>       tristate "Open vSwitch"
->> +     select NET_IPGRE_DEMUX
->>       ---help---
->>         Open vSwitch is a multilayer Ethernet switch targeted at virtualized
->>         environments.  In addition to supporting a variety of features
->> diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
->> index 943e5c4..21d5073 100644
->> --- a/net/openvswitch/vport-gre.c
->> +++ b/net/openvswitch/vport-gre.c
->> @@ -16,7 +16,6 @@
->>   * 02110-1301, USA
->>   */
->>
->> -#if IS_ENABLED(CONFIG_NET_IPGRE_DEMUX)
->>  #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
->>
->>  #include <linux/if.h>
->> @@ -271,4 +270,3 @@ const struct vport_ops ovs_gre_vport_ops = {
->>       .get_name       = gre_get_name,
->>       .send           = gre_tnl_send,
->>  };
->> -#endif
->> diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
->> index ba81294..ba240a8 100644
->> --- a/net/openvswitch/vport.c
->> +++ b/net/openvswitch/vport.c
->> @@ -38,10 +38,7 @@
->>  static const struct vport_ops *vport_ops_list[] = {
->>       &ovs_netdev_vport_ops,
->>       &ovs_internal_vport_ops,
->> -
->> -#if IS_ENABLED(CONFIG_NET_IPGRE_DEMUX)
->>       &ovs_gre_vport_ops,
->> -#endif
->>  };
->>
->>  /* Protected by RCU read lock for reading, ovs_mutex for writing. */
->>
->
->
-> --
-> ~Randy
+Guenter
