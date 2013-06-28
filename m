@@ -1,125 +1,170 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH net-next 2/2] net: avoid calling sched_clock when LLS is off
-Date: Fri, 28 Jun 2013 15:59:35 +0300
-Message-ID: <20130628125934.14419.38109.stgit@ladj378.jer.intel.com>
-References: <20130628125918.14419.36214.stgit@ladj378.jer.intel.com>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [PATCH next] xen: Use more current logging styles
+Date: Fri, 28 Jun 2013 09:11:42 -0400
+Message-ID: <20130628131142.GB3532@phenom.dumpdata.com>
+References: <1372395469.2060.36.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Willem de Bruijn <willemb@google.com>,
-	Eric Dumazet <erdnetdev@gmail.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Cody P Schafer <devel-lists@codyps.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:32423 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755046Ab3F1M7j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Jun 2013 08:59:39 -0400
-In-Reply-To: <20130628125918.14419.36214.stgit@ladj378.jer.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>, xen-devel@lists.xensource.com,
+	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, "virtualization@lists.osdl.org"
+	<virtualization@lists.linux-foundation.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1372395469.2060.36.camel@joe-AO722>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Change Low Latency Sockets code for select and poll so that
-when LLS is disabled sched_clock() is never called.
+On Thu, Jun 27, 2013 at 09:57:49PM -0700, Joe Perches wrote:
+> Instead of mixing printk and pr_<level> forms,
+> just use pr_<level>
+> 
+> Miscellaneous changes around these conversions:
+> 
+> Add a missing newline to avoid message interleaving,
+> coalesce formats, reflow modified lines to 80 columns.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  drivers/net/xen-netback/netback.c |  7 +++----
+>  drivers/net/xen-netfront.c        | 28 +++++++++++++---------------
 
-Also, avoid sending POLL_LL to sockets if disabled.
-
-Reported-by: Andi Kleen <andi@firstfloor.org>
-Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
----
-
- fs/select.c           |   11 +++++++----
- include/net/ll_poll.h |   17 +++++++++++++++--
- 2 files changed, 22 insertions(+), 6 deletions(-)
-
-diff --git a/fs/select.c b/fs/select.c
-index 79b876e..3654075 100644
---- a/fs/select.c
-+++ b/fs/select.c
-@@ -402,7 +402,7 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
- 	poll_table *wait;
- 	int retval, i, timed_out = 0;
- 	unsigned long slack = 0;
--	unsigned int ll_flag = POLL_LL;
-+	unsigned int ll_flag = ll_get_flag();
- 	u64 ll_time = ll_end_time();
- 
- 	rcu_read_lock();
-@@ -497,7 +497,8 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
- 			break;
- 		}
- 
--		if (can_ll && can_poll_ll(ll_time))
-+		/* only if on, have sockets with POLL_LL and not out of time */
-+		if (ll_flag && can_ll && can_poll_ll(ll_time))
- 			continue;
- 
- 		/*
-@@ -768,7 +769,7 @@ static int do_poll(unsigned int nfds,  struct poll_list *list,
- 	ktime_t expire, *to = NULL;
- 	int timed_out = 0, count = 0;
- 	unsigned long slack = 0;
--	unsigned int ll_flag = POLL_LL;
-+	unsigned int ll_flag = ll_get_flag();
- 	u64 ll_time = ll_end_time();
- 
- 	/* Optimise the no-wait case */
-@@ -817,8 +818,10 @@ static int do_poll(unsigned int nfds,  struct poll_list *list,
- 		if (count || timed_out)
- 			break;
- 
--		if (can_ll && can_poll_ll(ll_time))
-+		/* only if on, have sockets with POLL_LL and not out of time */
-+		if (ll_flag && can_ll && can_poll_ll(ll_time))
- 			continue;
-+
- 		/*
- 		 * If this is the first loop and we have a timeout
- 		 * given, then we convert to ktime_t and set the to
-diff --git a/include/net/ll_poll.h b/include/net/ll_poll.h
-index 6d45e6f..6c06f7c 100644
---- a/include/net/ll_poll.h
-+++ b/include/net/ll_poll.h
-@@ -37,6 +37,11 @@ extern unsigned int sysctl_net_ll_poll __read_mostly;
- #define LL_FLUSH_FAILED		-1
- #define LL_FLUSH_BUSY		-2
- 
-+static inline unsigned int ll_get_flag(void)
-+{
-+	return sysctl_net_ll_poll ? POLL_LL : 0;
-+}
-+
- /* a wrapper to make debug_smp_processor_id() happy
-  * we can use sched_clock() because we don't care much about precision
-  * we only care that the average is bounded
-@@ -67,10 +72,14 @@ static inline u64 ll_sk_end_time(struct sock *sk)
- 	return ((u64)ACCESS_ONCE(sk->sk_ll_usec) << 10) + ll_sched_clock();
- }
- 
--/* in poll/select we use the global sysctl_net_ll_poll value */
-+/* in poll/select we use the global sysctl_net_ll_poll value
-+ * only call sched_clock() if enabled
-+ */
- static inline u64 ll_end_time(void)
- {
--	return ((u64)ACCESS_ONCE(sysctl_net_ll_poll) << 10) + ll_sched_clock();
-+	u64 end_time = ACCESS_ONCE(sysctl_net_ll_poll);
-+
-+	return end_time ? (end_time << 10) + ll_sched_clock() : 0;
- }
- 
- static inline bool sk_valid_ll(struct sock *sk)
-@@ -141,6 +150,10 @@ static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
- }
- 
- #else /* CONFIG_NET_LL_RX_POLL */
-+static inline unsigned long ll_get_flag(void)
-+{
-+	return 0;
-+}
- 
- static inline u64 sk_ll_end_time(struct sock *sk)
- {
+Acked-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+>  2 files changed, 16 insertions(+), 19 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index 130bcb2..64828de 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -1890,9 +1890,8 @@ static int __init netback_init(void)
+>  		return -ENODEV;
+>  
+>  	if (fatal_skb_slots < XEN_NETBK_LEGACY_SLOTS_MAX) {
+> -		printk(KERN_INFO
+> -		       "xen-netback: fatal_skb_slots too small (%d), bump it to XEN_NETBK_LEGACY_SLOTS_MAX (%d)\n",
+> -		       fatal_skb_slots, XEN_NETBK_LEGACY_SLOTS_MAX);
+> +		pr_info("fatal_skb_slots too small (%d), bump it to XEN_NETBK_LEGACY_SLOTS_MAX (%d)\n",
+> +			fatal_skb_slots, XEN_NETBK_LEGACY_SLOTS_MAX);
+>  		fatal_skb_slots = XEN_NETBK_LEGACY_SLOTS_MAX;
+>  	}
+>  
+> @@ -1921,7 +1920,7 @@ static int __init netback_init(void)
+>  					     "netback/%u", group);
+>  
+>  		if (IS_ERR(netbk->task)) {
+> -			printk(KERN_ALERT "kthread_create() fails at netback\n");
+> +			pr_alert("kthread_create() fails at netback\n");
+>  			del_timer(&netbk->net_timer);
+>  			rc = PTR_ERR(netbk->task);
+>  			goto failed_init;
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index 76a2236..ff7f111 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -29,6 +29,8 @@
+>   * IN THE SOFTWARE.
+>   */
+>  
+> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> +
+>  #include <linux/module.h>
+>  #include <linux/kernel.h>
+>  #include <linux/netdevice.h>
+> @@ -385,9 +387,8 @@ static void xennet_tx_buf_gc(struct net_device *dev)
+>  			skb = np->tx_skbs[id].skb;
+>  			if (unlikely(gnttab_query_foreign_access(
+>  				np->grant_tx_ref[id]) != 0)) {
+> -				printk(KERN_ALERT "xennet_tx_buf_gc: warning "
+> -				       "-- grant still in use by backend "
+> -				       "domain.\n");
+> +				pr_alert("%s: warning -- grant still in use by backend domain\n",
+> +					 __func__);
+>  				BUG();
+>  			}
+>  			gnttab_end_foreign_access_ref(
+> @@ -804,14 +805,14 @@ static int xennet_set_skb_gso(struct sk_buff *skb,
+>  {
+>  	if (!gso->u.gso.size) {
+>  		if (net_ratelimit())
+> -			printk(KERN_WARNING "GSO size must not be zero.\n");
+> +			pr_warn("GSO size must not be zero\n");
+>  		return -EINVAL;
+>  	}
+>  
+>  	/* Currently only TCPv4 S.O. is supported. */
+>  	if (gso->u.gso.type != XEN_NETIF_GSO_TYPE_TCPV4) {
+>  		if (net_ratelimit())
+> -			printk(KERN_WARNING "Bad GSO type %d.\n", gso->u.gso.type);
+> +			pr_warn("Bad GSO type %d\n", gso->u.gso.type);
+>  		return -EINVAL;
+>  	}
+>  
+> @@ -910,9 +911,8 @@ static int checksum_setup(struct net_device *dev, struct sk_buff *skb)
+>  		break;
+>  	default:
+>  		if (net_ratelimit())
+> -			printk(KERN_ERR "Attempting to checksum a non-"
+> -			       "TCP/UDP packet, dropping a protocol"
+> -			       " %d packet", iph->protocol);
+> +			pr_err("Attempting to checksum a non-TCP/UDP packet, dropping a protocol %d packet\n",
+> +			       iph->protocol);
+>  		goto out;
+>  	}
+>  
+> @@ -1359,14 +1359,14 @@ static struct net_device *xennet_create_dev(struct xenbus_device *dev)
+>  	/* A grant for every tx ring slot */
+>  	if (gnttab_alloc_grant_references(TX_MAX_TARGET,
+>  					  &np->gref_tx_head) < 0) {
+> -		printk(KERN_ALERT "#### netfront can't alloc tx grant refs\n");
+> +		pr_alert("can't alloc tx grant refs\n");
+>  		err = -ENOMEM;
+>  		goto exit_free_stats;
+>  	}
+>  	/* A grant for every rx ring slot */
+>  	if (gnttab_alloc_grant_references(RX_MAX_TARGET,
+>  					  &np->gref_rx_head) < 0) {
+> -		printk(KERN_ALERT "#### netfront can't alloc rx grant refs\n");
+> +		pr_alert("can't alloc rx grant refs\n");
+>  		err = -ENOMEM;
+>  		goto exit_free_tx;
+>  	}
+> @@ -1430,16 +1430,14 @@ static int netfront_probe(struct xenbus_device *dev,
+>  
+>  	err = register_netdev(info->netdev);
+>  	if (err) {
+> -		printk(KERN_WARNING "%s: register_netdev err=%d\n",
+> -		       __func__, err);
+> +		pr_warn("%s: register_netdev err=%d\n", __func__, err);
+>  		goto fail;
+>  	}
+>  
+>  	err = xennet_sysfs_addif(info->netdev);
+>  	if (err) {
+>  		unregister_netdev(info->netdev);
+> -		printk(KERN_WARNING "%s: add sysfs failed err=%d\n",
+> -		       __func__, err);
+> +		pr_warn("%s: add sysfs failed err=%d\n", __func__, err);
+>  		goto fail;
+>  	}
+>  
+> @@ -2116,7 +2114,7 @@ static int __init netif_init(void)
+>  	if (xen_hvm_domain() && !xen_platform_pci_unplug)
+>  		return -ENODEV;
+>  
+> -	printk(KERN_INFO "Initialising Xen virtual ethernet driver.\n");
+> +	pr_info("Initialising Xen virtual ethernet driver\n");
+>  
+>  	return xenbus_register_frontend(&netfront_driver);
+>  }
+> 
+> 
