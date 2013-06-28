@@ -1,40 +1,60 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] net: cdc_ether: allow combined control and data interface
-Date: Fri, 28 Jun 2013 17:44:07 +0200
-Message-ID: <8738s21bqw.fsf@nemi.mork.no>
-References: <1372432629-17245-1-git-send-email-bjorn@mork.no>
-	<1419214.UqpcbE98T1@linux-5eaq.site>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next v3 1/2] lib: vsprintf: add IPv4/v6 generic
+ %p[Ii]S[pfs] format specifier
+Date: Fri, 28 Jun 2013 08:44:49 -0700
+Message-ID: <1372434289.29380.6.camel@joe-AO722>
+References: <1372421131-1672-1-git-send-email-dborkman@redhat.com>
+	 <1372421131-1672-2-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Enrico Mioso <mrkiko.rs@gmail.com>
-To: Oliver Neukum <oliver@neukum.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:43183 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751511Ab3F1PoK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 11:44:10 -0400
-In-Reply-To: <1419214.UqpcbE98T1@linux-5eaq.site> (Oliver Neukum's message of
-	"Fri, 28 Jun 2013 17:32:25 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1372421131-1672-2-git-send-email-dborkman@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Oliver Neukum <oliver@neukum.org> writes:
+On Fri, 2013-06-28 at 14:05 +0200, Daniel Borkmann wrote:
+> In order to avoid making code that deals with printing both, IPv4 and
+> IPv6 addresses, unnecessary complicated as for example ...
 
-> On Friday 28 June 2013 17:17:08 Bj=C3=B8rn Mork wrote:
->> Some Icera based Huawei modems handled by this driver are not
->> completely CDC ECM compliant, using the same USB interface for both
->> control and data. The CDC functional descriptors include a Union
->> naming this interface as both master and slave, so it is supportable
->> by relaxing the descriptor parsing in case these interfaces are
->> identical.
->
-> The disconnect handler is uselessly complex. Just return if the
-> interfaces are identical. There's nothing to do in that case.
+Thanks Daniel, seems sensible.  Just trivial comments...
 
-Right.  Thanks. Will post a new version cleaning that up.
+[]
 
+> diff --git a/lib/vsprintf.c b/lib/vsprintf.c
+[]
 
+Should any other include other than net/addrconf be needed?
 
-Bj=C3=B8rn
+> +char *ip6_addr_string_sa(char *buf, char *end, const struct sockaddr_in6 *sa,
+> +			 struct printf_spec spec, const char *fmt)
+> +{
+[]
+> +	char fmt6[2] = { fmt[0], '6'};
+
+This looks odd to me.  why not use a bool compressed
+flag and identify this before the isalpha loop and not
+have fmt6 at all?
+
+> +	u8 off = 0;
+> +
+> +	fmt++;
+> +	while (isalpha(*++fmt)) {
+> +		switch (*fmt) {
+> +		case 'p':
+> +			have_p = true;
+> +			break;
+> +		case 'f':
+> +			have_f = true;
+> +			break;
+> +		case 's':
+> +			have_s = true;
+> +			break;
+> +		case 'c':
+> +			have_c = true;
+> +			break;
+> +		}
+> +	}
