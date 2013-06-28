@@ -1,86 +1,106 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH next] xen: Convert printks to pr_<level>
-Date: Fri, 28 Jun 2013 04:31:44 -0700
-Message-ID: <1372419104.2060.54.camel@joe-AO722>
-References: <1372395469.2060.36.camel@joe-AO722>
-	<20130628080250.GA16643@zion.uk.xensource.com>
-	<1372414901.2060.44.camel@joe-AO722>
-	<20130628103605.GE16643@zion.uk.xensource.com>
+From: Joe Jin <joe.jin@oracle.com>
+Subject: Re: kernel panic in skb_copy_bits
+Date: Fri, 28 Jun 2013 19:33:03 +0800
+Message-ID: <51CD746F.7020603@oracle.com>
+References: <51CBAA48.3080802@oracle.com>  <1372311118.3301.214.camel@edumazet-glaptop> <51CD0E67.4000008@oracle.com>  <1372402340.3301.229.camel@edumazet-glaptop> <1372412262.3301.251.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>, xen-devel@lists.xensource.com,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"virtualization@lists.osdl.org" <virtualization@lists.linux-foundation.org>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130628103605.GE16643@zion.uk.xensource.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: Frank Blaschka <frank.blaschka@de.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"zheng.x.li@oracle.com" <zheng.x.li@oracle.com>,
+	Xen Devel <xen-devel@lists.xen.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Jan Beulich <JBeulich@suse.com>,
+	Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1372412262.3301.251.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-06-28 at 11:36 +0100, Wei Liu wrote:
-> I can clean up the rest in xen-netback after your previous patch goes
-> in.
+Hi Eric,
 
-Here's a suggested change for drivers/net
+Thanks for your patch, I'll test it then get back to you.
 
-Convert printk to pr_<level>
-Add missing newlines to pr_debug
-Remove duplicate "s: " __func__
-Reflow to 80 columns
-
----
-
- drivers/net/xen-netback/xenbus.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index 04bd860..1fe48fe3 100644
---- a/drivers/net/xen-netback/xenbus.c
-+++ b/drivers/net/xen-netback/xenbus.c
-@@ -130,7 +130,7 @@ static int netback_probe(struct xenbus_device *dev,
- 			    "feature-split-event-channels",
- 			    "%u", separate_tx_rx_irq);
- 	if (err)
--		pr_debug("Error writing feature-split-event-channels");
-+		pr_debug("Error writing feature-split-event-channels\n");
- 
- 	err = xenbus_switch_state(dev, XenbusStateInitWait);
- 	if (err)
-@@ -145,7 +145,7 @@ abort_transaction:
- 	xenbus_transaction_end(xbt, 1);
- 	xenbus_dev_fatal(dev, err, "%s", message);
- fail:
--	pr_debug("failed");
-+	pr_debug("failed\n");
- 	netback_remove(dev);
- 	return err;
- }
-@@ -228,15 +228,14 @@ static void frontend_changed(struct xenbus_device *dev,
- {
- 	struct backend_info *be = dev_get_drvdata(&dev->dev);
- 
--	pr_debug("frontend state %s", xenbus_strstate(frontend_state));
-+	pr_debug("frontend state %s\n", xenbus_strstate(frontend_state));
- 
- 	be->frontend_state = frontend_state;
- 
- 	switch (frontend_state) {
- 	case XenbusStateInitialising:
- 		if (dev->state == XenbusStateClosed) {
--			printk(KERN_INFO "%s: %s: prepare for reconnect\n",
--			       __func__, dev->nodename);
-+			pr_info("%s: prepare for reconnect\n", dev->nodename);
- 			xenbus_switch_state(dev, XenbusStateInitWait);
- 		}
- 		break;
+Regards,
+Joe
+On 06/28/13 17:37, Eric Dumazet wrote:
+> OK please try the following patch
+> 
+> 
+> [PATCH] neighbour: fix a race in neigh_destroy()
+> 
+> There is a race in neighbour code, because neigh_destroy() uses
+> skb_queue_purge(&neigh->arp_queue) without holding neighbour lock,
+> while other parts of the code assume neighbour rwlock is what
+> protects arp_queue
+> 
+> Convert all skb_queue_purge() calls to the __skb_queue_purge() variant
+> 
+> Use __skb_queue_head_init() instead of skb_queue_head_init()
+> to make clear we do not use arp_queue.lock
+> 
+> And hold neigh->lock in neigh_destroy() to close the race.
+> 
+> Reported-by: Joe Jin <joe.jin@oracle.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  net/core/neighbour.c |   12 +++++++-----
+>  1 file changed, 7 insertions(+), 5 deletions(-)
+> 
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index 2569ab2..b7de821 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -231,7 +231,7 @@ static void neigh_flush_dev(struct neigh_table *tbl, struct net_device *dev)
+>  				   we must kill timers etc. and move
+>  				   it to safe state.
+>  				 */
+> -				skb_queue_purge(&n->arp_queue);
+> +				__skb_queue_purge(&n->arp_queue);
+>  				n->arp_queue_len_bytes = 0;
+>  				n->output = neigh_blackhole;
+>  				if (n->nud_state & NUD_VALID)
+> @@ -286,7 +286,7 @@ static struct neighbour *neigh_alloc(struct neigh_table *tbl, struct net_device
+>  	if (!n)
+>  		goto out_entries;
+>  
+> -	skb_queue_head_init(&n->arp_queue);
+> +	__skb_queue_head_init(&n->arp_queue);
+>  	rwlock_init(&n->lock);
+>  	seqlock_init(&n->ha_lock);
+>  	n->updated	  = n->used = now;
+> @@ -708,7 +708,9 @@ void neigh_destroy(struct neighbour *neigh)
+>  	if (neigh_del_timer(neigh))
+>  		pr_warn("Impossible event\n");
+>  
+> -	skb_queue_purge(&neigh->arp_queue);
+> +	write_lock_bh(&neigh->lock);
+> +	__skb_queue_purge(&neigh->arp_queue);
+> +	write_unlock_bh(&neigh->lock);
+>  	neigh->arp_queue_len_bytes = 0;
+>  
+>  	if (dev->netdev_ops->ndo_neigh_destroy)
+> @@ -858,7 +860,7 @@ static void neigh_invalidate(struct neighbour *neigh)
+>  		neigh->ops->error_report(neigh, skb);
+>  		write_lock(&neigh->lock);
+>  	}
+> -	skb_queue_purge(&neigh->arp_queue);
+> +	__skb_queue_purge(&neigh->arp_queue);
+>  	neigh->arp_queue_len_bytes = 0;
+>  }
+>  
+> @@ -1210,7 +1212,7 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
+>  
+>  			write_lock_bh(&neigh->lock);
+>  		}
+> -		skb_queue_purge(&neigh->arp_queue);
+> +		__skb_queue_purge(&neigh->arp_queue);
+>  		neigh->arp_queue_len_bytes = 0;
+>  	}
+>  out:
+> 
+> 
