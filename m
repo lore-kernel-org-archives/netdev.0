@@ -1,40 +1,63 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH 3/3] net: qmi_wwan: add TP-LINK MA260
-Date: Fri, 28 Jun 2013 17:17:51 +0200
-Message-ID: <1372432671-17283-3-git-send-email-bjorn@mork.no>
-References: <1372432671-17283-1-git-send-email-bjorn@mork.no>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: fix broken locking in x25 ioctl error paths
+Date: Fri, 28 Jun 2013 08:19:35 -0700
+Message-ID: <1372432775.3301.285.camel@edumazet-glaptop>
+References: <20130628151453.GA29428@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:42818 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755294Ab3F1PR5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Jun 2013 11:17:57 -0400
-In-Reply-To: <1372432671-17283-1-git-send-email-bjorn@mork.no>
+Received: from mail-ee0-f53.google.com ([74.125.83.53]:42464 "EHLO
+	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755393Ab3F1PT3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 11:19:29 -0400
+Received: by mail-ee0-f53.google.com with SMTP id c41so1104477eek.26
+        for <netdev@vger.kernel.org>; Fri, 28 Jun 2013 08:19:27 -0700 (PDT)
+In-Reply-To: <20130628151453.GA29428@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
- drivers/net/usb/qmi_wwan.c |    1 +
- 1 file changed, 1 insertion(+)
+On Fri, 2013-06-28 at 11:14 -0400, Dave Jones wrote:
+> Two of the x25 ioctl cases have error paths that break out of the function without
+> unlocking the socket, leading to this warning:
+> 
+> 
+> ================================================
+> [ BUG: lock held when returning to user space! ]
+> 3.10.0-rc7+ #36 Not tainted
+> ------------------------------------------------
+> trinity-child2/31407 is leaving the kernel with locks still held!
+> 1 lock held by trinity-child2/31407:
+>  #0:  (sk_lock-AF_X25){+.+.+.}, at: [<ffffffffa024b6da>] x25_ioctl+0x8a/0x740 [x25]
+> 
+> Signed-off-by: Dave Jones <davej@redhat.com>
+> 
+> diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+> index 37ca969..2c1e633 100644
+> --- a/net/x25/af_x25.c
+> +++ b/net/x25/af_x25.c
+> @@ -1584,10 +1584,11 @@ out_cud_release:
+>  		rc = -EINVAL;
+>  		lock_sock(sk);
+>  		if (sk->sk_state != TCP_CLOSE)
+> -			break;
+> +			goto out_callaccpt_release;
+>  		clear_bit(X25_ACCPT_APPRV_FLAG, &x25->flags);
+> -		release_sock(sk);
+>  		rc = 0;
+> +out_callaccpt_release:
+> +		release_sock(sk);
+>  		break;
+>  	}
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index e4a0843..6de1102 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -582,6 +582,7 @@ static const struct usb_device_id products[] =3D {
- 	{QMI_FIXED_INTF(0x1199, 0x901c, 8)},    /* Sierra Wireless EM7700 */
- 	{QMI_FIXED_INTF(0x1bbb, 0x011e, 4)},	/* Telekom Speedstick LTE II (Al=
-catel One Touch L100V LTE) */
- 	{QMI_FIXED_INTF(0x2357, 0x0201, 4)},	/* TP-LINK HSUPA Modem MA180 */
-+	{QMI_FIXED_INTF(0x2357, 0x9000, 4)},	/* TP-LINK MA260 */
- 	{QMI_FIXED_INTF(0x1bc7, 0x1200, 5)},	/* Telit LE920 */
- 	{QMI_FIXED_INTF(0x1e2d, 0x12d1, 4)},	/* Cinterion PLxx */
-=20
---=20
-1.7.10.4
+Or :
+
+lock_sock(sk);
+if (sk->sk_state == TCP_CLOSE) {
+    clear_bit(X25_ACCPT_APPRV_FLAG, &x25->flags);
+    rc = 0;
+}
+release_sock(sk);
+break;
