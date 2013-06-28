@@ -1,70 +1,221 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [Patch net] ipv6,mcast: always hold idev->lock before mca_lock
-Date: Fri, 28 Jun 2013 14:26:07 +0800
-Message-ID: <51CD2C7F.5060200@huawei.com>
-References: <1367998914-26423-1-git-send-email-amwang@redhat.com> <20130626225809.GB26180@order.stressinduktion.org> <1372302584.26333.2.camel@cr0> <20130627034204.GB18553@order.stressinduktion.org>
+From: Asias He <asias@redhat.com>
+Subject: Re: [RFC 0/5] Introduce VM Sockets virtio transport
+Date: Fri, 28 Jun 2013 14:26:58 +0800
+Message-ID: <20130628062658.GC30441@hj.localdomain>
+References: <1372320004-20502-1-git-send-email-asias@redhat.com>
+	<51CC8C65.10409@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Cong Wang <amwang@redhat.com>, <netdev@vger.kernel.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andy King <acking@vmware.com>, kvm@vger.kernel.org,
+	Dmitry Torokhov <dtor@vmware.com>, netdev@vger.kernel.org,
+	Reilly Grant <grantr@vmware.com>,
+	virtualization@lists.linux-foundation.org,
+	Pekka Enberg <penberg@kernel.org>, "Michael S. Tsirkin" <mst@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:38928 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754550Ab3F1G0W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 02:26:22 -0400
-In-Reply-To: <20130627034204.GB18553@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Sasha Levin <sasha.levin@oracle.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <51CC8C65.10409@oracle.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 2013/6/27 11:42, Hannes Frederic Sowa wrote:
-> On Thu, Jun 27, 2013 at 11:09:44AM +0800, Cong Wang wrote:
->> On Thu, 2013-06-27 at 00:58 +0200, Hannes Frederic Sowa wrote:
->>> I do confirm that if this last hunk is applied the idev->addr_list
->>> traversal
->>> is safe.
->>>
->>> Please let me know if no one is working on this, I would rebase it
->>> then.=20
->>
->> I will rebase my patch on latest net-next. I am assuming this patch
->> looks good to you...
->=20
-> Yes, I am fine with the apporach you took. Perhaps you could describe
-> why the non-idev-locked call to__ipv6_get_lladdr-call is ok in that p=
-lace.
->=20
-> Thanks a lot,
->=20
->   Hannes
->=20
->=20
->=20
-I think the problem is clear:
+On Thu, Jun 27, 2013 at 03:03:01PM -0400, Sasha Levin wrote:
+> Hi Asias,
+> 
+> Looks nice! Some comments inline below (I've removed anything that mst already
+> commented on).
 
-mld_send_report(...){
-	read_lock_bh(&idev->lock);=09
-	add_grec=EF=BC=88...=EF=BC=89			=09
-	read_unlock_bh(&idev->lock);
-}
-	--->add_grec(...){
-		add_grhead(...)
-	}
-		--->add_grhead(...){
-			mld_newpack(...)
-		}
-			--->mld_newpack(...){
-				ipv6_get_lladdr(...)
-			}
-				--__ipv6_get_lladdr(..)		(after the patch, so it is protect by the =
-idev->lock)
-			compare
-				--->ipv6_get_lladdr(...){	(before the patch)
-					read_lock_bh(&idev->lock);
-					...
-					read_unlock_bh(&idev->lock);
-				}
+Thanks.
 
-					=09
-so i think it is clear to describe the reason.
+> On 06/27/2013 03:59 AM, Asias He wrote:
+> >Hello guys,
+> >
+> >In commit d021c344051af91 (VSOCK: Introduce VM Sockets), VMware added VM
+> >Sockets support. VM Sockets allows communication between virtual
+> >machines and the hypervisor. VM Sockets is able to use different
+> >hyervisor neutral transport to transfer data. Currently, only VMware
+> >VMCI transport is supported.
+> >
+> >This series introduces virtio transport for VM Sockets.
+> >
+> >Any comments are appreciated! Thanks!
+> >
+> >Code:
+> >=========================
+> >1) kernel bits
+> >    git://github.com/asias/linux.git vsock
+> >
+> >2) userspace bits:
+> >    git://github.com/asias/linux-kvm.git vsock
+> >
+> >Howto:
+> >=========================
+> >Make sure you have these kernel options:
+> >
+> >   CONFIG_VSOCKETS=y
+> >   CONFIG_VIRTIO_VSOCKETS=y
+> >   CONFIG_VIRTIO_VSOCKETS_COMMON=y
+> >   CONFIG_VHOST_VSOCK=m
+> >
+> >$ git clone git://github.com/asias/linux-kvm.git
+> >$ cd linux-kvm/tools/kvm
+> >$ co -b vsock origin/vsock
+> >$ make
+> >$ modprobe vhost_vsock
+> >$ ./lkvm run -d os.img -k bzImage --vsock guest_cid
+> >
+> >Test:
+> >=========================
+> >I hacked busybox's http server and wget to run over vsock. Start http
+> >server in host and guest, download a 512MB file in guest and host
+> >simultaneously for 6000 times. Manged to run the http stress test.
+> >
+> >Also, I wrote a small libvsock.so to play the LD_PRELOAD trick and
+> >managed to make sshd and ssh work over virito-vsock without modifying
+> >the source code.
+> 
+> Why did it require hacking in the first place? Does running with kvmtool
+> and just doing regular networking over virtio-net running on top of vsock
+> achieves the same goal?
+
+VM Sockets introduces a new address family. We need to modify the source
+code of the application to use the new address family.
+
+Using vsock there is no need to use virtio-net at all. We can not run
+virtio-net on top of vsock.
+
+> >Draft VM Sockets Virtio Device spec:
+> >=========================
+> >Appendix K: VM Sockets Device
+> >
+> >The virtio VM sockets device is a virtio transport device for VM Sockets. VM
+> >Sockets allows communication between virtual machines and the hypervisor.
+> >
+> >Configuration:
+> >
+> >Subsystem Device ID 13
+> >
+> >Virtqueues:
+> >     0:controlq; 1:receiveq0; 2:transmitq0 ... 2N+1:receivqN; 2N+2:transmitqN
+> 
+> controlq is "defined but not used", is there something in mind for it? if not,
+> does it make sense keeping it here? we can always re-add it to the end just
+> like in virtio-net.
+
+In virtio-net, each queue pairs contains a controlq, I think it is not
+necessary for virtio-vsock. e.g.
+
+receiveq0 transmitq0 controlq0
+
+In virtio-scsi, we have ctrlq evetq and N requestq. I want the similar
+layout here, to reserve a ctrl queue in the front.
+
+> >Feature bits:
+> >     Currently, no feature bits are defined.
+> >
+> >Device configuration layout:
+> >
+> >Two configuration fields are currently defined.
+> >
+> >    struct virtio_vsock_config {
+> >            __u32 guest_cid;
+> >            __u32 max_virtqueue_pairs;
+> >    } __packed;
+> >
+> >The guest_cid field specifies the guest context id which likes the guest IP
+> >address. The max_virtqueue_pairs field specifies the maximum number of receive
+> >and transmit virtqueue pairs (receiveq0 ...  receiveqN and transmitq0 ...
+> >transmitqN respectively; N = max_virtqueue_pairs - 1 ) that can be configured.
+> >The driver is free to use only one virtqueue pairs, or it can use more to
+> >achieve better performance.
+> 
+> How does the driver tell the device how many vqs it's planning on actually using?
+> or is it assumed that all of them are in use?
+
+I want the driver to use all of them.
+
+> >
+> >Device Initialization:
+> >The initialization routine should discover the device's virtqueues.
+> >
+> >Device Operation:
+> >Packets are transmitted by placing them in the transmitq0..transmitqN, and
+> >buffers for incoming packets are placed in the receiveq0..receiveqN. In each
+> >case, the packet itself is preceded by a header:
+> >
+> >    struct virtio_vsock_hdr {
+> >            __u32   src_cid;
+> >            __u32   src_port;
+> >            __u32   dst_cid;
+> >            __u32   dst_port;
+> >            __u32   len;
+> >            __u8    type;
+> >            __u8    op;
+> >            __u8    shut;
+> >            __u64   fwd_cnt;
+> >            __u64   buf_alloc;
+> >    } __packed;
+> >
+> >src_cid and dst_cid: specify the source and destination context id.
+> >src_port and dst_port: specify the source and destination port.
+> >len: specifies the size of the data payload, it could be zero if no data
+> >payload is transferred.
+> >type: specifies the type of the packet, it can be SOCK_STREAM or SOCK_DGRAM.
+> >op: specifies the operation of the packet, it is defined as follows.
+> >
+> >    enum {
+> >            VIRTIO_VSOCK_OP_INVALID = 0,
+> >            VIRTIO_VSOCK_OP_REQUEST = 1,
+> >            VIRTIO_VSOCK_OP_NEGOTIATE = 2,
+> >            VIRTIO_VSOCK_OP_OFFER = 3,
+> >            VIRTIO_VSOCK_OP_ATTACH = 4,
+> >            VIRTIO_VSOCK_OP_RW = 5,
+> >            VIRTIO_VSOCK_OP_CREDIT = 6,
+> >            VIRTIO_VSOCK_OP_RST = 7,
+> >            VIRTIO_VSOCK_OP_SHUTDOWN = 8,
+> >    };
+> >
+> >shut: specifies the shutdown mode when the socket is being shutdown. 1 is for
+> >receive shutdown, 2 is for transmit shutdown, 3 is for both receive and transmit
+> >shutdown.
+> >fwd_cnt: specifies the the number of bytes the receiver has forwarded to userspace.
+> 
+> For the previous packet? For the entire session? Reading ahead makes it clear but
+> it's worth mentioning here the context just to make it easy for implementers.
+
+Thanks. I will make this more clearer.
+
+> >buf_alloc: specifies the size of the receiver's recieve buffer in bytes.
+> 						  receive
+> 
+> >Virtio VM socket connection creation:
+> >1) Client sends VIRTIO_VSOCK_OP_REQUEST to server
+> >2) Server reponses with VIRTIO_VSOCK_OP_NEGOTIATE to client
+> >3) Client sends VIRTIO_VSOCK_OP_OFFER to server
+> >4) Server responses with VIRTIO_VSOCK_OP_ATTACH to client
+> >
+> >Virtio VM socket credit update:
+> >Virtio VM socket uses credit-based flow control. The sender maintains tx_cnt
+> >which counts the totoal number of bytes it has sent out, peer_fwd_cnt which
+> 		   total
+> >counts the totoal number of byes the receiver has forwarded, and peer_buf_alloc
+> 	     total
+> >which is the size of the receiver's receive buffer. The sender can send no more
+> >than the credit the receiver gives to the sender: credit = peer_buf_alloc -
+> 
+> 
+> Thanks,
+> Sasha
+> 
+
+-- 
+Asias
