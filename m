@@ -1,33 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Check the argument for listen(2)
-Date: Fri, 28 Jun 2013 09:48:24 -0700
-Message-ID: <1372438104.3301.290.camel@edumazet-glaptop>
-References: <1372436076-61436-1-git-send-email-xiaosuo@gmail.com>
-	 <1372436942.3301.286.camel@edumazet-glaptop>
-	 <20130628163234.GA651@order.stressinduktion.org>
-	 <20130628163458.GB651@order.stressinduktion.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Using sched_clock() for polling time limit
+Date: Fri, 28 Jun 2013 17:51:49 +0100
+Message-ID: <1372438309.1937.9.camel@bwh-desktop.uk.level5networks.com>
+References: <20130628125918.14419.36214.stgit@ladj378.jer.intel.com>
+	 <20130628125926.14419.89905.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f48.google.com ([74.125.83.48]:65352 "EHLO
-	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754695Ab3F1QsQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 12:48:16 -0400
-Received: by mail-ee0-f48.google.com with SMTP id b47so1136066eek.7
-        for <netdev@vger.kernel.org>; Fri, 28 Jun 2013 09:48:15 -0700 (PDT)
-In-Reply-To: <20130628163458.GB651@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, Willem de Bruijn <willemb@google.com>,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Cody P Schafer <devel-lists@codyps.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130628125926.14419.89905.stgit@ladj378.jer.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-06-28 at 18:34 +0200, Hannes Frederic Sowa wrote:
+On Fri, 2013-06-28 at 15:59 +0300, Eliezer Tamir wrote:
+> Our use of sched_clock is OK because we don't mind the side effects
+> of calling it and occasionally waking up on a different CPU.
 
-> Nonsense, somaxconn would make more sense.
-> 
+Sure about that?  Jitter matters too.
 
+> When CONFIG_DEBUG_PREEMPT is on, disable preempt before calling
+> sched_clock() so we don't trigger a debug_smp_processor_id() warning.
+[...]
 
-If we keep u16, we could limit the sysctl (somaxconn,
-tcp_max_syn_backlog) limits to 65535
+I think this is papering over a problem.  The warning is there for a
+good reason.
+
+Would functions like these make it possible to use sched_clock() safely
+for polling?  (I didn't spend much time thinking about the names.)
+
+struct sched_timestamp {
+	int cpu;
+	unsigned long long clock;
+};
+
+static inline struct sched_timestamp sched_get_timestamp(void)
+{
+	struct sched_timestamp ret;
+
+	preempt_disable_notrace();
+	ret.cpu = smp_processor_id();
+	ret.clock = sched_clock();
+	preempt_enable_no_resched_notrace();
+
+	return ret;
+}
+
+static inline bool sched_timeout_or_moved(struct sched_timestamp start,
+					  unsigned long long timeout)
+{
+	bool ret;
+
+	preempt_disable_notrace();
+	ret = start.cpu != smp_processor_id() ||
+		(sched_clock() - start.clock) > timeout;
+	preempt_enable_no_resched_notrace();
+
+	return ret;
+}
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
