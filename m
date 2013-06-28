@@ -1,99 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel panic in skb_copy_bits
-Date: Fri, 28 Jun 2013 02:37:42 -0700
-Message-ID: <1372412262.3301.251.camel@edumazet-glaptop>
-References: <51CBAA48.3080802@oracle.com>
-	 <1372311118.3301.214.camel@edumazet-glaptop> <51CD0E67.4000008@oracle.com>
-	 <1372402340.3301.229.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Frank Blaschka <frank.blaschka@de.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"zheng.x.li@oracle.com" <zheng.x.li@oracle.com>,
-	Xen Devel <xen-devel@lists.xen.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	Jan Beulich <JBeulich@suse.com>,
-	Stefano Stabellini <stefano.stabellini@eu.citrix.com>
-To: Joe Jin <joe.jin@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372402340.3301.229.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: [PATCH net v2 1/1] net: fec: Fix Transmitted bytes counter
+Date: Fri, 28 Jun 2013 10:51:22 +0100
+Message-ID: <1372413082-7983-1-git-send-email-jim_baxter@mentor.com>
+References: <Jim Baxter <jim_baxter@mentor.com>
+Cc: Fabio Estevam <fabio.estevam@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	Fugang Duan <B38611@freescale.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay1.mentorg.com ([192.94.38.131]:44171 "EHLO
+	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755015Ab3F1Jvd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 05:51:33 -0400
+In-Reply-To: <Jim Baxter <jim_baxter@mentor.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-OK please try the following patch
+The tx_bytes field was not being updated so the
+network card statistics showed 0.0B transmitted.
 
-
-[PATCH] neighbour: fix a race in neigh_destroy()
-
-There is a race in neighbour code, because neigh_destroy() uses
-skb_queue_purge(&neigh->arp_queue) without holding neighbour lock,
-while other parts of the code assume neighbour rwlock is what
-protects arp_queue
-
-Convert all skb_queue_purge() calls to the __skb_queue_purge() variant
-
-Use __skb_queue_head_init() instead of skb_queue_head_init()
-to make clear we do not use arp_queue.lock
-
-And hold neigh->lock in neigh_destroy() to close the race.
-
-Reported-by: Joe Jin <joe.jin@oracle.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
 ---
- net/core/neighbour.c |   12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+Change from v1 to v2
+Moved the tx_bytes incrementing to include all packets passed to the
+network card.
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 2569ab2..b7de821 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -231,7 +231,7 @@ static void neigh_flush_dev(struct neigh_table *tbl, struct net_device *dev)
- 				   we must kill timers etc. and move
- 				   it to safe state.
- 				 */
--				skb_queue_purge(&n->arp_queue);
-+				__skb_queue_purge(&n->arp_queue);
- 				n->arp_queue_len_bytes = 0;
- 				n->output = neigh_blackhole;
- 				if (n->nud_state & NUD_VALID)
-@@ -286,7 +286,7 @@ static struct neighbour *neigh_alloc(struct neigh_table *tbl, struct net_device
- 	if (!n)
- 		goto out_entries;
+ drivers/net/ethernet/freescale/fec_main.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index d48099f..51493ce 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -332,6 +332,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
  
--	skb_queue_head_init(&n->arp_queue);
-+	__skb_queue_head_init(&n->arp_queue);
- 	rwlock_init(&n->lock);
- 	seqlock_init(&n->ha_lock);
- 	n->updated	  = n->used = now;
-@@ -708,7 +708,9 @@ void neigh_destroy(struct neighbour *neigh)
- 	if (neigh_del_timer(neigh))
- 		pr_warn("Impossible event\n");
+ 	/* Save skb pointer */
+ 	fep->tx_skbuff[index] = skb;
++	ndev->stats.tx_bytes += skb->len;
  
--	skb_queue_purge(&neigh->arp_queue);
-+	write_lock_bh(&neigh->lock);
-+	__skb_queue_purge(&neigh->arp_queue);
-+	write_unlock_bh(&neigh->lock);
- 	neigh->arp_queue_len_bytes = 0;
- 
- 	if (dev->netdev_ops->ndo_neigh_destroy)
-@@ -858,7 +860,7 @@ static void neigh_invalidate(struct neighbour *neigh)
- 		neigh->ops->error_report(neigh, skb);
- 		write_lock(&neigh->lock);
- 	}
--	skb_queue_purge(&neigh->arp_queue);
-+	__skb_queue_purge(&neigh->arp_queue);
- 	neigh->arp_queue_len_bytes = 0;
- }
- 
-@@ -1210,7 +1212,7 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
- 
- 			write_lock_bh(&neigh->lock);
- 		}
--		skb_queue_purge(&neigh->arp_queue);
-+		__skb_queue_purge(&neigh->arp_queue);
- 		neigh->arp_queue_len_bytes = 0;
- 	}
- out:
+ 	/* Push the data cache so the CPM does not get stale memory
+ 	 * data.
+-- 
+1.7.10.4
