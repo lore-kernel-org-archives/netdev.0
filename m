@@ -1,198 +1,118 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: [PATCH net-next v2 1/1] net: fec: Add VLAN receive HW support.
-Date: Fri, 28 Jun 2013 15:08:23 +0100
-Message-ID: <1372428503-13744-1-git-send-email-jim_baxter@mentor.com>
-References: <Jim Baxter <jim_baxter@mentor.com>
-Cc: Frank Li <Frank.Li@freescale.com>,
-	Fugang Duan <B38611@freescale.com>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	Lucas Stach <l.stach@pengutronix.de>,
-	Shawn Guo <shawn.guo@linaro.org>, netdev@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] rtlwifi: Initialize power-setting callback for USB devices
+Date: Fri, 28 Jun 2013 09:12:53 -0500
+Message-ID: <1372428773-9993-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, Richard Genoud <richard.genoud@gmail.com>,
+	Stable <stable@vger.kernel.org>
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:33949 "EHLO
-	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752128Ab3F1OIf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 10:08:35 -0400
-In-Reply-To: <Jim Baxter <jim_baxter@mentor.com>
+Received: from mail-ve0-f180.google.com ([209.85.128.180]:42992 "EHLO
+	mail-ve0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755143Ab3F1ONL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 10:13:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This enables the driver to take advantage of the FEC VLAN
-indicator to improve performance.
+Commit a269913c5 entitled "rtlwifi: Rework rtl_lps_leave() and
+rtl_lps_enter() to use work queue" has two bugs for USB drivers.
+Firstly, the work queue in question was not initialized. Secondly,
+the callback routine used by this queue is contained within the
+file used for PCI devices. As a result, it is not available for
+architectures without PCI hardware.
 
-Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Reported-by: Richard Genoud <richard.genoud@gmail.com>
+Tested-by: Richard Genoud <richard.genoud@gmail.com>
+Cc: Richard Genoud <richard.genoud@gmail.com>
+Cc: Stable <stable@vger.kernel.org> [3.10]
 ---
-Change from v1 to v2
-Changed Max recieve Buffer Size Register from 1540 to 1536 so it is
-divisible by 64.
 
- drivers/net/ethernet/freescale/fec.h      |    3 ++
- drivers/net/ethernet/freescale/fec_main.c |   64 +++++++++++++++++++++++------
- 2 files changed, 55 insertions(+), 12 deletions(-)
+John,
 
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index 8362a03..2b0a0ea 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -203,6 +203,9 @@ struct bufdesc_ex {
- #define BD_ENET_RX_CL           ((ushort)0x0001)
- #define BD_ENET_RX_STATS        ((ushort)0x013f)        /* All status bits */
+Ideally, this patch should be pushed to the 3.10 stream; however, at this late time
+that is not possible. Please push it for 3.11 and the Cc to stable will get it
+into 3.10.X.
+
+Larry
+---
+ drivers/net/wireless/rtlwifi/pci.c | 13 -------------
+ drivers/net/wireless/rtlwifi/ps.c  | 12 ++++++++++++
+ drivers/net/wireless/rtlwifi/ps.h  |  1 +
+ drivers/net/wireless/rtlwifi/usb.c |  2 ++
+ 4 files changed, 15 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
+index c97e9d3..e70b4ff 100644
+--- a/drivers/net/wireless/rtlwifi/pci.c
++++ b/drivers/net/wireless/rtlwifi/pci.c
+@@ -1008,19 +1008,6 @@ static void _rtl_pci_prepare_bcn_tasklet(struct ieee80211_hw *hw)
+ 	return;
+ }
  
-+/* Enhanced buffer descriptor control/status used by Ethernet receive */
-+#define BD_ENET_RX_VLAN         0x00000004
+-static void rtl_lps_change_work_callback(struct work_struct *work)
+-{
+-	struct rtl_works *rtlworks =
+-	    container_of(work, struct rtl_works, lps_change_work);
+-	struct ieee80211_hw *hw = rtlworks->hw;
+-	struct rtl_priv *rtlpriv = rtl_priv(hw);
+-
+-	if (rtlpriv->enter_ps)
+-		rtl_lps_enter(hw);
+-	else
+-		rtl_lps_leave(hw);
+-}
+-
+ static void _rtl_pci_init_trx_var(struct ieee80211_hw *hw)
+ {
+ 	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
+diff --git a/drivers/net/wireless/rtlwifi/ps.c b/drivers/net/wireless/rtlwifi/ps.c
+index 884bcea..71e917d 100644
+--- a/drivers/net/wireless/rtlwifi/ps.c
++++ b/drivers/net/wireless/rtlwifi/ps.c
+@@ -611,6 +611,18 @@ void rtl_swlps_rf_sleep(struct ieee80211_hw *hw)
+ 			MSECS(sleep_intv * mac->vif->bss_conf.beacon_int - 40));
+ }
+ 
++void rtl_lps_change_work_callback(struct work_struct *work)
++{
++	struct rtl_works *rtlworks =
++	    container_of(work, struct rtl_works, lps_change_work);
++	struct ieee80211_hw *hw = rtlworks->hw;
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
 +
- /* Buffer descriptor control/status used by Ethernet transmit.
- */
- #define BD_ENET_TX_READY        ((ushort)0x8000)
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index ed6180e..b94dde2 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -54,6 +54,7 @@
- #include <linux/of_gpio.h>
- #include <linux/of_net.h>
- #include <linux/regulator/consumer.h>
-+#include <linux/if_vlan.h>
++	if (rtlpriv->enter_ps)
++		rtl_lps_enter(hw);
++	else
++		rtl_lps_leave(hw);
++}
  
- #include <asm/cacheflush.h>
+ void rtl_swlps_wq_callback(void *data)
+ {
+diff --git a/drivers/net/wireless/rtlwifi/ps.h b/drivers/net/wireless/rtlwifi/ps.h
+index 4d682b7..88bd76e 100644
+--- a/drivers/net/wireless/rtlwifi/ps.h
++++ b/drivers/net/wireless/rtlwifi/ps.h
+@@ -49,5 +49,6 @@ void rtl_swlps_rf_awake(struct ieee80211_hw *hw);
+ void rtl_swlps_rf_sleep(struct ieee80211_hw *hw);
+ void rtl_p2p_ps_cmd(struct ieee80211_hw *hw, u8 p2p_ps_state);
+ void rtl_p2p_info(struct ieee80211_hw *hw, void *data, unsigned int len);
++void rtl_lps_change_work_callback(struct work_struct *work);
  
-@@ -88,6 +89,8 @@
- #define FEC_QUIRK_HAS_BUFDESC_EX	(1 << 4)
- /* Controller has hardware checksum support */
- #define FEC_QUIRK_HAS_CSUM		(1 << 5)
-+/* Controller has hardware vlan support */
-+#define FEC_QUIRK_HAS_VLAN		(1 << 6)
+ #endif
+diff --git a/drivers/net/wireless/rtlwifi/usb.c b/drivers/net/wireless/rtlwifi/usb.c
+index a3532e0..1feebdc 100644
+--- a/drivers/net/wireless/rtlwifi/usb.c
++++ b/drivers/net/wireless/rtlwifi/usb.c
+@@ -1070,6 +1070,8 @@ int rtl_usb_probe(struct usb_interface *intf,
+ 	spin_lock_init(&rtlpriv->locks.usb_lock);
+ 	INIT_WORK(&rtlpriv->works.fill_h2c_cmd,
+ 		  rtl_fill_h2c_cmd_work_callback);
++	INIT_WORK(&rtlpriv->works.lps_change_work,
++		  rtl_lps_change_work_callback);
  
- static struct platform_device_id fec_devtype[] = {
- 	{
-@@ -106,7 +109,8 @@ static struct platform_device_id fec_devtype[] = {
- 	}, {
- 		.name = "imx6q-fec",
- 		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
--				FEC_QUIRK_HAS_BUFDESC_EX | FEC_QUIRK_HAS_CSUM,
-+				FEC_QUIRK_HAS_BUFDESC_EX | FEC_QUIRK_HAS_CSUM |
-+				FEC_QUIRK_HAS_VLAN,
- 	}, {
- 		.name = "mvf600-fec",
- 		.driver_data = FEC_QUIRK_ENET_MAC,
-@@ -177,11 +181,11 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
- #define FEC_DEFAULT_IMASK (FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII)
- #define FEC_RX_DISABLED_IMASK (FEC_DEFAULT_IMASK & (~FEC_ENET_RXF))
- 
--/* The FEC stores dest/src/type, data, and checksum for receive packets.
-+/* The FEC stores dest/src/type/vlan, data, and checksum for receive packets.
-  */
--#define PKT_MAXBUF_SIZE		1518
-+#define PKT_MAXBUF_SIZE		1522
- #define PKT_MINBUF_SIZE		64
--#define PKT_MAXBLR_SIZE		1520
-+#define PKT_MAXBLR_SIZE		1536
- 
- /* FEC receive acceleration */
- #define FEC_RACC_IPDIS		(1 << 1)
-@@ -803,6 +807,9 @@ fec_enet_rx(struct net_device *ndev, int budget)
- 	ushort	pkt_len;
- 	__u8 *data;
- 	int	pkt_received = 0;
-+	struct	bufdesc_ex *ebdp = NULL;
-+	bool	vlan_packet_rcvd = false;
-+	u16	vlan_tag;
- 
- #ifdef CONFIG_M532x
- 	flush_cache_all();
-@@ -866,6 +873,24 @@ fec_enet_rx(struct net_device *ndev, int budget)
- 		if (id_entry->driver_data & FEC_QUIRK_SWAP_FRAME)
- 			swap_buffer(data, pkt_len);
- 
-+		/* Extract the enhanced buffer descriptor */
-+		ebdp = NULL;
-+		if (fep->bufdesc_ex)
-+			ebdp = (struct bufdesc_ex *)bdp;
-+
-+		/* If this is a VLAN packet remove the VLAN Tag */
-+		vlan_packet_rcvd = false;
-+		if ((ndev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
-+				ebdp && (ebdp->cbd_esc & BD_ENET_RX_VLAN)) {
-+			/* Push and remove the vlan tag */
-+			struct vlan_hdr *vlan_header =
-+					(struct vlan_hdr *) (data + ETH_HLEN);
-+			vlan_tag = ntohs(vlan_header->h_vlan_TCI);
-+			pkt_len -= VLAN_HLEN;
-+
-+			vlan_packet_rcvd = true;
-+		}
-+
- 		/* This does 16 byte alignment, exactly what we need.
- 		 * The packet length includes FCS, but we don't want to
- 		 * include that when passing upstream as it messes up
-@@ -876,18 +901,25 @@ fec_enet_rx(struct net_device *ndev, int budget)
- 		if (unlikely(!skb)) {
- 			ndev->stats.rx_dropped++;
- 		} else {
-+			int payload_offset = (2 * ETH_ALEN);
- 			skb_reserve(skb, NET_IP_ALIGN);
- 			skb_put(skb, pkt_len - 4);	/* Make room */
--			skb_copy_to_linear_data(skb, data, pkt_len - 4);
-+
-+			/* Extract the frame data without the VLAN header. */
-+			skb_copy_to_linear_data(skb, data, (2 * ETH_ALEN));
-+			if (vlan_packet_rcvd)
-+				payload_offset = (2 * ETH_ALEN) + VLAN_HLEN;
-+			skb_copy_to_linear_data_offset(skb, (2 * ETH_ALEN),
-+					data + payload_offset,
-+					pkt_len - 4 - (2 * ETH_ALEN));
-+
- 			skb->protocol = eth_type_trans(skb, ndev);
- 
- 			/* Get receive timestamp from the skb */
--			if (fep->hwts_rx_en && fep->bufdesc_ex) {
-+			if (fep->hwts_rx_en && ebdp) {
- 				struct skb_shared_hwtstamps *shhwtstamps =
- 							    skb_hwtstamps(skb);
- 				unsigned long flags;
--				struct bufdesc_ex *ebdp =
--					(struct bufdesc_ex *)bdp;
- 
- 				memset(shhwtstamps, 0, sizeof(*shhwtstamps));
- 
-@@ -897,10 +929,7 @@ fec_enet_rx(struct net_device *ndev, int budget)
- 				spin_unlock_irqrestore(&fep->tmreg_lock, flags);
- 			}
- 
--			if (fep->bufdesc_ex &&
--				(fep->csum_flags & FLAG_RX_CSUM_ENABLED)) {
--				struct bufdesc_ex *ebdp =
--					(struct bufdesc_ex *)bdp;
-+			if (ebdp && (fep->csum_flags & FLAG_RX_CSUM_ENABLED)) {
- 				if (!(ebdp->cbd_esc & FLAG_RX_CSUM_ERROR)) {
- 					/* don't check it */
- 					skb->ip_summed = CHECKSUM_UNNECESSARY;
-@@ -909,6 +938,11 @@ fec_enet_rx(struct net_device *ndev, int budget)
- 				}
- 			}
- 
-+			/* Handle received VLAN packets */
-+			if (vlan_packet_rcvd)
-+				__vlan_hwaccel_put_tag(skb,
-+						htons(ETH_P_8021Q), vlan_tag);
-+
- 			if (!skb_defer_rx_timestamp(skb))
- 				napi_gro_receive(&fep->napi, skb);
- 		}
-@@ -1916,6 +1950,12 @@ static int fec_enet_init(struct net_device *ndev)
- 	writel(FEC_RX_DISABLED_IMASK, fep->hwp + FEC_IMASK);
- 	netif_napi_add(ndev, &fep->napi, fec_enet_rx_napi, FEC_NAPI_WEIGHT);
- 
-+	if (id_entry->driver_data & FEC_QUIRK_HAS_VLAN) {
-+		/* enable hw VLAN support */
-+		ndev->features |= NETIF_F_HW_VLAN_CTAG_RX;
-+		ndev->hw_features |= NETIF_F_HW_VLAN_CTAG_RX;
-+	}
-+
- 	if (id_entry->driver_data & FEC_QUIRK_HAS_CSUM) {
- 		/* enable hw accelerator */
- 		ndev->features |= (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM
+ 	rtlpriv->usb_data_index = 0;
+ 	init_completion(&rtlpriv->firmware_loading_complete);
 -- 
-1.7.10.4
+1.8.1.4
