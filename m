@@ -1,17 +1,19 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
+From: Wei Liu <wei.liu2@citrix.com>
 Subject: Re: [PATCH next] xen: Use more current logging styles
-Date: Fri, 28 Jun 2013 08:59:50 +0100
-Message-ID: <1372406390.8976.67.camel@zakaz.uk.xensource.com>
+Date: Fri, 28 Jun 2013 09:02:50 +0100
+Message-ID: <20130628080250.GA16643@zion.uk.xensource.com>
 References: <1372395469.2060.36.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: Jeremy Fitzhardinge <jeremy@goop.org>, xen-devel@lists.xensource.com,
+	wei.liu2@citrix.com, Ian Campbell <ian.campbell@citrix.com>,
 	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	"virtualization@lists.osdl.org" <virtualization@lists.linux-foundation.org>
 To: Joe Perches <joe@perches.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
 In-Reply-To: <1372395469.2060.36.camel@joe-AO722>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
@@ -24,7 +26,7 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-06-27 at 21:57 -0700, Joe Perches wrote:
+On Thu, Jun 27, 2013 at 09:57:49PM -0700, Joe Perches wrote:
 > Instead of mixing printk and pr_<level> forms,
 > just use pr_<level>
 > 
@@ -33,10 +35,14 @@ On Thu, 2013-06-27 at 21:57 -0700, Joe Perches wrote:
 > Add a missing newline to avoid message interleaving,
 > coalesce formats, reflow modified lines to 80 columns.
 > 
+
+Do you also need to replace other printk occurences in xen-netback
+directory, say, interface.c and xenbus.c?
+
+
+Wei.
+
 > Signed-off-by: Joe Perches <joe@perches.com>
-
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
-
 > ---
 >  drivers/net/xen-netback/netback.c |  7 +++----
 >  drivers/net/xen-netfront.c        | 28 +++++++++++++---------------
@@ -168,3 +174,7 @@ Acked-by: Ian Campbell <ian.campbell@citrix.com>
 >  }
 > 
 > 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
