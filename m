@@ -1,262 +1,682 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel panic in skb_copy_bits
-Date: Thu, 27 Jun 2013 23:52:20 -0700
-Message-ID: <1372402340.3301.229.camel@edumazet-glaptop>
-References: <51CBAA48.3080802@oracle.com>
-	 <1372311118.3301.214.camel@edumazet-glaptop> <51CD0E67.4000008@oracle.com>
+From: Asias He <asias@redhat.com>
+Subject: Re: [RFC 4/5] VSOCK: Introduce vhost-vsock.ko
+Date: Fri, 28 Jun 2013 14:55:59 +0800
+Message-ID: <20130628065559.GB2190@hj.localdomain>
+References: <1372320004-20502-1-git-send-email-asias@redhat.com>
+	<1372320004-20502-5-git-send-email-asias@redhat.com>
+	<20130627104246.GC20215@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Frank Blaschka <frank.blaschka@de.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"zheng.x.li@oracle.com" <zheng.x.li@oracle.com>,
-	Xen Devel <xen-devel@lists.xen.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	Jan Beulich <JBeulich@suse.com>,
-	Stefano Stabellini <stefano.stabellini@eu.citrix.com>
-To: Joe Jin <joe.jin@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51CD0E67.4000008@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Andy King <acking@vmware.com>, kvm@vger.kernel.org,
+	Dmitry Torokhov <dtor@vmware.com>, netdev@vger.kernel.org,
+	Reilly Grant <grantr@vmware.com>,
+	virtualization@lists.linux-foundation.org,
+	Pekka Enberg <penberg@kernel.org>, Sasha Levin <sasha.levin@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20130627104246.GC20215@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-06-28 at 12:17 +0800, Joe Jin wrote:
-> Find a similar issue  http://www.gossamer-threads.com/lists/xen/devel/265611
-> So copied to Xen developer as well.
+On Thu, Jun 27, 2013 at 01:42:46PM +0300, Michael S. Tsirkin wrote:
+> On Thu, Jun 27, 2013 at 04:00:03PM +0800, Asias He wrote:
+> > VM sockets vhost transport implementation. This module runs in host
+> > kernel.
+> > 
+> > Signed-off-by: Asias He <asias@redhat.com>
 > 
-> On 06/27/13 13:31, Eric Dumazet wrote:
-> > On Thu, 2013-06-27 at 10:58 +0800, Joe Jin wrote:
-> >> Hi,
-> >>
-> >> When we do fail over test with iscsi + multipath by reset the switches
-> >> on OVM(2.6.39) we hit the panic:
-> >>
-> >> BUG: unable to handle kernel paging request at ffff88006d9e8d48
-> >> IP: [<ffffffff812605bb>] memcpy+0xb/0x120
-> >> PGD 1798067 PUD 1fd2067 PMD 213f067 PTE 0
-> >> Oops: 0000 [#1] SMP 
-> >> CPU 7 
-> >> Modules linked in: dm_nfs tun nfs fscache auth_rpcgss nfs_acl xen_blkback xen_netback xen_gntdev xen_evtchn lockd sunrpc bridge stp llc bonding be2iscsi iscsi_boot_sysfs ib_iser rdma_cm ib_cm iw_cm ib_sa ib_mad ib_core ib_addr iscsi_tcp bnx2i cnic uio ipv6 cxgb3i libcxgbi cxgb3 mdio dm_round_robin dm_multipath libiscsi_tcp libiscsi scsi_transport_iscsi xenfs xen_privcmd video sbs sbshc acpi_memhotplug acpi_ipmi ipmi_msghandler parport_pc lp parport ixgbe dca sr_mod cdrom bnx2 radeon ttm drm_kms_helper drm snd_seq_dummy i2c_algo_bit i2c_core snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device snd_pcm_oss snd_mixer_oss serio_raw snd_pcm snd_timer snd soundcore snd_page_alloc iTCO_wdt pcspkr iTCO_vendor_support pata_acpi dcdbas i5k_amb ata_generic hwmon floppy ghes i5000_edac edac_core
-  hed dm_snapshot dm_zero dm_mirror dm_region_hash dm_log dm_mod usb_storage lpfc scsi_transport_fc scsi_tgt ata_piix sg shpchp mptsas mptscsih mptbase scsi_transport_sas sd_mod crc_t10dif ext!
->  3!
-> >   j!
-> >>  bd mbcache
-> >>
-> >>
-> >> Pid: 0, comm: swapper Tainted: G        W   2.6.39-300.32.1.el5uek #1 Dell Inc. PowerEdge 2950/0DP246
-> >> RIP: e030:[<ffffffff812605bb>]  [<ffffffff812605bb>] memcpy+0xb/0x120
-> >> RSP: e02b:ffff8801003c3d58  EFLAGS: 00010246
-> >> RAX: ffff880076b9e280 RBX: ffff8800714d2c00 RCX: 0000000000000057
-> >> RDX: 0000000000000000 RSI: ffff88006d9e8d48 RDI: ffff880076b9e280
-> >> RBP: ffff8801003c3dc0 R08: 00000000000bf723 R09: 0000000000000000
-> >> R10: 0000000000000000 R11: 000000000000000a R12: 0000000000000034
-> >> R13: 0000000000000034 R14: 00000000000002b8 R15: 00000000000005a8
-> >> FS:  00007fc1e852a6e0(0000) GS:ffff8801003c0000(0000) knlGS:0000000000000000
-> >> CS:  e033 DS: 002b ES: 002b CR0: 000000008005003b
-> >> CR2: ffff88006d9e8d48 CR3: 000000006370b000 CR4: 0000000000002660
-> >> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> >> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> >> Process swapper (pid: 0, threadinfo ffff880077ac0000, task ffff880077abe240)
-> >> Stack:
-> >>  ffffffff8142db21 0000000000000000 ffff880076b9e280 ffff8800637097f0
-> >>  000002ec00000000 00000000000002b8 ffff880077ac0000 0000000000000000
-> >>  ffff8800637097f0 ffff880066c9a7c0 00000000fffffdb4 000000000000024c
-> >> Call Trace:
-> >>  <IRQ> 
-> >>  [<ffffffff8142db21>] ? skb_copy_bits+0x1c1/0x2e0
-> >>  [<ffffffff8142f173>] skb_copy+0xf3/0x120
-> >>  [<ffffffff81447fbc>] neigh_timer_handler+0x1ac/0x350
-> >>  [<ffffffff810573fe>] ? account_idle_ticks+0xe/0x10
-> >>  [<ffffffff81447e10>] ? neigh_alloc+0x180/0x180
-> >>  [<ffffffff8107dbaa>] call_timer_fn+0x4a/0x110
-> >>  [<ffffffff81447e10>] ? neigh_alloc+0x180/0x180
-> >>  [<ffffffff8107f82a>] run_timer_softirq+0x13a/0x220
-> >>  [<ffffffff81075c39>] __do_softirq+0xb9/0x1d0
-> >>  [<ffffffff810d9678>] ? handle_percpu_irq+0x48/0x70
-> >>  [<ffffffff81511d3c>] call_softirq+0x1c/0x30
-> >>  [<ffffffff810172e5>] do_softirq+0x65/0xa0
-> >>  [<ffffffff8107656b>] irq_exit+0xab/0xc0
-> >>  [<ffffffff812f97d5>] xen_evtchn_do_upcall+0x35/0x50
-> >>  [<ffffffff81511d8e>] xen_do_hypervisor_callback+0x1e/0x30
-> >>  <EOI> 
-> >>  [<ffffffff810013aa>] ? xen_hypercall_sched_op+0xa/0x20
-> >>  [<ffffffff810013aa>] ? xen_hypercall_sched_op+0xa/0x20
-> >>  [<ffffffff8100a0b0>] ? xen_safe_halt+0x10/0x20
-> >>  [<ffffffff8101dfeb>] ? default_idle+0x5b/0x170
-> >>  [<ffffffff81014ac6>] ? cpu_idle+0xc6/0xf0
-> >>  [<ffffffff8100a8c9>] ? xen_irq_enable_direct_reloc+0x4/0x4
-> >>  [<ffffffff814f7bbe>] ? cpu_bringup_and_idle+0xe/0x10
-> >> Code: 01 c6 43 4c 04 19 c0 4c 8b 65 f0 4c 8b 6d f8 83 e0 fc 83 c0 08 88 43 4d 48 8b 5d e8 c9 c3 90 90 48 89 f8 89 d1 c1 e9 03 83 e2 07 <f3> 48 a5 89 d1 f3 a4 c3 20 48 83 ea 20 4c 8b 06 4c 8b 4e 08 4c 
-> >> RIP  [<ffffffff812605bb>] memcpy+0xb/0x120
-> >>  RSP <ffff8801003c3d58>
-> >> CR2: ffff88006d9e8d48
-> >>
-> >> Reviewed vmcore I found the skb->users is 1 at the moment, checked network neighbour 
-> >> history I found skb_get() be replaced by skb_copy by commit 7e36763b2c:
-> >>
-> >> commit 7e36763b2c204d59de4e88087f84a2c0c8421f25                               
-> >> Author: Frank Blaschka <frank.blaschka@de.ibm.com>                            
-> >> Date:   Mon Mar 3 12:16:04 2008 -0800
-> >>
-> >>     [NET]: Fix race in generic address resolution.                            
-> >>         
-> >>     neigh_update sends skb from neigh->arp_queue while neigh_timer_handler    
-> >>     has increased skbs refcount and calls solicit with the                    
-> >>     skb. neigh_timer_handler should not increase skbs refcount but make a     
-> >>     copy of the skb and do solicit with the copy.                             
-> >>     
-> >>     Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>                 
-> >>     Signed-off-by: David S. Miller <davem@davemloft.net>                      
-> >>
-> >> So can you please give some details of the race? per vmcore seems like the skb data
-> >> be freed, I suspected skb_get() lost at somewhere?
-> >> I reverted above commit the panic not occurred during our testing.
-> >>
-> >> Any input will appreciate!
-> > 
-> > Well, fact is that your crash is happening in skb_copy().
-> > 
-> > Frank patch is OK. I suspect using skb_clone() would work too,
-> > so if these skb were fclone ready, chance of an GFP_ATOMIC allocation
-> > error would be smaller.
-> > 
-> > So something is providing a wrong skb at the very beginning.
-> > 
-> > You could try to do a early skb_copy to catch the bug and see in the
-> > stack trace what produced this buggy skb.
-> > 
-> > diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> > index 5c56b21..a7a51fd 100644
-> > --- a/net/core/neighbour.c
-> > +++ b/net/core/neighbour.c
-> > @@ -1010,6 +1010,7 @@ int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
-> >  				NEIGH_CACHE_STAT_INC(neigh->tbl, unres_discards);
-> >  			}
-> >  			skb_dst_force(skb);
-> > +			kfree_skb(skb_copy(skb, GFP_ATOMIC));
-> >  			__skb_queue_tail(&neigh->arp_queue, skb);
-> >  			neigh->arp_queue_len_bytes += skb->truesize;
-> >  		}
-> > 
-> > 
+> Has any thought been given to how this affects migration?
+> I don't see any API for an application to
+> move to a different host and reconnect to a running
+> vsock in guest.
 > 
-> BUG: unable to handle kernel paging request at ffff8800488db8dc
-> IP: [<ffffffff812605bb>] memcpy+0xb/0x120
-> PGD 1796067 PUD 20e5067 PMD 212a067 PTE 0
-> Oops: 0000 [#1] SMP 
-> CPU 13 
-> Modules linked in: ocfs2 jbd2 xen_blkback xen_netback xen_gntdev xen_evtchn netconsole i2c_dev i2c_core ocfs2_dlmfs ocfs2_stack_o2cb ocfs2_dlm ocfs2_nodemanager ocfs2_stackglue configfs lockd sunrpc dm_round_robin dm_multipath bridge stp llc bonding be2iscsi iscsi_boot_sysfs iscsi_tcp bnx2i cnic uio ipv6 cxgb3i libcxgbi cxgb3 mdio libiscsi_tcp libiscsi scsi_transport_iscsi xenfs xen_privcmd video sbs sbshc hed acpi_memhotplug acpi_ipmi ipmi_msghandler parport_pc lp parport serio_raw ixgbe hpilo tg3 hpwdt dca snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device snd_pcm_oss snd_mixer_oss snd_pcm snd_timer snd iTCO_wdt iTCO_vendor_support soundcore snd_page_alloc pcspkr pata_acpi ata_generic dm_snapshot dm_zero dm_mirror dm_region_hash dm_log dm_mod usb_storage ata_piix sg sh
- pchp hpsa cciss sd_mod crc_t10dif ext3 jbd mbcache
-> 
-> Pid: 0, comm: swapper Not tainted 2.6.39-300.32.1.el5uek.bug16929255v5 #1 HP ProLiant DL360p Gen8
-> RIP: e030:[<ffffffff812605bb>]  [<ffffffff812605bb>] memcpy+0xb/0x120
-> RSP: e02b:ffff88005a9a3b68  EFLAGS: 00010202
-> RAX: ffff8800200f0280 RBX: 0000000000000724 RCX: 00000000000000e4
-> RDX: 0000000000000004 RSI: ffff8800488db8dc RDI: ffff8800200f0280
-> RBP: ffff88005a9a3bd0 R08: 0000000000000004 R09: ffff880052824980
-> R10: 0000000000000000 R11: 0000000000015048 R12: 0000000000000034
-> R13: 0000000000000034 R14: 00000000000022f4 R15: ffff880021208ab0
-> FS:  00007fe8737c96e0(0000) GS:ffff88005a9a0000(0000) knlGS:0000000000000000
-> CS:  e033 DS: 002b ES: 002b CR0: 000000008005003b
-> CR2: ffff8800488db8dc CR3: 000000004fb38000 CR4: 0000000000002660
-> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> Process swapper (pid: 0, threadinfo ffff880054d36000, task ffff880054d343c0)
-> Stack:
->  ffffffff8142dac7 0000000000000000 00000000ffffffff ffff8800200f0280
->  0000075800000000 0000000000000724 ffff880054d36000 0000000000000000
->  00000000fffffdb4 ffff880052824980 ffff880021208ab0 000000000000024c
-> Call Trace:
->  <IRQ> 
->  [<ffffffff8142dac7>] ? skb_copy_bits+0x167/0x290
->  [<ffffffff8142f0b5>] skb_copy+0x85/0xb0
->  [<ffffffff8144864d>] __neigh_event_send+0x18d/0x200
->  [<ffffffff81449a42>] neigh_resolve_output+0x162/0x1b0
->  [<ffffffff81477046>] ip_finish_output+0x146/0x320
->  [<ffffffff814754a5>] ip_output+0x85/0xd0
->  [<ffffffff814758d9>] ip_local_out+0x29/0x30
->  [<ffffffff814761e0>] ip_queue_xmit+0x1c0/0x3d0
->  [<ffffffff8148d3ef>] tcp_transmit_skb+0x40f/0x520
->  [<ffffffff8148e5ff>] tcp_retransmit_skb+0x16f/0x2e0
->  [<ffffffff814908c0>] ? tcp_retransmit_timer+0x4a0/0x4a0
->  [<ffffffff814905ad>] tcp_retransmit_timer+0x18d/0x4a0
->  [<ffffffff814908c0>] ? tcp_retransmit_timer+0x4a0/0x4a0
->  [<ffffffff81490994>] tcp_write_timer+0xd4/0x100
->  [<ffffffff8107dbaa>] call_timer_fn+0x4a/0x110
->  [<ffffffff814908c0>] ? tcp_retransmit_timer+0x4a0/0x4a0
->  [<ffffffff8107f82a>] run_timer_softirq+0x13a/0x220
->  [<ffffffff81075c39>] __do_softirq+0xb9/0x1d0
->  [<ffffffff810d9678>] ? handle_percpu_irq+0x48/0x70
->  [<ffffffff81511b7c>] call_softirq+0x1c/0x30
->  [<ffffffff810172e5>] do_softirq+0x65/0xa0
->  [<ffffffff8107656b>] irq_exit+0xab/0xc0
->  [<ffffffff812f97d5>] xen_evtchn_do_upcall+0x35/0x50
->  [<ffffffff81511bce>] xen_do_hypervisor_callback+0x1e/0x30
->  <EOI> 
->  [<ffffffff810013aa>] ? xen_hypercall_sched_op+0xa/0x20
->  [<ffffffff810013aa>] ? xen_hypercall_sched_op+0xa/0x20
->  [<ffffffff8100a0d0>] ? xen_safe_halt+0x10/0x20
->  [<ffffffff8101dfeb>] ? default_idle+0x5b/0x170
->  [<ffffffff81014ac6>] ? cpu_idle+0xc6/0xf0
->  [<ffffffff8100a8e9>] ? xen_irq_enable_direct_reloc+0x4/0x4
->  [<ffffffff814f7a2e>] ? cpu_bringup_and_idle+0xe/0x10
-> Code: 01 c6 43 4c 04 19 c0 4c 8b 65 f0 4c 8b 6d f8 83 e0 fc 83 c0 08 88 43 4d 48 8b 5d e8 c9 c3 90 90 48 89 f8 89 d1 c1 e9 03 83 e2 07 <f3> 48 a5 89 d1 f3 a4 c3 20 48 83 ea 20 4c 8b 06 4c 8b 4e 08 4c 
-> RIP  [<ffffffff812605bb>] memcpy+0xb/0x120
-> 
-> 
-> Per vmcore, the socket info as below:
-> ------------------------------------------------------------------------------
-> <struct tcp_sock 0xffff88004d344e00>            TCP
-> tcp   10.1.1.11:42147            10.1.1.21:3260              FIN_WAIT1
->         windows: rcv=122124, snd=65535  advmss=8948 rcv_ws=1 snd_ws=0
->         nonagle=1 sack_ok=0 tstamp_ok=1
->         rmem_alloc=0, wmem_alloc=10229
->         rx_queue=0, tx_queue=149765
->         rcvbuf=262142, sndbuf=262142
->         rcv_tstamp=51.4 s, lsndtime=0.0 s  ago
->     -- Retransmissions --
->        retransmits=7, ca_state=TCP_CA_Disorder
-> ------------------------------------------------------------------------------
-> 
-> When sock status move to FIN_WAIT1, will it cleanup all skb or no?
+> I think we could merge without this, there are more
+> pressing issues, but it's probably a requirement
+> if you want this to replace e.g. serial in many
+> scenarious.
 
-I get crashes as well using UDP application. Its not related to TCP.
+I do not plan to support migration for the initial merge as well.
 
-There is some corruption going on in neighbour code.
+Reconnection is one issue needs to be addressed. Another issue is that if
+the destination host is running vhost-vsock already, the port might be
+used already. We probably need namesapce support.
 
-[  942.319645] BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
-[  942.327510] IP: [<ffffffff814e4558>] __neigh_event_send+0x1a8/0x240
-[  942.333799] PGD c5a125067 PUD c603e1067 PMD 0
-[  942.338292] Oops: 0002 [#1] SMP
-[  942.341819] gsmi: Log Shutdown Reason 0x03
-[  942.364995] CPU: 8 PID: 13760 Comm: netperf Tainted: G        W    3.10.0-smp-DEV #155
-[  942.380212] task: ffff88065b54b000 ti: ffff8806498fc000 task.ti: ffff8806498fc000
-[  942.387689] RIP: 0010:[<ffffffff814e4558>]  [<ffffffff814e4558>] __neigh_event_send+0x1a8/0x240
-[  942.396402] RSP: 0018:ffff8806498fd9d8  EFLAGS: 00010206
-[  942.401709] RAX: 0000000000000000 RBX: ffff88065a8f9000 RCX: ffff88065fdf61c0
-[  942.408837] RDX: 0000000000000000 RSI: ffff880c5d5b3080 RDI: ffff880c5b9c0ac0
-[  942.415966] RBP: ffff8806498fd9f8 R08: ffff88064cb00000 R09: ffff8806498fda70
-[  942.423095] R10: ffff880c5ffbead0 R11: ffffffff815137d0 R12: ffff88065a8f9030
-[  942.430232] R13: ffff880c5d5b3080 R14: 0000000000000000 R15: ffff88065b4af940
-[  942.437362] FS:  00007fd613190700(0000) GS:ffff880c7fc40000(0000) knlGS:0000000000000000
-[  942.445452] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[  942.451193] CR2: 0000000000000008 CR3: 0000000c59b60000 CR4: 00000000000007e0
-[  942.458324] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[  942.465460] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Jun 27 05:49:12 [  942.472597] Stack:
-[  942.475997]  ffff880c5d5b3080 ffff88065a8f9000 ffff880c59ac43c0 0000000000000088
-[  942.483473]  ffff8806498fda48 ffffffff814e50db ffff880c5d5b3080 ffffffff81514c60
-[  942.490947]  0000000000000088 ffff88064cb00000 ffff880c5d5b3080 ffff880c59ac43c0
-[  942.498415] Call Trace:
-[  942.500873]  [<ffffffff814e50db>] neigh_resolve_output+0x14b/0x1f0
-lpq84 kernel: [ [  942.507056]  [<ffffffff81514c60>] ? __ip_append_data.isra.39+0x9e0/0x9e0
-[  942.515138]  [<ffffffff81514ddf>] ip_finish_output+0x17f/0x380
-[  942.520972]  [<ffffffff81515bb3>] ip_output+0x53/0x90
- 942.341819] gsm[  942.526030]  [<ffffffff815167d6>] ? ip_make_skb+0xf6/0x120
-[  942.532897]  [<ffffffff81515379>] ip_local_out+0x29/0x30
-i: Log Shutdown [  942.538215]  [<ffffffff81516649>] ip_send_skb+0x19/0x50
-Reason 0x03
-[  942.544825]  [<ffffffff8153a65e>] udp_send_skb+0x2ce/0x3a0
-[  942.551439]  [<ffffffff815137d0>] ? ip_setup_cork+0x110/0x110
+> > ---
+> >  drivers/vhost/vsock.c | 534 ++++++++++++++++++++++++++++++++++++++++++++++++++
+> >  drivers/vhost/vsock.h |   4 +
+> >  2 files changed, 538 insertions(+)
+> >  create mode 100644 drivers/vhost/vsock.c
+> >  create mode 100644 drivers/vhost/vsock.h
+> > 
+> > diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
+> > new file mode 100644
+> > index 0000000..cb54090
+> > --- /dev/null
+> > +++ b/drivers/vhost/vsock.c
+> > @@ -0,0 +1,534 @@
+> > +/*
+> > + * vhost transport for vsock
+> > + *
+> > + * Copyright (C) 2013 Red Hat, Inc.
+> > + * Author: Asias He <asias@redhat.com>
+> > + *
+> > + * This work is licensed under the terms of the GNU GPL, version 2.
+> > + */
+> > +#include <linux/miscdevice.h>
+> > +#include <linux/module.h>
+> > +#include <linux/mutex.h>
+> > +#include <net/sock.h>
+> > +#include <linux/virtio_vsock.h>
+> > +#include <linux/vhost.h>
+> > +
+> > +#include "../../../net/vmw_vsock/af_vsock.h"
+> 
+> Send patch to move this to include/linux ?
+
+Okay. Will cook a patch.
+
+> > +#include "vhost.h"
+> > +#include "vsock.h"
+> > +
+> > +#define VHOST_VSOCK_DEFAULT_HOST_CID	2;
+> 
+> Sure you want that ; there? This can result in strange code, e.g.
+> 
+> 	int a = VHOST_VSOCK_DEFAULT_HOST_CID + 1;
+> 	set's a to 2.
+
+Fixed.
+
+> > +
+> > +static int vhost_transport_socket_init(struct vsock_sock *vsk,
+> > +				       struct vsock_sock *psk);
+> > +
+> > +enum {
+> > +	VHOST_VSOCK_FEATURES = VHOST_FEATURES,
+> > +};
+> > +
+> > +/* Used to track all the vhost_vsock instacne on the system. */
+> 
+> typo
+
+Fixed.
+
+> > +static LIST_HEAD(vhost_vsock_list);
+> > +static DEFINE_MUTEX(vhost_vsock_mutex);
+> > +
+> > +struct vhost_vsock_virtqueue {
+> > +	struct vhost_virtqueue vq;
+> > +};
+> > +
+> > +struct vhost_vsock {
+> > +	/* Vhost device */
+> > +	struct vhost_dev dev;
+> > +	/* Vhost vsock virtqueue*/
+> > +	struct vhost_vsock_virtqueue vqs[VSOCK_VQ_MAX];
+> > +	/* Link to global vhost_vsock_list*/
+> > +	struct list_head list;
+> > +	/* Head for pkt from host to guest */
+> > +	struct list_head send_pkt_list;
+> > +	/* Work item to send pkt */
+> > +	struct vhost_work send_pkt_work;
+> > +	/* Guest contex id this vhost_vsock instance handles */
+> > +	u32 guest_cid;
+> > +};
+> > +
+> > +static u32 vhost_transport_get_local_cid(void)
+> > +{
+> > +	u32 cid = VHOST_VSOCK_DEFAULT_HOST_CID;
+> > +	return cid;
+> > +}
+> > +
+> 
+> Interesting. So all hosts in fact have the same CID?
+
+Yes. Andy commented on this already.
+
+> > +static struct vhost_vsock *vhost_vsock_get(u32 guest_cid)
+> > +{
+> > +	struct vhost_vsock *vsock;
+> > +
+> > +	mutex_lock(&vhost_vsock_mutex);
+> > +	list_for_each_entry(vsock, &vhost_vsock_list, list) {
+> > +		if (vsock->guest_cid == guest_cid) {
+> > +			mutex_unlock(&vhost_vsock_mutex);
+> > +			return vsock;
+> > +		}
+> > +	}
+> > +	mutex_unlock(&vhost_vsock_mutex);
+> > +
+> > +	return NULL;
+> > +}
+> > +
+> > +static void
+> > +vhost_transport_do_send_pkt(struct vhost_vsock *vsock,
+> > +			    struct vhost_virtqueue *vq)
+> > +{
+> > +	struct virtio_vsock_pkt *pkt;
+> > +	unsigned out, in;
+> > +	struct sock *sk;
+> > +	int head, ret;
+> > +
+> > +	mutex_lock(&vq->mutex);
+> > +	vhost_disable_notify(&vsock->dev, vq);
+> > +	for (;;) {
+> > +		if (list_empty(&vsock->send_pkt_list)) {
+> > +			vhost_enable_notify(&vsock->dev, vq);
+> > +			break;
+> > +		}
+> > +
+> > +		head = vhost_get_vq_desc(&vsock->dev, vq, vq->iov,
+> > +					ARRAY_SIZE(vq->iov), &out, &in,
+> > +					NULL, NULL);
+> > +		pr_debug("%s: head = %d\n", __func__, head);
+> > +		if (head < 0)
+> > +			break;
+> > +
+> > +		if (head == vq->num) {
+> > +			if (unlikely(vhost_enable_notify(&vsock->dev, vq))) {
+> > +				vhost_disable_notify(&vsock->dev, vq);
+> > +				continue;
+> > +			}
+> > +			break;
+> > +		}
+> > +
+> > +		pkt = list_first_entry(&vsock->send_pkt_list,
+> > +				       struct virtio_vsock_pkt, list);
+> > +		list_del_init(&pkt->list);
+> > +
+> > +		/* FIXME: no assumption of frame layout */
+> 
+> Pls fix. memcpy_from_iovec is not harder.
+
+Do we have this helper?
+
+> > +		ret = __copy_to_user(vq->iov[0].iov_base, &pkt->hdr,
+> > +				     sizeof(pkt->hdr));
+> > +		if (ret) {
+> > +			virtio_transport_free_pkt(pkt);
+> > +			vq_err(vq, "Faulted on copying pkt hdr\n");
+> > +			break;
+> > +		}
+> > +		if (pkt->buf && pkt->len > 0) {
+> > +			ret = __copy_to_user(vq->iov[1].iov_base, pkt->buf,
+> > +					    pkt->len);
+> > +			if (ret) {
+> > +				virtio_transport_free_pkt(pkt);
+> > +				vq_err(vq, "Faulted on copying pkt buf\n");
+> > +				break;
+> > +			}
+> > +		}
+> > +
+> > +		vhost_add_used(vq, head, pkt->len);
+> > +
+> > +		virtio_transport_dec_tx_pkt(pkt);
+> > +
+> > +		sk = sk_vsock(pkt->trans->vsk);
+> > +		/* Release refcnt taken in vhost_transport_send_pkt */
+> > +		sock_put(sk);
+> > +
+> > +		virtio_transport_free_pkt(pkt);
+> > +	}
+> > +	vhost_signal(&vsock->dev, vq);
+> 
+> I think you should not signal if used was not updated.
+
+Right, it is very easy to add the optimization here.
+
+> > +	mutex_unlock(&vq->mutex);
+> > +}
+> > +
+> > +static void vhost_transport_send_pkt_work(struct vhost_work *work)
+> > +{
+> > +	struct vhost_virtqueue *vq;
+> > +	struct vhost_vsock *vsock;
+> > +
+> > +	vsock = container_of(work, struct vhost_vsock, send_pkt_work);
+> > +	vq = &vsock->vqs[VSOCK_VQ_RX].vq;
+> > +
+> > +	vhost_transport_do_send_pkt(vsock, vq);
+> > +}
+> > +
+> > +static int
+> > +vhost_transport_send_pkt(struct vsock_sock *vsk,
+> > +			 struct virtio_vsock_pkt_info *info)
+> > +{
+> > +	u32 src_cid, src_port, dst_cid, dst_port;
+> > +	struct virtio_transport *trans;
+> > +	struct virtio_vsock_pkt *pkt;
+> > +	struct vhost_virtqueue *vq;
+> > +	struct vhost_vsock *vsock;
+> > +	u64 credit;
+> > +
+> > +	src_cid = vhost_transport_get_local_cid();
+> 
+> interestingly this is the only place cid
+> is used. Shouldn't we validate it?
+
+The local cid is a constant, how can we valicate it?
+
+> > +	src_port = vsk->local_addr.svm_port;
+> > +	dst_cid = vsk->remote_addr.svm_cid;
+> > +	dst_port = vsk->remote_addr.svm_port;
+> > +
+> > +	/* Find the vhost_vsock according to guest context id  */
+> > +	vsock = vhost_vsock_get(dst_cid);
+> 
+> Confused. There's a single socket per dst cid?
+
+No, each guest has a cid, each guest has a struct vhost_vsock instance,
+dst_cid tells us which struct vhost_vsock instance to use for this
+packet.
+
+> > +	if (!vsock)
+> > +		return -ENODEV;
+> > +
+> > +	trans = vsk->trans;
+> > +	vq = &vsock->vqs[VSOCK_VQ_RX].vq;
+> > +
+> > +	if (info->type == SOCK_STREAM) {
+> > +		credit = virtio_transport_get_credit(trans);
+> > +		if (info->len > credit)
+> > +			info->len = credit;
+> 
+> Is there support for non stream sockets?
+> Without credits, you get all kind of nasty
+> starvation issues.
+
+We support SOCK_STREAM and SOCK_DGRAM. The credit thing is used for
+SOCK_STREAM right now. I can extend it to SOCK_DGRAM as well.
+
+> > +	}
+> > +	if (info->len > VIRTIO_VSOCK_DEFAULT_RX_BUF_SIZE)
+> > +		info->len = VIRTIO_VSOCK_DEFAULT_RX_BUF_SIZE;
+> > +	/* Do not send zero length OP_RW pkt*/
+> > +	if (info->len == 0 && info->op == VIRTIO_VSOCK_OP_RW)
+> > +		return info->len;
+> > +
+> > +	pkt = virtio_transport_alloc_pkt(vsk, info, info->len,
+> > +					 src_cid, src_port,
+> > +					 dst_cid, dst_port);
+> 
+> We also need global limit on amount of memory per
+> socket. Even if remote is OK with getting 20G from us,
+> we might not have so much kernel memory.
+
+Yes, we need global limit. 
+
+> > +	if (!pkt)
+> > +		return -ENOMEM;
+> > +
+> > +	pr_debug("%s:info->len= %d\n", __func__, info->len);
+> > +	/* Released in vhost_transport_do_send_pkt */
+> > +	sock_hold(&trans->vsk->sk);
+> > +	virtio_transport_inc_tx_pkt(pkt);
+> > +
+> > +	/* queue it up in vhost work */
+> > +	mutex_lock(&vq->mutex);
+> > +	list_add_tail(&pkt->list, &vsock->send_pkt_list);
+> > +	vhost_work_queue(&vsock->dev, &vsock->send_pkt_work);
+> > +	mutex_unlock(&vq->mutex);
+> > +
+> > +	return info->len;
+> > +}
+> > +
+> > +static struct virtio_transport_pkt_ops vhost_ops = {
+> > +	.send_pkt = vhost_transport_send_pkt,
+> > +};
+> > +
+> > +static struct virtio_vsock_pkt *
+> > +vhost_vsock_alloc_pkt(struct vhost_virtqueue *vq)
+> > +{
+> > +	struct virtio_vsock_pkt *pkt;
+> > +	int ret;
+> > +	int len;
+> > +
+> > +	pkt = kzalloc(sizeof(*pkt), GFP_KERNEL);
+> > +	if (!pkt)
+> > +		return NULL;
+> > +
+> > +	len = sizeof(pkt->hdr);
+> > +	if (unlikely(vq->iov[0].iov_len != len)) {
+> > +		vq_err(vq, "Expecting pkt->hdr = %d, got %zu bytes\n",
+> > +		       len, vq->iov[0].iov_len);
+> > +		kfree(pkt);
+> > +		return NULL;
+> > +	}
+> > +	ret = __copy_from_user(&pkt->hdr, vq->iov[0].iov_base, len);
+> > +	if (ret) {
+> > +		vq_err(vq, "Faulted on virtio_vsock_hdr\n");
+> > +		kfree(pkt);
+> > +		return NULL;
+> > +	}
+> > +
+> > +	pkt->len = pkt->hdr.len;
+> > +	pkt->off = 0;
+> > +
+> > +	/* No payload */
+> > +	if (!pkt->len)
+> > +		return pkt;
+> > +
+> > +	/* The pkt is too big */
+> > +	if (pkt->len > VIRTIO_VSOCK_MAX_PKT_BUF_SIZE) {
+> > +		kfree(pkt);
+> > +		return NULL;
+> > +	}
+> > +
+> > +	pkt->buf = kmalloc(pkt->len, GFP_KERNEL);
+> > +	if (!pkt->buf) {
+> > +		kfree(pkt);
+> > +		return NULL;
+> > +	}
+> > +
+> > +	ret = __copy_from_user(pkt->buf, vq->iov[1].iov_base, pkt->len);
+> > +	if (ret) {
+> > +		vq_err(vq, "Faulted on virtio_vsock_hdr\n");
+> > +		virtio_transport_free_pkt(pkt);
+> > +	}
+> > +
+> > +	return pkt;
+> > +}
+> > +
+> > +static void vhost_vsock_handle_ctl_kick(struct vhost_work *work)
+> > +{
+> > +	struct vhost_virtqueue *vq = container_of(work, struct vhost_virtqueue,
+> > +						  poll.work);
+> > +	struct vhost_vsock *vsock = container_of(vq->dev, struct vhost_vsock,
+> > +						 dev);
+> > +
+> > +	pr_debug("%s vq=%p, vsock=%p\n", __func__, vq, vsock);
+> > +}
+> > +
+> > +static void vhost_vsock_handle_tx_kick(struct vhost_work *work)
+> > +{
+> > +	struct vhost_virtqueue *vq = container_of(work, struct vhost_virtqueue,
+> > +						  poll.work);
+> > +	struct vhost_vsock *vsock = container_of(vq->dev, struct vhost_vsock,
+> > +						 dev);
+> > +	struct virtio_vsock_pkt *pkt;
+> > +	int head, out, in;
+> > +	u32 len;
+> > +
+> > +	mutex_lock(&vq->mutex);
+> > +	vhost_disable_notify(&vsock->dev, vq);
+> > +	for (;;) {
+> > +		head = vhost_get_vq_desc(&vsock->dev, vq, vq->iov,
+> > +					ARRAY_SIZE(vq->iov), &out, &in,
+> > +					NULL, NULL);
+> > +		if (head < 0)
+> > +			break;
+> > +
+> > +		if (head == vq->num) {
+> > +			if (unlikely(vhost_enable_notify(&vsock->dev, vq))) {
+> > +				vhost_disable_notify(&vsock->dev, vq);
+> > +				continue;
+> > +			}
+> > +			break;
+> > +		}
+> > +
+> > +		pkt = vhost_vsock_alloc_pkt(vq);
+> > +		if (!pkt) {
+> > +			vq_err(vq, "Faulted on pkt\n");
+> > +			continue;
+> > +		}
+> > +
+> > +		len = pkt->len;
+> > +		virtio_transport_recv_pkt(pkt);
+> > +		vhost_add_used(vq, head, len);
+> > +	}
+> > +	vhost_signal(&vsock->dev, vq);
+> > +	mutex_unlock(&vq->mutex);
+> > +}
+> > +
+> > +static void vhost_vsock_handle_rx_kick(struct vhost_work *work)
+> > +{
+> > +	struct vhost_virtqueue *vq = container_of(work, struct vhost_virtqueue,
+> > +						poll.work);
+> > +	struct vhost_vsock *vsock = container_of(vq->dev, struct vhost_vsock,
+> > +						 dev);
+> > +
+> > +	vhost_transport_do_send_pkt(vsock, vq);
+> > +}
+> > +
+> > +static int vhost_vsock_dev_open(struct inode *inode, struct file *file)
+> > +{
+> > +	struct vhost_virtqueue **vqs;
+> > +	struct vhost_vsock *vsock;
+> > +	int ret;
+> > +
+> > +	vsock = kzalloc(sizeof(*vsock), GFP_KERNEL);
+> > +	if (!vsock)
+> > +		return -ENOMEM;
+> > +
+> > +	pr_debug("%s:vsock=%p\n", __func__, vsock);
+> > +
+> > +	vqs = kmalloc(VSOCK_VQ_MAX * sizeof(*vqs), GFP_KERNEL);
+> > +	if (!vqs) {
+> > +		ret = -ENOMEM;
+> > +		goto out;
+> > +	}
+> > +
+> > +	vqs[VSOCK_VQ_CTRL] = &vsock->vqs[VSOCK_VQ_CTRL].vq;
+> > +	vqs[VSOCK_VQ_TX] = &vsock->vqs[VSOCK_VQ_TX].vq;
+> > +	vqs[VSOCK_VQ_RX] = &vsock->vqs[VSOCK_VQ_RX].vq;
+> > +	vsock->vqs[VSOCK_VQ_CTRL].vq.handle_kick = vhost_vsock_handle_ctl_kick;
+> > +	vsock->vqs[VSOCK_VQ_TX].vq.handle_kick = vhost_vsock_handle_tx_kick;
+> > +	vsock->vqs[VSOCK_VQ_RX].vq.handle_kick = vhost_vsock_handle_rx_kick;
+> > +
+> > +	ret = vhost_dev_init(&vsock->dev, vqs, VSOCK_VQ_MAX);
+> > +	if (ret < 0)
+> > +		goto out_vqs;
+> > +
+> > +	file->private_data = vsock;
+> > +	INIT_LIST_HEAD(&vsock->send_pkt_list);
+> > +	vhost_work_init(&vsock->send_pkt_work, vhost_transport_send_pkt_work);
+> > +
+> > +	mutex_lock(&vhost_vsock_mutex);
+> > +	list_add_tail(&vsock->list, &vhost_vsock_list);
+> > +	mutex_unlock(&vhost_vsock_mutex);
+> > +	return ret;
+> > +
+> > +out_vqs:
+> > +	kfree(vqs);
+> > +out:
+> > +	kfree(vsock);
+> > +	return ret;
+> > +}
+> > +
+> > +static void vhost_vsock_flush(struct vhost_vsock *vsock)
+> > +{
+> > +	int i;
+> > +
+> > +	for (i = 0; i < VSOCK_VQ_MAX; i++)
+> > +		vhost_poll_flush(&vsock->vqs[i].vq.poll);
+> > +	vhost_work_flush(&vsock->dev, &vsock->send_pkt_work);
+> > +}
+> > +
+> > +static int vhost_vsock_dev_release(struct inode *inode, struct file *file)
+> > +{
+> > +	struct vhost_vsock *vsock = file->private_data;
+> > +
+> > +	mutex_lock(&vhost_vsock_mutex);
+> > +	list_del(&vsock->list);
+> > +	mutex_unlock(&vhost_vsock_mutex);
+> > +
+> > +	vhost_dev_stop(&vsock->dev);
+> > +	vhost_vsock_flush(vsock);
+> > +	vhost_dev_cleanup(&vsock->dev, false);
+> > +	kfree(vsock->dev.vqs);
+> > +	kfree(vsock);
+> > +	return 0;
+> > +}
+> > +
+> > +static int vhost_vsock_set_cid(struct vhost_vsock *vsock, u32 guest_cid)
+> > +{
+> > +	mutex_lock(&vhost_vsock_mutex);
+> > +	vsock->guest_cid = guest_cid;
+> > +	pr_debug("%s:guest_cid=%d\n", __func__, guest_cid);
+> > +	mutex_unlock(&vhost_vsock_mutex);
+> > +
+> > +	return 0;
+> > +}
+> > +
+> > +static long vhost_vsock_dev_ioctl(struct file *f, unsigned int ioctl,
+> > +				  unsigned long arg)
+> > +{
+> > +	struct vhost_vsock *vsock = f->private_data;
+> > +	void __user *argp = (void __user *)arg;
+> > +	u64 __user *featurep = argp;
+> > +	u32 __user *cidp = argp;
+> > +	u32 guest_cid;
+> > +	u64 features;
+> > +	int r;
+> > +
+> > +	switch (ioctl) {
+> > +	case VHOST_VSOCK_SET_GUEST_CID:
+> > +		if (get_user(guest_cid, cidp))
+> > +			return -EFAULT;
+> > +		return vhost_vsock_set_cid(vsock, guest_cid);
+> > +	case VHOST_GET_FEATURES:
+> > +		features = VHOST_VSOCK_FEATURES;
+> > +		if (copy_to_user(featurep, &features, sizeof(features)))
+> > +			return -EFAULT;
+> > +		return 0;
+> > +	case VHOST_SET_FEATURES:
+> > +		if (copy_from_user(&features, featurep, sizeof(features)))
+> > +			return -EFAULT;
+> > +		return 0;
+> > +	default:
+> > +		mutex_lock(&vsock->dev.mutex);
+> > +		r = vhost_dev_ioctl(&vsock->dev, ioctl, argp);
+> > +		if (r == -ENOIOCTLCMD)
+> > +			r = vhost_vring_ioctl(&vsock->dev, ioctl, argp);
+> > +		else
+> > +			vhost_vsock_flush(vsock);
+> > +		mutex_unlock(&vsock->dev.mutex);
+> > +		return r;
+> > +	}
+> > +}
+> > +
+> > +static const struct file_operations vhost_vsock_fops = {
+> > +	.owner          = THIS_MODULE,
+> > +	.open           = vhost_vsock_dev_open,
+> > +	.release        = vhost_vsock_dev_release,
+> > +	.llseek		= noop_llseek,
+> > +	.unlocked_ioctl = vhost_vsock_dev_ioctl,
+> > +};
+> > +
+> > +static struct miscdevice vhost_vsock_misc = {
+> > +	.minor = MISC_DYNAMIC_MINOR,
+> > +	.name = "vhost-vsock",
+> > +	.fops = &vhost_vsock_fops,
+> > +};
+> > +
+> > +static int
+> > +vhost_transport_socket_init(struct vsock_sock *vsk, struct vsock_sock *psk)
+> > +{
+> > +	struct virtio_transport *trans;
+> > +	int ret;
+> > +
+> > +	ret = virtio_transport_do_socket_init(vsk, psk);
+> > +	if (ret)
+> > +		return ret;
+> > +
+> > +	trans = vsk->trans;
+> > +	trans->ops = &vhost_ops;
+> > +
+> > +	return ret;
+> > +}
+> > +
+> > +static struct vsock_transport vhost_transport = {
+> > +	.get_local_cid            = vhost_transport_get_local_cid,
+> > +
+> > +	.init                     = vhost_transport_socket_init,
+> > +	.destruct                 = virtio_transport_destruct,
+> > +	.release                  = virtio_transport_release,
+> > +	.connect                  = virtio_transport_connect,
+> > +	.shutdown                 = virtio_transport_shutdown,
+> > +
+> > +	.dgram_enqueue            = virtio_transport_dgram_enqueue,
+> > +	.dgram_dequeue            = virtio_transport_dgram_dequeue,
+> > +	.dgram_bind               = virtio_transport_dgram_bind,
+> > +	.dgram_allow              = virtio_transport_dgram_allow,
+> > +
+> > +	.stream_enqueue           = virtio_transport_stream_enqueue,
+> > +	.stream_dequeue           = virtio_transport_stream_dequeue,
+> > +	.stream_has_data          = virtio_transport_stream_has_data,
+> > +	.stream_has_space         = virtio_transport_stream_has_space,
+> > +	.stream_rcvhiwat          = virtio_transport_stream_rcvhiwat,
+> > +	.stream_is_active         = virtio_transport_stream_is_active,
+> > +	.stream_allow             = virtio_transport_stream_allow,
+> > +
+> > +	.notify_poll_in           = virtio_transport_notify_poll_in,
+> > +	.notify_poll_out          = virtio_transport_notify_poll_out,
+> > +	.notify_recv_init         = virtio_transport_notify_recv_init,
+> > +	.notify_recv_pre_block    = virtio_transport_notify_recv_pre_block,
+> > +	.notify_recv_pre_dequeue  = virtio_transport_notify_recv_pre_dequeue,
+> > +	.notify_recv_post_dequeue = virtio_transport_notify_recv_post_dequeue,
+> > +	.notify_send_init         = virtio_transport_notify_send_init,
+> > +	.notify_send_pre_block    = virtio_transport_notify_send_pre_block,
+> > +	.notify_send_pre_enqueue  = virtio_transport_notify_send_pre_enqueue,
+> > +	.notify_send_post_enqueue = virtio_transport_notify_send_post_enqueue,
+> > +
+> > +	.set_buffer_size          = virtio_transport_set_buffer_size,
+> > +	.set_min_buffer_size      = virtio_transport_set_min_buffer_size,
+> > +	.set_max_buffer_size      = virtio_transport_set_max_buffer_size,
+> > +	.get_buffer_size          = virtio_transport_get_buffer_size,
+> > +	.get_min_buffer_size      = virtio_transport_get_min_buffer_size,
+> > +	.get_max_buffer_size      = virtio_transport_get_max_buffer_size,
+> > +};
+> > +
+> > +static int __init vhost_vsock_init(void)
+> > +{
+> > +	int ret;
+> > +
+> > +	ret = vsock_core_init(&vhost_transport);
+> > +	if (ret < 0)
+> > +		return ret;
+> > +	return misc_register(&vhost_vsock_misc);
+> > +};
+> > +
+> > +static void __exit vhost_vsock_exit(void)
+> > +{
+> > +	misc_deregister(&vhost_vsock_misc);
+> > +	vsock_core_exit();
+> > +};
+> > +
+> > +module_init(vhost_vsock_init);
+> > +module_exit(vhost_vsock_exit);
+> > +MODULE_LICENSE("GPL v2");
+> > +MODULE_AUTHOR("Asias He");
+> > +MODULE_DESCRIPTION("vhost transport for vsock ");
+> > diff --git a/drivers/vhost/vsock.h b/drivers/vhost/vsock.h
+> > new file mode 100644
+> > index 0000000..0ddb107
+> > --- /dev/null
+> > +++ b/drivers/vhost/vsock.h
+> > @@ -0,0 +1,4 @@
+> > +#ifndef VHOST_VSOCK_H
+> > +#define VHOST_VSOCK_H
+> > +#define VHOST_VSOCK_SET_GUEST_CID _IOW(VHOST_VIRTIO, 0x60, __u32)
+> 
+> No SET without GET please.
+
+But the GET is useless here. We know the guest cid in userspace already.
+
+> > +#endif
+> > -- 
+> > 1.8.1.4
+
+-- 
+Asias
