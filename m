@@ -1,45 +1,26 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: [PATCH net v2 1/1] net: fec: Fix Transmitted bytes counter
-Date: Fri, 28 Jun 2013 10:51:22 +0100
-Message-ID: <1372413082-7983-1-git-send-email-jim_baxter@mentor.com>
-References: <Jim Baxter <jim_baxter@mentor.com>
-Cc: Fabio Estevam <fabio.estevam@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>,
-	Shawn Guo <shawn.guo@linaro.org>,
-	Fugang Duan <B38611@freescale.com>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: your patch "netback: set transport header before passing it to
+ kernel"
+Date: Fri, 28 Jun 2013 11:09:40 +0100
+Message-ID: <51CD7D0402000078000E1829@nat28.tlf.novell.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: "Ian Campbell" <ian.campbell@citrix.com>,
+	"xen-devel" <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+To: <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:44171 "EHLO
-	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755015Ab3F1Jvd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 05:51:33 -0400
-In-Reply-To: <Jim Baxter <jim_baxter@mentor.com>
+Received: from nat28.tlf.novell.com ([130.57.49.28]:41691 "EHLO
+	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754879Ab3F1KJm convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:4:1>);
+	Fri, 28 Jun 2013 06:09:42 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The tx_bytes field was not being updated so the
-network card statistics showed 0.0B transmitted.
+Jason,
 
-Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
----
-Change from v1 to v2
-Moved the tx_bytes incrementing to include all packets passed to the
-network card.
+is there any reason why the same isn't needed in netfront?
 
- drivers/net/ethernet/freescale/fec_main.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index d48099f..51493ce 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -332,6 +332,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 
- 	/* Save skb pointer */
- 	fep->tx_skbuff[index] = skb;
-+	ndev->stats.tx_bytes += skb->len;
- 
- 	/* Push the data cache so the CPM does not get stale memory
- 	 * data.
--- 
-1.7.10.4
+Thanks, Jan
