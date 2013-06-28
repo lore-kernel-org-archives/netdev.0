@@ -1,50 +1,75 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH v2] net: Check the argument for listen(2)
-Date: Fri, 28 Jun 2013 11:01:28 -0700
-Message-ID: <51CDCF78.90003@hp.com>
-References: <1372436577-61749-1-git-send-email-xiaosuo@gmail.com> <1372437203.3301.288.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH] openvswitch: Add Kconfig dependency on GRE-DEMUX.
+Date: Fri, 28 Jun 2013 11:30:22 -0700
+Message-ID: <1372444222-29379-1-git-send-email-pshelar@nicira.com>
+Cc: rdunlap@infradead.org, Pravin B Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>
+To: netdev@vger.kernel.org, dev@openvswitch.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:44854 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751012Ab3F1SBa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 14:01:30 -0400
-In-Reply-To: <1372437203.3301.288.camel@edumazet-glaptop>
+Received: from na3sys009aog110.obsmtp.com ([74.125.149.203]:35942 "HELO
+	na3sys009aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751815Ab3F1Sab (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 14:30:31 -0400
+Received: by mail-pd0-f182.google.com with SMTP id r10so1187542pdi.13
+        for <netdev@vger.kernel.org>; Fri, 28 Jun 2013 11:30:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/28/2013 09:33 AM, Eric Dumazet wrote:
+Openvswitch uses function from NET_IPGRE_DEMUX module.
+Add Kconfig dependency to fix compilation errors.
 
->
-> Well, there is still this possible regression for old applications.
->
-> Just use u32 fields instead of u16 ?
+CC: Jesse Gross <jesse@nicira.com>
+Reported-by: Randy Dunlap <rdunlap@infradead.org>
+Signed-off-by: Pravin Shelar <pshelar@nicira.com>
+---
+ net/openvswitch/Kconfig     |    1 +
+ net/openvswitch/vport-gre.c |    2 --
+ net/openvswitch/vport.c     |    3 ---
+ 3 files changed, 1 insertions(+), 5 deletions(-)
 
-FWIW, the manpage for listen() gives the backlog parameter as an "int"
-
-SYNOPSIS
-        #include <sys/types.h>          /* See NOTES */
-        #include <sys/socket.h>
-
-        int listen(int sockfd, int backlog);
-
-and mentions no explicit limit beyond 2.4.35, only interaction with the 
-likes of /proc/sys/net/core/somaxconn.
-
-And sys/socket.h has:
-
-/* Prepare to accept connections on socket FD.
-    N connection requests will be queued before further requests are 
-refused.
-    Returns 0 on success, -1 for errors.  */
-extern int listen (int __fd, int __n) __THROW;
-
-Not sure if it is considered "sane" to try to set the backlog to a 
-negative value of course...
-
-rick jones
+diff --git a/net/openvswitch/Kconfig b/net/openvswitch/Kconfig
+index 9fbc04a..9fc0df2 100644
+--- a/net/openvswitch/Kconfig
++++ b/net/openvswitch/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config OPENVSWITCH
+ 	tristate "Open vSwitch"
++	depends on NET_IPGRE_DEMUX
+ 	---help---
+ 	  Open vSwitch is a multilayer Ethernet switch targeted at virtualized
+ 	  environments.  In addition to supporting a variety of features
+diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
+index 943e5c4..21d5073 100644
+--- a/net/openvswitch/vport-gre.c
++++ b/net/openvswitch/vport-gre.c
+@@ -16,7 +16,6 @@
+  * 02110-1301, USA
+  */
+ 
+-#if IS_ENABLED(CONFIG_NET_IPGRE_DEMUX)
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+ 
+ #include <linux/if.h>
+@@ -271,4 +270,3 @@ const struct vport_ops ovs_gre_vport_ops = {
+ 	.get_name	= gre_get_name,
+ 	.send		= gre_tnl_send,
+ };
+-#endif
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index ba81294..ba240a8 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -38,10 +38,7 @@
+ static const struct vport_ops *vport_ops_list[] = {
+ 	&ovs_netdev_vport_ops,
+ 	&ovs_internal_vport_ops,
+-
+-#if IS_ENABLED(CONFIG_NET_IPGRE_DEMUX)
+ 	&ovs_gre_vport_ops,
+-#endif
+ };
+ 
+ /* Protected by RCU read lock for reading, ovs_mutex for writing. */
+-- 
+1.7.1
