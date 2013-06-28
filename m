@@ -1,180 +1,109 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH next] xen: Use more current logging styles
-Date: Fri, 28 Jun 2013 09:02:50 +0100
-Message-ID: <20130628080250.GA16643@zion.uk.xensource.com>
-References: <1372395469.2060.36.camel@joe-AO722>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH] 8021q: fix vlan 0 inconsistencies
+Date: Fri, 28 Jun 2013 10:20:32 +0200
+Message-ID: <51CD4750.6060307@redhat.com>
+References: <1371731078-12531-1-git-send-email-nikolay@redhat.com> <51C30CE2.5030803@redhat.com> <20130627.222749.1795566196568945291.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>, xen-devel@lists.xensource.com,
-	wei.liu2@citrix.com, Ian Campbell <ian.campbell@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"virtualization@lists.osdl.org" <virtualization@lists.linux-foundation.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1372395469.2060.36.camel@joe-AO722>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46434 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750984Ab3F1IUj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Jun 2013 04:20:39 -0400
+In-Reply-To: <20130627.222749.1795566196568945291.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 27, 2013 at 09:57:49PM -0700, Joe Perches wrote:
-> Instead of mixing printk and pr_<level> forms,
-> just use pr_<level>
+On 06/28/2013 07:27 AM, David Miller wrote:
+> From: Nikolay Aleksandrov <nikolay@redhat.com>
+> Date: Thu, 20 Jun 2013 16:08:34 +0200
 > 
-> Miscellaneous changes around these conversions:
+>> On 06/20/2013 02:24 PM, nikolay@redhat.com wrote:
+>>> From: Nikolay Aleksandrov <nikolay@redhat.com>
+>>>
+>>> The first part of the patch stops the addition of VLAN 0 to bonding
+>>> devices because we use an internal vlan_list to keep the added vlans and
+>>> after that when checking if we're using vlans on the bond
+>>> (bond_vlan_used) it evaluates to true always, which leads to different
+>>> problems. Since this is intended for HW vlan filters, it's not needed
+>>> for the bonding, and for its slaves it will still get added upon
+>>> NETDEV_UP.
+>>> The second part that does unconditional vlan_vid_del is needed because
+>>> when we add vlan 0 to a bonding device, it can never be removed
+>>> completely (it will always stay in the local vlan_list). Since there's
+>>> refcounting, I don't think this will change the behaviour because if a
+>>> real device is UP then vlan 0 will have at least refcnt == 1 so
+>>> ndo_vlan_rx_kill_vid won't get called until the device is down, but in
+>>> the bonding case we need it while the device is up so we can cleanup
+>>> properly after vlan 0 removal.
+>>> As an addition I'd like to say that I tried many different fixes of this
+>>> issue from inside the bonding, but they all have shortcomings and fixing
+>>> the root cause would be much better. For example I can't filter out vlan
+>>> 0 in the bond's ndo_vlan_rx_add_vid because bond_has_this_ip() (and others)
+>>> rely on being able to check the vlan devices on top through the local
+>>> vlan_list. Also there's no way to differentiate between addition of vlan 0
+>>> from vlan_device_event and from register_vlan_dev.
+>>>
+>>> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+>> In fact I think there's a deeper issue with vlan 0 because if you add it to any
+>> device its refcount will only be incremented (unconditional vlan_vid_add in
+>> register_vlan_dev) and never decremented. And this issue is also fixed by this
+>> patch.
 > 
-> Add a missing newline to avoid message interleaving,
-> coalesce formats, reflow modified lines to 80 columns.
+> I don't think I can apply this patch, it seems to revert very much intentional
+> behavior.
 > 
+> If you have the 8021q module available, and you bring a device up, it gets
+> VLAN 0 by default, and if necessary programmed into the HW filters of the
+> device.
+> 
+> This VLAN 0 entry is not treated like a real VLAN, it is just there to be
+> decapsulated for the sake of 802.1p Priority Code Points (QoS).
+> 
+> If the user explicitly configures other VLAN entries, then removes them all,
+> that conditional check on vlan_id in the delete path retains this default
+> VLAN 0 configuration and is very much intended to behave that way.
+> 
+> Your patch breaks this, so I cannot apply it.
+> 
+> If bonding is so broken that it cannot cope with this default 802.1p behavior,
+> that is really bonding's problem.  It seemingly needs logic to handle 802.1p,
+> and that default VID 0, properly.
+> 
+Hi Dave,
+Thank you for the review, but I think I didn't explain myself well :-)
+I know about this behavior and was trying to preserve it, this patch will
+not destroy that. The reason is that now vlan_vid_add/del are used and in
+the case of refcount > 0 in vlan_vid_del the vlan doesn't get deleted from
+the HW filters. So when a device is opened VLAN 0 gets added
+unconditionally so refcnt = 1, but if I add VLAN 0 (e.g. through vconfig)
+additionally its refcnt will get = 2, but since in unregister_vlan_dev
+vlan_vid_del is not called for VLAN 0 its refcnt will stay at 2 (if it was
+called the only thing that would happen is its refcnt going down without
+being removed from the HW filter of the card so the behavior you speak of
+is preserved).
+Now an example with prints added to vlan_vid_add and vlan_vid_del:
+ifconfig eth1 up
+Jun 28 10:04:00 localhost kernel: [   90.856548] vlan_vid_add: VID 0 REF 1 CR 0
+-----
+vconfig add eth1 0
+Jun 28 10:04:21 localhost kernel: [  112.033976] vlan_vid_add: VID 0 REF 2 CR 0
+-----
+vconfig rem eth1.0
+(no message, since vlan_vid_del doesn't get called - vid 0 refcnt still = 2)
+-----
+ifconfig eth1 down
+Jun 28 10:04:30 localhost kernel: [  120.792305] vlan_vid_del: VID 0 REF 1
+^ - this is the only place vlan_vid_del is called for vlan 0
 
-Do you also need to replace other printk occurences in xen-netback
-directory, say, interface.c and xenbus.c?
+Now if I were to add and delete vlan 0 once again, its refcnt will only go
+up, eg:
+series of vconfig add eth1 0, vconfig rem eth1.0
+Jun 28 10:15:40 localhost kernel: [  790.349967] vlan_vid_add: VID 0 REF 3 CR 0
+Jun 28 10:15:42 localhost kernel: [  792.450245] vlan_vid_add: VID 0 REF 4 CR 0
 
 
-Wei.
-
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  drivers/net/xen-netback/netback.c |  7 +++----
->  drivers/net/xen-netfront.c        | 28 +++++++++++++---------------
->  2 files changed, 16 insertions(+), 19 deletions(-)
-> 
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index 130bcb2..64828de 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -1890,9 +1890,8 @@ static int __init netback_init(void)
->  		return -ENODEV;
->  
->  	if (fatal_skb_slots < XEN_NETBK_LEGACY_SLOTS_MAX) {
-> -		printk(KERN_INFO
-> -		       "xen-netback: fatal_skb_slots too small (%d), bump it to XEN_NETBK_LEGACY_SLOTS_MAX (%d)\n",
-> -		       fatal_skb_slots, XEN_NETBK_LEGACY_SLOTS_MAX);
-> +		pr_info("fatal_skb_slots too small (%d), bump it to XEN_NETBK_LEGACY_SLOTS_MAX (%d)\n",
-> +			fatal_skb_slots, XEN_NETBK_LEGACY_SLOTS_MAX);
->  		fatal_skb_slots = XEN_NETBK_LEGACY_SLOTS_MAX;
->  	}
->  
-> @@ -1921,7 +1920,7 @@ static int __init netback_init(void)
->  					     "netback/%u", group);
->  
->  		if (IS_ERR(netbk->task)) {
-> -			printk(KERN_ALERT "kthread_create() fails at netback\n");
-> +			pr_alert("kthread_create() fails at netback\n");
->  			del_timer(&netbk->net_timer);
->  			rc = PTR_ERR(netbk->task);
->  			goto failed_init;
-> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> index 76a2236..ff7f111 100644
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -29,6 +29,8 @@
->   * IN THE SOFTWARE.
->   */
->  
-> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-> +
->  #include <linux/module.h>
->  #include <linux/kernel.h>
->  #include <linux/netdevice.h>
-> @@ -385,9 +387,8 @@ static void xennet_tx_buf_gc(struct net_device *dev)
->  			skb = np->tx_skbs[id].skb;
->  			if (unlikely(gnttab_query_foreign_access(
->  				np->grant_tx_ref[id]) != 0)) {
-> -				printk(KERN_ALERT "xennet_tx_buf_gc: warning "
-> -				       "-- grant still in use by backend "
-> -				       "domain.\n");
-> +				pr_alert("%s: warning -- grant still in use by backend domain\n",
-> +					 __func__);
->  				BUG();
->  			}
->  			gnttab_end_foreign_access_ref(
-> @@ -804,14 +805,14 @@ static int xennet_set_skb_gso(struct sk_buff *skb,
->  {
->  	if (!gso->u.gso.size) {
->  		if (net_ratelimit())
-> -			printk(KERN_WARNING "GSO size must not be zero.\n");
-> +			pr_warn("GSO size must not be zero\n");
->  		return -EINVAL;
->  	}
->  
->  	/* Currently only TCPv4 S.O. is supported. */
->  	if (gso->u.gso.type != XEN_NETIF_GSO_TYPE_TCPV4) {
->  		if (net_ratelimit())
-> -			printk(KERN_WARNING "Bad GSO type %d.\n", gso->u.gso.type);
-> +			pr_warn("Bad GSO type %d\n", gso->u.gso.type);
->  		return -EINVAL;
->  	}
->  
-> @@ -910,9 +911,8 @@ static int checksum_setup(struct net_device *dev, struct sk_buff *skb)
->  		break;
->  	default:
->  		if (net_ratelimit())
-> -			printk(KERN_ERR "Attempting to checksum a non-"
-> -			       "TCP/UDP packet, dropping a protocol"
-> -			       " %d packet", iph->protocol);
-> +			pr_err("Attempting to checksum a non-TCP/UDP packet, dropping a protocol %d packet\n",
-> +			       iph->protocol);
->  		goto out;
->  	}
->  
-> @@ -1359,14 +1359,14 @@ static struct net_device *xennet_create_dev(struct xenbus_device *dev)
->  	/* A grant for every tx ring slot */
->  	if (gnttab_alloc_grant_references(TX_MAX_TARGET,
->  					  &np->gref_tx_head) < 0) {
-> -		printk(KERN_ALERT "#### netfront can't alloc tx grant refs\n");
-> +		pr_alert("can't alloc tx grant refs\n");
->  		err = -ENOMEM;
->  		goto exit_free_stats;
->  	}
->  	/* A grant for every rx ring slot */
->  	if (gnttab_alloc_grant_references(RX_MAX_TARGET,
->  					  &np->gref_rx_head) < 0) {
-> -		printk(KERN_ALERT "#### netfront can't alloc rx grant refs\n");
-> +		pr_alert("can't alloc rx grant refs\n");
->  		err = -ENOMEM;
->  		goto exit_free_tx;
->  	}
-> @@ -1430,16 +1430,14 @@ static int netfront_probe(struct xenbus_device *dev,
->  
->  	err = register_netdev(info->netdev);
->  	if (err) {
-> -		printk(KERN_WARNING "%s: register_netdev err=%d\n",
-> -		       __func__, err);
-> +		pr_warn("%s: register_netdev err=%d\n", __func__, err);
->  		goto fail;
->  	}
->  
->  	err = xennet_sysfs_addif(info->netdev);
->  	if (err) {
->  		unregister_netdev(info->netdev);
-> -		printk(KERN_WARNING "%s: add sysfs failed err=%d\n",
-> -		       __func__, err);
-> +		pr_warn("%s: add sysfs failed err=%d\n", __func__, err);
->  		goto fail;
->  	}
->  
-> @@ -2116,7 +2114,7 @@ static int __init netif_init(void)
->  	if (xen_hvm_domain() && !xen_platform_pci_unplug)
->  		return -ENODEV;
->  
-> -	printk(KERN_INFO "Initialising Xen virtual ethernet driver.\n");
-> +	pr_info("Initialising Xen virtual ethernet driver\n");
->  
->  	return xenbus_register_frontend(&netfront_driver);
->  }
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Nik
