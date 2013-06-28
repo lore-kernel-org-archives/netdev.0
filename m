@@ -1,38 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] bonding: struct bonding cleanup and MAC
- set fixes
-Date: Thu, 27 Jun 2013 22:51:16 -0700 (PDT)
-Message-ID: <20130627.225116.236409010811785653.davem@davemloft.net>
-References: <1372259619-32430-1-git-send-email-nikolay@redhat.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH v4 net-next] net: poll/select low latency socket support
+Date: Fri, 28 Jun 2013 09:00:41 +0300
+Message-ID: <51CD2689.2020305@linux.intel.com>
+References: <20130624072751.26134.78163.stgit@ladj378.jer.intel.com> <20130624072803.26134.41593.stgit@ladj378.jer.intel.com> <51CCD812.5090408@codyps.com> <51CCD906.6030902@codyps.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com
-To: nikolay@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36121 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752092Ab3F1FvR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 01:51:17 -0400
-In-Reply-To: <1372259619-32430-1-git-send-email-nikolay@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eilon Greenstien <eilong@broadcom.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Alex Rosenbaum <alexr@mellanox.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Cody P Schafer <devel-lists@codyps.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51CCD906.6030902@codyps.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Date: Wed, 26 Jun 2013 17:13:36 +0200
+On 28/06/2013 03:29, Cody P Schafer wrote:
+> On 06/27/2013 05:25 PM, Cody P Schafer wrote:
+>> On 06/24/2013 12:28 AM, Eliezer Tamir wrote:
+>>> select/poll busy-poll support.
+>>> ...
+>>
+>> I'm seeing warnings about using smp_processor_id() while preemptable
+>> (log included below) due to this patch. I expect the use of
+>> ll_end_time() -> sched_clock() here is triggering this.
+>>
+>> Apologies if this has already been noted.
+>
+> To be clear, given how sched_time() is used here the BUG appears
+> invalid, but we need a way to mark this as OK for the smp_processor_id()
+> checks so we don't get BUG spam.
+>
+Thanks for reporting this.
 
-> This patchset removes some unnecessary struct bonding members. It also
-> fixes MAC setting inconsistencies (i.e. if a bond's MAC is set after
-> creation but prior to enslaving, it is lost and the first slave's MAC is
-> cloned again). Before these patches the only way to keep a user-defined MAC
-> is either to set it after enslaving or to create the bond with that MAC.
-> Patch 01 - removes setup_by_slave member
-> Patch 02 - removes dev_addr_from_first member and does the MAC fixing
-> Patch 03 - introduces the use of NET_ADDR_STOLEN when a MAC is cloned
-
-These cleanups seem pretty reasonabl, all applied.
-
-And yes I agree that those 3 pr_debug()'s in bond_set_dev_addr() should
-be condensed into just one.  Feel free to send a patch which does that.
-
-Thanks.
+-Eliezer
