@@ -1,106 +1,103 @@
-From: Joe Jin <joe.jin@oracle.com>
-Subject: Re: kernel panic in skb_copy_bits
-Date: Fri, 28 Jun 2013 19:33:03 +0800
-Message-ID: <51CD746F.7020603@oracle.com>
-References: <51CBAA48.3080802@oracle.com>  <1372311118.3301.214.camel@edumazet-glaptop> <51CD0E67.4000008@oracle.com>  <1372402340.3301.229.camel@edumazet-glaptop> <1372412262.3301.251.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] iwl3945: better skb management in rx path
+Date: Fri, 28 Jun 2013 05:03:41 -0700
+Message-ID: <1372421021.3301.263.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Frank Blaschka <frank.blaschka@de.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"zheng.x.li@oracle.com" <zheng.x.li@oracle.com>,
-	Xen Devel <xen-devel@lists.xen.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	Jan Beulich <JBeulich@suse.com>,
-	Stefano Stabellini <stefano.stabellini@eu.citrix.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372412262.3301.251.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Steinar H. Gunderson" <sesse@google.com>,
+	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f53.google.com ([74.125.83.53]:51069 "EHLO
+	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750813Ab3F1MDj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 08:03:39 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+From: Eric Dumazet <edumazet@google.com>
 
-Thanks for your patch, I'll test it then get back to you.
+Steinar reported reallocations of skb->head with IPv6, leading to
+a warning in skb_try_coalesce()
 
-Regards,
-Joe
-On 06/28/13 17:37, Eric Dumazet wrote:
-> OK please try the following patch
-> 
-> 
-> [PATCH] neighbour: fix a race in neigh_destroy()
-> 
-> There is a race in neighbour code, because neigh_destroy() uses
-> skb_queue_purge(&neigh->arp_queue) without holding neighbour lock,
-> while other parts of the code assume neighbour rwlock is what
-> protects arp_queue
-> 
-> Convert all skb_queue_purge() calls to the __skb_queue_purge() variant
-> 
-> Use __skb_queue_head_init() instead of skb_queue_head_init()
-> to make clear we do not use arp_queue.lock
-> 
-> And hold neigh->lock in neigh_destroy() to close the race.
-> 
-> Reported-by: Joe Jin <joe.jin@oracle.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  net/core/neighbour.c |   12 +++++++-----
->  1 file changed, 7 insertions(+), 5 deletions(-)
-> 
-> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> index 2569ab2..b7de821 100644
-> --- a/net/core/neighbour.c
-> +++ b/net/core/neighbour.c
-> @@ -231,7 +231,7 @@ static void neigh_flush_dev(struct neigh_table *tbl, struct net_device *dev)
->  				   we must kill timers etc. and move
->  				   it to safe state.
->  				 */
-> -				skb_queue_purge(&n->arp_queue);
-> +				__skb_queue_purge(&n->arp_queue);
->  				n->arp_queue_len_bytes = 0;
->  				n->output = neigh_blackhole;
->  				if (n->nud_state & NUD_VALID)
-> @@ -286,7 +286,7 @@ static struct neighbour *neigh_alloc(struct neigh_table *tbl, struct net_device
->  	if (!n)
->  		goto out_entries;
->  
-> -	skb_queue_head_init(&n->arp_queue);
-> +	__skb_queue_head_init(&n->arp_queue);
->  	rwlock_init(&n->lock);
->  	seqlock_init(&n->ha_lock);
->  	n->updated	  = n->used = now;
-> @@ -708,7 +708,9 @@ void neigh_destroy(struct neighbour *neigh)
->  	if (neigh_del_timer(neigh))
->  		pr_warn("Impossible event\n");
->  
-> -	skb_queue_purge(&neigh->arp_queue);
-> +	write_lock_bh(&neigh->lock);
-> +	__skb_queue_purge(&neigh->arp_queue);
-> +	write_unlock_bh(&neigh->lock);
->  	neigh->arp_queue_len_bytes = 0;
->  
->  	if (dev->netdev_ops->ndo_neigh_destroy)
-> @@ -858,7 +860,7 @@ static void neigh_invalidate(struct neighbour *neigh)
->  		neigh->ops->error_report(neigh, skb);
->  		write_lock(&neigh->lock);
->  	}
-> -	skb_queue_purge(&neigh->arp_queue);
-> +	__skb_queue_purge(&neigh->arp_queue);
->  	neigh->arp_queue_len_bytes = 0;
->  }
->  
-> @@ -1210,7 +1212,7 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
->  
->  			write_lock_bh(&neigh->lock);
->  		}
-> -		skb_queue_purge(&neigh->arp_queue);
-> +		__skb_queue_purge(&neigh->arp_queue);
->  		neigh->arp_queue_len_bytes = 0;
->  	}
->  out:
-> 
-> 
+It turns out iwl3945 has several problems :
+
+1) skb->truesize is underestimated. 
+   We really consume PAGE_SIZE bytes for a fragment,
+   not the frame length.
+2) 128 bytes of initial headroom is a bit low and forces reallocations.
+3) We can avoid consuming a full page for small enough frames.
+
+Reported-by: Steinar H. Gunderson <sesse@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+Note : compiled only, I do not have this hardware.
+
+ drivers/net/wireless/iwlegacy/3945.c |   30 +++++++++++++++----------
+ 1 file changed, 18 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/wireless/iwlegacy/3945.c b/drivers/net/wireless/iwlegacy/3945.c
+index c092033..ad7294f 100644
+--- a/drivers/net/wireless/iwlegacy/3945.c
++++ b/drivers/net/wireless/iwlegacy/3945.c
+@@ -483,14 +483,13 @@ il3945_pass_packet_to_mac80211(struct il_priv *il, struct il_rx_buf *rxb,
+ 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)IL_RX_DATA(pkt);
+ 	struct il3945_rx_frame_hdr *rx_hdr = IL_RX_HDR(pkt);
+ 	struct il3945_rx_frame_end *rx_end = IL_RX_END(pkt);
+-	u16 len = le16_to_cpu(rx_hdr->len);
++	u32 len = le16_to_cpu(rx_hdr->len);
+ 	struct sk_buff *skb;
+ 	__le16 fc = hdr->frame_control;
++	u32 fraglen = PAGE_SIZE << il->hw_params.rx_page_order;
+ 
+ 	/* We received data from the HW, so stop the watchdog */
+-	if (unlikely
+-	    (len + IL39_RX_FRAME_SIZE >
+-	     PAGE_SIZE << il->hw_params.rx_page_order)) {
++	if (unlikely(len + IL39_RX_FRAME_SIZE > fraglen)) {
+ 		D_DROP("Corruption detected!\n");
+ 		return;
+ 	}
+@@ -506,26 +505,33 @@ il3945_pass_packet_to_mac80211(struct il_priv *il, struct il_rx_buf *rxb,
+ 		D_INFO("Woke queues - frame received on passive channel\n");
+ 	}
+ 
+-	skb = dev_alloc_skb(128);
++	skb = dev_alloc_skb(256);
+ 	if (!skb) {
+ 		IL_ERR("dev_alloc_skb failed\n");
+ 		return;
+ 	}
+ 
+ 	if (!il3945_mod_params.sw_crypto)
+-		il_set_decrypted_flag(il, (struct ieee80211_hdr *)rxb_addr(rxb),
++		il_set_decrypted_flag(il, (struct ieee80211_hdr *)pkt,
+ 				      le32_to_cpu(rx_end->status), stats);
+ 
+-	skb_add_rx_frag(skb, 0, rxb->page,
+-			(void *)rx_hdr->payload - (void *)pkt, len,
+-			len);
+-
++	/* If frame is small enough to fit into skb->head, copy it
++	 * and do not consume a full page
++	 */
++	if (len <= 256) {
++		skb_copy_to_linear_data(skb, rx_hdr->payload, len);
++		skb->tail += len;
++	} else {
++		skb_add_rx_frag(skb, 0, rxb->page,
++				(void *)rx_hdr->payload - (void *)pkt, len,
++				fraglen);
++		il->alloc_rxb_page--;
++		rxb->page = NULL;
++	}
+ 	il_update_stats(il, false, fc, len);
+ 	memcpy(IEEE80211_SKB_RXCB(skb), stats, sizeof(*stats));
+ 
+ 	ieee80211_rx(il->hw, skb);
+-	il->alloc_rxb_page--;
+-	rxb->page = NULL;
+ }
+ 
+ #define IL_DELAY_NEXT_SCAN_AFTER_ASSOC (HZ*6)
