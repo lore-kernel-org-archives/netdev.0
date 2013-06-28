@@ -1,64 +1,95 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next v4 2/2] net: sctp: rework debugging framework
- to use pr_debug and friends
-Date: Fri, 28 Jun 2013 15:21:17 -0700
-Message-ID: <1372458077.29380.30.camel@joe-AO722>
-References: <1372441780-9844-1-git-send-email-dborkman@redhat.com>
-	 <1372441780-9844-3-git-send-email-dborkman@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:47407 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751270Ab3F1WVS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Jun 2013 18:21:18 -0400
-In-Reply-To: <1372441780-9844-3-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: jbaron@akamai.com
+Subject: [PATCH 3/3] udp: make use of static_key_slow_set_true() interface
+Date: Fri, 28 Jun 2013 22:30:49 +0000 (GMT)
+Message-ID: <7fe0eaba62a8529b387ddb3205713d8bb6156ec1.1372457176.git.jbaron@akamai.com>
+References: <cover.1372457176.git.jbaron@akamai.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	mingo@kernel.org, peterz@infradead.org, davem@davemloft.net
+To: rostedt@goodmis.org, andi@firstfloor.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1372457176.git.jbaron@akamai.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-06-28 at 19:49 +0200, Daniel Borkmann wrote:
+Make use of the simpler API.
 
-> @@ -536,11 +540,8 @@ void sctp_assoc_rm_peer(struct sctp_association *asoc,
->  	struct list_head	*pos;
->  	struct sctp_transport	*transport;
->  
-> -	SCTP_DEBUG_PRINTK_IPADDR("sctp_assoc_rm_peer:association %p addr: ",
-> -				 " port: %d\n",
-> -				 asoc,
-> -				 (&peer->ipaddr),
-> -				 ntohs(peer->ipaddr.v4.sin_port));
-> +	pr_debug("%s: association:%p addr:%pISpc\n",
-> +		 __func__, asoc, &peer->ipaddr.sa);
+Signed-off-by: Jason Baron <jbaron@akamai.com>
+---
+ net/ipv4/udp.c |    9 ++++-----
+ net/ipv6/udp.c |    9 ++++-----
+ 2 files changed, 8 insertions(+), 10 deletions(-)
 
-Hi again Daniel.
-
-Perhaps the format is better written as "%pIScp"
-with the port after the compression as that's how
-the actual output would be produced.
-
-> @@ -636,12 +637,8 @@ struct sctp_transport *sctp_assoc_add_peer(struct sctp_association *asoc,
-[]
-> +	pr_debug("%s: association:%p addr:%pISpc state:%d\n", __func__,
-> +		 asoc, &addr->sa, peer_state);
-
-etc...
-
-> +		pr_debug("%s: sending window update SACK- asoc:%p rwnd:%u "
-> +			 "a_rwnd:%u\n", __func__, asoc, asoc->rwnd,
-
-Please coalesce formats. It doesn't matter if
-the coalesced format exceeds 80 cols.
-
-		pr_debug("%s: sending window update SACK - asoc:%p rwnd:%u a_rwnd:%u\n",
-			 __func__, asoc, asoc->rwnd, asoc->a_rwnd);
-
-btw:  what I try to do with formats and args
-is to use a single line when it fits 80 cols
-and otherwise put all arguments after the
-format on a separate line.
-
-etc...
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 0bf5d39..b8d0029 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1421,11 +1421,10 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 
+ }
+ 
+-static struct static_key udp_encap_needed __read_mostly;
++static struct static_key_boolean udp_encap_needed __read_mostly;
+ void udp_encap_enable(void)
+ {
+-	if (!static_key_enabled(&udp_encap_needed))
+-		static_key_slow_inc(&udp_encap_needed);
++	static_key_slow_set_true(&udp_encap_needed);
+ }
+ EXPORT_SYMBOL(udp_encap_enable);
+ 
+@@ -1450,7 +1449,7 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 		goto drop;
+ 	nf_reset(skb);
+ 
+-	if (static_key_false(&udp_encap_needed) && up->encap_type) {
++	if (static_key_false(&udp_encap_needed.key) && up->encap_type) {
+ 		int (*encap_rcv)(struct sock *sk, struct sk_buff *skb);
+ 
+ 		/*
+@@ -1773,7 +1772,7 @@ void udp_destroy_sock(struct sock *sk)
+ 	bool slow = lock_sock_fast(sk);
+ 	udp_flush_pending_frames(sk);
+ 	unlock_sock_fast(sk, slow);
+-	if (static_key_false(&udp_encap_needed) && up->encap_type) {
++	if (static_key_false(&udp_encap_needed.key) && up->encap_type) {
+ 		void (*encap_destroy)(struct sock *sk);
+ 		encap_destroy = ACCESS_ONCE(up->encap_destroy);
+ 		if (encap_destroy)
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 42923b1..94a4091 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -573,11 +573,10 @@ static __inline__ void udpv6_err(struct sk_buff *skb,
+ 	__udp6_lib_err(skb, opt, type, code, offset, info, &udp_table);
+ }
+ 
+-static struct static_key udpv6_encap_needed __read_mostly;
++static struct static_key_boolean udpv6_encap_needed __read_mostly;
+ void udpv6_encap_enable(void)
+ {
+-	if (!static_key_enabled(&udpv6_encap_needed))
+-		static_key_slow_inc(&udpv6_encap_needed);
++	static_key_slow_set_true(&udpv6_encap_needed);
+ }
+ EXPORT_SYMBOL(udpv6_encap_enable);
+ 
+@@ -590,7 +589,7 @@ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb))
+ 		goto drop;
+ 
+-	if (static_key_false(&udpv6_encap_needed) && up->encap_type) {
++	if (static_key_false(&udpv6_encap_needed.key) && up->encap_type) {
+ 		int (*encap_rcv)(struct sock *sk, struct sk_buff *skb);
+ 
+ 		/*
+@@ -1300,7 +1299,7 @@ void udpv6_destroy_sock(struct sock *sk)
+ 	udp_v6_flush_pending_frames(sk);
+ 	release_sock(sk);
+ 
+-	if (static_key_false(&udpv6_encap_needed) && up->encap_type) {
++	if (static_key_false(&udpv6_encap_needed.key) && up->encap_type) {
+ 		void (*encap_destroy)(struct sock *sk);
+ 		encap_destroy = ACCESS_ONCE(up->encap_destroy);
+ 		if (encap_destroy)
+-- 
+1.7.9.5
