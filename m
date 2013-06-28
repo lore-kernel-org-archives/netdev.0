@@ -1,62 +1,99 @@
-From: wangyufen <wangyufen@huawei.com>
-Subject: [Bug Report] use bonding lacp mode aggregation NIC has performance
- problems while  intel_immu switch opening
-Date: Fri, 28 Jun 2013 16:59:14 +0800
-Message-ID: <51CD5062.5050501@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: kernel panic in skb_copy_bits
+Date: Fri, 28 Jun 2013 02:37:42 -0700
+Message-ID: <1372412262.3301.251.camel@edumazet-glaptop>
+References: <51CBAA48.3080802@oracle.com>
+	 <1372311118.3301.214.camel@edumazet-glaptop> <51CD0E67.4000008@oracle.com>
+	 <1372402340.3301.229.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <joro@8bytes.org>, <Varun.Sethi@freescale.com>, <aik@ozlabs.ru>,
-	<alex.williamson@redhat.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <zhangdianfang@huawei.com>,
-	Li Zefan <lizefan@huawei.com>
-To: <davem@davemloft.net>
+Cc: Frank Blaschka <frank.blaschka@de.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"zheng.x.li@oracle.com" <zheng.x.li@oracle.com>,
+	Xen Devel <xen-devel@lists.xen.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Jan Beulich <JBeulich@suse.com>,
+	Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+To: Joe Jin <joe.jin@oracle.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1372402340.3301.229.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-           Summary: use bonding lacp mode aggregation NIC has performance problems while  intel_immu switch opening
-           Product: Networking
-           Version: 
-    Kernel Version: 3.10.0-rc5
-          Platform: X86
-        OS/Version: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: bonding&ixgbe
-        AssignedTo: 
-        ReportedBy: wangyufen@huawei.com,wangweidong1@huawei.com
-        Regression: No
+OK please try the following patch
 
 
-Hi I'am using bonding lacp mode aggregation intel 82599 NIC, there are  performance problems while intel_immu switch is open.
-I'am using iperf to test the network speeds.
-When intel_immu switch is closed, 4 port after polymerization, the network port speeds up to 37.6 Gbits / sec,
-when intel_immu switch is turned on, 4port After polymerization, the network port speed only to 28.7 Gbits / sec.
+[PATCH] neighbour: fix a race in neigh_destroy()
 
+There is a race in neighbour code, because neigh_destroy() uses
+skb_queue_purge(&neigh->arp_queue) without holding neighbour lock,
+while other parts of the code assume neighbour rwlock is what
+protects arp_queue
 
-intel_iommu=off
-dma_ops = &swiotlb_dma_ops,so map_page = swiotlb_map_page and unmap_page = swiotlb_unmap_page
-intel_iommu=on
-dma_ops = &intel_dma_ops,so map_page=intel_map_page and unmap_page=intel_unmap_page
+Convert all skb_queue_purge() calls to the __skb_queue_purge() variant
 
-I think the intel_dma_ops will cost more performance, and the dma_map_page and
-dma_map_single_attrs will call map_page(),but the paramters is not same. Therefor, I do a test
-about the time of funcs call map_page or unmap_page.
+Use __skb_queue_head_init() instead of skb_queue_head_init()
+to make clear we do not use arp_queue.lock
 
-----------------------------------------------------------------------------
-func\count				350(*10000)		
-dma_map_single_attrs,iommu-off		640000(ns)~1000000(ns)		
-dma_map_single_attrs,iommu-on		4900000(ns)~5700000(ns)
-dma_unmap_single_attrs,iommu-off	330000(ns)~620000(ns)
-dma_unmap_single_attrs,iommu-on		3000000(ns)~47000000(ns)
+And hold neigh->lock in neigh_destroy() to close the race.
 
-func\count				2900(*10000)
-dma_map_page,iommu-off			350000(ns)~610000(ns)
-dma_map_page,iommu-on			2160000(ns)~3000000(ns)
-dma_unmap_page,iommu-off		345000(ns)~670000(ns)
-dma_unmap_page,iommu-on			3000000(ns)~4300000(ns)
-----------------------------------------------------------------------------
-the time that map and unmap function cost show huge gap when iommu is on and off.
+Reported-by: Joe Jin <joe.jin@oracle.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/core/neighbour.c |   12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 2569ab2..b7de821 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -231,7 +231,7 @@ static void neigh_flush_dev(struct neigh_table *tbl, struct net_device *dev)
+ 				   we must kill timers etc. and move
+ 				   it to safe state.
+ 				 */
+-				skb_queue_purge(&n->arp_queue);
++				__skb_queue_purge(&n->arp_queue);
+ 				n->arp_queue_len_bytes = 0;
+ 				n->output = neigh_blackhole;
+ 				if (n->nud_state & NUD_VALID)
+@@ -286,7 +286,7 @@ static struct neighbour *neigh_alloc(struct neigh_table *tbl, struct net_device
+ 	if (!n)
+ 		goto out_entries;
+ 
+-	skb_queue_head_init(&n->arp_queue);
++	__skb_queue_head_init(&n->arp_queue);
+ 	rwlock_init(&n->lock);
+ 	seqlock_init(&n->ha_lock);
+ 	n->updated	  = n->used = now;
+@@ -708,7 +708,9 @@ void neigh_destroy(struct neighbour *neigh)
+ 	if (neigh_del_timer(neigh))
+ 		pr_warn("Impossible event\n");
+ 
+-	skb_queue_purge(&neigh->arp_queue);
++	write_lock_bh(&neigh->lock);
++	__skb_queue_purge(&neigh->arp_queue);
++	write_unlock_bh(&neigh->lock);
+ 	neigh->arp_queue_len_bytes = 0;
+ 
+ 	if (dev->netdev_ops->ndo_neigh_destroy)
+@@ -858,7 +860,7 @@ static void neigh_invalidate(struct neighbour *neigh)
+ 		neigh->ops->error_report(neigh, skb);
+ 		write_lock(&neigh->lock);
+ 	}
+-	skb_queue_purge(&neigh->arp_queue);
++	__skb_queue_purge(&neigh->arp_queue);
+ 	neigh->arp_queue_len_bytes = 0;
+ }
+ 
+@@ -1210,7 +1212,7 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
+ 
+ 			write_lock_bh(&neigh->lock);
+ 		}
+-		skb_queue_purge(&neigh->arp_queue);
++		__skb_queue_purge(&neigh->arp_queue);
+ 		neigh->arp_queue_len_bytes = 0;
+ 	}
+ out:
