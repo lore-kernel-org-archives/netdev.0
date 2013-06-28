@@ -1,52 +1,37 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH v4 net-next] net: poll/select low latency socket support
-Date: Fri, 28 Jun 2013 08:32:26 +0300
-Message-ID: <51CD1FEA.5020603@linux.intel.com>
-References: <20130624072751.26134.78163.stgit@ladj378.jer.intel.com> <20130624072803.26134.41593.stgit@ladj378.jer.intel.com> <20130628044305.GQ6123@two.firstfloor.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next 0/2] sit: allow to switch netns during
+ encap/decap
+Date: Thu, 27 Jun 2013 22:36:21 -0700 (PDT)
+Message-ID: <20130627.223621.1852663736303796496.davem@davemloft.net>
+References: <51CADB72.3090206@6wind.com>
+	<1372255888-4792-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Eric Dumazet <erdnetdev@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>, HPA <hpa@zytor.com>,
-	Eilon Greenstien <eilong@broadcom.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Alex Rosenbaum <alexr@mellanox.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130628044305.GQ6123@two.firstfloor.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com, bcrl@kvack.org,
+	ravi.mlists@gmail.com, bhutchings@solarflare.com,
+	eric.dumazet@gmail.com
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36039 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751132Ab3F1FgW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 01:36:22 -0400
+In-Reply-To: <1372255888-4792-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 28/06/2013 07:43, Andi Kleen wrote:
->> @@ -400,6 +402,8 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
->>   	poll_table *wait;
->>   	int retval, i, timed_out = 0;
->>   	unsigned long slack = 0;
->> +	unsigned int ll_flag = POLL_LL;
->> +	u64 ll_time = ll_end_time();
->
-> So you're adding a sched_clock to every select call, even if it has
-> nothing to do with ll?
->
-> That seems rather drastic. select can be performance critical.
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Wed, 26 Jun 2013 16:11:26 +0200
 
-would the following be acceptable?
+> This patch is a follow up of the thread "switching network namespace midway":
+> http://marc.info/?t=135101459500004&r=1&w=2
+> 
+> The goal of this serie is to add x-netns support for the module sit, ie the
+> encapsulation addresses and the network device are not owned by the same
+> namespace.
 
-	unsigned int ll_flag = ll_poll_enabled(); // returns POLL_LL if on
-	u64 ll_time = ll_flag ? ll_end_time() : 0;
+Ok, applied.
 
-and at the other side
-	
-	if (ll_flag && can_poll_ll(ll_end_time))
-		continue;
-
-
--Eliezer
+And yes I agree we should look into making tunnel's behave consistently
+wrt. SKB orphaning, cleaning netfilter state, etc.
