@@ -1,45 +1,34 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH net-next 2/2] net: avoid calling sched_clock when LLS
- is off
-Date: Fri, 28 Jun 2013 17:54:43 +0300
-Message-ID: <51CDA3B3.7010605@linux.intel.com>
-References: <20130628125918.14419.36214.stgit@ladj378.jer.intel.com> <20130628125934.14419.38109.stgit@ladj378.jer.intel.com> <20130628143840.GS6123@two.firstfloor.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] iwl3945: better skb management in rx path
+Date: Fri, 28 Jun 2013 07:59:49 -0700
+Message-ID: <1372431589.3301.280.camel@edumazet-glaptop>
+References: <1372421021.3301.263.camel@edumazet-glaptop>
+	 <CAMcMvshEdsFZ2PVEpaq0e2P4L+cksshjB56x2YvA4wt3T+3__w@mail.gmail.com>
+	 <1372431024.3301.277.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130628143840.GS6123@two.firstfloor.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"Steinar H. Gunderson" <sesse@google.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Paul Stewart <pstew@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:42868 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753948Ab3F1O7v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 10:59:51 -0400
+In-Reply-To: <1372431024.3301.277.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 28/06/2013 17:38, Andi Kleen wrote:
->> diff --git a/fs/select.c b/fs/select.c
->> index 79b876e..3654075 100644
->> --- a/fs/select.c
->> +++ b/fs/select.c
->> @@ -402,7 +402,7 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
->>   	poll_table *wait;
->>   	int retval, i, timed_out = 0;
->>   	unsigned long slack = 0;
->> -	unsigned int ll_flag = POLL_LL;
->> +	unsigned int ll_flag = ll_get_flag();
->
-> Is that a global flag? That's still the wrong level. It should
-> look at something in the file descriptor (preferably without
-> fetching any new cache lines)
->
+On Fri, 2013-06-28 at 07:50 -0700, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
 
-There is a global flag that decides if we even try to find supported
-files (sockets).
+> +	if (len <= SMALL_PACKET_SIZE) {
+> +		skb_copy_to_linear_data(skb, rx_hdr->payload, len);
+> +		skb->tail += len;
+> +	} else {
 
-If it is on we look to see if anyone will return POLL_LL.
-at the individual socket level, you need both the socket option to
-be on, and the queue data to be available for it to return POLL_LL.
-
-I wanted to find a way to control this at the time the user calls poll().
-I was not able to find any simple way of doing it that way.
-I'm open to suggestion.
+Hmm I'll send a v3, we need a regular __skb_put() here
