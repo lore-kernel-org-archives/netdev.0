@@ -1,119 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v3] iwl3945: better skb management in rx path
-Date: Fri, 28 Jun 2013 08:05:06 -0700
-Message-ID: <1372431906.3301.283.camel@edumazet-glaptop>
-References: <1372421021.3301.263.camel@edumazet-glaptop>
-	 <CAMcMvshEdsFZ2PVEpaq0e2P4L+cksshjB56x2YvA4wt3T+3__w@mail.gmail.com>
-	 <1372431024.3301.277.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"Steinar H. Gunderson" <sesse@google.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Paul Stewart <pstew@google.com>
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: [PATCH RFC net-next v1 1/1] net: fec: Fix RMON registers on imx6
+Date: Fri, 28 Jun 2013 16:07:55 +0100
+Message-ID: <1372432075-11629-1-git-send-email-jim_baxter@mentor.com>
+References: <Jim Baxter <jim_baxter@mentor.com>
+Cc: Fabio Estevam <fabio.estevam@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>,
+	Fugang Duan <B38611@freescale.com>,
+	Joe Perches <joe@perches.com>, Chris Healy <cphealy@gmail.com>,
+	netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f180.google.com ([209.85.215.180]:62440 "EHLO
-	mail-ea0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751519Ab3F1PFA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 11:05:00 -0400
-In-Reply-To: <1372431024.3301.277.camel@edumazet-glaptop>
+Received: from relay1.mentorg.com ([192.94.38.131]:39911 "EHLO
+	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751519Ab3F1PID (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jun 2013 11:08:03 -0400
+In-Reply-To: <Jim Baxter <jim_baxter@mentor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+commit 38ae92d "fec: Add support for reading
+RMON registers" causes the imx6Q to crash.
 
-Steinar reported reallocations of skb->head with IPv6, leading to
-a warning in skb_try_coalesce()
+This fixes it and clears it using the MIB Control
+Register's MIB_CLEAR bit.
 
-It turns out iwl3945 has several problems :
-
-1) skb->truesize is underestimated. 
-   We really consume PAGE_SIZE bytes for a fragment,
-   not the frame length.
-2) 128 bytes of initial headroom is a bit low and forces reallocations.
-3) We can avoid consuming a full page for small enough frames.
-
-Reported-by: Steinar H. Gunderson <sesse@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Paul Stewart <pstew@google.com>
+Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
 ---
-v3: use regular memcpy(skb_put(...),...)
-v2: SMALL_PACKET_SIZE define
+ drivers/net/ethernet/freescale/fec_main.c |    8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
- drivers/net/wireless/iwlegacy/3945.c |   31 +++++++++++++++----------
- 1 file changed, 19 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/wireless/iwlegacy/3945.c b/drivers/net/wireless/iwlegacy/3945.c
-index c092033..f09e257 100644
---- a/drivers/net/wireless/iwlegacy/3945.c
-+++ b/drivers/net/wireless/iwlegacy/3945.c
-@@ -475,6 +475,8 @@ il3945_is_network_packet(struct il_priv *il, struct ieee80211_hdr *header)
- 	}
- }
- 
-+#define SMALL_PACKET_SIZE 256
-+
- static void
- il3945_pass_packet_to_mac80211(struct il_priv *il, struct il_rx_buf *rxb,
- 			       struct ieee80211_rx_status *stats)
-@@ -483,14 +485,13 @@ il3945_pass_packet_to_mac80211(struct il_priv *il, struct il_rx_buf *rxb,
- 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)IL_RX_DATA(pkt);
- 	struct il3945_rx_frame_hdr *rx_hdr = IL_RX_HDR(pkt);
- 	struct il3945_rx_frame_end *rx_end = IL_RX_END(pkt);
--	u16 len = le16_to_cpu(rx_hdr->len);
-+	u32 len = le16_to_cpu(rx_hdr->len);
- 	struct sk_buff *skb;
- 	__le16 fc = hdr->frame_control;
-+	u32 fraglen = PAGE_SIZE << il->hw_params.rx_page_order;
- 
- 	/* We received data from the HW, so stop the watchdog */
--	if (unlikely
--	    (len + IL39_RX_FRAME_SIZE >
--	     PAGE_SIZE << il->hw_params.rx_page_order)) {
-+	if (unlikely(len + IL39_RX_FRAME_SIZE > fraglen)) {
- 		D_DROP("Corruption detected!\n");
- 		return;
- 	}
-@@ -506,26 +507,32 @@ il3945_pass_packet_to_mac80211(struct il_priv *il, struct il_rx_buf *rxb,
- 		D_INFO("Woke queues - frame received on passive channel\n");
- 	}
- 
--	skb = dev_alloc_skb(128);
-+	skb = dev_alloc_skb(SMALL_PACKET_SIZE);
- 	if (!skb) {
- 		IL_ERR("dev_alloc_skb failed\n");
- 		return;
- 	}
- 
- 	if (!il3945_mod_params.sw_crypto)
--		il_set_decrypted_flag(il, (struct ieee80211_hdr *)rxb_addr(rxb),
-+		il_set_decrypted_flag(il, (struct ieee80211_hdr *)pkt,
- 				      le32_to_cpu(rx_end->status), stats);
- 
--	skb_add_rx_frag(skb, 0, rxb->page,
--			(void *)rx_hdr->payload - (void *)pkt, len,
--			len);
--
-+	/* If frame is small enough to fit into skb->head, copy it
-+	 * and do not consume a full page
-+	 */
-+	if (len <= SMALL_PACKET_SIZE) {
-+		memcpy(skb_put(skb, len), rx_hdr->payload, len);
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index ed6180e..a1f0413 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -607,8 +607,12 @@ fec_restart(struct net_device *ndev, int duplex)
+ #ifndef CONFIG_M5272
+ 	/* Disable, clear, and enable the MIB */
+ 	writel(1 << 31, fep->hwp + FEC_MIB_CTRLSTAT);
+-	for (i = RMON_T_DROP; i < IEEE_R_OCTETS_OK; i++)
+-		writel(0, fep->hwp + i);
++	if (strcmp(id_entry->name, "imx6q-fec") == 0) {
++		writel(1 << 29, fep->hwp + FEC_MIB_CTRLSTAT);
 +	} else {
-+		skb_add_rx_frag(skb, 0, rxb->page,
-+				(void *)rx_hdr->payload - (void *)pkt, len,
-+				fraglen);
-+		il->alloc_rxb_page--;
-+		rxb->page = NULL;
++		for (i = RMON_T_DROP; i < IEEE_R_OCTETS_OK; i++)
++			writel(0, fep->hwp + i);
 +	}
- 	il_update_stats(il, false, fc, len);
- 	memcpy(IEEE80211_SKB_RXCB(skb), stats, sizeof(*stats));
+ 	writel(0, fep->hwp + FEC_MIB_CTRLSTAT);
+ #endif
  
- 	ieee80211_rx(il->hw, skb);
--	il->alloc_rxb_page--;
--	rxb->page = NULL;
- }
- 
- #define IL_DELAY_NEXT_SCAN_AFTER_ASSOC (HZ*6)
+-- 
+1.7.10.4
