@@ -1,8 +1,8 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [Patch net-next v2] gre: fix a regression in ioctl
-Date: Sat, 29 Jun 2013 19:52:44 +0400
-Message-ID: <51CF02CC.7070907@cogentembedded.com>
-References: <1372471480-28992-1-git-send-email-amwang@redhat.com> <1372472672-1900-1-git-send-email-amwang@redhat.com>
+Subject: Re: [Patch net-next] ipip: fix a regression in ioctl
+Date: Sat, 29 Jun 2013 19:58:00 +0400
+Message-ID: <51CF0408.5020607@cogentembedded.com>
+References: <1372479115-7003-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -10,61 +10,55 @@ Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:61503 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751527Ab3F2Pwo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 11:52:44 -0400
-Received: by mail-lb0-f175.google.com with SMTP id r10so1547968lbi.20
-        for <netdev@vger.kernel.org>; Sat, 29 Jun 2013 08:52:42 -0700 (PDT)
-In-Reply-To: <1372472672-1900-1-git-send-email-amwang@redhat.com>
+Received: from mail-la0-f45.google.com ([209.85.215.45]:53195 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750981Ab3F2P57 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 11:57:59 -0400
+Received: by mail-la0-f45.google.com with SMTP id fr10so3115035lab.4
+        for <netdev@vger.kernel.org>; Sat, 29 Jun 2013 08:57:57 -0700 (PDT)
+In-Reply-To: <1372479115-7003-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 29-06-2013 6:24, Cong Wang wrote:
+On 29-06-2013 8:11, Cong Wang wrote:
 
 > From: Cong Wang <amwang@redhat.com>
 
-> When testing GRE tunnel, I got:
+> This is a regression introduced by
+> commit fd58156e456d9f68fe0448 (IPIP: Use ip-tunneling code.)
 
->   # ip tunnel show
->   get tunnel gre0 failed: Invalid argument
->   get tunnel gre1 failed: Invalid argument
+> Similar to GRE tunnel, previously we only check the parameters
+> for SIOCADDTUNNEL and SIOCCHGTUNNEL, after that commit, the
+> check is moved for all commands.
 
-> This is a regression introduced by commit c54419321455631079c7d
-> ("GRE: Refactor GRE tunneling code.") because previously we
-> only check the parameters for SIOCADDTUNNEL and SIOCCHGTUNNEL,
-> after that commit, the check is moved for all commands.
+> So, just check for SIOCADDTUNNEL and SIOCCHGTUNNEL.
 
-> So, just move it back inside SIOCADDTUNNEL and SIOCCHGTUNNEL.
-
-> After this patch I got:
-
->   # ip tunnel show
->   gre0: gre/ip  remote any  local any  ttl inherit  nopmtudisc
->   gre1: gre/ip  remote 192.168.122.101  local 192.168.122.45  ttl inherit
+> Also, the check for i_key, o_key etc. is suspicious too,
+> which did not exist before.
 
 > Cc: Pravin B Shelar <pshelar@nicira.com>
 > Cc: "David S. Miller" <davem@davemloft.net>
 > Signed-off-by: Cong Wang <amwang@redhat.com>
+
 > ---
-> v2: check TUNNEL_* flags
-
-[...]
-> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-> index 394cebc..dc7d7ac 100644
-> --- a/net/ipv4/ip_tunnel.c
-> +++ b/net/ipv4/ip_tunnel.c
-> @@ -712,6 +712,11 @@ int ip_tunnel_ioctl(struct net_device *dev, struct ip_tunnel_parm *p, int cmd)
+> diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+> index e6905fb..9d6ca81 100644
+> --- a/net/ipv4/ipip.c
+> +++ b/net/ipv4/ipip.c
+> @@ -244,11 +244,11 @@ ipip_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+>   	if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof(p)))
+>   		return -EFAULT;
 >
->   	case SIOCADDTUNNEL:
->   	case SIOCCHGTUNNEL:
-> +		if (p->iph.version != 4 || p->iph.protocol != IPPROTO_GRE ||
-> +		    p->iph.ihl != 5 || (p->iph.frag_off&htons(~IP_DF)) ||
-> +		    ((p->i_flags|p->o_flags)&(TUNNEL_VERSION|TUNNEL_ROUTING)))
+> -	if (p.iph.version != 4 || p.iph.protocol != IPPROTO_IPIP ||
+> -			p.iph.ihl != 5 || (p.iph.frag_off&htons(~IP_DF)))
+> -		return -EINVAL;
+> -	if (p.i_key || p.o_key || p.i_flags || p.o_flags)
+> -		return -EINVAL;
+> +	if (cmd == SIOCADDTUNNEL || cmd == SIOCCHGTUNNEL) {
+> +		if (p.iph.version != 4 || p.iph.protocol != IPPROTO_IPIP ||
+> +		    p.iph.ihl != 5 || (p.iph.frag_off&htons(~IP_DF)))
 
-    Maybe it's time to insert spaces around & to make the code formatted 
-consistently?
+    Maybe it's time to put spaces around & to make code formatting more 
+consistent here too?
 
 WBR, Sergei
