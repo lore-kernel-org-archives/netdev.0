@@ -1,61 +1,70 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: ip_tunnel mtu calculation
-Date: Sat, 29 Jun 2013 17:57:01 +0300
-Message-ID: <20130629175701.73c17a16@vostro>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [Patch net-next v2] gre: fix a regression in ioctl
+Date: Sat, 29 Jun 2013 19:52:44 +0400
+Message-ID: <51CF02CC.7070907@cogentembedded.com>
+References: <1372471480-28992-1-git-send-email-amwang@redhat.com> <1372472672-1900-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Pravin B Shelar <pshelar@nicira.com>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:47299 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752844Ab3F2O4u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 10:56:50 -0400
-Received: by mail-wi0-f180.google.com with SMTP id c10so1738836wiw.13
-        for <netdev@vger.kernel.org>; Sat, 29 Jun 2013 07:56:48 -0700 (PDT)
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:61503 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751527Ab3F2Pwo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 11:52:44 -0400
+Received: by mail-lb0-f175.google.com with SMTP id r10so1547968lbi.20
+        for <netdev@vger.kernel.org>; Sat, 29 Jun 2013 08:52:42 -0700 (PDT)
+In-Reply-To: <1372472672-1900-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hello.
 
-I'm reviewing changes since 3.9 to net-next and observed that, the
-tunnel refactoring had the following change in ip_gre xmit path.
+On 29-06-2013 6:24, Cong Wang wrote:
 
-In ip_tunnel_xmit() mtu is now calculated as:
-        if (df)
-                mtu = dst_mtu(&rt->dst) - dev->hard_header_len
-                                        - sizeof(struct iphdr);
-        else
-                mtu = skb_dst(skb) ? dst_mtu(skb_dst(skb)) : dev->mtu;
+> From: Cong Wang <amwang@redhat.com>
 
-And it used to be in ip_gre.c: ipgre_tunnel_xmit():
-        if (df)
-                mtu = dst_mtu(&rt->dst) - dev->hard_header_len - tunnel->hlen;
-        else
-                mtu = skb_dst(skb) ? dst_mtu(skb_dst(skb)) : dev->mtu;
+> When testing GRE tunnel, I got:
 
-I notice that tunnel->hlen is replaced with sizeof(struct iphdr), but
-in case of GRE those are not the same thing. And the refactored
-ip_gre.c does not set hard_header_len either. So it would like the mtu
-is now miscalculated (planning to give a full test-spin for net-next
-next week).
+>   # ip tunnel show
+>   get tunnel gre0 failed: Invalid argument
+>   get tunnel gre1 failed: Invalid argument
 
-It seems the tunnel->hlen used to be the full length, including
-sizeof(struct iphdr).
+> This is a regression introduced by commit c54419321455631079c7d
+> ("GRE: Refactor GRE tunneling code.") because previously we
+> only check the parameters for SIOCADDTUNNEL and SIOCCHGTUNNEL,
+> after that commit, the check is moved for all commands.
 
-But the new, refactored code seems exclude sizeof(struct iphdr) from
-the tunnel->hlen. So would the following be appropriate?
+> So, just move it back inside SIOCADDTUNNEL and SIOCCHGTUNNEL.
 
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 394cebc..ac3a9a1 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -564,7 +564,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 
- 	if (df)
- 		mtu = dst_mtu(&rt->dst) - dev->hard_header_len
--					- sizeof(struct iphdr);
-+			- tunnel->hlen - sizeof(struct iphdr);
- 	else
- 		mtu = skb_dst(skb) ? dst_mtu(skb_dst(skb)) : dev->mtu;
- 
+> After this patch I got:
+
+>   # ip tunnel show
+>   gre0: gre/ip  remote any  local any  ttl inherit  nopmtudisc
+>   gre1: gre/ip  remote 192.168.122.101  local 192.168.122.45  ttl inherit
+
+> Cc: Pravin B Shelar <pshelar@nicira.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+> ---
+> v2: check TUNNEL_* flags
+
+[...]
+> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+> index 394cebc..dc7d7ac 100644
+> --- a/net/ipv4/ip_tunnel.c
+> +++ b/net/ipv4/ip_tunnel.c
+> @@ -712,6 +712,11 @@ int ip_tunnel_ioctl(struct net_device *dev, struct ip_tunnel_parm *p, int cmd)
+>
+>   	case SIOCADDTUNNEL:
+>   	case SIOCCHGTUNNEL:
+> +		if (p->iph.version != 4 || p->iph.protocol != IPPROTO_GRE ||
+> +		    p->iph.ihl != 5 || (p->iph.frag_off&htons(~IP_DF)) ||
+> +		    ((p->i_flags|p->o_flags)&(TUNNEL_VERSION|TUNNEL_ROUTING)))
+
+    Maybe it's time to insert spaces around & to make the code formatted 
+consistently?
+
+WBR, Sergei
