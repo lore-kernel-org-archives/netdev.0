@@ -1,36 +1,66 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v2] gre: fix a regression in ioctl
-Date: Sat, 29 Jun 2013 11:55:39 +0800
-Message-ID: <1372478139.29178.6.camel@cr0>
-References: <1372471480-28992-1-git-send-email-amwang@redhat.com>
-	 <1372472672-1900-1-git-send-email-amwang@redhat.com>
-	 <CALnjE+qo33kqer_JQVwC+FDpmrSYpU2WkiYqeN6R11OWQkocug@mail.gmail.com>
-	 <1372476822.29178.3.camel@cr0>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Pravin Shelar <pshelar@nicira.com>
+Subject: [Patch net-next v3] gre: fix a regression in ioctl
+Date: Sat, 29 Jun 2013 12:02:59 +0800
+Message-ID: <1372478579-6548-1-git-send-email-amwang@redhat.com>
+References: <CALnjE+qo33kqer_JQVwC+FDpmrSYpU2WkiYqeN6R11OWQkocug@mail.gmail.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54668 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:23947 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751845Ab3F2Dzr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Jun 2013 23:55:47 -0400
-In-Reply-To: <1372476822.29178.3.camel@cr0>
+	id S1750757Ab3F2EDL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Jun 2013 00:03:11 -0400
+In-Reply-To: <CALnjE+qo33kqer_JQVwC+FDpmrSYpU2WkiYqeN6R11OWQkocug@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-06-29 at 11:33 +0800, Cong Wang wrote:
-> BTW, ipip has the same bug... I will send a patch for ipip too.
+From: Cong Wang <amwang@redhat.com>
 
-Pravin,
+When testing GRE tunnel, I got:
 
-Any reason to add the following check for ipip?
+ # ip tunnel show
+ get tunnel gre0 failed: Invalid argument
+ get tunnel gre1 failed: Invalid argument
 
-       if (p.i_key || p.o_key || p.i_flags || p.o_flags)
-               return -EINVAL;
+This is a regression introduced by commit c54419321455631079c7d
+("GRE: Refactor GRE tunneling code.") because previously we
+only check the parameters for SIOCADDTUNNEL and SIOCCHGTUNNEL,
+after that commit, the check is moved for all commands.
 
-It seems the old code doesn't have this check, you added it in commit
-fd58156e456d9f68fe04486be378d0bc93641532 (IPIP: Use ip-tunneling code.).
+So, just check for SIOCADDTUNNEL and SIOCCHGTUNNEL.
 
-This breaks the API?
+After this patch I got:
+
+ # ip tunnel show
+ gre0: gre/ip  remote any  local any  ttl inherit  nopmtudisc
+ gre1: gre/ip  remote 192.168.122.101  local 192.168.122.45  ttl inherit 
+
+Cc: Pravin B Shelar <pshelar@nicira.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+---
+v2: check TUNNEL_* flags
+v3: the check should be kept in gre module
+
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index c326e86..1f6eab6 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -314,10 +314,11 @@ static int ipgre_tunnel_ioctl(struct net_device *dev,
+ 
+ 	if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof(p)))
+ 		return -EFAULT;
+-	if (p.iph.version != 4 || p.iph.protocol != IPPROTO_GRE ||
+-	    p.iph.ihl != 5 || (p.iph.frag_off&htons(~IP_DF)) ||
+-	    ((p.i_flags|p.o_flags)&(GRE_VERSION|GRE_ROUTING))) {
+-		return -EINVAL;
++	if (cmd == SIOCADDTUNNEL || cmd == SIOCCHGTUNNEL) {
++		if (p.iph.version != 4 || p.iph.protocol != IPPROTO_GRE ||
++		    p.iph.ihl != 5 || (p.iph.frag_off&htons(~IP_DF)) ||
++		    ((p.i_flags|p.o_flags)&(GRE_VERSION|GRE_ROUTING)))
++			return -EINVAL;
+ 	}
+ 	p.i_flags = gre_flags_to_tnl_flags(p.i_flags);
+ 	p.o_flags = gre_flags_to_tnl_flags(p.o_flags);
