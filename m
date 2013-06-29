@@ -1,62 +1,29 @@
-From: Duan Fugang-B38611 <B38611@freescale.com>
-Subject: RE: [PATCH RFC net-next v1 1/1] net: fec: Fix RMON registers on imx6
-Date: Sat, 29 Jun 2013 05:58:40 +0000
-Message-ID: <9848F2DB572E5649BA045B288BE08FBE0150D3F5@039-SN2MPN1-023.039d.mgd.msft.net>
-References: <Jim Baxter <jim_baxter@mentor.com>
- <1372432075-11629-1-git-send-email-jim_baxter@mentor.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net] vti: remove duplicated code to fix a memory leak
+Date: Sat, 29 Jun 2013 14:20:19 +0800
+Message-ID: <1372486819.29178.7.camel@cr0>
+References: <1372482057-12412-1-git-send-email-amwang@redhat.com>
+	 <20130628221849.16c7ca0e@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Estevam Fabio-R49496 <r49496@freescale.com>,
-	Li Frank-B20596 <B20596@freescale.com>,
-	Joe Perches <joe@perches.com>, Chris Healy <cphealy@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jim Baxter <jim_baxter@mentor.com>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Saurabh Mohan <saurabh.mohan@vyatta.com>,
 	"David S. Miller" <davem@davemloft.net>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db8lp0188.outbound.messaging.microsoft.com ([213.199.154.188]:54965
-	"EHLO db8outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751431Ab3F2F6t convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Jun 2013 01:58:49 -0400
-In-Reply-To: <1372432075-11629-1-git-send-email-jim_baxter@mentor.com>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:64351 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751431Ab3F2GUa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Jun 2013 02:20:30 -0400
+In-Reply-To: <20130628221849.16c7ca0e@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/28/13 23:08, Jim Baxter wrote:
+On Fri, 2013-06-28 at 22:18 -0700, Stephen Hemminger wrote:
+> 
+> The fix looks correct, looks like an oversight when the generic tunnel infratructure
+> was added.
 
-> commit 38ae92d "fec: Add support for reading RMON registers" causes the imx6Q to crash.
->
-> This fixes it and clears it using the MIB Control Register's MIB_CLEAR bit.
->
-> Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
-> ---
->  drivers/net/ethernet/freescale/fec_main.c |    8 ++++++--
->  1 file changed, 6 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-> index ed6180e..a1f0413 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -607,8 +607,12 @@ fec_restart(struct net_device *ndev, int duplex)  #ifndef CONFIG_M5272
->  	/* Disable, clear, and enable the MIB */
->  	writel(1 << 31, fep->hwp + FEC_MIB_CTRLSTAT);
-> -	for (i = RMON_T_DROP; i < IEEE_R_OCTETS_OK; i++)
-> -		writel(0, fep->hwp + i);
-> +	if (strcmp(id_entry->name, "imx6q-fec") == 0) {
-> +		writel(1 << 29, fep->hwp + FEC_MIB_CTRLSTAT);
-> +	} else {
-> +		for (i = RMON_T_DROP; i < IEEE_R_OCTETS_OK; i++)
-> +			writel(0, fep->hwp + i);
-> +	}
->  	writel(0, fep->hwp + FEC_MIB_CTRLSTAT);  #endif
->  
-> --
-> 1.7.10.4
+Yeah, I am trying to switch vti tunnel using generic tunnel code.
 
-It is not necessary to clear MIB since fec_restart() will reset MAC which cause all MAC register auto reset to  zero.
- 
- 
-Thanks,
-Andy
+Thanks!
