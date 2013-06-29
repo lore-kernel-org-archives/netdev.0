@@ -1,64 +1,62 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [Patch net-next] ipip: fix a regression in ioctl
-Date: Sat, 29 Jun 2013 19:58:00 +0400
-Message-ID: <51CF0408.5020607@cogentembedded.com>
-References: <1372479115-7003-1-git-send-email-amwang@redhat.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: kernel panic in skb_copy_bits
+Date: Sat, 29 Jun 2013 09:11:15 -0700
+Message-ID: <51CF0723.9020604@candelatech.com>
+References: <51CBAA48.3080802@oracle.com>   <1372311118.3301.214.camel@edumazet-glaptop> <51CD0E67.4000008@oracle.com>   <1372402340.3301.229.camel@edumazet-glaptop>  <1372412262.3301.251.camel@edumazet-glaptop> <51CE1E19.3020108@oracle.com> <1372490428.3301.300.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Cc: Joe Jin <joe.jin@oracle.com>,
+	Frank Blaschka <frank.blaschka@de.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"zheng.x.li@oracle.com" <zheng.x.li@oracle.com>,
+	Xen Devel <xen-devel@lists.xen.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Jan Beulich <JBeulich@suse.com>,
+	Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:53195 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750981Ab3F2P57 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 11:57:59 -0400
-Received: by mail-la0-f45.google.com with SMTP id fr10so3115035lab.4
-        for <netdev@vger.kernel.org>; Sat, 29 Jun 2013 08:57:57 -0700 (PDT)
-In-Reply-To: <1372479115-7003-1-git-send-email-amwang@redhat.com>
+Received: from mail.candelatech.com ([208.74.158.172]:40053 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751017Ab3F2QLq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 12:11:46 -0400
+In-Reply-To: <1372490428.3301.300.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 29-06-2013 8:11, Cong Wang wrote:
-
-> From: Cong Wang <amwang@redhat.com>
-
-> This is a regression introduced by
-> commit fd58156e456d9f68fe0448 (IPIP: Use ip-tunneling code.)
-
-> Similar to GRE tunnel, previously we only check the parameters
-> for SIOCADDTUNNEL and SIOCCHGTUNNEL, after that commit, the
-> check is moved for all commands.
-
-> So, just check for SIOCADDTUNNEL and SIOCCHGTUNNEL.
-
-> Also, the check for i_key, o_key etc. is suspicious too,
-> which did not exist before.
-
-> Cc: Pravin B Shelar <pshelar@nicira.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
-
-> ---
-> diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-> index e6905fb..9d6ca81 100644
-> --- a/net/ipv4/ipip.c
-> +++ b/net/ipv4/ipip.c
-> @@ -244,11 +244,11 @@ ipip_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
->   	if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof(p)))
->   		return -EFAULT;
+On 06/29/2013 12:20 AM, Eric Dumazet wrote:
+> On Sat, 2013-06-29 at 07:36 +0800, Joe Jin wrote:
+>> Hi Eric,
+>>
+>> The patch not fix the issue and panic as same as early I posted:
+>>> BUG: unable to handle kernel paging request at ffff88006d9e8d48
+>>> IP: [<ffffffff812605bb>] memcpy+0xb/0x120
+>>> PGD 1798067 PUD 1fd2067 PMD 213f067 PTE 0
+>>> Oops: 0000 [#1] SMP
+>>> CPU 7
+>>> Modules linked in: dm_nfs tun nfs fscache auth_rpcgss nfs_acl xen_blkback xen_netback xen_gntdev xen_evtchn lockd sunrpc bridge stp llc bonding be2iscsi iscsi_boot_sysfs ib_iser rdma_cm ib_cm iw_cm ib_sa ib_mad ib_core ib_addr iscsi_tcp bnx2i cnic uio ipv6 cxgb3i libcxgbi cxgb3 mdio dm_round_robin dm_multipath libiscsi_tcp libiscsi scsi_transport_iscsi xenfs xen_privcmd video sbs sbshc acpi_memhotplug acpi_ipmi ipmi_msghandler parport_pc lp parport ixgbe dca sr_mod cdrom bnx2 radeon ttm drm_kms_helper drm snd_seq_dummy i2c_algo_bit i2c_core snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device snd_pcm_oss snd_mixer_oss serio_raw snd_pcm snd_timer snd soundcore snd_page_alloc iTCO_wdt pcspkr iTCO_vendor_support pata_acpi dcdbas i5k_amb ata_generic hwmon floppy ghes i5000_edac edac_core 
+ hed dm_snapshot dm_zero dm_mirror dm_region_hash dm_log dm_mod usb_storage lpfc scsi_transport_fc scsi_tgt ata_piix sg shpchp mptsas mptscsih mptbase scsi_transport_sas sd_mod crc_t10dif ex!
+ t3!
+>>    jbd mbcac
+>> he
+>>>
+>>>
+>>> Pid: 0, comm: swapper Tainted: G        W   2.6.39-300.32.1.el5uek #1 Dell Inc. PowerEdge 2950/0DP246
 >
-> -	if (p.iph.version != 4 || p.iph.protocol != IPPROTO_IPIP ||
-> -			p.iph.ihl != 5 || (p.iph.frag_off&htons(~IP_DF)))
-> -		return -EINVAL;
-> -	if (p.i_key || p.o_key || p.i_flags || p.o_flags)
-> -		return -EINVAL;
-> +	if (cmd == SIOCADDTUNNEL || cmd == SIOCCHGTUNNEL) {
-> +		if (p.iph.version != 4 || p.iph.protocol != IPPROTO_IPIP ||
-> +		    p.iph.ihl != 5 || (p.iph.frag_off&htons(~IP_DF)))
+>
+> By the way my patch was for current kernels, not for 2.6.39
 
-    Maybe it's time to put spaces around & to make code formatting more 
-consistent here too?
+Do you know if your patch should go in 3.9?
 
-WBR, Sergei
+Your test case sounds a bit like what gives us the rare crash in tcp_collapse
+(we have lots of bouncing wifi interfaces running slow-speed TCP trafic).  But,
+it takes days for us to hit the problem most of the time.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
