@@ -1,56 +1,40 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next] ipip: fix a regression in ioctl
-Date: Sat, 29 Jun 2013 12:11:55 +0800
-Message-ID: <1372479115-7003-1-git-send-email-amwang@redhat.com>
-Cc: Pravin B Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net/hsr: Add support for the High-availability
+ Seamless Redundancy protocol (HSRv0)
+Date: Fri, 28 Jun 2013 21:16:32 -0700 (PDT)
+Message-ID: <20130628.211632.1064715548223073397.davem@davemloft.net>
+References: <51CB05BB.3030909@xdin.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com, joe@perches.com,
+	jboticario@gmail.com, balferreira@googlemail.com
+To: arvid.brodin@xdin.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:65529 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750795Ab3F2EMI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Jun 2013 00:12:08 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:46126 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750795Ab3F2EQd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 00:16:33 -0400
+In-Reply-To: <51CB05BB.3030909@xdin.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+From: Arvid Brodin <arvid.brodin@xdin.com>
+Date: Wed, 26 Jun 2013 17:16:11 +0200
 
-This is a regression introduced by 
-commit fd58156e456d9f68fe0448 (IPIP: Use ip-tunneling code.)
+> +static int hsr_dev_open(struct net_device *dev)
+> +{
+> +	struct hsr_priv *hsr_priv;
+> +
+> +	hsr_priv = netdev_priv(dev);
+> +
+> +	if (hsr_priv->slave[0])
+> +		dev_open(hsr_priv->slave[0]);
+> +	if (hsr_priv->slave[1])
+> +		dev_open(hsr_priv->slave[1]);
+> +
+> +	return 0;
+> +}
 
-Similar to GRE tunnel, previously we only check the parameters
-for SIOCADDTUNNEL and SIOCCHGTUNNEL, after that commit, the
-check is moved for all commands.
-
-So, just check for SIOCADDTUNNEL and SIOCCHGTUNNEL.
-
-Also, the check for i_key, o_key etc. is suspicious too,
-which did not exist before.
-
-Cc: Pravin B Shelar <pshelar@nicira.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
-
----
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index e6905fb..9d6ca81 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -244,11 +244,11 @@ ipip_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 	if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof(p)))
- 		return -EFAULT;
- 
--	if (p.iph.version != 4 || p.iph.protocol != IPPROTO_IPIP ||
--			p.iph.ihl != 5 || (p.iph.frag_off&htons(~IP_DF)))
--		return -EINVAL;
--	if (p.i_key || p.o_key || p.i_flags || p.o_flags)
--		return -EINVAL;
-+	if (cmd == SIOCADDTUNNEL || cmd == SIOCCHGTUNNEL) {
-+		if (p.iph.version != 4 || p.iph.protocol != IPPROTO_IPIP ||
-+		    p.iph.ihl != 5 || (p.iph.frag_off&htons(~IP_DF)))
-+			return -EINVAL;
-+	}
- 	if (p.iph.ttl)
- 		p.iph.frag_off |= htons(IP_DF);
- 
+dev_open() can and does fail, you must thus check for error returns, undo any
+necessary state, and propagate that error to callers of hsr_dev_open.
