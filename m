@@ -1,87 +1,74 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: Using sched_clock() for polling time limit
-Date: Sat, 29 Jun 2013 21:50:48 +0300
-Message-ID: <51CF2C88.4030900@linux.intel.com>
-References: <20130628125918.14419.36214.stgit@ladj378.jer.intel.com>  <20130628125926.14419.89905.stgit@ladj378.jer.intel.com> <1372438309.1937.9.camel@bwh-desktop.uk.level5networks.com>
+From: Johannes Stezenbach <js@sig21.net>
+Subject: Re: [PATCH v2 0/7] alx: small fixes/cleanups
+Date: Sat, 29 Jun 2013 20:56:20 +0200
+Message-ID: <20130629185620.GA10505@sig21.net>
+References: <1372185503-24705-1-git-send-email-johannes@sipsolutions.net>
+ <20130625210102.GA18495@sig21.net>
+ <1372526436.8183.3.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Willem de Bruijn <willemb@google.com>,
-	Eric Dumazet <erdnetdev@gmail.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Cody P Schafer <devel-lists@codyps.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372438309.1937.9.camel@bwh-desktop.uk.level5networks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bar.sig21.net ([80.81.252.164]:41898 "EHLO bar.sig21.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752098Ab3F2S5d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Jun 2013 14:57:33 -0400
+Content-Disposition: inline
+In-Reply-To: <1372526436.8183.3.camel@jlt4.sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 28/06/2013 19:51, Ben Hutchings wrote:
-> On Fri, 2013-06-28 at 15:59 +0300, Eliezer Tamir wrote:
->> Our use of sched_clock is OK because we don't mind the side effects
->> of calling it and occasionally waking up on a different CPU.
->
-> Sure about that?  Jitter matters too.
->
-Pretty sure, this is a limit on how long we poll, it's for fairness to
-the rest of the system not for performance of this code.
+On Sat, Jun 29, 2013 at 07:20:36PM +0200, Johannes Berg wrote:
+> On Tue, 2013-06-25 at 23:01 +0200, Johannes Stezenbach wrote:
+> > On Tue, Jun 25, 2013 at 08:38:16PM +0200, Johannes Berg wrote:
+> > > Thanks to Ben's review mostly, here are some fixes/cleanups in
+> > > alx. I'm seriously considering removing WoWLAN as I have no use
+> > > for it and am not too motivated to debug it, anyone else want
+> > > to try debugging? :)
+> > 
+> > One thing I noticed is alx_select_powersaving_speed() will return 0
+> > when there is no link but leaves *speed uninitialized.
+> 
+> Yeah, that's a bit odd.
+> 
+> > Then __alx_shutdown() prints e.g.
+> >    alx 0000:03:00.0 eth0: wol: ctrl=3, speed=FFFF8801
+> > In this case the
+> >   alx_write_phy_reg(hw, ALX_MII_IER, 0);
+> > is skipped in alx_select_powersaving_speed().
+> > However, it should still be done in alx_pre_suspend()
+> > when WOL is disabled.  But it might be we need to move
+> > the alx_clear_phy_intr() in __alx_shutdown() down.
+> > 
+> > I'm also not sure why alx_get_phy_link() reads MII_BMSR
+> > twice, but the old driver from compat-wireless-3.6.8-1-snpc
+> > also does it, it seems deliberate.
+> 
+> Yeah, all this looks like magic to me...
+> 
+> > Unless someone beats me to it I will try to debug
+> > on the weekend.
+> 
+> The whole PCI(e) stuff there looks pretty odd to me and I can't seem to
+> fix it right now, so I'm removing it. It really looks like all the
+> wakeup_enable() etc. is in the wrong places? Hmmm. Well the code is
+> still in the history ;-)
 
-What matters is that on average you are bounded by something close to
-what the user specified. If once in a while you run less because of
-clock jitter, or even twice the specified time, it's no big deal.
+Personally I don't care about WOL, no problem if you remove it.
 
-So I don't see how jitter would matter.
+So far I didn't have time to test (planning to do it tomorrow),
+but looking at the code in __alx_shutdown(), I think
+__alx_stop() tears down the link (via alx_reset_mac()).
+Thus alx_select_powersaving_speed() would need to be
+split in two functions, one looking at the current link,
+called before __alx_stop(), and one called after it
+to re-enable the link.  And alx_clear_phy_intr() needs to be moved
+after alx_pre_suspend().  And alx_config_wol() should be
+before alx_pre_suspend() according to the alx_pre_suspend() comment.
+And alx_select_powersaving_speed() should not be called
+when WOL is disabled.
 
-And if your workload is jitter sensitive, you should probably be
-pinning tasks to CPUs anyway.
 
-
->> When CONFIG_DEBUG_PREEMPT is on, disable preempt before calling
->> sched_clock() so we don't trigger a debug_smp_processor_id() warning.
-> [...]
->
-> I think this is papering over a problem.  The warning is there for a
-> good reason.
-
-I think we understand the warning, and that we are OK with the effects.
-
-looking at how other users in the kernel solved this issue
-It seems like this is what they do.
-for example trace/ring_buffer.c:ring_buffer_time_Stamp()
-
-Also kvm_clock_read() and xen_clokcsource_read() seem to disable preempt
-just to silence this warning.
-
-If they really cared about reading the value on one CPU, then being
-scheduled on another they should have disabled interrupts.
-or am I missing something?
-
-> Would functions like these make it possible to use sched_clock() safely
-> for polling?  (I didn't spend much time thinking about the names.)
->
-> struct sched_timestamp {
-> 	int cpu;
-> 	unsigned long long clock;
-> };
->
-> static inline struct sched_timestamp sched_get_timestamp(void)
-> {
-> 	struct sched_timestamp ret;
->
-> 	preempt_disable_notrace();
-> 	ret.cpu = smp_processor_id();
-> 	ret.clock = sched_clock();
-> 	preempt_enable_no_resched_notrace();
->
-> 	return ret;
-> }
-
-I don't understand, preempt_disable() only makes prevents preempt
-from taking the CPU away from you, you could still lose it for
-other reasons.
-You would really need to disable interrupts in this region to be
-sure that it all executed on the same CPU.
-
--Eliezer
+Thanks,
+Johannes
