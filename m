@@ -1,25 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/6] net/trivial: replace numeric with standard PM
- state macros
-Date: Fri, 28 Jun 2013 22:12:04 -0700 (PDT)
-Message-ID: <20130628.221204.1514195012349670066.davem@davemloft.net>
-References: <1372337622-26076-1-git-send-email-wangyijing@huawei.com>
+Subject: Re: pull-request: can-next 2013-06-27
+Date: Fri, 28 Jun 2013 22:14:04 -0700 (PDT)
+Message-ID: <20130628.221404.1401180405783879280.davem@davemloft.net>
+References: <51CC3CD6.6050505@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, guohanjun@huawei.com,
-	netdev@vger.kernel.org
-To: wangyijing@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372337622-26076-1-git-send-email-wangyijing@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
+To: mkl@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46398 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750976Ab3F2FOF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 01:14:05 -0400
+In-Reply-To: <51CC3CD6.6050505@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Thu, 27 Jun 2013 20:53:42 +0800
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Thu, 27 Jun 2013 15:23:34 +0200
 
-> Use standard PM state macros PCI_Dx instead of numeric 0/1/2..
+> this is a pull-request for net-next/master. It consists of three
+> patches by Fabio Estevam and me, which convert the flexcan transceiver
+> switching to DT[1] and a patch by Sachin Kamat, which cleans up the
+> at91_can driver a bit.
 > 
-> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+> [1] These patches touch arch/arm/mach-imx, so I collected Acked-bys
+> from Shawn Guo and Sascha Hauer.
 
-Applied.
+Pulled, thanks Marc.
