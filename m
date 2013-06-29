@@ -1,28 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bonding: combine pr_debugs in
- bond_set_dev_addr into one
-Date: Sat, 29 Jun 2013 12:37:29 -0700 (PDT)
-Message-ID: <20130629.123729.662959178337343497.davem@davemloft.net>
-References: <1372504619-30123-1-git-send-email-nikolay@redhat.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 8/8] alx: remove WoL support
+Date: Sat, 29 Jun 2013 21:40:45 +0200
+Message-ID: <1372534845.17242.0.camel@jlt4.sipsolutions.net>
+References: <1372526600-15934-1-git-send-email-johannes@sipsolutions.net>
+	 <1372526600-15934-9-git-send-email-johannes@sipsolutions.net>
+	 <20130629191248.GA10570@sig21.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com
-To: nikolay@redhat.com
+Cc: netdev@vger.kernel.org
+To: Johannes Stezenbach <js@sig21.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50434 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751115Ab3F2Thc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 15:37:32 -0400
-In-Reply-To: <1372504619-30123-1-git-send-email-nikolay@redhat.com>
+Received: from s3.sipsolutions.net ([144.76.43.152]:58757 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751773Ab3F2Tkt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 15:40:49 -0400
+In-Reply-To: <20130629191248.GA10570@sig21.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Date: Sat, 29 Jun 2013 13:16:59 +0200
 
-> Combine the multiple pr_debugs in bond_set_dev_addr into one pr_debug.
+> > -	.driver.pm   = ALX_PM_OPS,
+> >  };
 > 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> Not sure but doesn't that mean the driver breaks after suspend?
+> I think you removed too much, not just WOL support but all pm handling.
 
-Applied, thanks.
+*sigh*, yes, you're probably right. Probably should stop/restart if the
+interface is up. I'll try to poke at it tomorrow.
+
+johannes
