@@ -1,504 +1,508 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 5/8] alx: separate link speed/duplex fields
-Date: Sat, 29 Jun 2013 19:23:17 +0200
-Message-ID: <1372526600-15934-6-git-send-email-johannes@sipsolutions.net>
+Subject: [PATCH 8/8] alx: remove WoL support
+Date: Sat, 29 Jun 2013 19:23:20 +0200
+Message-ID: <1372526600-15934-9-git-send-email-johannes@sipsolutions.net>
 References: <1372526600-15934-1-git-send-email-johannes@sipsolutions.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:58303 "EHLO
+Received: from s3.sipsolutions.net ([144.76.43.152]:58306 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752472Ab3F2RX1 (ORCPT
+	with ESMTP id S1752644Ab3F2RX1 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 13:23:27 -0400
 Received: by sipsolutions.net with esmtpsa (TLS1.2:DHE_RSA_AES_256_CBC_SHA256:256)
 	(Exim 4.80)
 	(envelope-from <johannes@sipsolutions.net>)
-	id 1Usyrt-0006aE-Kj
-	for netdev@vger.kernel.org; Sat, 29 Jun 2013 19:23:25 +0200
+	id 1Usyru-0006aE-MN
+	for netdev@vger.kernel.org; Sat, 29 Jun 2013 19:23:26 +0200
 In-Reply-To: <1372526600-15934-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As suggested by Ben Hutchings, use separate fields to track
-current link speed and duplex setting.
+Unfortunately, WoL is broken and the system will immediately
+resume after suspending, and I can't seem to figure out why.
+Remove WoL support until the issue can be found.
 
-Reported-by: Ben Hutchings <ben@decadent.org.uk>
 Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 ---
- drivers/net/ethernet/atheros/alx/ethtool.c |  31 ++-----
- drivers/net/ethernet/atheros/alx/hw.c      | 139 +++++++++++++----------------
- drivers/net/ethernet/atheros/alx/hw.h      |  24 ++++-
- drivers/net/ethernet/atheros/alx/main.c    |  37 ++++----
- 4 files changed, 106 insertions(+), 125 deletions(-)
+ drivers/net/ethernet/atheros/alx/ethtool.c |  36 -------
+ drivers/net/ethernet/atheros/alx/hw.c      | 155 -----------------------------
+ drivers/net/ethernet/atheros/alx/hw.h      |   5 -
+ drivers/net/ethernet/atheros/alx/main.c    | 144 ---------------------------
+ 4 files changed, 340 deletions(-)
 
 diff --git a/drivers/net/ethernet/atheros/alx/ethtool.c b/drivers/net/ethernet/atheros/alx/ethtool.c
-index 50a91d0..5e19e08 100644
+index 9261006..45b3650 100644
 --- a/drivers/net/ethernet/atheros/alx/ethtool.c
 +++ b/drivers/net/ethernet/atheros/alx/ethtool.c
-@@ -85,14 +85,8 @@ static int alx_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 		}
- 	}
- 
--	if (hw->link_speed != SPEED_UNKNOWN) {
--		ethtool_cmd_speed_set(ecmd,
--				      hw->link_speed - hw->link_speed % 10);
--		ecmd->duplex = hw->link_speed % 10;
--	} else {
--		ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
--		ecmd->duplex = DUPLEX_UNKNOWN;
--	}
-+	ethtool_cmd_speed_set(ecmd, hw->link_speed);
-+	ecmd->duplex = hw->duplex;
- 
- 	return 0;
- }
-@@ -110,24 +104,11 @@ static int alx_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 			return -EINVAL;
- 		adv_cfg = ecmd->advertising | ADVERTISED_Autoneg;
- 	} else {
--		int speed = ethtool_cmd_speed(ecmd);
--
--		switch (speed + ecmd->duplex) {
--		case SPEED_10 + DUPLEX_HALF:
--			adv_cfg = ADVERTISED_10baseT_Half;
--			break;
--		case SPEED_10 + DUPLEX_FULL:
--			adv_cfg = ADVERTISED_10baseT_Full;
--			break;
--		case SPEED_100 + DUPLEX_HALF:
--			adv_cfg = ADVERTISED_100baseT_Half;
--			break;
--		case SPEED_100 + DUPLEX_FULL:
--			adv_cfg = ADVERTISED_100baseT_Full;
--			break;
--		default:
-+		adv_cfg = alx_speed_to_ethadv(ethtool_cmd_speed(ecmd),
-+					      ecmd->duplex);
-+
-+		if (!adv_cfg || adv_cfg == ADVERTISED_1000baseT_Full)
- 			return -EINVAL;
--		}
- 	}
- 
- 	hw->adv_cfg = adv_cfg;
-diff --git a/drivers/net/ethernet/atheros/alx/hw.c b/drivers/net/ethernet/atheros/alx/hw.c
-index dc71cfb..aed48a7 100644
---- a/drivers/net/ethernet/atheros/alx/hw.c
-+++ b/drivers/net/ethernet/atheros/alx/hw.c
-@@ -624,12 +624,12 @@ void alx_start_mac(struct alx_hw *hw)
- 	alx_write_mem32(hw, ALX_TXQ0, txq | ALX_TXQ0_EN);
- 
- 	mac = hw->rx_ctrl;
--	if (hw->link_speed % 10 == DUPLEX_FULL)
-+	if (hw->duplex == DUPLEX_FULL)
- 		mac |= ALX_MAC_CTRL_FULLD;
- 	else
- 		mac &= ~ALX_MAC_CTRL_FULLD;
- 	ALX_SET_FIELD(mac, ALX_MAC_CTRL_SPEED,
--		      hw->link_speed >= SPEED_1000 ? ALX_MAC_CTRL_SPEED_1000 :
-+		      hw->link_speed == SPEED_1000 ? ALX_MAC_CTRL_SPEED_1000 :
- 						     ALX_MAC_CTRL_SPEED_10_100);
- 	mac |= ALX_MAC_CTRL_TX_EN | ALX_MAC_CTRL_RX_EN;
- 	hw->rx_ctrl = mac;
-@@ -790,28 +790,22 @@ void alx_post_phy_link(struct alx_hw *hw)
- 	u16 phy_val, len, agc;
- 	u8 revid = alx_hw_revision(hw);
- 	bool adj_th = revid == ALX_REV_B0;
--	int speed;
--
--	if (hw->link_speed == SPEED_UNKNOWN)
--		speed = SPEED_UNKNOWN;
--	else
--		speed = hw->link_speed - hw->link_speed % 10;
- 
- 	if (revid != ALX_REV_B0 && !alx_is_rev_a(revid))
- 		return;
- 
- 	/* 1000BT/AZ, wrong cable length */
--	if (speed != SPEED_UNKNOWN) {
-+	if (hw->link_speed != SPEED_UNKNOWN) {
- 		alx_read_phy_ext(hw, ALX_MIIEXT_PCS, ALX_MIIEXT_CLDCTRL6,
- 				 &phy_val);
- 		len = ALX_GET_FIELD(phy_val, ALX_CLDCTRL6_CAB_LEN);
- 		alx_read_phy_dbg(hw, ALX_MIIDBG_AGC, &phy_val);
- 		agc = ALX_GET_FIELD(phy_val, ALX_AGC_2_VGA);
- 
--		if ((speed == SPEED_1000 &&
-+		if ((hw->link_speed == SPEED_1000 &&
- 		     (len > ALX_CLDCTRL6_CAB_LEN_SHORT1G ||
- 		      (len == 0 && agc > ALX_AGC_LONG1G_LIMT))) ||
--		    (speed == SPEED_100 &&
-+		    (hw->link_speed == SPEED_100 &&
- 		     (len > ALX_CLDCTRL6_CAB_LEN_SHORT100M ||
- 		      (len == 0 && agc > ALX_AGC_LONG100M_LIMT)))) {
- 			alx_write_phy_dbg(hw, ALX_MIIDBG_AZ_ANADECT,
-@@ -831,10 +825,10 @@ void alx_post_phy_link(struct alx_hw *hw)
- 
- 		/* threshold adjust */
- 		if (adj_th && hw->lnk_patch) {
--			if (speed == SPEED_100) {
-+			if (hw->link_speed == SPEED_100) {
- 				alx_write_phy_dbg(hw, ALX_MIIDBG_MSE16DB,
- 						  ALX_MSE16DB_UP);
--			} else if (speed == SPEED_1000) {
-+			} else if (hw->link_speed == SPEED_1000) {
- 				/*
- 				 * Giga link threshold, raise the tolerance of
- 				 * noise 50%
-@@ -869,7 +863,7 @@ void alx_post_phy_link(struct alx_hw *hw)
-  *    1. phy link must be established before calling this function
-  *    2. wol option (pattern,magic,link,etc.) is configed before call it.
-  */
--int alx_pre_suspend(struct alx_hw *hw, int speed)
-+int alx_pre_suspend(struct alx_hw *hw, int speed, u8 duplex)
- {
- 	u32 master, mac, phy, val;
- 	int err = 0;
-@@ -897,9 +891,9 @@ int alx_pre_suspend(struct alx_hw *hw, int speed)
- 			mac |= ALX_MAC_CTRL_RX_EN | ALX_MAC_CTRL_BRD_EN;
- 		if (hw->sleep_ctrl & ALX_SLEEP_CIFS)
- 			mac |= ALX_MAC_CTRL_TX_EN;
--		if (speed % 10 == DUPLEX_FULL)
-+		if (duplex == DUPLEX_FULL)
- 			mac |= ALX_MAC_CTRL_FULLD;
--		if (speed >= SPEED_1000)
-+		if (speed == SPEED_1000)
- 			ALX_SET_FIELD(mac, ALX_MAC_CTRL_SPEED,
- 				      ALX_MAC_CTRL_SPEED_1000);
- 		phy |= ALX_PHY_CTRL_DSPRST_OUT;
-@@ -938,7 +932,7 @@ bool alx_phy_configured(struct alx_hw *hw)
- 	return cfg == hw_cfg;
+@@ -201,40 +201,6 @@ static void alx_set_msglevel(struct net_device *netdev, u32 data)
+ 	alx->msg_enable = data;
  }
  
--int alx_get_phy_link(struct alx_hw *hw, int *speed)
-+int alx_read_phy_link(struct alx_hw *hw)
- {
- 	struct pci_dev *pdev = hw->pdev;
- 	u16 bmsr, giga;
-@@ -953,7 +947,8 @@ int alx_get_phy_link(struct alx_hw *hw, int *speed)
- 		return err;
- 
- 	if (!(bmsr & BMSR_LSTATUS)) {
--		*speed = SPEED_UNKNOWN;
-+		hw->link_speed = SPEED_UNKNOWN;
-+		hw->duplex = DUPLEX_UNKNOWN;
- 		return 0;
- 	}
- 
-@@ -967,20 +962,20 @@ int alx_get_phy_link(struct alx_hw *hw, int *speed)
- 
- 	switch (giga & ALX_GIGA_PSSR_SPEED) {
- 	case ALX_GIGA_PSSR_1000MBS:
--		*speed = SPEED_1000;
-+		hw->link_speed = SPEED_1000;
- 		break;
- 	case ALX_GIGA_PSSR_100MBS:
--		*speed = SPEED_100;
-+		hw->link_speed = SPEED_100;
- 		break;
- 	case ALX_GIGA_PSSR_10MBS:
--		*speed = SPEED_10;
-+		hw->link_speed = SPEED_10;
- 		break;
- 	default:
- 		goto wrong_speed;
- 	}
- 
--	*speed += (giga & ALX_GIGA_PSSR_DPLX) ? DUPLEX_FULL : DUPLEX_HALF;
--	return 1;
-+	hw->duplex = (giga & ALX_GIGA_PSSR_DPLX) ? DUPLEX_FULL : DUPLEX_HALF;
-+	return 0;
- 
- wrong_speed:
- 	dev_err(&pdev->dev, "invalid PHY speed/duplex: 0x%x\n", giga);
-@@ -1126,81 +1121,67 @@ void alx_configure_basic(struct alx_hw *hw)
- 	alx_write_mem32(hw, ALX_WRR, val);
- }
- 
--static inline u32 alx_speed_to_ethadv(int speed)
+-static void alx_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
 -{
--	switch (speed) {
--	case SPEED_1000 + DUPLEX_FULL:
--		return ADVERTISED_1000baseT_Full;
--	case SPEED_100 + DUPLEX_FULL:
--		return ADVERTISED_100baseT_Full;
--	case SPEED_100 + DUPLEX_HALF:
--		return ADVERTISED_100baseT_Half;
--	case SPEED_10 + DUPLEX_FULL:
--		return ADVERTISED_10baseT_Full;
--	case SPEED_10 + DUPLEX_HALF:
--		return ADVERTISED_10baseT_Half;
--	default:
--		return 0;
--	}
+-	struct alx_priv *alx = netdev_priv(netdev);
+-	struct alx_hw *hw = &alx->hw;
+-
+-	wol->supported = WAKE_MAGIC | WAKE_PHY;
+-	wol->wolopts = 0;
+-
+-	if (hw->sleep_ctrl & ALX_SLEEP_WOL_MAGIC)
+-		wol->wolopts |= WAKE_MAGIC;
+-	if (hw->sleep_ctrl & ALX_SLEEP_WOL_PHY)
+-		wol->wolopts |= WAKE_PHY;
 -}
 -
--int alx_select_powersaving_speed(struct alx_hw *hw, int *speed)
-+int alx_select_powersaving_speed(struct alx_hw *hw, int *speed, u8 *duplex)
- {
--	int i, err, spd;
-+	int i, err;
- 	u16 lpa;
- 
--	err = alx_get_phy_link(hw, &spd);
--	if (err < 0)
-+	err = alx_read_phy_link(hw);
-+	if (err)
- 		return err;
- 
--	if (spd == SPEED_UNKNOWN)
-+	if (hw->link_speed == SPEED_UNKNOWN) {
-+		*speed = SPEED_UNKNOWN;
-+		*duplex = DUPLEX_UNKNOWN;
- 		return 0;
-+	}
- 
- 	err = alx_read_phy_reg(hw, MII_LPA, &lpa);
- 	if (err)
- 		return err;
- 
- 	if (!(lpa & LPA_LPACK)) {
--		*speed = spd;
-+		*speed = hw->link_speed;
- 		return 0;
- 	}
- 
--	if (lpa & LPA_10FULL)
--		*speed = SPEED_10 + DUPLEX_FULL;
--	else if (lpa & LPA_10HALF)
--		*speed = SPEED_10 + DUPLEX_HALF;
--	else if (lpa & LPA_100FULL)
--		*speed = SPEED_100 + DUPLEX_FULL;
--	else
--		*speed = SPEED_100 + DUPLEX_HALF;
+-static int alx_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
+-{
+-	struct alx_priv *alx = netdev_priv(netdev);
+-	struct alx_hw *hw = &alx->hw;
 -
--	if (*speed != spd) {
+-	if (wol->wolopts & ~(WAKE_MAGIC | WAKE_PHY))
+-		return -EOPNOTSUPP;
+-
+-	hw->sleep_ctrl = 0;
+-
+-	if (wol->wolopts & WAKE_MAGIC)
+-		hw->sleep_ctrl |= ALX_SLEEP_WOL_MAGIC;
+-	if (wol->wolopts & WAKE_PHY)
+-		hw->sleep_ctrl |= ALX_SLEEP_WOL_PHY;
+-
+-	device_set_wakeup_enable(&alx->hw.pdev->dev, hw->sleep_ctrl);
+-
+-	return 0;
+-}
+-
+ const struct ethtool_ops alx_ethtool_ops = {
+ 	.get_settings	= alx_get_settings,
+ 	.set_settings	= alx_set_settings,
+@@ -242,7 +208,5 @@ const struct ethtool_ops alx_ethtool_ops = {
+ 	.set_pauseparam	= alx_set_pauseparam,
+ 	.get_msglevel	= alx_get_msglevel,
+ 	.set_msglevel	= alx_set_msglevel,
+-	.get_wol	= alx_get_wol,
+-	.set_wol	= alx_set_wol,
+ 	.get_link	= ethtool_op_get_link,
+ };
+diff --git a/drivers/net/ethernet/atheros/alx/hw.c b/drivers/net/ethernet/atheros/alx/hw.c
+index ea99e5d..1e8c24a 100644
+--- a/drivers/net/ethernet/atheros/alx/hw.c
++++ b/drivers/net/ethernet/atheros/alx/hw.c
+@@ -332,16 +332,6 @@ void alx_set_macaddr(struct alx_hw *hw, const u8 *addr)
+ 	alx_write_mem32(hw, ALX_STAD1, val);
+ }
+ 
+-static void alx_enable_osc(struct alx_hw *hw)
+-{
+-	u32 val;
+-
+-	/* rising edge */
+-	val = alx_read_mem32(hw, ALX_MISC);
+-	alx_write_mem32(hw, ALX_MISC, val & ~ALX_MISC_INTNLOSC_OPEN);
+-	alx_write_mem32(hw, ALX_MISC, val | ALX_MISC_INTNLOSC_OPEN);
+-}
+-
+ static void alx_reset_osc(struct alx_hw *hw, u8 rev)
+ {
+ 	u32 val, val2;
+@@ -858,66 +848,6 @@ void alx_post_phy_link(struct alx_hw *hw)
+ 	}
+ }
+ 
+-
+-/* NOTE:
+- *    1. phy link must be established before calling this function
+- *    2. wol option (pattern,magic,link,etc.) is configed before call it.
+- */
+-int alx_pre_suspend(struct alx_hw *hw, int speed, u8 duplex)
+-{
+-	u32 master, mac, phy, val;
+-	int err = 0;
+-
+-	master = alx_read_mem32(hw, ALX_MASTER);
+-	master &= ~ALX_MASTER_PCLKSEL_SRDS;
+-	mac = hw->rx_ctrl;
+-	/* 10/100 half */
+-	ALX_SET_FIELD(mac, ALX_MAC_CTRL_SPEED,  ALX_MAC_CTRL_SPEED_10_100);
+-	mac &= ~(ALX_MAC_CTRL_FULLD | ALX_MAC_CTRL_RX_EN | ALX_MAC_CTRL_TX_EN);
+-
+-	phy = alx_read_mem32(hw, ALX_PHY_CTRL);
+-	phy &= ~(ALX_PHY_CTRL_DSPRST_OUT | ALX_PHY_CTRL_CLS);
+-	phy |= ALX_PHY_CTRL_RST_ANALOG | ALX_PHY_CTRL_HIB_PULSE |
+-	       ALX_PHY_CTRL_HIB_EN;
+-
+-	/* without any activity  */
+-	if (!(hw->sleep_ctrl & ALX_SLEEP_ACTIVE)) {
 -		err = alx_write_phy_reg(hw, ALX_MII_IER, 0);
 -		if (err)
 -			return err;
--		err = alx_setup_speed_duplex(hw,
--					     alx_speed_to_ethadv(*speed) |
--					     ADVERTISED_Autoneg,
--					     ALX_FC_ANEG | ALX_FC_RX |
--					     ALX_FC_TX);
+-		phy |= ALX_PHY_CTRL_IDDQ | ALX_PHY_CTRL_POWER_DOWN;
+-	} else {
+-		if (hw->sleep_ctrl & (ALX_SLEEP_WOL_MAGIC | ALX_SLEEP_CIFS))
+-			mac |= ALX_MAC_CTRL_RX_EN | ALX_MAC_CTRL_BRD_EN;
+-		if (hw->sleep_ctrl & ALX_SLEEP_CIFS)
+-			mac |= ALX_MAC_CTRL_TX_EN;
+-		if (duplex == DUPLEX_FULL)
+-			mac |= ALX_MAC_CTRL_FULLD;
+-		if (speed == SPEED_1000)
+-			ALX_SET_FIELD(mac, ALX_MAC_CTRL_SPEED,
+-				      ALX_MAC_CTRL_SPEED_1000);
+-		phy |= ALX_PHY_CTRL_DSPRST_OUT;
+-		err = alx_write_phy_ext(hw, ALX_MIIEXT_ANEG,
+-					ALX_MIIEXT_S3DIG10,
+-					ALX_MIIEXT_S3DIG10_SL);
 -		if (err)
 -			return err;
-+	if (lpa & LPA_10FULL) {
-+		*speed = SPEED_10;
-+		*duplex = DUPLEX_FULL;
-+	} else if (lpa & LPA_10HALF) {
-+		*speed = SPEED_10;
-+		*duplex = DUPLEX_HALF;
-+	} else if (lpa & LPA_100FULL) {
-+		*speed = SPEED_100;
-+		*duplex = DUPLEX_FULL;
-+	} else {
-+		*speed = SPEED_100;
-+		*duplex = DUPLEX_HALF;
-+	}
- 
--		/* wait for linkup */
--		for (i = 0; i < ALX_MAX_SETUP_LNK_CYCLE; i++) {
--			int speed2;
-+	if (*speed == hw->link_speed && *duplex == hw->duplex)
-+		return 0;
-+	err = alx_write_phy_reg(hw, ALX_MII_IER, 0);
-+	if (err)
-+		return err;
-+	err = alx_setup_speed_duplex(hw, alx_speed_to_ethadv(*speed, *duplex) |
-+					 ADVERTISED_Autoneg, ALX_FC_ANEG |
-+					 ALX_FC_RX | ALX_FC_TX);
-+	if (err)
-+		return err;
- 
--			msleep(100);
-+	/* wait for linkup */
-+	for (i = 0; i < ALX_MAX_SETUP_LNK_CYCLE; i++) {
-+		msleep(100);
- 
--			err = alx_get_phy_link(hw, &speed2);
--			if (err < 0)
--				return err;
--			if (speed2 != SPEED_UNKNOWN)
--				break;
--		}
--		if (i == ALX_MAX_SETUP_LNK_CYCLE)
--			return -ETIMEDOUT;
-+		err = alx_read_phy_link(hw);
-+		if (err < 0)
-+			return err;
-+		if (hw->link_speed != SPEED_UNKNOWN)
-+			break;
- 	}
-+	if (i == ALX_MAX_SETUP_LNK_CYCLE)
-+		return -ETIMEDOUT;
- 
- 	return 0;
+-	}
+-
+-	alx_enable_osc(hw);
+-	hw->rx_ctrl = mac;
+-	alx_write_mem32(hw, ALX_MASTER, master);
+-	alx_write_mem32(hw, ALX_MAC_CTRL, mac);
+-	alx_write_mem32(hw, ALX_PHY_CTRL, phy);
+-
+-	/* set val of PDLL D3PLLOFF */
+-	val = alx_read_mem32(hw, ALX_PDLL_TRNS1);
+-	val |= ALX_PDLL_TRNS1_D3PLLOFF_EN;
+-	alx_write_mem32(hw, ALX_PDLL_TRNS1, val);
+-
+-	return 0;
+-}
+-
+ bool alx_phy_configured(struct alx_hw *hw)
+ {
+ 	u32 cfg, hw_cfg;
+@@ -990,26 +920,6 @@ int alx_clear_phy_intr(struct alx_hw *hw)
+ 	return alx_read_phy_reg(hw, ALX_MII_ISR, &isr);
  }
+ 
+-int alx_config_wol(struct alx_hw *hw)
+-{
+-	u32 wol = 0;
+-	int err = 0;
+-
+-	/* turn on magic packet event */
+-	if (hw->sleep_ctrl & ALX_SLEEP_WOL_MAGIC)
+-		wol |= ALX_WOL0_MAGIC_EN | ALX_WOL0_PME_MAGIC_EN;
+-
+-	/* turn on link up event */
+-	if (hw->sleep_ctrl & ALX_SLEEP_WOL_PHY) {
+-		wol |=  ALX_WOL0_LINK_EN | ALX_WOL0_PME_LINK;
+-		/* only link up can wake up */
+-		err = alx_write_phy_reg(hw, ALX_MII_IER, ALX_IER_LINK_UP);
+-	}
+-	alx_write_mem32(hw, ALX_WOL0, wol);
+-
+-	return err;
+-}
+-
+ void alx_disable_rss(struct alx_hw *hw)
+ {
+ 	u32 ctrl = alx_read_mem32(hw, ALX_RXQ0);
+@@ -1121,71 +1031,6 @@ void alx_configure_basic(struct alx_hw *hw)
+ 	alx_write_mem32(hw, ALX_WRR, val);
+ }
+ 
+-int alx_select_powersaving_speed(struct alx_hw *hw, int *speed, u8 *duplex)
+-{
+-	int i, err;
+-	u16 lpa;
+-
+-	err = alx_read_phy_link(hw);
+-	if (err)
+-		return err;
+-
+-	if (hw->link_speed == SPEED_UNKNOWN) {
+-		*speed = SPEED_UNKNOWN;
+-		*duplex = DUPLEX_UNKNOWN;
+-		return 0;
+-	}
+-
+-	err = alx_read_phy_reg(hw, MII_LPA, &lpa);
+-	if (err)
+-		return err;
+-
+-	if (!(lpa & LPA_LPACK)) {
+-		*speed = hw->link_speed;
+-		return 0;
+-	}
+-
+-	if (lpa & LPA_10FULL) {
+-		*speed = SPEED_10;
+-		*duplex = DUPLEX_FULL;
+-	} else if (lpa & LPA_10HALF) {
+-		*speed = SPEED_10;
+-		*duplex = DUPLEX_HALF;
+-	} else if (lpa & LPA_100FULL) {
+-		*speed = SPEED_100;
+-		*duplex = DUPLEX_FULL;
+-	} else {
+-		*speed = SPEED_100;
+-		*duplex = DUPLEX_HALF;
+-	}
+-
+-	if (*speed == hw->link_speed && *duplex == hw->duplex)
+-		return 0;
+-	err = alx_write_phy_reg(hw, ALX_MII_IER, 0);
+-	if (err)
+-		return err;
+-	err = alx_setup_speed_duplex(hw, alx_speed_to_ethadv(*speed, *duplex) |
+-					 ADVERTISED_Autoneg, ALX_FC_ANEG |
+-					 ALX_FC_RX | ALX_FC_TX);
+-	if (err)
+-		return err;
+-
+-	/* wait for linkup */
+-	for (i = 0; i < ALX_MAX_SETUP_LNK_CYCLE; i++) {
+-		msleep(100);
+-
+-		err = alx_read_phy_link(hw);
+-		if (err < 0)
+-			return err;
+-		if (hw->link_speed != SPEED_UNKNOWN)
+-			break;
+-	}
+-	if (i == ALX_MAX_SETUP_LNK_CYCLE)
+-		return -ETIMEDOUT;
+-
+-	return 0;
+-}
+-
+ bool alx_get_phy_info(struct alx_hw *hw)
+ {
+ 	u16  devs1, devs2;
 diff --git a/drivers/net/ethernet/atheros/alx/hw.h b/drivers/net/ethernet/atheros/alx/hw.h
-index 65e723d..a60e35c 100644
+index a60e35c..96f3b43 100644
 --- a/drivers/net/ethernet/atheros/alx/hw.h
 +++ b/drivers/net/ethernet/atheros/alx/hw.h
-@@ -412,10 +412,11 @@ struct alx_hw {
- 	u32 smb_timer;
- 	/* SPEED_* + DUPLEX_*, SPEED_UNKNOWN if link is down */
- 	int link_speed;
-+	u8 duplex;
- 
- 	/* auto-neg advertisement or force mode config */
--	u32 adv_cfg;
+@@ -418,8 +418,6 @@ struct alx_hw {
  	u8 flowctrl;
-+	u32 adv_cfg;
+ 	u32 adv_cfg;
  
- 	u32 sleep_ctrl;
- 
-@@ -478,12 +479,12 @@ void alx_reset_pcie(struct alx_hw *hw);
+-	u32 sleep_ctrl;
+-
+ 	spinlock_t mdio_lock;
+ 	struct mdio_if_info mdio;
+ 	u16 phy_id[2];
+@@ -479,14 +477,12 @@ void alx_reset_pcie(struct alx_hw *hw);
  void alx_enable_aspm(struct alx_hw *hw, bool l0s_en, bool l1_en);
  int alx_setup_speed_duplex(struct alx_hw *hw, u32 ethadv, u8 flowctrl);
  void alx_post_phy_link(struct alx_hw *hw);
--int alx_pre_suspend(struct alx_hw *hw, int speed);
-+int alx_pre_suspend(struct alx_hw *hw, int speed, u8 duplex);
+-int alx_pre_suspend(struct alx_hw *hw, int speed, u8 duplex);
  int alx_read_phy_reg(struct alx_hw *hw, u16 reg, u16 *phy_data);
  int alx_write_phy_reg(struct alx_hw *hw, u16 reg, u16 phy_data);
  int alx_read_phy_ext(struct alx_hw *hw, u8 dev, u16 reg, u16 *pdata);
  int alx_write_phy_ext(struct alx_hw *hw, u8 dev, u16 reg, u16 data);
--int alx_get_phy_link(struct alx_hw *hw, int *speed);
-+int alx_read_phy_link(struct alx_hw *hw);
+ int alx_read_phy_link(struct alx_hw *hw);
  int alx_clear_phy_intr(struct alx_hw *hw);
- int alx_config_wol(struct alx_hw *hw);
+-int alx_config_wol(struct alx_hw *hw);
  void alx_cfg_mac_flowcontrol(struct alx_hw *hw, u8 fc);
-@@ -493,7 +494,22 @@ void alx_set_macaddr(struct alx_hw *hw, const u8 *addr);
+ void alx_start_mac(struct alx_hw *hw);
+ int alx_reset_mac(struct alx_hw *hw);
+@@ -494,7 +490,6 @@ void alx_set_macaddr(struct alx_hw *hw, const u8 *addr);
  bool alx_phy_configured(struct alx_hw *hw);
  void alx_configure_basic(struct alx_hw *hw);
  void alx_disable_rss(struct alx_hw *hw);
--int alx_select_powersaving_speed(struct alx_hw *hw, int *speed);
-+int alx_select_powersaving_speed(struct alx_hw *hw, int *speed, u8 *duplex);
+-int alx_select_powersaving_speed(struct alx_hw *hw, int *speed, u8 *duplex);
  bool alx_get_phy_info(struct alx_hw *hw);
  
-+static inline u32 alx_speed_to_ethadv(int speed, u8 duplex)
-+{
-+	if (speed == SPEED_1000 && duplex == DUPLEX_FULL)
-+		return ADVERTISED_1000baseT_Full;
-+	if (speed == SPEED_100 && duplex == DUPLEX_FULL)
-+		return ADVERTISED_100baseT_Full;
-+	if (speed == SPEED_100 && duplex== DUPLEX_HALF)
-+		return ADVERTISED_100baseT_Half;
-+	if (speed == SPEED_10 && duplex == DUPLEX_FULL)
-+		return ADVERTISED_10baseT_Full;
-+	if (speed == SPEED_10 && duplex == DUPLEX_HALF)
-+		return ADVERTISED_10baseT_Half;
-+	return 0;
-+}
-+
- #endif
+ static inline u32 alx_speed_to_ethadv(int speed, u8 duplex)
 diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
-index 418de8b..148b4b9 100644
+index 148b4b9..e2f4178 100644
 --- a/drivers/net/ethernet/atheros/alx/main.c
 +++ b/drivers/net/ethernet/atheros/alx/main.c
-@@ -712,6 +712,7 @@ static int alx_init_sw(struct alx_priv *alx)
+@@ -706,7 +706,6 @@ static int alx_init_sw(struct alx_priv *alx)
+ 	alx->rxbuf_size = ALIGN(ALX_RAW_MTU(hw->mtu), 8);
+ 	alx->tx_ringsz = 256;
+ 	alx->rx_ringsz = 512;
+-	hw->sleep_ctrl = ALX_SLEEP_WOL_MAGIC | ALX_SLEEP_WOL_PHY;
+ 	hw->imt = 200;
+ 	alx->int_mask = ALX_ISR_MISC;
  	hw->dma_chnl = hw->max_dma_chnl;
- 	hw->ith_tpd = alx->tx_ringsz / 3;
- 	hw->link_speed = SPEED_UNKNOWN;
-+	hw->duplex = DUPLEX_UNKNOWN;
- 	hw->adv_cfg = ADVERTISED_Autoneg |
- 		      ADVERTISED_10baseT_Half |
- 		      ADVERTISED_10baseT_Full |
-@@ -758,6 +759,7 @@ static void alx_halt(struct alx_priv *alx)
- 
- 	alx_netif_stop(alx);
- 	hw->link_speed = SPEED_UNKNOWN;
-+	hw->duplex = DUPLEX_UNKNOWN;
- 
- 	alx_reset_mac(hw);
- 
-@@ -869,18 +871,18 @@ static void __alx_stop(struct alx_priv *alx)
- 	alx_free_rings(alx);
+@@ -961,66 +960,6 @@ static int alx_stop(struct net_device *netdev)
+ 	return 0;
  }
  
--static const char *alx_speed_desc(u16 speed)
-+static const char *alx_speed_desc(struct alx_hw *hw)
- {
--	switch (speed) {
--	case SPEED_1000 + DUPLEX_FULL:
-+	switch (alx_speed_to_ethadv(hw->link_speed, hw->duplex)) {
-+	case ADVERTISED_1000baseT_Full:
- 		return "1 Gbps Full";
--	case SPEED_100 + DUPLEX_FULL:
-+	case ADVERTISED_100baseT_Full:
- 		return "100 Mbps Full";
--	case SPEED_100 + DUPLEX_HALF:
-+	case ADVERTISED_100baseT_Half:
- 		return "100 Mbps Half";
--	case SPEED_10 + DUPLEX_FULL:
-+	case ADVERTISED_10baseT_Full:
- 		return "10 Mbps Full";
--	case SPEED_10 + DUPLEX_HALF:
-+	case ADVERTISED_10baseT_Half:
- 		return "10 Mbps Half";
- 	default:
- 		return "Unknown speed";
-@@ -891,7 +893,8 @@ static void alx_check_link(struct alx_priv *alx)
- {
- 	struct alx_hw *hw = &alx->hw;
- 	unsigned long flags;
--	int speed, old_speed;
-+	int old_speed;
-+	u8 old_duplex;
- 	int err;
- 
- 	/* clear PHY internal interrupt status, otherwise the main
-@@ -899,7 +902,9 @@ static void alx_check_link(struct alx_priv *alx)
- 	 */
- 	alx_clear_phy_intr(hw);
- 
--	err = alx_get_phy_link(hw, &speed);
-+	old_speed = hw->link_speed;
-+	old_duplex = hw->duplex;
-+	err = alx_read_phy_link(hw);
- 	if (err < 0)
- 		goto reset;
- 
-@@ -908,15 +913,12 @@ static void alx_check_link(struct alx_priv *alx)
- 	alx_write_mem32(hw, ALX_IMR, alx->int_mask);
- 	spin_unlock_irqrestore(&alx->irq_lock, flags);
- 
--	old_speed = hw->link_speed;
+-static int __alx_shutdown(struct pci_dev *pdev, bool *wol_en)
+-{
+-	struct alx_priv *alx = pci_get_drvdata(pdev);
+-	struct net_device *netdev = alx->dev;
+-	struct alx_hw *hw = &alx->hw;
+-	int err, speed;
+-	u8 duplex;
 -
--	if (old_speed == speed)
-+	if (old_speed == hw->link_speed)
- 		return;
--	hw->link_speed = speed;
+-	netif_device_detach(netdev);
+-
+-	if (netif_running(netdev))
+-		__alx_stop(alx);
+-
+-#ifdef CONFIG_PM_SLEEP
+-	err = pci_save_state(pdev);
+-	if (err)
+-		return err;
+-#endif
+-
+-	err = alx_select_powersaving_speed(hw, &speed, &duplex);
+-	if (err)
+-		return err;
+-	err = alx_clear_phy_intr(hw);
+-	if (err)
+-		return err;
+-	err = alx_pre_suspend(hw, speed, duplex);
+-	if (err)
+-		return err;
+-	err = alx_config_wol(hw);
+-	if (err)
+-		return err;
+-
+-	*wol_en = false;
+-	if (hw->sleep_ctrl & ALX_SLEEP_ACTIVE) {
+-		netif_info(alx, wol, netdev,
+-			   "wol: ctrl=%X, speed=%X\n",
+-			   hw->sleep_ctrl, speed);
+-		device_set_wakeup_enable(&pdev->dev, true);
+-		*wol_en = true;
+-	}
+-
+-	pci_disable_device(pdev);
+-
+-	return 0;
+-}
+-
+-static void alx_shutdown(struct pci_dev *pdev)
+-{
+-	int err;
+-	bool wol_en;
+-
+-	err = __alx_shutdown(pdev, &wol_en);
+-	if (!err) {
+-		pci_wake_from_d3(pdev, wol_en);
+-		pci_set_power_state(pdev, PCI_D3hot);
+-	} else {
+-		dev_err(&pdev->dev, "shutdown fail %d\n", err);
+-	}
+-}
+-
+ static void alx_link_check(struct work_struct *work)
+ {
+ 	struct alx_priv *alx;
+@@ -1399,8 +1338,6 @@ static int alx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto out_unmap;
+ 	}
  
--	if (speed != SPEED_UNKNOWN) {
-+	if (hw->link_speed != SPEED_UNKNOWN) {
- 		netif_info(alx, link, alx->dev,
--			   "NIC Up: %s\n", alx_speed_desc(speed));
-+			   "NIC Up: %s\n", alx_speed_desc(hw));
- 		alx_post_phy_link(hw);
- 		alx_enable_aspm(hw, true, true);
- 		alx_start_mac(hw);
-@@ -965,6 +967,7 @@ static int __alx_shutdown(struct pci_dev *pdev, bool *wol_en)
- 	struct net_device *netdev = alx->dev;
- 	struct alx_hw *hw = &alx->hw;
- 	int err, speed;
-+	u8 duplex;
+-	device_set_wakeup_enable(&pdev->dev, hw->sleep_ctrl);
+-
+ 	netdev_info(netdev,
+ 		    "Qualcomm Atheros AR816x/AR817x Ethernet [%pM]\n",
+ 		    netdev->dev_addr);
+@@ -1441,76 +1378,6 @@ static void alx_remove(struct pci_dev *pdev)
+ 	free_netdev(alx->dev);
+ }
  
- 	netif_device_detach(netdev);
+-#ifdef CONFIG_PM_SLEEP
+-static int alx_suspend(struct device *dev)
+-{
+-	struct pci_dev *pdev = to_pci_dev(dev);
+-	int err;
+-	bool wol_en;
+-
+-	err = __alx_shutdown(pdev, &wol_en);
+-	if (err) {
+-		dev_err(&pdev->dev, "shutdown fail in suspend %d\n", err);
+-		return err;
+-	}
+-
+-	if (wol_en) {
+-		pci_prepare_to_sleep(pdev);
+-	} else {
+-		pci_wake_from_d3(pdev, false);
+-		pci_set_power_state(pdev, PCI_D3hot);
+-	}
+-
+-	return 0;
+-}
+-
+-static int alx_resume(struct device *dev)
+-{
+-	struct pci_dev *pdev = to_pci_dev(dev);
+-	struct alx_priv *alx = pci_get_drvdata(pdev);
+-	struct net_device *netdev = alx->dev;
+-	struct alx_hw *hw = &alx->hw;
+-	int err;
+-
+-	pci_set_power_state(pdev, PCI_D0);
+-	pci_restore_state(pdev);
+-	pci_save_state(pdev);
+-
+-	pci_enable_wake(pdev, PCI_D3hot, 0);
+-	pci_enable_wake(pdev, PCI_D3cold, 0);
+-
+-	hw->link_speed = SPEED_UNKNOWN;
+-	alx->int_mask = ALX_ISR_MISC;
+-
+-	alx_reset_pcie(hw);
+-	alx_reset_phy(hw);
+-
+-	err = alx_reset_mac(hw);
+-	if (err) {
+-		netif_err(alx, hw, alx->dev,
+-			  "resume:reset_mac fail %d\n", err);
+-		return -EIO;
+-	}
+-
+-	err = alx_setup_speed_duplex(hw, hw->adv_cfg, hw->flowctrl);
+-	if (err) {
+-		netif_err(alx, hw, alx->dev,
+-			  "resume:setup_speed_duplex fail %d\n", err);
+-		return -EIO;
+-	}
+-
+-	if (netif_running(netdev)) {
+-		err = __alx_open(alx, true);
+-		if (err)
+-			return err;
+-	}
+-
+-	netif_device_attach(netdev);
+-
+-	return err;
+-}
+-#endif
+-
+ static pci_ers_result_t alx_pci_error_detected(struct pci_dev *pdev,
+ 					       pci_channel_state_t state)
+ {
+@@ -1553,8 +1420,6 @@ static pci_ers_result_t alx_pci_error_slot_reset(struct pci_dev *pdev)
+ 	}
  
-@@ -977,13 +980,13 @@ static int __alx_shutdown(struct pci_dev *pdev, bool *wol_en)
- 		return err;
- #endif
+ 	pci_set_master(pdev);
+-	pci_enable_wake(pdev, PCI_D3hot, 0);
+-	pci_enable_wake(pdev, PCI_D3cold, 0);
  
--	err = alx_select_powersaving_speed(hw, &speed);
-+	err = alx_select_powersaving_speed(hw, &speed, &duplex);
- 	if (err)
- 		return err;
- 	err = alx_clear_phy_intr(hw);
- 	if (err)
- 		return err;
--	err = alx_pre_suspend(hw, speed);
-+	err = alx_pre_suspend(hw, speed, duplex);
- 	if (err)
- 		return err;
- 	err = alx_config_wol(hw);
+ 	alx_reset_pcie(hw);
+ 	if (!alx_reset_mac(hw))
+@@ -1590,13 +1455,6 @@ static const struct pci_error_handlers alx_err_handlers = {
+ 	.resume         = alx_pci_error_resume,
+ };
+ 
+-#ifdef CONFIG_PM_SLEEP
+-static SIMPLE_DEV_PM_OPS(alx_pm_ops, alx_suspend, alx_resume);
+-#define ALX_PM_OPS      (&alx_pm_ops)
+-#else
+-#define ALX_PM_OPS      NULL
+-#endif
+-
+ static DEFINE_PCI_DEVICE_TABLE(alx_pci_tbl) = {
+ 	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_AR8161),
+ 	  .driver_data = ALX_DEV_QUIRK_MSI_INTX_DISABLE_BUG },
+@@ -1614,9 +1472,7 @@ static struct pci_driver alx_driver = {
+ 	.id_table    = alx_pci_tbl,
+ 	.probe       = alx_probe,
+ 	.remove      = alx_remove,
+-	.shutdown    = alx_shutdown,
+ 	.err_handler = &alx_err_handlers,
+-	.driver.pm   = ALX_PM_OPS,
+ };
+ 
+ module_pci_driver(alx_driver);
 -- 
 1.8.0
