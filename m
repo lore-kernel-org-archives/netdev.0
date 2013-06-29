@@ -1,54 +1,87 @@
-From: Dmitry Kravkov <dkravkov@gmail.com>
-Subject: Re: [Patch net-next v3] gre: fix a regression in ioctl
-Date: Sat, 29 Jun 2013 21:42:48 +0300
-Message-ID: <CAM8tLiP=Y5BM7q3nGzi+J6JGRYTJ8qazpVB-n9+pFhA2ko-+sA@mail.gmail.com>
-References: <CALnjE+qo33kqer_JQVwC+FDpmrSYpU2WkiYqeN6R11OWQkocug@mail.gmail.com>
-	<1372478579-6548-1-git-send-email-amwang@redhat.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: Using sched_clock() for polling time limit
+Date: Sat, 29 Jun 2013 21:50:48 +0300
+Message-ID: <51CF2C88.4030900@linux.intel.com>
+References: <20130628125918.14419.36214.stgit@ladj378.jer.intel.com>  <20130628125926.14419.89905.stgit@ladj378.jer.intel.com> <1372438309.1937.9.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f181.google.com ([209.85.128.181]:45724 "EHLO
-	mail-ve0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752707Ab3F2Smt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 14:42:49 -0400
-Received: by mail-ve0-f181.google.com with SMTP id db10so2688833veb.26
-        for <netdev@vger.kernel.org>; Sat, 29 Jun 2013 11:42:48 -0700 (PDT)
-In-Reply-To: <1372478579-6548-1-git-send-email-amwang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Willem de Bruijn <willemb@google.com>,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Cody P Schafer <devel-lists@codyps.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1372438309.1937.9.camel@bwh-desktop.uk.level5networks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 29, 2013 at 7:02 AM, Cong Wang <amwang@redhat.com> wrote:
-> From: Cong Wang <amwang@redhat.com>
+On 28/06/2013 19:51, Ben Hutchings wrote:
+> On Fri, 2013-06-28 at 15:59 +0300, Eliezer Tamir wrote:
+>> Our use of sched_clock is OK because we don't mind the side effects
+>> of calling it and occasionally waking up on a different CPU.
 >
-> When testing GRE tunnel, I got:
+> Sure about that?  Jitter matters too.
 >
->  # ip tunnel show
->  get tunnel gre0 failed: Invalid argument
->  get tunnel gre1 failed: Invalid argument
->
-> This is a regression introduced by commit c54419321455631079c7d
-> ("GRE: Refactor GRE tunneling code.") because previously we
-> only check the parameters for SIOCADDTUNNEL and SIOCCHGTUNNEL,
-> after that commit, the check is moved for all commands.
->
-> So, just check for SIOCADDTUNNEL and SIOCCHGTUNNEL.
->
-> After this patch I got:
->
->  # ip tunnel show
->  gre0: gre/ip  remote any  local any  ttl inherit  nopmtudisc
->  gre1: gre/ip  remote 192.168.122.101  local 192.168.122.45  ttl inherit
->
-> Cc: Pravin B Shelar <pshelar@nicira.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
-> ---
-> v2: check TUNNEL_* flags
-> v3: the check should be kept in gre module
->
+Pretty sure, this is a limit on how long we poll, it's for fairness to
+the rest of the system not for performance of this code.
 
-Shouldn't this be addressed in net-tree?
+What matters is that on average you are bounded by something close to
+what the user specified. If once in a while you run less because of
+clock jitter, or even twice the specified time, it's no big deal.
+
+So I don't see how jitter would matter.
+
+And if your workload is jitter sensitive, you should probably be
+pinning tasks to CPUs anyway.
+
+
+>> When CONFIG_DEBUG_PREEMPT is on, disable preempt before calling
+>> sched_clock() so we don't trigger a debug_smp_processor_id() warning.
+> [...]
+>
+> I think this is papering over a problem.  The warning is there for a
+> good reason.
+
+I think we understand the warning, and that we are OK with the effects.
+
+looking at how other users in the kernel solved this issue
+It seems like this is what they do.
+for example trace/ring_buffer.c:ring_buffer_time_Stamp()
+
+Also kvm_clock_read() and xen_clokcsource_read() seem to disable preempt
+just to silence this warning.
+
+If they really cared about reading the value on one CPU, then being
+scheduled on another they should have disabled interrupts.
+or am I missing something?
+
+> Would functions like these make it possible to use sched_clock() safely
+> for polling?  (I didn't spend much time thinking about the names.)
+>
+> struct sched_timestamp {
+> 	int cpu;
+> 	unsigned long long clock;
+> };
+>
+> static inline struct sched_timestamp sched_get_timestamp(void)
+> {
+> 	struct sched_timestamp ret;
+>
+> 	preempt_disable_notrace();
+> 	ret.cpu = smp_processor_id();
+> 	ret.clock = sched_clock();
+> 	preempt_enable_no_resched_notrace();
+>
+> 	return ret;
+> }
+
+I don't understand, preempt_disable() only makes prevents preempt
+from taking the CPU away from you, you could still lose it for
+other reasons.
+You would really need to disable interrupts in this region to be
+sure that it all executed on the same CPU.
+
+-Eliezer
