@@ -1,33 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH for/net-next 3/8] net/mlx5: Mellanox Connect-IB, core
- driver part 3/3
-Date: Fri, 28 Jun 2013 21:10:41 -0700 (PDT)
-Message-ID: <20130628.211041.256072234719301298.davem@davemloft.net>
-References: <1372256537-21328-1-git-send-email-ogerlitz@mellanox.com>
-	<1372256537-21328-4-git-send-email-ogerlitz@mellanox.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: roland@kernel.org, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, eli@dev.mellanox.co.il,
-	moshel@mellanox.com, eli@mellanox.com
-To: ogerlitz@mellanox.com
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next] ipip: fix a regression in ioctl
+Date: Sat, 29 Jun 2013 12:11:55 +0800
+Message-ID: <1372479115-7003-1-git-send-email-amwang@redhat.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46111 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750795Ab3F2EKm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 00:10:42 -0400
-In-Reply-To: <1372256537-21328-4-git-send-email-ogerlitz@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:65529 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750795Ab3F2EMI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Jun 2013 00:12:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Wed, 26 Jun 2013 17:22:12 +0300
+From: Cong Wang <amwang@redhat.com>
 
-> +	for (--i; i >= 0; --i) {
+This is a regression introduced by 
+commit fd58156e456d9f68fe0448 (IPIP: Use ip-tunneling code.)
 
-Please, "i--" is more canonical in for() loops.
+Similar to GRE tunnel, previously we only check the parameters
+for SIOCADDTUNNEL and SIOCCHGTUNNEL, after that commit, the
+check is moved for all commands.
 
-> +	for (--i; i >= 0; --i) {
+So, just check for SIOCADDTUNNEL and SIOCCHGTUNNEL.
 
-Likewise.
+Also, the check for i_key, o_key etc. is suspicious too,
+which did not exist before.
+
+Cc: Pravin B Shelar <pshelar@nicira.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+
+---
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index e6905fb..9d6ca81 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -244,11 +244,11 @@ ipip_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof(p)))
+ 		return -EFAULT;
+ 
+-	if (p.iph.version != 4 || p.iph.protocol != IPPROTO_IPIP ||
+-			p.iph.ihl != 5 || (p.iph.frag_off&htons(~IP_DF)))
+-		return -EINVAL;
+-	if (p.i_key || p.o_key || p.i_flags || p.o_flags)
+-		return -EINVAL;
++	if (cmd == SIOCADDTUNNEL || cmd == SIOCCHGTUNNEL) {
++		if (p.iph.version != 4 || p.iph.protocol != IPPROTO_IPIP ||
++		    p.iph.ihl != 5 || (p.iph.frag_off&htons(~IP_DF)))
++			return -EINVAL;
++	}
+ 	if (p.iph.ttl)
+ 		p.iph.frag_off |= htons(IP_DF);
+ 
