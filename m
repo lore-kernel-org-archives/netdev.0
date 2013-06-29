@@ -1,49 +1,39 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT PULL 0/8] IPVS updates for v3.11 #2
-Date: Sat, 29 Jun 2013 12:15:31 +0200
-Message-ID: <20130629101531.GA5478@localhost>
-References: <1372237890-28211-1-git-send-email-horms@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1372237890-28211-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net-next] bonding: combine pr_debugs in bond_set_dev_addr into one
+Date: Sat, 29 Jun 2013 13:16:59 +0200
+Message-ID: <1372504619-30123-1-git-send-email-nikolay@redhat.com>
+Cc: andy@greyhouse.net, fubar@us.ibm.com, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:36723 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751567Ab3F2LU1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Jun 2013 07:20:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 26, 2013 at 06:11:22PM +0900, Simon Horman wrote:
-> Hi Pablo,
-> 
-> please consider the following changes for IPVS for v3.11.
-> 
-> The following changes since commit 681f130f39e10087475383e6771b9366e26bab0c:
-> 
->   netfilter: xt_socket: add XT_SOCKET_NOWILDCARD flag (2013-06-20 20:28:49 +0200)
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs2-for-v3.11
-> 
-> for you to fetch changes up to 8b4d14d8eb36874daf159d33dcccd4746a6f3189:
-> 
->   netns: exclude ipvs from struct net when IPVS disabled (2013-06-26 18:01:46 +0900)
->
-> ----------------------------------------------------------------
-> IPVS updates for v3.11
-> 
-> * Exclude IPVS from struct net when IPVS disabled
-> * Remove unnecessary head file
-> * Add sync_persist_mode flag to reduce sync traffic in the presence
->   of persistence
-> * SH scheduler fallback and L4 hashing
-> * SCTP cleanup so that its implementation more closely resembles
->   that of other protocols supported by IPVS
-> * Add sloppy TCP and SCTP modes to allow connections to
->   fail from one IPVS director to another regardless of their state
+Combine the multiple pr_debugs in bond_set_dev_addr into one pr_debug.
 
-Pulled, thanks Simon!
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+ drivers/net/bonding/bond_main.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index ec44580b..742c193 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -843,9 +843,8 @@ static void bond_hw_addr_swap(struct bonding *bond, struct slave *new_active,
+ static void bond_set_dev_addr(struct net_device *bond_dev,
+ 			      struct net_device *slave_dev)
+ {
+-	pr_debug("bond_dev=%p\n", bond_dev);
+-	pr_debug("slave_dev=%p\n", slave_dev);
+-	pr_debug("slave_dev->addr_len=%d\n", slave_dev->addr_len);
++	pr_debug("bond_dev=%p slave_dev=%p slave_dev->addr_len=%d\n",
++		 bond_dev, slave_dev, slave_dev->addr_len);
+ 	memcpy(bond_dev->dev_addr, slave_dev->dev_addr, slave_dev->addr_len);
+ 	bond_dev->addr_assign_type = NET_ADDR_STOLEN;
+ 	call_netdevice_notifiers(NETDEV_CHANGEADDR, bond_dev);
+-- 
+1.8.1.4
