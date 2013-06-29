@@ -1,38 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/3] pch_gbe: few clean ups to the driver
-Date: Fri, 28 Jun 2013 21:38:16 -0700 (PDT)
-Message-ID: <20130628.213816.474586551111862244.davem@davemloft.net>
-References: <1372417374-28128-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Subject: Re: [PATCH] drivers: net: cpsw: add newline after MACID log
+Date: Fri, 28 Jun 2013 21:39:24 -0700 (PDT)
+Message-ID: <20130628.213924.2063495277236983854.davem@davemloft.net>
+References: <1372326047-28074-1-git-send-email-zonque@gmail.com>
+	<51CC0B39.6000404@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dvhart@linux.intel.com, joe@perches.com
-To: andriy.shevchenko@linux.intel.com
+Cc: zonque@gmail.com, netdev@vger.kernel.org
+To: mugunthanvnm@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46260 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46278 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750950Ab3F2EiR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 00:38:17 -0400
-In-Reply-To: <1372417374-28128-1-git-send-email-andriy.shevchenko@linux.intel.com>
+	with ESMTP id S1750795Ab3F2EjZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 00:39:25 -0400
+In-Reply-To: <51CC0B39.6000404@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Date: Fri, 28 Jun 2013 14:02:51 +0300
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Date: Thu, 27 Jun 2013 15:21:53 +0530
 
-> There are three clean ups to the driver.
-> 
-> Since v2:
-> - the additional arguments on subsequent lines are realigned to the open
->   parenthesis
-> 
-> Since v1:
-> - remove hunk that is not belong the topic
-> - address Joe's comments
-> 
-> Andy Shevchenko (3):
->   pch_gbe: remove inline keyword for exported functions
->   pch_gbe: convert pr_* to netdev_*
->   pch_gbe: use managed functions pcim_* and devm_*
+> On 6/27/2013 3:10 PM, Daniel Mack wrote:
+>> Cosmetic patch to add a newline after logging the device's MACID.
+>>
+>> Signed-off-by: Daniel Mack <zonque@gmail.com>
+ ...
+> Acked-by: Mugunthan V  N <mugunthanvnm@ti.com>
 
-Series applied, thanks.
+Applied, thanks.
