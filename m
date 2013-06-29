@@ -1,156 +1,54 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 7/8] alx: fix ethtool support code
-Date: Sat, 29 Jun 2013 19:23:19 +0200
-Message-ID: <1372526600-15934-8-git-send-email-johannes@sipsolutions.net>
-References: <1372526600-15934-1-git-send-email-johannes@sipsolutions.net>
-To: netdev@vger.kernel.org
+From: Dmitry Kravkov <dkravkov@gmail.com>
+Subject: Re: [Patch net-next v3] gre: fix a regression in ioctl
+Date: Sat, 29 Jun 2013 21:42:48 +0300
+Message-ID: <CAM8tLiP=Y5BM7q3nGzi+J6JGRYTJ8qazpVB-n9+pFhA2ko-+sA@mail.gmail.com>
+References: <CALnjE+qo33kqer_JQVwC+FDpmrSYpU2WkiYqeN6R11OWQkocug@mail.gmail.com>
+	<1372478579-6548-1-git-send-email-amwang@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:58305 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752513Ab3F2RX1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 13:23:27 -0400
-Received: by sipsolutions.net with esmtpsa (TLS1.2:DHE_RSA_AES_256_CBC_SHA256:256)
-	(Exim 4.80)
-	(envelope-from <johannes@sipsolutions.net>)
-	id 1Usyru-0006aE-AG
-	for netdev@vger.kernel.org; Sat, 29 Jun 2013 19:23:26 +0200
-In-Reply-To: <1372526600-15934-1-git-send-email-johannes@sipsolutions.net>
+Received: from mail-ve0-f181.google.com ([209.85.128.181]:45724 "EHLO
+	mail-ve0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752707Ab3F2Smt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 14:42:49 -0400
+Received: by mail-ve0-f181.google.com with SMTP id db10so2688833veb.26
+        for <netdev@vger.kernel.org>; Sat, 29 Jun 2013 11:42:48 -0700 (PDT)
+In-Reply-To: <1372478579-6548-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A number of places treated features wrongly, listing not-supported
-features instead of supported ones. Also, the get_drvinfo ethtool
-callback isn't needed, and alx_get_pauseparam can be simplified.
+On Sat, Jun 29, 2013 at 7:02 AM, Cong Wang <amwang@redhat.com> wrote:
+> From: Cong Wang <amwang@redhat.com>
+>
+> When testing GRE tunnel, I got:
+>
+>  # ip tunnel show
+>  get tunnel gre0 failed: Invalid argument
+>  get tunnel gre1 failed: Invalid argument
+>
+> This is a regression introduced by commit c54419321455631079c7d
+> ("GRE: Refactor GRE tunneling code.") because previously we
+> only check the parameters for SIOCADDTUNNEL and SIOCCHGTUNNEL,
+> after that commit, the check is moved for all commands.
+>
+> So, just check for SIOCADDTUNNEL and SIOCCHGTUNNEL.
+>
+> After this patch I got:
+>
+>  # ip tunnel show
+>  gre0: gre/ip  remote any  local any  ttl inherit  nopmtudisc
+>  gre1: gre/ip  remote 192.168.122.101  local 192.168.122.45  ttl inherit
+>
+> Cc: Pravin B Shelar <pshelar@nicira.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+> ---
+> v2: check TUNNEL_* flags
+> v3: the check should be kept in gre module
+>
 
-Reported-by: Ben Hutchings <ben@decadent.org.uk>
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
----
- drivers/net/ethernet/atheros/alx/ethtool.c | 64 ++++++++++++++----------------
- 1 file changed, 29 insertions(+), 35 deletions(-)
-
-diff --git a/drivers/net/ethernet/atheros/alx/ethtool.c b/drivers/net/ethernet/atheros/alx/ethtool.c
-index 5e19e08..9261006 100644
---- a/drivers/net/ethernet/atheros/alx/ethtool.c
-+++ b/drivers/net/ethernet/atheros/alx/ethtool.c
-@@ -46,21 +46,37 @@
- #include "reg.h"
- #include "hw.h"
- 
-+static u32 alx_get_supported_speeds(struct alx_hw *hw)
-+{
-+	u32 supported = SUPPORTED_10baseT_Half |
-+			SUPPORTED_10baseT_Full |
-+			SUPPORTED_100baseT_Half |
-+			SUPPORTED_100baseT_Full;
-+
-+	if (alx_hw_giga(hw))
-+		supported |= SUPPORTED_1000baseT_Full;
-+
-+	BUILD_BUG_ON(SUPPORTED_10baseT_Half != ADVERTISED_10baseT_Half);
-+	BUILD_BUG_ON(SUPPORTED_10baseT_Full != ADVERTISED_10baseT_Full);
-+	BUILD_BUG_ON(SUPPORTED_100baseT_Half != ADVERTISED_100baseT_Half);
-+	BUILD_BUG_ON(SUPPORTED_100baseT_Full != ADVERTISED_100baseT_Full);
-+	BUILD_BUG_ON(SUPPORTED_1000baseT_Full != ADVERTISED_1000baseT_Full);
-+
-+	return supported;
-+}
- 
- static int alx_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- {
- 	struct alx_priv *alx = netdev_priv(netdev);
- 	struct alx_hw *hw = &alx->hw;
- 
--	ecmd->supported = SUPPORTED_10baseT_Half |
--			  SUPPORTED_10baseT_Full |
--			  SUPPORTED_100baseT_Half |
--			  SUPPORTED_100baseT_Full |
--			  SUPPORTED_Autoneg |
-+	ecmd->supported = SUPPORTED_Autoneg |
- 			  SUPPORTED_TP |
--			  SUPPORTED_Pause;
-+			  SUPPORTED_Pause |
-+			  SUPPORTED_Asym_Pause;
- 	if (alx_hw_giga(hw))
- 		ecmd->supported |= SUPPORTED_1000baseT_Full;
-+	ecmd->supported |= alx_get_supported_speeds(hw);
- 
- 	ecmd->advertising = ADVERTISED_TP;
- 	if (hw->adv_cfg & ADVERTISED_Autoneg)
-@@ -68,6 +84,7 @@ static int alx_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 
- 	ecmd->port = PORT_TP;
- 	ecmd->phy_address = 0;
-+
- 	if (hw->adv_cfg & ADVERTISED_Autoneg)
- 		ecmd->autoneg = AUTONEG_ENABLE;
- 	else
-@@ -100,7 +117,7 @@ static int alx_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 	ASSERT_RTNL();
- 
- 	if (ecmd->autoneg == AUTONEG_ENABLE) {
--		if (ecmd->advertising & ADVERTISED_1000baseT_Half)
-+		if (ecmd->advertising & ~alx_get_supported_speeds(hw))
- 			return -EINVAL;
- 		adv_cfg = ecmd->advertising | ADVERTISED_Autoneg;
- 	} else {
-@@ -121,21 +138,10 @@ static void alx_get_pauseparam(struct net_device *netdev,
- 	struct alx_priv *alx = netdev_priv(netdev);
- 	struct alx_hw *hw = &alx->hw;
- 
--	if (hw->flowctrl & ALX_FC_ANEG &&
--	    hw->adv_cfg & ADVERTISED_Autoneg)
--		pause->autoneg = AUTONEG_ENABLE;
--	else
--		pause->autoneg = AUTONEG_DISABLE;
--
--	if (hw->flowctrl & ALX_FC_TX)
--		pause->tx_pause = 1;
--	else
--		pause->tx_pause = 0;
--
--	if (hw->flowctrl & ALX_FC_RX)
--		pause->rx_pause = 1;
--	else
--		pause->rx_pause = 0;
-+	pause->autoneg = !!(hw->flowctrl & ALX_FC_ANEG &&
-+			    hw->adv_cfg & ADVERTISED_Autoneg);
-+	pause->tx_pause = !!(hw->flowctrl & ALX_FC_TX);
-+	pause->rx_pause = !!(hw->flowctrl & ALX_FC_RX);
- }
- 
- 
-@@ -214,8 +220,7 @@ static int alx_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
- 	struct alx_priv *alx = netdev_priv(netdev);
- 	struct alx_hw *hw = &alx->hw;
- 
--	if (wol->wolopts & (WAKE_ARP | WAKE_MAGICSECURE |
--			    WAKE_UCAST | WAKE_BCAST | WAKE_MCAST))
-+	if (wol->wolopts & ~(WAKE_MAGIC | WAKE_PHY))
- 		return -EOPNOTSUPP;
- 
- 	hw->sleep_ctrl = 0;
-@@ -230,22 +235,11 @@ static int alx_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
- 	return 0;
- }
- 
--static void alx_get_drvinfo(struct net_device *netdev,
--			    struct ethtool_drvinfo *drvinfo)
--{
--	struct alx_priv *alx = netdev_priv(netdev);
--
--	strlcpy(drvinfo->driver, alx_drv_name, sizeof(drvinfo->driver));
--	strlcpy(drvinfo->bus_info, pci_name(alx->hw.pdev),
--		sizeof(drvinfo->bus_info));
--}
--
- const struct ethtool_ops alx_ethtool_ops = {
- 	.get_settings	= alx_get_settings,
- 	.set_settings	= alx_set_settings,
- 	.get_pauseparam	= alx_get_pauseparam,
- 	.set_pauseparam	= alx_set_pauseparam,
--	.get_drvinfo	= alx_get_drvinfo,
- 	.get_msglevel	= alx_get_msglevel,
- 	.set_msglevel	= alx_set_msglevel,
- 	.get_wol	= alx_get_wol,
--- 
-1.8.0
+Shouldn't this be addressed in net-tree?
