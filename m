@@ -1,43 +1,49 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 2/8] alx: fix 100mbit/half duplex speed translation
-Date: Sat, 29 Jun 2013 19:23:14 +0200
-Message-ID: <1372526600-15934-3-git-send-email-johannes@sipsolutions.net>
+Subject: [PATCH 1/8] alx: treat flow control correctly in alx_set_pauseparam()
+Date: Sat, 29 Jun 2013 19:23:13 +0200
+Message-ID: <1372526600-15934-2-git-send-email-johannes@sipsolutions.net>
 References: <1372526600-15934-1-git-send-email-johannes@sipsolutions.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:58300 "EHLO
+Received: from s3.sipsolutions.net ([144.76.43.152]:58299 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752407Ab3F2RXZ (ORCPT
+	with ESMTP id S1751929Ab3F2RXZ (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 13:23:25 -0400
 Received: by sipsolutions.net with esmtpsa (TLS1.2:DHE_RSA_AES_256_CBC_SHA256:256)
 	(Exim 4.80)
 	(envelope-from <johannes@sipsolutions.net>)
-	id 1Usyrs-0006aE-LL
+	id 1Usyrs-0006aE-C7
 	for netdev@vger.kernel.org; Sat, 29 Jun 2013 19:23:24 +0200
 In-Reply-To: <1372526600-15934-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-100mbit half duplex is ADVERTISED_100baseT_Half, not
-ADVERTISED_10baseT_Half.
+Even when alx_setup_speed_duplex() is called, we still
+need to call alx_cfg_mac_flowcontrol() and set hw->flowctrl
+if flow control changed.
 
+This was a bug I accidentally introduced while simplifying
+the original driver.
+
+Reported-by: Ben Hutchings <ben@decadent.org.uk>
 Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 ---
- drivers/net/ethernet/atheros/alx/hw.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/atheros/alx/ethtool.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/atheros/alx/hw.c b/drivers/net/ethernet/atheros/alx/hw.c
-index 220a16a..dc71cfb 100644
---- a/drivers/net/ethernet/atheros/alx/hw.c
-+++ b/drivers/net/ethernet/atheros/alx/hw.c
-@@ -1134,7 +1134,7 @@ static inline u32 alx_speed_to_ethadv(int speed)
- 	case SPEED_100 + DUPLEX_FULL:
- 		return ADVERTISED_100baseT_Full;
- 	case SPEED_100 + DUPLEX_HALF:
--		return ADVERTISED_10baseT_Half;
-+		return ADVERTISED_100baseT_Half;
- 	case SPEED_10 + DUPLEX_FULL:
- 		return ADVERTISED_10baseT_Full;
- 	case SPEED_10 + DUPLEX_HALF:
+diff --git a/drivers/net/ethernet/atheros/alx/ethtool.c b/drivers/net/ethernet/atheros/alx/ethtool.c
+index 6fa2aec..50a91d0 100644
+--- a/drivers/net/ethernet/atheros/alx/ethtool.c
++++ b/drivers/net/ethernet/atheros/alx/ethtool.c
+@@ -187,7 +187,8 @@ static int alx_set_pauseparam(struct net_device *netdev,
+ 
+ 	if (reconfig_phy) {
+ 		err = alx_setup_speed_duplex(hw, hw->adv_cfg, fc);
+-		return err;
++		if (err)
++			return err;
+ 	}
+ 
+ 	/* flow control on mac */
 -- 
 1.8.0
