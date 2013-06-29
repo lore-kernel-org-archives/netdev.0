@@ -1,77 +1,161 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v2] gre: fix a regression in ioctl
-Date: Sat, 29 Jun 2013 10:24:32 +0800
-Message-ID: <1372472672-1900-1-git-send-email-amwang@redhat.com>
-References: <1372471480-28992-1-git-send-email-amwang@redhat.com>
-Cc: Pravin B Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13614 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753113Ab3F2CYn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Jun 2013 22:24:43 -0400
-In-Reply-To: <1372471480-28992-1-git-send-email-amwang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH v3] net: fec: Fix build for MCF5272
+Date: Fri, 28 Jun 2013 20:12:47 -0700
+Message-ID: <20130629031247.GA21068@roeck-us.net>
+References: <1371575099-2962-1-git-send-email-linux@roeck-us.net>
+ <20130619.170018.1690166635385887009.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, festevam@gmail.com,
+	linux-kernel@vger.kernel.org, Frank.Li@freescale.com,
+	jim_baxter@mentor.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130619.170018.1690166635385887009.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <amwang@redhat.com>
+On Wed, Jun 19, 2013 at 05:00:18PM -0700, David Miller wrote:
+> From: Guenter Roeck <linux@roeck-us.net>
+> Date: Tue, 18 Jun 2013 10:04:59 -0700
+> 
+> > Commits 4c09eed9 (net: fec: Enable imx6 enet checksum acceleration) and
+> > baa70a5c (net: fec: enable pause frame to improve rx prefomance for 1G
+> > network) introduced functionality into the FEC driver which is not
+> > supported on MCF5272. The registers used to implement this functionality
+> > do not exist on MCF5272. Since register defines for MCF5272 are separate
+> > from register defines for other chips, building images for MCF5272 fails
+> > as follows.
+> > 
+> > fec_main.c: In function 'fec_restart':
+> > fec_main.c:520:8: error: 'FEC_RACC' undeclared (first use in this function)
+> > fec_main.c:585:3: error: 'FEC_R_FIFO_RSEM' undeclared (first use in this function)
+> > fec_main.c:586:3: error: 'FEC_R_FIFO_RSFL' undeclared (first use in this function)
+> > fec_main.c:587:3: error: 'FEC_R_FIFO_RAEM' undeclared (first use in this function)
+> > fec_main.c:588:3: error: 'FEC_R_FIFO_RAFL' undeclared (first use in this function)
+> > fec_main.c:591:3: error: 'FEC_OPD' undeclared (first use in this function)
+> > 
+> > Adding the missing register defines is not an option, since the registers
+> > do not exist on MCF5272. Disable the added functionality for MCF5272 builds.
+> > 
+> > Cc: Frank Li <Frank.Li@freescale.com>
+> > Cc: Jim Baxter <jim_baxter@mentor.com>
+> > Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+> 
+> Applied, thanks.
+> 
+> > This problem exists in 3.9 as well, though only due to commit baa70a5c. The
+> > patch does therefore not cleanly apply to 3.9. Options I can see are to ignore
+> > the build error in 3.9, to back-port the patch manually, or to split it into
+> > two separate patches. David, let me know which approach you prefer. 
+> 
+> You can feel free to send me a backport for v3.9-stable, thanks.
+> 
 
-When testing GRE tunnel, I got:
+Here it is.
 
- # ip tunnel show
- get tunnel gre0 failed: Invalid argument
- get tunnel gre1 failed: Invalid argument
+Guenter
 
-This is a regression introduced by commit c54419321455631079c7d
-("GRE: Refactor GRE tunneling code.") because previously we
-only check the parameters for SIOCADDTUNNEL and SIOCCHGTUNNEL,
-after that commit, the check is moved for all commands.
-
-So, just move it back inside SIOCADDTUNNEL and SIOCCHGTUNNEL.
-
-After this patch I got:
-
- # ip tunnel show
- gre0: gre/ip  remote any  local any  ttl inherit  nopmtudisc
- gre1: gre/ip  remote 192.168.122.101  local 192.168.122.45  ttl inherit 
-
-Cc: Pravin B Shelar <pshelar@nicira.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
-v2: check TUNNEL_* flags
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Tue, 18 Jun 2013 10:04:59 -0700
+Subject: [PATCH] net: fec: Fix build for MCF5272
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index c326e86..354d78c 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -314,11 +314,6 @@ static int ipgre_tunnel_ioctl(struct net_device *dev,
+Commits 4c09eed9 (net: fec: Enable imx6 enet checksum acceleration) and
+baa70a5c (net: fec: enable pause frame to improve rx prefomance for 1G
+network) introduced functionality into the FEC driver which is not
+supported on MCF5272. The registers used to implement this functionality
+do not exist on MCF5272. Since register defines for MCF5272 are separate
+from register defines for other chips, building images for MCF5272 fails
+as follows.
+
+fec_main.c: In function 'fec_restart':
+fec_main.c:520:8: error: 'FEC_RACC' undeclared (first use in this function)
+fec_main.c:585:3: error: 'FEC_R_FIFO_RSEM' undeclared (first use in this function)
+fec_main.c:586:3: error: 'FEC_R_FIFO_RSFL' undeclared (first use in this function)
+fec_main.c:587:3: error: 'FEC_R_FIFO_RAEM' undeclared (first use in this function)
+fec_main.c:588:3: error: 'FEC_R_FIFO_RAFL' undeclared (first use in this function)
+fec_main.c:591:3: error: 'FEC_OPD' undeclared (first use in this function)
+
+Adding the missing register defines is not an option, since the registers
+do not exist on MCF5272. Disable the added functionality for MCF5272 builds.
+
+Backport to v3.9. Upstream commit d13919301d9a34cd4d3cc5ac73b89012c48cad71.
+
+Cc: Frank Li <Frank.Li@freescale.com>
+Cc: Jim Baxter <jim_baxter@mentor.com>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/freescale/fec.c |   12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index ef5b595..49af0174 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -527,6 +527,7 @@ fec_restart(struct net_device *ndev, int duplex)
+ #endif
+ 	}
  
- 	if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof(p)))
- 		return -EFAULT;
--	if (p.iph.version != 4 || p.iph.protocol != IPPROTO_GRE ||
--	    p.iph.ihl != 5 || (p.iph.frag_off&htons(~IP_DF)) ||
--	    ((p.i_flags|p.o_flags)&(GRE_VERSION|GRE_ROUTING))) {
--		return -EINVAL;
--	}
- 	p.i_flags = gre_flags_to_tnl_flags(p.i_flags);
- 	p.o_flags = gre_flags_to_tnl_flags(p.o_flags);
++#if !defined(CONFIG_M5272)
+ 	/* enable pause frame*/
+ 	if ((fep->pause_flag & FEC_PAUSE_FLAG_ENABLE) ||
+ 	    ((fep->pause_flag & FEC_PAUSE_FLAG_AUTONEG) &&
+@@ -544,6 +545,7 @@ fec_restart(struct net_device *ndev, int duplex)
+ 	} else {
+ 		rcntl &= ~FEC_ENET_FCE;
+ 	}
++#endif /* !defined(CONFIG_M5272) */
  
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 394cebc..dc7d7ac 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -712,6 +712,11 @@ int ip_tunnel_ioctl(struct net_device *dev, struct ip_tunnel_parm *p, int cmd)
+ 	writel(rcntl, fep->hwp + FEC_R_CNTRL);
  
- 	case SIOCADDTUNNEL:
- 	case SIOCCHGTUNNEL:
-+		if (p->iph.version != 4 || p->iph.protocol != IPPROTO_GRE ||
-+		    p->iph.ihl != 5 || (p->iph.frag_off&htons(~IP_DF)) ||
-+		    ((p->i_flags|p->o_flags)&(TUNNEL_VERSION|TUNNEL_ROUTING)))
-+			return -EINVAL;
+@@ -1139,7 +1141,9 @@ static int fec_enet_mii_probe(struct net_device *ndev)
+ 	/* mask with MAC supported features */
+ 	if (id_entry->driver_data & FEC_QUIRK_HAS_GBIT) {
+ 		phy_dev->supported &= PHY_GBIT_FEATURES;
++#if !defined(CONFIG_M5272)
+ 		phy_dev->supported |= SUPPORTED_Pause;
++#endif
+ 	}
+ 	else
+ 		phy_dev->supported &= PHY_BASIC_FEATURES;
+@@ -1326,6 +1330,8 @@ static int fec_enet_get_ts_info(struct net_device *ndev,
+ 	}
+ }
+ 
++#if !defined(CONFIG_M5272)
 +
- 		err = -EPERM;
- 		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
- 			goto done;
+ static void fec_enet_get_pauseparam(struct net_device *ndev,
+ 				    struct ethtool_pauseparam *pause)
+ {
+@@ -1372,9 +1378,13 @@ static int fec_enet_set_pauseparam(struct net_device *ndev,
+ 	return 0;
+ }
+ 
++#endif /* !defined(CONFIG_M5272) */
++
+ static const struct ethtool_ops fec_enet_ethtool_ops = {
++#if !defined(CONFIG_M5272)
+ 	.get_pauseparam		= fec_enet_get_pauseparam,
+ 	.set_pauseparam		= fec_enet_set_pauseparam,
++#endif
+ 	.get_settings		= fec_enet_get_settings,
+ 	.set_settings		= fec_enet_set_settings,
+ 	.get_drvinfo		= fec_enet_get_drvinfo,
+@@ -1794,10 +1804,12 @@ fec_probe(struct platform_device *pdev)
+ 	/* setup board info structure */
+ 	fep = netdev_priv(ndev);
+ 
++#if !defined(CONFIG_M5272)
+ 	/* default enable pause frame auto negotiation */
+ 	if (pdev->id_entry &&
+ 	    (pdev->id_entry->driver_data & FEC_QUIRK_HAS_GBIT))
+ 		fep->pause_flag |= FEC_PAUSE_FLAG_AUTONEG;
++#endif
+ 
+ 	fep->hwp = ioremap(r->start, resource_size(r));
+ 	fep->pdev = pdev;
+-- 
+1.7.9.7
