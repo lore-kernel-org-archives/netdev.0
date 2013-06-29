@@ -1,55 +1,46 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net] vti: remove duplicated code to fix a memory leak
-Date: Sat, 29 Jun 2013 13:00:57 +0800
-Message-ID: <1372482057-12412-1-git-send-email-amwang@redhat.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Saurabh Mohan <saurabh.mohan@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: pull-request vxlan-next
+Date: Fri, 28 Jun 2013 22:07:35 -0700
+Message-ID: <20130628220735.53e6df97@nehalam.linuxnetplumber.net>
+References: <20130625180641.4fa33ceb@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9402 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750814Ab3F2FBI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Jun 2013 01:01:08 -0400
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:43057 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750814Ab3F2FHk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 01:07:40 -0400
+Received: by mail-pd0-f174.google.com with SMTP id 10so1407605pdc.19
+        for <netdev@vger.kernel.org>; Fri, 28 Jun 2013 22:07:40 -0700 (PDT)
+In-Reply-To: <20130625180641.4fa33ceb@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+On Tue, 25 Jun 2013 18:06:41 -0700
+Stephen Hemminger <stephen@networkplumber.org> wrote:
 
-vti module allocates dev->tstats twice: in vti_fb_tunnel_init()
-and in vti_tunnel_init(), this lead to a memory leak of 
-dev->tstats.
+> Here is current updates for vxlan in net-next.  It includes Mike's changes
+> to handle multiple destinations and lots of little cosmetic stuff.
+> 
+> This is a fresh vxlan-next repository which was forked from net-next.
+> 
+> ---
+> The following changes since commit 8599b52e14a1611dcb563289421bee76751f1d53:
+> 
+>   bonding: add an option to fail when any of arp_ip_target is inaccessible (2013-06-25 16:58:38 -0700)
+> 
+> are available in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/vxlan-next.git master
+> 
+> for you to fetch changes up to ba609e9bf15bd7df35e2c06a2e5aaf9ab9289b10:
+> 
+>   vxlan: fix function name spelling (2013-06-25 17:06:01 -0700)
+>
 
-Just remove the duplicated operations in vti_fb_tunnel_init().
 
-(candidate for -stable)
-
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: Saurabh Mohan <saurabh.mohan@vyatta.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
-
----
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index c118f6b..17cc0ff 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -606,17 +606,10 @@ static int __net_init vti_fb_tunnel_init(struct net_device *dev)
- 	struct iphdr *iph = &tunnel->parms.iph;
- 	struct vti_net *ipn = net_generic(dev_net(dev), vti_net_id);
- 
--	tunnel->dev = dev;
--	strcpy(tunnel->parms.name, dev->name);
--
- 	iph->version		= 4;
- 	iph->protocol		= IPPROTO_IPIP;
- 	iph->ihl		= 5;
- 
--	dev->tstats = alloc_percpu(struct pcpu_tstats);
--	if (!dev->tstats)
--		return -ENOMEM;
--
- 	dev_hold(dev);
- 	rcu_assign_pointer(ipn->tunnels_wc[0], tunnel);
- 	return 0;
+No response? 
+I know pull-requests don't show up patchwork dashboard. Need patches instead?
