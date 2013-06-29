@@ -1,68 +1,45 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [Patch net] vti: remove duplicated code to fix a memory leak
-Date: Fri, 28 Jun 2013 22:18:49 -0700
-Message-ID: <20130628221849.16c7ca0e@nehalam.linuxnetplumber.net>
-References: <1372482057-12412-1-git-send-email-amwang@redhat.com>
+From: Duan Fugang-B38611 <B38611@freescale.com>
+Subject: RE: [PATCH net-next v2 1/1] net: fec: Add VLAN receive HW support.
+Date: Sat, 29 Jun 2013 05:34:29 +0000
+Message-ID: <9848F2DB572E5649BA045B288BE08FBE0150D3D1@039-SN2MPN1-023.039d.mgd.msft.net>
+References: <Jim Baxter <jim_baxter@mentor.com>
+ <1372428503-13744-1-git-send-email-jim_baxter@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Saurabh Mohan <saurabh.mohan@vyatta.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Li Frank-B20596 <B20596@freescale.com>,
+	Estevam Fabio-R49496 <r49496@freescale.com>,
+	Lucas Stach <l.stach@pengutronix.de>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Jim Baxter <jim_baxter@mentor.com>,
 	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:46166 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750814Ab3F2FSy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 01:18:54 -0400
-Received: by mail-pb0-f52.google.com with SMTP id xa12so2955679pbc.39
-        for <netdev@vger.kernel.org>; Fri, 28 Jun 2013 22:18:53 -0700 (PDT)
-In-Reply-To: <1372482057-12412-1-git-send-email-amwang@redhat.com>
+Received: from va3ehsobe005.messaging.microsoft.com ([216.32.180.31]:23503
+	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751356Ab3F2Fem convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Jun 2013 01:34:42 -0400
+In-Reply-To: <1372428503-13744-1-git-send-email-jim_baxter@mentor.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 29 Jun 2013 13:00:57 +0800
-Cong Wang <amwang@redhat.com> wrote:
 
-> From: Cong Wang <amwang@redhat.com>
-> 
-> vti module allocates dev->tstats twice: in vti_fb_tunnel_init()
-> and in vti_tunnel_init(), this lead to a memory leak of 
-> dev->tstats.
-> 
-> Just remove the duplicated operations in vti_fb_tunnel_init().
-> 
-> (candidate for -stable)
-> 
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Cc: Saurabh Mohan <saurabh.mohan@vyatta.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
-> 
+On 06/28/13 22:08, Jim Baxter wrote:
+
+> This enables the driver to take advantage of the FEC VLAN indicator to improve performance.
+>
+> Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
 > ---
-> diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-> index c118f6b..17cc0ff 100644
-> --- a/net/ipv4/ip_vti.c
-> +++ b/net/ipv4/ip_vti.c
-> @@ -606,17 +606,10 @@ static int __net_init vti_fb_tunnel_init(struct net_device *dev)
->  	struct iphdr *iph = &tunnel->parms.iph;
->  	struct vti_net *ipn = net_generic(dev_net(dev), vti_net_id);
->  
-> -	tunnel->dev = dev;
-> -	strcpy(tunnel->parms.name, dev->name);
-> -
->  	iph->version		= 4;
->  	iph->protocol		= IPPROTO_IPIP;
->  	iph->ihl		= 5;
->  
-> -	dev->tstats = alloc_percpu(struct pcpu_tstats);
-> -	if (!dev->tstats)
-> -		return -ENOMEM;
-> -
->  	dev_hold(dev);
->  	rcu_assign_pointer(ipn->tunnels_wc[0], tunnel);
->  	return 0;
+> Change from v1 to v2
+> Changed Max recieve Buffer Size Register from 1540 to 1536 so it is divisible by 64.
+>
+>  drivers/net/ethernet/freescale/fec.h      |    3 ++
+>  drivers/net/ethernet/freescale/fec_main.c |   64 +++++++++++++++++++++++------
+>  2 files changed, 55 insertions(+), 12 deletions(-)
+> --
+> 1.7.10.4
 
-The fix looks correct, looks like an oversight when the generic tunnel infratructure
-was added.
-
-Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+Acked-By: Fugang Duan  <B38611@freescale.com> 
