@@ -1,49 +1,156 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 1/8] alx: treat flow control correctly in alx_set_pauseparam()
-Date: Sat, 29 Jun 2013 19:23:13 +0200
-Message-ID: <1372526600-15934-2-git-send-email-johannes@sipsolutions.net>
+Subject: [PATCH 7/8] alx: fix ethtool support code
+Date: Sat, 29 Jun 2013 19:23:19 +0200
+Message-ID: <1372526600-15934-8-git-send-email-johannes@sipsolutions.net>
 References: <1372526600-15934-1-git-send-email-johannes@sipsolutions.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:58299 "EHLO
+Received: from s3.sipsolutions.net ([144.76.43.152]:58305 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751929Ab3F2RXZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 13:23:25 -0400
+	with ESMTP id S1752513Ab3F2RX1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 13:23:27 -0400
 Received: by sipsolutions.net with esmtpsa (TLS1.2:DHE_RSA_AES_256_CBC_SHA256:256)
 	(Exim 4.80)
 	(envelope-from <johannes@sipsolutions.net>)
-	id 1Usyrs-0006aE-C7
-	for netdev@vger.kernel.org; Sat, 29 Jun 2013 19:23:24 +0200
+	id 1Usyru-0006aE-AG
+	for netdev@vger.kernel.org; Sat, 29 Jun 2013 19:23:26 +0200
 In-Reply-To: <1372526600-15934-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Even when alx_setup_speed_duplex() is called, we still
-need to call alx_cfg_mac_flowcontrol() and set hw->flowctrl
-if flow control changed.
-
-This was a bug I accidentally introduced while simplifying
-the original driver.
+A number of places treated features wrongly, listing not-supported
+features instead of supported ones. Also, the get_drvinfo ethtool
+callback isn't needed, and alx_get_pauseparam can be simplified.
 
 Reported-by: Ben Hutchings <ben@decadent.org.uk>
 Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 ---
- drivers/net/ethernet/atheros/alx/ethtool.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/atheros/alx/ethtool.c | 64 ++++++++++++++----------------
+ 1 file changed, 29 insertions(+), 35 deletions(-)
 
 diff --git a/drivers/net/ethernet/atheros/alx/ethtool.c b/drivers/net/ethernet/atheros/alx/ethtool.c
-index 6fa2aec..50a91d0 100644
+index 5e19e08..9261006 100644
 --- a/drivers/net/ethernet/atheros/alx/ethtool.c
 +++ b/drivers/net/ethernet/atheros/alx/ethtool.c
-@@ -187,7 +187,8 @@ static int alx_set_pauseparam(struct net_device *netdev,
+@@ -46,21 +46,37 @@
+ #include "reg.h"
+ #include "hw.h"
  
- 	if (reconfig_phy) {
- 		err = alx_setup_speed_duplex(hw, hw->adv_cfg, fc);
--		return err;
-+		if (err)
-+			return err;
- 	}
++static u32 alx_get_supported_speeds(struct alx_hw *hw)
++{
++	u32 supported = SUPPORTED_10baseT_Half |
++			SUPPORTED_10baseT_Full |
++			SUPPORTED_100baseT_Half |
++			SUPPORTED_100baseT_Full;
++
++	if (alx_hw_giga(hw))
++		supported |= SUPPORTED_1000baseT_Full;
++
++	BUILD_BUG_ON(SUPPORTED_10baseT_Half != ADVERTISED_10baseT_Half);
++	BUILD_BUG_ON(SUPPORTED_10baseT_Full != ADVERTISED_10baseT_Full);
++	BUILD_BUG_ON(SUPPORTED_100baseT_Half != ADVERTISED_100baseT_Half);
++	BUILD_BUG_ON(SUPPORTED_100baseT_Full != ADVERTISED_100baseT_Full);
++	BUILD_BUG_ON(SUPPORTED_1000baseT_Full != ADVERTISED_1000baseT_Full);
++
++	return supported;
++}
  
- 	/* flow control on mac */
+ static int alx_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ {
+ 	struct alx_priv *alx = netdev_priv(netdev);
+ 	struct alx_hw *hw = &alx->hw;
+ 
+-	ecmd->supported = SUPPORTED_10baseT_Half |
+-			  SUPPORTED_10baseT_Full |
+-			  SUPPORTED_100baseT_Half |
+-			  SUPPORTED_100baseT_Full |
+-			  SUPPORTED_Autoneg |
++	ecmd->supported = SUPPORTED_Autoneg |
+ 			  SUPPORTED_TP |
+-			  SUPPORTED_Pause;
++			  SUPPORTED_Pause |
++			  SUPPORTED_Asym_Pause;
+ 	if (alx_hw_giga(hw))
+ 		ecmd->supported |= SUPPORTED_1000baseT_Full;
++	ecmd->supported |= alx_get_supported_speeds(hw);
+ 
+ 	ecmd->advertising = ADVERTISED_TP;
+ 	if (hw->adv_cfg & ADVERTISED_Autoneg)
+@@ -68,6 +84,7 @@ static int alx_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 
+ 	ecmd->port = PORT_TP;
+ 	ecmd->phy_address = 0;
++
+ 	if (hw->adv_cfg & ADVERTISED_Autoneg)
+ 		ecmd->autoneg = AUTONEG_ENABLE;
+ 	else
+@@ -100,7 +117,7 @@ static int alx_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 	ASSERT_RTNL();
+ 
+ 	if (ecmd->autoneg == AUTONEG_ENABLE) {
+-		if (ecmd->advertising & ADVERTISED_1000baseT_Half)
++		if (ecmd->advertising & ~alx_get_supported_speeds(hw))
+ 			return -EINVAL;
+ 		adv_cfg = ecmd->advertising | ADVERTISED_Autoneg;
+ 	} else {
+@@ -121,21 +138,10 @@ static void alx_get_pauseparam(struct net_device *netdev,
+ 	struct alx_priv *alx = netdev_priv(netdev);
+ 	struct alx_hw *hw = &alx->hw;
+ 
+-	if (hw->flowctrl & ALX_FC_ANEG &&
+-	    hw->adv_cfg & ADVERTISED_Autoneg)
+-		pause->autoneg = AUTONEG_ENABLE;
+-	else
+-		pause->autoneg = AUTONEG_DISABLE;
+-
+-	if (hw->flowctrl & ALX_FC_TX)
+-		pause->tx_pause = 1;
+-	else
+-		pause->tx_pause = 0;
+-
+-	if (hw->flowctrl & ALX_FC_RX)
+-		pause->rx_pause = 1;
+-	else
+-		pause->rx_pause = 0;
++	pause->autoneg = !!(hw->flowctrl & ALX_FC_ANEG &&
++			    hw->adv_cfg & ADVERTISED_Autoneg);
++	pause->tx_pause = !!(hw->flowctrl & ALX_FC_TX);
++	pause->rx_pause = !!(hw->flowctrl & ALX_FC_RX);
+ }
+ 
+ 
+@@ -214,8 +220,7 @@ static int alx_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
+ 	struct alx_priv *alx = netdev_priv(netdev);
+ 	struct alx_hw *hw = &alx->hw;
+ 
+-	if (wol->wolopts & (WAKE_ARP | WAKE_MAGICSECURE |
+-			    WAKE_UCAST | WAKE_BCAST | WAKE_MCAST))
++	if (wol->wolopts & ~(WAKE_MAGIC | WAKE_PHY))
+ 		return -EOPNOTSUPP;
+ 
+ 	hw->sleep_ctrl = 0;
+@@ -230,22 +235,11 @@ static int alx_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
+ 	return 0;
+ }
+ 
+-static void alx_get_drvinfo(struct net_device *netdev,
+-			    struct ethtool_drvinfo *drvinfo)
+-{
+-	struct alx_priv *alx = netdev_priv(netdev);
+-
+-	strlcpy(drvinfo->driver, alx_drv_name, sizeof(drvinfo->driver));
+-	strlcpy(drvinfo->bus_info, pci_name(alx->hw.pdev),
+-		sizeof(drvinfo->bus_info));
+-}
+-
+ const struct ethtool_ops alx_ethtool_ops = {
+ 	.get_settings	= alx_get_settings,
+ 	.set_settings	= alx_set_settings,
+ 	.get_pauseparam	= alx_get_pauseparam,
+ 	.set_pauseparam	= alx_set_pauseparam,
+-	.get_drvinfo	= alx_get_drvinfo,
+ 	.get_msglevel	= alx_get_msglevel,
+ 	.set_msglevel	= alx_set_msglevel,
+ 	.get_wol	= alx_get_wol,
 -- 
 1.8.0
