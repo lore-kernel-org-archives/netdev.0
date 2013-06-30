@@ -1,216 +1,185 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 08/12] ipvs: SH fallback and L4 hashing
-Date: Mon,  1 Jul 2013 01:54:37 +0200
-Message-ID: <1372636481-3705-9-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 03/12] netfilter: xt_socket: add XT_SOCKET_NOWILDCARD flag
+Date: Mon,  1 Jul 2013 01:54:32 +0200
+Message-ID: <1372636481-3705-4-git-send-email-pablo@netfilter.org>
 References: <1372636481-3705-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59904 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752207Ab3F3XzI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Jun 2013 19:55:08 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1372636481-3705-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Frolkin <avf@eldamar.org.uk>
+From: Eric Dumazet <edumazet@google.com>
 
-By default the SH scheduler rejects connections that are hashed onto a
-realserver of weight 0.  This patch adds a flag to make SH choose a
-different realserver in this case, instead of rejecting the connection.
+xt_socket module can be a nice replacement to conntrack module
+in some cases (SYN filtering for example)
 
-The patch also adds a flag to make SH include the source port (TCP, UDP,
-SCTP) in the hash as well as the source address.  This basically allows
-for deterministic round-robin load balancing (i.e., where any director
-in a cluster of directors with identical config will send the same
-packet the same way).
+But it lacks the ability to match the 3rd packet of TCP
+handshake (ACK coming from the client).
 
-The flags are service flags (IP_VS_SVC_F_SCHED*) so that these options
-can be set per service.  They are set using a new option to ipvsadm.
+Add a XT_SOCKET_NOWILDCARD flag to disable the wildcard mechanism.
 
-Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+The wildcard is the legacy socket match behavior, that ignores
+LISTEN sockets bound to INADDR_ANY (or ipv6 equivalent)
+
+iptables -I INPUT -p tcp --syn -j SYN_CHAIN
+iptables -I INPUT -m socket --nowildcard -j ACCEPT
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/ip_vs.h    |    6 +++
- net/netfilter/ipvs/ip_vs_sh.c |  100 ++++++++++++++++++++++++++++++++++-------
- 2 files changed, 91 insertions(+), 15 deletions(-)
+ include/uapi/linux/netfilter/xt_socket.h |    7 +++
+ net/netfilter/xt_socket.c                |   70 ++++++++++++++++++++++++++----
+ 2 files changed, 69 insertions(+), 8 deletions(-)
 
-diff --git a/include/uapi/linux/ip_vs.h b/include/uapi/linux/ip_vs.h
-index a245377..2945822 100644
---- a/include/uapi/linux/ip_vs.h
-+++ b/include/uapi/linux/ip_vs.h
-@@ -20,6 +20,12 @@
- #define IP_VS_SVC_F_PERSISTENT	0x0001		/* persistent port */
- #define IP_VS_SVC_F_HASHED	0x0002		/* hashed entry */
- #define IP_VS_SVC_F_ONEPACKET	0x0004		/* one-packet scheduling */
-+#define IP_VS_SVC_F_SCHED1	0x0008		/* scheduler flag 1 */
-+#define IP_VS_SVC_F_SCHED2	0x0010		/* scheduler flag 2 */
-+#define IP_VS_SVC_F_SCHED3	0x0020		/* scheduler flag 3 */
-+
-+#define IP_VS_SVC_F_SCHED_SH_FALLBACK	IP_VS_SVC_F_SCHED1 /* SH fallback */
-+#define IP_VS_SVC_F_SCHED_SH_PORT	IP_VS_SVC_F_SCHED2 /* SH use port */
+diff --git a/include/uapi/linux/netfilter/xt_socket.h b/include/uapi/linux/netfilter/xt_socket.h
+index 26d7217..6315e2a 100644
+--- a/include/uapi/linux/netfilter/xt_socket.h
++++ b/include/uapi/linux/netfilter/xt_socket.h
+@@ -5,10 +5,17 @@
  
- /*
-  *      Destination Server Flags
-diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
-index e0d5d16..f16c027 100644
---- a/net/netfilter/ipvs/ip_vs_sh.c
-+++ b/net/netfilter/ipvs/ip_vs_sh.c
-@@ -48,6 +48,10 @@
- 
- #include <net/ip_vs.h>
- 
-+#include <net/tcp.h>
-+#include <linux/udp.h>
-+#include <linux/sctp.h>
-+
- 
- /*
-  *      IPVS SH bucket
-@@ -71,10 +75,19 @@ struct ip_vs_sh_state {
- 	struct ip_vs_sh_bucket		buckets[IP_VS_SH_TAB_SIZE];
+ enum {
+ 	XT_SOCKET_TRANSPARENT = 1 << 0,
++	XT_SOCKET_NOWILDCARD = 1 << 1,
  };
  
-+/* Helper function to determine if server is unavailable */
-+static inline bool is_unavailable(struct ip_vs_dest *dest)
-+{
-+	return atomic_read(&dest->weight) <= 0 ||
-+	       dest->flags & IP_VS_DEST_F_OVERLOAD;
-+}
+ struct xt_socket_mtinfo1 {
+ 	__u8 flags;
+ };
++#define XT_SOCKET_FLAGS_V1 XT_SOCKET_TRANSPARENT
 +
- /*
-  *	Returns hash value for IPVS SH entry
-  */
--static inline unsigned int ip_vs_sh_hashkey(int af, const union nf_inet_addr *addr)
-+static inline unsigned int
-+ip_vs_sh_hashkey(int af, const union nf_inet_addr *addr,
-+		 __be16 port, unsigned int offset)
- {
- 	__be32 addr_fold = addr->ip;
++struct xt_socket_mtinfo2 {
++	__u8 flags;
++};
++#define XT_SOCKET_FLAGS_V2 (XT_SOCKET_TRANSPARENT | XT_SOCKET_NOWILDCARD)
  
-@@ -83,7 +96,8 @@ static inline unsigned int ip_vs_sh_hashkey(int af, const union nf_inet_addr *ad
- 		addr_fold = addr->ip6[0]^addr->ip6[1]^
- 			    addr->ip6[2]^addr->ip6[3];
+ #endif /* _XT_SOCKET_H */
+diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
+index 0270424..f8b7191 100644
+--- a/net/netfilter/xt_socket.c
++++ b/net/netfilter/xt_socket.c
+@@ -163,8 +163,11 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
+ 		bool wildcard;
+ 		bool transparent = true;
+ 
+-		/* Ignore sockets listening on INADDR_ANY */
+-		wildcard = (sk->sk_state != TCP_TIME_WAIT &&
++		/* Ignore sockets listening on INADDR_ANY,
++		 * unless XT_SOCKET_NOWILDCARD is set
++		 */
++		wildcard = (!(info->flags & XT_SOCKET_NOWILDCARD) &&
++			    sk->sk_state != TCP_TIME_WAIT &&
+ 			    inet_sk(sk)->inet_rcv_saddr == 0);
+ 
+ 		/* Ignore non-transparent sockets,
+@@ -197,7 +200,7 @@ socket_mt4_v0(const struct sk_buff *skb, struct xt_action_param *par)
+ }
+ 
+ static bool
+-socket_mt4_v1(const struct sk_buff *skb, struct xt_action_param *par)
++socket_mt4_v1_v2(const struct sk_buff *skb, struct xt_action_param *par)
+ {
+ 	return socket_match(skb, par, par->matchinfo);
+ }
+@@ -259,7 +262,7 @@ extract_icmp6_fields(const struct sk_buff *skb,
+ }
+ 
+ static bool
+-socket_mt6_v1(const struct sk_buff *skb, struct xt_action_param *par)
++socket_mt6_v1_v2(const struct sk_buff *skb, struct xt_action_param *par)
+ {
+ 	struct ipv6hdr *iph = ipv6_hdr(skb);
+ 	struct udphdr _hdr, *hp = NULL;
+@@ -302,8 +305,11 @@ socket_mt6_v1(const struct sk_buff *skb, struct xt_action_param *par)
+ 		bool wildcard;
+ 		bool transparent = true;
+ 
+-		/* Ignore sockets listening on INADDR_ANY */
+-		wildcard = (sk->sk_state != TCP_TIME_WAIT &&
++		/* Ignore sockets listening on INADDR_ANY
++		 * unless XT_SOCKET_NOWILDCARD is set
++		 */
++		wildcard = (!(info->flags & XT_SOCKET_NOWILDCARD) &&
++			    sk->sk_state != TCP_TIME_WAIT &&
+ 			    ipv6_addr_any(&inet6_sk(sk)->rcv_saddr));
+ 
+ 		/* Ignore non-transparent sockets,
+@@ -331,6 +337,28 @@ socket_mt6_v1(const struct sk_buff *skb, struct xt_action_param *par)
+ }
  #endif
--	return (ntohl(addr_fold)*2654435761UL) & IP_VS_SH_TAB_MASK;
-+	return (offset + (ntohs(port) + ntohl(addr_fold))*2654435761UL) &
-+		IP_VS_SH_TAB_MASK;
- }
  
- 
-@@ -91,12 +105,42 @@ static inline unsigned int ip_vs_sh_hashkey(int af, const union nf_inet_addr *ad
-  *      Get ip_vs_dest associated with supplied parameters.
-  */
- static inline struct ip_vs_dest *
--ip_vs_sh_get(int af, struct ip_vs_sh_state *s, const union nf_inet_addr *addr)
-+ip_vs_sh_get(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
-+	     const union nf_inet_addr *addr, __be16 port)
- {
--	return rcu_dereference(s->buckets[ip_vs_sh_hashkey(af, addr)].dest);
-+	unsigned int hash = ip_vs_sh_hashkey(svc->af, addr, port, 0);
-+	struct ip_vs_dest *dest = rcu_dereference(s->buckets[hash].dest);
-+
-+	return (!dest || is_unavailable(dest)) ? NULL : dest;
- }
- 
- 
-+/* As ip_vs_sh_get, but with fallback if selected server is unavailable */
-+static inline struct ip_vs_dest *
-+ip_vs_sh_get_fallback(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
-+		      const union nf_inet_addr *addr, __be16 port)
++static int socket_mt_v1_check(const struct xt_mtchk_param *par)
 +{
-+	unsigned int offset;
-+	unsigned int hash;
-+	struct ip_vs_dest *dest;
++	const struct xt_socket_mtinfo1 *info = (struct xt_socket_mtinfo1 *) par->matchinfo;
 +
-+	for (offset = 0; offset < IP_VS_SH_TAB_SIZE; offset++) {
-+		hash = ip_vs_sh_hashkey(svc->af, addr, port, offset);
-+		dest = rcu_dereference(s->buckets[hash].dest);
-+		if (!dest)
-+			break;
-+		if (is_unavailable(dest))
-+			IP_VS_DBG_BUF(6, "SH: selected unavailable server "
-+				      "%s:%d (offset %d)",
-+				      IP_VS_DBG_ADDR(svc->af, &dest->addr),
-+				      ntohs(dest->port), offset);
-+		else
-+			return dest;
++	if (info->flags & ~XT_SOCKET_FLAGS_V1) {
++		pr_info("unknown flags 0x%x\n", info->flags & ~XT_SOCKET_FLAGS_V1);
++		return -EINVAL;
 +	}
-+
-+	return NULL;
++	return 0;
 +}
 +
- /*
-  *      Assign all the hash buckets of the specified table with the service.
-  */
-@@ -213,13 +257,33 @@ static int ip_vs_sh_dest_changed(struct ip_vs_service *svc,
- }
- 
- 
--/*
-- *      If the dest flags is set with IP_VS_DEST_F_OVERLOAD,
-- *      consider that the server is overloaded here.
-- */
--static inline int is_overloaded(struct ip_vs_dest *dest)
-+/* Helper function to get port number */
-+static inline __be16
-+ip_vs_sh_get_port(const struct sk_buff *skb, struct ip_vs_iphdr *iph)
- {
--	return dest->flags & IP_VS_DEST_F_OVERLOAD;
-+	__be16 port;
-+	struct tcphdr _tcph, *th;
-+	struct udphdr _udph, *uh;
-+	sctp_sctphdr_t _sctph, *sh;
++static int socket_mt_v2_check(const struct xt_mtchk_param *par)
++{
++	const struct xt_socket_mtinfo2 *info = (struct xt_socket_mtinfo2 *) par->matchinfo;
 +
-+	switch (iph->protocol) {
-+	case IPPROTO_TCP:
-+		th = skb_header_pointer(skb, iph->len, sizeof(_tcph), &_tcph);
-+		port = th->source;
-+		break;
-+	case IPPROTO_UDP:
-+		uh = skb_header_pointer(skb, iph->len, sizeof(_udph), &_udph);
-+		port = uh->source;
-+		break;
-+	case IPPROTO_SCTP:
-+		sh = skb_header_pointer(skb, iph->len, sizeof(_sctph), &_sctph);
-+		port = sh->source;
-+		break;
-+	default:
-+		port = 0;
++	if (info->flags & ~XT_SOCKET_FLAGS_V2) {
++		pr_info("unknown flags 0x%x\n", info->flags & ~XT_SOCKET_FLAGS_V2);
++		return -EINVAL;
 +	}
++	return 0;
++}
 +
-+	return port;
- }
- 
- 
-@@ -232,15 +296,21 @@ ip_vs_sh_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
- {
- 	struct ip_vs_dest *dest;
- 	struct ip_vs_sh_state *s;
-+	__be16 port = 0;
- 
- 	IP_VS_DBG(6, "ip_vs_sh_schedule(): Scheduling...\n");
- 
-+	if (svc->flags & IP_VS_SVC_F_SCHED_SH_PORT)
-+		port = ip_vs_sh_get_port(skb, iph);
-+
- 	s = (struct ip_vs_sh_state *) svc->sched_data;
--	dest = ip_vs_sh_get(svc->af, s, &iph->saddr);
--	if (!dest
--	    || !(dest->flags & IP_VS_DEST_F_AVAILABLE)
--	    || atomic_read(&dest->weight) <= 0
--	    || is_overloaded(dest)) {
-+
-+	if (svc->flags & IP_VS_SVC_F_SCHED_SH_FALLBACK)
-+		dest = ip_vs_sh_get_fallback(svc, s, &iph->saddr, port);
-+	else
-+		dest = ip_vs_sh_get(svc, s, &iph->saddr, port);
-+
-+	if (!dest) {
- 		ip_vs_scheduler_err(svc, "no destination available");
- 		return NULL;
- 	}
+ static struct xt_match socket_mt_reg[] __read_mostly = {
+ 	{
+ 		.name		= "socket",
+@@ -345,7 +373,8 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
+ 		.name		= "socket",
+ 		.revision	= 1,
+ 		.family		= NFPROTO_IPV4,
+-		.match		= socket_mt4_v1,
++		.match		= socket_mt4_v1_v2,
++		.checkentry	= socket_mt_v1_check,
+ 		.matchsize	= sizeof(struct xt_socket_mtinfo1),
+ 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
+ 				  (1 << NF_INET_LOCAL_IN),
+@@ -356,7 +385,32 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
+ 		.name		= "socket",
+ 		.revision	= 1,
+ 		.family		= NFPROTO_IPV6,
+-		.match		= socket_mt6_v1,
++		.match		= socket_mt6_v1_v2,
++		.checkentry	= socket_mt_v1_check,
++		.matchsize	= sizeof(struct xt_socket_mtinfo1),
++		.hooks		= (1 << NF_INET_PRE_ROUTING) |
++				  (1 << NF_INET_LOCAL_IN),
++		.me		= THIS_MODULE,
++	},
++#endif
++	{
++		.name		= "socket",
++		.revision	= 2,
++		.family		= NFPROTO_IPV4,
++		.match		= socket_mt4_v1_v2,
++		.checkentry	= socket_mt_v2_check,
++		.matchsize	= sizeof(struct xt_socket_mtinfo1),
++		.hooks		= (1 << NF_INET_PRE_ROUTING) |
++				  (1 << NF_INET_LOCAL_IN),
++		.me		= THIS_MODULE,
++	},
++#ifdef XT_SOCKET_HAVE_IPV6
++	{
++		.name		= "socket",
++		.revision	= 2,
++		.family		= NFPROTO_IPV6,
++		.match		= socket_mt6_v1_v2,
++		.checkentry	= socket_mt_v2_check,
+ 		.matchsize	= sizeof(struct xt_socket_mtinfo1),
+ 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
+ 				  (1 << NF_INET_LOCAL_IN),
 -- 
 1.7.10.4
+
