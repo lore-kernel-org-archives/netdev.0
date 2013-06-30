@@ -1,65 +1,74 @@
 From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [Patch net-next] ipip: fix a regression in ioctl
-Date: Sat, 29 Jun 2013 20:43:10 -0700
-Message-ID: <CALnjE+qoo3D6YDpZogPq8LOJLZxoOTLa73WJFHnH2MbnFB2f7Q@mail.gmail.com>
-References: <1372479115-7003-1-git-send-email-amwang@redhat.com>
+Subject: Re: ip_tunnel mtu calculation
+Date: Sat, 29 Jun 2013 21:36:39 -0700
+Message-ID: <CALnjE+pTXGwhePigZRyfVORkgbpwRDF1hTBRnR24fcsqvsP9ug@mail.gmail.com>
+References: <20130629175701.73c17a16@vostro>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Cc: netdev@vger.kernel.org
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog127.obsmtp.com ([74.125.149.107]:42028 "HELO
-	na3sys009aog127.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750798Ab3F3DnL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jun 2013 23:43:11 -0400
-Received: by mail-qa0-f51.google.com with SMTP id f11so1285270qae.10
-        for <netdev@vger.kernel.org>; Sat, 29 Jun 2013 20:43:10 -0700 (PDT)
-In-Reply-To: <1372479115-7003-1-git-send-email-amwang@redhat.com>
+Received: from na3sys009aog124.obsmtp.com ([74.125.149.151]:60647 "HELO
+	na3sys009aog124.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750737Ab3F3Egk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Jun 2013 00:36:40 -0400
+Received: by mail-qc0-f172.google.com with SMTP id j10so2229251qcx.17
+        for <netdev@vger.kernel.org>; Sat, 29 Jun 2013 21:36:39 -0700 (PDT)
+In-Reply-To: <20130629175701.73c17a16@vostro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 28, 2013 at 9:11 PM, Cong Wang <amwang@redhat.com> wrote:
-> From: Cong Wang <amwang@redhat.com>
+On Sat, Jun 29, 2013 at 7:57 AM, Timo Teras <timo.teras@iki.fi> wrote:
+> Hi,
 >
-> This is a regression introduced by
-> commit fd58156e456d9f68fe0448 (IPIP: Use ip-tunneling code.)
+> I'm reviewing changes since 3.9 to net-next and observed that, the
+> tunnel refactoring had the following change in ip_gre xmit path.
 >
-> Similar to GRE tunnel, previously we only check the parameters
-> for SIOCADDTUNNEL and SIOCCHGTUNNEL, after that commit, the
-> check is moved for all commands.
+> In ip_tunnel_xmit() mtu is now calculated as:
+>         if (df)
+>                 mtu = dst_mtu(&rt->dst) - dev->hard_header_len
+>                                         - sizeof(struct iphdr);
+>         else
+>                 mtu = skb_dst(skb) ? dst_mtu(skb_dst(skb)) : dev->mtu;
 >
-> So, just check for SIOCADDTUNNEL and SIOCCHGTUNNEL.
+> And it used to be in ip_gre.c: ipgre_tunnel_xmit():
+>         if (df)
+>                 mtu = dst_mtu(&rt->dst) - dev->hard_header_len - tunnel->hlen;
+>         else
+>                 mtu = skb_dst(skb) ? dst_mtu(skb_dst(skb)) : dev->mtu;
 >
-> Also, the check for i_key, o_key etc. is suspicious too,
-> which did not exist before.
+> I notice that tunnel->hlen is replaced with sizeof(struct iphdr), but
+> in case of GRE those are not the same thing. And the refactored
+> ip_gre.c does not set hard_header_len either. So it would like the mtu
+> is now miscalculated (planning to give a full test-spin for net-next
+> next week).
 >
-This check is sanity check since ipip is not suppose to have these
-parameters set, generic layer do allow all parameters.
-Earlier ipip was not using generic layer, therefore that check was not present.
+> It seems the tunnel->hlen used to be the full length, including
+> sizeof(struct iphdr).
+>
+> But the new, refactored code seems exclude sizeof(struct iphdr) from
+> the tunnel->hlen. So would the following be appropriate?
+>
+This is ip-tunnel layer, skb has gre header pushed. so mtu does not
+need to account gre header when compared to skb->len.
+But I missed one comparison for mtu check where iph->tot-len is used
+rather that skb-len, which is correct length.
 
-> Cc: Pravin B Shelar <pshelar@nicira.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+gre module is using iph->tot_len for pmtu check which is wrong for
+gre-tap device. This bug is there even before restructuring.
+I will send out patch for ip-tunnels code for now.
+
+Thanks.
+> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+> index 394cebc..ac3a9a1 100644
+> --- a/net/ipv4/ip_tunnel.c
+> +++ b/net/ipv4/ip_tunnel.c
+> @@ -564,7 +564,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
 >
-> ---
-> diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-> index e6905fb..9d6ca81 100644
-> --- a/net/ipv4/ipip.c
-> +++ b/net/ipv4/ipip.c
-> @@ -244,11 +244,11 @@ ipip_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
->         if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof(p)))
->                 return -EFAULT;
->
-> -       if (p.iph.version != 4 || p.iph.protocol != IPPROTO_IPIP ||
-> -                       p.iph.ihl != 5 || (p.iph.frag_off&htons(~IP_DF)))
-> -               return -EINVAL;
-> -       if (p.i_key || p.o_key || p.i_flags || p.o_flags)
-> -               return -EINVAL;
-> +       if (cmd == SIOCADDTUNNEL || cmd == SIOCCHGTUNNEL) {
-> +               if (p.iph.version != 4 || p.iph.protocol != IPPROTO_IPIP ||
-> +                   p.iph.ihl != 5 || (p.iph.frag_off&htons(~IP_DF)))
-> +                       return -EINVAL;
-> +       }
->         if (p.iph.ttl)
->                 p.iph.frag_off |= htons(IP_DF);
+>         if (df)
+>                 mtu = dst_mtu(&rt->dst) - dev->hard_header_len
+> -                                       - sizeof(struct iphdr);
+> +                       - tunnel->hlen - sizeof(struct iphdr);
+>         else
+>                 mtu = skb_dst(skb) ? dst_mtu(skb_dst(skb)) : dev->mtu;
 >
