@@ -1,104 +1,68 @@
-From: Johannes Stezenbach <js@sig21.net>
-Subject: Re: [PATCH 8/8] alx: remove WoL support
-Date: Sun, 30 Jun 2013 17:03:04 +0200
-Message-ID: <20130630150304.GA24189@sig21.net>
-References: <1372526600-15934-1-git-send-email-johannes@sipsolutions.net>
- <1372526600-15934-9-git-send-email-johannes@sipsolutions.net>
- <20130629191248.GA10570@sig21.net>
- <1372534845.17242.0.camel@jlt4.sipsolutions.net>
+From: Dave Jones <davej@redhat.com>
+Subject: skbuff: skb_under_panic warning in 3.10rc7+
+Date: Sun, 30 Jun 2013 12:02:46 -0400
+Message-ID: <20130630160246.GA24539@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bar.sig21.net ([80.81.252.164]:43635 "EHLO bar.sig21.net"
+Received: from mx1.redhat.com ([209.132.183.28]:6996 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751675Ab3F3PEN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Jun 2013 11:04:13 -0400
+	id S1751802Ab3F3QDl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Jun 2013 12:03:41 -0400
+Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r5UG3fuN024795
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Sun, 30 Jun 2013 12:03:41 -0400
+Received: from gelk.kernelslacker.org (ovpn-113-28.phx2.redhat.com [10.3.113.28])
+	by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id r5UG3ZKP018386
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Sun, 30 Jun 2013 12:03:41 -0400
+Received: from gelk.kernelslacker.org (localhost [127.0.0.1])
+	by gelk.kernelslacker.org (8.14.7/8.14.5) with ESMTP id r5UG2uTS024632
+	for <netdev@vger.kernel.org>; Sun, 30 Jun 2013 12:03:06 -0400
+Received: (from davej@localhost)
+	by gelk.kernelslacker.org (8.14.7/8.14.7/Submit) id r5UG2kCP024630
+	for netdev@vger.kernel.org; Sun, 30 Jun 2013 12:02:46 -0400
 Content-Disposition: inline
-In-Reply-To: <1372534845.17242.0.camel@jlt4.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Johannes,
-
-I applied patches 1-7 of your series and the patch below
-on top of it.  I had added some debug prints and found
-that today alx_select_powersaving_speed() always found
-a valid link after __alx_stop(), even though in
-previous testing I had apparently unintialized data
-in my logs from the "wol: ctrl=%X, speed=%d\n" message, no idea why.
-
-The patch below seems to fix the wakeup issue, but WOL is
-still mostly broken (immediately wakes up with
-"ethtool -s eth0 wol g", but "wol p" can be used
-to wake up when the cable is plugged in,
-i.e. unplug -> suspend -> plug -> wake-up).
-I just had one spurious wake-up after "wol p" ->
-wake-up -> "wol d" -> spurious wake-up -> try again -> works.
-
-So, if you still want to rip out WOL handling, go ahead.
-My patch is just the minimal change to make the driver
-behave well for my needs.
-
-BTW, one issue that bugs me is that the link is still
-up after "ifconfig eth0 down" (and it is up after loading
-the driver before configuring the interface).  It seems
-the ALX_PHY_CTRL_POWER_DOWN in alx_pre_suspend would
-do the job, but I'm not sure and now out of time to do
-more experiments.  I'm not sure how much power is wasted
-by an unused PHY link.
-
-
-Thanks,
-Johannes
-
-
->From 1e2abe93f8b05deaeea485637f100d347a308aba Mon Sep 17 00:00:00 2001
-From: Johannes Stezenbach <js@sig21.net>
-Date: Sun, 30 Jun 2013 16:23:53 +0200
-Subject: [PATCH] alx: disable WOL by default and fix immediate wakeups
-
-WOL is still broken, but at least the driver doesn't
-cause immediate wakeups anymore when it is disabled,
-and the link is down when the system is suspended.
-
-Signed-off-by: Johannes Stezenbach <js@sig21.net>
-
-diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
-index 148b4b9..6311acc 100644
---- a/drivers/net/ethernet/atheros/alx/main.c
-+++ b/drivers/net/ethernet/atheros/alx/main.c
-@@ -706,7 +706,7 @@ static int alx_init_sw(struct alx_priv *alx)
- 	alx->rxbuf_size = ALIGN(ALX_RAW_MTU(hw->mtu), 8);
- 	alx->tx_ringsz = 256;
- 	alx->rx_ringsz = 512;
--	hw->sleep_ctrl = ALX_SLEEP_WOL_MAGIC | ALX_SLEEP_WOL_PHY;
-+	hw->sleep_ctrl = 0;
- 	hw->imt = 200;
- 	alx->int_mask = ALX_ISR_MISC;
- 	hw->dma_chnl = hw->max_dma_chnl;
-@@ -983,20 +983,20 @@ static int __alx_shutdown(struct pci_dev *pdev, bool *wol_en)
- 	err = alx_select_powersaving_speed(hw, &speed, &duplex);
- 	if (err)
- 		return err;
--	err = alx_clear_phy_intr(hw);
-+	err = alx_config_wol(hw);
- 	if (err)
- 		return err;
- 	err = alx_pre_suspend(hw, speed, duplex);
- 	if (err)
- 		return err;
--	err = alx_config_wol(hw);
-+	err = alx_clear_phy_intr(hw);
- 	if (err)
- 		return err;
- 
- 	*wol_en = false;
- 	if (hw->sleep_ctrl & ALX_SLEEP_ACTIVE) {
- 		netif_info(alx, wol, netdev,
--			   "wol: ctrl=%X, speed=%X\n",
-+			   "wol: ctrl=%X, speed=%d\n",
- 			   hw->sleep_ctrl, speed);
- 		device_set_wakeup_enable(&pdev->dev, true);
- 		*wol_en = true;
+skbuff: skb_under_panic: text:ffffffff816765f6 len:48 put:40 head:ffff88013deb6df0 data:ffff88013deb6dec tail:0x2c end:0xc0 dev:<NULL>
+------------[ cut here ]------------
+kernel BUG at net/core/skbuff.c:126!
+invalid opcode: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
+Modules linked in: dccp_ipv4 dccp 8021q garp bridge stp dlci mpoa snd_seq_dummy sctp fuse hidp tun bnep nfnetlink scsi_transport_iscsi rfcomm can_raw can_bcm af_802154 appletalk caif_socket can caif ipt_ULOG x25 rose af_key pppoe pppox ipx phonet irda llc2 ppp_generic slhc p8023 psnap p8022 llc crc_ccitt atm bluetooth netrom ax25 nfc rfkill rds af_rxrpc coretemp hwmon kvm_intel kvm crc32c_intel snd_hda_codec_realtek ghash_clmulni_intel microcode pcspkr snd_hda_codec_hdmi snd_hda_intel snd_hda_codec snd_hwdep usb_debug snd_seq snd_seq_device snd_pcm e1000e snd_page_alloc snd_timer ptp snd pps_core soundcore xfs libcrc32c
+CPU: 2 PID: 8095 Comm: trinity-child2 Not tainted 3.10.0-rc7+ #37 
+task: ffff8801f52c2520 ti: ffff8801e6430000 task.ti: ffff8801e6430000
+RIP: 0010:[<ffffffff816e759c>]  [<ffffffff816e759c>] skb_panic+0x63/0x65
+RSP: 0018:ffff8801e6431de8  EFLAGS: 00010282
+RAX: 0000000000000086 RBX: ffff8802353d3cc0 RCX: 0000000000000006
+RDX: 0000000000003b90 RSI: ffff8801f52c2ca0 RDI: ffff8801f52c2520
+RBP: ffff8801e6431e08 R08: 0000000000000000 R09: 0000000000000000
+R10: 0000000000000001 R11: 0000000000000001 R12: ffff88022ea0c800
+R13: ffff88022ea0cdf8 R14: ffff8802353ecb40 R15: ffffffff81cc7800
+FS:  00007f5720a10740(0000) GS:ffff880244c00000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000000005862000 CR3: 000000022843c000 CR4: 00000000001407e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000600
+Stack:
+ ffff88013deb6dec 000000000000002c 00000000000000c0 ffffffff81a3f6e4
+ ffff8801e6431e18 ffffffff8159a9aa ffff8801e6431e90 ffffffff816765f6
+ ffffffff810b756b 0000000700000002 ffff8801e6431e40 0000fea9292aa8c0
+Call Trace:
+ [<ffffffff8159a9aa>] skb_push+0x3a/0x40
+ [<ffffffff816765f6>] ip6_push_pending_frames+0x1f6/0x4d0
+ [<ffffffff810b756b>] ? mark_held_locks+0xbb/0x140
+ [<ffffffff81694919>] udp_v6_push_pending_frames+0x2b9/0x3d0
+ [<ffffffff81694660>] ? udplite_getfrag+0x20/0x20
+ [<ffffffff8162092a>] udp_lib_setsockopt+0x1aa/0x1f0
+ [<ffffffff811cc5e7>] ? fget_light+0x387/0x4f0
+ [<ffffffff816958a4>] udpv6_setsockopt+0x34/0x40
+ [<ffffffff815949f4>] sock_common_setsockopt+0x14/0x20
+ [<ffffffff81593c31>] SyS_setsockopt+0x71/0xd0
+ [<ffffffff816f5d54>] tracesys+0xdd/0xe2
+Code: 00 00 48 89 44 24 10 8b 87 d8 00 00 00 48 89 44 24 08 48 8b 87 e8 00 00 00 48 c7 c7 c0 04 aa 81 48 89 04 24 31 c0 e8 e1 7e ff ff <0f> 0b 55 48 89 e5 0f 0b 55 48 89 e5 0f 0b 55 48 89 e5 0f 0b 55 
+RIP  [<ffffffff816e759c>] skb_panic+0x63/0x65
+ RSP <ffff8801e6431de8>
