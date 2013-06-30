@@ -1,250 +1,64 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 05/12] ipvs: sloppy TCP and SCTP
-Date: Mon,  1 Jul 2013 01:54:34 +0200
-Message-ID: <1372636481-3705-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 02/12] netfilter: nf_conntrack: avoid large timeout for mid-stream pickup
+Date: Mon,  1 Jul 2013 01:54:31 +0200
+Message-ID: <1372636481-3705-3-git-send-email-pablo@netfilter.org>
 References: <1372636481-3705-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59864 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:59858 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751324Ab3F3Xyy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Jun 2013 19:54:54 -0400
+	id S1751325Ab3F3Xyw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Jun 2013 19:54:52 -0400
 In-Reply-To: <1372636481-3705-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Frolkin <avf@eldamar.org.uk>
+From: Florian Westphal <fw@strlen.de>
 
-This adds support for sloppy TCP and SCTP modes to IPVS.
+When loose tracking is enabled (default), non-syn packets cause
+creation of new conntracks in established state with default timeout for
+established state (5 days).  This causes the table to fill up with UNREPLIED
+when the 'new ack' packet happened to be the last-ack of a previous,
+already timed-out connection.
 
-When enabled (sysctls net.ipv4.vs.sloppy_tcp and
-net.ipv4.vs.sloppy_sctp), allows IPVS to create connection state on any
-packet, not just a TCP SYN (or SCTP INIT).
+Consider:
 
-This allows connections to fail over from one IPVS director to another
-mid-flight.
+A 192.168.x.52792 > 10.184.y.80: F, 426:426(0) ack 9237 win 255
+B 10.184.y.80 > 192.168.x.52792: ., ack 427 win 123
+<61 second pause>
+C 10.184.y.80 > 192.168.x.52792: F, 9237:9237(0) ack 427 win 123
+D 192.168.x.52792 > 10.184.y.80: ., ack 9238 win 255
 
-Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+B moves conntrack to CLOSE_WAIT and will kill it after 60 second timeout,
+C is ignored (FIN set), but last packet (D) causes new ct with 5-days timeout.
+
+Use UNACK timeout (5 minutes) instead to get rid of these entries sooner
+when in ESTABLISHED state without having seen traffic in both directions.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/ip_vs.h                   |   24 ++++++++++++++++++++++++
- net/netfilter/ipvs/ip_vs_ctl.c        |   14 ++++++++++++++
- net/netfilter/ipvs/ip_vs_proto_sctp.c |   18 ++++++++++--------
- net/netfilter/ipvs/ip_vs_proto_tcp.c  |   14 ++++++++------
- 4 files changed, 56 insertions(+), 14 deletions(-)
+ net/netfilter/nf_conntrack_proto_tcp.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index f5faf85..95860df 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -978,6 +978,8 @@ struct netns_ipvs {
- 	int			sysctl_sync_sock_size;
- 	int			sysctl_cache_bypass;
- 	int			sysctl_expire_nodest_conn;
-+	int			sysctl_sloppy_tcp;
-+	int			sysctl_sloppy_sctp;
- 	int			sysctl_expire_quiescent_template;
- 	int			sysctl_sync_threshold[2];
- 	unsigned int		sysctl_sync_refresh_period;
-@@ -1020,6 +1022,8 @@ struct netns_ipvs {
- #define DEFAULT_SYNC_THRESHOLD	3
- #define DEFAULT_SYNC_PERIOD	50
- #define DEFAULT_SYNC_VER	1
-+#define DEFAULT_SLOPPY_TCP	0
-+#define DEFAULT_SLOPPY_SCTP	0
- #define DEFAULT_SYNC_REFRESH_PERIOD	(0U * HZ)
- #define DEFAULT_SYNC_RETRIES		0
- #define IPVS_SYNC_WAKEUP_RATE	8
-@@ -1056,6 +1060,16 @@ static inline int sysctl_sync_ver(struct netns_ipvs *ipvs)
- 	return ipvs->sysctl_sync_ver;
- }
- 
-+static inline int sysctl_sloppy_tcp(struct netns_ipvs *ipvs)
-+{
-+	return ipvs->sysctl_sloppy_tcp;
-+}
-+
-+static inline int sysctl_sloppy_sctp(struct netns_ipvs *ipvs)
-+{
-+	return ipvs->sysctl_sloppy_sctp;
-+}
-+
- static inline int sysctl_sync_ports(struct netns_ipvs *ipvs)
- {
- 	return ACCESS_ONCE(ipvs->sysctl_sync_ports);
-@@ -1109,6 +1123,16 @@ static inline int sysctl_sync_ver(struct netns_ipvs *ipvs)
- 	return DEFAULT_SYNC_VER;
- }
- 
-+static inline int sysctl_sloppy_tcp(struct netns_ipvs *ipvs)
-+{
-+	return DEFAULT_SLOPPY_TCP;
-+}
-+
-+static inline int sysctl_sloppy_sctp(struct netns_ipvs *ipvs)
-+{
-+	return DEFAULT_SLOPPY_SCTP;
-+}
-+
- static inline int sysctl_sync_ports(struct netns_ipvs *ipvs)
- {
- 	return 1;
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 47e5108..da035fc 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -1739,6 +1739,18 @@ static struct ctl_table vs_vars[] = {
- 		.proc_handler	= proc_dointvec,
- 	},
- 	{
-+		.procname	= "sloppy_tcp",
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
-+	{
-+		.procname	= "sloppy_sctp",
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
-+	{
- 		.procname	= "expire_quiescent_template",
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
-@@ -3723,6 +3735,8 @@ static int __net_init ip_vs_control_net_init_sysctl(struct net *net)
- 	tbl[idx++].data = &ipvs->sysctl_sync_sock_size;
- 	tbl[idx++].data = &ipvs->sysctl_cache_bypass;
- 	tbl[idx++].data = &ipvs->sysctl_expire_nodest_conn;
-+	tbl[idx++].data = &ipvs->sysctl_sloppy_tcp;
-+	tbl[idx++].data = &ipvs->sysctl_sloppy_sctp;
- 	tbl[idx++].data = &ipvs->sysctl_expire_quiescent_template;
- 	ipvs->sysctl_sync_threshold[0] = DEFAULT_SYNC_THRESHOLD;
- 	ipvs->sysctl_sync_threshold[1] = DEFAULT_SYNC_PERIOD;
-diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-index 8646488..df29d64 100644
---- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-@@ -15,6 +15,7 @@ sctp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_proto_data *pd,
- {
- 	struct net *net;
- 	struct ip_vs_service *svc;
-+	struct netns_ipvs *ipvs;
- 	sctp_chunkhdr_t _schunkh, *sch;
- 	sctp_sctphdr_t *sh, _sctph;
- 
-@@ -27,13 +28,14 @@ sctp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_proto_data *pd,
- 	if (sch == NULL)
- 		return 0;
- 	net = skb_net(skb);
-+	ipvs = net_ipvs(net);
- 	rcu_read_lock();
--	if ((sch->type == SCTP_CID_INIT) &&
-+	if ((sch->type == SCTP_CID_INIT || sysctl_sloppy_sctp(ipvs)) &&
- 	    (svc = ip_vs_service_find(net, af, skb->mark, iph->protocol,
- 				      &iph->daddr, sh->dest))) {
- 		int ignored;
- 
--		if (ip_vs_todrop(net_ipvs(net))) {
-+		if (ip_vs_todrop(ipvs)) {
- 			/*
- 			 * It seems that we are very loaded.
- 			 * We have to drop this packet :(
-@@ -232,21 +234,21 @@ static struct ipvs_sctp_nextstate
- 	 * STATE : IP_VS_SCTP_S_NONE
- 	 */
- 	/*next state *//*event */
--	{{IP_VS_SCTP_S_CLOSED /* IP_VS_SCTP_EVE_DATA_CLI */ },
-+	{{IP_VS_SCTP_S_ESTABLISHED /* IP_VS_SCTP_EVE_DATA_CLI */ },
- 	 {IP_VS_SCTP_S_CLOSED /* IP_VS_SCTP_EVE_DATA_SER */ },
- 	 {IP_VS_SCTP_S_INIT_CLI /* IP_VS_SCTP_EVE_INIT_CLI */ },
- 	 {IP_VS_SCTP_S_INIT_SER /* IP_VS_SCTP_EVE_INIT_SER */ },
--	 {IP_VS_SCTP_S_CLOSED /* IP_VS_SCTP_EVE_INIT_ACK_CLI */ },
-+	 {IP_VS_SCTP_S_INIT_ACK_CLI /* IP_VS_SCTP_EVE_INIT_ACK_CLI */ },
- 	 {IP_VS_SCTP_S_CLOSED /* IP_VS_SCTP_EVE_INIT_ACK_SER */ },
--	 {IP_VS_SCTP_S_CLOSED /* IP_VS_SCTP_EVE_COOKIE_ECHO_CLI */ },
-+	 {IP_VS_SCTP_S_ECHO_CLI /* IP_VS_SCTP_EVE_COOKIE_ECHO_CLI */ },
- 	 {IP_VS_SCTP_S_CLOSED /* IP_VS_SCTP_EVE_COOKIE_ECHO_SER */ },
--	 {IP_VS_SCTP_S_CLOSED /* IP_VS_SCTP_EVE_COOKIE_ACK_CLI */ },
-+	 {IP_VS_SCTP_S_ESTABLISHED /* IP_VS_SCTP_EVE_COOKIE_ACK_CLI */ },
- 	 {IP_VS_SCTP_S_CLOSED /* IP_VS_SCTP_EVE_COOKIE_ACK_SER */ },
- 	 {IP_VS_SCTP_S_CLOSED /* IP_VS_SCTP_EVE_ABORT_CLI */ },
- 	 {IP_VS_SCTP_S_CLOSED /* IP_VS_SCTP_EVE_ABORT_SER */ },
--	 {IP_VS_SCTP_S_CLOSED /* IP_VS_SCTP_EVE_SHUT_CLI */ },
-+	 {IP_VS_SCTP_S_SHUT_CLI /* IP_VS_SCTP_EVE_SHUT_CLI */ },
- 	 {IP_VS_SCTP_S_CLOSED /* IP_VS_SCTP_EVE_SHUT_SER */ },
--	 {IP_VS_SCTP_S_CLOSED /* IP_VS_SCTP_EVE_SHUT_ACK_CLI */ },
-+	 {IP_VS_SCTP_S_SHUT_ACK_CLI /* IP_VS_SCTP_EVE_SHUT_ACK_CLI */ },
- 	 {IP_VS_SCTP_S_CLOSED /* IP_VS_SCTP_EVE_SHUT_ACK_SER */ },
- 	 {IP_VS_SCTP_S_CLOSED /* IP_VS_SCTP_EVE_SHUT_COM_CLI */ },
- 	 {IP_VS_SCTP_S_CLOSED /* IP_VS_SCTP_EVE_SHUT_COM_SER */ },
-diff --git a/net/netfilter/ipvs/ip_vs_proto_tcp.c b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-index 50a1594..e3a6972 100644
---- a/net/netfilter/ipvs/ip_vs_proto_tcp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-@@ -39,6 +39,7 @@ tcp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_proto_data *pd,
- 	struct net *net;
- 	struct ip_vs_service *svc;
- 	struct tcphdr _tcph, *th;
-+	struct netns_ipvs *ipvs;
- 
- 	th = skb_header_pointer(skb, iph->len, sizeof(_tcph), &_tcph);
- 	if (th == NULL) {
-@@ -46,14 +47,15 @@ tcp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_proto_data *pd,
- 		return 0;
- 	}
- 	net = skb_net(skb);
-+	ipvs = net_ipvs(net);
- 	/* No !th->ack check to allow scheduling on SYN+ACK for Active FTP */
- 	rcu_read_lock();
--	if (th->syn &&
-+	if ((th->syn || sysctl_sloppy_tcp(ipvs)) && !th->rst &&
- 	    (svc = ip_vs_service_find(net, af, skb->mark, iph->protocol,
- 				      &iph->daddr, th->dest))) {
- 		int ignored;
- 
--		if (ip_vs_todrop(net_ipvs(net))) {
-+		if (ip_vs_todrop(ipvs)) {
- 			/*
- 			 * It seems that we are very loaded.
- 			 * We have to drop this packet :(
-@@ -401,7 +403,7 @@ static struct tcp_states_t tcp_states [] = {
- /*        sNO, sES, sSS, sSR, sFW, sTW, sCL, sCW, sLA, sLI, sSA	*/
- /*syn*/ {{sSR, sES, sES, sSR, sSR, sSR, sSR, sSR, sSR, sSR, sSR }},
- /*fin*/ {{sCL, sCW, sSS, sTW, sTW, sTW, sCL, sCW, sLA, sLI, sTW }},
--/*ack*/ {{sCL, sES, sSS, sES, sFW, sTW, sCL, sCW, sCL, sLI, sES }},
-+/*ack*/ {{sES, sES, sSS, sES, sFW, sTW, sCL, sCW, sCL, sLI, sES }},
- /*rst*/ {{sCL, sCL, sCL, sSR, sCL, sCL, sCL, sCL, sLA, sLI, sSR }},
- 
- /*	OUTPUT */
-@@ -415,7 +417,7 @@ static struct tcp_states_t tcp_states [] = {
- /*        sNO, sES, sSS, sSR, sFW, sTW, sCL, sCW, sLA, sLI, sSA	*/
- /*syn*/ {{sSR, sES, sES, sSR, sSR, sSR, sSR, sSR, sSR, sSR, sSR }},
- /*fin*/ {{sCL, sFW, sSS, sTW, sFW, sTW, sCL, sCW, sLA, sLI, sTW }},
--/*ack*/ {{sCL, sES, sSS, sES, sFW, sTW, sCL, sCW, sCL, sLI, sES }},
-+/*ack*/ {{sES, sES, sSS, sES, sFW, sTW, sCL, sCW, sCL, sLI, sES }},
- /*rst*/ {{sCL, sCL, sCL, sSR, sCL, sCL, sCL, sCL, sLA, sLI, sCL }},
- };
- 
-@@ -424,7 +426,7 @@ static struct tcp_states_t tcp_states_dos [] = {
- /*        sNO, sES, sSS, sSR, sFW, sTW, sCL, sCW, sLA, sLI, sSA	*/
- /*syn*/ {{sSR, sES, sES, sSR, sSR, sSR, sSR, sSR, sSR, sSR, sSA }},
- /*fin*/ {{sCL, sCW, sSS, sTW, sTW, sTW, sCL, sCW, sLA, sLI, sSA }},
--/*ack*/ {{sCL, sES, sSS, sSR, sFW, sTW, sCL, sCW, sCL, sLI, sSA }},
-+/*ack*/ {{sES, sES, sSS, sSR, sFW, sTW, sCL, sCW, sCL, sLI, sSA }},
- /*rst*/ {{sCL, sCL, sCL, sSR, sCL, sCL, sCL, sCL, sLA, sLI, sCL }},
- 
- /*	OUTPUT */
-@@ -438,7 +440,7 @@ static struct tcp_states_t tcp_states_dos [] = {
- /*        sNO, sES, sSS, sSR, sFW, sTW, sCL, sCW, sLA, sLI, sSA	*/
- /*syn*/ {{sSA, sES, sES, sSR, sSA, sSA, sSA, sSA, sSA, sSA, sSA }},
- /*fin*/ {{sCL, sFW, sSS, sTW, sFW, sTW, sCL, sCW, sLA, sLI, sTW }},
--/*ack*/ {{sCL, sES, sSS, sES, sFW, sTW, sCL, sCW, sCL, sLI, sES }},
-+/*ack*/ {{sES, sES, sSS, sES, sFW, sTW, sCL, sCW, sCL, sLI, sES }},
- /*rst*/ {{sCL, sCL, sCL, sSR, sCL, sCL, sCL, sCL, sLA, sLI, sCL }},
- };
- 
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index 4d4d8f1..7dcc376 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -1043,6 +1043,12 @@ static int tcp_packet(struct nf_conn *ct,
+ 			nf_ct_kill_acct(ct, ctinfo, skb);
+ 			return NF_ACCEPT;
+ 		}
++		/* ESTABLISHED without SEEN_REPLY, i.e. mid-connection
++		 * pickup with loose=1. Avoid large ESTABLISHED timeout.
++		 */
++		if (new_state == TCP_CONNTRACK_ESTABLISHED &&
++		    timeout > timeouts[TCP_CONNTRACK_UNACK])
++			timeout = timeouts[TCP_CONNTRACK_UNACK];
+ 	} else if (!test_bit(IPS_ASSURED_BIT, &ct->status)
+ 		   && (old_state == TCP_CONNTRACK_SYN_RECV
+ 		       || old_state == TCP_CONNTRACK_ESTABLISHED)
 -- 
 1.7.10.4
