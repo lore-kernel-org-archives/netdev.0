@@ -1,69 +1,129 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: skbuff: skb_under_panic warning in 3.10rc7+
-Date: Mon, 1 Jul 2013 00:13:22 +0200
-Message-ID: <20130630221322.GA27948@order.stressinduktion.org>
-References: <20130630160246.GA24539@redhat.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH net-next] cassini: Make missing firmware non-fatal
+Date: Mon, 01 Jul 2013 00:13:27 +0100
+Message-ID: <1372634007.5155.51.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Dave Jones <davej@redhat.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-avYUO6uWSs+KlAn3Tlq1"
+Cc: Jose Andres Arias Velichko <Andres.Arias@PaisLinux.net>,
+	712674@bugs.debian.org, netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:46766 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751320Ab3F3WNY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Jun 2013 18:13:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20130630160246.GA24539@redhat.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:46438 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751732Ab3F3XNk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Jun 2013 19:13:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 30, 2013 at 12:02:46PM -0400, Dave Jones wrote:
-> skbuff: skb_under_panic: text:ffffffff816765f6 len:48 put:40 head:ffff88013deb6df0 data:ffff88013deb6dec tail:0x2c end:0xc0 dev:<NULL>
-> ------------[ cut here ]------------
-> kernel BUG at net/core/skbuff.c:126!
-> invalid opcode: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
-> Modules linked in: dccp_ipv4 dccp 8021q garp bridge stp dlci mpoa snd_seq_dummy sctp fuse hidp tun bnep nfnetlink scsi_transport_iscsi rfcomm can_raw can_bcm af_802154 appletalk caif_socket can caif ipt_ULOG x25 rose af_key pppoe pppox ipx phonet irda llc2 ppp_generic slhc p8023 psnap p8022 llc crc_ccitt atm bluetooth netrom ax25 nfc rfkill rds af_rxrpc coretemp hwmon kvm_intel kvm crc32c_intel snd_hda_codec_realtek ghash_clmulni_intel microcode pcspkr snd_hda_codec_hdmi snd_hda_intel snd_hda_codec snd_hwdep usb_debug snd_seq snd_seq_device snd_pcm e1000e snd_page_alloc snd_timer ptp snd pps_core soundcore xfs libcrc32c
-> CPU: 2 PID: 8095 Comm: trinity-child2 Not tainted 3.10.0-rc7+ #37 
-> task: ffff8801f52c2520 ti: ffff8801e6430000 task.ti: ffff8801e6430000
-> RIP: 0010:[<ffffffff816e759c>]  [<ffffffff816e759c>] skb_panic+0x63/0x65
-> RSP: 0018:ffff8801e6431de8  EFLAGS: 00010282
-> RAX: 0000000000000086 RBX: ffff8802353d3cc0 RCX: 0000000000000006
-> RDX: 0000000000003b90 RSI: ffff8801f52c2ca0 RDI: ffff8801f52c2520
-> RBP: ffff8801e6431e08 R08: 0000000000000000 R09: 0000000000000000
-> R10: 0000000000000001 R11: 0000000000000001 R12: ffff88022ea0c800
-> R13: ffff88022ea0cdf8 R14: ffff8802353ecb40 R15: ffffffff81cc7800
-> FS:  00007f5720a10740(0000) GS:ffff880244c00000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> CR2: 0000000005862000 CR3: 000000022843c000 CR4: 00000000001407e0
-> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000600
-> Stack:
->  ffff88013deb6dec 000000000000002c 00000000000000c0 ffffffff81a3f6e4
->  ffff8801e6431e18 ffffffff8159a9aa ffff8801e6431e90 ffffffff816765f6
->  ffffffff810b756b 0000000700000002 ffff8801e6431e40 0000fea9292aa8c0
-> Call Trace:
->  [<ffffffff8159a9aa>] skb_push+0x3a/0x40
->  [<ffffffff816765f6>] ip6_push_pending_frames+0x1f6/0x4d0
->  [<ffffffff810b756b>] ? mark_held_locks+0xbb/0x140
->  [<ffffffff81694919>] udp_v6_push_pending_frames+0x2b9/0x3d0
->  [<ffffffff81694660>] ? udplite_getfrag+0x20/0x20
->  [<ffffffff8162092a>] udp_lib_setsockopt+0x1aa/0x1f0
->  [<ffffffff811cc5e7>] ? fget_light+0x387/0x4f0
->  [<ffffffff816958a4>] udpv6_setsockopt+0x34/0x40
->  [<ffffffff815949f4>] sock_common_setsockopt+0x14/0x20
->  [<ffffffff81593c31>] SyS_setsockopt+0x71/0xd0
->  [<ffffffff816f5d54>] tracesys+0xdd/0xe2
-> Code: 00 00 48 89 44 24 10 8b 87 d8 00 00 00 48 89 44 24 08 48 8b 87 e8 00 00 00 48 c7 c7 c0 04 aa 81 48 89 04 24 31 c0 e8 e1 7e ff ff <0f> 0b 55 48 89 e5 0f 0b 55 48 89 e5 0f 0b 55 48 89 e5 0f 0b 55 
-> RIP  [<ffffffff816e759c>] skb_panic+0x63/0x65
->  RSP <ffff8801e6431de8>
 
-Dave, could you try to reproduce this Eric's patch
+--=-avYUO6uWSs+KlAn3Tlq1
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/net/ipv6/ip6_output.c?id=284041ef21fdf2e0d216ab6b787bc9072b4eb58a
+The firmware patch for the Saturn PHY fixes a bug, but is not absolutely
+essential.  And its licence is unclear, so it is not included in all
+distributions.  Just log an error message and continue if it is missing
+or invalid.
 
-cherry-picked from net-next? I could just test net-next with my testcase and
-at least my BUG does not occur any more.
+References: http://bugs.debian.org/712674
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+Tested-by: Jose Andres Arias Velichko <Andres.Arias@PaisLinux.net> (against=
+ 3.2)
+---
+ drivers/net/ethernet/sun/cassini.c |   18 ++++++++----------
+ 1 file changed, 8 insertions(+), 10 deletions(-)
 
-Thanks,
+diff --git a/drivers/net/ethernet/sun/cassini.c b/drivers/net/ethernet/sun/=
+cassini.c
+index 4c682a3..759441b 100644
+--- a/drivers/net/ethernet/sun/cassini.c
++++ b/drivers/net/ethernet/sun/cassini.c
+@@ -808,44 +808,43 @@ static int cas_reset_mii_phy(struct cas *cp)
+ 	return limit <=3D 0;
+ }
+=20
+-static int cas_saturn_firmware_init(struct cas *cp)
++static void cas_saturn_firmware_init(struct cas *cp)
+ {
+ 	const struct firmware *fw;
+ 	const char fw_name[] =3D "sun/cassini.bin";
+ 	int err;
+=20
+ 	if (PHY_NS_DP83065 !=3D cp->phy_id)
+-		return 0;
++		return;
+=20
+ 	err =3D request_firmware(&fw, fw_name, &cp->pdev->dev);
+ 	if (err) {
+ 		pr_err("Failed to load firmware \"%s\"\n",
+ 		       fw_name);
+-		return err;
++		return;
+ 	}
+ 	if (fw->size < 2) {
+ 		pr_err("bogus length %zu in \"%s\"\n",
+ 		       fw->size, fw_name);
+-		err =3D -EINVAL;
+ 		goto out;
+ 	}
+ 	cp->fw_load_addr=3D fw->data[1] << 8 | fw->data[0];
+ 	cp->fw_size =3D fw->size - 2;
+ 	cp->fw_data =3D vmalloc(cp->fw_size);
+-	if (!cp->fw_data) {
+-		err =3D -ENOMEM;
++	if (!cp->fw_data)
+ 		goto out;
+-	}
+ 	memcpy(cp->fw_data, &fw->data[2], cp->fw_size);
+ out:
+ 	release_firmware(fw);
+-	return err;
+ }
+=20
+ static void cas_saturn_firmware_load(struct cas *cp)
+ {
+ 	int i;
+=20
++	if (!cp->fw_data)
++		return;
++
+ 	cas_phy_powerdown(cp);
+=20
+ 	/* expanded memory access mode */
+@@ -5083,8 +5082,7 @@ static int cas_init_one(struct pci_dev *pdev, const s=
+truct pci_device_id *ent)
+ 	if (cas_check_invariants(cp))
+ 		goto err_out_iounmap;
+ 	if (cp->cas_flags & CAS_FLAG_SATURN)
+-		if (cas_saturn_firmware_init(cp))
+-			goto err_out_iounmap;
++		cas_saturn_firmware_init(cp);
+=20
+ 	cp->init_block =3D (struct cas_init_block *)
+ 		pci_alloc_consistent(pdev, sizeof(struct cas_init_block),
 
-  Hannes
+
+--=-avYUO6uWSs+KlAn3Tlq1
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIVAwUAUdC7l+e/yOyVhhEJAQrg3Q/+J33iTnl44d7INAgIYGDTWxcKZZCaaWww
+I4sxKGmkegXfUZYwjvr3RQogi+BVP54O5Fdtigw5q3rCOpHvju6s8qOfjx+hOtHc
+yMK16TXEHJIE5+6/7ouOwQH4ALxD2HgDByNL2mN1zjnOpnBDCPMp9o1n4vhWPcKr
+t7gagq8qbgnu9sh51b7EmU+60qTs4pvN+al7a2IIdaof8Bn58WayntOOJC5PB4Rm
+zzXbjR1EZL8x1e0hIMHGNiRorwLRkKEIXGCe4fW8Rq5A3x2bQdzYYfNdaiZ45i3I
+VZG044SIYXfSfZts0SkwyKNgXu2/4slVlL9s0rMJPPgUOkrJB8wHDq1Pt70yOHZi
+uH8eVTnL3Hwup8IeZKpyraCgzepbAkCaaAEEr5X7a0ZvH/c3OLLL8eblBG8/jRa6
+dW8Q4ezqFZKfNRmPWwns6BbhQx/Jw51zug4e5kXa5aj6bV0CHHzhVvmNWZJ4plKm
+RoBpNmdhKCKBLNPGiIwrGahZdSjEhxNEp24jho3iKdLVLZbMz76kJUQABZ9Z6HkP
+U6qWb5CDO9OAbQSHAqGhi6T22+tGwbk6EDvLrOJQwQa61pMtSUKs/sEF+9OK5RWt
+YIaGj3jNLXe2P99Io/13/Q/XWvy3FV2vD4tD7gK8xaFK9dqrOxyzN6lf6SLHzg32
+mAH1Z/oJJ4E=
+=4KQ0
+-----END PGP SIGNATURE-----
+
+--=-avYUO6uWSs+KlAn3Tlq1--
