@@ -1,74 +1,61 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: ip_tunnel mtu calculation
-Date: Sat, 29 Jun 2013 21:36:39 -0700
-Message-ID: <CALnjE+pTXGwhePigZRyfVORkgbpwRDF1hTBRnR24fcsqvsP9ug@mail.gmail.com>
-References: <20130629175701.73c17a16@vostro>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: [PATCH] cxgb3: Missing rtnl lock in error recovery
+Date: Sun, 30 Jun 2013 14:37:11 +1000
+Message-ID: <1372567031.18612.94.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Timo Teras <timo.teras@iki.fi>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Divy Le Ray <divy@chelsio.com>, Vipul Pandya <vipul@chelsio.com>,
+	Jay Hernandez <jay@chelsio.com>,
+	Gavin Shan <shangw@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog124.obsmtp.com ([74.125.149.151]:60647 "HELO
-	na3sys009aog124.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750737Ab3F3Egk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Jun 2013 00:36:40 -0400
-Received: by mail-qc0-f172.google.com with SMTP id j10so2229251qcx.17
-        for <netdev@vger.kernel.org>; Sat, 29 Jun 2013 21:36:39 -0700 (PDT)
-In-Reply-To: <20130629175701.73c17a16@vostro>
+Received: from gate.crashing.org ([63.228.1.57]:45132 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750744Ab3F3EhV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Jun 2013 00:37:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 29, 2013 at 7:57 AM, Timo Teras <timo.teras@iki.fi> wrote:
-> Hi,
->
-> I'm reviewing changes since 3.9 to net-next and observed that, the
-> tunnel refactoring had the following change in ip_gre xmit path.
->
-> In ip_tunnel_xmit() mtu is now calculated as:
->         if (df)
->                 mtu = dst_mtu(&rt->dst) - dev->hard_header_len
->                                         - sizeof(struct iphdr);
->         else
->                 mtu = skb_dst(skb) ? dst_mtu(skb_dst(skb)) : dev->mtu;
->
-> And it used to be in ip_gre.c: ipgre_tunnel_xmit():
->         if (df)
->                 mtu = dst_mtu(&rt->dst) - dev->hard_header_len - tunnel->hlen;
->         else
->                 mtu = skb_dst(skb) ? dst_mtu(skb_dst(skb)) : dev->mtu;
->
-> I notice that tunnel->hlen is replaced with sizeof(struct iphdr), but
-> in case of GRE those are not the same thing. And the refactored
-> ip_gre.c does not set hard_header_len either. So it would like the mtu
-> is now miscalculated (planning to give a full test-spin for net-next
-> next week).
->
-> It seems the tunnel->hlen used to be the full length, including
-> sizeof(struct iphdr).
->
-> But the new, refactored code seems exclude sizeof(struct iphdr) from
-> the tunnel->hlen. So would the following be appropriate?
->
-This is ip-tunnel layer, skb has gre header pushed. so mtu does not
-need to account gre header when compared to skb->len.
-But I missed one comparison for mtu check where iph->tot-len is used
-rather that skb-len, which is correct length.
+When exercising error injection on IBM pseries machine, I hit the
+following warning:
 
-gre module is using iph->tot_len for pmtu check which is wrong for
-gre-tap device. This bug is there even before restructuring.
-I will send out patch for ip-tunnels code for now.
+[  251.450043] RTAS: event: 89, Type: Platform Error, Severity: 2
+[  253.549822] cxgb3 0006:01:00.0: enabling device (0140 -> 0142)
+[  253.713560] cxgb3 0006:01:00.0: adapter recovering, PEX ERR 0x100
+[  254.895437] RTNL: assertion failed at net/core/dev.c (2031)
+[  254.895467] CPU: 6 PID: 5449 Comm: eehd Tainted: G        W    3.10.0-rc7-00157-gea461ab #19
+[  254.895474] Call Trace:
+[  254.895483] [c000000fac56f7d0] [c000000000014dcc] .show_stack+0x7c/0x1f0 (unreliable)
+[  254.895493] [c000000fac56f8a0] [c0000000007ba318] .dump_stack+0x28/0x3c
+[  254.895500] [c000000fac56f910] [c0000000006c0384] .netif_set_real_num_tx_queues+0x224/0x230
+[  254.895515] [c000000fac56f9b0] [d00000000ef35510] .cxgb_open+0x80/0x3f0 [cxgb3]
+[  254.895525] [c000000fac56fa50] [d00000000ef35914] .t3_resume_ports+0x94/0x100 [cxgb3]
+[  254.895533] [c000000fac56fae0] [c00000000005fc8c] .eeh_report_resume+0x8c/0xd0
+[  254.895539] [c000000fac56fb60] [c00000000005e9fc] .eeh_pe_dev_traverse+0x9c/0x190
+[  254.895545] [c000000fac56fc10] [c000000000060000] .eeh_handle_event+0x110/0x330
+[  254.895551] [c000000fac56fca0] [c000000000060350] .eeh_event_handler+0x130/0x1a0
+[  254.895558] [c000000fac56fd30] [c0000000000ad758] .kthread+0xe8/0xf0
+[  254.895566] [c000000fac56fe30] [c00000000000a05c] .ret_from_kernel_thread+0x5c/0x80
 
-Thanks.
-> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-> index 394cebc..ac3a9a1 100644
-> --- a/net/ipv4/ip_tunnel.c
-> +++ b/net/ipv4/ip_tunnel.c
-> @@ -564,7 +564,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
->
->         if (df)
->                 mtu = dst_mtu(&rt->dst) - dev->hard_header_len
-> -                                       - sizeof(struct iphdr);
-> +                       - tunnel->hlen - sizeof(struct iphdr);
->         else
->                 mtu = skb_dst(skb) ? dst_mtu(skb_dst(skb)) : dev->mtu;
->
+It appears that t3_resume_ports() is called with the rtnl_lock held from
+the fatal error task but not from the PCI error callbacks. This fixes it.
+
+Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+CC: <stable@vger.kernel.org>
+---
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+index 71497e8..b650951 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+@@ -3037,7 +3037,9 @@ static void t3_io_resume(struct pci_dev *pdev)
+ 	CH_ALERT(adapter, "adapter recovering, PEX ERR 0x%x\n",
+ 		 t3_read_reg(adapter, A_PCIE_PEX_ERR));
+ 
++	rtnl_lock();
+ 	t3_resume_ports(adapter);
++	rtnl_unlock();
+ }
+ 
+ static const struct pci_error_handlers t3_err_handler = {
