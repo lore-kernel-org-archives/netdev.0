@@ -1,148 +1,106 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 09/12] ipvs: add sync_persist_mode flag
-Date: Mon,  1 Jul 2013 01:54:38 +0200
-Message-ID: <1372636481-3705-10-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 12/12] netfilter: nf_queue: add NFQA_SKB_CSUM_NOTVERIFIED info flag
+Date: Mon,  1 Jul 2013 01:54:41 +0200
+Message-ID: <1372636481-3705-13-git-send-email-pablo@netfilter.org>
 References: <1372636481-3705-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59883 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:59891 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752082Ab3F3XzB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Jun 2013 19:55:01 -0400
+	id S1752184Ab3F3XzE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Jun 2013 19:55:04 -0400
 In-Reply-To: <1372636481-3705-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+From: Florian Westphal <fw@strlen.de>
 
-Add sync_persist_mode flag to reduce sync traffic
-by syncing only persistent templates.
+The common case is that TCP/IP checksums have already been
+verified, e.g. by hardware (rx checksum offload), or conntrack.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Tested-by: Aleksey Chudov <aleksey.chudov@gmail.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Userspace can use this flag to determine when the checksum
+has not been validated yet.
+
+If the flag is set, this doesn't necessarily mean that the packet has
+an invalid checksum, e.g. if NIC doesn't support rx checksum.
+
+Userspace that sucessfully enabled NFQA_CFG_F_GSO queue feature flag can
+infer that IP/TCP checksum has already been validated if either the
+SKB_INFO attribute is not present or the NFQA_SKB_CSUM_NOTVERIFIED
+flag is unset.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- Documentation/networking/ipvs-sysctl.txt |   13 +++++++++++++
- include/net/ip_vs.h                      |   11 +++++++++++
- net/netfilter/ipvs/ip_vs_ctl.c           |    7 +++++++
- net/netfilter/ipvs/ip_vs_sync.c          |   12 ++++++++++++
- 4 files changed, 43 insertions(+)
+ include/uapi/linux/netfilter/nfnetlink_queue.h |    2 ++
+ net/netfilter/nfnetlink_queue_core.c           |   16 ++++++++++++++--
+ 2 files changed, 16 insertions(+), 2 deletions(-)
 
-diff --git a/Documentation/networking/ipvs-sysctl.txt b/Documentation/networking/ipvs-sysctl.txt
-index 9573d0c..7a3c047 100644
---- a/Documentation/networking/ipvs-sysctl.txt
-+++ b/Documentation/networking/ipvs-sysctl.txt
-@@ -181,6 +181,19 @@ snat_reroute - BOOLEAN
- 	always be the same as the original route so it is an optimisation
- 	to disable snat_reroute and avoid the recalculation.
+diff --git a/include/uapi/linux/netfilter/nfnetlink_queue.h b/include/uapi/linux/netfilter/nfnetlink_queue.h
+index a2308ae..3a9b921 100644
+--- a/include/uapi/linux/netfilter/nfnetlink_queue.h
++++ b/include/uapi/linux/netfilter/nfnetlink_queue.h
+@@ -105,5 +105,7 @@ enum nfqnl_attr_config {
+ #define NFQA_SKB_CSUMNOTREADY (1 << 0)
+ /* packet is GSO (i.e., exceeds device mtu) */
+ #define NFQA_SKB_GSO (1 << 1)
++/* csum not validated (incoming device doesn't support hw checksum, etc.) */
++#define NFQA_SKB_CSUM_NOTVERIFIED (1 << 2)
  
-+sync_persist_mode - INTEGER
-+	default 0
-+
-+	Controls the synchronisation of connections when using persistence
-+
-+	0: All types of connections are synchronised
-+	1: Attempt to reduce the synchronisation traffic depending on
-+	the connection type. For persistent services avoid synchronisation
-+	for normal connections, do it only for persistence templates.
-+	In such case, for TCP and SCTP it may need enabling sloppy_tcp and
-+	sloppy_sctp flags on backup servers. For non-persistent services
-+	such optimization is not applied, mode 0 is assumed.
-+
- sync_version - INTEGER
- 	default 1
- 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index e667df1..f0d70f0 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -975,6 +975,7 @@ struct netns_ipvs {
- 	int			sysctl_snat_reroute;
- 	int			sysctl_sync_ver;
- 	int			sysctl_sync_ports;
-+	int			sysctl_sync_persist_mode;
- 	unsigned long		sysctl_sync_qlen_max;
- 	int			sysctl_sync_sock_size;
- 	int			sysctl_cache_bypass;
-@@ -1076,6 +1077,11 @@ static inline int sysctl_sync_ports(struct netns_ipvs *ipvs)
- 	return ACCESS_ONCE(ipvs->sysctl_sync_ports);
+ #endif /* _NFNETLINK_QUEUE_H */
+diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
+index 299a48a..971ea14 100644
+--- a/net/netfilter/nfnetlink_queue_core.c
++++ b/net/netfilter/nfnetlink_queue_core.c
+@@ -280,12 +280,17 @@ nfqnl_zcopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
+ 	skb_shinfo(to)->nr_frags = j;
  }
  
-+static inline int sysctl_sync_persist_mode(struct netns_ipvs *ipvs)
-+{
-+	return ipvs->sysctl_sync_persist_mode;
-+}
-+
- static inline unsigned long sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
+-static int nfqnl_put_packet_info(struct sk_buff *nlskb, struct sk_buff *packet)
++static int
++nfqnl_put_packet_info(struct sk_buff *nlskb, struct sk_buff *packet,
++		      bool csum_verify)
  {
- 	return ipvs->sysctl_sync_qlen_max;
-@@ -1139,6 +1145,11 @@ static inline int sysctl_sync_ports(struct netns_ipvs *ipvs)
- 	return 1;
- }
+ 	__u32 flags = 0;
  
-+static inline int sysctl_sync_persist_mode(struct netns_ipvs *ipvs)
-+{
-+	return 0;
-+}
+ 	if (packet->ip_summed == CHECKSUM_PARTIAL)
+ 		flags = NFQA_SKB_CSUMNOTREADY;
++	else if (csum_verify)
++		flags = NFQA_SKB_CSUM_NOTVERIFIED;
 +
- static inline unsigned long sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
- {
- 	return IPVS_SYNC_QLEN_MAX;
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index da035fc..c8148e4 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -1715,6 +1715,12 @@ static struct ctl_table vs_vars[] = {
- 		.proc_handler	= &proc_do_sync_ports,
- 	},
- 	{
-+		.procname	= "sync_persist_mode",
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
-+	{
- 		.procname	= "sync_qlen_max",
- 		.maxlen		= sizeof(unsigned long),
- 		.mode		= 0644,
-@@ -3729,6 +3735,7 @@ static int __net_init ip_vs_control_net_init_sysctl(struct net *net)
- 	tbl[idx++].data = &ipvs->sysctl_sync_ver;
- 	ipvs->sysctl_sync_ports = 1;
- 	tbl[idx++].data = &ipvs->sysctl_sync_ports;
-+	tbl[idx++].data = &ipvs->sysctl_sync_persist_mode;
- 	ipvs->sysctl_sync_qlen_max = nr_free_buffer_pages() / 32;
- 	tbl[idx++].data = &ipvs->sysctl_sync_qlen_max;
- 	ipvs->sysctl_sync_sock_size = 0;
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index 2fc6639..f448471 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -425,6 +425,16 @@ ip_vs_sync_buff_create_v0(struct netns_ipvs *ipvs)
- 	return sb;
- }
+ 	if (skb_is_gso(packet))
+ 		flags |= NFQA_SKB_GSO;
  
-+/* Check if connection is controlled by persistence */
-+static inline bool in_persistence(struct ip_vs_conn *cp)
-+{
-+	for (cp = cp->control; cp; cp = cp->control) {
-+		if (cp->flags & IP_VS_CONN_F_TEMPLATE)
-+			return true;
-+	}
-+	return false;
-+}
+@@ -310,6 +315,7 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
+ 	struct net_device *outdev;
+ 	struct nf_conn *ct = NULL;
+ 	enum ip_conntrack_info uninitialized_var(ctinfo);
++	bool csum_verify;
+ 
+ 	size =    nlmsg_total_size(sizeof(struct nfgenmsg))
+ 		+ nla_total_size(sizeof(struct nfqnl_msg_packet_hdr))
+@@ -327,6 +333,12 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
+ 	if (entskb->tstamp.tv64)
+ 		size += nla_total_size(sizeof(struct nfqnl_msg_packet_timestamp));
+ 
++	if (entry->hook <= NF_INET_FORWARD ||
++	   (entry->hook == NF_INET_POST_ROUTING && entskb->sk == NULL))
++		csum_verify = !skb_csum_unnecessary(entskb);
++	else
++		csum_verify = false;
 +
- /* Check if conn should be synced.
-  * pkts: conn packets, use sysctl_sync_threshold to avoid packet check
-  * - (1) sync_refresh_period: reduce sync rate. Additionally, retry
-@@ -447,6 +457,8 @@ static int ip_vs_sync_conn_needed(struct netns_ipvs *ipvs,
- 	/* Check if we sync in current state */
- 	if (unlikely(cp->flags & IP_VS_CONN_F_TEMPLATE))
- 		force = 0;
-+	else if (unlikely(sysctl_sync_persist_mode(ipvs) && in_persistence(cp)))
-+		return 0;
- 	else if (likely(cp->protocol == IPPROTO_TCP)) {
- 		if (!((1 << cp->state) &
- 		      ((1 << IP_VS_TCP_S_ESTABLISHED) |
+ 	outdev = entry->outdev;
+ 
+ 	switch ((enum nfqnl_config_mode)ACCESS_ONCE(queue->copy_mode)) {
+@@ -476,7 +488,7 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
+ 	    nla_put_be32(skb, NFQA_CAP_LEN, htonl(cap_len)))
+ 		goto nla_put_failure;
+ 
+-	if (nfqnl_put_packet_info(skb, entskb))
++	if (nfqnl_put_packet_info(skb, entskb, csum_verify))
+ 		goto nla_put_failure;
+ 
+ 	if (data_len) {
 -- 
 1.7.10.4
