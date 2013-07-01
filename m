@@ -1,50 +1,39 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: a tap mystery
-Date: Mon, 01 Jul 2013 16:33:44 -0700
-Message-ID: <51D211D8.3000802@hp.com>
-References: <51B66C74.2050801@hp.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH v2.34] datapath: Add basic MPLS support to kernel
+Date: Mon, 1 Jul 2013 16:42:46 -0700
+Message-ID: <CAEP_g=-uMQuwK7=35XG8xrToFDoe8HS8yBK51tSWOipS0FdYtA@mail.gmail.com>
+References: <1372234717-8735-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
+	Isaku Yamahata <yamahata@valinux.co.jp>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Jarno Rajahalme <jarno.rajahalme@nsn.com>,
+	Joe Stringer <joe@wand.net.nz>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:46862 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755601Ab3GAXdq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 19:33:46 -0400
-Received: from g4t0018.houston.hp.com (g4t0018.houston.hp.com [16.234.32.27])
-	by g4t0017.houston.hp.com (Postfix) with ESMTP id 63C93382F0
-	for <netdev@vger.kernel.org>; Mon,  1 Jul 2013 23:33:45 +0000 (UTC)
-Received: from [16.103.148.51] (tardy.usa.hp.com [16.103.148.51])
-	by g4t0018.houston.hp.com (Postfix) with ESMTP id 349FF100E8
-	for <netdev@vger.kernel.org>; Mon,  1 Jul 2013 23:33:45 +0000 (UTC)
-In-Reply-To: <51B66C74.2050801@hp.com>
+Received: from na3sys009aog118.obsmtp.com ([74.125.149.244]:51687 "HELO
+	na3sys009aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755033Ab3GAXnH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 19:43:07 -0400
+Received: by mail-ie0-f174.google.com with SMTP id 9so10415883iec.19
+        for <netdev@vger.kernel.org>; Mon, 01 Jul 2013 16:43:06 -0700 (PDT)
+In-Reply-To: <1372234717-8735-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/10/2013 05:16 PM, Rick Jones wrote:
-> I have a small test script which runs a netperf TCP_RR test with an ever
-> increasing number of tap devices on the system.  In this case the system
-> is a venerable Centrino-based laptop on AC power at fixed frequency,
-> with idle=poll for perf profiling purposes, the irqbalanced shot in the
-> head and the IRQ of the Intel Corporation 82566MM pointed at CPU 0,
-> whereon I have also bound the netperf process.  The other system is my
-> personal workstation and the network connection between them is a
-> private, back-to-back link.  The kernel on the laptop is a 3.5.0-30
-> generic kernel.
+On Wed, Jun 26, 2013 at 1:18 AM, Simon Horman <horms@verge.net.au> wrote:
+> Allow datapath to recognize and extract MPLS labels into flow keys
+> and execute actions which push, pop, and set labels on packets.
 >
-> For the first 1024 tap devices created on the system, and put into the
-> "UP" state, what netperf reports for CPU utilization and service demand
-> is consistent with increasing per-packet costs which seems to be
-> consistent with list_for_each_entry_rcu(ptype, &ptype_all, list) usage
-> in dev_queue_xmit_nit and __netif_receive_skb.
+> Based heavily on work by Leo Alterman, Ravi K, Isaku Yamahata and Joe Stringer.
 >
->
-> But somewhere between 1024 and 2048 tap devices some sort of miracle
-> occurs and the CPU utilization and service demand drop.  Considerably.
+> Cc: Ravi K <rkerur@gmail.com>
+> Cc: Leo Alterman <lalterman@nicira.com>
+> Cc: Isaku Yamahata <yamahata@valinux.co.jp>
+> Cc: Joe Stringer <joe@wand.net.nz>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-And the same thing happens with an ~5 day old 3.10.0-rc6+ net-next kernel.
-
-happy benchmarking,
-
-rick jones
+Simon, have you thought any more about the header ordering issues? I
+don't think we've reached a conclusion at this point.
