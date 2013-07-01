@@ -1,96 +1,159 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: skbuff: skb_under_panic warning in 3.10rc7+
-Date: Mon, 1 Jul 2013 18:08:44 +0200
-Message-ID: <20130701160844.GA8937@order.stressinduktion.org>
-References: <20130630160246.GA24539@redhat.com> <20130630221322.GA27948@order.stressinduktion.org> <20130630232308.GC24483@order.stressinduktion.org> <20130701082440.GA3351@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
-	gaofeng@cn.fujitsu.com
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] tools: selftests: psock_tpacket: get rid of macro wrappers
+Date: Mon,  1 Jul 2013 18:09:50 +0200
+Message-ID: <1372694990-10876-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:48069 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751002Ab3GAQIq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 12:08:46 -0400
-Content-Disposition: inline
-In-Reply-To: <20130701082440.GA3351@order.stressinduktion.org>
+Received: from mx1.redhat.com ([209.132.183.28]:23899 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750769Ab3GAQJy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Jul 2013 12:09:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 01, 2013 at 10:24:40AM +0200, Hannes Frederic Sowa wrote:
-> On Mon, Jul 01, 2013 at 01:23:08AM +0200, Hannes Frederic Sowa wrote:
-> > I'll look at it again tomorrow.
-> 
-> [Cc Gao feng because of commit 0c1833797a5a6ec23ea9261d979aa18078720b74
-> ("ipv6: fix incorrect ipsec fragment")]
-> 
-> Just a small update:
+The TPACKET_V3 test code consists of a lot of unecessary macro
+wrappers that rather obfuscate what members are accessed in what
+way. So get rid of them and make the code more readable. Also
+credit Chetan for providing tpacket_v3 example code. Furthermore,
+get rid of private offset usage, as we do not need it here.
 
-I could reproduce Dave's exact bug and this fixes it for me:
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ tools/testing/selftests/net/psock_tpacket.c | 59 ++++++++++-------------------
+ 1 file changed, 20 insertions(+), 39 deletions(-)
 
---- a/include/net/udp.h
-+++ b/include/net/udp.h
-@@ -182,6 +182,7 @@ extern void udp_err(struct sk_buff *, u32);
- extern int udp_sendmsg(struct kiocb *iocb, struct sock *sk,
-                            struct msghdr *msg, size_t len);
- extern void udp_flush_pending_frames(struct sock *sk);
-+extern int udp_push_pending_frames(struct sock *sk);
- extern int udp_rcv(struct sk_buff *skb);
- extern int udp_ioctl(struct sock *sk, int cmd, unsigned long arg);
- extern int udp_disconnect(struct sock *sk, int flags);
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 959502a..6b270e5 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -800,7 +800,7 @@ send:
+diff --git a/tools/testing/selftests/net/psock_tpacket.c b/tools/testing/selftests/net/psock_tpacket.c
+index c41b586..24adf70 100644
+--- a/tools/testing/selftests/net/psock_tpacket.c
++++ b/tools/testing/selftests/net/psock_tpacket.c
+@@ -1,6 +1,7 @@
  /*
-  * Push out all pending data as one UDP datagram. Socket is locked.
-  */
--static int udp_push_pending_frames(struct sock *sk)
-+int udp_push_pending_frames(struct sock *sk)
- {
-        struct udp_sock  *up = udp_sk(sk);
-        struct inet_sock *inet = inet_sk(sk);
-@@ -819,6 +819,7 @@ out:
-        up->pending = 0;
-        return err;
- }
-+EXPORT_SYMBOL(udp_push_pending_frames);
- 
- int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
-                size_t len)
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index f77e34c..748046c 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -1322,7 +1322,9 @@ int udpv6_setsockopt(struct sock *sk, int level, int optname,
- {
-        if (level == SOL_UDP  ||  level == SOL_UDPLITE)
-                return udp_lib_setsockopt(sk, level, optname, optval, optlen,
--                                         udp_v6_push_pending_frames);
-+                                       udp_sk(sk)->pending == AF_INET6 ?
-+                                       udp_v6_push_pending_frames :
-+                                       udp_push_pending_frames);
-        return ipv6_setsockopt(sk, level, optname, optval, optlen);
- }
- 
-@@ -1332,7 +1334,9 @@ int compat_udpv6_setsockopt(struct sock *sk, int level, int optname,
- {
-        if (level == SOL_UDP  ||  level == SOL_UDPLITE)
-                return udp_lib_setsockopt(sk, level, optname, optval, optlen,
--                                         udp_v6_push_pending_frames);
-+                                       udp_sk(sk)->pending == AF_INET6 ?
-+                                       udp_v6_push_pending_frames :
-+                                       udp_push_pending_frames);
-        return compat_ipv6_setsockopt(sk, level, optname, optval, optlen);
- }
+  * Copyright 2013 Red Hat, Inc.
+  * Author: Daniel Borkmann <dborkman@redhat.com>
++ *         Chetan Loke <loke.chetan@gmail.com> (TPACKET_V3 usage example)
+  *
+  * A basic test of packet socket's TPACKET_V1/TPACKET_V2/TPACKET_V3 behavior.
+  *
+@@ -71,18 +72,8 @@
+ # define __align_tpacket(x)	__attribute__((aligned(TPACKET_ALIGN(x))))
  #endif
-
-We call udp_v6_push_pending_frames on a socket which pending data is
-actually AF_INET only. I would beautify the above patches (and perhaps
-move the call to udp_push_pending_frames into udp_v6_push_pending_frames,
-whatever looks nicer) and would do proper patch submissions then.
-
-Greetings,
-
-  Hannes
+ 
+-#define BLOCK_STATUS(x)		((x)->h1.block_status)
+-#define BLOCK_NUM_PKTS(x)	((x)->h1.num_pkts)
+-#define BLOCK_O2FP(x)		((x)->h1.offset_to_first_pkt)
+-#define BLOCK_LEN(x)		((x)->h1.blk_len)
+-#define BLOCK_SNUM(x)		((x)->h1.seq_num)
+-#define BLOCK_O2PRIV(x)		((x)->offset_to_priv)
+-#define BLOCK_PRIV(x)		((void *) ((uint8_t *) (x) + BLOCK_O2PRIV(x)))
+-#define BLOCK_HDR_LEN		(ALIGN_8(sizeof(struct block_desc)))
+-#define ALIGN_8(x)		(((x) + 8 - 1) & ~(8 - 1))
+-#define BLOCK_PLUS_PRIV(sz_pri)	(BLOCK_HDR_LEN + ALIGN_8((sz_pri)))
+-
+ #define NUM_PACKETS		100
++#define ALIGN_8(x)		(((x) + 8 - 1) & ~(8 - 1))
+ 
+ struct ring {
+ 	struct iovec *rd;
+@@ -476,41 +467,30 @@ static uint64_t __v3_prev_block_seq_num = 0;
+ 
+ void __v3_test_block_seq_num(struct block_desc *pbd)
+ {
+-	if (__v3_prev_block_seq_num + 1 != BLOCK_SNUM(pbd)) {
++	if (__v3_prev_block_seq_num + 1 != pbd->h1.seq_num) {
+ 		fprintf(stderr, "\nprev_block_seq_num:%"PRIu64", expected "
+ 			"seq:%"PRIu64" != actual seq:%"PRIu64"\n",
+ 			__v3_prev_block_seq_num, __v3_prev_block_seq_num + 1,
+-			(uint64_t) BLOCK_SNUM(pbd));
++			(uint64_t) pbd->h1.seq_num);
+ 		exit(1);
+ 	}
+ 
+-	__v3_prev_block_seq_num = BLOCK_SNUM(pbd);
++	__v3_prev_block_seq_num = pbd->h1.seq_num;
+ }
+ 
+ static void __v3_test_block_len(struct block_desc *pbd, uint32_t bytes, int block_num)
+ {
+-	if (BLOCK_NUM_PKTS(pbd)) {
+-		if (bytes != BLOCK_LEN(pbd)) {
+-			fprintf(stderr, "\nblock:%u with %upackets, expected "
+-				"len:%u != actual len:%u\n", block_num,
+-				BLOCK_NUM_PKTS(pbd), bytes, BLOCK_LEN(pbd));
+-			exit(1);
+-		}
+-	} else {
+-		if (BLOCK_LEN(pbd) != BLOCK_PLUS_PRIV(13)) {
+-			fprintf(stderr, "\nblock:%u, expected len:%lu != "
+-				"actual len:%u\n", block_num, BLOCK_HDR_LEN,
+-				BLOCK_LEN(pbd));
+-			exit(1);
+-		}
++	if (pbd->h1.num_pkts && bytes != pbd->h1.blk_len) {
++		fprintf(stderr, "\nblock:%u with %upackets, expected "
++			"len:%u != actual len:%u\n", block_num,
++			pbd->h1.num_pkts, bytes, pbd->h1.blk_len);
++		exit(1);
+ 	}
+ }
+ 
+ static void __v3_test_block_header(struct block_desc *pbd, const int block_num)
+ {
+-	uint32_t block_status = BLOCK_STATUS(pbd);
+-
+-	if ((block_status & TP_STATUS_USER) == 0) {
++	if ((pbd->h1.block_status & TP_STATUS_USER) == 0) {
+ 		fprintf(stderr, "\nblock %u: not in TP_STATUS_USER\n", block_num);
+ 		exit(1);
+ 	}
+@@ -520,14 +500,15 @@ static void __v3_test_block_header(struct block_desc *pbd, const int block_num)
+ 
+ static void __v3_walk_block(struct block_desc *pbd, const int block_num)
+ {
+-	int num_pkts = BLOCK_NUM_PKTS(pbd), i;
+-	unsigned long bytes = 0;
+-	unsigned long bytes_with_padding = BLOCK_PLUS_PRIV(13);
++	int num_pkts = pbd->h1.num_pkts, i;
++	unsigned long bytes = 0, bytes_with_padding = ALIGN_8(sizeof(*pbd));
+ 	struct tpacket3_hdr *ppd;
+ 
+ 	__v3_test_block_header(pbd, block_num);
+ 
+-	ppd = (struct tpacket3_hdr *) ((uint8_t *) pbd + BLOCK_O2FP(pbd));
++	ppd = (struct tpacket3_hdr *) ((uint8_t *) pbd +
++				       pbd->h1.offset_to_first_pkt);
++
+ 	for (i = 0; i < num_pkts; ++i) {
+ 		bytes += ppd->tp_snaplen;
+ 
+@@ -551,7 +532,7 @@ static void __v3_walk_block(struct block_desc *pbd, const int block_num)
+ 
+ void __v3_flush_block(struct block_desc *pbd)
+ {
+-	BLOCK_STATUS(pbd) = TP_STATUS_KERNEL;
++	pbd->h1.block_status = TP_STATUS_KERNEL;
+ 	__sync_synchronize();
+ }
+ 
+@@ -577,7 +558,7 @@ static void walk_v3_rx(int sock, struct ring *ring)
+ 	while (total_packets < NUM_PACKETS * 2) {
+ 		pbd = (struct block_desc *) ring->rd[block_num].iov_base;
+ 
+-		while ((BLOCK_STATUS(pbd) & TP_STATUS_USER) == 0)
++		while ((pbd->h1.block_status & TP_STATUS_USER) == 0)
+ 			poll(&pfd, 1, 1);
+ 
+ 		__v3_walk_block(pbd, block_num);
+@@ -624,8 +605,8 @@ static void __v1_v2_fill(struct ring *ring, unsigned int blocks)
+ static void __v3_fill(struct ring *ring, unsigned int blocks)
+ {
+ 	ring->req3.tp_retire_blk_tov = 64;
+-	ring->req3.tp_sizeof_priv = 13;
+-	ring->req3.tp_feature_req_word |= TP_FT_REQ_FILL_RXHASH;
++	ring->req3.tp_sizeof_priv = 0;
++	ring->req3.tp_feature_req_word = TP_FT_REQ_FILL_RXHASH;
+ 
+ 	ring->req3.tp_block_size = getpagesize() << 2;
+ 	ring->req3.tp_frame_size = TPACKET_ALIGNMENT << 7;
+-- 
+1.7.11.7
