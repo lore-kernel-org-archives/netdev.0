@@ -1,42 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: kernel panic in skb_copy_bits
-Date: Mon, 01 Jul 2013 13:36:15 -0700 (PDT)
-Message-ID: <20130701.133615.366371022223254228.davem@davemloft.net>
-References: <51CD0E67.4000008@oracle.com>
-	<1372402340.3301.229.camel@edumazet-glaptop>
-	<1372412262.3301.251.camel@edumazet-glaptop>
+Subject: Re: [PATCH net v1 1/1] net: fec: Fix Transmitted bytes counter
+Date: Mon, 01 Jul 2013 13:40:00 -0700 (PDT)
+Message-ID: <20130701.134000.477493946784788761.davem@davemloft.net>
+References: <Jim_Baxter_<jim_baxter@mentor.com>
+	<1372357508-23038-1-git-send-email-jim_baxter@mentor.com>
+	<9848F2DB572E5649BA045B288BE08FBE01508FB2@039-SN2MPN1-023.039d.mgd.msft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe.jin@oracle.com, frank.blaschka@de.ibm.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	zheng.x.li@oracle.com, xen-devel@lists.xen.org,
-	Ian.Campbell@citrix.com, JBeulich@suse.com,
-	stefano.stabellini@eu.citrix.com
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372412262.3301.251.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jim_baxter@mentor.com, r49496@freescale.com, B20596@freescale.com,
+	shawn.guo@linaro.org, netdev@vger.kernel.org
+To: B38611@freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43791 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754776Ab3GAUkB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 16:40:01 -0400
+In-Reply-To: <9848F2DB572E5649BA045B288BE08FBE01508FB2@039-SN2MPN1-023.039d.mgd.msft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 28 Jun 2013 02:37:42 -0700
+From: Duan Fugang-B38611 <B38611@freescale.com>
+Date: Fri, 28 Jun 2013 02:11:30 +0000
 
-> [PATCH] neighbour: fix a race in neigh_destroy()
+> On 06/28/13 02:25, Jim Baxter wrote:
 > 
-> There is a race in neighbour code, because neigh_destroy() uses
-> skb_queue_purge(&neigh->arp_queue) without holding neighbour lock,
-> while other parts of the code assume neighbour rwlock is what
-> protects arp_queue
-> 
-> Convert all skb_queue_purge() calls to the __skb_queue_purge() variant
-> 
-> Use __skb_queue_head_init() instead of skb_queue_head_init()
-> to make clear we do not use arp_queue.lock
-> 
-> And hold neigh->lock in neigh_destroy() to close the race.
-> 
-> Reported-by: Joe Jin <joe.jin@oracle.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+>> index ed6180e..05a5f76 100644
+>> --- a/drivers/net/ethernet/freescale/fec_main.c
+>> +++ b/drivers/net/ethernet/freescale/fec_main.c
+>> @@ -738,6 +738,7 @@ fec_enet_tx(struct net_device *ndev)
+>>  				ndev->stats.tx_carrier_errors++;
+>>  		} else {
+>>  			ndev->stats.tx_packets++;
+>> +			ndev->stats.tx_bytes += bdp->cbd_datlen;
+>>  		}
+>>  
+>>  		if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS) &&
+>> --
+> You cannot stat. tx_bytes in here, since stat.tx_bytes indicate that all bytes sent by MAC regardless whether there have error packets or not.
+> You must add the stat. at xmit function as below:
 
-Applied and queued up for -stable, thanks Eric.
+I completely disagree.
+
+tx_bytes indicates what actually made it to the wires, so Jim's original
+patch is the correct one.
+
+Every single driver I have ever written, always increments tx_bytes in
+the transmit completion handler, not when the device layer gives the
+packet to the driver.
