@@ -1,56 +1,71 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: [PATCH net-next v3 1/1] net: fec: Fix RMON registers on imx6
-Date: Mon,  1 Jul 2013 14:57:54 +0100
-Message-ID: <1372687074-8140-1-git-send-email-jim_baxter@mentor.com>
-References: <Jim Baxter <jim_baxter@mentor.com>
-Cc: Fabio Estevam <fabio.estevam@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>,
-	Fugang Duan <B38611@freescale.com>,
-	Joe Perches <joe@perches.com>, Chris Healy <cphealy@gmail.com>,
-	netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:64483 "EHLO
-	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752773Ab3GAN6D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 09:58:03 -0400
-In-Reply-To: <Jim Baxter <jim_baxter@mentor.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v3 1/3] sh_eth: add support for gpio reset
+Date: Mon, 01 Jul 2013 18:24:34 +0400
+Message-ID: <51D19122.6030409@cogentembedded.com>
+References: <1372652695-16606-1-git-send-email-horms+renesas@verge.net.au> <1372652695-16606-2-git-send-email-horms+renesas@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	Magnus Damm <magnus.damm@gmail.com>
+To: Simon Horman <horms+renesas@verge.net.au>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1372652695-16606-2-git-send-email-horms+renesas@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit 38ae92d "fec: Add support for reading
-RMON registers" causes the imx6Q to crash.
+Hello.
 
-This fixes it by only enabling the RMON registers, the
-registers are already cleared by the MAC being reset.
+On 01-07-2013 8:24, Simon Horman wrote:
 
-Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
----
-Change v1 to v2
-Removed per processor change and just set bit 31 to 0.
-Change v2 to v3
-Fixed comment to describe operation correctly.
+> Allow reset using a GPIO. In order to use this set the following
+> in the device's platform data:
 
- drivers/net/ethernet/freescale/fec_main.c |    7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+> 	needs_gpio_reset = 1
+> 	reset_gpio = GPIO pin to use
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index ed6180e..68834c3 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -605,11 +605,8 @@ fec_restart(struct net_device *ndev, int duplex)
- 		ecntl |= (1 << 4);
- 
- #ifndef CONFIG_M5272
--	/* Disable, clear, and enable the MIB */
--	writel(1 << 31, fep->hwp + FEC_MIB_CTRLSTAT);
--	for (i = RMON_T_DROP; i < IEEE_R_OCTETS_OK; i++)
--		writel(0, fep->hwp + i);
--	writel(0, fep->hwp + FEC_MIB_CTRLSTAT);
-+	/* Enable the MIB statistic event counters */
-+	writel(0 << 31, fep->hwp + FEC_MIB_CTRLSTAT);
- #endif
- 
- 	/* And last, enable the transmit and receive processing */
--- 
-1.7.10.4
+> This patch is motivated by the lager board which uses the r8a7790 SoC
+> which has a GPIO pin to reset its sh_eth device.
+
+> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+
+> --
+
+> v2
+> * First post
+> ---
+>   drivers/net/ethernet/renesas/sh_eth.c | 4 ++++
+>   include/linux/sh_eth.h                | 3 +++
+>   2 files changed, 7 insertions(+)
+
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> index 7732f11..0253f61 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+[...]
+> @@ -2652,6 +2653,9 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+>   		ndev->features = NETIF_F_HW_VLAN_CTAG_FILTER;
+>   	}
+>
+> +	if (pd->needs_gpio_reset)
+> +		gpio_request_one(pd->reset_gpio, GPIOF_OUT_INIT_HIGH, NULL);
+
+    Is reset signal active low or active high? Are you asserting or 
+releasing it?
+
+> diff --git a/include/linux/sh_eth.h b/include/linux/sh_eth.h
+> index fc30571..b3f1550 100644
+> --- a/include/linux/sh_eth.h
+> +++ b/include/linux/sh_eth.h
+> @@ -22,6 +22,9 @@ struct sh_eth_plat_data {
+>   	unsigned no_ether_link:1;
+>   	unsigned ether_link_active_low:1;
+>   	unsigned needs_init:1;
+> +	unsigned needs_gpio_reset:1;
+> +
+> +	unsigned reset_gpio;	/* Used if needs_gpio_reset is true */
+
+    s/true/1/.
+
+WBR, Sergei
+
