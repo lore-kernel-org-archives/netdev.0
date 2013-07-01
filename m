@@ -1,31 +1,46 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v3 2/3] sh_eth: add support RMIIMODE register
-Date: Mon, 01 Jul 2013 18:27:16 +0400
-Message-ID: <51D191C4.1030103@cogentembedded.com>
-References: <1372652695-16606-1-git-send-email-horms+renesas@verge.net.au> <1372652695-16606-3-git-send-email-horms+renesas@verge.net.au>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH 3/3] udp: make use of static_key_slow_set_true()
+ interface
+Date: Mon, 01 Jul 2013 10:28:02 -0400
+Message-ID: <1372688882.22688.1.camel@gandalf.local.home>
+References: <cover.1372457176.git.jbaron@akamai.com>
+	  <7fe0eaba62a8529b387ddb3205713d8bb6156ec1.1372457176.git.jbaron@akamai.com>
+	 <1372475620.18733.353.camel@gandalf.local.home>
+	 <51D10390.4060905@akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	Magnus Damm <magnus.damm@gmail.com>
-To: Simon Horman <horms+renesas@verge.net.au>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1372652695-16606-3-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
+Cc: "andi@firstfloor.org" <andi@firstfloor.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"mingo@kernel.org" <mingo@kernel.org>,
+	"peterz@infradead.org" <peterz@infradead.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Jason Baron <jbaron@akamai.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51D10390.4060905@akamai.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Mon, 2013-07-01 at 00:20 -0400, Jason Baron wrote:
+>   
+> >> @@ -1450,7 +1449,7 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+> >>   		goto drop;
+> >>   	nf_reset(skb);
+> >>   
+> >> -	if (static_key_false(&udp_encap_needed) && up->encap_type) {
+> >> +	if (static_key_false(&udp_encap_needed.key) && up->encap_type) {
+> > I wonder if we should add a static_bool_key_false(), because that added
+> > ".key" is a bit confusing.
+> >
+> > -- Steve
+> >
+> 
+> Yeah - that is sort of ugly, but it avoids introducing a new branch API 
+> call. That said, a 'static_bool_key_false()' would probably be a simple 
+> wrapper function.
 
-On 01-07-2013 8:24, Simon Horman wrote:
+My main concern was to keep true/false separate from counters to
+document how this is being used. A simple wrapper would work too.
 
-> This change is motivated by the lager board which uses the r8a7790 SoC,
-> an R-Car SoC. For this board setting the RMIIMODE register is necessary.
-
-> This patch assumes this is valid for all R-Car SoCs.
-
-    This is not so for this version of the patch.
-
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-
-WBR, Sergei
-
+-- Steve
