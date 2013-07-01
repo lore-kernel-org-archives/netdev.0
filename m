@@ -1,126 +1,87 @@
-From: Jason Baron <jbaron@akamai.com>
-Subject: Re: [PATCH 3/3] udp: make use of static_key_slow_set_true() interface
-Date: Mon, 01 Jul 2013 00:20:32 -0400
-Message-ID: <51D10390.4060905@akamai.com>
-References: <cover.1372457176.git.jbaron@akamai.com>  <7fe0eaba62a8529b387ddb3205713d8bb6156ec1.1372457176.git.jbaron@akamai.com> <1372475620.18733.353.camel@gandalf.local.home>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "andi@firstfloor.org" <andi@firstfloor.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"mingo@kernel.org" <mingo@kernel.org>,
-	"peterz@infradead.org" <peterz@infradead.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372475620.18733.353.camel@gandalf.local.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <horms+renesas@verge.net.au>
+Subject: [PATCH net-next v3 3/3] sh_eth: Add support for r8a7790 SoC
+Date: Mon,  1 Jul 2013 13:24:55 +0900
+Message-ID: <1372652695-16606-4-git-send-email-horms+renesas@verge.net.au>
+References: <1372652695-16606-1-git-send-email-horms+renesas@verge.net.au>
+Cc: Magnus Damm <magnus.damm@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Simon Horman <horms+renesas@verge.net.au>
+To: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:52919 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750897Ab3GAEZL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 00:25:11 -0400
+In-Reply-To: <1372652695-16606-1-git-send-email-horms+renesas@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/28/2013 11:13 PM, Steven Rostedt wrote:
-> On Fri, 2013-06-28 at 22:30 +0000, jbaron@akamai.com wrote:
->> Make use of the simpler API.
-> Need to make the change log much more descriptive. Never assume someone
-> in the future that looks up a change to this file will know about other
-> commits that led to this. Each change log should be sufficient to stand
-> on its own.
->
-> Explain why this patch is needed. And it's not about the use of a
-> simpler API.
->
-> It actually fixes a real bug.
->
->
->> Signed-off-by: Jason Baron <jbaron@akamai.com>
->> ---
->>   net/ipv4/udp.c |    9 ++++-----
->>   net/ipv6/udp.c |    9 ++++-----
->>   2 files changed, 8 insertions(+), 10 deletions(-)
->>
->> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
->> index 0bf5d39..b8d0029 100644
->> --- a/net/ipv4/udp.c
->> +++ b/net/ipv4/udp.c
->> @@ -1421,11 +1421,10 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
->>   
->>   }
->>   
->> -static struct static_key udp_encap_needed __read_mostly;
->> +static struct static_key_boolean udp_encap_needed __read_mostly;
->>   void udp_encap_enable(void)
->>   {
->> -	if (!static_key_enabled(&udp_encap_needed))
->> -		static_key_slow_inc(&udp_encap_needed);
->> +	static_key_slow_set_true(&udp_encap_needed);
->>   }
->>   EXPORT_SYMBOL(udp_encap_enable);
->>   
->> @@ -1450,7 +1449,7 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
->>   		goto drop;
->>   	nf_reset(skb);
->>   
->> -	if (static_key_false(&udp_encap_needed) && up->encap_type) {
->> +	if (static_key_false(&udp_encap_needed.key) && up->encap_type) {
-> I wonder if we should add a static_bool_key_false(), because that added
-> ".key" is a bit confusing.
->
-> -- Steve
->
+This is a copy of support for r8a7778/9 with the .rmiimode mode bit
+of struct sh_eth_cpu_data set.
 
-Yeah - that is sort of ugly, but it avoids introducing a new branch API 
-call. That said, a 'static_bool_key_false()' would probably be a simple 
-wrapper function.
+Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
 
--Jason
+---
 
+v3
+* Add r8a7790_data rather than updating r8a777x_data.
+  As requested by Sergei Shtylyov.
 
->>   		int (*encap_rcv)(struct sock *sk, struct sk_buff *skb);
->>   
->>   		/*
->> @@ -1773,7 +1772,7 @@ void udp_destroy_sock(struct sock *sk)
->>   	bool slow = lock_sock_fast(sk);
->>   	udp_flush_pending_frames(sk);
->>   	unlock_sock_fast(sk, slow);
->> -	if (static_key_false(&udp_encap_needed) && up->encap_type) {
->> +	if (static_key_false(&udp_encap_needed.key) && up->encap_type) {
->>   		void (*encap_destroy)(struct sock *sk);
->>   		encap_destroy = ACCESS_ONCE(up->encap_destroy);
->>   		if (encap_destroy)
->> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
->> index 42923b1..94a4091 100644
->> --- a/net/ipv6/udp.c
->> +++ b/net/ipv6/udp.c
->> @@ -573,11 +573,10 @@ static __inline__ void udpv6_err(struct sk_buff *skb,
->>   	__udp6_lib_err(skb, opt, type, code, offset, info, &udp_table);
->>   }
->>   
->> -static struct static_key udpv6_encap_needed __read_mostly;
->> +static struct static_key_boolean udpv6_encap_needed __read_mostly;
->>   void udpv6_encap_enable(void)
->>   {
->> -	if (!static_key_enabled(&udpv6_encap_needed))
->> -		static_key_slow_inc(&udpv6_encap_needed);
->> +	static_key_slow_set_true(&udpv6_encap_needed);
->>   }
->>   EXPORT_SYMBOL(udpv6_encap_enable);
->>   
->> @@ -590,7 +589,7 @@ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
->>   	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb))
->>   		goto drop;
->>   
->> -	if (static_key_false(&udpv6_encap_needed) && up->encap_type) {
->> +	if (static_key_false(&udpv6_encap_needed.key) && up->encap_type) {
->>   		int (*encap_rcv)(struct sock *sk, struct sk_buff *skb);
->>   
->>   		/*
->> @@ -1300,7 +1299,7 @@ void udpv6_destroy_sock(struct sock *sk)
->>   	udp_v6_flush_pending_frames(sk);
->>   	release_sock(sk);
->>   
->> -	if (static_key_false(&udpv6_encap_needed) && up->encap_type) {
->> +	if (static_key_false(&udpv6_encap_needed.key) && up->encap_type) {
->>   		void (*encap_destroy)(struct sock *sk);
->>   		encap_destroy = ACCESS_ONCE(up->encap_destroy);
->>   		if (encap_destroy)
->
+v2
+* Split from "sh_eth: add support RMIIMODE register"
+---
+ drivers/net/ethernet/renesas/Kconfig  |  2 +-
+ drivers/net/ethernet/renesas/sh_eth.c | 21 +++++++++++++++++++++
+ 2 files changed, 22 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/renesas/Kconfig b/drivers/net/ethernet/renesas/Kconfig
+index 544514e..0d8a124a 100644
+--- a/drivers/net/ethernet/renesas/Kconfig
++++ b/drivers/net/ethernet/renesas/Kconfig
+@@ -12,4 +12,4 @@ config SH_ETH
+ 	  Renesas SuperH Ethernet device driver.
+ 	  This driver supporting CPUs are:
+ 		- SH7619, SH7710, SH7712, SH7724, SH7734, SH7763, SH7757,
+-		  R8A7740 and R8A7779.
++		  R8A7740, R8A7779 and R8A7790.
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index f97700f..3504878 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -393,6 +393,26 @@ static struct sh_eth_cpu_data r8a777x_data = {
+ 	.hw_swap	= 1,
+ };
+ 
++/* R8A7790 */
++static struct sh_eth_cpu_data r8a7790_data = {
++	.set_duplex	= sh_eth_set_duplex,
++	.set_rate	= sh_eth_set_rate_r8a777x,
++
++	.ecsr_value	= ECSR_PSRTO | ECSR_LCHNG | ECSR_ICD,
++	.ecsipr_value	= ECSIPR_PSRTOIP | ECSIPR_LCHNGIP | ECSIPR_ICDIP,
++	.eesipr_value	= 0x01ff009f,
++
++	.tx_check	= EESR_FTC | EESR_CND | EESR_DLC | EESR_CD | EESR_RTO,
++	.eesr_err_check	= EESR_TWB | EESR_TABT | EESR_RABT | EESR_RDE |
++			  EESR_RFRMER | EESR_TFE | EESR_TDE | EESR_ECI,
++
++	.apr		= 1,
++	.mpr		= 1,
++	.tpauser	= 1,
++	.hw_swap	= 1,
++	.rmiimode	= 1,
++};
++
+ static void sh_eth_set_rate_sh7724(struct net_device *ndev)
+ {
+ 	struct sh_eth_private *mdp = netdev_priv(ndev);
+@@ -2753,6 +2773,7 @@ static struct platform_device_id sh_eth_id_table[] = {
+ 	{ "sh7763-gether", (kernel_ulong_t)&sh7763_data },
+ 	{ "r8a7740-gether", (kernel_ulong_t)&r8a7740_data },
+ 	{ "r8a777x-ether", (kernel_ulong_t)&r8a777x_data },
++	{ "r8a7790-ether", (kernel_ulong_t)&r8a7790_data },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(platform, sh_eth_id_table);
+-- 
+1.8.2.1
