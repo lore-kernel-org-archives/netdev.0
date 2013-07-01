@@ -1,43 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next] xen: Use more current logging styles
-Date: Mon, 01 Jul 2013 13:31:53 -0700 (PDT)
-Message-ID: <20130701.133153.968451539148790258.davem@davemloft.net>
-References: <1372395469.2060.36.camel@joe-AO722>
-	<1372406390.8976.67.camel@zakaz.uk.xensource.com>
+Subject: Re: [PATCH] net: stmmac: fixed operator typo
+Date: Mon, 01 Jul 2013 13:33:15 -0700 (PDT)
+Message-ID: <20130701.133315.634986684411114022.davem@davemloft.net>
+References: <015701ce73d2$117b9040$3472b0c0$%an@samsung.com>
+	<51CD88B8.6050209@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeremy@goop.org, xen-devel@lists.xensource.com, konrad.wilk@oracle.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, joe@perches.com
-To: Ian.Campbell@citrix.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1372406390.8976.67.camel@zakaz.uk.xensource.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: bh74.an@samsung.com, netdev@vger.kernel.org, kgene.kim@samsung.com,
+	cpgs@samsung.com
+To: peppe.cavallaro@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43737 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755107Ab3GAUdQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 16:33:16 -0400
+In-Reply-To: <51CD88B8.6050209@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Date: Fri, 28 Jun 2013 08:59:50 +0100
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Date: Fri, 28 Jun 2013 14:59:36 +0200
 
-> On Thu, 2013-06-27 at 21:57 -0700, Joe Perches wrote:
->> Instead of mixing printk and pr_<level> forms,
->> just use pr_<level>
+> On 6/28/2013 9:35 AM, Byungho An wrote:
 >> 
->> Miscellaneous changes around these conversions:
+>> This patch fixed operator typo from & to ==.
+>> Due to incorrect operator, the result is incorrect.
 >> 
->> Add a missing newline to avoid message interleaving,
->> coalesce formats, reflow modified lines to 80 columns.
->> 
->> Signed-off-by: Joe Perches <joe@perches.com>
+>> Signed-off-by: Byungho An <bh74.an@samsung.com>
 > 
-> Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
 Applied.
