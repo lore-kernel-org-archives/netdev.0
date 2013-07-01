@@ -1,85 +1,166 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the arm-soc tree with the net-next tree
-Date: Mon, 1 Jul 2013 16:28:12 +1000
-Message-ID: <20130701162812.def47813e7d94c27950f3e82@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Mon__1_Jul_2013_16_28_12_+1000_10y7cHq3JZwQniMw"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
-	<linux-arm-kernel@lists.infradead.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net v2] ip_tunnels: Use skb-len to PMTU check.
+Date: Sun, 30 Jun 2013 23:30:32 -0700
+Message-ID: <1372660232-12174-1-git-send-email-pshelar@nicira.com>
+Cc: timo.teras@iki.fi, Pravin B Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog124.obsmtp.com ([74.125.149.151]:48311 "HELO
+	na3sys009aog124.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750987Ab3GAGah (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 02:30:37 -0400
+Received: by mail-pb0-f47.google.com with SMTP id rr13so4451958pbb.34
+        for <netdev@vger.kernel.org>; Sun, 30 Jun 2013 23:30:36 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Mon__1_Jul_2013_16_28_12_+1000_10y7cHq3JZwQniMw
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In path mtu check, ip header total length works for gre device
+but not for gre-tap device.  Use skb len which is consistent
+for all tunneling types.  This is old bug in gre.
+This also fixes mtu calculation bug introduced by
+commit c54419321455631079c7d (GRE: Refactor GRE tunneling code).
 
-Hi all,
+Reported-by: Timo Teras <timo.teras@iki.fi>
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+---
+v1-v2:
+ - Fix pmtu set.
+ - This patch also restructures code which help couple of
+   improvements I have.
+---
+ net/ipv4/ip_tunnel.c |   98 +++++++++++++++++++++++++++----------------------
+ 1 files changed, 54 insertions(+), 44 deletions(-)
 
-Today's linux-next merge of the arm-soc tree got a conflict in
-arch/arm/mach-mxs/mach-mxs.c between commit b7c4114b07bb ("can: flexcan:
-Use a regulator to control the CAN transceiver") from the net-next tree
-and commit 2046338dcbc6 ("ARM: mxs: Use soc bus infrastructure") from the
-arm-soc tree.
-
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc arch/arm/mach-mxs/mach-mxs.c
-index 97b8a44,7fa611c..0000000
---- a/arch/arm/mach-mxs/mach-mxs.c
-+++ b/arch/arm/mach-mxs/mach-mxs.c
-@@@ -323,13 -477,14 +432,14 @@@ static void __init mxs_machine_init(voi
-  		imx28_evk_init();
-  	else if (of_machine_is_compatible("bluegiga,apx4devkit"))
-  		apx4devkit_init();
-- 	else if (of_machine_is_compatible("crystalfontz,cfa10037"))
-- 		cfa10037_init();
-- 	else if (of_machine_is_compatible("crystalfontz,cfa10049"))
-- 		cfa10049_init();
-+ 	else if (of_machine_is_compatible("crystalfontz,cfa10037") ||
-+ 		 of_machine_is_compatible("crystalfontz,cfa10049") ||
-+ 		 of_machine_is_compatible("crystalfontz,cfa10055") ||
-+ 		 of_machine_is_compatible("crystalfontz,cfa10057"))
-+ 		crystalfontz_init();
- =20
-  	of_platform_populate(NULL, of_default_bus_match_table,
-- 			     NULL, NULL);
- -			     mxs_auxdata_lookup, parent);
-++			     NULL, parent);
- =20
-  	if (of_machine_is_compatible("karo,tx28"))
-  		tx28_post_init();
-
---Signature=_Mon__1_Jul_2013_16_28_12_+1000_10y7cHq3JZwQniMw
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.20 (GNU/Linux)
-
-iQIcBAEBCAAGBQJR0SGAAAoJEECxmPOUX5FEicoQAJPhfyf4CDOKlF/5dKx4r4XG
-YeV9oMhwNrg8dngVXdvK9kvvz+XrW0//PvldT1CyqgAsGRRv8qLn4p3sOWxCCRPx
-s40NkhPKmo0Ya8nMKs7OIzCwKdbB9a4myUwdcB0+Plc4+jc69432gVapeSn2Ef8G
-EgQ0wqyZJ8H2AdOWGtFq8d8z6i0UwZzoARrRgruhB7vu7r9XkIwIt7fNruoWrkVj
-NhYRj4pbnP9Ju+/6xdHk7gJsXfg1JnrEk5AU0wZym6DBZdI9SY7ZLBUUq60WjY3/
-sihCf3q70nLizg2wepJrm39M4WAfHBfV3z7/VfYTZPEFMN8BwujItc36yp/vnjc4
-9j3PAV6u1N3/hEmSShi7nFTwo6fCwwSrFFEcwHpLZiNTLHR/oMydBm+ideeYo9AB
-4xDPDYD9LDBnODdBHkNJIbbTC1l2cYi4AGx0dM+37a6UnT5QcZl47Jiz0z+PJ1Vb
-N19TZM6/ioi8pik2+pZF0KeYubJW8TAU6Fh+4CWce3Xa4VUfnTGGrio+/WJVPCqS
-gqlao7nZaZVpjWNkwyr7EfQIBWwJsEw3/Zekz5R2kf8TDADKICrObEeQMAaA7AhA
-D+6DquaAxiu/eL0GCexbNRaESntwbMYpYNEkdU8kREdTcqvAIVSZRsEyGgRhVLDy
-h1SoSclMhAiPkbTatcEu
-=JBkZ
------END PGP SIGNATURE-----
-
---Signature=_Mon__1_Jul_2013_16_28_12_+1000_10y7cHq3JZwQniMw--
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index 7fa8f08..ae5b78c 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -486,6 +486,53 @@ drop:
+ }
+ EXPORT_SYMBOL_GPL(ip_tunnel_rcv);
+ 
++static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
++			    struct rtable *rt, __be16 df)
++{
++	struct ip_tunnel *tunnel = netdev_priv(dev);
++	int pkt_size = skb->len - tunnel->hlen;
++	int mtu;
++
++	if (df)
++		mtu = dst_mtu(&rt->dst) - dev->hard_header_len
++					- sizeof(struct iphdr) - tunnel->hlen;
++	else
++		mtu = skb_dst(skb) ? dst_mtu(skb_dst(skb)) : dev->mtu;
++
++	if (skb_dst(skb))
++		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), NULL, skb, mtu);
++
++	if (skb->protocol == htons(ETH_P_IP)) {
++		if (!skb_is_gso(skb) &&
++		    (df & htons(IP_DF)) && mtu < pkt_size) {
++			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED, htonl(mtu));
++			return -E2BIG;
++		}
++	}
++#if IS_ENABLED(CONFIG_IPV6)
++	else if (skb->protocol == htons(ETH_P_IPV6)) {
++		struct rt6_info *rt6 = (struct rt6_info *)skb_dst(skb);
++
++		if (rt6 && mtu < dst_mtu(skb_dst(skb)) &&
++			   mtu >= IPV6_MIN_MTU) {
++			if ((tunnel->parms.iph.daddr &&
++			    !ipv4_is_multicast(tunnel->parms.iph.daddr)) ||
++			    rt6->rt6i_dst.plen == 128) {
++				rt6->rt6i_flags |= RTF_MODIFIED;
++				dst_metric_set(skb_dst(skb), RTAX_MTU, mtu);
++			}
++		}
++
++		if (!skb_is_gso(skb) && mtu >= IPV6_MIN_MTU &&
++					mtu < pkt_size) {
++			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
++			return -E2BIG;
++		}
++	}
++#endif
++	return 0;
++}
++
+ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		    const struct iphdr *tnl_params)
+ {
+@@ -499,7 +546,6 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 	struct net_device *tdev;	/* Device to other host */
+ 	unsigned int max_headroom;	/* The extra header space needed */
+ 	__be32 dst;
+-	int mtu;
+ 
+ 	inner_iph = (const struct iphdr *)skb_inner_network_header(skb);
+ 
+@@ -579,50 +625,10 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		goto tx_error;
+ 	}
+ 
+-	df = tnl_params->frag_off;
+-
+-	if (df)
+-		mtu = dst_mtu(&rt->dst) - dev->hard_header_len
+-					- sizeof(struct iphdr);
+-	else
+-		mtu = skb_dst(skb) ? dst_mtu(skb_dst(skb)) : dev->mtu;
+-
+-	if (skb_dst(skb))
+-		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), NULL, skb, mtu);
+-
+-	if (skb->protocol == htons(ETH_P_IP)) {
+-		df |= (inner_iph->frag_off&htons(IP_DF));
+-
+-		if (!skb_is_gso(skb) &&
+-		    (inner_iph->frag_off&htons(IP_DF)) &&
+-		     mtu < ntohs(inner_iph->tot_len)) {
+-			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED, htonl(mtu));
+-			ip_rt_put(rt);
+-			goto tx_error;
+-		}
+-	}
+-#if IS_ENABLED(CONFIG_IPV6)
+-	else if (skb->protocol == htons(ETH_P_IPV6)) {
+-		struct rt6_info *rt6 = (struct rt6_info *)skb_dst(skb);
+-
+-		if (rt6 && mtu < dst_mtu(skb_dst(skb)) &&
+-		    mtu >= IPV6_MIN_MTU) {
+-			if ((tunnel->parms.iph.daddr &&
+-			    !ipv4_is_multicast(tunnel->parms.iph.daddr)) ||
+-			    rt6->rt6i_dst.plen == 128) {
+-				rt6->rt6i_flags |= RTF_MODIFIED;
+-				dst_metric_set(skb_dst(skb), RTAX_MTU, mtu);
+-			}
+-		}
+-
+-		if (!skb_is_gso(skb) && mtu >= IPV6_MIN_MTU &&
+-		    mtu < skb->len) {
+-			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+-			ip_rt_put(rt);
+-			goto tx_error;
+-		}
++	if (tnl_update_pmtu(dev, skb, rt, tnl_params->frag_off)) {
++		ip_rt_put(rt);
++		goto tx_error;
+ 	}
+-#endif
+ 
+ 	if (tunnel->err_count > 0) {
+ 		if (time_before(jiffies,
+@@ -667,6 +673,10 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 	iph = ip_hdr(skb);
+ 	inner_iph = (const struct iphdr *)skb_inner_network_header(skb);
+ 
++	df = tnl_params->frag_off;
++	if (skb->protocol == htons(ETH_P_IP))
++		df |= (inner_iph->frag_off&htons(IP_DF));
++
+ 	iph->version	=	4;
+ 	iph->ihl	=	sizeof(struct iphdr) >> 2;
+ 	iph->frag_off	=	df;
+-- 
+1.7.1
