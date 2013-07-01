@@ -1,7 +1,7 @@
 From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
-Subject: [PATCH RFC 2/3] dt:net:stmmac: Add support to dwmac version 3.610 and 3.710
-Date: Mon,  1 Jul 2013 12:43:54 +0100
-Message-ID: <1372679034-13139-1-git-send-email-srinivas.kandagatla@st.com>
+Subject: [PATCH RFC 3/3] dt:net:stmmac: Add dt specific phy reset callback support.
+Date: Mon,  1 Jul 2013 12:44:05 +0100
+Message-ID: <1372679045-13183-1-git-send-email-srinivas.kandagatla@st.com>
 References: <1372678962-12959-1-git-send-email-srinivas.kandagatla@st.com>
 Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
 	Grant Likely <grant.likely@linaro.org>,
@@ -18,98 +18,96 @@ List-Id: netdev.vger.kernel.org
 
 From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-This patch adds dt support to dwmac version 3.610 and 3.710 these
-versions are integrated in STiH415 and STiH416 ARM A9 SOCs.
-To support these IP version, some of the device tree properties are
-extended.
+This patch adds phy reset callback support for stmmac driver via device
+trees. It adds three new properties to gmac device tree bindings to
+define the reset signal via gpio.
+
+With this patch users can conveniently pass reset gpio number with pre,
+pulse and post delay in micro secs via DTs.
+
+ active low:
+		_________		 ____________
+	<pre-delay>	|<pulse-delay>	|<post-delay>
+		 	|		|
+		 	|_______________|
+
+ active high:
+ 			 ________________
+	<pre-delay>	|<pulse-delay>	|<post-delay>
+			|		|
+		________|		|___________
 
 Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 ---
- Documentation/devicetree/bindings/net/stmmac.txt   |    4 +++
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   25 ++++++++++++++++++++
- 2 files changed, 29 insertions(+), 0 deletions(-)
+ Documentation/devicetree/bindings/net/stmmac.txt  |    6 ++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |   31 +++++++++++++++++++++
+ 2 files changed, 37 insertions(+), 0 deletions(-)
 
 diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index 060bbf0..e1ddfcc 100644
+index e1ddfcc..261c563 100644
 --- a/Documentation/devicetree/bindings/net/stmmac.txt
 +++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -12,6 +12,10 @@ Required properties:
-   property
+@@ -13,6 +13,12 @@ Required properties:
  - phy-mode: String, operation mode of the PHY interface.
    Supported values are: "mii", "rmii", "gmii", "rgmii".
-+- snps,phy-addr		phy address to connect to.
-+- snps,pbl		Programmable Burst Length
-+- snps,fixed-burst	Program the DMA to use the fixed burst mode
-+- snps,mixed-burst	Program the DMA to use the mixed burst mode
+ - snps,phy-addr		phy address to connect to.
++- snps,reset-gpio 	gpio number for phy reset.
++- snps,reset-active-low boolean flag to indicate if phy reset is active low.
++- snps,reset-delays-us  is triplet of delays
++	The 1st cell is reset pre-delay in micro seconds.
++	The 2nd cell is reset pulse in micro seconds.
++	The 3rd cell is reset post-delay in micro seconds.
+ - snps,pbl		Programmable Burst Length
+ - snps,fixed-burst	Program the DMA to use the fixed burst mode
+ - snps,mixed-burst	Program the DMA to use the mixed burst mode
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index cc15039..677ed16 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -27,6 +27,9 @@
+ #include <linux/mii.h>
+ #include <linux/phy.h>
+ #include <linux/slab.h>
++#include <linux/of.h>
++#include <linux/of_gpio.h>
++
+ #include <asm/io.h>
  
- Optional properties:
- - mac-address: 6 bytes, mac address
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 5907920..060758d 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -29,17 +29,26 @@
  #include "stmmac.h"
- 
- #ifdef CONFIG_OF
+@@ -131,6 +134,34 @@ static int stmmac_mdio_reset(struct mii_bus *bus)
+ 	struct net_device *ndev = bus->priv;
+ 	struct stmmac_priv *priv = netdev_priv(ndev);
+ 	unsigned int mii_address = priv->hw->mii.addr;
++	struct device *dev = priv->device;
 +
- static int stmmac_probe_config_dt(struct platform_device *pdev,
- 				  struct plat_stmmacenet_data *plat,
- 				  const char **mac)
- {
- 	struct device_node *np = pdev->dev.of_node;
-+	struct stmmac_dma_cfg *dma_cfg;
- 
- 	if (!np)
- 		return -ENODEV;
- 
- 	*mac = of_get_mac_address(np);
- 	plat->interface = of_get_phy_mode(np);
++	if (dev->of_node) {
++		int reset_gpio, active_low;
++		struct device_node *np = dev->of_node;
++		u32 delays[3] = {0,};
 +
-+	plat->bus_id = of_alias_get_id(np, "ethernet");
-+	if (plat->bus_id < 0)
-+		plat->bus_id = 0;
++		if (!np)
++			return 0;
 +
-+	of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr);
++		reset_gpio = of_get_named_gpio(np, "snps,reset-gpio", 0);
++		if (reset_gpio < 0)
++			return 0;
 +
- 	plat->mdio_bus_data = devm_kzalloc(&pdev->dev,
- 					   sizeof(struct stmmac_mdio_bus_data),
- 					   GFP_KERNEL);
-@@ -51,11 +60,25 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
- 	 */
- 	if (of_device_is_compatible(np, "st,spear600-gmac") ||
- 		of_device_is_compatible(np, "snps,dwmac-3.70a") ||
-+		of_device_is_compatible(np, "snps,dwmac-3.610") ||
- 		of_device_is_compatible(np, "snps,dwmac")) {
- 		plat->has_gmac = 1;
- 		plat->pmt = 1;
- 	}
- 
-+	if (of_device_is_compatible(np, "snps,dwmac-3.610") ||
-+		of_device_is_compatible(np, "snps,dwmac-3.710")) {
-+		plat->enh_desc = 1;
-+		plat->bugged_jumbo = 1;
-+		plat->force_sf_dma_mode = 1;
++		active_low = of_property_read_bool(np,
++					"snps,reset-active-low");
++		of_property_read_u32_array(np,
++					"snps,reset-delays-us", delays, 3);
++
++		gpio_request(reset_gpio, "mdio-reset");
++		gpio_direction_output(reset_gpio, active_low ? 1 : 0);
++		udelay(delays[0]);
++		gpio_set_value(reset_gpio, active_low ? 0 : 1);
++		udelay(delays[1]);
++		gpio_set_value(reset_gpio, active_low ? 1 : 0);
++		udelay(delays[2]);
++		gpio_free(reset_gpio);
 +	}
-+
-+	dma_cfg = devm_kzalloc(&pdev->dev, sizeof(*dma_cfg), GFP_KERNEL);
-+	plat->dma_cfg = dma_cfg;
-+	of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl);
-+	dma_cfg->fixed_burst = of_property_read_bool(np, "snps,fixed-burst");
-+	dma_cfg->mixed_burst = of_property_read_bool(np, "snps,mixed-burst");
-+
- 	return 0;
- }
- #else
-@@ -230,7 +253,9 @@ static const struct dev_pm_ops stmmac_pltfr_pm_ops;
  
- static const struct of_device_id stmmac_dt_ids[] = {
- 	{ .compatible = "st,spear600-gmac"},
-+	{ .compatible = "snps,dwmac-3.610"},
- 	{ .compatible = "snps,dwmac-3.70a"},
-+	{ .compatible = "snps,dwmac-3.710"},
- 	{ .compatible = "snps,dwmac"},
- 	{ /* sentinel */ }
- };
+ 	if (priv->plat->mdio_bus_data->phy_reset) {
+ 		pr_debug("stmmac_mdio_reset: calling phy_reset\n");
 -- 
 1.7.6.5
