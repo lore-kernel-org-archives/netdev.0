@@ -1,68 +1,58 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: skbuff: skb_under_panic warning in 3.10rc7+
-Date: Mon, 1 Jul 2013 10:24:40 +0200
-Message-ID: <20130701082440.GA3351@order.stressinduktion.org>
-References: <20130630160246.GA24539@redhat.com> <20130630221322.GA27948@order.stressinduktion.org> <20130630232308.GC24483@order.stressinduktion.org>
+From: Alex Bligh <alex@alex.org.uk>
+Subject: Re: kernel panic in skb_copy_bits
+Date: Mon, 01 Jul 2013 09:29:02 +0100
+Message-ID: <A8CFF199DB41859580D3A04A@Ximines.local>
+References: <51CBAA48.3080802@oracle.com>
+ <1372311118.3301.214.camel@edumazet-glaptop> <51CD0E67.4000008@oracle.com>
+ <6BFD5AF235F72F13CE646A0D@nimrod.local> <51D0F514.3070309@oracle.com>
+Reply-To: Alex Bligh <alex@alex.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: gaofeng@cn.fujitsu.com
-To: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:47270 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753104Ab3GAIYl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 04:24:41 -0400
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Frank Blaschka <frank.blaschka@de.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	zheng.x.li@oracle.com, Xen Devel <xen-devel@lists.xen.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Jan Beulich <JBeulich@suse.com>,
+	Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
+	Alex Bligh <alex@alex.org.uk>
+To: Joe Jin <joe.jin@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51D0F514.3070309@oracle.com>
 Content-Disposition: inline
-In-Reply-To: <20130630232308.GC24483@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 01, 2013 at 01:23:08AM +0200, Hannes Frederic Sowa wrote:
-> I'll look at it again tomorrow.
+Joe,
 
-[Cc Gao feng because of commit 0c1833797a5a6ec23ea9261d979aa18078720b74
-("ipv6: fix incorrect ipsec fragment")]
+> Do you know if have a fix for above? so far we also suspected the
+> grant page be unmapped earlier, we using 4.1 stable during our test.
 
-Just a small update:
+A true fix? No, but I posted a patch set (see later email message
+for a link) that you could forward port. The workaround is:
 
-The following diff fixes the UDP_CORK case for me. I just traced the various
-len variables and brought ip6_append_data_mtu in line with the initial
-initialization when the first call to ip6_append_data happens.
+>> A workaround is to turn off O_DIRECT use by Xen as that ensures
+>> the pages are copied. Xen 4.3 does this by default.
+>>
+>> I believe fixes for this are in 4.3 and 4.2.2 if using the
+>> qemu upstream DM. Note these aren't real fixes, just a workaround
+>> of a kernel bug.
+>
+> The guest is pvm, and disk model is xvbd, guest config file as below:
+...
+> I think this only for pvhvm/hvm?
 
-I'll have to do more research on this and check if this correlates
-somehow with Dave's report.
+I don't have much experience outside pvhvm/hvm, but I believe it
+should work for any device.
 
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1097,7 +1097,9 @@ static void ip6_append_data_mtu(int *mtu,
-                                int *maxfraglen,
-                                unsigned int fragheaderlen,
-                                struct sk_buff *skb,
--                               struct rt6_info *rt)
-+                               struct rt6_info *rt,
-+                               __u32 frag_size,
-+                               bool pmtudisc)
- {
-        if (!(rt->dst.flags & DST_XFRM_TUNNEL)) {
-                if (skb == NULL) {
-@@ -1109,7 +1111,9 @@ static void ip6_append_data_mtu(int *mtu,
-                         * this fragment is not first, the headers
-                         * space is regarded as data space.
-                         */
--                       *mtu = dst_mtu(rt->dst.path);
-+                       *mtu = pmtudisc ? rt->dst.dev->mtu : dst_mtu(rt->dst.path);
-+                       if (frag_size && frag_size < *mtu)
-+                               *mtu = frag_size;
-                }
-                *maxfraglen = ((*mtu - fragheaderlen) & ~7)
-                              + fragheaderlen - sizeof(struct frag_hdr);
-@@ -1287,7 +1291,8 @@ alloc_new_skb:
-                        /* update mtu and maxfraglen if necessary */
-                        if (skb == NULL || skb_prev == NULL)
-                                ip6_append_data_mtu(&mtu, &maxfraglen,
--                                                   fragheaderlen, skb, rt);
-+                                               fragheaderlen, skb, rt, np->frag_size,
-+                                               np->pmtudisc == IPV6_PMTUDISC_PROBE);
- 
-                        skb_prev = skb;
- 
+Testing was simple - just find all (*) the references to O_DIRECT
+in your device model and remove them!
+
+(*)=you could be less lazy than me and find the right ones.
+
+I am guessing it will be the same ones though.
+
+-- 
+Alex Bligh
