@@ -1,53 +1,36 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] drivers/ptp/Kconfig: add "depends on HAS_IOMEM" for 'PTP_1588_CLOCK_PCH'
-Date: Mon, 1 Jul 2013 13:19:09 +0200
-Message-ID: <CAMuHMdXSExr0w-occZyHgj8o87q4_+BRH7e-bktMRfqfTqk8vQ@mail.gmail.com>
-References: <51CB8CB7.6010006@asianux.com>
-	<20130628.212311.1348427834856668120.davem@davemloft.net>
-	<51D0DCB5.5060106@asianux.com>
-	<51D11661.7040604@nod.at>
-	<51D11D14.8000706@asianux.com>
-	<51D122F0.1000204@nod.at>
-	<51D12545.4000108@asianux.com>
-	<CAMuHMdXnO8-9riLcFLQfMoWJRgy7gtQJdKkHZNR0D5eaM4=oxQ@mail.gmail.com>
-	<51D1341E.6090908@asianux.com>
-	<CAMuHMdVkVQvo0vAyHc8Cny7eCtWwcZGBWqK3dBS+ZEwNzhtHjw@mail.gmail.com>
-	<51D1642F.9010303@nod.at>
+From: =?utf-8?B?0JDQu9C70LAg0KHQuNGC0L3QuNC60L7QstCw?=
+	<hbmaziu@gmail.com>
+Subject: =?utf-8?B?0J/QvtGB0YLQsNCy0LrQsCDQutC+0LzQv9C70LXQutGC0YPRjtGJ0LjRhSDQtNC70Y8g0LPRgNGD0LfQvtC/0L7QtNGK0LXQvNC90L7QuSDRgtC10YXQvdC40LrQuA==?=
+Date: 01 Jul 2013 13:17:56 +0200
+Message-ID: <be8d78$3mcmnc@mailout04-02.mx.hostbasket.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Chen Gang <gang.chen@asianux.com>,
-	David Miller <davem@davemloft.net>,
-	Richard Cochran <richardcochran@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Richard Weinberger <richard@nod.at>
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:61432 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753277Ab3GALTK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 07:19:10 -0400
-Received: by mail-pb0-f45.google.com with SMTP id mc8so4685204pbc.18
-        for <netdev@vger.kernel.org>; Mon, 01 Jul 2013 04:19:09 -0700 (PDT)
-In-Reply-To: <51D1642F.9010303@nod.at>
+Received: from mailout04-02.mx.hostbasket.com ([85.255.200.185]:26062 "EHLO
+	mailout04-02.mx.hostbasket.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751908Ab3GAL1H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 07:27:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 1, 2013 at 1:12 PM, Richard Weinberger <richard@nod.at> wrote:
-> Am 01.07.2013 09:56, schrieb Geert Uytterhoeven:
->> If we follow your reasoning, we can add dummy variants of all hardware support
->> that lives in arch/*/include/asm to asm-generic, so everything would compile
->> for all platforms. But that's now what we want.
->
-> I hope you meant *not* want?
+Message-ID: <fvuymka@cchz.apbt>
 
-Sorry, s/now/not/
+MIME-Version: 1.0
 
-Gr{oetje,eeting}s,
+Content-Type: text/plain; charset=3Dutf-8
+Date: Mon,  1 Jul 2013 10:21:52 +0200 (CEST)
 
-                        Geert
+=D0=9F=D1=80=D0=B5=D0=B4=D0=BB=D0=B0=D0=B3=D0=B0=D1=8E =D0=BAo=D0=BC=D0=
+=BF=D0=BB=D0=B5=D0=BA=D1=82=D1=83=D1=8E=D1=89=D0=B8=D0=B5 =D0=B4=D0=BB=D1=
+=8F =D0=BB=D1=8E=D0=B1=D0=BE=D0=B9 =D0=B3=D1=80=D1=83=D0=B7o=D0=BFo=D0=B4=
+=D1=8A=D1=91=D0=BC=D0=BDo=D0=B9 =D1=82=D0=B5=D1=85=D0=BD=D0=B8=D0=BA=D0=
+=B8
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+=D0=92=D0=B5=D1=81=D1=8C =D1=82=D0=BE=D0=B2=D0=B0=D1=80 =D0=B2 =D0=BD=D0=
+=B0=D0=BB=D0=B8=D1=87=D0=B8=D0=B8
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+=D0=B6=D0=B4=D1=83 =D0=B7=D0=B2=D0=BE=D0=BD=D0=BA=D0=B0
+
+(4842)75..76..15 =20
