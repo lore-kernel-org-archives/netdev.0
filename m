@@ -1,49 +1,47 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH] drivers/ptp/Kconfig: add "depends on HAS_IOMEM" for 'PTP_1588_CLOCK_PCH'
-Date: Mon, 01 Jul 2013 07:40:49 +0200
-Message-ID: <51D11661.7040604@nod.at>
-References: <51CB8CB7.6010006@asianux.com> <20130628.212311.1348427834856668120.davem@davemloft.net> <51D0DCB5.5060106@asianux.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: appletalk induced soft lockup
+Date: Sun, 30 Jun 2013 23:01:30 -0700
+Message-ID: <1372658490.3301.311.camel@edumazet-glaptop>
+References: <20130630234252.GB4325@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, richardcochran@gmail.com,
-	netdev@vger.kernel.org, geert@linux-m68k.org
-To: Chen Gang <gang.chen@asianux.com>
+Cc: netdev@vger.kernel.org, acme@ghostprotocols.net
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from b.ns.miles-group.at ([95.130.255.144]:1660 "EHLO radon.swed.at"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750782Ab3GAFrp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Jul 2013 01:47:45 -0400
-In-Reply-To: <51D0DCB5.5060106@asianux.com>
+Received: from mail-ea0-f172.google.com ([209.85.215.172]:38388 "EHLO
+	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751880Ab3GAGBT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 02:01:19 -0400
+Received: by mail-ea0-f172.google.com with SMTP id q10so1845990eaj.3
+        for <netdev@vger.kernel.org>; Sun, 30 Jun 2013 23:01:18 -0700 (PDT)
+In-Reply-To: <20130630234252.GB4325@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 01.07.2013 03:34, schrieb Chen Gang:
-> On 06/29/2013 12:23 PM, David Miller wrote:
->> From: Chen Gang <gang.chen@asianux.com>
->> Date: Thu, 27 Jun 2013 08:52:07 +0800
->>
->>>> @@ -73,6 +73,7 @@ config DP83640_PHY
->>>>  config PTP_1588_CLOCK_PCH
->>>>  	tristate "Intel PCH EG20T as PTP clock"
->>>>  	depends on X86 || COMPILE_TEST
->> This "depends on X86 || COMPILE_TEST" does not exist in either 'net' or 'net-next'.
->> Please submit your patches against a clean checkout of the networking GIT tree,
->> rather than something else such as linux-next.
+On Sun, 2013-06-30 at 19:42 -0400, Dave Jones wrote:
+> is atalk even maintained any more ? If not I'll take it out of my testing.
+> Arnaldo is listed as its maintainer, but I'm sure he has more interesting things
+> to work on these days :)
 > 
-> Oh, really it is, It is my fault (originally I get mail address from
-> "./scripts/get_maintainers.pl", but not give additional check on it).
-> 
-> For your information (or implicit suggestion), if one module wants to
-> request 'COMPILE_TEST', the platforms (or asm-generic) is recommended to
-> try to support it.
-> 
-> It seems I still have the chance to continue discuss about it with
-> platform guys. ;-)
+> 	Dave
 
-David told you that your patch does not apply.
-Not even Linus' tree has "depends on X86 || COMPILE_TEST".
-Please adjust your patch.
 
-Thanks,
-//richard
+Could you try following fix ?
+
+Thanks
+
+diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+index ef12839..279a287 100644
+--- a/net/appletalk/ddp.c
++++ b/net/appletalk/ddp.c
+@@ -1638,9 +1638,7 @@ static int atalk_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr
+ 			sk, size, dev->name);
+ 
+ 	size += dev->hard_header_len;
+-	release_sock(sk);
+ 	skb = sock_alloc_send_skb(sk, size, (flags & MSG_DONTWAIT), &err);
+-	lock_sock(sk);
+ 	if (!skb)
+ 		goto out;
+ 
