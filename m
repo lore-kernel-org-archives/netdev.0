@@ -1,84 +1,71 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] ethtool: make .get_dump_data() harder to
- misuse by drivers
-Date: Mon, 1 Jul 2013 16:53:55 +0100
-Message-ID: <1372694035.2083.0.camel@bwh-desktop.uk.level5networks.com>
-References: <1372692210-31131-1-git-send-email-mschmidt@redhat.com>
+Subject: Re: [PATCH v2] Ethtool: Beautify private flags print
+Date: Mon, 1 Jul 2013 16:58:52 +0100
+Message-ID: <1372694332.2083.1.camel@bwh-desktop.uk.level5networks.com>
+References: <1369544155-12279-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	"Anirban Chakraborty" <anirban.chakraborty@qlogic.com>
-To: Michal Schmidt <mschmidt@redhat.com>
+Cc: <netdev@vger.kernel.org>, <joe@perches.com>, <eilong@broadcom.com>
+To: Yuval Mintz <yuvalmin@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:38972 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:39112 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753357Ab3GAPyE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 11:54:04 -0400
-In-Reply-To: <1372692210-31131-1-git-send-email-mschmidt@redhat.com>
+	with ESMTP id S1753357Ab3GAP64 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 11:58:56 -0400
+In-Reply-To: <1369544155-12279-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-07-01 at 17:23 +0200, Michal Schmidt wrote:
-> As the patch "bnx2x: remove zeroing of dump data buffer" showed,
-> it is too easy implement .get_dump_data incorrectly in a driver.
+On Sun, 2013-05-26 at 07:55 +0300, Yuval Mintz wrote:
+> When printing the private flags of the device, align all strings
+> to have the same length.
 > 
-> Let's make sure drivers cannot get confused by userspace requesting
-> a too big dump.
-> 
-> Also WARN if the driver sets dump->len to something weird and make
-> sure the length reported to userspace is the actual length of data
-> copied to userspace.
-> 
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
-Reviewed-by: Ben Hutchings <ben@decadent.org.uk>
+> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+> ---
+> Changes from V1:
+>   - use "%-*s" instead of printing white spaces in for-loop.
+
+Applied; sorry for the delay.
+
+Ben.
 
 > ---
->  net/core/ethtool.c | 21 ++++++++++++++++++++-
->  1 file changed, 20 insertions(+), 1 deletion(-)
+>  ethtool.c | 12 +++++++++++-
+>  1 file changed, 11 insertions(+), 1 deletion(-)
 > 
-> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> index ce91766..3b71cdb 100644
-> --- a/net/core/ethtool.c
-> +++ b/net/core/ethtool.c
-> @@ -1319,10 +1319,19 @@ static int ethtool_get_dump_data(struct net_device *dev,
->  	if (ret)
->  		return ret;
+> diff --git a/ethtool.c b/ethtool.c
+> index 8cc10b5..57a6e01 100644
+> --- a/ethtool.c
+> +++ b/ethtool.c
+> @@ -3445,6 +3445,7 @@ static int do_gprivflags(struct cmd_context *ctx)
+>  	struct ethtool_gstrings *strings;
+>  	struct ethtool_value flags;
+>  	unsigned int i;
+> +	int max_len = 0, cur_len;
 >  
-> -	len = (tmp.len > dump.len) ? dump.len : tmp.len;
-> +	len = min(tmp.len, dump.len);
->  	if (!len)
->  		return -EFAULT;
+>  	if (ctx->argc != 0)
+>  		exit_bad_args();
+> @@ -3472,9 +3473,18 @@ static int do_gprivflags(struct cmd_context *ctx)
+>  		return 1;
+>  	}
 >  
-> +	/* Don't ever let the driver think there's more space available
-> +	 * than it requested with .get_dump_flag().
-> +	 */
-> +	dump.len = len;
+> +	/* Find longest string and align all strings accordingly */
+> +	for (i = 0; i < strings->len; i++) {
+> +		cur_len = strlen((const char*)strings->data +
+> +					      i * ETH_GSTRING_LEN);
+> +		if (cur_len > max_len)
+> +			max_len = cur_len;
+> +	}
 > +
-> +	/* Always allocate enough space to hold the whole thing so that the
-> +	 * driver does not need to check the length and bother with partial
-> +	 * dumping.
-> +	 */
->  	data = vzalloc(tmp.len);
->  	if (!data)
->  		return -ENOMEM;
-> @@ -1330,6 +1339,16 @@ static int ethtool_get_dump_data(struct net_device *dev,
->  	if (ret)
->  		goto out;
+>  	printf("Private flags for %s:\n", ctx->devname);
+>  	for (i = 0; i < strings->len; i++)
+> -		printf("%s: %s\n",
+> +		printf("%-*s: %s\n",
+> +		       max_len,
+>  		       (const char *)strings->data + i * ETH_GSTRING_LEN,
+>  		       (flags.data & (1U << i)) ? "on" : "off");
 >  
-> +	/* There are two sane possibilities:
-> +	 * 1. The driver's .get_dump_data() does not touch dump.len.
-> +	 * 2. Or it may set dump.len to how much it really writes, which
-> +	 *    should be tmp.len (or len if it can do a partial dump).
-> +	 * In any case respond to userspace with the actual length of data
-> +	 * it's receiving.
-> +	 */
-> +	WARN_ON(dump.len != len && dump.len != tmp.len);
-> +	dump.len = len;
-> +
->  	if (copy_to_user(useraddr, &dump, sizeof(dump))) {
->  		ret = -EFAULT;
->  		goto out;
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
