@@ -1,38 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: only apply anti-spoofing checks to
- not-pointopoint tunnels
-Date: Mon, 01 Jul 2013 13:26:51 -0700 (PDT)
-Message-ID: <20130701.132651.278260163434729998.davem@davemloft.net>
-References: <20130627204604.GB8903@order.stressinduktion.org>
+Subject: Re: [PATCH v3] ipv6: fix ecmp lookup when oif is specified
+Date: Mon, 01 Jul 2013 13:27:59 -0700 (PDT)
+Message-ID: <20130701.132759.1505361202006376706.davem@davemloft.net>
+References: <20130626.151929.2241949243651761177.davem@davemloft.net>
+	<1372433748-2991-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rm@romanrm.ru, yoshfuji@linux-ipv6.org
-To: hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43659 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43680 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753269Ab3GAU0w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 16:26:52 -0400
-In-Reply-To: <20130627204604.GB8903@order.stressinduktion.org>
+	with ESMTP id S1755203Ab3GAU17 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 16:27:59 -0400
+In-Reply-To: <1372433748-2991-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Thu, 27 Jun 2013 22:46:04 +0200
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Fri, 28 Jun 2013 17:35:48 +0200
 
-> Because of commit 218774dc341f219bfcf940304a081b121a0e8099 ("ipv6: add
-> anti-spoofing checks for 6to4 and 6rd") the sit driver dropped packets
-> for 2002::/16 destinations and sources even when configured to work as a
-> tunnel with fixed endpoint. We may only apply the 6rd/6to4 anti-spoofing
-> checks if the device is not in pointopoint mode.
+> There is no reason to skip ECMP lookup when oif is specified, but this implies
+> to check oif given by user when selecting another route.
+> When the new route does not match oif requirement, we simply keep the initial
+> one.
 > 
-> This was an oversight from me in the above commit, sorry.  Thanks to
-> Roman Mamedov for reporting this!
-> 
-> Reported-by: Roman Mamedov <rm@romanrm.ru>
-> Cc: David Miller <davem@davemloft.net>
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Spotted-by: dingzhi <zhi.ding@6wind.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Applied and queued up for -stable.
+Applied, thanks Nicolas.
