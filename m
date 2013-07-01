@@ -1,36 +1,45 @@
-From: =?utf-8?B?0JDQu9C70LAg0KHQuNGC0L3QuNC60L7QstCw?=
-	<hbmaziu@gmail.com>
-Subject: =?utf-8?B?0J/QvtGB0YLQsNCy0LrQsCDQutC+0LzQv9C70LXQutGC0YPRjtGJ0LjRhSDQtNC70Y8g0LPRgNGD0LfQvtC/0L7QtNGK0LXQvNC90L7QuSDRgtC10YXQvdC40LrQuA==?=
-Date: 01 Jul 2013 13:17:56 +0200
-Message-ID: <be8d78$3mcmnc@mailout04-02.mx.hostbasket.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next] net: sctp: get rid of SCTP_DBG_TSNS entirely
+Date: Mon, 1 Jul 2013 07:33:42 -0400
+Message-ID: <20130701113342.GA3168@hmsreliant.think-freely.org>
+References: <1372671096-27129-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout04-02.mx.hostbasket.com ([85.255.200.185]:26062 "EHLO
-	mailout04-02.mx.hostbasket.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751908Ab3GAL1H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 07:27:07 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:42560 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753213Ab3GALdy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 07:33:54 -0400
+Content-Disposition: inline
+In-Reply-To: <1372671096-27129-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Message-ID: <fvuymka@cchz.apbt>
+On Mon, Jul 01, 2013 at 11:31:36AM +0200, Daniel Borkmann wrote:
+> After having reworked the debugging framework, Neil and Vlad agreed to
+> get rid of the leftover SCTP_DBG_TSNS code for a couple of reasons:
+> 
+> We can use systemtap scripts to investigate these things, we now have
+> pr_debug() helpers that make life easier, and if we really need anything
+> else besides those tools, we will be forced to come up with something
+> better than we have there. Therefore, get rid of this ifdef debugging
+> code entirely for now.
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> CC: Vlad Yasevich <vyasevich@gmail.com>
+> CC: Neil Horman <nhorman@tuxdriver.com>
+> ---
+>  On top of [PATCH net-next v4 0/2] Rework SCTP debugging framework.
+> 
+I think you mean on top of v4 2/2, but regardless:
 
-MIME-Version: 1.0
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
-Content-Type: text/plain; charset=3Dutf-8
-Date: Mon,  1 Jul 2013 10:21:52 +0200 (CEST)
+I don't suppose you want to write a stap script to drop in the sourceware
+examples area, in case anyone comes looking for this functionality again? :)
 
-=D0=9F=D1=80=D0=B5=D0=B4=D0=BB=D0=B0=D0=B3=D0=B0=D1=8E =D0=BAo=D0=BC=D0=
-=BF=D0=BB=D0=B5=D0=BA=D1=82=D1=83=D1=8E=D1=89=D0=B8=D0=B5 =D0=B4=D0=BB=D1=
-=8F =D0=BB=D1=8E=D0=B1=D0=BE=D0=B9 =D0=B3=D1=80=D1=83=D0=B7o=D0=BFo=D0=B4=
-=D1=8A=D1=91=D0=BC=D0=BDo=D0=B9 =D1=82=D0=B5=D1=85=D0=BD=D0=B8=D0=BA=D0=
-=B8
-
-=D0=92=D0=B5=D1=81=D1=8C =D1=82=D0=BE=D0=B2=D0=B0=D1=80 =D0=B2 =D0=BD=D0=
-=B0=D0=BB=D0=B8=D1=87=D0=B8=D0=B8
-
-=D0=B6=D0=B4=D1=83 =D0=B7=D0=B2=D0=BE=D0=BD=D0=BA=D0=B0
-
-(4842)75..76..15 =20
+Thanks
+Neil
