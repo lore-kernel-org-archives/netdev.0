@@ -1,93 +1,74 @@
-From: Joe Jin <joe.jin@oracle.com>
-Subject: Re: kernel panic in skb_copy_bits
-Date: Mon, 01 Jul 2013 21:00:43 +0800
-Message-ID: <51D17D7B.6000206@oracle.com>
-References: <51CBAA48.3080802@oracle.com> <1372311118.3301.214.camel@edumazet-glaptop> <51CD0E67.4000008@oracle.com> <6BFD5AF235F72F13CE646A0D@nimrod.local> <51D0F514.3070309@oracle.com> <1372666283.14691.8.camel@zakaz.uk.xensource.com>
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: Re: [PATCH net-next v1 1/1] net: fec: Fix RMON registers on imx6
+Date: Mon, 1 Jul 2013 14:52:59 +0100
+Message-ID: <51D189BB.5030601@mentor.com>
+References: <jim_baxter@mentor.com> <1372674719-6525-1-git-send-email-jim_baxter@mentor.com> <CAFXsbZoDWn4KgAVEpUtajo+PwfnrJoO0eTw9g6+MdQ8b666=EQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Alex Bligh <alex@alex.org.uk>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Frank Blaschka <frank.blaschka@de.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	zheng.x.li@oracle.com, Xen Devel <xen-devel@lists.xen.org>,
-	Jan Beulich <JBeulich@suse.com>,
-	Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>,
+	Fugang Duan <B38611@freescale.com>,
+	Joe Perches <joe@perches.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Chris Healy <cphealy@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:42899 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753440Ab3GANBN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 09:01:13 -0400
-In-Reply-To: <1372666283.14691.8.camel@zakaz.uk.xensource.com>
+Received: from relay1.mentorg.com ([192.94.38.131]:64137 "EHLO
+	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753100Ab3GANxE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 09:53:04 -0400
+In-Reply-To: <CAFXsbZoDWn4KgAVEpUtajo+PwfnrJoO0eTw9g6+MdQ8b666=EQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/01/13 16:11, Ian Campbell wrote:
-> On Mon, 2013-07-01 at 11:18 +0800, Joe Jin wrote:
->>> A workaround is to turn off O_DIRECT use by Xen as that ensures
->>> the pages are copied. Xen 4.3 does this by default.
->>>
->>> I believe fixes for this are in 4.3 and 4.2.2 if using the
->>> qemu upstream DM. Note these aren't real fixes, just a workaround
->>> of a kernel bug.
->>
->> The guest is pvm, and disk model is xvbd, guest config file as below:
+On 01/07/13 14:42, Chris Healy wrote:
+> The comment one line up should change to reflect the functional change. 
+> Something like:  "Enable the MIB logic"
 > 
-> Do you know which disk backend? The workaround Alex refers to went into
-> qdisk but I think blkback could still suffer from a variant of the
-> retransmit issue if you run it over iSCSI.
+> 
+> On Mon, Jul 1, 2013 at 3:31 AM, Jim Baxter <jim_baxter@mentor.com
+> <mailto:jim_baxter@mentor.com>> wrote:
+> 
+>     commit 38ae92d "fec: Add support for reading
+>     RMON registers" causes the imx6Q to crash.
+> 
+>     This fixes it by only enabling the RMON registers, the
+>     registers are already cleared by the MAC being reset.
+> 
+>     Signed-off-by: Jim Baxter <jim_baxter@mentor.com
+>     <mailto:jim_baxter@mentor.com>>
+>     ---
+>     Change v1 to v2
+>     Removed per processor change and just set bit 31 to 0.
+> 
+>      drivers/net/ethernet/freescale/fec_main.c |    5 +----
+>      1 file changed, 1 insertion(+), 4 deletions(-)
+> 
+>     diff --git a/drivers/net/ethernet/freescale/fec_main.c
+>     b/drivers/net/ethernet/freescale/fec_main.c
+>     index ed6180e..c772df1 100644
+>     --- a/drivers/net/ethernet/freescale/fec_main.c
+>     +++ b/drivers/net/ethernet/freescale/fec_main.c
+>     @@ -606,10 +606,7 @@ fec_restart(struct net_device *ndev, int duplex)
+> 
+>      #ifndef CONFIG_M5272
+>             /* Disable, clear, and enable the MIB */
+>     -       writel(1 << 31, fep->hwp + FEC_MIB_CTRLSTAT);
+>     -       for (i = RMON_T_DROP; i < IEEE_R_OCTETS_OK; i++)
+>     -               writel(0, fep->hwp + i);
+>     -       writel(0, fep->hwp + FEC_MIB_CTRLSTAT);
+>     +       writel(0 << 31, fep->hwp + FEC_MIB_CTRLSTAT);
+>      #endif
+> 
+>             /* And last, enable the transmit and receive processing */
+>     --
+>     1.7.10.4
+> 
+> 
 
-The backend is xen-blkback on iSCSI storage.
- 
-> 
->>> To fix on a local build of xen you will need something like this:
->>> https://github.com/abligh/qemu-upstream-4.2-testing/commit/9a97c011e1a682eed9bc7195a25349eaf23ff3f9
->>> and something like this (NB: obviously insert your own git
->>> repo and commit numbers)
->>> https://github.com/abligh/xen/commit/f5c344afac96ced8b980b9659fb3e81c4a0db5ca
->>>
->>
->> I think this only for pvhvm/hvm?
-> 
-> No, the underlying issue affects any PV device which is run over a
-> network protocol (NFS, iSCSI etc). In effect a delayed retransmit can
-> cross over the deayed ack and cause I/O to be completed while
-> retransmits are pending, such as is described in
-> http://www.spinics.net/lists/linux-nfs/msg34913.html (the original NFS
-> variant). The problem is that because Xen PV drivers often unmap the
-> page on I/O completion you get a crash (page fault) on the retransmit.
-> 
-To prevent iSCSI call sendpage() reuse the page we disabled the sg from NIC,
-per test result the panic went. This also confirmed the page be unmpped by
-grant system, the symptom as same as nfs panic.
+Hi Chris,
+Does "Enable the MIB statistic event counters" sound OK?
 
-
-> The issue also affects native but in that case the symptom is "just" a
-> corrupt packet on the wire. I tried to address this with my "skb
-> destructor" series but unfortunately I got bogged down on the details,
-> then I had to take time out to look into some other stuff and never
-> managed to get back into it. I'd be very grateful if there was someone
-> who could pick up that work (Alex gave some useful references in another
-> reply to this thread)
-> 
-> Some PV disk backends (e.g. blktap2) have worked around this by using
-> grant copy instead of grant map, others (e.g. qdisk) have disabled
-> O_DIRECT so that the pages are copied into the dom0 page cache and
-> transmitted from there.
-
-The work around as same as we disable sg from NIC(disable it sendpage will
-create own page copy rather than reuse the page).
-
-Thanks,
-Joe
-> 
-> We were discussing recently the possibility of mapping all ballooned out
-> pages to a single read-only scratch page instead of leaving them empty
-> in the page tables, this would cause the Xen case to revert to the
-> native case. I think Thanos was going to take a look into this.
-> 
-> Ian.
-> 
+Thank you,
+Jim
