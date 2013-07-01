@@ -1,48 +1,46 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [PATCH] drivers/ptp/Kconfig: add "depends on HAS_IOMEM" for 'PTP_1588_CLOCK_PCH'
-Date: Mon, 01 Jul 2013 14:44:21 +0800
-Message-ID: <51D12545.4000108@asianux.com>
-References: <51CB8CB7.6010006@asianux.com> <20130628.212311.1348427834856668120.davem@davemloft.net> <51D0DCB5.5060106@asianux.com> <51D11661.7040604@nod.at> <51D11D14.8000706@asianux.com> <51D122F0.1000204@nod.at>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [RFC Patch net-next 1/5] net: introduce generic union inet_addr
+Date: Mon, 01 Jul 2013 15:00:29 +0800
+Message-ID: <1372662029.2974.16.camel@cr0>
+References: <1372315398-19683-1-git-send-email-amwang@redhat.com>
+	 <1372315398-19683-2-git-send-email-amwang@redhat.com>
+	 <1372353355.2060.22.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, richardcochran@gmail.com,
-	netdev@vger.kernel.org, geert@linux-m68k.org
-To: Richard Weinberger <richard@nod.at>
+Cc: netdev@vger.kernel.org, Daniel Borkmann <dborkman@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Rob Landley <rob@landley.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Veaceslav Falico <vfalico@redhat.com>, Ding@jasper.es
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:38529 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750987Ab3GAGpM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 02:45:12 -0400
-In-Reply-To: <51D122F0.1000204@nod.at>
+Received: from mx1.redhat.com ([209.132.183.28]:51610 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752388Ab3GAHBJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Jul 2013 03:01:09 -0400
+In-Reply-To: <1372353355.2060.22.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/01/2013 02:34 PM, Richard Weinberger wrote:
->> config COMPILE_TEST
->> >         bool "Compile also drivers which will not load"
->> >         default n
->> >         help
->> >           Some drivers can be compiled on a different platform than they are
->> >           intended to be run on. Despite they cannot be loaded there (or even
->> >           when they load they cannot be used due to missing HW support),
->> >           developers still, opposing to distributors, might want to build such
->> >           drivers to compile-test them.
->> > 
->> >           If you are a developer and want to build everything available, say Y
->> >           here. If you are a user/distributor, say N here to exclude useless
->> >           drivers to be distributed.
->> > 
->> > I guess, 'COMPILE_TEST' is really useful for UML.
-> No.
+On Thu, 2013-06-27 at 10:15 -0700, Joe Perches wrote:
+> On Thu, 2013-06-27 at 14:43 +0800, Cong Wang wrote:
+> > Cc: Daniel Borkmann <dborkman@redhat.com>
+> > Signed-off-by: Cong Wang <amwang@redhat.com>
 > 
-> We have explained you more than once what the deal and why UML does not
-> have ioremap() and friends.
+> Hi Cong.
+> 
+> I think this is premature.
+> 
+> Please let the discussion and implementation
+> for %pI[gS]<foo> play out and be accepted
+> into next before using it in other subsystems.
+> 
+> 
 
-This time, it is not for UML, it is for 'COMPILE_TEST': the
-'asm-generic' whether need consider it.
+Yeah, I already talked with Daniel off-list, and I agree his %pIS patch
+should go first.
 
-
-Thanks.
--- 
-Chen Gang
+(Also I apologized to him for forgetting to credit him when I submitted
+this patchset.)
