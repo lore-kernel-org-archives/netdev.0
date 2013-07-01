@@ -1,35 +1,121 @@
-From: Roland Dreier <roland@kernel.org>
-Subject: Re: [PATCH for-next 0/8] Add Mellanox mlx5 driver for Connect-IB devices
-Date: Mon, 1 Jul 2013 11:11:50 -0700
-Message-ID: <CAL1RGDW_Z06ZqpOhz3tAkKn=rpLEZE6hWZkLNd9OQgCbrX6YAg@mail.gmail.com>
-References: <1371384149-24558-1-git-send-email-eli@dev.mellanox.co.il>
- <CAJZOPZ+NQa3CWnw3rZQh2UuwdrNhiwtVSyuk9D9YtwfQQ9e1XA@mail.gmail.com>
- <CAJZOPZKLb9k1xXkTnrtzYKpwrSJDQgBpONUVCp3et36JeaEi-Q@mail.gmail.com>
- <CAL1RGDX5mHj5oVqFhQ4Ssr25jpL4rV2Tv=zXvLOZfwupJ0gqJw@mail.gmail.com> <1372701839.2481.3.camel@joe-AO722>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net] ipv6: ip6_append_data_mtu did not care about pmtudisc and frag_size
+Date: Mon, 1 Jul 2013 20:17:42 +0200
+Message-ID: <20130701181742.GB8937@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	Eli Cohen <eli@dev.mellanox.co.il>,
-	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	Eli Cohen <eli@mellanox.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=utf-8
+Cc: gaofeng@cn.fujitsu.com, yoshfuji@linux-ipv6.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog103.obsmtp.com ([74.125.245.74]:59537 "HELO
-	na3sys010aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754801Ab3GASMM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 14:12:12 -0400
-Received: by mail-la0-f44.google.com with SMTP id er20so4725834lab.3
-        for <netdev@vger.kernel.org>; Mon, 01 Jul 2013 11:12:10 -0700 (PDT)
-In-Reply-To: <1372701839.2481.3.camel@joe-AO722>
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:48255 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754853Ab3GASRo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 14:17:44 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 1, 2013 at 11:03 AM, Joe Perches <joe@perches.com> wrote:
-> There's some value in block enabling/disabling messages
-> that dynamic_debug doesn't currently offer.
+If the socket had an IPV6_MTU value set, ip6_append_data_mtu lost track
+of this when appending the second frame on a corked socket. This results
+in the following splat:
 
-As far as I can see, the mlx5 stuff ends up being per-file.  Which
-dynamic debug already does offer.
+[37598.993962] ------------[ cut here ]------------
+[37598.994008] kernel BUG at net/core/skbuff.c:2064!
+[37598.994008] invalid opcode: 0000 [#1] SMP
+[37598.994008] Modules linked in: tcp_lp uvcvideo videobuf2_vmalloc videobuf2_memops videobuf2_core videodev media vfat fat usb_storage fuse ebtable_nat xt_CHECKSUM bridge stp llc ipt_MASQUERADE nf_conntrack_netbios_ns nf_conntrack_broadcast ip6table_mangle ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 iptable_nat
++nf_nat_ipv4 nf_nat iptable_mangle nf_conntrack_ipv4 nf_defrag_ipv4 xt_conntrack nf_conntrack ebtable_filter ebtables ip6table_filter ip6_tables be2iscsi iscsi_boot_sysfs bnx2i cnic uio cxgb4i cxgb4 cxgb3i cxgb3 mdio libcxgbi ib_iser rdma_cm ib_addr iw_cm ib_cm ib_sa ib_mad ib_core iscsi_tcp libiscsi_tcp libiscsi
++scsi_transport_iscsi rfcomm bnep iTCO_wdt iTCO_vendor_support snd_hda_codec_conexant arc4 iwldvm mac80211 snd_hda_intel acpi_cpufreq mperf coretemp snd_hda_codec microcode cdc_wdm cdc_acm
+[37598.994008]  snd_hwdep cdc_ether snd_seq snd_seq_device usbnet mii joydev btusb snd_pcm bluetooth i2c_i801 e1000e lpc_ich mfd_core ptp iwlwifi pps_core snd_page_alloc mei cfg80211 snd_timer thinkpad_acpi snd tpm_tis soundcore rfkill tpm tpm_bios vhost_net tun macvtap macvlan kvm_intel kvm uinput binfmt_misc
++dm_crypt i915 i2c_algo_bit drm_kms_helper drm i2c_core wmi video
+[37598.994008] CPU 0
+[37598.994008] Pid: 27320, comm: t2 Not tainted 3.9.6-200.fc18.x86_64 #1 LENOVO 27744PG/27744PG
+[37598.994008] RIP: 0010:[<ffffffff815443a5>]  [<ffffffff815443a5>] skb_copy_and_csum_bits+0x325/0x330
+[37598.994008] RSP: 0018:ffff88003670da18  EFLAGS: 00010202
+[37598.994008] RAX: ffff88018105c018 RBX: 0000000000000004 RCX: 00000000000006c0
+[37598.994008] RDX: ffff88018105a6c0 RSI: ffff88018105a000 RDI: ffff8801e1b0aa00
+[37598.994008] RBP: ffff88003670da78 R08: 0000000000000000 R09: ffff88018105c040
+[37598.994008] R10: ffff8801e1b0aa00 R11: 0000000000000000 R12: 000000000000fff8
+[37598.994008] R13: 00000000000004fc R14: 00000000ffff0504 R15: 0000000000000000
+[37598.994008] FS:  00007f28eea59740(0000) GS:ffff88023bc00000(0000) knlGS:0000000000000000
+[37598.994008] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[37598.994008] CR2: 0000003d935789e0 CR3: 00000000365cb000 CR4: 00000000000407f0
+[37598.994008] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[37598.994008] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+[37598.994008] Process t2 (pid: 27320, threadinfo ffff88003670c000, task ffff88022c162ee0)
+[37598.994008] Stack:
+[37598.994008]  ffff88022e098a00 ffff88020f973fc0 0000000000000008 00000000000004c8
+[37598.994008]  ffff88020f973fc0 00000000000004c4 ffff88003670da78 ffff8801e1b0a200
+[37598.994008]  0000000000000018 00000000000004c8 ffff88020f973fc0 00000000000004c4
+[37598.994008] Call Trace:
+[37598.994008]  [<ffffffff815fc21f>] ip6_append_data+0xccf/0xfe0
+[37598.994008]  [<ffffffff8158d9f0>] ? ip_copy_metadata+0x1a0/0x1a0
+[37598.994008]  [<ffffffff81661f66>] ? _raw_spin_lock_bh+0x16/0x40
+[37598.994008]  [<ffffffff8161548d>] udpv6_sendmsg+0x1ed/0xc10
+[37598.994008]  [<ffffffff812a2845>] ? sock_has_perm+0x75/0x90
+[37598.994008]  [<ffffffff815c3693>] inet_sendmsg+0x63/0xb0
+[37598.994008]  [<ffffffff812a2973>] ? selinux_socket_sendmsg+0x23/0x30
+[37598.994008]  [<ffffffff8153a450>] sock_sendmsg+0xb0/0xe0
+[37598.994008]  [<ffffffff810135d1>] ? __switch_to+0x181/0x4a0
+[37598.994008]  [<ffffffff8153d97d>] sys_sendto+0x12d/0x180
+[37598.994008]  [<ffffffff810dfb64>] ? __audit_syscall_entry+0x94/0xf0
+[37598.994008]  [<ffffffff81020ed1>] ? syscall_trace_enter+0x231/0x240
+[37598.994008]  [<ffffffff8166a7e7>] tracesys+0xdd/0xe2
+[37598.994008] Code: fe 07 00 00 48 c7 c7 04 28 a6 81 89 45 a0 4c 89 4d b8 44 89 5d a8 e8 1b ac b1 ff 44 8b 5d a8 4c 8b 4d b8 8b 45 a0 e9 cf fe ff ff <0f> 0b 66 0f 1f 84 00 00 00 00 00 66 66 66 66 90 55 48 89 e5 48
+[37598.994008] RIP  [<ffffffff815443a5>] skb_copy_and_csum_bits+0x325/0x330
+[37598.994008]  RSP <ffff88003670da18>
+[37599.007323] ---[ end trace d69f6a17f8ac8eee ]---
 
- - R.
+While there, also check if path mtu discovery is activated for this
+socket. The logic was adapted from ip6_append_data when first writing
+on the corked socket.
+
+This bug was introduced with commit
+0c1833797a5a6ec23ea9261d979aa18078720b74 ("ipv6: fix incorrect ipsec
+fragment").
+
+Cc: Gao feng <gaofeng@cn.fujitsu.com>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/ipv6/ip6_output.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index dae1949..7701735 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1097,7 +1097,8 @@ static void ip6_append_data_mtu(int *mtu,
+ 				int *maxfraglen,
+ 				unsigned int fragheaderlen,
+ 				struct sk_buff *skb,
+-				struct rt6_info *rt)
++				struct rt6_info *rt,
++				struct ipv6_pinfo *np)
+ {
+ 	if (!(rt->dst.flags & DST_XFRM_TUNNEL)) {
+ 		if (skb == NULL) {
+@@ -1109,7 +1110,11 @@ static void ip6_append_data_mtu(int *mtu,
+ 			 * this fragment is not first, the headers
+ 			 * space is regarded as data space.
+ 			 */
+-			*mtu = dst_mtu(rt->dst.path);
++			*mtu = (np->pmtudisc == IPV6_PMTUDISC_DO) ?
++				rt->dst.dev->mtu :
++				dst_mtu(rt->dst.path);
++			if (np->frag_size && np->frag_size < *mtu)
++				*mtu = np->frag_size;
+ 		}
+ 		*maxfraglen = ((*mtu - fragheaderlen) & ~7)
+ 			      + fragheaderlen - sizeof(struct frag_hdr);
+@@ -1287,8 +1292,7 @@ alloc_new_skb:
+ 			/* update mtu and maxfraglen if necessary */
+ 			if (skb == NULL || skb_prev == NULL)
+ 				ip6_append_data_mtu(&mtu, &maxfraglen,
+-						    fragheaderlen, skb, rt);
+-
++						    fragheaderlen, skb, rt, np);
+ 			skb_prev = skb;
+ 
+ 			/*
+-- 
+1.8.1.4
