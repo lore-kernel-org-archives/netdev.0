@@ -1,71 +1,48 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2] Ethtool: Beautify private flags print
-Date: Mon, 1 Jul 2013 16:58:52 +0100
-Message-ID: <1372694332.2083.1.camel@bwh-desktop.uk.level5networks.com>
-References: <1369544155-12279-1-git-send-email-yuvalmin@broadcom.com>
+Subject: Re: [PATCH] Ethtool: Free memory leak in do_sprivflags()
+Date: Mon, 1 Jul 2013 16:59:13 +0100
+Message-ID: <1372694353.2083.2.camel@bwh-desktop.uk.level5networks.com>
+References: <1371038398-15934-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <joe@perches.com>, <eilong@broadcom.com>
+Cc: <netdev@vger.kernel.org>
 To: Yuval Mintz <yuvalmin@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:39112 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:39125 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753357Ab3GAP64 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 11:58:56 -0400
-In-Reply-To: <1369544155-12279-1-git-send-email-yuvalmin@broadcom.com>
+	with ESMTP id S1754537Ab3GAP7R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 11:59:17 -0400
+In-Reply-To: <1371038398-15934-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-05-26 at 07:55 +0300, Yuval Mintz wrote:
-> When printing the private flags of the device, align all strings
-> to have the same length.
+On Wed, 2013-06-12 at 14:59 +0300, Yuval Mintz wrote:
+> cmdline is allocated for usage in parse_generic_cmdline(), but is not
+> released after its final usage.
 > 
 > Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-> ---
-> Changes from V1:
->   - use "%-*s" instead of printing white spaces in for-loop.
 
-Applied; sorry for the delay.
+Applied.
 
 Ben.
 
 > ---
->  ethtool.c | 12 +++++++++++-
->  1 file changed, 11 insertions(+), 1 deletion(-)
+>  ethtool.c | 1 +
+>  1 file changed, 1 insertion(+)
 > 
 > diff --git a/ethtool.c b/ethtool.c
-> index 8cc10b5..57a6e01 100644
+> index 8cc10b5..b80494d 100644
 > --- a/ethtool.c
 > +++ b/ethtool.c
-> @@ -3445,6 +3445,7 @@ static int do_gprivflags(struct cmd_context *ctx)
->  	struct ethtool_gstrings *strings;
->  	struct ethtool_value flags;
->  	unsigned int i;
-> +	int max_len = 0, cur_len;
->  
->  	if (ctx->argc != 0)
->  		exit_bad_args();
-> @@ -3472,9 +3473,18 @@ static int do_gprivflags(struct cmd_context *ctx)
->  		return 1;
+> @@ -3521,6 +3521,7 @@ static int do_sprivflags(struct cmd_context *ctx)
+>  		cmdline[i].seen_val = &seen_flags;
 >  	}
+>  	parse_generic_cmdline(ctx, &any_changed, cmdline, strings->len);
+> +	free(cmdline);
 >  
-> +	/* Find longest string and align all strings accordingly */
-> +	for (i = 0; i < strings->len; i++) {
-> +		cur_len = strlen((const char*)strings->data +
-> +					      i * ETH_GSTRING_LEN);
-> +		if (cur_len > max_len)
-> +			max_len = cur_len;
-> +	}
-> +
->  	printf("Private flags for %s:\n", ctx->devname);
->  	for (i = 0; i < strings->len; i++)
-> -		printf("%s: %s\n",
-> +		printf("%-*s: %s\n",
-> +		       max_len,
->  		       (const char *)strings->data + i * ETH_GSTRING_LEN,
->  		       (flags.data & (1U << i)) ? "on" : "off");
->  
+>  	flags.cmd = ETHTOOL_GPFLAGS;
+>  	if (send_ioctl(ctx, &flags)) {
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
