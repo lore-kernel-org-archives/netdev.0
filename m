@@ -1,70 +1,85 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [PATCH] drivers/ptp/Kconfig: add "depends on HAS_IOMEM" for 'PTP_1588_CLOCK_PCH'
-Date: Mon, 01 Jul 2013 14:09:24 +0800
-Message-ID: <51D11D14.8000706@asianux.com>
-References: <51CB8CB7.6010006@asianux.com> <20130628.212311.1348427834856668120.davem@davemloft.net> <51D0DCB5.5060106@asianux.com> <51D11661.7040604@nod.at>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the arm-soc tree with the net-next tree
+Date: Mon, 1 Jul 2013 16:28:12 +1000
+Message-ID: <20130701162812.def47813e7d94c27950f3e82@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, richardcochran@gmail.com,
-	netdev@vger.kernel.org, geert@linux-m68k.org
-To: Richard Weinberger <richard@nod.at>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:63356 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751008Ab3GAGKQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 02:10:16 -0400
-In-Reply-To: <51D11661.7040604@nod.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Mon__1_Jul_2013_16_28_12_+1000_10y7cHq3JZwQniMw"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
+	<linux-arm-kernel@lists.infradead.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/01/2013 01:40 PM, Richard Weinberger wrote:
-> Am 01.07.2013 03:34, schrieb Chen Gang:
->> > On 06/29/2013 12:23 PM, David Miller wrote:
->>> >> From: Chen Gang <gang.chen@asianux.com>
->>> >> Date: Thu, 27 Jun 2013 08:52:07 +0800
->>> >>
->>>>> >>>> @@ -73,6 +73,7 @@ config DP83640_PHY
->>>>> >>>>  config PTP_1588_CLOCK_PCH
->>>>> >>>>  	tristate "Intel PCH EG20T as PTP clock"
->>>>> >>>>  	depends on X86 || COMPILE_TEST
->>> >> This "depends on X86 || COMPILE_TEST" does not exist in either 'net' or 'net-next'.
->>> >> Please submit your patches against a clean checkout of the networking GIT tree,
->>> >> rather than something else such as linux-next.
->> > 
->> > Oh, really it is, It is my fault (originally I get mail address from
->> > "./scripts/get_maintainers.pl", but not give additional check on it).
->> > 
->> > For your information (or implicit suggestion), if one module wants to
->> > request 'COMPILE_TEST', the platforms (or asm-generic) is recommended to
->> > try to support it.
->> > 
->> > It seems I still have the chance to continue discuss about it with
->> > platform guys. ;-)
-> David told you that your patch does not apply.
-> Not even Linus' tree has "depends on X86 || COMPILE_TEST".
-> Please adjust your patch.
+--Signature=_Mon__1_Jul_2013_16_28_12_+1000_10y7cHq3JZwQniMw
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
+Hi all,
 
-Before send the patch, it is better to discuss the "asm-generic"
-whether need consider 'COMPILE_TEST'.
+Today's linux-next merge of the arm-soc tree got a conflict in
+arch/arm/mach-mxs/mach-mxs.c between commit b7c4114b07bb ("can: flexcan:
+Use a regulator to control the CAN transceiver") from the net-next tree
+and commit 2046338dcbc6 ("ARM: mxs: Use soc bus infrastructure") from the
+arm-soc tree.
 
-config COMPILE_TEST
-        bool "Compile also drivers which will not load"
-        default n
-        help
-          Some drivers can be compiled on a different platform than they are
-          intended to be run on. Despite they cannot be loaded there (or even
-          when they load they cannot be used due to missing HW support),
-          developers still, opposing to distributors, might want to build such
-          drivers to compile-test them.
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
-          If you are a developer and want to build everything available, say Y
-          here. If you are a user/distributor, say N here to exclude useless
-          drivers to be distributed.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-I guess, 'COMPILE_TEST' is really useful for UML.
+diff --cc arch/arm/mach-mxs/mach-mxs.c
+index 97b8a44,7fa611c..0000000
+--- a/arch/arm/mach-mxs/mach-mxs.c
++++ b/arch/arm/mach-mxs/mach-mxs.c
+@@@ -323,13 -477,14 +432,14 @@@ static void __init mxs_machine_init(voi
+  		imx28_evk_init();
+  	else if (of_machine_is_compatible("bluegiga,apx4devkit"))
+  		apx4devkit_init();
+- 	else if (of_machine_is_compatible("crystalfontz,cfa10037"))
+- 		cfa10037_init();
+- 	else if (of_machine_is_compatible("crystalfontz,cfa10049"))
+- 		cfa10049_init();
++ 	else if (of_machine_is_compatible("crystalfontz,cfa10037") ||
++ 		 of_machine_is_compatible("crystalfontz,cfa10049") ||
++ 		 of_machine_is_compatible("crystalfontz,cfa10055") ||
++ 		 of_machine_is_compatible("crystalfontz,cfa10057"))
++ 		crystalfontz_init();
+ =20
+  	of_platform_populate(NULL, of_default_bus_match_table,
+- 			     NULL, NULL);
+ -			     mxs_auxdata_lookup, parent);
+++			     NULL, parent);
+ =20
+  	if (of_machine_is_compatible("karo,tx28"))
+  		tx28_post_init();
 
-Thanks.
--- 
-Chen Gang
+--Signature=_Mon__1_Jul_2013_16_28_12_+1000_10y7cHq3JZwQniMw
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.20 (GNU/Linux)
+
+iQIcBAEBCAAGBQJR0SGAAAoJEECxmPOUX5FEicoQAJPhfyf4CDOKlF/5dKx4r4XG
+YeV9oMhwNrg8dngVXdvK9kvvz+XrW0//PvldT1CyqgAsGRRv8qLn4p3sOWxCCRPx
+s40NkhPKmo0Ya8nMKs7OIzCwKdbB9a4myUwdcB0+Plc4+jc69432gVapeSn2Ef8G
+EgQ0wqyZJ8H2AdOWGtFq8d8z6i0UwZzoARrRgruhB7vu7r9XkIwIt7fNruoWrkVj
+NhYRj4pbnP9Ju+/6xdHk7gJsXfg1JnrEk5AU0wZym6DBZdI9SY7ZLBUUq60WjY3/
+sihCf3q70nLizg2wepJrm39M4WAfHBfV3z7/VfYTZPEFMN8BwujItc36yp/vnjc4
+9j3PAV6u1N3/hEmSShi7nFTwo6fCwwSrFFEcwHpLZiNTLHR/oMydBm+ideeYo9AB
+4xDPDYD9LDBnODdBHkNJIbbTC1l2cYi4AGx0dM+37a6UnT5QcZl47Jiz0z+PJ1Vb
+N19TZM6/ioi8pik2+pZF0KeYubJW8TAU6Fh+4CWce3Xa4VUfnTGGrio+/WJVPCqS
+gqlao7nZaZVpjWNkwyr7EfQIBWwJsEw3/Zekz5R2kf8TDADKICrObEeQMAaA7AhA
+D+6DquaAxiu/eL0GCexbNRaESntwbMYpYNEkdU8kREdTcqvAIVSZRsEyGgRhVLDy
+h1SoSclMhAiPkbTatcEu
+=JBkZ
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__1_Jul_2013_16_28_12_+1000_10y7cHq3JZwQniMw--
