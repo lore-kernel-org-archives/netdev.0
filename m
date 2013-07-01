@@ -1,8 +1,8 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v3 1/3] sh_eth: add support for gpio reset
-Date: Mon, 01 Jul 2013 18:24:34 +0400
-Message-ID: <51D19122.6030409@cogentembedded.com>
-References: <1372652695-16606-1-git-send-email-horms+renesas@verge.net.au> <1372652695-16606-2-git-send-email-horms+renesas@verge.net.au>
+Subject: Re: [PATCH net-next v3 2/3] sh_eth: add support RMIIMODE register
+Date: Mon, 01 Jul 2013 18:26:23 +0400
+Message-ID: <51D1918F.8090707@cogentembedded.com>
+References: <1372652695-16606-1-git-send-email-horms+renesas@verge.net.au> <1372652695-16606-3-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -10,7 +10,7 @@ Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
 	Magnus Damm <magnus.damm@gmail.com>
 To: Simon Horman <horms+renesas@verge.net.au>
 Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1372652695-16606-2-git-send-email-horms+renesas@verge.net.au>
+In-Reply-To: <1372652695-16606-3-git-send-email-horms+renesas@verge.net.au>
 Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -18,54 +18,14 @@ Hello.
 
 On 01-07-2013 8:24, Simon Horman wrote:
 
-> Allow reset using a GPIO. In order to use this set the following
-> in the device's platform data:
+> This change is motivated by the lager board which uses the r8a7790 SoC,
+> an R-Car SoC. For this board setting the RMIIMODE register is necessary.
 
-> 	needs_gpio_reset = 1
-> 	reset_gpio = GPIO pin to use
+     I've told you this is not board specific.
 
-> This patch is motivated by the lager board which uses the r8a7790 SoC
-> which has a GPIO pin to reset its sh_eth device.
+> This patch assumes this is valid for all R-Car SoCs.
 
 > Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-
-> --
-
-> v2
-> * First post
-> ---
->   drivers/net/ethernet/renesas/sh_eth.c | 4 ++++
->   include/linux/sh_eth.h                | 3 +++
->   2 files changed, 7 insertions(+)
-
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index 7732f11..0253f61 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-[...]
-> @@ -2652,6 +2653,9 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
->   		ndev->features = NETIF_F_HW_VLAN_CTAG_FILTER;
->   	}
->
-> +	if (pd->needs_gpio_reset)
-> +		gpio_request_one(pd->reset_gpio, GPIOF_OUT_INIT_HIGH, NULL);
-
-    Is reset signal active low or active high? Are you asserting or 
-releasing it?
-
-> diff --git a/include/linux/sh_eth.h b/include/linux/sh_eth.h
-> index fc30571..b3f1550 100644
-> --- a/include/linux/sh_eth.h
-> +++ b/include/linux/sh_eth.h
-> @@ -22,6 +22,9 @@ struct sh_eth_plat_data {
->   	unsigned no_ether_link:1;
->   	unsigned ether_link_active_low:1;
->   	unsigned needs_init:1;
-> +	unsigned needs_gpio_reset:1;
-> +
-> +	unsigned reset_gpio;	/* Used if needs_gpio_reset is true */
-
-    s/true/1/.
 
 WBR, Sergei
 
