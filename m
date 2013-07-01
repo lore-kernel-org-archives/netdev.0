@@ -1,56 +1,40 @@
-From: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [PATCH for/net-next 3/8] net/mlx5: Mellanox Connect-IB, core driver part 3/3
-Date: Mon, 1 Jul 2013 14:44:54 +0300
-Message-ID: <201307011444.55361.jackm@dev.mellanox.co.il>
-References: <1372256537-21328-1-git-send-email-ogerlitz@mellanox.com> <1372256537-21328-4-git-send-email-ogerlitz@mellanox.com> <20130628.211041.256072234719301298.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org, moshel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20130628.211041.256072234719301298.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
+Subject: [PATCH RFC 0/3] extend stmmac DT support.
+Date: Mon,  1 Jul 2013 12:42:42 +0100
+Message-ID: <1372678962-12959-1-git-send-email-srinivas.kandagatla@st.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Rob Landley <rob@landley.net>,
+	devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Srinivas Kandagatla <srinivas.kandagatla@st.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 29 June 2013 07:10, David Miller wrote:
-> From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> Date: Wed, 26 Jun 2013 17:22:12 +0300
-> 
-> > +	for (--i; i >= 0; --i) {
-> 
-> Please, "i--" is more canonical in for() loops.
-> 
-> > +	for (--i; i >= 0; --i) {
-> 
-> Likewise.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-Hi Dave,
+From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-For the "for" loop initial value, "i" should be decremented before doing any
-for-loop calculations (and it is not at all obvious if this is the ordering if we use
-i--, and not --i).  Using --i in the initial value makes the ordering obvious.
-However, I do agree with respect to the increment that --i and i-- are logically
-identical.
+Hi Peppe,
 
-Thus, the "for" loop could read:
-	for (--i; i >= 0; i--) {
+This patch series adds support to new gmac versions 3.6.10 and 3.710, these
+versions of IP are integrated into ST STiH415/STiH416 SOCs.
+This patchset also adds phy reset capablity to stmmac-mdio driver via DT.
 
-However, my own personal opinion is that this is a bit confusing.
-I would prefer to leave these lines as they are.
 
-Is that OK with you?
+Thanks,
+srini
 
--Jack
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Srinivas Kandagatla (3):
+  dt:net:stmmac: Allocate platform data only if its NULL.
+  dt:net:stmmac: Add support to dwmac version 3.610 and 3.710
+  dt:net:stmmac: Add dt specific phy reset callback support.
+
+ Documentation/devicetree/bindings/net/stmmac.txt   |   10 ++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |   31 ++++++++++++++++++++
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   31 ++++++++++++++++++--
+ 3 files changed, 69 insertions(+), 3 deletions(-)
+
+-- 
+1.7.6.5
