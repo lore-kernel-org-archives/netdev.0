@@ -1,80 +1,202 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH net-next] ethtool: make .get_dump_data() harder to misuse by drivers
-Date: Mon,  1 Jul 2013 17:23:30 +0200
-Message-ID: <1372692210-31131-1-git-send-email-mschmidt@redhat.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next] net: sctp: get rid of SCTP_DBG_TSNS entirely
+Date: Mon, 01 Jul 2013 11:35:03 -0400
+Message-ID: <51D1A1A7.60903@gmail.com>
+References: <1372671096-27129-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:18958 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753587Ab3GAPXj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Jul 2013 11:23:39 -0400
+Received: from mail-gh0-f179.google.com ([209.85.160.179]:47871 "EHLO
+	mail-gh0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753148Ab3GAPfH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 11:35:07 -0400
+In-Reply-To: <1372671096-27129-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As the patch "bnx2x: remove zeroing of dump data buffer" showed,
-it is too easy implement .get_dump_data=C2=A0incorrectly in a driver.
+On 07/01/2013 05:31 AM, Daniel Borkmann wrote:
+> After having reworked the debugging framework, Neil and Vlad agreed to
+> get rid of the leftover SCTP_DBG_TSNS code for a couple of reasons:
+>
+> We can use systemtap scripts to investigate these things, we now have
+> pr_debug() helpers that make life easier, and if we really need anything
+> else besides those tools, we will be forced to come up with something
+> better than we have there. Therefore, get rid of this ifdef debugging
+> code entirely for now.
+>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> CC: Vlad Yasevich <vyasevich@gmail.com>
 
-Let's make sure drivers cannot get confused by userspace requesting
-a too big dump.
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-Also WARN if the driver sets dump->len to something weird and make
-sure the length reported to userspace is the actual length of data
-copied to userspace.
+We might replace this with either stap or update the sctp kprobe module 
+to include this info.
 
-Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
----
- net/core/ethtool.c | 21 ++++++++++++++++++++-
- 1 file changed, 20 insertions(+), 1 deletion(-)
+-vlad
 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index ce91766..3b71cdb 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -1319,10 +1319,19 @@ static int ethtool_get_dump_data(struct net_dev=
-ice *dev,
- 	if (ret)
- 		return ret;
-=20
--	len =3D (tmp.len > dump.len) ? dump.len : tmp.len;
-+	len =3D min(tmp.len, dump.len);
- 	if (!len)
- 		return -EFAULT;
-=20
-+	/* Don't ever let the driver think there's more space available
-+	 * than it requested with .get_dump_flag().
-+	 */
-+	dump.len =3D len;
-+
-+	/* Always allocate enough space to hold the whole thing so that the
-+	 * driver does not need to check the length and bother with partial
-+	 * dumping.
-+	 */
- 	data =3D vzalloc(tmp.len);
- 	if (!data)
- 		return -ENOMEM;
-@@ -1330,6 +1339,16 @@ static int ethtool_get_dump_data(struct net_devi=
-ce *dev,
- 	if (ret)
- 		goto out;
-=20
-+	/* There are two sane possibilities:
-+	 * 1. The driver's .get_dump_data() does not touch dump.len.
-+	 * 2. Or it may set dump.len to how much it really writes, which
-+	 *    should be tmp.len (or len if it can do a partial dump).
-+	 * In any case respond to userspace with the actual length of data
-+	 * it's receiving.
-+	 */
-+	WARN_ON(dump.len !=3D len && dump.len !=3D tmp.len);
-+	dump.len =3D len;
-+
- 	if (copy_to_user(useraddr, &dump, sizeof(dump))) {
- 		ret =3D -EFAULT;
- 		goto out;
---=20
-1.8.1.4
+> CC: Neil Horman <nhorman@tuxdriver.com>
+> ---
+>   On top of [PATCH net-next v4 0/2] Rework SCTP debugging framework.
+>
+>   net/sctp/Kconfig    |   9 -----
+>   net/sctp/outqueue.c | 105 ----------------------------------------------------
+>   2 files changed, 114 deletions(-)
+>
+> diff --git a/net/sctp/Kconfig b/net/sctp/Kconfig
+> index d80bf1a..71c1a59 100644
+> --- a/net/sctp/Kconfig
+> +++ b/net/sctp/Kconfig
+> @@ -49,15 +49,6 @@ config NET_SCTPPROBE
+>           To compile this code as a module, choose M here: the
+>           module will be called sctp_probe.
+>
+> -config SCTP_DBG_TSNS
+> -	bool "SCTP: Debug transactions"
+> -	help
+> -	  If you say Y, this will enable transaction debugging, visible
+> -	  from the kernel's dynamic debugging framework.
+> -
+> -	  If unsure, say N.  However, if you are running into problems, use
+> -	  this option to gather outqueue trace information.
+> -
+>   config SCTP_DBG_OBJCNT
+>   	bool "SCTP: Debug object counts"
+>   	depends on PROC_FS
+> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+> index 511b3b3..cb80a8e 100644
+> --- a/net/sctp/outqueue.c
+> +++ b/net/sctp/outqueue.c
+> @@ -1335,21 +1335,6 @@ static void sctp_check_transmitted(struct sctp_outq *q,
+>   	int bytes_acked = 0;
+>   	int migrate_bytes = 0;
+>
+> -	/* These state variables are for coherent debug output. --xguo */
+> -
+> -#ifdef CONFIG_SCTP_DBG_TSNS
+> -	__u32 dbg_ack_tsn = 0;	/* An ACKed TSN range starts here... */
+> -	__u32 dbg_last_ack_tsn = 0;  /* ...and finishes here.	     */
+> -	__u32 dbg_kept_tsn = 0;	/* An un-ACKed range starts here...  */
+> -	__u32 dbg_last_kept_tsn = 0; /* ...and finishes here.	     */
+> -
+> -	/* 0 : The last TSN was ACKed.
+> -	 * 1 : The last TSN was NOT ACKed (i.e. KEPT).
+> -	 * -1: We need to initialize.
+> -	 */
+> -	int dbg_prt_state = -1;
+> -#endif /* CONFIG_SCTP_DBG_TSNS */
+> -
+>   	sack_ctsn = ntohl(sack->cum_tsn_ack);
+>
+>   	INIT_LIST_HEAD(&tlist);
+> @@ -1471,49 +1456,6 @@ static void sctp_check_transmitted(struct sctp_outq *q,
+>   				 */
+>   				list_add_tail(lchunk, &tlist);
+>   			}
+> -
+> -#ifdef CONFIG_SCTP_DBG_TSNS
+> -			switch (dbg_prt_state) {
+> -			case 0:	/* last TSN was ACKed */
+> -				if (dbg_last_ack_tsn + 1 == tsn) {
+> -					/* This TSN belongs to the
+> -					 * current ACK range.
+> -					 */
+> -					break;
+> -				}
+> -
+> -				if (dbg_last_ack_tsn != dbg_ack_tsn) {
+> -					/* Display the end of the
+> -					 * current range.
+> -					 */
+> -					pr_cont("-%08x", dbg_last_ack_tsn);
+> -				}
+> -
+> -				/* Start a new range.  */
+> -				pr_cont(",%08x", tsn);
+> -				dbg_ack_tsn = tsn;
+> -				break;
+> -
+> -			case 1:	/* The last TSN was NOT ACKed. */
+> -				if (dbg_last_kept_tsn != dbg_kept_tsn) {
+> -					/* Display the end of current range. */
+> -					pr_cont("-%08x", dbg_last_kept_tsn);
+> -				}
+> -
+> -				pr_cont("\n");
+> -				/* FALL THROUGH... */
+> -			default:
+> -				/* This is the first-ever TSN we examined.  */
+> -				/* Start a new range of ACK-ed TSNs.  */
+> -				pr_debug("ACKed: %08x", tsn);
+> -
+> -				dbg_prt_state = 0;
+> -				dbg_ack_tsn = tsn;
+> -			}
+> -
+> -			dbg_last_ack_tsn = tsn;
+> -#endif /* CONFIG_SCTP_DBG_TSNS */
+> -
+>   		} else {
+>   			if (tchunk->tsn_gap_acked) {
+>   				pr_debug("%s: receiver reneged on data TSN:0x%x\n",
+> @@ -1537,56 +1479,9 @@ static void sctp_check_transmitted(struct sctp_outq *q,
+>   			}
+>
+>   			list_add_tail(lchunk, &tlist);
+> -
+> -#ifdef CONFIG_SCTP_DBG_TSNS
+> -			/* See the above comments on ACK-ed TSNs. */
+> -			switch (dbg_prt_state) {
+> -			case 1:
+> -				if (dbg_last_kept_tsn + 1 == tsn)
+> -					break;
+> -
+> -				if (dbg_last_kept_tsn != dbg_kept_tsn)
+> -					pr_cont("-%08x", dbg_last_kept_tsn);
+> -
+> -				pr_cont(",%08x", tsn);
+> -				dbg_kept_tsn = tsn;
+> -				break;
+> -
+> -			case 0:
+> -				if (dbg_last_ack_tsn != dbg_ack_tsn)
+> -					pr_cont("-%08x", dbg_last_ack_tsn);
+> -
+> -				pr_cont("\n");
+> -				/* FALL THROUGH... */
+> -			default:
+> -				pr_debug("KEPT: %08x", tsn);
+> -
+> -				dbg_prt_state = 1;
+> -				dbg_kept_tsn = tsn;
+> -			}
+> -
+> -			dbg_last_kept_tsn = tsn;
+> -#endif /* CONFIG_SCTP_DBG_TSNS */
+>   		}
+>   	}
+>
+> -#ifdef CONFIG_SCTP_DBG_TSNS
+> -	/* Finish off the last range, displaying its ending TSN.  */
+> -	switch (dbg_prt_state) {
+> -	case 0:
+> -		if (dbg_last_ack_tsn != dbg_ack_tsn)
+> -			pr_cont("-%08x\n", dbg_last_ack_tsn);
+> -		else
+> -			pr_cont("\n");
+> -		break;
+> -	case 1:
+> -		if (dbg_last_kept_tsn != dbg_kept_tsn)
+> -			pr_cont("-%08x\n", dbg_last_kept_tsn);
+> -		else
+> -			pr_cont("\n");
+> -		break;
+> -	}
+> -#endif /* CONFIG_SCTP_DBG_TSNS */
+>   	if (transport) {
+>   		if (bytes_acked) {
+>   			struct sctp_association *asoc = transport->asoc;
+>
