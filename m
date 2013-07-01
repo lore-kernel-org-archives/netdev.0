@@ -1,67 +1,51 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH RFC 1/3] dt:net:stmmac: Allocate platform data only if
- its NULL.
-Date: Mon, 01 Jul 2013 19:20:22 +0200
-Message-ID: <51D1BA56.1000001@st.com>
-References: <1372678962-12959-1-git-send-email-srinivas.kandagatla@st.com> <1372679024-13089-1-git-send-email-srinivas.kandagatla@st.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH for-next 0/8] Add Mellanox mlx5 driver for Connect-IB
+ devices
+Date: Mon, 01 Jul 2013 11:03:59 -0700
+Message-ID: <1372701839.2481.3.camel@joe-AO722>
+References: <1371384149-24558-1-git-send-email-eli@dev.mellanox.co.il>
+	 <CAJZOPZ+NQa3CWnw3rZQh2UuwdrNhiwtVSyuk9D9YtwfQQ9e1XA@mail.gmail.com>
+	 <CAJZOPZKLb9k1xXkTnrtzYKpwrSJDQgBpONUVCp3et36JeaEi-Q@mail.gmail.com>
+	 <CAL1RGDX5mHj5oVqFhQ4Ssr25jpL4rV2Tv=zXvLOZfwupJ0gqJw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Rob Landley <rob@landley.net>,
-	devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372679024-13089-1-git-send-email-srinivas.kandagatla@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Or Gerlitz <or.gerlitz@gmail.com>,
+	Eli Cohen <eli@dev.mellanox.co.il>,
+	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+	Eli Cohen <eli@mellanox.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Roland Dreier <roland@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:38965 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753587Ab3GASEA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Jul 2013 14:04:00 -0400
+In-Reply-To: <CAL1RGDX5mHj5oVqFhQ4Ssr25jpL4rV2Tv=zXvLOZfwupJ0gqJw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 7/1/2013 1:43 PM, Srinivas KANDAGATLA wrote:
-> From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
->
-> In some DT use-cases platform data might be already allocated and passed
-> via AUXDATA. These are the cases where machine level code populates few
-> callbacks in the platform data.
->
-> This patch adds check and reuses platform_data if its valid, before
-> allocating a new one.
+On Mon, 2013-07-01 at 10:49 -0700, Roland Dreier wrote:
+> So I'm inclined to apply the mlx5 driver for 3.11, since it's a
+> completely new driver.  However, reading through it so far I had the
+> following comments, and I'd like these cleanups addressed along with
+> Dave Miller's:
+> 
+> - The debug mask complexity seems unnecessary now that pr_debug() is
+> controllable at runtime with the DYNAMIC_DEBUG stuff.  We should get
+> rid of the extra level of indirection.
 
-Ye, we had seen this long time ago and IIRC i prepared the patch
-so
+There's some value in block enabling/disabling messages
+that dynamic_debug doesn't currently offer.
 
-Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> - In:
+> 
+> +struct mlx5_cmd {
+> ...
+> +    struct mlx5_cmd_stats    stats[0x80a];
+> 
+> the 0x80a magic number really needs to have a name.
 
->
-> Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
-> ---
->   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    6 +++---
->   1 files changed, 3 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> index 1d3780f..5907920 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> @@ -92,8 +92,10 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
->   	if (IS_ERR(addr))
->   		return PTR_ERR(addr);
->
-> +	plat_dat = pdev->dev.platform_data;
->   	if (pdev->dev.of_node) {
-> -		plat_dat = devm_kzalloc(&pdev->dev,
-> +		if (!plat_dat)
-> +			plat_dat = devm_kzalloc(&pdev->dev,
->   					sizeof(struct plat_stmmacenet_data),
->   					GFP_KERNEL);
->   		if (!plat_dat) {
-> @@ -106,8 +108,6 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
->   			pr_err("%s: main dt probe failed", __func__);
->   			return ret;
->   		}
-> -	} else {
-> -		plat_dat = pdev->dev.platform_data;
->   	}
->
->   	/* Custom initialisation (if needed)*/
->
+And that's a pretty big struct too.
+2058 array entries. ~100kb
+Does it really need to be that big?
