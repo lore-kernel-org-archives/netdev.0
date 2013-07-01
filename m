@@ -1,45 +1,56 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next] net: sctp: get rid of SCTP_DBG_TSNS entirely
-Date: Mon, 1 Jul 2013 07:33:42 -0400
-Message-ID: <20130701113342.GA3168@hmsreliant.think-freely.org>
-References: <1372671096-27129-1-git-send-email-dborkman@redhat.com>
+From: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [PATCH for/net-next 3/8] net/mlx5: Mellanox Connect-IB, core driver part 3/3
+Date: Mon, 1 Jul 2013 14:44:54 +0300
+Message-ID: <201307011444.55361.jackm@dev.mellanox.co.il>
+References: <1372256537-21328-1-git-send-email-ogerlitz@mellanox.com> <1372256537-21328-4-git-send-email-ogerlitz@mellanox.com> <20130628.211041.256072234719301298.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:42560 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753213Ab3GALdy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 07:33:54 -0400
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org, moshel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130628.211041.256072234719301298.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1372671096-27129-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 01, 2013 at 11:31:36AM +0200, Daniel Borkmann wrote:
-> After having reworked the debugging framework, Neil and Vlad agreed to
-> get rid of the leftover SCTP_DBG_TSNS code for a couple of reasons:
+On Saturday 29 June 2013 07:10, David Miller wrote:
+> From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> Date: Wed, 26 Jun 2013 17:22:12 +0300
 > 
-> We can use systemtap scripts to investigate these things, we now have
-> pr_debug() helpers that make life easier, and if we really need anything
-> else besides those tools, we will be forced to come up with something
-> better than we have there. Therefore, get rid of this ifdef debugging
-> code entirely for now.
+> > +	for (--i; i >= 0; --i) {
 > 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> CC: Vlad Yasevich <vyasevich@gmail.com>
-> CC: Neil Horman <nhorman@tuxdriver.com>
-> ---
->  On top of [PATCH net-next v4 0/2] Rework SCTP debugging framework.
+> Please, "i--" is more canonical in for() loops.
 > 
-I think you mean on top of v4 2/2, but regardless:
+> > +	for (--i; i >= 0; --i) {
+> 
+> Likewise.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+Hi Dave,
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+For the "for" loop initial value, "i" should be decremented before doing any
+for-loop calculations (and it is not at all obvious if this is the ordering if we use
+i--, and not --i).  Using --i in the initial value makes the ordering obvious.
+However, I do agree with respect to the increment that --i and i-- are logically
+identical.
 
-I don't suppose you want to write a stap script to drop in the sourceware
-examples area, in case anyone comes looking for this functionality again? :)
+Thus, the "for" loop could read:
+	for (--i; i >= 0; i--) {
 
-Thanks
-Neil
+However, my own personal opinion is that this is a bit confusing.
+I would prefer to leave these lines as they are.
+
+Is that OK with you?
+
+-Jack
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
