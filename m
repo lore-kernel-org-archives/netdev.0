@@ -1,49 +1,80 @@
 From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH net-next] bnx2x: fill in sane dump flag information
-Date: Mon,  1 Jul 2013 17:23:20 +0200
-Message-ID: <1372692200-31078-1-git-send-email-mschmidt@redhat.com>
-Cc: netdev@vger.kernel.org, Miriam Shitrit <miris@broadcom.com>,
-	Yuval Mintz <yuvalmin@broadcom.com>,
-	Ariel Elior <ariele@broadcom.com>
+Subject: [PATCH net-next] ethtool: make .get_dump_data() harder to misuse by drivers
+Date: Mon,  1 Jul 2013 17:23:30 +0200
+Message-ID: <1372692210-31131-1-git-send-email-mschmidt@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49563 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:18958 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753801Ab3GAPXY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Jul 2013 11:23:24 -0400
+	id S1753587Ab3GAPXj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Jul 2013 11:23:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bnx2x did not set dump->version in its .get_dump_flag() method.
-Let's set it to BNX2X_DUMP_VERSION. It's not a particularly nice
-number (0x50acff01 currently), but at least it's something
-deterministic.
+As the patch "bnx2x: remove zeroing of dump data buffer" showed,
+it is too easy implement .get_dump_data=C2=A0incorrectly in a driver.
 
-dump->flag should report the value previously set using ethtool -W.
+Let's make sure drivers cannot get confused by userspace requesting
+a too big dump.
+
+Also WARN if the driver sets dump->len to something weird and make
+sure the length reported to userspace is the actual length of data
+copied to userspace.
 
 Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/core/ethtool.c | 21 ++++++++++++++++++++-
+ 1 file changed, 20 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index 10b52b0..8f96442 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -972,12 +972,12 @@ static int bnx2x_get_dump_flag(struct net_device *dev,
- {
- 	struct bnx2x *bp = netdev_priv(dev);
- 
-+	dump->version = BNX2X_DUMP_VERSION;
-+	dump->flag = bp->dump_preset_idx;
- 	/* Calculate the requested preset idx length */
- 	dump->len = bnx2x_get_preset_regs_len(dev, bp->dump_preset_idx);
- 	DP(BNX2X_MSG_ETHTOOL, "Get dump preset %d length=%d\n",
- 	   bp->dump_preset_idx, dump->len);
--
--	dump->flag = ETHTOOL_GET_DUMP_DATA;
- 	return 0;
- }
- 
--- 
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index ce91766..3b71cdb 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1319,10 +1319,19 @@ static int ethtool_get_dump_data(struct net_dev=
+ice *dev,
+ 	if (ret)
+ 		return ret;
+=20
+-	len =3D (tmp.len > dump.len) ? dump.len : tmp.len;
++	len =3D min(tmp.len, dump.len);
+ 	if (!len)
+ 		return -EFAULT;
+=20
++	/* Don't ever let the driver think there's more space available
++	 * than it requested with .get_dump_flag().
++	 */
++	dump.len =3D len;
++
++	/* Always allocate enough space to hold the whole thing so that the
++	 * driver does not need to check the length and bother with partial
++	 * dumping.
++	 */
+ 	data =3D vzalloc(tmp.len);
+ 	if (!data)
+ 		return -ENOMEM;
+@@ -1330,6 +1339,16 @@ static int ethtool_get_dump_data(struct net_devi=
+ce *dev,
+ 	if (ret)
+ 		goto out;
+=20
++	/* There are two sane possibilities:
++	 * 1. The driver's .get_dump_data() does not touch dump.len.
++	 * 2. Or it may set dump.len to how much it really writes, which
++	 *    should be tmp.len (or len if it can do a partial dump).
++	 * In any case respond to userspace with the actual length of data
++	 * it's receiving.
++	 */
++	WARN_ON(dump.len !=3D len && dump.len !=3D tmp.len);
++	dump.len =3D len;
++
+ 	if (copy_to_user(useraddr, &dump, sizeof(dump))) {
+ 		ret =3D -EFAULT;
+ 		goto out;
+--=20
 1.8.1.4
