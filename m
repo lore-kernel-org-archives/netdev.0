@@ -1,7 +1,7 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Subject: Re: [PATCH net-next v3 2/3] sh_eth: add support RMIIMODE register
-Date: Mon, 01 Jul 2013 18:26:23 +0400
-Message-ID: <51D1918F.8090707@cogentembedded.com>
+Date: Mon, 01 Jul 2013 18:27:16 +0400
+Message-ID: <51D191C4.1030103@cogentembedded.com>
 References: <1372652695-16606-1-git-send-email-horms+renesas@verge.net.au> <1372652695-16606-3-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
@@ -21,9 +21,9 @@ On 01-07-2013 8:24, Simon Horman wrote:
 > This change is motivated by the lager board which uses the r8a7790 SoC,
 > an R-Car SoC. For this board setting the RMIIMODE register is necessary.
 
-     I've told you this is not board specific.
-
 > This patch assumes this is valid for all R-Car SoCs.
+
+    This is not so for this version of the patch.
 
 > Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
 
