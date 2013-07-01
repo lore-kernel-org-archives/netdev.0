@@ -1,79 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 1/1] net: fec: Add VLAN receive HW support.
-Date: Mon, 01 Jul 2013 17:09:29 -0700 (PDT)
-Message-ID: <20130701.170929.2145379004044730481.davem@davemloft.net>
-References: <Jim_Baxter_<jim_baxter@mentor.com>
-	<1372428503-13744-1-git-send-email-jim_baxter@mentor.com>
+From: Arvid Brodin <arvid.brodin@xdin.com>
+Subject: Re: [PATCH v2] net/hsr: Add support for the High-availability Seamless
+ Redundancy protocol (HSRv0)
+Date: Tue, 2 Jul 2013 01:48:58 +0200
+Message-ID: <51D2156A.3070403@xdin.com>
+References: <51CB05BB.3030909@xdin.com> <20130628.211632.1064715548223073397.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Frank.Li@freescale.com, B38611@freescale.com,
-	fabio.estevam@freescale.com, l.stach@pengutronix.de,
-	shawn.guo@linaro.org, netdev@vger.kernel.org,
-	bhutchings@solarflare.com
-To: jim_baxter@mentor.com
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <shemminger@vyatta.com>,
+	<joe@perches.com>, <jboticario@gmail.com>,
+	<balferreira@googlemail.com>, Arvid Brodin <Arvid.Brodin@xdin.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45633 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755656Ab3GBAJe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 20:09:34 -0400
-In-Reply-To: <1372428503-13744-1-git-send-email-jim_baxter@mentor.com>
+Received: from spam1.webland.se ([91.207.112.90]:59596 "EHLO spam1.webland.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754607Ab3GBAZK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Jul 2013 20:25:10 -0400
+In-Reply-To: <20130628.211632.1064715548223073397.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jim Baxter <jim_baxter@mentor.com>
-Date: Fri, 28 Jun 2013 15:08:23 +0100
+On 2013-06-29 06:16, David Miller wrote:
+> From: Arvid Brodin <arvid.brodin@xdin.com>
+> Date: Wed, 26 Jun 2013 17:16:11 +0200
+>
+>> +static int hsr_dev_open(struct net_device *dev)
+>> +{
+>> +	struct hsr_priv *hsr_priv;
+>> +
+>> +	hsr_priv =3D netdev_priv(dev);
+>> +
+>> +	if (hsr_priv->slave[0])
+>> +		dev_open(hsr_priv->slave[0]);
+>> +	if (hsr_priv->slave[1])
+>> +		dev_open(hsr_priv->slave[1]);
+>> +
+>> +	return 0;
+>> +}
+>
+> dev_open() can and does fail, you must thus check for error returns, =
+undo any
+> necessary state, and propagate that error to callers of hsr_dev_open.
+>
 
-> @@ -803,6 +807,9 @@ fec_enet_rx(struct net_device *ndev, int budget)
->  	ushort	pkt_len;
->  	__u8 *data;
->  	int	pkt_received = 0;
-> +	struct	bufdesc_ex *ebdp = NULL;
-> +	bool	vlan_packet_rcvd = false;
-> +	u16	vlan_tag;
->  
->  #ifdef CONFIG_M532x
->  	flush_cache_all();
-> @@ -866,6 +873,24 @@ fec_enet_rx(struct net_device *ndev, int budget)
->  		if (id_entry->driver_data & FEC_QUIRK_SWAP_FRAME)
->  			swap_buffer(data, pkt_len);
->  
-> +		/* Extract the enhanced buffer descriptor */
-> +		ebdp = NULL;
-> +		if (fep->bufdesc_ex)
-> +			ebdp = (struct bufdesc_ex *)bdp;
+I'm not sure it's an error (from the HSR interface's point of view) if =
+the slave(s)
+won't come up here. The calls to dev_open() can be seen more like a con=
+venience
+than a necessity (I actually left them out to begin with). If none of t=
+he slaves
+could go up the HSR interface would end up as admin UP but with opersta=
+te
+IF_OPER_LOWERLAYERDOWN until any of the slaves went up.
 
-I would use a union here, so you'd have something like:
+I see that the VLAN code, in its vlan_dev_open(), checks the underlying=
+ interface's
+IFF_UP flag and returns -ENETDOWN if it's not set. That might be an opt=
+ion here -
+but then one would have to set three interfaces up to get a working HSR=
+ interface,
+which is a bit tedious... Also, the HSR interface could end up in the s=
+tate above
+anyway if both slaves went down after the HSR interface went up success=
+fully.
 
-	union {
-		struct bufdesc		*bdp;
-		struct bufdesc_ex	*bdp_ex;
-	} *p;
+What about checking the return values and printing a warning if a slave=
+ dev_open()
+fails, but still return success for the HSR interface no matter what?
 
-Alternatively, you can always use "struct bufdesc_ex *p", along with
-the boolean saying if the extended descriptors are in use.
 
-> +		if ((ndev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
-> +				ebdp && (ebdp->cbd_esc & BD_ENET_RX_VLAN)) {
-
-This is not indented properly.   The "ebp" on that second line must line
-up exactly with the first column after the openning parenthesis on the
-first line.
-
-I see what you're trying to do, purely using TAB characters to indent
-that second line.  But you must take the care and time to use the
-appropriate number of TAB and space characters to place things at the
-proper column.
-
-> +			skb_copy_to_linear_data_offset(skb, (2 * ETH_ALEN),
-> +					data + payload_offset,
-> +					pkt_len - 4 - (2 * ETH_ALEN));
-
-Again, line up the first non-space character on the second and third
-lines of this function call so that they line up to the first column
-after the openning parenthesis of the first line.
-
-> +				__vlan_hwaccel_put_tag(skb,
-> +						htons(ETH_P_8021Q), vlan_tag);
-
-Likewise.
+--=20
+Arvid Brodin | Consultant (Linux)
+XDIN AB | Knarrarn=E4sgatan 7 | SE-164 40 Kista | Sweden | xdin.com
