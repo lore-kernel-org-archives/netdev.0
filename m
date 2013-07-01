@@ -1,10 +1,10 @@
 From: Cong Wang <amwang@redhat.com>
 Subject: Re: [RFC Patch net-next 2/5] net: introduce generic inet_pton()
-Date: Mon, 01 Jul 2013 15:02:53 +0800
-Message-ID: <1372662173.2974.17.camel@cr0>
+Date: Mon, 01 Jul 2013 15:05:15 +0800
+Message-ID: <1372662315.2974.20.camel@cr0>
 References: <1372315398-19683-1-git-send-email-amwang@redhat.com>
 	 <1372315398-19683-3-git-send-email-amwang@redhat.com>
-	 <1372347124.2436.3.camel@bwh-desktop.uk.level5networks.com>
+	 <20130627145116.03e2f892@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -14,19 +14,30 @@ Cc: netdev@vger.kernel.org, Daniel Borkmann <dborkman@redhat.com>,
 	Jiri Pirko <jiri@resnulli.us>,
 	Eric Dumazet <edumazet@google.com>,
 	linux-kernel@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372347124.2436.3.camel@bwh-desktop.uk.level5networks.com>
+In-Reply-To: <20130627145116.03e2f892@nehalam.linuxnetplumber.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-06-27 at 16:32 +0100, Ben Hutchings wrote:
-> The return values for this are awful.  I think the return value should
-> be 0 for success or -EINVAL on error.
+On Thu, 2013-06-27 at 14:51 -0700, Stephen Hemminger wrote:
+> >  
+> > +static inline int inet_pton(const char *str, union inet_addr *addr)
+> > +{
+> >
 > 
-> The caller can then check addr->sa.sa_family if they want to know the
-> address family immediately. 
+> A couple of comments:
+> 1. No reason for this to be inline
 
-Indeed, I will fix it.
+Okay, I will move them into net/core/utils.c.
+
+> 2. If function has same name as userspace it must have same arguments
+>    and return value. Either:
+>     a. rename it to kinet_pton or some other name
+>     b. make it work the same.
+> 
+
+Makes sense too me, I will try your option b) first, if it is over-kill
+I will fall back to option a).
 
 Thanks!
