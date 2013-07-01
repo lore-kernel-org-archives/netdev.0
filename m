@@ -1,113 +1,87 @@
-From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
-Subject: [PATCH RFC 3/3] dt:net:stmmac: Add dt specific phy reset callback support.
-Date: Mon,  1 Jul 2013 12:44:05 +0100
-Message-ID: <1372679045-13183-1-git-send-email-srinivas.kandagatla@st.com>
-References: <1372678962-12959-1-git-send-email-srinivas.kandagatla@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Rob Landley <rob@landley.net>,
-	devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Srinivas Kandagatla <srinivas.kandagatla@st.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372678962-12959-1-git-send-email-srinivas.kandagatla@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Magnus Damm <magnus.damm@gmail.com>
+Subject: Re: [PATCH 1/2] sh_eth: define/use EESR_RX_CHECK macro
+Date: Mon, 1 Jul 2013 21:12:57 +0900
+Message-ID: <CANqRtoRQ5OgCuWPC8FW5yBtffNq_E=d=30mE4LB-MxT6GiAwJw@mail.gmail.com>
+References: <201306190207.46832.sergei.shtylyov@cogentembedded.com>
+	<CANqRtoRNnNuG_r+MW3Yb79jVK_iKm1bRTSvMhw1j4qsWZtphpw@mail.gmail.com>
+	<20130619.005005.2262835197239818334.davem@davemloft.net>
+	<51C1F826.6040805@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
+	SH-Linux <linux-sh@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <51C1F826.6040805@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+Hi Sergei,
 
-This patch adds phy reset callback support for stmmac driver via device
-trees. It adds three new properties to gmac device tree bindings to
-define the reset signal via gpio.
+On Thu, Jun 20, 2013 at 3:27 AM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> On 06/19/2013 11:50 AM, David Miller wrote:
+>>> On Wed, Jun 19, 2013 at 7:07 AM, Sergei Shtylyov
+>>> <sergei.shtylyov@cogentembedded.com> wrote:
+>>>>
+>>>> sh_eth_interrupt() uses the same Rx interrupt mask twice to check the
+>>>> interrupt
+>>>> status register -- #define EESR_RX_CHECK  and use it instead.
+>
+>
+>>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>
+>
+>>> Thanks for the patch, nice to see that this driver is moving forward.
+>
+>
+>    Magnus, BTW, are you content with the amount of cleanup that is currently
+> queued in the Dave Miller's 'net-next.git' repo, or should I move further:
+> e.g., move the SoC specific fields like 'register_type' from the platform
+> data to the driver's internal data structure?
 
-With this patch users can conveniently pass reset gpio number with pre,
-pulse and post delay in micro secs via DTs.
+I just had a look at this particular driver in net-next.git and I
+think it looks very good. Thanks a lot for your efforts!
 
- active low:
-		_________		 ____________
-	<pre-delay>	|<pulse-delay>	|<post-delay>
-		 	|		|
-		 	|_______________|
+Regarding moving further with cleanups, it looks to me that it is now
+possible to build a single kernel image with this driver included and
+use it on multiple SoCs without #ifdef causing trouble. This recent
+development has been needed for mach-shmobile to play well with the
+multiplatform work going on in the ARM architecture. So since that
+seems solved then I'm quite happy with the driver state from a
+cleanliness point of view.
 
- active high:
- 			 ________________
-	<pre-delay>	|<pulse-delay>	|<post-delay>
-			|		|
-		________|		|___________
+As for this driver in general, I'd be very happy to see future
+development in these areas:
+- DT support
+- PHY support for r8a7790 Lager
+- PHY IRQ support for r8a7790 Lager
 
-Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
----
- Documentation/devicetree/bindings/net/stmmac.txt  |    6 ++++
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |   31 +++++++++++++++++++++
- 2 files changed, 37 insertions(+), 0 deletions(-)
+Let me know if I can help you with remote board access.
 
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index e1ddfcc..261c563 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -13,6 +13,12 @@ Required properties:
- - phy-mode: String, operation mode of the PHY interface.
-   Supported values are: "mii", "rmii", "gmii", "rgmii".
- - snps,phy-addr		phy address to connect to.
-+- snps,reset-gpio 	gpio number for phy reset.
-+- snps,reset-active-low boolean flag to indicate if phy reset is active low.
-+- snps,reset-delays-us  is triplet of delays
-+	The 1st cell is reset pre-delay in micro seconds.
-+	The 2nd cell is reset pulse in micro seconds.
-+	The 3rd cell is reset post-delay in micro seconds.
- - snps,pbl		Programmable Burst Length
- - snps,fixed-burst	Program the DMA to use the fixed burst mode
- - snps,mixed-burst	Program the DMA to use the mixed burst mode
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index cc15039..677ed16 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -27,6 +27,9 @@
- #include <linux/mii.h>
- #include <linux/phy.h>
- #include <linux/slab.h>
-+#include <linux/of.h>
-+#include <linux/of_gpio.h>
-+
- #include <asm/io.h>
- 
- #include "stmmac.h"
-@@ -131,6 +134,34 @@ static int stmmac_mdio_reset(struct mii_bus *bus)
- 	struct net_device *ndev = bus->priv;
- 	struct stmmac_priv *priv = netdev_priv(ndev);
- 	unsigned int mii_address = priv->hw->mii.addr;
-+	struct device *dev = priv->device;
-+
-+	if (dev->of_node) {
-+		int reset_gpio, active_low;
-+		struct device_node *np = dev->of_node;
-+		u32 delays[3] = {0,};
-+
-+		if (!np)
-+			return 0;
-+
-+		reset_gpio = of_get_named_gpio(np, "snps,reset-gpio", 0);
-+		if (reset_gpio < 0)
-+			return 0;
-+
-+		active_low = of_property_read_bool(np,
-+					"snps,reset-active-low");
-+		of_property_read_u32_array(np,
-+					"snps,reset-delays-us", delays, 3);
-+
-+		gpio_request(reset_gpio, "mdio-reset");
-+		gpio_direction_output(reset_gpio, active_low ? 1 : 0);
-+		udelay(delays[0]);
-+		gpio_set_value(reset_gpio, active_low ? 0 : 1);
-+		udelay(delays[1]);
-+		gpio_set_value(reset_gpio, active_low ? 1 : 0);
-+		udelay(delays[2]);
-+		gpio_free(reset_gpio);
-+	}
- 
- 	if (priv->plat->mdio_bus_data->phy_reset) {
- 		pr_debug("stmmac_mdio_reset: calling phy_reset\n");
--- 
-1.7.6.5
+>>> Can you please include information about which SoC / board this code
+>>> has been tested on? As you know, the actual hardware that this driver
+>>> is operating on is not very well documented, so at least having
+>>> information about the SoC together with the commit message or patch
+>>> may help in the future.
+>
+>
+>> Sergei, please make this suggested change and resubmit this series, thank
+>> you.
+>
+>
+>    Hm, I guess Magnus didn't really mean patch #1 which doesn't change
+> anything in the driver's behavior but only the actual NAPI support. OK, it
+> was tested on R8A7778 BOCK-W board and I'll add that to the changelog.
+
+Thanks for updating your code.
+
+In this particular case it may not matter very much, but in general I
+believe it is good to include which hardware the code as been tested
+on.
+
+Cheers,
+
+/ magnus
