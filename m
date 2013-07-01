@@ -1,51 +1,70 @@
-From: Aaron Marburg <amarburg-MtqYO9m3oizKBv0CESTyP2D2FQJk+8+b@public.gmane.org>
-Subject: [PATCH] net: ipheth:  Add USB ID for iPad mini
-Date: Tue, 2 Jul 2013 10:00:06 +1200
-Message-ID: <20130701220006.GB10209@mahimahi.notetofutureself.org>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: [PATCH net-next] xen-netback: xenbus.c: use more current logging styles
+Date: Tue, 2 Jul 2013 00:08:54 +0100
+Message-ID: <1372720134-9765-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: amarburg-MtqYO9m3oizKBv0CESTyP2D2FQJk+8+b@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	diego-KR0zwsgql1HQT0dZR+AlfA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <ian.campbell@citrix.com>, <joe@perches.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:43613 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755100Ab3GAXIz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 19:08:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Convert one printk to pr_<level>.
 
-Adds the USB device ID (0x12ab) to the ipheth network-over-USB-tethering
-driver for iOS devices.  Applied and tested against mainline tag v3.10
-(as well as 3.8.x and 3.6.y kernel for Raspbian on Raspberry pi)
+Add a missing newline in several places to avoid message interleaving,
+coalesce formats, reflow modified lines to 80 columns.
 
-
-Signed-off-by: Aaron Marburg <amarburg-MtqYO9m3oizKBv0CESTyP2D2FQJk+8+b@public.gmane.org>
-
+Signed-off-by: Joe Perches <joe@perches.com>
+Signed-off-by: Wei Liu <wei.liu2@citrix.com>
 ---
+ drivers/net/xen-netback/xenbus.c |    9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-
-diff -upr -X linux-3.10.pristine/Documentation/dontdiff linux-3.10.pristine/drivers/net/usb/ipheth.c linux-3.10.ipheth/drivers/net/usb/ipheth.c
---- linux-3.10.pristine/drivers/net/usb/ipheth.c	2013-07-01 21:28:56.577106633 +1200
-+++ linux-3.10.ipheth/drivers/net/usb/ipheth.c	2013-07-01 21:31:31.021102411 +1200
-@@ -60,6 +60,7 @@
- #define USB_PRODUCT_IPHONE_3GS  0x1294
- #define USB_PRODUCT_IPHONE_4	0x1297
- #define USB_PRODUCT_IPAD 0x129a
-+#define USB_PRODUCT_IPAD_MINI    0x12ab
- #define USB_PRODUCT_IPHONE_4_VZW 0x129c
- #define USB_PRODUCT_IPHONE_4S	0x12a0
- #define USB_PRODUCT_IPHONE_5	0x12a8
-@@ -107,6 +108,10 @@ static struct usb_device_id ipheth_table
- 		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
- 		IPHETH_USBINTF_PROTO) },
- 	{ USB_DEVICE_AND_INTERFACE_INFO(
-+		USB_VENDOR_APPLE, USB_PRODUCT_IPAD_MINI,
-+		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
-+		IPHETH_USBINTF_PROTO) },
-+	{ USB_DEVICE_AND_INTERFACE_INFO(
- 		USB_VENDOR_APPLE, USB_PRODUCT_IPHONE_4_VZW,
- 		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
- 		IPHETH_USBINTF_PROTO) },
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+index 04bd860..1fe48fe3 100644
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -130,7 +130,7 @@ static int netback_probe(struct xenbus_device *dev,
+ 			    "feature-split-event-channels",
+ 			    "%u", separate_tx_rx_irq);
+ 	if (err)
+-		pr_debug("Error writing feature-split-event-channels");
++		pr_debug("Error writing feature-split-event-channels\n");
+ 
+ 	err = xenbus_switch_state(dev, XenbusStateInitWait);
+ 	if (err)
+@@ -145,7 +145,7 @@ abort_transaction:
+ 	xenbus_transaction_end(xbt, 1);
+ 	xenbus_dev_fatal(dev, err, "%s", message);
+ fail:
+-	pr_debug("failed");
++	pr_debug("failed\n");
+ 	netback_remove(dev);
+ 	return err;
+ }
+@@ -228,15 +228,14 @@ static void frontend_changed(struct xenbus_device *dev,
+ {
+ 	struct backend_info *be = dev_get_drvdata(&dev->dev);
+ 
+-	pr_debug("frontend state %s", xenbus_strstate(frontend_state));
++	pr_debug("frontend state %s\n", xenbus_strstate(frontend_state));
+ 
+ 	be->frontend_state = frontend_state;
+ 
+ 	switch (frontend_state) {
+ 	case XenbusStateInitialising:
+ 		if (dev->state == XenbusStateClosed) {
+-			printk(KERN_INFO "%s: %s: prepare for reconnect\n",
+-			       __func__, dev->nodename);
++			pr_info("%s: prepare for reconnect\n", dev->nodename);
+ 			xenbus_switch_state(dev, XenbusStateInitWait);
+ 		}
+ 		break;
+-- 
+1.7.10.4
