@@ -1,46 +1,67 @@
-From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH for-next 0/8] Add Mellanox mlx5 driver for Connect-IB devices
-Date: Mon, 1 Jul 2013 10:49:47 -0700
-Message-ID: <CAL1RGDX5mHj5oVqFhQ4Ssr25jpL4rV2Tv=zXvLOZfwupJ0gqJw@mail.gmail.com>
-References: <1371384149-24558-1-git-send-email-eli@dev.mellanox.co.il>
- <CAJZOPZ+NQa3CWnw3rZQh2UuwdrNhiwtVSyuk9D9YtwfQQ9e1XA@mail.gmail.com> <CAJZOPZKLb9k1xXkTnrtzYKpwrSJDQgBpONUVCp3et36JeaEi-Q@mail.gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH RFC 1/3] dt:net:stmmac: Allocate platform data only if
+ its NULL.
+Date: Mon, 01 Jul 2013 19:20:22 +0200
+Message-ID: <51D1BA56.1000001@st.com>
+References: <1372678962-12959-1-git-send-email-srinivas.kandagatla@st.com> <1372679024-13089-1-git-send-email-srinivas.kandagatla@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAJZOPZKLb9k1xXkTnrtzYKpwrSJDQgBpONUVCp3et36JeaEi-Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Rob Landley <rob@landley.net>,
+	devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1372679024-13089-1-git-send-email-srinivas.kandagatla@st.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-So I'm inclined to apply the mlx5 driver for 3.11, since it's a
-completely new driver.  However, reading through it so far I had the
-following comments, and I'd like these cleanups addressed along with
-Dave Miller's:
+On 7/1/2013 1:43 PM, Srinivas KANDAGATLA wrote:
+> From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+>
+> In some DT use-cases platform data might be already allocated and passed
+> via AUXDATA. These are the cases where machine level code populates few
+> callbacks in the platform data.
+>
+> This patch adds check and reuses platform_data if its valid, before
+> allocating a new one.
 
-- The debug mask complexity seems unnecessary now that pr_debug() is
-controllable at runtime with the DYNAMIC_DEBUG stuff.  We should get
-rid of the extra level of indirection.
+Ye, we had seen this long time ago and IIRC i prepared the patch
+so
 
-- I think the active flag for the health check timer is unnecessary.
-It can just be stopped with del_timer_sync().
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-- Many places use "foo_spl" as a name, and in the Linux kernel
-"foo_lock" would be much more idiomatic and easier to read.
-
-- In:
-
-+struct mlx5_cmd {
-...
-+    struct mlx5_cmd_stats    stats[0x80a];
-
-the 0x80a magic number really needs to have a name.
-
- - R.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+> Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+> ---
+>   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    6 +++---
+>   1 files changed, 3 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> index 1d3780f..5907920 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> @@ -92,8 +92,10 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
+>   	if (IS_ERR(addr))
+>   		return PTR_ERR(addr);
+>
+> +	plat_dat = pdev->dev.platform_data;
+>   	if (pdev->dev.of_node) {
+> -		plat_dat = devm_kzalloc(&pdev->dev,
+> +		if (!plat_dat)
+> +			plat_dat = devm_kzalloc(&pdev->dev,
+>   					sizeof(struct plat_stmmacenet_data),
+>   					GFP_KERNEL);
+>   		if (!plat_dat) {
+> @@ -106,8 +108,6 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
+>   			pr_err("%s: main dt probe failed", __func__);
+>   			return ret;
+>   		}
+> -	} else {
+> -		plat_dat = pdev->dev.platform_data;
+>   	}
+>
+>   	/* Custom initialisation (if needed)*/
+>
