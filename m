@@ -1,29 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] sctp: Don't lookup dst if transport dst is still
- valid
-Date: Tue, 02 Jul 2013 12:47:50 -0700 (PDT)
-Message-ID: <20130702.124750.1357592020126802332.davem@davemloft.net>
-References: <1372747174-23580-1-git-send-email-fan.du@windriver.com>
-	<51D2E3C8.5050100@gmail.com>
+From: Lars-Peter Clausen <lars@metafoo.de>
+Subject: Re: [PATCH] wireless: Convert mwifiex/pcie to dev_pm_ops from legacy
+ pm ops
+Date: Tue, 02 Jul 2013 21:52:31 +0200
+Message-ID: <51D32F7F.4090606@metafoo.de>
+References: <1372778675-2909-1-git-send-email-shuah.kh@samsung.com> <51D32116.4010109@hauke-m.de> <B8EFE96D1287C24090BAD9D858E15E61734462@sisaex02sj>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: fan.du@windriver.com, nhorman@tuxdriver.com,
-	nicolas.dichtel@6wind.com, netdev@vger.kernel.org
-To: vyasevich@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53296 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754231Ab3GBTrv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 15:47:51 -0400
-In-Reply-To: <51D2E3C8.5050100@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Hauke Mehrtens <hauke@hauke-m.de>,
+	"bzhao@marvell.com" <bzhao@marvell.com>,
+	"linville@tuxdriver.com" <linville@tuxdriver.com>,
+	"rjw@sisk.pl" <rjw@sisk.pl>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"shuahkhan@gmail.com" <shuahkhan@gmail.com>
+To: Shuah Khan <shuah.kh@samsung.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <B8EFE96D1287C24090BAD9D858E15E61734462@sisaex02sj>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vyasevich@gmail.com>
-Date: Tue, 02 Jul 2013 10:29:28 -0400
+On 07/02/2013 09:24 PM, Shuah Khan wrote:
+[...]
+>>> +#ifdef CONFIG_PM
+>>> +/* Power Management Hooks */
+>>> +static const struct dev_pm_ops mwifiex_pcie_pm_ops = {
+>>> +	.suspend = mwifiex_pcie_suspend,
+>>> +	.resume = mwifiex_pcie_resume,
+>>> +};
+>>> +#endif
+>>> +
+>>
+>> Is it intended that you do not use SIMPLE_DEV_PM_OPS() like most of the
+>> other wifi drivers?
+> 
+> So the reason for this is SIMPLE_DEV_PM_OPS() is defined only when 
+> CONFIG_PM_SLEEP is enabled. This driver doesn't defines suspend and 
+> resume when CONFIG_PM is enabled and I didn't want to change that. Hope 
+> that helps understand why I didn't use SIMPLE_DEV_PM_OPS()
 
-> I think it would be better if we stored the dst_cookie in the
-> transport structure and initialized it at lookup time.
+Change the ifdefs to CONFIG_PM_SLEEP and use SIMPLE_DEV_PM_OPS. The driver does
+not support runtime PM.
 
-Agreed, that is the proper fix for this problem.
+- Lars
