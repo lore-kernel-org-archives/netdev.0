@@ -1,128 +1,257 @@
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: Re: [PATCH] wireless: Convert mwifiex/pcie to dev_pm_ops from legacy
- pm ops
-Date: Tue, 02 Jul 2013 20:51:02 +0200
-Message-ID: <51D32116.4010109@hauke-m.de>
-References: <1372778675-2909-1-git-send-email-shuah.kh@samsung.com>
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: Re: [RFC] huawei_cdc_ncm driver - status
+Date: Tue, 2 Jul 2013 21:06:48 +0200 (CEST)
+Message-ID: <alpine.LNX.2.02.1307022105370.24276@eeeadesso>
+References: <alpine.LNX.2.02.1307021241380.8884@eeeadesso> <87wqp9xja5.fsf@nemi.mork.no> <alpine.LNX.2.02.1307021855270.19053@eeeadesso>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: bzhao@marvell.com, linville@tuxdriver.com, rjw@sisk.pl,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, shuahkhan@gmail.com
-To: Shuah Khan <shuah.kh@samsung.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372778675-2909-1-git-send-email-shuah.kh@samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
+	netdev@vger.kernel.org
+To: Enrico Mioso <mrkiko.rs@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f170.google.com ([74.125.82.170]:53981 "EHLO
+	mail-we0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752453Ab3GBTGb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 15:06:31 -0400
+Received: by mail-we0-f170.google.com with SMTP id w57so4669799wes.29
+        for <netdev@vger.kernel.org>; Tue, 02 Jul 2013 12:06:30 -0700 (PDT)
+In-Reply-To: <alpine.LNX.2.02.1307021855270.19053@eeeadesso>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/02/2013 05:24 PM, Shuah Khan wrote:
-> Convert the mwifiex/pci driver to use dev_pm_ops for power management and
-> remove Legacy PM handling. This change re-uses existing suspend and resume
-> interfaces for dev_pm_ops.
-> 
-> Signed-off-by: Shuah Khan <shuah.kh@samsung.com>
-> ---
->  drivers/net/wireless/mwifiex/pcie.c |   34 ++++++++++++++++++++++++++++------
->  1 file changed, 28 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/mwifiex/pcie.c b/drivers/net/wireless/mwifiex/pcie.c
-> index 20c9c4c..b169318 100644
-> --- a/drivers/net/wireless/mwifiex/pcie.c
-> +++ b/drivers/net/wireless/mwifiex/pcie.c
-> @@ -85,7 +85,7 @@ static bool mwifiex_pcie_ok_to_access_hw(struct mwifiex_adapter *adapter)
->   * If already not suspended, this function allocates and sends a host
->   * sleep activate request to the firmware and turns off the traffic.
->   */
-> -static int mwifiex_pcie_suspend(struct pci_dev *pdev, pm_message_t state)
-> +static int __mwifiex_pcie_suspend(struct pci_dev *pdev)
->  {
->  	struct mwifiex_adapter *adapter;
->  	struct pcie_service_card *card;
-> @@ -112,6 +112,13 @@ static int mwifiex_pcie_suspend(struct pci_dev *pdev, pm_message_t state)
->  	return 0;
->  }
->  
-> +static int mwifiex_pcie_suspend(struct device *dev)
-> +{
-> +	struct pci_dev *pdev = to_pci_dev(dev);
-> +
-> +	return __mwifiex_pcie_suspend(pdev);
-> +}
-> +
+Ok, I fixed my code - I forgot one of the most important things eve :) the 
+registration.
+Ok - now: the cdc-wdm character device is ok and working, the wwan interface 
+has been created and for sure it will not work... :)
+But the thing seems stable.
 
-For what do you need __mwifiex_pcie_suspend() ? Why not make one
-function out of these two?
 
->  /*
->   * Kernel needs to suspend all functions separately. Therefore all
->   * registered functions must have drivers with suspend and resume
-> @@ -120,7 +127,7 @@ static int mwifiex_pcie_suspend(struct pci_dev *pdev, pm_message_t state)
->   * If already not resumed, this function turns on the traffic and
->   * sends a host sleep cancel request to the firmware.
->   */
-> -static int mwifiex_pcie_resume(struct pci_dev *pdev)
-> +static int __mwifiex_pcie_resume(struct pci_dev *pdev)
->  {
->  	struct mwifiex_adapter *adapter;
->  	struct pcie_service_card *card;
-> @@ -150,6 +157,13 @@ static int mwifiex_pcie_resume(struct pci_dev *pdev)
->  
->  	return 0;
->  }
-> +
-> +static int mwifiex_pcie_resume(struct device *dev)
-> +{
-> +	struct pci_dev *pdev = to_pci_dev(dev);
-> +
-> +	return __mwifiex_pcie_resume(pdev);
-> +}
->  #endif
->  
->  /*
-> @@ -213,7 +227,7 @@ static void mwifiex_pcie_remove(struct pci_dev *pdev)
->  	if (user_rmmod) {
->  #ifdef CONFIG_PM
->  		if (adapter->is_suspended)
-> -			mwifiex_pcie_resume(pdev);
-> +			__mwifiex_pcie_resume(pdev);
 
-You could use mwifiex_pcie_resume(&pdev->dev) here and then the extra
-function __mwifiex_pcie_resume() is not needed any more.
+On Tue, 2 Jul 2013, Enrico Mioso wrote:
 
->  #endif
->  
->  		for (i = 0; i < adapter->priv_num; i++)
-> @@ -249,6 +263,14 @@ static DEFINE_PCI_DEVICE_TABLE(mwifiex_ids) = {
->  
->  MODULE_DEVICE_TABLE(pci, mwifiex_ids);
->  
-> +#ifdef CONFIG_PM
-> +/* Power Management Hooks */
-> +static const struct dev_pm_ops mwifiex_pcie_pm_ops = {
-> +	.suspend = mwifiex_pcie_suspend,
-> +	.resume = mwifiex_pcie_resume,
-> +};
-> +#endif
-> +
-
-Is it intended that you do not use SIMPLE_DEV_PM_OPS() like most of the
-other wifi drivers?
-
->  /* PCI Device Driver */
->  static struct pci_driver __refdata mwifiex_pcie = {
->  	.name     = "mwifiex_pcie",
-> @@ -256,9 +278,9 @@ static struct pci_driver __refdata mwifiex_pcie = {
->  	.probe    = mwifiex_pcie_probe,
->  	.remove   = mwifiex_pcie_remove,
->  #ifdef CONFIG_PM
-> -	/* Power Management Hooks */
-> -	.suspend  = mwifiex_pcie_suspend,
-> -	.resume   = mwifiex_pcie_resume,
-> +	.driver   = {
-> +		.pm = &mwifiex_pcie_pm_ops,
-> +	},
->  #endif
->  };
->  
-> 
+==Date: Tue, 2 Jul 2013 19:04:05 +0200 (CEST)
+==From: Enrico Mioso <mrkiko.rs@gmail.com>
+==To: Bj?rn Mork <bjorn@mork.no>
+==Cc: netdev@vger.kernel.org
+==Subject: [RFC] huawei_cdc_ncm driver - status
+==
+==Hi all guys!
+==I'm writing this mail to inform you about the progresso f the "new" driver - 
+==huawei_cdc_ncm.c, which should handle generally devices wich resembles the 
+==cdc_ncm standard, but embed another protocol on it (AT or something).
+==This driver has been developed starting from a Bjorn idea, and is based on the 
+==cdc_mbim.c driver.
+==
+==Now - i need some help and corrections, review.
+==the driver currently loads and doesn't cause panics, and that's already a very 
+==good result for a first-time kernel programmer! :)
+==Even the driver name may be inappropriate, any ideas and suggestions are 
+==welcome!
+==
+==Here is the driver .c file: in addition:
+==- I managed to export cdc_ncm {rx,tx}_fixup functions, modfying the needed .h 
+==file and adding symbol exporting.
+==- I removed from the cdc_ncm driver entries that made it bind t my dongle
+==- I added product and vendor id for my dongle, but probably doing something 
+==wrong...
+==- updated the build infrastructure in accordance (Kconfig, Makefile ...) and 
+==that works.
+==
+==
+==And here it is - please help me if you can.
+==
+==/* copyrights and other things are importand but will be added later */
+==#include <linux/module.h>
+==#include <linux/netdevice.h>
+==#include <linux/ethtool.h>
+==#include <linux/if_vlan.h>
+==#include <linux/ip.h>
+==#include <linux/mii.h>
+==#include <linux/usb.h>
+==#include <linux/usb/cdc.h>
+==#include <linux/usb/usbnet.h>
+==#include <linux/usb/cdc-wdm.h>
+==#include <linux/usb/cdc_ncm.h>
+==
+==/* Specific driver data */
+==struct huawei_cdc_ncm_state {
+==	struct cdc_ncm_ctx *ctx;
+==	atomic_t pmcount;
+==	struct usb_driver *subdriver;
+==	struct usb_interface *control;
+==	struct usb_interface *data;
+==};
+==
+==static int huawei_cdc_ncm_manage_power(struct usbnet *usbnet_dev, int on)
+=={
+==	struct huawei_cdc_ncm_state *drvstate = (void *)&usbnet_dev->data;
+==	int rv = 0;
+==
+==	if ((on && atomic_add_return(1, &drvstate->pmcount) == 1) || (!on && atomic_dec_and_test(&drvstate->pmcount))) {
+==		rv = usb_autopm_get_interface(usbnet_dev->intf);
+==		if (rv < 0)
+==			goto err;
+==		usbnet_dev->intf->needs_remote_wakeup = on;
+==		usb_autopm_put_interface(usbnet_dev->intf);
+==	}
+==err:
+==	return rv;
+==}
+==
+==static int huawei_cdc_ncm_wdm_manage_power(struct usb_interface *intf, int status)
+=={
+==	struct usbnet *usbnet_dev = usb_get_intfdata(intf);
+==
+==	/* can be called while disconnecting */
+==	if (!usbnet_dev)
+==		return 0;
+==
+==	return huawei_cdc_ncm_manage_power(usbnet_dev, status);
+==}
+==
+==
+==/* Bind our driver to needed interfaces. Heavily inspired by cdc_mbim.c one! */
+==static int huawei_cdc_ncm_bind(struct usbnet *usbnet_dev, struct usb_interface *intf) {
+==
+==	/* Some general use variables */
+==	struct cdc_ncm_ctx *ctx;
+==	struct usb_driver *subdriver = ERR_PTR(-ENODEV);
+==	int ret = -ENODEV;
+==	struct huawei_cdc_ncm_state *drvstate = (void *)&usbnet_dev->data;
+==	
+==	/* Actually binds us to the device: use standard ncm function */
+==	ret = cdc_ncm_bind_common(usbnet_dev, intf, 1); /* altsetting should be 1 */
+==	
+==	/* Did the ncm bind function fail? */
+==	if (ret)
+==		goto err;
+==	
+==	/* Let cdc data ctx pointer point to our state structure */
+==	ctx = drvstate->ctx;
+==	
+==	if (usbnet_dev->status) 
+==		subdriver = usb_cdc_wdm_register(ctx->control, &usbnet_dev->status->desc, 4096, huawei_cdc_ncm_wdm_manage_power); /* a smarter way to calculate that constant? */
+==	if (IS_ERR(subdriver)) {
+==	 ret = PTR_ERR(subdriver);
+==	 cdc_ncm_unbind(usbnet_dev, intf);
+==   goto err;
+==	}
+==	
+==	/* Prevent usbnet from using the status descriptor */
+==	usbnet_dev->status = NULL;
+==	
+==	drvstate->subdriver = subdriver;
+==	
+==	/* FIXME: should we handle the vlan header in some way? */
+==	/* FIXME2: in my opinion we also could not do ARP, hoping somebody can help... */
+==err:
+==	return ret; /* ret = -ENODEV if not changed in the meanwhile */
+==}
+==
+==static void huawei_cdc_ncm_unbind(struct usbnet *usbnet_dev, struct usb_interface *intf) {
+==	struct huawei_cdc_ncm_state *drvstate = (void *)&usbnet_dev->data;
+==	struct cdc_ncm_ctx *ctx = drvstate->ctx;
+==	
+==	/* Bye cdc-wdm! And see you soon! :) */
+==	if (drvstate->subdriver && drvstate->subdriver->disconnect)
+==		drvstate->subdriver->disconnect(ctx->control);
+==	drvstate->subdriver = NULL;
+==	
+==	/* Unbind from both control and data interface */
+==	cdc_ncm_unbind(usbnet_dev, intf);
+==}
+==
+==/* Suspend function - the logic has been taken from cdc_mbim.c directly. */
+==static int huawei_cdc_ncm_suspend(struct usb_interface *intf, pm_message_t message)
+=={
+==	int ret = 0;
+==	struct usbnet *usbnet_dev = usb_get_intfdata(intf);
+==	struct huawei_cdc_ncm_state *drvstate = (void *)&usbnet_dev->data;
+==	struct cdc_ncm_ctx *ctx = drvstate->ctx;
+==
+==	if (ctx == NULL) {
+==		ret = -1;
+==		goto error;
+==	}
+==
+==	/*
+==	 * Both usbnet_suspend() and subdriver->suspend() MUST return 0
+==	 * in system sleep context, otherwise, the resume callback has
+==	 * to recover device from previous suspend failure.
+==	 */
+==	ret = usbnet_suspend(intf, message);
+==	if (ret < 0)
+==		goto error;
+==
+==	if (intf == ctx->control && drvstate->subdriver && drvstate->subdriver->suspend)
+==		ret = drvstate->subdriver->suspend(intf, message);
+==	if (ret < 0)
+==		usbnet_resume(intf);
+==
+==error:
+==	return ret;
+==}
+==
+==/* Resume function - logic took completely from huawei_cdc.c */
+==static int huawei_cdc_ncm_resume(struct usb_interface *intf)
+=={
+==	int ret = 0;
+==	struct usbnet *usbnet_dev = usb_get_intfdata(intf);
+==	struct huawei_cdc_ncm_state *drvstate = (void *)&usbnet_dev->data;
+==	struct cdc_ncm_ctx *ctx = drvstate->ctx;
+==	bool callsub = (intf == ctx->control && drvstate->subdriver && drvstate->subdriver->resume); /* should we call subdriver's resume? ? */
+==
+==	if (callsub)
+==		ret = drvstate->subdriver->resume(intf);
+==	if (ret < 0)
+==		goto err;
+==	ret = usbnet_resume(intf);
+==	if (ret < 0 && callsub && drvstate->subdriver->suspend)
+==		drvstate->subdriver->suspend(intf, PMSG_SUSPEND);
+==err:
+==	return ret;
+==}
+==
+==
+==/* General driver informations, exposed partly to modutils */
+==static const struct driver_info huawei_cdc_info = {
+==	.description = "Huawei-style CDC NCM",
+==	.flags = FLAG_NO_SETINT | FLAG_MULTI_PACKET | FLAG_WWAN,
+==	.bind = huawei_cdc_ncm_bind,
+==	.unbind = huawei_cdc_ncm_unbind,
+==	.manage_power = huawei_cdc_ncm_manage_power,
+==	/* NCM RX and TX fixup functions work properly on these devices */
+==	.rx_fixup = cdc_ncm_rx_fixup,
+==	.tx_fixup = cdc_ncm_tx_fixup,
+==};
+==
+==static const struct usb_device_id huawei_cdc_ncm_devs[] = {
+==	/* The correct NCM handling will be implemented. For now, only my dongle
+==		will be handled.
+==		*/
+==	{ USB_DEVICE(0x12d1, 0x1506) },
+==	{
+==		/* Terminating entry */
+==	},
+==};
+==/* Expose table in module info */
+==MODULE_DEVICE_TABLE(usb, huawei_cdc_ncm_devs);
+==
+==
+==/* USB driver struct - used by USB stack */
+==static struct usb_driver huawei_cdc_ncm_driver = {
+==	.name = "huawei_cdc_ncm",
+==	.id_table = huawei_cdc_ncm_devs,
+==	.probe = usbnet_probe,
+==	.disconnect = usbnet_disconnect,
+==	.suspend = huawei_cdc_ncm_suspend,
+==	.resume = huawei_cdc_ncm_resume,
+==	.reset_resume = huawei_cdc_ncm_resume,
+==	.supports_autosuspend = 1,
+==	.disable_hub_initiated_lpm = 1,
+==};
+==module_usb_driver(huawei_cdc_ncm_driver);
+==MODULE_AUTHOR("Enrico Mioso <mrkiko.rs@gmail.com>");
+==MODULE_DESCRIPTION("USB CDC NCM host driver with encapsulated protocol support");
+==MODULE_LICENSE("GPL");
+==
