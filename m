@@ -1,68 +1,203 @@
-From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Subject: [RFC ] netlink: limit large vmalloc() based skbs to NETLINK_NETFILTER
-Date: Tue, 2 Jul 2013 23:50:15 +0200
-Message-ID: <20130702215015.GA1979@breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	Dave Jones <davej@redhat.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: [PATCH net-next v3 1/1] net: fec: Add VLAN receive HW support.
+Date: Tue,  2 Jul 2013 22:52:56 +0100
+Message-ID: <1372801976-18338-1-git-send-email-jim_baxter@mentor.com>
+References: <Jim Baxter <jim_baxter@mentor.com>
+Cc: Frank Li <Frank.Li@freescale.com>,
+	Fugang Duan <B38611@freescale.com>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Lucas Stach <l.stach@pengutronix.de>,
+	Shawn Guo <shawn.guo@linaro.org>, netdev@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:48363 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755105Ab3GBVuW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 17:50:22 -0400
-Content-Disposition: inline
+Received: from relay1.mentorg.com ([192.94.38.131]:48043 "EHLO
+	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754728Ab3GBVxI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 17:53:08 -0400
+In-Reply-To: <Jim Baxter <jim_baxter@mentor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit c05cdb1b ("netlink: allow large data transfers from
-user-space") the large skbs are allocated via vmalloc(). Trinity
-triggered this in response:
+This enables the driver to take advantage of the FEC VLAN
+indicator to improve performance.
 
-| BUG: unable to handle kernel paging request at ffffc900001bf001
-| IP: [<ffffffff8135270a>] skb_clone+0x1a/0xa0
-| Call Trace:
-|  [<ffffffff813cb107>] nl_fib_input+0x37/0x230
-|  [<ffffffff8142c9b2>] ? _raw_read_unlock+0x22/0x40
-|  [<ffffffff81380b1a>] netlink_unicast+0x13a/0x1f0
-|  [<ffffffff81380ef7>] netlink_sendmsg+0x327/0x420
-
-The problem is that the vmalloc() based skb ends exactly at size (where
-->end is pointing) and skb_shinfo() starts past ->end where we have our
-guard page and hence we BUG().
-The question is should we fix this or forbid the skb_clone(). Fixing this
-behaviour is tricky because even after we add space for struct
-skb_shared_info we release the memory from the destructor so once the
-first skbs is gone, the memory in the clone is invalid.
-The other case where skb_clone() is used is when we have mutltiple
-destinations.
-Since I assume the initial target was to extend the size for
-NETLINK_NETFILTER this patch limits to this target only and with single
-destination.
-Is this okay?
-
-Signed-off-by: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
 ---
- net/netlink/af_netlink.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+Change from v1 to v2
+- Changed Max recieve Buffer Size Register from 1540 to 1536 so it is
+divisible by 64.
+Change from v2 to v3
+- Fixed indentation. pkt_len - 4 - (2 * ETH_ALEN)); extends to 86 chars,
+but I feel that keeping the the code within 80 chars makes it confusing
+to read.
+- Changed code to use a flag instead of a pointer to check for the enhanced
+buffer.
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 68c1673..9926453 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -2129,7 +2129,11 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 	if (len > sk->sk_sndbuf - 32)
- 		goto out;
- 	err = -ENOBUFS;
--	skb = netlink_alloc_large_skb(len);
-+	if (netlink_is_kernel(sk) && sk->sk_protocol == NETLINK_NETFILTER &&
-+			!dst_group)
-+		skb = netlink_alloc_large_skb(len);
-+	else
-+		skb = alloc_skb(len, GFP_KERNEL);
- 	if (skb == NULL)
- 		goto out;
+ drivers/net/ethernet/freescale/fec.h      |    3 ++
+ drivers/net/ethernet/freescale/fec_main.c |   62 ++++++++++++++++++++++++-----
+ 2 files changed, 55 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index 8362a03..2b0a0ea 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -203,6 +203,9 @@ struct bufdesc_ex {
+ #define BD_ENET_RX_CL           ((ushort)0x0001)
+ #define BD_ENET_RX_STATS        ((ushort)0x013f)        /* All status bits */
  
++/* Enhanced buffer descriptor control/status used by Ethernet receive */
++#define BD_ENET_RX_VLAN         0x00000004
++
+ /* Buffer descriptor control/status used by Ethernet transmit.
+ */
+ #define BD_ENET_TX_READY        ((ushort)0x8000)
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index b676882..d106fa0 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -54,6 +54,7 @@
+ #include <linux/of_gpio.h>
+ #include <linux/of_net.h>
+ #include <linux/regulator/consumer.h>
++#include <linux/if_vlan.h>
+ 
+ #include <asm/cacheflush.h>
+ 
+@@ -90,6 +91,8 @@ static void set_multicast_list(struct net_device *ndev);
+ #define FEC_QUIRK_HAS_BUFDESC_EX	(1 << 4)
+ /* Controller has hardware checksum support */
+ #define FEC_QUIRK_HAS_CSUM		(1 << 5)
++/* Controller has hardware vlan support */
++#define FEC_QUIRK_HAS_VLAN		(1 << 6)
+ 
+ static struct platform_device_id fec_devtype[] = {
+ 	{
+@@ -108,7 +111,8 @@ static struct platform_device_id fec_devtype[] = {
+ 	}, {
+ 		.name = "imx6q-fec",
+ 		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
+-				FEC_QUIRK_HAS_BUFDESC_EX | FEC_QUIRK_HAS_CSUM,
++				FEC_QUIRK_HAS_BUFDESC_EX | FEC_QUIRK_HAS_CSUM |
++				FEC_QUIRK_HAS_VLAN,
+ 	}, {
+ 		.name = "mvf600-fec",
+ 		.driver_data = FEC_QUIRK_ENET_MAC,
+@@ -179,11 +183,11 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+ #define FEC_DEFAULT_IMASK (FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII)
+ #define FEC_RX_DISABLED_IMASK (FEC_DEFAULT_IMASK & (~FEC_ENET_RXF))
+ 
+-/* The FEC stores dest/src/type, data, and checksum for receive packets.
++/* The FEC stores dest/src/type/vlan, data, and checksum for receive packets.
+  */
+-#define PKT_MAXBUF_SIZE		1518
++#define PKT_MAXBUF_SIZE		1522
+ #define PKT_MINBUF_SIZE		64
+-#define PKT_MAXBLR_SIZE		1520
++#define PKT_MAXBLR_SIZE		1536
+ 
+ /* FEC receive acceleration */
+ #define FEC_RACC_IPDIS		(1 << 1)
+@@ -802,6 +806,9 @@ fec_enet_rx(struct net_device *ndev, int budget)
+ 	ushort	pkt_len;
+ 	__u8 *data;
+ 	int	pkt_received = 0;
++	struct	bufdesc_ex *ebdp = NULL;
++	bool	vlan_packet_rcvd = false;
++	u16	vlan_tag;
+ 
+ #ifdef CONFIG_M532x
+ 	flush_cache_all();
+@@ -865,6 +872,24 @@ fec_enet_rx(struct net_device *ndev, int budget)
+ 		if (id_entry->driver_data & FEC_QUIRK_SWAP_FRAME)
+ 			swap_buffer(data, pkt_len);
+ 
++		/* Extract the enhanced buffer descriptor */
++		ebdp = NULL;
++		if (fep->bufdesc_ex)
++			ebdp = (struct bufdesc_ex *)bdp;
++
++		/* If this is a VLAN packet remove the VLAN Tag */
++		vlan_packet_rcvd = false;
++		if ((ndev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
++		    fep->bufdesc_ex && (ebdp->cbd_esc & BD_ENET_RX_VLAN)) {
++			/* Push and remove the vlan tag */
++			struct vlan_hdr *vlan_header =
++					(struct vlan_hdr *) (data + ETH_HLEN);
++			vlan_tag = ntohs(vlan_header->h_vlan_TCI);
++			pkt_len -= VLAN_HLEN;
++
++			vlan_packet_rcvd = true;
++		}
++
+ 		/* This does 16 byte alignment, exactly what we need.
+ 		 * The packet length includes FCS, but we don't want to
+ 		 * include that when passing upstream as it messes up
+@@ -875,9 +900,18 @@ fec_enet_rx(struct net_device *ndev, int budget)
+ 		if (unlikely(!skb)) {
+ 			ndev->stats.rx_dropped++;
+ 		} else {
++			int payload_offset = (2 * ETH_ALEN);
+ 			skb_reserve(skb, NET_IP_ALIGN);
+ 			skb_put(skb, pkt_len - 4);	/* Make room */
+-			skb_copy_to_linear_data(skb, data, pkt_len - 4);
++
++			/* Extract the frame data without the VLAN header. */
++			skb_copy_to_linear_data(skb, data, (2 * ETH_ALEN));
++			if (vlan_packet_rcvd)
++				payload_offset = (2 * ETH_ALEN) + VLAN_HLEN;
++			skb_copy_to_linear_data_offset(skb, (2 * ETH_ALEN),
++						       data + payload_offset,
++						       pkt_len - 4 - (2 * ETH_ALEN));
++
+ 			skb->protocol = eth_type_trans(skb, ndev);
+ 
+ 			/* Get receive timestamp from the skb */
+@@ -885,8 +919,6 @@ fec_enet_rx(struct net_device *ndev, int budget)
+ 				struct skb_shared_hwtstamps *shhwtstamps =
+ 							    skb_hwtstamps(skb);
+ 				unsigned long flags;
+-				struct bufdesc_ex *ebdp =
+-					(struct bufdesc_ex *)bdp;
+ 
+ 				memset(shhwtstamps, 0, sizeof(*shhwtstamps));
+ 
+@@ -897,9 +929,7 @@ fec_enet_rx(struct net_device *ndev, int budget)
+ 			}
+ 
+ 			if (fep->bufdesc_ex &&
+-				(fep->csum_flags & FLAG_RX_CSUM_ENABLED)) {
+-				struct bufdesc_ex *ebdp =
+-					(struct bufdesc_ex *)bdp;
++			    (fep->csum_flags & FLAG_RX_CSUM_ENABLED)) {
+ 				if (!(ebdp->cbd_esc & FLAG_RX_CSUM_ERROR)) {
+ 					/* don't check it */
+ 					skb->ip_summed = CHECKSUM_UNNECESSARY;
+@@ -908,6 +938,12 @@ fec_enet_rx(struct net_device *ndev, int budget)
+ 				}
+ 			}
+ 
++			/* Handle received VLAN packets */
++			if (vlan_packet_rcvd)
++				__vlan_hwaccel_put_tag(skb,
++						       htons(ETH_P_8021Q),
++						       vlan_tag);
++
+ 			if (!skb_defer_rx_timestamp(skb))
+ 				napi_gro_receive(&fep->napi, skb);
+ 		}
+@@ -1915,6 +1951,12 @@ static int fec_enet_init(struct net_device *ndev)
+ 	writel(FEC_RX_DISABLED_IMASK, fep->hwp + FEC_IMASK);
+ 	netif_napi_add(ndev, &fep->napi, fec_enet_rx_napi, FEC_NAPI_WEIGHT);
+ 
++	if (id_entry->driver_data & FEC_QUIRK_HAS_VLAN) {
++		/* enable hw VLAN support */
++		ndev->features |= NETIF_F_HW_VLAN_CTAG_RX;
++		ndev->hw_features |= NETIF_F_HW_VLAN_CTAG_RX;
++	}
++
+ 	if (id_entry->driver_data & FEC_QUIRK_HAS_CSUM) {
+ 		/* enable hw accelerator */
+ 		ndev->features |= (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM
 -- 
-1.8.3.1
+1.7.10.4
