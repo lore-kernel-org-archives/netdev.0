@@ -1,120 +1,50 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: [PATCH 2/3] l2tp: make datapath sequence number support RFC-compliant
-Date: Tue,  2 Jul 2013 11:00:28 +0100
-Message-ID: <1372759229-15178-3-git-send-email-jchapman@katalix.com>
-References: <1372759229-15178-1-git-send-email-jchapman@katalix.com>
-Cc: James Chapman <jchapman@katalix.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:42620 "EHLO bert.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755263Ab3GBKJ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Jul 2013 06:09:58 -0400
-In-Reply-To: <1372759229-15178-1-git-send-email-jchapman@katalix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH] pkt_sched: rate overflow fix
+Date: Tue, 2 Jul 2013 18:39:54 +0800
+Message-ID: <51D2ADFA.1090208@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Howells <dhowells@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	<chenweilong@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The L2TP datapath is not currently RFC-compliant when sequence numbers
-are used in L2TP data packets. According to the L2TP RFC, any received
-sequence number NR greater than or equal to the next expected NR is
-acceptable, where the "greater than or equal to" test is determined by
-the NR wrap point. This differs for L2TPv2 and L2TPv3, so add state in
-the session context to hold the max NR value and the NR window size in
-order to do the acceptable sequence number value check. These might be
-configurable later, but for now we derive it from the tunnel L2TP
-version, which determines the sequence number field size.
+Use bonding to aggregate two 82599 nics which have 4 ports and max rate is 40gbit.
+Then set rate to 35gbit, the rate is overflow.
 
-Signed-off-by: James Chapman <jchapman@katalix.com>
+tc qdisc add dev $bond root handle 1: \
+tbf latency 50ms burst 35mb rate 35gbit mtu 64k
+
+tc qdisc show dev $bond
+qdisc tbf 1: root refcnt 2 rate 640262Kbit burst 35Mb lat 50.0ms
+
+iperf -c host -t 30 -i 10
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec   764 MBytes   641 Mbits/sec
+[  3] 10.0-20.0 sec   730 MBytes   612 Mbits/sec
+
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
 ---
- net/l2tp/l2tp_core.c |   36 +++++++++++++++++++++++++++++++-----
- net/l2tp/l2tp_core.h |    2 ++
- 2 files changed, 33 insertions(+), 5 deletions(-)
+ include/uapi/linux/pkt_sched.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index b2389fe..cc7ece9 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -414,10 +414,7 @@ static void l2tp_recv_dequeue_skb(struct l2tp_session *session, struct sk_buff *
- 	if (L2TP_SKB_CB(skb)->has_seq) {
- 		/* Bump our Nr */
- 		session->nr++;
--		if (tunnel->version == L2TP_HDR_VER_2)
--			session->nr &= 0xffff;
--		else
--			session->nr &= 0xffffff;
-+		session->nr &= session->nr_max;
- 
- 		l2tp_dbg(session, L2TP_MSG_SEQ, "%s: updated nr to %hu\n",
- 			 session->name, session->nr);
-@@ -542,11 +539,34 @@ static inline int l2tp_verify_udp_checksum(struct sock *sk,
- 	return __skb_checksum_complete(skb);
- }
- 
-+static int l2tp_seq_check_rx_window(struct l2tp_session *session, u32 nr)
-+{
-+	u32 nws;
-+
-+	if (nr >= session->nr)
-+		nws = nr - session->nr;
-+	else
-+		nws = (session->nr_max + 1) - (session->nr - nr);
-+
-+	return nws < session->nr_window_size;
-+}
-+
- /* If packet has sequence numbers, queue it if acceptable. Returns 0 if
-  * acceptable, else non-zero.
-  */
- static int l2tp_recv_data_seq(struct l2tp_session *session, struct sk_buff *skb)
- {
-+	if (!l2tp_seq_check_rx_window(session, L2TP_SKB_CB(skb)->ns)) {
-+		/* Packet sequence number is outside allowed window.
-+		 * Discard it.
-+		 */
-+		l2tp_dbg(session, L2TP_MSG_SEQ,
-+			 "%s: pkt %u len %d discarded, outside window, nr=%u\n",
-+			 session->name, L2TP_SKB_CB(skb)->ns,
-+			 L2TP_SKB_CB(skb)->length, session->nr);
-+		goto discard;
-+	}
-+
- 	if (session->reorder_timeout != 0) {
- 		/* Packet reordering enabled. Add skb to session's
- 		 * reorder queue, in order of ns.
-@@ -556,7 +576,8 @@ static int l2tp_recv_data_seq(struct l2tp_session *session, struct sk_buff *skb)
- 		/* Packet reordering disabled. Discard out-of-sequence
- 		 * packets
- 		 */
--		if (L2TP_SKB_CB(skb)->ns != session->nr) {
-+		if ((L2TP_SKB_CB(skb)->ns != session->nr) &&
-+		    (!session->reorder_skip)) {
- 			atomic_long_inc(&session->stats.rx_seq_discards);
- 			l2tp_dbg(session, L2TP_MSG_SEQ,
- 				 "%s: oos pkt %u len %d discarded, "
-@@ -1827,6 +1848,11 @@ struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunn
- 		session->session_id = session_id;
- 		session->peer_session_id = peer_session_id;
- 		session->nr = 0;
-+		if (tunnel->version == L2TP_HDR_VER_2)
-+			session->nr_max = 0xffff;
-+		else
-+			session->nr_max = 0xffffff;
-+		session->nr_window_size = session->nr_max / 2;
- 
- 		sprintf(&session->name[0], "sess %u/%u",
- 			tunnel->tunnel_id, session->session_id);
-diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index 485a490..4b9a3b7 100644
---- a/net/l2tp/l2tp_core.h
-+++ b/net/l2tp/l2tp_core.h
-@@ -102,6 +102,8 @@ struct l2tp_session {
- 	u32			nr;		/* session NR state (receive) */
- 	u32			ns;		/* session NR state (send) */
- 	struct sk_buff_head	reorder_q;	/* receive reorder queue */
-+	u32			nr_max;		/* max NR. Depends on tunnel */
-+	u32			nr_window_size;	/* NR window size */
- 	struct hlist_node	hlist;		/* Hash list node */
- 	atomic_t		ref_count;
- 
+diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
+index 32aef0a..261042c 100644
+--- a/include/uapi/linux/pkt_sched.h
++++ b/include/uapi/linux/pkt_sched.h
+@@ -79,7 +79,7 @@ struct tc_ratespec {
+        unsigned short  overhead;
+        short           cell_align;
+        unsigned short  mpu;
+-       __u32           rate;
++       __u64           rate;
+ };
+
+ #define TC_RTAB_SIZE   1024
 -- 
-1.7.0.4
+1.7.12
