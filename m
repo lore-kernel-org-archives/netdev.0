@@ -1,66 +1,92 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: PHC device sharing between PCI functions
-Date: Tue, 2 Jul 2013 16:24:20 +0200
-Message-ID: <20130702142420.GC14630@netboy>
-References: <1372697768.2083.21.camel@bwh-desktop.uk.level5networks.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [RFC PATCH] sctp: Don't lookup dst if transport dst is still
+ valid
+Date: Tue, 02 Jul 2013 10:29:28 -0400
+Message-ID: <51D2E3C8.5050100@gmail.com>
+References: <1372747174-23580-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-net-drivers <linux-net-drivers@solarflare.com>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: nhorman@tuxdriver.com, nicolas.dichtel@6wind.com,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f179.google.com ([209.85.215.179]:58977 "EHLO
-	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752055Ab3GBOYZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 10:24:25 -0400
-Received: by mail-ea0-f179.google.com with SMTP id b15so2840236eae.10
-        for <netdev@vger.kernel.org>; Tue, 02 Jul 2013 07:24:24 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1372697768.2083.21.camel@bwh-desktop.uk.level5networks.com>
+Received: from mail-yh0-f44.google.com ([209.85.213.44]:59913 "EHLO
+	mail-yh0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751503Ab3GBO3b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 10:29:31 -0400
+Received: by mail-yh0-f44.google.com with SMTP id t59so3160660yho.31
+        for <netdev@vger.kernel.org>; Tue, 02 Jul 2013 07:29:31 -0700 (PDT)
+In-Reply-To: <1372747174-23580-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben,
+On 07/02/2013 02:39 AM, Fan Du wrote:
+> When sctp sits on IPv6, sctp_transport_dst_check pass cookie as ZERO,
+> as a result ip6_dst_check always fail out. This behaviour makes
+> transport->dst useless, because every sctp_packet_transmit must look
+> for valid dst(Is this what supposed to be?)
+>
+> One aggressive way is to call rt_genid_bump which invalid all dst to
+> make new dst for transport, apparently it also hurts others.
+> I'm sure this may not be the best for all, so any commnets?
+>
+> Signed-off-by: Fan Du <fan.du@windriver.com>
+> ---
+>   include/net/sctp/sctp.h |   18 ++++++++++++------
+>   net/sctp/ipv6.c         |    2 ++
+>   2 files changed, 14 insertions(+), 6 deletions(-)
+>
+> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+> index cd89510..f05af01 100644
+> --- a/include/net/sctp/sctp.h
+> +++ b/include/net/sctp/sctp.h
+> @@ -719,14 +719,20 @@ static inline void sctp_v4_map_v6(union sctp_addr *addr)
+>   	addr->v6.sin6_addr.s6_addr32[2] = htonl(0x0000ffff);
+>   }
+>
+> -/* The cookie is always 0 since this is how it's used in the
+> - * pmtu code.
+> - */
+> +/* Set cookie with the right one for IPv6 and zero for others */
+>   static inline struct dst_entry *sctp_transport_dst_check(struct sctp_transport *t)
+>   {
+> -	if (t->dst && !dst_check(t->dst, 0)) {
+> -		dst_release(t->dst);
+> -		t->dst = NULL;
+> +
+> +	if (t->dst) {
+> +		struct rt6_info *rt = (struct rt6_info *)t->dst;
+> +		u32 cookie = 0;
+> +
+> +		if ((t->af_specific->sa_family == AF_INET6) && rt->rt6i_node)	
+> +			cookie = rt->rt6i_node->fn_sernum;	
+> +		if (!dst_check(t->dst, cookie)) {
+> +			dst_release(t->dst);
+> +			t->dst = NULL;
+> +		}
+>   	}
 
-I really don't understand what the use case is...
+I think it would be better if we stored the dst_cookie in the transport 
+structure and initialized it at lookup time.   If you do that, then if 
+the route table changes, we'd correctly detect it without artificially 
+bumping rt_genid (and hurting ipv4).
 
-On Mon, Jul 01, 2013 at 05:56:08PM +0100, Ben Hutchings wrote:
-> Future Solarflare NICs may allow multiple PCI functions to make use of a
-> PTP hardware clock, but without a separate clock per function (probably
-> only one per controller).
-> 
-> I understand that shared PTP hardware clocks already exist, but they
-> usually have an independent existence as a separate PCI or platform
-> device.  In this case the clock would be accessible through any of the
-> PCI functions that also have a net device.
-> 
-> Options I see are:
-> 
-> 1. Instantiate a clock only for the first function.  But that would
-> preclude making the clock available within multiple VMs and their host.
+-vlad
 
-So, I guess PCI functions on one card may be divided up among the
-guests in a VM environment?
-
-Even if you did make your one clock visible to mutiple guests, still
-only one would be able to adjust the clock, right?
-
-And if so, then how will the mutiple, read-only MAC clocks help other
-guests? Seems kinda useless to me.
- 
-> 3. Keep track of controllers in the driver, instantiate a 'platform
-> device' for each of them, and instantiate a clock for each of them.
-> This is a little weird, as it wouldn't have any obvious association to
-> the PCI device hierarchy.  But it would let us control the lifetime of
-> the clock devices independently of any one function.
-
-I think clock and MAC must go hand in hand. Does one card appear as a
-MAC in more than one VM?
-
-> I prefer option 3 as I dislike introducing special cases, but I would be
-> interested to hear your (or other people's) opinion on this.
-
-Sorry, my brain just isn't letting any of this in.
-
-Thanks,
-Richard
+>
+>   	return t->dst;
+> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+> index 8ee553b..cfae77e 100644
+> --- a/net/sctp/ipv6.c
+> +++ b/net/sctp/ipv6.c
+> @@ -137,6 +137,8 @@ static int sctp_inet6addr_event(struct notifier_block *this, unsigned long ev,
+>   		break;
+>   	}
+>
+> +	/* invalid all transport dst forcing to look up new dst */
+> +	rt_genid_bump(net);
+>   	return NOTIFY_DONE;
+>   }
+>
+>
