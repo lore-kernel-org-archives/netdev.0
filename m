@@ -1,54 +1,51 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: [PATCH 1/3] Export cdc_ncm_{tx,rx}_fixup functions
-Date: Tue, 2 Jul 2013 22:10:27 +0200 (CEST)
-Message-ID: <alpine.LNX.2.02.1307022207060.26010@eeeadesso>
-References: <alpine.LNX.2.02.1307021241380.8884@eeeadesso> <87wqp9xja5.fsf@nemi.mork.no> <alpine.LNX.2.02.1307021855270.19053@eeeadesso> <alpine.LNX.2.02.1307022202570.26010@eeeadesso>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v2 net-next] net: convert lls to use time_in_range()
+Date: Tue, 2 Jul 2013 21:10:35 +0100
+Message-ID: <1372795835.1919.14.camel@bwh-desktop.uk.level5networks.com>
+References: <20130628125918.14419.36214.stgit@ladj378.jer.intel.com>
+	 <20130701.140833.1705666564717621661.davem@davemloft.net>
+	 <51D2919F.7050007@linux.intel.com> <51D29329.4060004@linux.intel.com>
+	 <51D2A246.3000705@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:38081 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754487Ab3GBUKI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 16:10:08 -0400
-Received: by mail-wi0-f172.google.com with SMTP id c10so4548795wiw.17
-        for <netdev@vger.kernel.org>; Tue, 02 Jul 2013 13:10:07 -0700 (PDT)
-In-Reply-To: <alpine.LNX.2.02.1307022202570.26010@eeeadesso>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <willemb@google.com>,
+	<erdnetdev@gmail.com>, <andi@firstfloor.org>, <hpa@zytor.com>,
+	<devel-lists@codyps.com>, <eliezer@tamir.org.il>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51D2A246.3000705@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Exports those functions to be able to re-use them in other drivers if needed.
+On Tue, 2013-07-02 at 12:49 +0300, Eliezer Tamir wrote:
+> Time in range will fail safely if we move to a different cpu with an
+> extremely large clock skew.
+> Add time_in_range64() and convert lls to use it.
+> 
+> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+> ---
+> v1->v2
+> fixed double call to sched_clock() in can_poll_ll(), checkpatchisms
+[...]
+> --- a/include/linux/jiffies.h
+> +++ b/include/linux/jiffies.h
+> @@ -139,6 +139,10 @@ static inline u64 get_jiffies_64(void)
+>   	 ((__s64)(a) - (__s64)(b) >= 0))
+>   #define time_before_eq64(a,b)	time_after_eq64(b,a)
+> 
+> +#define time_in_range64(a, b, c) \
+> +	(time_after_eq64(a, b) && \
+> +	 time_before_eq64(a, c))
+[...]
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 493277e..22ed51c 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -885,6 +885,8 @@ error:
- 
- 	return NULL;
- }
-+EXPORT_SYMBOL_GPL(cdc_ncm_tx_fixup);
-+
- 
- /* verify NTB header and return offset of first NDP, or negative error */
- int cdc_ncm_rx_verify_nth16(struct cdc_ncm_ctx *ctx, struct sk_buff *skb_in)
-@@ -1040,6 +1042,7 @@ err_ndp:
- error:
- 	return 0;
- }
-+EXPORT_SYMBOL_GPL(cdc_ncm_rx_fixup);
- 
- static void
- cdc_ncm_speed_change(struct cdc_ncm_ctx *ctx,
-diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
-index cc25b70..163244b 100644
---- a/include/linux/usb/cdc_ncm.h
-+++ b/include/linux/usb/cdc_ncm.h
-@@ -133,3 +133,6 @@ extern void cdc_ncm_unbind(struct usbnet *dev, struct usb_interface *intf);
- extern struct sk_buff *cdc_ncm_fill_tx_frame(struct cdc_ncm_ctx *ctx, struct sk_buff *skb, __le32 sign);
- extern int cdc_ncm_rx_verify_nth16(struct cdc_ncm_ctx *ctx, struct sk_buff *skb_in);
- extern int cdc_ncm_rx_verify_ndp16(struct sk_buff *skb_in, int ndpoffset);
-+struct sk_buff *
-+cdc_ncm_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags);
-+int cdc_ncm_rx_fixup(struct usbnet *dev, struct sk_buff *skb_in);
+Why not make this an inline function, so the caller doesn't need to
+worry about repeated evaluation?
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
