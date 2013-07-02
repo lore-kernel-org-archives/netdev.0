@@ -1,47 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] ipv6: ip6_append_data_mtu did not care about
- pmtudisc and frag_size
-Date: Tue, 02 Jul 2013 12:45:14 -0700 (PDT)
-Message-ID: <20130702.124514.1701303518493328527.davem@davemloft.net>
-References: <20130702060405.GD9877@order.stressinduktion.org>
+Subject: Re: [PATCH net] ipv6: call udp_push_pending_frames when uncorking
+ a socket with AF_INET pending data
+Date: Tue, 02 Jul 2013 12:45:30 -0700 (PDT)
+Message-ID: <20130702.124530.1934465740187090037.davem@davemloft.net>
+References: <20130701182130.GC8937@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gaofeng@cn.fujitsu.com,
-	yoshfuji@linux-ipv6.org
+Cc: netdev@vger.kernel.org, davej@redhat.com, yoshfuji@linux-ipv6.org
 To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53245 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53257 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754231Ab3GBTpP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 15:45:15 -0400
-In-Reply-To: <20130702060405.GD9877@order.stressinduktion.org>
+	with ESMTP id S1754951Ab3GBTpb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 15:45:31 -0400
+In-Reply-To: <20130701182130.GC8937@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue, 2 Jul 2013 08:04:05 +0200
+Date: Mon, 1 Jul 2013 20:21:30 +0200
 
-> If the socket had an IPV6_MTU value set, ip6_append_data_mtu lost track
-> of this when appending the second frame on a corked socket. This results
-> in the following splat:
+> We accidentally call down to ip6_push_pending_frames when uncorking
+> pending AF_INET data on a ipv6 socket. This results in the following
+> splat (from Dave Jones):
  ...
-> While there, also check if path mtu discovery is activated for this
-> socket. The logic was adapted from ip6_append_data when first writing
-> on the corked socket.
+> This patch adds a check if the pending data is of address family AF_INET
+> and directly calls udp_push_ending_frames from udp_v6_push_pending_frames
+> if that is the case.
 > 
-> This bug was introduced with commit
-> 0c1833797a5a6ec23ea9261d979aa18078720b74 ("ipv6: fix incorrect ipsec
-> fragment").
+> This bug was found by Dave Jones with trinity.
 > 
-> v2:
-> a) Replace IPV6_PMTU_DISC_DO with IPV6_PMTUDISC_PROBE.
-> b) Don't pass ipv6_pinfo to ip6_append_data_mtu (suggestion by Gao
->    feng, thanks!).
-> c) Change mtu to unsigned int, else we get a warning about
->    non-matching types because of the min()-macro type-check.
+> (Also move the initialization of fl6 below the AF_INET check, even if
+> not strictly necessary.)
 > 
-> Acked-by: Gao feng <gaofeng@cn.fujitsu.com>
+> Cc: Dave Jones <davej@redhat.com>
 > Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
