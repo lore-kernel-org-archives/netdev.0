@@ -1,82 +1,46 @@
 From: Simon Derr <simon.derr@bull.net>
-Subject: [PATCH 03/10] 9pnet: refactor struct p9_fcall alloc code
-Date: Tue,  2 Jul 2013 15:11:17 +0200
-Message-ID: <1372770684-25573-4-git-send-email-simon.derr@bull.net>
+Subject: [PATCH 05/10] 9P/RDMA: Protect against duplicate replies
+Date: Tue,  2 Jul 2013 15:11:19 +0200
+Message-ID: <1372770684-25573-6-git-send-email-simon.derr@bull.net>
 References: <1372770684-25573-1-git-send-email-simon.derr@bull.net>
 Cc: simon.derr@bull.net, ericvh@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:40991 "EHLO
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:40943 "EHLO
 	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752548Ab3GBNl5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 09:41:57 -0400
+	with ESMTP id S1751708Ab3GBNlp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 09:41:45 -0400
 In-Reply-To: <1372770684-25573-1-git-send-email-simon.derr@bull.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+A well-behaved server would not send twice the reply to a request.
+But if it ever happens...
+This additional check prevents the kernel from leaking memory
+and possibly more nasty consequences in that unlikely event.
+
 Signed-off-by: Simon Derr <simon.derr@bull.net>
 ---
- net/9p/client.c |   35 ++++++++++++++++++-----------------
- 1 files changed, 18 insertions(+), 17 deletions(-)
+ net/9p/trans_rdma.c |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
 
-diff --git a/net/9p/client.c b/net/9p/client.c
-index 47cd7d0..44691b9 100644
---- a/net/9p/client.c
-+++ b/net/9p/client.c
-@@ -204,6 +204,17 @@ free_and_return:
- 	return ret;
- }
+diff --git a/net/9p/trans_rdma.c b/net/9p/trans_rdma.c
+index b8b66d3..274a9c1 100644
+--- a/net/9p/trans_rdma.c
++++ b/net/9p/trans_rdma.c
+@@ -294,6 +294,13 @@ handle_recv(struct p9_client *client, struct p9_trans_rdma *rdma,
+ 	if (!req)
+ 		goto err_out;
  
-+struct p9_fcall *p9_fcall_alloc(int alloc_msize)
-+{
-+	struct p9_fcall *fc;
-+	fc = kmalloc(sizeof(struct p9_fcall) + alloc_msize, GFP_NOFS);
-+	if (!fc)
-+		return NULL;
-+	fc->capacity = alloc_msize;
-+	fc->sdata = (char *) fc + sizeof(struct p9_fcall);
-+	return fc;
-+}
++	/* Check that we have not yet received a reply for this request.
++	 */
++	if (unlikely(req->rc)) {
++		pr_err("Duplicate reply for request %d", tag);
++		goto err_out;
++	}
 +
- /**
-  * p9_tag_alloc - lookup/allocate a request by tag
-  * @c: client session to lookup tag within
-@@ -256,29 +267,19 @@ p9_tag_alloc(struct p9_client *c, u16 tag, unsigned int max_size)
- 	col = tag % P9_ROW_MAXTAG;
- 
- 	req = &c->reqs[row][col];
--	if (!req->tc) {
-+	if (!req->wq) {
- 		req->wq = kmalloc(sizeof(wait_queue_head_t), GFP_NOFS);
- 		if (!req->wq) 
- 			goto grow_failed;
--
- 		init_waitqueue_head(req->wq);
--		req->tc = kmalloc(sizeof(struct p9_fcall) + alloc_msize,
--				  GFP_NOFS);
--		if (!req->tc)
--			goto grow_failed;
--
--		req->tc->capacity = alloc_msize;
--		req->tc->sdata = (char *) req->tc + sizeof(struct p9_fcall);
- 	}
--	if (!req->rc) {
--		req->rc = kmalloc(sizeof(struct p9_fcall) + alloc_msize,
--				  GFP_NOFS);
--		if (!req->rc)
--			goto grow_failed;
- 
--		req->rc->capacity = alloc_msize;
--		req->rc->sdata = (char *) req->rc + sizeof(struct p9_fcall);
--	}
-+	if (!req->tc)
-+		req->tc = p9_fcall_alloc(alloc_msize);
-+	if (!req->rc)
-+		req->rc = p9_fcall_alloc(alloc_msize);
-+	if (!req->tc || !req->rc)
-+		goto grow_failed;
- 
- 	p9pdu_reset(req->tc);
- 	p9pdu_reset(req->rc);
+ 	req->rc = c->rc;
+ 	req->status = REQ_STATUS_RCVD;
+ 	p9_client_cb(client, req);
 -- 
 1.7.2.2
