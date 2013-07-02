@@ -1,117 +1,101 @@
-From: Michael Wang <wangyun@linux.vnet.ibm.com>
-Subject: Re: [PATCH v3 10/45] smp: Use get/put_online_cpus_atomic() to prevent
- CPU offline
-Date: Tue, 02 Jul 2013 18:08:34 +0800
-Message-ID: <51D2A6A2.207@linux.vnet.ibm.com>
-References: <20130627195136.29830.10445.stgit@srivatsabhat.in.ibm.com> <20130627195418.29830.34958.stgit@srivatsabhat.in.ibm.com> <51D2660A.8000401@linux.vnet.ibm.com> <51D28E69.9060205@linux.vnet.ibm.com> <51D2939C.5090205@linux.vnet.ibm.com> <51D2A289.7070805@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
-	walken@google.com, vincent.guittot@linaro.org,
-	laijs@cn.fujitsu.com, David.Laight@aculab.com, rostedt@goodmis.org,
-	xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, fweisbec@gmail.com,
-	zhong@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
-	linux-pm@vger.kernel.org, linux-arch@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Wang YanQing <udknight@gmail.com>,
-	Shaohua Li <shli@fusionio.com>,
-	Jan Beulich <jbeulich@suse.com>,
-	liguang <lig.fnst@cn.fujitsu.com>
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <51D2A289.7070805@linux.vnet.ibm.com>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: James Chapman <jchapman@katalix.com>
+Subject: [PATCH 1/3] l2tp: do data sequence number handling in a separate func
+Date: Tue,  2 Jul 2013 11:00:27 +0100
+Message-ID: <1372759229-15178-2-git-send-email-jchapman@katalix.com>
+References: <1372759229-15178-1-git-send-email-jchapman@katalix.com>
+Cc: James Chapman <jchapman@katalix.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from katalix.com ([82.103.140.233]:42619 "EHLO bert.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755046Ab3GBKJ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jul 2013 06:09:58 -0400
+In-Reply-To: <1372759229-15178-1-git-send-email-jchapman@katalix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/02/2013 05:51 PM, Srivatsa S. Bhat wrote:
-[snip]
-> 
-> Well, as I said, its timing dependent. We might miss the newly onlined CPU in
-> the for_each_online_cpu() loop itself, based on when exactly the CPU was added
-> to the cpu_online_mask. So you can't exactly pin-point the places where you'll
-> miss the CPU and where you won't. Besides, is it _that_ important? It is after
-> all unpredictable..
+This change moves some code handling data sequence numbers into a
+separate function to avoid too much indentation. This is to prepare
+for some changes to data sequence number handling in subsequent
+patches.
 
-Sure, it's nothing important ;-)
+Signed-off-by: James Chapman <jchapman@katalix.com>
+---
+ net/l2tp/l2tp_core.c |   55 +++++++++++++++++++++++++++++++------------------
+ 1 files changed, 35 insertions(+), 20 deletions(-)
 
-I just think this comment:
-
-+ * We use get/put_online_cpus_atomic() to protect against CPUs going
-+ * offline but not online. CPUs going online during the call will
-+ * not be seen or sent an IPI
-
-It told people that the cpu could online during the call, but won't get
-IPI, while actually they have a chance to get it, folks haven't look
-inside may missed some thing when use it.
-
-But it's just self-opinion, so let's put down the discuss :)
-
-Regards,
-Michael Wang
-
-> 
->> The comment position seems like it declaim that during the call of this
->> func, online-cpu won't be seem and send IPI...
->>
-> 
-> Doesn't matter, AFAICS. The key take-away from that whole comment is: nothing is
-> done to prevent CPUs from coming online while the function is running, whereas
-> the online CPUs are guaranteed to remain online throughout the function. In other
-> words, its a weaker form of get_online_cpus()/put_online_cpus(), providing a
-> one-way synchronization (CPU offline).
-> 
-> As long as that idea is conveyed properly, the purpose of that comment is served,
-> IMHO.
-> 
-> Regards,
-> Srivatsa S. Bhat
-> 
-> 
->>>>>   *
->>>>>   * You must not call this function with disabled interrupts or
->>>>>   * from a hardware interrupt handler or from a bottom half handler.
->>>>> @@ -641,26 +649,26 @@ void on_each_cpu_cond(bool (*cond_func)(int cpu, void *info),
->>>>>  	might_sleep_if(gfp_flags & __GFP_WAIT);
->>>>>
->>>>>  	if (likely(zalloc_cpumask_var(&cpus, (gfp_flags|__GFP_NOWARN)))) {
->>>>> -		preempt_disable();
->>>>> +		get_online_cpus_atomic();
->>>>>  		for_each_online_cpu(cpu)
->>>>>  			if (cond_func(cpu, info))
->>>>>  				cpumask_set_cpu(cpu, cpus);
->>>>>  		on_each_cpu_mask(cpus, func, info, wait);
->>>>> -		preempt_enable();
->>>>> +		put_online_cpus_atomic();
->>>>>  		free_cpumask_var(cpus);
->>>>>  	} else {
->>>>>  		/*
->>>>>  		 * No free cpumask, bother. No matter, we'll
->>>>>  		 * just have to IPI them one by one.
->>>>>  		 */
->>>>> -		preempt_disable();
->>>>> +		get_online_cpus_atomic();
->>>>>  		for_each_online_cpu(cpu)
->>>>>  			if (cond_func(cpu, info)) {
->>>>>  				ret = smp_call_function_single(cpu, func,
->>>>>  								info, wait);
->>>>>  				WARN_ON_ONCE(!ret);
->>>>>  			}
->>>>> -		preempt_enable();
->>>>> +		put_online_cpus_atomic();
->>>>>  	}
->>>>>  }
->>>>>  EXPORT_SYMBOL(on_each_cpu_cond);
->>>>>
->>>>
->>>
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-> 
-
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 6984c3a..b2389fe 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -542,6 +542,39 @@ static inline int l2tp_verify_udp_checksum(struct sock *sk,
+ 	return __skb_checksum_complete(skb);
+ }
+ 
++/* If packet has sequence numbers, queue it if acceptable. Returns 0 if
++ * acceptable, else non-zero.
++ */
++static int l2tp_recv_data_seq(struct l2tp_session *session, struct sk_buff *skb)
++{
++	if (session->reorder_timeout != 0) {
++		/* Packet reordering enabled. Add skb to session's
++		 * reorder queue, in order of ns.
++		 */
++		l2tp_recv_queue_skb(session, skb);
++	} else {
++		/* Packet reordering disabled. Discard out-of-sequence
++		 * packets
++		 */
++		if (L2TP_SKB_CB(skb)->ns != session->nr) {
++			atomic_long_inc(&session->stats.rx_seq_discards);
++			l2tp_dbg(session, L2TP_MSG_SEQ,
++				 "%s: oos pkt %u len %d discarded, "
++				 "waiting for %u, reorder_q_len=%d\n",
++				 session->name, L2TP_SKB_CB(skb)->ns,
++				 L2TP_SKB_CB(skb)->length, session->nr,
++				 skb_queue_len(&session->reorder_q));
++			goto discard;
++		}
++		skb_queue_tail(&session->reorder_q, skb);
++	}
++
++	return 0;
++
++discard:
++	return 1;
++}
++
+ /* Do receive processing of L2TP data frames. We handle both L2TPv2
+  * and L2TPv3 data frames here.
+  *
+@@ -757,26 +790,8 @@ void l2tp_recv_common(struct l2tp_session *session, struct sk_buff *skb,
+ 	 * enabled. Saved L2TP protocol info is stored in skb->sb[].
+ 	 */
+ 	if (L2TP_SKB_CB(skb)->has_seq) {
+-		if (session->reorder_timeout != 0) {
+-			/* Packet reordering enabled. Add skb to session's
+-			 * reorder queue, in order of ns.
+-			 */
+-			l2tp_recv_queue_skb(session, skb);
+-		} else {
+-			/* Packet reordering disabled. Discard out-of-sequence
+-			 * packets
+-			 */
+-			if (L2TP_SKB_CB(skb)->ns != session->nr) {
+-				atomic_long_inc(&session->stats.rx_seq_discards);
+-				l2tp_dbg(session, L2TP_MSG_SEQ,
+-					 "%s: oos pkt %u len %d discarded, waiting for %u, reorder_q_len=%d\n",
+-					 session->name, L2TP_SKB_CB(skb)->ns,
+-					 L2TP_SKB_CB(skb)->length, session->nr,
+-					 skb_queue_len(&session->reorder_q));
+-				goto discard;
+-			}
+-			skb_queue_tail(&session->reorder_q, skb);
+-		}
++		if (l2tp_recv_data_seq(session, skb))
++			goto discard;
+ 	} else {
+ 		/* No sequence numbers. Add the skb to the tail of the
+ 		 * reorder queue. This ensures that it will be
+-- 
+1.7.0.4
