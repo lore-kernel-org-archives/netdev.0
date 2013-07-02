@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cxgb3: Missing rtnl lock in error recovery
-Date: Tue, 02 Jul 2013 12:38:22 -0700 (PDT)
-Message-ID: <20130702.123822.1643149765067831568.davem@davemloft.net>
-References: <1372567031.18612.94.camel@pasglop>
+Subject: Re: [PATCH net-next v1 1/1] net: fec: Fix RMON registers on imx6
+Date: Tue, 02 Jul 2013 12:41:07 -0700 (PDT)
+Message-ID: <20130702.124107.746381189773139461.davem@davemloft.net>
+References: <Jim_Baxter_<jim_baxter@mentor.com>
+	<1372674719-6525-1-git-send-email-jim_baxter@mentor.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, divy@chelsio.com, vipul@chelsio.com,
-	jay@chelsio.com, shangw@linux.vnet.ibm.com
-To: benh@kernel.crashing.org
+Cc: fabio.estevam@freescale.com, Frank.Li@freescale.com,
+	B38611@freescale.com, joe@perches.com, cphealy@gmail.com,
+	netdev@vger.kernel.org
+To: jim_baxter@mentor.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53194 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53215 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932926Ab3GBTiY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 15:38:24 -0400
-In-Reply-To: <1372567031.18612.94.camel@pasglop>
+	with ESMTP id S1755143Ab3GBTlI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 15:41:08 -0400
+In-Reply-To: <1372674719-6525-1-git-send-email-jim_baxter@mentor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Sun, 30 Jun 2013 14:37:11 +1000
+From: Jim Baxter <jim_baxter@mentor.com>
+Date: Mon,  1 Jul 2013 11:31:59 +0100
 
-> When exercising error injection on IBM pseries machine, I hit the
-> following warning:
-...
-> It appears that t3_resume_ports() is called with the rtnl_lock held from
-> the fatal error task but not from the PCI error callbacks. This fixes it.
+> commit 38ae92d "fec: Add support for reading
+> RMON registers" causes the imx6Q to crash.
 > 
-> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> This fixes it by only enabling the RMON registers, the
+> registers are already cleared by the MAC being reset.
+> 
+> Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
 
-Looks good, applied and queued up for -stable, thanks!
+Applied, thanks.
