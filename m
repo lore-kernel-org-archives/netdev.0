@@ -1,42 +1,50 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] l2tp: add missing .owner to struct pppox_proto
-Date: Tue, 2 Jul 2013 09:02:07 +0800
-Message-ID: <CAPgLHd8ehTkW5GwU7o_PYcSN66ovLcooc9kzJvM2P6Na-nDcJg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] netem: use rb tree to implement the time queue
+Date: Mon, 01 Jul 2013 18:08:04 -0700 (PDT)
+Message-ID: <20130701.180804.2068659449166342971.davem@davemloft.net>
+References: <1372430457.3301.272.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: jchapman@katalix.com, davem@davemloft.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f44.google.com ([209.85.214.44]:52508 "EHLO
-	mail-bk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755452Ab3GBBCJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 21:02:09 -0400
-Received: by mail-bk0-f44.google.com with SMTP id 6so414780bkj.31
-        for <netdev@vger.kernel.org>; Mon, 01 Jul 2013 18:02:07 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:45934 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755452Ab3GBBII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 21:08:08 -0400
+In-Reply-To: <1372430457.3301.272.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 28 Jun 2013 07:40:57 -0700
 
-Add missing .owner of struct pppox_proto. This prevents the
-module from being removed from underneath its users.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Following typical setup to implement a ~100 ms RTT and big
+> amount of reorders has very poor performance because netem
+> implements the time queue using a linked list.
+> -----------------------------------------------------------
+> ETH=eth0
+> IFB=ifb0
+> modprobe ifb
+> ip link set dev $IFB up
+> tc qdisc add dev $ETH ingress 2>/dev/null
+> tc filter add dev $ETH parent ffff: \
+>    protocol ip u32 match u32 0 0 flowid 1:1 action mirred egress \
+>    redirect dev $IFB
+> ethtool -K $ETH gro off tso off gso off
+> tc qdisc add dev $IFB root netem delay 50ms 10ms limit 100000
+> tc qd add dev $ETH root netem delay 50ms limit 100000
+> ---------------------------------------------------------
+> 
+> Switch netem time queue to a rb tree, so this kind of setup can work at
+> high speed.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- net/l2tp/l2tp_ppp.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Looks good, nice work Eric, applied.
 
-diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-index 8dec687..5ebee2d 100644
---- a/net/l2tp/l2tp_ppp.c
-+++ b/net/l2tp/l2tp_ppp.c
-@@ -1793,7 +1793,8 @@ static const struct proto_ops pppol2tp_ops = {
- 
- static const struct pppox_proto pppol2tp_proto = {
- 	.create		= pppol2tp_create,
--	.ioctl		= pppol2tp_ioctl
-+	.ioctl		= pppol2tp_ioctl,
-+	.owner		= THIS_MODULE,
- };
- 
- #ifdef CONFIG_L2TP_V3
+Let's see how long that skb->{prev,next} trick holds up ;-)
