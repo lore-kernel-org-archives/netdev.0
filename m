@@ -1,33 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cassini: Make missing firmware non-fatal
-Date: Mon, 01 Jul 2013 23:48:03 -0700 (PDT)
-Message-ID: <20130701.234803.1786506561267879534.davem@davemloft.net>
-References: <1372634007.5155.51.camel@deadeye.wl.decadent.org.uk>
+From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
+Subject: Re: [PATCH RFC 2/3] dt:net:stmmac: Add support to dwmac version 3.610
+ and 3.710
+Date: Tue, 02 Jul 2013 07:42:32 +0100
+Message-ID: <51D27658.1060806@st.com>
+References: <1372678962-12959-1-git-send-email-srinivas.kandagatla@st.com> <1372679034-13139-1-git-send-email-srinivas.kandagatla@st.com> <51D1BA52.3030201@st.com>
+Reply-To: srinivas.kandagatla@st.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andres.Arias@PaisLinux.net, 712674@bugs.debian.org,
-	netdev@vger.kernel.org
-To: ben@decadent.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47667 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932231Ab3GBGsF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 02:48:05 -0400
-In-Reply-To: <1372634007.5155.51.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Rob Landley <rob@landley.net>,
+	devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <51D1BA52.3030201@st.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Mon, 01 Jul 2013 00:13:27 +0100
+Thanks Peppe for the comments,
+On 01/07/13 18:20, Giuseppe CAVALLARO wrote:
+> On 7/1/2013 1:43 PM, Srinivas KANDAGATLA wrote:
+>> From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+>>
+>> +
+>> +    plat->bus_id = of_alias_get_id(np, "ethernet");
+>> +    if (plat->bus_id < 0)
+>> +        plat->bus_id = 0;
+>> +
+>> +    of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr);
+>> +
+>>       plat->mdio_bus_data = devm_kzalloc(&pdev->dev,
+>>                          sizeof(struct stmmac_mdio_bus_data),
+>>                          GFP_KERNEL);
+>> @@ -51,11 +60,25 @@ static int stmmac_probe_config_dt(struct
+>> platform_device *pdev,
+>>        */
+>>       if (of_device_is_compatible(np, "st,spear600-gmac") ||
+>>           of_device_is_compatible(np, "snps,dwmac-3.70a") ||
+>> +        of_device_is_compatible(np, "snps,dwmac-3.610") ||
+I forgot to add "snps,dwmac-3.710" to this list, I will do it in V2 patch.
 
-> The firmware patch for the Saturn PHY fixes a bug, but is not absolutely
-> essential.  And its licence is unclear, so it is not included in all
-> distributions.  Just log an error message and continue if it is missing
-> or invalid.
+>>           of_device_is_compatible(np, "snps,dwmac")) {
+>>           plat->has_gmac = 1;
+>>           plat->pmt = 1;
+>>       }
+>>
+>> +    if (of_device_is_compatible(np, "snps,dwmac-3.610") ||
+>> +        of_device_is_compatible(np, "snps,dwmac-3.710")) {
+>> +        plat->enh_desc = 1;
+>> +        plat->bugged_jumbo = 1;
+>> +        plat->force_sf_dma_mode = 1;
+>> +    }
 > 
-> References: http://bugs.debian.org/712674
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> Tested-by: Jose Andres Arias Velichko <Andres.Arias@PaisLinux.net> (against 3.2)
+> I think some these shouldn't be forced here. Maybe plat->enh_desc could
+> be set because for new syn mac cores.
+> 
+> Also pmt could not be forced because it is an extra module so it could
+> happen that a new chip has no PMT block.
+I agree with you, But the new chips should/will have different version
+numbers, so having the version number in the compatible string should
+make it possible for cores without PMT module to not set pmt or any
+other properties.
 
-This looks fine, applied.
+Are you happy with the setting pmt based on compatible string or do you
+think passing pmt as another property to device tree makes more sense?
+
+Thanks,
+srini
+
