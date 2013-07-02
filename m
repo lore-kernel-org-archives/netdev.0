@@ -1,50 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] netem: use rb tree to implement the time queue
-Date: Mon, 01 Jul 2013 18:08:04 -0700 (PDT)
-Message-ID: <20130701.180804.2068659449166342971.davem@davemloft.net>
-References: <1372430457.3301.272.camel@edumazet-glaptop>
+Subject: Re: fix broken locking in x25 ioctl error paths
+Date: Mon, 01 Jul 2013 18:16:38 -0700 (PDT)
+Message-ID: <20130701.181638.1716586890151526311.davem@davemloft.net>
+References: <20130628151453.GA29428@redhat.com>
+	<20130628161352.GA16505@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: davej@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45934 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45967 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755452Ab3GBBII (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 21:08:08 -0400
-In-Reply-To: <1372430457.3301.272.camel@edumazet-glaptop>
+	with ESMTP id S1755304Ab3GBBQj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 21:16:39 -0400
+In-Reply-To: <20130628161352.GA16505@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 28 Jun 2013 07:40:57 -0700
+From: Dave Jones <davej@redhat.com>
+Date: Fri, 28 Jun 2013 12:13:52 -0400
 
-> From: Eric Dumazet <edumazet@google.com>
+> Two of the x25 ioctl cases have error paths that break out of the function without
+> unlocking the socket, leading to this warning:
 > 
-> Following typical setup to implement a ~100 ms RTT and big
-> amount of reorders has very poor performance because netem
-> implements the time queue using a linked list.
-> -----------------------------------------------------------
-> ETH=eth0
-> IFB=ifb0
-> modprobe ifb
-> ip link set dev $IFB up
-> tc qdisc add dev $ETH ingress 2>/dev/null
-> tc filter add dev $ETH parent ffff: \
->    protocol ip u32 match u32 0 0 flowid 1:1 action mirred egress \
->    redirect dev $IFB
-> ethtool -K $ETH gro off tso off gso off
-> tc qdisc add dev $IFB root netem delay 50ms 10ms limit 100000
-> tc qd add dev $ETH root netem delay 50ms limit 100000
-> ---------------------------------------------------------
+> ================================================
+> [ BUG: lock held when returning to user space! ]
+> 3.10.0-rc7+ #36 Not tainted
+> ------------------------------------------------
+> trinity-child2/31407 is leaving the kernel with locks still held!
+> 1 lock held by trinity-child2/31407:
+>  #0:  (sk_lock-AF_X25){+.+.+.}, at: [<ffffffffa024b6da>] x25_ioctl+0x8a/0x740 [x25]
 > 
-> Switch netem time queue to a rb tree, so this kind of setup can work at
-> high speed.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Signed-off-by: Dave Jones <davej@redhat.com>
 
-Looks good, nice work Eric, applied.
+Applied and queued up for -stable, thanks Dave.
 
-Let's see how long that skb->{prev,next} trick holds up ;-)
+In the future please prefix your patch subject lines with "$subsystem: ", for
+this I rewrote it as:
+
+x25: Fix broken locking in ioctl error paths.
+
+Thanks!
