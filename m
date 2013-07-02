@@ -1,138 +1,54 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH net] ipv6: ip6_append_data_mtu did not care about pmtudisc
- and frag_size
-Date: Tue, 02 Jul 2013 10:46:38 +0800
-Message-ID: <51D23F0E.3030104@cn.fujitsu.com>
-References: <20130701181742.GB8937@order.stressinduktion.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v2.34] datapath: Add basic MPLS support to kernel
+Date: Tue, 2 Jul 2013 13:16:28 +0900
+Message-ID: <20130702041628.GD14567@verge.net.au>
+References: <1372234717-8735-1-git-send-email-horms@verge.net.au>
+ <CAEP_g=-uMQuwK7=35XG8xrToFDoe8HS8yBK51tSWOipS0FdYtA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
+	Isaku Yamahata <yamahata@valinux.co.jp>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Jarno Rajahalme <jarno.rajahalme@nsn.com>,
+	Joe Stringer <joe@wand.net.nz>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:21434 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751429Ab3GBCpL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Jul 2013 22:45:11 -0400
-In-Reply-To: <20130701181742.GB8937@order.stressinduktion.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:60660 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750714Ab3GBEQb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 00:16:31 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=-uMQuwK7=35XG8xrToFDoe8HS8yBK51tSWOipS0FdYtA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/02/2013 02:17 AM, Hannes Frederic Sowa wrote:
-> If the socket had an IPV6_MTU value set, ip6_append_data_mtu lost track
-> of this when appending the second frame on a corked socket. This results
-> in the following splat:
+On Mon, Jul 01, 2013 at 04:42:46PM -0700, Jesse Gross wrote:
+> On Wed, Jun 26, 2013 at 1:18 AM, Simon Horman <horms@verge.net.au> wrote:
+> > Allow datapath to recognize and extract MPLS labels into flow keys
+> > and execute actions which push, pop, and set labels on packets.
+> >
+> > Based heavily on work by Leo Alterman, Ravi K, Isaku Yamahata and Joe Stringer.
+> >
+> > Cc: Ravi K <rkerur@gmail.com>
+> > Cc: Leo Alterman <lalterman@nicira.com>
+> > Cc: Isaku Yamahata <yamahata@valinux.co.jp>
+> > Cc: Joe Stringer <joe@wand.net.nz>
+> > Signed-off-by: Simon Horman <horms@verge.net.au>
 > 
-> [37598.993962] ------------[ cut here ]------------
-> [37598.994008] kernel BUG at net/core/skbuff.c:2064!
-> [37598.994008] invalid opcode: 0000 [#1] SMP
-> [37598.994008] Modules linked in: tcp_lp uvcvideo videobuf2_vmalloc videobuf2_memops videobuf2_core videodev media vfat fat usb_storage fuse ebtable_nat xt_CHECKSUM bridge stp llc ipt_MASQUERADE nf_conntrack_netbios_ns nf_conntrack_broadcast ip6table_mangle ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 iptable_nat
-> +nf_nat_ipv4 nf_nat iptable_mangle nf_conntrack_ipv4 nf_defrag_ipv4 xt_conntrack nf_conntrack ebtable_filter ebtables ip6table_filter ip6_tables be2iscsi iscsi_boot_sysfs bnx2i cnic uio cxgb4i cxgb4 cxgb3i cxgb3 mdio libcxgbi ib_iser rdma_cm ib_addr iw_cm ib_cm ib_sa ib_mad ib_core iscsi_tcp libiscsi_tcp libiscsi
-> +scsi_transport_iscsi rfcomm bnep iTCO_wdt iTCO_vendor_support snd_hda_codec_conexant arc4 iwldvm mac80211 snd_hda_intel acpi_cpufreq mperf coretemp snd_hda_codec microcode cdc_wdm cdc_acm
-> [37598.994008]  snd_hwdep cdc_ether snd_seq snd_seq_device usbnet mii joydev btusb snd_pcm bluetooth i2c_i801 e1000e lpc_ich mfd_core ptp iwlwifi pps_core snd_page_alloc mei cfg80211 snd_timer thinkpad_acpi snd tpm_tis soundcore rfkill tpm tpm_bios vhost_net tun macvtap macvlan kvm_intel kvm uinput binfmt_misc
-> +dm_crypt i915 i2c_algo_bit drm_kms_helper drm i2c_core wmi video
-> [37598.994008] CPU 0
-> [37598.994008] Pid: 27320, comm: t2 Not tainted 3.9.6-200.fc18.x86_64 #1 LENOVO 27744PG/27744PG
-> [37598.994008] RIP: 0010:[<ffffffff815443a5>]  [<ffffffff815443a5>] skb_copy_and_csum_bits+0x325/0x330
-> [37598.994008] RSP: 0018:ffff88003670da18  EFLAGS: 00010202
-> [37598.994008] RAX: ffff88018105c018 RBX: 0000000000000004 RCX: 00000000000006c0
-> [37598.994008] RDX: ffff88018105a6c0 RSI: ffff88018105a000 RDI: ffff8801e1b0aa00
-> [37598.994008] RBP: ffff88003670da78 R08: 0000000000000000 R09: ffff88018105c040
-> [37598.994008] R10: ffff8801e1b0aa00 R11: 0000000000000000 R12: 000000000000fff8
-> [37598.994008] R13: 00000000000004fc R14: 00000000ffff0504 R15: 0000000000000000
-> [37598.994008] FS:  00007f28eea59740(0000) GS:ffff88023bc00000(0000) knlGS:0000000000000000
-> [37598.994008] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> [37598.994008] CR2: 0000003d935789e0 CR3: 00000000365cb000 CR4: 00000000000407f0
-> [37598.994008] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> [37598.994008] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> [37598.994008] Process t2 (pid: 27320, threadinfo ffff88003670c000, task ffff88022c162ee0)
-> [37598.994008] Stack:
-> [37598.994008]  ffff88022e098a00 ffff88020f973fc0 0000000000000008 00000000000004c8
-> [37598.994008]  ffff88020f973fc0 00000000000004c4 ffff88003670da78 ffff8801e1b0a200
-> [37598.994008]  0000000000000018 00000000000004c8 ffff88020f973fc0 00000000000004c4
-> [37598.994008] Call Trace:
-> [37598.994008]  [<ffffffff815fc21f>] ip6_append_data+0xccf/0xfe0
-> [37598.994008]  [<ffffffff8158d9f0>] ? ip_copy_metadata+0x1a0/0x1a0
-> [37598.994008]  [<ffffffff81661f66>] ? _raw_spin_lock_bh+0x16/0x40
-> [37598.994008]  [<ffffffff8161548d>] udpv6_sendmsg+0x1ed/0xc10
-> [37598.994008]  [<ffffffff812a2845>] ? sock_has_perm+0x75/0x90
-> [37598.994008]  [<ffffffff815c3693>] inet_sendmsg+0x63/0xb0
-> [37598.994008]  [<ffffffff812a2973>] ? selinux_socket_sendmsg+0x23/0x30
-> [37598.994008]  [<ffffffff8153a450>] sock_sendmsg+0xb0/0xe0
-> [37598.994008]  [<ffffffff810135d1>] ? __switch_to+0x181/0x4a0
-> [37598.994008]  [<ffffffff8153d97d>] sys_sendto+0x12d/0x180
-> [37598.994008]  [<ffffffff810dfb64>] ? __audit_syscall_entry+0x94/0xf0
-> [37598.994008]  [<ffffffff81020ed1>] ? syscall_trace_enter+0x231/0x240
-> [37598.994008]  [<ffffffff8166a7e7>] tracesys+0xdd/0xe2
-> [37598.994008] Code: fe 07 00 00 48 c7 c7 04 28 a6 81 89 45 a0 4c 89 4d b8 44 89 5d a8 e8 1b ac b1 ff 44 8b 5d a8 4c 8b 4d b8 8b 45 a0 e9 cf fe ff ff <0f> 0b 66 0f 1f 84 00 00 00 00 00 66 66 66 66 90 55 48 89 e5 48
-> [37598.994008] RIP  [<ffffffff815443a5>] skb_copy_and_csum_bits+0x325/0x330
-> [37598.994008]  RSP <ffff88003670da18>
-> [37599.007323] ---[ end trace d69f6a17f8ac8eee ]---
-> 
-> While there, also check if path mtu discovery is activated for this
-> socket. The logic was adapted from ip6_append_data when first writing
-> on the corked socket.
-> 
-> This bug was introduced with commit
-> 0c1833797a5a6ec23ea9261d979aa18078720b74 ("ipv6: fix incorrect ipsec
-> fragment").
-> 
-> Cc: Gao feng <gaofeng@cn.fujitsu.com>
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
->  net/ipv6/ip6_output.c | 12 ++++++++----
->  1 file changed, 8 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-> index dae1949..7701735 100644
-> --- a/net/ipv6/ip6_output.c
-> +++ b/net/ipv6/ip6_output.c
-> @@ -1097,7 +1097,8 @@ static void ip6_append_data_mtu(int *mtu,
->  				int *maxfraglen,
->  				unsigned int fragheaderlen,
->  				struct sk_buff *skb,
-> -				struct rt6_info *rt)
-> +				struct rt6_info *rt,
-> +				struct ipv6_pinfo *np)
->  {
->  	if (!(rt->dst.flags & DST_XFRM_TUNNEL)) {
->  		if (skb == NULL) {
-> @@ -1109,7 +1110,11 @@ static void ip6_append_data_mtu(int *mtu,
->  			 * this fragment is not first, the headers
->  			 * space is regarded as data space.
->  			 */
-> -			*mtu = dst_mtu(rt->dst.path);
-> +			*mtu = (np->pmtudisc == IPV6_PMTUDISC_DO) ?
-> +				rt->dst.dev->mtu :
-> +				dst_mtu(rt->dst.path);
-> +			if (np->frag_size && np->frag_size < *mtu)
-> +				*mtu = np->frag_size;
+> Simon, have you thought any more about the header ordering issues? I
+> don't think we've reached a conclusion at this point.
 
+I believe that you then raised the issue of QinQ, which somehow
+I failed to respond to, I apologise for that.
 
-No need to pass ipv6_pinfo to ip6_append_data_mtu, the below is enough.
+In particular, my understanding is that you are concerned the code will
+miss-calculate the end of L2 headers in the presence of multiple VLAN tags.
+Thus resulting in an MPLS push action inserting an MPLS LSE after the first
+rather than the last VLAN tag. And that would likely change if QinQ support
+was added to Open vSwtich.
 
-*mtu = min(*mtu, (np->pmtudisc == IPV6_PMTUDISC_DO) ?
-				rt->dst.dev->mtu :
-				dst_mtu(rt->dst.path);
-
-This patch looks good go me.
-
-Acked-by: Gao feng <gaofeng@cn.fujitsu.com>
-
-Thanks!
->  		}
->  		*maxfraglen = ((*mtu - fragheaderlen) & ~7)
->  			      + fragheaderlen - sizeof(struct frag_hdr);
-> @@ -1287,8 +1292,7 @@ alloc_new_skb:
->  			/* update mtu and maxfraglen if necessary */
->  			if (skb == NULL || skb_prev == NULL)
->  				ip6_append_data_mtu(&mtu, &maxfraglen,
-> -						    fragheaderlen, skb, rt);
-> -
-> +						    fragheaderlen, skb, rt, np);
->  			skb_prev = skb;
->  
->  			/*
-> 
+I wonder if a good way forwards is to enhance the calculation
+of the end of L2 headers (mac_len) and the beginning of L3 headers
+(network_header) in ovs_flow_extract() such that it takes into
+account the presence of more than one VLAN tag.
