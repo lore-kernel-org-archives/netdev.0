@@ -1,85 +1,46 @@
-From: Michael Wang <wangyun@linux.vnet.ibm.com>
-Subject: Re: [PATCH v3 10/45] smp: Use get/put_online_cpus_atomic() to prevent
- CPU offline
-Date: Tue, 02 Jul 2013 13:32:58 +0800
-Message-ID: <51D2660A.8000401@linux.vnet.ibm.com>
-References: <20130627195136.29830.10445.stgit@srivatsabhat.in.ibm.com> <20130627195418.29830.34958.stgit@srivatsabhat.in.ibm.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH net] ipv6: ip6_append_data_mtu did not care about pmtudisc
+ and frag_size
+Date: Tue, 02 Jul 2013 13:42:24 +0800
+Message-ID: <51D26840.9070603@cn.fujitsu.com>
+References: <20130701181742.GB8937@order.stressinduktion.org> <51D23F0E.3030104@cn.fujitsu.com> <20130702051321.GB9877@order.stressinduktion.org> <20130702051841.GC9877@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
-	walken@google.com, vincent.guittot@linaro.org,
-	laijs@cn.fujitsu.com, David.Laight@aculab.com, rostedt@goodmis.org,
-	xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, fweisbec@gmail.com,
-	zhong@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
-	linux-pm@vger.kernel.org, linux-arch@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Wang YanQing <udknight@gmail.com>,
-	Shaohua Li <shli@fusionio.com>,
-	Jan Beulich <jbeulich@suse.com>,
-	liguang <lig.fnst@cn.fujitsu.com>
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <20130627195418.29830.34958.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:22641 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750887Ab3GBFk4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jul 2013 01:40:56 -0400
+In-Reply-To: <20130702051841.GC9877@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi, Srivatsa
-
-On 06/28/2013 03:54 AM, Srivatsa S. Bhat wrote:
-[snip]
-> @@ -625,8 +632,9 @@ EXPORT_SYMBOL(on_each_cpu_mask);
->   * The function might sleep if the GFP flags indicates a non
->   * atomic allocation is allowed.
->   *
-> - * Preemption is disabled to protect against CPUs going offline but not online.
-> - * CPUs going online during the call will not be seen or sent an IPI.
-> + * We use get/put_online_cpus_atomic() to protect against CPUs going
-> + * offline but not online. CPUs going online during the call will
-> + * not be seen or sent an IPI.
-
-I was a little confused about this comment, if the offline-cpu still
-have chances to become online, then there is chances that we will pick
-it from for_each_online_cpu(), isn't it? Did I miss some point?
-
-Regards,
-Michael Wang
-
->   *
->   * You must not call this function with disabled interrupts or
->   * from a hardware interrupt handler or from a bottom half handler.
-> @@ -641,26 +649,26 @@ void on_each_cpu_cond(bool (*cond_func)(int cpu, void *info),
->  	might_sleep_if(gfp_flags & __GFP_WAIT);
+On 07/02/2013 01:18 PM, Hannes Frederic Sowa wrote:
+> On Tue, Jul 02, 2013 at 07:13:21AM +0200, Hannes Frederic Sowa wrote:
+>> On Tue, Jul 02, 2013 at 10:46:38AM +0800, Gao feng wrote:
+>>> On 07/02/2013 02:17 AM, Hannes Frederic Sowa wrote:
+>>> No need to pass ipv6_pinfo to ip6_append_data_mtu, the below is enough.
+>>>
+>>> *mtu = min(*mtu, (np->pmtudisc == IPV6_PMTUDISC_DO) ?
+>>> 				rt->dst.dev->mtu :
+>>> 				dst_mtu(rt->dst.path);
+>>>
+>>> This patch looks good go me.
+>>>
+>>> Acked-by: Gao feng <gaofeng@cn.fujitsu.com>
+>>>
+>>> Thanks!
+>>
+>> Thanks for your feedback, I will incooperate it in my next version of
+>> the patch. Actually, I seem to have done an error in the above code,
+>> i need to replace IPV6_PMTUDISC_DO with IPV6_PMTUDISC_WANT. Does your
+>> Acked-by still hold?
 > 
->  	if (likely(zalloc_cpumask_var(&cpus, (gfp_flags|__GFP_NOWARN)))) {
-> -		preempt_disable();
-> +		get_online_cpus_atomic();
->  		for_each_online_cpu(cpu)
->  			if (cond_func(cpu, info))
->  				cpumask_set_cpu(cpu, cpus);
->  		on_each_cpu_mask(cpus, func, info, wait);
-> -		preempt_enable();
-> +		put_online_cpus_atomic();
->  		free_cpumask_var(cpus);
->  	} else {
->  		/*
->  		 * No free cpumask, bother. No matter, we'll
->  		 * just have to IPI them one by one.
->  		 */
-> -		preempt_disable();
-> +		get_online_cpus_atomic();
->  		for_each_online_cpu(cpu)
->  			if (cond_func(cpu, info)) {
->  				ret = smp_call_function_single(cpu, func,
->  								info, wait);
->  				WARN_ON_ONCE(!ret);
->  			}
-> -		preempt_enable();
-> +		put_online_cpus_atomic();
->  	}
->  }
->  EXPORT_SYMBOL(on_each_cpu_cond);
+> Erk, err, IPV6_PMTUDISC_PROBE was what i meant.
 > 
-
+> 
+Yes, IPV6_PMTUDISC_PROBE is more reasonable. you can hold my ack.
