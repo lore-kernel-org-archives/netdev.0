@@ -1,72 +1,63 @@
-From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
-Subject: Re: [PATCH RFC 2/3] dt:net:stmmac: Add support to dwmac version 3.610
- and 3.710
-Date: Tue, 02 Jul 2013 07:42:32 +0100
-Message-ID: <51D27658.1060806@st.com>
-References: <1372678962-12959-1-git-send-email-srinivas.kandagatla@st.com> <1372679034-13139-1-git-send-email-srinivas.kandagatla@st.com> <51D1BA52.3030201@st.com>
-Reply-To: srinivas.kandagatla@st.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Rob Landley <rob@landley.net>,
-	devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <51D1BA52.3030201@st.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net v2] ipip: fix a regression in ioctl
+Date: Tue,  2 Jul 2013 14:49:34 +0800
+Message-ID: <1372747774-28570-1-git-send-email-amwang@redhat.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59239 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932197Ab3GBGt5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jul 2013 02:49:57 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks Peppe for the comments,
-On 01/07/13 18:20, Giuseppe CAVALLARO wrote:
-> On 7/1/2013 1:43 PM, Srinivas KANDAGATLA wrote:
->> From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
->>
->> +
->> +    plat->bus_id = of_alias_get_id(np, "ethernet");
->> +    if (plat->bus_id < 0)
->> +        plat->bus_id = 0;
->> +
->> +    of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr);
->> +
->>       plat->mdio_bus_data = devm_kzalloc(&pdev->dev,
->>                          sizeof(struct stmmac_mdio_bus_data),
->>                          GFP_KERNEL);
->> @@ -51,11 +60,25 @@ static int stmmac_probe_config_dt(struct
->> platform_device *pdev,
->>        */
->>       if (of_device_is_compatible(np, "st,spear600-gmac") ||
->>           of_device_is_compatible(np, "snps,dwmac-3.70a") ||
->> +        of_device_is_compatible(np, "snps,dwmac-3.610") ||
-I forgot to add "snps,dwmac-3.710" to this list, I will do it in V2 patch.
+From: Cong Wang <amwang@redhat.com>
 
->>           of_device_is_compatible(np, "snps,dwmac")) {
->>           plat->has_gmac = 1;
->>           plat->pmt = 1;
->>       }
->>
->> +    if (of_device_is_compatible(np, "snps,dwmac-3.610") ||
->> +        of_device_is_compatible(np, "snps,dwmac-3.710")) {
->> +        plat->enh_desc = 1;
->> +        plat->bugged_jumbo = 1;
->> +        plat->force_sf_dma_mode = 1;
->> +    }
-> 
-> I think some these shouldn't be forced here. Maybe plat->enh_desc could
-> be set because for new syn mac cores.
-> 
-> Also pmt could not be forced because it is an extra module so it could
-> happen that a new chip has no PMT block.
-I agree with you, But the new chips should/will have different version
-numbers, so having the version number in the compatible string should
-make it possible for cores without PMT module to not set pmt or any
-other properties.
+This is a regression introduced by 
+commit fd58156e456d9f68fe0448 (IPIP: Use ip-tunneling code.)
 
-Are you happy with the setting pmt based on compatible string or do you
-think passing pmt as another property to device tree makes more sense?
+Similar to GRE tunnel, previously we only check the parameters
+for SIOCADDTUNNEL and SIOCCHGTUNNEL, after that commit, the
+check is moved for all commands.
 
-Thanks,
-srini
+So, just check for SIOCADDTUNNEL and SIOCCHGTUNNEL.
 
+Also, the check for i_key, o_key etc. is suspicious too,
+which did not exist before, reset them before passing
+to ip_tunnel_ioctl().
+
+Cc: Pravin B Shelar <pshelar@nicira.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+---
+v2: reset *_key and *_flags before passing them to ip_tunnel_ioctl
+
+ net/ipv4/ipip.c |   12 +++++++-----
+ 1 files changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index 77bfcce..7cfc456 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -240,11 +240,13 @@ ipip_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof(p)))
+ 		return -EFAULT;
+ 
+-	if (p.iph.version != 4 || p.iph.protocol != IPPROTO_IPIP ||
+-			p.iph.ihl != 5 || (p.iph.frag_off&htons(~IP_DF)))
+-		return -EINVAL;
+-	if (p.i_key || p.o_key || p.i_flags || p.o_flags)
+-		return -EINVAL;
++	if (cmd == SIOCADDTUNNEL || cmd == SIOCCHGTUNNEL) {
++		if (p.iph.version != 4 || p.iph.protocol != IPPROTO_IPIP ||
++		    p.iph.ihl != 5 || (p.iph.frag_off&htons(~IP_DF)))
++			return -EINVAL;
++	}
++
++	p.i_key = p.o_key = p.i_flags = p.o_flags = 0;
+ 	if (p.iph.ttl)
+ 		p.iph.frag_off |= htons(IP_DF);
+ 
