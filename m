@@ -1,47 +1,31 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-Subject: Re: [PATCH RFC 2/3] dt:net:stmmac: Add support to dwmac version 3.610
- and 3.710
-Date: Tue, 02 Jul 2013 10:04:33 +0200
-Message-ID: <51D28991.3050704@st.com>
-References: <1372678962-12959-1-git-send-email-srinivas.kandagatla@st.com>
- <1372679034-13139-1-git-send-email-srinivas.kandagatla@st.com>
- <51D1BA52.3030201@st.com> <51D27658.1060806@st.com>
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Subject: Re: [PATCH for/net-next 3/8] net/mlx5: Mellanox Connect-IB, core driver part 3/3
+Date: Tue, 2 Jul 2013 11:06:50 +0300
+Message-ID: <201307021106.51349.jackm@dev.mellanox.co.il>
+References: <1372256537-21328-4-git-send-email-ogerlitz@mellanox.com> <201307011444.55361.jackm@dev.mellanox.co.il> <20130701.121854.1781783893978810119.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>, Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-To: srinivas.kandagatla-qxv4g6HH51o@public.gmane.org
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <51D27658.1060806-qxv4g6HH51o@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: ogerlitz@mellanox.com, roland@kernel.org,
+	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+	eli@dev.mellanox.co.il, moshel@mellanox.com, eli@mellanox.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f170.google.com ([74.125.82.170]:52330 "EHLO
+	mail-we0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932139Ab3GBIFL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 04:05:11 -0400
+Received: by mail-we0-f170.google.com with SMTP id w57so4110668wes.29
+        for <netdev@vger.kernel.org>; Tue, 02 Jul 2013 01:05:09 -0700 (PDT)
+In-Reply-To: <20130701.121854.1781783893978810119.davem@davemloft.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 7/2/2013 8:42 AM, Srinivas KANDAGATLA wrote:
-> Are you happy with the setting pmt based on compatible string or do you
-> think passing pmt as another property to device tree makes more sense?
+On Monday 01 July 2013 22:18, David Miller wrote:
+> Actually, you should adjust both decrements to read "i--".
+> 
+OK, will do it.
 
-I prefer to pass pmt as another property but indeed this is not a big
-problem because all the new chips have the HW cap. register to fix
-at run-time the driver capability.
-
-This field, as others, was really useful on old mac generations where
-sometime the PMT was synthesized, sometime not.
-
-The code should be safe enough because if, for example,
-we have a new GMAC but w/o the extended module for PMT, so at probing
-time the driver will fix all by looking at the HW cap register and
-it will be never able to do WoL.
-
-ciao
-peppe
+-Jack
