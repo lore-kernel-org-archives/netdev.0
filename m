@@ -1,44 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2] net: cdc_ether: allow combined control and data
- interface
-Date: Mon, 01 Jul 2013 23:38:17 -0700 (PDT)
-Message-ID: <20130701.233817.1253947554176449518.davem@davemloft.net>
-References: <1372500186-23567-1-git-send-email-bjorn@mork.no>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next] ipip: fix a regression in ioctl
+Date: Tue, 02 Jul 2013 14:38:44 +0800
+Message-ID: <1372747124.13643.6.camel@cr0>
+References: <CALnjE+qoo3D6YDpZogPq8LOJLZxoOTLa73WJFHnH2MbnFB2f7Q@mail.gmail.com>
+	 <1372644681.2974.12.camel@cr0>
+	 <CALnjE+q5AW+6hwViLgh8CKScwP0uZao8r75B8_9h1unqKduO-w@mail.gmail.com>
+	 <20130701.233649.2100517070636126111.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
-To: bjorn-yOkvZcmFvRU@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1372500186-23567-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: pshelar@nicira.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:1941 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750857Ab3GBGi4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jul 2013 02:38:56 -0400
+In-Reply-To: <20130701.233649.2100517070636126111.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Date: Sat, 29 Jun 2013 12:03:06 +0200
+On Mon, 2013-07-01 at 23:36 -0700, David Miller wrote:
+> From: Pravin Shelar <pshelar@nicira.com>
+> >>
+> > ok, Then we shld reset these fields before passing them to ip_tunnels layer.
+> 
+> Someone please respin this to clear the fields instead, thanks!
 
-> Some Icera based Huawei modems handled by this driver are not
-> completely CDC ECM compliant, using the same USB interface for both
-> control and data. The CDC functional descriptors include a Union
-> naming this interface as both master and slave, so it is supportable
-> by relaxing the descriptor parsing in case these interfaces are
-> identical.
->=20
-> This has been tested on a Huawei K3806 and verified to add support
-> for that device.
->=20
-> Reported-and-tested-by: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-> ---
-> v2: Simplified unbind logic.  Thanks to Oliver Neukum
+I will send v2.
 
-Oliver if you could give this a quick review, that would be
-great.
-
-Thanks.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks!
