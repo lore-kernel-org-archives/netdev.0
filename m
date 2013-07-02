@@ -1,86 +1,115 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: PHC device sharing between PCI functions
-Date: Tue, 2 Jul 2013 16:17:42 +0100
-Message-ID: <1372778262.1919.12.camel@bwh-desktop.uk.level5networks.com>
-References: <1372697768.2083.21.camel@bwh-desktop.uk.level5networks.com>
-	 <20130702142420.GC14630@netboy>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers <linux-net-drivers@solarflare.com>,
-	netdev <netdev@vger.kernel.org>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:31583 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752550Ab3GBPRt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 11:17:49 -0400
-In-Reply-To: <20130702142420.GC14630@netboy>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shuah Khan <shuah.kh-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH] wireless: Convert mwifiex/pcie to dev_pm_ops from legacy pm ops
+Date: Tue,  2 Jul 2013 09:24:35 -0600
+Message-ID: <1372778675-2909-1-git-send-email-shuah.kh@samsung.com>
+Cc: Shuah Khan <shuah.kh-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	shuahkhan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, rjw-KKrjLPT3xs0@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-07-02 at 16:24 +0200, Richard Cochran wrote:
-> Ben,
-> 
-> I really don't understand what the use case is...
-> 
-> On Mon, Jul 01, 2013 at 05:56:08PM +0100, Ben Hutchings wrote:
-> > Future Solarflare NICs may allow multiple PCI functions to make use of a
-> > PTP hardware clock, but without a separate clock per function (probably
-> > only one per controller).
-> > 
-> > I understand that shared PTP hardware clocks already exist, but they
-> > usually have an independent existence as a separate PCI or platform
-> > device.  In this case the clock would be accessible through any of the
-> > PCI functions that also have a net device.
-> > 
-> > Options I see are:
-> > 
-> > 1. Instantiate a clock only for the first function.  But that would
-> > preclude making the clock available within multiple VMs and their host.
-> 
-> So, I guess PCI functions on one card may be divided up among the
-> guests in a VM environment?
+Convert the mwifiex/pci driver to use dev_pm_ops for power management and
+remove Legacy PM handling. This change re-uses existing suspend and resume
+interfaces for dev_pm_ops.
 
-Yes.  I don't know whether that's actually useful given the jitter that
-virtualisation tends to introduce, but I wouldn't want to close off the
-possibility.
+Signed-off-by: Shuah Khan <shuah.kh-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+---
+ drivers/net/wireless/mwifiex/pcie.c |   34 ++++++++++++++++++++++++++++------
+ 1 file changed, 28 insertions(+), 6 deletions(-)
 
-> Even if you did make your one clock visible to mutiple guests, still
-> only one would be able to adjust the clock, right?
-
-Yes.
-
-> And if so, then how will the mutiple, read-only MAC clocks help other
-> guests? Seems kinda useless to me.
-
-It would allow them to convert hardware timestamps or sync system time
-to NIC time.
+diff --git a/drivers/net/wireless/mwifiex/pcie.c b/drivers/net/wireless/mwifiex/pcie.c
+index 20c9c4c..b169318 100644
+--- a/drivers/net/wireless/mwifiex/pcie.c
++++ b/drivers/net/wireless/mwifiex/pcie.c
+@@ -85,7 +85,7 @@ static bool mwifiex_pcie_ok_to_access_hw(struct mwifiex_adapter *adapter)
+  * If already not suspended, this function allocates and sends a host
+  * sleep activate request to the firmware and turns off the traffic.
+  */
+-static int mwifiex_pcie_suspend(struct pci_dev *pdev, pm_message_t state)
++static int __mwifiex_pcie_suspend(struct pci_dev *pdev)
+ {
+ 	struct mwifiex_adapter *adapter;
+ 	struct pcie_service_card *card;
+@@ -112,6 +112,13 @@ static int mwifiex_pcie_suspend(struct pci_dev *pdev, pm_message_t state)
+ 	return 0;
+ }
  
-> > 3. Keep track of controllers in the driver, instantiate a 'platform
-> > device' for each of them, and instantiate a clock for each of them.
-> > This is a little weird, as it wouldn't have any obvious association to
-> > the PCI device hierarchy.  But it would let us control the lifetime of
-> > the clock devices independently of any one function.
-> 
-> I think clock and MAC must go hand in hand. Does one card appear as a
-> MAC in more than one VM?
-
-Yes, SR-IOV allows for up to 256 PCI functions (or even more) on a
-single endpoint (i.e. a single controller).  The hardware will
-filter/steer packets to and from the multiple functions based on the
-packet header.  In the current chip, hardware timestamping is limited to
-a single port and function, but the next generation should be less
-constrained.
-
-Ben.
-
-> > I prefer option 3 as I dislike introducing special cases, but I would be
-> > interested to hear your (or other people's) opinion on this.
-> 
-> Sorry, my brain just isn't letting any of this in.
-
++static int mwifiex_pcie_suspend(struct device *dev)
++{
++	struct pci_dev *pdev = to_pci_dev(dev);
++
++	return __mwifiex_pcie_suspend(pdev);
++}
++
+ /*
+  * Kernel needs to suspend all functions separately. Therefore all
+  * registered functions must have drivers with suspend and resume
+@@ -120,7 +127,7 @@ static int mwifiex_pcie_suspend(struct pci_dev *pdev, pm_message_t state)
+  * If already not resumed, this function turns on the traffic and
+  * sends a host sleep cancel request to the firmware.
+  */
+-static int mwifiex_pcie_resume(struct pci_dev *pdev)
++static int __mwifiex_pcie_resume(struct pci_dev *pdev)
+ {
+ 	struct mwifiex_adapter *adapter;
+ 	struct pcie_service_card *card;
+@@ -150,6 +157,13 @@ static int mwifiex_pcie_resume(struct pci_dev *pdev)
+ 
+ 	return 0;
+ }
++
++static int mwifiex_pcie_resume(struct device *dev)
++{
++	struct pci_dev *pdev = to_pci_dev(dev);
++
++	return __mwifiex_pcie_resume(pdev);
++}
+ #endif
+ 
+ /*
+@@ -213,7 +227,7 @@ static void mwifiex_pcie_remove(struct pci_dev *pdev)
+ 	if (user_rmmod) {
+ #ifdef CONFIG_PM
+ 		if (adapter->is_suspended)
+-			mwifiex_pcie_resume(pdev);
++			__mwifiex_pcie_resume(pdev);
+ #endif
+ 
+ 		for (i = 0; i < adapter->priv_num; i++)
+@@ -249,6 +263,14 @@ static DEFINE_PCI_DEVICE_TABLE(mwifiex_ids) = {
+ 
+ MODULE_DEVICE_TABLE(pci, mwifiex_ids);
+ 
++#ifdef CONFIG_PM
++/* Power Management Hooks */
++static const struct dev_pm_ops mwifiex_pcie_pm_ops = {
++	.suspend = mwifiex_pcie_suspend,
++	.resume = mwifiex_pcie_resume,
++};
++#endif
++
+ /* PCI Device Driver */
+ static struct pci_driver __refdata mwifiex_pcie = {
+ 	.name     = "mwifiex_pcie",
+@@ -256,9 +278,9 @@ static struct pci_driver __refdata mwifiex_pcie = {
+ 	.probe    = mwifiex_pcie_probe,
+ 	.remove   = mwifiex_pcie_remove,
+ #ifdef CONFIG_PM
+-	/* Power Management Hooks */
+-	.suspend  = mwifiex_pcie_suspend,
+-	.resume   = mwifiex_pcie_resume,
++	.driver   = {
++		.pm = &mwifiex_pcie_pm_ops,
++	},
+ #endif
+ };
+ 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
