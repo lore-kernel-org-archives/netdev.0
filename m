@@ -1,30 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 0/2] Rework SCTP debugging framework
-Date: Mon, 01 Jul 2013 23:22:38 -0700 (PDT)
-Message-ID: <20130701.232238.517938518280064094.davem@davemloft.net>
-References: <1372441780-9844-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [Patch net-next v3] gre: fix a regression in ioctl
+Date: Mon, 01 Jul 2013 23:36:01 -0700 (PDT)
+Message-ID: <20130701.233601.1074563806368770464.davem@davemloft.net>
+References: <CALnjE+qo33kqer_JQVwC+FDpmrSYpU2WkiYqeN6R11OWQkocug@mail.gmail.com>
+	<1372478579-6548-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: dborkman@redhat.com
+Cc: netdev@vger.kernel.org, pshelar@nicira.com
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47515 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47586 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932284Ab3GBGWj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 02:22:39 -0400
-In-Reply-To: <1372441780-9844-1-git-send-email-dborkman@redhat.com>
+	with ESMTP id S1750857Ab3GBGgC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 02:36:02 -0400
+In-Reply-To: <1372478579-6548-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Fri, 28 Jun 2013 19:49:38 +0200
+From: Cong Wang <amwang@redhat.com>
+Date: Sat, 29 Jun 2013 12:02:59 +0800
 
-> Please see patch 2 for a detailed description. Tested with lksctp-tools
-> suite and other stress tests. For the changes between v1-v4 please have
-> a look into the individual patches.
+> From: Cong Wang <amwang@redhat.com>
 > 
-> Thanks for feedback/comments to Vlad Yasevich, Neil Horman, Joe Perches,
-> Andy Shevchenko.
+> When testing GRE tunnel, I got:
+> 
+>  # ip tunnel show
+>  get tunnel gre0 failed: Invalid argument
+>  get tunnel gre1 failed: Invalid argument
+> 
+> This is a regression introduced by commit c54419321455631079c7d
+> ("GRE: Refactor GRE tunneling code.") because previously we
+> only check the parameters for SIOCADDTUNNEL and SIOCCHGTUNNEL,
+> after that commit, the check is moved for all commands.
+> 
+> So, just check for SIOCADDTUNNEL and SIOCCHGTUNNEL.
+> 
+> After this patch I got:
+> 
+>  # ip tunnel show
+>  gre0: gre/ip  remote any  local any  ttl inherit  nopmtudisc
+>  gre1: gre/ip  remote 192.168.122.101  local 192.168.122.45  ttl inherit 
+> 
+> Cc: Pravin B Shelar <pshelar@nicira.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Both applied, thanks Daniel.
+Applied and queued up for -stable, thanks.
