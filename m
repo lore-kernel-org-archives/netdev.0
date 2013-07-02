@@ -1,46 +1,101 @@
-From: Simon Derr <simon.derr@bull.net>
-Subject: [PATCH 05/10] 9P/RDMA: Protect against duplicate replies
-Date: Tue,  2 Jul 2013 15:11:19 +0200
-Message-ID: <1372770684-25573-6-git-send-email-simon.derr@bull.net>
-References: <1372770684-25573-1-git-send-email-simon.derr@bull.net>
-Cc: simon.derr@bull.net, ericvh@gmail.com
-To: netdev@vger.kernel.org
+From: <Narendra_K@Dell.com>
+Subject: Re: [PATCH v1 net-next] net: Add phys_port identifier to struct
+ net_device and export it to sysfs
+Date: Tue, 2 Jul 2013 07:09:04 -0700
+Message-ID: <20130702140859.GB11777@fedora18-dev.oslab.blr.amer.dell.com>
+References: <20130628152652.GA4247@fedora-17-guest.blr.amer.dell.com>
+ <1372709542.2083.61.camel@bwh-desktop.uk.level5networks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <netdev@vger.kernel.org>, <john.r.fastabend@intel.com>
+To: <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:40943 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751708Ab3GBNlp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 09:41:45 -0400
-In-Reply-To: <1372770684-25573-1-git-send-email-simon.derr@bull.net>
+Received: from ausc60pc101.us.dell.com ([143.166.85.206]:58881 "EHLO
+	ausc60pc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751889Ab3GBOPK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 10:15:10 -0400
+In-Reply-To: <1372709542.2083.61.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A well-behaved server would not send twice the reply to a request.
-But if it ever happens...
-This additional check prevents the kernel from leaking memory
-and possibly more nasty consequences in that unlikely event.
+On Tue, Jul 02, 2013 at 01:42:22AM +0530, Ben Hutchings wrote:
+> 
+> On Fri, 2013-06-28 at 20:57 +0530, Narendra_K@Dell.com wrote:
+> [...]
+> > --- a/include/linux/netdevice.h
+> > +++ b/include/linux/netdevice.h
+> > @@ -1062,6 +1062,14 @@ struct net_device_ops {
+> >                                                     bool new_carrier);
+> >  };
+> > 
+> > +/* This structure holds a universally unique identifier to
+> > + * identify the physical port used by a netdevice
+> > + */
+> > +struct port_identifier {
+> > +     unsigned char port_id[MAX_ADDR_LEN];
+> > +     unsigned port_id_len;
+> 
+> Was this meant to be unsigned (int) or unsigned char?  The length is
+> typed as unsigned char in show_phys_port().
 
-Signed-off-by: Simon Derr <simon.derr@bull.net>
----
- net/9p/trans_rdma.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
+Sorry, this change was by mistake. It is unsigned char. I will change
+it in the next version of the patch. Thank you for pointing out this.
 
-diff --git a/net/9p/trans_rdma.c b/net/9p/trans_rdma.c
-index b8b66d3..274a9c1 100644
---- a/net/9p/trans_rdma.c
-+++ b/net/9p/trans_rdma.c
-@@ -294,6 +294,13 @@ handle_recv(struct p9_client *client, struct p9_trans_rdma *rdma,
- 	if (!req)
- 		goto err_out;
- 
-+	/* Check that we have not yet received a reply for this request.
-+	 */
-+	if (unlikely(req->rc)) {
-+		pr_err("Duplicate reply for request %d", tag);
-+		goto err_out;
-+	}
-+
- 	req->rc = c->rc;
- 	req->status = REQ_STATUS_RCVD;
- 	p9_client_cb(client, req);
+> 
+> > +};
+> [...]
+> > --- a/net/core/net-sysfs.c
+> > +++ b/net/core/net-sysfs.c
+> > @@ -334,6 +334,27 @@ static ssize_t store_group(struct device *dev, struct
+> device_attribute *attr,
+> >       return netdev_store(dev, attr, buf, len, change_group);
+> >  }
+> > 
+> > +static ssize_t show_phys_port(struct device *dev,
+> > +                           struct device_attribute *attr, char *buf)
+> > +{
+> > +     struct net_device *net = to_net_dev(dev);
+> > +     ssize_t ret = -EINVAL;
+> > +     unsigned char len;
+> > +
+> > +     read_lock(&dev_base_lock);
+> > +     if (dev_isalive(net)) {
+> > +             len = net->phys_port.port_id_len;
+> > +             if (!len) {
+> > +                     read_unlock(&dev_base_lock);
+> > +                     return 0;
+> > +             }
+> 
+> I would write this as:
+>                 if (!len)
+>                         ret = 0;
+>                 else
+> so that the same exit path is used in all three cases.
+
+Ok. I will make this change in the next version of the patch. I will
+submit the next version when net-next opens.
+
+> 
+> Ben.
+> 
+> > +             ret = sysfs_format_mac(buf, net->phys_port.port_id, len);
+> > +     }
+> > +     read_unlock(&dev_base_lock);
+> > +
+> > +     return ret;
+> > +}
+> [...]
+> 
+> --
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+> 
+> 
+
 -- 
-1.7.2.2
+With regards,
+Narendra K
+Linux Engineering
+Dell Inc.
