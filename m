@@ -1,98 +1,86 @@
-From: <Narendra_K@Dell.com>
-Subject: Re: [PATCH net-next] net: Add phys_port identifier to struct
- net_device and export it to sysfs
-Date: Tue, 2 Jul 2013 07:40:40 -0700
-Message-ID: <20130702144018.GA11970@fedora18-dev.oslab.blr.amer.dell.com>
-References: <20130617181004.GA1364@fedora-17-guest.dell.com>
- <51BF59D8.10806@gmail.com>
- <E31FB011129F30488D5861F383904915210BB90367@BLRX7MCDC201.AMER.DELL.COM>
- <1371656194.1956.25.camel@bwh-desktop.uk.level5networks.com>
- <E31FB011129F30488D5861F383904915210BB9042A@BLRX7MCDC201.AMER.DELL.COM>
- <1371670481.1956.105.camel@bwh-desktop.uk.level5networks.com>
- <51C4892B.8000806@gmail.com>
- <E31FB011129F30488D5861F383904915210BC0481A@BLRX7MCDC201.AMER.DELL.COM>
- <51CDBAE9.1020807@gmail.com>
- <1372439353.1937.21.camel@bwh-desktop.uk.level5networks.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: PHC device sharing between PCI functions
+Date: Tue, 2 Jul 2013 16:17:42 +0100
+Message-ID: <1372778262.1919.12.camel@bwh-desktop.uk.level5networks.com>
+References: <1372697768.2083.21.camel@bwh-desktop.uk.level5networks.com>
+	 <20130702142420.GC14630@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <john.fastabend@gmail.com>, <netdev@vger.kernel.org>,
-	<john.r.fastabend@intel.com>
-To: <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-net-drivers <linux-net-drivers@solarflare.com>,
+	netdev <netdev@vger.kernel.org>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausxippc101.us.dell.com ([143.166.85.207]:36449 "EHLO
-	ausxippc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752165Ab3GBOo5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 10:44:57 -0400
-In-Reply-To: <1372439353.1937.21.camel@bwh-desktop.uk.level5networks.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:31583 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752550Ab3GBPRt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 11:17:49 -0400
+In-Reply-To: <20130702142420.GC14630@netboy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 28, 2013 at 10:39:13PM +0530, Ben Hutchings wrote:
+On Tue, 2013-07-02 at 16:24 +0200, Richard Cochran wrote:
+> Ben,
 > 
-> On Fri, 2013-06-28 at 09:33 -0700, John Fastabend wrote:
-[...]
-> > > John, I think it will be useful in the SRIOV scenario also when more
-> > than one VF from two NICs are assigned to the guest. phys_port would be
-> > helpful in choosing the correct slave interfaces when host details are
-> > not available.
-> >
-> > OK. But I'm not sure why you would assign two VFs from the same NIC
-> > to a guest? This doesn't seem like a good configuration for failover
-> > because if one VF fails it seems likely both will fail. Maybe there
-> > are some benefits for load balancing? Or my assumption both VFs will
-> > fail is wrong.
+> I really don't understand what the use case is...
 > 
-> I believe Narendra is trying to provide hints to the guest that would
-> allow it to avoid such broken bonding configurations.  But it is
-> certainly a good question why there would be two VFs assigned in the
-> first place.
+> On Mon, Jul 01, 2013 at 05:56:08PM +0100, Ben Hutchings wrote:
+> > Future Solarflare NICs may allow multiple PCI functions to make use of a
+> > PTP hardware clock, but without a separate clock per function (probably
+> > only one per controller).
+> > 
+> > I understand that shared PTP hardware clocks already exist, but they
+> > usually have an independent existence as a separate PCI or platform
+> > device.  In this case the clock would be accessible through any of the
+> > PCI functions that also have a net device.
+> > 
+> > Options I see are:
+> > 
+> > 1. Instantiate a clock only for the first function.  But that would
+> > preclude making the clock available within multiple VMs and their host.
 > 
-> I could imagine passing through two VFs for the same physical port that
-> have been assigned to different VLANs.  But then you wouldn't want to
-> bond two devices that are on different VLANs, whether or not they're
-> using the same port!
+> So, I guess PCI functions on one card may be divided up among the
+> guests in a VM environment?
 
-I was thinking of the following scenario in the guest. 
+Yes.  I don't know whether that's actually useful given the jitter that
+virtualisation tends to introduce, but I wouldn't want to close off the
+possibility.
 
-bond0 = NIC1 VF0 + NIC2 VF0
-bond1 = NIC1 VF1 + NIC2 VF1
+> Even if you did make your one clock visible to mutiple guests, still
+> only one would be able to adjust the clock, right?
 
-bond0 and bond1 are on different VLANs. The phys_port identifier hint
-would be helpful to the guest in selecting the correct slaves for the
-above configuration. Sorry if I missed any detail here.
+Yes.
 
-> 
-> > Anyways it does seem useful in the partitioning case with multiple
-> > physical functions.
+> And if so, then how will the mutiple, read-only MAC clocks help other
+> guests? Seems kinda useless to me.
 
-Yes, I agree. 
+It would allow them to convert hardware timestamps or sync system time
+to NIC time.
+ 
+> > 3. Keep track of controllers in the driver, instantiate a 'platform
+> > device' for each of them, and instantiate a clock for each of them.
+> > This is a little weird, as it wouldn't have any obvious association to
+> > the PCI device hierarchy.  But it would let us control the lifetime of
+> > the clock devices independently of any one function.
+> 
+> I think clock and MAC must go hand in hand. Does one card appear as a
+> MAC in more than one VM?
 
+Yes, SR-IOV allows for up to 256 PCI functions (or even more) on a
+single endpoint (i.e. a single controller).  The hardware will
+filter/steer packets to and from the multiple functions based on the
+packet header.  In the current chip, hardware timestamping is limited to
+a single port and function, but the next generation should be less
+constrained.
+
+Ben.
+
+> > I prefer option 3 as I dislike introducing special cases, but I would be
+> > interested to hear your (or other people's) opinion on this.
 > 
-> I was thinking it could also help to support the hybrid guest networking
-> mode.  In this mode, the guest gets a PV (e.g. virtio_net) device and a
-> VF bridged to the same physical port, and the VF can be removed before
-> the guest is migrated (and maybe reinserted if there's a VF available on
-> the new host) without a major disruption to the guest.  In that case the
-> guest *should* bond together the two net devices that have the same
-> physical port ID but different drivers.  This would require the physical
-> port ID to be propagated through macvtap/macvlan and virtio.
-> 
-> Ben.
-> 
-> --
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> Sorry, my brain just isn't letting any of this in.
 
 -- 
-With regards,
-Narendra K
-Linux Engineering
-Dell Inc.
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
