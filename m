@@ -1,31 +1,39 @@
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Subject: Re: [PATCH for/net-next 3/8] net/mlx5: Mellanox Connect-IB, core driver part 3/3
-Date: Tue, 2 Jul 2013 11:06:50 +0300
-Message-ID: <201307021106.51349.jackm@dev.mellanox.co.il>
-References: <1372256537-21328-4-git-send-email-ogerlitz@mellanox.com> <201307011444.55361.jackm@dev.mellanox.co.il> <20130701.121854.1781783893978810119.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next] net: ethernet: davinci_emac: remove redundant
+ dev_err call in davinci_emac_probe()
+Date: Tue, 02 Jul 2013 01:10:32 -0700 (PDT)
+Message-ID: <20130702.011032.1180173730234333060.davem@davemloft.net>
+References: <CAPgLHd8L_FW1rJLgBiRdof2irA7cWNchxnAJm+nBP4L46UxWMA@mail.gmail.com>
+	<51D2630B.9010600@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ogerlitz@mellanox.com, roland@kernel.org,
-	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-	eli@dev.mellanox.co.il, moshel@mellanox.com, eli@mellanox.com
-To: David Miller <davem@davemloft.net>
+Cc: weiyj.lk@gmail.com, grant.likely@linaro.org,
+	rob.herring@calxeda.com, prabhakar.csengg@gmail.com,
+	jiri@resnulli.us, nsekhar@ti.com, yongjun_wei@trendmicro.com.cn,
+	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org
+To: mugunthanvnm@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f170.google.com ([74.125.82.170]:52330 "EHLO
-	mail-we0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932139Ab3GBIFL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 04:05:11 -0400
-Received: by mail-we0-f170.google.com with SMTP id w57so4110668wes.29
-        for <netdev@vger.kernel.org>; Tue, 02 Jul 2013 01:05:09 -0700 (PDT)
-In-Reply-To: <20130701.121854.1781783893978810119.davem@davemloft.net>
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([149.20.54.216]:48231 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750851Ab3GBIKd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 04:10:33 -0400
+In-Reply-To: <51D2630B.9010600@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 01 July 2013 22:18, David Miller wrote:
-> Actually, you should adjust both decrements to read "i--".
-> 
-OK, will do it.
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Date: Tue, 2 Jul 2013 10:50:11 +0530
 
--Jack
+> On Tuesday 02 July 2013 06:27 AM, Wei Yongjun wrote:
+>> From: Wei Yongjun<yongjun_wei@trendmicro.com.cn>
+>>
+>> There is a error message within devm_ioremap_resource
+>> already, so remove the dev_err call to avoid redundant
+>> error message.
+>>
+>> Signed-off-by: Wei Yongjun<yongjun_wei@trendmicro.com.cn>
+> 
+> Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
+
+Applied, thanks everyone.
