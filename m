@@ -1,34 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: merge window is CLOSED
-Date: Tue, 02 Jul 2013 12:34:46 -0700 (PDT)
-Message-ID: <20130702.123446.590168992567263904.davem@davemloft.net>
-References: <20130701.131446.1966898867588132714.davem@davemloft.net>
-	<20130702182126.GA1648@minipsycho.orion>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jiri@resnulli.us
+From: James Chapman <jchapman@katalix.com>
+Subject: [PATCH v2 0/3] l2tp: make datapath sequence number handling RFC-compliant
+Date: Tue,  2 Jul 2013 20:28:57 +0100
+Message-ID: <1372793340-17883-1-git-send-email-jchapman@katalix.com>
+Cc: sergei.shtylyov@cogentembedded.com,
+	James Chapman <jchapman@katalix.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53167 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932804Ab3GBTet (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 15:34:49 -0400
-In-Reply-To: <20130702182126.GA1648@minipsycho.orion>
+Received: from katalix.com ([82.103.140.233]:42646 "EHLO bert.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755714Ab3GBT3k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jul 2013 15:29:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Tue, 2 Jul 2013 20:21:26 +0200
+L2TP data sequence numbers, if enabled, ensure in-order delivery. A
+receiver may reorder data packets, or simply drop out-of-sequence
+packets. If reordering is not enabled, the current implementation does
+not handle data packet loss correctly, which can result in a stalled
+L2TP session datapath as soon as the first packet is lost. Most L2TP
+users either disable sequence numbers or enable data packet reordering
+when sequence numbers are used to circumvent the issue. This patch
+series fixes the problem, and makes the L2TP sequence number handling
+RFC-compliant.
 
-> Mon, Jul 01, 2013 at 10:14:46PM CEST, davem@davemloft.net wrote:
->>
->>With the 3.10 release, the merge window is closed.
->>
->>If it's not a bug fix, and it isn't in patchwork right now, I
->>don't want to see it until net-next is openned again.
-> 
-> Dave, would you please take http://patchwork.ozlabs.org/patch/256304/
-> as bug fix since the original nlmon behaviour is not correct?
+v2 incorporates string format changes requested by sergei.shtylyov@cogentembedded.com.
 
-Since it's a bug fix, of course I will.
+James Chapman (3):
+  l2tp: do data sequence number handling in a separate func
+  l2tp: make datapath sequence number support RFC-compliant
+  l2tp: make datapath resilient to packet loss when sequence numbers
+    enabled
+
+ net/l2tp/l2tp_core.c |  114 +++++++++++++++++++++++++++++++++++++++----------
+ net/l2tp/l2tp_core.h |    5 ++
+ 2 files changed, 95 insertions(+), 24 deletions(-)
