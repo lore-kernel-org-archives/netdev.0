@@ -1,44 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: fix broken locking in x25 ioctl error paths
-Date: Mon, 01 Jul 2013 18:16:38 -0700 (PDT)
-Message-ID: <20130701.181638.1716586890151526311.davem@davemloft.net>
-References: <20130628151453.GA29428@redhat.com>
-	<20130628161352.GA16505@redhat.com>
+Subject: Re: [PATCH] net: Swap ver and type in pppoe_hdr
+Date: Mon, 01 Jul 2013 18:20:19 -0700 (PDT)
+Message-ID: <20130701.182019.1224478859800012860.davem@davemloft.net>
+References: <1372436151-61527-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: davej@redhat.com
+To: xiaosuo@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45967 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45985 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755304Ab3GBBQj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 21:16:39 -0400
-In-Reply-To: <20130628161352.GA16505@redhat.com>
+	with ESMTP id S1755787Ab3GBBUV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jul 2013 21:20:21 -0400
+In-Reply-To: <1372436151-61527-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dave Jones <davej@redhat.com>
-Date: Fri, 28 Jun 2013 12:13:52 -0400
+From: Changli Gao <xiaosuo@gmail.com>
+Date: Sat, 29 Jun 2013 00:15:51 +0800
 
-> Two of the x25 ioctl cases have error paths that break out of the function without
-> unlocking the socket, leading to this warning:
-> 
-> ================================================
-> [ BUG: lock held when returning to user space! ]
-> 3.10.0-rc7+ #36 Not tainted
-> ------------------------------------------------
-> trinity-child2/31407 is leaving the kernel with locks still held!
-> 1 lock held by trinity-child2/31407:
->  #0:  (sk_lock-AF_X25){+.+.+.}, at: [<ffffffffa024b6da>] x25_ioctl+0x8a/0x740 [x25]
-> 
-> Signed-off-by: Dave Jones <davej@redhat.com>
+> Ver and type in pppoe_hdr should be swapped as defined by RFC2516
+> section-4.
 
-Applied and queued up for -stable, thanks Dave.
+I can't believe this has been wrong for more than 8 years.
 
-In the future please prefix your patch subject lines with "$subsystem: ", for
-this I rewrote it as:
+But, of course, it is possible.  Especially since we never check these
+'ver' and 'type' fields on packet input, and we always set them both
+to the same value ('1') on output.
 
-x25: Fix broken locking in ioctl error paths.
-
-Thanks!
+Applied, thanks.
