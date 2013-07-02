@@ -1,168 +1,83 @@
-From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
-Subject: [PATCH v1 3/3] dt:net:stmmac: Add dt specific phy reset callback support.
-Date: Tue,  2 Jul 2013 14:04:53 +0100
-Message-ID: <1372770293-1821-1-git-send-email-srinivas.kandagatla@st.com>
-References: <1372770219-1643-1-git-send-email-srinivas.kandagatla@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Rob Landley <rob@landley.net>,
-	devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Srinivas Kandagatla <srinivas.kandagatla@st.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: rtnl_lock deadlock on 3.10
+Date: Tue, 2 Jul 2013 13:38:26 +0000 (UTC)
+Message-ID: <kqul4h$ib8$1@ger.gmane.org>
+References: <20130701145456.GA7756@sbohrermbp13-local.rgmadvisors.com>
+ <20130702082818.GA26178@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:54849 "EHLO
-	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751982Ab3GBNK4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 09:10:56 -0400
-In-Reply-To: <1372770219-1643-1-git-send-email-srinivas.kandagatla@st.com>
+Received: from plane.gmane.org ([80.91.229.3]:33395 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750976Ab3GBNin (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jul 2013 09:38:43 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Uu0n3-0000qI-67
+	for netdev@vger.kernel.org; Tue, 02 Jul 2013 15:38:41 +0200
+Received: from 182.246.110.202 ([182.246.110.202])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 02 Jul 2013 15:38:41 +0200
+Received: from xiyou.wangcong by 182.246.110.202 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 02 Jul 2013 15:38:41 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+On Tue, 02 Jul 2013 at 08:28 GMT, Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> On Mon, Jul 01, 2013 at 09:54:56AM -0500, Shawn Bohrer wrote:
+>> I've managed to hit a deadlock at boot a couple times while testing
+>> the 3.10 rc kernels.  It seems to always happen when my network
+>> devices are initializing.  This morning I updated to v3.10 and made a
+>> few config tweaks and so far I've hit it 4 out of 5 reboots.  It looks
+>> like most processes are getting stuck on rtnl_lock.  Below is a boot
+>> log with the soft lockup prints.  Please let know if there is any
+>> other information I can provide:
+>
+> Could you try a build with CONFIG_LOCKDEP enabled?
+>
 
-This patch adds phy reset callback support for stmmac driver via device
-trees. It adds three new properties to gmac device tree bindings to
-define the reset signal via gpio.
+The problem is clear: ib_register_device() is called with rtnl_lock,
+but itself needs device_mutex, however, ib_register_client() first
+acquires device_mutex, then indirectly calls register_netdev() which
+takes rtnl_lock. Deadlock!
 
-With this patch users can conveniently pass reset gpio number with pre,
-pulse and post delay in micro secs via DTs.
+One possible fix is always taking rtnl_lock before taking
+device_mutex, something like below:
 
- active low:
-		_________		 ____________
-	<pre-delay>	|<pulse-delay>	|<post-delay>
-		 	|		|
-		 	|_______________|
-
- active high:
- 			 ________________
-	<pre-delay>	|<pulse-delay>	|<post-delay>
-			|		|
-		________|		|___________
-
-Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
----
- Documentation/devicetree/bindings/net/stmmac.txt  |    6 +++
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |   50 ++++++++++++++++++++-
- include/linux/stmmac.h                            |    4 ++
- 3 files changed, 58 insertions(+), 2 deletions(-)
-
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index e1ddfcc..261c563 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -13,6 +13,12 @@ Required properties:
- - phy-mode: String, operation mode of the PHY interface.
-   Supported values are: "mii", "rmii", "gmii", "rgmii".
- - snps,phy-addr		phy address to connect to.
-+- snps,reset-gpio 	gpio number for phy reset.
-+- snps,reset-active-low boolean flag to indicate if phy reset is active low.
-+- snps,reset-delays-us  is triplet of delays
-+	The 1st cell is reset pre-delay in micro seconds.
-+	The 2nd cell is reset pulse in micro seconds.
-+	The 3rd cell is reset post-delay in micro seconds.
- - snps,pbl		Programmable Burst Length
- - snps,fixed-burst	Program the DMA to use the fixed burst mode
- - snps,mixed-burst	Program the DMA to use the mixed burst mode
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index cc15039..deb384e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -27,6 +27,9 @@
- #include <linux/mii.h>
- #include <linux/phy.h>
- #include <linux/slab.h>
-+#include <linux/of.h>
-+#include <linux/of_gpio.h>
-+
- #include <asm/io.h>
+diff --git a/drivers/infiniband/core/device.c b/drivers/infiniband/core/device.c
+index 18c1ece..890870b 100644
+--- a/drivers/infiniband/core/device.c
++++ b/drivers/infiniband/core/device.c
+@@ -381,6 +381,7 @@ int ib_register_client(struct ib_client *client)
+ {
+ 	struct ib_device *device;
  
- #include "stmmac.h"
-@@ -131,10 +134,47 @@ static int stmmac_mdio_reset(struct mii_bus *bus)
- 	struct net_device *ndev = bus->priv;
- 	struct stmmac_priv *priv = netdev_priv(ndev);
- 	unsigned int mii_address = priv->hw->mii.addr;
-+	struct device *dev = priv->device;
-+	struct stmmac_mdio_bus_data *data = priv->plat->mdio_bus_data;
-+
-+#ifdef CONFIG_OF
-+	if (dev->of_node) {
-+		int reset_gpio, active_low;
-+
-+		if (data->reset_gpio < 0) {
-+			struct device_node *np = dev->of_node;
-+			if (!np)
-+				return 0;
-+
-+			data->reset_gpio = of_get_named_gpio(np,
-+						"snps,reset-gpio", 0);
-+			if (data->reset_gpio < 0)
-+				return 0;
-+
-+			data->active_low = of_property_read_bool(np,
-+						"snps,reset-active-low");
-+			of_property_read_u32_array(np,
-+				"snps,reset-delays-us", data->delays, 3);
-+		}
-+
-+		reset_gpio = data->reset_gpio;
-+		active_low = data->active_low;
-+
-+		if (!gpio_request(reset_gpio, "mdio-reset")) {
-+			gpio_direction_output(reset_gpio, active_low ? 1 : 0);
-+			udelay(data->delays[0]);
-+			gpio_set_value(reset_gpio, active_low ? 0 : 1);
-+			udelay(data->delays[1]);
-+			gpio_set_value(reset_gpio, active_low ? 1 : 0);
-+			udelay(data->delays[2]);
-+			gpio_free(reset_gpio);
-+		}
-+	}
-+#endif
++	rtnl_lock();
+ 	mutex_lock(&device_mutex);
  
--	if (priv->plat->mdio_bus_data->phy_reset) {
-+	if (data->phy_reset) {
- 		pr_debug("stmmac_mdio_reset: calling phy_reset\n");
--		priv->plat->mdio_bus_data->phy_reset(priv->plat->bsp_priv);
-+		data->phy_reset(priv->plat->bsp_priv);
+ 	list_add_tail(&client->list, &client_list);
+@@ -389,6 +390,7 @@ int ib_register_client(struct ib_client *client)
+ 			client->add(device);
+ 
+ 	mutex_unlock(&device_mutex);
++	rtnl_unlock();
+ 
+ 	return 0;
+ }
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+index b6e049a..5a7a048 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+@@ -1609,7 +1609,7 @@ static struct net_device *ipoib_add_port(const char *format,
+ 		goto event_failed;
  	}
  
- 	/* This is a workaround for problems with the STE101P PHY.
-@@ -157,6 +197,7 @@ int stmmac_mdio_register(struct net_device *ndev)
- 	struct mii_bus *new_bus;
- 	int *irqlist;
- 	struct stmmac_priv *priv = netdev_priv(ndev);
-+	struct device *dev = priv->device;
- 	struct stmmac_mdio_bus_data *mdio_bus_data = priv->plat->mdio_bus_data;
- 	int addr, found;
- 
-@@ -172,6 +213,11 @@ int stmmac_mdio_register(struct net_device *ndev)
- 	else
- 		irqlist = priv->mii_irq;
- 
-+#ifdef CONFIG_OF
-+	if (dev->of_node)
-+		mdio_bus_data->reset_gpio = -1;
-+#endif
-+
- 	new_bus->name = "stmmac";
- 	new_bus->read = &stmmac_mdio_read;
- 	new_bus->write = &stmmac_mdio_write;
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index c1b3ed3..9e495d31 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -80,6 +80,10 @@ struct stmmac_mdio_bus_data {
- 	unsigned int phy_mask;
- 	int *irqs;
- 	int probed_phy_irq;
-+#ifdef CONFIG_OF
-+	int reset_gpio, active_low;
-+	u32 delays[3];
-+#endif
- };
- 
- struct stmmac_dma_cfg {
--- 
-1.7.6.5
+-	result = register_netdev(priv->dev);
++	result = register_netdevice(priv->dev);
+ 	if (result) {
+ 		printk(KERN_WARNING "%s: couldn't register ipoib port %d; error %d\n",
+ 		       hca->name, port, result);
