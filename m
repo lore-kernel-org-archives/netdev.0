@@ -1,70 +1,52 @@
-From: Pierre Emeriaud <petrus.lt@gmail.com>
-Subject: PROBLEM: Linux 3.9 more-specific ipv6 route ignored until next-hop is
- in neighbor cache
-Date: Wed, 3 Jul 2013 00:04:33 +0200
-Message-ID: <CA+PSOpyxWf2s_JscuBYfOAW9hVkSqqC1JwdRDQ4WtZrkneQf6A@mail.gmail.com>
+From: Thomas Zeitlhofer <thomas.zeitlhofer@nt.tuwien.ac.at>
+Subject: Re: tuntap regression in v3.9.8 and v3.10
+Date: Wed, 3 Jul 2013 00:06:51 +0200
+Message-ID: <20130702220651.GA23097@toau.bambla>
+References: <20130702195910.GA20271@toau.bambla>
+ <CAOMZO5B7Yx7tRy8Q5wi6ngcD0FDJzKXHOEGPXyUo52+f3oUHEg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:46195 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754797Ab3GBWEe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 18:04:34 -0400
-Received: by mail-ob0-f180.google.com with SMTP id eh20so6110981obb.25
-        for <netdev@vger.kernel.org>; Tue, 02 Jul 2013 15:04:33 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jasowang@redhat.com
+To: Fabio Estevam <festevam@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAOMZO5B7Yx7tRy8Q5wi6ngcD0FDJzKXHOEGPXyUo52+f3oUHEg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On Tue, Jul 02, 2013 at 06:01:12PM -0300, Fabio Estevam wrote:
+> On Tue, Jul 2, 2013 at 4:59 PM, Thomas Zeitlhofer
+> <thomas.zeitlhofer@nt.tuwien.ac.at> wrote:
+> > Commit "tuntap: set SOCK_ZEROCOPY flag during open" introduces a
+> > regression which is observed with live migration of qemu/kvm based
+> > virtual machines that are connected to an openvswitch bridge.
+> >
+> > Reverting this commit (b26c93c46a3dec25ed236d4ba6107eb4ed5d9401 in
+> > v3.9.8 and accordingly 19a6afb23e5d323e1245baa4e62755492b2f1200 in
+> > v3.10) fixes the following problem:
+> 
+> Should the sock_set_flag stay in tun_set_iff as it was prior to 54f968d6efd?
+> 
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1652,6 +1652,7 @@ static int tun_set_iff(struct net *net, struct
+> file *file, struct ifreq *ifr)
+>                 tun->txflt.count = 0;
+>                 tun->vnet_hdr_sz = sizeof(struct virtio_net_hdr);
+> 
+> +               sock_set_flag(&tfile->sk, SOCK_ZEROCOPY);
+>                 tun->filter_attached = false;
+>                 tun->sndbuf = tfile->socket.sk->sk_sndbuf;
+> 
+> @@ -2159,8 +2160,6 @@ static int tun_chr_open(struct inode *inode,
+> struct file * file)
+>         set_bit(SOCK_EXTERNALLY_ALLOCATED, &tfile->socket.flags);
+>         INIT_LIST_HEAD(&tfile->next);
+> 
+> -       sock_set_flag(&tfile->sk, SOCK_ZEROCOPY);
+> -
+>         return 0;
+>  }
 
-Linux 3.9 more-specific ipv6 route ignored until next-hop is in neighbor cache.
-
-When adding a route to 2000::/3 with a next-hop that is not in the
-neighbor cache, the route is not preferred over the default.
-
-Tested against 3.9.1-debian and 3.9.8-arch. Not able to reproduce with 3.8.0
-$ cat /proc/version
-Linux version 3.9.8-1-ARCH (tobias@testing-i686) (gcc version 4.8.1
-(GCC) ) #1 SMP PREEMPT Fri Jun 28 07:43:59 CEST 2013
-
-How to reproduce:
-
-# ip -6 route
-2001:db8:ee8c:180::/64 dev eth0  proto kernel  metric 256  expires 86176sec
-fe80::/64 dev eth0  proto kernel  metric 256
-fe80::/64 dev eth1  proto kernel  metric 256
-default via fe80::f6ca:e5ff:fe43:d114 dev eth0  proto ra  metric 1024
-expires 1576sec
-
-# ip -6 addr add 2001:db8::1/64 dev eth1
-# ip -6 route add 2000::/3 via 2001:db8::2/64
-
-$ ip -6 route show
-2001:db8::/64 dev eth1  proto kernel  metric 256
-2001:db8:ee8c:180::/64 dev eth0  proto kernel  metric 256  expires 86360sec
-2000::/3 via 2001:db8::2 dev eth1  metric 1024
-fe80::/64 dev eth0  proto kernel  metric 256
-fe80::/64 dev eth1  proto kernel  metric 256
-default via fe80::f6ca:e5ff:fe43:d114 dev eth0  proto ra  metric 1024
-expires 1760sec
-
-
-$ ip -6 route get 2a00:1450:4007:806::1001
-2a00:1450:4007:806::1001 from :: via fe80::f6ca:e5ff:fe43:d114 dev
-eth0  src 2001:db8:ee8c:180:21b:77ff:fe30:9e36  metric 0
-
-# ip -6 neig add 2001:db8::2 dev eth1 lladdr 86:74:4c:45:18:f2 nud permanent
-
-# ip -6 route get 2a00:1450:4007:806::1001
-2a00:1450:4007:806::1001 from :: via 2001:db8::2 dev eth1  src
-2001:db8::1  metric 0
-
-
-Workaround:
-Next hop has to be in the neighbor cache. Static or dynamic entry.
-Sending a ping6 to the next-hop works fine.
-
-
-Regards,
-Pierre.
+I guess no, as this also leads to a kernel panic (tested against v3.10).
