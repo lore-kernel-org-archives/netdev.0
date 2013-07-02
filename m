@@ -1,7 +1,7 @@
 From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH v6 1/7] ARM: dove: add gigabit ethernet and mvmdio device tree nodes
-Date: Tue,  2 Jul 2013 13:00:18 +0200
-Message-ID: <1372762824-12202-2-git-send-email-sebastian.hesselbarth@gmail.com>
+Subject: [PATCH v6 3/7] ARM: orion5x: add gigabit ethernet and mvmdio device tree nodes
+Date: Tue,  2 Jul 2013 13:00:20 +0200
+Message-ID: <1372762824-12202-4-git-send-email-sebastian.hesselbarth@gmail.com>
 References: <1372762824-12202-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
 	Russell King <linux@arm.linux.org.uk>,
@@ -17,10 +17,9 @@ In-Reply-To: <1372762824-12202-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds orion-eth and mvmdio device tree nodes for DT enabled
-Dove boards. As there is only one ethernet controller on Dove, a default
-phy node is also added with a note to set its reg property on a per-board
-basis.
+This patch adds mv643xx_eth and mvmdio device tree nodes for DT enabled
+Orion5x boards. Phy nodes are also added with reg property set on a
+per-board basis.
 
 Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 ---
@@ -37,35 +36,42 @@ Cc: linux-arm-kernel@lists.infradead.org
 Cc: linux-kernel@vger.kernel.org
 Cc: netdev@vger.kernel.org
 ---
- arch/arm/boot/dts/dove-cubox.dts |    7 +++++++
- arch/arm/boot/dts/dove.dtsi      |   35 +++++++++++++++++++++++++++++++++++
- 2 files changed, 42 insertions(+), 0 deletions(-)
+ .../dts/orion5x-lacie-ethernet-disk-mini-v2.dts    |   17 +++++++++++
+ arch/arm/boot/dts/orion5x.dtsi                     |   29 ++++++++++++++++++++
+ 2 files changed, 46 insertions(+), 0 deletions(-)
 
-diff --git a/arch/arm/boot/dts/dove-cubox.dts b/arch/arm/boot/dts/dove-cubox.dts
-index 5cae2ab..955188f 100644
---- a/arch/arm/boot/dts/dove-cubox.dts
-+++ b/arch/arm/boot/dts/dove-cubox.dts
-@@ -57,6 +57,13 @@
- 
- &uart0 { status = "okay"; };
- &sata0 { status = "okay"; };
-+&mdio { status = "okay"; };
-+&eth { status = "okay"; };
+diff --git a/arch/arm/boot/dts/orion5x-lacie-ethernet-disk-mini-v2.dts b/arch/arm/boot/dts/orion5x-lacie-ethernet-disk-mini-v2.dts
+index 0077fc8..aed83de 100644
+--- a/arch/arm/boot/dts/orion5x-lacie-ethernet-disk-mini-v2.dts
++++ b/arch/arm/boot/dts/orion5x-lacie-ethernet-disk-mini-v2.dts
+@@ -53,3 +53,20 @@
+ 		};
+ 	};
+ };
 +
-+&ethphy {
-+	compatible = "marvell,88e1310";
-+	reg = <1>;
++&mdio {
++	status = "okay";
++
++	ethphy: ethernet-phy {
++		device-type = "ethernet-phy";
++		reg = <8>;
++	};
 +};
- 
- &i2c0 {
- 	status = "okay";
-diff --git a/arch/arm/boot/dts/dove.dtsi b/arch/arm/boot/dts/dove.dtsi
-index 2cef34f..5e394a6 100644
---- a/arch/arm/boot/dts/dove.dtsi
-+++ b/arch/arm/boot/dts/dove.dtsi
-@@ -256,5 +256,40 @@
- 				dmacap,xor;
- 			};
++
++&eth {
++	status = "okay";
++
++	ethernet-port@0 {
++		phy-handle = <&ethphy>;
++	};
++};
+diff --git a/arch/arm/boot/dts/orion5x.dtsi b/arch/arm/boot/dts/orion5x.dtsi
+index f82ece7..2d241fc 100644
+--- a/arch/arm/boot/dts/orion5x.dtsi
++++ b/arch/arm/boot/dts/orion5x.dtsi
+@@ -131,5 +131,34 @@
+ 			interrupts = <28>;
+ 			status = "okay";
  		};
 +
 +		mdio: mdio-bus@72004 {
@@ -73,14 +79,10 @@ index 2cef34f..5e394a6 100644
 +			#address-cells = <1>;
 +			#size-cells = <0>;
 +			reg = <0x72004 0x84>;
-+			interrupts = <30>;
-+			clocks = <&gate_clk 2>;
++			interrupts = <22>;
 +			status = "disabled";
 +
-+			ethphy: ethernet-phy {
-+				device-type = "ethernet-phy";
-+				/* set phy address in board file */
-+			};
++			/* add phy nodes in board file */
 +		};
 +
 +		eth: ethernet-controller@72000 {
@@ -88,7 +90,6 @@ index 2cef34f..5e394a6 100644
 +			#address-cells = <1>;
 +			#size-cells = <0>;
 +			reg = <0x72000 0x4000>;
-+			clocks = <&gate_clk 2>;
 +			marvell,tx-checksum-limit = <1600>;
 +			status = "disabled";
 +
@@ -96,10 +97,9 @@ index 2cef34f..5e394a6 100644
 +				device_type = "network";
 +				compatible = "marvell,orion-eth-port";
 +				reg = <0>;
-+				interrupts = <29>;
 +				/* overwrite MAC address in bootloader */
 +				local-mac-address = [00 00 00 00 00 00];
-+				phy-handle = <&ethphy>;
++				/* set phy-handle property in board file */
 +			};
 +		};
  	};
