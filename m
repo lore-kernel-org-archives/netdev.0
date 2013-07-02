@@ -1,115 +1,63 @@
-From: Shuah Khan <shuah.kh-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH] wireless: Convert mwifiex/pcie to dev_pm_ops from legacy pm ops
-Date: Tue,  2 Jul 2013 09:24:35 -0600
-Message-ID: <1372778675-2909-1-git-send-email-shuah.kh@samsung.com>
-Cc: Shuah Khan <shuah.kh-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	shuahkhan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, rjw-KKrjLPT3xs0@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] pkt_sched: rate overflow fix
+Date: Tue, 02 Jul 2013 08:32:21 -0700
+Message-ID: <1372779141.4979.7.camel@edumazet-glaptop>
+References: <51D2ADFA.1090208@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	chenweilong@huawei.com, David Howells <dhowells@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Yang Yingliang <yangyingliang@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51D2ADFA.1090208@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Convert the mwifiex/pci driver to use dev_pm_ops for power management and
-remove Legacy PM handling. This change re-uses existing suspend and resume
-interfaces for dev_pm_ops.
+On Tue, 2013-07-02 at 18:39 +0800, Yang Yingliang wrote:
+> Use bonding to aggregate two 82599 nics which have 4 ports and max rate is 40gbit.
+> Then set rate to 35gbit, the rate is overflow.
+> 
+> tc qdisc add dev $bond root handle 1: \
+> tbf latency 50ms burst 35mb rate 35gbit mtu 64k
+> 
+> tc qdisc show dev $bond
+> qdisc tbf 1: root refcnt 2 rate 640262Kbit burst 35Mb lat 50.0ms
+> 
+> iperf -c host -t 30 -i 10
+> [ ID] Interval       Transfer     Bandwidth
+> [  3]  0.0-10.0 sec   764 MBytes   641 Mbits/sec
+> [  3] 10.0-20.0 sec   730 MBytes   612 Mbits/sec
+> 
+> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+> ---
+>  include/uapi/linux/pkt_sched.h | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
+> index 32aef0a..261042c 100644
+> --- a/include/uapi/linux/pkt_sched.h
+> +++ b/include/uapi/linux/pkt_sched.h
+> @@ -79,7 +79,7 @@ struct tc_ratespec {
+>         unsigned short  overhead;
+>         short           cell_align;
+>         unsigned short  mpu;
+> -       __u32           rate;
+> +       __u64           rate;
+>  };
+> 
+>  #define TC_RTAB_SIZE   1024
 
-Signed-off-by: Shuah Khan <shuah.kh-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
----
- drivers/net/wireless/mwifiex/pcie.c |   34 ++++++++++++++++++++++++++++------
- 1 file changed, 28 insertions(+), 6 deletions(-)
+OK, you just broke all previous tc binaries.
 
-diff --git a/drivers/net/wireless/mwifiex/pcie.c b/drivers/net/wireless/mwifiex/pcie.c
-index 20c9c4c..b169318 100644
---- a/drivers/net/wireless/mwifiex/pcie.c
-+++ b/drivers/net/wireless/mwifiex/pcie.c
-@@ -85,7 +85,7 @@ static bool mwifiex_pcie_ok_to_access_hw(struct mwifiex_adapter *adapter)
-  * If already not suspended, this function allocates and sends a host
-  * sleep activate request to the firmware and turns off the traffic.
-  */
--static int mwifiex_pcie_suspend(struct pci_dev *pdev, pm_message_t state)
-+static int __mwifiex_pcie_suspend(struct pci_dev *pdev)
- {
- 	struct mwifiex_adapter *adapter;
- 	struct pcie_service_card *card;
-@@ -112,6 +112,13 @@ static int mwifiex_pcie_suspend(struct pci_dev *pdev, pm_message_t state)
- 	return 0;
- }
- 
-+static int mwifiex_pcie_suspend(struct device *dev)
-+{
-+	struct pci_dev *pdev = to_pci_dev(dev);
-+
-+	return __mwifiex_pcie_suspend(pdev);
-+}
-+
- /*
-  * Kernel needs to suspend all functions separately. Therefore all
-  * registered functions must have drivers with suspend and resume
-@@ -120,7 +127,7 @@ static int mwifiex_pcie_suspend(struct pci_dev *pdev, pm_message_t state)
-  * If already not resumed, this function turns on the traffic and
-  * sends a host sleep cancel request to the firmware.
-  */
--static int mwifiex_pcie_resume(struct pci_dev *pdev)
-+static int __mwifiex_pcie_resume(struct pci_dev *pdev)
- {
- 	struct mwifiex_adapter *adapter;
- 	struct pcie_service_card *card;
-@@ -150,6 +157,13 @@ static int mwifiex_pcie_resume(struct pci_dev *pdev)
- 
- 	return 0;
- }
-+
-+static int mwifiex_pcie_resume(struct device *dev)
-+{
-+	struct pci_dev *pdev = to_pci_dev(dev);
-+
-+	return __mwifiex_pcie_resume(pdev);
-+}
- #endif
- 
- /*
-@@ -213,7 +227,7 @@ static void mwifiex_pcie_remove(struct pci_dev *pdev)
- 	if (user_rmmod) {
- #ifdef CONFIG_PM
- 		if (adapter->is_suspended)
--			mwifiex_pcie_resume(pdev);
-+			__mwifiex_pcie_resume(pdev);
- #endif
- 
- 		for (i = 0; i < adapter->priv_num; i++)
-@@ -249,6 +263,14 @@ static DEFINE_PCI_DEVICE_TABLE(mwifiex_ids) = {
- 
- MODULE_DEVICE_TABLE(pci, mwifiex_ids);
- 
-+#ifdef CONFIG_PM
-+/* Power Management Hooks */
-+static const struct dev_pm_ops mwifiex_pcie_pm_ops = {
-+	.suspend = mwifiex_pcie_suspend,
-+	.resume = mwifiex_pcie_resume,
-+};
-+#endif
-+
- /* PCI Device Driver */
- static struct pci_driver __refdata mwifiex_pcie = {
- 	.name     = "mwifiex_pcie",
-@@ -256,9 +278,9 @@ static struct pci_driver __refdata mwifiex_pcie = {
- 	.probe    = mwifiex_pcie_probe,
- 	.remove   = mwifiex_pcie_remove,
- #ifdef CONFIG_PM
--	/* Power Management Hooks */
--	.suspend  = mwifiex_pcie_suspend,
--	.resume   = mwifiex_pcie_resume,
-+	.driver   = {
-+		.pm = &mwifiex_pcie_pm_ops,
-+	},
- #endif
- };
- 
--- 
-1.7.10.4
+I wonder why people keep posting such buggy patches, while we are slowly
+doing all the right changes for this problem, in the kernel and
+userland.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Guys, if it was that simple, we would have done it years ago.
+
+In the mean time, I suggest you update your iproute2 package to include
+the fix for this problem (commit a303853e844ce4
+"get_rate: detect 32bit overflows")
