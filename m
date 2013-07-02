@@ -1,37 +1,81 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH -next] net: ethernet: davinci_emac: remove redundant dev_err
- call in davinci_emac_probe()
-Date: Tue, 2 Jul 2013 10:50:11 +0530
-Message-ID: <51D2630B.9010600@ti.com>
-References: <CAPgLHd8L_FW1rJLgBiRdof2irA7cWNchxnAJm+nBP4L46UxWMA@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH net-next v3 1/3] sh_eth: add support for gpio reset
+Date: Tue, 2 Jul 2013 14:25:00 +0900
+Message-ID: <20130702052458.GA23507@verge.net.au>
+References: <1372652695-16606-1-git-send-email-horms+renesas@verge.net.au>
+ <1372652695-16606-2-git-send-email-horms+renesas@verge.net.au>
+ <51D19122.6030409@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <grant.likely@linaro.org>, <rob.herring@calxeda.com>,
-	<davem@davemloft.net>, <prabhakar.csengg@gmail.com>,
-	<jiri@resnulli.us>, <nsekhar@ti.com>,
-	<yongjun_wei@trendmicro.com.cn>, <netdev@vger.kernel.org>,
-	<devicetree-discuss@lists.ozlabs.org>
-To: Wei Yongjun <weiyj.lk@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:43538 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751488Ab3GBFSo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Jul 2013 01:18:44 -0400
-In-Reply-To: <CAPgLHd8L_FW1rJLgBiRdof2irA7cWNchxnAJm+nBP4L46UxWMA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	Magnus Damm <magnus.damm@gmail.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <51D19122.6030409@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 02 July 2013 06:27 AM, Wei Yongjun wrote:
-> From: Wei Yongjun<yongjun_wei@trendmicro.com.cn>
->
-> There is a error message within devm_ioremap_resource
-> already, so remove the dev_err call to avoid redundant
-> error message.
->
-> Signed-off-by: Wei Yongjun<yongjun_wei@trendmicro.com.cn>
+On Mon, Jul 01, 2013 at 06:24:34PM +0400, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 01-07-2013 8:24, Simon Horman wrote:
+> 
+> >Allow reset using a GPIO. In order to use this set the following
+> >in the device's platform data:
+> 
+> >	needs_gpio_reset = 1
+> >	reset_gpio = GPIO pin to use
+> 
+> >This patch is motivated by the lager board which uses the r8a7790 SoC
+> >which has a GPIO pin to reset its sh_eth device.
+> 
+> >Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> 
+> >--
+> 
+> >v2
+> >* First post
+> >---
+> >  drivers/net/ethernet/renesas/sh_eth.c | 4 ++++
+> >  include/linux/sh_eth.h                | 3 +++
+> >  2 files changed, 7 insertions(+)
+> 
+> >diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> >index 7732f11..0253f61 100644
+> >--- a/drivers/net/ethernet/renesas/sh_eth.c
+> >+++ b/drivers/net/ethernet/renesas/sh_eth.c
+> [...]
+> >@@ -2652,6 +2653,9 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+> >  		ndev->features = NETIF_F_HW_VLAN_CTAG_FILTER;
+> >  	}
+> >
+> >+	if (pd->needs_gpio_reset)
+> >+		gpio_request_one(pd->reset_gpio, GPIOF_OUT_INIT_HIGH, NULL);
+> 
+>    Is reset signal active low or active high? Are you asserting or
+> releasing it?
 
-Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
+Good point.
 
-Regards
-Mugunthan V N
+I'm not sure that the documentation that I have is sufficient to answer that.
+Empirically it seems that this change isn't strictly necessary, so perhaps
+it would be best to drop it for now.
+
+> 
+> >diff --git a/include/linux/sh_eth.h b/include/linux/sh_eth.h
+> >index fc30571..b3f1550 100644
+> >--- a/include/linux/sh_eth.h
+> >+++ b/include/linux/sh_eth.h
+> >@@ -22,6 +22,9 @@ struct sh_eth_plat_data {
+> >  	unsigned no_ether_link:1;
+> >  	unsigned ether_link_active_low:1;
+> >  	unsigned needs_init:1;
+> >+	unsigned needs_gpio_reset:1;
+> >+
+> >+	unsigned reset_gpio;	/* Used if needs_gpio_reset is true */
+> 
+>    s/true/1/.
+> 
+> WBR, Sergei
+> 
