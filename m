@@ -1,50 +1,42 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH] pkt_sched: rate overflow fix
-Date: Tue, 2 Jul 2013 18:39:54 +0800
-Message-ID: <51D2ADFA.1090208@huawei.com>
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: [PATCH RFC] cdc_ncm.c: make rx and tx functions exportable
+Date: Tue, 2 Jul 2013 12:43:40 +0200 (CEST)
+Message-ID: <alpine.LNX.2.02.1307021241380.8884@eeeadesso>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Howells <dhowells@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	<chenweilong@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
+To: bjorn@mork.no, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:55462 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750772Ab3GBKnU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 06:43:20 -0400
+Received: by mail-wi0-f177.google.com with SMTP id ey16so4058365wid.16
+        for <netdev@vger.kernel.org>; Tue, 02 Jul 2013 03:43:19 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use bonding to aggregate two 82599 nics which have 4 ports and max rate is 40gbit.
-Then set rate to 35gbit, the rate is overflow.
+This patch factors out rx and tx fixup functions from cdc_ncm.c driver.
+This will be useful once implementing a specific driverto handle huawei 
+specific ncm implementation.
 
-tc qdisc add dev $bond root handle 1: \
-tbf latency 50ms burst 35mb rate 35gbit mtu 64k
 
-tc qdisc show dev $bond
-qdisc tbf 1: root refcnt 2 rate 640262Kbit burst 35Mb lat 50.0ms
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 43afde8..7fdd7b9 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -885,6 +885,7 @@ error:
 
-iperf -c host -t 30 -i 10
-[ ID] Interval       Transfer     Bandwidth
-[  3]  0.0-10.0 sec   764 MBytes   641 Mbits/sec
-[  3] 10.0-20.0 sec   730 MBytes   612 Mbits/sec
+  	return NULL;
+  }
++EXPORT_SYMBOL_GPL(cdc_ncm_tx_fixup);
 
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
----
- include/uapi/linux/pkt_sched.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+  /* verify NTB header and return offset of first NDP, or negative error */
+  int cdc_ncm_rx_verify_nth16(struct cdc_ncm_ctx *ctx, struct sk_buff *skb_in)
+@@ -1040,6 +1041,7 @@ err_ndp:
+  error:
+  	return 0;
+  }
++EXPORT_SYMBOL_GPL(cdc_ncm_rx_fixup);
 
-diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
-index 32aef0a..261042c 100644
---- a/include/uapi/linux/pkt_sched.h
-+++ b/include/uapi/linux/pkt_sched.h
-@@ -79,7 +79,7 @@ struct tc_ratespec {
-        unsigned short  overhead;
-        short           cell_align;
-        unsigned short  mpu;
--       __u32           rate;
-+       __u64           rate;
- };
-
- #define TC_RTAB_SIZE   1024
--- 
-1.7.12
+  static void
+  cdc_ncm_speed_change(struct cdc_ncm_ctx *ctx,
