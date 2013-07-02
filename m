@@ -1,27 +1,29 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [patch net-next v2] nlmon: use standard rtnetlink link api for
- add/del devices
-Date: Tue, 02 Jul 2013 21:47:03 +0200
-Message-ID: <51D32E37.4080905@redhat.com>
-References: <1372755331-1267-1-git-send-email-jiri@resnulli.us>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] sctp: Don't lookup dst if transport dst is still
+ valid
+Date: Tue, 02 Jul 2013 12:47:50 -0700 (PDT)
+Message-ID: <20130702.124750.1357592020126802332.davem@davemloft.net>
+References: <1372747174-23580-1-git-send-email-fan.du@windriver.com>
+	<51D2E3C8.5050100@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: fan.du@windriver.com, nhorman@tuxdriver.com,
+	nicolas.dichtel@6wind.com, netdev@vger.kernel.org
+To: vyasevich@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38425 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754961Ab3GBTrJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Jul 2013 15:47:09 -0400
-In-Reply-To: <1372755331-1267-1-git-send-email-jiri@resnulli.us>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53296 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754231Ab3GBTrv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 15:47:51 -0400
+In-Reply-To: <51D2E3C8.5050100@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/02/2013 10:55 AM, Jiri Pirko wrote:
-> It is not nice when netdev is created right after module load and with
-> some implicit name. So rather change nlmon to use standard rtnl link API.
->
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Date: Tue, 02 Jul 2013 10:29:28 -0400
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+> I think it would be better if we stored the dst_cookie in the
+> transport structure and initialized it at lookup time.
+
+Agreed, that is the proper fix for this problem.
