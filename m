@@ -1,95 +1,161 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: Re: [PATCH net-next v2 1/1] net: fec: Add VLAN receive HW support.
-Date: Tue, 2 Jul 2013 10:39:31 +0100
-Message-ID: <51D29FD3.5030804@mentor.com>
-References: <Jim_Baxter_<jim_baxter@mentor.com> <1372428503-13744-1-git-send-email-jim_baxter@mentor.com> <20130701.170929.2145379004044730481.davem@davemloft.net>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: [PATCH v2 net-next] net: convert lls to use time_in_range()
+Date: Tue, 02 Jul 2013 12:49:58 +0300
+Message-ID: <51D2A246.3000705@linux.intel.com>
+References: <20130628125918.14419.36214.stgit@ladj378.jer.intel.com> <20130701.140833.1705666564717621661.davem@davemloft.net> <51D2919F.7050007@linux.intel.com> <51D29329.4060004@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <Frank.Li@freescale.com>, <B38611@freescale.com>,
-	<fabio.estevam@freescale.com>, <l.stach@pengutronix.de>,
-	<shawn.guo@linaro.org>, <netdev@vger.kernel.org>,
-	<bhutchings@solarflare.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	willemb@google.com, erdnetdev@gmail.com, andi@firstfloor.org,
+	hpa@zytor.com, devel-lists@codyps.com, eliezer@tamir.org.il
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:38767 "EHLO
-	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932250Ab3GBJjg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 05:39:36 -0400
-In-Reply-To: <20130701.170929.2145379004044730481.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51D29329.4060004@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/07/13 01:09, David Miller wrote:
-> From: Jim Baxter <jim_baxter@mentor.com>
-> Date: Fri, 28 Jun 2013 15:08:23 +0100
-> 
->> @@ -803,6 +807,9 @@ fec_enet_rx(struct net_device *ndev, int budget)
->>  	ushort	pkt_len;
->>  	__u8 *data;
->>  	int	pkt_received = 0;
->> +	struct	bufdesc_ex *ebdp = NULL;
->> +	bool	vlan_packet_rcvd = false;
->> +	u16	vlan_tag;
->>  
->>  #ifdef CONFIG_M532x
->>  	flush_cache_all();
->> @@ -866,6 +873,24 @@ fec_enet_rx(struct net_device *ndev, int budget)
->>  		if (id_entry->driver_data & FEC_QUIRK_SWAP_FRAME)
->>  			swap_buffer(data, pkt_len);
->>  
->> +		/* Extract the enhanced buffer descriptor */
->> +		ebdp = NULL;
->> +		if (fep->bufdesc_ex)
->> +			ebdp = (struct bufdesc_ex *)bdp;
-> 
-> I would use a union here, so you'd have something like:
-> 
-> 	union {
-> 		struct bufdesc		*bdp;
-> 		struct bufdesc_ex	*bdp_ex;
-> 	} *p;
-> 
-> Alternatively, you can always use "struct bufdesc_ex *p", along with
-> the boolean saying if the extended descriptors are in use.
-> 
+Time in range will fail safely if we move to a different cpu with an
+extremely large clock skew.
+Add time_in_range64() and convert lls to use it.
 
-I see (I think) I would replace the variables:
-struct bufdesc *bdp;
-struct	bufdesc_ex *ebdp
-
-with a single union variable *p and then access p.bdp where the *bdp  is
-currently used and use the fep->bufdesc_ex flag to determine if p.bdp_ex
-can be accessed instead of my *ebdp variable.
+Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+---
+v1->v2
+fixed double call to sched_clock() in can_poll_ll(), checkpatchisms
 
 
->> +		if ((ndev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
->> +				ebdp && (ebdp->cbd_esc & BD_ENET_RX_VLAN)) {
-> 
-> This is not indented properly.   The "ebp" on that second line must line
-> up exactly with the first column after the openning parenthesis on the
-> first line.
-> 
-> I see what you're trying to do, purely using TAB characters to indent
-> that second line.  But you must take the care and time to use the
-> appropriate number of TAB and space characters to place things at the
-> proper column.
-> 
+  fs/select.c             |   10 ++++++----
+  include/linux/jiffies.h |    4 ++++
+  include/net/ll_poll.h   |   26 +++++++++++++++++---------
+  3 files changed, 27 insertions(+), 13 deletions(-)
 
-Thank you, I will do this correctly in future.
+diff --git a/fs/select.c b/fs/select.c
+index 3654075..f28a585 100644
+--- a/fs/select.c
++++ b/fs/select.c
+@@ -403,7 +403,8 @@ int do_select(int n, fd_set_bits *fds, struct 
+timespec *end_time)
+  	int retval, i, timed_out = 0;
+  	unsigned long slack = 0;
+  	unsigned int ll_flag = ll_get_flag();
+-	u64 ll_time = ll_end_time();
++	u64 ll_start = ll_start_time(ll_flag);
++	u64 ll_time = ll_run_time();
 
->> +			skb_copy_to_linear_data_offset(skb, (2 * ETH_ALEN),
->> +					data + payload_offset,
->> +					pkt_len - 4 - (2 * ETH_ALEN));
-> 
-> Again, line up the first non-space character on the second and third
-> lines of this function call so that they line up to the first column
-> after the openning parenthesis of the first line.
-> 
->> +				__vlan_hwaccel_put_tag(skb,
->> +						htons(ETH_P_8021Q), vlan_tag);
-> 
-> Likewise.
-> 
+  	rcu_read_lock();
+  	retval = max_select_fd(n, fds);
+@@ -498,7 +499,7 @@ int do_select(int n, fd_set_bits *fds, struct 
+timespec *end_time)
+  		}
 
-Jim
+  		/* only if on, have sockets with POLL_LL and not out of time */
+-		if (ll_flag && can_ll && can_poll_ll(ll_time))
++		if (ll_flag && can_ll && can_poll_ll(ll_start, ll_time))
+  			continue;
+
+  		/*
+@@ -770,7 +771,8 @@ static int do_poll(unsigned int nfds,  struct 
+poll_list *list,
+  	int timed_out = 0, count = 0;
+  	unsigned long slack = 0;
+  	unsigned int ll_flag = ll_get_flag();
+-	u64 ll_time = ll_end_time();
++	u64 ll_start = ll_start_time(ll_flag);
++	u64 ll_time = ll_run_time();
+
+  	/* Optimise the no-wait case */
+  	if (end_time && !end_time->tv_sec && !end_time->tv_nsec) {
+@@ -819,7 +821,7 @@ static int do_poll(unsigned int nfds,  struct 
+poll_list *list,
+  			break;
+
+  		/* only if on, have sockets with POLL_LL and not out of time */
+-		if (ll_flag && can_ll && can_poll_ll(ll_time))
++		if (ll_flag && can_ll && can_poll_ll(ll_start, ll_time))
+  			continue;
+
+  		/*
+diff --git a/include/linux/jiffies.h b/include/linux/jiffies.h
+index 8fb8edf..97ba4e7 100644
+--- a/include/linux/jiffies.h
++++ b/include/linux/jiffies.h
+@@ -139,6 +139,10 @@ static inline u64 get_jiffies_64(void)
+  	 ((__s64)(a) - (__s64)(b) >= 0))
+  #define time_before_eq64(a,b)	time_after_eq64(b,a)
+
++#define time_in_range64(a, b, c) \
++	(time_after_eq64(a, b) && \
++	 time_before_eq64(a, c))
++
+  /*
+   * These four macros compare jiffies and 'a' for convenience.
+   */
+diff --git a/include/net/ll_poll.h b/include/net/ll_poll.h
+index 6c06f7c..b76f004 100644
+--- a/include/net/ll_poll.h
++++ b/include/net/ll_poll.h
+@@ -67,19 +67,23 @@ static inline u64 ll_sched_clock(void)
+  /* we don't mind a ~2.5% imprecision so <<10 instead of *1000
+   * sk->sk_ll_usec is a u_int so this can't overflow
+   */
+-static inline u64 ll_sk_end_time(struct sock *sk)
++static inline u64 ll_sk_run_time(struct sock *sk)
+  {
+-	return ((u64)ACCESS_ONCE(sk->sk_ll_usec) << 10) + ll_sched_clock();
++	return (u64)ACCESS_ONCE(sk->sk_ll_usec) << 10;
+  }
+
+  /* in poll/select we use the global sysctl_net_ll_poll value
+   * only call sched_clock() if enabled
+   */
+-static inline u64 ll_end_time(void)
++static inline u64 ll_run_time(void)
+  {
+-	u64 end_time = ACCESS_ONCE(sysctl_net_ll_poll);
++	return (u64)ACCESS_ONCE(sysctl_net_ll_poll) << 10;
++}
+
+-	return end_time ? (end_time << 10) + ll_sched_clock() : 0;
++/* if flag is not set we don't need to know the time */
++static inline u64 ll_start_time(unsigned int flag)
++{
++	return flag ? ll_sched_clock() : 0;
+  }
+
+  static inline bool sk_valid_ll(struct sock *sk)
+@@ -88,9 +92,12 @@ static inline bool sk_valid_ll(struct sock *sk)
+  	       !need_resched() && !signal_pending(current);
+  }
+
+-static inline bool can_poll_ll(u64 end_time)
++/* careful! time_in_range64 will evaluate now twice */
++static inline bool can_poll_ll(u64 start_time, u64 run_time)
+  {
+-	return !time_after64(ll_sched_clock(), end_time);
++	u64 now = ll_sched_clock();
++
++	return time_in_range64(now, start_time, start_time + run_time);
+  }
+
+  /* when used in sock_poll() nonblock is known at compile time to be true
+@@ -98,7 +105,8 @@ static inline bool can_poll_ll(u64 end_time)
+   */
+  static inline bool sk_poll_ll(struct sock *sk, int nonblock)
+  {
+-	u64 end_time = nonblock ? 0 : ll_sk_end_time(sk);
++	u64 start_time = ll_start_time(!nonblock);
++	u64 run_time = ll_sk_run_time(sk);
+  	const struct net_device_ops *ops;
+  	struct napi_struct *napi;
+  	int rc = false;
+@@ -129,7 +137,7 @@ static inline bool sk_poll_ll(struct sock *sk, int 
+nonblock)
+  					 LINUX_MIB_LOWLATENCYRXPACKETS, rc);
+
+  	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
+-		 can_poll_ll(end_time));
++		 can_poll_ll(start_time, run_time));
+
+  	rc = !skb_queue_empty(&sk->sk_receive_queue);
+  out:
