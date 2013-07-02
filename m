@@ -1,722 +1,87 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH v6 2/7] ARM: kirkwood: add gigabit ethernet and mvmdio device tree nodes
-Date: Tue,  2 Jul 2013 13:00:19 +0200
-Message-ID: <1372762824-12202-3-git-send-email-sebastian.hesselbarth@gmail.com>
-References: <1372762824-12202-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372762824-12202-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Luis Henriques <luis.henriques@canonical.com>
+Subject: [PATCH 35/50] sctp: fully initialize sctp_outq in sctp_outq_init
+Date: Tue,  2 Jul 2013 12:07:23 +0100
+Message-ID: <1372763258-20664-36-git-send-email-luis.henriques@canonical.com>
+References: <1372763258-20664-1-git-send-email-luis.henriques@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+ davem@davemloft.net, Neil Horman <nhorman@tuxdriver.com>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+ kernel-team@lists.ubuntu.com
+Return-path: <kernel-team-bounces@lists.ubuntu.com>
+In-Reply-To: <1372763258-20664-1-git-send-email-luis.henriques@canonical.com>
+List-Unsubscribe: <https://lists.ubuntu.com/mailman/options/kernel-team>,
+ <mailto:kernel-team-request@lists.ubuntu.com?subject=unsubscribe>
+List-Archive: <https://lists.ubuntu.com/archives/kernel-team>
+List-Post: <mailto:kernel-team@lists.ubuntu.com>
+List-Help: <mailto:kernel-team-request@lists.ubuntu.com?subject=help>
+List-Subscribe: <https://lists.ubuntu.com/mailman/listinfo/kernel-team>,
+ <mailto:kernel-team-request@lists.ubuntu.com?subject=subscribe>
+Errors-To: kernel-team-bounces@lists.ubuntu.com
+Sender: kernel-team-bounces@lists.ubuntu.com
 List-Id: netdev.vger.kernel.org
 
-This patch adds mv643xx_eth and mvmdio device tree nodes for DT enabled
-Kirkwood boards. Phy nodes are also added with reg property set on a
-per-board basis.
+3.5.7.16 -stable review patch.  If anyone has any objections, please let me know.
 
-Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+------------------
+
+From: Neil Horman <nhorman@tuxdriver.com>
+
+commit c5c7774d7eb4397891edca9ebdf750ba90977a69 upstream.
+
+In commit 2f94aabd9f6c925d77aecb3ff020f1cc12ed8f86
+(refactor sctp_outq_teardown to insure proper re-initalization)
+we modified sctp_outq_teardown to use sctp_outq_init to fully re-initalize the
+outq structure.  Steve West recently asked me why I removed the q->error = 0
+initalization from sctp_outq_teardown.  I did so because I was operating under
+the impression that sctp_outq_init would properly initalize that value for us,
+but it doesn't.  sctp_outq_init operates under the assumption that the outq
+struct is all 0's (as it is when called from sctp_association_init), but using
+it in __sctp_outq_teardown violates that assumption. We should do a memset in
+sctp_outq_init to ensure that the entire structure is in a known state there
+instead.
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Reported-by: "West, Steve (NSN - US/Fort Worth)" <steve.west@nsn.com>
+CC: Vlad Yasevich <vyasevich@gmail.com>
+CC: netdev@vger.kernel.org
+CC: davem@davemloft.net
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+[ luis: backported to 3.5: adjusted context ]
+Signed-off-by: Luis Henriques <luis.henriques@canonical.com>
 ---
-Changelog:
-v5->v6:
-- rebase for v3.11-rc1
-- also convert Sheevaplug and DB628x
+ net/sctp/outqueue.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-Cc: Russell King <linux@arm.linux.org.uk>
-Cc: Jason Cooper <jason@lakedaemon.net>
-Cc: Andrew Lunn <andrew@lunn.ch>
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org
-Cc: netdev@vger.kernel.org
----
- arch/arm/boot/dts/kirkwood-cloudbox.dts            |   16 ++++++
- arch/arm/boot/dts/kirkwood-db.dtsi                 |   16 ++++++
- arch/arm/boot/dts/kirkwood-dnskw.dtsi              |   16 ++++++
- arch/arm/boot/dts/kirkwood-dockstar.dts            |   17 ++++++
- arch/arm/boot/dts/kirkwood-dreamplug.dts           |   28 +++++++++++
- arch/arm/boot/dts/kirkwood-goflexnet.dts           |   16 ++++++
- .../arm/boot/dts/kirkwood-guruplug-server-plus.dts |   30 +++++++++++
- arch/arm/boot/dts/kirkwood-ib62x0.dts              |   16 ++++++
- arch/arm/boot/dts/kirkwood-iconnect.dts            |   16 ++++++
- arch/arm/boot/dts/kirkwood-iomega_ix2_200.dts      |   24 +++++++++
- arch/arm/boot/dts/kirkwood-is2.dts                 |    2 +
- arch/arm/boot/dts/kirkwood-km_kirkwood.dts         |   16 ++++++
- arch/arm/boot/dts/kirkwood-lsxl.dtsi               |   28 +++++++++++
- arch/arm/boot/dts/kirkwood-mplcec4.dts             |   27 ++++++++++
- .../boot/dts/kirkwood-netgear_readynas_duo_v2.dts  |   16 ++++++
- arch/arm/boot/dts/kirkwood-ns2-common.dtsi         |   16 ++++++
- arch/arm/boot/dts/kirkwood-ns2.dts                 |    2 +
- arch/arm/boot/dts/kirkwood-ns2lite.dts             |    2 +
- arch/arm/boot/dts/kirkwood-ns2max.dts              |    2 +
- arch/arm/boot/dts/kirkwood-ns2mini.dts             |    2 +
- arch/arm/boot/dts/kirkwood-openblocks_a6.dts       |   16 ++++++
- arch/arm/boot/dts/kirkwood-sheevaplug-common.dtsi  |   16 ++++++
- arch/arm/boot/dts/kirkwood-topkick.dts             |   16 ++++++
- arch/arm/boot/dts/kirkwood-ts219-6281.dts          |    4 +-
- arch/arm/boot/dts/kirkwood-ts219-6282.dts          |    4 +-
- arch/arm/boot/dts/kirkwood-ts219.dtsi              |   16 ++++++
- arch/arm/boot/dts/kirkwood.dtsi                    |   52 ++++++++++++++++++++
- 27 files changed, 430 insertions(+), 2 deletions(-)
-
-diff --git a/arch/arm/boot/dts/kirkwood-cloudbox.dts b/arch/arm/boot/dts/kirkwood-cloudbox.dts
-index 00c48d2..85eed62 100644
---- a/arch/arm/boot/dts/kirkwood-cloudbox.dts
-+++ b/arch/arm/boot/dts/kirkwood-cloudbox.dts
-@@ -89,3 +89,19 @@
- 		gpios = <&gpio0 17 0>;
- 	};
- };
+diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+index 0716290..8259db2 100644
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -205,6 +205,8 @@ static inline int sctp_cacc_skip(struct sctp_transport *primary,
+  */
+ void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
+ {
++	memset(q, 0, sizeof(struct sctp_outq));
 +
-+&mdio {
-+	status = "okay";
-+
-+	ethphy0: ethernet-phy@0 {
-+		device_type = "ethernet-phy";
-+		reg = <0>;
-+	};
-+};
-+
-+&eth0 {
-+	status = "okay";
-+	ethernet0-port@0 {
-+		phy-handle = <&ethphy0>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/kirkwood-db.dtsi b/arch/arm/boot/dts/kirkwood-db.dtsi
-index c87cfb8..ca8bf36 100644
---- a/arch/arm/boot/dts/kirkwood-db.dtsi
-+++ b/arch/arm/boot/dts/kirkwood-db.dtsi
-@@ -87,3 +87,19 @@
- 		};
- 	};
- };
-+
-+&mdio {
-+	status = "okay";
-+
-+	ethphy0: ethernet-phy@8 {
-+		device_type = "ethernet-phy";
-+		reg = <8>;
-+	};
-+};
-+
-+&eth0 {
-+	status = "okay";
-+	ethernet0-port@0 {
-+		phy-handle = <&ethphy0>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/kirkwood-dnskw.dtsi b/arch/arm/boot/dts/kirkwood-dnskw.dtsi
-index 0afe1d0..f600ed7 100644
---- a/arch/arm/boot/dts/kirkwood-dnskw.dtsi
-+++ b/arch/arm/boot/dts/kirkwood-dnskw.dtsi
-@@ -219,3 +219,19 @@
- 		};
- 	};
- };
-+
-+&mdio {
-+	status = "okay";
-+
-+	ethphy0: ethernet-phy@8 {
-+		device_type = "ethernet-phy";
-+		reg = <8>;
-+	};
-+};
-+
-+&eth0 {
-+	status = "okay";
-+	ethernet0-port@0 {
-+		phy-handle = <&ethphy0>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/kirkwood-dockstar.dts b/arch/arm/boot/dts/kirkwood-dockstar.dts
-index 7714742..915aca6 100644
---- a/arch/arm/boot/dts/kirkwood-dockstar.dts
-+++ b/arch/arm/boot/dts/kirkwood-dockstar.dts
-@@ -90,3 +90,20 @@
- 		};
- 	};
- };
-+
-+&mdio {
-+	status = "okay";
-+
-+	ethphy0: ethernet-phy@0 {
-+		device_type = "ethernet-phy";
-+		compatible = "marvell,88e1116";
-+		reg = <0>;
-+	};
-+};
-+
-+&eth0 {
-+	status = "okay";
-+	ethernet0-port@0 {
-+		phy-handle = <&ethphy0>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/kirkwood-dreamplug.dts b/arch/arm/boot/dts/kirkwood-dreamplug.dts
-index 36c7ba3..300fbf8 100644
---- a/arch/arm/boot/dts/kirkwood-dreamplug.dts
-+++ b/arch/arm/boot/dts/kirkwood-dreamplug.dts
-@@ -99,3 +99,31 @@
- 		};
- 	};
- };
-+
-+&mdio {
-+	status = "okay";
-+
-+	ethphy0: ethernet-phy@0 {
-+		device_type = "ethernet-phy";
-+		reg = <0>;
-+	};
-+
-+	ethphy1: ethernet-phy@1 {
-+		device_type = "ethernet-phy";
-+		reg = <1>;
-+	};
-+};
-+
-+&eth0 {
-+	status = "okay";
-+	ethernet0-port@0 {
-+		phy-handle = <&ethphy0>;
-+	};
-+};
-+
-+&eth1 {
-+	status = "okay";
-+	ethernet1-port@0 {
-+		phy-handle = <&ethphy1>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/kirkwood-goflexnet.dts b/arch/arm/boot/dts/kirkwood-goflexnet.dts
-index 31caa64..e9ba68e 100644
---- a/arch/arm/boot/dts/kirkwood-goflexnet.dts
-+++ b/arch/arm/boot/dts/kirkwood-goflexnet.dts
-@@ -170,3 +170,19 @@
- 		};
- 	};
- };
-+
-+&mdio {
-+	status = "okay";
-+
-+	ethphy0: ethernet-phy@0 {
-+		device_type = "ethernet-phy";
-+		reg = <0>;
-+	};
-+};
-+
-+&eth0 {
-+	status = "okay";
-+	ethernet0-port@0 {
-+		phy-handle = <&ethphy0>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/kirkwood-guruplug-server-plus.dts b/arch/arm/boot/dts/kirkwood-guruplug-server-plus.dts
-index 1e642f3..e696c31 100644
---- a/arch/arm/boot/dts/kirkwood-guruplug-server-plus.dts
-+++ b/arch/arm/boot/dts/kirkwood-guruplug-server-plus.dts
-@@ -96,3 +96,33 @@
- 		};
- 	};
- };
-+
-+&mdio {
-+	status = "okay";
-+
-+	ethphy0: ethernet-phy@0 {
-+		device_type = "ethernet-phy";
-+		compatible = "marvell,88e1121";
-+		reg = <0>;
-+	};
-+
-+	ethphy1: ethernet-phy@1 {
-+		device_type = "ethernet-phy";
-+		compatible = "marvell,88e1121";
-+		reg = <1>;
-+	};
-+};
-+
-+&eth0 {
-+	status = "okay";
-+	ethernet0-port@0 {
-+		phy-handle = <&ethphy0>;
-+	};
-+};
-+
-+&eth1 {
-+	status = "okay";
-+	ethernet1-port@0 {
-+		phy-handle = <&ethphy1>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/kirkwood-ib62x0.dts b/arch/arm/boot/dts/kirkwood-ib62x0.dts
-index 20c4b08..69019b8 100644
---- a/arch/arm/boot/dts/kirkwood-ib62x0.dts
-+++ b/arch/arm/boot/dts/kirkwood-ib62x0.dts
-@@ -122,3 +122,19 @@
+ 	q->asoc = asoc;
+ 	INIT_LIST_HEAD(&q->out_chunk_list);
+ 	INIT_LIST_HEAD(&q->control_chunk_list);
+@@ -212,13 +214,7 @@ void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
+ 	INIT_LIST_HEAD(&q->sacked);
+ 	INIT_LIST_HEAD(&q->abandoned);
  
+-	q->fast_rtx = 0;
+-	q->outstanding_bytes = 0;
+ 	q->empty = 1;
+-	q->cork  = 0;
+-
+-	q->malloced = 0;
+-	q->out_qlen = 0;
+ }
  
- };
-+
-+&mdio {
-+	status = "okay";
-+
-+	ethphy0: ethernet-phy@8 {
-+		device_type = "ethernet-phy";
-+		reg = <8>;
-+	};
-+};
-+
-+&eth0 {
-+	status = "okay";
-+	ethernet0-port@0 {
-+		phy-handle = <&ethphy0>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/kirkwood-iconnect.dts b/arch/arm/boot/dts/kirkwood-iconnect.dts
-index 441204e..3d99164 100644
---- a/arch/arm/boot/dts/kirkwood-iconnect.dts
-+++ b/arch/arm/boot/dts/kirkwood-iconnect.dts
-@@ -176,3 +176,19 @@
- 		};
- 	};
- };
-+
-+&mdio {
-+	status = "okay";
-+
-+	ethphy0: ethernet-phy@11 {
-+		device_type = "ethernet-phy";
-+		reg = <11>;
-+	};
-+};
-+
-+&eth0 {
-+	status = "okay";
-+	ethernet0-port@0 {
-+		phy-handle = <&ethphy0>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/kirkwood-iomega_ix2_200.dts b/arch/arm/boot/dts/kirkwood-iomega_ix2_200.dts
-index 00a7bfe..b08c733 100644
---- a/arch/arm/boot/dts/kirkwood-iomega_ix2_200.dts
-+++ b/arch/arm/boot/dts/kirkwood-iomega_ix2_200.dts
-@@ -194,3 +194,27 @@
- 		};
- 	};
- };
-+
-+&mdio {
-+	status = "okay";
-+
-+	ethphy1: ethernet-phy@11 {
-+		device_type = "ethernet-phy";
-+		reg = <11>;
-+	};
-+};
-+
-+&eth0 {
-+	status = "okay";
-+	ethernet0-port@0 {
-+		speed = <1000>;
-+		duplex = <1>;
-+	};
-+};
-+
-+&eth1 {
-+	status = "okay";
-+	ethernet1-port@0 {
-+		phy-handle = <&ethphy1>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/kirkwood-is2.dts b/arch/arm/boot/dts/kirkwood-is2.dts
-index c3f036b..ff9be45 100644
---- a/arch/arm/boot/dts/kirkwood-is2.dts
-+++ b/arch/arm/boot/dts/kirkwood-is2.dts
-@@ -30,3 +30,5 @@
- 		};
- 	};
- };
-+
-+&ethphy0 { reg = <8>; };
-diff --git a/arch/arm/boot/dts/kirkwood-km_kirkwood.dts b/arch/arm/boot/dts/kirkwood-km_kirkwood.dts
-index 5d9f5ea..466280b 100644
---- a/arch/arm/boot/dts/kirkwood-km_kirkwood.dts
-+++ b/arch/arm/boot/dts/kirkwood-km_kirkwood.dts
-@@ -50,3 +50,19 @@
- 		i2c-gpio,delay-us = <2>;	/* ~100 kHz */
- 	};
- };
-+
-+&mdio {
-+	status = "okay";
-+
-+	ethphy0: ethernet-phy@0 {
-+		device_type = "ethernet-phy";
-+		reg = <0>;
-+	};
-+};
-+
-+&eth0 {
-+	status = "okay";
-+	ethernet0-port@0 {
-+		phy-handle = <&ethphy0>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/kirkwood-lsxl.dtsi b/arch/arm/boot/dts/kirkwood-lsxl.dtsi
-index 31b17f5..93397b1 100644
---- a/arch/arm/boot/dts/kirkwood-lsxl.dtsi
-+++ b/arch/arm/boot/dts/kirkwood-lsxl.dtsi
-@@ -207,3 +207,31 @@
- 		};
- 	};
- };
-+
-+&mdio {
-+	status = "okay";
-+
-+	ethphy0: ethernet-phy@0 {
-+		device_type = "ethernet-phy";
-+		reg = <0>;
-+	};
-+
-+	ethphy1: ethernet-phy@8 {
-+		device_type = "ethernet-phy";
-+		reg = <8>;
-+	};
-+};
-+
-+&eth0 {
-+	status = "okay";
-+	ethernet0-port@0 {
-+		phy-handle = <&ethphy0>;
-+	};
-+};
-+
-+&eth1 {
-+	status = "okay";
-+	ethernet1-port@0 {
-+		phy-handle = <&ethphy1>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/kirkwood-mplcec4.dts b/arch/arm/boot/dts/kirkwood-mplcec4.dts
-index 6179333..def825f 100644
---- a/arch/arm/boot/dts/kirkwood-mplcec4.dts
-+++ b/arch/arm/boot/dts/kirkwood-mplcec4.dts
-@@ -191,3 +191,30 @@
- 	};
- };
- 
-+&mdio {
-+	status = "okay";
-+
-+	ethphy0: ethernet-phy@1 {
-+		device_type = "ethernet-phy";
-+		reg = <1>;
-+	};
-+
-+	ethphy1: ethernet-phy@2 {
-+		device_type = "ethernet-phy";
-+		reg = <2>;
-+	};
-+};
-+
-+&eth0 {
-+	status = "okay";
-+	ethernet0-port@0 {
-+		phy-handle = <&ethphy0>;
-+	};
-+};
-+
-+&eth1 {
-+	status = "okay";
-+	ethernet1-port@0 {
-+		phy-handle = <&ethphy1>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/kirkwood-netgear_readynas_duo_v2.dts b/arch/arm/boot/dts/kirkwood-netgear_readynas_duo_v2.dts
-index ad6ade7..716b203 100644
---- a/arch/arm/boot/dts/kirkwood-netgear_readynas_duo_v2.dts
-+++ b/arch/arm/boot/dts/kirkwood-netgear_readynas_duo_v2.dts
-@@ -184,3 +184,19 @@
-                 };
-         };
- };
-+
-+&mdio {
-+	status = "okay";
-+
-+	ethphy0: ethernet-phy@0 {
-+		device_type = "ethernet-phy";
-+		reg = <0>;
-+	};
-+};
-+
-+&eth0 {
-+	status = "okay";
-+	ethernet0-port@0 {
-+		phy-handle = <&ethphy0>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/kirkwood-ns2-common.dtsi b/arch/arm/boot/dts/kirkwood-ns2-common.dtsi
-index 2afac04..e7b8017 100644
---- a/arch/arm/boot/dts/kirkwood-ns2-common.dtsi
-+++ b/arch/arm/boot/dts/kirkwood-ns2-common.dtsi
-@@ -84,3 +84,19 @@
- 	};
- 
- };
-+
-+&mdio {
-+	status = "okay";
-+
-+	ethphy0: ethernet-phy {
-+		device_type = "ethernet-phy";
-+                /* overwrite reg property in board file */
-+	};
-+};
-+
-+&eth0 {
-+	status = "okay";
-+	ethernet0-port@0 {
-+		phy-handle = <&ethphy0>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/kirkwood-ns2.dts b/arch/arm/boot/dts/kirkwood-ns2.dts
-index b50e93d..e93276d 100644
---- a/arch/arm/boot/dts/kirkwood-ns2.dts
-+++ b/arch/arm/boot/dts/kirkwood-ns2.dts
-@@ -30,3 +30,5 @@
- 		};
- 	};
- };
-+
-+&ethphy0 { reg = <8>; };
-diff --git a/arch/arm/boot/dts/kirkwood-ns2lite.dts b/arch/arm/boot/dts/kirkwood-ns2lite.dts
-index af8259f..34f5e69 100644
---- a/arch/arm/boot/dts/kirkwood-ns2lite.dts
-+++ b/arch/arm/boot/dts/kirkwood-ns2lite.dts
-@@ -30,3 +30,5 @@
- 		};
- 	};
- };
-+
-+&ethphy0 { reg = <0>; };
-diff --git a/arch/arm/boot/dts/kirkwood-ns2max.dts b/arch/arm/boot/dts/kirkwood-ns2max.dts
-index 85f24d2..f834c55 100644
---- a/arch/arm/boot/dts/kirkwood-ns2max.dts
-+++ b/arch/arm/boot/dts/kirkwood-ns2max.dts
-@@ -49,3 +49,5 @@
- 		};
- 	};
- };
-+
-+&ethphy0 { reg = <8>; };
-diff --git a/arch/arm/boot/dts/kirkwood-ns2mini.dts b/arch/arm/boot/dts/kirkwood-ns2mini.dts
-index 329e530..b6b66ea 100644
---- a/arch/arm/boot/dts/kirkwood-ns2mini.dts
-+++ b/arch/arm/boot/dts/kirkwood-ns2mini.dts
-@@ -50,3 +50,5 @@
- 		};
- 	};
- };
-+
-+&ethphy0 { reg = <0>; };
-diff --git a/arch/arm/boot/dts/kirkwood-openblocks_a6.dts b/arch/arm/boot/dts/kirkwood-openblocks_a6.dts
-index 38dc851..7235f0c 100644
---- a/arch/arm/boot/dts/kirkwood-openblocks_a6.dts
-+++ b/arch/arm/boot/dts/kirkwood-openblocks_a6.dts
-@@ -166,3 +166,19 @@
- 		};
- 	};
- };
-+
-+&mdio {
-+	status = "okay";
-+
-+	ethphy0: ethernet-phy@0 {
-+		device_type = "ethernet-phy";
-+		reg = <0>;
-+	};
-+};
-+
-+&eth0 {
-+	status = "okay";
-+	ethernet0-port@0 {
-+		phy-handle = <&ethphy0>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/kirkwood-sheevaplug-common.dtsi b/arch/arm/boot/dts/kirkwood-sheevaplug-common.dtsi
-index f7143f1..f55a145 100644
---- a/arch/arm/boot/dts/kirkwood-sheevaplug-common.dtsi
-+++ b/arch/arm/boot/dts/kirkwood-sheevaplug-common.dtsi
-@@ -91,3 +91,19 @@
- 		};
- 	};
- };
-+
-+&mdio {
-+	status = "okay";
-+
-+	ethphy0: ethernet-phy@0 {
-+		device_type = "ethernet-phy";
-+		reg = <0>;
-+	};
-+};
-+
-+&eth0 {
-+	status = "okay";
-+	ethernet0-port@0 {
-+		phy-handle = <&ethphy0>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/kirkwood-topkick.dts b/arch/arm/boot/dts/kirkwood-topkick.dts
-index f2052d7..184b8c5 100644
---- a/arch/arm/boot/dts/kirkwood-topkick.dts
-+++ b/arch/arm/boot/dts/kirkwood-topkick.dts
-@@ -203,3 +203,19 @@
- 		};
- 	};
- };
-+
-+&mdio {
-+	status = "okay";
-+
-+	ethphy0: ethernet-phy@0 {
-+		device_type = "ethernet-phy";
-+		reg = <0>;
-+	};
-+};
-+
-+&eth0 {
-+	status = "okay";
-+	ethernet0-port@0 {
-+		phy-handle = <&ethphy0>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/kirkwood-ts219-6281.dts b/arch/arm/boot/dts/kirkwood-ts219-6281.dts
-index 6dd1038..222435d 100644
---- a/arch/arm/boot/dts/kirkwood-ts219-6281.dts
-+++ b/arch/arm/boot/dts/kirkwood-ts219-6281.dts
-@@ -50,4 +50,6 @@
- 			gpios = <&gpio0 16 1>;
- 		};
- 	};
--};
-\ No newline at end of file
-+};
-+
-+&ethphy0 { reg = <8>; };
-diff --git a/arch/arm/boot/dts/kirkwood-ts219-6282.dts b/arch/arm/boot/dts/kirkwood-ts219-6282.dts
-index 6fdc5ff..510c555 100644
---- a/arch/arm/boot/dts/kirkwood-ts219-6282.dts
-+++ b/arch/arm/boot/dts/kirkwood-ts219-6282.dts
-@@ -58,4 +58,6 @@
- 			gpios = <&gpio1 5 1>;
- 		};
- 	};
--};
-\ No newline at end of file
-+};
-+
-+&ethphy0 { reg = <0>; };
-diff --git a/arch/arm/boot/dts/kirkwood-ts219.dtsi b/arch/arm/boot/dts/kirkwood-ts219.dtsi
-index 0c9a94c..102eaeb 100644
---- a/arch/arm/boot/dts/kirkwood-ts219.dtsi
-+++ b/arch/arm/boot/dts/kirkwood-ts219.dtsi
-@@ -96,3 +96,19 @@
- 		};
- 	};
- };
-+
-+&mdio {
-+	status = "okay";
-+
-+	ethphy0: ethernet-phy {
-+		device_type = "ethernet-phy";
-+                /* overwrite reg property in board file */
-+	};
-+};
-+
-+&eth0 {
-+	status = "okay";
-+	ethernet0-port@0 {
-+		phy-handle = <&ethphy0>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/kirkwood.dtsi b/arch/arm/boot/dts/kirkwood.dtsi
-index 078637c..ad56dd8 100644
---- a/arch/arm/boot/dts/kirkwood.dtsi
-+++ b/arch/arm/boot/dts/kirkwood.dtsi
-@@ -190,5 +190,57 @@
- 			clocks = <&gate_clk 17>;
- 			status = "okay";
- 		};
-+
-+		mdio: mdio-bus@72004 {
-+			compatible = "marvell,orion-mdio";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			reg = <0x72004 0x84>;
-+			interrupts = <46>;
-+			clocks = <&gate_clk 0>;
-+			status = "disabled";
-+
-+			/* add phy nodes in board file */
-+		};
-+
-+		eth0: ethernet-controller@72000 {
-+			compatible = "marvell,kirkwood-eth";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			reg = <0x72000 0x4000>;
-+			clocks = <&gate_clk 0>;
-+			marvell,tx-checksum-limit = <1600>;
-+			status = "disabled";
-+
-+			ethernet0-port@0 {
-+				device_type = "network";
-+				compatible = "marvell,kirkwood-eth-port";
-+				reg = <0>;
-+				interrupts = <11>;
-+				/* overwrite MAC address in bootloader */
-+				local-mac-address = [00 00 00 00 00 00];
-+				/* set phy-handle property in board file */
-+			};
-+		};
-+
-+		eth1: ethernet-controller@76000 {
-+			compatible = "marvell,kirkwood-eth";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			reg = <0x76000 0x4000>;
-+			clocks = <&gate_clk 19>;
-+			marvell,tx-checksum-limit = <1600>;
-+			status = "disabled";
-+
-+			ethernet1-port@1 {
-+				device_type = "network";
-+				compatible = "marvell,kirkwood-eth-port";
-+				reg = <1>;
-+				interrupts = <15>;
-+				/* overwrite MAC address in bootloader */
-+				local-mac-address = [00 00 00 00 00 00];
-+				/* set phy-handle property in board file */
-+			};
-+		};
- 	};
- };
+ /* Free the outqueue structure and any related pending chunks.
 -- 
-1.7.2.5
+1.8.1.2
