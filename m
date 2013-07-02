@@ -1,114 +1,239 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 10/10] 9P: Add cancelled() to the transport functions.
-Date: Tue, 02 Jul 2013 20:49:25 +0400
-Message-ID: <51D30495.6060103@cogentembedded.com>
-References: <1372770684-25573-1-git-send-email-simon.derr@bull.net> <1372770684-25573-11-git-send-email-simon.derr@bull.net>
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: [RFC] huawei_cdc_ncm driver - status
+Date: Tue, 2 Jul 2013 19:04:05 +0200 (CEST)
+Message-ID: <alpine.LNX.2.02.1307021855270.19053@eeeadesso>
+References: <alpine.LNX.2.02.1307021241380.8884@eeeadesso> <87wqp9xja5.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ericvh@gmail.com
-To: Simon Derr <simon.derr@bull.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:48472 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753515Ab3GBQtb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 12:49:31 -0400
-Received: by mail-lb0-f174.google.com with SMTP id x10so3596364lbi.33
-        for <netdev@vger.kernel.org>; Tue, 02 Jul 2013 09:49:29 -0700 (PDT)
-In-Reply-To: <1372770684-25573-11-git-send-email-simon.derr@bull.net>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:36594 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752560Ab3GBRDq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 13:03:46 -0400
+Received: by mail-wi0-f175.google.com with SMTP id m6so4391293wiv.8
+        for <netdev@vger.kernel.org>; Tue, 02 Jul 2013 10:03:45 -0700 (PDT)
+In-Reply-To: <87wqp9xja5.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hi all guys!
+I'm writing this mail to inform you about the progresso f the "new" driver - 
+huawei_cdc_ncm.c, which should handle generally devices wich resembles the 
+cdc_ncm standard, but embed another protocol on it (AT or something).
+This driver has been developed starting from a Bjorn idea, and is based on the 
+cdc_mbim.c driver.
 
-On 02-07-2013 17:11, Simon Derr wrote:
+Now - i need some help and corrections, review.
+the driver currently loads and doesn't cause panics, and that's already a very 
+good result for a first-time kernel programmer! :)
+Even the driver name may be inappropriate, any ideas and suggestions are 
+welcome!
 
-> RDMA needs to post a buffer for each incoming reply.
-> Hence it needs to keep count of these and needs to be
-> aware of whether a flushed request has received a reply
-> or not.
+Here is the driver .c file: in addition:
+- I managed to export cdc_ncm {rx,tx}_fixup functions, modfying the needed .h 
+file and adding symbol exporting.
+- I removed from the cdc_ncm driver entries that made it bind t my dongle
+- I added product and vendor id for my dongle, but probably doing something 
+wrong...
+- updated the build infrastructure in accordance (Kconfig, Makefile ...) and 
+that works.
 
-> This patch adds the cancelled() callback to the transport modules.
-> It is called when RFLUSH has been received and that the corresponding
-> request will never receive a reply.
 
-> Signed-off-by: Simon Derr <simon.derr@bull.net>
-> ---
->   include/net/9p/transport.h |    3 +++
->   net/9p/client.c            |   11 ++++++++---
->   net/9p/trans_rdma.c        |   10 ++++++++++
->   3 files changed, 21 insertions(+), 3 deletions(-)
+And here it is - please help me if you can.
 
-> diff --git a/include/net/9p/transport.h b/include/net/9p/transport.h
-> index adcbb20..77a0578 100644
-> --- a/include/net/9p/transport.h
-> +++ b/include/net/9p/transport.h
-[...]
-> @@ -55,6 +57,7 @@ struct p9_trans_module {
->   	void (*close) (struct p9_client *);
->   	int (*request) (struct p9_client *, struct p9_req_t *req);
->   	int (*cancel) (struct p9_client *, struct p9_req_t *req);
-> +	int (*cancelled) (struct p9_client *, struct p9_req_t *req);
+/* copyrights and other things are importand but will be added later */
+#include <linux/module.h>
+#include <linux/netdevice.h>
+#include <linux/ethtool.h>
+#include <linux/if_vlan.h>
+#include <linux/ip.h>
+#include <linux/mii.h>
+#include <linux/usb.h>
+#include <linux/usb/cdc.h>
+#include <linux/usb/usbnet.h>
+#include <linux/usb/cdc-wdm.h>
+#include <linux/usb/cdc_ncm.h>
 
-    There should be no space before ( opening the parameter list.
-scripts/checkpatch.pl should have warned you here.
+/* Specific driver data */
+struct huawei_cdc_ncm_state {
+	struct cdc_ncm_ctx *ctx;
+	atomic_t pmcount;
+	struct usb_driver *subdriver;
+	struct usb_interface *control;
+	struct usb_interface *data;
+};
 
->   	int (*zc_request)(struct p9_client *, struct p9_req_t *,
->   			  char *, char *, int , int, int, int);
->   };
-> diff --git a/net/9p/client.c b/net/9p/client.c
-> index 44691b9..61e0455 100644
-> --- a/net/9p/client.c
-> +++ b/net/9p/client.c
-> @@ -676,11 +676,16 @@ static int p9_client_flush(struct p9_client *c, struct p9_req_t *oldreq)
->
->
->   	/* if we haven't received a response for oldreq,
-> -	   remove it from the list. */
-> +	   remove it from the list, and notify the transport
-> +	   layer that the reply will never arrive. */
+static int huawei_cdc_ncm_manage_power(struct usbnet *usbnet_dev, int on)
+{
+	struct huawei_cdc_ncm_state *drvstate = (void *)&usbnet_dev->data;
+	int rv = 0;
 
-    The preferred style of the multi-line commnets in the networking 
-code is:
+	if ((on && atomic_add_return(1, &drvstate->pmcount) == 1) || (!on && atomic_dec_and_test(&drvstate->pmcount))) {
+		rv = usb_autopm_get_interface(usbnet_dev->intf);
+		if (rv < 0)
+			goto err;
+		usbnet_dev->intf->needs_remote_wakeup = on;
+		usb_autopm_put_interface(usbnet_dev->intf);
+	}
+err:
+	return rv;
+}
 
-	/* bla
-	 * bla
+static int huawei_cdc_ncm_wdm_manage_power(struct usb_interface *intf, int status)
+{
+	struct usbnet *usbnet_dev = usb_get_intfdata(intf);
+
+	/* can be called while disconnecting */
+	if (!usbnet_dev)
+		return 0;
+
+	return huawei_cdc_ncm_manage_power(usbnet_dev, status);
+}
+
+
+/* Bind our driver to needed interfaces. Heavily inspired by cdc_mbim.c one! */
+static int huawei_cdc_ncm_bind(struct usbnet *usbnet_dev, struct usb_interface *intf) {
+
+	/* Some general use variables */
+	struct cdc_ncm_ctx *ctx;
+	struct usb_driver *subdriver = ERR_PTR(-ENODEV);
+	int ret = -ENODEV;
+	struct huawei_cdc_ncm_state *drvstate = (void *)&usbnet_dev->data;
+	
+	/* Actually binds us to the device: use standard ncm function */
+	ret = cdc_ncm_bind_common(usbnet_dev, intf, 1); /* altsetting should be 1 */
+	
+	/* Did the ncm bind function fail? */
+	if (ret)
+		goto err;
+	
+	/* Let cdc data ctx pointer point to our state structure */
+	ctx = drvstate->ctx;
+	
+	if (usbnet_dev->status) 
+		subdriver = usb_cdc_wdm_register(ctx->control, &usbnet_dev->status->desc, 4096, huawei_cdc_ncm_wdm_manage_power); /* a smarter way to calculate that constant? */
+	if (IS_ERR(subdriver)) {
+	 ret = PTR_ERR(subdriver);
+	 cdc_ncm_unbind(usbnet_dev, intf);
+   goto err;
+	}
+	
+	/* Prevent usbnet from using the status descriptor */
+	usbnet_dev->status = NULL;
+	
+	drvstate->subdriver = subdriver;
+	
+	/* FIXME: should we handle the vlan header in some way? */
+	/* FIXME2: in my opinion we also could not do ARP, hoping somebody can help... */
+err:
+	return ret; /* ret = -ENODEV if not changed in the meanwhile */
+}
+
+static void huawei_cdc_ncm_unbind(struct usbnet *usbnet_dev, struct usb_interface *intf) {
+	struct huawei_cdc_ncm_state *drvstate = (void *)&usbnet_dev->data;
+	struct cdc_ncm_ctx *ctx = drvstate->ctx;
+	
+	/* Bye cdc-wdm! And see you soon! :) */
+	if (drvstate->subdriver && drvstate->subdriver->disconnect)
+		drvstate->subdriver->disconnect(ctx->control);
+	drvstate->subdriver = NULL;
+	
+	/* Unbind from both control and data interface */
+	cdc_ncm_unbind(usbnet_dev, intf);
+}
+
+/* Suspend function - the logic has been taken from cdc_mbim.c directly. */
+static int huawei_cdc_ncm_suspend(struct usb_interface *intf, pm_message_t message)
+{
+	int ret = 0;
+	struct usbnet *usbnet_dev = usb_get_intfdata(intf);
+	struct huawei_cdc_ncm_state *drvstate = (void *)&usbnet_dev->data;
+	struct cdc_ncm_ctx *ctx = drvstate->ctx;
+
+	if (ctx == NULL) {
+		ret = -1;
+		goto error;
+	}
+
+	/*
+	 * Both usbnet_suspend() and subdriver->suspend() MUST return 0
+	 * in system sleep context, otherwise, the resume callback has
+	 * to recover device from previous suspend failure.
 	 */
+	ret = usbnet_suspend(intf, message);
+	if (ret < 0)
+		goto error;
 
->   	spin_lock(&c->lock);
-> -	if (oldreq->status == REQ_STATUS_FLSH)
-> +	if (oldreq->status == REQ_STATUS_FLSH) {
->   		list_del(&oldreq->req_list);
-> -	spin_unlock(&c->lock);
-> +		spin_unlock(&c->lock);
-> +		if (c->trans_mod->cancelled)
-> +			c->trans_mod->cancelled(c, req);
-> +	} else
-> +		spin_unlock(&c->lock);
+	if (intf == ctx->control && drvstate->subdriver && drvstate->subdriver->suspend)
+		ret = drvstate->subdriver->suspend(intf, message);
+	if (ret < 0)
+		usbnet_resume(intf);
 
-    According to Documentation/CodingStyle chapter 3, both arms of the 
-*if* statment should have {} if one arm has it.
+error:
+	return ret;
+}
 
-> diff --git a/net/9p/trans_rdma.c b/net/9p/trans_rdma.c
-> index 8f68df5..9e6c220 100644
-> --- a/net/9p/trans_rdma.c
-> +++ b/net/9p/trans_rdma.c
-> @@ -588,6 +588,16 @@ static int rdma_cancel(struct p9_client *client, struct p9_req_t *req)
->   	return 1;
->   }
->
-> +/* A request has been fully flushed without a reply.
-> + * That means we have posted one buffer in excess.
-> + */
-> +static int rdma_cancelled(struct p9_client *client, struct p9_req_t *req)
-> +{
-> +	struct p9_trans_rdma *rdma = client->trans;
+/* Resume function - logic took completely from huawei_cdc.c */
+static int huawei_cdc_ncm_resume(struct usb_interface *intf)
+{
+	int ret = 0;
+	struct usbnet *usbnet_dev = usb_get_intfdata(intf);
+	struct huawei_cdc_ncm_state *drvstate = (void *)&usbnet_dev->data;
+	struct cdc_ncm_ctx *ctx = drvstate->ctx;
+	bool callsub = (intf == ctx->control && drvstate->subdriver && drvstate->subdriver->resume); /* should we call subdriver's resume? ? */
 
-    Empty line wouldn't hurt here, after declaration.
+	if (callsub)
+		ret = drvstate->subdriver->resume(intf);
+	if (ret < 0)
+		goto err;
+	ret = usbnet_resume(intf);
+	if (ret < 0 && callsub && drvstate->subdriver->suspend)
+		drvstate->subdriver->suspend(intf, PMSG_SUSPEND);
+err:
+	return ret;
+}
 
-> +	atomic_inc(&rdma->excess_rc);
-> +	return 0;
-> +}
-> +
 
-WBR, Sergei
+/* General driver informations, exposed partly to modutils */
+static const struct driver_info huawei_cdc_info = {
+	.description = "Huawei-style CDC NCM",
+	.flags = FLAG_NO_SETINT | FLAG_MULTI_PACKET | FLAG_WWAN,
+	.bind = huawei_cdc_ncm_bind,
+	.unbind = huawei_cdc_ncm_unbind,
+	.manage_power = huawei_cdc_ncm_manage_power,
+	/* NCM RX and TX fixup functions work properly on these devices */
+	.rx_fixup = cdc_ncm_rx_fixup,
+	.tx_fixup = cdc_ncm_tx_fixup,
+};
+
+static const struct usb_device_id huawei_cdc_ncm_devs[] = {
+	/* The correct NCM handling will be implemented. For now, only my dongle
+		will be handled.
+		*/
+	{ USB_DEVICE(0x12d1, 0x1506) },
+	{
+		/* Terminating entry */
+	},
+};
+/* Expose table in module info */
+MODULE_DEVICE_TABLE(usb, huawei_cdc_ncm_devs);
+
+
+/* USB driver struct - used by USB stack */
+static struct usb_driver huawei_cdc_ncm_driver = {
+	.name = "huawei_cdc_ncm",
+	.id_table = huawei_cdc_ncm_devs,
+	.probe = usbnet_probe,
+	.disconnect = usbnet_disconnect,
+	.suspend = huawei_cdc_ncm_suspend,
+	.resume = huawei_cdc_ncm_resume,
+	.reset_resume = huawei_cdc_ncm_resume,
+	.supports_autosuspend = 1,
+	.disable_hub_initiated_lpm = 1,
+};
+module_usb_driver(huawei_cdc_ncm_driver);
+MODULE_AUTHOR("Enrico Mioso <mrkiko.rs@gmail.com>");
+MODULE_DESCRIPTION("USB CDC NCM host driver with encapsulated protocol support");
+MODULE_LICENSE("GPL");
