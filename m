@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/3] l2tp: make datapath sequence number handling
- RFC-compliant
-Date: Tue, 02 Jul 2013 16:34:42 -0700 (PDT)
-Message-ID: <20130702.163442.2300932181805961904.davem@davemloft.net>
-References: <1372793340-17883-1-git-send-email-jchapman@katalix.com>
+Subject: Re: [PATCH net-next] ip_tunnels: Use skb-len to PMTU check.
+Date: Tue, 02 Jul 2013 16:44:30 -0700 (PDT)
+Message-ID: <20130702.164430.2268054114415286435.davem@davemloft.net>
+References: <1372787853-12382-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com
-To: jchapman@katalix.com
+Cc: netdev@vger.kernel.org, timo.teras@iki.fi
+To: pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55047 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55096 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751498Ab3GBXep (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 19:34:45 -0400
-In-Reply-To: <1372793340-17883-1-git-send-email-jchapman@katalix.com>
+	with ESMTP id S1752665Ab3GBXob (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 19:44:31 -0400
+In-Reply-To: <1372787853-12382-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: James Chapman <jchapman@katalix.com>
-Date: Tue,  2 Jul 2013 20:28:57 +0100
+From: Pravin B Shelar <pshelar@nicira.com>
+Date: Tue,  2 Jul 2013 10:57:33 -0700
 
-> L2TP data sequence numbers, if enabled, ensure in-order delivery. A
-> receiver may reorder data packets, or simply drop out-of-sequence
-> packets. If reordering is not enabled, the current implementation does
-> not handle data packet loss correctly, which can result in a stalled
-> L2TP session datapath as soon as the first packet is lost. Most L2TP
-> users either disable sequence numbers or enable data packet reordering
-> when sequence numbers are used to circumvent the issue. This patch
-> series fixes the problem, and makes the L2TP sequence number handling
-> RFC-compliant.
+> In path mtu check, ip header total length works for gre device
+> but not for gre-tap device.  Use skb len which is consistent
+> for all tunneling types.  This is old bug in gre.
+> This also fixes mtu calculation bug introduced by
+> commit c54419321455631079c7d (GRE: Refactor GRE tunneling code).
 > 
-> v2 incorporates string format changes requested by sergei.shtylyov@cogentembedded.com.
+> Reported-by: Timo Teras <timo.teras@iki.fi>
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 
-Series applied, thanks James.
+Applied and queued up for -stable, thanks!
