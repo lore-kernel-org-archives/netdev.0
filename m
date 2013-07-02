@@ -1,24 +1,35 @@
 From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH v6 4/7] ARM: dove: remove legacy mv643xx_eth setup
-Date: Tue,  2 Jul 2013 13:00:21 +0200
-Message-ID: <1372762824-12202-5-git-send-email-sebastian.hesselbarth@gmail.com>
+Subject: [PATCH v6 7/7] ARM: orion5x: remove legacy mv643xx_eth board setup
+Date: Tue,  2 Jul 2013 13:00:24 +0200
+Message-ID: <1372762824-12202-8-git-send-email-sebastian.hesselbarth@gmail.com>
 References: <1372762824-12202-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Andrew Lunn <andrew@lunn.ch>, Russell King <linux@arm.linux.org.uk>,
+ Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org,
+ Gregory CLEMENT <gregory.clement@free-electrons.com>,
+ linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1372762824-12202-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
 With DT support for mv643xx_eth we do not need legacy platform_data
-based setup for DT enabled boards anymore.
+based setup for DT enabled boards. This patch removes eth setup
+for all orion5x DT board files.
 
 Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 ---
@@ -35,42 +46,43 @@ Cc: linux-arm-kernel@lists.infradead.org
 Cc: linux-kernel@vger.kernel.org
 Cc: netdev@vger.kernel.org
 ---
- arch/arm/mach-dove/board-dt.c |    9 ---------
- 1 files changed, 0 insertions(+), 9 deletions(-)
+ arch/arm/mach-orion5x/edmini_v2-setup.c |   10 ----------
+ 1 files changed, 0 insertions(+), 10 deletions(-)
 
-diff --git a/arch/arm/mach-dove/board-dt.c b/arch/arm/mach-dove/board-dt.c
-index f3755ac..b5ccc1c 100644
---- a/arch/arm/mach-dove/board-dt.c
-+++ b/arch/arm/mach-dove/board-dt.c
-@@ -33,10 +33,6 @@ static void __init dove_legacy_clk_init(void)
- 	clkspec.np = np;
- 	clkspec.args_count = 1;
+diff --git a/arch/arm/mach-orion5x/edmini_v2-setup.c b/arch/arm/mach-orion5x/edmini_v2-setup.c
+index 1cecedc..7d316ed 100644
+--- a/arch/arm/mach-orion5x/edmini_v2-setup.c
++++ b/arch/arm/mach-orion5x/edmini_v2-setup.c
+@@ -25,7 +25,6 @@
+ #include <linux/irq.h>
+ #include <linux/mbus.h>
+ #include <linux/mtd/physmap.h>
+-#include <linux/mv643xx_eth.h>
+ #include <linux/leds.h>
+ #include <linux/gpio_keys.h>
+ #include <linux/input.h>
+@@ -97,14 +96,6 @@ static struct platform_device edmini_v2_nor_flash = {
+ };
  
--	clkspec.args[0] = CLOCK_GATING_BIT_GBE;
--	orion_clkdev_add(NULL, "mv643xx_eth_port.0",
--			 of_clk_get_from_provider(&clkspec));
+ /*****************************************************************************
+- * Ethernet
+- ****************************************************************************/
 -
- 	clkspec.args[0] = CLOCK_GATING_BIT_PCIE0;
- 	orion_clkdev_add("0", "pcie",
- 			 of_clk_get_from_provider(&clkspec));
-@@ -52,10 +48,6 @@ static void __init dove_of_clk_init(void)
- 	dove_legacy_clk_init();
- }
- 
--static struct mv643xx_eth_platform_data dove_dt_ge00_data = {
--	.phy_addr = MV643XX_ETH_PHY_ADDR_DEFAULT,
+-static struct mv643xx_eth_platform_data edmini_v2_eth_data = {
+-	.phy_addr	= 8,
 -};
 -
- static void __init dove_dt_init(void)
- {
- 	pr_info("Dove 88AP510 SoC\n");
-@@ -69,7 +61,6 @@ static void __init dove_dt_init(void)
- 	dove_of_clk_init();
+-/*****************************************************************************
+  * RTC 5C372a on I2C bus
+  ****************************************************************************/
  
- 	/* Internal devices not ported to DT yet */
--	dove_ge00_init(&dove_dt_ge00_data);
- 	dove_pcie_init(1, 1);
+@@ -153,7 +144,6 @@ void __init edmini_v2_init(void)
+ 	 * Configure peripherals.
+ 	 */
+ 	orion5x_ehci0_init();
+-	orion5x_eth_init(&edmini_v2_eth_data);
  
- 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
+ 	mvebu_mbus_add_window("devbus-boot", EDMINI_V2_NOR_BOOT_BASE,
+ 			      EDMINI_V2_NOR_BOOT_SIZE);
 -- 
 1.7.2.5
