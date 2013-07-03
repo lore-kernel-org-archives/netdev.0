@@ -1,69 +1,29 @@
-From: Thomas Zeitlhofer <thomas.zeitlhofer@nt.tuwien.ac.at>
-Subject: Re: tuntap regression in v3.9.8 and v3.10
-Date: Wed, 3 Jul 2013 08:11:04 +0200
-Message-ID: <20130703061104.GA22847@toau.bambla>
-References: <20130702195910.GA20271@toau.bambla>
- <CAOMZO5B7Yx7tRy8Q5wi6ngcD0FDJzKXHOEGPXyUo52+f3oUHEg@mail.gmail.com>
- <20130702220651.GA23097@toau.bambla>
- <51D39010.5090902@redhat.com>
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: Huaei E3131 - connected!
+Date: Wed, 3 Jul 2013 08:40:16 +0200 (CEST)
+Message-ID: <alpine.LNX.2.02.1307030836270.12831@eeeadesso>
+References: <alpine.LNX.2.02.1307021241380.8884@eeeadesso> <87wqp9xja5.fsf@nemi.mork.no> <alpine.LNX.2.02.1307021855270.19053@eeeadesso> <alpine.LNX.2.02.1307022202570.26010@eeeadesso> <alpine.LNX.2.02.1307022207060.26010@eeeadesso>
+ <alpine.LNX.2.02.1307022210470.26010@eeeadesso> <alpine.LNX.2.02.1307022213380.26010@eeeadesso>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Fabio Estevam <festevam@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fep13.mx.upcmail.net ([62.179.121.33]:60642 "EHLO
-	fep13.mx.upcmail.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753993Ab3GCGLN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 02:11:13 -0400
-Content-Disposition: inline
-In-Reply-To: <51D39010.5090902@redhat.com>
+Received: from mail-ea0-f177.google.com ([209.85.215.177]:63915 "EHLO
+	mail-ea0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753551Ab3GCGkA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 02:40:00 -0400
+Received: by mail-ea0-f177.google.com with SMTP id j14so3175478eak.8
+        for <netdev@vger.kernel.org>; Tue, 02 Jul 2013 23:39:59 -0700 (PDT)
+In-Reply-To: <alpine.LNX.2.02.1307022213380.26010@eeeadesso>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Jason,
-
-On Wed, Jul 03, 2013 at 10:44:32AM +0800, Jason Wang wrote:
-> On 07/03/2013 06:06 AM, Thomas Zeitlhofer wrote:
-> > On Tue, Jul 02, 2013 at 06:01:12PM -0300, Fabio Estevam wrote:
-> >> On Tue, Jul 2, 2013 at 4:59 PM, Thomas Zeitlhofer
-> >> <thomas.zeitlhofer@nt.tuwien.ac.at> wrote:
-> >>> Commit "tuntap: set SOCK_ZEROCOPY flag during open" introduces a
-> >>> regression which is observed with live migration of qemu/kvm based
-> >>> virtual machines that are connected to an openvswitch bridge.
-> >>>
-> >>> Reverting this commit (b26c93c46a3dec25ed236d4ba6107eb4ed5d9401 in
-> >>> v3.9.8 and accordingly 19a6afb23e5d323e1245baa4e62755492b2f1200 in
-> >>> v3.10) fixes the following problem:
-> >> Should the sock_set_flag stay in tun_set_iff as it was prior to 54f968d6efd?
-> >>
-> >> --- a/drivers/net/tun.c
-> >> +++ b/drivers/net/tun.c
-> >> @@ -1652,6 +1652,7 @@ static int tun_set_iff(struct net *net, struct
-> >> file *file, struct ifreq *ifr)
-> >>                 tun->txflt.count = 0;
-> >>                 tun->vnet_hdr_sz = sizeof(struct virtio_net_hdr);
-> >>
-> >> +               sock_set_flag(&tfile->sk, SOCK_ZEROCOPY);
-> >>                 tun->filter_attached = false;
-> >>                 tun->sndbuf = tfile->socket.sk->sk_sndbuf;
-> >>
-> >> @@ -2159,8 +2160,6 @@ static int tun_chr_open(struct inode *inode,
-> >> struct file * file)
-> >>         set_bit(SOCK_EXTERNALLY_ALLOCATED, &tfile->socket.flags);
-> >>         INIT_LIST_HEAD(&tfile->next);
-> >>
-> >> -       sock_set_flag(&tfile->sk, SOCK_ZEROCOPY);
-> >> -
-> >>         return 0;
-> >>  }
-> > I guess no, as this also leads to a kernel panic (tested against v3.10).
-> 
-> Yes, commit "tuntap: set SOCK_ZEROCOPY flag during open" just re-enable
-> the zerocopy capability of tuntap. I believe it just uncover other
-> zerocopy bugs.
-> 
-> Which regression did you see?
-
-a kernel panic on the host machine. The details are in the first message
-of this thread: http://lkml.org/lkml/2013/7/2/499
+Hi guys!
+there's a problem ... I don't understand why even looking at the code (sure, I 
+will look at it again): but, bringing up the wwan0 interface simply works. So 
+now I'm sending this mail via the device's wwan interface and while looking and 
+typing to the wdm character device, without any apparent problem.
+I did not implement the status handler, but the driver seems to be able to 
+work, probably missing some notifications?
+This needs to be EXTRENSIVELY polished and reviewed - but it's encouraging!
