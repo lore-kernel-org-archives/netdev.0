@@ -1,84 +1,71 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: PROBLEM: Linux 3.9 more-specific ipv6 route ignored until next-hop
- is in neighbor cache
-Date: Wed, 03 Jul 2013 22:21:19 +0400
-Message-ID: <51D46B9F.6050400@cogentembedded.com>
-References: <CA+PSOpyxWf2s_JscuBYfOAW9hVkSqqC1JwdRDQ4WtZrkneQf6A@mail.gmail.com> <20130703050007.GA11216@order.stressinduktion.org> <20130703181546.GC12615@order.stressinduktion.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: PHC device sharing between PCI functions
+Date: Wed, 3 Jul 2013 20:30:37 +0200
+Message-ID: <20130703183035.GA4446@netboy>
+References: <1372697768.2083.21.camel@bwh-desktop.uk.level5networks.com>
+ <20130702142420.GC14630@netboy>
+ <1372778262.1919.12.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Pierre Emeriaud <petrus.lt@gmail.com>, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-net-drivers <linux-net-drivers@solarflare.com>,
+	netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f43.google.com ([209.85.215.43]:54282 "EHLO
-	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932633Ab3GCSVW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 14:21:22 -0400
-Received: by mail-la0-f43.google.com with SMTP id gw10so447224lab.30
-        for <netdev@vger.kernel.org>; Wed, 03 Jul 2013 11:21:19 -0700 (PDT)
-In-Reply-To: <20130703181546.GC12615@order.stressinduktion.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:36550 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754184Ab3GCSat (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 14:30:49 -0400
+Received: by mail-wi0-f179.google.com with SMTP id hj3so450638wib.12
+        for <netdev@vger.kernel.org>; Wed, 03 Jul 2013 11:30:48 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1372778262.1919.12.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Tue, Jul 02, 2013 at 04:17:42PM +0100, Ben Hutchings wrote:
+> On Tue, 2013-07-02 at 16:24 +0200, Richard Cochran wrote:
+> 
+> > And if so, then how will the mutiple, read-only MAC clocks help other
+> > guests? Seems kinda useless to me.
+> 
+> It would allow them to convert hardware timestamps or sync system time
+> to NIC time.
 
-On 07/03/2013 10:15 PM, Hannes Frederic Sowa wrote:
+Okay, so let's talk about HW time stamps. That is a separate issue
+from the PHC. You would think that you could offer HW time stamping to
+each VM guest using the MAC. But wait, how will the guests enable it?
 
-> I looked up the relevant RFCs and do think this is the proper fix. Could you
-> give it a test?
+They will have to call the HWTSTAMP ioctl. Unfortunately, your driver
+is one of those that offers fine grained choices (as opposed to all
+packets or none), and that means that the guests will be potentially
+spoiling each others settings (unless you implement per-function
+filters).
 
-> [PATCH net] ipv6: rt6_check_neigh should successfully verify neigh if no NUD information are available
+WRT the PHC, I guess you could offer:
 
-> After the removal of rt->n we do not create a neighbour entry at route
-> insertion time (rt6_bind_neighbour is gone). As long as no neighbour is
-> created because of "useful traffic" we skip this routing entry because
-> rt6_check_neigh cannot pick up a valid neighbour (neigh == NULL) and
-> thus returns false.
+- gettime	to all functions
+- set/adjtime	works in one, throws error in others
+- pps hook	to all functions
 
-> This change was introduced by commit
-> 887c95cc1da53f66a5890fdeab13414613010097 ("ipv6: Complete neighbour
-> entry removal from dst_entry.")
+You just need to decide how to determine which function will have the
+writable clock.
 
-> To quote RFC4191:
-> "If the host has no information about the router's reachability, then
-> the host assumes the router is reachable."
+Also, it might be worth thinking about how well the pps interrupt will
+work. When there are many guest, will the card produce multiple MSI
+interrupts every second, on the second? That won't work too well, I
+think.
 
-> and also:
-> "A host MUST NOT probe a router's reachability in the absence of useful
-> traffic that the host would have sent to the router if it were reachable."
+As an alternative to the pps interrupt, the phc2sys program (from
+linuxptp) can periodically read out the system and PHC times in a
+tight loop in order to discipline the system clock. This works quite
+well in practice, but, again, what happens when multiple guest all try
+to read the PHC time over PCIe simultaneously?
 
-> So, just assume the router is reachable and let's rt6_probe do the
-> rest. We don't need to create a neighbour on route insertion time.
+Thanks,
+Richard
 
-> If we don't compile with CONFIG_IPV6_ROUTER_PREF (RFC4191 support)
-> a neighbour is only valid if its nud_state is NUD_VALID. I did not find
-> any references that we should probe the router on route insertion time
-> via the other RFCs. So skip this route in that case.
-
-> Reported-by: Pierre Emeriaud <petrus.lt@gmail.com>
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
->   net/ipv6/route.c | 4 ++++
->   1 file changed, 4 insertions(+)
-
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index ad0aa6b..450979d 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -547,6 +547,10 @@ static inline bool rt6_check_neigh(struct rt6_info *rt)
->   			ret = true;
->   #endif
->   		read_unlock(&neigh->lock);
-> +	} else {
-> +#ifdef CONFIG_IPV6_ROUTER_PREF
-
-    How about:
-
-	} else if (IS_ENABLED(CONFIG_IPV6_ROUTER_PREF)) {
-
-> +		ret = true;
-> +#endif
->   	}
-
-WBR, Sergei
+BTW, I am working on adding Tx time stamping to the tuntap driver. My
+motivation is be able to conveniently test some of the PTP aspects
+(like Best Master Clock selection) over a virtual switch. I also
+wonder whether this could be used to distribute the host's system time
+to VM guests, and how well it would work.
