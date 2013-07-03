@@ -1,70 +1,52 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH V3 2/2] Introduce huawei_cdc_ncm driver
-Date: Wed, 3 Jul 2013 17:18:53 +0100
-Message-ID: <1372868333.1919.3.camel@bwh-desktop.uk.level5networks.com>
-References: <alpine.LNX.2.02.1307021241380.8884@eeeadesso>
-	 <87wqp9xja5.fsf@nemi.mork.no>
-	 <alpine.LNX.2.02.1307021855270.19053@eeeadesso>
-	 <alpine.LNX.2.02.1307022202570.26010@eeeadesso>
-	 <alpine.LNX.2.02.1307022207060.26010@eeeadesso>
-	 <alpine.LNX.2.02.1307022210470.26010@eeeadesso>
-	 <alpine.LNX.2.02.1307022213380.26010@eeeadesso>
-	 <alpine.LNX.2.02.1307030836270.12831@eeeadesso>
-	 <alpine.LNX.2.02.1307030908090.13789@eeeadesso>
-	 <871u7gvz2z.fsf@nemi.mork.no>
-	 <alpine.LNX.2.02.1307031455460.24525@eeeadesso>
-	 <51D424D1.2010507@cogentembedded.com>
-	 <alpine.LNX.2.02.1307031534180.25440@eeeadesso>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH] ovs: queue_userspace_packet: bail out if nla_nest_start
+ returns NULL
+Date: Wed, 3 Jul 2013 09:32:55 -0700
+Message-ID: <CAEP_g=84532Nh1wagsifOaBkCDk5eOUtG=RzWSv_Z+tPxzUOGg@mail.gmail.com>
+References: <1372841397-10873-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	<netdev@vger.kernel.org>
-To: Enrico Mioso <mrkiko.rs@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:14124 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932776Ab3GCQS6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 12:18:58 -0400
-In-Reply-To: <alpine.LNX.2.02.1307031534180.25440@eeeadesso>
+Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:55062 "HELO
+	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932202Ab3GCQdP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 12:33:15 -0400
+Received: by mail-ie0-f174.google.com with SMTP id 9so896544iec.5
+        for <netdev@vger.kernel.org>; Wed, 03 Jul 2013 09:33:15 -0700 (PDT)
+In-Reply-To: <1372841397-10873-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-07-03 at 15:38 +0200, Enrico Mioso wrote:
-> This new driver, handles devices that mimic the NCM standard, but using NCM as
-> a transport layer to encapsulate other protocols (i.e. AT protocol).
-> 
-> Signed-off-by: Enrico Mioso <mrkiko.rs@gmail.com>
-
-Add a '---' separator here, between the commit message and the list of
-changes that doesn't need to go in the commit message.
-
-> V3:
->   - fixed typo in Kconfig (help text)
+On Wed, Jul 3, 2013 at 1:49 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> The return value of nla_nest_start() is not checked, and can be NULL,
+> which is then being dereferenced in nla_nest_end(). Add a check to
+> prevent such situations.
 >
-> diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
-> index 287cc62..33cb175 100644
-> --- a/drivers/net/usb/Kconfig
-> +++ b/drivers/net/usb/Kconfig
-> @@ -246,6 +246,18 @@ config USB_NET_CDC_NCM
->  	    * ST-Ericsson M343 HSPA Mobile Broadband Modem (reference design)
->  	    * Ericsson F5521gw Mobile Broadband Module
->  
-> +config USB_NET_HUAWEI_CDC_NCM
-> +	tristate "Huawei-style CDC NCM support"
-> +	depends on USB_USBNET
-> +	default y
-> +	select USB_WDM
-> +	select USB_NET_CDC_NCM
-[...]
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> ---
+>  On top of "net-next" tree.
+>
+>  net/openvswitch/datapath.c | 4 ++++
+>  1 file changed, 4 insertions(+)
+>
+> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+> index d12d6b8..51a3c66 100644
+> --- a/net/openvswitch/datapath.c
+> +++ b/net/openvswitch/datapath.c
+> @@ -427,6 +427,10 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
+>         upcall->dp_ifindex = dp_ifindex;
+>
+>         nla = nla_nest_start(user_skb, OVS_PACKET_ATTR_KEY);
+> +       if (unlikely(!nla)) {
+> +               err = -ENOMEM;
+> +               goto out;
+> +       }
 
-The new config symbol should either depend on USB_NET_CDC_NCM (rather
-than selecting it), or have no default setting.  It is not correct to
-enable it by default just because USB_USBNET is selected.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+nla_nest_start() doesn't allocate any memory, it only fails if there
+isn't enough space, so the correct error code would be -EMSGSIZE.
+However, we just calculated the correct size a few lines earlier and
+we don't double check the size anywhere else, so this doesn't make a
+lot of sense to me.
