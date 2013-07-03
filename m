@@ -1,139 +1,49 @@
-From: Michal Hocko <mhocko@suse.cz>
-Subject: Re: [PATCH next-20130703] net: sock: Add ifdef CONFIG_MEMCG_KMEM for
- mem_cgroup_sockets_{init,destroy}
-Date: Wed, 3 Jul 2013 17:20:58 +0200
-Message-ID: <20130703152058.GA30267@dhcp22.suse.cz>
-References: <1372853998-15353-1-git-send-email-sedat.dilek@gmail.com>
- <51D41E34.5010802@huawei.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH] net: sock: fix TCP_SKB_MIN_TRUESIZE
+Date: Wed, 3 Jul 2013 08:31:52 -0700
+Message-ID: <CADVnQyn_W6hzvVKwAG1y2B=QNgSZN=3ymM3bMBmMLpo-PMbFPw@mail.gmail.com>
+References: <1371639080-10699-1-git-send-email-dborkman@redhat.com>
+	<1371644355.3252.307.camel@edumazet-glaptop>
+	<20130619.211721.1594350084165223337.davem@davemloft.net>
+	<1372852942.4979.67.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sedat Dilek <sedat.dilek@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-next@vger.kernel.org, sfr@canb.auug.org.au, linux-mm@kvack.org
-To: Li Zefan <lizefan@huawei.com>, akpm@linux-foundation.org
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <51D41E34.5010802@huawei.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f44.google.com ([74.125.83.44]:45932 "EHLO
+	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752514Ab3GCPby (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 11:31:54 -0400
+Received: by mail-ee0-f44.google.com with SMTP id c13so167893eek.3
+        for <netdev@vger.kernel.org>; Wed, 03 Jul 2013 08:31:52 -0700 (PDT)
+In-Reply-To: <1372852942.4979.67.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed 03-07-13 20:51:00, Li Zefan wrote:
-[...]
-> [PATCH] memcg: fix build error if CONFIG_MEMCG_KMEM=n
-> 
-> Fix this build error:
-> 
-> mm/built-in.o: In function `mem_cgroup_css_free':
-> memcontrol.c:(.text+0x5caa6): undefined reference to
-> 'mem_cgroup_sockets_destroy'
-> 
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> Signed-off-by: Li Zefan <lizefan@huawei.com>
-
-I am seeing the same thing I just didn't get to reporting it.
-The other approach is not bad as well but I find this tiny better
-because mem_cgroup_css_free should care only about a single cleanup
-function for whole kmem. If that one needs to do tcp kmem specific
-cleanup then it should be done inside kmem_cgroup_css_offline.
-
-Andrew could you add this as
-memcg-use-css_get-put-when-charging-uncharging-kmem-fix.patch, please?
-
-Acked-by: Michal Hocko <mhocko@suse.cz>
-
-Thanks
-
+On Wed, Jul 3, 2013 at 5:02 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> commit eea86af6b1e18d ("net: sock: adapt SOCK_MIN_RCVBUF and
+> SOCK_MIN_SNDBUF") forgot the sk_buff alignment taken into account
+> in __alloc_skb() : skb->truesize = SKB_TRUESIZE(size);
+>
+> While above commit fixed the sender issue, the receiver is still
+> dropping the second packet (on loopback device), because the receiver
+> socket can not really hold two skbs :
+> First packet truesize already is above sk_rcvbuf, so even TCP coalescing
+> cannot help.
+>
+> On a typical 64bit build, each tcp skb truesize is 2304, instead of 2272
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
 > ---
->  mm/memcontrol.c | 12 ++++++++++--
->  1 file changed, 10 insertions(+), 2 deletions(-)
-> 
-> diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-> index 234f311..59ea6f9 100644
-> --- a/mm/memcontrol.c
-> +++ b/mm/memcontrol.c
-> @@ -5876,6 +5876,11 @@ static int memcg_init_kmem(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
->  	return mem_cgroup_sockets_init(memcg, ss);
->  }
->  
-> +static void memcg_destroy_kmem(struct mem_cgroup *memcg)
-> +{
-> +	mem_cgroup_sockets_destroy(memcg);
-> +}
-> +
->  static void kmem_cgroup_css_offline(struct mem_cgroup *memcg)
->  {
->  	if (!memcg_kmem_is_active(memcg))
-> @@ -5915,6 +5920,10 @@ static int memcg_init_kmem(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
->  	return 0;
->  }
->  
-> +static void memcg_destroy_kmem(struct mem_cgroup *memcg)
-> +{
-> +}
-> +
->  static void kmem_cgroup_css_offline(struct mem_cgroup *memcg)
->  {
->  }
-> @@ -6312,8 +6321,7 @@ static void mem_cgroup_css_free(struct cgroup *cont)
->  {
->  	struct mem_cgroup *memcg = mem_cgroup_from_cont(cont);
->  
-> -	mem_cgroup_sockets_destroy(memcg);
-> -
-> +	memcg_destroy_kmem(memcg);
->  	__mem_cgroup_free(memcg);
->  }
->  
-> -- 
-> 1.8.0.2
-> 
-> 
-> > ---
-> > [ v2: git dislikes lines beginning with hash ('#'). ]
-> > 
-> >  include/net/sock.h | 4 +++-
-> >  1 file changed, 3 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/include/net/sock.h b/include/net/sock.h
-> > index ea6206c..ad4bf7f 100644
-> > --- a/include/net/sock.h
-> > +++ b/include/net/sock.h
-> > @@ -71,6 +71,7 @@
-> >  struct cgroup;
-> >  struct cgroup_subsys;
-> >  #ifdef CONFIG_NET
-> > +#ifdef CONFIG_MEMCG_KMEM
-> 
-> #if defined(CONFIG_NET) && defined(CONFIG_MEMCG_KMEM)
-> 
-> >  int mem_cgroup_sockets_init(struct mem_cgroup *memcg, struct cgroup_subsys *ss);
-> >  void mem_cgroup_sockets_destroy(struct mem_cgroup *memcg);
-> >  #else
-> > @@ -83,7 +84,8 @@ static inline
-> >  void mem_cgroup_sockets_destroy(struct mem_cgroup *memcg)
-> >  {
-> >  }
-> > -#endif
-> > +#endif /* CONFIG_NET */
-> > +#endif /* CONFIG_MEMCG_KMEM */
-> >  /*
-> >   * This structure really needs to be cleaned up.
-> >   * Most of it is for TCP, and not used by any of
-> > 
-> 
-> --
-> To unsubscribe, send a message with 'unsubscribe linux-mm' in
-> the body to majordomo@kvack.org.  For more info on Linux MM,
-> see: http://www.linux-mm.org/ .
-> Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
 
--- 
-Michal Hocko
-SUSE Labs
+Acked-by: Neal Cardwell <ncardwell@google.com>
+Tested-by: Neal Cardwell <ncardwell@google.com>
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+neal
