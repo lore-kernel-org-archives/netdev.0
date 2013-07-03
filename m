@@ -1,29 +1,30 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: Huaei E3131 - connected!
-Date: Wed, 3 Jul 2013 08:40:16 +0200 (CEST)
-Message-ID: <alpine.LNX.2.02.1307030836270.12831@eeeadesso>
-References: <alpine.LNX.2.02.1307021241380.8884@eeeadesso> <87wqp9xja5.fsf@nemi.mork.no> <alpine.LNX.2.02.1307021855270.19053@eeeadesso> <alpine.LNX.2.02.1307022202570.26010@eeeadesso> <alpine.LNX.2.02.1307022207060.26010@eeeadesso>
- <alpine.LNX.2.02.1307022210470.26010@eeeadesso> <alpine.LNX.2.02.1307022213380.26010@eeeadesso>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: lls fix build with allnoconfig
+Date: Tue, 02 Jul 2013 23:53:12 -0700 (PDT)
+Message-ID: <20130702.235312.1962706449684547854.davem@davemloft.net>
+References: <20130703034124.28666.55448.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	willemb@google.com, erdnetdev@gmail.com, andi@firstfloor.org,
+	hpa@zytor.com, eliezer@tamir.org.il
+To: eliezer.tamir@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f177.google.com ([209.85.215.177]:63915 "EHLO
-	mail-ea0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753551Ab3GCGkA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 02:40:00 -0400
-Received: by mail-ea0-f177.google.com with SMTP id j14so3175478eak.8
-        for <netdev@vger.kernel.org>; Tue, 02 Jul 2013 23:39:59 -0700 (PDT)
-In-Reply-To: <alpine.LNX.2.02.1307022213380.26010@eeeadesso>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57794 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751913Ab3GCGxP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 02:53:15 -0400
+In-Reply-To: <20130703034124.28666.55448.stgit@ladj378.jer.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi guys!
-there's a problem ... I don't understand why even looking at the code (sure, I 
-will look at it again): but, bringing up the wwan0 interface simply works. So 
-now I'm sending this mail via the device's wwan interface and while looking and 
-typing to the wdm character device, without any apparent problem.
-I did not implement the status handler, but the driver seems to be able to 
-work, probably missing some notifications?
-This needs to be EXTRENSIVELY polished and reviewed - but it's encouraging!
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Date: Wed, 03 Jul 2013 06:41:24 +0300
+
+> correct placeholder declarations to prevent build breakage when
+> !CONFIG_NET_LL_RX_POLL
+> 
+> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+
+Applied, thanks.
