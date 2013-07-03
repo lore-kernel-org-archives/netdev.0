@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] VSOCK: Move af_vsock.h and vsock_addr.h to include/net
-Date: Wed, 03 Jul 2013 16:46:37 -0700 (PDT)
-Message-ID: <20130703.164637.871965819487633272.davem@davemloft.net>
-References: <1372816788-25548-1-git-send-email-asias@redhat.com>
+Subject: Re: [PATCH net-next] core: Copy inner_protocol in copy_skb_header()
+Date: Wed, 03 Jul 2013 16:52:38 -0700 (PDT)
+Message-ID: <20130703.165238.851587445124129294.davem@davemloft.net>
+References: <1372835065-32087-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, acking@vmware.com, dtor@vmware.com,
-	grantr@vmware.com
-To: asias@redhat.com
+Cc: netdev@vger.kernel.org, joe@wand.net.nz
+To: horms@verge.net.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39378 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39414 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932255Ab3GCXqk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 19:46:40 -0400
-In-Reply-To: <1372816788-25548-1-git-send-email-asias@redhat.com>
+	with ESMTP id S1754515Ab3GCXwj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 19:52:39 -0400
+In-Reply-To: <1372835065-32087-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Asias He <asias@redhat.com>
-Date: Wed,  3 Jul 2013 09:59:48 +0800
+From: Simon Horman <horms@verge.net.au>
+Date: Wed,  3 Jul 2013 16:04:25 +0900
 
-> This is useful for other VSOCK transport implemented outside the
-> net/vmw_vsock/ directory to use these headers.
+> From: Joe Stringer <joe@wand.net.nz>
 > 
-> Signed-off-by: Asias He <asias@redhat.com>
+> inner_protocol was added to struct sk_buff in
+> 0d89d2035fe063461a5ddb609b2c12e7fb006e44 ("MPLS: Add limited GSO support"),
+> which is scheduled to be included in v3.11.
+> 
+> That patch did not update __copy_skb_header to copy the inner_protocol.
+> 
+> Signed-off-by: Joe Stringer <joe@wand.net.nz>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-The merge window is closed and therefore new submissions like this
-which are not bug fixes are not appropriate at this time.
-
-Please resubmit this when the net-next tree opens again, which I
-will announce here on netdev.
+Applied.
