@@ -1,44 +1,65 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH v6 5/7] ARM: kirkwood: remove redundant DT board files
-Date: Wed, 03 Jul 2013 13:31:47 +0200
-Message-ID: <51D40BA3.6000603@gmail.com>
-References: <1372762824-12202-1-git-send-email-sebastian.hesselbarth@gmail.com> <1372762824-12202-6-git-send-email-sebastian.hesselbarth@gmail.com> <87k3l8v9s1.fsf@natisbad.org>
+From: "Daniel P. Berrange" <berrange@redhat.com>
+Subject: Re: [libvirt-users] libvirt & virtio_net - host.freeze@reset.domain
+Date: Wed, 3 Jul 2013 12:43:28 +0100
+Message-ID: <20130703114327.GW2778@redhat.com>
+References: <51D2B8A1.9050002@gmail.com>
+Reply-To: "Daniel P. Berrange" <berrange@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Russell King <linux@arm.linux.org.uk>,
-	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Arnaud Ebalard <arno@natisbad.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87k3l8v9s1.fsf@natisbad.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: libvir-list@redhat.com, netdev@vger.kernel.org,
+	libvirt-users@redhat.com
+To: poma <pomidorabelisima@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:7341 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752503Ab3GCLne (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jul 2013 07:43:34 -0400
+Content-Disposition: inline
+In-Reply-To: <51D2B8A1.9050002@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/03/13 01:09, Arnaud Ebalard wrote:
-> Hi Sebastian,
->
-> Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com> writes:
->
->> With DT support for mv643xx_eth board specific init for some boards now
->> is unneccessary. Remove those board files, Kconfig entries, and
->> corresponding entries in kirkwood_defconfig.
->
-> Applying above your set an old quilt cleaning patch Jason asked at some
-> point, it became empty except for arch/arm/mach_kirkwood/common.h in
-> which some declarations were left behind. If this is correct, can you
-> just merge the hunks below in your 5/7 in next round?
->
-> AFAICT, only dnskw_init() remains, which matches the list of board-*.c
-> files in arch/arm/mach_kirkwood/ (i.e. board-dt.c and board-dnskw.c).
+On Tue, Jul 02, 2013 at 01:25:21PM +0200, poma wrote:
+> Hello people,
+> 
+> libvirtd (libvirt) 1.0.5.2
+> virsh 1.0.5.2
+> virt-manager 0.10.0
+> 
+> Host:
+> Linux localhost 3.9.8-300.fc19.x86_64 #1 SMP Thu Jun 27 19:24:23 UTC
+> 2013 x86_64 x86_64 x86_64 GNU/Linux
+> Guest1:
+> Linux localhost 3.9.8-300.fc19.i686.PAE #1 SMP Thu Jun 27 19:29:30 UTC
+> 2013 i686 (none)
+> Guest2:
+> Linux localhost 3.9.8-300.fc19.x86_64 #1 SMP Thu Jun 27 19:24:23 UTC
+> 2013 x86_64 x86_64 x86_64 GNU/Linux
+> 
+> 
+> Virtual NIC - source & model:
+> macvtap/NAT/bridge & virtio(virtio_net)
+> 
+> Host freeze at "virsh reset <domain>" or "virt-manager - Force Reset"
+> Need kernel.sysrq or power reset.
 
-While updating the patch with yours, I stumbled upon MACH_TS219_DT that
-also remains because it includes tsx1x-common.c.
+I don't believe this is a libvirt issue - the 'virsh reset' command
+will issue the 'system_reset' QEMU monitor command. This in turn
+does an immediate reset of the guest CPUs/machine.
 
-I cannot recall if Jason or Andrew said something about removing it..
+Even if QEMU is doing the wrong thing, the kernel should obviously
+never freeze/crash in this way - it should be robust against a
+malicious QEMU process.
 
-Sebastian
+You should probably send this message to the main QEMU and/or KVM
+mailing lists so that it comes to the attention of people who are
+more familiar with QEMU + virtio-net
+
+
+Regards,
+Daniel
+-- 
+|: http://berrange.com      -o-    http://www.flickr.com/photos/dberrange/ :|
+|: http://libvirt.org              -o-             http://virt-manager.org :|
+|: http://autobuild.org       -o-         http://search.cpan.org/~danberr/ :|
+|: http://entangle-photo.org       -o-       http://live.gnome.org/gtk-vnc :|
