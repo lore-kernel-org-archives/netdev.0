@@ -1,58 +1,90 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: tuntap regression in v3.9.8 and v3.10
-Date: Wed, 03 Jul 2013 10:44:32 +0800
-Message-ID: <51D39010.5090902@redhat.com>
-References: <20130702195910.GA20271@toau.bambla> <CAOMZO5B7Yx7tRy8Q5wi6ngcD0FDJzKXHOEGPXyUo52+f3oUHEg@mail.gmail.com> <20130702220651.GA23097@toau.bambla>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: 3.9.5+:  Crash in tcp_input.c:4810.
+Date: Tue, 02 Jul 2013 20:21:36 -0700
+Message-ID: <51D398C0.5060802@candelatech.com>
+References: <51BF50B3.1080403@candelatech.com>  <1371493059.3252.200.camel@edumazet-glaptop>  <51D1C620.8030007@candelatech.com> <1372813467.4979.46.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Fabio Estevam <festevam@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Thomas Zeitlhofer <thomas.zeitlhofer@nt.tuwien.ac.at>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130702220651.GA23097@toau.bambla>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:36391 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751890Ab3GCDVi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 23:21:38 -0400
+In-Reply-To: <1372813467.4979.46.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/03/2013 06:06 AM, Thomas Zeitlhofer wrote:
-> On Tue, Jul 02, 2013 at 06:01:12PM -0300, Fabio Estevam wrote:
->> On Tue, Jul 2, 2013 at 4:59 PM, Thomas Zeitlhofer
->> <thomas.zeitlhofer@nt.tuwien.ac.at> wrote:
->>> Commit "tuntap: set SOCK_ZEROCOPY flag during open" introduces a
->>> regression which is observed with live migration of qemu/kvm based
->>> virtual machines that are connected to an openvswitch bridge.
->>>
->>> Reverting this commit (b26c93c46a3dec25ed236d4ba6107eb4ed5d9401 in
->>> v3.9.8 and accordingly 19a6afb23e5d323e1245baa4e62755492b2f1200 in
->>> v3.10) fixes the following problem:
->> Should the sock_set_flag stay in tun_set_iff as it was prior to 54f968d6efd?
+On 07/02/2013 06:04 PM, Eric Dumazet wrote:
+> On Mon, 2013-07-01 at 11:10 -0700, Ben Greear wrote:
+>
+>> offset: -1459  start: -1146162927 seq: -1146161468 size: 16047 copy: 3576
+>> ...
 >>
->> --- a/drivers/net/tun.c
->> +++ b/drivers/net/tun.c
->> @@ -1652,6 +1652,7 @@ static int tun_set_iff(struct net *net, struct
->> file *file, struct ifreq *ifr)
->>                 tun->txflt.count = 0;
->>                 tun->vnet_hdr_sz = sizeof(struct virtio_net_hdr);
+>> There were 80 total splats of this nature grouped together, and then
+>> the system recovered and continue to function normally as far as I
+>> can tell.  The later splats are a bit farther apart...maybe the
+>> TCP connection is dying.
 >>
->> +               sock_set_flag(&tfile->sk, SOCK_ZEROCOPY);
->>                 tun->filter_attached = false;
->>                 tun->sndbuf = tfile->socket.sk->sk_sndbuf;
+>> It appears my 'work-around' is poor at best, but I'd rather kill
+>> a TCP connection and spam the logs than crash the OS.
 >>
->> @@ -2159,8 +2160,6 @@ static int tun_chr_open(struct inode *inode,
->> struct file * file)
->>         set_bit(SOCK_EXTERNALLY_ALLOCATED, &tfile->socket.flags);
->>         INIT_LIST_HEAD(&tfile->next);
->>
->> -       sock_set_flag(&tfile->sk, SOCK_ZEROCOPY);
->> -
->>         return 0;
->>  }
-> I guess no, as this also leads to a kernel panic (tested against v3.10).
+>> I'd be more than happy to add more/different debugging code.
+>
+> It would be nice to pinpoint the origin of the bug. Really.
+>
+> This BUG_ON() is at least 7 years old. I do not think invariant has
+> changed ?
+>
+> Sure we can avoid crashes but it looks like we could randomly corrupt
+> tcp payload or whatever kernel memory, if it turns out its caused by a
+> buggy driver.
+>
+> Is it happening while collapsing the receive queue, or the ofo queue ?
 
-Yes, commit "tuntap: set SOCK_ZEROCOPY flag during open" just re-enable
-the zerocopy capability of tuntap. I believe it just uncover other
-zerocopy bugs.
+What kinds of things could a driver do to cause this.  Maybe modify an
+skb after it has sent it up the stack, or something like that?
 
-Which regression did you see?
+We haven't been able to reproduce on a clean 3.10 yet...but it often takes days,
+so we'll leave the test up through end of this week if we don't hit it
+sooner...
 
-Thanks
+I'll add your patch to my 3.9 tree.
+
+Thanks,
+Ben
+
+
+> In receive queue, all skbs skb2 following skb1 must have
+>
+> TCP_SKB_CB(skb1)->end_seq >= TCP_SKB_CB(skb2)->seq
+>
+> Only on ofo, we could have this not respected, and it should be handled
+> properly in tcp_collapse_ofo_queue()
+>
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 28af45a..d77f1f0 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -4457,7 +4457,12 @@ restart:
+>   			int offset = start - TCP_SKB_CB(skb)->seq;
+>   			int size = TCP_SKB_CB(skb)->end_seq - start;
+>
+> -			BUG_ON(offset < 0);
+> +			if (unlikely(offset < 0)) {
+> +				pr_err("tcp_collapse() bug on %s offset:%d size:%d copy:%d skb->len %u truesize %u, nskb->len %u\n",
+> +					list == &sk->sk_receive_queue ? "receive_queue" : "ofo_queue",
+> +					offset, size, copy, skb->len, skb->truesize, nskb->len);
+> +				return;
+> +			}
+>   			if (size > 0) {
+>   				size = min(copy, size);
+>   				if (skb_copy_bits(skb, offset, skb_put(nskb, size), size))
+>
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
