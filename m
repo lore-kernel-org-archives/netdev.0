@@ -1,35 +1,40 @@
-From: Bing Zhao <bzhao@marvell.com>
-Subject: RE: [PATCH] wireless: Convert mwifiex/pcie to dev_pm_ops from
- legacy pm_ops
-Date: Wed, 3 Jul 2013 14:46:39 -0700
-Message-ID: <477F20668A386D41ADCC57781B1F70430EA2E06715@SC-VEXCH1.marvell.com>
-References: <1372870030-2596-1-git-send-email-shuah.kh@samsung.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: gre: move GSO functions to gre_offload
+Date: Wed, 03 Jul 2013 15:00:36 -0700 (PDT)
+Message-ID: <20130703.150036.1207414018059569364.davem@davemloft.net>
+References: <1372699440-2289-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"shuahkhan@gmail.com" <shuahkhan@gmail.com>
-To: Shuah Khan <shuah.kh@samsung.com>,
-	"linville@tuxdriver.com" <linville@tuxdriver.com>,
-	"rjw@sisk.pl" <rjw@sisk.pl>, "hauke@hauke-m.de" <hauke@hauke-m.de>,
-	"lars@metafoo.de" <lars@metafoo.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372870030-2596-1-git-send-email-shuah.kh@samsung.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38554 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752773Ab3GCWAj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 18:00:39 -0400
+In-Reply-To: <1372699440-2289-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Mon,  1 Jul 2013 19:24:00 +0200
 
-> Convert the mwifiex/pci driver to use dev_pm_ops for power management and
-> remove Legacy PM handling. This change re-uses existing suspend and resume
-> interfaces for dev_pm_ops, and changes CONFIG_PM ifdefs to CONFIG_PM_SLEEP
-> as the driver does not support run-time PM.
+> Similarly to TCP/UDP offloading, move all related GRE functions to
+> gre_offload.c to make things more explicit and similar to the rest
+> of the code.
 > 
-> Signed-off-by: Shuah Khan <shuah.kh@samsung.com>
+> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> ---
+>  When net is merged into net-next, this will clash with bd8a7036c06cf1577 ("gre:
+>  fix a possible skb leak") in gre_gso_segment() as kfree_skb() is being replaced
+>  with kfree_skb_list() in one occurence. How would you like to handle this Dave?
+>  This patch is not really urgent though, but maybe we could get this still in
+>  before net-next closes.
 
-Acked-by: Bing Zhao <bzhao@marvell.com>
+I've applied this and did the messy merge.
 
-Thanks,
-Bing
+Actually the GRE part wasn't that bad. :-)
+
+Thanks!
