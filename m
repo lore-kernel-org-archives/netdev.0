@@ -1,54 +1,45 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH net-next] net: lls fix build with allnoconfig
-Date: Wed, 03 Jul 2013 06:41:24 +0300
-Message-ID: <20130703034124.28666.55448.stgit@ladj378.jer.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 3.9.5+:  Crash in tcp_input.c:4810.
+Date: Tue, 02 Jul 2013 21:41:52 -0700
+Message-ID: <1372826512.4979.49.camel@edumazet-glaptop>
+References: <51BF50B3.1080403@candelatech.com>
+	  <1371493059.3252.200.camel@edumazet-glaptop>
+	  <51D1C620.8030007@candelatech.com>
+	 <1372813467.4979.46.camel@edumazet-glaptop>
+	 <51D398C0.5060802@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Willem de Bruijn <willemb@google.com>,
-	Eric Dumazet <erdnetdev@gmail.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:59467 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750706Ab3GCEly (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 00:41:54 -0400
+Received: by mail-pa0-f53.google.com with SMTP id tj12so7104655pac.12
+        for <netdev@vger.kernel.org>; Tue, 02 Jul 2013 21:41:54 -0700 (PDT)
+In-Reply-To: <51D398C0.5060802@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-correct placeholder declarations to prevent build breakage when
-!CONFIG_NET_LL_RX_POLL
+On Tue, 2013-07-02 at 20:21 -0700, Ben Greear wrote:
 
-Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
----
+> What kinds of things could a driver do to cause this.  Maybe modify an
+> skb after it has sent it up the stack, or something like that?
+> 
 
- include/net/ll_poll.h |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+It might be a genuine TCP bug, who knows...
 
-diff --git a/include/net/ll_poll.h b/include/net/ll_poll.h
-index b76f004..0d620ba 100644
---- a/include/net/ll_poll.h
-+++ b/include/net/ll_poll.h
-@@ -163,12 +163,12 @@ static inline unsigned long ll_get_flag(void)
- 	return 0;
- }
- 
--static inline u64 sk_ll_end_time(struct sock *sk)
-+static inline u64 ll_start_time(unsigned int flag)
- {
- 	return 0;
- }
- 
--static inline u64 ll_end_time(void)
-+static inline u64 ll_run_time(void)
- {
- 	return 0;
- }
-@@ -191,7 +191,7 @@ static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
- {
- }
- 
--static inline bool can_poll_ll(u64 end_time)
-+static inline bool can_poll_ll(u64 start_time, u64 run_time)
- {
- 	return false;
- }
+
+> We haven't been able to reproduce on a clean 3.10 yet...but it often takes days,
+> so we'll leave the test up through end of this week if we don't hit it
+> sooner...
+
+TCP collapse is/should be really rare, but losses can of course trigger
+it.
+
+> 
+> I'll add your patch to my 3.9 tree.
+
+Thanks
