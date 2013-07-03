@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 1/1] net: fec: Add VLAN receive HW support.
-Date: Wed, 03 Jul 2013 16:45:47 -0700 (PDT)
-Message-ID: <20130703.164547.2262724212471952908.davem@davemloft.net>
-References: <Jim_Baxter_<jim_baxter@mentor.com>
-	<1372801976-18338-1-git-send-email-jim_baxter@mentor.com>
+Subject: Re: [PATCH] VSOCK: Move af_vsock.h and vsock_addr.h to include/net
+Date: Wed, 03 Jul 2013 16:46:37 -0700 (PDT)
+Message-ID: <20130703.164637.871965819487633272.davem@davemloft.net>
+References: <1372816788-25548-1-git-send-email-asias@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Frank.Li@freescale.com, B38611@freescale.com,
-	fabio.estevam@freescale.com, l.stach@pengutronix.de,
-	shawn.guo@linaro.org, netdev@vger.kernel.org,
-	bhutchings@solarflare.com
-To: jim_baxter@mentor.com
+Cc: netdev@vger.kernel.org, acking@vmware.com, dtor@vmware.com,
+	grantr@vmware.com
+To: asias@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39367 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39378 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751693Ab3GCXps (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 19:45:48 -0400
-In-Reply-To: <1372801976-18338-1-git-send-email-jim_baxter@mentor.com>
+	with ESMTP id S932255Ab3GCXqk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 19:46:40 -0400
+In-Reply-To: <1372816788-25548-1-git-send-email-asias@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jim Baxter <jim_baxter@mentor.com>
-Date: Tue,  2 Jul 2013 22:52:56 +0100
+From: Asias He <asias@redhat.com>
+Date: Wed,  3 Jul 2013 09:59:48 +0800
 
-> This enables the driver to take advantage of the FEC VLAN
-> indicator to improve performance.
+> This is useful for other VSOCK transport implemented outside the
+> net/vmw_vsock/ directory to use these headers.
 > 
-> Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
+> Signed-off-by: Asias He <asias@redhat.com>
 
-Applied, thanks.
+The merge window is closed and therefore new submissions like this
+which are not bug fixes are not appropriate at this time.
+
+Please resubmit this when the net-next tree opens again, which I
+will announce here on netdev.
