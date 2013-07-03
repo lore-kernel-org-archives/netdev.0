@@ -1,99 +1,104 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: PROBLEM: Linux 3.9 more-specific ipv6 route ignored until next-hop is in neighbor cache
-Date: Wed, 3 Jul 2013 20:15:46 +0200
-Message-ID: <20130703181546.GC12615@order.stressinduktion.org>
-References: <CA+PSOpyxWf2s_JscuBYfOAW9hVkSqqC1JwdRDQ4WtZrkneQf6A@mail.gmail.com> <20130703050007.GA11216@order.stressinduktion.org>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Fwd: [patch] netfilter: ebt_ip6: regression bug fix
+Date: Wed, 3 Jul 2013 11:19:09 -0700
+Message-ID: <CA+55aFwUf2+nm5GQKkZsSPs9r3AGREH=shE3+3oVeiJ18jJC4Q@mail.gmail.com>
+References: <51D46949.8080703@uolinc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Pierre Emeriaud <petrus.lt@gmail.com>, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:52588 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752773Ab3GCSPs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 14:15:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20130703050007.GA11216@order.stressinduktion.org>
+Received: from mail-ve0-f182.google.com ([209.85.128.182]:48947 "EHLO
+	mail-ve0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932575Ab3GCSTK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 14:19:10 -0400
+Received: by mail-ve0-f182.google.com with SMTP id ox1so411632veb.13
+        for <netdev@vger.kernel.org>; Wed, 03 Jul 2013 11:19:09 -0700 (PDT)
+In-Reply-To: <51D46949.8080703@uolinc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 03, 2013 at 07:00:07AM +0200, Hannes Frederic Sowa wrote:
-> [Cc YOSHIFUJI Hideaki because of commit
-> 887c95cc1da53f66a5890fdeab13414613010097 ("ipv6: Complete neighbour entry
-> removal from dst_entry.")]
-> 
-> On Wed, Jul 03, 2013 at 12:04:33AM +0200, Pierre Emeriaud wrote:
-> > Linux 3.9 more-specific ipv6 route ignored until next-hop is in neighbor cache.
-> > 
-> > When adding a route to 2000::/3 with a next-hop that is not in the
-> > neighbor cache, the route is not preferred over the default.
-> 
-> Thanks for the report!
-> 
-> Well.
-> 
-> We ignore this route because of rt6_score_route returning -1 in this case.
-> This traces down to rt6_check_neigh returning false.
-> 
-> Before the above mentioned commit we kicked off some logic to create a
-> neighbour entry in ip6_route_add. Now we end up with neigh == NULL.
-> 
-> This is a hotfix but I need to do more research regarding
-> CONFIG_IPV6_ROUTER_PREF and further expectations of neigh != NULL (you
-> can try this at your own risk ;):
+People send fixes to random places, and I forward them.. I'm feeling
+very managerial today.
 
-I looked up the relevant RFCs and do think this is the proper fix. Could you
-give it a test?
+             Linus
 
-[PATCH net] ipv6: rt6_check_neigh should successfully verify neigh if no NUD information are available
 
-After the removal of rt->n we do not create a neighbour entry at route
-insertion time (rt6_bind_neighbour is gone). As long as no neighbour is
-created because of "useful traffic" we skip this routing entry because
-rt6_check_neigh cannot pick up a valid neighbour (neigh == NULL) and
-thus returns false.
+---------- Forwarded message ----------
+=46rom: Luis Fernando Cornachioni Estrozi <lestrozi@uolinc.com>
+Date: Wed, Jul 3, 2013 at 11:11 AM
+Subject: [patch] netfilter: ebt_ip6: regression bug fix
+To: Bart De Schuymer <bdschuym@pandora.be>
+Cc: "torvalds@linux-foundation.org" <torvalds@linux-foundation.org>
 
-This change was introduced by commit
-887c95cc1da53f66a5890fdeab13414613010097 ("ipv6: Complete neighbour
-entry removal from dst_entry.")
 
-To quote RFC4191:
-"If the host has no information about the router's reachability, then
-the host assumes the router is reachable."
+=46rom: Lu=C3=ADs Fernando Estrozi <lestrozi@uolinc.com>
 
-and also:
-"A host MUST NOT probe a router's reachability in the absence of useful
-traffic that the host would have sent to the router if it were reachable."
+fix regression bug in ebt_ip6 which resulted in ebtables IPv6 src/dst
+fields not being zeroed
 
-So, just assume the router is reachable and let's rt6_probe do the
-rest. We don't need to create a neighbour on route insertion time.
-
-If we don't compile with CONFIG_IPV6_ROUTER_PREF (RFC4191 support)
-a neighbour is only valid if its nud_state is NUD_VALID. I did not find
-any references that we should probe the router on route insertion time
-via the other RFCs. So skip this route in that case.
-
-Reported-by: Pierre Emeriaud <petrus.lt@gmail.com>
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Lu=C3=ADs Fernando Estrozi <lestrozi@uolinc.com>
 ---
- net/ipv6/route.c | 4 ++++
- 1 file changed, 4 insertions(+)
+this bug was introduced on commit
+0898f99a267f89a7dc72cc687955f17613a711b8 on Mar 08, 2010; I'm just
+returning 2 checks that existed before as suggested by Bart De Schuymer
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index ad0aa6b..450979d 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -547,6 +547,10 @@ static inline bool rt6_check_neigh(struct rt6_info *rt)
- 			ret = true;
- #endif
- 		read_unlock(&neigh->lock);
-+	} else {
-+#ifdef CONFIG_IPV6_ROUTER_PREF
-+		ret = true;
-+#endif
- 	}
- 	rcu_read_unlock_bh();
- 
--- 
-1.8.1.4
+--- linux-3.8.13/net/bridge/netfilter/ebt_ip6.c.orig    2013-07-03
+12:07:25.892466692 -0300
++++ linux-3.8.13/net/bridge/netfilter/ebt_ip6.c    2013-07-03
+12:29:47.272496246 -0300
+@@ -48,10 +48,12 @@ ebt_ip6_mt(const struct sk_buff *skb, st
+      if (info->bitmask & EBT_IP6_TCLASS &&
+         FWINV(info->tclass !=3D ipv6_get_dsfield(ih6), EBT_IP6_TCLASS)=
+)
+          return false;
+-    if (FWINV(ipv6_masked_addr_cmp(&ih6->saddr, &info->smsk,
+-                       &info->saddr), EBT_IP6_SOURCE) ||
+-        FWINV(ipv6_masked_addr_cmp(&ih6->daddr, &info->dmsk,
+-                       &info->daddr), EBT_IP6_DEST))
++    if ((info->bitmask & EBT_IP6_SOURCE &&
++            FWINV(ipv6_masked_addr_cmp(&ih6->saddr, &info->smsk,
++                    &info->saddr), EBT_IP6_SOURCE)) ||
++            (info->bitmask & EBT_IP6_DEST &&
++            FWINV(ipv6_masked_addr_cmp(&ih6->daddr, &info->dmsk,
++                    &info->daddr), EBT_IP6_DEST)))
+          return false;
+      if (info->bitmask & EBT_IP6_PROTO) {
+          uint8_t nexthdr =3D ih6->nexthdr;
+
+________________________________
+
+AVISO: A informa=C3=A7=C3=A3o contida neste e-mail, bem como em qualque=
+r de seus
+anexos, =C3=A9 CONFIDENCIAL e destinada ao uso exclusivo do(s)
+destinat=C3=A1rio(s) acima referido(s), podendo conter informa=C3=A7=C3=
+=B5es
+sigilosas e/ou legalmente protegidas. Caso voc=C3=AA n=C3=A3o seja o
+destinat=C3=A1rio desta mensagem, informamos que qualquer divulga=C3=A7=
+=C3=A3o,
+distribui=C3=A7=C3=A3o ou c=C3=B3pia deste e-mail e/ou de qualquer de s=
+eus anexos =C3=A9
+absolutamente proibida. Solicitamos que o remetente seja comunicado
+imediatamente, respondendo esta mensagem, e que o original desta
+mensagem e de seus anexos, bem como toda e qualquer c=C3=B3pia e/ou
+impress=C3=A3o realizada a partir destes, sejam permanentemente apagado=
+s
+e/ou destru=C3=ADdos. Informa=C3=A7=C3=B5es adicionais sobre nossa empr=
+esa podem ser
+obtidas no site http://sobre.uol.com.br/.
+
+NOTICE: The information contained in this e-mail and any attachments
+thereto is CONFIDENTIAL and is intended only for use by the recipient
+named herein and may contain legally privileged and/or secret
+information.
+If you are not the e-mail=C2=B4s intended recipient, you are hereby
+notified that any dissemination, distribution or copy of this e-mail,
+and/or any attachments thereto, is strictly prohibited. Please
+immediately notify the sender replying to the above mentioned e-mail
+address, and permanently delete and/or destroy the original and any
+copy of this e-mail and/or its attachments, as well as any printout
+thereof. Additional information about our company may be obtained
+through the site http://www.uol.com.br/ir/.
