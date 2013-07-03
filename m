@@ -1,42 +1,33 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH net-next] core: Copy inner_protocol in copy_skb_header()
-Date: Wed,  3 Jul 2013 16:04:25 +0900
-Message-ID: <1372835065-32087-1-git-send-email-horms@verge.net.au>
-Cc: Joe Stringer <joe@wand.net.nz>, Simon Horman <horms@verge.net.au>
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: Huaei E3131 - status
+Date: Wed, 3 Jul 2013 09:11:19 +0200 (CEST)
+Message-ID: <alpine.LNX.2.02.1307030908090.13789@eeeadesso>
+References: <alpine.LNX.2.02.1307021241380.8884@eeeadesso> <87wqp9xja5.fsf@nemi.mork.no> <alpine.LNX.2.02.1307021855270.19053@eeeadesso> <alpine.LNX.2.02.1307022202570.26010@eeeadesso> <alpine.LNX.2.02.1307022207060.26010@eeeadesso>
+ <alpine.LNX.2.02.1307022210470.26010@eeeadesso> <alpine.LNX.2.02.1307022213380.26010@eeeadesso> <alpine.LNX.2.02.1307030836270.12831@eeeadesso>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:57033 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753938Ab3GCHEq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 03:04:46 -0400
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:57283 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751767Ab3GCHK7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 03:10:59 -0400
+Received: by mail-wi0-f175.google.com with SMTP id m6so4871634wiv.2
+        for <netdev@vger.kernel.org>; Wed, 03 Jul 2013 00:10:58 -0700 (PDT)
+In-Reply-To: <alpine.LNX.2.02.1307030836270.12831@eeeadesso>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Stringer <joe@wand.net.nz>
+Ok ... As Bjorn stated, cdc-wdm is handling the notifications now - or, better: 
+is not handling them, as it is not made to do these things! The connection 
+stays up and the character device seems to work properly. Obviously cdc-wdm 
+notices me about one single unknown notifications.
+We're ignoring all the notifications from the NCM erspective, but all works 
+because the device probably doesn't rely on them so much.
 
-inner_protocol was added to struct sk_buff in
-0d89d2035fe063461a5ddb609b2c12e7fb006e44 ("MPLS: Add limited GSO support"),
-which is scheduled to be included in v3.11.
+Aniway - now I'm conscious about why it works. Now it's time to improve the 
+situation of the driver, and might be the api. Waiting for suggestions and 
+injuries! :)
 
-That patch did not update __copy_skb_header to copy the inner_protocol.
-
-Signed-off-by: Joe Stringer <joe@wand.net.nz>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/core/skbuff.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index b1fcb87..ee08e63 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -693,6 +693,7 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
- 	new->transport_header	= old->transport_header;
- 	new->network_header	= old->network_header;
- 	new->mac_header		= old->mac_header;
-+	new->inner_protocol	= old->inner_protocol;
- 	new->inner_transport_header = old->inner_transport_header;
- 	new->inner_network_header = old->inner_network_header;
- 	new->inner_mac_header = old->inner_mac_header;
--- 
-1.8.2.1
+thank you everybody for the help...
