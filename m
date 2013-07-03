@@ -1,42 +1,37 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH] ovs: queue_userspace_packet: bail out if nla_nest_start returns NULL
-Date: Wed,  3 Jul 2013 10:49:57 +0200
-Message-ID: <1372841397-10873-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: jesse@nicira.com
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch -next] net/mlx4: fix small memory leak on error
+Date: Wed, 3 Jul 2013 12:37:46 +0300
+Message-ID: <20130703093746.GE1598@elgon.mountain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Roland Dreier <roland@purestorage.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Rony Efraim <ronye@mellanox.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26469 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932071Ab3GCIuM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Jul 2013 04:50:12 -0400
+Received: from aserp1040.oracle.com ([141.146.126.69]:32111 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932285Ab3GCJhz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 05:37:55 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The return value of nla_nest_start() is not checked, and can be NULL,
-which is then being dereferenced in nla_nest_end(). Add a check to
-prevent such situations.
+"work" needs to be freed before returning on this error path.
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- On top of "net-next" tree.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
- net/openvswitch/datapath.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index d12d6b8..51a3c66 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -427,6 +427,10 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
- 	upcall->dp_ifindex = dp_ifindex;
- 
- 	nla = nla_nest_start(user_skb, OVS_PACKET_ATTR_KEY);
-+	if (unlikely(!nla)) {
-+		err = -ENOMEM;
-+		goto out;
-+	}
- 	ovs_flow_to_nlattrs(upcall_info->key, user_skb);
- 	nla_nest_end(user_skb, nla);
- 
--- 
-1.7.11.7
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index 707a7d0..299d018 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -1572,6 +1572,7 @@ int mlx4_master_immediate_activate_vlan_qos(struct mlx4_priv *priv,
+ 					   vp_admin->default_vlan,
+ 					   &admin_vlan_ix);
+ 		if (err) {
++			kfree(work);
+ 			mlx4_warn((&priv->dev),
+ 				  "No vlan resources slave %d, port %d\n",
+ 				  slave, port);
