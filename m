@@ -1,107 +1,69 @@
-From: "Joseph Chang" <joseph_chang@davicom.com.tw>
-Subject: RE: [PATCH 1/1] net: add dm9620 net usb driver
-Date: Wed, 3 Jul 2013 13:49:11 +0800
-Message-ID: <201307030548.r635mxI6027578@mail.davicom.com.tw>
-References: <87mwqglhqj.fsf@dell.be.48ers.dk>
+From: Thomas Zeitlhofer <thomas.zeitlhofer@nt.tuwien.ac.at>
+Subject: Re: tuntap regression in v3.9.8 and v3.10
+Date: Wed, 3 Jul 2013 08:11:04 +0200
+Message-ID: <20130703061104.GA22847@toau.bambla>
+References: <20130702195910.GA20271@toau.bambla>
+ <CAOMZO5B7Yx7tRy8Q5wi6ngcD0FDJzKXHOEGPXyUo52+f3oUHEg@mail.gmail.com>
+ <20130702220651.GA23097@toau.bambla>
+ <51D39010.5090902@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "'Greg Kroah-Hartman'" <gregkh@linuxfoundation.org>,
-	<linux-kernel@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <joseph_chang@davicom.com.tw>,
-	<josright@hotmail.com>
-To: "'Peter Korsgaard'" <jacmet@sunsite.dk>,
-	"'Joseph CHANG'" <josright123@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87mwqglhqj.fsf@dell.be.48ers.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Fabio Estevam <festevam@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fep13.mx.upcmail.net ([62.179.121.33]:60642 "EHLO
+	fep13.mx.upcmail.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753993Ab3GCGLN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 02:11:13 -0400
+Content-Disposition: inline
+In-Reply-To: <51D39010.5090902@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear Peter,
+Hello Jason,
 
-  This is Joseph CHANG, I am glade to contact and work with you.
-  I am busy in some affairs else these days, and will like to be back soon.
+On Wed, Jul 03, 2013 at 10:44:32AM +0800, Jason Wang wrote:
+> On 07/03/2013 06:06 AM, Thomas Zeitlhofer wrote:
+> > On Tue, Jul 02, 2013 at 06:01:12PM -0300, Fabio Estevam wrote:
+> >> On Tue, Jul 2, 2013 at 4:59 PM, Thomas Zeitlhofer
+> >> <thomas.zeitlhofer@nt.tuwien.ac.at> wrote:
+> >>> Commit "tuntap: set SOCK_ZEROCOPY flag during open" introduces a
+> >>> regression which is observed with live migration of qemu/kvm based
+> >>> virtual machines that are connected to an openvswitch bridge.
+> >>>
+> >>> Reverting this commit (b26c93c46a3dec25ed236d4ba6107eb4ed5d9401 in
+> >>> v3.9.8 and accordingly 19a6afb23e5d323e1245baa4e62755492b2f1200 in
+> >>> v3.10) fixes the following problem:
+> >> Should the sock_set_flag stay in tun_set_iff as it was prior to 54f968d6efd?
+> >>
+> >> --- a/drivers/net/tun.c
+> >> +++ b/drivers/net/tun.c
+> >> @@ -1652,6 +1652,7 @@ static int tun_set_iff(struct net *net, struct
+> >> file *file, struct ifreq *ifr)
+> >>                 tun->txflt.count = 0;
+> >>                 tun->vnet_hdr_sz = sizeof(struct virtio_net_hdr);
+> >>
+> >> +               sock_set_flag(&tfile->sk, SOCK_ZEROCOPY);
+> >>                 tun->filter_attached = false;
+> >>                 tun->sndbuf = tfile->socket.sk->sk_sndbuf;
+> >>
+> >> @@ -2159,8 +2160,6 @@ static int tun_chr_open(struct inode *inode,
+> >> struct file * file)
+> >>         set_bit(SOCK_EXTERNALLY_ALLOCATED, &tfile->socket.flags);
+> >>         INIT_LIST_HEAD(&tfile->next);
+> >>
+> >> -       sock_set_flag(&tfile->sk, SOCK_ZEROCOPY);
+> >> -
+> >>         return 0;
+> >>  }
+> > I guess no, as this also leads to a kernel panic (tested against v3.10).
+> 
+> Yes, commit "tuntap: set SOCK_ZEROCOPY flag during open" just re-enable
+> the zerocopy capability of tuntap. I believe it just uncover other
+> zerocopy bugs.
+> 
+> Which regression did you see?
 
-  For the begin, We copy the source code 'dm9601.c' which was by you,
-   In order to work for our new chips (DM9620, DM9621, DM9621A... series),
-   We did modify to get 'dm9620.c' base on 'dm0601.c',
-   Since you are the author and also the owner, so keep MODULE_AUTHOR() as you.
-
-  To generate DM9620.c is a way to distinguish the different generation chips:
-(as below)
-
-   DM9601: old revision:     USB1.1, Ethernet 10/100,     Phase out
-   DM9620: current revision:  USB2.0, Ethernet 10/100,     Mass production state
-   DM9633: next revision:    USB3.0, Ethernet 10/100/1000, Will to release on
-2013/E
-
-  So want to make it from the configuration by "make menuconfig".
-
-  Can you help give further advices, we hope you can go ahead be the owner
-(author) of the 
-  'dm9620.c', And then we make patch to it. Would you agree this idea? If so we
-will be happy
-  because we did not ever create such a code.
-
-  * Think about DM9633 driver to be, It will be is total different compare to
-DM9601 & 
-    DM9620. And will get the same issue.
- 
-ThankYou and Best Regards,
-Joseph CHANG 
-System Application Engineering Division 
-Davicom Semiconductor, Inc. 
-No. 6 Li-Hsin Rd. VI, Science-Based Park, 
-Hsin-Chu, Taiwan. 
-Tel: 886-3-5798797 Ex 8534
-Fax: 886-3-5646929 
-Web: http://www.davicom.com.tw 
-
-
------Original Message-----
-From: Peter Korsgaard [mailto:jacmet@gmail.com] On Behalf Of Peter Korsgaard
-Sent: Monday, June 24, 2013 4:01 AM
-To: Joseph CHANG
-Cc: Greg Kroah-Hartman; linux-kernel@vger.kernel.org; linux-usb@vger.kernel.org;
-netdev@vger.kernel.org; joseph_chang@davicom.com.tw; josright@hotmail.com
-Subject: Re: [PATCH 1/1] net: add dm9620 net usb driver
-
->>>>> "Joseph" == Joseph CHANG <josright123@gmail.com> writes:
-
- Joseph> DM9620 is an USB2.0 network adapter rather than DM9601 USB1.1. This
- Joseph> driver processed the RX data 4 bytes header, TX data 2 bytes header,
- Joseph> make the control bit exactly right in PHY write function, and optional
- Joseph> IFF_ALLMUTLI bit for RX control.
-
-But dm9601.c already supports the dm9620 based devices. Why another
-driver for the same hardware?
-
-Please CC me on dm9601 related patches.
-
- Joseph> Tested good for many platforms, include X86 desktop and ARM embedded.
-
- Joseph> +static struct usb_driver dm9620_driver = {
- Joseph> +	.name = "dm9620",
- Joseph> +	.id_table = products,
- Joseph> +	.probe = usbnet_probe,
- Joseph> +	.disconnect = usbnet_disconnect,
- Joseph> +	.suspend = usbnet_suspend,
- Joseph> +	.resume = usbnet_resume,
- Joseph> +	.disable_hub_initiated_lpm = 1,
- Joseph> +};
- Joseph> +
- Joseph> +module_usb_driver(dm9620_driver);
- Joseph> +
- Joseph> +MODULE_AUTHOR("Peter Korsgaard <jacmet@sunsite.dk>");
-
-I'm not the author of this file.
-
-
--- 
-Bye, Peter Korsgaard
-
--- 
-This message has been scanned for viruses and
-dangerous content by MailScanner, and is
-believed to be clean.
+a kernel panic on the host machine. The details are in the first message
+of this thread: http://lkml.org/lkml/2013/7/2/499
