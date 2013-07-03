@@ -1,30 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: lls fix build with allnoconfig
-Date: Tue, 02 Jul 2013 23:53:12 -0700 (PDT)
-Message-ID: <20130702.235312.1962706449684547854.davem@davemloft.net>
-References: <20130703034124.28666.55448.stgit@ladj378.jer.intel.com>
+From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Subject: Re: [RFC ] netlink: limit large vmalloc() based skbs to
+ NETLINK_NETFILTER
+Date: Wed, 3 Jul 2013 08:59:29 +0200
+Message-ID: <20130703065929.GA1395@breakpoint.cc>
+References: <20130702215015.GA1979@breakpoint.cc>
+ <1372802834.4979.27.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	willemb@google.com, erdnetdev@gmail.com, andi@firstfloor.org,
-	hpa@zytor.com, eliezer@tamir.org.il
-To: eliezer.tamir@linux.intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	Dave Jones <davej@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57794 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751913Ab3GCGxP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 02:53:15 -0400
-In-Reply-To: <20130703034124.28666.55448.stgit@ladj378.jer.intel.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:49069 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754004Ab3GCHAG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 03:00:06 -0400
+Content-Disposition: inline
+In-Reply-To: <1372802834.4979.27.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Date: Wed, 03 Jul 2013 06:41:24 +0300
+On Tue, Jul 02, 2013 at 03:07:14PM -0700, Eric Dumazet wrote:
+> I believe you came too late, this was hopefully fixed here after some
+> discussion last week : 
 
-> correct placeholder declarations to prevent build breakage when
-> !CONFIG_NET_LL_RX_POLL
-> 
-> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Oh not again. Okay so this is gone.
 
-Applied, thanks.
+Sebastian
