@@ -1,138 +1,50 @@
-From: Li Zefan <lizefan@huawei.com>
-Subject: Re: [PATCH next-20130703] net: sock: Add ifdef CONFIG_MEMCG_KMEM
- for mem_cgroup_sockets_{init,destroy}
-Date: Wed, 3 Jul 2013 20:51:00 +0800
-Message-ID: <51D41E34.5010802@huawei.com>
-References: <1372853998-15353-1-git-send-email-sedat.dilek@gmail.com>
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: [PATCH V2 1/3] usbnet: cdc_ncm: let cdc_ncm_tx_fixup and cdc_ncm_rx_fixup
+ be non-static
+Date: Wed, 3 Jul 2013 14:55:37 +0200 (CEST)
+Message-ID: <alpine.LNX.2.02.1307031450250.24525@eeeadesso>
+References: <alpine.LNX.2.02.1307021241380.8884@eeeadesso> <87wqp9xja5.fsf@nemi.mork.no> <alpine.LNX.2.02.1307021855270.19053@eeeadesso> <alpine.LNX.2.02.1307022202570.26010@eeeadesso> <alpine.LNX.2.02.1307022207060.26010@eeeadesso>
+ <alpine.LNX.2.02.1307022210470.26010@eeeadesso> <alpine.LNX.2.02.1307022213380.26010@eeeadesso> <alpine.LNX.2.02.1307030836270.12831@eeeadesso> <alpine.LNX.2.02.1307030908090.13789@eeeadesso> <871u7gvz2z.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="GB2312"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <linux-next@vger.kernel.org>,
-	<sfr@canb.auug.org.au>, <linux-mm@kvack.org>
-To: Sedat Dilek <sedat.dilek@gmail.com>, <akpm@linux-foundation.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1372853998-15353-1-git-send-email-sedat.dilek@gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f182.google.com ([74.125.82.182]:49403 "EHLO
+	mail-we0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755966Ab3GCMzU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 08:55:20 -0400
+Received: by mail-we0-f182.google.com with SMTP id p60so89004wes.13
+        for <netdev@vger.kernel.org>; Wed, 03 Jul 2013 05:55:18 -0700 (PDT)
+In-Reply-To: <871u7gvz2z.fsf@nemi.mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2013/7/3 20:19, Sedat Dilek wrote:
-> When "CONFIG_MEMCG_KMEM=n" I see this in my build-log:
-> 
->  LD      init/built-in.o
-> mm/built-in.o: In function `mem_cgroup_css_free':
-> memcontrol.c:(.text+0x5caa6): undefined reference to `mem_cgroup_sockets_destroy'
-> make[2]: *** [vmlinux] Error 1
-> 
-> Inspired by the ifdef for mem_cgroup_sockets_{init,destroy} here...
-> 
-> [ net/core/sock.c ]
-> 
->  #ifdef CONFIG_MEMCG_KMEM
->  int mem_cgroup_sockets_init()
->  ...
->  void mem_cgroup_sockets_destroy()
->  ...
->  #endif
-> 
-> ...I did the the same for both in "include/net/sock.h".
-> 
-> This fixes the issue for me in next-20130703.
-> 
-> Signed-off-by: Sedat Dilek <sedat.dilek@gmail.com>
+Make those functions non-static so that they can be exported and re-used in 
+other drivers.
 
-Maybe it's better to add memcg_destroy_kmem(), to pair with
-memcg_init_kmem().
+Signed-off-by: Enrico Mioso <mrkiko.rs@gmail.com>
 
-This patch can be folded into "memcg: use css_get/put when charging/uncharging kmem"
 
-=======================
-
-[PATCH] memcg: fix build error if CONFIG_MEMCG_KMEM=n
-
-Fix this build error:
-
-mm/built-in.o: In function `mem_cgroup_css_free':
-memcontrol.c:(.text+0x5caa6): undefined reference to
-'mem_cgroup_sockets_destroy'
-
-Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-Signed-off-by: Li Zefan <lizefan@huawei.com>
----
- mm/memcontrol.c | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
-
-diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index 234f311..59ea6f9 100644
---- a/mm/memcontrol.c
-+++ b/mm/memcontrol.c
-@@ -5876,6 +5876,11 @@ static int memcg_init_kmem(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
- 	return mem_cgroup_sockets_init(memcg, ss);
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 43afde8..493277e 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -858,7 +858,7 @@ static void cdc_ncm_txpath_bh(unsigned long param)
+ 	}
  }
  
-+static void memcg_destroy_kmem(struct mem_cgroup *memcg)
-+{
-+	mem_cgroup_sockets_destroy(memcg);
-+}
-+
- static void kmem_cgroup_css_offline(struct mem_cgroup *memcg)
+-static struct sk_buff *
++struct sk_buff *
+ cdc_ncm_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
  {
- 	if (!memcg_kmem_is_active(memcg))
-@@ -5915,6 +5920,10 @@ static int memcg_init_kmem(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
- 	return 0;
+ 	struct sk_buff *skb_out;
+@@ -965,7 +965,7 @@ error:
  }
+ EXPORT_SYMBOL_GPL(cdc_ncm_rx_verify_ndp16);
  
-+static void memcg_destroy_kmem(struct mem_cgroup *memcg)
-+{
-+}
-+
- static void kmem_cgroup_css_offline(struct mem_cgroup *memcg)
+-static int cdc_ncm_rx_fixup(struct usbnet *dev, struct sk_buff *skb_in)
++int cdc_ncm_rx_fixup(struct usbnet *dev, struct sk_buff *skb_in)
  {
- }
-@@ -6312,8 +6321,7 @@ static void mem_cgroup_css_free(struct cgroup *cont)
- {
- 	struct mem_cgroup *memcg = mem_cgroup_from_cont(cont);
- 
--	mem_cgroup_sockets_destroy(memcg);
--
-+	memcg_destroy_kmem(memcg);
- 	__mem_cgroup_free(memcg);
- }
- 
--- 
-1.8.0.2
-
-
-> ---
-> [ v2: git dislikes lines beginning with hash ('#'). ]
-> 
->  include/net/sock.h | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index ea6206c..ad4bf7f 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -71,6 +71,7 @@
->  struct cgroup;
->  struct cgroup_subsys;
->  #ifdef CONFIG_NET
-> +#ifdef CONFIG_MEMCG_KMEM
-
-#if defined(CONFIG_NET) && defined(CONFIG_MEMCG_KMEM)
-
->  int mem_cgroup_sockets_init(struct mem_cgroup *memcg, struct cgroup_subsys *ss);
->  void mem_cgroup_sockets_destroy(struct mem_cgroup *memcg);
->  #else
-> @@ -83,7 +84,8 @@ static inline
->  void mem_cgroup_sockets_destroy(struct mem_cgroup *memcg)
->  {
->  }
-> -#endif
-> +#endif /* CONFIG_NET */
-> +#endif /* CONFIG_MEMCG_KMEM */
->  /*
->   * This structure really needs to be cleaned up.
->   * Most of it is for TCP, and not used by any of
-> 
+ 	struct sk_buff *skb;
+ 	struct cdc_ncm_ctx *ctx = (struct cdc_ncm_ctx *)dev->data[0];
