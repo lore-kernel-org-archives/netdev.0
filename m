@@ -1,279 +1,164 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: [PATCH V2 3/3] usbnet: introduce huawei_cdc_ncm driver
-Date: Wed, 3 Jul 2013 15:05:25 +0200 (CEST)
-Message-ID: <alpine.LNX.2.02.1307031500360.24525@eeeadesso>
-References: <alpine.LNX.2.02.1307021241380.8884@eeeadesso> <87wqp9xja5.fsf@nemi.mork.no> <alpine.LNX.2.02.1307021855270.19053@eeeadesso> <alpine.LNX.2.02.1307022202570.26010@eeeadesso> <alpine.LNX.2.02.1307022207060.26010@eeeadesso>
- <alpine.LNX.2.02.1307022210470.26010@eeeadesso> <alpine.LNX.2.02.1307022213380.26010@eeeadesso> <alpine.LNX.2.02.1307030836270.12831@eeeadesso> <alpine.LNX.2.02.1307030908090.13789@eeeadesso> <871u7gvz2z.fsf@nemi.mork.no>
+From: Sedat Dilek <sedat.dilek@gmail.com>
+Subject: Re: [PATCH next-20130703] net: sock: Add ifdef CONFIG_MEMCG_KMEM for mem_cgroup_sockets_{init,destroy}
+Date: Wed, 3 Jul 2013 15:09:10 +0200
+Message-ID: <CA+icZUV0bCUDxd8qtzS-zNGwM+JKEqC4uTCxmsOH8jbNVddPXA@mail.gmail.com>
+References: <1372853998-15353-1-git-send-email-sedat.dilek@gmail.com>
+	<51D41E34.5010802@huawei.com>
+Reply-To: sedat.dilek@gmail.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f47.google.com ([74.125.82.47]:43603 "EHLO
-	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754019Ab3GCNFG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 09:05:06 -0400
-Received: by mail-wg0-f47.google.com with SMTP id l18so98885wgh.2
-        for <netdev@vger.kernel.org>; Wed, 03 Jul 2013 06:05:04 -0700 (PDT)
-In-Reply-To: <871u7gvz2z.fsf@nemi.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: akpm@linux-foundation.org, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org,
+	sfr@canb.auug.org.au, linux-mm@kvack.org
+To: Li Zefan <lizefan@huawei.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <51D41E34.5010802@huawei.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-This new driver, handles devices that mimic the NCM standard, but using NCM as 
-a transport layer to encapsulate other protocol (i.e. AT protocol).
+On Wed, Jul 3, 2013 at 2:51 PM, Li Zefan <lizefan@huawei.com> wrote:
+> On 2013/7/3 20:19, Sedat Dilek wrote:
+>> When "CONFIG_MEMCG_KMEM=n" I see this in my build-log:
+>>
+>>  LD      init/built-in.o
+>> mm/built-in.o: In function `mem_cgroup_css_free':
+>> memcontrol.c:(.text+0x5caa6): undefined reference to `mem_cgroup_sockets_destroy'
+>> make[2]: *** [vmlinux] Error 1
+>>
+>> Inspired by the ifdef for mem_cgroup_sockets_{init,destroy} here...
+>>
+>> [ net/core/sock.c ]
+>>
+>>  #ifdef CONFIG_MEMCG_KMEM
+>>  int mem_cgroup_sockets_init()
+>>  ...
+>>  void mem_cgroup_sockets_destroy()
+>>  ...
+>>  #endif
+>>
+>> ...I did the the same for both in "include/net/sock.h".
+>>
+>> This fixes the issue for me in next-20130703.
+>>
+>> Signed-off-by: Sedat Dilek <sedat.dilek@gmail.com>
+>
+> Maybe it's better to add memcg_destroy_kmem(), to pair with
+> memcg_init_kmem().
+>
+> This patch can be folded into "memcg: use css_get/put when charging/uncharging kmem"
+>
 
+Hi Li Zefan,
 
-Signed-off-by: Enrico Mioso <mrkiko.rs@gmail.com>
-v2:
-  - added check_connect handler
-  - cleaned up some comments
-  - proper device binding entries added
+Can you or a guru from netdev explain me why there exists
+mem_cgroup_sockets_init() and mem_cgroup_sockets_destroy() in
 
-diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
-index 287cc62..33cb175 100644
---- a/drivers/net/usb/Kconfig
-+++ b/drivers/net/usb/Kconfig
-@@ -246,6 +246,18 @@ config USB_NET_CDC_NCM
- 	    * ST-Ericsson M343 HSPA Mobile Broadband Modem (reference design)
- 	    * Ericsson F5521gw Mobile Broadband Module
- 
-+config USB_NET_HUAWEI_CDC_NCM
-+	tristate "Huawei-style CDC NCM support"
-+	depends on USB_USBNET
-+	default y
-+	select USB_WDM
-+	select USB_NET_CDC_NCM
-+	help
-+		This driver aims to support huawei-style NCM devices, that use ncm as a 
-+		transport for other protols.
-+		To compile this driver as a module, choose M here: the module will be 
-+		called huawei_cdc_ncm.
-+
- config USB_NET_CDC_MBIM
- 	tristate "CDC MBIM support"
- 	depends on USB_USBNET
-diff --git a/drivers/net/usb/Makefile b/drivers/net/usb/Makefile
-index 9ab5c9d..12a0279 100644
---- a/drivers/net/usb/Makefile
-+++ b/drivers/net/usb/Makefile
-@@ -31,6 +31,7 @@ obj-$(CONFIG_USB_IPHETH)	+= ipheth.o
- obj-$(CONFIG_USB_SIERRA_NET)	+= sierra_net.o
- obj-$(CONFIG_USB_NET_CX82310_ETH)	+= cx82310_eth.o
- obj-$(CONFIG_USB_NET_CDC_NCM)	+= cdc_ncm.o
-+obj-$(CONFIG_USB_NET_HUAWEI_CDC_NCM)	+= huawei_cdc_ncm.o
- obj-$(CONFIG_USB_VL600)		+= lg-vl600.o
- obj-$(CONFIG_USB_NET_QMI_WWAN)	+= qmi_wwan.o
- obj-$(CONFIG_USB_NET_CDC_MBIM)	+= cdc_mbim.o
-diff --git a/drivers/net/usb/huawei_cdc_ncm.c b/drivers/net/usb/huawei_cdc_ncm.c
-index e69de29..46591e7 100644
---- a/drivers/net/usb/huawei_cdc_ncm.c
-+++ b/drivers/net/usb/huawei_cdc_ncm.c
-@@ -0,0 +1,206 @@
-+/*
-+ * huawei_cdc_ncm.c - handles hawei-style NCM devices.
-+ * Copyright (C) 1012	 Enrico Mioso <mrkiko.rs@gmail.com>
-+ * This driver handles devices resembling the CDC NCM standard, but 
-+ * encapsulating another protocol inside it. An example are some Huawei 3G devices.
-+ * This code has been heavily inspired by the cdc_mbim.c driver, which is
-+ * Copyright (c) 2012  Smith Micro Software, Inc. 
-+ * Copyright (c) 2012  Bj??rn Mork <bjorn@mork.no>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * version 2 as published by the Free Software Foundation.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/netdevice.h>
-+#include <linux/ethtool.h>
-+#include <linux/if_vlan.h>
-+#include <linux/ip.h>
-+#include <linux/mii.h>
-+#include <linux/usb.h>
-+#include <linux/usb/cdc.h>
-+#include <linux/usb/usbnet.h>
-+#include <linux/usb/cdc-wdm.h>
-+#include <linux/usb/cdc_ncm.h>
-+
-+/* Specific driver data */
-+struct huawei_cdc_ncm_state {
-+	struct cdc_ncm_ctx *ctx;
-+	atomic_t pmcount;
-+	struct usb_driver *subdriver;
-+	struct usb_interface *control;
-+	struct usb_interface *data;
-+};
-+
-+static int huawei_cdc_ncm_manage_power(struct usbnet *usbnet_dev, int on)
-+{
-+	struct huawei_cdc_ncm_state *drvstate = (void *)&usbnet_dev->data;
-+	int rv = 0;
-+
-+	if ((on && atomic_add_return(1, &drvstate->pmcount) == 1) || (!on && atomic_dec_and_test(&drvstate->pmcount))) {
-+		rv = usb_autopm_get_interface(usbnet_dev->intf);
-+		if (rv < 0)
-+			goto err;
-+		usbnet_dev->intf->needs_remote_wakeup = on;
-+		usb_autopm_put_interface(usbnet_dev->intf);
-+	}
-+err:
-+	return rv;
-+}
-+
-+static int huawei_cdc_ncm_wdm_manage_power(struct usb_interface *intf, int status)
-+{
-+	struct usbnet *usbnet_dev = usb_get_intfdata(intf);
-+
-+	/* can be called while disconnecting */
-+	if (!usbnet_dev)
-+		return 0;
-+
-+	return huawei_cdc_ncm_manage_power(usbnet_dev, status);
-+}
-+
-+
-+static int huawei_cdc_ncm_bind(struct usbnet *usbnet_dev, struct usb_interface *intf) {
-+	struct cdc_ncm_ctx *ctx;
-+	struct usb_driver *subdriver = ERR_PTR(-ENODEV);
-+	int ret = -ENODEV;
-+	struct huawei_cdc_ncm_state *drvstate = (void *)&usbnet_dev->data;
-+	
-+	/* Actually binds us to the device: use standard ncm function */
-+	ret = cdc_ncm_bind_common(usbnet_dev, intf, 1); /* altsetting should be 1 */
-+	if (ret)
-+		goto err;
-+	
-+	ctx = drvstate->ctx;
-+	
-+	if (usbnet_dev->status) 
-+	/* The wdm buffer size is choosen to match the one specified in AT R1.1 Standard. */	
-+	subdriver = usb_cdc_wdm_register(ctx->control, &usbnet_dev->status->desc, 256, huawei_cdc_ncm_wdm_manage_power); /* CDC-WMC r1.1 requires wMaxCommand to be "at least 256" */
-+	if (IS_ERR(subdriver)) {
-+	 ret = PTR_ERR(subdriver);
-+	 cdc_ncm_unbind(usbnet_dev, intf);
-+   goto err;
-+	}
-+	
-+	/* Prevent usbnet from using the status descriptor */
-+	usbnet_dev->status = NULL;
-+	
-+	drvstate->subdriver = subdriver;
-+	
-+err:
-+	return ret;
-+}
-+
-+static void huawei_cdc_ncm_unbind(struct usbnet *usbnet_dev, struct usb_interface *intf) {
-+	struct huawei_cdc_ncm_state *drvstate = (void *)&usbnet_dev->data;
-+	struct cdc_ncm_ctx *ctx = drvstate->ctx;
-+	
-+	if (drvstate->subdriver && drvstate->subdriver->disconnect)
-+		drvstate->subdriver->disconnect(ctx->control);
-+	drvstate->subdriver = NULL;
-+
-+	cdc_ncm_unbind(usbnet_dev, intf);
-+}
-+
-+static int huawei_cdc_ncm_suspend(struct usb_interface *intf, pm_message_t message)
-+{
-+	int ret = 0;
-+	struct usbnet *usbnet_dev = usb_get_intfdata(intf);
-+	struct huawei_cdc_ncm_state *drvstate = (void *)&usbnet_dev->data;
-+	struct cdc_ncm_ctx *ctx = drvstate->ctx;
-+
-+	if (ctx == NULL) {
-+		ret = -1;
-+		goto error;
-+	}
-+
-+	ret = usbnet_suspend(intf, message);
-+	if (ret < 0)
-+		goto error;
-+
-+	if (intf == ctx->control && drvstate->subdriver && drvstate->subdriver->suspend)
-+		ret = drvstate->subdriver->suspend(intf, message);
-+	if (ret < 0)
-+		usbnet_resume(intf);
-+
-+error:
-+	return ret;
-+}
-+
-+static int huawei_cdc_ncm_resume(struct usb_interface *intf)
-+{
-+	int ret = 0;
-+	struct usbnet *usbnet_dev = usb_get_intfdata(intf);
-+	struct huawei_cdc_ncm_state *drvstate = (void *)&usbnet_dev->data;
-+	struct cdc_ncm_ctx *ctx = drvstate->ctx;
-+	bool callsub = (intf == ctx->control && drvstate->subdriver && drvstate->subdriver->resume); /* should we call subdriver's resume? ? */
-+
-+	if (callsub)
-+		ret = drvstate->subdriver->resume(intf);
-+	if (ret < 0)
-+		goto err;
-+	ret = usbnet_resume(intf);
-+	if (ret < 0 && callsub && drvstate->subdriver->suspend)
-+		drvstate->subdriver->suspend(intf, PMSG_SUSPEND);
-+err:
-+	return ret;
-+}
-+
-+static int huawei_cdc_ncm_check_connect(struct usbnet *usbnet_dev) {
-+	struct cdc_ncm_ctx *ctx;
-+	
-+	ctx = (struct cdc_ncm_ctx *)usbnet_dev->data[0];
-+	
-+	if (ctx == NULL)
-+		return 1; /* disconnected */
-+	
-+	return !ctx->connected;
-+}
-+
-+static const struct driver_info huawei_cdc_ncm_info = {
-+	.description = "Huawei CDC NCM",
-+	.flags = FLAG_NO_SETINT | FLAG_MULTI_PACKET | FLAG_WWAN,
-+	.bind = huawei_cdc_ncm_bind,
-+	.unbind = huawei_cdc_ncm_unbind,
-+	.check_connect = huawei_cdc_ncm_check_connect,
-+	.manage_power = huawei_cdc_ncm_manage_power,
-+	.rx_fixup = cdc_ncm_rx_fixup,
-+	.tx_fixup = cdc_ncm_tx_fixup,
-+};
-+
-+static const struct usb_device_id huawei_cdc_ncm_devs[] = {
-+	/* Huawei NCM devices disguised as vendor specific */
-+	{ USB_VENDOR_AND_INTERFACE_INFO(0x12d1, 0xff, 0x02, 0x16),
-+	  .driver_info = (unsigned long)&huawei_cdc_ncm_info,
-+	},
-+	{ USB_VENDOR_AND_INTERFACE_INFO(0x12d1, 0xff, 0x02, 0x46),
-+	  .driver_info = (unsigned long)&huawei_cdc_ncm_info,
-+	},
-+	{ USB_VENDOR_AND_INTERFACE_INFO(0x12d1, 0xff, 0x02, 0x76),
-+	  .driver_info = (unsigned long)&huawei_cdc_ncm_info,
-+	},
-+
-+	/* Terminating entry */
-+	{
-+	},
-+};
-+MODULE_DEVICE_TABLE(usb, huawei_cdc_ncm_devs);
-+
-+
-+/* USB driver struct - used by USB stack */
-+static struct usb_driver huawei_cdc_ncm_driver = {
-+	.name = "huawei_cdc_ncm",
-+	.id_table = huawei_cdc_ncm_devs,
-+	.probe = usbnet_probe,
-+	.disconnect = usbnet_disconnect,
-+	.suspend = huawei_cdc_ncm_suspend,
-+	.resume = huawei_cdc_ncm_resume,
-+	.reset_resume = huawei_cdc_ncm_resume,
-+	.supports_autosuspend = 1,
-+	.disable_hub_initiated_lpm = 1,
-+};
-+module_usb_driver(huawei_cdc_ncm_driver);
-+MODULE_AUTHOR("Enrico Mioso <mrkiko.rs@gmail.com>");
-+MODULE_DESCRIPTION("USB CDC NCM host driver with encapsulated protocol support");
-+MODULE_LICENSE("GPL");
+1. net/core/sock.c <--- AFAICS this includes below sock.h, too.
+2. net/core/sock.h <--- mm/memcontrol.c is including this one.
 
-  
+Make me less confused.
+
+And can you explain why your approach is "better" to do the change in
+memcontrol.c than in sock.h (see sock.c).
+
+Thanks in advance.
+
+- Sedat -
+
+> =======================
+>
+> [PATCH] memcg: fix build error if CONFIG_MEMCG_KMEM=n
+>
+> Fix this build error:
+>
+> mm/built-in.o: In function `mem_cgroup_css_free':
+> memcontrol.c:(.text+0x5caa6): undefined reference to
+> 'mem_cgroup_sockets_destroy'
+>
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> Signed-off-by: Li Zefan <lizefan@huawei.com>
+> ---
+>  mm/memcontrol.c | 12 ++++++++++--
+>  1 file changed, 10 insertions(+), 2 deletions(-)
+>
+> diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+> index 234f311..59ea6f9 100644
+> --- a/mm/memcontrol.c
+> +++ b/mm/memcontrol.c
+> @@ -5876,6 +5876,11 @@ static int memcg_init_kmem(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
+>         return mem_cgroup_sockets_init(memcg, ss);
+>  }
+>
+> +static void memcg_destroy_kmem(struct mem_cgroup *memcg)
+> +{
+> +       mem_cgroup_sockets_destroy(memcg);
+> +}
+> +
+>  static void kmem_cgroup_css_offline(struct mem_cgroup *memcg)
+>  {
+>         if (!memcg_kmem_is_active(memcg))
+> @@ -5915,6 +5920,10 @@ static int memcg_init_kmem(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
+>         return 0;
+>  }
+>
+> +static void memcg_destroy_kmem(struct mem_cgroup *memcg)
+> +{
+> +}
+> +
+>  static void kmem_cgroup_css_offline(struct mem_cgroup *memcg)
+>  {
+>  }
+> @@ -6312,8 +6321,7 @@ static void mem_cgroup_css_free(struct cgroup *cont)
+>  {
+>         struct mem_cgroup *memcg = mem_cgroup_from_cont(cont);
+>
+> -       mem_cgroup_sockets_destroy(memcg);
+> -
+> +       memcg_destroy_kmem(memcg);
+>         __mem_cgroup_free(memcg);
+>  }
+>
+> --
+> 1.8.0.2
+>
+>
+>> ---
+>> [ v2: git dislikes lines beginning with hash ('#'). ]
+>>
+>>  include/net/sock.h | 4 +++-
+>>  1 file changed, 3 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/include/net/sock.h b/include/net/sock.h
+>> index ea6206c..ad4bf7f 100644
+>> --- a/include/net/sock.h
+>> +++ b/include/net/sock.h
+>> @@ -71,6 +71,7 @@
+>>  struct cgroup;
+>>  struct cgroup_subsys;
+>>  #ifdef CONFIG_NET
+>> +#ifdef CONFIG_MEMCG_KMEM
+>
+> #if defined(CONFIG_NET) && defined(CONFIG_MEMCG_KMEM)
+>
+>>  int mem_cgroup_sockets_init(struct mem_cgroup *memcg, struct cgroup_subsys *ss);
+>>  void mem_cgroup_sockets_destroy(struct mem_cgroup *memcg);
+>>  #else
+>> @@ -83,7 +84,8 @@ static inline
+>>  void mem_cgroup_sockets_destroy(struct mem_cgroup *memcg)
+>>  {
+>>  }
+>> -#endif
+>> +#endif /* CONFIG_NET */
+>> +#endif /* CONFIG_MEMCG_KMEM */
+>>  /*
+>>   * This structure really needs to be cleaned up.
+>>   * Most of it is for TCP, and not used by any of
+>>
+>
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
