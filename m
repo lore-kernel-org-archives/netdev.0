@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] alx: remove WoL support
-Date: Wed, 03 Jul 2013 16:36:00 -0700 (PDT)
-Message-ID: <20130703.163600.917400721588699099.davem@davemloft.net>
-References: <1372880891-12320-1-git-send-email-johannes@sipsolutions.net>
+Subject: Re: [PATCH net-next v3 1/1] net: fec: Add VLAN receive HW support.
+Date: Wed, 03 Jul 2013 16:45:47 -0700 (PDT)
+Message-ID: <20130703.164547.2262724212471952908.davem@davemloft.net>
+References: <Jim_Baxter_<jim_baxter@mentor.com>
+	<1372801976-18338-1-git-send-email-jim_baxter@mentor.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: johannes@sipsolutions.net
+Cc: Frank.Li@freescale.com, B38611@freescale.com,
+	fabio.estevam@freescale.com, l.stach@pengutronix.de,
+	shawn.guo@linaro.org, netdev@vger.kernel.org,
+	bhutchings@solarflare.com
+To: jim_baxter@mentor.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39317 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39367 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752773Ab3GCXgE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 19:36:04 -0400
-In-Reply-To: <1372880891-12320-1-git-send-email-johannes@sipsolutions.net>
+	with ESMTP id S1751693Ab3GCXps (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 19:45:48 -0400
+In-Reply-To: <1372801976-18338-1-git-send-email-jim_baxter@mentor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Wed,  3 Jul 2013 21:48:11 +0200
+From: Jim Baxter <jim_baxter@mentor.com>
+Date: Tue,  2 Jul 2013 22:52:56 +0100
 
-> Unfortunately, WoL is broken and the system will immediately
-> resume after suspending, and I can't seem to figure out why.
-> Remove WoL support until the issue can be found.
+> This enables the driver to take advantage of the FEC VLAN
+> indicator to improve performance.
 > 
-> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+> Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
 
 Applied, thanks.
