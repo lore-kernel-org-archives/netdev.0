@@ -1,10 +1,9 @@
 From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH V2 1/9] net/mlx5: Mellanox Connect-IB, core driver part
- 1/3
-Date: Wed, 03 Jul 2013 13:29:57 -0700
-Message-ID: <1372883397.1886.9.camel@joe-AO722>
+Subject: Re: [PATCH V2 5/9] IB/mlx5: Mellanox Connect-IB, IB driver part 1/5
+Date: Wed, 03 Jul 2013 13:59:28 -0700
+Message-ID: <1372885168.1886.17.camel@joe-AO722>
 References: <1372871592-32033-1-git-send-email-ogerlitz@mellanox.com>
-	 <1372871592-32033-2-git-send-email-ogerlitz@mellanox.com>
+	 <1372871592-32033-6-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
@@ -14,56 +13,79 @@ Cc: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM
 	moshel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 To: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1372871592-32033-2-git-send-email-ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+In-Reply-To: <1372871592-32033-6-git-send-email-ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 On Wed, 2013-07-03 at 20:13 +0300, Or Gerlitz wrote:
 > From: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-trivial comments:
+more trivia:
 
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+> diff --git a/drivers/infiniband/hw/mlx5/ah.c b/drivers/infiniband/hw/mlx5/ah.c
 []
-> +static const char *deliv_status_to_str(u8 status)
+> +struct ib_ah *create_ib_ah(struct ib_ah_attr *ah_attr,
+> +			   struct mlx5_ib_ah *ah)
 > +{
-> +	switch (status) {
-> +	case MLX5_CMD_DELIVERY_STAT_OK:
-> +		return "no errors";
-[]
-> +	default:
-> +		return "unknown status code\n";
+> +	u32 sgi;
+
+sgi is used once here and looks more confusing than helpful
+
+> +
+> +	if (ah_attr->ah_flags & IB_AH_GRH) {
+> +		sgi = ah_attr->grh.sgid_index << 20;
+> +
+> +		memcpy(ah->av.rgid, &ah_attr->grh.dgid, 16);
+> +		ah->av.grh_gid_fl = cpu_to_be32(ah_attr->grh.flow_label |
+> +						(1 << 30) | sgi);
+> +		ah->av.hop_limit = ah_attr->grh.hop_limit;
+> +		ah->av.tclass = ah_attr->grh.traffic_class;
 > +	}
+> +
+> +	ah->av.rlid = cpu_to_be16(ah_attr->dlid);
+> +	ah->av.fl_mlid = ah_attr->src_path_bits & 0x7f;
+> +	ah->av.stat_rate_sl = (ah_attr->static_rate << 4) | (ah_attr->sl & 0xf);
+> +
+> +	return &ah->ibah;
 > +}
 
-Likely unnecessary newline for default case
+[]
 
-> +static struct mlx5_cmd_mailbox *alloc_cmd_box(struct mlx5_core_dev *dev,
-> +					      gfp_t flags)
+> +static void *get_sw_cqe(struct mlx5_ib_cq *cq, int n)
 > +{
-> +	struct mlx5_cmd_mailbox *mailbox;
+> +	void *cqe = get_cqe(cq, n & cq->ibcq.cqe);
+> +	struct mlx5_cqe64 *cqe64;
 > +
-> +	mailbox = kmalloc(sizeof(*mailbox), flags);
-> +	if (!mailbox) {
-> +		mlx5_core_dbg(dev, "failed allocation\n");
-> +		return ERR_PTR(-ENOMEM);
-> +	}
+> +	cqe64 = (cq->mcq.cqe_sz == 64) ? cqe : cqe + 64;
+> +	return ((cqe64->op_own & MLX5_CQE_OWNER_MASK) ^
+> +		!!(n & (cq->ibcq.cqe + 1))) ? NULL : cqe;
 
-unnecessary OOM message.
+I think "foo ^ !!bar" is excessively tricky.
 
-> +static void set_wqname(struct mlx5_core_dev *dev)
+> +static enum ib_wc_opcode get_umr_comp(struct mlx5_ib_wq *wq, int idx)
 > +{
-> +	struct mlx5_cmd *cmd = &dev->cmd;
-> +
-> +	strcpy(cmd->wq_name, "mlx5_cmd_");
-> +	strcat(cmd->wq_name, dev_name(&dev->pdev->dev));
 
-More likely snprintf might be better.
+> +		pr_warn("unkonwn completion status\n");
 
-	snprintf(cmd->wq_name, sizeof(cmd->wq_name), "mlx5_cmd_%s",
-		 dev_name(&dev->pdev->dev));
+unknown tyop
 
-How big is wq_name?  Will a maximum length dev_name always fit?
+[]
+
+> +static int create_cq_user(struct mlx5_ib_dev *dev, struct ib_udata *udata,
+> +			  struct ib_ucontext *context, struct mlx5_ib_cq *cq,
+> +			  int entries, struct mlx5_create_cq_mbox_in **cqb,
+> +			  int *cqe_size, int *index, int *inlen)
+[]
+> +	*inlen = sizeof **cqb + sizeof *(*cqb)->pas * ncont;
+
+sizeof always uses parentheses
+
+> +	*cqb = vzalloc(*inlen);
+
+Perhaps you may be using vzalloc too often.
+
+Maybe you should have a helper allocating either
+from kmalloc or vmalloc as necessary based on size.
 
 
 --
