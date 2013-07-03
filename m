@@ -1,43 +1,107 @@
-From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH for-next 0/8] Add Mellanox mlx5 driver for Connect-IB
- devices
-Date: Wed, 3 Jul 2013 19:41:45 +0300
-Message-ID: <51D45449.5010604@mellanox.com>
-References: <1371384149-24558-1-git-send-email-eli@dev.mellanox.co.il> <CAJZOPZ+NQa3CWnw3rZQh2UuwdrNhiwtVSyuk9D9YtwfQQ9e1XA@mail.gmail.com> <CAJZOPZKLb9k1xXkTnrtzYKpwrSJDQgBpONUVCp3et36JeaEi-Q@mail.gmail.com> <CAL1RGDX5mHj5oVqFhQ4Ssr25jpL4rV2Tv=zXvLOZfwupJ0gqJw@mail.gmail.com>
+From: Sedat Dilek <sedat.dilek@gmail.com>
+Subject: Re: [PATCH next-20130703] net: sock: Add ifdef CONFIG_MEMCG_KMEM for mem_cgroup_sockets_{init,destroy}
+Date: Wed, 3 Jul 2013 18:42:40 +0200
+Message-ID: <CA+icZUVx2qDYRF7BKHesjGtn8vPokeJkUE=T0MCkqcg8XK15-g@mail.gmail.com>
+References: <1372853998-15353-1-git-send-email-sedat.dilek@gmail.com>
+	<51D41E34.5010802@huawei.com>
+	<20130703152058.GA30267@dhcp22.suse.cz>
+	<CA+icZUX+mB2v9ghdhaLvpncCu+yxP4xJzzbFxXisFsB2tDM7TA@mail.gmail.com>
+	<20130703155958.GC5153@dhcp22.suse.cz>
+	<CA+icZUWiXr=wFoXHA_V3jy0Bkg1Pc5b79LX5j1fnfgmOkYhKCg@mail.gmail.com>
+	<20130703163429.GD5153@dhcp22.suse.cz>
+Reply-To: sedat.dilek@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-To: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAL1RGDX5mHj5oVqFhQ4Ssr25jpL4rV2Tv=zXvLOZfwupJ0gqJw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Li Zefan <lizefan@huawei.com>, akpm@linux-foundation.org, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-next@vger.kernel.org, sfr@canb.auug.org.au, linux-mm@kvack.org
+To: Michal Hocko <mhocko@suse.cz>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20130703163429.GD5153@dhcp22.suse.cz>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 01/07/2013 20:49, Roland Dreier wrote:
-> - I think the active flag for the health check timer is unnecessary.
-> It can just be stopped with del_timer_sync().
+On Wed, Jul 3, 2013 at 6:34 PM, Michal Hocko <mhocko@suse.cz> wrote:
+> On Wed 03-07-13 18:11:28, Sedat Dilek wrote:
+>> On Wed, Jul 3, 2013 at 5:59 PM, Michal Hocko <mhocko@suse.cz> wrote:
+>> > On Wed 03-07-13 17:53:21, Sedat Dilek wrote:
+>> >> On Wed, Jul 3, 2013 at 5:20 PM, Michal Hocko <mhocko@suse.cz> wrote:
+>> >> > On Wed 03-07-13 20:51:00, Li Zefan wrote:
+>> >> > [...]
+>> >> >> [PATCH] memcg: fix build error if CONFIG_MEMCG_KMEM=n
+>> >> >>
+>> >> >> Fix this build error:
+>> >> >>
+>> >> >> mm/built-in.o: In function `mem_cgroup_css_free':
+>> >> >> memcontrol.c:(.text+0x5caa6): undefined reference to
+>> >> >> 'mem_cgroup_sockets_destroy'
+>> >> >>
+>> >> >> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+>> >> >> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+>> >> >> Signed-off-by: Li Zefan <lizefan@huawei.com>
+>> >> >
+>> >> > I am seeing the same thing I just didn't get to reporting it.
+>> >> > The other approach is not bad as well but I find this tiny better
+>> >> > because mem_cgroup_css_free should care only about a single cleanup
+>> >> > function for whole kmem. If that one needs to do tcp kmem specific
+>> >> > cleanup then it should be done inside kmem_cgroup_css_offline.
+>> >> >
+>> >>
+>> >> As said in my other mail, for me this makes sense as it is a followup.
+>> >>
+>> >> But, still I don't know why sock.c has is own mem_cgroup_sockets_{init,destroy}.
+>> >
+>> > That is the only definition AFAICS (except for !CONFIG_NET where it
+>> > expands to NOOP). Please note that memcg_init_kmem is a common kmem
+>> > initializator and it needs to be prepared for !CONFIG_NET.
+>> >
+>> > The same applies to _destroy.
+>> > Makes more sense now?
+>> >
+>>
+>> So, that stuff comes originally from the net-tree.
+>
+> No, it all came from tcp kmem accounting. It is a memcg thingy and I
+> guess it was placed into sock.c because it depends on some static
+> symbols there (e.g. proto_list_mutex).
+>
 
-Hi Roland
+memcg thingies should belong to mm-tree :-).
 
-Jack looked on this comment/code and he says that the active flag is used
-to prevent re-scheduling the timer from inside the timer handling routine.
+>> I understand the !CONFIG_NET case, but lack the understanding why
+>> memcontrol.c needs _destroy.
+>
+> Because it is memcg specific and it has to be called when a group is
+> destroyed.
+>
 
-In the kernel, the comment header in the source file for del_timer_sync
-explicitly states that re-scheduling the timer must be prevented,
-or the sync is useless:Callers must prevent restarting of the timer, 
-otherwise
-this function is meaningless
+I looked again into my local GIT tree where I applied Li Zefan's patch.
+memcg_destroy_kmem() makes sense with existing memcg_init_kmem().
 
-So we believe that code should remain.
+I have now a better picture, but it's balck/white not coloured :-).
 
-Or.
+Thanks for your patience and explanations.
+
+- Sedat -
+
+>> Can you explain that (sorry /me is no mm-geek)?
+>>
+>> - Sedat -
+>>
+>> [1] http://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/tree/net/core/sock.c?id=next-20130703#n147
+>> [2] http://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/tree/include/net/sock.h?id=next-20130703#n73
+>>
+>> > [...]
+>> > --
+>> > Michal Hocko
+>> > SUSE Labs
+>
+> --
+> Michal Hocko
+> SUSE Labs
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
