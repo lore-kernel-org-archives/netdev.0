@@ -1,85 +1,107 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: rtnl_lock deadlock on 3.10
-Date: Wed, 3 Jul 2013 07:33:07 +0200
-Message-ID: <20130703053307.GB12615@order.stressinduktion.org>
-References: <20130701145456.GA7756@sbohrermbp13-local.rgmadvisors.com> <20130702082818.GA26178@order.stressinduktion.org> <kqul4h$ib8$1@ger.gmane.org> <20130703051152.GA12615@order.stressinduktion.org>
+From: "Joseph Chang" <joseph_chang@davicom.com.tw>
+Subject: RE: [PATCH 1/1] net: add dm9620 net usb driver
+Date: Wed, 3 Jul 2013 13:49:11 +0800
+Message-ID: <201307030548.r635mxI6027578@mail.davicom.com.tw>
+References: <87mwqglhqj.fsf@dell.be.48ers.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-rdma@vger.kernel.org, roland@purestorage.com
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:51327 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751767Ab3GCFdJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 01:33:09 -0400
-Content-Disposition: inline
-In-Reply-To: <20130703051152.GA12615@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "'Greg Kroah-Hartman'" <gregkh@linuxfoundation.org>,
+	<linux-kernel@vger.kernel.org>, <linux-usb@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <joseph_chang@davicom.com.tw>,
+	<josright@hotmail.com>
+To: "'Peter Korsgaard'" <jacmet@sunsite.dk>,
+	"'Joseph CHANG'" <josright123@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87mwqglhqj.fsf@dell.be.48ers.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 03, 2013 at 07:11:52AM +0200, Hannes Frederic Sowa wrote:
-> On Tue, Jul 02, 2013 at 01:38:26PM +0000, Cong Wang wrote:
-> > On Tue, 02 Jul 2013 at 08:28 GMT, Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> > > On Mon, Jul 01, 2013 at 09:54:56AM -0500, Shawn Bohrer wrote:
-> > >> I've managed to hit a deadlock at boot a couple times while testing
-> > >> the 3.10 rc kernels.  It seems to always happen when my network
-> > >> devices are initializing.  This morning I updated to v3.10 and made a
-> > >> few config tweaks and so far I've hit it 4 out of 5 reboots.  It looks
-> > >> like most processes are getting stuck on rtnl_lock.  Below is a boot
-> > >> log with the soft lockup prints.  Please let know if there is any
-> > >> other information I can provide:
-> > >
-> > > Could you try a build with CONFIG_LOCKDEP enabled?
-> > >
-> > 
-> > The problem is clear: ib_register_device() is called with rtnl_lock,
-> > but itself needs device_mutex, however, ib_register_client() first
-> > acquires device_mutex, then indirectly calls register_netdev() which
-> > takes rtnl_lock. Deadlock!
-> > 
-> > One possible fix is always taking rtnl_lock before taking
-> > device_mutex, something like below:
-> > 
-> > diff --git a/drivers/infiniband/core/device.c b/drivers/infiniband/core/device.c
-> > index 18c1ece..890870b 100644
-> > --- a/drivers/infiniband/core/device.c
-> > +++ b/drivers/infiniband/core/device.c
-> > @@ -381,6 +381,7 @@ int ib_register_client(struct ib_client *client)
-> >  {
-> >  	struct ib_device *device;
-> >  
-> > +	rtnl_lock();
-> >  	mutex_lock(&device_mutex);
-> >  
-> >  	list_add_tail(&client->list, &client_list);
-> > @@ -389,6 +390,7 @@ int ib_register_client(struct ib_client *client)
-> >  			client->add(device);
-> >  
-> >  	mutex_unlock(&device_mutex);
-> > +	rtnl_unlock();
-> >  
-> >  	return 0;
-> >  }
-> > diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-> > index b6e049a..5a7a048 100644
-> > --- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
-> > +++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-> > @@ -1609,7 +1609,7 @@ static struct net_device *ipoib_add_port(const char *format,
-> >  		goto event_failed;
-> >  	}
-> >  
-> > -	result = register_netdev(priv->dev);
-> > +	result = register_netdevice(priv->dev);
-> >  	if (result) {
-> >  		printk(KERN_WARNING "%s: couldn't register ipoib port %d; error %d\n",
-> >  		       hca->name, port, result);
-> 
-> Looks good to me. Shawn, could you test this patch?
+Dear Peter,
 
-ib_unregister_device/ib_unregister_client would need the same change,
-too. I have not checked the other ->add() and ->remove() functions. Also
-cc'ed linux-rdma@vger.kernel.org, Roland Dreier.
+  This is Joseph CHANG, I am glade to contact and work with you.
+  I am busy in some affairs else these days, and will like to be back soon.
 
-Thanks,
+  For the begin, We copy the source code 'dm9601.c' which was by you,
+   In order to work for our new chips (DM9620, DM9621, DM9621A... series),
+   We did modify to get 'dm9620.c' base on 'dm0601.c',
+   Since you are the author and also the owner, so keep MODULE_AUTHOR() as you.
 
-  Hannes
+  To generate DM9620.c is a way to distinguish the different generation chips:
+(as below)
+
+   DM9601: old revision:     USB1.1, Ethernet 10/100,     Phase out
+   DM9620: current revision:  USB2.0, Ethernet 10/100,     Mass production state
+   DM9633: next revision:    USB3.0, Ethernet 10/100/1000, Will to release on
+2013/E
+
+  So want to make it from the configuration by "make menuconfig".
+
+  Can you help give further advices, we hope you can go ahead be the owner
+(author) of the 
+  'dm9620.c', And then we make patch to it. Would you agree this idea? If so we
+will be happy
+  because we did not ever create such a code.
+
+  * Think about DM9633 driver to be, It will be is total different compare to
+DM9601 & 
+    DM9620. And will get the same issue.
+ 
+ThankYou and Best Regards,
+Joseph CHANG 
+System Application Engineering Division 
+Davicom Semiconductor, Inc. 
+No. 6 Li-Hsin Rd. VI, Science-Based Park, 
+Hsin-Chu, Taiwan. 
+Tel: 886-3-5798797 Ex 8534
+Fax: 886-3-5646929 
+Web: http://www.davicom.com.tw 
+
+
+-----Original Message-----
+From: Peter Korsgaard [mailto:jacmet@gmail.com] On Behalf Of Peter Korsgaard
+Sent: Monday, June 24, 2013 4:01 AM
+To: Joseph CHANG
+Cc: Greg Kroah-Hartman; linux-kernel@vger.kernel.org; linux-usb@vger.kernel.org;
+netdev@vger.kernel.org; joseph_chang@davicom.com.tw; josright@hotmail.com
+Subject: Re: [PATCH 1/1] net: add dm9620 net usb driver
+
+>>>>> "Joseph" == Joseph CHANG <josright123@gmail.com> writes:
+
+ Joseph> DM9620 is an USB2.0 network adapter rather than DM9601 USB1.1. This
+ Joseph> driver processed the RX data 4 bytes header, TX data 2 bytes header,
+ Joseph> make the control bit exactly right in PHY write function, and optional
+ Joseph> IFF_ALLMUTLI bit for RX control.
+
+But dm9601.c already supports the dm9620 based devices. Why another
+driver for the same hardware?
+
+Please CC me on dm9601 related patches.
+
+ Joseph> Tested good for many platforms, include X86 desktop and ARM embedded.
+
+ Joseph> +static struct usb_driver dm9620_driver = {
+ Joseph> +	.name = "dm9620",
+ Joseph> +	.id_table = products,
+ Joseph> +	.probe = usbnet_probe,
+ Joseph> +	.disconnect = usbnet_disconnect,
+ Joseph> +	.suspend = usbnet_suspend,
+ Joseph> +	.resume = usbnet_resume,
+ Joseph> +	.disable_hub_initiated_lpm = 1,
+ Joseph> +};
+ Joseph> +
+ Joseph> +module_usb_driver(dm9620_driver);
+ Joseph> +
+ Joseph> +MODULE_AUTHOR("Peter Korsgaard <jacmet@sunsite.dk>");
+
+I'm not the author of this file.
+
+
+-- 
+Bye, Peter Korsgaard
+
+-- 
+This message has been scanned for viruses and
+dangerous content by MailScanner, and is
+believed to be clean.
