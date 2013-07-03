@@ -1,107 +1,104 @@
-From: Sedat Dilek <sedat.dilek@gmail.com>
-Subject: Re: [PATCH next-20130703] net: sock: Add ifdef CONFIG_MEMCG_KMEM for mem_cgroup_sockets_{init,destroy}
-Date: Wed, 3 Jul 2013 18:42:40 +0200
-Message-ID: <CA+icZUVx2qDYRF7BKHesjGtn8vPokeJkUE=T0MCkqcg8XK15-g@mail.gmail.com>
-References: <1372853998-15353-1-git-send-email-sedat.dilek@gmail.com>
-	<51D41E34.5010802@huawei.com>
-	<20130703152058.GA30267@dhcp22.suse.cz>
-	<CA+icZUX+mB2v9ghdhaLvpncCu+yxP4xJzzbFxXisFsB2tDM7TA@mail.gmail.com>
-	<20130703155958.GC5153@dhcp22.suse.cz>
-	<CA+icZUWiXr=wFoXHA_V3jy0Bkg1Pc5b79LX5j1fnfgmOkYhKCg@mail.gmail.com>
-	<20130703163429.GD5153@dhcp22.suse.cz>
-Reply-To: sedat.dilek@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Li Zefan <lizefan@huawei.com>, akpm@linux-foundation.org, davem@davemloft.net,
+From: Shuah Khan <shuah.kh@samsung.com>
+Subject: [PATCH] wireless: Convert mwifiex/pcie to dev_pm_ops from legacy pm_ops
+Date: Wed,  3 Jul 2013 10:47:10 -0600
+Message-ID: <1372870030-2596-1-git-send-email-shuah.kh@samsung.com>
+Cc: Shuah Khan <shuah.kh@samsung.com>, linux-wireless@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-next@vger.kernel.org, sfr@canb.auug.org.au, linux-mm@kvack.org
-To: Michal Hocko <mhocko@suse.cz>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20130703163429.GD5153@dhcp22.suse.cz>
-Sender: owner-linux-mm@kvack.org
+	shuahkhan@gmail.com
+To: bzhao@marvell.com, linville@tuxdriver.com, rjw@sisk.pl,
+	hauke@hauke-m.de, lars@metafoo.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 3, 2013 at 6:34 PM, Michal Hocko <mhocko@suse.cz> wrote:
-> On Wed 03-07-13 18:11:28, Sedat Dilek wrote:
->> On Wed, Jul 3, 2013 at 5:59 PM, Michal Hocko <mhocko@suse.cz> wrote:
->> > On Wed 03-07-13 17:53:21, Sedat Dilek wrote:
->> >> On Wed, Jul 3, 2013 at 5:20 PM, Michal Hocko <mhocko@suse.cz> wrote:
->> >> > On Wed 03-07-13 20:51:00, Li Zefan wrote:
->> >> > [...]
->> >> >> [PATCH] memcg: fix build error if CONFIG_MEMCG_KMEM=n
->> >> >>
->> >> >> Fix this build error:
->> >> >>
->> >> >> mm/built-in.o: In function `mem_cgroup_css_free':
->> >> >> memcontrol.c:(.text+0x5caa6): undefined reference to
->> >> >> 'mem_cgroup_sockets_destroy'
->> >> >>
->> >> >> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
->> >> >> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
->> >> >> Signed-off-by: Li Zefan <lizefan@huawei.com>
->> >> >
->> >> > I am seeing the same thing I just didn't get to reporting it.
->> >> > The other approach is not bad as well but I find this tiny better
->> >> > because mem_cgroup_css_free should care only about a single cleanup
->> >> > function for whole kmem. If that one needs to do tcp kmem specific
->> >> > cleanup then it should be done inside kmem_cgroup_css_offline.
->> >> >
->> >>
->> >> As said in my other mail, for me this makes sense as it is a followup.
->> >>
->> >> But, still I don't know why sock.c has is own mem_cgroup_sockets_{init,destroy}.
->> >
->> > That is the only definition AFAICS (except for !CONFIG_NET where it
->> > expands to NOOP). Please note that memcg_init_kmem is a common kmem
->> > initializator and it needs to be prepared for !CONFIG_NET.
->> >
->> > The same applies to _destroy.
->> > Makes more sense now?
->> >
->>
->> So, that stuff comes originally from the net-tree.
->
-> No, it all came from tcp kmem accounting. It is a memcg thingy and I
-> guess it was placed into sock.c because it depends on some static
-> symbols there (e.g. proto_list_mutex).
->
+Convert the mwifiex/pci driver to use dev_pm_ops for power management and
+remove Legacy PM handling. This change re-uses existing suspend and resume
+interfaces for dev_pm_ops, and changes CONFIG_PM ifdefs to CONFIG_PM_SLEEP
+as the driver does not support run-time PM.
 
-memcg thingies should belong to mm-tree :-).
+Signed-off-by: Shuah Khan <shuah.kh@samsung.com>
+---
+ drivers/net/wireless/mwifiex/pcie.c |   26 +++++++++++++++++---------
+ 1 file changed, 17 insertions(+), 9 deletions(-)
 
->> I understand the !CONFIG_NET case, but lack the understanding why
->> memcontrol.c needs _destroy.
->
-> Because it is memcg specific and it has to be called when a group is
-> destroyed.
->
-
-I looked again into my local GIT tree where I applied Li Zefan's patch.
-memcg_destroy_kmem() makes sense with existing memcg_init_kmem().
-
-I have now a better picture, but it's balck/white not coloured :-).
-
-Thanks for your patience and explanations.
-
-- Sedat -
-
->> Can you explain that (sorry /me is no mm-geek)?
->>
->> - Sedat -
->>
->> [1] http://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/tree/net/core/sock.c?id=next-20130703#n147
->> [2] http://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/tree/include/net/sock.h?id=next-20130703#n73
->>
->> > [...]
->> > --
->> > Michal Hocko
->> > SUSE Labs
->
-> --
-> Michal Hocko
-> SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/net/wireless/mwifiex/pcie.c b/drivers/net/wireless/mwifiex/pcie.c
+index 20c9c4c..4a57eb4 100644
+--- a/drivers/net/wireless/mwifiex/pcie.c
++++ b/drivers/net/wireless/mwifiex/pcie.c
+@@ -76,7 +76,7 @@ static bool mwifiex_pcie_ok_to_access_hw(struct mwifiex_adapter *adapter)
+ 	return false;
+ }
+ 
+-#ifdef CONFIG_PM
++#ifdef CONFIG_PM_SLEEP
+ /*
+  * Kernel needs to suspend all functions separately. Therefore all
+  * registered functions must have drivers with suspend and resume
+@@ -85,11 +85,12 @@ static bool mwifiex_pcie_ok_to_access_hw(struct mwifiex_adapter *adapter)
+  * If already not suspended, this function allocates and sends a host
+  * sleep activate request to the firmware and turns off the traffic.
+  */
+-static int mwifiex_pcie_suspend(struct pci_dev *pdev, pm_message_t state)
++static int mwifiex_pcie_suspend(struct device *dev)
+ {
+ 	struct mwifiex_adapter *adapter;
+ 	struct pcie_service_card *card;
+ 	int hs_actived;
++	struct pci_dev *pdev = to_pci_dev(dev);
+ 
+ 	if (pdev) {
+ 		card = (struct pcie_service_card *) pci_get_drvdata(pdev);
+@@ -120,10 +121,11 @@ static int mwifiex_pcie_suspend(struct pci_dev *pdev, pm_message_t state)
+  * If already not resumed, this function turns on the traffic and
+  * sends a host sleep cancel request to the firmware.
+  */
+-static int mwifiex_pcie_resume(struct pci_dev *pdev)
++static int mwifiex_pcie_resume(struct device *dev)
+ {
+ 	struct mwifiex_adapter *adapter;
+ 	struct pcie_service_card *card;
++	struct pci_dev *pdev = to_pci_dev(dev);
+ 
+ 	if (pdev) {
+ 		card = (struct pcie_service_card *) pci_get_drvdata(pdev);
+@@ -211,9 +213,9 @@ static void mwifiex_pcie_remove(struct pci_dev *pdev)
+ 	wait_for_completion(&adapter->fw_load);
+ 
+ 	if (user_rmmod) {
+-#ifdef CONFIG_PM
++#ifdef CONFIG_PM_SLEEP
+ 		if (adapter->is_suspended)
+-			mwifiex_pcie_resume(pdev);
++			mwifiex_pcie_resume(&pdev->dev);
+ #endif
+ 
+ 		for (i = 0; i < adapter->priv_num; i++)
+@@ -249,16 +251,22 @@ static DEFINE_PCI_DEVICE_TABLE(mwifiex_ids) = {
+ 
+ MODULE_DEVICE_TABLE(pci, mwifiex_ids);
+ 
++#ifdef CONFIG_PM_SLEEP
++/* Power Management Hooks */
++static SIMPLE_DEV_PM_OPS(mwifiex_pcie_pm_ops, mwifiex_pcie_suspend,
++				mwifiex_pcie_resume);
++#endif
++
+ /* PCI Device Driver */
+ static struct pci_driver __refdata mwifiex_pcie = {
+ 	.name     = "mwifiex_pcie",
+ 	.id_table = mwifiex_ids,
+ 	.probe    = mwifiex_pcie_probe,
+ 	.remove   = mwifiex_pcie_remove,
+-#ifdef CONFIG_PM
+-	/* Power Management Hooks */
+-	.suspend  = mwifiex_pcie_suspend,
+-	.resume   = mwifiex_pcie_resume,
++#ifdef CONFIG_PM_SLEEP
++	.driver   = {
++		.pm = &mwifiex_pcie_pm_ops,
++	},
+ #endif
+ };
+ 
+-- 
+1.7.10.4
