@@ -1,39 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 0/3] extend stmmac DT support.
-Date: Wed, 03 Jul 2013 16:04:23 -0700 (PDT)
-Message-ID: <20130703.160423.1285164466482391784.davem@davemloft.net>
-References: <1372770219-1643-1-git-send-email-srinivas.kandagatla@st.com>
+Subject: Re: [PATCH] alx: remove WoL support
+Date: Wed, 03 Jul 2013 16:36:00 -0700 (PDT)
+Message-ID: <20130703.163600.917400721588699099.davem@davemloft.net>
+References: <1372880891-12320-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com,
-	grant.likely@linaro.org, rob.herring@calxeda.com, rob@landley.net,
-	devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: srinivas.kandagatla@st.com
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1372770219-1643-1-git-send-email-srinivas.kandagatla@st.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: johannes@sipsolutions.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39317 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752773Ab3GCXgE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 19:36:04 -0400
+In-Reply-To: <1372880891-12320-1-git-send-email-johannes@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogU3Jpbml2YXMgS0FOREFHQVRMQSA8c3Jpbml2YXMua2FuZGFnYXRsYUBzdC5jb20+DQpE
-YXRlOiBUdWUsICAyIEp1bCAyMDEzIDE0OjAzOjM5ICswMTAwDQoNCj4gRnJvbTogU3Jpbml2YXMg
-S2FuZGFnYXRsYSA8c3Jpbml2YXMua2FuZGFnYXRsYUBzdC5jb20+DQo+IA0KPiBIaSBQZXBwZSwN
-Cj4gDQo+IFRoYW5reW91IGZvciB0aGUgY29tbWVudHMgb24gUkZDIHBhdGNoZXMuDQo+IA0KPiBU
-aGlzIHBhdGNoIHNlcmllcyBhZGRzIHN1cHBvcnQgdG8gbmV3IGdtYWMgdmVyc2lvbnMgMy42LjEw
-IGFuZCAzLjcxMCwgdGhlc2UNCj4gdmVyc2lvbnMgb2YgSVAgYXJlIGludGVncmF0ZWQgaW50byBT
-VCBTVGlINDE1L1NUaUg0MTYgU09Dcy4NCj4gVGhpcyBwYXRjaHNldCBhbHNvIGFkZHMgcGh5IHJl
-c2V0IGNhcGFibGl0eSB0byBzdG1tYWMtbWRpbyBkcml2ZXIgdmlhIERULg0KPiANCj4gQ2hhbmdl
-cyBzaW5jZSBSRkM6DQo+IAktIHJlLXVzZSBleGlzdGluZyBjb21wYXRpYmxlIHN0cmluZ3MgdG8g
-c2VsZWN0IHJpZ2h0IHByb3BlcnRpZXMuDQo+IAktIGNsZWFuIHVwIHJlc2V0IGNhbGxiYWNrIHN1
-cHBvcnQgc28gdGhhdCBEVCBpcyBub3QgcGFyc2VkIGV2ZXJ5dGltZS4NCg0KWW91IGFyZSBnb2lu
-ZyB0byBoYXZlIHRvIGZpeCB1cCB0aGUgZm9sbG93aW5nIGJ1aWxkIHdhcm5pbmdzIGFuZCByZXN1
-Ym1pdDoNCg0KICBDQyBbTV0gIGRyaXZlcnMvbmV0L2V0aGVybmV0L3N0bWljcm8vc3RtbWFjL3N0
-bW1hY19tZGlvLm8NCmRyaXZlcnMvbmV0L2V0aGVybmV0L3N0bWljcm8vc3RtbWFjL3N0bW1hY19t
-ZGlvLmM6IEluIGZ1bmN0aW9uIKFzdG1tYWNfbWRpb19yZXNldKI6DQpkcml2ZXJzL25ldC9ldGhl
-cm5ldC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNfbWRpby5jOjEzNzoxNzogd2FybmluZzogdW51c2Vk
-IHZhcmlhYmxlIKFkZXaiIFstV3VudXNlZC12YXJpYWJsZV0NCmRyaXZlcnMvbmV0L2V0aGVybmV0
-L3N0bWljcm8vc3RtbWFjL3N0bW1hY19tZGlvLmM6IEluIGZ1bmN0aW9uIKFzdG1tYWNfbWRpb19y
-ZWdpc3RlcqI6DQpkcml2ZXJzL25ldC9ldGhlcm5ldC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNfbWRp
-by5jOjIwMDoxNzogd2FybmluZzogdW51c2VkIHZhcmlhYmxlIKFkZXaiIFstV3VudXNlZC12YXJp
-YWJsZV0NCg0KDQpUaGFua3MuDQo=
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Wed,  3 Jul 2013 21:48:11 +0200
+
+> Unfortunately, WoL is broken and the system will immediately
+> resume after suspending, and I can't seem to figure out why.
+> Remove WoL support until the issue can be found.
+> 
+> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+
+Applied, thanks.
