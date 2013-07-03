@@ -1,88 +1,529 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2.34] datapath: Add basic MPLS support to kernel
-Date: Wed, 3 Jul 2013 10:31:04 +0900
-Message-ID: <20130703013102.GA21323@verge.net.au>
-References: <1372234717-8735-1-git-send-email-horms@verge.net.au>
- <CAEP_g=-uMQuwK7=35XG8xrToFDoe8HS8yBK51tSWOipS0FdYtA@mail.gmail.com>
- <20130702041628.GD14567@verge.net.au>
- <CAEP_g=-_Dh=9U8rVrd9XvWdT-MZoKFfY3=i0_h9EWOzPo4u20w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
-	Isaku Yamahata <yamahata@valinux.co.jp>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Jarno Rajahalme <jarno.rajahalme@nsn.com>,
-	Joe Stringer <joe@wand.net.nz>
-To: Jesse Gross <jesse@nicira.com>
+From: Asias He <asias@redhat.com>
+Subject: [PATCH] VSOCK: Move af_vsock.h and vsock_addr.h to include/net
+Date: Wed,  3 Jul 2013 09:59:48 +0800
+Message-ID: <1372816788-25548-1-git-send-email-asias@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Andy King <acking@vmware.com>,
+	Dmitry Torokhov <dtor@vmware.com>,
+	Reilly Grant <grantr@vmware.com>, Asias He <asias@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:36367 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752370Ab3GCBbI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 21:31:08 -0400
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=-_Dh=9U8rVrd9XvWdT-MZoKFfY3=i0_h9EWOzPo4u20w@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:54809 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752606Ab3GCCAa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jul 2013 22:00:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 02, 2013 at 02:59:51PM -0700, Jesse Gross wrote:
-> On Mon, Jul 1, 2013 at 9:16 PM, Simon Horman <horms@verge.net.au> wrote:
-> > On Mon, Jul 01, 2013 at 04:42:46PM -0700, Jesse Gross wrote:
-> >> On Wed, Jun 26, 2013 at 1:18 AM, Simon Horman <horms@verge.net.au> wrote:
-> >> > Allow datapath to recognize and extract MPLS labels into flow keys
-> >> > and execute actions which push, pop, and set labels on packets.
-> >> >
-> >> > Based heavily on work by Leo Alterman, Ravi K, Isaku Yamahata and Joe Stringer.
-> >> >
-> >> > Cc: Ravi K <rkerur@gmail.com>
-> >> > Cc: Leo Alterman <lalterman@nicira.com>
-> >> > Cc: Isaku Yamahata <yamahata@valinux.co.jp>
-> >> > Cc: Joe Stringer <joe@wand.net.nz>
-> >> > Signed-off-by: Simon Horman <horms@verge.net.au>
-> >>
-> >> Simon, have you thought any more about the header ordering issues? I
-> >> don't think we've reached a conclusion at this point.
-> >
-> > I believe that you then raised the issue of QinQ, which somehow
-> > I failed to respond to, I apologise for that.
-> >
-> > In particular, my understanding is that you are concerned the code will
-> > miss-calculate the end of L2 headers in the presence of multiple VLAN tags.
-> > Thus resulting in an MPLS push action inserting an MPLS LSE after the first
-> > rather than the last VLAN tag. And that would likely change if QinQ support
-> > was added to Open vSwtich.
-> >
-> > I wonder if a good way forwards is to enhance the calculation
-> > of the end of L2 headers (mac_len) and the beginning of L3 headers
-> > (network_header) in ovs_flow_extract() such that it takes into
-> > account the presence of more than one VLAN tag.
-> 
-> The problem is that this requires being able to calculate the length
-> of all possible headers that we might want to support in the future.
-> In the case of QinQ, this would mean the various EtherTypes. You could
-> also imagine other things like MAC-in-MAC that are farther afield from
-> what we currently support.
+This is useful for other VSOCK transport implemented outside the
+net/vmw_vsock/ directory to use these headers.
 
-That is true.
+Signed-off-by: Asias He <asias@redhat.com>
+---
+ include/net/af_vsock.h         | 175 +++++++++++++++++++++++++++++++++++++++++
+ include/net/vsock_addr.h       |  30 +++++++
+ net/vmw_vsock/af_vsock.c       |   3 +-
+ net/vmw_vsock/af_vsock.h       | 175 -----------------------------------------
+ net/vmw_vsock/vmci_transport.c |   2 +-
+ net/vmw_vsock/vmci_transport.h |   4 +-
+ net/vmw_vsock/vsock_addr.c     |   3 +-
+ net/vmw_vsock/vsock_addr.h     |  30 -------
+ 8 files changed, 210 insertions(+), 212 deletions(-)
+ create mode 100644 include/net/af_vsock.h
+ create mode 100644 include/net/vsock_addr.h
+ delete mode 100644 net/vmw_vsock/af_vsock.h
+ delete mode 100644 net/vmw_vsock/vsock_addr.h
 
-I think that the key problem is it that it is hard for us
-to correctly determine where the end of the L2 header is,
-or more specifically where the MPLS tag should go, for all cases.
-Particularly cases which are yet to be defined.
-
-Having spoken with Joe about this we see two main options:
-
-1. The status quo as of this patch. Which is that MPLS actions
-   may be invalid for some cases.
-
-   While it should be be possible to solve individual cases,
-   this doesn't solve the general case.
-
-2. Only allow MPLS actions on ether types where the implementation
-   is known to work.
-
-   This could act as a white list of sorts. It could start with
-   the obvious candidates: IPv4, IPv6, ARP, 802.1Q,...
-   And support for more protocols could be added in the future.
-
-   This would seem to reflect the somewhat special nature of MPLS.
+diff --git a/include/net/af_vsock.h b/include/net/af_vsock.h
+new file mode 100644
+index 0000000..7d64d36
+--- /dev/null
++++ b/include/net/af_vsock.h
+@@ -0,0 +1,175 @@
++/*
++ * VMware vSockets Driver
++ *
++ * Copyright (C) 2007-2013 VMware, Inc. All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License as published by the Free
++ * Software Foundation version 2 and no later version.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ */
++
++#ifndef __AF_VSOCK_H__
++#define __AF_VSOCK_H__
++
++#include <linux/kernel.h>
++#include <linux/workqueue.h>
++#include <linux/vm_sockets.h>
++
++#include "vsock_addr.h"
++
++#define LAST_RESERVED_PORT 1023
++
++#define vsock_sk(__sk)    ((struct vsock_sock *)__sk)
++#define sk_vsock(__vsk)   (&(__vsk)->sk)
++
++struct vsock_sock {
++	/* sk must be the first member. */
++	struct sock sk;
++	struct sockaddr_vm local_addr;
++	struct sockaddr_vm remote_addr;
++	/* Links for the global tables of bound and connected sockets. */
++	struct list_head bound_table;
++	struct list_head connected_table;
++	/* Accessed without the socket lock held. This means it can never be
++	 * modified outsided of socket create or destruct.
++	 */
++	bool trusted;
++	bool cached_peer_allow_dgram;	/* Dgram communication allowed to
++					 * cached peer?
++					 */
++	u32 cached_peer;  /* Context ID of last dgram destination check. */
++	const struct cred *owner;
++	/* Rest are SOCK_STREAM only. */
++	long connect_timeout;
++	/* Listening socket that this came from. */
++	struct sock *listener;
++	/* Used for pending list and accept queue during connection handshake.
++	 * The listening socket is the head for both lists.  Sockets created
++	 * for connection requests are placed in the pending list until they
++	 * are connected, at which point they are put in the accept queue list
++	 * so they can be accepted in accept().  If accept() cannot accept the
++	 * connection, it is marked as rejected so the cleanup function knows
++	 * to clean up the socket.
++	 */
++	struct list_head pending_links;
++	struct list_head accept_queue;
++	bool rejected;
++	struct delayed_work dwork;
++	u32 peer_shutdown;
++	bool sent_request;
++	bool ignore_connecting_rst;
++
++	/* Private to transport. */
++	void *trans;
++};
++
++s64 vsock_stream_has_data(struct vsock_sock *vsk);
++s64 vsock_stream_has_space(struct vsock_sock *vsk);
++void vsock_pending_work(struct work_struct *work);
++struct sock *__vsock_create(struct net *net,
++			    struct socket *sock,
++			    struct sock *parent,
++			    gfp_t priority, unsigned short type);
++
++/**** TRANSPORT ****/
++
++struct vsock_transport_recv_notify_data {
++	u64 data1; /* Transport-defined. */
++	u64 data2; /* Transport-defined. */
++	bool notify_on_block;
++};
++
++struct vsock_transport_send_notify_data {
++	u64 data1; /* Transport-defined. */
++	u64 data2; /* Transport-defined. */
++};
++
++struct vsock_transport {
++	/* Initialize/tear-down socket. */
++	int (*init)(struct vsock_sock *, struct vsock_sock *);
++	void (*destruct)(struct vsock_sock *);
++	void (*release)(struct vsock_sock *);
++
++	/* Connections. */
++	int (*connect)(struct vsock_sock *);
++
++	/* DGRAM. */
++	int (*dgram_bind)(struct vsock_sock *, struct sockaddr_vm *);
++	int (*dgram_dequeue)(struct kiocb *kiocb, struct vsock_sock *vsk,
++			     struct msghdr *msg, size_t len, int flags);
++	int (*dgram_enqueue)(struct vsock_sock *, struct sockaddr_vm *,
++			     struct iovec *, size_t len);
++	bool (*dgram_allow)(u32 cid, u32 port);
++
++	/* STREAM. */
++	/* TODO: stream_bind() */
++	ssize_t (*stream_dequeue)(struct vsock_sock *, struct iovec *,
++				  size_t len, int flags);
++	ssize_t (*stream_enqueue)(struct vsock_sock *, struct iovec *,
++				  size_t len);
++	s64 (*stream_has_data)(struct vsock_sock *);
++	s64 (*stream_has_space)(struct vsock_sock *);
++	u64 (*stream_rcvhiwat)(struct vsock_sock *);
++	bool (*stream_is_active)(struct vsock_sock *);
++	bool (*stream_allow)(u32 cid, u32 port);
++
++	/* Notification. */
++	int (*notify_poll_in)(struct vsock_sock *, size_t, bool *);
++	int (*notify_poll_out)(struct vsock_sock *, size_t, bool *);
++	int (*notify_recv_init)(struct vsock_sock *, size_t,
++		struct vsock_transport_recv_notify_data *);
++	int (*notify_recv_pre_block)(struct vsock_sock *, size_t,
++		struct vsock_transport_recv_notify_data *);
++	int (*notify_recv_pre_dequeue)(struct vsock_sock *, size_t,
++		struct vsock_transport_recv_notify_data *);
++	int (*notify_recv_post_dequeue)(struct vsock_sock *, size_t,
++		ssize_t, bool, struct vsock_transport_recv_notify_data *);
++	int (*notify_send_init)(struct vsock_sock *,
++		struct vsock_transport_send_notify_data *);
++	int (*notify_send_pre_block)(struct vsock_sock *,
++		struct vsock_transport_send_notify_data *);
++	int (*notify_send_pre_enqueue)(struct vsock_sock *,
++		struct vsock_transport_send_notify_data *);
++	int (*notify_send_post_enqueue)(struct vsock_sock *, ssize_t,
++		struct vsock_transport_send_notify_data *);
++
++	/* Shutdown. */
++	int (*shutdown)(struct vsock_sock *, int);
++
++	/* Buffer sizes. */
++	void (*set_buffer_size)(struct vsock_sock *, u64);
++	void (*set_min_buffer_size)(struct vsock_sock *, u64);
++	void (*set_max_buffer_size)(struct vsock_sock *, u64);
++	u64 (*get_buffer_size)(struct vsock_sock *);
++	u64 (*get_min_buffer_size)(struct vsock_sock *);
++	u64 (*get_max_buffer_size)(struct vsock_sock *);
++
++	/* Addressing. */
++	u32 (*get_local_cid)(void);
++};
++
++/**** CORE ****/
++
++int vsock_core_init(const struct vsock_transport *t);
++void vsock_core_exit(void);
++
++/**** UTILS ****/
++
++void vsock_release_pending(struct sock *pending);
++void vsock_add_pending(struct sock *listener, struct sock *pending);
++void vsock_remove_pending(struct sock *listener, struct sock *pending);
++void vsock_enqueue_accept(struct sock *listener, struct sock *connected);
++void vsock_insert_connected(struct vsock_sock *vsk);
++void vsock_remove_bound(struct vsock_sock *vsk);
++void vsock_remove_connected(struct vsock_sock *vsk);
++struct sock *vsock_find_bound_socket(struct sockaddr_vm *addr);
++struct sock *vsock_find_connected_socket(struct sockaddr_vm *src,
++					 struct sockaddr_vm *dst);
++void vsock_for_each_connected_socket(void (*fn)(struct sock *sk));
++
++#endif /* __AF_VSOCK_H__ */
+diff --git a/include/net/vsock_addr.h b/include/net/vsock_addr.h
+new file mode 100644
+index 0000000..9ccd531
+--- /dev/null
++++ b/include/net/vsock_addr.h
+@@ -0,0 +1,30 @@
++/*
++ * VMware vSockets Driver
++ *
++ * Copyright (C) 2007-2013 VMware, Inc. All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License as published by the Free
++ * Software Foundation version 2 and no later version.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ */
++
++#ifndef _VSOCK_ADDR_H_
++#define _VSOCK_ADDR_H_
++
++#include <linux/vm_sockets.h>
++
++void vsock_addr_init(struct sockaddr_vm *addr, u32 cid, u32 port);
++int vsock_addr_validate(const struct sockaddr_vm *addr);
++bool vsock_addr_bound(const struct sockaddr_vm *addr);
++void vsock_addr_unbind(struct sockaddr_vm *addr);
++bool vsock_addr_equals_addr(const struct sockaddr_vm *addr,
++			    const struct sockaddr_vm *other);
++int vsock_addr_cast(const struct sockaddr *addr, size_t len,
++		    struct sockaddr_vm **out_addr);
++
++#endif
+diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+index 593071d..57896ee 100644
+--- a/net/vmw_vsock/af_vsock.c
++++ b/net/vmw_vsock/af_vsock.c
+@@ -96,8 +96,7 @@
+ #include <linux/wait.h>
+ #include <linux/workqueue.h>
+ #include <net/sock.h>
+-
+-#include "af_vsock.h"
++#include <net/af_vsock.h>
+ 
+ static int __vsock_bind(struct sock *sk, struct sockaddr_vm *addr);
+ static void vsock_sk_destruct(struct sock *sk);
+diff --git a/net/vmw_vsock/af_vsock.h b/net/vmw_vsock/af_vsock.h
+deleted file mode 100644
+index 7d64d36..0000000
+--- a/net/vmw_vsock/af_vsock.h
++++ /dev/null
+@@ -1,175 +0,0 @@
+-/*
+- * VMware vSockets Driver
+- *
+- * Copyright (C) 2007-2013 VMware, Inc. All rights reserved.
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms of the GNU General Public License as published by the Free
+- * Software Foundation version 2 and no later version.
+- *
+- * This program is distributed in the hope that it will be useful, but WITHOUT
+- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+- * more details.
+- */
+-
+-#ifndef __AF_VSOCK_H__
+-#define __AF_VSOCK_H__
+-
+-#include <linux/kernel.h>
+-#include <linux/workqueue.h>
+-#include <linux/vm_sockets.h>
+-
+-#include "vsock_addr.h"
+-
+-#define LAST_RESERVED_PORT 1023
+-
+-#define vsock_sk(__sk)    ((struct vsock_sock *)__sk)
+-#define sk_vsock(__vsk)   (&(__vsk)->sk)
+-
+-struct vsock_sock {
+-	/* sk must be the first member. */
+-	struct sock sk;
+-	struct sockaddr_vm local_addr;
+-	struct sockaddr_vm remote_addr;
+-	/* Links for the global tables of bound and connected sockets. */
+-	struct list_head bound_table;
+-	struct list_head connected_table;
+-	/* Accessed without the socket lock held. This means it can never be
+-	 * modified outsided of socket create or destruct.
+-	 */
+-	bool trusted;
+-	bool cached_peer_allow_dgram;	/* Dgram communication allowed to
+-					 * cached peer?
+-					 */
+-	u32 cached_peer;  /* Context ID of last dgram destination check. */
+-	const struct cred *owner;
+-	/* Rest are SOCK_STREAM only. */
+-	long connect_timeout;
+-	/* Listening socket that this came from. */
+-	struct sock *listener;
+-	/* Used for pending list and accept queue during connection handshake.
+-	 * The listening socket is the head for both lists.  Sockets created
+-	 * for connection requests are placed in the pending list until they
+-	 * are connected, at which point they are put in the accept queue list
+-	 * so they can be accepted in accept().  If accept() cannot accept the
+-	 * connection, it is marked as rejected so the cleanup function knows
+-	 * to clean up the socket.
+-	 */
+-	struct list_head pending_links;
+-	struct list_head accept_queue;
+-	bool rejected;
+-	struct delayed_work dwork;
+-	u32 peer_shutdown;
+-	bool sent_request;
+-	bool ignore_connecting_rst;
+-
+-	/* Private to transport. */
+-	void *trans;
+-};
+-
+-s64 vsock_stream_has_data(struct vsock_sock *vsk);
+-s64 vsock_stream_has_space(struct vsock_sock *vsk);
+-void vsock_pending_work(struct work_struct *work);
+-struct sock *__vsock_create(struct net *net,
+-			    struct socket *sock,
+-			    struct sock *parent,
+-			    gfp_t priority, unsigned short type);
+-
+-/**** TRANSPORT ****/
+-
+-struct vsock_transport_recv_notify_data {
+-	u64 data1; /* Transport-defined. */
+-	u64 data2; /* Transport-defined. */
+-	bool notify_on_block;
+-};
+-
+-struct vsock_transport_send_notify_data {
+-	u64 data1; /* Transport-defined. */
+-	u64 data2; /* Transport-defined. */
+-};
+-
+-struct vsock_transport {
+-	/* Initialize/tear-down socket. */
+-	int (*init)(struct vsock_sock *, struct vsock_sock *);
+-	void (*destruct)(struct vsock_sock *);
+-	void (*release)(struct vsock_sock *);
+-
+-	/* Connections. */
+-	int (*connect)(struct vsock_sock *);
+-
+-	/* DGRAM. */
+-	int (*dgram_bind)(struct vsock_sock *, struct sockaddr_vm *);
+-	int (*dgram_dequeue)(struct kiocb *kiocb, struct vsock_sock *vsk,
+-			     struct msghdr *msg, size_t len, int flags);
+-	int (*dgram_enqueue)(struct vsock_sock *, struct sockaddr_vm *,
+-			     struct iovec *, size_t len);
+-	bool (*dgram_allow)(u32 cid, u32 port);
+-
+-	/* STREAM. */
+-	/* TODO: stream_bind() */
+-	ssize_t (*stream_dequeue)(struct vsock_sock *, struct iovec *,
+-				  size_t len, int flags);
+-	ssize_t (*stream_enqueue)(struct vsock_sock *, struct iovec *,
+-				  size_t len);
+-	s64 (*stream_has_data)(struct vsock_sock *);
+-	s64 (*stream_has_space)(struct vsock_sock *);
+-	u64 (*stream_rcvhiwat)(struct vsock_sock *);
+-	bool (*stream_is_active)(struct vsock_sock *);
+-	bool (*stream_allow)(u32 cid, u32 port);
+-
+-	/* Notification. */
+-	int (*notify_poll_in)(struct vsock_sock *, size_t, bool *);
+-	int (*notify_poll_out)(struct vsock_sock *, size_t, bool *);
+-	int (*notify_recv_init)(struct vsock_sock *, size_t,
+-		struct vsock_transport_recv_notify_data *);
+-	int (*notify_recv_pre_block)(struct vsock_sock *, size_t,
+-		struct vsock_transport_recv_notify_data *);
+-	int (*notify_recv_pre_dequeue)(struct vsock_sock *, size_t,
+-		struct vsock_transport_recv_notify_data *);
+-	int (*notify_recv_post_dequeue)(struct vsock_sock *, size_t,
+-		ssize_t, bool, struct vsock_transport_recv_notify_data *);
+-	int (*notify_send_init)(struct vsock_sock *,
+-		struct vsock_transport_send_notify_data *);
+-	int (*notify_send_pre_block)(struct vsock_sock *,
+-		struct vsock_transport_send_notify_data *);
+-	int (*notify_send_pre_enqueue)(struct vsock_sock *,
+-		struct vsock_transport_send_notify_data *);
+-	int (*notify_send_post_enqueue)(struct vsock_sock *, ssize_t,
+-		struct vsock_transport_send_notify_data *);
+-
+-	/* Shutdown. */
+-	int (*shutdown)(struct vsock_sock *, int);
+-
+-	/* Buffer sizes. */
+-	void (*set_buffer_size)(struct vsock_sock *, u64);
+-	void (*set_min_buffer_size)(struct vsock_sock *, u64);
+-	void (*set_max_buffer_size)(struct vsock_sock *, u64);
+-	u64 (*get_buffer_size)(struct vsock_sock *);
+-	u64 (*get_min_buffer_size)(struct vsock_sock *);
+-	u64 (*get_max_buffer_size)(struct vsock_sock *);
+-
+-	/* Addressing. */
+-	u32 (*get_local_cid)(void);
+-};
+-
+-/**** CORE ****/
+-
+-int vsock_core_init(const struct vsock_transport *t);
+-void vsock_core_exit(void);
+-
+-/**** UTILS ****/
+-
+-void vsock_release_pending(struct sock *pending);
+-void vsock_add_pending(struct sock *listener, struct sock *pending);
+-void vsock_remove_pending(struct sock *listener, struct sock *pending);
+-void vsock_enqueue_accept(struct sock *listener, struct sock *connected);
+-void vsock_insert_connected(struct vsock_sock *vsk);
+-void vsock_remove_bound(struct vsock_sock *vsk);
+-void vsock_remove_connected(struct vsock_sock *vsk);
+-struct sock *vsock_find_bound_socket(struct sockaddr_vm *addr);
+-struct sock *vsock_find_connected_socket(struct sockaddr_vm *src,
+-					 struct sockaddr_vm *dst);
+-void vsock_for_each_connected_socket(void (*fn)(struct sock *sk));
+-
+-#endif /* __AF_VSOCK_H__ */
+diff --git a/net/vmw_vsock/vmci_transport.c b/net/vmw_vsock/vmci_transport.c
+index ffc11df..9d69866 100644
+--- a/net/vmw_vsock/vmci_transport.c
++++ b/net/vmw_vsock/vmci_transport.c
+@@ -34,8 +34,8 @@
+ #include <linux/wait.h>
+ #include <linux/workqueue.h>
+ #include <net/sock.h>
++#include <net/af_vsock.h>
+ 
+-#include "af_vsock.h"
+ #include "vmci_transport_notify.h"
+ 
+ static int vmci_transport_recv_dgram_cb(void *data, struct vmci_datagram *dg);
+diff --git a/net/vmw_vsock/vmci_transport.h b/net/vmw_vsock/vmci_transport.h
+index fd88ea8..ce6c962 100644
+--- a/net/vmw_vsock/vmci_transport.h
++++ b/net/vmw_vsock/vmci_transport.h
+@@ -19,8 +19,8 @@
+ #include <linux/vmw_vmci_defs.h>
+ #include <linux/vmw_vmci_api.h>
+ 
+-#include "vsock_addr.h"
+-#include "af_vsock.h"
++#include <net/vsock_addr.h>
++#include <net/af_vsock.h>
+ 
+ /* If the packet format changes in a release then this should change too. */
+ #define VMCI_TRANSPORT_PACKET_VERSION 1
+diff --git a/net/vmw_vsock/vsock_addr.c b/net/vmw_vsock/vsock_addr.c
+index ec2611b..82486ee 100644
+--- a/net/vmw_vsock/vsock_addr.c
++++ b/net/vmw_vsock/vsock_addr.c
+@@ -17,8 +17,7 @@
+ #include <linux/socket.h>
+ #include <linux/stddef.h>
+ #include <net/sock.h>
+-
+-#include "vsock_addr.h"
++#include <net/vsock_addr.h>
+ 
+ void vsock_addr_init(struct sockaddr_vm *addr, u32 cid, u32 port)
+ {
+diff --git a/net/vmw_vsock/vsock_addr.h b/net/vmw_vsock/vsock_addr.h
+deleted file mode 100644
+index 9ccd531..0000000
+--- a/net/vmw_vsock/vsock_addr.h
++++ /dev/null
+@@ -1,30 +0,0 @@
+-/*
+- * VMware vSockets Driver
+- *
+- * Copyright (C) 2007-2013 VMware, Inc. All rights reserved.
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms of the GNU General Public License as published by the Free
+- * Software Foundation version 2 and no later version.
+- *
+- * This program is distributed in the hope that it will be useful, but WITHOUT
+- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+- * more details.
+- */
+-
+-#ifndef _VSOCK_ADDR_H_
+-#define _VSOCK_ADDR_H_
+-
+-#include <linux/vm_sockets.h>
+-
+-void vsock_addr_init(struct sockaddr_vm *addr, u32 cid, u32 port);
+-int vsock_addr_validate(const struct sockaddr_vm *addr);
+-bool vsock_addr_bound(const struct sockaddr_vm *addr);
+-void vsock_addr_unbind(struct sockaddr_vm *addr);
+-bool vsock_addr_equals_addr(const struct sockaddr_vm *addr,
+-			    const struct sockaddr_vm *other);
+-int vsock_addr_cast(const struct sockaddr *addr, size_t len,
+-		    struct sockaddr_vm **out_addr);
+-
+-#endif
+-- 
+1.8.1.4
