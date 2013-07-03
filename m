@@ -1,60 +1,39 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: PROBLEM: Linux 3.9 more-specific ipv6 route ignored until next-hop is in neighbor cache
-Date: Wed, 3 Jul 2013 07:00:07 +0200
-Message-ID: <20130703050007.GA11216@order.stressinduktion.org>
-References: <CA+PSOpyxWf2s_JscuBYfOAW9hVkSqqC1JwdRDQ4WtZrkneQf6A@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 3.9.5+:  Crash in tcp_input.c:4810.
+Date: Tue, 02 Jul 2013 22:02:29 -0700
+Message-ID: <1372827749.4979.52.camel@edumazet-glaptop>
+References: <51BF50B3.1080403@candelatech.com>
+	   <1371493059.3252.200.camel@edumazet-glaptop>
+	   <51D1C620.8030007@candelatech.com>
+	  <1372813467.4979.46.camel@edumazet-glaptop>
+	  <51D398C0.5060802@candelatech.com>
+	 <1372826512.4979.49.camel@edumazet-glaptop>
+	 <51D3AD66.8030506@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: Pierre Emeriaud <petrus.lt@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:51291 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751512Ab3GCFAJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 01:00:09 -0400
-Content-Disposition: inline
-In-Reply-To: <CA+PSOpyxWf2s_JscuBYfOAW9hVkSqqC1JwdRDQ4WtZrkneQf6A@mail.gmail.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:56708 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751830Ab3GCFCa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 01:02:30 -0400
+Received: by mail-pd0-f172.google.com with SMTP id z10so4254864pdj.17
+        for <netdev@vger.kernel.org>; Tue, 02 Jul 2013 22:02:30 -0700 (PDT)
+In-Reply-To: <51D3AD66.8030506@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Cc YOSHIFUJI Hideaki because of commit
-887c95cc1da53f66a5890fdeab13414613010097 ("ipv6: Complete neighbour entry
-removal from dst_entry.")]
+On Tue, 2013-07-02 at 21:49 -0700, Ben Greear wrote:
 
-On Wed, Jul 03, 2013 at 12:04:33AM +0200, Pierre Emeriaud wrote:
-> Linux 3.9 more-specific ipv6 route ignored until next-hop is in neighbor cache.
+> Well, network emulators are easy to come by in the office....  Maybe running
+> a bunch of TCP connections through a lossy network would exercise this code
+> path a bit?  Aside from random pkt loss, any other types of network conditions
+> that might help trigger this faster?
 > 
-> When adding a route to 2000::/3 with a next-hop that is not in the
-> neighbor cache, the route is not preferred over the default.
+> I'll set up some tests using some wired ethernet...if we can trigger it there
+> then we at least know it doesn't depend on ath9k...
 
-Thanks for the report!
-
-Well.
-
-We ignore this route because of rt6_score_route returning -1 in this case.
-This traces down to rt6_check_neigh returning false.
-
-Before the above mentioned commit we kicked off some logic to create a
-neighbour entry in ip6_route_add. Now we end up with neigh == NULL.
-
-This is a hotfix but I need to do more research regarding
-CONFIG_IPV6_ROUTER_PREF and further expectations of neigh != NULL (you
-can try this at your own risk ;):
-
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -547,6 +547,10 @@ static inline bool rt6_check_neigh(struct rt6_info *rt)
-                        ret = true;
- #endif
-                read_unlock(&neigh->lock);
-+       } else {
-+#ifdef CONFIG_IPV6_ROUTER_PREF
-+               ret = true;
-+#endif
-        }
-        rcu_read_unlock_bh();
- 
-
-Greetings,
-
-  Hannes
+I tried a lot of things, including netem with many reorders and/or
+packetdrill tests, but so far not a single warning from tcp_collapse()
