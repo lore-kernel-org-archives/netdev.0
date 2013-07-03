@@ -1,74 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 3.9.5+:  Crash in tcp_input.c:4810.
-Date: Tue, 02 Jul 2013 18:04:27 -0700
-Message-ID: <1372813467.4979.46.camel@edumazet-glaptop>
-References: <51BF50B3.1080403@candelatech.com>
-	 <1371493059.3252.200.camel@edumazet-glaptop>
-	 <51D1C620.8030007@candelatech.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v2.34] datapath: Add basic MPLS support to kernel
+Date: Wed, 3 Jul 2013 10:31:04 +0900
+Message-ID: <20130703013102.GA21323@verge.net.au>
+References: <1372234717-8735-1-git-send-email-horms@verge.net.au>
+ <CAEP_g=-uMQuwK7=35XG8xrToFDoe8HS8yBK51tSWOipS0FdYtA@mail.gmail.com>
+ <20130702041628.GD14567@verge.net.au>
+ <CAEP_g=-_Dh=9U8rVrd9XvWdT-MZoKFfY3=i0_h9EWOzPo4u20w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
+	Isaku Yamahata <yamahata@valinux.co.jp>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Jarno Rajahalme <jarno.rajahalme@nsn.com>,
+	Joe Stringer <joe@wand.net.nz>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:64843 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751641Ab3GCBEa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 21:04:30 -0400
-Received: by mail-pd0-f176.google.com with SMTP id t12so4047551pdi.7
-        for <netdev@vger.kernel.org>; Tue, 02 Jul 2013 18:04:29 -0700 (PDT)
-In-Reply-To: <51D1C620.8030007@candelatech.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:36367 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752370Ab3GCBbI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jul 2013 21:31:08 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=-_Dh=9U8rVrd9XvWdT-MZoKFfY3=i0_h9EWOzPo4u20w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-07-01 at 11:10 -0700, Ben Greear wrote:
-
-> offset: -1459  start: -1146162927 seq: -1146161468 size: 16047 copy: 3576
-> ...
+On Tue, Jul 02, 2013 at 02:59:51PM -0700, Jesse Gross wrote:
+> On Mon, Jul 1, 2013 at 9:16 PM, Simon Horman <horms@verge.net.au> wrote:
+> > On Mon, Jul 01, 2013 at 04:42:46PM -0700, Jesse Gross wrote:
+> >> On Wed, Jun 26, 2013 at 1:18 AM, Simon Horman <horms@verge.net.au> wrote:
+> >> > Allow datapath to recognize and extract MPLS labels into flow keys
+> >> > and execute actions which push, pop, and set labels on packets.
+> >> >
+> >> > Based heavily on work by Leo Alterman, Ravi K, Isaku Yamahata and Joe Stringer.
+> >> >
+> >> > Cc: Ravi K <rkerur@gmail.com>
+> >> > Cc: Leo Alterman <lalterman@nicira.com>
+> >> > Cc: Isaku Yamahata <yamahata@valinux.co.jp>
+> >> > Cc: Joe Stringer <joe@wand.net.nz>
+> >> > Signed-off-by: Simon Horman <horms@verge.net.au>
+> >>
+> >> Simon, have you thought any more about the header ordering issues? I
+> >> don't think we've reached a conclusion at this point.
+> >
+> > I believe that you then raised the issue of QinQ, which somehow
+> > I failed to respond to, I apologise for that.
+> >
+> > In particular, my understanding is that you are concerned the code will
+> > miss-calculate the end of L2 headers in the presence of multiple VLAN tags.
+> > Thus resulting in an MPLS push action inserting an MPLS LSE after the first
+> > rather than the last VLAN tag. And that would likely change if QinQ support
+> > was added to Open vSwtich.
+> >
+> > I wonder if a good way forwards is to enhance the calculation
+> > of the end of L2 headers (mac_len) and the beginning of L3 headers
+> > (network_header) in ovs_flow_extract() such that it takes into
+> > account the presence of more than one VLAN tag.
 > 
-> There were 80 total splats of this nature grouped together, and then
-> the system recovered and continue to function normally as far as I
-> can tell.  The later splats are a bit farther apart...maybe the
-> TCP connection is dying.
-> 
-> It appears my 'work-around' is poor at best, but I'd rather kill
-> a TCP connection and spam the logs than crash the OS.
-> 
-> I'd be more than happy to add more/different debugging code.
+> The problem is that this requires being able to calculate the length
+> of all possible headers that we might want to support in the future.
+> In the case of QinQ, this would mean the various EtherTypes. You could
+> also imagine other things like MAC-in-MAC that are farther afield from
+> what we currently support.
 
-It would be nice to pinpoint the origin of the bug. Really.
+That is true.
 
-This BUG_ON() is at least 7 years old. I do not think invariant has
-changed ?
+I think that the key problem is it that it is hard for us
+to correctly determine where the end of the L2 header is,
+or more specifically where the MPLS tag should go, for all cases.
+Particularly cases which are yet to be defined.
 
-Sure we can avoid crashes but it looks like we could randomly corrupt
-tcp payload or whatever kernel memory, if it turns out its caused by a
-buggy driver.
+Having spoken with Joe about this we see two main options:
 
-Is it happening while collapsing the receive queue, or the ofo queue ?
+1. The status quo as of this patch. Which is that MPLS actions
+   may be invalid for some cases.
 
-In receive queue, all skbs skb2 following skb1 must have
+   While it should be be possible to solve individual cases,
+   this doesn't solve the general case.
 
-TCP_SKB_CB(skb1)->end_seq >= TCP_SKB_CB(skb2)->seq
+2. Only allow MPLS actions on ether types where the implementation
+   is known to work.
 
-Only on ofo, we could have this not respected, and it should be handled
-properly in tcp_collapse_ofo_queue()
+   This could act as a white list of sorts. It could start with
+   the obvious candidates: IPv4, IPv6, ARP, 802.1Q,...
+   And support for more protocols could be added in the future.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 28af45a..d77f1f0 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4457,7 +4457,12 @@ restart:
- 			int offset = start - TCP_SKB_CB(skb)->seq;
- 			int size = TCP_SKB_CB(skb)->end_seq - start;
- 
--			BUG_ON(offset < 0);
-+			if (unlikely(offset < 0)) {
-+				pr_err("tcp_collapse() bug on %s offset:%d size:%d copy:%d skb->len %u truesize %u, nskb->len %u\n",
-+					list == &sk->sk_receive_queue ? "receive_queue" : "ofo_queue",
-+					offset, size, copy, skb->len, skb->truesize, nskb->len);
-+				return;
-+			}
- 			if (size > 0) {
- 				size = min(copy, size);
- 				if (skb_copy_bits(skb, offset, skb_put(nskb, size), size))
+   This would seem to reflect the somewhat special nature of MPLS.
