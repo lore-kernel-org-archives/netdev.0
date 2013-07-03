@@ -1,40 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: gre: move GSO functions to gre_offload
-Date: Wed, 03 Jul 2013 15:00:36 -0700 (PDT)
-Message-ID: <20130703.150036.1207414018059569364.davem@davemloft.net>
-References: <1372699440-2289-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [net-next.git] stmmac: dity-up and rework the driver debug
+ levels
+Date: Wed, 03 Jul 2013 15:24:38 -0700 (PDT)
+Message-ID: <20130703.152438.891561060693049316.davem@davemloft.net>
+References: <1372767156-12619-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: dborkman@redhat.com
+Cc: netdev@vger.kernel.org
+To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38554 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38723 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752773Ab3GCWAj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 18:00:39 -0400
-In-Reply-To: <1372699440-2289-1-git-send-email-dborkman@redhat.com>
+	with ESMTP id S1753118Ab3GCWYj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 18:24:39 -0400
+In-Reply-To: <1372767156-12619-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Mon,  1 Jul 2013 19:24:00 +0200
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Date: Tue,  2 Jul 2013 14:12:36 +0200
 
-> Similarly to TCP/UDP offloading, move all related GRE functions to
-> gre_offload.c to make things more explicit and similar to the rest
-> of the code.
+> Prior this patch, the internal debugging was based on ifdef
+> and also some printk were useless because many info are exposed
+> via ethtool.
+> This patch remove all the ifdef defines and now we only use
+> netif_msg_XXX levels.
 > 
-> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->  When net is merged into net-next, this will clash with bd8a7036c06cf1577 ("gre:
->  fix a possible skb leak") in gre_gso_segment() as kfree_skb() is being replaced
->  with kfree_skb_list() in one occurence. How would you like to handle this Dave?
->  This patch is not really urgent though, but maybe we could get this still in
->  before net-next closes.
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-I've applied this and did the messy merge.
-
-Actually the GRE part wasn't that bad. :-)
-
-Thanks!
+Looks good, applied.
