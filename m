@@ -1,61 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel panic in skb_copy_bits
-Date: Thu, 04 Jul 2013 03:12:10 -0700
-Message-ID: <1372932730.4979.96.camel@edumazet-glaptop>
-References: <51CBAA48.3080802@oracle.com>
-	 <1372311118.3301.214.camel@edumazet-glaptop> <51CD0E67.4000008@oracle.com>
-	 <6BFD5AF235F72F13CE646A0D@nimrod.local> <51D0F514.3070309@oracle.com>
-	 <1372666283.14691.8.camel@zakaz.uk.xensource.com>
-	 <51D53896.1060405@oracle.com>
-	 <1372928382.7184.16.camel@kazak.uk.xensource.com>
-	 <1372930465.4979.82.camel@edumazet-glaptop>
-	 <1372931565.7184.32.camel@kazak.uk.xensource.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Joe Jin <joe.jin@oracle.com>, Alex Bligh <alex@alex.org.uk>,
-	Frank Blaschka <frank.blaschka@de.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	zheng.x.li@oracle.com, Xen Devel <xen-devel@lists.xen.org>,
-	Jan Beulich <JBeulich@suse.com>,
-	Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372931565.7184.32.camel@kazak.uk.xensource.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH V3 0/4] Add IPv6 support for iWARP
+Date: Thu,  4 Jul 2013 16:10:43 +0530
+Message-ID: <1372934447-16556-1-git-send-email-vipul@chelsio.com>
+Cc: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	tatyana.e.nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-07-04 at 10:52 +0100, Ian Campbell wrote:
+Hi All,
 
-> Might just be that no one has observed it with vmsplice()+splice()? Most
-> of the time this happens silently and you'll probably never notice, it's
-> just the behaviour of Xen which escalates the issue into one you can
-> see.
+This patch series adds IPv6 support for iWARP. It enables Chelsio's T4 and T5
+adapters to transmitt RDMA traffic over IPv6 address. It adds new apis and cpl
+messages in cxgb4 to support IPv6 operations and uses them in RDMA/cxgb4.
 
-The point I wanted to make is that nobody can seriously use vmsplice(),
-unless the memory is never reused by the application, or the application
-doesn't care of security implications.
+The patch series  modifies the type of local_addr and remote_addr fields in
+struct iw_cm_id from struct sockaddr_in to struct sockaddr_storage to hold IPv6
+and IPv4 addresses uniformly. It changes the references of local_addr and
+remote_addr in RDMA/cxgb4, RDMA/cxgb3, RDMA/nes and amso drivers such that build
+failure is avoided.
 
-Because an application has no way to know when it's safe to reuse the
-area for another usage.
+We would like to submit this patch series via Roland's infiniband tree for-next
+branch.
 
-[ Unless it uses the obscure and complex pagemap stuff
-(Documentation/vm/pagemap.txt), but its not asynchronous signaling and
-not pluggable into epoll()/poll()/select()) ]
+We have included all the maintainers of respective drivers. Kindly review the
+change and let us know in case of any review comments.
 
-> Xen's out of tree netback used to fix this by a destructor call back on
-> page free, but that was a core mm patch in the hot memory free path
-> which wasn't popular, and it doesn't solve anything for the non-Xen
-> instances of this issue.
+Thanks,
+Vipul Pandya
 
-It _is_ a mm core patch which is needed, if we ever want to fix this
-problem.
+V2: Used local variables instead of typecasting in patch 1/4.
+V3: Removed dereferencing ep before initializing it in patch 4/4.
 
-It looks like a typical COW issue to me.
+Steve Wise (1):
+  RDMA/cma: Add IPv6 support for iWARP.
 
-If the page content is written while there is still a reference on this
-page, we should allocate a new page and copy the previous content.
+Vipul Pandya (3):
+  cxgb4: Add routines to create and remove listening IPv6 servers
+  cxgb4: Add CLIP support to store compressed IPv6 address
+  RDMA/cxgb4: Add support for active and passive open connection with
+    IPv6 address
 
-And this has little to do with networking.
+ drivers/infiniband/core/cma.c                   |  44 +-
+ drivers/infiniband/hw/amso1100/c2_ae.c          |  18 +-
+ drivers/infiniband/hw/amso1100/c2_cm.c          |  16 +-
+ drivers/infiniband/hw/cxgb3/iwch_cm.c           |  46 +-
+ drivers/infiniband/hw/cxgb4/cm.c                | 844 ++++++++++++++++--------
+ drivers/infiniband/hw/cxgb4/device.c            | 116 +++-
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |   4 +-
+ drivers/infiniband/hw/nes/nes_cm.c              | 150 +++--
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   1 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 288 +++++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |   5 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |  17 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  23 +
+ include/rdma/iw_cm.h                            |   8 +-
+ 14 files changed, 1136 insertions(+), 444 deletions(-)
+
+-- 
+1.8.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
