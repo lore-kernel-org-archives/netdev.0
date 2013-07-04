@@ -1,43 +1,94 @@
-From: Srinivas KANDAGATLA <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>
-Subject: Re: [PATCH v1 0/3] extend stmmac DT support.
-Date: Thu, 04 Jul 2013 09:44:44 +0100
-Message-ID: <51D535FC.1020100@st.com>
-References: <1372770219-1643-1-git-send-email-srinivas.kandagatla@st.com>
- <20130703.160423.1285164466482391784.davem@davemloft.net>
-Reply-To: srinivas.kandagatla-qxv4g6HH51o@public.gmane.org
+From: Joe Jin <joe.jin@oracle.com>
+Subject: Re: kernel panic in skb_copy_bits
+Date: Thu, 04 Jul 2013 16:55:50 +0800
+Message-ID: <51D53896.1060405@oracle.com>
+References: <51CBAA48.3080802@oracle.com> <1372311118.3301.214.camel@edumazet-glaptop> <51CD0E67.4000008@oracle.com> <6BFD5AF235F72F13CE646A0D@nimrod.local> <51D0F514.3070309@oracle.com> <1372666283.14691.8.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso8859-7"
-Content-Transfer-Encoding: base64
-Cc: linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <20130703.160423.1285164466482391784.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Alex Bligh <alex@alex.org.uk>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Frank Blaschka <frank.blaschka@de.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	zheng.x.li@oracle.com, Xen Devel <xen-devel@lists.xen.org>,
+	Jan Beulich <JBeulich@suse.com>,
+	Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1372666283.14691.8.camel@zakaz.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gMDQvMDcvMTMgMDA6MDQsIERhdmlkIE1pbGxlciB3cm90ZToKCj4gWW91IGFyZSBnb2luZyB0
-byBoYXZlIHRvIGZpeCB1cCB0aGUgZm9sbG93aW5nIGJ1aWxkIHdhcm5pbmdzIGFuZCByZXN1Ym1p
-dDoKPiAKPiAgIENDIFtNXSAgZHJpdmVycy9uZXQvZXRoZXJuZXQvc3RtaWNyby9zdG1tYWMvc3Rt
-bWFjX21kaW8ubwo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L3N0bWljcm8vc3RtbWFjL3N0bW1hY19t
-ZGlvLmM6IEluIGZ1bmN0aW9uIKFzdG1tYWNfbWRpb19yZXNldKI6Cj4gZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvc3RtaWNyby9zdG1tYWMvc3RtbWFjX21kaW8uYzoxMzc6MTc6IHdhcm5pbmc6IHVudXNl
-ZCB2YXJpYWJsZSChZGV2oiBbLVd1bnVzZWQtdmFyaWFibGVdCj4gZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvc3RtaWNyby9zdG1tYWMvc3RtbWFjX21kaW8uYzogSW4gZnVuY3Rpb24goXN0bW1hY19tZGlv
-X3JlZ2lzdGVyojoKPiBkcml2ZXJzL25ldC9ldGhlcm5ldC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNf
-bWRpby5jOjIwMDoxNzogd2FybmluZzogdW51c2VkIHZhcmlhYmxlIKFkZXaiIFstV3VudXNlZC12
-YXJpYWJsZV0KVGhhbmtzIERhdmUsCkkgd2lsbCByZXN1Ym1pdCB0aGUgcGF0Y2hlcyB3aXRoIHRo
-aXMgd2FybmluZyBmaXguCgpUaGFua3MsCnNyaW5pCj4gCj4gCj4gVGhhbmtzLgo+IAoKX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2aWNldHJlZS1kaXNj
-dXNzIG1haWxpbmcgbGlzdApkZXZpY2V0cmVlLWRpc2N1c3NAbGlzdHMub3psYWJzLm9yZwpodHRw
-czovL2xpc3RzLm96bGFicy5vcmcvbGlzdGluZm8vZGV2aWNldHJlZS1kaXNjdXNzCg==
+On 07/01/13 16:11, Ian Campbell wrote:
+> On Mon, 2013-07-01 at 11:18 +0800, Joe Jin wrote:
+>>> A workaround is to turn off O_DIRECT use by Xen as that ensures
+>>> the pages are copied. Xen 4.3 does this by default.
+>>>
+>>> I believe fixes for this are in 4.3 and 4.2.2 if using the
+>>> qemu upstream DM. Note these aren't real fixes, just a workaround
+>>> of a kernel bug.
+>>
+>> The guest is pvm, and disk model is xvbd, guest config file as below:
+> 
+> Do you know which disk backend? The workaround Alex refers to went into
+> qdisk but I think blkback could still suffer from a variant of the
+> retransmit issue if you run it over iSCSI.
+> 
+>>> To fix on a local build of xen you will need something like this:
+>>> https://github.com/abligh/qemu-upstream-4.2-testing/commit/9a97c011e1a682eed9bc7195a25349eaf23ff3f9
+>>> and something like this (NB: obviously insert your own git
+>>> repo and commit numbers)
+>>> https://github.com/abligh/xen/commit/f5c344afac96ced8b980b9659fb3e81c4a0db5ca
+>>>
+>>
+>> I think this only for pvhvm/hvm?
+> 
+> No, the underlying issue affects any PV device which is run over a
+> network protocol (NFS, iSCSI etc). In effect a delayed retransmit can
+> cross over the deayed ack and cause I/O to be completed while
+> retransmits are pending, such as is described in
+> http://www.spinics.net/lists/linux-nfs/msg34913.html (the original NFS
+> variant). The problem is that because Xen PV drivers often unmap the
+> page on I/O completion you get a crash (page fault) on the retransmit.
+> 
+
+Can we do it by remember grant page refcount when mapping, and when unmap
+check if page refcount as same as mapping?  This change will limited in
+xen-blkback.
+
+Another way is add new page flag like PG_send, when sendpage() be called,
+set the bit, when page be put, clear the bit. Then xen-blkback can wait
+on the pagequeue.
+
+Thanks,
+Joe
+
+> The issue also affects native but in that case the symptom is "just" a
+> corrupt packet on the wire. I tried to address this with my "skb
+> destructor" series but unfortunately I got bogged down on the details,
+> then I had to take time out to look into some other stuff and never
+> managed to get back into it. I'd be very grateful if there was someone
+> who could pick up that work (Alex gave some useful references in another
+> reply to this thread)
+> 
+> Some PV disk backends (e.g. blktap2) have worked around this by using
+> grant copy instead of grant map, others (e.g. qdisk) have disabled
+> O_DIRECT so that the pages are copied into the dom0 page cache and
+> transmitted from there.
+> 
+> We were discussing recently the possibility of mapping all ballooned out
+> pages to a single read-only scratch page instead of leaving them empty
+> in the page tables, this would cause the Xen case to revert to the
+> native case. I think Thanos was going to take a look into this.
+> 
+> Ian.
+> 
+
+
+-- 
+Oracle <http://www.oracle.com>
+Joe Jin | Software Development Senior Manager | +8610.6106.5624
+ORACLE | Linux and Virtualization
+No. 24 Zhongguancun Software Park, Haidian District | 100193 Beijing 
