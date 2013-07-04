@@ -1,29 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH (net.git)] net:stmmac: fix memleak in the open method
-Date: Thu, 04 Jul 2013 14:34:46 -0700 (PDT)
-Message-ID: <20130704.143446.1077541579238614589.davem@davemloft.net>
-References: <1372911487-18472-1-git-send-email-peppe.cavallaro@st.com>
+Subject: Re: [PATCH v2 0/3] extend stmmac DT support
+Date: Thu, 04 Jul 2013 14:35:01 -0700 (PDT)
+Message-ID: <20130704.143501.1841830283181488951.davem@davemloft.net>
+References: <1372930496-18923-1-git-send-email-srinivas.kandagatla@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50950 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756900Ab3GDVer (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 17:34:47 -0400
-In-Reply-To: <1372911487-18472-1-git-send-email-peppe.cavallaro@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com,
+	grant.likely@linaro.org, rob.herring@calxeda.com, rob@landley.net,
+	devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: srinivas.kandagatla@st.com
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1372930496-18923-1-git-send-email-srinivas.kandagatla@st.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Thu,  4 Jul 2013 06:18:07 +0200
+From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
+Date: Thu,  4 Jul 2013 10:34:56 +0100
 
-> This patch is to fix a memory leak in the open method, it reviews error
-> conditions freeing the resources previously allocated and not freed in
-> cased of DMA failure.
+> Thankyou for the comments on v1 patches.
 > 
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> This patch series adds support to new gmac versions 3.6.10 and 3.710, these
+> versions of IP are integrated into ST STiH415/STiH416 SOCs.
+> This patchset also adds phy reset capablity to stmmac-mdio driver via DT.
+> 
+> Changes since v1:
+> 	- Fixed unused variable warings pointed by Dave M.
+> 
+> Changes since RFC:
+> 	- re-use existing compatible strings to select right properties.
+> 	- clean up reset callback support so that DT is not parsed everytime.
 
-Applied.
+Series applied, thanks.
