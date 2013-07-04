@@ -1,39 +1,39 @@
-From: Pierre Emeriaud <petrus.lt@gmail.com>
-Subject: Re: PROBLEM: Linux 3.9 more-specific ipv6 route ignored until
- next-hop is in neighbor cache
-Date: Thu, 4 Jul 2013 07:20:37 +0200
-Message-ID: <CA+PSOpziMTBD-dNbjtYO+EcvoMuO0NBw7V-0OHCtAAzZQEG4Uw@mail.gmail.com>
-References: <20130703181546.GC12615@order.stressinduktion.org>
-	<51D46B9F.6050400@cogentembedded.com>
-	<20130703184504.GD12615@order.stressinduktion.org>
-	<20130703.175153.1664868495830722209.davem@davemloft.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: PHC device sharing between PCI functions
+Date: Thu, 4 Jul 2013 07:36:05 +0200
+Message-ID: <20130704053605.GC4457@netboy>
+References: <1372697768.2083.21.camel@bwh-desktop.uk.level5networks.com>
+ <20130702142420.GC14630@netboy>
+ <1372778262.1919.12.camel@bwh-desktop.uk.level5networks.com>
+ <20130703183035.GA4446@netboy>
+ <1372881153.1919.49.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: hannes@stressinduktion.org,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-net-drivers <linux-net-drivers@solarflare.com>,
+	netdev <netdev@vger.kernel.org>,
+	Laurence Evans <levans@solarflare.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f175.google.com ([209.85.214.175]:56775 "EHLO
-	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754938Ab3GDFUi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 01:20:38 -0400
-Received: by mail-ob0-f175.google.com with SMTP id xn12so1158712obc.34
-        for <netdev@vger.kernel.org>; Wed, 03 Jul 2013 22:20:37 -0700 (PDT)
-In-Reply-To: <20130703.175153.1664868495830722209.davem@davemloft.net>
+Received: from mail-we0-f179.google.com ([74.125.82.179]:39705 "EHLO
+	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754894Ab3GDFgR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 01:36:17 -0400
+Received: by mail-we0-f179.google.com with SMTP id w59so743732wes.38
+        for <netdev@vger.kernel.org>; Wed, 03 Jul 2013 22:36:16 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1372881153.1919.49.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/7/4 David Miller <davem@davemloft.net>:
->>
->> [PATCH net v2] ipv6: rt6_check_neigh should successfully verify neigh if no NUD information are available
->
-> Applied and queued up for -stable, thanks everyone.
+On Wed, Jul 03, 2013 at 08:52:33PM +0100, Ben Hutchings wrote:
+> 
+> So you think each function should have its own clock device, but it's
+> only writable on one?  I think that would work, but I thought it would
+> be undesirable to have multiple aliases for the same physical clock.
 
-I just tested the patch and it works fine! The more-specific route is
-now preferred over default even if the next-hop is not (yet) known in
-the neighbor cache.
+The aliases would not bother me, as long as the ethtool interface-to-phc
+association works properly. Of course, if there is a way to suppress
+the aliases in the non-VM case, that would be ideal.
 
-Thanks everyone !
-
--pierre.
+Thanks,
+Richard
