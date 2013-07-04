@@ -1,107 +1,194 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: Re: [PATCH V3 2/2 RESEND] Introduce huawei_cdc_ncm driver
-Date: Thu, 4 Jul 2013 19:03:52 +0200 (CEST)
-Message-ID: <alpine.LNX.2.02.1307041903001.4744@eeeadesso>
-References: <alpine.LNX.2.02.1307021241380.8884@eeeadesso> <87wqp9xja5.fsf@nemi.mork.no> <alpine.LNX.2.02.1307021855270.19053@eeeadesso> <alpine.LNX.2.02.1307022202570.26010@eeeadesso> <alpine.LNX.2.02.1307022207060.26010@eeeadesso>
- <alpine.LNX.2.02.1307022210470.26010@eeeadesso> <alpine.LNX.2.02.1307022213380.26010@eeeadesso> <alpine.LNX.2.02.1307030836270.12831@eeeadesso> <alpine.LNX.2.02.1307030908090.13789@eeeadesso> <871u7gvz2z.fsf@nemi.mork.no> <alpine.LNX.2.02.1307031455460.24525@eeeadesso>
- <51D424D1.2010507@cogentembedded.com> <alpine.LNX.2.02.1307031534180.25440@eeeadesso> <1372868333.1919.3.camel@bwh-desktop.uk.level5networks.com> <alpine.LNX.2.02.1307032007430.2819@eeeadesso> <87y59mjwct.fsf@nemi.mork.no>
+From: Willy Tarreau <w@1wt.eu>
+Subject: [PATCH] net: convert mvneta to build_skb()
+Date: Thu, 4 Jul 2013 19:35:52 +0200
+Message-ID: <20130704173552.GA23370@1wt.eu>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Enrico Mioso <mrkiko.rs@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev@vger.kernel.org
-To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	Eric Dumazet <edumazet@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f170.google.com ([74.125.82.170]:35550 "EHLO
-	mail-we0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756593Ab3GDRDc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 13:03:32 -0400
-Received: by mail-we0-f170.google.com with SMTP id w57so1321946wes.29
-        for <netdev@vger.kernel.org>; Thu, 04 Jul 2013 10:03:31 -0700 (PDT)
-In-Reply-To: <87y59mjwct.fsf@nemi.mork.no>
+Received: from 1wt.eu ([62.212.114.60]:34408 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756593Ab3GDRfz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Jul 2013 13:35:55 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-thank you !! you're right.
-Enthusiasm took me! :)
-I'll re-read SubmittingPatches and prepare some scripts (if they do not already 
-exist).
+>From 0180a5e651dd771de18bf2c031ecfe7bb4c88d3e Mon Sep 17 00:00:00 2001
+From: Willy Tarreau <w@1wt.eu>
+Date: Sat, 15 Jun 2013 23:25:15 +0200
+Subject: [PATCH] net: convert mvneta to build_skb()
 
-:)
+We store the frag_size in the mvneta_port struct. In practice we'd need
+a single bit to know how to free the data, but since we need the size to
+call build_skb() anyway, let's store the full size.
 
-On Thu, 4 Jul 2013, Bj?rn Mork wrote:
+With this patch, I observed a reproducible 2% performance improvement on
+HTTP-based benchmarks.
 
-==Date: Thu, 04 Jul 2013 15:19:46 +0200
-==From: Bj?rn Mork <bjorn@mork.no>
-==To: Enrico Mioso <mrkiko.rs@gmail.com>
-==Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
-==Subject: Re: [PATCH V3 2/2 RESEND] Introduce huawei_cdc_ncm driver
-==
-==Enrico Mioso <mrkiko.rs@gmail.com> writes:
-==
-==> This new driver, handles devices that mimic the NCM standard, but using NCM as
-==> a transport layer to encapsulate other protocols (i.e. AT protocol).
-==>
-==> Signed-off-by: Enrico Mioso <mrkiko.rs@gmail.com>
-==> ---
-==> V3:
-==>   - fixed typo in Kconfig (help text)
-==>
-==> diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
-==> index 287cc62..33cb175 100644
-==> --- a/drivers/net/usb/Kconfig
-==> +++ b/drivers/net/usb/Kconfig
-==> @@ -246,6 +246,18 @@ config USB_NET_CDC_NCM
-==>  	    * ST-Ericsson M343 HSPA Mobile Broadband Modem (reference design)
-==>  	    * Ericsson F5521gw Mobile Broadband Module
-==>  
-==> +config USB_NET_HUAWEI_CDC_NCM
-==> +	tristate "Huawei-style CDC NCM support"
-==> +	depends on USB_USBNET
-==> +	select USB_WDM
-==> +	select USB_NET_CDC_NCM
-==> +	help
-==> +		This driver aims to support huawei-style NCM devices, that use ncm as a 
-==> +		transport for other protocols.
-==> +		To compile this driver as a module, choose M here: the module will be 
-==> +		called huawei_cdc_ncm.
-==> +
-==>  config USB_NET_CDC_MBIM
-==>  	tristate "CDC MBIM support"
-==>  	depends on USB_USBNET
-==
-==Sorry, but editing a patch directly is too risky.  You shouldn't do
-==that.  This does not apply anymore because there now is a line missing
-==here...
-==
-==This is nitpicking, but it needs to be correct for the patches to be
-==accepted.
-==
-==Before resubmitting, I suggest:
-==
-== - check all the patches with scripts/checkpatch.pl
-== - fix absolutely all ERRORs.  You may ignore some WARNINGs if there are
-==   good reasons to do so (e.g the 80 character limit)
-== - mail all patches to yourself, and save as you receive them
-== - apply the received patches to a clean net-next based branch using
-==   "git am <patch>"
-== - verify the result (build it after each patch is applied and play with
-==   related config options to make sure nothing breaks)
-==
-==Also please note that net-next is currently closed due to the merge
-==window being open: http://www.spinics.net/lists/netdev/msg242161.html
-==
-==I don't know exactly what the policy wrt new drivers is, but you can
-==assume that David is pretty busy with the stuff he already has queued.
-==So it is better to hold this work until after v3.11-rc1 is out and David
-==announces that he has opened net-next again.
-==
-==And I also believe you should include your final patch to cdc_ncm.c as
-==part 3/3 of this series.  Otherwise the ordering and dependencies are
-==not clear.  That patch can be applied on it's own, but it won't make any
-==sense to do so.  Better make that clear.
-==
-==
-==
-==Bj?rn
-==
+Signed-off-by: Willy Tarreau <w@1wt.eu>
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Cc: Eric Dumazet <edumazet@google.com>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 71 ++++++++++++++++++++++++-----------
+ 1 file changed, 50 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index c966785..0f2c6df 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -225,6 +225,7 @@ struct mvneta_stats {
+ 
+ struct mvneta_port {
+ 	int pkt_size;
++	unsigned int frag_size;
+ 	void __iomem *base;
+ 	struct mvneta_rx_queue *rxqs;
+ 	struct mvneta_tx_queue *txqs;
+@@ -1259,22 +1260,33 @@ static int mvneta_rx_refill(struct mvneta_port *pp,
+ 
+ {
+ 	dma_addr_t phys_addr;
+-	struct sk_buff *skb;
+-
+-	skb = netdev_alloc_skb(pp->dev, pp->pkt_size);
+-	if (!skb)
++	void *data;
++	unsigned int skb_size;
++
++	skb_size = SKB_DATA_ALIGN(pp->pkt_size + MVNETA_MH_SIZE + NET_SKB_PAD) +
++		SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
++	if (skb_size <= PAGE_SIZE) {
++		data = netdev_alloc_frag(skb_size);
++		pp->frag_size = skb_size;
++	} else {
++		data = kmalloc(skb_size, GFP_ATOMIC);
++		pp->frag_size = 0;
++	}
++	if (!data)
+ 		return -ENOMEM;
+ 
+-	phys_addr = dma_map_single(pp->dev->dev.parent, skb->head,
++	phys_addr = dma_map_single(pp->dev->dev.parent, data,
+ 				   MVNETA_RX_BUF_SIZE(pp->pkt_size),
+ 				   DMA_FROM_DEVICE);
+ 	if (unlikely(dma_mapping_error(pp->dev->dev.parent, phys_addr))) {
+-		dev_kfree_skb(skb);
++		if (pp->frag_size)
++			put_page(virt_to_head_page(data));
++		else
++			kfree(data);
+ 		return -ENOMEM;
+ 	}
+ 
+-	mvneta_rx_desc_fill(rx_desc, phys_addr, (u32)skb);
+-
++	mvneta_rx_desc_fill(rx_desc, phys_addr, (u32)data);
+ 	return 0;
+ }
+ 
+@@ -1328,9 +1340,13 @@ static void mvneta_rxq_drop_pkts(struct mvneta_port *pp,
+ 	rx_done = mvneta_rxq_busy_desc_num_get(pp, rxq);
+ 	for (i = 0; i < rxq->size; i++) {
+ 		struct mvneta_rx_desc *rx_desc = rxq->descs + i;
+-		struct sk_buff *skb = (struct sk_buff *)rx_desc->buf_cookie;
++		void *data = (void *)rx_desc->buf_cookie;
++
++		if (pp->frag_size)
++			put_page(virt_to_head_page(data));
++		else
++			kfree(data);
+ 
+-		dev_kfree_skb_any(skb);
+ 		dma_unmap_single(pp->dev->dev.parent, rx_desc->buf_phys_addr,
+ 				 rx_desc->data_size, DMA_FROM_DEVICE);
+ 	}
+@@ -1359,6 +1375,7 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+ 	while (rx_done < rx_todo) {
+ 		struct mvneta_rx_desc *rx_desc = mvneta_rxq_next_desc_get(rxq);
+ 		struct sk_buff *skb;
++		unsigned char *data;
+ 		u32 rx_status;
+ 		int rx_bytes, err;
+ 
+@@ -1366,14 +1383,14 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+ 		rx_done++;
+ 		rx_filled++;
+ 		rx_status = rx_desc->status;
+-		skb = (struct sk_buff *)rx_desc->buf_cookie;
++		data = (unsigned char *)rx_desc->buf_cookie;
+ 
+ 		if (!mvneta_rxq_desc_is_first_last(rx_desc) ||
+-		    (rx_status & MVNETA_RXD_ERR_SUMMARY)) {
++		    (rx_status & MVNETA_RXD_ERR_SUMMARY) ||
++		    !(skb = build_skb(data, pp->frag_size))) {
+ 			dev->stats.rx_errors++;
+ 			mvneta_rx_error(pp, rx_desc);
+-			mvneta_rx_desc_fill(rx_desc, rx_desc->buf_phys_addr,
+-					    (u32)skb);
++			/* leave the descriptor untouched */
+ 			continue;
+ 		}
+ 
+@@ -1388,7 +1405,7 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+ 		u64_stats_update_end(&pp->rx_stats.syncp);
+ 
+ 		/* Linux processing */
+-		skb_reserve(skb, MVNETA_MH_SIZE);
++		skb_reserve(skb, MVNETA_MH_SIZE + NET_SKB_PAD);
+ 		skb_put(skb, rx_bytes);
+ 
+ 		skb->protocol = eth_type_trans(skb, dev);
+@@ -1905,12 +1922,21 @@ static int mvneta_rxq_fill(struct mvneta_port *pp, struct mvneta_rx_queue *rxq,
+ 	int i;
+ 
+ 	for (i = 0; i < num; i++) {
+-		struct sk_buff *skb;
++		void *data;
+ 		struct mvneta_rx_desc *rx_desc;
+ 		unsigned long phys_addr;
++		unsigned int skb_size;
+ 
+-		skb = dev_alloc_skb(pp->pkt_size);
+-		if (!skb) {
++		skb_size = SKB_DATA_ALIGN(pp->pkt_size + MVNETA_MH_SIZE + NET_SKB_PAD) +
++			SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
++		if (skb_size <= PAGE_SIZE) {
++			data = netdev_alloc_frag(skb_size);
++			pp->frag_size = skb_size;
++		} else {
++			data = kmalloc(skb_size, GFP_ATOMIC);
++			pp->frag_size = 0;
++		}
++		if (!data) {
+ 			netdev_err(dev, "%s:rxq %d, %d of %d buffs  filled\n",
+ 				__func__, rxq->id, i, num);
+ 			break;
+@@ -1918,15 +1944,18 @@ static int mvneta_rxq_fill(struct mvneta_port *pp, struct mvneta_rx_queue *rxq,
+ 
+ 		rx_desc = rxq->descs + i;
+ 		memset(rx_desc, 0, sizeof(struct mvneta_rx_desc));
+-		phys_addr = dma_map_single(dev->dev.parent, skb->head,
++		phys_addr = dma_map_single(dev->dev.parent, data,
+ 					   MVNETA_RX_BUF_SIZE(pp->pkt_size),
+ 					   DMA_FROM_DEVICE);
+ 		if (unlikely(dma_mapping_error(dev->dev.parent, phys_addr))) {
+-			dev_kfree_skb(skb);
++			if (pp->frag_size)
++				put_page(virt_to_head_page(data));
++			else
++				kfree(data);
+ 			break;
+ 		}
+ 
+-		mvneta_rx_desc_fill(rx_desc, phys_addr, (u32)skb);
++		mvneta_rx_desc_fill(rx_desc, phys_addr, (u32)data);
+ 	}
+ 
+ 	/* Add this number of RX descriptors as non occupied (ready to
+-- 
+1.7.12.2.21.g234cd45.dirty
