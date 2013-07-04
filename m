@@ -1,72 +1,187 @@
-From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH V3 0/4] Add IPv6 support for iWARP
-Date: Thu,  4 Jul 2013 16:10:43 +0530
-Message-ID: <1372934447-16556-1-git-send-email-vipul@chelsio.com>
-Cc: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	tatyana.e.nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH V3 2/4] cxgb4: Add routines to create and remove listening IPv6 servers
+Date: Thu,  4 Jul 2013 16:10:45 +0530
+Message-ID: <1372934447-16556-3-git-send-email-vipul@chelsio.com>
+References: <1372934447-16556-1-git-send-email-vipul@chelsio.com>
+Cc: roland@purestorage.com, davem@davemloft.net, divy@chelsio.com,
+	dm@chelsio.com, swise@opengridcomputing.com, roland@kernel.org,
+	sean.hefty@intel.com, hal.rosenstock@gmail.com,
+	tom@opengridcomputing.com, faisal.latif@intel.com,
+	tatyana.e.nikolova@intel.com, akpm@linux-foundation.org,
+	sasha.levin@oracle.com, vipul@chelsio.com, hariprasad@chelsio.com,
+	nirranjan@chelsio.com
+To: linux-rdma@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:4890 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755186Ab3GDKrt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 06:47:49 -0400
+In-Reply-To: <1372934447-16556-1-git-send-email-vipul@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+Add cxgb4_create_server6 and cxgb4_remove_server routines to create and remove
+listening IPv6 servers.
 
-This patch series adds IPv6 support for iWARP. It enables Chelsio's T4 and T5
-adapters to transmitt RDMA traffic over IPv6 address. It adds new apis and cpl
-messages in cxgb4 to support IPv6 operations and uses them in RDMA/cxgb4.
+Return success (0) from cxgb4_create_server in case of ctrl queue congestion
+since in case of congestion, passive open request gets queued and gets
+processed later. If non zero value is returned it can be treated as an error
+and ULD can free STID which can result into an error in passive open reply.
 
-The patch series  modifies the type of local_addr and remote_addr fields in
-struct iw_cm_id from struct sockaddr_in to struct sockaddr_storage to hold IPv6
-and IPv4 addresses uniformly. It changes the references of local_addr and
-remote_addr in RDMA/cxgb4, RDMA/cxgb3, RDMA/nes and amso drivers such that build
-failure is avoided.
+Add cpl structure for active open request with IPv6 address for T5.
 
-We would like to submit this patch series via Roland's infiniband tree for-next
-branch.
-
-We have included all the maintainers of respective drivers. Kindly review the
-change and let us know in case of any review comments.
-
-Thanks,
-Vipul Pandya
-
+Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+---
 V2: Used local variables instead of typecasting in patch 1/4.
 V3: Removed dereferencing ep before initializing it in patch 4/4.
 
-Steve Wise (1):
-  RDMA/cma: Add IPv6 support for iWARP.
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 71 ++++++++++++++++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |  5 ++
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     | 17 +++++-
+ 3 files changed, 91 insertions(+), 2 deletions(-)
 
-Vipul Pandya (3):
-  cxgb4: Add routines to create and remove listening IPv6 servers
-  cxgb4: Add CLIP support to store compressed IPv6 address
-  RDMA/cxgb4: Add support for active and passive open connection with
-    IPv6 address
-
- drivers/infiniband/core/cma.c                   |  44 +-
- drivers/infiniband/hw/amso1100/c2_ae.c          |  18 +-
- drivers/infiniband/hw/amso1100/c2_cm.c          |  16 +-
- drivers/infiniband/hw/cxgb3/iwch_cm.c           |  46 +-
- drivers/infiniband/hw/cxgb4/cm.c                | 844 ++++++++++++++++--------
- drivers/infiniband/hw/cxgb4/device.c            | 116 +++-
- drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |   4 +-
- drivers/infiniband/hw/nes/nes_cm.c              | 150 +++--
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   1 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 288 +++++++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |   5 +
- drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |  17 +-
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  23 +
- include/rdma/iw_cm.h                            |   8 +-
- 14 files changed, 1136 insertions(+), 444 deletions(-)
-
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 5a3256b..d1d6ff7 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -3246,6 +3246,7 @@ int cxgb4_create_server(const struct net_device *dev, unsigned int stid,
+ 	struct sk_buff *skb;
+ 	struct adapter *adap;
+ 	struct cpl_pass_open_req *req;
++	int ret;
+ 
+ 	skb = alloc_skb(sizeof(*req), GFP_KERNEL);
+ 	if (!skb)
+@@ -3263,10 +3264,78 @@ int cxgb4_create_server(const struct net_device *dev, unsigned int stid,
+ 	req->opt0 = cpu_to_be64(TX_CHAN(chan));
+ 	req->opt1 = cpu_to_be64(CONN_POLICY_ASK |
+ 				SYN_RSS_ENABLE | SYN_RSS_QUEUE(queue));
+-	return t4_mgmt_tx(adap, skb);
++	ret = t4_mgmt_tx(adap, skb);
++	return net_xmit_eval(ret);
+ }
+ EXPORT_SYMBOL(cxgb4_create_server);
+ 
++/*	cxgb4_create_server6 - create an IPv6 server
++ *	@dev: the device
++ *	@stid: the server TID
++ *	@sip: local IPv6 address to bind server to
++ *	@sport: the server's TCP port
++ *	@queue: queue to direct messages from this server to
++ *
++ *	Create an IPv6 server for the given port and address.
++ *	Returns <0 on error and one of the %NET_XMIT_* values on success.
++ */
++int cxgb4_create_server6(const struct net_device *dev, unsigned int stid,
++			 const struct in6_addr *sip, __be16 sport,
++			 unsigned int queue)
++{
++	unsigned int chan;
++	struct sk_buff *skb;
++	struct adapter *adap;
++	struct cpl_pass_open_req6 *req;
++	int ret;
++
++	skb = alloc_skb(sizeof(*req), GFP_KERNEL);
++	if (!skb)
++		return -ENOMEM;
++
++	adap = netdev2adap(dev);
++	req = (struct cpl_pass_open_req6 *)__skb_put(skb, sizeof(*req));
++	INIT_TP_WR(req, 0);
++	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_PASS_OPEN_REQ6, stid));
++	req->local_port = sport;
++	req->peer_port = htons(0);
++	req->local_ip_hi = *(__be64 *)(sip->s6_addr);
++	req->local_ip_lo = *(__be64 *)(sip->s6_addr + 8);
++	req->peer_ip_hi = cpu_to_be64(0);
++	req->peer_ip_lo = cpu_to_be64(0);
++	chan = rxq_to_chan(&adap->sge, queue);
++	req->opt0 = cpu_to_be64(TX_CHAN(chan));
++	req->opt1 = cpu_to_be64(CONN_POLICY_ASK |
++				SYN_RSS_ENABLE | SYN_RSS_QUEUE(queue));
++	ret = t4_mgmt_tx(adap, skb);
++	return net_xmit_eval(ret);
++}
++EXPORT_SYMBOL(cxgb4_create_server6);
++
++int cxgb4_remove_server(const struct net_device *dev, unsigned int stid,
++			unsigned int queue, bool ipv6)
++{
++	struct sk_buff *skb;
++	struct adapter *adap;
++	struct cpl_close_listsvr_req *req;
++	int ret;
++
++	adap = netdev2adap(dev);
++
++	skb = alloc_skb(sizeof(*req), GFP_KERNEL);
++	if (!skb)
++		return -ENOMEM;
++
++	req = (struct cpl_close_listsvr_req *)__skb_put(skb, sizeof(*req));
++	INIT_TP_WR(req, 0);
++	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_CLOSE_LISTSRV_REQ, stid));
++	req->reply_ctrl = htons(NO_REPLY(0) | (ipv6 ? LISTSVR_IPV6(1) :
++				LISTSVR_IPV6(0)) | QUEUENO(queue));
++	ret = t4_mgmt_tx(adap, skb);
++	return net_xmit_eval(ret);
++}
++EXPORT_SYMBOL(cxgb4_remove_server);
++
+ /**
+  *	cxgb4_best_mtu - find the entry in the MTU table closest to an MTU
+  *	@mtus: the HW MTU table
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+index 4faf4d0..6f21f24 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+@@ -154,6 +154,11 @@ struct in6_addr;
+ int cxgb4_create_server(const struct net_device *dev, unsigned int stid,
+ 			__be32 sip, __be16 sport, __be16 vlan,
+ 			unsigned int queue);
++int cxgb4_create_server6(const struct net_device *dev, unsigned int stid,
++			 const struct in6_addr *sip, __be16 sport,
++			 unsigned int queue);
++int cxgb4_remove_server(const struct net_device *dev, unsigned int stid,
++			unsigned int queue, bool ipv6);
+ int cxgb4_create_server_filter(const struct net_device *dev, unsigned int stid,
+ 			       __be32 sip, __be16 sport, __be16 vlan,
+ 			       unsigned int queue,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+index 01d4844..cd6874b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+@@ -320,6 +320,21 @@ struct cpl_act_open_req6 {
+ 	__be32 opt2;
+ };
+ 
++struct cpl_t5_act_open_req6 {
++	WR_HDR;
++	union opcode_tid ot;
++	__be16 local_port;
++	__be16 peer_port;
++	__be64 local_ip_hi;
++	__be64 local_ip_lo;
++	__be64 peer_ip_hi;
++	__be64 peer_ip_lo;
++	__be64 opt0;
++	__be32 rsvd;
++	__be32 opt2;
++	__be64 params;
++};
++
+ struct cpl_act_open_rpl {
+ 	union opcode_tid ot;
+ 	__be32 atid_status;
+@@ -405,7 +420,7 @@ struct cpl_close_listsvr_req {
+ 	WR_HDR;
+ 	union opcode_tid ot;
+ 	__be16 reply_ctrl;
+-#define LISTSVR_IPV6 (1 << 14)
++#define LISTSVR_IPV6(x) ((x) << 14)
+ 	__be16 rsvd;
+ };
+ 
 -- 
 1.8.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
