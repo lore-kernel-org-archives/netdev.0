@@ -1,48 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] ipmr: change the prototype of
- ip_mr_forward().
-Date: Thu, 04 Jul 2013 14:27:24 -0700 (PDT)
-Message-ID: <20130704.142724.1657930430240129696.davem@davemloft.net>
-References: <1372976155-2490-1-git-send-email-ramirose@gmail.com>
+Subject: Re: 'rmmod -f ipv6': BUG: unable to handle kernel paging request
+Date: Thu, 04 Jul 2013 14:29:51 -0700 (PDT)
+Message-ID: <20130704.142951.1908678475285188106.davem@davemloft.net>
+References: <20130704210434.GA6381@Linus-Debian>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
-To: ramirose@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50827 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756816Ab3GDV13 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 17:27:29 -0400
-In-Reply-To: <1372976155-2490-1-git-send-email-ramirose@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net,
+	linux-kernel@vger.kernel.org
+To: linus.luessing@web.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130704210434.GA6381@Linus-Debian>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rami Rosen <ramirose@gmail.com>
-Date: Fri,  5 Jul 2013 01:15:55 +0300
+=46rom: Linus L=FCssing <linus.luessing@web.de>
+Date: Thu, 4 Jul 2013 23:04:34 +0200
 
-> @@ -127,7 +127,7 @@ static struct kmem_cache *mrt_cachep __read_mostly;
->  static struct mr_table *ipmr_new_table(struct net *net, u32 id);
->  static void ipmr_free_table(struct mr_table *mrt);
->  
-> -static int ip_mr_forward(struct net *net, struct mr_table *mrt,
-> +static void ip_mr_forward(struct net *net, struct mr_table *mrt,
->  			 struct sk_buff *skb, struct mfc_cache *cache,
->  			 int local);
->  static int ipmr_cache_report(struct mr_table *mrt,
+> When trying to perform a forceful unload of an ipv6 kernel module
+> on a 3.10 kernel then I'm getting a kernel panic with the attached
+> trace.
+>=20
+> Is this supposed to happen due to the '-f' option or is this a bug
+> in the ipv6 code?
 
-When you change the column that the openning parenthesis of a function
-declaration appears at, you must reindent all of the subsequent lines
-of the declaration such that the first character lines up with the first
-column after the openning parenthesis.
+The ipv6 module is not capable of being unloaded, sorry.
 
-> @@ -1795,7 +1795,7 @@ static int ipmr_find_vif(struct mr_table *mrt, struct net_device *dev)
->  
->  /* "local" means that we should preserve one skb (for local delivery) */
->  
-> -static int ip_mr_forward(struct net *net, struct mr_table *mrt,
-> +static void ip_mr_forward(struct net *net, struct mr_table *mrt,
->  			 struct sk_buff *skb, struct mfc_cache *cache,
->  			 int local)
-
-Likewise.
+By using "-f" you are taking your own risk in the matter.
