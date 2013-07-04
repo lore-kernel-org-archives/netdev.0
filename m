@@ -1,47 +1,37 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: PHC device sharing between PCI functions
-Date: Thu, 4 Jul 2013 15:34:26 +0100
-Message-ID: <1372948466.1853.1.camel@bwh-desktop.uk.level5networks.com>
-References: <1372697768.2083.21.camel@bwh-desktop.uk.level5networks.com>
-	 <20130702142420.GC14630@netboy>
-	 <1372778262.1919.12.camel@bwh-desktop.uk.level5networks.com>
-	 <20130703183035.GA4446@netboy>
-	 <1372881153.1919.49.camel@bwh-desktop.uk.level5networks.com>
-	 <20130704053605.GC4457@netboy>
+From: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [PATCH V2 1/9] net/mlx5: Mellanox Connect-IB, core driver part 1/3
+Date: Thu, 4 Jul 2013 17:55:45 +0300
+Message-ID: <201307041755.45727.jackm@dev.mellanox.co.il>
+References: <1372871592-32033-1-git-send-email-ogerlitz@mellanox.com> <201307041626.45125.jackm@dev.mellanox.co.il> <1372947461.1886.28.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers <linux-net-drivers@solarflare.com>,
-	netdev <netdev@vger.kernel.org>,
-	Laurence Evans <levans@solarflare.com>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:18607 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756715Ab3GDOea (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 10:34:30 -0400
-In-Reply-To: <20130704053605.GC4457@netboy>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org, moshel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1372947461.1886.28.camel@joe-AO722>
+Content-Disposition: inline
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-07-04 at 07:36 +0200, Richard Cochran wrote:
-> On Wed, Jul 03, 2013 at 08:52:33PM +0100, Ben Hutchings wrote:
-> > 
-> > So you think each function should have its own clock device, but it's
-> > only writable on one?  I think that would work, but I thought it would
-> > be undesirable to have multiple aliases for the same physical clock.
+On Thursday 04 July 2013 17:17, Joe Perches wrote:
+> Not the vertical spacing, the newline inside the quotes.
+> ie: "unknown status code\n" should be "unknown status code"
 > 
-> The aliases would not bother me, as long as the ethtool interface-to-phc
-> association works properly.
+You're right!  I misunderstood, and did not notice the newline char.
+Good catch!
 
-Well what would be 'properly' in this case?
+While I was at it, though, I eliminated the blank lines between
+the cases/default -- fewer lines in the file, and readable enough
+this way.
 
-> Of course, if there is a way to suppress
-> the aliases in the non-VM case, that would be ideal.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks!
+-Jack
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
