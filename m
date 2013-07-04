@@ -1,230 +1,103 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [RFC PATCH] sctp: Don't lookup dst if transport dst is still
- valid
-Date: Thu, 4 Jul 2013 10:33:35 +0800
-Message-ID: <51D4DEFF.8030305@windriver.com>
-References: <1372747174-23580-1-git-send-email-fan.du@windriver.com> <51D2E3C8.5050100@gmail.com> <51D389F9.4030804@windriver.com> <51D425B7.20204@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <nhorman@tuxdriver.com>, <nicolas.dichtel@6wind.com>,
-	<davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [PATCH (net.git)] net:stmmac: fix memleak in the open method
+Date: Thu,  4 Jul 2013 06:18:07 +0200
+Message-ID: <1372911487-18472-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:37375 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932206Ab3GDCfg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 22:35:36 -0400
-In-Reply-To: <51D425B7.20204@gmail.com>
+Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:38206 "EHLO
+	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751015Ab3GDETb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 00:19:31 -0400
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id C334314E
+	for <netdev@vger.kernel.org>; Thu,  4 Jul 2013 04:19:26 +0000 (GMT)
+Received: from mail7.sgp.st.com (unknown [164.129.223.81])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 1A4BD227B
+	for <netdev@vger.kernel.org>; Thu,  4 Jul 2013 04:19:00 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch is to fix a memory leak in the open method, it reviews error
+conditions freeing the resources previously allocated and not freed in
+cased of DMA failure.
 
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   20 ++++++++++----------
+ 1 files changed, 10 insertions(+), 10 deletions(-)
 
-On 2013=E5=B9=B407=E6=9C=8803=E6=97=A5 21:23, Vlad Yasevich wrote:
-> On 07/02/2013 10:18 PM, Fan Du wrote:
->>
->>
->> On 2013=E5=B9=B407=E6=9C=8802=E6=97=A5 22:29, Vlad Yasevich wrote:
->>> On 07/02/2013 02:39 AM, Fan Du wrote:
->>>> When sctp sits on IPv6, sctp_transport_dst_check pass cookie as ZE=
-RO,
->>>> as a result ip6_dst_check always fail out. This behaviour makes
->>>> transport->dst useless, because every sctp_packet_transmit must lo=
-ok
->>>> for valid dst(Is this what supposed to be?)
->>>>
->>>> One aggressive way is to call rt_genid_bump which invalid all dst =
-to
->>>> make new dst for transport, apparently it also hurts others.
->>>> I'm sure this may not be the best for all, so any commnets?
->>>>
->>>> Signed-off-by: Fan Du <fan.du@windriver.com>
->>>> ---
->>>> include/net/sctp/sctp.h | 18 ++++++++++++------
->>>> net/sctp/ipv6.c | 2 ++
->>>> 2 files changed, 14 insertions(+), 6 deletions(-)
->>>>
->>>> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
->>>> index cd89510..f05af01 100644
->>>> --- a/include/net/sctp/sctp.h
->>>> +++ b/include/net/sctp/sctp.h
->>>> @@ -719,14 +719,20 @@ static inline void sctp_v4_map_v6(union
->>>> sctp_addr *addr)
->>>> addr->v6.sin6_addr.s6_addr32[2] =3D htonl(0x0000ffff);
->>>> }
->>>>
->>>> -/* The cookie is always 0 since this is how it's used in the
->>>> - * pmtu code.
->>>> - */
->>>> +/* Set cookie with the right one for IPv6 and zero for others */
->>>> static inline struct dst_entry *sctp_transport_dst_check(struct
->>>> sctp_transport *t)
->>>> {
->>>> - if (t->dst && !dst_check(t->dst, 0)) {
->>>> - dst_release(t->dst);
->>>> - t->dst =3D NULL;
->>>> +
->>>> + if (t->dst) {
->>>> + struct rt6_info *rt =3D (struct rt6_info *)t->dst;
->>>> + u32 cookie =3D 0;
->>>> +
->>>> + if ((t->af_specific->sa_family =3D=3D AF_INET6) && rt->rt6i_node=
-)
->>>> + cookie =3D rt->rt6i_node->fn_sernum;
->>>> + if (!dst_check(t->dst, cookie)) {
->>>> + dst_release(t->dst);
->>>> + t->dst =3D NULL;
->>>> + }
->>>> }
->>>
->>> I think it would be better if we stored the dst_cookie in the
->>> transport structure and initialized it at lookup time. If you do th=
-at,
->>> then if the route table changes, we'd correctly detect it without
->>> artificially bumping rt_genid (and hurting ipv4).
->>
->> Hi Vlad/Neil
->>
->> Is this what you mean?
->
-> Yes, exactly.
->
-
-Hi Vlad
-
-I thinks twice about below patch, this is actually a chicken-egg issue.
-Look below scenario:
-  (1) The first time we push packet through a transport, dst_cookie is =
-0,
-      so sctp_transport_dst_check also pass cookie as 0, then return ds=
-t as NULL.
-      Then we lookup dst by sctp_transport_route, and in there we initi=
-ate dst_cookie
-      with rt->rt6i_node->fn_sernum
-
-  (2) Then the next time we push packet through this transport again,
-      we pass dst_cookie(rt->rt6i_node->fn_sernum) to ip6_dst_check, an=
-d
-      return valid dst without bothering to lookup dst again.
-
-BUT, suppose when deleting the source address of this dst after transpo=
-rt->dst_cookie
-has been well initialized. transport->dst_cookie still holds rt->rt6i_n=
-ode->fn_sernum,
-meaning ip6_dst_check will return valid dst, which it shouldn't in this=
- case, the
-result will be association ABORT.
-
-Other way is invalid all transport->dst which using the deleting addres=
-s as source address
-without bumping gen_id, problem is the traverse times depends heavily o=
-n transport number,
-and also need to take account locking issue it will introduce.
-
- >
- > No, you are not missing anything. IPv4 doesn't use the cookie and al=
-ways seems to pass it as 0.
- >
- > Yes, ipv4 will bump the gen_id thus invalidating all routes (there h=
-as been disagreement about it).
- > IPv6 doesn't do that. In ipv6, when the addresses are added or remov=
-ed, routes are also added or removed and
- > any time the route is added it will have a new serial number. So, yo=
-u don't have to disturb ipv4 cache when ipv6 routing info changes.
-
-Thank you very much for your explanation!
-
-IPv6 don't bump gen_id, when adding/deleting address, and tag an serial=
- number with each route.
-Doing this way loose the semantic of dst_check, because SCTP depends no=
- dst_check fulfill its
-duty to actually check whether the holding dst is still valid, well mos=
-t other Layer 4 protocol
-simply rely on ip6_route_output/ip6_dst_lookup_flow to grab dst every t=
-ime sending data out.
-
-So please pronounce a final judgment.
-
-> -vlad
->
->>
->> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
->> index cd89510..0a646a5 100644
->> --- a/include/net/sctp/sctp.h
->> +++ b/include/net/sctp/sctp.h
->> @@ -724,7 +724,7 @@ static inline void sctp_v4_map_v6(union sctp_add=
-r
->> *addr)
->> */
->> static inline struct dst_entry *sctp_transport_dst_check(struct
->> sctp_transport *t)
->> {
->> - if (t->dst && !dst_check(t->dst, 0)) {
->> + if (t->dst && !dst_check(t->dst, t->dst_cookie)) {
->> dst_release(t->dst);
->> t->dst =3D NULL;
->> }
->> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
->> index 1bd4c41..cafdd19 100644
->> --- a/include/net/sctp/structs.h
->> +++ b/include/net/sctp/structs.h
->> @@ -946,6 +946,8 @@ struct sctp_transport {
->> __u64 hb_nonce;
->>
->> struct rcu_head rcu;
->> +
->> + u32 dst_cookie;
->> };
->>
->> struct sctp_transport *sctp_transport_new(struct net *, const union
->> sctp_addr *,
->> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
->> index 8ee553b..82a420f 100644
->> --- a/net/sctp/ipv6.c
->> +++ b/net/sctp/ipv6.c
->> @@ -350,6 +350,7 @@ out:
->> struct rt6_info *rt;
->> rt =3D (struct rt6_info *)dst;
->> t->dst =3D dst;
->> + t->dst_cookie =3D rt->rt6i_node ? rt->rt6i_node->fn_sernum
->> : 0;
->> SCTP_DEBUG_PRINTK("rt6_dst:%pI6 rt6_src:%pI6\n",
->> &rt->rt6i_dst.addr, &fl6->saddr);
->> } else {
->>
->>
->>
->>
->>
->>> -vlad
->>>
->>>>
->>>> return t->dst;
->>>> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
->>>> index 8ee553b..cfae77e 100644
->>>> --- a/net/sctp/ipv6.c
->>>> +++ b/net/sctp/ipv6.c
->>>> @@ -137,6 +137,8 @@ static int sctp_inet6addr_event(struct
->>>> notifier_block *this, unsigned long ev,
->>>> break;
->>>> }
->>>>
->>>> + /* invalid all transport dst forcing to look up new dst */
->>>> + rt_genid_bump(net);
->>>> return NOTIFY_DONE;
->>>> }
->>>>
->>>>
->>>
->>>
->>
->
->
-
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
-
---fan
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index e9eab29..c047f0e 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1579,7 +1579,7 @@ static int stmmac_open(struct net_device *dev)
+ 		if (ret) {
+ 			pr_err("%s: Cannot attach to PHY (error: %d)\n",
+ 			       __func__, ret);
+-			goto open_error;
++			goto phy_error;
+ 		}
+ 	}
+ 
+@@ -1593,7 +1593,7 @@ static int stmmac_open(struct net_device *dev)
+ 	ret = stmmac_init_dma_engine(priv);
+ 	if (ret < 0) {
+ 		pr_err("%s: DMA initialization failed\n", __func__);
+-		goto open_error;
++		goto init_error;
+ 	}
+ 
+ 	/* Copy the MAC addr into the HW  */
+@@ -1612,7 +1612,7 @@ static int stmmac_open(struct net_device *dev)
+ 	if (unlikely(ret < 0)) {
+ 		pr_err("%s: ERROR: allocating the IRQ %d (error: %d)\n",
+ 		       __func__, dev->irq, ret);
+-		goto open_error;
++		goto init_error;
+ 	}
+ 
+ 	/* Request the Wake IRQ in case of another line is used for WoL */
+@@ -1622,7 +1622,7 @@ static int stmmac_open(struct net_device *dev)
+ 		if (unlikely(ret < 0)) {
+ 			pr_err("%s: ERROR: allocating the WoL IRQ %d (%d)\n",
+ 			       __func__, priv->wol_irq, ret);
+-			goto open_error_wolirq;
++			goto wolirq_error;
+ 		}
+ 	}
+ 
+@@ -1633,7 +1633,7 @@ static int stmmac_open(struct net_device *dev)
+ 		if (unlikely(ret < 0)) {
+ 			pr_err("%s: ERROR: allocating the LPI IRQ %d (%d)\n",
+ 			       __func__, priv->lpi_irq, ret);
+-			goto open_error_lpiirq;
++			goto lpiirq_error;
+ 		}
+ 	}
+ 
+@@ -1691,17 +1691,17 @@ static int stmmac_open(struct net_device *dev)
+ 
+ 	return 0;
+ 
+-open_error_lpiirq:
++lpiirq_error:
+ 	if (priv->wol_irq != dev->irq)
+ 		free_irq(priv->wol_irq, dev);
+-
+-open_error_wolirq:
++wolirq_error:
+ 	free_irq(dev->irq, dev);
+ 
+-open_error:
++init_error:
++	free_dma_desc_resources(priv);
+ 	if (priv->phydev)
+ 		phy_disconnect(priv->phydev);
+-
++phy_error:
+ 	clk_disable_unprepare(priv->stmmac_clk);
+ 
+ 	return ret;
+-- 
+1.7.4.4
