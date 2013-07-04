@@ -1,47 +1,103 @@
-From: Luciano Coelho <coelho-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH] include: net: Add parameter desc to fix waring when
- generating docs
-Date: Fri, 5 Jul 2013 01:43:10 +0300
-Message-ID: <1372977790.21065.141.camel@cumari.coelho.fi>
-References: <1372975190-21117-1-git-send-email-sam.bristow@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net] sfc: Fix memory leak when discarding scattered packets
+Date: Thu, 4 Jul 2013 23:48:46 +0100
+Message-ID: <1372978126.1853.11.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Sam Bristow <sam.bristow-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1372975190-21117-1-git-send-email-sam.bristow-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:31711 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933443Ab3GDWsu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 18:48:50 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-07-05 at 09:59 +1200, Sam Bristow wrote:
-> 'make htmldocs' was generating a warning about a missing parameter description
-> for gfp.
-> 
-> Earlier patch was missing my signed-off-by line...
-> Signed-off-by: Sam Bristow <sam.bristow-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
+Commit 2768935a4660 ('sfc: reuse pages to avoid DMA mapping/unmapping
+costs') did not fully take account of DMA scattering which was
+introduced immediately before.  If a received packet is invalid and
+must be discarded, we only drop a reference to the first buffer's
+page, but we need to drop a reference for each buffer the packet
+used.
 
-You have a typo in the patch subject (it was not there in your previous
-version ;).
+I think this bug was missed partly because efx_recycle_rx_buffers()
+was not renamed and so no longer does what its name says.  It does not
+change the state of buffers, but only prepares the underlying pages
+for recycling.  Rename it accordingly.
 
-Also, you shouldn't add explanations about the different versions of the
-patch in the commit message (in you case the "Earlier patch was missing
-my signed-off-by line..." text).  If you want to add this kind of
-comments, add it after the "---" under the Signed-of tags.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+This bug fix needs to go into 3.10.y as well.
 
-One more thing, it's a good idea to use [PATCH v2] when you're sending a
-second version of the same patch.  That can be easily done with git
-format-patch (and also with git send-email) by using an argument like
-this: --subject-prefix="PATCH v2"
+Ben.
 
---
-Luca.
+ drivers/net/ethernet/sfc/rx.c | 27 ++++++++++++++++++++-------
+ 1 file changed, 20 insertions(+), 7 deletions(-)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+index 65646cd..6af9cfd 100644
+--- a/drivers/net/ethernet/sfc/rx.c
++++ b/drivers/net/ethernet/sfc/rx.c
+@@ -282,9 +282,9 @@ static void efx_fini_rx_buffer(struct efx_rx_queue *rx_queue,
+ }
+ 
+ /* Recycle the pages that are used by buffers that have just been received. */
+-static void efx_recycle_rx_buffers(struct efx_channel *channel,
+-				   struct efx_rx_buffer *rx_buf,
+-				   unsigned int n_frags)
++static void efx_recycle_rx_pages(struct efx_channel *channel,
++				 struct efx_rx_buffer *rx_buf,
++				 unsigned int n_frags)
+ {
+ 	struct efx_rx_queue *rx_queue = efx_channel_get_rx_queue(channel);
+ 
+@@ -294,6 +294,20 @@ static void efx_recycle_rx_buffers(struct efx_channel *channel,
+ 	} while (--n_frags);
+ }
+ 
++static void efx_discard_rx_packet(struct efx_channel *channel,
++				  struct efx_rx_buffer *rx_buf,
++				  unsigned int n_frags)
++{
++	struct efx_rx_queue *rx_queue = efx_channel_get_rx_queue(channel);
++
++	efx_recycle_rx_pages(channel, rx_buf, n_frags);
++
++	do {
++		efx_free_rx_buffer(rx_buf);
++		rx_buf = efx_rx_buf_next(rx_queue, rx_buf);
++	} while (--n_frags);
++}
++
+ /**
+  * efx_fast_push_rx_descriptors - push new RX descriptors quickly
+  * @rx_queue:		RX descriptor queue
+@@ -533,8 +547,7 @@ void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
+ 	 */
+ 	if (unlikely(rx_buf->flags & EFX_RX_PKT_DISCARD)) {
+ 		efx_rx_flush_packet(channel);
+-		put_page(rx_buf->page);
+-		efx_recycle_rx_buffers(channel, rx_buf, n_frags);
++		efx_discard_rx_packet(channel, rx_buf, n_frags);
+ 		return;
+ 	}
+ 
+@@ -570,9 +583,9 @@ void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
+ 		efx_sync_rx_buffer(efx, rx_buf, rx_buf->len);
+ 	}
+ 
+-	/* All fragments have been DMA-synced, so recycle buffers and pages. */
++	/* All fragments have been DMA-synced, so recycle pages. */
+ 	rx_buf = efx_rx_buffer(rx_queue, index);
+-	efx_recycle_rx_buffers(channel, rx_buf, n_frags);
++	efx_recycle_rx_pages(channel, rx_buf, n_frags);
+ 
+ 	/* Pipeline receives so that we give time for packet headers to be
+ 	 * prefetched into cache.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
