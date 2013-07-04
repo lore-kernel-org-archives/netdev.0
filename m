@@ -1,98 +1,75 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: kernel panic in skb_copy_bits
-Date: Thu, 4 Jul 2013 09:59:42 +0100
-Message-ID: <1372928382.7184.16.camel@kazak.uk.xensource.com>
-References: <51CBAA48.3080802@oracle.com>
-	 <1372311118.3301.214.camel@edumazet-glaptop> <51CD0E67.4000008@oracle.com>
-	 <6BFD5AF235F72F13CE646A0D@nimrod.local> <51D0F514.3070309@oracle.com>
-	 <1372666283.14691.8.camel@zakaz.uk.xensource.com>
-	 <51D53896.1060405@oracle.com>
+From: poma <pomidorabelisima@gmail.com>
+Subject: Re: [libvirt-users] libvirt & virtio_net - host.freeze@reset.domain
+Date: Thu, 04 Jul 2013 11:14:52 +0200
+Message-ID: <51D53D0C.4050404@gmail.com>
+References: <51D2B8A1.9050002@gmail.com> <20130703114327.GW2778@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Alex Bligh <alex@alex.org.uk>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Frank Blaschka <frank.blaschka@de.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<zheng.x.li@oracle.com>, Xen Devel <xen-devel@lists.xen.org>,
-	Jan Beulich <JBeulich@suse.com>,
-	"Stefano Stabellini" <stefano.stabellini@eu.citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-To: Joe Jin <joe.jin@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51D53896.1060405@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: libvir-list@redhat.com, netdev@vger.kernel.org,
+	libvirt-users@redhat.com,
+	"qemu-devel@nongnu.org" <qemu-devel@nongnu.org>,
+	kvm-devel <kvm@vger.kernel.org>,
+	Mateusz Marzantowicz <mmarzantowicz@osdf.com.pl>,
+	Virt-tools List <virt-tools-list@redhat.com>
+To: "Daniel P. Berrange" <berrange@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f41.google.com ([209.85.214.41]:52613 "EHLO
+	mail-bk0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933532Ab3GDJO4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 05:14:56 -0400
+In-Reply-To: <20130703114327.GW2778@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-07-04 at 16:55 +0800, Joe Jin wrote:
-> On 07/01/13 16:11, Ian Campbell wrote:
-> > On Mon, 2013-07-01 at 11:18 +0800, Joe Jin wrote:
-> >>> A workaround is to turn off O_DIRECT use by Xen as that ensures
-> >>> the pages are copied. Xen 4.3 does this by default.
-> >>>
-> >>> I believe fixes for this are in 4.3 and 4.2.2 if using the
-> >>> qemu upstream DM. Note these aren't real fixes, just a workaround
-> >>> of a kernel bug.
-> >>
-> >> The guest is pvm, and disk model is xvbd, guest config file as below:
-> > 
-> > Do you know which disk backend? The workaround Alex refers to went into
-> > qdisk but I think blkback could still suffer from a variant of the
-> > retransmit issue if you run it over iSCSI.
-> > 
-> >>> To fix on a local build of xen you will need something like this:
-> >>> https://github.com/abligh/qemu-upstream-4.2-testing/commit/9a97c011e1a682eed9bc7195a25349eaf23ff3f9
-> >>> and something like this (NB: obviously insert your own git
-> >>> repo and commit numbers)
-> >>> https://github.com/abligh/xen/commit/f5c344afac96ced8b980b9659fb3e81c4a0db5ca
-> >>>
-> >>
-> >> I think this only for pvhvm/hvm?
-> > 
-> > No, the underlying issue affects any PV device which is run over a
-> > network protocol (NFS, iSCSI etc). In effect a delayed retransmit can
-> > cross over the deayed ack and cause I/O to be completed while
-> > retransmits are pending, such as is described in
-> > http://www.spinics.net/lists/linux-nfs/msg34913.html (the original NFS
-> > variant). The problem is that because Xen PV drivers often unmap the
-> > page on I/O completion you get a crash (page fault) on the retransmit.
-> > 
+On 03.07.2013 13:43, Daniel P. Berrange wrote:
+> On Tue, Jul 02, 2013 at 01:25:21PM +0200, poma wrote:
+>> Hello people,
+>>
+>> libvirtd (libvirt) 1.0.5.2
+>> virsh 1.0.5.2
+>> virt-manager 0.10.0
+>>
+>> Host:
+>> Linux localhost 3.9.8-300.fc19.x86_64 #1 SMP Thu Jun 27 19:24:23 UTC
+>> 2013 x86_64 x86_64 x86_64 GNU/Linux
+>> Guest1:
+>> Linux localhost 3.9.8-300.fc19.i686.PAE #1 SMP Thu Jun 27 19:29:30 UTC
+>> 2013 i686 (none)
+>> Guest2:
+>> Linux localhost 3.9.8-300.fc19.x86_64 #1 SMP Thu Jun 27 19:24:23 UTC
+>> 2013 x86_64 x86_64 x86_64 GNU/Linux
+>>
+>>
+>> Virtual NIC - source & model:
+>> macvtap/NAT/bridge & virtio(virtio_net)
+>>
+>> Host freeze at "virsh reset <domain>" or "virt-manager - Force Reset"
+>> Need kernel.sysrq or power reset.
 > 
-> Can we do it by remember grant page refcount when mapping, and when unmap
-> check if page refcount as same as mapping?  This change will limited in
-> xen-blkback.
+> I don't believe this is a libvirt issue - the 'virsh reset' command
+> will issue the 'system_reset' QEMU monitor command. This in turn
+> does an immediate reset of the guest CPUs/machine.
 > 
-> Another way is add new page flag like PG_send, when sendpage() be called,
-> set the bit, when page be put, clear the bit. Then xen-blkback can wait
-> on the pagequeue.
+> Even if QEMU is doing the wrong thing, the kernel should obviously
+> never freeze/crash in this way - it should be robust against a
+> malicious QEMU process.
+> 
+> You should probably send this message to the main QEMU and/or KVM
+> mailing lists so that it comes to the attention of people who are
+> more familiar with QEMU + virtio-net
+> 
+> 
+> Regards,
+> Daniel
+> 
 
-These schemes don't work when you have multiple simultaneous I/Os
-referencing the same underlying page.
+Thanks for your response.
+Mateusz hit the same issue[1] as well.
+OK, here we go.
 
-> 
-> Thanks,
-> Joe
-> 
-> > The issue also affects native but in that case the symptom is "just" a
-> > corrupt packet on the wire. I tried to address this with my "skb
-> > destructor" series but unfortunately I got bogged down on the details,
-> > then I had to take time out to look into some other stuff and never
-> > managed to get back into it. I'd be very grateful if there was someone
-> > who could pick up that work (Alex gave some useful references in another
-> > reply to this thread)
-> > 
-> > Some PV disk backends (e.g. blktap2) have worked around this by using
-> > grant copy instead of grant map, others (e.g. qdisk) have disabled
-> > O_DIRECT so that the pages are copied into the dom0 page cache and
-> > transmitted from there.
-> > 
-> > We were discussing recently the possibility of mapping all ballooned out
-> > pages to a single read-only scratch page instead of leaving them empty
-> > in the page tables, this would cause the Xen case to revert to the
-> > native case. I think Thanos was going to take a look into this.
-> > 
-> > Ian.
-> > 
-> 
-> 
+
+poma
+
+
+[1] https://lists.fedoraproject.org/pipermail/users/2013-July/436984.html
