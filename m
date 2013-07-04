@@ -1,53 +1,77 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: PHC device sharing between PCI functions
-Date: Thu, 4 Jul 2013 17:21:18 +0100
-Message-ID: <1372954878.1853.6.camel@bwh-desktop.uk.level5networks.com>
-References: <1372697768.2083.21.camel@bwh-desktop.uk.level5networks.com>
-	 <20130702142420.GC14630@netboy>
-	 <1372778262.1919.12.camel@bwh-desktop.uk.level5networks.com>
-	 <20130703183035.GA4446@netboy>
-	 <1372881153.1919.49.camel@bwh-desktop.uk.level5networks.com>
-	 <20130704053605.GC4457@netboy>
-	 <1372948466.1853.1.camel@bwh-desktop.uk.level5networks.com>
-	 <20130704155339.GA15214@netboy>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next] ipmr: change the prototype of ip_mr_forward().
+Date: Thu, 04 Jul 2013 18:49:36 +0200
+Message-ID: <51D5A7A0.2020606@6wind.com>
+References: <1372962275-29138-1-git-send-email-ramirose@gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers <linux-net-drivers@solarflare.com>,
-	netdev <netdev@vger.kernel.org>,
-	Laurence Evans <levans@solarflare.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Rami Rosen <ramirose@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:28965 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756525Ab3GDQVW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 12:21:22 -0400
-In-Reply-To: <20130704155339.GA15214@netboy>
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:61757 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756762Ab3GDQtk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 12:49:40 -0400
+Received: by mail-wg0-f50.google.com with SMTP id k14so1306265wgh.17
+        for <netdev@vger.kernel.org>; Thu, 04 Jul 2013 09:49:38 -0700 (PDT)
+In-Reply-To: <1372962275-29138-1-git-send-email-ramirose@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-07-04 at 17:53 +0200, Richard Cochran wrote:
-> On Thu, Jul 04, 2013 at 03:34:26PM +0100, Ben Hutchings wrote:
-> > On Thu, 2013-07-04 at 07:36 +0200, Richard Cochran wrote:
-> > > 
-> > > The aliases would not bother me, as long as the ethtool interface-to-phc
-> > > association works properly.
-> > 
-> > Well what would be 'properly' in this case?
-> 
-> If a PCIe card provides one interface eth0 and four PHC devcies
-> /dev/ptp0-3, then doing 'ethtool -T eth0' should show PHC index 0.
-
-But that is the opposite of what we're talking about.  Say the card has,
-16 functions resulting in net devices eth0-eth15, each of which can
-access the same physical clock.  You said it's OK to have read-only
-aliases for a clock, so then there might be a writable /dev/ptp0 and
-read-only /dev/ptp1-ptp15.  What is the proper association between net
-devices and clock devices?
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Le 04/07/2013 20:24, Rami Rosen a =C3=A9crit :
+> This patch changes the prototpye of the ip_mr_forward() method to ret=
+urn void
+> instead of int.
+>
+> The ip_mr_forward() method always returns 0; moreover, the retun valu=
+e
+> of this method is not checked anywhere.
+>
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+> ---
+>   net/ipv4/ipmr.c | 8 ++++----
+>   1 file changed, 4 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+> index 132a096..eca2742 100644
+> --- a/net/ipv4/ipmr.c
+> +++ b/net/ipv4/ipmr.c
+> @@ -127,7 +127,7 @@ static struct kmem_cache *mrt_cachep __read_mostl=
+y;
+>   static struct mr_table *ipmr_new_table(struct net *net, u32 id);
+>   static void ipmr_free_table(struct mr_table *mrt);
+>
+> -static int ip_mr_forward(struct net *net, struct mr_table *mrt,
+> +static void ip_mr_forward(struct net *net, struct mr_table *mrt,
+>   			 struct sk_buff *skb, struct mfc_cache *cache,
+>   			 int local);
+>   static int ipmr_cache_report(struct mr_table *mrt,
+> @@ -1795,7 +1795,7 @@ static int ipmr_find_vif(struct mr_table *mrt, =
+struct net_device *dev)
+>
+>   /* "local" means that we should preserve one skb (for local deliver=
+y) */
+>
+> -static int ip_mr_forward(struct net *net, struct mr_table *mrt,
+> +static void ip_mr_forward(struct net *net, struct mr_table *mrt,
+>   			 struct sk_buff *skb, struct mfc_cache *cache,
+>   			 int local)
+>   {
+> @@ -1903,14 +1903,14 @@ last_forward:
+>   				ipmr_queue_xmit(net, mrt, skb2, cache, psend);
+>   		} else {
+>   			ipmr_queue_xmit(net, mrt, skb, cache, psend);
+> -			return 0;
+> +			return;
+>   		}
+>   	}
+>
+>   dont_forward:
+>   	if (!local)
+>   		kfree_skb(skb);
+> -	return 0;
+> +	return;
+This is the end of the function, you can just remove this 'return'.
