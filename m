@@ -1,7 +1,7 @@
 From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH V3 1/4] RDMA/cma: Add IPv6 support for iWARP.
-Date: Thu,  4 Jul 2013 16:10:44 +0530
-Message-ID: <1372934447-16556-2-git-send-email-vipul@chelsio.com>
+Subject: [PATCH V3 3/4] cxgb4: Add CLIP support to store compressed IPv6 address
+Date: Thu,  4 Jul 2013 16:10:46 +0530
+Message-ID: <1372934447-16556-4-git-send-email-vipul@chelsio.com>
 References: <1372934447-16556-1-git-send-email-vipul@chelsio.com>
 Cc: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
 	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
@@ -16,863 +16,364 @@ In-Reply-To: <1372934447-16556-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@pub
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+The Compressed LIP region is used to hold a limited number of Local IPv6
+addresses. This region is primarily used to reduce the TCAM space consumed for
+an IPv6 offloaded connection. A 128-bit LIP will be reduced to 13-bit and stored
+in the TCAM if there is a match between the IPv6 tuple's LIP and the one stored
+in the CLIP region.
 
-This patch modifies the type of local_addr and remote_addr fields in struct
-iw_cm_id from struct sockaddr_in to struct sockaddr_storage to hold IPv6 and
-IPv4 addresses uniformly. It changes the references of local_addr and
-remote_addr in RDMA/cxgb4, RDMA/cxgb3, RDMA/nes and amso drivers such that build
-failure is avoided. However to be able to actully run the traffic over IPv6
-address respective drivers have to add supportive code.
-
-Signed-off-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Signed-off-by: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 ---
 V2: Used local variables instead of typecasting in patch 1/4.
 V3: Removed dereferencing ep before initializing it in patch 4/4.
 
- drivers/infiniband/core/cma.c          |  44 ++++------
- drivers/infiniband/hw/amso1100/c2_ae.c |  18 ++--
- drivers/infiniband/hw/amso1100/c2_cm.c |  16 +++-
- drivers/infiniband/hw/cxgb3/iwch_cm.c  |  46 +++++++---
- drivers/infiniband/hw/cxgb4/cm.c       |  55 ++++++------
- drivers/infiniband/hw/nes/nes_cm.c     | 150 ++++++++++++++++++---------------
- include/rdma/iw_cm.h                   |   8 +-
- 7 files changed, 185 insertions(+), 152 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   1 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 217 ++++++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  23 +++
+ 3 files changed, 241 insertions(+)
 
-diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index f1c279f..92464fb 100644
---- a/drivers/infiniband/core/cma.c
-+++ b/drivers/infiniband/core/cma.c
-@@ -1385,8 +1385,9 @@ static int cma_iw_handler(struct iw_cm_id *iw_id, struct iw_cm_event *iw_event)
- {
- 	struct rdma_id_private *id_priv = iw_id->context;
- 	struct rdma_cm_event event;
--	struct sockaddr_in *sin;
- 	int ret = 0;
-+	struct sockaddr *laddr = (struct sockaddr *)&iw_event->local_addr;
-+	struct sockaddr *raddr = (struct sockaddr *)&iw_event->remote_addr;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 2aafb80..dfd1e36 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -576,6 +576,7 @@ struct adapter {
+ 	struct l2t_data *l2t;
+ 	void *uld_handle[CXGB4_ULD_MAX];
+ 	struct list_head list_node;
++	struct list_head rcu_node;
  
- 	if (cma_disable_callback(id_priv, RDMA_CM_CONNECT))
- 		return 0;
-@@ -1397,10 +1398,10 @@ static int cma_iw_handler(struct iw_cm_id *iw_id, struct iw_cm_event *iw_event)
- 		event.event = RDMA_CM_EVENT_DISCONNECTED;
- 		break;
- 	case IW_CM_EVENT_CONNECT_REPLY:
--		sin = (struct sockaddr_in *) cma_src_addr(id_priv);
--		*sin = iw_event->local_addr;
--		sin = (struct sockaddr_in *) cma_dst_addr(id_priv);
--		*sin = iw_event->remote_addr;
-+		memcpy(cma_src_addr(id_priv), laddr,
-+		       rdma_addr_size(laddr));
-+		memcpy(cma_dst_addr(id_priv), raddr,
-+		       rdma_addr_size(raddr));
- 		switch (iw_event->status) {
- 		case 0:
- 			event.event = RDMA_CM_EVENT_ESTABLISHED;
-@@ -1450,11 +1451,12 @@ static int iw_conn_req_handler(struct iw_cm_id *cm_id,
- {
- 	struct rdma_cm_id *new_cm_id;
- 	struct rdma_id_private *listen_id, *conn_id;
--	struct sockaddr_in *sin;
- 	struct net_device *dev = NULL;
- 	struct rdma_cm_event event;
- 	int ret;
- 	struct ib_device_attr attr;
-+	struct sockaddr *laddr = (struct sockaddr *)&iw_event->local_addr;
-+	struct sockaddr *raddr = (struct sockaddr *)&iw_event->remote_addr;
+ 	struct tid_info tids;
+ 	void **tid_release_head;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index d1d6ff7..038df4b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -60,6 +60,7 @@
+ #include <linux/workqueue.h>
+ #include <net/neighbour.h>
+ #include <net/netevent.h>
++#include <net/addrconf.h>
+ #include <asm/uaccess.h>
  
- 	listen_id = cm_id->context;
- 	if (cma_disable_callback(listen_id, RDMA_CM_LISTEN))
-@@ -1472,14 +1474,7 @@ static int iw_conn_req_handler(struct iw_cm_id *cm_id,
- 	mutex_lock_nested(&conn_id->handler_mutex, SINGLE_DEPTH_NESTING);
- 	conn_id->state = RDMA_CM_CONNECT;
+ #include "cxgb4.h"
+@@ -68,6 +69,11 @@
+ #include "t4fw_api.h"
+ #include "l2t.h"
  
--	dev = ip_dev_find(&init_net, iw_event->local_addr.sin_addr.s_addr);
--	if (!dev) {
--		ret = -EADDRNOTAVAIL;
--		mutex_unlock(&conn_id->handler_mutex);
--		rdma_destroy_id(new_cm_id);
--		goto out;
--	}
--	ret = rdma_copy_addr(&conn_id->id.route.addr.dev_addr, dev, NULL);
-+	ret = rdma_translate_ip(laddr, &conn_id->id.route.addr.dev_addr);
- 	if (ret) {
- 		mutex_unlock(&conn_id->handler_mutex);
- 		rdma_destroy_id(new_cm_id);
-@@ -1497,10 +1492,8 @@ static int iw_conn_req_handler(struct iw_cm_id *cm_id,
- 	cm_id->context = conn_id;
- 	cm_id->cm_handler = cma_iw_handler;
- 
--	sin = (struct sockaddr_in *) cma_src_addr(conn_id);
--	*sin = iw_event->local_addr;
--	sin = (struct sockaddr_in *) cma_dst_addr(conn_id);
--	*sin = iw_event->remote_addr;
-+	memcpy(cma_src_addr(conn_id), laddr, rdma_addr_size(laddr));
-+	memcpy(cma_dst_addr(conn_id), raddr, rdma_addr_size(raddr));
- 
- 	ret = ib_query_device(conn_id->id.device, &attr);
- 	if (ret) {
-@@ -1576,7 +1569,6 @@ static int cma_ib_listen(struct rdma_id_private *id_priv)
- static int cma_iw_listen(struct rdma_id_private *id_priv, int backlog)
- {
- 	int ret;
--	struct sockaddr_in *sin;
- 	struct iw_cm_id	*id;
- 
- 	id = iw_create_cm_id(id_priv->id.device,
-@@ -1587,8 +1579,8 @@ static int cma_iw_listen(struct rdma_id_private *id_priv, int backlog)
- 
- 	id_priv->cm_id.iw = id;
- 
--	sin = (struct sockaddr_in *) cma_src_addr(id_priv);
--	id_priv->cm_id.iw->local_addr = *sin;
-+	memcpy(&id_priv->cm_id.iw->local_addr, cma_src_addr(id_priv),
-+	       rdma_addr_size(cma_src_addr(id_priv)));
- 
- 	ret = iw_cm_listen(id_priv->cm_id.iw, backlog);
- 
-@@ -2800,7 +2792,6 @@ static int cma_connect_iw(struct rdma_id_private *id_priv,
- 			  struct rdma_conn_param *conn_param)
- {
- 	struct iw_cm_id *cm_id;
--	struct sockaddr_in* sin;
- 	int ret;
- 	struct iw_cm_conn_param iw_param;
- 
-@@ -2810,11 +2801,10 @@ static int cma_connect_iw(struct rdma_id_private *id_priv,
- 
- 	id_priv->cm_id.iw = cm_id;
- 
--	sin = (struct sockaddr_in *) cma_src_addr(id_priv);
--	cm_id->local_addr = *sin;
--
--	sin = (struct sockaddr_in *) cma_dst_addr(id_priv);
--	cm_id->remote_addr = *sin;
-+	memcpy(&cm_id->local_addr, cma_src_addr(id_priv),
-+	       rdma_addr_size(cma_src_addr(id_priv)));
-+	memcpy(&cm_id->remote_addr, cma_dst_addr(id_priv),
-+	       rdma_addr_size(cma_dst_addr(id_priv)));
- 
- 	ret = cma_modify_qp_rtr(id_priv, conn_param);
- 	if (ret)
-diff --git a/drivers/infiniband/hw/amso1100/c2_ae.c b/drivers/infiniband/hw/amso1100/c2_ae.c
-index 706cf97..d5d1929 100644
---- a/drivers/infiniband/hw/amso1100/c2_ae.c
-+++ b/drivers/infiniband/hw/amso1100/c2_ae.c
-@@ -155,6 +155,8 @@ void c2_ae_event(struct c2_dev *c2dev, u32 mq_index)
- 	enum c2_event_id event_id;
- 	unsigned long flags;
- 	int status;
-+	struct sockaddr_in *laddr = (struct sockaddr_in *)&cm_event.local_addr;
-+	struct sockaddr_in *raddr = (struct sockaddr_in *)&cm_event.remote_addr;
- 
- 	/*
- 	 * retrieve the message
-@@ -206,10 +208,10 @@ void c2_ae_event(struct c2_dev *c2dev, u32 mq_index)
- 		case CCAE_ACTIVE_CONNECT_RESULTS:
- 			res = &wr->ae.ae_active_connect_results;
- 			cm_event.event = IW_CM_EVENT_CONNECT_REPLY;
--			cm_event.local_addr.sin_addr.s_addr = res->laddr;
--			cm_event.remote_addr.sin_addr.s_addr = res->raddr;
--			cm_event.local_addr.sin_port = res->lport;
--			cm_event.remote_addr.sin_port =	res->rport;
-+			laddr->sin_addr.s_addr = res->laddr;
-+			raddr->sin_addr.s_addr = res->raddr;
-+			laddr->sin_port = res->lport;
-+			raddr->sin_port = res->rport;
- 			if (status == 0) {
- 				cm_event.private_data_len =
- 					be32_to_cpu(res->private_data_length);
-@@ -281,10 +283,10 @@ void c2_ae_event(struct c2_dev *c2dev, u32 mq_index)
- 		}
- 		cm_event.event = IW_CM_EVENT_CONNECT_REQUEST;
- 		cm_event.provider_data = (void*)(unsigned long)req->cr_handle;
--		cm_event.local_addr.sin_addr.s_addr = req->laddr;
--		cm_event.remote_addr.sin_addr.s_addr = req->raddr;
--		cm_event.local_addr.sin_port = req->lport;
--		cm_event.remote_addr.sin_port = req->rport;
-+		laddr->sin_addr.s_addr = req->laddr;
-+		raddr->sin_addr.s_addr = req->raddr;
-+		laddr->sin_port = req->lport;
-+		raddr->sin_port = req->rport;
- 		cm_event.private_data_len =
- 			be32_to_cpu(req->private_data_length);
- 		cm_event.private_data = req->private_data;
-diff --git a/drivers/infiniband/hw/amso1100/c2_cm.c b/drivers/infiniband/hw/amso1100/c2_cm.c
-index 95f58ab..23bfa94 100644
---- a/drivers/infiniband/hw/amso1100/c2_cm.c
-+++ b/drivers/infiniband/hw/amso1100/c2_cm.c
-@@ -46,6 +46,10 @@ int c2_llp_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *iw_param)
- 	struct c2wr_qp_connect_req *wr;	/* variable size needs a malloc. */
- 	struct c2_vq_req *vq_req;
- 	int err;
-+	struct sockaddr_in *raddr = (struct sockaddr_in *)&cm_id->remote_addr;
++#include <../drivers/net/bonding/bonding.h>
 +
-+	if (cm_id->remote_addr.ss_family != AF_INET)
-+		return -ENOSYS;
++#ifdef DRV_VERSION
++#undef DRV_VERSION
++#endif
+ #define DRV_VERSION "2.0.0-ko"
+ #define DRV_DESC "Chelsio T4/T5 Network Driver"
  
- 	ibqp = c2_get_qp(cm_id->device, iw_param->qpn);
- 	if (!ibqp)
-@@ -91,8 +95,8 @@ int c2_llp_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *iw_param)
- 	wr->rnic_handle = c2dev->adapter_handle;
- 	wr->qp_handle = qp->adapter_handle;
+@@ -400,6 +406,9 @@ static struct dentry *cxgb4_debugfs_root;
  
--	wr->remote_addr = cm_id->remote_addr.sin_addr.s_addr;
--	wr->remote_port = cm_id->remote_addr.sin_port;
-+	wr->remote_addr = raddr->sin_addr.s_addr;
-+	wr->remote_port = raddr->sin_port;
+ static LIST_HEAD(adapter_list);
+ static DEFINE_MUTEX(uld_mutex);
++/* Adapter list to be accessed from atomic context */
++static LIST_HEAD(adap_rcu_list);
++static DEFINE_SPINLOCK(adap_rcu_lock);
+ static struct cxgb4_uld_info ulds[CXGB4_ULD_MAX];
+ static const char *uld_str[] = { "RDMA", "iSCSI" };
  
- 	/*
- 	 * Move any private data from the callers's buf into
-@@ -135,6 +139,10 @@ int c2_llp_service_create(struct iw_cm_id *cm_id, int backlog)
- 	struct c2wr_ep_listen_create_rep *reply;
- 	struct c2_vq_req *vq_req;
- 	int err;
-+	struct sockaddr_in *laddr = (struct sockaddr_in *)&cm_id->local_addr;
+@@ -3227,6 +3236,38 @@ static int tid_init(struct tid_info *t)
+ 	return 0;
+ }
+ 
++static int cxgb4_clip_get(const struct net_device *dev,
++			  const struct in6_addr *lip)
++{
++	struct adapter *adap;
++	struct fw_clip_cmd c;
 +
-+	if (cm_id->local_addr.ss_family != AF_INET)
-+		return -ENOSYS;
- 
- 	c2dev = to_c2dev(cm_id->device);
- 	if (c2dev == NULL)
-@@ -153,8 +161,8 @@ int c2_llp_service_create(struct iw_cm_id *cm_id, int backlog)
- 	c2_wr_set_id(&wr, CCWR_EP_LISTEN_CREATE);
- 	wr.hdr.context = (u64) (unsigned long) vq_req;
- 	wr.rnic_handle = c2dev->adapter_handle;
--	wr.local_addr = cm_id->local_addr.sin_addr.s_addr;
--	wr.local_port = cm_id->local_addr.sin_port;
-+	wr.local_addr = laddr->sin_addr.s_addr;
-+	wr.local_port = laddr->sin_port;
- 	wr.backlog = cpu_to_be32(backlog);
- 	wr.user_context = (u64) (unsigned long) cm_id;
- 
-diff --git a/drivers/infiniband/hw/cxgb3/iwch_cm.c b/drivers/infiniband/hw/cxgb3/iwch_cm.c
-index 3e094cd..095bb04 100644
---- a/drivers/infiniband/hw/cxgb3/iwch_cm.c
-+++ b/drivers/infiniband/hw/cxgb3/iwch_cm.c
-@@ -721,8 +721,10 @@ static void connect_reply_upcall(struct iwch_ep *ep, int status)
- 	memset(&event, 0, sizeof(event));
- 	event.event = IW_CM_EVENT_CONNECT_REPLY;
- 	event.status = status;
--	event.local_addr = ep->com.local_addr;
--	event.remote_addr = ep->com.remote_addr;
-+	memcpy(&event.local_addr, &ep->com.local_addr,
-+	       sizeof(ep->com.local_addr));
-+	memcpy(&event.remote_addr, &ep->com.remote_addr,
-+	       sizeof(ep->com.remote_addr));
- 
- 	if ((status == 0) || (status == -ECONNREFUSED)) {
- 		event.private_data_len = ep->plen;
-@@ -747,8 +749,10 @@ static void connect_request_upcall(struct iwch_ep *ep)
- 	PDBG("%s ep %p tid %d\n", __func__, ep, ep->hwtid);
- 	memset(&event, 0, sizeof(event));
- 	event.event = IW_CM_EVENT_CONNECT_REQUEST;
--	event.local_addr = ep->com.local_addr;
--	event.remote_addr = ep->com.remote_addr;
-+	memcpy(&event.local_addr, &ep->com.local_addr,
-+	       sizeof(ep->com.local_addr));
-+	memcpy(&event.remote_addr, &ep->com.remote_addr,
-+	       sizeof(ep->com.local_addr));
- 	event.private_data_len = ep->plen;
- 	event.private_data = ep->mpa_pkt + sizeof(struct mpa_message);
- 	event.provider_data = ep;
-@@ -1872,8 +1876,9 @@ err:
- static int is_loopback_dst(struct iw_cm_id *cm_id)
++	adap = netdev2adap(dev);
++	memset(&c, 0, sizeof(c));
++	c.op_to_write = htonl(FW_CMD_OP(FW_CLIP_CMD) |
++			FW_CMD_REQUEST | FW_CMD_WRITE);
++	c.alloc_to_len16 = htonl(F_FW_CLIP_CMD_ALLOC | FW_LEN16(c));
++	*(__be64 *)&c.ip_hi = *(__be64 *)(lip->s6_addr);
++	*(__be64 *)&c.ip_lo = *(__be64 *)(lip->s6_addr + 8);
++	return t4_wr_mbox_meat(adap, adap->mbox, &c, sizeof(c), &c, false);
++}
++
++static int cxgb4_clip_release(const struct net_device *dev,
++			      const struct in6_addr *lip)
++{
++	struct adapter *adap;
++	struct fw_clip_cmd c;
++
++	adap = netdev2adap(dev);
++	memset(&c, 0, sizeof(c));
++	c.op_to_write = htonl(FW_CMD_OP(FW_CLIP_CMD) |
++			FW_CMD_REQUEST | FW_CMD_READ);
++	c.alloc_to_len16 = htonl(F_FW_CLIP_CMD_FREE | FW_LEN16(c));
++	*(__be64 *)&c.ip_hi = *(__be64 *)(lip->s6_addr);
++	*(__be64 *)&c.ip_lo = *(__be64 *)(lip->s6_addr + 8);
++	return t4_wr_mbox_meat(adap, adap->mbox, &c, sizeof(c), &c, false);
++}
++
+ /**
+  *	cxgb4_create_server - create an IP server
+  *	@dev: the device
+@@ -3790,6 +3831,10 @@ static void attach_ulds(struct adapter *adap)
  {
- 	struct net_device *dev;
-+	struct sockaddr_in *raddr = (struct sockaddr_in *)&cm_id->remote_addr;
+ 	unsigned int i;
  
--	dev = ip_dev_find(&init_net, cm_id->remote_addr.sin_addr.s_addr);
-+	dev = ip_dev_find(&init_net, raddr->sin_addr.s_addr);
- 	if (!dev)
- 		return 0;
- 	dev_put(dev);
-@@ -1886,6 +1891,13 @@ int iwch_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 	struct iwch_ep *ep;
- 	struct rtable *rt;
- 	int err = 0;
-+	struct sockaddr_in *laddr = (struct sockaddr_in *)&cm_id->local_addr;
-+	struct sockaddr_in *raddr = (struct sockaddr_in *)&cm_id->remote_addr;
++	spin_lock(&adap_rcu_lock);
++	list_add_tail_rcu(&adap->rcu_node, &adap_rcu_list);
++	spin_unlock(&adap_rcu_lock);
 +
-+	if (cm_id->remote_addr.ss_family != PF_INET) {
-+		err = -ENOSYS;
-+		goto out;
+ 	mutex_lock(&uld_mutex);
+ 	list_add_tail(&adap->list_node, &adapter_list);
+ 	for (i = 0; i < CXGB4_ULD_MAX; i++)
+@@ -3815,6 +3860,10 @@ static void detach_ulds(struct adapter *adap)
+ 		netevent_registered = false;
+ 	}
+ 	mutex_unlock(&uld_mutex);
++
++	spin_lock(&adap_rcu_lock);
++	list_del_rcu(&adap->rcu_node);
++	spin_unlock(&adap_rcu_lock);
+ }
+ 
+ static void notify_ulds(struct adapter *adap, enum cxgb4_state new_state)
+@@ -3878,6 +3927,169 @@ int cxgb4_unregister_uld(enum cxgb4_uld type)
+ }
+ EXPORT_SYMBOL(cxgb4_unregister_uld);
+ 
++/* Check if netdev on which event is occured belongs to us or not. Return
++ * suceess (1) if it belongs otherwise failure (0).
++ */
++static int cxgb4_netdev(struct net_device *netdev)
++{
++	struct adapter *adap;
++	int i;
++
++	spin_lock(&adap_rcu_lock);
++	list_for_each_entry_rcu(adap, &adap_rcu_list, rcu_node)
++		for (i = 0; i < MAX_NPORTS; i++)
++			if (adap->port[i] == netdev) {
++				spin_unlock(&adap_rcu_lock);
++				return 1;
++			}
++	spin_unlock(&adap_rcu_lock);
++	return 0;
++}
++
++static int clip_add(struct net_device *event_dev, struct inet6_ifaddr *ifa,
++		    unsigned long event)
++{
++	int ret = NOTIFY_DONE;
++
++	rcu_read_lock();
++	if (cxgb4_netdev(event_dev)) {
++		switch (event) {
++		case NETDEV_UP:
++			ret = cxgb4_clip_get(event_dev,
++				(const struct in6_addr *)ifa->addr.s6_addr);
++			if (ret < 0) {
++				rcu_read_unlock();
++				return ret;
++			}
++			ret = NOTIFY_OK;
++			break;
++		case NETDEV_DOWN:
++			cxgb4_clip_release(event_dev,
++				(const struct in6_addr *)ifa->addr.s6_addr);
++			ret = NOTIFY_OK;
++			break;
++		default:
++			break;
++		}
 +	}
- 
- 	if (is_loopback_dst(cm_id)) {
- 		err = -ENOSYS;
-@@ -1929,11 +1941,9 @@ int iwch_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 	}
- 
- 	/* find a route */
--	rt = find_route(h->rdev.t3cdev_p,
--			cm_id->local_addr.sin_addr.s_addr,
--			cm_id->remote_addr.sin_addr.s_addr,
--			cm_id->local_addr.sin_port,
--			cm_id->remote_addr.sin_port, IPTOS_LOWDELAY);
-+	rt = find_route(h->rdev.t3cdev_p, laddr->sin_addr.s_addr,
-+			raddr->sin_addr.s_addr, laddr->sin_port,
-+			raddr->sin_port, IPTOS_LOWDELAY);
- 	if (!rt) {
- 		printk(KERN_ERR MOD "%s - cannot find route.\n", __func__);
- 		err = -EHOSTUNREACH;
-@@ -1941,7 +1951,7 @@ int iwch_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 	}
- 	ep->dst = &rt->dst;
- 	ep->l2t = t3_l2t_get(ep->com.tdev, ep->dst, NULL,
--			     &cm_id->remote_addr.sin_addr.s_addr);
-+			     &raddr->sin_addr.s_addr);
- 	if (!ep->l2t) {
- 		printk(KERN_ERR MOD "%s - cannot alloc l2e.\n", __func__);
- 		err = -ENOMEM;
-@@ -1950,8 +1960,10 @@ int iwch_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 
- 	state_set(&ep->com, CONNECTING);
- 	ep->tos = IPTOS_LOWDELAY;
--	ep->com.local_addr = cm_id->local_addr;
--	ep->com.remote_addr = cm_id->remote_addr;
-+	memcpy(&ep->com.local_addr, &cm_id->local_addr,
-+	       sizeof(ep->com.local_addr));
-+	memcpy(&ep->com.remote_addr, &cm_id->remote_addr,
-+	       sizeof(ep->com.remote_addr));
- 
- 	/* send connect request to rnic */
- 	err = send_connect(ep);
-@@ -1979,6 +1991,11 @@ int iwch_create_listen(struct iw_cm_id *cm_id, int backlog)
- 
- 	might_sleep();
- 
-+	if (cm_id->local_addr.ss_family != PF_INET) {
-+		err = -ENOSYS;
-+		goto fail1;
-+	}
++	rcu_read_unlock();
++	return ret;
++}
 +
- 	ep = alloc_ep(sizeof(*ep), GFP_KERNEL);
- 	if (!ep) {
- 		printk(KERN_ERR MOD "%s - cannot alloc ep.\n", __func__);
-@@ -1990,7 +2007,8 @@ int iwch_create_listen(struct iw_cm_id *cm_id, int backlog)
- 	cm_id->add_ref(cm_id);
- 	ep->com.cm_id = cm_id;
- 	ep->backlog = backlog;
--	ep->com.local_addr = cm_id->local_addr;
-+	memcpy(&ep->com.local_addr, &cm_id->local_addr,
-+	       sizeof(ep->com.local_addr));
++static int cxgb4_inet6addr_handler(struct notifier_block *this,
++		unsigned long event, void *data)
++{
++	struct inet6_ifaddr *ifa = data;
++	struct net_device *event_dev;
++	int ret = NOTIFY_DONE;
++	int cnt;
++	struct bonding *bond = netdev_priv(ifa->idev->dev);
++	struct slave *slave;
++	struct pci_dev *first_pdev = NULL;
++
++	if (ifa->idev->dev->priv_flags & IFF_802_1Q_VLAN) {
++		event_dev = vlan_dev_real_dev(ifa->idev->dev);
++		ret = clip_add(event_dev, ifa, event);
++	} else if (ifa->idev->dev->flags & IFF_MASTER) {
++		/* It is possible that two different adapters are bonded in one
++		 * bond. We need to find such different adapters and add clip
++		 * in all of them only once.
++		 */
++		read_lock(&bond->lock);
++		bond_for_each_slave(bond, slave, cnt) {
++			if (!first_pdev) {
++				ret = clip_add(slave->dev, ifa, event);
++				/* If clip_add is success then only initialize
++				 * first_pdev since it means it is our device
++				 */
++				if (ret == NOTIFY_OK)
++					first_pdev = to_pci_dev(
++							slave->dev->dev.parent);
++			} else if (first_pdev !=
++				   to_pci_dev(slave->dev->dev.parent))
++					ret = clip_add(slave->dev, ifa, event);
++		}
++		read_unlock(&bond->lock);
++	} else
++		ret = clip_add(ifa->idev->dev, ifa, event);
++
++	return ret;
++}
++
++static struct notifier_block cxgb4_inet6addr_notifier = {
++	.notifier_call = cxgb4_inet6addr_handler
++};
++
++/* Retrieves IPv6 addresses from a root device (bond, vlan) associated with
++ * a physical device.
++ * The physical device reference is needed to send the actul CLIP command.
++ */
++static int update_dev_clip(struct net_device *root_dev, struct net_device *dev)
++{
++	struct inet6_dev *idev = NULL;
++	struct inet6_ifaddr *ifa;
++	int ret = 0;
++
++	idev = __in6_dev_get(root_dev);
++	if (!idev)
++		return ret;
++
++	read_lock_bh(&idev->lock);
++	list_for_each_entry(ifa, &idev->addr_list, if_list) {
++		ret = cxgb4_clip_get(dev,
++				(const struct in6_addr *)ifa->addr.s6_addr);
++		if (ret < 0)
++			break;
++	}
++	read_unlock_bh(&idev->lock);
++
++	return ret;
++}
++
++static int update_root_dev_clip(struct net_device *dev)
++{
++	struct net_device *root_dev = NULL;
++	int i, ret = 0;
++
++	/* First populate the real net device's IPv6 addresses */
++	ret = update_dev_clip(dev, dev);
++	if (ret)
++		return ret;
++
++	/* Parse all bond and vlan devices layered on top of the physical dev */
++	for (i = 0; i < VLAN_N_VID; i++) {
++		root_dev = __vlan_find_dev_deep(dev, htons(ETH_P_8021Q), i);
++		if (!root_dev)
++			continue;
++
++		ret = update_dev_clip(root_dev, dev);
++		if (ret)
++			break;
++	}
++	return ret;
++}
++
++static void update_clip(const struct adapter *adap)
++{
++	int i;
++	struct net_device *dev;
++	int ret;
++
++	rcu_read_lock();
++
++	for (i = 0; i < MAX_NPORTS; i++) {
++		dev = adap->port[i];
++		ret = 0;
++
++		if (dev)
++			ret = update_root_dev_clip(dev);
++
++		if (ret < 0)
++			break;
++	}
++	rcu_read_unlock();
++}
++
+ /**
+  *	cxgb_up - enable the adapter
+  *	@adap: adapter being enabled
+@@ -3923,6 +4135,7 @@ static int cxgb_up(struct adapter *adap)
+ 	t4_intr_enable(adap);
+ 	adap->flags |= FULL_INIT_DONE;
+ 	notify_ulds(adap, CXGB4_STATE_UP);
++	update_clip(adap);
+  out:
+ 	return err;
+  irq_err:
+@@ -5939,11 +6152,15 @@ static int __init cxgb4_init_module(void)
+ 	ret = pci_register_driver(&cxgb4_driver);
+ 	if (ret < 0)
+ 		debugfs_remove(cxgb4_debugfs_root);
++
++	register_inet6addr_notifier(&cxgb4_inet6addr_notifier);
++
+ 	return ret;
+ }
  
- 	/*
- 	 * Allocate a server TID.
-diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index 65c30ea..76d8812 100644
---- a/drivers/infiniband/hw/cxgb4/cm.c
-+++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -952,8 +952,10 @@ static void connect_reply_upcall(struct c4iw_ep *ep, int status)
- 	memset(&event, 0, sizeof(event));
- 	event.event = IW_CM_EVENT_CONNECT_REPLY;
- 	event.status = status;
--	event.local_addr = ep->com.local_addr;
--	event.remote_addr = ep->com.remote_addr;
-+	memcpy(&event.local_addr, &ep->com.local_addr,
-+	       sizeof(ep->com.local_addr));
-+	memcpy(&event.remote_addr, &ep->com.remote_addr,
-+	       sizeof(ep->com.remote_addr));
+ static void __exit cxgb4_cleanup_module(void)
+ {
++	unregister_inet6addr_notifier(&cxgb4_inet6addr_notifier);
+ 	pci_unregister_driver(&cxgb4_driver);
+ 	debugfs_remove(cxgb4_debugfs_root);  /* NULL ok */
+ 	flush_workqueue(workq);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+index d1c755f..6f77ac4 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+@@ -616,6 +616,7 @@ enum fw_cmd_opcodes {
+ 	FW_RSS_IND_TBL_CMD             = 0x20,
+ 	FW_RSS_GLB_CONFIG_CMD          = 0x22,
+ 	FW_RSS_VI_CONFIG_CMD           = 0x23,
++	FW_CLIP_CMD                    = 0x28,
+ 	FW_LASTC2E_CMD                 = 0x40,
+ 	FW_ERROR_CMD                   = 0x80,
+ 	FW_DEBUG_CMD                   = 0x81,
+@@ -2062,6 +2063,28 @@ struct fw_rss_vi_config_cmd {
+ 	} u;
+ };
  
- 	if ((status == 0) || (status == -ECONNREFUSED)) {
- 		if (!ep->tried_with_mpa_v1) {
-@@ -989,8 +991,10 @@ static void connect_request_upcall(struct c4iw_ep *ep)
- 	PDBG("%s ep %p tid %u\n", __func__, ep, ep->hwtid);
- 	memset(&event, 0, sizeof(event));
- 	event.event = IW_CM_EVENT_CONNECT_REQUEST;
--	event.local_addr = ep->com.local_addr;
--	event.remote_addr = ep->com.remote_addr;
-+	memcpy(&event.local_addr, &ep->com.local_addr,
-+	       sizeof(ep->com.local_addr));
-+	memcpy(&event.remote_addr, &ep->com.remote_addr,
-+	       sizeof(ep->com.remote_addr));
- 	event.provider_data = ep;
- 	if (!ep->tried_with_mpa_v1) {
- 		/* this means MPA_v2 is used */
-@@ -1568,6 +1572,10 @@ static int c4iw_reconnect(struct c4iw_ep *ep)
- 	struct net_device *pdev;
- 	int step;
- 	struct neighbour *neigh;
-+	struct sockaddr_in *laddr = (struct sockaddr_in *)
-+				    &ep->com.cm_id->local_addr;
-+	struct sockaddr_in *raddr = (struct sockaddr_in *)
-+				    &ep->com.cm_id->remote_addr;
- 
- 	PDBG("%s qp %p cm_id %p\n", __func__, ep->com.qp, ep->com.cm_id);
- 	init_timer(&ep->timer);
-@@ -1585,10 +1593,8 @@ static int c4iw_reconnect(struct c4iw_ep *ep)
- 
- 	/* find a route */
- 	rt = find_route(ep->com.dev,
--			ep->com.cm_id->local_addr.sin_addr.s_addr,
--			ep->com.cm_id->remote_addr.sin_addr.s_addr,
--			ep->com.cm_id->local_addr.sin_port,
--			ep->com.cm_id->remote_addr.sin_port, 0);
-+			laddr->sin_addr.s_addr, raddr->sin_addr.s_addr,
-+			laddr->sin_port, raddr->sin_port, 0);
- 	if (!rt) {
- 		pr_err("%s - cannot find route.\n", __func__);
- 		err = -EHOSTUNREACH;
-@@ -1596,8 +1602,7 @@ static int c4iw_reconnect(struct c4iw_ep *ep)
- 	}
- 	ep->dst = &rt->dst;
- 
--	neigh = dst_neigh_lookup(ep->dst,
--			&ep->com.cm_id->remote_addr.sin_addr.s_addr);
-+	neigh = dst_neigh_lookup(ep->dst, &raddr->sin_addr.s_addr);
- 	if (!neigh) {
- 		pr_err("%s - cannot alloc neigh.\n", __func__);
- 		err = -ENOMEM;
-@@ -1607,8 +1612,7 @@ static int c4iw_reconnect(struct c4iw_ep *ep)
- 	/* get a l2t entry */
- 	if (neigh->dev->flags & IFF_LOOPBACK) {
- 		PDBG("%s LOOPBACK\n", __func__);
--		pdev = ip_dev_find(&init_net,
--				ep->com.cm_id->remote_addr.sin_addr.s_addr);
-+		pdev = ip_dev_find(&init_net, raddr->sin_addr.s_addr);
- 		ep->l2t = cxgb4_l2t_get(ep->com.dev->rdev.lldi.l2t,
- 				neigh, pdev, 0);
- 		pi = (struct port_info *)netdev_priv(pdev);
-@@ -2518,6 +2522,8 @@ int c4iw_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 	struct c4iw_ep *ep;
- 	struct rtable *rt;
- 	int err = 0;
-+	struct sockaddr_in *laddr = (struct sockaddr_in *)&cm_id->local_addr;
-+	struct sockaddr_in *raddr = (struct sockaddr_in *)&cm_id->remote_addr;
- 
- 	if ((conn_param->ord > c4iw_max_read_depth) ||
- 	    (conn_param->ird > c4iw_max_read_depth)) {
-@@ -2562,17 +2568,12 @@ int c4iw_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 	insert_handle(dev, &dev->atid_idr, ep, ep->atid);
- 
- 	PDBG("%s saddr 0x%x sport 0x%x raddr 0x%x rport 0x%x\n", __func__,
--	     ntohl(cm_id->local_addr.sin_addr.s_addr),
--	     ntohs(cm_id->local_addr.sin_port),
--	     ntohl(cm_id->remote_addr.sin_addr.s_addr),
--	     ntohs(cm_id->remote_addr.sin_port));
-+	     ntohl(laddr->sin_addr.s_addr), ntohs(laddr->sin_port),
-+	     ntohl(raddr->sin_addr.s_addr), ntohs(raddr->sin_port));
- 
- 	/* find a route */
--	rt = find_route(dev,
--			cm_id->local_addr.sin_addr.s_addr,
--			cm_id->remote_addr.sin_addr.s_addr,
--			cm_id->local_addr.sin_port,
--			cm_id->remote_addr.sin_port, 0);
-+	rt = find_route(dev, laddr->sin_addr.s_addr, raddr->sin_addr.s_addr,
-+			laddr->sin_port, raddr->sin_port, 0);
- 	if (!rt) {
- 		printk(KERN_ERR MOD "%s - cannot find route.\n", __func__);
- 		err = -EHOSTUNREACH;
-@@ -2580,8 +2581,7 @@ int c4iw_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 	}
- 	ep->dst = &rt->dst;
- 
--	err = import_ep(ep, cm_id->remote_addr.sin_addr.s_addr,
--			ep->dst, ep->com.dev, true);
-+	err = import_ep(ep, raddr->sin_addr.s_addr, ep->dst, ep->com.dev, true);
- 	if (err) {
- 		printk(KERN_ERR MOD "%s - cannot alloc l2e.\n", __func__);
- 		goto fail4;
-@@ -2593,8 +2593,10 @@ int c4iw_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 
- 	state_set(&ep->com, CONNECTING);
- 	ep->tos = 0;
--	ep->com.local_addr = cm_id->local_addr;
--	ep->com.remote_addr = cm_id->remote_addr;
-+	memcpy(&ep->com.local_addr, &cm_id->local_addr,
-+	       sizeof(ep->com.local_addr));
-+	memcpy(&ep->com.remote_addr, &cm_id->remote_addr,
-+	       sizeof(ep->com.remote_addr));
- 
- 	/* send connect request to rnic */
- 	err = send_connect(ep);
-@@ -2633,7 +2635,8 @@ int c4iw_create_listen(struct iw_cm_id *cm_id, int backlog)
- 	ep->com.cm_id = cm_id;
- 	ep->com.dev = dev;
- 	ep->backlog = backlog;
--	ep->com.local_addr = cm_id->local_addr;
-+	memcpy(&ep->com.local_addr, &cm_id->local_addr,
-+	       sizeof(ep->com.local_addr));
- 
- 	/*
- 	 * Allocate a server TID.
-diff --git a/drivers/infiniband/hw/nes/nes_cm.c b/drivers/infiniband/hw/nes/nes_cm.c
-index 24b9f1a..fbdf645 100644
---- a/drivers/infiniband/hw/nes/nes_cm.c
-+++ b/drivers/infiniband/hw/nes/nes_cm.c
-@@ -2998,6 +2998,8 @@ int nes_accept(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 	u8 *start_ptr = &start_addr;
- 	u8 **start_buff = &start_ptr;
- 	u16 buff_len = 0;
-+	struct sockaddr_in *laddr = (struct sockaddr_in *)&cm_id->local_addr;
-+	struct sockaddr_in *raddr = (struct sockaddr_in *)&cm_id->remote_addr;
- 
- 	ibqp = nes_get_qp(cm_id->device, conn_param->qpn);
- 	if (!ibqp)
-@@ -3062,8 +3064,7 @@ int nes_accept(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 	/* setup our first outgoing iWarp send WQE (the IETF frame response) */
- 	wqe = &nesqp->hwqp.sq_vbase[0];
- 
--	if (cm_id->remote_addr.sin_addr.s_addr !=
--	    cm_id->local_addr.sin_addr.s_addr) {
-+	if (raddr->sin_addr.s_addr != laddr->sin_addr.s_addr) {
- 		u64temp = (unsigned long)nesqp;
- 		nesibdev = nesvnic->nesibdev;
- 		nespd = nesqp->nespd;
-@@ -3132,13 +3133,10 @@ int nes_accept(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 
- 	nes_cm_init_tsa_conn(nesqp, cm_node);
- 
--	nesqp->nesqp_context->tcpPorts[0] =
--		cpu_to_le16(ntohs(cm_id->local_addr.sin_port));
--	nesqp->nesqp_context->tcpPorts[1] =
--		cpu_to_le16(ntohs(cm_id->remote_addr.sin_port));
-+	nesqp->nesqp_context->tcpPorts[0] = cpu_to_le16(ntohs(laddr->sin_port));
-+	nesqp->nesqp_context->tcpPorts[1] = cpu_to_le16(ntohs(raddr->sin_port));
- 
--	nesqp->nesqp_context->ip0 =
--			cpu_to_le32(ntohl(cm_id->remote_addr.sin_addr.s_addr));
-+	nesqp->nesqp_context->ip0 = cpu_to_le32(ntohl(raddr->sin_addr.s_addr));
- 
- 	nesqp->nesqp_context->misc2 |= cpu_to_le32(
- 		(u32)PCI_FUNC(nesdev->pcidev->devfn) <<
-@@ -3162,9 +3160,9 @@ int nes_accept(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 	memset(&nes_quad, 0, sizeof(nes_quad));
- 	nes_quad.DstIpAdrIndex =
- 		cpu_to_le32((u32)PCI_FUNC(nesdev->pcidev->devfn) << 24);
--	nes_quad.SrcIpadr = cm_id->remote_addr.sin_addr.s_addr;
--	nes_quad.TcpPorts[0] = cm_id->remote_addr.sin_port;
--	nes_quad.TcpPorts[1] = cm_id->local_addr.sin_port;
-+	nes_quad.SrcIpadr = raddr->sin_addr.s_addr;
-+	nes_quad.TcpPorts[0] = raddr->sin_port;
-+	nes_quad.TcpPorts[1] = laddr->sin_port;
- 
- 	/* Produce hash key */
- 	crc_value = get_crc_value(&nes_quad);
-@@ -3180,10 +3178,8 @@ int nes_accept(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 	nes_debug(NES_DBG_CM, "QP%u, Destination IP = 0x%08X:0x%04X, local = "
- 		  "0x%08X:0x%04X, rcv_nxt=0x%08X, snd_nxt=0x%08X, mpa + "
- 		  "private data length=%u.\n", nesqp->hwqp.qp_id,
--		  ntohl(cm_id->remote_addr.sin_addr.s_addr),
--		  ntohs(cm_id->remote_addr.sin_port),
--		  ntohl(cm_id->local_addr.sin_addr.s_addr),
--		  ntohs(cm_id->local_addr.sin_port),
-+		  ntohl(raddr->sin_addr.s_addr), ntohs(raddr->sin_port),
-+		  ntohl(laddr->sin_addr.s_addr), ntohs(laddr->sin_port),
- 		  le32_to_cpu(nesqp->nesqp_context->rcv_nxt),
- 		  le32_to_cpu(nesqp->nesqp_context->snd_nxt),
- 		  buff_len);
-@@ -3263,7 +3259,11 @@ int nes_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 	struct nes_cm_node *cm_node;
- 	struct nes_cm_info cm_info;
- 	int apbvt_set = 0;
-+	struct sockaddr_in *laddr = (struct sockaddr_in *)&cm_id->local_addr;
-+	struct sockaddr_in *raddr = (struct sockaddr_in *)&cm_id->remote_addr;
- 
-+	if (cm_id->remote_addr.ss_family != AF_INET)
-+		return -ENOSYS;
- 	ibqp = nes_get_qp(cm_id->device, conn_param->qpn);
- 	if (!ibqp)
- 		return -EINVAL;
-@@ -3277,16 +3277,14 @@ int nes_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 	if (!nesdev)
- 		return -EINVAL;
- 
--	if (!(cm_id->local_addr.sin_port) || !(cm_id->remote_addr.sin_port))
-+	if (!laddr->sin_port || !raddr->sin_port)
- 		return -EINVAL;
- 
- 	nes_debug(NES_DBG_CM, "QP%u, current IP = 0x%08X, Destination IP = "
- 		  "0x%08X:0x%04X, local = 0x%08X:0x%04X.\n", nesqp->hwqp.qp_id,
--		  ntohl(nesvnic->local_ipaddr),
--		  ntohl(cm_id->remote_addr.sin_addr.s_addr),
--		  ntohs(cm_id->remote_addr.sin_port),
--		  ntohl(cm_id->local_addr.sin_addr.s_addr),
--		  ntohs(cm_id->local_addr.sin_port));
-+		  ntohl(nesvnic->local_ipaddr), ntohl(raddr->sin_addr.s_addr),
-+		  ntohs(raddr->sin_port), ntohl(laddr->sin_addr.s_addr),
-+		  ntohs(laddr->sin_port));
- 
- 	atomic_inc(&cm_connects);
- 	nesqp->active_conn = 1;
-@@ -3306,18 +3304,18 @@ int nes_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 	nes_debug(NES_DBG_CM, "mpa private data len =%u\n",
- 		  conn_param->private_data_len);
- 
--	if (cm_id->local_addr.sin_addr.s_addr !=
--	    cm_id->remote_addr.sin_addr.s_addr) {
--		nes_manage_apbvt(nesvnic, ntohs(cm_id->local_addr.sin_port),
--				 PCI_FUNC(nesdev->pcidev->devfn), NES_MANAGE_APBVT_ADD);
-+	if (laddr->sin_addr.s_addr != raddr->sin_addr.s_addr) {
-+		nes_manage_apbvt(nesvnic, ntohs(laddr->sin_port),
-+				 PCI_FUNC(nesdev->pcidev->devfn),
-+				 NES_MANAGE_APBVT_ADD);
- 		apbvt_set = 1;
- 	}
- 
- 	/* set up the connection params for the node */
--	cm_info.loc_addr = htonl(cm_id->local_addr.sin_addr.s_addr);
--	cm_info.loc_port = htons(cm_id->local_addr.sin_port);
--	cm_info.rem_addr = htonl(cm_id->remote_addr.sin_addr.s_addr);
--	cm_info.rem_port = htons(cm_id->remote_addr.sin_port);
-+	cm_info.loc_addr = htonl(laddr->sin_addr.s_addr);
-+	cm_info.loc_port = htons(laddr->sin_port);
-+	cm_info.rem_addr = htonl(raddr->sin_addr.s_addr);
-+	cm_info.rem_port = htons(raddr->sin_port);
- 	cm_info.cm_id = cm_id;
- 	cm_info.conn_type = NES_CM_IWARP_CONN_TYPE;
- 
-@@ -3329,7 +3327,7 @@ int nes_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 					  &cm_info);
- 	if (!cm_node) {
- 		if (apbvt_set)
--			nes_manage_apbvt(nesvnic, ntohs(cm_id->local_addr.sin_port),
-+			nes_manage_apbvt(nesvnic, ntohs(laddr->sin_port),
- 					 PCI_FUNC(nesdev->pcidev->devfn),
- 					 NES_MANAGE_APBVT_DEL);
- 
-@@ -3355,10 +3353,13 @@ int nes_create_listen(struct iw_cm_id *cm_id, int backlog)
- 	struct nes_cm_listener *cm_node;
- 	struct nes_cm_info cm_info;
- 	int err;
-+	struct sockaddr_in *laddr = (struct sockaddr_in *)&cm_id->local_addr;
- 
- 	nes_debug(NES_DBG_CM, "cm_id = %p, local port = 0x%04X.\n",
--			cm_id, ntohs(cm_id->local_addr.sin_port));
-+		  cm_id, ntohs(laddr->sin_port));
- 
-+	if (cm_id->local_addr.ss_family != AF_INET)
-+		return -ENOSYS;
- 	nesvnic = to_nesvnic(cm_id->device);
- 	if (!nesvnic)
- 		return -EINVAL;
-@@ -3367,11 +3368,11 @@ int nes_create_listen(struct iw_cm_id *cm_id, int backlog)
- 			nesvnic, nesvnic->netdev, nesvnic->netdev->name);
- 
- 	nes_debug(NES_DBG_CM, "nesvnic->local_ipaddr=0x%08x, sin_addr.s_addr=0x%08x\n",
--			nesvnic->local_ipaddr, cm_id->local_addr.sin_addr.s_addr);
-+			nesvnic->local_ipaddr, laddr->sin_addr.s_addr);
- 
- 	/* setup listen params in our api call struct */
- 	cm_info.loc_addr = nesvnic->local_ipaddr;
--	cm_info.loc_port = cm_id->local_addr.sin_port;
-+	cm_info.loc_port = laddr->sin_port;
- 	cm_info.backlog = backlog;
- 	cm_info.cm_id = cm_id;
- 
-@@ -3388,8 +3389,7 @@ int nes_create_listen(struct iw_cm_id *cm_id, int backlog)
- 	cm_id->provider_data = cm_node;
- 
- 	if (!cm_node->reused_node) {
--		err = nes_manage_apbvt(nesvnic,
--				       ntohs(cm_id->local_addr.sin_port),
-+		err = nes_manage_apbvt(nesvnic, ntohs(laddr->sin_port),
- 				       PCI_FUNC(nesvnic->nesdev->pcidev->devfn),
- 				       NES_MANAGE_APBVT_ADD);
- 		if (err) {
-@@ -3487,6 +3487,9 @@ static void cm_event_connected(struct nes_cm_event *event)
- 	struct nes_v4_quad nes_quad;
- 	u32 crc_value;
- 	int ret;
-+	struct sockaddr_in *laddr;
-+	struct sockaddr_in *raddr;
-+	struct sockaddr_in *cm_event_laddr;
- 
- 	/* get all our handles */
- 	cm_node = event->cm_node;
-@@ -3496,27 +3499,24 @@ static void cm_event_connected(struct nes_cm_event *event)
- 	nesvnic = to_nesvnic(nesqp->ibqp.device);
- 	nesdev = nesvnic->nesdev;
- 	nesadapter = nesdev->nesadapter;
-+	laddr = (struct sockaddr_in *)&cm_id->local_addr;
-+	raddr = (struct sockaddr_in *)&cm_id->remote_addr;
-+	cm_event_laddr = (struct sockaddr_in *)&cm_event.local_addr;
- 
- 	if (nesqp->destroyed)
- 		return;
- 	atomic_inc(&cm_connecteds);
- 	nes_debug(NES_DBG_CM, "QP%u attempting to connect to  0x%08X:0x%04X on"
- 		  " local port 0x%04X. jiffies = %lu.\n",
--		  nesqp->hwqp.qp_id,
--		  ntohl(cm_id->remote_addr.sin_addr.s_addr),
--		  ntohs(cm_id->remote_addr.sin_port),
--		  ntohs(cm_id->local_addr.sin_port),
--		  jiffies);
-+		  nesqp->hwqp.qp_id, ntohl(raddr->sin_addr.s_addr),
-+		  ntohs(raddr->sin_port), ntohs(laddr->sin_port), jiffies);
- 
- 	nes_cm_init_tsa_conn(nesqp, cm_node);
- 
- 	/* set the QP tsa context */
--	nesqp->nesqp_context->tcpPorts[0] =
--		cpu_to_le16(ntohs(cm_id->local_addr.sin_port));
--	nesqp->nesqp_context->tcpPorts[1] =
--		cpu_to_le16(ntohs(cm_id->remote_addr.sin_port));
--	nesqp->nesqp_context->ip0 =
--			cpu_to_le32(ntohl(cm_id->remote_addr.sin_addr.s_addr));
-+	nesqp->nesqp_context->tcpPorts[0] = cpu_to_le16(ntohs(laddr->sin_port));
-+	nesqp->nesqp_context->tcpPorts[1] = cpu_to_le16(ntohs(raddr->sin_port));
-+	nesqp->nesqp_context->ip0 = cpu_to_le32(ntohl(raddr->sin_addr.s_addr));
- 
- 	nesqp->nesqp_context->misc2 |= cpu_to_le32(
- 			(u32)PCI_FUNC(nesdev->pcidev->devfn) <<
-@@ -3544,9 +3544,9 @@ static void cm_event_connected(struct nes_cm_event *event)
- 
- 	nes_quad.DstIpAdrIndex =
- 		cpu_to_le32((u32)PCI_FUNC(nesdev->pcidev->devfn) << 24);
--	nes_quad.SrcIpadr = cm_id->remote_addr.sin_addr.s_addr;
--	nes_quad.TcpPorts[0] = cm_id->remote_addr.sin_port;
--	nes_quad.TcpPorts[1] = cm_id->local_addr.sin_port;
-+	nes_quad.SrcIpadr = raddr->sin_addr.s_addr;
-+	nes_quad.TcpPorts[0] = raddr->sin_port;
-+	nes_quad.TcpPorts[1] = laddr->sin_port;
- 
- 	/* Produce hash key */
- 	crc_value = get_crc_value(&nes_quad);
-@@ -3565,8 +3565,8 @@ static void cm_event_connected(struct nes_cm_event *event)
- 	cm_event.event = IW_CM_EVENT_CONNECT_REPLY;
- 	cm_event.status = 0;
- 	cm_event.provider_data = cm_id->provider_data;
--	cm_event.local_addr.sin_family = AF_INET;
--	cm_event.local_addr.sin_port = cm_id->local_addr.sin_port;
-+	cm_event_laddr->sin_family = AF_INET;
-+	cm_event_laddr->sin_port = laddr->sin_port;
- 	cm_event.remote_addr = cm_id->remote_addr;
- 
- 	cm_event.private_data = (void *)event->cm_node->mpa_frame_buf;
-@@ -3574,7 +3574,7 @@ static void cm_event_connected(struct nes_cm_event *event)
- 	cm_event.ird = cm_node->ird_size;
- 	cm_event.ord = cm_node->ord_size;
- 
--	cm_event.local_addr.sin_addr.s_addr = event->cm_info.rem_addr;
-+	cm_event_laddr->sin_addr.s_addr = event->cm_info.rem_addr;
- 	ret = cm_id->event_handler(cm_id, &cm_event);
- 	nes_debug(NES_DBG_CM, "OFA CM event_handler returned, ret=%d\n", ret);
- 
-@@ -3601,6 +3601,10 @@ static void cm_event_connect_error(struct nes_cm_event *event)
- 	struct iw_cm_event cm_event;
- 	/* struct nes_cm_info cm_info; */
- 	int ret;
-+	struct sockaddr_in *cm_event_laddr = (struct sockaddr_in *)
-+					     &cm_event.local_addr;
-+	struct sockaddr_in *cm_event_raddr = (struct sockaddr_in *)
-+					     &cm_event.remote_addr;
- 
- 	if (!event->cm_node)
- 		return;
-@@ -3627,9 +3631,9 @@ static void cm_event_connect_error(struct nes_cm_event *event)
- 	cm_event.private_data = NULL;
- 	cm_event.private_data_len = 0;
- 
--	nes_debug(NES_DBG_CM, "call CM_EVENT REJECTED, local_addr=%08x, "
--		  "remove_addr=%08x\n", cm_event.local_addr.sin_addr.s_addr,
--		  cm_event.remote_addr.sin_addr.s_addr);
-+	nes_debug(NES_DBG_CM, "call CM_EVENT REJECTED, local_addr=%08x, remove_addr=%08x\n"
-+		  , cm_event_laddr->sin_addr.s_addr
-+		  , cm_event_raddr->sin_addr.s_addr);
- 
- 	ret = cm_id->event_handler(cm_id, &cm_event);
- 	nes_debug(NES_DBG_CM, "OFA CM event_handler returned, ret=%d\n", ret);
-@@ -3709,6 +3713,10 @@ static void cm_event_mpa_req(struct nes_cm_event *event)
- 	struct iw_cm_event cm_event;
- 	int ret;
- 	struct nes_cm_node *cm_node;
-+	struct sockaddr_in *cm_event_laddr = (struct sockaddr_in *)
-+					     &cm_event.local_addr;
-+	struct sockaddr_in *cm_event_raddr = (struct sockaddr_in *)
-+					     &cm_event.remote_addr;
- 
- 	cm_node = event->cm_node;
- 	if (!cm_node)
-@@ -3723,13 +3731,13 @@ static void cm_event_mpa_req(struct nes_cm_event *event)
- 	cm_event.status = 0;
- 	cm_event.provider_data = (void *)cm_node;
- 
--	cm_event.local_addr.sin_family = AF_INET;
--	cm_event.local_addr.sin_port = htons(event->cm_info.loc_port);
--	cm_event.local_addr.sin_addr.s_addr = htonl(event->cm_info.loc_addr);
-+	cm_event_laddr->sin_family = AF_INET;
-+	cm_event_laddr->sin_port = htons(event->cm_info.loc_port);
-+	cm_event_laddr->sin_addr.s_addr = htonl(event->cm_info.loc_addr);
- 
--	cm_event.remote_addr.sin_family = AF_INET;
--	cm_event.remote_addr.sin_port = htons(event->cm_info.rem_port);
--	cm_event.remote_addr.sin_addr.s_addr = htonl(event->cm_info.rem_addr);
-+	cm_event_raddr->sin_family = AF_INET;
-+	cm_event_raddr->sin_port = htons(event->cm_info.rem_port);
-+	cm_event_raddr->sin_addr.s_addr = htonl(event->cm_info.rem_addr);
- 	cm_event.private_data = cm_node->mpa_frame_buf;
- 	cm_event.private_data_len = (u8)cm_node->mpa_frame_size;
- 	cm_event.ird = cm_node->ird_size;
-@@ -3749,6 +3757,10 @@ static void cm_event_mpa_reject(struct nes_cm_event *event)
- 	struct iw_cm_event cm_event;
- 	struct nes_cm_node *cm_node;
- 	int ret;
-+	struct sockaddr_in *cm_event_laddr = (struct sockaddr_in *)
-+					     &cm_event.local_addr;
-+	struct sockaddr_in *cm_event_raddr = (struct sockaddr_in *)
-+					     &cm_event.remote_addr;
- 
- 	cm_node = event->cm_node;
- 	if (!cm_node)
-@@ -3763,21 +3775,21 @@ static void cm_event_mpa_reject(struct nes_cm_event *event)
- 	cm_event.status = -ECONNREFUSED;
- 	cm_event.provider_data = cm_id->provider_data;
- 
--	cm_event.local_addr.sin_family = AF_INET;
--	cm_event.local_addr.sin_port = htons(event->cm_info.loc_port);
--	cm_event.local_addr.sin_addr.s_addr = htonl(event->cm_info.loc_addr);
-+	cm_event_laddr->sin_family = AF_INET;
-+	cm_event_laddr->sin_port = htons(event->cm_info.loc_port);
-+	cm_event_laddr->sin_addr.s_addr = htonl(event->cm_info.loc_addr);
- 
--	cm_event.remote_addr.sin_family = AF_INET;
--	cm_event.remote_addr.sin_port = htons(event->cm_info.rem_port);
--	cm_event.remote_addr.sin_addr.s_addr = htonl(event->cm_info.rem_addr);
-+	cm_event_raddr->sin_family = AF_INET;
-+	cm_event_raddr->sin_port = htons(event->cm_info.rem_port);
-+	cm_event_raddr->sin_addr.s_addr = htonl(event->cm_info.rem_addr);
- 
- 	cm_event.private_data = cm_node->mpa_frame_buf;
- 	cm_event.private_data_len = (u8)cm_node->mpa_frame_size;
- 
- 	nes_debug(NES_DBG_CM, "call CM_EVENT_MPA_REJECTED, local_addr=%08x, "
- 		  "remove_addr=%08x\n",
--		  cm_event.local_addr.sin_addr.s_addr,
--		  cm_event.remote_addr.sin_addr.s_addr);
-+		  cm_event_laddr->sin_addr.s_addr,
-+		  cm_event_raddr->sin_addr.s_addr);
- 
- 	ret = cm_id->event_handler(cm_id, &cm_event);
- 	if (ret)
-diff --git a/include/rdma/iw_cm.h b/include/rdma/iw_cm.h
-index 1a046b1..1017e0b 100644
---- a/include/rdma/iw_cm.h
-+++ b/include/rdma/iw_cm.h
-@@ -49,8 +49,8 @@ enum iw_cm_event_type {
- struct iw_cm_event {
- 	enum iw_cm_event_type event;
- 	int			 status;
--	struct sockaddr_in local_addr;
--	struct sockaddr_in remote_addr;
-+	struct sockaddr_storage local_addr;
-+	struct sockaddr_storage remote_addr;
- 	void *private_data;
- 	void *provider_data;
- 	u8 private_data_len;
-@@ -83,8 +83,8 @@ struct iw_cm_id {
- 	iw_cm_handler		cm_handler;      /* client callback function */
- 	void		        *context;	 /* client cb context */
- 	struct ib_device	*device;
--	struct sockaddr_in      local_addr;
--	struct sockaddr_in	remote_addr;
-+	struct sockaddr_storage local_addr;
-+	struct sockaddr_storage	remote_addr;
- 	void			*provider_data;	 /* provider private data */
- 	iw_event_handler        event_handler;   /* cb for provider
- 						    events */
++struct fw_clip_cmd {
++	__be32 op_to_write;
++	__be32 alloc_to_len16;
++	__be64 ip_hi;
++	__be64 ip_lo;
++	__be32 r4[2];
++};
++
++#define S_FW_CLIP_CMD_ALLOC     31
++#define M_FW_CLIP_CMD_ALLOC     0x1
++#define V_FW_CLIP_CMD_ALLOC(x)  ((x) << S_FW_CLIP_CMD_ALLOC)
++#define G_FW_CLIP_CMD_ALLOC(x)  \
++	(((x) >> S_FW_CLIP_CMD_ALLOC) & M_FW_CLIP_CMD_ALLOC)
++#define F_FW_CLIP_CMD_ALLOC     V_FW_CLIP_CMD_ALLOC(1U)
++
++#define S_FW_CLIP_CMD_FREE      30
++#define M_FW_CLIP_CMD_FREE      0x1
++#define V_FW_CLIP_CMD_FREE(x)   ((x) << S_FW_CLIP_CMD_FREE)
++#define G_FW_CLIP_CMD_FREE(x)   \
++	(((x) >> S_FW_CLIP_CMD_FREE) & M_FW_CLIP_CMD_FREE)
++#define F_FW_CLIP_CMD_FREE      V_FW_CLIP_CMD_FREE(1U)
++
+ enum fw_error_type {
+ 	FW_ERROR_TYPE_EXCEPTION		= 0x0,
+ 	FW_ERROR_TYPE_HWMODULE		= 0x1,
 -- 
 1.8.0
 
