@@ -1,39 +1,58 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: PHC device sharing between PCI functions
-Date: Thu, 4 Jul 2013 07:36:05 +0200
-Message-ID: <20130704053605.GC4457@netboy>
-References: <1372697768.2083.21.camel@bwh-desktop.uk.level5networks.com>
- <20130702142420.GC14630@netboy>
- <1372778262.1919.12.camel@bwh-desktop.uk.level5networks.com>
- <20130703183035.GA4446@netboy>
- <1372881153.1919.49.camel@bwh-desktop.uk.level5networks.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: [PATCH] net namespace: wrap for_each_net with rtnl_lock
+Date: Thu, 4 Jul 2013 14:20:55 +0800
+Message-ID: <1372918855-3815-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-net-drivers <linux-net-drivers@solarflare.com>,
-	netdev <netdev@vger.kernel.org>,
-	Laurence Evans <levans@solarflare.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain
+Cc: <serge.hallyn@canonical.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+To: <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f179.google.com ([74.125.82.179]:39705 "EHLO
-	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754894Ab3GDFgR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 01:36:17 -0400
-Received: by mail-we0-f179.google.com with SMTP id w59so743732wes.38
-        for <netdev@vger.kernel.org>; Wed, 03 Jul 2013 22:36:16 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1372881153.1919.49.camel@bwh-desktop.uk.level5networks.com>
+Received: from mail.windriver.com ([147.11.1.11]:61370 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754938Ab3GDGVB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 02:21:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 03, 2013 at 08:52:33PM +0100, Ben Hutchings wrote:
-> 
-> So you think each function should have its own clock device, but it's
-> only writable on one?  I think that would work, but I thought it would
-> be undesirable to have multiple aliases for the same physical clock.
+The read access to net_namespace_list with for_each_net should always
+be protected with rtnl_lock agiast any adding/removing operation from
+the list.
 
-The aliases would not bother me, as long as the ethtool interface-to-phc
-association works properly. Of course, if there is a way to suppress
-the aliases in the non-VM case, that would be ideal.
+Signed-off-by: Fan Du <fan.du@windriver.com>
+---
+ net/core/net_namespace.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-Thanks,
-Richard
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index f976520..f3808ff 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -445,12 +445,14 @@ static int __register_pernet_operations(struct list_head *list,
+ 
+ 	list_add_tail(&ops->list, list);
+ 	if (ops->init || (ops->id && ops->size)) {
++		rtnl_lock();
+ 		for_each_net(net) {
+ 			error = ops_init(ops, net);
+ 			if (error)
+ 				goto out_undo;
+ 			list_add_tail(&net->exit_list, &net_exit_list);
+ 		}
++		rtnl_unlock();
+ 	}
+ 	return 0;
+ 
+@@ -468,8 +470,10 @@ static void __unregister_pernet_operations(struct pernet_operations *ops)
+ 	LIST_HEAD(net_exit_list);
+ 
+ 	list_del(&ops->list);
++	rtnl_lock();
+ 	for_each_net(net)
+ 		list_add_tail(&net->exit_list, &net_exit_list);
++	rtnl_unlock();
+ 	ops_exit_list(ops, &net_exit_list);
+ 	ops_free_list(ops, &net_exit_list);
+ }
+-- 
+1.7.1
