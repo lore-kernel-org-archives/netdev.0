@@ -1,139 +1,79 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCH] net namespace: wrap for_each_net with rtnl_lock
-Date: Thu, 4 Jul 2013 15:57:14 +0800
-Message-ID: <51D52ADA.5020905@windriver.com>
-References: <1372918855-3815-1-git-send-email-fan.du@windriver.com> <87txkaolfo.fsf@xmission.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] virtio-net: fix the race between channels setting
+	and refill
+Date: Thu, 4 Jul 2013 11:23:22 +0300
+Message-ID: <20130704082322.GB29342@redhat.com>
+References: <1372853752-41889-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <serge.hallyn@canonical.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:43212 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755420Ab3GDH5W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 03:57:22 -0400
-In-Reply-To: <87txkaolfo.fsf@xmission.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sasha Levin <sasha.levin@oracle.com>,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1372853752-41889-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi, Eric
+On Wed, Jul 03, 2013 at 08:15:52PM +0800, Jason Wang wrote:
+> Commit 55257d72bd1c51f25106350f4983ec19f62ed1fa (virtio-net: fill only rx queues
+> which are being used) tries to refill on demand when changing the number of
+> channels by call try_refill_recv() directly, this may race:
+> 
+> - the refill work who may do the refill in the same time
+> - the try_refill_recv() called in bh since napi was not disabled
+> 
+> Which may led guest complain during setting channels:
+> 
+> virtio_net virtio0: input.1:id 0 is not a head!
+> 
+> Solve this issue by scheduling a refill work which can guarantee the
+> serialization of refill.
+> 
+> Cc: Sasha Levin <sasha.levin@oracle.com>
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Thanks for your reply!
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-On 2013=E5=B9=B407=E6=9C=8804=E6=97=A5 15:04, Eric W. Biederman wrote:
-> Fan Du<fan.du@windriver.com>  writes:
->
->> The read access to net_namespace_list with for_each_net should alway=
-s
->> be protected with rtnl_lock agiast any adding/removing operation fro=
-m
->> the list.
->
-> That is not correct.  The rtnl_lock does not protect the
-> net_namespace_list.  The net_mutex provides that protection.
->
-> Modifications to the net_namespace_list are under both the rtnl_lock
-> and the net_mutex which removes the need of grabbing the net_mutex wh=
-en
-> you just need to traverse the list of network namespaces.  This avoid=
-s a
-> lock ordering problem as most places it is desirable to traverse the
-> net namespace list the rtnl_lock is already held.
-
-
-By my understanding, net_mutex protects operations on pernet_list, and =
-rtln_lock
-protects net_namespace_list. net_mutex has side effects on net_namespac=
-e_list,
-because we try to hold rtnl_lock to modify net_namespace_list after alr=
-eady holding
-net_mutex(copy_net_ns). Sorry, I cann't understand the necessity by doi=
-ng so.
-
-(1)
-         mutex_lock(&net_mutex);
-         rv =3D setup_net(net, user_ns);
-         if (rv =3D=3D 0) {
-                 rtnl_lock();
-                 list_add_tail_rcu(&net->list, &net_namespace_list);
-                 rtnl_unlock();
-         }
-         mutex_unlock(&net_mutex);
-
-why could we do it separately as below?
-
-(2)
-         mutex_lock(&net_mutex);
-         rv =3D setup_net(net, user_ns);
-         mutex_unlock(&net_mutex);
-         if (rv =3D=3D 0) {
-                 rtnl_lock();
-                 list_add_tail_rcu(&net->list, &net_namespace_list);
-                 rtnl_unlock();
-         }
-
-
->
-> In general the init methods will deadlock if you call them with the
-> rtnl_lock held, as they grab the rtnl_lock when creating network devi=
-ces
-> etc.
-
-Yes, I understand. This is reason why we do it in (1) style.
-
-
-> The methods you change are protected by the net_mutex so I don't see =
-any
-> problems here.
-> Was this patch inspired by code review or was there an actual problem
-> that inspired it?
-
-It's code review, no real alarm :)
-
->> Signed-off-by: Fan Du<fan.du@windriver.com>
->> ---
->>   net/core/net_namespace.c |    4 ++++
->>   1 files changed, 4 insertions(+), 0 deletions(-)
->>
->> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
->> index f976520..f3808ff 100644
->> --- a/net/core/net_namespace.c
->> +++ b/net/core/net_namespace.c
->> @@ -445,12 +445,14 @@ static int __register_pernet_operations(struct=
- list_head *list,
->>
->>   	list_add_tail(&ops->list, list);
->>   	if (ops->init || (ops->id&&  ops->size)) {
->> +		rtnl_lock();
->>   		for_each_net(net) {
->>   			error =3D ops_init(ops, net);
->>   			if (error)
->>   				goto out_undo;
->>   			list_add_tail(&net->exit_list,&net_exit_list);
->>   		}
->> +		rtnl_unlock();
->>   	}
->>   	return 0;
->>
->> @@ -468,8 +470,10 @@ static void __unregister_pernet_operations(stru=
-ct pernet_operations *ops)
->>   	LIST_HEAD(net_exit_list);
->>
->>   	list_del(&ops->list);
->> +	rtnl_lock();
->>   	for_each_net(net)
->>   		list_add_tail(&net->exit_list,&net_exit_list);
->> +	rtnl_unlock();
->>   	ops_exit_list(ops,&net_exit_list);
->>   	ops_free_list(ops,&net_exit_list);
->>   }
->
-
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
-
---fan
+> ---
+>  drivers/net/virtio_net.c |    5 +----
+>  1 files changed, 1 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index c9e0038..47b4882 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -901,7 +901,6 @@ static int virtnet_set_queues(struct virtnet_info *vi, u16 queue_pairs)
+>  	struct scatterlist sg;
+>  	struct virtio_net_ctrl_mq s;
+>  	struct net_device *dev = vi->dev;
+> -	int i;
+>  
+>  	if (!vi->has_cvq || !virtio_has_feature(vi->vdev, VIRTIO_NET_F_MQ))
+>  		return 0;
+> @@ -915,10 +914,8 @@ static int virtnet_set_queues(struct virtnet_info *vi, u16 queue_pairs)
+>  			 queue_pairs);
+>  		return -EINVAL;
+>  	} else {
+> -		for (i = vi->curr_queue_pairs; i < queue_pairs; i++)
+> -			if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
+> -				schedule_delayed_work(&vi->refill, 0);
+>  		vi->curr_queue_pairs = queue_pairs;
+> +		schedule_delayed_work(&vi->refill, 0);
+>  	}
+>  
+>  	return 0;
+> -- 
+> 1.7.1
