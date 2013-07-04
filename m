@@ -1,103 +1,50 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git)] net:stmmac: fix memleak in the open method
-Date: Thu,  4 Jul 2013 06:18:07 +0200
-Message-ID: <1372911487-18472-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [PATCH v3 24/25] sunrpc: Change how dentry's d_lock field is
+ accessed
+Date: Thu, 4 Jul 2013 05:20:34 +0100
+Message-ID: <20130704042034.GM4165@ZenIV.linux.org.uk>
+References: <1372883132-23410-1-git-send-email-Waiman.Long@hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Layton <jlayton@redhat.com>,
+	Miklos Szeredi <mszeredi@suse.cz>,
+	Ingo Molnar <mingo@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	"Chandramouleeswaran, Aswin" <aswin@hp.com>,
+	"Norton, Scott J" <scott.norton@hp.com>
+To: Waiman Long <Waiman.Long@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:38206 "EHLO
-	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751015Ab3GDETb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 00:19:31 -0400
-Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id C334314E
-	for <netdev@vger.kernel.org>; Thu,  4 Jul 2013 04:19:26 +0000 (GMT)
-Received: from mail7.sgp.st.com (unknown [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 1A4BD227B
-	for <netdev@vger.kernel.org>; Thu,  4 Jul 2013 04:19:00 +0000 (GMT)
+Received: from zeniv.linux.org.uk ([195.92.253.2]:47258 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751118Ab3GDEUv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 00:20:51 -0400
+Content-Disposition: inline
+In-Reply-To: <1372883132-23410-1-git-send-email-Waiman.Long@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to fix a memory leak in the open method, it reviews error
-conditions freeing the resources previously allocated and not freed in
-cased of DMA failure.
+On Wed, Jul 03, 2013 at 04:25:32PM -0400, Waiman Long wrote:
+> There is no change in logic and everything should just work.
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   20 ++++++++++----------
- 1 files changed, 10 insertions(+), 10 deletions(-)
+> -		spin_lock(&file->f_path.dentry->d_lock);
+> +		d_lock(file->f_path.dentry);
+>  		if (!d_unhashed(file->f_path.dentry))
+>  			clnt = RPC_I(inode)->private;
+>  		if (clnt != NULL && atomic_inc_not_zero(&clnt->cl_count)) {
+> -			spin_unlock(&file->f_path.dentry->d_lock);
+> +			d_unlock(file->f_path.dentry);
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index e9eab29..c047f0e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1579,7 +1579,7 @@ static int stmmac_open(struct net_device *dev)
- 		if (ret) {
- 			pr_err("%s: Cannot attach to PHY (error: %d)\n",
- 			       __func__, ret);
--			goto open_error;
-+			goto phy_error;
- 		}
- 	}
- 
-@@ -1593,7 +1593,7 @@ static int stmmac_open(struct net_device *dev)
- 	ret = stmmac_init_dma_engine(priv);
- 	if (ret < 0) {
- 		pr_err("%s: DMA initialization failed\n", __func__);
--		goto open_error;
-+		goto init_error;
- 	}
- 
- 	/* Copy the MAC addr into the HW  */
-@@ -1612,7 +1612,7 @@ static int stmmac_open(struct net_device *dev)
- 	if (unlikely(ret < 0)) {
- 		pr_err("%s: ERROR: allocating the IRQ %d (error: %d)\n",
- 		       __func__, dev->irq, ret);
--		goto open_error;
-+		goto init_error;
- 	}
- 
- 	/* Request the Wake IRQ in case of another line is used for WoL */
-@@ -1622,7 +1622,7 @@ static int stmmac_open(struct net_device *dev)
- 		if (unlikely(ret < 0)) {
- 			pr_err("%s: ERROR: allocating the WoL IRQ %d (%d)\n",
- 			       __func__, priv->wol_irq, ret);
--			goto open_error_wolirq;
-+			goto wolirq_error;
- 		}
- 	}
- 
-@@ -1633,7 +1633,7 @@ static int stmmac_open(struct net_device *dev)
- 		if (unlikely(ret < 0)) {
- 			pr_err("%s: ERROR: allocating the LPI IRQ %d (%d)\n",
- 			       __func__, priv->lpi_irq, ret);
--			goto open_error_lpiirq;
-+			goto lpiirq_error;
- 		}
- 	}
- 
-@@ -1691,17 +1691,17 @@ static int stmmac_open(struct net_device *dev)
- 
- 	return 0;
- 
--open_error_lpiirq:
-+lpiirq_error:
- 	if (priv->wol_irq != dev->irq)
- 		free_irq(priv->wol_irq, dev);
--
--open_error_wolirq:
-+wolirq_error:
- 	free_irq(dev->irq, dev);
- 
--open_error:
-+init_error:
-+	free_dma_desc_resources(priv);
- 	if (priv->phydev)
- 		phy_disconnect(priv->phydev);
--
-+phy_error:
- 	clk_disable_unprepare(priv->stmmac_clk);
- 
- 	return ret;
--- 
-1.7.4.4
+Could somebody explain WTF is being protected here?  It's not ->private -
+that gets set (and, more importantly, cleared) without ->d_lock in sight.
+Trond, that seems to be your code from about three years ago (introduced
+in "SUNRPC: Fix a race in rpc_info_open").  What's going on there?
