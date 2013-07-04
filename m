@@ -1,58 +1,73 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCH] net namespace: wrap for_each_net with rtnl_lock
-Date: Thu, 4 Jul 2013 14:20:55 +0800
-Message-ID: <1372918855-3815-1-git-send-email-fan.du@windriver.com>
+Subject: [PATCH] xfrm: replace xfrm_policy_afinfo_lock spinlock with mutex
+Date: Thu, 4 Jul 2013 14:53:47 +0800
+Message-ID: <1372920827-4144-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <serge.hallyn@canonical.com>, <davem@davemloft.net>,
+Cc: <herbert@gondor.hengli.com.au>, <davem@davemloft.net>,
 	<netdev@vger.kernel.org>
-To: <ebiederm@xmission.com>
+To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:61370 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754938Ab3GDGVB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 02:21:01 -0400
+Received: from mail1.windriver.com ([147.11.146.13]:41135 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754621Ab3GDGyE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 02:54:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The read access to net_namespace_list with for_each_net should always
-be protected with rtnl_lock agiast any adding/removing operation from
-the list.
-
 Signed-off-by: Fan Du <fan.du@windriver.com>
 ---
- net/core/net_namespace.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ net/xfrm/xfrm_policy.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index f976520..f3808ff 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -445,12 +445,14 @@ static int __register_pernet_operations(struct list_head *list,
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index e52cab3..27768ba 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -46,7 +46,7 @@ static DEFINE_SPINLOCK(xfrm_policy_sk_bundle_lock);
+ static struct dst_entry *xfrm_policy_sk_bundles;
+ static DEFINE_RWLOCK(xfrm_policy_lock);
  
- 	list_add_tail(&ops->list, list);
- 	if (ops->init || (ops->id && ops->size)) {
-+		rtnl_lock();
- 		for_each_net(net) {
- 			error = ops_init(ops, net);
- 			if (error)
- 				goto out_undo;
- 			list_add_tail(&net->exit_list, &net_exit_list);
- 		}
-+		rtnl_unlock();
+-static DEFINE_SPINLOCK(xfrm_policy_afinfo_lock);
++static DEFINE_MUTEX(xfrm_policy_afinfo_lock);
+ static struct xfrm_policy_afinfo __rcu *xfrm_policy_afinfo[NPROTO]
+ 						__read_mostly;
+ 
+@@ -2687,7 +2687,7 @@ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
+ 		return -EINVAL;
+ 	if (unlikely(afinfo->family >= NPROTO))
+ 		return -EAFNOSUPPORT;
+-	spin_lock(&xfrm_policy_afinfo_lock);
++	mutex_lock(&xfrm_policy_afinfo_lock);
+ 	if (unlikely(xfrm_policy_afinfo[afinfo->family] != NULL))
+ 		err = -ENOBUFS;
+ 	else {
+@@ -2710,7 +2710,7 @@ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
+ 			afinfo->garbage_collect = xfrm_garbage_collect_deferred;
+ 		rcu_assign_pointer(xfrm_policy_afinfo[afinfo->family], afinfo);
  	}
- 	return 0;
+-	spin_unlock(&xfrm_policy_afinfo_lock);
++	mutex_unlock(&xfrm_policy_afinfo_lock);
  
-@@ -468,8 +470,10 @@ static void __unregister_pernet_operations(struct pernet_operations *ops)
- 	LIST_HEAD(net_exit_list);
+ 	rtnl_lock();
+ 	for_each_net(net) {
+@@ -2743,7 +2743,7 @@ int xfrm_policy_unregister_afinfo(struct xfrm_policy_afinfo *afinfo)
+ 		return -EINVAL;
+ 	if (unlikely(afinfo->family >= NPROTO))
+ 		return -EAFNOSUPPORT;
+-	spin_lock(&xfrm_policy_afinfo_lock);
++	mutex_lock(&xfrm_policy_afinfo_lock);
+ 	if (likely(xfrm_policy_afinfo[afinfo->family] != NULL)) {
+ 		if (unlikely(xfrm_policy_afinfo[afinfo->family] != afinfo))
+ 			err = -EINVAL;
+@@ -2751,7 +2751,7 @@ int xfrm_policy_unregister_afinfo(struct xfrm_policy_afinfo *afinfo)
+ 			RCU_INIT_POINTER(xfrm_policy_afinfo[afinfo->family],
+ 					 NULL);
+ 	}
+-	spin_unlock(&xfrm_policy_afinfo_lock);
++	mutex_unlock(&xfrm_policy_afinfo_lock);
+ 	if (!err) {
+ 		struct dst_ops *dst_ops = afinfo->dst_ops;
  
- 	list_del(&ops->list);
-+	rtnl_lock();
- 	for_each_net(net)
- 		list_add_tail(&net->exit_list, &net_exit_list);
-+	rtnl_unlock();
- 	ops_exit_list(ops, &net_exit_list);
- 	ops_free_list(ops, &net_exit_list);
- }
 -- 
 1.7.1
