@@ -1,90 +1,109 @@
-From: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [PATCH V2 5/9] IB/mlx5: Mellanox Connect-IB, IB driver part 1/5
-Date: Thu, 4 Jul 2013 16:15:25 +0300
-Message-ID: <201307041615.25729.jackm@dev.mellanox.co.il>
-References: <1372871592-32033-1-git-send-email-ogerlitz@mellanox.com> <1372871592-32033-6-git-send-email-ogerlitz@mellanox.com> <1372885168.1886.17.camel@joe-AO722>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH V3 2/2 RESEND] Introduce huawei_cdc_ncm driver
+Date: Thu, 04 Jul 2013 15:19:46 +0200
+Message-ID: <87y59mjwct.fsf@nemi.mork.no>
+References: <alpine.LNX.2.02.1307021241380.8884@eeeadesso>
+	<87wqp9xja5.fsf@nemi.mork.no>
+	<alpine.LNX.2.02.1307021855270.19053@eeeadesso>
+	<alpine.LNX.2.02.1307022202570.26010@eeeadesso>
+	<alpine.LNX.2.02.1307022207060.26010@eeeadesso>
+	<alpine.LNX.2.02.1307022210470.26010@eeeadesso>
+	<alpine.LNX.2.02.1307022213380.26010@eeeadesso>
+	<alpine.LNX.2.02.1307030836270.12831@eeeadesso>
+	<alpine.LNX.2.02.1307030908090.13789@eeeadesso>
+	<871u7gvz2z.fsf@nemi.mork.no>
+	<alpine.LNX.2.02.1307031455460.24525@eeeadesso>
+	<51D424D1.2010507@cogentembedded.com>
+	<alpine.LNX.2.02.1307031534180.25440@eeeadesso>
+	<1372868333.1919.3.camel@bwh-desktop.uk.level5networks.com>
+	<alpine.LNX.2.02.1307032007430.2819@eeeadesso>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org, moshel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1372885168.1886.17.camel@joe-AO722>
-Content-Disposition: inline
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
+To: Enrico Mioso <mrkiko.rs@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:45942 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751828Ab3GDNUM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 09:20:12 -0400
+In-Reply-To: <alpine.LNX.2.02.1307032007430.2819@eeeadesso> (Enrico Mioso's
+	message of "Wed, 3 Jul 2013 20:11:18 +0200 (CEST)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 03 July 2013 23:59, Joe Perches wrote:
-> On Wed, 2013-07-03 at 20:13 +0300, Or Gerlitz wrote:
-> > From: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> > diff --git a/drivers/infiniband/hw/mlx5/ah.c b/drivers/infiniband/hw/mlx5/ah.c
-> []
-> > +struct ib_ah *create_ib_ah(struct ib_ah_attr *ah_attr,
-> > +			   struct mlx5_ib_ah *ah)
-> > +{
-> > +	u32 sgi;
-> 
-> sgi is used once here and looks more confusing than helpful
-> 
-Will fix in V3
-> 
-> []
-> 
-> > +static void *get_sw_cqe(struct mlx5_ib_cq *cq, int n)
-> > +{
-> > +	void *cqe = get_cqe(cq, n & cq->ibcq.cqe);
-> > +	struct mlx5_cqe64 *cqe64;
-> > +
-> > +	cqe64 = (cq->mcq.cqe_sz == 64) ? cqe : cqe + 64;
-> > +	return ((cqe64->op_own & MLX5_CQE_OWNER_MASK) ^
-> > +		!!(n & (cq->ibcq.cqe + 1))) ? NULL : cqe;
-> 
-> I think "foo ^ !!bar" is excessively tricky.
-> 
-The mlx4 driver already uses "!!foo ^ !!bar" in several places in the kernel (and this is old code).
-I assume that your problem with the above code is that it uses "foo" and not "!!foo".
+Enrico Mioso <mrkiko.rs@gmail.com> writes:
 
-Please note, though, that this code is data-path code -- and in this specific case,  foo = !!foo
-(since MLX5_CQE_OWNER_MASK = 1). We decided, therefore, in this specific case, not to add the unnecessary
-"!!", even though at first glance it may look tricky -- performance here IMHO is more important.
+> This new driver, handles devices that mimic the NCM standard, but usi=
+ng NCM as
+> a transport layer to encapsulate other protocols (i.e. AT protocol).
+>
+> Signed-off-by: Enrico Mioso <mrkiko.rs@gmail.com>
+> ---
+> V3:
+>   - fixed typo in Kconfig (help text)
+>
+> diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
+> index 287cc62..33cb175 100644
+> --- a/drivers/net/usb/Kconfig
+> +++ b/drivers/net/usb/Kconfig
+> @@ -246,6 +246,18 @@ config USB_NET_CDC_NCM
+>  	    * ST-Ericsson M343 HSPA Mobile Broadband Modem (reference desig=
+n)
+>  	    * Ericsson F5521gw Mobile Broadband Module
+> =20
+> +config USB_NET_HUAWEI_CDC_NCM
+> +	tristate "Huawei-style CDC NCM support"
+> +	depends on USB_USBNET
+> +	select USB_WDM
+> +	select USB_NET_CDC_NCM
+> +	help
+> +		This driver aims to support huawei-style NCM devices, that use ncm=
+ as a=20
+> +		transport for other protocols.
+> +		To compile this driver as a module, choose M here: the module will=
+ be=20
+> +		called huawei_cdc_ncm.
+> +
+>  config USB_NET_CDC_MBIM
+>  	tristate "CDC MBIM support"
+>  	depends on USB_USBNET
 
-> > +static enum ib_wc_opcode get_umr_comp(struct mlx5_ib_wq *wq, int idx)
-> > +{
-> 
-> > +		pr_warn("unkonwn completion status\n");
-> 
-> unknown tyop
+Sorry, but editing a patch directly is too risky.  You shouldn't do
+that.  This does not apply anymore because there now is a line missing
+here...
 
-Will fix in V3
+This is nitpicking, but it needs to be correct for the patches to be
+accepted.
 
-> []
-> 
-> > +static int create_cq_user(struct mlx5_ib_dev *dev, struct ib_udata *udata,
-> > +			  struct ib_ucontext *context, struct mlx5_ib_cq *cq,
-> > +			  int entries, struct mlx5_create_cq_mbox_in **cqb,
-> > +			  int *cqe_size, int *index, int *inlen)
-> []
-> > +	*inlen = sizeof **cqb + sizeof *(*cqb)->pas * ncont;
-> 
-> sizeof always uses parentheses
-> 
-> > +	*cqb = vzalloc(*inlen);
-> 
-> Perhaps you may be using vzalloc too often.
-> 
-> Maybe you should have a helper allocating either
-> from kmalloc or vmalloc as necessary based on size.
-We will look into this.
+Before resubmitting, I suggest:
 
-Thanks for reviewing!
+ - check all the patches with scripts/checkpatch.pl
+ - fix absolutely all ERRORs.  You may ignore some WARNINGs if there ar=
+e
+   good reasons to do so (e.g the 80 character limit)
+ - mail all patches to yourself, and save as you receive them
+ - apply the received patches to a clean net-next based branch using
+   "git am <patch>"
+ - verify the result (build it after each patch is applied and play wit=
+h
+   related config options to make sure nothing breaks)
 
--Jack
+Also please note that net-next is currently closed due to the merge
+window being open: http://www.spinics.net/lists/netdev/msg242161.html
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I don't know exactly what the policy wrt new drivers is, but you can
+assume that David is pretty busy with the stuff he already has queued.
+So it is better to hold this work until after v3.11-rc1 is out and Davi=
+d
+announces that he has opened net-next again.
+
+And I also believe you should include your final patch to cdc_ncm.c as
+part 3/3 of this series.  Otherwise the ordering and dependencies are
+not clear.  That patch can be applied on it's own, but it won't make an=
+y
+sense to do so.  Better make that clear.
+
+
+
+Bj=C3=B8rn
