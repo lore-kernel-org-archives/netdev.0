@@ -1,50 +1,39 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH v3 24/25] sunrpc: Change how dentry's d_lock field is
- accessed
-Date: Thu, 4 Jul 2013 05:20:34 +0100
-Message-ID: <20130704042034.GM4165@ZenIV.linux.org.uk>
-References: <1372883132-23410-1-git-send-email-Waiman.Long@hp.com>
+From: Pierre Emeriaud <petrus.lt@gmail.com>
+Subject: Re: PROBLEM: Linux 3.9 more-specific ipv6 route ignored until
+ next-hop is in neighbor cache
+Date: Thu, 4 Jul 2013 07:20:37 +0200
+Message-ID: <CA+PSOpziMTBD-dNbjtYO+EcvoMuO0NBw7V-0OHCtAAzZQEG4Uw@mail.gmail.com>
+References: <20130703181546.GC12615@order.stressinduktion.org>
+	<51D46B9F.6050400@cogentembedded.com>
+	<20130703184504.GD12615@order.stressinduktion.org>
+	<20130703.175153.1664868495830722209.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Layton <jlayton@redhat.com>,
-	Miklos Szeredi <mszeredi@suse.cz>,
-	Ingo Molnar <mingo@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	"Chandramouleeswaran, Aswin" <aswin@hp.com>,
-	"Norton, Scott J" <scott.norton@hp.com>
-To: Waiman Long <Waiman.Long@hp.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: hannes@stressinduktion.org,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:47258 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751118Ab3GDEUv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 00:20:51 -0400
-Content-Disposition: inline
-In-Reply-To: <1372883132-23410-1-git-send-email-Waiman.Long@hp.com>
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:56775 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754938Ab3GDFUi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 01:20:38 -0400
+Received: by mail-ob0-f175.google.com with SMTP id xn12so1158712obc.34
+        for <netdev@vger.kernel.org>; Wed, 03 Jul 2013 22:20:37 -0700 (PDT)
+In-Reply-To: <20130703.175153.1664868495830722209.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 03, 2013 at 04:25:32PM -0400, Waiman Long wrote:
-> There is no change in logic and everything should just work.
+2013/7/4 David Miller <davem@davemloft.net>:
+>>
+>> [PATCH net v2] ipv6: rt6_check_neigh should successfully verify neigh if no NUD information are available
+>
+> Applied and queued up for -stable, thanks everyone.
 
-> -		spin_lock(&file->f_path.dentry->d_lock);
-> +		d_lock(file->f_path.dentry);
->  		if (!d_unhashed(file->f_path.dentry))
->  			clnt = RPC_I(inode)->private;
->  		if (clnt != NULL && atomic_inc_not_zero(&clnt->cl_count)) {
-> -			spin_unlock(&file->f_path.dentry->d_lock);
-> +			d_unlock(file->f_path.dentry);
+I just tested the patch and it works fine! The more-specific route is
+now preferred over default even if the next-hop is not (yet) known in
+the neighbor cache.
 
-Could somebody explain WTF is being protected here?  It's not ->private -
-that gets set (and, more importantly, cleared) without ->d_lock in sight.
-Trond, that seems to be your code from about three years ago (introduced
-in "SUNRPC: Fix a race in rpc_info_open").  What's going on there?
+Thanks everyone !
+
+-pierre.
