@@ -1,155 +1,46 @@
-From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
-Subject: [PATCH v2 3/3] dt:net:stmmac: Add dt specific phy reset callback support.
-Date: Thu,  4 Jul 2013 10:35:48 +0100
-Message-ID: <1372930548-19452-1-git-send-email-srinivas.kandagatla@st.com>
-References: <1372930496-18923-1-git-send-email-srinivas.kandagatla@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Rob Landley <rob@landley.net>,
-	devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Srinivas Kandagatla <srinivas.kandagatla@st.com>
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: "Kevent 2 may have been dropped" - why?
+Date: Thu, 4 Jul 2013 11:45:14 +0200 (CEST)
+Message-ID: <alpine.LNX.2.02.1307041139490.30343@eeeadesso>
+References: <1372905675-27383-1-git-send-email-benchan@chromium.org>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372930496-18923-1-git-send-email-srinivas.kandagatla@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f42.google.com ([74.125.83.42]:38677 "EHLO
+	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750961Ab3GDJo6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 05:44:58 -0400
+Received: by mail-ee0-f42.google.com with SMTP id c4so663893eek.1
+        for <netdev@vger.kernel.org>; Thu, 04 Jul 2013 02:44:56 -0700 (PDT)
+Received: from eeeadesso ([217.200.245.172])
+        by mx.google.com with ESMTPSA id n45sm3892447eew.1.2013.07.04.02.44.55
+        for <netdev@vger.kernel.org>
+        (version=TLSv1 cipher=ECDHE-RSA-RC4-SHA bits=128/128);
+        Thu, 04 Jul 2013 02:44:56 -0700 (PDT)
+In-Reply-To: <1372905675-27383-1-git-send-email-benchan@chromium.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+Hi all guys! Please CC me - as I'm not subscribed to this list!
 
-This patch adds phy reset callback support for stmmac driver via device
-trees. It adds three new properties to gmac device tree bindings to
-define the reset signal via gpio.
+After some hours of usage of qmi-wwan or huawei_cdc_ncm drivers, I see that 
+message trigger, in file drivers/net/usb/usbnet.c at line 427.
 
-With this patch users can conveniently pass reset gpio number with pre,
-pulse and post delay in micro secs via DTs.
+In my dmesg, it looks like:
 
- active low:
-		_________		 ____________
-	<pre-delay>	|<pulse-delay>	|<post-delay>
-		 	|		|
-		 	|_______________|
+[183782.743539] huawei_cdc_ncm 3-2:1.1 wwan0: kevent 2 may have been dropped
+[183782.743909] huawei_cdc_ncm 3-2:1.1 wwan0: kevent 2 may have been dropped
+[183782.743998] huawei_cdc_ncm 3-2:1.1 wwan0: kevent 2 may have been dropped
+[183782.744083] huawei_cdc_ncm 3-2:1.1 wwan0: kevent 2 may have been dropped
+[183782.744166] huawei_cdc_ncm 3-2:1.1 wwan0: kevent 2 may have been dropped
+[183782.744252] huawei_cdc_ncm 3-2:1.1 wwan0: kevent 2 may have been dropped
+[183782.744335] huawei_cdc_ncm 3-2:1.1 wwan0: kevent 2 may have been dropped
+[183782.744421] huawei_cdc_ncm 3-2:1.1 wwan0: kevent 2 may have been dropped
+[183782.744504] huawei_cdc_ncm 3-2:1.1 wwan0: kevent 2 may have been dropped
+[183782.744586] huawei_cdc_ncm 3-2:1.1 wwan0: kevent 2 may have been dropped
 
- active high:
- 			 ________________
-	<pre-delay>	|<pulse-delay>	|<post-delay>
-			|		|
-		________|		|___________
-
-Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
----
- Documentation/devicetree/bindings/net/stmmac.txt  |    6 +++
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |   48 ++++++++++++++++++++-
- include/linux/stmmac.h                            |    4 ++
- 3 files changed, 56 insertions(+), 2 deletions(-)
-
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index e1ddfcc..261c563 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -13,6 +13,12 @@ Required properties:
- - phy-mode: String, operation mode of the PHY interface.
-   Supported values are: "mii", "rmii", "gmii", "rgmii".
- - snps,phy-addr		phy address to connect to.
-+- snps,reset-gpio 	gpio number for phy reset.
-+- snps,reset-active-low boolean flag to indicate if phy reset is active low.
-+- snps,reset-delays-us  is triplet of delays
-+	The 1st cell is reset pre-delay in micro seconds.
-+	The 2nd cell is reset pulse in micro seconds.
-+	The 3rd cell is reset post-delay in micro seconds.
- - snps,pbl		Programmable Burst Length
- - snps,fixed-burst	Program the DMA to use the fixed burst mode
- - snps,mixed-burst	Program the DMA to use the mixed burst mode
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index cc15039..fe7bc99 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -27,6 +27,9 @@
- #include <linux/mii.h>
- #include <linux/phy.h>
- #include <linux/slab.h>
-+#include <linux/of.h>
-+#include <linux/of_gpio.h>
-+
- #include <asm/io.h>
- 
- #include "stmmac.h"
-@@ -131,10 +134,46 @@ static int stmmac_mdio_reset(struct mii_bus *bus)
- 	struct net_device *ndev = bus->priv;
- 	struct stmmac_priv *priv = netdev_priv(ndev);
- 	unsigned int mii_address = priv->hw->mii.addr;
-+	struct stmmac_mdio_bus_data *data = priv->plat->mdio_bus_data;
-+
-+#ifdef CONFIG_OF
-+	if (priv->device->of_node) {
-+		int reset_gpio, active_low;
-+
-+		if (data->reset_gpio < 0) {
-+			struct device_node *np = priv->device->of_node;
-+			if (!np)
-+				return 0;
-+
-+			data->reset_gpio = of_get_named_gpio(np,
-+						"snps,reset-gpio", 0);
-+			if (data->reset_gpio < 0)
-+				return 0;
-+
-+			data->active_low = of_property_read_bool(np,
-+						"snps,reset-active-low");
-+			of_property_read_u32_array(np,
-+				"snps,reset-delays-us", data->delays, 3);
-+		}
-+
-+		reset_gpio = data->reset_gpio;
-+		active_low = data->active_low;
-+
-+		if (!gpio_request(reset_gpio, "mdio-reset")) {
-+			gpio_direction_output(reset_gpio, active_low ? 1 : 0);
-+			udelay(data->delays[0]);
-+			gpio_set_value(reset_gpio, active_low ? 0 : 1);
-+			udelay(data->delays[1]);
-+			gpio_set_value(reset_gpio, active_low ? 1 : 0);
-+			udelay(data->delays[2]);
-+			gpio_free(reset_gpio);
-+		}
-+	}
-+#endif
- 
--	if (priv->plat->mdio_bus_data->phy_reset) {
-+	if (data->phy_reset) {
- 		pr_debug("stmmac_mdio_reset: calling phy_reset\n");
--		priv->plat->mdio_bus_data->phy_reset(priv->plat->bsp_priv);
-+		data->phy_reset(priv->plat->bsp_priv);
- 	}
- 
- 	/* This is a workaround for problems with the STE101P PHY.
-@@ -172,6 +211,11 @@ int stmmac_mdio_register(struct net_device *ndev)
- 	else
- 		irqlist = priv->mii_irq;
- 
-+#ifdef CONFIG_OF
-+	if (priv->device->of_node)
-+		mdio_bus_data->reset_gpio = -1;
-+#endif
-+
- 	new_bus->name = "stmmac";
- 	new_bus->read = &stmmac_mdio_read;
- 	new_bus->write = &stmmac_mdio_write;
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index c1b3ed3..9e495d31 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -80,6 +80,10 @@ struct stmmac_mdio_bus_data {
- 	unsigned int phy_mask;
- 	int *irqs;
- 	int probed_phy_irq;
-+#ifdef CONFIG_OF
-+	int reset_gpio, active_low;
-+	u32 delays[3];
-+#endif
- };
- 
- struct stmmac_dma_cfg {
--- 
-1.7.6.5
+And the same happens with qmi_wwan.
+I understand this is related to kernel workqueue mechanism - but don't 
+understand exactly why it triggers, and if we can do something.
+thank you!
