@@ -1,60 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel panic in skb_copy_bits
-Date: Thu, 04 Jul 2013 02:34:25 -0700
-Message-ID: <1372930465.4979.82.camel@edumazet-glaptop>
-References: <51CBAA48.3080802@oracle.com>
-	 <1372311118.3301.214.camel@edumazet-glaptop> <51CD0E67.4000008@oracle.com>
-	 <6BFD5AF235F72F13CE646A0D@nimrod.local> <51D0F514.3070309@oracle.com>
-	 <1372666283.14691.8.camel@zakaz.uk.xensource.com>
-	 <51D53896.1060405@oracle.com>
-	 <1372928382.7184.16.camel@kazak.uk.xensource.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Joe Jin <joe.jin@oracle.com>, Alex Bligh <alex@alex.org.uk>,
-	Frank Blaschka <frank.blaschka@de.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	zheng.x.li@oracle.com, Xen Devel <xen-devel@lists.xen.org>,
-	Jan Beulich <JBeulich@suse.com>,
-	Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372928382.7184.16.camel@kazak.uk.xensource.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
+Subject: [PATCH v2 0/3] extend stmmac DT support
+Date: Thu,  4 Jul 2013 10:34:56 +0100
+Message-ID: <1372930496-18923-1-git-send-email-srinivas.kandagatla@st.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Rob Landley <rob@landley.net>,
+	devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Srinivas Kandagatla <srinivas.kandagatla@st.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-07-04 at 09:59 +0100, Ian Campbell wrote:
-> On Thu, 2013-07-04 at 16:55 +0800, Joe Jin wrote:
-> > 
-> > Another way is add new page flag like PG_send, when sendpage() be called,
-> > set the bit, when page be put, clear the bit. Then xen-blkback can wait
-> > on the pagequeue.
-> 
-> These schemes don't work when you have multiple simultaneous I/Os
-> referencing the same underlying page.
+From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-So this is a page property, still the patches I saw tried to address
-this problem adding networking stuff (destructors) in the skbs.
+Hi Peppe/Dave,
 
-Given that a page refcount can be transfered between entities, say using
-splice() system call, I do not really understand why the fix would imply
-networking only.
+Thankyou for the comments on v1 patches.
 
-Let's try to fix it properly, or else we must disable zero copies
-because they are not reliable.
+This patch series adds support to new gmac versions 3.6.10 and 3.710, these
+versions of IP are integrated into ST STiH415/STiH416 SOCs.
+This patchset also adds phy reset capablity to stmmac-mdio driver via DT.
 
-Why sendfile() doesn't have the problem, but vmsplice()+splice() do have
-this issue ?
+Changes since v1:
+	- Fixed unused variable warings pointed by Dave M.
 
-As soon as a page fragment reference is taken somewhere, the only way to
-properly reuse the page is to rely on put_page() and page being freed.
+Changes since RFC:
+	- re-use existing compatible strings to select right properties.
+	- clean up reset callback support so that DT is not parsed everytime.
 
-Adding workarounds in TCP stack to always copy the page fragments in
-case of a retransmit is partial solution, as the remote peer could be
-malicious and send ACK _before_ page content is actually read by the
-NIC.
+Thanks,
+srini
 
-So if we rely on networking stacks to give the signal for page reuse, we
-can have major security issue.
+Srinivas Kandagatla (3):
+  dt:net:stmmac: Allocate platform data only if its NULL.
+  dt:net:stmmac: Add support to dwmac version 3.610 and 3.710
+  dt:net:stmmac: Add dt specific phy reset callback support.
+
+ Documentation/devicetree/bindings/net/stmmac.txt   |   10 ++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |   48 +++++++++++++++++++-
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   32 ++++++++++++-
+ include/linux/stmmac.h                             |    4 ++
+ 4 files changed, 89 insertions(+), 5 deletions(-)
+
+-- 
+1.7.6.5
+
