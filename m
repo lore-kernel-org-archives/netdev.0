@@ -1,74 +1,90 @@
-From: Alex Bligh <alex@alex.org.uk>
-Subject: Re: kernel panic in skb_copy_bits
-Date: Thu, 04 Jul 2013 13:57:16 +0100
-Message-ID: <06F8DA5DD1D9E277F2AF6F1E@Ximines.local>
-References: <51CBAA48.3080802@oracle.com>	
- <1372311118.3301.214.camel@edumazet-glaptop> <51CD0E67.4000008@oracle.com>	
- <6BFD5AF235F72F13CE646A0D@nimrod.local> <51D0F514.3070309@oracle.com>	
- <1372666283.14691.8.camel@zakaz.uk.xensource.com>	
- <51D53896.1060405@oracle.com>	
- <1372928382.7184.16.camel@kazak.uk.xensource.com>	
- <1372930465.4979.82.camel@edumazet-glaptop>	
- <1372931565.7184.32.camel@kazak.uk.xensource.com>
- <1372932730.4979.96.camel@edumazet-glaptop>
-Reply-To: Alex Bligh <alex@alex.org.uk>
+From: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [PATCH V2 5/9] IB/mlx5: Mellanox Connect-IB, IB driver part 1/5
+Date: Thu, 4 Jul 2013 16:15:25 +0300
+Message-ID: <201307041615.25729.jackm@dev.mellanox.co.il>
+References: <1372871592-32033-1-git-send-email-ogerlitz@mellanox.com> <1372871592-32033-6-git-send-email-ogerlitz@mellanox.com> <1372885168.1886.17.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Joe Jin <joe.jin@oracle.com>,
-	Frank Blaschka <frank.blaschka@de.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	zheng.x.li@oracle.com, Xen Devel <xen-devel@lists.xen.org>,
-	Jan Beulich <JBeulich@suse.com>,
-	Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Alex Bligh <alex@alex.org.uk>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372932730.4979.96.camel@edumazet-glaptop>
+Cc: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org, moshel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1372885168.1886.17.camel@joe-AO722>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Wednesday 03 July 2013 23:59, Joe Perches wrote:
+> On Wed, 2013-07-03 at 20:13 +0300, Or Gerlitz wrote:
+> > From: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> > diff --git a/drivers/infiniband/hw/mlx5/ah.c b/drivers/infiniband/hw/mlx5/ah.c
+> []
+> > +struct ib_ah *create_ib_ah(struct ib_ah_attr *ah_attr,
+> > +			   struct mlx5_ib_ah *ah)
+> > +{
+> > +	u32 sgi;
+> 
+> sgi is used once here and looks more confusing than helpful
+> 
+Will fix in V3
+> 
+> []
+> 
+> > +static void *get_sw_cqe(struct mlx5_ib_cq *cq, int n)
+> > +{
+> > +	void *cqe = get_cqe(cq, n & cq->ibcq.cqe);
+> > +	struct mlx5_cqe64 *cqe64;
+> > +
+> > +	cqe64 = (cq->mcq.cqe_sz == 64) ? cqe : cqe + 64;
+> > +	return ((cqe64->op_own & MLX5_CQE_OWNER_MASK) ^
+> > +		!!(n & (cq->ibcq.cqe + 1))) ? NULL : cqe;
+> 
+> I think "foo ^ !!bar" is excessively tricky.
+> 
+The mlx4 driver already uses "!!foo ^ !!bar" in several places in the kernel (and this is old code).
+I assume that your problem with the above code is that it uses "foo" and not "!!foo".
 
+Please note, though, that this code is data-path code -- and in this specific case,  foo = !!foo
+(since MLX5_CQE_OWNER_MASK = 1). We decided, therefore, in this specific case, not to add the unnecessary
+"!!", even though at first glance it may look tricky -- performance here IMHO is more important.
 
---On 4 July 2013 03:12:10 -0700 Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > +static enum ib_wc_opcode get_umr_comp(struct mlx5_ib_wq *wq, int idx)
+> > +{
+> 
+> > +		pr_warn("unkonwn completion status\n");
+> 
+> unknown tyop
 
-> It looks like a typical COW issue to me.
->
-> If the page content is written while there is still a reference on this
-> page, we should allocate a new page and copy the previous content.
->
-> And this has little to do with networking.
+Will fix in V3
 
-I suspect this would get more attention if we could make Ian's case
-below trigger (a) outside Xen, (b) outside networking.
+> []
+> 
+> > +static int create_cq_user(struct mlx5_ib_dev *dev, struct ib_udata *udata,
+> > +			  struct ib_ucontext *context, struct mlx5_ib_cq *cq,
+> > +			  int entries, struct mlx5_create_cq_mbox_in **cqb,
+> > +			  int *cqe_size, int *index, int *inlen)
+> []
+> > +	*inlen = sizeof **cqb + sizeof *(*cqb)->pas * ncont;
+> 
+> sizeof always uses parentheses
+> 
+> > +	*cqb = vzalloc(*inlen);
+> 
+> Perhaps you may be using vzalloc too often.
+> 
+> Maybe you should have a helper allocating either
+> from kmalloc or vmalloc as necessary based on size.
+We will look into this.
 
-> 	memset(buf, 0xaa, 4096);
-> 	write(fd, buf, 4096)
-> 	memset(buf, 0x55, 4096);
-> (where fd is O_DIRECT on NFS) Can result in 0x55 being seen on the wire
-> in the TCP retransmit.
+Thanks for reviewing!
 
-We know this should fail using O_DIRECT+NFS. We've had reports suggesting
-it fails in O_DIRECT+iSCSI. However, that's been with a kernel panic
-(under Xen) rather than data corruption as per the above.
+-Jack
 
-Historical trawling suggests this is an issue with DRDB (see Ian's
-original thread from the mists of time).
-
-I don't quite understand why we aren't seeing corruption with standard
-ATA devices + O_DIRECT and no Xen involved at all.
-
-My memory is a bit misty on this but I had thought the reason why
-this would NOT be solved simply by O_DIRECT taking a reference to
-the page was that the O_DIRECT I/O completed (and thus the reference
-would be freed up) before the networking stack had actually finished
-with the page. If the O_DIRECT I/O did not complete until the
-page was actually finished with, we wouldn't see the problem in the
-first place. I may be completely off base here.
-
--- 
-Alex Bligh
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
