@@ -1,40 +1,90 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: PROBLEM: Linux 3.9 more-specific ipv6 route ignored until
- next-hop is in neighbor cache
-Date: Wed, 03 Jul 2013 17:51:53 -0700 (PDT)
-Message-ID: <20130703.175153.1664868495830722209.davem@davemloft.net>
-References: <20130703181546.GC12615@order.stressinduktion.org>
-	<51D46B9F.6050400@cogentembedded.com>
-	<20130703184504.GD12615@order.stressinduktion.org>
+From: Asias He <asias@redhat.com>
+Subject: Re: [PATCH net] virtio-net: fix the race between channels setting
+	and refill
+Date: Thu, 4 Jul 2013 08:56:44 +0800
+Message-ID: <20130704005644.GB19787@hj.localdomain>
+References: <1372853752-41889-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, petrus.lt@gmail.com,
-	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39909 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752773Ab3GDAvy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jul 2013 20:51:54 -0400
-In-Reply-To: <20130703184504.GD12615@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1372853752-41889-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Wed, 3 Jul 2013 20:45:04 +0200
-
-> On Wed, Jul 03, 2013 at 10:21:19PM +0400, Sergei Shtylyov wrote:
->>    How about:
->> 
->> 	} else if (IS_ENABLED(CONFIG_IPV6_ROUTER_PREF)) {
->> 
->> >+		ret = true;
->> >+#endif
->> >  	}
+On Wed, Jul 03, 2013 at 08:15:52PM +0800, Jason Wang wrote:
+> Commit 55257d72bd1c51f25106350f4983ec19f62ed1fa (virtio-net: fill only rx queues
+> which are being used) tries to refill on demand when changing the number of
+> channels by call try_refill_recv() directly, this may race:
 > 
-> Definitely an improvment, thanks!
+> - the refill work who may do the refill in the same time
+> - the try_refill_recv() called in bh since napi was not disabled
 > 
-> [PATCH net v2] ipv6: rt6_check_neigh should successfully verify neigh if no NUD information are available
+> Which may led guest complain during setting channels:
+> 
+> virtio_net virtio0: input.1:id 0 is not a head!
+> 
+> Solve this issue by scheduling a refill work which can guarantee the
+> serialization of refill.
+> 
+> Cc: Sasha Levin <sasha.levin@oracle.com>
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Applied and queued up for -stable, thanks everyone.
+Reviewed-by: Asias He <asias@redhat.com>
+
+> ---
+>  drivers/net/virtio_net.c |    5 +----
+>  1 files changed, 1 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index c9e0038..47b4882 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -901,7 +901,6 @@ static int virtnet_set_queues(struct virtnet_info *vi, u16 queue_pairs)
+>  	struct scatterlist sg;
+>  	struct virtio_net_ctrl_mq s;
+>  	struct net_device *dev = vi->dev;
+> -	int i;
+>  
+>  	if (!vi->has_cvq || !virtio_has_feature(vi->vdev, VIRTIO_NET_F_MQ))
+>  		return 0;
+> @@ -915,10 +914,8 @@ static int virtnet_set_queues(struct virtnet_info *vi, u16 queue_pairs)
+>  			 queue_pairs);
+>  		return -EINVAL;
+>  	} else {
+> -		for (i = vi->curr_queue_pairs; i < queue_pairs; i++)
+> -			if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
+> -				schedule_delayed_work(&vi->refill, 0);
+>  		vi->curr_queue_pairs = queue_pairs;
+> +		schedule_delayed_work(&vi->refill, 0);
+>  	}
+
+Also, this is not on the data path, it is simpler this way.
+
+>  
+>  	return 0;
+> -- 
+> 1.7.1
+> 
+> _______________________________________________
+> Virtualization mailing list
+> Virtualization@lists.linux-foundation.org
+> https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+
+-- 
+Asias
