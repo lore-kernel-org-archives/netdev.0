@@ -1,39 +1,47 @@
-From: Sam Bristow <sam.bristow@gmail.com>
-Subject: [PATCH] include: net: Add parameter desc to fix waring when generating docs
-Date: Fri,  5 Jul 2013 09:59:50 +1200
-Message-ID: <1372975190-21117-1-git-send-email-sam.bristow@gmail.com>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Sam Bristow <sam.bristow@gmail.com>
-To: Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] net: convert mvneta to build_skb()
+Date: Fri, 5 Jul 2013 00:12:12 +0200
+Message-ID: <20130704221212.GA23735@1wt.eu>
+References: <20130704173552.GA23370@1wt.eu> <20130704.143103.1546241224422474244.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, thomas.petazzoni@free-electrons.com,
+	gregory.clement@free-electrons.com, edumazet@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:59272 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932805Ab3GDWA2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 18:00:28 -0400
+Received: from 1wt.eu ([62.212.114.60]:34412 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933159Ab3GDWMS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Jul 2013 18:12:18 -0400
+Content-Disposition: inline
+In-Reply-To: <20130704.143103.1546241224422474244.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-'make htmldocs' was generating a warning about a missing parameter description
-for gfp.
+On Thu, Jul 04, 2013 at 02:31:03PM -0700, David Miller wrote:
+> From: Willy Tarreau <w@1wt.eu>
+> Date: Thu, 4 Jul 2013 19:35:52 +0200
+> 
+> > From 0180a5e651dd771de18bf2c031ecfe7bb4c88d3e Mon Sep 17 00:00:00 2001
+> > From: Willy Tarreau <w@1wt.eu>
+> > Date: Sat, 15 Jun 2013 23:25:15 +0200
+> > Subject: [PATCH] net: convert mvneta to build_skb()
+> > 
+> > We store the frag_size in the mvneta_port struct. In practice we'd need
+> > a single bit to know how to free the data, but since we need the size to
+> > call build_skb() anyway, let's store the full size.
+> > 
+> > With this patch, I observed a reproducible 2% performance improvement on
+> > HTTP-based benchmarks.
+> > 
+> > Signed-off-by: Willy Tarreau <w@1wt.eu>
+> 
+> The net-next tree is closed now that the merge window is open, therefore
+> submissions such as this are not appropriate at this time.
+> 
+> Please resubmit this when net-next opens again, an event which I will
+> clearly announce here on netdev.
 
-Earlier patch was missing my signed-off-by line...
-Signed-off-by: Sam Bristow <sam.bristow@gmail.com>
----
- include/net/cfg80211.h | 1 +
- 1 file changed, 1 insertion(+)
+OK no problem, thanks.
 
-diff --git a/include/net/cfg80211.h b/include/net/cfg80211.h
-index 26b5b69..159e070 100644
---- a/include/net/cfg80211.h
-+++ b/include/net/cfg80211.h
-@@ -4153,6 +4153,7 @@ void cfg80211_report_wowlan_wakeup(struct wireless_dev *wdev,
-  * cfg80211_crit_proto_stopped() - indicate critical protocol stopped by driver.
-  *
-  * @wdev: the wireless device for which critical protocol is stopped.
-+ * @gfp: allocation flags
-  *
-  * This function can be called by the driver to indicate it has reverted
-  * operation back to normal. One reason could be that the duration given
--- 
-1.8.3.1
+Willy
