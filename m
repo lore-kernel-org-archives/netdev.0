@@ -1,64 +1,69 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: PHC device sharing between PCI functions
-Date: Thu, 4 Jul 2013 19:19:05 +0100
-Message-ID: <1372961945.1853.9.camel@bwh-desktop.uk.level5networks.com>
-References: <1372697768.2083.21.camel@bwh-desktop.uk.level5networks.com>
-	 <20130702142420.GC14630@netboy>
-	 <1372778262.1919.12.camel@bwh-desktop.uk.level5networks.com>
-	 <20130703183035.GA4446@netboy>
-	 <1372881153.1919.49.camel@bwh-desktop.uk.level5networks.com>
-	 <20130704053605.GC4457@netboy>
-	 <1372948466.1853.1.camel@bwh-desktop.uk.level5networks.com>
-	 <20130704155339.GA15214@netboy>
-	 <1372954878.1853.6.camel@bwh-desktop.uk.level5networks.com>
-	 <20130704173925.GA4429@netboy>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers <linux-net-drivers@solarflare.com>,
-	netdev <netdev@vger.kernel.org>,
-	Laurence Evans <levans@solarflare.com>
-To: Richard Cochran <richardcochran@gmail.com>
+From: Rami Rosen <ramirose@gmail.com>
+Subject: [PATCH v2 net-next] ipmr: change the prototype of ip_mr_forward().
+Date: Fri,  5 Jul 2013 01:15:55 +0300
+Message-ID: <1372976155-2490-1-git-send-email-ramirose@gmail.com>
+Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com,
+	Rami Rosen <ramirose@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:44391 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756855Ab3GDSTK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 14:19:10 -0400
-In-Reply-To: <20130704173925.GA4429@netboy>
+Received: from mail-wg0-f51.google.com ([74.125.82.51]:40469 "EHLO
+	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752939Ab3GDTQM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 15:16:12 -0400
+Received: by mail-wg0-f51.google.com with SMTP id e11so1381929wgh.6
+        for <netdev@vger.kernel.org>; Thu, 04 Jul 2013 12:16:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-07-04 at 19:39 +0200, Richard Cochran wrote:
-> On Thu, Jul 04, 2013 at 05:21:18PM +0100, Ben Hutchings wrote:
-> > 
-> > But that is the opposite of what we're talking about.  Say the card has,
-> > 16 functions resulting in net devices eth0-eth15, each of which can
-> > access the same physical clock.  You said it's OK to have read-only
-> > aliases for a clock, so then there might be a writable /dev/ptp0 and
-> > read-only /dev/ptp1-ptp15.  What is the proper association between net
-> > devices and clock devices?
-> 
-> But the card doesn't have 16 plugs, or does it?
+This patch changes the prototpye of the ip_mr_forward() method to return void
+instead of int.
 
-No, but there can be multiple ports, and multiple functions per port.
-All sharing the same clock.
+The ip_mr_forward() method always returns 0; moreover, the retun value of this
+method is not checked anywhere.
 
-> I understood you to have meant that the card has one physical plug,
-> shared between one host and fifteen guests. Or maybe I am total
-> confused. No, I am surely confused.
-> 
-> Anyhow, if a host is multihomed, then ideally all of the interfaces
-> share one and the same clock. But, if the only purpose of the multiple
-> interfaces in the VM host is to assign them to VM guests, then I guess
-> it doesn't matter very much how they appear in the VM host.
 
-The functions that are intended to be assigned to guests will still
-appear and may have a driver bound to them in the host before they are
-assigned to guests.
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+---
+ net/ipv4/ipmr.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-Ben.
-
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 132a096..83030bf 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -127,7 +127,7 @@ static struct kmem_cache *mrt_cachep __read_mostly;
+ static struct mr_table *ipmr_new_table(struct net *net, u32 id);
+ static void ipmr_free_table(struct mr_table *mrt);
+ 
+-static int ip_mr_forward(struct net *net, struct mr_table *mrt,
++static void ip_mr_forward(struct net *net, struct mr_table *mrt,
+ 			 struct sk_buff *skb, struct mfc_cache *cache,
+ 			 int local);
+ static int ipmr_cache_report(struct mr_table *mrt,
+@@ -1795,7 +1795,7 @@ static int ipmr_find_vif(struct mr_table *mrt, struct net_device *dev)
+ 
+ /* "local" means that we should preserve one skb (for local delivery) */
+ 
+-static int ip_mr_forward(struct net *net, struct mr_table *mrt,
++static void ip_mr_forward(struct net *net, struct mr_table *mrt,
+ 			 struct sk_buff *skb, struct mfc_cache *cache,
+ 			 int local)
+ {
+@@ -1903,14 +1903,13 @@ last_forward:
+ 				ipmr_queue_xmit(net, mrt, skb2, cache, psend);
+ 		} else {
+ 			ipmr_queue_xmit(net, mrt, skb, cache, psend);
+-			return 0;
++			return;
+ 		}
+ 	}
+ 
+ dont_forward:
+ 	if (!local)
+ 		kfree_skb(skb);
+-	return 0;
+ }
+ 
+ static struct mr_table *ipmr_rt_fib_lookup(struct net *net, struct sk_buff *skb)
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.8.1.4
