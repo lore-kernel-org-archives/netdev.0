@@ -1,33 +1,54 @@
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Subject: Re: [PATCH V2 5/9] IB/mlx5: Mellanox Connect-IB, IB driver part 1/5
-Date: Thu, 4 Jul 2013 17:03:53 +0300
-Message-ID: <201307041703.54461.jackm@dev.mellanox.co.il>
-References: <1372871592-32033-1-git-send-email-ogerlitz@mellanox.com> <1372885168.1886.17.camel@joe-AO722> <201307041615.25729.jackm@dev.mellanox.co.il>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH V2 1/9] net/mlx5: Mellanox Connect-IB, core driver part
+ 1/3
+Date: Thu, 04 Jul 2013 07:17:41 -0700
+Message-ID: <1372947461.1886.28.camel@joe-AO722>
+References: <1372871592-32033-1-git-send-email-ogerlitz@mellanox.com>
+	 <1372871592-32033-2-git-send-email-ogerlitz@mellanox.com>
+	 <1372883397.1886.9.camel@joe-AO722>
+	 <201307041626.45125.jackm@dev.mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Or Gerlitz <ogerlitz@mellanox.com>, roland@kernel.org,
-	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, eli@dev.mellanox.co.il, moshel@mellanox.com,
-	Eli Cohen <eli@mellanox.com>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f169.google.com ([209.85.215.169]:41013 "EHLO
-	mail-ea0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751781Ab3GDOCM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jul 2013 10:02:12 -0400
-Received: by mail-ea0-f169.google.com with SMTP id h15so827715eak.28
-        for <netdev@vger.kernel.org>; Thu, 04 Jul 2013 07:02:10 -0700 (PDT)
-In-Reply-To: <201307041615.25729.jackm@dev.mellanox.co.il>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org, moshel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201307041626.45125.jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thursday 04 July 2013 16:15, Jack Morgenstein wrote:
-> > > +=A0=A0=A0*inlen =3D sizeof **cqb + sizeof *(*cqb)->pas * ncont;
-> >=20
-> > sizeof always uses parentheses
->=20
-I'll fix this, too.
+On Thu, 2013-07-04 at 16:26 +0300, Jack Morgenstein wrote:
+> On Wednesday 03 July 2013 23:29, Joe Perches wrote:
+> > On Wed, 2013-07-03 at 20:13 +0300, Or Gerlitz wrote:
+> > > From: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> > 
+> > trivial comments:
+> > 
+> > > diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+> > []
+> > > +static const char *deliv_status_to_str(u8 status)
+> > > +{
+> > > +	switch (status) {
+> > > +	case MLX5_CMD_DELIVERY_STAT_OK:
+> > > +		return "no errors";
+> > []
+> > > +	default:
+> > > +		return "unknown status code\n";
+> > > +	}
+> > > +}
+> > Likely unnecessary newline for default case
+> All the cases here have newlines between them, to enhance readability.
+> (not just the default). If you feel strongly about this, I'll do the change
+> for V3.
 
--Jack
+Not the vertical spacing, the newline inside the quotes.
+ie: "unknown status code\n" should be "unknown status code"
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
