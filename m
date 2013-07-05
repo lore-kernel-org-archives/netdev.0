@@ -1,99 +1,84 @@
-From: poma <pomidorabelisima@gmail.com>
-Subject: Re: [libvirt-users] libvirt & virtio_net -
-	host.freeze@reset.domain
-Date: Fri, 05 Jul 2013 13:08:43 +0200
-Message-ID: <51D6A93B.1090409@gmail.com>
-References: <51D2B8A1.9050002@gmail.com> <20130703114327.GW2778@redhat.com>
-	<51D53D0C.4050404@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: kvm-devel <kvm@vger.kernel.org>,
-	Mateusz Marzantowicz <mmarzantowicz@osdf.com.pl>,
-	Josh Boyer <jwboyer@redhat.com>, libvir-list@redhat.com,
-	netdev@vger.kernel.org, "qemu-devel@nongnu.org" <qemu-devel@nongnu.org>,
-	Adam Baker <linux@baker-net.org.uk>, libvirt-users@redhat.com,
-	Virt-tools List <virt-tools-list@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>, Cong Wang <amwang@redhat.com>
-To: "Daniel P. Berrange" <berrange@redhat.com>
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
-In-Reply-To: <51D53D0C.4050404@gmail.com>
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next] bridge: fix some kernel warning in multicast timer
+Date: Fri,  5 Jul 2013 19:36:17 +0800
+Message-ID: <1373024177-18191-1-git-send-email-amwang@redhat.com>
+Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:2956 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757225Ab3GELgw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Jul 2013 07:36:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04.07.2013 11:14, poma wrote:
-> On 03.07.2013 13:43, Daniel P. Berrange wrote:
->> On Tue, Jul 02, 2013 at 01:25:21PM +0200, poma wrote:
->>> Hello people,
->>>
->>> libvirtd (libvirt) 1.0.5.2
->>> virsh 1.0.5.2
->>> virt-manager 0.10.0
->>>
->>> Host:
->>> Linux localhost 3.9.8-300.fc19.x86_64 #1 SMP Thu Jun 27 19:24:23 UTC
->>> 2013 x86_64 x86_64 x86_64 GNU/Linux
->>> Guest1:
->>> Linux localhost 3.9.8-300.fc19.i686.PAE #1 SMP Thu Jun 27 19:29:30 UTC
->>> 2013 i686 (none)
->>> Guest2:
->>> Linux localhost 3.9.8-300.fc19.x86_64 #1 SMP Thu Jun 27 19:24:23 UTC
->>> 2013 x86_64 x86_64 x86_64 GNU/Linux
->>>
->>>
->>> Virtual NIC - source & model:
->>> macvtap/NAT/bridge & virtio(virtio_net)
->>>
->>> Host freeze at "virsh reset <domain>" or "virt-manager - Force Reset"
->>> Need kernel.sysrq or power reset.
->>
->> I don't believe this is a libvirt issue - the 'virsh reset' command
->> will issue the 'system_reset' QEMU monitor command. This in turn
->> does an immediate reset of the guest CPUs/machine.
->>
->> Even if QEMU is doing the wrong thing, the kernel should obviously
->> never freeze/crash in this way - it should be robust against a
->> malicious QEMU process.
->>
->> You should probably send this message to the main QEMU and/or KVM
->> mailing lists so that it comes to the attention of people who are
->> more familiar with QEMU + virtio-net
->>
->>
->> Regards,
->> Daniel
->>
-> 
-> Thanks for your response.
-> Mateusz hit the same issue[1] as well.
-> OK, here we go.
-> 
-> 
-> poma
-> 
-> 
-> [1] https://lists.fedoraproject.org/pipermail/users/2013-July/436984.html
+From: Cong Wang <amwang@redhat.com>
 
-OK, is this a side effect or not, but certainly kernel[1] with
-'bridge-timer-fix.patch'[2] resolves issue aforementioned, so far.
-Thanks Cong, Josh.
+Several people reported the warning: "kernel BUG at kernel/timer.c:729!"
+and the stack trace is:
 
+	#7 [ffff880214d25c10] mod_timer+501 at ffffffff8106d905
+	#8 [ffff880214d25c50] br_multicast_del_pg.isra.20+261 at ffffffffa0731d25 [bridge]
+	#9 [ffff880214d25c80] br_multicast_disable_port+88 at ffffffffa0732948 [bridge]
+	#10 [ffff880214d25cb0] br_stp_disable_port+154 at ffffffffa072bcca [bridge]
+	#11 [ffff880214d25ce8] br_device_event+520 at ffffffffa072a4e8 [bridge]
+	#12 [ffff880214d25d18] notifier_call_chain+76 at ffffffff8164aafc
+	#13 [ffff880214d25d50] raw_notifier_call_chain+22 at ffffffff810858f6
+	#14 [ffff880214d25d60] call_netdevice_notifiers+45 at ffffffff81536aad
+	#15 [ffff880214d25d80] dev_close_many+183 at ffffffff81536d17
+	#16 [ffff880214d25dc0] rollback_registered_many+168 at ffffffff81537f68
+	#17 [ffff880214d25de8] rollback_registered+49 at ffffffff81538101
+	#18 [ffff880214d25e10] unregister_netdevice_queue+72 at ffffffff815390d8
+	#19 [ffff880214d25e30] __tun_detach+272 at ffffffffa074c2f0 [tun]
+	#20 [ffff880214d25e88] tun_chr_close+45 at ffffffffa074c4bd [tun]
+	#21 [ffff880214d25ea8] __fput+225 at ffffffff8119b1f1
+	#22 [ffff880214d25ef0] ____fput+14 at ffffffff8119b3fe
+	#23 [ffff880214d25f00] task_work_run+159 at ffffffff8107cf7f
+	#24 [ffff880214d25f30] do_notify_resume+97 at ffffffff810139e1
+	#25 [ffff880214d25f50] int_signal+18 at ffffffff8164f292
 
-poma
+this is due to I forgot to check if mp->timer is armed in
+br_multicast_del_pg(). This bug is introduced by
+commit 9f00b2e7cf241fa389733d41b6 (bridge: only expire the mdb entry
+when query is received).
 
+Same for __br_mdb_del().
 
-[1] http://koji.fedoraproject.org/koji/taskinfo?taskID=5569632
-    kernel-3.9.8-300.7.fc19.x86_64.rpm
-[2] https://bugzilla.redhat.com/show_bug.cgi?id=880035#c53
+Tested-by: poma <pomidorabelisima@gmail.com>
+Reported-by: LiYonghua <809674045@qq.com>
+Reported-by: Robert Hancock <hancockrwd@gmail.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Ref.
-    "fix for unreliable guest->host multicast triggers oops"
-    https://bugzilla.redhat.com/show_bug.cgi?id=980254
+---
+diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+index 19942e3..0daae3e 100644
+--- a/net/bridge/br_mdb.c
++++ b/net/bridge/br_mdb.c
+@@ -447,7 +447,7 @@ static int __br_mdb_del(struct net_bridge *br, struct br_mdb_entry *entry)
+ 		call_rcu_bh(&p->rcu, br_multicast_free_pg);
+ 		err = 0;
+ 
+-		if (!mp->ports && !mp->mglist &&
++		if (!mp->ports && !mp->mglist && mp->timer_armed &&
+ 		    netif_running(br->dev))
+ 			mod_timer(&mp->timer, jiffies);
+ 		break;
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 81befac..69af490 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -270,7 +270,7 @@ static void br_multicast_del_pg(struct net_bridge *br,
+ 		del_timer(&p->timer);
+ 		call_rcu_bh(&p->rcu, br_multicast_free_pg);
+ 
+-		if (!mp->ports && !mp->mglist &&
++		if (!mp->ports && !mp->mglist && mp->timer_armed &&
+ 		    netif_running(br->dev))
+ 			mod_timer(&mp->timer, jiffies);
+ 
