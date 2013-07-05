@@ -1,50 +1,74 @@
-From: Robert Hancock <hancockrwd@gmail.com>
-Subject: KVM VM shutdown triggers BUG from network bridge code in 3.9.9
-Date: Thu, 04 Jul 2013 22:30:36 -0600
-Message-ID: <51D64BEC.7090208@gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: PHC device sharing between PCI functions
+Date: Fri, 5 Jul 2013 07:25:48 +0200
+Message-ID: <20130705052546.GA6422@netboy>
+References: <20130702142420.GC14630@netboy>
+ <1372778262.1919.12.camel@bwh-desktop.uk.level5networks.com>
+ <20130703183035.GA4446@netboy>
+ <1372881153.1919.49.camel@bwh-desktop.uk.level5networks.com>
+ <20130704053605.GC4457@netboy>
+ <1372948466.1853.1.camel@bwh-desktop.uk.level5networks.com>
+ <20130704155339.GA15214@netboy>
+ <1372954878.1853.6.camel@bwh-desktop.uk.level5networks.com>
+ <20130704173925.GA4429@netboy>
+ <1372961945.1853.9.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: stephen@networkplumber.org, netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-net-drivers <linux-net-drivers@solarflare.com>,
+	netdev <netdev@vger.kernel.org>,
+	Laurence Evans <levans@solarflare.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:45783 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750749Ab3GEF0A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jul 2013 01:26:00 -0400
+Received: by mail-wi0-f169.google.com with SMTP id c10so7859664wiw.0
+        for <netdev@vger.kernel.org>; Thu, 04 Jul 2013 22:25:59 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1372961945.1853.9.camel@bwh-desktop.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I've run into a problem after updating to Fedora 19 where if I shut down 
-a Windows 7 KVM virtual machine, the machine hits a kernel panic. There 
-are a few reports of this on 3.9.8 and 3.9.9 kernels here:
+On Thu, Jul 04, 2013 at 07:19:05PM +0100, Ben Hutchings wrote:
 
-https://bugzilla.redhat.com/show_bug.cgi?id=981437
+> The functions that are intended to be assigned to guests will still
+> appear and may have a driver bound to them in the host before they are
+> assigned to guests.
 
-The panic is "kernel BUG at kernel/timer.c:729!" and the stack traces 
-all seem basically the same, something like this one (captured with kdump):
+Okay, then to answer your question...
 
-  #7 [ffff880214d25c10] mod_timer+501 at ffffffff8106d905
-  #8 [ffff880214d25c50] br_multicast_del_pg.isra.20+261 at 
-ffffffffa0731d25 [bridge]
-  #9 [ffff880214d25c80] br_multicast_disable_port+88 at ffffffffa0732948 
-[bridge]
-#10 [ffff880214d25cb0] br_stp_disable_port+154 at ffffffffa072bcca [bridge]
-#11 [ffff880214d25ce8] br_device_event+520 at ffffffffa072a4e8 [bridge]
-#12 [ffff880214d25d18] notifier_call_chain+76 at ffffffff8164aafc
-#13 [ffff880214d25d50] raw_notifier_call_chain+22 at ffffffff810858f6
-#14 [ffff880214d25d60] call_netdevice_notifiers+45 at ffffffff81536aad
-#15 [ffff880214d25d80] dev_close_many+183 at ffffffff81536d17
-#16 [ffff880214d25dc0] rollback_registered_many+168 at ffffffff81537f68
-#17 [ffff880214d25de8] rollback_registered+49 at ffffffff81538101
-#18 [ffff880214d25e10] unregister_netdevice_queue+72 at ffffffff815390d8
-#19 [ffff880214d25e30] __tun_detach+272 at ffffffffa074c2f0 [tun]
-#20 [ffff880214d25e88] tun_chr_close+45 at ffffffffa074c4bd [tun]
-#21 [ffff880214d25ea8] __fput+225 at ffffffff8119b1f1
-#22 [ffff880214d25ef0] ____fput+14 at ffffffff8119b3fe
-#23 [ffff880214d25f00] task_work_run+159 at ffffffff8107cf7f
-#24 [ffff880214d25f30] do_notify_resume+97 at ffffffff810139e1
-#25 [ffff880214d25f50] int_signal+18 at ffffffff8164f292
+> On Thu, 2013-07-04 at 19:39 +0200, Richard Cochran wrote:
+> > On Thu, Jul 04, 2013 at 05:21:18PM +0100, Ben Hutchings wrote:
+> > > 
+> > > But that is the opposite of what we're talking about.  Say the card has,
+> > > 16 functions resulting in net devices eth0-eth15, each of which can
+> > > access the same physical clock.  You said it's OK to have read-only
+> > > aliases for a clock, so then there might be a writable /dev/ptp0 and
+> > > read-only /dev/ptp1-ptp15.  What is the proper association between net
+> > > devices and clock devices?
 
-It seems like the error is being triggered by the virtual network 
-interface being torn down, though I have no idea why (from all reports 
-so far) it only happens when shutting down a Windows 7 VM, or why this 
-didn't happen in Fedora 18 (something to do with older kvm/qemu/libvirt 
-perhaps..)
+I would say simply:
+
+	ethtool -T eth0  -> phc index 0  RDWR
+	ethtool -T eth1  -> phc index 1  RDONLY
+	...
+	ethtool -T eth15 -> phc index 15 RDONLY
+
+The numbering might come out differently, but it should be 1:1.
+
+The userland PTP stack will just have to be configured to make sense
+of this. For example, the host can just use eth0/ptp0 normally. For
+the guests, in ptp4l we have a "free_running" option that leaves the
+clock alone and just calculates phase and frequency offset.
+
+Local applications can use this information to synchronize to the
+remote master. (BTW this method is specified by 802.1AS). Also, you
+can discipline the system clock by measuring the sys-phc offset and
+adding the phc-master offset.
+
+If the clocks set their .max_adj to zero, then the fact that they are
+read only is discoverable.
+
+Thanks,
+Richard
