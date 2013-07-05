@@ -1,77 +1,75 @@
-From: Veaceslav Falico <darkmag@gmail.com>
-Subject: Re: [PATCH] bonding:fix speed unknown,lacp bonding failed
-Date: Fri, 5 Jul 2013 11:20:24 +0200
-Message-ID: <CAE3RKN=dy8t0W-pvq7yro643i-0AZziOw+7BQ5fc4z7JquC__Q@mail.gmail.com>
-References: <1373005979-10196-1-git-send-email-wangyufen@huawei.com>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: [PATCH] xen-netfront: pull on receive skb may need to happen
+ earlier
+Date: Fri, 05 Jul 2013 10:32:41 +0100
+Message-ID: <51D6AED902000078000E2EA9@nat28.tlf.novell.com>
+References: <8511913.uMAmUdIO30@eistomin.edss.local>
+ <20130517085923.GC14401@zion.uk.xensource.com>
+ <51D57C1F.8070909@hunenet.nl>
+ <20130704150137.GW7483@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>, lizefan@huawei.com,
-	zhangdianfang@huawei.com
-To: Wangyufen <wangyufen@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:40400 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753344Ab3GEJUp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jul 2013 05:20:45 -0400
-Received: by mail-pb0-f48.google.com with SMTP id ma3so1979204pbc.21
-        for <netdev@vger.kernel.org>; Fri, 05 Jul 2013 02:20:44 -0700 (PDT)
-In-Reply-To: <1373005979-10196-1-git-send-email-wangyufen@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: "Ian Campbell" <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	"Dion Kant" <g.w.kant@hunenet.nl>, <xen-devel@lists.xen.org>,
+	<netdev@vger.kernel.org>, <stable@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20130704150137.GW7483@zion.uk.xensource.com>
+Content-Disposition: inline
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 5, 2013 at 8:32 AM, Wangyufen <wangyufen@huawei.com> wrote:
-> From: "Wang Yufen" <wangyufen@huawei.com>
->
-> We bonded nic using LACP mode repeatedly, occasionally LACP bonding failed,
-> because a slave nic port speed was unknown. But when we used ethtool to
-> check the slave NIC status, the nic status was normal,speed was 10000Mb/s.
+Due to commit 3683243b ("xen-netfront: use __pskb_pull_tail to ensure
+linear area is big enough on RX") xennet_fill_frags() may end up
+filling MAX_SKB_FRAGS + 1 fragments in a receive skb, and only reduce
+the fragment count subsequently via __pskb_pull_tail(). That's a
+result of xennet_get_responses() allowing a maximum of one more slot to
+be consumed (and intermediately transformed into a fragment) if the
+head slot has a size less than or equal to RX_COPY_THRESHOLD.
 
-Can you give a bit more details on how did you test? And which nic was it?
+Hence we need to adjust xennet_fill_frags() to pull earlier if we
+reached the maximum fragment count - due to the described behavior of
+xennet_get_responses() this guarantees that at least the first fragment
+will get completely consumed, and hence the fragment count reduced.
 
-I've tried to reproduce it with with while :; do echo +/- >
-/sys/.../bonding/slaves; done
-but failed.
+In order to not needlessly call __pskb_pull_tail() twice, make the
+original call conditional upon the pull target not having been reached
+yet, and defer the newly added one as much as possible (an alternative
+would have been to always call the function right before the call to
+xennet_fill_frags(), but that would imply more frequent cases of
+needing to call it twice).
 
->
-> Bonding get the NIC speed from NIC drivers,just when enslave nic
-> and receive NETDEV_CHANGE event.We call bond_update_speed_duplex to
-> update speed and duplex when miimon inspect slave link is OK and slave
-> speed is unknown.
->
->
-> Signed-off-by: Wang Yufen <wangyufen@huawei.com>
-> ---
->  drivers/net/bonding/bond_main.c | 5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index f975696..d288a98 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -2301,8 +2301,11 @@ static int bond_miimon_inspect(struct bonding *bond)
->
->                 switch (slave->link) {
->                 case BOND_LINK_UP:
-> -                       if (link_state)
-> +                       if (link_state) {
-> +                               if (slave->speed == SPEED_UNKNOWN)
-> +                                       bond_update_speed_duplex(slave);
->                                 continue;
-> +                       }
->
->                         slave->link = BOND_LINK_FAIL;
->                         slave->delay = bond->params.downdelay;
-> --
-> 1.8.0
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: stable@vger.kernel.org (3.6 onwards)
 
-
-
---
-Best regards,
-Veaceslav Falico
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -831,6 +831,15 @@ static RING_IDX xennet_fill_frags(struct
+ 			RING_GET_RESPONSE(&np->rx, ++cons);
+ 		skb_frag_t *nfrag = &skb_shinfo(nskb)->frags[0];
+ 
++		if (nr_frags == MAX_SKB_FRAGS) {
++			unsigned int pull_to = NETFRONT_SKB_CB(skb)->pull_to;
++
++			BUG_ON(pull_to <= skb_headlen(skb));
++			__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
++			nr_frags = shinfo->nr_frags;
++		}
++		BUG_ON(nr_frags >= MAX_SKB_FRAGS);
++
+ 		__skb_fill_page_desc(skb, nr_frags,
+ 				     skb_frag_page(nfrag),
+ 				     rx->offset, rx->status);
+@@ -929,7 +938,8 @@ static int handle_incoming_queue(struct 
+ 	while ((skb = __skb_dequeue(rxq)) != NULL) {
+ 		int pull_to = NETFRONT_SKB_CB(skb)->pull_to;
+ 
+-		__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
++		if (pull_to > skb_headlen(skb))
++			__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
+ 
+ 		/* Ethernet work: Delayed to here as it peeks the header. */
+ 		skb->protocol = eth_type_trans(skb, dev);
