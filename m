@@ -1,40 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sfc: Fix memory leak when discarding scattered
- packets
-Date: Fri, 05 Jul 2013 01:29:58 -0700 (PDT)
-Message-ID: <20130705.012958.510964485167451748.davem@davemloft.net>
-References: <1372978126.1853.11.camel@bwh-desktop.uk.level5networks.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: KVM VM shutdown triggers BUG from network bridge code in 3.9.9
+Date: Fri, 5 Jul 2013 08:31:43 +0000 (UTC)
+Message-ID: <kr609f$aon$1@ger.gmane.org>
+References: <51D64BEC.7090208@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55295 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755062Ab3GEIaB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jul 2013 04:30:01 -0400
-In-Reply-To: <1372978126.1853.11.camel@bwh-desktop.uk.level5networks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Thu, 4 Jul 2013 23:48:46 +0100
+On Fri, 05 Jul 2013 at 04:30 GMT, Robert Hancock <hancockrwd@gmail.com> wrote:
+> I've run into a problem after updating to Fedora 19 where if I shut down 
+> a Windows 7 KVM virtual machine, the machine hits a kernel panic. There 
+> are a few reports of this on 3.9.8 and 3.9.9 kernels here:
+>
+> https://bugzilla.redhat.com/show_bug.cgi?id=981437
+>
+> The panic is "kernel BUG at kernel/timer.c:729!" and the stack traces 
+> all seem basically the same, something like this one (captured with kdump):
+>
+>   #7 [ffff880214d25c10] mod_timer+501 at ffffffff8106d905
+>   #8 [ffff880214d25c50] br_multicast_del_pg.isra.20+261 at 
+> ffffffffa0731d25 [bridge]
 
-> Commit 2768935a4660 ('sfc: reuse pages to avoid DMA mapping/unmapping
-> costs') did not fully take account of DMA scattering which was
-> introduced immediately before.  If a received packet is invalid and
-> must be discarded, we only drop a reference to the first buffer's
-> page, but we need to drop a reference for each buffer the packet
-> used.
-> 
-> I think this bug was missed partly because efx_recycle_rx_buffers()
-> was not renamed and so no longer does what its name says.  It does not
-> change the state of buffers, but only prepares the underlying pages
-> for recycling.  Rename it accordingly.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
-> This bug fix needs to go into 3.10.y as well.
+Yeah, I got some similar bug report on Fedora...
 
-Applied and queued up for -stable, thanks!
+Could you try the following patch? Thanks!
+
+----------
+
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 81befac..69af490 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -270,7 +270,7 @@ static void br_multicast_del_pg(struct net_bridge *br,
+ 		del_timer(&p->timer);
+ 		call_rcu_bh(&p->rcu, br_multicast_free_pg);
+ 
+-		if (!mp->ports && !mp->mglist &&
++		if (!mp->ports && !mp->mglist && mp->timer_armed &&
+ 		    netif_running(br->dev))
+ 			mod_timer(&mp->timer, jiffies);
+ 
