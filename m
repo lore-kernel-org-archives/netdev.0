@@ -1,84 +1,77 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next] bridge: fix some kernel warning in multicast timer
-Date: Fri,  5 Jul 2013 19:36:17 +0800
-Message-ID: <1373024177-18191-1-git-send-email-amwang@redhat.com>
-Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Thomas-Mich Richter <tmricht@linux.vnet.ibm.com>
+Subject: Re: [PATCH 2/2] iproute2 vxlan documentation update for ip command
+Date: Fri, 05 Jul 2013 14:49:10 +0200
+Message-ID: <51D6C0C6.7070600@linux.vnet.ibm.com>
+References: <1373008131-8057-1-git-send-email-tmricht@linux.vnet.ibm.com> <1373008131-8057-2-git-send-email-tmricht@linux.vnet.ibm.com> <87siztju13.fsf@nemi.mork.no>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2956 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757225Ab3GELgw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Jul 2013 07:36:52 -0400
+Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:58814 "EHLO
+	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751561Ab3GEMtR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jul 2013 08:49:17 -0400
+Received: from /spool/local
+	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <tmricht@linux.vnet.ibm.com>;
+	Fri, 5 Jul 2013 13:41:27 +0100
+Received: from b06cxnps4074.portsmouth.uk.ibm.com (d06relay11.portsmouth.uk.ibm.com [9.149.109.196])
+	by d06dlp02.portsmouth.uk.ibm.com (Postfix) with ESMTP id A1F1B2190023
+	for <netdev@vger.kernel.org>; Fri,  5 Jul 2013 13:52:58 +0100 (BST)
+Received: from d06av07.portsmouth.uk.ibm.com (d06av07.portsmouth.uk.ibm.com [9.149.37.248])
+	by b06cxnps4074.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r65Cn0Ja48889976
+	for <netdev@vger.kernel.org>; Fri, 5 Jul 2013 12:49:00 GMT
+Received: from d06av07.portsmouth.uk.ibm.com (localhost [127.0.0.1])
+	by d06av07.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id r65CnB6w018300
+	for <netdev@vger.kernel.org>; Fri, 5 Jul 2013 08:49:11 -0400
+In-Reply-To: <87siztju13.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+On 07/05/2013 10:22 AM, Bj=C3=B8rn Mork wrote:
+> Thomas Richter <tmricht@linux.vnet.ibm.com> writes:
+>=20
+>> The ip link command line help and the ip-link.8.in
+>> man page are outdated in regards to the vxlan support.
+>> The patch updates both the command line help for the
+>> ip command and its man page.
+>>
+>> Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
+>> ---
+>>  ip/iplink.c           |  2 +-
+>>  man/man8/ip-link.8.in | 85 ++++++++++++++++++++++++++++++++++++++++=
++++++++++++
+>>  2 files changed, 86 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/ip/iplink.c b/ip/iplink.c
+>> index dc98019..f677329 100644
+>> --- a/ip/iplink.c
+>> +++ b/ip/iplink.c
+>> @@ -83,7 +83,7 @@ void iplink_usage(void)
+>> =20
+>>  	if (iplink_have_newlink()) {
+>>  		fprintf(stderr, "\n");
+>> -		fprintf(stderr, "TYPE :=3D { vlan | veth | vcan | dummy | ifb | m=
+acvlan | can |\n");
+>> +		fprintf(stderr, "TYPE :=3D { vlan | vxlan | veth | vcan | dummy |=
+ ifb | macvlan | can |\n");
+>>  		fprintf(stderr, "          bridge | ipoib | ip6tnl | ipip | sit |=
+ vxlan }\n");
+>=20
+> There was already a vxlan entry there.  Now there's two.
+>=20
+>=20
+> Bj=C3=B8rn
+>=20
 
-Several people reported the warning: "kernel BUG at kernel/timer.c:729!"
-and the stack trace is:
+Thanks oversight on my side.
 
-	#7 [ffff880214d25c10] mod_timer+501 at ffffffff8106d905
-	#8 [ffff880214d25c50] br_multicast_del_pg.isra.20+261 at ffffffffa0731d25 [bridge]
-	#9 [ffff880214d25c80] br_multicast_disable_port+88 at ffffffffa0732948 [bridge]
-	#10 [ffff880214d25cb0] br_stp_disable_port+154 at ffffffffa072bcca [bridge]
-	#11 [ffff880214d25ce8] br_device_event+520 at ffffffffa072a4e8 [bridge]
-	#12 [ffff880214d25d18] notifier_call_chain+76 at ffffffff8164aafc
-	#13 [ffff880214d25d50] raw_notifier_call_chain+22 at ffffffff810858f6
-	#14 [ffff880214d25d60] call_netdevice_notifiers+45 at ffffffff81536aad
-	#15 [ffff880214d25d80] dev_close_many+183 at ffffffff81536d17
-	#16 [ffff880214d25dc0] rollback_registered_many+168 at ffffffff81537f68
-	#17 [ffff880214d25de8] rollback_registered+49 at ffffffff81538101
-	#18 [ffff880214d25e10] unregister_netdevice_queue+72 at ffffffff815390d8
-	#19 [ffff880214d25e30] __tun_detach+272 at ffffffffa074c2f0 [tun]
-	#20 [ffff880214d25e88] tun_chr_close+45 at ffffffffa074c4bd [tun]
-	#21 [ffff880214d25ea8] __fput+225 at ffffffff8119b1f1
-	#22 [ffff880214d25ef0] ____fput+14 at ffffffff8119b3fe
-	#23 [ffff880214d25f00] task_work_run+159 at ffffffff8107cf7f
-	#24 [ffff880214d25f30] do_notify_resume+97 at ffffffff810139e1
-	#25 [ffff880214d25f50] int_signal+18 at ffffffff8164f292
-
-this is due to I forgot to check if mp->timer is armed in
-br_multicast_del_pg(). This bug is introduced by
-commit 9f00b2e7cf241fa389733d41b6 (bridge: only expire the mdb entry
-when query is received).
-
-Same for __br_mdb_del().
-
-Tested-by: poma <pomidorabelisima@gmail.com>
-Reported-by: LiYonghua <809674045@qq.com>
-Reported-by: Robert Hancock <hancockrwd@gmail.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
-
----
-diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
-index 19942e3..0daae3e 100644
---- a/net/bridge/br_mdb.c
-+++ b/net/bridge/br_mdb.c
-@@ -447,7 +447,7 @@ static int __br_mdb_del(struct net_bridge *br, struct br_mdb_entry *entry)
- 		call_rcu_bh(&p->rcu, br_multicast_free_pg);
- 		err = 0;
- 
--		if (!mp->ports && !mp->mglist &&
-+		if (!mp->ports && !mp->mglist && mp->timer_armed &&
- 		    netif_running(br->dev))
- 			mod_timer(&mp->timer, jiffies);
- 		break;
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 81befac..69af490 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -270,7 +270,7 @@ static void br_multicast_del_pg(struct net_bridge *br,
- 		del_timer(&p->timer);
- 		call_rcu_bh(&p->rcu, br_multicast_free_pg);
- 
--		if (!mp->ports && !mp->mglist &&
-+		if (!mp->ports && !mp->mglist && mp->timer_armed &&
- 		    netif_running(br->dev))
- 			mod_timer(&mp->timer, jiffies);
- 
+--=20
+Thomas Richter, Dept 3250, IBM LTC Boeblingen, Data Center Networking
+--
+Vorsitzende des Aufsichtsrats: Martina Koederitz=20
+Gesch=C3=A4ftsf=C3=BChrung: Dirk Wittkopp
+Sitz der Gesellschaft: B=C3=B6blingen / Registergericht: Amtsgericht St=
+uttgart, HRB 243294
