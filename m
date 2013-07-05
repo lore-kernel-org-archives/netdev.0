@@ -1,63 +1,108 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH] core/dev: set pkt_type after eth_type_trans() in dev_forward_skb()
-Date: Fri, 05 Jul 2013 09:48:01 +0200
-Message-ID: <51D67A31.1020601@6wind.com>
-References: <0324dc4a3a7740e4766e16539f4ed41b356f991d.1372764542.git.yamahata@valinux.co.jp> <20130702.160005.59343488202291094.davem@davemloft.net> <51D43B00.9030801@6wind.com> <20130704.145712.2078075601927798473.davem@davemloft.net>
-Reply-To: nicolas.dichtel@6wind.com
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH] net: convert mvneta to build_skb()
+Date: Fri, 5 Jul 2013 09:50:38 +0200
+Message-ID: <20130705095038.018de378@skate>
+References: <20130704173552.GA23370@1wt.eu>
+	<20130705091752.675874b5@skate>
+	<20130705074330.GB25188@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: yamahata@valinux.co.jp, netdev@vger.kernel.org,
-	murphy.mccauley@gmail.com, jasowang@redhat.com, mst@redhat.com,
-	edumazet@google.com, kaber@trash.net, honkiko@gmail.com,
-	ramirose@gmail.com, tparkin@katalix.com, xiyou.wangcong@gmail.com,
-	pshelar@nicira.com, jesse@nicira.com, dev@openvswitch.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:52078 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757067Ab3GEHsG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jul 2013 03:48:06 -0400
-Received: by mail-wi0-f175.google.com with SMTP id m6so6926081wiv.14
-        for <netdev@vger.kernel.org>; Fri, 05 Jul 2013 00:48:04 -0700 (PDT)
-In-Reply-To: <20130704.145712.2078075601927798473.davem@davemloft.net>
+Received: from mail.free-electrons.com ([94.23.35.102]:49060 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757099Ab3GEHuo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jul 2013 03:50:44 -0400
+In-Reply-To: <20130705074330.GB25188@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 04/07/2013 23:57, David Miller a =E9crit :
-> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Date: Wed, 03 Jul 2013 16:53:52 +0200
->
->> Le 03/07/2013 01:00, David Miller a =E9crit :
->>> From: Isaku Yamahata <yamahata@valinux.co.jp>
->>> Date: Tue,  2 Jul 2013 20:30:10 +0900
->>>
->>>> The dev_forward_skb() assignment of pkt_type should be done
->>>> after the call to eth_type_trans().
->>>>
->>>> ip-encapsulated packets can be handled by localhost. But skb->pkt_=
-type
->>>> can be PACKET_OTHERHOST when packet comes via veth into ip tunnel
->>>> device.
->>>> In that case, the packet is dropped by ip_rcv().
->>>> Although this example uses gretap. l2tp-eth also has same issue.
->>>> For l2tp-eth case, add dummy device for ip address and ip l2tp
->>>> command.
->>>    ...
->>>> Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
->>>
->>> Applied, but I had to adjust the patch because in net-next we use
->>> a new helper function (skb_scrub_packet()) to clear things out from
->>> dev_forward_skb().
->> What about calling skb_scrub_packet() after eth_type_trans()?
->>
->> I wonder if the same problem may happen the day gre will support
->> x-netns,
->> because skb_scrub_packet() is also called before eth_type_trans() in
->> ip_tunnel_rcv().
->
-> That's a fine suggestion, I was just being overly conservative in my
-> forward-porting of his patch.
->
-Ok, I will wait that net-next opens to submit this patch.
+Dear Willy Tarreau,
+
+On Fri, 5 Jul 2013 09:43:30 +0200, Willy Tarreau wrote:
+
+> > Thanks Willy. Sorry for asking such a stupid question, but I'm not very
+> > familiar with how this mechanism works. Can you explain why a single
+> > 'frag_size' field per port is sufficient? My concern is that this
+> > frag_size seems to be a per-packet information, but we have potentially
+> > multiple packets being received, and multiple RX queues. Is one single
+> > 'frag_size' per network interface sufficient?
+> 
+> I had the exact same question when Eric sent me an experimental patch to
+> do this on mv64xxx_eth a few months ago. Then I checked how the frag_size
+> is computed. As you can see below, it does not depend on a per-packet size
+> but on a per-port size which is in fact the MTU ("pkt_size" is the misleading
+> part here) :
+> 
+>       skb_size = SKB_DATA_ALIGN(pp->pkt_size + MVNETA_MH_SIZE + NET_SKB_PAD) +
+>                  SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+> 
+> So if skb_size depends solely on pp (struct mvneta_port), then it makes
+> sense to have frag_size stored at the same place.
+> 
+> In practice we don't really need to store the frag_size in the struct, we
+> just need to know if the data were allocated using netdev_alloc_frag()
+> or kmalloc() to know how to free them. So a single bit would be enough,
+> and I thought about just doing a +1 on the pointer when we need to free
+> using kmalloc(). But that would add unneeded extra work in the fast path
+> to fix the pointers. And since we need to pass frag_size to build_skb()
+> it was a reasonable solution in my opinion.
+
+Aah, okay makes sense. So now, the question that comes up is why this
+skb_size calculation is done in every call of mvneta_rx_refill() ? It
+should be computed once, at the same time pkt_size is calculated, and
+stored in the mvneta_port structure? Then you just need to test whether
+it is smaller or larger than PAGE_SIZE to decide whether to use
+netdev_alloc_frag() vs. kmalloc().
+
+I.e, I would turn all the:
+
+	if (pp->frag_size)
+		...
+	else
+		...
+
+into:
+
+	if (pp->skb_size <= PAGE_SIZE)
+		...
+	else
+		...
+
+Of course, you can always hide this test behind a small macro or inline
+function, to make it something like:
+
+	if (mvneta_uses_small_skbs(pp))
+		...
+	else
+		...
+
+A better name than mvneta_uses_small_skbs() would of course be useful.
+
+> > For example, in mvneta_rx_refill(), you store the skb_size in
+> > pp->frag_size, and then you later re-use it in mvneta_rxq_drop_pkts.
+> > What guarantees you that mvneta_rx_refill() hasn't be called in the
+> > mean time for a different packet, in a different rxq, for the same
+> > network interface, and the value of pp->frag_size has been overridden?
+> 
+> It's not a problem since the refill() applies pp->pkt_size which doesn't
+> change between calls. It's only changed in mvneta_change_mtu() which
+> first stops the device. So I think it's safe.
+
+Yeah, sure, now that I see that pp->frag_size is constant for a given
+MTU configuration, it looks safe. But I find the current code that
+retests and reassigns pp->frag_size at every call of rxq_refill() to be
+very confusing.
+
+Thanks!
+
+Thomas
+-- 
+Thomas Petazzoni, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
