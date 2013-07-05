@@ -1,77 +1,50 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: tuntap regression in v3.9.8 and v3.10
-Date: Fri, 05 Jul 2013 11:43:30 +0800
-Message-ID: <51D640E2.1010809@redhat.com>
-References: <20130702195910.GA20271@toau.bambla> <CAOMZO5B7Yx7tRy8Q5wi6ngcD0FDJzKXHOEGPXyUo52+f3oUHEg@mail.gmail.com> <20130702220651.GA23097@toau.bambla> <51D39010.5090902@redhat.com> <20130703061104.GA22847@toau.bambla>
+From: Robert Hancock <hancockrwd@gmail.com>
+Subject: KVM VM shutdown triggers BUG from network bridge code in 3.9.9
+Date: Thu, 04 Jul 2013 22:30:36 -0600
+Message-ID: <51D64BEC.7090208@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Fabio Estevam <festevam@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Thomas Zeitlhofer <thomas.zeitlhofer@nt.tuwien.ac.at>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28119 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932081Ab3GEDnt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Jul 2013 23:43:49 -0400
-In-Reply-To: <20130703061104.GA22847@toau.bambla>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: stephen@networkplumber.org, netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/03/2013 02:11 PM, Thomas Zeitlhofer wrote:
-> Hello Jason,
->
-> On Wed, Jul 03, 2013 at 10:44:32AM +0800, Jason Wang wrote:
->> On 07/03/2013 06:06 AM, Thomas Zeitlhofer wrote:
->>> On Tue, Jul 02, 2013 at 06:01:12PM -0300, Fabio Estevam wrote:
->>>> On Tue, Jul 2, 2013 at 4:59 PM, Thomas Zeitlhofer
->>>> <thomas.zeitlhofer@nt.tuwien.ac.at> wrote:
->>>>> Commit "tuntap: set SOCK_ZEROCOPY flag during open" introduces a
->>>>> regression which is observed with live migration of qemu/kvm based
->>>>> virtual machines that are connected to an openvswitch bridge.
->>>>>
->>>>> Reverting this commit (b26c93c46a3dec25ed236d4ba6107eb4ed5d9401 in
->>>>> v3.9.8 and accordingly 19a6afb23e5d323e1245baa4e62755492b2f1200 in
->>>>> v3.10) fixes the following problem:
->>>> Should the sock_set_flag stay in tun_set_iff as it was prior to 54f968d6efd?
->>>>
->>>> --- a/drivers/net/tun.c
->>>> +++ b/drivers/net/tun.c
->>>> @@ -1652,6 +1652,7 @@ static int tun_set_iff(struct net *net, struct
->>>> file *file, struct ifreq *ifr)
->>>>                 tun->txflt.count = 0;
->>>>                 tun->vnet_hdr_sz = sizeof(struct virtio_net_hdr);
->>>>
->>>> +               sock_set_flag(&tfile->sk, SOCK_ZEROCOPY);
->>>>                 tun->filter_attached = false;
->>>>                 tun->sndbuf = tfile->socket.sk->sk_sndbuf;
->>>>
->>>> @@ -2159,8 +2160,6 @@ static int tun_chr_open(struct inode *inode,
->>>> struct file * file)
->>>>         set_bit(SOCK_EXTERNALLY_ALLOCATED, &tfile->socket.flags);
->>>>         INIT_LIST_HEAD(&tfile->next);
->>>>
->>>> -       sock_set_flag(&tfile->sk, SOCK_ZEROCOPY);
->>>> -
->>>>         return 0;
->>>>  }
->>> I guess no, as this also leads to a kernel panic (tested against v3.10).
->> Yes, commit "tuntap: set SOCK_ZEROCOPY flag during open" just re-enable
->> the zerocopy capability of tuntap. I believe it just uncover other
->> zerocopy bugs.
->>
->> Which regression did you see?
-> a kernel panic on the host machine. The details are in the first message
-> of this thread: http://lkml.org/lkml/2013/7/2/499
+I've run into a problem after updating to Fedora 19 where if I shut down 
+a Windows 7 KVM virtual machine, the machine hits a kernel panic. There 
+are a few reports of this on 3.9.8 and 3.9.9 kernels here:
 
-Could you please have a try with the patch in
-https://lkml.org/lkml/2013/6/25/304.
+https://bugzilla.redhat.com/show_bug.cgi?id=981437
 
-Michael, please resubmit a patch which can applies cleanly.
+The panic is "kernel BUG at kernel/timer.c:729!" and the stack traces 
+all seem basically the same, something like this one (captured with kdump):
 
-Thanks
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+  #7 [ffff880214d25c10] mod_timer+501 at ffffffff8106d905
+  #8 [ffff880214d25c50] br_multicast_del_pg.isra.20+261 at 
+ffffffffa0731d25 [bridge]
+  #9 [ffff880214d25c80] br_multicast_disable_port+88 at ffffffffa0732948 
+[bridge]
+#10 [ffff880214d25cb0] br_stp_disable_port+154 at ffffffffa072bcca [bridge]
+#11 [ffff880214d25ce8] br_device_event+520 at ffffffffa072a4e8 [bridge]
+#12 [ffff880214d25d18] notifier_call_chain+76 at ffffffff8164aafc
+#13 [ffff880214d25d50] raw_notifier_call_chain+22 at ffffffff810858f6
+#14 [ffff880214d25d60] call_netdevice_notifiers+45 at ffffffff81536aad
+#15 [ffff880214d25d80] dev_close_many+183 at ffffffff81536d17
+#16 [ffff880214d25dc0] rollback_registered_many+168 at ffffffff81537f68
+#17 [ffff880214d25de8] rollback_registered+49 at ffffffff81538101
+#18 [ffff880214d25e10] unregister_netdevice_queue+72 at ffffffff815390d8
+#19 [ffff880214d25e30] __tun_detach+272 at ffffffffa074c2f0 [tun]
+#20 [ffff880214d25e88] tun_chr_close+45 at ffffffffa074c4bd [tun]
+#21 [ffff880214d25ea8] __fput+225 at ffffffff8119b1f1
+#22 [ffff880214d25ef0] ____fput+14 at ffffffff8119b3fe
+#23 [ffff880214d25f00] task_work_run+159 at ffffffff8107cf7f
+#24 [ffff880214d25f30] do_notify_resume+97 at ffffffff810139e1
+#25 [ffff880214d25f50] int_signal+18 at ffffffff8164f292
+
+It seems like the error is being triggered by the virtual network 
+interface being torn down, though I have no idea why (from all reports 
+so far) it only happens when shutting down a Windows 7 VM, or why this 
+didn't happen in Fedora 18 (something to do with older kvm/qemu/libvirt 
+perhaps..)
