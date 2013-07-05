@@ -1,47 +1,46 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: KVM VM shutdown triggers BUG from network bridge code in 3.9.9
-Date: Fri, 5 Jul 2013 08:31:43 +0000 (UTC)
-Message-ID: <kr609f$aon$1@ger.gmane.org>
-References: <51D64BEC.7090208@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bonding:fix speed unknown,lacp bonding failed
+Date: Fri, 05 Jul 2013 01:40:42 -0700 (PDT)
+Message-ID: <20130705.014042.1794673817887092292.davem@davemloft.net>
+References: <1373005979-10196-1-git-send-email-wangyufen@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, lizefan@huawei.com,
+	zhangdianfang@huawei.com
+To: wangyufen@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55354 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757119Ab3GEIkn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jul 2013 04:40:43 -0400
+In-Reply-To: <1373005979-10196-1-git-send-email-wangyufen@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 05 Jul 2013 at 04:30 GMT, Robert Hancock <hancockrwd@gmail.com> wrote:
-> I've run into a problem after updating to Fedora 19 where if I shut down 
-> a Windows 7 KVM virtual machine, the machine hits a kernel panic. There 
-> are a few reports of this on 3.9.8 and 3.9.9 kernels here:
->
-> https://bugzilla.redhat.com/show_bug.cgi?id=981437
->
-> The panic is "kernel BUG at kernel/timer.c:729!" and the stack traces 
-> all seem basically the same, something like this one (captured with kdump):
->
->   #7 [ffff880214d25c10] mod_timer+501 at ffffffff8106d905
->   #8 [ffff880214d25c50] br_multicast_del_pg.isra.20+261 at 
-> ffffffffa0731d25 [bridge]
+From: Wangyufen <wangyufen@huawei.com>
+Date: Fri, 5 Jul 2013 14:32:59 +0800
 
-Yeah, I got some similar bug report on Fedora...
+> @@ -2301,8 +2301,11 @@ static int bond_miimon_inspect(struct bonding *bond)
 
-Could you try the following patch? Thanks!
+>  		switch (slave->link) {
+>  		case BOND_LINK_UP:
+> -			if (link_state)
+> +			if (link_state) {
+> +				if (slave->speed == SPEED_UNKNOWN)
+> +					bond_update_speed_duplex(slave);
+>  				continue;
 
-----------
+bond_miimon_inspect() does not hold the RTNL mutex, and it is required
+that the RTNL mutex is held when bond_update_speed_duplex() is called.
 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 81befac..69af490 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -270,7 +270,7 @@ static void br_multicast_del_pg(struct net_bridge *br,
- 		del_timer(&p->timer);
- 		call_rcu_bh(&p->rcu, br_multicast_free_pg);
- 
--		if (!mp->ports && !mp->mglist &&
-+		if (!mp->ports && !mp->mglist && mp->timer_armed &&
- 		    netif_running(br->dev))
- 			mod_timer(&mp->timer, jiffies);
- 
+If you ran this new code, you should be hitting the assertion at the
+beginning of __ethtool_get_settings() which reads:
+
+	ASSERT_RTNL();
+
+In fact, if you look at bond_miimon_inspect()'s caller it goes:
+
+		if (!rtnl_trylock()) {
+
+right after calling bond_miimon_inspect().
