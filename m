@@ -1,75 +1,54 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: [PATCH] xen-netfront: pull on receive skb may need to happen
- earlier
-Date: Fri, 05 Jul 2013 10:32:41 +0100
-Message-ID: <51D6AED902000078000E2EA9@nat28.tlf.novell.com>
-References: <8511913.uMAmUdIO30@eistomin.edss.local>
- <20130517085923.GC14401@zion.uk.xensource.com>
- <51D57C1F.8070909@hunenet.nl>
- <20130704150137.GW7483@zion.uk.xensource.com>
+From: wangyufen <wangyufen@huawei.com>
+Subject: Re: [PATCH] bonding:fix speed unknown,lacp bonding failed
+Date: Fri, 5 Jul 2013 18:10:30 +0800
+Message-ID: <51D69B96.60002@huawei.com>
+References: <1373005979-10196-1-git-send-email-wangyufen@huawei.com> <20130705.014042.1794673817887092292.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: "Ian Campbell" <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	"Dion Kant" <g.w.kant@hunenet.nl>, <xen-devel@lists.xen.org>,
-	<netdev@vger.kernel.org>, <stable@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20130704150137.GW7483@zion.uk.xensource.com>
-Content-Disposition: inline
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <lizefan@huawei.com>,
+	<zhangdianfang@huawei.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:40731 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756058Ab3GEKLH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jul 2013 06:11:07 -0400
+In-Reply-To: <20130705.014042.1794673817887092292.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Due to commit 3683243b ("xen-netfront: use __pskb_pull_tail to ensure
-linear area is big enough on RX") xennet_fill_frags() may end up
-filling MAX_SKB_FRAGS + 1 fragments in a receive skb, and only reduce
-the fragment count subsequently via __pskb_pull_tail(). That's a
-result of xennet_get_responses() allowing a maximum of one more slot to
-be consumed (and intermediately transformed into a fragment) if the
-head slot has a size less than or equal to RX_COPY_THRESHOLD.
-
-Hence we need to adjust xennet_fill_frags() to pull earlier if we
-reached the maximum fragment count - due to the described behavior of
-xennet_get_responses() this guarantees that at least the first fragment
-will get completely consumed, and hence the fragment count reduced.
-
-In order to not needlessly call __pskb_pull_tail() twice, make the
-original call conditional upon the pull target not having been reached
-yet, and defer the newly added one as much as possible (an alternative
-would have been to always call the function right before the call to
-xennet_fill_frags(), but that would imply more frequent cases of
-needing to call it twice).
-
-Signed-off-by: Jan Beulich <jbeulich@suse.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: stable@vger.kernel.org (3.6 onwards)
-
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -831,6 +831,15 @@ static RING_IDX xennet_fill_frags(struct
- 			RING_GET_RESPONSE(&np->rx, ++cons);
- 		skb_frag_t *nfrag = &skb_shinfo(nskb)->frags[0];
- 
-+		if (nr_frags == MAX_SKB_FRAGS) {
-+			unsigned int pull_to = NETFRONT_SKB_CB(skb)->pull_to;
-+
-+			BUG_ON(pull_to <= skb_headlen(skb));
-+			__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
-+			nr_frags = shinfo->nr_frags;
-+		}
-+		BUG_ON(nr_frags >= MAX_SKB_FRAGS);
-+
- 		__skb_fill_page_desc(skb, nr_frags,
- 				     skb_frag_page(nfrag),
- 				     rx->offset, rx->status);
-@@ -929,7 +938,8 @@ static int handle_incoming_queue(struct 
- 	while ((skb = __skb_dequeue(rxq)) != NULL) {
- 		int pull_to = NETFRONT_SKB_CB(skb)->pull_to;
- 
--		__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
-+		if (pull_to > skb_headlen(skb))
-+			__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
- 
- 		/* Ethernet work: Delayed to here as it peeks the header. */
- 		skb->protocol = eth_type_trans(skb, dev);
+On 2013/7/5 16:40, David Miller wrote:
+> From: Wangyufen <wangyufen@huawei.com>
+> Date: Fri, 5 Jul 2013 14:32:59 +0800
+> 
+>> @@ -2301,8 +2301,11 @@ static int bond_miimon_inspect(struct bonding *bond)
+> 
+>>  		switch (slave->link) {
+>>  		case BOND_LINK_UP:
+>> -			if (link_state)
+>> +			if (link_state) {
+>> +				if (slave->speed == SPEED_UNKNOWN)
+>> +					bond_update_speed_duplex(slave);
+>>  				continue;
+> 
+> bond_miimon_inspect() does not hold the RTNL mutex, and it is required
+> that the RTNL mutex is held when bond_update_speed_duplex() is called.
+> 
+> If you ran this new code, you should be hitting the assertion at the
+> beginning of __ethtool_get_settings() which reads:
+> 
+> 	ASSERT_RTNL();
+> 
+> In fact, if you look at bond_miimon_inspect()'s caller it goes:
+> 
+> 		if (!rtnl_trylock()) {
+> 
+> right after calling bond_miimon_inspect().
+OK,thanks.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
