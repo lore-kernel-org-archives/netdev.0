@@ -1,56 +1,63 @@
-From: Jonas Gorski <jogo@openwrt.org>
-Subject: Re: Second ethernet on kirkwood does not work when probed through
- DT
-Date: Sun, 7 Jul 2013 13:48:53 +0200
-Message-ID: <20130707134853.00003b9d@unknown>
-References: <20130706215426.6e666d6af0dc6c9ea5fe32cd@openwrt.org>
-	<51D88A8E.1060104@gmail.com>
-	<20130706233912.00004044@unknown>
-	<51D94884.4000204@gmail.com>
-	<20130707132607.00007188@unknown>
-	<51D952D3.8070401@gmail.com>
+From: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [PATCH for-next 0/8] Add Mellanox mlx5 driver for Connect-IB devices
+Date: Sun, 7 Jul 2013 15:08:10 +0300
+Message-ID: <201307071508.10740.jackm@dev.mellanox.co.il>
+References: <1371384149-24558-1-git-send-email-eli@dev.mellanox.co.il> <51D45449.5010604@mellanox.com> <CAL1RGDU0JiGPFEAu87JbxxbHWbgZVsRz1qbz4BvqbCJU9RtRAA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org,
-	Florian Fainelli <florian@openwrt.org>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Jason Cooper <jason@lakedaemon.net>
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51D952D3.8070401@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAL1RGDU0JiGPFEAu87JbxxbHWbgZVsRz1qbz4BvqbCJU9RtRAA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 07 Jul 2013 13:36:51 +0200
-Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com> wrote:
+On Wednesday 03 July 2013 22:26, Roland Dreier wrote:
+> Look at the actual timer code. =A0del_timer_sync() won't work if
+> something unrelated re-adds the timer, but it will work if the timer
+> itself is what re-adds itself.
+>=20
+> Documentation/DocBook/kernel-locking.tmpl says:
+>=20
+> =A0 =A0 =A0 Another common problem is deleting timers which restart
+> =A0 =A0 =A0 themselves (by calling <function>add_timer()</function> a=
+t the end
+> =A0 =A0 =A0 of their timer function). =A0Because this is a fairly com=
+mon case
+> =A0 =A0 =A0 which is prone to races, you should use
+> <function>del_timer_sync()</function>
+> =A0 =A0 =A0 (<filename class=3D"headerfile">include/linux/timer.h</fi=
+lename>)
+> =A0 =A0 =A0 to handle this case. =A0It returns the number of times th=
+e timer
+> =A0 =A0 =A0 had to be deleted before we finally stopped it from addin=
+g itself back
+> =A0 =A0 =A0 in.
+>=20
+> which pretty clearly says that del_timer_sync() will work in this cas=
+e.
+>=20
+> Or look at the code using it in arch/sparc/kernel/led.c for example
+> (just one of the first hits in my grep, there are many other
+> examples).
+>=20
+> Not a big deal but I'm pretty sure the flag isn't needed.
 
-> On 07/07/2013 01:26 PM, Jonas Gorski wrote:
-> > On Sun, 07 Jul 2013 12:52:52 +0200
-> > Sebastian Hesselbarth<sebastian.hesselbarth@gmail.com>  wrote:
-> >> Anyway, can you please try to have both ports reg properties set
-> >> to<0>, with nodes named ethernet0-port@0 and ethernet1-port@0,
-> >> and the platform_device_alloc in mv643xx_eth modified?
-> >
-> > In addition I added a static counter for the allocated devs (to not
-> > overwrite the pointers in port_platdev[]).
-> 
-> Ok, but that is not required to make it work, is it? IMHO we should
-> honor what is passed by reg property, even it will be always zero
-> for KW and the other Orion SoCs. Otherwise, we would implicitly put
-> the numbering in the order of port nodes.
+Thanks for the feedback, Roland!
 
-No, picking the next free "slot" should work, too - it was just the
-easiest to fix the name for the alloc to what seems to be expected by
-other parts.
+You are correct, and I removed the "active" flag in V3 of the patch set=
+ (to be submitted shortly).
 
-> > That seems to work, as now eth1 comes up and works (successfully got a
-> > IP through DHCP).
-> 
-> Ok, great. Will prepare a fix for mv643xx_eth on top of net-next. And
-> an update of the kirkwood conversion patches.
-
-
-Thanks,
-Jonas
+-Jack
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
