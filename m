@@ -1,41 +1,44 @@
-From: Mitar <mmitar@gmail.com>
-Subject: [ANN] Tunneldigger, the new VPN solution
-Date: Sat, 6 Jul 2013 16:06:04 -0700
-Message-ID: <CAKLmikNRgYhOwS5GHYxphXuhPKoba7Td-cCGCpCp_KmEGK9uYg@mail.gmail.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: qlcnic binary sysfs file abuse
+Date: Sat, 6 Jul 2013 17:29:49 -0700
+Message-ID: <20130707002949.GA15822@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>, linux-driver@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f176.google.com ([209.85.216.176]:59240 "EHLO
-	mail-qc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750865Ab3GFXGG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Jul 2013 19:06:06 -0400
-Received: by mail-qc0-f176.google.com with SMTP id z10so1707526qcx.21
-        for <netdev@vger.kernel.org>; Sat, 06 Jul 2013 16:06:04 -0700 (PDT)
+Received: from mail.linuxfoundation.org ([140.211.169.12]:35662 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750749Ab3GGA2y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Jul 2013 20:28:54 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+Hi all,
 
-I noticed that people on this list might be interested in the
-following open source broker for L2TPv3 tunnels for Linux:
+I was doing a kernel-wide audit on all of the binary sysfs files, and
+noticed a metric ton of them in the qlcnic driver.
 
-https://wlan-si.net/blog/2012/10/29/tunneldigger-the-new-vpn-solution/
-https://github.com/wlanslovenija/tunneldigger
+The rules about binary sysfs files are that they can not be touched by
+the kernel at all, they are "pass-through" directly to the hardware, and
+it seems that this driver is not doing that properly.
 
-We developed it to make easy to maintain a large number of L2TPv3
-tunnels. It is used in our community wireless network where WiFi nodes
-also create tunnels to central servers for additional redundancy. So
-the idea is that client side has to run on very limited embedded
-devices (OpenWrt) while server side can use normal Linux server.
-Additionally, it has to work over NATs and other things in between. It
-supports also bandwidth limiting (in both directions).
+It also seems that almost all of these files are merely "debugging"
+files, but as I can't seem to find the relevant Documentation/ABI/
+documentation for them, I can't be sure.
 
-Broker uses a custom and simple protocol and not a standard one.
+So, any objection to me just deleting these entirely?  Or, if they
+really are needed, can I just move them to debugfs, which is where I
+think they should have been from the beginning?
 
-I am not sure how much it is useful to others, but I hope it might be.
-For us it works great!
+Oh, and I'm pretty sure that the creation of these is totally racy, so I
+really doubt that anyone is using them otherwise they would have noticed
+this already.
 
+thanks,
 
-Mitar
-http://mitar.tnode.com/
+greg k-h
