@@ -1,63 +1,96 @@
-From: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [PATCH for-next 0/8] Add Mellanox mlx5 driver for Connect-IB devices
-Date: Sun, 7 Jul 2013 15:08:10 +0300
-Message-ID: <201307071508.10740.jackm@dev.mellanox.co.il>
-References: <1371384149-24558-1-git-send-email-eli@dev.mellanox.co.il> <51D45449.5010604@mellanox.com> <CAL1RGDU0JiGPFEAu87JbxxbHWbgZVsRz1qbz4BvqbCJU9RtRAA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH V3 4/9] IB/core: Add reserved values to enums for low-level drivers use
+Date: Sun,  7 Jul 2013 17:25:52 +0300
+Message-ID: <1373207157-13914-5-git-send-email-ogerlitz@mellanox.com>
+References: <1373207157-13914-1-git-send-email-ogerlitz@mellanox.com>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org,
+	eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org, moshel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+To: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAL1RGDU0JiGPFEAu87JbxxbHWbgZVsRz1qbz4BvqbCJU9RtRAA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Disposition: inline
+In-Reply-To: <1373207157-13914-1-git-send-email-ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 03 July 2013 22:26, Roland Dreier wrote:
-> Look at the actual timer code. =A0del_timer_sync() won't work if
-> something unrelated re-adds the timer, but it will work if the timer
-> itself is what re-adds itself.
->=20
-> Documentation/DocBook/kernel-locking.tmpl says:
->=20
-> =A0 =A0 =A0 Another common problem is deleting timers which restart
-> =A0 =A0 =A0 themselves (by calling <function>add_timer()</function> a=
-t the end
-> =A0 =A0 =A0 of their timer function). =A0Because this is a fairly com=
-mon case
-> =A0 =A0 =A0 which is prone to races, you should use
-> <function>del_timer_sync()</function>
-> =A0 =A0 =A0 (<filename class=3D"headerfile">include/linux/timer.h</fi=
-lename>)
-> =A0 =A0 =A0 to handle this case. =A0It returns the number of times th=
-e timer
-> =A0 =A0 =A0 had to be deleted before we finally stopped it from addin=
-g itself back
-> =A0 =A0 =A0 in.
->=20
-> which pretty clearly says that del_timer_sync() will work in this cas=
-e.
->=20
-> Or look at the code using it in arch/sparc/kernel/led.c for example
-> (just one of the first hits in my grep, there are many other
-> examples).
->=20
-> Not a big deal but I'm pretty sure the flag isn't needed.
+From: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
 
-Thanks for the feedback, Roland!
+Continue the approach taken by commit d2b57063e4a "IB/core: Reserve bits in
+enum ib_qp_create_flags for low-level driver use" and "reserved" entries to
+the ib_qp_type and ib_wr_opcode enums. The low-level drivers will then define
+macros to use these reserved values, giving proper names to the macros for
+readability. Also add a range of reserved flags to enum ib_send_flags.
 
-You are correct, and I removed the "active" flag in V3 of the patch set=
- (to be submitted shortly).
+The mlx5 IB driver uses the new additions.
 
--Jack
+Signed-off-by: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+---
+ include/rdma/ib_verbs.h |   35 +++++++++++++++++++++++++++++++++--
+ 1 files changed, 33 insertions(+), 2 deletions(-)
+
+diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
+index 98cc4b2..645c3ce 100644
+--- a/include/rdma/ib_verbs.h
++++ b/include/rdma/ib_verbs.h
+@@ -610,7 +610,21 @@ enum ib_qp_type {
+ 	IB_QPT_RAW_PACKET = 8,
+ 	IB_QPT_XRC_INI = 9,
+ 	IB_QPT_XRC_TGT,
+-	IB_QPT_MAX
++	IB_QPT_MAX,
++	/* Reserve a range for qp types internal to the low level driver.
++	 * These qp types will not be visible at the IB core layer, so the
++	 * IB_QPT_MAX usages should not be affected in the core layer
++	 */
++	IB_QPT_RESERVED1 = 0x1000,
++	IB_QPT_RESERVED2,
++	IB_QPT_RESERVED3,
++	IB_QPT_RESERVED4,
++	IB_QPT_RESERVED5,
++	IB_QPT_RESERVED6,
++	IB_QPT_RESERVED7,
++	IB_QPT_RESERVED8,
++	IB_QPT_RESERVED9,
++	IB_QPT_RESERVED10,
+ };
+ 
+ enum ib_qp_create_flags {
+@@ -766,6 +780,19 @@ enum ib_wr_opcode {
+ 	IB_WR_MASKED_ATOMIC_CMP_AND_SWP,
+ 	IB_WR_MASKED_ATOMIC_FETCH_AND_ADD,
+ 	IB_WR_BIND_MW,
++	/* reserve values for low level drivers' internal use.
++	 * These values will not be used at all in the ib core layer.
++	 */
++	IB_WR_RESERVED1 = 0xf0,
++	IB_WR_RESERVED2,
++	IB_WR_RESERVED3,
++	IB_WR_RESERVED4,
++	IB_WR_RESERVED5,
++	IB_WR_RESERVED6,
++	IB_WR_RESERVED7,
++	IB_WR_RESERVED8,
++	IB_WR_RESERVED9,
++	IB_WR_RESERVED10,
+ };
+ 
+ enum ib_send_flags {
+@@ -773,7 +800,11 @@ enum ib_send_flags {
+ 	IB_SEND_SIGNALED	= (1<<1),
+ 	IB_SEND_SOLICITED	= (1<<2),
+ 	IB_SEND_INLINE		= (1<<3),
+-	IB_SEND_IP_CSUM		= (1<<4)
++	IB_SEND_IP_CSUM		= (1<<4),
++
++	/* reserve bits 26-31 for low level drivers' internal use */
++	IB_SEND_RESERVED_START	= (1 << 26),
++	IB_SEND_RESERVED_END	= (1 << 31),
+ };
+ 
+ struct ib_sge {
+-- 
+1.7.1
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
