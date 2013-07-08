@@ -1,52 +1,40 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: Re: [PATCH] xen-netfront: pull on receive skb may need to
- happen earlier
-Date: Mon, 08 Jul 2013 13:41:44 +0100
-Message-ID: <51DACFA802000078000E343D@nat28.tlf.novell.com>
-References: <8511913.uMAmUdIO30@eistomin.edss.local>
- <20130517085923.GC14401@zion.uk.xensource.com>
- <51D57C1F.8070909@hunenet.nl>
- <20130704150137.GW7483@zion.uk.xensource.com>
- <51D6AED902000078000E2EA9@nat28.tlf.novell.com>
- <20130705145319.GB9050@zion.uk.xensource.com>
- <51DAA9B202000078000E3357@nat28.tlf.novell.com>
- <51DAAD92.4010708@hunenet.nl>
+From: Mark Jackson <mpfj-list@newflow.co.uk>
+Subject: Re: [PATCHv2] am33xx: cpsw: default to ethernet hwaddr from efuse
+ if not defined in dt
+Date: Mon, 08 Jul 2013 13:42:04 +0100
+Message-ID: <51DAB39C.7090106@newflow.co.uk>
+References: <1358461134-13452-1-git-send-email-jacmet@sunsite.dk> <50F8DA3A.3090406@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: "Ian Campbell" <ian.campbell@citrix.com>,
-	"Wei Liu" <wei.liu2@citrix.com>, <davem@davemloft.net>,
-	<xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
-	<stable@vger.kernel.org>
-To: "Dion Kant" <g.w.kant@hunenet.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat28.tlf.novell.com ([130.57.49.28]:48193 "EHLO
-	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751379Ab3GHMlv convert rfc822-to-8bit (ORCPT
-	<rfc822;groupwise-netdev@vger.kernel.org:5:1>);
-	Mon, 8 Jul 2013 08:41:51 -0400
-In-Reply-To: <51DAAD92.4010708@hunenet.nl>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Peter Korsgaard <jacmet@sunsite.dk>, linux-omap@vger.kernel.org,
+	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	hvaibhav@ti.com, richardcochran@gmail.com, tony@atomide.com,
+	michal.bachraty@gmail.com, michal.bachraty@streamunlimited.com
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <50F8DA3A.3090406@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->>> On 08.07.13 at 14:16, Dion Kant <g.w.kant@hunenet.nl> wrote:
-> I was wondering about the following.
+On 18/01/13 05:14, Mugunthan V N wrote:
+> On 1/18/2013 3:48 AM, Peter Korsgaard wrote:
+>> When booting with CONFIG_ARM_APPENDED_DTB (either because of using an old
+>> U-Boot, not wanting the hassle of 2 files or when using Falcon fast boot
+>> mode in U-Boot), nothing updates the ethernet hwaddr specified for the
+>> CPSW slaves, causing the driver to use a random hwaddr, which is some times
+>> troublesome.
+>>
+>> The am33xx has unique ethernet hwaddrs programmed in the efuse, so it makes
+>> more sense to default to these rather than random ones. Add a fixup step
+>> which adds mac-address dt properties using the efuse addresses if the DTB
+>> didn't contain valid ones.
+>>
+>> Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
+>>
 > 
-> In netif_poll(struct napi_struct *napi, int budget) the skb->cb is assigend,
-> but it may be clipped to RX_COPY_THRESHOLD
-> 
-> 		NETFRONT_SKB_CB(skb)->pull_to = rx->status;
-> 		if (NETFRONT_SKB_CB(skb)->pull_to > RX_COPY_THRESHOLD)
-> 		      NETFRONT_SKB_CB(skb)->pull_to = RX_COPY_THRESHOLD;
-> 
-> How does this modification of NETFRONT_SKB_CB(skb)->pull_to propagates
-> or is this irrelevant?
+> This implementation looks fine.
+> Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-I'm not sure I understand what you're asking. pull_to is a private
-(to netfront) field used to communicate how much of the skb
-needs to be pulled. I don't see how the word "propagate" makes
-any sense here, but as said I may simply not be getting what
-you're asking about.
+Tested-by: Mark Jackson <mpfj-list@newflow.co.uk>
 
-Jan
