@@ -1,50 +1,67 @@
-From: "Neel Patel (neepatel)" <neepatel@cisco.com>
-Subject: RE: [PATCH] drivers/net: enic: release rtnl_lock on error-path
-Date: Mon, 8 Jul 2013 16:26:58 +0000
-Message-ID: <644DFB2E795E0348A1614A34EE0D35711837FDB1@xmb-rcd-x05.cisco.com>
-References: <20130708072251.20540.50413.stgit@zurg>
- <51DAE823.4030406@cisco.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH net-next] net: rename low latency sockets functions to
+ busy poll
+Date: Mon, 8 Jul 2013 09:37:43 -0700
+Message-ID: <CA+55aFxgrOtsv7vCtic97ehpvqyezCzDcyqHVD+821BiTuiRtw@mail.gmail.com>
+References: <20130708132034.17639.4396.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Christian Benvenuti (benve)" <benve@cisco.com>
-To: "Nishank Trivedi (nistrive)" <nistrive@cisco.com>,
-	Konstantin Khlebnikov <khlebnikov@openvz.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Andrew Mortons <akpm@linux-foundation.org>,
+	David Woodhouse <dwmw2@infradead.org>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51DAE823.4030406@cisco.com>
-Content-Language: en-US
+In-Reply-To: <20130708132034.17639.4396.stgit@ladj378.jer.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-TG9va3MgZ29vZC4NCg0KVGhhbmtzIQ0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJv
-bTogTmlzaGFuayBUcml2ZWRpIChuaXN0cml2ZSkgDQpTZW50OiBNb25kYXksIEp1bHkgMDgsIDIw
-MTMgOToyNiBBTQ0KVG86IEtvbnN0YW50aW4gS2hsZWJuaWtvdg0KQ2M6IG5ldGRldkB2Z2VyLmtl
-cm5lbC5vcmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IE5lZWwgUGF0ZWwgKG5lZXBh
-dGVsKTsgQ2hyaXN0aWFuIEJlbnZlbnV0aSAoYmVudmUpDQpTdWJqZWN0OiBSZTogW1BBVENIXSBk
-cml2ZXJzL25ldDogZW5pYzogcmVsZWFzZSBydG5sX2xvY2sgb24gZXJyb3ItcGF0aA0KDQpPbiA3
-LzgvMTMgMTI6MjIgQU0sIEtvbnN0YW50aW4gS2hsZWJuaWtvdiB3cm90ZToNCj4gZW5pY19jaGFu
-Z2VfbXR1X3dvcmsoKSBtdXN0IGNhbGwgcnRubF91bmxvY2soKSBvbiBhbGwgZXhpdGluZyBwYXRo
-cy4NCj4NCj4gU2lnbmVkLW9mZi1ieTogS29uc3RhbnRpbiBLaGxlYm5pa292IDxraGxlYm5pa292
-QG9wZW52ei5vcmc+DQo+IENjOiBDaHJpc3RpYW4gQmVudmVudXRpIDxiZW52ZUBjaXNjby5jb20+
-DQo+IENjOiBSb29wYSBQcmFiaHUgPHJvcHJhYmh1QGNpc2NvLmNvbT4NCj4gQ2M6IE5lZWwgUGF0
-ZWwgPG5lZXBhdGVsQGNpc2NvLmNvbT4NCj4gQ2M6IE5pc2hhbmsgVHJpdmVkaSA8bmlzdHJpdmVA
-Y2lzY28uY29tPg0KPiAtLS0NCj4gICBkcml2ZXJzL25ldC9ldGhlcm5ldC9jaXNjby9lbmljL2Vu
-aWNfbWFpbi5jIHwgICAgMiArKw0KPiAgIDEgZmlsZSBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKykN
-Cj4NCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Npc2NvL2VuaWMvZW5pY19t
-YWluLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9jaXNjby9lbmljL2VuaWNfbWFpbi5jDQo+IGlu
-ZGV4IDYzNWY1NTkuLjk5MmVjMmUgMTAwNjQ0DQo+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0
-L2Npc2NvL2VuaWMvZW5pY19tYWluLmMNCj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvY2lz
-Y28vZW5pYy9lbmljX21haW4uYw0KPiBAQCAtMTc2MSw2ICsxNzYxLDcgQEAgc3RhdGljIHZvaWQg
-ZW5pY19jaGFuZ2VfbXR1X3dvcmsoc3RydWN0IHdvcmtfc3RydWN0ICp3b3JrKQ0KPiAgIAllbmlj
-X3N5bmNocm9uaXplX2lycXMoZW5pYyk7DQo+ICAgCWVyciA9IHZuaWNfcnFfZGlzYWJsZSgmZW5p
-Yy0+cnFbMF0pOw0KPiAgIAlpZiAoZXJyKSB7DQo+ICsJCXJ0bmxfdW5sb2NrKCk7DQo+ICAgCQlu
-ZXRkZXZfZXJyKG5ldGRldiwgIlVuYWJsZSB0byBkaXNhYmxlIFJRLlxuIik7DQo+ICAgCQlyZXR1
-cm47DQo+ICAgCX0NCj4gQEAgLTE3NzMsNiArMTc3NCw3IEBAIHN0YXRpYyB2b2lkIGVuaWNfY2hh
-bmdlX210dV93b3JrKHN0cnVjdCB3b3JrX3N0cnVjdCAqd29yaykNCj4gICAJdm5pY19ycV9maWxs
-KCZlbmljLT5ycVswXSwgZW5pY19ycV9hbGxvY19idWYpOw0KPiAgIAkvKiBOZWVkIGF0IGxlYXN0
-IG9uZSBidWZmZXIgb24gcmluZyB0byBnZXQgZ29pbmcgKi8NCj4gICAJaWYgKHZuaWNfcnFfZGVz
-Y191c2VkKCZlbmljLT5ycVswXSkgPT0gMCkgew0KPiArCQlydG5sX3VubG9jaygpOw0KPiAgIAkJ
-bmV0ZGV2X2VycihuZXRkZXYsICJVbmFibGUgdG8gYWxsb2MgcmVjZWl2ZSBidWZmZXJzLlxuIik7
-DQo+ICAgCQlyZXR1cm47DQo+ICAgCX0NCj4NCg0KQWNrZWQuDQoNClRoYW5rcy4NCg==
+On Mon, Jul 8, 2013 at 6:20 AM, Eliezer Tamir
+<eliezer.tamir@linux.intel.com> wrote:
+>
+> -               /* only if on, have sockets with POLL_LL and not out of time */
+> -               if (ll_flag && can_ll && can_poll_ll(ll_start, ll_time))
+> +               /* only if found POLL_BUSY_LOOP sockets && not out of time */
+> +               if (!need_resched() && can_busy_loop &&
+> +                   busy_loop_range(busy_start, busy_end))
+>                         continue;
+
+Better, but still horribly ugly. I also suspect the need_resched()
+test should be done after testing can_busy_loop, just in case the
+compiler can avoid having to load things off the current pointer.
+
+I also think that we should clear busy_flag if we don't continue, no?
+
+I also don't understand why the code keeps both busy_start and
+busy_end around. It all looks completely pointless. Why have two
+variables, and why make the comparisons more complicated, and the code
+look more complex than it actually is?
+
+So the code *should* just do
+
+        if (need_busy_loop) {
+                if (!need_resched() && !busy_loop_timeout(start_time))
+                        continue;
+        }
+        busy_flag = 0;
+
+or something like that. Then, calculate busy_end there, since it's
+just an addition. Keeping two 64-bit variables around not only makes
+the code more complex, it generates worse code.
+
+I also suspect there's a lot of other micro-optimizations that could
+be done: while keeping *two* 64-bit timeouts is just completely insane
+on a 32-bit architecture, keeping even just one is debatable. I
+suspect the timeouts should be just "unsigned long", so that 32-bit
+architectures don't bother with unnecessary 64-bit clocks. 32-bit
+clocks are several seconds even if you count nanoseconds, and you
+actually only do microseconds anyway (so instead of shifting the
+microseconds left by ten like you do, shift the nanoseconds of
+sched_clock right by ten, and now you only need 32-bit values).
+
+select() and poll() performance is actually fairly critical, so trying
+to avoid bad code generation here is likely worth it.
+
+                      Linus
