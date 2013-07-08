@@ -1,52 +1,72 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Extremely bad performance with RTL8111/8168B
-Date: Mon, 8 Jul 2013 11:54:59 +0200
-Message-ID: <20130708095459.GA29788@amd.pavel.ucw.cz>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [PATCH] xen-netfront: pull on receive skb may need to
+ happen earlier
+Date: Mon, 08 Jul 2013 10:59:46 +0100
+Message-ID: <51DAA9B202000078000E3357@nat28.tlf.novell.com>
+References: <8511913.uMAmUdIO30@eistomin.edss.local>
+ <20130517085923.GC14401@zion.uk.xensource.com>
+ <51D57C1F.8070909@hunenet.nl>
+ <20130704150137.GW7483@zion.uk.xensource.com>
+ <51D6AED902000078000E2EA9@nat28.tlf.novell.com>
+ <20130705145319.GB9050@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: nic_swsd@realtek.com, romieu@fr.zoreil.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:58232 "EHLO
-	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751203Ab3GHJzC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 05:55:02 -0400
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: "Ian Campbell" <ian.campbell@citrix.com>, <davem@davemloft.net>,
+	"Dion Kant" <g.w.kant@hunenet.nl>, <xen-devel@lists.xen.org>,
+	<netdev@vger.kernel.org>, <stable@vger.kernel.org>
+To: "Wei Liu" <wei.liu2@citrix.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20130705145319.GB9050@zion.uk.xensource.com>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi!
+>>> On 05.07.13 at 16:53, Wei Liu <wei.liu2@citrix.com> wrote:
+> On Fri, Jul 05, 2013 at 10:32:41AM +0100, Jan Beulich wrote:
+>> --- a/drivers/net/xen-netfront.c
+>> +++ b/drivers/net/xen-netfront.c
+>> @@ -831,6 +831,15 @@ static RING_IDX xennet_fill_frags(struct
+>>  			RING_GET_RESPONSE(&np->rx, ++cons);
+>>  		skb_frag_t *nfrag = &skb_shinfo(nskb)->frags[0];
+>>  
+>> +		if (nr_frags == MAX_SKB_FRAGS) {
+>> +			unsigned int pull_to = NETFRONT_SKB_CB(skb)->pull_to;
+>> +
+>> +			BUG_ON(pull_to <= skb_headlen(skb));
+>> +			__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
+> 
+> skb_headlen is in fact "skb->len - skb->data_len". Looking at the
+> caller code:
+> 
+>     while loop {
+>         skb_shinfo(skb)->frags[0].page_offset = rx->offset;
+> 	skb_frag_size_set(&skb_shinfo(skb)->frags[0], rx->status);
+> 	skb->data_len = rx->status;
+> 
+> 	i = xennet_fill_frags(np, skb, &tmpq);
+> 
+> 	/*                                                                           
+>                                                                   
+> 	 * Truesize is the actual allocation size, even if the                       
+>                                                                   
+> 	 * allocation is only partially used.                                        
+>                                                                   
+> 	 */
+> 	skb->truesize += PAGE_SIZE * skb_shinfo(skb)->nr_frags;
+> 	skb->len += skb->data_len;
+>     }
+> 
+>     handle_incoming_packet();
+> 
+> You seem to be altering the behavior of the original code, because in
+> your patch the skb->len is incremented before use, while in the original
+> code (which calls skb_headlen in handle_incoming_packet) the skb->len is
+> correctly set.
 
-I've small Intel desktop with RTL8111/8168B ethernet... but the
-performance is extremely bad.
+Right. So I basically need to keep skb->len up-to-date along with
+->data_len. Just handed a patch to Dion with that done; I'll defer
+sending a v2 for the upstream code until I know the change works
+for our kernel.
 
-In 3.10, I only get about 200KB/sec:
-
-pavel@amd:~$ scp /tmp/delme pavel@duo:/tmp
-pavel@duo's password: 
-delme                                               100%   16MB
-236.0KB/s   01:09    
-
-In older version, I get 1MB/s, but network fails every 10 minutes or
-so. Card is:
-
-03:00.0 Ethernet controller: Realtek Semiconductor Co.,
-Ltd. RTL8111/8168B PCI Express Gigabit Ethernet controller (rev 03)
-
-I did install firmware-realtek package as suggested by debian
-installer.
-
-Dmesg says:
-
-r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-r8169 0000:03:00.0 eth0: RTL8168d/8111d at 0xf8010000,
-00:27:0e:2a:43:71, XID 081000c0 IRQ 17
-r8169 0000:03:00.0 eth0: jumbo features [frames: 9200 bytes, tx
-checksumming: ko]
-
-Any ideas what is wrong?
-
-Thanks,
-									Pavel
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+Jan
