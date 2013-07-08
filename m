@@ -1,81 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 3.9.5+:  Crash in tcp_input.c:4810.
-Date: Mon, 08 Jul 2013 13:10:35 -0700
-Message-ID: <1373314235.4979.121.camel@edumazet-glaptop>
-References: <51BF50B3.1080403@candelatech.com>
-	      <1371493059.3252.200.camel@edumazet-glaptop>
-	      <51D1C620.8030007@candelatech.com>
-	     <1372813467.4979.46.camel@edumazet-glaptop>
-	     <51D398C0.5060802@candelatech.com>
-	    <1372826512.4979.49.camel@edumazet-glaptop>
-	    <51D3AD66.8030506@candelatech.com>
-	   <1372827749.4979.52.camel@edumazet-glaptop>
-	   <51DAF5A7.60505@candelatech.com>
-	  <1373307702.4979.116.camel@edumazet-glaptop>
-	  <51DB054D.6060507@candelatech.com>
-	 <1373310119.4979.119.camel@edumazet-glaptop>
-	 <51DB1A0C.3080807@candelatech.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH net-next] net: rename low latency sockets functions to
+ busy poll
+Date: Mon, 8 Jul 2013 13:10:48 -0700
+Message-ID: <CA+55aFwVBY4LqmAvvCDBhESVY2QwCExzvhPdET99Hgo1LnFb=g@mail.gmail.com>
+References: <20130708132034.17639.4396.stgit@ladj378.jer.intel.com>
+	<CA+55aFxgrOtsv7vCtic97ehpvqyezCzDcyqHVD+821BiTuiRtw@mail.gmail.com>
+	<51DAF373.4040606@linux.intel.com>
+	<CA+55aFwWAmHhYaPWVm7rsqiD9+RhDPpgVC1yWc0oNmP38bty4Q@mail.gmail.com>
+	<51DB16FC.7060003@linux.intel.com>
+	<20130708130512.1171af89@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:65084 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752613Ab3GHUKh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 16:10:37 -0400
-Received: by mail-pd0-f182.google.com with SMTP id r10so4443102pdi.13
-        for <netdev@vger.kernel.org>; Mon, 08 Jul 2013 13:10:37 -0700 (PDT)
-In-Reply-To: <51DB1A0C.3080807@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eliezer Tamir <eliezer.tamir@linux.intel.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Woodhouse <dwmw2@infradead.org>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130708130512.1171af89@nehalam.linuxnetplumber.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-07-08 at 12:59 -0700, Ben Greear wrote:
+On Mon, Jul 8, 2013 at 1:05 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+>> >
+>> >     unsigned long start_time = 0;
+>> >     ...
+>> >     if (want_busy_poll && !need_resched()) {
+>> >         unsigned long now = busy_poll_sched_clock();
+>> >         if (!start_time) {
+>> >             start_time = now + sysctl.busypoll;
+>> >             continue;
+>> >         }
+>> >         if (time_before(start_time, now))
+>> >             continue;
+>> >     }
+>> >
+>>
+>
+> Since this code is in hot path, and a special case, looks like a good
+> candidate for static branch.
 
-> > There is this thing in ath9k about aggregating two frags
-> >
-> > drivers/net/wireless/ath/ath9k/recv.c line 1298 contains :
-> >
-> > RX_STAT_INC(rx_frags);
-> >
-> > Could you check these stats (I do not know if they are reported by
-> > ethtool -S or another debugging facility) and check if rx_frags is ever
-> > increasing ?
-> 
-> They are in debugfs, and they appear to increase fairly often, for
-> instance:
-> 
-> [root@lec2010-ath9k-1 lanforge]# cat /debug/ieee80211/wiphy0/ath9k/recv|tail -5
->             RX-Pkts-All :  288009442
->            RX-Bytes-All : 4067932166
->              RX-Beacons :   14826735
->                RX-Frags :       3944
->             RX-Spectral :          0
-> 
-> I don't have the stats from the system that reproduced the bug
-> (it has been rebooted), but if I do see the bug again, I'll
-> grab the rx-frags and other stats just in case it shows
-> some anomaly.
-> 
+No, it's not static. It's an initializer, yes, but it's not a static
+one, and it gets run on every single select()/poll(). Well, every
+single one that goes through the loop more than once.
 
-Reading this code again, I believe following patch is needed.
+So it's very much a dynamic condition. It's just placed that way to
+avoid doing the (relatively expensive) time read for the case where
+data is available immediately.
 
-Could you test it ?
+And the "data is available immediately" case is actually fairly
+common. Sometimes it's because the producer/network is faster than the
+consumer. And sometimes it's because you get big chunks at a time, but
+the reader/writer ends up always going through a select() loop without
+actually reading/writing everything in a loop until it gets a
+full/empty error.
 
-Thanks
+And I bet that both of those cases happen even with programs/networks
+that end up using the magic low-latency/busyloop polling flags. So
+avoiding the timer read if at all possible is definitely a good idea.
 
-diff --git a/drivers/net/wireless/ath/ath9k/recv.c b/drivers/net/wireless/ath/ath9k/recv.c
-index 8be2b5d..f642f04 100644
---- a/drivers/net/wireless/ath/ath9k/recv.c
-+++ b/drivers/net/wireless/ath/ath9k/recv.c
-@@ -1317,7 +1317,8 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
- 		if (sc->rx.frag) {
- 			int space = skb->len - skb_tailroom(hdr_skb);
- 
--			if (pskb_expand_head(hdr_skb, 0, space, GFP_ATOMIC) < 0) {
-+			if (space > 0 &&
-+			    pskb_expand_head(hdr_skb, 0, space, GFP_ATOMIC) < 0) {
- 				dev_kfree_skb(skb);
- 				RX_STAT_INC(rx_oom_err);
- 				goto requeue_drop_frag;
+                  Linus
