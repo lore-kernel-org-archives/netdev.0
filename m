@@ -1,32 +1,47 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [GIT] Networking
-Date: Mon, 08 Jul 2013 09:38:29 +0300
-Message-ID: <51DA5E65.5060006@linux.intel.com>
-References: <20130707.132133.1335860703202153192.davem@davemloft.net> <CA+55aFzgBXwye=ebPmEDN_6yqdKA6ZaD9hSUzbFjSacC_v3y5g@mail.gmail.com> <CA+55aFyvZAQbaEyq5atQbTjHTz_hodzhWKX_7SRL8nq+yBA14A@mail.gmail.com> <20130707.201449.1176672898198722699.davem@davemloft.net>
+From: Konstantin Khlebnikov <khlebnikov@openvz.org>
+Subject: [PATCH] drivers/net: enic: release rtnl_lock on error-path
+Date: Mon, 08 Jul 2013 11:22:51 +0400
+Message-ID: <20130708072251.20540.50413.stgit@zurg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Neel Patel <neepatel@cisco.com>,
+	Nishank Trivedi <nistrive@cisco.com>,
+	Roopa Prabhu <roprabhu@cisco.com>,
+	Christian Benvenuti <benve@cisco.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130707.201449.1176672898198722699.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/07/2013 06:14, David Miller wrote:
-> From: Linus Torvalds <torvalds@linux-foundation.org>
-> Date: Sun, 7 Jul 2013 15:33:31 -0700
->
->> End result: I think the code is salvageable and people who want this
->> kind of busy-looping can have it. But I really don't want to merge it
->> as-is. I think it was badly done, I think it was badly documented, and
->> I think somebody over-sold the feature by emphasizing the upsides and
->> not the problems.
->
-> Fair enough, Eliezer, please address all of Linus's feedback.
->
-> It's holding the entire net-next merge up.
->
+enic_change_mtu_work() must call rtnl_unlock() on all exiting paths.
 
-OK
+Signed-off-by: Konstantin Khlebnikov <khlebnikov@openvz.org>
+Cc: Christian Benvenuti <benve@cisco.com>
+Cc: Roopa Prabhu <roprabhu@cisco.com>
+Cc: Neel Patel <neepatel@cisco.com>
+Cc: Nishank Trivedi <nistrive@cisco.com>
+---
+ drivers/net/ethernet/cisco/enic/enic_main.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index 635f559..992ec2e 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -1761,6 +1761,7 @@ static void enic_change_mtu_work(struct work_struct *work)
+ 	enic_synchronize_irqs(enic);
+ 	err = vnic_rq_disable(&enic->rq[0]);
+ 	if (err) {
++		rtnl_unlock();
+ 		netdev_err(netdev, "Unable to disable RQ.\n");
+ 		return;
+ 	}
+@@ -1773,6 +1774,7 @@ static void enic_change_mtu_work(struct work_struct *work)
+ 	vnic_rq_fill(&enic->rq[0], enic_rq_alloc_buf);
+ 	/* Need at least one buffer on ring to get going */
+ 	if (vnic_rq_desc_used(&enic->rq[0]) == 0) {
++		rtnl_unlock();
+ 		netdev_err(netdev, "Unable to alloc receive buffers.\n");
+ 		return;
+ 	}
