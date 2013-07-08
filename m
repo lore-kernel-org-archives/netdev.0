@@ -1,67 +1,60 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH net-next] net: rename low latency sockets functions to
- busy poll
-Date: Mon, 08 Jul 2013 22:46:04 +0300
-Message-ID: <51DB16FC.7060003@linux.intel.com>
-References: <20130708132034.17639.4396.stgit@ladj378.jer.intel.com> <CA+55aFxgrOtsv7vCtic97ehpvqyezCzDcyqHVD+821BiTuiRtw@mail.gmail.com> <51DAF373.4040606@linux.intel.com> <CA+55aFwWAmHhYaPWVm7rsqiD9+RhDPpgVC1yWc0oNmP38bty4Q@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] ip: set the close-on-exec flag for descriptors
+Date: Mon, 8 Jul 2013 12:50:07 -0700
+Message-ID: <20130708125007.6ee941ba@nehalam.linuxnetplumber.net>
+References: <1370332874-584-1-git-send-email-avagin@openvz.org>
+	<20130604091150.48f3b1ca@nehalam.linuxnetplumber.net>
+	<1373293036.4979.105.camel@edumazet-glaptop>
+	<CANaxB-wjwobCnYBsL2mpR9V=WR5w7_cCgR6Pp9OA72rtVsD27A@mail.gmail.com>
+	<1373299506.4979.112.camel@edumazet-glaptop>
+	<CANaxB-zLiUsr2OG2J65jb8sa6G4i93m2j=-3F5_p+WB-Xd8ZhA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFwWAmHhYaPWVm7rsqiD9+RhDPpgVC1yWc0oNmP38bty4Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Andrey Wagin <avagin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:52125 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752274Ab3GHTuM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 15:50:12 -0400
+Received: by mail-pa0-f46.google.com with SMTP id fa11so4711373pad.5
+        for <netdev@vger.kernel.org>; Mon, 08 Jul 2013 12:50:11 -0700 (PDT)
+In-Reply-To: <CANaxB-zLiUsr2OG2J65jb8sa6G4i93m2j=-3F5_p+WB-Xd8ZhA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/07/2013 22:37, Linus Torvalds wrote:
-> On Mon, Jul 8, 2013 at 10:14 AM, Eliezer Tamir
-> <eliezer.tamir@linux.intel.com> wrote:
->>
->> I think there is no way for the compiler to know the value of
->> can_busy_loop at compile time. It depends on the replies we get
->> from polling the sockets. ll_flag was there to make sure the compiler
->> will know when things are defined out.
-> 
-> No, my point was that we want to handle the easily seen register test
-> first, and not even have to load current().
-> 
-> The compiler may end up scheduling the code to load current anyway,
-> but the way you wrote it it's pretty much guaranteed that it will do
-> it.
+On Mon, 8 Jul 2013 23:23:35 +0400
+Andrey Wagin <avagin@gmail.com> wrote:
 
-I see. OK.
-
-> In fact, I'd argue for initializing start_time to zero, and have the
-> "have we timed out" logic load it only if necessary, rather than
-> initializing it based on whether POLL_BUSY_WAIT was set or not.
-> Because one common case - even with POLL_BUSY_WAIT - is that we go
-> through the loop exactly once, and the data exists on the very first
-> try. And that is in fact the case we want to optimize and not do any
-> extra work for at all.
+> 2013/7/8 Eric Dumazet <eric.dumazet@gmail.com>:
+> > On Mon, 2013-07-08 at 19:51 +0400, Andrey Wagin wrote:
+> >> Hi Eric,
+> >>
+> >> 2013/7/8 Eric Dumazet <eric.dumazet@gmail.com>:
+> >> >> Applied
+> >> >
+> >> > It seems it could break ip command for old kernels, as SOCK_CLOEXEC is
+> >> > supported from 2.6.27
+> >> >
+> >> > Not sure if its worth a patch, to do the normal socket() call followed
+> >> > by legacy fcntl() one.
+> >>
+> >> fcntl is not safe for multithread applications. If libnetlink isn't
+> >> going to be used for them, I don't have objection. The patch is
+> >> attached.
+> >>
+> >
+> > If you want multithread safety, you could attempt the SOCK_CLOEXEC, and
+> > fall back in case of error to legacy socket()/fcntl()
+> >
 > 
-> So I would actually argue that the whole timeout code might as well be
-> something like
+> Yes, it's good idea. Look at the attached patch.
 > 
->     unsigned long start_time = 0;
->     ...
->     if (want_busy_poll && !need_resched()) {
->         unsigned long now = busy_poll_sched_clock();
->         if (!start_time) {
->             start_time = now + sysctl.busypoll;
->             continue;
->         }
->         if (time_before(start_time, now))
->             continue;
->     }
+> Thanks.
 > 
+> >
+> >
 
-OK.
-
-Thanks,
-Eliezer
+Just always do the fcntl(), it makes more sense rather than having
+two code paths.
