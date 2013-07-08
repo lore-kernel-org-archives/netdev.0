@@ -1,50 +1,139 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: net/ipv4/route.c: Routing anomaly introduced by 89aef89 (ipv4:
- Delete routing cache.)
-Date: Mon, 8 Jul 2013 11:34:57 +0300
-Message-ID: <20130708113457.4a0d6023@pluto>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH 1/2] virtio: support unlocked queue poll
+Date: Mon, 8 Jul 2013 12:04:36 +0300
+Message-ID: <1373274069-4301-2-git-send-email-mst@redhat.com>
+References: <1373274069-4301-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@vger.kernel.org,
-	eyal.birger@gmail.com
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:50837 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752098Ab3GHIfL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 04:35:11 -0400
-Received: by mail-wi0-f174.google.com with SMTP id k10so8757369wiv.13
-        for <netdev@vger.kernel.org>; Mon, 08 Jul 2013 01:35:10 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1373274069-4301-1-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+This adds a way to check ring empty state after enable_cb outside any
+locks. Will be used by virtio_net.
 
-In 89aef89 (ipv4: Delete routing cache) the following was removed from
-ip_route_input_common (nowadays named ip_route_input_noref):
+Note: there's room for more optimization: caller is likely to have a
+memory barrier already, which means we might be able to get rid of a
+barrier here.  Deferring this optimization until we do some
+benchmarking.
 
--       tos &= IPTOS_RT_MASK;
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/virtio/virtio_ring.c | 56 ++++++++++++++++++++++++++++++++++----------
+ include/linux/virtio.h       |  4 ++++
+ 2 files changed, 48 insertions(+), 12 deletions(-)
 
-As a side effect, the 'tos' argument passed to 'ip_route_input_slow' is
-the "raw" u8, as present in iph->tos (opposed to the formerly "masked"
-value).
-
-This may affect the route calculation, as this value is later placed in
-fl4.flowi4_tos for matching purposes (using equality to the tos stored
-in the FIB Rule and/or Route).
-
-(BTW, the question whether applying the historical IPTOS_RT_MASK
-prior route lookup is interesting on its own...)
-
-However, 89aef89 created an anomaly - since in the output path, routing
-*still* uses the IPTOS_RT_MASK (see __ip_route_output_key for example).
-
-It seems the omission of 'tos &= IPTOS_RT_MASK' from
-'ip_route_input_noref' was accidental.
-
-We should align input/output behavior by reverting the omission, or
-alternatively we may reconsider the entire IPTOS_RT_MASK thing.
-
-Regards,
-Shmulik
+diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
+index 5217baf..37d58f8 100644
+--- a/drivers/virtio/virtio_ring.c
++++ b/drivers/virtio/virtio_ring.c
+@@ -607,19 +607,21 @@ void virtqueue_disable_cb(struct virtqueue *_vq)
+ EXPORT_SYMBOL_GPL(virtqueue_disable_cb);
+ 
+ /**
+- * virtqueue_enable_cb - restart callbacks after disable_cb.
++ * virtqueue_enable_cb_prepare - restart callbacks after disable_cb
+  * @vq: the struct virtqueue we're talking about.
+  *
+- * This re-enables callbacks; it returns "false" if there are pending
+- * buffers in the queue, to detect a possible race between the driver
+- * checking for more work, and enabling callbacks.
++ * This re-enables callbacks; it returns current queue state
++ * in an opaque unsigned value. This value should be later tested by
++ * virtqueue_poll, to detect a possible race between the driver checking for
++ * more work, and enabling callbacks.
+  *
+  * Caller must ensure we don't call this with other virtqueue
+  * operations at the same time (except where noted).
+  */
+-bool virtqueue_enable_cb(struct virtqueue *_vq)
++unsigned virtqueue_enable_cb_prepare(struct virtqueue *_vq)
+ {
+ 	struct vring_virtqueue *vq = to_vvq(_vq);
++	u16 last_used_idx;
+ 
+ 	START_USE(vq);
+ 
+@@ -629,15 +631,45 @@ bool virtqueue_enable_cb(struct virtqueue *_vq)
+ 	 * either clear the flags bit or point the event index at the next
+ 	 * entry. Always do both to keep code simple. */
+ 	vq->vring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
+-	vring_used_event(&vq->vring) = vq->last_used_idx;
++	vring_used_event(&vq->vring) = last_used_idx = vq->last_used_idx;
++	END_USE(vq);
++	return last_used_idx;
++}
++EXPORT_SYMBOL_GPL(virtqueue_enable_cb_prepare);
++
++/**
++ * virtqueue_poll - query pending used buffers
++ * @vq: the struct virtqueue we're talking about.
++ * @last_used_idx: virtqueue state (from call to virtqueue_enable_cb_prepare).
++ *
++ * Returns "true" if there are pending used buffers in the queue.
++ *
++ * This does not need to be serialized.
++ */
++bool virtqueue_poll(struct virtqueue *_vq, unsigned last_used_idx)
++{
++	struct vring_virtqueue *vq = to_vvq(_vq);
++
+ 	virtio_mb(vq->weak_barriers);
+-	if (unlikely(more_used(vq))) {
+-		END_USE(vq);
+-		return false;
+-	}
++	return (u16)last_used_idx != vq->vring.used->idx;
++}
++EXPORT_SYMBOL_GPL(virtqueue_poll);
+ 
+-	END_USE(vq);
+-	return true;
++/**
++ * virtqueue_enable_cb - restart callbacks after disable_cb.
++ * @vq: the struct virtqueue we're talking about.
++ *
++ * This re-enables callbacks; it returns "false" if there are pending
++ * buffers in the queue, to detect a possible race between the driver
++ * checking for more work, and enabling callbacks.
++ *
++ * Caller must ensure we don't call this with other virtqueue
++ * operations at the same time (except where noted).
++ */
++bool virtqueue_enable_cb(struct virtqueue *_vq)
++{
++	unsigned last_used_idx = virtqueue_enable_cb_prepare(_vq);
++	return !virtqueue_poll(_vq, last_used_idx);
+ }
+ EXPORT_SYMBOL_GPL(virtqueue_enable_cb);
+ 
+diff --git a/include/linux/virtio.h b/include/linux/virtio.h
+index 9ff8645..72398ee 100644
+--- a/include/linux/virtio.h
++++ b/include/linux/virtio.h
+@@ -70,6 +70,10 @@ void virtqueue_disable_cb(struct virtqueue *vq);
+ 
+ bool virtqueue_enable_cb(struct virtqueue *vq);
+ 
++unsigned virtqueue_enable_cb_prepare(struct virtqueue *vq);
++
++bool virtqueue_poll(struct virtqueue *vq, unsigned);
++
+ bool virtqueue_enable_cb_delayed(struct virtqueue *vq);
+ 
+ void *virtqueue_detach_unused_buf(struct virtqueue *vq);
+-- 
+MST
