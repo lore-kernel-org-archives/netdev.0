@@ -1,173 +1,75 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [PATCH] xen-netfront: pull on receive skb may need
- to happen earlier
-Date: Mon, 8 Jul 2013 16:48:14 +0100
-Message-ID: <20130708154814.GI8027@zion.uk.xensource.com>
-References: <8511913.uMAmUdIO30@eistomin.edss.local>
- <20130517085923.GC14401@zion.uk.xensource.com>
- <51D57C1F.8070909@hunenet.nl>
- <20130704150137.GW7483@zion.uk.xensource.com>
- <51D6AED902000078000E2EA9@nat28.tlf.novell.com>
- <20130705145319.GB9050@zion.uk.xensource.com>
- <51DAA9B202000078000E3357@nat28.tlf.novell.com>
- <51DAE6CA02000078000E3566@nat28.tlf.novell.com>
+From: Andrey Wagin <avagin@gmail.com>
+Subject: Re: [PATCH] ip: set the close-on-exec flag for descriptors
+Date: Mon, 8 Jul 2013 19:51:08 +0400
+Message-ID: <CANaxB-wjwobCnYBsL2mpR9V=WR5w7_cCgR6Pp9OA72rtVsD27A@mail.gmail.com>
+References: <1370332874-584-1-git-send-email-avagin@openvz.org>
+	<20130604091150.48f3b1ca@nehalam.linuxnetplumber.net>
+	<1373293036.4979.105.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>, <davem@davemloft.net>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Dion Kant <g.w.kant@hunenet.nl>, <xen-devel@lists.xen.org>,
-	<netdev@vger.kernel.org>, <stable@vger.kernel.org>
-To: Jan Beulich <JBeulich@suse.com>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <51DAE6CA02000078000E3566@nat28.tlf.novell.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary=047d7b6d7f285230cb04e1020347
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vb0-f43.google.com ([209.85.212.43]:46470 "EHLO
+	mail-vb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751399Ab3GHPvK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 11:51:10 -0400
+Received: by mail-vb0-f43.google.com with SMTP id e12so3520707vbg.30
+        for <netdev@vger.kernel.org>; Mon, 08 Jul 2013 08:51:10 -0700 (PDT)
+In-Reply-To: <1373293036.4979.105.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 08, 2013 at 03:20:26PM +0100, Jan Beulich wrote:
-> >>> On 08.07.13 at 11:59, "Jan Beulich" <JBeulich@suse.com> wrote:
-> >>>> On 05.07.13 at 16:53, Wei Liu <wei.liu2@citrix.com> wrote:
-> >> On Fri, Jul 05, 2013 at 10:32:41AM +0100, Jan Beulich wrote:
-> >>> --- a/drivers/net/xen-netfront.c
-> >>> +++ b/drivers/net/xen-netfront.c
-> >>> @@ -831,6 +831,15 @@ static RING_IDX xennet_fill_frags(struct
-> >>>  			RING_GET_RESPONSE(&np->rx, ++cons);
-> >>>  		skb_frag_t *nfrag = &skb_shinfo(nskb)->frags[0];
-> >>>  
-> >>> +		if (nr_frags == MAX_SKB_FRAGS) {
-> >>> +			unsigned int pull_to = NETFRONT_SKB_CB(skb)->pull_to;
-> >>> +
-> >>> +			BUG_ON(pull_to <= skb_headlen(skb));
-> >>> +			__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
-> >> 
-> >> skb_headlen is in fact "skb->len - skb->data_len". Looking at the
-> >> caller code:
-> >> 
-> >>     while loop {
-> >>         skb_shinfo(skb)->frags[0].page_offset = rx->offset;
-> >> 	skb_frag_size_set(&skb_shinfo(skb)->frags[0], rx->status);
-> >> 	skb->data_len = rx->status;
-> >> 
-> >> 	i = xennet_fill_frags(np, skb, &tmpq);
-> >> 
-> >> 	/*                                                                           
-> > 
-> >>                                                                   
-> >> 	 * Truesize is the actual allocation size, even if the                       
-> > 
-> >>                                                                   
-> >> 	 * allocation is only partially used.                                        
-> > 
-> >>                                                                   
-> >> 	 */
-> >> 	skb->truesize += PAGE_SIZE * skb_shinfo(skb)->nr_frags;
-> >> 	skb->len += skb->data_len;
-> >>     }
-> >> 
-> >>     handle_incoming_packet();
-> >> 
-> >> You seem to be altering the behavior of the original code, because in
-> >> your patch the skb->len is incremented before use, while in the original
-> >> code (which calls skb_headlen in handle_incoming_packet) the skb->len is
-> >> correctly set.
-> > 
-> > Right. So I basically need to keep skb->len up-to-date along with
-> > ->data_len. Just handed a patch to Dion with that done; I'll defer
-> > sending a v2 for the upstream code until I know the change works
-> > for our kernel.
-> 
-> Okay, so with that done (see below) Dion is now seeing the
-> WARN_ON_ONCE(delta < len) in skb_try_coalesce() triggering. Of
-> course, with it having crashed before, it's hard to tell whether the
-> triggering now is an effect of the patch, or just got unmasked by it.
-> 
+--047d7b6d7f285230cb04e1020347
+Content-Type: text/plain; charset=ISO-8859-1
 
-I think the previous crash was due to incorrect accounting.
+Hi Eric,
 
-  BUG_ON(pull_to <= skb_headlen(skb))
+2013/7/8 Eric Dumazet <eric.dumazet@gmail.com>:
+>> Applied
+>
+> It seems it could break ip command for old kernels, as SOCK_CLOEXEC is
+> supported from 2.6.27
+>
+> Not sure if its worth a patch, to do the normal socket() call followed
+> by legacy fcntl() one.
 
-  skb_headlen(skb) = skb->len - skb->data_len
+fcntl is not safe for multithread applications. If libnetlink isn't
+going to be used for them, I don't have objection. The patch is
+attached.
 
-In your first patch, skb_headlen(skb) can return a very large number if
-skb->len is smaller then skb->data_len (they are both unsigned), because
-before calling skb_headlen() skb->data_len is incremented while skb->len
-is not.
+Thanks.
 
-As for the WARN_ON_ONCE(delte < len), I haven't looked that far as I
-discover a problem with your new patch. Please see below comments.
+--047d7b6d7f285230cb04e1020347
+Content-Type: application/octet-stream;
+	name="0001-ip-avoid-using-SOCK_CLOEXEC-to-save-backward-compati.patch"
+Content-Disposition: attachment;
+	filename="0001-ip-avoid-using-SOCK_CLOEXEC-to-save-backward-compati.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hivufvta0
 
-> Looking over the ->truesize handling, I can't see how the change
-> here could break things: RX_COPY_THRESHOLD is already
-> accounted for by how alloc_skb() gets called, and the increment
-> right after the call to xennet_fill_frags() should now be even more
-> correct than before (since __pskb_pull_tail() can drop fragments,
-> which would then have made this an over-estimation afaict).
-> 
-> That all said with me knowing pretty little about the networking
-> code, so I'd appreciate if you could point out anything wrong with
-> my idea of how things work. Additionally - is my fundamental (for
-> this patch) assumption right that multiple __pskb_pull_tail() call
-> are cumulative (i.e. calling it twice with a delta of
-> pull_to - skb_headlen(skb) would indeed end up pulling up to
-> pull_to, provided there is enough data)?
-> 
-> Jan
-> 
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -831,10 +831,20 @@ static RING_IDX xennet_fill_frags(struct
->  			RING_GET_RESPONSE(&np->rx, ++cons);
->  		skb_frag_t *nfrag = &skb_shinfo(nskb)->frags[0];
->  
-> +		if (nr_frags == MAX_SKB_FRAGS) {
-> +			unsigned int pull_to = NETFRONT_SKB_CB(skb)->pull_to;
-> +
-> +			BUG_ON(pull_to <= skb_headlen(skb));
-> +			__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
-> +			nr_frags = shinfo->nr_frags;
-> +		}
-> +		BUG_ON(nr_frags >= MAX_SKB_FRAGS);
-> +
->  		__skb_fill_page_desc(skb, nr_frags,
->  				     skb_frag_page(nfrag),
->  				     rx->offset, rx->status);
->  
-> +		skb->len += rx->status;
->  		skb->data_len += rx->status;
->  
->  		skb_shinfo(nskb)->nr_frags = 0;
-> @@ -929,7 +939,8 @@ static int handle_incoming_queue(struct 
->  	while ((skb = __skb_dequeue(rxq)) != NULL) {
->  		int pull_to = NETFRONT_SKB_CB(skb)->pull_to;
->  
-> -		__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
-> +		if (pull_to > skb_headlen(skb))
-> +			__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
->  
->  		/* Ethernet work: Delayed to here as it peeks the header. */
->  		skb->protocol = eth_type_trans(skb, dev);
-> @@ -1014,7 +1025,7 @@ err:
->  
->  		skb_shinfo(skb)->frags[0].page_offset = rx->offset;
->  		skb_frag_size_set(&skb_shinfo(skb)->frags[0], rx->status);
-> -		skb->data_len = rx->status;
-> +		skb->len = skb->data_len = rx->status;
-
-This is not correct. You should not be needing this. Now you lose count
-of SKB head len. Try to go without the above line and see if it makes a
-difference?
-
-
-Wei.
-
->  
->  		i = xennet_fill_frags(np, skb, &tmpq);
->  
-> @@ -1023,7 +1034,6 @@ err:
->                   * allocation is only partially used.
->                   */
->  		skb->truesize += PAGE_SIZE * skb_shinfo(skb)->nr_frags;
-> -		skb->len += skb->data_len;
->  
->  		if (rx->flags & XEN_NETRXF_csum_blank)
->  			skb->ip_summed = CHECKSUM_PARTIAL;
+RnJvbSA5NzBkMjQwOTczMjNmNWQzMTZjZjE2MGYzYmM3MTFkNWY3NDBkYjM2IE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBBbmRyZXkgVmFnaW4gPGF2YWdpbkBvcGVudnoub3JnPgpEYXRl
+OiBNb24sIDggSnVsIDIwMTMgMTk6MDg6MzYgKzA0MDAKU3ViamVjdDogW1BBVENIXSBpcDogYXZv
+aWQgdXNpbmcgU09DS19DTE9FWEVDIHRvIHNhdmUgYmFja3dhcmQgY29tcGF0aWJpbGl0eQoKRXJp
+YyBEdW1hemV0IHdyb3RlLCB0aGF0IFNPQ0tfQ0xPRVhFQyBjb3VsZCBicmVhayBpcCBjb21tYW5k
+IGZvciBvbGQKa2VybmVscywgYXMgU09DS19DTE9FWEVDIGlzIHN1cHBvcnRlZCBmcm9tIDIuNi4y
+Ny4KCkJUVzogZmNudGwoU09DS19DTE9FWEVDKSBpcyBub3Qgc2FmZSBmb3IgbXVsdGl0aHJlYWQg
+YXBwbGljYXRpb25zLgoKUmVwb3J0ZWQtYnk6IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPgpTaWdu
+ZWQtb2ZmLWJ5OiBBbmRyZXkgVmFnaW4gPGF2YWdpbkBvcGVudnoub3JnPgotLS0KIGxpYi9saWJu
+ZXRsaW5rLmMgfCA3ICsrKysrKy0KIDEgZmlsZSBjaGFuZ2VkLCA2IGluc2VydGlvbnMoKyksIDEg
+ZGVsZXRpb24oLSkKCmRpZmYgLS1naXQgYS9saWIvbGlibmV0bGluay5jIGIvbGliL2xpYm5ldGxp
+bmsuYwppbmRleCA5ZTJhNzk1Li45OTJhYWJkIDEwMDY0NAotLS0gYS9saWIvbGlibmV0bGluay5j
+CisrKyBiL2xpYi9saWJuZXRsaW5rLmMKQEAgLTQzLDEyICs0MywxNyBAQCBpbnQgcnRubF9vcGVu
+X2J5cHJvdG8oc3RydWN0IHJ0bmxfaGFuZGxlICpydGgsIHVuc2lnbmVkIHN1YnNjcmlwdGlvbnMs
+CiAKIAltZW1zZXQocnRoLCAwLCBzaXplb2YoKnJ0aCkpOwogCi0JcnRoLT5mZCA9IHNvY2tldChB
+Rl9ORVRMSU5LLCBTT0NLX1JBVyB8IFNPQ0tfQ0xPRVhFQywgcHJvdG9jb2wpOworCXJ0aC0+ZmQg
+PSBzb2NrZXQoQUZfTkVUTElOSywgU09DS19SQVcsIHByb3RvY29sKTsKIAlpZiAocnRoLT5mZCA8
+IDApIHsKIAkJcGVycm9yKCJDYW5ub3Qgb3BlbiBuZXRsaW5rIHNvY2tldCIpOwogCQlyZXR1cm4g
+LTE7CiAJfQogCisJaWYgKGZjbnRsKHJ0aC0+ZmQsIEZfU0VURkQsIEZEX0NMT0VYRUMpKSB7CisJ
+CXBlcnJvcigiQ2Fubm90IHNldCB0aGUgY2xvc2Utb24tZXhlYyBmbGFnIik7CisJCXJldHVybiAt
+MTsKKwl9CisKIAlpZiAoc2V0c29ja29wdChydGgtPmZkLFNPTF9TT0NLRVQsU09fU05EQlVGLCZz
+bmRidWYsc2l6ZW9mKHNuZGJ1ZikpIDwgMCkgewogCQlwZXJyb3IoIlNPX1NOREJVRiIpOwogCQly
+ZXR1cm4gLTE7Ci0tIAoxLjguMy4xCgo=
+--047d7b6d7f285230cb04e1020347--
