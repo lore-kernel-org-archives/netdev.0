@@ -1,54 +1,46 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH iproute2] ipbatch: fix use of 'ip netns exec'
-Date: Mon, 8 Jul 2013 14:57:19 +0100
-Message-ID: <1373291839.3428.81.camel@deadeye.wl.decadent.org.uk>
-References: <1373040345-11116-1-git-send-email-nicolas.dichtel@6wind.com>
-	 <1373057353.1913.55.camel@bwh-desktop.uk.level5networks.com>
-	 <51DA893C.8070002@6wind.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ip: set the close-on-exec flag for descriptors
+Date: Mon, 08 Jul 2013 07:17:16 -0700
+Message-ID: <1373293036.4979.105.camel@edumazet-glaptop>
+References: <1370332874-584-1-git-send-email-avagin@openvz.org>
+	 <20130604091150.48f3b1ca@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <shemminger@vyatta.com>, <netdev@vger.kernel.org>,
-	<junwei.zhang@6wind.com>
-To: <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Andrey Vagin <avagin@openvz.org>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:20574 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751430Ab3GHN5X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 09:57:23 -0400
-In-Reply-To: <51DA893C.8070002@6wind.com>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:65361 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751464Ab3GHORS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 10:17:18 -0400
+Received: by mail-pa0-f42.google.com with SMTP id rl6so4445646pac.15
+        for <netdev@vger.kernel.org>; Mon, 08 Jul 2013 07:17:17 -0700 (PDT)
+In-Reply-To: <20130604091150.48f3b1ca@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-07-08 at 11:41 +0200, Nicolas Dichtel wrote:
-> Le 05/07/2013 22:49, Ben Hutchings a =C3=A9crit :
-> > On Fri, 2013-07-05 at 18:05 +0200, Nicolas Dichtel wrote:
-> >> From: JunweiZhang <junwei.zhang@6wind.com>
-> >>
-> >> execvp() does not return when the command succeed, hence all comma=
-nds in the
-> >> batch file after the line 'ip netns exec' are not executed.
-> >>
-> >> Let's fork before calling execvp().
-> >
-> > A Unix shell forks every command it runs, so why should ip do this =
-too?
-> Just to show the problem:
->=20
-> $ cat test.batch
-> netns add netns1
-> netns exec netns1 ip l
-> netns
-> $ ip -b test.batch
-[...]
+On Tue, 2013-06-04 at 09:11 -0700, Stephen Hemminger wrote:
+> On Tue,  4 Jun 2013 12:01:14 +0400
+> Andrey Vagin <avagin@openvz.org> wrote:
+> 
+> > Otherwise a program executed by "ip netns exec" has two extra
+> > descriptors.
+> > 
+> > $ ip netns exec test /bin/bash
+> > $ lsof -p $$
+> > ...
+> > bash    817 root    0u   CHR  136,0       0t0          3 /dev/pts/0
+> > bash    817 root    1u   CHR  136,0       0t0          3 /dev/pts/0
+> > bash    817 root    2u   CHR  136,0       0t0          3 /dev/pts/0
+> > bash    817 root    3u  sock    0,6       0t0      13386 protocol: NETLINK
+> > bash    817 root    4r   REG    0,3         0 4026532155 net
+> > bash    817 root  255u   CHR  136,0       0t0          3 /dev/pts/0
+> 
+> Applied
 
-Sorry, I totally missed that there is this 'batch' sub-command in ip.  =
-I
-think you are right that it should fork in this case.
+It seems it could break ip command for old kernels, as SOCK_CLOEXEC is
+supported from 2.6.27
 
-Ben.
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Not sure if its worth a patch, to do the normal socket() call followed
+by legacy fcntl() one.
