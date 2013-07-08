@@ -1,60 +1,54 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
 Subject: Re: [PATCH] ip: set the close-on-exec flag for descriptors
-Date: Mon, 8 Jul 2013 12:50:07 -0700
-Message-ID: <20130708125007.6ee941ba@nehalam.linuxnetplumber.net>
+Date: Mon, 8 Jul 2013 12:57:48 -0700
+Message-ID: <20130708125748.2425c44d@nehalam.linuxnetplumber.net>
 References: <1370332874-584-1-git-send-email-avagin@openvz.org>
 	<20130604091150.48f3b1ca@nehalam.linuxnetplumber.net>
 	<1373293036.4979.105.camel@edumazet-glaptop>
-	<CANaxB-wjwobCnYBsL2mpR9V=WR5w7_cCgR6Pp9OA72rtVsD27A@mail.gmail.com>
-	<1373299506.4979.112.camel@edumazet-glaptop>
-	<CANaxB-zLiUsr2OG2J65jb8sa6G4i93m2j=-3F5_p+WB-Xd8ZhA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Andrey Wagin <avagin@gmail.com>
+Cc: Andrey Vagin <avagin@openvz.org>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:52125 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752274Ab3GHTuM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 15:50:12 -0400
-Received: by mail-pa0-f46.google.com with SMTP id fa11so4711373pad.5
-        for <netdev@vger.kernel.org>; Mon, 08 Jul 2013 12:50:11 -0700 (PDT)
-In-Reply-To: <CANaxB-zLiUsr2OG2J65jb8sa6G4i93m2j=-3F5_p+WB-Xd8ZhA@mail.gmail.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:52969 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752477Ab3GHT5w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 15:57:52 -0400
+Received: by mail-pa0-f54.google.com with SMTP id kx10so4763988pab.27
+        for <netdev@vger.kernel.org>; Mon, 08 Jul 2013 12:57:52 -0700 (PDT)
+In-Reply-To: <1373293036.4979.105.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 8 Jul 2013 23:23:35 +0400
-Andrey Wagin <avagin@gmail.com> wrote:
+On Mon, 08 Jul 2013 07:17:16 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> 2013/7/8 Eric Dumazet <eric.dumazet@gmail.com>:
-> > On Mon, 2013-07-08 at 19:51 +0400, Andrey Wagin wrote:
-> >> Hi Eric,
-> >>
-> >> 2013/7/8 Eric Dumazet <eric.dumazet@gmail.com>:
-> >> >> Applied
-> >> >
-> >> > It seems it could break ip command for old kernels, as SOCK_CLOEXEC is
-> >> > supported from 2.6.27
-> >> >
-> >> > Not sure if its worth a patch, to do the normal socket() call followed
-> >> > by legacy fcntl() one.
-> >>
-> >> fcntl is not safe for multithread applications. If libnetlink isn't
-> >> going to be used for them, I don't have objection. The patch is
-> >> attached.
-> >>
-> >
-> > If you want multithread safety, you could attempt the SOCK_CLOEXEC, and
-> > fall back in case of error to legacy socket()/fcntl()
-> >
+> On Tue, 2013-06-04 at 09:11 -0700, Stephen Hemminger wrote:
+> > On Tue,  4 Jun 2013 12:01:14 +0400
+> > Andrey Vagin <avagin@openvz.org> wrote:
+> > 
+> > > Otherwise a program executed by "ip netns exec" has two extra
+> > > descriptors.
+> > > 
+> > > $ ip netns exec test /bin/bash
+> > > $ lsof -p $$
+> > > ...
+> > > bash    817 root    0u   CHR  136,0       0t0          3 /dev/pts/0
+> > > bash    817 root    1u   CHR  136,0       0t0          3 /dev/pts/0
+> > > bash    817 root    2u   CHR  136,0       0t0          3 /dev/pts/0
+> > > bash    817 root    3u  sock    0,6       0t0      13386 protocol: NETLINK
+> > > bash    817 root    4r   REG    0,3         0 4026532155 net
+> > > bash    817 root  255u   CHR  136,0       0t0          3 /dev/pts/0
+> > 
+> > Applied
 > 
-> Yes, it's good idea. Look at the attached patch.
+> It seems it could break ip command for old kernels, as SOCK_CLOEXEC is
+> supported from 2.6.27
 > 
-> Thanks.
-> 
-> >
-> >
+> Not sure if its worth a patch, to do the normal socket() call followed
+> by legacy fcntl() one.
 
-Just always do the fcntl(), it makes more sense rather than having
-two code paths.
+
+Nevermind, original patch is fine since the set namespace (NR_setns) system
+call used did not show up into 3.0!
