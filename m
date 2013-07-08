@@ -1,39 +1,81 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Extremely bad performance with RTL8111/8168B
-Date: Tue, 9 Jul 2013 00:01:49 +0200
-Message-ID: <20130708220149.GA15766@electric-eye.fr.zoreil.com>
-References: <20130708095459.GA29788@amd.pavel.ucw.cz>
- <1373291269.4979.102.camel@edumazet-glaptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH iproute2 v2] ipbatch: fix use of 'ip netns exec'
+Date: Tue, 9 Jul 2013 00:36:45 +0100
+Message-ID: <1373326605.1860.12.camel@bwh-desktop.uk.level5networks.com>
+References: <20130705141639.56b47e7e@samsung-9>
+	 <1373276660-14088-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Machek <pavel@ucw.cz>, Hayes Wang <hayeswang@realtek.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <shemminger@vyatta.com>, <netdev@vger.kernel.org>,
+	<junwei.zhang@6wind.com>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:38546 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751322Ab3GHWB7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 18:01:59 -0400
-Content-Disposition: inline
-In-Reply-To: <1373291269.4979.102.camel@edumazet-glaptop>
+Received: from webmail.solarflare.com ([12.187.104.25]:50600 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752969Ab3GHXgu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 19:36:50 -0400
+In-Reply-To: <1373276660-14088-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> :
-[8168d failure]
-> It looks like TSO packets are not transmitted, so TCP only 'works'
-> because retransmits use non TSO packets.
-> 
-> Could you report "ethtool -k eth0" ?
-> 
-> try : ethtool -K eth0 tso off
+On Mon, 2013-07-08 at 11:44 +0200, Nicolas Dichtel wrote:
+[...]
+> --- a/ip/ipnetns.c
+> +++ b/ip/ipnetns.c
+> @@ -138,6 +138,7 @@ static int netns_exec(int argc, char **argv)
+>  	const char *name, *cmd;
+>  	char net_path[MAXPATHLEN];
+>  	int netns;
+> +	int pid, status;
+>  
+>  	if (argc < 1) {
+>  		fprintf(stderr, "No netns name specified\n");
+> @@ -185,10 +186,23 @@ static int netns_exec(int argc, char **argv)
+>  	/* Setup bind mounts for config files in /etc */
+>  	bind_etc(name);
+>  
+> -	if (execvp(cmd, argv + 1)  < 0)
+> -		fprintf(stderr, "exec of \"%s\" failed: %s\n",
+> -			cmd, strerror(errno));
+> -	return EXIT_FAILURE;
+> +	pid = fork();
+> +	if (pid < 0)
+> +		return EXIT_FAILURE;
 
-If so it could be worth adding a test for RTL_GIGA_MAC_VER_25 in
-rtl_test_hw_pad_bug as has been done for RTL_GIGA_MAC_VER_34 (see
-b423e9ae49d78ea3f53b131c8d5a6087aed16fd6).
+On failure, this should emit an error message:
+		perror("fork");
+and then return -1, surely?
 
-1a9646497b163a8b9da5e70008d809dc91b32855 may be reverted if
-'ethtool -K eth0 tso off' does not make a difference.
+> +	else if (pid > 0)
+> +		waitpid(pid, &status, 0);
+> +	else {
+> +		/* Child */
+> +		if (execvp(cmd, argv + 1)  < 0)
+> +			fprintf(stderr, "exec of \"%s\" failed: %s\n",
+> +				cmd, strerror(errno));
+> +		return EXIT_FAILURE;
+
+No, the child must not return from this function.  Otherwise there will
+be two processes trying to do the same cleanup on the resources that
+they still share.  The child should call _exit(127) if exec*() fails.
+
+> +	}
+> +	/* ip must returns the status of the child, but do_cmd() will add a
+> +	 * minus to this returned value, so let's add another one here to
+> +	 * cancel it.
+> +	 */
+> +	return -WEXITSTATUS(status);
+>  }
+>  
+>  static int is_pid(const char *str)
+
+WEXITSTATUS() is valid only if waitpid() was successful and WIFEXITED()
+yields true.
+
+Ben.
 
 -- 
-Ueimor
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
