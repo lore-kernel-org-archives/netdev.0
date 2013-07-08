@@ -1,68 +1,22 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL] vhost: cleanups and fixes
-Date: Mon, 8 Jul 2013 14:45:56 +0300
-Message-ID: <20130708114556.GA17036@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: "Full Name" <kp1ev85tc7@myway.com>
+Subject: Hi, dvde. I am nea r yovr region. I am gra cefvl. My photos a va ila ble here.
+Date: Mon, 08 Jul 2013 07:38:48 -0400
+Message-ID: <20130708073848.26518@web007.roc2.bluetie.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+To: golfer2@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outbound003.roc2.bluetie.com ([208.89.132.143]:49459 "EHLO
+	outbound003.roc2.bluetie.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751972Ab3GHLsx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 07:48:53 -0400
+Received: from web007.roc2.bluetie.com (localhost.localdomain [127.0.0.1])
+	by web007.roc2.bluetie.com (Postfix) with ESMTP id 319FB16017E
+	for <netdev@vger.kernel.org>; Mon,  8 Jul 2013 07:40:46 -0400 (EDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The following changes since commit 8bb495e3f02401ee6f76d1b1d77f3ac9f079e376:
+Hi, dvde. I am nea r yovr region. I am gra cefvl. My photos a va ila ble her=
+e.
 
-  Linux 3.10 (2013-06-30 15:13:29 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
-
-for you to fetch changes up to 09a34c8404c1d4c5782de319c02e1d742c57875c:
-
-  vhost/test: update test after vhost cleanups (2013-07-07 18:02:25 +0300)
-
-----------------------------------------------------------------
-vhost: fixes and cleanups 3.11
-
-This includes some fixes and cleanups for vhost net and scsi drivers.
-The scsi driver changes will cause a conflict with  Nicholas Bellinger's scsi
-target changes, but the conflicting commit in my tree simply renames some
-variables so it's trivial to resolve.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
-----------------------------------------------------------------
-Asias He (8):
-      vhost: Simplify dev->vqs[i] access
-      vhost-scsi: Remove unnecessary forward struct vhost_scsi declaration
-      vhost-scsi: Rename struct vhost_scsi *s to *vs
-      vhost-scsi: Make func indention more consistent
-      vhost-scsi: Rename struct tcm_vhost_tpg *tv_tpg to *tpg
-      vhost-scsi: Rename struct tcm_vhost_cmd *tv_cmd to *cmd
-      vhost: Make vhost a separate module
-      vhost: Make local function static
-
-Michael S. Tsirkin (2):
-      vhost-net: fix use-after-free in vhost_net_flush
-      vhost/test: update test after vhost cleanups
-
- drivers/vhost/Kconfig  |   8 +
- drivers/vhost/Makefile |   3 +-
- drivers/vhost/net.c    |  13 +-
- drivers/vhost/scsi.c   | 472 ++++++++++++++++++++++++++-----------------------
- drivers/vhost/test.c   |  33 ++--
- drivers/vhost/vhost.c  |  86 +++++++--
- drivers/vhost/vhost.h  |   2 +
- 7 files changed, 356 insertions(+), 261 deletions(-)
+http://l1nk.nu/bmnc7
