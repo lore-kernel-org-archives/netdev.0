@@ -1,63 +1,68 @@
-From: Guennadi Liakhovetski <g.liakhovetski-Mmb7MZpHnFY@public.gmane.org>
-Subject: Re: [PATCH/RFC 2/3] ethernet: add a PHY reset GPIO DT binding to
- sh_eth
-Date: Mon, 8 Jul 2013 12:49:47 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1307081247530.19819@axis700.grange>
-References: <1359043653-11374-1-git-send-email-g.liakhovetski@gmx.de>
- <1359043653-11374-3-git-send-email-g.liakhovetski@gmx.de>
- <7921225.sfO3PIeLVS@avalon>
- <Pine.LNX.4.64.1301251127460.17518@axis700.grange>
- <20130125182137.GB7393@obsidianresearch.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PULL] vhost: cleanups and fixes
+Date: Mon, 8 Jul 2013 14:45:56 +0300
+Message-ID: <20130708114556.GA17036@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Magnus Damm <magnus.damm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>,
- Laurent Pinchart <laurent.pinchart-ryLnwIuWjnjg/C1BVhZhaw@public.gmane.org>,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <20130125182137.GB7393-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jason
+The following changes since commit 8bb495e3f02401ee6f76d1b1d77f3ac9f079e376:
 
-Sorry for resuming an old thread, but I'd like to get this solved 
-eventually.
+  Linux 3.10 (2013-06-30 15:13:29 -0700)
 
-On Fri, 25 Jan 2013, Jason Gunthorpe wrote:
+are available in the git repository at:
 
-> On Fri, Jan 25, 2013 at 11:34:55AM +0100, Guennadi Liakhovetski wrote:
-> 
-> > > Is there no need to reset the phy at runtime ?
-> > 
-> > No idea, I'm not developing the driver, I'm just porting one specific 
-> > feature from one API to another with no functional changes (apart from 
-> > postponing setting the GPIO).
-> 
-> Generally Linux relies on resetting the phy via the inband MDIO method,
-> which is what Linux does. It is pretty much never required to reset
-> via the hard pin - but you do need to generate a robust reset edge on
-> the reset pin once after power up.
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
 
-This all sounds good. So, is there a preferred way to do that? Where in 
-the ethernet framework would you propose to hook up such a reset edge 
-generation?
+for you to fetch changes up to 09a34c8404c1d4c5782de319c02e1d742c57875c:
 
-Thanks
-Guennadi
----
-Guennadi Liakhovetski, Ph.D.
-Freelance Open-Source Software Developer
-http://www.open-technology.de/
+  vhost/test: update test after vhost cleanups (2013-07-07 18:02:25 +0300)
+
+----------------------------------------------------------------
+vhost: fixes and cleanups 3.11
+
+This includes some fixes and cleanups for vhost net and scsi drivers.
+The scsi driver changes will cause a conflict with  Nicholas Bellinger's scsi
+target changes, but the conflicting commit in my tree simply renames some
+variables so it's trivial to resolve.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+----------------------------------------------------------------
+Asias He (8):
+      vhost: Simplify dev->vqs[i] access
+      vhost-scsi: Remove unnecessary forward struct vhost_scsi declaration
+      vhost-scsi: Rename struct vhost_scsi *s to *vs
+      vhost-scsi: Make func indention more consistent
+      vhost-scsi: Rename struct tcm_vhost_tpg *tv_tpg to *tpg
+      vhost-scsi: Rename struct tcm_vhost_cmd *tv_cmd to *cmd
+      vhost: Make vhost a separate module
+      vhost: Make local function static
+
+Michael S. Tsirkin (2):
+      vhost-net: fix use-after-free in vhost_net_flush
+      vhost/test: update test after vhost cleanups
+
+ drivers/vhost/Kconfig  |   8 +
+ drivers/vhost/Makefile |   3 +-
+ drivers/vhost/net.c    |  13 +-
+ drivers/vhost/scsi.c   | 472 ++++++++++++++++++++++++++-----------------------
+ drivers/vhost/test.c   |  33 ++--
+ drivers/vhost/vhost.c  |  86 +++++++--
+ drivers/vhost/vhost.h  |   2 +
+ 7 files changed, 356 insertions(+), 261 deletions(-)
