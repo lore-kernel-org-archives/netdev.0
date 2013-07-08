@@ -1,219 +1,61 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next] r8169: add a new chip for RTL8411
-Date: Mon, 8 Jul 2013 17:09:01 +0800
-Message-ID: <1373274541-1095-1-git-send-email-hayeswang@realtek.com>
+Subject: [PATCH firmware] rtl_nic: add firmware rtl8411-2
+Date: Mon, 8 Jul 2013 17:11:21 +0800
+Message-ID: <1373274681-1225-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Hayes Wang <hayeswang@realtek.com>
-To: <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: <romieu@fr.zoreil.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <dwmw2@infradead.org>, <ben@decadent.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a new chip for RTL8411 series.
+File: rtl_nic/rtl8411-2.fw
+Version: 0.0.1
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/ethernet/realtek/r8169.c | 67 ++++++++++++++++++++++++++++++++++++
- 1 file changed, 67 insertions(+)
+ WHENCE               |   3 +++
+ rtl_nic/rtl8411-2.fw | Bin 0 -> 1040 bytes
+ 2 files changed, 3 insertions(+)
+ create mode 100644 rtl_nic/rtl8411-2.fw
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 393f961..4106a74 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -46,6 +46,7 @@
- #define FIRMWARE_8105E_1	"rtl_nic/rtl8105e-1.fw"
- #define FIRMWARE_8402_1		"rtl_nic/rtl8402-1.fw"
- #define FIRMWARE_8411_1		"rtl_nic/rtl8411-1.fw"
-+#define FIRMWARE_8411_2		"rtl_nic/rtl8411-2.fw"
- #define FIRMWARE_8106E_1	"rtl_nic/rtl8106e-1.fw"
- #define FIRMWARE_8106E_2	"rtl_nic/rtl8106e-2.fw"
- #define FIRMWARE_8168G_2	"rtl_nic/rtl8168g-2.fw"
-@@ -144,6 +145,7 @@ enum mac_version {
- 	RTL_GIGA_MAC_VER_41,
- 	RTL_GIGA_MAC_VER_42,
- 	RTL_GIGA_MAC_VER_43,
-+	RTL_GIGA_MAC_VER_44,
- 	RTL_GIGA_MAC_NONE   = 0xff,
- };
+diff --git a/WHENCE b/WHENCE
+index d7fba9d..39f11af 100644
+--- a/WHENCE
++++ b/WHENCE
+@@ -1879,6 +1879,9 @@ Version: 0.0.4
+ File: rtl_nic/rtl8411-1.fw
+ Version: 0.0.3
  
-@@ -276,6 +278,9 @@ static const struct {
- 	[RTL_GIGA_MAC_VER_43] =
- 		_R("RTL8106e",		RTL_TD_1, FIRMWARE_8106E_2,
- 							JUMBO_1K, true),
-+	[RTL_GIGA_MAC_VER_44] =
-+		_R("RTL8411",		RTL_TD_1, FIRMWARE_8411_2,
-+							JUMBO_9K, false),
- };
- #undef _R
++File: rtl_nic/rtl8411-2.fw
++Version: 0.0.1
++
+ File: rtl_nic/rtl8402-1.fw
+ Version: 0.0.1
  
-@@ -394,6 +399,7 @@ enum rtl8168_8101_registers {
- #define CSIAR_FUNC_CARD			0x00000000
- #define CSIAR_FUNC_SDIO			0x00010000
- #define CSIAR_FUNC_NIC			0x00020000
-+#define CSIAR_FUNC_NIC2			0x00010000
- 	PMCH			= 0x6f,
- 	EPHYAR			= 0x80,
- #define	EPHYAR_FLAG			0x80000000
-@@ -826,6 +832,7 @@ MODULE_FIRMWARE(FIRMWARE_8168F_1);
- MODULE_FIRMWARE(FIRMWARE_8168F_2);
- MODULE_FIRMWARE(FIRMWARE_8402_1);
- MODULE_FIRMWARE(FIRMWARE_8411_1);
-+MODULE_FIRMWARE(FIRMWARE_8411_2);
- MODULE_FIRMWARE(FIRMWARE_8106E_1);
- MODULE_FIRMWARE(FIRMWARE_8106E_2);
- MODULE_FIRMWARE(FIRMWARE_8168G_2);
-@@ -2051,6 +2058,7 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
- 		int mac_version;
- 	} mac_info[] = {
- 		/* 8168G family. */
-+		{ 0x7cf00000, 0x5c800000,	RTL_GIGA_MAC_VER_44 },
- 		{ 0x7cf00000, 0x50900000,	RTL_GIGA_MAC_VER_42 },
- 		{ 0x7cf00000, 0x4c100000,	RTL_GIGA_MAC_VER_41 },
- 		{ 0x7cf00000, 0x4c000000,	RTL_GIGA_MAC_VER_40 },
-@@ -3651,6 +3659,7 @@ static void rtl_hw_phy_config(struct net_device *dev)
- 		break;
- 	case RTL_GIGA_MAC_VER_42:
- 	case RTL_GIGA_MAC_VER_43:
-+	case RTL_GIGA_MAC_VER_44:
- 		rtl8168g_2_hw_phy_config(tp);
- 		break;
- 
-@@ -3863,6 +3872,7 @@ static void rtl_init_mdio_ops(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_41:
- 	case RTL_GIGA_MAC_VER_42:
- 	case RTL_GIGA_MAC_VER_43:
-+	case RTL_GIGA_MAC_VER_44:
- 		ops->write	= r8168g_mdio_write;
- 		ops->read	= r8168g_mdio_read;
- 		break;
-@@ -3916,6 +3926,7 @@ static void rtl_wol_suspend_quirk(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_41:
- 	case RTL_GIGA_MAC_VER_42:
- 	case RTL_GIGA_MAC_VER_43:
-+	case RTL_GIGA_MAC_VER_44:
- 		RTL_W32(RxConfig, RTL_R32(RxConfig) |
- 			AcceptBroadcast | AcceptMulticast | AcceptMyPhys);
- 		break;
-@@ -4178,6 +4189,7 @@ static void rtl_init_pll_power_ops(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_40:
- 	case RTL_GIGA_MAC_VER_41:
- 	case RTL_GIGA_MAC_VER_42:
-+	case RTL_GIGA_MAC_VER_44:
- 		ops->down	= r8168_pll_power_down;
- 		ops->up		= r8168_pll_power_up;
- 		break;
-@@ -4224,6 +4236,7 @@ static void rtl_init_rxcfg(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_41:
- 	case RTL_GIGA_MAC_VER_42:
- 	case RTL_GIGA_MAC_VER_43:
-+	case RTL_GIGA_MAC_VER_44:
- 		RTL_W32(RxConfig, RX128_INT_EN | RX_DMA_BURST | RX_EARLY_OFF);
- 		break;
- 	default:
-@@ -4384,6 +4397,7 @@ static void rtl_init_jumbo_ops(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_41:
- 	case RTL_GIGA_MAC_VER_42:
- 	case RTL_GIGA_MAC_VER_43:
-+	case RTL_GIGA_MAC_VER_44:
- 	default:
- 		ops->disable	= NULL;
- 		ops->enable	= NULL;
-@@ -4493,6 +4507,7 @@ static void rtl8169_hw_reset(struct rtl8169_private *tp)
- 	           tp->mac_version == RTL_GIGA_MAC_VER_41 ||
- 	           tp->mac_version == RTL_GIGA_MAC_VER_42 ||
- 	           tp->mac_version == RTL_GIGA_MAC_VER_43 ||
-+	           tp->mac_version == RTL_GIGA_MAC_VER_44 ||
- 	           tp->mac_version == RTL_GIGA_MAC_VER_38) {
- 		RTL_W8(ChipCmd, RTL_R8(ChipCmd) | StopReq);
- 		rtl_udelay_loop_wait_high(tp, &rtl_txcfg_empty_cond, 100, 666);
-@@ -4782,6 +4797,29 @@ static u32 r8402_csi_read(struct rtl8169_private *tp, int addr)
- 		RTL_R32(CSIDR) : ~0;
- }
- 
-+static void r8411_csi_write(struct rtl8169_private *tp, int addr, int value)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+
-+	RTL_W32(CSIDR, value);
-+	RTL_W32(CSIAR, CSIAR_WRITE_CMD | (addr & CSIAR_ADDR_MASK) |
-+		CSIAR_BYTE_ENABLE << CSIAR_BYTE_ENABLE_SHIFT |
-+		CSIAR_FUNC_NIC2);
-+
-+	rtl_udelay_loop_wait_low(tp, &rtl_csiar_cond, 10, 100);
-+}
-+
-+static u32 r8411_csi_read(struct rtl8169_private *tp, int addr)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+
-+	RTL_W32(CSIAR, (addr & CSIAR_ADDR_MASK) | CSIAR_FUNC_NIC2 |
-+		CSIAR_BYTE_ENABLE << CSIAR_BYTE_ENABLE_SHIFT);
-+
-+	return rtl_udelay_loop_wait_high(tp, &rtl_csiar_cond, 10, 100) ?
-+		RTL_R32(CSIDR) : ~0;
-+}
-+
- static void rtl_init_csi_ops(struct rtl8169_private *tp)
- {
- 	struct csi_ops *ops = &tp->csi_ops;
-@@ -4811,6 +4849,11 @@ static void rtl_init_csi_ops(struct rtl8169_private *tp)
- 		ops->read	= r8402_csi_read;
- 		break;
- 
-+	case RTL_GIGA_MAC_VER_44:
-+		ops->write	= r8411_csi_write;
-+		ops->read	= r8411_csi_read;
-+		break;
-+
- 	default:
- 		ops->write	= r8169_csi_write;
- 		ops->read	= r8169_csi_read;
-@@ -5255,6 +5298,25 @@ static void rtl_hw_start_8168g_2(struct rtl8169_private *tp)
- 	rtl_ephy_init(tp, e_info_8168g_2, ARRAY_SIZE(e_info_8168g_2));
- }
- 
-+static void rtl_hw_start_8411_2(struct rtl8169_private *tp)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	static const struct ephy_info e_info_8411_2[] = {
-+		{ 0x00, 0x0000,	0x0008 },
-+		{ 0x0c, 0x3df0,	0x0200 },
-+		{ 0x0f, 0xffff,	0x5200 },
-+		{ 0x19, 0x0020,	0x0000 },
-+		{ 0x1e, 0x0000,	0x2000 }
-+	};
-+
-+	rtl_hw_start_8168g_1(tp);
-+
-+	/* disable aspm and clock request before access ephy */
-+	RTL_W8(Config2, RTL_R8(Config2) & ~ClkReqEn);
-+	RTL_W8(Config5, RTL_R8(Config5) & ~ASPM_en);
-+	rtl_ephy_init(tp, e_info_8411_2, ARRAY_SIZE(e_info_8411_2));
-+}
-+
- static void rtl_hw_start_8168(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
-@@ -5361,6 +5423,10 @@ static void rtl_hw_start_8168(struct net_device *dev)
- 		rtl_hw_start_8168g_2(tp);
- 		break;
- 
-+	case RTL_GIGA_MAC_VER_44:
-+		rtl_hw_start_8411_2(tp);
-+		break;
-+
- 	default:
- 		printk(KERN_ERR PFX "%s: unknown chipset (mac_version = %d).\n",
- 			dev->name, tp->mac_version);
-@@ -6877,6 +6943,7 @@ static void rtl_hw_initialize(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_41:
- 	case RTL_GIGA_MAC_VER_42:
- 	case RTL_GIGA_MAC_VER_43:
-+	case RTL_GIGA_MAC_VER_44:
- 		rtl_hw_init_8168g(tp);
- 		break;
- 
+diff --git a/rtl_nic/rtl8411-2.fw b/rtl_nic/rtl8411-2.fw
+new file mode 100644
+index 0000000000000000000000000000000000000000..e3789fe576c41c2a12d606ece1e41552693ad9ac
+GIT binary patch
+literal 1040
+zcmYk(L2DC16bJB^?IsOr*ldz9m16B8MMP@4yJ=$#B7sW1^yIOZG}uE9Qi}8#<S8i#
+zRS5k6wV;Q71VNOb=%J_}B3}2dQqk07<A3L6q)A@p?Qh<^o!KQKy0>+=wh#nY!lqyL
+z%Yo-#o%d_=K?PI#vxfigh{tq$rCRZW=4NZ_PP-ZUK^TN#wY;=^%L^9ki`VLYg`Pa0
+zjTeoEUV^CcCO5-GX+#E*MK}l-Q9vj}iN}Z{q7*Y~(-CndvN#*r>_jPcqcj(y467*1
+zrO09HJ=VUKwbr{5)2p+*GCsxD+jC4W&vPd2q2>Z=X3_g1@=M4sBcDTFM(!gIkuM;x
+zBCjE@BfpOP2J8KD3OO|%PQ-h6@zuXR>ucJ?xuTdFL|%ie{dJ-qQPN+^%<%GqB2z+f
+z`9+Zvq&PMYdCyW@*vA}9VYKHIkDm(rnc@WEzNdI<RF}dy%qg}<qcs`{W5-pxuZzC%
+zJ&2^Y?0J$-hU5`V_W$n*_ciA^(sOSAgFcU<;YnPp`Zsl-JoWW?^LlNUbzd4jm6~{J
+zOdg4zFO24iF@YYR&~xokLGS60ncE?ExFhR-8LPwUVn@c3u%y^uV;isyu^-0Tu(sGw
+zV;xvW?6<K2Y#=r;whh}Bi=T}fzb{fm2k-;&oUv)xv{>HQG3;2ZXsiWmiJdXF3)>ZQ
+zjM*?-ENkr4z9)>WqHa~{;yr#gdmqX({%EfEP`4*_UyM00N9?PyL)f9%H)CB`SFEAm
+GJJCOC1@r*`
+
+literal 0
+HcmV?d00001
+
 -- 
 1.8.3.1
