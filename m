@@ -1,74 +1,75 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: 3.9.5+:  Crash in tcp_input.c:4810.
-Date: Mon, 08 Jul 2013 12:59:08 -0700
-Message-ID: <51DB1A0C.3080807@candelatech.com>
-References: <51BF50B3.1080403@candelatech.com>      <1371493059.3252.200.camel@edumazet-glaptop>      <51D1C620.8030007@candelatech.com>     <1372813467.4979.46.camel@edumazet-glaptop>     <51D398C0.5060802@candelatech.com>    <1372826512.4979.49.camel@edumazet-glaptop>    <51D3AD66.8030506@candelatech.com>   <1372827749.4979.52.camel@edumazet-glaptop>   <51DAF5A7.60505@candelatech.com>  <1373307702.4979.116.camel@edumazet-glaptop>  <51DB054D.6060507@candelatech.com> <1373310119.4979.119.camel@edumazet-glaptop>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next] net: rename low latency sockets functions to
+ busy poll
+Date: Mon, 8 Jul 2013 12:59:38 -0700
+Message-ID: <20130708125938.11ea37b4@nehalam.linuxnetplumber.net>
+References: <20130708132034.17639.4396.stgit@ladj378.jer.intel.com>
+	<CA+55aFxgrOtsv7vCtic97ehpvqyezCzDcyqHVD+821BiTuiRtw@mail.gmail.com>
+	<51DAF373.4040606@linux.intel.com>
+	<CA+55aFwWAmHhYaPWVm7rsqiD9+RhDPpgVC1yWc0oNmP38bty4Q@mail.gmail.com>
+	<51DB16FC.7060003@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:48097 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752477Ab3GHT7J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 15:59:09 -0400
-In-Reply-To: <1373310119.4979.119.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Woodhouse <dwmw2@infradead.org>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51DB16FC.7060003@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/08/2013 12:01 PM, Eric Dumazet wrote:
-> On Mon, 2013-07-08 at 11:30 -0700, Ben Greear wrote:
->> On 07/08/2013 11:21 AM, Eric Dumazet wrote:
->>> On Mon, 2013-07-08 at 10:23 -0700, Ben Greear wrote:
->>>
->>>> We ran a 5+ day test using un-modified 3.10 kernel and did not trigger
->>>> the bug.
->>>
->>> Using wired ethernet only, or any kind of adapters, including ath9k ?
->>
->> Exact same hardware and configuration:
->>
->> ath9k, around 240 wifi
->> stations trying to connect to APs that can handle a bit less
->> than 240 total, starting TCP traffic when stations are connected.
->> It appears that the constant churn of stations going up and down
->> is key, but of course that is par for the course, especially in
->> the wifi stack.
->>
->> Some of our local wifi patches make the system work considerably faster when
->> we have hundreds of wifi stations, so timing will be different on upstream
->> kernels, and of course we could have bugs :)
->
-> There is this thing in ath9k about aggregating two frags
->
-> drivers/net/wireless/ath/ath9k/recv.c line 1298 contains :
->
-> RX_STAT_INC(rx_frags);
->
-> Could you check these stats (I do not know if they are reported by
-> ethtool -S or another debugging facility) and check if rx_frags is ever
-> increasing ?
+On Mon, 08 Jul 2013 22:46:04 +0300
+Eliezer Tamir <eliezer.tamir@linux.intel.com> wrote:
 
-They are in debugfs, and they appear to increase fairly often, for
-instance:
+> On 08/07/2013 22:37, Linus Torvalds wrote:
+> > On Mon, Jul 8, 2013 at 10:14 AM, Eliezer Tamir
+> > <eliezer.tamir@linux.intel.com> wrote:
+> >>
+> >> I think there is no way for the compiler to know the value of
+> >> can_busy_loop at compile time. It depends on the replies we get
+> >> from polling the sockets. ll_flag was there to make sure the compiler
+> >> will know when things are defined out.
+> > 
+> > No, my point was that we want to handle the easily seen register test
+> > first, and not even have to load current().
+> > 
+> > The compiler may end up scheduling the code to load current anyway,
+> > but the way you wrote it it's pretty much guaranteed that it will do
+> > it.
+> 
+> I see. OK.
+> 
+> > In fact, I'd argue for initializing start_time to zero, and have the
+> > "have we timed out" logic load it only if necessary, rather than
+> > initializing it based on whether POLL_BUSY_WAIT was set or not.
+> > Because one common case - even with POLL_BUSY_WAIT - is that we go
+> > through the loop exactly once, and the data exists on the very first
+> > try. And that is in fact the case we want to optimize and not do any
+> > extra work for at all.
+> > 
+> > So I would actually argue that the whole timeout code might as well be
+> > something like
+> > 
+> >     unsigned long start_time = 0;
+> >     ...
+> >     if (want_busy_poll && !need_resched()) {
+> >         unsigned long now = busy_poll_sched_clock();
+> >         if (!start_time) {
+> >             start_time = now + sysctl.busypoll;
+> >             continue;
+> >         }
+> >         if (time_before(start_time, now))
+> >             continue;
+> >     }
+> > 
+> 
+> OK.
 
-[root@lec2010-ath9k-1 lanforge]# cat /debug/ieee80211/wiphy0/ath9k/recv|tail -5
-            RX-Pkts-All :  288009442
-           RX-Bytes-All : 4067932166
-             RX-Beacons :   14826735
-               RX-Frags :       3944
-            RX-Spectral :          0
-
-I don't have the stats from the system that reproduced the bug
-(it has been rebooted), but if I do see the bug again, I'll
-grab the rx-frags and other stats just in case it shows
-some anomaly.
-
-Thanks,
-Ben
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Since this is special case in the hot path, it looks like a good case
+for static branch logic.
