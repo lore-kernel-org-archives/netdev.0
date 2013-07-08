@@ -1,74 +1,304 @@
-From: Jonas Gorski <jogo@openwrt.org>
-Subject: [PATCH] net: mv643xx_eth: do not use port number as platform device id
-Date: Mon,  8 Jul 2013 00:44:55 +0200
-Message-ID: <1373237095-28989-1-git-send-email-jogo@openwrt.org>
-References: <51D9E499.5000801@gmail.com>
-Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next] net/usb: add relative mii functions for r815x
+Date: Mon, 8 Jul 2013 10:41:21 +0800
+Message-ID: <1373251281-2402-1-git-send-email-hayeswang@realtek.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, <nic_swsd@realtek.com>,
+	Hayes Wang <hayeswang@realtek.com>
+To: <gregkh@linuxfoundation.org>, <oliver@neukum.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51D9E499.5000801@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The port number is only local to the ethernet block, not global, so
-there can be two ethernet blocks both using the same port, like
-kirkwood with both using port 0.
+Base on cdc_ether, add the mii functions for RTL8152 and RTL8153.
+The RTL8152 and RTL8153 support ECM mode which use the driver of
+cdc_ether. Add the mii functions. Then, the basic PHY access is
+possible.
 
-Fix this by using the array index offset for the allocated platform
-devices as the id.
-
-Signed-off-by: Jonas Gorski <jogo@openwrt.org>
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/ethernet/marvell/mv643xx_eth.c | 13 +++++++++++--
- 1 file changed, 11 insertions(+), 2 deletions(-)
+ drivers/net/usb/Makefile    |   2 +-
+ drivers/net/usb/cdc_ether.c |   9 +-
+ drivers/net/usb/r815x.c     | 231 ++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 239 insertions(+), 3 deletions(-)
+ create mode 100644 drivers/net/usb/r815x.c
 
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index 6495bea..c35db73 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -2483,6 +2483,7 @@ static int mv643xx_eth_shared_of_add_port(struct platform_device *pdev,
- 	struct resource res;
- 	const char *mac_addr;
- 	int ret;
-+	int dev_num = 0;
+diff --git a/drivers/net/usb/Makefile b/drivers/net/usb/Makefile
+index 9ab5c9d..e817178 100644
+--- a/drivers/net/usb/Makefile
++++ b/drivers/net/usb/Makefile
+@@ -11,7 +11,7 @@ obj-$(CONFIG_USB_HSO)		+= hso.o
+ obj-$(CONFIG_USB_NET_AX8817X)	+= asix.o
+ asix-y := asix_devices.o asix_common.o ax88172a.o
+ obj-$(CONFIG_USB_NET_AX88179_178A)      += ax88179_178a.o
+-obj-$(CONFIG_USB_NET_CDCETHER)	+= cdc_ether.o
++obj-$(CONFIG_USB_NET_CDCETHER)	+= cdc_ether.o r815x.o
+ obj-$(CONFIG_USB_NET_CDC_EEM)	+= cdc_eem.o
+ obj-$(CONFIG_USB_NET_DM9601)	+= dm9601.o
+ obj-$(CONFIG_USB_NET_SMSC75XX)	+= smsc75xx.o
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index 4393f14..03ad4dc 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -646,13 +646,18 @@ static const struct usb_device_id	products [] = {
+ },
  
- 	memset(&ppd, 0, sizeof(ppd));
- 	ppd.shared = pdev;
-@@ -2503,6 +2504,14 @@ static int mv643xx_eth_shared_of_add_port(struct platform_device *pdev,
- 		return -EINVAL;
- 	}
- 
-+	while (dev_num < 3 && port_platdev[dev_num])
-+		dev_num++;
+ /* Realtek RTL8152 Based USB 2.0 Ethernet Adapters */
+-#if defined(CONFIG_USB_RTL8152) || defined(CONFIG_USB_RTL8152_MODULE)
+ {
+ 	USB_DEVICE_AND_INTERFACE_INFO(REALTEK_VENDOR_ID, 0x8152, USB_CLASS_COMM,
+ 			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
+ 	.driver_info = 0,
+ },
+-#endif
 +
-+	if (dev_num == 3) {
-+		dev_err(&pdev->dev, "too many ports registered\n");
-+		return -EINVAL;
++/* Realtek RTL8153 Based USB 3.0 Ethernet Adapters */
++{
++	USB_DEVICE_AND_INTERFACE_INFO(REALTEK_VENDOR_ID, 0x8153, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
++	.driver_info = 0,
++},
+ 
+ /*
+  * WHITELIST!!!
+diff --git a/drivers/net/usb/r815x.c b/drivers/net/usb/r815x.c
+new file mode 100644
+index 0000000..6516737
+--- /dev/null
++++ b/drivers/net/usb/r815x.c
+@@ -0,0 +1,231 @@
++#include <linux/module.h>
++#include <linux/netdevice.h>
++#include <linux/mii.h>
++#include <linux/usb.h>
++#include <linux/usb/cdc.h>
++#include <linux/usb/usbnet.h>
++
++#define RTL815x_REQT_READ	0xc0
++#define RTL815x_REQT_WRITE	0x40
++#define RTL815x_REQ_GET_REGS	0x05
++#define RTL815x_REQ_SET_REGS	0x05
++
++#define MCU_TYPE_PLA		0x0100
++#define OCP_BASE		0xe86c
++#define BASE_MII		0xa400
++
++#define BYTE_EN_DWORD		0xff
++#define BYTE_EN_WORD		0x33
++#define BYTE_EN_BYTE		0x11
++
++#define R815x_PHY_ID		32
++#define REALTEK_VENDOR_ID	0x0bda
++
++
++static int pla_read_word(struct usb_device *udev, u16 index)
++{
++	int data, ret;
++	u8 shift = index & 2;
++
++	index &= ~3;
++
++	ret = usb_control_msg(udev, usb_rcvctrlpipe(udev, 0),
++			      RTL815x_REQ_GET_REGS, RTL815x_REQT_READ,
++			      index, MCU_TYPE_PLA, &data, sizeof(data), 500);
++	if (ret < 0)
++		return ret;
++
++	data = __le32_to_cpu(data);
++	data >>= (shift * 8);
++	data &= 0xffff;
++
++	return data;
++}
++
++static int pla_write_word(struct usb_device *udev, u16 index, u32 data)
++{
++	u32 tmp, mask = 0xffff;
++	u16 byen = BYTE_EN_WORD;
++	u8 shift = index & 2;
++	int ret;
++
++	data &= mask;
++
++	if (shift) {
++		byen <<= shift;
++		mask <<= (shift * 8);
++		data <<= (shift * 8);
++		index &= ~3;
 +	}
 +
- 	mac_addr = of_get_mac_address(pnp);
- 	if (mac_addr)
- 		memcpy(ppd.mac_addr, mac_addr, 6);
-@@ -2521,7 +2530,7 @@ static int mv643xx_eth_shared_of_add_port(struct platform_device *pdev,
- 		of_property_read_u32(pnp, "duplex", &ppd.duplex);
- 	}
- 
--	ppdev = platform_device_alloc(MV643XX_ETH_NAME, ppd.port_number);
-+	ppdev = platform_device_alloc(MV643XX_ETH_NAME, dev_num);
- 	if (!ppdev)
- 		return -ENOMEM;
- 	ppdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
-@@ -2538,7 +2547,7 @@ static int mv643xx_eth_shared_of_add_port(struct platform_device *pdev,
- 	if (ret)
- 		goto port_err;
- 
--	port_platdev[ppd.port_number] = ppdev;
-+	port_platdev[dev_num] = ppdev;
- 
- 	return 0;
- 
++	ret = usb_control_msg(udev, usb_rcvctrlpipe(udev, 0),
++			      RTL815x_REQ_GET_REGS, RTL815x_REQT_READ,
++			      index, MCU_TYPE_PLA, &tmp, sizeof(tmp), 500);
++	if (ret < 0)
++		return ret;
++
++	tmp = __le32_to_cpu(tmp) & ~mask;
++	tmp |= data;
++	tmp = __cpu_to_le32(tmp);
++
++	ret = usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
++			      RTL815x_REQ_SET_REGS, RTL815x_REQT_WRITE,
++			      index, MCU_TYPE_PLA | byen, &tmp,
++			      sizeof(tmp), 500);
++
++	return ret;
++}
++
++static int ocp_reg_read(struct usbnet *dev, u16 addr)
++{
++	u16 ocp_base, ocp_index;
++	int ret;
++
++	ocp_base = addr & 0xf000;
++	ret = pla_write_word(dev->udev, OCP_BASE, ocp_base);
++	if (ret < 0)
++		goto out;
++
++	ocp_index = (addr & 0x0fff) | 0xb000;
++	ret = pla_read_word(dev->udev, ocp_index);
++
++out:
++	return ret;
++}
++
++static int ocp_reg_write(struct usbnet *dev, u16 addr, u16 data)
++{
++	u16 ocp_base, ocp_index;
++	int ret;
++
++	ocp_base = addr & 0xf000;
++	ret = pla_write_word(dev->udev, OCP_BASE, ocp_base);
++	if (ret < 0)
++		goto out1;
++
++	ocp_index = (addr & 0x0fff) | 0xb000;
++	ret = pla_write_word(dev->udev, ocp_index, data);
++
++out1:
++	return ret;
++}
++
++static int r815x_mdio_read(struct net_device *netdev, int phy_id, int reg)
++{
++	struct usbnet *dev = netdev_priv(netdev);
++
++	if (phy_id != R815x_PHY_ID)
++		return -EINVAL;
++
++	return ocp_reg_read(dev, BASE_MII + reg * 2);
++}
++
++static
++void r815x_mdio_write(struct net_device *netdev, int phy_id, int reg, int val)
++{
++	struct usbnet *dev = netdev_priv(netdev);
++
++	if (phy_id != R815x_PHY_ID)
++		return;
++
++	ocp_reg_write(dev, BASE_MII + reg * 2, val);
++}
++
++static int r8153_bind(struct usbnet *dev, struct usb_interface *intf)
++{
++	int status;
++
++	status = usbnet_cdc_bind(dev, intf);
++	if (status < 0)
++		return status;
++
++	dev->mii.dev = dev->net;
++	dev->mii.mdio_read = r815x_mdio_read;
++	dev->mii.mdio_write = r815x_mdio_write;
++	dev->mii.phy_id_mask = 0x3f;
++	dev->mii.reg_num_mask = 0x1f;
++	dev->mii.phy_id = R815x_PHY_ID;
++	dev->mii.supports_gmii = 1;
++
++	return 0;
++}
++
++static int r8152_bind(struct usbnet *dev, struct usb_interface *intf)
++{
++	int status;
++
++	status = usbnet_cdc_bind(dev, intf);
++	if (status < 0)
++		return status;
++
++	dev->mii.dev = dev->net;
++	dev->mii.mdio_read = r815x_mdio_read;
++	dev->mii.mdio_write = r815x_mdio_write;
++	dev->mii.phy_id_mask = 0x3f;
++	dev->mii.reg_num_mask = 0x1f;
++	dev->mii.phy_id = R815x_PHY_ID;
++	dev->mii.supports_gmii = 0;
++
++	return 0;
++}
++
++static const struct driver_info r8152_info = {
++	.description =	"RTL8152 ECM Device",
++	.flags =	FLAG_ETHER | FLAG_POINTTOPOINT,
++	.bind =		r8152_bind,
++	.unbind =	usbnet_cdc_unbind,
++	.status =	usbnet_cdc_status,
++	.manage_power =	usbnet_manage_power,
++};
++
++static const struct driver_info r8153_info = {
++	.description =	"RTL8153 ECM Device",
++	.flags =	FLAG_ETHER | FLAG_POINTTOPOINT,
++	.bind =		r8153_bind,
++	.unbind =	usbnet_cdc_unbind,
++	.status =	usbnet_cdc_status,
++	.manage_power =	usbnet_manage_power,
++};
++
++static const struct usb_device_id products[] = {
++{
++	USB_DEVICE_AND_INTERFACE_INFO(REALTEK_VENDOR_ID, 0x8152, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
++#if defined(CONFIG_USB_RTL8152) || defined(CONFIG_USB_RTL8152_MODULE)
++	.driver_info = 0,
++#else
++	.driver_info = (unsigned long) &r8152_info,
++#endif
++},
++
++{
++	USB_DEVICE_AND_INTERFACE_INFO(REALTEK_VENDOR_ID, 0x8153, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
++#if defined(CONFIG_USB_RTL8153) || defined(CONFIG_USB_RTL8153_MODULE)
++	.driver_info = 0,
++#else
++	.driver_info = (unsigned long) &r8153_info,
++#endif
++},
++
++	{ },		/* END */
++};
++MODULE_DEVICE_TABLE(usb, products);
++
++static struct usb_driver r815x_driver = {
++	.name =		"r815x",
++	.id_table =	products,
++	.probe =	usbnet_probe,
++	.disconnect =	usbnet_disconnect,
++	.suspend =	usbnet_suspend,
++	.resume =	usbnet_resume,
++	.reset_resume =	usbnet_resume,
++	.supports_autosuspend = 1,
++	.disable_hub_initiated_lpm = 1,
++};
++
++module_usb_driver(r815x_driver);
++
++MODULE_AUTHOR("Hayes Wang");
++MODULE_DESCRIPTION("Realtek USB ECM device");
++MODULE_LICENSE("GPL");
 -- 
-1.8.3.2
+1.8.3.1
