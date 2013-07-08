@@ -1,52 +1,52 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: A question on the design of OVS GRE tunnel
-Date: Mon, 08 Jul 2013 17:51:05 +0800
-Message-ID: <1373277065.8227.26.camel@cr0>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Extremely bad performance with RTL8111/8168B
+Date: Mon, 8 Jul 2013 11:54:59 +0200
+Message-ID: <20130708095459.GA29788@amd.pavel.ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
-To: Jesse Gross <jesse@nicira.com>, Pravin Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset=us-ascii
+To: nic_swsd@realtek.com, romieu@fr.zoreil.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55249 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752462Ab3GHJvu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Jul 2013 05:51:50 -0400
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:58232 "EHLO
+	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751203Ab3GHJzC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 05:55:02 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Jesse, Pravin
+Hi!
 
-I have a question on the design of OVS GRE tunnel. Why OVS GRE tunnel
-doesn't register a netdev? I understand it is enough for GRE to function
-without registering a netdev, just a GRE vport is sufficient and
-probably even simpler.
+I've small Intel desktop with RTL8111/8168B ethernet... but the
+performance is extremely bad.
 
-However, I noticed there is some problem with such design:
+In 3.10, I only get about 200KB/sec:
 
-I saw very bad performance with the _default_ setup with OVS GRE. After
-digging it a little bit, clearly the cause is that OVS GRE tunnel adds
-an outer IP header and a GRE header for every packet that passed to it,
-which could result in a packet whose length is larger than the MTU of
-the uplink, therefore after the packet goes through OVS, it has to be
-fragmented by IP before going to the wire.
+pavel@amd:~$ scp /tmp/delme pavel@duo:/tmp
+pavel@duo's password: 
+delme                                               100%   16MB
+236.0KB/s   01:09    
 
-Of course we can workaround this problem by:
+In older version, I get 1MB/s, but network fails every 10 minutes or
+so. Card is:
 
-1) lower down the MTU of the first net device to reserve some room for
-GRE header
+03:00.0 Ethernet controller: Realtek Semiconductor Co.,
+Ltd. RTL8111/8168B PCI Express Gigabit Ethernet controller (rev 03)
 
-2) pass vnet_hdr=on to KVM guests so that packets going out there are
-still GSO packets even on hosts (I never try this, just analysis it by
-reading code)
+I did install firmware-realtek package as suggested by debian
+installer.
 
-Do we have to live with this? Can we solve this problem at OVS layer? So
-that no matter how large the packets are we can avoid IP fragmentation?
-One solution in my mind is registering a netdev for OVS GRE tunnel too,
-so that we could probably reuse GRO cells, thus packets can be merged
-before OVS processing them, and it will be segmented again before going
-to the wire. But I could easily miss something here. ;)
+Dmesg says:
 
-What do you think? Any better idea to fix this?
+r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+r8169 0000:03:00.0 eth0: RTL8168d/8111d at 0xf8010000,
+00:27:0e:2a:43:71, XID 081000c0 IRQ 17
+r8169 0000:03:00.0 eth0: jumbo features [frames: 9200 bytes, tx
+checksumming: ko]
 
-Thanks!
+Any ideas what is wrong?
+
+Thanks,
+									Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
