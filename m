@@ -1,47 +1,40 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: 3.9.5+:  Crash in tcp_input.c:4810.
-Date: Mon, 08 Jul 2013 10:23:51 -0700
-Message-ID: <51DAF5A7.60505@candelatech.com>
-References: <51BF50B3.1080403@candelatech.com>    <1371493059.3252.200.camel@edumazet-glaptop>    <51D1C620.8030007@candelatech.com>   <1372813467.4979.46.camel@edumazet-glaptop>   <51D398C0.5060802@candelatech.com>  <1372826512.4979.49.camel@edumazet-glaptop>  <51D3AD66.8030506@candelatech.com> <1372827749.4979.52.camel@edumazet-glaptop>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: updates to syncookies - timestamps not needed any more (freebsd)
+Date: Mon, 8 Jul 2013 20:09:02 +0200
+Message-ID: <20130708180902.GB9763@order.stressinduktion.org>
+References: <20130708160421.GA9763@order.stressinduktion.org> <1373301578.4979.115.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:58179 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751894Ab3GHRXx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 13:23:53 -0400
-In-Reply-To: <1372827749.4979.52.camel@edumazet-glaptop>
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:32939 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751528Ab3GHSJE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 14:09:04 -0400
+Content-Disposition: inline
+In-Reply-To: <1373301578.4979.115.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/02/2013 10:02 PM, Eric Dumazet wrote:
-> On Tue, 2013-07-02 at 21:49 -0700, Ben Greear wrote:
->
->> Well, network emulators are easy to come by in the office....  Maybe running
->> a bunch of TCP connections through a lossy network would exercise this code
->> path a bit?  Aside from random pkt loss, any other types of network conditions
->> that might help trigger this faster?
->>
->> I'll set up some tests using some wired ethernet...if we can trigger it there
->> then we at least know it doesn't depend on ath9k...
->
-> I tried a lot of things, including netem with many reorders and/or
-> packetdrill tests, but so far not a single warning from tcp_collapse()
+On Mon, Jul 08, 2013 at 09:39:38AM -0700, Eric Dumazet wrote:
+> On Mon, 2013-07-08 at 18:04 +0200, Hannes Frederic Sowa wrote:
+> > Interesting patch by Andre Opperann of FreeBSD:
+> > <http://lists.freebsd.org/pipermail/freebsd-net/2013-July/035999.html>
+> > 
+> > Greetings,
+> 
+> 
+> Switching from SHA to SipHash would be nice, if SipHash is secure
+> enough.
+> 
+> (We do not use MD5 but SHA for syncookies)
 
-We ran a 5+ day test using un-modified 3.10 kernel and did not trigger
-the bug.
+Blake2[0] came to my mind when I read this. It is by one of the same authors
+as SipHash.
 
-So, I'm guessing the problem is either fixed upstream or is exacerbated
-or caused by our local patches.  Sometime soon we'll start porting local
-patches to newer kernels...we'll see what happens then.
+[0] https://blake2.net/
 
-Thanks,
-Ben
+Greetings,
 
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+  Hannes
