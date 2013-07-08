@@ -1,61 +1,74 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH firmware] rtl_nic: add firmware rtl8411-2
-Date: Mon, 8 Jul 2013 17:11:21 +0800
-Message-ID: <1373274681-1225-1-git-send-email-hayeswang@realtek.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH iproute2] ipbatch: fix use of 'ip netns exec'
+Date: Mon, 08 Jul 2013 11:41:16 +0200
+Message-ID: <51DA893C.8070002@6wind.com>
+References: <1373040345-11116-1-git-send-email-nicolas.dichtel@6wind.com> <1373057353.1913.55.camel@bwh-desktop.uk.level5networks.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: <romieu@fr.zoreil.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <dwmw2@infradead.org>, <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
+	junwei.zhang@6wind.com
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:55987 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751045Ab3GHJlW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 05:41:22 -0400
+Received: by mail-wg0-f45.google.com with SMTP id j13so3584024wgh.24
+        for <netdev@vger.kernel.org>; Mon, 08 Jul 2013 02:41:21 -0700 (PDT)
+In-Reply-To: <1373057353.1913.55.camel@bwh-desktop.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-File: rtl_nic/rtl8411-2.fw
-Version: 0.0.1
+Le 05/07/2013 22:49, Ben Hutchings a =C3=A9crit :
+> On Fri, 2013-07-05 at 18:05 +0200, Nicolas Dichtel wrote:
+>> From: JunweiZhang <junwei.zhang@6wind.com>
+>>
+>> execvp() does not return when the command succeed, hence all command=
+s in the
+>> batch file after the line 'ip netns exec' are not executed.
+>>
+>> Let's fork before calling execvp().
+>
+> A Unix shell forks every command it runs, so why should ip do this to=
+o?
+Just to show the problem:
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- WHENCE               |   3 +++
- rtl_nic/rtl8411-2.fw | Bin 0 -> 1040 bytes
- 2 files changed, 3 insertions(+)
- create mode 100644 rtl_nic/rtl8411-2.fw
+$ cat test.batch
+netns add netns1
+netns exec netns1 ip l
+netns
+$ ip -b test.batch
+1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN mode DEFAULT
+     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: sit0: <NOARP> mtu 1480 qdisc noop state DOWN mode DEFAULT
+     link/sit 0.0.0.0 brd 0.0.0.0
 
-diff --git a/WHENCE b/WHENCE
-index d7fba9d..39f11af 100644
---- a/WHENCE
-+++ b/WHENCE
-@@ -1879,6 +1879,9 @@ Version: 0.0.4
- File: rtl_nic/rtl8411-1.fw
- Version: 0.0.3
- 
-+File: rtl_nic/rtl8411-2.fw
-+Version: 0.0.1
-+
- File: rtl_nic/rtl8402-1.fw
- Version: 0.0.1
- 
-diff --git a/rtl_nic/rtl8411-2.fw b/rtl_nic/rtl8411-2.fw
-new file mode 100644
-index 0000000000000000000000000000000000000000..e3789fe576c41c2a12d606ece1e41552693ad9ac
-GIT binary patch
-literal 1040
-zcmYk(L2DC16bJB^?IsOr*ldz9m16B8MMP@4yJ=$#B7sW1^yIOZG}uE9Qi}8#<S8i#
-zRS5k6wV;Q71VNOb=%J_}B3}2dQqk07<A3L6q)A@p?Qh<^o!KQKy0>+=wh#nY!lqyL
-z%Yo-#o%d_=K?PI#vxfigh{tq$rCRZW=4NZ_PP-ZUK^TN#wY;=^%L^9ki`VLYg`Pa0
-zjTeoEUV^CcCO5-GX+#E*MK}l-Q9vj}iN}Z{q7*Y~(-CndvN#*r>_jPcqcj(y467*1
-zrO09HJ=VUKwbr{5)2p+*GCsxD+jC4W&vPd2q2>Z=X3_g1@=M4sBcDTFM(!gIkuM;x
-zBCjE@BfpOP2J8KD3OO|%PQ-h6@zuXR>ucJ?xuTdFL|%ie{dJ-qQPN+^%<%GqB2z+f
-z`9+Zvq&PMYdCyW@*vA}9VYKHIkDm(rnc@WEzNdI<RF}dy%qg}<qcs`{W5-pxuZzC%
-zJ&2^Y?0J$-hU5`V_W$n*_ciA^(sOSAgFcU<;YnPp`Zsl-JoWW?^LlNUbzd4jm6~{J
-zOdg4zFO24iF@YYR&~xokLGS60ncE?ExFhR-8LPwUVn@c3u%y^uV;isyu^-0Tu(sGw
-zV;xvW?6<K2Y#=r;whh}Bi=T}fzb{fm2k-;&oUv)xv{>HQG3;2ZXsiWmiJdXF3)>ZQ
-zjM*?-ENkr4z9)>WqHa~{;yr#gdmqX({%EfEP`4*_UyM00N9?PyL)f9%H)CB`SFEAm
-GJJCOC1@r*`
+All command after 'netns exec' are never executed.
 
-literal 0
-HcmV?d00001
+With the patch:
+$ ip -b test.batch
+1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN mode DEFAULT
+     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: sit0: <NOARP> mtu 1480 qdisc noop state DOWN mode DEFAULT
+     link/sit 0.0.0.0 brd 0.0.0.0
+netns1
 
--- 
-1.8.3.1
+Now, existing netns are displayed.
+
+>
+> [...]
+>> +       return WIFEXITED(status) ? EXIT_SUCCESS : EXIT_FAILURE;
+> [...]
+>
+> So you throw away the original exit code of the child process.
+Right, should use WEXITSTATUS(). I will send a v2.
+
+>
+> I suspect your actual problem has to do with the exit code of the chi=
+ld,
+> and your shell script contains 'set -e'.
+Maybe I miss something, but man execvp says:
+"The exec() functions only return if an error has have occurred."
