@@ -1,326 +1,179 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH RFC] ipv6: fix route selection if kernel is not compiled with CONFIG_IPV6_ROUTER_PREF
-Date: Tue, 9 Jul 2013 23:57:01 +0200
-Message-ID: <20130709215701.GD9763@order.stressinduktion.org>
-References: <20130707173031.GC9625@order.stressinduktion.org>
+From: Matt Wilson <msw@amazon.com>
+Subject: Re: [PATCH 1/1] xen/netback: correctly calculate required slots of
+ skb.
+Date: Tue, 9 Jul 2013 15:14:07 -0700
+Message-ID: <20130709221406.GA13671@u109add4315675089e695.ant.amazon.com>
+References: <1373350520-19985-1-git-send-email-annie.li@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	petrus.lt@gmail.com, davem@davemloft.net
-To: nicolas.dichtel@6wind.com
+Content-Type: text/plain; charset="us-ascii"
+Cc: <xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>,
+	<Ian.Campbell@citrix.com>, <wei.liu2@citrix.com>
+To: Annie Li <annie.li@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:35555 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751969Ab3GIV5E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jul 2013 17:57:04 -0400
+Received: from smtp-fw-2101.amazon.com ([72.21.196.25]:38893 "EHLO
+	smtp-fw-2101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750723Ab3GIWPw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jul 2013 18:15:52 -0400
 Content-Disposition: inline
-In-Reply-To: <20130707173031.GC9625@order.stressinduktion.org>
+In-Reply-To: <1373350520-19985-1-git-send-email-annie.li@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Nicolas!
+On Tue, Jul 09, 2013 at 02:15:20PM +0800, Annie Li wrote:
+> When counting required slots for skb, netback directly uses DIV_ROUND_UP to get
+> slots required by header data. This is wrong when offset in the page of header
+> data is not zero, and is also inconsistent with following calculation for
+> required slot in netbk_gop_skb.
+> 
+> In netbk_gop_skb, required slots are calculated based on offset and len in page
+> of header data. It is possible that required slots here is larger than the one
+> calculated in earlier netbk_count_requests. This inconsistency directly results
+> in rx_req_cons_peek and xen_netbk_rx_ring_full judgement are wrong.
+> 
+> Then it comes to situation the ring is actually full, but netback thinks it is
+> not and continues to create responses. This results in response overlaps request
+> in the ring, then grantcopy gets wrong grant reference and throws out error,
+> for example "(XEN) grant_table.c:1763:d0 Bad grant reference 2949120", the
+> grant reference is invalid value here. Netback returns XEN_NETIF_RSP_ERROR(-1)
+> to netfront when grant copy status is error, then netfront gets rx->status
+> (the status is -1, not really data size now), and throws out error,
+> "kernel: net eth1: rx->offset: 0, size: 4294967295". This issue can be reproduced
+> by doing gzip/gunzip in nfs share with mtu = 9000, the guest would panic after
+> running such test for a while.
 
-I am currently trying to fix the nexthop selection for kernels compiled
-without support for CONFIG_IPV6_ROUTER_PREF. I attached my current patch
-below. While testing I got the following kernel panic in ecmp code:
+I have a similar (but smaller) patch in my queue that Wei looked over
+at the Dublin hackathon. I don't have time to rebase and test it right
+now, but let me post it for a second data point.
 
-[   80.144667] ------------[ cut here ]------------
-[   80.145172] kernel BUG at net/ipv6/ip6_fib.c:733!
-[   80.145172] invalid opcode: 0000 [#1] SMP 
-[   80.145172] Modules linked in: 8021q nf_conntrack_netbios_ns nf_conntrack_broadcast ipt_MASQUERADE ip6table_mangle ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 iptable_nat nf_nat_ipv4 nf_nat iptable_mangle nf_conntrack_ipv4 nf_defrag_ipv4 xt_conntrack nf_conntrack ebtable_filter ebtables ip6table_filter ip6_tables snd_hda_intel snd_hda_codec snd_hwdep snd_seq snd_seq_device snd_pcm snd_page_alloc snd_timer virtio_balloon snd soundcore i2c_piix4 i2c_core virtio_net virtio_blk
-[   80.145172] CPU: 1 PID: 786 Comm: ping6 Not tainted 3.10.0+ #118
-[   80.145172] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-[   80.145172] task: ffff880117fa0000 ti: ffff880118770000 task.ti: ffff880118770000
-[   80.145172] RIP: 0010:[<ffffffff815f3b5d>]  [<ffffffff815f3b5d>] fib6_add+0x75d/0x830
-[   80.145172] RSP: 0018:ffff880118771798  EFLAGS: 00010202
-[   80.145172] RAX: 0000000000000000 RBX: 0000000000000000 RCX: ffff88011350e480
-[   80.145172] RDX: ffff88011350e238 RSI: 0000000000000004 RDI: ffff88011350f738
-[   80.145172] RBP: ffff880118771848 R08: ffff880117903280 R09: 0000000000000001
-[   80.145172] R10: 0000000000000000 R11: 0000000000000000 R12: ffff88011350f680
-[   80.145172] R13: ffff880117903280 R14: ffff880118771890 R15: ffff88011350ef90
-[   80.145172] FS:  00007f02b5127740(0000) GS:ffff88011fd00000(0000) knlGS:0000000000000000
-[   80.145172] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[   80.145172] CR2: 00007f981322a000 CR3: 00000001181b1000 CR4: 00000000000006e0
-[   80.145172] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[   80.145172] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-[   80.145172] Stack:
-[   80.145172]  0000000000000001 ffff880100000000 ffff880100000000 ffff880117903280
-[   80.145172]  0000000000000000 ffff880119a4cf00 0000000000000400 00000000000007fa
-[   80.145172]  0000000000000000 0000000000000000 0000000000000000 ffff88011350f680
-[   80.145172] Call Trace:
-[   80.145172]  [<ffffffff815eeceb>] ? rt6_bind_peer+0x4b/0x90
-[   80.145172]  [<ffffffff815ed985>] __ip6_ins_rt+0x45/0x70
-[   80.145172]  [<ffffffff815eee35>] ip6_ins_rt+0x35/0x40
-[   80.145172]  [<ffffffff815ef1e4>] ip6_pol_route.isra.44+0x3a4/0x4b0
-[   80.145172]  [<ffffffff815ef34a>] ip6_pol_route_output+0x2a/0x30
-[   80.145172]  [<ffffffff81616077>] fib6_rule_action+0xd7/0x210
-[   80.145172]  [<ffffffff815ef320>] ? ip6_pol_route_input+0x30/0x30
-[   80.145172]  [<ffffffff81553026>] fib_rules_lookup+0xc6/0x140
-[   80.145172]  [<ffffffff81616374>] fib6_rule_lookup+0x44/0x80
-[   80.145172]  [<ffffffff815ef320>] ? ip6_pol_route_input+0x30/0x30
-[   80.145172]  [<ffffffff815edea3>] ip6_route_output+0x73/0xb0
-[   80.145172]  [<ffffffff815dfdf3>] ip6_dst_lookup_tail+0x2c3/0x2e0
-[   80.145172]  [<ffffffff813007b1>] ? list_del+0x11/0x40
-[   80.145172]  [<ffffffff81082a4c>] ? remove_wait_queue+0x3c/0x50
-[   80.145172]  [<ffffffff815dfe4d>] ip6_dst_lookup_flow+0x3d/0xa0
-[   80.145172]  [<ffffffff815fda77>] rawv6_sendmsg+0x267/0xc20
-[   80.145172]  [<ffffffff815a8a83>] inet_sendmsg+0x63/0xb0
-[   80.145172]  [<ffffffff8128eb93>] ? selinux_socket_sendmsg+0x23/0x30
-[   80.145172]  [<ffffffff815218d6>] sock_sendmsg+0xa6/0xd0
-[   80.145172]  [<ffffffff81524a68>] SYSC_sendto+0x128/0x180
-[   80.145172]  [<ffffffff8109825c>] ? update_curr+0xec/0x170
-[   80.145172]  [<ffffffff81041d09>] ? kvm_clock_get_cycles+0x9/0x10
-[   80.145172]  [<ffffffff810afd1e>] ? __getnstimeofday+0x3e/0xd0
-[   80.145172]  [<ffffffff8152509e>] SyS_sendto+0xe/0x10
-[   80.145172]  [<ffffffff8164efd9>] system_call_fastpath+0x16/0x1b
-[   80.145172] Code: fe ff ff 41 f6 45 2a 06 0f 85 ca fe ff ff 49 8b 7e 08 4c 89 ee e8 94 ef ff ff e9 b9 fe ff ff 48 8b 82 28 05 00 00 e9 01 ff ff ff <0f> 0b 49 8b 54 24 30 0d 00 00 40 00 89 83 14 01 00 00 48 89 53 
-[   80.145172] RIP  [<ffffffff815f3b5d>] fib6_add+0x75d/0x830
-[   80.145172]  RSP <ffff880118771798>
-[   80.387413] ---[ end trace 02f20b7a8b81ed95 ]---
-[   80.390154] Kernel panic - not syncing: Fatal exception in interrupt
+--msw
 
-The relevant code is:
-
-    725                 /* For each sibling in the list, increment the counter of
-    726                  * siblings. BUG() if counters does not match, list of siblings
-    727                  * is broken!
-    728                  */
-    729                 rt6i_nsiblings = 0;
-    730                 list_for_each_entry_safe(sibling, temp_sibling,
-    731                                          &rt->rt6i_siblings, rt6i_siblings) {
-    732                         sibling->rt6i_nsiblings++;
-    733                         BUG_ON(sibling->rt6i_nsiblings != rt->rt6i_nsiblings);
-    734                         rt6i_nsiblings++;
-    735                 }
-    736                 BUG_ON(rt6i_nsiblings != rt->rt6i_nsiblings);
-    737         }
-
-Currently, I don't know if I my patch is to blame or something in the ecmp logic.
-
-Another thing I just noticed is:
-
-   1240         /* Remove this entry from other siblings */
-   1241         if (rt->rt6i_nsiblings) {
-   1242                 struct rt6_info *sibling, *next_sibling;
-   1243 
-   1244                 list_for_each_entry_safe(sibling, next_sibling,
-   1245                                          &rt->rt6i_siblings, rt6i_siblings)
-   1246                         sibling->rt6i_nsiblings--;
-   1247                 rt->rt6i_nsiblings = 0;
-   1248                 list_del_init(&rt->rt6i_siblings);
-   1249         }
-
-Are we sure we decrement all sibling's rt6i_nsiblings? Shouldn't we
-start iterating from fn->leaf? But this does not seem to cause it,
-because my trace does not report any calls to fib6_del_route.
-
-You could try reproduce it by having an interface autoconfigured with
-a default router with NUD_VALID neighbour. I then added an unused vlan
-interface (vid 100 in my case) and added the following ip addresses:
-
-ip -6 a a 2001:ffff::1/64 dev eth0.100
-ip -6 r a 2000::/3 nexthop via 2001:ffff::30 nexthop via 2001:ffff::31 nexthop via 2001:ffff::32 nexthop via 2001:ffff::33
-
-(all nexthops should not be reachable)
-
-After starting a ping6 2000::1 the box should panic soon, after the
-first nexthop entry times out.
-
-Perhaps you could give me a hint?
-
-Thanks a lot,
-
-  Hannes
-
-
-[PATCH RFC] ipv6: fix route selection if kernel not compiled with CONFIG_IPV6_ROUTER_PREF
-
-This is a follow-up patch to 3630d40067a21d4dfbadc6002bb469ce26ac5d52
-("ipv6: rt6_check_neigh should successfully verify neigh if no NUD
-information are available").
-
-Since the removal of rt->n in rt6_info we can end up with a dst ==
-NULL in rt6_check_neigh. In case the kernel is not compiled with
-CONFIG_IPV6_ROUTER_PREF we should also select a route with unkown
-NUD state but we must not avoid doing round robin selection on routes
-with the same target. So introduce and pass down a boolean ``do_rr'' to
-indicate when we should update rt->rr_ptr. As soon as no route is valid
-we do backtracking and do a lookup on a higher level in the fib trie.
-
-To hold correct state on the NUD selection we need to create a neighbour
-entry as soon as we tried to validate a nexthop.
-
-I changed the return value of rt6_check_neigh to:
-   1 in case of the dst entry validated
-  -1 in case of we had no dst_entry and we need to do rr now
-  -2 in case a we had a dst_entry and it did not validate
-
-In case of CONFIG_IPV6_ROUTER_PREF, rt6_probe does not allocate an
-neighbour entry (!CONFIG_IPV6_ROUTER_PREF: rt6_probe is a nop). Because
-of this, we have to create a neighbour entry on nexthop validation to
-track earlier validation errors. We recheck NUD state here to shortcurcuit
-NUD_NOARP neighbours.
-
-This seems to be the least complex fix for stable and net. I'll introduce
-a new route lookup flag 'idempotent' as soon as next opens to not let
-ip route get trigger active NUD validation if CONFIG_IPV6_ROUTER_PREF
-is enabled. Currently we trigger active NUD validation if compiled with
-CONFIG_IPV6_ROUTER_PREF.
-
-It also seems advantageous to make CONFIG_IPV6_ROUTER_PREF a runtime
-switch and just select the default operation on compile-time.
-
-v2:
-a) improved rt6_check_neigh logic and documented return values
-
-Reported-by: Pierre Emeriaud <petrus.lt@gmail.com>
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- net/ipv6/route.c | 62 +++++++++++++++++++++++++++++++++++---------------------
- 1 file changed, 39 insertions(+), 23 deletions(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index bd5fd70..c5d9e68 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -531,28 +531,34 @@ static inline int rt6_check_dev(struct rt6_info *rt, int oif)
- 	return 0;
- }
- 
--static inline bool rt6_check_neigh(struct rt6_info *rt)
-+/* This function checks if a neighbour is reachable for routing
-+ * purposes. It returns -2 in case the neighbour should not get
-+ * selected as a viable router, -1 in case it should get selected with
-+ * lowest score and afterwards trying roundrobin. 1 indicates a
-+ * successfull verification.
-+ */
-+static inline int rt6_check_neigh(struct rt6_info *rt)
- {
- 	struct neighbour *neigh;
--	bool ret = false;
-+	int ret = -2;
- 
- 	if (rt->rt6i_flags & RTF_NONEXTHOP ||
- 	    !(rt->rt6i_flags & RTF_GATEWAY))
--		return true;
-+		return 1;
- 
- 	rcu_read_lock_bh();
- 	neigh = __ipv6_neigh_lookup_noref(rt->dst.dev, &rt->rt6i_gateway);
- 	if (neigh) {
- 		read_lock(&neigh->lock);
- 		if (neigh->nud_state & NUD_VALID)
--			ret = true;
-+			ret = 1;
- #ifdef CONFIG_IPV6_ROUTER_PREF
- 		else if (!(neigh->nud_state & NUD_FAILED))
--			ret = true;
-+			ret = 1;
- #endif
- 		read_unlock(&neigh->lock);
--	} else if (IS_ENABLED(CONFIG_IPV6_ROUTER_PREF)) {
--		ret = true;
-+	} else {
-+		ret = IS_ENABLED(CONFIG_IPV6_ROUTER_PREF) ? 1 : -1;
- 	}
- 	rcu_read_unlock_bh();
- 
-@@ -566,43 +572,52 @@ static int rt6_score_route(struct rt6_info *rt, int oif,
- 
- 	m = rt6_check_dev(rt, oif);
- 	if (!m && (strict & RT6_LOOKUP_F_IFACE))
--		return -1;
-+		return -2;
- #ifdef CONFIG_IPV6_ROUTER_PREF
- 	m |= IPV6_DECODE_PREF(IPV6_EXTRACT_PREF(rt->rt6i_flags)) << 2;
- #endif
--	if (!rt6_check_neigh(rt) && (strict & RT6_LOOKUP_F_REACHABLE))
--		return -1;
-+	if (strict & RT6_LOOKUP_F_REACHABLE) {
-+		int n = rt6_check_neigh(rt);
-+		if (n < 0)
-+			return n;
-+	}
- 	return m;
- }
- 
- static struct rt6_info *find_match(struct rt6_info *rt, int oif, int strict,
--				   int *mpri, struct rt6_info *match)
-+				   int *mpri, struct rt6_info *match,
-+				   bool *do_rr)
- {
- 	int m;
-+	bool match_do_rr = false;
- 
- 	if (rt6_check_expired(rt))
- 		goto out;
- 
- 	m = rt6_score_route(rt, oif, strict);
--	if (m < 0)
-+	if (m == -1 && !IS_ENABLED(CONFIG_IPV6_ROUTER_PREF)) {
-+		match_do_rr = true;
-+		m = 0; /* lowest valid score */
-+	} else if (m < 0) {
- 		goto out;
-+	}
-+
-+	if (strict & RT6_LOOKUP_F_REACHABLE)
-+		rt6_probe(rt);
- 
- 	if (m > *mpri) {
--		if (strict & RT6_LOOKUP_F_REACHABLE)
--			rt6_probe(match);
-+		*do_rr = match_do_rr;
- 		*mpri = m;
- 		match = rt;
--	} else if (strict & RT6_LOOKUP_F_REACHABLE) {
--		rt6_probe(rt);
- 	}
--
- out:
- 	return match;
- }
- 
- static struct rt6_info *find_rr_leaf(struct fib6_node *fn,
- 				     struct rt6_info *rr_head,
--				     u32 metric, int oif, int strict)
-+				     u32 metric, int oif, int strict,
-+				     bool *do_rr)
- {
- 	struct rt6_info *rt, *match;
- 	int mpri = -1;
-@@ -610,10 +625,10 @@ static struct rt6_info *find_rr_leaf(struct fib6_node *fn,
- 	match = NULL;
- 	for (rt = rr_head; rt && rt->rt6i_metric == metric;
- 	     rt = rt->dst.rt6_next)
--		match = find_match(rt, oif, strict, &mpri, match);
-+		match = find_match(rt, oif, strict, &mpri, match, do_rr);
- 	for (rt = fn->leaf; rt && rt != rr_head && rt->rt6i_metric == metric;
- 	     rt = rt->dst.rt6_next)
--		match = find_match(rt, oif, strict, &mpri, match);
-+		match = find_match(rt, oif, strict, &mpri, match, do_rr);
- 
- 	return match;
- }
-@@ -622,15 +637,16 @@ static struct rt6_info *rt6_select(struct fib6_node *fn, int oif, int strict)
- {
- 	struct rt6_info *match, *rt0;
- 	struct net *net;
-+	bool do_rr = false;
- 
- 	rt0 = fn->rr_ptr;
- 	if (!rt0)
- 		fn->rr_ptr = rt0 = fn->leaf;
- 
--	match = find_rr_leaf(fn, rt0, rt0->rt6i_metric, oif, strict);
-+	match = find_rr_leaf(fn, rt0, rt0->rt6i_metric, oif, strict,
-+			     &do_rr);
- 
--	if (!match &&
--	    (strict & RT6_LOOKUP_F_REACHABLE)) {
-+	if (do_rr) {
- 		struct rt6_info *next = rt0->dst.rt6_next;
- 
- 		/* no entries matched; do round-robin */
--- 
-1.8.1.4
+> This patch is based on 3.10-rc7.
+> 
+> Signed-off-by: Annie Li <annie.li@oracle.com>
+> ---
+>  drivers/net/xen-netback/netback.c |   97 +++++++++++++++++++++++++-----------
+>  1 files changed, 67 insertions(+), 30 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index 8c20935..7ff9333 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -359,51 +359,88 @@ static bool start_new_rx_buffer(int offset, unsigned long size, int head)
+>   * the guest. This function is essentially a dry run of
+>   * netbk_gop_frag_copy.
+>   */
+> -unsigned int xen_netbk_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
+> +static void netbk_get_slots(struct xenvif *vif, struct sk_buff *skb,
+> +			    struct page *page, int *copy_off,
+> +			    unsigned long size, unsigned long offset,
+> +			    int *head, int *count)
+>  {
+> -	unsigned int count;
+> -	int i, copy_off;
+> +	unsigned long bytes;
+>  
+> -	count = DIV_ROUND_UP(skb_headlen(skb), PAGE_SIZE);
+> +	/* Data must not cross a page boundary. */
+> +	BUG_ON(size + offset > PAGE_SIZE<<compound_order(page));
+>  
+> -	copy_off = skb_headlen(skb) % PAGE_SIZE;
+> +	/* Skip unused frames from start of page */
+> +	page += offset >> PAGE_SHIFT;
+> +	offset &= ~PAGE_MASK;
+>  
+> -	if (skb_shinfo(skb)->gso_size)
+> -		count++;
+> +	while (size > 0) {
+> +		BUG_ON(offset >= PAGE_SIZE);
+> +		BUG_ON(*copy_off > MAX_BUFFER_OFFSET);
+>  
+> -	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+> -		unsigned long size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
+> -		unsigned long offset = skb_shinfo(skb)->frags[i].page_offset;
+> -		unsigned long bytes;
+> +		bytes = PAGE_SIZE - offset;
+>  
+> -		offset &= ~PAGE_MASK;
+> +		if (bytes > size)
+> +			bytes = size;
+>  
+> -		while (size > 0) {
+> -			BUG_ON(offset >= PAGE_SIZE);
+> -			BUG_ON(copy_off > MAX_BUFFER_OFFSET);
+> +		if (start_new_rx_buffer(*copy_off, bytes, *head)) {
+> +			*count = *count + 1;
+> +			*copy_off = 0;
+> +		}
+>  
+> -			bytes = PAGE_SIZE - offset;
+> +		if (*copy_off + bytes > MAX_BUFFER_OFFSET)
+> +			bytes = MAX_BUFFER_OFFSET - *copy_off;
+>  
+> -			if (bytes > size)
+> -				bytes = size;
+> +		*copy_off += bytes;
+>  
+> -			if (start_new_rx_buffer(copy_off, bytes, 0)) {
+> -				count++;
+> -				copy_off = 0;
+> -			}
+> +		offset += bytes;
+> +		size -= bytes;
+>  
+> -			if (copy_off + bytes > MAX_BUFFER_OFFSET)
+> -				bytes = MAX_BUFFER_OFFSET - copy_off;
+> +		/* Next frame */
+> +		if (offset == PAGE_SIZE && size) {
+> +			BUG_ON(!PageCompound(page));
+> +			page++;
+> +			offset = 0;
+> +		}
+>  
+> -			copy_off += bytes;
+> +		if (*head)
+> +			*count = *count + 1;
+> +		*head = 0; /* There must be something in this buffer now. */
+> +	}
+> +}
+> +
+> +unsigned int xen_netbk_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
+> +{
+> +	int i, copy_off = 0;
+> +	int nr_frags = skb_shinfo(skb)->nr_frags;
+> +	unsigned char *data;
+> +	int head = 1;
+> +	unsigned int count = 0;
+>  
+> -			offset += bytes;
+> -			size -= bytes;
+> +	if (skb_shinfo(skb)->gso_size)
+> +		count++;
+>  
+> -			if (offset == PAGE_SIZE)
+> -				offset = 0;
+> -		}
+> +	data = skb->data;
+> +	while (data < skb_tail_pointer(skb)) {
+> +		unsigned int offset = offset_in_page(data);
+> +		unsigned int len = PAGE_SIZE - offset;
+> +
+> +		if (data + len > skb_tail_pointer(skb))
+> +			len = skb_tail_pointer(skb) - data;
+> +
+> +		netbk_get_slots(vif, skb, virt_to_page(data), &copy_off,
+> +				len, offset, &head, &count);
+> +		data += len;
+> +	}
+> +
+> +	for (i = 0; i < nr_frags; i++) {
+> +		netbk_get_slots(vif, skb,
+> +				skb_frag_page(&skb_shinfo(skb)->frags[i]),
+> +				&copy_off,
+> +				skb_frag_size(&skb_shinfo(skb)->frags[i]),
+> +				skb_shinfo(skb)->frags[i].page_offset,
+> +				&head, &count);
+>  	}
+> +
+>  	return count;
+>  }
+>  
