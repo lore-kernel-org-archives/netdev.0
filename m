@@ -1,73 +1,81 @@
-From: Craig Magina <craig.magina@canonical.com>
-Subject: Re: sky2 negotiating only 100Mb/s (88E8055)
-Date: Tue, 9 Jul 2013 13:31:15 +0000 (UTC)
-Message-ID: <loom.20130709T152120-983@post.gmane.org>
-References: <CACna6ry1z1LS9wMDb9dYyM+9z8kEpZADXKHL0NNoAahbm8wbNg@mail.gmail.com> <CACna6ryokPsaKVQmrF3ACmy99k3LiaOiZai5xrWdVjaxLWT80w@mail.gmail.com> <64925882.QA6f4ZcyAO@mlindner-lin>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [v2] bonding:fix speed unknown,lacp bonding failed
+Date: Tue, 9 Jul 2013 15:43:08 +0200
+Message-ID: <20130709134308.GA29882@redhat.com>
+References: <1373331122-10052-1-git-send-email-wangyufen@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, lizefan@huawei.com,
+	zhangdianfang@huawei.com
+To: Wangyufen <wangyufen@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:39296 "EHLO plane.gmane.org"
+Received: from mx1.redhat.com ([209.132.183.28]:25143 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753542Ab3GINkJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jul 2013 09:40:09 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UwY9D-0002Lx-HY
-	for netdev@vger.kernel.org; Tue, 09 Jul 2013 15:40:04 +0200
-Received: from 173-166-109-13-newengland.hfc.comcastbusiness.net ([173.166.109.13])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 09 Jul 2013 15:40:03 +0200
-Received: from craig.magina by 173-166-109-13-newengland.hfc.comcastbusiness.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 09 Jul 2013 15:40:03 +0200
+	id S1753656Ab3GINnk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jul 2013 09:43:40 -0400
+Content-Disposition: inline
+In-Reply-To: <1373331122-10052-1-git-send-email-wangyufen@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mirko Lindner <mlindner <at> marvell.com> writes:
+On Tue, Jul 09, 2013 at 08:52:02AM +0800, Wangyufen wrote:
+>From: "Wang Yufen" <wangyufen@huawei.com>
+>
+>We bonded nic using LACP mode repeatedly, occasionally LACP bonding failed,
+>because a slave nic port speed was unknown. But when we used ethtool to
+>check the slave NIC status, the nic status was normal,speed was 10000Mb/s.
+>	
+>Bonding get the NIC speed from NIC drivers,just when enslave nic
+>and receive NETDEV_CHANGE event.We call bond_update_speed_duplex to
+>update speed and duplex when miimon inspect slave link is OK and slave
+>speed is unknown.
 
->=20
-> This is the first time somebody is reporting a problem with the=20
-autoneg/speed=20
-> initialization so I would like to check it in the lab.
->=20
-> Mirko
->=20
-> On Friday, March 15, 2013 05:03:01 AM Rafa=C5=82 Mi=C5=82ecki wrote:
-> > 2013/3/3 Rafa=C5=82 Mi=C5=82ecki <zajec5 <at> gmail.com>:
-> >=20
-> > > I've problems with my:
-> > > 08:00.0 Ethernet controller [0200]: Marvell Technology Group Ltd.
-> > > 88E8055 PCI-E Gigabit Ethernet Controller [11ab:4363] (rev 13)
-> > > using 3.4.28 kernel on my Sony notebook.
-> > >
+This is the wrong way to fix it. The real problem here is that the NIC
+doesn't send NETDEV_CHANGE when it changes its speed/duplex. Try finding
+out why it doesn't and fix it.
 
-> > >
-> > > sky2 0000:08:00.0: eth0: disabling interface
-> > > sky2: driver version 1.30
-> > > sky2 0000:08:00.0: Yukon-2 EC Ultra chip revision 3
-> > > sky2 0000:08:00.0: irq 47 for MSI/MSI-X
-> > > sky2 0000:08:00.0: eth0: addr 00:1d:ba:19:9e:db
-> > > sky2 0000:08:00.0: eth0: enabling interface
-> > > sky2 0000:08:00.0: eth0: Link is up at 100 Mbps, full duplex, flo=
-w=20
-control
-> > > both
+And, as Ben mentioned earlier, bond_update_speed_duplex() can sleep, and
+thus should not be called from atomic context. Take a look at the caller -
+bond_mii_monitor() - the bond_miimon_inspect() is under bond->lock, for a
+good reason.
 
+For reference, see the patch 876254ae2758d50dcb08c7bd00caf6a806571178
+("bonding: don't call update_speed_duplex() under spinlocks") - it
+specifically removes the _update_speed_duplex() from _miimon_commit().
 
-I can confirm this issue.
-
-lspci: 03:00.0 Ethernet controller: Marvell Technology Group Ltd. Yukon=
-=20
-Optima 88E8059 [PCIe Gigabit Ethernet Controller with AVB] (rev 11)
-
-sky2 0000:03:00.0 eth0: Link is up at 100 Mbps, full duplex, flow contr=
-ol=20
-both
-
-My kernel version is Ubuntu 3.8.0-26.38 amd64, sky2 version 1.30.
-
-~
-Craig
+>	
+>	
+>Signed-off-by: Wang Yufen <wangyufen@huawei.com>
+>
+>---
+>drivers/net/bonding/bond_main.c | 16 +++++++++++++++-
+> 1 file changed, 15 insertions(+), 1 deletion(-)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index f975696..4ccc173 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -2301,8 +2301,22 @@ static int bond_miimon_inspect(struct bonding *bond)
+>
+> 		switch (slave->link) {
+> 		case BOND_LINK_UP:
+>-			if (link_state)
+>+			if (link_state) {
+>+				if (slave->speed == SPEED_UNKNOWN) {
+>+					rtnl_lock();
+>+					bond_update_speed_duplex(slave);
+>+					if (slave->speed != SPEED_UNKNOWN
+>+					&& bond->params.mode
+>+					== BOND_MODE_8023AD) {
+>+						bond_3ad_adapter_speed_changed(
+>+						slave);
+>+						bond_3ad_adapter_duplex_changed(
+>+						slave);
+>+					}
+>+					rtnl_unlock();
+>+				}
+> 				continue;
+>+			}
+>
+> 			slave->link = BOND_LINK_FAIL;
+> 			slave->delay = bond->params.downdelay;
