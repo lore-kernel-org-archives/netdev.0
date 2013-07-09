@@ -1,45 +1,38 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: Extremely bad performance with RTL8111/8168B
-Date: Tue, 9 Jul 2013 10:24:20 +0800
-Message-ID: <88C0E945471D46EEA556B43C7EB384AB@realtek.com.tw>
-References: <20130708095459.GA29788@amd.pavel.ucw.cz> <1373291269.4979.102.camel@edumazet-glaptop> <20130708220149.GA15766@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: rename low latency sockets functions to
+ busy poll
+Date: Mon, 08 Jul 2013 19:27:06 -0700 (PDT)
+Message-ID: <20130708.192706.1245480344087449229.davem@davemloft.net>
+References: <CA+55aFxgrOtsv7vCtic97ehpvqyezCzDcyqHVD+821BiTuiRtw@mail.gmail.com>
+	<51DAF373.4040606@linux.intel.com>
+	<CA+55aFwWAmHhYaPWVm7rsqiD9+RhDPpgVC1yWc0oNmP38bty4Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: 'Pavel Machek' <pavel@ucw.cz>, <netdev@vger.kernel.org>,
-	'nic_swsd' <nic_swsd@realtek.com>
-To: 'Francois Romieu' <romieu@fr.zoreil.com>,
-	'Eric Dumazet' <eric.dumazet@gmail.com>
+Cc: eliezer.tamir@linux.intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, akpm@linux-foundation.org,
+	dwmw2@infradead.org, eliezer@tamir.org.il
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:53188 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752056Ab3GICYf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 22:24:35 -0400
-In-Reply-To: <20130708220149.GA15766@electric-eye.fr.zoreil.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47908 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751736Ab3GIC1H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 22:27:07 -0400
+In-Reply-To: <CA+55aFwWAmHhYaPWVm7rsqiD9+RhDPpgVC1yWc0oNmP38bty4Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu [mailto:romieu@fr.zoreil.com] 
-> Sent: Tuesday, July 09, 2013 6:02 AM
-> To: Eric Dumazet
-> Cc: Pavel Machek; Hayeswang; netdev@vger.kernel.org
-> Subject: Re: Extremely bad performance with RTL8111/8168B
-> 
-> Eric Dumazet <eric.dumazet@gmail.com> :
-> [8168d failure]
-> > It looks like TSO packets are not transmitted, so TCP only 'works'
-> > because retransmits use non TSO packets.
-> > 
-> > Could you report "ethtool -k eth0" ?
-> > 
-> > try : ethtool -K eth0 tso off
-> 
-> If so it could be worth adding a test for RTL_GIGA_MAC_VER_25 in
-> rtl_test_hw_pad_bug as has been done for RTL_GIGA_MAC_VER_34 (see
-> b423e9ae49d78ea3f53b131c8d5a6087aed16fd6).
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Mon, 8 Jul 2013 12:37:06 -0700
 
-I don't think it is necessary for RTL_GIGA_MAC_VER_25. I don't find any issue
-about checksum or TSO for 8111d yet.
- 
-Best Regards,
-Hayes
+> I think it's getting closer, and I'm ok with the last final details
+> being sorted out later. I just can't reasonably test any of my
+> suggestions, so I'd like to get it to a point where when I pull, I
+> don't feel like I'm pulling core code that I really detest. And the
+> VFS layer in particular I'm pretty attached to.
+
+So I've applied Eliezer's rename patch and will send another pull
+request once he also takes care of the reduction of the number and
+size of the variables used to track the poll timestamps.
+
+Thanks.
