@@ -1,54 +1,31 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH] Documentation: Fix references to defunct linux-net@vger.kernel.org
-Date: Tue,  9 Jul 2013 10:22:31 +0200
-Message-ID: <1373358151-26161-1-git-send-email-geert@linux-m68k.org>
-Cc: linux-doc@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: Rob Landley <rob@landley.net>
+From: Jongsung Kim <neidhard.kim@lge.com>
+Subject: [PATCH] net/cadence/macb: fix bug/typo in extracting gem_irq_read_clear bit
+Date: Tue,  9 Jul 2013 17:36:00 +0900
+Message-ID: <1373358960-10900-1-git-send-email-neidhard.kim@lge.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	stable@vger.kernel.org, Jongsung Kim <neidhard.kim@lge.com>
+To: nicolas.ferre@atmel.com, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-linux-net@vger.kernel.org was replaced by netdev@oss.sgi.com was replaced
-by netdev@vger.kernel.org.
-
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Signed-off-by: Jongsung Kim <neidhard.kim@lge.com>
 ---
- Documentation/networking/arcnet.txt |    7 ++++---
- Documentation/networking/vortex.txt |    2 +-
- 2 files changed, 5 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/cadence/macb.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/Documentation/networking/arcnet.txt b/Documentation/networking/arcnet.txt
-index 9ff5795..aff97f4 100644
---- a/Documentation/networking/arcnet.txt
-+++ b/Documentation/networking/arcnet.txt
-@@ -70,9 +70,10 @@ list, mail to linux-arcnet@tichy.ch.uj.edu.pl.
- There are archives of the mailing list at:
- 	http://epistolary.org/mailman/listinfo.cgi/arcnet
- 
--The people on linux-net@vger.kernel.org have also been known to be very
--helpful, especially when we're talking about ALPHA Linux kernels that may or
--may not work right in the first place.
-+The people on linux-net@vger.kernel.org (now defunct, replaced by
-+netdev@vger.kernel.org) have also been known to be very helpful, especially
-+when we're talking about ALPHA Linux kernels that may or may not work right
-+in the first place.
- 
- 
- Other Drivers and Info
-diff --git a/Documentation/networking/vortex.txt b/Documentation/networking/vortex.txt
-index b4038ff..9a8041d 100644
---- a/Documentation/networking/vortex.txt
-+++ b/Documentation/networking/vortex.txt
-@@ -359,7 +359,7 @@ steps you should take:
- - OK, it's a driver problem.
- 
-    You need to generate a report.  Typically this is an email to the
--   maintainer and/or linux-net@vger.kernel.org.  The maintainer's
-+   maintainer and/or netdev@vger.kernel.org.  The maintainer's
-    email address will be in the driver source or in the MAINTAINERS file.
- 
- - The contents of your report will vary a lot depending upon the
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index c89aa41..b4e0dc8 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -1070,7 +1070,7 @@ static void macb_configure_dma(struct macb *bp)
+ static void macb_configure_caps(struct macb *bp)
+ {
+ 	if (macb_is_gem(bp)) {
+-		if (GEM_BF(IRQCOR, gem_readl(bp, DCFG1)) == 0)
++		if (GEM_BFEXT(IRQCOR, gem_readl(bp, DCFG1)) == 0)
+ 			bp->caps |= MACB_CAPS_ISR_CLEAR_ON_WRITE;
+ 	}
+ }
 -- 
-1.7.9.5
+1.7.1
