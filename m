@@ -1,225 +1,137 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH net-next v2] net/fs: change busy poll time accounting
-Date: Tue, 09 Jul 2013 13:09:21 +0300
-Message-ID: <20130709100921.21602.46444.stgit@ladj378.jer.intel.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH v2 1/2] virtio: support unlocked queue poll
+Date: Tue, 9 Jul 2013 13:19:18 +0300
+Message-ID: <1373346713-442-2-git-send-email-mst__27981.9892989055$1373365113$gmane$org@redhat.com>
+References: <1373346713-442-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:23095 "EHLO mga02.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:17162 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750763Ab3GIKJZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jul 2013 06:09:25 -0400
+	id S1750928Ab3GIKSJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jul 2013 06:18:09 -0400
+Content-Disposition: inline
+In-Reply-To: <1373346713-442-1-git-send-email-mst@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry, I forgot to commit before sending, so I sent the wrong version.
-The previous version gets a warning in busy_loop_timeout().
+This adds a way to check ring empty state after enable_cb outside any
+locks. Will be used by virtio_net.
 
-Suggested by Linus:
-Changed time accounting for busy-poll:
-- Make it microsecond based.
-- Use unsigned longs.
-- Revert back to use time_after instead of time_in_range.
-Reorder poll/select busy loop conditions:
-- Clear busy_flag after one time we can't busy-poll.
-- Only init busy_end if we actually are going to busy-poll.
-Added one more missing need_resched() test.
+Note: there's room for more optimization: caller is likely to have a
+memory barrier already, which means we might be able to get rid of a
+barrier here.  Deferring this optimization until we do some
+benchmarking.
 
-Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
+ drivers/virtio/virtio_ring.c | 56 ++++++++++++++++++++++++++++++++++----------
+ include/linux/virtio.h       |  4 ++++
+ 2 files changed, 48 insertions(+), 12 deletions(-)
 
- fs/select.c           |   31 ++++++++++++++++++----------
- include/net/ll_poll.h |   55 ++++++++++++++++---------------------------------
- 2 files changed, 38 insertions(+), 48 deletions(-)
-
-diff --git a/fs/select.c b/fs/select.c
-index 25cac5f..50a804b 100644
---- a/fs/select.c
-+++ b/fs/select.c
-@@ -403,8 +403,7 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
- 	int retval, i, timed_out = 0;
- 	unsigned long slack = 0;
- 	unsigned int busy_flag = net_busy_loop_on() ? POLL_BUSY_LOOP : 0;
--	u64 busy_start = busy_loop_start_time(busy_flag);
--	u64 busy_end = busy_loop_end_time();
-+	unsigned long busy_end = 0;
+diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
+index 5217baf..37d58f8 100644
+--- a/drivers/virtio/virtio_ring.c
++++ b/drivers/virtio/virtio_ring.c
+@@ -607,19 +607,21 @@ void virtqueue_disable_cb(struct virtqueue *_vq)
+ EXPORT_SYMBOL_GPL(virtqueue_disable_cb);
  
- 	rcu_read_lock();
- 	retval = max_select_fd(n, fds);
-@@ -506,9 +505,15 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
- 		}
- 
- 		/* only if found POLL_BUSY_LOOP sockets && not out of time */
--		if (!need_resched() && can_busy_loop &&
--		    busy_loop_range(busy_start, busy_end))
--			continue;
-+		if (can_busy_loop && !need_resched()) {
-+			if (!busy_end) {
-+				busy_end = busy_loop_end_time();
-+				continue;
-+			}
-+			if (!busy_loop_timeout(busy_end))
-+				continue;
-+		}
-+		busy_flag = 0;
- 
- 		/*
- 		 * If this is the first loop and we have a timeout
-@@ -780,9 +785,7 @@ static int do_poll(unsigned int nfds,  struct poll_list *list,
- 	int timed_out = 0, count = 0;
- 	unsigned long slack = 0;
- 	unsigned int busy_flag = net_busy_loop_on() ? POLL_BUSY_LOOP : 0;
--	u64 busy_start = busy_loop_start_time(busy_flag);
--	u64 busy_end = busy_loop_end_time();
--
-+	unsigned long busy_end = 0;
- 
- 	/* Optimise the no-wait case */
- 	if (end_time && !end_time->tv_sec && !end_time->tv_nsec) {
-@@ -834,9 +837,15 @@ static int do_poll(unsigned int nfds,  struct poll_list *list,
- 			break;
- 
- 		/* only if found POLL_BUSY_LOOP sockets && not out of time */
--		if (!need_resched() && can_busy_loop &&
--		    busy_loop_range(busy_start, busy_end))
--			continue;
-+		if (can_busy_loop && !need_resched()) {
-+			if (!busy_end) {
-+				busy_end = busy_loop_end_time();
-+				continue;
-+			}
-+			if (!busy_loop_timeout(busy_end))
-+				continue;
-+		}
-+		busy_flag = 0;
- 
- 		/*
- 		 * If this is the first loop and we have a timeout
-diff --git a/include/net/ll_poll.h b/include/net/ll_poll.h
-index f14dd88..76f0340 100644
---- a/include/net/ll_poll.h
-+++ b/include/net/ll_poll.h
-@@ -47,7 +47,7 @@ static inline bool net_busy_loop_on(void)
-  * we only care that the average is bounded
+ /**
+- * virtqueue_enable_cb - restart callbacks after disable_cb.
++ * virtqueue_enable_cb_prepare - restart callbacks after disable_cb
+  * @vq: the struct virtqueue we're talking about.
+  *
+- * This re-enables callbacks; it returns "false" if there are pending
+- * buffers in the queue, to detect a possible race between the driver
+- * checking for more work, and enabling callbacks.
++ * This re-enables callbacks; it returns current queue state
++ * in an opaque unsigned value. This value should be later tested by
++ * virtqueue_poll, to detect a possible race between the driver checking for
++ * more work, and enabling callbacks.
+  *
+  * Caller must ensure we don't call this with other virtqueue
+  * operations at the same time (except where noted).
   */
- #ifdef CONFIG_DEBUG_PREEMPT
--static inline u64 busy_loop_sched_clock(void)
-+static inline u64 busy_loop_us_clock(void)
+-bool virtqueue_enable_cb(struct virtqueue *_vq)
++unsigned virtqueue_enable_cb_prepare(struct virtqueue *_vq)
  {
- 	u64 rc;
+ 	struct vring_virtqueue *vq = to_vvq(_vq);
++	u16 last_used_idx;
  
-@@ -55,37 +55,24 @@ static inline u64 busy_loop_sched_clock(void)
- 	rc = sched_clock();
- 	preempt_enable_no_resched_notrace();
+ 	START_USE(vq);
  
--	return rc;
-+	return rc >> 10;
- }
- #else /* CONFIG_DEBUG_PREEMPT */
--static inline u64 busy_loop_sched_clock(void)
-+static inline u64 busy_loop_us_clock(void)
- {
--	return sched_clock();
-+	return sched_clock() >> 10;
- }
- #endif /* CONFIG_DEBUG_PREEMPT */
- 
--/* we don't mind a ~2.5% imprecision so <<10 instead of *1000
-- * sk->sk_ll_usec is a u_int so this can't overflow
-- */
--static inline u64 sk_busy_loop_end_time(struct sock *sk)
-+static inline unsigned long sk_busy_loop_end_time(struct sock *sk)
- {
--	return (u64)ACCESS_ONCE(sk->sk_ll_usec) << 10;
-+	return busy_loop_us_clock() + ACCESS_ONCE(sk->sk_ll_usec);
- }
- 
--/* in poll/select we use the global sysctl_net_ll_poll value
-- * only call sched_clock() if enabled
-- */
--static inline u64 busy_loop_end_time(void)
--{
--	return (u64)ACCESS_ONCE(sysctl_net_ll_poll) << 10;
--}
--
--/* if flag is not set we don't need to know the time
-- * so we want to avoid a potentially expensive sched_clock()
-- */
--static inline u64 busy_loop_start_time(unsigned int flag)
-+/* in poll/select we use the global sysctl_net_ll_poll value */
-+static inline unsigned long busy_loop_end_time(void)
- {
--	return flag ? busy_loop_sched_clock() : 0;
-+	return busy_loop_us_clock() + ACCESS_ONCE(sysctl_net_ll_poll);
- }
- 
- static inline bool sk_can_busy_loop(struct sock *sk)
-@@ -94,12 +81,12 @@ static inline bool sk_can_busy_loop(struct sock *sk)
- 	       !need_resched() && !signal_pending(current);
- }
- 
--/* careful! time_in_range64 will evaluate now twice */
--static inline bool busy_loop_range(u64 start_time, u64 run_time)
+@@ -629,15 +631,45 @@ bool virtqueue_enable_cb(struct virtqueue *_vq)
+ 	 * either clear the flags bit or point the event index at the next
+ 	 * entry. Always do both to keep code simple. */
+ 	vq->vring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
+-	vring_used_event(&vq->vring) = vq->last_used_idx;
++	vring_used_event(&vq->vring) = last_used_idx = vq->last_used_idx;
++	END_USE(vq);
++	return last_used_idx;
++}
++EXPORT_SYMBOL_GPL(virtqueue_enable_cb_prepare);
 +
-+static inline bool busy_loop_timeout(unsigned long end_time)
- {
--	u64 now = busy_loop_sched_clock();
-+	unsigned long now = busy_loop_us_clock();
++/**
++ * virtqueue_poll - query pending used buffers
++ * @vq: the struct virtqueue we're talking about.
++ * @last_used_idx: virtqueue state (from call to virtqueue_enable_cb_prepare).
++ *
++ * Returns "true" if there are pending used buffers in the queue.
++ *
++ * This does not need to be serialized.
++ */
++bool virtqueue_poll(struct virtqueue *_vq, unsigned last_used_idx)
++{
++	struct vring_virtqueue *vq = to_vvq(_vq);
++
+ 	virtio_mb(vq->weak_barriers);
+-	if (unlikely(more_used(vq))) {
+-		END_USE(vq);
+-		return false;
+-	}
++	return (u16)last_used_idx != vq->vring.used->idx;
++}
++EXPORT_SYMBOL_GPL(virtqueue_poll);
  
--	return time_in_range64(now, start_time, start_time + run_time);
-+	return time_after(now, end_time);
+-	END_USE(vq);
+-	return true;
++/**
++ * virtqueue_enable_cb - restart callbacks after disable_cb.
++ * @vq: the struct virtqueue we're talking about.
++ *
++ * This re-enables callbacks; it returns "false" if there are pending
++ * buffers in the queue, to detect a possible race between the driver
++ * checking for more work, and enabling callbacks.
++ *
++ * Caller must ensure we don't call this with other virtqueue
++ * operations at the same time (except where noted).
++ */
++bool virtqueue_enable_cb(struct virtqueue *_vq)
++{
++	unsigned last_used_idx = virtqueue_enable_cb_prepare(_vq);
++	return !virtqueue_poll(_vq, last_used_idx);
  }
+ EXPORT_SYMBOL_GPL(virtqueue_enable_cb);
  
- /* when used in sock_poll() nonblock is known at compile time to be true
-@@ -107,8 +94,7 @@ static inline bool busy_loop_range(u64 start_time, u64 run_time)
-  */
- static inline bool sk_busy_loop(struct sock *sk, int nonblock)
- {
--	u64 start_time = busy_loop_start_time(!nonblock);
--	u64 end_time = sk_busy_loop_end_time(sk);
-+	unsigned long end_time = !nonblock ? sk_busy_loop_end_time(sk) : 0;
- 	const struct net_device_ops *ops;
- 	struct napi_struct *napi;
- 	int rc = false;
-@@ -139,7 +125,7 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
- 					 LINUX_MIB_LOWLATENCYRXPACKETS, rc);
+diff --git a/include/linux/virtio.h b/include/linux/virtio.h
+index 9ff8645..72398ee 100644
+--- a/include/linux/virtio.h
++++ b/include/linux/virtio.h
+@@ -70,6 +70,10 @@ void virtqueue_disable_cb(struct virtqueue *vq);
  
- 	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
--		 busy_loop_range(start_time, end_time));
-+		 !need_resched() && !busy_loop_timeout(end_time));
+ bool virtqueue_enable_cb(struct virtqueue *vq);
  
- 	rc = !skb_queue_empty(&sk->sk_receive_queue);
- out:
-@@ -165,12 +151,7 @@ static inline unsigned long net_busy_loop_on(void)
- 	return 0;
- }
++unsigned virtqueue_enable_cb_prepare(struct virtqueue *vq);
++
++bool virtqueue_poll(struct virtqueue *vq, unsigned);
++
+ bool virtqueue_enable_cb_delayed(struct virtqueue *vq);
  
--static inline u64 busy_loop_start_time(unsigned int flag)
--{
--	return 0;
--}
--
--static inline u64 busy_loop_end_time(void)
-+static inline unsigned long busy_loop_end_time(void)
- {
- 	return 0;
- }
-@@ -193,9 +174,9 @@ static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
- {
- }
- 
--static inline bool busy_loop_range(u64 start_time, u64 run_time)
-+static inline bool busy_loop_timeout(unsigned long end_time)
- {
--	return false;
-+	return true;
- }
- 
- #endif /* CONFIG_NET_LL_RX_POLL */
+ void *virtqueue_detach_unused_buf(struct virtqueue *vq);
+-- 
+MST
