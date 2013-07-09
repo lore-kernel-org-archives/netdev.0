@@ -1,66 +1,47 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: A question on the design of OVS GRE tunnel
-Date: Tue, 09 Jul 2013 10:41:06 +0800
-Message-ID: <1373337666.4557.13.camel@cr0>
-References: <1373277065.8227.26.camel@cr0>
-	 <CALnjE+q4L9Q8Ebj+O-D8xQHyzSo=FZrb7A-XVEGERzeN-MZMGQ@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [GIT] Networking
+Date: Mon, 8 Jul 2013 19:48:17 -0700
+Message-ID: <20130708194817.34503460.akpm@linux-foundation.org>
+References: <20130707.132133.1335860703202153192.davem@davemloft.net>
+	<CA+55aFzgBXwye=ebPmEDN_6yqdKA6ZaD9hSUzbFjSacC_v3y5g@mail.gmail.com>
+	<CA+55aFyvZAQbaEyq5atQbTjHTz_hodzhWKX_7SRL8nq+yBA14A@mail.gmail.com>
+	<20130707.201449.1176672898198722699.davem@davemloft.net>
+	<51DA5E65.5060006@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jesse Gross <jesse@nicira.com>, netdev@vger.kernel.org,
-	Thomas Graf <tgraf@suug.ch>
-To: Pravin Shelar <pshelar@nicira.com>
+Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36076 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751564Ab3GIClo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Jul 2013 22:41:44 -0400
-In-Reply-To: <CALnjE+q4L9Q8Ebj+O-D8xQHyzSo=FZrb7A-XVEGERzeN-MZMGQ@mail.gmail.com>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:54993 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751564Ab3GICrw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 22:47:52 -0400
+In-Reply-To: <51DA5E65.5060006@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-07-08 at 09:28 -0700, Pravin Shelar wrote:
-> On Mon, Jul 8, 2013 at 2:51 AM, Cong Wang <amwang@redhat.com> wrote:
-> > Hi, Jesse, Pravin
-> >
-> > I have a question on the design of OVS GRE tunnel. Why OVS GRE tunnel
-> > doesn't register a netdev? I understand it is enough for GRE to function
-> > without registering a netdev, just a GRE vport is sufficient and
-> > probably even simpler.
-> >
-> kernel-gre device has gre-parameters/state associated with it and
-> ovs-gre-vport is completely stateless. ovs-gre state is in user-space
-> which make kernel module alot simpler. Therefore I doubt it will be
-> easy or simpler to use netdev at this point.
+On Mon, 08 Jul 2013 09:38:29 +0300 Eliezer Tamir <eliezer.tamir@linux.intel.com> wrote:
 
-Understood, from users' point of view, it is simpler. At least no one is
-able to assign any IP address to it.
-
+> On 08/07/2013 06:14, David Miller wrote:
+> > From: Linus Torvalds <torvalds@linux-foundation.org>
+> > Date: Sun, 7 Jul 2013 15:33:31 -0700
+> >
+> >> End result: I think the code is salvageable and people who want this
+> >> kind of busy-looping can have it. But I really don't want to merge it
+> >> as-is. I think it was badly done, I think it was badly documented, and
+> >> I think somebody over-sold the feature by emphasizing the upsides and
+> >> not the problems.
+> >
+> > Fair enough, Eliezer, please address all of Linus's feedback.
+> >
+> > It's holding the entire net-next merge up.
+> >
 > 
-> > However, I noticed there is some problem with such design:
-> >
-> > I saw very bad performance with the _default_ setup with OVS GRE. After
-> > digging it a little bit, clearly the cause is that OVS GRE tunnel adds
-> > an outer IP header and a GRE header for every packet that passed to it,
-> > which could result in a packet whose length is larger than the MTU of
-> > the uplink, therefore after the packet goes through OVS, it has to be
-> > fragmented by IP before going to the wire.
-> >
-> I do not understand what do you mean, gre packets greater than MTU
-> must be fragmented before sent on wire and it is done by GRE-GSO code.
-> 
+> OK
 
-Well, I said fragment, not segment. This is exactly why performance is
-so bad.
-
-In my _default_ setup, every net device on the path has MTU=1500,
-therefore, the packets coming out of a KVM guest can have length=1500,
-after they go through OVS GRE tunnel, their length becomes 1538 because
-of the added GRE header and IP header.
-
-After that, since the packets are not GSO (unless you pass vnet_hdr=on
-to KVM guest), the packets with length=1538 will be _fragmented_ by IP
-layer, since the dest uplink has MTU=1500 too. This is why I proposed to
-reuse GRO cell to merge the packets, which requires a netdev...
-
-This is the problem.
+The feature should also be documented in the Linux manpages, please.  A
+way to do that is to Cc linux-man@vger.kernel.org and Michael Kerrisk
+<mtk.manpages@gmail.com>, and to work with Michael on developing that
+documentation.
