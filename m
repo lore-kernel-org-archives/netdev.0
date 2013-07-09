@@ -1,42 +1,40 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next] r8169: add a new chip for RTL8411
-Date: Wed, 10 Jul 2013 01:00:16 +0200
-Message-ID: <20130709230015.GA6843@electric-eye.fr.zoreil.com>
-References: <1373274541-1095-1-git-send-email-hayeswang@realtek.com>
- <20130709.125305.1668056299963467935.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: rename low latency sockets functions to
+ busy poll
+Date: Tue, 09 Jul 2013 16:06:11 -0700 (PDT)
+Message-ID: <20130709.160611.636749585237773459.davem@davemloft.net>
+References: <20130708132034.17639.4396.stgit@ladj378.jer.intel.com>
+	<20130709162514.062f1361@lwn.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hayeswang@realtek.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eliezer.tamir@linux.intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, dwmw2@infradead.org,
+	eliezer@tamir.org.il
+To: corbet@lwn.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:41795 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752375Ab3GIXA1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jul 2013 19:00:27 -0400
-Content-Disposition: inline
-In-Reply-To: <20130709.125305.1668056299963467935.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60730 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752111Ab3GIXGO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jul 2013 19:06:14 -0400
+In-Reply-To: <20130709162514.062f1361@lwn.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> :
-[...]
-> Francois, please review.
+From: Jonathan Corbet <corbet@lwn.net>
+Date: Tue, 9 Jul 2013 16:25:14 -0600
 
-The style is consistent with the driver.
+> On Mon, 08 Jul 2013 16:20:34 +0300
+> Eliezer Tamir <eliezer.tamir@linux.intel.com> wrote:
+> 
+>> Rename POLL_LL to POLL_BUSY_LOOP.
+> 
+> So pardon me if I speak out of turn, but it occurs to me to
+> wonder...should the SO_LL socket option be renamed in a similar fashion
+> before this interface escapes into the wild?
 
-The commit message may state that this 8411 chipset does not require
-any special action in rtl_link_chg_patch (whence differing from the
-previous "F" 8411).
+Sure and we can rename include/net/ll_poll.h to something more
+fitting as well.
 
-Most of the code shared by rtl_hw_start_8168g_2 and rtl_hw_start_8411_2
-is already factored out. There is not much to win here.
-
-The new RTL_GIGA_MAC_VER_XY id is added in the required places.
-
-It builds.
-
-It's fine.
-
--- 
-Ueimor
+I'll make sure this happens before 3.11 gets even close to release.
