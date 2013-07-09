@@ -1,181 +1,105 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [RFC PATCH] sctp: Don't lookup dst if transport dst is still
- valid
-Date: Tue, 9 Jul 2013 07:38:15 -0400
-Message-ID: <20130709113815.GA955@hmsreliant.think-freely.org>
-References: <1372747174-23580-1-git-send-email-fan.du@windriver.com>
- <51D2E3C8.5050100@gmail.com>
- <51D389F9.4030804@windriver.com>
- <51D425B7.20204@gmail.com>
- <51D4DEFF.8030305@windriver.com>
- <20130705130353.GA15691@hmsreliant.think-freely.org>
- <51DBB7BB.6020606@windriver.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH iproute2 v3] ipbatch: fix use of 'ip netns exec'
+Date: Tue, 09 Jul 2013 06:20:13 -0700
+Message-ID: <1373376013.4979.148.camel@edumazet-glaptop>
+References: <1373326605.1860.12.camel@bwh-desktop.uk.level5networks.com>
+	 <1373365612-16402-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Vlad Yasevich <vyasevich@gmail.com>, nicolas.dichtel@6wind.com,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: bhutchings@solarflare.com, shemminger@vyatta.com,
+	netdev@vger.kernel.org, junwei.zhang@6wind.com
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:37407 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752923Ab3GILie (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jul 2013 07:38:34 -0400
-Content-Disposition: inline
-In-Reply-To: <51DBB7BB.6020606@windriver.com>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:35299 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752553Ab3GINUP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jul 2013 09:20:15 -0400
+Received: by mail-pb0-f49.google.com with SMTP id jt11so5520706pbb.22
+        for <netdev@vger.kernel.org>; Tue, 09 Jul 2013 06:20:15 -0700 (PDT)
+In-Reply-To: <1373365612-16402-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 09, 2013 at 03:11:55PM +0800, Fan Du wrote:
-> Hello Neil
->=20
-> On 2013=E5=B9=B407=E6=9C=8805=E6=97=A5 21:03, Neil Horman wrote:
-> >On Thu, Jul 04, 2013 at 10:33:35AM +0800, Fan Du wrote:
-> >>
-> >>
-> >>On 2013=E5=B9=B407=E6=9C=8803=E6=97=A5 21:23, Vlad Yasevich wrote:
-> >>>On 07/02/2013 10:18 PM, Fan Du wrote:
-> >>>>
-> >>>>
-> >>>>On 2013=E5=B9=B407=E6=9C=8802=E6=97=A5 22:29, Vlad Yasevich wrote=
-:
-> >>>>>On 07/02/2013 02:39 AM, Fan Du wrote:
-> >>>>>>When sctp sits on IPv6, sctp_transport_dst_check pass cookie as=
- ZERO,
-> >>>>>>as a result ip6_dst_check always fail out. This behaviour makes
-> >>>>>>transport->dst useless, because every sctp_packet_transmit must=
- look
-> >>>>>>for valid dst(Is this what supposed to be?)
-> >>>>>>
-> >>>>>>One aggressive way is to call rt_genid_bump which invalid all d=
-st to
-> >>>>>>make new dst for transport, apparently it also hurts others.
-> >>>>>>I'm sure this may not be the best for all, so any commnets?
-> >>>>>>
-> >>>>>>Signed-off-by: Fan Du<fan.du@windriver.com>
-> >>>>>>---
-> >>>>>>include/net/sctp/sctp.h | 18 ++++++++++++------
-> >>>>>>net/sctp/ipv6.c | 2 ++
-> >>>>>>2 files changed, 14 insertions(+), 6 deletions(-)
-> >>>>>>
-> >>>>>>diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-> >>>>>>index cd89510..f05af01 100644
-> >>>>>>--- a/include/net/sctp/sctp.h
-> >>>>>>+++ b/include/net/sctp/sctp.h
-> >>>>>>@@ -719,14 +719,20 @@ static inline void sctp_v4_map_v6(union
-> >>>>>>sctp_addr *addr)
-> >>>>>>addr->v6.sin6_addr.s6_addr32[2] =3D htonl(0x0000ffff);
-> >>>>>>}
-> >>>>>>
-> >>>>>>-/* The cookie is always 0 since this is how it's used in the
-> >>>>>>- * pmtu code.
-> >>>>>>- */
-> >>>>>>+/* Set cookie with the right one for IPv6 and zero for others =
-*/
-> >>>>>>static inline struct dst_entry *sctp_transport_dst_check(struct
-> >>>>>>sctp_transport *t)
-> >>>>>>{
-> >>>>>>- if (t->dst&&  !dst_check(t->dst, 0)) {
-> >>>>>>- dst_release(t->dst);
-> >>>>>>- t->dst =3D NULL;
-> >>>>>>+
-> >>>>>>+ if (t->dst) {
-> >>>>>>+ struct rt6_info *rt =3D (struct rt6_info *)t->dst;
-> >>>>>>+ u32 cookie =3D 0;
-> >>>>>>+
-> >>>>>>+ if ((t->af_specific->sa_family =3D=3D AF_INET6)&&  rt->rt6i_n=
-ode)
-> >>>>>>+ cookie =3D rt->rt6i_node->fn_sernum;
-> >>>>>>+ if (!dst_check(t->dst, cookie)) {
-> >>>>>>+ dst_release(t->dst);
-> >>>>>>+ t->dst =3D NULL;
-> >>>>>>+ }
-> >>>>>>}
-> >>>>>
-> >>>>>I think it would be better if we stored the dst_cookie in the
-> >>>>>transport structure and initialized it at lookup time. If you do=
- that,
-> >>>>>then if the route table changes, we'd correctly detect it withou=
-t
-> >>>>>artificially bumping rt_genid (and hurting ipv4).
-> >>>>
-> >>>>Hi Vlad/Neil
-> >>>>
-> >>>>Is this what you mean?
-> >>>
-> >>>Yes, exactly.
-> >>>
-> >>
-> >>Hi Vlad
-> >>
-> >>I thinks twice about below patch, this is actually a chicken-egg is=
-sue.
-> >>Look below scenario:
-> >>  (1) The first time we push packet through a transport, dst_cookie=
- is 0,
-> >>      so sctp_transport_dst_check also pass cookie as 0, then retur=
-n dst as NULL.
-> >>      Then we lookup dst by sctp_transport_route, and in there we i=
-nitiate dst_cookie
-> >>      with rt->rt6i_node->fn_sernum
-> >>
-> >>  (2) Then the next time we push packet through this transport agai=
-n,
-> >>      we pass dst_cookie(rt->rt6i_node->fn_sernum) to ip6_dst_check=
-, and
-> >>      return valid dst without bothering to lookup dst again.
-> >>
-> >>BUT, suppose when deleting the source address of this dst after tra=
-nsport->dst_cookie
-> >>has been well initialized. transport->dst_cookie still holds rt->rt=
-6i_node->fn_sernum,
-> >>meaning ip6_dst_check will return valid dst, which it shouldn't in =
-this case, the
-> >>result will be association ABORT.
-> >>
-> >Have you tried this?  It seems to me in the situation you describe, =
-deleting a
-> >source address will result in fib_inetaddr_event getting called, whi=
-ch will call
->                                  ^^^^^^^^^^
->                                  This is IPv4 specific.
->=20
-Sorry, meant to be looking at fib6_run_gc here, as called from
-ndisc_event_netdev.  That should age all the ipv6 router entries approp=
-riately.
+On Tue, 2013-07-09 at 12:26 +0200, Nicolas Dichtel wrote:
+> From: JunweiZhang <junwei.zhang@6wind.com>
+> 
+> execvp() does not return when the command succeed, hence all commands in the
+> batch file after the line 'ip netns exec' are not executed.
+> 
+> Let's fork before calling execvp().
+> 
+> Example:
+> $ cat test.batch
+> netns add netns1
+> netns exec netns1 ip l
+> netns
+> $ ip -b test.batch
+> 1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN mode DEFAULT
+>     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+> 2: sit0: <NOARP> mtu 1480 qdisc noop state DOWN mode DEFAULT
+>     link/sit 0.0.0.0 brd 0.0.0.0
+> 
+> All command after 'netns exec' are never executed.
+> 
+> With the patch:
+> $ ip -b test.batch
+> 1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN mode DEFAULT
+>     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+> 2: sit0: <NOARP> mtu 1480 qdisc noop state DOWN mode DEFAULT
+>     link/sit 0.0.0.0 brd 0.0.0.0
+> netns1
+> 
+> Now, existing netns are displayed.
+> 
+> Signed-off-by: JunweiZhang <junwei.zhang@6wind.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+> 
+> v3: be more verbose on error (fork(), waitpid())
+>     when child fails, just exit to avoid double cleanning
+>     check WIFEXITED() and waitpid() before using WEXITSTATUS()
+> 
+> v2: keep exit status of the child
+>     add an example in the commit log
+> 
+>  ip/ipnetns.c | 30 +++++++++++++++++++++++++++---
+>  1 file changed, 27 insertions(+), 3 deletions(-)
+> 
+> diff --git a/ip/ipnetns.c b/ip/ipnetns.c
+> index fa2b681..474a296 100644
+> --- a/ip/ipnetns.c
+> +++ b/ip/ipnetns.c
+> @@ -138,6 +138,7 @@ static int netns_exec(int argc, char **argv)
+>  	const char *name, *cmd;
+>  	char net_path[MAXPATHLEN];
+>  	int netns;
+> +	int pid, status;
 
+	pid_t pid;
 
-> >rt_cache_flush, bumping the rt_genid to get bumped for that network =
-namespace.
-> >That will cause any subsequent calls to dst_check->ip6_dst_check to =
-return NULL
->                                            ^^^^^^^^^^^^^^^^^
->                                            This is IPv6 specific
-> >rather than the cached dst_entry for that transport.
->=20
-> The phenomenon(transport->dst got lookup every time for IPv6) I descr=
-ibed before
-> could be easily observed by turning on SCTP debug.
->=20
-I'm not talking about the origional behavior, I'm talking about the con=
-cern you
-have above with your patch.  Nothing messes with sernum or genid in the=
- ipv6
-garbage collector, but cached routes, when expunged by fib6_del_route, =
-will set
-rt6i_node to NULL, which should cause both if clauses in ip6_dst_chk to=
- be
-skipped, returning NULL, forcing a new lookup.
+>  
+>  	if (argc < 1) {
+>  		fprintf(stderr, "No netns name specified\n");
+> @@ -185,9 +186,32 @@ static int netns_exec(int argc, char **argv)
+>  	/* Setup bind mounts for config files in /etc */
+>  	bind_etc(name);
+>  
+> -	if (execvp(cmd, argv + 1)  < 0)
+> -		fprintf(stderr, "exec of \"%s\" failed: %s\n",
+> -			cmd, strerror(errno));
+> +	pid = fork();
+> +	if (pid < 0) {
+> +		perror("fork");
+> +		return EXIT_FAILURE;
+> +	} else if (pid == 0) {
+> +		/* Child */
+> +		if (execvp(cmd, argv + 1)  < 0)
+> +			fprintf(stderr, "exec of \"%s\" failed: %s\n",
+> +				cmd, strerror(errno));
+> +		exit(EXIT_FAILURE);
 
-Neil
+	_exit(EXIT_FAILURE);
 
-> >Neil
-> >
-> >
->=20
-> --=20
-> =E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=
-=9D=E7=AC=91
->=20
-> --fan
->=20
+Or else you could have buffered data in stdout buffer, and it will be
+emitted twice.
