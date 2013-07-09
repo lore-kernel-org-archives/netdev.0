@@ -1,84 +1,62 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: Fixed PHY Device Tree usage?
-Date: Tue, 9 Jul 2013 17:44:55 +0100
-Message-ID: <CAGVrzcZ7ZLSDy5sTUR_XuSAUH=5q8ddiXx5n1y680WwGrdFfTw@mail.gmail.com>
-References: <20130709183312.6c4d052d@skate>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH] xen-netfront: pull on receive skb may need
+ to happen earlier
+Date: Tue, 9 Jul 2013 17:51:34 +0100
+Message-ID: <20130709165134.GG19798@zion.uk.xensource.com>
+References: <8511913.uMAmUdIO30@eistomin.edss.local>
+ <20130517085923.GC14401@zion.uk.xensource.com>
+ <51D57C1F.8070909@hunenet.nl>
+ <20130704150137.GW7483@zion.uk.xensource.com>
+ <51D6AED902000078000E2EA9@nat28.tlf.novell.com>
+ <20130705145319.GB9050@zion.uk.xensource.com>
+ <51DAA9B202000078000E3357@nat28.tlf.novell.com>
+ <51DAE6CA02000078000E3566@nat28.tlf.novell.com>
+ <20130708154814.GI8027@zion.uk.xensource.com>
+ <51DBCF4F02000078000E3793@nat28.tlf.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	=?UTF-8?Q?Gregory_Cl=C3=A9ment?=
-	<gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:39189 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751197Ab3GIQpf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jul 2013 12:45:35 -0400
-Received: by mail-pd0-f171.google.com with SMTP id y14so5388702pdi.30
-        for <netdev@vger.kernel.org>; Tue, 09 Jul 2013 09:45:35 -0700 (PDT)
-In-Reply-To: <20130709183312.6c4d052d@skate>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>, <davem@davemloft.net>,
+	Dion Kant <g.w.kant@hunenet.nl>, <xen-devel@lists.xen.org>,
+	<netdev@vger.kernel.org>, <stable@vger.kernel.org>
+To: Jan Beulich <JBeulich@suse.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <51DBCF4F02000078000E3793@nat28.tlf.novell.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Thomas,
+On Tue, Jul 09, 2013 at 07:52:31AM +0100, Jan Beulich wrote:
+> >>> On 08.07.13 at 17:48, Wei Liu <wei.liu2@citrix.com> wrote:
+> > On Mon, Jul 08, 2013 at 03:20:26PM +0100, Jan Beulich wrote:
+> >> @@ -1014,7 +1025,7 @@ err:
+> >>  
+> >>  		skb_shinfo(skb)->frags[0].page_offset = rx->offset;
+> >>  		skb_frag_size_set(&skb_shinfo(skb)->frags[0], rx->status);
+> >> -		skb->data_len = rx->status;
+> >> +		skb->len = skb->data_len = rx->status;
+> > 
+> > This is not correct. You should not be needing this. Now you lose count
+> > of SKB head len. Try to go without the above line and see if it makes a
+> > difference?
+> 
+> I don't follow - at this point, there's 0 bytes of head (this only
+> changes with the first call to __pskb_pull_tail()). Hence ->len ==
+> ->data_len seems correct to me (and afaict pulling would do the
+> wrong thing if I dropped that change).
+> 
 
-2013/7/9 Thomas Petazzoni <thomas.petazzoni@free-electrons.com>:
-> Hello,
->
-> We have a case of an hardware platform that uses the mvneta network
-> driver, but instead of the SoC being connected to a PHY, it's connected
-> directly to a switch, so my understanding is that there's no MDIO bus,
-> and we should have a kind of a "fake PHY" to make the mvneta driver
-> believe that the link is up, at a given speed.
+My bad, I suggested the wrong thing. :-(
 
-Good timing, I was about to post questions/suggestions about how we
-should represent fixed PHYs in device tree.
+But I would prefer skb->len += skb->data_len. In the case that skb->len
+== 0 it's the same as your line while skb->len is not zero it would also
+do the right thing.
 
->
-> Looking at this problem, I stumbled across the "fixed PHY" driver in
-> drivers/net/phy/fixed.c, which registers a fake "Fixed MDIO bus", and
-> then provides a fixed_phy_add() API to add one "fake" PHY. This seems
-> to fit my need, except that my ARM platform is obviously Device Tree
-> based, so I'm wondering what I should do. One option is to implement a
-> Device Tree binding for the fixed PHY driver (the exact DT binding
-> would have to be discussed), but I'm wondering whether describing a
-> fixed PHY in the DT is actually correct, because describing a fixed PHy
-> is not really describing the hardware, the hardware is actually a
-> switch.
+As for the warning in skb_try_coalesce, I don't see any direct call to
+it in netfront, I will need to think about it. It looks like it's really
+something very deep in the stack.
 
-Well, it does not seem to be too far from the "hardware" reality to
-describe a link between a switch CPU port and an Ethernet MAC as a
-fixed PHY because that is what it really is in fact. Once you have a
-drivers for your switch you can start using this PHY along with its
-corresponding driver.
 
-There is a helper: of_phy_connect_fixed_link() in drivers/of/of_mdio.c
-is flagged as being a
-temporary solution for Freescale Ethernet drivers to move to something else,
-so I would like to discuss what the "something else should be".
+Wei.
 
-Here what I would like to see the new "fixed-link" phy node look like:
-
-ethernet-phy@0 {
-     reg = <0>;
-     id = "deadbeef";
-     speed = <1000>;
-     full-duplex;
-     pause;
-     asym-pause;
-};
-
-It has the same properties as the binding described in:
-Documentation/devicetree/bindings/net/fsl-tsec-phy.txt but expressed in a more
-explicit way instead of using an array of integers.
-
->
-> Do you have some thoughts about this situation? Maybe there's already
-> some solutions that I'm not aware of?
->
-> Thanks,
---
-Florian
+> Jan
