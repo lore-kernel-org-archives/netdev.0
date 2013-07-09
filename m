@@ -1,42 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3] vhost-net: fix use-after-free in vhost_net_flush
-Date: Tue, 09 Jul 2013 12:56:24 -0700 (PDT)
-Message-ID: <20130709.125624.1456063645210971879.davem@davemloft.net>
-References: <20130707112653.GA31232@redhat.com>
+Subject: Re: [PATCH] drivers/net: caif: fix wrong rtnl_is_locked() usage
+Date: Tue, 09 Jul 2013 12:56:32 -0700 (PDT)
+Message-ID: <20130709.125632.1573031651619706332.davem@davemloft.net>
+References: <20130708072304.20622.60798.stgit@zurg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130707112653.GA31232@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dmitry.tarnyagin@lockless.no
+To: khlebnikov@openvz.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130708072304.20622.60798.stgit@zurg>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Sun, 7 Jul 2013 14:26:53 +0300
+From: Konstantin Khlebnikov <khlebnikov@openvz.org>
+Date: Mon, 08 Jul 2013 11:23:04 +0400
 
-> vhost_net_ubuf_put_and_wait has a confusing name:
-> it will actually also free it's argument.
-> Thus since commit 1280c27f8e29acf4af2da914e80ec27c3dbd5c01
->     "vhost-net: flush outstanding DMAs on memory change"
-> vhost_net_flush tries to use the argument after passing it
-> to vhost_net_ubuf_put_and_wait, this results
-> in use after free.
-> To fix, don't free the argument in vhost_net_ubuf_put_and_wait,
-> add an new API for callers that want to free ubufs.
+> rtnl_is_locked() doesn't check who holds this lock, it just tells that it's
+> locked right now. if caif::ldisc_close really can be called under rtrnl_lock
+> then it should release net device in other context because there is no way
+> to grab rtnl_lock without deadlock.
 > 
-> Acked-by: Asias He <asias@redhat.com>
-> Acked-by: Jason Wang <jasowang@redhat.com>
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> This patch adds work which releases these devices. Also this patch fixes calling
+> dev_close/unregister_netdevice without rtnl_lock from caif_ser_exit().
+> 
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov@openvz.org>
 
-Applied and queued up for -stable.
+Applied.
