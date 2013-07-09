@@ -1,34 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Pavel Machek <pavel@ucw.cz>
 Subject: Re: Extremely bad performance with RTL8111/8168B
-Date: Mon, 08 Jul 2013 17:12:32 -0700
-Message-ID: <1373328752.4979.129.camel@edumazet-glaptop>
+Date: Tue, 9 Jul 2013 02:24:54 +0200
+Message-ID: <20130709002454.GA20613@amd.pavel.ucw.cz>
 References: <20130708095459.GA29788@amd.pavel.ucw.cz>
-	 <1373291269.4979.102.camel@edumazet-glaptop>
-	 <20130708220149.GA15766@electric-eye.fr.zoreil.com>
-	 <20130709000902.GB19366@amd.pavel.ucw.cz>
+ <1373291269.4979.102.camel@edumazet-glaptop>
+ <20130708220149.GA15766@electric-eye.fr.zoreil.com>
+ <20130709000902.GB19366@amd.pavel.ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	Hayes Wang <hayeswang@realtek.com>, netdev@vger.kernel.org
-To: Pavel Machek <pavel@ucw.cz>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f176.google.com ([209.85.214.176]:60625 "EHLO
-	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753400Ab3GIAMe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 20:12:34 -0400
-Received: by mail-ob0-f176.google.com with SMTP id v19so6271663obq.35
-        for <netdev@vger.kernel.org>; Mon, 08 Jul 2013 17:12:34 -0700 (PDT)
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:49640 "EHLO
+	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753400Ab3GIAY5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 20:24:57 -0400
+Content-Disposition: inline
 In-Reply-To: <20130709000902.GB19366@amd.pavel.ucw.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-07-09 at 02:09 +0200, Pavel Machek wrote:
+Hi!
 
-> BTW I'm on 100mbit switch, so advanced stuff needed for gigabit speed
-> is not too important for me. I may want to connect it with cross cable
-> in future, but for now...
+> pavel@amd:~$ scp /tmp/delme pavel@duo:/tmp
+> pavel@duo's password: 
+> delme                                         100%   34MB 481.1KB/s   01:12    
+> 
+> Aha. I see abnormal ping times from duo to amd. (Cca 80msec range.)
+> amd has e1000e card, and apparently its interrupt does not
+> work. Fortunately it is shared with ahci so I can work around that
+> one... and when I do, transfer gets even slower. Hmm?
 
+I verified that copy is slow even from Elf to duo. Elf is old desktop,
+and its ethernet card is working correctly, AFAICT.
 
+Copy is even slower from Elf->duo, cca 66KB/sec. It is also slower
+when I work around interrupt problems on amd, amd->duo is then cca
+200KB/sec.
 
-Check "ethtool eth0" and make sure you are in full-duplex mode.
+IOW yes amd's e1000e has a problem, but duo's realtek has even bigger
+problem.
+
+Thanks,
+									Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
