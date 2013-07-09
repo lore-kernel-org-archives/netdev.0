@@ -1,34 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] virtio_net: fix race in RX VQ processing
-Date: Mon, 08 Jul 2013 20:54:52 -0700 (PDT)
-Message-ID: <20130708.205452.1798118018128812181.davem@davemloft.net>
-References: <1373274069-4301-1-git-send-email-mst@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH v2 2/2] virtio_net: fix race in RX VQ processing
+Date: Tue, 9 Jul 2013 08:13:04 +0300
+Message-ID: <1373346713-442-3-git-send-email-mst@redhat.com>
+References: <1373346713-442-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au, jasowang@redhat.com
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1373274069-4301-1-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1373346713-442-1-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Mon, 8 Jul 2013 12:05:26 +0300
+virtio net called virtqueue_enable_cq on RX path after napi_complete, so
+with NAPI_STATE_SCHED clear - outside the implicit napi lock.
+This violates the requirement to synchronize virtqueue_enable_cq wrt
+virtqueue_add_buf.  In particular, used event can move backwards,
+causing us to lose interrupts.
+In a debug build, this can trigger panic within START_USE.
 
-> Jason Wang reported a race in RX VQ processing:
-> virtqueue_enable_cb is called outside napi lock,
-> violating virtio serialization rules.
-> The race has been there from day 1, but it got especially nasty in 3.0
-> when commit a5c262c5fd83ece01bd649fb08416c501d4c59d7
-> "virtio_ring: support event idx feature"
-> added more dependency on vq state.
-> 
-> Please review, and consider for 3.11 and for stable.
-> 
-> Jason, could you please report whether this fixes the issues for you?
+Jason Wang reports that he can trigger the races artificially,
+by adding udelay() in virtqueue_enable_cb() after virtio_mb().
 
-Please resubmit with the minor coding style fix and Jason's Acked-by/Tested-by
+However, we must call napi_complete to clear NAPI_STATE_SCHED before
+polling the virtqueue for used buffers, otherwise napi_schedule_prep in
+a callback will fail, causing us to lose RX events.
 
-Thanks.
+To fix, call virtqueue_enable_cb_prepare with NAPI_STATE_SCHED
+set (under napi lock), later call virtqueue_poll with
+NAPI_STATE_SCHED clear (outside the lock).
+
+Reported-by: Jason Wang <jasowang@redhat.com>
+Tested-by: Jason Wang <jasowang@redhat.com>
+Acked-by: Jason Wang <jasowang@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/net/virtio_net.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 5305bd1..27f79dd 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -605,7 +605,7 @@ static int virtnet_poll(struct napi_struct *napi, int budget)
+ 		container_of(napi, struct receive_queue, napi);
+ 	struct virtnet_info *vi = rq->vq->vdev->priv;
+ 	void *buf;
+-	unsigned int len, received = 0;
++	unsigned int r, len, received = 0;
+ 
+ again:
+ 	while (received < budget &&
+@@ -622,8 +622,9 @@ again:
+ 
+ 	/* Out of packets? */
+ 	if (received < budget) {
++		r = virtqueue_enable_cb_prepare(rq->vq);
+ 		napi_complete(napi);
+-		if (unlikely(!virtqueue_enable_cb(rq->vq)) &&
++		if (unlikely(virtqueue_poll(rq->vq, r)) &&
+ 		    napi_schedule_prep(napi)) {
+ 			virtqueue_disable_cb(rq->vq);
+ 			__napi_schedule(napi);
+-- 
+MST
