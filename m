@@ -1,47 +1,40 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [GIT] Networking
-Date: Mon, 8 Jul 2013 19:48:17 -0700
-Message-ID: <20130708194817.34503460.akpm@linux-foundation.org>
-References: <20130707.132133.1335860703202153192.davem@davemloft.net>
-	<CA+55aFzgBXwye=ebPmEDN_6yqdKA6ZaD9hSUzbFjSacC_v3y5g@mail.gmail.com>
-	<CA+55aFyvZAQbaEyq5atQbTjHTz_hodzhWKX_7SRL8nq+yBA14A@mail.gmail.com>
-	<20130707.201449.1176672898198722699.davem@davemloft.net>
-	<51DA5E65.5060006@linux.intel.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 0/2] virtio_net: fix race in RX VQ processing
+Date: Tue, 09 Jul 2013 11:17:05 +0800
+Message-ID: <51DB80B1.60009@redhat.com>
+References: <1373274069-4301-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	David Miller <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:54993 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751564Ab3GICrw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 22:47:52 -0400
-In-Reply-To: <51DA5E65.5060006@linux.intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:19150 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751564Ab3GIDRV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Jul 2013 23:17:21 -0400
+In-Reply-To: <1373274069-4301-1-git-send-email-mst@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 08 Jul 2013 09:38:29 +0300 Eliezer Tamir <eliezer.tamir@linux.intel.com> wrote:
+On 07/08/2013 05:05 PM, Michael S. Tsirkin wrote:
+> Jason Wang reported a race in RX VQ processing:
+> virtqueue_enable_cb is called outside napi lock,
+> violating virtio serialization rules.
+> The race has been there from day 1, but it got especially nasty in 3.0
+> when commit a5c262c5fd83ece01bd649fb08416c501d4c59d7
+> "virtio_ring: support event idx feature"
+> added more dependency on vq state.
+>
+> Please review, and consider for 3.11 and for stable.
+>
+> Jason, could you please report whether this fixes the issues for you?
 
-> On 08/07/2013 06:14, David Miller wrote:
-> > From: Linus Torvalds <torvalds@linux-foundation.org>
-> > Date: Sun, 7 Jul 2013 15:33:31 -0700
-> >
-> >> End result: I think the code is salvageable and people who want this
-> >> kind of busy-looping can have it. But I really don't want to merge it
-> >> as-is. I think it was badly done, I think it was badly documented, and
-> >> I think somebody over-sold the feature by emphasizing the upsides and
-> >> not the problems.
-> >
-> > Fair enough, Eliezer, please address all of Linus's feedback.
-> >
-> > It's holding the entire net-next merge up.
-> >
-> 
-> OK
+Yes, I confirm this fixes the issue.
 
-The feature should also be documented in the Linux manpages, please.  A
-way to do that is to Cc linux-man@vger.kernel.org and Michael Kerrisk
-<mtk.manpages@gmail.com>, and to work with Michael on developing that
-documentation.
+Since I can only reproduce it by adding udelay in virtqueue_enable_cb()
+after virtio_mb(). I validate this also with this.
+
+Thanks
