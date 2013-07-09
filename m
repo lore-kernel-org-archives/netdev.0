@@ -1,114 +1,225 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: Extremely bad performance with RTL8111/8168B
-Date: Tue, 9 Jul 2013 11:32:24 +0200
-Message-ID: <20130709093224.GB20470@amd.pavel.ucw.cz>
-References: <20130708095459.GA29788@amd.pavel.ucw.cz>
- <1373291269.4979.102.camel@edumazet-glaptop>
- <20130708220149.GA15766@electric-eye.fr.zoreil.com>
- <20130709000902.GB19366@amd.pavel.ucw.cz>
- <1373328752.4979.129.camel@edumazet-glaptop>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: [PATCH net-next v2] net/fs: change busy poll time accounting
+Date: Tue, 09 Jul 2013 13:09:21 +0300
+Message-ID: <20130709100921.21602.46444.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Hayes Wang <hayeswang@realtek.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Woodhouse <dwmw2@infradead.org>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:34646 "EHLO
-	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753872Ab3GIJc0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jul 2013 05:32:26 -0400
-Content-Disposition: inline
-In-Reply-To: <1373328752.4979.129.camel@edumazet-glaptop>
+Received: from mga02.intel.com ([134.134.136.20]:23095 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750763Ab3GIKJZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jul 2013 06:09:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon 2013-07-08 17:12:32, Eric Dumazet wrote:
-> On Tue, 2013-07-09 at 02:09 +0200, Pavel Machek wrote:
-> 
-> > BTW I'm on 100mbit switch, so advanced stuff needed for gigabit speed
-> > is not too important for me. I may want to connect it with cross cable
-> > in future, but for now...
-> 
-> Check "ethtool eth0" and make sure you are in full-duplex mode.
+Sorry, I forgot to commit before sending, so I sent the wrong version.
+The previous version gets a warning in busy_loop_timeout().
 
-It seems that is not a problem... and I guess I have new speed record:
+Suggested by Linus:
+Changed time accounting for busy-poll:
+- Make it microsecond based.
+- Use unsigned longs.
+- Revert back to use time_after instead of time_in_range.
+Reorder poll/select busy loop conditions:
+- Clear busy_flag after one time we can't busy-poll.
+- Only init busy_end if we actually are going to busy-poll.
+Added one more missing need_resched() test.
 
-pavel@amd:~$ scp /tmp/delme pavel@duo:/tmp
-pavel@duo's password: 
-delme                                          66%   22MB  11.7KB/s - stalled -
-/tmp/delme: Broken pipe
-pavel@amd:~$ 
+Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+---
 
-(No, I did not terminate the transfer, it just died :-().
+ fs/select.c           |   31 ++++++++++++++++++----------
+ include/net/ll_poll.h |   55 ++++++++++++++++---------------------------------
+ 2 files changed, 38 insertions(+), 48 deletions(-)
 
-root@duo:~# ethtool eth0
-Settings for eth0:
-	Supported ports: [ TP MII ]
-	Supported link modes:   10baseT/Half 10baseT/Full 
-	                        100baseT/Half 100baseT/Full 
-	                        1000baseT/Half 1000baseT/Full 
-	Supports auto-negotiation: Yes
-	Advertised link modes:  10baseT/Half 10baseT/Full 
-	                        100baseT/Half 100baseT/Full 
-	                        1000baseT/Half 1000baseT/Full 
-	Advertised pause frame use: Symmetric Receive-only
-	Advertised auto-negotiation: Yes
-	Link partner advertised link modes:  10baseT/Half 10baseT/Full 
-	                                     100baseT/Half 100baseT/Full 
-	Link partner advertised pause frame use: Symmetric
-	Link partner advertised auto-negotiation: Yes
-	Speed: 100Mb/s
-	Duplex: Full
-	Port: MII
-	PHYAD: 0
-	Transceiver: internal
-	Auto-negotiation: on
-	Supports Wake-on: pumbg
-	Wake-on: g
-	Current message level: 0x00000033 (51)
-	Link detected: yes
-root@duo:~# 
-
-Hmm, that is slightly interesting. What is the pause stuff? e1000e on
-the same switch reports:
-
-Settings for eth0:
-	Supported ports: [ TP ]
-	Supported link modes:   10baseT/Half 10baseT/Full 
-	                        100baseT/Half 100baseT/Full 
-	                        1000baseT/Full 
-	Supports auto-negotiation: Yes
-	Advertised link modes:  10baseT/Half 10baseT/Full 
-	                        100baseT/Half 100baseT/Full 
-	                        1000baseT/Full 
-	Advertised pause frame use: No
-	Advertised auto-negotiation: Yes
-	Speed: 100Mb/s
-	Duplex: Full
-	Port: Twisted Pair
-	PHYAD: 1
-	Transceiver: internal
-	Auto-negotiation: on
-	MDI-X: on
-	Supports Wake-on: pumbg
-	Wake-on: g
-	Current message level: 0x00000007 (7)
-	Link detected: yes
-root@amd:~# 
-
-I tried 
-
-root@duo:~# ethtool -A eth0 rx off tx off
-Cannot get device pause settings: Operation not supported
-root@duo:~# 
-
-Also... Why it reports Port: MII instead of "twisted pair"?
-
-Any other ideas?
-
-Thanks,
-									Pavel
-
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+diff --git a/fs/select.c b/fs/select.c
+index 25cac5f..50a804b 100644
+--- a/fs/select.c
++++ b/fs/select.c
+@@ -403,8 +403,7 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
+ 	int retval, i, timed_out = 0;
+ 	unsigned long slack = 0;
+ 	unsigned int busy_flag = net_busy_loop_on() ? POLL_BUSY_LOOP : 0;
+-	u64 busy_start = busy_loop_start_time(busy_flag);
+-	u64 busy_end = busy_loop_end_time();
++	unsigned long busy_end = 0;
+ 
+ 	rcu_read_lock();
+ 	retval = max_select_fd(n, fds);
+@@ -506,9 +505,15 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
+ 		}
+ 
+ 		/* only if found POLL_BUSY_LOOP sockets && not out of time */
+-		if (!need_resched() && can_busy_loop &&
+-		    busy_loop_range(busy_start, busy_end))
+-			continue;
++		if (can_busy_loop && !need_resched()) {
++			if (!busy_end) {
++				busy_end = busy_loop_end_time();
++				continue;
++			}
++			if (!busy_loop_timeout(busy_end))
++				continue;
++		}
++		busy_flag = 0;
+ 
+ 		/*
+ 		 * If this is the first loop and we have a timeout
+@@ -780,9 +785,7 @@ static int do_poll(unsigned int nfds,  struct poll_list *list,
+ 	int timed_out = 0, count = 0;
+ 	unsigned long slack = 0;
+ 	unsigned int busy_flag = net_busy_loop_on() ? POLL_BUSY_LOOP : 0;
+-	u64 busy_start = busy_loop_start_time(busy_flag);
+-	u64 busy_end = busy_loop_end_time();
+-
++	unsigned long busy_end = 0;
+ 
+ 	/* Optimise the no-wait case */
+ 	if (end_time && !end_time->tv_sec && !end_time->tv_nsec) {
+@@ -834,9 +837,15 @@ static int do_poll(unsigned int nfds,  struct poll_list *list,
+ 			break;
+ 
+ 		/* only if found POLL_BUSY_LOOP sockets && not out of time */
+-		if (!need_resched() && can_busy_loop &&
+-		    busy_loop_range(busy_start, busy_end))
+-			continue;
++		if (can_busy_loop && !need_resched()) {
++			if (!busy_end) {
++				busy_end = busy_loop_end_time();
++				continue;
++			}
++			if (!busy_loop_timeout(busy_end))
++				continue;
++		}
++		busy_flag = 0;
+ 
+ 		/*
+ 		 * If this is the first loop and we have a timeout
+diff --git a/include/net/ll_poll.h b/include/net/ll_poll.h
+index f14dd88..76f0340 100644
+--- a/include/net/ll_poll.h
++++ b/include/net/ll_poll.h
+@@ -47,7 +47,7 @@ static inline bool net_busy_loop_on(void)
+  * we only care that the average is bounded
+  */
+ #ifdef CONFIG_DEBUG_PREEMPT
+-static inline u64 busy_loop_sched_clock(void)
++static inline u64 busy_loop_us_clock(void)
+ {
+ 	u64 rc;
+ 
+@@ -55,37 +55,24 @@ static inline u64 busy_loop_sched_clock(void)
+ 	rc = sched_clock();
+ 	preempt_enable_no_resched_notrace();
+ 
+-	return rc;
++	return rc >> 10;
+ }
+ #else /* CONFIG_DEBUG_PREEMPT */
+-static inline u64 busy_loop_sched_clock(void)
++static inline u64 busy_loop_us_clock(void)
+ {
+-	return sched_clock();
++	return sched_clock() >> 10;
+ }
+ #endif /* CONFIG_DEBUG_PREEMPT */
+ 
+-/* we don't mind a ~2.5% imprecision so <<10 instead of *1000
+- * sk->sk_ll_usec is a u_int so this can't overflow
+- */
+-static inline u64 sk_busy_loop_end_time(struct sock *sk)
++static inline unsigned long sk_busy_loop_end_time(struct sock *sk)
+ {
+-	return (u64)ACCESS_ONCE(sk->sk_ll_usec) << 10;
++	return busy_loop_us_clock() + ACCESS_ONCE(sk->sk_ll_usec);
+ }
+ 
+-/* in poll/select we use the global sysctl_net_ll_poll value
+- * only call sched_clock() if enabled
+- */
+-static inline u64 busy_loop_end_time(void)
+-{
+-	return (u64)ACCESS_ONCE(sysctl_net_ll_poll) << 10;
+-}
+-
+-/* if flag is not set we don't need to know the time
+- * so we want to avoid a potentially expensive sched_clock()
+- */
+-static inline u64 busy_loop_start_time(unsigned int flag)
++/* in poll/select we use the global sysctl_net_ll_poll value */
++static inline unsigned long busy_loop_end_time(void)
+ {
+-	return flag ? busy_loop_sched_clock() : 0;
++	return busy_loop_us_clock() + ACCESS_ONCE(sysctl_net_ll_poll);
+ }
+ 
+ static inline bool sk_can_busy_loop(struct sock *sk)
+@@ -94,12 +81,12 @@ static inline bool sk_can_busy_loop(struct sock *sk)
+ 	       !need_resched() && !signal_pending(current);
+ }
+ 
+-/* careful! time_in_range64 will evaluate now twice */
+-static inline bool busy_loop_range(u64 start_time, u64 run_time)
++
++static inline bool busy_loop_timeout(unsigned long end_time)
+ {
+-	u64 now = busy_loop_sched_clock();
++	unsigned long now = busy_loop_us_clock();
+ 
+-	return time_in_range64(now, start_time, start_time + run_time);
++	return time_after(now, end_time);
+ }
+ 
+ /* when used in sock_poll() nonblock is known at compile time to be true
+@@ -107,8 +94,7 @@ static inline bool busy_loop_range(u64 start_time, u64 run_time)
+  */
+ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
+ {
+-	u64 start_time = busy_loop_start_time(!nonblock);
+-	u64 end_time = sk_busy_loop_end_time(sk);
++	unsigned long end_time = !nonblock ? sk_busy_loop_end_time(sk) : 0;
+ 	const struct net_device_ops *ops;
+ 	struct napi_struct *napi;
+ 	int rc = false;
+@@ -139,7 +125,7 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
+ 					 LINUX_MIB_LOWLATENCYRXPACKETS, rc);
+ 
+ 	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
+-		 busy_loop_range(start_time, end_time));
++		 !need_resched() && !busy_loop_timeout(end_time));
+ 
+ 	rc = !skb_queue_empty(&sk->sk_receive_queue);
+ out:
+@@ -165,12 +151,7 @@ static inline unsigned long net_busy_loop_on(void)
+ 	return 0;
+ }
+ 
+-static inline u64 busy_loop_start_time(unsigned int flag)
+-{
+-	return 0;
+-}
+-
+-static inline u64 busy_loop_end_time(void)
++static inline unsigned long busy_loop_end_time(void)
+ {
+ 	return 0;
+ }
+@@ -193,9 +174,9 @@ static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
+ {
+ }
+ 
+-static inline bool busy_loop_range(u64 start_time, u64 run_time)
++static inline bool busy_loop_timeout(unsigned long end_time)
+ {
+-	return false;
++	return true;
+ }
+ 
+ #endif /* CONFIG_NET_LL_RX_POLL */
