@@ -1,55 +1,45 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] virtio-net: put virtio net header inline with data
-Date: Tue, 09 Jul 2013 11:46:23 +0930
-Message-ID: <871u78eavc.fsf@rustcorp.com.au>
-References: <20130708101259.GA16074@redhat.com>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: Extremely bad performance with RTL8111/8168B
+Date: Tue, 9 Jul 2013 10:24:20 +0800
+Message-ID: <88C0E945471D46EEA556B43C7EB384AB@realtek.com.tw>
+References: <20130708095459.GA29788@amd.pavel.ucw.cz> <1373291269.4979.102.camel@edumazet-glaptop> <20130708220149.GA15766@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <amwang@redhat.com>, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, Dave Jones <davej@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130708101259.GA16074@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: 'Pavel Machek' <pavel@ucw.cz>, <netdev@vger.kernel.org>,
+	'nic_swsd' <nic_swsd@realtek.com>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>,
+	'Eric Dumazet' <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([60.250.210.242]:53188 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752056Ab3GICYf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 22:24:35 -0400
+In-Reply-To: <20130708220149.GA15766@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst@redhat.com> writes:
-> For small packets we can simplify xmit processing
-> by linearizing buffers with the header:
-> most packets seem to have enough head room
-> we can use for this purpose.
-> Since existing hypervisors require that header
-> is the first s/g element, we need a feature bit
-> for this.
->
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
->
-> Note: this needs to be applied on top of patch
-> defining VIRTIO_F_ANY_LAYOUT - bit to be
-> selected by Rusty.
->
-> The following patch should work for any definition of
-> VIRTIO_F_ANY_LAYOUT - I used bit 31 for testing.
-> Rusty, could you please pick a valid bit for VIRTIO_F_ANY_LAYOUT
-> and squeeze this patch into 3.11?
+Francois Romieu [mailto:romieu@fr.zoreil.com] 
+> Sent: Tuesday, July 09, 2013 6:02 AM
+> To: Eric Dumazet
+> Cc: Pavel Machek; Hayeswang; netdev@vger.kernel.org
+> Subject: Re: Extremely bad performance with RTL8111/8168B
+> 
+> Eric Dumazet <eric.dumazet@gmail.com> :
+> [8168d failure]
+> > It looks like TSO packets are not transmitted, so TCP only 'works'
+> > because retransmits use non TSO packets.
+> > 
+> > Could you report "ethtool -k eth0" ?
+> > 
+> > try : ethtool -K eth0 tso off
+> 
+> If so it could be worth adding a test for RTL_GIGA_MAC_VER_25 in
+> rtl_test_hw_pad_bug as has been done for RTL_GIGA_MAC_VER_34 (see
+> b423e9ae49d78ea3f53b131c8d5a6087aed16fd6).
 
-Sorry, it's too late.
-
-First, I've been a bit lax in sending patches via DaveM, and this is
-definitely his territory (ie. more net than virtio).
-
-Secondly, it needs baking and testing time.
-
-Cheers,
-Rusty.
+I don't think it is necessary for RTL_GIGA_MAC_VER_25. I don't find any issue
+about checksum or TSO for 8111d yet.
+ 
+Best Regards,
+Hayes
