@@ -1,23 +1,49 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2 0/2] virtio_net: fix race in RX VQ processing
-Date: Tue, 9 Jul 2013 13:21:02 +0300
-Message-ID: <20130709102102.GA14321@redhat.com>
-References: <1373346713-442-1-git-send-email-mst@redhat.com>
- <20130709.023222.767482110746812707.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au, jasowang@redhat.com
-To: David Miller <davem@davemloft.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net 2/2] macvtap: correctly linearize skb when zerocopy is used
+Date: Tue,  9 Jul 2013 18:10:51 +0800
+Message-ID: <1373364651-10474-2-git-send-email-jasowang@redhat.com>
+References: <1373364651-10474-1-git-send-email-jasowang@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130709.023222.767482110746812707.davem@davemloft.net>
+In-Reply-To: <1373364651-10474-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 09, 2013 at 02:32:22AM -0700, David Miller wrote:
-> 
-> I don't see patch #1 in v2 of this series.
+Userspace may produce vectors greater than MAX_SKB_FRAGS. When we try to
+linearize parts of the skb to let the rest of iov to be fit in
+the frags, we need count copylen into linear when calling macvtap_alloc_skb()
+instead of partly counting it into data_len. Since this breaks
+zerocopy_sg_from_iovec() since its inner counter assumes nr_frags should
+be zero at beginning. This cause nr_frags to be increased wrongly without
+setting the correct frags.
 
-It's there now:
-http://patchwork.ozlabs.org/patch/257692/
+This bug were introduced from b92946e2919134ebe2a4083e4302236295ea2a73
+(macvtap: zerocopy: validate vectors before building skb).
+
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+This patch is needed for stable.
+---
+ drivers/net/macvtap.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index f2c4a3b..b213020 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -770,7 +770,8 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+ 		copylen = len;
+ 
+ 	skb = macvtap_alloc_skb(&q->sk, NET_IP_ALIGN, copylen,
+-				vnet_hdr.hdr_len, noblock, &err);
++				zerocopy ? copylen : vnet_hdr.hdr_len,
++				noblock, &err);
+ 	if (!skb)
+ 		goto err;
+ 
+-- 
+1.7.1
