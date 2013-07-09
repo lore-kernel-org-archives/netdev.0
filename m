@@ -1,38 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: rename low latency sockets functions to
- busy poll
-Date: Mon, 08 Jul 2013 19:27:06 -0700 (PDT)
-Message-ID: <20130708.192706.1245480344087449229.davem@davemloft.net>
-References: <CA+55aFxgrOtsv7vCtic97ehpvqyezCzDcyqHVD+821BiTuiRtw@mail.gmail.com>
-	<51DAF373.4040606@linux.intel.com>
-	<CA+55aFwWAmHhYaPWVm7rsqiD9+RhDPpgVC1yWc0oNmP38bty4Q@mail.gmail.com>
+From: Rob Landley <rob@landley.net>
+Subject: Re: [GIT] Networking
+Date: Mon, 08 Jul 2013 21:29:00 -0500
+Message-ID: <1373336940.27613.24@driftwood>
+References: <20130707.132133.1335860703202153192.davem@davemloft.net>
+	<CA+55aFzgBXwye=ebPmEDN_6yqdKA6ZaD9hSUzbFjSacC_v3y5g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eliezer.tamir@linux.intel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, akpm@linux-foundation.org,
-	dwmw2@infradead.org, eliezer@tamir.org.il
-To: torvalds@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47908 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751736Ab3GIC1H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jul 2013 22:27:07 -0400
-In-Reply-To: <CA+55aFwWAmHhYaPWVm7rsqiD9+RhDPpgVC1yWc0oNmP38bty4Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; DelSp=Yes; Format=Flowed
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFzgBXwye=ebPmEDN_6yqdKA6ZaD9hSUzbFjSacC_v3y5g@mail.gmail.com>
+	(from torvalds@linux-foundation.org on Sun Jul  7 16:27:54 2013)
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Mon, 8 Jul 2013 12:37:06 -0700
+On 07/07/2013 04:27:54 PM, Linus Torvalds wrote:
+> And dammit, I'd expect the VFS people to be
+> cc'd on changes to the VFS layer functions. I wasn't, Al wasn't.
 
-> I think it's getting closer, and I'm ok with the last final details
-> being sorted out later. I just can't reasonably test any of my
-> suggestions, so I'd like to get it to a point where when I pull, I
-> don't feel like I'm pulling core code that I really detest. And the
-> VFS layer in particular I'm pretty attached to.
+Um, does that mean I should have cc'd you on the initmpfs patch series
+back before the merge window opened?
 
-So I've applied Eliezer's rename patch and will send another pull
-request once he also takes care of the reduction of the number and
-size of the variables used to track the poll timestamps.
+   http://lkml.indiana.edu/hypermail/linux/kernel/1306.3/04204.html
 
-Thanks.
+(I cc'd the scripts/get_maintainer.pl list, but only one person replied
+this time around. I got more on the initial RFC submission back in
+https://lwn.net/Articles/545740/)
+
+Rob
