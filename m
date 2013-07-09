@@ -1,67 +1,62 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] virtio-net: put virtio net header inline with data
-Date: Tue, 9 Jul 2013 08:18:24 +0300
-Message-ID: <20130709051824.GA3234@redhat.com>
-References: <20130708101259.GA16074@redhat.com>
-	<871u78eavc.fsf@rustcorp.com.au>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: net/ipv4/route.c: Routing anomaly introduced by 89aef89 (ipv4:
+ Delete routing cache.)
+Date: Tue, 9 Jul 2013 08:43:14 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1307090832450.1621@ja.ssi.bg>
+References: <20130708113457.4a0d6023@pluto>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Dave Jones <davej@redhat.com>, "David S. Miller" <davem@davemloft.net>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <871u78eavc.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	netdev@vger.kernel.org, eyal.birger@gmail.com
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:44235 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751500Ab3GIFhh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jul 2013 01:37:37 -0400
+In-Reply-To: <20130708113457.4a0d6023@pluto>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 09, 2013 at 11:46:23AM +0930, Rusty Russell wrote:
-> "Michael S. Tsirkin" <mst@redhat.com> writes:
-> > For small packets we can simplify xmit processing
-> > by linearizing buffers with the header:
-> > most packets seem to have enough head room
-> > we can use for this purpose.
-> > Since existing hypervisors require that header
-> > is the first s/g element, we need a feature bit
-> > for this.
-> >
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > ---
-> >
-> > Note: this needs to be applied on top of patch
-> > defining VIRTIO_F_ANY_LAYOUT - bit to be
-> > selected by Rusty.
-> >
-> > The following patch should work for any definition of
-> > VIRTIO_F_ANY_LAYOUT - I used bit 31 for testing.
-> > Rusty, could you please pick a valid bit for VIRTIO_F_ANY_LAYOUT
-> > and squeeze this patch into 3.11?
+
+	Hello,
+
+On Mon, 8 Jul 2013, Shmulik Ladkani wrote:
+
+> Hi,
 > 
-> Sorry, it's too late.
+> In 89aef89 (ipv4: Delete routing cache) the following was removed from
+> ip_route_input_common (nowadays named ip_route_input_noref):
 > 
-> First, I've been a bit lax in sending patches via DaveM, and this is
-> definitely his territory (ie. more net than virtio).
-
-Let's do this: I'll send a patch series, you ack and we see
-what happens?
-
-> Secondly, it needs baking and testing time.
+> -       tos &= IPTOS_RT_MASK;
 > 
-> Cheers,
-> Rusty.
+> As a side effect, the 'tos' argument passed to 'ip_route_input_slow' is
+> the "raw" u8, as present in iph->tos (opposed to the formerly "masked"
+> value).
+> 
+> This may affect the route calculation, as this value is later placed in
+> fl4.flowi4_tos for matching purposes (using equality to the tos stored
+> in the FIB Rule and/or Route).
+> 
+> (BTW, the question whether applying the historical IPTOS_RT_MASK
+> prior route lookup is interesting on its own...)
+> 
+> However, 89aef89 created an anomaly - since in the output path, routing
+> *still* uses the IPTOS_RT_MASK (see __ip_route_output_key for example).
+> 
+> It seems the omission of 'tos &= IPTOS_RT_MASK' from
+> 'ip_route_input_noref' was accidental.
 
-I did some testing on this.  But proper testing just isn't happening out
-of tree.
+	Agreed
 
--- 
-MST
+> We should align input/output behavior by reverting the omission, or
+> alternatively we may reconsider the entire IPTOS_RT_MASK thing.
+
+	The right thing should be to use tos &= IPTOS_RT_MASK
+at beginning of ip_route_input_noref.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
