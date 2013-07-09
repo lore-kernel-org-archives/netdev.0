@@ -1,83 +1,229 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next] vxlan: Fix kernel crash on rmmod.
-Date: Tue,  9 Jul 2013 15:39:08 -0700
-Message-ID: <1373409548-26064-1-git-send-email-pshelar@nicira.com>
-Cc: stephen@networkplumber.org, Pravin B Shelar <pshelar@nicira.com>
-To: netdev@vger.kernel.org
+From: Matt Wilson <msw@amazon.com>
+Subject: [PATCH RFC] xen-netback: calculate the number of slots required for large MTU vifs
+Date: Tue, 9 Jul 2013 22:40:59 +0000
+Message-ID: <1373409659-22383-1-git-send-email-msw@amazon.com>
+References: <20130709221406.GA13671@u109add4315675089e695.ant.amazon.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Xi Xiong <xixiong@amazon.com>, Matt Wilson <msw@amazon.com>,
+	Annie Li <annie.li@oracle.com>, Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	<netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog121.obsmtp.com ([74.125.149.145]:57476 "HELO
-	na3sys009aog121.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751173Ab3GIWjT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jul 2013 18:39:19 -0400
-Received: by mail-pb0-f52.google.com with SMTP id xa12so5931518pbc.39
-        for <netdev@vger.kernel.org>; Tue, 09 Jul 2013 15:39:15 -0700 (PDT)
+Received: from smtp-fw-2101.amazon.com ([72.21.196.25]:27438 "EHLO
+	smtp-fw-2101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751224Ab3GIWll (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jul 2013 18:41:41 -0400
+In-Reply-To: <20130709221406.GA13671@u109add4315675089e695.ant.amazon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Following commit fixes the crash by fixing module exit path.
+From: Xi Xiong <xixiong@amazon.com>
 
-BUG: unable to handle kernel paging request at ffff8804102c8000
-IP: [<ffffffff812cc5e9>] __list_del_entry+0x29/0xd0
-PGD 2972067 PUD 83e019067 PMD 83df97067 PTE 80000004102c8060
-Oops: 0000 [#1] SMP DEBUG_PAGEALLOC
-Modules linked in: ---
-CPU: 19 PID: 6712 Comm: rmmod Tainted: GF            3.10.0+ #95
-Hardware name: Dell Inc. PowerEdge R620/0KCKR5, BIOS 1.4.8 10/25/2012
-task: ffff88080c47c580 ti: ffff88080ac50000 task.ti: ffff88080ac50000
-RIP: 0010:[<ffffffff812cc5e9>]  [<ffffffff812cc5e9>]
-__list_del_entry+0x29/0xd0
-RSP: 0018:ffff88080ac51e08  EFLAGS: 00010206
-RAX: ffff8804102c8000 RBX: ffff88040f0d4b10 RCX: dead000000200200
-RDX: ffff8804102c8000 RSI: ffff88080ac51e58 RDI: ffff88040f0d4b10
-RBP: ffff88080ac51e08 R08: 0000000000000001 R09: 2222222222222222
-R10: 2222222222222222 R11: 2222222222222222 R12: ffff88080ac51e58
-R13: ffffffffa07b8840 R14: ffffffff81ae48c0 R15: ffff88080ac51e58
-FS:  00007f9ef105c700(0000) GS:ffff88082a800000(0000)
-knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: ffff8804102c8000 CR3: 00000008227e5000 CR4: 00000000000407e0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Stack:
- ffff88080ac51e28 ffffffff812cc6a1 2222222222222222 ffff88040f0d4000
- ffff88080ac51e48 ffffffffa07b3311 ffff88040f0d4000 ffffffff81ae49c8
- ffff88080ac51e98 ffffffff81492fc2 ffff88080ac51e58 ffff88080ac51e58
-Call Trace:
- [<ffffffff812cc6a1>] list_del+0x11/0x40
- [<ffffffffa07b3311>] vxlan_dellink+0x51/0x70 [vxlan]
- [<ffffffff81492fc2>] __rtnl_link_unregister+0xa2/0xb0
- [<ffffffff8149448e>] rtnl_link_unregister+0x1e/0x30
- [<ffffffffa07b7b7c>] vxlan_cleanup_module+0x1c/0x2f [vxlan]
- [<ffffffff810c9b31>] SyS_delete_module+0x1d1/0x2c0
- [<ffffffff812b8a0e>] ? trace_hardirqs_on_thunk+0x3a/0x3f
- [<ffffffff81582f42>] system_call_fastpath+0x16/0x1b
-Code: eb 9f 55 48 8b 17 48 b9 00 01 10 00 00 00 ad de 48 8b 47 08 48 89
-e5 48 39 ca 74 29 48 b9 00 02 20 00 00 00 ad de 48 39 c8 74 7a <4c> 8b
-00 4c 39 c7 75 53 4c 8b 42 08 4c 39 c7 75 2b 48 89 42 08
-RIP  [<ffffffff812cc5e9>] __list_del_entry+0x29/0xd0
- RSP <ffff88080ac51e08>
-CR2: ffff8804102c8000
----[ end trace edab81c5b61d9440 ]---
+[ note: I've just cherry picked this onto net-next, and only compile
+  tested. This a RFC only. -msw ]
 
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+Currently the number of RX slots required to transmit a SKB to
+xen-netfront can be miscalculated when an interface uses a MTU larger
+than PAGE_SIZE. If the slot calculation is wrong, xen-netback can
+pause the queue indefinitely or reuse slots. The former manifests as a
+loss of connectivity to the guest (which can be restored by lowering
+the MTU set on the interface). The latter manifests with "Bad grant
+reference" messages from Xen such as:
+
+(XEN) grant_table.c:1797:d0 Bad grant reference 264241157
+
+and kernel messages within the guest such as:
+
+[  180.419567] net eth0: Invalid extra type: 112
+[  180.868620] net eth0: rx->offset: 0, size: 4294967295
+[  180.868629] net eth0: rx->offset: 0, size: 4294967295
+
+BUG_ON() assertions can also be hit if RX slots are exhausted while
+handling a SKB.
+
+This patch changes xen_netbk_rx_action() to count the number of RX
+slots actually consumed by netbk_gop_skb() instead of using nr_frags + 1.
+This prevents under-counting the number of RX slots consumed when a
+SKB has a large linear buffer.
+
+Additionally, we now store the estimated number of RX slots required
+to handle a SKB in the cb overlay. This value is used to determine if
+the next SKB in the queue can be processed.
+
+Finally, the logic in start_new_rx_buffer() can cause RX slots to be
+wasted when setting up copy grant table operations for SKBs with large
+linear buffers. For example, a SKB with skb_headlen() equal to 8157
+bytes that starts 64 bytes 64 bytes from the start of the page will
+consume three RX slots instead of two. This patch changes the "head"
+parameter to netbk_gop_frag_copy() to act as a flag. When set,
+start_new_rx_buffer() will always place as much data as possible into
+each RX slot.
+
+Signed-off-by: Xi Xiong <xixiong@amazon.com>
+Reviewed-by: Matt Wilson <msw@amazon.com>
+[ msw: minor code cleanups, rewrote commit message, adjusted code
+  to count RX slots instead of meta structures ]
+Signed-off-by: Matt Wilson <msw@amazon.com>
+Cc: Annie Li <annie.li@oracle.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <Ian.Campbell@citrix.com>
+Cc: netdev@vger.kernel.org
+Cc: xen-devel@lists.xenproject.org
 ---
- drivers/net/vxlan.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/xen-netback/netback.c |   51 ++++++++++++++++++++++--------------
+ 1 files changed, 31 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 227b54a..0ba1e7e 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1916,9 +1916,9 @@ late_initcall(vxlan_init_module);
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 64828de..82dd207 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -110,6 +110,11 @@ union page_ext {
+ 	void *mapping;
+ };
  
- static void __exit vxlan_cleanup_module(void)
++struct skb_cb_overlay {
++	int meta_slots_used;
++	int peek_slots_count;
++};
++
+ struct xen_netbk {
+ 	wait_queue_head_t wq;
+ 	struct task_struct *task;
+@@ -370,6 +375,7 @@ unsigned int xen_netbk_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
  {
--	unregister_pernet_device(&vxlan_net_ops);
- 	rtnl_link_unregister(&vxlan_link_ops);
- 	destroy_workqueue(vxlan_wq);
-+	unregister_pernet_device(&vxlan_net_ops);
- 	rcu_barrier();
+ 	unsigned int count;
+ 	int i, copy_off;
++	struct skb_cb_overlay *sco;
+ 
+ 	count = DIV_ROUND_UP(skb_headlen(skb), PAGE_SIZE);
+ 
+@@ -411,6 +417,9 @@ unsigned int xen_netbk_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
+ 				offset = 0;
+ 		}
+ 	}
++
++	sco = (struct skb_cb_overlay *) skb->cb;
++	sco->peek_slots_count = count;
+ 	return count;
  }
- module_exit(vxlan_cleanup_module);
+ 
+@@ -443,13 +452,12 @@ static struct netbk_rx_meta *get_next_rx_buffer(struct xenvif *vif,
+ }
+ 
+ /*
+- * Set up the grant operations for this fragment. If it's a flipping
+- * interface, we also set up the unmap request from here.
++ * Set up the grant operations for this fragment.
+  */
+ static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
+ 				struct netrx_pending_operations *npo,
+ 				struct page *page, unsigned long size,
+-				unsigned long offset, int *head)
++				unsigned long offset, int head, int *first)
+ {
+ 	struct gnttab_copy *copy_gop;
+ 	struct netbk_rx_meta *meta;
+@@ -479,12 +487,12 @@ static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
+ 		if (bytes > size)
+ 			bytes = size;
+ 
+-		if (start_new_rx_buffer(npo->copy_off, bytes, *head)) {
++		if (start_new_rx_buffer(npo->copy_off, bytes, head)) {
+ 			/*
+ 			 * Netfront requires there to be some data in the head
+ 			 * buffer.
+ 			 */
+-			BUG_ON(*head);
++			BUG_ON(*first);
+ 
+ 			meta = get_next_rx_buffer(vif, npo);
+ 		}
+@@ -529,10 +537,10 @@ static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
+ 		}
+ 
+ 		/* Leave a gap for the GSO descriptor. */
+-		if (*head && skb_shinfo(skb)->gso_size && !vif->gso_prefix)
++		if (*first && skb_shinfo(skb)->gso_size && !vif->gso_prefix)
+ 			vif->rx.req_cons++;
+ 
+-		*head = 0; /* There must be something in this buffer now. */
++		*first = 0; /* There must be something in this buffer now. */
+ 
+ 	}
+ }
+@@ -558,7 +566,7 @@ static int netbk_gop_skb(struct sk_buff *skb,
+ 	struct xen_netif_rx_request *req;
+ 	struct netbk_rx_meta *meta;
+ 	unsigned char *data;
+-	int head = 1;
++	int first = 1;
+ 	int old_meta_prod;
+ 
+ 	old_meta_prod = npo->meta_prod;
+@@ -594,16 +602,16 @@ static int netbk_gop_skb(struct sk_buff *skb,
+ 			len = skb_tail_pointer(skb) - data;
+ 
+ 		netbk_gop_frag_copy(vif, skb, npo,
+-				    virt_to_page(data), len, offset, &head);
++				virt_to_page(data), len, offset, 1, &first);
+ 		data += len;
+ 	}
+ 
+ 	for (i = 0; i < nr_frags; i++) {
+ 		netbk_gop_frag_copy(vif, skb, npo,
+-				    skb_frag_page(&skb_shinfo(skb)->frags[i]),
+-				    skb_frag_size(&skb_shinfo(skb)->frags[i]),
+-				    skb_shinfo(skb)->frags[i].page_offset,
+-				    &head);
++				skb_frag_page(&skb_shinfo(skb)->frags[i]),
++				skb_frag_size(&skb_shinfo(skb)->frags[i]),
++				skb_shinfo(skb)->frags[i].page_offset,
++				0, &first);
+ 	}
+ 
+ 	return npo->meta_prod - old_meta_prod;
+@@ -661,10 +669,6 @@ static void netbk_add_frag_responses(struct xenvif *vif, int status,
+ 	}
+ }
+ 
+-struct skb_cb_overlay {
+-	int meta_slots_used;
+-};
+-
+ static void xen_netbk_rx_action(struct xen_netbk *netbk)
+ {
+ 	struct xenvif *vif = NULL, *tmp;
+@@ -690,19 +694,26 @@ static void xen_netbk_rx_action(struct xen_netbk *netbk)
+ 	count = 0;
+ 
+ 	while ((skb = skb_dequeue(&netbk->rx_queue)) != NULL) {
++		RING_IDX old_rx_req_cons;
++ 
+ 		vif = netdev_priv(skb->dev);
+ 		nr_frags = skb_shinfo(skb)->nr_frags;
+ 
++		old_rx_req_cons = vif->rx.req_cons;
+ 		sco = (struct skb_cb_overlay *)skb->cb;
+ 		sco->meta_slots_used = netbk_gop_skb(skb, &npo);
+ 
+-		count += nr_frags + 1;
++		count += vif->rx.req_cons - old_rx_req_cons;
+ 
+ 		__skb_queue_tail(&rxq, skb);
+ 
++		skb = skb_peek(&netbk->rx_queue);
++		if (skb == NULL)
++			break;
++		sco = (struct skb_cb_overlay *) skb->cb;
++
+ 		/* Filled the batch queue? */
+-		/* XXX FIXME: RX path dependent on MAX_SKB_FRAGS */
+-		if (count + MAX_SKB_FRAGS >= XEN_NETIF_RX_RING_SIZE)
++		if (count + sco->peek_slots_count >= XEN_NETIF_RX_RING_SIZE)
+ 			break;
+ 	}
+ 
 -- 
-1.7.1
+1.7.4.5
