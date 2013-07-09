@@ -1,31 +1,66 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH] rtlwifi: Fix Kconfig for some corner cases
-Date: Mon, 08 Jul 2013 21:34:35 -0500
-Message-ID: <51DB76BB.5040802@lwfinger.net>
-References: <1373165244-9536-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: A question on the design of OVS GRE tunnel
+Date: Tue, 09 Jul 2013 10:41:06 +0800
+Message-ID: <1373337666.4557.13.camel@cr0>
+References: <1373277065.8227.26.camel@cr0>
+	 <CALnjE+q4L9Q8Ebj+O-D8xQHyzSo=FZrb7A-XVEGERzeN-MZMGQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Fengguang Wu <fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1373165244-9536-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Jesse Gross <jesse@nicira.com>, netdev@vger.kernel.org,
+	Thomas Graf <tgraf@suug.ch>
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:36076 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751564Ab3GIClo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Jul 2013 22:41:44 -0400
+In-Reply-To: <CALnjE+q4L9Q8Ebj+O-D8xQHyzSo=FZrb7A-XVEGERzeN-MZMGQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/06/2013 09:47 PM, Larry Finger wrote:
-> Fengguang Wu reported the following errors in the build of rtlwifi with
-> a random configuration:
+On Mon, 2013-07-08 at 09:28 -0700, Pravin Shelar wrote:
+> On Mon, Jul 8, 2013 at 2:51 AM, Cong Wang <amwang@redhat.com> wrote:
+> > Hi, Jesse, Pravin
+> >
+> > I have a question on the design of OVS GRE tunnel. Why OVS GRE tunnel
+> > doesn't register a netdev? I understand it is enough for GRE to function
+> > without registering a netdev, just a GRE vport is sufficient and
+> > probably even simpler.
+> >
+> kernel-gre device has gre-parameters/state associated with it and
+> ovs-gre-vport is completely stateless. ovs-gre state is in user-space
+> which make kernel module alot simpler. Therefore I doubt it will be
+> easy or simpler to use netdev at this point.
 
-John,
+Understood, from users' point of view, it is simpler. At least no one is
+able to assign any IP address to it.
 
-Please drop this patch. A better one will be submitted later.
+> 
+> > However, I noticed there is some problem with such design:
+> >
+> > I saw very bad performance with the _default_ setup with OVS GRE. After
+> > digging it a little bit, clearly the cause is that OVS GRE tunnel adds
+> > an outer IP header and a GRE header for every packet that passed to it,
+> > which could result in a packet whose length is larger than the MTU of
+> > the uplink, therefore after the packet goes through OVS, it has to be
+> > fragmented by IP before going to the wire.
+> >
+> I do not understand what do you mean, gre packets greater than MTU
+> must be fragmented before sent on wire and it is done by GRE-GSO code.
+> 
 
-Larry
+Well, I said fragment, not segment. This is exactly why performance is
+so bad.
 
+In my _default_ setup, every net device on the path has MTU=1500,
+therefore, the packets coming out of a KVM guest can have length=1500,
+after they go through OVS GRE tunnel, their length becomes 1538 because
+of the added GRE header and IP header.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+After that, since the packets are not GSO (unless you pass vnet_hdr=on
+to KVM guest), the packets with length=1538 will be _fragmented_ by IP
+layer, since the dest uplink has MTU=1500 too. This is why I proposed to
+reuse GRO cell to merge the packets, which requires a netdev...
+
+This is the problem.
