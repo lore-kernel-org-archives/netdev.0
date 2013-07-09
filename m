@@ -1,275 +1,145 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [RFC PATCH] sctp: Don't lookup dst if transport dst is still
- valid
-Date: Tue, 09 Jul 2013 11:11:40 -0400
-Message-ID: <51DC282C.9090007@gmail.com>
-References: <1372747174-23580-1-git-send-email-fan.du@windriver.com> <51D2E3C8.5050100@gmail.com> <51D389F9.4030804@windriver.com> <51D425B7.20204@gmail.com> <51D4DEFF.8030305@windriver.com> <51D6D3A0.7050106@gmail.com>
+From: "Ronciak, John" <john.ronciak@intel.com>
+Subject: RE: e1000e on thinkpad x60: interrupt problem
+Date: Tue, 9 Jul 2013 15:51:50 +0000
+Message-ID: <D38E8E86660E514AB505863C19C9287C73E60E70@ORSMSX102.amr.corp.intel.com>
+References: <20130709010500.GA21248@amd.pavel.ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: nhorman@tuxdriver.com, nicolas.dichtel@6wind.com,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Pavel Machek <pavel@ucw.cz>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	"Dave, Tushar N" <tushar.n.dave@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f49.google.com ([209.85.216.49]:41453 "EHLO
-	mail-qa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753864Ab3GIPLn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jul 2013 11:11:43 -0400
-Received: by mail-qa0-f49.google.com with SMTP id hu16so2975875qab.15
-        for <netdev@vger.kernel.org>; Tue, 09 Jul 2013 08:11:42 -0700 (PDT)
-In-Reply-To: <51D6D3A0.7050106@gmail.com>
+Received: from mga14.intel.com ([143.182.124.37]:31227 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751942Ab3GIPv4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jul 2013 11:51:56 -0400
+In-Reply-To: <20130709010500.GA21248@amd.pavel.ucw.cz>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/05/2013 10:09 AM, Vlad Yasevich wrote:
-> On 07/03/2013 10:33 PM, Fan Du wrote:
->>
->>
->> On 2013=E5=B9=B407=E6=9C=8803=E6=97=A5 21:23, Vlad Yasevich wrote:
->>> On 07/02/2013 10:18 PM, Fan Du wrote:
->>>>
->>>>
->>>> On 2013=E5=B9=B407=E6=9C=8802=E6=97=A5 22:29, Vlad Yasevich wrote:
->>>>> On 07/02/2013 02:39 AM, Fan Du wrote:
->>>>>> When sctp sits on IPv6, sctp_transport_dst_check pass cookie as =
-ZERO,
->>>>>> as a result ip6_dst_check always fail out. This behaviour makes
->>>>>> transport->dst useless, because every sctp_packet_transmit must =
-look
->>>>>> for valid dst(Is this what supposed to be?)
->>>>>>
->>>>>> One aggressive way is to call rt_genid_bump which invalid all ds=
-t to
->>>>>> make new dst for transport, apparently it also hurts others.
->>>>>> I'm sure this may not be the best for all, so any commnets?
->>>>>>
->>>>>> Signed-off-by: Fan Du <fan.du@windriver.com>
->>>>>> ---
->>>>>> include/net/sctp/sctp.h | 18 ++++++++++++------
->>>>>> net/sctp/ipv6.c | 2 ++
->>>>>> 2 files changed, 14 insertions(+), 6 deletions(-)
->>>>>>
->>>>>> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
->>>>>> index cd89510..f05af01 100644
->>>>>> --- a/include/net/sctp/sctp.h
->>>>>> +++ b/include/net/sctp/sctp.h
->>>>>> @@ -719,14 +719,20 @@ static inline void sctp_v4_map_v6(union
->>>>>> sctp_addr *addr)
->>>>>> addr->v6.sin6_addr.s6_addr32[2] =3D htonl(0x0000ffff);
->>>>>> }
->>>>>>
->>>>>> -/* The cookie is always 0 since this is how it's used in the
->>>>>> - * pmtu code.
->>>>>> - */
->>>>>> +/* Set cookie with the right one for IPv6 and zero for others *=
-/
->>>>>> static inline struct dst_entry *sctp_transport_dst_check(struct
->>>>>> sctp_transport *t)
->>>>>> {
->>>>>> - if (t->dst && !dst_check(t->dst, 0)) {
->>>>>> - dst_release(t->dst);
->>>>>> - t->dst =3D NULL;
->>>>>> +
->>>>>> + if (t->dst) {
->>>>>> + struct rt6_info *rt =3D (struct rt6_info *)t->dst;
->>>>>> + u32 cookie =3D 0;
->>>>>> +
->>>>>> + if ((t->af_specific->sa_family =3D=3D AF_INET6) && rt->rt6i_no=
-de)
->>>>>> + cookie =3D rt->rt6i_node->fn_sernum;
->>>>>> + if (!dst_check(t->dst, cookie)) {
->>>>>> + dst_release(t->dst);
->>>>>> + t->dst =3D NULL;
->>>>>> + }
->>>>>> }
->>>>>
->>>>> I think it would be better if we stored the dst_cookie in the
->>>>> transport structure and initialized it at lookup time. If you do =
-that,
->>>>> then if the route table changes, we'd correctly detect it without
->>>>> artificially bumping rt_genid (and hurting ipv4).
->>>>
->>>> Hi Vlad/Neil
->>>>
->>>> Is this what you mean?
->>>
->>> Yes, exactly.
->>>
->>
->> Hi Vlad
->>
->> I thinks twice about below patch, this is actually a chicken-egg iss=
-ue.
->> Look below scenario:
->>   (1) The first time we push packet through a transport, dst_cookie =
-is 0,
->>       so sctp_transport_dst_check also pass cookie as 0, then return=
- dst
->> as NULL.
->>       Then we lookup dst by sctp_transport_route, and in there we
->> initiate dst_cookie
->>       with rt->rt6i_node->fn_sernum
->>
->>   (2) Then the next time we push packet through this transport again=
-,
->>       we pass dst_cookie(rt->rt6i_node->fn_sernum) to ip6_dst_check,=
- and
->>       return valid dst without bothering to lookup dst again.
->
-> No, if the route was removed rt6i_node will be NULL, and NULL will be
-> returned from ip6_dst_check().  If the route still exists then we'll
-> compare the serial number with a cookie.
->
->>
->> BUT, suppose when deleting the source address of this dst after
->> transport->dst_cookie
->> has been well initialized. transport->dst_cookie still holds
->> rt->rt6i_node->fn_sernum,
->> meaning ip6_dst_check will return valid dst, which it shouldn't in t=
-his
->> case, the
->> result will be association ABORT.
->
-> No, removing the address cause the route for that prefix to be remove=
-d
-> as well.  This will set rt6i_node to NULL.
->
->>
->> Other way is invalid all transport->dst which using the deleting add=
-ress
->> as source address
->> without bumping gen_id, problem is the traverse times depends heavil=
-y on
->> transport number,
->> and also need to take account locking issue it will introduce.
->>
->>  >
->>  > No, you are not missing anything. IPv4 doesn't use the cookie and
->> always seems to pass it as 0.
->>  >
->>  > Yes, ipv4 will bump the gen_id thus invalidating all routes (ther=
-e
->> has been disagreement about it).
->>  > IPv6 doesn't do that. In ipv6, when the addresses are added or
->> removed, routes are also added or removed and
->>  > any time the route is added it will have a new serial number. So,=
- you
->> don't have to disturb ipv4 cache when ipv6 routing info changes.
->>
->> Thank you very much for your explanation!
->>
->> IPv6 don't bump gen_id, when adding/deleting address, and tag an ser=
-ial
->> number with each route.
->> Doing this way loose the semantic of dst_check, because SCTP depends=
- no
->> dst_check fulfill its
->> duty to actually check whether the holding dst is still valid, well =
-most
->> other Layer 4 protocol
->> simply rely on ip6_route_output/ip6_dst_lookup_flow to grab dst ever=
-y
->> time sending data out.
->
-> Look at how other protocols (tcp, dccp) do this.  It is sufficient to
-> cache the route serial number into the dst_cookie at the time the rou=
-te
-> was lookup-up and cached.  Then the cookie is passed to dst_check to
-> validate the route.
+Nothing appears to be wrong.  If the system is seeing ping packets at all means that device is generating interrupts and that they are being processed.  If you are looking at performance then sharing interrupts is probably not a good idea.  Since you are on a laptop it may not be easy to separate the networking device onto its own interrupt.  The interrupt is shared with a lot of other devices and not just ahci.
+
+Cheers,
+John
 
 
-Hi Fan
-
-Have you tried the updated patch you sent?  Based on what the tcp/udp=20
-code is doing, the updated patch should work correctly.  If it does, ca=
-n=20
-you re-post with attribution/sign-off
-
-Thanks
--vlad
-
->
-> -vlad
->>
->> So please pronounce a final judgment.
->>
->>> -vlad
->>>
->>>>
->>>> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
->>>> index cd89510..0a646a5 100644
->>>> --- a/include/net/sctp/sctp.h
->>>> +++ b/include/net/sctp/sctp.h
->>>> @@ -724,7 +724,7 @@ static inline void sctp_v4_map_v6(union sctp_a=
-ddr
->>>> *addr)
->>>> */
->>>> static inline struct dst_entry *sctp_transport_dst_check(struct
->>>> sctp_transport *t)
->>>> {
->>>> - if (t->dst && !dst_check(t->dst, 0)) {
->>>> + if (t->dst && !dst_check(t->dst, t->dst_cookie)) {
->>>> dst_release(t->dst);
->>>> t->dst =3D NULL;
->>>> }
->>>> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs=
-=2Eh
->>>> index 1bd4c41..cafdd19 100644
->>>> --- a/include/net/sctp/structs.h
->>>> +++ b/include/net/sctp/structs.h
->>>> @@ -946,6 +946,8 @@ struct sctp_transport {
->>>> __u64 hb_nonce;
->>>>
->>>> struct rcu_head rcu;
->>>> +
->>>> + u32 dst_cookie;
->>>> };
->>>>
->>>> struct sctp_transport *sctp_transport_new(struct net *, const unio=
-n
->>>> sctp_addr *,
->>>> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
->>>> index 8ee553b..82a420f 100644
->>>> --- a/net/sctp/ipv6.c
->>>> +++ b/net/sctp/ipv6.c
->>>> @@ -350,6 +350,7 @@ out:
->>>> struct rt6_info *rt;
->>>> rt =3D (struct rt6_info *)dst;
->>>> t->dst =3D dst;
->>>> + t->dst_cookie =3D rt->rt6i_node ? rt->rt6i_node->fn_sernum
->>>> : 0;
->>>> SCTP_DEBUG_PRINTK("rt6_dst:%pI6 rt6_src:%pI6\n",
->>>> &rt->rt6i_dst.addr, &fl6->saddr);
->>>> } else {
->>>>
->>>>
->>>>
->>>>
->>>>
->>>>> -vlad
->>>>>
->>>>>>
->>>>>> return t->dst;
->>>>>> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
->>>>>> index 8ee553b..cfae77e 100644
->>>>>> --- a/net/sctp/ipv6.c
->>>>>> +++ b/net/sctp/ipv6.c
->>>>>> @@ -137,6 +137,8 @@ static int sctp_inet6addr_event(struct
->>>>>> notifier_block *this, unsigned long ev,
->>>>>> break;
->>>>>> }
->>>>>>
->>>>>> + /* invalid all transport dst forcing to look up new dst */
->>>>>> + rt_genid_bump(net);
->>>>>> return NOTIFY_DONE;
->>>>>> }
->>>>>>
->>>>>>
->>>>>
->>>>>
->>>>
->>>
->>>
->>
->
+> -----Original Message-----
+> From: Pavel Machek [mailto:pavel@ucw.cz]
+> Sent: Monday, July 08, 2013 6:05 PM
+> To: Kirsher, Jeffrey T; Brandeburg, Jesse; Allan, Bruce W; Wyborny,
+> Carolyn; Skidmore, Donald C; Rose, Gregory V; Waskiewicz Jr, Peter P;
+> Duyck, Alexander H; Ronciak, John; Dave, Tushar N; e1000-
+> devel@lists.sourceforge.net; netdev@vger.kernel.org
+> Subject: e1000e on thinkpad x60: interrupt problem
+> 
+> Hi!
+> 
+> I'm using
+> 
+> 02:00.0 Ethernet controller: Intel Corporation 82573L Gigabit Ethernet
+> Controller
+> 
+> on thinkpad x60. Kernel is 3.10.
+> 
+> # CONFIG_E100 is not set
+> # CONFIG_E1000 is not set
+> CONFIG_E1000E=y
+> 
+> Interrupts are like this:
+> 
+> pavel@amd:/data/l/linux-good$ cat /proc/interrupts
+>            CPU0       CPU1
+>   0:   95454037       5192   IO-APIC-edge      timer
+>   1:      16292         20   IO-APIC-edge      i8042
+>   3:          9          0   IO-APIC-edge
+>   4:          9          0   IO-APIC-edge
+>   7:          0          0   IO-APIC-edge      parport0
+>   8:          1          0   IO-APIC-edge      rtc0
+>   9:   19471974       1207   IO-APIC-fasteoi   acpi
+>  12:     168092         15   IO-APIC-edge      i8042
+>  14:    3568551        165   IO-APIC-edge      ata_piix
+>  15:          0          0   IO-APIC-edge      ata_piix
+>  16:   14033945        877   IO-APIC-fasteoi   i915, ahci, yenta,
+> uhci_hcd:usb2, eth0
+> 
+> but it seems that eth0 is not generating interrupts at all:
+> 
+> ...
+> 64 bytes from 10.0.0.251: icmp_req=32 ttl=64 time=26.2 ms
+> 64 bytes from 10.0.0.251: icmp_req=33 ttl=64 time=16.6 ms
+> 64 bytes from 10.0.0.251: icmp_req=34 ttl=64 time=1.14 ms
+> 64 bytes from 10.0.0.251: icmp_req=35 ttl=64 time=56.4 ms ^C
+> --- 10.0.0.251 ping statistics ---
+> 35 packets transmitted, 35 received, 0% packet loss, time 34140ms rtt
+> min/avg/max/mdev = 1.024/20.173/88.285/25.281 ms
+> pavel@amd:/data/l/linux-good$ ping 10.0.0.251
+> 
+> Note huge latencies. But as interrupt is shared with ahci, I can help
+> with:
+> 
+> pavel@amd:~$ sudo cat /dev/sda > /dev/null [sudo] password for pavel:
+> 
+> Then latencies get to high but reasonable range:
+> 
+> pavel@amd:/data/l/linux-good$ ping 10.0.0.251 PING 10.0.0.251
+> (10.0.0.251) 56(84) bytes of data.
+> 64 bytes from 10.0.0.251: icmp_req=1 ttl=64 time=1.14 ms
+> 64 bytes from 10.0.0.251: icmp_req=2 ttl=64 time=3.79 ms
+> 64 bytes from 10.0.0.251: icmp_req=3 ttl=64 time=1.24 ms
+> 64 bytes from 10.0.0.251: icmp_req=4 ttl=64 time=1.54 ms
+> 64 bytes from 10.0.0.251: icmp_req=5 ttl=64 time=2.04 ms
+> 64 bytes from 10.0.0.251: icmp_req=6 ttl=64 time=2.48 ms
+> 64 bytes from 10.0.0.251: icmp_req=7 ttl=64 time=1.90 ms
+> 64 bytes from 10.0.0.251: icmp_req=8 ttl=64 time=2.30 ms (other
+> attempt)
+> --- 10.0.0.251 ping statistics ---
+> 22 packets transmitted, 22 received, 0% packet loss, time 21128ms rtt
+> min/avg/max/mdev = 0.940/1.733/3.604/0.685 ms
+> 
+> root@amd:/data/l/linux-good# ethtool -e eth0 Offset Values
+> ------ ------
+> 0x0000 00 16 d3 25 19 04 30 0b b2 ff 51 00 ff ff ff ff
+> 0x0010 53 00 03 02 6b 02 7e 20 aa 17 9a 10 86 80 df 80
+> 0x0020 00 00 00 20 54 7e 00 00 14 00 da 00 04 00 00 27
+> 0x0030 c9 6c 50 31 3e 07 0b 04 8b 29 00 00 00 f0 02 0f
+> 0x0040 08 10 00 00 04 0f ff 7f 01 4d ff ff ff ff ff ff
+> 0x0050 14 00 1d 00 14 00 1d 00 af aa 1e 00 00 00 1d 00
+> 0x0060 00 01 00 40 32 12 07 40 ff ff ff ff ff ff ff ff
+> 0x0070 ff ff ff ff ff ff ff ff ff ff ff ff ff ff fd 5d
+> 
+> 02:00.0 Ethernet controller: Intel Corporation 82573L Gigabit Ethernet
+> Controller
+>         Subsystem: Lenovo ThinkPad X60s
+>         Flags: bus master, fast devsel, latency 0, IRQ 16
+>         Memory at ee000000 (32-bit, non-prefetchable) [size=128K]
+>         I/O ports at 2000 [size=32]
+>         Capabilities: [c8] Power Management version 2
+>         Capabilities: [d0] MSI: Enable- Count=1/1 Maskable- 64bit+
+>         Capabilities: [e0] Express Endpoint, MSI 00
+>         Capabilities: [100] Advanced Error Reporting
+>         Capabilities: [140] Device Serial Number 00-16-d3-ff-ff-25-19-
+> 04
+>         Kernel driver in use: e1000e
+> 
+> Any ideas how to debug/fix this?
+> 
+> [Maybe related: https://bugzilla.kernel.org/show_bug.cgi?id=6929 but
+> that was fixed in 2007. And yes, it _is_ better with bigger packets.]?
+> 
+> 									Pavel
+> --
+> (english) http://www.livejournal.com/~pavelmachek
+> (cesky, pictures)
+> http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
