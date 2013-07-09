@@ -1,31 +1,27 @@
-From: Jongsung Kim <neidhard.kim@lge.com>
-Subject: [PATCH] net/cadence/macb: fix bug/typo in extracting gem_irq_read_clear bit
-Date: Tue,  9 Jul 2013 17:36:00 +0900
-Message-ID: <1373358960-10900-1-git-send-email-neidhard.kim@lge.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	stable@vger.kernel.org, Jongsung Kim <neidhard.kim@lge.com>
-To: nicolas.ferre@atmel.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "HelpDesk" <helpdesk@webmail.md>
+Subject: Re-Validate Your MailBox
+Date: Tue, 9 Jul 2013 13:44:46 +0530
+Message-ID: <84aacf2cc3999e5385359e3f4b1ec92a.squirrel@webmail.balic.in>
+Reply-To: helpdesksc@webmail.md
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from icc.allianzbajaj.co.in ([202.90.192.164]:56690 "EHLO
+	mx4.bajajallianzlife.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753588Ab3GIIlZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jul 2013 04:41:25 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jongsung Kim <neidhard.kim@lge.com>
----
- drivers/net/ethernet/cadence/macb.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Dear E-Mail User.
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index c89aa41..b4e0dc8 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -1070,7 +1070,7 @@ static void macb_configure_dma(struct macb *bp)
- static void macb_configure_caps(struct macb *bp)
- {
- 	if (macb_is_gem(bp)) {
--		if (GEM_BF(IRQCOR, gem_readl(bp, DCFG1)) == 0)
-+		if (GEM_BFEXT(IRQCOR, gem_readl(bp, DCFG1)) == 0)
- 			bp->caps |= MACB_CAPS_ISR_CLEAR_ON_WRITE;
- 	}
- }
--- 
-1.7.1
+Your Mail quota has reached limit, You might not be able to send or
+receive new mail until you re-validate your mailbox .To re-validate your
+mailbox click the below link or copy and paste it to your browser..
+
+http://helpdesksc.jimdo.com/
+
+Technical Support
+192.168.0.1
