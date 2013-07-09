@@ -1,42 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net/fs: change busy poll time accounting
-Date: Tue, 09 Jul 2013 12:33:30 -0700 (PDT)
-Message-ID: <20130709.123330.253388383875496669.davem@davemloft.net>
-References: <20130709100921.21602.46444.stgit@ladj378.jer.intel.com>
+Subject: Re: [PATCH] Documentation: Fix references to defunct
+ linux-net@vger.kernel.org
+Date: Tue, 09 Jul 2013 12:42:38 -0700 (PDT)
+Message-ID: <20130709.124238.1158211853722496926.davem@davemloft.net>
+References: <1373358151-26161-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	dwmw2@infradead.org, eliezer@tamir.org.il
-To: eliezer.tamir@linux.intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58513 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752396Ab3GITdd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jul 2013 15:33:33 -0400
-In-Reply-To: <20130709100921.21602.46444.stgit@ladj378.jer.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rob@landley.net, linux-doc@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: geert@linux-m68k.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1373358151-26161-1-git-send-email-geert@linux-m68k.org>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Date: Tue, 09 Jul 2013 13:09:21 +0300
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Tue,  9 Jul 2013 10:22:31 +0200
 
-> Sorry, I forgot to commit before sending, so I sent the wrong version.
-> The previous version gets a warning in busy_loop_timeout().
+> linux-net@vger.kernel.org was replaced by netdev@oss.sgi.com was replaced
+> by netdev@vger.kernel.org.
 > 
-> Suggested by Linus:
-> Changed time accounting for busy-poll:
-> - Make it microsecond based.
-> - Use unsigned longs.
-> - Revert back to use time_after instead of time_in_range.
-> Reorder poll/select busy loop conditions:
-> - Clear busy_flag after one time we can't busy-poll.
-> - Only init busy_end if we actually are going to busy-poll.
-> Added one more missing need_resched() test.
-> 
-> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-Ok, looks good, applied.
-
-Thanks!
+Applied, thanks.
