@@ -1,39 +1,39 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] tc-stab.8: Fix synopsis errors, an invalid escape, and
- incorrect English usge.
-Date: Tue, 9 Jul 2013 09:08:50 -0700
-Message-ID: <20130709090850.47cb896f@nehalam.linuxnetplumber.net>
-References: <20130701000247.GA31460@thyrsus.com>
+Subject: Re: [Patch iproute2] iptunnel: check SIT_ISATAP flag only for SIT
+ tunnel
+Date: Tue, 9 Jul 2013 09:09:08 -0700
+Message-ID: <20130709090908.6f2225f7@nehalam.linuxnetplumber.net>
+References: <1372757968-21236-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: esr@thyrsus.com
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:58130 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751197Ab3GIQlX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jul 2013 12:41:23 -0400
-Received: by mail-pd0-f179.google.com with SMTP id q10so5387660pdj.38
-        for <netdev@vger.kernel.org>; Tue, 09 Jul 2013 09:41:22 -0700 (PDT)
-In-Reply-To: <20130701000247.GA31460@thyrsus.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:57199 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752486Ab3GIQl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jul 2013 12:41:27 -0400
+Received: by mail-pa0-f51.google.com with SMTP id lf11so5766854pab.10
+        for <netdev@vger.kernel.org>; Tue, 09 Jul 2013 09:41:26 -0700 (PDT)
+In-Reply-To: <1372757968-21236-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 30 Jun 2013 20:02:47 -0400
-"Eric S. Raymond" <esr@thyrsus.com> wrote:
+On Tue,  2 Jul 2013 17:39:28 +0800
+Cong Wang <amwang@redhat.com> wrote:
 
-> The command synopsis is regularized and part of it split off into an
-> OPTIONS section.  This allows the page to lift to XML-DocBook.
+> Without patch, I got:
 > 
-> An invalid \p escape was removed.
+> 	# ./ip/ip tunnel show
+> 	ip_vti0: ioctl 89f4 failed: Invalid argument
+> 	ip_vti0: ip/ip  remote any  local any  ttl inherit  nopmtudisc key 0
 > 
-> This page was written by someone who didn't understand the use of
-> definite and indefinite articles in English, nor its punctuation rules.
-> I've fixed these mistakes, and some glitches in punctuation and
-> capitalization.
-> ---
->  man/man8/tc-stab.8 | 60 +++++++++++++++++++++++++++---------------------------
->  1 file changed, 30 insertions(+), 30 deletions(-)
+> this is due to VTI_ISVTI has the same numeric value with SIT_ISATAP,
+> but only sit tunnel has SIOCGETPRL, therefore it should check for SIT
+> tunnel first.
 > 
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+
 Applied
