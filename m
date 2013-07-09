@@ -1,28 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/cadence/macb: fix bug/typo in extracting
- gem_irq_read_clear bit
-Date: Tue, 09 Jul 2013 12:50:40 -0700 (PDT)
-Message-ID: <20130709.125040.1834646995344159799.davem@davemloft.net>
-References: <1373358960-10900-1-git-send-email-neidhard.kim@lge.com>
-	<51DC340F.2060402@atmel.com>
+Subject: Re: [PATCH net-next] r8169: add a new chip for RTL8411
+Date: Tue, 09 Jul 2013 12:53:05 -0700 (PDT)
+Message-ID: <20130709.125305.1668056299963467935.davem@davemloft.net>
+References: <1373274541-1095-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: neidhard.kim@lge.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org
-To: nicolas.ferre@atmel.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <51DC340F.2060402@atmel.com>
-Sender: stable-owner@vger.kernel.org
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1373274541-1095-1-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Date: Tue, 9 Jul 2013 18:02:23 +0200
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Mon, 8 Jul 2013 17:09:01 +0800
 
-> On 09/07/2013 10:36, Jongsung Kim :
->> Signed-off-by: Jongsung Kim <neidhard.kim@lge.com>
+> Add a new chip for RTL8411 series.
 > 
-> Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-> Cc: stable <stable@vger.kernel.org> # 3.10+
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 
-Applied and queued up for -stable, thanks.
+Francois, please review.
