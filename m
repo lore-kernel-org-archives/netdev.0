@@ -1,105 +1,275 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH] net: sctp: confirm route during forward progress
-Date: Tue,  9 Jul 2013 16:17:04 +0200
-Message-ID: <1373379424-5843-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	vyasevich@gmail.com, nhorman@tuxdriver.com
-To: davem@davemloft.net
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [RFC PATCH] sctp: Don't lookup dst if transport dst is still
+ valid
+Date: Tue, 09 Jul 2013 11:11:40 -0400
+Message-ID: <51DC282C.9090007@gmail.com>
+References: <1372747174-23580-1-git-send-email-fan.du@windriver.com> <51D2E3C8.5050100@gmail.com> <51D389F9.4030804@windriver.com> <51D425B7.20204@gmail.com> <51D4DEFF.8030305@windriver.com> <51D6D3A0.7050106@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: nhorman@tuxdriver.com, nicolas.dichtel@6wind.com,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32685 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752873Ab3GIORS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jul 2013 10:17:18 -0400
+Received: from mail-qa0-f49.google.com ([209.85.216.49]:41453 "EHLO
+	mail-qa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753864Ab3GIPLn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jul 2013 11:11:43 -0400
+Received: by mail-qa0-f49.google.com with SMTP id hu16so2975875qab.15
+        for <netdev@vger.kernel.org>; Tue, 09 Jul 2013 08:11:42 -0700 (PDT)
+In-Reply-To: <51D6D3A0.7050106@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fix has been proposed originally by Vlad Yasevich. He says:
+On 07/05/2013 10:09 AM, Vlad Yasevich wrote:
+> On 07/03/2013 10:33 PM, Fan Du wrote:
+>>
+>>
+>> On 2013=E5=B9=B407=E6=9C=8803=E6=97=A5 21:23, Vlad Yasevich wrote:
+>>> On 07/02/2013 10:18 PM, Fan Du wrote:
+>>>>
+>>>>
+>>>> On 2013=E5=B9=B407=E6=9C=8802=E6=97=A5 22:29, Vlad Yasevich wrote:
+>>>>> On 07/02/2013 02:39 AM, Fan Du wrote:
+>>>>>> When sctp sits on IPv6, sctp_transport_dst_check pass cookie as =
+ZERO,
+>>>>>> as a result ip6_dst_check always fail out. This behaviour makes
+>>>>>> transport->dst useless, because every sctp_packet_transmit must =
+look
+>>>>>> for valid dst(Is this what supposed to be?)
+>>>>>>
+>>>>>> One aggressive way is to call rt_genid_bump which invalid all ds=
+t to
+>>>>>> make new dst for transport, apparently it also hurts others.
+>>>>>> I'm sure this may not be the best for all, so any commnets?
+>>>>>>
+>>>>>> Signed-off-by: Fan Du <fan.du@windriver.com>
+>>>>>> ---
+>>>>>> include/net/sctp/sctp.h | 18 ++++++++++++------
+>>>>>> net/sctp/ipv6.c | 2 ++
+>>>>>> 2 files changed, 14 insertions(+), 6 deletions(-)
+>>>>>>
+>>>>>> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+>>>>>> index cd89510..f05af01 100644
+>>>>>> --- a/include/net/sctp/sctp.h
+>>>>>> +++ b/include/net/sctp/sctp.h
+>>>>>> @@ -719,14 +719,20 @@ static inline void sctp_v4_map_v6(union
+>>>>>> sctp_addr *addr)
+>>>>>> addr->v6.sin6_addr.s6_addr32[2] =3D htonl(0x0000ffff);
+>>>>>> }
+>>>>>>
+>>>>>> -/* The cookie is always 0 since this is how it's used in the
+>>>>>> - * pmtu code.
+>>>>>> - */
+>>>>>> +/* Set cookie with the right one for IPv6 and zero for others *=
+/
+>>>>>> static inline struct dst_entry *sctp_transport_dst_check(struct
+>>>>>> sctp_transport *t)
+>>>>>> {
+>>>>>> - if (t->dst && !dst_check(t->dst, 0)) {
+>>>>>> - dst_release(t->dst);
+>>>>>> - t->dst =3D NULL;
+>>>>>> +
+>>>>>> + if (t->dst) {
+>>>>>> + struct rt6_info *rt =3D (struct rt6_info *)t->dst;
+>>>>>> + u32 cookie =3D 0;
+>>>>>> +
+>>>>>> + if ((t->af_specific->sa_family =3D=3D AF_INET6) && rt->rt6i_no=
+de)
+>>>>>> + cookie =3D rt->rt6i_node->fn_sernum;
+>>>>>> + if (!dst_check(t->dst, cookie)) {
+>>>>>> + dst_release(t->dst);
+>>>>>> + t->dst =3D NULL;
+>>>>>> + }
+>>>>>> }
+>>>>>
+>>>>> I think it would be better if we stored the dst_cookie in the
+>>>>> transport structure and initialized it at lookup time. If you do =
+that,
+>>>>> then if the route table changes, we'd correctly detect it without
+>>>>> artificially bumping rt_genid (and hurting ipv4).
+>>>>
+>>>> Hi Vlad/Neil
+>>>>
+>>>> Is this what you mean?
+>>>
+>>> Yes, exactly.
+>>>
+>>
+>> Hi Vlad
+>>
+>> I thinks twice about below patch, this is actually a chicken-egg iss=
+ue.
+>> Look below scenario:
+>>   (1) The first time we push packet through a transport, dst_cookie =
+is 0,
+>>       so sctp_transport_dst_check also pass cookie as 0, then return=
+ dst
+>> as NULL.
+>>       Then we lookup dst by sctp_transport_route, and in there we
+>> initiate dst_cookie
+>>       with rt->rt6i_node->fn_sernum
+>>
+>>   (2) Then the next time we push packet through this transport again=
+,
+>>       we pass dst_cookie(rt->rt6i_node->fn_sernum) to ip6_dst_check,=
+ and
+>>       return valid dst without bothering to lookup dst again.
+>
+> No, if the route was removed rt6i_node will be NULL, and NULL will be
+> returned from ip6_dst_check().  If the route still exists then we'll
+> compare the serial number with a cookie.
+>
+>>
+>> BUT, suppose when deleting the source address of this dst after
+>> transport->dst_cookie
+>> has been well initialized. transport->dst_cookie still holds
+>> rt->rt6i_node->fn_sernum,
+>> meaning ip6_dst_check will return valid dst, which it shouldn't in t=
+his
+>> case, the
+>> result will be association ABORT.
+>
+> No, removing the address cause the route for that prefix to be remove=
+d
+> as well.  This will set rt6i_node to NULL.
+>
+>>
+>> Other way is invalid all transport->dst which using the deleting add=
+ress
+>> as source address
+>> without bumping gen_id, problem is the traverse times depends heavil=
+y on
+>> transport number,
+>> and also need to take account locking issue it will introduce.
+>>
+>>  >
+>>  > No, you are not missing anything. IPv4 doesn't use the cookie and
+>> always seems to pass it as 0.
+>>  >
+>>  > Yes, ipv4 will bump the gen_id thus invalidating all routes (ther=
+e
+>> has been disagreement about it).
+>>  > IPv6 doesn't do that. In ipv6, when the addresses are added or
+>> removed, routes are also added or removed and
+>>  > any time the route is added it will have a new serial number. So,=
+ you
+>> don't have to disturb ipv4 cache when ipv6 routing info changes.
+>>
+>> Thank you very much for your explanation!
+>>
+>> IPv6 don't bump gen_id, when adding/deleting address, and tag an ser=
+ial
+>> number with each route.
+>> Doing this way loose the semantic of dst_check, because SCTP depends=
+ no
+>> dst_check fulfill its
+>> duty to actually check whether the holding dst is still valid, well =
+most
+>> other Layer 4 protocol
+>> simply rely on ip6_route_output/ip6_dst_lookup_flow to grab dst ever=
+y
+>> time sending data out.
+>
+> Look at how other protocols (tcp, dccp) do this.  It is sufficient to
+> cache the route serial number into the dst_cookie at the time the rou=
+te
+> was lookup-up and cached.  Then the cookie is passed to dst_check to
+> validate the route.
 
-  When SCTP makes forward progress (receives a SACK that acks new chunks,
-  renegs, or answeres 0-window probes) or when HB-ACK arrives, mark
-  the route as confirmed so we don't unnecessarily send NUD probes.
 
-Having a simple SCTP client/server that exchange data chunks every 1sec,
-without this patch ARP requests are sent periodically every 40-60sec.
-With this fix applied, an ARP request is only done once right at the
-"session" beginning. Also, when clearing the related ARP cache entry
-manually during the session, a new request is correctly done. I have
-only "backported" this to net-next and tested that it works, so full
-credit goes to Vlad.
+Hi Fan
 
-Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- Applies to net-next.
+Have you tried the updated patch you sent?  Based on what the tcp/udp=20
+code is doing, the updated patch should work correctly.  If it does, ca=
+n=20
+you re-post with attribution/sign-off
 
- net/sctp/outqueue.c      |    9 +++++++++
- net/sctp/sm_sideeffect.c |    6 ++++++
- 2 files changed, 15 insertions(+), 0 deletions(-)
+Thanks
+-vlad
 
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index cb80a8e..ef9e2bb 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -1334,6 +1334,7 @@ static void sctp_check_transmitted(struct sctp_outq *q,
- 	__u8 restart_timer = 0;
- 	int bytes_acked = 0;
- 	int migrate_bytes = 0;
-+	bool forward_progress = false;
- 
- 	sack_ctsn = ntohl(sack->cum_tsn_ack);
- 
-@@ -1400,6 +1401,7 @@ static void sctp_check_transmitted(struct sctp_outq *q,
- 				bytes_acked += sctp_data_size(tchunk);
- 				if (!tchunk->transport)
- 					migrate_bytes += sctp_data_size(tchunk);
-+				forward_progress = true;
- 			}
- 
- 			if (TSN_lte(tsn, sack_ctsn)) {
-@@ -1413,6 +1415,7 @@ static void sctp_check_transmitted(struct sctp_outq *q,
- 				 * current RTO.
- 				 */
- 				restart_timer = 1;
-+				forward_progress = true;
- 
- 				if (!tchunk->tsn_gap_acked) {
- 					/*
-@@ -1503,6 +1506,7 @@ static void sctp_check_transmitted(struct sctp_outq *q,
- 			 */
- 			transport->error_count = 0;
- 			transport->asoc->overall_error_count = 0;
-+			forward_progress = true;
- 
- 			/*
- 			 * While in SHUTDOWN PENDING, we may have started
-@@ -1576,6 +1580,11 @@ static void sctp_check_transmitted(struct sctp_outq *q,
- 				       jiffies + transport->rto))
- 				sctp_transport_hold(transport);
- 		}
-+
-+		if (forward_progress) {
-+			if (transport->dst)
-+				dst_confirm(transport->dst);
-+		}
- 	}
- 
- 	list_splice(&tlist, transmitted_queue);
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index cf6f845..9da6885 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -730,6 +730,12 @@ static void sctp_cmd_transport_on(sctp_cmd_seq_t *cmds,
- 		sctp_assoc_control_transport(asoc, t, SCTP_TRANSPORT_UP,
- 					     SCTP_HEARTBEAT_SUCCESS);
- 
-+	/* HB-ACK was received for a the proper HB.  Consider this
-+	 * forward progress.
-+	 */
-+	if (t->dst)
-+		dst_confirm(t->dst);
-+
- 	/* The receiver of the HEARTBEAT ACK should also perform an
- 	 * RTT measurement for that destination transport address
- 	 * using the time value carried in the HEARTBEAT ACK chunk.
--- 
-1.7.1
+>
+> -vlad
+>>
+>> So please pronounce a final judgment.
+>>
+>>> -vlad
+>>>
+>>>>
+>>>> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+>>>> index cd89510..0a646a5 100644
+>>>> --- a/include/net/sctp/sctp.h
+>>>> +++ b/include/net/sctp/sctp.h
+>>>> @@ -724,7 +724,7 @@ static inline void sctp_v4_map_v6(union sctp_a=
+ddr
+>>>> *addr)
+>>>> */
+>>>> static inline struct dst_entry *sctp_transport_dst_check(struct
+>>>> sctp_transport *t)
+>>>> {
+>>>> - if (t->dst && !dst_check(t->dst, 0)) {
+>>>> + if (t->dst && !dst_check(t->dst, t->dst_cookie)) {
+>>>> dst_release(t->dst);
+>>>> t->dst =3D NULL;
+>>>> }
+>>>> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs=
+=2Eh
+>>>> index 1bd4c41..cafdd19 100644
+>>>> --- a/include/net/sctp/structs.h
+>>>> +++ b/include/net/sctp/structs.h
+>>>> @@ -946,6 +946,8 @@ struct sctp_transport {
+>>>> __u64 hb_nonce;
+>>>>
+>>>> struct rcu_head rcu;
+>>>> +
+>>>> + u32 dst_cookie;
+>>>> };
+>>>>
+>>>> struct sctp_transport *sctp_transport_new(struct net *, const unio=
+n
+>>>> sctp_addr *,
+>>>> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+>>>> index 8ee553b..82a420f 100644
+>>>> --- a/net/sctp/ipv6.c
+>>>> +++ b/net/sctp/ipv6.c
+>>>> @@ -350,6 +350,7 @@ out:
+>>>> struct rt6_info *rt;
+>>>> rt =3D (struct rt6_info *)dst;
+>>>> t->dst =3D dst;
+>>>> + t->dst_cookie =3D rt->rt6i_node ? rt->rt6i_node->fn_sernum
+>>>> : 0;
+>>>> SCTP_DEBUG_PRINTK("rt6_dst:%pI6 rt6_src:%pI6\n",
+>>>> &rt->rt6i_dst.addr, &fl6->saddr);
+>>>> } else {
+>>>>
+>>>>
+>>>>
+>>>>
+>>>>
+>>>>> -vlad
+>>>>>
+>>>>>>
+>>>>>> return t->dst;
+>>>>>> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+>>>>>> index 8ee553b..cfae77e 100644
+>>>>>> --- a/net/sctp/ipv6.c
+>>>>>> +++ b/net/sctp/ipv6.c
+>>>>>> @@ -137,6 +137,8 @@ static int sctp_inet6addr_event(struct
+>>>>>> notifier_block *this, unsigned long ev,
+>>>>>> break;
+>>>>>> }
+>>>>>>
+>>>>>> + /* invalid all transport dst forcing to look up new dst */
+>>>>>> + rt_genid_bump(net);
+>>>>>> return NOTIFY_DONE;
+>>>>>> }
+>>>>>>
+>>>>>>
+>>>>>
+>>>>>
+>>>>
+>>>
+>>>
+>>
+>
