@@ -1,277 +1,202 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH net-next v3 2/3] net: rename ll methods to
-	busy-poll
-Date: Wed, 10 Jul 2013 17:13:26 +0300
-Message-ID: <20130710141326.15596.50172.stgit@ladj378.jer.intel.com>
-References: <20130710141307.15596.47242.stgit@ladj378.jer.intel.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [RFC PATCH] ip: add support for queue attributes
+Date: Wed, 10 Jul 2013 07:13:18 -0700
+Message-ID: <20130710141312.7205.25585.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Jonathan Corbet <corbet@lwn.net>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Amir Vadai <amirv@mellanox.com>, linux-kernel@vger.kernel.org,
-	Eliezer Tamir <eliezer@tamir.org.il>,
-	Eilon Greenstein <eilong@broadcom.com>, Eric Dumazet <erdnetdev@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130710141307.15596.47242.stgit@ladj378.jer.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	therbert@google.com
+To: stephen@networkplumber.org, ben@decadent.org.uk,
+	jesse.brandeburg@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f51.google.com ([209.85.219.51]:64727 "EHLO
+	mail-oa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754500Ab3GJONi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 10:13:38 -0400
+Received: by mail-oa0-f51.google.com with SMTP id i4so9507752oah.24
+        for <netdev@vger.kernel.org>; Wed, 10 Jul 2013 07:13:38 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rename ndo_ll_poll to ndo_busy_poll.
-Rename sk_mark_ll to sk_mark_napi_id.
-Rename skb_mark_ll to skb_mark_napi_id.
-Correct all useres of these functions.
-Update comments and defines  in include/net/busy_poll.h
+Test patch to demonstrat and test queue attributes. The 'show'
+formatting could likely be improved.
 
-Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+# ./ip/ip link set dev p3p2 queue 1 rate 1000
+# ./ip/ip link set dev p3p2 queue 5 rate 1000
+# ./ip/ip link show dev p3p2
+4: p3p2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT qlen 1000
+    link/ether 00:1b:21:69:9f:09 brd ff:ff:ff:ff:ff:ff queues:  (1: rate 1000Mbps) (5: rate 1000Mbps)
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
+ include/linux/if_link.h |   24 +++++++++++++++++++++
+ ip/ipaddress.c          |   26 +++++++++++++++++++++++
+ ip/iplink.c             |   54 +++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 104 insertions(+)
 
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  |    2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |    4 ++--
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |    2 +-
- drivers/net/ethernet/mellanox/mlx4/en_rx.c       |    2 +-
- include/linux/netdevice.h                        |    2 +-
- include/net/busy_poll.h                          |   22 ++++++++++++----------
- net/ipv4/tcp_ipv4.c                              |    2 +-
- net/ipv4/udp.c                                   |    2 +-
- net/ipv6/tcp_ipv6.c                              |    2 +-
- net/ipv6/udp.c                                   |    2 +-
- 11 files changed, 23 insertions(+), 21 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 05b6b4e..3353efe 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -990,7 +990,7 @@ reuse_rx:
- 			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
- 					       le16_to_cpu(cqe_fp->vlan_tag));
- 
--		skb_mark_ll(skb, &fp->napi);
-+		skb_mark_napi_id(skb, &fp->napi);
- 
- 		if (bnx2x_fp_ll_polling(fp))
- 			netif_receive_skb(skb);
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 15a528b..e5da078 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -12027,7 +12027,7 @@ static const struct net_device_ops bnx2x_netdev_ops = {
- #endif
- 
- #ifdef CONFIG_NET_LL_RX_POLL
--	.ndo_ll_poll		= bnx2x_low_latency_recv,
-+	.ndo_busy_poll		= bnx2x_low_latency_recv,
- #endif
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index 965dc9f..dcb2cea 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -143,6 +143,7 @@ enum {
+ 	IFLA_NUM_TX_QUEUES,
+ 	IFLA_NUM_RX_QUEUES,
+ 	IFLA_CARRIER,
++	IFLA_QUEUE_ATTRIBS,
+ 	__IFLA_MAX
  };
  
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 047ebaa..bad8f14 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1978,7 +1978,7 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 		}
- 
- #endif /* IXGBE_FCOE */
--		skb_mark_ll(skb, &q_vector->napi);
-+		skb_mark_napi_id(skb, &q_vector->napi);
- 		ixgbe_rx_skb(q_vector, skb);
- 
- 		/* update budget accounting */
-@@ -7228,7 +7228,7 @@ static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_poll_controller	= ixgbe_netpoll,
- #endif
- #ifdef CONFIG_NET_LL_RX_POLL
--	.ndo_ll_poll		= ixgbe_low_latency_recv,
-+	.ndo_busy_poll		= ixgbe_low_latency_recv,
- #endif
- #ifdef IXGBE_FCOE
- 	.ndo_fcoe_ddp_setup = ixgbe_fcoe_ddp_get,
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 0fb2438..5eac871 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2141,7 +2141,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
- 	.ndo_rx_flow_steer	= mlx4_en_filter_rfs,
- #endif
- #ifdef CONFIG_NET_LL_RX_POLL
--	.ndo_ll_poll		= mlx4_en_low_latency_recv,
-+	.ndo_busy_poll		= mlx4_en_low_latency_recv,
- #endif
+@@ -432,6 +433,29 @@ struct ifla_port_vsi {
+ 	__u8 pad[3];
  };
  
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 90746d3..dec455c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -767,7 +767,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 					       timestamp);
- 		}
++/* Queue Attributes management
++ *	Netsted layout of queue attributes is:
++ *	[IFLA_QUEUE_ATTRIBS]
++ *		[IFLA_QUEUE_ATTRIB]
++ *			[IFLA_QUEUE_INDEX]	<required>
++ *			[IFLA_QUEUE_RATE]	<optional>
++ *		[IFLA_QUEUE_ATTRIB]
++ *			[...]
++ */
++enum {
++	IFLA_QUEUE_ATTRIB_UNSPEC,
++	IFLA_QUEUE_ATTRIB,			/* nest */
++	__IFLA_QUEUE_ATTRIB_MAX,
++};
++#define IFLA_QUEUE_ATTRIB_MAX (__IFLA_QUEUE_ATTRIB_MAX - 1)
++
++enum {
++	IFLA_QUEUE_UNSPEC,
++	IFLA_QUEUE_INDEX,		/* __u32 */
++	IFLA_QUEUE_RATE,		/* __u32 */
++	__IFLA_QUEUE_MAX,
++};
++#define IFLA_QUEUE_MAX (__IFLA_QUEUE_MAX - 1)
  
--		skb_mark_ll(skb, &cq->napi);
-+		skb_mark_napi_id(skb, &cq->napi);
+ /* IPoIB section */
  
- 		/* Push it up the stack */
- 		netif_receive_skb(skb);
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index bb82871..0741a1e 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -974,7 +974,7 @@ struct net_device_ops {
- 	void			(*ndo_netpoll_cleanup)(struct net_device *dev);
- #endif
- #ifdef CONFIG_NET_LL_RX_POLL
--	int			(*ndo_ll_poll)(struct napi_struct *dev);
-+	int			(*ndo_busy_poll)(struct napi_struct *dev);
- #endif
- 	int			(*ndo_set_vf_mac)(struct net_device *dev,
- 						  int queue, u8 *mac);
-diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
-index 76f0340..4ff7190 100644
---- a/include/net/busy_poll.h
-+++ b/include/net/busy_poll.h
-@@ -1,5 +1,5 @@
- /*
-- * Low Latency Sockets
-+ * net busy poll support
-  * Copyright(c) 2013 Intel Corporation.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-@@ -21,8 +21,8 @@
-  * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-  */
- 
--#ifndef _LINUX_NET_LL_POLL_H
--#define _LINUX_NET_LL_POLL_H
-+#ifndef _LINUX_NET_BUSY_POLL_H
-+#define _LINUX_NET_BUSY_POLL_H
- 
- #include <linux/netdevice.h>
- #include <net/ip.h>
-@@ -110,11 +110,11 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
- 		goto out;
- 
- 	ops = napi->dev->netdev_ops;
--	if (!ops->ndo_ll_poll)
-+	if (!ops->ndo_busy_poll)
- 		goto out;
- 
- 	do {
--		rc = ops->ndo_ll_poll(napi);
-+		rc = ops->ndo_busy_poll(napi);
- 
- 		if (rc == LL_FLUSH_FAILED)
- 			break; /* permanent failure */
-@@ -134,13 +134,14 @@ out:
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 5b9a438..5e55798 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -272,6 +272,23 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
+ 	}
  }
  
- /* used in the NIC receive handler to mark the skb */
--static inline void skb_mark_ll(struct sk_buff *skb, struct napi_struct *napi)
-+static inline void skb_mark_napi_id(struct sk_buff *skb,
-+				    struct napi_struct *napi)
++static void print_queue_attribs(FILE *fp, struct rtattr *queue)
++{
++	struct rtattr *q[IFLA_QUEUE_MAX+1];
++
++	parse_rtattr_nested(q, IFLA_QUEUE_MAX, queue);
++
++	if (q[IFLA_QUEUE_INDEX]) {
++		int index = *(int *) RTA_DATA(q[IFLA_QUEUE_INDEX]);
++		int rate = 0;
++
++		if (q[IFLA_QUEUE_RATE])
++			rate = *(int *) RTA_DATA(q[IFLA_QUEUE_RATE]);
++
++		fprintf(fp, " (%u: rate %uMbps)", index, rate);
++	}
++}
++
+ static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s) {
+ 	fprintf(fp, "%s", _SL_);
+ 	fprintf(fp, "    RX: bytes  packets  errors  dropped overrun mcast   %s%s",
+@@ -487,6 +504,15 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 			print_vfinfo(fp, i);
+ 	}
+ 
++	if (do_link && tb[IFLA_QUEUE_ATTRIBS]) {
++		struct rtattr *i, *queue_attribs = tb[IFLA_QUEUE_ATTRIBS];
++		int rem = RTA_PAYLOAD(queue_attribs);
++
++		fprintf(fp, " queues: ");
++		for (i = RTA_DATA(queue_attribs); RTA_OK(i, rem); i = RTA_NEXT(i, rem))
++			print_queue_attribs(fp, i);
++	}
++
+ 	fprintf(fp, "\n");
+ 	fflush(fp);
+ 	return 0;
+diff --git a/ip/iplink.c b/ip/iplink.c
+index dc98019..ecae3b7 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -79,6 +79,7 @@ void iplink_usage(void)
+ 	fprintf(stderr, "				   [ spoofchk { on | off} ] ] \n");
+ 	fprintf(stderr, "			  [ master DEVICE ]\n");
+ 	fprintf(stderr, "			  [ nomaster ]\n");
++	fprintf(stderr, "			  [ queues QUEUE [ rate RATE ]\n");
+ 	fprintf(stderr, "       ip link show [ DEVICE | group GROUP ] [up]\n");
+ 
+ 	if (iplink_have_newlink()) {
+@@ -194,6 +195,45 @@ struct iplink_req {
+ 	char			buf[1024];
+ };
+ 
++static int iplink_parse_queues(int index, int *argcp, char ***argvp,
++			       struct iplink_req *req)
++{
++	struct rtattr *queue;
++	char **argv = *argvp;
++	int argc = *argcp;
++	int rate = -1;
++
++	queue = addattr_nest(&req->n, sizeof(*req), IFLA_QUEUE_ATTRIB);
++	addattr_l(&req->n, sizeof(*req), IFLA_QUEUE_INDEX, &index, 4);
++
++	while (NEXT_ARG_OK()) {
++		NEXT_ARG();
++		if (matches(*argv, "rate") == 0) {
++
++			NEXT_ARG();
++			if (rate != -1)
++				duparg("rate", *argv);
++			if (get_integer(&rate, *argv, 0))
++				invarg("Invalid \"rate\" value\n", *argv);
++			addattr_l(&req->n, sizeof(*req), IFLA_QUEUE_RATE,
++				  &rate, 4);
++		} else {
++			/* rewind arg */
++			PREV_ARG();
++			break;
++		}
++	}
++
++	if (argc == *argcp)
++		incomplete_command();
++
++	addattr_nest_end(&req->n, queue);
++
++	*argcp = argc;
++	*argvp = argv;
++	return 0;
++}
++
+ static int iplink_parse_vf(int vf, int *argcp, char ***argvp,
+ 			   struct iplink_req *req)
  {
- 	skb->napi_id = napi->napi_id;
- }
- 
- /* used in the protocol hanlder to propagate the napi_id to the socket */
--static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
-+static inline void sk_mark_napi_id(struct sock *sk, struct sk_buff *skb)
- {
- 	sk->sk_napi_id = skb->napi_id;
- }
-@@ -166,11 +167,12 @@ static inline bool sk_busy_poll(struct sock *sk, int nonblock)
- 	return false;
- }
- 
--static inline void skb_mark_ll(struct sk_buff *skb, struct napi_struct *napi)
-+static inline void skb_mark_napi_id(struct sk_buff *skb,
-+				    struct napi_struct *napi)
- {
- }
- 
--static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
-+static inline void sk_mark_napi_id(struct sock *sk, struct sk_buff *skb)
- {
- }
- 
-@@ -180,4 +182,4 @@ static inline bool busy_loop_timeout(unsigned long end_time)
- }
- 
- #endif /* CONFIG_NET_LL_RX_POLL */
--#endif /* _LINUX_NET_LL_POLL_H */
-+#endif /* _LINUX_NET_BUSY_POLL_H */
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 3a261b4..b299da5 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1994,7 +1994,7 @@ process:
- 	if (sk_filter(sk, skb))
- 		goto discard_and_relse;
- 
--	sk_mark_ll(sk, skb);
-+	sk_mark_napi_id(sk, skb);
- 	skb->dev = NULL;
- 
- 	bh_lock_sock_nested(sk);
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index bcc0ff2..a0d7151 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1713,7 +1713,7 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 	if (sk != NULL) {
- 		int ret;
- 
--		sk_mark_ll(sk, skb);
-+		sk_mark_napi_id(sk, skb);
- 		ret = udp_queue_rcv_skb(sk, skb);
- 		sock_put(sk);
- 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 345bd92..6e1649d 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1499,7 +1499,7 @@ process:
- 	if (sk_filter(sk, skb))
- 		goto discard_and_relse;
- 
--	sk_mark_ll(sk, skb);
-+	sk_mark_napi_id(sk, skb);
- 	skb->dev = NULL;
- 
- 	bh_lock_sock_nested(sk);
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 40e7203..f405815 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -844,7 +844,7 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 	if (sk != NULL) {
- 		int ret;
- 
--		sk_mark_ll(sk, skb);
-+		sk_mark_napi_id(sk, skb);
- 		ret = udpv6_queue_rcv_skb(sk, skb);
- 		sock_put(sk);
- 
-
-
-------------------------------------------------------------------------------
-See everything from the browser to the database with AppDynamics
-Get end-to-end visibility with application monitoring from AppDynamics
-Isolate bottlenecks and diagnose root cause in seconds.
-Start your free trial of AppDynamics Pro today!
-http://pubads.g.doubleclick.net/gampad/clk?id=48808831&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+@@ -466,6 +506,20 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
+ 				invarg("Invalid \"numrxqueues\" value\n", *argv);
+ 			addattr_l(&req->n, sizeof(*req), IFLA_NUM_RX_QUEUES,
+ 				  &numrxqueues, 4);
++		} else if (matches(*argv, "queues") == 0) {
++			struct rtattr *queues;
++			int index;
++
++			NEXT_ARG();
++			if (get_integer(&index,  *argv, 0)) {
++				invarg("Invalid \"index\" value\n", *argv);
++			}
++			queues = addattr_nest(&req->n, sizeof(*req),
++					      IFLA_QUEUE_ATTRIBS);
++			len = iplink_parse_queues(index, &argc, &argv, req);
++			if (len < 0)
++				return -1;
++			addattr_nest_end(&req->n, queues);
+ 		} else {
+ 			if (strcmp(*argv, "dev") == 0) {
+ 				NEXT_ARG();
