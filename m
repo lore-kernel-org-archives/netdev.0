@@ -1,60 +1,41 @@
-From: Paolo Valente <paolo.valente@unimore.it>
-Subject: [PATCH 1/2] pkt_sched: sch_qfq: improve efficiency of make_eligible
-Date: Wed, 10 Jul 2013 15:46:08 +0200
-Message-ID: <1373463969-11285-2-git-send-email-paolo.valente@unimore.it>
-References: <20130305.235006.1904081547083683406.davem@davemloft.net>
- <1373463969-11285-1-git-send-email-paolo.valente@unimore.it>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	fchecconi@gmail.com, rizzo@iet.unipi.it,
-	David Laight <David.Laight@ACULAB.COM>,
-	Paolo Valente <paolo.valente@unimore.it>
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>, shemminger@vyatta.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1373463969-11285-1-git-send-email-paolo.valente@unimore.it>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [RFC PATCH] ip: add support for queue attributes
+Date: Wed, 10 Jul 2013 07:23:01 -0700
+Message-ID: <51DD6E45.8050003@intel.com>
+References: <20130710141312.7205.25585.stgit@nitbit.x32>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	stephen@networkplumber.org, ben@decadent.org.uk,
+	jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com,
+	therbert@google.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:12726 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754022Ab3GJOXS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jul 2013 10:23:18 -0400
+In-Reply-To: <20130710141312.7205.25585.stgit@nitbit.x32>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In make_eligible, a mask is used to decide which groups must become eligible:
-the i-th group becomes eligible only if the i-th bit of the mask (from the
-right) is set. The mask is computed by left-shifting a 1 by a given number of
-places, and decrementing the result.  The shift is performed on a ULL to avoid
-problems in case the number of places to shift is higher than 31.  On a 32-bit
-machine, this is more costly than working on an UL. This patch replaces such a
-costly operation with two cheaper branches.
+On 7/10/2013 7:13 AM, John Fastabend wrote:
+> Test patch to demonstrat and test queue attributes. The 'show'
+> formatting could likely be improved.
+>
+> # ./ip/ip link set dev p3p2 queue 1 rate 1000
+> # ./ip/ip link set dev p3p2 queue 5 rate 1000
+> # ./ip/ip link show dev p3p2
+> 4: p3p2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT qlen 1000
+>      link/ether 00:1b:21:69:9f:09 brd ff:ff:ff:ff:ff:ff queues:  (1: rate 1000Mbps) (5: rate 1000Mbps)
+>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+>
 
-The trick is based on the following fact: in case of a shift of at least 32
-places, the resulting mask has at least the 32 less significant bits set,
-whereas the total number of groups is lower than 32.  As a consequence, in this
-case it is enough to just set the 32 less significant bits of the mask with a
-cheaper ~0UL. In the other case, the shift can be safely performed on a UL.
+Oops sorry, demonstrat should be demonstrate and the title should
+be 'iproute2' to avoid confusion. Hopefully the context is at least
+clear from the patch description.
 
-Reported-by: David S. Miller <davem@davemloft.net>
-Reported-by: David Laight <David.Laight@ACULAB.COM>
-Signed-off-by: Paolo Valente <paolo.valente@unimore.it>
----
- net/sched/sch_qfq.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
-
-diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
-index d51852b..2a0ed50 100644
---- a/net/sched/sch_qfq.c
-+++ b/net/sched/sch_qfq.c
-@@ -821,7 +821,14 @@ static void qfq_make_eligible(struct qfq_sched *q)
- 	unsigned long old_vslot = q->oldV >> q->min_slot_shift;
- 
- 	if (vslot != old_vslot) {
--		unsigned long mask = (1ULL << fls(vslot ^ old_vslot)) - 1;
-+		unsigned long mask;
-+		int last_flip_pos = fls(vslot ^ old_vslot);
-+
-+		if (last_flip_pos > 31) /* higher than the number of groups */
-+			mask = ~0UL;    /* make all groups eligible */
-+		else
-+			mask = (1UL << last_flip_pos) - 1;
-+
- 		qfq_move_groups(q, mask, IR, ER);
- 		qfq_move_groups(q, mask, IB, EB);
- 	}
--- 
-1.8.1.2
+.John
