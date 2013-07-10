@@ -1,44 +1,330 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: [PATCH] net/tipc: use %*phC to dump small buffers in hex form
-Date: Wed, 10 Jul 2013 17:30:34 +0300
-Message-ID: <1373466634-24842-1-git-send-email-andriy.shevchenko@linux.intel.com>
-Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-To: Jon Maloy <jon.maloy@ericsson.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RFC] ipv6: fix route selection if kernel is not compiled with CONFIG_IPV6_ROUTER_PREF
+Date: Wed, 10 Jul 2013 16:34:47 +0200
+Message-ID: <20130710143447.GF15411@order.stressinduktion.org>
+References: <20130707173031.GC9625@order.stressinduktion.org> <20130709215701.GD9763@order.stressinduktion.org> <51DD1352.8000705@6wind.com> <20130710111504.GA15411@order.stressinduktion.org> <51DD4ECA.1080506@6wind.com> <20130710131741.GC15411@order.stressinduktion.org> <20130710134951.GE15411@order.stressinduktion.org> <51DD700B.4060504@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	petrus.lt@gmail.com, davem@davemloft.net
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:27436 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754473Ab3GJOao (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Jul 2013 10:30:44 -0400
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:36989 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754617Ab3GJOes (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 10:34:48 -0400
+Content-Disposition: inline
+In-Reply-To: <51DD700B.4060504@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of passing each byte by stack let's use nice specifier for that.
+On Wed, Jul 10, 2013 at 04:30:35PM +0200, Nicolas Dichtel wrote:
+> Le 10/07/2013 15:49, Hannes Frederic Sowa a =C3=A9crit :
+> >On Wed, Jul 10, 2013 at 03:17:41PM +0200, Hannes Frederic Sowa wrote=
+:
+> >>On Wed, Jul 10, 2013 at 02:08:42PM +0200, Nicolas Dichtel wrote:
+> >>>Le 10/07/2013 13:15, Hannes Frederic Sowa a =C3=A9crit :
+> >>>>On Wed, Jul 10, 2013 at 09:54:58AM +0200, Nicolas Dichtel wrote:
+> >>>>>Le 09/07/2013 23:57, Hannes Frederic Sowa a =C3=A9crit :
+> >>>>>>Are we sure we decrement all sibling's rt6i_nsiblings? Shouldn'=
+t we
+> >>>>>>start iterating from fn->leaf? But this does not seem to cause =
+it,
+> >>>>>>because my trace does not report any calls to fib6_del_route.
+> >>>>>Note sure to follow you, but all siblings are listed in rt6i_sib=
+lings,=20
+> >>>>>so
+> >>>>>it must be enough.
+> >>>>
+> >>>>My hunch was to iterate over fn->leaf->rt_next and compare the me=
+trics
+> >>>>like we
+> >>>>do when adding a new route. Then take that rt6_info->rt6i_sibling=
+s
+> >>>>list_head
+> >>>>to iterate over the remaining siblings. But I did not review that=
+ part
+> >>>>carefully, need to check later.
+> >>>>
+> >>>>>>You could try reproduce it by having an interface autoconfigure=
+d with
+> >>>>>>a default router with NUD_VALID neighbour. I then added an unus=
+ed vlan
+> >>>>>>interface (vid 100 in my case) and added the following ip addre=
+sses:
+> >>>>>>
+> >>>>>>ip -6 a a 2001:ffff::1/64 dev eth0.100
+> >>>>>>ip -6 r a 2000::/3 nexthop via 2001:ffff::30 nexthop via 2001:f=
+fff::31
+> >>>>>>nexthop via 2001:ffff::32 nexthop via 2001:ffff::33
+> >>>>>>
+> >>>>>>(all nexthops should not be reachable)
+> >>>>>>
+> >>>>>>After starting a ping6 2000::1 the box should panic soon, after=
+ the
+> >>>>>>first nexthop entry times out.
+> >>>>>>
+> >>>>>>Perhaps you could give me a hint?
+> >>>>>I will run some tests with your patch. Will see.
+> >>>>>
+> >>>>>I assume you didn't reproduce this without your patch.
+> >>>>
+> >>>>Current kernel does not correctly select more specific routes, so=
+ these
+> >>>>routes
+> >>>>are not even tried and the logic should not be excercised.
+> >>>>
+> >>>>Ah, sorry, you should also compile your kernel without
+> >>>>CONFIG_IPV6_ROUTER_PREF, too, if you try to reproduce it.
+> >>>I've done this.
+> >>>
+> >>>My conf (eth1 autoconfigured, I use net-next + your patch):
+> >>>vconfig add eth1 100
+> >>>ifconfig eth1.100 up
+> >>>ip -6 a a 2001:ffff::1/64 dev eth1.100
+> >>>ip -6 r a 2000::/3 nexthop via 2001:ffff::30 nexthop via 2001:ffff=
+::31
+> >>>nexthop via 2001:ffff::32 nexthop via 2001:ffff::33
+> >>>ping6 2000::1
+> >>
+> >>Hm, I see. I suspect something with timing. I, too, use a net-next =
+and=20
+> >>have
+> >>one function dump_route added and sprinkeld it at some points.
+> >>
+> >>When I copy&pasted your calls I could not reproduce it. After a reb=
+oot=20
+> >>when
+> >>just applying the commands from my history (which I did a lot faste=
+r), I=20
+> >>got
+> >>the panic again.
+> >>
+> >>I'll remove the dump_routes and recheck later.
+> >
+> >This patch ontop
+> >
+> >--- a/net/ipv6/ip6_fib.c
+> >+++ b/net/ipv6/ip6_fib.c
+> >@@ -46,6 +46,16 @@
+> >  #define RT6_TRACE(x...) do { ; } while (0)
+> >  #endif
+> >
+> >+static void dump_route(struct rt6_info *rt, const char *prefix)
+> >+{
+> >+       u32 f =3D rt->rt6i_flags;
+> >+       struct rt6key *k =3D &rt->rt6i_dst;
+> >+       printk(KERN_INFO "%s: %p dst %pI6c plen %d gateway %pI6c, si=
+blings=20
+> >%d, metric %d, expires %d gateway %d idev6 %p dev %p\n", prefix,
+> >+              rt, &k->addr, k->plen, &rt->rt6i_gateway,=20
+> >rt->rt6i_nsiblings, rt->rt6i_metric, f&RTF_EXPIRES, f&RTF_GATEWAY,=20
+> >rt->rt6i_idev, rt->dst.dev);
+> >+}
+> >+
+> >+
+> >+
+> >  static struct kmem_cache * fib6_node_kmem __read_mostly;
+> >
+> >  enum fib_walk_state_t
+> >@@ -693,8 +703,11 @@ static int fib6_add_rt2node(struct fib6_node *f=
+n,=20
+> >struct rt6_info *rt,
+> >                          */
+> >                         if (rt->rt6i_flags & RTF_GATEWAY &&
+> >                             !(rt->rt6i_flags & RTF_EXPIRES) &&
+> >-                           !(iter->rt6i_flags & RTF_EXPIRES))
+> >+                           !(iter->rt6i_flags & RTF_EXPIRES)) {
+> >                                 rt->rt6i_nsiblings++;
+> >+                               dump_route(rt, "(rt)");
+> >+                               dump_route(iter, "(iter)");
+> >+                       }
+> >                 }
+> >
+> >                 if (iter->rt6i_metric > rt->rt6i_metric)
+> >@@ -718,6 +731,7 @@ static int fib6_add_rt2node(struct fib6_node *fn=
+,=20
+> >struct rt6_info *rt,
+> >                         if (sibling->rt6i_metric =3D=3D rt->rt6i_me=
+tric) {
+> >                                 list_add_tail(&rt->rt6i_siblings,
+> >                                               &sibling->rt6i_siblin=
+gs);
+> >+                               dump_route(sibling, "(sibling)");
+> >                                 break;
+> >                         }
+> >                         sibling =3D sibling->dst.rt6_next;
+> >@@ -730,6 +744,7 @@ static int fib6_add_rt2node(struct fib6_node *fn=
+,=20
+> >struct rt6_info *rt,
+> >                 list_for_each_entry_safe(sibling, temp_sibling,
+> >                                          &rt->rt6i_siblings,=20
+> >                                          rt6i_siblings) {
+> >                         sibling->rt6i_nsiblings++;
+> >+                       dump_route(sibling, "(sibling increment)");
+> >                         BUG_ON(sibling->rt6i_nsiblings !=3D=20
+> >                         rt->rt6i_nsiblings);
+> >                         rt6i_nsiblings++;
+> >                 }
+> >
+> >produces this panic:
+> >
+> >[   59.234779] (rt): ffff880113242000 dst 2000::1 plen 128 gateway=20
+> >2001:ffff::33, siblings 1, metric 0, expires 0 gateway 2 idev6=20
+> >ffff8801131ab000 dev ffff88011816d000
+> >[   59.243794] (iter): ffff880117e7b680 dst 2000::1 plen 128 gateway=
+=20
+> >2001:ffff::31, siblings 2, metric 0, expires 0 gateway 2 idev6=20
+> >ffff8801131ab000 dev ffff88011816d000
+> >[   59.261383] (rt): ffff880113242000 dst 2000::1 plen 128 gateway=20
+> >2001:ffff::33, siblings 2, metric 0, expires 0 gateway 2 idev6=20
+> >ffff8801131ab000 dev ffff88011816d000
+> >[   59.270030] (iter): ffff880117e7bb00 dst 2000::1 plen 128 gateway=
+=20
+> >2001:ffff::32, siblings 2, metric 0, expires 0 gateway 2 idev6=20
+> >ffff8801131ab000 dev ffff88011816d000
+> >[   59.291933] (sibling): ffff880117e62480 dst 2000::1 plen 128 gate=
+way=20
+> >2001:ffff::30, siblings 2, metric 0, expires 4194304 gateway 2 idev6=
+=20
+> >ffff8801131ab000 dev ffff88011816d000
+> >[   59.306893] (sibling increment): ffff880117e62480 dst 2000::1 ple=
+n 128=20
+> >gateway 2001:ffff::30, siblings 3, metric 0, expires 4194304 gateway=
+ 2=20
+> >idev6 ffff8801131ab000 dev ffff88011816d000
+> I don't have the same output:
+> [   97.945170] (rt): f1a02d80 dst 2000:: plen 3 gateway=20
+> 2001:660:1234:5678::31, siblings 1, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+> [   97.948117] (iter): f1a02e80 dst 2000:: plen 3 gateway=20
+> 2001:660:1234:5678::30, siblings 0, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+> [   97.951207] (sibling): f1a02e80 dst 2000:: plen 3 gateway=20
+> 2001:660:1234:5678::30, siblings 0, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+> [   97.954272] (sibling increment): f1a02e80 dst 2000:: plen 3 gatewa=
+y=20
+> 2001:660:1234:5678::30, siblings 1, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+> [   97.957545] (rt): f1a02c80 dst 2000:: plen 3 gateway=20
+> 2001:660:1234:5678::32, siblings 1, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+> [   97.960376] (iter): f1a02e80 dst 2000:: plen 3 gateway=20
+> 2001:660:1234:5678::30, siblings 1, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+> [   97.961902] (rt): f1a02c80 dst 2000:: plen 3 gateway=20
+> 2001:660:1234:5678::32, siblings 2, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+> [   97.963095] (iter): f1a02d80 dst 2000:: plen 3 gateway=20
+> 2001:660:1234:5678::31, siblings 1, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+> [   97.964354] (sibling): f1a02e80 dst 2000:: plen 3 gateway=20
+> 2001:660:1234:5678::30, siblings 1, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+> [   97.965604] (sibling increment): f1a02e80 dst 2000:: plen 3 gatewa=
+y=20
+> 2001:660:1234:5678::30, siblings 2, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+> [   97.966916] (sibling increment): f1a02d80 dst 2000:: plen 3 gatewa=
+y=20
+> 2001:660:1234:5678::31, siblings 2, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+> [   97.968254] (rt): f1a02b80 dst 2000:: plen 3 gateway=20
+> 2001:660:1234:5678::33, siblings 1, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+> [   97.969467] (iter): f1a02e80 dst 2000:: plen 3 gateway=20
+> 2001:660:1234:5678::30, siblings 2, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+> [   97.970702] (rt): f1a02b80 dst 2000:: plen 3 gateway=20
+> 2001:660:1234:5678::33, siblings 2, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+> [   97.971895] (iter): f1a02d80 dst 2000:: plen 3 gateway=20
+> 2001:660:1234:5678::31, siblings 2, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+> [   97.973137] (rt): f1a02b80 dst 2000:: plen 3 gateway=20
+> 2001:660:1234:5678::33, siblings 3, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+> [   97.974331] (iter): f1a02c80 dst 2000:: plen 3 gateway=20
+> 2001:660:1234:5678::32, siblings 2, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+> [   97.975542] (sibling): f1a02e80 dst 2000:: plen 3 gateway=20
+> 2001:660:1234:5678::30, siblings 2, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+> [   97.976808] (sibling increment): f1a02e80 dst 2000:: plen 3 gatewa=
+y=20
+> 2001:660:1234:5678::30, siblings 3, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+> [   97.978126] (sibling increment): f1a02d80 dst 2000:: plen 3 gatewa=
+y=20
+> 2001:660:1234:5678::31, siblings 3, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+> [   97.979453] (sibling increment): f1a02c80 dst 2000:: plen 3 gatewa=
+y=20
+> 2001:660:1234:5678::32, siblings 3, metric 1024, expires 0 gateway 2 =
+idev6=20
+> f7507e00 dev f7793000
+>=20
+> Can you send me the output of:
+> ip -6 r
+> ip -6 a
+>=20
 
-Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
----
- net/tipc/ib_media.c | 8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+Of course:
 
-diff --git a/net/tipc/ib_media.c b/net/tipc/ib_media.c
-index ad2e1ec..9934a32 100644
---- a/net/tipc/ib_media.c
-+++ b/net/tipc/ib_media.c
-@@ -292,13 +292,7 @@ static int ib_addr2str(struct tipc_media_addr *a, char *str_buf, int str_size)
- 	if (str_size < 60)	/* 60 = 19 * strlen("xx:") + strlen("xx\0") */
- 		return 1;
- 
--	sprintf(str_buf, "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:"
--			 "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
--		a->value[0], a->value[1], a->value[2], a->value[3],
--		a->value[4], a->value[5], a->value[6], a->value[7],
--		a->value[8], a->value[9], a->value[10], a->value[11],
--		a->value[12], a->value[13], a->value[14], a->value[15],
--		a->value[16], a->value[17], a->value[18], a->value[19]);
-+	sprintf(str_buf, "%20phC", a->value);
- 
- 	return 0;
- }
--- 
-1.8.3.2
+ip -6 r:
+2001:700:1300:feed::134 via 2001:ffff::33 dev eth0.100  metric 0=20
+    cache  expires -7sec
+2001:700:1300:feed::134 via fe80::5054:ff:fe82:e153 dev eth0  metric 0=20
+    cache=20
+2001:db8:ee8c:180::/64 dev eth0  proto kernel  metric 256  expires 8635=
+3sec
+2001:ffff::/64 dev eth0.100  proto kernel  metric 256=20
+2000::/3 via 2001:ffff::30 dev eth0.100  metric 1024=20
+2000::/3 via 2001:ffff::31 dev eth0.100  metric 1024=20
+2000::/3 via 2001:ffff::32 dev eth0.100  metric 1024=20
+2000::/3 via 2001:ffff::33 dev eth0.100  metric 1024=20
+fe80::/64 dev eth0  proto kernel  metric 256=20
+fe80::/64 dev eth0.100  proto kernel  metric 256=20
+default via fe80::5054:ff:fe82:e153 dev eth0  proto ra  metric 1024  ex=
+pires 1753sec
+
+ip -6 a:
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536=20
+    inet6 ::1/128 scope host=20
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
+    inet6 2001:db8:ee8c:180:5054:ff:fe53:c6c9/64 scope global dynamic=20
+       valid_lft 86392sec preferred_lft 14392sec
+    inet6 fe80::5054:ff:fe53:c6c9/64 scope link=20
+       valid_lft forever preferred_lft forever
+3: eth0.100@eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500=20
+    inet6 2001:ffff::1/64 scope global=20
+       valid_lft forever preferred_lft forever
+    inet6 fe80::5054:ff:fe53:c6c9/64 scope link=20
+       valid_lft forever preferred_lft forever
+
+Thanks,
+
+  Hannes
