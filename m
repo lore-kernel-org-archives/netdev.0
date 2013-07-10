@@ -1,18 +1,19 @@
 From: Asias He <asias@redhat.com>
-Subject: Re: [PATCH 1/2] virtio: support unlocked queue poll
-Date: Wed, 10 Jul 2013 12:38:42 +0800
-Message-ID: <20130710043842.GA5962@hj.localdomain>
+Subject: Re: [PATCH 2/2] virtio_net: fix race in RX VQ processing
+Date: Wed, 10 Jul 2013 12:39:53 +0800
+Message-ID: <20130710043953.GB5962@hj.localdomain>
 References: <1373274069-4301-1-git-send-email-mst@redhat.com>
-	<1373274069-4301-2-git-send-email-mst@redhat.com>
+	<1373274069-4301-3-git-send-email-mst@redhat.com>
+	<51DB8362.4020405@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1373274069-4301-2-git-send-email-mst@redhat.com>
+In-Reply-To: <51DB8362.4020405@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -24,125 +25,53 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 08, 2013 at 12:04:36PM +0300, Michael S. Tsirkin wrote:
-> This adds a way to check ring empty state after enable_cb outside any
-> locks. Will be used by virtio_net.
-> 
-> Note: there's room for more optimization: caller is likely to have a
-> memory barrier already, which means we might be able to get rid of a
-> barrier here.  Deferring this optimization until we do some
-> benchmarking.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+On Tue, Jul 09, 2013 at 11:28:34AM +0800, Jason Wang wrote:
+> On 07/08/2013 05:04 PM, Michael S. Tsirkin wrote:
+> > virtio net called virtqueue_enable_cq on RX path after napi_complete, so
+> > with NAPI_STATE_SCHED clear - outside the implicit napi lock.
+> > This violates the requirement to synchronize virtqueue_enable_cq wrt
+> > virtqueue_add_buf.  In particular, used event can move backwards,
+> > causing us to lose interrupts.
+> > In a debug build, this can trigger panic within START_USE.
+> >
+> > Jason Wang reports that he can trigger the races artificially,
+> > by adding udelay() in virtqueue_enable_cb() after virtio_mb().
+> >
+> > However, we must call napi_complete to clear NAPI_STATE_SCHED before
+> > polling the virtqueue for used buffers, otherwise napi_schedule_prep in
+> > a callback will fail, causing us to lose RX events.
+> >
+> > To fix, call virtqueue_enable_cb_prepare with NAPI_STATE_SCHED
+> > set (under napi lock), later call virtqueue_poll with
+> > NAPI_STATE_SCHED clear (outside the lock).
+> >
+> > Reported-by: Jason Wang <jasowang@redhat.com>
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
 Acked-by: Asias He <asias@redhat.com>
 
-> ---
->  drivers/virtio/virtio_ring.c | 56 ++++++++++++++++++++++++++++++++++----------
->  include/linux/virtio.h       |  4 ++++
->  2 files changed, 48 insertions(+), 12 deletions(-)
+> > ---
 > 
-> diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
-> index 5217baf..37d58f8 100644
-> --- a/drivers/virtio/virtio_ring.c
-> +++ b/drivers/virtio/virtio_ring.c
-> @@ -607,19 +607,21 @@ void virtqueue_disable_cb(struct virtqueue *_vq)
->  EXPORT_SYMBOL_GPL(virtqueue_disable_cb);
->  
->  /**
-> - * virtqueue_enable_cb - restart callbacks after disable_cb.
-> + * virtqueue_enable_cb_prepare - restart callbacks after disable_cb
->   * @vq: the struct virtqueue we're talking about.
->   *
-> - * This re-enables callbacks; it returns "false" if there are pending
-> - * buffers in the queue, to detect a possible race between the driver
-> - * checking for more work, and enabling callbacks.
-> + * This re-enables callbacks; it returns current queue state
-> + * in an opaque unsigned value. This value should be later tested by
-> + * virtqueue_poll, to detect a possible race between the driver checking for
-> + * more work, and enabling callbacks.
->   *
->   * Caller must ensure we don't call this with other virtqueue
->   * operations at the same time (except where noted).
->   */
-> -bool virtqueue_enable_cb(struct virtqueue *_vq)
-> +unsigned virtqueue_enable_cb_prepare(struct virtqueue *_vq)
->  {
->  	struct vring_virtqueue *vq = to_vvq(_vq);
-> +	u16 last_used_idx;
->  
->  	START_USE(vq);
->  
-> @@ -629,15 +631,45 @@ bool virtqueue_enable_cb(struct virtqueue *_vq)
->  	 * either clear the flags bit or point the event index at the next
->  	 * entry. Always do both to keep code simple. */
->  	vq->vring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
-> -	vring_used_event(&vq->vring) = vq->last_used_idx;
-> +	vring_used_event(&vq->vring) = last_used_idx = vq->last_used_idx;
-> +	END_USE(vq);
-> +	return last_used_idx;
-> +}
-> +EXPORT_SYMBOL_GPL(virtqueue_enable_cb_prepare);
-> +
-> +/**
-> + * virtqueue_poll - query pending used buffers
-> + * @vq: the struct virtqueue we're talking about.
-> + * @last_used_idx: virtqueue state (from call to virtqueue_enable_cb_prepare).
-> + *
-> + * Returns "true" if there are pending used buffers in the queue.
-> + *
-> + * This does not need to be serialized.
-> + */
-> +bool virtqueue_poll(struct virtqueue *_vq, unsigned last_used_idx)
-> +{
-> +	struct vring_virtqueue *vq = to_vvq(_vq);
-> +
->  	virtio_mb(vq->weak_barriers);
-> -	if (unlikely(more_used(vq))) {
-> -		END_USE(vq);
-> -		return false;
-> -	}
-> +	return (u16)last_used_idx != vq->vring.used->idx;
-> +}
-> +EXPORT_SYMBOL_GPL(virtqueue_poll);
->  
-> -	END_USE(vq);
-> -	return true;
-> +/**
-> + * virtqueue_enable_cb - restart callbacks after disable_cb.
-> + * @vq: the struct virtqueue we're talking about.
-> + *
-> + * This re-enables callbacks; it returns "false" if there are pending
-> + * buffers in the queue, to detect a possible race between the driver
-> + * checking for more work, and enabling callbacks.
-> + *
-> + * Caller must ensure we don't call this with other virtqueue
-> + * operations at the same time (except where noted).
-> + */
-> +bool virtqueue_enable_cb(struct virtqueue *_vq)
-> +{
-> +	unsigned last_used_idx = virtqueue_enable_cb_prepare(_vq);
-> +	return !virtqueue_poll(_vq, last_used_idx);
->  }
->  EXPORT_SYMBOL_GPL(virtqueue_enable_cb);
->  
-> diff --git a/include/linux/virtio.h b/include/linux/virtio.h
-> index 9ff8645..72398ee 100644
-> --- a/include/linux/virtio.h
-> +++ b/include/linux/virtio.h
-> @@ -70,6 +70,10 @@ void virtqueue_disable_cb(struct virtqueue *vq);
->  
->  bool virtqueue_enable_cb(struct virtqueue *vq);
->  
-> +unsigned virtqueue_enable_cb_prepare(struct virtqueue *vq);
-> +
-> +bool virtqueue_poll(struct virtqueue *vq, unsigned);
-> +
->  bool virtqueue_enable_cb_delayed(struct virtqueue *vq);
->  
->  void *virtqueue_detach_unused_buf(struct virtqueue *vq);
-> -- 
-> MST
+> Tested-by: Jason Wang <jasowang@redhat.com>
+> Acked-by: Jason Wang <jasowang@redhat.com>
+> >  drivers/net/virtio_net.c | 3 ++-
+> >  1 file changed, 2 insertions(+), 1 deletion(-)
+> >
+> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> > index 5305bd1..fbdd79a 100644
+> > --- a/drivers/net/virtio_net.c
+> > +++ b/drivers/net/virtio_net.c
+> > @@ -622,8 +622,9 @@ again:
+> >  
+> >  	/* Out of packets? */
+> >  	if (received < budget) {
+> > +		unsigned r = virtqueue_enable_cb_prepare(rq->vq);
+> >  		napi_complete(napi);
+> > -		if (unlikely(!virtqueue_enable_cb(rq->vq)) &&
+> > +		if (unlikely(virtqueue_poll(rq->vq, r)) &&
+> >  		    napi_schedule_prep(napi)) {
+> >  			virtqueue_disable_cb(rq->vq);
+> >  			__napi_schedule(napi);
 > 
 > _______________________________________________
 > Virtualization mailing list
