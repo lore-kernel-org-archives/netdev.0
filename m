@@ -1,93 +1,107 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [PATCH] xen-netfront: pull on receive skb may need
- to happen earlier
-Date: Wed, 10 Jul 2013 11:04:16 +0100
-Message-ID: <20130710100416.GL19798@zion.uk.xensource.com>
-References: <51D57C1F.8070909@hunenet.nl>
- <20130704150137.GW7483@zion.uk.xensource.com>
- <51D6AED902000078000E2EA9@nat28.tlf.novell.com>
- <20130705145319.GB9050@zion.uk.xensource.com>
- <51DAA9B202000078000E3357@nat28.tlf.novell.com>
- <51DAE6CA02000078000E3566@nat28.tlf.novell.com>
- <20130708154814.GI8027@zion.uk.xensource.com>
- <51DBCF4F02000078000E3793@nat28.tlf.novell.com>
- <20130709165134.GG19798@zion.uk.xensource.com>
- <51DD221E02000078000E3BC6@nat28.tlf.novell.com>
+From: Gerlando Falauto <gerlando.falauto@keymile.com>
+Subject: Re: [PATCH] net: mv643xx_eth: fix DT port device name
+Date: Wed, 10 Jul 2013 12:29:07 +0200
+Message-ID: <51DD3773.1050408@keymile.com>
+References: <1373229231-8838-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <20130707234341.0000721b@unknown> <20130708000540.00004b37@unknown>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>, <davem@davemloft.net>,
-	Dion Kant <g.w.kant@hunenet.nl>, <xen-devel@lists.xen.org>,
-	<netdev@vger.kernel.org>, <stable@vger.kernel.org>
-To: Jan Beulich <JBeulich@suse.com>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <51DD221E02000078000E3BC6@nat28.tlf.novell.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jonas Gorski <jogo@openwrt.org>,
+ linux-arm-kernel@lists.infradead.org,
+ Lennert Buytenhek <buytenh@wantstofly.org>, linux-kernel@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20130708000540.00004b37@unknown>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 10, 2013 at 07:58:06AM +0100, Jan Beulich wrote:
-> >>> On 09.07.13 at 18:51, Wei Liu <wei.liu2@citrix.com> wrote:
-> > On Tue, Jul 09, 2013 at 07:52:31AM +0100, Jan Beulich wrote:
-> >> >>> On 08.07.13 at 17:48, Wei Liu <wei.liu2@citrix.com> wrote:
-> >> > On Mon, Jul 08, 2013 at 03:20:26PM +0100, Jan Beulich wrote:
-> >> >> @@ -1014,7 +1025,7 @@ err:
-> >> >>  
-> >> >>  		skb_shinfo(skb)->frags[0].page_offset = rx->offset;
-> >> >>  		skb_frag_size_set(&skb_shinfo(skb)->frags[0], rx->status);
-> >> >> -		skb->data_len = rx->status;
-> >> >> +		skb->len = skb->data_len = rx->status;
-> >> > 
-> >> > This is not correct. You should not be needing this. Now you lose count
-> >> > of SKB head len. Try to go without the above line and see if it makes a
-> >> > difference?
-> >> 
-> >> I don't follow - at this point, there's 0 bytes of head (this only
-> >> changes with the first call to __pskb_pull_tail()). Hence ->len ==
-> >> ->data_len seems correct to me (and afaict pulling would do the
-> >> wrong thing if I dropped that change).
-> >> 
-> > 
-> > My bad, I suggested the wrong thing. :-(
-> > 
-> > But I would prefer skb->len += skb->data_len. In the case that skb->len
-> > == 0 it's the same as your line while skb->len is not zero it would also
-> > do the right thing.
-> 
-> I can do that, albeit I don't see how ->len could end up non-zero
-> here.
-> 
-> > As for the warning in skb_try_coalesce, I don't see any direct call to
-> > it in netfront, I will need to think about it. It looks like it's really
-> > something very deep in the stack.
-> 
-> Yes, as the call stack provided by Dion proves. The question
-> really is whether the patch somehow results in ->truesize to be
-> incorrect, or whether - as Eric points out - this is "normal" for
-> the sort of special SKBs here (having a rather small headlen). If
-> what he says is applicable here, it may hint at the pulling we do
-> still not being sufficient for the full TCP header to be in the linear
+Hi Sebastian, Jonas,
 
-__netdev_alloc_skb in netfront is fed with RX_COPY_THRESHOLD+NET_IP_ALIGN.
-RX_COPY_THRESHOLD is 256 while MAX_TCP_HEADER can be as larger as 256+48
-depending on kernel configurations.
+first of all thank you for your HUGE efforts in this area.
 
-> part (which iirc is the main [if not the only purpose] of us doing
-> the pull in the first place).
-> 
+On 07/08/2013 12:05 AM, Jonas Gorski wrote:
+> On Sun, 7 Jul 2013 23:43:41 +0200
+> Jonas Gorski <jogo@openwrt.org> wrote:
+>
+>> On Sun,  7 Jul 2013 22:33:51 +0200
+>> Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com> wrote:
+>>
+>>> Device tree support added to Marvell MV643xx ethernet driver registers
+>>> port devices from port device nodes found on the corresponding controller
+>>> node. The current port device name will cause the second controller to
+>>> fail on registration because of two identical device names. This fixes
+>>> the issue by taking the device node's name also as port device name.
+>>>
+>>> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+>>> Reported-by: Jonas Gorski <jogo@openwrt.org>
+>>> ---
+>>> Cc: Lennert Buytenhek <buytenh@wantstofly.org>
+>>> Cc: Jonas Gorski <jogo@openwrt.org>
+>>> Cc: netdev@vger.kernel.org
+>>> Cc: linux-arm-kernel@lists.infradead.org
+>>> Cc: linux-kernel@vger.kernel.org
+>>> ---
+>>>   drivers/net/ethernet/marvell/mv643xx_eth.c |    2 +-
+>>>   1 file changed, 1 insertion(+), 1 deletion(-)
+>>>
+>>> diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+>>> index 6495bea..1f3a03d 100644
+>>> --- a/drivers/net/ethernet/marvell/mv643xx_eth.c
+>>> +++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+>>> @@ -2521,7 +2521,7 @@ static int mv643xx_eth_shared_of_add_port(struct platform_device *pdev,
+>>>   		of_property_read_u32(pnp, "duplex", &ppd.duplex);
+>>>   	}
+>>>
+>>> -	ppdev = platform_device_alloc(MV643XX_ETH_NAME, ppd.port_number);
+>>> +	ppdev = platform_device_alloc(pnp->name, ppd.port_number);
+>>>   	if (!ppdev)
+>>>   		return -ENOMEM;
+>>>   	ppdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+>>
+>> This breaks ethernet completely, as there is no platform driver
+>> registered for pnp->name ("ethernetX-port"), only for MV643XX_ETH_NAME.
+>
+> Looking back at our conversation, this is my fault.
+> I actually did not change this part as you asked, but I saw the
+> alloc/del issue with port 0, then added the counter and also only
+> replaced the ppd.port_number in the alloc with it. I had completely
+> forgotten at that time to replace the device name; else I would
+> have caught it back then.
+>
+> I only caught it now because I tried your patch and wondered why there
+> wasn't anything registered, not because I saw the problem by review.
+>
 
-Ian, any comment on this?
+The way I understand it, you are "manually" creating platform devices 
+off the port subnodes (which, incidentally, have a compatible = 
+"marvell,kirkwood-eth-port" property), but matching with the driver is 
+indeed performed by device name.
+Hence Sebastian's first patch breaks everything and Jonas' latest one 
+fixes it. Is that correct? Is there any more work ongoing in this area?
 
-Jan, looking at the commit log, the overrun issue in
-xennet_get_responses was not introduced by __pskb_pull_tail. The call to
-xennet_fill_frags has always been in the same place.
+One more question: if my understanding above is correct, what's the 
+reason for NOT having an of_device_id[] table, which looks like was 
+present in Florian Fainelli's first proposal [1]?
 
-Now I start to think about the purpose of "max = MAX_SKB_FRAGS +
-(rx->status <= RX_COPY_THRESHOLD)" in xennet_get_responses which queues
-up to MAX_SKB_FRAGS+1 responeses. I'm not clear about the rationale
-of that line.
+I'm also willing to help testing your present/future kirkwood patches if 
+you like. Please just put me on Cc:
 
+Thank you,
+Gerlando
 
-Wei.
+[1] http://lists.openwall.net/netdev/2013/04/04/42
 
-> Jan
+> Sorry for that.
+>
+> Regards
+> Jonas
+>
