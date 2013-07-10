@@ -1,65 +1,97 @@
-From: Eliezer Tamir <eliezer.tamir-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: [PATCH] socket.7: add description for SO_BUSY_POLL
-Date: Wed, 10 Jul 2013 15:17:45 +0300
-Message-ID: <20130710121745.13118.86907.stgit@ladj378.jer.intel.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH RFC] ipv6: fix route selection if kernel is not compiled
+ with CONFIG_IPV6_ROUTER_PREF
+Date: Wed, 10 Jul 2013 14:22:55 +0200
+Message-ID: <51DD521F.1000905@6wind.com>
+References: <20130707173031.GC9625@order.stressinduktion.org> <20130709215701.GD9763@order.stressinduktion.org> <51DD1352.8000705@6wind.com> <51DD2959.9060206@6wind.com> <20130710105316.GA5735@order.stressinduktion.org>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Eliezer Tamir <eliezer-rsSRdLmRgNEQhDRD3CWCHA@public.gmane.org>
-To: Micahel Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	petrus.lt@gmail.com, davem@davemloft.net
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:56772 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751173Ab3GJMW7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 08:22:59 -0400
+Received: by mail-wi0-f173.google.com with SMTP id hq4so11327052wib.12
+        for <netdev@vger.kernel.org>; Wed, 10 Jul 2013 05:22:57 -0700 (PDT)
+In-Reply-To: <20130710105316.GA5735@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add description for the SO_BUSY_POLL socket option to the socket(7) manpage.
+Le 10/07/2013 12:53, Hannes Frederic Sowa a =C3=A9crit :
+> On Wed, Jul 10, 2013 at 11:28:57AM +0200, Nicolas Dichtel wrote:
+>> Le 10/07/2013 09:54, Nicolas Dichtel a =C3=A9crit :
+>>> Le 09/07/2013 23:57, Hannes Frederic Sowa a =C3=A9crit :
+>>>> After starting a ping6 2000::1 the box should panic soon, after th=
+e
+>>>> first nexthop entry times out.
+>>>>
+>>>> Perhaps you could give me a hint?
+>>> I will run some tests with your patch. Will see.
+>> I don't reproduce this panic.
+>
+> I just dumped the routes for which it does increase the rt6i_nsibling=
+s
+> counter in this condition:
+>
+>                          /* If we have the same destination and the s=
+ame metric,
+>                           * but not the same gateway, then the route =
+we try to
+>                           * add is sibling to this route, increment o=
+ur counter
+>                           * of siblings, and later we will add our ro=
+ute to the
+>                           * list.
+>                           * Only static routes (which don't have flag
+>                           * RTF_EXPIRES) are used for ECMPv6.
+>                           *
+>                           * To avoid long list, we only had siblings =
+if the
+>                           * route have a gateway.
+>                           */
+>                          if (rt->rt6i_flags & RTF_GATEWAY &&
+>                              !(rt->rt6i_flags & RTF_EXPIRES) &&
+>                              !(iter->rt6i_flags & RTF_EXPIRES))
+>                                  rt->rt6i_nsiblings++;
+>                                  dump_route(iter, "(iter)");
+>                                  dump_route(rt, "(rt)");
+> 			}
+>
+>
+>
+> Here:
+>
+> [   42.497470] (iter): ffff88011796cc00 dst 2000::1 plen 128 gateway =
+2001:db8::32, siblings 2, metric 0, expires 0 gateway 2 idev6 ffff88011=
+39ddc00 dev ffff880117e83000
+> [   42.505912] (rt): ffff88011796d800 dst 2000::1 plen 128 gateway fe=
+80::5054:ff:fe82:e153, siblings 1, metric 0, expires 0 gateway 2 idev6 =
+ffff880117edc400 dev ffff8801185cb000
+> [   42.527241] (iter): ffff88011796d380 dst 2000::1 plen 128 gateway =
+2001:db8::33, siblings 2, metric 0, expires 0 gateway 2 idev6 ffff88011=
+39ddc00 dev ffff880117e83000
+> [   42.536440] (rt): ffff88011796d800 dst 2000::1 plen 128 gateway fe=
+80::5054:ff:fe82:e153, siblings 2, metric 0, expires 0 gateway 2 idev6 =
+ffff880117edc400 dev ffff8801185cb000
+>
+>  From my understanding these two routes should not be aggregated in o=
+ne ecmp
+> route set. Am I seeing this correct? (My configuration is like in the=
+ mail
+> before.)
+Hmm, why?
+Routes have the same destination, same metric, are static (expires =3D=3D=
+ 0) and=20
+have a gateway.
 
-Signed-off-by: Eliezer Tamir <eliezer.tamir-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
----
+nsiblings counts the number of siblings and does not contains ourself, =
+hence=20
+both iter should be 1, not 2.
 
- man7/socket.7 |   25 +++++++++++++++++++++++++
- 1 files changed, 25 insertions(+), 0 deletions(-)
-
-diff --git a/man7/socket.7 b/man7/socket.7
-index f2213eb..27603c9 100644
---- a/man7/socket.7
-+++ b/man7/socket.7
-@@ -694,6 +694,31 @@ for details on control messages.
- Gets the socket type as an integer (e.g.,
- .BR SOCK_STREAM ).
- This socket option is read-only.
-+.TP
-+.B SO_BUSY_POLL
-+Sets the approximate time in microseconds to busy poll on a blocking receive
-+when there is no data. Increasing this value requires
-+.BR CAP_NET_ADMIN . 
-+The default for this option is controlled by the
-+.I /proc/sys/net/core/busy_read
-+file. 
-+
-+The value in the  
-+.I /proc/sys/net/core/busy_poll
-+file determines how long 
-+.BR select (2)
-+and 
-+.BR poll (2)
-+will busy poll when they operate on sockets with 
-+.BR SO_BUSY_POLL
-+set and no events to report are found.
-+
-+In both cases busy polling will only be done when the socket last received data
-+from a network device that supports this option.
-+
-+While busy polling my improve latency of some application, care must be
-+taken when using it since this will increase both CPU utilization power usage.
-+
- .SS Signals
- When writing onto a connection-oriented socket that has been shut down
- (by the local or the remote end)
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Nicolas
