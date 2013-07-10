@@ -1,398 +1,249 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH RFC] ipv6: fix route selection if kernel is not compiled
- with CONFIG_IPV6_ROUTER_PREF
-Date: Wed, 10 Jul 2013 09:54:58 +0200
-Message-ID: <51DD1352.8000705@6wind.com>
-References: <20130707173031.GC9625@order.stressinduktion.org> <20130709215701.GD9763@order.stressinduktion.org>
-Reply-To: nicolas.dichtel@6wind.com
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH RFC] xen-netback: calculate the number of slots required
+ for large MTU vifs
+Date: Wed, 10 Jul 2013 09:13:33 +0100
+Message-ID: <20130710081333.GI19798@zion.uk.xensource.com>
+References: <20130709221406.GA13671@u109add4315675089e695.ant.amazon.com>
+ <1373409659-22383-1-git-send-email-msw@amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	petrus.lt@gmail.com, davem@davemloft.net
+Content-Type: text/plain; charset="us-ascii"
+Cc: Xi Xiong <xixiong@amazon.com>, Annie Li <annie.li@oracle.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	<netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+To: Matt Wilson <msw@amazon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:32780 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751043Ab3GJHzF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 03:55:05 -0400
-Received: by mail-wi0-f172.google.com with SMTP id c10so11108378wiw.11
-        for <netdev@vger.kernel.org>; Wed, 10 Jul 2013 00:55:01 -0700 (PDT)
-In-Reply-To: <20130709215701.GD9763@order.stressinduktion.org>
+Received: from smtp.citrix.com ([66.165.176.89]:38074 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752532Ab3GJINe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jul 2013 04:13:34 -0400
+Content-Disposition: inline
+In-Reply-To: <1373409659-22383-1-git-send-email-msw@amazon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 09/07/2013 23:57, Hannes Frederic Sowa a =C3=A9crit :
-> Hello Nicolas!
->
-> I am currently trying to fix the nexthop selection for kernels compil=
-ed
-> without support for CONFIG_IPV6_ROUTER_PREF. I attached my current pa=
-tch
-> below. While testing I got the following kernel panic in ecmp code:
->
-> [   80.144667] ------------[ cut here ]------------
-> [   80.145172] kernel BUG at net/ipv6/ip6_fib.c:733!
-> [   80.145172] invalid opcode: 0000 [#1] SMP
-> [   80.145172] Modules linked in: 8021q nf_conntrack_netbios_ns nf_co=
-nntrack_broadcast ipt_MASQUERADE ip6table_mangle ip6t_REJECT nf_conntra=
-ck_ipv6 nf_defrag_ipv6 iptable_nat nf_nat_ipv4 nf_nat iptable_mangle nf=
-_conntrack_ipv4 nf_defrag_ipv4 xt_conntrack nf_conntrack ebtable_filter=
- ebtables ip6table_filter ip6_tables snd_hda_intel snd_hda_codec snd_hw=
-dep snd_seq snd_seq_device snd_pcm snd_page_alloc snd_timer virtio_ball=
-oon snd soundcore i2c_piix4 i2c_core virtio_net virtio_blk
-> [   80.145172] CPU: 1 PID: 786 Comm: ping6 Not tainted 3.10.0+ #118
-> [   80.145172] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-> [   80.145172] task: ffff880117fa0000 ti: ffff880118770000 task.ti: f=
-fff880118770000
-> [   80.145172] RIP: 0010:[<ffffffff815f3b5d>]  [<ffffffff815f3b5d>] f=
-ib6_add+0x75d/0x830
-> [   80.145172] RSP: 0018:ffff880118771798  EFLAGS: 00010202
-> [   80.145172] RAX: 0000000000000000 RBX: 0000000000000000 RCX: ffff8=
-8011350e480
-> [   80.145172] RDX: ffff88011350e238 RSI: 0000000000000004 RDI: ffff8=
-8011350f738
-> [   80.145172] RBP: ffff880118771848 R08: ffff880117903280 R09: 00000=
-00000000001
-> [   80.145172] R10: 0000000000000000 R11: 0000000000000000 R12: ffff8=
-8011350f680
-> [   80.145172] R13: ffff880117903280 R14: ffff880118771890 R15: ffff8=
-8011350ef90
-> [   80.145172] FS:  00007f02b5127740(0000) GS:ffff88011fd00000(0000) =
-knlGS:0000000000000000
-> [   80.145172] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> [   80.145172] CR2: 00007f981322a000 CR3: 00000001181b1000 CR4: 00000=
-000000006e0
-> [   80.145172] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 00000=
-00000000000
-> [   80.145172] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 00000=
-00000000400
-> [   80.145172] Stack:
-> [   80.145172]  0000000000000001 ffff880100000000 ffff880100000000 ff=
-ff880117903280
-> [   80.145172]  0000000000000000 ffff880119a4cf00 0000000000000400 00=
-000000000007fa
-> [   80.145172]  0000000000000000 0000000000000000 0000000000000000 ff=
-ff88011350f680
-> [   80.145172] Call Trace:
-> [   80.145172]  [<ffffffff815eeceb>] ? rt6_bind_peer+0x4b/0x90
-> [   80.145172]  [<ffffffff815ed985>] __ip6_ins_rt+0x45/0x70
-> [   80.145172]  [<ffffffff815eee35>] ip6_ins_rt+0x35/0x40
-> [   80.145172]  [<ffffffff815ef1e4>] ip6_pol_route.isra.44+0x3a4/0x4b=
-0
-> [   80.145172]  [<ffffffff815ef34a>] ip6_pol_route_output+0x2a/0x30
-> [   80.145172]  [<ffffffff81616077>] fib6_rule_action+0xd7/0x210
-> [   80.145172]  [<ffffffff815ef320>] ? ip6_pol_route_input+0x30/0x30
-> [   80.145172]  [<ffffffff81553026>] fib_rules_lookup+0xc6/0x140
-> [   80.145172]  [<ffffffff81616374>] fib6_rule_lookup+0x44/0x80
-> [   80.145172]  [<ffffffff815ef320>] ? ip6_pol_route_input+0x30/0x30
-> [   80.145172]  [<ffffffff815edea3>] ip6_route_output+0x73/0xb0
-> [   80.145172]  [<ffffffff815dfdf3>] ip6_dst_lookup_tail+0x2c3/0x2e0
-> [   80.145172]  [<ffffffff813007b1>] ? list_del+0x11/0x40
-> [   80.145172]  [<ffffffff81082a4c>] ? remove_wait_queue+0x3c/0x50
-> [   80.145172]  [<ffffffff815dfe4d>] ip6_dst_lookup_flow+0x3d/0xa0
-> [   80.145172]  [<ffffffff815fda77>] rawv6_sendmsg+0x267/0xc20
-> [   80.145172]  [<ffffffff815a8a83>] inet_sendmsg+0x63/0xb0
-> [   80.145172]  [<ffffffff8128eb93>] ? selinux_socket_sendmsg+0x23/0x=
-30
-> [   80.145172]  [<ffffffff815218d6>] sock_sendmsg+0xa6/0xd0
-> [   80.145172]  [<ffffffff81524a68>] SYSC_sendto+0x128/0x180
-> [   80.145172]  [<ffffffff8109825c>] ? update_curr+0xec/0x170
-> [   80.145172]  [<ffffffff81041d09>] ? kvm_clock_get_cycles+0x9/0x10
-> [   80.145172]  [<ffffffff810afd1e>] ? __getnstimeofday+0x3e/0xd0
-> [   80.145172]  [<ffffffff8152509e>] SyS_sendto+0xe/0x10
-> [   80.145172]  [<ffffffff8164efd9>] system_call_fastpath+0x16/0x1b
-> [   80.145172] Code: fe ff ff 41 f6 45 2a 06 0f 85 ca fe ff ff 49 8b =
-7e 08 4c 89 ee e8 94 ef ff ff e9 b9 fe ff ff 48 8b 82 28 05 00 00 e9 01=
- ff ff ff <0f> 0b 49 8b 54 24 30 0d 00 00 40 00 89 83 14 01 00 00 48 89=
- 53
-> [   80.145172] RIP  [<ffffffff815f3b5d>] fib6_add+0x75d/0x830
-> [   80.145172]  RSP <ffff880118771798>
-> [   80.387413] ---[ end trace 02f20b7a8b81ed95 ]---
-> [   80.390154] Kernel panic - not syncing: Fatal exception in interru=
-pt
->
-> The relevant code is:
->
->      725                 /* For each sibling in the list, increment t=
-he counter of
->      726                  * siblings. BUG() if counters does not matc=
-h, list of siblings
->      727                  * is broken!
->      728                  */
->      729                 rt6i_nsiblings =3D 0;
->      730                 list_for_each_entry_safe(sibling, temp_sibli=
-ng,
->      731                                          &rt->rt6i_siblings,=
- rt6i_siblings) {
->      732                         sibling->rt6i_nsiblings++;
->      733                         BUG_ON(sibling->rt6i_nsiblings !=3D =
-rt->rt6i_nsiblings);
->      734                         rt6i_nsiblings++;
->      735                 }
->      736                 BUG_ON(rt6i_nsiblings !=3D rt->rt6i_nsibling=
-s);
->      737         }
->
-> Currently, I don't know if I my patch is to blame or something in the=
- ecmp logic.
->
-> Another thing I just noticed is:
->
->     1240         /* Remove this entry from other siblings */
->     1241         if (rt->rt6i_nsiblings) {
->     1242                 struct rt6_info *sibling, *next_sibling;
->     1243
->     1244                 list_for_each_entry_safe(sibling, next_sibli=
-ng,
->     1245                                          &rt->rt6i_siblings,=
- rt6i_siblings)
->     1246                         sibling->rt6i_nsiblings--;
->     1247                 rt->rt6i_nsiblings =3D 0;
->     1248                 list_del_init(&rt->rt6i_siblings);
->     1249         }
->
-> Are we sure we decrement all sibling's rt6i_nsiblings? Shouldn't we
-> start iterating from fn->leaf? But this does not seem to cause it,
-> because my trace does not report any calls to fib6_del_route.
-Note sure to follow you, but all siblings are listed in rt6i_siblings, =
-so it=20
-must be enough.
+On Tue, Jul 09, 2013 at 10:40:59PM +0000, Matt Wilson wrote:
+> From: Xi Xiong <xixiong@amazon.com>
+> 
+> [ note: I've just cherry picked this onto net-next, and only compile
+>   tested. This a RFC only. -msw ]
+> 
 
->
-> You could try reproduce it by having an interface autoconfigured with
-> a default router with NUD_VALID neighbour. I then added an unused vla=
-n
-> interface (vid 100 in my case) and added the following ip addresses:
->
-> ip -6 a a 2001:ffff::1/64 dev eth0.100
-> ip -6 r a 2000::/3 nexthop via 2001:ffff::30 nexthop via 2001:ffff::3=
-1 nexthop via 2001:ffff::32 nexthop via 2001:ffff::33
->
-> (all nexthops should not be reachable)
->
-> After starting a ping6 2000::1 the box should panic soon, after the
-> first nexthop entry times out.
->
-> Perhaps you could give me a hint?
-I will run some tests with your patch. Will see.
+Should probably rebase it on net.git because it is a bug fix. Let's
+worry about that later...
 
-I assume you didn't reproduce this without your patch.
+> Currently the number of RX slots required to transmit a SKB to
+> xen-netfront can be miscalculated when an interface uses a MTU larger
+> than PAGE_SIZE. If the slot calculation is wrong, xen-netback can
+> pause the queue indefinitely or reuse slots. The former manifests as a
+> loss of connectivity to the guest (which can be restored by lowering
+> the MTU set on the interface). The latter manifests with "Bad grant
+> reference" messages from Xen such as:
+> 
+> (XEN) grant_table.c:1797:d0 Bad grant reference 264241157
+> 
+> and kernel messages within the guest such as:
+> 
+> [  180.419567] net eth0: Invalid extra type: 112
+> [  180.868620] net eth0: rx->offset: 0, size: 4294967295
+> [  180.868629] net eth0: rx->offset: 0, size: 4294967295
+> 
+> BUG_ON() assertions can also be hit if RX slots are exhausted while
+> handling a SKB.
+> 
+> This patch changes xen_netbk_rx_action() to count the number of RX
+> slots actually consumed by netbk_gop_skb() instead of using nr_frags + 1.
+> This prevents under-counting the number of RX slots consumed when a
+> SKB has a large linear buffer.
+> 
+> Additionally, we now store the estimated number of RX slots required
+> to handle a SKB in the cb overlay. This value is used to determine if
+> the next SKB in the queue can be processed.
+> 
+> Finally, the logic in start_new_rx_buffer() can cause RX slots to be
+> wasted when setting up copy grant table operations for SKBs with large
+> linear buffers. For example, a SKB with skb_headlen() equal to 8157
+> bytes that starts 64 bytes 64 bytes from the start of the page will
 
+Duplicated "64 bytes". And this change looks like an improvement not a
+bug fix. Probably submit a separate patch for this?
 
-Regards,
-Nicolas
-
->
-> Thanks a lot,
->
->    Hannes
->
->
-> [PATCH RFC] ipv6: fix route selection if kernel not compiled with CON=
-=46IG_IPV6_ROUTER_PREF
->
-> This is a follow-up patch to 3630d40067a21d4dfbadc6002bb469ce26ac5d52
-> ("ipv6: rt6_check_neigh should successfully verify neigh if no NUD
-> information are available").
->
-> Since the removal of rt->n in rt6_info we can end up with a dst =3D=3D
-> NULL in rt6_check_neigh. In case the kernel is not compiled with
-> CONFIG_IPV6_ROUTER_PREF we should also select a route with unkown
-> NUD state but we must not avoid doing round robin selection on routes
-> with the same target. So introduce and pass down a boolean ``do_rr'' =
-to
-> indicate when we should update rt->rr_ptr. As soon as no route is val=
-id
-> we do backtracking and do a lookup on a higher level in the fib trie.
->
-> To hold correct state on the NUD selection we need to create a neighb=
-our
-> entry as soon as we tried to validate a nexthop.
->
-> I changed the return value of rt6_check_neigh to:
->     1 in case of the dst entry validated
->    -1 in case of we had no dst_entry and we need to do rr now
->    -2 in case a we had a dst_entry and it did not validate
->
-> In case of CONFIG_IPV6_ROUTER_PREF, rt6_probe does not allocate an
-> neighbour entry (!CONFIG_IPV6_ROUTER_PREF: rt6_probe is a nop). Becau=
-se
-> of this, we have to create a neighbour entry on nexthop validation to
-> track earlier validation errors. We recheck NUD state here to shortcu=
-rcuit
-> NUD_NOARP neighbours.
->
-> This seems to be the least complex fix for stable and net. I'll intro=
-duce
-> a new route lookup flag 'idempotent' as soon as next opens to not let
-> ip route get trigger active NUD validation if CONFIG_IPV6_ROUTER_PREF
-> is enabled. Currently we trigger active NUD validation if compiled wi=
-th
-> CONFIG_IPV6_ROUTER_PREF.
->
-> It also seems advantageous to make CONFIG_IPV6_ROUTER_PREF a runtime
-> switch and just select the default operation on compile-time.
->
-> v2:
-> a) improved rt6_check_neigh logic and documented return values
->
-> Reported-by: Pierre Emeriaud <petrus.lt@gmail.com>
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> consume three RX slots instead of two. This patch changes the "head"
+> parameter to netbk_gop_frag_copy() to act as a flag. When set,
+> start_new_rx_buffer() will always place as much data as possible into
+> each RX slot.
+> 
+> Signed-off-by: Xi Xiong <xixiong@amazon.com>
+> Reviewed-by: Matt Wilson <msw@amazon.com>
+> [ msw: minor code cleanups, rewrote commit message, adjusted code
+>   to count RX slots instead of meta structures ]
+> Signed-off-by: Matt Wilson <msw@amazon.com>
+> Cc: Annie Li <annie.li@oracle.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
+> Cc: Ian Campbell <Ian.Campbell@citrix.com>
+> Cc: netdev@vger.kernel.org
+> Cc: xen-devel@lists.xenproject.org
 > ---
->   net/ipv6/route.c | 62 +++++++++++++++++++++++++++++++++++----------=
------------
->   1 file changed, 39 insertions(+), 23 deletions(-)
->
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index bd5fd70..c5d9e68 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -531,28 +531,34 @@ static inline int rt6_check_dev(struct rt6_info=
- *rt, int oif)
->   	return 0;
->   }
->
-> -static inline bool rt6_check_neigh(struct rt6_info *rt)
-> +/* This function checks if a neighbour is reachable for routing
-> + * purposes. It returns -2 in case the neighbour should not get
-> + * selected as a viable router, -1 in case it should get selected wi=
-th
-> + * lowest score and afterwards trying roundrobin. 1 indicates a
-> + * successfull verification.
-> + */
-> +static inline int rt6_check_neigh(struct rt6_info *rt)
->   {
->   	struct neighbour *neigh;
-> -	bool ret =3D false;
-> +	int ret =3D -2;
->
->   	if (rt->rt6i_flags & RTF_NONEXTHOP ||
->   	    !(rt->rt6i_flags & RTF_GATEWAY))
-> -		return true;
-> +		return 1;
->
->   	rcu_read_lock_bh();
->   	neigh =3D __ipv6_neigh_lookup_noref(rt->dst.dev, &rt->rt6i_gateway=
-);
->   	if (neigh) {
->   		read_lock(&neigh->lock);
->   		if (neigh->nud_state & NUD_VALID)
-> -			ret =3D true;
-> +			ret =3D 1;
->   #ifdef CONFIG_IPV6_ROUTER_PREF
->   		else if (!(neigh->nud_state & NUD_FAILED))
-> -			ret =3D true;
-> +			ret =3D 1;
->   #endif
->   		read_unlock(&neigh->lock);
-> -	} else if (IS_ENABLED(CONFIG_IPV6_ROUTER_PREF)) {
-> -		ret =3D true;
-> +	} else {
-> +		ret =3D IS_ENABLED(CONFIG_IPV6_ROUTER_PREF) ? 1 : -1;
->   	}
->   	rcu_read_unlock_bh();
->
-> @@ -566,43 +572,52 @@ static int rt6_score_route(struct rt6_info *rt,=
- int oif,
->
->   	m =3D rt6_check_dev(rt, oif);
->   	if (!m && (strict & RT6_LOOKUP_F_IFACE))
-> -		return -1;
-> +		return -2;
->   #ifdef CONFIG_IPV6_ROUTER_PREF
->   	m |=3D IPV6_DECODE_PREF(IPV6_EXTRACT_PREF(rt->rt6i_flags)) << 2;
->   #endif
-> -	if (!rt6_check_neigh(rt) && (strict & RT6_LOOKUP_F_REACHABLE))
-> -		return -1;
-> +	if (strict & RT6_LOOKUP_F_REACHABLE) {
-> +		int n =3D rt6_check_neigh(rt);
-> +		if (n < 0)
-> +			return n;
-> +	}
->   	return m;
->   }
->
->   static struct rt6_info *find_match(struct rt6_info *rt, int oif, in=
-t strict,
-> -				   int *mpri, struct rt6_info *match)
-> +				   int *mpri, struct rt6_info *match,
-> +				   bool *do_rr)
->   {
->   	int m;
-> +	bool match_do_rr =3D false;
->
->   	if (rt6_check_expired(rt))
->   		goto out;
->
->   	m =3D rt6_score_route(rt, oif, strict);
-> -	if (m < 0)
-> +	if (m =3D=3D -1 && !IS_ENABLED(CONFIG_IPV6_ROUTER_PREF)) {
-> +		match_do_rr =3D true;
-> +		m =3D 0; /* lowest valid score */
-> +	} else if (m < 0) {
->   		goto out;
-> +	}
+>  drivers/net/xen-netback/netback.c |   51 ++++++++++++++++++++++--------------
+>  1 files changed, 31 insertions(+), 20 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index 64828de..82dd207 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -110,6 +110,11 @@ union page_ext {
+>  	void *mapping;
+>  };
+>  
+> +struct skb_cb_overlay {
+> +	int meta_slots_used;
+> +	int peek_slots_count;
+> +};
 > +
-> +	if (strict & RT6_LOOKUP_F_REACHABLE)
-> +		rt6_probe(rt);
->
->   	if (m > *mpri) {
-> -		if (strict & RT6_LOOKUP_F_REACHABLE)
-> -			rt6_probe(match);
-> +		*do_rr =3D match_do_rr;
->   		*mpri =3D m;
->   		match =3D rt;
-> -	} else if (strict & RT6_LOOKUP_F_REACHABLE) {
-> -		rt6_probe(rt);
->   	}
+>  struct xen_netbk {
+>  	wait_queue_head_t wq;
+>  	struct task_struct *task;
+> @@ -370,6 +375,7 @@ unsigned int xen_netbk_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
+>  {
+>  	unsigned int count;
+>  	int i, copy_off;
+> +	struct skb_cb_overlay *sco;
+>  
+>  	count = DIV_ROUND_UP(skb_headlen(skb), PAGE_SIZE);
+>  
+> @@ -411,6 +417,9 @@ unsigned int xen_netbk_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
+>  				offset = 0;
+>  		}
+>  	}
+> +
+> +	sco = (struct skb_cb_overlay *) skb->cb;
+> +	sco->peek_slots_count = count;
+>  	return count;
+>  }
+>  
+> @@ -443,13 +452,12 @@ static struct netbk_rx_meta *get_next_rx_buffer(struct xenvif *vif,
+>  }
+>  
+>  /*
+> - * Set up the grant operations for this fragment. If it's a flipping
+> - * interface, we also set up the unmap request from here.
+> + * Set up the grant operations for this fragment.
+>   */
+>  static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
+>  				struct netrx_pending_operations *npo,
+>  				struct page *page, unsigned long size,
+> -				unsigned long offset, int *head)
+> +				unsigned long offset, int head, int *first)
+>  {
+>  	struct gnttab_copy *copy_gop;
+>  	struct netbk_rx_meta *meta;
+> @@ -479,12 +487,12 @@ static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
+>  		if (bytes > size)
+>  			bytes = size;
+>  
+> -		if (start_new_rx_buffer(npo->copy_off, bytes, *head)) {
+> +		if (start_new_rx_buffer(npo->copy_off, bytes, head)) {
+>  			/*
+>  			 * Netfront requires there to be some data in the head
+>  			 * buffer.
+>  			 */
+> -			BUG_ON(*head);
+> +			BUG_ON(*first);
+>  
+>  			meta = get_next_rx_buffer(vif, npo);
+>  		}
+> @@ -529,10 +537,10 @@ static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
+>  		}
+>  
+>  		/* Leave a gap for the GSO descriptor. */
+> -		if (*head && skb_shinfo(skb)->gso_size && !vif->gso_prefix)
+> +		if (*first && skb_shinfo(skb)->gso_size && !vif->gso_prefix)
+>  			vif->rx.req_cons++;
+>  
+> -		*head = 0; /* There must be something in this buffer now. */
+> +		*first = 0; /* There must be something in this buffer now. */
+>  
+>  	}
+>  }
+> @@ -558,7 +566,7 @@ static int netbk_gop_skb(struct sk_buff *skb,
+>  	struct xen_netif_rx_request *req;
+>  	struct netbk_rx_meta *meta;
+>  	unsigned char *data;
+> -	int head = 1;
+> +	int first = 1;
+>  	int old_meta_prod;
+>  
+>  	old_meta_prod = npo->meta_prod;
+> @@ -594,16 +602,16 @@ static int netbk_gop_skb(struct sk_buff *skb,
+>  			len = skb_tail_pointer(skb) - data;
+>  
+>  		netbk_gop_frag_copy(vif, skb, npo,
+> -				    virt_to_page(data), len, offset, &head);
+> +				virt_to_page(data), len, offset, 1, &first);
+>  		data += len;
+>  	}
+>  
+>  	for (i = 0; i < nr_frags; i++) {
+>  		netbk_gop_frag_copy(vif, skb, npo,
+> -				    skb_frag_page(&skb_shinfo(skb)->frags[i]),
+> -				    skb_frag_size(&skb_shinfo(skb)->frags[i]),
+> -				    skb_shinfo(skb)->frags[i].page_offset,
+> -				    &head);
+> +				skb_frag_page(&skb_shinfo(skb)->frags[i]),
+> +				skb_frag_size(&skb_shinfo(skb)->frags[i]),
+> +				skb_shinfo(skb)->frags[i].page_offset,
+> +				0, &first);
+>  	}
+>  
+>  	return npo->meta_prod - old_meta_prod;
+> @@ -661,10 +669,6 @@ static void netbk_add_frag_responses(struct xenvif *vif, int status,
+>  	}
+>  }
+>  
+> -struct skb_cb_overlay {
+> -	int meta_slots_used;
+> -};
 > -
->   out:
->   	return match;
->   }
->
->   static struct rt6_info *find_rr_leaf(struct fib6_node *fn,
->   				     struct rt6_info *rr_head,
-> -				     u32 metric, int oif, int strict)
-> +				     u32 metric, int oif, int strict,
-> +				     bool *do_rr)
->   {
->   	struct rt6_info *rt, *match;
->   	int mpri =3D -1;
-> @@ -610,10 +625,10 @@ static struct rt6_info *find_rr_leaf(struct fib=
-6_node *fn,
->   	match =3D NULL;
->   	for (rt =3D rr_head; rt && rt->rt6i_metric =3D=3D metric;
->   	     rt =3D rt->dst.rt6_next)
-> -		match =3D find_match(rt, oif, strict, &mpri, match);
-> +		match =3D find_match(rt, oif, strict, &mpri, match, do_rr);
->   	for (rt =3D fn->leaf; rt && rt !=3D rr_head && rt->rt6i_metric =3D=
-=3D metric;
->   	     rt =3D rt->dst.rt6_next)
-> -		match =3D find_match(rt, oif, strict, &mpri, match);
-> +		match =3D find_match(rt, oif, strict, &mpri, match, do_rr);
->
->   	return match;
->   }
-> @@ -622,15 +637,16 @@ static struct rt6_info *rt6_select(struct fib6_=
-node *fn, int oif, int strict)
->   {
->   	struct rt6_info *match, *rt0;
->   	struct net *net;
-> +	bool do_rr =3D false;
->
->   	rt0 =3D fn->rr_ptr;
->   	if (!rt0)
->   		fn->rr_ptr =3D rt0 =3D fn->leaf;
->
-> -	match =3D find_rr_leaf(fn, rt0, rt0->rt6i_metric, oif, strict);
-> +	match =3D find_rr_leaf(fn, rt0, rt0->rt6i_metric, oif, strict,
-> +			     &do_rr);
->
-> -	if (!match &&
-> -	    (strict & RT6_LOOKUP_F_REACHABLE)) {
-> +	if (do_rr) {
->   		struct rt6_info *next =3D rt0->dst.rt6_next;
->
->   		/* no entries matched; do round-robin */
->
+>  static void xen_netbk_rx_action(struct xen_netbk *netbk)
+>  {
+>  	struct xenvif *vif = NULL, *tmp;
+> @@ -690,19 +694,26 @@ static void xen_netbk_rx_action(struct xen_netbk *netbk)
+>  	count = 0;
+>  
+>  	while ((skb = skb_dequeue(&netbk->rx_queue)) != NULL) {
+> +		RING_IDX old_rx_req_cons;
+> + 
+>  		vif = netdev_priv(skb->dev);
+>  		nr_frags = skb_shinfo(skb)->nr_frags;
+>  
+> +		old_rx_req_cons = vif->rx.req_cons;
+>  		sco = (struct skb_cb_overlay *)skb->cb;
+>  		sco->meta_slots_used = netbk_gop_skb(skb, &npo);
+>  
+> -		count += nr_frags + 1;
+> +		count += vif->rx.req_cons - old_rx_req_cons;
+>  
+>  		__skb_queue_tail(&rxq, skb);
+>  
+> +		skb = skb_peek(&netbk->rx_queue);
+> +		if (skb == NULL)
+> +			break;
+> +		sco = (struct skb_cb_overlay *) skb->cb;
+> +
+>  		/* Filled the batch queue? */
+> -		/* XXX FIXME: RX path dependent on MAX_SKB_FRAGS */
+> -		if (count + MAX_SKB_FRAGS >= XEN_NETIF_RX_RING_SIZE)
+> +		if (count + sco->peek_slots_count >= XEN_NETIF_RX_RING_SIZE)
+>  			break;
+
+Using req_cons to count is OK, but since you've already store the number
+of slots in sco->peek_slots_count before actually queueing the packet,
+why don't you use that directly?
+
+
+Wei.
+
+>  	}
+>  
+> -- 
+> 1.7.4.5
