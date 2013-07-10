@@ -1,71 +1,50 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] virtio-net: put virtio net header inline with data
-Date: Tue, 09 Jul 2013 17:38:51 +0930
-Message-ID: <87vc4kcfzg.fsf@rustcorp.com.au>
-References: <20130708101259.GA16074@redhat.com>
-	<871u78eavc.fsf@rustcorp.com.au> <20130709051824.GA3234@redhat.com>
+From: Rob Landley <rob@landley.net>
+Subject: Re: [GIT] Networking
+Date: Tue, 09 Jul 2013 20:54:45 -0500
+Message-ID: <1373421285.27613.36@driftwood>
+References: <CA+55aFxbipsZFC2iQsVchstOP_7mR48sUbo96LEJ4kxtZWQDKQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Dave Jones <davej@redhat.com>, "David S. Miller" <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130709051824.GA3234@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii; DelSp=Yes; Format=Flowed
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFxbipsZFC2iQsVchstOP_7mR48sUbo96LEJ4kxtZWQDKQ@mail.gmail.com>
+	(from torvalds@linux-foundation.org on Tue Jul  9 12:32:56 2013)
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Michael S. Tsirkin" <mst@redhat.com> writes:
-> On Tue, Jul 09, 2013 at 11:46:23AM +0930, Rusty Russell wrote:
->> "Michael S. Tsirkin" <mst@redhat.com> writes:
->> > For small packets we can simplify xmit processing
->> > by linearizing buffers with the header:
->> > most packets seem to have enough head room
->> > we can use for this purpose.
->> > Since existing hypervisors require that header
->> > is the first s/g element, we need a feature bit
->> > for this.
->> >
->> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->> > ---
->> >
->> > Note: this needs to be applied on top of patch
->> > defining VIRTIO_F_ANY_LAYOUT - bit to be
->> > selected by Rusty.
->> >
->> > The following patch should work for any definition of
->> > VIRTIO_F_ANY_LAYOUT - I used bit 31 for testing.
->> > Rusty, could you please pick a valid bit for VIRTIO_F_ANY_LAYOUT
->> > and squeeze this patch into 3.11?
->> 
->> Sorry, it's too late.
->> 
->> First, I've been a bit lax in sending patches via DaveM, and this is
->> definitely his territory (ie. more net than virtio).
->
-> Let's do this: I'll send a patch series, you ack and we see
-> what happens?
+On 07/09/2013 12:32:56 PM, Linus Torvalds wrote:
+> On Mon, Jul 8, 2013 at 7:29 PM, Rob Landley <rob@landley.net> wrote:
+> >
+> > Um, does that mean I should have cc'd you on the initmpfs patch  
+> series
+> > back before the merge window opened?
+> 
+> So I personally don't tend to care about that kind of patch-series -
+> it doesn't really add new features to basic code unlike the polling
+> changes.
 
-If you convince DaveM, I won't object :)
+I tried to be as non-intrusive as possible while mucking about with  
+early boot code on all targets. :)
 
->> Secondly, it needs baking and testing time.
->> 
->> Cheers,
->> Rusty.
->
-> I did some testing on this.  But proper testing just isn't happening out
-> of tree.
+> But I suspect for something like that series, the people to
+> cc are Al Viro and Hugh Dickins because they maintain vfs adn tmpfs
+> respectively.. That said, I think neither really cares.deeply, and
+> this looks like a "Andrew" patch-series if only because it's so random
+> ;)
 
-But it will get into linux-next for the *next* merge window.
+All three were cc'd by get_maintainer.pl, but none of 'em seem to have  
+noticed.
 
-Cheers,
-Rusty.
+The embedded community continues to have strange needs, but they make  
+sense to us. (And oddly enough to the supercomputer folks, who are  
+basically "embedded with money".)
+
+Thanks,
+
+Rob
