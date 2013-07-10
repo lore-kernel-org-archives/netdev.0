@@ -1,74 +1,73 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2 net 2/2] macvtap: correctly linearize skb when
- zerocopy is used
-Date: Wed, 10 Jul 2013 09:15:43 +0300
-Message-ID: <20130710061542.GE19759@redhat.com>
-References: <1373435008-19407-1-git-send-email-jasowang@redhat.com>
- <1373435008-19407-2-git-send-email-jasowang@redhat.com>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [Xen-devel] [PATCH] xen-netfront: pull on receive skb may
+ need to happen earlier
+Date: Wed, 10 Jul 2013 07:58:06 +0100
+Message-ID: <51DD221E02000078000E3BC6@nat28.tlf.novell.com>
+References: <8511913.uMAmUdIO30@eistomin.edss.local>
+ <20130517085923.GC14401@zion.uk.xensource.com>
+ <51D57C1F.8070909@hunenet.nl>
+ <20130704150137.GW7483@zion.uk.xensource.com>
+ <51D6AED902000078000E2EA9@nat28.tlf.novell.com>
+ <20130705145319.GB9050@zion.uk.xensource.com>
+ <51DAA9B202000078000E3357@nat28.tlf.novell.com>
+ <51DAE6CA02000078000E3566@nat28.tlf.novell.com>
+ <20130708154814.GI8027@zion.uk.xensource.com>
+ <51DBCF4F02000078000E3793@nat28.tlf.novell.com>
+ <20130709165134.GG19798@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: "Ian Campbell" <ian.campbell@citrix.com>, <davem@davemloft.net>,
+	"Dion Kant" <g.w.kant@hunenet.nl>, <xen-devel@lists.xen.org>,
+	<netdev@vger.kernel.org>, <stable@vger.kernel.org>
+To: "Wei Liu" <wei.liu2@citrix.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20130709165134.GG19798@zion.uk.xensource.com>
 Content-Disposition: inline
-In-Reply-To: <1373435008-19407-2-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 10, 2013 at 01:43:28PM +0800, Jason Wang wrote:
-> Userspace may produce vectors greater than MAX_SKB_FRAGS. When we try to
-> linearize parts of the skb to let the rest of iov to be fit in
-> the frags, we need count copylen into linear when calling macvtap_alloc_skb()
-> instead of partly counting it into data_len. Since this breaks
-> zerocopy_sg_from_iovec() since its inner counter assumes nr_frags should
-> be zero at beginning. This cause nr_frags to be increased wrongly without
-> setting the correct frags.
+>>> On 09.07.13 at 18:51, Wei Liu <wei.liu2@citrix.com> wrote:
+> On Tue, Jul 09, 2013 at 07:52:31AM +0100, Jan Beulich wrote:
+>> >>> On 08.07.13 at 17:48, Wei Liu <wei.liu2@citrix.com> wrote:
+>> > On Mon, Jul 08, 2013 at 03:20:26PM +0100, Jan Beulich wrote:
+>> >> @@ -1014,7 +1025,7 @@ err:
+>> >>  
+>> >>  		skb_shinfo(skb)->frags[0].page_offset = rx->offset;
+>> >>  		skb_frag_size_set(&skb_shinfo(skb)->frags[0], rx->status);
+>> >> -		skb->data_len = rx->status;
+>> >> +		skb->len = skb->data_len = rx->status;
+>> > 
+>> > This is not correct. You should not be needing this. Now you lose count
+>> > of SKB head len. Try to go without the above line and see if it makes a
+>> > difference?
+>> 
+>> I don't follow - at this point, there's 0 bytes of head (this only
+>> changes with the first call to __pskb_pull_tail()). Hence ->len ==
+>> ->data_len seems correct to me (and afaict pulling would do the
+>> wrong thing if I dropped that change).
+>> 
 > 
-> This bug were introduced from b92946e2919134ebe2a4083e4302236295ea2a73
-> (macvtap: zerocopy: validate vectors before building skb).
+> My bad, I suggested the wrong thing. :-(
 > 
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> But I would prefer skb->len += skb->data_len. In the case that skb->len
+> == 0 it's the same as your line while skb->len is not zero it would also
+> do the right thing.
 
+I can do that, albeit I don't see how ->len could end up non-zero
+here.
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> As for the warning in skb_try_coalesce, I don't see any direct call to
+> it in netfront, I will need to think about it. It looks like it's really
+> something very deep in the stack.
 
-> ---
-> - This patch is needed for stable.
-> - Changes from v1: introduce a local variable to track linear size.
-> ---
->  drivers/net/macvtap.c |    8 ++++++--
->  1 files changed, 6 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index b6dd6a7..502d948 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -647,6 +647,7 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
->  	int vnet_hdr_len = 0;
->  	int copylen = 0;
->  	bool zerocopy = false;
-> +	size_t linear;
->  
->  	if (q->flags & IFF_VNET_HDR) {
->  		vnet_hdr_len = q->vnet_hdr_sz;
-> @@ -701,11 +702,14 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
->  			copylen = vnet_hdr.hdr_len;
->  		if (!copylen)
->  			copylen = GOODCOPY_LEN;
-> -	} else
-> +		linear = copylen;
-> +	} else {
->  		copylen = len;
-> +		linear = vnet_hdr.hdr_len;
-> +	}
->  
->  	skb = macvtap_alloc_skb(&q->sk, NET_IP_ALIGN, copylen,
-> -				vnet_hdr.hdr_len, noblock, &err);
-> +				linear, noblock, &err);
->  	if (!skb)
->  		goto err;
->  
-> -- 
-> 1.7.1
+Yes, as the call stack provided by Dion proves. The question
+really is whether the patch somehow results in ->truesize to be
+incorrect, or whether - as Eric points out - this is "normal" for
+the sort of special SKBs here (having a rather small headlen). If
+what he says is applicable here, it may hint at the pulling we do
+still not being sufficient for the full TCP header to be in the linear
+part (which iirc is the main [if not the only purpose] of us doing
+the pull in the first place).
+
+Jan
