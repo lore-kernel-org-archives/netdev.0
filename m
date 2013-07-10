@@ -1,61 +1,46 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: Re: [Xen-devel] [PATCH] xen-netfront: pull on receive skb may
- need to happen earlier
-Date: Wed, 10 Jul 2013 14:58:42 +0100
-Message-ID: <51DD84B202000078000E3EF8@nat28.tlf.novell.com>
-References: <51D57C1F.8070909@hunenet.nl>
- <20130704150137.GW7483@zion.uk.xensource.com>
- <51D6AED902000078000E2EA9@nat28.tlf.novell.com>
- <20130705145319.GB9050@zion.uk.xensource.com>
- <51DAA9B202000078000E3357@nat28.tlf.novell.com>
- <51DAE6CA02000078000E3566@nat28.tlf.novell.com>
- <20130708154814.GI8027@zion.uk.xensource.com>
- <51DBCF4F02000078000E3793@nat28.tlf.novell.com>
- <20130709165134.GG19798@zion.uk.xensource.com>
- <51DD221E02000078000E3BC6@nat28.tlf.novell.com>
- <20130710100416.GL19798@zion.uk.xensource.com>
- <51DD57C102000078000E3D38@nat28.tlf.novell.com>
- <1373460644.5453.109.camel@hastur.hellion.org.uk>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH net-next v2 1/3] net: rename include/net/ll_poll.h to
+ include/net/busy_poll.h
+Date: Wed, 10 Jul 2013 17:00:48 +0300
+Message-ID: <51DD6910.80207@linux.intel.com>
+References: <20130710121349.12906.85078.stgit@ladj378.jer.intel.com> <51DD5F05.6030206@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: "Wei Liu" <wei.liu2@citrix.com>, <davem@davemloft.net>,
-	"Dion Kant" <g.w.kant@hunenet.nl>, <xen-devel@lists.xen.org>,
-	<netdev@vger.kernel.org>, <stable@vger.kernel.org>
-To: "Ian Campbell" <ian.campbell@citrix.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1373460644.5453.109.camel@hastur.hellion.org.uk>
-Content-Disposition: inline
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Jonathan Corbet <corbet@lwn.net>,
+	e1000-devel@lists.sourceforge.net,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Arend van Spriel <arend@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51DD5F05.6030206@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>> On 10.07.13 at 14:50, Ian Campbell <ian.campbell@citrix.com> wrote:
-> On Wed, 2013-07-10 at 11:46 +0100, Jan Beulich wrote:
->> >>> On 10.07.13 at 12:04, Wei Liu <wei.liu2@citrix.com> wrote:
->> > Jan, looking at the commit log, the overrun issue in
->> > xennet_get_responses was not introduced by __pskb_pull_tail. The call to
->> > xennet_fill_frags has always been in the same place.
->> 
->> I'm convinced it was: Prior to that commit, if the first response slot
->> contained up to RX_COPY_THRESHOLD bytes, it got entirely
->> consumed into the linear portion of the SKB, leaving the number of
->> fragments available for filling at MAX_SKB_FRAGS. Said commit
->> dropped the early copying, leaving the fragment count at 1
->> unconditionally, and now accumulates all of the response slots into
->> fragments, only pulling after all of them got filled in. It neglected to
->> realize - due to the count now always being 1 at the beginning - that
->> this can lead to MAX_SKB_FRAGS + 1 frags getting filled, corrupting
->> memory.
+On 10/07/2013 16:17, Arend van Spriel wrote:
+> On 07/10/2013 02:13 PM, Eliezer Tamir wrote:
+>> Rename the file and correct all the places where it is included.
+>> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+>> ---
+>>   include/net/busy_poll.h                         |  183
+>> +++++++++++++++++++++++
+>>   include/net/ll_poll.h                           |  183
+>> -----------------------
 > 
-> That argument makes sense to me.
-> 
-> Is it possible to hit a scenario where we need to pull more than
-> RX_COPY_THRESHOLD in order to fit all of the data in MAX_SKB_FRAGS ?
+> Did you use -M command line option with 'git format-patch'?
 
-I'm not aware of any, but I'm no expert here in any way.
+No, I'm using stg so I was not aware of the option.
+If this is how we expect people to send patches, why isn't this the default.
 
-> Does this relate somehow to the patch Annie has sent out recently too?
+I will resend shortly with -M
 
-I don't think so.
-
-Jan
+Thanks,
+Eliezer
