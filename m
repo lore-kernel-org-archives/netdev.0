@@ -1,110 +1,132 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Extremely bad performance with RTL8111/8168B
-Date: Wed, 10 Jul 2013 00:29:51 +0100
-Message-ID: <1373412591.2523.7.camel@bwh-desktop.uk.level5networks.com>
-References: <20130708095459.GA29788@amd.pavel.ucw.cz>
-	 <1373291269.4979.102.camel@edumazet-glaptop>
-	 <20130708220149.GA15766@electric-eye.fr.zoreil.com>
-	 <20130709000902.GB19366@amd.pavel.ucw.cz>
-	 <1373328752.4979.129.camel@edumazet-glaptop>
-	 <20130709093224.GB20470@amd.pavel.ucw.cz>
+From: "Eric S. Raymond" <esr@thyrsus.com>
+Subject: [PATCH] In tc-ematch.8, remove no-op .ti requests to prevent
+ translation warnings
+Date: Tue, 9 Jul 2013 20:13:06 -0400
+Message-ID: <20130710001306.GA9346@thyrsus.com>
+Reply-To: esr@thyrsus.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Hayes Wang <hayeswang@realtek.com>, <netdev@vger.kernel.org>
-To: Pavel Machek <pavel@ucw.cz>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:33472 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753545Ab3GIX3z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jul 2013 19:29:55 -0400
-In-Reply-To: <20130709093224.GB20470@amd.pavel.ucw.cz>
+Received: from static-71-162-243-5.phlapa.fios.verizon.net ([71.162.243.5]:46840
+	"EHLO snark.thyrsus.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753788Ab3GJANN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jul 2013 20:13:13 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-07-09 at 11:32 +0200, Pavel Machek wrote:
-> On Mon 2013-07-08 17:12:32, Eric Dumazet wrote:
-> > On Tue, 2013-07-09 at 02:09 +0200, Pavel Machek wrote:
-> > 
-> > > BTW I'm on 100mbit switch, so advanced stuff needed for gigabit speed
-> > > is not too important for me. I may want to connect it with cross cable
-> > > in future, but for now...
-> > 
-> > Check "ethtool eth0" and make sure you are in full-duplex mode.
-> 
-> It seems that is not a problem... and I guess I have new speed record:
-> 
-> pavel@amd:~$ scp /tmp/delme pavel@duo:/tmp
-> pavel@duo's password: 
-> delme                                          66%   22MB  11.7KB/s - stalled -
-> /tmp/delme: Broken pipe
-> pavel@amd:~$ 
-> 
-> (No, I did not terminate the transfer, it just died :-().
-> 
-> root@duo:~# ethtool eth0
-> Settings for eth0:
-> 	Supported ports: [ TP MII ]
-> 	Supported link modes:   10baseT/Half 10baseT/Full 
-> 	                        100baseT/Half 100baseT/Full 
-> 	                        1000baseT/Half 1000baseT/Full 
-> 	Supports auto-negotiation: Yes
-> 	Advertised link modes:  10baseT/Half 10baseT/Full 
-> 	                        100baseT/Half 100baseT/Full 
-> 	                        1000baseT/Half 1000baseT/Full 
-> 	Advertised pause frame use: Symmetric Receive-only
-> 	Advertised auto-negotiation: Yes
-> 	Link partner advertised link modes:  10baseT/Half 10baseT/Full 
-> 	                                     100baseT/Half 100baseT/Full 
-> 	Link partner advertised pause frame use: Symmetric
-> 	Link partner advertised auto-negotiation: Yes
-[...]
-> Hmm, that is slightly interesting. What is the pause stuff? e1000e on
-> the same switch reports:
->
-> Settings for eth0:
-> 	Supported ports: [ TP ]
-> 	Supported link modes:   10baseT/Half 10baseT/Full 
-> 	                        100baseT/Half 100baseT/Full 
-> 	                        1000baseT/Full 
-> 	Supports auto-negotiation: Yes
-> 	Advertised link modes:  10baseT/Half 10baseT/Full 
-> 	                        100baseT/Half 100baseT/Full 
-> 	                        1000baseT/Full 
-> 	Advertised pause frame use: No
+These do nothing on an 80-column display. They were clearly somebody's
+boilerplate way of setting up hanging indents, but the syntax lines
+are way too short to require them. And since most were argumentless
+they would have been no-ops on any sized display.
+---
+ man/man8/tc-ematch.8 | 27 +++++----------------------
+ 1 file changed, 5 insertions(+), 22 deletions(-)
 
-e1000e doesn't report the advertised pause frame flags (or any link
-partner advertising flags).
+diff --git a/man/man8/tc-ematch.8 b/man/man8/tc-ematch.8
+index 567ce7d..b9bf70c 100644
+--- a/man/man8/tc-ematch.8
++++ b/man/man8/tc-ematch.8
+@@ -6,54 +6,43 @@ ematch \- extended matches for use with "basic" or "flow" filters
+ .SH SYNOPSIS
+ .sp
+ .ad l
+-.in +8
+-.ti -8
+ .B "tc filter add .. basic match"
+ .RI EXPR
+ .B .. flowid ..
+ .sp
+ 
+-.ti -8
+ .IR EXPR " := " TERM " [ { "
+ .B and | or
+ }
+ .IR EXPR
+ ]
+ 
+-.ti -8
+ .IR TERM " := [ " \fBnot " ] { " MATCH " | '(' " EXPR " ')' } "
+ 
+-.ti -8
+ .IR MATCH " := " module " '(' " ARGS " ')' "
+ 
+-.ti -8
+ .IR ARGS " := " ARG1 " " ARG2 " ..
+ 
+ .SH MATCHES
+ 
+ .SS cmp
+ Simple comparison ematch: arithmetic compare of packet data to a given value.
+-.ti
++
+ .IR cmp "( " ALIGN " at " OFFSET " [ " ATTRS " ] { " eq " | " lt " | " gt " } " VALUE " )
+ 
+-.ti
+ .IR ALIGN " := { " u8 " | " u16 " | " u32 " } "
+ 
+-.ti
+ .IR ATTRS " := [ layer " LAYER " ] [ mask " MASK " ] [ trans ]
+ 
+-.ti
+ .IR LAYER " := { " link " | " network " | " transport " | " 0..2 " }
+ 
+ .SS meta
+ Metadata ematch
+-.ti
++
+ .IR meta "( " OBJECT " { " eq " | " lt " |" gt " } " OBJECT " )
+ 
+-.ti
+ .IR OBJECT " := { " META_ID " |  " VALUE " }
+ 
+-.ti
+ .IR META_ID " := " id " [ shift " SHIFT " ] [ mask " MASK " ]
+ 
+ .TP
+@@ -78,35 +67,29 @@ A full list of meta attributes can be obtained via
+ 
+ .SS nbyte
+ match packet data byte sequence
+-.ti
++
+ .IR nbyte "( " NEEDLE  " at " OFFSET " [ layer " LAYER " ] )
+ 
+-.ti
+ .IR NEEDLE  " := { " string " | " c-escape-sequence "  } "
+ 
+-.ti
+ .IR OFFSET  " := " int
+ 
+-.ti
+ .IR LAYER " := { " link " | " network " | " transport " | " 0..2 " }
+ 
+ .SS u32
+ u32 ematch
+-.ti
++
+ .IR u32 "( " ALIGN " " VALUE " " MASK " at [ nexthdr+ ] " OFFSET " )
+ 
+-.ti
+ .IR ALIGN " := { " u8 " | " u16 " | " u32 " }
+ 
+ .SS ipset
+ test packet against ipset membership
+-.ti
++
+ .IR ipset "( " SETNAME " " FLAGS " )
+ 
+-.ti
+ .IR SETNAME " := " string
+ 
+-.ti
+ .IR FLAGS " := { " FLAG " [, " FLAGS "] }
+ 
+ The flag options are the same as those used by the iptables "set" match.
+-- 
+1.8.0.1.g2b06c9a
 
-> 	Advertised auto-negotiation: Yes
-> 	Speed: 100Mb/s
-> 	Duplex: Full
-> 	Port: Twisted Pair
-> 	PHYAD: 1
-> 	Transceiver: internal
-> 	Auto-negotiation: on
-> 	MDI-X: on
-> 	Supports Wake-on: pumbg
-> 	Wake-on: g
-> 	Current message level: 0x00000007 (7)
-> 	Link detected: yes
-> root@amd:~# 
-> 
-> I tried 
-> 
-> root@duo:~# ethtool -A eth0 rx off tx off
-> Cannot get device pause settings: Operation not supported
-> root@duo:~# 
-> 
-> Also... Why it reports Port: MII instead of "twisted pair"?
-
-Minor bug in r8169, not really relevant.
-
-Ben.
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+		<a href="http://www.catb.org/~esr/">Eric S. Raymond</a>
