@@ -1,46 +1,169 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [PATCH 1/1] xen/netback: correctly calculate required slots of
- skb.
-Date: Wed, 10 Jul 2013 16:34:50 +0800
-Message-ID: <51DD1CAA.7060908@oracle.com>
-References: <1373350520-19985-1-git-send-email-annie.li@oracle.com> <20130709161612.GF19798@zion.uk.xensource.com> <51DCC795.2070806@oracle.com> <20130710074851.GH19798@zion.uk.xensource.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xensource.com, netdev@vger.kernel.org,
-	Ian.Campbell@citrix.com, konrad.wilk@oracle.com
-To: Wei Liu <wei.liu2@citrix.com>
+From: Annie Li <annie.li@oracle.com>
+Subject: [PATCH v2 1/1] xen/netback: correctly calculate required slots of skb.
+Date: Wed, 10 Jul 2013 17:15:11 +0800
+Message-ID: <1373447711-31303-1-git-send-email-annie.li@oracle.com>
+Cc: konrad.wilk@oracle.com, annie.li@oracle.com, msw@amazon.com
+To: xen-devel@lists.xensource.com, netdev@vger.kernel.org,
+	Ian.Campbell@citrix.com, wei.liu2@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:23141 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753460Ab3GJIe1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 04:34:27 -0400
-In-Reply-To: <20130710074851.GH19798@zion.uk.xensource.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:44213 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752179Ab3GJJUY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 05:20:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+When counting required slots for skb, netback directly uses DIV_ROUND_UP to get
+slots required by header data. This is wrong when offset in the page of header
+data is not zero, and is also inconsistent with following calculation for
+required slot in netbk_gop_skb.
 
-On 2013-7-10 15:48, Wei Liu wrote:
-> On Wed, Jul 10, 2013 at 10:31:49AM +0800, annie li wrote:
-> [...]
->>> This seems to differ from netbk_gop_frag_copy. In that function it's
->>> like
->>>
->>>      if (*head && skb_shinfo(skb)->gso_size && !vif->gso_prefix)
->> I mixed netbk_gop_frag_copy and xen_netbk_count_skb_slots just now,
->> so please ignore the comments here in my last email.
->> In xen_netbk_count_skb_slots, we have following code already, so it
->> is not necessary to add gso condition here.
->>
->>          if (skb_shinfo(skb)->gso_size)
->>                  count++;
->>
-> Oh I see. But the condition still seems to be different from the
-> original one -- you missed !vif->gso_prefix.
+In netbk_gop_skb, required slots are calculated based on offset and len in page
+of header data. It is possible that required slots here is larger than the one
+calculated in earlier netbk_count_requests. This inconsistency directly results
+in rx_req_cons_peek and xen_netbk_rx_ring_full judgement are wrong.
 
-The original code in xen_netbk_count_skb_slots does not have 
-!vif->gso_prefix. But I think you are right, it is better to keep 
-consistent with that in netbk_gop_frag_copy.
+Then it comes to situation the ring is actually full, but netback thinks it is
+not and continues to create responses. This results in response overlaps request
+in the ring, then grantcopy gets wrong grant reference and throws out error,
+for example "(XEN) grant_table.c:1763:d0 Bad grant reference 2949120", the
+grant reference is invalid value here. Netback returns XEN_NETIF_RSP_ERROR(-1)
+to netfront when grant copy status is error, then netfront gets rx->status
+(the status is -1, not really data size now), and throws out error,
+"kernel: net eth1: rx->offset: 0, size: 4294967295". This issue can be reproduced
+by doing gzip/gunzip in nfs share with mtu = 9000, the guest would panic after
+running such test for a while.
 
-Thanks
-Annie
+This patch is based on 3.10-rc7.
+
+Signed-off-by: Annie Li <annie.li@oracle.com>
+---
+ drivers/net/xen-netback/netback.c |   98 ++++++++++++++++++++++++-------------
+ 1 files changed, 63 insertions(+), 35 deletions(-)
+
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 8c20935..d2a9478 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -354,56 +354,84 @@ static bool start_new_rx_buffer(int offset, unsigned long size, int head)
+ 	return false;
+ }
+ 
+-/*
+- * Figure out how many ring slots we're going to need to send @skb to
+- * the guest. This function is essentially a dry run of
+- * netbk_gop_frag_copy.
+- */
+-unsigned int xen_netbk_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
++static int netbk_count_slots(struct xenvif *vif, struct sk_buff *skb,
++			    int *copy_off, unsigned long size,
++			    unsigned long offset, int *head)
+ {
+-	unsigned int count;
+-	int i, copy_off;
++	unsigned long bytes;
++	int count = 0;
+ 
+-	count = DIV_ROUND_UP(skb_headlen(skb), PAGE_SIZE);
++	offset &= ~PAGE_MASK;
+ 
+-	copy_off = skb_headlen(skb) % PAGE_SIZE;
++	while (size > 0) {
++		BUG_ON(offset >= PAGE_SIZE);
++		BUG_ON(*copy_off > MAX_BUFFER_OFFSET);
+ 
+-	if (skb_shinfo(skb)->gso_size)
+-		count++;
++		bytes = PAGE_SIZE - offset;
+ 
+-	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+-		unsigned long size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
+-		unsigned long offset = skb_shinfo(skb)->frags[i].page_offset;
+-		unsigned long bytes;
++		if (bytes > size)
++			bytes = size;
+ 
+-		offset &= ~PAGE_MASK;
++		if (start_new_rx_buffer(*copy_off, bytes, *head)) {
++			count++;
++			*copy_off = 0;
++		}
+ 
+-		while (size > 0) {
+-			BUG_ON(offset >= PAGE_SIZE);
+-			BUG_ON(copy_off > MAX_BUFFER_OFFSET);
++		if (*copy_off + bytes > MAX_BUFFER_OFFSET)
++			bytes = MAX_BUFFER_OFFSET - *copy_off;
+ 
+-			bytes = PAGE_SIZE - offset;
++		*copy_off += bytes;
+ 
+-			if (bytes > size)
+-				bytes = size;
++		offset += bytes;
++		size -= bytes;
+ 
+-			if (start_new_rx_buffer(copy_off, bytes, 0)) {
+-				count++;
+-				copy_off = 0;
+-			}
++		/* Next frame */
++		if (offset == PAGE_SIZE && size)
++			offset = 0;
++
++		if (*head)
++			count++;
++		*head = 0; /* There must be something in this buffer now. */
++	}
++
++	return count;
++}
+ 
+-			if (copy_off + bytes > MAX_BUFFER_OFFSET)
+-				bytes = MAX_BUFFER_OFFSET - copy_off;
++/*
++ * Figure out how many ring slots we're going to need to send @skb to
++ * the guest. This function is essentially a dry run of
++ * netbk_gop_frag_copy.
++ */
++unsigned int xen_netbk_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
++{
++	int i, copy_off = 0;
++	int nr_frags = skb_shinfo(skb)->nr_frags;
++	unsigned char *data;
++	int head = 1;
++	unsigned int count = 0;
+ 
+-			copy_off += bytes;
++	if (skb_shinfo(skb)->gso_size && !vif->gso_prefix)
++		count++;
+ 
+-			offset += bytes;
+-			size -= bytes;
++	data = skb->data;
++	while (data < skb_tail_pointer(skb)) {
++		unsigned int offset = offset_in_page(data);
++		unsigned int len = PAGE_SIZE - offset;
+ 
+-			if (offset == PAGE_SIZE)
+-				offset = 0;
+-		}
++		if (data + len > skb_tail_pointer(skb))
++			len = skb_tail_pointer(skb) - data;
++
++		count += netbk_count_slots(vif, skb, &copy_off, len,
++					   offset, &head);
++		data += len;
++	}
++
++	for (i = 0; i < nr_frags; i++) {
++		count += netbk_count_slots(vif, skb, &copy_off,
++				skb_frag_size(&skb_shinfo(skb)->frags[i]),
++				skb_shinfo(skb)->frags[i].page_offset, &head);
+ 	}
++
+ 	return count;
+ }
+ 
+-- 
+1.7.3.4
