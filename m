@@ -1,74 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: rename low latency sockets functions to
- busy poll
-Date: Tue, 09 Jul 2013 21:41:56 -0700 (PDT)
-Message-ID: <20130709.214156.1738814737075691376.davem@davemloft.net>
-References: <20130709162514.062f1361@lwn.net>
-	<20130709.160611.636749585237773459.davem@davemloft.net>
-	<51DCD50C.6070606@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: corbet@lwn.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, dwmw2@infradead.org,
-	eliezer@tamir.org.il
-To: eliezer.tamir@linux.intel.com
+From: esr@thyrsus.com (Eric S. Raymond)
+Subject: [PATCH] ip-rule.8: Fix presentational use of .SS.
+Date: Wed, 10 Jul 2013 00:49:35 -0400 (EDT)
+Message-ID: <20130710044935.7E22943797@snark.thyrsus.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35213 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750768Ab3GJEl5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 00:41:57 -0400
-In-Reply-To: <51DCD50C.6070606@linux.intel.com>
+Received: from static-71-162-243-5.phlapa.fios.verizon.net ([71.162.243.5]:49683
+	"EHLO snark.thyrsus.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751247Ab3GJEtl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 00:49:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Date: Wed, 10 Jul 2013 06:29:16 +0300
+---
+ man/man8/ip-rule.8 | 21 ++++++++++++---------
+ 1 file changed, 12 insertions(+), 9 deletions(-)
 
-> If the following names changes are acceptable I will try to send out
-> a patch today.
-> 
-> 1. include/net/ll_poll.h -> include/net/busy_poll.h
+diff --git a/man/man8/ip-rule.8 b/man/man8/ip-rule.8
+index 36f461b..36e46f1 100644
+--- a/man/man8/ip-rule.8
++++ b/man/man8/ip-rule.8
+@@ -140,7 +140,7 @@ are only used if the route did not select any attributes.
+ .sp
+ The RPDB may contain rules of the following types:
+ 
+-.in +8
++.RS
+ .B unicast
+ - the rule prescribes to return the route found
+ in the routing table referenced by the rule.
+@@ -158,12 +158,14 @@ prohibited' error.
+ .B nat
+ - the rule prescribes to translate the source address
+ of the IP packet into some other value.
+-.in -8
+-
+-.SS ip rule add - insert a new rule
+-.SS ip rule delete - delete a rule
++.RE
+ 
+ .TP
++.B ip rule add - insert a new rule
++.TP
++.B ip rule delete - delete a rule
++.RS
++.TP
+ .BI type " TYPE " (default)
+ the type of this rule.  The list of valid types was given in the previous
+ subsection.
+@@ -237,11 +239,12 @@ Changes to the RPDB made with these commands do not become active
+ immediately.  It is assumed that after a script finishes a batch of
+ updates, it flushes the routing cache with
+ .BR "ip route flush cache" .
+-
+-.SS ip rule flush - also dumps all the deleted rules.
++.RE
++.TP
++.B ip rule flush - also dumps all the deleted rules.
+ This command has no arguments.
+-
+-.SS ip rule show - list rules
++.TP
++.B ip rule show - list rules
+ This command has no arguments.
+ The options list or lst are synonyms with show.
+ 
+-- 
+1.8.0.1.g2b06c9a
 
-Agreed.
 
-> 2. ndo_ll_poll -> ndo_busy_poll
-> 
-> - not technically accurate since the ndo callback does not itself busy
-> poll, it's just used to implement it.
 
-I think this name change is accurate, it expresses the two elements of
-what it does.  It's busy waiting, in that it's doing a synchronous
-scan of the device's RX queue, and it's polling just like NAPI polling
-does.
+-- 
+		<a href="http://www.catb.org/~esr/">Eric S. Raymond</a>
 
-> maybe ndo_napi_id_poll? or ndo_id_poll? I don't really like any of them,
-> so a suggestion would be nice.
-
-This would make it sound like it's some new version of the existing
-NAPI poll.
-
-Well... what would be great would be to come up with some single
-interface that drivers can implement rather than having to have
-both napi->poll and netdevice_ops->ndo_ll_poll().  But that's a task
-for a later date.
-
-Therefore, ndo_busy_poll is probably best for now.
-
-> 3. sysctl_net_ll_{read,poll} -> sysctl_net_busy_{read,poll}
-> - along with matching file name changes.
-
-Agreed.
-
-> 4. {sk,skb}_mark_ll -> {sk,skb}_mark_napi_id
-
-Agreed.
-
-> 5. LL_SO -> BUSY_POLL_SO
-
-Agreed.
-
-> Did I miss anything?
-
-Nope, looks complete.  And also do the manpage update.
+I do not find in orthodox Christianity one redeeming feature.
+	-- Thomas Jefferson
