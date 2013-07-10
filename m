@@ -1,39 +1,56 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 1/2] virtio: support unlocked queue poll
-Date: Wed, 10 Jul 2013 12:39:58 +0930
-Message-ID: <87k3kzcdq1.fsf@rustcorp.com.au>
-References: <1373274069-4301-1-git-send-email-mst@redhat.com>
-	<1373274069-4301-2-git-send-email-mst@redhat.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH] ifb: fix rcu_sched self-detected stalls
+Date: Wed, 10 Jul 2013 12:04:02 +0800
+Message-ID: <51DCDD32.30102@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1373274069-4301-2-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+To: Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:49029 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750710Ab3GJEGR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 00:06:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst@redhat.com> writes:
-> This adds a way to check ring empty state after enable_cb outside any
-> locks. Will be used by virtio_net.
->
-> Note: there's room for more optimization: caller is likely to have a
-> memory barrier already, which means we might be able to get rid of a
-> barrier here.  Deferring this optimization until we do some
-> benchmarking.
->
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+According to the commit 16b0dc29c1af9df341428f4c49ada4f626258082
+(dummy: fix rcu_sched self-detected stalls)
 
-Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+Eric Dumazet fix the problem in dummy, but the ifb will occur the
+same problem like the dummy modules.
 
-Thanks,
-Rusty.
+Trying to "modprobe ifb numifbs=30000" triggers :
+
+INFO: rcu_sched self-detected stall on CPU
+
+After this splat, RTNL is locked and reboot is needed.
+
+We must call cond_resched() to avoid this, even holding RTNL.
+
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/net/ifb.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
+index dc9f6a4..a11f7a4 100644
+--- a/drivers/net/ifb.c
++++ b/drivers/net/ifb.c
+@@ -292,8 +292,10 @@ static int __init ifb_init_module(void)
+ 	rtnl_lock();
+ 	err = __rtnl_link_register(&ifb_link_ops);
+ 
+-	for (i = 0; i < numifbs && !err; i++)
++	for (i = 0; i < numifbs && !err; i++) {
+ 		err = ifb_init_one(i);
++		cond_resched();
++	}
+ 	if (err)
+ 		__rtnl_link_unregister(&ifb_link_ops);
+ 	rtnl_unlock();
+-- 
+1.8.0
