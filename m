@@ -1,43 +1,60 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH RFC] ipv6: fix route selection if kernel is not compiled with CONFIG_IPV6_ROUTER_PREF
-Date: Wed, 10 Jul 2013 17:20:01 +0200
-Message-ID: <20130710152001.GH15411@order.stressinduktion.org>
-References: <20130707173031.GC9625@order.stressinduktion.org> <20130709215701.GD9763@order.stressinduktion.org> <51DD1352.8000705@6wind.com> <51DD2959.9060206@6wind.com> <20130710105316.GA5735@order.stressinduktion.org> <51DD521F.1000905@6wind.com> <20130710132122.GD15411@order.stressinduktion.org> <51DD6B72.1050700@6wind.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	petrus.lt@gmail.com, davem@davemloft.net
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:37083 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754155Ab3GJPUD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 11:20:03 -0400
-Content-Disposition: inline
-In-Reply-To: <51DD6B72.1050700@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wolfram Sang <wsa@the-dreams.de>
+Subject: [PATCH 08/12] drivers/net/ethernet/cadence: don't use devm_pinctrl_get_select_default() in probe
+Date: Wed, 10 Jul 2013 16:57:43 +0100
+Message-ID: <1373471889-18107-8-git-send-email-wsa@the-dreams.de>
+References: <1373471889-18107-1-git-send-email-wsa@the-dreams.de>
+Cc: Wolfram Sang <wsa@the-dreams.de>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1373471889-18107-1-git-send-email-wsa@the-dreams.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 10, 2013 at 04:10:58PM +0200, Nicolas Dichtel wrote:
-> Le 10/07/2013 15:21, Hannes Frederic Sowa a =C3=A9crit :
-> >On Wed, Jul 10, 2013 at 02:22:55PM +0200, Nicolas Dichtel wrote:
-> >>Le 10/07/2013 12:53, Hannes Frederic Sowa a =C3=A9crit :
-> >The route with rt6i_gateway does actually expire because I got it fr=
-om
-> >autoconf and ip -6 r l confirms this, too. It seems this is only the=
- cached
-> >route (I will confirm shortly). Is this still ok?
-> I wonder why expires is 0. Even if this route is cached, the flag=20
-> RTF_EXPIRES should be set. Am I wrong?
+Since commit ab78029 (drivers/pinctrl: grab default handles from device core),
+we can rely on device core for setting the default pins. Compile tested only.
 
-It seems it is possible cached route gets its expiration updated. As
-such it is not counted in the iteration but it is found as a sibling an=
-d its
-nsiblings count is updated again.
+Acked-by: Linus Walleij <linus.walleij@linaro.org> (personally at LCE13)
+Signed-off-by: Wolfram Sang <wsa@the-dreams.de>
+---
+ drivers/net/ethernet/cadence/at91_ether.c |   11 -----------
+ 1 file changed, 11 deletions(-)
 
-(sorry for the additional mail, forgot to send it to the list)
-
-Greetings,
-
-  Hannes
+diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
+index 3f19571..bb5d63f 100644
+--- a/drivers/net/ethernet/cadence/at91_ether.c
++++ b/drivers/net/ethernet/cadence/at91_ether.c
+@@ -29,7 +29,6 @@
+ #include <linux/of.h>
+ #include <linux/of_device.h>
+ #include <linux/of_net.h>
+-#include <linux/pinctrl/consumer.h>
+ 
+ #include "macb.h"
+ 
+@@ -309,7 +308,6 @@ static int __init at91ether_probe(struct platform_device *pdev)
+ 	struct resource *regs;
+ 	struct net_device *dev;
+ 	struct phy_device *phydev;
+-	struct pinctrl *pinctrl;
+ 	struct macb *lp;
+ 	int res;
+ 	u32 reg;
+@@ -319,15 +317,6 @@ static int __init at91ether_probe(struct platform_device *pdev)
+ 	if (!regs)
+ 		return -ENOENT;
+ 
+-	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
+-	if (IS_ERR(pinctrl)) {
+-		res = PTR_ERR(pinctrl);
+-		if (res == -EPROBE_DEFER)
+-			return res;
+-
+-		dev_warn(&pdev->dev, "No pinctrl provided\n");
+-	}
+-
+ 	dev = alloc_etherdev(sizeof(struct macb));
+ 	if (!dev)
+ 		return -ENOMEM;
+-- 
+1.7.10.4
