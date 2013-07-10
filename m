@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] Networking
-Date: Tue, 09 Jul 2013 21:35:55 -0700 (PDT)
-Message-ID: <20130709.213555.1037822981842851807.davem@davemloft.net>
-References: <20130709.145325.1363244885668360965.davem@davemloft.net>
-	<CA+55aFwgYoGKRLde_4KBnUr1nENpwdahJv8+wHJ502HcGJW1pA@mail.gmail.com>
+Subject: Re: [PATCH] virtio-net: put virtio net header inline with data
+Date: Tue, 09 Jul 2013 21:38:07 -0700 (PDT)
+Message-ID: <20130709.213807.350021632586146971.davem@davemloft.net>
+References: <871u78eavc.fsf@rustcorp.com.au> <20130709051824.GA3234@redhat.com>
+	<87vc4kcfzg.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFwgYoGKRLde_4KBnUr1nENpwdahJv8+wHJ502HcGJW1pA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: amwang@redhat.com, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, davej@redhat.com
+To: rusty@rustcorp.com.au
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <87vc4kcfzg.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Tue, 9 Jul 2013 19:50:41 -0700
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Tue, 09 Jul 2013 17:38:51 +0930
 
-> Now, I'm all for making descriptive merge commit messages, including
-> improving on the summary line. So by all means write those nice merge
-> messages with explanations. I think something like
-> 
->     dc3d807d6fd9 Merge "openvswitch: gre tunneling support."
-> 
-> would have been a *fine* summary line, for example, and quite possibly
-> better than the default kind of git merge summary lines (ie "Merge
-> branch 'openswitch'"). So I'm not against playing with merge messages
-> per se, it's literally this "cannot tell it's a merge any more in the
-> summary" that I thing is a problem.
+> If you convince DaveM, I won't object :)
 
-Ok, I'll use that format in the future.  I was actually trying to add
-more information, not less. :-) But yeah that header line has to
-mention that it's a merge, for sure.
+Simplifications are great, but not when the merge window opens up.
+
+Sorry, this isn't appropriate now.
