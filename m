@@ -1,272 +1,95 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH RFC] xen-netback: calculate the number of slots required
- for large MTU vifs
-Date: Wed, 10 Jul 2013 20:37:03 +0100
-Message-ID: <20130710193703.GB20453@zion.uk.xensource.com>
-References: <20130709221406.GA13671@u109add4315675089e695.ant.amazon.com>
- <1373409659-22383-1-git-send-email-msw@amazon.com>
- <20130710081333.GI19798@zion.uk.xensource.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [PATCH net] gso: Update tunnel segmentation to support Tx checksum
+	offload
+Date: Wed, 10 Jul 2013 13:43:03 -0700
+Message-ID: <20130710203439.14927.20911.stgit@ahduyck-hc1.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Xi Xiong <xixiong@amazon.com>, Annie Li <annie.li@oracle.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	<netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
-To: Matt Wilson <msw@amazon.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, pshelar@nicira.com,
+	joseph.gasparakis@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:26179 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754600Ab3GJThG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 15:37:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20130710081333.GI19798@zion.uk.xensource.com>
+Received: from mga14.intel.com ([143.182.124.37]:20843 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754908Ab3GJUic (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jul 2013 16:38:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 10, 2013 at 09:13:33AM +0100, Wei Liu wrote:
-> On Tue, Jul 09, 2013 at 10:40:59PM +0000, Matt Wilson wrote:
-> > From: Xi Xiong <xixiong@amazon.com>
-> > 
-> > [ note: I've just cherry picked this onto net-next, and only compile
-> >   tested. This a RFC only. -msw ]
-> > 
-> 
-> Should probably rebase it on net.git because it is a bug fix. Let's
-> worry about that later...
-> 
-> > Currently the number of RX slots required to transmit a SKB to
-> > xen-netfront can be miscalculated when an interface uses a MTU larger
-> > than PAGE_SIZE. If the slot calculation is wrong, xen-netback can
-> > pause the queue indefinitely or reuse slots. The former manifests as a
-> > loss of connectivity to the guest (which can be restored by lowering
-> > the MTU set on the interface). The latter manifests with "Bad grant
-> > reference" messages from Xen such as:
-> > 
-> > (XEN) grant_table.c:1797:d0 Bad grant reference 264241157
-> > 
-> > and kernel messages within the guest such as:
-> > 
-> > [  180.419567] net eth0: Invalid extra type: 112
-> > [  180.868620] net eth0: rx->offset: 0, size: 4294967295
-> > [  180.868629] net eth0: rx->offset: 0, size: 4294967295
-> > 
-> > BUG_ON() assertions can also be hit if RX slots are exhausted while
-> > handling a SKB.
-> > 
-> > This patch changes xen_netbk_rx_action() to count the number of RX
-> > slots actually consumed by netbk_gop_skb() instead of using nr_frags + 1.
-> > This prevents under-counting the number of RX slots consumed when a
-> > SKB has a large linear buffer.
-> > 
-> > Additionally, we now store the estimated number of RX slots required
-> > to handle a SKB in the cb overlay. This value is used to determine if
-> > the next SKB in the queue can be processed.
-> > 
-> > Finally, the logic in start_new_rx_buffer() can cause RX slots to be
-> > wasted when setting up copy grant table operations for SKBs with large
-> > linear buffers. For example, a SKB with skb_headlen() equal to 8157
-> > bytes that starts 64 bytes 64 bytes from the start of the page will
-> 
-> Duplicated "64 bytes". And this change looks like an improvement not a
-> bug fix. Probably submit a separate patch for this?
-> 
-> > consume three RX slots instead of two. This patch changes the "head"
-> > parameter to netbk_gop_frag_copy() to act as a flag. When set,
-> > start_new_rx_buffer() will always place as much data as possible into
-> > each RX slot.
-> > 
-> > Signed-off-by: Xi Xiong <xixiong@amazon.com>
-> > Reviewed-by: Matt Wilson <msw@amazon.com>
-> > [ msw: minor code cleanups, rewrote commit message, adjusted code
-> >   to count RX slots instead of meta structures ]
-> > Signed-off-by: Matt Wilson <msw@amazon.com>
-> > Cc: Annie Li <annie.li@oracle.com>
-> > Cc: Wei Liu <wei.liu2@citrix.com>
-> > Cc: Ian Campbell <Ian.Campbell@citrix.com>
-> > Cc: netdev@vger.kernel.org
-> > Cc: xen-devel@lists.xenproject.org
-> > ---
-> >  drivers/net/xen-netback/netback.c |   51 ++++++++++++++++++++++--------------
-> >  1 files changed, 31 insertions(+), 20 deletions(-)
-> > 
-> > diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> > index 64828de..82dd207 100644
-> > --- a/drivers/net/xen-netback/netback.c
-> > +++ b/drivers/net/xen-netback/netback.c
-> > @@ -110,6 +110,11 @@ union page_ext {
-> >  	void *mapping;
-> >  };
-> >  
-> > +struct skb_cb_overlay {
-> > +	int meta_slots_used;
-> > +	int peek_slots_count;
-> > +};
-> > +
-> >  struct xen_netbk {
-> >  	wait_queue_head_t wq;
-> >  	struct task_struct *task;
-> > @@ -370,6 +375,7 @@ unsigned int xen_netbk_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
-> >  {
-> >  	unsigned int count;
-> >  	int i, copy_off;
-> > +	struct skb_cb_overlay *sco;
-> >  
-> >  	count = DIV_ROUND_UP(skb_headlen(skb), PAGE_SIZE);
-> >  
-> > @@ -411,6 +417,9 @@ unsigned int xen_netbk_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
-> >  				offset = 0;
-> >  		}
-> >  	}
-> > +
-> > +	sco = (struct skb_cb_overlay *) skb->cb;
-> > +	sco->peek_slots_count = count;
-> >  	return count;
-> >  }
-> >  
-> > @@ -443,13 +452,12 @@ static struct netbk_rx_meta *get_next_rx_buffer(struct xenvif *vif,
-> >  }
-> >  
-> >  /*
-> > - * Set up the grant operations for this fragment. If it's a flipping
-> > - * interface, we also set up the unmap request from here.
-> > + * Set up the grant operations for this fragment.
-> >   */
-> >  static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
-> >  				struct netrx_pending_operations *npo,
-> >  				struct page *page, unsigned long size,
-> > -				unsigned long offset, int *head)
-> > +				unsigned long offset, int head, int *first)
-> >  {
-> >  	struct gnttab_copy *copy_gop;
-> >  	struct netbk_rx_meta *meta;
-> > @@ -479,12 +487,12 @@ static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
-> >  		if (bytes > size)
-> >  			bytes = size;
-> >  
-> > -		if (start_new_rx_buffer(npo->copy_off, bytes, *head)) {
-> > +		if (start_new_rx_buffer(npo->copy_off, bytes, head)) {
-> >  			/*
-> >  			 * Netfront requires there to be some data in the head
-> >  			 * buffer.
-> >  			 */
-> > -			BUG_ON(*head);
-> > +			BUG_ON(*first);
-> >  
-> >  			meta = get_next_rx_buffer(vif, npo);
-> >  		}
-> > @@ -529,10 +537,10 @@ static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
-> >  		}
-> >  
-> >  		/* Leave a gap for the GSO descriptor. */
-> > -		if (*head && skb_shinfo(skb)->gso_size && !vif->gso_prefix)
-> > +		if (*first && skb_shinfo(skb)->gso_size && !vif->gso_prefix)
-> >  			vif->rx.req_cons++;
-> >  
-> > -		*head = 0; /* There must be something in this buffer now. */
-> > +		*first = 0; /* There must be something in this buffer now. */
-> >  
-> >  	}
-> >  }
-> > @@ -558,7 +566,7 @@ static int netbk_gop_skb(struct sk_buff *skb,
-> >  	struct xen_netif_rx_request *req;
-> >  	struct netbk_rx_meta *meta;
-> >  	unsigned char *data;
-> > -	int head = 1;
-> > +	int first = 1;
-> >  	int old_meta_prod;
-> >  
-> >  	old_meta_prod = npo->meta_prod;
-> > @@ -594,16 +602,16 @@ static int netbk_gop_skb(struct sk_buff *skb,
-> >  			len = skb_tail_pointer(skb) - data;
-> >  
-> >  		netbk_gop_frag_copy(vif, skb, npo,
-> > -				    virt_to_page(data), len, offset, &head);
-> > +				virt_to_page(data), len, offset, 1, &first);
-> >  		data += len;
-> >  	}
-> >  
-> >  	for (i = 0; i < nr_frags; i++) {
-> >  		netbk_gop_frag_copy(vif, skb, npo,
-> > -				    skb_frag_page(&skb_shinfo(skb)->frags[i]),
-> > -				    skb_frag_size(&skb_shinfo(skb)->frags[i]),
-> > -				    skb_shinfo(skb)->frags[i].page_offset,
-> > -				    &head);
-> > +				skb_frag_page(&skb_shinfo(skb)->frags[i]),
-> > +				skb_frag_size(&skb_shinfo(skb)->frags[i]),
-> > +				skb_shinfo(skb)->frags[i].page_offset,
-> > +				0, &first);
-> >  	}
-> >  
-> >  	return npo->meta_prod - old_meta_prod;
-> > @@ -661,10 +669,6 @@ static void netbk_add_frag_responses(struct xenvif *vif, int status,
-> >  	}
-> >  }
-> >  
-> > -struct skb_cb_overlay {
-> > -	int meta_slots_used;
-> > -};
-> > -
-> >  static void xen_netbk_rx_action(struct xen_netbk *netbk)
-> >  {
-> >  	struct xenvif *vif = NULL, *tmp;
-> > @@ -690,19 +694,26 @@ static void xen_netbk_rx_action(struct xen_netbk *netbk)
-> >  	count = 0;
-> >  
-> >  	while ((skb = skb_dequeue(&netbk->rx_queue)) != NULL) {
-> > +		RING_IDX old_rx_req_cons;
-> > + 
-> >  		vif = netdev_priv(skb->dev);
-> >  		nr_frags = skb_shinfo(skb)->nr_frags;
-> >  
-> > +		old_rx_req_cons = vif->rx.req_cons;
-> >  		sco = (struct skb_cb_overlay *)skb->cb;
-> >  		sco->meta_slots_used = netbk_gop_skb(skb, &npo);
-> >  
-> > -		count += nr_frags + 1;
-> > +		count += vif->rx.req_cons - old_rx_req_cons;
-> >  
-> >  		__skb_queue_tail(&rxq, skb);
-> >  
-> > +		skb = skb_peek(&netbk->rx_queue);
-> > +		if (skb == NULL)
-> > +			break;
-> > +		sco = (struct skb_cb_overlay *) skb->cb;
-> > +
-> >  		/* Filled the batch queue? */
-> > -		/* XXX FIXME: RX path dependent on MAX_SKB_FRAGS */
-> > -		if (count + MAX_SKB_FRAGS >= XEN_NETIF_RX_RING_SIZE)
-> > +		if (count + sco->peek_slots_count >= XEN_NETIF_RX_RING_SIZE)
-> >  			break;
-> 
-> Using req_cons to count is OK, but since you've already store the number
-> of slots in sco->peek_slots_count before actually queueing the packet,
-> why don't you use that directly?
-> 
+This change makes it so that the GRE and VXLAN tunnels can make use of Tx
+checksum offload support provided by some drivers via the hw_enc_features.
+This resolves a performance regression seen when using TSO versus just
+using the Tx checksum offload.
 
-Ah, I must be off my head here. I mixed several patches 1) my RFC patch
-that removes MAX_SKB_FRAGS in RX path, 2) Annie's patch and 3) your
-patch.
+To achieve this it was necessary to address two items.  First
+netif_skb_features needed to be updated so that it would correctly handle
+the Trans Ether Bridging protocol.  To that end the reference to
+skb->protocol was replaced with a call to skb_network_protocol.
 
-The reason that your patches uses req_cons instead of pre-calculated
-value is, that value returned by xen_netbk_skb_count_slots is actually
-*wrong* -- that's what Annie tried to fix in her patch.
+Second it was necessary to update the GRE and UDP tunnel segmentation
+offloads so that they would reset the encapsulation bit and inner header
+offsets after the offload was complete.
 
-After fixing xen_netbk_skb_count_slots, we would need the above snippet
-(or the snippet I proposed in my RFC patch) to prevent overruning the
-ring.
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
 
-So a proper patch to this issue (not couting RX slots correctly causing
-overrun of the ring) would be the above two aspects combined.
+I am submitting this as a fix for 3.11 and stable, however the fix for
+stable would likely need some modification since it seems that gre.c was
+renamed to gre_offload.c at some point between 3.10 and 3.11.  If needed
+I can submit a separate patch for stable.
 
-Comments?
+ net/core/dev.c         |    2 +-
+ net/ipv4/gre_offload.c |    3 +++
+ net/ipv4/udp.c         |    4 +++-
+ 3 files changed, 7 insertions(+), 2 deletions(-)
 
-
-Wei.
-
-> 
-> Wei.
-> 
-> >  	}
-> >  
-> > -- 
-> > 1.7.4.5
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 560dafd..0419961 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2495,7 +2495,7 @@ static netdev_features_t harmonize_features(struct sk_buff *skb,
+ 
+ netdev_features_t netif_skb_features(struct sk_buff *skb)
+ {
+-	__be16 protocol = skb->protocol;
++	__be16 protocol = skb_network_protocol(skb);
+ 	netdev_features_t features = skb->dev->features;
+ 
+ 	if (skb_shinfo(skb)->gso_segs > skb->dev->gso_max_segs)
+diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
+index 775d5b5..55e6bfb 100644
+--- a/net/ipv4/gre_offload.c
++++ b/net/ipv4/gre_offload.c
+@@ -100,6 +100,9 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
+ 		}
+ 		__skb_push(skb, tnl_hlen - ghl);
+ 
++		skb_reset_inner_headers(skb);
++		skb->encapsulation = 1;
++
+ 		skb_reset_mac_header(skb);
+ 		skb_set_network_header(skb, mac_len);
+ 		skb->mac_len = mac_len;
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 6b270e5..d399dd5 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -2323,6 +2323,9 @@ struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
+ 		struct udphdr *uh;
+ 		int udp_offset = outer_hlen - tnl_hlen;
+ 
++		skb_reset_inner_headers(skb);
++		skb->encapsulation = 1;
++
+ 		skb->mac_len = mac_len;
+ 
+ 		skb_push(skb, outer_hlen);
+@@ -2345,7 +2348,6 @@ struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
+ 				uh->check = CSUM_MANGLED_0;
+ 
+ 		}
+-		skb->ip_summed = CHECKSUM_NONE;
+ 		skb->protocol = protocol;
+ 	} while ((skb = skb->next));
+ out:
