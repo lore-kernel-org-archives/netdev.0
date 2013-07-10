@@ -1,97 +1,89 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: Fixed PHY Device Tree usage?
-Date: Wed, 10 Jul 2013 17:29:44 +0100
-Message-ID: <CAGVrzcbt302tTM3pprnhJz7YykUzcW=XSMCr_W=m1zWiVBX8kw@mail.gmail.com>
-References: <20130709183312.6c4d052d@skate> <CAGVrzcZ7ZLSDy5sTUR_XuSAUH=5q8ddiXx5n1y680WwGrdFfTw@mail.gmail.com>
- <1733937.SiPWt3mDlH@lenovo> <20130710182216.0dcfaaaf@skate>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RFC] ipv6: fix route selection if kernel is not compiled with CONFIG_IPV6_ROUTER_PREF
+Date: Wed, 10 Jul 2013 18:35:37 +0200
+Message-ID: <20130710163537.GJ15411@order.stressinduktion.org>
+References: <20130707173031.GC9625@order.stressinduktion.org> <20130709215701.GD9763@order.stressinduktion.org> <51DD1352.8000705@6wind.com> <51DD2959.9060206@6wind.com> <20130710105316.GA5735@order.stressinduktion.org> <51DD521F.1000905@6wind.com> <20130710132122.GD15411@order.stressinduktion.org> <51DD6B72.1050700@6wind.com> <20130710152001.GH15411@order.stressinduktion.org> <20130710155904.GI15411@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	=?UTF-8?Q?Gregory_Cl=C3=A9ment?=
-	<gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	"devicetree-discuss@lists.ozlabs.org"
-	<devicetree-discuss@lists.ozlabs.org>, grant.likely@secretlab.ca,
-	afleming@freescale.com
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	petrus.lt@gmail.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:63625 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750736Ab3GJQaZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 12:30:25 -0400
-Received: by mail-pd0-f180.google.com with SMTP id 10so6461496pdi.39
-        for <netdev@vger.kernel.org>; Wed, 10 Jul 2013 09:30:24 -0700 (PDT)
-In-Reply-To: <20130710182216.0dcfaaaf@skate>
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:37230 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754095Ab3GJQfi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 12:35:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20130710155904.GI15411@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Thomas,
+On Wed, Jul 10, 2013 at 05:59:04PM +0200, Hannes Frederic Sowa wrote:
+> On Wed, Jul 10, 2013 at 05:20:01PM +0200, Hannes Frederic Sowa wrote:
+> > On Wed, Jul 10, 2013 at 04:10:58PM +0200, Nicolas Dichtel wrote:
+> > > Le 10/07/2013 15:21, Hannes Frederic Sowa a =C3=A9crit :
+> > > >On Wed, Jul 10, 2013 at 02:22:55PM +0200, Nicolas Dichtel wrote:
+> > > >>Le 10/07/2013 12:53, Hannes Frederic Sowa a =C3=A9crit :
+> > > >The route with rt6i_gateway does actually expire because I got i=
+t from
+> > > >autoconf and ip -6 r l confirms this, too. It seems this is only=
+ the cached
+> > > >route (I will confirm shortly). Is this still ok?
+> > > I wonder why expires is 0. Even if this route is cached, the flag=
+=20
+> > > RTF_EXPIRES should be set. Am I wrong?
+> >=20
+> > It seems it is possible cached route gets its expiration updated. A=
+s
+> > such it is not counted in the iteration but it is found as a siblin=
+g and its
+> > nsiblings count is updated again.
+>=20
+> ip6_link_failure is the problem. We need to remove the route directly=
+ instead
+> of calling rt6_update_expires:
+>=20
+> static void ip6_link_failure(struct sk_buff *skb)
+> {
+>         struct rt6_info *rt;
+>=20
+>         icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_ADDR_UNREACH, 0)=
+;
+>=20
+>         rt =3D (struct rt6_info *) skb_dst(skb);
+>         if (rt) {
+>                 if (rt->rt6i_flags & RTF_CACHE)
+>                         rt6_update_expires(rt, 0);
+>                 else if (rt->rt6i_node && (rt->rt6i_flags & RTF_DEFAU=
+LT))
+>                         rt->rt6i_node->fn_sernum =3D -1;
+>         }
+> }
 
-2013/7/10 Thomas Petazzoni <thomas.petazzoni@free-electrons.com>:
+With this patch I do not get the panic any more and the routing table
+stabilizes and discarded all NUD nonavailable routes. I'll need to revi=
+ew
+it myself, first. Thanks for your help!
 
-[snip]
-
->> >
->> > It has the same properties as the binding described in:
->> > Documentation/devicetree/bindings/net/fsl-tsec-phy.txt but expressed in a
->> > more explicit way instead of using an array of integers.
->
-> And so the fixed-phy driver would look for what exactly in the Device
-> Tree to find which fixed PHYs to create?
->
-> Should we have something like:
->
->         mdio-fixed {
->                 compatible = "generic,mdio-fixed";
->                 phy0: ethernet-phy@0 {
->                         ... all the properties you listed ...
->                         ... maybe the "id" property is not needed
->                             because of the phandle ...
-
-In the "fixed-phy" terminology "id" is unfortunately ambiguous, the
-driver internally uses "phy_id" which is nothing more than a PHY
-address, but it also supports being assigned an "id" as in
-Identification register 2 & 3. I was refering to the identification
-register by "id".
-
->                 };
->
->                 phy1: ethernet-phy@1 {
->                         ... all the properties you listed ...
->                         ... maybe the "id" property is not needed
->                             because of the phandle ...
->                 };
->         };
->
->         soc {
->                 ethernet@0 {
->                         phy = <&phy0>;
->                         ...
->                 };
->
->                 ethernet@1 {
->                         phy = <&phy1>;
->                         ...
->                 };
->         };
->
-> or do you have in mind another representation?
-
-Not really this is more or less what I had in mind. I am wondering
-whether we should really declare the "mdio-fixed" node, or if we
-should not rather make the following:
-
-- declare all PHY nodes in the system as sub nodes of their belonging
-real hardware MDIO bus node
-- flag specific PHY nodes as "fixed" with a "fixed-link" boolean for instance
-- if we see that flag, make that specific PHY node bind to the
-fixed-phy driver instead
-
-What do you think? I suspect someone might rightfully say that the
-"fixed-mdio" is not a real piece of hardware and is just a software
-concept. A PHY in the real world may very well have a fixed link
-speed/duplex/pause settings on the other end.
---
-Florian
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1096,10 +1096,12 @@ static void ip6_link_failure(struct sk_buff *sk=
+b)
+=20
+        rt =3D (struct rt6_info *) skb_dst(skb);
+        if (rt) {
+-               if (rt->rt6i_flags & RTF_CACHE)
+-                       rt6_update_expires(rt, 0);
+-               else if (rt->rt6i_node && (rt->rt6i_flags & RTF_DEFAULT=
+))
++               if (rt->rt6i_flags & RTF_CACHE) {
++                       dst_hold(&rt->dst);
++                       ip6_del_rt(rt);
++               } else if (rt->rt6i_node && (rt->rt6i_flags & RTF_DEFAU=
+LT)) {
+                        rt->rt6i_node->fn_sernum =3D -1;
++               }
+        }
+ }
+=20
