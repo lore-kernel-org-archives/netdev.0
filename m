@@ -1,65 +1,46 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 07/12] drivers/net/can/c_can: don't use devm_pinctrl_get_select_default()
- in probe
-Date: Wed, 10 Jul 2013 23:02:57 +0200
-Message-ID: <51DDCC01.1090104@pengutronix.de>
-References: <1373471889-18107-1-git-send-email-wsa@the-dreams.de> <1373471889-18107-7-git-send-email-wsa@the-dreams.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="----enig2GEBQRHRHUWQHPQCAISEH"
-Cc: linux-kernel@vger.kernel.org,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	AnilKumar Ch <anilkumar@ti.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Tony Lindgren <tony@atomide.com>,
-	Jingoo Han <jg1.han@samsung.com>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Wolfram Sang <wsa@the-dreams.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1373471889-18107-7-git-send-email-wsa@the-dreams.de>
-Sender: linux-can-owner@vger.kernel.org
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH 2/3] rt2x00: RT2X00 should depend on HAS_DMA
+Date: Wed, 10 Jul 2013 23:03:35 +0200
+Message-ID: <1373490216-12437-2-git-send-email-geert@linux-m68k.org>
+References: <1373490216-12437-1-git-send-email-geert@linux-m68k.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	linux-wireless@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1373490216-12437-1-git-send-email-geert@linux-m68k.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
-------enig2GEBQRHRHUWQHPQCAISEH
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+If NO_DMA=y:
 
-On 07/10/2013 05:57 PM, Wolfram Sang wrote:
-> Since commit ab78029 (drivers/pinctrl: grab default handles from device=
- core),
-> we can rely on device core for setting the default pins. Compile tested=
- only.
->=20
-> Acked-by: Linus Walleij <linus.walleij@linaro.org> (personally at LCE13=
-)
-> Signed-off-by: Wolfram Sang <wsa@the-dreams.de>
+drivers/built-in.o: In function `rt2x00queue_unmap_skb':
+drivers/net/wireless/rt2x00/rt2x00queue.c:129: undefined reference to `dma_unmap_single'
+drivers/net/wireless/rt2x00/rt2x00queue.c:133: undefined reference to `dma_unmap_single'
+drivers/built-in.o: In function `rt2x00queue_map_txskb':
+drivers/net/wireless/rt2x00/rt2x00queue.c:112: undefined reference to `dma_map_single'
+drivers/net/wireless/rt2x00/rt2x00queue.c:115: undefined reference to `dma_mapping_error'
+drivers/built-in.o: In function `rt2x00queue_alloc_rxskb':
+drivers/net/wireless/rt2x00/rt2x00queue.c:93: undefined reference to `dma_map_single'
+drivers/net/wireless/rt2x00/rt2x00queue.c:95: undefined reference to `dma_mapping_error'
 
-Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: linux-wireless@vger.kernel.org
+---
+ drivers/net/wireless/rt2x00/Kconfig |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Who takes care of this patch/patch series?
-
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
-------enig2GEBQRHRHUWQHPQCAISEH
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlHdzAEACgkQjTAFq1RaXHNxuwCfU22mQey9fGPWB0I1SWFaBJ7x
-M70AnR9WXSzupvQ4/lraplY5fhqhJXl6
-=7O5d
------END PGP SIGNATURE-----
-
-------enig2GEBQRHRHUWQHPQCAISEH--
+diff --git a/drivers/net/wireless/rt2x00/Kconfig b/drivers/net/wireless/rt2x00/Kconfig
+index 9b915d3..3e60a31 100644
+--- a/drivers/net/wireless/rt2x00/Kconfig
++++ b/drivers/net/wireless/rt2x00/Kconfig
+@@ -1,6 +1,6 @@
+ menuconfig RT2X00
+ 	tristate "Ralink driver support"
+-	depends on MAC80211
++	depends on MAC80211 && HAS_DMA
+ 	---help---
+ 	  This will enable the support for the Ralink drivers,
+ 	  developed in the rt2x00 project <http://rt2x00.serialmonkey.com>.
+-- 
+1.7.9.5
