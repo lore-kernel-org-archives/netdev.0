@@ -1,56 +1,35 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH] ifb: fix rcu_sched self-detected stalls
-Date: Wed, 10 Jul 2013 12:04:02 +0800
-Message-ID: <51DCDD32.30102@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT] Networking
+Date: Tue, 09 Jul 2013 21:35:55 -0700 (PDT)
+Message-ID: <20130709.213555.1037822981842851807.davem@davemloft.net>
+References: <20130709.145325.1363244885668360965.davem@davemloft.net>
+	<CA+55aFwgYoGKRLde_4KBnUr1nENpwdahJv8+wHJ502HcGJW1pA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:49029 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750710Ab3GJEGR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 00:06:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFwgYoGKRLde_4KBnUr1nENpwdahJv8+wHJ502HcGJW1pA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-According to the commit 16b0dc29c1af9df341428f4c49ada4f626258082
-(dummy: fix rcu_sched self-detected stalls)
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Tue, 9 Jul 2013 19:50:41 -0700
 
-Eric Dumazet fix the problem in dummy, but the ifb will occur the
-same problem like the dummy modules.
+> Now, I'm all for making descriptive merge commit messages, including
+> improving on the summary line. So by all means write those nice merge
+> messages with explanations. I think something like
+> 
+>     dc3d807d6fd9 Merge "openvswitch: gre tunneling support."
+> 
+> would have been a *fine* summary line, for example, and quite possibly
+> better than the default kind of git merge summary lines (ie "Merge
+> branch 'openswitch'"). So I'm not against playing with merge messages
+> per se, it's literally this "cannot tell it's a merge any more in the
+> summary" that I thing is a problem.
 
-Trying to "modprobe ifb numifbs=30000" triggers :
-
-INFO: rcu_sched self-detected stall on CPU
-
-After this splat, RTNL is locked and reboot is needed.
-
-We must call cond_resched() to avoid this, even holding RTNL.
-
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/ifb.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
-index dc9f6a4..a11f7a4 100644
---- a/drivers/net/ifb.c
-+++ b/drivers/net/ifb.c
-@@ -292,8 +292,10 @@ static int __init ifb_init_module(void)
- 	rtnl_lock();
- 	err = __rtnl_link_register(&ifb_link_ops);
- 
--	for (i = 0; i < numifbs && !err; i++)
-+	for (i = 0; i < numifbs && !err; i++) {
- 		err = ifb_init_one(i);
-+		cond_resched();
-+	}
- 	if (err)
- 		__rtnl_link_unregister(&ifb_link_ops);
- 	rtnl_unlock();
--- 
-1.8.0
+Ok, I'll use that format in the future.  I was actually trying to add
+more information, not less. :-) But yeah that header line has to
+mention that it's a merge, for sure.
