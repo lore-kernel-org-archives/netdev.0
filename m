@@ -1,38 +1,113 @@
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Subject: Re: [PATCH] socket.7: add description for SO_BUSY_POLL
-Date: Wed, 10 Jul 2013 12:55:19 +0000
-Message-ID: <u0lr4f6h8w8.fsf@orc05.imf.au.dk>
-References: <20130710121745.13118.86907.stgit@ladj378.jer.intel.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RFC] ipv6: fix route selection if kernel is not compiled with CONFIG_IPV6_ROUTER_PREF
+Date: Wed, 10 Jul 2013 15:21:22 +0200
+Message-ID: <20130710132122.GD15411@order.stressinduktion.org>
+References: <20130707173031.GC9625@order.stressinduktion.org> <20130709215701.GD9763@order.stressinduktion.org> <51DD1352.8000705@6wind.com> <51DD2959.9060206@6wind.com> <20130710105316.GA5735@order.stressinduktion.org> <51DD521F.1000905@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-man@vger.kernel.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	petrus.lt@gmail.com, davem@davemloft.net
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:43700 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753834Ab3GJNUF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Jul 2013 09:20:05 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UwuJP-0006sH-18
-	for netdev@vger.kernel.org; Wed, 10 Jul 2013 15:20:03 +0200
-Received: from orc05.imf.au.dk ([130.225.20.35])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 10 Jul 2013 15:20:03 +0200
-Received: from linux by orc05.imf.au.dk with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 10 Jul 2013 15:20:03 +0200
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:36836 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753834Ab3GJNVX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 09:21:23 -0400
+Content-Disposition: inline
+In-Reply-To: <51DD521F.1000905@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eliezer Tamir <eliezer.tamir@linux.intel.com> writes:
+On Wed, Jul 10, 2013 at 02:22:55PM +0200, Nicolas Dichtel wrote:
+> Le 10/07/2013 12:53, Hannes Frederic Sowa a =C3=A9crit :
+> >On Wed, Jul 10, 2013 at 11:28:57AM +0200, Nicolas Dichtel wrote:
+> >>Le 10/07/2013 09:54, Nicolas Dichtel a =C3=A9crit :
+> >>>Le 09/07/2013 23:57, Hannes Frederic Sowa a =C3=A9crit :
+> >>>>After starting a ping6 2000::1 the box should panic soon, after t=
+he
+> >>>>first nexthop entry times out.
+> >>>>
+> >>>>Perhaps you could give me a hint?
+> >>>I will run some tests with your patch. Will see.
+> >>I don't reproduce this panic.
+> >
+> >I just dumped the routes for which it does increase the rt6i_nsiblin=
+gs
+> >counter in this condition:
+> >
+> >                         /* If we have the same destination and the =
+same=20
+> >                         metric,
+> >                          * but not the same gateway, then the route=
+ we=20
+> >                          try to
+> >                          * add is sibling to this route, increment =
+our=20
+> >                          counter
+> >                          * of siblings, and later we will add our r=
+oute=20
+> >                          to the
+> >                          * list.
+> >                          * Only static routes (which don't have fla=
+g
+> >                          * RTF_EXPIRES) are used for ECMPv6.
+> >                          *
+> >                          * To avoid long list, we only had siblings=
+ if the
+> >                          * route have a gateway.
+> >                          */
+> >                         if (rt->rt6i_flags & RTF_GATEWAY &&
+> >                             !(rt->rt6i_flags & RTF_EXPIRES) &&
+> >                             !(iter->rt6i_flags & RTF_EXPIRES))
+> >                                 rt->rt6i_nsiblings++;
+> >                                 dump_route(iter, "(iter)");
+> >                                 dump_route(rt, "(rt)");
+> >			}
+> >
+> >
+> >
+> >Here:
+> >
+> >[   42.497470] (iter): ffff88011796cc00 dst 2000::1 plen 128 gateway=
+=20
+> >2001:db8::32, siblings 2, metric 0, expires 0 gateway 2 idev6=20
+> >ffff8801139ddc00 dev ffff880117e83000
+> >[   42.505912] (rt): ffff88011796d800 dst 2000::1 plen 128 gateway=20
+> >fe80::5054:ff:fe82:e153, siblings 1, metric 0, expires 0 gateway 2 i=
+dev6=20
+> >ffff880117edc400 dev ffff8801185cb000
+> >[   42.527241] (iter): ffff88011796d380 dst 2000::1 plen 128 gateway=
+=20
+> >2001:db8::33, siblings 2, metric 0, expires 0 gateway 2 idev6=20
+> >ffff8801139ddc00 dev ffff880117e83000
+> >[   42.536440] (rt): ffff88011796d800 dst 2000::1 plen 128 gateway=20
+> >fe80::5054:ff:fe82:e153, siblings 2, metric 0, expires 0 gateway 2 i=
+dev6=20
+> >ffff880117edc400 dev ffff8801185cb000
+> >
+> > From my understanding these two routes should not be aggregated in =
+one=20
+> > ecmp
+> >route set. Am I seeing this correct? (My configuration is like in th=
+e mail
+> >before.)
+> Hmm, why?
+> Routes have the same destination, same metric, are static (expires =3D=
+=3D 0)=20
+> and have a gateway.
 
-> +While busy polling my improve latency of some application, care must be
-> +taken when using it since this will increase both CPU utilization power usage.
+The route with rt6i_gateway does actually expire because I got it from
+autoconf and ip -6 r l confirms this, too. It seems this is only the ca=
+ched
+route (I will confirm shortly). Is this still ok?
 
-s/my/may/; missing 'and' before 'power usage'. [And should
-'application' be plural?]
+> nsiblings counts the number of siblings and does not contains ourself=
+,=20
+> hence both iter should be 1, not 2.
 
-Rasmus
+Ok.
+
+Thanks for helping,
+
+  Hannes
