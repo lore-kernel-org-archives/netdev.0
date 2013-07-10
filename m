@@ -1,120 +1,93 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: Fixed PHY Device Tree usage?
-Date: Wed, 10 Jul 2013 18:39:51 +0200
-Message-ID: <20130710183951.09a0bcea@skate>
-References: <20130709183312.6c4d052d@skate>
-	<CAGVrzcZ7ZLSDy5sTUR_XuSAUH=5q8ddiXx5n1y680WwGrdFfTw@mail.gmail.com>
-	<1733937.SiPWt3mDlH@lenovo>
-	<20130710182216.0dcfaaaf@skate>
-	<CAGVrzcbt302tTM3pprnhJz7YykUzcW=XSMCr_W=m1zWiVBX8kw@mail.gmail.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: ath10k: mac80211 driver for Qualcomm Atheros 802.11ac CQA98xx
+ devices
+Date: Wed, 10 Jul 2013 19:12:28 +0200 (CEST)
+Message-ID: <alpine.DEB.2.02.1307101859360.29717@ayla.of.borg>
+References: <20130710022602.1F6F16609DE@gitolite.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Gregory =?UTF-8?B?Q2zDqW1lbnQ=?=
-	<gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	"devicetree-discuss@lists.ozlabs.org"
-	<devicetree-discuss@lists.ozlabs.org>, grant.likely@secretlab.ca,
-	afleming@freescale.com
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([94.23.35.102]:41673 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754056Ab3GJQj5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 12:39:57 -0400
-In-Reply-To: <CAGVrzcbt302tTM3pprnhJz7YykUzcW=XSMCr_W=m1zWiVBX8kw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Linux Kernel Development <linux-kernel@vger.kernel.org>
+To: Kalle Valo <kvalo@qca.qualcomm.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130710022602.1F6F16609DE@gitolite.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear Florian Fainelli,
+On Wed, 10 Jul 2013, Linux Kernel Mailing List wrote:
+> --- /dev/null
+> +++ b/drivers/net/wireless/ath/ath10k/hw.h
 
-On Wed, 10 Jul 2013 17:29:44 +0100, Florian Fainelli wrote:
+> +#define SUPPORTED_FW_MAJOR	1
+> +#define SUPPORTED_FW_MINOR	0
+> +#define SUPPORTED_FW_RELEASE	0
+> +#define SUPPORTED_FW_BUILD	629
 
-> > Should we have something like:
-> >
-> >         mdio-fixed {
-> >                 compatible = "generic,mdio-fixed";
-> >                 phy0: ethernet-phy@0 {
-> >                         ... all the properties you listed ...
-> >                         ... maybe the "id" property is not needed
-> >                             because of the phandle ...
-> 
-> In the "fixed-phy" terminology "id" is unfortunately ambiguous, the
-> driver internally uses "phy_id" which is nothing more than a PHY
-> address, but it also supports being assigned an "id" as in
-> Identification register 2 & 3. I was refering to the identification
-> register by "id".
+> +static int ath10k_check_fw_version(struct ath10k *ar)
+> +{
+> +	char version[32];
+> +
+> +	if (ar->fw_version_major >=3D SUPPORTED_FW_MAJOR &&
+> +	    ar->fw_version_minor >=3D SUPPORTED_FW_MINOR &&
+> +	    ar->fw_version_release >=3D SUPPORTED_FW_RELEASE &&
+> +	    ar->fw_version_build >=3D SUPPORTED_FW_BUILD)
+> +		return 0;
 
-Hum, but your "id" property contained a string, so I'm not sure how it
-would fit in Identification register 2 and 3. Am I missing something
-obvious here? Maybe you wanted to have:
+My attention got triggered by:
 
-	id = <0xdeadbeef>;
+drivers/net/wireless/ath/ath10k/core.c: In function =E2=80=98ath10k_che=
+ck_fw_version=E2=80=99:
+drivers/net/wireless/ath/ath10k/core.c:79: warning: comparison is alway=
+s true due to limited range of data type
 
-which would make the "emulated" PHY return 0xdeadbeef as its PHY ID
-when reading those identification registers.
+as an u16 is always larger or equal than zero. Not much you can do to
+silence that warning, though.
 
-> >                 };
-> >
-> >                 phy1: ethernet-phy@1 {
-> >                         ... all the properties you listed ...
-> >                         ... maybe the "id" property is not needed
-> >                             because of the phandle ...
-> >                 };
-> >         };
-> >
-> >         soc {
-> >                 ethernet@0 {
-> >                         phy = <&phy0>;
-> >                         ...
-> >                 };
-> >
-> >                 ethernet@1 {
-> >                         phy = <&phy1>;
-> >                         ...
-> >                 };
-> >         };
-> >
-> > or do you have in mind another representation?
-> 
-> Not really this is more or less what I had in mind. I am wondering
-> whether we should really declare the "mdio-fixed" node, or if we
-> should not rather make the following:
-> 
-> - declare all PHY nodes in the system as sub nodes of their belonging
-> real hardware MDIO bus node
-> - flag specific PHY nodes as "fixed" with a "fixed-link" boolean for instance
-> - if we see that flag, make that specific PHY node bind to the
-> fixed-phy driver instead
+However, I don't think the version check is correct.
+Shouldn't it stop checking later fields if an exact match is found in a=
+n
+earlier field?
 
-So the fixed PHY driver is going to travel through *all* nodes of the
-DT, and whenever some random node has a "fixed" property, it's going to
-say it corresponds to a fixed PHY? That doesn't seem like a good idea.
+I.e.
 
-So that's really what I was asking: how is the fixed PHY driver going
-to know which DT nodes to look at. Is it a platform_driver, where the
-corresponding DT node has sub-nodes? Is it something else? Or a
-specific compatible string?
+	if (ar->fw_version_major > SUPPORTED_FW_MAJOR ||
+	    (ar->fw_version_major =3D=3D SUPPORTED_FW_MAJOR &&
+	     ar->fw_version_minor > SUPPORTED_FW_MINOR) ||
+	     ...) { ... }
 
-> What do you think? I suspect someone might rightfully say that the
-> "fixed-mdio" is not a real piece of hardware and is just a software
-> concept. A PHY in the real world may very well have a fixed link
-> speed/duplex/pause settings on the other end.
+Currently e.g. (major, minor) =3D (3, 0) is considered older than (2, 1=
+).
 
-I agree that the mdio-fixed idea is clearly moving away from the
-hardware representation. But see my question above: we need a way of
-letting the fixed PHY driver know which DT nodes it should have a look
-at. And just saying "those nodes will have property 'foo' is not
-sufficient".
+Or perhaps minor is never reset to zero when major is increased? In tha=
+t
+case, the check is correct, but IMHO it's a bit silly to split the vers=
+ion
+number in seperate fields.
 
-Best regards,
+> +	snprintf(version, sizeof(version), "%u.%u.%u.%u",
+> +		 SUPPORTED_FW_MAJOR, SUPPORTED_FW_MINOR,
+> +		 SUPPORTED_FW_RELEASE, SUPPORTED_FW_BUILD);
+> +
+> +	ath10k_warn("WARNING: Firmware version %s is not officially support=
+ed.\n",
+> +		    ar->hw->wiphy->fw_version);
+> +	ath10k_warn("Please upgrade to version %s (or newer)\n", version);
+> +
+> +	return 0;
+> +}
 
-Thomas
--- 
-Thomas Petazzoni, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
+m68k.org
+
+In personal conversations with technical people, I call myself a hacker=
+=2E But
+when I'm talking to journalists I just say "programmer" or something li=
+ke that.
+							    -- Linus Torvalds
