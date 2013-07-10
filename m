@@ -1,33 +1,80 @@
-From: Eric Dumazet <erdnetdev@gmail.com>
-Subject: Re: [PATCH net-next] net: rename low latency sockets functions to
- busy poll
-Date: Tue, 09 Jul 2013 23:10:47 -0700
-Message-ID: <1373436647.4600.0.camel@edumazet-glaptop>
-References: <20130709162514.062f1361@lwn.net>
-	 <20130709.160611.636749585237773459.davem@davemloft.net>
-	 <51DCD50C.6070606@linux.intel.com>
-	 <20130709.214156.1738814737075691376.davem@davemloft.net>
-	 <51DCEF51.3080503@linux.intel.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] virtio-net: put virtio net header inline with data
+Date: Wed, 10 Jul 2013 09:14:07 +0300
+Message-ID: <20130710061407.GC19759@redhat.com>
+References: <20130708101259.GA16074@redhat.com>
+	<871u78eavc.fsf@rustcorp.com.au> <20130709051824.GA3234@redhat.com>
+	<87vc4kcfzg.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, corbet@lwn.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	dwmw2@infradead.org, eliezer@tamir.org.il
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51DCEF51.3080503@linux.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Dave Jones <davej@redhat.com>, "David S. Miller" <davem@davemloft.net>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <87vc4kcfzg.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-07-10 at 08:21 +0300, Eliezer Tamir wrote:
-
-> Where do I find the repository for the manpages?
+On Tue, Jul 09, 2013 at 05:38:51PM +0930, Rusty Russell wrote:
+> "Michael S. Tsirkin" <mst@redhat.com> writes:
+> > On Tue, Jul 09, 2013 at 11:46:23AM +0930, Rusty Russell wrote:
+> >> "Michael S. Tsirkin" <mst@redhat.com> writes:
+> >> > For small packets we can simplify xmit processing
+> >> > by linearizing buffers with the header:
+> >> > most packets seem to have enough head room
+> >> > we can use for this purpose.
+> >> > Since existing hypervisors require that header
+> >> > is the first s/g element, we need a feature bit
+> >> > for this.
+> >> >
+> >> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> >> > ---
+> >> >
+> >> > Note: this needs to be applied on top of patch
+> >> > defining VIRTIO_F_ANY_LAYOUT - bit to be
+> >> > selected by Rusty.
+> >> >
+> >> > The following patch should work for any definition of
+> >> > VIRTIO_F_ANY_LAYOUT - I used bit 31 for testing.
+> >> > Rusty, could you please pick a valid bit for VIRTIO_F_ANY_LAYOUT
+> >> > and squeeze this patch into 3.11?
+> >> 
+> >> Sorry, it's too late.
+> >> 
+> >> First, I've been a bit lax in sending patches via DaveM, and this is
+> >> definitely his territory (ie. more net than virtio).
+> >
+> > Let's do this: I'll send a patch series, you ack and we see
+> > what happens?
 > 
+> If you convince DaveM, I won't object :)
+> 
+> >> Secondly, it needs baking and testing time.
+> >> 
+> >> Cheers,
+> >> Rusty.
+> >
+> > I did some testing on this.  But proper testing just isn't happening out
+> > of tree.
+> 
+> But it will get into linux-next for the *next* merge window.
+> 
+> Cheers,
+> Rusty.
 
-MAN-PAGES: MANUAL PAGES FOR LINUX -- Sections 2, 3, 4, 5, and 7
-M:      Michael Kerrisk <mtk.manpages@gmail.com>
-W:      http://www.kernel.org/doc/man-pages
-L:      linux-man@vger.kernel.org
-S:      Maintained
+Okay. Can you put it on virtio-next then?
+I don't see it there ...
+
+-- 
+MST
