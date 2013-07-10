@@ -1,71 +1,43 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH iproute2 v4] ipbatch: fix use of 'ip netns exec'
-Date: Wed, 10 Jul 2013 11:52:12 +0200
-Message-ID: <51DD2ECC.7010501@6wind.com>
-References: <1373376013.4979.148.camel@edumazet-glaptop>   <1373385312-4899-1-git-send-email-nicolas.dichtel@6wind.com>  <1373386764.2523.1.camel@bwh-desktop.uk.level5networks.com>  <51DC417F.5080708@6wind.com> <1373393602.2523.4.camel@bwh-desktop.uk.level5networks.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Cong Wang <amwang@redhat.com>
+Subject: A performance regression of gretap
+Date: Wed, 10 Jul 2013 06:01:43 -0400 (EDT)
+Message-ID: <327738182.1491147.1373450503005.JavaMail.root@redhat.com>
+References: <1025834928.1488534.1373450176613.JavaMail.root@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org, junwei.zhang@6wind.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:51176 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752179Ab3GJJwR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 05:52:17 -0400
-Received: by mail-wi0-f180.google.com with SMTP id c10so6133736wiw.13
-        for <netdev@vger.kernel.org>; Wed, 10 Jul 2013 02:52:16 -0700 (PDT)
-In-Reply-To: <1373393602.2523.4.camel@bwh-desktop.uk.level5networks.com>
+Received: from mx3-phx2.redhat.com ([209.132.183.24]:53666 "EHLO
+	mx3-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754022Ab3GJKBp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 06:01:45 -0400
+In-Reply-To: <1025834928.1488534.1373450176613.JavaMail.root@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 09/07/2013 20:13, Ben Hutchings a =C3=A9crit :
-> On Tue, 2013-07-09 at 18:59 +0200, Nicolas Dichtel wrote:
->> Le 09/07/2013 18:19, Ben Hutchings a =C3=A9crit :
->>> On Tue, 2013-07-09 at 17:55 +0200, Nicolas Dichtel wrote:
->>> [...]
->>>> diff --git a/ip/ipnetns.c b/ip/ipnetns.c
->>>> index fa2b681..cdc3101 100644
->>>> --- a/ip/ipnetns.c
->>>> +++ b/ip/ipnetns.c
->>>> @@ -42,6 +42,7 @@
->>>>    #define MS_SHARED	(1 << 20)
->>>>    #endif
->>>>
->>>> +extern char *batch_file;
->> I let Stephen choose, he suggest me this.
->>
->>>
->>> Should be declared in a header file.
->>>
->>>>    #ifndef HAVE_SETNS
->>>>    static int setns(int fd, int nstype)
->>>> @@ -185,6 +186,42 @@ static int netns_exec(int argc, char **argv)
->>>>    	/* Setup bind mounts for config files in /etc */
->>>>    	bind_etc(name);
->>>>
->>>> +	if (batch_file) {
->>>> +		int status;
->>>> +		pid_t pid;
->>>> +
->>>> +		pid =3D fork();
->>>> +		if (pid < 0) {
->>>> +			perror("fork");
->>>> +			return EXIT_FAILURE;
->>>
->>> return -1;
->> man exit says:
->> The use of EXIT_SUCCESS and EXIT_FAILURE is slightly more portable (=
-to non-UNIX
->> environments) than the use of 0 and some nonzero value like 1 or -1.
->>
->> And in fact, it was so before my patch.
->
-> As your own earlier comment says, do_cmd() negates the return value.
-Yes, but EXIT_FAILURE is used everywhere in ip/ipnetns.c.
+Hi, Pravin
 
-Stephen, should I send a patch to replace use of EXIT_FAILURE by -1 in =
-ipnetns.c?
+I just noticed the performance over gretap is very bad,
+which is probably caused by your GRE refactor patches.
+
+See below:
+
+# netperf -4 -H 192.168.2.1
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.2.1 () port 0 AF_INET
+Recv   Send    Send                          
+Socket Socket  Message  Elapsed              
+Size   Size    Size     Time     Throughput  
+bytes  bytes   bytes    secs.    10^6bits/sec  
+
+ 87380  16384  16384    14.01       0.02   
+
+Could you please take a look? And, gre tunnel is fine, this
+problem only exists for gretap. I reviewed the gretap code,
+but can't find any bug.
+
+It is very easy to reproduce, just setup a gretap device
+on both ends, and run netperf over it.
+
+Thanks!
