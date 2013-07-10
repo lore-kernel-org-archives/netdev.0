@@ -1,63 +1,48 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH v2] socket.7: add description for SO_BUSY_POLL
-Date: Wed, 10 Jul 2013 17:18:35 +0300
-Message-ID: <20130710141835.15799.61657.stgit@ladj378.jer.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-man@vger.kernel.org, David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Micahel Kerrisk <mtk.manpages@gmail.com>
+From: Paolo Valente <paolo.valente@unimore.it>
+Subject: [PATCH 0/2]  pkt_sched: sch_qfq: efficiency and codestyle improvements
+Date: Wed, 10 Jul 2013 15:46:07 +0200
+Message-ID: <1373463969-11285-1-git-send-email-paolo.valente@unimore.it>
+References: <20130305.235006.1904081547083683406.davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	fchecconi@gmail.com, rizzo@iet.unipi.it,
+	David Laight <David.Laight@ACULAB.COM>,
+	Paolo Valente <paolo.valente@unimore.it>
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>, shemminger@vyatta.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130305.235006.1904081547083683406.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add description for the SO_BUSY_POLL socket option to the socket(7) manpage.
+Hi,
+this patchset tries to address the two issues raised by Dave in
+http://marc.info/?l=linux-kernel&m=136254542019113&w=2
 
-v2
-fixed typos reported by Rasmus Villemoes
+The first of these issues has been also raised by
+David Laight:
+http://marc.info/?l=linux-kernel&m=136256446624557&w=2
 
-Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
----
+> Although two topics for possibly resolving later:
+> 
+> 1) That 1ULL bit mask fix is quite expensive on 32-bit, it would
+>     probably be cheaper to test for that case using a helper function
+>     that nops out on 64-bit.  Although this is not so important.
+> 
+I have tried to find a simple solution, based on the properties of the mask.
+It is in the first patch.
 
- man7/socket.7 |   25 +++++++++++++++++++++++++
- 1 files changed, 25 insertions(+), 0 deletions(-)
+> 2) That static inline forward declaration is ugly, better to remove
+>     the inline tag (let the compiler handle it) or move the function
+>     above all the call sites.
+> 
+Done by the second patch.
 
-diff --git a/man7/socket.7 b/man7/socket.7
-index f2213eb..5edcb09 100644
---- a/man7/socket.7
-+++ b/man7/socket.7
-@@ -694,6 +694,31 @@ for details on control messages.
- Gets the socket type as an integer (e.g.,
- .BR SOCK_STREAM ).
- This socket option is read-only.
-+.TP
-+.B SO_BUSY_POLL
-+Sets the approximate time in microseconds to busy poll on a blocking receive
-+when there is no data. Increasing this value requires
-+.BR CAP_NET_ADMIN . 
-+The default for this option is controlled by the
-+.I /proc/sys/net/core/busy_read
-+file. 
-+
-+The value in the  
-+.I /proc/sys/net/core/busy_poll
-+file determines how long 
-+.BR select (2)
-+and 
-+.BR poll (2)
-+will busy poll when they operate on sockets with 
-+.BR SO_BUSY_POLL
-+set and no events to report are found.
-+
-+In both cases busy polling will only be done when the socket last received data
-+from a network device that supports this option.
-+
-+While busy polling may improve latency of some applications, care must be
-+taken when using it since this will increase both CPU utilization and power usage.
-+
- .SS Signals
- When writing onto a connection-oriented socket that has been shut down
- (by the local or the remote end)
+Paolo Valente (2):
+  pkt_sched: sch_qfq: improve efficiency of make_eligible
+  pkt_sched: sch_qfq: remove forward declaration of qfq_update_agg_ts
+
+ net/sched/sch_qfq.c | 127 ++++++++++++++++++++++++++--------------------------
+ 1 file changed, 63 insertions(+), 64 deletions(-)
+
+-- 
+1.8.1.2
