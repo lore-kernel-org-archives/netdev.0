@@ -1,64 +1,80 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH net-next] net: rename low latency sockets functions to
- busy poll
-Date: Wed, 10 Jul 2013 06:29:16 +0300
-Message-ID: <51DCD50C.6070606@linux.intel.com>
-References: <20130708132034.17639.4396.stgit@ladj378.jer.intel.com> <20130709162514.062f1361@lwn.net> <20130709.160611.636749585237773459.davem@davemloft.net>
+From: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: A question on the design of OVS GRE tunnel
+Date: Wed, 10 Jul 2013 11:34:44 +0800
+Message-ID: <1373427284.8682.2.camel@cr0>
+References: <1373277065.8227.26.camel@cr0>
+	<CALnjE+q4L9Q8Ebj+O-D8xQHyzSo=FZrb7A-XVEGERzeN-MZMGQ@mail.gmail.com>
+	<1373337666.4557.13.camel@cr0>
+	<CAEP_g=93ohj0u4uqiG4k_8kRFQYC71tNyri4xnRQcZCYNQhz=A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: corbet@lwn.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, dwmw2@infradead.org,
-	eliezer@tamir.org.il
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130709.160611.636749585237773459.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAEP_g=93ohj0u4uqiG4k_8kRFQYC71tNyri4xnRQcZCYNQhz=A@mail.gmail.com>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 10/07/2013 02:06, David Miller wrote:
-> From: Jonathan Corbet <corbet@lwn.net>
-> Date: Tue, 9 Jul 2013 16:25:14 -0600
+On Mon, 2013-07-08 at 23:26 -0700, Jesse Gross wrote:
+> On Mon, Jul 8, 2013 at 7:41 PM, Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> > On Mon, 2013-07-08 at 09:28 -0700, Pravin Shelar wrote:
+> >> On Mon, Jul 8, 2013 at 2:51 AM, Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> >> > However, I noticed there is some problem with such design:
+> >> >
+> >> > I saw very bad performance with the _default_ setup with OVS GRE. After
+> >> > digging it a little bit, clearly the cause is that OVS GRE tunnel adds
+> >> > an outer IP header and a GRE header for every packet that passed to it,
+> >> > which could result in a packet whose length is larger than the MTU of
+> >> > the uplink, therefore after the packet goes through OVS, it has to be
+> >> > fragmented by IP before going to the wire.
+> >> >
+> >> I do not understand what do you mean, gre packets greater than MTU
+> >> must be fragmented before sent on wire and it is done by GRE-GSO code.
+> >>
+> >
+> > Well, I said fragment, not segment. This is exactly why performance is
+> > so bad.
+> >
+> > In my _default_ setup, every net device on the path has MTU=1500,
+> > therefore, the packets coming out of a KVM guest can have length=1500,
+> > after they go through OVS GRE tunnel, their length becomes 1538 because
+> > of the added GRE header and IP header.
+> >
+> > After that, since the packets are not GSO (unless you pass vnet_hdr=on
+> > to KVM guest), the packets with length=1538 will be _fragmented_ by IP
+> > layer, since the dest uplink has MTU=1500 too. This is why I proposed to
+> > reuse GRO cell to merge the packets, which requires a netdev...
 > 
->> On Mon, 08 Jul 2013 16:20:34 +0300
->> Eliezer Tamir <eliezer.tamir@linux.intel.com> wrote:
->>
->>> Rename POLL_LL to POLL_BUSY_LOOP.
->>
->> So pardon me if I speak out of turn, but it occurs to me to
->> wonder...should the SO_LL socket option be renamed in a similar fashion
->> before this interface escapes into the wild?
+> Large packets coming from a modern KVM guest will use TSO because this
+> is a huge performance win regardless of whether any tunneling is used.
+> It doesn't make any sense for the guest IP stack to take a stream of
+> packets, split them apart, merge them in the hypervisor stack, and
+> split them again before transmission. Any packets potentially worth
+> merging will almost certainly have originated as a single buffer in
+> the guest, so we should keep them together all the way from the guest
+> to the GSO/TSO layer.
 > 
-> Sure and we can rename include/net/ll_poll.h to something more
-> fitting as well.
-> 
-> I'll make sure this happens before 3.11 gets even close to release.
+> The real problem is that the requested MSS size is not correct. In the
+> "best" situation we would first segment the packet to the requested
+> size, add the tunnel headers, and then fragment. However, it looks to
+> me like the original size is being carried all the way to the GSO
+> code, which will then generate packets that are greater than the MTU.
+> Both of these can likely be improved upon by either convincing the
+> guest to automatically use a lower MSS or adjusting it ourselves.
 
-David,
+Yeah, unfortunately this is not easy to discover, people need some
+knowledge and some time to find the problem and "fix" it. This is why I
+think we should find a way to fix it if possible, or at least document
+it.
 
-If the following names changes are acceptable I will try to send out
-a patch today.
-
-1. include/net/ll_poll.h -> include/net/busy_poll.h
-
-2. ndo_ll_poll -> ndo_busy_poll
-
-- not technically accurate since the ndo callback does not itself busy
-poll, it's just used to implement it.
-
-maybe ndo_napi_id_poll? or ndo_id_poll? I don't really like any of them,
-so a suggestion would be nice.
-
-3. sysctl_net_ll_{read,poll} -> sysctl_net_busy_{read,poll}
-- along with matching file name changes.
-
-4. {sk,skb}_mark_ll -> {sk,skb}_mark_napi_id
-
-5. LL_SO -> BUSY_POLL_SO
-
-Are you OK with the names?
-Did I miss anything?
-
-Thanks,
-Eliezer
+Thanks!
