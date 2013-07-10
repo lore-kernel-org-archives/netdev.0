@@ -1,43 +1,93 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: A performance regression of gretap
-Date: Wed, 10 Jul 2013 06:01:43 -0400 (EDT)
-Message-ID: <327738182.1491147.1373450503005.JavaMail.root@redhat.com>
-References: <1025834928.1488534.1373450176613.JavaMail.root@redhat.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH] xen-netfront: pull on receive skb may need
+ to happen earlier
+Date: Wed, 10 Jul 2013 11:04:16 +0100
+Message-ID: <20130710100416.GL19798@zion.uk.xensource.com>
+References: <51D57C1F.8070909@hunenet.nl>
+ <20130704150137.GW7483@zion.uk.xensource.com>
+ <51D6AED902000078000E2EA9@nat28.tlf.novell.com>
+ <20130705145319.GB9050@zion.uk.xensource.com>
+ <51DAA9B202000078000E3357@nat28.tlf.novell.com>
+ <51DAE6CA02000078000E3566@nat28.tlf.novell.com>
+ <20130708154814.GI8027@zion.uk.xensource.com>
+ <51DBCF4F02000078000E3793@nat28.tlf.novell.com>
+ <20130709165134.GG19798@zion.uk.xensource.com>
+ <51DD221E02000078000E3BC6@nat28.tlf.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Pravin B Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3-phx2.redhat.com ([209.132.183.24]:53666 "EHLO
-	mx3-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754022Ab3GJKBp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 06:01:45 -0400
-In-Reply-To: <1025834928.1488534.1373450176613.JavaMail.root@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>, <davem@davemloft.net>,
+	Dion Kant <g.w.kant@hunenet.nl>, <xen-devel@lists.xen.org>,
+	<netdev@vger.kernel.org>, <stable@vger.kernel.org>
+To: Jan Beulich <JBeulich@suse.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <51DD221E02000078000E3BC6@nat28.tlf.novell.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi, Pravin
+On Wed, Jul 10, 2013 at 07:58:06AM +0100, Jan Beulich wrote:
+> >>> On 09.07.13 at 18:51, Wei Liu <wei.liu2@citrix.com> wrote:
+> > On Tue, Jul 09, 2013 at 07:52:31AM +0100, Jan Beulich wrote:
+> >> >>> On 08.07.13 at 17:48, Wei Liu <wei.liu2@citrix.com> wrote:
+> >> > On Mon, Jul 08, 2013 at 03:20:26PM +0100, Jan Beulich wrote:
+> >> >> @@ -1014,7 +1025,7 @@ err:
+> >> >>  
+> >> >>  		skb_shinfo(skb)->frags[0].page_offset = rx->offset;
+> >> >>  		skb_frag_size_set(&skb_shinfo(skb)->frags[0], rx->status);
+> >> >> -		skb->data_len = rx->status;
+> >> >> +		skb->len = skb->data_len = rx->status;
+> >> > 
+> >> > This is not correct. You should not be needing this. Now you lose count
+> >> > of SKB head len. Try to go without the above line and see if it makes a
+> >> > difference?
+> >> 
+> >> I don't follow - at this point, there's 0 bytes of head (this only
+> >> changes with the first call to __pskb_pull_tail()). Hence ->len ==
+> >> ->data_len seems correct to me (and afaict pulling would do the
+> >> wrong thing if I dropped that change).
+> >> 
+> > 
+> > My bad, I suggested the wrong thing. :-(
+> > 
+> > But I would prefer skb->len += skb->data_len. In the case that skb->len
+> > == 0 it's the same as your line while skb->len is not zero it would also
+> > do the right thing.
+> 
+> I can do that, albeit I don't see how ->len could end up non-zero
+> here.
+> 
+> > As for the warning in skb_try_coalesce, I don't see any direct call to
+> > it in netfront, I will need to think about it. It looks like it's really
+> > something very deep in the stack.
+> 
+> Yes, as the call stack provided by Dion proves. The question
+> really is whether the patch somehow results in ->truesize to be
+> incorrect, or whether - as Eric points out - this is "normal" for
+> the sort of special SKBs here (having a rather small headlen). If
+> what he says is applicable here, it may hint at the pulling we do
+> still not being sufficient for the full TCP header to be in the linear
 
-I just noticed the performance over gretap is very bad,
-which is probably caused by your GRE refactor patches.
+__netdev_alloc_skb in netfront is fed with RX_COPY_THRESHOLD+NET_IP_ALIGN.
+RX_COPY_THRESHOLD is 256 while MAX_TCP_HEADER can be as larger as 256+48
+depending on kernel configurations.
 
-See below:
+> part (which iirc is the main [if not the only purpose] of us doing
+> the pull in the first place).
+> 
 
-# netperf -4 -H 192.168.2.1
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.2.1 () port 0 AF_INET
-Recv   Send    Send                          
-Socket Socket  Message  Elapsed              
-Size   Size    Size     Time     Throughput  
-bytes  bytes   bytes    secs.    10^6bits/sec  
+Ian, any comment on this?
 
- 87380  16384  16384    14.01       0.02   
+Jan, looking at the commit log, the overrun issue in
+xennet_get_responses was not introduced by __pskb_pull_tail. The call to
+xennet_fill_frags has always been in the same place.
 
-Could you please take a look? And, gre tunnel is fine, this
-problem only exists for gretap. I reviewed the gretap code,
-but can't find any bug.
+Now I start to think about the purpose of "max = MAX_SKB_FRAGS +
+(rx->status <= RX_COPY_THRESHOLD)" in xennet_get_responses which queues
+up to MAX_SKB_FRAGS+1 responeses. I'm not clear about the rationale
+of that line.
 
-It is very easy to reproduce, just setup a gretap device
-on both ends, and run netperf over it.
 
-Thanks!
+Wei.
+
+> Jan
