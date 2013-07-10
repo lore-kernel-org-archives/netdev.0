@@ -1,107 +1,51 @@
-From: Gerlando Falauto <gerlando.falauto@keymile.com>
-Subject: Re: [PATCH] net: mv643xx_eth: fix DT port device name
-Date: Wed, 10 Jul 2013 12:29:07 +0200
-Message-ID: <51DD3773.1050408@keymile.com>
-References: <1373229231-8838-1-git-send-email-sebastian.hesselbarth@gmail.com>
- <20130707234341.0000721b@unknown> <20130708000540.00004b37@unknown>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [Xen-devel] [PATCH] xen-netfront: pull on receive skb may
+ need to happen earlier
+Date: Wed, 10 Jul 2013 11:46:57 +0100
+Message-ID: <51DD57C102000078000E3D38@nat28.tlf.novell.com>
+References: <51D57C1F.8070909@hunenet.nl>
+ <20130704150137.GW7483@zion.uk.xensource.com>
+ <51D6AED902000078000E2EA9@nat28.tlf.novell.com>
+ <20130705145319.GB9050@zion.uk.xensource.com>
+ <51DAA9B202000078000E3357@nat28.tlf.novell.com>
+ <51DAE6CA02000078000E3566@nat28.tlf.novell.com>
+ <20130708154814.GI8027@zion.uk.xensource.com>
+ <51DBCF4F02000078000E3793@nat28.tlf.novell.com>
+ <20130709165134.GG19798@zion.uk.xensource.com>
+ <51DD221E02000078000E3BC6@nat28.tlf.novell.com>
+ <20130710100416.GL19798@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jonas Gorski <jogo@openwrt.org>,
- linux-arm-kernel@lists.infradead.org,
- Lennert Buytenhek <buytenh@wantstofly.org>, linux-kernel@vger.kernel.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20130708000540.00004b37@unknown>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, "Dion Kant" <g.w.kant@hunenet.nl>,
+	<xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	<stable@vger.kernel.org>
+To: "Ian Campbell" <ian.campbell@citrix.com>,
+	"Wei Liu" <wei.liu2@citrix.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20130710100416.GL19798@zion.uk.xensource.com>
+Content-Disposition: inline
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sebastian, Jonas,
+>>> On 10.07.13 at 12:04, Wei Liu <wei.liu2@citrix.com> wrote:
+> Jan, looking at the commit log, the overrun issue in
+> xennet_get_responses was not introduced by __pskb_pull_tail. The call to
+> xennet_fill_frags has always been in the same place.
 
-first of all thank you for your HUGE efforts in this area.
+I'm convinced it was: Prior to that commit, if the first response slot
+contained up to RX_COPY_THRESHOLD bytes, it got entirely
+consumed into the linear portion of the SKB, leaving the number of
+fragments available for filling at MAX_SKB_FRAGS. Said commit
+dropped the early copying, leaving the fragment count at 1
+unconditionally, and now accumulates all of the response slots into
+fragments, only pulling after all of them got filled in. It neglected to
+realize - due to the count now always being 1 at the beginning - that
+this can lead to MAX_SKB_FRAGS + 1 frags getting filled, corrupting
+memory.
 
-On 07/08/2013 12:05 AM, Jonas Gorski wrote:
-> On Sun, 7 Jul 2013 23:43:41 +0200
-> Jonas Gorski <jogo@openwrt.org> wrote:
->
->> On Sun,  7 Jul 2013 22:33:51 +0200
->> Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com> wrote:
->>
->>> Device tree support added to Marvell MV643xx ethernet driver registers
->>> port devices from port device nodes found on the corresponding controller
->>> node. The current port device name will cause the second controller to
->>> fail on registration because of two identical device names. This fixes
->>> the issue by taking the device node's name also as port device name.
->>>
->>> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
->>> Reported-by: Jonas Gorski <jogo@openwrt.org>
->>> ---
->>> Cc: Lennert Buytenhek <buytenh@wantstofly.org>
->>> Cc: Jonas Gorski <jogo@openwrt.org>
->>> Cc: netdev@vger.kernel.org
->>> Cc: linux-arm-kernel@lists.infradead.org
->>> Cc: linux-kernel@vger.kernel.org
->>> ---
->>>   drivers/net/ethernet/marvell/mv643xx_eth.c |    2 +-
->>>   1 file changed, 1 insertion(+), 1 deletion(-)
->>>
->>> diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
->>> index 6495bea..1f3a03d 100644
->>> --- a/drivers/net/ethernet/marvell/mv643xx_eth.c
->>> +++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
->>> @@ -2521,7 +2521,7 @@ static int mv643xx_eth_shared_of_add_port(struct platform_device *pdev,
->>>   		of_property_read_u32(pnp, "duplex", &ppd.duplex);
->>>   	}
->>>
->>> -	ppdev = platform_device_alloc(MV643XX_ETH_NAME, ppd.port_number);
->>> +	ppdev = platform_device_alloc(pnp->name, ppd.port_number);
->>>   	if (!ppdev)
->>>   		return -ENOMEM;
->>>   	ppdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
->>
->> This breaks ethernet completely, as there is no platform driver
->> registered for pnp->name ("ethernetX-port"), only for MV643XX_ETH_NAME.
->
-> Looking back at our conversation, this is my fault.
-> I actually did not change this part as you asked, but I saw the
-> alloc/del issue with port 0, then added the counter and also only
-> replaced the ppd.port_number in the alloc with it. I had completely
-> forgotten at that time to replace the device name; else I would
-> have caught it back then.
->
-> I only caught it now because I tried your patch and wondered why there
-> wasn't anything registered, not because I saw the problem by review.
->
+Ian - I have to admit that I'm slightly irritated by you so far not
+having participated at all in sorting out the fix for this bug that a
+change of yours introduced.
 
-The way I understand it, you are "manually" creating platform devices 
-off the port subnodes (which, incidentally, have a compatible = 
-"marvell,kirkwood-eth-port" property), but matching with the driver is 
-indeed performed by device name.
-Hence Sebastian's first patch breaks everything and Jonas' latest one 
-fixes it. Is that correct? Is there any more work ongoing in this area?
-
-One more question: if my understanding above is correct, what's the 
-reason for NOT having an of_device_id[] table, which looks like was 
-present in Florian Fainelli's first proposal [1]?
-
-I'm also willing to help testing your present/future kirkwood patches if 
-you like. Please just put me on Cc:
-
-Thank you,
-Gerlando
-
-[1] http://lists.openwall.net/netdev/2013/04/04/42
-
-> Sorry for that.
->
-> Regards
-> Jonas
->
+Jan
