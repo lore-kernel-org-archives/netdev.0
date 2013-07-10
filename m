@@ -1,62 +1,113 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH RFC] ipv6: fix route selection if kernel is not compiled with CONFIG_IPV6_ROUTER_PREF
-Date: Wed, 10 Jul 2013 17:59:04 +0200
-Message-ID: <20130710155904.GI15411@order.stressinduktion.org>
-References: <20130707173031.GC9625@order.stressinduktion.org> <20130709215701.GD9763@order.stressinduktion.org> <51DD1352.8000705@6wind.com> <51DD2959.9060206@6wind.com> <20130710105316.GA5735@order.stressinduktion.org> <51DD521F.1000905@6wind.com> <20130710132122.GD15411@order.stressinduktion.org> <51DD6B72.1050700@6wind.com> <20130710152001.GH15411@order.stressinduktion.org>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: Fixed PHY Device Tree usage?
+Date: Wed, 10 Jul 2013 18:22:16 +0200
+Message-ID: <20130710182216.0dcfaaaf@skate>
+References: <20130709183312.6c4d052d@skate>
+	<CAGVrzcZ7ZLSDy5sTUR_XuSAUH=5q8ddiXx5n1y680WwGrdFfTw@mail.gmail.com>
+	<1733937.SiPWt3mDlH@lenovo>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	petrus.lt@gmail.com, davem@davemloft.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Gregory =?UTF-8?B?Q2zDqW1lbnQ=?=
+	<gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Lior Amsalem <alior@marvell.com>,
+	devicetree-discuss@lists.ozlabs.org, grant.likely@secretlab.ca,
+	afleming@freescale.com
+To: Florian Fainelli <florian@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:37160 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754756Ab3GJP7G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 11:59:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20130710152001.GH15411@order.stressinduktion.org>
+Received: from mail.free-electrons.com ([94.23.35.102]:41572 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754402Ab3GJQWW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 12:22:22 -0400
+In-Reply-To: <1733937.SiPWt3mDlH@lenovo>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 10, 2013 at 05:20:01PM +0200, Hannes Frederic Sowa wrote:
-> On Wed, Jul 10, 2013 at 04:10:58PM +0200, Nicolas Dichtel wrote:
-> > Le 10/07/2013 15:21, Hannes Frederic Sowa a =C3=A9crit :
-> > >On Wed, Jul 10, 2013 at 02:22:55PM +0200, Nicolas Dichtel wrote:
-> > >>Le 10/07/2013 12:53, Hannes Frederic Sowa a =C3=A9crit :
-> > >The route with rt6i_gateway does actually expire because I got it =
-from
-> > >autoconf and ip -6 r l confirms this, too. It seems this is only t=
-he cached
-> > >route (I will confirm shortly). Is this still ok?
-> > I wonder why expires is 0. Even if this route is cached, the flag=20
-> > RTF_EXPIRES should be set. Am I wrong?
->=20
-> It seems it is possible cached route gets its expiration updated. As
-> such it is not counted in the iteration but it is found as a sibling =
-and its
-> nsiblings count is updated again.
+Dear Florian Fainelli,
 
-ip6_link_failure is the problem. We need to remove the route directly i=
-nstead
-of calling rt6_update_expires:
+On Tue, 09 Jul 2013 19:02:05 +0100, Florian Fainelli wrote:
 
-static void ip6_link_failure(struct sk_buff *skb)
-{
-        struct rt6_info *rt;
+> > > We have a case of an hardware platform that uses the mvneta network
+> > > driver, but instead of the SoC being connected to a PHY, it's connected
+> > > directly to a switch, so my understanding is that there's no MDIO bus,
+> > > and we should have a kind of a "fake PHY" to make the mvneta driver
+> > > believe that the link is up, at a given speed.
+> > 
+> > Good timing, I was about to post questions/suggestions about how we
+> > should represent fixed PHYs in device tree.
 
-        icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_ADDR_UNREACH, 0);
+Great.
 
-        rt =3D (struct rt6_info *) skb_dst(skb);
-        if (rt) {
-                if (rt->rt6i_flags & RTF_CACHE)
-                        rt6_update_expires(rt, 0);
-                else if (rt->rt6i_node && (rt->rt6i_flags & RTF_DEFAULT=
-))
-                        rt->rt6i_node->fn_sernum =3D -1;
-        }
-}
+> > Well, it does not seem to be too far from the "hardware" reality to
+> > describe a link between a switch CPU port and an Ethernet MAC as a
+> > fixed PHY because that is what it really is in fact. Once you have a
+> > drivers for your switch you can start using this PHY along with its
+> > corresponding driver.
 
-Thanks,
+Ok.
 
-  Hannes
+> > There is a helper: of_phy_connect_fixed_link() in drivers/of/of_mdio.c
+> > is flagged as being a
+> > temporary solution for Freescale Ethernet drivers to move to something else,
+> > so I would like to discuss what the "something else should be".
+
+Yeah, I saw this helper function as well, and the comment you spotted.
+
+> > Here what I would like to see the new "fixed-link" phy node look like:
+> > 
+> > ethernet-phy@0 {
+> >      reg = <0>;
+> >      id = "deadbeef";
+> >      speed = <1000>;
+> >      full-duplex;
+> >      pause;
+> >      asym-pause;
+> > };
+> > 
+> > It has the same properties as the binding described in:
+> > Documentation/devicetree/bindings/net/fsl-tsec-phy.txt but expressed in a
+> > more explicit way instead of using an array of integers.
+
+And so the fixed-phy driver would look for what exactly in the Device
+Tree to find which fixed PHYs to create?
+
+Should we have something like:
+
+	mdio-fixed {
+		compatible = "generic,mdio-fixed";
+		phy0: ethernet-phy@0 {
+			... all the properties you listed ...
+			... maybe the "id" property is not needed
+			    because of the phandle ...
+		};
+
+		phy1: ethernet-phy@1 {
+			... all the properties you listed ...
+			... maybe the "id" property is not needed
+			    because of the phandle ...
+		};
+	};
+
+	soc {
+		ethernet@0 {
+			phy = <&phy0>;
+			...
+		};
+
+		ethernet@1 {
+			phy = <&phy1>;
+			...
+		};
+	};
+
+or do you have in mind another representation?
+
+Thomas
+-- 
+Thomas Petazzoni, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
