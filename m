@@ -1,23 +1,27 @@
 From: annie li <annie.li@oracle.com>
-Subject: Re: [PATCH 1/1] xen/netback: correctly calculate required slots of
- skb.
-Date: Wed, 10 Jul 2013 09:57:39 +0800
-Message-ID: <51DCBF93.5050708@oracle.com>
-References: <1373350520-19985-1-git-send-email-annie.li@oracle.com> <20130709161612.GF19798@zion.uk.xensource.com>
+Subject: Re: [PATCH 1/1] xen/netback: correctly calculate
+ required slots of skb.
+Date: Wed, 10 Jul 2013 10:31:49 +0800
+Message-ID: <51DCC795.2070806@oracle.com>
+References: <1373350520-19985-1-git-send-email-annie.li@oracle.com>
+	<20130709161612.GF19798@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xensource.com, netdev@vger.kernel.org,
-	Ian.Campbell@citrix.com, konrad.wilk@oracle.com
+Cc: netdev@vger.kernel.org, xen-devel@lists.xensource.com,
+	Ian.Campbell@citrix.com
 To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:50474 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751316Ab3GJB6J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jul 2013 21:58:09 -0400
+Return-path: <xen-devel-bounces@lists.xen.org>
 In-Reply-To: <20130709161612.GF19798@zion.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
+List-Id: netdev.vger.kernel.org
 
 
 On 2013-7-10 0:16, Wei Liu wrote:
@@ -60,24 +64,15 @@ On 2013-7-10 0:16, Wei Liu wrote:
 >>    */
 > Just to be clear, now the above comment applies to your new function,
 > right?
-
-Oh, this should apply to xen_netbk_count_skb_slots instead of this one,
-
 >
 >> -unsigned int xen_netbk_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
 >> +static void netbk_get_slots(struct xenvif *vif, struct sk_buff *skb,
 > A better name would be netbk_count_slots because it doesn't actually
 > acquire any slots.
-
-OK, this looks fine.
-
 >
 > And you can make it return the slot count and adds that to the total
 > number of slots in the caller, as this function doesn't seem to rely on
 > previous count so there is not much point passing in *count.
-
-Correct!
-
 >
 >> +			    struct page *page, int *copy_off,
 >> +			    unsigned long size, unsigned long offset,
@@ -151,8 +146,14 @@ Correct!
 >
 >      if (*head && skb_shinfo(skb)->gso_size && !vif->gso_prefix)
 
-Sorry, my original patch is based on older version which does not have 
-this, need to change that.
+I mixed netbk_gop_frag_copy and xen_netbk_count_skb_slots just now, so 
+please ignore the comments here in my last email.
+In xen_netbk_count_skb_slots, we have following code already, so it is 
+not necessary to add gso condition here.
+
+         if (skb_shinfo(skb)->gso_size)
+                 count++;
+
 
 Thanks
 Annie
