@@ -1,89 +1,92 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: ath10k: mac80211 driver for Qualcomm Atheros 802.11ac CQA98xx devices
-Date: Thu, 11 Jul 2013 11:16:34 +0300
-Message-ID: <87sizl7bq5.fsf@kamboji.qca.qualcomm.com>
-References: <20130710022602.1F6F16609DE@gitolite.kernel.org>
-	<alpine.DEB.2.02.1307101859360.29717@ayla.of.borg>
+From: "Cedric Debarge" <cedric.debarge@acksys.fr>
+Subject: [RFC]: vlan priority handling in WMM
+Date: Thu, 11 Jul 2013 09:45:00 +0200
+Message-ID: <773DB8A82AB6A046AE0195C68612A319015E05AD@sbs2003.acksys.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Linux Kernel Development <linux-kernel@vger.kernel.org>,
-	<ath10k@lists.infradead.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1307101859360.29717@ayla.of.borg> (Geert
-	Uytterhoeven's message of "Wed, 10 Jul 2013 19:12:28 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <linux-wireless@vger.kernel.org>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out03.msg.oleane.net ([62.161.7.1]:44895 "EHLO
+	smtp-out03.msg.oleane.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755342Ab3GKI1m convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 04:27:42 -0400
+Content-class: urn:content-classes:message
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Geert Uytterhoeven <geert@linux-m68k.org> writes:
+Dear mailing list,
 
-> On Wed, 10 Jul 2013, Linux Kernel Mailing List wrote:
->> --- /dev/null
->> +++ b/drivers/net/wireless/ath/ath10k/hw.h
->
->> +#define SUPPORTED_FW_MAJOR	1
->> +#define SUPPORTED_FW_MINOR	0
->> +#define SUPPORTED_FW_RELEASE	0
->> +#define SUPPORTED_FW_BUILD	629
->
->> +static int ath10k_check_fw_version(struct ath10k *ar)
->> +{
->> +	char version[32];
->> +
->> +	if (ar->fw_version_major >=3D SUPPORTED_FW_MAJOR &&
->> +	    ar->fw_version_minor >=3D SUPPORTED_FW_MINOR &&
->> +	    ar->fw_version_release >=3D SUPPORTED_FW_RELEASE &&
->> +	    ar->fw_version_build >=3D SUPPORTED_FW_BUILD)
->> +		return 0;
->
-> My attention got triggered by:
->
-> drivers/net/wireless/ath/ath10k/core.c: In function =E2=80=98ath10k_c=
-heck_fw_version=E2=80=99:
-> drivers/net/wireless/ath/ath10k/core.c:79: warning: comparison is alw=
-ays true due to limited range of data type
+I would like to manage the VLAN priority in Wireless QOS (WMM).
 
-I haven't seen this warning, I guess my compiler is too old.
+I get the VLAN tag from skb->vlan_tci and I extract the VLAN priority.=20
 
-> as an u16 is always larger or equal than zero. Not much you can do to
-> silence that warning, though.
+How I should handle the priority value 0.=20
+	- Handle this value as no priority request, In this case the frame wil=
+l=20
+		sent with the DSCP priority or default (Best effort)
+	- Handle this value as a lowest priority, in this case I Map it to the=
+ WMM.
 
-Too bad, I really would like to keep ath10k warning free. Easier to
-maintain that way.
+=46or your information, you can found below a discussion on this point=20
+with Johannes Berg.
 
-Does anyone have any nice trick in their sleeves to make this warning g=
-o
-away? I guess one ugly option is to change u16 to int.
+Regards.
 
->
-> However, I don't think the version check is correct.
-> Shouldn't it stop checking later fields if an exact match is found in=
- an
-> earlier field?
->
-> I.e.
->
-> 	if (ar->fw_version_major > SUPPORTED_FW_MAJOR ||
-> 	    (ar->fw_version_major =3D=3D SUPPORTED_FW_MAJOR &&
-> 	     ar->fw_version_minor > SUPPORTED_FW_MINOR) ||
-> 	     ...) { ... }
->
-> Currently e.g. (major, minor) =3D (3, 0) is considered older than (2,=
- 1).
+Cedric Voncken.
 
-Doh, that is indeed wrong. I'll fix that, thanks for spotting this.
+-----Message d'origine-----
+De : Johannes Berg [mailto:johannes@sipsolutions.net]
+Envoy=E9 : lundi 8 juillet 2013 14:16
+=C0 : voncken
+Cc : linux-wireless@vger.kernel.org
+Objet : Re: [PATCH V2] vlan priority handling in WMM
 
-> Or perhaps minor is never reset to zero when major is increased? In t=
-hat
-> case, the check is correct, but IMHO it's a bit silly to split the ve=
-rsion
-> number in seperate fields.
+On Mon, 2013-07-08 at 12:39 +0200, voncken wrote:
+> > > The vlan Tag contain three bit for priority. The value 0 indicate
+> no
+> > > priority (on this case the VLAN tag contain only VID). The
+> vlan_tci
+> > > field is set to zero if the frame do not contain the vlan tag. So
+> if
+> > > we have not a vlan tag or no priority in VLAN tag the priority
+> value
+> > > is always 0.
+>=20
+> > Yes but don't we know that the vlan_tci field is valid?
+>=20
+> > I don't think you're correct in that 0 means "no priority present",
+> it actually means "best effort" as far as I can tell. Ignoring the=20
+> VLAN tag when the field is 0 would mean we could use a higher priorit=
+y=20
+> from the contents of the frame, which would not be desired?
+>=20
+> I can add a test with the macro vlan_tx_tag_present() to verify if th=
+e=20
+> vlan_tci field is valid.
+> I test the value 0 to skip the VLAN priority and use the dscp priorit=
+y=20
+> in this case. The priority 0 in VLAN tag is often use to turn off the=
+=20
+> QOS, because not bit is allowed for it.
 
-No, the firmware engineers are supposed to reset minor version whenever
-major changes.
+What do you mean by "is often used"? I don't see how that would be the =
+case? Are you saying routers commonly ignore the VLAN priority value if=
+ it's 0? That would seem odd?
 
---=20
-Kalle Valo
+> For me is it correct. Nevertheless, if you prefer, I can test only th=
+e=20
+> vlan_tci validity and in this case always use the VLAN priority.
+
+I don't know! Since you don't seem to really know either, we should ask=
+ somebody who knows, I think. Maybe you should Cc netdev with this ques=
+tion on the patch or so?
+
+> Sorry I made a mistake  0xE000 >>13 =3D 0x0007 and not 0x0003, and 7 =
+is=20
+> a 3 bits value.
+
+Ah yes, I made the same mistake, sorry.
+
+johannes
