@@ -1,53 +1,58 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH 20/50] USB: serial: usb_wwan: spin_lock in complete() cleanup
-Date: Thu, 11 Jul 2013 17:05:43 +0800
-Message-ID: <1373533573-12272-21-git-send-email-ming.lei@canonical.com>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: [PATCH 21/50] hid: usbhid: spin_lock in complete() cleanup
+Date: Thu, 11 Jul 2013 17:05:44 +0800
+Message-ID: <1373533573-12272-22-git-send-email-ming.lei@canonical.com>
 References: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org,
-	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Johan Hovold <jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1373533573-12272-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	linux-input@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-media@vger.kernel.org, alsa-devel@alsa-project.org,
+	Ming Lei <ming.lei@canonical.com>,
+	Jiri Kosina <jkosina@suse.cz>
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:64331 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932259Ab3GKJJZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 05:09:25 -0400
+In-Reply-To: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Complete() will be run with interrupt enabled, so change to
 spin_lock_irqsave().
 
-Cc: Johan Hovold <jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Cc: Jiri Kosina <jkosina@suse.cz>
+Cc: linux-input@vger.kernel.org
+Signed-off-by: Ming Lei <ming.lei@canonical.com>
 ---
- drivers/usb/serial/usb_wwan.c |    5 +++--
+ drivers/hid/usbhid/hid-core.c |    5 +++--
  1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/usb/serial/usb_wwan.c b/drivers/usb/serial/usb_wwan.c
-index 8257d30..c807d65 100644
---- a/drivers/usb/serial/usb_wwan.c
-+++ b/drivers/usb/serial/usb_wwan.c
-@@ -312,6 +312,7 @@ static void usb_wwan_outdat_callback(struct urb *urb)
- 	struct usb_wwan_port_private *portdata;
- 	struct usb_wwan_intf_private *intfdata;
- 	int i;
+diff --git a/drivers/hid/usbhid/hid-core.c b/drivers/hid/usbhid/hid-core.c
+index 9941828..e1d8518 100644
+--- a/drivers/hid/usbhid/hid-core.c
++++ b/drivers/hid/usbhid/hid-core.c
+@@ -489,8 +489,9 @@ static void hid_ctrl(struct urb *urb)
+ 	struct hid_device *hid = urb->context;
+ 	struct usbhid_device *usbhid = hid->driver_data;
+ 	int unplug = 0, status = urb->status;
 +	unsigned long flags;
  
- 	port = urb->context;
- 	intfdata = port->serial->private;
-@@ -319,9 +320,9 @@ static void usb_wwan_outdat_callback(struct urb *urb)
- 	usb_serial_port_softint(port);
- 	usb_autopm_put_interface_async(port->serial->interface);
- 	portdata = usb_get_serial_port_data(port);
--	spin_lock(&intfdata->susp_lock);
-+	spin_lock_irqsave(&intfdata->susp_lock, flags);
- 	intfdata->in_flight--;
--	spin_unlock(&intfdata->susp_lock);
-+	spin_unlock_irqrestore(&intfdata->susp_lock, flags);
+-	spin_lock(&usbhid->lock);
++	spin_lock_irqsave(&usbhid->lock, flags);
  
- 	for (i = 0; i < N_OUT_URB; ++i) {
- 		if (portdata->out_urbs[i] == urb) {
+ 	switch (status) {
+ 	case 0:			/* success */
+@@ -525,7 +526,7 @@ static void hid_ctrl(struct urb *urb)
+ 	}
+ 
+ 	clear_bit(HID_CTRL_RUNNING, &usbhid->iofl);
+-	spin_unlock(&usbhid->lock);
++	spin_unlock_irqrestore(&usbhid->lock, flags);
+ 	usb_autopm_put_interface_async(usbhid->intf);
+ 	wake_up(&usbhid->wait);
+ }
 -- 
 1.7.9.5
