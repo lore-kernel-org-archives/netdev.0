@@ -1,64 +1,56 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH 46/50] Sound: usb: ua101: spin_lock in complete() cleanup
-Date: Thu, 11 Jul 2013 17:06:09 +0800
-Message-ID: <1373533573-12272-47-git-send-email-ming.lei@canonical.com>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: [PATCH 48/50] staging: bcm: spin_lock in complete() cleanup
+Date: Thu, 11 Jul 2013 17:06:11 +0800
+Message-ID: <1373533573-12272-49-git-send-email-ming.lei@canonical.com>
 References: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org,
-	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Clemens Ladisch <clemens-P6GI/4k7KOmELgA04lAiVw@public.gmane.org>,
-	Jaroslav Kysela <perex-/Fr2/VpizcU@public.gmane.org>, Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>
-To: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1373533573-12272-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	linux-input@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-media@vger.kernel.org, alsa-devel@alsa-project.org,
+	Ming Lei <ming.lei@canonical.com>, devel@driverdev.osuosl.org
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:39051 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932611Ab3GKJNC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 05:13:02 -0400
+In-Reply-To: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Complete() will be run with interrupt enabled, so disable local
-interrupt before holding a global lock which is held without irqsave.
+Complete() will be run with interrupt enabled, so change to
+spin_lock_irqsave().
 
-Cc: Clemens Ladisch <clemens-P6GI/4k7KOmELgA04lAiVw@public.gmane.org>
-Cc: Jaroslav Kysela <perex-/Fr2/VpizcU@public.gmane.org>
-Cc: Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>
-Cc: alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org
-Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Cc: devel@driverdev.osuosl.org
+Signed-off-by: Ming Lei <ming.lei@canonical.com>
 ---
- sound/usb/misc/ua101.c |   14 ++++++++++++--
- 1 file changed, 12 insertions(+), 2 deletions(-)
+ drivers/staging/bcm/InterfaceRx.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/sound/usb/misc/ua101.c b/sound/usb/misc/ua101.c
-index 8b5d2c5..52a60c6 100644
---- a/sound/usb/misc/ua101.c
-+++ b/sound/usb/misc/ua101.c
-@@ -613,14 +613,24 @@ static int start_usb_playback(struct ua101 *ua)
+diff --git a/drivers/staging/bcm/InterfaceRx.c b/drivers/staging/bcm/InterfaceRx.c
+index 26f5bc7..00af901 100644
+--- a/drivers/staging/bcm/InterfaceRx.c
++++ b/drivers/staging/bcm/InterfaceRx.c
+@@ -47,6 +47,7 @@ static void read_bulk_callback(struct urb *urb)
+ 	struct bcm_interface_adapter *psIntfAdapter = pRcb->psIntfAdapter;
+ 	struct bcm_mini_adapter *Adapter = psIntfAdapter->psAdapter;
+ 	struct bcm_leader *pLeader = urb->transfer_buffer;
++	unsigned long flags;
  
- static void abort_alsa_capture(struct ua101 *ua)
- {
--	if (test_bit(ALSA_CAPTURE_RUNNING, &ua->states))
-+	if (test_bit(ALSA_CAPTURE_RUNNING, &ua->states)) {
-+		unsigned long flags;
-+
-+		local_irq_save(flags);
- 		snd_pcm_stop(ua->capture.substream, SNDRV_PCM_STATE_XRUN);
-+		local_irq_restore(flags);
-+	}
- }
+ 	if (unlikely(netif_msg_rx_status(Adapter)))
+ 		pr_info(PFX "%s: rx urb status %d length %d\n",
+@@ -129,9 +130,9 @@ static void read_bulk_callback(struct urb *urb)
+ 			(sizeof(struct bcm_leader)), pLeader->PLength);
+ 		skb->len = pLeader->PLength + sizeof(USHORT);
  
- static void abort_alsa_playback(struct ua101 *ua)
- {
--	if (test_bit(ALSA_PLAYBACK_RUNNING, &ua->states))
-+	if (test_bit(ALSA_PLAYBACK_RUNNING, &ua->states)) {
-+		unsigned long flags;
-+
-+		local_irq_save(flags);
- 		snd_pcm_stop(ua->playback.substream, SNDRV_PCM_STATE_XRUN);
-+		local_irq_restore(flags);
-+	}
- }
+-		spin_lock(&Adapter->control_queue_lock);
++		spin_lock_irqsave(&Adapter->control_queue_lock, flags);
+ 		ENQUEUEPACKET(Adapter->RxControlHead,Adapter->RxControlTail,skb);
+-		spin_unlock(&Adapter->control_queue_lock);
++		spin_unlock_irqretore(&Adapter->control_queue_lock, flags);
  
- static int set_stream_hw(struct ua101 *ua, struct snd_pcm_substream *substream,
+ 		atomic_inc(&Adapter->cntrlpktCnt);
+ 		wake_up(&Adapter->process_rx_cntrlpkt);
 -- 
 1.7.9.5
