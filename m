@@ -1,59 +1,56 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 42/50] media: usb: tlg2300: spin_lock in complete() cleanup
-Date: Thu, 11 Jul 2013 17:13:33 +0400
-Message-ID: <51DEAF7D.4010609@cogentembedded.com>
-References: <1373533573-12272-1-git-send-email-ming.lei@canonical.com> <1373533573-12272-43-git-send-email-ming.lei@canonical.com>
+From: annie li <annie.li@oracle.com>
+Subject: Re: [Xen-devel] [PATCH v2 1/1] xen/netback: correctly calculate required
+ slots of skb.
+Date: Thu, 11 Jul 2013 21:35:40 +0800
+Message-ID: <51DEB4AC.8090409@oracle.com>
+References: <1373447711-31303-1-git-send-email-annie.li@oracle.com> <1373530274.5453.148.camel@hastur.hellion.org.uk> <51DE6DFD.9080007@oracle.com> <1373536078.5453.159.camel@hastur.hellion.org.uk> <4A59CC63-9B57-49FA-A2FD-6903C86E110E@oracle.com> <3038108B-5529-452A-A488-4E616F7C1B8E@oracle.com> <1373541144.5453.165.camel@hastur.hellion.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	linux-input@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-media@vger.kernel.org, alsa-devel@alsa-project.org,
-	Mauro Carvalho Chehab <mchehab@redhat.com>
-To: Ming Lei <ming.lei@canonical.com>
-Return-path: <linux-input-owner@vger.kernel.org>
-In-Reply-To: <1373533573-12272-43-git-send-email-ming.lei@canonical.com>
-Sender: linux-input-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"wei.liu2@citrix.com" <wei.liu2@citrix.com>,
+	"msw@amazon.com" <msw@amazon.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: Ian Campbell <ian.campbell@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:38650 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932291Ab3GKNfx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 09:35:53 -0400
+In-Reply-To: <1373541144.5453.165.camel@hastur.hellion.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11-07-2013 13:06, Ming Lei wrote:
 
-     Subject doesn't match the patch.
-
-> Complete() will be run with interrupt enabled, so disable local
-> interrupt before holding a global lock which is held without
-> irqsave.
+On 2013-7-11 19:12, Ian Campbell wrote:
+>>>>> The code here only
+>>>>> increase count for the first time. I thought to initialize the
+>>>>> count in
+>>>>> xen_netbk_count_skb_slots with 1 to avoid this. But thinking of
+>>>>> the
+>>>>> extreme case when the header size is zero(not sure whether this
+>>>>> case
+>>>>> could be true), I increase the count here to keep safe in case
+>>>>> header
+>>>>> size is zero.
+>>>> netfront requires that the first slot always contains some data,
+>>>> gop_frag_copy will BUG if that's not the case.
+>>>>
+>>
+>> In gop_frag_copy, we can not go into the while if the size is 0. Which
+>> BUG_ON do you mean here?
+> in gop_frag_copy:
+> 		if (start_new_rx_buffer(npo->copy_off, bytes, *head)) {
+> 			/*
+> 			 * Netfront requires there to be some data in the head
+> 			 * buffer.
+> 			 */
+> 			BUG_ON(*head);
 >
-> Cc: Mauro Carvalho Chehab <mchehab@redhat.com>
-> Cc: linux-media@vger.kernel.org
-> Signed-off-by: Ming Lei <ming.lei@canonical.com>
-> ---
->   drivers/media/usb/tlg2300/pd-alsa.c |    3 +++
->   1 file changed, 3 insertions(+)
+But If there is SKB with zero header size and zero offset, the code will 
+not run into the while loop in gop_frag_copy and this if condition. 
+BUG_ON will not happen in such situation.
 
-> diff --git a/drivers/media/usb/tlg2300/pd-alsa.c b/drivers/media/usb/tlg2300/pd-alsa.c
-> index 3f3e141..cbccc96 100644
-> --- a/drivers/media/usb/tlg2300/pd-alsa.c
-> +++ b/drivers/media/usb/tlg2300/pd-alsa.c
-[...]
-> @@ -156,6 +157,7 @@ static inline void handle_audio_data(struct urb *urb, int *period_elapsed)
->   		memcpy(runtime->dma_area + oldptr * stride, cp, len * stride);
->
->   	/* update the statas */
-> +	local_irq_save(flags);
->   	snd_pcm_stream_lock(pa->capture_pcm_substream);
->   	pa->rcv_position	+= len;
->   	if (pa->rcv_position >= runtime->buffer_size)
-> @@ -167,6 +169,7 @@ static inline void handle_audio_data(struct urb *urb, int *period_elapsed)
->   		*period_elapsed = 1;
->   	}
->   	snd_pcm_stream_unlock(pa->capture_pcm_substream);
-> +	local_irq_restore(flags);
->   }
-
-WBR, Sergei
-
-
+Thanks
+Annie
