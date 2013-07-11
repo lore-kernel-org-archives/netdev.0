@@ -1,138 +1,62 @@
-From: Helmut Schaa <helmut.schaa@googlemail.com>
-Subject: Re: [PATCH 2/2] drivers: net: phy: at803x: LED control via led subsystem
-Date: Thu, 11 Jul 2013 14:57:47 +0200
-Message-ID: <CAGXE3d8WRU2fmRZ9DAQ4_Y=WZQwNmt9DVbLys=LkJaRPz=7FAw@mail.gmail.com>
-References: <1373543855-31670-1-git-send-email-helmut.schaa@googlemail.com>
-	<1373543855-31670-2-git-send-email-helmut.schaa@googlemail.com>
-	<CAGVrzcbxuogp9umQVEFOfzg64Nb6UWZjHs_5M=bdHceRSFRE4g@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] virtio-net: put virtio net header inline with data
+Date: Thu, 11 Jul 2013 16:00:07 +0300
+Message-ID: <20130711130007.GA3794@redhat.com>
+References: <20130708101259.GA16074@redhat.com>
+	<871u78eavc.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:63158 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754306Ab3GKM5r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 08:57:47 -0400
-Received: by mail-ie0-f179.google.com with SMTP id c10so18358816ieb.10
-        for <netdev@vger.kernel.org>; Thu, 11 Jul 2013 05:57:47 -0700 (PDT)
-In-Reply-To: <CAGVrzcbxuogp9umQVEFOfzg64Nb6UWZjHs_5M=bdHceRSFRE4g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <amwang@redhat.com>, qemu-devel@nongnu.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, Dave Jones <davej@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <871u78eavc.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 11, 2013 at 2:15 PM, Florian Fainelli <florian@openwrt.org> wrote:
-> Hello Helmut,
->
-> 2013/7/11 Helmut Schaa <helmut.schaa@googlemail.com>:
->> The AT8035 PHY allows to control the LED PIN behavior from software.
->> Expose this functionality by registering an LED device.
->>
->> Signed-off-by: Helmut Schaa <helmut.schaa@googlemail.com>
->> ---
->>  drivers/net/phy/Kconfig  |    7 ++++
->>  drivers/net/phy/at803x.c |   87 ++++++++++++++++++++++++++++++++++++++++++++++
->>  2 files changed, 94 insertions(+)
->>
->> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
->> index 3a316b3..5e855b7 100644
->> --- a/drivers/net/phy/Kconfig
->> +++ b/drivers/net/phy/Kconfig
->> @@ -19,6 +19,13 @@ config AT803X_PHY
->>         ---help---
->>           Currently supports the AT8030 and AT8035 model
->>
->> +config AT803X_LEDS
->> +       bool "Enable access to PHY connected LEDs"
->> +       depends on AT803X_PHY && LEDS_CLASS
->> +       ---help---
->> +         Select this to be able to control LEDs connected to the
->> +         PHY from userspace
->> +
->>  config AMD_PHY
->>         tristate "Drivers for the AMD PHYs"
->>         ---help---
->> diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
->> index ac22283..49ef6306 100644
->> --- a/drivers/net/phy/at803x.c
->> +++ b/drivers/net/phy/at803x.c
->> @@ -16,6 +16,7 @@
->>  #include <linux/string.h>
->>  #include <linux/netdevice.h>
->>  #include <linux/etherdevice.h>
->> +#include <linux/leds.h>
->>
->>  #define AT803X_INTR_ENABLE                     0x12
->>  #define AT803X_INTR_STATUS                     0x13
->> @@ -31,6 +32,8 @@
->>  #define AT803X_DEBUG_DATA                      0x1E
->>  #define AT803X_DEBUG_SYSTEM_MODE_CTRL          0x05
->>  #define AT803X_DEBUG_RGMII_TX_CLK_DLY          BIT(8)
->> +#define AT8035_LED_CTRL                                0x18
->> +#define AT8035_LED_CTRL_OFF                    BIT(15)
->>
->>  MODULE_DESCRIPTION("Atheros 803x PHY driver");
->>  MODULE_AUTHOR("Matus Ujhelyi");
->> @@ -152,6 +155,86 @@ static int at803x_config_init(struct phy_device *phydev)
->>         return 0;
->>  }
->>
->> +#ifdef CONFIG_AT803X_LEDS
->> +
->> +struct at8035_priv {
->> +       struct led_classdev led;
->> +       struct phy_device *phydev;
->> +       struct work_struct led_work;
->> +       bool stop;
->> +};
->> +
->> +static void at8035_led_work(struct work_struct *work)
->> +{
->> +       struct at8035_priv *priv =
->> +               container_of(work, struct at8035_priv, led_work);
->> +       struct phy_device *phydev = priv->phydev;
->> +       int val;
->> +
->> +       if (priv->stop)
->> +               return;
->> +
->> +       val = phy_read(phydev, AT8035_LED_CTRL);
->> +
->> +       if (priv->led.brightness > 0)
->> +               phy_write(phydev, AT8035_LED_CTRL, val & ~AT8035_LED_CTRL_OFF);
->> +       else
->> +               phy_write(phydev, AT8035_LED_CTRL, val | AT8035_LED_CTRL_OFF);
->> +}
->
-> I do like this and I believe that there is nothing specific that would
-> prevent you from making software controllable LEDs from being used
-> with other PHYs. How about you create a small LED class helper that
-> PHY drivers supporting controllable LEDs can hook into and provide
-> their own callback and LED name for setting the LED state?
+On Tue, Jul 09, 2013 at 11:46:23AM +0930, Rusty Russell wrote:
+> "Michael S. Tsirkin" <mst@redhat.com> writes:
+> > For small packets we can simplify xmit processing
+> > by linearizing buffers with the header:
+> > most packets seem to have enough head room
+> > we can use for this purpose.
+> > Since existing hypervisors require that header
+> > is the first s/g element, we need a feature bit
+> > for this.
+> >
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > ---
+> >
+> > Note: this needs to be applied on top of patch
+> > defining VIRTIO_F_ANY_LAYOUT - bit to be
+> > selected by Rusty.
+> >
+> > The following patch should work for any definition of
+> > VIRTIO_F_ANY_LAYOUT - I used bit 31 for testing.
+> > Rusty, could you please pick a valid bit for VIRTIO_F_ANY_LAYOUT
+> > and squeeze this patch into 3.11?
+> 
+> Sorry, it's too late.
+> 
+> First, I've been a bit lax in sending patches via DaveM, and this is
+> definitely his territory (ie. more net than virtio).
+> 
+> Secondly, it needs baking and testing time.
+> 
+> Cheers,
+> Rusty.
 
-Hmm, nice idea. However, there is not much complexity in the code. The only
-thing worth to make generic would be the delayed register access via workqueue.
-The rest is just registering the led device :)
-
-I thought about moving the code into the generic phy code and using a new
-phy_driver callback for setting the LED state but there might be more then one
-LED pin on some PHYs (activity, speed, duplexmode etc.).
-
->> +
->> +static void at8035_led_brightness_set(struct led_classdev *led,
->> +                                     enum led_brightness brightness)
->> +{
->> +       struct at8035_priv *priv = container_of(led, struct at8035_priv, led);
->> +
->> +       /* MDIO bus can only be used from process context */
->> +       if (!priv->stop)
->> +               schedule_work(&priv->led_work);
->
-> It seems to me that you could remove the stop boolean if you move
-> led_classdev_unregister upper, provided that it guarantees it will not
-> schedule the workqueue.
-
-led_classdev_unregister will try to set brightness to 0 and thus schedule
-the work.
-
-Thanks,
-Helmut
+Okay. But we can already commit the qemu change, right?
+Also, can you submit the spec update please?
