@@ -1,56 +1,58 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH 14/50] USB: serial: mos7720: spin_lock in complete() cleanup
-Date: Thu, 11 Jul 2013 17:05:37 +0800
-Message-ID: <1373533573-12272-15-git-send-email-ming.lei@canonical.com>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: [PATCH 15/50] USB: serial: mos77840: spin_lock in complete() cleanup
+Date: Thu, 11 Jul 2013 17:05:38 +0800
+Message-ID: <1373533573-12272-16-git-send-email-ming.lei@canonical.com>
 References: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org,
-	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Johan Hovold <jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1373533573-12272-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	linux-input@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-media@vger.kernel.org, alsa-devel@alsa-project.org,
+	Ming Lei <ming.lei@canonical.com>,
+	Johan Hovold <jhovold@gmail.com>
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:54503 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932170Ab3GKJIi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 05:08:38 -0400
+In-Reply-To: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Complete() will be run with interrupt enabled, so change to
 spin_lock_irqsave().
 
-Cc: Johan Hovold <jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Cc: Johan Hovold <jhovold@gmail.com>
+Signed-off-by: Ming Lei <ming.lei@canonical.com>
 ---
- drivers/usb/serial/mos7720.c |    5 +++--
+ drivers/usb/serial/mos7840.c |    5 +++--
  1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/usb/serial/mos7720.c b/drivers/usb/serial/mos7720.c
-index 51da424..9b8c866 100644
---- a/drivers/usb/serial/mos7720.c
-+++ b/drivers/usb/serial/mos7720.c
-@@ -338,14 +338,15 @@ static void async_complete(struct urb *urb)
- {
- 	struct urbtracker *urbtrack = urb->context;
+diff --git a/drivers/usb/serial/mos7840.c b/drivers/usb/serial/mos7840.c
+index 0a818b2..f21dcd0 100644
+--- a/drivers/usb/serial/mos7840.c
++++ b/drivers/usb/serial/mos7840.c
+@@ -788,17 +788,18 @@ static void mos7840_bulk_out_data_callback(struct urb *urb)
+ 	struct usb_serial_port *port;
  	int status = urb->status;
+ 	int i;
 +	unsigned long flags;
  
- 	if (unlikely(status))
- 		dev_dbg(&urb->dev->dev, "%s - nonzero urb status received: %d\n", __func__, status);
+ 	mos7840_port = urb->context;
+ 	port = mos7840_port->port;
+-	spin_lock(&mos7840_port->pool_lock);
++	spin_lock_irqsave(&mos7840_port->pool_lock, flags);
+ 	for (i = 0; i < NUM_URBS; i++) {
+ 		if (urb == mos7840_port->write_urb_pool[i]) {
+ 			mos7840_port->busy[i] = 0;
+ 			break;
+ 		}
+ 	}
+-	spin_unlock(&mos7840_port->pool_lock);
++	spin_unlock_irqrestore(&mos7840_port->pool_lock, flags);
  
- 	/* remove the urbtracker from the active_urbs list */
--	spin_lock(&urbtrack->mos_parport->listlock);
-+	spin_lock_irqsave(&urbtrack->mos_parport->listlock, flags);
- 	list_del(&urbtrack->urblist_entry);
--	spin_unlock(&urbtrack->mos_parport->listlock);
-+	spin_unlock_irqrestore(&urbtrack->mos_parport->listlock, flags);
- 	kref_put(&urbtrack->ref_count, destroy_urbtracker);
- }
- 
+ 	if (status) {
+ 		dev_dbg(&port->dev, "nonzero write bulk status received:%d\n", status);
 -- 
 1.7.9.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
