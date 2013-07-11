@@ -1,46 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] pkt_sched: sch_qfq: efficiency and codestyle
- improvements
-Date: Thu, 11 Jul 2013 13:01:32 -0700 (PDT)
-Message-ID: <20130711.130132.1487792546552701732.davem@davemloft.net>
-References: <20130305.235006.1904081547083683406.davem@davemloft.net>
-	<1373463969-11285-1-git-send-email-paolo.valente@unimore.it>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net v2] ipv6: only static routes qualify for equal cost multipathing
+Date: Thu, 11 Jul 2013 22:02:06 +0200
+Message-ID: <20130711200206.GA12611@order.stressinduktion.org>
+References: <20130711170231.GA11078@order.stressinduktion.org> <20130711.114419.1045272869172136221.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, shemminger@vyatta.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fchecconi@gmail.com,
-	rizzo@iet.unipi.it, David.Laight@ACULAB.COM
-To: paolo.valente@unimore.it
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1373463969-11285-1-git-send-email-paolo.valente@unimore.it>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:40029 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756506Ab3GKUCH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 16:02:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20130711.114419.1045272869172136221.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Valente <paolo.valente@unimore.it>
-Date: Wed, 10 Jul 2013 15:46:07 +0200
+On Thu, Jul 11, 2013 at 11:44:19AM -0700, David Miller wrote:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Thu, 11 Jul 2013 19:02:31 +0200
+> 
+> > +	for (rt = rt0; rt && !(rt->rt6i_flags & RTF_EXPIRES);
+> > +	     rt = (struct rt6_info *)rt->dst.from);
+> > +	return !(rt && (rt->rt6i_flags & RTF_EXPIRES));
+> 
+> Please make this logic clearer, something like:
+> 
+> 
+> 	for (rt = rt0; rt; rt = (struct rt6_info *)rt->dst.from) {
+> 		if (rt->rt6i_flags & RTF_EXPIRES)
+> 			return false;
+> 	}
+> 	return true;
 
-> Hi,
-> this patchset tries to address the two issues raised by Dave in
-> http://marc.info/?l=linux-kernel&m=136254542019113&w=2
-> 
-> The first of these issues has been also raised by
-> David Laight:
-> http://marc.info/?l=linux-kernel&m=136256446624557&w=2
-> 
->> Although two topics for possibly resolving later:
->> 
->> 1) That 1ULL bit mask fix is quite expensive on 32-bit, it would
->>     probably be cheaper to test for that case using a helper function
->>     that nops out on 64-bit.  Although this is not so important.
->> 
-> I have tried to find a simple solution, based on the properties of the mask.
-> It is in the first patch.
-> 
->> 2) That static inline forward declaration is ugly, better to remove
->>     the inline tag (let the compiler handle it) or move the function
->>     above all the call sites.
->> 
-> Done by the second patch.
+Ok, I'll revisit this. The reason for this loop (which was taken from
+rt6_update_expires) is, that it was only valid to dereference dst.from if
+RTF_EXPIRES was not set (before commit ecd9883 ("ipv6: fix race condition
+regarding dst->expires and dst->from") dst.from and dst.expires were a
+union). I tried to keep this (possible) invariant.
 
-Looks good, thanks for doing this, both applied.
+I'll check if this is still needed.
+
+Greetings,
+
+  Hannes
