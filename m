@@ -1,57 +1,68 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH 06/50] USB: iowarrior: spin_lock in complete() cleanup
-Date: Thu, 11 Jul 2013 17:05:29 +0800
-Message-ID: <1373533573-12272-7-git-send-email-ming.lei@canonical.com>
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: [PATCH 07/50] USB: ldusb: spin_lock in complete() cleanup
+Date: Thu, 11 Jul 2013 17:05:30 +0800
+Message-ID: <1373533573-12272-8-git-send-email-ming.lei@canonical.com>
 References: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
-Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	linux-input@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-media@vger.kernel.org, alsa-devel@alsa-project.org,
-	Ming Lei <ming.lei@canonical.com>
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-media-owner@vger.kernel.org>
-In-Reply-To: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
-Sender: linux-media-owner@vger.kernel.org
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org,
+	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+To: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1373533573-12272-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 Complete() will be run with interrupt enabled, so change to
 spin_lock_irqsave().
 
-Signed-off-by: Ming Lei <ming.lei@canonical.com>
+Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 ---
- drivers/usb/misc/iowarrior.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/usb/misc/ldusb.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/usb/misc/iowarrior.c b/drivers/usb/misc/iowarrior.c
-index d36f34e..010ed6d 100644
---- a/drivers/usb/misc/iowarrior.c
-+++ b/drivers/usb/misc/iowarrior.c
-@@ -162,6 +162,7 @@ static void iowarrior_callback(struct urb *urb)
- 	int offset;
+diff --git a/drivers/usb/misc/ldusb.c b/drivers/usb/misc/ldusb.c
+index ac76229..8bae18e 100644
+--- a/drivers/usb/misc/ldusb.c
++++ b/drivers/usb/misc/ldusb.c
+@@ -249,6 +249,7 @@ static void ld_usb_interrupt_in_callback(struct urb *urb)
+ 	unsigned int next_ring_head;
  	int status = urb->status;
  	int retval;
 +	unsigned long flags;
  
- 	switch (status) {
- 	case 0:
-@@ -175,7 +176,7 @@ static void iowarrior_callback(struct urb *urb)
- 		goto exit;
+ 	if (status) {
+ 		if (status == -ENOENT ||
+@@ -258,12 +259,12 @@ static void ld_usb_interrupt_in_callback(struct urb *urb)
+ 		} else {
+ 			dbg_info(&dev->intf->dev, "%s: nonzero status received: %d\n",
+ 				 __func__, status);
+-			spin_lock(&dev->rbsl);
++			spin_lock_irqsave(&dev->rbsl, flags);
+ 			goto resubmit; /* maybe we can recover */
+ 		}
  	}
  
--	spin_lock(&dev->intr_idx_lock);
-+	spin_lock_irqsave(&dev->intr_idx_lock, flags);
- 	intr_idx = atomic_read(&dev->intr_idx);
- 	/* aux_idx become previous intr_idx */
- 	aux_idx = (intr_idx == 0) ? (MAX_INTERRUPT_BUFFER - 1) : (intr_idx - 1);
-@@ -211,7 +212,7 @@ static void iowarrior_callback(struct urb *urb)
- 	*(dev->read_queue + offset + (dev->report_size)) = dev->serial_number++;
- 
- 	atomic_set(&dev->intr_idx, aux_idx);
--	spin_unlock(&dev->intr_idx_lock);
-+	spin_unlock_irqrestore(&dev->intr_idx_lock, flags);
- 	/* tell the blocking read about the new data */
+-	spin_lock(&dev->rbsl);
++	spin_lock_irqsave(&dev->rbsl, flags);
+ 	if (urb->actual_length > 0) {
+ 		next_ring_head = (dev->ring_head+1) % ring_buffer_size;
+ 		if (next_ring_head != dev->ring_tail) {
+@@ -292,7 +293,7 @@ resubmit:
+ 			dev->buffer_overflow = 1;
+ 		}
+ 	}
+-	spin_unlock(&dev->rbsl);
++	spin_unlock_irqrestore(&dev->rbsl, flags);
+ exit:
+ 	dev->interrupt_in_done = 1;
  	wake_up_interruptible(&dev->read_wait);
- 
 -- 
 1.7.9.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
