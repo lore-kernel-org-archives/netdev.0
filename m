@@ -1,33 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] gre: Fix MTU sizing check for gretap tunnels
-Date: Thu, 11 Jul 2013 16:30:49 -0700 (PDT)
-Message-ID: <20130711.163049.2156289666282417262.davem@davemloft.net>
-References: <CALnjE+p3tqNO9Fbn=+LLtL8VvfvSQyOLDZoFRvGFTXgJzHKqhQ@mail.gmail.com>
-	<1373582702.4600.85.camel@edumazet-glaptop>
-	<CALnjE+oXbT+J01A-9GRxAAVuANaVA6ifF5_oc6ZSWRY2TTVUBw@mail.gmail.com>
+Subject: Re: [PATCH net 1/1] qlcnic: Adding Maintainers.
+Date: Thu, 11 Jul 2013 16:31:41 -0700 (PDT)
+Message-ID: <20130711.163141.1984595996125916162.davem@davemloft.net>
+References: <1373479222-1286-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, alexander.h.duyck@intel.com,
-	netdev@vger.kernel.org, jesse@nicira.com
-To: pshelar@nicira.com
+Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
+	shahed.shaikh@qlogic.com, Dept_NX_Linux_NIC_Driver@qlogic.com
+To: jitendra.kalsaria@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33333 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33351 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755738Ab3GKXau (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 19:30:50 -0400
-In-Reply-To: <CALnjE+oXbT+J01A-9GRxAAVuANaVA6ifF5_oc6ZSWRY2TTVUBw@mail.gmail.com>
+	with ESMTP id S1755738Ab3GKXbl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 19:31:41 -0400
+In-Reply-To: <1373479222-1286-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin Shelar <pshelar@nicira.com>
-Date: Thu, 11 Jul 2013 16:19:17 -0700
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Date: Wed, 10 Jul 2013 14:00:22 -0400
 
-> gre is been using dev->hard_header_len rather than
-> rt_dev->hard_header_len for long time which does not look right.
+> From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+> 
+> Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 
-I noticed this as well.
-
-I would suggest implementing these calculations in small discrete
-helper functions, with big comments.  Right now the code is hard
-to understand even by experts.
+Applied, thanks.
