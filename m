@@ -1,95 +1,119 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH 23/50] BT: bfusb: read_lock in complete() cleanup
-Date: Thu, 11 Jul 2013 17:05:46 +0800
-Message-ID: <1373533573-12272-24-git-send-email-ming.lei@canonical.com>
-References: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
-Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	linux-input@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-media@vger.kernel.org, alsa-devel@alsa-project.org,
-	Ming Lei <ming.lei@canonical.com>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Gustavo Padovan <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-input-owner@vger.kernel.org>
-In-Reply-To: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
-Sender: linux-input-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: Re: [PATCH v2 1/1] xen/netback: correctly calculate required slots
+ of skb.
+Date: Thu, 11 Jul 2013 10:47:58 +0100
+Message-ID: <1373536078.5453.159.camel@hastur.hellion.org.uk>
+References: <1373447711-31303-1-git-send-email-annie.li@oracle.com>
+	 <1373530274.5453.148.camel@hastur.hellion.org.uk>
+	 <51DE6DFD.9080007@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>,
+	<wei.liu2@citrix.com>, <konrad.wilk@oracle.com>, <msw@amazon.com>
+To: annie li <annie.li@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:12912 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754276Ab3GKJsD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 05:48:03 -0400
+In-Reply-To: <51DE6DFD.9080007@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Complete() will be run with interrupt enabled, so change to
-read_lock_irqsave().
+On Thu, 2013-07-11 at 16:34 +0800, annie li wrote:
+> On 2013-7-11 16:11, Ian Campbell wrote:
+> > On Wed, 2013-07-10 at 17:15 +0800, Annie Li wrote:
+> >> +static int netbk_count_slots(struct xenvif *vif, struct sk_buff *skb,
+> >> +			    int *copy_off, unsigned long size,
+> >> +			    unsigned long offset, int *head)
+> >>   {
+> >> -	unsigned int count;
+> >> -	int i, copy_off;
+> >> +	unsigned long bytes;
+> >> +	int count = 0;
+> >>   
+> >> -	count = DIV_ROUND_UP(skb_headlen(skb), PAGE_SIZE);
+> >> +	offset &= ~PAGE_MASK;
+> >>   
+> >> -	copy_off = skb_headlen(skb) % PAGE_SIZE;
+> >> +	while (size > 0) {
+> >> +		BUG_ON(offset >= PAGE_SIZE);
+> >> +		BUG_ON(*copy_off > MAX_BUFFER_OFFSET);
+> >>   
+> >> -	if (skb_shinfo(skb)->gso_size)
+> >> -		count++;
+> >> +		bytes = PAGE_SIZE - offset;
+> >>   
+> >> -	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+> >> -		unsigned long size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
+> >> -		unsigned long offset = skb_shinfo(skb)->frags[i].page_offset;
+> >> -		unsigned long bytes;
+> >> +		if (bytes > size)
+> >> +			bytes = size;
+> >>   
+> >> -		offset &= ~PAGE_MASK;
+> >> +		if (start_new_rx_buffer(*copy_off, bytes, *head)) {
+> >> +			count++;
+> >> +			*copy_off = 0;
+> >> +		}
+> >>   
+> >> -		while (size > 0) {
+> >> -			BUG_ON(offset >= PAGE_SIZE);
+> >> -			BUG_ON(copy_off > MAX_BUFFER_OFFSET);
+> >> +		if (*copy_off + bytes > MAX_BUFFER_OFFSET)
+> >> +			bytes = MAX_BUFFER_OFFSET - *copy_off;
+> >>   
+> >> -			bytes = PAGE_SIZE - offset;
+> >> +		*copy_off += bytes;
+> >>   
+> >> -			if (bytes > size)
+> >> -				bytes = size;
+> >> +		offset += bytes;
+> >> +		size -= bytes;
+> >>   
+> >> -			if (start_new_rx_buffer(copy_off, bytes, 0)) {
+> >> -				count++;
+> >> -				copy_off = 0;
+> >> -			}
+> >> +		/* Next frame */
+> >> +		if (offset == PAGE_SIZE && size)
+> >> +			offset = 0;
+> >> +
+> >> +		if (*head)
+> >> +			count++;
+> > This little bit corresponds to the "/* Leave a gap for the GSO
+> > descriptor. */" in gop_frag_copy?
+> 
+> No, it does not correspond to this in gop_frag_copy.
 
-Cc: Marcel Holtmann <marcel@holtmann.org>
-Cc: Gustavo Padovan <gustavo@padovan.org>
-Cc: Johan Hedberg <johan.hedberg@gmail.com>
-Cc: linux-bluetooth@vger.kernel.org
-Signed-off-by: Ming Lei <ming.lei@canonical.com>
----
- drivers/bluetooth/bfusb.c |   12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+So what does it correspond to?
 
-diff --git a/drivers/bluetooth/bfusb.c b/drivers/bluetooth/bfusb.c
-index 995aee9..2e93501 100644
---- a/drivers/bluetooth/bfusb.c
-+++ b/drivers/bluetooth/bfusb.c
-@@ -186,6 +186,7 @@ static void bfusb_tx_complete(struct urb *urb)
- {
- 	struct sk_buff *skb = (struct sk_buff *) urb->context;
- 	struct bfusb_data *data = (struct bfusb_data *) skb->dev;
-+	unsigned long flags;
- 
- 	BT_DBG("bfusb %p urb %p skb %p len %d", data, urb, skb, skb->len);
- 
-@@ -199,14 +200,14 @@ static void bfusb_tx_complete(struct urb *urb)
- 	else
- 		data->hdev->stat.err_tx++;
- 
--	read_lock(&data->lock);
-+	read_lock_irqsave(&data->lock, flags);
- 
- 	skb_unlink(skb, &data->pending_q);
- 	skb_queue_tail(&data->completed_q, skb);
- 
- 	bfusb_tx_wakeup(data);
- 
--	read_unlock(&data->lock);
-+	read_unlock_irqrestore(&data->lock, flags);
- }
- 
- 
-@@ -347,10 +348,11 @@ static void bfusb_rx_complete(struct urb *urb)
- 	unsigned char *buf = urb->transfer_buffer;
- 	int count = urb->actual_length;
- 	int err, hdr, len;
-+	unsigned long flags;
- 
- 	BT_DBG("bfusb %p urb %p skb %p len %d", data, urb, skb, skb->len);
- 
--	read_lock(&data->lock);
-+	read_lock_irqsave(&data->lock, flags);
- 
- 	if (!test_bit(HCI_RUNNING, &data->hdev->flags))
- 		goto unlock;
-@@ -392,7 +394,7 @@ static void bfusb_rx_complete(struct urb *urb)
- 
- 	bfusb_rx_submit(data, urb);
- 
--	read_unlock(&data->lock);
-+	read_unlock_irqrestore(&data->lock, flags);
- 
- 	return;
- 
-@@ -406,7 +408,7 @@ resubmit:
- 	}
- 
- unlock:
--	read_unlock(&data->lock);
-+	read_unlock_irqrestore(&data->lock, flags);
- }
- 
- static int bfusb_open(struct hci_dev *hdev)
--- 
-1.7.9.5
+>  The code here only 
+> increase count for the first time. I thought to initialize the count in 
+> xen_netbk_count_skb_slots with 1 to avoid this. But thinking of the 
+> extreme case when the header size is zero(not sure whether this case 
+> could be true), I increase the count here to keep safe in case header 
+> size is zero.
 
+netfront requires that the first slot always contains some data,
+gop_frag_copy will BUG if that's not the case.
+
+> 
+> There is code correspond to that in gop_frag_copy in 
+> xen_netbk_count_skb_slots, see following,
+> 
+> +	if (skb_shinfo(skb)->gso_size && !vif->gso_prefix)
+> +		count++;
+> (The original code does not have gso_prefix, I added it in this patch
+> too based on Wei's suggestion)
+
+OK.
+
+It's be nice if the count and copy variants of this logic could be as
+similar as possible but they already differ quite a bit. I have
+considered whether we could combine the two by adding "dry-run"
+functionality to gop_frag_copy but that seems like it would just ugly up
+both versions.
+
+Ian.
