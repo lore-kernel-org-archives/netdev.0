@@ -1,130 +1,120 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH RFC] ipv6: fix route selection if kernel is not compiled with CONFIG_IPV6_ROUTER_PREF
-Date: Thu, 11 Jul 2013 12:24:41 +0200
-Message-ID: <20130711102441.GC5207@order.stressinduktion.org>
-References: <20130707173031.GC9625@order.stressinduktion.org> <20130709215701.GD9763@order.stressinduktion.org> <51DD1352.8000705@6wind.com> <51DD2959.9060206@6wind.com> <20130710105316.GA5735@order.stressinduktion.org> <51DD521F.1000905@6wind.com> <20130710132122.GD15411@order.stressinduktion.org> <51DD6B72.1050700@6wind.com> <20130710212149.GA26122@order.stressinduktion.org> <51DE671F.5050706@6wind.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	petrus.lt@gmail.com, davem@davemloft.net
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+From: Thomas Richter <tmricht@linux.vnet.ibm.com>
+Subject: [PATCH 1/2] vxlan fdb replace an existing entry
+Date: Thu, 11 Jul 2013 12:28:19 +0200
+Message-ID: <1373538500-10629-1-git-send-email-tmricht@linux.vnet.ibm.com>
+Cc: Thomas Richter <tmricht@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:38841 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755579Ab3GKKYm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 06:24:42 -0400
-Content-Disposition: inline
-In-Reply-To: <51DE671F.5050706@6wind.com>
+Received: from e06smtp17.uk.ibm.com ([195.75.94.113]:41165 "EHLO
+	e06smtp17.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932083Ab3GKK23 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 06:28:29 -0400
+Received: from /spool/local
+	by e06smtp17.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <tmricht@linux.vnet.ibm.com>;
+	Thu, 11 Jul 2013 11:24:14 +0100
+Received: from b06cxnps3075.portsmouth.uk.ibm.com (d06relay10.portsmouth.uk.ibm.com [9.149.109.195])
+	by d06dlp02.portsmouth.uk.ibm.com (Postfix) with ESMTP id 696982190059
+	for <netdev@vger.kernel.org>; Thu, 11 Jul 2013 11:32:19 +0100 (BST)
+Received: from d06av10.portsmouth.uk.ibm.com (d06av10.portsmouth.uk.ibm.com [9.149.37.251])
+	by b06cxnps3075.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r6BASEJa42598494
+	for <netdev@vger.kernel.org>; Thu, 11 Jul 2013 10:28:14 GMT
+Received: from d06av10.portsmouth.uk.ibm.com (localhost [127.0.0.1])
+	by d06av10.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id r6BASOPn011563
+	for <netdev@vger.kernel.org>; Thu, 11 Jul 2013 04:28:25 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 11, 2013 at 10:04:47AM +0200, Nicolas Dichtel wrote:
-> Le 10/07/2013 23:21, Hannes Frederic Sowa a =C3=A9crit :
-> >On Wed, Jul 10, 2013 at 04:10:58PM +0200, Nicolas Dichtel wrote:
-> >>I wonder why expires is 0. Even if this route is cached, the flag
-> >>RTF_EXPIRES should be set. Am I wrong?
-> >
-> >rt6_set_from deliberately clears the RTF_EXPIRES when creating a cac=
-hed=20
-> >copy
-> >of the route if the route is an autoconfigured default route.
-> >
-> >Maybe the criterion for exclusion of which routes can get into an ec=
-mp=20
-> >route
-> >set should be revisited? This could result in strange effects for us=
-ers
-> >working with two interfaces, both receiving a RA with default routes=
-=2E
-> Agreed. Here is a proposal, what do you think?
->=20
-> [PATCH] ipv6: don't use autoconfigured route for ecmp
->=20
-> The intention was already there by checking the flag RTF_EXPIRES, but=
- this=20
-> flag
-> is removed from the default route by rt6_set_from() when this route i=
-s=20
-> cached.
->=20
-> Let's add a check against RTF_ADDRCONF.
->=20
-> Spotted-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Add support to replace an existing entry found in the
+vxlan fdb database. The entry in question is identified
+by its unicast mac address and the destination information
+is changed. If the entry is not found, it is added in the
+forwarding database. This is similar to changing an entry
+in the neighbour table.
 
-I do think the patch is ok. I just wanted to show you a solution I did
-on my laptop this night and did not have the time to send yesterday. It
-is only compile-tested.
+Multicast mac addresses can not be changed with the replace
+option.
 
-I did strengthen the RTF_EXPIRES check a bit. Also I am not sure what
-did stop the search for the first route with the same metric to find a
-RTF_EXPIRES route, so I also added the guard there, too.
+This is useful for virtual machine migration when the
+destination of a target virtual machine changes. The replace
+feature can be used instead of delete followed by add.
 
-I fear, I'll need to do a bit more research.
-
-Thanks!
-
-[PATCH RFC] ipv6: routes only qualify for ecmp if their original routes=
- do not expire
-
-Cloned routes get their RTF_EXPIRES flag reset if they are autoconfigur=
-ed
-default routes. Because these routes should not end up in the ecmp rout=
-e
-set, we check if the original route has the RTF_EXPIRES flag set.
-
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
 ---
- net/ipv6/ip6_fib.c | 20 ++++++++++++++++----
- 1 file changed, 16 insertions(+), 4 deletions(-)
+ drivers/net/vxlan.c | 40 +++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 39 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 192dd1a..3bd5fcd 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -632,6 +632,18 @@ insert_above:
- 	return ln;
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 227b54a..17681c6 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -42,7 +42,7 @@
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
+ 
+-#define VXLAN_VERSION	"0.1"
++#define VXLAN_VERSION	"0.1tmr3"
+ 
+ #define PORT_HASH_BITS	8
+ #define PORT_HASH_SIZE  (1<<PORT_HASH_BITS)
+@@ -407,6 +407,26 @@ static struct vxlan_rdst *vxlan_fdb_find_rdst(struct vxlan_fdb *f,
+ 	return NULL;
  }
-=20
-+static bool rt6_qualify_for_ecmp(struct rt6_info *rt0)
+ 
++/* Replace destination of unicast mac */
++static int vxlan_fdb_replace(struct vxlan_fdb *f,
++			    __be32 ip, __be16 port, __u32 vni, __u32 ifindex)
 +{
-+	struct rt6_info *rt;
++	struct vxlan_rdst *rd;
 +
-+	if (!(rt0->rt6i_flags & RTF_GATEWAY))
-+		return false;
++	rd = vxlan_fdb_find_rdst(f, ip, port, vni, ifindex);
++	if (rd)
++		return 0;
 +
-+	for (rt =3D rt0; rt && !(rt->rt6i_flags & RTF_EXPIRES);
-+	     rt =3D (struct rt6_info *)rt->dst.from);
-+	return !(rt && (rt->rt6i_flags & RTF_EXPIRES));
++	rd = list_first_entry_or_null(&f->remotes, struct vxlan_rdst, list);
++	if (!rd)
++		return 0;
++	rd->remote_ip = ip;
++	rd->remote_port = port;
++	rd->remote_vni = vni;
++	rd->remote_ifindex = ifindex;
++	return 1;
 +}
 +
- /*
-  *	Insert routing information in a node.
-  */
-@@ -691,9 +703,8 @@ static int fib6_add_rt2node(struct fib6_node *fn, s=
-truct rt6_info *rt,
- 			 * To avoid long list, we only had siblings if the
- 			 * route have a gateway.
- 			 */
--			if (rt->rt6i_flags & RTF_GATEWAY &&
--			    !(rt->rt6i_flags & RTF_EXPIRES) &&
--			    !(iter->rt6i_flags & RTF_EXPIRES))
-+			if (rt6_qualify_for_ecmp(rt) &&
-+			    rt6_qualify_for_ecmp(iter))
- 				rt->rt6i_nsiblings++;
+ /* Add/update destinations for multicast */
+ static int vxlan_fdb_append(struct vxlan_fdb *f,
+ 			    __be32 ip, __be16 port, __u32 vni, __u32 ifindex)
+@@ -457,6 +477,19 @@ static int vxlan_fdb_create(struct vxlan_dev *vxlan,
+ 			f->updated = jiffies;
+ 			notify = 1;
  		}
-=20
-@@ -715,7 +726,8 @@ static int fib6_add_rt2node(struct fib6_node *fn, s=
-truct rt6_info *rt,
- 		/* Find the first route that have the same metric */
- 		sibling =3D fn->leaf;
- 		while (sibling) {
--			if (sibling->rt6i_metric =3D=3D rt->rt6i_metric) {
-+			if (sibling->rt6i_metric =3D=3D rt->rt6i_metric &&
-+			    rt6_qualify_for_ecmp(sibling)) {
- 				list_add_tail(&rt->rt6i_siblings,
- 					      &sibling->rt6i_siblings);
- 				break;
---=20
++		if ((flags & NLM_F_REPLACE)) {
++			/* Only change unicasts */
++			if (!(is_multicast_ether_addr(f->eth_addr) ||
++			     is_zero_ether_addr(f->eth_addr))) {
++				int rc = vxlan_fdb_replace(f, ip, port, vni,
++							   ifindex);
++
++				if (rc < 0)
++					return rc;
++				notify |= rc;
++			} else
++				return -EOPNOTSUPP;
++		}
+ 		if ((flags & NLM_F_APPEND) &&
+ 		    (is_multicast_ether_addr(f->eth_addr) ||
+ 		     is_zero_ether_addr(f->eth_addr))) {
+@@ -473,6 +506,11 @@ static int vxlan_fdb_create(struct vxlan_dev *vxlan,
+ 		if (vxlan->addrmax && vxlan->addrcnt >= vxlan->addrmax)
+ 			return -ENOSPC;
+ 
++		/* Disallow replace to add a multicast entry */
++		if ((flags & NLM_F_REPLACE) &&
++		    (is_multicast_ether_addr(mac) || is_zero_ether_addr(mac)))
++			return -EOPNOTSUPP;
++
+ 		netdev_dbg(vxlan->dev, "add %pM -> %pI4\n", mac, &ip);
+ 		f = kmalloc(sizeof(*f), GFP_ATOMIC);
+ 		if (!f)
+-- 
 1.8.1.4
