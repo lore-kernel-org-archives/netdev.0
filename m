@@ -1,60 +1,85 @@
-From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Subject: Re: [RFC]: vlan priority handling in WMM
-Date: Thu, 11 Jul 2013 18:17:10 +0100
-Message-ID: <1373563030.2085.14.camel@bwh-desktop.uk.level5networks.com>
-References: <773DB8A82AB6A046AE0195C68612A319015E05AD@sbs2003.acksys.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Cedric Debarge <cedric.debarge-eYuUwLwYA0BQFI55V6+gNQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <773DB8A82AB6A046AE0195C68612A319015E05AD-qlrpn221Ff23xYJzE/SBhoT4S9po1h25@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: [PATCH] 9p: fix off by one causing access violations and memory corruption
+Date: Thu, 11 Jul 2013 13:16:54 -0400
+Message-ID: <1373563014-4645-1-git-send-email-sasha.levin@oracle.com>
+Cc: davem@davemloft.net, v9fs-developer@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sasha Levin <sasha.levin@oracle.com>
+To: ericvh@gmail.com, rminnich@sandia.gov, lucho@ionkov.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:29451 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756306Ab3GKRRT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 13:17:19 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-07-11 at 09:45 +0200, Cedric Debarge wrote:
-> Dear mailing list,
->=20
-> I would like to manage the VLAN priority in Wireless QOS (WMM).
->=20
-> I get the VLAN tag from skb->vlan_tci and I extract the VLAN priority=
-=2E=20
->=20
-> How I should handle the priority value 0.=20
-> 	- Handle this value as no priority request, In this case the frame w=
-ill=20
-> 		sent with the DSCP priority or default (Best effort)
->         - Handle this value as a lowest priority, in this case I Map =
-it to the WMM.
-[...]
+p9_release_pages() would attempt to dereference one value past the end of
+pages[]. This would cause the following crashes:
 
-IEEE 802.1q refers to the definition in 802.1d:
+[ 6293.171817] BUG: unable to handle kernel paging request at ffff8807c96f3000
+[ 6293.174146] IP: [<ffffffff8412793b>] p9_release_pages+0x3b/0x60
+[ 6293.176447] PGD 79c5067 PUD 82c1e3067 PMD 82c197067 PTE 80000007c96f3060
+[ 6293.180060] Oops: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
+[ 6293.180060] Modules linked in:
+[ 6293.180060] CPU: 62 PID: 174043 Comm: modprobe Tainted: G        W    3.10.0-next-20130710-sasha #3954
+[ 6293.180060] task: ffff8807b803b000 ti: ffff880787dde000 task.ti: ffff880787dde000
+[ 6293.180060] RIP: 0010:[<ffffffff8412793b>]  [<ffffffff8412793b>] p9_release_pages+0x3b/0x60
+[ 6293.214316] RSP: 0000:ffff880787ddfc28  EFLAGS: 00010202
+[ 6293.214316] RAX: 0000000000000001 RBX: ffff8807c96f2ff8 RCX: 0000000000000000
+[ 6293.222017] RDX: ffff8807b803b000 RSI: 0000000000000001 RDI: ffffea001c7e3d40
+[ 6293.222017] RBP: ffff880787ddfc48 R08: 0000000000000000 R09: 0000000000000000
+[ 6293.222017] R10: 0000000000000001 R11: 0000000000000000 R12: 0000000000000001
+[ 6293.222017] R13: 0000000000000001 R14: ffff8807cc50c070 R15: ffff8807cc50c070
+[ 6293.222017] FS:  00007f572641d700(0000) GS:ffff8807f3600000(0000) knlGS:0000000000000000
+[ 6293.256784] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[ 6293.256784] CR2: ffff8807c96f3000 CR3: 00000007c8e81000 CR4: 00000000000006e0
+[ 6293.256784] Stack:
+[ 6293.256784]  ffff880787ddfcc8 ffff880787ddfcc8 0000000000000000 ffff880787ddfcc8
+[ 6293.256784]  ffff880787ddfd48 ffffffff84128be8 ffff880700000002 0000000000000001
+[ 6293.256784]  ffff8807b803b000 ffff880787ddfce0 0000100000000000 0000000000000000
+[ 6293.256784] Call Trace:
+[ 6293.256784]  [<ffffffff84128be8>] p9_virtio_zc_request+0x598/0x630
+[ 6293.256784]  [<ffffffff8115c610>] ? wake_up_bit+0x40/0x40
+[ 6293.256784]  [<ffffffff841209b1>] p9_client_zc_rpc+0x111/0x3a0
+[ 6293.256784]  [<ffffffff81174b78>] ? sched_clock_cpu+0x108/0x120
+[ 6293.256784]  [<ffffffff84122a21>] p9_client_read+0xe1/0x2c0
+[ 6293.256784]  [<ffffffff81708a90>] v9fs_file_read+0x90/0xc0
+[ 6293.256784]  [<ffffffff812bd073>] vfs_read+0xc3/0x130
+[ 6293.256784]  [<ffffffff811a78bd>] ? trace_hardirqs_on+0xd/0x10
+[ 6293.256784]  [<ffffffff812bd5a2>] SyS_read+0x62/0xa0
+[ 6293.256784]  [<ffffffff841a1a00>] tracesys+0xdd/0xe2
+[ 6293.256784] Code: 66 90 48 89 fb 41 89 f5 48 8b 3f 48 85 ff 74 29 85 f6 74 25 45 31 e4 66 0f 1f 84 00 00 00 00 00 e8 eb 14 12 fd 41 ff c4 49 63 c4 <48> 8b 3c c3 48 85 ff 74 05 45 39 e5 75 e7 48 83 c4 08 5b 41 5c
+[ 6293.256784] RIP  [<ffffffff8412793b>] p9_release_pages+0x3b/0x60
+[ 6293.256784]  RSP <ffff880787ddfc28>
+[ 6293.256784] CR2: ffff8807c96f3000
+[ 6293.256784] ---[ end trace 50822ee72cd360fc ]---
 
-> The user_priority parameter is the priority requested by the
-> originating service user. The value of this parameter is in the range
-> 0 through 7.
->=20
-> NOTE=E2=80=94The default user_priority value is 0. Values 1 through 7=
- form an
-> ordered sequence of user_priorities, with 1 being the lowest value an=
-d
-> 7 the highest. See 7.7.3 and Annex G (informative) for further
-> explanation of the use of user_priority values.
+Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+---
+ net/9p/trans_common.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-So a value of 0 should be treated as no priority request, same as for a=
-n
-untagged frame.
-
-Ben.
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/9p/trans_common.c b/net/9p/trans_common.c
+index de8df95..2ee3879 100644
+--- a/net/9p/trans_common.c
++++ b/net/9p/trans_common.c
+@@ -24,11 +24,11 @@
+  */
+ void p9_release_pages(struct page **pages, int nr_pages)
+ {
+-	int i = 0;
+-	while (pages[i] && nr_pages--) {
+-		put_page(pages[i]);
+-		i++;
+-	}
++	int i;
++
++	for (i = 0; i < nr_pages; i++)
++		if (pages[i])
++			put_page(pages[i]);
+ }
+ EXPORT_SYMBOL(p9_release_pages);
+ 
+-- 
+1.8.1.2
