@@ -1,7 +1,7 @@
 From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH 12/50] USB: serial: io_edgeport: spin_lock in complete() cleanup
-Date: Thu, 11 Jul 2013 17:05:35 +0800
-Message-ID: <1373533573-12272-13-git-send-email-ming.lei@canonical.com>
+Subject: [PATCH 13/50] USB: serial: io_ti: spin_lock in complete() cleanup
+Date: Thu, 11 Jul 2013 17:05:36 +0800
+Message-ID: <1373533573-12272-14-git-send-email-ming.lei@canonical.com>
 References: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
 Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
 	Alan Stern <stern@rowland.harvard.edu>,
@@ -12,10 +12,10 @@ Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
 	Johan Hovold <jhovold@gmail.com>
 To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:41015 "EHLO
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:41757 "EHLO
 	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932090Ab3GKJIP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 05:08:15 -0400
+	with ESMTP id S932140Ab3GKJIW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 05:08:22 -0400
 In-Reply-To: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -26,76 +26,36 @@ spin_lock_irqsave().
 Cc: Johan Hovold <jhovold@gmail.com>
 Signed-off-by: Ming Lei <ming.lei@canonical.com>
 ---
- drivers/usb/serial/io_edgeport.c |   14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
+ drivers/usb/serial/io_ti.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/usb/serial/io_edgeport.c b/drivers/usb/serial/io_edgeport.c
-index dc2803b..af2f7d8 100644
---- a/drivers/usb/serial/io_edgeport.c
-+++ b/drivers/usb/serial/io_edgeport.c
-@@ -569,6 +569,7 @@ static void edge_interrupt_callback(struct urb *urb)
- 	int portNumber;
- 	int result;
+diff --git a/drivers/usb/serial/io_ti.c b/drivers/usb/serial/io_ti.c
+index 60054e7..4943194 100644
+--- a/drivers/usb/serial/io_ti.c
++++ b/drivers/usb/serial/io_ti.c
+@@ -1615,6 +1615,7 @@ static void edge_bulk_in_callback(struct urb *urb)
+ 	int retval = 0;
+ 	int port_number;
  	int status = urb->status;
 +	unsigned long flags;
  
  	switch (status) {
  	case 0:
-@@ -594,7 +595,7 @@ static void edge_interrupt_callback(struct urb *urb)
- 		if (length > 1) {
- 			bytes_avail = data[0] | (data[1] << 8);
- 			if (bytes_avail) {
--				spin_lock(&edge_serial->es_lock);
-+				spin_lock_irqsave(&edge_serial->es_lock, flags);
- 				edge_serial->rxBytesAvail += bytes_avail;
- 				dev_dbg(dev,
- 					"%s - bytes_avail=%d, rxBytesAvail=%d, read_in_progress=%d\n",
-@@ -617,7 +618,7 @@ static void edge_interrupt_callback(struct urb *urb)
- 						edge_serial->read_in_progress = false;
- 					}
- 				}
--				spin_unlock(&edge_serial->es_lock);
-+				spin_unlock_irqrestore(&edge_serial->es_lock, flags);
- 			}
- 		}
- 		/* grab the txcredits for the ports if available */
-@@ -630,9 +631,9 @@ static void edge_interrupt_callback(struct urb *urb)
- 				port = edge_serial->serial->port[portNumber];
- 				edge_port = usb_get_serial_port_data(port);
- 				if (edge_port->open) {
--					spin_lock(&edge_port->ep_lock);
-+					spin_lock_irqsave(&edge_port->ep_lock, flags);
- 					edge_port->txCredits += txCredits;
--					spin_unlock(&edge_port->ep_lock);
-+					spin_unlock_irqrestore(&edge_port->ep_lock, flags);
- 					dev_dbg(dev, "%s - txcredits for port%d = %d\n",
- 						__func__, portNumber,
- 						edge_port->txCredits);
-@@ -673,6 +674,7 @@ static void edge_bulk_in_callback(struct urb *urb)
- 	int			retval;
- 	__u16			raw_data_length;
- 	int status = urb->status;
-+	unsigned long flags;
+@@ -1663,13 +1664,13 @@ static void edge_bulk_in_callback(struct urb *urb)
  
- 	if (status) {
- 		dev_dbg(&urb->dev->dev, "%s - nonzero read bulk status received: %d\n",
-@@ -692,7 +694,7 @@ static void edge_bulk_in_callback(struct urb *urb)
+ exit:
+ 	/* continue read unless stopped */
+-	spin_lock(&edge_port->ep_lock);
++	spin_lock_irqsave(&edge_port->ep_lock, flags);
+ 	if (edge_port->ep_read_urb_state == EDGE_READ_URB_RUNNING)
+ 		retval = usb_submit_urb(urb, GFP_ATOMIC);
+ 	else if (edge_port->ep_read_urb_state == EDGE_READ_URB_STOPPING)
+ 		edge_port->ep_read_urb_state = EDGE_READ_URB_STOPPED;
  
- 	usb_serial_debug_data(dev, __func__, raw_data_length, data);
- 
--	spin_lock(&edge_serial->es_lock);
-+	spin_lock_irqsave(&edge_serial->es_lock, flags);
- 
- 	/* decrement our rxBytes available by the number that we just got */
- 	edge_serial->rxBytesAvail -= raw_data_length;
-@@ -716,7 +718,7 @@ static void edge_bulk_in_callback(struct urb *urb)
- 		edge_serial->read_in_progress = false;
- 	}
- 
--	spin_unlock(&edge_serial->es_lock);
-+	spin_unlock_irqrestore(&edge_serial->es_lock, flags);
+-	spin_unlock(&edge_port->ep_lock);
++	spin_unlock_irqrestore(&edge_port->ep_lock, flags);
+ 	if (retval)
+ 		dev_err(dev, "%s - usb_submit_urb failed with result %d\n", __func__, retval);
  }
- 
- 
 -- 
 1.7.9.5
