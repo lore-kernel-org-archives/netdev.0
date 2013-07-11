@@ -1,42 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net v2] gso: Update tunnel segmentation to support Tx
- checksum offload
-Date: Wed, 10 Jul 2013 17:42:14 -0700
-Message-ID: <1373503334.4600.27.camel@edumazet-glaptop>
-References: <20130711000015.13134.17801.stgit@ahduyck-hc1.jf.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] r8169: add a new chip for RTL8411
+Date: Wed, 10 Jul 2013 17:43:39 -0700 (PDT)
+Message-ID: <20130710.174339.1202620552412048634.davem@davemloft.net>
+References: <1373274541-1095-1-git-send-email-hayeswang@realtek.com>
+	<20130709.125305.1668056299963467935.davem@davemloft.net>
+	<20130709230015.GA6843@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	pshelar@nicira.com, joseph.gasparakis@intel.com, jesse@nicira.com
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:35615 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751434Ab3GKAmQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 20:42:16 -0400
-Received: by mail-ob0-f174.google.com with SMTP id wd20so9305003obb.33
-        for <netdev@vger.kernel.org>; Wed, 10 Jul 2013 17:42:16 -0700 (PDT)
-In-Reply-To: <20130711000015.13134.17801.stgit@ahduyck-hc1.jf.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hayeswang@realtek.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: romieu@fr.zoreil.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130709230015.GA6843@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-07-10 at 17:05 -0700, Alexander Duyck wrote:
-> This change makes it so that the GRE and VXLAN tunnels can make use of Tx
-> checksum offload support provided by some drivers via the hw_enc_features.
-> Without this fix enabling GSO means sacrificing Tx checksum offload and
-> this actually leads to a performance regression as shown below:
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Wed, 10 Jul 2013 01:00:16 +0200
+
+> David Miller <davem@davemloft.net> :
+> [...]
+>> Francois, please review.
 > 
->             Utilization
->             Send
-> Throughput  local         GSO
-> 10^6bits/s  % S           state
->   6276.51   8.39          enabled
->   7123.52   8.42          disabled
+> The style is consistent with the driver.
+> 
+> The commit message may state that this 8411 chipset does not require
+> any special action in rtl_link_chg_patch (whence differing from the
+> previous "F" 8411).
+> 
+> Most of the code shared by rtl_hw_start_8168g_2 and rtl_hw_start_8411_2
+> is already factored out. There is not much to win here.
+> 
+> The new RTL_GIGA_MAC_VER_XY id is added in the required places.
+> 
+> It builds.
+> 
+> It's fine.
 
-While testing your patch, I discovered TSO support is completely broken
-on GRE, using bnx2x testbed.
-
-Oh well.
-
-It seems Nicira guys do not test a lot their patches.
+Thanks for reviewing, applied.
