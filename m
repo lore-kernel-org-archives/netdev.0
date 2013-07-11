@@ -1,50 +1,47 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RFC PATCH net-next] net ipv6: Remove rebundant rt6i_nsiblings
- initialization
-Date: Thu, 11 Jul 2013 09:32:09 +0200
-Message-ID: <51DE5F79.7080202@6wind.com>
-References: <1373502442-32403-1-git-send-email-fan.du@windriver.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: "Luis R. Rodriguez" <mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org>
+Subject: Re: backports based on next-20130618
+Date: Thu, 11 Jul 2013 00:34:10 -0700
+Message-ID: <CAB=NE6Xv91ma2KyXkEUUjFwH7nk4vdXfX8A6i9KmvUvYKn_tgg@mail.gmail.com>
+References: <CAB=NE6W6oa1Oa9O_s7B_4qKHdEz6S3DhVyvtpzP78XqRM_xk8A@mail.gmail.com>
+ <CAB=NE6Vf0BO_d=qPrpU=mYAv6DeRPanQqV6BshkVjJ0Tf4ponw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: yoshfuji@linux-ipv6.org, jmorris@namei.org, kuznet@ms2.inr.ac.ru,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:36001 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755644Ab3GKHcM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 03:32:12 -0400
-Received: by mail-wg0-f44.google.com with SMTP id m15so6679278wgh.23
-        for <netdev@vger.kernel.org>; Thu, 11 Jul 2013 00:32:11 -0700 (PDT)
-In-Reply-To: <1373502442-32403-1-git-send-email-fan.du@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "backports-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <backports-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAB=NE6Vf0BO_d=qPrpU=mYAv6DeRPanQqV6BshkVjJ0Tf4ponw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le 11/07/2013 02:27, Fan Du a =C3=A9crit :
-> Seting rt->rt6i_nsiblings to zero is rebundant, because above memset
-> has zeroed the rest of rt excluding the first dst memember.
+On Mon, Jul 1, 2013 at 2:39 PM, Luis R. Rodriguez
+<mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org> wrote:
+> On Mon, Jul 1, 2013 at 2:25 PM, Luis R. Rodriguez
+> <mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org> wrote:
+>> A new backports release has been made based on next-20130618, this has
+>> the new upstream alx driver, and the ath10k driver.
+>>
+>> https://www.kernel.org/pub/linux/kernel/projects/backports/2013/06/18/backports-20130618.tar.bz2
 >
-> Signed-off-by: Fan Du <fan.du@windriver.com>
-Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Sorry it just has alx, ath10k requires a small patch that I think
+> someone has sitting somewhere, next release.
 
-> ---
->   net/ipv6/route.c |    1 -
->   1 files changed, 0 insertions(+), 1 deletions(-)
->
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 7ca87b3..b88f99f 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -278,7 +278,6 @@ static inline struct rt6_info *ip6_dst_alloc(stru=
-ct net *net,
->   		rt6_init_peer(rt, table ? &table->tb6_peers : net->ipv6.peers);
->   		rt->rt6i_genid =3D rt_genid(net);
->   		INIT_LIST_HEAD(&rt->rt6i_siblings);
-> -		rt->rt6i_nsiblings =3D 0;
->   	}
->   	return rt;
->   }
->
+Nevermind, it was in already and in fact compiled fine as part of this release.
+
+  CC [M]  /home/mcgrof/tmp/poo/backports-20130618/drivers/net/wireless/ath/ath10k/mac.o
+  CC [M]  /home/mcgrof/tmp/poo/backports-20130618/drivers/net/wireless/ath/ath10k/debug.o
+  CC [M]  /home/mcgrof/tmp/poo/backports-20130618/drivers/net/wireless/ath/ath10k/core.o
+  CC [M]  /home/mcgrof/tmp/poo/backports-20130618/drivers/net/wireless/ath/ath10k/htc.o
+  CC [M]  /home/mcgrof/tmp/poo/backports-20130618/drivers/net/wireless/ath/ath10k/htt.o
+  CC [M]  /home/mcgrof/tmp/poo/backports-20130618/drivers/net/wireless/ath/ath10k/htt_rx.o
+  CC [M]  /home/mcgrof/tmp/poo/backports-20130618/drivers/net/wireless/ath/ath10k/htt_tx.o
+  CC [M]  /home/mcgrof/tmp/poo/backports-20130618/drivers/net/wireless/ath/ath10k/txrx.o
+  CC [M]  /home/mcgrof/tmp/poo/backports-20130618/drivers/net/wireless/ath/ath10k/wmi.o
+  CC [M]  /home/mcgrof/tmp/poo/backports-20130618/drivers/net/wireless/ath/ath10k/bmi.o
+  LD [M]  /home/mcgrof/tmp/poo/backports-20130618/drivers/net/wireless/ath/ath10k/ath10k_core.o
+
+ Luis
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
