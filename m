@@ -1,65 +1,37 @@
-From: Dragos Foianu <dragos.foianu@gmail.com>
-Subject: [PATCH] ipvs: fixed spacing at for statements
-Date: Thu, 11 Jul 2013 09:45:42 +0300
-Message-ID: <1373525142-9099-1-git-send-email-dragos.foianu@gmail.com>
-Cc: linux-kernel@vger.kernel.org, coreteam@netfilter.org,
-	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, kadlec@blackhole.kfki.hu, kaber@trash.net,
-	pablo@netfilter.org, ja@ssi.bg, horms@verge.net.au,
-	Dragos Foianu <dragos.foianu@gmail.com>
-To: wensong@linux-vs.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
+From: "=?UTF-8?q?=E2=80=9CCosmin?=" <cosmin90stanescu@gmail.com>
+Subject: [PATCH] strict_strtoul in (obsolete) changed to kstrtoul
+Date: Thu, 11 Jul 2013 09:52:42 +0300
+Message-ID: <1373525562-9035-1-git-send-email-user@mjolnir>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dhowells@redhat.com, ebiederm@xmission.com, rusty@rustcorp.com.au,
+	serge.hallyn@canonical.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-found using checkpatch.pl
-
-Signed-off-by: Dragos Foianu <dragos.foianu@gmail.com>
+Signed-off-by: =E2=80=9CCosmin <=E2=80=9Ccosmin90stanescu@gmail.com=E2=80=
+=9D>
 ---
- net/netfilter/ipvs/ip_vs_lblcr.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/dns_resolver/dns_key.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
-index 3cd85b2..5199448 100644
---- a/net/netfilter/ipvs/ip_vs_lblcr.c
-+++ b/net/netfilter/ipvs/ip_vs_lblcr.c
-@@ -414,7 +414,7 @@ static void ip_vs_lblcr_flush(struct ip_vs_service *svc)
- 
- 	spin_lock_bh(&svc->sched_lock);
- 	tbl->dead = 1;
--	for (i=0; i<IP_VS_LBLCR_TAB_SIZE; i++) {
-+	for (i = 0; i < IP_VS_LBLCR_TAB_SIZE; i++) {
- 		hlist_for_each_entry_safe(en, next, &tbl->bucket[i], list) {
- 			ip_vs_lblcr_free(en);
- 		}
-@@ -440,7 +440,7 @@ static inline void ip_vs_lblcr_full_check(struct ip_vs_service *svc)
- 	struct ip_vs_lblcr_entry *en;
- 	struct hlist_node *next;
- 
--	for (i=0, j=tbl->rover; i<IP_VS_LBLCR_TAB_SIZE; i++) {
-+	for (i = 0, j = tbl->rover; i < IP_VS_LBLCR_TAB_SIZE; i++) {
- 		j = (j + 1) & IP_VS_LBLCR_TAB_MASK;
- 
- 		spin_lock(&svc->sched_lock);
-@@ -495,7 +495,7 @@ static void ip_vs_lblcr_check_expire(unsigned long data)
- 	if (goal > tbl->max_size/2)
- 		goal = tbl->max_size/2;
- 
--	for (i=0, j=tbl->rover; i<IP_VS_LBLCR_TAB_SIZE; i++) {
-+	for (i = 0, j = tbl->rover; i < IP_VS_LBLCR_TAB_SIZE; i++) {
- 		j = (j + 1) & IP_VS_LBLCR_TAB_MASK;
- 
- 		spin_lock(&svc->sched_lock);
-@@ -536,7 +536,7 @@ static int ip_vs_lblcr_init_svc(struct ip_vs_service *svc)
- 	/*
- 	 *    Initialize the hash buckets
- 	 */
--	for (i=0; i<IP_VS_LBLCR_TAB_SIZE; i++) {
-+	for (i = 0; i < IP_VS_LBLCR_TAB_SIZE; i++) {
- 		INIT_HLIST_HEAD(&tbl->bucket[i]);
- 	}
- 	tbl->max_size = IP_VS_LBLCR_TAB_SIZE*16;
--- 
+diff --git a/net/dns_resolver/dns_key.c b/net/dns_resolver/dns_key.c
+index 0a69d07..f347a2c 100644
+--- a/net/dns_resolver/dns_key.c
++++ b/net/dns_resolver/dns_key.c
+@@ -118,7 +118,7 @@ dns_resolver_instantiate(struct key *key, struct ke=
+y_preparsed_payload *prep)
+ 				if (opt_vlen <=3D 0)
+ 					goto bad_option_value;
+=20
+-				ret =3D strict_strtoul(eq, 10, &derrno);
++				ret =3D kstrtoul(eq, 10, &derrno);
+ 				if (ret < 0)
+ 					goto bad_option_value;
+=20
+--=20
 1.7.10.4
-
