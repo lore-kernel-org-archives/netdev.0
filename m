@@ -1,119 +1,46 @@
-From: Ian Campbell <ian.campbell@citrix.com>
-Subject: Re: [PATCH v2 1/1] xen/netback: correctly calculate required slots
- of skb.
-Date: Thu, 11 Jul 2013 10:47:58 +0100
-Message-ID: <1373536078.5453.159.camel@hastur.hellion.org.uk>
-References: <1373447711-31303-1-git-send-email-annie.li@oracle.com>
-	 <1373530274.5453.148.camel@hastur.hellion.org.uk>
-	 <51DE6DFD.9080007@oracle.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net RESEND v2] ipv6: fix route selection if kernel is not compiled with CONFIG_IPV6_ROUTER_PREF
+Date: Thu, 11 Jul 2013 12:15:34 +0200
+Message-ID: <20130711101534.GA5207@order.stressinduktion.org>
+References: <20130710210012.GK15411@order.stressinduktion.org> <20130710.173633.631366598766526289.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>,
-	<wei.liu2@citrix.com>, <konrad.wilk@oracle.com>, <msw@amazon.com>
-To: annie li <annie.li@oracle.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, petrus.lt@gmail.com,
+	yoshfuji@linux-ipv6.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:12912 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754276Ab3GKJsD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 05:48:03 -0400
-In-Reply-To: <51DE6DFD.9080007@oracle.com>
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:38798 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754306Ab3GKKPg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 06:15:36 -0400
+Content-Disposition: inline
+In-Reply-To: <20130710.173633.631366598766526289.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-07-11 at 16:34 +0800, annie li wrote:
-> On 2013-7-11 16:11, Ian Campbell wrote:
-> > On Wed, 2013-07-10 at 17:15 +0800, Annie Li wrote:
-> >> +static int netbk_count_slots(struct xenvif *vif, struct sk_buff *skb,
-> >> +			    int *copy_off, unsigned long size,
-> >> +			    unsigned long offset, int *head)
-> >>   {
-> >> -	unsigned int count;
-> >> -	int i, copy_off;
-> >> +	unsigned long bytes;
-> >> +	int count = 0;
-> >>   
-> >> -	count = DIV_ROUND_UP(skb_headlen(skb), PAGE_SIZE);
-> >> +	offset &= ~PAGE_MASK;
-> >>   
-> >> -	copy_off = skb_headlen(skb) % PAGE_SIZE;
-> >> +	while (size > 0) {
-> >> +		BUG_ON(offset >= PAGE_SIZE);
-> >> +		BUG_ON(*copy_off > MAX_BUFFER_OFFSET);
-> >>   
-> >> -	if (skb_shinfo(skb)->gso_size)
-> >> -		count++;
-> >> +		bytes = PAGE_SIZE - offset;
-> >>   
-> >> -	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-> >> -		unsigned long size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
-> >> -		unsigned long offset = skb_shinfo(skb)->frags[i].page_offset;
-> >> -		unsigned long bytes;
-> >> +		if (bytes > size)
-> >> +			bytes = size;
-> >>   
-> >> -		offset &= ~PAGE_MASK;
-> >> +		if (start_new_rx_buffer(*copy_off, bytes, *head)) {
-> >> +			count++;
-> >> +			*copy_off = 0;
-> >> +		}
-> >>   
-> >> -		while (size > 0) {
-> >> -			BUG_ON(offset >= PAGE_SIZE);
-> >> -			BUG_ON(copy_off > MAX_BUFFER_OFFSET);
-> >> +		if (*copy_off + bytes > MAX_BUFFER_OFFSET)
-> >> +			bytes = MAX_BUFFER_OFFSET - *copy_off;
-> >>   
-> >> -			bytes = PAGE_SIZE - offset;
-> >> +		*copy_off += bytes;
-> >>   
-> >> -			if (bytes > size)
-> >> -				bytes = size;
-> >> +		offset += bytes;
-> >> +		size -= bytes;
-> >>   
-> >> -			if (start_new_rx_buffer(copy_off, bytes, 0)) {
-> >> -				count++;
-> >> -				copy_off = 0;
-> >> -			}
-> >> +		/* Next frame */
-> >> +		if (offset == PAGE_SIZE && size)
-> >> +			offset = 0;
-> >> +
-> >> +		if (*head)
-> >> +			count++;
-> > This little bit corresponds to the "/* Leave a gap for the GSO
-> > descriptor. */" in gop_frag_copy?
+On Wed, Jul 10, 2013 at 05:36:33PM -0700, David Miller wrote:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Wed, 10 Jul 2013 23:00:12 +0200
 > 
-> No, it does not correspond to this in gop_frag_copy.
-
-So what does it correspond to?
-
->  The code here only 
-> increase count for the first time. I thought to initialize the count in 
-> xen_netbk_count_skb_slots with 1 to avoid this. But thinking of the 
-> extreme case when the header size is zero(not sure whether this case 
-> could be true), I increase the count here to keep safe in case header 
-> size is zero.
-
-netfront requires that the first slot always contains some data,
-gop_frag_copy will BUG if that's not the case.
-
+> > I changed the return value of rt6_check_neigh to:
+> >    1 in case of the dst entry validated
+> >   -1 in case of we had no dst_entry and we need to do rr now
+> >   -2 in case a we had a dst_entry and it did not validate
 > 
-> There is code correspond to that in gop_frag_copy in 
-> xen_netbk_count_skb_slots, see following,
-> 
-> +	if (skb_shinfo(skb)->gso_size && !vif->gso_prefix)
-> +		count++;
-> (The original code does not have gso_prefix, I added it in this patch
-> too based on Wei's suggestion)
+> Please, at the very least, create an enumeration for this set of
+> possible return values.
 
-OK.
+Yes, this should have caught my eyes earlier.
 
-It's be nice if the count and copy variants of this logic could be as
-similar as possible but they already differ quite a bit. I have
-considered whether we could combine the two by adding "dry-run"
-functionality to gop_frag_copy but that seems like it would just ugly up
-both versions.
+> Although I don't like how that RR boolean is passed around by
+> reference, I can't suggest anything better so I won't require
+> you to get rid of that.
 
-Ian.
+I fear so, too. I also tought about marking the soft-fail state in the
+pointer or adding a rt6_match structure. But both seem more complex to me.
+
+Will send an updated patch shortly.
+
+Thanks,
+
+  Hannes
