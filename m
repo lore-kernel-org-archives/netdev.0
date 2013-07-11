@@ -1,21 +1,22 @@
 From: Annie <annie.li@oracle.com>
 Subject: Re: [PATCH v2 1/1] xen/netback: correctly calculate
 	required slots of skb.
-Date: Thu, 11 Jul 2013 18:46:53 +0800
-Message-ID: <4A59CC63-9B57-49FA-A2FD-6903C86E110E@oracle.com>
+Date: Thu, 11 Jul 2013 18:59:26 +0800
+Message-ID: <3038108B-5529-452A-A488-4E616F7C1B8E@oracle.com>
 References: <1373447711-31303-1-git-send-email-annie.li@oracle.com>
 	<1373530274.5453.148.camel@hastur.hellion.org.uk>
 	<51DE6DFD.9080007@oracle.com>
 	<1373536078.5453.159.camel@hastur.hellion.org.uk>
+	<4A59CC63-9B57-49FA-A2FD-6903C86E110E@oracle.com>
 Mime-Version: 1.0 (1.0)
-Content-Type: multipart/mixed; boundary="===============4421383046443079146=="
+Content-Type: multipart/mixed; boundary="===============3882206869844808958=="
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
 	"wei.liu2@citrix.com" <wei.liu2@citrix.com>,
-	"msw@amazon.com" <msw@amazon.com>
-To: Ian Campbell <ian.campbell@citrix.com>
+	Ian Campbell <ian.campbell@citrix.com>, "msw@amazon.com" <msw@amazon.com>
+To: Annie <annie.li@oracle.com>
 Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1373536078.5453.159.camel@hastur.hellion.org.uk>
+In-Reply-To: <4A59CC63-9B57-49FA-A2FD-6903C86E110E@oracle.com>
 List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
 	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
 List-Post: <mailto:xen-devel@lists.xen.org>
@@ -27,13 +28,13 @@ Errors-To: xen-devel-bounces@lists.xen.org
 List-Id: netdev.vger.kernel.org
 
 
---===============4421383046443079146==
-Content-Type: multipart/alternative;
-	boundary=Apple-Mail-F39F69E0-45FD-4ABF-A6CF-28CEA7F26F9C
+--===============3882206869844808958==
 Content-Transfer-Encoding: 7bit
+Content-Type: multipart/alternative;
+	boundary=Apple-Mail-C91A0154-5A96-43B0-B5CF-3F727826BE99
 
 
---Apple-Mail-F39F69E0-45FD-4ABF-A6CF-28CEA7F26F9C
+--Apple-Mail-C91A0154-5A96-43B0-B5CF-3F727826BE99
 Content-Transfer-Encoding: quoted-printable
 Content-Type: text/plain;
 	charset=GB2312
@@ -42,126 +43,152 @@ Content-Type: text/plain;
 
 =B7=A2=D7=D4=CE=D2=B5=C4 iPhone
 
-=D4=DA 2013-7-11=A3=AC=CF=C2=CE=E75:47=A3=ACIan Campbell <ian.campbell@citri=
-x.com> =D0=B4=B5=C0=A3=BA
+=D4=DA 2013-7-11=A3=AC=CF=C2=CE=E76:46=A3=ACAnnie <annie.li@oracle.com> =D0=B4=
+=B5=C0=A3=BA
 
-> On Thu, 2013-07-11 at 16:34 +0800, annie li wrote:
->> On 2013-7-11 16:11, Ian Campbell wrote:
->>> On Wed, 2013-07-10 at 17:15 +0800, Annie Li wrote:
->>>> +static int netbk_count_slots(struct xenvif *vif, struct sk_buff *skb,
->>>> +                int *copy_off, unsigned long size,
->>>> +                unsigned long offset, int *head)
->>>>  {
->>>> -    unsigned int count;
->>>> -    int i, copy_off;
->>>> +    unsigned long bytes;
->>>> +    int count =3D 0;
->>>>=20
->>>> -    count =3D DIV_ROUND_UP(skb_headlen(skb), PAGE_SIZE);
->>>> +    offset &=3D ~PAGE_MASK;
->>>>=20
->>>> -    copy_off =3D skb_headlen(skb) % PAGE_SIZE;
->>>> +    while (size > 0) {
->>>> +        BUG_ON(offset >=3D PAGE_SIZE);
->>>> +        BUG_ON(*copy_off > MAX_BUFFER_OFFSET);
->>>>=20
->>>> -    if (skb_shinfo(skb)->gso_size)
->>>> -        count++;
->>>> +        bytes =3D PAGE_SIZE - offset;
->>>>=20
->>>> -    for (i =3D 0; i < skb_shinfo(skb)->nr_frags; i++) {
->>>> -        unsigned long size =3D skb_frag_size(&skb_shinfo(skb)->frags[i=
-]);
->>>> -        unsigned long offset =3D skb_shinfo(skb)->frags[i].page_offset=
-;
->>>> -        unsigned long bytes;
->>>> +        if (bytes > size)
->>>> +            bytes =3D size;
->>>>=20
->>>> -        offset &=3D ~PAGE_MASK;
->>>> +        if (start_new_rx_buffer(*copy_off, bytes, *head)) {
->>>> +            count++;
->>>> +            *copy_off =3D 0;
->>>> +        }
->>>>=20
->>>> -        while (size > 0) {
->>>> -            BUG_ON(offset >=3D PAGE_SIZE);
->>>> -            BUG_ON(copy_off > MAX_BUFFER_OFFSET);
->>>> +        if (*copy_off + bytes > MAX_BUFFER_OFFSET)
->>>> +            bytes =3D MAX_BUFFER_OFFSET - *copy_off;
->>>>=20
->>>> -            bytes =3D PAGE_SIZE - offset;
->>>> +        *copy_off +=3D bytes;
->>>>=20
->>>> -            if (bytes > size)
->>>> -                bytes =3D size;
->>>> +        offset +=3D bytes;
->>>> +        size -=3D bytes;
->>>>=20
->>>> -            if (start_new_rx_buffer(copy_off, bytes, 0)) {
->>>> -                count++;
->>>> -                copy_off =3D 0;
->>>> -            }
->>>> +        /* Next frame */
->>>> +        if (offset =3D=3D PAGE_SIZE && size)
->>>> +            offset =3D 0;
->>>> +
->>>> +        if (*head)
->>>> +            count++;
->>> This little bit corresponds to the "/* Leave a gap for the GSO
->>> descriptor. */" in gop_frag_copy?
+>=20
+>=20
+> =B7=A2=D7=D4=CE=D2=B5=C4 iPhone
+>=20
+> =D4=DA 2013-7-11=A3=AC=CF=C2=CE=E75:47=A3=ACIan Campbell <ian.campbell@cit=
+rix.com> =D0=B4=B5=C0=A3=BA
+>=20
+>> On Thu, 2013-07-11 at 16:34 +0800, annie li wrote:
+>>> On 2013-7-11 16:11, Ian Campbell wrote:
+>>>> On Wed, 2013-07-10 at 17:15 +0800, Annie Li wrote:
+>>>>> +static int netbk_count_slots(struct xenvif *vif, struct sk_buff *skb,=
+
+>>>>> +                int *copy_off, unsigned long size,
+>>>>> +                unsigned long offset, int *head)
+>>>>>  {
+>>>>> -    unsigned int count;
+>>>>> -    int i, copy_off;
+>>>>> +    unsigned long bytes;
+>>>>> +    int count =3D 0;
+>>>>>=20
+>>>>> -    count =3D DIV_ROUND_UP(skb_headlen(skb), PAGE_SIZE);
+>>>>> +    offset &=3D ~PAGE_MASK;
+>>>>>=20
+>>>>> -    copy_off =3D skb_headlen(skb) % PAGE_SIZE;
+>>>>> +    while (size > 0) {
+>>>>> +        BUG_ON(offset >=3D PAGE_SIZE);
+>>>>> +        BUG_ON(*copy_off > MAX_BUFFER_OFFSET);
+>>>>>=20
+>>>>> -    if (skb_shinfo(skb)->gso_size)
+>>>>> -        count++;
+>>>>> +        bytes =3D PAGE_SIZE - offset;
+>>>>>=20
+>>>>> -    for (i =3D 0; i < skb_shinfo(skb)->nr_frags; i++) {
+>>>>> -        unsigned long size =3D skb_frag_size(&skb_shinfo(skb)->frags[=
+i]);
+>>>>> -        unsigned long offset =3D skb_shinfo(skb)->frags[i].page_offse=
+t;
+>>>>> -        unsigned long bytes;
+>>>>> +        if (bytes > size)
+>>>>> +            bytes =3D size;
+>>>>>=20
+>>>>> -        offset &=3D ~PAGE_MASK;
+>>>>> +        if (start_new_rx_buffer(*copy_off, bytes, *head)) {
+>>>>> +            count++;
+>>>>> +            *copy_off =3D 0;
+>>>>> +        }
+>>>>>=20
+>>>>> -        while (size > 0) {
+>>>>> -            BUG_ON(offset >=3D PAGE_SIZE);
+>>>>> -            BUG_ON(copy_off > MAX_BUFFER_OFFSET);
+>>>>> +        if (*copy_off + bytes > MAX_BUFFER_OFFSET)
+>>>>> +            bytes =3D MAX_BUFFER_OFFSET - *copy_off;
+>>>>>=20
+>>>>> -            bytes =3D PAGE_SIZE - offset;
+>>>>> +        *copy_off +=3D bytes;
+>>>>>=20
+>>>>> -            if (bytes > size)
+>>>>> -                bytes =3D size;
+>>>>> +        offset +=3D bytes;
+>>>>> +        size -=3D bytes;
+>>>>>=20
+>>>>> -            if (start_new_rx_buffer(copy_off, bytes, 0)) {
+>>>>> -                count++;
+>>>>> -                copy_off =3D 0;
+>>>>> -            }
+>>>>> +        /* Next frame */
+>>>>> +        if (offset =3D=3D PAGE_SIZE && size)
+>>>>> +            offset =3D 0;
+>>>>> +
+>>>>> +        if (*head)
+>>>>> +            count++;
+>>>> This little bit corresponds to the "/* Leave a gap for the GSO
+>>>> descriptor. */" in gop_frag_copy?
+>>>=20
+>>> No, it does not correspond to this in gop_frag_copy.
 >>=20
->> No, it does not correspond to this in gop_frag_copy.
+>> So what does it correspond to?
 >=20
-> So what does it correspond to?
+> It corresponds to following code in gop_frag_copy,
+> req =3D RING_GET_REQUEST(&vif->rx, vif->rx.req_cons++);
 
-It corresponds to following code in gop_frag_copy,
-req =3D RING_GET_REQUEST(&vif->rx, vif->rx.req_cons++);
+Hit the button and Send it wrongly last time, it is in netbk_gop_skb.
 
->=20
->> The code here only=20
->> increase count for the first time. I thought to initialize the count in=20=
-
->> xen_netbk_count_skb_slots with 1 to avoid this. But thinking of the=20
->> extreme case when the header size is zero(not sure whether this case=20
->> could be true), I increase the count here to keep safe in case header=20
->> size is zero.
->=20
-> netfront requires that the first slot always contains some data,
-> gop_frag_copy will BUG if that's not the case.
 >=20
 >>=20
->> There is code correspond to that in gop_frag_copy in=20
->> xen_netbk_count_skb_slots, see following,
+>>> The code here only=20
+>>> increase count for the first time. I thought to initialize the count in=20=
+
+>>> xen_netbk_count_skb_slots with 1 to avoid this. But thinking of the=20
+>>> extreme case when the header size is zero(not sure whether this case=20
+>>> could be true), I increase the count here to keep safe in case header=20=
+
+>>> size is zero.
 >>=20
->> +    if (skb_shinfo(skb)->gso_size && !vif->gso_prefix)
->> +        count++;
->> (The original code does not have gso_prefix, I added it in this patch
->> too based on Wei's suggestion)
->=20
-> OK.
->=20
-> It's be nice if the count and copy variants of this logic could be as
-> similar as possible but they already differ quite a bit. I have
-> considered whether we could combine the two by adding "dry-run"
-> functionality to gop_frag_copy but that seems like it would just ugly up
-> both versions.
->=20
-> Ian.
->=20
+>> netfront requires that the first slot always contains some data,
+>> gop_frag_copy will BUG if that's not the case.
+
+In gop_frag_copy, we can not go into the while if the size is 0. Which BUG_O=
+N do you mean here?
+
+Thanks
+Annie
+>>=20
+>>>=20
+>>> There is code correspond to that in gop_frag_copy in=20
+>>> xen_netbk_count_skb_slots, see following,
+>>>=20
+>>> +    if (skb_shinfo(skb)->gso_size && !vif->gso_prefix)
+>>> +        count++;
+>>> (The original code does not have gso_prefix, I added it in this patch
+>>> too based on Wei's suggestion)
+>>=20
+>> OK.
+>>=20
+>> It's be nice if the count and copy variants of this logic could be as
+>> similar as possible but they already differ quite a bit. I have
+>> considered whether we could combine the two by adding "dry-run"
+>> functionality to gop_frag_copy but that seems like it would just ugly up
+>> both versions.
+>>=20
+>> Ian.
+>>=20
+>>=20
+>> _______________________________________________
+>> Xen-devel mailing list
+>> Xen-devel@lists.xen.org
+>> http://lists.xen.org/xen-devel
 >=20
 > _______________________________________________
 > Xen-devel mailing list
 > Xen-devel@lists.xen.org
 > http://lists.xen.org/xen-devel
 
-
---Apple-Mail-F39F69E0-45FD-4ABF-A6CF-28CEA7F26F9C
+--Apple-Mail-C91A0154-5A96-43B0-B5CF-3F727826BE99
 Content-Transfer-Encoding: quoted-printable
 Content-Type: text/html;
 	charset=utf-8
 
-<html><head></head><body bgcolor=3D"#FFFFFF"><div><div><br><br>=E5=8F=91=E8=87=
+<html><head></head><body bgcolor=3D"#FFFFFF"><div><br><br>=E5=8F=91=E8=87=AA=
+=E6=88=91=E7=9A=84 iPhone</div><div><br>=E5=9C=A8 2013-7-11=EF=BC=8C=E4=B8=8B=
+=E5=8D=886:46=EF=BC=8CAnnie &lt;<a href=3D"mailto:annie.li@oracle.com">annie=
+.li@oracle.com</a>&gt; =E5=86=99=E9=81=93=EF=BC=9A<br><br></div><div><span><=
+/span></div><blockquote type=3D"cite"><div><div><div><br><br>=E5=8F=91=E8=87=
 =AA=E6=88=91=E7=9A=84 iPhone</div><div><br>=E5=9C=A8 2013-7-11=EF=BC=8C=E4=B8=
 =8B=E5=8D=885:47=EF=BC=8CIan Campbell &lt;<a href=3D"mailto:ian.campbell@cit=
 rix.com">ian.campbell@citrix.com</a>&gt; =E5=86=99=E9=81=93=EF=BC=9A<br><br>=
@@ -318,44 +345,55 @@ oes not correspond to this in gop_frag_copy.</span><br></blockquote><span></=
 span><br><span>So what does it correspond to?</span><br></div></blockquote><=
 div><br></div><div>It corresponds to following code in&nbsp;gop_frag_copy,</=
 div><div>req =3D RING_GET_REQUEST(&amp;vif-&gt;rx, vif-&gt;rx.req_cons++);</=
-div><div><br></div><blockquote type=3D"cite"><div><span></span><br><blockquo=
-te type=3D"cite"><span> The code here only </span><br></blockquote><blockquo=
-te type=3D"cite"><span>increase count for the first time. I thought to initi=
-alize the count in </span><br></blockquote><blockquote type=3D"cite"><span>x=
-en_netbk_count_skb_slots with 1 to avoid this. But thinking of the </span><b=
-r></blockquote><blockquote type=3D"cite"><span>extreme case when the header s=
-ize is zero(not sure whether this case </span><br></blockquote><blockquote t=
-ype=3D"cite"><span>could be true), I increase the count here to keep safe in=
- case header </span><br></blockquote><blockquote type=3D"cite"><span>size is=
- zero.</span><br></blockquote><span></span><br><span>netfront requires that t=
-he first slot always contains some data,</span><br><span>gop_frag_copy will B=
-UG if that's not the case.</span><br><span></span><br><blockquote type=3D"ci=
-te"><span></span><br></blockquote><blockquote type=3D"cite"><span>There is c=
-ode correspond to that in gop_frag_copy in </span><br></blockquote><blockquo=
-te type=3D"cite"><span>xen_netbk_count_skb_slots, see following,</span><br><=
-/blockquote><blockquote type=3D"cite"><span></span><br></blockquote><blockqu=
-ote type=3D"cite"><span>+ &nbsp; &nbsp;if (skb_shinfo(skb)-&gt;gso_size &amp=
-;&amp; !vif-&gt;gso_prefix)</span><br></blockquote><blockquote type=3D"cite"=
-><span>+ &nbsp; &nbsp; &nbsp; &nbsp;count++;</span><br></blockquote><blockqu=
-ote type=3D"cite"><span>(The original code does not have gso_prefix, I added=
- it in this patch</span><br></blockquote><blockquote type=3D"cite"><span>too=
- based on Wei's suggestion)</span><br></blockquote><span></span><br><span>OK=
-.</span><br><span></span><br><span>It's be nice if the count and copy varian=
-ts of this logic could be as</span><br><span>similar as possible but they al=
-ready differ quite a bit. I have</span><br><span>considered whether we could=
- combine the two by adding "dry-run"</span><br><span>functionality to gop_fr=
-ag_copy but that seems like it would just ugly up</span><br><span>both versi=
-ons.</span><br><span></span><br><span>Ian.</span><br><span></span><br><span>=
-</span><br><span>_______________________________________________</span><br><=
-span>Xen-devel mailing list</span><br><span><a href=3D"mailto:Xen-devel@list=
-s.xen.org">Xen-devel@lists.xen.org</a></span><br><span><a href=3D"http://lis=
-ts.xen.org/xen-devel">http://lists.xen.org/xen-devel</a></span><br></div></b=
-lockquote></div><div><span></span></div></body></html>=
+div></div></div></blockquote><div><br></div>Hit the button and Send it wrong=
+ly last time, it is in netbk_gop_skb.<div><br><blockquote type=3D"cite"><div=
+><div><div><br></div><blockquote type=3D"cite"><div><span></span><br><blockq=
+uote type=3D"cite"><span> The code here only </span><br></blockquote><blockq=
+uote type=3D"cite"><span>increase count for the first time. I thought to ini=
+tialize the count in </span><br></blockquote><blockquote type=3D"cite"><span=
+>xen_netbk_count_skb_slots with 1 to avoid this. But thinking of the </span>=
+<br></blockquote><blockquote type=3D"cite"><span>extreme case when the heade=
+r size is zero(not sure whether this case </span><br></blockquote><blockquot=
+e type=3D"cite"><span>could be true), I increase the count here to keep safe=
+ in case header </span><br></blockquote><blockquote type=3D"cite"><span>size=
+ is zero.</span><br></blockquote><span></span><br><span>netfront requires th=
+at the first slot always contains some data,</span><br><span>gop_frag_copy w=
+ill BUG if that's not the case.</span><br></div></blockquote></div></div></b=
+lockquote><div><br></div>In gop_frag_copy, we can not go into the while if t=
+he size is 0. Which BUG_ON do you mean here?</div><div><br></div><div>Thanks=
+</div><div>Annie<br><blockquote type=3D"cite"><div><div><blockquote type=3D"=
+cite"><div><span></span><br><blockquote type=3D"cite"><span></span><br></blo=
+ckquote><blockquote type=3D"cite"><span>There is code correspond to that in g=
+op_frag_copy in </span><br></blockquote><blockquote type=3D"cite"><span>xen_=
+netbk_count_skb_slots, see following,</span><br></blockquote><blockquote typ=
+e=3D"cite"><span></span><br></blockquote><blockquote type=3D"cite"><span>+ &=
+nbsp; &nbsp;if (skb_shinfo(skb)-&gt;gso_size &amp;&amp; !vif-&gt;gso_prefix)=
+</span><br></blockquote><blockquote type=3D"cite"><span>+ &nbsp; &nbsp; &nbs=
+p; &nbsp;count++;</span><br></blockquote><blockquote type=3D"cite"><span>(Th=
+e original code does not have gso_prefix, I added it in this patch</span><br=
+></blockquote><blockquote type=3D"cite"><span>too based on Wei's suggestion)=
+</span><br></blockquote><span></span><br><span>OK.</span><br><span></span><b=
+r><span>It's be nice if the count and copy variants of this logic could be a=
+s</span><br><span>similar as possible but they already differ quite a bit. I=
+ have</span><br><span>considered whether we could combine the two by adding "=
+dry-run"</span><br><span>functionality to gop_frag_copy but that seems like i=
+t would just ugly up</span><br><span>both versions.</span><br><span></span><=
+br><span>Ian.</span><br><span></span><br><span></span><br><span>____________=
+___________________________________</span><br><span>Xen-devel mailing list</=
+span><br><span><a href=3D"mailto:Xen-devel@lists.xen.org">Xen-devel@lists.xe=
+n.org</a></span><br><span><a href=3D"http://lists.xen.org/xen-devel">http://=
+lists.xen.org/xen-devel</a></span><br></div></blockquote></div><div><span></=
+span></div></div></blockquote><blockquote type=3D"cite"><div><span>_________=
+______________________________________</span><br><span>Xen-devel mailing lis=
+t</span><br><span><a href=3D"mailto:Xen-devel@lists.xen.org">Xen-devel@lists=
+.xen.org</a></span><br><span><a href=3D"http://lists.xen.org/xen-devel">http=
+://lists.xen.org/xen-devel</a></span><br></div></blockquote></div></body></h=
+tml>=
 
---Apple-Mail-F39F69E0-45FD-4ABF-A6CF-28CEA7F26F9C--
+--Apple-Mail-C91A0154-5A96-43B0-B5CF-3F727826BE99--
 
 
---===============4421383046443079146==
+--===============3882206869844808958==
 Content-Type: text/plain; charset="us-ascii"
 MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
@@ -366,4 +404,4 @@ Xen-devel mailing list
 Xen-devel@lists.xen.org
 http://lists.xen.org/xen-devel
 
---===============4421383046443079146==--
+--===============3882206869844808958==--
