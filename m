@@ -1,54 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/1] xen/netback: correctly calculate required slots
- of skb.
-Date: Thu, 11 Jul 2013 13:03:14 -0700 (PDT)
-Message-ID: <20130711.130314.2300492549661006309.davem@davemloft.net>
-References: <1373447711-31303-1-git-send-email-annie.li@oracle.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [PATCH net] gre: Fix MTU sizing check for gretap tunnels
+Date: Thu, 11 Jul 2013 13:12:22 -0700
+Message-ID: <20130711201152.8775.40579.stgit@ahduyck-hc1.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xensource.com, netdev@vger.kernel.org,
-	Ian.Campbell@citrix.com, wei.liu2@citrix.com,
-	konrad.wilk@oracle.com, msw@amazon.com
-To: annie.li@oracle.com
+Cc: pshelar@nicira.com, eric.dumazet@gmail.com, jesse@nicira.com,
+	davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59258 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754069Ab3GKUDP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 16:03:15 -0400
-In-Reply-To: <1373447711-31303-1-git-send-email-annie.li@oracle.com>
+Received: from mga14.intel.com ([143.182.124.37]:56553 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750734Ab3GKUHy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jul 2013 16:07:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Annie Li <annie.li@oracle.com>
-Date: Wed, 10 Jul 2013 17:15:11 +0800
+This change fixes an MTU sizing issue seen with gretap tunnels when non-gso
+packets are sent from the interface.
 
-> When counting required slots for skb, netback directly uses DIV_ROUND_UP to get
-> slots required by header data. This is wrong when offset in the page of header
-> data is not zero, and is also inconsistent with following calculation for
-> required slot in netbk_gop_skb.
-> 
-> In netbk_gop_skb, required slots are calculated based on offset and len in page
-> of header data. It is possible that required slots here is larger than the one
-> calculated in earlier netbk_count_requests. This inconsistency directly results
-> in rx_req_cons_peek and xen_netbk_rx_ring_full judgement are wrong.
-> 
-> Then it comes to situation the ring is actually full, but netback thinks it is
-> not and continues to create responses. This results in response overlaps request
-> in the ring, then grantcopy gets wrong grant reference and throws out error,
-> for example "(XEN) grant_table.c:1763:d0 Bad grant reference 2949120", the
-> grant reference is invalid value here. Netback returns XEN_NETIF_RSP_ERROR(-1)
-> to netfront when grant copy status is error, then netfront gets rx->status
-> (the status is -1, not really data size now), and throws out error,
-> "kernel: net eth1: rx->offset: 0, size: 4294967295". This issue can be reproduced
-> by doing gzip/gunzip in nfs share with mtu = 9000, the guest would panic after
-> running such test for a while.
-> 
-> This patch is based on 3.10-rc7.
-> 
-> Signed-off-by: Annie Li <annie.li@oracle.com>
+In my case I was able to reproduce the issue by simply sending a ping of
+1421 bytes with the gretap interface created on a device with a standard
+1500 mtu.
 
-A lot of discussion... will we have another respin of this patch or can I
-get an ACK from Ian or someone else?
+This fix is based on the fact that the tunnel mtu is already adjusted by
+dev->hard_header_len so it would make sense that any packets being compared
+against that mtu should also be adjusted by hard_header_len and the tunnel
+header instead of just the tunnel header.
 
-Thanks.
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
+
+ net/ipv4/ip_tunnel.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index 945734b..ca1cb2d 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -476,7 +476,7 @@ static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
+ 			    struct rtable *rt, __be16 df)
+ {
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+-	int pkt_size = skb->len - tunnel->hlen;
++	int pkt_size = skb->len - tunnel->hlen - dev->hard_header_len;
+ 	int mtu;
+ 
+ 	if (df)
