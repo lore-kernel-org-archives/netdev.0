@@ -1,73 +1,89 @@
-From: Devin Heitmueller <dheitmueller@kernellabs.com>
-Subject: Re: [PATCH 36/50] media: usb: em28xx: spin_lock in complete() cleanup
-Date: Thu, 11 Jul 2013 08:42:49 -0400
-Message-ID: <CAGoCfizP6ZKeK1Kw+pjZ+mqxE6J2fM_JBhME=3Q6qRP0NfPX5A@mail.gmail.com>
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH 08/50] USB: legousbtower: spin_lock in complete() cleanup
+Date: Thu, 11 Jul 2013 20:42:49 +0800
+Message-ID: <CACVXFVOF4e=+GjXHTJ-suitQO3TsvCnUBCsfoXj+QahxRqVz7Q@mail.gmail.com>
 References: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
-	<1373533573-12272-37-git-send-email-ming.lei@canonical.com>
+	<1373533573-12272-9-git-send-email-ming.lei@canonical.com>
+	<51DEA289.5050509@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	linux-input@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-media@vger.kernel.org, alsa-devel@alsa-project.org,
-	Mauro Carvalho Chehab <mchehab@redhat.com>
-To: Ming Lei <ming.lei@canonical.com>
-Return-path: <linux-input-owner@vger.kernel.org>
-In-Reply-To: <1373533573-12272-37-git-send-email-ming.lei@canonical.com>
-Sender: linux-input-owner@vger.kernel.org
+Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org,
+	Juergen Stuber <starblue-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <51DEA289.5050509-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 11, 2013 at 5:05 AM, Ming Lei <ming.lei@canonical.com> wrote:
-> Complete() will be run with interrupt enabled, so change to
-> spin_lock_irqsave().
+On Thu, Jul 11, 2013 at 8:18 PM, Sergei Shtylyov
+<sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org> wrote:
+> Hello.
 >
-> Cc: Mauro Carvalho Chehab <mchehab@redhat.com>
-> Cc: linux-media@vger.kernel.org
-> Signed-off-by: Ming Lei <ming.lei@canonical.com>
-> ---
->  drivers/media/usb/em28xx/em28xx-core.c |    5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
 >
-> diff --git a/drivers/media/usb/em28xx/em28xx-core.c b/drivers/media/usb/em28xx/em28xx-core.c
-> index fc157af..0d698f9 100644
-> --- a/drivers/media/usb/em28xx/em28xx-core.c
-> +++ b/drivers/media/usb/em28xx/em28xx-core.c
-> @@ -941,6 +941,7 @@ static void em28xx_irq_callback(struct urb *urb)
->  {
->         struct em28xx *dev = urb->context;
->         int i;
-> +       unsigned long flags;
+> On 11-07-2013 13:05, Ming Lei wrote:
 >
->         switch (urb->status) {
->         case 0:             /* success */
-> @@ -956,9 +957,9 @@ static void em28xx_irq_callback(struct urb *urb)
->         }
+>> Complete() will be run with interrupt enabled, so change to
+>> spin_lock_irqsave().
 >
->         /* Copy data from URB */
-> -       spin_lock(&dev->slock);
-> +       spin_lock_irqsave(&dev->slock, flags);
->         dev->usb_ctl.urb_data_copy(dev, urb);
-> -       spin_unlock(&dev->slock);
-> +       spin_unlock_irqrestore(&dev->slock, flags);
 >
->         /* Reset urb buffers */
->         for (i = 0; i < urb->number_of_packets; i++) {
-> --
-> 1.7.9.5
+>> Cc: Juergen Stuber <starblue-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+>> Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+>> ---
+>>   drivers/usb/misc/legousbtower.c |    5 +++--
+>>   1 file changed, 3 insertions(+), 2 deletions(-)
 >
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-media" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>> diff --git a/drivers/usb/misc/legousbtower.c
+>> b/drivers/usb/misc/legousbtower.c
+>> index 8089479..4044989 100644
+>> --- a/drivers/usb/misc/legousbtower.c
+>> +++ b/drivers/usb/misc/legousbtower.c
+>> @@ -771,6 +771,7 @@ static void tower_interrupt_in_callback (struct urb
+>> *urb)
+>>         struct lego_usb_tower *dev = urb->context;
+>>         int status = urb->status;
+>>         int retval;
+>> +       unsigned long flags;
+>>
+>>         dbg(4, "%s: enter, status %d", __func__, status);
+>>
+>> @@ -788,7 +789,7 @@ static void tower_interrupt_in_callback (struct urb
+>> *urb)
+>>         }
+>>
+>>         if (urb->actual_length > 0) {
+>> -               spin_lock (&dev->read_buffer_lock);
+>> +               spin_lock_irqsave (&dev->read_buffer_lock, flags);
+>>                 if (dev->read_buffer_length + urb->actual_length <
+>> read_buffer_size) {
+>>                         memcpy (dev->read_buffer +
+>> dev->read_buffer_length,
+>>                                 dev->interrupt_in_buffer,
+>> @@ -799,7 +800,7 @@ static void tower_interrupt_in_callback (struct urb
+>> *urb)
+>>                 } else {
+>>                         printk(KERN_WARNING "%s: read_buffer overflow, %d
+>> bytes dropped", __func__, urb->actual_length);
+>>                 }
+>> -               spin_unlock (&dev->read_buffer_lock);
+>> +               spin_unlock_irqrestore (&dev->read_buffer_lock, flags);
+>>         }
+>
+>
+>    I don't think this patch passes checkpatch.pl.
 
-I actually stumbled across this a couple of weeks ago, and have had an
-identical patch running in a local dev tree.
+No errors reported from checkpatch.pl, only warnings which isn't introduced
+by this patch.
 
-Reviewed-by: Devin Heitmueller <dheitmueller@kernellabs.com>
-Tested-by: Devin Heitmueller <dheitmueller@kernellabs.com>
-
--- 
-Devin J. Heitmueller - Kernel Labs
-http://www.kernellabs.com
+Thanks,
+--
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
