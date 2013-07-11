@@ -1,55 +1,199 @@
-From: Thomas Richter <tmricht@linux.vnet.ibm.com>
-Subject: [PATCH 2/2] macvlan fdb replace support
-Date: Thu, 11 Jul 2013 12:28:20 +0200
-Message-ID: <1373538500-10629-2-git-send-email-tmricht@linux.vnet.ibm.com>
-References: <1373538500-10629-1-git-send-email-tmricht@linux.vnet.ibm.com>
-Cc: Thomas Richter <tmricht@linux.vnet.ibm.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net v3] ipv6: fix route selection if kernel is not compiled with CONFIG_IPV6_ROUTER_PREF
+Date: Thu, 11 Jul 2013 12:43:42 +0200
+Message-ID: <20130711104342.GD5207@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: petrus.lt@gmail.com, yoshfuji@linux-ipv6.org, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:40185 "EHLO
-	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932145Ab3GKK2d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 06:28:33 -0400
-Received: from /spool/local
-	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <tmricht@linux.vnet.ibm.com>;
-	Thu, 11 Jul 2013 11:20:32 +0100
-Received: from b06cxnps4076.portsmouth.uk.ibm.com (d06relay13.portsmouth.uk.ibm.com [9.149.109.198])
-	by d06dlp02.portsmouth.uk.ibm.com (Postfix) with ESMTP id 945222190019
-	for <netdev@vger.kernel.org>; Thu, 11 Jul 2013 11:32:22 +0100 (BST)
-Received: from d06av10.portsmouth.uk.ibm.com (d06av10.portsmouth.uk.ibm.com [9.149.37.251])
-	by b06cxnps4076.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r6BASHua51445986
-	for <netdev@vger.kernel.org>; Thu, 11 Jul 2013 10:28:17 GMT
-Received: from d06av10.portsmouth.uk.ibm.com (localhost [127.0.0.1])
-	by d06av10.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id r6BASSeQ011709
-	for <netdev@vger.kernel.org>; Thu, 11 Jul 2013 04:28:28 -0600
-In-Reply-To: <1373538500-10629-1-git-send-email-tmricht@linux.vnet.ibm.com>
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:38878 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932200Ab3GKKno (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 06:43:44 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for iproute2 command 'bridge fdb replace ...'.
-The rtnletlink call back function ndo_fdb_add will be called
-with the NLM_F_REPLACE flag set.
-Simply return -EOPNOTSUP.
+This is a follow-up patch to 3630d40067a21d4dfbadc6002bb469ce26ac5d52
+("ipv6: rt6_check_neigh should successfully verify neigh if no NUD
+information are available").
 
-Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
+Since the removal of rt->n in rt6_info we can end up with a dst ==
+NULL in rt6_check_neigh. In case the kernel is not compiled with
+CONFIG_IPV6_ROUTER_PREF we should also select a route with unkown
+NUD state but we must not avoid doing round robin selection on routes
+with the same target. So introduce and pass down a boolean ``do_rr'' to
+indicate when we should update rt->rr_ptr. As soon as no route is valid
+we do backtracking and do a lookup on a higher level in the fib trie.
+
+v2:
+a) Improved rt6_check_neigh logic (no need to create neighbour there)
+   and documented return values.
+
+v3:
+a) Introduce enum rt6_nud_state to get rid of the magic numbers
+   (thanks to David Miller).
+b) Update and shorten commit message a bit to actualy reflect
+   the source.
+
+Reported-by: Pierre Emeriaud <petrus.lt@gmail.com>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- drivers/net/macvlan.c | 3 +++
- 1 file changed, 3 insertions(+)
+ net/ipv6/route.c | 63 +++++++++++++++++++++++++++++++++++---------------------
+ 1 file changed, 40 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 18373b6..74907f5 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -597,6 +597,9 @@ static int macvlan_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 	if (!vlan->port->passthru)
- 		return -EOPNOTSUPP;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index bd5fd70..eeae64b 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -65,6 +65,12 @@
+ #include <linux/sysctl.h>
+ #endif
  
-+	if (flags & NLM_F_REPLACE)
-+		return -EOPNOTSUPP;
++enum rt6_nud_state {
++	RT6_NUD_FAIL_HARD = -2,
++	RT6_NUD_FAIL_SOFT = -1,
++	RT6_NUD_SUCCEED = 1
++};
 +
- 	if (is_unicast_ether_addr(addr))
- 		err = dev_uc_add_excl(dev, addr);
- 	else if (is_multicast_ether_addr(addr))
+ static struct rt6_info *ip6_rt_copy(struct rt6_info *ort,
+ 				    const struct in6_addr *dest);
+ static struct dst_entry	*ip6_dst_check(struct dst_entry *dst, u32 cookie);
+@@ -531,28 +537,29 @@ static inline int rt6_check_dev(struct rt6_info *rt, int oif)
+ 	return 0;
+ }
+ 
+-static inline bool rt6_check_neigh(struct rt6_info *rt)
++static inline enum rt6_nud_state rt6_check_neigh(struct rt6_info *rt)
+ {
+ 	struct neighbour *neigh;
+-	bool ret = false;
++	enum rt6_nud_state ret = RT6_NUD_FAIL_HARD;
+ 
+ 	if (rt->rt6i_flags & RTF_NONEXTHOP ||
+ 	    !(rt->rt6i_flags & RTF_GATEWAY))
+-		return true;
++		return RT6_NUD_SUCCEED;
+ 
+ 	rcu_read_lock_bh();
+ 	neigh = __ipv6_neigh_lookup_noref(rt->dst.dev, &rt->rt6i_gateway);
+ 	if (neigh) {
+ 		read_lock(&neigh->lock);
+ 		if (neigh->nud_state & NUD_VALID)
+-			ret = true;
++			ret = RT6_NUD_SUCCEED;
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+ 		else if (!(neigh->nud_state & NUD_FAILED))
+-			ret = true;
++			ret = RT6_NUD_SUCCEED;
+ #endif
+ 		read_unlock(&neigh->lock);
+-	} else if (IS_ENABLED(CONFIG_IPV6_ROUTER_PREF)) {
+-		ret = true;
++	} else {
++		ret = IS_ENABLED(CONFIG_IPV6_ROUTER_PREF) ?
++		      RT6_NUD_SUCCEED : RT6_NUD_FAIL_SOFT;
+ 	}
+ 	rcu_read_unlock_bh();
+ 
+@@ -566,43 +573,52 @@ static int rt6_score_route(struct rt6_info *rt, int oif,
+ 
+ 	m = rt6_check_dev(rt, oif);
+ 	if (!m && (strict & RT6_LOOKUP_F_IFACE))
+-		return -1;
++		return RT6_NUD_FAIL_HARD;
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+ 	m |= IPV6_DECODE_PREF(IPV6_EXTRACT_PREF(rt->rt6i_flags)) << 2;
+ #endif
+-	if (!rt6_check_neigh(rt) && (strict & RT6_LOOKUP_F_REACHABLE))
+-		return -1;
++	if (strict & RT6_LOOKUP_F_REACHABLE) {
++		int n = rt6_check_neigh(rt);
++		if (n < 0)
++			return n;
++	}
+ 	return m;
+ }
+ 
+ static struct rt6_info *find_match(struct rt6_info *rt, int oif, int strict,
+-				   int *mpri, struct rt6_info *match)
++				   int *mpri, struct rt6_info *match,
++				   bool *do_rr)
+ {
+ 	int m;
++	bool match_do_rr = false;
+ 
+ 	if (rt6_check_expired(rt))
+ 		goto out;
+ 
+ 	m = rt6_score_route(rt, oif, strict);
+-	if (m < 0)
++	if (m == RT6_NUD_FAIL_SOFT && !IS_ENABLED(CONFIG_IPV6_ROUTER_PREF)) {
++		match_do_rr = true;
++		m = 0; /* lowest valid score */
++	} else if (m < 0) {
+ 		goto out;
++	}
++
++	if (strict & RT6_LOOKUP_F_REACHABLE)
++		rt6_probe(rt);
+ 
+ 	if (m > *mpri) {
+-		if (strict & RT6_LOOKUP_F_REACHABLE)
+-			rt6_probe(match);
++		*do_rr = match_do_rr;
+ 		*mpri = m;
+ 		match = rt;
+-	} else if (strict & RT6_LOOKUP_F_REACHABLE) {
+-		rt6_probe(rt);
+ 	}
+-
+ out:
+ 	return match;
+ }
+ 
+ static struct rt6_info *find_rr_leaf(struct fib6_node *fn,
+ 				     struct rt6_info *rr_head,
+-				     u32 metric, int oif, int strict)
++				     u32 metric, int oif, int strict,
++				     bool *do_rr)
+ {
+ 	struct rt6_info *rt, *match;
+ 	int mpri = -1;
+@@ -610,10 +626,10 @@ static struct rt6_info *find_rr_leaf(struct fib6_node *fn,
+ 	match = NULL;
+ 	for (rt = rr_head; rt && rt->rt6i_metric == metric;
+ 	     rt = rt->dst.rt6_next)
+-		match = find_match(rt, oif, strict, &mpri, match);
++		match = find_match(rt, oif, strict, &mpri, match, do_rr);
+ 	for (rt = fn->leaf; rt && rt != rr_head && rt->rt6i_metric == metric;
+ 	     rt = rt->dst.rt6_next)
+-		match = find_match(rt, oif, strict, &mpri, match);
++		match = find_match(rt, oif, strict, &mpri, match, do_rr);
+ 
+ 	return match;
+ }
+@@ -622,15 +638,16 @@ static struct rt6_info *rt6_select(struct fib6_node *fn, int oif, int strict)
+ {
+ 	struct rt6_info *match, *rt0;
+ 	struct net *net;
++	bool do_rr = false;
+ 
+ 	rt0 = fn->rr_ptr;
+ 	if (!rt0)
+ 		fn->rr_ptr = rt0 = fn->leaf;
+ 
+-	match = find_rr_leaf(fn, rt0, rt0->rt6i_metric, oif, strict);
++	match = find_rr_leaf(fn, rt0, rt0->rt6i_metric, oif, strict,
++			     &do_rr);
+ 
+-	if (!match &&
+-	    (strict & RT6_LOOKUP_F_REACHABLE)) {
++	if (do_rr) {
+ 		struct rt6_info *next = rt0->dst.rt6_next;
+ 
+ 		/* no entries matched; do round-robin */
 -- 
 1.8.1.4
