@@ -1,51 +1,57 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH 45/50] sound: usb: usx2y: spin_lock in complete() cleanup
-Date: Thu, 11 Jul 2013 17:06:08 +0800
-Message-ID: <1373533573-12272-46-git-send-email-ming.lei@canonical.com>
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: [PATCH 47/50] staging: btmtk_usb: spin_lock in complete() cleanup
+Date: Thu, 11 Jul 2013 17:06:10 +0800
+Message-ID: <1373533573-12272-48-git-send-email-ming.lei@canonical.com>
 References: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
-Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	linux-input@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-media@vger.kernel.org, alsa-devel@alsa-project.org,
-	Ming Lei <ming.lei@canonical.com>,
-	Jaroslav Kysela <perex@perex.cz>, Takashi Iwai <tiwai@suse.de>
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:59832 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932590Ab3GKJMi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 05:12:38 -0400
-In-Reply-To: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org,
+	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org
+To: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1373533573-12272-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 Complete() will be run with interrupt enabled, so change to
 spin_lock_irqsave().
 
-Cc: Jaroslav Kysela <perex@perex.cz>
-Cc: Takashi Iwai <tiwai@suse.de>
-Cc: alsa-devel@alsa-project.org
-Signed-off-by: Ming Lei <ming.lei@canonical.com>
+Cc: devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org
+Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 ---
- sound/usb/usx2y/usbusx2yaudio.c |    4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/staging/btmtk_usb/btmtk_usb.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/sound/usb/usx2y/usbusx2yaudio.c b/sound/usb/usx2y/usbusx2yaudio.c
-index 4967fe9..e2ee893 100644
---- a/sound/usb/usx2y/usbusx2yaudio.c
-+++ b/sound/usb/usx2y/usbusx2yaudio.c
-@@ -273,7 +273,11 @@ static void usX2Y_clients_stop(struct usX2Ydev *usX2Y)
- 		struct snd_usX2Y_substream *subs = usX2Y->subs[s];
- 		if (subs) {
- 			if (atomic_read(&subs->state) >= state_PRERUNNING) {
-+				unsigned long flags;
-+
-+				local_irq_save(flags);
- 				snd_pcm_stop(subs->pcm_substream, SNDRV_PCM_STATE_XRUN);
-+				local_irq_restore(flags);
- 			}
- 			for (u = 0; u < NRURBS; u++) {
- 				struct urb *urb = subs->urb[u];
+diff --git a/drivers/staging/btmtk_usb/btmtk_usb.c b/drivers/staging/btmtk_usb/btmtk_usb.c
+index 0e783e8..ea10d4f 100644
+--- a/drivers/staging/btmtk_usb/btmtk_usb.c
++++ b/drivers/staging/btmtk_usb/btmtk_usb.c
+@@ -1218,6 +1218,7 @@ static void btmtk_usb_tx_complete(struct urb *urb)
+ 	struct sk_buff *skb = urb->context;
+ 	struct hci_dev *hdev = (struct hci_dev *)skb->dev;
+ 	struct btmtk_usb_data *data = hci_get_drvdata(hdev);
++	unsigned long flags;
+ 
+ 	BT_DBG("%s: %s urb %p status %d count %d\n", __func__, hdev->name,
+ 					urb, urb->status, urb->actual_length);
+@@ -1231,9 +1232,9 @@ static void btmtk_usb_tx_complete(struct urb *urb)
+ 		hdev->stat.err_tx++;
+ 
+ done:
+-	spin_lock(&data->txlock);
++	spin_lock_irqsave(&data->txlock, flags);
+ 	data->tx_in_flight--;
+-	spin_unlock(&data->txlock);
++	spin_unlock_irqrestore(&data->txlock, flags);
+ 
+ 	kfree(urb->setup_packet);
+ 
 -- 
 1.7.9.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
