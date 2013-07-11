@@ -1,64 +1,34 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH firmware] rtl_nic: add firmware rtl8411-2
-Date: Thu, 11 Jul 2013 01:49:57 +0100
-Message-ID: <1373503797.24446.41.camel@deadeye.wl.decadent.org.uk>
-References: <1373274681-1225-1-git-send-email-hayeswang@realtek.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] vxlan: Fix kernel crash on rmmod.
+Date: Wed, 10 Jul 2013 17:52:33 -0700 (PDT)
+Message-ID: <20130710.175233.571212108853436298.davem@davemloft.net>
+References: <1373409548-26064-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-8WP8gYhOJLtfNBEZ4mj+"
-Cc: dwmw2@infradead.org, romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1373274681-1225-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org
+To: pshelar@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47639 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753256Ab3GKAwe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 20:52:34 -0400
+In-Reply-To: <1373409548-26064-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Pravin B Shelar <pshelar@nicira.com>
+Date: Tue,  9 Jul 2013 15:39:08 -0700
 
---=-8WP8gYhOJLtfNBEZ4mj+
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> Following commit fixes the crash by fixing module exit path.
+ ...
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 
-On Mon, 2013-07-08 at 17:11 +0800, Hayes Wang wrote:
-> File: rtl_nic/rtl8411-2.fw
-> Version: 0.0.1
->=20
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-> ---
->  WHENCE               |   3 +++
->  rtl_nic/rtl8411-2.fw | Bin 0 -> 1040 bytes
->  2 files changed, 3 insertions(+)
->  create mode 100644 rtl_nic/rtl8411-2.fw
-[...]
+This commit message is way too terse.
 
-Applied, thanks.
+Please explain exactly why it's important to unregister the pernet
+device after unregistering the rtnl link ops and destroying vxlan_wq.
 
-Ben.
-
---=20
-Ben Hutchings
-Reality is just a crutch for people who can't handle science fiction.
-
---=-8WP8gYhOJLtfNBEZ4mj+
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIVAwUAUd4BNee/yOyVhhEJAQoxNBAAsf8arNvir3dd7ODxGjlTVzX5rYNgFRgg
-4NOfDZPNVIeqZATJ7UxsNEXyssGhi2KDhivwBoCTmhzvlJkEftEHCfpWz19hl/9m
-CpJUWiV+SQIqj/1vAR2N4PVN0u4PTzq6iHVlJrG4zt9JiNtorpuX61F5dO5IeHU7
-0C2q+b1kYahZC0eZqd32Xk1brIxavi4mYan84B5chbXtDcirTnJHB0hn1KkaIgi4
-GpeezzM5m7tYchhROE0uQOuOikGmAZArIBpQ+G7ztkRo58dbI18Oq6i9csCc5w7c
-Bi1KvoT5KVzszEEeAAhSwWxcYk1hRgs07AirnLbW1CuQq1p+CyzaSEug5p5v7XyM
-cpj86mNtTKd0H21AIOo/tt3ew5MsRfZ1cKZMMBLToBDcp0mCoDtcaGCe3WoU5SPx
-ZGlqexPO936mfjgp0Hwgi03zt0g2C5UpG2MjbvkLH1w/MV1PatG/yVvfLPi7/eW0
-qOZs40Dm8cxOoyJo7AuSsMKaoAYcTOmAT+8t4J8tRyuf48Pr+FNfxemYFxFKlb6M
-5Mk3LDLqC50IB32IsMm+Lu47Eo/qqSfqvdpAFHYIZXnoqMObrGyI6vQdrKX1szY7
-N4GF7lgICRdNK/VJUZH8TM1zW18K34/JTjNlkye6v54DLO39qjmDWdqHKfYfD7BW
-m3V50XI2+rs=
-=Dg8B
------END PGP SIGNATURE-----
-
---=-8WP8gYhOJLtfNBEZ4mj+--
+Stephen explicitly put the operations in this order in commit
+758c57d16adcbec3c03e85f0c9a5b4ca31f6c507 ("vxlan: fix crash from work
+pending on module removal")
