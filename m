@@ -1,68 +1,63 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH 07/50] USB: ldusb: spin_lock in complete() cleanup
-Date: Thu, 11 Jul 2013 17:05:30 +0800
-Message-ID: <1373533573-12272-8-git-send-email-ming.lei@canonical.com>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: [PATCH 08/50] USB: legousbtower: spin_lock in complete() cleanup
+Date: Thu, 11 Jul 2013 17:05:31 +0800
+Message-ID: <1373533573-12272-9-git-send-email-ming.lei@canonical.com>
 References: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org,
-	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-To: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1373533573-12272-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	linux-input@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-media@vger.kernel.org, alsa-devel@alsa-project.org,
+	Ming Lei <ming.lei@canonical.com>,
+	Juergen Stuber <starblue@users.sourceforge.net>
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:50418 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932090Ab3GKJHn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 05:07:43 -0400
+In-Reply-To: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Complete() will be run with interrupt enabled, so change to
 spin_lock_irqsave().
 
-Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Cc: Juergen Stuber <starblue@users.sourceforge.net>
+Signed-off-by: Ming Lei <ming.lei@canonical.com>
 ---
- drivers/usb/misc/ldusb.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ drivers/usb/misc/legousbtower.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/usb/misc/ldusb.c b/drivers/usb/misc/ldusb.c
-index ac76229..8bae18e 100644
---- a/drivers/usb/misc/ldusb.c
-+++ b/drivers/usb/misc/ldusb.c
-@@ -249,6 +249,7 @@ static void ld_usb_interrupt_in_callback(struct urb *urb)
- 	unsigned int next_ring_head;
+diff --git a/drivers/usb/misc/legousbtower.c b/drivers/usb/misc/legousbtower.c
+index 8089479..4044989 100644
+--- a/drivers/usb/misc/legousbtower.c
++++ b/drivers/usb/misc/legousbtower.c
+@@ -771,6 +771,7 @@ static void tower_interrupt_in_callback (struct urb *urb)
+ 	struct lego_usb_tower *dev = urb->context;
  	int status = urb->status;
  	int retval;
 +	unsigned long flags;
  
- 	if (status) {
- 		if (status == -ENOENT ||
-@@ -258,12 +259,12 @@ static void ld_usb_interrupt_in_callback(struct urb *urb)
- 		} else {
- 			dbg_info(&dev->intf->dev, "%s: nonzero status received: %d\n",
- 				 __func__, status);
--			spin_lock(&dev->rbsl);
-+			spin_lock_irqsave(&dev->rbsl, flags);
- 			goto resubmit; /* maybe we can recover */
- 		}
+ 	dbg(4, "%s: enter, status %d", __func__, status);
+ 
+@@ -788,7 +789,7 @@ static void tower_interrupt_in_callback (struct urb *urb)
  	}
  
--	spin_lock(&dev->rbsl);
-+	spin_lock_irqsave(&dev->rbsl, flags);
  	if (urb->actual_length > 0) {
- 		next_ring_head = (dev->ring_head+1) % ring_buffer_size;
- 		if (next_ring_head != dev->ring_tail) {
-@@ -292,7 +293,7 @@ resubmit:
- 			dev->buffer_overflow = 1;
+-		spin_lock (&dev->read_buffer_lock);
++		spin_lock_irqsave (&dev->read_buffer_lock, flags);
+ 		if (dev->read_buffer_length + urb->actual_length < read_buffer_size) {
+ 			memcpy (dev->read_buffer + dev->read_buffer_length,
+ 				dev->interrupt_in_buffer,
+@@ -799,7 +800,7 @@ static void tower_interrupt_in_callback (struct urb *urb)
+ 		} else {
+ 			printk(KERN_WARNING "%s: read_buffer overflow, %d bytes dropped", __func__, urb->actual_length);
  		}
+-		spin_unlock (&dev->read_buffer_lock);
++		spin_unlock_irqrestore (&dev->read_buffer_lock, flags);
  	}
--	spin_unlock(&dev->rbsl);
-+	spin_unlock_irqrestore(&dev->rbsl, flags);
- exit:
- 	dev->interrupt_in_done = 1;
- 	wake_up_interruptible(&dev->read_wait);
+ 
+ resubmit:
 -- 
 1.7.9.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
