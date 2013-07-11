@@ -1,111 +1,78 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [PATCH v2 1/1] xen/netback: correctly calculate required slots
- of skb.
-Date: Thu, 11 Jul 2013 16:34:05 +0800
-Message-ID: <51DE6DFD.9080007@oracle.com>
-References: <1373447711-31303-1-git-send-email-annie.li@oracle.com> <1373530274.5453.148.camel@hastur.hellion.org.uk>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH RFC] xen-netback: calculate the number of
+ slots required for large MTU vifs
+Date: Thu, 11 Jul 2013 09:46:27 +0100
+Message-ID: <20130711084627.GA23269@zion.uk.xensource.com>
+References: <20130709221406.GA13671@u109add4315675089e695.ant.amazon.com>
+ <1373409659-22383-1-git-send-email-msw@amazon.com>
+ <20130710081333.GI19798@zion.uk.xensource.com>
+ <20130710193703.GB20453@zion.uk.xensource.com>
+ <20130711051441.GA5189@u109add4315675089e695.ant.amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xensource.com, netdev@vger.kernel.org,
-	wei.liu2@citrix.com, konrad.wilk@oracle.com, msw@amazon.com
-To: Ian Campbell <ian.campbell@citrix.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	<netdev@vger.kernel.org>, Annie Li <annie.li@oracle.com>,
+	<xen-devel@lists.xenproject.org>, Xi Xiong <xixiong@amazon.com>
+To: Matt Wilson <msw@amazon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:30572 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755867Ab3GKId7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 04:33:59 -0400
-In-Reply-To: <1373530274.5453.148.camel@hastur.hellion.org.uk>
+Received: from smtp02.citrix.com ([66.165.176.63]:59297 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755824Ab3GKIqc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 04:46:32 -0400
+Content-Disposition: inline
+In-Reply-To: <20130711051441.GA5189@u109add4315675089e695.ant.amazon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Jul 10, 2013 at 10:14:43PM -0700, Matt Wilson wrote:
+[...]
+> Yes, I wanted to get this out since we're talking about multiple
+> changes in similar areas.
+> 
+> > The reason that your patches uses req_cons instead of pre-calculated
+> > value is, that value returned by xen_netbk_skb_count_slots is actually
+> > *wrong* -- that's what Annie tried to fix in her patch.
+> 
+> Yes and no. With this patch, the xen_netbk_count_skb_slots() is now
+> correct. xen_netbk_count_skb_slots() was under-counting when slots
+> were inefficiently consumed. With this patch they match.
+> 
 
-On 2013-7-11 16:11, Ian Campbell wrote:
-> On Wed, 2013-07-10 at 17:15 +0800, Annie Li wrote:
->> +static int netbk_count_slots(struct xenvif *vif, struct sk_buff *skb,
->> +			    int *copy_off, unsigned long size,
->> +			    unsigned long offset, int *head)
->>   {
->> -	unsigned int count;
->> -	int i, copy_off;
->> +	unsigned long bytes;
->> +	int count = 0;
->>   
->> -	count = DIV_ROUND_UP(skb_headlen(skb), PAGE_SIZE);
->> +	offset &= ~PAGE_MASK;
->>   
->> -	copy_off = skb_headlen(skb) % PAGE_SIZE;
->> +	while (size > 0) {
->> +		BUG_ON(offset >= PAGE_SIZE);
->> +		BUG_ON(*copy_off > MAX_BUFFER_OFFSET);
->>   
->> -	if (skb_shinfo(skb)->gso_size)
->> -		count++;
->> +		bytes = PAGE_SIZE - offset;
->>   
->> -	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
->> -		unsigned long size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
->> -		unsigned long offset = skb_shinfo(skb)->frags[i].page_offset;
->> -		unsigned long bytes;
->> +		if (bytes > size)
->> +			bytes = size;
->>   
->> -		offset &= ~PAGE_MASK;
->> +		if (start_new_rx_buffer(*copy_off, bytes, *head)) {
->> +			count++;
->> +			*copy_off = 0;
->> +		}
->>   
->> -		while (size > 0) {
->> -			BUG_ON(offset >= PAGE_SIZE);
->> -			BUG_ON(copy_off > MAX_BUFFER_OFFSET);
->> +		if (*copy_off + bytes > MAX_BUFFER_OFFSET)
->> +			bytes = MAX_BUFFER_OFFSET - *copy_off;
->>   
->> -			bytes = PAGE_SIZE - offset;
->> +		*copy_off += bytes;
->>   
->> -			if (bytes > size)
->> -				bytes = size;
->> +		offset += bytes;
->> +		size -= bytes;
->>   
->> -			if (start_new_rx_buffer(copy_off, bytes, 0)) {
->> -				count++;
->> -				copy_off = 0;
->> -			}
->> +		/* Next frame */
->> +		if (offset == PAGE_SIZE && size)
->> +			offset = 0;
->> +
->> +		if (*head)
->> +			count++;
-> This little bit corresponds to the "/* Leave a gap for the GSO
-> descriptor. */" in gop_frag_copy?
+This is worth mentioning in the commit message IMHO.
 
-No, it does not correspond to this in gop_frag_copy. The code here only 
-increase count for the first time. I thought to initialize the count in 
-xen_netbk_count_skb_slots with 1 to avoid this. But thinking of the 
-extreme case when the header size is zero(not sure whether this case 
-could be true), I increase the count here to keep safe in case header 
-size is zero.
+> Since we've had trouble with the counting in the past, I felt like
+> using the "real" number of slots here was safer and future-proof.
+> 
 
-There is code correspond to that in gop_frag_copy in 
-xen_netbk_count_skb_slots, see following,
+Fair enough. Worth a comment in the code.
 
-+	if (skb_shinfo(skb)->gso_size && !vif->gso_prefix)
-+		count++;
-(The original code does not have gso_prefix, I added it in this patch too based on Wei's suggestion)
+> > After fixing xen_netbk_skb_count_slots, we would need the above snippet
+> > (or the snippet I proposed in my RFC patch) to prevent overruning the
+> > ring.
+> 
+> Agreed.
+> 
+> > So a proper patch to this issue (not couting RX slots correctly causing
+> > overrun of the ring) would be the above two aspects combined.
+> 
+> Yes, I think so.
+> 
+> > Comments?
+> 
+> I think that this patch addresses the problem more completely. Annie?
+> 
+> See also the thread from last August:
+>    http://lists.xen.org/archives/html/xen-devel/2012-12/msg00274.html
+> 
+
+So now it seems that "turning head in start_new_rx_buffer to flag" part
+should also be in the patch as it's actually a fix to match counting in
+both functions. The side effect of this change is "improving efficiency
+of the ring". This would also worth mentioning in the commit message
+IMHO.
 
 
->
-> If so then it would be useful to duplicate the comment, but more
-> importantly the condition on gop_frag_copy is:
->          (head && skb_shinfo(skb)->gso_size && !vif->gso_prefix)
-> why the difference?
+Wei.
 
-Actually it is similar with that in xen_netbk_count_skb_slots, see above 
-comments.
-
-Thanks
-Annie
+> --msw
