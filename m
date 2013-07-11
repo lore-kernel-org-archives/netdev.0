@@ -1,62 +1,89 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] gso: Update tunnel segmentation to support Tx
- checksum offload
-Date: Thu, 11 Jul 2013 01:14:11 -0700 (PDT)
-Message-ID: <20130711.011411.251674726351429354.davem@davemloft.net>
-References: <20130711000015.13134.17801.stgit@ahduyck-hc1.jf.intel.com>
-	<1373503334.4600.27.camel@edumazet-glaptop>
-	<CALnjE+rA4kPiwemZ+A0GfSMw8OsS=ssRw0S_1i75jyF2HB2D0Q@mail.gmail.com>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: ath10k: mac80211 driver for Qualcomm Atheros 802.11ac CQA98xx devices
+Date: Thu, 11 Jul 2013 11:16:34 +0300
+Message-ID: <87sizl7bq5.fsf@kamboji.qca.qualcomm.com>
+References: <20130710022602.1F6F16609DE@gitolite.kernel.org>
+	<alpine.DEB.2.02.1307101859360.29717@ayla.of.borg>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, alexander.h.duyck@intel.com,
-	netdev@vger.kernel.org, stephen@networkplumber.org,
-	joseph.gasparakis@intel.com, jesse@nicira.com
-To: pshelar@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51454 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755618Ab3GKIOO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 04:14:14 -0400
-In-Reply-To: <CALnjE+rA4kPiwemZ+A0GfSMw8OsS=ssRw0S_1i75jyF2HB2D0Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Linux Kernel Development <linux-kernel@vger.kernel.org>,
+	<ath10k@lists.infradead.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.02.1307101859360.29717@ayla.of.borg> (Geert
+	Uytterhoeven's message of "Wed, 10 Jul 2013 19:12:28 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pravin Shelar <pshelar@nicira.com>
-Date: Thu, 11 Jul 2013 00:45:19 -0700
+Geert Uytterhoeven <geert@linux-m68k.org> writes:
 
-> I did some digging and found following commit causing problem with GRE
-> TSO on bnx setup.
-> 
-> c957d09ffda417f6c8e3d1f10e2b05228607d6d7 is the first bad commit
-> commit c957d09ffda417f6c8e3d1f10e2b05228607d6d7
-> Author: Yuval Mintz <yuvalmin@broadcom.com>
-> Date:   Tue Jun 25 08:50:11 2013 +0300
-> 
->     bnx2x: Remove sparse and coccinelle warnings
+> On Wed, 10 Jul 2013, Linux Kernel Mailing List wrote:
+>> --- /dev/null
+>> +++ b/drivers/net/wireless/ath/ath10k/hw.h
+>
+>> +#define SUPPORTED_FW_MAJOR	1
+>> +#define SUPPORTED_FW_MINOR	0
+>> +#define SUPPORTED_FW_RELEASE	0
+>> +#define SUPPORTED_FW_BUILD	629
+>
+>> +static int ath10k_check_fw_version(struct ath10k *ar)
+>> +{
+>> +	char version[32];
+>> +
+>> +	if (ar->fw_version_major >=3D SUPPORTED_FW_MAJOR &&
+>> +	    ar->fw_version_minor >=3D SUPPORTED_FW_MINOR &&
+>> +	    ar->fw_version_release >=3D SUPPORTED_FW_RELEASE &&
+>> +	    ar->fw_version_build >=3D SUPPORTED_FW_BUILD)
+>> +		return 0;
+>
+> My attention got triggered by:
+>
+> drivers/net/wireless/ath/ath10k/core.c: In function =E2=80=98ath10k_c=
+heck_fw_version=E2=80=99:
+> drivers/net/wireless/ath/ath10k/core.c:79: warning: comparison is alw=
+ays true due to limited range of data type
 
-Yeah it's this change:
+I haven't seen this warning, I guess my compiler is too old.
 
-@@ -3543,9 +3543,12 @@ static void bnx2x_update_pbds_gso_enc(struct sk_buff *skb,
- 	/* outer IP header info */
- 	if (xmit_type & XMIT_CSUM_V4) {
- 		struct iphdr *iph = ip_hdr(skb);
-+		u16 csum = (__force u16)(~iph->check) -
-+			   (__force u16)iph->tot_len -
-+			   (__force u16)iph->frag_off;
-+
- 		pbd2->fw_ip_csum_wo_len_flags_frag =
--			bswab16(csum_fold((~iph->check) -
--					  iph->tot_len - iph->frag_off));
-+			bswab16(csum_fold((__force __wsum)csum));
+> as an u16 is always larger or equal than zero. Not much you can do to
+> silence that warning, though.
 
-Way too aggressive with the u16 casting.  These two expressions are
-not equivalent:
+Too bad, I really would like to keep ath10k warning free. Easier to
+maintain that way.
 
-	csum_fold((~iph->check) - iph->tot_len - iph->frag_off)
+Does anyone have any nice trick in their sleeves to make this warning g=
+o
+away? I guess one ugly option is to change u16 to int.
 
-	csum_fold((__wsum) ((u16)(~iph->check) - (u16)iph->tot_len - (u16)iph->frag_off))
+>
+> However, I don't think the version check is correct.
+> Shouldn't it stop checking later fields if an exact match is found in=
+ an
+> earlier field?
+>
+> I.e.
+>
+> 	if (ar->fw_version_major > SUPPORTED_FW_MAJOR ||
+> 	    (ar->fw_version_major =3D=3D SUPPORTED_FW_MAJOR &&
+> 	     ar->fw_version_minor > SUPPORTED_FW_MINOR) ||
+> 	     ...) { ... }
+>
+> Currently e.g. (major, minor) =3D (3, 0) is considered older than (2,=
+ 1).
 
-In the first case, the entire expression is computed as 32-bit, in
-the second the ~iph->check is truncated to 16-bits before tot_len
-and frag_off are subtracted from it.
+Doh, that is indeed wrong. I'll fix that, thanks for spotting this.
+
+> Or perhaps minor is never reset to zero when major is increased? In t=
+hat
+> case, the check is correct, but IMHO it's a bit silly to split the ve=
+rsion
+> number in seperate fields.
+
+No, the firmware engineers are supposed to reset minor version whenever
+major changes.
+
+--=20
+Kalle Valo
