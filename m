@@ -1,46 +1,58 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: skb_warn_bad_offload related to IPv6 in 3.9.9+
-Date: Thu, 11 Jul 2013 22:37:37 +0100
-Message-ID: <1373578657.2085.20.camel@bwh-desktop.uk.level5networks.com>
-References: <51DEFEEB.1080408@candelatech.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] gre: Fix MTU sizing check for gretap tunnels
+Date: Thu, 11 Jul 2013 14:52:27 -0700
+Message-ID: <1373579547.4600.67.camel@edumazet-glaptop>
+References: <20130711201152.8775.40579.stgit@ahduyck-hc1.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Cc: netdev@vger.kernel.org, pshelar@nicira.com, jesse@nicira.com,
+	davem@davemloft.net
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:58027 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756669Ab3GKVhm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 17:37:42 -0400
-In-Reply-To: <51DEFEEB.1080408@candelatech.com>
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:45024 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756726Ab3GKVwb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 17:52:31 -0400
+Received: by mail-ob0-f176.google.com with SMTP id v19so10466071obq.21
+        for <netdev@vger.kernel.org>; Thu, 11 Jul 2013 14:52:31 -0700 (PDT)
+In-Reply-To: <20130711201152.8775.40579.stgit@ahduyck-hc1.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-07-11 at 11:52 -0700, Ben Greear wrote:
-> This kernel has local patches applied...but I don't think it has anything
-> that would cause this....
+On Thu, 2013-07-11 at 13:12 -0700, Alexander Duyck wrote:
+> This change fixes an MTU sizing issue seen with gretap tunnels when non-gso
+> packets are sent from the interface.
 > 
-> The wanlink module is something we added.  It is now GPL, but code is
-> not upstream.  I don't think it's in directly related to the splat though...
->
-> Only saw one splat, and system remains stable as far as we can tell.
->
-> ------------[ cut here ]------------
-> WARNING: at /home/greearb/git/linux-3.9.dev.y/net/core/dev.c:2179 skb_warn_bad_offload+0xc2/0xcb()
-> Hardware name: X7DBU
-> e1000e: caps=(0x00000000700003a9, 0x0000000000000000) len=2942 data_len=1428 gso_size=1428 gso_type=16 ip_summed=1
-[...]
+> In my case I was able to reproduce the issue by simply sending a ping of
+> 1421 bytes with the gretap interface created on a device with a standard
+> 1500 mtu.
+> 
+> This fix is based on the fact that the tunnel mtu is already adjusted by
+> dev->hard_header_len so it would make sense that any packets being compared
+> against that mtu should also be adjusted by hard_header_len and the tunnel
+> header instead of just the tunnel header.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> ---
+> 
+>  net/ipv4/ip_tunnel.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+> index 945734b..ca1cb2d 100644
+> --- a/net/ipv4/ip_tunnel.c
+> +++ b/net/ipv4/ip_tunnel.c
+> @@ -476,7 +476,7 @@ static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
+>  			    struct rtable *rt, __be16 df)
+>  {
+>  	struct ip_tunnel *tunnel = netdev_priv(dev);
+> -	int pkt_size = skb->len - tunnel->hlen;
+> +	int pkt_size = skb->len - tunnel->hlen - dev->hard_header_len;
+>  	int mtu;
+>  
+>  
 
-The skb requires TSO, which requires that ip_summed = CHECKSUM_PARTIAL.
-But ip_summed = CHECKSUM_UNNECESSARY.
+Reported-by: Cong Wang <amwang@redhat.com>
 
-To me, this suggests that the receiving device i.e. wanlink has some
-kind of broken LRO that can't be turned off...
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Acked-by: Eric Dumazet <edumazet@google.com>
