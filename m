@@ -1,45 +1,81 @@
-From: Maarten Lankhorst <maarten.lankhorst@canonical.com>
-Subject: [PATCH] alx: fix lockdep annotation
-Date: Thu, 11 Jul 2013 15:53:21 +0200
-Message-ID: <51DEB8D1.6080700@canonical.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] bnx2x: fix tunneling CSUM calculation
+Date: Thu, 11 Jul 2013 06:54:12 -0700
+Message-ID: <1373550852.4600.39.camel@edumazet-glaptop>
+References: <1373546901-26741-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	alexander.h.duyck@intel.com, pshelar@nicira.com,
+	xiyou.wangcong@gmail.com, eilong@broadcom.com
+To: Dmitry Kravkov <dmitry@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:42592 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755611Ab3GKNxY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 09:53:24 -0400
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:33107 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932442Ab3GKNyN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 09:54:13 -0400
+Received: by mail-pa0-f50.google.com with SMTP id fb1so7800601pad.23
+        for <netdev@vger.kernel.org>; Thu, 11 Jul 2013 06:54:13 -0700 (PDT)
+In-Reply-To: <1373546901-26741-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move spin_lock_init to be called before the spinlocks are used, preventing a lockdep splat.
+On Thu, 2013-07-11 at 15:48 +0300, Dmitry Kravkov wrote:
+> Since commit c957d09ffda417f6c8e3d1f10e2b05228607d6d7
+> "bnx2x: Remove sparse and coccinelle warnings"
+> driver provided wrong partial csum for HW in tunneing
+> scenarios.
+> 
+> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Alexander Duyck <alexander.h.duyck@intel.com>
+> CC: Pravin Shelar <pshelar@nicira.com>
+> CC: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+> 
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> index 3353efe..ee350bd 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> @@ -3543,9 +3543,9 @@ static void bnx2x_update_pbds_gso_enc(struct sk_buff *skb,
+>  	/* outer IP header info */
+>  	if (xmit_type & XMIT_CSUM_V4) {
+>  		struct iphdr *iph = ip_hdr(skb);
+> -		u16 csum = (__force u16)(~iph->check) -
+> -			   (__force u16)iph->tot_len -
+> -			   (__force u16)iph->frag_off;
+> +		u32 csum = (__force u32)(~iph->check) -
+> +			   (__force u32)iph->tot_len -
+> +			   (__force u32)iph->frag_off;
+>  
+>  		pbd2->fw_ip_csum_wo_len_flags_frag =
+>  			bswab16(csum_fold((__force __wsum)csum));
 
-Signed-off-by: Maarten Lankhorst <maarten.lankhorst@canonical.com>
----
-diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
-index 418de8b..d30085c 100644
---- a/drivers/net/ethernet/atheros/alx/main.c
-+++ b/drivers/net/ethernet/atheros/alx/main.c
-@@ -1303,6 +1303,8 @@ static int alx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	SET_NETDEV_DEV(netdev, &pdev->dev);
- 	alx = netdev_priv(netdev);
-+	spin_lock_init(&alx->hw.mdio_lock);
-+	spin_lock_init(&alx->irq_lock);
- 	alx->dev = netdev;
- 	alx->hw.pdev = pdev;
- 	alx->msg_enable = NETIF_MSG_LINK | NETIF_MSG_HW | NETIF_MSG_IFUP |
-@@ -1385,9 +1387,6 @@ static int alx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	INIT_WORK(&alx->link_check_wk, alx_link_check);
- 	INIT_WORK(&alx->reset_wk, alx_reset);
--	spin_lock_init(&alx->hw.mdio_lock);
--	spin_lock_init(&alx->irq_lock);
--
- 	netif_carrier_off(netdev);
- 
- 	err = register_netdev(netdev);
+
+
+Tested-by: Eric Dumazet <edumazet@google.com>
+
+Thanks guys !
+
+lpq83:~# ethtool -K gre1 tso on 
+lpq83:~# ./netperf -H 7.7.8.84
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 7.7.8.84 () port 0 AF_INET
+Recv   Send    Send                          
+Socket Socket  Message  Elapsed              
+Size   Size    Size     Time     Throughput  
+bytes  bytes   bytes    secs.    10^6bits/sec  
+
+ 87380  16384  16384    10.00    5723.17   
+lpq83:~# ethtool -K gre1 tso off
+lpq83:~# ./netperf -H 7.7.8.84
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 7.7.8.84 () port 0 AF_INET
+Recv   Send    Send                          
+Socket Socket  Message  Elapsed              
+Size   Size    Size     Time     Throughput  
+bytes  bytes   bytes    secs.    10^6bits/sec  
+
+ 87380  16384  16384    10.00    3813.60   
