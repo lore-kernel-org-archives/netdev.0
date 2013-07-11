@@ -1,99 +1,61 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH 1/2] dummy: fix oops when loading the dummy failed
-Date: Thu, 11 Jul 2013 19:04:02 +0800
-Message-ID: <51DE9122.9090908@huawei.com>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: Re: [Xen-devel] [PATCH v2 1/1] xen/netback: correctly calculate
+ required slots of skb.
+Date: Thu, 11 Jul 2013 12:12:24 +0100
+Message-ID: <1373541144.5453.165.camel@hastur.hellion.org.uk>
+References: <1373447711-31303-1-git-send-email-annie.li@oracle.com>
+	 <1373530274.5453.148.camel@hastur.hellion.org.uk>
+	 <51DE6DFD.9080007@oracle.com>
+	 <1373536078.5453.159.camel@hastur.hellion.org.uk>
+	 <4A59CC63-9B57-49FA-A2FD-6903C86E110E@oracle.com>
+	 <3038108B-5529-452A-A488-4E616F7C1B8E@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@resnulli.us>, Flavio Leitner <fbl@redhat.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Tanxiaojun <tanxiaojun@huawei.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"wei.liu2@citrix.com" <wei.liu2@citrix.com>,
+	"msw@amazon.com" <msw@amazon.com>
+To: Annie <annie.li@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:26426 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932076Ab3GKLEa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 07:04:30 -0400
+Received: from smtp.citrix.com ([66.165.176.89]:53713 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755031Ab3GKLM1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jul 2013 07:12:27 -0400
+In-Reply-To: <3038108B-5529-452A-A488-4E616F7C1B8E@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We rename the dummy in modprobe.conf like this:
 
-install dummy0 /sbin/modprobe -o dummy0 --ignore-install dummy
-install dummy1 /sbin/modprobe -o dummy1 --ignore-install dummy
+> 
+> > 
+> > 
+> > > 
+> > > > The code here only 
+> > > > increase count for the first time. I thought to initialize the
+> > > > count in 
+> > > > xen_netbk_count_skb_slots with 1 to avoid this. But thinking of
+> > > > the 
+> > > > extreme case when the header size is zero(not sure whether this
+> > > > case 
+> > > > could be true), I increase the count here to keep safe in case
+> > > > header 
+> > > > size is zero.
+> > > 
+> > > netfront requires that the first slot always contains some data,
+> > > gop_frag_copy will BUG if that's not the case.
+> > > 
+> 
+> 
+> In gop_frag_copy, we can not go into the while if the size is 0. Which
+> BUG_ON do you mean here?
 
-We got oops when we run the command:
+in gop_frag_copy:
+		if (start_new_rx_buffer(npo->copy_off, bytes, *head)) {
+			/*
+			 * Netfront requires there to be some data in the head
+			 * buffer.
+			 */
+			BUG_ON(*head);
 
-modprobe dummy0
-modprobe dummy1
-
-------------[ cut here ]------------
-
-[ 3302.187584] BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
-[ 3302.195411] IP: [<ffffffff813fe62a>] __rtnl_link_unregister+0x9a/0xd0
-[ 3302.201844] PGD 85c94a067 PUD 8517bd067 PMD 0
-[ 3302.206305] Oops: 0002 [#1] SMP
-[ 3302.299737] task: ffff88105ccea300 ti: ffff880eba4a0000 task.ti: ffff880eba4a0000
-[ 3302.307186] RIP: 0010:[<ffffffff813fe62a>]  [<ffffffff813fe62a>] __rtnl_link_unregister+0x9a/0xd0
-[ 3302.316044] RSP: 0018:ffff880eba4a1dd8  EFLAGS: 00010246
-[ 3302.321332] RAX: 0000000000000000 RBX: ffffffff81a9d738 RCX: 0000000000000002
-[ 3302.328436] RDX: 0000000000000000 RSI: ffffffffa04d602c RDI: ffff880eba4a1dd8
-[ 3302.335541] RBP: ffff880eba4a1e18 R08: dead000000200200 R09: dead000000100100
-[ 3302.342644] R10: 0000000000000080 R11: 0000000000000003 R12: ffffffff81a9d788
-[ 3302.349748] R13: ffffffffa04d7020 R14: ffffffff81a9d670 R15: ffff880eba4a1dd8
-[ 3302.364910] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[ 3302.370630] CR2: 0000000000000008 CR3: 000000085e15e000 CR4: 00000000000427e0
-[ 3302.377734] DR0: 0000000000000003 DR1: 00000000000000b0 DR2: 0000000000000001
-[ 3302.384838] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-[ 3302.391940] Stack:
-[ 3302.393944]  ffff880eba4a1dd8 ffff880eba4a1dd8 ffff880eba4a1e18 ffffffffa04d70c0
-[ 3302.401350]  00000000ffffffef ffffffffa01a8000 0000000000000000 ffffffff816111c8
-[ 3302.408758]  ffff880eba4a1e48 ffffffffa01a80be ffff880eba4a1e48 ffffffffa04d70c0
-[ 3302.416164] Call Trace:
-[ 3302.418605]  [<ffffffffa01a8000>] ? 0xffffffffa01a7fff
-[ 3302.423727]  [<ffffffffa01a80be>] dummy_init_module+0xbe/0x1000 [dummy0]
-[ 3302.430405]  [<ffffffffa01a8000>] ? 0xffffffffa01a7fff
-[ 3302.435535]  [<ffffffff81000322>] do_one_initcall+0x152/0x1b0
-[ 3302.441263]  [<ffffffff810ab24b>] do_init_module+0x7b/0x200
-[ 3302.446824]  [<ffffffff810ad3d2>] load_module+0x4e2/0x530
-[ 3302.452215]  [<ffffffff8127ae40>] ? ddebug_dyndbg_boot_param_cb+0x60/0x60
-[ 3302.458979]  [<ffffffff810ad5f1>] SyS_init_module+0xd1/0x130
-[ 3302.464627]  [<ffffffff814b9652>] system_call_fastpath+0x16/0x1b
-[ 3302.490090] RIP  [<ffffffff813fe62a>] __rtnl_link_unregister+0x9a/0xd0
-[ 3302.496607]  RSP <ffff880eba4a1dd8>
-[ 3302.500084] CR2: 0000000000000008
-[ 3302.503466] ---[ end trace 8342d49cd49f78ed ]---
-
-The reason is that when loading dummy, if __rtnl_link_register() return failed,
-the init_module should return and avoid take the wrong path.
-
-Signed-off-by: Tan Xiaojun <tanxiaojun@huawei.com>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/dummy.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
-index 42aa54a..b710c6b 100644
---- a/drivers/net/dummy.c
-+++ b/drivers/net/dummy.c
-@@ -185,6 +185,8 @@ static int __init dummy_init_module(void)
- 
- 	rtnl_lock();
- 	err = __rtnl_link_register(&dummy_link_ops);
-+	if (err < 0)
-+		goto out;
- 
- 	for (i = 0; i < numdummies && !err; i++) {
- 		err = dummy_init_one();
-@@ -192,6 +194,8 @@ static int __init dummy_init_module(void)
- 	}
- 	if (err < 0)
- 		__rtnl_link_unregister(&dummy_link_ops);
-+
-+out:
- 	rtnl_unlock();
- 
- 	return err;
--- 
-1.8.0
+Ian
