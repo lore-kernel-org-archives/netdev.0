@@ -1,7 +1,7 @@
 From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH 40/50] media: dvb-core: spin_lock in complete() cleanup
-Date: Thu, 11 Jul 2013 17:06:03 +0800
-Message-ID: <1373533573-12272-41-git-send-email-ming.lei@canonical.com>
+Subject: [PATCH 41/50] media: usb: em28xx: make sure irq disabled before acquiring lock
+Date: Thu, 11 Jul 2013 17:06:04 +0800
+Message-ID: <1373533573-12272-42-git-send-email-ming.lei@canonical.com>
 References: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
 Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
 	Alan Stern <stern@rowland.harvard.edu>,
@@ -12,86 +12,51 @@ Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
 	Mauro Carvalho Chehab <mchehab@redhat.com>
 To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:38726 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932451Ab3GKJL5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 05:11:57 -0400
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:52842 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932451Ab3GKJMF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 05:12:05 -0400
 In-Reply-To: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Complete() will be run with interrupt enabled, so change to
-spin_lock_irqsave().
-
-These functions may be called inside URB->complete(), so use
-spin_lock_irqsave().
+Complete() will be run with interrupt enabled, so add local_irq_save()
+before acquiring the lock without irqsave().
 
 Cc: Mauro Carvalho Chehab <mchehab@redhat.com>
 Cc: linux-media@vger.kernel.org
 Signed-off-by: Ming Lei <ming.lei@canonical.com>
 ---
- drivers/media/dvb-core/dvb_demux.c |   17 +++++++++++------
- 1 file changed, 11 insertions(+), 6 deletions(-)
+ drivers/media/usb/em28xx/em28xx-audio.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/media/dvb-core/dvb_demux.c b/drivers/media/dvb-core/dvb_demux.c
-index 3485655..58de441 100644
---- a/drivers/media/dvb-core/dvb_demux.c
-+++ b/drivers/media/dvb-core/dvb_demux.c
-@@ -476,7 +476,9 @@ static void dvb_dmx_swfilter_packet(struct dvb_demux *demux, const u8 *buf)
- void dvb_dmx_swfilter_packets(struct dvb_demux *demux, const u8 *buf,
- 			      size_t count)
- {
--	spin_lock(&demux->lock);
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&demux->lock, flags);
+diff --git a/drivers/media/usb/em28xx/em28xx-audio.c b/drivers/media/usb/em28xx/em28xx-audio.c
+index 2fdb66e..dca53ec 100644
+--- a/drivers/media/usb/em28xx/em28xx-audio.c
++++ b/drivers/media/usb/em28xx/em28xx-audio.c
+@@ -113,6 +113,7 @@ static void em28xx_audio_isocirq(struct urb *urb)
+ 		stride = runtime->frame_bits >> 3;
  
- 	while (count--) {
- 		if (buf[0] == 0x47)
-@@ -484,7 +486,7 @@ void dvb_dmx_swfilter_packets(struct dvb_demux *demux, const u8 *buf,
- 		buf += 188;
- 	}
+ 		for (i = 0; i < urb->number_of_packets; i++) {
++			unsigned long flags;
+ 			int length =
+ 			    urb->iso_frame_desc[i].actual_length / stride;
+ 			cp = (unsigned char *)urb->transfer_buffer +
+@@ -134,6 +135,7 @@ static void em28xx_audio_isocirq(struct urb *urb)
+ 				       length * stride);
+ 			}
  
--	spin_unlock(&demux->lock);
-+	spin_unlock_irqrestore(&demux->lock, flags);
- }
++			local_irq_save(flags);
+ 			snd_pcm_stream_lock(substream);
  
- EXPORT_SYMBOL(dvb_dmx_swfilter_packets);
-@@ -519,8 +521,9 @@ static inline void _dvb_dmx_swfilter(struct dvb_demux *demux, const u8 *buf,
- {
- 	int p = 0, i, j;
- 	const u8 *q;
-+	unsigned long flags;
+ 			dev->adev.hwptr_done_capture += length;
+@@ -151,6 +153,7 @@ static void em28xx_audio_isocirq(struct urb *urb)
+ 			}
  
--	spin_lock(&demux->lock);
-+	spin_lock_irqsave(&demux->lock, flags);
- 
- 	if (demux->tsbufp) { /* tsbuf[0] is now 0x47. */
- 		i = demux->tsbufp;
-@@ -564,7 +567,7 @@ static inline void _dvb_dmx_swfilter(struct dvb_demux *demux, const u8 *buf,
- 	}
- 
- bailout:
--	spin_unlock(&demux->lock);
-+	spin_unlock_irqrestore(&demux->lock, flags);
- }
- 
- void dvb_dmx_swfilter(struct dvb_demux *demux, const u8 *buf, size_t count)
-@@ -581,11 +584,13 @@ EXPORT_SYMBOL(dvb_dmx_swfilter_204);
- 
- void dvb_dmx_swfilter_raw(struct dvb_demux *demux, const u8 *buf, size_t count)
- {
--	spin_lock(&demux->lock);
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&demux->lock, flags);
- 
- 	demux->feed->cb.ts(buf, count, NULL, 0, &demux->feed->feed.ts, DMX_OK);
- 
--	spin_unlock(&demux->lock);
-+	spin_unlock_irqrestore(&demux->lock, flags);
- }
- EXPORT_SYMBOL(dvb_dmx_swfilter_raw);
- 
+ 			snd_pcm_stream_unlock(substream);
++			local_irq_restore(flags);
+ 		}
+ 		if (period_elapsed)
+ 			snd_pcm_period_elapsed(substream);
 -- 
 1.7.9.5
