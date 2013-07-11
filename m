@@ -1,31 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] drivers: net: phy: at803x: LED control via led
- subsystem
-Date: Thu, 11 Jul 2013 11:54:55 -0700 (PDT)
-Message-ID: <20130711.115455.1338073492446574779.davem@davemloft.net>
-References: <1373543855-31670-1-git-send-email-helmut.schaa@googlemail.com>
-	<1373543855-31670-2-git-send-email-helmut.schaa@googlemail.com>
+Subject: Re: [PATCH 1/2] dummy: fix oops when loading the dummy failed
+Date: Thu, 11 Jul 2013 12:00:41 -0700 (PDT)
+Message-ID: <20130711.120041.496311688309106017.davem@davemloft.net>
+References: <51DE9122.9090908@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: helmut.schaa@googlemail.com
+Cc: jiri@resnulli.us, fbl@redhat.com, netdev@vger.kernel.org,
+	tanxiaojun@huawei.com
+To: dingtianhong@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58504 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58599 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756491Ab3GKSy4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 14:54:56 -0400
-In-Reply-To: <1373543855-31670-2-git-send-email-helmut.schaa@googlemail.com>
+	with ESMTP id S1756463Ab3GKTAm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 15:00:42 -0400
+In-Reply-To: <51DE9122.9090908@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Helmut Schaa <helmut.schaa@googlemail.com>
-Date: Thu, 11 Jul 2013 13:57:35 +0200
+From: Ding Tianhong <dingtianhong@huawei.com>
+Date: Thu, 11 Jul 2013 19:04:02 +0800
 
-> The AT8035 PHY allows to control the LED PIN behavior from software.
-> Expose this functionality by registering an LED device.
+> We rename the dummy in modprobe.conf like this:
 > 
-> Signed-off-by: Helmut Schaa <helmut.schaa@googlemail.com>
+> install dummy0 /sbin/modprobe -o dummy0 --ignore-install dummy
+> install dummy1 /sbin/modprobe -o dummy1 --ignore-install dummy
+> 
+> We got oops when we run the command:
+> 
+> modprobe dummy0
+> modprobe dummy1
+ ...
+> The reason is that when loading dummy, if __rtnl_link_register() return failed,
+> the init_module should return and avoid take the wrong path.
+> 
+> Signed-off-by: Tan Xiaojun <tanxiaojun@huawei.com>
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 
-As a new feature, it is not appropriate to submit this change at this
-time.  Please resubmit this when the net-next tree opens up again.
+Applied.
