@@ -1,40 +1,37 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: [RFC PATCH net-next] net ipv6: Remove rebundant rt6i_nsiblings initialization
-Date: Thu, 11 Jul 2013 08:27:22 +0800
-Message-ID: <1373502442-32403-1-git-send-email-fan.du@windriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net RESEND v2] ipv6: fix route selection if kernel is
+ not compiled with CONFIG_IPV6_ROUTER_PREF
+Date: Wed, 10 Jul 2013 17:36:33 -0700 (PDT)
+Message-ID: <20130710.173633.631366598766526289.davem@davemloft.net>
+References: <20130710210012.GK15411@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <yoshfuji@linux-ipv6.org>, <jmorris@namei.org>,
-	<kuznet@ms2.inr.ac.ru>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: <nicolas.dichtel@6wind.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, petrus.lt@gmail.com,
+	yoshfuji@linux-ipv6.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:60814 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754365Ab3GKA2W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 20:28:22 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:47483 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755421Ab3GKAg6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 20:36:58 -0400
+In-Reply-To: <20130710210012.GK15411@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Seting rt->rt6i_nsiblings to zero is rebundant, because above memset
-has zeroed the rest of rt excluding the first dst memember.
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Wed, 10 Jul 2013 23:00:12 +0200
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
----
- net/ipv6/route.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+> I changed the return value of rt6_check_neigh to:
+>    1 in case of the dst entry validated
+>   -1 in case of we had no dst_entry and we need to do rr now
+>   -2 in case a we had a dst_entry and it did not validate
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 7ca87b3..b88f99f 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -278,7 +278,6 @@ static inline struct rt6_info *ip6_dst_alloc(struct net *net,
- 		rt6_init_peer(rt, table ? &table->tb6_peers : net->ipv6.peers);
- 		rt->rt6i_genid = rt_genid(net);
- 		INIT_LIST_HEAD(&rt->rt6i_siblings);
--		rt->rt6i_nsiblings = 0;
- 	}
- 	return rt;
- }
--- 
-1.7.1
+Please, at the very least, create an enumeration for this set of
+possible return values.
+
+Although I don't like how that RR boolean is passed around by
+reference, I can't suggest anything better so I won't require
+you to get rid of that.
+
+Thanks.
