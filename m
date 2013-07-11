@@ -1,28 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] ifb: fix oops when loading the ifb failed
-Date: Thu, 11 Jul 2013 12:00:48 -0700 (PDT)
-Message-ID: <20130711.120048.2069760265299932780.davem@davemloft.net>
-References: <51DE9126.5040703@huawei.com>
+Subject: Re: [PATCH] inet: fix spacing in assignment
+Date: Thu, 11 Jul 2013 12:03:16 -0700 (PDT)
+Message-ID: <20130711.120316.1417691971019693577.davem@davemloft.net>
+References: <1373525751-9724-1-git-send-email-camelia.groza@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, edumazet@google.com, netdev@vger.kernel.org
-To: dingtianhong@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58604 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756463Ab3GKTAt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 15:00:49 -0400
-In-Reply-To: <51DE9126.5040703@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: camelia.groza@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1373525751-9724-1-git-send-email-camelia.groza@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Thu, 11 Jul 2013 19:04:06 +0800
+From: Camelia Groza <camelia.groza@gmail.com>
+Date: Thu, 11 Jul 2013 09:55:51 +0300
 
-> If __rtnl_link_register() return faild when loading the ifb, it will
-> take the wrong path and get oops, so fix it just like dummy.
+> Found using checkpatch.pl
 > 
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> Signed-off-by: Camelia Groza <camelia.groza@gmail.com>
 
 Applied.
