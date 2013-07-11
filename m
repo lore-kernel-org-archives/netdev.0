@@ -1,34 +1,32 @@
-From: "George Daniels" <gdsdangeoreg1@outlook.com>
-Subject: It's private
-Date: Thu, 11 Jul 2013 14:50:20 +0300 (EEST)
-Message-ID: <53432.88.23.117.54.1373543420.squirrel@mail1.centrum-group.com>
-Reply-To: gdsdangeoreg1@outlook.com
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RFC] ipv6: fix route selection if kernel is not compiled with CONFIG_IPV6_ROUTER_PREF
+Date: Thu, 11 Jul 2013 16:46:23 +0200
+Message-ID: <20130711144623.GA5707@order.stressinduktion.org>
+References: <20130709215701.GD9763@order.stressinduktion.org> <51DD1352.8000705@6wind.com> <51DD2959.9060206@6wind.com> <20130710105316.GA5735@order.stressinduktion.org> <51DD521F.1000905@6wind.com> <20130710132122.GD15411@order.stressinduktion.org> <51DD6B72.1050700@6wind.com> <20130710212149.GA26122@order.stressinduktion.org> <51DE671F.5050706@6wind.com> <20130711102441.GC5207@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=WINDOWS-1251
-Content-Transfer-Encoding: 8bit
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=utf-8
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	petrus.lt@gmail.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.centrum-group.com ([194.12.254.133]:52120 "EHLO
-	mail1.centrum-group.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932994Ab3GKOfj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 10:35:39 -0400
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:39381 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932765Ab3GKOqZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 10:46:25 -0400
+Content-Disposition: inline
+In-Reply-To: <20130711102441.GC5207@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Jul 11, 2013 at 12:24:41PM +0200, Hannes Frederic Sowa wrote:
+> I fear, I'll need to do a bit more research.
 
+My proposal is to take my patch and check for RTF_ADDRCONF plus RTF_DYNAMIC,
+too. The RTF_DYNAMIC check would prevent routes created from icmpv6 redirects
+entering an ecmp route set.
 
-It's private
+Do you agree?
 
-I am George Daniels, a Banker and credit system programmer (HSBC bank).
-I saw your email address while browsing through  the bank D.T.C Screen in
-my office yesterday so I decided to use this very chance to know you. I
-believe we should use every opportunity to know each other better.
-However, I am contacting you for obvious reason which you will understand.
+Thanks,
 
-I am sending this mail just to know if this email address is OK,
-reply me back so that I will send  more details to you.
-I have a very important thing to discuss with you, I look forward to
-receiving your response at
-georgedaniels@postino.net. Have a pleasant day.
-
-George Daniels
+  Hannes
