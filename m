@@ -1,66 +1,41 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: A performance regression of gretap
-Date: Thu, 11 Jul 2013 10:31:59 +0800
-Message-ID: <1373509919.12250.6.camel@cr0>
-References: <327738182.1491147.1373450503005.JavaMail.root@redhat.com>
-	 <1373508910.12250.4.camel@cr0>
-	 <CALnjE+oNMcXORdMgzHtomdf+EDknZaCsiB-+aevMbg-rsxbpww@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net v2] gso: Update tunnel segmentation to support Tx
+ checksum offload
+Date: Wed, 10 Jul 2013 19:37:03 -0700
+Message-ID: <1373510223.4600.36.camel@edumazet-glaptop>
+References: <20130711000015.13134.17801.stgit@ahduyck-hc1.jf.intel.com>
+	  <1373503334.4600.27.camel@edumazet-glaptop>
+	 <1373507037.4600.34.camel@edumazet-glaptop> <51DE18E1.304@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>
+Cc: Dmitry Kravkov <dmitry@broadcom.com>, netdev@vger.kernel.org,
+	stephen@networkplumber.org, pshelar@nicira.com,
+	joseph.gasparakis@intel.com, jesse@nicira.com,
+	Eilon Greenstein <eilong@broadcom.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4732 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755063Ab3GKCcK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Jul 2013 22:32:10 -0400
-In-Reply-To: <CALnjE+oNMcXORdMgzHtomdf+EDknZaCsiB-+aevMbg-rsxbpww@mail.gmail.com>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:55548 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755217Ab3GKChF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 22:37:05 -0400
+Received: by mail-pd0-f182.google.com with SMTP id r10so6983232pdi.13
+        for <netdev@vger.kernel.org>; Wed, 10 Jul 2013 19:37:04 -0700 (PDT)
+In-Reply-To: <51DE18E1.304@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-07-10 at 19:28 -0700, Pravin Shelar wrote:
-> On Wed, Jul 10, 2013 at 7:15 PM, Cong Wang <amwang@redhat.com> wrote:
-> > On Wed, 2013-07-10 at 06:01 -0400, Cong Wang wrote:
-> >>
-> >> Could you please take a look? And, gre tunnel is fine, this
-> >> problem only exists for gretap. I reviewed the gretap code,
-> >> but can't find any bug.
-> >
-> > After digging it a little bit, I found some of the packets on RX side
-> > have incorrect TCP checksum after going through gretap, while the
-> > packets captured on eth0 are all correct.
-> >
-> > Thanks.
-> >
-> I do not see it on my end.
-> Can you tell me NIC type and features set for eth device?
+On Wed, 2013-07-10 at 19:30 -0700, Alexander Duyck wrote:
 
-Sure, it is virtio_net which is not able to do rx checksum, therefore
-->ip_summed is CHECKSUM_NONE.
+> 
+> It was my understanding that the code for enabling TSO for encapsulated
+> frames was good as Joseph has been working on it and testing it for
+> i40e.  I'm assuming if you turn off TSO then the GSO and Tx checksum are
+> working correctly?  I just want to make sure the issue you are seeing
+> isn't in any way related to my patch.
 
-# ethtool -i eth0
-driver: virtio_net
-version: 1.0.0
-firmware-version: 
-bus-info: 0000:00:08.0
-supports-statistics: no
-supports-test: no
-supports-eeprom-access: no
-supports-register-dump: no
-supports-priv-flags: no
+Disabling TSO is solving the issue, and your patch solves the csum
+performance issue.
 
-# ethtool -k eth0
-Offload parameters for eth0:
-rx-checksumming: off
-tx-checksumming: on
-scatter-gather: on
-tcp-segmentation-offload: on
-udp-fragmentation-offload: on
-generic-segmentation-offload: on
-generic-receive-offload: on
-large-receive-offload: off
-rx-vlan-offload: off
-tx-vlan-offload: off
-ntuple-filters: off
-receive-hashing: off
+I would like to fully understand the problems before acknowledging your
+patch, if you do not mind ;)
