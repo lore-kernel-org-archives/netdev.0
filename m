@@ -1,98 +1,84 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH 02/50] USB: cdc-wdm: spin_lock in complete() cleanup
-Date: Thu, 11 Jul 2013 17:05:25 +0800
-Message-ID: <1373533573-12272-3-git-send-email-ming.lei@canonical.com>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: [PATCH 03/50] USB: usblp: spin_lock in complete() cleanup
+Date: Thu, 11 Jul 2013 17:05:26 +0800
+Message-ID: <1373533573-12272-4-git-send-email-ming.lei@canonical.com>
 References: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org,
-	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-To: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1373533573-12272-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	linux-input@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-media@vger.kernel.org, alsa-devel@alsa-project.org,
+	Ming Lei <ming.lei@canonical.com>,
+	Pete Zaitcev <zaitcev@redhat.com>
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <linux-media-owner@vger.kernel.org>
+In-Reply-To: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
+Sender: linux-media-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Complete() will be run with interrupt enabled, so change to
 spin_lock_irqsave().
 
-Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Cc: Pete Zaitcev <zaitcev@redhat.com>
+Signed-off-by: Ming Lei <ming.lei@canonical.com>
 ---
- drivers/usb/class/cdc-wdm.c |   16 ++++++++++------
- 1 file changed, 10 insertions(+), 6 deletions(-)
+ drivers/usb/class/usblp.c |   10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/usb/class/cdc-wdm.c b/drivers/usb/class/cdc-wdm.c
-index 8a230f0..5f78d18 100644
---- a/drivers/usb/class/cdc-wdm.c
-+++ b/drivers/usb/class/cdc-wdm.c
-@@ -143,10 +143,12 @@ found:
- static void wdm_out_callback(struct urb *urb)
+diff --git a/drivers/usb/class/usblp.c b/drivers/usb/class/usblp.c
+index d4c47d5..04163d8 100644
+--- a/drivers/usb/class/usblp.c
++++ b/drivers/usb/class/usblp.c
+@@ -297,6 +297,7 @@ static void usblp_bulk_read(struct urb *urb)
  {
- 	struct wdm_device *desc;
-+	unsigned long flags;
-+
- 	desc = urb->context;
--	spin_lock(&desc->iuspin);
-+	spin_lock_irqsave(&desc->iuspin, flags);
- 	desc->werr = urb->status;
--	spin_unlock(&desc->iuspin);
-+	spin_unlock_irqrestore(&desc->iuspin, flags);
- 	kfree(desc->outbuf);
- 	desc->outbuf = NULL;
- 	clear_bit(WDM_IN_USE, &desc->flags);
-@@ -158,8 +160,9 @@ static void wdm_in_callback(struct urb *urb)
- 	struct wdm_device *desc = urb->context;
+ 	struct usblp *usblp = urb->context;
  	int status = urb->status;
- 	int length = urb->actual_length;
 +	unsigned long flags;
  
--	spin_lock(&desc->iuspin);
-+	spin_lock_irqsave(&desc->iuspin, flags);
- 	clear_bit(WDM_RESPONDING, &desc->flags);
+ 	if (usblp->present && usblp->used) {
+ 		if (status)
+@@ -304,14 +305,14 @@ static void usblp_bulk_read(struct urb *urb)
+ 			    "nonzero read bulk status received: %d\n",
+ 			    usblp->minor, status);
+ 	}
+-	spin_lock(&usblp->lock);
++	spin_lock_irqsave(&usblp->lock, flags);
+ 	if (status < 0)
+ 		usblp->rstatus = status;
+ 	else
+ 		usblp->rstatus = urb->actual_length;
+ 	usblp->rcomplete = 1;
+ 	wake_up(&usblp->rwait);
+-	spin_unlock(&usblp->lock);
++	spin_unlock_irqrestore(&usblp->lock, flags);
  
- 	if (status) {
-@@ -203,7 +206,7 @@ skip_error:
- 	wake_up(&desc->wait);
- 
- 	set_bit(WDM_READ, &desc->flags);
--	spin_unlock(&desc->iuspin);
-+	spin_unlock_irqrestore(&desc->iuspin, flags);
+ 	usb_free_urb(urb);
  }
- 
- static void wdm_int_callback(struct urb *urb)
-@@ -212,6 +215,7 @@ static void wdm_int_callback(struct urb *urb)
+@@ -320,6 +321,7 @@ static void usblp_bulk_write(struct urb *urb)
+ {
+ 	struct usblp *usblp = urb->context;
  	int status = urb->status;
- 	struct wdm_device *desc;
- 	struct usb_cdc_notification *dr;
 +	unsigned long flags;
  
- 	desc = urb->context;
- 	dr = (struct usb_cdc_notification *)desc->sbuf;
-@@ -260,7 +264,7 @@ static void wdm_int_callback(struct urb *urb)
- 		goto exit;
+ 	if (usblp->present && usblp->used) {
+ 		if (status)
+@@ -327,7 +329,7 @@ static void usblp_bulk_write(struct urb *urb)
+ 			    "nonzero write bulk status received: %d\n",
+ 			    usblp->minor, status);
  	}
+-	spin_lock(&usblp->lock);
++	spin_lock_irqsave(&usblp->lock, flags);
+ 	if (status < 0)
+ 		usblp->wstatus = status;
+ 	else
+@@ -335,7 +337,7 @@ static void usblp_bulk_write(struct urb *urb)
+ 	usblp->no_paper = 0;
+ 	usblp->wcomplete = 1;
+ 	wake_up(&usblp->wwait);
+-	spin_unlock(&usblp->lock);
++	spin_unlock_irqrestore(&usblp->lock, flags);
  
--	spin_lock(&desc->iuspin);
-+	spin_lock_irqsave(&desc->iuspin, flags);
- 	clear_bit(WDM_READ, &desc->flags);
- 	set_bit(WDM_RESPONDING, &desc->flags);
- 	if (!test_bit(WDM_DISCONNECTING, &desc->flags)
-@@ -269,7 +273,7 @@ static void wdm_int_callback(struct urb *urb)
- 		dev_dbg(&desc->intf->dev, "%s: usb_submit_urb %d",
- 			__func__, rv);
- 	}
--	spin_unlock(&desc->iuspin);
-+	spin_unlock_irqrestore(&desc->iuspin, flags);
- 	if (rv < 0) {
- 		clear_bit(WDM_RESPONDING, &desc->flags);
- 		if (rv == -EPERM)
+ 	usb_free_urb(urb);
+ }
 -- 
 1.7.9.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
