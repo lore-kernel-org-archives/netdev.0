@@ -1,61 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/1] xen/netback: correctly calculate required slots
- of skb.
-Date: Wed, 10 Jul 2013 19:18:11 -0700 (PDT)
-Message-ID: <20130710.191811.925426832514062553.davem@davemloft.net>
-References: <1373447711-31303-1-git-send-email-annie.li@oracle.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net v2] gso: Update tunnel segmentation to support Tx
+ checksum offload
+Date: Thu, 11 Jul 2013 02:23:31 +0000 (UTC)
+Message-ID: <krl4v3$o8d$1@ger.gmane.org>
+References: <20130711000015.13134.17801.stgit@ahduyck-hc1.jf.intel.com>
+ <1373503334.4600.27.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xensource.com, netdev@vger.kernel.org,
-	Ian.Campbell@citrix.com, wei.liu2@citrix.com,
-	konrad.wilk@oracle.com, msw@amazon.com
-To: annie.li@oracle.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48319 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755063Ab3GKCSO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 22:18:14 -0400
-In-Reply-To: <1373447711-31303-1-git-send-email-annie.li@oracle.com>
+Received: from plane.gmane.org ([80.91.229.3]:45322 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754950Ab3GKCXy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jul 2013 22:23:54 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Ux6Xt-0003T1-En
+	for netdev@vger.kernel.org; Thu, 11 Jul 2013 04:23:49 +0200
+Received: from 116.53.101.57 ([116.53.101.57])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 11 Jul 2013 04:23:49 +0200
+Received: from xiyou.wangcong by 116.53.101.57 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 11 Jul 2013 04:23:49 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Annie Li <annie.li@oracle.com>
-Date: Wed, 10 Jul 2013 17:15:11 +0800
+On Thu, 11 Jul 2013 at 00:42 GMT, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2013-07-10 at 17:05 -0700, Alexander Duyck wrote:
+>> This change makes it so that the GRE and VXLAN tunnels can make use of Tx
+>> checksum offload support provided by some drivers via the hw_enc_features.
+>> Without this fix enabling GSO means sacrificing Tx checksum offload and
+>> this actually leads to a performance regression as shown below:
+>> 
+>>             Utilization
+>>             Send
+>> Throughput  local         GSO
+>> 10^6bits/s  % S           state
+>>   6276.51   8.39          enabled
+>>   7123.52   8.42          disabled
+>
+> While testing your patch, I discovered TSO support is completely broken
+> on GRE, using bnx2x testbed.
+>
 
-> When counting required slots for skb, netback directly uses DIV_ROUND_UP to get
-> slots required by header data. This is wrong when offset in the page of header
-> data is not zero, and is also inconsistent with following calculation for
-> required slot in netbk_gop_skb.
-> 
-> In netbk_gop_skb, required slots are calculated based on offset and len in page
-> of header data. It is possible that required slots here is larger than the one
-> calculated in earlier netbk_count_requests. This inconsistency directly results
-> in rx_req_cons_peek and xen_netbk_rx_ring_full judgement are wrong.
-> 
-> Then it comes to situation the ring is actually full, but netback thinks it is
-> not and continues to create responses. This results in response overlaps request
-> in the ring, then grantcopy gets wrong grant reference and throws out error,
-> for example "(XEN) grant_table.c:1763:d0 Bad grant reference 2949120", the
-> grant reference is invalid value here. Netback returns XEN_NETIF_RSP_ERROR(-1)
-> to netfront when grant copy status is error, then netfront gets rx->status
-> (the status is -1, not really data size now), and throws out error,
-> "kernel: net eth1: rx->offset: 0, size: 4294967295". This issue can be reproduced
-> by doing gzip/gunzip in nfs share with mtu = 9000, the guest would panic after
-> running such test for a while.
-> 
-> This patch is based on 3.10-rc7.
-> 
-> Signed-off-by: Annie Li <annie.li@oracle.com>
-
-This patch looks good to me, but I'd like to see some reviews from other
-experts in this area.
-
-In the future I'd really like to see this code either use PAGE_SIZE
-everywhere or MAX_BUFFER_OFFSET everywhere, in the buffer chopping
-code.
-
-I think using both leads to confusion and makes this code harder to
-read.  I prefer MAX_BUFFER_OFFSET because it gives the indication that
-what this value represents is the modulus upon which we must chop up
-RX buffers in this driver.
+In my test, GRE works fine, but gretap not.
