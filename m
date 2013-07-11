@@ -1,92 +1,89 @@
-From: "Cedric Debarge" <cedric.debarge@acksys.fr>
-Subject: [RFC]: vlan priority handling in WMM
-Date: Thu, 11 Jul 2013 09:45:00 +0200
-Message-ID: <773DB8A82AB6A046AE0195C68612A319015E05AD@sbs2003.acksys.local>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: [PATCH net v2] gso: Update tunnel segmentation to support
+ Tx checksum offload
+Date: Thu, 11 Jul 2013 08:31:11 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F20D021A3@SJEXCHMB06.corp.ad.broadcom.com>
+References: <20130711000015.13134.17801.stgit@ahduyck-hc1.jf.intel.com>
+ <1373503334.4600.27.camel@edumazet-glaptop>
+ <CALnjE+rA4kPiwemZ+A0GfSMw8OsS=ssRw0S_1i75jyF2HB2D0Q@mail.gmail.com>
+ <20130711.011411.251674726351429354.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-wireless@vger.kernel.org>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"joseph.gasparakis@intel.com" <joseph.gasparakis@intel.com>,
+	"jesse@nicira.com" <jesse@nicira.com>
+To: "David Miller" <davem@davemloft.net>,
+	"pshelar@nicira.com" <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out03.msg.oleane.net ([62.161.7.1]:44895 "EHLO
-	smtp-out03.msg.oleane.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755342Ab3GKI1m convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 04:27:42 -0400
-Content-class: urn:content-classes:message
+Received: from mms2.broadcom.com ([216.31.210.18]:4803 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755761Ab3GKIbY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 04:31:24 -0400
+In-Reply-To: <20130711.011411.251674726351429354.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear mailing list,
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of David Miller
+> Sent: Thursday, July 11, 2013 11:14 AM
+> To: pshelar@nicira.com
+> Cc: eric.dumazet@gmail.com; alexander.h.duyck@intel.com;
+> netdev@vger.kernel.org; stephen@networkplumber.org;
+> joseph.gasparakis@intel.com; jesse@nicira.com
+> Subject: Re: [PATCH net v2] gso: Update tunnel segmentation to support Tx
+> checksum offload
+> 
+> From: Pravin Shelar <pshelar@nicira.com>
+> Date: Thu, 11 Jul 2013 00:45:19 -0700
+> 
+> > I did some digging and found following commit causing problem with GRE
+> > TSO on bnx setup.
+> >
+> > c957d09ffda417f6c8e3d1f10e2b05228607d6d7 is the first bad commit
+> > commit c957d09ffda417f6c8e3d1f10e2b05228607d6d7
+> > Author: Yuval Mintz <yuvalmin@broadcom.com>
+> > Date:   Tue Jun 25 08:50:11 2013 +0300
+> >
+> >     bnx2x: Remove sparse and coccinelle warnings
+> 
+> Yeah it's this change:
+> 
+> @@ -3543,9 +3543,12 @@ static void bnx2x_update_pbds_gso_enc(struct
+> sk_buff *skb,
+>  	/* outer IP header info */
+>  	if (xmit_type & XMIT_CSUM_V4) {
+>  		struct iphdr *iph = ip_hdr(skb);
+> +		u16 csum = (__force u16)(~iph->check) -
+> +			   (__force u16)iph->tot_len -
+> +			   (__force u16)iph->frag_off;
+> +
+>  		pbd2->fw_ip_csum_wo_len_flags_frag =
+> -			bswab16(csum_fold((~iph->check) -
+> -					  iph->tot_len - iph->frag_off));
+> +			bswab16(csum_fold((__force __wsum)csum));
+> 
+> Way too aggressive with the u16 casting.  These two expressions are
+> not equivalent:
+> 
+> 	csum_fold((~iph->check) - iph->tot_len - iph->frag_off)
+> 
+> 	csum_fold((__wsum) ((u16)(~iph->check) - (u16)iph->tot_len -
+> (u16)iph->frag_off))
+> 
+> In the first case, the entire expression is computed as 32-bit, in
+> the second the ~iph->check is truncated to 16-bits before tot_len
+> and frag_off are subtracted from it.
 
-I would like to manage the VLAN priority in Wireless QOS (WMM).
+I will provide the fix soon ...
 
-I get the VLAN tag from skb->vlan_tci and I extract the VLAN priority.=20
-
-How I should handle the priority value 0.=20
-	- Handle this value as no priority request, In this case the frame wil=
-l=20
-		sent with the DSCP priority or default (Best effort)
-	- Handle this value as a lowest priority, in this case I Map it to the=
- WMM.
-
-=46or your information, you can found below a discussion on this point=20
-with Johannes Berg.
-
-Regards.
-
-Cedric Voncken.
-
------Message d'origine-----
-De : Johannes Berg [mailto:johannes@sipsolutions.net]
-Envoy=E9 : lundi 8 juillet 2013 14:16
-=C0 : voncken
-Cc : linux-wireless@vger.kernel.org
-Objet : Re: [PATCH V2] vlan priority handling in WMM
-
-On Mon, 2013-07-08 at 12:39 +0200, voncken wrote:
-> > > The vlan Tag contain three bit for priority. The value 0 indicate
-> no
-> > > priority (on this case the VLAN tag contain only VID). The
-> vlan_tci
-> > > field is set to zero if the frame do not contain the vlan tag. So
-> if
-> > > we have not a vlan tag or no priority in VLAN tag the priority
-> value
-> > > is always 0.
->=20
-> > Yes but don't we know that the vlan_tci field is valid?
->=20
-> > I don't think you're correct in that 0 means "no priority present",
-> it actually means "best effort" as far as I can tell. Ignoring the=20
-> VLAN tag when the field is 0 would mean we could use a higher priorit=
-y=20
-> from the contents of the frame, which would not be desired?
->=20
-> I can add a test with the macro vlan_tx_tag_present() to verify if th=
-e=20
-> vlan_tci field is valid.
-> I test the value 0 to skip the VLAN priority and use the dscp priorit=
-y=20
-> in this case. The priority 0 in VLAN tag is often use to turn off the=
-=20
-> QOS, because not bit is allowed for it.
-
-What do you mean by "is often used"? I don't see how that would be the =
-case? Are you saying routers commonly ignore the VLAN priority value if=
- it's 0? That would seem odd?
-
-> For me is it correct. Nevertheless, if you prefer, I can test only th=
-e=20
-> vlan_tci validity and in this case always use the VLAN priority.
-
-I don't know! Since you don't seem to really know either, we should ask=
- somebody who knows, I think. Maybe you should Cc netdev with this ques=
-tion on the patch or so?
-
-> Sorry I made a mistake  0xE000 >>13 =3D 0x0007 and not 0x0003, and 7 =
-is=20
-> a 3 bits value.
-
-Ah yes, I made the same mistake, sorry.
-
-johannes
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
