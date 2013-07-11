@@ -1,97 +1,41 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [PATCH 45/50] sound: usb: usx2y: spin_lock in complete() cleanup
-Date: Thu, 11 Jul 2013 22:52:59 +0800
-Message-ID: <CACVXFVNsOAeLZ1zCHmBNsdAWRnqBrDYziK6XDh7G0QEFiw4G5Q@mail.gmail.com>
-References: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
-	<1373533573-12272-46-git-send-email-ming.lei@canonical.com>
-	<51DEAE4E.90204@cogentembedded.com>
-	<s5hip0hb3y6.wl%tiwai@suse.de>
-	<CACVXFVPuv4VD_xCocP2QVOqUqAXm9gjwgwcRn6y=3qXPntOxCQ@mail.gmail.com>
-	<s5h7ggx413u.wl%tiwai@suse.de>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH RFC] ipv6: fix route selection if kernel is not compiled
+ with CONFIG_IPV6_ROUTER_PREF
+Date: Thu, 11 Jul 2013 16:57:42 +0200
+Message-ID: <51DEC7E6.8000500@6wind.com>
+References: <20130709215701.GD9763@order.stressinduktion.org> <51DD1352.8000705@6wind.com> <51DD2959.9060206@6wind.com> <20130710105316.GA5735@order.stressinduktion.org> <51DD521F.1000905@6wind.com> <20130710132122.GD15411@order.stressinduktion.org> <51DD6B72.1050700@6wind.com> <20130710212149.GA26122@order.stressinduktion.org> <51DE671F.5050706@6wind.com> <20130711102441.GC5207@order.stressinduktion.org> <20130711144623.GA5707@order.stressinduktion.org>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	linux-input@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-media@vger.kernel.org, alsa-devel@alsa-project.org,
-	Jaroslav Kysela <perex@perex.cz>
-To: Takashi Iwai <tiwai@suse.de>
-Return-path: <linux-media-owner@vger.kernel.org>
-In-Reply-To: <s5h7ggx413u.wl%tiwai@suse.de>
-Sender: linux-media-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	petrus.lt@gmail.com, davem@davemloft.net
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f53.google.com ([74.125.82.53]:61137 "EHLO
+	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932549Ab3GKO5q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 10:57:46 -0400
+Received: by mail-wg0-f53.google.com with SMTP id y10so7297558wgg.32
+        for <netdev@vger.kernel.org>; Thu, 11 Jul 2013 07:57:44 -0700 (PDT)
+In-Reply-To: <20130711144623.GA5707@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 11, 2013 at 10:34 PM, Takashi Iwai <tiwai@suse.de> wrote:
-> At Thu, 11 Jul 2013 22:13:35 +0800,
-> Ming Lei wrote:
->>
->> On Thu, Jul 11, 2013 at 9:50 PM, Takashi Iwai <tiwai@suse.de> wrote:
->> > At Thu, 11 Jul 2013 17:08:30 +0400,
->> > Sergei Shtylyov wrote:
->> >>
->> >> On 11-07-2013 13:06, Ming Lei wrote:
->> >>
->> >> > Complete() will be run with interrupt enabled, so change to
->> >> > spin_lock_irqsave().
->> >>
->> >>     Changelog doesn't match the patch.
->> >
->> > Yep, but moreover...
->> >
->> >> > Cc: Jaroslav Kysela <perex@perex.cz>
->> >> > Cc: Takashi Iwai <tiwai@suse.de>
->> >> > Cc: alsa-devel@alsa-project.org
->> >> > Signed-off-by: Ming Lei <ming.lei@canonical.com>
->> >> > ---
->> >> >   sound/usb/usx2y/usbusx2yaudio.c |    4 ++++
->> >> >   1 file changed, 4 insertions(+)
->> >>
->> >> > diff --git a/sound/usb/usx2y/usbusx2yaudio.c b/sound/usb/usx2y/usbusx2yaudio.c
->> >> > index 4967fe9..e2ee893 100644
->> >> > --- a/sound/usb/usx2y/usbusx2yaudio.c
->> >> > +++ b/sound/usb/usx2y/usbusx2yaudio.c
->> >> > @@ -273,7 +273,11 @@ static void usX2Y_clients_stop(struct usX2Ydev *usX2Y)
->> >> >             struct snd_usX2Y_substream *subs = usX2Y->subs[s];
->> >> >             if (subs) {
->> >> >                     if (atomic_read(&subs->state) >= state_PRERUNNING) {
->> >> > +                           unsigned long flags;
->> >> > +
->> >> > +                           local_irq_save(flags);
->> >> >                             snd_pcm_stop(subs->pcm_substream, SNDRV_PCM_STATE_XRUN);
->> >> > +                           local_irq_restore(flags);
->> >> >                     }
->> >
->> > ... actually this snd_pcm_stop() call should have been covered by
->> > snd_pcm_stream_lock().  Maybe it'd be enough to have a single patch
->> > together with the change, i.e. wrapping with
->> > snd_pcm_stream_lock_irqsave().
->>
->> Please use snd_pcm_stream_lock_irqsave() so that I can avoid sending
->> out similar patch later, :-)
->>
->> >
->> > I'll prepare the patch for 3.11 independently from your patch series,
->> > so please drop this one.
->>
->> OK, thanks for dealing with that.
->>
->> >
->> >
->> > BTW, the word "cleanup" in the subject is inappropriate.  This is
->> > rather a fix together with the core change.
->>
->> It is a cleanup since the patchset only addresses lock problem which
->> is caused by the tasklet conversion.
+Le 11/07/2013 16:46, Hannes Frederic Sowa a =C3=A9crit :
+> On Thu, Jul 11, 2013 at 12:24:41PM +0200, Hannes Frederic Sowa wrote:
+>> I fear, I'll need to do a bit more research.
 >
-> Well, the conversion to irqsave() is needed for the future drop of
-> irq_save() in the caller, right?  Then this isn't a cleanup but a
-> preparation for movement ahead.
+> My proposal is to take my patch and check for RTF_ADDRCONF plus RTF_D=
+YNAMIC,
+> too. The RTF_DYNAMIC check would prevent routes created from icmpv6 r=
+edirects
+> entering an ecmp route set.
+>
+> Do you agree?
+Yes.
 
-Sounds more accurate, and I will change the title in next round, :-)
 
-Thanks,
---
-Ming Lei
+Regards,
+Nicolas
