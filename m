@@ -1,117 +1,46 @@
-From: Dragos Foianu <dragos.foianu@gmail.com>
-Subject: [PATCH] ipvs: fixed style errors and warnings in ip_vs_conn
-Date: Thu, 11 Jul 2013 22:41:35 +0300
-Message-ID: <1373571695-24933-1-git-send-email-dragos.foianu@gmail.com>
-Cc: horms@verge.net.au, ja@ssi.bg, pablo@netfilter.org,
-	kaber@trash.net, kadlec@blackhole.kfki.hu, davem@davemloft.net,
-	netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
-	Dragos Foianu <dragos.foianu@gmail.com>
-To: wensong@linux-vs.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2] pkt_sched: sch_qfq: efficiency and codestyle
+ improvements
+Date: Thu, 11 Jul 2013 13:01:32 -0700 (PDT)
+Message-ID: <20130711.130132.1487792546552701732.davem@davemloft.net>
+References: <20130305.235006.1904081547083683406.davem@davemloft.net>
+	<1373463969-11285-1-git-send-email-paolo.valente@unimore.it>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jhs@mojatatu.com, shemminger@vyatta.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, fchecconi@gmail.com,
+	rizzo@iet.unipi.it, David.Laight@ACULAB.COM
+To: paolo.valente@unimore.it
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1373463969-11285-1-git-send-email-paolo.valente@unimore.it>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-found with the help of checkpatch.pl
+From: Paolo Valente <paolo.valente@unimore.it>
+Date: Wed, 10 Jul 2013 15:46:07 +0200
 
-Signed-off-by: Dragos Foianu <dragos.foianu@gmail.com>
----
- net/netfilter/ipvs/ip_vs_conn.c |   28 ++++++++++++++--------------
- 1 file changed, 14 insertions(+), 14 deletions(-)
+> Hi,
+> this patchset tries to address the two issues raised by Dave in
+> http://marc.info/?l=linux-kernel&m=136254542019113&w=2
+> 
+> The first of these issues has been also raised by
+> David Laight:
+> http://marc.info/?l=linux-kernel&m=136256446624557&w=2
+> 
+>> Although two topics for possibly resolving later:
+>> 
+>> 1) That 1ULL bit mask fix is quite expensive on 32-bit, it would
+>>     probably be cheaper to test for that case using a helper function
+>>     that nops out on 64-bit.  Although this is not so important.
+>> 
+> I have tried to find a simple solution, based on the properties of the mask.
+> It is in the first patch.
+> 
+>> 2) That static inline forward declaration is ugly, better to remove
+>>     the inline tag (let the compiler handle it) or move the function
+>>     above all the call sites.
+>> 
+> Done by the second patch.
 
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index 4c8e5c0..4927a52 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -77,8 +77,7 @@ static unsigned int ip_vs_conn_rnd __read_mostly;
- #define CT_LOCKARRAY_SIZE  (1<<CT_LOCKARRAY_BITS)
- #define CT_LOCKARRAY_MASK  (CT_LOCKARRAY_SIZE-1)
- 
--struct ip_vs_aligned_lock
--{
-+struct ip_vs_aligned_lock {
- 	spinlock_t	l;
- } __attribute__((__aligned__(SMP_CACHE_BYTES)));
- 
-@@ -395,7 +394,7 @@ struct ip_vs_conn *ip_vs_ct_in_get(const struct ip_vs_conn_param *p)
- struct ip_vs_conn *ip_vs_conn_out_get(const struct ip_vs_conn_param *p)
- {
- 	unsigned int hash;
--	struct ip_vs_conn *cp, *ret=NULL;
-+	struct ip_vs_conn *cp, *ret = NULL;
- 
- 	/*
- 	 *	Check for "full" addressed entries
-@@ -680,11 +679,10 @@ static inline void ip_vs_unbind_dest(struct ip_vs_conn *cp)
- 	if (!(cp->flags & IP_VS_CONN_F_TEMPLATE)) {
- 		/* It is a normal connection, so decrease the inactconns
- 		   or activeconns counter */
--		if (cp->flags & IP_VS_CONN_F_INACTIVE) {
-+		if (cp->flags & IP_VS_CONN_F_INACTIVE)
- 			atomic_dec(&dest->inactconns);
--		} else {
-+		else
- 			atomic_dec(&dest->activeconns);
--		}
- 	} else {
- 		/* It is a persistent connection/template, so decrease
- 		   the persistent connection counter */
-@@ -817,7 +815,7 @@ static void ip_vs_conn_expire(unsigned long data)
- 		return;
- 	}
- 
--  expire_later:
-+expire_later:
- 	IP_VS_DBG(7, "delayed: conn->refcnt=%d conn->n_control=%d\n",
- 		  atomic_read(&cp->refcnt),
- 		  atomic_read(&cp->n_control));
-@@ -988,7 +986,7 @@ static void *ip_vs_conn_seq_start(struct seq_file *seq, loff_t *pos)
- 
- 	iter->l = NULL;
- 	rcu_read_lock();
--	return *pos ? ip_vs_conn_array(seq, *pos - 1) :SEQ_START_TOKEN;
-+	return *pos ? ip_vs_conn_array(seq, *pos - 1) : SEQ_START_TOKEN;
- }
- 
- static void *ip_vs_conn_seq_next(struct seq_file *seq, void *v, loff_t *pos)
-@@ -1189,10 +1187,13 @@ static inline int todrop_entry(struct ip_vs_conn *cp)
- 	/* Don't drop the entry if its number of incoming packets is not
- 	   located in [0, 8] */
- 	i = atomic_read(&cp->in_pkts);
--	if (i > 8 || i < 0) return 0;
-+	if (i > 8 || i < 0)
-+		return 0;
- 
--	if (!todrop_rate[i]) return 0;
--	if (--todrop_counter[i] > 0) return 0;
-+	if (!todrop_rate[i])
-+		return 0;
-+	if (--todrop_counter[i] > 0)
-+		return 0;
- 
- 	todrop_counter[i] = todrop_rate[i];
- 	return 1;
-@@ -1218,7 +1219,7 @@ void ip_vs_random_dropentry(struct net *net)
- 			if (!ip_vs_conn_net_eq(cp, net))
- 				continue;
- 			if (cp->protocol == IPPROTO_TCP) {
--				switch(cp->state) {
-+				switch (cp->state) {
- 				case IP_VS_TCP_S_SYN_RECV:
- 				case IP_VS_TCP_S_SYNACK:
- 					break;
-@@ -1357,9 +1358,8 @@ int __init ip_vs_conn_init(void)
- 	for (idx = 0; idx < ip_vs_conn_tab_size; idx++)
- 		INIT_HLIST_HEAD(&ip_vs_conn_tab[idx]);
- 
--	for (idx = 0; idx < CT_LOCKARRAY_SIZE; idx++)  {
-+	for (idx = 0; idx < CT_LOCKARRAY_SIZE; idx++) 
- 		spin_lock_init(&__ip_vs_conntbl_lock_array[idx].l);
--	}
- 
- 	/* calculate the random value for connection hash */
- 	get_random_bytes(&ip_vs_conn_rnd, sizeof(ip_vs_conn_rnd));
--- 
-1.7.10.4
-
+Looks good, thanks for doing this, both applied.
