@@ -1,62 +1,69 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] virtio-net: put virtio net header inline with data
-Date: Thu, 11 Jul 2013 16:00:07 +0300
-Message-ID: <20130711130007.GA3794@redhat.com>
-References: <20130708101259.GA16074@redhat.com>
-	<871u78eavc.fsf@rustcorp.com.au>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 17/50] USB: serial: sierra: spin_lock in complete() cleanup
+Date: Thu, 11 Jul 2013 17:02:03 +0400
+Message-ID: <51DEACCB.4000206@cogentembedded.com>
+References: <1373533573-12272-1-git-send-email-ming.lei@canonical.com> <1373533573-12272-18-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <amwang@redhat.com>, qemu-devel@nongnu.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, Dave Jones <davej@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <871u78eavc.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	linux-input@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-media@vger.kernel.org, alsa-devel@alsa-project.org,
+	Johan Hovold <jhovold@gmail.com>
+To: Ming Lei <ming.lei@canonical.com>
+Return-path: <linux-media-owner@vger.kernel.org>
+In-Reply-To: <1373533573-12272-18-git-send-email-ming.lei@canonical.com>
+Sender: linux-media-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 09, 2013 at 11:46:23AM +0930, Rusty Russell wrote:
-> "Michael S. Tsirkin" <mst@redhat.com> writes:
-> > For small packets we can simplify xmit processing
-> > by linearizing buffers with the header:
-> > most packets seem to have enough head room
-> > we can use for this purpose.
-> > Since existing hypervisors require that header
-> > is the first s/g element, we need a feature bit
-> > for this.
-> >
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > ---
-> >
-> > Note: this needs to be applied on top of patch
-> > defining VIRTIO_F_ANY_LAYOUT - bit to be
-> > selected by Rusty.
-> >
-> > The following patch should work for any definition of
-> > VIRTIO_F_ANY_LAYOUT - I used bit 31 for testing.
-> > Rusty, could you please pick a valid bit for VIRTIO_F_ANY_LAYOUT
-> > and squeeze this patch into 3.11?
-> 
-> Sorry, it's too late.
-> 
-> First, I've been a bit lax in sending patches via DaveM, and this is
-> definitely his territory (ie. more net than virtio).
-> 
-> Secondly, it needs baking and testing time.
-> 
-> Cheers,
-> Rusty.
+Hello.
 
-Okay. But we can already commit the qemu change, right?
-Also, can you submit the spec update please?
+On 11-07-2013 13:05, Ming Lei wrote:
+
+> Complete() will be run with interrupt enabled, so change to
+> spin_lock_irqsave().
+
+> Cc: Johan Hovold <jhovold@gmail.com>
+> Signed-off-by: Ming Lei <ming.lei@canonical.com>
+> ---
+>   drivers/usb/serial/sierra.c |    9 +++++----
+>   1 file changed, 5 insertions(+), 4 deletions(-)
+
+> diff --git a/drivers/usb/serial/sierra.c b/drivers/usb/serial/sierra.c
+> index de958c5..e79b6ad 100644
+> --- a/drivers/usb/serial/sierra.c
+> +++ b/drivers/usb/serial/sierra.c
+> @@ -433,6 +433,7 @@ static void sierra_outdat_callback(struct urb *urb)
+>   	struct sierra_port_private *portdata = usb_get_serial_port_data(port);
+>   	struct sierra_intf_private *intfdata;
+>   	int status = urb->status;
+> +	unsigned long flags;
+>
+>   	intfdata = port->serial->private;
+>
+> @@ -443,12 +444,12 @@ static void sierra_outdat_callback(struct urb *urb)
+>   		dev_dbg(&port->dev, "%s - nonzero write bulk status "
+>   		    "received: %d\n", __func__, status);
+>
+> -	spin_lock(&portdata->lock);
+> +	spin_lock_irqsave(&portdata->lock, flags);
+>   	--portdata->outstanding_urbs;
+> -	spin_unlock(&portdata->lock);
+> -	spin_lock(&intfdata->susp_lock);
+> +	spin_unlock_irqrestore(&portdata->lock, flags);
+> +	spin_lock_irqsave(&intfdata->susp_lock, flags);
+
+     You are allowing an interrupt enabled window where previously it 
+wasn't possible. Why notleave these 2 lines as is?
+
+>   	--intfdata->in_flight;
+> -	spin_unlock(&intfdata->susp_lock);
+> +	spin_unlock_irqrestore(&intfdata->susp_lock, flags);
+>
+>   	usb_serial_port_softint(port);
+>   }
+
+WBR, Sergei
