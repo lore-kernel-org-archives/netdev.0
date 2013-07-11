@@ -1,89 +1,53 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH 08/50] USB: legousbtower: spin_lock in complete() cleanup
-Date: Thu, 11 Jul 2013 20:42:49 +0800
-Message-ID: <CACVXFVOF4e=+GjXHTJ-suitQO3TsvCnUBCsfoXj+QahxRqVz7Q@mail.gmail.com>
-References: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
-	<1373533573-12272-9-git-send-email-ming.lei@canonical.com>
-	<51DEA289.5050509@cogentembedded.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: [PATCH net] bnx2x: fix tunneling CSUM calculation
+Date: Thu, 11 Jul 2013 15:48:21 +0300
+Message-ID: <1373546901-26741-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org,
-	Juergen Stuber <starblue-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <51DEA289.5050509-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, alexander.h.duyck@intel.com,
+	pshelar@nicira.com, xiyou.wangcong@gmail.com, eilong@broadcom.com,
+	"Dmitry Kravkov" <dmitry@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3494 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754538Ab3GKMsi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jul 2013 08:48:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 11, 2013 at 8:18 PM, Sergei Shtylyov
-<sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org> wrote:
-> Hello.
->
->
-> On 11-07-2013 13:05, Ming Lei wrote:
->
->> Complete() will be run with interrupt enabled, so change to
->> spin_lock_irqsave().
->
->
->> Cc: Juergen Stuber <starblue-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
->> Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
->> ---
->>   drivers/usb/misc/legousbtower.c |    5 +++--
->>   1 file changed, 3 insertions(+), 2 deletions(-)
->
->
->> diff --git a/drivers/usb/misc/legousbtower.c
->> b/drivers/usb/misc/legousbtower.c
->> index 8089479..4044989 100644
->> --- a/drivers/usb/misc/legousbtower.c
->> +++ b/drivers/usb/misc/legousbtower.c
->> @@ -771,6 +771,7 @@ static void tower_interrupt_in_callback (struct urb
->> *urb)
->>         struct lego_usb_tower *dev = urb->context;
->>         int status = urb->status;
->>         int retval;
->> +       unsigned long flags;
->>
->>         dbg(4, "%s: enter, status %d", __func__, status);
->>
->> @@ -788,7 +789,7 @@ static void tower_interrupt_in_callback (struct urb
->> *urb)
->>         }
->>
->>         if (urb->actual_length > 0) {
->> -               spin_lock (&dev->read_buffer_lock);
->> +               spin_lock_irqsave (&dev->read_buffer_lock, flags);
->>                 if (dev->read_buffer_length + urb->actual_length <
->> read_buffer_size) {
->>                         memcpy (dev->read_buffer +
->> dev->read_buffer_length,
->>                                 dev->interrupt_in_buffer,
->> @@ -799,7 +800,7 @@ static void tower_interrupt_in_callback (struct urb
->> *urb)
->>                 } else {
->>                         printk(KERN_WARNING "%s: read_buffer overflow, %d
->> bytes dropped", __func__, urb->actual_length);
->>                 }
->> -               spin_unlock (&dev->read_buffer_lock);
->> +               spin_unlock_irqrestore (&dev->read_buffer_lock, flags);
->>         }
->
->
->    I don't think this patch passes checkpatch.pl.
+Since commit c957d09ffda417f6c8e3d1f10e2b05228607d6d7
+"bnx2x: Remove sparse and coccinelle warnings"
+driver provided wrong partial csum for HW in tunneing
+scenarios.
 
-No errors reported from checkpatch.pl, only warnings which isn't introduced
-by this patch.
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
+CC: Pravin Shelar <pshelar@nicira.com>
+CC: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 
-Thanks,
---
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 3353efe..ee350bd 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -3543,9 +3543,9 @@ static void bnx2x_update_pbds_gso_enc(struct sk_buff *skb,
+ 	/* outer IP header info */
+ 	if (xmit_type & XMIT_CSUM_V4) {
+ 		struct iphdr *iph = ip_hdr(skb);
+-		u16 csum = (__force u16)(~iph->check) -
+-			   (__force u16)iph->tot_len -
+-			   (__force u16)iph->frag_off;
++		u32 csum = (__force u32)(~iph->check) -
++			   (__force u32)iph->tot_len -
++			   (__force u32)iph->frag_off;
+ 
+ 		pbd2->fw_ip_csum_wo_len_flags_frag =
+ 			bswab16(csum_fold((__force __wsum)csum));
+-- 
+1.8.1.4
