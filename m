@@ -1,33 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] vxlan: Fix kernel crash on rmmod.
-Date: Thu, 11 Jul 2013 11:46:17 -0700 (PDT)
-Message-ID: <20130711.114617.1413498443504266635.davem@davemloft.net>
-References: <1373567886-28494-1-git-send-email-pshelar@nicira.com>
+From: Rob Landley <rob@landley.net>
+Subject: Re: [PATCH] Documentation: Fix references to defunct
+ linux-net@vger.kernel.org
+Date: Thu, 11 Jul 2013 13:46:44 -0500
+Message-ID: <1373568404.27613.43@driftwood>
+References: <1373358151-26161-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: pshelar@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58364 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754490Ab3GKSqT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 14:46:19 -0400
-In-Reply-To: <1373567886-28494-1-git-send-email-pshelar@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; DelSp=Yes; Format=Flowed
+Content-Transfer-Encoding: 8BIT
+Cc: linux-doc@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>, trivial@kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1373358151-26161-1-git-send-email-geert@linux-m68k.org> (from
+	geert@linux-m68k.org on Tue Jul  9 03:22:31 2013)
+Content-Disposition: inline
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Thu, 11 Jul 2013 11:38:06 -0700
-
-> vxlan exit module unregisters vxlan net and then it unregisters
-> rtnl ops which triggers vxlan_dellink() from __rtnl_kill_links().
-> vxlan_dellink() deletes vxlan-dev from vxlan_list which has
-> list-head in vxlan-net-struct but that is already gone due to
-> net-unregister. That is how we are getting following crash.
+On 07/09/2013 03:22:31 AM, Geert Uytterhoeven wrote:
+> linux-net@vger.kernel.org was replaced by netdev@oss.sgi.com was  
+> replaced
+> by netdev@vger.kernel.org.
 > 
-> Following commit fixes the crash by fixing module exit path.
- ...
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-Applied, thanks for fixing the commit message.
+Confirmed http://vger.kernel.org/vger-lists.html does not mention  
+linux-net anymore.
+
+Acked-by: Rob Landley <rob@landley.net>
+
+Adding trivial@ to the cc:
+
+Rob
+
+> ---
+>  Documentation/networking/arcnet.txt |    7 ++++---
+>  Documentation/networking/vortex.txt |    2 +-
+>  2 files changed, 5 insertions(+), 4 deletions(-)
+> 
+> diff --git a/Documentation/networking/arcnet.txt  
+> b/Documentation/networking/arcnet.txt
+> index 9ff5795..aff97f4 100644
+> --- a/Documentation/networking/arcnet.txt
+> +++ b/Documentation/networking/arcnet.txt
+> @@ -70,9 +70,10 @@ list, mail to linux-arcnet@tichy.ch.uj.edu.pl.
+>  There are archives of the mailing list at:
+>  	http://epistolary.org/mailman/listinfo.cgi/arcnet
+> 
+> -The people on linux-net@vger.kernel.org have also been known to be  
+> very
+> -helpful, especially when we're talking about ALPHA Linux kernels  
+> that may or
+> -may not work right in the first place.
+> +The people on linux-net@vger.kernel.org (now defunct, replaced by
+> +netdev@vger.kernel.org) have also been known to be very helpful,  
+> especially
+> +when we're talking about ALPHA Linux kernels that may or may not  
+> work right
+> +in the first place.
+> 
+> 
+>  Other Drivers and Info
+> diff --git a/Documentation/networking/vortex.txt  
+> b/Documentation/networking/vortex.txt
+> index b4038ff..9a8041d 100644
+> --- a/Documentation/networking/vortex.txt
+> +++ b/Documentation/networking/vortex.txt
+> @@ -359,7 +359,7 @@ steps you should take:
+>  - OK, it's a driver problem.
+> 
+>     You need to generate a report.  Typically this is an email to the
+> -   maintainer and/or linux-net@vger.kernel.org.  The maintainer's
+> +   maintainer and/or netdev@vger.kernel.org.  The maintainer's
+>     email address will be in the driver source or in the MAINTAINERS  
+> file.
+> 
+>  - The contents of your report will vary a lot depending upon the
+> --
+> 1.7.9.5
+> 
+> 
+
