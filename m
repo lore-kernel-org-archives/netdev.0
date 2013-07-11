@@ -1,74 +1,82 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: A performance regression of gretap
-Date: Thu, 11 Jul 2013 00:47:00 -0700
-Message-ID: <CALnjE+oL9s9QxJkGwKW4Xmq7U+i-ndAir3+XitY-i2-mPfk1xg@mail.gmail.com>
-References: <327738182.1491147.1373450503005.JavaMail.root@redhat.com>
-	<1373508910.12250.4.camel@cr0>
-	<CALnjE+oNMcXORdMgzHtomdf+EDknZaCsiB-+aevMbg-rsxbpww@mail.gmail.com>
-	<1373509919.12250.6.camel@cr0>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH RFC] ipv6: fix route selection if kernel is not compiled
+ with CONFIG_IPV6_ROUTER_PREF
+Date: Thu, 11 Jul 2013 10:04:47 +0200
+Message-ID: <51DE671F.5050706@6wind.com>
+References: <20130707173031.GC9625@order.stressinduktion.org> <20130709215701.GD9763@order.stressinduktion.org> <51DD1352.8000705@6wind.com> <51DD2959.9060206@6wind.com> <20130710105316.GA5735@order.stressinduktion.org> <51DD521F.1000905@6wind.com> <20130710132122.GD15411@order.stressinduktion.org> <51DD6B72.1050700@6wind.com> <20130710212149.GA26122@order.stressinduktion.org>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	petrus.lt@gmail.com, davem@davemloft.net
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog136.obsmtp.com ([74.125.149.85]:54742 "HELO
-	na3sys009aog136.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752330Ab3GKHrC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 03:47:02 -0400
-Received: by mail-qe0-f50.google.com with SMTP id f6so4185430qej.23
-        for <netdev@vger.kernel.org>; Thu, 11 Jul 2013 00:47:01 -0700 (PDT)
-In-Reply-To: <1373509919.12250.6.camel@cr0>
+Received: from mail-we0-f182.google.com ([74.125.82.182]:57975 "EHLO
+	mail-we0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755644Ab3GKIEv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 04:04:51 -0400
+Received: by mail-we0-f182.google.com with SMTP id p60so6602308wes.41
+        for <netdev@vger.kernel.org>; Thu, 11 Jul 2013 01:04:49 -0700 (PDT)
+In-Reply-To: <20130710212149.GA26122@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 10, 2013 at 7:31 PM, Cong Wang <amwang@redhat.com> wrote:
-> On Wed, 2013-07-10 at 19:28 -0700, Pravin Shelar wrote:
->> On Wed, Jul 10, 2013 at 7:15 PM, Cong Wang <amwang@redhat.com> wrote:
->> > On Wed, 2013-07-10 at 06:01 -0400, Cong Wang wrote:
->> >>
->> >> Could you please take a look? And, gre tunnel is fine, this
->> >> problem only exists for gretap. I reviewed the gretap code,
->> >> but can't find any bug.
->> >
->> > After digging it a little bit, I found some of the packets on RX side
->> > have incorrect TCP checksum after going through gretap, while the
->> > packets captured on eth0 are all correct.
->> >
->> > Thanks.
->> >
->> I do not see it on my end.
->> Can you tell me NIC type and features set for eth device?
+Le 10/07/2013 23:21, Hannes Frederic Sowa a =C3=A9crit :
+> On Wed, Jul 10, 2013 at 04:10:58PM +0200, Nicolas Dichtel wrote:
+>> I wonder why expires is 0. Even if this route is cached, the flag
+>> RTF_EXPIRES should be set. Am I wrong?
 >
-> Sure, it is virtio_net which is not able to do rx checksum, therefore
-> ->ip_summed is CHECKSUM_NONE.
+> rt6_set_from deliberately clears the RTF_EXPIRES when creating a cach=
+ed copy
+> of the route if the route is an autoconfigured default route.
 >
-> # ethtool -i eth0
-> driver: virtio_net
-> version: 1.0.0
-> firmware-version:
-> bus-info: 0000:00:08.0
-> supports-statistics: no
-> supports-test: no
-> supports-eeprom-access: no
-> supports-register-dump: no
-> supports-priv-flags: no
->
-> # ethtool -k eth0
-> Offload parameters for eth0:
-> rx-checksumming: off
-> tx-checksumming: on
-> scatter-gather: on
-> tcp-segmentation-offload: on
-> udp-fragmentation-offload: on
-> generic-segmentation-offload: on
-> generic-receive-offload: on
-> large-receive-offload: off
-> rx-vlan-offload: off
-> tx-vlan-offload: off
-> ntuple-filters: off
-> receive-hashing: off
->
->
+> Maybe the criterion for exclusion of which routes can get into an ecm=
+p route
+> set should be revisited? This could result in strange effects for use=
+rs
+> working with two interfaces, both receiving a RA with default routes.
+Agreed. Here is a proposal, what do you think?
 
-I could not reproduce the issue on NIC with similar feat, I will try
-virtio tomorrow.
+[PATCH] ipv6: don't use autoconfigured route for ecmp
+
+The intention was already there by checking the flag RTF_EXPIRES, but t=
+his flag
+is removed from the default route by rt6_set_from() when this route is =
+cached.
+
+Let's add a check against RTF_ADDRCONF.
+
+Spotted-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+  net/ipv6/ip6_fib.c | 6 +++---
+  1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 192dd1a..87e31c6 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -686,14 +686,14 @@ static int fib6_add_rt2node(struct fib6_node *fn,=
+ struct=20
+rt6_info *rt,
+  			 * of siblings, and later we will add our route to the
+  			 * list.
+  			 * Only static routes (which don't have flag
+-			 * RTF_EXPIRES) are used for ECMPv6.
++			 * RTF_EXPIRES nor RTF_ADDRCONF) are used for ECMPv6.
+  			 *
+  			 * To avoid long list, we only had siblings if the
+  			 * route have a gateway.
+  			 */
+  			if (rt->rt6i_flags & RTF_GATEWAY &&
+-			    !(rt->rt6i_flags & RTF_EXPIRES) &&
+-			    !(iter->rt6i_flags & RTF_EXPIRES))
++			    !(rt->rt6i_flags & (RTF_EXPIRES|RTF_ADDRCONF)) &&
++			    !(iter->rt6i_flags & (RTF_EXPIRES|RTF_ADDRCONF)))
+  				rt->rt6i_nsiblings++;
+  		}
+
+--=20
+1.8.2.1
