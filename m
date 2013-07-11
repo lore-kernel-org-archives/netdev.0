@@ -1,27 +1,91 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 9p: fix off by one causing access violations and
- memory corruption
-Date: Thu, 11 Jul 2013 11:36:30 -0700 (PDT)
-Message-ID: <20130711.113630.663397013864889538.davem@davemloft.net>
-References: <1373563014-4645-1-git-send-email-sasha.levin@oracle.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ericvh@gmail.com, rminnich@sandia.gov, lucho@ionkov.net,
-	v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: sasha.levin@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1373563014-4645-1-git-send-email-sasha.levin@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net-next v2] vxlan: Fix kernel crash on rmmod.
+Date: Thu, 11 Jul 2013 11:38:06 -0700
+Message-ID: <1373567886-28494-1-git-send-email-pshelar@nicira.com>
+Cc: davem@davemloft.net, stephen@networkplumber.org,
+	Pravin B Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog111.obsmtp.com ([74.125.149.205]:33571 "HELO
+	na3sys009aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756359Ab3GKSiN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 14:38:13 -0400
+Received: by mail-pd0-f177.google.com with SMTP id p10so7728719pdj.36
+        for <netdev@vger.kernel.org>; Thu, 11 Jul 2013 11:38:12 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <sasha.levin@oracle.com>
-Date: Thu, 11 Jul 2013 13:16:54 -0400
+vxlan exit module unregisters vxlan net and then it unregisters
+rtnl ops which triggers vxlan_dellink() from __rtnl_kill_links().
+vxlan_dellink() deletes vxlan-dev from vxlan_list which has
+list-head in vxlan-net-struct but that is already gone due to
+net-unregister. That is how we are getting following crash.
 
-> p9_release_pages() would attempt to dereference one value past the end of
-> pages[]. This would cause the following crashes:
- ...
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+Following commit fixes the crash by fixing module exit path.
 
-Applied and queued up for -stable.
+BUG: unable to handle kernel paging request at ffff8804102c8000
+IP: [<ffffffff812cc5e9>] __list_del_entry+0x29/0xd0
+PGD 2972067 PUD 83e019067 PMD 83df97067 PTE 80000004102c8060
+Oops: 0000 [#1] SMP DEBUG_PAGEALLOC
+Modules linked in: ---
+CPU: 19 PID: 6712 Comm: rmmod Tainted: GF            3.10.0+ #95
+Hardware name: Dell Inc. PowerEdge R620/0KCKR5, BIOS 1.4.8 10/25/2012
+task: ffff88080c47c580 ti: ffff88080ac50000 task.ti: ffff88080ac50000
+RIP: 0010:[<ffffffff812cc5e9>]  [<ffffffff812cc5e9>]
+__list_del_entry+0x29/0xd0
+RSP: 0018:ffff88080ac51e08  EFLAGS: 00010206
+RAX: ffff8804102c8000 RBX: ffff88040f0d4b10 RCX: dead000000200200
+RDX: ffff8804102c8000 RSI: ffff88080ac51e58 RDI: ffff88040f0d4b10
+RBP: ffff88080ac51e08 R08: 0000000000000001 R09: 2222222222222222
+R10: 2222222222222222 R11: 2222222222222222 R12: ffff88080ac51e58
+R13: ffffffffa07b8840 R14: ffffffff81ae48c0 R15: ffff88080ac51e58
+FS:  00007f9ef105c700(0000) GS:ffff88082a800000(0000)
+knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: ffff8804102c8000 CR3: 00000008227e5000 CR4: 00000000000407e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Stack:
+ ffff88080ac51e28 ffffffff812cc6a1 2222222222222222 ffff88040f0d4000
+ ffff88080ac51e48 ffffffffa07b3311 ffff88040f0d4000 ffffffff81ae49c8
+ ffff88080ac51e98 ffffffff81492fc2 ffff88080ac51e58 ffff88080ac51e58
+Call Trace:
+ [<ffffffff812cc6a1>] list_del+0x11/0x40
+ [<ffffffffa07b3311>] vxlan_dellink+0x51/0x70 [vxlan]
+ [<ffffffff81492fc2>] __rtnl_link_unregister+0xa2/0xb0
+ [<ffffffff8149448e>] rtnl_link_unregister+0x1e/0x30
+ [<ffffffffa07b7b7c>] vxlan_cleanup_module+0x1c/0x2f [vxlan]
+ [<ffffffff810c9b31>] SyS_delete_module+0x1d1/0x2c0
+ [<ffffffff812b8a0e>] ? trace_hardirqs_on_thunk+0x3a/0x3f
+ [<ffffffff81582f42>] system_call_fastpath+0x16/0x1b
+Code: eb 9f 55 48 8b 17 48 b9 00 01 10 00 00 00 ad de 48 8b 47 08 48 89
+e5 48 39 ca 74 29 48 b9 00 02 20 00 00 00 ad de 48 39 c8 74 7a <4c> 8b
+00 4c 39 c7 75 53 4c 8b 42 08 4c 39 c7 75 2b 48 89 42 08
+RIP  [<ffffffff812cc5e9>] __list_del_entry+0x29/0xd0
+ RSP <ffff88080ac51e08>
+CR2: ffff8804102c8000
+
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+---
+Updated commit msg.
+---
+ drivers/net/vxlan.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 227b54a..0ba1e7e 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1916,9 +1916,9 @@ late_initcall(vxlan_init_module);
+ 
+ static void __exit vxlan_cleanup_module(void)
+ {
+-	unregister_pernet_device(&vxlan_net_ops);
+ 	rtnl_link_unregister(&vxlan_link_ops);
+ 	destroy_workqueue(vxlan_wq);
++	unregister_pernet_device(&vxlan_net_ops);
+ 	rcu_barrier();
+ }
+ module_exit(vxlan_cleanup_module);
+-- 
+1.7.1
