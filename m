@@ -1,78 +1,105 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [PATCH RFC] xen-netback: calculate the number of
- slots required for large MTU vifs
-Date: Thu, 11 Jul 2013 09:46:27 +0100
-Message-ID: <20130711084627.GA23269@zion.uk.xensource.com>
-References: <20130709221406.GA13671@u109add4315675089e695.ant.amazon.com>
- <1373409659-22383-1-git-send-email-msw@amazon.com>
- <20130710081333.GI19798@zion.uk.xensource.com>
- <20130710193703.GB20453@zion.uk.xensource.com>
- <20130711051441.GA5189@u109add4315675089e695.ant.amazon.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	<netdev@vger.kernel.org>, Annie Li <annie.li@oracle.com>,
-	<xen-devel@lists.xenproject.org>, Xi Xiong <xixiong@amazon.com>
-To: Matt Wilson <msw@amazon.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:59297 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755824Ab3GKIqc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 04:46:32 -0400
-Content-Disposition: inline
-In-Reply-To: <20130711051441.GA5189@u109add4315675089e695.ant.amazon.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: [PATCH 00/50] USB: cleanup spin_lock in URB->complete()
+Date: Thu, 11 Jul 2013 17:05:23 +0800
+Message-ID: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
+Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	linux-input@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-media@vger.kernel.org, alsa-devel@alsa-project.org
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <linux-input-owner@vger.kernel.org>
+Sender: linux-input-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 10, 2013 at 10:14:43PM -0700, Matt Wilson wrote:
-[...]
-> Yes, I wanted to get this out since we're talking about multiple
-> changes in similar areas.
-> 
-> > The reason that your patches uses req_cons instead of pre-calculated
-> > value is, that value returned by xen_netbk_skb_count_slots is actually
-> > *wrong* -- that's what Annie tried to fix in her patch.
-> 
-> Yes and no. With this patch, the xen_netbk_count_skb_slots() is now
-> correct. xen_netbk_count_skb_slots() was under-counting when slots
-> were inefficiently consumed. With this patch they match.
-> 
+Hi,
 
-This is worth mentioning in the commit message IMHO.
+As we are going to run URB->complete() in tasklet context[1][2], and
+hard interrupt may be enabled when running URB completion handler[3],
+so we might need to disable interrupt when acquiring one lock in
+the completion handler for the below reasons:
 
-> Since we've had trouble with the counting in the past, I felt like
-> using the "real" number of slots here was safer and future-proof.
-> 
+- URB->complete() holds a subsystem wide lock which may be acquired
+in another hard irq context, and the subsystem wide lock is acquired
+by spin_lock()/read_lock()/write_lock() in complete()
 
-Fair enough. Worth a comment in the code.
+- URB->complete() holds a private lock with spin_lock()/read_lock()/write_lock()
+but driver may export APIs to make other drivers acquire the same private
+lock in its interrupt handler.
 
-> > After fixing xen_netbk_skb_count_slots, we would need the above snippet
-> > (or the snippet I proposed in my RFC patch) to prevent overruning the
-> > ring.
-> 
-> Agreed.
-> 
-> > So a proper patch to this issue (not couting RX slots correctly causing
-> > overrun of the ring) would be the above two aspects combined.
-> 
-> Yes, I think so.
-> 
-> > Comments?
-> 
-> I think that this patch addresses the problem more completely. Annie?
-> 
-> See also the thread from last August:
->    http://lists.xen.org/archives/html/xen-devel/2012-12/msg00274.html
-> 
+For the sake of safety and making the change simple, this patch set
+converts all spin_lock()/read_lock()/write_lock() in completion handler
+path into their irqsave version mechanically.
 
-So now it seems that "turning head in start_new_rx_buffer to flag" part
-should also be in the patch as it's actually a fix to match counting in
-both functions. The side effect of this change is "improving efficiency
-of the ring". This would also worth mentioning in the commit message
-IMHO.
+But if you are sure the above two cases do not happen in your driver,
+please let me know and I can drop the unnecessary change.
+
+Also if you find some conversions are missed, also please let me know so
+that I can add it in the next round.
 
 
-Wei.
+[1], http://marc.info/?l=linux-usb&m=137286322526312&w=2
+[2], http://marc.info/?l=linux-usb&m=137286326726326&w=2
+[3], http://marc.info/?l=linux-usb&m=137286330626363&w=2
 
-> --msw
+ drivers/bluetooth/bfusb.c                     |   12 ++++----
+ drivers/bluetooth/btusb.c                     |    5 ++--
+ drivers/hid/usbhid/hid-core.c                 |    5 ++--
+ drivers/input/misc/cm109.c                    |   10 ++++---
+ drivers/isdn/hardware/mISDN/hfcsusb.c         |   36 ++++++++++++-----------
+ drivers/media/dvb-core/dvb_demux.c            |   17 +++++++----
+ drivers/media/usb/cx231xx/cx231xx-audio.c     |    6 ++++
+ drivers/media/usb/cx231xx/cx231xx-core.c      |   10 ++++---
+ drivers/media/usb/cx231xx/cx231xx-vbi.c       |    5 ++--
+ drivers/media/usb/em28xx/em28xx-audio.c       |    3 ++
+ drivers/media/usb/em28xx/em28xx-core.c        |    5 ++--
+ drivers/media/usb/sn9c102/sn9c102_core.c      |    7 +++--
+ drivers/media/usb/tlg2300/pd-alsa.c           |    3 ++
+ drivers/media/usb/tlg2300/pd-video.c          |    5 ++--
+ drivers/media/usb/tm6000/tm6000-video.c       |    5 ++--
+ drivers/net/usb/cdc-phonet.c                  |    5 ++--
+ drivers/net/usb/hso.c                         |   38 ++++++++++++++-----------
+ drivers/net/usb/kaweth.c                      |    7 +++--
+ drivers/net/usb/rtl8150.c                     |    5 ++--
+ drivers/net/wireless/ath/ath9k/hif_usb.c      |   29 ++++++++++---------
+ drivers/net/wireless/ath/ath9k/htc_drv_txrx.c |    9 +++---
+ drivers/net/wireless/ath/ath9k/wmi.c          |   11 +++----
+ drivers/net/wireless/ath/carl9170/rx.c        |    5 ++--
+ drivers/net/wireless/libertas/if_usb.c        |    5 ++--
+ drivers/net/wireless/libertas_tf/if_usb.c     |    6 ++--
+ drivers/net/wireless/zd1211rw/zd_usb.c        |   21 ++++++++------
+ drivers/staging/bcm/InterfaceRx.c             |    5 ++--
+ drivers/staging/btmtk_usb/btmtk_usb.c         |    5 ++--
+ drivers/staging/ced1401/usb1401.c             |   35 ++++++++++++-----------
+ drivers/staging/vt6656/usbpipe.c              |    9 +++---
+ drivers/usb/class/cdc-wdm.c                   |   16 +++++++----
+ drivers/usb/class/usblp.c                     |   10 ++++---
+ drivers/usb/core/devio.c                      |    5 ++--
+ drivers/usb/misc/adutux.c                     |   10 ++++---
+ drivers/usb/misc/iowarrior.c                  |    5 ++--
+ drivers/usb/misc/ldusb.c                      |    7 +++--
+ drivers/usb/misc/legousbtower.c               |    5 ++--
+ drivers/usb/misc/usbtest.c                    |   10 ++++---
+ drivers/usb/misc/uss720.c                     |    6 +++-
+ drivers/usb/serial/cyberjack.c                |   15 ++++++----
+ drivers/usb/serial/digi_acceleport.c          |   23 ++++++++-------
+ drivers/usb/serial/io_edgeport.c              |   14 +++++----
+ drivers/usb/serial/io_ti.c                    |    5 ++--
+ drivers/usb/serial/mos7720.c                  |    5 ++--
+ drivers/usb/serial/mos7840.c                  |    5 ++--
+ drivers/usb/serial/quatech2.c                 |    5 ++--
+ drivers/usb/serial/sierra.c                   |    9 +++---
+ drivers/usb/serial/symbolserial.c             |    5 ++--
+ drivers/usb/serial/ti_usb_3410_5052.c         |    9 +++---
+ drivers/usb/serial/usb_wwan.c                 |    5 ++--
+ sound/usb/caiaq/audio.c                       |    5 ++--
+ sound/usb/midi.c                              |    5 ++--
+ sound/usb/misc/ua101.c                        |   14 +++++++--
+ sound/usb/usx2y/usbusx2yaudio.c               |    4 +++
+ 54 files changed, 322 insertions(+), 209 deletions(-)
+
+
+Thanks,
+--
+Ming Lei
+
