@@ -1,58 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vxlan: Fix vs->vni_list locking.
-Date: Wed, 10 Jul 2013 19:55:23 -0700 (PDT)
-Message-ID: <20130710.195523.248795155616961560.davem@davemloft.net>
-References: <20130710155840.73e8da09@nehalam.linuxnetplumber.net>
-	<CALnjE+rO7Npw=rU_VL7T1pPDdFBKXB3KpVbpf_jQ0cJ6+ah1nQ@mail.gmail.com>
-	<20130710162509.75bbb922@nehalam.linuxnetplumber.net>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [RFC PATCH] net: add a rate_limit attribute to netdev_queue and
+ a rtnetlink
+Date: Wed, 10 Jul 2013 20:10:02 -0700
+Message-ID: <51DE220A.40505@intel.com>
+References: <20130710140409.6691.77084.stgit@nitbit.x32> <CA+mtBx-Oa_Mb0YLu5W8sPcXqh80cD7rh5KvH0umzPv8YtbWEMQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: pshelar@nicira.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	ben@decadent.org.uk,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48714 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755395Ab3GKCzY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jul 2013 22:55:24 -0400
-In-Reply-To: <20130710162509.75bbb922@nehalam.linuxnetplumber.net>
+Received: from mga01.intel.com ([192.55.52.88]:26843 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755560Ab3GKDKZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jul 2013 23:10:25 -0400
+In-Reply-To: <CA+mtBx-Oa_Mb0YLu5W8sPcXqh80cD7rh5KvH0umzPv8YtbWEMQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Wed, 10 Jul 2013 16:25:09 -0700
+On 7/10/2013 2:18 PM, Tom Herbert wrote:
+> John, thanks for posting this.
+>
+> Should we have separate guaranteed and maximum rate?  Will this be
+> usable in the case that more than one queue shares a rate?  Do you
+> think other parameters, like priority weights should be done the same
+> way?
+>
+> Tom
+>
 
-> On Wed, 10 Jul 2013 16:08:38 -0700
-> Pravin Shelar <pshelar@nicira.com> wrote:
-> 
->> On Wed, Jul 10, 2013 at 3:58 PM, Stephen Hemminger
->> <stephen@networkplumber.org> wrote:
->> > On Wed, 10 Jul 2013 15:04:44 -0700
->> > Pravin B Shelar <pshelar@nicira.com> wrote:
->> >
->> >> Use rtnl lock to protect vs->vni_list updates.
->> >>
->> >> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
->> >> ---
->> >
->> > I don't think this is necessary. I intentionally changed the
->> > locking when socket management was moved to a work queue.
->> > The vxlan_net socket lock is held there already, and finer grain.
->> 
->> what abt vxlan_dellink()?
->> it is deleting vxlan-dev from hash table without lock.
-> 
-> Ok, then this should fix it.
+If hardware can provide a guaranteed min rate as well as a max rate
+per queue then I think adding it here would be correct. Notice
+guaranteed minimum rates and max rates can already be provided for a
+set of queues (a traffic class or tc in the netdev struct) using the
+DCB netlink interface.
 
-Looks good, one minor thing:
+So we have a hierarchy of attributes namely netdev->tc->queue.
+It might be interesting to note a tc can consist of a single queue.
+However hardware may not necessarily be able to rate limit a set of
+queues or vice versa a single queue.
 
->  {
->         struct vxlan_dev *vxlan = netdev_priv(dev);
-> +       struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
+> Will this be usable in the case that more than one queue shares a rate?
 
-Please declare 'vn' on the first line rather than the second.
+Here I must not understand the question. Each queue has independent
+rate limiters. At least in the hardware supported by ixgbe. Maybe
+other hardware has a different implementation?
 
-A formal submission with that fixup and a signoff, and I'll apply
-this.
+> Do you think other parameters, [...]
 
-Thanks.
+With regards to other attributes my intent was to create a structure
+that we could easily add additional per queue attributes as needed.
+So yes adding priority weights here makes some sense to me. Although
+I wonder if priority weights overlaps the 'queue set' and 'tc' notion
+already existing in the DCB netlink interface for configuring link
+strict classes. With dcbnl and mqprio we can create upto 16 sets
+of queues each with a priority mapping and the hardware will process
+traffic in priority order. (ixgbe caveat: 82599 supports 8 sets of
+queues X540 supports 4).
+
+.John
