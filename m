@@ -1,85 +1,51 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: [PATCH] 9p: fix off by one causing access violations and memory corruption
-Date: Thu, 11 Jul 2013 13:16:54 -0400
-Message-ID: <1373563014-4645-1-git-send-email-sasha.levin@oracle.com>
-Cc: davem@davemloft.net, v9fs-developer@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Sasha Levin <sasha.levin@oracle.com>
-To: ericvh@gmail.com, rminnich@sandia.gov, lucho@ionkov.net
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH net v2] gso: Update tunnel segmentation to support Tx
+ checksum offload
+Date: Thu, 11 Jul 2013 10:58:37 -0700
+Message-ID: <51DEF24D.4020101@intel.com>
+References: <20130711000015.13134.17801.stgit@ahduyck-hc1.jf.intel.com>  <1373503334.4600.27.camel@edumazet-glaptop>  <CALnjE+rA4kPiwemZ+A0GfSMw8OsS=ssRw0S_1i75jyF2HB2D0Q@mail.gmail.com> <1373550706.4600.38.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Pravin Shelar <pshelar@nicira.com>, netdev@vger.kernel.org,
+	stephen@networkplumber.org, joseph.gasparakis@intel.com,
+	jesse@nicira.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:29451 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756306Ab3GKRRT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 13:17:19 -0400
+Received: from mga14.intel.com ([143.182.124.37]:17129 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752131Ab3GKR6j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jul 2013 13:58:39 -0400
+In-Reply-To: <1373550706.4600.38.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-p9_release_pages() would attempt to dereference one value past the end of
-pages[]. This would cause the following crashes:
+On 07/11/2013 06:51 AM, Eric Dumazet wrote:
+> On Thu, 2013-07-11 at 00:45 -0700, Pravin Shelar wrote:
+>
+>> Nice speculation ;)
+> Indeed ;) Sorry Pravin !
+>
+>> I did some digging and found following commit causing problem with GRE
+>> TSO on bnx setup.
+> Thanks for taking care of this problem.
+>
+>
 
-[ 6293.171817] BUG: unable to handle kernel paging request at ffff8807c96f3000
-[ 6293.174146] IP: [<ffffffff8412793b>] p9_release_pages+0x3b/0x60
-[ 6293.176447] PGD 79c5067 PUD 82c1e3067 PMD 82c197067 PTE 80000007c96f3060
-[ 6293.180060] Oops: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
-[ 6293.180060] Modules linked in:
-[ 6293.180060] CPU: 62 PID: 174043 Comm: modprobe Tainted: G        W    3.10.0-next-20130710-sasha #3954
-[ 6293.180060] task: ffff8807b803b000 ti: ffff880787dde000 task.ti: ffff880787dde000
-[ 6293.180060] RIP: 0010:[<ffffffff8412793b>]  [<ffffffff8412793b>] p9_release_pages+0x3b/0x60
-[ 6293.214316] RSP: 0000:ffff880787ddfc28  EFLAGS: 00010202
-[ 6293.214316] RAX: 0000000000000001 RBX: ffff8807c96f2ff8 RCX: 0000000000000000
-[ 6293.222017] RDX: ffff8807b803b000 RSI: 0000000000000001 RDI: ffffea001c7e3d40
-[ 6293.222017] RBP: ffff880787ddfc48 R08: 0000000000000000 R09: 0000000000000000
-[ 6293.222017] R10: 0000000000000001 R11: 0000000000000000 R12: 0000000000000001
-[ 6293.222017] R13: 0000000000000001 R14: ffff8807cc50c070 R15: ffff8807cc50c070
-[ 6293.222017] FS:  00007f572641d700(0000) GS:ffff8807f3600000(0000) knlGS:0000000000000000
-[ 6293.256784] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[ 6293.256784] CR2: ffff8807c96f3000 CR3: 00000007c8e81000 CR4: 00000000000006e0
-[ 6293.256784] Stack:
-[ 6293.256784]  ffff880787ddfcc8 ffff880787ddfcc8 0000000000000000 ffff880787ddfcc8
-[ 6293.256784]  ffff880787ddfd48 ffffffff84128be8 ffff880700000002 0000000000000001
-[ 6293.256784]  ffff8807b803b000 ffff880787ddfce0 0000100000000000 0000000000000000
-[ 6293.256784] Call Trace:
-[ 6293.256784]  [<ffffffff84128be8>] p9_virtio_zc_request+0x598/0x630
-[ 6293.256784]  [<ffffffff8115c610>] ? wake_up_bit+0x40/0x40
-[ 6293.256784]  [<ffffffff841209b1>] p9_client_zc_rpc+0x111/0x3a0
-[ 6293.256784]  [<ffffffff81174b78>] ? sched_clock_cpu+0x108/0x120
-[ 6293.256784]  [<ffffffff84122a21>] p9_client_read+0xe1/0x2c0
-[ 6293.256784]  [<ffffffff81708a90>] v9fs_file_read+0x90/0xc0
-[ 6293.256784]  [<ffffffff812bd073>] vfs_read+0xc3/0x130
-[ 6293.256784]  [<ffffffff811a78bd>] ? trace_hardirqs_on+0xd/0x10
-[ 6293.256784]  [<ffffffff812bd5a2>] SyS_read+0x62/0xa0
-[ 6293.256784]  [<ffffffff841a1a00>] tracesys+0xdd/0xe2
-[ 6293.256784] Code: 66 90 48 89 fb 41 89 f5 48 8b 3f 48 85 ff 74 29 85 f6 74 25 45 31 e4 66 0f 1f 84 00 00 00 00 00 e8 eb 14 12 fd 41 ff c4 49 63 c4 <48> 8b 3c c3 48 85 ff 74 05 45 39 e5 75 e7 48 83 c4 08 5b 41 5c
-[ 6293.256784] RIP  [<ffffffff8412793b>] p9_release_pages+0x3b/0x60
-[ 6293.256784]  RSP <ffff880787ddfc28>
-[ 6293.256784] CR2: ffff8807c96f3000
-[ 6293.256784] ---[ end trace 50822ee72cd360fc ]---
+I may have found another issue, but I don't think it is related to my
+patch.  Specifically it seems like there is some MTU calculation
+somewhere that is is off by 14 bytes when using gretap.
 
-Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
----
- net/9p/trans_common.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+I'm just setting up an endpoint and using it back to back with the
+following commands:
+ ip link add tun0 type gretap remote 192.168.11.129 local 192.168.11.1
+ ifconfig tun0 192.168.100.1/24
 
-diff --git a/net/9p/trans_common.c b/net/9p/trans_common.c
-index de8df95..2ee3879 100644
---- a/net/9p/trans_common.c
-+++ b/net/9p/trans_common.c
-@@ -24,11 +24,11 @@
-  */
- void p9_release_pages(struct page **pages, int nr_pages)
- {
--	int i = 0;
--	while (pages[i] && nr_pages--) {
--		put_page(pages[i]);
--		i++;
--	}
-+	int i;
-+
-+	for (i = 0; i < nr_pages; i++)
-+		if (pages[i])
-+			put_page(pages[i]);
- }
- EXPORT_SYMBOL(p9_release_pages);
- 
--- 
-1.8.1.2
+When I try to ping with a size of 1421 or more, it is being dropped and
+being counted as a tx error for the tunnel.  It looks like 3.9 doesn't
+have this issue.  I'll try to figure out the root cause before the end
+of today.
+
+Thanks,
+
+Alex
