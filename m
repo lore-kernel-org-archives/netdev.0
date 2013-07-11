@@ -1,46 +1,46 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] Documentation: Fix references to defunct linux-net@vger.kernel.org
-Date: Thu, 11 Jul 2013 23:17:12 +0200
-Message-ID: <CAMuHMdUfM=7NyPeqNN_vk2cB_DbVpyz6mVXwt4k1RNEsxizYuA@mail.gmail.com>
-References: <1373358151-26161-1-git-send-email-geert@linux-m68k.org>
-	<1373568404.27613.43@driftwood>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: skb_warn_bad_offload related to IPv6 in 3.9.9+
+Date: Thu, 11 Jul 2013 22:37:37 +0100
+Message-ID: <1373578657.2085.20.camel@bwh-desktop.uk.level5networks.com>
+References: <51DEFEEB.1080408@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-doc@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Jiri Kosina <trivial@kernel.org>
-To: Rob Landley <rob@landley.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1373568404.27613.43@driftwood>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:58027 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756669Ab3GKVhm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 17:37:42 -0400
+In-Reply-To: <51DEFEEB.1080408@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 11, 2013 at 8:46 PM, Rob Landley <rob@landley.net> wrote:
-> On 07/09/2013 03:22:31 AM, Geert Uytterhoeven wrote:
->>
->> linux-net@vger.kernel.org was replaced by netdev@oss.sgi.com was replaced
->> by netdev@vger.kernel.org.
->>
->> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+On Thu, 2013-07-11 at 11:52 -0700, Ben Greear wrote:
+> This kernel has local patches applied...but I don't think it has anything
+> that would cause this....
+> 
+> The wanlink module is something we added.  It is now GPL, but code is
+> not upstream.  I don't think it's in directly related to the splat though...
 >
+> Only saw one splat, and system remains stable as far as we can tell.
 >
-> Confirmed http://vger.kernel.org/vger-lists.html does not mention linux-net
-> anymore.
->
-> Acked-by: Rob Landley <rob@landley.net>
->
-> Adding trivial@ to the cc:
+> ------------[ cut here ]------------
+> WARNING: at /home/greearb/git/linux-3.9.dev.y/net/core/dev.c:2179 skb_warn_bad_offload+0xc2/0xcb()
+> Hardware name: X7DBU
+> e1000e: caps=(0x00000000700003a9, 0x0000000000000000) len=2942 data_len=1428 gso_size=1428 gso_type=16 ip_summed=1
+[...]
 
-Too late, already applied by DaveM and pulled by Linus ;-)
+The skb requires TSO, which requires that ip_summed = CHECKSUM_PARTIAL.
+But ip_summed = CHECKSUM_UNNECESSARY.
 
-Gr{oetje,eeting}s,
+To me, this suggests that the receiving device i.e. wanlink has some
+kind of broken LRO that can't be turned off...
 
-                        Geert
+Ben.
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
