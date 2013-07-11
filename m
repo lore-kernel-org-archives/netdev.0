@@ -1,7 +1,7 @@
 From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH 41/50] media: usb: em28xx: make sure irq disabled before acquiring lock
-Date: Thu, 11 Jul 2013 17:06:04 +0800
-Message-ID: <1373533573-12272-42-git-send-email-ming.lei@canonical.com>
+Subject: [PATCH 42/50] media: usb: tlg2300: spin_lock in complete() cleanup
+Date: Thu, 11 Jul 2013 17:06:05 +0800
+Message-ID: <1373533573-12272-43-git-send-email-ming.lei@canonical.com>
 References: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
 Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
 	Alan Stern <stern@rowland.harvard.edu>,
@@ -12,51 +12,52 @@ Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
 	Mauro Carvalho Chehab <mchehab@redhat.com>
 To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:52842 "EHLO
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:47334 "EHLO
 	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932451Ab3GKJMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 05:12:05 -0400
+	with ESMTP id S932451Ab3GKJMN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 05:12:13 -0400
 In-Reply-To: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Complete() will be run with interrupt enabled, so add local_irq_save()
-before acquiring the lock without irqsave().
+Complete() will be run with interrupt enabled, so disable local
+interrupt before holding a global lock which is held without
+irqsave.
 
 Cc: Mauro Carvalho Chehab <mchehab@redhat.com>
 Cc: linux-media@vger.kernel.org
 Signed-off-by: Ming Lei <ming.lei@canonical.com>
 ---
- drivers/media/usb/em28xx/em28xx-audio.c |    3 +++
+ drivers/media/usb/tlg2300/pd-alsa.c |    3 +++
  1 file changed, 3 insertions(+)
 
-diff --git a/drivers/media/usb/em28xx/em28xx-audio.c b/drivers/media/usb/em28xx/em28xx-audio.c
-index 2fdb66e..dca53ec 100644
---- a/drivers/media/usb/em28xx/em28xx-audio.c
-+++ b/drivers/media/usb/em28xx/em28xx-audio.c
-@@ -113,6 +113,7 @@ static void em28xx_audio_isocirq(struct urb *urb)
- 		stride = runtime->frame_bits >> 3;
+diff --git a/drivers/media/usb/tlg2300/pd-alsa.c b/drivers/media/usb/tlg2300/pd-alsa.c
+index 3f3e141..cbccc96 100644
+--- a/drivers/media/usb/tlg2300/pd-alsa.c
++++ b/drivers/media/usb/tlg2300/pd-alsa.c
+@@ -141,6 +141,7 @@ static inline void handle_audio_data(struct urb *urb, int *period_elapsed)
+ 	int len		= urb->actual_length / stride;
+ 	unsigned char *cp	= urb->transfer_buffer;
+ 	unsigned int oldptr	= pa->rcv_position;
++	unsigned long flags;
  
- 		for (i = 0; i < urb->number_of_packets; i++) {
-+			unsigned long flags;
- 			int length =
- 			    urb->iso_frame_desc[i].actual_length / stride;
- 			cp = (unsigned char *)urb->transfer_buffer +
-@@ -134,6 +135,7 @@ static void em28xx_audio_isocirq(struct urb *urb)
- 				       length * stride);
- 			}
+ 	if (urb->actual_length == AUDIO_BUF_SIZE - 4)
+ 		len -= (AUDIO_TRAILER_SIZE / stride);
+@@ -156,6 +157,7 @@ static inline void handle_audio_data(struct urb *urb, int *period_elapsed)
+ 		memcpy(runtime->dma_area + oldptr * stride, cp, len * stride);
  
-+			local_irq_save(flags);
- 			snd_pcm_stream_lock(substream);
+ 	/* update the statas */
++	local_irq_save(flags);
+ 	snd_pcm_stream_lock(pa->capture_pcm_substream);
+ 	pa->rcv_position	+= len;
+ 	if (pa->rcv_position >= runtime->buffer_size)
+@@ -167,6 +169,7 @@ static inline void handle_audio_data(struct urb *urb, int *period_elapsed)
+ 		*period_elapsed = 1;
+ 	}
+ 	snd_pcm_stream_unlock(pa->capture_pcm_substream);
++	local_irq_restore(flags);
+ }
  
- 			dev->adev.hwptr_done_capture += length;
-@@ -151,6 +153,7 @@ static void em28xx_audio_isocirq(struct urb *urb)
- 			}
- 
- 			snd_pcm_stream_unlock(substream);
-+			local_irq_restore(flags);
- 		}
- 		if (period_elapsed)
- 			snd_pcm_period_elapsed(substream);
+ static void complete_handler_audio(struct urb *urb)
 -- 
 1.7.9.5
