@@ -1,65 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] gso: Update tunnel segmentation to support Tx
- checksum offload
-Date: Thu, 11 Jul 2013 12:19:34 -0700 (PDT)
-Message-ID: <20130711.121934.1561010582863754480.davem@davemloft.net>
-References: <20130711000015.13134.17801.stgit@ahduyck-hc1.jf.intel.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	pshelar@nicira.com, joseph.gasparakis@intel.com,
-	eric.dumazet@gmail.com, jesse@nicira.com
-To: alexander.h.duyck@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58831 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750734Ab3GKTTg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 15:19:36 -0400
-In-Reply-To: <20130711000015.13134.17801.stgit@ahduyck-hc1.jf.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dragos Foianu <dragos.foianu@gmail.com>
+Subject: [PATCH] ipvs: fixed style error in ip_vs_sched
+Date: Thu, 11 Jul 2013 22:20:38 +0300
+Message-ID: <1373570438-4946-1-git-send-email-dragos.foianu@gmail.com>
+Cc: horms@verge.net.au, ja@ssi.bg, pablo@netfilter.org,
+	kaber@trash.net, kadlec@blackhole.kfki.hu, davem@davemloft.net,
+	netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
+	Dragos Foianu <dragos.foianu@gmail.com>
+To: wensong@linux-vs.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Wed, 10 Jul 2013 17:05:06 -0700
+found with the help of checkpatch.pl
 
-> This change makes it so that the GRE and VXLAN tunnels can make use of Tx
-> checksum offload support provided by some drivers via the hw_enc_features.
-> Without this fix enabling GSO means sacrificing Tx checksum offload and
-> this actually leads to a performance regression as shown below:
-> 
->             Utilization
->             Send
-> Throughput  local         GSO
-> 10^6bits/s  % S           state
->   6276.51   8.39          enabled
->   7123.52   8.42          disabled
-> 
-> To resolve this it was necessary to address two items.  First
-> netif_skb_features needed to be updated so that it would correctly handle
-> the Trans Ether Bridging protocol without impacting the need to check for
-> Q-in-Q tagging.  To do this it was necessary to update harmonize_features
-> so that it used skb_network_protocol instead of just using the outer
-> protocol.
-> 
-> Second it was necessary to update the GRE and UDP tunnel segmentation
-> offloads so that they would reset the encapsulation bit and inner header
-> offsets after the offload was complete.
-> 
-> As a result of this change I have seen the following results on a interface
-> with Tx checksum enabled for encapsulated frames:
-> 
->             Utilization
->             Send
-> Throughput  local         GSO
-> 10^6bits/s  % S           state
->   7123.52   8.42          disabled
->   8321.75   5.43          enabled
-> 
-> v2: Instead of replacing refrence to skb->protocol with
->     skb_network_protocol just replace the protocol reference in
->     harmonize_features to allow for double VLAN tag checks.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Dragos Foianu <dragos.foianu@gmail.com>
+---
+ net/netfilter/ipvs/ip_vs_sched.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Applied, thanks Alexander.
+diff --git a/net/netfilter/ipvs/ip_vs_sched.c b/net/netfilter/ipvs/ip_vs_sched.c
+index 4dbcda6..a67980d 100644
+--- a/net/netfilter/ipvs/ip_vs_sched.c
++++ b/net/netfilter/ipvs/ip_vs_sched.c
+@@ -99,7 +99,7 @@ static struct ip_vs_scheduler *ip_vs_sched_getbyname(const char *sched_name)
+ 			 */
+ 			continue;
+ 		}
+-		if (strcmp(sched_name, sched->name)==0) {
++		if (strcmp(sched_name, sched->name) == 0) {
+ 			/* HIT */
+ 			mutex_unlock(&ip_vs_sched_mutex);
+ 			return sched;
+-- 
+1.7.10.4
+
