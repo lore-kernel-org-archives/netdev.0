@@ -1,26 +1,30 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH 1/2 V2] vxlan fdb replace an existing entry
-Date: Fri, 12 Jul 2013 16:11:47 -0700 (PDT)
-Message-ID: <20130712.161147.1727140893924941164.davem@redhat.com>
-References: <1373613016-6856-1-git-send-email-tmricht@linux.vnet.ibm.com>
+Subject: Re: [PATCH net 2/2] usb/net/r815x: fix cast to restricted __le32
+Date: Fri, 12 Jul 2013 16:14:02 -0700 (PDT)
+Message-ID: <20130712.161402.460159983188127882.davem@redhat.com>
+References: <1373617576-2272-1-git-send-email-hayeswang@realtek.com>
+	<1373617576-2272-2-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tmricht@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60970 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754854Ab3GLXLt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Jul 2013 19:11:49 -0400
-In-Reply-To: <1373613016-6856-1-git-send-email-tmricht@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1373617576-2272-2-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Fri, 12 Jul 2013 16:26:16 +0800
 
-These two patches are a feature addition, which is not appropriate
-to submit at this time.
+>>> drivers/net/usb/r815x.c:38:16: sparse: cast to restricted __le32
+>>> drivers/net/usb/r815x.c:67:15: sparse: cast to restricted __le32
+>>> drivers/net/usb/r815x.c:69:13: sparse: incorrect type in assignment (different base types)
+>    drivers/net/usb/r815x.c:69:13:    expected unsigned int [unsigned] [addressable] [assigned] [usertype] tmp
+>    drivers/net/usb/r815x.c:69:13:    got restricted __le32 [usertype] <noident>
+> 
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> Spotted-by: kbuild test robot <fengguang.wu@intel.com>
 
-Please resubmit this when the net-next tree opens again.
-
-Thanks.
+Applied.
