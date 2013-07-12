@@ -1,68 +1,123 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH RFC] ipv6: fix route selection if kernel is not compiled
- with CONFIG_IPV6_ROUTER_PREF
-Date: Fri, 12 Jul 2013 14:04:45 +0200
-Message-ID: <51DFF0DD.5050601@6wind.com>
-References: <51DD2959.9060206@6wind.com> <20130710105316.GA5735@order.stressinduktion.org> <51DD521F.1000905@6wind.com> <20130710132122.GD15411@order.stressinduktion.org> <51DD6B72.1050700@6wind.com> <20130710212149.GA26122@order.stressinduktion.org> <51DE671F.5050706@6wind.com> <20130711102441.GC5207@order.stressinduktion.org> <20130711144623.GA5707@order.stressinduktion.org> <51DEC7E6.8000500@6wind.com> <20130712085113.GI12611@order.stressinduktion.org>
-Reply-To: nicolas.dichtel@6wind.com
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: Fixed PHY Device Tree usage?
+Date: Fri, 12 Jul 2013 13:05:59 +0100
+Message-ID: <CAGVrzcax7gWCbdDKLdDjQDV_fOsShh+VZ9ODKO2KUBPm-zQgpQ@mail.gmail.com>
+References: <20130709183312.6c4d052d@skate> <CAGVrzcZ7ZLSDy5sTUR_XuSAUH=5q8ddiXx5n1y680WwGrdFfTw@mail.gmail.com>
+ <1733937.SiPWt3mDlH@lenovo> <20130710182216.0dcfaaaf@skate>
+ <CAGVrzcbt302tTM3pprnhJz7YykUzcW=XSMCr_W=m1zWiVBX8kw@mail.gmail.com>
+ <20130710183951.09a0bcea@skate> <CAGVrzcasmv6KvEN+okkcQA9CHjCtuRqcd=AvKLiFbPXiyS-P=w@mail.gmail.com>
+ <20130712135612.0f230c1d@skate>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	petrus.lt@gmail.com, davem@davemloft.net
-To: hannes@stressinduktion.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	=?UTF-8?Q?Gregory_Cl=C3=A9ment?=
+	<gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Lior Amsalem <alior@marvell.com>,
+	"devicetree-discuss@lists.ozlabs.org"
+	<devicetree-discuss@lists.ozlabs.org>,
+	"grant.likely" <grant.likely@secretlab.ca>, afleming@freescale.com
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f171.google.com ([74.125.82.171]:63236 "EHLO
-	mail-we0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932887Ab3GLMEt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 08:04:49 -0400
-Received: by mail-we0-f171.google.com with SMTP id m46so7982614wev.16
-        for <netdev@vger.kernel.org>; Fri, 12 Jul 2013 05:04:48 -0700 (PDT)
-In-Reply-To: <20130712085113.GI12611@order.stressinduktion.org>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:33427 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932851Ab3GLMGk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 08:06:40 -0400
+Received: by mail-pd0-f174.google.com with SMTP id 10so8532017pdc.19
+        for <netdev@vger.kernel.org>; Fri, 12 Jul 2013 05:06:39 -0700 (PDT)
+In-Reply-To: <20130712135612.0f230c1d@skate>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 12/07/2013 10:51, Hannes Frederic Sowa a =C3=A9crit :
-> Hello Nicolas,
+Hello Thomas,
+
+2013/7/12 Thomas Petazzoni <thomas.petazzoni@free-electrons.com>:
+
+>> Why not? Since we are already have to scan the entire MDIO bus we are
+>> attached to, when we encounter such a PHY node with the special
+>> "fixed" properties, we just call fixed_phy_add() with the right
+>> parameters and voila. Which is also the reason why I was suggesting to
+>> put the "fixed" PHY nodes as sub-nodes of the real MDIO node such that
+>> we have this logic only in one place.
 >
-> On Thu, Jul 11, 2013 at 04:57:42PM +0200, Nicolas Dichtel wrote:
->> Le 11/07/2013 16:46, Hannes Frederic Sowa a =C3=A9crit :
->>> On Thu, Jul 11, 2013 at 12:24:41PM +0200, Hannes Frederic Sowa wrot=
-e:
->>>> I fear, I'll need to do a bit more research.
->>>
->>> My proposal is to take my patch and check for RTF_ADDRCONF plus
->>> RTF_DYNAMIC,
->>> too. The RTF_DYNAMIC check would prevent routes created from icmpv6
->>> redirects
->>> entering an ecmp route set.
->>>
->>> Do you agree?
->> Yes.
+> I'm still not sure to understand you here. Scanning the *entire* DT
+> tree and consider all nodes having a property named "fixed" as fixed
+> PHYs is definitely not acceptable. So I suppose you have a different
+> idea, but I'm still not getting it. Where in the DT would the fixed PHY
+> driver start looking for fixed PHYs ?
+
+I am talking about scanning the MDIO bus DT nodes, not the entire DT.
+That job is already done by of_mdiobus_probe() to register PHY
+devices, so having a central point where the knowledge of how to treat
+PHY deivces could be here I guess.
+
 >
-> There is still some window where things go wrong now, I fear. If we h=
-ave ecmp
-> routes active and we update the pmtu of that rt6_info, we might end u=
-p with a
-> route in the ecmp set, which might not get recountet if another ecmp =
-route
-> joins the set. I will have to think how to deal with this. Do you hav=
-e an
-> idea?
-It's possible to add a glue to check this counter when we play with the=
-se flags,=20
-but it's ugly.
+>> > So that's really what I was asking: how is the fixed PHY driver going
+>> > to know which DT nodes to look at. Is it a platform_driver, where the
+>> > corresponding DT node has sub-nodes? Is it something else? Or a
+>> > specific compatible string?
+>>
+>> Without DT at play here, the usual way to register a fixed PHY is:
+>>
+>> 1) make your arch code or whatever runs before the fixed MDIO bus
+>> probing to call fixed_phy_add() with the expected parameters
+>> 2) when your ethernet driver probes its PHY devices, format the phy
+>> name to be bound to the fixed bus with the expected address by then
+>> the fixed MDIO bus would have already been probed and would find the
+>> fixed PHY nodes because of the first step
+>> 3) call of_phy_connect() from your driver to attach to the fixed PHY
+>
+> Right, but that's still doesn't answer the question of how the fixed
+> PHY driver discovers from the DT which PHYs to instantiate.
+>
+> For example, we would probably have something:
+>
+>         phys {
+>                 phy0: phy@0 {
+>                         ... PHY properties ...
+>                 };
+>                 phy1: phy@1 {
+>                         ... PHY properties ...
+>                 };
+>         };
+>
+>         soc {
+>                 ethernet@0 {
+>                         compatible = "...";
+>                         ...
+>                         phy = <&phy0>;
+>                 };
+>                 ethernet@1 {
+>                         compatible = "...";
+>                         ...
+>                         phy = <&phy1>;
+>                 };
+>         };
+>
+> How will the fixed PHY driver know that it should instantiate
+> phy@0 and phy@1 as PHY devices?
 
-Maybe the check against RTF_EXPIRES is fundamentally wrong. Checking=20
-RTF_ADDRCONF|RTF_DYNAMIC should be enough, what do you think?
+Well either we go with some specific compatible property like
+"ethernet-phy-fixed" for instance, or we simply add a boolean property
+to the node, so a fixed PHY would either look like this:
 
-In another hand, we can discuss about the initial assumption, that was =
-"only=20
-static routes are part of ECMP routes". I'm thinking of what are the co=
-nsequence=20
-if we accept to accept all routes, without checking any flags.
+phy {
+         compatible = "linux,ethernet-phy-fixed";
+         speed = <1000>;
+         duplex = <1>;
+         pause;
+         asym-pause;
+};
 
+or respectively, something like this:
 
-Regards,
-Nicolas
+phy {
+         fixed;
+         speed = <1000>;
+         duplex = <1>;
+         pause;
+         asym-pause;
+};
+--
+Florian
