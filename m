@@ -1,67 +1,43 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] virtio-net: put virtio net header inline with data
-Date: Fri, 12 Jul 2013 15:27:18 +0930
-Message-ID: <87oba82udd.fsf@rustcorp.com.au>
-References: <20130708101259.GA16074@redhat.com>
-	<871u78eavc.fsf@rustcorp.com.au> <20130711130007.GA3794@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <amwang@redhat.com>, qemu-devel@nongnu.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, Dave Jones <davej@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130711130007.GA3794@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Cosmin Stanescu <cosmin90stanescu@gmail.com>
+Subject: [PATCH v2] net: strict_strtoul is obsolete, use kstrtoul instead
+Date: Fri, 12 Jul 2013 09:33:33 +0300
+Message-ID: <1373610813-11229-1-git-send-email-cosmin90stanescu@gmail.com>
+Cc: sergei.shtylyov@cogentembedded.com, dhowells@redhat.com,
+	ebiederm@xmission.com, rusty@rustcorp.com.au,
+	serge.hallyn@canonical.com, netdev@vger.kernel.org,
+	Cosmin Stanescu <cosmin90stanescu@gmail.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f171.google.com ([209.85.215.171]:38066 "EHLO
+	mail-ea0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753017Ab3GLGdt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 02:33:49 -0400
+Received: by mail-ea0-f171.google.com with SMTP id m14so6131987eaj.2
+        for <netdev@vger.kernel.org>; Thu, 11 Jul 2013 23:33:48 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst@redhat.com> writes:
-> On Tue, Jul 09, 2013 at 11:46:23AM +0930, Rusty Russell wrote:
->> "Michael S. Tsirkin" <mst@redhat.com> writes:
->> > For small packets we can simplify xmit processing
->> > by linearizing buffers with the header:
->> > most packets seem to have enough head room
->> > we can use for this purpose.
->> > Since existing hypervisors require that header
->> > is the first s/g element, we need a feature bit
->> > for this.
->> >
->> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->> > ---
->> >
->> > Note: this needs to be applied on top of patch
->> > defining VIRTIO_F_ANY_LAYOUT - bit to be
->> > selected by Rusty.
->> >
->> > The following patch should work for any definition of
->> > VIRTIO_F_ANY_LAYOUT - I used bit 31 for testing.
->> > Rusty, could you please pick a valid bit for VIRTIO_F_ANY_LAYOUT
->> > and squeeze this patch into 3.11?
->> 
->> Sorry, it's too late.
->> 
->> First, I've been a bit lax in sending patches via DaveM, and this is
->> definitely his territory (ie. more net than virtio).
->> 
->> Secondly, it needs baking and testing time.
->> 
->> Cheers,
->> Rusty.
->
-> Okay. But we can already commit the qemu change, right?
-> Also, can you submit the spec update please?
+patch found using checkpatch.pl
 
-The spec has been updated, BTW.
+Signed-off-by: Cosmin Stanescu <cosmin90stanescu@gmail.com>
+---
+Changes since v1:
+	* fixed user-name in commit message
+ net/dns_resolver/dns_key.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Cheers,
-Rusty.
+diff --git a/net/dns_resolver/dns_key.c b/net/dns_resolver/dns_key.c
+index 0a69d07..f347a2c 100644
+--- a/net/dns_resolver/dns_key.c
++++ b/net/dns_resolver/dns_key.c
+@@ -118,7 +118,7 @@ dns_resolver_instantiate(struct key *key, struct key_preparsed_payload *prep)
+ 				if (opt_vlen <= 0)
+ 					goto bad_option_value;
+ 
+-				ret = strict_strtoul(eq, 10, &derrno);
++				ret = kstrtoul(eq, 10, &derrno);
+ 				if (ret < 0)
+ 					goto bad_option_value;
+ 
+-- 
+1.7.10.4
