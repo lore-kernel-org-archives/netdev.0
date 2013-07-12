@@ -1,93 +1,40 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net v3] ipv6: only static routes qualify for equal cost multipathing
-Date: Fri, 12 Jul 2013 23:46:33 +0200
-Message-ID: <20130712214633.GQ12611@order.stressinduktion.org>
+Subject: Re: [PATCH RFC] ipv6: fix route selection if kernel is not compiled with CONFIG_IPV6_ROUTER_PREF
+Date: Fri, 12 Jul 2013 23:48:36 +0200
+Message-ID: <20130712214836.GR12611@order.stressinduktion.org>
+References: <20130710212149.GA26122@order.stressinduktion.org> <51DE671F.5050706@6wind.com> <20130711102441.GC5207@order.stressinduktion.org> <20130711144623.GA5707@order.stressinduktion.org> <51DEC7E6.8000500@6wind.com> <20130712085113.GI12611@order.stressinduktion.org> <51DFF0DD.5050601@6wind.com> <20130712161935.GB31912@order.stressinduktion.org> <51E0527D.2030205@6wind.com> <20130712192023.GP12611@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: nicolas.dichtel@6wind.com
-To: netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	petrus.lt@gmail.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:42391 "EHLO
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:42407 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753185Ab3GLVqe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 17:46:34 -0400
+	with ESMTP id S1752178Ab3GLVsh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 17:48:37 -0400
 Content-Disposition: inline
+In-Reply-To: <20130712192023.GP12611@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Static routes in this case are non-expiring routes which did not get
-configured by autoconf or by icmpv6 redirects.
+On Fri, Jul 12, 2013 at 09:20:23PM +0200, Hannes Frederic Sowa wrote:
+> --- a/net/ipv6/ip6_fib.c
+> +++ b/net/ipv6/ip6_fib.c
+> @@ -682,6 +682,7 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
+>                                         rt->rt6i_nsiblings = 0;
+>                                 if (!(iter->rt6i_flags & RTF_EXPIRES))
+>                                         return -EEXIST;
+> +                               iter->rt6i_flags |= rt->rt6i_flags & RTF_DYNAMIC;
+>                                 if (!(rt->rt6i_flags & RTF_EXPIRES))
+>                                         rt6_clean_expires(iter);
+>                                 else
+> 
 
-To make sure we actually get an ecmp route while searching for the first
-one in this fib6_node's leafs, also make sure it matches the ecmp route
-assumptions.
+This was not necessary and just complicated things because we would have to
+special-case the toggling of the RTF_DYNAMIC flag to also get removed from the
+ecmp route set.
 
-v2:
-a) Removed RTF_EXPIRE check in dst.from chain. The check of RTF_ADDRCONF
-   already ensures that this route, even if added again without
-   RTF_EXPIRES (in case of a RA announcement with infinite timeout),
-   does not cause the rt6i_nsiblings logic to go wrong if a later RA
-   updates the expiration time later.
+Thanks,
 
-v3:
-a) Allow RTF_EXPIRES routes to enter the ecmp route set. We have to do so,
-   because an pmtu event could update the RTF_EXPIRES flag and we would
-   not count this route, if another route joins this set. We now filter
-   only for RTF_GATEWAY|RTF_ADDRCONF|RTF_DYNAMIC, which are flags that
-   don't get changed after rt6_info construction.
-
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/ip6_fib.c | 15 +++++++++++----
- 1 file changed, 11 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 192dd1a..5fc9c7a 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -632,6 +632,12 @@ insert_above:
- 	return ln;
- }
- 
-+static inline bool rt6_qualify_for_ecmp(struct rt6_info *rt)
-+{
-+	return (rt->rt6i_flags & (RTF_GATEWAY|RTF_ADDRCONF|RTF_DYNAMIC)) ==
-+	       RTF_GATEWAY;
-+}
-+
- /*
-  *	Insert routing information in a node.
-  */
-@@ -646,6 +652,7 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
- 	int add = (!info->nlh ||
- 		   (info->nlh->nlmsg_flags & NLM_F_CREATE));
- 	int found = 0;
-+	bool rt_can_ecmp = rt6_qualify_for_ecmp(rt);
- 
- 	ins = &fn->leaf;
- 
-@@ -691,9 +698,8 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
- 			 * To avoid long list, we only had siblings if the
- 			 * route have a gateway.
- 			 */
--			if (rt->rt6i_flags & RTF_GATEWAY &&
--			    !(rt->rt6i_flags & RTF_EXPIRES) &&
--			    !(iter->rt6i_flags & RTF_EXPIRES))
-+			if (rt_can_ecmp &&
-+			    rt6_qualify_for_ecmp(iter))
- 				rt->rt6i_nsiblings++;
- 		}
- 
-@@ -715,7 +721,8 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
- 		/* Find the first route that have the same metric */
- 		sibling = fn->leaf;
- 		while (sibling) {
--			if (sibling->rt6i_metric == rt->rt6i_metric) {
-+			if (sibling->rt6i_metric == rt->rt6i_metric &&
-+			    rt6_qualify_for_ecmp(sibling)) {
- 				list_add_tail(&rt->rt6i_siblings,
- 					      &sibling->rt6i_siblings);
- 				break;
--- 
-1.8.1.4
+  Hannes
