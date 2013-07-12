@@ -1,78 +1,69 @@
-From: Thomas-Mich Richter <tmricht@linux.vnet.ibm.com>
-Subject: Re: [PATCH 1/2] vxlan fdb replace an existing entry
-Date: Fri, 12 Jul 2013 09:18:30 +0200
-Message-ID: <51DFADC6.2050309@linux.vnet.ibm.com>
-References: <1373538500-10629-1-git-send-email-tmricht@linux.vnet.ibm.com> <20130711085638.75690edf@nehalam.linuxnetplumber.net>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH 2/2] drivers: net: phy: at803x: LED control via led subsystem
+Date: Fri, 12 Jul 2013 08:19:03 +0100
+Message-ID: <CAGVrzcZn+dAzWV9ObyfLn5cyE0D7rXgUkmdKOZ8rE0q1r4J3Hg@mail.gmail.com>
+References: <1373543855-31670-1-git-send-email-helmut.schaa@googlemail.com>
+ <1373543855-31670-2-git-send-email-helmut.schaa@googlemail.com>
+ <CAGVrzcbxuogp9umQVEFOfzg64Nb6UWZjHs_5M=bdHceRSFRE4g@mail.gmail.com> <CAGXE3d8WRU2fmRZ9DAQ4_Y=WZQwNmt9DVbLys=LkJaRPz=7FAw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Helmut Schaa <helmut.schaa@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp10.uk.ibm.com ([195.75.94.106]:58608 "EHLO
-	e06smtp10.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757132Ab3GLHSf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 03:18:35 -0400
-Received: from /spool/local
-	by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <tmricht@linux.vnet.ibm.com>;
-	Fri, 12 Jul 2013 08:15:58 +0100
-Received: from b06cxnps3074.portsmouth.uk.ibm.com (d06relay09.portsmouth.uk.ibm.com [9.149.109.194])
-	by d06dlp01.portsmouth.uk.ibm.com (Postfix) with ESMTP id E374117D805C
-	for <netdev@vger.kernel.org>; Fri, 12 Jul 2013 08:20:06 +0100 (BST)
-Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
-	by b06cxnps3074.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r6C7IKt254198316
-	for <netdev@vger.kernel.org>; Fri, 12 Jul 2013 07:18:20 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (localhost [127.0.0.1])
-	by d06av03.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id r6C7IUGX013501
-	for <netdev@vger.kernel.org>; Fri, 12 Jul 2013 01:18:31 -0600
-In-Reply-To: <20130711085638.75690edf@nehalam.linuxnetplumber.net>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:64383 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757149Ab3GLHTo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 03:19:44 -0400
+Received: by mail-pa0-f48.google.com with SMTP id kp12so8678860pab.35
+        for <netdev@vger.kernel.org>; Fri, 12 Jul 2013 00:19:43 -0700 (PDT)
+In-Reply-To: <CAGXE3d8WRU2fmRZ9DAQ4_Y=WZQwNmt9DVbLys=LkJaRPz=7FAw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/11/2013 05:56 PM, Stephen Hemminger wrote:
-> On Thu, 11 Jul 2013 12:28:19 +0200
-> Thomas Richter <tmricht@linux.vnet.ibm.com> wrote:
->=20
->> Add support to replace an existing entry found in the
->> vxlan fdb database. The entry in question is identified
->> by its unicast mac address and the destination information
->> is changed. If the entry is not found, it is added in the
->> forwarding database. This is similar to changing an entry
->> in the neighbour table.
+2013/7/11 Helmut Schaa <helmut.schaa@googlemail.com>:
 >>
->> Multicast mac addresses can not be changed with the replace
->> option.
->>
->> This is useful for virtual machine migration when the
->> destination of a target virtual machine changes. The replace
->> feature can be used instead of delete followed by add.
->>
->> Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
->> ---
->>  drivers/net/vxlan.c | 40 +++++++++++++++++++++++++++++++++++++++-
->>  1 file changed, 39 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
->> index 227b54a..17681c6 100644
->> --- a/drivers/net/vxlan.c
->> +++ b/drivers/net/vxlan.c
->> @@ -42,7 +42,7 @@
->>  #include <net/net_namespace.h>
->>  #include <net/netns/generic.h>
->> =20
->> -#define VXLAN_VERSION	"0.1"
->> +#define VXLAN_VERSION	"0.1tmr3"
->=20
-> I am ok with everything but the weird version string.
-> Just make it 0.2 or 0.1.1 if you need it
+>> I do like this and I believe that there is nothing specific that would
+>> prevent you from making software controllable LEDs from being used
+>> with other PHYs. How about you create a small LED class helper that
+>> PHY drivers supporting controllable LEDs can hook into and provide
+>> their own callback and LED name for setting the LED state?
+>
+> Hmm, nice idea. However, there is not much complexity in the code. The only
+> thing worth to make generic would be the delayed register access via workqueue.
+> The rest is just registering the led device :)
+>
+> I thought about moving the code into the generic phy code and using a new
+> phy_driver callback for setting the LED state but there might be more then one
+> LED pin on some PHYs (activity, speed, duplexmode etc.).
 
-Just send a version V2 with weird version string change removed.
+I think that the same callback for all LEDs and just take actions
+based on which led_classdev pointer we get passed should be enough. I
+agree with you that there is not much complexity, but for sure, if we
+add support for LEDs to another PHY driver there will be similar stuff
+done (registering a LED classdev, etc...) so we might just want to
+specialize the led_brightness_set() callback and the number of LEDs.
+One thing with moving this closer to the PHY state machine would be to
+allow for better integration, like setting the LED brightness to 0
+when the link goes down etc...
 
---=20
-Thomas Richter, Dept 3250, IBM LTC Boeblingen, Data Center Networking
+>
+>>> +
+>>> +static void at8035_led_brightness_set(struct led_classdev *led,
+>>> +                                     enum led_brightness brightness)
+>>> +{
+>>> +       struct at8035_priv *priv = container_of(led, struct at8035_priv, led);
+>>> +
+>>> +       /* MDIO bus can only be used from process context */
+>>> +       if (!priv->stop)
+>>> +               schedule_work(&priv->led_work);
+>>
+>> It seems to me that you could remove the stop boolean if you move
+>> led_classdev_unregister upper, provided that it guarantees it will not
+>> schedule the workqueue.
+>
+> led_classdev_unregister will try to set brightness to 0 and thus schedule
+> the work.
+
+Ok, thanks!
 --
-Vorsitzende des Aufsichtsrats: Martina Koederitz=20
-Gesch=E4ftsf=FChrung: Dirk Wittkopp
-Sitz der Gesellschaft: B=F6blingen / Registergericht: Amtsgericht Stutt=
-gart, HRB 243294
+Florian
