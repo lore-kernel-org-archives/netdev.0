@@ -1,64 +1,50 @@
-From: Sekhar Nori <nsekhar@ti.com>
-Subject: Re: [PATCH v3 0/6] ARM: davinci: da850: add ethernet driver DT support
-Date: Fri, 12 Jul 2013 12:21:20 +0530
-Message-ID: <51DFA768.9090703@ti.com>
-References: <1371999607-6483-1-git-send-email-prabhakar.csengg@gmail.com>
- <CA+V-a8t-sTPAK+D5869X0_ZCdrmK0B+eRaowk9hMYwXMw09NqA@mail.gmail.com>
+From: richard -rw- weinberger <richard.weinberger@gmail.com>
+Subject: Re: updates to syncookies - timestamps not needed any more (freebsd)
+Date: Fri, 12 Jul 2013 08:59:06 +0200
+Message-ID: <CAFLxGvzihGSgNZ5NOJxMN2pgQiCPXgJSRjVCcj3Ncfw3oe_YLA@mail.gmail.com>
+References: <20130708160421.GA9763@order.stressinduktion.org>
+	<20130711.165726.2168148122875413191.davem@davemloft.net>
+	<20130712014138.GD12611@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
- DLOS <davinci-linux-open-source@linux.davincidsp.com>,
- devicetree-discuss@lists.ozlabs.org,
- LAK <linux-arm-kernel@lists.infradead.org>,
- LKML <linux-kernel@vger.kernel.org>
-To: Prabhakar Lad <prabhakar.csengg@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <CA+V-a8t-sTPAK+D5869X0_ZCdrmK0B+eRaowk9hMYwXMw09NqA@mail.gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vc0-f175.google.com ([209.85.220.175]:44173 "EHLO
+	mail-vc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756788Ab3GLG7H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 02:59:07 -0400
+Received: by mail-vc0-f175.google.com with SMTP id hr11so7338346vcb.20
+        for <netdev@vger.kernel.org>; Thu, 11 Jul 2013 23:59:07 -0700 (PDT)
+In-Reply-To: <20130712014138.GD12611@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 7/11/2013 10:42 PM, Prabhakar Lad wrote:
-> Hi Sekhar,
-> 
-> On Sun, Jun 23, 2013 at 8:30 PM, Prabhakar Lad
-> <prabhakar.csengg@gmail.com> wrote:
->> From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+On Fri, Jul 12, 2013 at 3:41 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On Thu, Jul 11, 2013 at 04:57:26PM -0700, David Miller wrote:
+>> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>> Date: Mon, 8 Jul 2013 18:04:21 +0200
 >>
->> This patch set enables Ethernet support through device tree model.
->> This patch set enables mii interface only and is being tested to boot via
->> rootfs. The rmii phy is present on the i2c gpio expander chip (UI board)
->> for which yet support needs to be added, once the DT support for the chip
->> is enabled, enabling rmii will be subsequnet patch.
+>> > Interesting patch by Andre Opperann of FreeBSD:
+>> > <http://lists.freebsd.org/pipermail/freebsd-net/2013-July/035999.html>
 >>
->> Changes for v2:
->> 1: Enabled mdio device.
->> 2: Fixed clock lookup.
+>> Interesting work, but outside of the change of hash function I'm not so
+>> sure.  The whole reason we went to the timestamp field was to eliminate
+>> the coarse tables.
 >>
->> Changes for v3:
->> 1: Fixed review comments pointed out by Sekhar.
->>
->> Lad, Prabhakar (6):
->>   ARM: davinci: da8xx: fix clock lookup for mdio device
->>   ARM: davinci: da850: add DT node for mdio device
->>   ARM: davinci: da850: add OF_DEV_AUXDATA entry for mdio.
->>   ARM: davinci: da850: add DT node for eth0.
->>   ARM: davinci: da850: add OF_DEV_AUXDATA entry for eth0.
->>   ARM: davinci: da850: configure system configuration chip(CFGCHIP3)
->>     for emac
->>
-> gentle ping..
+>> I understand that he claims that %99.99 of connections are handled by
+>> the values he has chosen, but this is still a step backwards in my
+>> opinion.
+>
+> If I understood this thread[0] correctly, it seems Windows 8 might not
+> enable TCP timestamps by default? I can not verify, I currently have
+> no Windows installations near me. That would mean, linux does, too,
+> fall back to an unscaled window connection as soon as syncookies kick in
+> (but we would not end up with an unsynchronized window scale option).
 
-I haven't been able to get to reviewing patches meant for v3.12 yet.
-Most probably will happen next week.
+My Windows 8 workstations here have it disabled by default.
 
+--
 Thanks,
-Sekhar
+//richard
