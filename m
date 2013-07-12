@@ -1,33 +1,44 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH] tcp: account all retransmit failures
-Date: Fri, 12 Jul 2013 16:16:16 -0700 (PDT)
-Message-ID: <20130712.161616.1291098149600095359.davem@redhat.com>
-References: <1373653984-30249-1-git-send-email-ycheng@google.com>
-	<1373655354.10804.38.camel@edumazet-glaptop>
+Subject: Re: [net PATCH] atl1e: fix dma mapping warnings
+Date: Fri, 12 Jul 2013 16:26:52 -0700 (PDT)
+Message-ID: <20130712.162652.1236723636413575644.davem@redhat.com>
+References: <1373641128-13634-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ycheng@google.com, ncardwell@google.com, edumazet@google.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, jcliburn@gmail.com, chris.snook@gmail.com
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9765 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:26057 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751866Ab3GLXQU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Jul 2013 19:16:20 -0400
-In-Reply-To: <1373655354.10804.38.camel@edumazet-glaptop>
+	id S1751351Ab3GLX1N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Jul 2013 19:27:13 -0400
+In-Reply-To: <1373641128-13634-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 12 Jul 2013 11:55:54 -0700
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Fri, 12 Jul 2013 10:58:48 -0400
 
-> On Fri, 2013-07-12 at 11:33 -0700, Yuchung Cheng wrote:
->> Change snmp RETRANSFAILS stat to include timeout retransmit failures
->> in addition to other loss recoveries.
->> 
->> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> Recently had this backtrace reported:
+ ...
+> The usual straighforward failure to check for dma_mapping_error after a map
+> operation is completed.
 > 
-> Acked-by: Eric Dumazet <edumazet@google.com>
+> This patch should fix it, the reporter wandered off after filing this bz:
+> https://bugzilla.redhat.com/show_bug.cgi?id=954170
+> 
+> and I don't have hardware to test, but the fix is pretty straightforward, so I
+> figured I'd post it for review.
+> 
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-Applied, thanks everyone.
+Applied with one style fix:
+
+> -static void atl1e_tx_map(struct atl1e_adapter *adapter,
+> +static int atl1e_tx_map(struct atl1e_adapter *adapter,
+>  		      struct sk_buff *skb, struct atl1e_tpd_desc *tpd)
+
+I properly reindented the second line of the argument list.
+
+Thanks.
