@@ -1,170 +1,200 @@
-From: Luis Henriques <luis.henriques@canonical.com>
+From: Neil Horman <nhorman@tuxdriver.com>
 Subject: Re: [net PATCH] atl1e: fix dma mapping warnings
-Date: Fri, 12 Jul 2013 17:38:10 +0100
-Message-ID: <877ggvsphp.fsf@canonical.com>
+Date: Fri, 12 Jul 2013 12:53:00 -0400
+Message-ID: <20130712165300.GJ5854@hmsreliant.think-freely.org>
 References: <1373641128-13634-1-git-send-email-nhorman@tuxdriver.com>
-	<87bo67sr1x.fsf@canonical.com>
-	<20130712162928.GI5854@hmsreliant.think-freely.org>
+ <87bo67sr1x.fsf@canonical.com>
+ <20130712162928.GI5854@hmsreliant.think-freely.org>
+ <877ggvsphp.fsf@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, Jay Cliburn <jcliburn@gmail.com>,
 	Chris Snook <chris.snook@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>
-To: Neil Horman <nhorman@tuxdriver.com>
+To: Luis Henriques <luis.henriques@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:50958 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964936Ab3GLQiP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 12:38:15 -0400
-In-Reply-To: <20130712162928.GI5854@hmsreliant.think-freely.org> (Neil
-	Horman's message of "Fri, 12 Jul 2013 12:29:28 -0400")
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:53738 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932884Ab3GLQxJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 12:53:09 -0400
+Content-Disposition: inline
+In-Reply-To: <877ggvsphp.fsf@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Neil Horman <nhorman@tuxdriver.com> writes:
+On Fri, Jul 12, 2013 at 05:38:10PM +0100, Luis Henriques wrote:
+> Neil Horman <nhorman@tuxdriver.com> writes:
+> 
+> > On Fri, Jul 12, 2013 at 05:04:26PM +0100, Luis Henriques wrote:
+> >> Neil Horman <nhorman@tuxdriver.com> writes:
+> >> 
+> >> > Recently had this backtrace reported:
+> >> > WARNING: at lib/dma-debug.c:937 check_unmap+0x47d/0x930()
+> >> > Hardware name: System Product Name
+> >> > ATL1E 0000:02:00.0: DMA-API: device driver failed to check map error[device
+> >> > address=0x00000000cbfd1000] [size=90 bytes] [mapped as single]
+> >> > Modules linked in: xt_conntrack nf_conntrack ebtable_filter ebtables
+> >> > ip6table_filter ip6_tables snd_hda_codec_hdmi snd_hda_codec_realtek iTCO_wdt
+> >> > iTCO_vendor_support snd_hda_intel acpi_cpufreq mperf coretemp btrfs zlib_deflate
+> >> > snd_hda_codec snd_hwdep microcode raid6_pq libcrc32c snd_seq usblp serio_raw xor
+> >> > snd_seq_device joydev snd_pcm snd_page_alloc snd_timer snd lpc_ich i2c_i801
+> >> > soundcore mfd_core atl1e asus_atk0110 ata_generic pata_acpi radeon i2c_algo_bit
+> >> > drm_kms_helper ttm drm i2c_core pata_marvell uinput
+> >> > Pid: 314, comm: systemd-journal Not tainted 3.9.0-0.rc6.git2.3.fc19.x86_64 #1
+> >> > Call Trace:
+> >> >  <IRQ>  [<ffffffff81069106>] warn_slowpath_common+0x66/0x80
+> >> >  [<ffffffff8106916c>] warn_slowpath_fmt+0x4c/0x50
+> >> >  [<ffffffff8138151d>] check_unmap+0x47d/0x930
+> >> >  [<ffffffff810ad048>] ? sched_clock_cpu+0xa8/0x100
+> >> >  [<ffffffff81381a2f>] debug_dma_unmap_page+0x5f/0x70
+> >> >  [<ffffffff8137ce30>] ? unmap_single+0x20/0x30
+> >> >  [<ffffffffa01569a1>] atl1e_intr+0x3a1/0x5b0 [atl1e]
+> >> >  [<ffffffff810d53fd>] ? trace_hardirqs_off+0xd/0x10
+> >> >  [<ffffffff81119636>] handle_irq_event_percpu+0x56/0x390
+> >> >  [<ffffffff811199ad>] handle_irq_event+0x3d/0x60
+> >> >  [<ffffffff8111cb6a>] handle_fasteoi_irq+0x5a/0x100
+> >> >  [<ffffffff8101c36f>] handle_irq+0xbf/0x150
+> >> >  [<ffffffff811dcb2f>] ? file_sb_list_del+0x3f/0x50
+> >> >  [<ffffffff81073b10>] ? irq_enter+0x50/0xa0
+> >> >  [<ffffffff8172738d>] do_IRQ+0x4d/0xc0
+> >> >  [<ffffffff811dcb2f>] ? file_sb_list_del+0x3f/0x50
+> >> >  [<ffffffff8171c6b2>] common_interrupt+0x72/0x72
+> >> >  <EOI>  [<ffffffff810db5b2>] ? lock_release+0xc2/0x310
+> >> >  [<ffffffff8109ea04>] lg_local_unlock_cpu+0x24/0x50
+> >> >  [<ffffffff811dcb2f>] file_sb_list_del+0x3f/0x50
+> >> >  [<ffffffff811dcb6d>] fput+0x2d/0xc0
+> >> >  [<ffffffff811d8ea1>] filp_close+0x61/0x90
+> >> >  [<ffffffff811fae4d>] __close_fd+0x8d/0x150
+> >> >  [<ffffffff811d8ef0>] sys_close+0x20/0x50
+> >> >  [<ffffffff81725699>] system_call_fastpath+0x16/0x1b
+> >> >
+> >> > The usual straighforward failure to check for dma_mapping_error after a map
+> >> > operation is completed.
+> >> >
+> >> > This patch should fix it, the reporter wandered off after filing this bz:
+> >> > https://bugzilla.redhat.com/show_bug.cgi?id=954170
+> >> >
+> >> > and I don't have hardware to test, but the fix is pretty straightforward, so I
+> >> > figured I'd post it for review.
+> >> >
+> >> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> >> > CC: Jay Cliburn <jcliburn@gmail.com>
+> >> > CC: Chris Snook <chris.snook@gmail.com>
+> >> > CC: "David S. Miller" <davem@davemloft.net>
+> >> > ---
+> >> >  drivers/net/ethernet/atheros/atl1e/atl1e_main.c | 26 +++++++++++++++++++++++--
+> >> >  1 file changed, 24 insertions(+), 2 deletions(-)
+> >> >
+> >> > diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+> >> > index 895f537..53a725b 100644
+> >> > --- a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+> >> > +++ b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+> >> > @@ -1665,7 +1665,7 @@ check_sum:
+> >> >  	return 0;
+> >> >  }
+> >> >  
+> >> > -static void atl1e_tx_map(struct atl1e_adapter *adapter,
+> >> > +static int atl1e_tx_map(struct atl1e_adapter *adapter,
+> >> >  		      struct sk_buff *skb, struct atl1e_tpd_desc *tpd)
+> >> >  {
+> >> >  	struct atl1e_tpd_desc *use_tpd = NULL;
+> >> > @@ -1677,6 +1677,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+> >> >  	u16 nr_frags;
+> >> >  	u16 f;
+> >> >  	int segment;
+> >> > +	int ring_start = adapter->tx_ring.next_to_use;
+> >> >  
+> >> >  	nr_frags = skb_shinfo(skb)->nr_frags;
+> >> >  	segment = (tpd->word3 >> TPD_SEGMENT_EN_SHIFT) & TPD_SEGMENT_EN_MASK;
+> >> > @@ -1689,6 +1690,9 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+> >> >  		tx_buffer->length = map_len;
+> >> >  		tx_buffer->dma = pci_map_single(adapter->pdev,
+> >> >  					skb->data, hdr_len, PCI_DMA_TODEVICE);
+> >> > +		if (dma_mapping_error(&adapter->pdev->dev, tx_buffer->dma))
+> >> > +			return -ENOSPC;
+> >> > +
+> >> >  		ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_SINGLE);
+> >> >  		mapped_len += map_len;
+> >> >  		use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
+> >> > @@ -1715,6 +1719,13 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+> >> >  		tx_buffer->dma =
+> >> >  			pci_map_single(adapter->pdev, skb->data + mapped_len,
+> >> >  					map_len, PCI_DMA_TODEVICE);
+> >> > +
+> >> > +		if (dma_mapping_error(&adapter->pdev->dev, tx_buffer->dma)) {
+> >> > +			/* Reset the tx rings next pointer */
+> >> > +			adapter->tx_ring.next_to_use = ring_start;
+> >> > +			return -ENOSPC;
+> >> > +		}
+> >> > +
+> >> >  		ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_SINGLE);
+> >> >  		mapped_len  += map_len;
+> >> >  		use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
+> >> > @@ -1750,6 +1761,13 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+> >> >  							  (i * MAX_TX_BUF_LEN),
+> >> >  							  tx_buffer->length,
+> >> >  							  DMA_TO_DEVICE);
+> >> > +
+> >> > +			if (dma_mapping_error(&adapter->pdev->dev, tx_buffer->dma)) {
+> >> > +				/* Reset the ring next to use pointer */
+> >> > +				adapter->tx_ring.next_to_use = ring_start;
+> >> > +				return -ENOSPC;
+> >> > +			}
+> >> > +
+> >> >  			ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_PAGE);
+> >> >  			use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
+> >> >  			use_tpd->word2 = (use_tpd->word2 & (~TPD_BUFLEN_MASK)) |
+> >> > @@ -1767,6 +1785,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+> >> >  	/* The last buffer info contain the skb address,
+> >> >  	   so it will be free after unmap */
+> >> >  	tx_buffer->skb = skb;
+> >> > +	return 0;
+> >> 
+> >> Looks good to me, except from return statement in a void function.
+> >> 
+> >> Cheers,
+> >> -- 
+> >> Luis
+> >> 
+> > Actually scratch that last note, I don't see any return statements in fuctions
+> > that return void.  I modified atl1e_tx_map to return an int so we could do the
+> > right thing in atl1e_xmit_frame.  Is there something I'm missing?
+> > Neil
+> 
+> Ups, you're right.  Sorry for the noise.
+> 
+no worries, appreciate the extra eyes.
 
-> On Fri, Jul 12, 2013 at 05:04:26PM +0100, Luis Henriques wrote:
->> Neil Horman <nhorman@tuxdriver.com> writes:
->> 
->> > Recently had this backtrace reported:
->> > WARNING: at lib/dma-debug.c:937 check_unmap+0x47d/0x930()
->> > Hardware name: System Product Name
->> > ATL1E 0000:02:00.0: DMA-API: device driver failed to check map error[device
->> > address=0x00000000cbfd1000] [size=90 bytes] [mapped as single]
->> > Modules linked in: xt_conntrack nf_conntrack ebtable_filter ebtables
->> > ip6table_filter ip6_tables snd_hda_codec_hdmi snd_hda_codec_realtek iTCO_wdt
->> > iTCO_vendor_support snd_hda_intel acpi_cpufreq mperf coretemp btrfs zlib_deflate
->> > snd_hda_codec snd_hwdep microcode raid6_pq libcrc32c snd_seq usblp serio_raw xor
->> > snd_seq_device joydev snd_pcm snd_page_alloc snd_timer snd lpc_ich i2c_i801
->> > soundcore mfd_core atl1e asus_atk0110 ata_generic pata_acpi radeon i2c_algo_bit
->> > drm_kms_helper ttm drm i2c_core pata_marvell uinput
->> > Pid: 314, comm: systemd-journal Not tainted 3.9.0-0.rc6.git2.3.fc19.x86_64 #1
->> > Call Trace:
->> >  <IRQ>  [<ffffffff81069106>] warn_slowpath_common+0x66/0x80
->> >  [<ffffffff8106916c>] warn_slowpath_fmt+0x4c/0x50
->> >  [<ffffffff8138151d>] check_unmap+0x47d/0x930
->> >  [<ffffffff810ad048>] ? sched_clock_cpu+0xa8/0x100
->> >  [<ffffffff81381a2f>] debug_dma_unmap_page+0x5f/0x70
->> >  [<ffffffff8137ce30>] ? unmap_single+0x20/0x30
->> >  [<ffffffffa01569a1>] atl1e_intr+0x3a1/0x5b0 [atl1e]
->> >  [<ffffffff810d53fd>] ? trace_hardirqs_off+0xd/0x10
->> >  [<ffffffff81119636>] handle_irq_event_percpu+0x56/0x390
->> >  [<ffffffff811199ad>] handle_irq_event+0x3d/0x60
->> >  [<ffffffff8111cb6a>] handle_fasteoi_irq+0x5a/0x100
->> >  [<ffffffff8101c36f>] handle_irq+0xbf/0x150
->> >  [<ffffffff811dcb2f>] ? file_sb_list_del+0x3f/0x50
->> >  [<ffffffff81073b10>] ? irq_enter+0x50/0xa0
->> >  [<ffffffff8172738d>] do_IRQ+0x4d/0xc0
->> >  [<ffffffff811dcb2f>] ? file_sb_list_del+0x3f/0x50
->> >  [<ffffffff8171c6b2>] common_interrupt+0x72/0x72
->> >  <EOI>  [<ffffffff810db5b2>] ? lock_release+0xc2/0x310
->> >  [<ffffffff8109ea04>] lg_local_unlock_cpu+0x24/0x50
->> >  [<ffffffff811dcb2f>] file_sb_list_del+0x3f/0x50
->> >  [<ffffffff811dcb6d>] fput+0x2d/0xc0
->> >  [<ffffffff811d8ea1>] filp_close+0x61/0x90
->> >  [<ffffffff811fae4d>] __close_fd+0x8d/0x150
->> >  [<ffffffff811d8ef0>] sys_close+0x20/0x50
->> >  [<ffffffff81725699>] system_call_fastpath+0x16/0x1b
->> >
->> > The usual straighforward failure to check for dma_mapping_error after a map
->> > operation is completed.
->> >
->> > This patch should fix it, the reporter wandered off after filing this bz:
->> > https://bugzilla.redhat.com/show_bug.cgi?id=954170
->> >
->> > and I don't have hardware to test, but the fix is pretty straightforward, so I
->> > figured I'd post it for review.
->> >
->> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
->> > CC: Jay Cliburn <jcliburn@gmail.com>
->> > CC: Chris Snook <chris.snook@gmail.com>
->> > CC: "David S. Miller" <davem@davemloft.net>
->> > ---
->> >  drivers/net/ethernet/atheros/atl1e/atl1e_main.c | 26 +++++++++++++++++++++++--
->> >  1 file changed, 24 insertions(+), 2 deletions(-)
->> >
->> > diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
->> > index 895f537..53a725b 100644
->> > --- a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
->> > +++ b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
->> > @@ -1665,7 +1665,7 @@ check_sum:
->> >  	return 0;
->> >  }
->> >  
->> > -static void atl1e_tx_map(struct atl1e_adapter *adapter,
->> > +static int atl1e_tx_map(struct atl1e_adapter *adapter,
->> >  		      struct sk_buff *skb, struct atl1e_tpd_desc *tpd)
->> >  {
->> >  	struct atl1e_tpd_desc *use_tpd = NULL;
->> > @@ -1677,6 +1677,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
->> >  	u16 nr_frags;
->> >  	u16 f;
->> >  	int segment;
->> > +	int ring_start = adapter->tx_ring.next_to_use;
->> >  
->> >  	nr_frags = skb_shinfo(skb)->nr_frags;
->> >  	segment = (tpd->word3 >> TPD_SEGMENT_EN_SHIFT) & TPD_SEGMENT_EN_MASK;
->> > @@ -1689,6 +1690,9 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
->> >  		tx_buffer->length = map_len;
->> >  		tx_buffer->dma = pci_map_single(adapter->pdev,
->> >  					skb->data, hdr_len, PCI_DMA_TODEVICE);
->> > +		if (dma_mapping_error(&adapter->pdev->dev, tx_buffer->dma))
->> > +			return -ENOSPC;
->> > +
->> >  		ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_SINGLE);
->> >  		mapped_len += map_len;
->> >  		use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
->> > @@ -1715,6 +1719,13 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
->> >  		tx_buffer->dma =
->> >  			pci_map_single(adapter->pdev, skb->data + mapped_len,
->> >  					map_len, PCI_DMA_TODEVICE);
->> > +
->> > +		if (dma_mapping_error(&adapter->pdev->dev, tx_buffer->dma)) {
->> > +			/* Reset the tx rings next pointer */
->> > +			adapter->tx_ring.next_to_use = ring_start;
->> > +			return -ENOSPC;
->> > +		}
->> > +
->> >  		ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_SINGLE);
->> >  		mapped_len  += map_len;
->> >  		use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
->> > @@ -1750,6 +1761,13 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
->> >  							  (i * MAX_TX_BUF_LEN),
->> >  							  tx_buffer->length,
->> >  							  DMA_TO_DEVICE);
->> > +
->> > +			if (dma_mapping_error(&adapter->pdev->dev, tx_buffer->dma)) {
->> > +				/* Reset the ring next to use pointer */
->> > +				adapter->tx_ring.next_to_use = ring_start;
->> > +				return -ENOSPC;
->> > +			}
->> > +
->> >  			ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_PAGE);
->> >  			use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
->> >  			use_tpd->word2 = (use_tpd->word2 & (~TPD_BUFLEN_MASK)) |
->> > @@ -1767,6 +1785,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
->> >  	/* The last buffer info contain the skb address,
->> >  	   so it will be free after unmap */
->> >  	tx_buffer->skb = skb;
->> > +	return 0;
->> 
->> Looks good to me, except from return statement in a void function.
->> 
->> Cheers,
->> -- 
->> Luis
->> 
-> Actually scratch that last note, I don't see any return statements in fuctions
-> that return void.  I modified atl1e_tx_map to return an int so we could do the
-> right thing in atl1e_xmit_frame.  Is there something I'm missing?
-> Neil
+> So, just as a suggestion, maybe your patch should also change
+> atl1e_xmit_frame to do something with the new return code (maybe
+> return NETDEV_TX_BUSY...)
+> 
+I had thought about that, and I wasn't sure I should do that, without also
+stopping the tx queue, which I didn't want to do.  My reasoning was that I
+couldn't be sure if the dma error was going to be a one time, transient issue,
+or a chronic, recurring issue.  If its transient, then it would be fine to just
+return TX_BUSY, let the scheduler requeue the skb and go on about our business,
+but if the dma error is longer lived, you'll wind up backing up the queue
+needlessly.
 
-Ups, you're right.  Sorry for the noise.
+I could alternatively stop the queue and return TX_BUSY, but if the problem is
+transient (I think in most cases it will be, but I'm not sure), then I've
+stopped the queue without any reason, and have to find some way/indicator to
+start it again.
 
-So, just as a suggestion, maybe your patch should also change
-atl1e_xmit_frame to do something with the new return code (maybe
-return NETDEV_TX_BUSY...)
+Looking at other drivers, I see most stop the queue whenever they return busy,
+but do so in code paths that guarantee there are frames pending in their tx
+hardware (implying that they will get a tx completion interrupt, which they can
+use to re-awaken the queue).
 
-Cheers,
--- 
-Luis
+We don't have that guarantee when the dma mapping code errors out on us, not
+without doing alot of additional checking.  Seem easier to just call the frame
+lost.  But I'll follow consensus on this, would you prefer I stop the queue,
+return BUSY, and find a way to wake the queue up again?
+
+Neil
+ 
+> Cheers,
+> -- 
+> Luis
+> 
