@@ -1,89 +1,101 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net 2/2] usb/net/r815x: fix cast to restricted __le32
-Date: Fri, 12 Jul 2013 16:26:16 +0800
-Message-ID: <1373617576-2272-2-git-send-email-hayeswang@realtek.com>
-References: <1373617576-2272-1-git-send-email-hayeswang@realtek.com>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [patch -stable] svcrdma: underflow issue in decode_write_list()
+Date: Fri, 12 Jul 2013 10:24:41 +0200
+Message-ID: <51DFBD49.7000205@bfs.de>
+References: <20130712063903.GB29320@longonot.mountain>
+Reply-To: wharms@bfs.de
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1373617576-2272-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20130712063903.GB29320@longonot.mountain>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> drivers/net/usb/r815x.c:38:16: sparse: cast to restricted __le32
->> drivers/net/usb/r815x.c:67:15: sparse: cast to restricted __le32
->> drivers/net/usb/r815x.c:69:13: sparse: incorrect type in assignment (different base types)
-   drivers/net/usb/r815x.c:69:13:    expected unsigned int [unsigned] [addressable] [assigned] [usertype] tmp
-   drivers/net/usb/r815x.c:69:13:    got restricted __le32 [usertype] <noident>
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-Spotted-by: kbuild test robot <fengguang.wu@intel.com>
----
- drivers/net/usb/r815x.c | 21 ++++++++++++---------
- 1 file changed, 12 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/usb/r815x.c b/drivers/net/usb/r815x.c
-index 6516737..8523922 100644
---- a/drivers/net/usb/r815x.c
-+++ b/drivers/net/usb/r815x.c
-@@ -26,16 +26,18 @@ static int pla_read_word(struct usb_device *udev, u16 index)
- {
- 	int data, ret;
- 	u8 shift = index & 2;
-+	__le32 ocp_data;
- 
- 	index &= ~3;
- 
- 	ret = usb_control_msg(udev, usb_rcvctrlpipe(udev, 0),
- 			      RTL815x_REQ_GET_REGS, RTL815x_REQT_READ,
--			      index, MCU_TYPE_PLA, &data, sizeof(data), 500);
-+			      index, MCU_TYPE_PLA, &ocp_data, sizeof(ocp_data),
-+			      500);
- 	if (ret < 0)
- 		return ret;
- 
--	data = __le32_to_cpu(data);
-+	data = __le32_to_cpu(ocp_data);
- 	data >>= (shift * 8);
- 	data &= 0xffff;
- 
-@@ -44,7 +46,8 @@ static int pla_read_word(struct usb_device *udev, u16 index)
- 
- static int pla_write_word(struct usb_device *udev, u16 index, u32 data)
- {
--	u32 tmp, mask = 0xffff;
-+	__le32 ocp_data;
-+	u32 mask = 0xffff;
- 	u16 byen = BYTE_EN_WORD;
- 	u8 shift = index & 2;
- 	int ret;
-@@ -60,18 +63,18 @@ static int pla_write_word(struct usb_device *udev, u16 index, u32 data)
- 
- 	ret = usb_control_msg(udev, usb_rcvctrlpipe(udev, 0),
- 			      RTL815x_REQ_GET_REGS, RTL815x_REQT_READ,
--			      index, MCU_TYPE_PLA, &tmp, sizeof(tmp), 500);
-+			      index, MCU_TYPE_PLA, &ocp_data, sizeof(ocp_data),
-+			      500);
- 	if (ret < 0)
- 		return ret;
- 
--	tmp = __le32_to_cpu(tmp) & ~mask;
--	tmp |= data;
--	tmp = __cpu_to_le32(tmp);
-+	data |= __le32_to_cpu(ocp_data) & ~mask;
-+	ocp_data = __cpu_to_le32(data);
- 
- 	ret = usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
- 			      RTL815x_REQ_SET_REGS, RTL815x_REQT_WRITE,
--			      index, MCU_TYPE_PLA | byen, &tmp,
--			      sizeof(tmp), 500);
-+			      index, MCU_TYPE_PLA | byen, &ocp_data,
-+			      sizeof(ocp_data), 500);
- 
- 	return ret;
- }
--- 
-1.8.3.1
+Am 12.07.2013 08:39, schrieb Dan Carpenter:
+> My static checker marks everything from ntohl() as untrusted and it
+> complains we could have an underflow problem doing:
+> 
+> 	return (u32 *)&ary->wc_array[nchunks];
+> 
+> Also on 32 bit systems the upper bound check could overflow.
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> diff --git a/net/sunrpc/xprtrdma/svc_rdma_marshal.c b/net/sunrpc/xprtrdma/svc_rdma_marshal.c
+> index 8d2eddd..65b1462 100644
+> --- a/net/sunrpc/xprtrdma/svc_rdma_marshal.c
+> +++ b/net/sunrpc/xprtrdma/svc_rdma_marshal.c
+> @@ -98,6 +98,7 @@ void svc_rdma_rcl_chunk_counts(struct rpcrdma_read_chunk *ch,
+>   */
+>  static u32 *decode_write_list(u32 *va, u32 *vaend)
+>  {
+> +	unsigned long start, end;
+>  	int nchunks;
+>  
+>  	struct rpcrdma_write_array *ary =
+> @@ -113,9 +114,12 @@ static u32 *decode_write_list(u32 *va, u32 *vaend)
+>  		return NULL;
+>  	}
+>  	nchunks = ntohl(ary->wc_nchunks);
+> -	if (((unsigned long)&ary->wc_array[0] +
+> -	     (sizeof(struct rpcrdma_write_chunk) * nchunks)) >
+> -	    (unsigned long)vaend) {
+> +
+> +	start = (unsigned long)&ary->wc_array[0];
+> +	end = (unsigned long)vaend;
+> +	if (nchunks < 0 ||
+> +	    nchunks > (SIZE_MAX - start) / sizeof(struct rpcrdma_write_chunk) ||
+> +	    (start + (sizeof(struct rpcrdma_write_chunk) * nchunks)) > end) {
+>  		dprintk("svcrdma: ary=%p, wc_nchunks=%d, vaend=%p\n",
+>  			ary, nchunks, vaend);
+
+
+i am struggling to understand what is actually checked here.
+Perhaps this improves the readability a bit
+ if ( nchunks < 0 ||
+       sizeof(struct rpcrdma_write_chunk) * nchunks > (SIZE_MAX - start) ||
+       sizeof(struct rpcrdma_write_chunk) * nchunks > (end - start) )
+
+ with that rewrite i would say that (SIZE_MAX - start) is strange.
+
+just my 2 cents,
+ wh
+
+>  		return NULL;
+> @@ -129,6 +133,7 @@ static u32 *decode_write_list(u32 *va, u32 *vaend)
+>  
+>  static u32 *decode_reply_array(u32 *va, u32 *vaend)
+>  {
+> +	unsigned long start, end;
+>  	int nchunks;
+>  	struct rpcrdma_write_array *ary =
+>  		(struct rpcrdma_write_array *)va;
+> @@ -143,9 +148,12 @@ static u32 *decode_reply_array(u32 *va, u32 *vaend)
+>  		return NULL;
+>  	}
+>  	nchunks = ntohl(ary->wc_nchunks);
+> -	if (((unsigned long)&ary->wc_array[0] +
+> -	     (sizeof(struct rpcrdma_write_chunk) * nchunks)) >
+> -	    (unsigned long)vaend) {
+> +
+> +	start = (unsigned long)&ary->wc_array[0];
+> +	end = (unsigned long)vaend;
+> +	if (nchunks < 0 ||
+> +	    nchunks > (SIZE_MAX - start) / sizeof(struct rpcrdma_write_chunk) ||
+> +	    (start + (sizeof(struct rpcrdma_write_chunk) * nchunks)) > end) {
+>  		dprintk("svcrdma: ary=%p, wc_nchunks=%d, vaend=%p\n",
+>  			ary, nchunks, vaend);
+>  		return NULL;
+> --
+> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
