@@ -1,74 +1,40 @@
-From: "George Spelvin" <linux@horizon.com>
-Subject: [RFC] tulip: Support for byte queue limits
-Date: 12 Jul 2013 09:20:54 -0400
-Message-ID: <20130712132054.16269.qmail@science.horizon.com>
-Cc: linux@horizon.com
-To: grundler@parisc-linux.org, netdev@vger.kernel.org
+From: kaka4real_2013 <kaka4real_2013@libero.it>
+Subject: hi
+Date: Fri, 12 Jul 2013 15:21:09 +0200 (CEST)
+Message-ID: <22337427.21545391373635269071.JavaMail.defaultUser@defaultHost>
+Reply-To: vera.matine@yahoo.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: vera.matine@yahoo.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from science.horizon.com ([71.41.210.146]:15169 "HELO
-	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S932950Ab3GLNUz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Jul 2013 09:20:55 -0400
+Received: from outrelay02.libero.it ([212.52.84.102]:55762 "EHLO
+	outrelay02.libero.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964776Ab3GLNVt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 09:21:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The New Hotness of fq_codel wants bql support, but my WAN link is on my
-Old And Busted tulip card, which lacks it.
 
-It's just a few lines, but the important thing is knowing where to
-put them, and I've sort of guessed.  In particular, it seems like the
-netdev_sent_queue call could be almost anywhere in tulip_start_xmit and
-I'm not sure if there are reasons to prefer any particular position.
+Ciao
+il mio nome =C3=A8 vera devo dire che scintilla il mio interesse per un=
+ buon=20
+partner, mi piacerebbe sapere di pi=C3=B9 per lo scambio di amore e di =
+amicizia, non=20
+esitate a inviarmi una e-mail attraverso il mio id mail (vera.matine @ =
+yahoo.
+com) Please in modo che io vi mander=C3=B2 la mia foto e ti dir=C3=A0 d=
+i pi=C3=B9 su myself.
+awaiting tua mail in modo che si pu=C3=B2 qui passare da qui, Prenditi =
+cura.
 
-(You may have my S-o-b on copyright grounds, but I'd like to test it
-some more before declaring this patch ready to be merged.)
-
-
-diff --git a/drivers/net/ethernet/dec/tulip/interrupt.c b/drivers/net/ethernet/dec/tulip/interrupt.c
-index 92306b3..d74426e 100644
---- a/drivers/net/ethernet/dec/tulip/interrupt.c
-+++ b/drivers/net/ethernet/dec/tulip/interrupt.c
-@@ -532,6 +532,7 @@ irqreturn_t tulip_interrupt(int irq, void *dev_instance)
- #endif
- 	unsigned int work_count = tulip_max_interrupt_work;
- 	unsigned int handled = 0;
-+	unsigned int bytes_compl = 0;
- 
- 	/* Let's see whether the interrupt really is for us */
- 	csr5 = ioread32(ioaddr + CSR5);
-@@ -634,6 +635,7 @@ irqreturn_t tulip_interrupt(int irq, void *dev_instance)
- 						 PCI_DMA_TODEVICE);
- 
- 				/* Free the original skb. */
-+				bytes_compl += tp->tx_buffers[entry].skb->len;
- 				dev_kfree_skb_irq(tp->tx_buffers[entry].skb);
- 				tp->tx_buffers[entry].skb = NULL;
- 				tp->tx_buffers[entry].mapping = 0;
-@@ -802,6 +804,7 @@ irqreturn_t tulip_interrupt(int irq, void *dev_instance)
- 	}
- #endif /* CONFIG_TULIP_NAPI */
- 
-+	netdev_completed_queue(dev, tx, bytes_compl);
- 	if ((missed = ioread32(ioaddr + CSR8) & 0x1ffff)) {
- 		dev->stats.rx_dropped += missed & 0x10000 ? 0x10000 : missed;
- 	}
-diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
-index 1e9443d..b4249f3 100644
---- a/drivers/net/ethernet/dec/tulip/tulip_core.c
-+++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
-@@ -703,6 +703,7 @@ tulip_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	wmb();
- 
- 	tp->cur_tx++;
-+	netdev_sent_queue(dev, skb->len);
- 
- 	/* Trigger an immediate transmit demand. */
- 	iowrite32(0, tp->base_addr + CSR1);
-@@ -746,6 +747,7 @@ static void tulip_clean_tx_ring(struct tulip_private *tp)
- 		tp->tx_buffers[entry].skb = NULL;
- 		tp->tx_buffers[entry].mapping = 0;
- 	}
-+	netdev_reset_queue(tp->dev);
- }
- 
- static void tulip_down (struct net_device *dev)
+Hello
+my name is vera i must say it spark my interest for a good partner,i wi=
+ll like=20
+to know you more to exchange love and friendship, Please feel free to s=
+end me a=20
+mail through my mail id ( vera.matine@yahoo.com ) so that i will send y=
+ou my=20
+picture and tell you more about myself.awaiting your mail so that can h=
+ere move=20
+on from here,Take care.
