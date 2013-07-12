@@ -1,446 +1,66 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH V2] rtlwifi: Fix build errors for unusual cases
-Date: Fri, 12 Jul 2013 15:32:15 -0500
-Message-ID: <1373661135-6463-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>,
-	Fengguang Wu <fengguang.wu@intel.com>
-To: linville@tuxdriver.com
+From: Michael Sterrett <michael@sterretts.net>
+Subject: Fwd: 3.10.0 network trace
+Date: Fri, 12 Jul 2013 16:44:04 -0400
+Message-ID: <CA+rTEUMYihwm_5ado5q1ZrYovgM6=Yc99mSaO-dNUyj4XyTj_Q@mail.gmail.com>
+References: <CA+rTEUPfP8ouJHbaFrO=-zktg2D06kYgXOq-LnmyKbbEzj-TmA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:32906 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965283Ab3GLUc0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 16:32:26 -0400
+Received: from mail-pb0-f43.google.com ([209.85.160.43]:52023 "EHLO
+	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965377Ab3GLUoG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 16:44:06 -0400
+Received: by mail-pb0-f43.google.com with SMTP id md12so9330272pbc.30
+        for <netdev@vger.kernel.org>; Fri, 12 Jul 2013 13:44:04 -0700 (PDT)
+In-Reply-To: <CA+rTEUPfP8ouJHbaFrO=-zktg2D06kYgXOq-LnmyKbbEzj-TmA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The present build configuration for the rtlwifi family of drivers will
-fail under two known conditions:
+Upgraded to 3.10.0 and started getting these appearing in the log:
 
-(1) If rtlwifi is selected without selecting any of the dependent drivers,
-    there are errors in the build.
-(2) If the PCI drivers are built into the kernel and the USB drivers are modules,
-    or vice versa, there are missing globals.
+[21893.282786] ------------[ cut here ]------------
+[21893.282802] WARNING: at net/ipv4/tcp_input.c:2776
+tcp_fastretrans_alert+0xbac/0xbf0()
+[21893.282805] Modules linked in:
+[21893.282813] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.10.0 #1
+[21893.282816] Hardware name: ECS IC780M-A/IC780M-A, BIOS 080015  04/19/2010
+[21893.282819]  ffffffff815186b2 0000000000000000 ffffffff810317ec
+ffff88000a5ef500
+[21893.282825]  0000000000000000 0000000000000007 0000000000004120
+0000000000000001
+[21893.282830]  ffffffff814647cc 0000000700000009 0000000000000000
+2c81743c00000000
+[21893.282835] Call Trace:
+[21893.282838]  <IRQ>  [<ffffffff815186b2>] ? dump_stack+0xd/0x17
+[21893.282854]  [<ffffffff810317ec>] ? warn_slowpath_common+0x6c/0xa0
+[21893.282860]  [<ffffffff814647cc>] ? tcp_fastretrans_alert+0xbac/0xbf0
+[21893.282865]  [<ffffffff81465257>] ? tcp_ack+0x997/0xd60
+[21893.282872]  [<ffffffff81465aa1>] ? tcp_rcv_established+0xf1/0x640
+[21893.282878]  [<ffffffff8146eb9e>] ? tcp_v4_do_rcv+0x1fe/0x4b0
+[21893.282885]  [<ffffffff81434d9e>] ? nf_iterate+0x8e/0xc0
+[21893.282890]  [<ffffffff81003cfc>] ? do_IRQ+0x5c/0xd0
+[21893.282896]  [<ffffffff814711d7>] ? tcp_v4_rcv+0x757/0x780
+[21893.282901]  [<ffffffff81434e47>] ? nf_hook_slow+0x77/0x150
+[21893.282907]  [<ffffffff8144dfb0>] ? ip_rcv_finish+0x2a0/0x2a0
+[21893.282914]  [<ffffffff8144e057>] ? ip_local_deliver_finish+0xa7/0x1e0
+[21893.282921]  [<ffffffff8140c7cf>] ? __netif_receive_skb_core+0x49f/0x690
+[21893.282926]  [<ffffffff8140cbb4>] ? netif_receive_skb+0x24/0x80
+[21893.282931]  [<ffffffff8140e368>] ? napi_gro_receive+0xc8/0x100
+[21893.282937]  [<ffffffff812ffecc>] ? rtl8169_poll+0x2cc/0x600
+[21893.282942]  [<ffffffff8140ce29>] ? net_rx_action+0x79/0x130
+[21893.282948]  [<ffffffff810382e8>] ? __do_softirq+0xc8/0x1a0
+[21893.282953]  [<ffffffff81038516>] ? irq_exit+0x96/0xc0
+[21893.282957]  [<ffffffff81003cfc>] ? do_IRQ+0x5c/0xd0
+[21893.282963]  [<ffffffff8151caea>] ? common_interrupt+0x6a/0x6a
+[21893.282965]  <EOI>  [<ffffffff8100a0a0>] ?
+arch_remove_reservations+0x130/0x130
+[21893.282978]  [<ffffffff8100a0a2>] ? default_idle+0x2/0x10
+[21893.282983]  [<ffffffff810627f9>] ? cpu_startup_entry+0x79/0x160
+[21893.282989]  [<ffffffff81732d54>] ? start_kernel+0x325/0x330
+[21893.282993]  [<ffffffff81732848>] ? repair_env_string+0x58/0x58
+[21893.282997] ---[ end trace d2be5719b9c30b65 ]---
 
-The first condition is fixed by never building rtlwifi unless at least one
-of the device drivers is selected. The second failure is fixed by splitting
-the PCI and USB codes out of rtlwifi, and creating their own mini drivers.
-If the drivers that use them are modules, they will also be modules.
-
-Although a number of files are touched by this patch, only Makefile and Kconfig
-have undergone significant changes. The only modifications to the other files
-were to export entry points needed by the new rtl_pci and rtl_usb units, or to
-rename two variables that had names that were likely to cause namespace collisions.
-
-Reported-by: Fengguang Wu <fengguang.wu@intel.com>  [Condition 1]
-Reported-by: Ben Hutchings <bhutchings@solarflare.com> [Condition 2]
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Ben Hutchings <bhutchings@solarflare.com>
-Cc: Fengguang Wu <fengguang.wu@intel.com>
----
-
-V2 - addresses Ben Hutchings' suggestions and makes separate modules of PCI and USB mini drivers.
----
- 
- drivers/net/wireless/rtlwifi/Kconfig  |   72 ++++++++++++++++++++++++++++++++++++++++++---------------------
- drivers/net/wireless/rtlwifi/Makefile |   10 +++-----
- drivers/net/wireless/rtlwifi/base.c   |   19 ++++++++++++++--
- drivers/net/wireless/rtlwifi/base.h   |    2 -
- drivers/net/wireless/rtlwifi/core.c   |    1 
- drivers/net/wireless/rtlwifi/debug.c  |    1 
- drivers/net/wireless/rtlwifi/efuse.c  |    1 
- drivers/net/wireless/rtlwifi/pci.c    |    9 +++++++
- drivers/net/wireless/rtlwifi/ps.c     |    4 +++
- drivers/net/wireless/rtlwifi/usb.c    |    7 ++++++
- 10 files changed, 91 insertions(+), 35 deletions(-)
-
-Index: wireless-testing-save/drivers/net/wireless/rtlwifi/Kconfig
-===================================================================
---- wireless-testing-save.orig/drivers/net/wireless/rtlwifi/Kconfig
-+++ wireless-testing-save/drivers/net/wireless/rtlwifi/Kconfig
-@@ -1,27 +1,20 @@
--config RTLWIFI
--	tristate "Realtek wireless card support"
--	depends on MAC80211
--	select FW_LOADER
--	---help---
--	  This is common code for RTL8192CE/RTL8192CU/RTL8192SE/RTL8723AE
--	  drivers.  This module does nothing by itself - the various front-end
--	  drivers need to be enabled to support any desired devices.
--
--	  If you choose to build as a module, it'll be called rtlwifi.
--
--config RTLWIFI_DEBUG
--	bool "Debugging output for rtlwifi driver family"
--	depends on RTLWIFI
-+menuconfig RTL_CARDS
-+	tristate "Realtek rtlwifi family of devices"
-+	depends on MAC80211 && (PCI || USB)
- 	default y
- 	---help---
--	To use the module option that sets the dynamic-debugging level for,
--	the front-end driver, this parameter must be "Y". For memory-limited
--	systems, choose "N". If in doubt, choose "Y".
-+	  This option will enable support for the Realtek mac80211-based
-+	  wireless drivers. Drivers rtl8192ce, rtl8192cu, rtl8192se, rtl8192de,
-+	  rtl8723eu, and rtl8188eu share some common code.
-+
-+if RTL_CARDS
- 
- config RTL8192CE
- 	tristate "Realtek RTL8192CE/RTL8188CE Wireless Network Adapter"
--	depends on RTLWIFI && PCI
-+	depends on PCI
- 	select RTL8192C_COMMON
-+	select RTLWIFI
-+	select RTLWIFI_PCI
- 	---help---
- 	This is the driver for Realtek RTL8192CE/RTL8188CE 802.11n PCIe
- 	wireless network adapters.
-@@ -30,7 +23,9 @@ config RTL8192CE
- 
- config RTL8192SE
- 	tristate "Realtek RTL8192SE/RTL8191SE PCIe Wireless Network Adapter"
--	depends on RTLWIFI && PCI
-+	depends on PCI
-+	select RTLWIFI
-+	select RTLWIFI_PCI
- 	---help---
- 	This is the driver for Realtek RTL8192SE/RTL8191SE 802.11n PCIe
- 	wireless network adapters.
-@@ -39,7 +34,9 @@ config RTL8192SE
- 
- config RTL8192DE
- 	tristate "Realtek RTL8192DE/RTL8188DE PCIe Wireless Network Adapter"
--	depends on RTLWIFI && PCI
-+	depends on PCI
-+	select RTLWIFI
-+	select RTLWIFI_PCI
- 	---help---
- 	This is the driver for Realtek RTL8192DE/RTL8188DE 802.11n PCIe
- 	wireless network adapters.
-@@ -48,7 +45,9 @@ config RTL8192DE
- 
- config RTL8723AE
- 	tristate "Realtek RTL8723AE PCIe Wireless Network Adapter"
--	depends on RTLWIFI && PCI
-+	depends on PCI
-+	select RTLWIFI
-+	select RTLWIFI_PCI
- 	---help---
- 	This is the driver for Realtek RTL8723AE 802.11n PCIe
- 	wireless network adapters.
-@@ -57,7 +56,9 @@ config RTL8723AE
- 
- config RTL8188EE
- 	tristate "Realtek RTL8188EE Wireless Network Adapter"
--	depends on RTLWIFI && PCI
-+	depends on PCI
-+	select RTLWIFI
-+	select RTLWIFI_PCI
- 	---help---
- 	This is the driver for Realtek RTL8188EE 802.11n PCIe
- 	wireless network adapters.
-@@ -66,7 +67,9 @@ config RTL8188EE
- 
- config RTL8192CU
- 	tristate "Realtek RTL8192CU/RTL8188CU USB Wireless Network Adapter"
--	depends on RTLWIFI && USB
-+	depends on USB
-+	select RTLWIFI
-+	select RTLWIFI_USB
- 	select RTL8192C_COMMON
- 	---help---
- 	This is the driver for Realtek RTL8192CU/RTL8188CU 802.11n USB
-@@ -74,7 +77,28 @@ config RTL8192CU
- 
- 	If you choose to build it as a module, it will be called rtl8192cu
- 
-+config RTLWIFI
-+	tristate
-+	select FW_LOADER
-+
-+config RTLWIFI_PCI
-+	tristate
-+
-+config RTLWIFI_USB
-+	tristate
-+
-+config RTLWIFI_DEBUG
-+	bool "Debugging output for rtlwifi driver family"
-+	depends on RTLWIFI
-+	default y
-+	---help---
-+	To use the module option that sets the dynamic-debugging level for,
-+	the front-end driver, this parameter must be "Y". For memory-limited
-+	systems, choose "N". If in doubt, choose "Y".
-+
- config RTL8192C_COMMON
- 	tristate
- 	depends on RTL8192CE || RTL8192CU
--	default m
-+	default y
-+
-+endif
-Index: wireless-testing-save/drivers/net/wireless/rtlwifi/Makefile
-===================================================================
---- wireless-testing-save.orig/drivers/net/wireless/rtlwifi/Makefile
-+++ wireless-testing-save/drivers/net/wireless/rtlwifi/Makefile
-@@ -12,13 +12,11 @@ rtlwifi-objs	:=		\
- 
- rtl8192c_common-objs +=		\
- 
--ifneq ($(CONFIG_PCI),)
--rtlwifi-objs	+= pci.o
--endif
-+obj-$(CONFIG_RTLWIFI_PCI)	+= rtl_pci.o
-+rtl_pci-objs	:=		pci.o
- 
--ifneq ($(CONFIG_USB),)
--rtlwifi-objs	+= usb.o
--endif
-+obj-$(CONFIG_RTLWIFI_USB)	+= rtl_usb.o
-+rtl_usb-objs	:=		usb.o
- 
- obj-$(CONFIG_RTL8192C_COMMON)	+= rtl8192c/
- obj-$(CONFIG_RTL8192CE)		+= rtl8192ce/
-Index: wireless-testing-save/drivers/net/wireless/rtlwifi/base.c
-===================================================================
---- wireless-testing-save.orig/drivers/net/wireless/rtlwifi/base.c
-+++ wireless-testing-save/drivers/net/wireless/rtlwifi/base.c
-@@ -172,6 +172,7 @@ u8 rtl_tid_to_ac(u8 tid)
- {
- 	return tid_to_ac[tid];
- }
-+EXPORT_SYMBOL_GPL(rtl_tid_to_ac);
- 
- static void _rtl_init_hw_ht_capab(struct ieee80211_hw *hw,
- 				  struct ieee80211_sta_ht_cap *ht_cap)
-@@ -406,6 +407,7 @@ void rtl_deinit_deferred_work(struct iee
- 	cancel_delayed_work(&rtlpriv->works.ps_rfon_wq);
- 	cancel_delayed_work(&rtlpriv->works.fwevt_wq);
- }
-+EXPORT_SYMBOL_GPL(rtl_deinit_deferred_work);
- 
- void rtl_init_rfkill(struct ieee80211_hw *hw)
- {
-@@ -439,6 +441,7 @@ void rtl_deinit_rfkill(struct ieee80211_
- {
- 	wiphy_rfkill_stop_polling(hw->wiphy);
- }
-+EXPORT_SYMBOL_GPL(rtl_deinit_rfkill);
- 
- int rtl_init_core(struct ieee80211_hw *hw)
- {
-@@ -489,10 +492,12 @@ int rtl_init_core(struct ieee80211_hw *h
- 
- 	return 0;
- }
-+EXPORT_SYMBOL_GPL(rtl_init_core);
- 
- void rtl_deinit_core(struct ieee80211_hw *hw)
- {
- }
-+EXPORT_SYMBOL_GPL(rtl_deinit_core);
- 
- void rtl_init_rx_config(struct ieee80211_hw *hw)
- {
-@@ -501,6 +506,7 @@ void rtl_init_rx_config(struct ieee80211
- 
- 	rtlpriv->cfg->ops->get_hw_reg(hw, HW_VAR_RCR, (u8 *) (&mac->rx_conf));
- }
-+EXPORT_SYMBOL_GPL(rtl_init_rx_config);
- 
- /*********************************************************
-  *
-@@ -879,6 +885,7 @@ bool rtl_tx_mgmt_proc(struct ieee80211_h
- 
- 	return true;
- }
-+EXPORT_SYMBOL_GPL(rtl_tx_mgmt_proc);
- 
- void rtl_get_tcb_desc(struct ieee80211_hw *hw,
- 		      struct ieee80211_tx_info *info,
-@@ -1052,6 +1059,7 @@ bool rtl_action_proc(struct ieee80211_hw
- 
- 	return true;
- }
-+EXPORT_SYMBOL_GPL(rtl_action_proc);
- 
- /*should call before software enc*/
- u8 rtl_is_special_data(struct ieee80211_hw *hw, struct sk_buff *skb, u8 is_tx)
-@@ -1125,6 +1133,7 @@ u8 rtl_is_special_data(struct ieee80211_
- 
- 	return false;
- }
-+EXPORT_SYMBOL_GPL(rtl_is_special_data);
- 
- /*********************************************************
-  *
-@@ -1300,6 +1309,7 @@ void rtl_beacon_statistic(struct ieee802
- 
- 	rtlpriv->link_info.bcn_rx_inperiod++;
- }
-+EXPORT_SYMBOL_GPL(rtl_beacon_statistic);
- 
- void rtl_watchdog_wq_callback(void *data)
- {
-@@ -1793,6 +1803,7 @@ void rtl_recognize_peer(struct ieee80211
- 
- 	mac->vendor = vendor;
- }
-+EXPORT_SYMBOL_GPL(rtl_recognize_peer);
- 
- /*********************************************************
-  *
-@@ -1849,6 +1860,7 @@ struct attribute_group rtl_attribute_gro
- 	.name = "rtlsysfs",
- 	.attrs = rtl_sysfs_entries,
- };
-+EXPORT_SYMBOL_GPL(rtl_attribute_group);
- 
- MODULE_AUTHOR("lizhaoming	<chaoming_li@realsil.com.cn>");
- MODULE_AUTHOR("Realtek WlanFAE	<wlanfae@realtek.com>");
-@@ -1856,7 +1868,8 @@ MODULE_AUTHOR("Larry Finger	<Larry.FInge
- MODULE_LICENSE("GPL");
- MODULE_DESCRIPTION("Realtek 802.11n PCI wireless core");
- 
--struct rtl_global_var global_var = {};
-+struct rtl_global_var rtl_global_var = {};
-+EXPORT_SYMBOL_GPL(rtl_global_var);
- 
- static int __init rtl_core_module_init(void)
- {
-@@ -1864,8 +1877,8 @@ static int __init rtl_core_module_init(v
- 		pr_err("Unable to register rtl_rc, use default RC !!\n");
- 
- 	/* init some global vars */
--	INIT_LIST_HEAD(&global_var.glb_priv_list);
--	spin_lock_init(&global_var.glb_list_lock);
-+	INIT_LIST_HEAD(&rtl_global_var.glb_priv_list);
-+	spin_lock_init(&rtl_global_var.glb_list_lock);
- 
- 	return 0;
- }
-Index: wireless-testing-save/drivers/net/wireless/rtlwifi/base.h
-===================================================================
---- wireless-testing-save.orig/drivers/net/wireless/rtlwifi/base.h
-+++ wireless-testing-save/drivers/net/wireless/rtlwifi/base.h
-@@ -147,7 +147,7 @@ void rtl_recognize_peer(struct ieee80211
- u8 rtl_tid_to_ac(u8 tid);
- extern struct attribute_group rtl_attribute_group;
- void rtl_easy_concurrent_retrytimer_callback(unsigned long data);
--extern struct rtl_global_var global_var;
-+extern struct rtl_global_var rtl_global_var;
- int rtlwifi_rate_mapping(struct ieee80211_hw *hw,
- 			 bool isht, u8 desc_rate, bool first_ampdu);
- bool rtl_tx_mgmt_proc(struct ieee80211_hw *hw, struct sk_buff *skb);
-Index: wireless-testing-save/drivers/net/wireless/rtlwifi/core.c
-===================================================================
---- wireless-testing-save.orig/drivers/net/wireless/rtlwifi/core.c
-+++ wireless-testing-save/drivers/net/wireless/rtlwifi/core.c
-@@ -1330,3 +1330,4 @@ const struct ieee80211_ops rtl_ops = {
- 	.rfkill_poll = rtl_op_rfkill_poll,
- 	.flush = rtl_op_flush,
- };
-+EXPORT_SYMBOL_GPL(rtl_ops);
-Index: wireless-testing-save/drivers/net/wireless/rtlwifi/debug.c
-===================================================================
---- wireless-testing-save.orig/drivers/net/wireless/rtlwifi/debug.c
-+++ wireless-testing-save/drivers/net/wireless/rtlwifi/debug.c
-@@ -51,3 +51,4 @@ void rtl_dbgp_flag_init(struct ieee80211
- 
- 	/*Init Debug flag enable condition */
- }
-+EXPORT_SYMBOL_GPL(rtl_dbgp_flag_init);
-Index: wireless-testing-save/drivers/net/wireless/rtlwifi/efuse.c
-===================================================================
---- wireless-testing-save.orig/drivers/net/wireless/rtlwifi/efuse.c
-+++ wireless-testing-save/drivers/net/wireless/rtlwifi/efuse.c
-@@ -229,6 +229,7 @@ void read_efuse_byte(struct ieee80211_hw
- 
- 	*pbuf = (u8) (value32 & 0xff);
- }
-+EXPORT_SYMBOL_GPL(read_efuse_byte);
- 
- void read_efuse(struct ieee80211_hw *hw, u16 _offset, u16 _size_byte, u8 *pbuf)
- {
-Index: wireless-testing-save/drivers/net/wireless/rtlwifi/pci.c
-===================================================================
---- wireless-testing-save.orig/drivers/net/wireless/rtlwifi/pci.c
-+++ wireless-testing-save/drivers/net/wireless/rtlwifi/pci.c
-@@ -35,6 +35,13 @@
- #include "efuse.h"
- #include <linux/export.h>
- #include <linux/kmemleak.h>
-+#include <linux/module.h>
-+
-+MODULE_AUTHOR("lizhaoming	<chaoming_li@realsil.com.cn>");
-+MODULE_AUTHOR("Realtek WlanFAE	<wlanfae@realtek.com>");
-+MODULE_AUTHOR("Larry Finger	<Larry.FInger@lwfinger.net>");
-+MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("PCI basic driver for rtlwifi");
- 
- static const u16 pcibridge_vendors[PCI_BRIDGE_VENDOR_MAX] = {
- 	PCI_VENDOR_ID_INTEL,
-@@ -1886,7 +1893,7 @@ int rtl_pci_probe(struct pci_dev *pdev,
- 	rtlpriv->rtlhal.interface = INTF_PCI;
- 	rtlpriv->cfg = (struct rtl_hal_cfg *)(id->driver_data);
- 	rtlpriv->intf_ops = &rtl_pci_ops;
--	rtlpriv->glb_var = &global_var;
-+	rtlpriv->glb_var = &rtl_global_var;
- 
- 	/*
- 	 *init dbgp flags before all
-Index: wireless-testing-save/drivers/net/wireless/rtlwifi/ps.c
-===================================================================
---- wireless-testing-save.orig/drivers/net/wireless/rtlwifi/ps.c
-+++ wireless-testing-save/drivers/net/wireless/rtlwifi/ps.c
-@@ -269,6 +269,7 @@ void rtl_ips_nic_on(struct ieee80211_hw
- 
- 	spin_unlock_irqrestore(&rtlpriv->locks.ips_lock, flags);
- }
-+EXPORT_SYMBOL_GPL(rtl_ips_nic_on);
- 
- /*for FW LPS*/
- 
-@@ -518,6 +519,7 @@ void rtl_swlps_beacon(struct ieee80211_h
- 			 "u_bufferd: %x, m_buffered: %x\n", u_buffed, m_buffed);
- 	}
- }
-+EXPORT_SYMBOL_GPL(rtl_swlps_beacon);
- 
- void rtl_swlps_rf_awake(struct ieee80211_hw *hw)
- {
-@@ -623,6 +625,7 @@ void rtl_lps_change_work_callback(struct
- 	else
- 		rtl_lps_leave(hw);
- }
-+EXPORT_SYMBOL_GPL(rtl_lps_change_work_callback);
- 
- void rtl_swlps_wq_callback(void *data)
- {
-@@ -934,3 +937,4 @@ void rtl_p2p_info(struct ieee80211_hw *h
- 	else
- 		rtl_p2p_noa_ie(hw, data, len - FCS_LEN);
- }
-+EXPORT_SYMBOL_GPL(rtl_p2p_info);
-Index: wireless-testing-save/drivers/net/wireless/rtlwifi/usb.c
-===================================================================
---- wireless-testing-save.orig/drivers/net/wireless/rtlwifi/usb.c
-+++ wireless-testing-save/drivers/net/wireless/rtlwifi/usb.c
-@@ -32,6 +32,13 @@
- #include "ps.h"
- #include "rtl8192c/fw_common.h"
- #include <linux/export.h>
-+#include <linux/module.h>
-+
-+MODULE_AUTHOR("lizhaoming	<chaoming_li@realsil.com.cn>");
-+MODULE_AUTHOR("Realtek WlanFAE	<wlanfae@realtek.com>");
-+MODULE_AUTHOR("Larry Finger	<Larry.FInger@lwfinger.net>");
-+MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("USB basic driver for rtlwifi");
- 
- #define	REALTEK_USB_VENQT_READ			0xC0
- #define	REALTEK_USB_VENQT_WRITE			0x40
+If this is is already a known issue please let me know.  Otherwise,
+I'm happy to provide any additional information that might be helpful
+in tracking it down.
