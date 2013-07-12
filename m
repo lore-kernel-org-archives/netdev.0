@@ -1,69 +1,51 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: Re: [Xen-devel] [PATCH] xen-netfront: pull on receive skb may
- need to happen earlier
-Date: Fri, 12 Jul 2013 09:56:07 +0100
-Message-ID: <51DFE0C702000078000E462A@nat28.tlf.novell.com>
-References: <8511913.uMAmUdIO30@eistomin.edss.local>
- <20130517085923.GC14401@zion.uk.xensource.com>
- <51D57C1F.8070909@hunenet.nl>
- <20130704150137.GW7483@zion.uk.xensource.com>
- <51D6AED902000078000E2EA9@nat28.tlf.novell.com>
- <20130705145319.GB9050@zion.uk.xensource.com>
- <51DAA9B202000078000E3357@nat28.tlf.novell.com>
- <51DAE6CA02000078000E3566@nat28.tlf.novell.com>
- <20130712083248.GF23269@zion.uk.xensource.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RFC] ipv6: fix route selection if kernel is not compiled with CONFIG_IPV6_ROUTER_PREF
+Date: Fri, 12 Jul 2013 10:51:13 +0200
+Message-ID: <20130712085113.GI12611@order.stressinduktion.org>
+References: <51DD2959.9060206@6wind.com> <20130710105316.GA5735@order.stressinduktion.org> <51DD521F.1000905@6wind.com> <20130710132122.GD15411@order.stressinduktion.org> <51DD6B72.1050700@6wind.com> <20130710212149.GA26122@order.stressinduktion.org> <51DE671F.5050706@6wind.com> <20130711102441.GC5207@order.stressinduktion.org> <20130711144623.GA5707@order.stressinduktion.org> <51DEC7E6.8000500@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: "Ian Campbell" <ian.campbell@citrix.com>, <davem@davemloft.net>,
-	"Dion Kant" <g.w.kant@hunenet.nl>, <xen-devel@lists.xen.org>,
-	<netdev@vger.kernel.org>, <stable@vger.kernel.org>
-To: "Wei Liu" <wei.liu2@citrix.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	petrus.lt@gmail.com, davem@davemloft.net
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat28.tlf.novell.com ([130.57.49.28]:38156 "EHLO
-	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757637Ab3GLI4K convert rfc822-to-8bit (ORCPT
-	<rfc822;groupwise-netdev@vger.kernel.org:5:1>);
-	Fri, 12 Jul 2013 04:56:10 -0400
-In-Reply-To: <20130712083248.GF23269@zion.uk.xensource.com>
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:40980 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757397Ab3GLIvO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 04:51:14 -0400
 Content-Disposition: inline
+In-Reply-To: <51DEC7E6.8000500@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>> On 12.07.13 at 10:32, Wei Liu <wei.liu2@citrix.com> wrote:
-> On Mon, Jul 08, 2013 at 03:20:26PM +0100, Jan Beulich wrote:
->> >>> On 08.07.13 at 11:59, "Jan Beulich" <JBeulich@suse.com> wrote:
->> >>>> On 05.07.13 at 16:53, Wei Liu <wei.liu2@citrix.com> wrote:
->> >> 	skb->truesize += PAGE_SIZE * skb_shinfo(skb)->nr_frags;
->> >> 	skb->len += skb->data_len;
->> >>     }
->> >> 
->> >>     handle_incoming_packet();
->> >> 
->> >> You seem to be altering the behavior of the original code, because in
->> >> your patch the skb->len is incremented before use, while in the original
->> >> code (which calls skb_headlen in handle_incoming_packet) the skb->len is
->> >> correctly set.
->> > 
->> > Right. So I basically need to keep skb->len up-to-date along with
->> > ->data_len. Just handed a patch to Dion with that done; I'll defer
->> > sending a v2 for the upstream code until I know the change works
->> > for our kernel.
->> 
->> Okay, so with that done (see below) Dion is now seeing the
->> WARN_ON_ONCE(delta < len) in skb_try_coalesce() triggering. Of
->> course, with it having crashed before, it's hard to tell whether the
->> triggering now is an effect of the patch, or just got unmasked by it.
->> 
-> 
-> I just ported your below patch to upstream kernel and I didn't see the
-> WARN_ON_ONCE. I only did iperf and netperf tests.
-> 
-> If the work load to trigger this bug is simple enough I can give it a
-> shot...
+Hello Nicolas,
 
-I'm meanwhile relatively convinced that the warning isn't an effect
-of the patch (final verification pending); I intend to submit v2 as
-soon as 3.11-rc1 is out.
+On Thu, Jul 11, 2013 at 04:57:42PM +0200, Nicolas Dichtel wrote:
+> Le 11/07/2013 16:46, Hannes Frederic Sowa a =C3=A9crit :
+> >On Thu, Jul 11, 2013 at 12:24:41PM +0200, Hannes Frederic Sowa wrote=
+:
+> >>I fear, I'll need to do a bit more research.
+> >
+> >My proposal is to take my patch and check for RTF_ADDRCONF plus=20
+> >RTF_DYNAMIC,
+> >too. The RTF_DYNAMIC check would prevent routes created from icmpv6=20
+> >redirects
+> >entering an ecmp route set.
+> >
+> >Do you agree?
+> Yes.
 
-Jan
+There is still some window where things go wrong now, I fear. If we hav=
+e ecmp
+routes active and we update the pmtu of that rt6_info, we might end up =
+with a
+route in the ecmp set, which might not get recountet if another ecmp ro=
+ute
+joins the set. I will have to think how to deal with this. Do you have =
+an
+idea?
+
+Thanks,
+
+  Hannes
