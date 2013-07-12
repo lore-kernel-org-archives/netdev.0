@@ -1,55 +1,57 @@
-From: Thomas Richter <tmricht@linux.vnet.ibm.com>
-Subject: [PATCH 2/2 V2] macvlan fdb replace support
-Date: Fri, 12 Jul 2013 09:10:16 +0200
-Message-ID: <1373613016-6856-2-git-send-email-tmricht@linux.vnet.ibm.com>
-References: <1373613016-6856-1-git-send-email-tmricht@linux.vnet.ibm.com>
-Cc: Thomas Richter <tmricht@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+From: Sunghan Suh <sunghan.suh@samsung.com>
+Subject: [PATCH] net: access page->private by using page_private
+Date: Fri, 12 Jul 2013 16:17:23 +0900
+Message-ID: <1373613443-17444-1-git-send-email-sunghan.suh@samsung.com>
+Cc: Sunghan Suh <sunghan.suh@samsung.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp11.uk.ibm.com ([195.75.94.107]:44100 "EHLO
-	e06smtp11.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757101Ab3GLHKd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 03:10:33 -0400
-Received: from /spool/local
-	by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <tmricht@linux.vnet.ibm.com>;
-	Fri, 12 Jul 2013 08:04:50 +0100
-Received: from b06cxnps4075.portsmouth.uk.ibm.com (d06relay12.portsmouth.uk.ibm.com [9.149.109.197])
-	by d06dlp01.portsmouth.uk.ibm.com (Postfix) with ESMTP id C349317D801A
-	for <netdev@vger.kernel.org>; Fri, 12 Jul 2013 08:12:04 +0100 (BST)
-Received: from d06av12.portsmouth.uk.ibm.com (d06av12.portsmouth.uk.ibm.com [9.149.37.247])
-	by b06cxnps4075.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r6C7AIsn53608590
-	for <netdev@vger.kernel.org>; Fri, 12 Jul 2013 07:10:18 GMT
-Received: from d06av12.portsmouth.uk.ibm.com (localhost [127.0.0.1])
-	by d06av12.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id r6C7ASAN002730
-	for <netdev@vger.kernel.org>; Fri, 12 Jul 2013 01:10:29 -0600
-In-Reply-To: <1373613016-6856-1-git-send-email-tmricht@linux.vnet.ibm.com>
+Received: from mailout4.samsung.com ([203.254.224.34]:28125 "EHLO
+	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757203Ab3GLHRn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 03:17:43 -0400
+Received: from epcpsbgm1.samsung.com (epcpsbgm1 [203.254.230.26])
+ by mailout4.samsung.com
+ (Oracle Communications Messaging Server 7u4-24.01(7.0.4.24.0) 64bit (built Nov
+ 17 2011)) with ESMTP id <0MPT00CJ3AXH4ZN0@mailout4.samsung.com> for
+ netdev@vger.kernel.org; Fri, 12 Jul 2013 16:17:41 +0900 (KST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for iproute2 command 'bridge fdb replace ...'.
-The rtnletlink call back function ndo_fdb_add will be called
-with the NLM_F_REPLACE flag set.
-Simply return -EOPNOTSUP.
-
-Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
+Signed-off-by: Sunghan Suh <sunghan.suh@samsung.com>
 ---
- drivers/net/macvlan.c | 3 +++
- 1 file changed, 3 insertions(+)
+ net/core/skbuff.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 18373b6..74907f5 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -597,6 +597,9 @@ static int macvlan_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 	if (!vlan->port->passthru)
- 		return -EOPNOTSUPP;
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 77971a3..286607b 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -823,7 +823,7 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
+ 		page = alloc_page(gfp_mask);
+ 		if (!page) {
+ 			while (head) {
+-				struct page *next = (struct page *)head->private;
++				struct page *next = (struct page *)page_private(head);
+ 				put_page(head);
+ 				head = next;
+ 			}
+@@ -833,7 +833,7 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
+ 		memcpy(page_address(page),
+ 		       vaddr + f->page_offset, skb_frag_size(f));
+ 		kunmap_atomic(vaddr);
+-		page->private = (unsigned long)head;
++		set_page_private(page, (unsigned long)head);
+ 		head = page;
+ 	}
  
-+	if (flags & NLM_F_REPLACE)
-+		return -EOPNOTSUPP;
-+
- 	if (is_unicast_ether_addr(addr))
- 		err = dev_uc_add_excl(dev, addr);
- 	else if (is_multicast_ether_addr(addr))
+@@ -847,7 +847,7 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
+ 	for (i = num_frags - 1; i >= 0; i--) {
+ 		__skb_fill_page_desc(skb, i, head, 0,
+ 				     skb_shinfo(skb)->frags[i].size);
+-		head = (struct page *)head->private;
++		head = (struct page *)page_private(head);
+ 	}
+ 
+ 	skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
 -- 
-1.8.1.4
+1.8.1.2
