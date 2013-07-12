@@ -1,32 +1,33 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net 1/2] usb/net/r8152: fix integer overflow in
- expression
-Date: Fri, 12 Jul 2013 16:13:57 -0700 (PDT)
-Message-ID: <20130712.161357.1592789294361087970.davem@redhat.com>
-References: <1373617576-2272-1-git-send-email-hayeswang@realtek.com>
+Subject: Re: [PATCH] tcp: account all retransmit failures
+Date: Fri, 12 Jul 2013 16:16:16 -0700 (PDT)
+Message-ID: <20130712.161616.1291098149600095359.davem@redhat.com>
+References: <1373653984-30249-1-git-send-email-ycheng@google.com>
+	<1373655354.10804.38.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1373617576-2272-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ycheng@google.com, ncardwell@google.com, edumazet@google.com,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:9765 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751866Ab3GLXQU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Jul 2013 19:16:20 -0400
+In-Reply-To: <1373655354.10804.38.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Fri, 12 Jul 2013 16:26:15 +0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 12 Jul 2013 11:55:54 -0700
 
-> config: make ARCH=avr32 allyesconfig
-> drivers/net/usb/r8152.c: In function 'rtl8152_start_xmit':
-> drivers/net/usb/r8152.c:956: warning: integer overflow in expression
+> On Fri, 2013-07-12 at 11:33 -0700, Yuchung Cheng wrote:
+>> Change snmp RETRANSFAILS stat to include timeout retransmit failures
+>> in addition to other loss recoveries.
+>> 
+>> Signed-off-by: Yuchung Cheng <ycheng@google.com>
 > 
->    955	memset(tx_desc, 0, sizeof(*tx_desc));
->  > 956	tx_desc->opts1 = cpu_to_le32((len & TX_LEN_MASK) | TX_FS | TX_LS);
->    957	tp->tx_skb = skb;
-> 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-> Spotted-by: kbuild test robot <fengguang.wu@intel.com>
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-Applied.
+Applied, thanks everyone.
