@@ -1,30 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: updates to syncookies - timestamps not needed any more
- (freebsd)
-Date: Fri, 12 Jul 2013 00:24:38 -0700 (PDT)
-Message-ID: <20130712.002438.50315148803019035.davem@davemloft.net>
-References: <20130708160421.GA9763@order.stressinduktion.org>
-	<20130711.165726.2168148122875413191.davem@davemloft.net>
-	<20130712014138.GD12611@order.stressinduktion.org>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net 1/2] usb/net/r8152: fix integer overflow in expression
+Date: Fri, 12 Jul 2013 16:26:15 +0800
+Message-ID: <1373617576-2272-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36967 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757150Ab3GLHYm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 03:24:42 -0400
-In-Reply-To: <20130712014138.GD12611@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri, 12 Jul 2013 03:41:38 +0200
+config: make ARCH=avr32 allyesconfig
+drivers/net/usb/r8152.c: In function 'rtl8152_start_xmit':
+drivers/net/usb/r8152.c:956: warning: integer overflow in expression
 
-> If I understood this thread[0] correctly, it seems Windows 8 might not
-> enable TCP timestamps by default?
+   955	memset(tx_desc, 0, sizeof(*tx_desc));
+ > 956	tx_desc->opts1 = cpu_to_le32((len & TX_LEN_MASK) | TX_FS | TX_LS);
+   957	tp->tx_skb = skb;
 
-That is true, and my opinion of the situation took this into
-consideration.
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+Spotted-by: kbuild test robot <fengguang.wu@intel.com>
+---
+ drivers/net/usb/r8152.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index d02bac8..ee13f9e 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -934,7 +934,8 @@ static netdev_tx_t rtl8152_start_xmit(struct sk_buff *skb,
+ 	struct r8152 *tp = netdev_priv(netdev);
+ 	struct net_device_stats *stats = rtl8152_get_stats(netdev);
+ 	struct tx_desc *tx_desc;
+-	int len, res;
++	unsigned int len;
++	int res;
+ 
+ 	netif_stop_queue(netdev);
+ 	len = skb->len;
+-- 
+1.8.3.1
