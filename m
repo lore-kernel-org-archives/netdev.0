@@ -1,43 +1,80 @@
-From: Cosmin Stanescu <cosmin90stanescu@gmail.com>
-Subject: [PATCH v2] net: strict_strtoul is obsolete, use kstrtoul instead
-Date: Fri, 12 Jul 2013 09:33:33 +0300
-Message-ID: <1373610813-11229-1-git-send-email-cosmin90stanescu@gmail.com>
-Cc: sergei.shtylyov@cogentembedded.com, dhowells@redhat.com,
-	ebiederm@xmission.com, rusty@rustcorp.com.au,
-	serge.hallyn@canonical.com, netdev@vger.kernel.org,
-	Cosmin Stanescu <cosmin90stanescu@gmail.com>
-To: davem@davemloft.net
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch -stable] svcrdma: underflow issue in decode_write_list()
+Date: Fri, 12 Jul 2013 09:39:03 +0300
+Message-ID: <20130712063903.GB29320@longonot.mountain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "J. Bruce Fields" <bfields@fieldses.org>,
+	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Trond Myklebust <Trond.Myklebust@netapp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f171.google.com ([209.85.215.171]:38066 "EHLO
-	mail-ea0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753017Ab3GLGdt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 02:33:49 -0400
-Received: by mail-ea0-f171.google.com with SMTP id m14so6131987eaj.2
-        for <netdev@vger.kernel.org>; Thu, 11 Jul 2013 23:33:48 -0700 (PDT)
+Received: from aserp1040.oracle.com ([141.146.126.69]:36674 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752208Ab3GLGlg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 02:41:36 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-patch found using checkpatch.pl
+My static checker marks everything from ntohl() as untrusted and it
+complains we could have an underflow problem doing:
 
-Signed-off-by: Cosmin Stanescu <cosmin90stanescu@gmail.com>
----
-Changes since v1:
-	* fixed user-name in commit message
- net/dns_resolver/dns_key.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+	return (u32 *)&ary->wc_array[nchunks];
 
-diff --git a/net/dns_resolver/dns_key.c b/net/dns_resolver/dns_key.c
-index 0a69d07..f347a2c 100644
---- a/net/dns_resolver/dns_key.c
-+++ b/net/dns_resolver/dns_key.c
-@@ -118,7 +118,7 @@ dns_resolver_instantiate(struct key *key, struct key_preparsed_payload *prep)
- 				if (opt_vlen <= 0)
- 					goto bad_option_value;
+Also on 32 bit systems the upper bound check could overflow.
+
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+
+diff --git a/net/sunrpc/xprtrdma/svc_rdma_marshal.c b/net/sunrpc/xprtrdma/svc_rdma_marshal.c
+index 8d2eddd..65b1462 100644
+--- a/net/sunrpc/xprtrdma/svc_rdma_marshal.c
++++ b/net/sunrpc/xprtrdma/svc_rdma_marshal.c
+@@ -98,6 +98,7 @@ void svc_rdma_rcl_chunk_counts(struct rpcrdma_read_chunk *ch,
+  */
+ static u32 *decode_write_list(u32 *va, u32 *vaend)
+ {
++	unsigned long start, end;
+ 	int nchunks;
  
--				ret = strict_strtoul(eq, 10, &derrno);
-+				ret = kstrtoul(eq, 10, &derrno);
- 				if (ret < 0)
- 					goto bad_option_value;
+ 	struct rpcrdma_write_array *ary =
+@@ -113,9 +114,12 @@ static u32 *decode_write_list(u32 *va, u32 *vaend)
+ 		return NULL;
+ 	}
+ 	nchunks = ntohl(ary->wc_nchunks);
+-	if (((unsigned long)&ary->wc_array[0] +
+-	     (sizeof(struct rpcrdma_write_chunk) * nchunks)) >
+-	    (unsigned long)vaend) {
++
++	start = (unsigned long)&ary->wc_array[0];
++	end = (unsigned long)vaend;
++	if (nchunks < 0 ||
++	    nchunks > (SIZE_MAX - start) / sizeof(struct rpcrdma_write_chunk) ||
++	    (start + (sizeof(struct rpcrdma_write_chunk) * nchunks)) > end) {
+ 		dprintk("svcrdma: ary=%p, wc_nchunks=%d, vaend=%p\n",
+ 			ary, nchunks, vaend);
+ 		return NULL;
+@@ -129,6 +133,7 @@ static u32 *decode_write_list(u32 *va, u32 *vaend)
  
--- 
-1.7.10.4
+ static u32 *decode_reply_array(u32 *va, u32 *vaend)
+ {
++	unsigned long start, end;
+ 	int nchunks;
+ 	struct rpcrdma_write_array *ary =
+ 		(struct rpcrdma_write_array *)va;
+@@ -143,9 +148,12 @@ static u32 *decode_reply_array(u32 *va, u32 *vaend)
+ 		return NULL;
+ 	}
+ 	nchunks = ntohl(ary->wc_nchunks);
+-	if (((unsigned long)&ary->wc_array[0] +
+-	     (sizeof(struct rpcrdma_write_chunk) * nchunks)) >
+-	    (unsigned long)vaend) {
++
++	start = (unsigned long)&ary->wc_array[0];
++	end = (unsigned long)vaend;
++	if (nchunks < 0 ||
++	    nchunks > (SIZE_MAX - start) / sizeof(struct rpcrdma_write_chunk) ||
++	    (start + (sizeof(struct rpcrdma_write_chunk) * nchunks)) > end) {
+ 		dprintk("svcrdma: ary=%p, wc_nchunks=%d, vaend=%p\n",
+ 			ary, nchunks, vaend);
+ 		return NULL;
