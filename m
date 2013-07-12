@@ -1,80 +1,64 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -stable] svcrdma: underflow issue in decode_write_list()
-Date: Fri, 12 Jul 2013 09:39:03 +0300
-Message-ID: <20130712063903.GB29320@longonot.mountain>
+From: Sekhar Nori <nsekhar@ti.com>
+Subject: Re: [PATCH v3 0/6] ARM: davinci: da850: add ethernet driver DT support
+Date: Fri, 12 Jul 2013 12:21:20 +0530
+Message-ID: <51DFA768.9090703@ti.com>
+References: <1371999607-6483-1-git-send-email-prabhakar.csengg@gmail.com>
+ <CA+V-a8t-sTPAK+D5869X0_ZCdrmK0B+eRaowk9hMYwXMw09NqA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Trond Myklebust <Trond.Myklebust@netapp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:36674 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752208Ab3GLGlg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 02:41:36 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+ DLOS <davinci-linux-open-source@linux.davincidsp.com>,
+ devicetree-discuss@lists.ozlabs.org,
+ LAK <linux-arm-kernel@lists.infradead.org>,
+ LKML <linux-kernel@vger.kernel.org>
+To: Prabhakar Lad <prabhakar.csengg@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CA+V-a8t-sTPAK+D5869X0_ZCdrmK0B+eRaowk9hMYwXMw09NqA@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-My static checker marks everything from ntohl() as untrusted and it
-complains we could have an underflow problem doing:
+On 7/11/2013 10:42 PM, Prabhakar Lad wrote:
+> Hi Sekhar,
+> 
+> On Sun, Jun 23, 2013 at 8:30 PM, Prabhakar Lad
+> <prabhakar.csengg@gmail.com> wrote:
+>> From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+>>
+>> This patch set enables Ethernet support through device tree model.
+>> This patch set enables mii interface only and is being tested to boot via
+>> rootfs. The rmii phy is present on the i2c gpio expander chip (UI board)
+>> for which yet support needs to be added, once the DT support for the chip
+>> is enabled, enabling rmii will be subsequnet patch.
+>>
+>> Changes for v2:
+>> 1: Enabled mdio device.
+>> 2: Fixed clock lookup.
+>>
+>> Changes for v3:
+>> 1: Fixed review comments pointed out by Sekhar.
+>>
+>> Lad, Prabhakar (6):
+>>   ARM: davinci: da8xx: fix clock lookup for mdio device
+>>   ARM: davinci: da850: add DT node for mdio device
+>>   ARM: davinci: da850: add OF_DEV_AUXDATA entry for mdio.
+>>   ARM: davinci: da850: add DT node for eth0.
+>>   ARM: davinci: da850: add OF_DEV_AUXDATA entry for eth0.
+>>   ARM: davinci: da850: configure system configuration chip(CFGCHIP3)
+>>     for emac
+>>
+> gentle ping..
 
-	return (u32 *)&ary->wc_array[nchunks];
+I haven't been able to get to reviewing patches meant for v3.12 yet.
+Most probably will happen next week.
 
-Also on 32 bit systems the upper bound check could overflow.
-
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-diff --git a/net/sunrpc/xprtrdma/svc_rdma_marshal.c b/net/sunrpc/xprtrdma/svc_rdma_marshal.c
-index 8d2eddd..65b1462 100644
---- a/net/sunrpc/xprtrdma/svc_rdma_marshal.c
-+++ b/net/sunrpc/xprtrdma/svc_rdma_marshal.c
-@@ -98,6 +98,7 @@ void svc_rdma_rcl_chunk_counts(struct rpcrdma_read_chunk *ch,
-  */
- static u32 *decode_write_list(u32 *va, u32 *vaend)
- {
-+	unsigned long start, end;
- 	int nchunks;
- 
- 	struct rpcrdma_write_array *ary =
-@@ -113,9 +114,12 @@ static u32 *decode_write_list(u32 *va, u32 *vaend)
- 		return NULL;
- 	}
- 	nchunks = ntohl(ary->wc_nchunks);
--	if (((unsigned long)&ary->wc_array[0] +
--	     (sizeof(struct rpcrdma_write_chunk) * nchunks)) >
--	    (unsigned long)vaend) {
-+
-+	start = (unsigned long)&ary->wc_array[0];
-+	end = (unsigned long)vaend;
-+	if (nchunks < 0 ||
-+	    nchunks > (SIZE_MAX - start) / sizeof(struct rpcrdma_write_chunk) ||
-+	    (start + (sizeof(struct rpcrdma_write_chunk) * nchunks)) > end) {
- 		dprintk("svcrdma: ary=%p, wc_nchunks=%d, vaend=%p\n",
- 			ary, nchunks, vaend);
- 		return NULL;
-@@ -129,6 +133,7 @@ static u32 *decode_write_list(u32 *va, u32 *vaend)
- 
- static u32 *decode_reply_array(u32 *va, u32 *vaend)
- {
-+	unsigned long start, end;
- 	int nchunks;
- 	struct rpcrdma_write_array *ary =
- 		(struct rpcrdma_write_array *)va;
-@@ -143,9 +148,12 @@ static u32 *decode_reply_array(u32 *va, u32 *vaend)
- 		return NULL;
- 	}
- 	nchunks = ntohl(ary->wc_nchunks);
--	if (((unsigned long)&ary->wc_array[0] +
--	     (sizeof(struct rpcrdma_write_chunk) * nchunks)) >
--	    (unsigned long)vaend) {
-+
-+	start = (unsigned long)&ary->wc_array[0];
-+	end = (unsigned long)vaend;
-+	if (nchunks < 0 ||
-+	    nchunks > (SIZE_MAX - start) / sizeof(struct rpcrdma_write_chunk) ||
-+	    (start + (sizeof(struct rpcrdma_write_chunk) * nchunks)) > end) {
- 		dprintk("svcrdma: ary=%p, wc_nchunks=%d, vaend=%p\n",
- 			ary, nchunks, vaend);
- 		return NULL;
+Thanks,
+Sekhar
