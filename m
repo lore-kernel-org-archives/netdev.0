@@ -1,101 +1,160 @@
-From: walter harms <wharms@bfs.de>
-Subject: Re: [patch -stable] svcrdma: underflow issue in decode_write_list()
-Date: Fri, 12 Jul 2013 10:24:41 +0200
-Message-ID: <51DFBD49.7000205@bfs.de>
-References: <20130712063903.GB29320@longonot.mountain>
-Reply-To: wharms@bfs.de
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH] xen-netfront: pull on receive skb may need
+ to happen earlier
+Date: Fri, 12 Jul 2013 09:32:48 +0100
+Message-ID: <20130712083248.GF23269@zion.uk.xensource.com>
+References: <8511913.uMAmUdIO30@eistomin.edss.local>
+ <20130517085923.GC14401@zion.uk.xensource.com>
+ <51D57C1F.8070909@hunenet.nl>
+ <20130704150137.GW7483@zion.uk.xensource.com>
+ <51D6AED902000078000E2EA9@nat28.tlf.novell.com>
+ <20130705145319.GB9050@zion.uk.xensource.com>
+ <51DAA9B202000078000E3357@nat28.tlf.novell.com>
+ <51DAE6CA02000078000E3566@nat28.tlf.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20130712063903.GB29320@longonot.mountain>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>, <davem@davemloft.net>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Dion Kant <g.w.kant@hunenet.nl>, <xen-devel@lists.xen.org>,
+	<netdev@vger.kernel.org>, <stable@vger.kernel.org>
+To: Jan Beulich <JBeulich@suse.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <51DAE6CA02000078000E3566@nat28.tlf.novell.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Jul 08, 2013 at 03:20:26PM +0100, Jan Beulich wrote:
+> >>> On 08.07.13 at 11:59, "Jan Beulich" <JBeulich@suse.com> wrote:
+> >>>> On 05.07.13 at 16:53, Wei Liu <wei.liu2@citrix.com> wrote:
+> >> On Fri, Jul 05, 2013 at 10:32:41AM +0100, Jan Beulich wrote:
+> >>> --- a/drivers/net/xen-netfront.c
+> >>> +++ b/drivers/net/xen-netfront.c
+> >>> @@ -831,6 +831,15 @@ static RING_IDX xennet_fill_frags(struct
+> >>>  			RING_GET_RESPONSE(&np->rx, ++cons);
+> >>>  		skb_frag_t *nfrag = &skb_shinfo(nskb)->frags[0];
+> >>>  
+> >>> +		if (nr_frags == MAX_SKB_FRAGS) {
+> >>> +			unsigned int pull_to = NETFRONT_SKB_CB(skb)->pull_to;
+> >>> +
+> >>> +			BUG_ON(pull_to <= skb_headlen(skb));
+> >>> +			__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
+> >> 
+> >> skb_headlen is in fact "skb->len - skb->data_len". Looking at the
+> >> caller code:
+> >> 
+> >>     while loop {
+> >>         skb_shinfo(skb)->frags[0].page_offset = rx->offset;
+> >> 	skb_frag_size_set(&skb_shinfo(skb)->frags[0], rx->status);
+> >> 	skb->data_len = rx->status;
+> >> 
+> >> 	i = xennet_fill_frags(np, skb, &tmpq);
+> >> 
+> >> 	/*                                                                           
+> > 
+> >>                                                                   
+> >> 	 * Truesize is the actual allocation size, even if the                       
+> > 
+> >>                                                                   
+> >> 	 * allocation is only partially used.                                        
+> > 
+> >>                                                                   
+> >> 	 */
+> >> 	skb->truesize += PAGE_SIZE * skb_shinfo(skb)->nr_frags;
+> >> 	skb->len += skb->data_len;
+> >>     }
+> >> 
+> >>     handle_incoming_packet();
+> >> 
+> >> You seem to be altering the behavior of the original code, because in
+> >> your patch the skb->len is incremented before use, while in the original
+> >> code (which calls skb_headlen in handle_incoming_packet) the skb->len is
+> >> correctly set.
+> > 
+> > Right. So I basically need to keep skb->len up-to-date along with
+> > ->data_len. Just handed a patch to Dion with that done; I'll defer
+> > sending a v2 for the upstream code until I know the change works
+> > for our kernel.
+> 
+> Okay, so with that done (see below) Dion is now seeing the
+> WARN_ON_ONCE(delta < len) in skb_try_coalesce() triggering. Of
+> course, with it having crashed before, it's hard to tell whether the
+> triggering now is an effect of the patch, or just got unmasked by it.
+> 
+
+I just ported your below patch to upstream kernel and I didn't see the
+WARN_ON_ONCE. I only did iperf and netperf tests.
+
+If the work load to trigger this bug is simple enough I can give it a
+shot...
 
 
-Am 12.07.2013 08:39, schrieb Dan Carpenter:
-> My static checker marks everything from ntohl() as untrusted and it
-> complains we could have an underflow problem doing:
+Wei.
+
+> Looking over the ->truesize handling, I can't see how the change
+> here could break things: RX_COPY_THRESHOLD is already
+> accounted for by how alloc_skb() gets called, and the increment
+> right after the call to xennet_fill_frags() should now be even more
+> correct than before (since __pskb_pull_tail() can drop fragments,
+> which would then have made this an over-estimation afaict).
 > 
-> 	return (u32 *)&ary->wc_array[nchunks];
+> That all said with me knowing pretty little about the networking
+> code, so I'd appreciate if you could point out anything wrong with
+> my idea of how things work. Additionally - is my fundamental (for
+> this patch) assumption right that multiple __pskb_pull_tail() call
+> are cumulative (i.e. calling it twice with a delta of
+> pull_to - skb_headlen(skb) would indeed end up pulling up to
+> pull_to, provided there is enough data)?
 > 
-> Also on 32 bit systems the upper bound check could overflow.
+> Jan
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> diff --git a/net/sunrpc/xprtrdma/svc_rdma_marshal.c b/net/sunrpc/xprtrdma/svc_rdma_marshal.c
-> index 8d2eddd..65b1462 100644
-> --- a/net/sunrpc/xprtrdma/svc_rdma_marshal.c
-> +++ b/net/sunrpc/xprtrdma/svc_rdma_marshal.c
-> @@ -98,6 +98,7 @@ void svc_rdma_rcl_chunk_counts(struct rpcrdma_read_chunk *ch,
->   */
->  static u32 *decode_write_list(u32 *va, u32 *vaend)
->  {
-> +	unsigned long start, end;
->  	int nchunks;
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -831,10 +831,20 @@ static RING_IDX xennet_fill_frags(struct
+>  			RING_GET_RESPONSE(&np->rx, ++cons);
+>  		skb_frag_t *nfrag = &skb_shinfo(nskb)->frags[0];
 >  
->  	struct rpcrdma_write_array *ary =
-> @@ -113,9 +114,12 @@ static u32 *decode_write_list(u32 *va, u32 *vaend)
->  		return NULL;
->  	}
->  	nchunks = ntohl(ary->wc_nchunks);
-> -	if (((unsigned long)&ary->wc_array[0] +
-> -	     (sizeof(struct rpcrdma_write_chunk) * nchunks)) >
-> -	    (unsigned long)vaend) {
+> +		if (nr_frags == MAX_SKB_FRAGS) {
+> +			unsigned int pull_to = NETFRONT_SKB_CB(skb)->pull_to;
 > +
-> +	start = (unsigned long)&ary->wc_array[0];
-> +	end = (unsigned long)vaend;
-> +	if (nchunks < 0 ||
-> +	    nchunks > (SIZE_MAX - start) / sizeof(struct rpcrdma_write_chunk) ||
-> +	    (start + (sizeof(struct rpcrdma_write_chunk) * nchunks)) > end) {
->  		dprintk("svcrdma: ary=%p, wc_nchunks=%d, vaend=%p\n",
->  			ary, nchunks, vaend);
-
-
-i am struggling to understand what is actually checked here.
-Perhaps this improves the readability a bit
- if ( nchunks < 0 ||
-       sizeof(struct rpcrdma_write_chunk) * nchunks > (SIZE_MAX - start) ||
-       sizeof(struct rpcrdma_write_chunk) * nchunks > (end - start) )
-
- with that rewrite i would say that (SIZE_MAX - start) is strange.
-
-just my 2 cents,
- wh
-
->  		return NULL;
-> @@ -129,6 +133,7 @@ static u32 *decode_write_list(u32 *va, u32 *vaend)
+> +			BUG_ON(pull_to <= skb_headlen(skb));
+> +			__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
+> +			nr_frags = shinfo->nr_frags;
+> +		}
+> +		BUG_ON(nr_frags >= MAX_SKB_FRAGS);
+> +
+>  		__skb_fill_page_desc(skb, nr_frags,
+>  				     skb_frag_page(nfrag),
+>  				     rx->offset, rx->status);
 >  
->  static u32 *decode_reply_array(u32 *va, u32 *vaend)
->  {
-> +	unsigned long start, end;
->  	int nchunks;
->  	struct rpcrdma_write_array *ary =
->  		(struct rpcrdma_write_array *)va;
-> @@ -143,9 +148,12 @@ static u32 *decode_reply_array(u32 *va, u32 *vaend)
->  		return NULL;
->  	}
->  	nchunks = ntohl(ary->wc_nchunks);
-> -	if (((unsigned long)&ary->wc_array[0] +
-> -	     (sizeof(struct rpcrdma_write_chunk) * nchunks)) >
-> -	    (unsigned long)vaend) {
-> +
-> +	start = (unsigned long)&ary->wc_array[0];
-> +	end = (unsigned long)vaend;
-> +	if (nchunks < 0 ||
-> +	    nchunks > (SIZE_MAX - start) / sizeof(struct rpcrdma_write_chunk) ||
-> +	    (start + (sizeof(struct rpcrdma_write_chunk) * nchunks)) > end) {
->  		dprintk("svcrdma: ary=%p, wc_nchunks=%d, vaend=%p\n",
->  			ary, nchunks, vaend);
->  		return NULL;
-> --
-> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> +		skb->len += rx->status;
+>  		skb->data_len += rx->status;
+>  
+>  		skb_shinfo(nskb)->nr_frags = 0;
+> @@ -929,7 +939,8 @@ static int handle_incoming_queue(struct 
+>  	while ((skb = __skb_dequeue(rxq)) != NULL) {
+>  		int pull_to = NETFRONT_SKB_CB(skb)->pull_to;
+>  
+> -		__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
+> +		if (pull_to > skb_headlen(skb))
+> +			__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
+>  
+>  		/* Ethernet work: Delayed to here as it peeks the header. */
+>  		skb->protocol = eth_type_trans(skb, dev);
+> @@ -1014,7 +1025,7 @@ err:
+>  
+>  		skb_shinfo(skb)->frags[0].page_offset = rx->offset;
+>  		skb_frag_size_set(&skb_shinfo(skb)->frags[0], rx->status);
+> -		skb->data_len = rx->status;
+> +		skb->len = skb->data_len = rx->status;
+>  
+>  		i = xennet_fill_frags(np, skb, &tmpq);
+>  
+> @@ -1023,7 +1034,6 @@ err:
+>                   * allocation is only partially used.
+>                   */
+>  		skb->truesize += PAGE_SIZE * skb_shinfo(skb)->nr_frags;
+> -		skb->len += skb->data_len;
+>  
+>  		if (rx->flags & XEN_NETRXF_csum_blank)
+>  			skb->ip_summed = CHECKSUM_PARTIAL;
