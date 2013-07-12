@@ -1,91 +1,61 @@
-From: Mark Jackson <mpfj-list@newflow.co.uk>
-Subject: Re: [PATCH] remove vlan tags in CPSW dual emac mode
-Date: Fri, 12 Jul 2013 14:57:03 +0100
-Message-ID: <51E00B2F.6050406@newflow.co.uk>
-References: <4699400.vD3TdgH1nR@localhost> <5176C4FE.4080305@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: updates to syncookies - timestamps not needed any more (freebsd)
+Date: Fri, 12 Jul 2013 07:04:45 -0700
+Message-ID: <1373637885.10804.7.camel@edumazet-glaptop>
+References: <20130708160421.GA9763@order.stressinduktion.org>
+	 <20130711.165726.2168148122875413191.davem@davemloft.net>
+	 <20130712084145.GJ27468@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Markus Brunner <systemprogrammierung.brunner@gmail.com>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org
-To: Mugunthan V N <mugunthanvnm@ti.com>
+Cc: David Miller <davem@davemloft.net>, hannes@stressinduktion.org,
+	netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mercuryimc.plus.com ([80.229.200.144]:45619 "EHLO
-	centos1.newflow.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S964861Ab3GLN5G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 09:57:06 -0400
-In-Reply-To: <5176C4FE.4080305@ti.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:65525 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964823Ab3GLOEr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 10:04:47 -0400
+Received: by mail-pd0-f172.google.com with SMTP id z10so8598757pdj.31
+        for <netdev@vger.kernel.org>; Fri, 12 Jul 2013 07:04:46 -0700 (PDT)
+In-Reply-To: <20130712084145.GJ27468@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23/04/13 18:29, Mugunthan V N wrote:
-> On 4/23/2013 9:48 PM, Markus Brunner wrote:
->> If operating in dual emac mode all packets sent by the CPSW contain vlan headers with the reserved VID 0,
->> which gets stripped away by all somewhat recent Linux versions. Operating systems without that behaviour will fail to communicate.
->> This patch fixes that behaviour by disabling the VLAN_AWARE mode as already described by the comment above.
->>
->> Signed-off-by: Markus Brunner <systemprogrammierung.brunner@gmail.com>
->> Tested-by: Mark Jackson <mpfj@newflow.co.uk>
->>
->> ---
->> --- linux-3.9-rc8.orig/drivers/net/ethernet/ti/cpsw.c    2013-04-23 17:26:11.000000000 +0200
->> +++ linux-3.9-rc8/drivers/net/ethernet/ti/cpsw.c    2013-04-23 17:36:25.000000000 +0200
->> @@ -751,9 +751,9 @@ static void cpsw_init_host_port(struct c
->>       /* switch to vlan unaware mode */
->>       cpsw_ale_control_set(priv->ale, priv->host_port, ALE_VLAN_AWARE,
->>                    CPSW_ALE_VLAN_AWARE);
->>       control_reg = readl(&priv->regs->control);
->> -    control_reg |= CPSW_VLAN_AWARE;
->> +    control_reg &= ~CPSW_VLAN_AWARE;
->>       writel(control_reg, &priv->regs->control);
->>       fifo_mode = (priv->data.dual_emac) ? CPSW_FIFO_DUAL_MAC_MODE :
->>                CPSW_FIFO_NORMAL_MODE;
->>       writel(fifo_mode, &priv->host_port_regs->tx_in_ctl);
-> Disabling VLAN aware mode will enable switching mode and the feature of
-> separating the two down stream port is lost with this patch
-> Please check TRM for more info in *14.3.2.10.2 Dual Mac Mode* chapter
+On Fri, 2013-07-12 at 10:41 +0200, Florian Westphal wrote:
 
-Just to update this (old) thread ...
+> The main difference to what linux does is to avoid encoding the 'count'
+> value (Linux doesn't reseed secret[], and relies on count to detect old
+> cookies).
+> 
+> Not having the counter frees up space to encode tcp options in the cookie
+> instead of the timestamp.
 
-I can still confirm that *without* the above patch, I am *unable* to use both network
-ports on our AM335x board.
+But still wscale and sack options are disabled.
 
-My .dts file contains:-
+lpq83:~# echo 0 >/proc/sys/net/ipv4/tcp_timestamps
+lpq83:~# tcpdump -p -n -s 0 -i eth4
 
-mac: ethernet@4a100000 {
-	dual_emac = <1>;
+07:03:37.337563 IP 7.7.7.84.64131 > 7.7.7.83.22: S 1523884225:1523884225(0) win 29200 <mss 1460,sackOK,timestamp 74412758 0,nop,wscale 6>
+07:03:37.337588 IP 7.7.7.83.22 > 7.7.7.84.64131: S 572330188:572330188(0) ack 1523884226 win 29200 <mss 1460>
+07:03:37.337647 IP 7.7.7.84.64131 > 7.7.7.83.22: . ack 1 win 29200
 
-	cpsw_emac0: slave@4a100200 {
-		dual_emac_res_vlan = <1>;
-	};
 
-	cpsw_emac1: slave@4a100300 {
-		dual_emac_res_vlan = <2>;
-	};
-};
+BTW, following patch allows to test more easily syncookies behavior.
 
-&cpsw_emac0 {
-	phy_id = <&davinci_mdio>, <0>;
-};
+If sysctl_tcp_syncookies is set to 2, we always use syncookies.
 
-&cpsw_emac1 {
-	phy_id = <&davinci_mdio>, <1>;
-};
-
-My /etc/network/interfaces file is:-
-
-auto lo eth0 eth1
-iface lo inet loopback
-iface eth0 inet static
-address 10.0.101.3
-netmask 255.255.0.0
-gateway 10.0.0.1
-iface eth1 inet static
-address 10.1.101.3
-netmask 255.255.0.0
-
-So I'm not sure what's wrong, but it's *definitely* not correct.
-
-Cheers
-Mark J.
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 35675e4..590659e 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1462,7 +1462,8 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	 * limitations, they conserve resources and peer is
+ 	 * evidently real one.
+ 	 */
+-	if (inet_csk_reqsk_queue_is_full(sk) && !isn) {
++	if ((sysctl_tcp_syncookies == 2 ||
++	     inet_csk_reqsk_queue_is_full(sk)) && !isn) {
+ 		want_cookie = tcp_syn_flood_action(sk, skb, "TCP");
+ 		if (!want_cookie)
+ 			goto drop;
