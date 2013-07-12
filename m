@@ -1,44 +1,35 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [net PATCH] atl1e: fix dma mapping warnings
-Date: Fri, 12 Jul 2013 16:26:52 -0700 (PDT)
-Message-ID: <20130712.162652.1236723636413575644.davem@redhat.com>
-References: <1373641128-13634-1-git-send-email-nhorman@tuxdriver.com>
+Subject: Re: [net PATCH] via-rhine: fix dma mapping errors
+Date: Fri, 12 Jul 2013 16:28:46 -0700 (PDT)
+Message-ID: <20130712.162846.1944261225511882226.davem@redhat.com>
+References: <1373650533-20269-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jcliburn@gmail.com, chris.snook@gmail.com
+Cc: netdev@vger.kernel.org, rl@hellgate.ch
 To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26057 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:39698 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751351Ab3GLX1N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Jul 2013 19:27:13 -0400
-In-Reply-To: <1373641128-13634-1-git-send-email-nhorman@tuxdriver.com>
+	id S1755188Ab3GLX24 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Jul 2013 19:28:56 -0400
+In-Reply-To: <1373650533-20269-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Neil Horman <nhorman@tuxdriver.com>
-Date: Fri, 12 Jul 2013 10:58:48 -0400
+Date: Fri, 12 Jul 2013 13:35:33 -0400
 
-> Recently had this backtrace reported:
+> this bug:
+> https://bugzilla.redhat.com/show_bug.cgi?id=951695
+> 
+> Reported a dma debug backtrace:
  ...
-> The usual straighforward failure to check for dma_mapping_error after a map
-> operation is completed.
+> Usual problem with the usual fix, add the appropriate calls to dma_mapping_error
+> where appropriate
 > 
-> This patch should fix it, the reporter wandered off after filing this bz:
-> https://bugzilla.redhat.com/show_bug.cgi?id=954170
-> 
-> and I don't have hardware to test, but the fix is pretty straightforward, so I
-> figured I'd post it for review.
+> Untested, as I don't have hardware, but its pretty straightforward
 > 
 > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-Applied with one style fix:
-
-> -static void atl1e_tx_map(struct atl1e_adapter *adapter,
-> +static int atl1e_tx_map(struct atl1e_adapter *adapter,
->  		      struct sk_buff *skb, struct atl1e_tpd_desc *tpd)
-
-I properly reindented the second line of the argument list.
-
-Thanks.
+Also applied, thanks Neil.
