@@ -1,39 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/tipc: use %*phC to dump small
-	buffers in hex form
-Date: Thu, 11 Jul 2013 17:03:52 -0700 (PDT)
-Message-ID: <20130711.170352.2112080382888138080.davem@davemloft.net>
-References: <1373466634-24842-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Subject: Re: [PATCH net-next] net/usb: add relative mii functions for r815x
+Date: Thu, 11 Jul 2013 17:11:42 -0700 (PDT)
+Message-ID: <20130711.171142.827990641403291865.davem@davemloft.net>
+References: <1373251281-2402-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: andriy.shevchenko@linux.intel.com
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1373466634-24842-1-git-send-email-andriy.shevchenko@linux.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: gregkh@linuxfoundation.org, oliver@neukum.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-usb@vger.kernel.org, nic_swsd@realtek.com
+To: hayeswang@realtek.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33700 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756349Ab3GLALn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 20:11:43 -0400
+In-Reply-To: <1373251281-2402-1-git-send-email-hayeswang@realtek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Date: Wed, 10 Jul 2013 17:30:34 +0300
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Mon, 8 Jul 2013 10:41:21 +0800
 
-> Instead of passing each byte by stack let's use nice specifier for that.
+> Base on cdc_ether, add the mii functions for RTL8152 and RTL8153.
+> The RTL8152 and RTL8153 support ECM mode which use the driver of
+> cdc_ether. Add the mii functions. Then, the basic PHY access is
+> possible.
 > 
-> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 
-Applied, thanks.
-
-------------------------------------------------------------------------------
-See everything from the browser to the database with AppDynamics
-Get end-to-end visibility with application monitoring from AppDynamics
-Isolate bottlenecks and diagnose root cause in seconds.
-Start your free trial of AppDynamics Pro today!
-http://pubads.g.doubleclick.net/gampad/clk?id=48808831&iu=/4140/ostg.clktrk
+This looks like a pretty straightforward addition of support for
+new chips, so applied, thanks.
