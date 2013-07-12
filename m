@@ -1,33 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: updates to syncookies - timestamps not needed any more
- (freebsd)
-Date: Thu, 11 Jul 2013 16:57:26 -0700 (PDT)
-Message-ID: <20130711.165726.2168148122875413191.davem@davemloft.net>
-References: <20130708160421.GA9763@order.stressinduktion.org>
+Subject: Re: [PATCH] net/tipc: use %*phC to dump small
+	buffers in hex form
+Date: Thu, 11 Jul 2013 17:03:52 -0700 (PDT)
+Message-ID: <20130711.170352.2112080382888138080.davem@davemloft.net>
+References: <1373466634-24842-1-git-send-email-andriy.shevchenko@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33581 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753987Ab3GKX51 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 19:57:27 -0400
-In-Reply-To: <20130708160421.GA9763@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
+To: andriy.shevchenko@linux.intel.com
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1373466634-24842-1-git-send-email-andriy.shevchenko@linux.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Mon, 8 Jul 2013 18:04:21 +0200
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Date: Wed, 10 Jul 2013 17:30:34 +0300
 
-> Interesting patch by Andre Opperann of FreeBSD:
-> <http://lists.freebsd.org/pipermail/freebsd-net/2013-July/035999.html>
+> Instead of passing each byte by stack let's use nice specifier for that.
+> 
+> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 
-Interesting work, but outside of the change of hash function I'm not so
-sure.  The whole reason we went to the timestamp field was to eliminate
-the coarse tables.
+Applied, thanks.
 
-I understand that he claims that %99.99 of connections are handled by
-the values he has chosen, but this is still a step backwards in my
-opinion.
+------------------------------------------------------------------------------
+See everything from the browser to the database with AppDynamics
+Get end-to-end visibility with application monitoring from AppDynamics
+Isolate bottlenecks and diagnose root cause in seconds.
+Start your free trial of AppDynamics Pro today!
+http://pubads.g.doubleclick.net/gampad/clk?id=48808831&iu=/4140/ostg.clktrk
