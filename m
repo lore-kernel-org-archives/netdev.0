@@ -1,33 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/usb: add relative mii functions for r815x
-Date: Thu, 11 Jul 2013 17:11:42 -0700 (PDT)
-Message-ID: <20130711.171142.827990641403291865.davem@davemloft.net>
-References: <1373251281-2402-1-git-send-email-hayeswang@realtek.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net] gre: Fix MTU sizing check for gretap tunnels
+Date: Thu, 11 Jul 2013 17:13:50 -0700
+Message-ID: <51DF4A3E.8070102@gmail.com>
+References: <20130711201152.8775.40579.stgit@ahduyck-hc1.jf.intel.com> <CALnjE+p3tqNO9Fbn=+LLtL8VvfvSQyOLDZoFRvGFTXgJzHKqhQ@mail.gmail.com> <1373582702.4600.85.camel@edumazet-glaptop> <CALnjE+oXbT+J01A-9GRxAAVuANaVA6ifF5_oc6ZSWRY2TTVUBw@mail.gmail.com> <CAEP_g=9oLO-LO8UD01VdGESRJrE2yhAPFpuoO_Qrwh=G7FvdhQ@mail.gmail.com>
+Reply-To: Alexander Duyck <alexander.h.duyck@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, oliver@neukum.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-usb@vger.kernel.org, nic_swsd@realtek.com
-To: hayeswang@realtek.com
+Cc: Pravin Shelar <pshelar@nicira.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33700 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756349Ab3GLALn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 20:11:43 -0400
-In-Reply-To: <1373251281-2402-1-git-send-email-hayeswang@realtek.com>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:46876 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756422Ab3GLANx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jul 2013 20:13:53 -0400
+Received: by mail-pd0-f181.google.com with SMTP id 14so8055306pdj.12
+        for <netdev@vger.kernel.org>; Thu, 11 Jul 2013 17:13:52 -0700 (PDT)
+In-Reply-To: <CAEP_g=9oLO-LO8UD01VdGESRJrE2yhAPFpuoO_Qrwh=G7FvdhQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Mon, 8 Jul 2013 10:41:21 +0800
+On 07/11/2013 04:36 PM, Jesse Gross wrote:
+> On Thu, Jul 11, 2013 at 4:19 PM, Pravin Shelar <pshelar@nicira.com> wrote:
+>> On Thu, Jul 11, 2013 at 3:45 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>>> On Thu, 2013-07-11 at 15:24 -0700, Pravin Shelar wrote:
+>>>> On Thu, Jul 11, 2013 at 1:12 PM, Alexander Duyck
+>>>> <alexander.h.duyck@intel.com> wrote:
+>>>>> This change fixes an MTU sizing issue seen with gretap tunnels when non-gso
+>>>>> packets are sent from the interface.
+>>>>>
+>>>>> In my case I was able to reproduce the issue by simply sending a ping of
+>>>>> 1421 bytes with the gretap interface created on a device with a standard
+>>>>> 1500 mtu.
+>>>>>
+>>>>> This fix is based on the fact that the tunnel mtu is already adjusted by
+>>>>> dev->hard_header_len so it would make sense that any packets being compared
+>>>>> against that mtu should also be adjusted by hard_header_len and the tunnel
+>>>>> header instead of just the tunnel header.
+>>>>>
+>>>> we can simplify code by not doing dev->hard_header_len adjustment to tunnel-mtu.
+>>>>
+>>>> And right thing would be adjusting tunnel-mtu according to rt->dst.dev
+>>>> header-len so that we get mtu for out going path.
+>>> What's the mtu value we want to put in the ICMP message ?
+>>>
+>>>
+>> I think it should be max payload that tunnel-device can take for that
+>> route. Something like (route_mtu - (tunnel_header_len + iph_len +
+>> route_dev->header_len))
+>>
+>> gre is been using dev->hard_header_len rather than
+>> rt_dev->hard_header_len for long time which does not look right.
+> I think that it is trying to use the tunnel device's header length to
+> get the payload length. The MTU of the output device should already
+> take into account its header length. I agree that the code is hard to
+> read right now though
 
-> Base on cdc_ether, add the mii functions for RTL8152 and RTL8153.
-> The RTL8152 and RTL8153 support ECM mode which use the driver of
-> cdc_ether. Add the mii functions. Then, the basic PHY access is
-> possible.
-> 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+That is what I assume as well.  The only issue was the fact that after
+the recent changes the calculation was off as it was including the
+Ethernet header size when calculating the network packet size in the
+case of gretap.  Prior to recent changes this code just pulled the
+network packet size out of the network header when comparing it to the MTU.
 
-This looks like a pretty straightforward addition of support for
-new chips, so applied, thanks.
+Thanks,
+
+Alex
