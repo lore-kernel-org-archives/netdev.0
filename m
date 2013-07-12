@@ -1,72 +1,52 @@
-From: Grant Grundler <grantgrundler@gmail.com>
-Subject: Re: [RFC] tulip: Support for byte queue limits
-Date: Fri, 12 Jul 2013 11:14:03 -0700
-Message-ID: <CAP6odjiviidL87Tijg1+H4Z6E+WVNP4nPx=7YR-1=a8_rpJtbA@mail.gmail.com>
-References: <CAP6odjhsL8QPKwurP_H88M3kAoBW-z_jGHtEhL0Tj7AfZNutHA@mail.gmail.com>
-	<20130712180116.21176.qmail@science.horizon.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: eric.dumazet@gmail.com, Grant Grundler <grundler@parisc-linux.org>,
-	"open list:TULIP NETWORK DRI..." <netdev@vger.kernel.org>
-To: George Spelvin <linux@horizon.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH] tcp: account all retransmit failures
+Date: Fri, 12 Jul 2013 11:33:04 -0700
+Message-ID: <1373653984-30249-1-git-send-email-ycheng@google.com>
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net, ncardwell@google.com, edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:54591 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964778Ab3GLSOE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 14:14:04 -0400
-Received: by mail-ob0-f174.google.com with SMTP id wd20so11749324obb.33
-        for <netdev@vger.kernel.org>; Fri, 12 Jul 2013 11:14:04 -0700 (PDT)
-In-Reply-To: <20130712180116.21176.qmail@science.horizon.com>
+Received: from mail-gh0-f202.google.com ([209.85.160.202]:56965 "EHLO
+	mail-gh0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965116Ab3GLSdS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 14:33:18 -0400
+Received: by mail-gh0-f202.google.com with SMTP id g24so863780ghb.1
+        for <netdev@vger.kernel.org>; Fri, 12 Jul 2013 11:33:17 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 12, 2013 at 11:01 AM, George Spelvin <linux@horizon.com> wrote:
->> Hi George,
->> While you are right that functionally it doesn't matter, my preference
->> would be to have nothing between the wmb() and iowrite() that kicks
->> off the TX. This marginally helps kick off the TX process consistently
->> slightly sooner. On modern HW, probably irrelevant, but not on the HW
->> these chips are used on.
->
-> I'll revise it.  It just made sense to me to put it next to the other
-> bookkeeping line of tp->cur_tx++.  Should I move them both below the
-> iowrite()?
+Change snmp RETRANSFAILS stat to include timeout retransmit failures
+in addition to other loss recoveries.
 
-I would prefer that. I agree it's better to keep those two lines of
-code together.
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+---
+ net/ipv4/tcp_output.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-Just keep in mind this is a nit and it's not critical to accepting your change.
-So whatever you submit, I'll probably ACK.
-
->  As in:
->
-> --- a/drivers/net/ethernet/dec/tulip/tulip_core.c
-> +++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
-> @@ -702,11 +702,11 @@ tulip_start_xmit(struct sk_buff *skb, struct net_device *dev)
->         tp->tx_ring[entry].status = cpu_to_le32(DescOwned);
->         wmb();
->
-> -       tp->cur_tx++;
-> -
->         /* Trigger an immediate transmit demand. */
->         iowrite32(0, tp->base_addr + CSR1);
->
-> +       tp->cur_tx++;
-> +       netdev_sent_queue(dev, skb->len);
->         spin_unlock_irqrestore(&tp->lock, flags);
->
->         return NETDEV_TX_OK;
-
-Yup - looks good.
-
->> Lastly, given I haven't powered up a system in two years which has
->> tulip, any one want to take over maintainer for tulip driver?
->> It's basically obsolete with a few rare patches like this one coming in.
->
-> I'm not up to it myself, sorry.
-
-No worries. Just wanted to advertise to anyone who bothers to read
-about tulip patches. :)
-
-cheers,
-grant
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 3d60949..92fde8d 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2407,6 +2407,8 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
+ 		 * see tcp_input.c tcp_sacktag_write_queue().
+ 		 */
+ 		TCP_SKB_CB(skb)->ack_seq = tp->snd_nxt;
++	} else {
++		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPRETRANSFAIL);
+ 	}
+ 	return err;
+ }
+@@ -2528,10 +2530,9 @@ begin_fwd:
+ 		if (sacked & (TCPCB_SACKED_ACKED|TCPCB_SACKED_RETRANS))
+ 			continue;
+ 
+-		if (tcp_retransmit_skb(sk, skb)) {
+-			NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPRETRANSFAIL);
++		if (tcp_retransmit_skb(sk, skb))
+ 			return;
+-		}
++
+ 		NET_INC_STATS_BH(sock_net(sk), mib_idx);
+ 
+ 		if (tcp_in_cwnd_reduction(sk))
+-- 
+1.8.3
