@@ -1,40 +1,40 @@
-From: kaka4real_2013 <kaka4real_2013@libero.it>
-Subject: hi
-Date: Fri, 12 Jul 2013 15:21:09 +0200 (CEST)
-Message-ID: <22337427.21545391373635269071.JavaMail.defaultUser@defaultHost>
-Reply-To: vera.matine@yahoo.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] tulip: Support for byte queue limits
+Date: Fri, 12 Jul 2013 06:39:45 -0700
+Message-ID: <1373636385.10804.5.camel@edumazet-glaptop>
+References: <20130712132054.16269.qmail@science.horizon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: vera.matine@yahoo.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: grundler@parisc-linux.org, netdev@vger.kernel.org
+To: George Spelvin <linux@horizon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outrelay02.libero.it ([212.52.84.102]:55762 "EHLO
-	outrelay02.libero.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964776Ab3GLNVt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 09:21:49 -0400
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:58606 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964827Ab3GLNjr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 09:39:47 -0400
+Received: by mail-pa0-f44.google.com with SMTP id lj1so9028944pab.17
+        for <netdev@vger.kernel.org>; Fri, 12 Jul 2013 06:39:47 -0700 (PDT)
+In-Reply-To: <20130712132054.16269.qmail@science.horizon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 2013-07-12 at 09:20 -0400, George Spelvin wrote:
+> The New Hotness of fq_codel wants bql support, but my WAN link is on my
+> Old And Busted tulip card, which lacks it.
+> 
+> It's just a few lines, but the important thing is knowing where to
+> put them, and I've sort of guessed.  In particular, it seems like the
+> netdev_sent_queue call could be almost anywhere in tulip_start_xmit and
+> I'm not sure if there are reasons to prefer any particular position.
+> 
+> (You may have my S-o-b on copyright grounds, but I'd like to test it
+> some more before declaring this patch ready to be merged.)
 
-Ciao
-il mio nome =C3=A8 vera devo dire che scintilla il mio interesse per un=
- buon=20
-partner, mi piacerebbe sapere di pi=C3=B9 per lo scambio di amore e di =
-amicizia, non=20
-esitate a inviarmi una e-mail attraverso il mio id mail (vera.matine @ =
-yahoo.
-com) Please in modo che io vi mander=C3=B2 la mia foto e ti dir=C3=A0 d=
-i pi=C3=B9 su myself.
-awaiting tua mail in modo che si pu=C3=B2 qui passare da qui, Prenditi =
-cura.
+Seems fine to me.
 
-Hello
-my name is vera i must say it spark my interest for a good partner,i wi=
-ll like=20
-to know you more to exchange love and friendship, Please feel free to s=
-end me a=20
-mail through my mail id ( vera.matine@yahoo.com ) so that i will send y=
-ou my=20
-picture and tell you more about myself.awaiting your mail so that can h=
-ere move=20
-on from here,Take care.
+You might wait before David Miller re-opens net-next for new
+submissions, a bit after linux-3.11-rc1 is released, before
+sending an official patch.
+
+Thanks
