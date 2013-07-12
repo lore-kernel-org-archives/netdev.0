@@ -1,169 +1,175 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v2.34] datapath: Add basic MPLS support to
-	kernel
-Date: Fri, 12 Jul 2013 09:22:33 -0700
-Message-ID: <CAEP_g=90EComK+V5vrQ8fLL-d7Chsvh30g43RmuDgEi4XNbJAQ@mail.gmail.com>
-References: <1372234717-8735-1-git-send-email-horms@verge.net.au>
-	<CAEP_g=-uMQuwK7=35XG8xrToFDoe8HS8yBK51tSWOipS0FdYtA@mail.gmail.com>
-	<20130702041628.GD14567@verge.net.au>
-	<CAEP_g=-_Dh=9U8rVrd9XvWdT-MZoKFfY3=i0_h9EWOzPo4u20w@mail.gmail.com>
-	<20130703013102.GA21323@verge.net.au>
-	<CAEP_g=9bM8-cAC93OOdLVk-ExitCRHP-EjRkO4+Bqzs-Bip00A@mail.gmail.com>
-	<20130711001655.GA22153@verge.net.au>
-	<CAEP_g=-oDR4h0G-uNum3-Yx7nfwRGedkNOc-AC8tJEH+hqKeDA@mail.gmail.com>
-	<20130712015538.GA30897@verge.net.au>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [net PATCH] atl1e: fix dma mapping warnings
+Date: Fri, 12 Jul 2013 12:26:02 -0400
+Message-ID: <20130712162602.GH5854@hmsreliant.think-freely.org>
+References: <1373641128-13634-1-git-send-email-nhorman@tuxdriver.com>
+ <87bo67sr1x.fsf@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Isaku Yamahata <yamahata-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>
-To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20130712015538.GA30897-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Luis Henriques <luis.henriques@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:53447 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932612Ab3GLQ0R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 12:26:17 -0400
+Content-Disposition: inline
+In-Reply-To: <87bo67sr1x.fsf@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCBKdWwgMTEsIDIwMTMgYXQgNjo1NSBQTSwgU2ltb24gSG9ybWFuIDxob3Jtc0B2ZXJn
-ZS5uZXQuYXU+IHdyb3RlOgo+IE9uIFRodSwgSnVsIDExLCAyMDEzIGF0IDA2OjI2OjMyUE0gLTA3
-MDAsIEplc3NlIEdyb3NzIHdyb3RlOgo+PiBPbiBXZWQsIEp1bCAxMCwgMjAxMyBhdCA1OjE2IFBN
-LCBTaW1vbiBIb3JtYW4gPGhvcm1zQHZlcmdlLm5ldC5hdT4gd3JvdGU6Cj4+ID4gT24gTW9uLCBK
-dWwgMDgsIDIwMTMgYXQgMTE6NTE6MThQTSAtMDcwMCwgSmVzc2UgR3Jvc3Mgd3JvdGU6Cj4+ID4+
-IE9uIFR1ZSwgSnVsIDIsIDIwMTMgYXQgNjozMSBQTSwgU2ltb24gSG9ybWFuIDxob3Jtc0B2ZXJn
-ZS5uZXQuYXU+IHdyb3RlOgo+PiA+PiA+IE9uIFR1ZSwgSnVsIDAyLCAyMDEzIGF0IDAyOjU5OjUx
-UE0gLTA3MDAsIEplc3NlIEdyb3NzIHdyb3RlOgo+PiA+PiA+PiBPbiBNb24sIEp1bCAxLCAyMDEz
-IGF0IDk6MTYgUE0sIFNpbW9uIEhvcm1hbiA8aG9ybXNAdmVyZ2UubmV0LmF1PiB3cm90ZToKPj4g
-Pj4gPj4gPiBPbiBNb24sIEp1bCAwMSwgMjAxMyBhdCAwNDo0Mjo0NlBNIC0wNzAwLCBKZXNzZSBH
-cm9zcyB3cm90ZToKPj4gPj4gPj4gPj4gT24gV2VkLCBKdW4gMjYsIDIwMTMgYXQgMToxOCBBTSwg
-U2ltb24gSG9ybWFuIDxob3Jtc0B2ZXJnZS5uZXQuYXU+IHdyb3RlOgo+PiA+PiA+PiA+PiA+IEFs
-bG93IGRhdGFwYXRoIHRvIHJlY29nbml6ZSBhbmQgZXh0cmFjdCBNUExTIGxhYmVscyBpbnRvIGZs
-b3cga2V5cwo+PiA+PiA+PiA+PiA+IGFuZCBleGVjdXRlIGFjdGlvbnMgd2hpY2ggcHVzaCwgcG9w
-LCBhbmQgc2V0IGxhYmVscyBvbiBwYWNrZXRzLgo+PiA+PiA+PiA+PiA+Cj4+ID4+ID4+ID4+ID4g
-QmFzZWQgaGVhdmlseSBvbiB3b3JrIGJ5IExlbyBBbHRlcm1hbiwgUmF2aSBLLCBJc2FrdSBZYW1h
-aGF0YSBhbmQgSm9lIFN0cmluZ2VyLgo+PiA+PiA+PiA+PiA+Cj4+ID4+ID4+ID4+ID4gQ2M6IFJh
-dmkgSyA8cmtlcnVyQGdtYWlsLmNvbT4KPj4gPj4gPj4gPj4gPiBDYzogTGVvIEFsdGVybWFuIDxs
-YWx0ZXJtYW5AbmljaXJhLmNvbT4KPj4gPj4gPj4gPj4gPiBDYzogSXNha3UgWWFtYWhhdGEgPHlh
-bWFoYXRhQHZhbGludXguY28uanA+Cj4+ID4+ID4+ID4+ID4gQ2M6IEpvZSBTdHJpbmdlciA8am9l
-QHdhbmQubmV0Lm56Pgo+PiA+PiA+PiA+PiA+IFNpZ25lZC1vZmYtYnk6IFNpbW9uIEhvcm1hbiA8
-aG9ybXNAdmVyZ2UubmV0LmF1Pgo+PiA+PiA+PiA+Pgo+PiA+PiA+PiA+PiBTaW1vbiwgaGF2ZSB5
-b3UgdGhvdWdodCBhbnkgbW9yZSBhYm91dCB0aGUgaGVhZGVyIG9yZGVyaW5nIGlzc3Vlcz8gSQo+
-PiA+PiA+PiA+PiBkb24ndCB0aGluayB3ZSd2ZSByZWFjaGVkIGEgY29uY2x1c2lvbiBhdCB0aGlz
-IHBvaW50Lgo+PiA+PiA+PiA+Cj4+ID4+ID4+ID4gSSBiZWxpZXZlIHRoYXQgeW91IHRoZW4gcmFp
-c2VkIHRoZSBpc3N1ZSBvZiBRaW5RLCB3aGljaCBzb21laG93Cj4+ID4+ID4+ID4gSSBmYWlsZWQg
-dG8gcmVzcG9uZCB0bywgSSBhcG9sb2dpc2UgZm9yIHRoYXQuCj4+ID4+ID4+ID4KPj4gPj4gPj4g
-PiBJbiBwYXJ0aWN1bGFyLCBteSB1bmRlcnN0YW5kaW5nIGlzIHRoYXQgeW91IGFyZSBjb25jZXJu
-ZWQgdGhlIGNvZGUgd2lsbAo+PiA+PiA+PiA+IG1pc3MtY2FsY3VsYXRlIHRoZSBlbmQgb2YgTDIg
-aGVhZGVycyBpbiB0aGUgcHJlc2VuY2Ugb2YgbXVsdGlwbGUgVkxBTiB0YWdzLgo+PiA+PiA+PiA+
-IFRodXMgcmVzdWx0aW5nIGluIGFuIE1QTFMgcHVzaCBhY3Rpb24gaW5zZXJ0aW5nIGFuIE1QTFMg
-TFNFIGFmdGVyIHRoZSBmaXJzdAo+PiA+PiA+PiA+IHJhdGhlciB0aGFuIHRoZSBsYXN0IFZMQU4g
-dGFnLiBBbmQgdGhhdCB3b3VsZCBsaWtlbHkgY2hhbmdlIGlmIFFpblEgc3VwcG9ydAo+PiA+PiA+
-PiA+IHdhcyBhZGRlZCB0byBPcGVuIHZTd3RpY2guCj4+ID4+ID4+ID4KPj4gPj4gPj4gPiBJIHdv
-bmRlciBpZiBhIGdvb2Qgd2F5IGZvcndhcmRzIGlzIHRvIGVuaGFuY2UgdGhlIGNhbGN1bGF0aW9u
-Cj4+ID4+ID4+ID4gb2YgdGhlIGVuZCBvZiBMMiBoZWFkZXJzIChtYWNfbGVuKSBhbmQgdGhlIGJl
-Z2lubmluZyBvZiBMMyBoZWFkZXJzCj4+ID4+ID4+ID4gKG5ldHdvcmtfaGVhZGVyKSBpbiBvdnNf
-Zmxvd19leHRyYWN0KCkgc3VjaCB0aGF0IGl0IHRha2VzIGludG8KPj4gPj4gPj4gPiBhY2NvdW50
-IHRoZSBwcmVzZW5jZSBvZiBtb3JlIHRoYW4gb25lIFZMQU4gdGFnLgo+PiA+PiA+Pgo+PiA+PiA+
-PiBUaGUgcHJvYmxlbSBpcyB0aGF0IHRoaXMgcmVxdWlyZXMgYmVpbmcgYWJsZSB0byBjYWxjdWxh
-dGUgdGhlIGxlbmd0aAo+PiA+PiA+PiBvZiBhbGwgcG9zc2libGUgaGVhZGVycyB0aGF0IHdlIG1p
-Z2h0IHdhbnQgdG8gc3VwcG9ydCBpbiB0aGUgZnV0dXJlLgo+PiA+PiA+PiBJbiB0aGUgY2FzZSBv
-ZiBRaW5RLCB0aGlzIHdvdWxkIG1lYW4gdGhlIHZhcmlvdXMgRXRoZXJUeXBlcy4gWW91IGNvdWxk
-Cj4+ID4+ID4+IGFsc28gaW1hZ2luZSBvdGhlciB0aGluZ3MgbGlrZSBNQUMtaW4tTUFDIHRoYXQg
-YXJlIGZhcnRoZXIgYWZpZWxkIGZyb20KPj4gPj4gPj4gd2hhdCB3ZSBjdXJyZW50bHkgc3VwcG9y
-dC4KPj4gPj4gPgo+PiA+PiA+IFRoYXQgaXMgdHJ1ZS4KPj4gPj4gPgo+PiA+PiA+IEkgdGhpbmsg
-dGhhdCB0aGUga2V5IHByb2JsZW0gaXMgaXQgdGhhdCBpdCBpcyBoYXJkIGZvciB1cwo+PiA+PiA+
-IHRvIGNvcnJlY3RseSBkZXRlcm1pbmUgd2hlcmUgdGhlIGVuZCBvZiB0aGUgTDIgaGVhZGVyIGlz
-LAo+PiA+PiA+IG9yIG1vcmUgc3BlY2lmaWNhbGx5IHdoZXJlIHRoZSBNUExTIHRhZyBzaG91bGQg
-Z28sIGZvciBhbGwgY2FzZXMuCj4+ID4+ID4gUGFydGljdWxhcmx5IGNhc2VzIHdoaWNoIGFyZSB5
-ZXQgdG8gYmUgZGVmaW5lZC4KPj4gPj4gPgo+PiA+PiA+IEhhdmluZyBzcG9rZW4gd2l0aCBKb2Ug
-YWJvdXQgdGhpcyB3ZSBzZWUgdHdvIG1haW4gb3B0aW9uczoKPj4gPj4gPgo+PiA+PiA+IDEuIFRo
-ZSBzdGF0dXMgcXVvIGFzIG9mIHRoaXMgcGF0Y2guIFdoaWNoIGlzIHRoYXQgTVBMUyBhY3Rpb25z
-Cj4+ID4+ID4gICAgbWF5IGJlIGludmFsaWQgZm9yIHNvbWUgY2FzZXMuCj4+ID4+ID4KPj4gPj4g
-PiAgICBXaGlsZSBpdCBzaG91bGQgYmUgYmUgcG9zc2libGUgdG8gc29sdmUgaW5kaXZpZHVhbCBj
-YXNlcywKPj4gPj4gPiAgICB0aGlzIGRvZXNuJ3Qgc29sdmUgdGhlIGdlbmVyYWwgY2FzZS4KPj4g
-Pj4gPgo+PiA+PiA+IDIuIE9ubHkgYWxsb3cgTVBMUyBhY3Rpb25zIG9uIGV0aGVyIHR5cGVzIHdo
-ZXJlIHRoZSBpbXBsZW1lbnRhdGlvbgo+PiA+PiA+ICAgIGlzIGtub3duIHRvIHdvcmsuCj4+ID4+
-ID4KPj4gPj4gPiAgICBUaGlzIGNvdWxkIGFjdCBhcyBhIHdoaXRlIGxpc3Qgb2Ygc29ydHMuIEl0
-IGNvdWxkIHN0YXJ0IHdpdGgKPj4gPj4gPiAgICB0aGUgb2J2aW91cyBjYW5kaWRhdGVzOiBJUHY0
-LCBJUHY2LCBBUlAsIDgwMi4xUSwuLi4KPj4gPj4gPiAgICBBbmQgc3VwcG9ydCBmb3IgbW9yZSBw
-cm90b2NvbHMgY291bGQgYmUgYWRkZWQgaW4gdGhlIGZ1dHVyZS4KPj4gPj4gPgo+PiA+PiA+ICAg
-IFRoaXMgd291bGQgc2VlbSB0byByZWZsZWN0IHRoZSBzb21ld2hhdCBzcGVjaWFsIG5hdHVyZSBv
-ZiBNUExTLgo+PiA+Pgo+PiA+PiBJIHRoaW5rIHdoYXQgaXMgcmVhbGx5IG5lY2Vzc2FyeSBhdCB0
-aGUga2VybmVsIGxldmVsIGlzIHNvbWUKPj4gPj4gZmxleGliaWxpdHkgYWJvdXQgd2hlcmUgdG8g
-cHV0IHRoZSBuZXdseSBpbnNlcnRlZCBNUExTIGhlYWRlci4gVGhlbgo+PiA+PiB5b3UgY291bGQg
-YmFzaWNhbGx5IGNob3NlIGVpdGhlciBvZiB0aGUgdHdvIG9wdGlvbnMgYWJvdmUgb3IgZXhwb3J0
-Cj4+ID4+IHRoZSBmbGV4aWJpbGl0eSB0aHJvdWdoIE9wZW5GbG93ICh3aGljaCBieSBteSByZWFk
-aW5nIG9mIHRoZSBzcGVjIGlzCj4+ID4+IGFscmVhZHkgc3VwcG9zZWQgdG8gYmUgYWxsb3dlZCku
-IEZ1cnRoZXJtb3JlLCB5b3UgY291bGQgZG8gZGlmZmVyZW50Cj4+ID4+IHRoaW5ncyBpbiBkaWZm
-ZXJlbnQgc2l0dWF0aW9ucyBhcyBPcGVuRmxvdyBldm9sdmVzLCB3aGljaCByZWFsbHkgaGFzCj4+
-ID4+IHRvIGJlIGRvbmUgYXQgdGhlIHVzZXJzcGFjZSBsZXZlbCBzaW5jZSBvbmx5IGl0IGhhcyB0
-aGUgZnVsbCBzZXQgb2YKPj4gPj4ga25vd2xlZGdlIGFib3V0IHRoZSBwcm90b2NvbC4KPj4gPgo+
-PiA+IEkgd29uZGVyIGlmIHRoaXMgY2FuIGJlIGFjaGlldmVkIGJ5IGFkZGluZyBhIGxpc3Qgb2Yg
-ZmVhdHVyZXMgdG8KPj4gPiB0aGUgTVBMUyBwdXNoIGFjdGlvbiwgZm9yIGV4YW1wbGUgYXMgYSBw
-b3NzaWJseSB6ZXJvLWxlbmd0aCBhcnJheSBvZgo+PiA+IGludGVnZXJzIHdoaWNoIGVuY29kZSBm
-ZWF0dXJlIGJpdHMuCj4+ID4KPj4gPiBBdCB0aGUgdGltZSB0aGF0IE1QTFMgc3VwcG9ydCBpcyBh
-ZGRlZCB0byB0aGUgZGF0YXBhdGggd2UgY291bGQgZGVmaW5lIHRoYXQKPj4gPiBhbGwgdGhlIGJp
-dHMgYXJlIHplcm8gYW5kIHRoZSBiZWhhdmlvdXIgb2YgdGhlIGNvZGUgYXQgdGhhdCB0aW1lIGlz
-IHRoZQo+PiA+IGV4cGVjdGVkIGJlaGF2aW91ci4KPj4gPgo+PiA+IFN1cHBvc2UgdGhhdCBhIG5l
-dyBmZWF0dXJlIGlzIGFkZGVkIGluIHRoZSBmdXR1cmUuICBJIHdpbGwgdXNlIHRoZSBleGFtcGxl
-Cj4+ID4gb2Ygc3VwcG9ydCBmb3IgODAyLjFhZCAodGhlIHN0YW5kYXJkaXNlZCB2YXJpYW50IG9m
-IFEtaW4tUSkuCj4+ID4KPj4gPiBUaGUgbG9naWMgaW4gdGhlIGRhdGFwYXRoIHRvIGRldGVybWlu
-ZSB0aGUgZW5kIG9mIHRoZSBMMiBoZWFkZXIgYW5kIHRodXMKPj4gPiB0aGUgdG9wIG9mIHRoZSBN
-UExTIExTRSBzdGFjayBjb3VsZCBiZSBndWFyZGVkIGJ5IGEgbmV3IGZlYXR1cmUgYml0LAo+PiA+
-IHRoZSBhZC1iaXQuCj4+ID4KPj4gPiBJZiBhbiBNUExTIHB1c2ggYWN0aW9uLCBzdXBwbGllZCBi
-eSB1c2Vyc3BhY2UsIGhhcyB0aGUgYWQtYml0IHNldCB0aGVuIHRoZQo+PiA+IG5ldyBsb2dpYyBp
-cyB1c2VkIGFuZCB0aGUgTVBMUyBMU0UgaXMgaW5zZXJ0ZWQgYWNjb3JkaW5nbHkuCj4+ID4gQ29u
-dmVyc2VseSwgaWYgdGhlIE1QTFMgcHVzaCBhY3Rpb24gZG9lcyBub3QgaGF2ZSB0aGUgYml0IHNl
-dCB0aGVuIHRoZQo+PiA+IG9sZCBsb2dpYyBpcyB1c2VkIGFuZCB0aGUgTVBMUyBMU0UgaXMgaW5z
-ZXJ0ZWQgYXMgaWYgdGhlIGRhdGFwYXRoCj4+ID4gZGlkbid0IHVuZGVyc3RhbmQgODAyLjFhZC4K
-Pj4gPgo+PiA+IEluIHRoaXMgd2F5IGl0IHdvdWxkIGJlIHBvc3NpYmxlIGZvciB1c2Vyc3BhY2Ug
-dG8gc2VsZWN0IHRoZSBkZXNpcmVkCj4+ID4gYmVoYXZpb3VyLiBBbiBvbGQgdXNlci1zcGFjZSB3
-b3VsZCB1c2UgdGhlIG9sZCBiZWhhdmlvdXIuIEEgbmV3IHVzZXJzcGFjZQo+PiA+IG1heSBjaG9v
-c2UgdGhlIG9sZCBvciB0aGUgbmV3IGJlaGF2aW91ci4KPj4gPgo+PiA+IEFuZCBpdCB3b3VsZCBi
-ZSBwb3NzaWJsZSBmb3IgdGhlIGRhdGFwYXRoIHRvIHJlamVjdCBmYWNldHMgd2l0aCBNUExTCj4+
-ID4gcHVzaCBhY3Rpb25zIHdpdGggZmVhdHVyZSBiaXRzIG9yIGNvbWJpbmF0aW9ucyBvZiBmZWF0
-dXJlIGJpdHMgdGhhdAo+PiA+IGFyZSBub3Qgc3VwcG9ydGVkLgo+Pgo+PiBIbW0sIEkgdGhpbmsg
-dGhhdCB0aGlzIG1heSBiZWNvbWUgZmFpcmx5IGNvbXBsaWNhdGVkIG92ZXIgdGltZSBhcyB5b3UK
-Pj4gaGF2ZSBhIG51bWJlciBvZiBkaWZmZXJlbnQgdHlwZXMuCj4+Cj4+IEdvaW5nIGJhY2sgdG8g
-dGhlIE9wZW5GbG93IHNwZWM6Cj4+Cj4+ICJOZXdseSBwdXNoZWQgdGFncyBzaG91bGQgYWx3YXlz
-IGJlIGluc2VydGVkIGFzIHRoZSBvdXRlcm1vc3QgdGFnIGluCj4+IHRoZSBvdXRlcm1vc3QgdmFs
-aWQgbG9jYXRpb24gZm9yCj4+IHRoYXQgdGFnLiBXaGVuIGEgbmV3IFZMQU4gdGFnIGlzIHB1c2hl
-ZCwgaXQgc2hvdWxkIGJlIHRoZSBvdXRlcm1vc3QKPj4gdGFnIGluc2VydGVkLCBpbW1lZGlhdGVs
-eSBhZnRlcgo+PiB0aGUgRXRoZXJuZXQgaGVhZGVyIGFuZCBiZWZvcmUgb3RoZXIgdGFncy4gTGlr
-ZXdpc2UsIHdoZW4gYSBuZXcgTVBMUwo+PiB0YWcgaXMgcHVzaGVkLCBpdCBzaG91bGQgYmUgdGhl
-Cj4+IG91dGVybW9zdCB0YWcgaW5zZXJ0ZWQsIGltbWVkaWF0ZWx5IGFmdGVyIHRoZSBFdGhlcm5l
-dCBoZWFkZXIgYW5kCj4+IGJlZm9yZSBvdGhlciB0YWdzLgo+Pgo+PiBXaGVuIG11bHRpcGxlIHB1
-c2ggYWN0aW9ucyBhcmUgYWRkZWQgdG8gdGhlIGFjdGlvbiBzZXQgb2YgdGhlIHBhY2tldCwKPj4g
-dGhleSBhcHBseSB0byB0aGUgcGFja2V0IGluIHRoZQo+PiBvcmRlciBkZe+sgW5lZCBieSB0aGUg
-YWN0aW9uIHNldCBydWxlcywg76yBcnN0IE1QTFMsIHRoZW4gUEJCLCB0aGFuIFZMQU4KPj4gKHNl
-IDUuMTApLiBXaGVuIG11bHRpcGxlIHB1c2gKPj4gYWN0aW9ucyBhcmUgaW5jbHVkZWQgaW4gYW4g
-YWN0aW9uIGxpc3QsIHRoZXkgYXBwbHkgdG8gdGhlIHBhY2tldCBpbgo+PiB0aGUgbGlzdCBvcmRl
-ciAoc2VlIDUuMTEpLiIKPj4KPj4gVGhpcyBzZWVtcyBhYm91dCBhcyBmbGV4aWJsZSBhcyBhbnl0
-aGluZyB0aGF0IEkgY2FuIHRoaW5rIG9mIGF0IHRoZQo+PiBtb21lbnQgYW5kIGZhaXJseSBzdHJh
-aWdodGZvcndhcmQ6IGJhc2ljYWxseSB3ZSB3b3VsZG4ndCBuZWVkIHRvIHNraXAKPj4gb3ZlciB2
-bGFuIHRhZ3MgYXQgdGhlIGJlZ2lubmluZyBiZWNhdXNlIHdlIHdvdWxkIGp1c3QgcHVzaCB0YWdz
-IGluCj4+IGZyb250IG9mIHRoZW0uIElmIHVzZXJzcGFjZSB3YW50cyB0aGVtIGluIHRoZSBvcHBv
-c2l0ZSBvcmRlciB0aGVuIGl0Cj4+IGNhbiBwb3Agb2ZmIHRoZSB0YWdzIGFuZCBwdXQgdGhlbSBi
-YWNrIGJ1dCBJIHN1c3BlY3QgdGhhdCB0aGlzIGlzCj4+IGFjdHVhbGx5IHF1aXRlIHVuY29tbW9u
-Lgo+Cj4gVGhhbmtzLgo+Cj4gSSBhZ3JlZSB0aGF0IHlvdXIgcHJvcG9zZWQgc2NoZW1lIHNob3Vs
-ZCBjb3ZlciBhbGwgdGhlIGJhc2VzLgo+Cj4gSW4gdGhlIGNhc2Ugb2YgT3BlbkZsb3cgMS4yIEkg
-dGhpbmsgdGhlIHNwZWMgaXMgZmFpcmx5IGNsZWFyIHRoYXQgdGhlIE1QTFMKPiBsYWJlbCBzdGFj
-ayBzaG91bGQgZm9sbG93IGFueSBWTEFOIHRhZ3MuIFNvIEkgbm93IHBsYW4gdG8gYWRkIGxvZ2lj
-IHRvIHBvcAo+IG9mZiB0aGUgVkxBTiB0YWdzIGFuZCBwdXQgdGhlbSBvbiwgYXMgeW91IHN1Z2dl
-c3QgYWJvdmUuCj4KPj4gSSBrbm93IHlvdSBtZW50aW9uZWQgYmVmb3JlIHRoYXQgdGhlIHZhbGlk
-IGxvY2F0aW9uIGZvciB0aGUgTVBMUyBsYWJlbAo+PiBpcyBhZnRlciB0aGUgdmxhbiB0YWdzIGJ1
-dCB0aGVyZSBhcmUgc2V2ZXJhbCB3YXlzIHRvIHVzZSBNUExTIGFuZCBJCj4+IHRoaW5rIHRoZSBs
-YXN0IGxpbmUgb2YgdGhlIGZpcnN0IHBhcmFncmFwaCBpcyBmYWlybHkgY2xlYXIuCj4KPiBXaXRo
-IHRoYXQgaW4gbWluZCBJIHBsYW4gdG8gaGF2ZSB1c2Vyc3BhY2UgdXNlIHRoZSBvcmRlciB0aGF0
-IHlvdSBzdWdnZXN0LAo+IGp1c3QgYWRkaW5nIHRoZSBNUExTIGFzIHRoZSBvdXRlci1tb3N0IHRh
-ZywgaW4gdGhlIGNhc2Ugb2YgT3BlbkZsb3cgMS4zLgoKR3JlYXQsIHNvdW5kcyBnb29kIHRvIG1l
-LgpYLUN1ZGFNYWlsLVdoaXRlbGlzdC1UbzogZGV2QG9wZW52c3dpdGNoLm9yZwpfX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRl
-dkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZv
-L2Rldgo=
+On Fri, Jul 12, 2013 at 05:04:26PM +0100, Luis Henriques wrote:
+> Neil Horman <nhorman@tuxdriver.com> writes:
+> 
+> > Recently had this backtrace reported:
+> > WARNING: at lib/dma-debug.c:937 check_unmap+0x47d/0x930()
+> > Hardware name: System Product Name
+> > ATL1E 0000:02:00.0: DMA-API: device driver failed to check map error[device
+> > address=0x00000000cbfd1000] [size=90 bytes] [mapped as single]
+> > Modules linked in: xt_conntrack nf_conntrack ebtable_filter ebtables
+> > ip6table_filter ip6_tables snd_hda_codec_hdmi snd_hda_codec_realtek iTCO_wdt
+> > iTCO_vendor_support snd_hda_intel acpi_cpufreq mperf coretemp btrfs zlib_deflate
+> > snd_hda_codec snd_hwdep microcode raid6_pq libcrc32c snd_seq usblp serio_raw xor
+> > snd_seq_device joydev snd_pcm snd_page_alloc snd_timer snd lpc_ich i2c_i801
+> > soundcore mfd_core atl1e asus_atk0110 ata_generic pata_acpi radeon i2c_algo_bit
+> > drm_kms_helper ttm drm i2c_core pata_marvell uinput
+> > Pid: 314, comm: systemd-journal Not tainted 3.9.0-0.rc6.git2.3.fc19.x86_64 #1
+> > Call Trace:
+> >  <IRQ>  [<ffffffff81069106>] warn_slowpath_common+0x66/0x80
+> >  [<ffffffff8106916c>] warn_slowpath_fmt+0x4c/0x50
+> >  [<ffffffff8138151d>] check_unmap+0x47d/0x930
+> >  [<ffffffff810ad048>] ? sched_clock_cpu+0xa8/0x100
+> >  [<ffffffff81381a2f>] debug_dma_unmap_page+0x5f/0x70
+> >  [<ffffffff8137ce30>] ? unmap_single+0x20/0x30
+> >  [<ffffffffa01569a1>] atl1e_intr+0x3a1/0x5b0 [atl1e]
+> >  [<ffffffff810d53fd>] ? trace_hardirqs_off+0xd/0x10
+> >  [<ffffffff81119636>] handle_irq_event_percpu+0x56/0x390
+> >  [<ffffffff811199ad>] handle_irq_event+0x3d/0x60
+> >  [<ffffffff8111cb6a>] handle_fasteoi_irq+0x5a/0x100
+> >  [<ffffffff8101c36f>] handle_irq+0xbf/0x150
+> >  [<ffffffff811dcb2f>] ? file_sb_list_del+0x3f/0x50
+> >  [<ffffffff81073b10>] ? irq_enter+0x50/0xa0
+> >  [<ffffffff8172738d>] do_IRQ+0x4d/0xc0
+> >  [<ffffffff811dcb2f>] ? file_sb_list_del+0x3f/0x50
+> >  [<ffffffff8171c6b2>] common_interrupt+0x72/0x72
+> >  <EOI>  [<ffffffff810db5b2>] ? lock_release+0xc2/0x310
+> >  [<ffffffff8109ea04>] lg_local_unlock_cpu+0x24/0x50
+> >  [<ffffffff811dcb2f>] file_sb_list_del+0x3f/0x50
+> >  [<ffffffff811dcb6d>] fput+0x2d/0xc0
+> >  [<ffffffff811d8ea1>] filp_close+0x61/0x90
+> >  [<ffffffff811fae4d>] __close_fd+0x8d/0x150
+> >  [<ffffffff811d8ef0>] sys_close+0x20/0x50
+> >  [<ffffffff81725699>] system_call_fastpath+0x16/0x1b
+> >
+> > The usual straighforward failure to check for dma_mapping_error after a map
+> > operation is completed.
+> >
+> > This patch should fix it, the reporter wandered off after filing this bz:
+> > https://bugzilla.redhat.com/show_bug.cgi?id=954170
+> >
+> > and I don't have hardware to test, but the fix is pretty straightforward, so I
+> > figured I'd post it for review.
+> >
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> > CC: Jay Cliburn <jcliburn@gmail.com>
+> > CC: Chris Snook <chris.snook@gmail.com>
+> > CC: "David S. Miller" <davem@davemloft.net>
+> > ---
+> >  drivers/net/ethernet/atheros/atl1e/atl1e_main.c | 26 +++++++++++++++++++++++--
+> >  1 file changed, 24 insertions(+), 2 deletions(-)
+> >
+> > diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+> > index 895f537..53a725b 100644
+> > --- a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+> > +++ b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+> > @@ -1665,7 +1665,7 @@ check_sum:
+> >  	return 0;
+> >  }
+> >  
+> > -static void atl1e_tx_map(struct atl1e_adapter *adapter,
+> > +static int atl1e_tx_map(struct atl1e_adapter *adapter,
+> >  		      struct sk_buff *skb, struct atl1e_tpd_desc *tpd)
+> >  {
+> >  	struct atl1e_tpd_desc *use_tpd = NULL;
+> > @@ -1677,6 +1677,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+> >  	u16 nr_frags;
+> >  	u16 f;
+> >  	int segment;
+> > +	int ring_start = adapter->tx_ring.next_to_use;
+> >  
+> >  	nr_frags = skb_shinfo(skb)->nr_frags;
+> >  	segment = (tpd->word3 >> TPD_SEGMENT_EN_SHIFT) & TPD_SEGMENT_EN_MASK;
+> > @@ -1689,6 +1690,9 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+> >  		tx_buffer->length = map_len;
+> >  		tx_buffer->dma = pci_map_single(adapter->pdev,
+> >  					skb->data, hdr_len, PCI_DMA_TODEVICE);
+> > +		if (dma_mapping_error(&adapter->pdev->dev, tx_buffer->dma))
+> > +			return -ENOSPC;
+> > +
+> >  		ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_SINGLE);
+> >  		mapped_len += map_len;
+> >  		use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
+> > @@ -1715,6 +1719,13 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+> >  		tx_buffer->dma =
+> >  			pci_map_single(adapter->pdev, skb->data + mapped_len,
+> >  					map_len, PCI_DMA_TODEVICE);
+> > +
+> > +		if (dma_mapping_error(&adapter->pdev->dev, tx_buffer->dma)) {
+> > +			/* Reset the tx rings next pointer */
+> > +			adapter->tx_ring.next_to_use = ring_start;
+> > +			return -ENOSPC;
+> > +		}
+> > +
+> >  		ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_SINGLE);
+> >  		mapped_len  += map_len;
+> >  		use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
+> > @@ -1750,6 +1761,13 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+> >  							  (i * MAX_TX_BUF_LEN),
+> >  							  tx_buffer->length,
+> >  							  DMA_TO_DEVICE);
+> > +
+> > +			if (dma_mapping_error(&adapter->pdev->dev, tx_buffer->dma)) {
+> > +				/* Reset the ring next to use pointer */
+> > +				adapter->tx_ring.next_to_use = ring_start;
+> > +				return -ENOSPC;
+> > +			}
+> > +
+> >  			ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_PAGE);
+> >  			use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
+> >  			use_tpd->word2 = (use_tpd->word2 & (~TPD_BUFLEN_MASK)) |
+> > @@ -1767,6 +1785,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+> >  	/* The last buffer info contain the skb address,
+> >  	   so it will be free after unmap */
+> >  	tx_buffer->skb = skb;
+> > +	return 0;
+> 
+> Looks good to me, except from return statement in a void function.
+> 
+> Cheers,
+> -- 
+> Luis
+Oops, thanks, I'll fix that up. v2 on its way
+Neil
+
+> 
+> >  }
+> >  
+> >  static void atl1e_tx_queue(struct atl1e_adapter *adapter, u16 count,
+> > @@ -1834,10 +1853,13 @@ static netdev_tx_t atl1e_xmit_frame(struct sk_buff *skb,
+> >  		return NETDEV_TX_OK;
+> >  	}
+> >  
+> > -	atl1e_tx_map(adapter, skb, tpd);
+> > +	if (atl1e_tx_map(adapter, skb, tpd))
+> > +		goto out;
+> > +
+> >  	atl1e_tx_queue(adapter, tpd_req, tpd);
+> >  
+> >  	netdev->trans_start = jiffies; /* NETIF_F_LLTX driver :( */
+> > +out:
+> >  	spin_unlock_irqrestore(&adapter->tx_lock, flags);
+> >  	return NETDEV_TX_OK;
+> >  }
+> 
