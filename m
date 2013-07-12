@@ -1,157 +1,99 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [net PATCH] atl1e: fix dma mapping warnings
-Date: Fri, 12 Jul 2013 12:29:28 -0400
-Message-ID: <20130712162928.GI5854@hmsreliant.think-freely.org>
-References: <1373641128-13634-1-git-send-email-nhorman@tuxdriver.com>
- <87bo67sr1x.fsf@canonical.com>
+From: Grant Grundler <grantgrundler@gmail.com>
+Subject: Re: [RFC] tulip: Support for byte queue limits
+Date: Fri, 12 Jul 2013 09:31:08 -0700
+Message-ID: <CAP6odjhsL8QPKwurP_H88M3kAoBW-z_jGHtEhL0Tj7AfZNutHA@mail.gmail.com>
+References: <20130712132054.16269.qmail@science.horizon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Luis Henriques <luis.henriques@canonical.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	"open list:TULIP NETWORK DRI..." <netdev@vger.kernel.org>
+To: George Spelvin <linux@horizon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53520 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932612Ab3GLQ3f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 12:29:35 -0400
-Content-Disposition: inline
-In-Reply-To: <87bo67sr1x.fsf@canonical.com>
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:62191 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964992Ab3GLQbJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 12:31:09 -0400
+Received: by mail-ob0-f179.google.com with SMTP id xk17so11562889obc.10
+        for <netdev@vger.kernel.org>; Fri, 12 Jul 2013 09:31:08 -0700 (PDT)
+In-Reply-To: <20130712132054.16269.qmail@science.horizon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 12, 2013 at 05:04:26PM +0100, Luis Henriques wrote:
-> Neil Horman <nhorman@tuxdriver.com> writes:
-> 
-> > Recently had this backtrace reported:
-> > WARNING: at lib/dma-debug.c:937 check_unmap+0x47d/0x930()
-> > Hardware name: System Product Name
-> > ATL1E 0000:02:00.0: DMA-API: device driver failed to check map error[device
-> > address=0x00000000cbfd1000] [size=90 bytes] [mapped as single]
-> > Modules linked in: xt_conntrack nf_conntrack ebtable_filter ebtables
-> > ip6table_filter ip6_tables snd_hda_codec_hdmi snd_hda_codec_realtek iTCO_wdt
-> > iTCO_vendor_support snd_hda_intel acpi_cpufreq mperf coretemp btrfs zlib_deflate
-> > snd_hda_codec snd_hwdep microcode raid6_pq libcrc32c snd_seq usblp serio_raw xor
-> > snd_seq_device joydev snd_pcm snd_page_alloc snd_timer snd lpc_ich i2c_i801
-> > soundcore mfd_core atl1e asus_atk0110 ata_generic pata_acpi radeon i2c_algo_bit
-> > drm_kms_helper ttm drm i2c_core pata_marvell uinput
-> > Pid: 314, comm: systemd-journal Not tainted 3.9.0-0.rc6.git2.3.fc19.x86_64 #1
-> > Call Trace:
-> >  <IRQ>  [<ffffffff81069106>] warn_slowpath_common+0x66/0x80
-> >  [<ffffffff8106916c>] warn_slowpath_fmt+0x4c/0x50
-> >  [<ffffffff8138151d>] check_unmap+0x47d/0x930
-> >  [<ffffffff810ad048>] ? sched_clock_cpu+0xa8/0x100
-> >  [<ffffffff81381a2f>] debug_dma_unmap_page+0x5f/0x70
-> >  [<ffffffff8137ce30>] ? unmap_single+0x20/0x30
-> >  [<ffffffffa01569a1>] atl1e_intr+0x3a1/0x5b0 [atl1e]
-> >  [<ffffffff810d53fd>] ? trace_hardirqs_off+0xd/0x10
-> >  [<ffffffff81119636>] handle_irq_event_percpu+0x56/0x390
-> >  [<ffffffff811199ad>] handle_irq_event+0x3d/0x60
-> >  [<ffffffff8111cb6a>] handle_fasteoi_irq+0x5a/0x100
-> >  [<ffffffff8101c36f>] handle_irq+0xbf/0x150
-> >  [<ffffffff811dcb2f>] ? file_sb_list_del+0x3f/0x50
-> >  [<ffffffff81073b10>] ? irq_enter+0x50/0xa0
-> >  [<ffffffff8172738d>] do_IRQ+0x4d/0xc0
-> >  [<ffffffff811dcb2f>] ? file_sb_list_del+0x3f/0x50
-> >  [<ffffffff8171c6b2>] common_interrupt+0x72/0x72
-> >  <EOI>  [<ffffffff810db5b2>] ? lock_release+0xc2/0x310
-> >  [<ffffffff8109ea04>] lg_local_unlock_cpu+0x24/0x50
-> >  [<ffffffff811dcb2f>] file_sb_list_del+0x3f/0x50
-> >  [<ffffffff811dcb6d>] fput+0x2d/0xc0
-> >  [<ffffffff811d8ea1>] filp_close+0x61/0x90
-> >  [<ffffffff811fae4d>] __close_fd+0x8d/0x150
-> >  [<ffffffff811d8ef0>] sys_close+0x20/0x50
-> >  [<ffffffff81725699>] system_call_fastpath+0x16/0x1b
-> >
-> > The usual straighforward failure to check for dma_mapping_error after a map
-> > operation is completed.
-> >
-> > This patch should fix it, the reporter wandered off after filing this bz:
-> > https://bugzilla.redhat.com/show_bug.cgi?id=954170
-> >
-> > and I don't have hardware to test, but the fix is pretty straightforward, so I
-> > figured I'd post it for review.
-> >
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> > CC: Jay Cliburn <jcliburn@gmail.com>
-> > CC: Chris Snook <chris.snook@gmail.com>
-> > CC: "David S. Miller" <davem@davemloft.net>
-> > ---
-> >  drivers/net/ethernet/atheros/atl1e/atl1e_main.c | 26 +++++++++++++++++++++++--
-> >  1 file changed, 24 insertions(+), 2 deletions(-)
-> >
-> > diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
-> > index 895f537..53a725b 100644
-> > --- a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
-> > +++ b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
-> > @@ -1665,7 +1665,7 @@ check_sum:
-> >  	return 0;
-> >  }
-> >  
-> > -static void atl1e_tx_map(struct atl1e_adapter *adapter,
-> > +static int atl1e_tx_map(struct atl1e_adapter *adapter,
-> >  		      struct sk_buff *skb, struct atl1e_tpd_desc *tpd)
-> >  {
-> >  	struct atl1e_tpd_desc *use_tpd = NULL;
-> > @@ -1677,6 +1677,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
-> >  	u16 nr_frags;
-> >  	u16 f;
-> >  	int segment;
-> > +	int ring_start = adapter->tx_ring.next_to_use;
-> >  
-> >  	nr_frags = skb_shinfo(skb)->nr_frags;
-> >  	segment = (tpd->word3 >> TPD_SEGMENT_EN_SHIFT) & TPD_SEGMENT_EN_MASK;
-> > @@ -1689,6 +1690,9 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
-> >  		tx_buffer->length = map_len;
-> >  		tx_buffer->dma = pci_map_single(adapter->pdev,
-> >  					skb->data, hdr_len, PCI_DMA_TODEVICE);
-> > +		if (dma_mapping_error(&adapter->pdev->dev, tx_buffer->dma))
-> > +			return -ENOSPC;
-> > +
-> >  		ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_SINGLE);
-> >  		mapped_len += map_len;
-> >  		use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
-> > @@ -1715,6 +1719,13 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
-> >  		tx_buffer->dma =
-> >  			pci_map_single(adapter->pdev, skb->data + mapped_len,
-> >  					map_len, PCI_DMA_TODEVICE);
-> > +
-> > +		if (dma_mapping_error(&adapter->pdev->dev, tx_buffer->dma)) {
-> > +			/* Reset the tx rings next pointer */
-> > +			adapter->tx_ring.next_to_use = ring_start;
-> > +			return -ENOSPC;
-> > +		}
-> > +
-> >  		ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_SINGLE);
-> >  		mapped_len  += map_len;
-> >  		use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
-> > @@ -1750,6 +1761,13 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
-> >  							  (i * MAX_TX_BUF_LEN),
-> >  							  tx_buffer->length,
-> >  							  DMA_TO_DEVICE);
-> > +
-> > +			if (dma_mapping_error(&adapter->pdev->dev, tx_buffer->dma)) {
-> > +				/* Reset the ring next to use pointer */
-> > +				adapter->tx_ring.next_to_use = ring_start;
-> > +				return -ENOSPC;
-> > +			}
-> > +
-> >  			ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_PAGE);
-> >  			use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
-> >  			use_tpd->word2 = (use_tpd->word2 & (~TPD_BUFLEN_MASK)) |
-> > @@ -1767,6 +1785,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
-> >  	/* The last buffer info contain the skb address,
-> >  	   so it will be free after unmap */
-> >  	tx_buffer->skb = skb;
-> > +	return 0;
-> 
-> Looks good to me, except from return statement in a void function.
-> 
-> Cheers,
-> -- 
-> Luis
-> 
-Actually scratch that last note, I don't see any return statements in fuctions
-that return void.  I modified atl1e_tx_map to return an int so we could do the
-right thing in atl1e_xmit_frame.  Is there something I'm missing?
-Neil
+On Fri, Jul 12, 2013 at 6:20 AM, George Spelvin <linux@horizon.com> wrote:
+> The New Hotness of fq_codel wants bql support, but my WAN link is on my
+> Old And Busted tulip card, which lacks it.
+>
+> It's just a few lines, but the important thing is knowing where to
+> put them, and I've sort of guessed.  In particular, it seems like the
+> netdev_sent_queue call could be almost anywhere in tulip_start_xmit and
+> I'm not sure if there are reasons to prefer any particular position.
+
+Hi George,
+While you are right that functionally it doesn't matter, my preference
+would be to have nothing between the wmb() and iowrite() that kicks
+off the TX. This marginally helps kick off the TX process consistently
+slightly sooner. On modern HW, probably irrelevant, but not on the HW
+these chips are used on.
+
+I don't have a clue about fq_codel and trust Eric thinks the change is good.
+
+Lastly, given I haven't powered up a system in two years which has
+tulip, any one want to take over maintainer for tulip driver?
+It's basically obsolete with a few rare patches like this one coming in.
+
+cheers,
+grant
+
+>
+> (You may have my S-o-b on copyright grounds, but I'd like to test it
+> some more before declaring this patch ready to be merged.)
+>
+>
+> diff --git a/drivers/net/ethernet/dec/tulip/interrupt.c b/drivers/net/ethernet/dec/tulip/interrupt.c
+> index 92306b3..d74426e 100644
+> --- a/drivers/net/ethernet/dec/tulip/interrupt.c
+> +++ b/drivers/net/ethernet/dec/tulip/interrupt.c
+> @@ -532,6 +532,7 @@ irqreturn_t tulip_interrupt(int irq, void *dev_instance)
+>  #endif
+>         unsigned int work_count = tulip_max_interrupt_work;
+>         unsigned int handled = 0;
+> +       unsigned int bytes_compl = 0;
+>
+>         /* Let's see whether the interrupt really is for us */
+>         csr5 = ioread32(ioaddr + CSR5);
+> @@ -634,6 +635,7 @@ irqreturn_t tulip_interrupt(int irq, void *dev_instance)
+>                                                  PCI_DMA_TODEVICE);
+>
+>                                 /* Free the original skb. */
+> +                               bytes_compl += tp->tx_buffers[entry].skb->len;
+>                                 dev_kfree_skb_irq(tp->tx_buffers[entry].skb);
+>                                 tp->tx_buffers[entry].skb = NULL;
+>                                 tp->tx_buffers[entry].mapping = 0;
+> @@ -802,6 +804,7 @@ irqreturn_t tulip_interrupt(int irq, void *dev_instance)
+>         }
+>  #endif /* CONFIG_TULIP_NAPI */
+>
+> +       netdev_completed_queue(dev, tx, bytes_compl);
+>         if ((missed = ioread32(ioaddr + CSR8) & 0x1ffff)) {
+>                 dev->stats.rx_dropped += missed & 0x10000 ? 0x10000 : missed;
+>         }
+> diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
+> index 1e9443d..b4249f3 100644
+> --- a/drivers/net/ethernet/dec/tulip/tulip_core.c
+> +++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
+> @@ -703,6 +703,7 @@ tulip_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>         wmb();
+>
+>         tp->cur_tx++;
+> +       netdev_sent_queue(dev, skb->len);
+>
+>         /* Trigger an immediate transmit demand. */
+>         iowrite32(0, tp->base_addr + CSR1);
+> @@ -746,6 +747,7 @@ static void tulip_clean_tx_ring(struct tulip_private *tp)
+>                 tp->tx_buffers[entry].skb = NULL;
+>                 tp->tx_buffers[entry].mapping = 0;
+>         }
+> +       netdev_reset_queue(tp->dev);
+>  }
+>
+>  static void tulip_down (struct net_device *dev)
