@@ -1,27 +1,47 @@
-From: "HelpDesk" <helpdesk@dnet.net.id>
-Subject: Dear E-Mail User
-Date: Sat, 13 Jul 2013 06:29:44 +0700 (WIT)
-Message-ID: <52ac9cef720873c37d55325c848719c6.squirrel@newwebmail.dnet.net.id>
-Reply-To: helpdesksc@webmail.md
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.dnet.net.id ([202.148.1.233]:53211 "EHLO
-	smtp3.dnet.net.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757957Ab3GMAv1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jul 2013 20:51:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Darren Hart <dvhart@linux.intel.com>
+Subject: [PATCH 2/3] pch_gbe: Use PCH_GBE_PHY_REGS_LEN instead of 32
+Date: Fri, 12 Jul 2013 17:58:06 -0700
+Message-ID: <7320fe759f7076354707346a6d98b031f64f4039.1373676797.git.dvhart@linux.intel.com>
+References: <1373677087-7747-1-git-send-email-dvhart@linux.intel.com>
+Cc: Darren Hart <dvhart@linux.intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+	netdev@vger.kernel.org
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1373677087-7747-1-git-send-email-dvhart@linux.intel.com>
+In-Reply-To: <ce5dd365d05f8747d269aa74e0bb929935d9cdee.1373676797.git.dvhart@linux.intel.com>
+References: <ce5dd365d05f8747d269aa74e0bb929935d9cdee.1373676797.git.dvhart@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear E-Mail User.
+Avoid using magic numbers when we have perfectly good defines just lying
+around.
 
-Your Mail quota has reached limit, You might not be able to send or
-receive new mail until you re-validate your mailbox .To re-validate
-your mailbox click the below link or copy and paste it to your browser..
+Signed-off-by: Darren Hart <dvhart@linux.intel.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-http://helpdesksc.jimdo.com/
-
-Technical Support
-192.168.0.1
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index ab1039a..749ddd9 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -682,7 +682,7 @@ static int pch_gbe_init_phy(struct pch_gbe_adapter *adapter)
+ 	}
+ 	adapter->hw.phy.addr = adapter->mii.phy_id;
+ 	netdev_dbg(netdev, "phy_addr = %d\n", adapter->mii.phy_id);
+-	if (addr == 32)
++	if (addr == PCH_GBE_PHY_REGS_LEN)
+ 		return -EAGAIN;
+ 	/* Selected the phy and isolate the rest */
+ 	for (addr = 0; addr < PCH_GBE_PHY_REGS_LEN; addr++) {
+-- 
+1.8.3.1
