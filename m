@@ -1,55 +1,42 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [RFC PATCH] net: add a rate_limit attribute to netdev_queue and
- a rtnetlink
-Date: Sun, 14 Jul 2013 13:44:12 -0400
-Message-ID: <51E2E36C.8030307@mojatatu.com>
-References: <20130710140409.6691.77084.stgit@nitbit.x32> <CA+mtBx-Oa_Mb0YLu5W8sPcXqh80cD7rh5KvH0umzPv8YtbWEMQ@mail.gmail.com> <51DE220A.40505@intel.com>
+From: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [patch -stable] svcrdma: underflow issue in decode_write_list()
+Date: Sun, 14 Jul 2013 22:40:37 +0300
+Message-ID: <CA+_b7D+2O2E0S4vQY37SZcK3VTPUdd1cP8y9NuZM-HWwP3HNGw@mail.gmail.com>
+References: <20130712063903.GB29320@longonot.mountain>
+	<51DFBD49.7000205@bfs.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	ben@decadent.org.uk,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:33983 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751267Ab3GNRoX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Jul 2013 13:44:23 -0400
-Received: by mail-ie0-f179.google.com with SMTP id c10so24191355ieb.38
-        for <netdev@vger.kernel.org>; Sun, 14 Jul 2013 10:44:23 -0700 (PDT)
-In-Reply-To: <51DE220A.40505@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: wharms-fPG8STNUNVg@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <51DFBD49.7000205-fPG8STNUNVg@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 13-07-10 11:10 PM, John Fastabend wrote:
+On 7/12/13, walter harms <wharms-fPG8STNUNVg@public.gmane.org> wrote:
 
+> i am struggling to understand what is actually checked here.
+> Perhaps this improves the readability a bit
+>  if ( nchunks < 0 ||
+>        sizeof(struct rpcrdma_write_chunk) * nchunks > (SIZE_MAX - start) ||
 
->
->> Will this be usable in the case that more than one queue shares a rate?
->
-> Here I must not understand the question. Each queue has independent
-> rate limiters. At least in the hardware supported by ixgbe. Maybe
-> other hardware has a different implementation?
->
+That doesn't work.
 
-I think Tom might be alluding to scenarios where a rate (as a resource)
-is shared by multiple ingress as well as egress interfaces (in your case
-queues). This is a very popular use case with tc (in particular in
-conjunction with IFB).
-In such a case, the rate by itself would need to modeled as an indexable 
-attribute.
+This is one of the few times I get to use algebra in real life.  Yay!
+The problem is you have to
+have the nchunks by itself and the trusted bits on the other side.  So
+the multiply becomes a
+divide.
 
-Some hardware (example modern broadcom switching chips, maybe yours)
-are not capable; So the index would have local semantics as in your 
-case. But I know hardware that does support shared rates.
-Maybe you could come up with IFLA_QUEUE_RATE_LOCAL vs
-IFLA_QUEUE_RATE_GLOBAL which will encapsulate a global index
-for the shared rate.
+There are lots of these checks in the kernel.  It's idiomatic.
 
-cheers,
-jamal
+regards,
+dan carpenter
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
