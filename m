@@ -1,56 +1,55 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [PATCH 00/50] USB: cleanup spin_lock in URB->complete()
-Date: Sun, 14 Jul 2013 22:33:44 +0800
-Message-ID: <CACVXFVPjkUwpnDCeC+y_eczGuen=qu+g74V__SXFCidPp+QYMw@mail.gmail.com>
-References: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
-	<1373807844.4998.10.camel@palomino.walls.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [RFC PATCH] net: add a rate_limit attribute to netdev_queue and
+ a rtnetlink
+Date: Sun, 14 Jul 2013 13:44:12 -0400
+Message-ID: <51E2E36C.8030307@mojatatu.com>
+References: <20130710140409.6691.77084.stgit@nitbit.x32> <CA+mtBx-Oa_Mb0YLu5W8sPcXqh80cD7rh5KvH0umzPv8YtbWEMQ@mail.gmail.com> <51DE220A.40505@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	linux-input@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-media@vger.kernel.org, alsa-devel@alsa-project.org,
-	linux-kernel@vger.kernel.org
-To: Andy Walls <awalls@md.metrocast.net>
-Return-path: <linux-input-owner@vger.kernel.org>
-In-Reply-To: <1373807844.4998.10.camel@palomino.walls.org>
-Sender: linux-input-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <therbert@google.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	ben@decadent.org.uk,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:33983 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751267Ab3GNRoX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Jul 2013 13:44:23 -0400
+Received: by mail-ie0-f179.google.com with SMTP id c10so24191355ieb.38
+        for <netdev@vger.kernel.org>; Sun, 14 Jul 2013 10:44:23 -0700 (PDT)
+In-Reply-To: <51DE220A.40505@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 14, 2013 at 9:17 PM, Andy Walls <awalls@md.metrocast.net> wrote:
-> On Thu, 2013-07-11 at 17:05 +0800, Ming Lei wrote:
->> Hi,
->>
->> As we are going to run URB->complete() in tasklet context[1][2],
+On 13-07-10 11:10 PM, John Fastabend wrote:
+
+
 >
-> Hi,
+>> Will this be usable in the case that more than one queue shares a rate?
 >
-> Please pardon my naivete, but why was it decided to use tasklets to
-> defer work, as opposed to some other deferred work mechanism?
+> Here I must not understand the question. Each queue has independent
+> rate limiters. At least in the hardware supported by ixgbe. Maybe
+> other hardware has a different implementation?
 >
-> It seems to me that getting rid of tasklets has been an objective for
-> years:
->
-> http://lwn.net/Articles/239633/
-> http://lwn.net/Articles/520076/
-> http://lwn.net/Articles/240054/
 
-We discussed the problem in the below link previously[1], Steven
-and Thomas suggested to use threaded irq handler, but which
-may degrade USB mass storage performance, so we have to
-take tasklet now until we rewrite transport part of USB mass storage
-driver.
+I think Tom might be alluding to scenarios where a rate (as a resource)
+is shared by multiple ingress as well as egress interfaces (in your case
+queues). This is a very popular use case with tc (in particular in
+conjunction with IFB).
+In such a case, the rate by itself would need to modeled as an indexable 
+attribute.
 
-Also the conversion[2] has avoided the tasklet spin lock problem
-already.
+Some hardware (example modern broadcom switching chips, maybe yours)
+are not capable; So the index would have local semantics as in your 
+case. But I know hardware that does support shared rates.
+Maybe you could come up with IFLA_QUEUE_RATE_LOCAL vs
+IFLA_QUEUE_RATE_GLOBAL which will encapsulate a global index
+for the shared rate.
 
-
-[1], http://marc.info/?t=137079119200001&r=1&w=2
-[2], http://marc.info/?l=linux-usb&m=137286326726326&w=2
-
-
-Thanks,
---
-Ming Lei
+cheers,
+jamal
