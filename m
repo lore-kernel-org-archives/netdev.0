@@ -1,50 +1,36 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [net PATCH] atl1e: fix dma mapping warnings
-Date: Sat, 13 Jul 2013 22:22:36 -0400
-Message-ID: <20130714022235.GA3429@neilslaptop.think-freely.org>
-References: <1373641128-13634-1-git-send-email-nhorman@tuxdriver.com>
- <20130712.162652.1236723636413575644.davem@redhat.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: buggy check in netlink_mmap_sendmsg()
+Date: Sun, 14 Jul 2013 10:36:19 +0100
+Message-ID: <20130714093619.GH4165@ZenIV.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jcliburn@gmail.com, chris.snook@gmail.com
-To: David Miller <davem@redhat.com>
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:35180 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752265Ab3GNCXC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Jul 2013 22:23:02 -0400
+Received: from zeniv.linux.org.uk ([195.92.253.2]:42728 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751595Ab3GNJgU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Jul 2013 05:36:20 -0400
 Content-Disposition: inline
-In-Reply-To: <20130712.162652.1236723636413575644.davem@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 12, 2013 at 04:26:52PM -0700, David Miller wrote:
-> From: Neil Horman <nhorman@tuxdriver.com>
-> Date: Fri, 12 Jul 2013 10:58:48 -0400
-> 
-> > Recently had this backtrace reported:
->  ...
-> > The usual straighforward failure to check for dma_mapping_error after a map
-> > operation is completed.
-> > 
-> > This patch should fix it, the reporter wandered off after filing this bz:
-> > https://bugzilla.redhat.com/show_bug.cgi?id=954170
-> > 
-> > and I don't have hardware to test, but the fix is pretty straightforward, so I
-> > figured I'd post it for review.
-> > 
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> 
-> Applied with one style fix:
-> 
-> > -static void atl1e_tx_map(struct atl1e_adapter *adapter,
-> > +static int atl1e_tx_map(struct atl1e_adapter *adapter,
-> >  		      struct sk_buff *skb, struct atl1e_tpd_desc *tpd)
-> 
-> I properly reindented the second line of the argument list.
-> 
-Understood, thank you David.
-Neil
-
-> Thanks.
-> 
+This
+        /* Netlink messages are validated by the receiver before processing.
+         * In order to avoid userspace changing the contents of the message
+         * after validation, the socket and the ring may only be used by a
+         * single process, otherwise we fall back to copying.
+         */
+        if (atomic_long_read(&sk->sk_socket->file->f_count) > 2 ||  
+            atomic_read(&nlk->mapped) > 1)
+                excl = false;
+looks very odd.  For one thing, descriptor table may be shared, with
+one thread calling sendmsg() (which gives f_count equal to 2), while
+another calls mmap() just as the first one gets past that check.
+Moreover, we might very well have the damn thing mmapped, then clone(2)
+creating another thread that shares address space, but not the descriptor
+table.  Child closes the socket descriptor it got, then parent does
+sendmsg(2) (f_count == 2, again, since this time descriptor table isn't
+shared and sendmsg(2) doesn't grab a reference and we have 1 from descriptor
+table and 1 from mapping).  Again, the child has it mapped and can play
+with it as it wishes...
