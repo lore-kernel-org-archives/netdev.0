@@ -1,54 +1,38 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH] net: convert mvneta to build_skb()
-Date: Mon, 15 Jul 2013 17:23:21 +0200
-Message-ID: <20130715172321.61e8c237@skate>
-References: <20130704173552.GA23370@1wt.eu>
-	<20130715163408.4064699f@skate>
-	<20130715151240.GD6844@1wt.eu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([94.23.35.102]:58082 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932700Ab3GOPYv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jul 2013 11:24:51 -0400
-In-Reply-To: <20130715151240.GD6844@1wt.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: [PATCH 3.11-rc1] mlx5 core: Fix __udivdi3 when compiling for 32 bit arches
+Date: Mon, 15 Jul 2013 08:56:45 -0600
+Message-ID: <1373900205-69711-1-git-send-email-tim.gardner@canonical.com>
+Cc: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Dear Willy Tarreau,
+Cc: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/debugfs.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-On Mon, 15 Jul 2013 17:12:40 +0200, Willy Tarreau wrote:
-
-> > 3.11-rc1 is now out. Do you intend to resend an updated version of your
-> > patches, according to the discussions we had?
-> 
-> Yes I'll do. This week-end I have tried to pre-compute the frag_size.
-> The performance did not change, nor the driver size, but the code is
-> cleaner and more readable (in my opinion).
-
-Ok.
-
-> I have noticed your recent patches to support big-endian, and since
-> we risk to get conflicts by touching similar areas, I guess you'll
-> prefer to have a clean patch series that applies well.
-
-The big-endian support is pretty light in terms of driver changes, so
-if there are conflicts, they should be easy to solve.
-
-> I'm still checking a little bit what can be easily improved (if any)
-> and will resend.
-
-Excellent, thanks!
-
-Thomas
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c b/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
+index 4273c06..9c7194b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
+@@ -156,7 +156,7 @@ static ssize_t average_read(struct file *filp, char __user *buf, size_t count,
+ 	stats = filp->private_data;
+ 	spin_lock(&stats->lock);
+ 	if (stats->n)
+-		field = stats->sum / stats->n;
++		field = div64_u64(stats->sum, stats->n);
+ 	spin_unlock(&stats->lock);
+ 	ret = snprintf(tbuf, sizeof(tbuf), "%llu\n", field);
+ 	if (ret > 0) {
 -- 
-Thomas Petazzoni, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+1.7.9.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
