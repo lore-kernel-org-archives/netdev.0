@@ -1,33 +1,33 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH BUGFIX] pkt_sched: sch_qfq: remove a source of high
- packet delay/jitter
-Date: Mon, 15 Jul 2013 11:12:22 -0700
-Message-ID: <1373911942.2062.24.camel@joe-AO722>
-References: <1373911290-6237-1-git-send-email-paolo.valente@unimore.it>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: xt_socket: fix broken v0 support
+Date: Mon, 15 Jul 2013 20:20:21 +0200
+Message-ID: <20130715182021.GA12140@localhost>
+References: <1373595739.4600.123.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>, shemminger@vyatta.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	fchecconi@gmail.com, rizzo@iet.unipi.it
-To: Paolo Valente <paolo.valente@unimore.it>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1373911290-6237-1-git-send-email-paolo.valente@unimore.it>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org,
+	Neal Cardwell <ncardwell@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:52718 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752439Ab3GOSU0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jul 2013 14:20:26 -0400
+Content-Disposition: inline
+In-Reply-To: <1373595739.4600.123.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-07-15 at 20:01 +0200, Paolo Valente wrote:
-> QFQ+ inherits from QFQ a design choice that may cause a high packet
-> delay/jitter and a severe short-term unfairness.
-[]
-> diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
-[]
-> @@ -189,6 +188,7 @@ struct qfq_sched {
->  	struct qfq_aggregate	*in_serv_agg;   /* Aggregate being served. */
->  	u32			num_active_agg; /* Num. of active aggregates */
->  	u32			wsum;		/* weight sum */
-> +	unsigned long		iwsum;		/* inverse weight sum*/
+On Thu, Jul 11, 2013 at 07:22:19PM -0700, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> commit 681f130f39e10 ("netfilter: xt_socket: add XT_SOCKET_NOWILDCARD
+> flag") added a potential NULL dereference if an old iptables package
+> uses v0 of the match.
+> 
+> Fix this by removing the test on @info in fast path.
+> 
+> IPv6 can remove the test as well, as it uses v1 or v2.
 
-This is a different size for 32/64 bit compiles
-and may be better as u32.
+Applied, thanks Eric.
