@@ -1,34 +1,36 @@
-From: Tingwei Liu <tingw.liu@gmail.com>
-Subject: [PATCH] 9P: Add cancelled to p9_rdma_trans
-Date: Mon, 15 Jul 2013 17:10:41 +0800
-Message-ID: <1373879441-28327-1-git-send-email-tingw.liu@gmail.com>
-To: simon.derr@bull.net, tingw.liu@gmail.com, netdev@vger.kernel.org,
-	davem@davemloft.net
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: [PATCH] bgmac: add dependency to phylib
+Date: Mon, 15 Jul 2013 13:26:27 +0200
+Message-ID: <1373887587-5182-1-git-send-email-hauke@hauke-m.de>
+Cc: zajec5@gmail.com, netdev@vger.kernel.org,
+	Hauke Mehrtens <hauke@hauke-m.de>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:37555 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754434Ab3GOJMC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jul 2013 05:12:02 -0400
-Received: by mail-pd0-f179.google.com with SMTP id q10so10488771pdj.38
-        for <netdev@vger.kernel.org>; Mon, 15 Jul 2013 02:12:01 -0700 (PDT)
+Received: from server19320154104.serverpool.info ([193.201.54.104]:55360 "EHLO
+	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755769Ab3GOL0f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jul 2013 07:26:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
----
- net/9p/trans_rdma.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+bgmac is using functions from phylib, add the dependency.
 
-diff --git a/net/9p/trans_rdma.c b/net/9p/trans_rdma.c
-index 928f2bb..0c42b1c 100644
---- a/net/9p/trans_rdma.c
-+++ b/net/9p/trans_rdma.c
-@@ -732,6 +732,7 @@ static struct p9_trans_module p9_rdma_trans = {
- 	.close = rdma_close,
- 	.request = rdma_request,
- 	.cancel = rdma_cancel,
-+	.cancelled = rdma_cancelled,
- };
- 
- /**
+Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+---
+ drivers/net/ethernet/broadcom/Kconfig |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
+index 1d680ba..52c9603 100644
+--- a/drivers/net/ethernet/broadcom/Kconfig
++++ b/drivers/net/ethernet/broadcom/Kconfig
+@@ -131,6 +131,7 @@ config BNX2X_SRIOV
+ config BGMAC
+ 	tristate "BCMA bus GBit core support"
+ 	depends on BCMA_HOST_SOC && HAS_DMA
++	select PHYLIB
+ 	---help---
+ 	  This driver supports GBit MAC and BCM4706 GBit MAC cores on BCMA bus.
+ 	  They can be found on BCM47xx SoCs and provide gigabit ethernet.
 -- 
-1.6.0.2
+1.7.10.4
