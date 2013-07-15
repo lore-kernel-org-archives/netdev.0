@@ -1,87 +1,49 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] ethtool: fixed trailing statements in ethtool
-Date: Mon, 15 Jul 2013 14:54:18 +0100
-Message-ID: <1373896458.3745.7.camel@bwh-desktop.uk.level5networks.com>
-References: <1373722980-19704-1-git-send-email-dragos.foianu@gmail.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH] net: convert mvneta to build_skb()
+Date: Mon, 15 Jul 2013 16:34:08 +0200
+Message-ID: <20130715163408.4064699f@skate>
+References: <20130704173552.GA23370@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <ben@decadent.org.uk>, <pshelar@nicira.com>,
-	<mschmidt@redhat.com>, <ebiederm@xmission.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Dragos Foianu <dragos.foianu@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1373722980-19704-1-git-send-email-dragos.foianu@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([94.23.35.102]:57434 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753466Ab3GOOeL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jul 2013 10:34:11 -0400
+In-Reply-To: <20130704173552.GA23370@1wt.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-07-13 at 14:43 +0100, Dragos Foianu wrote:
-> Applied fixes suggested by checkpatch.pl.
+Dear Willy Tarreau,
+
+On Thu, 4 Jul 2013 19:35:52 +0200, Willy Tarreau wrote:
+> From 0180a5e651dd771de18bf2c031ecfe7bb4c88d3e Mon Sep 17 00:00:00 2001
+> From: Willy Tarreau <w@1wt.eu>
+> Date: Sat, 15 Jun 2013 23:25:15 +0200
+> Subject: [PATCH] net: convert mvneta to build_skb()
 > 
-> Signed-off-by: Dragos Foianu <dragos.foianu@gmail.com>
-
-I think that it's fine to put the conditional statement on the same line
-for repetitive conversion code like this.  I don't think anyone's likely
-to mis-read it, which I think is the reason why checkpatch warns.
-
-But I also won't object to this.  I don't mind either way.
-
-Ben.
-
-> ---
->  net/core/ethtool.c |   30 ++++++++++++++++++++----------
->  1 file changed, 20 insertions(+), 10 deletions(-)
+> We store the frag_size in the mvneta_port struct. In practice we'd need
+> a single bit to know how to free the data, but since we need the size to
+> call build_skb() anyway, let's store the full size.
 > 
-> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> index ab5fa63..78e9d92 100644
-> --- a/net/core/ethtool.c
-> +++ b/net/core/ethtool.c
-> @@ -279,11 +279,16 @@ static u32 __ethtool_get_flags(struct net_device *dev)
->  {
->  	u32 flags = 0;
->  
-> -	if (dev->features & NETIF_F_LRO)	     flags |= ETH_FLAG_LRO;
-> -	if (dev->features & NETIF_F_HW_VLAN_CTAG_RX) flags |= ETH_FLAG_RXVLAN;
-> -	if (dev->features & NETIF_F_HW_VLAN_CTAG_TX) flags |= ETH_FLAG_TXVLAN;
-> -	if (dev->features & NETIF_F_NTUPLE)	     flags |= ETH_FLAG_NTUPLE;
-> -	if (dev->features & NETIF_F_RXHASH)	     flags |= ETH_FLAG_RXHASH;
-> +	if (dev->features & NETIF_F_LRO)
-> +		flags |= ETH_FLAG_LRO;
-> +	if (dev->features & NETIF_F_HW_VLAN_CTAG_RX)
-> +		flags |= ETH_FLAG_RXVLAN;
-> +	if (dev->features & NETIF_F_HW_VLAN_CTAG_TX)
-> +		flags |= ETH_FLAG_TXVLAN;
-> +	if (dev->features & NETIF_F_NTUPLE)
-> +		flags |= ETH_FLAG_NTUPLE;
-> +	if (dev->features & NETIF_F_RXHASH)
-> +		flags |= ETH_FLAG_RXHASH;
->  
->  	return flags;
->  }
-> @@ -295,11 +300,16 @@ static int __ethtool_set_flags(struct net_device *dev, u32 data)
->  	if (data & ~ETH_ALL_FLAGS)
->  		return -EINVAL;
->  
-> -	if (data & ETH_FLAG_LRO)	features |= NETIF_F_LRO;
-> -	if (data & ETH_FLAG_RXVLAN)	features |= NETIF_F_HW_VLAN_CTAG_RX;
-> -	if (data & ETH_FLAG_TXVLAN)	features |= NETIF_F_HW_VLAN_CTAG_TX;
-> -	if (data & ETH_FLAG_NTUPLE)	features |= NETIF_F_NTUPLE;
-> -	if (data & ETH_FLAG_RXHASH)	features |= NETIF_F_RXHASH;
-> +	if (data & ETH_FLAG_LRO)
-> +		features |= NETIF_F_LRO;
-> +	if (data & ETH_FLAG_RXVLAN)
-> +		features |= NETIF_F_HW_VLAN_CTAG_RX;
-> +	if (data & ETH_FLAG_TXVLAN)
-> +		features |= NETIF_F_HW_VLAN_CTAG_TX;
-> +	if (data & ETH_FLAG_NTUPLE)
-> +		features |= NETIF_F_NTUPLE;
-> +	if (data & ETH_FLAG_RXHASH)
-> +		features |= NETIF_F_RXHASH;
->  
->  	/* allow changing only bits set in hw_features */
->  	changed = (features ^ dev->features) & ETH_ALL_FEATURES;
+> With this patch, I observed a reproducible 2% performance improvement on
+> HTTP-based benchmarks.
+> 
+> Signed-off-by: Willy Tarreau <w@1wt.eu>
 
+3.11-rc1 is now out. Do you intend to resend an updated version of your
+patches, according to the discussions we had?
+
+Thanks!
+
+Thomas
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thomas Petazzoni, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
