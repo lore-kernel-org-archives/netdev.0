@@ -1,58 +1,56 @@
-From: Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Subject: Re: [PATCH 3.11-rc1] mlx5 core: Fix __udivdi3 when compiling for
- 32 bit arches
-Date: Mon, 15 Jul 2013 08:52:18 -0700
-Message-ID: <51E41AB2.3020905@infradead.org>
-References: <1373900205-69711-1-git-send-email-tim.gardner@canonical.com>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH] net: convert mvneta to build_skb()
+Date: Mon, 15 Jul 2013 16:52:44 +0100
+Message-ID: <CAGVrzcYvFr8o+v=Ryc1GVA+7qTLGjxEUC3pB6t06YgTsmu0MAw@mail.gmail.com>
+References: <20130704173552.GA23370@1wt.eu> <20130715163408.4064699f@skate>
+ <20130715151240.GD6844@1wt.eu> <20130715172321.61e8c237@skate>
+ <20130715153049.GE6844@1wt.eu> <20130715173523.4505e8c4@skate>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1373900205-69711-1-git-send-email-tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Willy Tarreau <w@1wt.eu>, netdev <netdev@vger.kernel.org>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:47077 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933126Ab3GOPxZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jul 2013 11:53:25 -0400
+Received: by mail-pd0-f172.google.com with SMTP id z10so10842663pdj.31
+        for <netdev@vger.kernel.org>; Mon, 15 Jul 2013 08:53:24 -0700 (PDT)
+In-Reply-To: <20130715173523.4505e8c4@skate>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/15/13 07:56, Tim Gardner wrote:
-> Cc: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Hello Thomas, Willy,
 
-I reported this last week and Eli wrote:
+2013/7/15 Thomas Petazzoni <thomas.petazzoni@free-electrons.com>:
+> Dear Willy Tarreau,
+>
+> On Mon, 15 Jul 2013 17:30:49 +0200, Willy Tarreau wrote:
+>
+>> On Mon, Jul 15, 2013 at 05:23:21PM +0200, Thomas Petazzoni wrote:
+>> > The big-endian support is pretty light in terms of driver changes, so
+>> > if there are conflicts, they should be easy to solve.
+>>
+>> I agree.
+>>
+>> BTW, I'm still having the patch to re-enable phy-polling at boot in my
+>> queue. Last time I tried without it I still only had eth0 working. I
+>> completely forgot about this one. Since I did it blindly, I have no way
+>> to verify if what I've done is necessary according to the specs. But I'm
+>> quite sure that the NICs that are not enabled by the boot loaders don't
+>> work.
+>>
+>> If you want, I'll resend it to you at the same time.
+>
+> I still believe this is not the right fix, but unfortunately, I haven't
+> had the time to work on what would be the right fix. Hardware PHY
+> polling has been intentionally disabled, and the driver should work
+> without, since the PHY polling is done in software by the phylib.
 
-"I have this fixed in my tree and we run the driver on i386. I will check on Sunday why it is not in the patches submitted."
-
-Anyway, the patch works for me.
-
-Acked-by: Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Reported-by: Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-
-Thanks.
-
-> ---
->  drivers/net/ethernet/mellanox/mlx5/core/debugfs.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c b/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
-> index 4273c06..9c7194b 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
-> @@ -156,7 +156,7 @@ static ssize_t average_read(struct file *filp, char __user *buf, size_t count,
->  	stats = filp->private_data;
->  	spin_lock(&stats->lock);
->  	if (stats->n)
-> -		field = stats->sum / stats->n;
-> +		field = div64_u64(stats->sum, stats->n);
->  	spin_unlock(&stats->lock);
->  	ret = snprintf(tbuf, sizeof(tbuf), "%llu\n", field);
->  	if (ret > 0) {
-> 
-
-
--- 
-~Randy
+You may now be able to use the PHY interrupt bit from your MAC
+interrupt handler and call phy_mac_interrupt() provided by libphy. I
+added it specifically to be able to use PHY link interrupts connected
+to the MAC.
 --
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Florian
