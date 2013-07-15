@@ -1,61 +1,58 @@
-From: Darren Hart <dvhart@linux.intel.com>
-Subject: Re: [PATCH 3/3] pch_gbe: Add MinnowBoard support
-Date: Mon, 15 Jul 2013 13:55:17 -0700
-Message-ID: <1373921717.3475.203.camel@envy.home>
-References: <1373677087-7747-1-git-send-email-dvhart@linux.intel.com>
-	 <ad20133699c36bd8d183dd685f1b35f6d6b99005.1373676797.git.dvhart@linux.intel.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [patch net-next RFC 1/3] net: add ndo to get id of physical
+ port of the device
+Date: Mon, 15 Jul 2013 23:01:57 +0100
+Message-ID: <1373925717.3745.24.camel@bwh-desktop.uk.level5networks.com>
+References: <1373908027-25800-1-git-send-email-jiri@resnulli.us>
+	 <1373908027-25800-2-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-	netdev@vger.kernel.org, stable@vger.kernel.org
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <ad20133699c36bd8d183dd685f1b35f6d6b99005.1373676797.git.dvhart@linux.intel.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <Narendra_K@Dell.com>,
+	<john.r.fastabend@intel.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:64119 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758114Ab3GOWCC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jul 2013 18:02:02 -0400
+In-Reply-To: <1373908027-25800-2-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-07-12 at 17:58 -0700, Darren Hart wrote:
-> The MinnowBoard uses an AR803x PHY with the PCH GBE which requires
-> special handling. Use the MinnowBoard PCI Subsystem ID to detect this
-> and add a pci_device_id.driver_data structure and functions to handle
-> platform setup.
+On Mon, 2013-07-15 at 19:07 +0200, Jiri Pirko wrote:
+> This patch adds a ndo for getting physical port of the device. Driver
+> which is aware of being virtual function of some physical port should
+> implement this ndo.
 > 
-> The AR803x does not implement the RGMII 2ns TX clock delay in the trace
-> routing nor via strapping. Add a detection method for the board and the
-> PHY and enable the TX clock delay via the registers.
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+>  include/linux/netdevice.h | 18 ++++++++++++++++++
+>  1 file changed, 18 insertions(+)
 > 
-> This PHY will hibernate without link for 10 seconds. Ensure the PHY is
-> awake for probe and then disable hibernation. A future improvement would
-> be to convert pch_gbe to using PHYLIB and making sure we can wake the
-> PHY at the necessary times rather than permanently disabling it.
-> 
-> Signed-off-by: Darren Hart <dvhart@linux.intel.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: "H. Peter Anvin" <hpa@zytor.com>
-> Cc: Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-> Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-> Cc: netdev@vger.kernel.org
-
-...
-
-> @@ -277,4 +286,93 @@ void pch_gbe_phy_init_setting(struct pch_gbe_hw *hw)
->  	pch_gbe_phy_read_reg_miic(hw, PHY_PHYSP_CONTROL, &mii_reg);
->  	mii_reg |= PHYSP_CTRL_ASSERT_CRS_TX;
->  	pch_gbe_phy_write_reg_miic(hw, PHY_PHYSP_CONTROL, mii_reg);
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 0741a1e..e85f177 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -728,6 +728,16 @@ struct netdev_fcoe_hbainfo {
+>  };
+>  #endif
+>  
+> +#define MAX_PHYS_PORT_ID_LEN 32
 > +
-> +	/* Setup a TX clock delay on certain platforms */
-> +	if (adapter->pdata->phy_tx_clk_delay)
+> +/* This structure holds a universally unique identifier to
+> + * identify the physical port used by a netdevice
+[...]
 
+There is a slight problem with saying 'universally unique identifier'
+which is that it may be taken to mean specifically a DCE 128-bit UUID.
+Is there a slightly more generic term that would clearly allow for other
+ID spaces here?  Or should we give a list of examples: 'such as a
+128-bit UUID, globally unique MAC-48 or EUI-64'?
 
-This is missing an adapter->pdata !NULL test. Fixed in V3. Holding off
-a bit more on that in case Dave M. has anything he wants to see changed
-in the next revision.
+Ben.
 
 -- 
-Darren Hart
-Intel Open Source Technology Center
-Yocto Project - Technical Lead - Linux Kernel
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
