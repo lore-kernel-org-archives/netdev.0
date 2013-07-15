@@ -1,43 +1,32 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH] net: convert mvneta to build_skb()
-Date: Mon, 15 Jul 2013 16:34:08 +0200
-Message-ID: <20130715163408.4064699f@skate>
-References: <20130704173552.GA23370@1wt.eu>
+Subject: Re: [patch 0/2] Fix system hang when loading mvneta module
+Date: Mon, 15 Jul 2013 16:34:44 +0200
+Message-ID: <20130715163444.12c68e7c@skate>
+References: <20130620220644.715387300@rtp-net.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Willy Tarreau <w@1wt.eu>
+Cc: netdev@vger.kernel.org
+To: Arnaud Patard (Rtp) <arnaud.patard@rtp-net.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([94.23.35.102]:57434 "EHLO
+Received: from mail.free-electrons.com ([94.23.35.102]:57439 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753466Ab3GOOeL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jul 2013 10:34:11 -0400
-In-Reply-To: <20130704173552.GA23370@1wt.eu>
+	with ESMTP id S1757317Ab3GOOer (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jul 2013 10:34:47 -0400
+In-Reply-To: <20130620220644.715387300@rtp-net.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Willy Tarreau,
+Dear Arnaud Patard (Rtp),
 
-On Thu, 4 Jul 2013 19:35:52 +0200, Willy Tarreau wrote:
-> From 0180a5e651dd771de18bf2c031ecfe7bb4c88d3e Mon Sep 17 00:00:00 2001
-> From: Willy Tarreau <w@1wt.eu>
-> Date: Sat, 15 Jun 2013 23:25:15 +0200
-> Subject: [PATCH] net: convert mvneta to build_skb()
-> 
-> We store the frag_size in the mvneta_port struct. In practice we'd need
-> a single bit to know how to free the data, but since we need the size to
-> call build_skb() anyway, let's store the full size.
-> 
-> With this patch, I observed a reproducible 2% performance improvement on
-> HTTP-based benchmarks.
-> 
-> Signed-off-by: Willy Tarreau <w@1wt.eu>
+On Fri, 21 Jun 2013 00:06:44 +0200, Arnaud Patard (Rtp) wrote:
+
+> This patchset aims at fixing a system hang when loading the mvneta module.
+> I'm not sure what's meaning of the magical value used in patch 2 but at least,
+> it's used in code from Marvell and make things work.
 
 3.11-rc1 is now out. Do you intend to resend an updated version of your
-patches, according to the discussions we had?
+patch set, fixed according to the previous discussions?
 
 Thanks!
 
