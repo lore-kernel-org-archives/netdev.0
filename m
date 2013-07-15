@@ -1,73 +1,96 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next RFC 1/3] net: add ndo to get id of physical port of the device
-Date: Mon, 15 Jul 2013 19:07:05 +0200
-Message-ID: <1373908027-25800-2-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next RFC 2/3] rtnl: export physical port id via RT netlink
+Date: Mon, 15 Jul 2013 19:07:06 +0200
+Message-ID: <1373908027-25800-3-git-send-email-jiri@resnulli.us>
 References: <1373908027-25800-1-git-send-email-jiri@resnulli.us>
 Cc: Narendra_K@Dell.com, bhutchings@solarflare.com,
 	john.r.fastabend@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f173.google.com ([209.85.215.173]:64552 "EHLO
-	mail-ea0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751087Ab3GORHR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jul 2013 13:07:17 -0400
-Received: by mail-ea0-f173.google.com with SMTP id g15so7921598eak.4
-        for <netdev@vger.kernel.org>; Mon, 15 Jul 2013 10:07:16 -0700 (PDT)
+Received: from mail-ee0-f43.google.com ([74.125.83.43]:38706 "EHLO
+	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751087Ab3GORHU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jul 2013 13:07:20 -0400
+Received: by mail-ee0-f43.google.com with SMTP id l10so7796909eei.30
+        for <netdev@vger.kernel.org>; Mon, 15 Jul 2013 10:07:19 -0700 (PDT)
 In-Reply-To: <1373908027-25800-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a ndo for getting physical port of the device. Driver
-which is aware of being virtual function of some physical port should
-implement this ndo.
-
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/linux/netdevice.h | 18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
+ include/uapi/linux/if_link.h |  1 +
+ net/core/rtnetlink.c         | 25 ++++++++++++++++++++++++-
+ 2 files changed, 25 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 0741a1e..e85f177 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -728,6 +728,16 @@ struct netdev_fcoe_hbainfo {
- };
- #endif
- 
-+#define MAX_PHYS_PORT_ID_LEN 32
-+
-+/* This structure holds a universally unique identifier to
-+ * identify the physical port used by a netdevice
-+ */
-+struct netdev_phys_port_id {
-+	unsigned char id[MAX_PHYS_PORT_ID_LEN];
-+	unsigned char id_len;
-+};
-+
- /*
-  * This structure defines the management hooks for network devices.
-  * The following hooks can be defined; unless noted otherwise, they are
-@@ -932,6 +942,12 @@ struct netdev_fcoe_hbainfo {
-  *	that determine carrier state from physical hardware properties (eg
-  *	network cables) or protocol-dependent mechanisms (eg
-  *	USB_CDC_NOTIFY_NETWORK_CONNECTION) should NOT implement this function.
-+ *
-+ * int (*ndo_get_phys_port_id)(struct net_device *dev,
-+ *			       struct netdev_phys_port_id *ppid);
-+ *	Called to get ID of physical port of this device. If driver does
-+ *	not implement this, it is assumed that the hw is not able to have
-+ *	multiple net devices on single physical port.
-  */
- struct net_device_ops {
- 	int			(*ndo_init)(struct net_device *dev);
-@@ -1060,6 +1076,8 @@ struct net_device_ops {
- 						      struct nlmsghdr *nlh);
- 	int			(*ndo_change_carrier)(struct net_device *dev,
- 						      bool new_carrier);
-+	int			(*ndo_get_phys_port_id)(struct net_device *dev,
-+							struct netdev_phys_port_id *ppid);
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 03f6170..04c0e7a 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -143,6 +143,7 @@ enum {
+ 	IFLA_NUM_TX_QUEUES,
+ 	IFLA_NUM_RX_QUEUES,
+ 	IFLA_CARRIER,
++	IFLA_PHYS_PORT_ID,
+ 	__IFLA_MAX
  };
  
- /*
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 3de7408..2bd0e67 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -767,7 +767,8 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 	       + rtnl_vfinfo_size(dev, ext_filter_mask) /* IFLA_VFINFO_LIST */
+ 	       + rtnl_port_size(dev) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
+ 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
+-	       + rtnl_link_get_af_size(dev); /* IFLA_AF_SPEC */
++	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
++	       + nla_total_size(MAX_PHYS_PORT_ID_LEN); /* IFLA_PHYS_PORT_ID */
+ }
+ 
+ static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
+@@ -846,6 +847,24 @@ static int rtnl_port_fill(struct sk_buff *skb, struct net_device *dev)
+ 	return 0;
+ }
+ 
++static int rtnl_phys_port_id_fill(struct sk_buff *skb, struct net_device *dev)
++{
++	int err;
++	struct netdev_phys_port_id ppid;
++
++	if (!dev->netdev_ops->ndo_get_phys_port_id)
++		return 0;
++
++	err = dev->netdev_ops->ndo_get_phys_port_id(dev, &ppid);
++	if (err)
++		return err;
++
++	if (nla_put(skb, IFLA_PHYS_PORT_ID, ppid.id_len, ppid.id))
++		return -EMSGSIZE;
++
++	return 0;
++}
++
+ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			    int type, u32 pid, u32 seq, u32 change,
+ 			    unsigned int flags, u32 ext_filter_mask)
+@@ -913,6 +932,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			goto nla_put_failure;
+ 	}
+ 
++	if (rtnl_phys_port_id_fill(skb, dev))
++		goto nla_put_failure;
++
+ 	attr = nla_reserve(skb, IFLA_STATS,
+ 			sizeof(struct rtnl_link_stats));
+ 	if (attr == NULL)
+@@ -1113,6 +1135,7 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_PROMISCUITY]	= { .type = NLA_U32 },
+ 	[IFLA_NUM_TX_QUEUES]	= { .type = NLA_U32 },
+ 	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
++	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_PORT_ID_LEN },
+ };
+ EXPORT_SYMBOL(ifla_policy);
+ 
 -- 
 1.8.1.4
