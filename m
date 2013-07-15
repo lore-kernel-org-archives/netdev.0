@@ -1,39 +1,51 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH] net: convert mvneta to build_skb()
-Date: Mon, 15 Jul 2013 17:30:49 +0200
-Message-ID: <20130715153049.GE6844@1wt.eu>
-References: <20130704173552.GA23370@1wt.eu> <20130715163408.4064699f@skate> <20130715151240.GD6844@1wt.eu> <20130715172321.61e8c237@skate>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [RFC PATCH 0/3] Add DT support for fixed PHYs
+Date: Mon, 15 Jul 2013 17:34:07 +0200
+Message-ID: <1373902450-11857-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org,
+	Lior Amsalem <alior@marvell.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+To: Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <florian@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:34652 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932272Ab3GOPau (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Jul 2013 11:30:50 -0400
-Content-Disposition: inline
-In-Reply-To: <20130715172321.61e8c237@skate>
+Received: from mail.free-electrons.com ([94.23.35.102]:58191 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932244Ab3GOPeW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jul 2013 11:34:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[ removing Eric from Cc who's probably not interested by this ]
+Hello,
 
-On Mon, Jul 15, 2013 at 05:23:21PM +0200, Thomas Petazzoni wrote:
-> The big-endian support is pretty light in terms of driver changes, so
-> if there are conflicts, they should be easy to solve.
+Following the discussion of last week with Florian Fainelli and Grant
+Likely [1], this patch set introduces DT-based support for fixed PHYs
+through an additional OF API, and uses it in the context of the
+Marvell mvneta network driver.
 
-I agree.
+Grant, Rob, your opinions as DT maintainers are welcome. Thanks!
 
-BTW, I'm still having the patch to re-enable phy-polling at boot in my
-queue. Last time I tried without it I still only had eth0 working. I
-completely forgot about this one. Since I did it blindly, I have no way
-to verify if what I've done is necessary according to the specs. But I'm
-quite sure that the NICs that are not enabled by the boot loaders don't
-work.
+Thomas
 
-If you want, I'll resend it to you at the same time.
+[1] http://www.spinics.net/lists/netdev/msg242766.html
+    http://www.spinics.net/lists/netdev/msg243192.html
 
-Best regards,
-Willy
+Thomas Petazzoni (3):
+  of: provide a binding for the 'fixed-link' property
+  net: phy: call mdiobus_scan() after adding a fixed PHY
+  net: mvneta: add support for fixed links
+
+ .../devicetree/bindings/net/fixed-link.txt         | 26 ++++++++++++++++
+ .../bindings/net/marvell-armada-370-neta.txt       | 24 +++++++++++++--
+ drivers/net/ethernet/marvell/mvneta.c              | 18 ++++++++---
+ drivers/net/phy/fixed.c                            |  2 ++
+ drivers/of/of_mdio.c                               | 36 +++++++++++++++++++---
+ include/linux/of_mdio.h                            | 10 ++++++
+ 6 files changed, 104 insertions(+), 12 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/fixed-link.txt
+
+-- 
+1.8.1.2
