@@ -1,50 +1,80 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH] net: convert mvneta to build_skb()
-Date: Mon, 15 Jul 2013 21:44:14 +0200
-Message-ID: <20130715214414.1f885ba8@skate>
-References: <20130704173552.GA23370@1wt.eu>
-	<20130715163408.4064699f@skate>
-	<20130715151240.GD6844@1wt.eu>
-	<20130715172321.61e8c237@skate>
-	<20130715153049.GE6844@1wt.eu>
-	<20130715173523.4505e8c4@skate>
-	<CAGVrzcYvFr8o+v=Ryc1GVA+7qTLGjxEUC3pB6t06YgTsmu0MAw@mail.gmail.com>
+From: Darren Hart <dvhart@linux.intel.com>
+Subject: Re: [PATCH 3/3] pch_gbe: Add MinnowBoard support
+Date: Mon, 15 Jul 2013 13:41:10 -0700
+Message-ID: <1373920870.3475.200.camel@envy.home>
+References: <1373677087-7747-1-git-send-email-dvhart@linux.intel.com>
+	 <ad20133699c36bd8d183dd685f1b35f6d6b99005.1373676797.git.dvhart@linux.intel.com>
+	 <1373877289.24799.242.camel@smile>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Willy Tarreau <w@1wt.eu>, netdev <netdev@vger.kernel.org>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([94.23.35.102]:59671 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755697Ab3GOToT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jul 2013 15:44:19 -0400
-In-Reply-To: <CAGVrzcYvFr8o+v=Ryc1GVA+7qTLGjxEUC3pB6t06YgTsmu0MAw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	netdev@vger.kernel.org, stable@vger.kernel.org
+To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1373877289.24799.242.camel@smile>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear Florian Fainelli,
+On Mon, 2013-07-15 at 11:34 +0300, Andy Shevchenko wrote:
+> On Fri, 2013-07-12 at 17:58 -0700, Darren Hart wrote: 
 
-On Mon, 15 Jul 2013 16:52:44 +0100, Florian Fainelli wrote:
-
-> > I still believe this is not the right fix, but unfortunately, I haven't
-> > had the time to work on what would be the right fix. Hardware PHY
-> > polling has been intentionally disabled, and the driver should work
-> > without, since the PHY polling is done in software by the phylib.
+... 
+> > +/* The AR803X PHY on the MinnowBoard requires a physical pin to be toggled to
+> > + * ensure it is awake for probe and init. Request the line and reset the PHY.
+> > + */
+> > +static int pch_gbe_minnow_platform_init(struct pci_dev *pdev)
+> > +{
+> > +	int ret = 0;
+> > +	int flags = GPIOF_DIR_OUT | GPIOF_INIT_HIGH | GPIOF_EXPORT;
+> > +	int gpio = MINNOW_PHY_RESET_GPIO;
+> > +
+> > +	ret = gpio_request_one(gpio, flags, "minnow_phy_reset");
+> > +	if (ret){
+> > +		dev_err(&pdev->dev,
+> > +			"ERR: Can't request PHY reset GPIO line '%d'\n", gpio);
+> > +		return ret;
+> > +	}
+> > +
+> > +	gpio_set_value(gpio, 0);
+> > +	usleep_range(1250, 1500);
+> > +	gpio_set_value(gpio, 1);
+> > +	usleep_range(1250, 1500);
 > 
-> You may now be able to use the PHY interrupt bit from your MAC
-> interrupt handler and call phy_mac_interrupt() provided by libphy. I
-> added it specifically to be able to use PHY link interrupts connected
-> to the MAC.
+> First of all, who is going to release gpio? Perhaps
+> devm_gpio_request_one?
 
-Right, but the MAC feature in question makes the MAC directly talks to
-the PHY to configure it, completely bypassing the entire libphy logic.
-I am not sure how to handle this together with libphy.
+Thanks for the pointer, this works and appears to be the best way to
+handle this.
 
-Thomas
+...
+> > + */
+> > +int pch_gbe_phy_tx_clk_delay(struct pch_gbe_hw *hw)
+> > +{
+> > +	/* The RGMII interface requires a ~2ns TX clock delay. This is typically
+> > +	 * done in layout with a longer trace or via PHY strapping, but can also
+> > +	 * be done via PHY configuration registers.
+> > +	 */
+> > +	struct pch_gbe_adapter *adapter = pch_gbe_hw_to_adapter(hw);
+> > +	u16 mii_reg;
+> > +	int ret = 0;
+> 
+> No need to assign. Are you trying to shut (sparse?) warning?
+
+On this point, I did find one instance where I initialized init only to
+have my first line of executable code assign to ret, that's obviously
+silly, so I fixed that one.
+
+Here, where the first assignment is nested inside case statements or
+skipped altogether with explicit returns of error codes, I prefer to
+assign it explicitly. A quick survey lists 4k initialized "int ret;"
+lines and 16k uninitialized.  The latter appears to be the more common,
+but there is certainly precedent for the former.
+
 -- 
-Thomas Petazzoni, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+Darren Hart
+Intel Open Source Technology Center
+Yocto Project - Technical Lead - Linux Kernel
