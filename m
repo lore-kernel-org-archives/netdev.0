@@ -1,50 +1,125 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH] net: convert mvneta to build_skb()
-Date: Tue, 16 Jul 2013 00:02:30 +0100
-Message-ID: <CAGVrzcaqyJcKWFGFtYsTY+raDPp1Ce4yZEoXuD=faXUUquRZQQ@mail.gmail.com>
-References: <20130704173552.GA23370@1wt.eu> <20130715163408.4064699f@skate>
- <20130715151240.GD6844@1wt.eu> <20130715172321.61e8c237@skate>
- <20130715153049.GE6844@1wt.eu> <20130715173523.4505e8c4@skate>
- <CAGVrzcYvFr8o+v=Ryc1GVA+7qTLGjxEUC3pB6t06YgTsmu0MAw@mail.gmail.com> <20130715214414.1f885ba8@skate>
+From: <dinguyen@altera.com>
+Subject: [PATCH] phy: micrel: Add definitions for common Micrel PHY registers
+Date: Mon, 15 Jul 2013 18:08:50 -0500
+Message-ID: <1373929730-28130-1-git-send-email-dinguyen@altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Willy Tarreau <w@1wt.eu>, netdev <netdev@vger.kernel.org>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Content-Type: text/plain
+Cc: <linux-arm-kernel@lists.infradead.org>,
+	Dinh Nguyen <dinguyen@altera.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	Andrew Victor <linux@maxim.org.za>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+	Pavel Machek <pavel@denx.de>
+To: <dinh.linux@gmail.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:50329 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754928Ab3GOXDL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jul 2013 19:03:11 -0400
-Received: by mail-pa0-f51.google.com with SMTP id lf11so110291pab.10
-        for <netdev@vger.kernel.org>; Mon, 15 Jul 2013 16:03:10 -0700 (PDT)
-In-Reply-To: <20130715214414.1f885ba8@skate>
+Received: from mail-db8lp0188.outbound.messaging.microsoft.com ([213.199.154.188]:16287
+	"EHLO db8outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755476Ab3GOXJU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jul 2013 19:09:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Thomas,
+From: Dinh Nguyen <dinguyen@altera.com>
 
-2013/7/15 Thomas Petazzoni <thomas.petazzoni@free-electrons.com>:
-> Dear Florian Fainelli,
->
-> On Mon, 15 Jul 2013 16:52:44 +0100, Florian Fainelli wrote:
->
->> > I still believe this is not the right fix, but unfortunately, I haven't
->> > had the time to work on what would be the right fix. Hardware PHY
->> > polling has been intentionally disabled, and the driver should work
->> > without, since the PHY polling is done in software by the phylib.
->>
->> You may now be able to use the PHY interrupt bit from your MAC
->> interrupt handler and call phy_mac_interrupt() provided by libphy. I
->> added it specifically to be able to use PHY link interrupts connected
->> to the MAC.
->
-> Right, but the MAC feature in question makes the MAC directly talks to
-> the PHY to configure it, completely bypassing the entire libphy logic.
-> I am not sure how to handle this together with libphy.
+Add defines for common Micrel PHY setups so that other platforms
+can use them. Update imx61 and sama5 hardware to use the micrel_phy.h
+PHY defines.
 
-Then you might just replace the default libphy with your PHY state
-machine and manage it from within the mvneta driver. This is something
-less usual but libphy still allows that.
---
-Florian
+Also add support for the KSZ9021RLRN PHY.
+
+Signed-off-by: Dinh Nguyen <dinguyen@altera.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Shawn Guo <shawn.guo@linaro.org>
+CC: Andrew Victor <linux@maxim.org.za>
+CC: Nicolas Ferre <nicolas.ferre@atmel.com>
+CC: Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>
+CC: Pavel Machek <pavel@denx.de>
+---
+ arch/arm/mach-at91/board-dt-sama5.c |   17 ++++++-----------
+ arch/arm/mach-imx/mach-imx6q.c      |   13 ++++++++-----
+ include/linux/micrel_phy.h          |    6 ++++++
+ 3 files changed, 20 insertions(+), 16 deletions(-)
+
+diff --git a/arch/arm/mach-at91/board-dt-sama5.c b/arch/arm/mach-at91/board-dt-sama5.c
+index ad95f6a..bf00d15 100644
+--- a/arch/arm/mach-at91/board-dt-sama5.c
++++ b/arch/arm/mach-at91/board-dt-sama5.c
+@@ -42,20 +42,15 @@ static int ksz9021rn_phy_fixup(struct phy_device *phy)
+ {
+ 	int value;
+ 
+-#define GMII_RCCPSR	260
+-#define GMII_RRDPSR	261
+-#define GMII_ERCR	11
+-#define GMII_ERDWR	12
+-
+ 	/* Set delay values */
+-	value = GMII_RCCPSR | 0x8000;
+-	phy_write(phy, GMII_ERCR, value);
++	value = MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SCEW | 0x8000;
++	phy_write(phy, MICREL_KSZ9021_EXTREG_CTRL, value);
+ 	value = 0xF2F4;
+-	phy_write(phy, GMII_ERDWR, value);
+-	value = GMII_RRDPSR | 0x8000;
+-	phy_write(phy, GMII_ERCR, value);
++	phy_write(phy, MICREL_KSZ9021_EXTREG_DATA_WRITE, value);
++	value = MICREL_KSZ9021_RGMII_RX_DATA_PAD_SCEW | 0x8000;
++	phy_write(phy, MICREL_KSZ9021_EXTREG_CTRL, value);
+ 	value = 0x2222;
+-	phy_write(phy, GMII_ERDWR, value);
++	phy_write(phy, MICREL_KSZ9021_EXTREG_DATA_WRITE, value);
+ 
+ 	return 0;
+ }
+diff --git a/arch/arm/mach-imx/mach-imx6q.c b/arch/arm/mach-imx/mach-imx6q.c
+index 7be13f8..c8d7814 100644
+--- a/arch/arm/mach-imx/mach-imx6q.c
++++ b/arch/arm/mach-imx/mach-imx6q.c
+@@ -103,13 +103,16 @@ static int ksz9021rn_phy_fixup(struct phy_device *phydev)
+ {
+ 	if (IS_BUILTIN(CONFIG_PHYLIB)) {
+ 		/* min rx data delay */
+-		phy_write(phydev, 0x0b, 0x8105);
+-		phy_write(phydev, 0x0c, 0x0000);
++		phy_write(phydev, MICREL_KSZ9021_EXTREG_CTRL,
++			0x8000 | MICREL_KSZ9021_RGMII_RX_DATA_PAD_SCEW);
++		phy_write(phydev, MICREL_KSZ9021_EXTREG_DATA_WRITE, 0x0000);
+ 
+ 		/* max rx/tx clock delay, min rx/tx control delay */
+-		phy_write(phydev, 0x0b, 0x8104);
+-		phy_write(phydev, 0x0c, 0xf0f0);
+-		phy_write(phydev, 0x0b, 0x104);
++		phy_write(phydev, MICREL_KSZ9021_EXTREG_CTRL,
++			0x8000 | MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SCEW);
++		phy_write(phydev, MICREL_KSZ9021_EXTREG_DATA_WRITE, 0xf0f0);
++		phy_write(phydev, MICREL_KSZ9021_EXTREG_CTRL,
++			MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SCEW);
+ 	}
+ 
+ 	return 0;
+diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
+index 8752dbb..ad05ce6 100644
+--- a/include/linux/micrel_phy.h
++++ b/include/linux/micrel_phy.h
+@@ -17,6 +17,7 @@
+ 
+ #define PHY_ID_KSZ8873MLL	0x000e7237
+ #define PHY_ID_KSZ9021		0x00221610
++#define PHY_ID_KSZ9021RLRN	0x00221611
+ #define PHY_ID_KS8737		0x00221720
+ #define PHY_ID_KSZ8021		0x00221555
+ #define PHY_ID_KSZ8031		0x00221556
+@@ -35,4 +36,9 @@
+ /* struct phy_device dev_flags definitions */
+ #define MICREL_PHY_50MHZ_CLK	0x00000001
+ 
++#define MICREL_KSZ9021_EXTREG_CTRL	0xB
++#define MICREL_KSZ9021_EXTREG_DATA_WRITE	0xC
++#define MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SCEW	0x104
++#define MICREL_KSZ9021_RGMII_RX_DATA_PAD_SCEW	0x105
++
+ #endif /* _MICREL_PHY_H */
+-- 
+1.7.9.5
