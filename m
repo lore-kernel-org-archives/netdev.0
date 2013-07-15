@@ -1,58 +1,58 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL] vhost: cleanups and fixes
-Date: Mon, 15 Jul 2013 21:31:49 +0300
-Message-ID: <20130715183149.GA8215@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net 2/2] usb/net/r815x: fix cast to restricted __le32
+Date: Mon, 15 Jul 2013 19:45:44 +0100
+Message-ID: <1373913944.3745.16.camel@bwh-desktop.uk.level5networks.com>
+References: <1373617576-2272-1-git-send-email-hayeswang@realtek.com>
+	 <1373617576-2272-2-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: <gregkh@linuxfoundation.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <linux-usb@vger.kernel.org>
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1373617576-2272-2-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following changes since commit 09a34c8404c1d4c5782de319c02e1d742c57875c:
+On Fri, 2013-07-12 at 16:26 +0800, Hayes Wang wrote:
+> >> drivers/net/usb/r815x.c:38:16: sparse: cast to restricted __le32
+> >> drivers/net/usb/r815x.c:67:15: sparse: cast to restricted __le32
+> >> drivers/net/usb/r815x.c:69:13: sparse: incorrect type in assignment (different base types)
+>    drivers/net/usb/r815x.c:69:13:    expected unsigned int [unsigned] [addressable] [assigned] [usertype] tmp
+>    drivers/net/usb/r815x.c:69:13:    got restricted __le32 [usertype] <noident>
+> 
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> Spotted-by: kbuild test robot <fengguang.wu@intel.com>
+> ---
+>  drivers/net/usb/r815x.c | 21 ++++++++++++---------
+>  1 file changed, 12 insertions(+), 9 deletions(-)
+> 
+> diff --git a/drivers/net/usb/r815x.c b/drivers/net/usb/r815x.c
+> index 6516737..8523922 100644
+> --- a/drivers/net/usb/r815x.c
+> +++ b/drivers/net/usb/r815x.c
+> @@ -26,16 +26,18 @@ static int pla_read_word(struct usb_device *udev, u16 index)
+>  {
+>  	int data, ret;
+>  	u8 shift = index & 2;
+> +	__le32 ocp_data;
+>  
+>  	index &= ~3;
+>  
+>  	ret = usb_control_msg(udev, usb_rcvctrlpipe(udev, 0),
+>  			      RTL815x_REQ_GET_REGS, RTL815x_REQT_READ,
+> -			      index, MCU_TYPE_PLA, &data, sizeof(data), 500);
+> +			      index, MCU_TYPE_PLA, &ocp_data, sizeof(ocp_data),
+> +			      500);
+[...]
 
-  vhost/test: update test after vhost cleanups (2013-07-07 18:02:25 +0300)
+There seems to be another bug here: USB buffers must be DMA-able,
+therefore cannot be placed on the stack.
 
-are available in the git repository at:
+Ben.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
-
-for you to fetch changes up to 22fa90c7fb479694d6affebc049d21f06b714be6:
-
-  vhost: Remove custom vhost rcu usage (2013-07-11 15:38:40 +0300)
-
-----------------------------------------------------------------
-vhost: more fixes for 3.11
-
-This includes some fixes for vhost net and scsi drivers.
-The test module has already been reworked to avoid rcu
-usage, but the necessary core changes are missing,
-we fixed this.
-Unlikely to affect any real-world users, but it's
-early in the cycle so, let's merge them.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
-----------------------------------------------------------------
-Asias He (3):
-      vhost-net: Always access vq->private_data under vq mutex
-      vhost-scsi: Always access vq->private_data under vq mutex
-      vhost: Remove custom vhost rcu usage
-
- drivers/vhost/net.c   | 37 ++++++++++++++++---------------------
- drivers/vhost/scsi.c  | 17 ++++++-----------
- drivers/vhost/test.c  |  6 ++----
- drivers/vhost/vhost.h | 10 ++--------
- 4 files changed, 26 insertions(+), 44 deletions(-)
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
