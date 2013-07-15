@@ -1,125 +1,70 @@
-From: <dinguyen@altera.com>
-Subject: [PATCH] phy: micrel: Add definitions for common Micrel PHY registers
-Date: Mon, 15 Jul 2013 18:08:50 -0500
-Message-ID: <1373929730-28130-1-git-send-email-dinguyen@altera.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC] tulip: Support for byte queue limits
+Date: Tue, 16 Jul 2013 00:58:09 +0100
+Message-ID: <1373932689.3745.30.camel@bwh-desktop.uk.level5networks.com>
+References: <20130712180116.21176.qmail@science.horizon.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-arm-kernel@lists.infradead.org>,
-	Dinh Nguyen <dinguyen@altera.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Shawn Guo <shawn.guo@linaro.org>,
-	Andrew Victor <linux@maxim.org.za>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
-	Pavel Machek <pavel@denx.de>
-To: <dinh.linux@gmail.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <grantgrundler@gmail.com>, <eric.dumazet@gmail.com>,
+	<grundler@parisc-linux.org>, <netdev@vger.kernel.org>
+To: George Spelvin <linux@horizon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db8lp0188.outbound.messaging.microsoft.com ([213.199.154.188]:16287
-	"EHLO db8outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755476Ab3GOXJU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jul 2013 19:09:20 -0400
+Received: from webmail.solarflare.com ([12.187.104.25]:62898 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753834Ab3GOX6N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jul 2013 19:58:13 -0400
+In-Reply-To: <20130712180116.21176.qmail@science.horizon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dinh Nguyen <dinguyen@altera.com>
+On Fri, 2013-07-12 at 14:01 -0400, George Spelvin wrote:
+> > Hi George,
+> > While you are right that functionally it doesn't matter, my preference
+> > would be to have nothing between the wmb() and iowrite() that kicks
+> > off the TX. This marginally helps kick off the TX process consistently
+> > slightly sooner. On modern HW, probably irrelevant, but not on the HW
+> > these chips are used on.
+> 
+> I'll revise it.  It just made sense to me to put it next to the other
+> bookkeeping line of tp->cur_tx++.  Should I move them both below the
+> iowrite()?  As in:
+> 
+> --- a/drivers/net/ethernet/dec/tulip/tulip_core.c
+> +++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
+> @@ -702,11 +702,11 @@ tulip_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	tp->tx_ring[entry].status = cpu_to_le32(DescOwned);
+>  	wmb();
+>  
+> -	tp->cur_tx++;
+> -
+>  	/* Trigger an immediate transmit demand. */
+>  	iowrite32(0, tp->base_addr + CSR1);
+>  
+> +	tp->cur_tx++;
+> +	netdev_sent_queue(dev, skb->len);
 
-Add defines for common Micrel PHY setups so that other platforms
-can use them. Update imx61 and sama5 hardware to use the micrel_phy.h
-PHY defines.
+This is not good practice, because once you start DMA you have
+effectively passed ownership of the skb to the TX completion handler.
 
-Also add support for the KSZ9021RLRN PHY.
+>  	spin_unlock_irqrestore(&tp->lock, flags);
 
-Signed-off-by: Dinh Nguyen <dinguyen@altera.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Shawn Guo <shawn.guo@linaro.org>
-CC: Andrew Victor <linux@maxim.org.za>
-CC: Nicolas Ferre <nicolas.ferre@atmel.com>
-CC: Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>
-CC: Pavel Machek <pavel@denx.de>
----
- arch/arm/mach-at91/board-dt-sama5.c |   17 ++++++-----------
- arch/arm/mach-imx/mach-imx6q.c      |   13 ++++++++-----
- include/linux/micrel_phy.h          |    6 ++++++
- 3 files changed, 20 insertions(+), 16 deletions(-)
+Presumably the TX completion handler will hold this spinlock and
+therefore cannot free the skb before you use skb->len above.  So this
+will be safe now.  But one day someone may want to get rid of this lock,
+so this is a trap waiting to spring.
 
-diff --git a/arch/arm/mach-at91/board-dt-sama5.c b/arch/arm/mach-at91/board-dt-sama5.c
-index ad95f6a..bf00d15 100644
---- a/arch/arm/mach-at91/board-dt-sama5.c
-+++ b/arch/arm/mach-at91/board-dt-sama5.c
-@@ -42,20 +42,15 @@ static int ksz9021rn_phy_fixup(struct phy_device *phy)
- {
- 	int value;
- 
--#define GMII_RCCPSR	260
--#define GMII_RRDPSR	261
--#define GMII_ERCR	11
--#define GMII_ERDWR	12
--
- 	/* Set delay values */
--	value = GMII_RCCPSR | 0x8000;
--	phy_write(phy, GMII_ERCR, value);
-+	value = MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SCEW | 0x8000;
-+	phy_write(phy, MICREL_KSZ9021_EXTREG_CTRL, value);
- 	value = 0xF2F4;
--	phy_write(phy, GMII_ERDWR, value);
--	value = GMII_RRDPSR | 0x8000;
--	phy_write(phy, GMII_ERCR, value);
-+	phy_write(phy, MICREL_KSZ9021_EXTREG_DATA_WRITE, value);
-+	value = MICREL_KSZ9021_RGMII_RX_DATA_PAD_SCEW | 0x8000;
-+	phy_write(phy, MICREL_KSZ9021_EXTREG_CTRL, value);
- 	value = 0x2222;
--	phy_write(phy, GMII_ERDWR, value);
-+	phy_write(phy, MICREL_KSZ9021_EXTREG_DATA_WRITE, value);
- 
- 	return 0;
- }
-diff --git a/arch/arm/mach-imx/mach-imx6q.c b/arch/arm/mach-imx/mach-imx6q.c
-index 7be13f8..c8d7814 100644
---- a/arch/arm/mach-imx/mach-imx6q.c
-+++ b/arch/arm/mach-imx/mach-imx6q.c
-@@ -103,13 +103,16 @@ static int ksz9021rn_phy_fixup(struct phy_device *phydev)
- {
- 	if (IS_BUILTIN(CONFIG_PHYLIB)) {
- 		/* min rx data delay */
--		phy_write(phydev, 0x0b, 0x8105);
--		phy_write(phydev, 0x0c, 0x0000);
-+		phy_write(phydev, MICREL_KSZ9021_EXTREG_CTRL,
-+			0x8000 | MICREL_KSZ9021_RGMII_RX_DATA_PAD_SCEW);
-+		phy_write(phydev, MICREL_KSZ9021_EXTREG_DATA_WRITE, 0x0000);
- 
- 		/* max rx/tx clock delay, min rx/tx control delay */
--		phy_write(phydev, 0x0b, 0x8104);
--		phy_write(phydev, 0x0c, 0xf0f0);
--		phy_write(phydev, 0x0b, 0x104);
-+		phy_write(phydev, MICREL_KSZ9021_EXTREG_CTRL,
-+			0x8000 | MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SCEW);
-+		phy_write(phydev, MICREL_KSZ9021_EXTREG_DATA_WRITE, 0xf0f0);
-+		phy_write(phydev, MICREL_KSZ9021_EXTREG_CTRL,
-+			MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SCEW);
- 	}
- 
- 	return 0;
-diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
-index 8752dbb..ad05ce6 100644
---- a/include/linux/micrel_phy.h
-+++ b/include/linux/micrel_phy.h
-@@ -17,6 +17,7 @@
- 
- #define PHY_ID_KSZ8873MLL	0x000e7237
- #define PHY_ID_KSZ9021		0x00221610
-+#define PHY_ID_KSZ9021RLRN	0x00221611
- #define PHY_ID_KS8737		0x00221720
- #define PHY_ID_KSZ8021		0x00221555
- #define PHY_ID_KSZ8031		0x00221556
-@@ -35,4 +36,9 @@
- /* struct phy_device dev_flags definitions */
- #define MICREL_PHY_50MHZ_CLK	0x00000001
- 
-+#define MICREL_KSZ9021_EXTREG_CTRL	0xB
-+#define MICREL_KSZ9021_EXTREG_DATA_WRITE	0xC
-+#define MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SCEW	0x104
-+#define MICREL_KSZ9021_RGMII_RX_DATA_PAD_SCEW	0x105
-+
- #endif /* _MICREL_PHY_H */
+Ben.
+
+>  	return NETDEV_TX_OK;
+> 
+> > Lastly, given I haven't powered up a system in two years which has
+> > tulip, any one want to take over maintainer for tulip driver?
+> > It's basically obsolete with a few rare patches like this one coming in.
+> 
+> I'm not up to it myself, sorry.
+
 -- 
-1.7.9.5
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
