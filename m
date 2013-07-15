@@ -1,33 +1,58 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: xt_socket: fix broken v0 support
-Date: Mon, 15 Jul 2013 20:20:21 +0200
-Message-ID: <20130715182021.GA12140@localhost>
-References: <1373595739.4600.123.camel@edumazet-glaptop>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PULL] vhost: cleanups and fixes
+Date: Mon, 15 Jul 2013 21:31:49 +0300
+Message-ID: <20130715183149.GA8215@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org,
-	Neal Cardwell <ncardwell@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:52718 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752439Ab3GOSU0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Jul 2013 14:20:26 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1373595739.4600.123.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 11, 2013 at 07:22:19PM -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> commit 681f130f39e10 ("netfilter: xt_socket: add XT_SOCKET_NOWILDCARD
-> flag") added a potential NULL dereference if an old iptables package
-> uses v0 of the match.
-> 
-> Fix this by removing the test on @info in fast path.
-> 
-> IPv6 can remove the test as well, as it uses v1 or v2.
+The following changes since commit 09a34c8404c1d4c5782de319c02e1d742c57875c:
 
-Applied, thanks Eric.
+  vhost/test: update test after vhost cleanups (2013-07-07 18:02:25 +0300)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+
+for you to fetch changes up to 22fa90c7fb479694d6affebc049d21f06b714be6:
+
+  vhost: Remove custom vhost rcu usage (2013-07-11 15:38:40 +0300)
+
+----------------------------------------------------------------
+vhost: more fixes for 3.11
+
+This includes some fixes for vhost net and scsi drivers.
+The test module has already been reworked to avoid rcu
+usage, but the necessary core changes are missing,
+we fixed this.
+Unlikely to affect any real-world users, but it's
+early in the cycle so, let's merge them.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+----------------------------------------------------------------
+Asias He (3):
+      vhost-net: Always access vq->private_data under vq mutex
+      vhost-scsi: Always access vq->private_data under vq mutex
+      vhost: Remove custom vhost rcu usage
+
+ drivers/vhost/net.c   | 37 ++++++++++++++++---------------------
+ drivers/vhost/scsi.c  | 17 ++++++-----------
+ drivers/vhost/test.c  |  6 ++----
+ drivers/vhost/vhost.h | 10 ++--------
+ 4 files changed, 26 insertions(+), 44 deletions(-)
