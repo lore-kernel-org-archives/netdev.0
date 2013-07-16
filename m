@@ -1,68 +1,77 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC] tulip: Support for byte queue limits
-Date: Tue, 16 Jul 2013 00:58:09 +0100
-Message-ID: <1373932689.3745.30.camel@bwh-desktop.uk.level5networks.com>
-References: <20130712180116.21176.qmail@science.horizon.com>
+Subject: Re: [net PATCH] atl1e: fix dma mapping warnings
+Date: Tue, 16 Jul 2013 01:01:17 +0100
+Message-ID: <1373932877.3745.32.camel@bwh-desktop.uk.level5networks.com>
+References: <1373641128-13634-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <grantgrundler@gmail.com>, <eric.dumazet@gmail.com>,
-	<grundler@parisc-linux.org>, <netdev@vger.kernel.org>
-To: George Spelvin <linux@horizon.com>
+Cc: <netdev@vger.kernel.org>, Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:62898 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:54230 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753834Ab3GOX6N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jul 2013 19:58:13 -0400
-In-Reply-To: <20130712180116.21176.qmail@science.horizon.com>
+	with ESMTP id S1757532Ab3GPABV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jul 2013 20:01:21 -0400
+In-Reply-To: <1373641128-13634-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-07-12 at 14:01 -0400, George Spelvin wrote:
-> > Hi George,
-> > While you are right that functionally it doesn't matter, my preference
-> > would be to have nothing between the wmb() and iowrite() that kicks
-> > off the TX. This marginally helps kick off the TX process consistently
-> > slightly sooner. On modern HW, probably irrelevant, but not on the HW
-> > these chips are used on.
-> 
-> I'll revise it.  It just made sense to me to put it next to the other
-> bookkeeping line of tp->cur_tx++.  Should I move them both below the
-> iowrite()?  As in:
-> 
-> --- a/drivers/net/ethernet/dec/tulip/tulip_core.c
-> +++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
-> @@ -702,11 +702,11 @@ tulip_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  	tp->tx_ring[entry].status = cpu_to_le32(DescOwned);
->  	wmb();
+On Fri, 2013-07-12 at 10:58 -0400, Neil Horman wrote:
+[...]
+> The usual straighforward failure to check for dma_mapping_error after a map
+> operation is completed.
+[...]
+> --- a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+> +++ b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+> @@ -1665,7 +1665,7 @@ check_sum:
+>  	return 0;
+>  }
 >  
-> -	tp->cur_tx++;
-> -
->  	/* Trigger an immediate transmit demand. */
->  	iowrite32(0, tp->base_addr + CSR1);
+> -static void atl1e_tx_map(struct atl1e_adapter *adapter,
+> +static int atl1e_tx_map(struct atl1e_adapter *adapter,
+>  		      struct sk_buff *skb, struct atl1e_tpd_desc *tpd)
+>  {
+>  	struct atl1e_tpd_desc *use_tpd = NULL;
+> @@ -1677,6 +1677,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+>  	u16 nr_frags;
+>  	u16 f;
+>  	int segment;
+> +	int ring_start = adapter->tx_ring.next_to_use;
 >  
-> +	tp->cur_tx++;
-> +	netdev_sent_queue(dev, skb->len);
+>  	nr_frags = skb_shinfo(skb)->nr_frags;
+>  	segment = (tpd->word3 >> TPD_SEGMENT_EN_SHIFT) & TPD_SEGMENT_EN_MASK;
+> @@ -1689,6 +1690,9 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+>  		tx_buffer->length = map_len;
+>  		tx_buffer->dma = pci_map_single(adapter->pdev,
+>  					skb->data, hdr_len, PCI_DMA_TODEVICE);
+> +		if (dma_mapping_error(&adapter->pdev->dev, tx_buffer->dma))
+> +			return -ENOSPC;
+> +
 
-This is not good practice, because once you start DMA you have
-effectively passed ownership of the skb to the TX completion handler.
+Odd choice of error code.
 
->  	spin_unlock_irqrestore(&tp->lock, flags);
+>  		ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_SINGLE);
+>  		mapped_len += map_len;
+>  		use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
+> @@ -1715,6 +1719,13 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+>  		tx_buffer->dma =
+>  			pci_map_single(adapter->pdev, skb->data + mapped_len,
+>  					map_len, PCI_DMA_TODEVICE);
+> +
+> +		if (dma_mapping_error(&adapter->pdev->dev, tx_buffer->dma)) {
+> +			/* Reset the tx rings next pointer */
+> +			adapter->tx_ring.next_to_use = ring_start;
+> +			return -ENOSPC;
+> +		}
+[...]
 
-Presumably the TX completion handler will hold this spinlock and
-therefore cannot free the skb before you use skb->len above.  So this
-will be safe now.  But one day someone may want to get rid of this lock,
-so this is a trap waiting to spring.
+This is not enough; you also need to unmap the DMA mappings that have
+already been made.
 
 Ben.
-
->  	return NETDEV_TX_OK;
-> 
-> > Lastly, given I haven't powered up a system in two years which has
-> > tulip, any one want to take over maintainer for tulip driver?
-> > It's basically obsolete with a few rare patches like this one coming in.
-> 
-> I'm not up to it myself, sorry.
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
