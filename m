@@ -1,36 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] tulip: Support for byte queue limits
-Date: Mon, 15 Jul 2013 18:27:17 -0700
-Message-ID: <1373938037.10804.82.camel@edumazet-glaptop>
-References: <20130712180116.21176.qmail@science.horizon.com>
-	 <1373932689.3745.30.camel@bwh-desktop.uk.level5networks.com>
-	 <CAP6odjjyXqhMBAY3L1p7w9UPU2VH04MsyaWG6wb1YB_Pe43Dyg@mail.gmail.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch iproute2] add quickack option to ip route
+Date: Tue, 16 Jul 2013 10:29:32 +0800
+Message-ID: <1373941772.25489.7.camel@cr0>
+References: <1371260359-5875-1-git-send-email-amwang@redhat.com>
+	 <1371260359-5875-2-git-send-email-amwang@redhat.com>
+	 <20130619181722.50b2d7b7@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	George Spelvin <linux@horizon.com>,
-	Grant Grundler <grundler@parisc-linux.org>,
-	"open list:TULIP NETWORK DRI..." <netdev@vger.kernel.org>
-To: Grant Grundler <grantgrundler@gmail.com>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f179.google.com ([209.85.214.179]:45283 "EHLO
-	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754606Ab3GPB1U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jul 2013 21:27:20 -0400
-Received: by mail-ob0-f179.google.com with SMTP id xk17so114616obc.24
-        for <netdev@vger.kernel.org>; Mon, 15 Jul 2013 18:27:19 -0700 (PDT)
-In-Reply-To: <CAP6odjjyXqhMBAY3L1p7w9UPU2VH04MsyaWG6wb1YB_Pe43Dyg@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:41642 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753613Ab3GPCaR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jul 2013 22:30:17 -0400
+In-Reply-To: <20130619181722.50b2d7b7@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-07-15 at 18:17 -0700, Grant Grundler wrote:
-
-> Even for tulip driver?  Sorry, I just can't imagine anyone taking
-> enough interest in tulip driver to implement that.  I'm not even sure
-> it would be possible.
+On Wed, 2013-06-19 at 18:17 -0700, Stephen Hemminger wrote:
+> On Sat, 15 Jun 2013 09:39:19 +0800
+> Cong Wang <amwang@redhat.com> wrote:
+> 
+> > From: Cong Wang <amwang@redhat.com>
+> > 
+> > This patch adds quickack option to enable/disable TCP quick ack
+> > mode for per-route.
+> > 
+> > Cc: Stephen Hemminger <stephen@networkplumber.org>
+> > Cc: "David S. Miller" <davem@davemloft.net>
+> > Cc: Thomas Graf <tgraf@suug.ch>
+> > Signed-off-by: Cong Wang <amwang@redhat.com>
+> > 
+> 
+> I am still waiting until RTAX_QUICKACK is accepted into net-next to apply to net-next-3.10 branch
+> of iproute
+> 
 > 
 
-I would not care. When I reviewed this patch, I was aware of this
-problem (as this is the most common error done in BQL patches), and
-decided patch was fine, because lock was held.
+The kernel patch was already merged into Linus tree, so could you apply
+it now? Do I need to resend it?
+
+Thanks!
