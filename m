@@ -1,114 +1,97 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net 3/6] bnx2x: update fairness parameters following DCB
- negotiation
-Date: Tue, 16 Jul 2013 18:21:44 +0300
-Message-ID: <1373988107-305-4-git-send-email-dmitry@broadcom.com>
+Subject: [PATCH net 5/6] bnx2x: fix PTE write access error
+Date: Tue, 16 Jul 2013 18:21:46 +0300
+Message-ID: <1373988107-305-6-git-send-email-dmitry@broadcom.com>
 References: <1373988107-305-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1240 "EHLO mms3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4140 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932727Ab3GPPWF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jul 2013 11:22:05 -0400
+	id S932727Ab3GPPWI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jul 2013 11:22:08 -0400
 In-Reply-To: <1373988107-305-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ETS can be enabled as a result of DCB negotiation, then
-fairness must be recalculated after each negotiation.
+From: Barak Witkowsky <barak@broadcom.com>
+
+PTE write access error  might occur in MF_ALLOWED mode when IOMMU
+is active. The patch adds rmmod HSI indicating to MFW to stop
+running queries which might trigger this failure.
 
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |  2 ++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c  |  4 ++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 30 ++++++++++++++----------
- 3 files changed, 24 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      | 1 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h  | 5 +++++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 9 +++++++++
+ 3 files changed, 15 insertions(+)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index bdbd87e..02f914d 100644
+index 02f914d..906c7d9 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -2452,4 +2452,6 @@ enum bnx2x_pci_bus_speed {
- 	BNX2X_PCI_LINK_SPEED_5000 = 5000,
- 	BNX2X_PCI_LINK_SPEED_8000 = 8000
- };
-+
-+void bnx2x_set_local_cmng(struct bnx2x *bp);
- #endif /* bnx2x.h */
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-index 0c94df4..f9122f2 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-@@ -753,6 +753,10 @@ void bnx2x_dcbx_set_params(struct bnx2x *bp, u32 state)
- 		bnx2x_pfc_set_pfc(bp);
+@@ -1502,6 +1502,7 @@ struct bnx2x {
+ #define BC_SUPPORTS_DCBX_MSG_NON_PMF	(1 << 21)
+ #define IS_VF_FLAG			(1 << 22)
+ #define INTERRUPTS_ENABLED_FLAG		(1 << 23)
++#define BC_SUPPORTS_RMMOD_CMD		(1 << 24)
  
- 		bnx2x_dcbx_update_ets_params(bp);
-+
-+		/* ets may affect cmng configuration: reinit it in hw */
-+		bnx2x_set_local_cmng(bp);
-+
- 		bnx2x_dcbx_resume_hw_tx(bp);
+ #define BP_NOMCP(bp)			((bp)->flags & NO_MCP_FLAG)
  
- 		return;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+index 5018e52..32767f6 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+@@ -1300,6 +1300,9 @@ struct drv_func_mb {
+ 
+ 	#define DRV_MSG_CODE_EEE_RESULTS_ACK            0xda000000
+ 
++	#define DRV_MSG_CODE_RMMOD                      0xdb000000
++	#define REQ_BC_VER_4_RMMOD_CMD                  0x0007080f
++
+ 	#define DRV_MSG_CODE_SET_MF_BW                  0xe0000000
+ 	#define REQ_BC_VER_4_SET_MF_BW                  0x00060202
+ 	#define DRV_MSG_CODE_SET_MF_BW_ACK              0xe1000000
+@@ -1372,6 +1375,8 @@ struct drv_func_mb {
+ 
+ 	#define FW_MSG_CODE_EEE_RESULS_ACK              0xda100000
+ 
++	#define FW_MSG_CODE_RMMOD_ACK                   0xdb100000
++
+ 	#define FW_MSG_CODE_SET_MF_BW_SENT              0xe0000000
+ 	#define FW_MSG_CODE_SET_MF_BW_DONE              0xe1000000
+ 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 7e9681f..0f3de02 100644
+index 0f3de02..9394b7d 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -2476,7 +2476,7 @@ static void bnx2x_cmng_fns_init(struct bnx2x *bp, u8 read_cfg, u8 cmng_type)
+@@ -10368,6 +10368,10 @@ static void bnx2x_get_common_hwinfo(struct bnx2x *bp)
  
- 	input.port_rate = bp->link_vars.line_speed;
- 
--	if (cmng_type == CMNG_FNS_MINMAX) {
-+	if (cmng_type == CMNG_FNS_MINMAX && input.port_rate) {
- 		int vn;
- 
- 		/* read mf conf from shmem */
-@@ -2533,6 +2533,21 @@ static void storm_memset_cmng(struct bnx2x *bp,
- 	}
- }
- 
-+/* init cmng mode in HW according to local configuration */
-+void bnx2x_set_local_cmng(struct bnx2x *bp)
-+{
-+	int cmng_fns = bnx2x_get_cmng_fns_mode(bp);
+ 	bp->flags |= (val >= REQ_BC_VER_4_DCBX_ADMIN_MSG_NON_PMF) ?
+ 			BC_SUPPORTS_DCBX_MSG_NON_PMF : 0;
 +
-+	if (cmng_fns != CMNG_FNS_NONE) {
-+		bnx2x_cmng_fns_init(bp, false, cmng_fns);
-+		storm_memset_cmng(bp, &bp->cmng, BP_PORT(bp));
-+	} else {
-+		/* rate shaping and fairness are disabled */
-+		DP(NETIF_MSG_IFUP,
-+		   "single function mode without fairness\n");
-+	}
-+}
++	bp->flags |= (val >= REQ_BC_VER_4_RMMOD_CMD) ?
++			BC_SUPPORTS_RMMOD_CMD : 0;
 +
- /* This function is called upon link interrupt */
- static void bnx2x_link_attn(struct bnx2x *bp)
- {
-@@ -2568,17 +2583,8 @@ static void bnx2x_link_attn(struct bnx2x *bp)
- 			bnx2x_stats_handle(bp, STATS_EVENT_LINK_UP);
- 	}
+ 	boot_mode = SHMEM_RD(bp,
+ 			dev_info.port_feature_config[BP_PORT(bp)].mba_config) &
+ 			PORT_FEATURE_MBA_BOOT_AGENT_TYPE_MASK;
+@@ -12824,6 +12828,11 @@ static void __bnx2x_remove(struct pci_dev *pdev,
+ 	bnx2x_dcbnl_update_applist(bp, true);
+ #endif
  
--	if (bp->link_vars.link_up && bp->link_vars.line_speed) {
--		int cmng_fns = bnx2x_get_cmng_fns_mode(bp);
--
--		if (cmng_fns != CMNG_FNS_NONE) {
--			bnx2x_cmng_fns_init(bp, false, cmng_fns);
--			storm_memset_cmng(bp, &bp->cmng, BP_PORT(bp));
--		} else
--			/* rate shaping and fairness are disabled */
--			DP(NETIF_MSG_IFUP,
--			   "single function mode without fairness\n");
--	}
-+	if (bp->link_vars.link_up && bp->link_vars.line_speed)
-+		bnx2x_set_local_cmng(bp);
- 
- 	__bnx2x_link_report(bp);
- 
++	if ((IS_PF(bp)) &&
++	    (!BP_NOMCP(bp)) &&
++	    (bp->flags & BC_SUPPORTS_RMMOD_CMD))
++		bnx2x_fw_command(bp, DRV_MSG_CODE_RMMOD, 0);
++
+ 	/* Close the interface - either directly or implicitly */
+ 	if (remove_netdev) {
+ 		unregister_netdev(dev);
 -- 
 1.8.1.4
