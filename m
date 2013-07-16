@@ -1,48 +1,51 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net 6/6] bnx2x: prevent crash in shutdown flow with CNIC
-Date: Tue, 16 Jul 2013 18:21:47 +0300
-Message-ID: <1373988107-305-7-git-send-email-dmitry@broadcom.com>
+Subject: [PATCH net 1/6] bnx2x: properly initialize statistic counters
+Date: Tue, 16 Jul 2013 18:21:42 +0300
+Message-ID: <1373988107-305-2-git-send-email-dmitry@broadcom.com>
 References: <1373988107-305-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3286 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3189 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933165Ab3GPPWL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jul 2013 11:22:11 -0400
+	id S932727Ab3GPPWC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jul 2013 11:22:02 -0400
 In-Reply-To: <1373988107-305-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <yuvalmin@broadcom.com>
-
-There might be a crash as during shutdown flow CNIC might try
-to access resources already freed by bnx2x.
-Change bnx2x_close() into dev_close() in __bnx2x_remove (shutdown flow)
-to guarantee CNIC is notified of the device's change of status.
+This prevent second statistics query be sent before first one is complete.
+This is required since two outstanding queries may cause FW assert.
 
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 9394b7d..2fdc8e6 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -12838,8 +12838,7 @@ static void __bnx2x_remove(struct pci_dev *pdev,
- 		unregister_netdev(dev);
- 	} else {
- 		rtnl_lock();
--		if (netif_running(dev))
--			bnx2x_close(dev);
-+		dev_close(dev);
- 		rtnl_unlock();
- 	}
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+index 98366ab..69c4cb6 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+@@ -1591,10 +1591,16 @@ void bnx2x_stats_init(struct bnx2x *bp)
+ {
+ 	int /*abs*/port = BP_PORT(bp);
+ 	int mb_idx = BP_FW_MB_IDX(bp);
++	__le16 init_fw_counter = le16_to_cpu(0xFFFF);
++	struct stats_counter *counters = &bp->fw_stats_data->storm_counters;
  
+ 	bp->stats_pending = 0;
+ 	bp->executer_idx = 0;
+ 	bp->stats_counter = 0;
++	counters->xstats_counter = init_fw_counter;
++	counters->tstats_counter = init_fw_counter;
++	counters->ustats_counter = init_fw_counter;
++	counters->cstats_counter = init_fw_counter;
+ 
+ 	/* port and func stats for management */
+ 	if (!BP_NOMCP(bp)) {
 -- 
 1.8.1.4
