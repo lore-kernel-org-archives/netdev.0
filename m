@@ -1,37 +1,54 @@
-From: Paolo Valente <paolo.valente@unimore.it>
-Subject: Re: [PATCH BUGFIX] pkt_sched: sch_qfq: remove a source of high packet
- delay/jitter
-Date: Tue, 16 Jul 2013 08:46:41 +0200
-Message-ID: <51E4EC51.6000607@unimore.it>
-References: <1373911290-6237-1-git-send-email-paolo.valente@unimore.it> <1373911942.2062.24.camel@joe-AO722>
+From: Helmut Schaa <helmut.schaa@googlemail.com>
+Subject: Re: [PATCH 2/2] drivers: net: phy: at803x: LED control via led subsystem
+Date: Tue, 16 Jul 2013 08:56:51 +0200
+Message-ID: <CAGXE3d9Zv572L22swzHctNR0QNiA-tDAPEhTZKSXBA6SZfeLFg@mail.gmail.com>
+References: <1373543855-31670-1-git-send-email-helmut.schaa@googlemail.com>
+	<1373543855-31670-2-git-send-email-helmut.schaa@googlemail.com>
+	<CAGVrzcbxuogp9umQVEFOfzg64Nb6UWZjHs_5M=bdHceRSFRE4g@mail.gmail.com>
+	<CAGXE3d8WRU2fmRZ9DAQ4_Y=WZQwNmt9DVbLys=LkJaRPz=7FAw@mail.gmail.com>
+	<CAGVrzcZn+dAzWV9ObyfLn5cyE0D7rXgUkmdKOZ8rE0q1r4J3Hg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>, shemminger@vyatta.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	fchecconi@gmail.com, rizzo@iet.unipi.it
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1373911942.2062.24.camel@joe-AO722>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Florian Fainelli <florian@openwrt.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:53133 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751715Ab3GPG4w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 02:56:52 -0400
+Received: by mail-ie0-f173.google.com with SMTP id k13so828066iea.32
+        for <netdev@vger.kernel.org>; Mon, 15 Jul 2013 23:56:51 -0700 (PDT)
+In-Reply-To: <CAGVrzcZn+dAzWV9ObyfLn5cyE0D7rXgUkmdKOZ8rE0q1r4J3Hg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Il 15/07/2013 20:12, Joe Perches ha scritto:
-> On Mon, 2013-07-15 at 20:01 +0200, Paolo Valente wrote:
->> QFQ+ inherits from QFQ a design choice that may cause a high packet
->> delay/jitter and a severe short-term unfairness.
-> []
->> diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
-> []
->> @@ -189,6 +188,7 @@ struct qfq_sched {
->>   	struct qfq_aggregate	*in_serv_agg;   /* Aggregate being served. */
->>   	u32			num_active_agg; /* Num. of active aggregates */
->>   	u32			wsum;		/* weight sum */
->> +	unsigned long		iwsum;		/* inverse weight sum*/
+On Fri, Jul 12, 2013 at 9:19 AM, Florian Fainelli <florian@openwrt.org> wrote:
+> 2013/7/11 Helmut Schaa <helmut.schaa@googlemail.com>:
+>>>
+>>> I do like this and I believe that there is nothing specific that would
+>>> prevent you from making software controllable LEDs from being used
+>>> with other PHYs. How about you create a small LED class helper that
+>>> PHY drivers supporting controllable LEDs can hook into and provide
+>>> their own callback and LED name for setting the LED state?
+>>
+>> Hmm, nice idea. However, there is not much complexity in the code. The only
+>> thing worth to make generic would be the delayed register access via workqueue.
+>> The rest is just registering the led device :)
+>>
+>> I thought about moving the code into the generic phy code and using a new
+>> phy_driver callback for setting the LED state but there might be more then one
+>> LED pin on some PHYs (activity, speed, duplexmode etc.).
 >
-> This is a different size for 32/64 bit compiles
-> and may be better as u32.
->
->
-Sending a new version with u32, thanks.
+> I think that the same callback for all LEDs and just take actions
+> based on which led_classdev pointer we get passed should be enough. I
+> agree with you that there is not much complexity, but for sure, if we
+> add support for LEDs to another PHY driver there will be similar stuff
+> done (registering a LED classdev, etc...) so we might just want to
+> specialize the led_brightness_set() callback and the number of LEDs.
+> One thing with moving this closer to the PHY state machine would be to
+> allow for better integration, like setting the LED brightness to 0
+> when the link goes down etc...
+
+Agreed, let me see if I can come up with a more generic approach.
+Thanks,
+Helmut
