@@ -1,42 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv4: set transport header earlier
-Date: Tue, 16 Jul 2013 13:00:08 -0700 (PDT)
-Message-ID: <20130716.130008.1606475609280013646.davem@davemloft.net>
-References: <1373943799.10804.96.camel@edumazet-glaptop>
+From: Christian Hesse <list@eworm.de>
+Subject: Re: [ANNOUNCE] iproute2 3.10
+Date: Tue, 16 Jul 2013 21:56:55 +0200
+Message-ID: <20130716215655.5397c60b@leda>
+References: <20130716101748.166a8ad7@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ncardwell@google.com,
-	netfilter-devel@vger.kernel.org, therbert@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1373943799.10804.96.camel@edumazet-glaptop>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_/qmMCh/RliUrki91HMki9abC"; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130716101748.166a8ad7@nehalam.linuxnetplumber.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 15 Jul 2013 20:03:19 -0700
+--Sig_/qmMCh/RliUrki91HMki9abC
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> commit 45f00f99d6e ("ipv4: tcp: clean up tcp_v4_early_demux()") added a
-> performance regression for non GRO traffic, basically disabling
-> IP early demux.
-> 
-> IPv6 stack resets transport header in ip6_rcv() before calling
-> IP early demux in ip6_rcv_finish(), while IPv4 does this only in
-> ip_local_deliver_finish(), _after_ IP early demux.
-> 
-> GRO traffic happened to enable IP early demux because transport header
-> is also set in inet_gro_receive()
-> 
-> Instead of reverting the faulty commit, we can make IPv4/IPv6 behave the
-> same : transport_header should be set in ip_rcv() instead of
-> ip_local_deliver_finish()
-> 
-> ip_local_deliver_finish() can also use skb_network_header_len() which is
-> faster than ip_hdrlen()
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Stephen Hemminger <stephen@networkplumber.org> on Tue, 2013/07/16 10:17:
+> This is update for iproute2 tools for 3.10 kernel.
+> [...]
+>
+> Iproute2 package is available at:
+>   http://kernel.org/pub/linux/utils/net/iproute2/iproute2-3.10.0.tar.gz
+>=20
+> You can download the source from:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
 
-Applied and queued up for -stable, thanks Eric.
+Is there any reason the last two releases have not been tagged in git?
+--=20
+main(a){char*c=3D/*    Schoene Gruesse                         */"B?IJj;MEH"
+"CX:;",b;for(a/*    Chris           get my mail address:    */=3D0;b=3Dc[a+=
++];)
+putchar(b-1/(/*               gcc -o sig sig.c && ./sig    */b/42*2-3)*42);}
+
+--Sig_/qmMCh/RliUrki91HMki9abC
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.20 (GNU/Linux)
+
+iQEcBAEBAgAGBQJR5aWNAAoJEIlFIdfMgPR2rwQIAKpOK2g6AX2HQLsNLVxadErQ
+hRViHuO3f0XUaLRtycahHVohzM4AB3yH+DDnnScRmfVFApZlVTFmcWBErgT7/0Nw
+93TqPuKqrYcGIQ9LV6pmBbc0WGjvFhi1yhJM9Mwkb8sM7vjHsL1hDrnOOorE7XPn
+7/KVXfOefj6cdSV8yUZFSu5mSLUf2C37E1xWOcW789ePh7q8e5qhen5HS9/4vUtx
+L4WGvn4doGPn60zbr1TYKX1T9pyurFWKlXJ/AFBN4wX0LQwUFiJ5zP8hCQX5Odss
+fXwqCpwvw9dn4hl59gWdSf6h9SSwQrWdJDqv0xcxAz0mJH6Eqj8cWvNgRPa+Bro=
+=dPda
+-----END PGP SIGNATURE-----
+
+--Sig_/qmMCh/RliUrki91HMki9abC--
