@@ -1,87 +1,112 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next v2] nlmon: use standard rtnetlink link api for
- add/del devices
-Date: Tue, 16 Jul 2013 18:41:02 +0200
-Message-ID: <20130716164102.GA1725@minipsycho.orion>
-References: <1372755331-1267-1-git-send-email-jiri@resnulli.us>
- <loom.20130716T160603-964@post.gmane.org>
- <51E55D91.5050000@redhat.com>
- <1561418.Jq9drZzso6@lx-vladimir>
- <51E5705B.9070206@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [ANNOUNCE] iproute2 3.10
+Date: Tue, 16 Jul 2013 10:17:48 -0700
+Message-ID: <20130716101748.166a8ad7@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>,
-	netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61558 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933121Ab3GPQlF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jul 2013 12:41:05 -0400
-Content-Disposition: inline
-In-Reply-To: <51E5705B.9070206@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Jul 16, 2013 at 06:10:03PM CEST, dborkman@redhat.com wrote:
->On 07/16/2013 05:59 PM, Vladimir Kondratiev wrote:
->>On Tuesday, July 16, 2013 04:49:53 PM Daniel Borkmann wrote:
->>>On 07/16/2013 04:08 PM, Vladimir Kondratiev wrote:
->>>>Jiri Pirko <jiri <at> resnulli.us> writes:
->>>>
->>>>>It is not nice when netdev is created right after module load and with
->>>>>some implicit name. So rather change nlmon to use standard rtnl link API.
->>>>
->>>>Could you please elaborate a bit - how to capture netlink skb's after your
->>>>patch? Before, it was netdev that may be used with tcpdump. Now, there is
->>>>no such netdev. How to create it?
->>>
->>>modprobe nlmon
->>>ip link add type nlmon
->>>ip link set nlmon0 up
->>>
->>>tcpdump -i nlmon0 ....
->>>
->>>ip link set nlmon0 down
->>>ip link del dev nlmon0
->>>rmmod nlmon
->>
->>Thanks a lot! I guess it is worth to have this mentioned somewhere.
->>It will save lots of questions. For example, in Kconfig:
->
->Ok, I don't have a strong opinion on the below patch, I'm fine either way.
->
->But, given that for such devices it is *common* to use the standard rtnl
->link API (Jiri is right that this is a better/cleaner approach), I'm not
->sure if this needs to be documented then ...
+This is update for iproute2 tools for 3.10 kernel.
+In addition to the usual array of bug fixes and documentation changes,
+this release also fixes some important bugs relating to rate control
+at higher speeds.
 
-I believe that this does not need any further documentation. RTNL (ip
-link add ..) is a standard api to add devices...
+The 3.10 kernel added a number of new networking features as well
+for VXLAN and bridging.
 
+Iproute2 package is available at:
+  http://kernel.org/pub/linux/utils/net/iproute2/iproute2-3.10.0.tar.gz
 
->
->>diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
->>index b45b240..13acea2 100644
->>--- a/drivers/net/Kconfig
->>+++ b/drivers/net/Kconfig
->>@@ -247,8 +247,18 @@ config NLMON
->>           purpose of this is to analyze netlink messages with packet sockets.
->>           Thus applications like tcpdump will be able to see local netlink
->>           messages if they tap into the netlink device, record pcaps for further
->>-         diagnostics, etc. This is mostly intended for developers or support
->>-         to debug netlink issues. If unsure, say N.
->>+         diagnostics, etc. Typical flow is:
->>+
->>+           modprobe nlmon
->>+           ip link add type nlmon
->>+           ip link set nlmon0 up
->>+           tcpdump -i nlmon0 ....
->>+           ip link set nlmon0 down
->>+           ip link del dev nlmon0
->>+           rmmod nlmon
->>+
->>+         This is mostly intended for developers or support to debug netlink
->>+         issues. If unsure, say N.
->>
->>  endif # NET_CORE
->>
+You can download the source from:
+  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+
+---
+
+Adam Borowski (1):
+      ip: fix build failure if time_t is not long int
+
+Alexander Duyck (1):
+      iproute2: act_ipt fix xtables breakage on older versions.
+
+Amerigo Wang (1):
+      iptunnel: check SIT_ISATAP flag only for SIT tunnel
+
+Andreas Henriksson (1):
+      iproute2: fix build failure on sparc due to -Wformat and tv_usec
+
+Andrey Vagin (5):
+      ip: set the close-on-exec flag for descriptors
+      ss: handle socket diag request in a separate function
+      ss: create a function to print info about netlink sockets
+      ss: show destination address for netlink sockets
+      ss: Get netlink sockets info via sock-diag (v2)
+
+Daniel Borkmann (1):
+      ip: ipv6: add tokenized interface identifier support
+
+David L Stevens (1):
+      iproute2: support NTF_ROUTER flag in VXLAN fdb entries
+
+David Stevens (1):
+      iproute2: generalize VXLAN forwarding tables
+
+Eric Dumazet (4):
+      ss: add fastopen support
+      htb: report overhead attribute
+      get_rate: detect 32bit overflows
+      ss: add more TCP_INFO components
+
+John Fastabend (1):
+      iproute2: bridge: fix 'bridge link' setlink/getlink parsing
+
+JunweiZhang (1):
+      ipbatch: fix use of 'ip netns exec'
+
+Kamil Rytarowski (1):
+      iproute2 patch against GCC 4.8.0
+
+Nicolas Dichtel (5):
+      ip: add missing help about mode argument
+      ip/xfrm: all to set flag XFRM_SA_XFLAG_DONT_ENCAP_DSCP
+      ipnetconf: by default dump all entries
+      ss: allow to retrieve AF_PACKET info via netlink
+      man: describe --bpf option of ss
+
+Patric McHardy (1):
+      ip: iplink_vlan: add 802.1ad support
+
+Pavel Emelyanov (1):
+      ss: Show inet and unix sockets' shutdown state
+
+Rami Rosen (1):
+      ss: replace bfp with bpf in usage().
+
+Sriram Narasimhan (1):
+      iptuntap: allow creation of multi-queue tun/tap device
+
+Stephen Hemminger (11):
+      Update headers to 3.10
+      Add vxlan destination port option
+      vxlan: nag user to set port value
+      add BPF header files
+      vxlan: remove dstport option
+      man: get rid of useless reference to GNU style options
+      htb: fix indentation
+      netns: follow return value conventions of the rest of the code
+      ip: add batch mode to man page
+      Make tc and ip batch mode consistent
+      v3.10.0
+
+Thomas Richter (2):
+      iproute2 vxlan documentation update for bridge command
+      iproute2 vxlan documentation update for ip command
+
+Eric S. Raymond (4):
+      First set of manpage markup fixes
+      tc-stab.8: Fix synopsis errors, an invalid escape, and incorrect English usge.
+      In tc-ematch.8, remove no-op .ti requests to prevent translation warnings
+      ip-rule.8: Fix presentational use of .SS.
