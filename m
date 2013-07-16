@@ -1,37 +1,37 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net 1/2] macvtap: fix the missing ret value of TUNSETQUEUE
-Date: Tue, 16 Jul 2013 13:36:33 +0800
-Message-ID: <1373952994-7252-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>,
-	Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH net 2/2] macvtap: do not assume 802.1Q when send vlan packets
+Date: Tue, 16 Jul 2013 13:36:34 +0800
+Message-ID: <1373952994-7252-2-git-send-email-jasowang@redhat.com>
+References: <1373952994-7252-1-git-send-email-jasowang@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>, Basil Gor <basil.gor@gmail.com>
 To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1373952994-7252-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit 441ac0fcaadc76ad09771812382345001dd2b813
-(macvtap: Convert to using rtnl lock) forget to return what
-macvtap_ioctl_set_queue() returns to its caller. This may break multiqueue API
-by always falling through to TUNGETFEATURES.
+The hard-coded 8021.q proto will break 802.1ad traffic. So switch to use
+vlan->proto.
 
-Cc: Vlad Yasevich <vyasevic@redhat.com>
+Cc: Basil Gor <basil.gor@gmail.com>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/macvtap.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/macvtap.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index f2c4a3b..8270b5e 100644
+index 8270b5e..638b64c 100644
 --- a/drivers/net/macvtap.c
 +++ b/drivers/net/macvtap.c
-@@ -1103,6 +1103,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
- 		rtnl_lock();
- 		ret = macvtap_ioctl_set_queue(file, u);
- 		rtnl_unlock();
-+		return ret;
+@@ -869,7 +869,7 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+ 			__be16 h_vlan_proto;
+ 			__be16 h_vlan_TCI;
+ 		} veth;
+-		veth.h_vlan_proto = htons(ETH_P_8021Q);
++		veth.h_vlan_proto = skb->vlan_proto;
+ 		veth.h_vlan_TCI = htons(vlan_tx_tag_get(skb));
  
- 	case TUNGETFEATURES:
- 		if (put_user(IFF_TAP | IFF_NO_PI | IFF_VNET_HDR |
+ 		vlan_offset = offsetof(struct vlan_ethhdr, h_vlan_proto);
 -- 
 1.7.1
