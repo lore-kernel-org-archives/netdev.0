@@ -1,54 +1,61 @@
-From: Helmut Schaa <helmut.schaa@googlemail.com>
-Subject: Re: [PATCH 2/2] drivers: net: phy: at803x: LED control via led subsystem
-Date: Tue, 16 Jul 2013 08:56:51 +0200
-Message-ID: <CAGXE3d9Zv572L22swzHctNR0QNiA-tDAPEhTZKSXBA6SZfeLFg@mail.gmail.com>
-References: <1373543855-31670-1-git-send-email-helmut.schaa@googlemail.com>
-	<1373543855-31670-2-git-send-email-helmut.schaa@googlemail.com>
-	<CAGVrzcbxuogp9umQVEFOfzg64Nb6UWZjHs_5M=bdHceRSFRE4g@mail.gmail.com>
-	<CAGXE3d8WRU2fmRZ9DAQ4_Y=WZQwNmt9DVbLys=LkJaRPz=7FAw@mail.gmail.com>
-	<CAGVrzcZn+dAzWV9ObyfLn5cyE0D7rXgUkmdKOZ8rE0q1r4J3Hg@mail.gmail.com>
+From: <sarveshwar.bandi@emulex.com>
+Subject: [PATCH net] be2net: Fix to avoid hardware workaround when not needed
+Date: Tue, 16 Jul 2013 12:44:02 +0530
+Message-ID: <458bdd84-53ce-489e-b134-f435c5fd6a50@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Florian Fainelli <florian@openwrt.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:53133 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751715Ab3GPG4w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 02:56:52 -0400
-Received: by mail-ie0-f173.google.com with SMTP id k13so828066iea.32
-        for <netdev@vger.kernel.org>; Mon, 15 Jul 2013 23:56:51 -0700 (PDT)
-In-Reply-To: <CAGVrzcZn+dAzWV9ObyfLn5cyE0D7rXgUkmdKOZ8rE0q1r4J3Hg@mail.gmail.com>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:29519 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751973Ab3GPHNG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 03:13:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 12, 2013 at 9:19 AM, Florian Fainelli <florian@openwrt.org> wrote:
-> 2013/7/11 Helmut Schaa <helmut.schaa@googlemail.com>:
->>>
->>> I do like this and I believe that there is nothing specific that would
->>> prevent you from making software controllable LEDs from being used
->>> with other PHYs. How about you create a small LED class helper that
->>> PHY drivers supporting controllable LEDs can hook into and provide
->>> their own callback and LED name for setting the LED state?
->>
->> Hmm, nice idea. However, there is not much complexity in the code. The only
->> thing worth to make generic would be the delayed register access via workqueue.
->> The rest is just registering the led device :)
->>
->> I thought about moving the code into the generic phy code and using a new
->> phy_driver callback for setting the LED state but there might be more then one
->> LED pin on some PHYs (activity, speed, duplexmode etc.).
->
-> I think that the same callback for all LEDs and just take actions
-> based on which led_classdev pointer we get passed should be enough. I
-> agree with you that there is not much complexity, but for sure, if we
-> add support for LEDs to another PHY driver there will be similar stuff
-> done (registering a LED classdev, etc...) so we might just want to
-> specialize the led_brightness_set() callback and the number of LEDs.
-> One thing with moving this closer to the PHY state machine would be to
-> allow for better integration, like setting the LED brightness to 0
-> when the link goes down etc...
+From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
 
-Agreed, let me see if I can come up with a more generic approach.
-Thanks,
-Helmut
+Hardware workaround requesting hardware to skip vlan insertion is necessary
+only when umc or qnq is enabled. Enabling this workaround in other scenarios
+could cause controller to stall.
+
+Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c |   14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 2df48bb..181edb5 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -782,16 +782,22 @@ static struct sk_buff *be_insert_vlan_in_pkt(struct be_adapter *adapter,
+ 
+ 	if (vlan_tx_tag_present(skb))
+ 		vlan_tag = be_get_tx_vlan_tag(adapter, skb);
+-	else if (qnq_async_evt_rcvd(adapter) && adapter->pvid)
+-		vlan_tag = adapter->pvid;
++
++	if (qnq_async_evt_rcvd(adapter) && adapter->pvid) {
++		if (!vlan_tag)
++			vlan_tag = adapter->pvid;
++		/* f/w workaround to set skip_hw_vlan = 1, informs the F/W to
++		 * skip VLAN insertion
++		 */
++		if (skip_hw_vlan)
++			*skip_hw_vlan = true;
++	}
+ 
+ 	if (vlan_tag) {
+ 		skb = __vlan_put_tag(skb, htons(ETH_P_8021Q), vlan_tag);
+ 		if (unlikely(!skb))
+ 			return skb;
+ 		skb->vlan_tci = 0;
+-		if (skip_hw_vlan)
+-			*skip_hw_vlan = true;
+ 	}
+ 
+ 	/* Insert the outer VLAN, if any */
+-- 
+1.7.9.5
