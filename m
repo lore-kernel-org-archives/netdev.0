@@ -1,130 +1,70 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: [PATCH v2] xen-netfront: pull on receive skb may need to
- happen earlier
-Date: Tue, 16 Jul 2013 10:46:01 +0100
-Message-ID: <51E5327902000078000E5426@nat28.tlf.novell.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: Re: [RFC PATCH] sctp: Don't lookup dst if transport dst is still
+ valid
+Date: Tue, 16 Jul 2013 17:58:52 +0800
+Message-ID: <51E5195C.90703@windriver.com>
+References: <51D6D3A0.7050106@gmail.com>	<51DC282C.9090007@gmail.com>	<51DF74BE.6000001@windriver.com> <20130712.155808.2237731776440357524.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: "Ian Campbell" <ian.campbell@citrix.com>,
-	"Wei Liu" <wei.liu2@citrix.com>, "Dion Kant" <g.w.kant@hunenet.nl>,
-	"xen-devel" <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>, <stable@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
+	<nicolas.dichtel@6wind.com>, <netdev@vger.kernel.org>
+To: David Miller <davem@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:51053 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753845Ab3GPJ7P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 05:59:15 -0400
+In-Reply-To: <20130712.155808.2237731776440357524.davem@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Due to commit 3683243b ("xen-netfront: use __pskb_pull_tail to ensure
-linear area is big enough on RX") xennet_fill_frags() may end up
-filling MAX_SKB_FRAGS + 1 fragments in a receive skb, and only reduce
-the fragment count subsequently via __pskb_pull_tail(). That's a
-result of xennet_get_responses() allowing a maximum of one more slot to
-be consumed (and intermediately transformed into a fragment) if the
-head slot has a size less than or equal to RX_COPY_THRESHOLD.
 
-Hence we need to adjust xennet_fill_frags() to pull earlier if we
-reached the maximum fragment count - due to the described behavior of
-xennet_get_responses() this guarantees that at least the first fragment
-will get completely consumed, and hence the fragment count reduced.
 
-In order to not needlessly call __pskb_pull_tail() twice, make the
-original call conditional upon the pull target not having been reached
-yet, and defer the newly added one as much as possible (an alternative
-would have been to always call the function right before the call to
-xennet_fill_frags(), but that would imply more frequent cases of
-needing to call it twice).
+On 2013=E5=B9=B407=E6=9C=8813=E6=97=A5 06:58, David Miller wrote:
+> From: Fan Du<fan.du@windriver.com>
+> Date: Fri, 12 Jul 2013 11:15:10 +0800
+>
+>> But problem still arise when we attempt to delete address
+>> in multi-home mode, deleting an IPv6 address does not invalidate
+>> any dst which source address is the same at the deleted one.
+>> Which means sctp cannot rely on ip6_dst_check in this scenario.
+>
+> I still cannot understand why this is an SCTP specific issue.
 
-Signed-off-by: Jan Beulich <jbeulich@suse.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: stable@vger.kernel.org (3.6 onwards)
----
-v2: Use skb_add_rx_frag() to keep all accounting fields up to date as
-    we go (skb->len needing intermediate updating was pointed out by
-    Wei Liu and David Miller, shinfo->nr_frags needing updating before
-    calling __pskb_pull_tail() was spotted out by Dion Kant).
+It's not SCTP specific, it's shared by all all layer 4 protocol IMHO.
+The issue of SCTP IPv6 doesn't check IPv6 dst validness has been addres=
+sed
+using *only* dst_cookie as other layer 4 protocol does for its sock.
+But this scheme cannot cover scenario when delete primary address to su=
+pport
+SCTP multi-home feature, this is where the concern is.
 
----
- drivers/net/xen-netfront.c |   32 +++++++++++++-------------------
- 1 file changed, 13 insertions(+), 19 deletions(-)
+Use netsend to send a large file using DCCP, considering the sender
+host has two IPv6 address, while sending, delete the one netsend curren=
+tly
+using. Wireshark could catch the sender is still transmit packet out us=
+ing
+the deleted address in a slowly manner.
 
---- 3.11-rc1/drivers/net/xen-netfront.c
-+++ 3.11-rc1-xen-netfront-pull-earlier/drivers/net/xen-netfront.c
-@@ -286,8 +286,7 @@ no_skb:
- 			break;
- 		}
- 
--		__skb_fill_page_desc(skb, 0, page, 0, 0);
--		skb_shinfo(skb)->nr_frags = 1;
-+		skb_add_rx_frag(skb, 0, page, 0, 0, PAGE_SIZE);
- 		__skb_queue_tail(&np->rx_batch, skb);
- 	}
- 
-@@ -831,7 +830,6 @@ static RING_IDX xennet_fill_frags(struct
- 				  struct sk_buff_head *list)
- {
- 	struct skb_shared_info *shinfo = skb_shinfo(skb);
--	int nr_frags = shinfo->nr_frags;
- 	RING_IDX cons = np->rx.rsp_cons;
- 	struct sk_buff *nskb;
- 
-@@ -840,19 +838,21 @@ static RING_IDX xennet_fill_frags(struct
- 			RING_GET_RESPONSE(&np->rx, ++cons);
- 		skb_frag_t *nfrag = &skb_shinfo(nskb)->frags[0];
- 
--		__skb_fill_page_desc(skb, nr_frags,
--				     skb_frag_page(nfrag),
--				     rx->offset, rx->status);
-+		if (shinfo->nr_frags == MAX_SKB_FRAGS) {
-+			unsigned int pull_to = NETFRONT_SKB_CB(skb)->pull_to;
- 
--		skb->data_len += rx->status;
-+			BUG_ON(pull_to <= skb_headlen(skb));
-+			__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
-+		}
-+		BUG_ON(shinfo->nr_frags >= MAX_SKB_FRAGS);
-+
-+		skb_add_rx_frag(skb, shinfo->nr_frags, skb_frag_page(nfrag),
-+				rx->offset, rx->status, PAGE_SIZE);
- 
- 		skb_shinfo(nskb)->nr_frags = 0;
- 		kfree_skb(nskb);
--
--		nr_frags++;
- 	}
- 
--	shinfo->nr_frags = nr_frags;
- 	return cons;
- }
- 
-@@ -933,7 +933,8 @@ static int handle_incoming_queue(struct 
- 	while ((skb = __skb_dequeue(rxq)) != NULL) {
- 		int pull_to = NETFRONT_SKB_CB(skb)->pull_to;
- 
--		__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
-+		if (pull_to > skb_headlen(skb))
-+			__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
- 
- 		/* Ethernet work: Delayed to here as it peeks the header. */
- 		skb->protocol = eth_type_trans(skb, dev);
-@@ -1018,17 +1019,10 @@ err:
- 
- 		skb_shinfo(skb)->frags[0].page_offset = rx->offset;
- 		skb_frag_size_set(&skb_shinfo(skb)->frags[0], rx->status);
--		skb->data_len = rx->status;
-+		skb->len += skb->data_len = rx->status;
- 
- 		i = xennet_fill_frags(np, skb, &tmpq);
- 
--		/*
--                 * Truesize is the actual allocation size, even if the
--                 * allocation is only partially used.
--                 */
--		skb->truesize += PAGE_SIZE * skb_shinfo(skb)->nr_frags;
--		skb->len += skb->data_len;
--
- 		if (rx->flags & XEN_NETRXF_csum_blank)
- 			skb->ip_summed = CHECKSUM_PARTIAL;
- 		else if (rx->flags & XEN_NETRXF_data_validated)
+All of those boils down to one question that I cannot resist to ask:
+If delete an IPv6 address(*1*), whether the original rt/dst destinate f=
+or a
+remote address(*2*) using the deleted address as source address is stil=
+l legal
+for subsequent usage in current kernel IPv6 routing implementation???
+
+btw, (*1*) and (*2*) are on quite different node in the binary tree as =
+well
+as different leaf.
+
+> Specifically, I cannot see why address addition/deletion doesn't
+> cause problems for cached ipv6 routes in UDP and TCP sockets too.
+>
+
+--=20
+=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
+=E7=AC=91
+
+--fan
