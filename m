@@ -1,55 +1,68 @@
-From: Matt Wilson <msw@amazon.com>
-Subject: Re: [Xen-devel] [PATCH RFC] xen-netback: calculate the number of
- slots required for large MTU vifs
-Date: Tue, 16 Jul 2013 10:40:55 -0700
-Message-ID: <20130716174055.GA4401@u109add4315675089e695.ant.amazon.com>
-References: <20130709221406.GA13671@u109add4315675089e695.ant.amazon.com>
- <1373409659-22383-1-git-send-email-msw@amazon.com>
- <20130710081333.GI19798@zion.uk.xensource.com>
- <20130710193703.GB20453@zion.uk.xensource.com>
- <20130711051441.GA5189@u109add4315675089e695.ant.amazon.com>
- <51E51B83.7040302@oracle.com>
- <20130716102719.GD5674@zion.uk.xensource.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 3/9] sfc: Increase size of RX SKB header area
+Date: Tue, 16 Jul 2013 18:53:48 +0100
+Message-ID: <1373997228.2120.15.camel@bwh-desktop.uk.level5networks.com>
+References: <1372104708.1896.29.camel@bwh-desktop.uk.level5networks.com>
+	 <1372104801.1896.32.camel@bwh-desktop.uk.level5networks.com>
+	 <1373996035.6097.5.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: annie li <annie.li@oracle.com>, <netdev@vger.kernel.org>,
-	Xi Xiong <xixiong@amazon.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	<xen-devel@lists.xenproject.org>
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-net-drivers@solarflare.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-fw-2101.amazon.com ([72.21.196.25]:12791 "EHLO
-	smtp-fw-2101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933059Ab3GPRlV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 13:41:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20130716102719.GD5674@zion.uk.xensource.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:27090 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932337Ab3GPRxx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 13:53:53 -0400
+In-Reply-To: <1373996035.6097.5.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 16, 2013 at 11:27:19AM +0100, Wei Liu wrote:
-> On Tue, Jul 16, 2013 at 06:08:03PM +0800, annie li wrote:
+On Tue, 2013-07-16 at 10:33 -0700, Eric Dumazet wrote:
+> On Mon, 2013-06-24 at 21:13 +0100, Ben Hutchings wrote:
+> > From: Jon Cooper <jcooper@solarflare.com>
 > > 
-> > On 2013-7-11 13:14, Matt Wilson wrote:
-> > >I think that this patch addresses the problem more completely. Annie?
+> > This allows the SKB to hold the headers without reallocation more often.
 > > 
-> > Agree, it is better to take your patch. Would you like to go forward
-> > with it? This issue is obvious and easy to be hit with larger MTU
-> > size.
+> > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> > ---
+> >  drivers/net/ethernet/sfc/rx.c | 2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > 
+> > diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+> > index b915e09..6efff3d 100644
+> > --- a/drivers/net/ethernet/sfc/rx.c
+> > +++ b/drivers/net/ethernet/sfc/rx.c
+> > @@ -36,7 +36,7 @@
+> >  #define EFX_RECYCLE_RING_SIZE_NOIOMMU (2 * EFX_RX_PREFERRED_BATCH)
+> >  
+> >  /* Size of buffer allocated for skb header area. */
+> > -#define EFX_SKB_HEADERS  64u
+> > +#define EFX_SKB_HEADERS  128u
+> >  
+> >  /* This is the percentage fill level below which new RX descriptors
+> >   * will be added to the RX descriptor ring.
 > > 
 > 
-> I'm going to be on vacation tomorrow. Matt, feel free to add my Acked-by to
-> your patch.
-
-Thanks, Wei. I'm on vacation now and I'll return to the office
-tomorrow. Please accept my apologies for the delay.
-
-I should have time to clean up a few things with this patch (no
-functional changes) and post a final version this week.
-
---msw
-
-> Wei.
+> This patch brings performance decrease for tunnels, because it pulls
+> into skb->head 128 bytes worth of data.
+>
+> This includes TCP payload, so GRO or TCP coalescing code is less
+> effective. Each MSS spans 2 memory areas (small part on skb->head,
+> remaining on the fragment) : GRO packets have only 8 MSS worth of data,
+> instead of 16.
 > 
-> > Thanks
-> > Annie
+> The fix would be to allocate 128 bytes in skb->head to prevent future
+> reallocations of skb->head, but pull 64 bytes only.
+
+Perhaps, yes.  I also thought of using some of the other parser status
+from RX completions to estimate the length of headers.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
