@@ -1,7 +1,7 @@
 From: Darren Hart <dvhart@linux.intel.com>
 Subject: Re: [RFC] Any value in having a netdev FAQ?
-Date: Tue, 16 Jul 2013 13:34:23 -0700
-Message-ID: <1374006863.12825.115.camel@envy.home>
+Date: Tue, 16 Jul 2013 13:35:16 -0700
+Message-ID: <1374006916.12825.116.camel@envy.home>
 References: <20130716025954.GC26761@windriver.com>
 	 <20130716.130514.559781233978406598.davem@davemloft.net>
 Mime-Version: 1.0
@@ -11,10 +11,10 @@ Cc: paul.gortmaker@windriver.com, gregkh@linuxfoundation.org,
 	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:39049 "EHLO mga09.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:60457 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752741Ab3GPUee (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jul 2013 16:34:34 -0400
+	id S1752741Ab3GPUfR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jul 2013 16:35:17 -0400
 In-Reply-To: <20130716.130514.559781233978406598.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -51,16 +51,8 @@ On Tue, 2013-07-16 at 13:05 -0700, David Miller wrote:
 > 
 > What do you think?
 
-I was going to recommend the same. Ideally we would have sort of
-consistent documentation subsystem policy naming scheme to aid in
-finding and referencing documents.
-
-Documentation/contributing.txt
-Documentation/networking/contibuting.txt
-Documentation/stable/contributing.txt
-
-That might not be the best choice in naming, but consistency always
-makes things easier to find, especially in such a large system.
+Maybe netdev_kernel_rules.txt, in keeping with the well-known
+stable_kernel_rules.txt?
 
 -- 
 Darren Hart
