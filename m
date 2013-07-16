@@ -1,54 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] vxlan: add necessary locking on device removal
-Date: Tue, 16 Jul 2013 11:28:20 -0700 (PDT)
-Message-ID: <20130716.112820.260966128083756999.davem@davemloft.net>
-References: <CALnjE+rO7Npw=rU_VL7T1pPDdFBKXB3KpVbpf_jQ0cJ6+ah1nQ@mail.gmail.com>
-	<20130713101818.0d4fa8e0@nehalam.linuxnetplumber.net>
-	<CALnjE+oDwU46NiK-AyB-dJZVrWT-pot_v+obv+MxgZU0xNwbRw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: pshelar@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38669 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932958Ab3GPS2W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 14:28:22 -0400
-In-Reply-To: <CALnjE+oDwU46NiK-AyB-dJZVrWT-pot_v+obv+MxgZU0xNwbRw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
 From: Pravin Shelar <pshelar@nicira.com>
-Date: Sat, 13 Jul 2013 12:21:52 -0700
+Subject: Re: [Regression][v3.10][v3.11] net: Kill link between CSUM and SG features.
+Date: Tue, 16 Jul 2013 11:29:32 -0700
+Message-ID: <CALnjE+oCeo=T+F3BvTBtcV7oDMPLJAEz1p1sjRGxmE8Wq8gWAg@mail.gmail.com>
+References: <51E58C45.1080708@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, ben.howard@canonical.com, edumazet@google.com,
+	xiyou.wangcong@gmail.com, alexander.h.duyck@intel.com,
+	jiri@resnulli.us, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>, kys@microsoft.com,
+	haiyangz@microsoft.com
+To: Joseph Salisbury <joseph.salisbury@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51E58C45.1080708@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> On Sat, Jul 13, 2013 at 10:18 AM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
->> The socket management is now done in workqueue (outside of RTNL)
->> and protected by vn->sock_lock. There were two possible bugs, first
->> the vxlan device was removed from the VNI hash table per socket without
->> holding lock. And there was a race when device is created and the workqueue
->> could run after deletion.
->>
->> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
->>
->> --- a/drivers/net/vxlan.c       2013-07-08 16:31:50.080744429 -0700
->> +++ b/drivers/net/vxlan.c       2013-07-10 20:15:47.337653899 -0700
->> @@ -1767,9 +1767,15 @@ static int vxlan_newlink(struct net *net
->>
->>  static void vxlan_dellink(struct net_device *dev, struct list_head *head)
->>  {
->> +       struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
->>         struct vxlan_dev *vxlan = netdev_priv(dev);
->>
->> +       flush_workqueue(vxlan_wq);
->> +
-> Doesn't this create dependency on sock_work thread while holding RTNL.
-> If so it can result in deadlock.
+On Tue, Jul 16, 2013 at 11:09 AM, Joseph Salisbury
+<joseph.salisbury@canonical.com> wrote:
+> Hi Pravin,
+>
+> A bug was opened against the Ubuntu kernel[0].  After a kernel bisect,
+> it was found that reverting the following commit resolved this bug:
+>
+> commit ec5f061564238892005257c83565a0b58ec79295
+> Author: Pravin B Shelar <pshelar@nicira.com>
+> Date:   Thu Mar 7 09:28:01 2013 +0000
+>
+>     net: Kill link between CSUM and SG features.
+>
+>
+> The regression was introduced as of v3.10-rc1.
+>
+> I see that you are the author of this patch, so I wanted to run this by
+> you.  I was thinking of requesting a revert for v3.11, but I wanted to
+> get your feedback first.
+>
+>
+This issue was reported before and turning off sg solves problem for
+HyperV driver. Drivers (intel and bnx2x) that I tested works fine with
+this patch. Have you seen the issue on any other NIC?
 
-What exact deadlock do you perceive?  I don't see any code path in the
-sock_work handler (vxlan_sock_work) which takes the RTNL mutex.
 
-So we should be able to safely flush any pending sock_work jobs from
-vxlan_dellink().  The fact that vxlan_dellink() runs with the RTNL
-mutex shouldn't cause any issues.
+> Thanks,
+>
+> Joe
+>
+> [0] http://pad.lv/1200243
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
