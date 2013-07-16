@@ -1,32 +1,47 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: sysfs_format_mac
-Date: Tue, 16 Jul 2013 13:46:26 -0700
-Message-ID: <1374007586.1949.25.camel@joe-AO722>
-References: <20130716.125641.1190207010366517153.davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [net PATCH] atl1e: unmap partially mapped skb on dma error and
+ free skb
+Date: Tue, 16 Jul 2013 16:48:49 -0400
+Message-ID: <20130716204849.GE8940@hmsreliant.think-freely.org>
+References: <1373986181-15797-1-git-send-email-nhorman@tuxdriver.com>
+ <20130716.121125.1312991211924388920.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
+	jcliburn@gmail.com, chris.snook@gmail.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:57493 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933670Ab3GPUq1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jul 2013 16:46:27 -0400
-In-Reply-To: <20130716.125641.1190207010366517153.davem@davemloft.net>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:38029 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933670Ab3GPUtD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 16:49:03 -0400
+Content-Disposition: inline
+In-Reply-To: <20130716.121125.1312991211924388920.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-07-16 at 12:56 -0700, David Miller wrote:
+On Tue, Jul 16, 2013 at 12:11:25PM -0700, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Tue, 16 Jul 2013 10:49:41 -0400
 > 
-> I assume that the only reason sysfs_format_mac() exists at all, and
-> don't just use scnprintf() calls with "%pm\n", is that some devices
-> have MAC addresses which are not 6 bytes in length.
+> > Ben Hutchings pointed out that my recent update to atl1e:
+> > 
+> > commit 352900b583b2852152a1e05ea0e8b579292e731e
+> > Author: Neil Horman <nhorman@tuxdriver.com>
+> > Date:   Fri Jul 12 10:58:48 2013 -0400
+> > 
+> >     atl1e: fix dma mapping warnings
+> > 
+> > Was missing a bit of code.  Specifically it reset the hardware tx ring to its
+> > origional state when we hit a dma error, but didn't unmap any exiting mappings
+> > from the operation.  This patch fixes that up.  It also remembers to free the
+> > skb in the event that an error occurs, so we don't leak.  Untested, as I don't
+> > have hardware.  I think its pretty straightforward, but please review closely.
+> > 
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 > 
-> But it's such a waste to have this special case piece of code
-> just for that.
+> Applied, but please refer to commits in the form "$SHA1ID ("Commit message
+> header line")", I fixed it up for you this time.
 > 
-> It would make so much more sense to allow specifying a length
-> specifier to %pm and friends.
-
-scnprintf("%*ph", (int)size, buffer)
+copy, thanks dave
+Neil
