@@ -1,55 +1,54 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net 2/6] bnx2x: prevent statistics update flow to act
- before statistics are started
-Date: Tue, 16 Jul 2013 22:14:34 +0400
-Message-ID: <51E58D8A.80206@cogentembedded.com>
-References: <1373988107-305-1-git-send-email-dmitry@broadcom.com> <1373988107-305-3-git-send-email-dmitry@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] vxlan: add necessary locking on device removal
+Date: Tue, 16 Jul 2013 11:28:20 -0700 (PDT)
+Message-ID: <20130716.112820.260966128083756999.davem@davemloft.net>
+References: <CALnjE+rO7Npw=rU_VL7T1pPDdFBKXB3KpVbpf_jQ0cJ6+ah1nQ@mail.gmail.com>
+	<20130713101818.0d4fa8e0@nehalam.linuxnetplumber.net>
+	<CALnjE+oDwU46NiK-AyB-dJZVrWT-pot_v+obv+MxgZU0xNwbRw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Dmitry Kravkov <dmitry@broadcom.com>
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:63926 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933334Ab3GPSOd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 14:14:33 -0400
-Received: by mail-la0-f44.google.com with SMTP id er20so799574lab.3
-        for <netdev@vger.kernel.org>; Tue, 16 Jul 2013 11:14:32 -0700 (PDT)
-In-Reply-To: <1373988107-305-3-git-send-email-dmitry@broadcom.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38669 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932958Ab3GPS2W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 14:28:22 -0400
+In-Reply-To: <CALnjE+oDwU46NiK-AyB-dJZVrWT-pot_v+obv+MxgZU0xNwbRw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Pravin Shelar <pshelar@nicira.com>
+Date: Sat, 13 Jul 2013 12:21:52 -0700
 
-On 07/16/2013 07:21 PM, Dmitry Kravkov wrote:
+> On Sat, Jul 13, 2013 at 10:18 AM, Stephen Hemminger
+> <stephen@networkplumber.org> wrote:
+>> The socket management is now done in workqueue (outside of RTNL)
+>> and protected by vn->sock_lock. There were two possible bugs, first
+>> the vxlan device was removed from the VNI hash table per socket without
+>> holding lock. And there was a race when device is created and the workqueue
+>> could run after deletion.
+>>
+>> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+>>
+>> --- a/drivers/net/vxlan.c       2013-07-08 16:31:50.080744429 -0700
+>> +++ b/drivers/net/vxlan.c       2013-07-10 20:15:47.337653899 -0700
+>> @@ -1767,9 +1767,15 @@ static int vxlan_newlink(struct net *net
+>>
+>>  static void vxlan_dellink(struct net_device *dev, struct list_head *head)
+>>  {
+>> +       struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
+>>         struct vxlan_dev *vxlan = netdev_priv(dev);
+>>
+>> +       flush_workqueue(vxlan_wq);
+>> +
+> Doesn't this create dependency on sock_work thread while holding RTNL.
+> If so it can result in deadlock.
 
-> This in order to serialize statistics requests sent to FW,
-> otherwise two outstanding queries may cause FW assert.
+What exact deadlock do you perceive?  I don't see any code path in the
+sock_work handler (vxlan_sock_work) which takes the RTNL mutex.
 
-> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-> Signed-off-by: Ariel Elior <ariele@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> ---
->   drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       | 1 +
->   drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  | 1 +
->   drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c | 6 +++++-
->   3 files changed, 7 insertions(+), 1 deletion(-)
-
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-> index dedbd76..bdbd87e 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-> @@ -1830,6 +1830,7 @@ struct bnx2x {
->
->   	int fp_array_size;
->   	u32 dump_preset_idx;
-> +	atomic_t				stats_started;
-
-    Why it's so wildly indented if its neighbors are not?
-
->   };
->
->   /* Tx queues may be less or equal to Rx queues */
-
-WBR, Sergei
+So we should be able to safely flush any pending sock_work jobs from
+vxlan_dellink().  The fact that vxlan_dellink() runs with the RTNL
+mutex shouldn't cause any issues.
