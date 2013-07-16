@@ -1,40 +1,63 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 3.11-rc1] mlx5 core: Fix __udivdi3 when compiling for
- 32 bit arches
-Date: Tue, 16 Jul 2013 12:36:58 -0700 (PDT)
-Message-ID: <20130716.123658.1660201783834013788.davem@davemloft.net>
-References: <1373900205-69711-1-git-send-email-tim.gardner@canonical.com>
-	<51E41AB2.3020905@infradead.org>
+From: Joseph Salisbury <joseph.salisbury@canonical.com>
+Subject: Re: [Regression][v3.10][v3.11] net: Kill link between CSUM and SG
+ features.
+Date: Tue, 16 Jul 2013 15:53:46 -0400
+Message-ID: <51E5A4CA.20902@canonical.com>
+References: <51E58C45.1080708@canonical.com> <CALnjE+oCeo=T+F3BvTBtcV7oDMPLJAEz1p1sjRGxmE8Wq8gWAg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-To: rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <51E41AB2.3020905-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: davem@davemloft.net, ben.howard@canonical.com, edumazet@google.com,
+	xiyou.wangcong@gmail.com, alexander.h.duyck@intel.com,
+	jiri@resnulli.us, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>, kys@microsoft.com,
+	haiyangz@microsoft.com
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALnjE+oCeo=T+F3BvTBtcV7oDMPLJAEz1p1sjRGxmE8Wq8gWAg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Date: Mon, 15 Jul 2013 08:52:18 -0700
+On 07/16/2013 02:29 PM, Pravin Shelar wrote:
+> On Tue, Jul 16, 2013 at 11:09 AM, Joseph Salisbury
+> <joseph.salisbury@canonical.com> wrote:
+>> Hi Pravin,
+>>
+>> A bug was opened against the Ubuntu kernel[0].  After a kernel bisect,
+>> it was found that reverting the following commit resolved this bug:
+>>
+>> commit ec5f061564238892005257c83565a0b58ec79295
+>> Author: Pravin B Shelar <pshelar@nicira.com>
+>> Date:   Thu Mar 7 09:28:01 2013 +0000
+>>
+>>     net: Kill link between CSUM and SG features.
+>>
+>>
+>> The regression was introduced as of v3.10-rc1.
+>>
+>> I see that you are the author of this patch, so I wanted to run this by
+>> you.  I was thinking of requesting a revert for v3.11, but I wanted to
+>> get your feedback first.
+>>
+>>
+> This issue was reported before and turning off sg solves problem for
+> HyperV driver. Drivers (intel and bnx2x) that I tested works fine with
+> this patch. Have you seen the issue on any other NIC?
 
-> On 07/15/13 07:56, Tim Gardner wrote:
->> Cc: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
->> Signed-off-by: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> 
-> I reported this last week and Eli wrote:
-> 
-> "I have this fixed in my tree and we run the driver on i386. I will check on Sunday why it is not in the patches submitted."
-> 
-> Anyway, the patch works for me.
-> 
-> Acked-by: Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-> Reported-by: Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Thanks for the feedback.  We have only seen it on Intel hardware.  Can
+you send a pointer to the patch? If so, we can provide some additional
+testing.  Do you plan on submitting the patch for inclusion in 3.11?
 
-Applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+>
+>
+>> Thanks,
+>>
+>> Joe
+>>
+>> [0] http://pad.lv/1200243
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
