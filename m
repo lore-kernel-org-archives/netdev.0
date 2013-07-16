@@ -1,46 +1,150 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [PATCH RFC] xen-netback: calculate the number of
- slots required for large MTU vifs
-Date: Tue, 16 Jul 2013 11:27:19 +0100
-Message-ID: <20130716102719.GD5674@zion.uk.xensource.com>
-References: <20130709221406.GA13671@u109add4315675089e695.ant.amazon.com>
- <1373409659-22383-1-git-send-email-msw@amazon.com>
- <20130710081333.GI19798@zion.uk.xensource.com>
- <20130710193703.GB20453@zion.uk.xensource.com>
- <20130711051441.GA5189@u109add4315675089e695.ant.amazon.com>
- <51E51B83.7040302@oracle.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH v2] xen-netfront: pull on receive skb may need to happen
+ earlier
+Date: Tue, 16 Jul 2013 11:33:35 +0100
+Message-ID: <1373970815.4663.45.camel@kazak.uk.xensource.com>
+References: <51E5327902000078000E5426@nat28.tlf.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Matt Wilson <msw@amazon.com>, Wei Liu <wei.liu2@citrix.com>,
-	<netdev@vger.kernel.org>, Xi Xiong <xixiong@amazon.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	<xen-devel@lists.xenproject.org>
-To: annie li <annie.li@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:2742 "EHLO SMTP02.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753941Ab3GPK1U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jul 2013 06:27:20 -0400
-Content-Disposition: inline
-In-Reply-To: <51E51B83.7040302@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, Wei Liu <wei.liu2@citrix.com>,
+	Dion Kant <g.w.kant@hunenet.nl>,
+	xen-devel <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <stable@vger.kernel.org>
+To: Jan Beulich <JBeulich@suse.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <51E5327902000078000E5426@nat28.tlf.novell.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 16, 2013 at 06:08:03PM +0800, annie li wrote:
+On Tue, 2013-07-16 at 10:46 +0100, Jan Beulich wrote:
+> Due to commit 3683243b ("xen-netfront: use __pskb_pull_tail to ensure
+> linear area is big enough on RX") xennet_fill_frags() may end up
+> filling MAX_SKB_FRAGS + 1 fragments in a receive skb, and only reduce
+> the fragment count subsequently via __pskb_pull_tail(). That's a
+> result of xennet_get_responses() allowing a maximum of one more slot to
+> be consumed (and intermediately transformed into a fragment) if the
+> head slot has a size less than or equal to RX_COPY_THRESHOLD.
 > 
-> On 2013-7-11 13:14, Matt Wilson wrote:
-> >I think that this patch addresses the problem more completely. Annie?
+> Hence we need to adjust xennet_fill_frags() to pull earlier if we
+> reached the maximum fragment count - due to the described behavior of
+> xennet_get_responses() this guarantees that at least the first fragment
+> will get completely consumed, and hence the fragment count reduced.
 > 
-> Agree, it is better to take your patch. Would you like to go forward
-> with it? This issue is obvious and easy to be hit with larger MTU
-> size.
+> In order to not needlessly call __pskb_pull_tail() twice, make the
+> original call conditional upon the pull target not having been reached
+> yet, and defer the newly added one as much as possible (an alternative
+> would have been to always call the function right before the call to
+> xennet_fill_frags(), but that would imply more frequent cases of
+> needing to call it twice).
 > 
+> Signed-off-by: Jan Beulich <jbeulich@suse.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
+> Cc: Ian Campbell <ian.campbell@citrix.com>
+> Cc: stable@vger.kernel.org (3.6 onwards)
+> ---
+> v2: Use skb_add_rx_frag() to keep all accounting fields up to date as
+>     we go (skb->len needing intermediate updating was pointed out by
+>     Wei Liu and David Miller, shinfo->nr_frags needing updating before
+>     calling __pskb_pull_tail() was spotted out by Dion Kant).
+> 
+> ---
+>  drivers/net/xen-netfront.c |   32 +++++++++++++-------------------
+>  1 file changed, 13 insertions(+), 19 deletions(-)
+> 
+> --- 3.11-rc1/drivers/net/xen-netfront.c
+> +++ 3.11-rc1-xen-netfront-pull-earlier/drivers/net/xen-netfront.c
+> @@ -286,8 +286,7 @@ no_skb:
+>  			break;
+>  		}
+>  
+> -		__skb_fill_page_desc(skb, 0, page, 0, 0);
+> -		skb_shinfo(skb)->nr_frags = 1;
+> +		skb_add_rx_frag(skb, 0, page, 0, 0, PAGE_SIZE);
+>  		__skb_queue_tail(&np->rx_batch, skb);
+>  	}
+>  
+> @@ -831,7 +830,6 @@ static RING_IDX xennet_fill_frags(struct
+>  				  struct sk_buff_head *list)
+>  {
+>  	struct skb_shared_info *shinfo = skb_shinfo(skb);
+> -	int nr_frags = shinfo->nr_frags;
+>  	RING_IDX cons = np->rx.rsp_cons;
+>  	struct sk_buff *nskb;
+>  
+> @@ -840,19 +838,21 @@ static RING_IDX xennet_fill_frags(struct
+>  			RING_GET_RESPONSE(&np->rx, ++cons);
+>  		skb_frag_t *nfrag = &skb_shinfo(nskb)->frags[0];
+>  
+> -		__skb_fill_page_desc(skb, nr_frags,
+> -				     skb_frag_page(nfrag),
+> -				     rx->offset, rx->status);
+> +		if (shinfo->nr_frags == MAX_SKB_FRAGS) {
+> +			unsigned int pull_to = NETFRONT_SKB_CB(skb)->pull_to;
+>  
+> -		skb->data_len += rx->status;
+> +			BUG_ON(pull_to <= skb_headlen(skb));
+> +			__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
+> +		}
+> +		BUG_ON(shinfo->nr_frags >= MAX_SKB_FRAGS);
+> +
+> +		skb_add_rx_frag(skb, shinfo->nr_frags, skb_frag_page(nfrag),
+> +				rx->offset, rx->status, PAGE_SIZE);
+>  
+>  		skb_shinfo(nskb)->nr_frags = 0;
+>  		kfree_skb(nskb);
+> -
+> -		nr_frags++;
+>  	}
+>  
+> -	shinfo->nr_frags = nr_frags;
+>  	return cons;
+>  }
+>  
+> @@ -933,7 +933,8 @@ static int handle_incoming_queue(struct 
+>  	while ((skb = __skb_dequeue(rxq)) != NULL) {
+>  		int pull_to = NETFRONT_SKB_CB(skb)->pull_to;
+>  
+> -		__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
+> +		if (pull_to > skb_headlen(skb))
+> +			__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
+>  
+>  		/* Ethernet work: Delayed to here as it peeks the header. */
+>  		skb->protocol = eth_type_trans(skb, dev);
+> @@ -1018,17 +1019,10 @@ err:
+>  
+>  		skb_shinfo(skb)->frags[0].page_offset = rx->offset;
+>  		skb_frag_size_set(&skb_shinfo(skb)->frags[0], rx->status);
+> -		skb->data_len = rx->status;
+> +		skb->len += skb->data_len = rx->status;
 
-I'm going to be on vacation tomorrow. Matt, feel free to add my Acked-by to
-your patch.
+Of the top of my head I have no confidence in my understanding of what
+this is actually going to end up assigned to ->len or ->data_len after
+this.
+
+For my benefit, can we do the dumb version please?
+
+Also ref CodingStyle:
+        Don't put multiple assignments on a single line either.  Kernel coding style
+        is super simple.  Avoid tricky expressions.
+
+The rest of it looked OK to me.
+
+Ian.
 
 
-Wei.
-
-> Thanks
-> Annie
+>  
+>  		i = xennet_fill_frags(np, skb, &tmpq);
+>  
+> -		/*
+> -                 * Truesize is the actual allocation size, even if the
+> -                 * allocation is only partially used.
+> -                 */
+> -		skb->truesize += PAGE_SIZE * skb_shinfo(skb)->nr_frags;
+> -		skb->len += skb->data_len;
+> -
+>  		if (rx->flags & XEN_NETRXF_csum_blank)
+>  			skb->ip_summed = CHECKSUM_PARTIAL;
+>  		else if (rx->flags & XEN_NETRXF_data_validated)
+> 
+> 
