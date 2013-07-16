@@ -1,61 +1,58 @@
-From: Grant Grundler <grantgrundler@gmail.com>
-Subject: Re: [RFC] tulip: Support for byte queue limits
-Date: Tue, 16 Jul 2013 10:20:40 -0700
-Message-ID: <CAP6odjgHcQ3Q6j_XSaLm0iJkAx+8tgtN+psXUekQ9U55O+9zjg@mail.gmail.com>
-References: <20130712180116.21176.qmail@science.horizon.com>
-	<1373932689.3745.30.camel@bwh-desktop.uk.level5networks.com>
-	<CAP6odjjyXqhMBAY3L1p7w9UPU2VH04MsyaWG6wb1YB_Pe43Dyg@mail.gmail.com>
-	<1373985465.2120.1.camel@bwh-desktop.uk.level5networks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 3/9] sfc: Increase size of RX SKB header area
+Date: Tue, 16 Jul 2013 10:33:55 -0700
+Message-ID: <1373996035.6097.5.camel@edumazet-glaptop>
+References: <1372104708.1896.29.camel@bwh-desktop.uk.level5networks.com>
+	 <1372104801.1896.32.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: George Spelvin <linux@horizon.com>, eric.dumazet@gmail.com,
-	Grant Grundler <grundler@parisc-linux.org>,
-	"open list:TULIP NETWORK DRI..." <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
 To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f41.google.com ([209.85.219.41]:46633 "EHLO
-	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932519Ab3GPRUl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 13:20:41 -0400
-Received: by mail-oa0-f41.google.com with SMTP id n10so1219460oag.14
-        for <netdev@vger.kernel.org>; Tue, 16 Jul 2013 10:20:41 -0700 (PDT)
-In-Reply-To: <1373985465.2120.1.camel@bwh-desktop.uk.level5networks.com>
+Received: from mail-oa0-f50.google.com ([209.85.219.50]:34925 "EHLO
+	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932872Ab3GPRd6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 13:33:58 -0400
+Received: by mail-oa0-f50.google.com with SMTP id k7so1218558oag.23
+        for <netdev@vger.kernel.org>; Tue, 16 Jul 2013 10:33:58 -0700 (PDT)
+In-Reply-To: <1372104801.1896.32.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 16, 2013 at 7:37 AM, Ben Hutchings
-<bhutchings@solarflare.com> wrote:
-> On Mon, 2013-07-15 at 18:17 -0700, Grant Grundler wrote:
-...
->> Is the problem the reference to skb->len?
->> By passing ownership,  are you suggesting the device can change this value?
->
-> No, the device can complete the descriptor and then the TX completion
-> handler will free the skb.
+On Mon, 2013-06-24 at 21:13 +0100, Ben Hutchings wrote:
+> From: Jon Cooper <jcooper@solarflare.com>
+> 
+> This allows the SKB to hold the headers without reallocation more often.
+> 
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> ---
+>  drivers/net/ethernet/sfc/rx.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+> index b915e09..6efff3d 100644
+> --- a/drivers/net/ethernet/sfc/rx.c
+> +++ b/drivers/net/ethernet/sfc/rx.c
+> @@ -36,7 +36,7 @@
+>  #define EFX_RECYCLE_RING_SIZE_NOIOMMU (2 * EFX_RX_PREFERRED_BATCH)
+>  
+>  /* Size of buffer allocated for skb header area. */
+> -#define EFX_SKB_HEADERS  64u
+> +#define EFX_SKB_HEADERS  128u
+>  
+>  /* This is the percentage fill level below which new RX descriptors
+>   * will be added to the RX descriptor ring.
+> 
 
-Ah ok. That's what the spinlock_irqsave() is protecting against.
+This patch brings performance decrease for tunnels, because it pulls
+into skb->head 128 bytes worth of data.
 
-> [...]
->> > But one day someone may want to get rid of this lock,
->> > so this is a trap waiting to spring.
->>
->> Even for tulip driver?  Sorry, I just can't imagine anyone taking
->> enough interest in tulip driver to implement that.  I'm not even sure
->> it would be possible.
->
-> You're taking interest in it, aren't you?
+This includes TCP payload, so GRO or TCP coalescing code is less
+effective. Each MSS spans 2 memory areas (small part on skb->head,
+remaining on the fragment) : GRO packets have only 8 MSS worth of data,
+instead of 16.
 
-Let me clarify my interest: I will reject patches to change the
-locking for this driver. Patch reviews for this driver are a
-"community service project" since I know reasonably well how this chip
-behaves. But I'm not doing anything else (e.g. bug fixes or testing).
-
-If someone else wants to change the tulip driver locking, they need to
-submit a patch to become the new maintainer first (I'll ACK that :)
-
->  But I accept this is a minor issue.
-
-Ok.
-
-cheers,
-grant
+The fix would be to allocate 128 bytes in skb->head to prevent future
+reallocations of skb->head, but pull 64 bytes only.
