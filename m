@@ -1,50 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] Any value in having a netdev FAQ?
-Date: Tue, 16 Jul 2013 13:05:14 -0700 (PDT)
-Message-ID: <20130716.130514.559781233978406598.davem@davemloft.net>
-References: <20130716025954.GC26761@windriver.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [ANNOUNCE] iproute2 3.10
+Date: Tue, 16 Jul 2013 13:07:29 -0700
+Message-ID: <20130716130729.6c55c063@nehalam.linuxnetplumber.net>
+References: <20130716101748.166a8ad7@nehalam.linuxnetplumber.net>
+	<20130716215655.5397c60b@leda>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dvhart@linux.intel.com, gregkh@linuxfoundation.org,
-	netdev@vger.kernel.org
-To: paul.gortmaker@windriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39722 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933196Ab3GPUFO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 16:05:14 -0400
-In-Reply-To: <20130716025954.GC26761@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=PGP-SHA256;
+ boundary="Sig_/X7+BBEFhkPH2_QCTmbpFuO3"; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Christian Hesse <list@eworm.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130716215655.5397c60b@leda>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Mon, 15 Jul 2013 22:59:54 -0400
+--Sig_/X7+BBEFhkPH2_QCTmbpFuO3
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-> I was wondering if you think there is value in having a netdev-faq type
-> document available -- perhaps as a vger mailout to new subscribers or
-> similar?  For example, I have lost count of the number of times that you
-> have had to tell people that net-next is closed during the merge window.
-> But you would probably be right in telling me that those same people don't
-> read documentation.  Well, that aside, I suppose answering my question
-> is easier when there is a proposed starting point for content.
-> 
-> To that end, I've tried to collect a starting point based on repeated
-> questions/corrections that I've seen over the years.  I've added Greg to
-> the Cc: in order to ensure I've captured the netdev-stable interaction
-> correctly, and I've thrown Darren under the bus as a random content
-> reviewer, since he has expressed an interest in documentation recently.
-> 
-> Below is a possible starting point for content.  Many answers I have
-> written are from memory, long after losing links to netdev threads that
-> served as evidence for the answers, so apologies in advance if I have
-> failed to recall correctly the specific details in which you would like
-> to see things done.
+On Tue, 16 Jul 2013 21:56:55 +0200
+Christian Hesse <list@eworm.de> wrote:
 
-Thanks a lot for writing this, it is useful.
+> Stephen Hemminger <stephen@networkplumber.org> on Tue, 2013/07/16 10:17:
+> > This is update for iproute2 tools for 3.10 kernel.
+> > [...]
+> >
+> > Iproute2 package is available at:
+> >   http://kernel.org/pub/linux/utils/net/iproute2/iproute2-3.10.0.tar.gz
+> >=20
+> > You can download the source from:
+> >   git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+>=20
+> Is there any reason the last two releases have not been tagged in git?
 
-I think it's easier if this lives somewhere under
-Documentation/networking in the kernel tree, then we can just point
-people at it.
+Sorry, tag wasn't pushed.
 
-What do you think?
+--Sig_/X7+BBEFhkPH2_QCTmbpFuO3
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJR5agBAAoJEICnf2CVzeR+YP8P/jtaVU2vCaMgfYdK7jeulQPo
+NHEaxRdRwmMXdEd1hJTP5sQxiSpRvaSQvwgSAGNpUyIteS0+T5zaqaG7yaVlJhpM
+1dAmqyN4Kj4XoNhXcYoeNej9WEbZtE0VGmSpMt0GjO9FbHaaYx8TfL5+YkTRto0x
+SnjJvAzy582Q9Jd5jSKFWq8i09r2KCbkDa+vhN7qMD/3dDJdFOYUOL0rAUlgGcAW
+1pGuFiskifnMTtKh0o7tdSxCLVCBywkdqpwZc1vtpBTjVQj+h6OCzqAgHEBWNz5g
+lYy4+4w/FQGyp+mttff97Oy87ApvW7PV8/1yd0zjxRhUQCjewkmhfRZ8ujJeJRj/
+9Av/MfyXGq9OP80wUGAbAKLxBIxEC8G3c+XZXEPWDdO1r/Jc5aZJa4QsIiLJ6N4N
+OB9eq1XEPxeCHeyL1Rbb3e3KhuFF2dDcDgkQObzGQah0iEbovlXgteSwl1fR6G2Q
+FmCBviYMHIZpsUa8+ZL4JxZlQ9Z3bsBJfjbixo+y8ucHkwaxFM2qDGJhjGaAfTXv
+evwNEHCffIKBCJcsYZhA9GEQCbd8vz7LAJbQu20SnKEHdUPf0ssjqz2q4NIaH/4P
+YND4ZMH+8QRQ+2v7sLxGRSajuIM4lMvMFddQy5WhME5SGPYtvMPWj84on+Q6dASo
+xMg3aBphS2XsftN8EXRt
+=OdSY
+-----END PGP SIGNATURE-----
+
+--Sig_/X7+BBEFhkPH2_QCTmbpFuO3--
