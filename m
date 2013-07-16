@@ -1,61 +1,42 @@
-From: <sarveshwar.bandi@emulex.com>
-Subject: [PATCH net] be2net: Fix to avoid hardware workaround when not needed
-Date: Tue, 16 Jul 2013 12:44:02 +0530
-Message-ID: <458bdd84-53ce-489e-b134-f435c5fd6a50@CMEXHTCAS2.ad.emulex.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH] sh: remove references to CPU_SUBTYPE_SH7764
+Date: Tue, 16 Jul 2013 09:54:29 +0200
+Message-ID: <1373961269.2591.50.camel@x61.thuisdomein>
+References: <1363002940.3137.65.camel@x61.thuisdomein>
+	 <20130312075747.GB3553@linux-sh.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-sh@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Paul Mundt <lethal@linux-sh.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:29519 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751973Ab3GPHNG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 03:13:06 -0400
+Received: from cpsmtpb-ews04.kpnxchange.com ([213.75.39.7]:54689 "EHLO
+	cpsmtpb-ews04.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752436Ab3GPHyc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 03:54:32 -0400
+In-Reply-To: <20130312075747.GB3553@linux-sh.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+Paul,
 
-Hardware workaround requesting hardware to skip vlan insertion is necessary
-only when umc or qnq is enabled. Enabling this workaround in other scenarios
-could cause controller to stall.
+On Tue, 2013-03-12 at 16:57 +0900, Paul Mundt wrote:
+> On Mon, Mar 11, 2013 at 12:55:40PM +0100, Paul Bolle wrote:
+> > Since release v2.6.29 the tree has a few references to the Kconfig
+> > symbol CPU_SUBTYPE_SH7764 and the Kconfig macro
+> > CONFIG_CPU_SUBTYPE_SH7764. But the actual symbol CPU_SUBTYPE_SH7764 was
+> > never added to the tree. Perhaps no one noticed because these references
+> > were never used alone. Anyhow, these references serve no purpose and
+> > can be removed.
+> > 
+> > Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+> 
+> Looks fine, I suspect Iwamatsu-san let this trickle in from some vendor
+> branch given that these are all his drivers. I'll queue it up, thanks.
 
-Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c |   14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
+This didn't (yet) make it into mainline. Is there an issue with this
+patch? Or is it queued somewhere?
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 2df48bb..181edb5 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -782,16 +782,22 @@ static struct sk_buff *be_insert_vlan_in_pkt(struct be_adapter *adapter,
- 
- 	if (vlan_tx_tag_present(skb))
- 		vlan_tag = be_get_tx_vlan_tag(adapter, skb);
--	else if (qnq_async_evt_rcvd(adapter) && adapter->pvid)
--		vlan_tag = adapter->pvid;
-+
-+	if (qnq_async_evt_rcvd(adapter) && adapter->pvid) {
-+		if (!vlan_tag)
-+			vlan_tag = adapter->pvid;
-+		/* f/w workaround to set skip_hw_vlan = 1, informs the F/W to
-+		 * skip VLAN insertion
-+		 */
-+		if (skip_hw_vlan)
-+			*skip_hw_vlan = true;
-+	}
- 
- 	if (vlan_tag) {
- 		skb = __vlan_put_tag(skb, htons(ETH_P_8021Q), vlan_tag);
- 		if (unlikely(!skb))
- 			return skb;
- 		skb->vlan_tci = 0;
--		if (skip_hw_vlan)
--			*skip_hw_vlan = true;
- 	}
- 
- 	/* Insert the outer VLAN, if any */
--- 
-1.7.9.5
+
+Paul Bolle
