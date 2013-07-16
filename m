@@ -1,112 +1,61 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [ANNOUNCE] iproute2 3.10
-Date: Tue, 16 Jul 2013 10:17:48 -0700
-Message-ID: <20130716101748.166a8ad7@nehalam.linuxnetplumber.net>
+From: Grant Grundler <grantgrundler@gmail.com>
+Subject: Re: [RFC] tulip: Support for byte queue limits
+Date: Tue, 16 Jul 2013 10:20:40 -0700
+Message-ID: <CAP6odjgHcQ3Q6j_XSaLm0iJkAx+8tgtN+psXUekQ9U55O+9zjg@mail.gmail.com>
+References: <20130712180116.21176.qmail@science.horizon.com>
+	<1373932689.3745.30.camel@bwh-desktop.uk.level5networks.com>
+	<CAP6odjjyXqhMBAY3L1p7w9UPU2VH04MsyaWG6wb1YB_Pe43Dyg@mail.gmail.com>
+	<1373985465.2120.1.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: George Spelvin <linux@horizon.com>, eric.dumazet@gmail.com,
+	Grant Grundler <grundler@parisc-linux.org>,
+	"open list:TULIP NETWORK DRI..." <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f41.google.com ([209.85.219.41]:46633 "EHLO
+	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932519Ab3GPRUl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 13:20:41 -0400
+Received: by mail-oa0-f41.google.com with SMTP id n10so1219460oag.14
+        for <netdev@vger.kernel.org>; Tue, 16 Jul 2013 10:20:41 -0700 (PDT)
+In-Reply-To: <1373985465.2120.1.camel@bwh-desktop.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is update for iproute2 tools for 3.10 kernel.
-In addition to the usual array of bug fixes and documentation changes,
-this release also fixes some important bugs relating to rate control
-at higher speeds.
+On Tue, Jul 16, 2013 at 7:37 AM, Ben Hutchings
+<bhutchings@solarflare.com> wrote:
+> On Mon, 2013-07-15 at 18:17 -0700, Grant Grundler wrote:
+...
+>> Is the problem the reference to skb->len?
+>> By passing ownership,  are you suggesting the device can change this value?
+>
+> No, the device can complete the descriptor and then the TX completion
+> handler will free the skb.
 
-The 3.10 kernel added a number of new networking features as well
-for VXLAN and bridging.
+Ah ok. That's what the spinlock_irqsave() is protecting against.
 
-Iproute2 package is available at:
-  http://kernel.org/pub/linux/utils/net/iproute2/iproute2-3.10.0.tar.gz
+> [...]
+>> > But one day someone may want to get rid of this lock,
+>> > so this is a trap waiting to spring.
+>>
+>> Even for tulip driver?  Sorry, I just can't imagine anyone taking
+>> enough interest in tulip driver to implement that.  I'm not even sure
+>> it would be possible.
+>
+> You're taking interest in it, aren't you?
 
-You can download the source from:
-  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+Let me clarify my interest: I will reject patches to change the
+locking for this driver. Patch reviews for this driver are a
+"community service project" since I know reasonably well how this chip
+behaves. But I'm not doing anything else (e.g. bug fixes or testing).
 
----
+If someone else wants to change the tulip driver locking, they need to
+submit a patch to become the new maintainer first (I'll ACK that :)
 
-Adam Borowski (1):
-      ip: fix build failure if time_t is not long int
+>  But I accept this is a minor issue.
 
-Alexander Duyck (1):
-      iproute2: act_ipt fix xtables breakage on older versions.
+Ok.
 
-Amerigo Wang (1):
-      iptunnel: check SIT_ISATAP flag only for SIT tunnel
-
-Andreas Henriksson (1):
-      iproute2: fix build failure on sparc due to -Wformat and tv_usec
-
-Andrey Vagin (5):
-      ip: set the close-on-exec flag for descriptors
-      ss: handle socket diag request in a separate function
-      ss: create a function to print info about netlink sockets
-      ss: show destination address for netlink sockets
-      ss: Get netlink sockets info via sock-diag (v2)
-
-Daniel Borkmann (1):
-      ip: ipv6: add tokenized interface identifier support
-
-David L Stevens (1):
-      iproute2: support NTF_ROUTER flag in VXLAN fdb entries
-
-David Stevens (1):
-      iproute2: generalize VXLAN forwarding tables
-
-Eric Dumazet (4):
-      ss: add fastopen support
-      htb: report overhead attribute
-      get_rate: detect 32bit overflows
-      ss: add more TCP_INFO components
-
-John Fastabend (1):
-      iproute2: bridge: fix 'bridge link' setlink/getlink parsing
-
-JunweiZhang (1):
-      ipbatch: fix use of 'ip netns exec'
-
-Kamil Rytarowski (1):
-      iproute2 patch against GCC 4.8.0
-
-Nicolas Dichtel (5):
-      ip: add missing help about mode argument
-      ip/xfrm: all to set flag XFRM_SA_XFLAG_DONT_ENCAP_DSCP
-      ipnetconf: by default dump all entries
-      ss: allow to retrieve AF_PACKET info via netlink
-      man: describe --bpf option of ss
-
-Patric McHardy (1):
-      ip: iplink_vlan: add 802.1ad support
-
-Pavel Emelyanov (1):
-      ss: Show inet and unix sockets' shutdown state
-
-Rami Rosen (1):
-      ss: replace bfp with bpf in usage().
-
-Sriram Narasimhan (1):
-      iptuntap: allow creation of multi-queue tun/tap device
-
-Stephen Hemminger (11):
-      Update headers to 3.10
-      Add vxlan destination port option
-      vxlan: nag user to set port value
-      add BPF header files
-      vxlan: remove dstport option
-      man: get rid of useless reference to GNU style options
-      htb: fix indentation
-      netns: follow return value conventions of the rest of the code
-      ip: add batch mode to man page
-      Make tc and ip batch mode consistent
-      v3.10.0
-
-Thomas Richter (2):
-      iproute2 vxlan documentation update for bridge command
-      iproute2 vxlan documentation update for ip command
-
-Eric S. Raymond (4):
-      First set of manpage markup fixes
-      tc-stab.8: Fix synopsis errors, an invalid escape, and incorrect English usge.
-      In tc-ematch.8, remove no-op .ti requests to prevent translation warnings
-      ip-rule.8: Fix presentational use of .SS.
+cheers,
+grant
