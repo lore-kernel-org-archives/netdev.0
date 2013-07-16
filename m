@@ -1,228 +1,37 @@
 From: Paolo Valente <paolo.valente@unimore.it>
-Subject: [PATCH BUGFIX] pkt_sched: sch_qfq: remove a source of high packet delay/jitter
-Date: Tue, 16 Jul 2013 08:52:30 +0200
-Message-ID: <1373957550-10134-1-git-send-email-paolo.valente@unimore.it>
-References: <1373911942.2062.24.camel@joe-AO722>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	fchecconi@gmail.com, rizzo@iet.unipi.it,
-	Paolo Valente <paolo.valente@unimore.it>
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>, shemminger@vyatta.com
+Subject: Re: [PATCH BUGFIX] pkt_sched: sch_qfq: remove a source of high packet
+ delay/jitter
+Date: Tue, 16 Jul 2013 08:46:41 +0200
+Message-ID: <51E4EC51.6000607@unimore.it>
+References: <1373911290-6237-1-git-send-email-paolo.valente@unimore.it> <1373911942.2062.24.camel@joe-AO722>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>, shemminger@vyatta.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	fchecconi@gmail.com, rizzo@iet.unipi.it
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1373911942.2062.24.camel@joe-AO722>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-QFQ+ inherits from QFQ a design choice that may cause a high packet
-delay/jitter and a severe short-term unfairness. As QFQ, QFQ+ uses a
-special quantity, the system virtual time, to track the service
-provided by the ideal system it approximates. When a packet is
-dequeued, this quantity must be incremented by the size of the packet,
-divided by the sum of the weights of the aggregates waiting to be
-served. Tracking this sum correctly is a non-trivial task, because, to
-preserve tight service guarantees, the decrement of this sum must be
-delayed in a special way [1]: this sum can be decremented only after
-that its value would decrease also in the ideal system approximated by
-QFQ+. For efficiency, QFQ+ keeps track only of the 'instantaneous'
-weight sum, increased and decreased immediately as the weight of an
-aggregate changes, and as an aggregate is created or destroyed (which,
-in its turn, happens as a consequence of some class being
-created/destroyed/changed). However, to avoid the problems caused to
-service guarantees by these immediate decreases, QFQ+ increments the
-system virtual time using the maximum value allowed for the weight
-sum, 2^10, in place of the dynamic, instantaneous value. The
-instantaneous value of the weight sum is used only to check whether a
-request of weight increase or a class creation can be satisfied.
-
-Unfortunately, the problems caused by this choice are worse than the
-temporary degradation of the service guarantees that may occur, when a
-class is changed or destroyed, if the instantaneous value of the
-weight sum was used to update the system virtual time. In fact, the
-fraction of the link bandwidth guaranteed by QFQ+ to each aggregate is
-equal to the ratio between the weight of the aggregate and the sum of
-the weights of the competing aggregates. The packet delay guaranteed
-to the aggregate is instead inversely proportional to the guaranteed
-bandwidth. By using the maximum possible value, and not the actual
-value of the weight sum, QFQ+ provides each aggregate with the worst
-possible service guarantees, and not with service guarantees related
-to the actual set of competing aggregates. To see the consequences of
-this fact, consider the following simple example.
-
-Suppose that only the following aggregates are backlogged, i.e., that
-only the classes in the following aggregates have packets to transmit:
-one aggregate with weight 10, say A, and ten aggregates with weight 1,
-say B1, B2, ..., B10. In particular, suppose that these aggregates are
-always backlogged. Given the weight distribution, the smoothest and
-fairest service order would be:
-A B1 A B2 A B3 A B4 A B5 A B6 A B7 A B8 A B9 A B10 A B1 A B2 ...
-
-QFQ+ would provide exactly this optimal service if it used the actual
-value for the weight sum instead of the maximum possible value, i.e.,
-11 instead of 2^10. In contrast, since QFQ+ uses the latter value, it
-serves aggregates as follows (easy to prove and to reproduce
-experimentally):
-A B1 B2 B3 B4 B5 B6 B7 B8 B9 B10 A A A A A A A A A A B1 B2 ... B10 A A ...
-
-By replacing 10 with N in the above example, and by increasing N, one
-can increase at will the maximum packet delay and the jitter
-experienced by the classes in aggregate A.
-
-This patch addresses this issue by just using the above
-'instantaneous' value of the weight sum, instead of the maximum
-possible value, when updating the system virtual time.  After the
-instantaneous weight sum is decreased, QFQ+ may deviate from the ideal
-service for a time interval in the order of the time to serve one
-maximum-size packet for each backlogged class. The worst-case extent
-of the deviation exhibited by QFQ+ during this time interval [1] is
-basically the same as of the deviation described above (but, without
-this patch, QFQ+ suffers from such a deviation all the time). Finally,
-this patch modifies the comment to the function qfq_slot_insert, to
-make it coherent with the fact that the weight sum used by QFQ+ can
-now be lower than the maximum possible value.
-
-[1] P. Valente, "Extending WF2Q+ to support a dynamic traffic mix",
-Proceedings of AAA-IDEA'05, June 2005.
-
-Signed-off-by: Paolo Valente <paolo.valente@unimore.it>
----
- net/sched/sch_qfq.c | 85 +++++++++++++++++++++++++++++++++++------------------
- 1 file changed, 56 insertions(+), 29 deletions(-)
-
-diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
-index a7ab323..8056fb4 100644
---- a/net/sched/sch_qfq.c
-+++ b/net/sched/sch_qfq.c
-@@ -113,7 +113,6 @@
- 
- #define FRAC_BITS		30	/* fixed point arithmetic */
- #define ONE_FP			(1UL << FRAC_BITS)
--#define IWSUM			(ONE_FP/QFQ_MAX_WSUM)
- 
- #define QFQ_MTU_SHIFT		16	/* to support TSO/GSO */
- #define QFQ_MIN_LMAX		512	/* see qfq_slot_insert */
-@@ -189,6 +188,7 @@ struct qfq_sched {
- 	struct qfq_aggregate	*in_serv_agg;   /* Aggregate being served. */
- 	u32			num_active_agg; /* Num. of active aggregates */
- 	u32			wsum;		/* weight sum */
-+	u32			iwsum;		/* inverse weight sum */
- 
- 	unsigned long bitmaps[QFQ_MAX_STATE];	    /* Group bitmaps. */
- 	struct qfq_group groups[QFQ_MAX_INDEX + 1]; /* The groups. */
-@@ -314,6 +314,7 @@ static void qfq_update_agg(struct qfq_sched *q, struct qfq_aggregate *agg,
- 
- 	q->wsum +=
- 		(int) agg->class_weight * (new_num_classes - agg->num_classes);
-+	q->iwsum = ONE_FP / q->wsum;
- 
- 	agg->num_classes = new_num_classes;
- }
-@@ -340,6 +341,10 @@ static void qfq_destroy_agg(struct qfq_sched *q, struct qfq_aggregate *agg)
- {
- 	if (!hlist_unhashed(&agg->nonfull_next))
- 		hlist_del_init(&agg->nonfull_next);
-+	q->wsum -= agg->class_weight;
-+	if (q->wsum != 0)
-+		q->iwsum = ONE_FP / q->wsum;
-+
- 	if (q->in_serv_agg == agg)
- 		q->in_serv_agg = qfq_choose_next_agg(q);
- 	kfree(agg);
-@@ -834,38 +839,60 @@ static void qfq_make_eligible(struct qfq_sched *q)
- 	}
- }
- 
--
- /*
-- * The index of the slot in which the aggregate is to be inserted must
-- * not be higher than QFQ_MAX_SLOTS-2. There is a '-2' and not a '-1'
-- * because the start time of the group may be moved backward by one
-- * slot after the aggregate has been inserted, and this would cause
-- * non-empty slots to be right-shifted by one position.
-+ * The index of the slot in which the input aggregate agg is to be
-+ * inserted must not be higher than QFQ_MAX_SLOTS-2. There is a '-2'
-+ * and not a '-1' because the start time of the group may be moved
-+ * backward by one slot after the aggregate has been inserted, and
-+ * this would cause non-empty slots to be right-shifted by one
-+ * position.
-+ *
-+ * QFQ+ fully satisfies this bound to the slot index if the parameters
-+ * of the classes are not changed dynamically, and if QFQ+ never
-+ * happens to postpone the service of agg unjustly, i.e., it never
-+ * happens that the aggregate becomes backlogged and eligible, or just
-+ * eligible, while an aggregate with a higher approximated finish time
-+ * is being served. In particular, in this case QFQ+ guarantees that
-+ * the timestamps of agg are low enough that the slot index is never
-+ * higher than 2. Unfortunately, QFQ+ cannot provide the same
-+ * guarantee if it happens to unjustly postpone the service of agg, or
-+ * if the parameters of some class are changed.
-+ *
-+ * As for the first event, i.e., an out-of-order service, the
-+ * upper bound to the slot index guaranteed by QFQ+ grows to
-+ * 2 +
-+ * QFQ_MAX_AGG_CLASSES * ((1<<QFQ_MTU_SHIFT)/QFQ_MIN_LMAX) *
-+ * (current_max_weight/current_wsum) <= 2 + 8 * 128 * 1.
-  *
-- * If the weight and lmax (max_pkt_size) of the classes do not change,
-- * then QFQ+ does meet the above contraint according to the current
-- * values of its parameters. In fact, if the weight and lmax of the
-- * classes do not change, then, from the theory, QFQ+ guarantees that
-- * the slot index is never higher than
-- * 2 + QFQ_MAX_AGG_CLASSES * ((1<<QFQ_MTU_SHIFT)/QFQ_MIN_LMAX) *
-- * (QFQ_MAX_WEIGHT/QFQ_MAX_WSUM) = 2 + 8 * 128 * (1 / 64) = 18
-+ * The following function deals with this problem by backward-shifting
-+ * the timestamps of agg, if needed, so as to guarantee that the slot
-+ * index is never higher than QFQ_MAX_SLOTS-2. This backward-shift may
-+ * cause the service of other aggregates to be postponed, yet the
-+ * worst-case guarantees of these aggregates are not violated.  In
-+ * fact, in case of no out-of-order service, the timestamps of agg
-+ * would have been even lower than they are after the backward shift,
-+ * because QFQ+ would have guaranteed a maximum value equal to 2 for
-+ * the slot index, and 2 < QFQ_MAX_SLOTS-2. Hence the aggregates whose
-+ * service is postponed because of the backward-shift would have
-+ * however waited for the service of agg before being served.
-  *
-- * When the weight of a class is increased or the lmax of the class is
-- * decreased, a new aggregate with smaller slot size than the original
-- * parent aggregate of the class may happen to be activated. The
-- * activation of this aggregate should be properly delayed to when the
-- * service of the class has finished in the ideal system tracked by
-- * QFQ+. If the activation of the aggregate is not delayed to this
-- * reference time instant, then this aggregate may be unjustly served
-- * before other aggregates waiting for service. This may cause the
-- * above bound to the slot index to be violated for some of these
-- * unlucky aggregates.
-+ * The other event that may cause the slot index to be higher than 2
-+ * for agg is a recent change of the parameters of some class. If the
-+ * weight of a class is increased or the lmax (max_pkt_size) of the
-+ * class is decreased, then a new aggregate with smaller slot size
-+ * than the original parent aggregate of the class may happen to be
-+ * activated. The activation of this aggregate should be properly
-+ * delayed to when the service of the class has finished in the ideal
-+ * system tracked by QFQ+. If the activation of the aggregate is not
-+ * delayed to this reference time instant, then this aggregate may be
-+ * unjustly served before other aggregates waiting for service. This
-+ * may cause the above bound to the slot index to be violated for some
-+ * of these unlucky aggregates.
-  *
-  * Instead of delaying the activation of the new aggregate, which is
-- * quite complex, the following inaccurate but simple solution is used:
-- * if the slot index is higher than QFQ_MAX_SLOTS-2, then the
-- * timestamps of the aggregate are shifted backward so as to let the
-- * slot index become equal to QFQ_MAX_SLOTS-2.
-+ * quite complex, the above-discussed capping of the slot index is
-+ * used to handle also the consequences of a change of the parameters
-+ * of a class.
-  */
- static void qfq_slot_insert(struct qfq_group *grp, struct qfq_aggregate *agg,
- 			    u64 roundedS)
-@@ -1136,7 +1163,7 @@ static struct sk_buff *qfq_dequeue(struct Qdisc *sch)
- 	else
- 		in_serv_agg->budget -= len;
- 
--	q->V += (u64)len * IWSUM;
-+	q->V += (u64)len * q->iwsum;
- 	pr_debug("qfq dequeue: len %u F %lld now %lld\n",
- 		 len, (unsigned long long) in_serv_agg->F,
- 		 (unsigned long long) q->V);
--- 
-1.8.1.2
+Il 15/07/2013 20:12, Joe Perches ha scritto:
+> On Mon, 2013-07-15 at 20:01 +0200, Paolo Valente wrote:
+>> QFQ+ inherits from QFQ a design choice that may cause a high packet
+>> delay/jitter and a severe short-term unfairness.
+> []
+>> diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
+> []
+>> @@ -189,6 +188,7 @@ struct qfq_sched {
+>>   	struct qfq_aggregate	*in_serv_agg;   /* Aggregate being served. */
+>>   	u32			num_active_agg; /* Num. of active aggregates */
+>>   	u32			wsum;		/* weight sum */
+>> +	unsigned long		iwsum;		/* inverse weight sum*/
+>
+> This is a different size for 32/64 bit compiles
+> and may be better as u32.
+>
+>
+Sending a new version with u32, thanks.
