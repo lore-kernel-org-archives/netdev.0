@@ -1,58 +1,42 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net 1/6] bnx2x: properly initialize statistic counters
-Date: Tue, 16 Jul 2013 11:35:46 -0700
-Message-ID: <1373999746.1949.14.camel@joe-AO722>
-References: <1373988107-305-1-git-send-email-dmitry@broadcom.com>
-	 <1373988107-305-2-git-send-email-dmitry@broadcom.com>
-	 <1373991870.1949.3.camel@joe-AO722>
-	 <CAM8tLiPqKWxO7w9kL2LjGxFNth6oRV7-JccU+LXiFk9Roass5w@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net PATCH] atl1e: unmap partially mapped skb on dma error and
+ free skb
+Date: Tue, 16 Jul 2013 12:11:25 -0700 (PDT)
+Message-ID: <20130716.121125.1312991211924388920.davem@davemloft.net>
+References: <1373986181-15797-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Dmitry Kravkov <dmitry@broadcom.com>,
-	Dave Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dmitry Kravkov <dkravkov@gmail.com>
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
+	jcliburn@gmail.com, chris.snook@gmail.com
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:42091 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933489Ab3GPSfr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jul 2013 14:35:47 -0400
-In-Reply-To: <CAM8tLiPqKWxO7w9kL2LjGxFNth6oRV7-JccU+LXiFk9Roass5w@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39168 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933253Ab3GPTL2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 15:11:28 -0400
+In-Reply-To: <1373986181-15797-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-07-16 at 21:14 +0300, Dmitry Kravkov wrote:
-> On Tue, Jul 16, 2013 at 7:24 PM, Joe Perches <joe@perches.com> wrote:
-> > It might be better to remove init_fw_counter from
-> > stack and use a #define or just use cpu_to_le16(0xffff)
-> > in each init.
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Tue, 16 Jul 2013 10:49:41 -0400
+
+> Ben Hutchings pointed out that my recent update to atl1e:
 > 
-> I'm not feel well for using same value in each init, probably is better to use
-> multiple assignment like this:
->     counters->xstats_counter =
->         counters->tstats_counter =
->         counters->ustats_counter =
->         counters->cstats_counter = cpu_to_le16(0xffff);
+> commit 352900b583b2852152a1e05ea0e8b579292e731e
+> Author: Neil Horman <nhorman@tuxdriver.com>
+> Date:   Fri Jul 12 10:58:48 2013 -0400
+> 
+>     atl1e: fix dma mapping warnings
+> 
+> Was missing a bit of code.  Specifically it reset the hardware tx ring to its
+> origional state when we hit a dma error, but didn't unmap any exiting mappings
+> from the operation.  This patch fixes that up.  It also remembers to free the
+> skb in the event that an error occurs, so we don't leak.  Untested, as I don't
+> have hardware.  I think its pretty straightforward, but please review closely.
+> 
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-Your choice though maybe here's a couple of things
-to consider:
-
-I do think aligning all the counter variables useful
-when reading so
-
-	count->xstats_counter =
-	count->tstats_counter =
-	count->ustats_counter =
-	count->cstats_counter = foo;
-
-would be better.  Unfortunately grep wouldn't show
-that actual initialization where:
-
-	count->xstats_counter = foo;
-	count->tstats_counter = foo;
-	count->ustats_counter = foo;
-	count->cstats_counter = foo;
-
-would and the compiler would do the same thing as
-the a = b = c = d = foo; case.
+Applied, but please refer to commits in the form "$SHA1ID ("Commit message
+header line")", I fixed it up for you this time.
