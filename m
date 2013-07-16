@@ -1,152 +1,89 @@
-From: Dion Kant <g.w.kant@hunenet.nl>
-Subject: Re: [PATCH v2] xen-netfront: pull on receive skb may need to happen
- earlier
-Date: Tue, 16 Jul 2013 12:33:50 +0200
-Message-ID: <51E5218E.2020100@hunenet.nl>
-References: <51E5327902000078000E5426@nat28.tlf.novell.com> <20130716102524.GC5674@zion.uk.xensource.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [net PATCH] atl1e: fix dma mapping warnings
+Date: Tue, 16 Jul 2013 07:12:08 -0400
+Message-ID: <20130716111208.GA8940@hmsreliant.think-freely.org>
+References: <1373641128-13634-1-git-send-email-nhorman@tuxdriver.com>
+ <1373932877.3745.32.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jan Beulich <JBeulich@suse.com>, davem@davemloft.net,
-	Ian Campbell <ian.campbell@citrix.com>,
-	xen-devel <xen-devel@lists.xenproject.org>,
-	netdev@vger.kernel.org, stable@vger.kernel.org
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20130716102524.GC5674@zion.uk.xensource.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:59107 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753087Ab3GPLMU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 07:12:20 -0400
+Content-Disposition: inline
+In-Reply-To: <1373932877.3745.32.camel@bwh-desktop.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/16/2013 12:25 PM, Wei Liu wrote:
-> On Tue, Jul 16, 2013 at 10:46:01AM +0100, Jan Beulich wrote:
->> Due to commit 3683243b ("xen-netfront: use __pskb_pull_tail to ensure
->> linear area is big enough on RX") xennet_fill_frags() may end up
->> filling MAX_SKB_FRAGS + 1 fragments in a receive skb, and only reduce
->> the fragment count subsequently via __pskb_pull_tail(). That's a
->> result of xennet_get_responses() allowing a maximum of one more slot to
->> be consumed (and intermediately transformed into a fragment) if the
->> head slot has a size less than or equal to RX_COPY_THRESHOLD.
->>
->> Hence we need to adjust xennet_fill_frags() to pull earlier if we
->> reached the maximum fragment count - due to the described behavior of
->> xennet_get_responses() this guarantees that at least the first fragment
->> will get completely consumed, and hence the fragment count reduced.
->>
->> In order to not needlessly call __pskb_pull_tail() twice, make the
->> original call conditional upon the pull target not having been reached
->> yet, and defer the newly added one as much as possible (an alternative
->> would have been to always call the function right before the call to
->> xennet_fill_frags(), but that would imply more frequent cases of
->> needing to call it twice).
->>
->> Signed-off-by: Jan Beulich <jbeulich@suse.com>
->> Cc: Wei Liu <wei.liu2@citrix.com>
->> Cc: Ian Campbell <ian.campbell@citrix.com>
->> Cc: stable@vger.kernel.org (3.6 onwards)
->> ---
->> v2: Use skb_add_rx_frag() to keep all accounting fields up to date as
->>     we go (skb->len needing intermediate updating was pointed out by
->>     Wei Liu and David Miller, shinfo->nr_frags needing updating before
->>     calling __pskb_pull_tail() was spotted out by Dion Kant).
-> Jan and Dion, is this a confirmed fix for SuSE kernel?
-Dear Wei,
+On Tue, Jul 16, 2013 at 01:01:17AM +0100, Ben Hutchings wrote:
+> On Fri, 2013-07-12 at 10:58 -0400, Neil Horman wrote:
+> [...]
+> > The usual straighforward failure to check for dma_mapping_error after a map
+> > operation is completed.
+> [...]
+> > --- a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+> > +++ b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+> > @@ -1665,7 +1665,7 @@ check_sum:
+> >  	return 0;
+> >  }
+> >  
+> > -static void atl1e_tx_map(struct atl1e_adapter *adapter,
+> > +static int atl1e_tx_map(struct atl1e_adapter *adapter,
+> >  		      struct sk_buff *skb, struct atl1e_tpd_desc *tpd)
+> >  {
+> >  	struct atl1e_tpd_desc *use_tpd = NULL;
+> > @@ -1677,6 +1677,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+> >  	u16 nr_frags;
+> >  	u16 f;
+> >  	int segment;
+> > +	int ring_start = adapter->tx_ring.next_to_use;
+> >  
+> >  	nr_frags = skb_shinfo(skb)->nr_frags;
+> >  	segment = (tpd->word3 >> TPD_SEGMENT_EN_SHIFT) & TPD_SEGMENT_EN_MASK;
+> > @@ -1689,6 +1690,9 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+> >  		tx_buffer->length = map_len;
+> >  		tx_buffer->dma = pci_map_single(adapter->pdev,
+> >  					skb->data, hdr_len, PCI_DMA_TODEVICE);
+> > +		if (dma_mapping_error(&adapter->pdev->dev, tx_buffer->dma))
+> > +			return -ENOSPC;
+> > +
+> 
+> Odd choice of error code.
+Seems fine to me, especially since its handled internally to the driver
+(atl1e_xmit_frame still returns NETDEV_TX_OK to the stack).
 
-I did thorough testing on the system which revealed the original problem
-and I can confirm that it does fix the issue.
+> 
+> >  		ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_SINGLE);
+> >  		mapped_len += map_len;
+> >  		use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
+> > @@ -1715,6 +1719,13 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+> >  		tx_buffer->dma =
+> >  			pci_map_single(adapter->pdev, skb->data + mapped_len,
+> >  					map_len, PCI_DMA_TODEVICE);
+> > +
+> > +		if (dma_mapping_error(&adapter->pdev->dev, tx_buffer->dma)) {
+> > +			/* Reset the tx rings next pointer */
+> > +			adapter->tx_ring.next_to_use = ring_start;
+> > +			return -ENOSPC;
+> > +		}
+> [...]
+> 
+> This is not enough; you also need to unmap the DMA mappings that have
+> already been made.
+> 
+Yep, you're right, thanks for pointing that out, I'll send a followon patch.
+Neil
 
-Dion
-
-
->
-> I complied and tested it, at least it didn't break things for me. The
-> tests I ran were 1) scp large_file to domU; 2) iperf from Dom0 to DomU;
-> 3) netperf from Dom0 to DomU.
->
-> On the basis that this patch 1) fixes the bug for SuSE kernel (to be
-> confirmed with Jan); 2) doesn't break upstream (tested by me).
->
-> Acked-by: Wei Liu <wei.liu2@citrix.com>
->
->> ---
->>  drivers/net/xen-netfront.c |   32 +++++++++++++-------------------
->>  1 file changed, 13 insertions(+), 19 deletions(-)
->>
->> --- 3.11-rc1/drivers/net/xen-netfront.c
->> +++ 3.11-rc1-xen-netfront-pull-earlier/drivers/net/xen-netfront.c
->> @@ -286,8 +286,7 @@ no_skb:
->>  			break;
->>  		}
->>  
->> -		__skb_fill_page_desc(skb, 0, page, 0, 0);
->> -		skb_shinfo(skb)->nr_frags = 1;
->> +		skb_add_rx_frag(skb, 0, page, 0, 0, PAGE_SIZE);
->>  		__skb_queue_tail(&np->rx_batch, skb);
->>  	}
->>  
->> @@ -831,7 +830,6 @@ static RING_IDX xennet_fill_frags(struct
->>  				  struct sk_buff_head *list)
->>  {
->>  	struct skb_shared_info *shinfo = skb_shinfo(skb);
->> -	int nr_frags = shinfo->nr_frags;
->>  	RING_IDX cons = np->rx.rsp_cons;
->>  	struct sk_buff *nskb;
->>  
->> @@ -840,19 +838,21 @@ static RING_IDX xennet_fill_frags(struct
->>  			RING_GET_RESPONSE(&np->rx, ++cons);
->>  		skb_frag_t *nfrag = &skb_shinfo(nskb)->frags[0];
->>  
->> -		__skb_fill_page_desc(skb, nr_frags,
->> -				     skb_frag_page(nfrag),
->> -				     rx->offset, rx->status);
->> +		if (shinfo->nr_frags == MAX_SKB_FRAGS) {
->> +			unsigned int pull_to = NETFRONT_SKB_CB(skb)->pull_to;
->>  
->> -		skb->data_len += rx->status;
->> +			BUG_ON(pull_to <= skb_headlen(skb));
->> +			__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
->> +		}
->> +		BUG_ON(shinfo->nr_frags >= MAX_SKB_FRAGS);
->> +
->> +		skb_add_rx_frag(skb, shinfo->nr_frags, skb_frag_page(nfrag),
->> +				rx->offset, rx->status, PAGE_SIZE);
->>  
->>  		skb_shinfo(nskb)->nr_frags = 0;
->>  		kfree_skb(nskb);
->> -
->> -		nr_frags++;
->>  	}
->>  
->> -	shinfo->nr_frags = nr_frags;
->>  	return cons;
->>  }
->>  
->> @@ -933,7 +933,8 @@ static int handle_incoming_queue(struct 
->>  	while ((skb = __skb_dequeue(rxq)) != NULL) {
->>  		int pull_to = NETFRONT_SKB_CB(skb)->pull_to;
->>  
->> -		__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
->> +		if (pull_to > skb_headlen(skb))
->> +			__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
->>  
->>  		/* Ethernet work: Delayed to here as it peeks the header. */
->>  		skb->protocol = eth_type_trans(skb, dev);
->> @@ -1018,17 +1019,10 @@ err:
->>  
->>  		skb_shinfo(skb)->frags[0].page_offset = rx->offset;
->>  		skb_frag_size_set(&skb_shinfo(skb)->frags[0], rx->status);
->> -		skb->data_len = rx->status;
->> +		skb->len += skb->data_len = rx->status;
->>  
->>  		i = xennet_fill_frags(np, skb, &tmpq);
->>  
->> -		/*
->> -                 * Truesize is the actual allocation size, even if the
->> -                 * allocation is only partially used.
->> -                 */
->> -		skb->truesize += PAGE_SIZE * skb_shinfo(skb)->nr_frags;
->> -		skb->len += skb->data_len;
->> -
->>  		if (rx->flags & XEN_NETRXF_csum_blank)
->>  			skb->ip_summed = CHECKSUM_PARTIAL;
->>  		else if (rx->flags & XEN_NETRXF_data_validated)
->>
+> Ben.
+> 
+> -- 
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+> 
+> 
