@@ -1,62 +1,344 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net] vxlan: add necessary locking on device removal
-Date: Tue, 16 Jul 2013 13:29:08 -0700
-Message-ID: <CALnjE+q65PHMBycfmE2L2DDYuVU_8HrAKJJUtzzjVDVkT+sinA@mail.gmail.com>
-References: <CALnjE+rO7Npw=rU_VL7T1pPDdFBKXB3KpVbpf_jQ0cJ6+ah1nQ@mail.gmail.com>
-	<20130713101818.0d4fa8e0@nehalam.linuxnetplumber.net>
-	<CALnjE+oDwU46NiK-AyB-dJZVrWT-pot_v+obv+MxgZU0xNwbRw@mail.gmail.com>
-	<20130716.112820.260966128083756999.davem@davemloft.net>
+From: Darren Hart <dvhart@linux.intel.com>
+Subject: Re: [RFC] Any value in having a netdev FAQ?
+Date: Tue, 16 Jul 2013 13:32:05 -0700
+Message-ID: <1374006725.12825.112.camel@envy.home>
+References: <20130716025954.GC26761@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	netdev@vger.kernel.org
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog124.obsmtp.com ([74.125.149.151]:39485 "HELO
-	na3sys009aog124.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S933582Ab3GPU3K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 16:29:10 -0400
-Received: by mail-qc0-f170.google.com with SMTP id s1so655523qcw.29
-        for <netdev@vger.kernel.org>; Tue, 16 Jul 2013 13:29:08 -0700 (PDT)
-In-Reply-To: <20130716.112820.260966128083756999.davem@davemloft.net>
+Received: from mga02.intel.com ([134.134.136.20]:31650 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933606Ab3GPUcG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jul 2013 16:32:06 -0400
+In-Reply-To: <20130716025954.GC26761@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 16, 2013 at 11:28 AM, David Miller <davem@davemloft.net> wrote:
-> From: Pravin Shelar <pshelar@nicira.com>
-> Date: Sat, 13 Jul 2013 12:21:52 -0700
->
->> On Sat, Jul 13, 2013 at 10:18 AM, Stephen Hemminger
->> <stephen@networkplumber.org> wrote:
->>> The socket management is now done in workqueue (outside of RTNL)
->>> and protected by vn->sock_lock. There were two possible bugs, first
->>> the vxlan device was removed from the VNI hash table per socket without
->>> holding lock. And there was a race when device is created and the workqueue
->>> could run after deletion.
->>>
->>> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
->>>
->>> --- a/drivers/net/vxlan.c       2013-07-08 16:31:50.080744429 -0700
->>> +++ b/drivers/net/vxlan.c       2013-07-10 20:15:47.337653899 -0700
->>> @@ -1767,9 +1767,15 @@ static int vxlan_newlink(struct net *net
->>>
->>>  static void vxlan_dellink(struct net_device *dev, struct list_head *head)
->>>  {
->>> +       struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
->>>         struct vxlan_dev *vxlan = netdev_priv(dev);
->>>
->>> +       flush_workqueue(vxlan_wq);
->>> +
->> Doesn't this create dependency on sock_work thread while holding RTNL.
->> If so it can result in deadlock.
->
-> What exact deadlock do you perceive?  I don't see any code path in the
-> sock_work handler (vxlan_sock_work) which takes the RTNL mutex.
->
-> So we should be able to safely flush any pending sock_work jobs from
-> vxlan_dellink().  The fact that vxlan_dellink() runs with the RTNL
-> mutex shouldn't cause any issues.
+On Mon, 2013-07-15 at 22:59 -0400, Paul Gortmaker wrote:
+> Hi Dave,
+> 
+> I was wondering if you think there is value in having a netdev-faq type
+> document available -- perhaps as a vger mailout to new subscribers or
+> similar?  For example, I have lost count of the number of times that you
+> have had to tell people that net-next is closed during the merge window.
+> But you would probably be right in telling me that those same people don't
+> read documentation.  Well, that aside, I suppose answering my question
+> is easier when there is a proposed starting point for content.
+> 
+> To that end, I've tried to collect a starting point based on repeated
+> questions/corrections that I've seen over the years.  I've added Greg to
+> the Cc: in order to ensure I've captured the netdev-stable interaction
+> correctly, and I've thrown Darren under the bus as a random content
+> reviewer, since he has expressed an interest in documentation recently.
 
-commit 1c51a9159ddefa51 (vxlan: fix race caused by dropping
-rtnl_unlock) moved sock-create to sock_work workq. Thats why I thought
-sock_work takes RTNL. but if it is not taking RTNL in any case, they
-why vxlan sock create is deferred to sock_work?
+And I'm going to learn how to properly interract on netdev while I'm at
+it.  It's a win win :-)
+
+> 
+> Below is a possible starting point for content.  Many answers I have
+> written are from memory, long after losing links to netdev threads that
+> served as evidence for the answers, so apologies in advance if I have
+> failed to recall correctly the specific details in which you would like
+> to see things done.
+> 
+> Thanks,
+> Paul.
+> --
+> 
+> Information you need to know about netdev
+> -----------------------------------------
+> 
+> Q: What is netdev?
+> 
+> A: It is a mailing list for all network related linux stuff.  This includes
+>    anything found under net/  (i.e. core code like IPv6) and drivers/net
+>    (i.e. hardware specific drivers) in the linux source tree.
+> 
+>    Note that some subsystems (e.g. wireless drivers) which have a high volume
+>    of traffic have their own specific mailing lists.
+> 
+>    The netdev list is managed (like many other linux mailing lists) through
+>    VGER ( http://vger.kernel.org/ ) and archives can be found below:
+> 
+> 	http://marc.info/?l=linux-netdev
+> 	http://www.spinics.net/lists/netdev/
+> 
+>    Aside from subsystems like that mentioned above, all network related linux
+>    development (i.e. RFC, review, comments, etc) takes place on netdev.
+> 
+
+
+Should LKML be Cc'd? I assume so...
+
+
+> Q: How do the changes posted to netdev make their way into linux?
+> 
+> A: There are always two trees (git repositories) in play.  Both are driven
+>    by David Miller, the main network maintainer.  There is the "net" tree,
+>    and the "net-next" tree.  As you can probably guess from the names, the
+>    net tree is for fixes to existing code already in the mainline tree from
+>    Linus, and net-next is where the new code goes for the future release.
+>    You can find the trees here:
+> 
+> 	http://git.kernel.org/?p=linux/kernel/git/davem/net.git
+> 	http://git.kernel.org/?p=linux/kernel/git/davem/net-next.git
+> 
+> Q: How often do changes from these trees make it to the mainline Linus tree?
+> 
+> A: To understand this, you need to know a bit of background information
+>    on the cadence of linux development.  Each new release starts off with
+>    a two week "merge window" where the main maintainers feed their new
+>    stuff to Linus for merging into the mainline tree.  After the two weeks,
+>    the merge window is closed, and it is called/tagged "-rc1".  No new
+>    features get mainlined after this -- only fixes to the rc1 content
+>    are expected.  After roughly a week of collecting fixes to the rc1
+>    content, rc2 is released.  This repeats on a roughly weekly basis
+>    until rc7 (typically; sometimes rc6 if things are quiet, or rc8 if
+>    things are in a state of churn), and a week after the last vX.Y-rcN
+>    was done, the official "vX.Y" is released.
+> 
+>    Relating that to netdev:  At the beginning of the 2wk merge window,
+
+
+Best not to abbreviate, we can spare the 3 bytes for " week" :-)
+
+
+>    the net-next tree will be closed - no new changes/features.  The
+>    accumulated new content of the past ~10 weeks will be passed onto
+>    mainline/Linus via a pull request for vX.Y -- at the same time,
+>    the "net" tree will start accumulating fixes for this pulled content
+>    relating to vX.Y
+> 
+>    An announcement indicating when net-next has been closed is usually
+>    sent to netdev, but knowing the above, you can predict that in advance.
+> 
+>    IMPORTANT:  Do not send new net-next content to netdev during the
+>    period during which net-next tree is closed.
+
+
+It would be handy to have a netdev-next bot that responded to "~/^
+\[PATCH/" email (off list) during the merge window with a reminder of
+this point. Not everyone is active enough in kernel development be
+always aware of where we are in the cycle. Greg has a bot deal with
+common mistakes, so there is precedent.
+
+
+> 
+>    Shortly after the two weeks have passed, (and vX.Y-rc1 is released) the
+>    tree for net-next reopens to collect content for the next (vX.Y+1) release.
+> 
+>    The "net" tree continues to collect fixes for the vX.Y content, and
+>    is fed back to Linus at regular (~weekly) intervals.  Meaning that the
+>    focus for "net" is on stablilization and bugfixes.
+> 
+>    Finally, the vX.Y gets released, and the whole cycle starts over.
+> 
+> Q: So where are we now in this cycle?
+> 
+> A: Load the mainline (Linus) page here:
+> 
+> 	http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git
+> 
+>    and note the top of the "tags" section.  If it is rc1, it is early
+>    in the dev cycle.  If it was tagged rc7 a week ago, then a release
+>    is probably imminent.
+> 
+
+
+How does one determine if we are in the merge window? I wonder if we
+could have DEV_CYCLE file in the linux git repository which read:
+
+MERGE WINDOW
+BUG FIX ONLY (-rc1+)
+CRITICAL FIXES ONLY (-rc4+)
+
+That would make it trivial to know from right there in the sources where
+we are.
+
+
+> Q: How do I indicate which tree (net vs. net-next) my patch should be in?
+> 
+> A: Firstly, think whether you have a bug fix or new "next-like" content.
+>    Then once decided, assuming that you use git, use the prefix flag, i.e.
+> 
+> 	git format-patch --subject-prefix='PATCH net-next' start..finish
+> 
+>    Use "net" instead of "net-next" in the above for bug-fix net content.
+>    If you don't use git, then note the only magic in the above is just
+>    the subject text of the outgoing e-mail, and you can manually change
+>    it yourself with whatever MUA you are comfortable with.
+> 
+> Q: I sent a patch and I'm wondering what happened to it.  How can I tell
+>    whether it got merged?
+> 
+> A: Start by looking at the main patchworks queue for netdev:
+> 
+> 	http://patchwork.ozlabs.org/project/netdev/list/
+> 
+>    The "State" field will tell you exactly where things are at with
+>    your patch.
+> 
+> Q: The above only says "Under Review".  How can I find out more?
+> 
+> A: Generally speaking, the patches get triaged quickly (in less than 48h).
+>    So be patient.  Asking the maintainer for status updates on your
+>    patch is a good way to ensure your patch is ignored or pushed to
+>    the bottom of the priority list.
+> 
+> Q: How can I tell what patches are queued up for backporting to the 
+>    various stable releases?
+> 
+> A: Normally Greg Kroah-Hartman collects stable commits himself, but
+>    for networking, Dave collects up patches he deems critical for the
+>    networking subsystem, and then hands them off to Greg.
+> 
+>    There is a patchworks queue that you can see here:
+> 	http://patchwork.ozlabs.org/bundle/davem/stable/?state=*
+> 
+>    It contains the patches which Dave has selected, but not yet handed
+>    off to Greg.  If Greg already has the patch, then it will be here:
+> 	http://git.kernel.org/cgit/linux/kernel/git/stable/stable-queue.git
+> 
+>    A quick way to find whether the patch is in this stable-queue is
+>    to simply clone the repo, and then git grep the mainline commit ID, e.g.
+> 
+> 	stable-queue$ git grep -l 284041ef21fdf2e
+> 	releases/3.0.84/ipv6-fix-possible-crashes-in-ip6_cork_release.patch
+> 	releases/3.4.51/ipv6-fix-possible-crashes-in-ip6_cork_release.patch
+> 	releases/3.9.8/ipv6-fix-possible-crashes-in-ip6_cork_release.patch
+> 	stable/stable-queue$ 
+> 
+
+
+This needs a reference to stable_kernel_rules.txt IMO, and possibly less
+content here.
+
+
+> Q: I see a network patch and I think it should be backported to stable.
+>    Should I request it via "stable@vger.kernel.org" like the references in
+>    the kernel's Documentation/ directory say?
+
+stable_kernel_rules.txt specifically
+
+> 
+> A: No, not for networking.  Check the stable queues as per above 1st to see
+>    if it is already queued.  If not, then send a mail to netdev, listing
+>    the upstream commit ID and why you think it should be a stable candidate.
+
+
+I had no idea as an infrequent contributor to netdev!
+stable_kernel_rules.txt needs some exceptions noted and a reference to
+this.
+
+
+> 
+>    Before you jump to go do the above, do note that the normal stable rules
+>    in Documentation/stable_kernel_rules.txt still apply.  So you need to 
+>    explicitly indicate why it is a critical fix and exactly what users are
+>    impacted.  In addition, you need to convince yourself that you _really_
+>    think it has been overlooked, vs. having been considered and rejected.
+> 
+>    Generally speaking, the longer it has had a chance to "soak" in mainline,
+>    the better the odds that it is an OK candidate for stable.  So scrambling
+>    to request a commit be added the day after it appears should be avoided.
+> 
+> Q: I have created a network patch and I think it should be backported to
+>    stable.  Should I add a "Cc: stable@vger.kernel.org" like the references
+>    in the kernel's Documentation/ directory say?
+> 
+> A: No.  See above answer.  In short, if you think it really belongs in
+>    stable, then ensure you write a decent commit log that describes who
+>    gets impacted by the bugfix and how it manifests itself, and when the
+>    bug was introduced.  If you do that properly, then the commit will
+>    get handled appropriately and most likely get put in the patchworks
+>    stable queue if it really warrants it.
+> 
+>    If you think there is some valid information relating to it being in
+>    stable that does _not_ belong in the commit log, then use the three
+>    dash marker line as described in Documentation/SubmittingPatches to 
+>    temporarily embed that information into the patch that you send.
+> 
+> Q: Someone said that the comment style and coding convention is different
+>    for the networing content.  Is this true?
+
+
+networking
+
+> 
+> A: Yes, in a largely trivial way.  Instead of this:
+> 
+> 	/*
+> 	 * foobar blah blah blah
+> 	 * another line of text
+> 	 */
+> 
+>    it is requested that you make it look like this:
+> 
+> 	/* foobar blah blah blah
+> 	 * another line of text
+> 	 */
+
+
+This is.... unfortunate. I see the warnings from checkpatch.pl and I
+have to choose between adhering to that or keeping a file which is in
+complete violation to that consistent. I risk flaming either way.
+
+Do we really need different coding styles for different sub directories
+of the same source tree? I won't say anything more on this or try to
+argue the point, it isn't my call. Just seems.... strange to me.
+
+
+> 
+> Q: I am working in existing code that has the former comment style and not the
+>    latter.  Should I submit new code in the former style or the latter?
+> 
+> A: Make it the latter style, so that eventually all code in the domain of
+>    netdev is of this format.
+
+
+:-) OK
+
+
+> 
+> Q: I found a bug that might have possible security implications or similar.
+>    Should I mail the main netdev maintainer off-list?
+> 
+> A: No. The current netdev maintainer has consistently requested that people
+>    use the mailing lists and not reach out directly.  If you aren't OK with
+>    that, then perhaps consider using "security@kernel.org" instead.
+> 
+> Q: What level of testing is expected before I submit my change?
+> 
+> A: If your changes are against net-next, then the expectation is that
+
+s/then//
+
+>    you have tested by layering your changes on top of net-next.  Ideally
+>    you will have done run-time testing specific to your change, but
+>    at a minimum, your changes should survive an "allyesconfig" and an
+>    "allmodconfig" build without new warnings or failures.
+> 
+> Q: Any other tips to help ensure my net/net-next patch gets OK'd?
+> 
+> A: Attention to detail.  You can start with checkpatch.pl, but do not
+>    be mindlessly robotic in doing so.  Re-read your own work as if you were
+>    the reviewer.  If your change is a bug-fix, make sure your commit log
+>    indicates the end-user visible symptom, the underlying reason as
+>    to why it happens, and then if necessary, explain why the fix proposed
+>    is the best way to get things done.   Don't mangle whitespace, and as
+>    is common, don't mis-indent function arguments that span multiple lines.
+
+
+This needs a reference to SubmittingPatches
+
+This is great Paul, thank you for taking the time.
+
+-- 
+Darren Hart
+Intel Open Source Technology Center
+Yocto Project - Linux Kernel
