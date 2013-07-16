@@ -1,27 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bgmac: add dependency to phylib
-Date: Tue, 16 Jul 2013 12:34:33 -0700 (PDT)
-Message-ID: <20130716.123433.438875803538721144.davem@davemloft.net>
-References: <1373887587-5182-1-git-send-email-hauke@hauke-m.de>
+Subject: Re: [PATCH 0/2] net: mvneta: big endian support
+Date: Tue, 16 Jul 2013 12:35:37 -0700 (PDT)
+Message-ID: <20130716.123537.431798541962909293.davem@davemloft.net>
+References: <1373894846-1147-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zajec5@gmail.com, netdev@vger.kernel.org
-To: hauke@hauke-m.de
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	gregory.clement@free-electrons.com, alior@marvell.com,
+	ezequiel.garcia@free-electrons.com
+To: thomas.petazzoni@free-electrons.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39399 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39414 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933239Ab3GPTee (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 15:34:34 -0400
-In-Reply-To: <1373887587-5182-1-git-send-email-hauke@hauke-m.de>
+	with ESMTP id S933497Ab3GPTfh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 15:35:37 -0400
+In-Reply-To: <1373894846-1147-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Date: Mon, 15 Jul 2013 13:26:27 +0200
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Date: Mon, 15 Jul 2013 15:27:24 +0200
 
-> bgmac is using functions from phylib, add the dependency.
-> 
-> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+> You'll find in this patch series two small patches that add support
+> for big-endian in the mvneta driver, for the network interface found
+> in ARM Marvell Armada 370 and Armada XP SOCs. They are based on
+> 3.11-rc1.
 
-Applied, thanks.
+Please resubmit this when the net-next tree opens back up.
+
+Thanks.
