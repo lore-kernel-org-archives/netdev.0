@@ -1,50 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] hyperv: Fix the NETIF_F_SG flag setting in netvsc
-Date: Wed, 17 Jul 2013 11:57:15 -0700 (PDT)
-Message-ID: <20130717.115715.965921785189776151.davem@davemloft.net>
-References: <1374040880-20468-1-git-send-email-haiyangz@microsoft.com>
- <8906250c5dfc4f7ab0d84019bf7b9a44@SN2PR03MB061.namprd03.prod.outlook.com>
+Subject: Re: [PATCH net] vxlan: add necessary locking on device removal
+Date: Wed, 17 Jul 2013 12:09:28 -0700 (PDT)
+Message-ID: <20130717.120928.1926577285896040401.davem@davemloft.net>
+References: <CALnjE+q65PHMBycfmE2L2DDYuVU_8HrAKJJUtzzjVDVkT+sinA@mail.gmail.com>
+	<20130716.230600.734017943782172716.davem@davemloft.net>
+	<CALnjE+oL8H+owyeUJvqvwEQJ4YjFuszBeBKpnhq9myL9DYptRw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
- haiyangz@microsoft.com
-To: kys@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <8906250c5dfc4f7ab0d84019bf7b9a44@SN2PR03MB061.namprd03.prod.outlook.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: pshelar@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52505 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756861Ab3GQTJ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jul 2013 15:09:29 -0400
+In-Reply-To: <CALnjE+oL8H+owyeUJvqvwEQJ4YjFuszBeBKpnhq9myL9DYptRw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: KY Srinivasan <kys@microsoft.com>
-Date: Wed, 17 Jul 2013 11:40:41 +0000
+From: Pravin Shelar <pshelar@nicira.com>
+Date: Wed, 17 Jul 2013 08:41:33 -0700
 
+> On Tue, Jul 16, 2013 at 11:06 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Pravin Shelar <pshelar@nicira.com>
+>> Date: Tue, 16 Jul 2013 13:29:08 -0700
+>>
+>>> commit 1c51a9159ddefa51 (vxlan: fix race caused by dropping
+>>> rtnl_unlock) moved sock-create to sock_work workq. Thats why I thought
+>>> sock_work takes RTNL. but if it is not taking RTNL in any case, they
+>>> why vxlan sock create is deferred to sock_work?
+>>
+>> That commit is handling the fact that the RTNL mutex is NOT held
+>> during the create operation in question.
+>>
+>> It defers to a workqueue so that the new ->sock_lock can be taken
+>> in the appropriate context.
 > 
-> 
->> -----Original Message-----
->> From: Haiyang Zhang [mailto:haiyangz@microsoft.com]
->> Sent: Wednesday, July 17, 2013 2:01 AM
->> To: davem@davemloft.net; netdev@vger.kernel.org
->> Cc: Haiyang Zhang; KY Srinivasan; olaf@aepfle.de; jasowang@redhat.com; linux-
->> kernel@vger.kernel.org; devel@linuxdriverproject.org
->> Subject: [PATCH net] hyperv: Fix the NETIF_F_SG flag setting in netvsc
->> 
->> SG mode is not currently supported by netvsc, so remove this flag for now.
->> Otherwise, it will be unconditionally enabled by commit ec5f0615642
->>     "Kill link between CSUM and SG features"
->> Previously, the SG feature is disabled because CSUM is not set here.
->> 
->> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
->> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-> 
-> We would need to apply this patch to 3.9 and 3.10 as well that are currently broken.
+> ok, Thanks for explanation. I do not see any problem with the patch.
 
-I have already queued this patch up for -stable submission.
+Great, I'm going to apply Stephen's patch then.
+
+Thanks.
