@@ -1,94 +1,109 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [RFC] vlan: mask vlan prio bits
-Date: Wed, 17 Jul 2013 10:44:34 -0700
-Message-ID: <1374083074.6097.18.camel@edumazet-glaptop>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [Regression][v3.10][v3.11] net: Kill link between CSUM and SG
+ features.
+Date: Wed, 17 Jul 2013 17:45:51 +0000
+Message-ID: <9d96a2fb07b9474b927f6f4538a0845e@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+References: <51E58C45.1080708@canonical.com>
+ <CALnjE+oCeo=T+F3BvTBtcV7oDMPLJAEz1p1sjRGxmE8Wq8gWAg@mail.gmail.com>
+ <51E5A4CA.20902@canonical.com>
+ <CALnjE+rhvmYPEXv=1F1HEe3VsgCNN1SKg5UwTuFatQUm9e9S2w@mail.gmail.com>
+ <51E6B8B0.2080103@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Florian Zumbiehl <florz@florz.de>,
-	"Steinar H. Gunderson" <sesse@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"ben.howard@canonical.com" <ben.howard@canonical.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+	"alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>,
+	"jiri@resnulli.us" <jiri@resnulli.us>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	KY Srinivasan <kys@microsoft.com>
+To: Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f182.google.com ([209.85.214.182]:52508 "EHLO
-	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755766Ab3GQRoh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jul 2013 13:44:37 -0400
-Received: by mail-ob0-f182.google.com with SMTP id va7so2578799obc.41
-        for <netdev@vger.kernel.org>; Wed, 17 Jul 2013 10:44:37 -0700 (PDT)
+Received: from [157.55.158.23] ([157.55.158.23]:19884 "EHLO
+	na01-sn2-obe.outbound.o365filtering.com" rhost-flags-FAIL-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751445Ab3GQRsf convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jul 2013 13:48:35 -0400
+In-Reply-To: <51E6B8B0.2080103@canonical.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In commit 48cc32d38a52d0b68f91a171a8d00531edc6a46e
-("vlan: don't deliver frames for unknown vlans to protocols")
-Florian made sure we set PACKET_OTHERHOST if the vlan id is set
-and we could find a vlan device for this particular id.
 
-But we also have a problem if prio bits are set.
 
-Steinar has an issue on a router receiving IPv6 frames with a vlan tag
-of 4000 (prio = 2), and tunneled into a sit device, because
-skb->vlan_tci is set :
+> -----Original Message-----
+> From: Joseph Salisbury [mailto:joseph.salisbury@canonical.com]
+> Sent: Wednesday, July 17, 2013 8:31 AM
+> To: Pravin Shelar
+> Cc: davem@davemloft.net; ben.howard@canonical.com;
+> edumazet@google.com; xiyou.wangcong@gmail.com;
+> alexander.h.duyck@intel.com; jiri@resnulli.us; netdev@vger.kernel.org;
+> LKML; KY Srinivasan; Haiyang Zhang
+> Subject: Re: [Regression][v3.10][v3.11] net: Kill link between CSUM and SG
+> features.
+> 
+> On 07/16/2013 04:50 PM, Pravin Shelar wrote:
+> > On Tue, Jul 16, 2013 at 12:53 PM, Joseph Salisbury
+> > <joseph.salisbury@canonical.com> wrote:
+> >> On 07/16/2013 02:29 PM, Pravin Shelar wrote:
+> >>> On Tue, Jul 16, 2013 at 11:09 AM, Joseph Salisbury
+> >>> <joseph.salisbury@canonical.com> wrote:
+> >>>> Hi Pravin,
+> >>>>
+> >>>> A bug was opened against the Ubuntu kernel[0].  After a kernel
+> >>>> bisect, it was found that reverting the following commit resolved this
+> bug:
+> >>>>
+> >>>> commit ec5f061564238892005257c83565a0b58ec79295
+> >>>> Author: Pravin B Shelar <pshelar@nicira.com>
+> >>>> Date:   Thu Mar 7 09:28:01 2013 +0000
+> >>>>
+> >>>>     net: Kill link between CSUM and SG features.
+> >>>>
+> >>>>
+> >>>> The regression was introduced as of v3.10-rc1.
+> >>>>
+> >>>> I see that you are the author of this patch, so I wanted to run
+> >>>> this by you.  I was thinking of requesting a revert for v3.11, but
+> >>>> I wanted to get your feedback first.
+> >>>>
+> >>>>
+> >>> This issue was reported before and turning off sg solves problem for
+> >>> HyperV driver. Drivers (intel and bnx2x) that I tested works fine
+> >>> with this patch. Have you seen the issue on any other NIC?
+> >> Thanks for the feedback.  We have only seen it on Intel hardware.
+> >> Can you send a pointer to the patch? If so, we can provide some
+> >> additional testing.  Do you plan on submitting the patch for inclusion in
+> 3.11?
+> >>
+> >>
+> > What I mean is I do not see any problem with the patch that you have
+> > pointed out on ixgbe and bnx2x platforms. HyperV problem went away
+> > with disabling sg by ethtool utility.
+> Yes, we also see that the problem goes away when disabling sg with ethtool.
+> There was a significant improvement in throughput with sg enabled, so it's
+> unfortunate it must be disabled.
+> 
+> >
+> > Can you also give me more information about regression you are seeing
+> > like driver name, features of the NIC set and features of device
+> > without this patch. Does any other NIC than HyperV having this issue?
+> 
+> Some details info about the HyperV guest can be seen here:
+> http://paste.ubuntu.com/5884549/
+> 
+> In that output, you will see that scatter-gather is off, which was done
+> manually.
+> 
+> Only a HyperV NIC is having this issue.
+I have submitted a patch which has been accepted, and queued for -stable branch
+as well: http://patchwork.ozlabs.org/patch/259596/
+It removes the NETIF_F_SG flag from the hv_netvsc driver, which doesn't currently
+support SG mode.
 
-We insert a VLAN tag in forwarded frame after sit tunnel.
-
-Frame is completely corrupted : We can see (8100:4000) being inserted in
-the middle of IPv6 source address :
-
-16:48:00.780413 IP6 2001:16d8:8100:4000:ee1c:0:9d9:bc87 >
-9f94:4d95:2001:67c:29f4::: ICMP6, unknown icmp6 type (0), length 64
-       0x0000:  0000 0029 8000 c7c3 7103 0001 a0ae e651
-       0x0010:  0000 0000 ccce 0b00 0000 0000 1011 1213
-       0x0020:  1415 1617 1819 1a1b 1c1d 1e1f 2021 2223
-       0x0030:  2425 2627 2829 2a2b 2c2d 2e2f 3031 3233
-
-It seems we are not really ready to properly cope with this right now.
-
-Should we clear skb->vlan_tci in iptunnel_xmit(), or should we clear it
-in __netif_receive_skb_core() like in this patch ?
-
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index cdcbafa..715c343 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -79,9 +79,8 @@ static inline int is_vlan_dev(struct net_device *dev)
- }
- 
- #define vlan_tx_tag_present(__skb)	((__skb)->vlan_tci & VLAN_TAG_PRESENT)
--#define vlan_tx_nonzero_tag_present(__skb) \
--	(vlan_tx_tag_present(__skb) && ((__skb)->vlan_tci & VLAN_VID_MASK))
- #define vlan_tx_tag_get(__skb)		((__skb)->vlan_tci & ~VLAN_TAG_PRESENT)
-+#define vlan_tx_tag_get_id(__skb)	((__skb)->vlan_tci & VLAN_VID_MASK)
- 
- #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
- 
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index 8a15eaa..4a78c4d 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -9,7 +9,7 @@ bool vlan_do_receive(struct sk_buff **skbp)
- {
- 	struct sk_buff *skb = *skbp;
- 	__be16 vlan_proto = skb->vlan_proto;
--	u16 vlan_id = skb->vlan_tci & VLAN_VID_MASK;
-+	u16 vlan_id = vlan_tx_tag_get_id(skb);
- 	struct net_device *vlan_dev;
- 	struct vlan_pcpu_stats *rx_stats;
- 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a3d8d44..133b75a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3580,8 +3580,11 @@ ncls:
- 		}
- 	}
- 
--	if (vlan_tx_nonzero_tag_present(skb))
--		skb->pkt_type = PACKET_OTHERHOST;
-+	if (vlan_tx_tag_present(skb)) {
-+		if (vlan_tx_tag_get_id(skb))
-+			skb->pkt_type = PACKET_OTHERHOST;
-+		skb->vlan_tci = 0;
-+	}
- 
- 	/* deliver only exact match when indicated */
- 	null_or_dev = deliver_exact ? skb->dev : NULL;
+Thanks,
+- Haiyang
