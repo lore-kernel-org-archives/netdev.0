@@ -1,19 +1,13 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net 2/2] macvtap: do not zerocopy if iov needs more pages than MAX_SKB_FRAGS
-Date: Wed, 17 Jul 2013 18:32:11 +0800
-Message-ID: <1374057131-39207-2-git-send-email-jasowang@redhat.com>
-References: <1374057131-39207-1-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net 1/2] tuntap: do not zerocopy if iov needs more pages than MAX_SKB_FRAGS
+Date: Wed, 17 Jul 2013 18:32:10 +0800
+Message-ID: <1374057131-39207-1-git-send-email-jasowang@redhat.com>
 Cc: Jason Wang <jasowang@redhat.com>
 To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50053 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753368Ab3GQKnM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jul 2013 06:43:12 -0400
-In-Reply-To: <1374057131-39207-1-git-send-email-jasowang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 We try to linearize part of the skb when the number of iov is greater than
 MAX_SKB_FRAGS. This is not enough since each single vector may occupy more than
@@ -30,20 +24,20 @@ vhost.
 
 We can do further optimization on top.
 
-This bug were introduced from b92946e2919134ebe2a4083e4302236295ea2a73
-(macvtap: zerocopy: validate vectors before building skb).
+The bug were introduced from commit 0690899b4d4501b3505be069b9a687e68ccbe15b
+(tun: experimental zero copy tx support)
 
 Cc: Michael S. Tsirkin <mst@redhat.com>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/macvtap.c |   58 +++++++++++++++++++++++++++++++-----------------
- 1 files changed, 37 insertions(+), 21 deletions(-)
+ drivers/net/tun.c |   62 ++++++++++++++++++++++++++++++++--------------------
+ 1 files changed, 38 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index a7c5654..e200f11 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -698,6 +698,28 @@ static int macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 5cdcf92..db690a3 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1035,6 +1035,29 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
  	return 0;
  }
  
@@ -69,65 +63,66 @@ index a7c5654..e200f11 100644
 +
 +	return pages;
 +}
- 
++
  /* Get packet from user space buffer */
- static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
-@@ -744,31 +766,19 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
- 	if (unlikely(count > UIO_MAXIOV))
- 		goto err;
+ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 			    void *msg_control, const struct iovec *iv,
+@@ -1082,32 +1105,18 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 			return -EINVAL;
+ 	}
  
--	if (m && m->msg_control && sock_flag(&q->sk, SOCK_ZEROCOPY))
+-	if (msg_control)
 -		zerocopy = true;
 -
 -	if (zerocopy) {
-+	if (m && m->msg_control && sock_flag(&q->sk, SOCK_ZEROCOPY)) {
- 		/* Userspace may produce vectors with count greater than
- 		 * MAX_SKB_FRAGS, so we need to linearize parts of the skb
- 		 * to let the rest of data to be fit in the frags.
- 		 */
+-		/* Userspace may produce vectors with count greater than
+-		 * MAX_SKB_FRAGS, so we need to linearize parts of the skb
+-		 * to let the rest of data to be fit in the frags.
+-		 */
 -		if (count > MAX_SKB_FRAGS) {
 -			copylen = iov_length(iv, count - MAX_SKB_FRAGS);
--			if (copylen < vnet_hdr_len)
+-			if (copylen < offset)
 -				copylen = 0;
 -			else
--				copylen -= vnet_hdr_len;
--		}
+-				copylen -= offset;
+-		} else
+-				copylen = 0;
 -		/* There are 256 bytes to be copied in skb, so there is enough
 -		 * room for skb expand head in case it is used.
--		 * The rest buffer is mapped from userspace.
--		 */
--		if (copylen < vnet_hdr.hdr_len)
--			copylen = vnet_hdr.hdr_len;
++	if (msg_control) {
++		/* There are 256 bytes to be copied in skb, so there is
++		 * enough room for skb expand head in case it is used.
+ 		 * The rest of the buffer is mapped from userspace.
+ 		 */
+-		if (copylen < gso.hdr_len)
+-			copylen = gso.hdr_len;
 -		if (!copylen)
 -			copylen = GOODCOPY_LEN;
-+		copylen = vnet_hdr.hdr_len ? vnet_hdr.hdr_len : GOODCOPY_LEN;
++		copylen = gso.hdr_len ? gso.hdr_len : GOODCOPY_LEN;
  		linear = copylen;
 -	} else {
-+		if (iov_pages(iv, vnet_hdr_len + copylen, count)
-+		    <= MAX_SKB_FRAGS)
++		if (iov_pages(iv, offset + copylen, count) <= MAX_SKB_FRAGS)
 +			zerocopy = true;
 +	}
 +
 +	if (!zerocopy) {
  		copylen = len;
- 		linear = vnet_hdr.hdr_len;
+ 		linear = gso.hdr_len;
  	}
-@@ -780,9 +790,15 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+@@ -1121,8 +1130,13 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
  
  	if (zerocopy)
- 		err = zerocopy_sg_from_iovec(skb, iv, vnet_hdr_len, count);
+ 		err = zerocopy_sg_from_iovec(skb, iv, offset, count);
 -	else
 +	else {
- 		err = skb_copy_datagram_from_iovec(skb, 0, iv, vnet_hdr_len,
- 						   len);
-+		if (!err && m && m->msg_control) {
-+			struct ubuf_info *uarg = m->msg_control;
+ 		err = skb_copy_datagram_from_iovec(skb, 0, iv, offset, len);
++		if (!err && msg_control) {
++			struct ubuf_info *uarg = msg_control;
 +			uarg->callback(uarg, false);
 +		}
 +	}
-+
- 	if (err)
- 		goto err_kfree;
  
+ 	if (err) {
+ 		tun->dev->stats.rx_dropped++;
 -- 
 1.7.1
