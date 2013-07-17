@@ -1,140 +1,66 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net 2/2] macvtap: do not zerocopy if iov needs more pages
- than MAX_SKB_FRAGS
-Date: Wed, 17 Jul 2013 14:06:58 +0300
-Message-ID: <20130717110658.GA22599@redhat.com>
-References: <1374057131-39207-1-git-send-email-jasowang@redhat.com>
- <1374057131-39207-2-git-send-email-jasowang@redhat.com>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH net] hyperv: Fix the NETIF_F_SG flag setting in netvsc
+Date: Wed, 17 Jul 2013 11:40:41 +0000
+Message-ID: <8906250c5dfc4f7ab0d84019bf7b9a44@SN2PR03MB061.namprd03.prod.outlook.com>
+References: <1374040880-20468-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Haiyang Zhang <haiyangz@microsoft.com>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
+To: Haiyang Zhang <haiyangz@microsoft.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1374057131-39207-2-git-send-email-jasowang@redhat.com>
+In-Reply-To: <1374040880-20468-1-git-send-email-haiyangz@microsoft.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 17, 2013 at 06:32:11PM +0800, Jason Wang wrote:
-> We try to linearize part of the skb when the number of iov is greater than
-> MAX_SKB_FRAGS. This is not enough since each single vector may occupy more than
-> one pages, so zerocopy_sg_fromiovec() may still fail and may break the guest
-> network.
+
+
+> -----Original Message-----
+> From: Haiyang Zhang [mailto:haiyangz@microsoft.com]
+> Sent: Wednesday, July 17, 2013 2:01 AM
+> To: davem@davemloft.net; netdev@vger.kernel.org
+> Cc: Haiyang Zhang; KY Srinivasan; olaf@aepfle.de; jasowang@redhat.com; linux-
+> kernel@vger.kernel.org; devel@linuxdriverproject.org
+> Subject: [PATCH net] hyperv: Fix the NETIF_F_SG flag setting in netvsc
 > 
-> Solve this problem by calculate the pages needed for iov before trying to do
-> zerocopy and switch to use copy instead of zerocopy if it needs more than
-> MAX_SKB_FRAGS.
+> SG mode is not currently supported by netvsc, so remove this flag for now.
+> Otherwise, it will be unconditionally enabled by commit ec5f0615642
+>     "Kill link between CSUM and SG features"
+> Previously, the SG feature is disabled because CSUM is not set here.
 > 
-> This is done through introducing a new helper to count the pages for iov, and
-> call uarg->callback() manually when switching from zerocopy to copy to notify
-> vhost.
-> 
-> We can do further optimization on top.
-> 
-> This bug were introduced from b92946e2919134ebe2a4083e4302236295ea2a73
-> (macvtap: zerocopy: validate vectors before building skb).
-> 
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+
+We would need to apply this patch to 3.9 and 3.10 as well that are currently broken.
+
+K. Y
 > ---
->  drivers/net/macvtap.c |   58 +++++++++++++++++++++++++++++++-----------------
->  1 files changed, 37 insertions(+), 21 deletions(-)
+>  drivers/net/hyperv/netvsc_drv.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
 > 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index a7c5654..e200f11 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -698,6 +698,28 @@ static int macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
->  	return 0;
->  }
->  
-> +static unsigned long iov_pages(const struct iovec *iv, int offset,
-> +			       unsigned long nr_segs)
-> +{
-> +	unsigned long seg, base;
-> +	int pages = 0, len, size;
-> +
-> +	while (nr_segs && (offset >= iv->iov_len)) {
-> +		offset -= iv->iov_len;
-> +		++iv;
-> +		--nr_segs;
-> +	}
-> +
-> +	for (seg = 0; seg < nr_segs; seg++) {
-> +		base = (unsigned long)iv[seg].iov_base + offset;
-> +		len = iv[seg].iov_len - offset;
-> +		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
-> +		pages += size;
-> +		offset = 0;
-> +	}
-> +
-> +	return pages;
-> +}
->  
->  /* Get packet from user space buffer */
->  static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
-> @@ -744,31 +766,19 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
->  	if (unlikely(count > UIO_MAXIOV))
->  		goto err;
->  
-> -	if (m && m->msg_control && sock_flag(&q->sk, SOCK_ZEROCOPY))
-> -		zerocopy = true;
-> -
-> -	if (zerocopy) {
-> +	if (m && m->msg_control && sock_flag(&q->sk, SOCK_ZEROCOPY)) {
->  		/* Userspace may produce vectors with count greater than
->  		 * MAX_SKB_FRAGS, so we need to linearize parts of the skb
->  		 * to let the rest of data to be fit in the frags.
->  		 */
-
-We don't linearize parts to make them fit, we simply
-fall back to data copy.
-So this comment no longer applies, right?
-
-> -		if (count > MAX_SKB_FRAGS) {
-> -			copylen = iov_length(iv, count - MAX_SKB_FRAGS);
-> -			if (copylen < vnet_hdr_len)
-> -				copylen = 0;
-> -			else
-> -				copylen -= vnet_hdr_len;
-> -		}
-> -		/* There are 256 bytes to be copied in skb, so there is enough
-> -		 * room for skb expand head in case it is used.
-> -		 * The rest buffer is mapped from userspace.
-> -		 */
-> -		if (copylen < vnet_hdr.hdr_len)
-> -			copylen = vnet_hdr.hdr_len;
-> -		if (!copylen)
-> -			copylen = GOODCOPY_LEN;
-> +		copylen = vnet_hdr.hdr_len ? vnet_hdr.hdr_len : GOODCOPY_LEN;
->  		linear = copylen;
-> -	} else {
-> +		if (iov_pages(iv, vnet_hdr_len + copylen, count)
-> +		    <= MAX_SKB_FRAGS)
-> +			zerocopy = true;
-> +	}
-> +
-> +	if (!zerocopy) {
->  		copylen = len;
->  		linear = vnet_hdr.hdr_len;
->  	}
-> @@ -780,9 +790,15 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
->  
->  	if (zerocopy)
->  		err = zerocopy_sg_from_iovec(skb, iv, vnet_hdr_len, count);
-> -	else
-> +	else {
->  		err = skb_copy_datagram_from_iovec(skb, 0, iv, vnet_hdr_len,
->  						   len);
-> +		if (!err && m && m->msg_control) {
-> +			struct ubuf_info *uarg = m->msg_control;
-> +			uarg->callback(uarg, false);
-> +		}
-> +	}
-> +
->  	if (err)
->  		goto err_kfree;
->  
-> -- 
-> 1.7.1
+> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+> index 4dccead..23a0fff 100644
+> --- a/drivers/net/hyperv/netvsc_drv.c
+> +++ b/drivers/net/hyperv/netvsc_drv.c
+> @@ -431,8 +431,8 @@ static int netvsc_probe(struct hv_device *dev,
+>  	net->netdev_ops = &device_ops;
+> 
+>  	/* TODO: Add GSO and Checksum offload */
+> -	net->hw_features = NETIF_F_SG;
+> -	net->features = NETIF_F_SG | NETIF_F_HW_VLAN_CTAG_TX;
+> +	net->hw_features = 0;
+> +	net->features = NETIF_F_HW_VLAN_CTAG_TX;
+> 
+>  	SET_ETHTOOL_OPS(net, &ethtool_ops);
+>  	SET_NETDEV_DEV(net, &dev->device);
+> --
+> 1.7.4.1
+> 
+> 
