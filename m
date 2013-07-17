@@ -1,114 +1,53 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net v3 3/6] bnx2x: update fairness parameters following
- DCB negotiation
-Date: Thu, 18 Jul 2013 01:00:37 +0300
-Message-ID: <1374098440-27877-4-git-send-email-dmitry@broadcom.com>
-References: <1374098440-27877-1-git-send-email-dmitry@broadcom.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [patch net-next RFC 3/3] net: export physical port id via sysfs
+Date: Wed, 17 Jul 2013 23:27:34 +0100
+Message-ID: <1374100054.3861.18.camel@bwh-desktop.uk.level5networks.com>
+References: <1373908027-25800-1-git-send-email-jiri@resnulli.us>
+	 <1373908027-25800-4-git-send-email-jiri@resnulli.us>
+	 <E31FB011129F30488D5861F383904915210EF3F51F@BLRX7MCDC201.AMER.DELL.COM>
+	 <20130717082949.GA1582@minipsycho.orion>
+	 <E31FB011129F30488D5861F383904915210EF3F968@BLRX7MCDC201.AMER.DELL.COM>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: <jiri@resnulli.us>, <netdev@vger.kernel.org>,
+	<john.r.fastabend@intel.com>
+To: <Narendra_K@Dell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3016 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756311Ab3GQWB2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jul 2013 18:01:28 -0400
-In-Reply-To: <1374098440-27877-1-git-send-email-dmitry@broadcom.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:7721 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755995Ab3GQW1j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jul 2013 18:27:39 -0400
+In-Reply-To: <E31FB011129F30488D5861F383904915210EF3F968@BLRX7MCDC201.AMER.DELL.COM>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ETS can be enabled as a result of DCB negotiation, then
-fairness must be recalculated after each negotiation.
+On Thu, 2013-07-18 at 01:09 +0530, Narendra_K@Dell.com wrote:
+> > -----Original Message-----
+> > From: Jiri Pirko [mailto:jiri@resnulli.us]
+[...]
+> > Although this can be done by extending netdevice structure by another item,
+> > I believe it is cleaner to do it by ndo. Driver has a flexibility to either compute
+> > the phys port on fly of compute it once, store it in it's private data and use it
+> > when ndo is called.
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |  2 ++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c  |  4 ++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 30 ++++++++++++++----------
- 3 files changed, 24 insertions(+), 12 deletions(-)
+Doesn't the same argument apply to perm_addr?  And the flexibility there
+turned out to be completely pointless.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index bdbd87e..02f914d 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -2452,4 +2452,6 @@ enum bnx2x_pci_bus_speed {
- 	BNX2X_PCI_LINK_SPEED_5000 = 5000,
- 	BNX2X_PCI_LINK_SPEED_8000 = 8000
- };
-+
-+void bnx2x_set_local_cmng(struct bnx2x *bp);
- #endif /* bnx2x.h */
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-index 0c94df4..f9122f2 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-@@ -753,6 +753,10 @@ void bnx2x_dcbx_set_params(struct bnx2x *bp, u32 state)
- 		bnx2x_pfc_set_pfc(bp);
- 
- 		bnx2x_dcbx_update_ets_params(bp);
-+
-+		/* ets may affect cmng configuration: reinit it in hw */
-+		bnx2x_set_local_cmng(bp);
-+
- 		bnx2x_dcbx_resume_hw_tx(bp);
- 
- 		return;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 7e9681f..0f3de02 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -2476,7 +2476,7 @@ static void bnx2x_cmng_fns_init(struct bnx2x *bp, u8 read_cfg, u8 cmng_type)
- 
- 	input.port_rate = bp->link_vars.line_speed;
- 
--	if (cmng_type == CMNG_FNS_MINMAX) {
-+	if (cmng_type == CMNG_FNS_MINMAX && input.port_rate) {
- 		int vn;
- 
- 		/* read mf conf from shmem */
-@@ -2533,6 +2533,21 @@ static void storm_memset_cmng(struct bnx2x *bp,
- 	}
- }
- 
-+/* init cmng mode in HW according to local configuration */
-+void bnx2x_set_local_cmng(struct bnx2x *bp)
-+{
-+	int cmng_fns = bnx2x_get_cmng_fns_mode(bp);
-+
-+	if (cmng_fns != CMNG_FNS_NONE) {
-+		bnx2x_cmng_fns_init(bp, false, cmng_fns);
-+		storm_memset_cmng(bp, &bp->cmng, BP_PORT(bp));
-+	} else {
-+		/* rate shaping and fairness are disabled */
-+		DP(NETIF_MSG_IFUP,
-+		   "single function mode without fairness\n");
-+	}
-+}
-+
- /* This function is called upon link interrupt */
- static void bnx2x_link_attn(struct bnx2x *bp)
- {
-@@ -2568,17 +2583,8 @@ static void bnx2x_link_attn(struct bnx2x *bp)
- 			bnx2x_stats_handle(bp, STATS_EVENT_LINK_UP);
- 	}
- 
--	if (bp->link_vars.link_up && bp->link_vars.line_speed) {
--		int cmng_fns = bnx2x_get_cmng_fns_mode(bp);
--
--		if (cmng_fns != CMNG_FNS_NONE) {
--			bnx2x_cmng_fns_init(bp, false, cmng_fns);
--			storm_memset_cmng(bp, &bp->cmng, BP_PORT(bp));
--		} else
--			/* rate shaping and fairness are disabled */
--			DP(NETIF_MSG_IFUP,
--			   "single function mode without fairness\n");
--	}
-+	if (bp->link_vars.link_up && bp->link_vars.line_speed)
-+		bnx2x_set_local_cmng(bp);
- 
- 	__bnx2x_link_report(bp);
- 
+> It seems to me that phys_port identifier is a net_device property,
+> similar to netdev->dev_addr or netdev->if_port, and could be part of
+> struct net_device  as discussed in [1].  My understanding may not be
+> correct.
+> 
+> Hello Ben,  for the hybrid guest networking scenario, would it be
+> required/helpful for phys_port to be part of net_device structure or
+> either of the approaches would be fine.
+
+I don't think it matters.  Either would be fine.
+
+Ben.
+
 -- 
-1.8.1.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
