@@ -1,134 +1,59 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: [PATCH v3] xen-netfront: pull on receive skb may need to
- happen earlier
-Date: Wed, 17 Jul 2013 08:09:37 +0100
-Message-ID: <51E65F5102000078000E57ED@nat28.tlf.novell.com>
-References: <51E5327902000078000E5426@nat28.tlf.novell.com>
- <1373970815.4663.45.camel@kazak.uk.xensource.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 1/2] igb: Add macro for RETA indirection table
+Date: Wed, 17 Jul 2013 00:11:38 -0700
+Message-ID: <1374045098.4391.13.camel@jtkirshe-mobl>
+References: <1374043806-17284-1-git-send-email-laura.vasilescu@rosedu.org>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: "Ian Campbell" <Ian.Campbell@citrix.com>,
-	"Wei Liu" <wei.liu2@citrix.com>, "Dion Kant" <g.w.kant@hunenet.nl>,
-	"xen-devel" <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>, <stable@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1373970815.4663.45.camel@kazak.uk.xensource.com>
-Content-Disposition: inline
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-p6mtmVOhFPO6xwzzV4/c"
+Cc: netdev@vger.kernel.org, carolyn.wyborny@intel.com,
+	anjali.singhai@intel.com
+To: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:31306 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751953Ab3GQHLx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jul 2013 03:11:53 -0400
+In-Reply-To: <1374043806-17284-1-git-send-email-laura.vasilescu@rosedu.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Due to commit 3683243b ("xen-netfront: use __pskb_pull_tail to ensure
-linear area is big enough on RX") xennet_fill_frags() may end up
-filling MAX_SKB_FRAGS + 1 fragments in a receive skb, and only reduce
-the fragment count subsequently via __pskb_pull_tail(). That's a
-result of xennet_get_responses() allowing a maximum of one more slot to
-be consumed (and intermediately transformed into a fragment) if the
-head slot has a size less than or equal to RX_COPY_THRESHOLD.
 
-Hence we need to adjust xennet_fill_frags() to pull earlier if we
-reached the maximum fragment count - due to the described behavior of
-xennet_get_responses() this guarantees that at least the first fragment
-will get completely consumed, and hence the fragment count reduced.
+--=-p6mtmVOhFPO6xwzzV4/c
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-In order to not needlessly call __pskb_pull_tail() twice, make the
-original call conditional upon the pull target not having been reached
-yet, and defer the newly added one as much as possible (an alternative
-would have been to always call the function right before the call to
-xennet_fill_frags(), but that would imply more frequent cases of
-needing to call it twice).
+On Wed, 2013-07-17 at 09:50 +0300, Laura Mihaela Vasilescu wrote:
+> Signed-off-by: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
+> ---
+>  drivers/net/ethernet/intel/igb/igb.h      |    2 ++
+>  drivers/net/ethernet/intel/igb/igb_main.c |    2 +-
+>  2 files changed, 3 insertions(+), 1 deletion(-)=20
 
-Signed-off-by: Jan Beulich <jbeulich@suse.com>
-Acked-by: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: stable@vger.kernel.org (3.6 onwards)
----
-v3: Break up a "complex" assignment into two simple ones.
+Thanks, I will add this to my queue.
 
-v2: Use skb_add_rx_frag() to keep all accounting fields up to date as
-    we go (skb->len needing intermediate updating was pointed out by
-    Wei Liu and David Miller, shinfo->nr_frags needing updating before
-    calling __pskb_pull_tail() was spotted out by Dion Kant).
+--=-p6mtmVOhFPO6xwzzV4/c
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
----
- drivers/net/xen-netfront.c |   31 +++++++++++++------------------
- 1 file changed, 13 insertions(+), 18 deletions(-)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.13 (GNU/Linux)
 
---- 3.11-rc1/drivers/net/xen-netfront.c
-+++ 3.11-rc1-xen-netfront-pull-earlier/drivers/net/xen-netfront.c
-@@ -286,8 +286,7 @@ no_skb:
- 			break;
- 		}
- 
--		__skb_fill_page_desc(skb, 0, page, 0, 0);
--		skb_shinfo(skb)->nr_frags = 1;
-+		skb_add_rx_frag(skb, 0, page, 0, 0, PAGE_SIZE);
- 		__skb_queue_tail(&np->rx_batch, skb);
- 	}
- 
-@@ -831,7 +830,6 @@ static RING_IDX xennet_fill_frags(struct
- 				  struct sk_buff_head *list)
- {
- 	struct skb_shared_info *shinfo = skb_shinfo(skb);
--	int nr_frags = shinfo->nr_frags;
- 	RING_IDX cons = np->rx.rsp_cons;
- 	struct sk_buff *nskb;
- 
-@@ -840,19 +838,21 @@ static RING_IDX xennet_fill_frags(struct
- 			RING_GET_RESPONSE(&np->rx, ++cons);
- 		skb_frag_t *nfrag = &skb_shinfo(nskb)->frags[0];
- 
--		__skb_fill_page_desc(skb, nr_frags,
--				     skb_frag_page(nfrag),
--				     rx->offset, rx->status);
-+		if (shinfo->nr_frags == MAX_SKB_FRAGS) {
-+			unsigned int pull_to = NETFRONT_SKB_CB(skb)->pull_to;
- 
--		skb->data_len += rx->status;
-+			BUG_ON(pull_to <= skb_headlen(skb));
-+			__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
-+		}
-+		BUG_ON(shinfo->nr_frags >= MAX_SKB_FRAGS);
-+
-+		skb_add_rx_frag(skb, shinfo->nr_frags, skb_frag_page(nfrag),
-+				rx->offset, rx->status, PAGE_SIZE);
- 
- 		skb_shinfo(nskb)->nr_frags = 0;
- 		kfree_skb(nskb);
--
--		nr_frags++;
- 	}
- 
--	shinfo->nr_frags = nr_frags;
- 	return cons;
- }
- 
-@@ -933,7 +933,8 @@ static int handle_incoming_queue(struct
- 	while ((skb = __skb_dequeue(rxq)) != NULL) {
- 		int pull_to = NETFRONT_SKB_CB(skb)->pull_to;
- 
--		__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
-+		if (pull_to > skb_headlen(skb))
-+			__pskb_pull_tail(skb, pull_to - skb_headlen(skb));
- 
- 		/* Ethernet work: Delayed to here as it peeks the header. */
- 		skb->protocol = eth_type_trans(skb, dev);
-@@ -1019,16 +1020,10 @@ err:
- 		skb_shinfo(skb)->frags[0].page_offset = rx->offset;
- 		skb_frag_size_set(&skb_shinfo(skb)->frags[0], rx->status);
- 		skb->data_len = rx->status;
-+		skb->len += rx->status;
- 
- 		i = xennet_fill_frags(np, skb, &tmpq);
- 
--		/*
--                 * Truesize is the actual allocation size, even if the
--                 * allocation is only partially used.
--                 */
--		skb->truesize += PAGE_SIZE * skb_shinfo(skb)->nr_frags;
--		skb->len += skb->data_len;
--
- 		if (rx->flags & XEN_NETRXF_csum_blank)
- 			skb->ip_summed = CHECKSUM_PARTIAL;
- 		else if (rx->flags & XEN_NETRXF_data_validated)
+iQIcBAABCgAGBQJR5kOqAAoJEOVv75VaS+3O42wQAKROPQLBPU3tN8B8OCkzK9j2
+i1f1GH7te/1dO1C18gxvZYSofNzLV7xoCG7gUL0AyQTFtBCOp/aIe3TH/Y1/AtxH
+Mb8v6dM0JD2l3nwVwwrA8vCe8yeEXN2Hw3z8OpmllEOtcRWc0purVNzbTP+Gdtct
+0sNKUIf9ahn99Y6fGyOflaCHMOrCmrGqsxQrVJrGyvPQofgDvC5Ki79C3Y0W+gmg
+G2Cq3W6Qv5GEWO9gZqDFW/ryeJFottzyYemEWuk+jCrKN2j6yMlQJJObuzHFx4is
+OagyyJQ0esWThKWr7jWu4FnHEuL12HDgeQGxrpWFoPOXyqqrlLxTDop447hmGT6W
+M8CALOeTMnCHjpcGwYSuELzDFUC3ka42kSGW5sEwl3ngrvY96qOsKbTSWQq0xdW8
+SrA4JCIMs7RuIuGBd+3bVGd5ytZo9xjHlaZNywujvvgvOen543hM0qZST3szk5eB
+BW8Bq3VCfZ8tCZU4ZSh8GUxX87NIRCdHcqdj6t8AFHtI7MdDT0VhtjYfbOi7m+lS
+5g8STv6NTcYtbEi971v1zIHPcQN3vNn9sLqiQ+IWOiaAzhpEnWuok6SfI2nCQtMX
+BuYQdkcrtrDV/IkArRr0ECnqWHXl1NZIu6X/apEjT1XPlV8QVQWWzvkcrSxX/BG/
+jXTwkn2JWQQxJJAZb7Y4
+=am4d
+-----END PGP SIGNATURE-----
+
+--=-p6mtmVOhFPO6xwzzV4/c--
