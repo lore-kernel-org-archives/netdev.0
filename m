@@ -1,45 +1,38 @@
-From: Darren Hart <dvhart@linux.intel.com>
-Subject: Re: [PATCH 3/3] pch_gbe: Add MinnowBoard support
-Date: Wed, 17 Jul 2013 13:13:54 -0700
-Message-ID: <1374092034.7622.34.camel@envy.home>
-References: <1373677087-7747-1-git-send-email-dvhart@linux.intel.com>
-	 <ad20133699c36bd8d183dd685f1b35f6d6b99005.1373676797.git.dvhart@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-	netdev@vger.kernel.org, stable@vger.kernel.org
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] can: usb_8dev: fix urb leak on failure path in usb_8dev_start()
+Date: Thu, 18 Jul 2013 01:20:33 +0400
+Message-ID: <1374096033-28981-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	Bernd Krumboeck <krumboeck@universalnet.at>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ad20133699c36bd8d183dd685f1b35f6d6b99005.1373676797.git.dvhart@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-07-12 at 17:58 -0700, Darren Hart wrote:
-> The MinnowBoard uses an AR803x PHY with the PCH GBE which requires
-> special handling. Use the MinnowBoard PCI Subsystem ID to detect this
-> and add a pci_device_id.driver_data structure and functions to handle
-> platform setup.
-> 
-> The AR803x does not implement the RGMII 2ns TX clock delay in the trace
-> routing nor via strapping. Add a detection method for the board and the
-> PHY and enable the TX clock delay via the registers.
-> 
-> This PHY will hibernate without link for 10 seconds. Ensure the PHY is
-> awake for probe and then disable hibernation. A future improvement would
-> be to convert pch_gbe to using PHYLIB and making sure we can wake the
-> PHY at the necessary times rather than permanently disabling it.
+If usb_8dev_start() fails to submit urb,
+it unanchors the urb but forgets to free it.
 
-If anyone is following along to see where this goes, I have made this
-change independent of the minnowboard platform drivers and have resent
-it with all the collected feedback on to netdev following the netdev
-rules I was recently made aware of. Please follow along there if you are
-interested.
+Found by Linux Driver Verification project (linuxtesting.org).
 
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+---
+ drivers/net/can/usb/usb_8dev.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/can/usb/usb_8dev.c b/drivers/net/can/usb/usb_8dev.c
+index cbd388e..8becd3d 100644
+--- a/drivers/net/can/usb/usb_8dev.c
++++ b/drivers/net/can/usb/usb_8dev.c
+@@ -779,6 +779,7 @@ static int usb_8dev_start(struct usb_8dev_priv *priv)
+ 			usb_unanchor_urb(urb);
+ 			usb_free_coherent(priv->udev, RX_BUFFER_SIZE, buf,
+ 					  urb->transfer_dma);
++			usb_free_urb(urb);
+ 			break;
+ 		}
+ 
 -- 
-Darren Hart
-Intel Open Source Technology Center
-Yocto Project - Linux Kernel
+1.8.1.2
