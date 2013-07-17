@@ -1,39 +1,70 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net] vxlan: add necessary locking on device removal
-Date: Wed, 17 Jul 2013 08:41:33 -0700
-Message-ID: <CALnjE+oL8H+owyeUJvqvwEQJ4YjFuszBeBKpnhq9myL9DYptRw@mail.gmail.com>
-References: <CALnjE+oDwU46NiK-AyB-dJZVrWT-pot_v+obv+MxgZU0xNwbRw@mail.gmail.com>
-	<20130716.112820.260966128083756999.davem@davemloft.net>
-	<CALnjE+q65PHMBycfmE2L2DDYuVU_8HrAKJJUtzzjVDVkT+sinA@mail.gmail.com>
-	<20130716.230600.734017943782172716.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC] tulip: Support for byte queue limits
+Date: Wed, 17 Jul 2013 16:42:07 +0100
+Message-ID: <1374075727.3861.6.camel@bwh-desktop.uk.level5networks.com>
+References: <20130717040959.24815.qmail@science.horizon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <eric.dumazet@gmail.com>, <grantgrundler@gmail.com>,
+	<grundler@parisc-linux.org>, <netdev@vger.kernel.org>
+To: George Spelvin <linux@horizon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog102.obsmtp.com ([74.125.149.69]:44520 "HELO
-	na3sys009aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756121Ab3GQPln (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jul 2013 11:41:43 -0400
-Received: by mail-qe0-f54.google.com with SMTP id ne12so1224364qeb.27
-        for <netdev@vger.kernel.org>; Wed, 17 Jul 2013 08:41:33 -0700 (PDT)
-In-Reply-To: <20130716.230600.734017943782172716.davem@davemloft.net>
+Received: from webmail.solarflare.com ([12.187.104.25]:59515 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754724Ab3GQPmL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jul 2013 11:42:11 -0400
+In-Reply-To: <20130717040959.24815.qmail@science.horizon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 16, 2013 at 11:06 PM, David Miller <davem@davemloft.net> wrote:
-> From: Pravin Shelar <pshelar@nicira.com>
-> Date: Tue, 16 Jul 2013 13:29:08 -0700
->
->> commit 1c51a9159ddefa51 (vxlan: fix race caused by dropping
->> rtnl_unlock) moved sock-create to sock_work workq. Thats why I thought
->> sock_work takes RTNL. but if it is not taking RTNL in any case, they
->> why vxlan sock create is deferred to sock_work?
->
-> That commit is handling the fact that the RTNL mutex is NOT held
-> during the create operation in question.
->
-> It defers to a workqueue so that the new ->sock_lock can be taken
-> in the appropriate context.
+On Wed, 2013-07-17 at 00:09 -0400, George Spelvin wrote:
+> >>  	wmb();
+> >>  
+> >> -	tp->cur_tx++;
+> >> -
+> >>  	/* Trigger an immediate transmit demand. */
+> >>  	iowrite32(0, tp->base_addr + CSR1);
+> >>  
+> >> +	tp->cur_tx++;
+> >> +	netdev_sent_queue(dev, skb->len);
+> >>  	spin_unlock_irqrestore(&tp->lock, flags);
+> 
+> > This is not good practice, because once you start DMA you have
+> > effectively passed ownership of the skb to the TX completion handler.
+> 
+> Thank you for this advice.  Just to be clear, is the only issue reading
+> skb->len from a potentially deallocated skb?
 
-ok, Thanks for explanation. I do not see any problem with the patch.
+That's what I was thinking of.
+
+> Or is it also going go
+> give the byte queue system fits if the transmit complete handler calls
+> netdev_completed_queue before the transmitter calls netdev_sent_queue?
+
+I don't know.
+
+> I'd hope it can underflow safely, and only look at the net value after
+> the transmit handler returns.
+> 
+> > Presumably the TX completion handler will hold this spinlock and
+> > therefore cannot free the skb before you use skb->len above.  So this
+> > will be safe now.  But one day someone may want to get rid of this lock,
+> > so this is a trap waiting to spring.
+> 
+> Sounds like a fun project.  But I have to dig into the BQL code; if it's
+> getting and dropping locks inside netdev_*_queue, the win is limited.
+> 
+> (A lock-free version would have separate "sent" and "completed" counters,
+> and compute the difference when a snapshot is required.)
+
+Yes, it is lock-free with separate counters.  The implementation is in
+lib/dynamic_queue_limits.c.  I think that the use of POSDIFF() protects
+against races that could leave completed > sent.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
