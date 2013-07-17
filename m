@@ -1,81 +1,49 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: net_sched: precision problem of TBF/HTB
-Date: Tue, 16 Jul 2013 20:18:15 -0700
-Message-ID: <51E60CF7.8020500@gmail.com>
-References: <51E4C815.9000408@huawei.com> <1373950201.10804.103.camel@edumazet-glaptop> <51E5F62F.8080906@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Yang Yingliang <yangyingliang@huawei.com>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Ding Tianhong <dingtianhong@huawei.com>
+From: "George Spelvin" <linux@horizon.com>
+Subject: Re: [RFC] tulip: Support for byte queue limits
+Date: 17 Jul 2013 00:09:59 -0400
+Message-ID: <20130717040959.24815.qmail@science.horizon.com>
+References: <1373932689.3745.30.camel@bwh-desktop.uk.level5networks.com>
+Cc: eric.dumazet@gmail.com, grantgrundler@gmail.com,
+	grundler@parisc-linux.org, netdev@vger.kernel.org
+To: bhutchings@solarflare.com, linux@horizon.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f177.google.com ([209.85.214.177]:43712 "EHLO
-	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750882Ab3GQDTK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jul 2013 23:19:10 -0400
-Received: by mail-ob0-f177.google.com with SMTP id ta17so1653388obb.22
-        for <netdev@vger.kernel.org>; Tue, 16 Jul 2013 20:19:10 -0700 (PDT)
-In-Reply-To: <51E5F62F.8080906@huawei.com>
+Received: from science.horizon.com ([71.41.210.146]:63945 "HELO
+	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1750741Ab3GQEKA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jul 2013 00:10:00 -0400
+In-Reply-To: <1373932689.3745.30.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/16/2013 06:41 PM, Ding Tianhong wrote:
-> On 2013/7/16 12:50, Eric Dumazet wrote:
->> On Tue, 2013-07-16 at 12:12 +0800, Yang Yingliang wrote:
->>> Hi, Eric
->>> Commit 1def9238d4aa2 (net_sched: more precise pkt_len computation)
->>> makes more precise transfer bytes by taking account of headers in
->>> qdisc_skb_cb(skb)->pkt_len, but this introduces a problem with
->>> calculating bandwidth in userland.
->>>
->> This changed nothing to userland.
->>
->>> When calculating bandwidth in userland, it's not include headers'
->>> bytes. From the user's perspective, it's not a correct bandwidth.
->>>
->>
->>
->>> Shall we need take account of headers in qdisc_skb_cb(skb)->pkt_len or
->>> just skb->len?
->>>
->> These values are not accessible from userland, unless you capture
->> packets with a sniffer (tcpdump or something like that)
->>
->>> Example:
->>> tc qdisc add dev $DEV root handle 1: tbf latency 50ms burst 500kB rate
->>> 500mbit mtu 64k
->>>
->>> iperf -c host -t 30 -i 10
->>> [ ID] Interval       Transfer     Bandwidth
->>> [  3]  0.0-10.0 sec   571 MBytes   479 Mbits/sec
->>> [  3] 10.0-20.0 sec   570 MBytes   478 Mbits/sec
->>> [  3] 20.0-30.0 sec   570 MBytes   478 Mbits/sec
->>> [  3]  0.0-30.0 sec  1.67 GBytes   478 Mbits/sec
->>
->>
->> iperf only measures the amount of payload, and probably do not care of
->> headers.
->>
->> You cannot accurately measure bandwidth from userland, unless making
->> assumptions (or getting them from the stack) on header sizes (IP + TCP),
->> MSS value, and retransmits.
->>
->>
->
-> ok, for the further, can you give me some advise for how calculate the bandwidth for net link.
-> for example,what kind of tools is better.
->
->>
+>>  	wmb();
+>>  
+>> -	tp->cur_tx++;
+>> -
+>>  	/* Trigger an immediate transmit demand. */
+>>  	iowrite32(0, tp->base_addr + CSR1);
+>>  
+>> +	tp->cur_tx++;
+>> +	netdev_sent_queue(dev, skb->len);
+>>  	spin_unlock_irqrestore(&tp->lock, flags);
 
-Vendor specific but it looks reasonably common to count tx and rx bytes
-in ethtool stats. Take a few samples with 'ethtool -S' and do the
-math. This will give you what the driver/hardware actually xmits and
-receives.
+> This is not good practice, because once you start DMA you have
+> effectively passed ownership of the skb to the TX completion handler.
 
-.John
+Thank you for this advice.  Just to be clear, is the only issue reading
+skb->len from a potentially deallocated skb?  Or is it also going go
+give the byte queue system fits if the transmit complete handler calls
+netdev_completed_queue before the transmitter calls netdev_sent_queue?
 
--- 
-John Fastabend         Intel Corporation
+I'd hope it can underflow safely, and only look at the net value after
+the transmit handler returns.
+
+> Presumably the TX completion handler will hold this spinlock and
+> therefore cannot free the skb before you use skb->len above.  So this
+> will be safe now.  But one day someone may want to get rid of this lock,
+> so this is a trap waiting to spring.
+
+Sounds like a fun project.  But I have to dig into the BQL code; if it's
+getting and dropping locks inside netdev_*_queue, the win is limited.
+
+(A lock-free version would have separate "sent" and "completed" counters,
+and compute the difference when a snapshot is required.)
