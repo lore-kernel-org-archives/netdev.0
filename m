@@ -1,59 +1,88 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net v2 5/6] bnx2x: fix PTE write access error
-Date: Thu, 18 Jul 2013 01:51:37 +0400
-Message-ID: <51E711E9.7030500@cogentembedded.com>
-References: <1374097512-19540-1-git-send-email-dmitry@broadcom.com> <1374097512-19540-6-git-send-email-dmitry@broadcom.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: [PATCH net v3 2/6] bnx2x: prevent statistics update flow to act
+ before statistics are started
+Date: Thu, 18 Jul 2013 01:00:36 +0300
+Message-ID: <1374098440-27877-3-git-send-email-dmitry@broadcom.com>
+References: <1374098440-27877-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Dmitry Kravkov <dmitry@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:48686 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752542Ab3GQVvg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jul 2013 17:51:36 -0400
-Received: by mail-la0-f53.google.com with SMTP id fj20so168603lab.40
-        for <netdev@vger.kernel.org>; Wed, 17 Jul 2013 14:51:34 -0700 (PDT)
-In-Reply-To: <1374097512-19540-6-git-send-email-dmitry@broadcom.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:4692 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752433Ab3GQWBL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jul 2013 18:01:11 -0400
+In-Reply-To: <1374098440-27877-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+This in order to serialize statistics requests sent to FW,
+otherwise two outstanding queries may cause FW assert.
 
-On 07/18/2013 01:45 AM, Dmitry Kravkov wrote:
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       | 1 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  | 1 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c | 6 +++++-
+ 3 files changed, 7 insertions(+), 1 deletion(-)
 
-> From: Barak Witkowsky <barak@broadcom.com>
-
-> PTE write access error  might occur in MF_ALLOWED mode when IOMMU
-> is active. The patch adds rmmod HSI indicating to MFW to stop
-> running queries which might trigger this failure.
-
-> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-> Signed-off-by: Ariel Elior <ariele@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-
-    Not signed off by the author?
-
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> index 0f3de02..9394b7d 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-
-> @@ -12824,6 +12828,11 @@ static void __bnx2x_remove(struct pci_dev *pdev,
->   	bnx2x_dcbnl_update_applist(bp, true);
->   #endif
->
-> +	if ((IS_PF(bp)) &&
-
-    () not needed.
-
-> +	    (!BP_NOMCP(bp)) &&
-
-    Likewise.
-
-> +	    (bp->flags & BC_SUPPORTS_RMMOD_CMD))
-> +		bnx2x_fw_command(bp, DRV_MSG_CODE_RMMOD, 0);
-> +
-
-WBR, Sergei
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index dedbd76..bdbd87e 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -1830,6 +1830,7 @@ struct bnx2x {
+ 
+ 	int fp_array_size;
+ 	u32 dump_preset_idx;
++	atomic_t				stats_started;
+ };
+ 
+ /* Tx queues may be less or equal to Rx queues */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index e5da078..7e9681f 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -11524,6 +11524,7 @@ static int bnx2x_init_bp(struct bnx2x *bp)
+ 	mutex_init(&bp->port.phy_mutex);
+ 	mutex_init(&bp->fw_mb_mutex);
+ 	spin_lock_init(&bp->stats_lock);
++	atomic_set(&bp->stats_started, 0);
+ 
+ 	INIT_DELAYED_WORK(&bp->sp_task, bnx2x_sp_task);
+ 	INIT_DELAYED_WORK(&bp->sp_rtnl_task, bnx2x_sp_rtnl_task);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+index 7b39424..b117afe 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+@@ -534,6 +534,8 @@ static void bnx2x_stats_start(struct bnx2x *bp)
+ 
+ 	bnx2x_hw_stats_post(bp);
+ 	bnx2x_storm_stats_post(bp);
++
++	atomic_set(&bp->stats_started, 1);
+ }
+ 
+ static void bnx2x_stats_pmf_start(struct bnx2x *bp)
+@@ -1227,7 +1229,7 @@ static void bnx2x_stats_update(struct bnx2x *bp)
+ {
+ 	u32 *stats_comp = bnx2x_sp(bp, stats_comp);
+ 
+-	if (bnx2x_edebug_stats_stopped(bp))
++	if (bnx2x_edebug_stats_stopped(bp) || !atomic_read(&bp->stats_started))
+ 		return;
+ 
+ 	if (IS_PF(bp)) {
+@@ -1332,6 +1334,8 @@ static void bnx2x_stats_stop(struct bnx2x *bp)
+ {
+ 	int update = 0;
+ 
++	atomic_set(&bp->stats_started, 0);
++
+ 	bnx2x_stats_comp(bp);
+ 
+ 	if (bp->port.pmf)
+-- 
+1.8.1.4
