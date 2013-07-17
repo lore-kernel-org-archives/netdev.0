@@ -1,48 +1,45 @@
 From: Darren Hart <dvhart@linux.intel.com>
-Subject: [PATCH net-next 1/2] pch_gbe: Use PCH_GBE_PHY_REGS_LEN instead of 32
-Date: Wed, 17 Jul 2013 13:10:42 -0700
-Message-ID: <001ee275d6df06f3bb84ee5d214f308a4f20d4be.1374091736.git.dvhart@linux.intel.com>
-References: <1374091843-1521-1-git-send-email-dvhart@linux.intel.com>
-Cc: Darren Hart <dvhart@linux.intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
+Subject: Re: [PATCH 3/3] pch_gbe: Add MinnowBoard support
+Date: Wed, 17 Jul 2013 13:13:54 -0700
+Message-ID: <1374092034.7622.34.camel@envy.home>
+References: <1373677087-7747-1-git-send-email-dvhart@linux.intel.com>
+	 <ad20133699c36bd8d183dd685f1b35f6d6b99005.1373676797.git.dvhart@linux.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
 	"H. Peter Anvin" <hpa@zytor.com>,
 	Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-To: Linux Net Dev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:45250 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756155Ab3GQULE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jul 2013 16:11:04 -0400
-In-Reply-To: <1374091843-1521-1-git-send-email-dvhart@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+	netdev@vger.kernel.org, stable@vger.kernel.org
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <ad20133699c36bd8d183dd685f1b35f6d6b99005.1373676797.git.dvhart@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Avoid using magic numbers when we have perfectly good defines just lying
-around.
+On Fri, 2013-07-12 at 17:58 -0700, Darren Hart wrote:
+> The MinnowBoard uses an AR803x PHY with the PCH GBE which requires
+> special handling. Use the MinnowBoard PCI Subsystem ID to detect this
+> and add a pci_device_id.driver_data structure and functions to handle
+> platform setup.
+> 
+> The AR803x does not implement the RGMII 2ns TX clock delay in the trace
+> routing nor via strapping. Add a detection method for the board and the
+> PHY and enable the TX clock delay via the registers.
+> 
+> This PHY will hibernate without link for 10 seconds. Ensure the PHY is
+> awake for probe and then disable hibernation. A future improvement would
+> be to convert pch_gbe to using PHYLIB and making sure we can wake the
+> PHY at the necessary times rather than permanently disabling it.
 
-Signed-off-by: Darren Hart <dvhart@linux.intel.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: "H. Peter Anvin" <hpa@zytor.com>
-Cc: Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Cc: netdev@vger.kernel.org
----
- drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+If anyone is following along to see where this goes, I have made this
+change independent of the minnowboard platform drivers and have resent
+it with all the collected feedback on to netdev following the netdev
+rules I was recently made aware of. Please follow along there if you are
+interested.
 
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-index ab1039a..749ddd9 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-@@ -682,7 +682,7 @@ static int pch_gbe_init_phy(struct pch_gbe_adapter *adapter)
- 	}
- 	adapter->hw.phy.addr = adapter->mii.phy_id;
- 	netdev_dbg(netdev, "phy_addr = %d\n", adapter->mii.phy_id);
--	if (addr == 32)
-+	if (addr == PCH_GBE_PHY_REGS_LEN)
- 		return -EAGAIN;
- 	/* Selected the phy and isolate the rest */
- 	for (addr = 0; addr < PCH_GBE_PHY_REGS_LEN; addr++) {
 -- 
-1.8.3.1
+Darren Hart
+Intel Open Source Technology Center
+Yocto Project - Linux Kernel
