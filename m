@@ -1,68 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] vlan: mask vlan prio bits
-Date: Thu, 18 Jul 2013 08:49:30 -0700
-Message-ID: <1374162570.6097.33.camel@edumazet-glaptop>
-References: <1374157166.6097.28.camel@edumazet-glaptop>
+From: Fernando Soto <fernando.soto@gmail.com>
+Subject: Re: WARNING: at net/core/dst.c:274 dst_release+0x2d/0x56()
+Date: Thu, 18 Jul 2013 11:55:28 -0400
+Message-ID: <CADCFf2gS3sS0hL1pr-P+LUVqhvBEMLy-Q8hRp-R8c06e4qtp2g@mail.gmail.com>
+References: <CADCFf2jAJRiHgMaMs8tNWSaonPmXg6q5C66iisdpuz9yMSAV+w@mail.gmail.com>
+	<1372799622.4979.22.camel@edumazet-glaptop>
+	<CADCFf2hEzwgtqfn4nHc4VwgT2+_XW9=uAos7Qo5YsEpRCWFO5Q@mail.gmail.com>
+	<CADCFf2iUeyhnfhHET2Tbi1bM+7h=2LXLFvcerXHsz3Xv6E6zLw@mail.gmail.com>
+	<1372950494.4979.97.camel@edumazet-glaptop>
+	<CADCFf2gS=m_X2WOVGdgUoKyGgdn1sD9HsBYhjikeMN05RExrOQ@mail.gmail.com>
+	<CADCFf2jzs+41uKD9RjotXpqSRDoJnSFY90LVKt2UeQfUF05Wrg@mail.gmail.com>
+	<1374083689.6097.19.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Steinar H. Gunderson" <sesse@google.com>,
-	Florian Zumbiehl <florz@florz.de>,
-	netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:44212 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758607Ab3GRPtg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 11:49:36 -0400
-Received: by mail-pa0-f45.google.com with SMTP id bi5so3360801pad.4
-        for <netdev@vger.kernel.org>; Thu, 18 Jul 2013 08:49:35 -0700 (PDT)
-In-Reply-To: <1374157166.6097.28.camel@edumazet-glaptop>
+Received: from mail-ob0-f182.google.com ([209.85.214.182]:39349 "EHLO
+	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932148Ab3GRPz3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 11:55:29 -0400
+Received: by mail-ob0-f182.google.com with SMTP id va7so3904555obc.13
+        for <netdev@vger.kernel.org>; Thu, 18 Jul 2013 08:55:28 -0700 (PDT)
+In-Reply-To: <1374083689.6097.19.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-07-18 at 07:19 -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> In commit 48cc32d38a52d0b68f91a171a8d00531edc6a46e
-> ("vlan: don't deliver frames for unknown vlans to protocols")
-> Florian made sure we set pkt_type to PACKET_OTHERHOST
-> if the vlan id is set and we could find a vlan device for this
-> particular id.
-> 
-> But we also have a problem if prio bits are set.
-> 
-> Steinar reported an issue on a router receiving IPv6 frames with a
-> vlan tag of 4000 (id 0, prio 2), and tunneled into a sit device,
-> because skb->vlan_tci is set.
-> 
-> Forwarded frame is completely corrupted : We can see (8100:4000)
-> being inserted in the middle of IPv6 source address :
-> 
-> 16:48:00.780413 IP6 2001:16d8:8100:4000:ee1c:0:9d9:bc87 >
-> 9f94:4d95:2001:67c:29f4::: ICMP6, unknown icmp6 type (0), length 64
->        0x0000:  0000 0029 8000 c7c3 7103 0001 a0ae e651
->        0x0010:  0000 0000 ccce 0b00 0000 0000 1011 1213
->        0x0020:  1415 1617 1819 1a1b 1c1d 1e1f 2021 2223
->        0x0030:  2425 2627 2829 2a2b 2c2d 2e2f 3031 3233
-> 
-> It seems we are not really ready to properly cope with this right now.
-> 
-> We can probably do better in future kernels : 
-> vlan_get_ingress_priority() should be a netdev property instead of
-> a per vlan_dev one.
-> 
-> For stable kernels, lets clear vlan_tci to fix the bugs.
-> 
-> Reported-by: Steinar H. Gunderson <sesse@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
+Hi Eric,
 
-While looking at the 'future' patches for net-next, I found
-that vlan_dev_get_egress_qos_mask() uses no protection at all
-while doing the lookup in hash table.
+I applied the patch to the latest 3.10.1 and the network is working
+fine. I'm not sure if it is due to the patch or any other changes
+between 3.10.0 and 3.10.1.
+I'll leave iperf running for a few days. Looks good so far.
 
-This is racy with concurrent insert/deletes, eventually.
+Thank you!
 
-This probably needs a bit of RCU care ;)
+Fernando
+
+On Wed, Jul 17, 2013 at 1:54 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2013-07-17 at 09:19 -0400, Fernando Soto wrote:
+>> Hi Eric,
+>>
+>> Just to let you know that I have performed same tests with 3.4.52 and
+>> it works fine.
+>> Kernel 3.10 had another issue that prevented me from running the same
+>> tests: network dies as soon as I launch iperf - no kernel errors, but
+>> it simply doesn't work.
+>> I'll stick to 3.4.52. Thanks for your help.
+>
+> This might be relevant : http://patchwork.ozlabs.org/patch/259596/
+>
+>
