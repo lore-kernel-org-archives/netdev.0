@@ -1,75 +1,661 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 33332] IC Plus Corp IP1000 Family Gigabit Ethernet and
- OpenSuSE (x86, x86_64)
-Date: Thu, 18 Jul 2013 16:24:45 -0700
-Message-ID: <20130718162445.51c426af@nehalam.linuxnetplumber.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: v3.10/v3.11-rc1: mac80211/minstrel kernel crash
+Date: Thu, 18 Jul 2013 18:28:47 -0500
+Message-ID: <51E87A2F.5070305@lwfinger.net>
+References: <20130718222113.GJ14385@blackmetal.musicnaut.iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Felix Fietkau <nbd@openwrt.org>,
+	Johannes Berg <johannes.berg@intel.com>
+To: Aaro Koskinen <aaro.koskinen@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f194.google.com ([209.85.192.194]:39499 "EHLO
-	mail-pd0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934728Ab3GRXYt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 19:24:49 -0400
-Received: by mail-pd0-f194.google.com with SMTP id 10so1327860pdi.5
-        for <netdev@vger.kernel.org>; Thu, 18 Jul 2013 16:24:48 -0700 (PDT)
-Received: from nehalam.linuxnetplumber.net (static-50-53-71-109.bvtn.or.frontiernet.net. [50.53.71.109])
-        by mx.google.com with ESMTPSA id il4sm15942609pbb.36.2013.07.18.16.24.47
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
-        Thu, 18 Jul 2013 16:24:47 -0700 (PDT)
+Received: from mail-oa0-f52.google.com ([209.85.219.52]:48856 "EHLO
+	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933481Ab3GRX2u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 19:28:50 -0400
+In-Reply-To: <20130718222113.GJ14385@blackmetal.musicnaut.iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 07/18/2013 05:21 PM, Aaro Koskinen wrote:
+> Hello,
+>
+> It seems this has been broken already a while, I bisected it back to
+> 06d961a8e210035bff7e82f466107f9ab4a8fd94 (mac80211/minstrel: use the
+> new rate control API).
+>
+> Test case:
+>
+> 	modprobe b43
+> 	ifconfig wlan0 up
+> 	iwlist wlan0 scanning
+>
+> Result:
+>
+> [   95.244268] b43-phy0: Broadcom 4318 WLAN found (core revision 9)
+> [   95.352823] b43-phy0: Found PHY: Analog 3, Type 2 (G), Revision 7
+> [   95.423298] ieee80211 phy0: Selected rate control algorithm 'minstrel'
+> [   95.438266] Broadcom 43xx driver loaded [ Features: PN ]
+> [   99.482832] b43-phy0: Loading firmware version 666.2 (2011-02-23 01:15:07)
+> [   99.522916] b43-pci-bridge 0001:01:01.0: Using 32-bit DMA via iommu
+> [  123.452854] Unable to handle kernel paging request for data at address 0x00000048
+> [  123.466119] Faulting instruction address: 0xc000000000673a1c
+> [  123.479072] Oops: Kernel access of bad area, sig: 11 [#1]
+> [  123.491678] PREEMPT PowerMac
+> [  123.503946] Modules linked in: b43 netconsole
+> [  123.515992] CPU: 0 PID: 490 Comm: kworker/u2:4 Not tainted 3.11.0-rc1-imac #1
+> [  123.527834] Workqueue: phy0 .ieee80211_scan_work
+> [  123.539275] task: c00000011a6bbdb0 ti: c00000011a120000 task.ti: c00000011a120000
+> [  123.551071] NIP: c000000000673a1c LR: c000000000653288 CTR: c0000000006739e0
+> [  123.563010] REGS: c00000011a123310 TRAP: 0300   Not tainted  (3.11.0-rc1-imac)
+> [  123.575142] MSR: 9000000000009032 <SF,HV,EE,ME,IR,DR,RI>  CR: 24002082  XER: 00000000
+> [  123.587884] SOFTE: 1
+> [  123.600276] DAR: 0000000000000048, DSISR: 40000000
+> [  123.612867]
+> GPR00: c000000000653288 c00000011a123590 c0000000009dba98 0000000000000000
+> GPR04: 0000000000000000 c00000011a123730 c00000011a123730 0000000000000000
+> GPR08: c00000011a162609 c0000000009d36d8 c0000000006739e0 c00000011a162600
+> GPR12: 0000000024002088 c00000000ffff000 c000000000077d90 c00000011a4dfa70
+> GPR16: 0000000000000000 0000000000000000 0000000000000001 0000000000000000
+> GPR20: 0000000000000000 0000000000000001 c00000000092df7f c00000011a355130
+> GPR24: 000000000000000a c00000011a123b60 c00000011a356660 c00000011a162600
+> GPR28: c00000011a461fc0 c00000011a162600 c00000011a123730 0000000000000000
+> [  123.728058] NIP [c000000000673a1c] .minstrel_get_rate+0x3c/0x2e0
+> [  123.740466] LR [c000000000653288] .rate_control_get_rate+0xf8/0x140
+> [  123.752720] Call Trace:
+> [  123.764951] [c00000011a123590] [c00000011a123620] 0xc00000011a123620 (unreliable)
+> [  123.777526] [c00000011a123630] [c000000000653288] .rate_control_get_rate+0xf8/0x140
+> [  123.790079] [c00000011a1236c0] [c000000000660ac8] .invoke_tx_handlers+0x8c8/0x14f0
+> [  123.802633] [c00000011a1237f0] [c000000000662304] .ieee80211_tx+0x84/0x140
+> [  123.815205] [c00000011a1238e0] [c000000000663c70] .__ieee80211_tx_skb_tid_band+0x70/0xa0
+> [  123.827893] [c00000011a123970] [c000000000669b70] .ieee80211_send_probe_req+0x100/0x150
+> [  123.840688] [c00000011a123a20] [c000000000645290] .ieee80211_scan_state_send_probe+0xc0/0x120
+> [  123.853578] [c00000011a123af0] [c00000000064624c] .ieee80211_scan_work+0x26c/0x530
+> [  123.866581] [c00000011a123bd0] [c00000000006ef5c] .process_one_work+0x17c/0x410
+> [  123.879178] [c00000011a123c70] [c00000000006fd80] .worker_thread+0x180/0x4d0
+> [  123.891354] [c00000011a123d40] [c000000000077e78] .kthread+0xe8/0xf0
+> [  123.903468] [c00000011a123e30] [c000000000008ea0] .ret_from_kernel_thread+0x5c/0xbc
+> [  123.915706] Instruction dump:
+> [  123.927916] fbe1fff8 fb61ffd8 fba1ffe8 f8010010 f821ff61 7cbf2b78 7c7c1b78 7cc53378
+> [  123.940781] 7c832378 7fe4fb78 7cde3378 eba60018 <8b7f0048> 4bfdec61 60000000 2fa30000
+> [  123.953961] ---[ end trace 5ead5367d5fdf880 ]---
+> [  123.966739]
+> [  124.969488] Kernel panic - not syncing: Fatal exception in interrupt
+> [  124.982408] Rebooting in 180 seconds..
+>
+> Kernel config:
+>
+> #
+> # Automatically generated file; DO NOT EDIT.
+> # Linux/powerpc 3.11.0-rc1 Kernel Configuration
+> #
+> CONFIG_PPC64=y
+>
+> #
+> # Processor support
+> #
+> CONFIG_PPC_BOOK3S_64=y
+> # CONFIG_PPC_BOOK3E_64 is not set
+> # CONFIG_GENERIC_CPU is not set
+> # CONFIG_CELL_CPU is not set
+> CONFIG_POWER4_CPU=y
+> # CONFIG_POWER5_CPU is not set
+> # CONFIG_POWER6_CPU is not set
+> # CONFIG_POWER7_CPU is not set
+> CONFIG_PPC_BOOK3S=y
+> CONFIG_POWER3=y
+> CONFIG_POWER4=y
+> # CONFIG_TUNE_CELL is not set
+> CONFIG_PPC_FPU=y
+> CONFIG_ALTIVEC=y
+> # CONFIG_VSX is not set
+> # CONFIG_PPC_ICSWX is not set
+> CONFIG_PPC_STD_MMU=y
+> CONFIG_PPC_STD_MMU_64=y
+> # CONFIG_PPC_MM_SLICES is not set
+> CONFIG_PPC_HAVE_PMU_SUPPORT=y
+> CONFIG_PPC_PERF_CTRS=y
+> # CONFIG_SMP is not set
+> # CONFIG_PPC_DOORBELL is not set
+> CONFIG_64BIT=y
+> CONFIG_WORD_SIZE=64
+> CONFIG_ARCH_PHYS_ADDR_T_64BIT=y
+> CONFIG_ARCH_DMA_ADDR_T_64BIT=y
+> CONFIG_MMU=y
+> CONFIG_HAVE_SETUP_PER_CPU_AREA=y
+> CONFIG_NEED_PER_CPU_EMBED_FIRST_CHUNK=y
+> CONFIG_NR_IRQS=512
+> CONFIG_STACKTRACE_SUPPORT=y
+> CONFIG_HAVE_LATENCYTOP_SUPPORT=y
+> CONFIG_TRACE_IRQFLAGS_SUPPORT=y
+> CONFIG_LOCKDEP_SUPPORT=y
+> CONFIG_RWSEM_XCHGADD_ALGORITHM=y
+> CONFIG_ARCH_HAS_ILOG2_U32=y
+> CONFIG_ARCH_HAS_ILOG2_U64=y
+> CONFIG_GENERIC_HWEIGHT=y
+> CONFIG_PPC=y
+> CONFIG_EARLY_PRINTK=y
+> CONFIG_COMPAT=y
+> CONFIG_SYSVIPC_COMPAT=y
+> CONFIG_SCHED_OMIT_FRAME_POINTER=y
+> CONFIG_ARCH_MAY_HAVE_PC_FDC=y
+> CONFIG_PPC_OF=y
+> # CONFIG_PPC_UDBG_16550 is not set
+> CONFIG_GENERIC_TBSYNC=y
+> CONFIG_AUDIT_ARCH=y
+> CONFIG_GENERIC_BUG=y
+> # CONFIG_EPAPR_BOOT is not set
+> # CONFIG_DEFAULT_UIMAGE is not set
+> CONFIG_ARCH_HIBERNATION_POSSIBLE=y
+> CONFIG_ARCH_SUSPEND_POSSIBLE=y
+> # CONFIG_PPC_DCR_NATIVE is not set
+> # CONFIG_PPC_DCR_MMIO is not set
+> # CONFIG_PPC_OF_PLATFORM_PCI is not set
+> CONFIG_ARCH_SUPPORTS_DEBUG_PAGEALLOC=y
+> CONFIG_ARCH_SUPPORTS_UPROBES=y
+> CONFIG_PPC_EMULATE_SSTEP=y
+> CONFIG_DEFCONFIG_LIST="/lib/modules/$UNAME_RELEASE/.config"
+> CONFIG_IRQ_WORK=y
+>
+> #
+> # General setup
+> #
+> CONFIG_BROKEN_ON_SMP=y
+> CONFIG_INIT_ENV_ARG_LIMIT=32
+> CONFIG_CROSS_COMPILE=""
+> # CONFIG_COMPILE_TEST is not set
+> CONFIG_LOCALVERSION="-imac"
+> CONFIG_LOCALVERSION_AUTO=y
+> CONFIG_DEFAULT_HOSTNAME="(none)"
+> CONFIG_SWAP=y
+> CONFIG_SYSVIPC=y
+> CONFIG_SYSVIPC_SYSCTL=y
+> CONFIG_POSIX_MQUEUE=y
+> CONFIG_POSIX_MQUEUE_SYSCTL=y
+> # CONFIG_FHANDLE is not set
+> # CONFIG_AUDIT is not set
+> CONFIG_HAVE_GENERIC_HARDIRQS=y
+>
+> #
+> # IRQ subsystem
+> #
+> CONFIG_GENERIC_HARDIRQS=y
+> CONFIG_GENERIC_IRQ_SHOW=y
+> CONFIG_GENERIC_IRQ_SHOW_LEVEL=y
+> CONFIG_IRQ_DOMAIN=y
+> CONFIG_IRQ_FORCED_THREADING=y
+> CONFIG_SPARSE_IRQ=y
+> CONFIG_GENERIC_TIME_VSYSCALL_OLD=y
+> CONFIG_GENERIC_CLOCKEVENTS=y
+> CONFIG_GENERIC_CLOCKEVENTS_BUILD=y
+> CONFIG_GENERIC_CMOS_UPDATE=y
+>
+> #
+> # Timers subsystem
+> #
+> CONFIG_TICK_ONESHOT=y
+> CONFIG_NO_HZ_COMMON=y
+> # CONFIG_HZ_PERIODIC is not set
+> CONFIG_NO_HZ_IDLE=y
+> CONFIG_NO_HZ=y
+> CONFIG_HIGH_RES_TIMERS=y
+>
+> #
+> # CPU/Task time and stats accounting
+> #
+> CONFIG_VIRT_CPU_ACCOUNTING=y
+> # CONFIG_TICK_CPU_ACCOUNTING is not set
+> CONFIG_VIRT_CPU_ACCOUNTING_NATIVE=y
+> # CONFIG_BSD_PROCESS_ACCT is not set
+> # CONFIG_TASKSTATS is not set
+>
+> #
+> # RCU Subsystem
+> #
+> CONFIG_TREE_PREEMPT_RCU=y
+> CONFIG_PREEMPT_RCU=y
+> CONFIG_RCU_STALL_COMMON=y
+> CONFIG_RCU_FANOUT=64
+> CONFIG_RCU_FANOUT_LEAF=16
+> # CONFIG_RCU_FANOUT_EXACT is not set
+> # CONFIG_TREE_RCU_TRACE is not set
+> # CONFIG_RCU_BOOST is not set
+> # CONFIG_RCU_NOCB_CPU is not set
+> # CONFIG_IKCONFIG is not set
+> CONFIG_LOG_BUF_SHIFT=17
+> CONFIG_CGROUPS=y
+> # CONFIG_CGROUP_DEBUG is not set
+> # CONFIG_CGROUP_FREEZER is not set
+> # CONFIG_CGROUP_DEVICE is not set
+> # CONFIG_CPUSETS is not set
+> # CONFIG_CGROUP_CPUACCT is not set
+> # CONFIG_RESOURCE_COUNTERS is not set
+> # CONFIG_CGROUP_PERF is not set
+> CONFIG_CGROUP_SCHED=y
+> CONFIG_FAIR_GROUP_SCHED=y
+> # CONFIG_CFS_BANDWIDTH is not set
+> # CONFIG_RT_GROUP_SCHED is not set
+> # CONFIG_BLK_CGROUP is not set
+> # CONFIG_CHECKPOINT_RESTORE is not set
+> # CONFIG_NAMESPACES is not set
+> CONFIG_UIDGID_CONVERTED=y
+> # CONFIG_UIDGID_STRICT_TYPE_CHECKS is not set
+> CONFIG_SCHED_AUTOGROUP=y
+> # CONFIG_SYSFS_DEPRECATED is not set
+> # CONFIG_RELAY is not set
+> CONFIG_BLK_DEV_INITRD=y
+> CONFIG_INITRAMFS_SOURCE=""
+> # CONFIG_RD_GZIP is not set
+> # CONFIG_RD_BZIP2 is not set
+> CONFIG_RD_LZMA=y
+> # CONFIG_RD_XZ is not set
+> # CONFIG_RD_LZO is not set
+> # CONFIG_RD_LZ4 is not set
+> # CONFIG_CC_OPTIMIZE_FOR_SIZE is not set
+> CONFIG_SYSCTL=y
+> CONFIG_ANON_INODES=y
+> CONFIG_SYSCTL_EXCEPTION_TRACE=y
+> CONFIG_EXPERT=y
+> # CONFIG_SYSCTL_SYSCALL is not set
+> CONFIG_KALLSYMS=y
+> CONFIG_KALLSYMS_ALL=y
+> CONFIG_PRINTK=y
+> CONFIG_BUG=y
+> CONFIG_ELF_CORE=y
+> CONFIG_BASE_FULL=y
+> CONFIG_FUTEX=y
+> CONFIG_EPOLL=y
+> CONFIG_SIGNALFD=y
+> CONFIG_TIMERFD=y
+> CONFIG_EVENTFD=y
+> CONFIG_SHMEM=y
+> CONFIG_AIO=y
+> CONFIG_PCI_QUIRKS=y
+> # CONFIG_EMBEDDED is not set
+> CONFIG_HAVE_PERF_EVENTS=y
+>
+> #
+> # Kernel Performance Events And Counters
+> #
+> CONFIG_PERF_EVENTS=y
+> # CONFIG_DEBUG_PERF_USE_VMALLOC is not set
+> CONFIG_VM_EVENT_COUNTERS=y
+> CONFIG_SLUB_DEBUG=y
+> # CONFIG_COMPAT_BRK is not set
+> # CONFIG_SLAB is not set
+> CONFIG_SLUB=y
+> # CONFIG_SLOB is not set
+> CONFIG_SLUB_CPU_PARTIAL=y
+> CONFIG_PROFILING=y
+> CONFIG_OPROFILE=m
+> CONFIG_HAVE_OPROFILE=y
+> # CONFIG_KPROBES is not set
+> # CONFIG_JUMP_LABEL is not set
+> # CONFIG_HAVE_64BIT_ALIGNED_ACCESS is not set
+> CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS=y
+> CONFIG_ARCH_USE_BUILTIN_BSWAP=y
+> CONFIG_HAVE_IOREMAP_PROT=y
+> CONFIG_HAVE_KPROBES=y
+> CONFIG_HAVE_KRETPROBES=y
+> CONFIG_HAVE_ARCH_TRACEHOOK=y
+> CONFIG_HAVE_DMA_ATTRS=y
+> CONFIG_GENERIC_SMP_IDLE_THREAD=y
+> CONFIG_HAVE_REGS_AND_STACK_ACCESS_API=y
+> CONFIG_HAVE_DMA_API_DEBUG=y
+> CONFIG_HAVE_HW_BREAKPOINT=y
+> CONFIG_HAVE_ARCH_JUMP_LABEL=y
+> CONFIG_ARCH_HAVE_NMI_SAFE_CMPXCHG=y
+> CONFIG_ARCH_WANT_IPC_PARSE_VERSION=y
+> CONFIG_ARCH_WANT_COMPAT_IPC_PARSE_VERSION=y
+> CONFIG_ARCH_WANT_OLD_COMPAT_IPC=y
+> CONFIG_HAVE_VIRT_CPU_ACCOUNTING=y
+> CONFIG_HAVE_MOD_ARCH_SPECIFIC=y
+> CONFIG_MODULES_USE_ELF_RELA=y
+> CONFIG_CLONE_BACKWARDS=y
+> CONFIG_OLD_SIGSUSPEND=y
+> CONFIG_COMPAT_OLD_SIGACTION=y
+>
+> #
+> # GCOV-based kernel profiling
+> #
+> # CONFIG_HAVE_GENERIC_DMA_COHERENT is not set
+> CONFIG_SLABINFO=y
+> CONFIG_RT_MUTEXES=y
+> CONFIG_BASE_SMALL=0
+> CONFIG_MODULES=y
+> # CONFIG_MODULE_FORCE_LOAD is not set
+> CONFIG_MODULE_UNLOAD=y
+> # CONFIG_MODULE_FORCE_UNLOAD is not set
+> # CONFIG_MODVERSIONS is not set
+> # CONFIG_MODULE_SRCVERSION_ALL is not set
+> # CONFIG_MODULE_SIG is not set
+> CONFIG_BLOCK=y
+> CONFIG_BLK_DEV_BSG=y
+> # CONFIG_BLK_DEV_BSGLIB is not set
+> # CONFIG_BLK_DEV_INTEGRITY is not set
+>
+> #
+> # Partition Types
+> #
+> CONFIG_PARTITION_ADVANCED=y
+> # CONFIG_ACORN_PARTITION is not set
+> # CONFIG_AIX_PARTITION is not set
+> # CONFIG_OSF_PARTITION is not set
+> # CONFIG_AMIGA_PARTITION is not set
+> # CONFIG_ATARI_PARTITION is not set
+> CONFIG_MAC_PARTITION=y
+> CONFIG_MSDOS_PARTITION=y
+> # CONFIG_BSD_DISKLABEL is not set
+> # CONFIG_MINIX_SUBPARTITION is not set
+> # CONFIG_SOLARIS_X86_PARTITION is not set
+> # CONFIG_UNIXWARE_DISKLABEL is not set
+> # CONFIG_LDM_PARTITION is not set
+> # CONFIG_SGI_PARTITION is not set
+> # CONFIG_ULTRIX_PARTITION is not set
+> # CONFIG_SUN_PARTITION is not set
+> # CONFIG_KARMA_PARTITION is not set
+> CONFIG_EFI_PARTITION=y
+> # CONFIG_SYSV68_PARTITION is not set
+> CONFIG_BLOCK_COMPAT=y
+>
+> #
+> # IO Schedulers
+> #
+> CONFIG_IOSCHED_NOOP=y
+> # CONFIG_IOSCHED_DEADLINE is not set
+> CONFIG_IOSCHED_CFQ=y
+> CONFIG_DEFAULT_CFQ=y
+> # CONFIG_DEFAULT_NOOP is not set
+> CONFIG_DEFAULT_IOSCHED="cfq"
+> CONFIG_UNINLINE_SPIN_UNLOCK=y
+> CONFIG_FREEZER=y
+> CONFIG_PPC_MSI_BITMAP=y
+> # CONFIG_PPC_XICS is not set
+> # CONFIG_PPC_ICP_NATIVE is not set
+> # CONFIG_PPC_ICP_HV is not set
+> # CONFIG_PPC_ICS_RTAS is not set
+> # CONFIG_GE_FPGA is not set
+>
+> #
+> # Platform support
+> #
+> # CONFIG_PPC_POWERNV is not set
+> CONFIG_POWERNV_MSI=y
+> # CONFIG_PPC_PSERIES is not set
+> CONFIG_PPC_PMAC=y
+> CONFIG_PPC_PMAC64=y
+> # CONFIG_PPC_MAPLE is not set
+> # CONFIG_PPC_PASEMI is not set
+> # CONFIG_PPC_PS3 is not set
+> # CONFIG_PPC_CELL is not set
+> # CONFIG_PPC_CELL_NATIVE is not set
+> # CONFIG_PPC_IBM_CELL_BLADE is not set
+> # CONFIG_PPC_CELLEB is not set
+> # CONFIG_PPC_CELL_QPACE is not set
+> # CONFIG_PQ2ADS is not set
+> # CONFIG_PPC_WSP is not set
+> # CONFIG_KVM_GUEST is not set
+> # CONFIG_EPAPR_PARAVIRT is not set
+> CONFIG_PPC_NATIVE=y
+> CONFIG_PPC_OF_BOOT_TRAMPOLINE=y
+> # CONFIG_IPIC is not set
+> CONFIG_MPIC=y
+> # CONFIG_PPC_EPAPR_HV_PIC is not set
+> # CONFIG_MPIC_WEIRD is not set
+> # CONFIG_MPIC_MSGR is not set
+> # CONFIG_PPC_I8259 is not set
+> CONFIG_U3_DART=y
+> # CONFIG_PPC_RTAS is not set
+> # CONFIG_MMIO_NVRAM is not set
+> CONFIG_MPIC_U3_HT_IRQS=y
+> # CONFIG_PPC_MPC106 is not set
+> CONFIG_PPC_970_NAP=y
+> # CONFIG_PPC_P7_NAP is not set
+>
+> #
+> # CPU Frequency scaling
+> #
+> CONFIG_CPU_FREQ=y
+> CONFIG_CPU_FREQ_TABLE=y
+> CONFIG_CPU_FREQ_GOV_COMMON=y
+> CONFIG_CPU_FREQ_STAT=y
+> # CONFIG_CPU_FREQ_STAT_DETAILS is not set
+> # CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE is not set
+> # CONFIG_CPU_FREQ_DEFAULT_GOV_POWERSAVE is not set
+> # CONFIG_CPU_FREQ_DEFAULT_GOV_USERSPACE is not set
+> CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND=y
+> # CONFIG_CPU_FREQ_DEFAULT_GOV_CONSERVATIVE is not set
+> CONFIG_CPU_FREQ_GOV_PERFORMANCE=y
+> # CONFIG_CPU_FREQ_GOV_POWERSAVE is not set
+> # CONFIG_CPU_FREQ_GOV_USERSPACE is not set
+> CONFIG_CPU_FREQ_GOV_ONDEMAND=y
+> # CONFIG_CPU_FREQ_GOV_CONSERVATIVE is not set
+>
+> #
+> # PowerPC CPU frequency scaling drivers
+> #
+> CONFIG_CPU_FREQ_PMAC64=y
+>
+> #
+> # CPUIdle driver
+> #
+> # CONFIG_CPU_IDLE is not set
+> # CONFIG_ARCH_NEEDS_CPU_IDLE_COUPLED is not set
+> # CONFIG_FSL_ULI1575 is not set
+> # CONFIG_SIMPLE_GPIO is not set
+>
+> #
+> # Kernel options
+> #
+> CONFIG_HZ_100=y
+> # CONFIG_HZ_250 is not set
+> # CONFIG_HZ_300 is not set
+> # CONFIG_HZ_1000 is not set
+> CONFIG_HZ=100
+> CONFIG_SCHED_HRTICK=y
+> # CONFIG_PREEMPT_NONE is not set
+> # CONFIG_PREEMPT_VOLUNTARY is not set
+> CONFIG_PREEMPT=y
+> CONFIG_PREEMPT_COUNT=y
+> CONFIG_BINFMT_ELF=y
+> CONFIG_COMPAT_BINFMT_ELF=y
+> CONFIG_CORE_DUMP_DEFAULT_ELF_HEADERS=y
+> CONFIG_BINFMT_SCRIPT=y
+> # CONFIG_HAVE_AOUT is not set
+> # CONFIG_BINFMT_MISC is not set
+> CONFIG_COREDUMP=y
+> CONFIG_IOMMU_HELPER=y
+> # CONFIG_SWIOTLB is not set
+> CONFIG_ARCH_ENABLE_MEMORY_HOTPLUG=y
+> CONFIG_ARCH_HAS_WALK_MEMORY=y
+> CONFIG_ARCH_ENABLE_MEMORY_HOTREMOVE=y
+> # CONFIG_KEXEC is not set
+> # CONFIG_CRASH_DUMP is not set
+> # CONFIG_NUMA is not set
+> CONFIG_ARCH_SELECT_MEMORY_MODEL=y
+> CONFIG_ARCH_FLATMEM_ENABLE=y
+> CONFIG_ARCH_SPARSEMEM_ENABLE=y
+> CONFIG_SYS_SUPPORTS_HUGETLBFS=y
+> CONFIG_SELECT_MEMORY_MODEL=y
+> CONFIG_FLATMEM_MANUAL=y
+> # CONFIG_SPARSEMEM_MANUAL is not set
+> CONFIG_FLATMEM=y
+> CONFIG_FLAT_NODE_MEM_MAP=y
+> CONFIG_SPARSEMEM_VMEMMAP_ENABLE=y
+> CONFIG_HAVE_MEMBLOCK=y
+> CONFIG_HAVE_MEMBLOCK_NODE_MAP=y
+> # CONFIG_HAVE_BOOTMEM_INFO_NODE is not set
+> CONFIG_PAGEFLAGS_EXTENDED=y
+> CONFIG_SPLIT_PTLOCK_CPUS=4
+> CONFIG_COMPACTION=y
+> CONFIG_MIGRATION=y
+> CONFIG_PHYS_ADDR_T_64BIT=y
+> CONFIG_ZONE_DMA_FLAG=1
+> CONFIG_BOUNCE=y
+> # CONFIG_KSM is not set
+> CONFIG_DEFAULT_MMAP_MIN_ADDR=4096
+> # CONFIG_CROSS_MEMORY_ATTACH is not set
+> CONFIG_NEED_PER_CPU_KM=y
+> # CONFIG_CLEANCACHE is not set
+> # CONFIG_FRONTSWAP is not set
+> # CONFIG_ZBUD is not set
+> # CONFIG_PPC_HAS_HASH_64K is not set
+> CONFIG_PPC_4K_PAGES=y
+> # CONFIG_PPC_64K_PAGES is not set
+> CONFIG_FORCE_MAX_ZONEORDER=13
+> # CONFIG_PPC_DENORMALISATION is not set
+> # CONFIG_CMDLINE_BOOL is not set
+> CONFIG_EXTRA_TARGETS=""
+> CONFIG_ARCH_WANTS_FREEZER_CONTROL=y
+> CONFIG_SUSPEND=y
+> CONFIG_SUSPEND_FREEZER=y
+> # CONFIG_HIBERNATION is not set
+> CONFIG_PM_SLEEP=y
+> # CONFIG_PM_AUTOSLEEP is not set
+> # CONFIG_PM_WAKELOCKS is not set
+> # CONFIG_PM_RUNTIME is not set
+> CONFIG_PM=y
+> # CONFIG_PM_DEBUG is not set
+> # CONFIG_WQ_POWER_EFFICIENT_DEFAULT is not set
+> # CONFIG_SECCOMP is not set
+> CONFIG_ISA_DMA_API=y
+>
+> #
+> # Bus options
+> #
+> CONFIG_ZONE_DMA=y
+> CONFIG_NEED_DMA_MAP_STATE=y
+> CONFIG_NEED_SG_DMA_LENGTH=y
+> CONFIG_GENERIC_ISA_DMA=y
+> # CONFIG_PPC_INDIRECT_PCI is not set
+> CONFIG_PCI=y
+> CONFIG_PCI_DOMAINS=y
+> CONFIG_PCI_SYSCALL=y
+> # CONFIG_PCIEPORTBUS is not set
+> CONFIG_ARCH_SUPPORTS_MSI=y
+> CONFIG_PCI_MSI=y
+> # CONFIG_PCI_DEBUG is not set
+> # CONFIG_PCI_REALLOC_ENABLE_AUTO is not set
+> # CONFIG_PCI_STUB is not set
+> # CONFIG_PCI_IOV is not set
+> # CONFIG_PCI_PRI is not set
+> # CONFIG_PCI_PASID is not set
+>
+> #
+> # PCI host controller drivers
+> #
+> # CONFIG_PCCARD is not set
+> # CONFIG_HOTPLUG_PCI is not set
+> # CONFIG_HAS_RAPIDIO is not set
+> # CONFIG_RAPIDIO is not set
+> # CONFIG_NONSTATIC_KERNEL is not set
+> # CONFIG_RELOCATABLE is not set
+> CONFIG_PAGE_OFFSET=0xc000000000000000
+> CONFIG_KERNEL_START=0xc000000000000000
+> CONFIG_PHYSICAL_START=0x00000000
+> CONFIG_NET=y
+> CONFIG_COMPAT_NETLINK_MESSAGES=y
+>
+> #
+> # Networking options
+> #
+> CONFIG_PACKET=y
+> # CONFIG_PACKET_DIAG is not set
+> CONFIG_UNIX=y
+> # CONFIG_UNIX_DIAG is not set
+> # CONFIG_XFRM_USER is not set
+> # CONFIG_NET_KEY is not set
+> CONFIG_INET=y
+> # CONFIG_IP_MULTICAST is not set
+> # CONFIG_IP_ADVANCED_ROUTER is not set
+> # CONFIG_IP_PNP is not set
+> # CONFIG_NET_IPIP is not set
+> # CONFIG_NET_IPGRE_DEMUX is not set
+> # CONFIG_NET_IP_TUNNEL is not set
+> # CONFIG_ARPD is not set
+> # CONFIG_SYN_COOKIES is not set
+> # CONFIG_INET_AH is not set
+> # CONFIG_INET_ESP is not set
+> # CONFIG_INET_IPCOMP is not set
+> # CONFIG_INET_XFRM_TUNNEL is not set
+> # CONFIG_INET_TUNNEL is not set
+> # CONFIG_INET_XFRM_MODE_TRANSPORT is not set
+> # CONFIG_INET_XFRM_MODE_TUNNEL is not set
+> # CONFIG_INET_XFRM_MODE_BEET is not set
+> CONFIG_INET_LRO=y
+> # CONFIG_INET_DIAG is not set
+> # CONFIG_TCP_CONG_ADVANCED is not set
+> CONFIG_TCP_CONG_CUBIC=y
+> CONFIG_DEFAULT_TCP_CONG="cubic"
+> # CONFIG_TCP_MD5SIG is not set
+> # CONFIG_IPV6 is not set
+> # CONFIG_NETWORK_SECMARK is not set
+> # CONFIG_NETWORK_PHY_TIMESTAMPING is not set
+> # CONFIG_NETFILTER is not set
+> # CONFIG_IP_DCCP is not set
+> # CONFIG_IP_SCTP is not set
+> # CONFIG_RDS is not set
+> # CONFIG_TIPC is not set
+> # CONFIG_ATM is not set
+> # CONFIG_L2TP is not set
+> # CONFIG_BRIDGE is not set
+> CONFIG_HAVE_NET_DSA=y
+> # CONFIG_VLAN_8021Q is not set
+> # CONFIG_DECNET is not set
+> # CONFIG_LLC2 is not set
+> # CONFIG_IPX is not set
+> # CONFIG_ATALK is not set
+> # CONFIG_X25 is not set
+> # CONFIG_LAPB is not set
+> # CONFIG_PHONET is not set
+> # CONFIG_IEEE802154 is not set
+> # CONFIG_NET_SCHED is not set
+> # CONFIG_DCB is not set
+> # CONFIG_BATMAN_ADV is not set
+> # CONFIG_OPENVSWITCH is not set
+> # CONFIG_VSOCKETS is not set
+> # CONFIG_NETLINK_MMAP is not set
+> # CONFIG_NETLINK_DIAG is not set
+> # CONFIG_NET_MPLS_GSO is not set
+> # CONFIG_NETPRIO_CGROUP is not set
+> CONFIG_NET_LL_RX_POLL=y
+> CONFIG_BQL=y
+> # CONFIG_BPF_JIT is not set
+>
+> #
+> # Network testing
+> #
+> # CONFIG_NET_PKTGEN is not set
+> # CONFIG_HAMRADIO is not set
+> # CONFIG_CAN is not set
+> # CONFIG_IRDA is not set
+> # CONFIG_BT is not set
+> # CONFIG_AF_RXRPC is not set
+> CONFIG_WIRELESS=y
+> CONFIG_WEXT_CORE=y
+> CONFIG_WEXT_PROC=y
+> CONFIG_CFG80211=y
+> # CONFIG_NL80211_TESTMODE is not set
+> # CONFIG_CFG80211_DEVELOPER_WARNINGS is not set
+> # CONFIG_CFG80211_REG_DEBUG is not set
+> # CONFIG_CFG80211_CERTIFICATION_ONUS is not set
+> CONFIG_CFG80211_DEFAULT_PS=y
+> # CONFIG_CFG80211_INTERNAL_REGDB is not set
+> CONFIG_CFG80211_WEXT=y
+> # CONFIG_LIB80211 is not set
+> CONFIG_MAC80211=y
+> CONFIG_MAC80211_HAS_RC=y
+> # CONFIG_MAC80211_RC_PID is not set
+> CONFIG_MAC80211_RC_MINSTREL=y
+> # CONFIG_MAC80211_RC_MINSTREL_HT is not set
+> CONFIG_MAC80211_RC_DEFAULT_MINSTREL=y
+> CONFIG_MAC80211_RC_DEFAULT="minstrel"
 
+Does it help if you enable CONFIG_MAC80211_RC_MINSTREL_HT and make it default? I 
+also have a PPC box with a PCMCIA-based BCM4318 and I do not see the problem 
+with those differences. The other difference that I see is that I use the LXDE 
+desktop and control the network with NetworkManager.
 
-Begin forwarded message:
-
-Date: Thu, 18 Jul 2013 15:49:18 -0700
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-Subject: [Bug 33332] IC Plus Corp IP1000 Family Gigabit Ethernet and OpenSuSE (x86, x86_64)
-
-
-https://bugzilla.kernel.org/show_bug.cgi?id=33332
-
-David Barnes <dnsenrab@yahoo.com> changed:
-
-           What    |Removed                     |Added
-----------------------------------------------------------------------------
-                 CC|                            |dnsenrab@yahoo.com
-
---- Comment #6 from David Barnes <dnsenrab@yahoo.com> ---
-(In reply to Alan from comment #5)
-> Is this still seen in modern (3.2+) kernels ?
-
-Linux 3800LU64 3.2.0-48-generic #74-Ubuntu SMP Thu Jun 6 19:43:26 UTC 2013
-x86_64 x86_64 x86_64 GNU/Linux
-
-- Device: eth1  [Wired connection 1]
--------------------------------------------
-  Type:              Wired
-  Driver:            Sundance Technology IPG Triple-Speed Ethernet
-  State:             connected
-  Default:           yes
-  HW Address:        F4:6D:04:AB:24:CB
-
-product: IP1000 Family Gigabit Ethernet [13F0:1023]
-vendor: Sundance Technology Inc / IC Plus Corp [13F0]
-bus info: pci@0000:01:08.0
-logical name: eth1
-version: 41
-serial: f4:6d:04:ab:24:cb
-size: 100Mbit/s
-capacity: 100Mbit/s
-width: 32 bits
-clock: 66MHz
-
-
-
-Still a bug.
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+Larry
