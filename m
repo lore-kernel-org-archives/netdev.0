@@ -1,71 +1,55 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] virtio-net: put virtio net header inline with data
-Date: Wed, 17 Jul 2013 15:32:36 +0930
-Message-ID: <8761w9zptv.fsf@rustcorp.com.au>
-References: <8761wc38ea.fsf@rustcorp.com.au>
-	<20130716.123326.798365002638711260.davem@davemloft.net>
-	<20130717050032.GB10482@redhat.com>
-	<20130716.220529.49723311269417873.davem@davemloft.net>
+From: Darren Hart <dvhart@linux.intel.com>
+Subject: Re: [RFC] Any value in having a netdev FAQ?
+Date: Wed, 17 Jul 2013 18:55:04 -0700
+Message-ID: <1374112504.7622.49.camel@envy.home>
+References: <20130716025954.GC26761@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, davej@redhat.com
-To: David Miller <davem@davemloft.net>, mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130716.220529.49723311269417873.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	netdev@vger.kernel.org
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:28538 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757723Ab3GRBzH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jul 2013 21:55:07 -0400
+In-Reply-To: <20130716025954.GC26761@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
-> From: "Michael S. Tsirkin" <mst@redhat.com>
-> Date: Wed, 17 Jul 2013 08:00:32 +0300
->
->> On Tue, Jul 16, 2013 at 12:33:26PM -0700, David Miller wrote:
->>> From: Rusty Russell <rusty@rustcorp.com.au>
->>> Date: Mon, 15 Jul 2013 11:13:25 +0930
->>> 
->>> > From: Michael S. Tsirkin <mst@redhat.com>
->>> > 
->>> > For small packets we can simplify xmit processing
->>> > by linearizing buffers with the header:
->>> > most packets seem to have enough head room
->>> > we can use for this purpose.
->>> > Since existing hypervisors require that header
->>> > is the first s/g element, we need a feature bit
->>> > for this.
->>> > 
->>> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->>> > Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
->>> 
->>> I really think this has to wait until the next merge window, sorry.
->>> 
->>> Please resubmit this when I open net-next back up, thanks.
->> 
->> I assumed since -rc1 is out net-next is already open?
->
-> -rc1 being released never makes net-next open.  Instead, I explicitly
-> open it up at some point in time after -rc1 when I feel that things
-> have settled down enough.
->
-> And when that happens, I announce so here.
->
-> So you have to follow my announcements here on netdev to know
-> when net-next is actually open.
+On Mon, 2013-07-15 at 22:59 -0400, Paul Gortmaker wrote:
 
-Thanks for letting me know.  I'm sure that works well for others, but I
-can't follow the mailing lists of every maintainer I deal with.
+>    IMPORTANT:  Do not send new net-next content to netdev during the
+>    period during which net-next tree is closed.
+> 
+>    Shortly after the two weeks have passed, (and vX.Y-rc1 is released) the
+>    tree for net-next reopens to collect content for the next (vX.Y+1) release.
 
-Fortunately, you're the paragon for acking applied patches, so if I hit
-this failure mode again I will know.
+So I misunderstood this line apparently. I checked Linus tree:
 
-Cheers,
-Rusty.
+$ git show v3.11-rc1
+tag v3.11-rc1
+Tagger: Linus Torvalds <torvalds@linux-foundation.org>
+Date:   Sun Jul 14 15:18:41 2013 -0700
+
+Linux 3.11-rc1
+
+And seeing that rc1 had been tagged 3 days ago, submitted the pch_gbe
+patch for MinnowBoard to netdev for net-next. David *very* politely :-)
+asked me to resubmit when the net-next tree was open. It appears to me
+then that we need to add a bit here about searching the archives
+mentioned above for the last netdev-is-open message (I presume there is
+a common subject format) to know whether a patch will be welcomed or
+not.
+
+I am not subscribed to netdev as I contribute only very rarely. Is it
+considered a requirement that one be subscribed to netdev in order to
+contribute? If so, we should add that here as well.
+
+
+-- 
+Darren Hart
+Intel Open Source Technology Center
+Yocto Project - Linux Kernel
