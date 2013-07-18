@@ -1,66 +1,111 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [RFC] Any value in having a netdev FAQ?
-Date: Thu, 18 Jul 2013 09:33:42 -0400
-Message-ID: <51E7EEB6.3080706@windriver.com>
-References: <20130716025954.GC26761@windriver.com> <1374112504.7622.49.camel@envy.home>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] vlan: mask vlan prio bits
+Date: Thu, 18 Jul 2013 07:19:26 -0700
+Message-ID: <1374157166.6097.28.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	<netdev@vger.kernel.org>
-To: Darren Hart <dvhart@linux.intel.com>
+Cc: "Steinar H. Gunderson" <sesse@google.com>,
+	Florian Zumbiehl <florz@florz.de>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:44675 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759027Ab3GRNdg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 09:33:36 -0400
-In-Reply-To: <1374112504.7622.49.camel@envy.home>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:52921 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757741Ab3GROT3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 10:19:29 -0400
+Received: by mail-pd0-f180.google.com with SMTP id 10so3106569pdi.25
+        for <netdev@vger.kernel.org>; Thu, 18 Jul 2013 07:19:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13-07-17 09:55 PM, Darren Hart wrote:
-> On Mon, 2013-07-15 at 22:59 -0400, Paul Gortmaker wrote:
-> 
->>    IMPORTANT:  Do not send new net-next content to netdev during the
->>    period during which net-next tree is closed.
->>
->>    Shortly after the two weeks have passed, (and vX.Y-rc1 is released) the
->>    tree for net-next reopens to collect content for the next (vX.Y+1) release.
-> 
-> So I misunderstood this line apparently. I checked Linus tree:
-> 
-> $ git show v3.11-rc1
-> tag v3.11-rc1
-> Tagger: Linus Torvalds <torvalds@linux-foundation.org>
-> Date:   Sun Jul 14 15:18:41 2013 -0700
-> 
-> Linux 3.11-rc1
-> 
-> And seeing that rc1 had been tagged 3 days ago, submitted the pch_gbe
-> patch for MinnowBoard to netdev for net-next. David *very* politely :-)
-> asked me to resubmit when the net-next tree was open. It appears to me
-> then that we need to add a bit here about searching the archives
-> mentioned above for the last netdev-is-open message (I presume there is
-> a common subject format) to know whether a patch will be welcomed or
-> not.
+From: Eric Dumazet <edumazet@google.com>
 
-I will append under the "Shortly after..." text something like:
+In commit 48cc32d38a52d0b68f91a171a8d00531edc6a46e
+("vlan: don't deliver frames for unknown vlans to protocols")
+Florian made sure we set pkt_type to PACKET_OTHERHOST
+if the vlan id is set and we could find a vlan device for this
+particular id.
 
-  "If you aren't subscribed to netdev and/or are simply unsure
-  if net-next has re-opened yet, simply check the net-next git
-  repository link above for any new networking related commits."
+But we also have a problem if prio bits are set.
 
-That "link above" would be this:
+Steinar reported an issue on a router receiving IPv6 frames with a
+vlan tag of 4000 (id 0, prio 2), and tunneled into a sit device,
+because skb->vlan_tci is set.
 
-http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git
+Forwarded frame is completely corrupted : We can see (8100:4000)
+being inserted in the middle of IPv6 source address :
 
-P.
---
+16:48:00.780413 IP6 2001:16d8:8100:4000:ee1c:0:9d9:bc87 >
+9f94:4d95:2001:67c:29f4::: ICMP6, unknown icmp6 type (0), length 64
+       0x0000:  0000 0029 8000 c7c3 7103 0001 a0ae e651
+       0x0010:  0000 0000 ccce 0b00 0000 0000 1011 1213
+       0x0020:  1415 1617 1819 1a1b 1c1d 1e1f 2021 2223
+       0x0030:  2425 2627 2829 2a2b 2c2d 2e2f 3031 3233
 
-> 
-> I am not subscribed to netdev as I contribute only very rarely. Is it
-> considered a requirement that one be subscribed to netdev in order to
-> contribute? If so, we should add that here as well.
-> 
-> 
+It seems we are not really ready to properly cope with this right now.
+
+We can probably do better in future kernels : 
+vlan_get_ingress_priority() should be a netdev property instead of
+a per vlan_dev one.
+
+For stable kernels, lets clear vlan_tci to fix the bugs.
+
+Reported-by: Steinar H. Gunderson <sesse@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/linux/if_vlan.h |    3 +--
+ net/8021q/vlan_core.c   |    2 +-
+ net/core/dev.c          |   11 +++++++++--
+ 3 files changed, 11 insertions(+), 5 deletions(-)
+
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index cdcbafa..715c343 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -79,9 +79,8 @@ static inline int is_vlan_dev(struct net_device *dev)
+ }
+ 
+ #define vlan_tx_tag_present(__skb)	((__skb)->vlan_tci & VLAN_TAG_PRESENT)
+-#define vlan_tx_nonzero_tag_present(__skb) \
+-	(vlan_tx_tag_present(__skb) && ((__skb)->vlan_tci & VLAN_VID_MASK))
+ #define vlan_tx_tag_get(__skb)		((__skb)->vlan_tci & ~VLAN_TAG_PRESENT)
++#define vlan_tx_tag_get_id(__skb)	((__skb)->vlan_tci & VLAN_VID_MASK)
+ 
+ #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+ 
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index 8a15eaa..4a78c4d 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -9,7 +9,7 @@ bool vlan_do_receive(struct sk_buff **skbp)
+ {
+ 	struct sk_buff *skb = *skbp;
+ 	__be16 vlan_proto = skb->vlan_proto;
+-	u16 vlan_id = skb->vlan_tci & VLAN_VID_MASK;
++	u16 vlan_id = vlan_tx_tag_get_id(skb);
+ 	struct net_device *vlan_dev;
+ 	struct vlan_pcpu_stats *rx_stats;
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a3d8d44..26755dd 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3580,8 +3580,15 @@ ncls:
+ 		}
+ 	}
+ 
+-	if (vlan_tx_nonzero_tag_present(skb))
+-		skb->pkt_type = PACKET_OTHERHOST;
++	if (unlikely(vlan_tx_tag_present(skb))) {
++		if (vlan_tx_tag_get_id(skb))
++			skb->pkt_type = PACKET_OTHERHOST;
++		/* Note: we might in the future use prio bits
++		 * and set skb->priority like in vlan_do_receive()
++		 * For the time being, just ignore Priority Code Point
++		 */
++		skb->vlan_tci = 0;
++	}
+ 
+ 	/* deliver only exact match when indicated */
+ 	null_or_dev = deliver_exact ? skb->dev : NULL;
