@@ -1,84 +1,118 @@
-From: Peter Wu <lekensteyn@gmail.com>
-Subject: r8169: is the work queue is initialized at wrong place?
-Date: Thu, 18 Jul 2013 11:17:24 +0200
-Message-ID: <5838023.rAHnY47tlv@al>
+From: Fan Du <fan.du@windriver.com>
+Subject: Re: [DISCUSSION] rt6i_genid
+Date: Thu, 18 Jul 2013 17:28:02 +0800
+Message-ID: <51E7B522.4070105@windriver.com>
+References: <51E75F82.4080300@windriver.com> <51E7B1B0.3000109@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f53.google.com ([209.85.214.53]:60546 "EHLO
-	mail-bk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752065Ab3GRJR3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 05:17:29 -0400
-Received: by mail-bk0-f53.google.com with SMTP id e11so1085645bkh.40
-        for <netdev@vger.kernel.org>; Thu, 18 Jul 2013 02:17:28 -0700 (PDT)
+Received: from mail1.windriver.com ([147.11.146.13]:33352 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751646Ab3GRJ1q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 05:27:46 -0400
+In-Reply-To: <51E7B1B0.3000109@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-While writing EEPROM dumping code for r8169, I encountered a lockdep warning 
-after the following sequence:
+Thanks for replying :)
 
-(assume PCI device 03:00.0 to be bound to r8169)
-sudo tee /sys/bus/pci/drivers/r8169/unbind <<<0000:03:00.0
+On 2013=E5=B9=B407=E6=9C=8818=E6=97=A5 17:13, Nicolas Dichtel wrote:
+> Le 18/07/2013 05:22, Fan Du a =C3=A9crit :
+>> Hello Nicolas
+>>
+>> Commit 6f3118b571b8a4c06c7985dc3172c3526cb86253: "ipv6: use net->rt_=
+genid to
+>> check dst validity"
+>> makes ip6_dst_check to check rt6i_genid against with struct net->rt_=
+genid,
+>> As a matter of fact, struct net->rt_genid could only be modified by =
+two places,
+>> first is adding/delete IPv4 address, second is inserting new XFRM po=
+licy.
+>>
+>> Is there any other considerations that adding/deleting IPv4 address =
+would
+>> invalid all IPv6 dst
+>> as well? because I'm working a patch which actually depends on the r=
+esult of
+>> this question.
+> No, the goal was to cover the IPsec case, ie invalidate dst entries w=
+hen an xfrm policy is inserted/deleted.
 
-The warning is:
-[  809.907323] INFO: trying to register non-static key.
-[  809.907336] the code is fine but needs lockdep annotation.
-[  809.907339] turning off the locking correctness validator.
-[  809.907345] CPU: 2 PID: 2207 Comm: tee Tainted: G        W    3.11.0-rc1-
-cold-00021-g3aaf2fe-dirty #1
-[  809.907349] Hardware name: Gigabyte Technology Co., Ltd. To be filled by 
-O.E.M./Z68X-UD3H-B3, BIOS U1l 03/08/2013
-[  809.907353]  ffff880601ba0000 ffff880600943b58 ffffffff8166d3e7 0000000000000000
-[  809.907419]  ffff8806002cd8f8 ffff880600943bf8 ffffffff810ad6d6 ffff880600943bb8
-[  809.907429]  ffffffff00000000 ffff880600000000 0000000600000000 ffff880600943ce0
-[  809.907440] Call Trace:
-[  809.907451]  [<ffffffff8166d3e7>] dump_stack+0x55/0x76
-[  809.907459]  [<ffffffff810ad6d6>] __lock_acquire+0x9b6/0xab0
-[  809.907465]  [<ffffffff810adf76>] ? lockdep_init_map.part.40+0x46/0x590
-[  809.907473]  [<ffffffff81069f35>] ? flush_work+0x5/0xb0
-[  809.907479]  [<ffffffff810ade80>] lock_acquire+0x90/0x140
-[  809.907485]  [<ffffffff81069f35>] ? flush_work+0x5/0xb0
-[  809.907491]  [<ffffffff81069f78>] flush_work+0x48/0xb0
-[  809.907497]  [<ffffffff81069f35>] ? flush_work+0x5/0xb0
-[  809.907502]  [<ffffffff810abbb4>] ? mark_held_locks+0x74/0x140
-[  809.907508]  [<ffffffff8106afb1>] ? __cancel_work_timer+0x71/0x110
-[  809.907514]  [<ffffffff810abe3d>] ? trace_hardirqs_on_caller+0x7d/0x150
-[  809.907519]  [<ffffffff8106afbd>] __cancel_work_timer+0x7d/0x110
-[  809.907526]  [<ffffffff8106b080>] cancel_work_sync+0x10/0x20
-[  809.907537]  [<ffffffffa0142f73>] rtl_remove_one+0x63/0x150 [r8169]
-[  809.907544]  [<ffffffff8134a626>] pci_device_remove+0x46/0xc0
-[  809.907551]  [<ffffffff8141832f>] __device_release_driver+0x7f/0xf0
-[  809.907556]  [<ffffffff814183ce>] device_release_driver+0x2e/0x40
-[  809.907563]  [<ffffffff81417213>] driver_unbind+0xa3/0xc0
-[  809.907569]  [<ffffffff814165f4>] drv_attr_store+0x24/0x40
-[  809.907576]  [<ffffffff811fe0f6>] sysfs_write_file+0xe6/0x170
-[  809.907582]  [<ffffffff81187f7e>] vfs_write+0xce/0x200
-[  809.907588]  [<ffffffff81188485>] SyS_write+0x55/0xa0
-[  809.907595]  [<ffffffff81682982>] system_call_fastpath+0x16/0x1b
+Ok, then how about we only checking rt6i_genid against rt_genid *only*
+when XFRM is enabled for IPv6, because when XFRM is not enabled for IPv=
+6
+ip6_dst_check for rt_genid is really not necessary.
 
-(This is kernel v3.11-rc1-19-gc0d15cc with a66b2e5 and 2f7021a8 reverted due 
-to another unrelated locking issue on suspend/resume [1])
+So what do you think of below modifications?
 
-rtl_remove_one calls:
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index 2a601e7..4ae35fd 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -119,7 +119,9 @@ struct rt6_info {
+         struct inet6_dev                *rt6i_idev;
+         unsigned long                   _rt6i_peer;
 
-    cancel_work_sync(&tp->wk.work);
++#ifdef CONFIG_XFRM
+         u32                             rt6i_genid;
++#endif
 
-However, this queue is only initialized in rtl_open:
+         /* more non-fragment space at head required */
+         unsigned short                  rt6i_nfheader_len;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index bd5fd70..1b64406 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -277,7 +277,9 @@ static inline struct rt6_info *ip6_dst_alloc(struct=
+ net *net,
 
-6673         INIT_WORK(&tp->wk.work, rtl_task);
-6674 
-6675         smp_mb();
+                 memset(dst + 1, 0, sizeof(*rt) - sizeof(*dst));
+                 rt6_init_peer(rt, table ? &table->tb6_peers : net->ipv=
+6.peers);
++#ifdef CONFIG_XFRM
+                 rt->rt6i_genid =3D rt_genid(net);
++#endif
+                 INIT_LIST_HEAD(&rt->rt6i_siblings);
+                 rt->rt6i_nsiblings =3D 0;
+         }
+@@ -1041,12 +1043,15 @@ static struct dst_entry *ip6_dst_check(struct d=
+st_entry *dst, u32 cookie)
 
-Shouldn't this INIT_WORK be done in rtl_init_one? I do not know what this 
-smp_mb is used for in this context, so I leave an appropriate patch up to you.
+         rt =3D (struct rt6_info *) dst;
 
-Regards,
-Peter
++#ifdef CONFIG_XFRM
+         /* All IPV6 dsts are created with ->obsolete set to the value
+          * DST_OBSOLETE_FORCE_CHK which forces validation calls down
+          * into this function always.
++        * Note: for IPv6, rt6i_genid is noly used when XFRM enabled.
+          */
+         if (rt->rt6i_genid !=3D rt_genid(dev_net(rt->dst.dev)))
+                 return NULL;
++#endif
 
- [1]: https://lkml.org/lkml/2013/7/15/501
+         if (rt->rt6i_node && (rt->rt6i_node->fn_sernum =3D=3D cookie))
+                 return dst;
+
+
+
+
+
+
+
+
+>
+> Regards,
+> Nicolas
+>
+
+--=20
+=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
+=E7=AC=91
+
+--fan
