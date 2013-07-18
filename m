@@ -1,154 +1,68 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net 2/2] vxlan: fix igmp races
-Date: Thu, 18 Jul 2013 08:40:15 -0700
-Message-ID: <20130718084015.507bd03c@nehalam.linuxnetplumber.net>
-References: <20130718083826.58ae2b77@nehalam.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] vlan: mask vlan prio bits
+Date: Thu, 18 Jul 2013 08:49:30 -0700
+Message-ID: <1374162570.6097.33.camel@edumazet-glaptop>
+References: <1374157166.6097.28.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Pravin Shelar <pshelar@nicira.com>
+Cc: "Steinar H. Gunderson" <sesse@google.com>,
+	Florian Zumbiehl <florz@florz.de>,
+	netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:48198 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758607Ab3GRPqf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 11:46:35 -0400
-Received: by mail-pb0-f51.google.com with SMTP id um15so3305586pbc.38
-        for <netdev@vger.kernel.org>; Thu, 18 Jul 2013 08:46:34 -0700 (PDT)
-In-Reply-To: <20130718083826.58ae2b77@nehalam.linuxnetplumber.net>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:44212 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758607Ab3GRPtg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 11:49:36 -0400
+Received: by mail-pa0-f45.google.com with SMTP id bi5so3360801pad.4
+        for <netdev@vger.kernel.org>; Thu, 18 Jul 2013 08:49:35 -0700 (PDT)
+In-Reply-To: <1374157166.6097.28.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are two race conditions in existing code for doing IGMP
-management in workqueue in vxlan. First, the vxlan_group_used
-function checks the list of vxlan's without any protection, and
-it is possible for open followed by close to occur before the
-igmp work queue runs.
+On Thu, 2013-07-18 at 07:19 -0700, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> In commit 48cc32d38a52d0b68f91a171a8d00531edc6a46e
+> ("vlan: don't deliver frames for unknown vlans to protocols")
+> Florian made sure we set pkt_type to PACKET_OTHERHOST
+> if the vlan id is set and we could find a vlan device for this
+> particular id.
+> 
+> But we also have a problem if prio bits are set.
+> 
+> Steinar reported an issue on a router receiving IPv6 frames with a
+> vlan tag of 4000 (id 0, prio 2), and tunneled into a sit device,
+> because skb->vlan_tci is set.
+> 
+> Forwarded frame is completely corrupted : We can see (8100:4000)
+> being inserted in the middle of IPv6 source address :
+> 
+> 16:48:00.780413 IP6 2001:16d8:8100:4000:ee1c:0:9d9:bc87 >
+> 9f94:4d95:2001:67c:29f4::: ICMP6, unknown icmp6 type (0), length 64
+>        0x0000:  0000 0029 8000 c7c3 7103 0001 a0ae e651
+>        0x0010:  0000 0000 ccce 0b00 0000 0000 1011 1213
+>        0x0020:  1415 1617 1819 1a1b 1c1d 1e1f 2021 2223
+>        0x0030:  2425 2627 2829 2a2b 2c2d 2e2f 3031 3233
+> 
+> It seems we are not really ready to properly cope with this right now.
+> 
+> We can probably do better in future kernels : 
+> vlan_get_ingress_priority() should be a netdev property instead of
+> a per vlan_dev one.
+> 
+> For stable kernels, lets clear vlan_tci to fix the bugs.
+> 
+> Reported-by: Steinar H. Gunderson <sesse@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
 
-To solve these move the check into vxlan_open/stop so it is
-protected by RTNL. And split into two work structures so that
-there is no racy reference to underlying device state.
+While looking at the 'future' patches for net-next, I found
+that vlan_dev_get_egress_qos_mask() uses no protection at all
+while doing the lookup in hash table.
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+This is racy with concurrent insert/deletes, eventually.
 
---- a/drivers/net/vxlan.c	2013-07-17 17:03:05.136038741 -0700
-+++ b/drivers/net/vxlan.c	2013-07-17 17:31:33.822426541 -0700
-@@ -136,7 +136,8 @@ struct vxlan_dev {
- 	u32		  flags;	/* VXLAN_F_* below */
- 
- 	struct work_struct sock_work;
--	struct work_struct igmp_work;
-+	struct work_struct igmp_join;
-+	struct work_struct igmp_leave;
- 
- 	unsigned long	  age_interval;
- 	struct timer_list age_timer;
-@@ -736,7 +737,6 @@ static bool vxlan_snoop(struct net_devic
- 	return false;
- }
- 
--
- /* See if multicast group is already in use by other ID */
- static bool vxlan_group_used(struct vxlan_net *vn, __be32 remote_ip)
- {
-@@ -770,12 +770,13 @@ static void vxlan_sock_release(struct vx
- 	queue_work(vxlan_wq, &vs->del_work);
- }
- 
--/* Callback to update multicast group membership.
-- * Scheduled when vxlan goes up/down.
-+/* Callback to update multicast group membership when first VNI on
-+ * multicast asddress is brought up
-+ * Done as workqueue because ip_mc_join_group acquires RTNL.
-  */
--static void vxlan_igmp_work(struct work_struct *work)
-+static void vxlan_igmp_join(struct work_struct *work)
- {
--	struct vxlan_dev *vxlan = container_of(work, struct vxlan_dev, igmp_work);
-+	struct vxlan_dev *vxlan = container_of(work, struct vxlan_dev, igmp_join);
- 	struct vxlan_net *vn = net_generic(dev_net(vxlan->dev), vxlan_net_id);
- 	struct vxlan_sock *vs = vxlan->vn_sock;
- 	struct sock *sk = vs->sock->sk;
-@@ -785,10 +786,27 @@ static void vxlan_igmp_work(struct work_
- 	};
- 
- 	lock_sock(sk);
--	if (vxlan_group_used(vn, vxlan->default_dst.remote_ip))
--		ip_mc_join_group(sk, &mreq);
--	else
--		ip_mc_leave_group(sk, &mreq);
-+	ip_mc_join_group(sk, &mreq);
-+	release_sock(sk);
-+
-+	vxlan_sock_release(vn, vs);
-+	dev_put(vxlan->dev);
-+}
-+
-+/* Inverse of vxlan_igmp_join when last VNI is brought down */
-+static void vxlan_igmp_leave(struct work_struct *work)
-+{
-+	struct vxlan_dev *vxlan = container_of(work, struct vxlan_dev, igmp_leave);
-+	struct vxlan_net *vn = net_generic(dev_net(vxlan->dev), vxlan_net_id);
-+	struct vxlan_sock *vs = vxlan->vn_sock;
-+	struct sock *sk = vs->sock->sk;
-+	struct ip_mreqn mreq = {
-+		.imr_multiaddr.s_addr	= vxlan->default_dst.remote_ip,
-+		.imr_ifindex		= vxlan->default_dst.remote_ifindex,
-+	};
-+
-+	lock_sock(sk);
-+	ip_mc_leave_group(sk, &mreq);
- 	release_sock(sk);
- 
- 	vxlan_sock_release(vn, vs);
-@@ -1359,6 +1377,7 @@ static void vxlan_uninit(struct net_devi
- /* Start ageing timer and join group when device is brought up */
- static int vxlan_open(struct net_device *dev)
- {
-+	struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
- 	struct vxlan_sock *vs = vxlan->vn_sock;
- 
-@@ -1366,10 +1385,11 @@ static int vxlan_open(struct net_device
- 	if (!vs)
- 		return -ENOTCONN;
- 
--	if (IN_MULTICAST(ntohl(vxlan->default_dst.remote_ip))) {
-+	if (IN_MULTICAST(ntohl(vxlan->default_dst.remote_ip)) &&
-+	    ! vxlan_group_used(vn, vxlan->default_dst.remote_ip)) {
- 		vxlan_sock_hold(vs);
- 		dev_hold(dev);
--		queue_work(vxlan_wq, &vxlan->igmp_work);
-+		queue_work(vxlan_wq, &vxlan->igmp_join);
- 	}
- 
- 	if (vxlan->age_interval)
-@@ -1400,13 +1420,15 @@ static void vxlan_flush(struct vxlan_dev
- /* Cleanup timer and forwarding table on shutdown */
- static int vxlan_stop(struct net_device *dev)
- {
-+	struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
- 	struct vxlan_sock *vs = vxlan->vn_sock;
- 
--	if (vs && IN_MULTICAST(ntohl(vxlan->default_dst.remote_ip))) {
-+	if (vs && IN_MULTICAST(ntohl(vxlan->default_dst.remote_ip)) &&
-+	    ! vxlan_group_used(vn, vxlan->default_dst.remote_ip)) {
- 		vxlan_sock_hold(vs);
- 		dev_hold(dev);
--		queue_work(vxlan_wq, &vxlan->igmp_work);
-+		queue_work(vxlan_wq, &vxlan->igmp_leave);
- 	}
- 
- 	del_timer_sync(&vxlan->age_timer);
-@@ -1471,7 +1493,8 @@ static void vxlan_setup(struct net_devic
- 
- 	INIT_LIST_HEAD(&vxlan->next);
- 	spin_lock_init(&vxlan->hash_lock);
--	INIT_WORK(&vxlan->igmp_work, vxlan_igmp_work);
-+	INIT_WORK(&vxlan->igmp_join, vxlan_igmp_join);
-+	INIT_WORK(&vxlan->igmp_leave, vxlan_igmp_leave);
- 	INIT_WORK(&vxlan->sock_work, vxlan_sock_work);
- 
- 	init_timer_deferrable(&vxlan->age_timer);
+This probably needs a bit of RCU care ;)
