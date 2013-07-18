@@ -1,62 +1,68 @@
-From: Fabian Bergmark <fabian.bergmark@gmail.com>
-Subject: Fwd: UDP encapsulation of SCTP packages
-Date: Thu, 18 Jul 2013 21:05:48 +0200
-Message-ID: <CAG=SMqaMPTTvOHBwiCy17+gOxsBpabkmvG1sEBhf7nus4amuFQ@mail.gmail.com>
-References: <CAG=SMqaUdvB_ducuzbcFE0XtjP7vdi5ZRSB8mrua3yuZebbN+g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=20cf301b613be46cc004e1cde583
-To: netdev@vger.kernel.org
+From: Flavio Leitner <fbl@redhat.com>
+Subject: [PATCH net] veth: add vlan features
+Date: Thu, 18 Jul 2013 16:15:11 -0300
+Message-ID: <1374174911-6435-1-git-send-email-fbl@redhat.com>
+Cc: Flavio Leitner <fbl@redhat.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:44918 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933317Ab3GRTFs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 15:05:48 -0400
-Received: by mail-ie0-f170.google.com with SMTP id e11so7928899iej.1
-        for <netdev@vger.kernel.org>; Thu, 18 Jul 2013 12:05:48 -0700 (PDT)
-In-Reply-To: <CAG=SMqaUdvB_ducuzbcFE0XtjP7vdi5ZRSB8mrua3yuZebbN+g@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:55630 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933119Ab3GRTPX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Jul 2013 15:15:23 -0400
+Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r6IJFLcc021604
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Thu, 18 Jul 2013 15:15:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---20cf301b613be46cc004e1cde583
-Content-Type: text/plain; charset=ISO-8859-1
+The veth device doesn't provide the vlan features,
+so TSO for example is disabled and that causes
+performance issues when using tagged traffic.
 
-Im working on implementing UDP encapsulation of SCTP packages.
+The test topology looks like this:
 
-I have tried to implement  the encapsulation/decapsulation in a way
-that is transparent to the logic of the current implementation.
+    br0                     br1
+  /   \                  /     \
+vnet  veth0.10 ----- veth1.10   vnet
+VM                               VM
 
-Currently I'am able to send and recieve data over localhost or over
-intranet. However, when trying to communicate over NAT I ran in to
-problems. Because of port remapping of the UDP source port I included
-as a final step to update the source port of the SCTP header and
-recalculate the checksum.
+The netperf results with current veth driver:
+MIGRATED TCP STREAM TEST from 192.168.1.1 ()
+port 0 AF_INET to 192.168.1.2 () port 0 AF_INET
+Recv   Send    Send
+Socket Socket  Message  Elapsed
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/sec
 
-This however, causes a kernel panic somewhere between receiving the
-UDP packet and replying the INIT_ACK, that I am unable to understand.
-Is there anything, besides the source port and checksum in the SCTP
-header that needs to be updated?
+ 87380  16384  16384    10.01    2210.22
 
-I have included a packet capture of the INIT-packages that causes the panic.
+Now after applying the proposed patch:
+MIGRATED TCP STREAM TEST from 192.168.1.1 ()
+port 0 AF_INET to 192.168.1.2 () port 0 AF_INET
+Recv   Send    Send
+Socket Socket  Message  Elapsed
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/sec
 
-As I am new to kernel development, general advice on how to debug this
-issue is appreciated.
+ 87380  16384  16384    10.00    13067.47
 
--- Fabian Bergmark
+Signed-off-by: Flavio Leitner <fbl@redhat.com>
+---
+ drivers/net/veth.c | 1 +
+ 1 file changed, 1 insertion(+)
 
---20cf301b613be46cc004e1cde583
-Content-Type: application/octet-stream; name="SCTP in UDP.pcap"
-Content-Disposition: attachment; filename="SCTP in UDP.pcap"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_hjab8sgm0
-
-Cg0NCmgAAABNPCsaAQAAAP//////////AwAQAExpbnV4IDMuOS4yLUFSQ0gEAC0ARHVtcGNhcCAx
-LjEwLjAgKFNWTiBSZXYgVW5rbm93biBmcm9tIHVua25vd24pAAAAAAAAAGgAAAABAAAARAAAAAEA
-AAD//wAAAgAEAGV0aDAJAAEABgAAAAsABAAAdWRwDAAQAExpbnV4IDMuOS4yLUFSQ0gAAAAARAAA
-AAYAAAB8AAAAAAAAAM3hBACn17keWgAAAFoAAABSVADWNxQIACfYt8kIAEUCAEwAAEAAQBF3d1Ox
-p1fAqAd30tEFOAA4tHzS0QU5AAAAAHTqW3sBAAAk8jfPSgABoAAAAgACjfjWmQAMAAYABQAAgAAA
-BMAAAAQAAHwAAAAGAAAAfAAAAAAAAADN4QQAS6LnHloAAABaAAAAUlQA1jcUCAAn2LfJCABFAgBM
-AABAAEARd3dTsadXwKgHd9LRBTgAOLR80tEFOQAAAAB06lt7AQAAJPI3z0oAAaAAAAIAAo341pkA
-DAAGAAUAAIAAAATAAAAEAAB8AAAABQAAAGwAAAAAAAAAzeEEAGMAmR8BABwAQ291bnRlcnMgcHJv
-dmlkZWQgYnkgZHVtcGNhcAIACADN4QQA4LhsHgMACADN4QQAmf+YHwQACAAHAAAAAAAAAAUACAAA
-AAAAAAAAAAAAAABsAAAA
---20cf301b613be46cc004e1cde583--
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index da86652..eee1f19 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -269,6 +269,7 @@ static void veth_setup(struct net_device *dev)
+ 	dev->ethtool_ops = &veth_ethtool_ops;
+ 	dev->features |= NETIF_F_LLTX;
+ 	dev->features |= VETH_FEATURES;
++	dev->vlan_features = dev->features;
+ 	dev->destructor = veth_dev_free;
+ 
+ 	dev->hw_features = VETH_FEATURES;
+-- 
+1.8.3.1
