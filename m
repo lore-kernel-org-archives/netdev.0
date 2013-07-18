@@ -1,52 +1,62 @@
-From: Fernando Soto <fernando.soto@gmail.com>
-Subject: Re: WARNING: at net/core/dst.c:274 dst_release+0x2d/0x56()
-Date: Thu, 18 Jul 2013 11:55:28 -0400
-Message-ID: <CADCFf2gS3sS0hL1pr-P+LUVqhvBEMLy-Q8hRp-R8c06e4qtp2g@mail.gmail.com>
-References: <CADCFf2jAJRiHgMaMs8tNWSaonPmXg6q5C66iisdpuz9yMSAV+w@mail.gmail.com>
-	<1372799622.4979.22.camel@edumazet-glaptop>
-	<CADCFf2hEzwgtqfn4nHc4VwgT2+_XW9=uAos7Qo5YsEpRCWFO5Q@mail.gmail.com>
-	<CADCFf2iUeyhnfhHET2Tbi1bM+7h=2LXLFvcerXHsz3Xv6E6zLw@mail.gmail.com>
-	<1372950494.4979.97.camel@edumazet-glaptop>
-	<CADCFf2gS=m_X2WOVGdgUoKyGgdn1sD9HsBYhjikeMN05RExrOQ@mail.gmail.com>
-	<CADCFf2jzs+41uKD9RjotXpqSRDoJnSFY90LVKt2UeQfUF05Wrg@mail.gmail.com>
-	<1374083689.6097.19.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] vlan: fix a race in egress prio management
+Date: Thu, 18 Jul 2013 09:35:10 -0700
+Message-ID: <1374165310.6097.39.camel@edumazet-glaptop>
+References: <1374157166.6097.28.camel@edumazet-glaptop>
+	 <1374162570.6097.33.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Patrick McHardy <kaber@trash.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f182.google.com ([209.85.214.182]:39349 "EHLO
-	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932148Ab3GRPz3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 11:55:29 -0400
-Received: by mail-ob0-f182.google.com with SMTP id va7so3904555obc.13
-        for <netdev@vger.kernel.org>; Thu, 18 Jul 2013 08:55:28 -0700 (PDT)
-In-Reply-To: <1374083689.6097.19.camel@edumazet-glaptop>
+Received: from mail-ob0-f173.google.com ([209.85.214.173]:42007 "EHLO
+	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932427Ab3GRQfP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 12:35:15 -0400
+Received: by mail-ob0-f173.google.com with SMTP id wc20so3966147obb.32
+        for <netdev@vger.kernel.org>; Thu, 18 Jul 2013 09:35:14 -0700 (PDT)
+In-Reply-To: <1374162570.6097.33.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+From: Eric Dumazet <edumazet@google.com>
 
-I applied the patch to the latest 3.10.1 and the network is working
-fine. I'm not sure if it is due to the patch or any other changes
-between 3.10.0 and 3.10.1.
-I'll leave iperf running for a few days. Looks good so far.
+egress_priority_map[] hash table updates are protected by rtnl,
+and we never remove elements until device is dismantled.
 
-Thank you!
+We have to make sure that before inserting an new element in hash table,
+all its fields are committed to memory or else another cpu could
+find corrupt values and crash.
 
-Fernando
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Patrick McHardy <kaber@trash.net>
+---
+ net/8021q/vlan_dev.c |    7 +++++++
+ 1 file changed, 7 insertions(+)
 
-On Wed, Jul 17, 2013 at 1:54 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2013-07-17 at 09:19 -0400, Fernando Soto wrote:
->> Hi Eric,
->>
->> Just to let you know that I have performed same tests with 3.4.52 and
->> it works fine.
->> Kernel 3.10 had another issue that prevented me from running the same
->> tests: network dies as soon as I launch iperf - no kernel errors, but
->> it simply doesn't work.
->> I'll stick to 3.4.52. Thanks for your help.
->
-> This might be relevant : http://patchwork.ozlabs.org/patch/259596/
->
->
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 3a8c8fd..1cd3d2a 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -73,6 +73,8 @@ vlan_dev_get_egress_qos_mask(struct net_device *dev, struct sk_buff *skb)
+ {
+ 	struct vlan_priority_tci_mapping *mp;
+ 
++	smp_rmb(); /* coupled with smp_wmb() in vlan_dev_set_egress_priority() */
++
+ 	mp = vlan_dev_priv(dev)->egress_priority_map[(skb->priority & 0xF)];
+ 	while (mp) {
+ 		if (mp->priority == skb->priority) {
+@@ -249,6 +251,11 @@ int vlan_dev_set_egress_priority(const struct net_device *dev,
+ 	np->next = mp;
+ 	np->priority = skb_prio;
+ 	np->vlan_qos = vlan_qos;
++	/* Before inserting this element in hash table, make sure all its fields
++	 * are committed to memory.
++	 * coupled with smp_rmb() in vlan_dev_get_egress_qos_mask()
++	 */
++	smp_wmb();
+ 	vlan->egress_priority_map[skb_prio & 0xF] = np;
+ 	if (vlan_qos)
+ 		vlan->nr_egress_mappings++;
