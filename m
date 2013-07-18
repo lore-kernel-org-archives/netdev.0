@@ -1,60 +1,62 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net 1/2] vxlan: unregister on namespace exit
-Date: Thu, 18 Jul 2013 11:28:14 -0700
-Message-ID: <CALnjE+p_TvGYuEQw1U8kVAMOxMWTBB0wxhXYoE-LWv8cTvxknA@mail.gmail.com>
-References: <20130718083826.58ae2b77@nehalam.linuxnetplumber.net>
-	<CALnjE+rStFY0nmTytAX7nLeg2O2kxP7WRSo-M3r_K59ELT1Y+A@mail.gmail.com>
-	<20130718095828.715cc9f4@nehalam.linuxnetplumber.net>
+From: Fabian Bergmark <fabian.bergmark@gmail.com>
+Subject: Fwd: UDP encapsulation of SCTP packages
+Date: Thu, 18 Jul 2013 21:05:48 +0200
+Message-ID: <CAG=SMqaMPTTvOHBwiCy17+gOxsBpabkmvG1sEBhf7nus4amuFQ@mail.gmail.com>
+References: <CAG=SMqaUdvB_ducuzbcFE0XtjP7vdi5ZRSB8mrua3yuZebbN+g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: multipart/mixed; boundary=20cf301b613be46cc004e1cde583
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog103.obsmtp.com ([74.125.149.71]:50133 "HELO
-	na3sys009aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S932496Ab3GRS2Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 14:28:16 -0400
-Received: by mail-qa0-f53.google.com with SMTP id g10so1872812qah.19
-        for <netdev@vger.kernel.org>; Thu, 18 Jul 2013 11:28:14 -0700 (PDT)
-In-Reply-To: <20130718095828.715cc9f4@nehalam.linuxnetplumber.net>
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:44918 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933317Ab3GRTFs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 15:05:48 -0400
+Received: by mail-ie0-f170.google.com with SMTP id e11so7928899iej.1
+        for <netdev@vger.kernel.org>; Thu, 18 Jul 2013 12:05:48 -0700 (PDT)
+In-Reply-To: <CAG=SMqaUdvB_ducuzbcFE0XtjP7vdi5ZRSB8mrua3yuZebbN+g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 18, 2013 at 9:58 AM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Thu, 18 Jul 2013 09:40:07 -0700
-> Pravin Shelar <pshelar@nicira.com> wrote:
->
->> On Thu, Jul 18, 2013 at 8:38 AM, Stephen Hemminger
->> <stephen@networkplumber.org> wrote:
->> > Fix memory leaks and other badness from VXLAN network namespace
->> > teardown. When network namespace is removed, all the vxlan devices should
->> > be unregistered (not closed).
->> >
->> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
->> >
->> >
->> > --- a/drivers/net/vxlan.c       2013-07-17 16:32:10.826955800 -0700
->> > +++ b/drivers/net/vxlan.c       2013-07-17 16:47:35.275690741 -0700
->> > @@ -1878,10 +1878,12 @@ static __net_exit void vxlan_exit_net(st
->> >  {
->> >         struct vxlan_net *vn = net_generic(net, vxlan_net_id);
->> >         struct vxlan_dev *vxlan;
->> > +       LIST_HEAD(list);
->> >
->> >         rtnl_lock();
->> > -       list_for_each_entry(vxlan, &vn->vxlan_list, next)
->> > -               dev_close(vxlan->dev);
->> > +       list_for_each_entry(vxlan, &vn->vxlan_list, next)
->> > +               unregister_netdevice_queue(vxlan->dev, &list);
->> > +       unregister_netdevice_many(&list);
->> >         rtnl_unlock();
->> >  }
->> >
->> Looks good.
->> Reviewed-by: Pravin B Shelar <pshelar@nicira.com>
->
-> vxlan might be a candidate for integration with the generic ip_tunnel
-> code, but haven't looked at all the details.
+--20cf301b613be46cc004e1cde583
+Content-Type: text/plain; charset=ISO-8859-1
 
-ip_tunnel already does same on net-exit.
+Im working on implementing UDP encapsulation of SCTP packages.
+
+I have tried to implement  the encapsulation/decapsulation in a way
+that is transparent to the logic of the current implementation.
+
+Currently I'am able to send and recieve data over localhost or over
+intranet. However, when trying to communicate over NAT I ran in to
+problems. Because of port remapping of the UDP source port I included
+as a final step to update the source port of the SCTP header and
+recalculate the checksum.
+
+This however, causes a kernel panic somewhere between receiving the
+UDP packet and replying the INIT_ACK, that I am unable to understand.
+Is there anything, besides the source port and checksum in the SCTP
+header that needs to be updated?
+
+I have included a packet capture of the INIT-packages that causes the panic.
+
+As I am new to kernel development, general advice on how to debug this
+issue is appreciated.
+
+-- Fabian Bergmark
+
+--20cf301b613be46cc004e1cde583
+Content-Type: application/octet-stream; name="SCTP in UDP.pcap"
+Content-Disposition: attachment; filename="SCTP in UDP.pcap"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hjab8sgm0
+
+Cg0NCmgAAABNPCsaAQAAAP//////////AwAQAExpbnV4IDMuOS4yLUFSQ0gEAC0ARHVtcGNhcCAx
+LjEwLjAgKFNWTiBSZXYgVW5rbm93biBmcm9tIHVua25vd24pAAAAAAAAAGgAAAABAAAARAAAAAEA
+AAD//wAAAgAEAGV0aDAJAAEABgAAAAsABAAAdWRwDAAQAExpbnV4IDMuOS4yLUFSQ0gAAAAARAAA
+AAYAAAB8AAAAAAAAAM3hBACn17keWgAAAFoAAABSVADWNxQIACfYt8kIAEUCAEwAAEAAQBF3d1Ox
+p1fAqAd30tEFOAA4tHzS0QU5AAAAAHTqW3sBAAAk8jfPSgABoAAAAgACjfjWmQAMAAYABQAAgAAA
+BMAAAAQAAHwAAAAGAAAAfAAAAAAAAADN4QQAS6LnHloAAABaAAAAUlQA1jcUCAAn2LfJCABFAgBM
+AABAAEARd3dTsadXwKgHd9LRBTgAOLR80tEFOQAAAAB06lt7AQAAJPI3z0oAAaAAAAIAAo341pkA
+DAAGAAUAAIAAAATAAAAEAAB8AAAABQAAAGwAAAAAAAAAzeEEAGMAmR8BABwAQ291bnRlcnMgcHJv
+dmlkZWQgYnkgZHVtcGNhcAIACADN4QQA4LhsHgMACADN4QQAmf+YHwQACAAHAAAAAAAAAAUACAAA
+AAAAAAAAAAAAAABsAAAA
+--20cf301b613be46cc004e1cde583--
