@@ -1,46 +1,46 @@
-From: Pavel Machek <pavel@denx.de>
-Subject: Re: [PATCH] phy: micrel: Add definitions for common Micrel PHY
- registers
-Date: Thu, 18 Jul 2013 13:17:12 +0200
-Message-ID: <20130718111712.GA1021@amd.pavel.ucw.cz>
-References: <1373929730-28130-1-git-send-email-dinguyen@altera.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: buggy check in netlink_mmap_sendmsg()
+Date: Thu, 18 Jul 2013 13:22:34 +0200
+Message-ID: <20130718111358.GA27488@macbook.localnet>
+References: <20130714093619.GH4165@ZenIV.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dinh.linux@gmail.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Shawn Guo <shawn.guo@linaro.org>,
-	Andrew Victor <linux@maxim.org.za>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>
-To: dinguyen@altera.com
+Cc: netdev@vger.kernel.org
+To: Al Viro <viro@ZenIV.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:60152 "EHLO
-	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757780Ab3GRLRP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 07:17:15 -0400
+Received: from stinky.trash.net ([213.144.137.162]:50021 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757889Ab3GRLcV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 07:32:21 -0400
 Content-Disposition: inline
-In-Reply-To: <1373929730-28130-1-git-send-email-dinguyen@altera.com>
+In-Reply-To: <20130714093619.GH4165@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon 2013-07-15 18:08:50, dinguyen@altera.com wrote:
-> From: Dinh Nguyen <dinguyen@altera.com>
-> 
-> Add defines for common Micrel PHY setups so that other platforms
-> can use them. Update imx61 and sama5 hardware to use the micrel_phy.h
-> PHY defines.
+On Sun, Jul 14, 2013 at 10:36:19AM +0100, Al Viro wrote:
+> This
+>         /* Netlink messages are validated by the receiver before processing.
+>          * In order to avoid userspace changing the contents of the message
+>          * after validation, the socket and the ring may only be used by a
+>          * single process, otherwise we fall back to copying.
+>          */
+>         if (atomic_long_read(&sk->sk_socket->file->f_count) > 2 ||  
+>             atomic_read(&nlk->mapped) > 1)
+>                 excl = false;
+> looks very odd.  For one thing, descriptor table may be shared, with
+> one thread calling sendmsg() (which gives f_count equal to 2), while
+> another calls mmap() just as the first one gets past that check.
 
-Looks good to me.
+Another thread calling mmap() should be fine since validation, processing
+and mmap() all happen under the pg_vec_lock mutex.
 
-> Signed-off-by: Dinh Nguyen <dinguyen@altera.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: Shawn Guo <shawn.guo@linaro.org>
-> CC: Andrew Victor <linux@maxim.org.za>
-> CC: Nicolas Ferre <nicolas.ferre@atmel.com>
-> CC: Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>
+> Moreover, we might very well have the damn thing mmapped, then clone(2)
+> creating another thread that shares address space, but not the descriptor
+> table.  Child closes the socket descriptor it got, then parent does
+> sendmsg(2) (f_count == 2, again, since this time descriptor table isn't
+> shared and sendmsg(2) doesn't grab a reference and we have 1 from descriptor
+> table and 1 from mapping).  Again, the child has it mapped and can play
+> with it as it wishes...
 
-Reviewed-by: Pavel Machek <pavel@denx.de>
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+This is unfortunately not my area of expertise. Let me look into how we
+can prevent this.
