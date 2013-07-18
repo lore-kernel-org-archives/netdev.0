@@ -1,40 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: WARNING: at net/core/dst.c:274 dst_release+0x2d/0x56()
-Date: Thu, 18 Jul 2013 09:37:19 -0700
-Message-ID: <1374165439.6097.40.camel@edumazet-glaptop>
-References: <CADCFf2jAJRiHgMaMs8tNWSaonPmXg6q5C66iisdpuz9yMSAV+w@mail.gmail.com>
-	 <1372799622.4979.22.camel@edumazet-glaptop>
-	 <CADCFf2hEzwgtqfn4nHc4VwgT2+_XW9=uAos7Qo5YsEpRCWFO5Q@mail.gmail.com>
-	 <CADCFf2iUeyhnfhHET2Tbi1bM+7h=2LXLFvcerXHsz3Xv6E6zLw@mail.gmail.com>
-	 <1372950494.4979.97.camel@edumazet-glaptop>
-	 <CADCFf2gS=m_X2WOVGdgUoKyGgdn1sD9HsBYhjikeMN05RExrOQ@mail.gmail.com>
-	 <CADCFf2jzs+41uKD9RjotXpqSRDoJnSFY90LVKt2UeQfUF05Wrg@mail.gmail.com>
-	 <1374083689.6097.19.camel@edumazet-glaptop>
-	 <CADCFf2gS3sS0hL1pr-P+LUVqhvBEMLy-Q8hRp-R8c06e4qtp2g@mail.gmail.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net 1/2] vxlan: unregister on namespace exit
+Date: Thu, 18 Jul 2013 09:40:07 -0700
+Message-ID: <CALnjE+rStFY0nmTytAX7nLeg2O2kxP7WRSo-M3r_K59ELT1Y+A@mail.gmail.com>
+References: <20130718083826.58ae2b77@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Fernando Soto <fernando.soto@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f175.google.com ([209.85.214.175]:61648 "EHLO
-	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752128Ab3GRQhX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 12:37:23 -0400
-Received: by mail-ob0-f175.google.com with SMTP id xn12so3903777obc.6
-        for <netdev@vger.kernel.org>; Thu, 18 Jul 2013 09:37:22 -0700 (PDT)
-In-Reply-To: <CADCFf2gS3sS0hL1pr-P+LUVqhvBEMLy-Q8hRp-R8c06e4qtp2g@mail.gmail.com>
+Received: from na3sys009aog114.obsmtp.com ([74.125.149.211]:58589 "HELO
+	na3sys009aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752128Ab3GRQkO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 12:40:14 -0400
+Received: by mail-qe0-f44.google.com with SMTP id 5so1929450qeb.3
+        for <netdev@vger.kernel.org>; Thu, 18 Jul 2013 09:40:07 -0700 (PDT)
+In-Reply-To: <20130718083826.58ae2b77@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-07-18 at 11:55 -0400, Fernando Soto wrote:
-> Hi Eric,
-> 
-> I applied the patch to the latest 3.10.1 and the network is working
-> fine. I'm not sure if it is due to the patch or any other changes
-> between 3.10.0 and 3.10.1.
-> I'll leave iperf running for a few days. Looks good so far.
-> 
-> Thank you!
-
-Thanks for the update !
+On Thu, Jul 18, 2013 at 8:38 AM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> Fix memory leaks and other badness from VXLAN network namespace
+> teardown. When network namespace is removed, all the vxlan devices should
+> be unregistered (not closed).
+>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+>
+>
+> --- a/drivers/net/vxlan.c       2013-07-17 16:32:10.826955800 -0700
+> +++ b/drivers/net/vxlan.c       2013-07-17 16:47:35.275690741 -0700
+> @@ -1878,10 +1878,12 @@ static __net_exit void vxlan_exit_net(st
+>  {
+>         struct vxlan_net *vn = net_generic(net, vxlan_net_id);
+>         struct vxlan_dev *vxlan;
+> +       LIST_HEAD(list);
+>
+>         rtnl_lock();
+> -       list_for_each_entry(vxlan, &vn->vxlan_list, next)
+> -               dev_close(vxlan->dev);
+> +       list_for_each_entry(vxlan, &vn->vxlan_list, next)
+> +               unregister_netdevice_queue(vxlan->dev, &list);
+> +       unregister_netdevice_many(&list);
+>         rtnl_unlock();
+>  }
+>
+Looks good.
+Reviewed-by: Pravin B Shelar <pshelar@nicira.com>
