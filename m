@@ -1,46 +1,54 @@
 From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-Subject: [PATCH net 3/9] qlcnic: Fix NULL pointer dereference in VF probe path.
-Date: Fri, 19 Jul 2013 16:56:28 -0400
-Message-ID: <1374267394-27697-4-git-send-email-sucheta.chakraborty@qlogic.com>
+Subject: [PATCH net 5/9] qlcnic: Fix panic while setting VF's MAC address
+Date: Fri, 19 Jul 2013 16:56:30 -0400
+Message-ID: <1374267394-27697-6-git-send-email-sucheta.chakraborty@qlogic.com>
 References: <1374267394-27697-1-git-send-email-sucheta.chakraborty@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>
+Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Manish Chopra <manish.chopra@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db9lp0252.outbound.messaging.microsoft.com ([213.199.154.252]:45537
-	"EHLO db9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751838Ab3GSVYF (ORCPT
+Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:40783 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751971Ab3GSVYF (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jul 2013 17:24:05 -0400
 In-Reply-To: <1374267394-27697-1-git-send-email-sucheta.chakraborty@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o Check for non-NULL set_mac_filter_count function pointer
-  before calling it fixes the panic.
+From: Manish Chopra <manish.chopra@qlogic.com>
 
-This patch fixes regression introduced by patch
-"qlcnic: Secondary unicast MAC address support." with
-commit id 168e4fb54c11865668ad50eff81b5f2729e0e0f4.
+o "qlcnic_sriov" structure pointer should be accessed only
+  when SR-IOV is enabled. Access this pointer after SR-IOV
+  PF check.
 
+Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
 Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index b00cf56..f4bb8f5 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -1869,7 +1869,8 @@ static inline void qlcnic_free_mac_list(struct qlcnic_adapter *adapter)
- 
- static inline void qlcnic_set_mac_filter_count(struct qlcnic_adapter *adapter)
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
+index ee0c1d3..b9b88f3 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
+@@ -1621,13 +1621,15 @@ int qlcnic_sriov_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
  {
--	adapter->ahw->hw_ops->set_mac_filter_count(adapter);
-+	if (adapter->ahw->hw_ops->set_mac_filter_count)
-+		adapter->ahw->hw_ops->set_mac_filter_count(adapter);
- }
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 	struct qlcnic_sriov *sriov = adapter->ahw->sriov;
+-	int i, num_vfs = sriov->num_vfs;
++	int i, num_vfs;
+ 	struct qlcnic_vf_info *vf_info;
+ 	u8 *curr_mac;
  
- static inline void qlcnic_dev_request_reset(struct qlcnic_adapter *adapter,
+ 	if (!qlcnic_sriov_pf_check(adapter))
+ 		return -EOPNOTSUPP;
+ 
++	num_vfs = sriov->num_vfs;
++
+ 	if (!is_valid_ether_addr(mac) || vf >= num_vfs)
+ 		return -EINVAL;
+ 
 -- 
 1.7.1
