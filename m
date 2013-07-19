@@ -1,45 +1,86 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: buggy check in netlink_mmap_sendmsg()
-Date: Fri, 19 Jul 2013 16:52:09 +0100
-Message-ID: <20130719155209.GG4165@ZenIV.linux.org.uk>
-References: <20130714093619.GH4165@ZenIV.linux.org.uk>
- <20130718111358.GA27488@macbook.localnet>
- <20130719153846.GB14764@macbook.localnet>
+From: Vincent Li <vincent.mc.li@gmail.com>
+Subject: RFC: configurable tcp timewait timeout sysctl kernel knob ?
+Date: Fri, 19 Jul 2013 08:59:54 -0700
+Message-ID: <CAK3+h2xK0UpkGofhqK3nsvR-3MLk81TxrWfpSiM6GbAgPRhrqA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:54556 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760776Ab3GSPwK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jul 2013 11:52:10 -0400
-Content-Disposition: inline
-In-Reply-To: <20130719153846.GB14764@macbook.localnet>
+Received: from mail-oa0-f50.google.com ([209.85.219.50]:47395 "EHLO
+	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750794Ab3GSP7z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jul 2013 11:59:55 -0400
+Received: by mail-oa0-f50.google.com with SMTP id k7so6234037oag.23
+        for <netdev@vger.kernel.org>; Fri, 19 Jul 2013 08:59:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 19, 2013 at 05:38:46PM +0200, Patrick McHardy wrote:
-> On Thu, Jul 18, 2013 at 01:13:58PM +0200, Patrick McHardy wrote:
-> > On Sun, Jul 14, 2013 at 10:36:19AM +0100, Al Viro wrote:
-> > > This
-> > >         /* Netlink messages are validated by the receiver before processing.
-> > >          * In order to avoid userspace changing the contents of the message
-> > >          * after validation, the socket and the ring may only be used by a
-> > >          * single process, otherwise we fall back to copying.
-> > >          */
-> > >         if (atomic_long_read(&sk->sk_socket->file->f_count) > 2 ||  
-> > >             atomic_read(&nlk->mapped) > 1)
-> > >                 excl = false;
-> > > looks very odd.  For one thing, descriptor table may be shared, with
-> > > one thread calling sendmsg() (which gives f_count equal to 2), while
-> > > another calls mmap() just as the first one gets past that check.
-> > 
-> > Another thread calling mmap() should be fine since validation, processing
-> > and mmap() all happen under the pg_vec_lock mutex.
+Hi,
 
-Sorry, no.  Thread A: calls sendmsg(), gets past the check, loses CPU1 on
-e.g. preempt.  Thread B on CPU2 calls mmap(2), returns to userland (having
-dropped the mutex, of course) and proceeds to play with the mapped area.
-Thread A regains CPU and moves on past that if (....), excl still being true.
-See the problem?
+there is sysctl tcp_fin_timeout to tune FIN_WAIT2 timeout, I couldn't
+find a sysctl to tune TIME_WAIT timeout and it is hard coded to 60
+seconds, we have a situation we need to either reduce the timewait
+timeout value or recycle the timewait socket that is to use
+tcp_tw_recycle and tcp_tw_reuse, is a sysctl to tune timewait value
+good idea or bad idea that no one bothered to write one?
+
+I have  a dirty hack patch to do that, but I think it may be  broken
+to screw something I couldn't think of.
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index d198005..d1df673 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -245,6 +245,7 @@ extern int sysctl_tcp_timestamps;
+ extern int sysctl_tcp_window_scaling;
+ extern int sysctl_tcp_sack;
+ extern int sysctl_tcp_fin_timeout;
++extern int sysctl_tcp_timewait_timeout;
+ extern int sysctl_tcp_keepalive_time;
+ extern int sysctl_tcp_keepalive_probes;
+ extern int sysctl_tcp_keepalive_intvl;
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index b2c123c..15a0056 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -412,6 +412,13 @@ static struct ctl_table ipv4_table[] = {
+                .mode           = 0644,
+                .proc_handler   = proc_dointvec_jiffies,
+        },
++       {
++               .procname       = "tcp_timewait_timeout",
++               .data           = &sysctl_tcp_timewait_timeout,
++               .maxlen         = sizeof(int),
++               .mode           = 0644,
++               .proc_handler   = proc_dointvec_jiffies,
++       },
+ #ifdef CONFIG_SYN_COOKIES
+        {
+                .procname       = "tcp_syncookies",
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 46ed9af..6df2a9c 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -282,6 +282,7 @@
+ #include <net/ll_poll.h>
+
+ int sysctl_tcp_fin_timeout __read_mostly = TCP_FIN_TIMEOUT;
++int sysctl_tcp_timewait_timeout __read_mostly = TCP_TIMEWAIT_LEN;
+
+ struct percpu_counter tcp_orphan_count;
+ EXPORT_SYMBOL_GPL(tcp_orphan_count);
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index ab1c086..9c2befc 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -332,6 +332,10 @@ void tcp_time_wait(struct sock *sk, int state, int timeo)
+
+                if (recycle_ok) {
+                        tw->tw_timeout = rto;
++               } else if (sysctl_tcp_timewait_timeout) {
++                       tw->tw_timeout = sysctl_tcp_timewait_timeout;
++                       if (state == TCP_TIME_WAIT)
++                               timeo = sysctl_tcp_timewait_timeout;
+                } else {
+                        tw->tw_timeout = TCP_TIMEWAIT_LEN;
+                        if (state == TCP_TIME_WAIT)
