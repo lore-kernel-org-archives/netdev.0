@@ -1,64 +1,41 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [patch net-next 2/3] rtnl: export physical port id via RT
- netlink
-Date: Fri, 19 Jul 2013 17:07:10 +0100
-Message-ID: <1374250030.2796.4.camel@bwh-desktop.uk.level5networks.com>
-References: <1374242152-10325-1-git-send-email-jiri@resnulli.us>
-	 <1374242152-10325-3-git-send-email-jiri@resnulli.us>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC] qlcnic: Enhance ethtool to display board temperature.
+Date: Fri, 19 Jul 2013 09:11:28 -0700
+Message-ID: <20130719091128.068e5514@nehalam.linuxnetplumber.net>
+References: <1374206237-27233-1-git-send-email-himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<stephen@networkplumber.org>, <Narendra_K@Dell.com>,
-	<john.r.fastabend@intel.com>
-To: Jiri Pirko <jiri@resnulli.us>
+	<Dept_NX_Linux_NIC_Driver@qlogic.com>
+To: Himanshu Madhani <himanshu.madhani@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:35252 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751340Ab3GSQHQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jul 2013 12:07:16 -0400
-In-Reply-To: <1374242152-10325-3-git-send-email-jiri@resnulli.us>
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:47170 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760148Ab3GSQLb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jul 2013 12:11:31 -0400
+Received: by mail-pb0-f54.google.com with SMTP id ro2so4596074pbb.41
+        for <netdev@vger.kernel.org>; Fri, 19 Jul 2013 09:11:31 -0700 (PDT)
+In-Reply-To: <1374206237-27233-1-git-send-email-himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-07-19 at 15:55 +0200, Jiri Pirko wrote:
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->  include/uapi/linux/if_link.h |  1 +
->  net/core/rtnetlink.c         | 25 ++++++++++++++++++++++++-
->  2 files changed, 25 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-> index 03f6170..04c0e7a 100644
-> --- a/include/uapi/linux/if_link.h
-> +++ b/include/uapi/linux/if_link.h
-[...]
-> @@ -846,6 +847,24 @@ static int rtnl_port_fill(struct sk_buff *skb, struct net_device *dev)
->  	return 0;
->  }
->  
-> +static int rtnl_phys_port_id_fill(struct sk_buff *skb, struct net_device *dev)
-> +{
-> +	int err;
-> +	struct netdev_phys_port_id ppid;
-> +
-> +	if (!dev->netdev_ops->ndo_get_phys_port_id)
-> +		return 0;
-> +
-> +	err = dev->netdev_ops->ndo_get_phys_port_id(dev, &ppid);
-> +	if (err)
-> +		return err;
-[...]
+ 
+>  static int
+> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+> index 38dbafa..2012015 100644
+> --- a/include/uapi/linux/ethtool.h
+> +++ b/include/uapi/linux/ethtool.h
+> @@ -101,6 +101,7 @@ struct ethtool_drvinfo {
+>  	__u32	testinfo_len;
+>  	__u32	eedump_len;	/* Size of data from ETHTOOL_GEEPROM (bytes) */
+>  	__u32	regdump_len;	/* Size of data from ETHTOOL_GREGS (bytes) */
+> +	__u32	board_temp;     /* board temperature */
+>  };
 
-I can imagine a driver only sometimes being able to get the physical
-port ID, depending on hardware variant or firmware version.  That
-shouldn't require defining another instance of net_device_ops.  So if
-the error is -EOPNOTSUPP this should return 0, same as if the function
-pointer is NULL.  
+The idea is good but a couple of comments.
+1. you can't break userspace ABI for ethtool by adding elements.
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+2. There already exists a hardware monitoring subsystem in
+   Linux and there are applications that use it (like SNMP. If you want this feature to
+   be more than a developer toy, then it should use the existing subsystem API's.
