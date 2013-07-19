@@ -1,68 +1,80 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: Re: mod_timer: list_add corruption: WARNING: CPU: 1 PID: 0 at lib/list_debug.c:33
- __list_add+0xbe/0xd0()
-Date: Fri, 19 Jul 2013 14:38:03 +0530
-Message-ID: <51E901F3.8010203@linux.vnet.ibm.com>
-References: <51E557C0.2060602@linux.vnet.ibm.com> <51E8F759.4060202@linux.vnet.ibm.com>
+From: Peter Wu <lekensteyn@gmail.com>
+Subject: Re: r8169: is the work queue is initialized at wrong place?
+Date: Fri, 19 Jul 2013 11:23:46 +0200
+Message-ID: <23723601.GBD7pm82ZA@al>
+References: <5838023.rAHnY47tlv@al> <2387149.B9WVEQm2aY@al> <20130719061017.GA3334@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org
-To: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51E8F759.4060202@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f176.google.com ([74.125.82.176]:42753 "EHLO
+	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753672Ab3GSJXv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jul 2013 05:23:51 -0400
+Received: by mail-we0-f176.google.com with SMTP id q57so357730wes.35
+        for <netdev@vger.kernel.org>; Fri, 19 Jul 2013 02:23:50 -0700 (PDT)
+In-Reply-To: <20130719061017.GA3334@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/19/2013 01:52 PM, Srivatsa S. Bhat wrote:
-> On 07/16/2013 07:55 PM, Srivatsa S. Bhat wrote:
->> Hi,
->>
->> I happened to hit these warnings on an idle system shortly after
->> boot. And the machine locked up and sent NMIs to all CPUs, some of
->> which have been captured below.
->>
->> Kernel version: v3.11-rc1 + 3 unrelated local cpufreq patches.
->> Options set in .config (which are of interest here):
->>
->> CONFIG_TICK_ONESHOT=y
->> CONFIG_NO_HZ_COMMON=y
->> # CONFIG_HZ_PERIODIC is not set
->> # CONFIG_NO_HZ_IDLE is not set
->> CONFIG_NO_HZ_FULL=y
->> CONFIG_NO_HZ_FULL_ALL=y
->> CONFIG_NO_HZ=y
->> CONFIG_HIGH_RES_TIMERS=y
->>
->> CONFIG_TREE_RCU=y
->> # CONFIG_PREEMPT_RCU is not set
->> CONFIG_RCU_STALL_COMMON=y
->> CONFIG_CONTEXT_TRACKING=y
->> CONFIG_RCU_USER_QS=y
->> CONFIG_CONTEXT_TRACKING_FORCE=y
->> CONFIG_RCU_FANOUT=64
->> CONFIG_RCU_FANOUT_LEAF=16
->> # CONFIG_RCU_FANOUT_EXACT is not set
->> CONFIG_RCU_FAST_NO_HZ=y
->> # CONFIG_TREE_RCU_TRACE is not set
->> CONFIG_RCU_NOCB_CPU=y
->> CONFIG_RCU_NOCB_CPU_ALL=y
->>
->>
+On Friday 19 July 2013 08:10:17 Francois Romieu wrote:
+> Peter Wu <lekensteyn@gmail.com> :
+> > On Thursday 18 July 2013 23:53:43 Francois Romieu wrote:
+> [...]
 > 
-> Today I hit the same warnings, even without NO_HZ_FULL enabled.
-> I've attached my .config with this mail.
->
+> > > (or cancel_work_sync in rtl8169_close to reduce the scope)
+> > 
+> > Will this also work with multiple adapters? I currently have an on-board
+> > chip using the r8169 driver and a separate PCI card.
+> 
+> As stated by David, yes.
+Thanks for confirming.
 
-Adding netdev mailing list to CC.
+> > > I do not see how the current code could hurt but it's really ugly.
+> > 
+> > When I googled for the warning, I found some hint about something not
+> > being
+> > initialized. From that I guessed that rtl_open is never called when the
+> > network interface is not brought up (which seems to match the
+> > documentation of struct net_device_ops[1]).
+> 
+> You guessed right. Please note that the relevant struct is zeroed during
+> initialization (see net/core/dev.c::alloc_netdev_mqs). While it's true
+> that the struct is not initialized for use by the device, cancel_work_sync
+> will cope with it (bail out thanks to a 0 bitflag).
+> 
+> You can ignore the warning and proceed with the driver as-is.
+Well, the driver appears to work, but due to this I also miss future lockdep 
+warnings until I reboot.
 
-I had posted the warnings here:
-http://marc.info/?l=linux-kernel&m=137398492701587&w=2
+> I'll fix it anyway. It's too ugly to be kept as is.
+> 
+> Side-note: if you can publish your eeprom reading code, it would be
+> interesting to know how it differs from what has already been tried
+> in the past.
+I will certainly do this. Right not I am leveraging the existing 93cx6 driver 
+in the kernel. I am having difficulties with making the reads reliable though, 
+only after writing at least once to the EEPROM (which is logged as timeout, 
+although the word is written), I am able to read it. Otherwise, I will only 
+read 00s. This is on an external RTL8169SB Gbe PCI card (on the chip itself, I 
+can read RTL8169SC though). (bought for 10$ on Ebay :P).
+
+Initially, this chip could not detect a link (it reported itself with PCI 
+VID:PID 10ec:8129), probably due to a bad driver that overwrote part of the 
+EEPROM (maybe this one[1]?). After writing the EEPROM signature (29 81) (and 
+making the card load from EEPROM by writing 0x40 to register 0x50)), the card 
+MAC version does not get recognized and is detected as generic "RTL8169" 
+(unbind/bind). After a reboot, the card got detected "properly" 
+RTL8169sb/8110sb ("properly", because I really see "RTL8169SC" on the 
+chip...).
+
+On another onboard RTL8111E chip, I only read FFs. I haven't tried writing to 
+that one as it is working perfectly.
 
 Regards,
-Srivatsa S. Bhat
+Peter
+
+ [1]: http://www.gossamer-threads.com/lists/linux/kernel/990061
