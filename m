@@ -1,36 +1,58 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: RFC: configurable tcp timewait timeout sysctl kernel knob ?
-Date: Fri, 19 Jul 2013 19:42:31 +0200
-Message-ID: <20130719174231.GF9494@order.stressinduktion.org>
-References: <CAK3+h2xK0UpkGofhqK3nsvR-3MLk81TxrWfpSiM6GbAgPRhrqA@mail.gmail.com>
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Subject: RE: [RFC] qlcnic: Enhance ethtool to display board temperature.
+Date: Fri, 19 Jul 2013 18:00:10 +0000
+Message-ID: <ADFE82A996F10145934E45547759F763311A265D@avmb3.qlogic.org>
+References: <1374206237-27233-1-git-send-email-himanshu.madhani@qlogic.com>
+ <20130719091128.068e5514@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Vincent Li <vincent.mc.li@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Dept-NX Linux NIC Driver
+	<Dept_NX_Linux_NIC_Driver@qlogic.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:56189 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757578Ab3GSRmd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jul 2013 13:42:33 -0400
-Content-Disposition: inline
-In-Reply-To: <CAK3+h2xK0UpkGofhqK3nsvR-3MLk81TxrWfpSiM6GbAgPRhrqA@mail.gmail.com>
+Received: from tx2ehsobe005.messaging.microsoft.com ([65.55.88.15]:10750 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752847Ab3GSSAP convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Jul 2013 14:00:15 -0400
+In-Reply-To: <20130719091128.068e5514@nehalam.linuxnetplumber.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 19, 2013 at 08:59:54AM -0700, Vincent Li wrote:
-> there is sysctl tcp_fin_timeout to tune FIN_WAIT2 timeout, I couldn't
-> find a sysctl to tune TIME_WAIT timeout and it is hard coded to 60
-> seconds, we have a situation we need to either reduce the timewait
-> timeout value or recycle the timewait socket that is to use
-> tcp_tw_recycle and tcp_tw_reuse, is a sysctl to tune timewait value
-> good idea or bad idea that no one bothered to write one?
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
+> Sent: Friday, July 19, 2013 9:11 AM
+> To: Himanshu Madhani
+> Cc: netdev; David Miller; Dept-NX Linux NIC Driver
+> Subject: Re: [RFC] qlcnic: Enhance ethtool to display board temperature.
 > 
-> I have  a dirty hack patch to do that, but I think it may be  broken
-> to screw something I couldn't think of.
+> 
+> >  static int
+> > diff --git a/include/uapi/linux/ethtool.h
+> > b/include/uapi/linux/ethtool.h index 38dbafa..2012015 100644
+> > --- a/include/uapi/linux/ethtool.h
+> > +++ b/include/uapi/linux/ethtool.h
+> > @@ -101,6 +101,7 @@ struct ethtool_drvinfo {
+> >  	__u32	testinfo_len;
+> >  	__u32	eedump_len;	/* Size of data from ETHTOOL_GEEPROM
+> (bytes) */
+> >  	__u32	regdump_len;	/* Size of data from ETHTOOL_GREGS (bytes)
+> */
+> > +	__u32	board_temp;     /* board temperature */
+> >  };
+> 
+> The idea is good but a couple of comments.
+> 1. you can't break userspace ABI for ethtool by adding elements.
+> 
+> 2. There already exists a hardware monitoring subsystem in
+>    Linux and there are applications that use it (like SNMP. If you want this
+> feature to
+>    be more than a developer toy, then it should use the existing subsystem
+> API's.
 
-This topic pops up from time to time. Until now David Miller (rightfully)
-rejected such a patch: <http://thread.gmane.org/gmane.linux.network/244411/>
-
-Greetings,
-
-  Hannes
+Thanks for the comment. I will use ethtool -S ethX option to display board
+Temperature. 
