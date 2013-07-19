@@ -1,58 +1,40 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 1/2] net: can: esd_usb2: check index of array before accessing
-Date: Fri, 19 Jul 2013 15:17:48 +0200
-Message-ID: <1374239869-27085-2-git-send-email-mkl@pengutronix.de>
-References: <1374239869-27085-1-git-send-email-mkl@pengutronix.de>
-Cc: kernel@pengutronix.de, linux-can@vger.kernel.org,
-	davem@davemloft.net, Maximilian Schneider <max@schneidersoft.net>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-To: netdev@vger.kernel.org
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: net-next is now OPEN
+Date: Fri, 19 Jul 2013 16:27:42 +0300
+Message-ID: <51E93ECE.9000108@linux.intel.com>
+References: <20130719.023518.589482296695696122.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:42820 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760461Ab3GSNSY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jul 2013 09:18:24 -0400
-In-Reply-To: <1374239869-27085-1-git-send-email-mkl@pengutronix.de>
+Received: from mga09.intel.com ([134.134.136.24]:12788 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751195Ab3GSN1p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Jul 2013 09:27:45 -0400
+In-Reply-To: <20130719.023518.589482296695696122.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Maximilian Schneider <max@schneidersoft.net>
+On 19/07/2013 12:35, David Miller wrote:
+> 
+> Please feel free to submit net-next patches now, thanks for being
+> so patient.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-The esd_usb2_read_bulk_callback() function is parsing the data that comes from
-the USB CAN adapter. One datum is used as an index to access the dev->nets[]
-array. This patch adds the missing bounds checking.
+In the next couple of weeks, I would like to post changes to epoll that
+add busy polling support.
 
-Acked-by: Matthias Fuchs <matthias.fuchs@esd.eu>
-Signed-off-by: Maximilian Schneider <max@schneidersoft.net>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
----
- drivers/net/can/usb/esd_usb2.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+Who should be CC-ed on the patches?
 
-diff --git a/drivers/net/can/usb/esd_usb2.c b/drivers/net/can/usb/esd_usb2.c
-index 6aa7b32..ac6177d 100644
---- a/drivers/net/can/usb/esd_usb2.c
-+++ b/drivers/net/can/usb/esd_usb2.c
-@@ -412,10 +412,20 @@ static void esd_usb2_read_bulk_callback(struct urb *urb)
- 
- 		switch (msg->msg.hdr.cmd) {
- 		case CMD_CAN_RX:
-+			if (msg->msg.rx.net >= dev->net_count) {
-+				dev_err(dev->udev->dev.parent, "format error\n");
-+				break;
-+			}
-+
- 			esd_usb2_rx_can_msg(dev->nets[msg->msg.rx.net], msg);
- 			break;
- 
- 		case CMD_CAN_TX:
-+			if (msg->msg.txdone.net >= dev->net_count) {
-+				dev_err(dev->udev->dev.parent, "format error\n");
-+				break;
-+			}
-+
- 			esd_usb2_tx_done_msg(dev->nets[msg->msg.txdone.net],
- 					     msg);
- 			break;
--- 
-1.8.3.1
+BTW, Right now I'm seeing very good results.
+I have tested with up to 10,000 sockets using sockperf.
+There are a few more things I want to do before submitting.
+
+Thanks,
+Eliezer
