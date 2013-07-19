@@ -1,106 +1,145 @@
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [RFC] qlcnic: Enhance ethtool to display board temperature.
-Date: Thu, 18 Jul 2013 23:57:17 -0400
-Message-ID: <1374206237-27233-1-git-send-email-himanshu.madhani@qlogic.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net V2 1/2] tuntap: do not zerocopy if iov needs more
+ pages than MAX_SKB_FRAGS
+Date: Fri, 19 Jul 2013 08:03:35 +0300
+Message-ID: <20130719050335.GA8537@redhat.com>
+References: <1374116116-43844-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:50561 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752774Ab3GSEYr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jul 2013 00:24:47 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:2062 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751908Ab3GSFCO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Jul 2013 01:02:14 -0400
+Content-Disposition: inline
+In-Reply-To: <1374116116-43844-1-git-send-email-jasowang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+On Thu, Jul 18, 2013 at 10:55:15AM +0800, Jason Wang wrote:
+> We try to linearize part of the skb when the number of iov is greater than
+> MAX_SKB_FRAGS. This is not enough since each single vector may occupy more than
+> one pages, so zerocopy_sg_fromiovec() may still fail and may break the guest
+> network.
+> 
+> Solve this problem by calculate the pages needed for iov before trying to do
+> zerocopy and switch to use copy instead of zerocopy if it needs more than
+> MAX_SKB_FRAGS.
+> 
+> This is done through introducing a new helper to count the pages for iov, and
+> call uarg->callback() manually when switching from zerocopy to copy to notify
+> vhost.
+> 
+> We can do further optimization on top.
+> 
+> The bug were introduced from commit 0690899b4d4501b3505be069b9a687e68ccbe15b
+> (tun: experimental zero copy tx support)
+> 
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-We need to provide a mechanism for a user space application to query
-adapter temperature. This RFC patch is to request input on which of the
-following approach would be appropriate way to export this information.
 
-Here are the two approaches that I am exploring. Please review and
-provide your recommendation.
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-1. Enhance ethtool to add capability for driver to advertise its
-   board temperature as part of "ethtool -i <ethX>"
-
-    For example, following would be output for an interface which
-    has board temperature field populated via ethtool
-
-    "#ethtool -i p10p1"
-    driver: qlcnic
-    version: 5.2.44
-    bus-info: 0000:08:00.0
-    supports-statistics: yes
-    supports-test: yes
-    supports-eeprom-access: yes
-    supports-register-dump: yes
-    supports-priv-flags: no
-    board-temperature: 34
-
-    There will be update required for ethtool.c in the repository
-    git://git.kernel.org/pub/scm/network/ethtool/ethtool.git
-    maintained by Ben Hutchings.
-
-    if we decide to go with ethtool modification approach, I will send
-    patch to update ethtool repository. Attached patch at the end of this
-    email is for driver implementation for this approach.
-
-2. Add a sysfs hook "brd_temp" which will be used by the application
-   to query board temperature specific to the particular interface
-
-   for example, driver with "brd_temp" sysfs hook will show temperature
-
-   "#cat /sys/class/net/p10p1/device/brd_temp"
-   34
-
-Thank you for the comments.
-
-Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c | 7 +++++++
- include/uapi/linux/ethtool.h                        | 1 +
- 2 files changed, 8 insertions(+)
-
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index 700a463..5335a71 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -235,6 +235,7 @@ qlcnic_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *drvinfo)
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(dev);
- 	u32 fw_major, fw_minor, fw_build;
-+	u32 temp_val = 0;
- 	fw_major = QLC_SHARED_REG_RD32(adapter, QLCNIC_FW_VERSION_MAJOR);
- 	fw_minor = QLC_SHARED_REG_RD32(adapter, QLCNIC_FW_VERSION_MINOR);
- 	fw_build = QLC_SHARED_REG_RD32(adapter, QLCNIC_FW_VERSION_SUB);
-@@ -246,6 +247,12 @@ qlcnic_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *drvinfo)
- 	strlcpy(drvinfo->driver, qlcnic_driver_name, sizeof(drvinfo->driver));
- 	strlcpy(drvinfo->version, QLCNIC_LINUX_VERSIONID,
- 		sizeof(drvinfo->version));
-+	if (qlcnic_82xx_check(adapter))
-+		temp_val = QLC_SHARED_REG_RD32(adapter, QLCNIC_ASIC_TEMP);
-+	else if (qlcnic_83xx_check(adapter))
-+		temp_val = QLCRDX(adapter->ahw, QLC_83XX_ASIC_TEMP);
-+
-+	drvinfo->board_temp = qlcnic_get_temp_val(temp_val);
- }
- 
- static int
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index 38dbafa..2012015 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -101,6 +101,7 @@ struct ethtool_drvinfo {
- 	__u32	testinfo_len;
- 	__u32	eedump_len;	/* Size of data from ETHTOOL_GEEPROM (bytes) */
- 	__u32	regdump_len;	/* Size of data from ETHTOOL_GREGS (bytes) */
-+	__u32	board_temp;     /* board temperature */
- };
- 
- #define SOPASS_MAX	6
--- 
-1.8.1.4
+> ---
+> The patch is needed fot -stable.
+> ---
+>  drivers/net/tun.c |   62 ++++++++++++++++++++++++++++++++--------------------
+>  1 files changed, 38 insertions(+), 24 deletions(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 5cdcf92..db690a3 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1035,6 +1035,29 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
+>  	return 0;
+>  }
+>  
+> +static unsigned long iov_pages(const struct iovec *iv, int offset,
+> +			       unsigned long nr_segs)
+> +{
+> +	unsigned long seg, base;
+> +	int pages = 0, len, size;
+> +
+> +	while (nr_segs && (offset >= iv->iov_len)) {
+> +		offset -= iv->iov_len;
+> +		++iv;
+> +		--nr_segs;
+> +	}
+> +
+> +	for (seg = 0; seg < nr_segs; seg++) {
+> +		base = (unsigned long)iv[seg].iov_base + offset;
+> +		len = iv[seg].iov_len - offset;
+> +		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
+> +		pages += size;
+> +		offset = 0;
+> +	}
+> +
+> +	return pages;
+> +}
+> +
+>  /* Get packet from user space buffer */
+>  static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+>  			    void *msg_control, const struct iovec *iv,
+> @@ -1082,32 +1105,18 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+>  			return -EINVAL;
+>  	}
+>  
+> -	if (msg_control)
+> -		zerocopy = true;
+> -
+> -	if (zerocopy) {
+> -		/* Userspace may produce vectors with count greater than
+> -		 * MAX_SKB_FRAGS, so we need to linearize parts of the skb
+> -		 * to let the rest of data to be fit in the frags.
+> -		 */
+> -		if (count > MAX_SKB_FRAGS) {
+> -			copylen = iov_length(iv, count - MAX_SKB_FRAGS);
+> -			if (copylen < offset)
+> -				copylen = 0;
+> -			else
+> -				copylen -= offset;
+> -		} else
+> -				copylen = 0;
+> -		/* There are 256 bytes to be copied in skb, so there is enough
+> -		 * room for skb expand head in case it is used.
+> +	if (msg_control) {
+> +		/* There are 256 bytes to be copied in skb, so there is
+> +		 * enough room for skb expand head in case it is used.
+>  		 * The rest of the buffer is mapped from userspace.
+>  		 */
+> -		if (copylen < gso.hdr_len)
+> -			copylen = gso.hdr_len;
+> -		if (!copylen)
+> -			copylen = GOODCOPY_LEN;
+> +		copylen = gso.hdr_len ? gso.hdr_len : GOODCOPY_LEN;
+>  		linear = copylen;
+> -	} else {
+> +		if (iov_pages(iv, offset + copylen, count) <= MAX_SKB_FRAGS)
+> +			zerocopy = true;
+> +	}
+> +
+> +	if (!zerocopy) {
+>  		copylen = len;
+>  		linear = gso.hdr_len;
+>  	}
+> @@ -1121,8 +1130,13 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+>  
+>  	if (zerocopy)
+>  		err = zerocopy_sg_from_iovec(skb, iv, offset, count);
+> -	else
+> +	else {
+>  		err = skb_copy_datagram_from_iovec(skb, 0, iv, offset, len);
+> +		if (!err && msg_control) {
+> +			struct ubuf_info *uarg = msg_control;
+> +			uarg->callback(uarg, false);
+> +		}
+> +	}
+>  
+>  	if (err) {
+>  		tun->dev->stats.rx_dropped++;
+> -- 
+> 1.7.1
