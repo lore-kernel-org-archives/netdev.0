@@ -1,51 +1,89 @@
-From: David Miller <davem@davemloft.net>
+From: Fan Du <fan.du@windriver.com>
 Subject: Re: [DISCUSSION] rt6i_genid
-Date: Thu, 18 Jul 2013 20:18:01 -0700 (PDT)
-Message-ID: <20130718.201801.1591610112107900505.davem@davemloft.net>
-References: <51E7B522.4070105@windriver.com>
-	<51E805D9.9040408@6wind.com>
-	<51E881EB.5040600@windriver.com>
+Date: Fri, 19 Jul 2013 11:28:51 +0800
+Message-ID: <51E8B273.1090002@windriver.com>
+References: <51E7B522.4070105@windriver.com>	<51E805D9.9040408@6wind.com>	<51E881EB.5040600@windriver.com> <20130718.201801.1591610112107900505.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
-To: fan.du@windriver.com
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <nicolas.dichtel@6wind.com>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41480 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753173Ab3GSDSC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 23:18:02 -0400
-In-Reply-To: <51E881EB.5040600@windriver.com>
+Received: from mail1.windriver.com ([147.11.146.13]:36760 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934990Ab3GSD2Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 23:28:25 -0400
+In-Reply-To: <20130718.201801.1591610112107900505.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRmFuIER1IDxmYW4uZHVAd2luZHJpdmVyLmNvbT4NCkRhdGU6IEZyaSwgMTkgSnVsIDIw
-MTMgMDg6MDE6NDcgKzA4MDANCg0KPiANCj4gDQo+IE9uIDIwMTPlubQwN+aciDE45pelIDIzOjEy
-LCBOaWNvbGFzIERpY2h0ZWwgd3JvdGU6DQo+PiBMZSAxOC8wNy8yMDEzIDExOjI4LCBGYW4gRHUg
-YSDDqWNyaXQgOg0KPj4+DQo+Pj4gVGhhbmtzIGZvciByZXBseWluZyA6KQ0KPj4+DQo+Pj4gT24g
-MjAxM+W5tDA35pyIMTjml6UgMTc6MTMsIE5pY29sYXMgRGljaHRlbCB3cm90ZToNCj4+Pj4gTGUg
-MTgvMDcvMjAxMyAwNToyMiwgRmFuIER1IGEgw6ljcml0IDoNCj4+Pj4+IEhlbGxvIE5pY29sYXMN
-Cj4+Pj4+DQo+Pj4+PiBDb21taXQgNmYzMTE4YjU3MWI4YTRjMDZjNzk4NWRjMzE3MmMzNTI2Y2I4
-NjI1MzogImlwdjY6IHVzZQ0KPj4+Pj4gbmV0LT5ydF9nZW5pZCB0bw0KPj4+Pj4gY2hlY2sgZHN0
-IHZhbGlkaXR5Ig0KPj4+Pj4gbWFrZXMgaXA2X2RzdF9jaGVjayB0byBjaGVjayBydDZpX2dlbmlk
-IGFnYWluc3Qgd2l0aCBzdHJ1Y3QNCj4+Pj4+IG5ldC0+cnRfZ2VuaWQsDQo+Pj4+PiBBcyBhIG1h
-dHRlciBvZiBmYWN0LCBzdHJ1Y3QgbmV0LT5ydF9nZW5pZCBjb3VsZCBvbmx5IGJlIG1vZGlmaWVk
-IGJ5DQo+Pj4+PiB0d28gcGxhY2VzLA0KPj4+Pj4gZmlyc3QgaXMgYWRkaW5nL2RlbGV0ZSBJUHY0
-IGFkZHJlc3MsIHNlY29uZCBpcyBpbnNlcnRpbmcgbmV3IFhGUk0NCj4+Pj4+IHBvbGljeS4NCj4+
-Pj4+DQo+Pj4+PiBJcyB0aGVyZSBhbnkgb3RoZXIgY29uc2lkZXJhdGlvbnMgdGhhdCBhZGRpbmcv
-ZGVsZXRpbmcgSVB2NCBhZGRyZXNzDQo+Pj4+PiB3b3VsZA0KPj4+Pj4gaW52YWxpZCBhbGwgSVB2
-NiBkc3QNCj4+Pj4+IGFzIHdlbGw/IGJlY2F1c2UgSSdtIHdvcmtpbmcgYSBwYXRjaCB3aGljaCBh
-Y3R1YWxseSBkZXBlbmRzIG9uIHRoZQ0KPj4+Pj4gcmVzdWx0IG9mDQo+Pj4+PiB0aGlzIHF1ZXN0
-aW9uLg0KPj4+PiBObywgdGhlIGdvYWwgd2FzIHRvIGNvdmVyIHRoZSBJUHNlYyBjYXNlLCBpZSBp
-bnZhbGlkYXRlIGRzdCBlbnRyaWVzDQo+Pj4+IHdoZW4gYW4NCj4+Pj4geGZybSBwb2xpY3kgaXMg
-aW5zZXJ0ZWQvZGVsZXRlZC4NCj4+Pg0KPj4+IE9rLCB0aGVuIGhvdyBhYm91dCB3ZSBvbmx5IGNo
-ZWNraW5nIHJ0NmlfZ2VuaWQgYWdhaW5zdCBydF9nZW5pZCAqb25seSoNCj4+PiB3aGVuIFhGUk0g
-aXMgZW5hYmxlZCBmb3IgSVB2NiwgYmVjYXVzZSB3aGVuIFhGUk0gaXMgbm90IGVuYWJsZWQgZm9y
-DQo+Pj4gSVB2Ng0KPj4+IGlwNl9kc3RfY2hlY2sgZm9yIHJ0X2dlbmlkIGlzIHJlYWxseSBub3Qg
-bmVjZXNzYXJ5Lg0KPj4+DQo+Pj4gU28gd2hhdCBkbyB5b3UgdGhpbmsgb2YgYmVsb3cgbW9kaWZp
-Y2F0aW9ucz8NCj4+IFNlZW1zIGdvb2QuIEp1c3QgYSBzbWFsbCBjb21tZW50IGJlbG93Lg0KPiAN
-Cj4gV2lsbCBzZW5kIHYyIGZvciB5b3VyIHJldmlld2luZyB3aGVuIG5ldC1uZXh0IGlzIHJlb3Bl
-bi4NCg0KQWx0aG91Z2ggaXQncyBhIGNvcnJlY3QgY2hhbmdlLCBpdCBpcyBvZiBhbG1vc3Qgbm8g
-dmFsdWUuICAlOTkuOTk5OTk5OQ0Kb2YgdXNlcnMgd2lsbCBiZSBydW5uaW5nIGtlcm5lbHMgd2l0
-aCBDT05GSUdfWEZSTSBlbmFibGVkLg0KDQpTbyB5b3VyIHNhdmluZ3MgYXJlIGVzc2VudGlhbGx5
-IGZvciBuby1vbmUuDQo=
+
+
+On 2013=E5=B9=B407=E6=9C=8819=E6=97=A5 11:18, David Miller wrote:
+> From: Fan Du<fan.du@windriver.com>
+> Date: Fri, 19 Jul 2013 08:01:47 +0800
+>
+>>
+>>
+>> On 2013=E5=B9=B407=E6=9C=8818=E6=97=A5 23:12, Nicolas Dichtel wrote:
+>>> Le 18/07/2013 11:28, Fan Du a =C3=A9crit :
+>>>>
+>>>> Thanks for replying :)
+>>>>
+>>>> On 2013=E5=B9=B407=E6=9C=8818=E6=97=A5 17:13, Nicolas Dichtel wrot=
+e:
+>>>>> Le 18/07/2013 05:22, Fan Du a =C3=A9crit :
+>>>>>> Hello Nicolas
+>>>>>>
+>>>>>> Commit 6f3118b571b8a4c06c7985dc3172c3526cb86253: "ipv6: use
+>>>>>> net->rt_genid to
+>>>>>> check dst validity"
+>>>>>> makes ip6_dst_check to check rt6i_genid against with struct
+>>>>>> net->rt_genid,
+>>>>>> As a matter of fact, struct net->rt_genid could only be modified=
+ by
+>>>>>> two places,
+>>>>>> first is adding/delete IPv4 address, second is inserting new XFR=
+M
+>>>>>> policy.
+>>>>>>
+>>>>>> Is there any other considerations that adding/deleting IPv4 addr=
+ess
+>>>>>> would
+>>>>>> invalid all IPv6 dst
+>>>>>> as well? because I'm working a patch which actually depends on t=
+he
+>>>>>> result of
+>>>>>> this question.
+>>>>> No, the goal was to cover the IPsec case, ie invalidate dst entri=
+es
+>>>>> when an
+>>>>> xfrm policy is inserted/deleted.
+>>>>
+>>>> Ok, then how about we only checking rt6i_genid against rt_genid *o=
+nly*
+>>>> when XFRM is enabled for IPv6, because when XFRM is not enabled fo=
+r
+>>>> IPv6
+>>>> ip6_dst_check for rt_genid is really not necessary.
+>>>>
+>>>> So what do you think of below modifications?
+>>> Seems good. Just a small comment below.
+>>
+>> Will send v2 for your reviewing when net-next is reopen.
+>
+> Although it's a correct change, it is of almost no value.  %99.999999=
+9
+> of users will be running kernels with CONFIG_XFRM enabled.
+
+Thanks. Good to know %99.99999999 users protect their networking with I=
+Psec.
+
+> So your savings are essentially for no-one.
+
+--=20
+=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
+=E7=AC=91
+
+--fan
