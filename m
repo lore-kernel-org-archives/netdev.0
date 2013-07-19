@@ -1,305 +1,175 @@
-From: Peter Wu <lekensteyn@gmail.com>
-Subject: [RFC] EEPROM dumping/changing code for r8169 driver
-Date: Fri, 19 Jul 2013 11:48:55 +0200
-Message-ID: <1906856.2MoFjQXLhS@al>
+From: "Arend van Spriel" <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH] brcmsmac: Fix WARNING caused by lack of calls to
+ dma_mapping_error()
+Date: Fri, 19 Jul 2013 12:03:12 +0200
+Message-ID: <51E90EE0.6020402@broadcom.com>
+References: <1372712883-4464-1-git-send-email-Larry.Finger@lwfinger.net>
+ <51D29391.4080000@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>
-To: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:44930 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759915Ab3GSJtA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jul 2013 05:49:00 -0400
-Received: by mail-wg0-f49.google.com with SMTP id a12so3868742wgh.16
-        for <netdev@vger.kernel.org>; Fri, 19 Jul 2013 02:48:58 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=iso-8859-1;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Brett Rudley" <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"Hante Meuleman" <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	"Neil Horman" <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: "Larry Finger" <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <51D29391.4080000-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi Larry,
 
-As noted in another mail, I have been working on adding EEPROM reading
-writing support for the r8169 driver. The below diff adds basic support, but it
-is not completely finished yet:
-
-- debug code is still present
-- Kconfig help text might be reworded
-- No check for EEPROM size, currently it assumed 1K bits, but 2K bits also
-  exist. This is low-hanging fruit, but as I did not have hardware with 93c56,
-  I did not bother to add it right now. (according to the Realtek r8168
-  driver, there are also configurations without these 93cx6 chips, but an
-  EEPROM with "TWSI" which these changes currently do not account for at all)
-
-There is an issue with reading though, the initial read fails until a
-certain action has happened[1]. In the case of an external RTL8169sb GBe PCI card
-(RTL869SC according to the text on the chip), a write to the EEPROM has to
-happen first. Could it be a timing issue? I have several PDFs available, but the
-most detailed one is a PDF with the title "xRTL8169spec_1.21.DOC" (from 2002)
-which also has a section "11.3.2 Serial EEPROM Interface Timing".
+Found it catching dust in a corner of my mailbox ;-)
 
 Regards,
-Peter
+Arend
 
- [1]: http://marc.info/?l=linux-netdev&m=137422584013574
+On 07/02/2013 10:47 AM, Arend van Spriel wrote:
+> On 07/01/2013 11:08 PM, Larry Finger wrote:
+>> The driver fails to check the results of DMA mapping in twp places,
+>> which results
+>> in the following warning:
+>>
+>> [   28.078515] ------------[ cut here ]------------
+>> [   28.078529] WARNING: at lib/dma-debug.c:937 check_unmap+0x47e/0x930()
+>> [   28.078533] bcma-pci-bridge 0000:0e:00.0: DMA-API: device driver
+>> failed to check map error[device address=0x00000000b5d60d6c]
+>> [size=1876 bytes] [mapped as
+>>   single]
+>> [   28.078536] Modules linked in: bnep bluetooth vboxpci(O)
+>> vboxnetadp(O) vboxnetflt(O) vboxdrv(O) ipv6 b43 brcmsmac rtl8192cu
+>> rtl8192c_common rtlwifi mac802
+>> 11 brcmutil cfg80211 snd_hda_codec_conexant rng_core snd_hda_intel
+>> kvm_amd snd_hda_codec ssb kvm mmc_core snd_pcm snd_seq snd_timer
+>> snd_seq_device snd k8temp
+>>   cordic joydev serio_raw hwmon sr_mod sg pcmcia pcmcia_core soundcore
+>> cdrom i2c_nforce2 i2c_core forcedeth bcma snd_page_alloc autofs4 ext4
+>> jbd2 mbcache crc1
+>> 6 scsi_dh_alua scsi_dh_hp_sw scsi_dh_rdac scsi_dh_emc scsi_dh
+>> ata_generic pata_amd
+>> [   28.078602] CPU: 1 PID: 2570 Comm: NetworkManager Tainted:
+>> G           O 3.10.0-rc7-wl+ #42
+>> [   28.078605] Hardware name: Hewlett-Packard HP Pavilion dv2700
+>> Notebook PC/30D6, BIOS F.27 11/27/2008
+>> [   28.078607]  0000000000000009 ffff8800bbb03ad8 ffffffff8144f898
+>> ffff8800bbb03b18
+>> [   28.078612]  ffffffff8103e1eb 0000000000000002 ffff8800b719f480
+>> ffff8800b7b9c010
+>> [   28.078617]  ffffffff824204c0 ffffffff81754d57 0000000000000754
+>> ffff8800bbb03b78
+>> [   28.078622] Call Trace:
+>> [   28.078624]  <IRQ>  [<ffffffff8144f898>] dump_stack+0x19/0x1b
+>> [   28.078634]  [<ffffffff8103e1eb>] warn_slowpath_common+0x6b/0xa0
+>> [   28.078638]  [<ffffffff8103e2c1>] warn_slowpath_fmt+0x41/0x50
+>> [   28.078650]  [<ffffffff8122d7ae>] check_unmap+0x47e/0x930
+>> [   28.078655]  [<ffffffff8122de4c>] debug_dma_unmap_page+0x5c/0x70
+>> [   28.078679]  [<ffffffffa04a808c>] dma64_getnextrxp+0x10c/0x190
+>> [brcmsmac]
+>> [   28.078691]  [<ffffffffa04a9042>] dma_rx+0x62/0x240 [brcmsmac]
+>> [   28.078707]  [<ffffffffa0479101>] brcms_c_dpc+0x211/0x9d0 [brcmsmac]
+>> [   28.078717]  [<ffffffffa046d927>] ? brcms_dpc+0x27/0xf0 [brcmsmac]
+>> [   28.078731]  [<ffffffffa046d947>] brcms_dpc+0x47/0xf0 [brcmsmac]
+>> [   28.078736]  [<ffffffff81047dcc>] tasklet_action+0x6c/0xf0
+>> --snip--
+>> [   28.078974]  [<ffffffff813891bd>] SyS_sendmsg+0xd/0x20
+>> [   28.078979]  [<ffffffff81455c24>] tracesys+0xdd/0xe2
+>> [   28.078982] ---[ end trace 6164d1a08148e9c8 ]---
+>> [   28.078984] Mapped at:
+>> [   28.078985]  [<ffffffff8122c8fd>] debug_dma_map_page+0x9d/0x150
+>> [   28.078989]  [<ffffffffa04a9322>] dma_rxfill+0x102/0x3d0 [brcmsmac]
+>> [   28.079001]  [<ffffffffa047a13d>] brcms_c_init+0x87d/0x1100 [brcmsmac]
+>> [   28.079010]  [<ffffffffa046d851>] brcms_init+0x21/0x30 [brcmsmac]
+>> [   28.079018]  [<ffffffffa04786e0>] brcms_c_up+0x150/0x430 [brcmsmac]
+>>
+>> As the patch adds a new failure mechanism to dma_rxfill(). When I
+>> changed the
+>> comment at the start of the routine to add that information, I also
+>> polished
+>> the wording.
+>
+> Thanks, Larry
+>
+> I think there a bugzilla issue for this that you might want to reference:
+>
+> https://bugzilla.kernel.org/show_bug.cgi?id=60261
+>
+>> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+>> Cc: Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+>> Cc: Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+>> Cc: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+>> Cc: Franky (Zhenhui) Lin <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+>> Cc: Hante Meuleman <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+>> Cc: brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
+>> ---
+>>
+>>   drivers/net/wireless/brcm80211/brcmsmac/dma.c | 12 ++++++++----
+>>   1 file changed, 8 insertions(+), 4 deletions(-)
+>>
+>> diff --git a/drivers/net/wireless/brcm80211/brcmsmac/dma.c
+>> b/drivers/net/wireless/brcm80211/brcmsmac/dma.c
+>> index 1860c57..6260571 100644
+>> --- a/drivers/net/wireless/brcm80211/brcmsmac/dma.c
+>> +++ b/drivers/net/wireless/brcm80211/brcmsmac/dma.c
+>> @@ -1015,9 +1015,10 @@ static bool dma64_txidle(struct dma_info *di)
+>>
+>>   /*
+>>    * post receive buffers
+>> - *  return false is refill failed completely and ring is empty this
+>> will stall
+>> - *  the rx dma and user might want to call rxfill again asap. This
+>> unlikely
+>> - *  happens on memory-rich NIC, but often on memory-constrained dongle
+>> + *  return false is refill failed completely or dma mapping failed.
+>> The ring
+>
+> Missed some polishing opportunity: return false is refill... -> return
+> false if refill...
+>
+>> + *  is empty, which will stall the rx dma and user might want to call
+>> rxfill
+>> + *  again asap. This is unlikely to happen on a memory-rich NIC, but
+>> often on
+>> + *  memory-constrained dongle
+>>    */
+>>   bool dma_rxfill(struct dma_pub *pub)
+>>   {
+>> @@ -1078,6 +1079,8 @@ bool dma_rxfill(struct dma_pub *pub)
+>>
+>>           pa = dma_map_single(di->dmadev, p->data, di->rxbufsize,
+>>                       DMA_FROM_DEVICE);
+>> +        if (dma_mapping_error(di->dmadev,pa))
+>> +            return false;
+>>
+>>           /* save the free packet pointer */
+>>           di->rxp[rxout] = p;
+>> @@ -1284,7 +1287,8 @@ static void dma_txenq(struct dma_info *di,
+>> struct sk_buff *p)
+>>
+>>       /* get physical address of buffer start */
+>>       pa = dma_map_single(di->dmadev, data, len, DMA_TO_DEVICE);
+>> -
+>> +    if(dma_mapping_error(di->dmadev, pa))
+>> +        return;
+>
+> I think the caller(s) should be informed or silently free the sk_buff
+> here so we are not leaking it.
+>
+>>       /* With a DMA segment list, Descriptor table is filled
+>>        * using the segment list instead of looping over
+>>        * buffers in multi-chain DMA. Therefore, EOF for SGLIST
+>>
+>
+> Regards,
+> Arend
+
+
 --
-diff --git a/drivers/net/ethernet/realtek/Kconfig b/drivers/net/ethernet/realtek/Kconfig
-index ae5d027..ee70de2 100644
---- a/drivers/net/ethernet/realtek/Kconfig
-+++ b/drivers/net/ethernet/realtek/Kconfig
-@@ -112,4 +112,13 @@ config R8169
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called r8169.  This is recommended.
- 
-+config R8169_93CX6
-+	bool "Realtek 8169 external 93CX6 EEPROM support"
-+	depends on R8169
-+	select EEPROM_93CX6
-+	---help---
-+	  Select this if your want to access EEPROM of the Realtek 8169 PCI
-+	  Gigabit Ethernet adapter. This is necessary for dumping or changing
-+	  EEPROM using ethtool. If unsure, say N.
-+
- endif # NET_VENDOR_REALTEK
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 4106a74..dc5d11c 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -28,6 +28,7 @@
- #include <linux/firmware.h>
- #include <linux/pci-aspm.h>
- #include <linux/prefetch.h>
-+#include <linux/eeprom_93cx6.h>
- 
- #include <asm/io.h>
- #include <asm/irq.h>
-@@ -412,7 +413,8 @@ enum rtl8168_8101_registers {
- 	DBG_REG			= 0xd1,
- #define	FIX_NAK_1			(1 << 4)
- #define	FIX_NAK_2			(1 << 3)
--	TWSI			= 0xd2,
-+	TWSI			= 0xd2, /* Two Wire Serial Interface */
-+#define TWSI_TYPE_EEPROM		(1 << 2)
- 	MCU			= 0xd3,
- #define	NOW_IS_OOB			(1 << 7)
- #define	TX_EMPTY			(1 << 5)
-@@ -504,8 +506,14 @@ enum rtl_register_content {
- 	FSWInt		= 0x01,		/* Forced software interrupt */
- 
- 	/* Cfg9346Bits */
-+	Cfg9346_mask	= 0xc0,
- 	Cfg9346_Lock	= 0x00,
- 	Cfg9346_Unlock	= 0xc0,
-+	Cfg9346_Program	= 0x80,		/* Programming mode */
-+	Cfg9346_EECS	= 0x08,		/* Chip select */
-+	Cfg9346_EESK	= 0x04,		/* Serial data clock */
-+	Cfg9346_EEDI	= 0x02,		/* Data input */
-+	Cfg9346_EEDO	= 0x01,		/* Data output */
- 
- 	/* rx_mode_bits */
- 	AcceptErr	= 0x20,
-@@ -1643,6 +1651,172 @@ static int rtl8169_get_regs_len(struct net_device *dev)
- 	return R8169_REGS_SIZE;
- }
- 
-+#ifdef CONFIG_R8169_93CX6
-+static int rtl8169_get_eeprom_len(struct net_device *dev) {
-+	/* TODO do not hard code EEPROM size, detect it! */
-+	/* 93c46 -> 1K bit, 93c56 -> 2K bit */
-+	return 1024 / 8; /* must be ONE byte! */
-+}
-+
-+static void rtl_eeprom_read(struct eeprom_93cx6 *eeprom)
-+{
-+	struct rtl8169_private *tp = eeprom->data;
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	u8 reg;
-+
-+	reg = RTL_R8(Cfg9346);
-+
-+	eeprom->reg_data_in = reg & Cfg9346_EEDI;
-+	eeprom->reg_data_out = reg & Cfg9346_EEDO;
-+	eeprom->reg_data_clock = reg & Cfg9346_EESK;
-+	eeprom->reg_chip_select = reg & Cfg9346_EECS;
-+	if (0 && !(reg & Cfg9346_EECS)) { /* DEBUG - remove me! */
-+		struct net_device *dev;
-+		dev = (struct net_device *)((char *) tp - ALIGN(sizeof(struct net_device), NETDEV_ALIGN));
-+		netif_warn(tp, link, dev, "CS is disabled, reg=0x%02x\n", reg);
-+	}
-+}
-+
-+static void rtl_eeprom_write(struct eeprom_93cx6 *eeprom)
-+{
-+	struct rtl8169_private *tp = eeprom->data;
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	u8 reg;
-+
-+	reg = RTL_R8(Cfg9346) & ~Cfg9346_mask;
-+	reg |= Cfg9346_Program;
-+	reg &= ~(Cfg9346_EEDO | Cfg9346_EEDI | Cfg9346_EESK | Cfg9346_EECS);
-+
-+	if (eeprom->reg_data_in)
-+		reg |= Cfg9346_EEDI;
-+	if (eeprom->reg_data_clock)
-+		reg |= Cfg9346_EESK;
-+	if (eeprom->reg_chip_select)
-+		reg |= Cfg9346_EECS;
-+
-+	RTL_W8(Cfg9346, reg);
-+	RTL_R8(Cfg9346); /* sync? */
-+	udelay(4); /* SK Clock Cycle Time */
-+	//udelay(3); /* DO Setup time is min 2 us for 9346, DO hold time max 2us */
-+}
-+
-+static void rtl_init_93cx6(struct net_device *dev, struct eeprom_93cx6 *eeprom)
-+{
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+
-+	eeprom->data = tp;
-+	eeprom->register_read = rtl_eeprom_read;
-+	eeprom->register_write = rtl_eeprom_write;
-+	/* TODO: check EEPROM type; note TWSI_TYPE_EEPROM is not supported */
-+	eeprom->width = PCI_EEPROM_WIDTH_93C46;
-+}
-+
-+/* semi-randomly chosen key for ethtool --change-eeprom option */
-+#define R8169_EEPROM_MAGIC (0x00008169)
-+
-+static int rtl8169_get_eeprom(struct net_device *dev,
-+		struct ethtool_eeprom *ee_eeprom, u8 *data)
-+{
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	struct eeprom_93cx6 eeprom;
-+	int i = 0;
-+	u8 offset = ee_eeprom->offset >> 1;
-+	u16 val;
-+
-+	ee_eeprom->magic = R8169_EEPROM_MAGIC;
-+
-+	rtl_lock_work(tp);
-+	rtl_init_93cx6(dev, &eeprom);
-+	/* something odd is happening, I must write *at least once* to the
-+	 * eeprom (say, 00 to offset 0) before read returns something else than
-+	 * 00. IOTW, if no write is performed, all values read as 00. Attempted
-+	 * solutions that failed:
-+	 * eeprom_93cx6_wren(&eeprom, false); // also tried wr(1) before wren(0)
-+	 * W(Cfg9346, Cfg9346_Program);R(Cfg9346);udelay(10); // tried |CS too
-+	 *
-+	 * The oddiest thing is that this seems to survive a shutdown (even 15
-+	 * minutes). Next attempt wa taking this PCI card out of the machine and
-+	 * leave it disconnected for 20 minutes. This did not work either. The
-+	 * capacitors are likely still charged. When the machine was left
-+	 * powered off (not disconnected) for 9.5 hours, the eeprom read empty
-+	 * though. auto-loading from eeprom (Cfg9346 = 0x40) also seems to work?
-+	 * (or was it caused by writing 2981 to EEPROM[0:1] before autoload?)
-+	 */
-+
-+	/* this does not work (from rtl8180): */
-+	//RTL_W8(Cfg9346, Cfg9346_Program);
-+	//RTL_R8(Cfg9346);
-+	//udelay(10);
-+
-+	/* Do not use eeprom_93cx6_multiread, that returns data in an array of
-+	 * little endian words which is not compatible with BE arches. */
-+
-+	if (ee_eeprom->offset & 1) {
-+		eeprom_93cx6_read(&eeprom, offset++, &val);
-+		data[i++] = val >> 8;
-+	}
-+
-+	while (i < ee_eeprom->len - 1) {
-+		eeprom_93cx6_read(&eeprom, offset++, &val);
-+		data[i++] = val & 0xFF;
-+		data[i++] = val >> 8;
-+	}
-+
-+	if (i < ee_eeprom->len) {
-+		eeprom_93cx6_read(&eeprom, offset, &val);
-+		data[i] = val & 0xFF;
-+	}
-+
-+	RTL_W8(Cfg9346, Cfg9346_Lock);
-+	rtl_unlock_work(tp);
-+	return 0;
-+}
-+
-+static int rtl8169_set_eeprom(struct net_device *dev,
-+		struct ethtool_eeprom *ee_eeprom, u8 *data)
-+{
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	struct eeprom_93cx6 eeprom;
-+	int i = 0;
-+	u8 offset = ee_eeprom->offset >> 1;
-+	u16 val;
-+
-+	if (ee_eeprom->magic != R8169_EEPROM_MAGIC)
-+		return -EINVAL;
-+
-+	rtl_lock_work(tp);
-+	rtl_init_93cx6(dev, &eeprom);
-+	eeprom_93cx6_wren(&eeprom, true);
-+
-+	if (ee_eeprom->offset & 1) {
-+		eeprom_93cx6_read(&eeprom, offset, &val);
-+		val &= 0xFF;
-+		val |= ((u16)data[i++]) << 8;
-+		eeprom_93cx6_write(&eeprom, offset++, val);
-+	}
-+
-+	while (i < ee_eeprom->len - 1) {
-+		val = data[i++];
-+		val |= ((u16)data[i++]) << 8;
-+		eeprom_93cx6_write(&eeprom, offset++, val);
-+	}
-+
-+	if (i < ee_eeprom->len) {
-+		eeprom_93cx6_read(&eeprom, offset, &val);
-+		val &= 0xFF00;
-+		val |= data[i++];
-+		eeprom_93cx6_write(&eeprom, offset, val);
-+	}
-+
-+	eeprom_93cx6_wren(&eeprom, false);
-+	RTL_W8(Cfg9346, Cfg9346_Lock);
-+	rtl_unlock_work(tp);
-+	return 0;
-+}
-+#endif
-+
- static int rtl8169_set_speed_tbi(struct net_device *dev,
- 				 u8 autoneg, u16 speed, u8 duplex, u32 ignored)
- {
-@@ -2024,6 +2198,11 @@ static const struct ethtool_ops rtl8169_ethtool_ops = {
- 	.get_drvinfo		= rtl8169_get_drvinfo,
- 	.get_regs_len		= rtl8169_get_regs_len,
- 	.get_link		= ethtool_op_get_link,
-+#ifdef CONFIG_R8169_93CX6
-+	.get_eeprom_len		= rtl8169_get_eeprom_len,
-+	.get_eeprom		= rtl8169_get_eeprom,
-+	.set_eeprom		= rtl8169_set_eeprom,
-+#endif
- 	.get_settings		= rtl8169_get_settings,
- 	.set_settings		= rtl8169_set_settings,
- 	.get_msglevel		= rtl8169_get_msglevel,
-@@ -7114,6 +7293,19 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	mutex_init(&tp->wk.mutex);
- 
-+	if (0) { /* DEBUG - remove me! */
-+		u16 val = 0xAB;
-+		struct eeprom_93cx6 eeprom = {
-+			.data = tp,
-+			.register_read = rtl_eeprom_read,
-+			.register_write = rtl_eeprom_write,
-+			.width = PCI_EEPROM_WIDTH_93C46
-+		};
-+		eeprom_93cx6_read(&eeprom, 0, &val);
-+		pr_info("Read something: 0x%04x\n", val);
-+		RTL_W8(Cfg9346, Cfg9346_Lock);
-+	}
-+
- 	/* Get MAC address */
- 	for (i = 0; i < ETH_ALEN; i++)
- 		dev->dev_addr[i] = RTL_R8(MAC0 + i);
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
