@@ -1,32 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: strange crashes in tcp_poll() via epoll_wait
-Date: Fri, 19 Jul 2013 09:24:17 -0700
-Message-ID: <1374251057.26476.17.camel@edumazet-glaptop>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: mod_timer: list_add corruption: WARNING: CPU: 1 PID: 0 at
+ lib/list_debug.c:33 __list_add+0xbe/0xd0()
+Date: Fri, 19 Jul 2013 18:38:55 +0200 (CEST)
+Message-ID: <alpine.DEB.2.02.1307191834460.4089@ionos.tec.linutronix.de>
+References: <51E557C0.2060602@linux.vnet.ibm.com>  <alpine.DEB.2.02.1307191323150.4089@ionos.tec.linutronix.de>  <51E92769.7090106@linux.vnet.ibm.com>  <alpine.DEB.2.02.1307191523050.4089@ionos.tec.linutronix.de> <1374241882.26476.5.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Al Viro <viro@ZenIV.linux.org.uk>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Cong Wang <amwang@redhat.com>,
+	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Ingo Molnar <mingo@kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1374241882.26476.5.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Al
+On Fri, 19 Jul 2013, Eric Dumazet wrote:
+> 
+> I guess following should help 
 
-I tried to debug strange crashes in tcp_poll() called from
-sys_epoll_wait() -> sock_poll()
+Applying the empty patch does not work very well. Could you try again
+after the caffeine reached your brain, please ? :)
 
-The symptom is that sock->sk is NULL and we therefore dereference a NULL
-pointer.
+Thanks,
 
-It's really rare crashes but still, it would be nice to understand where
-is the bug. Presumably latest kernels would crash in sock_poll() because
-of the sk_can_busy_loop(sock->sk) call.
-
-We do test sock->sk being NULL in sock_fasync(), but epoll should be
-safe because of existing synchronization (epmutex) ?
-
-Any idea?
-
-Thanks !
+	tglx
