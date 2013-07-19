@@ -1,162 +1,75 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH] skbuff: ensure to reset dev in skb_scrub_packet()
-Date: Fri, 19 Jul 2013 11:21:52 -0700
-Message-ID: <CALnjE+oTa95w+LQVEdXS+VCbBAafbG8TVmrZmoXTci2DnjA4FA@mail.gmail.com>
-References: <1374244891-7030-1-git-send-email-nicolas.dichtel@6wind.com>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: Re: mod_timer: list_add corruption: WARNING: CPU: 1 PID: 0 at lib/list_debug.c:33
+ __list_add+0xbe/0xd0()
+Date: Sat, 20 Jul 2013 00:16:23 +0530
+Message-ID: <51E9897F.5030205@linux.vnet.ibm.com>
+References: <51E557C0.2060602@linux.vnet.ibm.com> <alpine.DEB.2.02.1307191323150.4089@ionos.tec.linutronix.de> <51E92769.7090106@linux.vnet.ibm.com> <alpine.DEB.2.02.1307191523050.4089@ionos.tec.linutronix.de> <1374241882.26476.5.camel@edumazet-glaptop> <alpine.DEB.2.02.1307191834460.4089@ionos.tec.linutronix.de> <1374254778.26476.18.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog119.obsmtp.com ([74.125.149.246]:58583 "HELO
-	na3sys009aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752645Ab3GSSVy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jul 2013 14:21:54 -0400
-Received: by mail-qc0-f176.google.com with SMTP id z10so2468889qcx.7
-        for <netdev@vger.kernel.org>; Fri, 19 Jul 2013 11:21:53 -0700 (PDT)
-In-Reply-To: <1374244891-7030-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Cong Wang <amwang@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Ingo Molnar <mingo@kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1374254778.26476.18.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 19, 2013 at 7:41 AM, Nicolas Dichtel
-<nicolas.dichtel@6wind.com> wrote:
-> Because this function is used to scrub a packet when it cross netns, we must
-> ensure that skb->dev points to the new netns.
->
-> This was done by eth_type_trans() in dev_forward_skb(), but it's also needed
-> for ip tunnels.
->
-> I take the opportunity to move the call of skb_scrub_packet() after
-> eth_type_trans(), to be sure that pkt_type is set to PACKET_HOST.
->
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
->  include/linux/skbuff.h | 3 ++-
->  net/core/dev.c         | 6 +++---
->  net/core/skbuff.c      | 3 ++-
->  net/ipv4/ip_tunnel.c   | 9 +++++----
->  net/ipv6/sit.c         | 4 ++--
->  5 files changed, 14 insertions(+), 11 deletions(-)
->
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 5afefa01a13c..620ecce0a717 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -2385,7 +2385,8 @@ extern void              skb_split(struct sk_buff *skb,
->                                  struct sk_buff *skb1, const u32 len);
->  extern int            skb_shift(struct sk_buff *tgt, struct sk_buff *skb,
->                                  int shiftlen);
-> -extern void           skb_scrub_packet(struct sk_buff *skb);
-> +extern void           skb_scrub_packet(struct sk_buff *skb,
-> +                                       struct net_device *dev);
->
->  extern struct sk_buff *skb_segment(struct sk_buff *skb,
->                                    netdev_features_t features);
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 26755dd40daa..6f789b99331b 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1691,13 +1691,13 @@ int dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
->                 kfree_skb(skb);
->                 return NET_RX_DROP;
->         }
-> -       skb_scrub_packet(skb);
->         skb->protocol = eth_type_trans(skb, dev);
->
->         /* eth_type_trans() can set pkt_type.
-> -        * clear pkt_type _after_ calling eth_type_trans()
-> +        * call skb_scrub_packet() after it to clear pkt_type _after_ calling
-> +        * eth_type_trans().
->          */
-> -       skb->pkt_type = PACKET_HOST;
-> +       skb_scrub_packet(skb, dev);
->
->         return netif_rx(skb);
->  }
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 20e02d2605ec..5f4701f89af8 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -3507,13 +3507,14 @@ EXPORT_SYMBOL(skb_try_coalesce);
->   * another namespace. We have to clear all information in the skb that
->   * could impact namespace isolation.
->   */
-> -void skb_scrub_packet(struct sk_buff *skb)
-> +void skb_scrub_packet(struct sk_buff *skb, struct net_device *dev)
->  {
->         skb_orphan(skb);
->         skb->tstamp.tv64 = 0;
->         skb->pkt_type = PACKET_HOST;
->         skb->skb_iif = 0;
->         skb_dst_drop(skb);
-> +       skb->dev = dev;
->         skb->mark = 0;
->         secpath_reset(skb);
->         nf_reset(skb);
-> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-> index ca1cb2d5f6e2..2e88321c7f23 100644
-> --- a/net/ipv4/ip_tunnel.c
-> +++ b/net/ipv4/ip_tunnel.c
-> @@ -454,15 +454,16 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
->         tstats->rx_bytes += skb->len;
->         u64_stats_update_end(&tstats->syncp);
->
-> -       if (tunnel->net != dev_net(tunnel->dev))
-> -               skb_scrub_packet(skb);
-> -
->         if (tunnel->dev->type == ARPHRD_ETHER) {
->                 skb->protocol = eth_type_trans(skb, tunnel->dev);
->                 skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
->         } else {
->                 skb->dev = tunnel->dev;
->         }
+On 07/19/2013 10:56 PM, Eric Dumazet wrote:
+> On Fri, 2013-07-19 at 18:38 +0200, Thomas Gleixner wrote:
+>> On Fri, 19 Jul 2013, Eric Dumazet wrote:
+>>>
+>>> I guess following should help 
+>>
+>> Applying the empty patch does not work very well. Could you try again
+>> after the caffeine reached your brain, please ? :)
+> 
+> hmm, right ;)
+> 
+
+This patch fixes the issue for me - the system has been idle for more
+than an hour now without any problems (earlier, i used to get the traces
+within 5 minutes of idle time).
+
+Thanks a lot for the fix!
+
+Tested-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+
+Regards,
+Srivatsa S. Bhat
+
+> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+> index 69af490..4b99c9a 100644
+> --- a/net/bridge/br_multicast.c
+> +++ b/net/bridge/br_multicast.c
+> @@ -619,6 +619,9 @@ rehash:
+>  	mp->br = br;
+>  	mp->addr = *group;
+> 
+> +	setup_timer(&mp->timer, br_multicast_group_expired,
+> +		    (unsigned long)mp);
 > +
-> +       if (tunnel->net != dev_net(tunnel->dev))
-> +               skb_scrub_packet(skb, tunnel->dev);
-> +
-
-It is done in ip_tunnels right above the statement. Where exactly are
-we missing skb->dev set to tunnel->dev?
-
-
->         gro_cells_receive(&tunnel->gro_cells, skb);
->         return 0;
->
-> @@ -614,7 +615,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
->         }
->
->         if (tunnel->net != dev_net(dev))
-> -               skb_scrub_packet(skb);
-> +               skb_scrub_packet(skb, rt->dst.dev);
->
->         if (tunnel->err_count > 0) {
->                 if (time_before(jiffies,
-> diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-> index a3437a4cd07e..dc2d01f90b81 100644
-> --- a/net/ipv6/sit.c
-> +++ b/net/ipv6/sit.c
-> @@ -622,7 +622,7 @@ static int ipip6_rcv(struct sk_buff *skb)
->                 tstats->rx_bytes += skb->len;
->
->                 if (tunnel->net != dev_net(tunnel->dev))
-> -                       skb_scrub_packet(skb);
-> +                       skb_scrub_packet(skb, tunnel->dev);
->                 netif_rx(skb);
->
->                 return 0;
-> @@ -861,7 +861,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
->         }
->
->         if (tunnel->net != dev_net(dev))
-> -               skb_scrub_packet(skb);
-> +               skb_scrub_packet(skb, tdev);
->
->         /*
->          * Okay, now see if we can stuff it in the buffer as-is.
-> --
-> 1.8.2.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  	hlist_add_head_rcu(&mp->hlist[mdb->ver], &mdb->mhash[hash]);
+>  	mdb->size++;
+> 
+> @@ -1126,7 +1129,6 @@ static int br_ip4_multicast_query(struct net_bridge *br,
+>  	if (!mp)
+>  		goto out;
+> 
+> -	setup_timer(&mp->timer, br_multicast_group_expired, (unsigned long)mp);
+>  	mod_timer(&mp->timer, now + br->multicast_membership_interval);
+>  	mp->timer_armed = true;
+> 
+> @@ -1204,7 +1206,6 @@ static int br_ip6_multicast_query(struct net_bridge *br,
+>  	if (!mp)
+>  		goto out;
+> 
+> -	setup_timer(&mp->timer, br_multicast_group_expired, (unsigned long)mp);
+>  	mod_timer(&mp->timer, now + br->multicast_membership_interval);
+>  	mp->timer_armed = true;
+> 
