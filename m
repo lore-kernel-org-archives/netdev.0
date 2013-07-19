@@ -1,107 +1,114 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC] qlcnic: Enhance ethtool to display board temperature.
-Date: Fri, 19 Jul 2013 08:06:55 -0700
-Message-ID: <51E9560F.7070902@hp.com>
-References: <1374206237-27233-1-git-send-email-himanshu.madhani@qlogic.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Dept_NX_Linux_NIC_Driver@qlogic.com
-To: Himanshu Madhani <himanshu.madhani@qlogic.com>
+From: Thomas Richter <tmricht@linux.vnet.ibm.com>
+Subject: [PATCH 1/2 V2] vxlan fdb replace an existing entry
+Date: Fri, 19 Jul 2013 17:20:07 +0200
+Message-ID: <1374247208-8226-1-git-send-email-tmricht@linux.vnet.ibm.com>
+Cc: davem@davemloft.net, stephen@networkplumber.org,
+	Thomas Richter <tmricht@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:10931 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751490Ab3GSPG6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jul 2013 11:06:58 -0400
-In-Reply-To: <1374206237-27233-1-git-send-email-himanshu.madhani@qlogic.com>
+Received: from e06smtp11.uk.ibm.com ([195.75.94.107]:54984 "EHLO
+	e06smtp11.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760253Ab3GSPUQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jul 2013 11:20:16 -0400
+Received: from /spool/local
+	by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <tmricht@linux.vnet.ibm.com>;
+	Fri, 19 Jul 2013 16:14:21 +0100
+Received: from b06cxnps4076.portsmouth.uk.ibm.com (d06relay13.portsmouth.uk.ibm.com [9.149.109.198])
+	by d06dlp02.portsmouth.uk.ibm.com (Postfix) with ESMTP id 58FCF2190056
+	for <netdev@vger.kernel.org>; Fri, 19 Jul 2013 16:24:15 +0100 (BST)
+Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
+	by b06cxnps4076.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r6JFK0IR7602278
+	for <netdev@vger.kernel.org>; Fri, 19 Jul 2013 15:20:00 GMT
+Received: from d06av01.portsmouth.uk.ibm.com (localhost [127.0.0.1])
+	by d06av01.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id r6JFKB9p029591
+	for <netdev@vger.kernel.org>; Fri, 19 Jul 2013 09:20:11 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/18/2013 08:57 PM, Himanshu Madhani wrote:
-> From: Himanshu Madhani <himanshu.madhani@qlogic.com>
->
-> We need to provide a mechanism for a user space application to query
-> adapter temperature. This RFC patch is to request input on which of the
-> following approach would be appropriate way to export this information.
->
-> Here are the two approaches that I am exploring. Please review and
-> provide your recommendation.
->
-> 1. Enhance ethtool to add capability for driver to advertise its
->     board temperature as part of "ethtool -i <ethX>"
->
->      For example, following would be output for an interface which
->      has board temperature field populated via ethtool
->
->      "#ethtool -i p10p1"
->      driver: qlcnic
->      version: 5.2.44
->      bus-info: 0000:08:00.0
->      supports-statistics: yes
->      supports-test: yes
->      supports-eeprom-access: yes
->      supports-register-dump: yes
->      supports-priv-flags: no
->      board-temperature: 34
->
->      There will be update required for ethtool.c in the repository
->      git://git.kernel.org/pub/scm/network/ethtool/ethtool.git
->      maintained by Ben Hutchings.
->
->      if we decide to go with ethtool modification approach, I will send
->      patch to update ethtool repository. Attached patch at the end of this
->      email is for driver implementation for this approach.
->
-> 2. Add a sysfs hook "brd_temp" which will be used by the application
->     to query board temperature specific to the particular interface
->
->     for example, driver with "brd_temp" sysfs hook will show temperature
->
->     "#cat /sys/class/net/p10p1/device/brd_temp"
->     34
+Add support to replace an existing entry found in the
+vxlan fdb database. The entry in question is identified
+by its unicast mac address and the destination information
+is changed. If the entry is not found, it is added in the
+forwarding database. This is similar to changing an entry
+in the neighbour table.
 
-Is it at all likely that other I/O cards have similar temperature 
-sensors?  If so, then perhaps a more generic I/O card location would be 
-better?  Looking for "temp" under /sys on my 3.5 system I see:
+Multicast mac addresses can not be changed with the replace
+option.
 
-/sys/bus/platform/devices/coretemp.0
-/sys/bus/platform/drivers/coretemp
-/sys/bus/platform/drivers/coretemp/coretemp.0
-/sys/devices/pci0000:00/0000:00:03.0/0000:0f:00.0/hwmon/hwmon0/temp1_input
-/sys/devices/platform/hp-wmi/hddtemp
-/sys/devices/platform/coretemp.0
-/sys/devices/platform/coretemp.0/temp3_input
-/sys/devices/platform/coretemp.0/temp3_label
-/sys/devices/platform/coretemp.0/temp2_crit_alarm
-/sys/devices/platform/coretemp.0/temp2_crit
-/sys/devices/platform/coretemp.0/temp3_crit
-/sys/devices/platform/coretemp.0/temp4_crit
-/sys/devices/platform/coretemp.0/temp5_crit
-/sys/devices/platform/coretemp.0/temp4_input
-/sys/devices/platform/coretemp.0/temp4_label
-/sys/devices/platform/coretemp.0/temp3_crit_alarm
-/sys/devices/platform/coretemp.0/temp4_crit_alarm
-/sys/devices/platform/coretemp.0/temp5_input
-/sys/devices/platform/coretemp.0/temp5_label
-/sys/devices/platform/coretemp.0/temp5_crit_alarm
-/sys/devices/platform/coretemp.0/temp2_max
-/sys/devices/platform/coretemp.0/temp3_max
-/sys/devices/platform/coretemp.0/temp4_max
-/sys/devices/platform/coretemp.0/temp5_max
-/sys/devices/platform/coretemp.0/temp2_input
-/sys/devices/platform/coretemp.0/temp2_label
-/sys/module/coretemp
-/sys/module/coretemp/drivers/platform:coretemp
+This is useful for virtual machine migration when the
+destination of a target virtual machine changes. The replace
+feature can be used instead of delete followed by add.
 
+Resubmitted because net-next was closed last week.
 
-Anyhow, it seems that one of your peers presently puts that information 
-in that which is reported by ethtool -S
+Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
+---
+ drivers/net/vxlan.c | 40 +++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 39 insertions(+), 1 deletion(-)
 
-      ...
-      eth_red_drops: 0
-      be_on_die_temperature: 52
-      rxq0: rx_bytes: 67532255030
-      ...
-
-rick jones
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 227b54a..17681c6 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -407,6 +407,26 @@ static struct vxlan_rdst *vxlan_fdb_find_rdst(struct vxlan_fdb *f,
+ 	return NULL;
+ }
+ 
++/* Replace destination of unicast mac */
++static int vxlan_fdb_replace(struct vxlan_fdb *f,
++			    __be32 ip, __be16 port, __u32 vni, __u32 ifindex)
++{
++	struct vxlan_rdst *rd;
++
++	rd = vxlan_fdb_find_rdst(f, ip, port, vni, ifindex);
++	if (rd)
++		return 0;
++
++	rd = list_first_entry_or_null(&f->remotes, struct vxlan_rdst, list);
++	if (!rd)
++		return 0;
++	rd->remote_ip = ip;
++	rd->remote_port = port;
++	rd->remote_vni = vni;
++	rd->remote_ifindex = ifindex;
++	return 1;
++}
++
+ /* Add/update destinations for multicast */
+ static int vxlan_fdb_append(struct vxlan_fdb *f,
+ 			    __be32 ip, __be16 port, __u32 vni, __u32 ifindex)
+@@ -457,6 +477,19 @@ static int vxlan_fdb_create(struct vxlan_dev *vxlan,
+ 			f->updated = jiffies;
+ 			notify = 1;
+ 		}
++		if ((flags & NLM_F_REPLACE)) {
++			/* Only change unicasts */
++			if (!(is_multicast_ether_addr(f->eth_addr) ||
++			     is_zero_ether_addr(f->eth_addr))) {
++				int rc = vxlan_fdb_replace(f, ip, port, vni,
++							   ifindex);
++
++				if (rc < 0)
++					return rc;
++				notify |= rc;
++			} else
++				return -EOPNOTSUPP;
++		}
+ 		if ((flags & NLM_F_APPEND) &&
+ 		    (is_multicast_ether_addr(f->eth_addr) ||
+ 		     is_zero_ether_addr(f->eth_addr))) {
+@@ -473,6 +506,11 @@ static int vxlan_fdb_create(struct vxlan_dev *vxlan,
+ 		if (vxlan->addrmax && vxlan->addrcnt >= vxlan->addrmax)
+ 			return -ENOSPC;
+ 
++		/* Disallow replace to add a multicast entry */
++		if ((flags & NLM_F_REPLACE) &&
++		    (is_multicast_ether_addr(mac) || is_zero_ether_addr(mac)))
++			return -EOPNOTSUPP;
++
+ 		netdev_dbg(vxlan->dev, "add %pM -> %pI4\n", mac, &ip);
+ 		f = kmalloc(sizeof(*f), GFP_ATOMIC);
+ 		if (!f)
+-- 
+1.8.1.4
