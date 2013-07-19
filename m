@@ -1,41 +1,106 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [DISCUSSION] rt6i_genid
-Date: Thu, 18 Jul 2013 20:31:00 -0700 (PDT)
-Message-ID: <20130718.203100.1960741588589171145.davem@davemloft.net>
-References: <51E881EB.5040600@windriver.com>
-	<20130718.201801.1591610112107900505.davem@davemloft.net>
-	<51E8B273.1090002@windriver.com>
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Subject: [RFC] qlcnic: Enhance ethtool to display board temperature.
+Date: Thu, 18 Jul 2013 23:57:17 -0400
+Message-ID: <1374206237-27233-1-git-send-email-himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
-To: fan.du@windriver.com
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Himanshu Madhani <himanshu.madhani@qlogic.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41556 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755182Ab3GSDbB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 23:31:01 -0400
-In-Reply-To: <51E8B273.1090002@windriver.com>
+Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:50561 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752774Ab3GSEYr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jul 2013 00:24:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fan Du <fan.du@windriver.com>
-Date: Fri, 19 Jul 2013 11:28:51 +0800
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
 
-> On 2013年07月19日 11:18, David Miller wrote:
->> Although it's a correct change, it is of almost no value.  %99.9999999
->> of users will be running kernels with CONFIG_XFRM enabled.
-> 
-> Thanks. Good to know %99.99999999 users protect their networking with
-> IPsec.
+We need to provide a mechanism for a user space application to query
+adapter temperature. This RFC patch is to request input on which of the
+following approach would be appropriate way to export this information.
 
-That is not what I said.
+Here are the two approaches that I am exploring. Please review and
+provide your recommendation.
 
-I said that nearly every user will be running a kernel with that
-config option enabled, I did not say that they will actually be
-using IPSEC.
+1. Enhance ethtool to add capability for driver to advertise its
+   board temperature as part of "ethtool -i <ethX>"
 
-Distributions enable all options, so that users may use any facility
-that they want.
+    For example, following would be output for an interface which
+    has board temperature field populated via ethtool
 
-So optimizing for things like this are almost pointless.
+    "#ethtool -i p10p1"
+    driver: qlcnic
+    version: 5.2.44
+    bus-info: 0000:08:00.0
+    supports-statistics: yes
+    supports-test: yes
+    supports-eeprom-access: yes
+    supports-register-dump: yes
+    supports-priv-flags: no
+    board-temperature: 34
+
+    There will be update required for ethtool.c in the repository
+    git://git.kernel.org/pub/scm/network/ethtool/ethtool.git
+    maintained by Ben Hutchings.
+
+    if we decide to go with ethtool modification approach, I will send
+    patch to update ethtool repository. Attached patch at the end of this
+    email is for driver implementation for this approach.
+
+2. Add a sysfs hook "brd_temp" which will be used by the application
+   to query board temperature specific to the particular interface
+
+   for example, driver with "brd_temp" sysfs hook will show temperature
+
+   "#cat /sys/class/net/p10p1/device/brd_temp"
+   34
+
+Thank you for the comments.
+
+Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c | 7 +++++++
+ include/uapi/linux/ethtool.h                        | 1 +
+ 2 files changed, 8 insertions(+)
+
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+index 700a463..5335a71 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+@@ -235,6 +235,7 @@ qlcnic_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *drvinfo)
+ {
+ 	struct qlcnic_adapter *adapter = netdev_priv(dev);
+ 	u32 fw_major, fw_minor, fw_build;
++	u32 temp_val = 0;
+ 	fw_major = QLC_SHARED_REG_RD32(adapter, QLCNIC_FW_VERSION_MAJOR);
+ 	fw_minor = QLC_SHARED_REG_RD32(adapter, QLCNIC_FW_VERSION_MINOR);
+ 	fw_build = QLC_SHARED_REG_RD32(adapter, QLCNIC_FW_VERSION_SUB);
+@@ -246,6 +247,12 @@ qlcnic_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *drvinfo)
+ 	strlcpy(drvinfo->driver, qlcnic_driver_name, sizeof(drvinfo->driver));
+ 	strlcpy(drvinfo->version, QLCNIC_LINUX_VERSIONID,
+ 		sizeof(drvinfo->version));
++	if (qlcnic_82xx_check(adapter))
++		temp_val = QLC_SHARED_REG_RD32(adapter, QLCNIC_ASIC_TEMP);
++	else if (qlcnic_83xx_check(adapter))
++		temp_val = QLCRDX(adapter->ahw, QLC_83XX_ASIC_TEMP);
++
++	drvinfo->board_temp = qlcnic_get_temp_val(temp_val);
+ }
+ 
+ static int
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index 38dbafa..2012015 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -101,6 +101,7 @@ struct ethtool_drvinfo {
+ 	__u32	testinfo_len;
+ 	__u32	eedump_len;	/* Size of data from ETHTOOL_GEEPROM (bytes) */
+ 	__u32	regdump_len;	/* Size of data from ETHTOOL_GREGS (bytes) */
++	__u32	board_temp;     /* board temperature */
+ };
+ 
+ #define SOPASS_MAX	6
+-- 
+1.8.1.4
