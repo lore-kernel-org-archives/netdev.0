@@ -1,54 +1,38 @@
-From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-Subject: [PATCH net 5/9] qlcnic: Fix panic while setting VF's MAC address
-Date: Fri, 19 Jul 2013 16:56:30 -0400
-Message-ID: <1374267394-27697-6-git-send-email-sucheta.chakraborty@qlogic.com>
-References: <1374267394-27697-1-git-send-email-sucheta.chakraborty@qlogic.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Manish Chopra <manish.chopra@qlogic.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:40783 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751971Ab3GSVYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jul 2013 17:24:05 -0400
-In-Reply-To: <1374267394-27697-1-git-send-email-sucheta.chakraborty@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Richard Weinberger <richard@nod.at>
+Subject: [PATCH] via-rhine: Fix tx_timeout handling
+Date: Fri, 19 Jul 2013 23:30:28 +0200
+Message-ID: <1374269428-6827-1-git-send-email-richard@nod.at>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Richard Weinberger <richard@nod.at>
+To: rl@hellgate.ch
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Manish Chopra <manish.chopra@qlogic.com>
+rhine_reset_task() misses to call netif_stop_queue(),
+this can lead to a crash if work is still scheduled while
+we're resetting the tx queue.
 
-o "qlcnic_sriov" structure pointer should be accessed only
-  when SR-IOV is enabled. Access this pointer after SR-IOV
-  PF check.
+Fixes:
+[   93.591707] BUG: unable to handle kernel NULL pointer dereference at 0000004c
+[   93.595514] IP: [<c119d10d>] rhine_napipoll+0x491/0x6e
 
-Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
-Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Signed-off-by: Richard Weinberger <richard@nod.at>
 ---
- .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/via/via-rhine.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-index ee0c1d3..b9b88f3 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-@@ -1621,13 +1621,15 @@ int qlcnic_sriov_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 	struct qlcnic_sriov *sriov = adapter->ahw->sriov;
--	int i, num_vfs = sriov->num_vfs;
-+	int i, num_vfs;
- 	struct qlcnic_vf_info *vf_info;
- 	u8 *curr_mac;
+diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
+index b75eb9e..57e1b40 100644
+--- a/drivers/net/ethernet/via/via-rhine.c
++++ b/drivers/net/ethernet/via/via-rhine.c
+@@ -1615,6 +1615,7 @@ static void rhine_reset_task(struct work_struct *work)
+ 		goto out_unlock;
  
- 	if (!qlcnic_sriov_pf_check(adapter))
- 		return -EOPNOTSUPP;
+ 	napi_disable(&rp->napi);
++	netif_stop_queue(dev);
+ 	spin_lock_bh(&rp->lock);
  
-+	num_vfs = sriov->num_vfs;
-+
- 	if (!is_valid_ether_addr(mac) || vf >= num_vfs)
- 		return -EINVAL;
- 
+ 	/* clear all descriptors */
 -- 
-1.7.1
+1.8.3.1
