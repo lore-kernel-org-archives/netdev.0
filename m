@@ -1,46 +1,58 @@
-From: Michal Tesar <mtesar@redhat.com>
-Subject: [PATCH v2] sysctl net: Keep tcp_syn_retries inside the boundary
-Date: Fri, 19 Jul 2013 14:09:01 +0200
-Message-ID: <1374235741-31266-1-git-send-email-mtesar@redhat.com>
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] can: usb_8dev: fix urb leak on failure path in usb_8dev_start()
+Date: Fri, 19 Jul 2013 14:54:28 +0200
+Message-ID: <51E93704.8010208@pengutronix.de>
+References: <1374096033-28981-1-git-send-email-khoroshilov@ispras.ru>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="----enig2DVGJUTWSQJWSHLSWPGSO"
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Bernd Krumboeck <krumboeck@universalnet.at>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1374096033-28981-1-git-send-email-khoroshilov@ispras.ru>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Limit the min/max value passed to the
-/proc/sys/net/ipv4/tcp_syn_retries.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+------enig2DVGJUTWSQJWSHLSWPGSO
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Michal Tesar <mtesar@redhat.com>
----
- net/ipv4/sysctl_net_ipv4.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
+On 07/17/2013 11:20 PM, Alexey Khoroshilov wrote:
+> If usb_8dev_start() fails to submit urb,
+> it unanchors the urb but forgets to free it.
+>=20
+> Found by Linux Driver Verification project (linuxtesting.org).
+>=20
+> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
 
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index b2c123c..610e324 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -36,6 +36,8 @@ static int tcp_adv_win_scale_min = -31;
- static int tcp_adv_win_scale_max = 31;
- static int ip_ttl_min = 1;
- static int ip_ttl_max = 255;
-+static int tcp_syn_retries_min = 1;
-+static int tcp_syn_retries_max = MAX_TCP_SYNCNT;
- static int ip_ping_group_range_min[] = { 0, 0 };
- static int ip_ping_group_range_max[] = { GID_T_MAX, GID_T_MAX };
- 
-@@ -332,7 +334,9 @@ static struct ctl_table ipv4_table[] = {
- 		.data		= &sysctl_tcp_syn_retries,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &tcp_syn_retries_min,
-+		.extra2		= &tcp_syn_retries_max
- 	},
- 	{
- 		.procname	= "tcp_synack_retries",
--- 
-1.7.7.6
+Thanks, added to can/fixes-for-3.11
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+------enig2DVGJUTWSQJWSHLSWPGSO
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlHpNwUACgkQjTAFq1RaXHMPEQCfS4rpvy1qOf+x5FkrJl11uN/3
+1SMAoIwF5db06bhxA3jRcISZDjnQq+yg
+=34Hf
+-----END PGP SIGNATURE-----
+
+------enig2DVGJUTWSQJWSHLSWPGSO--
