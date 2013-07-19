@@ -1,42 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: r8169: is the work queue is initialized at wrong place?
-Date: Thu, 18 Jul 2013 20:16:04 -0700 (PDT)
-Message-ID: <20130718.201604.1029725996842278443.davem@davemloft.net>
-References: <5838023.rAHnY47tlv@al>
-	<20130718215343.GA25075@electric-eye.fr.zoreil.com>
-	<2387149.B9WVEQm2aY@al>
+Subject: Re: [DISCUSSION] rt6i_genid
+Date: Thu, 18 Jul 2013 20:18:01 -0700 (PDT)
+Message-ID: <20130718.201801.1591610112107900505.davem@davemloft.net>
+References: <51E7B522.4070105@windriver.com>
+	<51E805D9.9040408@6wind.com>
+	<51E881EB.5040600@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org, nic_swsd@realtek.com
-To: lekensteyn@gmail.com
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
+To: fan.du@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41465 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41480 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933493Ab3GSDQH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 23:16:07 -0400
-In-Reply-To: <2387149.B9WVEQm2aY@al>
+	with ESMTP id S1753173Ab3GSDSC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jul 2013 23:18:02 -0400
+In-Reply-To: <51E881EB.5040600@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Wu <lekensteyn@gmail.com>
-Date: Fri, 19 Jul 2013 00:41:57 +0200
-
-> On Thursday 18 July 2013 23:53:43 Francois Romieu wrote:
->> Peter Wu <lekensteyn@gmail.com> :
->> [...]
->> 
->> > However, this queue is only initialized in rtl_open:
->> > 
->> > 6673         INIT_WORK(&tp->wk.work, rtl_task);
->> > 6674
->> > 6675         smp_mb();
->> > 
->> > Shouldn't this INIT_WORK be done in rtl_init_one ?
->> 
->> (or cancel_work_sync in rtl8169_close to reduce the scope)
-> Will this also work with multiple adapters? I currently have an on-board chip 
-> using the r8169 driver and a separate PCI card.
-
-Francois's suggested fix will work just as equally, regardless of
-number of adapters.
+RnJvbTogRmFuIER1IDxmYW4uZHVAd2luZHJpdmVyLmNvbT4NCkRhdGU6IEZyaSwgMTkgSnVsIDIw
+MTMgMDg6MDE6NDcgKzA4MDANCg0KPiANCj4gDQo+IE9uIDIwMTPlubQwN+aciDE45pelIDIzOjEy
+LCBOaWNvbGFzIERpY2h0ZWwgd3JvdGU6DQo+PiBMZSAxOC8wNy8yMDEzIDExOjI4LCBGYW4gRHUg
+YSDDqWNyaXQgOg0KPj4+DQo+Pj4gVGhhbmtzIGZvciByZXBseWluZyA6KQ0KPj4+DQo+Pj4gT24g
+MjAxM+W5tDA35pyIMTjml6UgMTc6MTMsIE5pY29sYXMgRGljaHRlbCB3cm90ZToNCj4+Pj4gTGUg
+MTgvMDcvMjAxMyAwNToyMiwgRmFuIER1IGEgw6ljcml0IDoNCj4+Pj4+IEhlbGxvIE5pY29sYXMN
+Cj4+Pj4+DQo+Pj4+PiBDb21taXQgNmYzMTE4YjU3MWI4YTRjMDZjNzk4NWRjMzE3MmMzNTI2Y2I4
+NjI1MzogImlwdjY6IHVzZQ0KPj4+Pj4gbmV0LT5ydF9nZW5pZCB0bw0KPj4+Pj4gY2hlY2sgZHN0
+IHZhbGlkaXR5Ig0KPj4+Pj4gbWFrZXMgaXA2X2RzdF9jaGVjayB0byBjaGVjayBydDZpX2dlbmlk
+IGFnYWluc3Qgd2l0aCBzdHJ1Y3QNCj4+Pj4+IG5ldC0+cnRfZ2VuaWQsDQo+Pj4+PiBBcyBhIG1h
+dHRlciBvZiBmYWN0LCBzdHJ1Y3QgbmV0LT5ydF9nZW5pZCBjb3VsZCBvbmx5IGJlIG1vZGlmaWVk
+IGJ5DQo+Pj4+PiB0d28gcGxhY2VzLA0KPj4+Pj4gZmlyc3QgaXMgYWRkaW5nL2RlbGV0ZSBJUHY0
+IGFkZHJlc3MsIHNlY29uZCBpcyBpbnNlcnRpbmcgbmV3IFhGUk0NCj4+Pj4+IHBvbGljeS4NCj4+
+Pj4+DQo+Pj4+PiBJcyB0aGVyZSBhbnkgb3RoZXIgY29uc2lkZXJhdGlvbnMgdGhhdCBhZGRpbmcv
+ZGVsZXRpbmcgSVB2NCBhZGRyZXNzDQo+Pj4+PiB3b3VsZA0KPj4+Pj4gaW52YWxpZCBhbGwgSVB2
+NiBkc3QNCj4+Pj4+IGFzIHdlbGw/IGJlY2F1c2UgSSdtIHdvcmtpbmcgYSBwYXRjaCB3aGljaCBh
+Y3R1YWxseSBkZXBlbmRzIG9uIHRoZQ0KPj4+Pj4gcmVzdWx0IG9mDQo+Pj4+PiB0aGlzIHF1ZXN0
+aW9uLg0KPj4+PiBObywgdGhlIGdvYWwgd2FzIHRvIGNvdmVyIHRoZSBJUHNlYyBjYXNlLCBpZSBp
+bnZhbGlkYXRlIGRzdCBlbnRyaWVzDQo+Pj4+IHdoZW4gYW4NCj4+Pj4geGZybSBwb2xpY3kgaXMg
+aW5zZXJ0ZWQvZGVsZXRlZC4NCj4+Pg0KPj4+IE9rLCB0aGVuIGhvdyBhYm91dCB3ZSBvbmx5IGNo
+ZWNraW5nIHJ0NmlfZ2VuaWQgYWdhaW5zdCBydF9nZW5pZCAqb25seSoNCj4+PiB3aGVuIFhGUk0g
+aXMgZW5hYmxlZCBmb3IgSVB2NiwgYmVjYXVzZSB3aGVuIFhGUk0gaXMgbm90IGVuYWJsZWQgZm9y
+DQo+Pj4gSVB2Ng0KPj4+IGlwNl9kc3RfY2hlY2sgZm9yIHJ0X2dlbmlkIGlzIHJlYWxseSBub3Qg
+bmVjZXNzYXJ5Lg0KPj4+DQo+Pj4gU28gd2hhdCBkbyB5b3UgdGhpbmsgb2YgYmVsb3cgbW9kaWZp
+Y2F0aW9ucz8NCj4+IFNlZW1zIGdvb2QuIEp1c3QgYSBzbWFsbCBjb21tZW50IGJlbG93Lg0KPiAN
+Cj4gV2lsbCBzZW5kIHYyIGZvciB5b3VyIHJldmlld2luZyB3aGVuIG5ldC1uZXh0IGlzIHJlb3Bl
+bi4NCg0KQWx0aG91Z2ggaXQncyBhIGNvcnJlY3QgY2hhbmdlLCBpdCBpcyBvZiBhbG1vc3Qgbm8g
+dmFsdWUuICAlOTkuOTk5OTk5OQ0Kb2YgdXNlcnMgd2lsbCBiZSBydW5uaW5nIGtlcm5lbHMgd2l0
+aCBDT05GSUdfWEZSTSBlbmFibGVkLg0KDQpTbyB5b3VyIHNhdmluZ3MgYXJlIGVzc2VudGlhbGx5
+IGZvciBuby1vbmUuDQo=
