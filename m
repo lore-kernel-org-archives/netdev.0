@@ -1,41 +1,53 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC] qlcnic: Enhance ethtool to display board temperature.
-Date: Fri, 19 Jul 2013 09:11:28 -0700
-Message-ID: <20130719091128.068e5514@nehalam.linuxnetplumber.net>
-References: <1374206237-27233-1-git-send-email-himanshu.madhani@qlogic.com>
+Subject: Re: [PATCH 2/2 V2] macvlan fdb replace support
+Date: Fri, 19 Jul 2013 09:18:55 -0700
+Message-ID: <20130719091855.6c763231@nehalam.linuxnetplumber.net>
+References: <1374247208-8226-1-git-send-email-tmricht@linux.vnet.ibm.com>
+	<1374247208-8226-2-git-send-email-tmricht@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Thomas Richter <tmricht@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:47170 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760148Ab3GSQLb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jul 2013 12:11:31 -0400
-Received: by mail-pb0-f54.google.com with SMTP id ro2so4596074pbb.41
-        for <netdev@vger.kernel.org>; Fri, 19 Jul 2013 09:11:31 -0700 (PDT)
-In-Reply-To: <1374206237-27233-1-git-send-email-himanshu.madhani@qlogic.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:42928 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752172Ab3GSQS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jul 2013 12:18:58 -0400
+Received: by mail-pa0-f51.google.com with SMTP id lf11so4584936pab.38
+        for <netdev@vger.kernel.org>; Fri, 19 Jul 2013 09:18:58 -0700 (PDT)
+In-Reply-To: <1374247208-8226-2-git-send-email-tmricht@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
->  static int
-> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-> index 38dbafa..2012015 100644
-> --- a/include/uapi/linux/ethtool.h
-> +++ b/include/uapi/linux/ethtool.h
-> @@ -101,6 +101,7 @@ struct ethtool_drvinfo {
->  	__u32	testinfo_len;
->  	__u32	eedump_len;	/* Size of data from ETHTOOL_GEEPROM (bytes) */
->  	__u32	regdump_len;	/* Size of data from ETHTOOL_GREGS (bytes) */
-> +	__u32	board_temp;     /* board temperature */
->  };
+On Fri, 19 Jul 2013 17:20:08 +0200
+Thomas Richter <tmricht@linux.vnet.ibm.com> wrote:
 
-The idea is good but a couple of comments.
-1. you can't break userspace ABI for ethtool by adding elements.
+> Add support for iproute2 command 'bridge fdb replace ...'.
+> The rtnletlink call back function ndo_fdb_add will be called
+> with the NLM_F_REPLACE flag set.
+> Simply return -EOPNOTSUP.
+> 
+> Resubmitted because net-next was closed last week.
+> 
+> Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
+> ---
+>  drivers/net/macvlan.c | 3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> index 18373b6..74907f5 100644
+> --- a/drivers/net/macvlan.c
+> +++ b/drivers/net/macvlan.c
+> @@ -597,6 +597,9 @@ static int macvlan_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+>  	if (!vlan->port->passthru)
+>  		return -EOPNOTSUPP;
+>  
+> +	if (flags & NLM_F_REPLACE)
+> +		return -EOPNOTSUPP;
+> +
+>  	if (is_unicast_ether_addr(addr))
+>  		err = dev_uc_add_excl(dev, addr);
+>  	else if (is_multicast_ether_addr(addr))
 
-2. There already exists a hardware monitoring subsystem in
-   Linux and there are applications that use it (like SNMP. If you want this feature to
-   be more than a developer toy, then it should use the existing subsystem API's.
+What about bridge that also uses netlink FDB interface?
