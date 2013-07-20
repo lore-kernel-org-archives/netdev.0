@@ -1,7 +1,8 @@
 From: Jonas Gorski <jogo@openwrt.org>
-Subject: [PATCH 0/2] net: fix ixp4xx_eth
-Date: Sat, 20 Jul 2013 12:15:37 +0200
-Message-ID: <1374315339-31469-1-git-send-email-jogo@openwrt.org>
+Subject: [PATCH 2/2] net: ixp4xx_eth: use parent device for dma allocations
+Date: Sat, 20 Jul 2013 12:15:39 +0200
+Message-ID: <1374315339-31469-3-git-send-email-jogo@openwrt.org>
+References: <1374315339-31469-1-git-send-email-jogo@openwrt.org>
 Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	"David S. Miller" <davem@davemloft.net>,
 	Russell King <linux@arm.linux.org.uk>,
@@ -9,34 +10,101 @@ Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	Imre Kaloz <kaloz@openwrt.org>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1374315339-31469-1-git-send-email-jogo@openwrt.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patchset aims at fixing ethernet for ixp4xx, which is broken since
-3.7. It is basedon discussion to the patch from Krzysztof Halasa [1],
-following Russel King's suggestion.
+Now that the platfomr device provides a dma_cohorent_mask, use it for
+dma operations.
 
-This patchset is currently in use at OpenWrt and successfully tested
-on Linksys NSLU2.
+This fixes ethernet on ixp4xx which was broken since 3.7.
 
-These patches are independent of each other, so they could go each in
-a different tree or both in the same, and the order does not matter.
-
-[1] https://patchwork.kernel.org/patch/2325151/
-
-Jonas Gorski (2):
-  arm: ixp4xx: set cohorent_dma_mask for ethernet platform devices
-  net: ixp4xx_eth: use parent device for dma allocations
-
- arch/arm/mach-ixp4xx/fsg-setup.c         |  2 ++
- arch/arm/mach-ixp4xx/goramo_mlr.c        |  2 ++
- arch/arm/mach-ixp4xx/ixdp425-setup.c     |  3 +++
- arch/arm/mach-ixp4xx/nas100d-setup.c     |  1 +
- arch/arm/mach-ixp4xx/nslu2-setup.c       |  1 +
- arch/arm/mach-ixp4xx/omixp-setup.c       |  3 +++
- arch/arm/mach-ixp4xx/vulcan-setup.c      |  2 ++
+Signed-off-by: Jonas Gorski <jogo@openwrt.org>
+---
  drivers/net/ethernet/xscale/ixp4xx_eth.c | 23 ++++++++++++-----------
- 8 files changed, 26 insertions(+), 11 deletions(-)
+ 1 file changed, 12 insertions(+), 11 deletions(-)
 
+diff --git a/drivers/net/ethernet/xscale/ixp4xx_eth.c b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+index 3d689fc..18aa660 100644
+--- a/drivers/net/ethernet/xscale/ixp4xx_eth.c
++++ b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+@@ -641,10 +641,10 @@ static inline void queue_put_desc(unsigned int queue, u32 phys,
+ static inline void dma_unmap_tx(struct port *port, struct desc *desc)
+ {
+ #ifdef __ARMEB__
+-	dma_unmap_single(&port->netdev->dev, desc->data,
++	dma_unmap_single(port->netdev->dev.parent, desc->data,
+ 			 desc->buf_len, DMA_TO_DEVICE);
+ #else
+-	dma_unmap_single(&port->netdev->dev, desc->data & ~3,
++	dma_unmap_single(port->netdev->dev.parent, desc->data & ~3,
+ 			 ALIGN((desc->data & 3) + desc->buf_len, 4),
+ 			 DMA_TO_DEVICE);
+ #endif
+@@ -711,9 +711,9 @@ static int eth_poll(struct napi_struct *napi, int budget)
+ 
+ #ifdef __ARMEB__
+ 		if ((skb = netdev_alloc_skb(dev, RX_BUFF_SIZE))) {
+-			phys = dma_map_single(&dev->dev, skb->data,
++			phys = dma_map_single(dev->dev.parent, skb->data,
+ 					      RX_BUFF_SIZE, DMA_FROM_DEVICE);
+-			if (dma_mapping_error(&dev->dev, phys)) {
++			if (dma_mapping_error(dev->dev.parent, phys)) {
+ 				dev_kfree_skb(skb);
+ 				skb = NULL;
+ 			}
+@@ -736,10 +736,11 @@ static int eth_poll(struct napi_struct *napi, int budget)
+ #ifdef __ARMEB__
+ 		temp = skb;
+ 		skb = port->rx_buff_tab[n];
+-		dma_unmap_single(&dev->dev, desc->data - NET_IP_ALIGN,
++		dma_unmap_single(dev->dev.parent, desc->data - NET_IP_ALIGN,
+ 				 RX_BUFF_SIZE, DMA_FROM_DEVICE);
+ #else
+-		dma_sync_single_for_cpu(&dev->dev, desc->data - NET_IP_ALIGN,
++		dma_sync_single_for_cpu(dev->dev.parent,
++					desc->data - NET_IP_ALIGN,
+ 					RX_BUFF_SIZE, DMA_FROM_DEVICE);
+ 		memcpy_swab32((u32 *)skb->data, (u32 *)port->rx_buff_tab[n],
+ 			      ALIGN(NET_IP_ALIGN + desc->pkt_len, 4) / 4);
+@@ -858,7 +859,7 @@ static int eth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	memcpy_swab32(mem, (u32 *)((int)skb->data & ~3), bytes / 4);
+ #endif
+ 
+-	phys = dma_map_single(&dev->dev, mem, bytes, DMA_TO_DEVICE);
++	phys = dma_map_single(dev->dev.parent, mem, bytes, DMA_TO_DEVICE);
+ 	if (dma_mapping_error(&dev->dev, phys)) {
+ 		dev_kfree_skb(skb);
+ #ifndef __ARMEB__
+@@ -1104,7 +1105,7 @@ static int init_queues(struct port *port)
+ 	int i;
+ 
+ 	if (!ports_open) {
+-		dma_pool = dma_pool_create(DRV_NAME, &port->netdev->dev,
++		dma_pool = dma_pool_create(DRV_NAME, port->netdev->dev.parent,
+ 					   POOL_ALLOC_SIZE, 32, 0);
+ 		if (!dma_pool)
+ 			return -ENOMEM;
+@@ -1132,9 +1133,9 @@ static int init_queues(struct port *port)
+ 		data = buff;
+ #endif
+ 		desc->buf_len = MAX_MRU;
+-		desc->data = dma_map_single(&port->netdev->dev, data,
++		desc->data = dma_map_single(port->netdev->dev.parent, data,
+ 					    RX_BUFF_SIZE, DMA_FROM_DEVICE);
+-		if (dma_mapping_error(&port->netdev->dev, desc->data)) {
++		if (dma_mapping_error(port->netdev->dev.parent, desc->data)) {
+ 			free_buffer(buff);
+ 			return -EIO;
+ 		}
+@@ -1154,7 +1155,7 @@ static void destroy_queues(struct port *port)
+ 			struct desc *desc = rx_desc_ptr(port, i);
+ 			buffer_t *buff = port->rx_buff_tab[i];
+ 			if (buff) {
+-				dma_unmap_single(&port->netdev->dev,
++				dma_unmap_single(port->netdev->dev.parent,
+ 						 desc->data - NET_IP_ALIGN,
+ 						 RX_BUFF_SIZE, DMA_FROM_DEVICE);
+ 				free_buffer(buff);
 -- 
 1.8.3.2
