@@ -1,155 +1,125 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: [PATCH iproute2 1/2] ss: Fix compiler errors of unused return-values
-Date: Sat, 20 Jul 2013 21:58:17 +0200
-Message-ID: <1374350298-1177-2-git-send-email-christoph.paasch@uclouvain.be>
-References: <1374350298-1177-1-git-send-email-christoph.paasch@uclouvain.be>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH v3 net-next] ipmr: change the prototype of ip_mr_forward().
+Date: Sat, 20 Jul 2013 22:21:49 +0200
+Message-ID: <51EAF15D.7080307@6wind.com>
+References: <1374322168-5115-1-git-send-email-ramirose@gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Rami Rosen <ramirose@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:35311 "EHLO
-	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754837Ab3GTUG0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jul 2013 16:06:26 -0400
-In-Reply-To: <1374350298-1177-1-git-send-email-christoph.paasch@uclouvain.be>
+Received: from mail-we0-f169.google.com ([74.125.82.169]:41246 "EHLO
+	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752577Ab3GTUVy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jul 2013 16:21:54 -0400
+Received: by mail-we0-f169.google.com with SMTP id n57so4891161wev.0
+        for <netdev@vger.kernel.org>; Sat, 20 Jul 2013 13:21:53 -0700 (PDT)
+In-Reply-To: <1374322168-5115-1-git-send-email-ramirose@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Many errors when compiling with gcc 4.7.3 about unused return-values
-upon the calls to fgets and fscanf:
+Le 20/07/2013 14:09, Rami Rosen a =C3=A9crit :
+> This patch changes the prototpye of the ip_mr_forward() method to ret=
+urn void
+> instead of int.
+>
+> The ip_mr_forward() method always returns 0; moreover, the return val=
+ue of this
+> method is not checked anywhere.
+>
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-ss.c: In function =E2=80=98user_ent_hash_build=E2=80=99:
-ss.c:305:12: error: ignoring return value of =E2=80=98fscanf=E2=80=99, =
-declared with attribute warn_unused_result [-Werror=3Dunused-result]
-ss.c: In function =E2=80=98get_slabstat=E2=80=99:
-ss.c:387:7: error: ignoring return value of =E2=80=98fgets=E2=80=99, de=
-clared with attribute warn_unused_result [-Werror=3Dunused-result]
-ss.c: In function =E2=80=98init_service_resolver=E2=80=99:
-ss.c:511:8: error: ignoring return value of =E2=80=98fgets=E2=80=99, de=
-clared with attribute warn_unused_result [-Werror=3Dunused-result]
-ss.c: In function =E2=80=98run_ssfilter=E2=80=99:
-ss.c:728:11: error: ignoring return value of =E2=80=98fscanf=E2=80=99, =
-declared with attribute warn_unused_result [-Werror=3Dunused-result]
-ss.c: In function =E2=80=98is_ephemeral=E2=80=99:
-ss.c:550:10: error: ignoring return value of =E2=80=98fscanf=E2=80=99, =
-declared with attribute warn_unused_result [-Werror=3Dunused-result]
-ss.c: In function =E2=80=98netlink_show=E2=80=99:
-ss.c:2836:7: error: ignoring return value of =E2=80=98fgets=E2=80=99, d=
-eclared with attribute warn_unused_result [-Werror=3Dunused-result]
-ss.c: In function =E2=80=98packet_show=E2=80=99:
-ss.c:2630:7: error: ignoring return value of =E2=80=98fgets=E2=80=99, d=
-eclared with attribute warn_unused_result [-Werror=3Dunused-result]
-ss.c: In function =E2=80=98unix_show=E2=80=99:
-ss.c:2364:7: error: ignoring return value of =E2=80=98fgets=E2=80=99, d=
-eclared with attribute warn_unused_result [-Werror=3Dunused-result]
-cc1: all warnings being treated as errors
-make[1]: *** [ss.o] Error 1
-make[1]: Leaving directory `/home/christoph/workspace/linux/iproute2/mi=
-sc'
-make: *** [all] Error 2
+> ---
+>   net/ipv4/ipmr.c | 15 +++++++--------
+>   1 file changed, 7 insertions(+), 8 deletions(-)
+>
+> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+> index 132a096..bacc0bc 100644
+> --- a/net/ipv4/ipmr.c
+> +++ b/net/ipv4/ipmr.c
+> @@ -127,9 +127,9 @@ static struct kmem_cache *mrt_cachep __read_mostl=
+y;
+>   static struct mr_table *ipmr_new_table(struct net *net, u32 id);
+>   static void ipmr_free_table(struct mr_table *mrt);
+>
+> -static int ip_mr_forward(struct net *net, struct mr_table *mrt,
+> -			 struct sk_buff *skb, struct mfc_cache *cache,
+> -			 int local);
+> +static void ip_mr_forward(struct net *net, struct mr_table *mrt,
+> +			  struct sk_buff *skb, struct mfc_cache *cache,
+> +			  int local);
+>   static int ipmr_cache_report(struct mr_table *mrt,
+>   			     struct sk_buff *pkt, vifi_t vifi, int assert);
+>   static int __ipmr_fill_mroute(struct mr_table *mrt, struct sk_buff =
+*skb,
+> @@ -1795,9 +1795,9 @@ static int ipmr_find_vif(struct mr_table *mrt, =
+struct net_device *dev)
+>
+>   /* "local" means that we should preserve one skb (for local deliver=
+y) */
+>
+> -static int ip_mr_forward(struct net *net, struct mr_table *mrt,
+> -			 struct sk_buff *skb, struct mfc_cache *cache,
+> -			 int local)
+> +static void ip_mr_forward(struct net *net, struct mr_table *mrt,
+> +			  struct sk_buff *skb, struct mfc_cache *cache,
+> +			  int local)
+>   {
+>   	int psend =3D -1;
+>   	int vif, ct;
+> @@ -1903,14 +1903,13 @@ last_forward:
+>   				ipmr_queue_xmit(net, mrt, skb2, cache, psend);
+>   		} else {
+>   			ipmr_queue_xmit(net, mrt, skb, cache, psend);
+> -			return 0;
+> +			return;
+>   		}
+>   	}
+>
+>   dont_forward:
+>   	if (!local)
+>   		kfree_skb(skb);
+> -	return 0;
+>   }
+>
+>   static struct mr_table *ipmr_rt_fib_lookup(struct net *net, struct =
+sk_buff *skb)
+>
 
-=46or the calls to fscanf we can't really do anything about it, and jus=
-t
-do an empty if-statement to make the compiler happy.
-
-Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
----
- misc/ss.c | 30 +++++++++++++++++++++---------
- 1 file changed, 21 insertions(+), 9 deletions(-)
-
-diff --git a/misc/ss.c b/misc/ss.c
-index c0369f1..0f71108 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -302,7 +302,7 @@ static void user_ent_hash_build(void)
-=20
- 				snprintf(tmp, sizeof(tmp), "%s/%d/stat", root, pid);
- 				if ((fp =3D fopen(tmp, "r")) !=3D NULL) {
--					fscanf(fp, "%*d (%[^)])", process);
-+					if (fscanf(fp, "%*d (%[^)])", process) =3D=3D EOF);
- 					fclose(fp);
- 				}
- 			}
-@@ -384,7 +384,10 @@ static int get_slabstat(struct slabstat *s)
-=20
- 	cnt =3D sizeof(*s)/sizeof(int);
-=20
--	fgets(buf, sizeof(buf), fp);
-+	if (!fgets(buf, sizeof(buf), fp)) {
-+		fclose(fp);
-+		return -1;
-+	}
- 	while(fgets(buf, sizeof(buf), fp) !=3D NULL) {
- 		int i;
- 		for (i=3D0; i<sizeof(slabstat_ids)/sizeof(slabstat_ids[0]); i++) {
-@@ -508,7 +511,10 @@ static void init_service_resolver(void)
- 	char buf[128];
- 	FILE *fp =3D popen("/usr/sbin/rpcinfo -p 2>/dev/null", "r");
- 	if (fp) {
--		fgets(buf, sizeof(buf), fp);
-+		if (!fgets(buf, sizeof(buf), fp)) {
-+			pclose(fp);
-+			return;
-+		}
- 		while (fgets(buf, sizeof(buf), fp) !=3D NULL) {
- 			unsigned int progn, port;
- 			char proto[128], prog[128];
-@@ -547,8 +553,7 @@ static int is_ephemeral(int port)
- 	if (!ip_local_port_min) {
- 		FILE *f =3D ephemeral_ports_open();
- 		if (f) {
--			fscanf(f, "%d %d",
--			       &ip_local_port_min, &ip_local_port_max);
-+			if (fscanf(f, "%d %d", &ip_local_port_min, &ip_local_port_max) =3D=3D=
- EOF);
- 			fclose(f);
- 		} else {
- 			ip_local_port_min =3D 1024;
-@@ -725,7 +730,7 @@ static int run_ssfilter(struct ssfilter *f, struct =
-tcpstat *s)
-                 if (!low) {
- 			FILE *fp =3D ephemeral_ports_open();
- 			if (fp) {
--				fscanf(fp, "%d%d", &low, &high);
-+				if (fscanf(fp, "%d%d", &low, &high) =3D=3D EOF);
- 				fclose(fp);
- 			}
- 		}
-@@ -2361,7 +2366,10 @@ static int unix_show(struct filter *f)
-=20
- 	if ((fp =3D net_unix_open()) =3D=3D NULL)
- 		return -1;
--	fgets(buf, sizeof(buf)-1, fp);
-+	if (!fgets(buf, sizeof(buf)-1, fp)) {
-+		fclose(fp);
-+		return -1;
-+	}
-=20
- 	if (memcmp(buf, "Peer", 4) =3D=3D 0)
- 		newformat =3D 1;
-@@ -2627,7 +2635,10 @@ static int packet_show(struct filter *f)
-=20
- 	if ((fp =3D net_packet_open()) =3D=3D NULL)
- 		return -1;
--	fgets(buf, sizeof(buf)-1, fp);
-+	if (!fgets(buf, sizeof(buf)-1, fp)) {
-+		fclose(fp);
-+		return -1;
-+	}
-=20
- 	while (fgets(buf, sizeof(buf)-1, fp)) {
- 		sscanf(buf, "%llx %*d %d %x %d %d %u %u %u",
-@@ -2833,7 +2844,8 @@ static int netlink_show(struct filter *f)
-=20
- 	if ((fp =3D net_netlink_open()) =3D=3D NULL)
- 		return -1;
--	fgets(buf, sizeof(buf)-1, fp);
-+	if (!fgets(buf, sizeof(buf)-1, fp))
-+		return -1;
-=20
- 	while (fgets(buf, sizeof(buf)-1, fp)) {
- 		sscanf(buf, "%llx %d %d %x %d %d %llx %d",
 --=20
-1.8.1.2
+Nicolas DICHTEL
+6WIND
+R&D Engineer
+
+Tel: +33 1 39 30 92 41
+=46ax: +33 1 39 30 92 11
+nicolas.dichtel@6wind.com
+www.6wind.com
+www.6windblog.com
+Twitter: http://twitter.com/6windsoftware
+
+Ce courriel ainsi que toutes les pi=C3=A8ces jointes, est uniquement de=
+stin=C3=A9 =C3=A0 son ou=20
+ses destinataires. Il contient des informations confidentielles qui son=
+t la=20
+propri=C3=A9t=C3=A9 de 6WIND. Toute r=C3=A9v=C3=A9lation, distribution =
+ou copie des informations=20
+qu'il contient est strictement interdite. Si vous avez re=C3=A7u ce mes=
+sage par=20
+erreur, veuillez imm=C3=A9diatement le signaler =C3=A0 l'=C3=A9metteur =
+et d=C3=A9truire toutes les=20
+donn=C3=A9es re=C3=A7ues.
+
+This e-mail message, including any attachments, is for the sole use of =
+the=20
+intended recipient(s) and contains information that is confidential and=
+=20
+proprietary to 6WIND. All unauthorized review, use, disclosure or distr=
+ibution=20
+is prohibited. If you are not the intended recipient, please contact th=
+e sender=20
+by reply e-mail and destroy all copies of the original message.
