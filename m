@@ -1,7 +1,7 @@
 From: Jonas Gorski <jogo@openwrt.org>
-Subject: [PATCH 2/2] net: ixp4xx_eth: use parent device for dma allocations
-Date: Sat, 20 Jul 2013 12:15:39 +0200
-Message-ID: <1374315339-31469-3-git-send-email-jogo@openwrt.org>
+Subject: [PATCH 1/2] arm: ixp4xx: set cohorent_dma_mask for ethernet platform devices
+Date: Sat, 20 Jul 2013 12:15:38 +0200
+Message-ID: <1374315339-31469-2-git-send-email-jogo@openwrt.org>
 References: <1374315339-31469-1-git-send-email-jogo@openwrt.org>
 Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,97 +14,149 @@ In-Reply-To: <1374315339-31469-1-git-send-email-jogo@openwrt.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now that the platfomr device provides a dma_cohorent_mask, use it for
-dma operations.
-
-This fixes ethernet on ixp4xx which was broken since 3.7.
+ARM requires the cohorent_dma_mask set, so set it for the platform
+devices so that the ethernet driver has access to it.
 
 Signed-off-by: Jonas Gorski <jogo@openwrt.org>
 ---
- drivers/net/ethernet/xscale/ixp4xx_eth.c | 23 ++++++++++++-----------
- 1 file changed, 12 insertions(+), 11 deletions(-)
+ arch/arm/mach-ixp4xx/fsg-setup.c     | 2 ++
+ arch/arm/mach-ixp4xx/goramo_mlr.c    | 2 ++
+ arch/arm/mach-ixp4xx/ixdp425-setup.c | 3 +++
+ arch/arm/mach-ixp4xx/nas100d-setup.c | 1 +
+ arch/arm/mach-ixp4xx/nslu2-setup.c   | 1 +
+ arch/arm/mach-ixp4xx/omixp-setup.c   | 3 +++
+ arch/arm/mach-ixp4xx/vulcan-setup.c  | 2 ++
+ 7 files changed, 14 insertions(+)
 
-diff --git a/drivers/net/ethernet/xscale/ixp4xx_eth.c b/drivers/net/ethernet/xscale/ixp4xx_eth.c
-index 3d689fc..18aa660 100644
---- a/drivers/net/ethernet/xscale/ixp4xx_eth.c
-+++ b/drivers/net/ethernet/xscale/ixp4xx_eth.c
-@@ -641,10 +641,10 @@ static inline void queue_put_desc(unsigned int queue, u32 phys,
- static inline void dma_unmap_tx(struct port *port, struct desc *desc)
- {
- #ifdef __ARMEB__
--	dma_unmap_single(&port->netdev->dev, desc->data,
-+	dma_unmap_single(port->netdev->dev.parent, desc->data,
- 			 desc->buf_len, DMA_TO_DEVICE);
- #else
--	dma_unmap_single(&port->netdev->dev, desc->data & ~3,
-+	dma_unmap_single(port->netdev->dev.parent, desc->data & ~3,
- 			 ALIGN((desc->data & 3) + desc->buf_len, 4),
- 			 DMA_TO_DEVICE);
- #endif
-@@ -711,9 +711,9 @@ static int eth_poll(struct napi_struct *napi, int budget)
+diff --git a/arch/arm/mach-ixp4xx/fsg-setup.c b/arch/arm/mach-ixp4xx/fsg-setup.c
+index 429966b7..c120e78 100644
+--- a/arch/arm/mach-ixp4xx/fsg-setup.c
++++ b/arch/arm/mach-ixp4xx/fsg-setup.c
+@@ -142,12 +142,14 @@ static struct platform_device fsg_eth[] = {
+ 		.id			= IXP4XX_ETH_NPEB,
+ 		.dev = {
+ 			.platform_data	= fsg_plat_eth,
++			.coherent_dma_mask = DMA_BIT_MASK(32),
+ 		},
+ 	}, {
+ 		.name			= "ixp4xx_eth",
+ 		.id			= IXP4XX_ETH_NPEC,
+ 		.dev = {
+ 			.platform_data	= fsg_plat_eth + 1,
++			.coherent_dma_mask = DMA_BIT_MASK(32),
+ 		},
+ 	}
+ };
+diff --git a/arch/arm/mach-ixp4xx/goramo_mlr.c b/arch/arm/mach-ixp4xx/goramo_mlr.c
+index e54ff49..0d1b101 100644
+--- a/arch/arm/mach-ixp4xx/goramo_mlr.c
++++ b/arch/arm/mach-ixp4xx/goramo_mlr.c
+@@ -294,10 +294,12 @@ static struct platform_device device_eth_tab[] = {
+ 		.name			= "ixp4xx_eth",
+ 		.id			= IXP4XX_ETH_NPEB,
+ 		.dev.platform_data	= eth_plat,
++		.dev.coherent_dma_mask	= DMA_BIT_MASK(32),
+ 	}, {
+ 		.name			= "ixp4xx_eth",
+ 		.id			= IXP4XX_ETH_NPEC,
+ 		.dev.platform_data	= eth_plat + 1,
++		.dev.coherent_dma_mask	= DMA_BIT_MASK(32),
+ 	}
+ };
  
- #ifdef __ARMEB__
- 		if ((skb = netdev_alloc_skb(dev, RX_BUFF_SIZE))) {
--			phys = dma_map_single(&dev->dev, skb->data,
-+			phys = dma_map_single(dev->dev.parent, skb->data,
- 					      RX_BUFF_SIZE, DMA_FROM_DEVICE);
--			if (dma_mapping_error(&dev->dev, phys)) {
-+			if (dma_mapping_error(dev->dev.parent, phys)) {
- 				dev_kfree_skb(skb);
- 				skb = NULL;
- 			}
-@@ -736,10 +736,11 @@ static int eth_poll(struct napi_struct *napi, int budget)
- #ifdef __ARMEB__
- 		temp = skb;
- 		skb = port->rx_buff_tab[n];
--		dma_unmap_single(&dev->dev, desc->data - NET_IP_ALIGN,
-+		dma_unmap_single(dev->dev.parent, desc->data - NET_IP_ALIGN,
- 				 RX_BUFF_SIZE, DMA_FROM_DEVICE);
- #else
--		dma_sync_single_for_cpu(&dev->dev, desc->data - NET_IP_ALIGN,
-+		dma_sync_single_for_cpu(dev->dev.parent,
-+					desc->data - NET_IP_ALIGN,
- 					RX_BUFF_SIZE, DMA_FROM_DEVICE);
- 		memcpy_swab32((u32 *)skb->data, (u32 *)port->rx_buff_tab[n],
- 			      ALIGN(NET_IP_ALIGN + desc->pkt_len, 4) / 4);
-@@ -858,7 +859,7 @@ static int eth_xmit(struct sk_buff *skb, struct net_device *dev)
- 	memcpy_swab32(mem, (u32 *)((int)skb->data & ~3), bytes / 4);
- #endif
+diff --git a/arch/arm/mach-ixp4xx/ixdp425-setup.c b/arch/arm/mach-ixp4xx/ixdp425-setup.c
+index 22d688b..f608629 100644
+--- a/arch/arm/mach-ixp4xx/ixdp425-setup.c
++++ b/arch/arm/mach-ixp4xx/ixdp425-setup.c
+@@ -20,6 +20,7 @@
+ #include <linux/mtd/nand.h>
+ #include <linux/mtd/partitions.h>
+ #include <linux/delay.h>
++#include <linux/dma-mapping.h>
+ #include <asm/types.h>
+ #include <asm/setup.h>
+ #include <asm/memory.h>
+@@ -195,10 +196,12 @@ static struct platform_device ixdp425_eth[] = {
+ 		.name			= "ixp4xx_eth",
+ 		.id			= IXP4XX_ETH_NPEB,
+ 		.dev.platform_data	= ixdp425_plat_eth,
++		.dev.coherent_dma_mask	= DMA_BIT_MASK(32),
+ 	}, {
+ 		.name			= "ixp4xx_eth",
+ 		.id			= IXP4XX_ETH_NPEC,
+ 		.dev.platform_data	= ixdp425_plat_eth + 1,
++		.dev.coherent_dma_mask	= DMA_BIT_MASK(32),
+ 	}
+ };
  
--	phys = dma_map_single(&dev->dev, mem, bytes, DMA_TO_DEVICE);
-+	phys = dma_map_single(dev->dev.parent, mem, bytes, DMA_TO_DEVICE);
- 	if (dma_mapping_error(&dev->dev, phys)) {
- 		dev_kfree_skb(skb);
- #ifndef __ARMEB__
-@@ -1104,7 +1105,7 @@ static int init_queues(struct port *port)
- 	int i;
+diff --git a/arch/arm/mach-ixp4xx/nas100d-setup.c b/arch/arm/mach-ixp4xx/nas100d-setup.c
+index ed667ce..59654f3 100644
+--- a/arch/arm/mach-ixp4xx/nas100d-setup.c
++++ b/arch/arm/mach-ixp4xx/nas100d-setup.c
+@@ -170,6 +170,7 @@ static struct platform_device nas100d_eth[] = {
+ 		.name			= "ixp4xx_eth",
+ 		.id			= IXP4XX_ETH_NPEB,
+ 		.dev.platform_data	= nas100d_plat_eth,
++		.dev.coherent_dma_mask	= DMA_BIT_MASK(32),
+ 	}
+ };
  
- 	if (!ports_open) {
--		dma_pool = dma_pool_create(DRV_NAME, &port->netdev->dev,
-+		dma_pool = dma_pool_create(DRV_NAME, port->netdev->dev.parent,
- 					   POOL_ALLOC_SIZE, 32, 0);
- 		if (!dma_pool)
- 			return -ENOMEM;
-@@ -1132,9 +1133,9 @@ static int init_queues(struct port *port)
- 		data = buff;
+diff --git a/arch/arm/mach-ixp4xx/nslu2-setup.c b/arch/arm/mach-ixp4xx/nslu2-setup.c
+index 7e55236..ff078d2 100644
+--- a/arch/arm/mach-ixp4xx/nslu2-setup.c
++++ b/arch/arm/mach-ixp4xx/nslu2-setup.c
+@@ -182,6 +182,7 @@ static struct platform_device nslu2_eth[] = {
+ 		.name			= "ixp4xx_eth",
+ 		.id			= IXP4XX_ETH_NPEB,
+ 		.dev.platform_data	= nslu2_plat_eth,
++		.dev.coherent_dma_mask	= DMA_BIT_MASK(32),
+ 	}
+ };
+ 
+diff --git a/arch/arm/mach-ixp4xx/omixp-setup.c b/arch/arm/mach-ixp4xx/omixp-setup.c
+index 75ef03d..b79cd51 100644
+--- a/arch/arm/mach-ixp4xx/omixp-setup.c
++++ b/arch/arm/mach-ixp4xx/omixp-setup.c
+@@ -17,6 +17,7 @@
+ #include <linux/serial_8250.h>
+ #include <linux/mtd/mtd.h>
+ #include <linux/mtd/partitions.h>
++#include <linux/dma-mapping.h>
+ #ifdef CONFIG_LEDS_CLASS
+ #include <linux/leds.h>
  #endif
- 		desc->buf_len = MAX_MRU;
--		desc->data = dma_map_single(&port->netdev->dev, data,
-+		desc->data = dma_map_single(port->netdev->dev.parent, data,
- 					    RX_BUFF_SIZE, DMA_FROM_DEVICE);
--		if (dma_mapping_error(&port->netdev->dev, desc->data)) {
-+		if (dma_mapping_error(port->netdev->dev.parent, desc->data)) {
- 			free_buffer(buff);
- 			return -EIO;
- 		}
-@@ -1154,7 +1155,7 @@ static void destroy_queues(struct port *port)
- 			struct desc *desc = rx_desc_ptr(port, i);
- 			buffer_t *buff = port->rx_buff_tab[i];
- 			if (buff) {
--				dma_unmap_single(&port->netdev->dev,
-+				dma_unmap_single(port->netdev->dev.parent,
- 						 desc->data - NET_IP_ALIGN,
- 						 RX_BUFF_SIZE, DMA_FROM_DEVICE);
- 				free_buffer(buff);
+@@ -190,10 +191,12 @@ static struct platform_device ixdp425_eth[] = {
+ 		.name			= "ixp4xx_eth",
+ 		.id			= IXP4XX_ETH_NPEB,
+ 		.dev.platform_data	= ixdp425_plat_eth,
++		.dev.coherent_dma_mask	= DMA_BIT_MASK(32),
+ 	}, {
+ 		.name			= "ixp4xx_eth",
+ 		.id			= IXP4XX_ETH_NPEC,
+ 		.dev.platform_data	= ixdp425_plat_eth + 1,
++		.dev.coherent_dma_mask	= DMA_BIT_MASK(32),
+ 	},
+ };
+ 
+diff --git a/arch/arm/mach-ixp4xx/vulcan-setup.c b/arch/arm/mach-ixp4xx/vulcan-setup.c
+index d599e35..162d71f 100644
+--- a/arch/arm/mach-ixp4xx/vulcan-setup.c
++++ b/arch/arm/mach-ixp4xx/vulcan-setup.c
+@@ -139,6 +139,7 @@ static struct platform_device vulcan_eth[] = {
+ 		.id			= IXP4XX_ETH_NPEB,
+ 		.dev = {
+ 			.platform_data	= &vulcan_plat_eth[0],
++			.coherent_dma_mask = DMA_BIT_MASK(32),
+ 		},
+ 	},
+ 	[1] = {
+@@ -146,6 +147,7 @@ static struct platform_device vulcan_eth[] = {
+ 		.id			= IXP4XX_ETH_NPEC,
+ 		.dev = {
+ 			.platform_data	= &vulcan_plat_eth[1],
++			.coherent_dma_mask = DMA_BIT_MASK(32),
+ 		},
+ 	},
+ };
 -- 
 1.8.3.2
