@@ -1,29 +1,48 @@
-From: Jonas Jensen <jonas.jensen@gmail.com>
-Subject: Re: [PATCH] net: Add MOXA ART SoCs ethernet driver
-Date: Sat, 20 Jul 2013 12:55:36 +0200
-Message-ID: <CACmBeS0ztqKWJ1uLKhb2EZdexspTq5t0uHZfPotHiAPHfkftoA@mail.gmail.com>
-References: <1374140806-12485-1-git-send-email-jonas.jensen@gmail.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [3/4] bonding: the calling of bond->slave_cnt need protection
+Date: Sat, 20 Jul 2013 14:42:37 +0200
+Message-ID: <51EA85BD.2080409@redhat.com>
+References: <51EA3B0D.7020501@huawei.com> <20130720104746.GC9149@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	arm@kernel.org, Jonas Jensen <jonas.jensen@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1374140806-12485-1-git-send-email-jonas.jensen@gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: dingtianhong <dingtianhong@huawei.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Veaceslav Falico <vfalico@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:21046 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753090Ab3GTMms (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Jul 2013 08:42:48 -0400
+In-Reply-To: <20130720104746.GC9149@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I think this driver may have a bug.
+On 07/20/2013 12:47 PM, Veaceslav Falico wrote:
+> On Sat, Jul 20, 2013 at 03:23:57PM +0800, dingtianhong wrote:
+>> The bonding_store_mode has rtnl protection, so no need to get read lock
+>> for bond->slave_cnt, but the bonding_store_fail_over_mac need to protect
+>> the bond->slave_cnt, so add read_lock().
+>>
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>>
+<snip>
+> 
+> Maybe it's Saturday, but I really don't see *any* point in this locking.
+> 
+> I think you've meant that we need the rtnl protection while reading
+> slave_cnt AND updating the .fail_over_mac, so that in between we won't add
+> new slaves with outdated params.
+> 
+> Something like this (untested):
+> 
+Indeed, Veaceslav's way is the correct one (I've looked at this race
+before), but IMO it's not worth it to protect fail_over_mac as the worst
+that could happen is inconsistency with the MAC addresses which isn't
+fatal. Anyway, I still haven't had my coffee and might be missing something :-)
 
-After some time running ping successfully, the message "no TX space
-for packet" is printed resulting in 100% packet loss.
-
-The message is printed from .ndo_start_xmit and I think it may be
-because of how priv->tx_desc_now is now set up in
-moxart_mac_setup_desc_ring.
-
-I will take a look at this and try to fix the issue.
-
-Best regards,
-Jonas
+Cheers,
+ Nik
