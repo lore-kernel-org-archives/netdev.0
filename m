@@ -1,37 +1,25 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH] fec: Add MODULE_ALIAS
-Date: Sat, 20 Jul 2013 16:20:36 -0300
-Message-ID: <1374348036-20654-1-git-send-email-festevam@gmail.com>
-Cc: netdev@vger.kernel.org, Fabio Estevam <fabio.estevam@freescale.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ip: initialize hash list
+Date: Sat, 20 Jul 2013 12:20:58 -0700 (PDT)
+Message-ID: <20130720.122058.1139915094969451326.davem@davemloft.net>
+References: <20130720102657.768a11ea@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pshelar@nicira.com, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f51.google.com ([209.85.213.51]:53073 "EHLO
-	mail-yh0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754552Ab3GTTUo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jul 2013 15:20:44 -0400
-Received: by mail-yh0-f51.google.com with SMTP id 29so178890yhl.38
-        for <netdev@vger.kernel.org>; Sat, 20 Jul 2013 12:20:43 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:35190 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754552Ab3GTTU7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jul 2013 15:20:59 -0400
+In-Reply-To: <20130720102657.768a11ea@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <fabio.estevam@freescale.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Sat, 20 Jul 2013 10:26:57 -0700
 
-Add MODULE_ALIAS, so that auto module loading can work.
+> +	unsigned i;
 
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
----
- drivers/net/ethernet/freescale/fec_main.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index d3ad5ea..f0f0e96 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2279,4 +2279,5 @@ static struct platform_driver fec_driver = {
- 
- module_platform_driver(fec_driver);
- 
-+MODULE_ALIAS("platform:"DRIVER_NAME);
- MODULE_LICENSE("GPL");
--- 
-1.8.1.2
+Please use an explicit "unsigned int", thank you.
