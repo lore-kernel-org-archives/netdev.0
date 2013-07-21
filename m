@@ -1,56 +1,65 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [BUG] ipv6, rawv6_close(): BUG: unable to handle kernel paging request
-Date: Sun, 21 Jul 2013 22:53:52 +0200
-Message-ID: <20130721205352.GB15442@order.stressinduktion.org>
-References: <51EC283D.5010208@linux.vnet.ibm.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next] net: Add phys_port identifier to struct
+ net_device and export it to sysfs
+Date: Sun, 21 Jul 2013 21:50:01 +0100
+Message-ID: <1374439801.2804.90.camel@deadeye.wl.decadent.org.uk>
+References: <20130617181004.GA1364@fedora-17-guest.dell.com>
+	 <20130711203938.GA4078@minipsycho.orion>
+	 <20130715153410.GA10864@fedora18-dev.oslab.blr.amer.dell.com>
+	 <CAJZOPZL7MVBphUvojJ7RjnF8EYVyMNgr4zta2_A8VZw7bKkRaQ@mail.gmail.com>
+	 <20130721072455.GA1944@minipsycho.orion>
+	 <CAJZOPZKhRXfrjrMBm6FcXjFfnXzbvb6xz-UB8HoJYVSJ2Yix0Q@mail.gmail.com>
+	 <1374418103.16533.69.camel@deadeye.wl.decadent.org.uk>
+	 <CAJZOPZJdYvSYZ2O+h3nLM2dxjwRx6Ma975T7DZXVXUoZmywVeg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <51EC283D.5010208@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>, <Narendra_K@dell.com>,
+	<netdev@vger.kernel.org>, <john.r.fastabend@intel.com>
+To: Or Gerlitz <or.gerlitz@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:30873 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756064Ab3GUU4E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jul 2013 16:56:04 -0400
+In-Reply-To: <CAJZOPZJdYvSYZ2O+h3nLM2dxjwRx6Ma975T7DZXVXUoZmywVeg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 21, 2013 at 11:58:13PM +0530, Srivatsa S. Bhat wrote:
-> I'm seeing this on every boot.
+On Sun, 2013-07-21 at 23:29 +0300, Or Gerlitz wrote:
+> On Sun, Jul 21, 2013 at 5:48 PM, Ben Hutchings
+> <bhutchings@solarflare.com> wrote:
+> > On Sun, 2013-07-21 at 14:14 +0300, Or Gerlitz wrote:
+> >> On Sun, Jul 21, 2013 at 10:24 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> >> [...]
+> >>
+> >> Sorry, I missed that fact that initially you responded on this thread
+> >>
+> >> > The value could be anything. But note that you have to have different
+> >> > values for card1-port1,2 and card2-port1,2
+> >>
+> >> why?
+> >
+> > The intent is to identify physical ports uniquely, so userland can tell
+> > whether two devices are backed by the same physical port.
 > 
-> Version: Latest mainline (commit ea45ea70b)
+> OK this makes sense, and I understand that there are also some SRIOV
+> aspects / use cases where this field could be usefu, still I don't
+> understamd the direct relation to virtual functions, as mentioned in
+> the 1st patch.
 
-Thanks for the report! Could you try the following patch?
+Well the motivating problem was that a guest can't tell which VFs
+connect to which ports or whether it has multiple VFs connected to the
+same port.  The host can already see work out that they're associated
+based on PCIe config and topology.
 
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index 583e8d4..373906c 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -1601,9 +1601,9 @@ int ip6mr_sk_done(struct sock *sk)
- 	struct mr6_table *mrt;
- 
- 	rtnl_lock();
-+	write_lock_bh(&mrt_lock);
- 	ip6mr_for_each_table(mrt, net) {
- 		if (sk == mrt->mroute6_sk) {
--			write_lock_bh(&mrt_lock);
- 			mrt->mroute6_sk = NULL;
- 			net->ipv6.devconf_all->mc_forwarding--;
- 			inet6_netconf_notify_devconf(net,
-@@ -1611,14 +1611,14 @@ int ip6mr_sk_done(struct sock *sk)
- 						     NETCONFA_IFINDEX_ALL,
- 						     net->ipv6.devconf_all);
- 			write_unlock_bh(&mrt_lock);
--
- 			mroute_clean_tables(mrt);
- 			err = 0;
--			break;
-+			goto out;
- 		}
- 	}
-+	write_unlock_bh(&mrt_lock);
-+out:
- 	rtnl_unlock();
--
- 	return err;
- }
- 
+This can also apply to PFs if you pass them through to guests, or if you
+have multiple PFs connected to the same port, but that's rather less
+common.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
