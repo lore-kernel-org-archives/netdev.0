@@ -1,67 +1,79 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC] EEPROM dumping/changing code for r8169 driver
-Date: Sun, 21 Jul 2013 21:12:13 +0100
-Message-ID: <1374437533.2804.71.camel@deadeye.wl.decadent.org.uk>
-References: <1906856.2MoFjQXLhS@al>
-	 <1374422514.2804.4.camel@deadeye.wl.decadent.org.uk>
-	 <3011523.vtKLIuqRfe@al>
+Subject: Re: [PATCH] via-rhine: Fix tx_timeout handling
+Date: Sun, 21 Jul 2013 21:24:34 +0100
+Message-ID: <1374438274.2804.80.camel@deadeye.wl.decadent.org.uk>
+References: <1374269428-6827-1-git-send-email-richard@nod.at>
+	 <1374423530.2804.13.camel@deadeye.wl.decadent.org.uk>
+	 <51EC0D03.4070508@nod.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, <netdev@vger.kernel.org>,
-	"Realtek linux nic maintainers" <nic_swsd@realtek.com>
-To: Peter Wu <lekensteyn@gmail.com>
+Cc: <rl@hellgate.ch>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Richard Weinberger <richard@nod.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:7657 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:41055 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756041Ab3GUUMR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jul 2013 16:12:17 -0400
-In-Reply-To: <3011523.vtKLIuqRfe@al>
+	with ESMTP id S1755822Ab3GUUYi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jul 2013 16:24:38 -0400
+In-Reply-To: <51EC0D03.4070508@nod.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-07-21 at 18:27 +0200, Peter Wu wrote:
-> On Sunday 21 July 2013 17:01:54 Ben Hutchings wrote:
-> > On Fri, 2013-07-19 at 11:48 +0200, Peter Wu wrote:
-> > > Hi,
-> > > 
-> > > As noted in another mail, I have been working on adding EEPROM reading
-> > > writing support for the r8169 driver. The below diff adds basic support,
-> > > but it
-> > > is not completely finished yet:
-> > [...]
+On Sun, 2013-07-21 at 18:32 +0200, Richard Weinberger wrote:
+> Am 21.07.2013 18:18, schrieb Ben Hutchings:
+> > On Fri, 2013-07-19 at 23:30 +0200, Richard Weinberger wrote:
+> >> rhine_reset_task() misses to call netif_stop_queue(),
+> >> this can lead to a crash if work is still scheduled while
+> >> we're resetting the tx queue.
+> >>
+> >> Fixes:
+> >> [   93.591707] BUG: unable to handle kernel NULL pointer dereference at 0000004c
+> >> [   93.595514] IP: [<c119d10d>] rhine_napipoll+0x491/0x6e
+> >>
+> >> Signed-off-by: Richard Weinberger <richard@nod.at>
+> >> ---
+> >>  drivers/net/ethernet/via/via-rhine.c | 1 +
+> >>  1 file changed, 1 insertion(+)
+> >>
+> >> diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
+> >> index b75eb9e..57e1b40 100644
+> >> --- a/drivers/net/ethernet/via/via-rhine.c
+> >> +++ b/drivers/net/ethernet/via/via-rhine.c
+> >> @@ -1615,6 +1615,7 @@ static void rhine_reset_task(struct work_struct *work)
+> >>  		goto out_unlock;
+> >>  
+> >>  	napi_disable(&rp->napi);
+> >> +	netif_stop_queue(dev);
 > > 
-> > > --- a/drivers/net/ethernet/realtek/Kconfig
-> > > +++ b/drivers/net/ethernet/realtek/Kconfig
-> > > @@ -112,4 +112,13 @@ config R8169
-> > > 
-> > >  	  To compile this driver as a module, choose M here: the module
-> > >  	  will be called r8169.  This is recommended.
-> > > 
-> > > +config R8169_93CX6
-> > > +	bool "Realtek 8169 external 93CX6 EEPROM support"
-> > > +	depends on R8169
-> > > +	select EEPROM_93CX6
-> > 
-> > [...]
-> > 
-> > This select is wrong as it will cause EEPROM_93CX6=y even if R8169=m.
-> > But why make this an option at all?
-> For this, I got inspiration from drivers/ethernet/8390/Kconfig which had an
-> AX88796_93CX6 option. Reading EEPROM is currently not a critical piece of
-> functionality, so I decided to make this optional.
+> > This is not really fixing the bug because there is no synchronisation
+> > with the TX scheduler.  You can call netif_tx_disable() instead to do
+> > that.
+> 
+> I guess other drivers suffer from that too.
+> A quick grep showed that not many drivers are using netif_tx_disable().
+> 
+> > (I also think that it is preferable to use
+> > netif_device_{detach,attach}() to stop the queue during reconfiguration,
+> > as this is independent of TX completions and the watchdog.)
 
-Most ethtool operations are not critical, but it costs very little to
-implement them unconditionally (and config options increase the
-maintenance burden).
+Actually, this is not independent of TX completions - netif_wake_queue()
+will still start the TX scheduler while the device is not present, so
+you have to avoid that.
 
-> There seem also to be newer
-> hardware that use a two-wired serial interface for accessing EEPROM instead of
-> 93C46/93C56/93C66. Would you suggest always including this code (distro
-> kernels should typically enable this) or making it optional?
-[...]
+> So the correct down sequence is napi_disable() -> netif_tx_disable() -> netif_device_detach()?
 
-Always include it.
+No, that's redundant.  You can do:
+
+	napi_disable();
+	netif_tx_lock_bh(); /* sync with TX scheduler */
+	netif_device_detach();
+	netif_tx_unlock_bh();
+
+and then when the queue is ready to use again:
+
+	netif_device_attach();
+	napi_enable();
 
 Ben.
 
