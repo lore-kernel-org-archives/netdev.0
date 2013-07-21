@@ -1,33 +1,44 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC] qlcnic: Enhance ethtool to display board temperature.
-Date: Sun, 21 Jul 2013 16:54:40 +0100
-Message-ID: <1374422080.2804.1.camel@deadeye.wl.decadent.org.uk>
-References: <1374206237-27233-1-git-send-email-himanshu.madhani@qlogic.com>
+Subject: Re: [RFC] EEPROM dumping/changing code for r8169 driver
+Date: Sun, 21 Jul 2013 17:01:54 +0100
+Message-ID: <1374422514.2804.4.camel@deadeye.wl.decadent.org.uk>
+References: <1906856.2MoFjQXLhS@al>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Cc: Francois Romieu <romieu@fr.zoreil.com>, <netdev@vger.kernel.org>,
+	"Realtek linux nic maintainers" <nic_swsd@realtek.com>
+To: Peter Wu <lekensteyn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:64215 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:38437 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755662Ab3GUPys (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jul 2013 11:54:48 -0400
-In-Reply-To: <1374206237-27233-1-git-send-email-himanshu.madhani@qlogic.com>
+	with ESMTP id S1755662Ab3GUQB6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jul 2013 12:01:58 -0400
+In-Reply-To: <1906856.2MoFjQXLhS@al>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-07-18 at 23:57 -0400, Himanshu Madhani wrote:
-> From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+On Fri, 2013-07-19 at 11:48 +0200, Peter Wu wrote:
+> Hi,
 > 
-> We need to provide a mechanism for a user space application to query
-> adapter temperature. This RFC patch is to request input on which of the
-> following approach would be appropriate way to export this information.
+> As noted in another mail, I have been working on adding EEPROM reading
+> writing support for the r8169 driver. The below diff adds basic support, but it
+> is not completely finished yet:
+[...]
+> --- a/drivers/net/ethernet/realtek/Kconfig
+> +++ b/drivers/net/ethernet/realtek/Kconfig
+> @@ -112,4 +112,13 @@ config R8169
+>  	  To compile this driver as a module, choose M here: the module
+>  	  will be called r8169.  This is recommended.
+>  
+> +config R8169_93CX6
+> +	bool "Realtek 8169 external 93CX6 EEPROM support"
+> +	depends on R8169
+> +	select EEPROM_93CX6
 [...]
 
-You should create a separate hwmon device.  As examples, this is
-currently done by igb, ixgbe, sfc or tg3.
+This select is wrong as it will cause EEPROM_93CX6=y even if R8169=m.
+But why make this an option at all?
 
 Ben.
 
