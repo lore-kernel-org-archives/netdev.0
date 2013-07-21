@@ -1,43 +1,37 @@
-From: Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>
-Subject: Re: [PATCH] ath: wil6210: Fix build error
-Date: Sun, 21 Jul 2013 18:52:38 +0300
-Message-ID: <5330916.8NnOO4SNAp@lx-vladimir>
-References: <1374374808-12768-1-git-send-email-Larry.Finger@lwfinger.net> <51EBFABB.8080701@lwfinger.net> <1559869.yu0fjJXVeX@balsa>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC] qlcnic: Enhance ethtool to display board temperature.
+Date: Sun, 21 Jul 2013 16:54:40 +0100
+Message-ID: <1374422080.2804.1.camel@deadeye.wl.decadent.org.uk>
+References: <1374206237-27233-1-git-send-email-himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>, <linville@tuxdriver.com>,
-	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<wil6210@qca.qualcomm.com>, Stable <stable@vger.kernel.org>
-To: <thomas@fjellstrom.ca>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<Dept_NX_Linux_NIC_Driver@qlogic.com>
+To: Himanshu Madhani <himanshu.madhani@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabertooth01.qualcomm.com ([65.197.215.72]:38584 "EHLO
-	sabertooth01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755749Ab3GUPxE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jul 2013 11:53:04 -0400
-In-Reply-To: <1559869.yu0fjJXVeX@balsa>
+Received: from webmail.solarflare.com ([12.187.104.25]:64215 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755662Ab3GUPys (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jul 2013 11:54:48 -0400
+In-Reply-To: <1374206237-27233-1-git-send-email-himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday, July 21, 2013 09:35:40 AM Thomas Fjellstrom wrote:
-> If it helps, I'm running a fresh install of Debian Sid with gcc 4.8.1. I've 
-> noticed that each newer successive version of gcc gets more strict with what 
-> code it accepts without warning, or error. A lot of my only somewhat old code 
-> tends to have a lot more warnings. Especially that signedness warning.
-
-Yes, this is the case; I have 4.7.3
-
+On Thu, 2013-07-18 at 23:57 -0400, Himanshu Madhani wrote:
+> From: Himanshu Madhani <himanshu.madhani@qlogic.com>
 > 
-> It also looked like that that driver or section of the kernel was compiling 
-> with -Werror. I haven't verrified that but I remember seeing "treating all 
-> warnings as errors" at one point.
-> 
-You are right, I have this in Makefile:
-(if one turn on extra warnings with -W, there will be lots of false alarms,
-that's why this ifeq())
+> We need to provide a mechanism for a user space application to query
+> adapter temperature. This RFC patch is to request input on which of the
+> following approach would be appropriate way to export this information.
+[...]
 
-ifeq (, $(findstring -W,$(EXTRA_CFLAGS)))
-	subdir-ccflags-y += -Werror
-endif
+You should create a separate hwmon device.  As examples, this is
+currently done by igb, ixgbe, sfc or tg3.
 
-Thanks, Vladimir
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
