@@ -1,83 +1,75 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] via-rhine: Fix tx_timeout handling
-Date: Sun, 21 Jul 2013 21:24:34 +0100
-Message-ID: <1374438274.2804.80.camel@deadeye.wl.decadent.org.uk>
-References: <1374269428-6827-1-git-send-email-richard@nod.at>
-	 <1374423530.2804.13.camel@deadeye.wl.decadent.org.uk>
-	 <51EC0D03.4070508@nod.at>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [patch net-next v2 1/3] net: add ndo to get id of physical port
+ of the device
+Date: Sun, 21 Jul 2013 23:26:32 +0300
+Message-ID: <CAJZOPZJiL4hJV4eKKsZrLseJF_sSRjYVsstgT+NLsoeCXWKh_g@mail.gmail.com>
+References: <1374342834-10814-1-git-send-email-jiri@resnulli.us>
+	<1374342834-10814-2-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <rl@hellgate.ch>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Richard Weinberger <richard@nod.at>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	stephen@networkplumber.org, Narendra_K@dell.com,
+	bhutchings@solarflare.com, john.r.fastabend@intel.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:41055 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755822Ab3GUUYi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jul 2013 16:24:38 -0400
-In-Reply-To: <51EC0D03.4070508@nod.at>
+Received: from mail-qc0-f181.google.com ([209.85.216.181]:33207 "EHLO
+	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755822Ab3GUU0d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jul 2013 16:26:33 -0400
+Received: by mail-qc0-f181.google.com with SMTP id u12so3254492qcx.12
+        for <netdev@vger.kernel.org>; Sun, 21 Jul 2013 13:26:32 -0700 (PDT)
+In-Reply-To: <1374342834-10814-2-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-07-21 at 18:32 +0200, Richard Weinberger wrote:
-> Am 21.07.2013 18:18, schrieb Ben Hutchings:
-> > On Fri, 2013-07-19 at 23:30 +0200, Richard Weinberger wrote:
-> >> rhine_reset_task() misses to call netif_stop_queue(),
-> >> this can lead to a crash if work is still scheduled while
-> >> we're resetting the tx queue.
-> >>
-> >> Fixes:
-> >> [   93.591707] BUG: unable to handle kernel NULL pointer dereference at 0000004c
-> >> [   93.595514] IP: [<c119d10d>] rhine_napipoll+0x491/0x6e
-> >>
-> >> Signed-off-by: Richard Weinberger <richard@nod.at>
-> >> ---
-> >>  drivers/net/ethernet/via/via-rhine.c | 1 +
-> >>  1 file changed, 1 insertion(+)
-> >>
-> >> diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
-> >> index b75eb9e..57e1b40 100644
-> >> --- a/drivers/net/ethernet/via/via-rhine.c
-> >> +++ b/drivers/net/ethernet/via/via-rhine.c
-> >> @@ -1615,6 +1615,7 @@ static void rhine_reset_task(struct work_struct *work)
-> >>  		goto out_unlock;
-> >>  
-> >>  	napi_disable(&rp->napi);
-> >> +	netif_stop_queue(dev);
-> > 
-> > This is not really fixing the bug because there is no synchronisation
-> > with the TX scheduler.  You can call netif_tx_disable() instead to do
-> > that.
-> 
-> I guess other drivers suffer from that too.
-> A quick grep showed that not many drivers are using netif_tx_disable().
-> 
-> > (I also think that it is preferable to use
-> > netif_device_{detach,attach}() to stop the queue during reconfiguration,
-> > as this is independent of TX completions and the watchdog.)
+On Sat, Jul 20, 2013 at 8:53 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>
+> This patch adds a ndo for getting physical port of the device. Driver
+> which is aware of being virtual function of some physical port should
+> implement this ndo.
 
-Actually, this is not independent of TX completions - netif_wake_queue()
-will still start the TX scheduler while the device is not present, so
-you have to avoid that.
 
-> So the correct down sequence is napi_disable() -> netif_tx_disable() -> netif_device_detach()?
+Do you mean virtual function literally?  that is in the PCI IOV aspect?
 
-No, that's redundant.  You can do:
 
-	napi_disable();
-	netif_tx_lock_bh(); /* sync with TX scheduler */
-	netif_device_detach();
-	netif_tx_unlock_bh();
+>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+>  include/linux/netdevice.h | 20 ++++++++++++++++++++
+>  net/core/dev.c            | 18 ++++++++++++++++++
+>  2 files changed, 38 insertions(+)
+>
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 0741a1e..726dec2 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -728,6 +728,16 @@ struct netdev_fcoe_hbainfo {
+>  };
+>  #endif
+>
+> +#define MAX_PHYS_PORT_ID_LEN 32
+> +
+> +/* This structure holds a unique identifier to identify the
+> + * physical port used by a netdevice.
+> + */
+> +struct netdev_phys_port_id {
+> +       unsigned char id[MAX_PHYS_PORT_ID_LEN];
+> +       unsigned char id_len;
+> +};
+> +
+>  /*
+>   * This structure defines the management hooks for network devices.
+>   * The following hooks can be defined; unless noted otherwise, they are
+> @@ -932,6 +942,12 @@ struct netdev_fcoe_hbainfo {
+>   *     that determine carrier state from physical hardware properties (eg
+>   *     network cables) or protocol-dependent mechanisms (eg
+>   *     USB_CDC_NOTIFY_NETWORK_CONNECTION) should NOT implement this function.
+> + *
+> + * int (*ndo_get_phys_port_id)(struct net_device *dev,
+> + *                            struct netdev_phys_port_id *ppid);
+> + *     Called to get ID of physical port of this device. If driver does
+> + *     not implement this, it is assumed that the hw is not able to have
+> + *     multiple net devices on single physical port.
+>   */
 
-and then when the queue is ready to use again:
-
-	netif_device_attach();
-	napi_enable();
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I am not sure to understand what is assumed here and why it it mandated.
