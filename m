@@ -1,58 +1,38 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] via-rhine: Fix tx_timeout handling
-Date: Sun, 21 Jul 2013 17:18:50 +0100
-Message-ID: <1374423530.2804.13.camel@deadeye.wl.decadent.org.uk>
-References: <1374269428-6827-1-git-send-email-richard@nod.at>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <rl@hellgate.ch>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Richard Weinberger <richard@nod.at>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1374269428-6827-1-git-send-email-richard@nod.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Fabio Estevam <festevam@gmail.com>
+Subject: [PATCH 0/6] fec: Improve resources handling
+Date: Sun, 21 Jul 2013 13:24:58 -0300
+Message-ID: <1374423904-2668-1-git-send-email-festevam@gmail.com>
+Cc: kernel@pengutronix.de, Frank.Li@freescale.com,
+	shawn.guo@linaro.org, netdev@vger.kernel.org,
+	Fabio Estevam <festevam@gmail.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f50.google.com ([209.85.213.50]:42103 "EHLO
+	mail-yh0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755722Ab3GUQZc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jul 2013 12:25:32 -0400
+Received: by mail-yh0-f50.google.com with SMTP id i72so2170856yha.9
+        for <netdev@vger.kernel.org>; Sun, 21 Jul 2013 09:25:32 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-07-19 at 23:30 +0200, Richard Weinberger wrote:
-> rhine_reset_task() misses to call netif_stop_queue(),
-> this can lead to a crash if work is still scheduled while
-> we're resetting the tx queue.
-> 
-> Fixes:
-> [   93.591707] BUG: unable to handle kernel NULL pointer dereference at 0000004c
-> [   93.595514] IP: [<c119d10d>] rhine_napipoll+0x491/0x6e
-> 
-> Signed-off-by: Richard Weinberger <richard@nod.at>
-> ---
->  drivers/net/ethernet/via/via-rhine.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
-> index b75eb9e..57e1b40 100644
-> --- a/drivers/net/ethernet/via/via-rhine.c
-> +++ b/drivers/net/ethernet/via/via-rhine.c
-> @@ -1615,6 +1615,7 @@ static void rhine_reset_task(struct work_struct *work)
->  		goto out_unlock;
->  
->  	napi_disable(&rp->napi);
-> +	netif_stop_queue(dev);
+This series improves clock handling in the driver by not enabling/disabling
+the optional ptp and enet_out clocks unconditionally, check for the return value
+of clk_prepare_enable and also handle clk_ptp in suspend/resume.
 
-This is not really fixing the bug because there is no synchronisation
-with the TX scheduler.  You can call netif_tx_disable() instead to do
-that.
+Remove an unneeded check in platform_get_resource() and also use 
+devm_request_irq() that can help to simplify the code.
 
-(I also think that it is preferable to use
-netif_device_{detach,attach}() to stop the queue during reconfiguration,
-as this is independent of TX completions and the watchdog.)
+Fabio Estevam (6):
+  fec: Do not enable/disable optional clocks unconditionally
+  fec: Fix the order for enabling/disabling the clocks
+  fec: Enable/disable clk_ptp in suspend/resume
+  fec: Check the return value from clk_prepare_enable()
+  fec: Remove unneeded check in platform_get_resource()
+  fec: Use devm_request_irq()
 
-Ben.
-
->  	spin_lock_bh(&rp->lock);
->  
->  	/* clear all descriptors */
+ drivers/net/ethernet/freescale/fec_main.c | 110 ++++++++++++++++++++----------
+ 1 file changed, 73 insertions(+), 37 deletions(-)
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.8.1.2
