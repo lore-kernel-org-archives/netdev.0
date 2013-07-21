@@ -1,46 +1,33 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v2 0/3] export device physical port id to
- userspace
-Date: Sun, 21 Jul 2013 09:26:47 +0200
-Message-ID: <20130721072647.GB1944@minipsycho.orion>
-References: <1374342834-10814-1-git-send-email-jiri@resnulli.us>
- <CAJZOPZ+T=qZ3qsE-h3j_UTFi3byFQ4xKzLKN0prq83z6ZqkPmA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next] vti: switch to new ip tunnel code
+Date: Sun, 21 Jul 2013 00:33:56 -0700 (PDT)
+Message-ID: <20130721.003356.1086356921424751537.davem@davemloft.net>
+References: <1374374785-30291-1-git-send-email-amwang@redhat.com>
+	<1902752B0C92F943AB7EA9EE13E2DEEC126CCF8655@HQ1-EXCH02.corp.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	stephen@networkplumber.org, Narendra_K@dell.com,
-	bhutchings@solarflare.com, john.r.fastabend@intel.com
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: amwang@redhat.com, netdev@vger.kernel.org, pshelar@nicira.com,
+	stephen@networkplumber.org
+To: saurabh.mohan@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f172.google.com ([209.85.215.172]:53697 "EHLO
-	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753445Ab3GUH0v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jul 2013 03:26:51 -0400
-Received: by mail-ea0-f172.google.com with SMTP id q10so3221828eaj.3
-        for <netdev@vger.kernel.org>; Sun, 21 Jul 2013 00:26:50 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAJZOPZ+T=qZ3qsE-h3j_UTFi3byFQ4xKzLKN0prq83z6ZqkPmA@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40723 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752578Ab3GUHeF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jul 2013 03:34:05 -0400
+In-Reply-To: <1902752B0C92F943AB7EA9EE13E2DEEC126CCF8655@HQ1-EXCH02.corp.brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sun, Jul 21, 2013 at 07:59:54AM CEST, or.gerlitz@gmail.com wrote:
->On Sat, Jul 20, 2013 at 8:53 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->> This patchset is based on patch by Narendra_K@Dell.com
->
->Hi Jiri,
->
->Just a small note to make we're not running (at least not foo fast...)
->here... the patch you mentioned
+From: Saurabh Mohan <saurabh.mohan@vyatta.com>
+Date: Sat, 20 Jul 2013 21:03:46 -0700
 
-This patchset replaces the mentioned patch. So there's no dependency.
+> Looks good. Thanks.
+> Reviewed-by: Saurabh Mohan <saurabh.mohan@vyatta.com>
 
->is still not finalized I think. At least, as I mentioned there, lets
->see it allows to modify
->the current drivers that make use of the dev_id field to denote port number to
->the new scheme,  before we build the 2nd floor of the building.
+Please do not quote the entire patch when reviewing it.
 
-Just implement ndo_get_phys_port_id for those drivers, that's all needed
-(of course after this patchset is applied)
+Simply quoting just the commit message is enough context.
+Anything more wastes mailing list bandwidth.
 
->
->Or.
+Thank you.
