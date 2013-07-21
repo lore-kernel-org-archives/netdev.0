@@ -1,75 +1,45 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/2] arm: ixp4xx: set cohorent_dma_mask for ethernet
- platform devices
-Date: Sun, 21 Jul 2013 17:40:23 +0100
-Message-ID: <1374424823.2804.25.camel@deadeye.wl.decadent.org.uk>
-References: <1374315339-31469-1-git-send-email-jogo@openwrt.org>
-	 <1374315339-31469-2-git-send-email-jogo@openwrt.org>
-	 <m3ip04ezty.fsf@intrepid.localdomain>
+From: Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] ath: wil6210: Fix build error
+Date: Sun, 21 Jul 2013 19:55:34 +0300
+Message-ID: <87bo5vyhrt.fsf@purkki.adurom.net>
+References: <1374374808-12768-1-git-send-email-Larry.Finger@lwfinger.net>
+	<51EBFABB.8080701@lwfinger.net> <1559869.yu0fjJXVeX@balsa>
+	<5330916.8NnOO4SNAp@lx-vladimir>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jonas Gorski <jogo@openwrt.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Russell King <linux@arm.linux.org.uk>,
-	"Imre Kaloz" <kaloz@openwrt.org>
-To: Krzysztof Halasa <khc@pm.waw.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:26390 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755868Ab3GUQk2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jul 2013 12:40:28 -0400
-In-Reply-To: <m3ip04ezty.fsf@intrepid.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: <thomas-T/OQ2aoscs6U4IzBdx3r/Q@public.gmane.org>, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <wil6210-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+To: Vladimir Kondratiev <qca_vkondrat-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5330916.8NnOO4SNAp@lx-vladimir> (Vladimir Kondratiev's message
+	of "Sun, 21 Jul 2013 18:52:38 +0300")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2013-07-21 at 16:45 +0200, Krzysztof Halasa wrote:
-> Jonas Gorski <jogo@openwrt.org> writes:
-> 
-> > ARM requires the cohorent_dma_mask set, so set it for the platform
-> > devices so that the ethernet driver has access to it.
-> 
-> I recognize the need to fix this issue and I appreciate your efforts,
-> but... I think this patch tries to make the driver functional again at
-> all costs and this a very bad idea. The IXP4xx Ethernet MACs are not
-> normal platform devices, they are in fact built-in CPU resources.
+(Dropping stable)
 
-Sounds like a normal platform device to me...
+Vladimir Kondratiev <qca_vkondrat-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org> writes:
 
-> The
-> platform device structs are only used to set parameters. What the patch
-> does is unneeded and IMHO harmful code duplication. It makes completely
-> no sense to set DMA masks in code for individual platforms as it's not
-> something platforms can decide, or *even should know of*. It's simply
-> a CPU attribute, a value that is shared by all IXP4xx CPUs and thus all
-> platforms and systems using it.
-> 
-> This is against the "line of code" count rules (or "rules").
-> 
-> Also the dev->dev.parent is IMHO a bad idea. The queue numbers and MAC
-> addresses are in no way "parents" of Ethernet controllers,
+>> It also looked like that that driver or section of the kernel was compiling 
+>> with -Werror. I haven't verrified that but I remember seeing "treating all 
+>> warnings as errors" at one point.
+>> 
+> You are right, I have this in Makefile:
+> (if one turn on extra warnings with -W, there will be lots of false alarms,
+> that's why this ifeq())
+>
+> ifeq (, $(findstring -W,$(EXTRA_CFLAGS)))
+> 	subdir-ccflags-y += -Werror
+> endif
 
-Well, those are the platform data.
-
-> and even if
-> they somehow were, I find it rather hard to believe they can have DMA
-> masks.
-
-I think the problem is that the platform device and the platform data
-have not been properly separated.  The machine-specific setup functions
-should be passing the eth_plat_info and MAC ID into a common ixp4xx
-function which would then create the platform device with the correct
-DMA mask etc.
-
-Ben.
-
-> I think the previous patch (which sets the masks in one place, in
-> Ethernet driver code) was better, though not perfect.
-> 
-> My fault is I haven't fixed it yet. Will try to invent something.
+This is exactly why it's recommended not to use -Werror on releases.
+It's ok when developers use it, but for end users -Werror should not be
+enabled by default.
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
