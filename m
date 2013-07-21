@@ -1,56 +1,97 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH] via-rhine: Fix tx_timeout handling
-Date: Sun, 21 Jul 2013 18:32:03 +0200
-Message-ID: <51EC0D03.4070508@nod.at>
-References: <1374269428-6827-1-git-send-email-richard@nod.at> <1374423530.2804.13.camel@deadeye.wl.decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: rl@hellgate.ch, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1374423530.2804.13.camel@deadeye.wl.decadent.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Fabio Estevam <festevam@gmail.com>
+Subject: [PATCH 1/6] fec: Do not enable/disable optional clocks unconditionally
+Date: Sun, 21 Jul 2013 13:24:59 -0300
+Message-ID: <1374423904-2668-2-git-send-email-festevam@gmail.com>
+References: <1374423904-2668-1-git-send-email-festevam@gmail.com>
+Cc: kernel@pengutronix.de, Frank.Li@freescale.com,
+	shawn.guo@linaro.org, netdev@vger.kernel.org,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ye0-f174.google.com ([209.85.213.174]:57994 "EHLO
+	mail-ye0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755881Ab3GUQcO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jul 2013 12:32:14 -0400
+Received: by mail-ye0-f174.google.com with SMTP id q9so95241yen.33
+        for <netdev@vger.kernel.org>; Sun, 21 Jul 2013 09:32:13 -0700 (PDT)
+In-Reply-To: <1374423904-2668-1-git-send-email-festevam@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 21.07.2013 18:18, schrieb Ben Hutchings:
-> On Fri, 2013-07-19 at 23:30 +0200, Richard Weinberger wrote:
->> rhine_reset_task() misses to call netif_stop_queue(),
->> this can lead to a crash if work is still scheduled while
->> we're resetting the tx queue.
->>
->> Fixes:
->> [   93.591707] BUG: unable to handle kernel NULL pointer dereference at 0000004c
->> [   93.595514] IP: [<c119d10d>] rhine_napipoll+0x491/0x6e
->>
->> Signed-off-by: Richard Weinberger <richard@nod.at>
->> ---
->>  drivers/net/ethernet/via/via-rhine.c | 1 +
->>  1 file changed, 1 insertion(+)
->>
->> diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
->> index b75eb9e..57e1b40 100644
->> --- a/drivers/net/ethernet/via/via-rhine.c
->> +++ b/drivers/net/ethernet/via/via-rhine.c
->> @@ -1615,6 +1615,7 @@ static void rhine_reset_task(struct work_struct *work)
->>  		goto out_unlock;
->>  
->>  	napi_disable(&rp->napi);
->> +	netif_stop_queue(dev);
-> 
-> This is not really fixing the bug because there is no synchronisation
-> with the TX scheduler.  You can call netif_tx_disable() instead to do
-> that.
+From: Fabio Estevam <fabio.estevam@freescale.com>
 
-I guess other drivers suffer from that too.
-A quick grep showed that not many drivers are using netif_tx_disable().
+clk_enet_out and clk_ptp are optional clocks, so we should not enable/disable
+them unconditionally.
 
-> (I also think that it is preferable to use
-> netif_device_{detach,attach}() to stop the queue during reconfiguration,
-> as this is independent of TX completions and the watchdog.)
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c | 24 ++++++++++++++++--------
+ 1 file changed, 16 insertions(+), 8 deletions(-)
 
-So the correct down sequence is napi_disable() -> netif_tx_disable() -> netif_device_detach()?
-
-Thanks,
-//richard
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index f0f0e96..de9bf7a 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -2105,8 +2105,10 @@ fec_probe(struct platform_device *pdev)
+ 
+ 	clk_prepare_enable(fep->clk_ahb);
+ 	clk_prepare_enable(fep->clk_ipg);
+-	clk_prepare_enable(fep->clk_enet_out);
+-	clk_prepare_enable(fep->clk_ptp);
++	if (fep->clk_enet_out)
++		clk_prepare_enable(fep->clk_enet_out);
++	if (fep->clk_ptp)
++		clk_prepare_enable(fep->clk_ptp);
+ 
+ 	fep->reg_phy = devm_regulator_get(&pdev->dev, "phy");
+ 	if (!IS_ERR(fep->reg_phy)) {
+@@ -2179,8 +2181,10 @@ failed_init:
+ failed_regulator:
+ 	clk_disable_unprepare(fep->clk_ahb);
+ 	clk_disable_unprepare(fep->clk_ipg);
+-	clk_disable_unprepare(fep->clk_enet_out);
+-	clk_disable_unprepare(fep->clk_ptp);
++	if (fep->clk_enet_out)
++		clk_disable_unprepare(fep->clk_enet_out);
++	if (fep->clk_ptp)
++		clk_disable_unprepare(fep->clk_ptp);
+ failed_clk:
+ failed_ioremap:
+ 	free_netdev(ndev);
+@@ -2206,10 +2210,12 @@ fec_drv_remove(struct platform_device *pdev)
+ 	}
+ 	if (fep->reg_phy)
+ 		regulator_disable(fep->reg_phy);
+-	clk_disable_unprepare(fep->clk_ptp);
++	if (fep->clk_ptp)
++		clk_disable_unprepare(fep->clk_ptp);
+ 	if (fep->ptp_clock)
+ 		ptp_clock_unregister(fep->ptp_clock);
+-	clk_disable_unprepare(fep->clk_enet_out);
++	if (fep->clk_enet_out)
++		clk_disable_unprepare(fep->clk_enet_out);
+ 	clk_disable_unprepare(fep->clk_ahb);
+ 	clk_disable_unprepare(fep->clk_ipg);
+ 	free_netdev(ndev);
+@@ -2228,7 +2234,8 @@ fec_suspend(struct device *dev)
+ 		fec_stop(ndev);
+ 		netif_device_detach(ndev);
+ 	}
+-	clk_disable_unprepare(fep->clk_enet_out);
++	if (fep->clk_enet_out)
++		clk_disable_unprepare(fep->clk_enet_out);
+ 	clk_disable_unprepare(fep->clk_ahb);
+ 	clk_disable_unprepare(fep->clk_ipg);
+ 
+@@ -2251,7 +2258,8 @@ fec_resume(struct device *dev)
+ 			return ret;
+ 	}
+ 
+-	clk_prepare_enable(fep->clk_enet_out);
++	if (fep->clk_enet_out)
++		clk_prepare_enable(fep->clk_enet_out);
+ 	clk_prepare_enable(fep->clk_ahb);
+ 	clk_prepare_enable(fep->clk_ipg);
+ 	if (netif_running(ndev)) {
+-- 
+1.8.1.2
