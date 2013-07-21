@@ -1,22 +1,14 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2013-07-19
-Date: Sat, 20 Jul 2013 17:02:20 -0700 (PDT)
-Message-ID: <20130720.170220.1132321331856057523.davem@davemloft.net>
-References: <20130719171910.GD7641@tuxdriver.com>
+From: "Linux \"Kernel\" Explorer" <mylinuxlab@gmail.com>
+Subject: Linux "Kernel" Explorer
+Date: Sun, 21 Jul 2013 05:44:25 +0530
+Message-ID: <CADRhAq5MSUOs+5Q6r212-hniCE2+2LXXXGeNytcAnxPLf6LYVg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130719171910.GD7641@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: jmahoney@waav.com, majordomo@vger.kernel.org,
+	mohit.varma01@gmail.com, linux-fsdevel@vger.kernel.org,
+	listar@nl.linux.org, netdev@vger.kernel.org
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 19 Jul 2013 13:19:10 -0400
-
-> Please accept this batch of fixes intended for the 3.11 tree...
-
-Pulled, thanks John.
+http://internetogbredbaand.dk/kbywff/lgalmkkxzd.elzsfolw
