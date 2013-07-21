@@ -1,65 +1,89 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] net: Add phys_port identifier to struct
- net_device and export it to sysfs
-Date: Sun, 21 Jul 2013 21:50:01 +0100
-Message-ID: <1374439801.2804.90.camel@deadeye.wl.decadent.org.uk>
-References: <20130617181004.GA1364@fedora-17-guest.dell.com>
-	 <20130711203938.GA4078@minipsycho.orion>
-	 <20130715153410.GA10864@fedora18-dev.oslab.blr.amer.dell.com>
-	 <CAJZOPZL7MVBphUvojJ7RjnF8EYVyMNgr4zta2_A8VZw7bKkRaQ@mail.gmail.com>
-	 <20130721072455.GA1944@minipsycho.orion>
-	 <CAJZOPZKhRXfrjrMBm6FcXjFfnXzbvb6xz-UB8HoJYVSJ2Yix0Q@mail.gmail.com>
-	 <1374418103.16533.69.camel@deadeye.wl.decadent.org.uk>
-	 <CAJZOPZJdYvSYZ2O+h3nLM2dxjwRx6Ma975T7DZXVXUoZmywVeg@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 1/3] net: add ndo to get id of physical port
+ of the device
+Date: Sun, 21 Jul 2013 23:02:30 +0200
+Message-ID: <20130721210230.GA1558@minipsycho.orion>
+References: <1374342834-10814-1-git-send-email-jiri@resnulli.us>
+ <1374342834-10814-2-git-send-email-jiri@resnulli.us>
+ <CAJZOPZJiL4hJV4eKKsZrLseJF_sSRjYVsstgT+NLsoeCXWKh_g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, <Narendra_K@dell.com>,
-	<netdev@vger.kernel.org>, <john.r.fastabend@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	stephen@networkplumber.org, Narendra_K@dell.com,
+	bhutchings@solarflare.com, john.r.fastabend@intel.com
 To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:30873 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756064Ab3GUU4E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jul 2013 16:56:04 -0400
-In-Reply-To: <CAJZOPZJdYvSYZ2O+h3nLM2dxjwRx6Ma975T7DZXVXUoZmywVeg@mail.gmail.com>
+Received: from mail-ee0-f51.google.com ([74.125.83.51]:49659 "EHLO
+	mail-ee0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756064Ab3GUVCf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jul 2013 17:02:35 -0400
+Received: by mail-ee0-f51.google.com with SMTP id e52so3473923eek.10
+        for <netdev@vger.kernel.org>; Sun, 21 Jul 2013 14:02:33 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAJZOPZJiL4hJV4eKKsZrLseJF_sSRjYVsstgT+NLsoeCXWKh_g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-07-21 at 23:29 +0300, Or Gerlitz wrote:
-> On Sun, Jul 21, 2013 at 5:48 PM, Ben Hutchings
-> <bhutchings@solarflare.com> wrote:
-> > On Sun, 2013-07-21 at 14:14 +0300, Or Gerlitz wrote:
-> >> On Sun, Jul 21, 2013 at 10:24 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> >> [...]
-> >>
-> >> Sorry, I missed that fact that initially you responded on this thread
-> >>
-> >> > The value could be anything. But note that you have to have different
-> >> > values for card1-port1,2 and card2-port1,2
-> >>
-> >> why?
-> >
-> > The intent is to identify physical ports uniquely, so userland can tell
-> > whether two devices are backed by the same physical port.
-> 
-> OK this makes sense, and I understand that there are also some SRIOV
-> aspects / use cases where this field could be usefu, still I don't
-> understamd the direct relation to virtual functions, as mentioned in
-> the 1st patch.
+Sun, Jul 21, 2013 at 10:26:32PM CEST, or.gerlitz@gmail.com wrote:
+>On Sat, Jul 20, 2013 at 8:53 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>
+>> This patch adds a ndo for getting physical port of the device. Driver
+>> which is aware of being virtual function of some physical port should
+>> implement this ndo.
+>
+>
+>Do you mean virtual function literally?  that is in the PCI IOV aspect?
 
-Well the motivating problem was that a guest can't tell which VFs
-connect to which ports or whether it has multiple VFs connected to the
-same port.  The host can already see work out that they're associated
-based on PCIe config and topology.
+This is applicable not only for IOV, nbut for other solutions (NPAR,
+multichannel) as well. Basically if there is possible to have multiple
+netdevs on the single hw port.
 
-This can also apply to PFs if you pass them through to guests, or if you
-have multiple PFs connected to the same port, but that's rather less
-common.
+>
+>
+>>
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> ---
+>>  include/linux/netdevice.h | 20 ++++++++++++++++++++
+>>  net/core/dev.c            | 18 ++++++++++++++++++
+>>  2 files changed, 38 insertions(+)
+>>
+>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>> index 0741a1e..726dec2 100644
+>> --- a/include/linux/netdevice.h
+>> +++ b/include/linux/netdevice.h
+>> @@ -728,6 +728,16 @@ struct netdev_fcoe_hbainfo {
+>>  };
+>>  #endif
+>>
+>> +#define MAX_PHYS_PORT_ID_LEN 32
+>> +
+>> +/* This structure holds a unique identifier to identify the
+>> + * physical port used by a netdevice.
+>> + */
+>> +struct netdev_phys_port_id {
+>> +       unsigned char id[MAX_PHYS_PORT_ID_LEN];
+>> +       unsigned char id_len;
+>> +};
+>> +
+>>  /*
+>>   * This structure defines the management hooks for network devices.
+>>   * The following hooks can be defined; unless noted otherwise, they are
+>> @@ -932,6 +942,12 @@ struct netdev_fcoe_hbainfo {
+>>   *     that determine carrier state from physical hardware properties (eg
+>>   *     network cables) or protocol-dependent mechanisms (eg
+>>   *     USB_CDC_NOTIFY_NETWORK_CONNECTION) should NOT implement this function.
+>> + *
+>> + * int (*ndo_get_phys_port_id)(struct net_device *dev,
+>> + *                            struct netdev_phys_port_id *ppid);
+>> + *     Called to get ID of physical port of this device. If driver does
+>> + *     not implement this, it is assumed that the hw is not able to have
+>> + *     multiple net devices on single physical port.
+>>   */
+>
+>I am not sure to understand what is assumed here and why it it mandated.
 
-Ben.
+It is not mandated. The key is to provide clear info to user that couple of
+netdevs share the same port. The goal is to have this implemented for
+all drivers which are able to have more netdevs on single hw port.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Jiri
