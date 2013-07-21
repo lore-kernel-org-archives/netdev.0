@@ -1,738 +1,143 @@
-From: Saurabh Mohan <saurabh.mohan@vyatta.com>
-Subject: RE: [Patch net-next] vti: switch to new ip tunnel code
-Date: Sat, 20 Jul 2013 21:03:46 -0700
-Message-ID: <1902752B0C92F943AB7EA9EE13E2DEEC126CCF8655@HQ1-EXCH02.corp.brocade.com>
-References: <1374374785-30291-1-git-send-email-amwang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Cong Wang <amwang@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH 2/4 net-next] tcp: prefer packet timing to TS-ECR for RTT
+Date: Sat, 20 Jul 2013 22:39:28 -0700
+Message-ID: <1374385170-358-2-git-send-email-ycheng@google.com>
+References: <1374385170-358-1-git-send-email-ycheng@google.com>
+Cc: nanditad@google.com, netdev@vger.kernel.org,
+	Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net, ncardwell@google.com, edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:22547 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750761Ab3GUEcA convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 21 Jul 2013 00:32:00 -0400
-Received: from pps.filterd (m0000542 [127.0.0.1])
-	by mx0a-000f0801.pphosted.com (8.14.5/8.14.5) with SMTP id r6L43CeD030015
-	for <netdev@vger.kernel.org>; Sat, 20 Jul 2013 21:06:17 -0700
-Received: from hq1wp-exchub02.corp.brocade.com ([144.49.131.13])
-	by mx0a-000f0801.pphosted.com with ESMTP id 1dqn54rbwg-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Sat, 20 Jul 2013 21:06:17 -0700
-In-Reply-To: <1374374785-30291-1-git-send-email-amwang@redhat.com>
-Content-Language: en-US
+Received: from mail-gg0-f202.google.com ([209.85.161.202]:52042 "EHLO
+	mail-gg0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752219Ab3GUFjv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jul 2013 01:39:51 -0400
+Received: by mail-gg0-f202.google.com with SMTP id h3so513302gge.3
+        for <netdev@vger.kernel.org>; Sat, 20 Jul 2013 22:39:50 -0700 (PDT)
+In-Reply-To: <1374385170-358-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Prefer packet timings to TS-ecr for RTT measurements when both
+sources are available. That's because broken middle-boxes and remote
+peer can return packets with corrupted TS ECR fields. Similarly most
+congestion controls that require RTT signals favor timing-based
+sources as well. Also check for bad TS ECR values to avoid RTT
+blow-ups. It has happened on production Web servers.
 
-________________________________________
-From: Cong Wang [amwang@redhat.com]
-Sent: Saturday, July 20, 2013 7:46 PM
-To: netdev@vger.kernel.org
-Cc: David S. Miller; Pravin B Shelar; Stephen Hemminger; Saurabh Mohan; Cong Wang
-Subject: [Patch net-next] vti: switch to new ip tunnel code
-
-GRE tunnel and IPIP tunnel already switched to the new
-ip tunnel code, VTI tunnel can use it too.
-
-Cc: Pravin B Shelar <pshelar@nicira.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: Saurabh Mohan <saurabh.mohan@vyatta.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
-
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
 ---
- net/ipv4/ip_vti.c |  528 ++++++-----------------------------------------------
- 1 files changed, 52 insertions(+), 476 deletions(-)
+ include/net/tcp.h    |  1 -
+ net/ipv4/tcp_input.c | 67 ++++++++++++++--------------------------------------
+ 2 files changed, 18 insertions(+), 50 deletions(-)
 
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index 17cc0ff..79b263d 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -44,176 +44,10 @@
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
-
--#define HASH_SIZE  16
--#define HASH(addr) (((__force u32)addr^((__force u32)addr>>4))&(HASH_SIZE-1))
--
- static struct rtnl_link_ops vti_link_ops __read_mostly;
-
- static int vti_net_id __read_mostly;
--struct vti_net {
--       struct ip_tunnel __rcu *tunnels_r_l[HASH_SIZE];
--       struct ip_tunnel __rcu *tunnels_r[HASH_SIZE];
--       struct ip_tunnel __rcu *tunnels_l[HASH_SIZE];
--       struct ip_tunnel __rcu *tunnels_wc[1];
--       struct ip_tunnel __rcu **tunnels[4];
--
--       struct net_device *fb_tunnel_dev;
--};
--
--static int vti_fb_tunnel_init(struct net_device *dev);
- static int vti_tunnel_init(struct net_device *dev);
--static void vti_tunnel_setup(struct net_device *dev);
--static void vti_dev_free(struct net_device *dev);
--static int vti_tunnel_bind_dev(struct net_device *dev);
--
--#define VTI_XMIT(stats1, stats2) do {                          \
--       int err;                                                \
--       int pkt_len = skb->len;                                 \
--       err = dst_output(skb);                                  \
--       if (net_xmit_eval(err) == 0) {                          \
--               u64_stats_update_begin(&(stats1)->syncp);       \
--               (stats1)->tx_bytes += pkt_len;                  \
--               (stats1)->tx_packets++;                         \
--               u64_stats_update_end(&(stats1)->syncp);         \
--       } else {                                                \
--               (stats2)->tx_errors++;                          \
--               (stats2)->tx_aborted_errors++;                  \
--       }                                                       \
--} while (0)
--
--
--static struct ip_tunnel *vti_tunnel_lookup(struct net *net,
--                                          __be32 remote, __be32 local)
--{
--       unsigned h0 = HASH(remote);
--       unsigned h1 = HASH(local);
--       struct ip_tunnel *t;
--       struct vti_net *ipn = net_generic(net, vti_net_id);
--
--       for_each_ip_tunnel_rcu(t, ipn->tunnels_r_l[h0 ^ h1])
--               if (local == t->parms.iph.saddr &&
--                   remote == t->parms.iph.daddr && (t->dev->flags&IFF_UP))
--                       return t;
--       for_each_ip_tunnel_rcu(t, ipn->tunnels_r[h0])
--               if (remote == t->parms.iph.daddr && (t->dev->flags&IFF_UP))
--                       return t;
--
--       for_each_ip_tunnel_rcu(t, ipn->tunnels_l[h1])
--               if (local == t->parms.iph.saddr && (t->dev->flags&IFF_UP))
--                       return t;
--
--       for_each_ip_tunnel_rcu(t, ipn->tunnels_wc[0])
--               if (t && (t->dev->flags&IFF_UP))
--                       return t;
--       return NULL;
--}
--
--static struct ip_tunnel __rcu **__vti_bucket(struct vti_net *ipn,
--                                            struct ip_tunnel_parm *parms)
--{
--       __be32 remote = parms->iph.daddr;
--       __be32 local = parms->iph.saddr;
--       unsigned h = 0;
--       int prio = 0;
--
--       if (remote) {
--               prio |= 2;
--               h ^= HASH(remote);
--       }
--       if (local) {
--               prio |= 1;
--               h ^= HASH(local);
--       }
--       return &ipn->tunnels[prio][h];
--}
--
--static inline struct ip_tunnel __rcu **vti_bucket(struct vti_net *ipn,
--                                                 struct ip_tunnel *t)
--{
--       return __vti_bucket(ipn, &t->parms);
--}
--
--static void vti_tunnel_unlink(struct vti_net *ipn, struct ip_tunnel *t)
--{
--       struct ip_tunnel __rcu **tp;
--       struct ip_tunnel *iter;
--
--       for (tp = vti_bucket(ipn, t);
--            (iter = rtnl_dereference(*tp)) != NULL;
--            tp = &iter->next) {
--               if (t == iter) {
--                       rcu_assign_pointer(*tp, t->next);
--                       break;
--               }
--       }
--}
--
--static void vti_tunnel_link(struct vti_net *ipn, struct ip_tunnel *t)
--{
--       struct ip_tunnel __rcu **tp = vti_bucket(ipn, t);
--
--       rcu_assign_pointer(t->next, rtnl_dereference(*tp));
--       rcu_assign_pointer(*tp, t);
--}
--
--static struct ip_tunnel *vti_tunnel_locate(struct net *net,
--                                          struct ip_tunnel_parm *parms,
--                                          int create)
--{
--       __be32 remote = parms->iph.daddr;
--       __be32 local = parms->iph.saddr;
--       struct ip_tunnel *t, *nt;
--       struct ip_tunnel __rcu **tp;
--       struct net_device *dev;
--       char name[IFNAMSIZ];
--       struct vti_net *ipn = net_generic(net, vti_net_id);
--
--       for (tp = __vti_bucket(ipn, parms);
--            (t = rtnl_dereference(*tp)) != NULL;
--            tp = &t->next) {
--               if (local == t->parms.iph.saddr && remote == t->parms.iph.daddr)
--                       return t;
--       }
--       if (!create)
--               return NULL;
--
--       if (parms->name[0])
--               strlcpy(name, parms->name, IFNAMSIZ);
--       else
--               strcpy(name, "vti%d");
--
--       dev = alloc_netdev(sizeof(*t), name, vti_tunnel_setup);
--       if (dev == NULL)
--               return NULL;
--
--       dev_net_set(dev, net);
--
--       nt = netdev_priv(dev);
--       nt->parms = *parms;
--       dev->rtnl_link_ops = &vti_link_ops;
--
--       vti_tunnel_bind_dev(dev);
--
--       if (register_netdevice(dev) < 0)
--               goto failed_free;
--
--       dev_hold(dev);
--       vti_tunnel_link(ipn, nt);
--       return nt;
--
--failed_free:
--       free_netdev(dev);
--       return NULL;
--}
--
--static void vti_tunnel_uninit(struct net_device *dev)
--{
--       struct net *net = dev_net(dev);
--       struct vti_net *ipn = net_generic(net, vti_net_id);
--
--       vti_tunnel_unlink(ipn, netdev_priv(dev));
--       dev_put(dev);
--}
-
- static int vti_err(struct sk_buff *skb, u32 info)
- {
-@@ -222,6 +56,8 @@ static int vti_err(struct sk_buff *skb, u32 info)
-         * 8 bytes of packet payload. It means, that precise relaying of
-         * ICMP in the real Internet is absolutely infeasible.
-         */
-+       struct net *net = dev_net(skb->dev);
-+       struct ip_tunnel_net *itn = net_generic(net, vti_net_id);
-        struct iphdr *iph = (struct iphdr *)skb->data;
-        const int type = icmp_hdr(skb)->type;
-        const int code = icmp_hdr(skb)->code;
-@@ -252,7 +88,8 @@ static int vti_err(struct sk_buff *skb, u32 info)
-
-        err = -ENOENT;
-
--       t = vti_tunnel_lookup(dev_net(skb->dev), iph->daddr, iph->saddr);
-+       t = ip_tunnel_lookup(itn, skb->dev->ifindex, TUNNEL_NO_KEY,
-+                            iph->daddr, iph->saddr, 0);
-        if (t == NULL)
-                goto out;
-
-@@ -281,8 +118,11 @@ static int vti_rcv(struct sk_buff *skb)
- {
-        struct ip_tunnel *tunnel;
-        const struct iphdr *iph = ip_hdr(skb);
-+       struct net *net = dev_net(skb->dev);
-+       struct ip_tunnel_net *itn = net_generic(net, vti_net_id);
-
--       tunnel = vti_tunnel_lookup(dev_net(skb->dev), iph->saddr, iph->daddr);
-+       tunnel = ip_tunnel_lookup(itn, skb->dev->ifindex, TUNNEL_NO_KEY,
-+                                 iph->saddr, iph->daddr, 0);
-        if (tunnel != NULL) {
-                struct pcpu_tstats *tstats;
-
-@@ -311,7 +151,6 @@ static int vti_rcv(struct sk_buff *skb)
- static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- {
-        struct ip_tunnel *tunnel = netdev_priv(dev);
--       struct pcpu_tstats *tstats;
-        struct iphdr  *tiph = &tunnel->parms.iph;
-        u8     tos;
-        struct rtable *rt;              /* Route to the other host */
-@@ -319,6 +158,7 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
-        struct iphdr  *old_iph = ip_hdr(skb);
-        __be32 dst = tiph->daddr;
-        struct flowi4 fl4;
-+       int err;
-
-        if (skb->protocol != htons(ETH_P_IP))
-                goto tx_error;
-@@ -367,8 +207,10 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
-        nf_reset(skb);
-        skb->dev = skb_dst(skb)->dev;
-
--       tstats = this_cpu_ptr(dev->tstats);
--       VTI_XMIT(tstats, &dev->stats);
-+       err = dst_output(skb);
-+       if (net_xmit_eval(err) == 0)
-+               err = skb->len;
-+       iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
-        return NETDEV_TX_OK;
-
- tx_error_icmp:
-@@ -379,198 +221,57 @@ tx_error:
-        return NETDEV_TX_OK;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index f9777db..c586847 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -591,7 +591,6 @@ extern void tcp_initialize_rcv_mss(struct sock *sk);
+ extern int tcp_mtu_to_mss(struct sock *sk, int pmtu);
+ extern int tcp_mss_to_mtu(struct sock *sk, int mss);
+ extern void tcp_mtup_init(struct sock *sk);
+-extern void tcp_valid_rtt_meas(struct sock *sk, u32 seq_rtt);
+ extern void tcp_init_buffer_space(struct sock *sk);
+ 
+ static inline void tcp_bound_rto(const struct sock *sk)
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 988e816..b6357ec 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2792,65 +2792,36 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
+ 	tcp_xmit_retransmit_queue(sk);
  }
-
--static int vti_tunnel_bind_dev(struct net_device *dev)
--{
--       struct net_device *tdev = NULL;
--       struct ip_tunnel *tunnel;
--       struct iphdr *iph;
--
--       tunnel = netdev_priv(dev);
--       iph = &tunnel->parms.iph;
--
--       if (iph->daddr) {
--               struct rtable *rt;
--               struct flowi4 fl4;
--               memset(&fl4, 0, sizeof(fl4));
--               flowi4_init_output(&fl4, tunnel->parms.link,
--                                  be32_to_cpu(tunnel->parms.i_key),
--                                  RT_TOS(iph->tos), RT_SCOPE_UNIVERSE,
--                                  IPPROTO_IPIP, 0,
--                                  iph->daddr, iph->saddr, 0, 0);
--               rt = ip_route_output_key(dev_net(dev), &fl4);
--               if (!IS_ERR(rt)) {
--                       tdev = rt->dst.dev;
--                       ip_rt_put(rt);
--               }
--               dev->flags |= IFF_POINTOPOINT;
--       }
--
--       if (!tdev && tunnel->parms.link)
--               tdev = __dev_get_by_index(dev_net(dev), tunnel->parms.link);
--
--       if (tdev) {
--               dev->hard_header_len = tdev->hard_header_len +
--                                      sizeof(struct iphdr);
--               dev->mtu = tdev->mtu;
--       }
--       dev->iflink = tunnel->parms.link;
--       return dev->mtu;
+ 
+-void tcp_valid_rtt_meas(struct sock *sk, u32 seq_rtt)
++static inline void tcp_ack_update_rtt(struct sock *sk, const int flag,
++				      s32 seq_rtt)
+ {
+-	tcp_rtt_estimator(sk, seq_rtt);
+-	tcp_set_rto(sk);
+-	inet_csk(sk)->icsk_backoff = 0;
 -}
--
- static int
- vti_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- {
-        int err = 0;
-        struct ip_tunnel_parm p;
--       struct ip_tunnel *t;
--       struct net *net = dev_net(dev);
--       struct vti_net *ipn = net_generic(net, vti_net_id);
--
--       switch (cmd) {
--       case SIOCGETTUNNEL:
--               t = NULL;
--               if (dev == ipn->fb_tunnel_dev) {
--                       if (copy_from_user(&p, ifr->ifr_ifru.ifru_data,
--                                          sizeof(p))) {
--                               err = -EFAULT;
--                               break;
--                       }
--                       t = vti_tunnel_locate(net, &p, 0);
--               }
--               if (t == NULL)
--                       t = netdev_priv(dev);
--               memcpy(&p, &t->parms, sizeof(p));
--               p.i_flags |= GRE_KEY | VTI_ISVTI;
--               p.o_flags |= GRE_KEY;
--               if (copy_to_user(ifr->ifr_ifru.ifru_data, &p, sizeof(p)))
--                       err = -EFAULT;
--               break;
--
--       case SIOCADDTUNNEL:
--       case SIOCCHGTUNNEL:
--               err = -EPERM;
--               if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
--                       goto done;
-
--               err = -EFAULT;
--               if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof(p)))
--                       goto done;
-+       if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof(p)))
-+               return -EFAULT;
-
--               err = -EINVAL;
-+       if (cmd == SIOCADDTUNNEL || cmd == SIOCCHGTUNNEL) {
-                if (p.iph.version != 4 || p.iph.protocol != IPPROTO_IPIP ||
-                    p.iph.ihl != 5)
--                       goto done;
--
--               t = vti_tunnel_locate(net, &p, cmd == SIOCADDTUNNEL);
--
--               if (dev != ipn->fb_tunnel_dev && cmd == SIOCCHGTUNNEL) {
--                       if (t != NULL) {
--                               if (t->dev != dev) {
--                                       err = -EEXIST;
--                                       break;
--                               }
--                       } else {
--                               if (((dev->flags&IFF_POINTOPOINT) &&
--                                   !p.iph.daddr) ||
--                                   (!(dev->flags&IFF_POINTOPOINT) &&
--                                   p.iph.daddr)) {
--                                       err = -EINVAL;
--                                       break;
--                               }
--                               t = netdev_priv(dev);
--                               vti_tunnel_unlink(ipn, t);
--                               synchronize_net();
--                               t->parms.iph.saddr = p.iph.saddr;
--                               t->parms.iph.daddr = p.iph.daddr;
--                               t->parms.i_key = p.i_key;
--                               t->parms.o_key = p.o_key;
--                               t->parms.iph.protocol = IPPROTO_IPIP;
--                               memcpy(dev->dev_addr, &p.iph.saddr, 4);
--                               memcpy(dev->broadcast, &p.iph.daddr, 4);
--                               vti_tunnel_link(ipn, t);
--                               netdev_state_change(dev);
--                       }
--               }
--
--               if (t) {
--                       err = 0;
--                       if (cmd == SIOCCHGTUNNEL) {
--                               t->parms.i_key = p.i_key;
--                               t->parms.o_key = p.o_key;
--                               if (t->parms.link != p.link) {
--                                       t->parms.link = p.link;
--                                       vti_tunnel_bind_dev(dev);
--                                       netdev_state_change(dev);
--                               }
--                       }
--                       p.i_flags |= GRE_KEY | VTI_ISVTI;
--                       p.o_flags |= GRE_KEY;
--                       if (copy_to_user(ifr->ifr_ifru.ifru_data, &t->parms,
--                                        sizeof(p)))
--                               err = -EFAULT;
--               } else
--                       err = (cmd == SIOCADDTUNNEL ? -ENOBUFS : -ENOENT);
--               break;
-+                       return -EINVAL;
-+       }
-
--       case SIOCDELTUNNEL:
--               err = -EPERM;
--               if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
--                       goto done;
--
--               if (dev == ipn->fb_tunnel_dev) {
--                       err = -EFAULT;
--                       if (copy_from_user(&p, ifr->ifr_ifru.ifru_data,
--                                          sizeof(p)))
--                               goto done;
--                       err = -ENOENT;
--
--                       t = vti_tunnel_locate(net, &p, 0);
--                       if (t == NULL)
--                               goto done;
--                       err = -EPERM;
--                       if (t->dev == ipn->fb_tunnel_dev)
--                               goto done;
--                       dev = t->dev;
--               }
--               unregister_netdevice(dev);
--               err = 0;
--               break;
-+       err = ip_tunnel_ioctl(dev, &p, cmd);
-+       if (err)
-+               return err;
-
--       default:
--               err = -EINVAL;
-+       if (cmd != SIOCDELTUNNEL) {
-+               p.i_flags |= GRE_KEY | VTI_ISVTI;
-+               p.o_flags |= GRE_KEY;
-        }
-
--done:
--       return err;
--}
--
--static int vti_tunnel_change_mtu(struct net_device *dev, int new_mtu)
--{
--       if (new_mtu < 68 || new_mtu > 0xFFF8)
--               return -EINVAL;
--       dev->mtu = new_mtu;
-+       if (copy_to_user(ifr->ifr_ifru.ifru_data, &p, sizeof(p)))
-+               return -EFAULT;
-        return 0;
- }
-
- static const struct net_device_ops vti_netdev_ops = {
-        .ndo_init       = vti_tunnel_init,
--       .ndo_uninit     = vti_tunnel_uninit,
-+       .ndo_uninit     = ip_tunnel_uninit,
-        .ndo_start_xmit = vti_tunnel_xmit,
-        .ndo_do_ioctl   = vti_tunnel_ioctl,
--       .ndo_change_mtu = vti_tunnel_change_mtu,
-+       .ndo_change_mtu = ip_tunnel_change_mtu,
-        .ndo_get_stats64 = ip_tunnel_get_stats64,
- };
-
--static void vti_dev_free(struct net_device *dev)
-+static void vti_tunnel_setup(struct net_device *dev)
- {
--       free_percpu(dev->tstats);
--       free_netdev(dev);
-+       dev->netdev_ops         = &vti_netdev_ops;
-+       ip_tunnel_setup(dev, vti_net_id);
- }
-
--static void vti_tunnel_setup(struct net_device *dev)
-+static int vti_tunnel_init(struct net_device *dev)
- {
--       dev->netdev_ops         = &vti_netdev_ops;
--       dev->destructor         = vti_dev_free;
-+       struct ip_tunnel *tunnel = netdev_priv(dev);
-+       struct iphdr *iph = &tunnel->parms.iph;
+-EXPORT_SYMBOL(tcp_valid_rtt_meas);
++	const struct tcp_sock *tp = tcp_sk(sk);
 +
-+       memcpy(dev->dev_addr, &iph->saddr, 4);
-+       memcpy(dev->broadcast, &iph->daddr, 4);
-
-        dev->type               = ARPHRD_TUNNEL;
-        dev->hard_header_len    = LL_MAX_HEADER + sizeof(struct iphdr);
-@@ -581,38 +282,18 @@ static void vti_tunnel_setup(struct net_device *dev)
-        dev->features           |= NETIF_F_NETNS_LOCAL;
-        dev->features           |= NETIF_F_LLTX;
-        dev->priv_flags         &= ~IFF_XMIT_DST_RELEASE;
--}
-
--static int vti_tunnel_init(struct net_device *dev)
++	/* Prefer RTT measured from ACK's timing to TS-ECR. This is because
++	 * broken middle-boxes or peers may corrupt TS-ECR fields. But
++	 * Karn's algorithm forbids taking RTT if some retransmitted data
++	 * is acked (RFC6298).
++	 */
++	if (flag & FLAG_RETRANS_DATA_ACKED)
++		seq_rtt = -1;
+ 
+-/* Read draft-ietf-tcplw-high-performance before mucking
+- * with this code. (Supersedes RFC1323)
+- */
+-static void tcp_ack_saw_tstamp(struct sock *sk, int flag)
 -{
--       struct ip_tunnel *tunnel = netdev_priv(dev);
--
--       tunnel->dev = dev;
--       strcpy(tunnel->parms.name, dev->name);
--
--       memcpy(dev->dev_addr, &tunnel->parms.iph.saddr, 4);
--       memcpy(dev->broadcast, &tunnel->parms.iph.daddr, 4);
--
--       dev->tstats = alloc_percpu(struct pcpu_tstats);
--       if (!dev->tstats)
--               return -ENOMEM;
--
--       return 0;
-+       return ip_tunnel_init(dev);
- }
-
--static int __net_init vti_fb_tunnel_init(struct net_device *dev)
-+static void __net_init vti_fb_tunnel_init(struct net_device *dev)
- {
-        struct ip_tunnel *tunnel = netdev_priv(dev);
-        struct iphdr *iph = &tunnel->parms.iph;
--       struct vti_net *ipn = net_generic(dev_net(dev), vti_net_id);
-
-        iph->version            = 4;
-        iph->protocol           = IPPROTO_IPIP;
-        iph->ihl                = 5;
--
--       dev_hold(dev);
--       rcu_assign_pointer(ipn->tunnels_wc[0], tunnel);
--       return 0;
- }
-
- static struct xfrm_tunnel vti_handler __read_mostly = {
-@@ -621,76 +302,30 @@ static struct xfrm_tunnel vti_handler __read_mostly = {
-        .priority       =       1,
- };
-
--static void vti_destroy_tunnels(struct vti_net *ipn, struct list_head *head)
--{
--       int prio;
--
--       for (prio = 1; prio < 4; prio++) {
--               int h;
--               for (h = 0; h < HASH_SIZE; h++) {
--                       struct ip_tunnel *t;
--
--                       t = rtnl_dereference(ipn->tunnels[prio][h]);
--                       while (t != NULL) {
--                               unregister_netdevice_queue(t->dev, head);
--                               t = rtnl_dereference(t->next);
--                       }
--               }
--       }
+ 	/* RTTM Rule: A TSecr value received in a segment is used to
+ 	 * update the averaged RTT measurement only if the segment
+ 	 * acknowledges some new data, i.e., only if it advances the
+ 	 * left edge of the send window.
+-	 *
+ 	 * See draft-ietf-tcplw-high-performance-00, section 3.3.
+-	 * 1998/04/10 Andrey V. Savochkin <saw@msu.ru>
+-	 *
+-	 * Changed: reset backoff as soon as we see the first valid sample.
+-	 * If we do not, we get strongly overestimated rto. With timestamps
+-	 * samples are accepted even from very old segments: f.e., when rtt=1
+-	 * increases to 8, we retransmit 5 times and after 8 seconds delayed
+-	 * answer arrives rto becomes 120 seconds! If at least one of segments
+-	 * in window is lost... Voila.	 			--ANK (010210)
+ 	 */
+-	struct tcp_sock *tp = tcp_sk(sk);
++	if (seq_rtt < 0 && tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr)
++		seq_rtt = tcp_time_stamp - tp->rx_opt.rcv_tsecr;
+ 
+-	tcp_valid_rtt_meas(sk, tcp_time_stamp - tp->rx_opt.rcv_tsecr);
 -}
 -
- static int __net_init vti_init_net(struct net *net)
- {
-        int err;
--       struct vti_net *ipn = net_generic(net, vti_net_id);
+-static void tcp_ack_no_tstamp(struct sock *sk, u32 seq_rtt, int flag)
+-{
+-	/* We don't have a timestamp. Can only use
+-	 * packets that are not retransmitted to determine
+-	 * rtt estimates. Also, we must not reset the
+-	 * backoff for rto until we get a non-retransmitted
+-	 * packet. This allows us to deal with a situation
+-	 * where the network delay has increased suddenly.
+-	 * I.e. Karn's algorithm. (SIGCOMM '87, p5.)
+-	 */
 -
--       ipn->tunnels[0] = ipn->tunnels_wc;
--       ipn->tunnels[1] = ipn->tunnels_l;
--       ipn->tunnels[2] = ipn->tunnels_r;
--       ipn->tunnels[3] = ipn->tunnels_r_l;
--
--       ipn->fb_tunnel_dev = alloc_netdev(sizeof(struct ip_tunnel),
--                                         "ip_vti0",
--                                         vti_tunnel_setup);
--       if (!ipn->fb_tunnel_dev) {
--               err = -ENOMEM;
--               goto err_alloc_dev;
--       }
--       dev_net_set(ipn->fb_tunnel_dev, net);
--
--       err = vti_fb_tunnel_init(ipn->fb_tunnel_dev);
--       if (err)
--               goto err_reg_dev;
--       ipn->fb_tunnel_dev->rtnl_link_ops = &vti_link_ops;
-+       struct ip_tunnel_net *itn;
-
--       err = register_netdev(ipn->fb_tunnel_dev);
-+       err = ip_tunnel_init_net(net, vti_net_id, &vti_link_ops, "ip_vti0");
-        if (err)
--               goto err_reg_dev;
-+               return err;
-+       itn = net_generic(net, vti_net_id);
-+       vti_fb_tunnel_init(itn->fb_tunnel_dev);
-        return 0;
--
--err_reg_dev:
--       vti_dev_free(ipn->fb_tunnel_dev);
--err_alloc_dev:
--       /* nothing */
--       return err;
+-	if (flag & FLAG_RETRANS_DATA_ACKED)
++	if (seq_rtt < 0)
+ 		return;
+ 
+-	tcp_valid_rtt_meas(sk, seq_rtt);
+-}
++	tcp_rtt_estimator(sk, seq_rtt);
++	tcp_set_rto(sk);
+ 
+-static inline void tcp_ack_update_rtt(struct sock *sk, const int flag,
+-				      const s32 seq_rtt)
+-{
+-	const struct tcp_sock *tp = tcp_sk(sk);
+-	/* Note that peer MAY send zero echo. In this case it is ignored. (rfc1323) */
+-	if (tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr)
+-		tcp_ack_saw_tstamp(sk, flag);
+-	else if (seq_rtt >= 0)
+-		tcp_ack_no_tstamp(sk, seq_rtt, flag);
++	/* RFC6298: only reset backoff on valid RTT measurement. */
++	inet_csk(sk)->icsk_backoff = 0;
  }
-
- static void __net_exit vti_exit_net(struct net *net)
- {
--       struct vti_net *ipn = net_generic(net, vti_net_id);
--       LIST_HEAD(list);
--
--       rtnl_lock();
--       vti_destroy_tunnels(ipn, &list);
--       unregister_netdevice_many(&list);
--       rtnl_unlock();
-+       struct ip_tunnel_net *itn = net_generic(net, vti_net_id);
-+       ip_tunnel_delete_net(itn);
- }
-
- static struct pernet_operations vti_net_ops = {
-        .init = vti_init_net,
-        .exit = vti_exit_net,
-        .id   = &vti_net_id,
--       .size = sizeof(struct vti_net),
-+       .size = sizeof(struct ip_tunnel_net),
- };
-
- static int vti_tunnel_validate(struct nlattr *tb[], struct nlattr *data[])
-@@ -728,78 +363,19 @@ static void vti_netlink_parms(struct nlattr *data[],
- static int vti_newlink(struct net *src_net, struct net_device *dev,
-                       struct nlattr *tb[], struct nlattr *data[])
- {
--       struct ip_tunnel *nt;
--       struct net *net = dev_net(dev);
--       struct vti_net *ipn = net_generic(net, vti_net_id);
--       int mtu;
--       int err;
--
--       nt = netdev_priv(dev);
--       vti_netlink_parms(data, &nt->parms);
--
--       if (vti_tunnel_locate(net, &nt->parms, 0))
--               return -EEXIST;
-+       struct ip_tunnel_parm parms;
-
--       mtu = vti_tunnel_bind_dev(dev);
--       if (!tb[IFLA_MTU])
--               dev->mtu = mtu;
--
--       err = register_netdevice(dev);
--       if (err)
--               goto out;
--
--       dev_hold(dev);
--       vti_tunnel_link(ipn, nt);
--
--out:
--       return err;
-+       vti_netlink_parms(data, &parms);
-+       return ip_tunnel_newlink(dev, tb, &parms);
- }
-
- static int vti_changelink(struct net_device *dev, struct nlattr *tb[],
-                          struct nlattr *data[])
- {
--       struct ip_tunnel *t, *nt;
--       struct net *net = dev_net(dev);
--       struct vti_net *ipn = net_generic(net, vti_net_id);
-        struct ip_tunnel_parm p;
--       int mtu;
--
--       if (dev == ipn->fb_tunnel_dev)
--               return -EINVAL;
-
--       nt = netdev_priv(dev);
-        vti_netlink_parms(data, &p);
--
--       t = vti_tunnel_locate(net, &p, 0);
--
--       if (t) {
--               if (t->dev != dev)
--                       return -EEXIST;
--       } else {
--               t = nt;
--
--               vti_tunnel_unlink(ipn, t);
--               t->parms.iph.saddr = p.iph.saddr;
--               t->parms.iph.daddr = p.iph.daddr;
--               t->parms.i_key = p.i_key;
--               t->parms.o_key = p.o_key;
--               if (dev->type != ARPHRD_ETHER) {
--                       memcpy(dev->dev_addr, &p.iph.saddr, 4);
--                       memcpy(dev->broadcast, &p.iph.daddr, 4);
--               }
--               vti_tunnel_link(ipn, t);
--               netdev_state_change(dev);
--       }
--
--       if (t->parms.link != p.link) {
--               t->parms.link = p.link;
--               mtu = vti_tunnel_bind_dev(dev);
--               if (!tb[IFLA_MTU])
--                       dev->mtu = mtu;
--               netdev_state_change(dev);
--       }
--
--       return 0;
-+       return ip_tunnel_changelink(dev, tb, &p);
- }
-
- static size_t vti_get_size(const struct net_device *dev)
-@@ -865,7 +441,7 @@ static int __init vti_init(void)
-        err = xfrm4_mode_tunnel_input_register(&vti_handler);
-        if (err < 0) {
-                unregister_pernet_device(&vti_net_ops);
--               pr_info(KERN_INFO "vti init: can't register tunnel\n");
-+               pr_info("vti init: can't register tunnel\n");
-        }
-
-        err = rtnl_link_register(&vti_link_ops);
-
-Looks good. Thanks.
-Reviewed-by: Saurabh Mohan <saurabh.mohan@vyatta.com>
+ 
+ /* Compute time elapsed between (last) SYNACK and the ACK completing 3WHS. */
+@@ -2989,8 +2960,6 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 			if (sacked & TCPCB_SACKED_RETRANS)
+ 				tp->retrans_out -= acked_pcount;
+ 			flag |= FLAG_RETRANS_DATA_ACKED;
+-			ca_seq_rtt = -1;
+-			seq_rtt = -1;
+ 		} else {
+ 			ca_seq_rtt = now - scb->when;
+ 			last_ackt = skb->tstamp;
+-- 
+1.8.3
