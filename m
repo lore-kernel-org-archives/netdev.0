@@ -1,51 +1,70 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] ip: initialize hash list
-Date: Sat, 20 Jul 2013 13:28:40 -0700
-Message-ID: <1374352120.1940.7.camel@joe-AO722>
-References: <20130720102657.768a11ea@nehalam.linuxnetplumber.net>
-	 <20130720.122058.1139915094969451326.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, pshelar@nicira.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Rami Rosen <ramirose@gmail.com>
+Subject: [PATCH net-next] ip6mr: change the prototype of ip6_mr_forward().
+Date: Sun, 21 Jul 2013 03:00:31 +0300
+Message-ID: <1374364831-13190-1-git-send-email-ramirose@gmail.com>
+Cc: nicolas.dichtel@6wind.com, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, Rami Rosen <ramirose@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:38895 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754923Ab3GTU2m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Jul 2013 16:28:42 -0400
-In-Reply-To: <20130720.122058.1139915094969451326.davem@davemloft.net>
+Received: from mail-ee0-f53.google.com ([74.125.83.53]:61830 "EHLO
+	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754971Ab3GTVAq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jul 2013 17:00:46 -0400
+Received: by mail-ee0-f53.google.com with SMTP id c41so3044049eek.26
+        for <netdev@vger.kernel.org>; Sat, 20 Jul 2013 14:00:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-07-20 at 12:20 -0700, David Miller wrote:
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Sat, 20 Jul 2013 10:26:57 -0700
-> 
-> > +     unsigned i;
-> 
-> Please use an explicit "unsigned int", thank you.
+This patch changes the prototpye of the ip6_mr_forward() method to return void
+instead of int.
 
-Still a dozen+ of these in net
-(I removed a few false positives)
+The ip6_mr_forward() method always returns 0; moreover, the return value of this
+method is not checked anywhere.
 
-$ grep -rP  --include=*.[ch] '\bunsigned\s*+(?!(int|long|char|short|\*\/))' net
-net/mac80211/ieee80211_i.h:typedef unsigned __bitwise__ ieee80211_tx_result;
-net/mac80211/ieee80211_i.h:typedef unsigned __bitwise__ ieee80211_rx_result;
-net/ceph/osdmap.c:	unsigned len, num;
-net/ceph/osdmap.c:			(unsigned)pgid.pool;
-net/core/netprio_cgroup.c:static int update_netprio(const void *v, struct file *file, unsigned n)
-net/rose/rose_subr.c:int rose_parse_facilities(unsigned char *p, unsigned packet_len,
-net/xfrm/xfrm_policy.c:#define XFRM_QUEUE_TMO_MIN ((unsigned)(HZ/10))
-net/xfrm/xfrm_policy.c:#define XFRM_QUEUE_TMO_MAX ((unsigned)(60*HZ))
-net/ipv4/netfilter/nf_nat_h323.c:static int set_h245_addr(struct sk_buff *skb, unsigned protoff,
-net/ipv4/ip_vti.c:	unsigned h0 = HASH(remote);
-net/ipv4/ip_vti.c:	unsigned h1 = HASH(local);
-net/ipv4/ip_vti.c:	unsigned h = 0;
-net/sched/cls_rsvp.h:static unsigned int gen_handle(struct tcf_proto *tp, unsigned salt)
-net/sched/cls_cgroup.c:static int update_classid(const void *v, struct file *file, unsigned n)
-net/mac802154/wpan.c:				   unsigned len)
-net/socket.c:static long sock_ioctl(struct file *file, unsigned cmd, unsigned long arg)
-net/socket.c:long __sys_sendmsg(int fd, struct msghdr __user *msg, unsigned flags)
-net/socket.c:long __sys_recvmsg(int fd, struct msghdr __user *msg, unsigned flags)
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+---
+ net/ipv6/ip6mr.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 583e8d4..6d78615 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -110,8 +110,8 @@ static struct kmem_cache *mrt_cachep __read_mostly;
+ static struct mr6_table *ip6mr_new_table(struct net *net, u32 id);
+ static void ip6mr_free_table(struct mr6_table *mrt);
+ 
+-static int ip6_mr_forward(struct net *net, struct mr6_table *mrt,
+-			  struct sk_buff *skb, struct mfc6_cache *cache);
++static void ip6_mr_forward(struct net *net, struct mr6_table *mrt,
++			   struct sk_buff *skb, struct mfc6_cache *cache);
+ static int ip6mr_cache_report(struct mr6_table *mrt, struct sk_buff *pkt,
+ 			      mifi_t mifi, int assert);
+ static int __ip6mr_fill_mroute(struct mr6_table *mrt, struct sk_buff *skb,
+@@ -2069,8 +2069,8 @@ static int ip6mr_find_vif(struct mr6_table *mrt, struct net_device *dev)
+ 	return ct;
+ }
+ 
+-static int ip6_mr_forward(struct net *net, struct mr6_table *mrt,
+-			  struct sk_buff *skb, struct mfc6_cache *cache)
++static void ip6_mr_forward(struct net *net, struct mr6_table *mrt,
++			   struct sk_buff *skb, struct mfc6_cache *cache)
+ {
+ 	int psend = -1;
+ 	int vif, ct;
+@@ -2151,12 +2151,11 @@ forward:
+ last_forward:
+ 	if (psend != -1) {
+ 		ip6mr_forward2(net, mrt, skb, cache, psend);
+-		return 0;
++		return;
+ 	}
+ 
+ dont_forward:
+ 	kfree_skb(skb);
+-	return 0;
+ }
+ 
+ 
+-- 
+1.8.1.4
