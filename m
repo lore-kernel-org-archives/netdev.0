@@ -1,92 +1,61 @@
-From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH 2/2] sh_eth: Add support for r8a7790 SoC
-Date: Mon, 22 Jul 2013 16:15:48 +0900
-Message-ID: <1374477348-1349-3-git-send-email-horms+renesas@verge.net.au>
-References: <1374477348-1349-1-git-send-email-horms+renesas@verge.net.au>
-Cc: Magnus Damm <magnus.damm@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Simon Horman <horms+renesas@verge.net.au>
-To: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+From: Peter Wu <lekensteyn@gmail.com>
+Subject: [PATCH net v2 1/1] r8169: fix lockdep warning when removing interface
+Date: Mon, 22 Jul 2013 09:53:30 +0200
+Message-ID: <3190648.uJuPIZ6zlh@al>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:39235 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755101Ab3GVHPy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 03:15:54 -0400
-In-Reply-To: <1374477348-1349-1-git-send-email-horms+renesas@verge.net.au>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:48801 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756500Ab3GVHxg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 03:53:36 -0400
+Received: by mail-wg0-f44.google.com with SMTP id l18so739837wgh.11
+        for <netdev@vger.kernel.org>; Mon, 22 Jul 2013 00:53:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a copy of support for r8a7778/9 with the .rmiimode mode bit
-of struct sh_eth_cpu_data set.
+The work queue is initialised in rtl_open (when the interface goes up),
+but canceled in rtl_remove_one (when the PCI device gets removed). If
+the network interface is not brought up, then the work queue struct is
+not initialised. When the device is removed, the attempt to cancel the
+uninitialised work queue causes a lockdep warning.
 
-Also update R8A7779 to R8A777x.
+This patch fixes the issue by moving cancel_work_sync to rtl_close (to
+match rtl_open). (Note that rtl_close is also called via
+unregister_netdev in rtl_remove_one.)
 
-Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-
+Signed-off-by: Peter Wu <lekensteyn@gmail.com>
+Acked-by: Francois Romieu <romieu@fr.zoreil.com>
 ---
+ drivers/net/ethernet/realtek/r8169.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-v4
-* s/R8A7779/R8A777x/ as requested by Sergei Shtylyov.
-
-v3
-* Add r8a7790_data rather than updating r8a777x_data.
-  As requested by Sergei Shtylyov.
-
-v2
-* Split from "sh_eth: add support RMIIMODE register"
----
- drivers/net/ethernet/renesas/Kconfig  |  2 +-
- drivers/net/ethernet/renesas/sh_eth.c | 21 +++++++++++++++++++++
- 2 files changed, 22 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/renesas/Kconfig b/drivers/net/ethernet/renesas/Kconfig
-index 19a8a04..a30c439 100644
---- a/drivers/net/ethernet/renesas/Kconfig
-+++ b/drivers/net/ethernet/renesas/Kconfig
-@@ -13,4 +13,4 @@ config SH_ETH
- 	  Renesas SuperH Ethernet device driver.
- 	  This driver supporting CPUs are:
- 		- SH7619, SH7710, SH7712, SH7724, SH7734, SH7763, SH7757,
--		  R8A7740 and R8A7779.
-+		  R8A7740, R8A777x and R8A7790.
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 87af49f..fedc0a0 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -393,6 +393,26 @@ static struct sh_eth_cpu_data r8a777x_data = {
- 	.hw_swap	= 1,
- };
+diff --git a/drivers/net/ethernet/realtek/r8169.c 
+b/drivers/net/ethernet/realtek/r8169.c
+index 4106a74..880015c 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -6468,6 +6468,8 @@ static int rtl8169_close(struct net_device *dev)
+ 	rtl8169_down(dev);
+ 	rtl_unlock_work(tp);
  
-+/* R8A7790 */
-+static struct sh_eth_cpu_data r8a7790_data = {
-+	.set_duplex	= sh_eth_set_duplex,
-+	.set_rate	= sh_eth_set_rate_r8a777x,
++	cancel_work_sync(&tp->wk.work);
 +
-+	.ecsr_value	= ECSR_PSRTO | ECSR_LCHNG | ECSR_ICD,
-+	.ecsipr_value	= ECSIPR_PSRTOIP | ECSIPR_LCHNGIP | ECSIPR_ICDIP,
-+	.eesipr_value	= 0x01ff009f,
-+
-+	.tx_check	= EESR_FTC | EESR_CND | EESR_DLC | EESR_CD | EESR_RTO,
-+	.eesr_err_check	= EESR_TWB | EESR_TABT | EESR_RABT | EESR_RDE |
-+			  EESR_RFRMER | EESR_TFE | EESR_TDE | EESR_ECI,
-+
-+	.apr		= 1,
-+	.mpr		= 1,
-+	.tpauser	= 1,
-+	.hw_swap	= 1,
-+	.rmiimode	= 1,
-+};
-+
- static void sh_eth_set_rate_sh7724(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
-@@ -2753,6 +2773,7 @@ static struct platform_device_id sh_eth_id_table[] = {
- 	{ "sh7763-gether", (kernel_ulong_t)&sh7763_data },
- 	{ "r8a7740-gether", (kernel_ulong_t)&r8a7740_data },
- 	{ "r8a777x-ether", (kernel_ulong_t)&r8a777x_data },
-+	{ "r8a7790-ether", (kernel_ulong_t)&r8a7790_data },
- 	{ }
- };
- MODULE_DEVICE_TABLE(platform, sh_eth_id_table);
+ 	free_irq(pdev->irq, dev);
+ 
+ 	dma_free_coherent(&pdev->dev, R8169_RX_RING_BYTES, tp->RxDescArray,
+@@ -6793,8 +6795,6 @@ static void rtl_remove_one(struct pci_dev *pdev)
+ 		rtl8168_driver_stop(tp);
+ 	}
+ 
+-	cancel_work_sync(&tp->wk.work);
+-
+ 	netif_napi_del(&tp->napi);
+ 
+ 	unregister_netdev(dev);
 -- 
-1.8.2.1
+1.8.3.2
