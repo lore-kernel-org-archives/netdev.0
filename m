@@ -1,84 +1,63 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: Re: [BUG] ipv6, rawv6_close(): BUG: unable to handle kernel paging
- request
-Date: Mon, 22 Jul 2013 20:55:26 +0530
-Message-ID: <51ED4EE6.9050502@linux.vnet.ibm.com>
-References: <51EC283D.5010208@linux.vnet.ibm.com> <51ED09A6.1020605@windriver.com> <20130722121911.GB6538@order.stressinduktion.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] ip: initialize hash list
+Date: Mon, 22 Jul 2013 08:31:09 -0700
+Message-ID: <1374507069.2061.48.camel@joe-AO722>
+References: <20130720102657.768a11ea@nehalam.linuxnetplumber.net>
+	 <1374342380.1940.2.camel@joe-AO722>
+	 <20130722075245.70310bfa@nehalam.linuxnetplumber.net>
+	 <1374505616.2061.40.camel@joe-AO722>
+	 <1374506158.4990.11.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Fan Du <fan.du@windriver.com>, netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130722121911.GB6538@order.stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:55000 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755908Ab3GVPbK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Jul 2013 11:31:10 -0400
+In-Reply-To: <1374506158.4990.11.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/22/2013 05:49 PM, Hannes Frederic Sowa wrote:
-> On Mon, Jul 22, 2013 at 06:29:58PM +0800, Fan Du wrote:
->> Hallo Srivatsa
->>
->>
->> On 2013=E5=B9=B407=E6=9C=8822=E6=97=A5 02:28, Srivatsa S. Bhat wrote=
-:
->>> Hi,
->>>
->>> I'm seeing this on every boot.
->>>
->>> Version: Latest mainline (commit ea45ea70b)
->>
->> I tested with this commit using your updated IPv6 config, this incid=
-ent=20
->> didn't show up after several times of reboot.
->> Could you please elaborate your testing details if possible?
->>
->> A wild guess, it dereference mrt->mroute6_sk, indicating mrt is inva=
-lid.
->=20
-> Yes, that seems to be the case.
->=20
-> Could you test the following patch if you have a bit of time?
->=20
-> rtnl_lock is for some functions down lower the call stack in ip6mr_fr=
-ee_table.
->
+On Mon, 2013-07-22 at 08:15 -0700, Eric Dumazet wrote:
+> On Mon, 2013-07-22 at 08:06 -0700, Joe Perches wrote:
+> > On Mon, 2013-07-22 at 07:52 -0700, Stephen Hemminger wrote:
+> > > On Sat, 20 Jul 2013 10:46:20 -0700
+> > > Joe Perches <joe@perches.com> wrote:
+> > []
+> > > > Are you doing to do just this one or submit a series?
+> > > 
+> > > Hadn't planned on fixing more than one. And would not go outside code
+> > > that I actually use.
+> > 
+> > What a pity.
+> > 
+> > I think if you identify what you believe is a
+> > trivial defect in your own code, it's both
+> > polite and social to fix similar defects in
+> > other code too.
+> 
+> Joe, I find this quite misplaced.
 
-This patch fixed the issue I was facing. Thanks!
+Our opinions differ then.
 
-Tested-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+What's "misplaced" about suggesting that  a
+person that identifies and submits a patch
+for a code form viewed as sub-optimal could
+fix the other instances of that code form?
 
-Regards,
-Srivatsa S. Bhat
+> So far, there is no bug.
 
-> diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-> index 583e8d4..03986d3 100644
-> --- a/net/ipv6/ip6mr.c
-> +++ b/net/ipv6/ip6mr.c
-> @@ -259,10 +259,12 @@ static void __net_exit ip6mr_rules_exit(struct =
-net *net)
->  {
->  	struct mr6_table *mrt, *next;
->=20
-> +	rtnl_lock();
->  	list_for_each_entry_safe(mrt, next, &net->ipv6.mr6_tables, list) {
->  		list_del(&mrt->list);
->  		ip6mr_free_table(mrt);
->  	}
-> +	rtnl_unlock();
->  	fib_rules_unregister(net->ipv6.mr6_rules_ops);
->  }
->  #else
-> @@ -289,7 +291,10 @@ static int __net_init ip6mr_rules_init(struct ne=
-t *net)
->=20
->  static void __net_exit ip6mr_rules_exit(struct net *net)
->  {
-> +	rtnl_lock();
->  	ip6mr_free_table(net->ipv6.mrt6);
-> +	net->ipv6.mrt6 =3D NULL;
-> +	rtnl_unlock();
->  }
->  #endif
->=20
->=20
+I did not even suggest there was a bug.
+I wrote "trivial defect".
+
+> What about fixing real bugs instead ?
+
+That'd be good too, with the caveat that
+those "real bugs" can take a rather more
+intensive effort to identify, isolate and
+correct without introducing other defects.
