@@ -1,36 +1,52 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 v2 0/2] Fix compiler-errors with gcc 4.7.3
-Date: Mon, 22 Jul 2013 10:34:32 -0700
-Message-ID: <20130722103432.396f13db@nehalam.linuxnetplumber.net>
-References: <1374513857-6096-1-git-send-email-christoph.paasch@uclouvain.be>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v3 1/3] net: add ndo to get id of physical port
+ of the device
+Date: Mon, 22 Jul 2013 20:01:41 +0200
+Message-ID: <20130722180141.GA1498@minipsycho.orion>
+References: <1374498317-6442-1-git-send-email-jiri@resnulli.us>
+ <1374498317-6442-2-git-send-email-jiri@resnulli.us>
+ <CAJZOPZ+tbr8qvCJ7wDbXUhOEh4Q6j-_J1CFzFkb8nm4e3AwSrA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Christoph Paasch <christoph.paasch@uclouvain.be>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	stephen@networkplumber.org, Narendra_K@dell.com,
+	bhutchings@solarflare.com, john.r.fastabend@intel.com
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:51265 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932302Ab3GVRef (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 13:34:35 -0400
-Received: by mail-pd0-f180.google.com with SMTP id 10so7042980pdi.25
-        for <netdev@vger.kernel.org>; Mon, 22 Jul 2013 10:34:35 -0700 (PDT)
-In-Reply-To: <1374513857-6096-1-git-send-email-christoph.paasch@uclouvain.be>
+Received: from mail-ea0-f171.google.com ([209.85.215.171]:62030 "EHLO
+	mail-ea0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932561Ab3GVSBp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 14:01:45 -0400
+Received: by mail-ea0-f171.google.com with SMTP id m14so3991256eaj.2
+        for <netdev@vger.kernel.org>; Mon, 22 Jul 2013 11:01:44 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAJZOPZ+tbr8qvCJ7wDbXUhOEh4Q6j-_J1CFzFkb8nm4e3AwSrA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 22 Jul 2013 19:24:15 +0200
-Christoph Paasch <christoph.paasch@uclouvain.be> wrote:
+Mon, Jul 22, 2013 at 05:59:37PM CEST, or.gerlitz@gmail.com wrote:
+>On Mon, Jul 22, 2013 at 4:05 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> This patch adds a ndo for getting physical port of the device. Driver
+>> which is aware of being virtual function of some physical port should
+>> implement this ndo. This is applicable not only for IOV, but for other
+>> solutions (NPAR, multichannel) as well. Basically if there is possible
+>> to have multiple netdevs on the single hw port.
+>
+>BTW - one thing which can be helpful for the discussion, is to have
+>this new ndo actually implemented for a certain driver. Also typically
+>we prefer to avoid adding new features at the networking core layer
+>without any concrete user. Making some driver to implement a new
+>feature is always a good way to see it flies well.
 
-> gcc complains about unused return-values in ss.c and lnstat_util.c
-> 
-> Christoph Paasch (2):
->   ss: Fix compiler errors of unused return-values
->   lnstat: Fix compiler errors of unused return-values
-> 
->  misc/lnstat_util.c | 12 ++++++++----
->  misc/ss.c          | 33 ++++++++++++++++++++++++---------
->  2 files changed, 32 insertions(+), 13 deletions(-)
-> 
+I have almost done implementation for igb/igbvf (consulting with Intel
+guys) and I'm working on bnx2x NPAR as well (consulting with Broadcom). I will
+post these patches soon.
 
-I think just turning on -Werror is less ugly.
+After that, I plan to work on more drivers.
+
+>
+>Or.
+>
+>>
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> Acked-by: Ben Hutchings <bhutchings@solarflare.com>
