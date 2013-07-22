@@ -1,76 +1,57 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/1] drivers: net: cpsw: add support to show hw stats
- via ethtool
-Date: Mon, 22 Jul 2013 18:05:41 +0100
-Message-ID: <1374512741.1635.12.camel@bwh-desktop.uk.level5networks.com>
-References: <1374482231-8201-1-git-send-email-mugunthanvnm@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] TX throttling bug-fixing patch of AX88179_178A
+Date: Mon, 22 Jul 2013 10:07:59 -0700
+Message-ID: <1374512879.4990.19.camel@edumazet-glaptop>
+References: <1374311809-4155-1-git-send-email-freddy@asix.com.tw>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<linux-omap@vger.kernel.org>
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1374482231-8201-1-git-send-email-mugunthanvnm@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, grundler@google.com,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
+	louis@asix.com.tw, allan@asix.com.tw
+To: freddy@asix.com.tw
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1374311809-4155-1-git-send-email-freddy@asix.com.tw>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-07-22 at 14:07 +0530, Mugunthan V N wrote:
-> Add support to show CPSW hardware statistics to user via ethtool
-> so user can find if there were any error reported by hardware or
-> the system is over loaded duing high data rate transfer.
+On Sat, 2013-07-20 at 17:16 +0800, freddy@asix.com.tw wrote:
+> From: Freddy Xin <freddy@asix.com.tw>
 > 
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> Disable TSO and SG network features in reset() and bind() functions,
+> and check the return value of skb_linearize() in tx_fixup() to prevent
+> TX throttling.
+> 
+> Signed-off-by: Freddy Xin <freddy@asix.com.tw>
 > ---
->  drivers/net/ethernet/ti/cpsw.c | 202 ++++++++++++++++++++++++++++++++++++++++-
->  1 file changed, 200 insertions(+), 2 deletions(-)
+>  drivers/net/usb/ax88179_178a.c | 8 +++++---
+>  1 file changed, 5 insertions(+), 3 deletions(-)
 > 
-> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-> index 05a1674..f344c05 100644
-> --- a/drivers/net/ethernet/ti/cpsw.c
-> +++ b/drivers/net/ethernet/ti/cpsw.c
-[...]
-> +static const struct cpsw_stats cpsw_gstrings_stats[] = {
-> +	{ "Good Rx Frames", CPSW_STAT(rxgoodframes) },
-> +	{ "Broadcast Rx Frames", CPSW_STAT(rxbroadcastframes) },
-> +	{ "Multicast Rx Frames", CPSW_STAT(rxmulticastframes) },
-> +	{ "Pause Rx Frames", CPSW_STAT(rxpauseframes) },
-> +	{ "Rx CRC Errors", CPSW_STAT(rxcrcerrors) },
-[...]
-
-Statistic names usually don't contain spaces, though I can accept this
-is probably more readable.
-
-> +static void cpsw_get_ethtool_stats(struct net_device *ndev,
-> +				    struct ethtool_stats *stats, u64 *data)
-> +{
-> +	struct cpsw_priv *priv = netdev_priv(ndev);
-> +	struct cpdma_chan_stats rx_stats;
-> +	struct cpdma_chan_stats tx_stats;
-> +	u32 val;
-> +	u8 *p;
-> +	int i;
+> diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
+> index 1e3c302..eb71331 100644
+> --- a/drivers/net/usb/ax88179_178a.c
+> +++ b/drivers/net/usb/ax88179_178a.c
+> @@ -1029,7 +1029,7 @@ static int ax88179_bind(struct usbnet *dev, struct usb_interface *intf)
+>  	dev->mii.supports_gmii = 1;
+>  
+>  	dev->net->features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+> -			      NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_TSO;
+> +			      NETIF_F_RXCSUM;
+>  
+>  	dev->net->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+>  				 NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_TSO;
+> @@ -1173,7 +1173,9 @@ ax88179_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
+>  	if (((skb->len + 8) % frame_size) == 0)
+>  		tx_hdr2 |= 0x80008000;	/* Enable padding */
+>  
+> -	skb_linearize(skb);
+> +	if (skb_linearize(skb))
+> +		return NULL;
 > +
-> +	/* Collect Davinci CPDMA stats for Rx and Tx Channel */
-> +	cpdma_chan_get_stats(priv->rxch, &rx_stats);
-> +	cpdma_chan_get_stats(priv->txch, &tx_stats);
-> +
-> +	for (i = 0; i < CPSW_STATS_LEN; i++) {
-> +		switch (cpsw_gstrings_stats[i].type) {
-> +		case CPSW_STATS:
-> +			val = readl((u8 *)priv->hw_stats +
+>  	
 
-Shouldn't this cast use 'u8 __iomem *'?
+I guess that if a driver does not advertise NETIF_F_SG, this
+skb_linearize() call is not needed : All frames reaching your xmit
+function should already be linear
 
-Ben.
-
-> +				    cpsw_gstrings_stats[i].stat_offset);
-> +			data[i] = val;
-> +			break;
-[...]
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Thanks
