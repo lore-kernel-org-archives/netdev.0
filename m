@@ -1,28 +1,32 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [net PATCH] 8139cp: Add dma_mapping_error checking
-Date: Mon, 22 Jul 2013 23:48:39 +0200
-Message-ID: <20130722214839.GB4997@electric-eye.fr.zoreil.com>
-References: <1374516882-19131-1-git-send-email-nhorman@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [r8169] About the "PHY reset until link up" warning
+Date: Mon, 22 Jul 2013 14:48:50 -0700 (PDT)
+Message-ID: <20130722.144850.493762080108085770.davem@davemloft.net>
+References: <2215813.0syAhGCZsc@al>
+	<20130722214358.GA4997@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: lekensteyn@gmail.com, netdev@vger.kernel.org, nic_swsd@realtek.com
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [92.243.8.30] ([92.243.8.30]:48155 "EHLO violet.fr.zoreil.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S932388Ab3GVVsv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Jul 2013 17:48:51 -0400
-Content-Disposition: inline
-In-Reply-To: <1374516882-19131-1-git-send-email-nhorman@tuxdriver.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35115 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933511Ab3GVVsu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 17:48:50 -0400
+In-Reply-To: <20130722214358.GA4997@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Neil Horman <nhorman@tuxdriver.com> :
-[...]
-> failed.  Untested as I have no hardware and the reporter has wandered off, but
-> seems pretty straightforward.
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Mon, 22 Jul 2013 23:43:58 +0200
 
-It does not update dev->stats.tx_dropped in the xmit path.
+> I can change my mind but I haven't seen much need for a policy
+> change yet.
 
--- 
-Ueimor
+In every case where this issue has popped up, we have decided that
+printing messages when the cable is simply unplugged is very
+undesirable.
+
+I used to print messages on link failure in all the early drivers I
+wrote, it was a bad decision.
