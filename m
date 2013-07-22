@@ -1,49 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH iproute2 1/2] ss: Fix compiler errors of unused
- return-values
-Date: Mon, 22 Jul 2013 08:38:59 -0700
-Message-ID: <1374507539.4990.17.camel@edumazet-glaptop>
-References: <1374350298-1177-1-git-send-email-christoph.paasch@uclouvain.be>
-	 <1374350298-1177-2-git-send-email-christoph.paasch@uclouvain.be>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH net-next] net: Add phys_port identifier to struct
+ net_device and export it to sysfs
+Date: Mon, 22 Jul 2013 18:48:43 +0300
+Message-ID: <CAJZOPZLz9HBuOXj0hsrMOvQAVR=koL72-4GQUxY4G+tN-VKgSA@mail.gmail.com>
+References: <20130617181004.GA1364@fedora-17-guest.dell.com>
+	<20130711203938.GA4078@minipsycho.orion>
+	<20130715153410.GA10864@fedora18-dev.oslab.blr.amer.dell.com>
+	<CAJZOPZL7MVBphUvojJ7RjnF8EYVyMNgr4zta2_A8VZw7bKkRaQ@mail.gmail.com>
+	<20130721072455.GA1944@minipsycho.orion>
+	<CAJZOPZKhRXfrjrMBm6FcXjFfnXzbvb6xz-UB8HoJYVSJ2Yix0Q@mail.gmail.com>
+	<1374418103.16533.69.camel@deadeye.wl.decadent.org.uk>
+	<20130722114556.GB4511@fedora18-dev.oslab.blr.amer.dell.com>
+	<20130722114944.GA1552@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
-To: Christoph Paasch <christoph.paasch@uclouvain.be>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Narendra_K@dell.com, bhutchings@solarflare.com,
+	netdev@vger.kernel.org, john.r.fastabend@intel.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:65296 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752252Ab3GVPjK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 11:39:10 -0400
-Received: by mail-pb0-f48.google.com with SMTP id ma3so7184565pbc.35
-        for <netdev@vger.kernel.org>; Mon, 22 Jul 2013 08:39:10 -0700 (PDT)
-In-Reply-To: <1374350298-1177-2-git-send-email-christoph.paasch@uclouvain.be>
+Received: from mail-qa0-f47.google.com ([209.85.216.47]:62038 "EHLO
+	mail-qa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932164Ab3GVPso (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 11:48:44 -0400
+Received: by mail-qa0-f47.google.com with SMTP id o19so691443qap.13
+        for <netdev@vger.kernel.org>; Mon, 22 Jul 2013 08:48:43 -0700 (PDT)
+In-Reply-To: <20130722114944.GA1552@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-07-20 at 21:58 +0200, Christoph Paasch wrote:
-> Many errors when compiling with gcc 4.7.3 about unused return-values
-> upon the calls to fgets and fscanf:
-> 
+On Mon, Jul 22, 2013 at 2:49 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Mon, Jul 22, 2013 at 01:46:01PM CEST, Narendra_K@Dell.com wrote:
 
-> For the calls to fscanf we can't really do anything about it, and just
-> do an empty if-statement to make the compiler happy.
-> 
-> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
-> ---
->  misc/ss.c | 30 +++++++++++++++++++++---------
->  1 file changed, 21 insertions(+), 9 deletions(-)
-> 
-> diff --git a/misc/ss.c b/misc/ss.c
-> index c0369f1..0f71108 100644
-> --- a/misc/ss.c
-> +++ b/misc/ss.c
-> @@ -302,7 +302,7 @@ static void user_ent_hash_build(void)
->  
->  				snprintf(tmp, sizeof(tmp), "%s/%d/stat", root, pid);
->  				if ((fp = fopen(tmp, "r")) != NULL) {
-> -					fscanf(fp, "%*d (%[^)])", process);
-> +					if (fscanf(fp, "%*d (%[^)])", process) == EOF);
+>>Would it be useful to embed the port number at a known offset to ensure
+>>uniformity across all drivers, if a driver choses to embed port number
+>>as part of phys_port_id ?
 
-This is really ugly :(
+> I would not do that. Just let it be meaningless number. That is best for
+> security reasons as well.
+
+What's wrong with uniformity on port number or even on the overall concept?
+
+Or.
