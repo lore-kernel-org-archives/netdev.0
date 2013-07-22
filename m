@@ -1,83 +1,91 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: [PATCH net-next] net: ipv6 eliminate parameter "int addrlen" in function fib6_add_1
-Date: Mon, 22 Jul 2013 14:21:09 +0800
-Message-ID: <1374474069-22675-1-git-send-email-fan.du@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <yoshfuji@linux-ipv6.org>, <jmorris@namei.org>,
-	<hannes@stressinduktion.org>, <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next 0/7] net: introduce generic type and helpers for IP address
+Date: Mon, 22 Jul 2013 15:05:06 +0800
+Message-ID: <1374476713-8838-1-git-send-email-amwang@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:40763 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754495Ab3GVGVR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 02:21:17 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:37996 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755101Ab3GVHF2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Jul 2013 03:05:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The "int addrlen" in fib6_add_1 is rebundant, as we can get it from
-parameter "struct in6_addr *addr" once we modified its type.
-And also fix some coding style issues in fib6_add_1
+From: Cong Wang <amwang@redhat.com>
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
----
- net/ipv6/ip6_fib.c |   16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+As IPv6 becomes popular, more and more subsystems begin to support IPv6,
+therefore we need a generic IP address type, in case of duplicates.
+Also we will also need some helpers to compare, print, check the generic
+IP address.
 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 5fc9c7a..8b6c773 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -425,8 +425,8 @@ out:
-  *	node.
-  */
- 
--static struct fib6_node * fib6_add_1(struct fib6_node *root, void *addr,
--				     int addrlen, int plen,
-+static struct fib6_node *fib6_add_1(struct fib6_node *root,
-+				     struct in6_addr *addr, int plen,
- 				     int offset, int allow_create,
- 				     int replace_required)
- {
-@@ -543,7 +543,7 @@ insert_above:
- 	   but if it is >= plen, the value is ignored in any case.
- 	 */
- 
--	bit = __ipv6_addr_diff(addr, &key->addr, addrlen);
-+	bit = __ipv6_addr_diff(addr, &key->addr, sizeof(*addr));
- 
- 	/*
- 	 *		(intermediate)[in]
-@@ -822,9 +822,9 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info)
- 	if (!allow_create && !replace_required)
- 		pr_warn("RTM_NEWROUTE with no NLM_F_CREATE or NLM_F_REPLACE\n");
- 
--	fn = fib6_add_1(root, &rt->rt6i_dst.addr, sizeof(struct in6_addr),
--			rt->rt6i_dst.plen, offsetof(struct rt6_info, rt6i_dst),
--			allow_create, replace_required);
-+	fn = fib6_add_1(root, &rt->rt6i_dst.addr, rt->rt6i_dst.plen,
-+			offsetof(struct rt6_info, rt6i_dst), allow_create,
-+			replace_required);
- 
- 	if (IS_ERR(fn)) {
- 		err = PTR_ERR(fn);
-@@ -863,7 +863,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info)
- 			/* Now add the first leaf node to new subtree */
- 
- 			sn = fib6_add_1(sfn, &rt->rt6i_src.addr,
--					sizeof(struct in6_addr), rt->rt6i_src.plen,
-+					rt->rt6i_src.plen,
- 					offsetof(struct rt6_info, rt6i_src),
- 					allow_create, replace_required);
- 
-@@ -882,7 +882,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info)
- 			fn->subtree = sfn;
- 		} else {
- 			sn = fib6_add_1(fn->subtree, &rt->rt6i_src.addr,
--					sizeof(struct in6_addr), rt->rt6i_src.plen,
-+					rt->rt6i_src.plen,
- 					offsetof(struct rt6_info, rt6i_src),
- 					allow_create, replace_required);
- 
+This patchset introduce a new type union inet_addr as a union of IPv4
+and IPv6 address, and some helper functions that will be used by existing
+code and in the future VXLAN module.
+
+However, due to ABI limit, we still can't convert union nf_inet_addr
+to union inet_addr.
+
+Signed-off-by: Cong Wang <amwang@redhat.com>
+
+Changes since RFC:
+* rebase these patches on top of Daniel's
+* rename inet_pton() to simple_inet_pton()
+* fix the simple_inet_pton() API
+* make inet_addr_equal() non-inline
+* add two more patches
+
+Cong Wang (7):
+  net: introduce generic union inet_addr
+  net: introduce generic simple_inet_pton()
+  inetpeer: use generic union inet_addr
+  sunrpc: use generic union inet_addr
+  fs: use generic union inet_addr and help functions
+  sctp: use generic union inet_addr
+  selinux: use generic union inet_addr
+
+ Documentation/printk-formats.txt   |   20 ++--
+ drivers/net/netconsole.c           |   22 ++--
+ fs/cifs/connect.c                  |   39 ++-----
+ fs/dlm/lowcomms.c                  |   24 +---
+ fs/nfs/client.c                    |   94 +-------------
+ fs/nfs/nfs4filelayoutdev.c         |   37 +-----
+ fs/nfs/super.c                     |   31 +----
+ include/linux/lsm_audit.h          |   16 +--
+ include/linux/netpoll.h            |    9 +--
+ include/linux/sunrpc/addr.h        |  118 +-----------------
+ include/net/inet_addr.h            |  106 ++++++++++++++++
+ include/net/inetpeer.h             |   29 ++---
+ include/net/sctp/sctp.h            |   22 ++--
+ include/net/sctp/sm.h              |    4 +-
+ include/net/sctp/structs.h         |  132 +++++++++-----------
+ lib/vsprintf.c                     |   29 ++---
+ net/core/netpoll.c                 |   86 +++++--------
+ net/core/utils.c                   |   84 +++++++++++++
+ net/ipv4/inetpeer.c                |   37 ++++--
+ net/ipv4/tcp_metrics.c             |   92 ++++++--------
+ net/sctp/associola.c               |   32 +++---
+ net/sctp/bind_addr.c               |   61 +++------
+ net/sctp/endpointola.c             |   12 +-
+ net/sctp/input.c                   |   56 ++++----
+ net/sctp/ipv6.c                    |  240 ++++++++++++++++--------------------
+ net/sctp/outqueue.c                |    4 +-
+ net/sctp/proc.c                    |   10 +-
+ net/sctp/protocol.c                |  204 ++++++++++++-------------------
+ net/sctp/sm_make_chunk.c           |   54 ++++----
+ net/sctp/sm_sideeffect.c           |    2 +-
+ net/sctp/sm_statefuns.c            |   23 +---
+ net/sctp/socket.c                  |  130 +++++++++++---------
+ net/sctp/transport.c               |   12 +-
+ net/sctp/ulpevent.c                |    2 +-
+ security/lsm_audit.c               |   16 ++--
+ security/selinux/hooks.c           |   73 ++++-------
+ security/selinux/include/netnode.h |    4 +-
+ security/selinux/include/objsec.h  |    7 +-
+ security/selinux/netnode.c         |  102 +++++-----------
+ 39 files changed, 878 insertions(+), 1197 deletions(-)
+ create mode 100644 include/net/inet_addr.h
+
 -- 
-1.7.9.5
+1.7.7.6
