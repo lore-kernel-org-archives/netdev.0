@@ -1,153 +1,144 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH v2 net-next 1/4] tcp: consolidate SYNACK RTT sampling
-Date: Mon, 22 Jul 2013 16:20:45 -0700
-Message-ID: <1374535248-27418-1-git-send-email-ycheng@google.com>
+Subject: [PATCH v2 net-next 2/4] tcp: prefer packet timing to TS-ECR for RTT
+Date: Mon, 22 Jul 2013 16:20:46 -0700
+Message-ID: <1374535248-27418-2-git-send-email-ycheng@google.com>
+References: <1374535248-27418-1-git-send-email-ycheng@google.com>
 Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
 To: davem@davemloft.net, ncardwell@google.com, edumazet@google.com,
 	nanditad@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f74.google.com ([209.85.212.74]:64494 "EHLO
-	mail-vb0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752303Ab3GVXVD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 19:21:03 -0400
-Received: by mail-vb0-f74.google.com with SMTP id w16so645029vbb.5
-        for <netdev@vger.kernel.org>; Mon, 22 Jul 2013 16:21:01 -0700 (PDT)
+Received: from mail-qc0-f202.google.com ([209.85.216.202]:44422 "EHLO
+	mail-qc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751717Ab3GVXVB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 19:21:01 -0400
+Received: by mail-qc0-f202.google.com with SMTP id c1so33922qcz.3
+        for <netdev@vger.kernel.org>; Mon, 22 Jul 2013 16:21:00 -0700 (PDT)
+In-Reply-To: <1374535248-27418-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series improve RTT sampling in three ways:
-1. Sample RTT during fast recovery and reordering events.
-2. Favor ack-based RTT to timestamps because of broken TS ECR fields
-3. Consolidate the RTT measurement logic.
-
-The first patch consolidates SYNACK and other RTT measurement to use a
-central function tcp_ack_update_rtt(). A (small) bonus is now SYNACK
-RTT measurement happens after PAWS check, potentially reducing the
-impact of RTO seeding on bad TCP timestamps values.
+Prefer packet timings to TS-ecr for RTT measurements when both
+sources are available. That's because broken middle-boxes and remote
+peer can return packets with corrupted TS ECR fields. Similarly most
+congestion controls that require RTT signals favor timing-based
+sources as well. Also check for bad TS ECR values to avoid RTT
+blow-ups. It has happened on production Web servers.
 
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Acked-by: Neal Cardwell <ncardwell@google.com>
 ---
-ChangeLog in v2:
-	fix not calling tcp_synack_rtt_meas on regular TCP
-
- include/net/tcp.h        |  9 ---------
- net/ipv4/tcp_input.c     | 14 ++++++++++++--
- net/ipv4/tcp_ipv4.c      |  2 --
- net/ipv4/tcp_minisocks.c |  8 ++------
- net/ipv6/tcp_ipv6.c      |  2 --
- 5 files changed, 14 insertions(+), 21 deletions(-)
+ include/net/tcp.h    |  1 -
+ net/ipv4/tcp_input.c | 67 ++++++++++++++--------------------------------------
+ 2 files changed, 18 insertions(+), 50 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index d198005..f9777db 100644
+index f9777db..c586847 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -1094,15 +1094,6 @@ static inline void tcp_openreq_init(struct request_sock *req,
- 	ireq->loc_port = tcp_hdr(skb)->dest;
- }
+@@ -591,7 +591,6 @@ extern void tcp_initialize_rcv_mss(struct sock *sk);
+ extern int tcp_mtu_to_mss(struct sock *sk, int pmtu);
+ extern int tcp_mss_to_mtu(struct sock *sk, int mss);
+ extern void tcp_mtup_init(struct sock *sk);
+-extern void tcp_valid_rtt_meas(struct sock *sk, u32 seq_rtt);
+ extern void tcp_init_buffer_space(struct sock *sk);
  
--/* Compute time elapsed between SYNACK and the ACK completing 3WHS */
--static inline void tcp_synack_rtt_meas(struct sock *sk,
--				       struct request_sock *req)
--{
--	if (tcp_rsk(req)->snt_synack)
--		tcp_valid_rtt_meas(sk,
--		    tcp_time_stamp - tcp_rsk(req)->snt_synack);
--}
--
- extern void tcp_enter_memory_pressure(struct sock *sk);
- 
- static inline int keepalive_intvl_when(const struct tcp_sock *tp)
+ static inline void tcp_bound_rto(const struct sock *sk)
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 28af45a..b531710 100644
+index b531710..c7398f0 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -2853,6 +2853,17 @@ static inline void tcp_ack_update_rtt(struct sock *sk, const int flag,
- 		tcp_ack_no_tstamp(sk, seq_rtt, flag);
+@@ -2792,65 +2792,36 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
+ 	tcp_xmit_retransmit_queue(sk);
  }
  
-+/* Compute time elapsed between (last) SYNACK and the ACK completing 3WHS. */
-+static void tcp_synack_rtt_meas(struct sock *sk, struct request_sock *req)
-+{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	s32 seq_rtt = -1;
-+
-+	if (tp->lsndtime && !tp->total_retrans)
-+		seq_rtt = tcp_time_stamp - tp->lsndtime;
-+	tcp_ack_update_rtt(sk, FLAG_SYN_ACKED, seq_rtt);
-+}
-+
- static void tcp_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
+-void tcp_valid_rtt_meas(struct sock *sk, u32 seq_rtt)
++static inline void tcp_ack_update_rtt(struct sock *sk, const int flag,
++				      s32 seq_rtt)
  {
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
-@@ -5624,9 +5635,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
- 		 * so release it.
- 		 */
- 		if (req) {
--			tcp_synack_rtt_meas(sk, req);
- 			tp->total_retrans = req->num_retrans;
--
- 			reqsk_fastopen_remove(sk, req, false);
- 		} else {
- 			/* Make sure socket is routed, for correct metrics. */
-@@ -5651,6 +5660,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
- 		tp->snd_una = TCP_SKB_CB(skb)->ack_seq;
- 		tp->snd_wnd = ntohs(th->window) << tp->rx_opt.snd_wscale;
- 		tcp_init_wl(tp, TCP_SKB_CB(skb)->seq);
-+		tcp_synack_rtt_meas(sk, req);
+-	tcp_rtt_estimator(sk, seq_rtt);
+-	tcp_set_rto(sk);
+-	inet_csk(sk)->icsk_backoff = 0;
+-}
+-EXPORT_SYMBOL(tcp_valid_rtt_meas);
++	const struct tcp_sock *tp = tcp_sk(sk);
++
++	/* Prefer RTT measured from ACK's timing to TS-ECR. This is because
++	 * broken middle-boxes or peers may corrupt TS-ECR fields. But
++	 * Karn's algorithm forbids taking RTT if some retransmitted data
++	 * is acked (RFC6298).
++	 */
++	if (flag & FLAG_RETRANS_DATA_ACKED)
++		seq_rtt = -1;
  
- 		if (tp->rx_opt.tstamp_ok)
- 			tp->advmss -= TCPOLEN_TSTAMP_ALIGNED;
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index b299da5..2e3f129 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1671,8 +1671,6 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 		newtp->advmss = tcp_sk(sk)->rx_opt.user_mss;
- 
- 	tcp_initialize_rcv_mss(newsk);
--	tcp_synack_rtt_meas(newsk, req);
--	newtp->total_retrans = req->num_retrans;
- 
- #ifdef CONFIG_TCP_MD5SIG
- 	/* Copy over the MD5 key from the original socket */
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index ab1c086..58a3e69 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -411,6 +411,8 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
- 		newtp->snd_ssthresh = TCP_INFINITE_SSTHRESH;
- 		tcp_enable_early_retrans(newtp);
- 		newtp->tlp_high_seq = 0;
-+		newtp->lsndtime = treq->snt_synack;
-+		newtp->total_retrans = req->num_retrans;
- 
- 		/* So many TCP implementations out there (incorrectly) count the
- 		 * initial SYN frame in their delayed-ACK and congestion control
-@@ -666,12 +668,6 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
- 	if (!(flg & TCP_FLAG_ACK))
- 		return NULL;
- 
--	/* Got ACK for our SYNACK, so update baseline for SYNACK RTT sample. */
--	if (tmp_opt.saw_tstamp && tmp_opt.rcv_tsecr)
--		tcp_rsk(req)->snt_synack = tmp_opt.rcv_tsecr;
--	else if (req->num_retrans) /* don't take RTT sample if retrans && ~TS */
--		tcp_rsk(req)->snt_synack = 0;
--
- 	/* For Fast Open no more processing is needed (sk is the
- 	 * child socket).
+-/* Read draft-ietf-tcplw-high-performance before mucking
+- * with this code. (Supersedes RFC1323)
+- */
+-static void tcp_ack_saw_tstamp(struct sock *sk, int flag)
+-{
+ 	/* RTTM Rule: A TSecr value received in a segment is used to
+ 	 * update the averaged RTT measurement only if the segment
+ 	 * acknowledges some new data, i.e., only if it advances the
+ 	 * left edge of the send window.
+-	 *
+ 	 * See draft-ietf-tcplw-high-performance-00, section 3.3.
+-	 * 1998/04/10 Andrey V. Savochkin <saw@msu.ru>
+-	 *
+-	 * Changed: reset backoff as soon as we see the first valid sample.
+-	 * If we do not, we get strongly overestimated rto. With timestamps
+-	 * samples are accepted even from very old segments: f.e., when rtt=1
+-	 * increases to 8, we retransmit 5 times and after 8 seconds delayed
+-	 * answer arrives rto becomes 120 seconds! If at least one of segments
+-	 * in window is lost... Voila.	 			--ANK (010210)
  	 */
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 6e1649d..80fe69e 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1237,8 +1237,6 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 		newtp->advmss = tcp_sk(sk)->rx_opt.user_mss;
+-	struct tcp_sock *tp = tcp_sk(sk);
++	if (seq_rtt < 0 && tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr)
++		seq_rtt = tcp_time_stamp - tp->rx_opt.rcv_tsecr;
  
- 	tcp_initialize_rcv_mss(newsk);
--	tcp_synack_rtt_meas(newsk, req);
--	newtp->total_retrans = req->num_retrans;
+-	tcp_valid_rtt_meas(sk, tcp_time_stamp - tp->rx_opt.rcv_tsecr);
+-}
+-
+-static void tcp_ack_no_tstamp(struct sock *sk, u32 seq_rtt, int flag)
+-{
+-	/* We don't have a timestamp. Can only use
+-	 * packets that are not retransmitted to determine
+-	 * rtt estimates. Also, we must not reset the
+-	 * backoff for rto until we get a non-retransmitted
+-	 * packet. This allows us to deal with a situation
+-	 * where the network delay has increased suddenly.
+-	 * I.e. Karn's algorithm. (SIGCOMM '87, p5.)
+-	 */
+-
+-	if (flag & FLAG_RETRANS_DATA_ACKED)
++	if (seq_rtt < 0)
+ 		return;
  
- 	newinet->inet_daddr = newinet->inet_saddr = LOOPBACK4_IPV6;
- 	newinet->inet_rcv_saddr = LOOPBACK4_IPV6;
+-	tcp_valid_rtt_meas(sk, seq_rtt);
+-}
++	tcp_rtt_estimator(sk, seq_rtt);
++	tcp_set_rto(sk);
+ 
+-static inline void tcp_ack_update_rtt(struct sock *sk, const int flag,
+-				      const s32 seq_rtt)
+-{
+-	const struct tcp_sock *tp = tcp_sk(sk);
+-	/* Note that peer MAY send zero echo. In this case it is ignored. (rfc1323) */
+-	if (tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr)
+-		tcp_ack_saw_tstamp(sk, flag);
+-	else if (seq_rtt >= 0)
+-		tcp_ack_no_tstamp(sk, seq_rtt, flag);
++	/* RFC6298: only reset backoff on valid RTT measurement. */
++	inet_csk(sk)->icsk_backoff = 0;
+ }
+ 
+ /* Compute time elapsed between (last) SYNACK and the ACK completing 3WHS. */
+@@ -2989,8 +2960,6 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 			if (sacked & TCPCB_SACKED_RETRANS)
+ 				tp->retrans_out -= acked_pcount;
+ 			flag |= FLAG_RETRANS_DATA_ACKED;
+-			ca_seq_rtt = -1;
+-			seq_rtt = -1;
+ 		} else {
+ 			ca_seq_rtt = now - scb->when;
+ 			last_ackt = skb->tstamp;
 -- 
 1.8.3
