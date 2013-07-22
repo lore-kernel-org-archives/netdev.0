@@ -1,262 +1,689 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [net-next,v2,2/3] net: convert resend IGMP to notifier event
-Date: Mon, 22 Jul 2013 18:26:06 +0200
-Message-ID: <20130722162606.GL2055@redhat.com>
-References: <1374315234-7096-3-git-send-email-jiri@resnulli.us>
+From: Neel Patel <neepatel@cisco.com>
+Subject: [PATCH net-next v2] drivers/net: enic: Move ethtool code to a
+ separate file
+Date: Mon, 22 Jul 2013 09:59:18 -0700
+Message-ID: <20130722165918.29393.85753.stgit@savbu-picasso-lnx1.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, davem@davemloft.net, fubar@us.ibm.com,
-	andy@greyhouse.net, kaber@trash.net, stephen@networkplumber.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	edumazet@google.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28388 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755847Ab3GVQ1u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Jul 2013 12:27:50 -0400
-Content-Disposition: inline
-In-Reply-To: <1374315234-7096-3-git-send-email-jiri@resnulli.us>
+Received: from mtv-iport-3.cisco.com ([173.36.130.14]:18376 "EHLO
+	mtv-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756705Ab3GVQ7U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 12:59:20 -0400
+Received: from savbu-picasso-lnx1.cisco.com (savbu-picasso-lnx1.cisco.com [10.193.199.106])
+	by mtv-core-4.cisco.com (8.14.5/8.14.5) with ESMTP id r6MGxIGQ025697
+	for <netdev@vger.kernel.org>; Mon, 22 Jul 2013 16:59:18 GMT
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 20, 2013 at 12:13:53PM +0200, Jiri Pirko wrote:
->Until now, bond_resend_igmp_join_requests() looks for vlans attached to
->bonding device, bridge where bonding act as port manually. It does not
->care of other scenarios, like stacked bonds or team device above. Make
->this more generic and use netdev notifier to propagate the event to
->upper devices and to actually call ip_mc_rejoin_groups().
->
->Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->
->---
->drivers/net/bonding/bond_main.c | 44 ++++++++-------------------------------
-> drivers/net/team/team.c         |  4 ++++
-> include/linux/igmp.h            |  1 -
-> include/linux/netdevice.h       |  1 +
-> net/8021q/vlan.c                |  1 +
-> net/bridge/br_notify.c          |  5 +++++
-> net/ipv4/igmp.c                 | 46 +++++++++++++++++++++++++++++++++++------
-> 7 files changed, 60 insertions(+), 42 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 07f257d4..ae9864c 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -715,15 +715,6 @@ static int bond_set_allmulti(struct bonding *bond, int inc)
-> 	return err;
-> }
->
->-static void __bond_resend_igmp_join_requests(struct net_device *dev)
->-{
->-	struct in_device *in_dev;
->-
->-	in_dev = __in_dev_get_rcu(dev);
->-	if (in_dev)
->-		ip_mc_rejoin_groups(in_dev);
->-}
->-
-> /*
->  * Retrieve the list of registered multicast addresses for the bonding
->  * device and retransmit an IGMP JOIN request to the current active
->@@ -731,33 +722,12 @@ static void __bond_resend_igmp_join_requests(struct net_device *dev)
->  */
-> static void bond_resend_igmp_join_requests(struct bonding *bond)
-> {
->-	struct net_device *bond_dev, *vlan_dev, *upper_dev;
->-	struct vlan_entry *vlan;
->-
->-	read_lock(&bond->lock);
+From: Neel Patel <neepatel@cisco.com>
 
-I think you loose the bond->lock here, so that the igmp resend happens
-without it, but under a rtnl_lock(), which is enough I bet. Win :), one
-more bond->lock gone.
+This patch moves all enic ethtool hooks from enic_main.c to a new file
+enic_ethtool.c
 
-Acked-by: Veaceslav Falico <vfalico@redhat.com>
+Signed-off-by: Neel Patel <neepatel@cisco.com>
+Signed-off-by: Christian Benvenuti <benve@cisco.com>
+Signed-off-by: Nishank Trivedi <nistrive@cisco.com>
+---
+ drivers/net/ethernet/cisco/enic/Makefile       |    3 
+ drivers/net/ethernet/cisco/enic/enic.h         |   48 ++++
+ drivers/net/ethernet/cisco/enic/enic_dev.h     |    1 
+ drivers/net/ethernet/cisco/enic/enic_ethtool.c |  257 +++++++++++++++++++++++
+ drivers/net/ethernet/cisco/enic/enic_main.c    |  270 ------------------------
+ 5 files changed, 309 insertions(+), 270 deletions(-)
+ create mode 100644 drivers/net/ethernet/cisco/enic/enic_ethtool.c
 
->-	rcu_read_lock();
->-
->-	bond_dev = bond->dev;
->-
->-	/* rejoin all groups on bond device */
->-	__bond_resend_igmp_join_requests(bond_dev);
->-
->-	/*
->-	 * if bond is enslaved to a bridge,
->-	 * then rejoin all groups on its master
->-	 */
->-	upper_dev = netdev_master_upper_dev_get_rcu(bond_dev);
->-	if (upper_dev && upper_dev->priv_flags & IFF_EBRIDGE)
->-		__bond_resend_igmp_join_requests(upper_dev);
->-
->-	/* rejoin all groups on vlan devices */
->-	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
->-		vlan_dev = __vlan_find_dev_deep(bond_dev, htons(ETH_P_8021Q),
->-						vlan->vlan_id);
->-		if (vlan_dev)
->-			__bond_resend_igmp_join_requests(vlan_dev);
->+	if (!rtnl_trylock()) {
->+		queue_delayed_work(bond->wq, &bond->mcast_work, 0);
->+		return;
-> 	}
->-	rcu_read_unlock();
->+	call_netdevice_notifiers(NETDEV_RESEND_IGMP, bond->dev);
->+	rtnl_unlock();
->
-> 	/* We use curr_slave_lock to protect against concurrent access to
-> 	 * igmp_retrans from multiple running instances of this function and
->@@ -3234,6 +3204,10 @@ static int bond_slave_netdev_event(unsigned long event,
-> 	case NETDEV_FEAT_CHANGE:
-> 		bond_compute_features(bond);
-> 		break;
->+	case NETDEV_RESEND_IGMP:
->+		/* Propagate to master device */
->+		call_netdevice_notifiers(event, slave->bond->dev);
->+		break;
-> 	default:
-> 		break;
-> 	}
->diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
->index 0433ee9..2587dc8 100644
->--- a/drivers/net/team/team.c
->+++ b/drivers/net/team/team.c
->@@ -2785,6 +2785,10 @@ static int team_device_event(struct notifier_block *unused,
-> 	case NETDEV_PRE_TYPE_CHANGE:
-> 		/* Forbid to change type of underlaying device */
-> 		return NOTIFY_BAD;
->+	case NETDEV_RESEND_IGMP:
->+		/* Propagate to master device */
->+		call_netdevice_notifiers(event, port->team->dev);
->+		break;
-> 	}
-> 	return NOTIFY_DONE;
-> }
->diff --git a/include/linux/igmp.h b/include/linux/igmp.h
->index e3362b5..f47550d 100644
->--- a/include/linux/igmp.h
->+++ b/include/linux/igmp.h
->@@ -129,6 +129,5 @@ extern void ip_mc_unmap(struct in_device *);
-> extern void ip_mc_remap(struct in_device *);
-> extern void ip_mc_dec_group(struct in_device *in_dev, __be32 addr);
-> extern void ip_mc_inc_group(struct in_device *in_dev, __be32 addr);
->-extern void ip_mc_rejoin_groups(struct in_device *in_dev);
->
-> #endif
->diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->index 0741a1e..2bb2357 100644
->--- a/include/linux/netdevice.h
->+++ b/include/linux/netdevice.h
->@@ -1633,6 +1633,7 @@ struct packet_offload {
-> #define NETDEV_NOTIFY_PEERS	0x0013
-> #define NETDEV_JOIN		0x0014
-> #define NETDEV_CHANGEUPPER	0x0015
->+#define NETDEV_RESEND_IGMP	0x0016
->
-> extern int register_netdevice_notifier(struct notifier_block *nb);
-> extern int unregister_netdevice_notifier(struct notifier_block *nb);
->diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
->index 2fb2d88..03a92e1 100644
->--- a/net/8021q/vlan.c
->+++ b/net/8021q/vlan.c
->@@ -459,6 +459,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
->
-> 	case NETDEV_NOTIFY_PEERS:
-> 	case NETDEV_BONDING_FAILOVER:
->+	case NETDEV_RESEND_IGMP:
-> 		/* Propagate to vlan devices */
-> 		vlan_group_for_each_dev(grp, i, vlandev)
-> 			call_netdevice_notifiers(event, vlandev);
->diff --git a/net/bridge/br_notify.c b/net/bridge/br_notify.c
->index 3a3f371..2998dd1 100644
->--- a/net/bridge/br_notify.c
->+++ b/net/bridge/br_notify.c
->@@ -102,6 +102,11 @@ static int br_device_event(struct notifier_block *unused, unsigned long event, v
-> 	case NETDEV_PRE_TYPE_CHANGE:
-> 		/* Forbid underlaying device to change its type. */
-> 		return NOTIFY_BAD;
->+
->+	case NETDEV_RESEND_IGMP:
->+		/* Propagate to master device */
->+		call_netdevice_notifiers(event, br->dev);
->+		break;
-> 	}
->
-> 	/* Events that may cause spanning tree to refresh */
->diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
->index cd71190..375aca3 100644
->--- a/net/ipv4/igmp.c
->+++ b/net/ipv4/igmp.c
->@@ -1323,16 +1323,17 @@ out:
-> EXPORT_SYMBOL(ip_mc_inc_group);
->
-> /*
->- *	Resend IGMP JOIN report; used for bonding.
->- *	Called with rcu_read_lock()
->+ *	Resend IGMP JOIN report; used by netdev notifier.
->  */
->-void ip_mc_rejoin_groups(struct in_device *in_dev)
->+static void ip_mc_rejoin_groups(struct in_device *in_dev)
-> {
-> #ifdef CONFIG_IP_MULTICAST
-> 	struct ip_mc_list *im;
-> 	int type;
->
->-	for_each_pmc_rcu(in_dev, im) {
->+	ASSERT_RTNL();
->+
->+	for_each_pmc_rtnl(in_dev, im) {
-> 		if (im->multiaddr == IGMP_ALL_HOSTS)
-> 			continue;
->
->@@ -1349,7 +1350,6 @@ void ip_mc_rejoin_groups(struct in_device *in_dev)
-> 	}
-> #endif
-> }
->-EXPORT_SYMBOL(ip_mc_rejoin_groups);
->
-> /*
->  *	A socket has left a multicast group on device dev
->@@ -2735,8 +2735,42 @@ static struct pernet_operations igmp_net_ops = {
-> 	.exit = igmp_net_exit,
-> };
->
->+static int igmp_netdev_event(struct notifier_block *this,
->+			     unsigned long event, void *ptr)
->+{
->+	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
->+	struct in_device *in_dev;
->+
->+	switch (event) {
->+	case NETDEV_RESEND_IGMP:
->+		in_dev = __in_dev_get_rtnl(dev);
->+		if (in_dev)
->+			ip_mc_rejoin_groups(in_dev);
->+		break;
->+	default:
->+		break;
->+	}
->+	return NOTIFY_DONE;
->+}
->+
->+static struct notifier_block igmp_notifier = {
->+	.notifier_call = igmp_netdev_event,
->+};
->+
-> int __init igmp_mc_proc_init(void)
-> {
->-	return register_pernet_subsys(&igmp_net_ops);
->+	int err;
->+
->+	err = register_pernet_subsys(&igmp_net_ops);
->+	if (err)
->+		return err;
->+	err = register_netdevice_notifier(&igmp_notifier);
->+	if (err)
->+		goto reg_notif_fail;
->+	return 0;
->+
->+reg_notif_fail:
->+	unregister_pernet_subsys(&igmp_net_ops);
->+	return err;
-> }
-> #endif
+
+diff --git a/drivers/net/ethernet/cisco/enic/Makefile b/drivers/net/ethernet/cisco/enic/Makefile
+index 9d4974b..e52296d 100644
+--- a/drivers/net/ethernet/cisco/enic/Makefile
++++ b/drivers/net/ethernet/cisco/enic/Makefile
+@@ -1,5 +1,6 @@
+ obj-$(CONFIG_ENIC) := enic.o
+ 
+ enic-y := enic_main.o vnic_cq.o vnic_intr.o vnic_wq.o \
+-	enic_res.o enic_dev.o enic_pp.o vnic_dev.o vnic_rq.o vnic_vic.o
++	enic_res.o enic_dev.o enic_pp.o vnic_dev.o vnic_rq.o vnic_vic.o \
++	enic_ethtool.o
+ 
+diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
+index afe9b16..2e37c63 100644
+--- a/drivers/net/ethernet/cisco/enic/enic.h
++++ b/drivers/net/ethernet/cisco/enic/enic.h
+@@ -127,9 +127,57 @@ static inline struct device *enic_get_dev(struct enic *enic)
+ 	return &(enic->pdev->dev);
+ }
+ 
++static inline unsigned int enic_cq_rq(struct enic *enic, unsigned int rq)
++{
++	return rq;
++}
++
++static inline unsigned int enic_cq_wq(struct enic *enic, unsigned int wq)
++{
++	return enic->rq_count + wq;
++}
++
++static inline unsigned int enic_legacy_io_intr(void)
++{
++	return 0;
++}
++
++static inline unsigned int enic_legacy_err_intr(void)
++{
++	return 1;
++}
++
++static inline unsigned int enic_legacy_notify_intr(void)
++{
++	return 2;
++}
++
++static inline unsigned int enic_msix_rq_intr(struct enic *enic,
++	unsigned int rq)
++{
++	return enic->cq[enic_cq_rq(enic, rq)].interrupt_offset;
++}
++
++static inline unsigned int enic_msix_wq_intr(struct enic *enic,
++	unsigned int wq)
++{
++	return enic->cq[enic_cq_wq(enic, wq)].interrupt_offset;
++}
++
++static inline unsigned int enic_msix_err_intr(struct enic *enic)
++{
++	return enic->rq_count + enic->wq_count;
++}
++
++static inline unsigned int enic_msix_notify_intr(struct enic *enic)
++{
++	return enic->rq_count + enic->wq_count + 1;
++}
++
+ void enic_reset_addr_lists(struct enic *enic);
+ int enic_sriov_enabled(struct enic *enic);
+ int enic_is_valid_vf(struct enic *enic, int vf);
+ int enic_is_dynamic(struct enic *enic);
++void enic_set_ethtool_ops(struct net_device *netdev);
+ 
+ #endif /* _ENIC_H_ */
+diff --git a/drivers/net/ethernet/cisco/enic/enic_dev.h b/drivers/net/ethernet/cisco/enic/enic_dev.h
+index 08bded0..129b14a 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_dev.h
++++ b/drivers/net/ethernet/cisco/enic/enic_dev.h
+@@ -20,6 +20,7 @@
+ #define _ENIC_DEV_H_
+ 
+ #include "vnic_dev.h"
++#include "vnic_vic.h"
+ 
+ /*
+  * Calls the devcmd function given by argument vnicdevcmdfn.
+diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+new file mode 100644
+index 0000000..47e3562
+--- /dev/null
++++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+@@ -0,0 +1,257 @@
++/**
++ * Copyright 2013 Cisco Systems, Inc.  All rights reserved.
++ *
++ * This program is free software; you may redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; version 2 of the License.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ *
++ */
++
++#include <linux/netdevice.h>
++#include <linux/ethtool.h>
++
++#include "enic_res.h"
++#include "enic.h"
++#include "enic_dev.h"
++
++struct enic_stat {
++	char name[ETH_GSTRING_LEN];
++	unsigned int index;
++};
++
++#define ENIC_TX_STAT(stat) { \
++	.name = #stat, \
++	.index = offsetof(struct vnic_tx_stats, stat) / sizeof(u64) \
++}
++
++#define ENIC_RX_STAT(stat) { \
++	.name = #stat, \
++	.index = offsetof(struct vnic_rx_stats, stat) / sizeof(u64) \
++}
++
++static const struct enic_stat enic_tx_stats[] = {
++	ENIC_TX_STAT(tx_frames_ok),
++	ENIC_TX_STAT(tx_unicast_frames_ok),
++	ENIC_TX_STAT(tx_multicast_frames_ok),
++	ENIC_TX_STAT(tx_broadcast_frames_ok),
++	ENIC_TX_STAT(tx_bytes_ok),
++	ENIC_TX_STAT(tx_unicast_bytes_ok),
++	ENIC_TX_STAT(tx_multicast_bytes_ok),
++	ENIC_TX_STAT(tx_broadcast_bytes_ok),
++	ENIC_TX_STAT(tx_drops),
++	ENIC_TX_STAT(tx_errors),
++	ENIC_TX_STAT(tx_tso),
++};
++
++static const struct enic_stat enic_rx_stats[] = {
++	ENIC_RX_STAT(rx_frames_ok),
++	ENIC_RX_STAT(rx_frames_total),
++	ENIC_RX_STAT(rx_unicast_frames_ok),
++	ENIC_RX_STAT(rx_multicast_frames_ok),
++	ENIC_RX_STAT(rx_broadcast_frames_ok),
++	ENIC_RX_STAT(rx_bytes_ok),
++	ENIC_RX_STAT(rx_unicast_bytes_ok),
++	ENIC_RX_STAT(rx_multicast_bytes_ok),
++	ENIC_RX_STAT(rx_broadcast_bytes_ok),
++	ENIC_RX_STAT(rx_drop),
++	ENIC_RX_STAT(rx_no_bufs),
++	ENIC_RX_STAT(rx_errors),
++	ENIC_RX_STAT(rx_rss),
++	ENIC_RX_STAT(rx_crc_errors),
++	ENIC_RX_STAT(rx_frames_64),
++	ENIC_RX_STAT(rx_frames_127),
++	ENIC_RX_STAT(rx_frames_255),
++	ENIC_RX_STAT(rx_frames_511),
++	ENIC_RX_STAT(rx_frames_1023),
++	ENIC_RX_STAT(rx_frames_1518),
++	ENIC_RX_STAT(rx_frames_to_max),
++};
++
++static const unsigned int enic_n_tx_stats = ARRAY_SIZE(enic_tx_stats);
++static const unsigned int enic_n_rx_stats = ARRAY_SIZE(enic_rx_stats);
++
++static int enic_get_settings(struct net_device *netdev,
++	struct ethtool_cmd *ecmd)
++{
++	struct enic *enic = netdev_priv(netdev);
++
++	ecmd->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
++	ecmd->advertising = (ADVERTISED_10000baseT_Full | ADVERTISED_FIBRE);
++	ecmd->port = PORT_FIBRE;
++	ecmd->transceiver = XCVR_EXTERNAL;
++
++	if (netif_carrier_ok(netdev)) {
++		ethtool_cmd_speed_set(ecmd, vnic_dev_port_speed(enic->vdev));
++		ecmd->duplex = DUPLEX_FULL;
++	} else {
++		ethtool_cmd_speed_set(ecmd, -1);
++		ecmd->duplex = -1;
++	}
++
++	ecmd->autoneg = AUTONEG_DISABLE;
++
++	return 0;
++}
++
++static void enic_get_drvinfo(struct net_device *netdev,
++	struct ethtool_drvinfo *drvinfo)
++{
++	struct enic *enic = netdev_priv(netdev);
++	struct vnic_devcmd_fw_info *fw_info;
++
++	enic_dev_fw_info(enic, &fw_info);
++
++	strlcpy(drvinfo->driver, DRV_NAME, sizeof(drvinfo->driver));
++	strlcpy(drvinfo->version, DRV_VERSION, sizeof(drvinfo->version));
++	strlcpy(drvinfo->fw_version, fw_info->fw_version,
++		sizeof(drvinfo->fw_version));
++	strlcpy(drvinfo->bus_info, pci_name(enic->pdev),
++		sizeof(drvinfo->bus_info));
++}
++
++static void enic_get_strings(struct net_device *netdev, u32 stringset,
++	u8 *data)
++{
++	unsigned int i;
++
++	switch (stringset) {
++	case ETH_SS_STATS:
++		for (i = 0; i < enic_n_tx_stats; i++) {
++			memcpy(data, enic_tx_stats[i].name, ETH_GSTRING_LEN);
++			data += ETH_GSTRING_LEN;
++		}
++		for (i = 0; i < enic_n_rx_stats; i++) {
++			memcpy(data, enic_rx_stats[i].name, ETH_GSTRING_LEN);
++			data += ETH_GSTRING_LEN;
++		}
++		break;
++	}
++}
++
++static int enic_get_sset_count(struct net_device *netdev, int sset)
++{
++	switch (sset) {
++	case ETH_SS_STATS:
++		return enic_n_tx_stats + enic_n_rx_stats;
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++static void enic_get_ethtool_stats(struct net_device *netdev,
++	struct ethtool_stats *stats, u64 *data)
++{
++	struct enic *enic = netdev_priv(netdev);
++	struct vnic_stats *vstats;
++	unsigned int i;
++
++	enic_dev_stats_dump(enic, &vstats);
++
++	for (i = 0; i < enic_n_tx_stats; i++)
++		*(data++) = ((u64 *)&vstats->tx)[enic_tx_stats[i].index];
++	for (i = 0; i < enic_n_rx_stats; i++)
++		*(data++) = ((u64 *)&vstats->rx)[enic_rx_stats[i].index];
++}
++
++static u32 enic_get_msglevel(struct net_device *netdev)
++{
++	struct enic *enic = netdev_priv(netdev);
++	return enic->msg_enable;
++}
++
++static void enic_set_msglevel(struct net_device *netdev, u32 value)
++{
++	struct enic *enic = netdev_priv(netdev);
++	enic->msg_enable = value;
++}
++
++static int enic_get_coalesce(struct net_device *netdev,
++	struct ethtool_coalesce *ecmd)
++{
++	struct enic *enic = netdev_priv(netdev);
++
++	ecmd->tx_coalesce_usecs = enic->tx_coalesce_usecs;
++	ecmd->rx_coalesce_usecs = enic->rx_coalesce_usecs;
++
++	return 0;
++}
++
++static int enic_set_coalesce(struct net_device *netdev,
++	struct ethtool_coalesce *ecmd)
++{
++	struct enic *enic = netdev_priv(netdev);
++	u32 tx_coalesce_usecs;
++	u32 rx_coalesce_usecs;
++	unsigned int i, intr;
++
++	tx_coalesce_usecs = min_t(u32, ecmd->tx_coalesce_usecs,
++		vnic_dev_get_intr_coal_timer_max(enic->vdev));
++	rx_coalesce_usecs = min_t(u32, ecmd->rx_coalesce_usecs,
++		vnic_dev_get_intr_coal_timer_max(enic->vdev));
++
++	switch (vnic_dev_get_intr_mode(enic->vdev)) {
++	case VNIC_DEV_INTR_MODE_INTX:
++		if (tx_coalesce_usecs != rx_coalesce_usecs)
++			return -EINVAL;
++
++		intr = enic_legacy_io_intr();
++		vnic_intr_coalescing_timer_set(&enic->intr[intr],
++			tx_coalesce_usecs);
++		break;
++	case VNIC_DEV_INTR_MODE_MSI:
++		if (tx_coalesce_usecs != rx_coalesce_usecs)
++			return -EINVAL;
++
++		vnic_intr_coalescing_timer_set(&enic->intr[0],
++			tx_coalesce_usecs);
++		break;
++	case VNIC_DEV_INTR_MODE_MSIX:
++		for (i = 0; i < enic->wq_count; i++) {
++			intr = enic_msix_wq_intr(enic, i);
++			vnic_intr_coalescing_timer_set(&enic->intr[intr],
++				tx_coalesce_usecs);
++		}
++
++		for (i = 0; i < enic->rq_count; i++) {
++			intr = enic_msix_rq_intr(enic, i);
++			vnic_intr_coalescing_timer_set(&enic->intr[intr],
++				rx_coalesce_usecs);
++		}
++
++		break;
++	default:
++		break;
++	}
++
++	enic->tx_coalesce_usecs = tx_coalesce_usecs;
++	enic->rx_coalesce_usecs = rx_coalesce_usecs;
++
++	return 0;
++}
++
++static const struct ethtool_ops enic_ethtool_ops = {
++	.get_settings = enic_get_settings,
++	.get_drvinfo = enic_get_drvinfo,
++	.get_msglevel = enic_get_msglevel,
++	.set_msglevel = enic_set_msglevel,
++	.get_link = ethtool_op_get_link,
++	.get_strings = enic_get_strings,
++	.get_sset_count = enic_get_sset_count,
++	.get_ethtool_stats = enic_get_ethtool_stats,
++	.get_coalesce = enic_get_coalesce,
++	.set_coalesce = enic_set_coalesce,
++};
++
++void enic_set_ethtool_ops(struct net_device *netdev)
++{
++	SET_ETHTOOL_OPS(netdev, &enic_ethtool_ops);
++}
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index 992ec2e..b12b32b 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -31,7 +31,6 @@
+ #include <linux/if.h>
+ #include <linux/if_ether.h>
+ #include <linux/if_vlan.h>
+-#include <linux/ethtool.h>
+ #include <linux/in.h>
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>
+@@ -73,57 +72,6 @@ MODULE_LICENSE("GPL");
+ MODULE_VERSION(DRV_VERSION);
+ MODULE_DEVICE_TABLE(pci, enic_id_table);
+ 
+-struct enic_stat {
+-	char name[ETH_GSTRING_LEN];
+-	unsigned int offset;
+-};
+-
+-#define ENIC_TX_STAT(stat)	\
+-	{ .name = #stat, .offset = offsetof(struct vnic_tx_stats, stat) / 8 }
+-#define ENIC_RX_STAT(stat)	\
+-	{ .name = #stat, .offset = offsetof(struct vnic_rx_stats, stat) / 8 }
+-
+-static const struct enic_stat enic_tx_stats[] = {
+-	ENIC_TX_STAT(tx_frames_ok),
+-	ENIC_TX_STAT(tx_unicast_frames_ok),
+-	ENIC_TX_STAT(tx_multicast_frames_ok),
+-	ENIC_TX_STAT(tx_broadcast_frames_ok),
+-	ENIC_TX_STAT(tx_bytes_ok),
+-	ENIC_TX_STAT(tx_unicast_bytes_ok),
+-	ENIC_TX_STAT(tx_multicast_bytes_ok),
+-	ENIC_TX_STAT(tx_broadcast_bytes_ok),
+-	ENIC_TX_STAT(tx_drops),
+-	ENIC_TX_STAT(tx_errors),
+-	ENIC_TX_STAT(tx_tso),
+-};
+-
+-static const struct enic_stat enic_rx_stats[] = {
+-	ENIC_RX_STAT(rx_frames_ok),
+-	ENIC_RX_STAT(rx_frames_total),
+-	ENIC_RX_STAT(rx_unicast_frames_ok),
+-	ENIC_RX_STAT(rx_multicast_frames_ok),
+-	ENIC_RX_STAT(rx_broadcast_frames_ok),
+-	ENIC_RX_STAT(rx_bytes_ok),
+-	ENIC_RX_STAT(rx_unicast_bytes_ok),
+-	ENIC_RX_STAT(rx_multicast_bytes_ok),
+-	ENIC_RX_STAT(rx_broadcast_bytes_ok),
+-	ENIC_RX_STAT(rx_drop),
+-	ENIC_RX_STAT(rx_no_bufs),
+-	ENIC_RX_STAT(rx_errors),
+-	ENIC_RX_STAT(rx_rss),
+-	ENIC_RX_STAT(rx_crc_errors),
+-	ENIC_RX_STAT(rx_frames_64),
+-	ENIC_RX_STAT(rx_frames_127),
+-	ENIC_RX_STAT(rx_frames_255),
+-	ENIC_RX_STAT(rx_frames_511),
+-	ENIC_RX_STAT(rx_frames_1023),
+-	ENIC_RX_STAT(rx_frames_1518),
+-	ENIC_RX_STAT(rx_frames_to_max),
+-};
+-
+-static const unsigned int enic_n_tx_stats = ARRAY_SIZE(enic_tx_stats);
+-static const unsigned int enic_n_rx_stats = ARRAY_SIZE(enic_rx_stats);
+-
+ int enic_is_dynamic(struct enic *enic)
+ {
+ 	return enic->pdev->device == PCI_DEVICE_ID_CISCO_VIC_ENET_DYN;
+@@ -148,222 +96,6 @@ int enic_is_valid_vf(struct enic *enic, int vf)
+ #endif
+ }
+ 
+-static inline unsigned int enic_cq_rq(struct enic *enic, unsigned int rq)
+-{
+-	return rq;
+-}
+-
+-static inline unsigned int enic_cq_wq(struct enic *enic, unsigned int wq)
+-{
+-	return enic->rq_count + wq;
+-}
+-
+-static inline unsigned int enic_legacy_io_intr(void)
+-{
+-	return 0;
+-}
+-
+-static inline unsigned int enic_legacy_err_intr(void)
+-{
+-	return 1;
+-}
+-
+-static inline unsigned int enic_legacy_notify_intr(void)
+-{
+-	return 2;
+-}
+-
+-static inline unsigned int enic_msix_rq_intr(struct enic *enic, unsigned int rq)
+-{
+-	return enic->cq[enic_cq_rq(enic, rq)].interrupt_offset;
+-}
+-
+-static inline unsigned int enic_msix_wq_intr(struct enic *enic, unsigned int wq)
+-{
+-	return enic->cq[enic_cq_wq(enic, wq)].interrupt_offset;
+-}
+-
+-static inline unsigned int enic_msix_err_intr(struct enic *enic)
+-{
+-	return enic->rq_count + enic->wq_count;
+-}
+-
+-static inline unsigned int enic_msix_notify_intr(struct enic *enic)
+-{
+-	return enic->rq_count + enic->wq_count + 1;
+-}
+-
+-static int enic_get_settings(struct net_device *netdev,
+-	struct ethtool_cmd *ecmd)
+-{
+-	struct enic *enic = netdev_priv(netdev);
+-
+-	ecmd->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
+-	ecmd->advertising = (ADVERTISED_10000baseT_Full | ADVERTISED_FIBRE);
+-	ecmd->port = PORT_FIBRE;
+-	ecmd->transceiver = XCVR_EXTERNAL;
+-
+-	if (netif_carrier_ok(netdev)) {
+-		ethtool_cmd_speed_set(ecmd, vnic_dev_port_speed(enic->vdev));
+-		ecmd->duplex = DUPLEX_FULL;
+-	} else {
+-		ethtool_cmd_speed_set(ecmd, -1);
+-		ecmd->duplex = -1;
+-	}
+-
+-	ecmd->autoneg = AUTONEG_DISABLE;
+-
+-	return 0;
+-}
+-
+-static void enic_get_drvinfo(struct net_device *netdev,
+-	struct ethtool_drvinfo *drvinfo)
+-{
+-	struct enic *enic = netdev_priv(netdev);
+-	struct vnic_devcmd_fw_info *fw_info;
+-
+-	enic_dev_fw_info(enic, &fw_info);
+-
+-	strlcpy(drvinfo->driver, DRV_NAME, sizeof(drvinfo->driver));
+-	strlcpy(drvinfo->version, DRV_VERSION, sizeof(drvinfo->version));
+-	strlcpy(drvinfo->fw_version, fw_info->fw_version,
+-		sizeof(drvinfo->fw_version));
+-	strlcpy(drvinfo->bus_info, pci_name(enic->pdev),
+-		sizeof(drvinfo->bus_info));
+-}
+-
+-static void enic_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
+-{
+-	unsigned int i;
+-
+-	switch (stringset) {
+-	case ETH_SS_STATS:
+-		for (i = 0; i < enic_n_tx_stats; i++) {
+-			memcpy(data, enic_tx_stats[i].name, ETH_GSTRING_LEN);
+-			data += ETH_GSTRING_LEN;
+-		}
+-		for (i = 0; i < enic_n_rx_stats; i++) {
+-			memcpy(data, enic_rx_stats[i].name, ETH_GSTRING_LEN);
+-			data += ETH_GSTRING_LEN;
+-		}
+-		break;
+-	}
+-}
+-
+-static int enic_get_sset_count(struct net_device *netdev, int sset)
+-{
+-	switch (sset) {
+-	case ETH_SS_STATS:
+-		return enic_n_tx_stats + enic_n_rx_stats;
+-	default:
+-		return -EOPNOTSUPP;
+-	}
+-}
+-
+-static void enic_get_ethtool_stats(struct net_device *netdev,
+-	struct ethtool_stats *stats, u64 *data)
+-{
+-	struct enic *enic = netdev_priv(netdev);
+-	struct vnic_stats *vstats;
+-	unsigned int i;
+-
+-	enic_dev_stats_dump(enic, &vstats);
+-
+-	for (i = 0; i < enic_n_tx_stats; i++)
+-		*(data++) = ((u64 *)&vstats->tx)[enic_tx_stats[i].offset];
+-	for (i = 0; i < enic_n_rx_stats; i++)
+-		*(data++) = ((u64 *)&vstats->rx)[enic_rx_stats[i].offset];
+-}
+-
+-static u32 enic_get_msglevel(struct net_device *netdev)
+-{
+-	struct enic *enic = netdev_priv(netdev);
+-	return enic->msg_enable;
+-}
+-
+-static void enic_set_msglevel(struct net_device *netdev, u32 value)
+-{
+-	struct enic *enic = netdev_priv(netdev);
+-	enic->msg_enable = value;
+-}
+-
+-static int enic_get_coalesce(struct net_device *netdev,
+-	struct ethtool_coalesce *ecmd)
+-{
+-	struct enic *enic = netdev_priv(netdev);
+-
+-	ecmd->tx_coalesce_usecs = enic->tx_coalesce_usecs;
+-	ecmd->rx_coalesce_usecs = enic->rx_coalesce_usecs;
+-
+-	return 0;
+-}
+-
+-static int enic_set_coalesce(struct net_device *netdev,
+-	struct ethtool_coalesce *ecmd)
+-{
+-	struct enic *enic = netdev_priv(netdev);
+-	u32 tx_coalesce_usecs;
+-	u32 rx_coalesce_usecs;
+-	unsigned int i, intr;
+-
+-	tx_coalesce_usecs = min_t(u32, ecmd->tx_coalesce_usecs,
+-		vnic_dev_get_intr_coal_timer_max(enic->vdev));
+-	rx_coalesce_usecs = min_t(u32, ecmd->rx_coalesce_usecs,
+-		vnic_dev_get_intr_coal_timer_max(enic->vdev));
+-
+-	switch (vnic_dev_get_intr_mode(enic->vdev)) {
+-	case VNIC_DEV_INTR_MODE_INTX:
+-		if (tx_coalesce_usecs != rx_coalesce_usecs)
+-			return -EINVAL;
+-
+-		intr = enic_legacy_io_intr();
+-		vnic_intr_coalescing_timer_set(&enic->intr[intr],
+-			tx_coalesce_usecs);
+-		break;
+-	case VNIC_DEV_INTR_MODE_MSI:
+-		if (tx_coalesce_usecs != rx_coalesce_usecs)
+-			return -EINVAL;
+-
+-		vnic_intr_coalescing_timer_set(&enic->intr[0],
+-			tx_coalesce_usecs);
+-		break;
+-	case VNIC_DEV_INTR_MODE_MSIX:
+-		for (i = 0; i < enic->wq_count; i++) {
+-			intr = enic_msix_wq_intr(enic, i);
+-			vnic_intr_coalescing_timer_set(&enic->intr[intr],
+-				tx_coalesce_usecs);
+-		}
+-
+-		for (i = 0; i < enic->rq_count; i++) {
+-			intr = enic_msix_rq_intr(enic, i);
+-			vnic_intr_coalescing_timer_set(&enic->intr[intr],
+-				rx_coalesce_usecs);
+-		}
+-
+-		break;
+-	default:
+-		break;
+-	}
+-
+-	enic->tx_coalesce_usecs = tx_coalesce_usecs;
+-	enic->rx_coalesce_usecs = rx_coalesce_usecs;
+-
+-	return 0;
+-}
+-
+-static const struct ethtool_ops enic_ethtool_ops = {
+-	.get_settings = enic_get_settings,
+-	.get_drvinfo = enic_get_drvinfo,
+-	.get_msglevel = enic_get_msglevel,
+-	.set_msglevel = enic_set_msglevel,
+-	.get_link = ethtool_op_get_link,
+-	.get_strings = enic_get_strings,
+-	.get_sset_count = enic_get_sset_count,
+-	.get_ethtool_stats = enic_get_ethtool_stats,
+-	.get_coalesce = enic_get_coalesce,
+-	.set_coalesce = enic_set_coalesce,
+-};
+-
+ static void enic_free_wq_buf(struct vnic_wq *wq, struct vnic_wq_buf *buf)
+ {
+ 	struct enic *enic = vnic_dev_priv(wq->vdev);
+@@ -2496,7 +2228,7 @@ static int enic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		netdev->netdev_ops = &enic_netdev_ops;
+ 
+ 	netdev->watchdog_timeo = 2 * HZ;
+-	netdev->ethtool_ops = &enic_ethtool_ops;
++	enic_set_ethtool_ops(netdev);
+ 
+ 	netdev->features |= NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
+ 	if (ENIC_SETTING(enic, LOOP)) {
