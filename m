@@ -1,43 +1,52 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH 4/4 net-next] tcp: use RTT from SACK for RTO
-Date: Sun, 21 Jul 2013 23:40:07 -0400
-Message-ID: <CADVnQykoQiGEvHsmtfjhVVGZPDNhHz6BqsNE+s-0Bjf+Q+Gx5A@mail.gmail.com>
-References: <1374385170-358-1-git-send-email-ycheng@google.com>
-	<1374385170-358-4-git-send-email-ycheng@google.com>
+From: Frank Li <lznuaa@gmail.com>
+Subject: Re: [PATCH 0/6] fec: Improve resources handling
+Date: Mon, 22 Jul 2013 12:21:58 +0800
+Message-ID: <CAHrpEqTq=B97DJTEbdFQt_aqUAe-FHzoZbfeHQtjdzDoZbKzTw@mail.gmail.com>
+References: <1374423904-2668-1-git-send-email-festevam@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Yuchung Cheng <ycheng@google.com>
+Cc: David Miller <davem@davemloft.net>, kernel@pengutronix.de,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Fabio Estevam <festevam@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f51.google.com ([74.125.83.51]:53605 "EHLO
-	mail-ee0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756095Ab3GVDkI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jul 2013 23:40:08 -0400
-Received: by mail-ee0-f51.google.com with SMTP id e52so3568278eek.10
-        for <netdev@vger.kernel.org>; Sun, 21 Jul 2013 20:40:07 -0700 (PDT)
-In-Reply-To: <1374385170-358-4-git-send-email-ycheng@google.com>
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:55891 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751622Ab3GVEWA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 00:22:00 -0400
+Received: by mail-wg0-f42.google.com with SMTP id j13so368004wgh.1
+        for <netdev@vger.kernel.org>; Sun, 21 Jul 2013 21:21:59 -0700 (PDT)
+In-Reply-To: <1374423904-2668-1-git-send-email-festevam@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 21, 2013 at 1:39 AM, Yuchung Cheng <ycheng@google.com> wrote:
-> If RTT is not available because Karn's check has failed or no
-> new packet is acked, use the RTT measured from SACK to estimate
-> the RTO. The sender can continue to estimate the RTO during loss
-> recovery or reordering event upon receiving non-partial ACKs.
+2013/7/22 Fabio Estevam <festevam@gmail.com>:
+> This series improves clock handling in the driver by not enabling/disabling
+> the optional ptp and enet_out clocks unconditionally, check for the return value
+> of clk_prepare_enable and also handle clk_ptp in suspend/resume.
 >
-> This also changes when the RTO is re-armed. Previously it is
-> only re-armed when some data is cummulatively acknowledged (i.e.,
-> SND.UNA advances), but now it is re-armed whenever RTT estimator
-> is updated. This feature is particularly useful to reduce spurious
-> timeout for buffer bloat including cellular carriers [1], and
-> RTT estimation on reordering events.
+> Remove an unneeded check in platform_get_resource() and also use
+> devm_request_irq() that can help to simplify the code.
 >
-> [1] "An In-depth Study of LTE: Effect of Network Protocol and
->  Application Behavior on Performance", In Proc. of SIGCOMM 2013
+> Fabio Estevam (6):
+>   fec: Do not enable/disable optional clocks unconditionally
+>   fec: Fix the order for enabling/disabling the clocks
+>   fec: Enable/disable clk_ptp in suspend/resume
+>   fec: Check the return value from clk_prepare_enable()
+>   fec: Remove unneeded check in platform_get_resource()
+>   fec: Use devm_request_irq()
 >
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+>  drivers/net/ethernet/freescale/fec_main.c | 110 ++++++++++++++++++++----------
+>  1 file changed, 73 insertions(+), 37 deletions(-)
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+Acked
+
+>
+> --
+> 1.8.1.2
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
