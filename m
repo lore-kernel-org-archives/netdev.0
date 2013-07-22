@@ -1,61 +1,52 @@
-From: Peter Wu <lekensteyn@gmail.com>
-Subject: [PATCH net v2 1/1] r8169: fix lockdep warning when removing interface
-Date: Mon, 22 Jul 2013 09:53:30 +0200
-Message-ID: <3190648.uJuPIZ6zlh@al>
+From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [patch] mlx5: use after free in mlx5_cmd_comp_handler()
+Date: Mon, 22 Jul 2013 11:02:01 +0300
+Message-ID: <20130722080201.GG14617@longonot.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:48801 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756500Ab3GVHxg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 03:53:36 -0400
-Received: by mail-wg0-f44.google.com with SMTP id l18so739837wgh.11
-        for <netdev@vger.kernel.org>; Mon, 22 Jul 2013 00:53:34 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The work queue is initialised in rtl_open (when the interface goes up),
-but canceled in rtl_remove_one (when the PCI device gets removed). If
-the network interface is not brought up, then the work queue struct is
-not initialised. When the device is removed, the attempt to cancel the
-uninitialised work queue causes a lockdep warning.
+We can't dereference "ent" after passing it to free_cmd().
 
-This patch fixes the issue by moving cancel_work_sync to rtl_close (to
-match rtl_open). (Note that rtl_close is also called via
-unregister_netdev in rtl_remove_one.)
+Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 
-Signed-off-by: Peter Wu <lekensteyn@gmail.com>
-Acked-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/ethernet/realtek/r8169.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c 
-b/drivers/net/ethernet/realtek/r8169.c
-index 4106a74..880015c 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -6468,6 +6468,8 @@ static int rtl8169_close(struct net_device *dev)
- 	rtl8169_down(dev);
- 	rtl_unlock_work(tp);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index 205753a..4037406 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -1113,7 +1113,13 @@ void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, unsigned long vector)
  
-+	cancel_work_sync(&tp->wk.work);
+ 	for (i = 0; i < (1 << cmd->log_sz); i++) {
+ 		if (test_bit(i, &vector)) {
++			struct semaphore *sem;
 +
- 	free_irq(pdev->irq, dev);
- 
- 	dma_free_coherent(&pdev->dev, R8169_RX_RING_BYTES, tp->RxDescArray,
-@@ -6793,8 +6795,6 @@ static void rtl_remove_one(struct pci_dev *pdev)
- 		rtl8168_driver_stop(tp);
+ 			ent = cmd->ent_arr[i];
++			if (ent->page_queue)
++				sem = &cmd->pages_sem;
++			else
++				sem = &cmd->sem;
+ 			ktime_get_ts(&ent->ts2);
+ 			memcpy(ent->out->first.data, ent->lay->out, sizeof(ent->lay->out));
+ 			dump_command(dev, ent, 0);
+@@ -1136,10 +1142,7 @@ void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, unsigned long vector)
+ 			} else {
+ 				complete(&ent->done);
+ 			}
+-			if (ent->page_queue)
+-				up(&cmd->pages_sem);
+-			else
+-				up(&cmd->sem);
++			up(sem);
+ 		}
  	}
- 
--	cancel_work_sync(&tp->wk.work);
--
- 	netif_napi_del(&tp->napi);
- 
- 	unregister_netdev(dev);
--- 
-1.8.3.2
+ }
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
