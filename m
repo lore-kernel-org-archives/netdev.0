@@ -1,109 +1,102 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RFC PATCH net-next] net: split rt_genid for ipv4 and ipv6
-Date: Mon, 22 Jul 2013 22:40:35 +0200
-Message-ID: <51ED98C3.8050108@6wind.com>
-References: <51E8B273.1090002@windriver.com>	<20130718.203100.1960741588589171145.davem@davemloft.net>	<51E8EFBC.6040902@windriver.com> <20130719.023318.2201887768706444746.davem@davemloft.net> <51ECC682.1030409@windriver.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH net-next] tcp: TCP_NOSENT_LOWAT socket option
+Date: Mon, 22 Jul 2013 13:43:03 -0700
+Message-ID: <51ED9957.9070107@hp.com>
+References: <1374520422.4990.33.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, jmorris@namei.org,
-	netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Michael Kerrisk <mtk.manpages@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f169.google.com ([74.125.82.169]:34981 "EHLO
-	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757004Ab3GVUkj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 16:40:39 -0400
-Received: by mail-we0-f169.google.com with SMTP id n57so6518524wev.0
-        for <netdev@vger.kernel.org>; Mon, 22 Jul 2013 13:40:38 -0700 (PDT)
-In-Reply-To: <51ECC682.1030409@windriver.com>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:32203 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756014Ab3GVUnF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 16:43:05 -0400
+In-Reply-To: <1374520422.4990.33.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 22/07/2013 07:43, Fan Du a =C3=A9crit :
-> Adding IPsec and other IPv4/IPv6 maintainers in the list.
+On 07/22/2013 12:13 PM, Eric Dumazet wrote:
+
 >
-> On 2013=E5=B9=B407=E6=9C=8819=E6=97=A5 17:33, David Miller wrote:
->> From: Fan Du<fan.du@windriver.com>
->> Date: Fri, 19 Jul 2013 15:50:20 +0800
->>
->>> The original commit is targeted for XFRM policy inserting/removing,
->>> but it uses net genid shared by both IPv4 and IPv6, the side effect=
- is
->>> add/delete IPv4 address will invalidate IPv6 dst in all.
->>>
->>> We *do* need to bump genid when add/delete IPv6 address in scenario=
- I
->>> described here: http://www.spinics.net/lists/netdev/msg243398.html,
->>> but definitely not from add/delete IPv4 address. Moreover test show=
-s
->>> that DCCP still push thousands of packets on wire after delete its
->>> IPv6
->>> address in the same scenario I describe before.
->>>
->>> The impulse to bump genid for IPv6 is much more stronger after this
->>> commit even do it unintentionally.
->>
->> If you really think it will help, and it will still handle the IPSEC
->> case, you can make a seperate genid for ipv4 and ipv6 but that might=
- not
->> work out so cleanly.
->>
+> Tested:
 >
-> At least let me give it a try. Any comments would be truly welcome.
+> netperf sessions, and watching /proc/net/protocols "memory" column for TCP
 >
+> Even in the absence of shallow queues, we get a benefit.
 >
->  From c79215d64038d62340d77c6ac070d8bb479b2f89 Mon Sep 17 00:00:00 20=
-01
-> From: Fan Du <fan.du@windriver.com>
-> Date: Mon, 22 Jul 2013 11:31:56 +0800
-> Subject: [RFC PATCH net-next] net: split rt_genid for ipv4 and ipv6
+> With 200 concurrent netperf -t TCP_STREAM sessions, amount of kernel memory
+> used by TCP buffers shrinks by ~55 % (20567 pages instead of 45458)
 >
-> Current net name space has only one genid for both IPv4 and IPv6, it =
-has below
-> drawbacks:
+> lpq83:~# echo -1 >/proc/sys/net/ipv4/tcp_notsent_lowat
+> lpq83:~# (super_netperf 200 -t TCP_STREAM -H remote -l 90 &); sleep 60 ; grep TCP /proc/net/protocols
+> TCPv6     1880      2   45458   no     208   yes  ipv6        y  y  y  y  y  y  y  y  y  y  y  y  y  n  y  y  y  y  y
+> TCP       1696    508   45458   no     208   yes  kernel      y  y  y  y  y  y  y  y  y  y  y  y  y  n  y  y  y  y  y
 >
-> - Add/delete an IPv4 address will invalidate all IPv6 routing table e=
-ntries.
-> - Insert/remove XFRM policy will also invalidate both IPv4/IPv6 routi=
-ng table
-> entries
->    even when the policy is only applied for one address family.
+> lpq83:~# echo 131072 >/proc/sys/net/ipv4/tcp_notsent_lowat
+> lpq83:~# (super_netperf 200 -t TCP_STREAM -H remote -l 90 &); sleep 60 ; grep TCP /proc/net/protocols
+> TCPv6     1880      2   20567   no     208   yes  ipv6        y  y  y  y  y  y  y  y  y  y  y  y  y  n  y  y  y  y  y
+> TCP       1696    508   20567   no     208   yes  kernel      y  y  y  y  y  y  y  y  y  y  y  y  y  n  y  y  y  y  y
 >
-> Thus, this patch attempt to split one genid for two to cater for IPv4=
- and IPv6
-> separately
-> in a fine granularity.
+> Using 128KB has no bad effect on the throughput of a single flow, although
+> there is an increase of cpu time as sendmsg() calls trigger more
+> context switches. A bonus is that we hold socket lock for a shorter amount
+> of time and should improve latencies.
 >
-> Signed-off-by: Fan Du <fan.du@windriver.com>
-> ---
->   include/net/net_namespace.h |   33 ++++++++++++++++++++++++++++----=
--
->   net/ipv4/route.c            |   16 ++++++++--------
->   net/ipv6/af_inet6.c         |    1 +
->   net/ipv6/route.c            |    4 ++--
->   net/xfrm/xfrm_policy.c      |    8 +++++++-
->   5 files changed, 46 insertions(+), 16 deletions(-)
+> lpq83:~# echo -1 >/proc/sys/net/ipv4/tcp_notsent_lowat
+> lpq83:~# perf stat -e context-switches ./netperf -H lpq84 -t omni -l 20 -Cc
+> OMNI Send TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to lpq84 () port 0 AF_INET
+> Local       Remote      Local  Elapsed Throughput Throughput  Local Local  Remote Remote Local   Remote  Service
+> Send Socket Recv Socket Send   Time               Units       CPU   CPU    CPU    CPU    Service Service Demand
+> Size        Size        Size   (sec)                          Util  Util   Util   Util   Demand  Demand  Units
+> Final       Final                                             %     Method %      Method
+> 2097152     6000000     16384  20.00   16509.68   10^6bits/s  3.05  S      4.50   S      0.363   0.536   usec/KB
 >
-> diff --git a/include/net/net_namespace.h b/include/net/net_namespace.=
-h
-> index 84e37b1..a08e312 100644
-> --- a/include/net/net_namespace.h
-> +++ b/include/net/net_namespace.h
-> @@ -119,8 +119,11 @@ struct net {
->       struct netns_ipvs    *ipvs;
->   #endif
->       struct sock        *diag_nlsk;
-> -    atomic_t        rt_genid;
->       atomic_t        fnhe_genid;
-> +    atomic_t                rt_genid_ipv4;
-> +#if IS_ENABLED(CONFIG_IPV6)
-> +    atomic_t                rt_genid_ipv6;
-> +#endif
->   };
-Why not putting these new fields in 'struct netns_ipv4' and 'struct net=
-ns_ipv6'?
+>   Performance counter stats for './netperf -H lpq84 -t omni -l 20 -Cc':
+>
+>              30,141 context-switches
+>
+>        20.006308407 seconds time elapsed
+>
+> lpq83:~# echo 131072 >/proc/sys/net/ipv4/tcp_notsent_lowat
+> lpq83:~# perf stat -e context-switches ./netperf -H lpq84 -t omni -l 20 -Cc
+> OMNI Send TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to lpq84 () port 0 AF_INET
+> Local       Remote      Local  Elapsed Throughput Throughput  Local Local  Remote Remote Local   Remote  Service
+> Send Socket Recv Socket Send   Time               Units       CPU   CPU    CPU    CPU    Service Service Demand
+> Size        Size        Size   (sec)                          Util  Util   Util   Util   Demand  Demand  Units
+> Final       Final                                             %     Method %      Method
+> 1911888     6000000     16384  20.00   17412.51   10^6bits/s  3.94  S      4.39   S      0.444   0.496   usec/KB
+>
+>   Performance counter stats for './netperf -H lpq84 -t omni -l 20 -Cc':
+>
+>             284,669 context-switches
+>
+>        20.005294656 seconds time elapsed
+
+Netperf is perhaps a "best case" for this as it has no think time and 
+will not itself build-up a queue of data internally.
+
+The 18% increase in service demand is troubling.
+
+It would be good to hit that with the confidence intervals (eg -i 30,3 
+and perhaps -i 99,<somthing other than the default of 5>) or do many 
+separate runs to get an idea of the variation.  Presumably remote 
+service demand is not of interest, so for the confidence intervals bit 
+you might drop the -C and keep only the -c in which case, netperf will 
+not be trying to hit the confidence interval remote CPU utilization 
+along with local CPU and throughput
+
+Why are there more context switches with the lowat set to 128KB?  Is the 
+SO_SNDBUF growth in the first case the reason? Otherwise I would have 
+thought that netperf would have been context switching back and forth at 
+at "socket full" just as often as "at 128KB." You might then also 
+compare before and after with a fixed socket buffer size
+
+Anything interesting happen when the send size is larger than the lowat?
+
+rick jones
