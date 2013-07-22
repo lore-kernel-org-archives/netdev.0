@@ -1,37 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] Transmit time stamping on tun/tap
- interfaces
-Date: Mon, 22 Jul 2013 14:59:11 -0700 (PDT)
-Message-ID: <20130722.145911.724108881981471003.davem@davemloft.net>
-References: <cover.1374254757.git.richardcochran@gmail.com>
+From: Lukas Tribus <luky-37@hotmail.com>
+Subject: RE: IGMP Unsolicited Report Interval too long for IGMPv3?
+Date: Tue, 23 Jul 2013 00:06:31 +0200
+Message-ID: <DUB107-W43809186CF94F192981E9FED6E0@phx.gbl>
+References: <51ED998D.7000300@youview.com>,<20130722211855.GL19643@kvack.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com
-To: richardcochran@gmail.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Benjamin LaHaise <bcrl@kvack.org>,
+	William Manley <william.manley@youview.com>,
+	"hannes@stressinduktion.org" <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35221 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932388Ab3GVV7M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 17:59:12 -0400
-In-Reply-To: <cover.1374254757.git.richardcochran@gmail.com>
+Received: from dub0-omc3-s24.dub0.hotmail.com ([157.55.2.33]:43992 "EHLO
+	dub0-omc3-s24.dub0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750910Ab3GVWMo convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Jul 2013 18:12:44 -0400
+In-Reply-To: <20130722211855.GL19643@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Fri, 19 Jul 2013 19:40:08 +0200
+> Date: Mon, 22 Jul 2013 17:18:55 -0400
+>> I would guess that this 10s has come from IGMPv2 RFC2236, which was
+>> reduced to 1s in IGMPv3 RFC3376.
+>
+> Reducing the timeout does not solve the problem you are encountering, as
+> any packet loss will still result in a 1 second delay.
 
-> This series adds transmit SO_TIMESTAMPING for tun and tap devices.
-> Having this support is useful for testing multiple instances of PTP
-> programs (for example, to exercise the best master clock behavior)
-> and for synchronizing virtual guests.
-> 
-> The first patch refactors the code that delivers raw error queue
-> packets into a common function, in order to avoid multiple, nearly
-> identical implementations. This can be used whenever a network layer
-> has an error queue for transmit time stamp reporting only.
+Packet loss will always result in a delay and I think William is well aware
+of that.
 
-Series applied, thanks.
+off-topic: 1 second is not a problem in IPTV, 10 seconds are ([1]).
 
-Next time, please use an appropriate subject prefix for patch #1.
-For example, I added "net: " when I applied that patch.
+
+
+> The correct approach is to queue the IGMP multicast join with a higher
+> priority than other traffic in the system so that the requests are not
+> lost due to congestion of a single queue.
+
+While this certainly makes sense, congestion is not the only reason for
+packet loss. There is no way to fix packet loss in lower network layers,
+like ADSL, satellite links or IPoAC.
+
+Improving retransmission by making it more predictable, bringing it closer
+to RFC proposals and real life problems makes a lot of sense, imho. This
+includes setting TC_PRIO_CONTROL, but I'm not sure it will fix Williams use
+case.
+
+
+lukas
+
+[1] http://en.wikipedia.org/wiki/Zap_time 		 	   		  
