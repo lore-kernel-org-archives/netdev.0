@@ -1,69 +1,36 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH iproute2 1/2] ss: Fix compiler errors of unused
- return-values
-Date: Mon, 22 Jul 2013 18:26:37 +0100
-Message-ID: <1374513997.1635.22.camel@bwh-desktop.uk.level5networks.com>
-References: <1374350298-1177-1-git-send-email-christoph.paasch@uclouvain.be>
-	 <1374350298-1177-2-git-send-email-christoph.paasch@uclouvain.be>
-	 <1374507539.4990.17.camel@edumazet-glaptop>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 v2 0/2] Fix compiler-errors with gcc 4.7.3
+Date: Mon, 22 Jul 2013 10:34:32 -0700
+Message-ID: <20130722103432.396f13db@nehalam.linuxnetplumber.net>
+References: <1374513857-6096-1-git-send-email-christoph.paasch@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Paasch <christoph.paasch@uclouvain.be>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	<netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Christoph Paasch <christoph.paasch@uclouvain.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:60880 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932409Ab3GVR0m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 13:26:42 -0400
-In-Reply-To: <1374507539.4990.17.camel@edumazet-glaptop>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:51265 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932302Ab3GVRef (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 13:34:35 -0400
+Received: by mail-pd0-f180.google.com with SMTP id 10so7042980pdi.25
+        for <netdev@vger.kernel.org>; Mon, 22 Jul 2013 10:34:35 -0700 (PDT)
+In-Reply-To: <1374513857-6096-1-git-send-email-christoph.paasch@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-07-22 at 08:38 -0700, Eric Dumazet wrote:
-> On Sat, 2013-07-20 at 21:58 +0200, Christoph Paasch wrote:
-> > Many errors when compiling with gcc 4.7.3 about unused return-values
-> > upon the calls to fgets and fscanf:
-> >
+On Mon, 22 Jul 2013 19:24:15 +0200
+Christoph Paasch <christoph.paasch@uclouvain.be> wrote:
+
+> gcc complains about unused return-values in ss.c and lnstat_util.c
 > 
-> > For the calls to fscanf we can't really do anything about it, and just
-> > do an empty if-statement to make the compiler happy.
-> > 
-> > Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
-> > ---
-> >  misc/ss.c | 30 +++++++++++++++++++++---------
-> >  1 file changed, 21 insertions(+), 9 deletions(-)
-> > 
-> > diff --git a/misc/ss.c b/misc/ss.c
-> > index c0369f1..0f71108 100644
-> > --- a/misc/ss.c
-> > +++ b/misc/ss.c
-> > @@ -302,7 +302,7 @@ static void user_ent_hash_build(void)
-> >  
-> >  				snprintf(tmp, sizeof(tmp), "%s/%d/stat", root, pid);
-> >  				if ((fp = fopen(tmp, "r")) != NULL) {
-> > -					fscanf(fp, "%*d (%[^)])", process);
-> > +					if (fscanf(fp, "%*d (%[^)])", process) == EOF);
+> Christoph Paasch (2):
+>   ss: Fix compiler errors of unused return-values
+>   lnstat: Fix compiler errors of unused return-values
 > 
-> This is really ugly :(
+>  misc/lnstat_util.c | 12 ++++++++----
+>  misc/ss.c          | 33 ++++++++++++++++++++++++---------
+>  2 files changed, 32 insertions(+), 13 deletions(-)
+> 
 
-It is.  And gcc doesn't accept casting to void to suppress the warning.
-Maybe add a wrapper fscanf_with_output_already_set_to_default()? ;-)  Or
-do what glibc expects and set the defaults only when fscanf() reads less
-than we wanted:
-
-	switch (fscanf(p, "...", &foo, &bar, ...)) {
-	case EOF:
-	case 0: foo = ...;
-	case 1: bar = ...;
-	...
-	}
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I think just turning on -Werror is less ugly.
