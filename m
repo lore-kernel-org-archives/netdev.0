@@ -1,25 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4] bonding: don't call slave_xxx_netpoll under
- spinlocks
-Date: Mon, 22 Jul 2013 15:48:27 -0700 (PDT)
-Message-ID: <20130722.154827.2152779727131310045.davem@davemloft.net>
-References: <51EA3B03.7010302@huawei.com>
+From: Michael Leun <lkml20130126@newton.leun.net>
+Subject: 3.11-rc regression bisected: s2disk does not work (was Re: [PATCH
+ v3 13/16] futex: use freezable blocking call)
+Date: Tue, 23 Jul 2013 01:02:50 +0200
+Message-ID: <20130723010250.5a3465ec@xenia.leun.net>
+References: <1367884221-20462-1-git-send-email-ccross@android.com>
+	<1367884221-20462-14-git-send-email-ccross@android.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, andy@greyhouse.net, netdev@vger.kernel.org
-To: dingtianhong@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35596 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751188Ab3GVWsa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 18:48:30 -0400
-In-Reply-To: <51EA3B03.7010302@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, Pavel Machek <pavel@ucw.cz>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@redhat.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Mandeep Singh Baines <msb@chromium.org>,
+	Oleg Nesterov <oleg@redhat.com>, linux-nfs@vger.kernel.org,
+	linux-pm@vger.kernel.org, netdev@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Tejun Heo <tj@kernel.org>,
+	Darren Hart <dvhart@linux.intel.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Randy Dunlap <rdunlap@infradead.org>,
+	Al Viro <viro@zeniv.linux.org.uk>
+To: Colin Cross <ccross@android.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1367884221-20462-14-git-send-email-ccross@android.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon,  6 May 2013 16:50:18 -0700
+Colin Cross <ccross@android.com> wrote:
 
-I'm waiting for a reposting of this entire series with the requested changes
-made to patch #1.
+> Avoid waking up every thread sleeping in a futex_wait call during
+[...]
 
-Thanks.
+With 3.11-rc s2disk from suspend-utils stopped working: Frozen at
+displaying 0% of saving image to disk.
+
+echo "1" >/sys/power/state still works.
+
+Bisecting yielded 88c8004fd3a5fdd2378069de86b90b21110d33a4, reverting
+that from 3.11-rc2 makes s2disk working again.
+
+-- 
+MfG,
+
+Michael Leun
