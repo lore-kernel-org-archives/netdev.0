@@ -1,65 +1,31 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [3/4] bonding: the calling of bond->slave_cnt need protection
-Date: Mon, 22 Jul 2013 08:47:49 +0800
-Message-ID: <51EC8135.8060509@huawei.com>
-References: <51EA3B0D.7020501@huawei.com> <20130720104746.GC9149@redhat.com> <51EA85BD.2080409@redhat.com> <20130720150041.GE9149@redhat.com>
+From: Michael Sterrett <michael@sterretts.net>
+Subject: Re: 3.10.0 network trace
+Date: Sun, 21 Jul 2013 21:36:32 -0400
+Message-ID: <CA+rTEUOXAH4TGMGvgBJ6FktA6E=hFhQmFHRf4Zaw5YJ6giOpOA@mail.gmail.com>
+References: <CA+rTEUPfP8ouJHbaFrO=-zktg2D06kYgXOq-LnmyKbbEzj-TmA@mail.gmail.com>
+	<CA+rTEUMYihwm_5ado5q1ZrYovgM6=Yc99mSaO-dNUyj4XyTj_Q@mail.gmail.com>
+	<CAK6E8=eNa72=LySKsgpnKd5A6CSkr0pbpet1X2g8em9Or=m7bg@mail.gmail.com>
+	<CA+rTEUNfHvr-Zs1JWVQV+_7ygW5AP9UScePSBEM-dsi0h7nS=w@mail.gmail.com>
+	<CAK6E8=eqFm5_nDMdzkt6WUJXmKVTOyGbt-WtVPHDWdrOdYK_Ow@mail.gmail.com>
+	<CA+rTEUNkqngK5cTUPPKAYkNgF4P8JcHoRoaEgUzBUTvO+h5JXQ@mail.gmail.com>
+	<CAK6E8=fefVLUorMKCqJGSnq6Sc9LOKp7eUyOnh6h8rcOcJtQNQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Veaceslav Falico <vfalico@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:8710 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753704Ab3GVAsF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jul 2013 20:48:05 -0400
-In-Reply-To: <20130720150041.GE9149@redhat.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:54680 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752743Ab3GVBgd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jul 2013 21:36:33 -0400
+Received: by mail-pa0-f51.google.com with SMTP id lf10so107963pab.38
+        for <netdev@vger.kernel.org>; Sun, 21 Jul 2013 18:36:32 -0700 (PDT)
+In-Reply-To: <CAK6E8=fefVLUorMKCqJGSnq6Sc9LOKp7eUyOnh6h8rcOcJtQNQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/7/20 23:00, Veaceslav Falico wrote:
-> On Sat, Jul 20, 2013 at 02:42:37PM +0200, Nikolay Aleksandrov wrote:
->> On 07/20/2013 12:47 PM, Veaceslav Falico wrote:
->>> On Sat, Jul 20, 2013 at 03:23:57PM +0800, dingtianhong wrote:
->>>> The bonding_store_mode has rtnl protection, so no need to get read lock
->>>> for bond->slave_cnt, but the bonding_store_fail_over_mac need to protect
->>>> the bond->slave_cnt, so add read_lock().
->>>>
->>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->>>>
->> <snip>
->>>
->>> Maybe it's Saturday, but I really don't see *any* point in this locking.
->>>
->>> I think you've meant that we need the rtnl protection while reading
->>> slave_cnt AND updating the .fail_over_mac, so that in between we won't add
->>> new slaves with outdated params.
->>>
->>> Something like this (untested):
->>>
->> Indeed, Veaceslav's way is the correct one (I've looked at this race
->> before), but IMO it's not worth it to protect fail_over_mac as the worst
->> that could happen is inconsistency with the MAC addresses which isn't
->> fatal. Anyway, I still haven't had my coffee and might be missing something :-)
-> 
-> Yep, agree that it's kind of minor and hard to hit in real life.
-> 
-> OTOH, getting the rtnl here costs us virtually nothing and might save
-> someone from a headache :). And it also follows the logic "don't change
-> anything slave-related without rtnl".
-> 
-> So I'd rather have it, as a minor improvement :).
-> 
->>
->> Cheers,
->> Nik
+Since upgraded to 3.10.1 which exhibits the same issue (probably not
+surprising).
 
-yes , i think it is hard to hit the problem in real lift, just looks better. :)
-
->>
-> 
-> 
+sysctl net.ipv4.tcp_frto=0 net.ipv4.tcp_early_retrans=3 seems to take
+care of it.
