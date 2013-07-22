@@ -1,27 +1,33 @@
-From: Masatake YAMATO <yamato@redhat.com>
-Subject: Re: [thermal_init] kernel BUG at net/netlink/genetlink.c:145!
-Date: Mon, 22 Jul 2013 17:58:52 +0900 (JST)
-Message-ID: <20130722.175852.1830570446481516308.yamato@redhat.com>
-References: <20130722083145.GB19067@localhost>
+From: Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>
+Subject: Re: [PATCH] ath: wil6210: Fix build error
+Date: Mon, 22 Jul 2013 12:56:56 +0300
+Message-ID: <458166038.k2AmqmisOp@lx-vladimir>
+References: <1374374808-12768-1-git-send-email-Larry.Finger@lwfinger.net> <5330916.8NnOO4SNAp@lx-vladimir> <1374457543.16248.8.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eduardo.valentin@ti.com, rui.zhang@intel.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: fengguang.wu@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130722083145.GB19067@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: <thomas@fjellstrom.ca>, Larry Finger <Larry.Finger@lwfinger.net>,
+	<linville@tuxdriver.com>, <linux-wireless@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <wil6210@qca.qualcomm.com>,
+	Stable <stable@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1374457543.16248.8.camel@deadeye.wl.decadent.org.uk>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Hi Eduardo,
+On Monday, July 22, 2013 02:45:43 AM Ben Hutchings wrote:
+> > ifeq (, $(findstring -W,$(EXTRA_CFLAGS)))
+> >       subdir-ccflags-y += -Werror
+> > endif
 > 
-> I got the below dmesg and the first bad commit says that
-> thermal_init() is trying to register a too long group name.
+> This is a pretty weird thing to do, and you've failed to account for
+> -Wextra.
+> 
+> -Werror is generally a bad default in free software, as you have no
+> control over which compiler version will be used.
+> 
 
-It may be related to my mistake.
+Well, you convinced me. I'll send patch removing -Werror.
 
-    http://lists.openwall.net/netdev/2013/03/20/133
-    http://lists.openwall.net/netdev/2013/03/21/79
-
-Masatake YAMATO
+Thanks, Vladimir
