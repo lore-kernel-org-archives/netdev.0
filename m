@@ -1,68 +1,68 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/2] Netfilter fixes for net (3.11-rc1)
-Date: Mon, 22 Jul 2013 10:34:35 +0200
-Message-ID: <1374482077-4547-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/2] netfilter: xt_socket: fix broken v0 support
+Date: Mon, 22 Jul 2013 10:34:37 +0200
+Message-ID: <1374482077-4547-3-git-send-email-pablo@netfilter.org>
+References: <1374482077-4547-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1374482077-4547-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+From: Eric Dumazet <edumazet@google.com>
 
-The following patchset contains Netfilter fixes for your net tree,
-they are:
+commit 681f130f39e10 ("netfilter: xt_socket: add XT_SOCKET_NOWILDCARD
+flag") added a potential NULL dereference if an old iptables package
+uses v0 of the match.
 
-* Fix potential NULL dereference in the socket match if revision 0
-  is used, from Eric Dumazet.
+Fix this by removing the test on @info in fast path.
 
-* Fix missing expectation NAT initialization that results in dumping
-  the NAT part via ctnetlink, thus leading to problems in expectation
-  synchronization through conntrackd, from myself.
+IPv6 can remove the test as well, as it uses v1 or v2.
 
-You can pull these changes from:
+Reported-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/xt_socket.c |   10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit 63345b4794aef4ebe16502cfe35b02bc9822d763:
-
-  Merge branch 'for_linus' of git://cavan.codon.org.uk/platform-drivers-x86 (2013-07-13 18:08:23 -0700)
-
-are available in the git repository at:
-
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-for you to fetch changes up to baf60efa585c78b269f0097288868a51ccc61f55:
-
-  netfilter: xt_socket: fix broken v0 support (2013-07-15 11:15:21 +0200)
-
-----------------------------------------------------------------
-Eric Dumazet (1):
-      netfilter: xt_socket: fix broken v0 support
-
-Pablo Neira Ayuso (1):
-      netfilter: ctnetlink: fix incorrect NAT expectation dumping
-
- net/netfilter/nf_conntrack_expect.c |    5 +++++
- net/netfilter/xt_socket.c           |   10 +++++++---
- 2 files changed, 12 insertions(+), 3 deletions(-)
-
-
-Eric Dumazet (1):
-  netfilter: xt_socket: fix broken v0 support
-
-Pablo Neira Ayuso (1):
-  netfilter: ctnetlink: fix incorrect NAT expectation dumping
-
- net/netfilter/nf_conntrack_expect.c |    5 +++++
- net/netfilter/xt_socket.c           |   10 +++++++---
- 2 files changed, 12 insertions(+), 3 deletions(-)
-
+diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
+index f8b7191..20b1591 100644
+--- a/net/netfilter/xt_socket.c
++++ b/net/netfilter/xt_socket.c
+@@ -172,7 +172,7 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
+ 
+ 		/* Ignore non-transparent sockets,
+ 		   if XT_SOCKET_TRANSPARENT is used */
+-		if (info && info->flags & XT_SOCKET_TRANSPARENT)
++		if (info->flags & XT_SOCKET_TRANSPARENT)
+ 			transparent = ((sk->sk_state != TCP_TIME_WAIT &&
+ 					inet_sk(sk)->transparent) ||
+ 				       (sk->sk_state == TCP_TIME_WAIT &&
+@@ -196,7 +196,11 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
+ static bool
+ socket_mt4_v0(const struct sk_buff *skb, struct xt_action_param *par)
+ {
+-	return socket_match(skb, par, NULL);
++	static struct xt_socket_mtinfo1 xt_info_v0 = {
++		.flags = 0,
++	};
++
++	return socket_match(skb, par, &xt_info_v0);
+ }
+ 
+ static bool
+@@ -314,7 +318,7 @@ socket_mt6_v1_v2(const struct sk_buff *skb, struct xt_action_param *par)
+ 
+ 		/* Ignore non-transparent sockets,
+ 		   if XT_SOCKET_TRANSPARENT is used */
+-		if (info && info->flags & XT_SOCKET_TRANSPARENT)
++		if (info->flags & XT_SOCKET_TRANSPARENT)
+ 			transparent = ((sk->sk_state != TCP_TIME_WAIT &&
+ 					inet_sk(sk)->transparent) ||
+ 				       (sk->sk_state == TCP_TIME_WAIT &&
 -- 
 1.7.10.4
 
