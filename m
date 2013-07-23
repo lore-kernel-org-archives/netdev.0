@@ -1,87 +1,41 @@
-From: Michael Leun <lkml20130126@newton.leun.net>
-Subject: Re: 3.11-rc regression bisected: s2disk does not work (was Re:
- [PATCH v3 13/16] futex: use freezable blocking call)
-Date: Tue, 23 Jul 2013 20:08:54 +0200
-Message-ID: <20130723200854.2046296b@xenia.leun.net>
-References: <1367884221-20462-1-git-send-email-ccross@android.com>
-	<1367884221-20462-14-git-send-email-ccross@android.com>
-	<20130723010250.5a3465ec@xenia.leun.net>
-	<CAMbhsRQv+W897_5qGuNJD47jQ9ozN6KxeCa6UJAvZpqVuBpQ4w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Michael Leun <lkml20130126@newton.leun.net>,
-	lkml <linux-kernel@vger.kernel.org>, Pavel Machek <pavel@ucw.cz>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Mandeep Singh Baines <msb@chromium.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	linux-nfs <linux-nfs@vger.kernel.org>,
-	Linux PM list <linux-pm@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Tejun Heo <tj@kernel.org>,
-	Darren Hart <dvhart@linux.intel.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Randy Dunlap <rdunlap@infradead.org>,
-	Al Viro <viro@zeniv.linux.org.uk>
-To: Colin Cross <ccross@android.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMbhsRQv+W897_5qGuNJD47jQ9ozN6KxeCa6UJAvZpqVuBpQ4w@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net-next v2 0/6] openvswitch: VXLAN tunneling.
+Date: Tue, 23 Jul 2013 11:22:20 -0700
+Message-ID: <1374603740-15377-1-git-send-email-pshelar@nicira.com>
+Cc: stephen@networkplumber.org, Pravin B Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog106.obsmtp.com ([74.125.149.77]:50039 "HELO
+	na3sys009aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S933562Ab3GWSWZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 14:22:25 -0400
+Received: by mail-pb0-f47.google.com with SMTP id rr13so8721175pbb.6
+        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 11:22:24 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 22 Jul 2013 16:55:58 -0700
-Colin Cross <ccross@android.com> wrote:
+First two patches extends vxlan so that openvswitch can
+share vxlan udp port with vxlan module. Rest of patches
+refactors vxlan data plane so that ovs can share that
+code with vxlan module.
+Last patch adds vxlan-vport to openvswitch.
 
-> On Mon, Jul 22, 2013 at 4:02 PM, Michael Leun
-> <lkml20130126@newton.leun.net> wrote:
-> > On Mon,  6 May 2013 16:50:18 -0700
-> > Colin Cross <ccross@android.com> wrote:
-> >
-> >> Avoid waking up every thread sleeping in a futex_wait call during
-> > [...]
-> >
-> > With 3.11-rc s2disk from suspend-utils stopped working: Frozen at
-> > displaying 0% of saving image to disk.
-> >
-> > echo "1" >/sys/power/state still works.
-> >
-> > Bisecting yielded 88c8004fd3a5fdd2378069de86b90b21110d33a4,
-> > reverting that from 3.11-rc2 makes s2disk working again.
-> >
-> 
-> I think the expanded use of the freezable_* helpers is exposing an
-> existing bug in hibernation.  The SNAPSHOT_FREEZE ioctl calls
-> freeze_processes(), which sets the global system_freezing_cnt and
-> pm_freezing.  try_to_freeze_tasks then sends every process except
-> current a signal which causes them all to end up in the refrigerator.
-> The current task then returns back to userspace and continues its work
-> to suspend to disk.  If that task ever hits a call to try_to_freeze()
-> in the kernel, it will see system_freezing_cnt and pm_freezing=true
-> and freeze, and suspend to disk will hang forever.  It could hit
-> try_to_freeze() because of a signal delivered to the task, or from
-> calling any syscall that uses a freezable_* helper like the one I
-> added to sys_futex.
-> 
-> I think the right solution is to add a flag to the freezing task that
-> marks it unfreezable.  I  think PF_NOFREEZE would work, although it is
-> normally used on kernel threads, can you see if the attached patch
-> helps?
+Pravin B Shelar (6):
+  vxlan: Allow multiple receive handlers.
+  vxlan: Extend vxlan handlers for openvswitch.
+  vxlan: Factor out vxlan send api.
+  vxlan: Improve vxlan headroom calculation.
+  vxlan: Add tx-vlan offload support.
+  openvswitch: Add vxlan tunneling support.
 
-That patch helps.
-
-BTW, the only machine I can reproduce this bug with is an i7-3630QM
-notebook. Cannot reproduce on an Core Duo U1400 and cannot reproduce on
-an i7 M 620.
-
-Are the sysreq backtraces still wanted? If so, any tip, how I could get
-them saved?
-
-
--- 
-MfG,
-
-Michael Leun
+ drivers/net/vxlan.c              |  474 ++++++++++++++++++++++++--------------
+ include/net/vxlan.h              |   47 ++++
+ include/uapi/linux/openvswitch.h |   11 +
+ net/openvswitch/Kconfig          |   13 +
+ net/openvswitch/Makefile         |    3 +-
+ net/openvswitch/vport-vxlan.c    |  211 +++++++++++++++++
+ net/openvswitch/vport.c          |    3 +
+ net/openvswitch/vport.h          |    1 +
+ 8 files changed, 588 insertions(+), 175 deletions(-)
+ create mode 100644 include/net/vxlan.h
+ create mode 100644 net/openvswitch/vport-vxlan.c
