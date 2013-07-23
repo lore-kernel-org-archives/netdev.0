@@ -1,48 +1,92 @@
-From: "Florian Fainelli" <f.fainelli@gmail.com>
-Subject: [PATCH v2] net: fix comment above build_skb()
-Date: Tue, 23 Jul 2013 20:22:39 +0100
-Message-ID: <1374607359-20024-1-git-send-email-f.fainelli@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next v2 5/6] vxlan: Add tx-vlan offload support.
+Date: Tue, 23 Jul 2013 20:27:51 +0100
+Message-ID: <1374607671.2072.16.camel@bwh-desktop.uk.level5networks.com>
+References: <1374603770-15567-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	bhutchings@solarflare.com,
-	"Florian Fainelli" <f.fainelli@gmail.com>
-To: davem@davemloft.net
+Cc: <netdev@vger.kernel.org>, <stephen@networkplumber.org>
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4959 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933944Ab3GWTXK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Jul 2013 15:23:10 -0400
+Received: from webmail.solarflare.com ([12.187.104.25]:8132 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933884Ab3GWT1z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 15:27:55 -0400
+In-Reply-To: <1374603770-15567-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-build_skb() specifies that the data parameter must come from a kmalloc'd
-area, this is only true if frag_size equals 0, because then build_skb()
-will use kzsize(data) to figure out the actual data size. Update the
-comment to reflect that special condition.
+On Tue, 2013-07-23 at 11:22 -0700, Pravin B Shelar wrote:
+> Following patch allows transmit side vlan offload for vxlan
+> devices.
+> 
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> ---
+>  drivers/net/vxlan.c |   15 ++++++++++++++-
+>  1 files changed, 14 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index 1ca7ca3..f76c09c 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -27,6 +27,7 @@
+>  #include <linux/igmp.h>
+>  #include <linux/etherdevice.h>
+>  #include <linux/if_ether.h>
+> +#include <linux/if_vlan.h>
+>  #include <linux/hash.h>
+>  #include <linux/ethtool.h>
+>  #include <net/arp.h>
+> @@ -1076,13 +1077,23 @@ int vxlan_xmit_skb(struct net *net, struct vxlan_handler *vh,
+>  	}
+>  
+>  	min_headroom = LL_RESERVED_SPACE(rt->dst.dev) + rt->dst.header_len
+> -			+ VXLAN_HLEN + sizeof(struct iphdr);
+> +			+ VXLAN_HLEN + sizeof(struct iphdr)
+> +			+ (vlan_tx_tag_present(skb) ? VLAN_HLEN : 0);
+>  
+>  	/* Need space for new headers (invalidates iph ptr) */
+>  	err = skb_cow_head(skb, min_headroom);
+>  	if (unlikely(err))
+>  		return err;
+>  
+> +	if (vlan_tx_tag_present(skb)) {
+> +		if (unlikely(!__vlan_put_tag(skb,
+> +					     skb->vlan_proto,
+> +					     vlan_tx_tag_get(skb))))
+> +			return -ENOMEM;
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
-Changes since v1:
-- explain the case where frag_size != 0
+This can't fail since we already did skb_cow_head().  So a WARN_ON()
+might be appropriate.
 
- net/core/skbuff.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+> +		skb->vlan_tci = 0;
+> +	}
+> +
+>  	vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
+>  	vxh->vx_flags = htonl(VXLAN_FLAGS);
+>  	vxh->vx_vni = vni;
+> @@ -1486,6 +1497,8 @@ static void vxlan_setup(struct net_device *dev)
+>  	dev->features   |= NETIF_F_RXCSUM;
+>  	dev->features   |= NETIF_F_GSO_SOFTWARE;
+>  
+> +	dev->vlan_features = dev->features;
+> +	dev->features |= NETIF_F_HW_VLAN_CTAG_TX;
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 20e02d2..3df4d4c 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -309,7 +309,8 @@ EXPORT_SYMBOL(__alloc_skb);
-  * @frag_size: size of fragment, or 0 if head was kmalloced
-  *
-  * Allocate a new &sk_buff. Caller provides space holding head and
-- * skb_shared_info. @data must have been allocated by kmalloc()
-+ * skb_shared_info. @data must have been allocated by kmalloc() only if
-+ * @frag_size is 0, otherwise data should come from the page allocator.
-  * The return is the new skb buffer.
-  * On a failure the return is %NULL, and @data is not freed.
-  * Notes :
+You can also add NETIF_F_HW_VLAN_STAG_TX.
+
+>  	dev->hw_features |= NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
+>  	dev->hw_features |= NETIF_F_GSO_SOFTWARE;
+
+Should the VLAN TX features also be included in dev->hw_features?  (I'm
+not sure why you'd want to turn them off, but they are usually made
+optional.)
+
+Ben.
+
+>  	dev->priv_flags	&= ~IFF_XMIT_DST_RELEASE;
+
 -- 
-1.8.1.2
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
