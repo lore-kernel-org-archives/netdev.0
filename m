@@ -1,65 +1,114 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v2 1/2] realtek: convert to per-chip mask
-Date: Tue, 23 Jul 2013 22:24:37 +0200
-Message-ID: <20130723202437.GC31567@electric-eye.fr.zoreil.com>
-References: <3162188.mmLmSZRt9A@al>
- <1602191.cqZWCGFrek@al>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: [PATCH 04/13] tile: remove dead is_dup_ack() function from tilepro net driver
+Date: Tue, 23 Jul 2013 16:05:48 -0400
+Message-ID: <f968148a47ed915d265eb79b562e122985e46eb3.1374609949.git.cmetcalf@tilera.com>
+References: <cover.1374609948.git.cmetcalf@tilera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
-To: Peter Wu <lekensteyn@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:51232 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932470Ab3GWUYo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 16:24:44 -0400
-Content-Disposition: inline
-In-Reply-To: <1602191.cqZWCGFrek@al>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1374609948.git.cmetcalf@tilera.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Peter Wu <lekensteyn@gmail.com> :
-[...]
-> diff --git a/realtek.c b/realtek.c
-> index c3d7ae5..5a1fba7 100644
-> --- a/realtek.c
-> +++ b/realtek.c
-[...]
-> @@ -35,36 +32,62 @@ enum chip_type {
->  	RTL8100E2,
->  };
->  
-> -enum {
-> -	chip_type_mask = HW_REVID(1, 1, 1, 1, 1, 1, 1, 1)
-> +static const char * const chip_names[] = {
-> +	[RTL8139] = "RTL-8139",
-> +	[RTL8139_K] = "RTL-8139-K",
-> +	[RTL8139A] = "RTL-8139A",
-> +	[RTL8139A_G] = "RTL-8139A-G",
-> +	[RTL8139B] = "RTL-8139B",
-> +	[RTL8130] = "RTL-8130",
-> +	[RTL8139C] = "RTL-8139C",
-> +	[RTL8100] = "RTL-8100",
-> +	[RTL8100B_8139D] = "RTL-8100B/8139D",
-> +	[RTL8139C] = "RTL-8139C+",
-> +	[RTL8101] = "RTL-8101",
-> +
-> +	/* chips not handled by 8139too/8139cp module */
-> +	[RTL8169] = "RTL-8169",
-> +	[RTL8169S] = "RTL-8169S",
-> +	[RTL8110S] = "RTL-8110S",
-> +	[RTL8169_8110SB] = "RTL-8169/8110SB",
-> +	[RTL8169_8110SCd] = "RTL-8169/8110SCd",
-> +	[RTL8169_8110SCe] = "RTL-8169/8110SCe",
-> +	[RTL8168_8111Bb] = "RTL-8168/8111Bb",
-> +	[RTL8168_8111Bef] = "RTL-8168/8111Bef",
-> +	[RTL8101Ebc] = "RTL-8101Ebc",
-> +	[RTL8100E1] = "RTL-8100E(1)",
-> +	[RTL8100E2] = "RTL-8100E(2)",
+Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
+---
+ drivers/net/ethernet/tile/tilepro.c | 76 -------------------------------------
+ 1 file changed, 76 deletions(-)
 
-Tab after equal may be.
-
-The "RTL-" prefix string could be shared.
-
+diff --git a/drivers/net/ethernet/tile/tilepro.c b/drivers/net/ethernet/tile/tilepro.c
+index dd3a39c..7182855 100644
+--- a/drivers/net/ethernet/tile/tilepro.c
++++ b/drivers/net/ethernet/tile/tilepro.c
+@@ -92,9 +92,6 @@
+ /* ISSUE: This may actually hurt performance of the TCP blaster. */
+ /* #define TILE_NET_GSO */
+ 
+-/* Define this to collapse "duplicate" acks. */
+-/* #define IGNORE_DUP_ACKS */
+-
+ /* HACK: Define this to verify incoming packets. */
+ /* #define TILE_NET_VERIFY_INGRESS */
+ 
+@@ -629,79 +626,6 @@ static void tile_net_handle_egress_timer(unsigned long arg)
+ }
+ 
+ 
+-#ifdef IGNORE_DUP_ACKS
+-
+-/*
+- * Help detect "duplicate" ACKs.  These are sequential packets (for a
+- * given flow) which are exactly 66 bytes long, sharing everything but
+- * ID=2@0x12, Hsum=2@0x18, Ack=4@0x2a, WinSize=2@0x30, Csum=2@0x32,
+- * Tstamps=10@0x38.  The ID's are +1, the Hsum's are -1, the Ack's are
+- * +N, and the Tstamps are usually identical.
+- *
+- * NOTE: Apparently truly duplicate acks (with identical "ack" values),
+- * should not be collapsed, as they are used for some kind of flow control.
+- */
+-static bool is_dup_ack(char *s1, char *s2, unsigned int len)
+-{
+-	int i;
+-
+-	unsigned long long ignorable = 0;
+-
+-	/* Identification. */
+-	ignorable |= (1ULL << 0x12);
+-	ignorable |= (1ULL << 0x13);
+-
+-	/* Header checksum. */
+-	ignorable |= (1ULL << 0x18);
+-	ignorable |= (1ULL << 0x19);
+-
+-	/* ACK. */
+-	ignorable |= (1ULL << 0x2a);
+-	ignorable |= (1ULL << 0x2b);
+-	ignorable |= (1ULL << 0x2c);
+-	ignorable |= (1ULL << 0x2d);
+-
+-	/* WinSize. */
+-	ignorable |= (1ULL << 0x30);
+-	ignorable |= (1ULL << 0x31);
+-
+-	/* Checksum. */
+-	ignorable |= (1ULL << 0x32);
+-	ignorable |= (1ULL << 0x33);
+-
+-	for (i = 0; i < len; i++, ignorable >>= 1) {
+-
+-		if ((ignorable & 1) || (s1[i] == s2[i]))
+-			continue;
+-
+-#ifdef TILE_NET_DEBUG
+-		/* HACK: Mention non-timestamp diffs. */
+-		if (i < 0x38 && i != 0x2f &&
+-		    net_ratelimit())
+-			pr_info("Diff at 0x%x\n", i);
+-#endif
+-
+-		return false;
+-	}
+-
+-#ifdef TILE_NET_NO_SUPPRESS_DUP_ACKS
+-	/* HACK: Do not suppress truly duplicate ACKs. */
+-	/* ISSUE: Is this actually necessary or helpful? */
+-	if (s1[0x2a] == s2[0x2a] &&
+-	    s1[0x2b] == s2[0x2b] &&
+-	    s1[0x2c] == s2[0x2c] &&
+-	    s1[0x2d] == s2[0x2d]) {
+-		return false;
+-	}
+-#endif
+-
+-	return true;
+-}
+-
+-#endif
+-
+-
+-
+ static void tile_net_discard_aux(struct tile_net_cpu *info, int index)
+ {
+ 	struct tile_netio_queue *queue = &info->queue;
 -- 
-Ueimor
+1.8.3.1
