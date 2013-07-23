@@ -1,33 +1,104 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2 V2] macvlan fdb replace support
-Date: Tue, 23 Jul 2013 16:36:42 -0700 (PDT)
-Message-ID: <20130723.163642.1664264574330561708.davem@davemloft.net>
-References: <1374247208-8226-1-git-send-email-tmricht@linux.vnet.ibm.com>
-	<1374247208-8226-2-git-send-email-tmricht@linux.vnet.ibm.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next v2 5/6] vxlan: Add tx-vlan offload support.
+Date: Tue, 23 Jul 2013 16:37:42 -0700
+Message-ID: <CALnjE+qJr8hXr_QcZ_foBR_wY3qjVgjkcy4W-7J8vVMaSo2yjA@mail.gmail.com>
+References: <1374603770-15567-1-git-send-email-pshelar@nicira.com>
+	<1374607671.2072.16.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
 Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: tmricht@linux.vnet.ibm.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50878 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933968Ab3GWXgm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 19:36:42 -0400
-In-Reply-To: <1374247208-8226-2-git-send-email-tmricht@linux.vnet.ibm.com>
+Received: from na3sys009aog129.obsmtp.com ([74.125.149.142]:58642 "HELO
+	na3sys009aog129.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S933968Ab3GWXhn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 19:37:43 -0400
+Received: by mail-qc0-f177.google.com with SMTP id n1so4618630qcx.22
+        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 16:37:42 -0700 (PDT)
+In-Reply-To: <1374607671.2072.16.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Richter <tmricht@linux.vnet.ibm.com>
-Date: Fri, 19 Jul 2013 17:20:08 +0200
+On Tue, Jul 23, 2013 at 12:27 PM, Ben Hutchings
+<bhutchings@solarflare.com> wrote:
+> On Tue, 2013-07-23 at 11:22 -0700, Pravin B Shelar wrote:
+>> Following patch allows transmit side vlan offload for vxlan
+>> devices.
+>>
+>> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+>> ---
+>>  drivers/net/vxlan.c |   15 ++++++++++++++-
+>>  1 files changed, 14 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+>> index 1ca7ca3..f76c09c 100644
+>> --- a/drivers/net/vxlan.c
+>> +++ b/drivers/net/vxlan.c
+>> @@ -27,6 +27,7 @@
+>>  #include <linux/igmp.h>
+>>  #include <linux/etherdevice.h>
+>>  #include <linux/if_ether.h>
+>> +#include <linux/if_vlan.h>
+>>  #include <linux/hash.h>
+>>  #include <linux/ethtool.h>
+>>  #include <net/arp.h>
+>> @@ -1076,13 +1077,23 @@ int vxlan_xmit_skb(struct net *net, struct vxlan_handler *vh,
+>>       }
+>>
+>>       min_headroom = LL_RESERVED_SPACE(rt->dst.dev) + rt->dst.header_len
+>> -                     + VXLAN_HLEN + sizeof(struct iphdr);
+>> +                     + VXLAN_HLEN + sizeof(struct iphdr)
+>> +                     + (vlan_tx_tag_present(skb) ? VLAN_HLEN : 0);
+>>
+>>       /* Need space for new headers (invalidates iph ptr) */
+>>       err = skb_cow_head(skb, min_headroom);
+>>       if (unlikely(err))
+>>               return err;
+>>
+>> +     if (vlan_tx_tag_present(skb)) {
+>> +             if (unlikely(!__vlan_put_tag(skb,
+>> +                                          skb->vlan_proto,
+>> +                                          vlan_tx_tag_get(skb))))
+>> +                     return -ENOMEM;
+>
+> This can't fail since we already did skb_cow_head().  So a WARN_ON()
+> might be appropriate.
+>
+ok, I will add WARN_ON().
 
-> Add support for iproute2 command 'bridge fdb replace ...'.
-> The rtnletlink call back function ndo_fdb_add will be called
-> with the NLM_F_REPLACE flag set.
-> Simply return -EOPNOTSUP.
-> 
-> Resubmitted because net-next was closed last week.
-> 
-> Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
+>> +             skb->vlan_tci = 0;
+>> +     }
+>> +
+>>       vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
+>>       vxh->vx_flags = htonl(VXLAN_FLAGS);
+>>       vxh->vx_vni = vni;
+>> @@ -1486,6 +1497,8 @@ static void vxlan_setup(struct net_device *dev)
+>>       dev->features   |= NETIF_F_RXCSUM;
+>>       dev->features   |= NETIF_F_GSO_SOFTWARE;
+>>
+>> +     dev->vlan_features = dev->features;
+>> +     dev->features |= NETIF_F_HW_VLAN_CTAG_TX;
+>
+> You can also add NETIF_F_HW_VLAN_STAG_TX.
+ok.
 
-Applied.
+>
+>>       dev->hw_features |= NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
+>>       dev->hw_features |= NETIF_F_GSO_SOFTWARE;
+>
+> Should the VLAN TX features also be included in dev->hw_features?  (I'm
+> not sure why you'd want to turn them off, but they are usually made
+> optional.)
+>
+right, I forgot to update hw_features.
+
+
+> Ben.
+>
+>>       dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
+>
+> --
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+>
