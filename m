@@ -1,47 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] TX throttling bug-fixing patch of AX88179_178A
-Date: Tue, 23 Jul 2013 16:46:56 -0700 (PDT)
-Message-ID: <20130723.164656.1794159338719943519.davem@davemloft.net>
-References: <1374518841.4990.26.camel@edumazet-glaptop>
-	<1374522471.1635.48.camel@bwh-desktop.uk.level5networks.com>
-	<1374559827.4990.143.camel@edumazet-glaptop>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next v2 6/6] openvswitch: Add vxlan tunneling support.
+Date: Tue, 23 Jul 2013 16:48:44 -0700
+Message-ID: <CALnjE+o7+q3aZm3xg6wY_HUEe9JRTxwNWAPSv4DJgA8xvWRUhQ@mail.gmail.com>
+References: <1374603775-15605-1-git-send-email-pshelar@nicira.com>
+	<CAJZOPZJH3UXC6BKLtUsDFAOvr=5cFHaY5_dSstBZNi-=HL_aiA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, oliver@neukum.org, grundler@google.com,
-	freddy@asix.com.tw, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	louis@asix.com.tw, allan@asix.com.tw
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1374559827.4990.143.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	Jesse Gross <jesse@nicira.com>
+To: Or Gerlitz <or.gerlitz@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog122.obsmtp.com ([74.125.149.147]:37800 "HELO
+	na3sys009aog122.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S933940Ab3GWXsp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 19:48:45 -0400
+Received: by mail-qc0-f173.google.com with SMTP id l10so4684098qcy.4
+        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 16:48:44 -0700 (PDT)
+In-Reply-To: <CAJZOPZJH3UXC6BKLtUsDFAOvr=5cFHaY5_dSstBZNi-=HL_aiA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 22 Jul 2013 23:10:27 -0700
+On Tue, Jul 23, 2013 at 2:03 PM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
+> On Tue, Jul 23, 2013 at 9:22 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+> [...]
+>> --- /dev/null
+>> +++ b/net/openvswitch/vport-vxlan.c
+> [...]
+>> +#ifdef CONFIG_OPENVSWITCH_VXLAN
+>
+> this should go to the makefile
 
-> On Mon, 2013-07-22 at 20:47 +0100, Ben Hutchings wrote:
->> The real solution would be for someone to add SG support to the usbnet
->> core.  Trying to support 1GbE with only linear skbs is not a great
->> idea... and it can only be a matter of time before there is USB ultra
->> speed (or whatever comes after 'super') with 10GbE devices...
->> 
-> 
-> This sounds a good idea.
-> 
-> Is anybody working on adding SG to usbnet ?
-
-This is a good long-term plan, but right now we have to do something
-reasonable.
-
-A quick scan shows that smsc75xx, smsc95xx, and ax88179_178a all have
-this problem.
-
-Instead of the patch starting this thread, I'd like to see one that
-hits all three drivers and removes all SG and TSO features bits from
-both the ->features _and_ ->hw_features settings.
-
-Could someone toss that together quickly?
-
-Thanks.
+OK.
