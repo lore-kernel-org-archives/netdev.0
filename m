@@ -1,36 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: TCP_NOSENT_LOWAT socket option
-Date: Mon, 22 Jul 2013 17:40:13 -0700
-Message-ID: <1374540013.4990.100.camel@edumazet-glaptop>
-References: <1374520422.4990.33.camel@edumazet-glaptop>
-	 <51ED9957.9070107@hp.com> <1374533052.4990.89.camel@edumazet-glaptop>
-	 <51EDBB8B.2000805@hp.com> <1374538422.4990.99.camel@edumazet-glaptop>
+From: Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: 3.11-rc regression bisected: s2disk does not work (was Re: [PATCH
+ v3 13/16] futex: use freezable blocking call)
+Date: Mon, 22 Jul 2013 17:42:49 -0700
+Message-ID: <CAMbhsRReF9xB597i9CcCj7D1P5kvB4cc0JmDQYeboqi11Kp99A@mail.gmail.com>
+References: <1367884221-20462-1-git-send-email-ccross@android.com>
+	<1367884221-20462-14-git-send-email-ccross@android.com>
+	<20130723010250.5a3465ec@xenia.leun.net>
+	<CAMbhsRQv+W897_5qGuNJD47jQ9ozN6KxeCa6UJAvZpqVuBpQ4w@mail.gmail.com>
+	<CA+55aFzUVPJe96z8V0F-znc8ZcpJid7LEeYww80M-Mx=S91tAA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Michael Kerrisk <mtk.manpages@gmail.com>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f43.google.com ([209.85.219.43]:40998 "EHLO
-	mail-oa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751589Ab3GWAkS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 20:40:18 -0400
-Received: by mail-oa0-f43.google.com with SMTP id i7so9774620oag.2
-        for <netdev@vger.kernel.org>; Mon, 22 Jul 2013 17:40:15 -0700 (PDT)
-In-Reply-To: <1374538422.4990.99.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Michael Leun <lkml20130126-yS7QfQBdiAdyjo5WHAzKoQ@public.gmane.org>,
+	lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Mandeep Singh Baines <msb-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	linux-nfs <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM list <linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Darren Hart <dvhart-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+55aFzUVPJe96z8V0F-znc8ZcpJid7LEeYww80M-Mx=S91tAA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-07-22 at 17:13 -0700, Eric Dumazet wrote:
+On Mon, Jul 22, 2013 at 5:32 PM, Linus Torvalds
+<torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> wrote:
+> On Mon, Jul 22, 2013 at 4:55 PM, Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org> wrote:
+>>
+>> I think the right solution is to add a flag to the freezing task that
+>> marks it unfreezable.  I  think PF_NOFREEZE would work, although it is
+>> normally used on kernel threads, can you see if the attached patch
+>> helps?
+>
+> Hmm. That does seem to be the right thing to do, but I wonder about
+> the *other* callers of freeze_processes() IOW, kexec and friends.
+>
+> So maybe we should do this in {freeze|thaw}_processes() itself, and
+> just make the rule be that the caller of freeze_processes() itself is
+> obviously not frozen, and has to be the same one that then thaws
+> things?
+>
+> Colin? Rafael? Comments?
+>
+>                 Linus
 
-> 
->  Performance counter stats for './netperf -H 10.246.17.84 -l 20 -t TCP_SENDFILE -c':
-> 
->            714,395 context-switches                                            
+I was worried about clearing the flag in thaw_processes().  If a
+kernel thread with PF_NOFREEZE set ever called thaw_processes(), which
+autosleep might do, it would clear the flag.  Or if a different thread
+called freeze_processes() and thaw_processes().  All the other callers
+besides the SNAPSHOT_FREEZE ioctl stay in the kernel between
+freeze_processes() and thaw_processes(), which makes the fanout of
+places that could call try_to_freeze() much more controllable.
 
-Hmm, actually I need to send a v3, because sk_stream_write_space() is
-waking sockets too often.
+Using a new flag that operates like PF_NOFREEZE but doesn't conflict
+with it, or a nofreeze_depth counter, would also work.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
