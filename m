@@ -1,74 +1,111 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] tuntap: hardware vlan tx support
-Date: Tue, 23 Jul 2013 16:12:49 +0400
-Message-ID: <51EE7341.4060404@cogentembedded.com>
-References: <1374563748-38821-1-git-send-email-jasowang@redhat.com>
+From: poma <pomidorabelisima-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [BUG] [skge] WARNING: at lib/dma-debug.c:937
+Date: Tue, 23 Jul 2013 14:20:42 +0200
+Message-ID: <51EE751A.8020503@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Basil Gor <basil.gor@gmail.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1374563748-38821-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Mailing-List fedora-kernel <kernel-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
+List-Unsubscribe: <https://admin.fedoraproject.org/mailman/options/kernel>,
+	<mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.fedoraproject.org/pipermail/kernel/>
+List-Post: <mailto:kernel-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
+List-Help: <mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=help>
+List-Subscribe: <https://admin.fedoraproject.org/mailman/listinfo/kernel>,
+	<mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=subscribe>
+Sender: kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org
+Errors-To: kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
-
-On 23-07-2013 11:15, Jason Wang wrote:
-
-> Inspired by commit f09e2249c4f5c7c13261ec73f5a7807076af0c8e (macvtap: restore
-> vlan header on user read). This patch adds hardware vlan tx support for
-> tuntap. This is done by copying vlan header directly into userspace in
-> tun_put_user() instead of doing it through __vlan_put_tag() in
-> dev_hard_start_xmit(). This eliminates one unnecessary memove in
-
-    s/memove/memmove/?
-
-> vlan_insert_tag() for 802.1ad and 802.1q traffic.
-
-> pktgen test shows about 20% improvement for 802.1q traffic:
-
-> Before:
->    662149pps 317Mb/sec (317831520bps) errors: 0
-> After:
->    801033pps 384Mb/sec (384495840bps) errors: 0
-
-> Cc: Basil Gor <basil.gor@gmail.com>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->   drivers/net/tun.c |   39 +++++++++++++++++++++++++++++++++++----
->   1 files changed, 35 insertions(+), 4 deletions(-)
-
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index a72d141..66e265d 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-[...]
-> @@ -1328,11 +1330,39 @@ static ssize_t tun_put_user(struct tun_struct *tun,
->   		total += tun->vnet_hdr_sz;
->   	}
->
-> -	len = min_t(int, skb->len, len);
-> +	if (!vlan_tx_tag_present(skb))
-> +		len = min_t(int, skb->len, len);
-> +	else {
-
-    According to Documentation/CodingStyle chapter 3, both arms of an *if* 
-statement should have {} if one arm has it.
-
-> +		int copy, ret;
-> +		struct {
-> +			__be16 h_vlan_proto;
-> +			__be16 h_vlan_TCI;
-> +		} veth;
-
-    Empty line wouldn't hurt here, after declarations...
-
-> +		veth.h_vlan_proto = skb->vlan_proto;
-> +		veth.h_vlan_TCI = htons(vlan_tx_tag_get(skb));
-[...]
-
-WBR, Sergei
+CkdpdmVuIG11Y2ggdGltZSBpcyBoZXJlLCBhbG1vc3QgbGlrZSBhIGdpcmFmZmUuCgozLjEwLjI6
+CuKApgpza2dlIDAwMDA6MDE6MDkuMCBlbnAxczk6IExpbmsgaXMgdXAgYXQgMTAwMCBNYnBzLCBm
+dWxsIGR1cGxleCwgZmxvdwpjb250cm9sIGJvdGgKLS0tLS0tLS0tLS0tWyBjdXQgaGVyZSBdLS0t
+LS0tLS0tLS0tCldBUk5JTkc6IGF0IGxpYi9kbWEtZGVidWcuYzo5MzcgY2hlY2tfdW5tYXArMHg0
+N2IvMHg5MzAoKQpza2dlIDAwMDA6MDE6MDkuMDogRE1BLUFQSTogZGV2aWNlIGRyaXZlciBmYWls
+ZWQgdG8gY2hlY2sgbWFwCmVycm9yW2RldmljZSBhZGRyZXNzPTB4MDAwMDAwMDEyMTc1Y2VjMl0g
+W3NpemU9NDIgYnl0ZXNdIFttYXBwZWQgYXMgc2luZ2xlXQpNb2R1bGVzIGxpbmtlZCBpbjoKIHNr
+Z2UgcmFpZDEgbm91dmVhdSB2aWRlbyBteG1fd21pIGkyY19hbGdvX2JpdCBkcm1fa21zX2hlbHBl
+ciB0dG0gZHJtCmkyY19jb3JlIHdtaQpDUFU6IDMgUElEOiAwIENvbW06IHN3YXBwZXIvMyBOb3Qg
+dGFpbnRlZCAzLjEwLjItMzAxLmZjMTkueDg2XzY0LmRlYnVnICMxCkhhcmR3YXJlIG5hbWU6IEdp
+Z2FieXRlIFRlY2hub2xvZ3kgQ28uLCBMdGQuIE03MjAtVVMzL003MjAtVVMzLCBCSU9TIEY3bgow
+OS8wNy8yMDEwCiAwMDAwMDAwMDAwMDAwMDA5IGZmZmY4ODAxMmFjMDNjNTggZmZmZmZmZmY4MTcx
+N2YxMiBmZmZmODgwMTJhYzAzYzkwCiBmZmZmZmZmZjgxMDY3NGQxIGZmZmY4ODAxMjgzMzBhYzAg
+ZmZmZjg4MDEyNGY4M2FlOCBmZmZmZmZmZjgyYmQ3MjkwCiAwMDAwMDAwMDAwMDAwMjgyIGZmZmZm
+ZmZmODE5ZjdhYjMgZmZmZjg4MDEyYWMwM2NmMCBmZmZmZmZmZjgxMDY3NTNjCkNhbGwgVHJhY2U6
+CiA8SVJRPiAgWzxmZmZmZmZmZjgxNzE3ZjEyPl0gZHVtcF9zdGFjaysweDE5LzB4MWIKIFs8ZmZm
+ZmZmZmY4MTA2NzRkMT5dIHdhcm5fc2xvd3BhdGhfY29tbW9uKzB4NjEvMHg4MAogWzxmZmZmZmZm
+ZjgxMDY3NTNjPl0gd2Fybl9zbG93cGF0aF9mbXQrMHg0Yy8weDUwCiBbPGZmZmZmZmZmODEzNzY0
+MWI+XSBjaGVja191bm1hcCsweDQ3Yi8weDkzMAogWzxmZmZmZmZmZjgxMzc2OTJmPl0gZGVidWdf
+ZG1hX3VubWFwX3BhZ2UrMHg1Zi8weDcwCiBbPGZmZmZmZmZmYTAxYzZkMzU+XSBza2dlX3BvbGwr
+MHhlNS8weDlkMCBbc2tnZV0KIFs8ZmZmZmZmZmY4MTVkOGY2MT5dID8gbmV0X3J4X2FjdGlvbisw
+eGExLzB4MzgwCiBbPGZmZmZmZmZmODE1ZDkwMzI+XSBuZXRfcnhfYWN0aW9uKzB4MTcyLzB4Mzgw
+CiBbPGZmZmZmZmZmODEwNzE4MTc+XSBfX2RvX3NvZnRpcnErMHgxMDcvMHg0MTAKIFs8ZmZmZmZm
+ZmY4MTA3MWNmNT5dIGlycV9leGl0KzB4YzUvMHhkMAogWzxmZmZmZmZmZjgxNzJiNmQ2Pl0gZG9f
+SVJRKzB4NTYvMHhjMAogWzxmZmZmZmZmZjgxNzIwNzcyPl0gY29tbW9uX2ludGVycnVwdCsweDcy
+LzB4NzIKIDxFT0k+ICBbPGZmZmZmZmZmODEwNDk0YzY+XSA/IG5hdGl2ZV9zYWZlX2hhbHQrMHg2
+LzB4MTAKIFs8ZmZmZmZmZmY4MTAyMGFiND5dIGRlZmF1bHRfaWRsZSsweDI0LzB4MjcwCiBbPGZm
+ZmZmZmZmODEwMjBkN2E+XSBhbWRfZTQwMF9pZGxlKzB4N2EvMHgxMTAKIFs8ZmZmZmZmZmY4MTAy
+MTVkZT5dIGFyY2hfY3B1X2lkbGUrMHgyZS8weDQwCiBbPGZmZmZmZmZmODEwYzkzZTI+XSBjcHVf
+c3RhcnR1cF9lbnRyeSsweGQyLzB4NDEwCiBbPGZmZmZmZmZmODE3MGIxNTg+XSBzdGFydF9zZWNv
+bmRhcnkrMHgyNjIvMHgyNjQKLS0tWyBlbmQgdHJhY2UgODBkNDhiN2Q0ZjI0YWM4MSBdLS0tCk1h
+cHBlZCBhdDoKIFs8ZmZmZmZmZmY4MTM3NTI1MT5dIGRlYnVnX2RtYV9tYXBfcGFnZSsweDkxLzB4
+MTQwCiBbPGZmZmZmZmZmYTAxYzQxNDA+XSBza2dlX3htaXRfZnJhbWUrMHgxODAvMHg1ZDAgW3Nr
+Z2VdCiBbPGZmZmZmZmZmODE1ZGE4NDE+XSBkZXZfaGFyZF9zdGFydF94bWl0KzB4MzAxLzB4NmQw
+CiBbPGZmZmZmZmZmODE1ZmQyMGU+XSBzY2hfZGlyZWN0X3htaXQrMHhlZS8weDI5MAogWzxmZmZm
+ZmZmZjgxNWRhZTg4Pl0gZGV2X3F1ZXVlX3htaXQrMHgyNzgvMHg5OTAK4oCmCgoKMy4xMS1yYzI6
+CuKApgpza2dlIDAwMDA6MDE6MDkuMCBlbnAxczk6IExpbmsgaXMgdXAgYXQgMTAwMCBNYnBzLCBm
+dWxsIGR1cGxleCwgZmxvdwpjb250cm9sIGJvdGgKLS0tLS0tLS0tLS0tWyBjdXQgaGVyZSBdLS0t
+LS0tLS0tLS0tCldBUk5JTkc6IGF0IGxpYi9kbWEtZGVidWcuYzo5MzcgY2hlY2tfdW5tYXArMHg0
+N2IvMHg5MzAoKQpza2dlIDAwMDA6MDE6MDkuMDogRE1BLUFQSTogZGV2aWNlIGRyaXZlciBmYWls
+ZWQgdG8gY2hlY2sgbWFwCmVycm9yW2RldmljZSBhZGRyZXNzPTB4MDAwMDAwMDBjZDNhZTkwMl0g
+W3NpemU9NDIgYnl0ZXNdIFttYXBwZWQgYXMgc2luZ2xlXQpNb2R1bGVzIGxpbmtlZCBpbjoKIHNr
+Z2UgcmFpZDEgbm91dmVhdSB2aWRlbyBteG1fd21pIGkyY19hbGdvX2JpdCBkcm1fa21zX2hlbHBl
+ciB0dG0gZHJtCmkyY19jb3JlIHdtaQpDUFU6IDMgUElEOiAxNzg0IENvbW06IHNldHJvdWJsZXNo
+b290ZCBOb3QgdGFpbnRlZAozLjExLjAtMC5yYzIuZ2l0MC4xLmZjMjAueDg2XzY0LmRlYnVnICMx
+CkhhcmR3YXJlIG5hbWU6IEdpZ2FieXRlIFRlY2hub2xvZ3kgQ28uLCBMdGQuIE03MjAtVVMzL003
+MjAtVVMzLCBCSU9TIEY3bgowOS8wNy8yMDEwCiAwMDAwMDAwMDAwMDAwMDA5IGZmZmY4ODAxMmFj
+MDNjNTggZmZmZmZmZmY4MTcyZWVhYiBmZmZmODgwMTJhYzAzY2EwCiBmZmZmODgwMTJhYzAzYzkw
+IGZmZmZmZmZmODEwNzQ0ZmQgZmZmZjg4MDEyODM1M2FlMCBmZmZmODgwMTI0ZjQ4YTI4CiBmZmZm
+ZmZmZjgyYmQzYzEwIDAwMDAwMDAwMDAwMDAyODIgZmZmZmZmZmY4MWEwM2MwMyBmZmZmODgwMTJh
+YzAzY2YwCkNhbGwgVHJhY2U6CiA8SVJRPiAgWzxmZmZmZmZmZjgxNzJlZWFiPl0gZHVtcF9zdGFj
+aysweDU0LzB4NzQKIFs8ZmZmZmZmZmY4MTA3NDRmZD5dIHdhcm5fc2xvd3BhdGhfY29tbW9uKzB4
+N2QvMHhhMAogWzxmZmZmZmZmZjgxMDc0NTZjPl0gd2Fybl9zbG93cGF0aF9mbXQrMHg0Yy8weDUw
+CiBbPGZmZmZmZmZmODEzOTQzYmI+XSBjaGVja191bm1hcCsweDQ3Yi8weDkzMAogWzxmZmZmZmZm
+ZjgxMGU5MGJkPl0gPyB0cmFjZV9oYXJkaXJxc19vbisweGQvMHgxMAogWzxmZmZmZmZmZjgxMzk0
+OGNmPl0gZGVidWdfZG1hX3VubWFwX3BhZ2UrMHg1Zi8weDcwCiBbPGZmZmZmZmZmYTAxYmRkMzU+
+XSBza2dlX3BvbGwrMHhlNS8weDlkMCBbc2tnZV0KIFs8ZmZmZmZmZmY4MTVmOTA3MT5dID8gbmV0
+X3J4X2FjdGlvbisweGExLzB4MzgwCiBbPGZmZmZmZmZmODE1ZjkxNDI+XSBuZXRfcnhfYWN0aW9u
+KzB4MTcyLzB4MzgwCiBbPGZmZmZmZmZmODEwN2VmNzc+XSBfX2RvX3NvZnRpcnErMHgxMDcvMHg0
+MTAKIFs8ZmZmZmZmZmY4MTA3ZjQ1NT5dIGlycV9leGl0KzB4YzUvMHhkMAogWzxmZmZmZmZmZjgx
+NzQ0NTk2Pl0gZG9fSVJRKzB4NTYvMHhjMAogWzxmZmZmZmZmZjgxNzM4YzcyPl0gY29tbW9uX2lu
+dGVycnVwdCsweDcyLzB4NzIKIDxFT0k+ICBbPGZmZmZmZmZmODExODE1ODM+XSA/IGdldF9wYWdl
+X2Zyb21fZnJlZWxpc3QrMHg1MzMvMHg5YTAKIFs8ZmZmZmZmZmY4MTAyMTg5OT5dID8gc2NoZWRf
+Y2xvY2srMHg5LzB4MTAKIFs8ZmZmZmZmZmY4MTAyMTg5OT5dID8gc2NoZWRfY2xvY2srMHg5LzB4
+MTAKIFs8ZmZmZmZmZmY4MTE4MWJjMz5dIF9fYWxsb2NfcGFnZXNfbm9kZW1hc2srMHgxZDMvMHhi
+ZTAKIFs8ZmZmZmZmZmY4MTAyMTgyNT5dID8gbmF0aXZlX3NjaGVkX2Nsb2NrKzB4MTUvMHg4MAog
+WzxmZmZmZmZmZjgxMDIxODk5Pl0gPyBzY2hlZF9jbG9jaysweDkvMHgxMAogWzxmZmZmZmZmZjgx
+MGU5NmQ1Pl0gPyBfX2xvY2tfYWNxdWlyZSsweDJlNS8weDFiMTAKIFs8ZmZmZmZmZmY4MTBlNWVk
+Nz5dID8gX19sb2NrX2lzX2hlbGQrMHg1Ny8weDgwCiBbPGZmZmZmZmZmODExYzY2MGE+XSBhbGxv
+Y19wYWdlc192bWErMHg5YS8weDE0MAogWzxmZmZmZmZmZjgxMWE0YjZiPl0gaGFuZGxlX3B0ZV9m
+YXVsdCsweDZhYi8weDk5MAogWzxmZmZmZmZmZjgxMWE1Yzk1Pl0gaGFuZGxlX21tX2ZhdWx0KzB4
+MmE1LzB4NWMwCiBbPGZmZmZmZmZmODE3M2NjYjI+XSBfX2RvX3BhZ2VfZmF1bHQrMHgxNjIvMHg1
+YTAKIFs8ZmZmZmZmZmY4MTBlOGZlZD5dID8gdHJhY2VfaGFyZGlycXNfb25fY2FsbGVyKzB4ZmQv
+MHgxYzAKIFs8ZmZmZmZmZmY4MTBlOTBiZD5dID8gdHJhY2VfaGFyZGlycXNfb24rMHhkLzB4MTAK
+IFs8ZmZmZmZmZmY4MTczODAzYz5dID8gX3Jhd19zcGluX3VubG9ja19pcnErMHgyYy8weDUwCiBb
+PGZmZmZmZmZmODEwYjA0ZGM+XSA/IGZpbmlzaF90YXNrX3N3aXRjaCsweDdjLzB4MTIwCiBbPGZm
+ZmZmZmZmODEwYjA0OWY+XSA/IGZpbmlzaF90YXNrX3N3aXRjaCsweDNmLzB4MTIwCiBbPGZmZmZm
+ZmZmODE3MzhkMTg+XSA/IHJldGludF9zd2FwZ3MrMHgxMy8weDFiCiBbPGZmZmZmZmZmODEzN2Mw
+MmQ+XSA/IHRyYWNlX2hhcmRpcnFzX29mZl90aHVuaysweDNhLzB4M2MKIFs8ZmZmZmZmZmY4MTcz
+ZDBmZT5dIGRvX3BhZ2VfZmF1bHQrMHhlLzB4MTAKIFs8ZmZmZmZmZmY4MTczOTAwOD5dIHBhZ2Vf
+ZmF1bHQrMHgyOC8weDMwCi0tLVsgZW5kIHRyYWNlIGFiYTYxZmJlMDI5OTI0ZTcgXS0tLQpNYXBw
+ZWQgYXQ6CiBbPGZmZmZmZmZmODEzOTMxZjE+XSBkZWJ1Z19kbWFfbWFwX3BhZ2UrMHg5MS8weDE0
+MAogWzxmZmZmZmZmZmEwMWJiMTQwPl0gc2tnZV94bWl0X2ZyYW1lKzB4MTgwLzB4NWQwIFtza2dl
+XQogWzxmZmZmZmZmZjgxNWZiMWIxPl0gZGV2X2hhcmRfc3RhcnRfeG1pdCsweDMwMS8weDZkMAog
+WzxmZmZmZmZmZjgxNjFkZWFlPl0gc2NoX2RpcmVjdF94bWl0KzB4ZWUvMHgyOTAKIFs8ZmZmZmZm
+ZmY4MTVmYjdmYj5dIGRldl9xdWV1ZV94bWl0KzB4MjdiLzB4OTkwCuKApgoKCnBvbWEKCgpfX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwprZXJuZWwgbWFpbGlu
+ZyBsaXN0Cmtlcm5lbEBsaXN0cy5mZWRvcmFwcm9qZWN0Lm9yZwpodHRwczovL2FkbWluLmZlZG9y
+YXByb2plY3Qub3JnL21haWxtYW4vbGlzdGluZm8va2VybmVs
