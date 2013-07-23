@@ -1,114 +1,101 @@
 From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: [PATCH 04/13] tile: remove dead is_dup_ack() function from tilepro net driver
+Subject: [PATCH 02/13] tile: support rx_dropped/rx_errors in tilepro net driver
 Date: Tue, 23 Jul 2013 16:05:48 -0400
-Message-ID: <f968148a47ed915d265eb79b562e122985e46eb3.1374609949.git.cmetcalf@tilera.com>
+Message-ID: <a72e8cd3d32bbee420585ca2c23d0b1397165e36.1374609948.git.cmetcalf@tilera.com>
 References: <cover.1374609948.git.cmetcalf@tilera.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from usmamail.tilera.com ([12.216.194.151]:23549 "EHLO
+	USMAMAIL.TILERA.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934319Ab3GWUVd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 16:21:33 -0400
 In-Reply-To: <cover.1374609948.git.cmetcalf@tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
 ---
- drivers/net/ethernet/tile/tilepro.c | 76 -------------------------------------
- 1 file changed, 76 deletions(-)
+ drivers/net/ethernet/tile/tilepro.c | 41 ++++++++++++++-----------------------
+ 1 file changed, 15 insertions(+), 26 deletions(-)
 
 diff --git a/drivers/net/ethernet/tile/tilepro.c b/drivers/net/ethernet/tile/tilepro.c
-index dd3a39c..7182855 100644
+index 0237031..84a179e 100644
 --- a/drivers/net/ethernet/tile/tilepro.c
 +++ b/drivers/net/ethernet/tile/tilepro.c
-@@ -92,9 +92,6 @@
- /* ISSUE: This may actually hurt performance of the TCP blaster. */
- /* #define TILE_NET_GSO */
+@@ -776,6 +776,7 @@ static bool tile_net_poll_aux(struct tile_net_cpu *info, int index)
+ 	netio_pkt_t *pkt = (netio_pkt_t *)((unsigned long) &qsp[1] + index);
  
--/* Define this to collapse "duplicate" acks. */
--/* #define IGNORE_DUP_ACKS */
--
- /* HACK: Define this to verify incoming packets. */
- /* #define TILE_NET_VERIFY_INGRESS */
+ 	netio_pkt_metadata_t *metadata = NETIO_PKT_METADATA(pkt);
++	netio_pkt_status_t pkt_status = NETIO_PKT_STATUS_M(metadata, pkt);
  
-@@ -629,79 +626,6 @@ static void tile_net_handle_egress_timer(unsigned long arg)
- }
+ 	/* Extract the packet size.  FIXME: Shouldn't the second line */
+ 	/* get subtracted?  Mostly moot, since it should be "zero". */
+@@ -808,40 +809,25 @@ static bool tile_net_poll_aux(struct tile_net_cpu *info, int index)
+ #endif /* TILE_NET_DUMP_PACKETS */
  
- 
--#ifdef IGNORE_DUP_ACKS
--
--/*
-- * Help detect "duplicate" ACKs.  These are sequential packets (for a
-- * given flow) which are exactly 66 bytes long, sharing everything but
-- * ID=2@0x12, Hsum=2@0x18, Ack=4@0x2a, WinSize=2@0x30, Csum=2@0x32,
-- * Tstamps=10@0x38.  The ID's are +1, the Hsum's are -1, the Ack's are
-- * +N, and the Tstamps are usually identical.
-- *
-- * NOTE: Apparently truly duplicate acks (with identical "ack" values),
-- * should not be collapsed, as they are used for some kind of flow control.
-- */
--static bool is_dup_ack(char *s1, char *s2, unsigned int len)
--{
--	int i;
--
--	unsigned long long ignorable = 0;
--
--	/* Identification. */
--	ignorable |= (1ULL << 0x12);
--	ignorable |= (1ULL << 0x13);
--
--	/* Header checksum. */
--	ignorable |= (1ULL << 0x18);
--	ignorable |= (1ULL << 0x19);
--
--	/* ACK. */
--	ignorable |= (1ULL << 0x2a);
--	ignorable |= (1ULL << 0x2b);
--	ignorable |= (1ULL << 0x2c);
--	ignorable |= (1ULL << 0x2d);
--
--	/* WinSize. */
--	ignorable |= (1ULL << 0x30);
--	ignorable |= (1ULL << 0x31);
--
--	/* Checksum. */
--	ignorable |= (1ULL << 0x32);
--	ignorable |= (1ULL << 0x33);
--
--	for (i = 0; i < len; i++, ignorable >>= 1) {
--
--		if ((ignorable & 1) || (s1[i] == s2[i]))
--			continue;
--
--#ifdef TILE_NET_DEBUG
--		/* HACK: Mention non-timestamp diffs. */
--		if (i < 0x38 && i != 0x2f &&
--		    net_ratelimit())
--			pr_info("Diff at 0x%x\n", i);
--#endif
--
--		return false;
+ #ifdef TILE_NET_VERIFY_INGRESS
+-	if (!NETIO_PKT_L4_CSUM_CORRECT_M(metadata, pkt) &&
+-	    NETIO_PKT_L4_CSUM_CALCULATED_M(metadata, pkt)) {
+-		/* Bug 6624: Includes UDP packets with a "zero" checksum. */
+-		pr_warning("Bad L4 checksum on %d byte packet.\n", len);
 -	}
--
--#ifdef TILE_NET_NO_SUPPRESS_DUP_ACKS
--	/* HACK: Do not suppress truly duplicate ACKs. */
--	/* ISSUE: Is this actually necessary or helpful? */
--	if (s1[0x2a] == s2[0x2a] &&
--	    s1[0x2b] == s2[0x2b] &&
--	    s1[0x2c] == s2[0x2c] &&
--	    s1[0x2d] == s2[0x2d]) {
--		return false;
+-	if (!NETIO_PKT_L3_CSUM_CORRECT_M(metadata, pkt) &&
+-	    NETIO_PKT_L3_CSUM_CALCULATED_M(metadata, pkt)) {
++	if (pkt_status == NETIO_PKT_STATUS_OVERSIZE && len >= 64) {
+ 		dump_packet(buf, len, "rx");
+-		panic("Bad L3 checksum.");
 -	}
--#endif
+-	switch (NETIO_PKT_STATUS_M(metadata, pkt)) {
+-	case NETIO_PKT_STATUS_OVERSIZE:
+-		if (len >= 64) {
+-			dump_packet(buf, len, "rx");
+-			panic("Unexpected OVERSIZE.");
+-		}
+-		break;
+-	case NETIO_PKT_STATUS_BAD:
+-		pr_warning("Unexpected BAD %ld byte packet.\n", len);
++		panic("Unexpected OVERSIZE.");
+ 	}
+ #endif
+ 
+ 	filter = 0;
+ 
+-	/* ISSUE: Filter TCP packets with "bad" checksums? */
 -
--	return true;
--}
--
--#endif
--
--
--
- static void tile_net_discard_aux(struct tile_net_cpu *info, int index)
- {
- 	struct tile_netio_queue *queue = &info->queue;
+-	if (!(dev->flags & IFF_UP)) {
++	if (pkt_status == NETIO_PKT_STATUS_BAD) {
++		/* Handle CRC error and hardware truncation. */
++		filter = 2;
++	} else if (!(dev->flags & IFF_UP)) {
+ 		/* Filter packets received before we're up. */
+ 		filter = 1;
+-	} else if (NETIO_PKT_STATUS_M(metadata, pkt) == NETIO_PKT_STATUS_BAD) {
++	} else if (NETIO_PKT_ETHERTYPE_RECOGNIZED_M(metadata, pkt) &&
++		   pkt_status == NETIO_PKT_STATUS_UNDERSIZE) {
+ 		/* Filter "truncated" packets. */
+-		filter = 1;
++		filter = 2;
+ 	} else if (!(dev->flags & IFF_PROMISC)) {
+-		/* FIXME: Implement HW multicast filter. */
+ 		if (!is_multicast_ether_addr(buf)) {
+ 			/* Filter packets not for our address. */
+ 			const u8 *mine = dev->dev_addr;
+@@ -849,9 +835,12 @@ static bool tile_net_poll_aux(struct tile_net_cpu *info, int index)
+ 		}
+ 	}
+ 
+-	if (filter) {
++	if (filter != 0) {
+ 
+-		/* ISSUE: Update "drop" statistics? */
++		if (filter == 1)
++			stats->rx_dropped++;
++		else
++			stats->rx_errors++;
+ 
+ 		tile_net_provide_linux_buffer(info, va, small);
+ 
 -- 
 1.8.3.1
