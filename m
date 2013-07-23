@@ -1,50 +1,36 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: 3.11-rc regression bisected: s2disk does not work (was Re: [PATCH
- v3 13/16] futex: use freezable blocking call)
-Date: Mon, 22 Jul 2013 17:32:48 -0700
-Message-ID: <CA+55aFzUVPJe96z8V0F-znc8ZcpJid7LEeYww80M-Mx=S91tAA@mail.gmail.com>
-References: <1367884221-20462-1-git-send-email-ccross@android.com>
-	<1367884221-20462-14-git-send-email-ccross@android.com>
-	<20130723010250.5a3465ec@xenia.leun.net>
-	<CAMbhsRQv+W897_5qGuNJD47jQ9ozN6KxeCa6UJAvZpqVuBpQ4w@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: TCP_NOSENT_LOWAT socket option
+Date: Mon, 22 Jul 2013 17:40:13 -0700
+Message-ID: <1374540013.4990.100.camel@edumazet-glaptop>
+References: <1374520422.4990.33.camel@edumazet-glaptop>
+	 <51ED9957.9070107@hp.com> <1374533052.4990.89.camel@edumazet-glaptop>
+	 <51EDBB8B.2000805@hp.com> <1374538422.4990.99.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Michael Leun <lkml20130126@newton.leun.net>,
-	lkml <linux-kernel@vger.kernel.org>, Pavel Machek <pavel@ucw.cz>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Mandeep Singh Baines <msb@chromium.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	linux-nfs <linux-nfs@vger.kernel.org>,
-	Linux PM list <linux-pm@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>,
-	Darren Hart <dvhart@linux.intel.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Randy Dunlap <rdunlap@infradead.org>,
-	Al Viro <viro@zeniv.linux.org.uk>
-To: Colin Cross <ccross@android.com>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <CAMbhsRQv+W897_5qGuNJD47jQ9ozN6KxeCa6UJAvZpqVuBpQ4w@mail.gmail.com>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Michael Kerrisk <mtk.manpages@gmail.com>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f43.google.com ([209.85.219.43]:40998 "EHLO
+	mail-oa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751589Ab3GWAkS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 20:40:18 -0400
+Received: by mail-oa0-f43.google.com with SMTP id i7so9774620oag.2
+        for <netdev@vger.kernel.org>; Mon, 22 Jul 2013 17:40:15 -0700 (PDT)
+In-Reply-To: <1374538422.4990.99.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 22, 2013 at 4:55 PM, Colin Cross <ccross@android.com> wrote:
->
-> I think the right solution is to add a flag to the freezing task that
-> marks it unfreezable.  I  think PF_NOFREEZE would work, although it is
-> normally used on kernel threads, can you see if the attached patch
-> helps?
+On Mon, 2013-07-22 at 17:13 -0700, Eric Dumazet wrote:
 
-Hmm. That does seem to be the right thing to do, but I wonder about
-the *other* callers of freeze_processes() IOW, kexec and friends.
+> 
+>  Performance counter stats for './netperf -H 10.246.17.84 -l 20 -t TCP_SENDFILE -c':
+> 
+>            714,395 context-switches                                            
 
-So maybe we should do this in {freeze|thaw}_processes() itself, and
-just make the rule be that the caller of freeze_processes() itself is
-obviously not frozen, and has to be the same one that then thaws
-things?
-
-Colin? Rafael? Comments?
-
-                Linus
+Hmm, actually I need to send a v3, because sk_stream_write_space() is
+waking sockets too often.
