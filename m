@@ -1,105 +1,70 @@
-From: Colin Cross <ccross@android.com>
-Subject: Re: 3.11-rc regression bisected: s2disk does not work (was Re: [PATCH
- v3 13/16] futex: use freezable blocking call)
-Date: Tue, 23 Jul 2013 11:29:57 -0700
-Message-ID: <CAMbhsRT6zOKLhG_uh=nA8H_3d7afhG+4jvWjvidY3fEguryP_Q@mail.gmail.com>
-References: <1367884221-20462-1-git-send-email-ccross@android.com>
-	<1367884221-20462-14-git-send-email-ccross@android.com>
-	<20130723010250.5a3465ec@xenia.leun.net>
-	<CAMbhsRQv+W897_5qGuNJD47jQ9ozN6KxeCa6UJAvZpqVuBpQ4w@mail.gmail.com>
-	<20130723200854.2046296b@xenia.leun.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net: fix comment above build_skb()
+Date: Tue, 23 Jul 2013 19:46:15 +0100
+Message-ID: <1374605175.2072.5.camel@bwh-desktop.uk.level5networks.com>
+References: <1374593943-31642-1-git-send-email-f.fainelli@gmail.com>
+	 <1374594559.3449.17.camel@edumazet-glaptop>
+	 <CAGVrzcZ6=591=sY6kVVrwy4BHN_0LoMZ=u2yz88QyBUvtSOydA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: lkml <linux-kernel@vger.kernel.org>, Pavel Machek <pavel@ucw.cz>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Mandeep Singh Baines <msb@chromium.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	linux-nfs <linux-nfs@vger.kernel.org>,
-	Linux PM list <linux-pm@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Tejun Heo <tj@kernel.org>,
-	Darren Hart <dvhart@linux.intel.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Randy Dunlap <rdunlap@infradead.org>,
-	Al Viro <viro@zeniv.linux.org.uk>
-To: Michael Leun <lkml20130126@newton.leun.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f182.google.com ([209.85.214.182]:63520 "EHLO
-	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933660Ab3GWS36 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 14:29:58 -0400
-Received: by mail-ob0-f182.google.com with SMTP id va7so10756250obc.41
-        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 11:29:57 -0700 (PDT)
-In-Reply-To: <20130723200854.2046296b@xenia.leun.net>
+Received: from webmail.solarflare.com ([12.187.104.25]:22267 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933830Ab3GWSqT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 14:46:19 -0400
+In-Reply-To: <CAGVrzcZ6=591=sY6kVVrwy4BHN_0LoMZ=u2yz88QyBUvtSOydA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 23, 2013 at 11:08 AM, Michael Leun
-<lkml20130126@newton.leun.net> wrote:
-> On Mon, 22 Jul 2013 16:55:58 -0700
-> Colin Cross <ccross@android.com> wrote:
->
->> On Mon, Jul 22, 2013 at 4:02 PM, Michael Leun
->> <lkml20130126@newton.leun.net> wrote:
->> > On Mon,  6 May 2013 16:50:18 -0700
->> > Colin Cross <ccross@android.com> wrote:
->> >
->> >> Avoid waking up every thread sleeping in a futex_wait call during
->> > [...]
->> >
->> > With 3.11-rc s2disk from suspend-utils stopped working: Frozen at
->> > displaying 0% of saving image to disk.
->> >
->> > echo "1" >/sys/power/state still works.
->> >
->> > Bisecting yielded 88c8004fd3a5fdd2378069de86b90b21110d33a4,
->> > reverting that from 3.11-rc2 makes s2disk working again.
->> >
->>
->> I think the expanded use of the freezable_* helpers is exposing an
->> existing bug in hibernation.  The SNAPSHOT_FREEZE ioctl calls
->> freeze_processes(), which sets the global system_freezing_cnt and
->> pm_freezing.  try_to_freeze_tasks then sends every process except
->> current a signal which causes them all to end up in the refrigerator.
->> The current task then returns back to userspace and continues its work
->> to suspend to disk.  If that task ever hits a call to try_to_freeze()
->> in the kernel, it will see system_freezing_cnt and pm_freezing=true
->> and freeze, and suspend to disk will hang forever.  It could hit
->> try_to_freeze() because of a signal delivered to the task, or from
->> calling any syscall that uses a freezable_* helper like the one I
->> added to sys_futex.
->>
->> I think the right solution is to add a flag to the freezing task that
->> marks it unfreezable.  I  think PF_NOFREEZE would work, although it is
->> normally used on kernel threads, can you see if the attached patch
->> helps?
->
-> That patch helps.
->
-> BTW, the only machine I can reproduce this bug with is an i7-3630QM
-> notebook. Cannot reproduce on an Core Duo U1400 and cannot reproduce on
-> an i7 M 620.
->
-> Are the sysreq backtraces still wanted? If so, any tip, how I could get
-> them saved?
->
->
-> --
-> MfG,
->
-> Michael Leun
->
+On Tue, 2013-07-23 at 19:04 +0100, Florian Fainelli wrote:
+> 2013/7/23 Eric Dumazet <eric.dumazet@gmail.com>:
+> > On Tue, 2013-07-23 at 16:39 +0100, Florian Fainelli wrote:
+> >> build_skb() specifies that the data parameter must come from a kmalloc'd
+> >> area, this is only true if frag_size equals 0, because then build_skb()
+> >> will use kzsize(data) to figure out the actual data size. Update the
+> >> comment to reflect that special condition.
+> >>
+> >> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> >> ---
+> >>  net/core/skbuff.c | 3 ++-
+> >>  1 file changed, 2 insertions(+), 1 deletion(-)
+> >>
+> >> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> >> index 20e02d2..d3174db 100644
+> >> --- a/net/core/skbuff.c
+> >> +++ b/net/core/skbuff.c
+> >> @@ -309,7 +309,8 @@ EXPORT_SYMBOL(__alloc_skb);
+> >>   * @frag_size: size of fragment, or 0 if head was kmalloced
+> >>   *
+> >>   * Allocate a new &sk_buff. Caller provides space holding head and
+> >> - * skb_shared_info. @data must have been allocated by kmalloc()
+> >> + * skb_shared_info. @data must have been allocated by kmalloc() only if
+> >> + * @frag_size is 0.
+> >>   * The return is the new skb buffer.
+> >>   * On a failure the return is %NULL, and @data is not freed.
+> >>   * Notes :
+> >
+> > Hmm, why not explaining the other case ? (frag_size > 0)
+> 
+> Sure, would something like:
+> 
+> "@data must have been allocated by kmalloc() if frag_size is 0,
+> otherwise any data buffer (vmalloc, DMA..) is suitable"
 
-Any chance that the failing machine has threads=y in the suspend.conf file?
+The other case is that the buffer must have been allocated using the
+page allocator directly.  It will be freed using
+put_page(virt_to_head_page(data)).
 
-Rafael, it appears that swsusp's suspend.c spawns new threads after
-calling the SNAPSHOT_FREEZE ioctl.  The PF_NOFREEZE (or the new flag)
-will get copied to those new threads, but nothing will clear the flag.
- Should I just assume that the userspace suspend code will kill those
-threads before continuing with suspend?  Or maybe add a WARN_ON in the
-kernel if any threads besides current have the new flag set when the
-suspend ops that assume all of userspace is frozen are called?
+Using vmalloc() to allocate the buffer would definitely be incorrect.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
