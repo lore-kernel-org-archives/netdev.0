@@ -1,7 +1,7 @@
 From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: [PATCH 01/13] tile: handle 64-bit statistics in tilepro network driver
+Subject: [PATCH 03/13] tile: avoid bug in tilepro net driver built with old hypervisor
 Date: Tue, 23 Jul 2013 16:05:48 -0400
-Message-ID: <40362053a9f02d56a4f0c07a9982d96203723ec8.1374609948.git.cmetcalf@tilera.com>
+Message-ID: <4d602fd8ffd49c45009124507eb08d4169e782cb.1374609948.git.cmetcalf@tilera.com>
 References: <cover.1374609948.git.cmetcalf@tilera.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,93 +11,47 @@ In-Reply-To: <cover.1374609948.git.cmetcalf@tilera.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Building against headers from an older Tilera hypervisor can cause
+the frags[] array to be overrun.  Don't enable TSO in that case.
+
 Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
 ---
- drivers/net/ethernet/tile/tilepro.c | 42 ++++++++++++++++++-------------------
- 1 file changed, 20 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/tile/tilepro.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/tile/tilepro.c b/drivers/net/ethernet/tile/tilepro.c
-index 3643549..0237031 100644
+index 84a179e..dd3a39c 100644
 --- a/drivers/net/ethernet/tile/tilepro.c
 +++ b/drivers/net/ethernet/tile/tilepro.c
-@@ -156,10 +156,14 @@ struct tile_netio_queue {
-  * Statistics counters for a specific cpu and device.
-  */
- struct tile_net_stats_t {
--	u32 rx_packets;
--	u32 rx_bytes;
--	u32 tx_packets;
--	u32 tx_bytes;
-+	u64 rx_packets;		/* total packets received	*/
-+	u64 tx_packets;		/* total packets transmitted	*/
-+	u64 rx_bytes;		/* total bytes received 	*/
-+	u64 tx_bytes;		/* total bytes transmitted	*/
-+	u64 rx_errors;		/* packets truncated or marked bad by hw */
-+	u64 tx_errors;		/* (not currently used)		*/
-+	u64 rx_dropped;		/* packets not for us or intf not up */
-+	u64 tx_dropped;		/* (not currently used)		*/
- };
+@@ -1927,7 +1927,7 @@ static int tile_net_tx(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	unsigned int csum_start = skb_checksum_start_offset(skb);
+ 
+-	lepp_frag_t frags[LEPP_MAX_FRAGS];
++	lepp_frag_t frags[1 + MAX_SKB_FRAGS];
+ 
+ 	unsigned int num_frags;
+ 
+@@ -1942,7 +1942,7 @@ static int tile_net_tx(struct sk_buff *skb, struct net_device *dev)
+ 	unsigned int cmd_head, cmd_tail, cmd_next;
+ 	unsigned int comp_tail;
+ 
+-	lepp_cmd_t cmds[LEPP_MAX_FRAGS];
++	lepp_cmd_t cmds[1 + MAX_SKB_FRAGS];
  
  
-@@ -218,8 +222,6 @@ struct tile_net_priv {
- 	int network_cpus_count;
- 	/* Credits per network cpu. */
- 	int network_cpus_credits;
--	/* Network stats. */
--	struct net_device_stats stats;
- 	/* For NetIO bringup retries. */
- 	struct delayed_work retry_work;
- 	/* Quick access to per cpu data. */
-@@ -2127,30 +2129,26 @@ static int tile_net_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
-  *
-  * Returns the address of the device statistics structure.
-  */
--static struct net_device_stats *tile_net_get_stats(struct net_device *dev)
-+static struct rtnl_link_stats64 *tile_net_get_stats64(struct net_device *dev,
-+		struct rtnl_link_stats64 *stats)
- {
- 	struct tile_net_priv *priv = netdev_priv(dev);
--	u32 rx_packets = 0;
--	u32 tx_packets = 0;
--	u32 rx_bytes = 0;
--	u32 tx_bytes = 0;
- 	int i;
+ 	/*
+@@ -2309,8 +2309,9 @@ static void tile_net_setup(struct net_device *dev)
+ 	/* We support scatter/gather. */
+ 	dev->features |= NETIF_F_SG;
  
- 	for_each_online_cpu(i) {
- 		if (priv->cpu[i]) {
--			rx_packets += priv->cpu[i]->stats.rx_packets;
--			rx_bytes += priv->cpu[i]->stats.rx_bytes;
--			tx_packets += priv->cpu[i]->stats.tx_packets;
--			tx_bytes += priv->cpu[i]->stats.tx_bytes;
-+			stats->rx_packets += priv->cpu[i]->stats.rx_packets;
-+			stats->tx_packets += priv->cpu[i]->stats.tx_packets;
-+			stats->rx_bytes += priv->cpu[i]->stats.rx_bytes;
-+			stats->tx_bytes += priv->cpu[i]->stats.tx_bytes;
-+			stats->rx_errors += priv->cpu[i]->stats.rx_errors;
-+			stats->tx_errors += priv->cpu[i]->stats.tx_errors;
-+			stats->rx_dropped += priv->cpu[i]->stats.rx_dropped;
-+			stats->tx_dropped += priv->cpu[i]->stats.tx_dropped;
- 		}
- 	}
+-	/* We support TSO. */
+-	dev->features |= NETIF_F_TSO;
++	/* We support TSO iff the HV supports sufficient frags. */
++	if (LEPP_MAX_FRAGS >= 1 + MAX_SKB_FRAGS)
++		dev->features |= NETIF_F_TSO;
  
--	priv->stats.rx_packets = rx_packets;
--	priv->stats.rx_bytes = rx_bytes;
--	priv->stats.tx_packets = tx_packets;
--	priv->stats.tx_bytes = tx_bytes;
--
--	return &priv->stats;
-+	return stats;
- }
- 
- 
-@@ -2287,7 +2285,7 @@ static const struct net_device_ops tile_net_ops = {
- 	.ndo_stop = tile_net_stop,
- 	.ndo_start_xmit = tile_net_tx,
- 	.ndo_do_ioctl = tile_net_ioctl,
--	.ndo_get_stats = tile_net_get_stats,
-+	.ndo_get_stats64 = tile_net_get_stats64,
- 	.ndo_change_mtu = tile_net_change_mtu,
- 	.ndo_tx_timeout = tile_net_tx_timeout,
- 	.ndo_set_mac_address = tile_net_set_mac_address,
+ #ifdef TILE_NET_GSO
+ 	/* We support GSO. */
 -- 
 1.8.3.1
