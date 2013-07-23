@@ -1,77 +1,84 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/1] TX throttling bug-fixing patch of AX88179_178A
-Date: Mon, 22 Jul 2013 23:10:27 -0700
-Message-ID: <1374559827.4990.143.camel@edumazet-glaptop>
-References: <1374311809-4155-1-git-send-email-freddy@asix.com.tw>
-	 <1374512879.4990.19.camel@edumazet-glaptop>
-	 <CANEJEGvPc56ePP=_bxfA4PZfsM3vw=MsRjbWwrFBC3eP-GtzZg@mail.gmail.com>
-	 <1374518312.1635.29.camel@bwh-desktop.uk.level5networks.com>
-	 <1374518841.4990.26.camel@edumazet-glaptop>
-	 <1374522471.1635.48.camel@bwh-desktop.uk.level5networks.com>
+From: Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: 3.11-rc regression bisected: s2disk does not work (was Re: [PATCH
+ v3 13/16] futex: use freezable blocking call)
+Date: Mon, 22 Jul 2013 23:28:34 -0700
+Message-ID: <CAMbhsRSsq0pgS6KvCjiFGneDEJd6zSXsYB_2MCV=sh+6F2muog@mail.gmail.com>
+References: <1367884221-20462-1-git-send-email-ccross@android.com>
+	<CA+55aFzUVPJe96z8V0F-znc8ZcpJid7LEeYww80M-Mx=S91tAA@mail.gmail.com>
+	<CAMbhsRReF9xB597i9CcCj7D1P5kvB4cc0JmDQYeboqi11Kp99A@mail.gmail.com>
+	<15305281.aClQ8XUG9t@vostro.rjw.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	ASIX Louis =?UTF-8?Q?=5B=E8=98=87=E5=A8=81=E9=99=B8=5D?=
-	<louis-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>, Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-To: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1374522471.1635.48.camel-/LGg1Z1CJKQ+9kgCwbf1HqK4ta4zdZpAajtMo4Cw6ucAvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Michael Leun <lkml20130126-yS7QfQBdiAdyjo5WHAzKoQ@public.gmane.org>,
+	lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Mandeep Singh Baines <msb-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	linux-nfs <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM list <linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Darren Hart <dvhart-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <15305281.aClQ8XUG9t-sKB8Sp2ER+y1GS7QM15AGw@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-07-22 at 20:47 +0100, Ben Hutchings wrote:
-> On Mon, 2013-07-22 at 11:47 -0700, Eric Dumazet wrote:
-> > On Mon, 2013-07-22 at 19:38 +0100, Ben Hutchings wrote:
-> > > On Mon, 2013-07-22 at 11:29 -0700, Grant Grundler wrote:
-> > > > On Mon, Jul 22, 2013 at 10:07 AM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> > > > ...
-> > > > > I guess that if a driver does not advertise NETIF_F_SG, this
-> > > > > skb_linearize() call is not needed : All frames reaching your xmit
-> > > > > function should already be linear
-> > > > 
-> > > > As Ben Hutchings pointed out, hw_features is still setting this...but
-> > > > I'm not sure how that matters.
-> > > > 
-> > > > ax88179_set_features() doesn't allow setting SG or TSO features.  But
-> > > > I expect it would be "not too difficult" to add such that ethtool
-> > > > could set those features after boot.
-> > > [...]
-> > > 
-> > > It already can.  That's what putting feature flags in hw_features does.
-> > 
-> > My original concern, that inspired this patch, was to remove SG support,
-> > as this driver does not have SG support at all.
-> > 
-> > Linearize a full TSO packet needs order-5 allocations, thats likely to
-> > fail and lead to very slow TCP performance, because it will only rely on
-> > retransmits.
-> 
-> The driver could set gso_max_size to reduce that problem.  But I rather
-> doubt that TSO followed by skb_linearize() significantly improves
-> throughput or CPU-efficiency.  (If the device has a 1G link but is
-> connected to the host through a USB 2.0 port, then USB is the bottleneck
-> and TSO could improve throughput a few percent.  But that's a silly
-> configuration.)
-> 
-> The real solution would be for someone to add SG support to the usbnet
-> core.  Trying to support 1GbE with only linear skbs is not a great
-> idea... and it can only be a matter of time before there is USB ultra
-> speed (or whatever comes after 'super') with 10GbE devices...
-> 
+On Mon, Jul 22, 2013 at 6:41 PM, Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org> wrote:
+> On Monday, July 22, 2013 05:42:49 PM Colin Cross wrote:
+>> On Mon, Jul 22, 2013 at 5:32 PM, Linus Torvalds
+>> <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> wrote:
+>> > On Mon, Jul 22, 2013 at 4:55 PM, Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org> wrote:
+>> >>
+>> >> I think the right solution is to add a flag to the freezing task that
+>> >> marks it unfreezable.  I  think PF_NOFREEZE would work, although it is
+>> >> normally used on kernel threads, can you see if the attached patch
+>> >> helps?
+>> >
+>> > Hmm. That does seem to be the right thing to do, but I wonder about
+>> > the *other* callers of freeze_processes() IOW, kexec and friends.
+>> >
+>> > So maybe we should do this in {freeze|thaw}_processes() itself, and
+>> > just make the rule be that the caller of freeze_processes() itself is
+>> > obviously not frozen, and has to be the same one that then thaws
+>> > things?
+>> >
+>> > Colin? Rafael? Comments?
+>> >
+>> >                 Linus
+>>
+>> I was worried about clearing the flag in thaw_processes().  If a
+>> kernel thread with PF_NOFREEZE set ever called thaw_processes(), which
+>> autosleep might do, it would clear the flag.  Or if a different thread
+>> called freeze_processes() and thaw_processes().
+>
+> Is that legitimate?
 
-This sounds a good idea.
+Nothing precludes it today, but I don't see any need for it.  I'll add
+a comment when I add the flag.
 
-Is anybody working on adding SG to usbnet ?
+>> All the other callers besides the SNAPSHOT_FREEZE ioctl stay in the kernel
+>> between freeze_processes() and thaw_processes(), which makes the fanout of
+>> places that could call try_to_freeze() much more controllable.
+>>
+>> Using a new flag that operates like PF_NOFREEZE but doesn't conflict
+>> with it, or a nofreeze_depth counter, would also work.
+>
+> Well, that would be robust enough.  At least if the purpose of that new flag
+> is clearly specified, people hopefully won't be tempted to optimize it away in
+> the future.
+>
+> Thanks,
+> Rafael
 
-
-
+OK, I'll add a new flag.
 --
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
