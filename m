@@ -1,92 +1,124 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next v2 5/6] vxlan: Add tx-vlan offload support.
-Date: Tue, 23 Jul 2013 20:27:51 +0100
-Message-ID: <1374607671.2072.16.camel@bwh-desktop.uk.level5networks.com>
-References: <1374603770-15567-1-git-send-email-pshelar@nicira.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH v3 net-next 2/2] tcp: TCP_NOTSENT_LOWAT socket option
+Date: Tue, 23 Jul 2013 15:28:54 -0400
+Message-ID: <CADVnQy=Js2tmhUYx6XueC-cLHWoi7BuB9q-FZsB8vqkVCaF7BA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <stephen@networkplumber.org>
-To: Pravin B Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Rick Jones <rick.jones2@hp.com>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Michael Kerrisk <mtk.manpages@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:8132 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933884Ab3GWT1z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 15:27:55 -0400
-In-Reply-To: <1374603770-15567-1-git-send-email-pshelar@nicira.com>
+Received: from mail-ee0-f54.google.com ([74.125.83.54]:49722 "EHLO
+	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933944Ab3GWT24 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 15:28:56 -0400
+Received: by mail-ee0-f54.google.com with SMTP id t10so4712346eei.27
+        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 12:28:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-07-23 at 11:22 -0700, Pravin B Shelar wrote:
-> Following patch allows transmit side vlan offload for vxlan
-> devices.
-> 
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-> ---
->  drivers/net/vxlan.c |   15 ++++++++++++++-
->  1 files changed, 14 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 1ca7ca3..f76c09c 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -27,6 +27,7 @@
->  #include <linux/igmp.h>
->  #include <linux/etherdevice.h>
->  #include <linux/if_ether.h>
-> +#include <linux/if_vlan.h>
->  #include <linux/hash.h>
->  #include <linux/ethtool.h>
->  #include <net/arp.h>
-> @@ -1076,13 +1077,23 @@ int vxlan_xmit_skb(struct net *net, struct vxlan_handler *vh,
->  	}
->  
->  	min_headroom = LL_RESERVED_SPACE(rt->dst.dev) + rt->dst.header_len
-> -			+ VXLAN_HLEN + sizeof(struct iphdr);
-> +			+ VXLAN_HLEN + sizeof(struct iphdr)
-> +			+ (vlan_tx_tag_present(skb) ? VLAN_HLEN : 0);
->  
->  	/* Need space for new headers (invalidates iph ptr) */
->  	err = skb_cow_head(skb, min_headroom);
->  	if (unlikely(err))
->  		return err;
->  
-> +	if (vlan_tx_tag_present(skb)) {
-> +		if (unlikely(!__vlan_put_tag(skb,
-> +					     skb->vlan_proto,
-> +					     vlan_tx_tag_get(skb))))
-> +			return -ENOMEM;
+On Mon, Jul 22, 2013 at 11:27 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> Idea of this patch is to add optional limitation of number of
+> unsent bytes in TCP sockets, to reduce usage of kernel memory.
+>
+> TCP receiver might announce a big window, and TCP sender autotuning
+> might allow a large amount of bytes in write queue, but this has little
+> performance impact if a large part of this buffering is wasted :
+>
+> Write queue needs to be large only to deal with large BDP, not
+> necessarily to cope with scheduling delays (incoming ACKS make room
+> for the application to queue more bytes)
+>
+> For most workloads, using a value of 128 KB or less is OK to give
+> applications enough time to react to POLLOUT events in time
+> (or being awaken in a blocking sendmsg())
+>
+> This patch adds two ways to set the limit :
+>
+> 1) Per socket option TCP_NOTSENT_LOWAT
+>
+> 2) A sysctl (/proc/sys/net/ipv4/tcp_notsent_lowat) for sockets
+> not using TCP_NOTSENT_LOWAT socket option (or setting a zero value)
+> Default value being UINT_MAX (0xFFFFFFFF), meaning this has no effect.
+>
+>
+> This changes poll()/select()/epoll() to report POLLOUT
+> only if number of unsent bytes is below tp->nosent_lowat
+>
+> Note this might increase number of sendmsg()/sendfile() calls
+> when using non blocking sockets,
+> and increase number of context switches for blocking sockets.
+>
+> Note this is not related to SO_SNDLOWAT (as SO_SNDLOWAT is
+> defined as :
+>  Specify the minimum number of bytes in the buffer until
+>  the socket layer will pass the data to the protocol)
+>
+> Tested:
+>
+> netperf sessions, and watching /proc/net/protocols "memory" column for TCP
+>
+> With 200 concurrent netperf -t TCP_STREAM sessions, amount of kernel memory
+> used by TCP buffers shrinks by ~55 % (20567 pages instead of 45458)
+>
+> lpq83:~# echo -1 >/proc/sys/net/ipv4/tcp_notsent_lowat
+> lpq83:~# (super_netperf 200 -t TCP_STREAM -H remote -l 90 &); sleep 60 ; grep TCP /proc/net/protocols
+> TCPv6     1880      2   45458   no     208   yes  ipv6        y  y  y  y  y  y  y  y  y  y  y  y  y  n  y  y  y  y  y
+> TCP       1696    508   45458   no     208   yes  kernel      y  y  y  y  y  y  y  y  y  y  y  y  y  n  y  y  y  y  y
+>
+> lpq83:~# echo 131072 >/proc/sys/net/ipv4/tcp_notsent_lowat
+> lpq83:~# (super_netperf 200 -t TCP_STREAM -H remote -l 90 &); sleep 60 ; grep TCP /proc/net/protocols
+> TCPv6     1880      2   20567   no     208   yes  ipv6        y  y  y  y  y  y  y  y  y  y  y  y  y  n  y  y  y  y  y
+> TCP       1696    508   20567   no     208   yes  kernel      y  y  y  y  y  y  y  y  y  y  y  y  y  n  y  y  y  y  y
+>
+> Using 128KB has no bad effect on the throughput or cpu usage
+> of a single flow, although there is an increase of context switches.
+>
+> A bonus is that we hold socket lock for a shorter amount
+> of time and should improve latencies of ACK processing.
+>
+> lpq83:~# echo -1 >/proc/sys/net/ipv4/tcp_notsent_lowat
+> lpq83:~# perf stat -e context-switches ./netperf -H 7.7.7.84 -t omni -l 20 -c -i10,3
+> OMNI Send TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 7.7.7.84 () port 0 AF_INET : +/-2.500% @ 99% conf.
+> Local       Remote      Local  Elapsed Throughput Throughput  Local Local  Remote Remote Local   Remote  Service
+> Send Socket Recv Socket Send   Time               Units       CPU   CPU    CPU    CPU    Service Service Demand
+> Size        Size        Size   (sec)                          Util  Util   Util   Util   Demand  Demand  Units
+> Final       Final                                             %     Method %      Method
+> 1651584     6291456     16384  20.00   17447.90   10^6bits/s  3.13  S      -1.00  U      0.353   -1.000  usec/KB
+>
+>  Performance counter stats for './netperf -H 7.7.7.84 -t omni -l 20 -c -i10,3':
+>
+>            412,514 context-switches
+>
+>      200.034645535 seconds time elapsed
+>
+> lpq83:~# echo 131072 >/proc/sys/net/ipv4/tcp_notsent_lowat
+> lpq83:~# perf stat -e context-switches ./netperf -H 7.7.7.84 -t omni -l 20 -c -i10,3
+> OMNI Send TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 7.7.7.84 () port 0 AF_INET : +/-2.500% @ 99% conf.
+> Local       Remote      Local  Elapsed Throughput Throughput  Local Local  Remote Remote Local   Remote  Service
+> Send Socket Recv Socket Send   Time               Units       CPU   CPU    CPU    CPU    Service Service Demand
+> Size        Size        Size   (sec)                          Util  Util   Util   Util   Demand  Demand  Units
+> Final       Final                                             %     Method %      Method
+> 1593240     6291456     16384  20.00   17321.16   10^6bits/s  3.35  S      -1.00  U      0.381   -1.000  usec/KB
+>
+>  Performance counter stats for './netperf -H 7.7.7.84 -t omni -l 20 -c -i10,3':
+>
+>          2,675,818 context-switches
+>
+>      200.029651391 seconds time elapsed
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
 
-This can't fail since we already did skb_cow_head().  So a WARN_ON()
-might be appropriate.
 
-> +		skb->vlan_tci = 0;
-> +	}
-> +
->  	vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
->  	vxh->vx_flags = htonl(VXLAN_FLAGS);
->  	vxh->vx_vni = vni;
-> @@ -1486,6 +1497,8 @@ static void vxlan_setup(struct net_device *dev)
->  	dev->features   |= NETIF_F_RXCSUM;
->  	dev->features   |= NETIF_F_GSO_SOFTWARE;
->  
-> +	dev->vlan_features = dev->features;
-> +	dev->features |= NETIF_F_HW_VLAN_CTAG_TX;
+Acked-by: Neal Cardwell <ncardwell@google.com>
 
-You can also add NETIF_F_HW_VLAN_STAG_TX.
 
->  	dev->hw_features |= NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
->  	dev->hw_features |= NETIF_F_GSO_SOFTWARE;
-
-Should the VLAN TX features also be included in dev->hw_features?  (I'm
-not sure why you'd want to turn them off, but they are usually made
-optional.)
-
-Ben.
-
->  	dev->priv_flags	&= ~IFF_XMIT_DST_RELEASE;
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+[apologies for the dup, patchworks didn't seem to like my last email,
+I think perhaps due to a missing final newline...]
