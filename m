@@ -1,47 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next 2/2] tcp: TCP_NOTSENT_LOWAT socket option
-Date: Tue, 23 Jul 2013 09:48:18 -0700
-Message-ID: <1374598098.3449.39.camel@edumazet-glaptop>
-References: <1374550027.4990.141.camel@edumazet-glaptop>
-	 <51EEA089.3040904@hp.com> <1374594244.3449.13.camel@edumazet-glaptop>
-	 <51EEAD54.2040603@hp.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next] pktgen: Add UDPCSUM flag to support UDP
+ checksums
+Date: Tue, 23 Jul 2013 18:15:45 +0100
+Message-ID: <20130723171545.GB16761@casper.infradead.org>
+References: <7a919a32ea457c580cf35c3a1b394d5ff041a441.1374596306.git.tgraf@suug.ch>
+ <1374597252.3449.26.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Michael Kerrisk <mtk.manpages@gmail.com>
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:43025 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932764Ab3GWQsV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 12:48:21 -0400
-Received: by mail-pb0-f54.google.com with SMTP id ro2so8649287pbb.41
-        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 09:48:20 -0700 (PDT)
-In-Reply-To: <51EEAD54.2040603@hp.com>
+Received: from casper.infradead.org ([85.118.1.10]:58501 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756755Ab3GWRPr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 13:15:47 -0400
+Content-Disposition: inline
+In-Reply-To: <1374597252.3449.26.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-07-23 at 09:20 -0700, Rick Jones wrote:
+On 07/23/13 at 09:34am, Eric Dumazet wrote:
+> > @@ -2747,11 +2755,31 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+> >  	iph->frag_off = 0;
+> >  	iplen = 20 + 8 + datalen;
+> >  	iph->tot_len = htons(iplen);
+> > -	iph->check = 0;
+> > -	iph->check = ip_fast_csum((void *)iph, iph->ihl);
+> 
+> This seems not relevant to your patch.
 
-> Right - I am questioning whether it is worth the CPU increase.
+I'll split this into a separate patch.
 
-There is no cpu increase for common workloads, and hosts can save GB of
-precious memory thanks to this patch.
+> What about IPv6 side ?
 
-There is a cpu increase only for 'netperf' kind of program, relying on
-blocking sendmsg() and using one thread per socket, _if_ and only _if_
-they set a crazy notsent_lowat value.
-
-Remember I forced nobody to do that. Its like forcing SO_SNDBUF with one
-byte, and SO_RCVBUF with one byte, and expecting good line rate
-performance !
-
-This patch changes the threshold to get the 'socket is writeable'
-POLLOUT event, and avoid filling socket write queues with too many
-packets.
-
-Like all thresholds, it has to be properly used.
+IPv6 is dead ;-) Just kidding, I'll add the bits in case someone
+thinks otherwise.
