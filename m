@@ -1,51 +1,68 @@
 From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
-Subject: [PATCH iproute2] add prefixlength option to "ip rule"
-Date: Wed, 24 Jul 2013 00:21:01 +0200
-Message-ID: <20130723222101.GQ10216@zirkel.wertarbyte.de>
+Subject: [PATCH] fib_rules: add minimum prefix length
+Date: Wed, 24 Jul 2013 00:02:21 +0200
+Message-ID: <20130723220221.GP10216@zirkel.wertarbyte.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zirkel.wertarbyte.de ([188.40.44.137]:53684 "EHLO
+Received: from zirkel.wertarbyte.de ([188.40.44.137]:52187 "EHLO
 	zirkel.wertarbyte.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933734Ab3GWWVE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 18:21:04 -0400
+	with ESMTP id S933930Ab3GWWVg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 18:21:36 -0400
 Received: from stefan by zirkel.wertarbyte.de with local (Exim 4.72)
 	(envelope-from <stefan.tomanek@wertarbyte.de>)
-	id 1V1kx3-0005MD-Ga
-	for netdev@vger.kernel.org; Wed, 24 Jul 2013 00:21:01 +0200
+	id 1V1kez-000573-WB
+	for netdev@vger.kernel.org; Wed, 24 Jul 2013 00:02:22 +0200
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This change adds a minimum prefix length to the structures of routing rules.
+If a rule is added with a minimum prefix length >0, only routes meeting this
+threshold will be considered. Any other (more general) routing table entries
+will be ignored.
+
 When configuring a system with multiple network uplinks and default routes, it
 is often convinient to reference the main routing table multiple times - but
-omitting the default route. Using this modified "ip" utility and the
-corresponding kernel patch, this can be achieved by using the following command
-sequence:
+omitting the default route. Using this patch and a modified "ip" utility, this
+can be achieved by using the following command sequence:
 
-$ ip route add table secuplink default via 10.42.23.1
+  $ ip route add table secuplink default via 10.42.23.1
 
-$ ip rule add pref 100            table main prefixlength 1
-$ ip rule add pref 150 fwmark 0xA table secuplink
+  $ ip rule add pref 100            table main prefixlength 1
+  $ ip rule add pref 150 fwmark 0xA table secuplink
 
 With this setup, packets marked 0xA will be processed by the additional routing
 table "secuplink", but only if no suitable route in the main routing table can
-be found. By using a minimum prefixlength of 1, the default route (/0) of the
+be found. By using a minimal prefixlength of 1, the default route (/0) of the
 table "main" is hidden to packets processed by rule 100; packets traveling to
-destinations via more specific routes are processed as usual.
+destinations with more specific routing entries are processed as usual.
 
 Signed-off-by: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
 ---
- include/linux/fib_rules.h |    2 +-
- ip/iprule.c               |   19 ++++++++++++++++---
- man/man8/ip-rule.8        |    9 +++++++++
- 3 files changed, 26 insertions(+), 4 deletions(-)
+ include/net/fib_rules.h        |    1 +
+ include/uapi/linux/fib_rules.h |    2 +-
+ net/core/fib_rules.c           |    5 +++++
+ net/ipv4/fib_rules.c           |   11 ++++++++++-
+ 4 files changed, 17 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/fib_rules.h b/include/linux/fib_rules.h
+diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+index e361f48..b098a9d 100644
+--- a/include/net/fib_rules.h
++++ b/include/net/fib_rules.h
+@@ -18,6 +18,7 @@ struct fib_rule {
+ 	u32			pref;
+ 	u32			flags;
+ 	u32			table;
++	u8			table_prefixlen_min;
+ 	u8			action;
+ 	u32			target;
+ 	struct fib_rule __rcu	*ctarget;
+diff --git a/include/uapi/linux/fib_rules.h b/include/uapi/linux/fib_rules.h
 index 51da65b..59cd31b 100644
---- a/include/linux/fib_rules.h
-+++ b/include/linux/fib_rules.h
+--- a/include/uapi/linux/fib_rules.h
++++ b/include/uapi/linux/fib_rules.h
 @@ -45,7 +45,7 @@ enum {
  	FRA_FLOW,	/* flow/class id */
  	FRA_UNUSED6,
@@ -55,77 +72,58 @@ index 51da65b..59cd31b 100644
  	FRA_TABLE,	/* Extended table id */
  	FRA_FWMASK,	/* mask for netfilter mark */
  	FRA_OIFNAME,
-diff --git a/ip/iprule.c b/ip/iprule.c
-index a5fcd43..0fa174a 100644
---- a/ip/iprule.c
-+++ b/ip/iprule.c
-@@ -35,7 +35,7 @@ static void usage(void)
- 	fprintf(stderr, "Usage: ip rule [ list | add | del | flush ] SELECTOR ACTION\n");
- 	fprintf(stderr, "SELECTOR := [ not ] [ from PREFIX ] [ to PREFIX ] [ tos TOS ] [ fwmark FWMARK[/MASK] ]\n");
- 	fprintf(stderr, "            [ iif STRING ] [ oif STRING ] [ pref NUMBER ]\n");
--	fprintf(stderr, "ACTION := [ table TABLE_ID ]\n");
-+	fprintf(stderr, "ACTION := [ table TABLE_ID [ prefixlength NUMBER ] ]\n");
- 	fprintf(stderr, "          [ prohibit | reject | unreachable ]\n");
- 	fprintf(stderr, "          [ realms [SRCREALM/]DSTREALM ]\n");
- 	fprintf(stderr, "          [ goto NUMBER ]\n");
-@@ -153,9 +153,15 @@ int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 	}
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 2173544..8a15621 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -337,6 +337,8 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
+ 	rule->action = frh->action;
+ 	rule->flags = frh->flags;
+ 	rule->table = frh_get_table(frh, tb);
++	if (tb[FRA_TABLE_PREFIXLEN_MIN])
++		rule->table_prefixlen_min = nla_get_u8(tb[FRA_TABLE_PREFIXLEN_MIN]);
  
- 	table = rtm_get_table(r, tb);
--	if (table)
-+	if (table) {
- 		fprintf(fp, "lookup %s ", rtnl_rttable_n2a(table, b1, sizeof(b1)));
--
-+		if (tb[FRA_TABLE_PREFIXLEN_MIN]) {
-+			__u8 pl = rta_getattr_u8(tb[FRA_TABLE_PREFIXLEN_MIN]);
-+			if (pl) {
-+				fprintf(fp, "prefixlength %u ", pl);
-+			}
+ 	if (!tb[FRA_PRIORITY] && ops->default_pref)
+ 		rule->pref = ops->default_pref(ops);
+@@ -523,6 +525,7 @@ static inline size_t fib_rule_nlmsg_size(struct fib_rules_ops *ops,
+ 			 + nla_total_size(IFNAMSIZ) /* FRA_OIFNAME */
+ 			 + nla_total_size(4) /* FRA_PRIORITY */
+ 			 + nla_total_size(4) /* FRA_TABLE */
++			 + nla_total_size(1) /* FRA_TABLE_PREFIXLEN_MIN */
+ 			 + nla_total_size(4) /* FRA_FWMARK */
+ 			 + nla_total_size(4); /* FRA_FWMASK */
+ 
+@@ -548,6 +551,8 @@ static int fib_nl_fill_rule(struct sk_buff *skb, struct fib_rule *rule,
+ 	frh->table = rule->table;
+ 	if (nla_put_u32(skb, FRA_TABLE, rule->table))
+ 		goto nla_put_failure;
++	if (nla_put_u8(skb, FRA_TABLE_PREFIXLEN_MIN, rule->table_prefixlen_min))
++		goto nla_put_failure;
+ 	frh->res1 = 0;
+ 	frh->res2 = 0;
+ 	frh->action = rule->action;
+diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+index 26aa65d..94e9051 100644
+--- a/net/ipv4/fib_rules.c
++++ b/net/ipv4/fib_rules.c
+@@ -95,8 +95,17 @@ static int fib4_rule_action(struct fib_rule *rule, struct flowi *flp,
+ 		goto errout;
+ 
+ 	err = fib_table_lookup(tbl, &flp->u.ip4, (struct fib_result *) arg->result, arg->flags);
+-	if (err > 0)
++	if (err > 0) {
+ 		err = -EAGAIN;
++		goto errout;
++	}
++	/* do not accept result if the route does not meet the required prefix length */
++	if (arg->result) {
++		if (((struct fib_result *)arg->result)->prefixlen < rule->table_prefixlen_min) {
++			err = -EAGAIN;
++			goto errout;
 +		}
 +	}
- 	if (tb[FRA_FLOW]) {
- 		__u32 to = rta_getattr_u32(tb[FRA_FLOW]);
- 		__u32 from = to>>16;
-@@ -310,6 +316,13 @@ static int iprule_modify(int cmd, int argc, char **argv)
- 				addattr32(&req.n, sizeof(req), FRA_TABLE, tid);
- 			}
- 			table_ok = 1;
-+		} else if (matches(*argv, "prefixlength") == 0 ||
-+			   strcmp(*argv, "pl") == 0) {
-+			__u8 pl;
-+			NEXT_ARG();
-+			if (get_u8(&pl, *argv, 0))
-+				invarg("prefixlength value is invalid\n", *argv);
-+			addattr8(&req.n, sizeof(req), FRA_TABLE_PREFIXLEN_MIN, pl);
- 		} else if (strcmp(*argv, "dev") == 0 ||
- 			   strcmp(*argv, "iif") == 0) {
- 			NEXT_ARG();
-diff --git a/man/man8/ip-rule.8 b/man/man8/ip-rule.8
-index 36e46f1..ae72fe5 100644
---- a/man/man8/ip-rule.8
-+++ b/man/man8/ip-rule.8
-@@ -39,6 +39,9 @@ ip-rule \- routing policy database management
- .IR ACTION " := [ "
- .B  table
- .IR TABLE_ID " ] [ "
-+.IR TABLE_ID " ] [ "
-+.B  prefixlength
-+.IR NUMBER " ] [ "
- .B  nat
- .IR ADDRESS " ] [ "
- .BR prohibit " | " reject " | " unreachable " ] [ " realms
-@@ -217,6 +220,12 @@ the routing table identifier to lookup if the rule selector matches.
- It is also possible to use lookup instead of table.
- 
- .TP
-+.BI prefixlength " NUMBER"
-+only consider routes that have a minimum prefix length of NUMBER.
-+Entries inside the referenced table with a lower prefix length
-+will be ignored.
-+
-+.TP
- .BI realms " FROM/TO"
- Realms to select if the rule matched and the routing table lookup
- succeeded.  Realm
+ errout:
+ 	return err;
+ }
 -- 
 1.7.10.4
