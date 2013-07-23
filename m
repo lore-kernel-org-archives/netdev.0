@@ -1,54 +1,52 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 6/6] be2net: delete primary MAC address while unloading
-Date: Tue, 23 Jul 2013 15:25:04 +0530
-Message-ID: <1374573304-6865-7-git-send-email-sathya.perla@emulex.com>
-References: <1374573304-6865-1-git-send-email-sathya.perla@emulex.com>
+From: Peter Wu <lekensteyn@gmail.com>
+Subject: r8169: remove "PHY reset until link up" log spam
+Date: Tue, 23 Jul 2013 11:55:57 +0200
+Message-ID: <4961229.bXDGvH0dpz@al>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	nic_swsd@realtek.com
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:49018 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756355Ab3GWJwE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 05:52:04 -0400
-In-Reply-To: <1374573304-6865-1-git-send-email-sathya.perla@emulex.com>
+Received: from mail-bk0-f54.google.com ([209.85.214.54]:34338 "EHLO
+	mail-bk0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756075Ab3GWJ4C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 05:56:02 -0400
+Received: by mail-bk0-f54.google.com with SMTP id it16so2915164bkc.13
+        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 02:56:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently the UC-list is being deleted from the HW MAC table, but the primary
-MAC is not.
+This message was added in commit a7154cb8 (June 2004) and is printed
+every ten seconds when no cable is connected.
 
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+Signed-off-by: Peter Wu <lekensteyn@gmail.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+Using ethtool to silence *all* link warnings is still a manual
+operation, in my opinion not acceptable so let's remove this message.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 9b22791..7c6f03c 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2790,7 +2790,7 @@ done:
+The r8169 constantly resets the device when no link is connected,
+contrary the r8168 vendor driver which only resets the link when some
+PCI config fields have been modified. As the current reset logic in r8168
+seems to work for broken device (which I do not have have and therefore
+cannot test), I did not attempt to "clean this up".
+---
+ drivers/net/ethernet/realtek/r8169.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 880015c..63f04af 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -3689,8 +3689,6 @@ static void rtl_phy_work(struct rtl8169_private *tp)
+ 	if (tp->link_ok(ioaddr))
+ 		return;
  
- static int be_clear(struct be_adapter *adapter)
- {
--	int i = 1;
-+	int i;
+-	netif_warn(tp, link, tp->dev, "PHY reset until link up\n");
+-
+ 	tp->phy_reset_enable(tp);
  
- 	if (adapter->flags & BE_FLAGS_WORKER_SCHEDULED) {
- 		cancel_delayed_work_sync(&adapter->work);
-@@ -2800,9 +2800,11 @@ static int be_clear(struct be_adapter *adapter)
- 	if (sriov_enabled(adapter))
- 		be_vf_clear(adapter);
- 
--	for (; adapter->uc_macs > 0; adapter->uc_macs--, i++)
-+	/* delete the primary mac along with the uc-mac list */
-+	for (i = 0; i < (adapter->uc_macs + 1); i++)
- 		be_cmd_pmac_del(adapter, adapter->if_handle,
--			adapter->pmac_id[i], 0);
-+				adapter->pmac_id[i], 0);
-+	adapter->uc_macs = 0;
- 
- 	be_cmd_if_destroy(adapter, adapter->if_handle,  0);
- 
+ out_mod_timer:
 -- 
-1.7.1
+1.8.3.3
