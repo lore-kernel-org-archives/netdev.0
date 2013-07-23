@@ -1,36 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v2 0/3] add support for peer notifications and
- igmp rejoins for team
-Date: Tue, 23 Jul 2013 16:54:25 -0700 (PDT)
-Message-ID: <20130723.165425.1866178315491625952.davem@davemloft.net>
-References: <1374315234-7096-1-git-send-email-jiri@resnulli.us>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] TX throttling bug-fixing patch of AX88179_178A
+Date: Tue, 23 Jul 2013 16:56:53 -0700
+Message-ID: <1374623813.3449.52.camel@edumazet-glaptop>
+References: <1374518841.4990.26.camel@edumazet-glaptop>
+	 <1374522471.1635.48.camel@bwh-desktop.uk.level5networks.com>
+	 <1374559827.4990.143.camel@edumazet-glaptop>
+	 <20130723.164656.1794159338719943519.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	kaber@trash.net, stephen@networkplumber.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, edumazet@google.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51009 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934085Ab3GWXy2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 19:54:28 -0400
-In-Reply-To: <1374315234-7096-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bhutchings@solarflare.com, oliver@neukum.org, grundler@google.com,
+	freddy@asix.com.tw, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
+	louis@asix.com.tw, allan@asix.com.tw
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130723.164656.1794159338719943519.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Sat, 20 Jul 2013 12:13:51 +0200
-
-> The middle patch adjusts core infrastructure so the bonding code can be
-> generalized and reused by team.
+On Tue, 2013-07-23 at 16:46 -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 22 Jul 2013 23:10:27 -0700
 > 
-> v1->v2: using msecs_to_jiffies() as suggested by Eric
+> > On Mon, 2013-07-22 at 20:47 +0100, Ben Hutchings wrote:
+> >> The real solution would be for someone to add SG support to the usbnet
+> >> core.  Trying to support 1GbE with only linear skbs is not a great
+> >> idea... and it can only be a matter of time before there is USB ultra
+> >> speed (or whatever comes after 'super') with 10GbE devices...
+> >> 
+> > 
+> > This sounds a good idea.
+> > 
+> > Is anybody working on adding SG to usbnet ?
 > 
-> Jiri Pirko (3):
->   team: add peer notification
->   net: convert resend IGMP to notifier event
->   team: add support for sending multicast rejoins
+> This is a good long-term plan, but right now we have to do something
+> reasonable.
+> 
+> A quick scan shows that smsc75xx, smsc95xx, and ax88179_178a all have
+> this problem.
+> 
+> Instead of the patch starting this thread, I'd like to see one that
+> hits all three drivers and removes all SG and TSO features bits from
+> both the ->features _and_ ->hw_features settings.
+> 
+> Could someone toss that together quickly?
 
-Series applied, thanks Jiri.
+Yes, I can prepare this patch.
