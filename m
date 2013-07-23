@@ -1,39 +1,39 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next 3/7] inetpeer: use generic union inet_addr
-Date: Tue, 23 Jul 2013 11:38:15 +0800
-Message-ID: <1374550695.24933.19.camel@cr0>
-References: <1374476713-8838-1-git-send-email-amwang@redhat.com>
-	 <1374476713-8838-4-git-send-email-amwang@redhat.com>
-	 <1374506315.4990.14.camel@edumazet-glaptop> <1374545131.24933.4.camel@cr0>
-	 <1374546371.4990.113.camel@edumazet-glaptop>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v3 net-next 2/2] tcp: TCP_NOTSENT_LOWAT socket option
+Date: Tue, 23 Jul 2013 05:52:02 +0200
+Message-ID: <20130723035202.GA32523@order.stressinduktion.org>
+References: <1374550027.4990.141.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>,
+	Rick Jones <rick.jones2@hp.com>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Michael Kerrisk <mtk.manpages@gmail.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14721 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753253Ab3GWDiZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Jul 2013 23:38:25 -0400
-In-Reply-To: <1374546371.4990.113.camel@edumazet-glaptop>
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:33379 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752559Ab3GWDwE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 23:52:04 -0400
+Content-Disposition: inline
+In-Reply-To: <1374550027.4990.141.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-07-22 at 19:26 -0700, Eric Dumazet wrote:
-> You are sending a patch with possible performance impact, and you only
-> says "its safe", without any real study. It might have an impact, who
-> knows.
-> 
-> I said "its no big deal", so consider this as an informative message. 
+On Mon, Jul 22, 2013 at 08:27:07PM -0700, Eric Dumazet wrote:
+> Note this is not related to SO_SNDLOWAT (as SO_SNDLOWAT is
+> defined as :
+>  Specify the minimum number of bytes in the buffer until
+>  the socket layer will pass the data to the protocol)
 
-Yeah.
+Oh, I had another understanding of SO_SNDLOWAT in my head: The minimum amount
+of free write space in the socket buffer so that select/poll reports POLLOUT.
 
-So changing from struct inetpeer_addr to union inet_addr just adds few
-bytes (8 bytes if I don't make mistake) to struct tcp_metrics_block,
-therefore should not cause performance issue on 32bit and 64bit?
+In my previous mail I was specifically referring to the optimization in
+sk_stream_write_space() and not to the whole TCP_NOTSEND_LOWAT knob.
 
-BTW, I tried to use pahole to get the offsets of these fields, but it
-doesn't work for me.
+Thanks,
 
-Thanks!
+  Hannes
