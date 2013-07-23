@@ -1,341 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v3 net-next 2/2] tcp: TCP_NOTSENT_LOWAT socket option
-Date: Mon, 22 Jul 2013 20:27:07 -0700
-Message-ID: <1374550027.4990.141.camel@edumazet-glaptop>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next 3/7] inetpeer: use generic union inet_addr
+Date: Tue, 23 Jul 2013 11:38:15 +0800
+Message-ID: <1374550695.24933.19.camel@cr0>
+References: <1374476713-8838-1-git-send-email-amwang@redhat.com>
+	 <1374476713-8838-4-git-send-email-amwang@redhat.com>
+	 <1374506315.4990.14.camel@edumazet-glaptop> <1374545131.24933.4.camel@cr0>
+	 <1374546371.4990.113.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hp.com>, netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Michael Kerrisk <mtk.manpages@gmail.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:45767 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754565Ab3GWD1L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 23:27:11 -0400
-Received: by mail-pb0-f53.google.com with SMTP id xb12so7830251pbc.26
-        for <netdev@vger.kernel.org>; Mon, 22 Jul 2013 20:27:10 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:14721 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753253Ab3GWDiZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Jul 2013 23:38:25 -0400
+In-Reply-To: <1374546371.4990.113.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Mon, 2013-07-22 at 19:26 -0700, Eric Dumazet wrote:
+> You are sending a patch with possible performance impact, and you only
+> says "its safe", without any real study. It might have an impact, who
+> knows.
+> 
+> I said "its no big deal", so consider this as an informative message. 
 
-Idea of this patch is to add optional limitation of number of
-unsent bytes in TCP sockets, to reduce usage of kernel memory.
+Yeah.
 
-TCP receiver might announce a big window, and TCP sender autotuning
-might allow a large amount of bytes in write queue, but this has little
-performance impact if a large part of this buffering is wasted :
+So changing from struct inetpeer_addr to union inet_addr just adds few
+bytes (8 bytes if I don't make mistake) to struct tcp_metrics_block,
+therefore should not cause performance issue on 32bit and 64bit?
 
-Write queue needs to be large only to deal with large BDP, not
-necessarily to cope with scheduling delays (incoming ACKS make room
-for the application to queue more bytes)
+BTW, I tried to use pahole to get the offsets of these fields, but it
+doesn't work for me.
 
-For most workloads, using a value of 128 KB or less is OK to give
-applications enough time to react to POLLOUT events in time
-(or being awaken in a blocking sendmsg())
-
-This patch adds two ways to set the limit :
-
-1) Per socket option TCP_NOTSENT_LOWAT
-
-2) A sysctl (/proc/sys/net/ipv4/tcp_notsent_lowat) for sockets
-not using TCP_NOTSENT_LOWAT socket option (or setting a zero value)
-Default value being UINT_MAX (0xFFFFFFFF), meaning this has no effect.
-
-
-This changes poll()/select()/epoll() to report POLLOUT 
-only if number of unsent bytes is below tp->nosent_lowat
-
-Note this might increase number of sendmsg()/sendfile() calls
-when using non blocking sockets,
-and increase number of context switches for blocking sockets.
-
-Note this is not related to SO_SNDLOWAT (as SO_SNDLOWAT is
-defined as :
- Specify the minimum number of bytes in the buffer until
- the socket layer will pass the data to the protocol)
-
-Tested:
-
-netperf sessions, and watching /proc/net/protocols "memory" column for TCP
-
-With 200 concurrent netperf -t TCP_STREAM sessions, amount of kernel memory
-used by TCP buffers shrinks by ~55 % (20567 pages instead of 45458)
-
-lpq83:~# echo -1 >/proc/sys/net/ipv4/tcp_notsent_lowat
-lpq83:~# (super_netperf 200 -t TCP_STREAM -H remote -l 90 &); sleep 60 ; grep TCP /proc/net/protocols
-TCPv6     1880      2   45458   no     208   yes  ipv6        y  y  y  y  y  y  y  y  y  y  y  y  y  n  y  y  y  y  y
-TCP       1696    508   45458   no     208   yes  kernel      y  y  y  y  y  y  y  y  y  y  y  y  y  n  y  y  y  y  y
-
-lpq83:~# echo 131072 >/proc/sys/net/ipv4/tcp_notsent_lowat
-lpq83:~# (super_netperf 200 -t TCP_STREAM -H remote -l 90 &); sleep 60 ; grep TCP /proc/net/protocols
-TCPv6     1880      2   20567   no     208   yes  ipv6        y  y  y  y  y  y  y  y  y  y  y  y  y  n  y  y  y  y  y
-TCP       1696    508   20567   no     208   yes  kernel      y  y  y  y  y  y  y  y  y  y  y  y  y  n  y  y  y  y  y
-
-Using 128KB has no bad effect on the throughput or cpu usage
-of a single flow, although there is an increase of context switches.
-
-A bonus is that we hold socket lock for a shorter amount
-of time and should improve latencies of ACK processing.
-
-lpq83:~# echo -1 >/proc/sys/net/ipv4/tcp_notsent_lowat
-lpq83:~# perf stat -e context-switches ./netperf -H 7.7.7.84 -t omni -l 20 -c -i10,3
-OMNI Send TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 7.7.7.84 () port 0 AF_INET : +/-2.500% @ 99% conf. 
-Local       Remote      Local  Elapsed Throughput Throughput  Local Local  Remote Remote Local   Remote  Service  
-Send Socket Recv Socket Send   Time               Units       CPU   CPU    CPU    CPU    Service Service Demand   
-Size        Size        Size   (sec)                          Util  Util   Util   Util   Demand  Demand  Units    
-Final       Final                                             %     Method %      Method                          
-1651584     6291456     16384  20.00   17447.90   10^6bits/s  3.13  S      -1.00  U      0.353   -1.000  usec/KB  
-
- Performance counter stats for './netperf -H 7.7.7.84 -t omni -l 20 -c -i10,3':
-
-           412,514 context-switches                                            
-
-     200.034645535 seconds time elapsed
-
-lpq83:~# echo 131072 >/proc/sys/net/ipv4/tcp_notsent_lowat
-lpq83:~# perf stat -e context-switches ./netperf -H 7.7.7.84 -t omni -l 20 -c -i10,3
-OMNI Send TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 7.7.7.84 () port 0 AF_INET : +/-2.500% @ 99% conf. 
-Local       Remote      Local  Elapsed Throughput Throughput  Local Local  Remote Remote Local   Remote  Service  
-Send Socket Recv Socket Send   Time               Units       CPU   CPU    CPU    CPU    Service Service Demand   
-Size        Size        Size   (sec)                          Util  Util   Util   Util   Demand  Demand  Units    
-Final       Final                                             %     Method %      Method                          
-1593240     6291456     16384  20.00   17321.16   10^6bits/s  3.35  S      -1.00  U      0.381   -1.000  usec/KB  
-
- Performance counter stats for './netperf -H 7.7.7.84 -t omni -l 20 -c -i10,3':
-
-         2,675,818 context-switches                                            
-
-     200.029651391 seconds time elapsed
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
----
-v3: use the sk_stream_is_writeable() helper and fix the too many wakeup issue
-v2: title/changelog fix (TCP_NOSENT_LOWAT -> TCP_NOTSENT_LOWAT)
-
- Documentation/networking/ip-sysctl.txt |   13 +++++++++++++
- include/linux/tcp.h                    |    1 +
- include/net/sock.h                     |   19 +++++++++++++------
- include/net/tcp.h                      |   14 ++++++++++++++
- include/uapi/linux/tcp.h               |    1 +
- net/ipv4/sysctl_net_ipv4.c             |    7 +++++++
- net/ipv4/tcp.c                         |    7 +++++++
- net/ipv4/tcp_ipv4.c                    |    1 +
- net/ipv4/tcp_output.c                  |    3 +++
- net/ipv6/tcp_ipv6.c                    |    1 +
- 10 files changed, 61 insertions(+), 6 deletions(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 1074290..53cea9b 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -516,6 +516,19 @@ tcp_wmem - vector of 3 INTEGERs: min, default, max
- 	this value is ignored.
- 	Default: between 64K and 4MB, depending on RAM size.
- 
-+tcp_notsent_lowat - UNSIGNED INTEGER
-+	A TCP socket can control the amount of unsent bytes in its write queue,
-+	thanks to TCP_NOTSENT_LOWAT socket option. poll()/select()/epoll()
-+	reports POLLOUT events if the amount of unsent bytes is below a per
-+	socket value, and if the write queue is not full. sendmsg() will
-+	also not add new buffers if the limit is hit.
-+
-+	This global variable controls the amount of unsent data for
-+	sockets not using TCP_NOTSENT_LOWAT. For these sockets, a change
-+	to the global variable has immediate effect.
-+
-+	Default: UINT_MAX (0xFFFFFFFF)
-+
- tcp_workaround_signed_windows - BOOLEAN
- 	If set, assume no receipt of a window scaling option means the
- 	remote TCP is broken and treats the window as a signed quantity.
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 472120b..9640803 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -238,6 +238,7 @@ struct tcp_sock {
- 
-  	u32	rcv_wnd;	/* Current receiver window		*/
- 	u32	write_seq;	/* Tail(+1) of data held in tcp send buffer */
-+	u32	notsent_lowat;	/* TCP_NOTSENT_LOWAT */
- 	u32	pushed_seq;	/* Last pushed seq, required to talk to windows */
- 	u32	lost_out;	/* Lost packets			*/
- 	u32	sacked_out;	/* SACK'd packets			*/
-diff --git a/include/net/sock.h b/include/net/sock.h
-index d0b5fde..b9f2b09 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -746,11 +746,6 @@ static inline int sk_stream_wspace(const struct sock *sk)
- 
- extern void sk_stream_write_space(struct sock *sk);
- 
--static inline bool sk_stream_memory_free(const struct sock *sk)
--{
--	return sk->sk_wmem_queued < sk->sk_sndbuf;
--}
--
- /* OOB backlog add */
- static inline void __sk_add_backlog(struct sock *sk, struct sk_buff *skb)
- {
-@@ -950,6 +945,7 @@ struct proto {
- 	unsigned int		inuse_idx;
- #endif
- 
-+	bool			(*stream_memory_free)(const struct sock *sk);
- 	/* Memory pressure */
- 	void			(*enter_memory_pressure)(struct sock *sk);
- 	atomic_long_t		*memory_allocated;	/* Current allocated memory. */
-@@ -1088,11 +1084,22 @@ static inline struct cg_proto *parent_cg_proto(struct proto *proto,
- }
- #endif
- 
-+static inline bool sk_stream_memory_free(const struct sock *sk)
-+{
-+	if (sk->sk_wmem_queued >= sk->sk_sndbuf)
-+		return false;
-+
-+	return sk->sk_prot->stream_memory_free ?
-+		sk->sk_prot->stream_memory_free(sk) : true;
-+}
-+
- static inline bool sk_stream_is_writeable(const struct sock *sk)
- {
--	return sk_stream_wspace(sk) >= sk_stream_min_wspace(sk);
-+	return sk_stream_wspace(sk) >= sk_stream_min_wspace(sk) &&
-+	       sk_stream_memory_free(sk);
- }
- 
-+
- static inline bool sk_has_memory_pressure(const struct sock *sk)
- {
- 	return sk->sk_prot->memory_pressure != NULL;
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index c586847..18fc999 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -284,6 +284,7 @@ extern int sysctl_tcp_thin_dupack;
- extern int sysctl_tcp_early_retrans;
- extern int sysctl_tcp_limit_output_bytes;
- extern int sysctl_tcp_challenge_ack_limit;
-+extern unsigned int sysctl_tcp_notsent_lowat;
- 
- extern atomic_long_t tcp_memory_allocated;
- extern struct percpu_counter tcp_sockets_allocated;
-@@ -1539,6 +1540,19 @@ extern int tcp_gro_complete(struct sk_buff *skb);
- extern void __tcp_v4_send_check(struct sk_buff *skb, __be32 saddr,
- 				__be32 daddr);
- 
-+static inline u32 tcp_notsent_lowat(const struct tcp_sock *tp)
-+{
-+	return tp->notsent_lowat ?: sysctl_tcp_notsent_lowat;
-+}
-+
-+static inline bool tcp_stream_memory_free(const struct sock *sk)
-+{
-+	const struct tcp_sock *tp = tcp_sk(sk);
-+	u32 notsent_bytes = tp->write_seq - tp->snd_nxt;
-+
-+	return notsent_bytes < tcp_notsent_lowat(tp);
-+}
-+
- #ifdef CONFIG_PROC_FS
- extern int tcp4_proc_init(void);
- extern void tcp4_proc_exit(void);
-diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
-index 8d776eb..377f1e5 100644
---- a/include/uapi/linux/tcp.h
-+++ b/include/uapi/linux/tcp.h
-@@ -111,6 +111,7 @@ enum {
- #define TCP_REPAIR_OPTIONS	22
- #define TCP_FASTOPEN		23	/* Enable FastOpen on listeners */
- #define TCP_TIMESTAMP		24
-+#define TCP_NOTSENT_LOWAT	25	/* limit number of unsent bytes in write queue */
- 
- struct tcp_repair_opt {
- 	__u32	opt_code;
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index b2c123c..69ed203 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -555,6 +555,13 @@ static struct ctl_table ipv4_table[] = {
- 		.extra1		= &one,
- 	},
- 	{
-+		.procname	= "tcp_notsent_lowat",
-+		.data		= &sysctl_tcp_notsent_lowat,
-+		.maxlen		= sizeof(sysctl_tcp_notsent_lowat),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
-+	{
- 		.procname	= "tcp_rmem",
- 		.data		= &sysctl_tcp_rmem,
- 		.maxlen		= sizeof(sysctl_tcp_rmem),
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 5eca906..c27e813 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2631,6 +2631,10 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 		else
- 			tp->tsoffset = val - tcp_time_stamp;
- 		break;
-+	case TCP_NOTSENT_LOWAT:
-+		tp->notsent_lowat = val;
-+		sk->sk_write_space(sk);
-+		break;
- 	default:
- 		err = -ENOPROTOOPT;
- 		break;
-@@ -2847,6 +2851,9 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
- 	case TCP_TIMESTAMP:
- 		val = tcp_time_stamp + tp->tsoffset;
- 		break;
-+	case TCP_NOTSENT_LOWAT:
-+		val = tp->notsent_lowat;
-+		break;
- 	default:
- 		return -ENOPROTOOPT;
- 	}
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 2e3f129..2a5d5c4 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -2800,6 +2800,7 @@ struct proto tcp_prot = {
- 	.unhash			= inet_unhash,
- 	.get_port		= inet_csk_get_port,
- 	.enter_memory_pressure	= tcp_enter_memory_pressure,
-+	.stream_memory_free	= tcp_stream_memory_free,
- 	.sockets_allocated	= &tcp_sockets_allocated,
- 	.orphan_count		= &tcp_orphan_count,
- 	.memory_allocated	= &tcp_memory_allocated,
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 92fde8d..884efff 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -65,6 +65,9 @@ int sysctl_tcp_base_mss __read_mostly = TCP_BASE_MSS;
- /* By default, RFC2861 behavior.  */
- int sysctl_tcp_slow_start_after_idle __read_mostly = 1;
- 
-+unsigned int sysctl_tcp_notsent_lowat __read_mostly = UINT_MAX;
-+EXPORT_SYMBOL(sysctl_tcp_notsent_lowat);
-+
- static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
- 			   int push_one, gfp_t gfp);
- 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 80fe69e..b792e87 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1924,6 +1924,7 @@ struct proto tcpv6_prot = {
- 	.unhash			= inet_unhash,
- 	.get_port		= inet_csk_get_port,
- 	.enter_memory_pressure	= tcp_enter_memory_pressure,
-+	.stream_memory_free	= tcp_stream_memory_free,
- 	.sockets_allocated	= &tcp_sockets_allocated,
- 	.memory_allocated	= &tcp_memory_allocated,
- 	.memory_pressure	= &tcp_memory_pressure,
+Thanks!
