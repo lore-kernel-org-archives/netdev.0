@@ -1,59 +1,48 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: TUN/TAP: tap driver reports bogus interface speed in ethtool
- operations
-Date: Tue, 23 Jul 2013 08:49:01 -0700
-Message-ID: <51EEA5ED.6080404@hp.com>
-References: <2F174B03-5074-4BA0-B91A-8F2F62C2B082@cygnusnetworks.de> <5192BDD6.6060703@qti.qualcomm.com> <3E916AF0-C587-443D-B653-C968A96C8751@cygnusnetworks.de> <48A2F278-A32C-47C6-AD2D-1FC15EC73B88@cygnusnetworks.de> <51E5BE27.3060207@qti.qualcomm.com> <E4A37B97-95FE-42C3-AD78-119BA406A44A@cygnusnetworks.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: fix comment above build_skb()
+Date: Tue, 23 Jul 2013 08:49:19 -0700
+Message-ID: <1374594559.3449.17.camel@edumazet-glaptop>
+References: <1374593943-31642-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Max Krasnyansky <maxk@qti.qualcomm.com>
-To: Helmut Grohne <h.grohne@cygnusnetworks.de>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:20384 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933437Ab3GWPtF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 11:49:05 -0400
-In-Reply-To: <E4A37B97-95FE-42C3-AD78-119BA406A44A@cygnusnetworks.de>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:59220 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932481Ab3GWPt1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 11:49:27 -0400
+Received: by mail-pd0-f179.google.com with SMTP id q10so8220058pdj.38
+        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 08:49:26 -0700 (PDT)
+In-Reply-To: <1374593943-31642-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/23/2013 06:32 AM, Helmut Grohne wrote:
->
-> On 16.07.2013, at 23:41, Max Krasnyansky <maxk@qti.qualcomm.com> wrote:
->> The patch looks fine to me (must admit that I only glanced at it). Please send it to the netdev
->> mailing list netdev@vger.kernel.org, if you have't already done so.
->> CC David Miller <davem@davemloft.net> and me.
->
-> Doing that. Now summarizing the issue for the new recipients:
->
-> Problem:
->
-> When querying a tap device for its speed using ethtool the tun driver reports a speed
-> of SPEED_10. This number is hard coded into the driver. Nowadays virtual network devices
-> can go way faster than that. When doing automatic bandwidth monitoring based on the
-> speed reported by ethtool, tap devices tend to come up as false positives. Arguably the
-> hard coded speed is wrong.
->
-> Proposed solution:
->
-> To that end I propose supporting the ETHTOOL_SSET command in addition to the already
-> supported ETHTOOL_GSET. It would deny setting any setting except for the bandwidth
-> where it would allow arbitrary values. You can find this patch attached.
->
-> With this patch an administrator can increase the reported speed for tap devices and
-> keep using automatic detection of interface speeds.
->
-> Workarounds:
->
-> Using ethtool a detection utility can determine the driver for an interface. If the
-> driver matches the string "tun", the reported speed should not be used.
->
-> Helmut
->
+On Tue, 2013-07-23 at 16:39 +0100, Florian Fainelli wrote:
+> build_skb() specifies that the data parameter must come from a kmalloc'd
+> area, this is only true if frag_size equals 0, because then build_skb()
+> will use kzsize(data) to figure out the actual data size. Update the
+> comment to reflect that special condition.
+> 
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  net/core/skbuff.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 20e02d2..d3174db 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -309,7 +309,8 @@ EXPORT_SYMBOL(__alloc_skb);
+>   * @frag_size: size of fragment, or 0 if head was kmalloced
+>   *
+>   * Allocate a new &sk_buff. Caller provides space holding head and
+> - * skb_shared_info. @data must have been allocated by kmalloc()
+> + * skb_shared_info. @data must have been allocated by kmalloc() only if
+> + * @frag_size is 0.
+>   * The return is the new skb buffer.
+>   * On a failure the return is %NULL, and @data is not freed.
+>   * Notes :
 
-I like the idea of being able to set the reported speed for a tun/tap 
-interface.
-
-rick jones
+Hmm, why not explaining the other case ? (frag_size > 0)
