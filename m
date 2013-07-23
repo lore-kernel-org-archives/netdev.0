@@ -1,38 +1,45 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC PATCH net-next V2] net: split rt_genid for ipv4 and ipv6
-Date: Tue, 23 Jul 2013 04:04:37 +0200
-Message-ID: <20130723020437.GC30719@order.stressinduktion.org>
-References: <1374543420-12657-1-git-send-email-fan.du@windriver.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next 3/7] inetpeer: use generic union inet_addr
+Date: Tue, 23 Jul 2013 10:05:31 +0800
+Message-ID: <1374545131.24933.4.camel@cr0>
+References: <1374476713-8838-1-git-send-email-amwang@redhat.com>
+	 <1374476713-8838-4-git-send-email-amwang@redhat.com>
+	 <1374506315.4990.14.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, nicolas.dichtel@6wind.com,
-	yoshfuji@linux-ipv6.org, jmorris@namei.org,
-	steffen.klassert@secunet.com, netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:33286 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750872Ab3GWCEi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 22:04:38 -0400
-Content-Disposition: inline
-In-Reply-To: <1374543420-12657-1-git-send-email-fan.du@windriver.com>
+Received: from mx1.redhat.com ([209.132.183.28]:31196 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751135Ab3GWCFm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Jul 2013 22:05:42 -0400
+In-Reply-To: <1374506315.4990.14.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 23, 2013 at 09:37:00AM +0800, Fan Du wrote:
-> Current net name space has only one genid for both IPv4 and IPv6, it has below drawbacks:
+On Mon, 2013-07-22 at 08:18 -0700, Eric Dumazet wrote:
+> On Mon, 2013-07-22 at 15:05 +0800, Cong Wang wrote:
+> > From: Cong Wang <amwang@redhat.com>
+> > 
+> > struct inetpeer_addr is pretty similar to generic union inet_addr,
+> > therefore can be safely converted to it.
 > 
-> - Add/delete an IPv4 address will invalidate all IPv6 routing table entries.
-> - Insert/remove XFRM policy will also invalidate both IPv4/IPv6 routing table entries
->   even when the policy is only applied for one address family.
+> Its 'safe' but adds 50% increase for struct tcp_metrics_block
 > 
-> Thus, this patch attempt to split one genid for two to cater for IPv4 and IPv6 separately
-> in a fine granularity.
+> I fail to see this mentioned in the changelog.
 
-For me the approach seems reasonable. We should double-check if this
-does not affect v4mapped af_inet6 sockets in any way. I could help to
-do the review if there is an agreement that the split is desirable.
+I asked you in RFC, but you don't give me any response, this is the
+reason. :)
 
-Thanks,
+> I guess its no big deal, but why do you think this code used hand coded
+> functions instead of generic ?
+> 
+> 
+> 
 
-  Hannes
+I don't understand what you are asking here, seems totally unrelated
+with the point you raised above, therefore I am completely confused...
+
+Thanks.
