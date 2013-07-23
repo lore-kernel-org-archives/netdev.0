@@ -1,27 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Make devnet_rename_seq static
-Date: Tue, 23 Jul 2013 07:12:51 -0700
-Message-ID: <1374588771.1843.0.camel@edumazet-glaptop>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: [PATCH] net: Make devnet_rename_seq static
+Date: Tue, 23 Jul 2013 16:13:17 +0200 (CEST)
+Message-ID: <alpine.DEB.2.02.1307231612300.4089@ionos.tec.linutronix.de>
 References: <alpine.DEB.2.02.1307231559570.4089@ionos.tec.linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
-To: Thomas Gleixner <tglx@linutronix.de>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <edumazet@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:65033 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932442Ab3GWOMy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 10:12:54 -0400
-Received: by mail-pb0-f49.google.com with SMTP id jt11so8409122pbb.36
-        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 07:12:53 -0700 (PDT)
+Received: from www.linutronix.de ([62.245.132.108]:46809 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932442Ab3GWONP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 10:13:15 -0400
 In-Reply-To: <alpine.DEB.2.02.1307231559570.4089@ionos.tec.linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-07-23 at 16:05 +0200, Thomas Gleixner wrote:
-> No users outside net/core/dev.c.
-> 
-> Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+No users outside net/core/dev.c.
 
-Seems you need more coffee than I do ;)
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+---
+ include/linux/netdevice.h |    3 ---
+ net/core/dev.c            |    2 +-
+ 2 files changed, 1 insertion(+), 4 deletions(-)
+
+Index: linux-stable/include/linux/netdevice.h
+===================================================================
+--- linux-stable.orig/include/linux/netdevice.h
++++ linux-stable/include/linux/netdevice.h
+@@ -1601,9 +1601,6 @@ extern int call_netdevice_notifiers(unsi
+ 
+ extern rwlock_t				dev_base_lock;		/* Device list lock */
+ 
+-extern seqcount_t	devnet_rename_seq;	/* Device rename seq */
+-
+-
+ #define for_each_netdev(net, d)		\
+ 		list_for_each_entry(d, &(net)->dev_base_head, dev_list)
+ #define for_each_netdev_reverse(net, d)	\
+Index: linux-stable/net/core/dev.c
+===================================================================
+--- linux-stable.orig/net/core/dev.c
++++ linux-stable/net/core/dev.c
+@@ -166,7 +166,7 @@ static struct list_head offload_base __r
+ DEFINE_RWLOCK(dev_base_lock);
+ EXPORT_SYMBOL(dev_base_lock);
+ 
+-seqcount_t devnet_rename_seq;
++static seqcount_t devnet_rename_seq;
+ 
+ static inline void dev_base_seq_inc(struct net *net)
+ {
