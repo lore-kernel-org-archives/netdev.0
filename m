@@ -1,124 +1,116 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH v3 net-next 2/2] tcp: TCP_NOTSENT_LOWAT socket option
-Date: Tue, 23 Jul 2013 15:28:54 -0400
-Message-ID: <CADVnQy=Js2tmhUYx6XueC-cLHWoi7BuB9q-FZsB8vqkVCaF7BA@mail.gmail.com>
+From: Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: 3.11-rc regression bisected: s2disk does not work (was Re: [PATCH
+ v3 13/16] futex: use freezable blocking call)
+Date: Tue, 23 Jul 2013 12:29:57 -0700
+Message-ID: <CAMbhsRQU=TswYg-2WqHmzt-_GpfMFpYHPSU4eFd5XMw7DRGXJA@mail.gmail.com>
+References: <1367884221-20462-1-git-send-email-ccross@android.com>
+	<1367884221-20462-14-git-send-email-ccross@android.com>
+	<20130723010250.5a3465ec@xenia.leun.net>
+	<CAMbhsRQv+W897_5qGuNJD47jQ9ozN6KxeCa6UJAvZpqVuBpQ4w@mail.gmail.com>
+	<20130723200854.2046296b@xenia.leun.net>
+	<CAMbhsRT6zOKLhG_uh=nA8H_3d7afhG+4jvWjvidY3fEguryP_Q@mail.gmail.com>
+	<20130723211622.50f75087@xenia.leun.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Rick Jones <rick.jones2@hp.com>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Michael Kerrisk <mtk.manpages@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f54.google.com ([74.125.83.54]:49722 "EHLO
-	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933944Ab3GWT24 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 15:28:56 -0400
-Received: by mail-ee0-f54.google.com with SMTP id t10so4712346eei.27
-        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 12:28:55 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Mandeep Singh Baines <msb-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	linux-nfs <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM list <linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Darren Hart <dvhart-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+To: Michael Leun <lkml20130126-yS7QfQBdiAdyjo5WHAzKoQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130723211622.50f75087-gjVD6BTPoEbYa4IuQwzu8g@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 22, 2013 at 11:27 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On Tue, Jul 23, 2013 at 12:16 PM, Michael Leun
+<lkml20130126-yS7QfQBdiAdyjo5WHAzKoQ@public.gmane.org> wrote:
+> On Tue, 23 Jul 2013 11:29:57 -0700
+> Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org> wrote:
 >
-> Idea of this patch is to add optional limitation of number of
-> unsent bytes in TCP sockets, to reduce usage of kernel memory.
+>> On Tue, Jul 23, 2013 at 11:08 AM, Michael Leun
+>> <lkml20130126-yS7QfQBdiAdyjo5WHAzKoQ@public.gmane.org> wrote:
+>> > On Mon, 22 Jul 2013 16:55:58 -0700
+>> > Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org> wrote:
+>> >
+>> >> On Mon, Jul 22, 2013 at 4:02 PM, Michael Leun
+>> >> <lkml20130126-yS7QfQBdiAdyjo5WHAzKoQ@public.gmane.org> wrote:
+>> >> > On Mon,  6 May 2013 16:50:18 -0700
+>> >> > Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org> wrote:
+>> >> >
+>> >> >> Avoid waking up every thread sleeping in a futex_wait call
+>> >> >> during
+>> >> > [...]
+>> >> >
+>> >> > With 3.11-rc s2disk from suspend-utils stopped working: Frozen at
+>> >> > displaying 0% of saving image to disk.
+>> >> >
+>> >> > echo "1" >/sys/power/state still works.
+>> >> >
+>> >> > Bisecting yielded 88c8004fd3a5fdd2378069de86b90b21110d33a4,
+>> >> > reverting that from 3.11-rc2 makes s2disk working again.
+>> >> >
+>> >>
+>> >> I think the expanded use of the freezable_* helpers is exposing an
+>> >> existing bug in hibernation.  The SNAPSHOT_FREEZE ioctl calls
+>> >> freeze_processes(), which sets the global system_freezing_cnt and
+>> >> pm_freezing.  try_to_freeze_tasks then sends every process except
+>> >> current a signal which causes them all to end up in the
+>> >> refrigerator. The current task then returns back to userspace and
+>> >> continues its work to suspend to disk.  If that task ever hits a
+>> >> call to try_to_freeze() in the kernel, it will see
+>> >> system_freezing_cnt and pm_freezing=true and freeze, and suspend
+>> >> to disk will hang forever.  It could hit try_to_freeze() because
+>> >> of a signal delivered to the task, or from calling any syscall
+>> >> that uses a freezable_* helper like the one I added to sys_futex.
+>> >>
+>> >> I think the right solution is to add a flag to the freezing task
+>> >> that marks it unfreezable.  I  think PF_NOFREEZE would work,
+>> >> although it is normally used on kernel threads, can you see if the
+>> >> attached patch helps?
+>> >
+>> > That patch helps.
+>> >
+>> > BTW, the only machine I can reproduce this bug with is an i7-3630QM
+>> > notebook. Cannot reproduce on an Core Duo U1400 and cannot
+>> > reproduce on an i7 M 620.
+>> >
+>> > Are the sysreq backtraces still wanted? If so, any tip, how I could
+>> > get them saved?
 >
-> TCP receiver might announce a big window, and TCP sender autotuning
-> might allow a large amount of bytes in write queue, but this has little
-> performance impact if a large part of this buffering is wasted :
+> Darren Hart <dvhart-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> wrote:
 >
-> Write queue needs to be large only to deal with large BDP, not
-> necessarily to cope with scheduling delays (incoming ACKS make room
-> for the application to queue more bytes)
+>> Typically by setting up a serial console or a netconsole and saving
+> [...]
+>> Is this what you are asking?
 >
-> For most workloads, using a value of 128 KB or less is OK to give
-> applications enough time to react to POLLOUT events in time
-> (or being awaken in a blocking sendmsg())
+> Yes, and it indeed works - I halfway expected the net / netconsole
+> stuff being already frozen in that situation...
 >
-> This patch adds two ways to set the limit :
+> Thanks, Darren - see below for the backtraces.
 >
-> 1) Per socket option TCP_NOTSENT_LOWAT
+>>
+>> Any chance that the failing machine has threads=y in the suspend.conf
+>> file?
 >
-> 2) A sysctl (/proc/sys/net/ipv4/tcp_notsent_lowat) for sockets
-> not using TCP_NOTSENT_LOWAT socket option (or setting a zero value)
-> Default value being UINT_MAX (0xFFFFFFFF), meaning this has no effect.
->
->
-> This changes poll()/select()/epoll() to report POLLOUT
-> only if number of unsent bytes is below tp->nosent_lowat
->
-> Note this might increase number of sendmsg()/sendfile() calls
-> when using non blocking sockets,
-> and increase number of context switches for blocking sockets.
->
-> Note this is not related to SO_SNDLOWAT (as SO_SNDLOWAT is
-> defined as :
->  Specify the minimum number of bytes in the buffer until
->  the socket layer will pass the data to the protocol)
->
-> Tested:
->
-> netperf sessions, and watching /proc/net/protocols "memory" column for TCP
->
-> With 200 concurrent netperf -t TCP_STREAM sessions, amount of kernel memory
-> used by TCP buffers shrinks by ~55 % (20567 pages instead of 45458)
->
-> lpq83:~# echo -1 >/proc/sys/net/ipv4/tcp_notsent_lowat
-> lpq83:~# (super_netperf 200 -t TCP_STREAM -H remote -l 90 &); sleep 60 ; grep TCP /proc/net/protocols
-> TCPv6     1880      2   45458   no     208   yes  ipv6        y  y  y  y  y  y  y  y  y  y  y  y  y  n  y  y  y  y  y
-> TCP       1696    508   45458   no     208   yes  kernel      y  y  y  y  y  y  y  y  y  y  y  y  y  n  y  y  y  y  y
->
-> lpq83:~# echo 131072 >/proc/sys/net/ipv4/tcp_notsent_lowat
-> lpq83:~# (super_netperf 200 -t TCP_STREAM -H remote -l 90 &); sleep 60 ; grep TCP /proc/net/protocols
-> TCPv6     1880      2   20567   no     208   yes  ipv6        y  y  y  y  y  y  y  y  y  y  y  y  y  n  y  y  y  y  y
-> TCP       1696    508   20567   no     208   yes  kernel      y  y  y  y  y  y  y  y  y  y  y  y  y  n  y  y  y  y  y
->
-> Using 128KB has no bad effect on the throughput or cpu usage
-> of a single flow, although there is an increase of context switches.
->
-> A bonus is that we hold socket lock for a shorter amount
-> of time and should improve latencies of ACK processing.
->
-> lpq83:~# echo -1 >/proc/sys/net/ipv4/tcp_notsent_lowat
-> lpq83:~# perf stat -e context-switches ./netperf -H 7.7.7.84 -t omni -l 20 -c -i10,3
-> OMNI Send TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 7.7.7.84 () port 0 AF_INET : +/-2.500% @ 99% conf.
-> Local       Remote      Local  Elapsed Throughput Throughput  Local Local  Remote Remote Local   Remote  Service
-> Send Socket Recv Socket Send   Time               Units       CPU   CPU    CPU    CPU    Service Service Demand
-> Size        Size        Size   (sec)                          Util  Util   Util   Util   Demand  Demand  Units
-> Final       Final                                             %     Method %      Method
-> 1651584     6291456     16384  20.00   17447.90   10^6bits/s  3.13  S      -1.00  U      0.353   -1.000  usec/KB
->
->  Performance counter stats for './netperf -H 7.7.7.84 -t omni -l 20 -c -i10,3':
->
->            412,514 context-switches
->
->      200.034645535 seconds time elapsed
->
-> lpq83:~# echo 131072 >/proc/sys/net/ipv4/tcp_notsent_lowat
-> lpq83:~# perf stat -e context-switches ./netperf -H 7.7.7.84 -t omni -l 20 -c -i10,3
-> OMNI Send TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 7.7.7.84 () port 0 AF_INET : +/-2.500% @ 99% conf.
-> Local       Remote      Local  Elapsed Throughput Throughput  Local Local  Remote Remote Local   Remote  Service
-> Send Socket Recv Socket Send   Time               Units       CPU   CPU    CPU    CPU    Service Service Demand
-> Size        Size        Size   (sec)                          Util  Util   Util   Util   Demand  Demand  Units
-> Final       Final                                             %     Method %      Method
-> 1593240     6291456     16384  20.00   17321.16   10^6bits/s  3.35  S      -1.00  U      0.381   -1.000  usec/KB
->
->  Performance counter stats for './netperf -H 7.7.7.84 -t omni -l 20 -c -i10,3':
->
->          2,675,818 context-switches
->
->      200.029651391 seconds time elapsed
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
+> Yes, that indeed is the trigger / difference, enabling that on the
+> U4100 (its not a U1400) machine makes that fail also and disabling
+> makes it work on the i7-3630QM.
 
-
-Acked-by: Neal Cardwell <ncardwell@google.com>
-
-
-[apologies for the dup, patchworks didn't seem to like my last email,
-I think perhaps due to a missing final newline...]
+Thanks, if you get a chance sysrq w might be interesting but I think
+we have enough info to solve the problem.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
