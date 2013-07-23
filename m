@@ -1,83 +1,73 @@
 From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
-Subject: [PATCH 4/4] ARM: shmobile: ape6evm-reference: add smsc911x ethernet support
-Date: Tue, 23 Jul 2013 18:12:04 +0200
-Message-ID: <1374595924-12338-5-git-send-email-g.liakhovetski@gmx.de>
+Subject: [PATCH 2/4] net: smsc911x: add a reset GPIO DT binding
+Date: Tue, 23 Jul 2013 18:12:02 +0200
+Message-ID: <1374595924-12338-3-git-send-email-g.liakhovetski@gmx.de>
 References: <1374595924-12338-1-git-send-email-g.liakhovetski@gmx.de>
 Cc: Magnus Damm <magnus.damm@gmail.com>,
 	Simon Horman <horms@verge.net.au>,
 	Steve Glendinning <steve.glendinning@shawell.net>,
 	netdev@vger.kernel.org,
-	Guennadi Liakhovetski <g.liakhovetski+renesas@gmail.com>
+	Guennadi Liakhovetski <g.liakhovetski+renesas@gmail.com>,
+	devicetree@vger.kernel.org
 To: linux-sh@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.187]:49231 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933537Ab3GWQMI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 12:12:08 -0400
 In-Reply-To: <1374595924-12338-1-git-send-email-g.liakhovetski@gmx.de>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add support for the SMSC9220 ethernet chip on the board.
+Add a new DT property to specify a reset GPIO.
 
 Signed-off-by: Guennadi Liakhovetski <g.liakhovetski+renesas@gmail.com>
+Cc: devicetree@vger.kernel.org
 ---
- arch/arm/boot/dts/r8a73a4-ape6evm-reference.dts |   25 ++++++++++++++++++++++-
- 1 files changed, 24 insertions(+), 1 deletions(-)
+ Documentation/devicetree/bindings/net/smsc911x.txt |    1 +
+ drivers/net/ethernet/smsc/smsc911x.c               |   11 +++++++++++
+ 2 files changed, 12 insertions(+), 0 deletions(-)
 
-diff --git a/arch/arm/boot/dts/r8a73a4-ape6evm-reference.dts b/arch/arm/boot/dts/r8a73a4-ape6evm-reference.dts
-index 3bcbc9f..4215ebc 100644
---- a/arch/arm/boot/dts/r8a73a4-ape6evm-reference.dts
-+++ b/arch/arm/boot/dts/r8a73a4-ape6evm-reference.dts
-@@ -8,6 +8,8 @@
-  * kind, whether express or implied.
-  */
+diff --git a/Documentation/devicetree/bindings/net/smsc911x.txt b/Documentation/devicetree/bindings/net/smsc911x.txt
+index adb5b57..2bf32be 100644
+--- a/Documentation/devicetree/bindings/net/smsc911x.txt
++++ b/Documentation/devicetree/bindings/net/smsc911x.txt
+@@ -23,6 +23,7 @@ Optional properties:
+   external PHY
+ - smsc,save-mac-address : Indicates that mac address needs to be saved
+   before resetting the controller
++- smsc,reset-gpios : a GPIO binding to take the controller out of reset
+ - local-mac-address : 6 bytes, mac address
  
-+#include <dt-bindings/gpio/gpio.h>
+ Examples:
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index ca01c03..db6255e 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -2328,6 +2328,8 @@ static int smsc911x_probe_config_dt(struct smsc911x_platform_config *config,
+ {
+ 	const char *mac;
+ 	u32 width = 0;
++	enum of_gpio_flags flags;
++	int gpio;
+ 
+ 	if (!np)
+ 		return -ENODEV;
+@@ -2361,6 +2363,15 @@ static int smsc911x_probe_config_dt(struct smsc911x_platform_config *config,
+ 	if (of_get_property(np, "smsc,save-mac-address", NULL))
+ 		config->flags |= SMSC911X_SAVE_MAC_ADDRESS;
+ 
++	gpio = of_get_named_gpio_flags(np, "smsc,reset-gpios", 0, &flags);
++	if (gpio == -EPROBE_DEFER)
++		return gpio;
++	if (gpio_is_valid(gpio)) {
++		config->reset_gpio = gpio;
++		config->reset_gpio_config = SMSC911X_RESET_GPIO_VALID |
++			(flags & OF_GPIO_ACTIVE_LOW ? GPIOF_INIT_LOW : GPIOF_INIT_HIGH);
++	}
 +
- /dts-v1/;
- /include/ "r8a73a4.dtsi"
- 
-@@ -16,7 +18,7 @@
- 	compatible = "renesas,ape6evm-reference", "renesas,r8a73a4";
- 
- 	chosen {
--		bootargs = "console=ttySC0,115200 ignore_loglevel";
-+		bootargs = "console=ttySC0,115200 debug ip=dhcp root=/dev/nfs";
- 	};
- 
- 	memory@40000000 {
-@@ -37,6 +39,22 @@
- 		#address-cells = <1>;
- 		#size-cells = <1>;
- 		ranges = <0 0 0 0x80000000>;
-+
-+		ethernet@8000000 {
-+			compatible = "smsc,lan9118", "smsc,lan9115";
-+			reg = <0x08000000 0x1000>;
-+			interrupt-parent = <&irqc1>;
-+			interrupts = <8 0x4>;
-+			phy-mode = "mii";
-+			reg-io-width = <4>;
-+			smsc,irq-active-high;
-+			smsc,irq-push-pull;
-+			smsc,reset-gpios = <&pfc 270 GPIO_ACTIVE_LOW>;
-+			pinctrl-names = "default";
-+			pinctrl-0 = <&smsc_pins>;
-+			vdd33a-supply = <&ape6evm_fixed_3v3>;
-+			vddvario-supply = <&ape6evm_fixed_3v3>;
-+		};
- 	};
- };
- 
-@@ -85,6 +103,11 @@
- 		renesas,groups = "sdhi1_data4", "sdhi1_ctrl";
- 		renesas,function = "sdhi1";
- 	};
-+
-+	smsc_pins: eth0 {
-+		renesas,groups = "irqc_irq40";
-+		renesas,function = "irqc";
-+	};
- };
- 
- &mmcif0 {
+ 	return 0;
+ }
+ #else
 -- 
 1.7.2.5
-
