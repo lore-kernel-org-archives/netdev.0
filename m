@@ -1,43 +1,38 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Question about default route handling/lookup in a custom table
-Date: Tue, 23 Jul 2013 15:47:15 +0200
-Message-ID: <20130723134715.GC32523@order.stressinduktion.org>
-References: <CAKP4w2Q_5V=2CdyUpeXrHg=dTv1LNynp87gy6nrQYWYyBuA39A@mail.gmail.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH v3 net-next 1/2] net: add sk_stream_is_writeable() helper
+Date: Tue, 23 Jul 2013 09:52:07 -0400
+Message-ID: <CADVnQymsab6+EUJKuuo_szB+EuzqaHs8i05eqaH6YG10ttOURA@mail.gmail.com>
+References: <1374549991.4990.139.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: JP Abgrall <jpa@google.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Rick Jones <rick.jones2@hp.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Michael Kerrisk <mtk.manpages@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:34299 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932479Ab3GWNrQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 09:47:16 -0400
-Content-Disposition: inline
-In-Reply-To: <CAKP4w2Q_5V=2CdyUpeXrHg=dTv1LNynp87gy6nrQYWYyBuA39A@mail.gmail.com>
+Received: from mail-ee0-f49.google.com ([74.125.83.49]:43374 "EHLO
+	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757433Ab3GWNwI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 09:52:08 -0400
+Received: by mail-ee0-f49.google.com with SMTP id b57so4493592eek.22
+        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 06:52:07 -0700 (PDT)
+In-Reply-To: <1374549991.4990.139.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On Mon, Jul 22, 2013 at 11:26 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> Several call sites use the hardcoded following condition :
+>
+> sk_stream_wspace(sk) >= sk_stream_min_wspace(sk)
+>
+> Lets use a helper because TCP_NOTSENT_LOWAT support will change this
+> condition for TCP sockets.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
 
-On Mon, Jul 22, 2013 at 06:20:18PM -0700, JP Abgrall wrote:
-> The following sequence fails when adding the default route:
-> (wlan0 is up, nothing is trying to manage,...)
-> 
->        ip route flush dev wlan0 table all
->        ip route flush table 60
->        ip route add 1.1.1.1/32 dev wlan0 table 60
-
-I am not sure but would have expected that you needed to add a rule e.g. ip
-rule add oif wlan0 table 60 to successfully match the next route insertion.
-
->        ip route add default via 1.1.1.1 dev wlan0 table 60
-
-Otherwise another rule lookup could alter the fib_lookup in such a way that the
-nexthop is not resolveable and the routing table in its entirty could have
-unresolveable holes.
-
-I did not check the code, this is just my intuition.
-
-Greetings,
-
-  Hannes
+Acked-by: Neal Cardwell <ncardwell@google.com>
