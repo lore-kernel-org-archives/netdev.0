@@ -1,40 +1,34 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next] tuntap: hardware vlan tx support
-Date: Tue, 23 Jul 2013 08:17:27 -0700
-Message-ID: <20130723081727.69766d27@nehalam.linuxnetplumber.net>
-References: <1374563748-38821-1-git-send-email-jasowang@redhat.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH net-next] tcp: TCP_NOSENT_LOWAT socket option
+Date: Tue, 23 Jul 2013 08:25:03 -0700
+Message-ID: <51EEA04F.8060708@hp.com>
+References: <1374520422.4990.33.camel@edumazet-glaptop> <51ED9957.9070107@hp.com> <1374533052.4990.89.camel@edumazet-glaptop> <51EDBB8B.2000805@hp.com> <1374538422.4990.99.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Basil Gor <basil.gor@gmail.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1374563748-38821-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Michael Kerrisk <mtk.manpages@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:1479 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757582Ab3GWPZG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 11:25:06 -0400
+In-Reply-To: <1374538422.4990.99.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 23 Jul 2013 15:15:48 +0800
-Jason Wang <jasowang@redhat.com> wrote:
+On 07/22/2013 05:13 PM, Eric Dumazet wrote:
+> On Mon, 2013-07-22 at 16:08 -0700, Rick Jones wrote:
+>> By the way, does this affect sendfile() or splice()?
+>
+> Sure : Patch intercepts sk_stream_memory_free() for all its callers.
+>
+> 10Gb link 'experiment with sendfile()' :
 
-> Inspired by commit f09e2249c4f5c7c13261ec73f5a7807076af0c8e (macvtap: restore
-> vlan header on user read). This patch adds hardware vlan tx support for
-> tuntap. This is done by copying vlan header directly into userspace in
-> tun_put_user() instead of doing it through __vlan_put_tag() in
-> dev_hard_start_xmit(). This eliminates one unnecessary memove in
-> vlan_insert_tag() for 802.1ad and 802.1q traffic.
-> 
-> pktgen test shows about 20% improvement for 802.1q traffic:
-> 
-> Before:
->   662149pps 317Mb/sec (317831520bps) errors: 0
-> After:
->   801033pps 384Mb/sec (384495840bps) errors: 0
-> 
-> Cc: Basil Gor <basil.gor@gmail.com>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+Why not the same 20 Gb (?) link you used with the other experiments?
 
-
-You need to make this configurable by some mechanism, since otherwise
-it will break applications that expect current VLAN behavior
+rick
