@@ -1,58 +1,131 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH 2/4] net: smsc911x: add a reset GPIO DT binding
-Date: Wed, 24 Jul 2013 00:18:08 +0200
-Message-ID: <20130723221808.GA7727@pengutronix.de>
-References: <1374595924-12338-1-git-send-email-g.liakhovetski@gmx.de>
- <1374595924-12338-3-git-send-email-g.liakhovetski@gmx.de>
+From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
+Subject: [PATCH iproute2] add prefixlength option to "ip rule"
+Date: Wed, 24 Jul 2013 00:21:01 +0200
+Message-ID: <20130723222101.GQ10216@zirkel.wertarbyte.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-sh@vger.kernel.org, Magnus Damm <magnus.damm@gmail.com>,
-	Simon Horman <horms@verge.net.au>,
-	Steve Glendinning <steve.glendinning@shawell.net>,
-	netdev@vger.kernel.org,
-	Guennadi Liakhovetski <g.liakhovetski+renesas@gmail.com>,
-	devicetree@vger.kernel.org
-To: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
-Return-path: <linux-sh-owner@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zirkel.wertarbyte.de ([188.40.44.137]:53684 "EHLO
+	zirkel.wertarbyte.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933734Ab3GWWVE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 18:21:04 -0400
+Received: from stefan by zirkel.wertarbyte.de with local (Exim 4.72)
+	(envelope-from <stefan.tomanek@wertarbyte.de>)
+	id 1V1kx3-0005MD-Ga
+	for netdev@vger.kernel.org; Wed, 24 Jul 2013 00:21:01 +0200
 Content-Disposition: inline
-In-Reply-To: <1374595924-12338-3-git-send-email-g.liakhovetski@gmx.de>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 23, 2013 at 06:12:02PM +0200, Guennadi Liakhovetski wrote:
-> Add a new DT property to specify a reset GPIO.
-> 
-> Signed-off-by: Guennadi Liakhovetski <g.liakhovetski+renesas@gmail.com>
-> Cc: devicetree@vger.kernel.org
-> ---
->  Documentation/devicetree/bindings/net/smsc911x.txt |    1 +
->  drivers/net/ethernet/smsc/smsc911x.c               |   11 +++++++++++
->  2 files changed, 12 insertions(+), 0 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/smsc911x.txt b/Documentation/devicetree/bindings/net/smsc911x.txt
-> index adb5b57..2bf32be 100644
-> --- a/Documentation/devicetree/bindings/net/smsc911x.txt
-> +++ b/Documentation/devicetree/bindings/net/smsc911x.txt
-> @@ -23,6 +23,7 @@ Optional properties:
->    external PHY
->  - smsc,save-mac-address : Indicates that mac address needs to be saved
->    before resetting the controller
-> +- smsc,reset-gpios : a GPIO binding to take the controller out of reset
->  - local-mac-address : 6 bytes, mac address
+When configuring a system with multiple network uplinks and default routes, it
+is often convinient to reference the main routing table multiple times - but
+omitting the default route. Using this modified "ip" utility and the
+corresponding kernel patch, this can be achieved by using the following command
+sequence:
 
-BTW there's also:
+$ ip route add table secuplink default via 10.42.23.1
 
-[PATCH v10] reset: Add driver for gpio-controlled reset pins
+$ ip rule add pref 100            table main prefixlength 1
+$ ip rule add pref 150 fwmark 0xA table secuplink
 
-http://www.mail-archive.com/devicetree-discuss@lists.ozlabs.org/msg36900.html
+With this setup, packets marked 0xA will be processed by the additional routing
+table "secuplink", but only if no suitable route in the main routing table can
+be found. By using a minimum prefixlength of 1, the default route (/0) of the
+table "main" is hidden to packets processed by rule 100; packets traveling to
+destinations via more specific routes are processed as usual.
 
-which may be a generic way to handle device resets. Not mainline yet,
-though.
+Signed-off-by: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
+---
+ include/linux/fib_rules.h |    2 +-
+ ip/iprule.c               |   19 ++++++++++++++++---
+ man/man8/ip-rule.8        |    9 +++++++++
+ 3 files changed, 26 insertions(+), 4 deletions(-)
 
-Sascha
-
+diff --git a/include/linux/fib_rules.h b/include/linux/fib_rules.h
+index 51da65b..59cd31b 100644
+--- a/include/linux/fib_rules.h
++++ b/include/linux/fib_rules.h
+@@ -45,7 +45,7 @@ enum {
+ 	FRA_FLOW,	/* flow/class id */
+ 	FRA_UNUSED6,
+ 	FRA_UNUSED7,
+-	FRA_UNUSED8,
++	FRA_TABLE_PREFIXLEN_MIN,
+ 	FRA_TABLE,	/* Extended table id */
+ 	FRA_FWMASK,	/* mask for netfilter mark */
+ 	FRA_OIFNAME,
+diff --git a/ip/iprule.c b/ip/iprule.c
+index a5fcd43..0fa174a 100644
+--- a/ip/iprule.c
++++ b/ip/iprule.c
+@@ -35,7 +35,7 @@ static void usage(void)
+ 	fprintf(stderr, "Usage: ip rule [ list | add | del | flush ] SELECTOR ACTION\n");
+ 	fprintf(stderr, "SELECTOR := [ not ] [ from PREFIX ] [ to PREFIX ] [ tos TOS ] [ fwmark FWMARK[/MASK] ]\n");
+ 	fprintf(stderr, "            [ iif STRING ] [ oif STRING ] [ pref NUMBER ]\n");
+-	fprintf(stderr, "ACTION := [ table TABLE_ID ]\n");
++	fprintf(stderr, "ACTION := [ table TABLE_ID [ prefixlength NUMBER ] ]\n");
+ 	fprintf(stderr, "          [ prohibit | reject | unreachable ]\n");
+ 	fprintf(stderr, "          [ realms [SRCREALM/]DSTREALM ]\n");
+ 	fprintf(stderr, "          [ goto NUMBER ]\n");
+@@ -153,9 +153,15 @@ int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 	}
+ 
+ 	table = rtm_get_table(r, tb);
+-	if (table)
++	if (table) {
+ 		fprintf(fp, "lookup %s ", rtnl_rttable_n2a(table, b1, sizeof(b1)));
+-
++		if (tb[FRA_TABLE_PREFIXLEN_MIN]) {
++			__u8 pl = rta_getattr_u8(tb[FRA_TABLE_PREFIXLEN_MIN]);
++			if (pl) {
++				fprintf(fp, "prefixlength %u ", pl);
++			}
++		}
++	}
+ 	if (tb[FRA_FLOW]) {
+ 		__u32 to = rta_getattr_u32(tb[FRA_FLOW]);
+ 		__u32 from = to>>16;
+@@ -310,6 +316,13 @@ static int iprule_modify(int cmd, int argc, char **argv)
+ 				addattr32(&req.n, sizeof(req), FRA_TABLE, tid);
+ 			}
+ 			table_ok = 1;
++		} else if (matches(*argv, "prefixlength") == 0 ||
++			   strcmp(*argv, "pl") == 0) {
++			__u8 pl;
++			NEXT_ARG();
++			if (get_u8(&pl, *argv, 0))
++				invarg("prefixlength value is invalid\n", *argv);
++			addattr8(&req.n, sizeof(req), FRA_TABLE_PREFIXLEN_MIN, pl);
+ 		} else if (strcmp(*argv, "dev") == 0 ||
+ 			   strcmp(*argv, "iif") == 0) {
+ 			NEXT_ARG();
+diff --git a/man/man8/ip-rule.8 b/man/man8/ip-rule.8
+index 36e46f1..ae72fe5 100644
+--- a/man/man8/ip-rule.8
++++ b/man/man8/ip-rule.8
+@@ -39,6 +39,9 @@ ip-rule \- routing policy database management
+ .IR ACTION " := [ "
+ .B  table
+ .IR TABLE_ID " ] [ "
++.IR TABLE_ID " ] [ "
++.B  prefixlength
++.IR NUMBER " ] [ "
+ .B  nat
+ .IR ADDRESS " ] [ "
+ .BR prohibit " | " reject " | " unreachable " ] [ " realms
+@@ -217,6 +220,12 @@ the routing table identifier to lookup if the rule selector matches.
+ It is also possible to use lookup instead of table.
+ 
+ .TP
++.BI prefixlength " NUMBER"
++only consider routes that have a minimum prefix length of NUMBER.
++Entries inside the referenced table with a lower prefix length
++will be ignored.
++
++.TP
+ .BI realms " FROM/TO"
+ Realms to select if the rule matched and the routing table lookup
+ succeeded.  Realm
 -- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+1.7.10.4
