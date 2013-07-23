@@ -1,33 +1,36 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next v2 6/6] openvswitch: Add vxlan tunneling support.
-Date: Tue, 23 Jul 2013 16:48:44 -0700
-Message-ID: <CALnjE+o7+q3aZm3xg6wY_HUEe9JRTxwNWAPSv4DJgA8xvWRUhQ@mail.gmail.com>
-References: <1374603775-15605-1-git-send-email-pshelar@nicira.com>
-	<CAJZOPZJH3UXC6BKLtUsDFAOvr=5cFHaY5_dSstBZNi-=HL_aiA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next v2 0/3] add support for peer notifications and
+ igmp rejoins for team
+Date: Tue, 23 Jul 2013 16:54:25 -0700 (PDT)
+Message-ID: <20130723.165425.1866178315491625952.davem@davemloft.net>
+References: <1374315234-7096-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	Jesse Gross <jesse@nicira.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
+	kaber@trash.net, stephen@networkplumber.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, edumazet@google.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog122.obsmtp.com ([74.125.149.147]:37800 "HELO
-	na3sys009aog122.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S933940Ab3GWXsp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 19:48:45 -0400
-Received: by mail-qc0-f173.google.com with SMTP id l10so4684098qcy.4
-        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 16:48:44 -0700 (PDT)
-In-Reply-To: <CAJZOPZJH3UXC6BKLtUsDFAOvr=5cFHaY5_dSstBZNi-=HL_aiA@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51009 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934085Ab3GWXy2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 19:54:28 -0400
+In-Reply-To: <1374315234-7096-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 23, 2013 at 2:03 PM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
-> On Tue, Jul 23, 2013 at 9:22 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
-> [...]
->> --- /dev/null
->> +++ b/net/openvswitch/vport-vxlan.c
-> [...]
->> +#ifdef CONFIG_OPENVSWITCH_VXLAN
->
-> this should go to the makefile
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Sat, 20 Jul 2013 12:13:51 +0200
 
-OK.
+> The middle patch adjusts core infrastructure so the bonding code can be
+> generalized and reused by team.
+> 
+> v1->v2: using msecs_to_jiffies() as suggested by Eric
+> 
+> Jiri Pirko (3):
+>   team: add peer notification
+>   net: convert resend IGMP to notifier event
+>   team: add support for sending multicast rejoins
+
+Series applied, thanks Jiri.
