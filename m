@@ -1,80 +1,47 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: Re: 3.11-rc regression bisected: s2disk does not work (was Re: [PATCH v3 13/16] futex: use freezable blocking call)
-Date: Tue, 23 Jul 2013 03:41:42 +0200
-Message-ID: <15305281.aClQ8XUG9t@vostro.rjw.lan>
-References: <1367884221-20462-1-git-send-email-ccross@android.com> <CA+55aFzUVPJe96z8V0F-znc8ZcpJid7LEeYww80M-Mx=S91tAA@mail.gmail.com> <CAMbhsRReF9xB597i9CcCj7D1P5kvB4cc0JmDQYeboqi11Kp99A@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: TCP_NOSENT_LOWAT socket option
+Date: Mon, 22 Jul 2013 18:33:23 -0700
+Message-ID: <1374543203.4990.102.camel@edumazet-glaptop>
+References: <1374520422.4990.33.camel@edumazet-glaptop>
+	 <51ED9957.9070107@hp.com> <1374533052.4990.89.camel@edumazet-glaptop>
+	 <51EDBB8B.2000805@hp.com> <1374538422.4990.99.camel@edumazet-glaptop>
+	 <1374540013.4990.100.camel@edumazet-glaptop>
+	 <20130723012002.GA30719@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Michael Leun <lkml20130126-yS7QfQBdiAdyjo5WHAzKoQ@public.gmane.org>,
-	lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Mandeep Singh Baines <msb-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	linux-nfs <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM list <linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Darren Hart <dvhart-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
-To: Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAMbhsRReF9xB597i9CcCj7D1P5kvB4cc0JmDQYeboqi11Kp99A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Rick Jones <rick.jones2@hp.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Michael Kerrisk <mtk.manpages@gmail.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:39145 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750898Ab3GWBdb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 21:33:31 -0400
+Received: by mail-pa0-f49.google.com with SMTP id bi5so3654247pad.36
+        for <netdev@vger.kernel.org>; Mon, 22 Jul 2013 18:33:30 -0700 (PDT)
+In-Reply-To: <20130723012002.GA30719@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday, July 22, 2013 05:42:49 PM Colin Cross wrote:
-> On Mon, Jul 22, 2013 at 5:32 PM, Linus Torvalds
-> <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> wrote:
-> > On Mon, Jul 22, 2013 at 4:55 PM, Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org> wrote:
-> >>
-> >> I think the right solution is to add a flag to the freezing task that
-> >> marks it unfreezable.  I  think PF_NOFREEZE would work, although it is
-> >> normally used on kernel threads, can you see if the attached patch
-> >> helps?
-> >
-> > Hmm. That does seem to be the right thing to do, but I wonder about
-> > the *other* callers of freeze_processes() IOW, kexec and friends.
-> >
-> > So maybe we should do this in {freeze|thaw}_processes() itself, and
-> > just make the rule be that the caller of freeze_processes() itself is
-> > obviously not frozen, and has to be the same one that then thaws
-> > things?
-> >
-> > Colin? Rafael? Comments?
-> >
-> >                 Linus
+On Tue, 2013-07-23 at 03:20 +0200, Hannes Frederic Sowa wrote:
+> On Mon, Jul 22, 2013 at 05:40:13PM -0700, Eric Dumazet wrote:
+> > On Mon, 2013-07-22 at 17:13 -0700, Eric Dumazet wrote:
+> > 
+> > > 
+> > >  Performance counter stats for './netperf -H 10.246.17.84 -l 20 -t TCP_SENDFILE -c':
+> > > 
+> > >            714,395 context-switches                                            
+> > 
+> > Hmm, actually I need to send a v3, because sk_stream_write_space() is
+> > waking sockets too often.
 > 
-> I was worried about clearing the flag in thaw_processes().  If a
-> kernel thread with PF_NOFREEZE set ever called thaw_processes(), which
-> autosleep might do, it would clear the flag.  Or if a different thread
-> called freeze_processes() and thaw_processes().
+> Do you implement SO_SNDLOWAT? :)
 
-Is that legitimate?
+Not exactly.
 
-> All the other callers besides the SNAPSHOT_FREEZE ioctl stay in the kernel
-> between freeze_processes() and thaw_processes(), which makes the fanout of
-> places that could call try_to_freeze() much more controllable.
-> 
-> Using a new flag that operates like PF_NOFREEZE but doesn't conflict
-> with it, or a nofreeze_depth counter, would also work.
-
-Well, that would be robust enough.  At least if the purpose of that new flag
-is clearly specified, people hopefully won't be tempted to optimize it away in
-the future.
-
-Thanks,
-Rafael
-
-
--- 
-I speak only for myself.
-Rafael J. Wysocki, Intel Open Source Technology Center.
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This is going to be a FAQ I guess ;)
