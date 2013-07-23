@@ -1,46 +1,40 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next 2/2] net: sctp: trivial: add uapi/linux/sctp.h
- into maintainers
-Date: Tue, 23 Jul 2013 10:39:50 -0400
-Message-ID: <51EE95B6.8080809@gmail.com>
-References: <1374583908-17152-1-git-send-email-dborkman@redhat.com> <1374583908-17152-2-git-send-email-dborkman@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next] tuntap: hardware vlan tx support
+Date: Tue, 23 Jul 2013 08:17:27 -0700
+Message-ID: <20130723081727.69766d27@nehalam.linuxnetplumber.net>
+References: <1374563748-38821-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f173.google.com ([209.85.216.173]:51095 "EHLO
-	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757575Ab3GWOjy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 10:39:54 -0400
-In-Reply-To: <1374583908-17152-2-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Basil Gor <basil.gor@gmail.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1374563748-38821-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/23/2013 08:51 AM, Daniel Borkmann wrote:
-> After this file has moved to the uapi section, we also need to update
-> this in the maintainers file.
->
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+On Tue, 23 Jul 2013 15:15:48 +0800
+Jason Wang <jasowang@redhat.com> wrote:
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+> Inspired by commit f09e2249c4f5c7c13261ec73f5a7807076af0c8e (macvtap: restore
+> vlan header on user read). This patch adds hardware vlan tx support for
+> tuntap. This is done by copying vlan header directly into userspace in
+> tun_put_user() instead of doing it through __vlan_put_tag() in
+> dev_hard_start_xmit(). This eliminates one unnecessary memove in
+> vlan_insert_tag() for 802.1ad and 802.1q traffic.
+> 
+> pktgen test shows about 20% improvement for 802.1q traffic:
+> 
+> Before:
+>   662149pps 317Mb/sec (317831520bps) errors: 0
+> After:
+>   801033pps 384Mb/sec (384495840bps) errors: 0
+> 
+> Cc: Basil Gor <basil.gor@gmail.com>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-> ---
->   MAINTAINERS | 1 +
->   1 file changed, 1 insertion(+)
->
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index bf61e04..339e798 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -7216,6 +7216,7 @@ W:	http://lksctp.sourceforge.net
->   S:	Maintained
->   F:	Documentation/networking/sctp.txt
->   F:	include/linux/sctp.h
-> +F:	include/uapi/linux/sctp.h
->   F:	include/net/sctp/
->   F:	net/sctp/
->
->
+
+You need to make this configurable by some mechanism, since otherwise
+it will break applications that expect current VLAN behavior
