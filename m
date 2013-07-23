@@ -1,101 +1,138 @@
-From: Colin Cross <ccross@android.com>
-Subject: Re: 3.11-rc regression bisected: s2disk does not work (was Re: [PATCH
- v3 13/16] futex: use freezable blocking call)
-Date: Mon, 22 Jul 2013 16:55:58 -0700
-Message-ID: <CAMbhsRQv+W897_5qGuNJD47jQ9ozN6KxeCa6UJAvZpqVuBpQ4w@mail.gmail.com>
-References: <1367884221-20462-1-git-send-email-ccross@android.com>
-	<1367884221-20462-14-git-send-email-ccross@android.com>
-	<20130723010250.5a3465ec@xenia.leun.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: TCP_NOSENT_LOWAT socket option
+Date: Mon, 22 Jul 2013 17:13:42 -0700
+Message-ID: <1374538422.4990.99.camel@edumazet-glaptop>
+References: <1374520422.4990.33.camel@edumazet-glaptop>
+	 <51ED9957.9070107@hp.com> <1374533052.4990.89.camel@edumazet-glaptop>
+	 <51EDBB8B.2000805@hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=047d7b3a7f8004216704e2226b54
-Cc: lkml <linux-kernel@vger.kernel.org>, Pavel Machek <pavel@ucw.cz>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Mandeep Singh Baines <msb@chromium.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	linux-nfs <linux-nfs@vger.kernel.org>,
-	Linux PM list <linux-pm@vger.kernel.org>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Tejun Heo <tj@kernel.org>,
-	Darren Hart <dvhart@linux.intel.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Randy Dunlap <rdunlap@infradead.org>,
-	Al Viro <viro@zeniv.linux.org.uk>
-To: Michael Leun <lkml20130126@newton.leun.net>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <20130723010250.5a3465ec@xenia.leun.net>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Michael Kerrisk <mtk.manpages@gmail.com>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f42.google.com ([209.85.219.42]:55222 "EHLO
+	mail-oa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751890Ab3GWANq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 20:13:46 -0400
+Received: by mail-oa0-f42.google.com with SMTP id j6so9973452oag.29
+        for <netdev@vger.kernel.org>; Mon, 22 Jul 2013 17:13:46 -0700 (PDT)
+In-Reply-To: <51EDBB8B.2000805@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---047d7b3a7f8004216704e2226b54
-Content-Type: text/plain; charset=ISO-8859-1
+On Mon, 2013-07-22 at 16:08 -0700, Rick Jones wrote:
+> On 07/22/2013 03:44 PM, Eric Dumazet wrote:
+> > Hi Rick
+> >
+> >> Netperf is perhaps a "best case" for this as it has no think time and
+> >> will not itself build-up a queue of data internally.
+> >>
+> >> The 18% increase in service demand is troubling.
+> >
+> > Its not troubling at such high speed. (Note also I had better throughput
+> > in my (single) test)
+> 
+> Yes, you did, but that was only 5.4%, and it may be in an area where 
+> there is non-trivial run to run variation.
+> 
+> I would think an increase in service demand is even more troubling at 
+> high speeds than low speeds.  Particularly when I'm still not at link-rate.
+> 
 
-On Mon, Jul 22, 2013 at 4:02 PM, Michael Leun
-<lkml20130126@newton.leun.net> wrote:
-> On Mon,  6 May 2013 16:50:18 -0700
-> Colin Cross <ccross@android.com> wrote:
->
->> Avoid waking up every thread sleeping in a futex_wait call during
-> [...]
->
-> With 3.11-rc s2disk from suspend-utils stopped working: Frozen at
-> displaying 0% of saving image to disk.
->
-> echo "1" >/sys/power/state still works.
->
-> Bisecting yielded 88c8004fd3a5fdd2378069de86b90b21110d33a4, reverting
-> that from 3.11-rc2 makes s2disk working again.
->
+If I wanter link-rate, I would use TCP_SENDFILE, and unfortunately be
+slowed down by the receiver ;)
 
-I think the expanded use of the freezable_* helpers is exposing an
-existing bug in hibernation.  The SNAPSHOT_FREEZE ioctl calls
-freeze_processes(), which sets the global system_freezing_cnt and
-pm_freezing.  try_to_freeze_tasks then sends every process except
-current a signal which causes them all to end up in the refrigerator.
-The current task then returns back to userspace and continues its work
-to suspend to disk.  If that task ever hits a call to try_to_freeze()
-in the kernel, it will see system_freezing_cnt and pm_freezing=true
-and freeze, and suspend to disk will hang forever.  It could hit
-try_to_freeze() because of a signal delivered to the task, or from
-calling any syscall that uses a freezable_* helper like the one I
-added to sys_futex.
+> In theory anyway, the service demand is independent of the transfer 
+> rate.  Of course, practice dictates that different algorithms have 
+> different behaviours at different speeds, but in slightly sweeping 
+> handwaving, if the service demand went up 18% that cut your maximum 
+> aggregate throughput for the "infinitely fast link" or collection of 
+> finitely fast links in the system by 18%.
+> 
+> I suppose that brings up the question of what the aggregate throughput 
+> and CPU utilization was for your 200 concurrent netperf TCP_STREAM sessions.
 
-I think the right solution is to add a flag to the freezing task that
-marks it unfreezable.  I  think PF_NOFREEZE would work, although it is
-normally used on kernel threads, can you see if the attached patch
-helps?
+I am not sure I want to add 1000 lines in the changelog with a detailed
+netperf results. Even so, they would be meaningful for my lab machines.
 
---047d7b3a7f8004216704e2226b54
-Content-Type: application/octet-stream;
-	name="0001-power-set-PF_NOFREEZE-flag-on-SNAPSHOT_FREEZE-task.patch"
-Content-Disposition: attachment;
-	filename="0001-power-set-PF_NOFREEZE-flag-on-SNAPSHOT_FREEZE-task.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_hjgc1d5z0
 
-RnJvbSAwZjIyZjJiMzU3YjA2MjA4ZmM3YzBiODJjZTNmMDkyOWQwMDg3N2NhIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBDb2xpbiBDcm9zcyA8Y2Nyb3NzQGFuZHJvaWQuY29tPgpEYXRl
-OiBNb24sIDIyIEp1bCAyMDEzIDE2OjUzOjE1IC0wNzAwClN1YmplY3Q6IFtQQVRDSF0gcG93ZXI6
-IHNldCBQRl9OT0ZSRUVaRSBmbGFnIG9uIFNOQVBTSE9UX0ZSRUVaRSB0YXNrCgpUaGUgdGFzayB0
-aGF0IGNhbGxzIHRoZSBTTkFQU0hPVF9GUkVFWkUgaW9jdGwgbmVlZHMgdG8gcmV0dXJuIGJhY2sK
-dG8gdXNlcnNwYWNlIGFuZCBjb250aW51ZSBwcmVwYXJpbmcgYSBzdXNwZW5kLXRvLWRpc2sgaW1h
-Z2UuIFNldAp0aGUgUEZfTk9GUkVFWkUgZmxhZyBvbiBpdCBzbyB0aGF0IGl0IGRvZXNuJ3QgYWNj
-aWRlbnRhbGx5IGZyZWV6ZQppZiBpdCBjb21lcyBhY3Jvc3MgYSBjYWxsIHRvIHRyeV90b19mcmVl
-emUoKS4KClJlcG9ydGVkLWJ5OiBNaWNoYWVsIExldW4gPGxrbWwyMDEzMDEyNkBuZXd0b24ubGV1
-bi5uZXQ+ClNpZ25lZC1vZmYtYnk6IENvbGluIENyb3NzIDxjY3Jvc3NAYW5kcm9pZC5jb20+Ci0t
-LQoga2VybmVsL3Bvd2VyL3VzZXIuYyB8IDIgKysKIDEgZmlsZSBjaGFuZ2VkLCAyIGluc2VydGlv
-bnMoKykKCmRpZmYgLS1naXQgYS9rZXJuZWwvcG93ZXIvdXNlci5jIGIva2VybmVsL3Bvd2VyL3Vz
-ZXIuYwppbmRleCA0ZWQ4MWU3Li4xN2Y5YzIwIDEwMDY0NAotLS0gYS9rZXJuZWwvcG93ZXIvdXNl
-ci5jCisrKyBiL2tlcm5lbC9wb3dlci91c2VyLmMKQEAgLTIxOSw2ICsyMTksNyBAQCBzdGF0aWMg
-bG9uZyBzbmFwc2hvdF9pb2N0bChzdHJ1Y3QgZmlsZSAqZmlscCwgdW5zaWduZWQgaW50IGNtZCwK
-IAkJc3lzX3N5bmMoKTsKIAkJcHJpbnRrKCJkb25lLlxuIik7CiAKKwkJY3VycmVudC0+ZmxhZ3Mg
-fD0gUEZfTk9GUkVFWkU7CiAJCWVycm9yID0gZnJlZXplX3Byb2Nlc3NlcygpOwogCQlpZiAoIWVy
-cm9yKQogCQkJZGF0YS0+ZnJvemVuID0gMTsKQEAgLTIyOSw2ICsyMzAsNyBAQCBzdGF0aWMgbG9u
-ZyBzbmFwc2hvdF9pb2N0bChzdHJ1Y3QgZmlsZSAqZmlscCwgdW5zaWduZWQgaW50IGNtZCwKIAkJ
-CWJyZWFrOwogCQlwbV9yZXN0b3JlX2dmcF9tYXNrKCk7CiAJCXRoYXdfcHJvY2Vzc2VzKCk7CisJ
-CWN1cnJlbnQtPmZsYWdzICY9IH5QRl9OT0ZSRUVaRTsKIAkJZGF0YS0+ZnJvemVuID0gMDsKIAkJ
-YnJlYWs7CiAKLS0gCjEuOC4zCgo=
---047d7b3a7f8004216704e2226b54--
+> 
+> > Process scheduler cost is abysmal (Or more exactly when cpu enters idle
+> > mode I presume).
+> >
+> > Adding a context switch for every TSO packet is obviously not something
+> > you want if you want to pump 20Gbps on a single tcp socket.
+> 
+> You wouldn't want it if you were pumping 20 Gbit/s down multiple TCP 
+> sockets either I'd think.
+
+No difference as a matter of fact, as each netperf _will_ schedule
+anyway, as a queue builds in Qdisc layer.
+
+
+
+> 
+> > I guess that real application would not use 16KB send()s either.
+> 
+> You can use a larger send in netperf - the 16 KB is only because that is 
+> the default initial SO_SNDBUF size under Linux :)
+> 
+> > I chose extreme parameters to show that the patch had acceptable impact.
+> > (128KB are only 2 TSO packets)
+> >
+> > The main targets of this patch are servers handling hundred to million
+> > of sockets, or any machine with RAM constraints. This would also permit
+> > better autotuning in the future. Our current 4MB limit is a bit small in
+> > some cases.
+> >
+> > Allowing the socket write queue to queue more bytes is better for
+> > throughput/cpu cycles, as long as you have enough RAM.
+> 
+> So, netperf doesn't queue internally - what happens when the application 
+> does queue internally?  Admittedly, it will be user-space memory (I 
+> assume) rather than kernel memory, which I suppose is better since it 
+> can be paged and whatnot.  But if we drop the qualifiers, it is still 
+> the same quantity of memory overall right?
+> 
+> By the way, does this affect sendfile() or splice()?
+
+Sure : Patch intercepts sk_stream_memory_free() for all its callers.
+
+10Gb link 'experiment with sendfile()' :
+
+lpq83:~# echo -1 >/proc/sys/net/ipv4/tcp_notsent_lowat
+lpq83:~# perf stat -e context-switches ./netperf -H 10.246.17.84 -l 20 -t TCP_SENDFILE -c
+TCP SENDFILE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.246.17.84 () port 0 AF_INET
+Recv   Send    Send                          Utilization       Service Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local   remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   us/KB
+
+ 87380  16384  16384    20.00      9372.56   1.69     -1.00    0.355   -1.000 
+
+ Performance counter stats for './netperf -H 10.246.17.84 -l 20 -t TCP_SENDFILE -c':
+
+            16,188 context-switches                                            
+
+      20.006998098 seconds time elapsed
+
+lpq83:~# echo 131072 >/proc/sys/net/ipv4/tcp_notsent_lowat
+lpq83:~# perf stat -e context-switches ./netperf -H 10.246.17.84 -l 20 -t TCP_SENDFILE -c
+TCP SENDFILE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.246.17.84 () port 0 AF_INET
+Recv   Send    Send                          Utilization       Service Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local   remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   us/KB
+
+ 87380  16384  16384    20.00      9408.33   1.75     -1.00    0.366   -1.000 
+
+ Performance counter stats for './netperf -H 10.246.17.84 -l 20 -t TCP_SENDFILE -c':
+
+           714,395 context-switches                                            
+
+      20.004409659 seconds time elapsed
