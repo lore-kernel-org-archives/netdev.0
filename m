@@ -1,207 +1,54 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 4/6] be2net: refactor MAC-addr setup code
-Date: Tue, 23 Jul 2013 15:25:02 +0530
-Message-ID: <1374573304-6865-5-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next 6/6] be2net: delete primary MAC address while unloading
+Date: Tue, 23 Jul 2013 15:25:04 +0530
+Message-ID: <1374573304-6865-7-git-send-email-sathya.perla@emulex.com>
 References: <1374573304-6865-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:59733 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756328Ab3GWJwA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 05:52:00 -0400
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:49018 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756355Ab3GWJwE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 05:52:04 -0400
 In-Reply-To: <1374573304-6865-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The code to configure the permanent MAC in be_setup() has become quite
-complicated, with different FW cmds being used for BEx, SH-R and Lancer.
-Simplify the logic by moving some of this complexity to be_cmds.c. This
-makes the code in be_setup() a little more readable.
+Currently the UC-list is being deleted from the HW MAC table, but the primary
+MAC is not.
 
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c |   18 ++++++
- drivers/net/ethernet/emulex/benet/be_cmds.h |    1 +
- drivers/net/ethernet/emulex/benet/be_main.c |   87 +++++++++------------------
- 3 files changed, 48 insertions(+), 58 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c |    8 +++++---
+ 1 files changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index b384ae7..f4ee94e 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -2755,6 +2755,24 @@ int be_cmd_get_active_mac(struct be_adapter *adapter, u32 curr_pmac_id, u8 *mac)
- 	}
- }
- 
-+int be_cmd_get_perm_mac(struct be_adapter *adapter, u8 *mac)
-+{
-+	int status;
-+	bool pmac_valid = false;
-+
-+	memset(mac, 0, ETH_ALEN);
-+
-+	if (lancer_chip(adapter))
-+		status = be_cmd_get_mac_from_list(adapter, mac, &pmac_valid,
-+						  NULL, 0);
-+	else if (be_physfn(adapter))
-+		status = be_cmd_mac_addr_query(adapter, mac, true, 0, 0);
-+	else
-+		status = be_cmd_mac_addr_query(adapter, mac, false,
-+					       adapter->if_handle, 0);
-+	return status;
-+}
-+
- /* Uses synchronous MCCQ */
- int be_cmd_set_mac_list(struct be_adapter *adapter, u8 *mac_array,
- 			u8 mac_count, u32 domain)
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 671a89d..5e9e2b0 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -1934,6 +1934,7 @@ extern int be_cmd_get_mac_from_list(struct be_adapter *adapter, u8 *mac,
- 				    u8 domain);
- extern int be_cmd_get_active_mac(struct be_adapter *adapter, u32 pmac_id,
- 				 u8 *mac);
-+extern int be_cmd_get_perm_mac(struct be_adapter *adapter, u8 *mac);
- extern int be_cmd_set_mac_list(struct be_adapter *adapter, u8 *mac_array,
- 						u8 mac_count, u32 domain);
- extern int be_cmd_set_hsw_config(struct be_adapter *adapter, u16 pvid,
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 6919874..97279af 100644
+index 9b22791..7c6f03c 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2753,7 +2753,7 @@ static int be_vfs_mac_query(struct be_adapter *adapter)
- 	int status, vf;
- 	u8 mac[ETH_ALEN];
- 	struct be_vf_cfg *vf_cfg;
--	bool active;
-+	bool active = false;
+@@ -2790,7 +2790,7 @@ done:
  
- 	for_all_vfs(adapter, vf_cfg, vf) {
- 		be_cmd_get_mac_from_list(adapter, mac, &active,
-@@ -2978,41 +2978,6 @@ static void be_setup_init(struct be_adapter *adapter)
- 		adapter->cmd_privileges = MIN_PRIVILEGES;
- }
- 
--static int be_get_mac_addr(struct be_adapter *adapter, u8 *mac, u32 if_handle,
--			   bool *active_mac, u32 *pmac_id)
--{
--	int status = 0;
--
--	if (!is_zero_ether_addr(adapter->netdev->perm_addr)) {
--		memcpy(mac, adapter->netdev->dev_addr, ETH_ALEN);
--		if (!lancer_chip(adapter) && !be_physfn(adapter))
--			*active_mac = true;
--		else
--			*active_mac = false;
--
--		return status;
--	}
--
--	if (lancer_chip(adapter)) {
--		status = be_cmd_get_mac_from_list(adapter, mac,
--						  active_mac, pmac_id, 0);
--		if (*active_mac) {
--			status = be_cmd_mac_addr_query(adapter, mac, false,
--						       if_handle, *pmac_id);
--		}
--	} else if (be_physfn(adapter)) {
--		/* For BE3, for PF get permanent MAC */
--		status = be_cmd_mac_addr_query(adapter, mac, true, 0, 0);
--		*active_mac = false;
--	} else {
--		/* For BE3, for VF get soft MAC assigned by PF*/
--		status = be_cmd_mac_addr_query(adapter, mac, false,
--					       if_handle, 0);
--		*active_mac = true;
--	}
--	return status;
--}
--
- static void be_get_resources(struct be_adapter *adapter)
+ static int be_clear(struct be_adapter *adapter)
  {
- 	u16 dev_num_vfs;
-@@ -3118,14 +3083,38 @@ err:
- 	return status;
- }
+-	int i = 1;
++	int i;
  
-+static int be_mac_setup(struct be_adapter *adapter)
-+{
-+	u8 mac[ETH_ALEN];
-+	int status;
-+
-+	if (is_zero_ether_addr(adapter->netdev->dev_addr)) {
-+		status = be_cmd_get_perm_mac(adapter, mac);
-+		if (status)
-+			return status;
-+
-+		memcpy(adapter->netdev->dev_addr, mac, ETH_ALEN);
-+		memcpy(adapter->netdev->perm_addr, mac, ETH_ALEN);
-+	} else {
-+		/* Maybe the HW was reset; dev_addr must be re-programmed */
-+		memcpy(mac, adapter->netdev->dev_addr, ETH_ALEN);
-+	}
-+
-+	/* On BE3 VFs this cmd may fail due to lack of privilege.
-+	 * Ignore the failure as in this case pmac_id is fetched
-+	 * in the IFACE_CREATE cmd.
-+	 */
-+	be_cmd_pmac_add(adapter, mac, adapter->if_handle,
-+			&adapter->pmac_id[0], 0);
-+	return 0;
-+}
-+
- static int be_setup(struct be_adapter *adapter)
- {
- 	struct device *dev = &adapter->pdev->dev;
- 	u32 en_flags;
- 	u32 tx_fc, rx_fc;
- 	int status;
--	u8 mac[ETH_ALEN];
--	bool active_mac;
+ 	if (adapter->flags & BE_FLAGS_WORKER_SCHEDULED) {
+ 		cancel_delayed_work_sync(&adapter->work);
+@@ -2800,9 +2800,11 @@ static int be_clear(struct be_adapter *adapter)
+ 	if (sriov_enabled(adapter))
+ 		be_vf_clear(adapter);
  
- 	be_setup_init(adapter);
+-	for (; adapter->uc_macs > 0; adapter->uc_macs--, i++)
++	/* delete the primary mac along with the uc-mac list */
++	for (i = 0; i < (adapter->uc_macs + 1); i++)
+ 		be_cmd_pmac_del(adapter, adapter->if_handle,
+-			adapter->pmac_id[i], 0);
++				adapter->pmac_id[i], 0);
++	adapter->uc_macs = 0;
  
-@@ -3165,36 +3154,18 @@ static int be_setup(struct be_adapter *adapter)
+ 	be_cmd_if_destroy(adapter, adapter->if_handle,  0);
  
- 	en_flags = BE_IF_FLAGS_UNTAGGED | BE_IF_FLAGS_BROADCAST |
- 			BE_IF_FLAGS_MULTICAST | BE_IF_FLAGS_PASS_L3L4_ERRORS;
--
- 	if (adapter->function_caps & BE_FUNCTION_CAPS_RSS)
- 		en_flags |= BE_IF_FLAGS_RSS;
--
- 	en_flags = en_flags & adapter->if_cap_flags;
--
- 	status = be_cmd_if_create(adapter, adapter->if_cap_flags, en_flags,
- 				  &adapter->if_handle, 0);
- 	if (status != 0)
- 		goto err;
- 
--	memset(mac, 0, ETH_ALEN);
--	active_mac = false;
--	status = be_get_mac_addr(adapter, mac, adapter->if_handle,
--				 &active_mac, &adapter->pmac_id[0]);
--	if (status != 0)
-+	status = be_mac_setup(adapter);
-+	if (status)
- 		goto err;
- 
--	if (!active_mac) {
--		status = be_cmd_pmac_add(adapter, mac, adapter->if_handle,
--					 &adapter->pmac_id[0], 0);
--		if (status != 0)
--			goto err;
--	}
--
--	if (is_zero_ether_addr(adapter->netdev->dev_addr)) {
--		memcpy(adapter->netdev->dev_addr, mac, ETH_ALEN);
--		memcpy(adapter->netdev->perm_addr, mac, ETH_ALEN);
--	}
--
- 	status = be_tx_qs_create(adapter);
- 	if (status)
- 		goto err;
 -- 
 1.7.1
