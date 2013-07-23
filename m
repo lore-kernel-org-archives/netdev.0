@@ -1,130 +1,116 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RFC PATCH net-next V2] net: split rt_genid for ipv4 and ipv6
-Date: Tue, 23 Jul 2013 23:51:53 +0200
-Message-ID: <51EEFAF9.2030300@6wind.com>
-References: <1374543420-12657-1-git-send-email-fan.du@windriver.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Michael Leun <lkml20130126@newton.leun.net>
+Subject: Re: 3.11-rc regression bisected: s2disk does not work (was Re:
+ [PATCH v3 13/16] futex: use freezable blocking call)
+Date: Tue, 23 Jul 2013 23:58:27 +0200
+Message-ID: <20130723235827.014f7899@xenia.leun.net>
+References: <1367884221-20462-1-git-send-email-ccross@android.com>
+	<CA+55aFzUVPJe96z8V0F-znc8ZcpJid7LEeYww80M-Mx=S91tAA@mail.gmail.com>
+	<CAMbhsRReF9xB597i9CcCj7D1P5kvB4cc0JmDQYeboqi11Kp99A@mail.gmail.com>
+	<15305281.aClQ8XUG9t@vostro.rjw.lan>
+	<CAMbhsRSsq0pgS6KvCjiFGneDEJd6zSXsYB_2MCV=sh+6F2muog@mail.gmail.com>
+	<CAMbhsRSRcQ-CgCTkRGJJSVSArPqmGRjgxeRBUY0zE94Osxa-nA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org, jmorris@namei.org,
-	steffen.klassert@secunet.com, netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:38424 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933708Ab3GWVv4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 17:51:56 -0400
-Received: by mail-wi0-f173.google.com with SMTP id hq4so3558999wib.6
-        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 14:51:55 -0700 (PDT)
-In-Reply-To: <1374543420-12657-1-git-send-email-fan.du@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	lkml <linux-kernel@vger.kernel.org>, Pavel Machek <pavel@ucw.cz>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@redhat.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Mandeep Singh Baines <msb@chromium.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	linux-nfs <linux-nfs@vger.kernel.org>,
+	Linux PM list <linux-pm@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>,
+	Darren Hart <dvhart@linux.intel.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Randy Dunlap <rdunlap@infradead.org>,
+	Al Viro <viro@zeniv.linux.org.uk>
+To: Colin Cross <ccross@android.com>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <CAMbhsRSRcQ-CgCTkRGJJSVSArPqmGRjgxeRBUY0zE94Osxa-nA@mail.gmail.com>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 23/07/2013 03:37, Fan Du a =C3=A9crit :
-> Current net name space has only one genid for both IPv4 and IPv6, it =
-has below drawbacks:
->
-> - Add/delete an IPv4 address will invalidate all IPv6 routing table e=
-ntries.
-> - Insert/remove XFRM policy will also invalidate both IPv4/IPv6 routi=
-ng table entries
->    even when the policy is only applied for one address family.
->
-> Thus, this patch attempt to split one genid for two to cater for IPv4=
- and IPv6 separately
-> in a fine granularity.
->
-> Signed-off-by: Fan Du <fan.du@windriver.com>
->
-> V2:
->   -Fix compile issue when IPv6 not enabled
->   -Put genid into struct netns_ipv4/ipv6
-> ---
->   include/net/net_namespace.h |   39 ++++++++++++++++++++++++++++++++=
-++-----
->   include/net/netns/ipv4.h    |    1 +
->   include/net/netns/ipv6.h    |    1 +
->   net/ipv4/route.c            |   16 ++++++++--------
->   net/ipv6/af_inet6.c         |    1 +
->   net/ipv6/route.c            |    4 ++--
->   net/xfrm/xfrm_policy.c      |    8 +++++++-
->   7 files changed, 54 insertions(+), 16 deletions(-)
->
-> diff --git a/include/net/net_namespace.h b/include/net/net_namespace.=
-h
-> index 84e37b1..763e63f 100644
-> --- a/include/net/net_namespace.h
-> +++ b/include/net/net_namespace.h
-> @@ -119,7 +119,6 @@ struct net {
->   	struct netns_ipvs	*ipvs;
->   #endif
->   	struct sock		*diag_nlsk;
-> -	atomic_t		rt_genid;
->   	atomic_t		fnhe_genid;
->   };
->
-> @@ -333,14 +332,44 @@ static inline void unregister_net_sysctl_table(=
-struct ctl_table_header *header)
->   }
->   #endif
->
-> -static inline int rt_genid(struct net *net)
-> +static inline int rt_genid_ipv4(struct net *net)
->   {
-> -	return atomic_read(&net->rt_genid);
-> +	return atomic_read(&net->ipv4.rt_genid_ipv4);
->   }
->
-> -static inline void rt_genid_bump(struct net *net)
-> +static inline void rt_genid_bump_ipv4(struct net *net)
->   {
-> -	atomic_inc(&net->rt_genid);
-> +	atomic_inc(&net->ipv4.rt_genid_ipv4);
-> +}
-> +
-> +#if IS_ENABLED(CONFIG_IPV6)
-> +static inline int rt_genid_ipv6(struct net *net)
-> +{
-> +	return atomic_read(&net->ipv6.rt_genid_ipv6);
-> +}
-> +
-> +static inline void rt_genid_bump_ipv6(struct net *net)
-> +{
-> +	atomic_inc(&net->ipv6.rt_genid_ipv6);
-> +}
-> +#else
-> +static inline int rt_genid_ipv6(struct net *net)
-> +{
-> +	return 0;
-> +}
-> +
-> +static inline void rt_genid_bump_ipv6(struct net *net)
-> +{
-> +}
-> +#endif
-> +
-> +/* For callers who don't really care about whether it's IPv4 or IPv6=
- */
-> +static inline void rt_genid_bump_all(struct net *net)
-> +{
-> +	atomic_inc(&net->ipv4.rt_genid_ipv4);
-> +#if IS_ENABLED(CONFIG_IPV6)
-> +	atomic_inc(&net->ipv6.rt_genid_ipv6);
-> +#endif
->   }
->
->   static inline int fnhe_genid(struct net *net)
-> diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-> index 2ba9de8..d87af01 100644
-> --- a/include/net/netns/ipv4.h
-> +++ b/include/net/netns/ipv4.h
-> @@ -77,5 +77,6 @@ struct netns_ipv4 {
->   	struct fib_rules_ops	*mr_rules_ops;
->   #endif
->   #endif
-> +	atomic_t	rt_genid_ipv4;
-Just nitpiking: maybe _ipv4 is redundant? It's already in 'struct netns=
-_ipv4'.
-Same for IPv6.
+On Tue, 23 Jul 2013 13:31:49 -0700
+Colin Cross <ccross@android.com> wrote:
+
+> On Mon, Jul 22, 2013 at 11:28 PM, Colin Cross <ccross@android.com>
+> wrote:
+> > On Mon, Jul 22, 2013 at 6:41 PM, Rafael J. Wysocki <rjw@sisk.pl>
+> > wrote:
+> >> On Monday, July 22, 2013 05:42:49 PM Colin Cross wrote:
+> >>> On Mon, Jul 22, 2013 at 5:32 PM, Linus Torvalds
+> >>> <torvalds@linux-foundation.org> wrote:
+> >>> > On Mon, Jul 22, 2013 at 4:55 PM, Colin Cross
+> >>> > <ccross@android.com> wrote:
+> >>> >>
+> >>> >> I think the right solution is to add a flag to the freezing
+> >>> >> task that marks it unfreezable.  I  think PF_NOFREEZE would
+> >>> >> work, although it is normally used on kernel threads, can you
+> >>> >> see if the attached patch helps?
+> >>> >
+> >>> > Hmm. That does seem to be the right thing to do, but I wonder
+> >>> > about the *other* callers of freeze_processes() IOW, kexec and
+> >>> > friends.
+> >>> >
+> >>> > So maybe we should do this in {freeze|thaw}_processes() itself,
+> >>> > and just make the rule be that the caller of freeze_processes()
+> >>> > itself is obviously not frozen, and has to be the same one that
+> >>> > then thaws things?
+> >>> >
+> >>> > Colin? Rafael? Comments?
+> >>> >
+> >>> >                 Linus
+> >>>
+> >>> I was worried about clearing the flag in thaw_processes().  If a
+> >>> kernel thread with PF_NOFREEZE set ever called thaw_processes(),
+> >>> which autosleep might do, it would clear the flag.  Or if a
+> >>> different thread called freeze_processes() and thaw_processes().
+> >>
+> >> Is that legitimate?
+> >
+> > Nothing precludes it today, but I don't see any need for it.  I'll
+> > add a comment when I add the flag.
+> >
+> >>> All the other callers besides the SNAPSHOT_FREEZE ioctl stay in
+> >>> the kernel between freeze_processes() and thaw_processes(), which
+> >>> makes the fanout of places that could call try_to_freeze() much
+> >>> more controllable.
+> >>>
+> >>> Using a new flag that operates like PF_NOFREEZE but doesn't
+> >>> conflict with it, or a nofreeze_depth counter, would also work.
+> >>
+> >> Well, that would be robust enough.  At least if the purpose of
+> >> that new flag is clearly specified, people hopefully won't be
+> >> tempted to optimize it away in the future.
+> >>
+> >> Thanks,
+> >> Rafael
+> >
+> > OK, I'll add a new flag.
+> 
+> 
+> Michael, can you see if this patch works and doesn't throw any
+> warnings during suspend or resume?
+
+Tried several times with and without threads = y in suspend.conf, tried
+also to produce high load / much processes / high memory usage.
+
+Worked every time, no WARN seen.
+
+> If the extra process flag is considered too precious for this
+> (there are only 2 left after this patch) I could get the
+> same functionality by having freeze_processes() reject calls
+> from a PF_KTHREAD|PF_NOFREEZE thread, and use PF_KTHREAD to
+> determine if PF_NOFREEZE should be cleared in thaw_processes().
+
+If another solution is considered please do not hesitate to send me the
+patch for another round of check.
+
+-- 
+MfG,
+
+Michael Leun
+
