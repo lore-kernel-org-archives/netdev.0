@@ -1,144 +1,74 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [RFC PATCH 1/3] of: provide a binding for the 'fixed-link' property
-Date: Tue, 23 Jul 2013 12:39:56 +0100
-Message-ID: <CAGVrzcaAw4TNLUKw6L52jXY0KTHShZWS7tnP5mHHky9eFVKsYg@mail.gmail.com>
-References: <1373902450-11857-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <1373902450-11857-2-git-send-email-thomas.petazzoni@free-electrons.com> <20130723112259.GE4833@e106331-lin.cambridge.arm.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] tuntap: hardware vlan tx support
+Date: Tue, 23 Jul 2013 16:12:49 +0400
+Message-ID: <51EE7341.4060404@cogentembedded.com>
+References: <1374563748-38821-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	"rob.herring@calxeda.com" <rob.herring@calxeda.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree-discuss@lists.ozlabs.org"
-	<devicetree-discuss@lists.ozlabs.org>,
-	Lior Amsalem <alior@marvell.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: Mark Rutland <mark.rutland@arm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:49872 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756332Ab3GWLkh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 07:40:37 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rq2so8301519pbb.19
-        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 04:40:36 -0700 (PDT)
-In-Reply-To: <20130723112259.GE4833@e106331-lin.cambridge.arm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Basil Gor <basil.gor@gmail.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1374563748-38821-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+Hello.
 
-2013/7/23 Mark Rutland <mark.rutland@arm.com>:
-[snip]
+On 23-07-2013 11:15, Jason Wang wrote:
 
->> +++ b/Documentation/devicetree/bindings/net/fixed-link.txt
->> @@ -0,0 +1,26 @@
->> +Fixed link Device Tree binding
->> +------------------------------
->> +
->> +Some Ethernet MACs have a "fixed link", and are not connected to a
->> +normal MDIO-managed PHY device. For those situations, a Device Tree
->> +binding allows to describe a "fixed link".
->
-> Are partictular MACs fixed link, or can some either be either fixed link
-> or wired to an MDIO-managed PHY? i.e. can we assume a given MAC is
-> fixed-link from its compatible string?
+> Inspired by commit f09e2249c4f5c7c13261ec73f5a7807076af0c8e (macvtap: restore
+> vlan header on user read). This patch adds hardware vlan tx support for
+> tuntap. This is done by copying vlan header directly into userspace in
+> tun_put_user() instead of doing it through __vlan_put_tag() in
+> dev_hard_start_xmit(). This eliminates one unnecessary memove in
 
-There are different use-cases out there:
+    s/memove/memmove/?
 
-- you lack or do not want to have a proper switch/PHY library driver
-for an Ethernet switch, but that specific switch may still be
-accessible on the MDIO bus, yet you just want to expose a link UP from
-the CPU port perspective, that specific use case should dissapear in
-favor of a simplified PHY library driver which just eventually makes
-the link appear as UP from the CPU port perspective
+> vlan_insert_tag() for 802.1ad and 802.1q traffic.
 
-- you have absolutely no control over the PHY on the MDIO bus
-        * for switches, it could be SPI, I2C, GPIO whatever, so to
-avoid any dependency, you might just want to let the link appear as UP
-        * or you could have a very different PHY whose data-path is
-Ethernet, but the control-path is something else, e.g: MoCA (which is
-more the kind of use-case I am interested in)
+> pktgen test shows about 20% improvement for 802.1q traffic:
 
->
->> +
->> +Such a fixed link situation is described within an Ethernet device
->> +Device Tree node using a 'fixed-link' property, composed of 5
->> +elements:
->
-> I'm not sure grouping these values together is the best way of handling
-> this. It's rather opaque, and inflexible for future extension.
+> Before:
+>    662149pps 317Mb/sec (317831520bps) errors: 0
+> After:
+>    801033pps 384Mb/sec (384495840bps) errors: 0
 
-Well, I proposed making them look like a "standard" Ethernet PHY node
-but this somehow got rejected, see at the very bottom.
+> Cc: Basil Gor <basil.gor@gmail.com>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>   drivers/net/tun.c |   39 +++++++++++++++++++++++++++++++++++----
+>   1 files changed, 35 insertions(+), 4 deletions(-)
 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index a72d141..66e265d 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+[...]
+> @@ -1328,11 +1330,39 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+>   		total += tun->vnet_hdr_sz;
+>   	}
 >
->> +
->> + 1. A fake PHY ID, which must be unique accross all fixed-link PHYs in
->> +    the system.
->
-> Is there any reason this couldn't be allocated dynamically within the
-> kernel as needed? I don't see why an arbitrary unique value should be a
-> dt binding requirement; it seems like a leak of Linux implementation
-> details.
+> -	len = min_t(int, skb->len, len);
+> +	if (!vlan_tx_tag_present(skb))
+> +		len = min_t(int, skb->len, len);
+> +	else {
 
-Honestly, I do not really think actually letting this be configurable
-is a good idea because it would become some sort of user-space ABI. If
-we want to expose some PHY identification registers, we could use some
-ID2 and ID3 values which are not allocated to any vendor, or allocated
-to the Linux foundation (e.g; like what USB does with Linux HUBs).
+    According to Documentation/CodingStyle chapter 3, both arms of an *if* 
+statement should have {} if one arm has it.
 
->
->> + 2. The duplex (1 for full-duplex, 0 for half-duplex)
->
-> Will this change for a given MAC?
->
-> Could we not have a boolean property for each of these, and require one
-> to be present?
->
-> Possibly fixed-link-full-duplex / fix-link-half-duplex?
->
->> + 3. The speed (10, 100, 1000)
->
-> fixed-link-speed?
->
->> + 4. The pause setting (1 for enabled, 0 for disabled)
->> + 5. The asym pause setting (1 for enabled, 0 for disabled)
->
-> Boolean properties for both of these?
->
-> Thanks,
-> Mark.
->
->> +
->> +Example:
->> +
->> +ethernet@0 {
->> +     ...
->> +     fixed-link = <1 1 1000 0 0>;
->> +     ...
->> +};
->> +
+> +		int copy, ret;
+> +		struct {
+> +			__be16 h_vlan_proto;
+> +			__be16 h_vlan_TCI;
+> +		} veth;
 
-The initial proposal that I had suggested was this:
+    Empty line wouldn't hurt here, after declarations...
 
-ethernet-phy@0 {
-     reg = <0>;
-     id = <0xdeadbeef>;
-     speed = <1000>;
-     full-duplex;
-     pause;
-     asym-pause;
-};
+> +		veth.h_vlan_proto = skb->vlan_proto;
+> +		veth.h_vlan_TCI = htons(vlan_tx_tag_get(skb));
+[...]
 
-which looks more or less what you seem to want as well but this
-somehow makes it look like a real PHY device, so we could argue that
-this has nowhere to be in the Device Tree. Arguably there are a
-gazillions of other bindings which imho should also not be in a Device
-Tree.
---
-Florian
+WBR, Sergei
