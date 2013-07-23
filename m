@@ -1,309 +1,210 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net-next PATCH v2 1/1] drivers: net: cpsw: add support to show hw stats via ethtool
-Date: Tue, 23 Jul 2013 15:38:17 +0530
-Message-ID: <1374574097-26188-1-git-send-email-mugunthanvnm@ti.com>
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: [RFC PATCH 1/3] of: provide a binding for the 'fixed-link'
+ property
+Date: Tue, 23 Jul 2013 12:22:59 +0100
+Message-ID: <20130723112259.GE4833@e106331-lin.cambridge.arm.com>
+References: <1373902450-11857-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <1373902450-11857-2-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <linux-omap@vger.kernel.org>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Grant Likely <grant.likely@secretlab.ca>,
+	"rob.herring@calxeda.com" <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <florian@openwrt.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree-discuss@lists.ozlabs.org"
+	<devicetree-discuss@lists.ozlabs.org>,
+	Lior Amsalem <alior@marvell.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:54195 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756100Ab3GWKGZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 06:06:25 -0400
+Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:39742 "EHLO
+	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756174Ab3GWLX4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 07:23:56 -0400
+Content-Disposition: inline
+In-Reply-To: <1373902450-11857-2-git-send-email-thomas.petazzoni@free-electrons.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support to show CPSW hardware statistics to user via ethtool
-so user can find if there were any error reported by hardware or
-the system is over loaded duing high data rate transfer.
+Hi Thomas,
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
-Changes from initial version
-* Change hw_stats variable from struct cpsw_hw_stats __iomem * to u8 __iomem *,
-  so that accessing hw_stats doesn't require type casting.
----
+On Mon, Jul 15, 2013 at 04:34:08PM +0100, Thomas Petazzoni wrote:
+> Some Ethernet MACs have a "fixed link", and are not connected to a
+> normal MDIO-managed PHY device. For those situations, a Device Tree
+> binding allows to describe a "fixed link", as a "fixed-link" property
+> of the Ethernet device Device Tree node.
+> 
+> This patch adds:
+> 
+>  * A documentation for the Device Tree property "fixed-link".
+> 
+>  * A of_phy_register_fixed_link() OF helper, which provided an OF node
+>    that contains a "fixed-link" property, registers the corresponding
+>    fixed PHY.
+> 
+>  * Removes the warning on the of_phy_connect_fixed_link() that says
+>    new drivers should not use it, since Grant Likely indicated that
+>    this "fixed-link" property is indeed the way to go.
+> 
+> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> ---
+>  .../devicetree/bindings/net/fixed-link.txt         | 26 ++++++++++++++++
+>  drivers/of/of_mdio.c                               | 36 +++++++++++++++++++---
+>  include/linux/of_mdio.h                            | 10 ++++++
+>  3 files changed, 68 insertions(+), 4 deletions(-)
+>  create mode 100644 Documentation/devicetree/bindings/net/fixed-link.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/fixed-link.txt b/Documentation/devicetree/bindings/net/fixed-link.txt
+> new file mode 100644
+> index 0000000..25a009a
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/fixed-link.txt
+> @@ -0,0 +1,26 @@
+> +Fixed link Device Tree binding
+> +------------------------------
+> +
+> +Some Ethernet MACs have a "fixed link", and are not connected to a
+> +normal MDIO-managed PHY device. For those situations, a Device Tree
+> +binding allows to describe a "fixed link".
 
- drivers/net/ethernet/ti/cpsw.c |  202 +++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 200 insertions(+), 2 deletions(-)
+Are partictular MACs fixed link, or can some either be either fixed link
+or wired to an MDIO-managed PHY? i.e. can we assume a given MAC is
+fixed-link from its compatible string?
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 05a1674..1cd1c00 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -91,6 +91,7 @@ do {								\
- #define CPSW1_SLAVE_SIZE	0x040
- #define CPSW1_CPDMA_OFFSET	0x100
- #define CPSW1_STATERAM_OFFSET	0x200
-+#define CPSW1_HW_STATS		0x400
- #define CPSW1_CPTS_OFFSET	0x500
- #define CPSW1_ALE_OFFSET	0x600
- #define CPSW1_SLIVER_OFFSET	0x700
-@@ -99,6 +100,7 @@ do {								\
- #define CPSW2_SLAVE_OFFSET	0x200
- #define CPSW2_SLAVE_SIZE	0x100
- #define CPSW2_CPDMA_OFFSET	0x800
-+#define CPSW2_HW_STATS		0x900
- #define CPSW2_STATERAM_OFFSET	0xa00
- #define CPSW2_CPTS_OFFSET	0xc00
- #define CPSW2_ALE_OFFSET	0xd00
-@@ -299,6 +301,44 @@ struct cpsw_sliver_regs {
- 	u32	rx_pri_map;
- };
- 
-+struct cpsw_hw_stats {
-+	u32	rxgoodframes;
-+	u32	rxbroadcastframes;
-+	u32	rxmulticastframes;
-+	u32	rxpauseframes;
-+	u32	rxcrcerrors;
-+	u32	rxaligncodeerrors;
-+	u32	rxoversizedframes;
-+	u32	rxjabberframes;
-+	u32	rxundersizedframes;
-+	u32	rxfragments;
-+	u32	__pad_0[2];
-+	u32	rxoctets;
-+	u32	txgoodframes;
-+	u32	txbroadcastframes;
-+	u32	txmulticastframes;
-+	u32	txpauseframes;
-+	u32	txdeferredframes;
-+	u32	txcollisionframes;
-+	u32	txsinglecollframes;
-+	u32	txmultcollframes;
-+	u32	txexcessivecollisions;
-+	u32	txlatecollisions;
-+	u32	txunderrun;
-+	u32	txcarriersenseerrors;
-+	u32	txoctets;
-+	u32	octetframes64;
-+	u32	octetframes65t127;
-+	u32	octetframes128t255;
-+	u32	octetframes256t511;
-+	u32	octetframes512t1023;
-+	u32	octetframes1024tup;
-+	u32	netoctets;
-+	u32	rxsofoverruns;
-+	u32	rxmofoverruns;
-+	u32	rxdmaoverruns;
-+};
-+
- struct cpsw_slave {
- 	void __iomem			*regs;
- 	struct cpsw_sliver_regs __iomem	*sliver;
-@@ -332,6 +372,7 @@ struct cpsw_priv {
- 	struct cpsw_platform_data	data;
- 	struct cpsw_ss_regs __iomem	*regs;
- 	struct cpsw_wr_regs __iomem	*wr_regs;
-+	u8 __iomem			*hw_stats;
- 	struct cpsw_host_regs __iomem	*host_port_regs;
- 	u32				msg_enable;
- 	u32				version;
-@@ -354,6 +395,94 @@ struct cpsw_priv {
- 	u32 emac_port;
- };
- 
-+struct cpsw_stats {
-+	char stat_string[ETH_GSTRING_LEN];
-+	int type;
-+	int sizeof_stat;
-+	int stat_offset;
-+};
-+
-+enum {
-+	CPSW_STATS,
-+	CPDMA_RX_STATS,
-+	CPDMA_TX_STATS,
-+};
-+
-+#define CPSW_STAT(m)		CPSW_STATS,				\
-+				sizeof(((struct cpsw_hw_stats *)0)->m), \
-+				offsetof(struct cpsw_hw_stats, m)
-+#define CPDMA_RX_STAT(m)	CPDMA_RX_STATS,				   \
-+				sizeof(((struct cpdma_chan_stats *)0)->m), \
-+				offsetof(struct cpdma_chan_stats, m)
-+#define CPDMA_TX_STAT(m)	CPDMA_TX_STATS,				   \
-+				sizeof(((struct cpdma_chan_stats *)0)->m), \
-+				offsetof(struct cpdma_chan_stats, m)
-+
-+static const struct cpsw_stats cpsw_gstrings_stats[] = {
-+	{ "Good Rx Frames", CPSW_STAT(rxgoodframes) },
-+	{ "Broadcast Rx Frames", CPSW_STAT(rxbroadcastframes) },
-+	{ "Multicast Rx Frames", CPSW_STAT(rxmulticastframes) },
-+	{ "Pause Rx Frames", CPSW_STAT(rxpauseframes) },
-+	{ "Rx CRC Errors", CPSW_STAT(rxcrcerrors) },
-+	{ "Rx Align/Code Errors", CPSW_STAT(rxaligncodeerrors) },
-+	{ "Oversize Rx Frames", CPSW_STAT(rxoversizedframes) },
-+	{ "Rx Jabbers", CPSW_STAT(rxjabberframes) },
-+	{ "Undersize (Short) Rx Frames", CPSW_STAT(rxundersizedframes) },
-+	{ "Rx Fragments", CPSW_STAT(rxfragments) },
-+	{ "Rx Octets", CPSW_STAT(rxoctets) },
-+	{ "Good Tx Frames", CPSW_STAT(txgoodframes) },
-+	{ "Broadcast Tx Frames", CPSW_STAT(txbroadcastframes) },
-+	{ "Multicast Tx Frames", CPSW_STAT(txmulticastframes) },
-+	{ "Pause Tx Frames", CPSW_STAT(txpauseframes) },
-+	{ "Deferred Tx Frames", CPSW_STAT(txdeferredframes) },
-+	{ "Collisions", CPSW_STAT(txcollisionframes) },
-+	{ "Single Collision Tx Frames", CPSW_STAT(txsinglecollframes) },
-+	{ "Multiple Collision Tx Frames", CPSW_STAT(txmultcollframes) },
-+	{ "Excessive Collisions", CPSW_STAT(txexcessivecollisions) },
-+	{ "Late Collisions", CPSW_STAT(txlatecollisions) },
-+	{ "Tx Underrun", CPSW_STAT(txunderrun) },
-+	{ "Carrier Sense Errors", CPSW_STAT(txcarriersenseerrors) },
-+	{ "Tx Octets", CPSW_STAT(txoctets) },
-+	{ "Rx + Tx 64 Octet Frames", CPSW_STAT(octetframes64) },
-+	{ "Rx + Tx 65-127 Octet Frames", CPSW_STAT(octetframes65t127) },
-+	{ "Rx + Tx 128-255 Octet Frames", CPSW_STAT(octetframes128t255) },
-+	{ "Rx + Tx 256-511 Octet Frames", CPSW_STAT(octetframes256t511) },
-+	{ "Rx + Tx 512-1023 Octet Frames", CPSW_STAT(octetframes512t1023) },
-+	{ "Rx + Tx 1024-Up Octet Frames", CPSW_STAT(octetframes1024tup) },
-+	{ "Net Octets", CPSW_STAT(netoctets) },
-+	{ "Rx Start of Frame Overruns", CPSW_STAT(rxsofoverruns) },
-+	{ "Rx Middle of Frame Overruns", CPSW_STAT(rxmofoverruns) },
-+	{ "Rx DMA Overruns", CPSW_STAT(rxdmaoverruns) },
-+	{ "Rx DMA chan: head_enqueue", CPDMA_RX_STAT(head_enqueue) },
-+	{ "Rx DMA chan: tail_enqueue", CPDMA_RX_STAT(tail_enqueue) },
-+	{ "Rx DMA chan: pad_enqueue", CPDMA_RX_STAT(pad_enqueue) },
-+	{ "Rx DMA chan: misqueued", CPDMA_RX_STAT(misqueued) },
-+	{ "Rx DMA chan: desc_alloc_fail", CPDMA_RX_STAT(desc_alloc_fail) },
-+	{ "Rx DMA chan: pad_alloc_fail", CPDMA_RX_STAT(pad_alloc_fail) },
-+	{ "Rx DMA chan: runt_receive_buf", CPDMA_RX_STAT(runt_receive_buff) },
-+	{ "Rx DMA chan: runt_transmit_buf", CPDMA_RX_STAT(runt_transmit_buff) },
-+	{ "Rx DMA chan: empty_dequeue", CPDMA_RX_STAT(empty_dequeue) },
-+	{ "Rx DMA chan: busy_dequeue", CPDMA_RX_STAT(busy_dequeue) },
-+	{ "Rx DMA chan: good_dequeue", CPDMA_RX_STAT(good_dequeue) },
-+	{ "Rx DMA chan: requeue", CPDMA_RX_STAT(requeue) },
-+	{ "Rx DMA chan: teardown_dequeue", CPDMA_RX_STAT(teardown_dequeue) },
-+	{ "Tx DMA chan: head_enqueue", CPDMA_TX_STAT(head_enqueue) },
-+	{ "Tx DMA chan: tail_enqueue", CPDMA_TX_STAT(tail_enqueue) },
-+	{ "Tx DMA chan: pad_enqueue", CPDMA_TX_STAT(pad_enqueue) },
-+	{ "Tx DMA chan: misqueued", CPDMA_TX_STAT(misqueued) },
-+	{ "Tx DMA chan: desc_alloc_fail", CPDMA_TX_STAT(desc_alloc_fail) },
-+	{ "Tx DMA chan: pad_alloc_fail", CPDMA_TX_STAT(pad_alloc_fail) },
-+	{ "Tx DMA chan: runt_receive_buf", CPDMA_TX_STAT(runt_receive_buff) },
-+	{ "Tx DMA chan: runt_transmit_buf", CPDMA_TX_STAT(runt_transmit_buff) },
-+	{ "Tx DMA chan: empty_dequeue", CPDMA_TX_STAT(empty_dequeue) },
-+	{ "Tx DMA chan: busy_dequeue", CPDMA_TX_STAT(busy_dequeue) },
-+	{ "Tx DMA chan: good_dequeue", CPDMA_TX_STAT(good_dequeue) },
-+	{ "Tx DMA chan: requeue", CPDMA_TX_STAT(requeue) },
-+	{ "Tx DMA chan: teardown_dequeue", CPDMA_TX_STAT(teardown_dequeue) },
-+};
-+
-+#define CPSW_STATS_LEN	ARRAY_SIZE(cpsw_gstrings_stats)
-+
- #define napi_to_priv(napi)	container_of(napi, struct cpsw_priv, napi)
- #define for_each_slave(priv, func, arg...)				\
- 	do {								\
-@@ -723,6 +852,69 @@ static int cpsw_set_coalesce(struct net_device *ndev,
- 	return 0;
- }
- 
-+static int cpsw_get_sset_count(struct net_device *ndev, int sset)
-+{
-+	switch (sset) {
-+	case ETH_SS_STATS:
-+		return CPSW_STATS_LEN;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static void cpsw_get_strings(struct net_device *ndev, u32 stringset, u8 *data)
-+{
-+	u8 *p = data;
-+	int i;
-+
-+	switch (stringset) {
-+	case ETH_SS_STATS:
-+		for (i = 0; i < CPSW_STATS_LEN; i++) {
-+			memcpy(p, cpsw_gstrings_stats[i].stat_string,
-+			       ETH_GSTRING_LEN);
-+			p += ETH_GSTRING_LEN;
-+		}
-+		break;
-+	}
-+}
-+
-+static void cpsw_get_ethtool_stats(struct net_device *ndev,
-+				    struct ethtool_stats *stats, u64 *data)
-+{
-+	struct cpsw_priv *priv = netdev_priv(ndev);
-+	struct cpdma_chan_stats rx_stats;
-+	struct cpdma_chan_stats tx_stats;
-+	u32 val;
-+	u8 *p;
-+	int i;
-+
-+	/* Collect Davinci CPDMA stats for Rx and Tx Channel */
-+	cpdma_chan_get_stats(priv->rxch, &rx_stats);
-+	cpdma_chan_get_stats(priv->txch, &tx_stats);
-+
-+	for (i = 0; i < CPSW_STATS_LEN; i++) {
-+		switch (cpsw_gstrings_stats[i].type) {
-+		case CPSW_STATS:
-+			val = readl(priv->hw_stats +
-+				    cpsw_gstrings_stats[i].stat_offset);
-+			data[i] = val;
-+			break;
-+
-+		case CPDMA_RX_STATS:
-+			p = (u8 *)&rx_stats +
-+				cpsw_gstrings_stats[i].stat_offset;
-+			data[i] = *(u32 *)p;
-+			break;
-+
-+		case CPDMA_TX_STATS:
-+			p = (u8 *)&tx_stats +
-+				cpsw_gstrings_stats[i].stat_offset;
-+			data[i] = *(u32 *)p;
-+			break;
-+		}
-+	}
-+}
-+
- static inline int __show_stat(char *buf, int maxlen, const char *name, u32 val)
- {
- 	static char *leader = "........................................";
-@@ -1426,6 +1618,9 @@ static const struct ethtool_ops cpsw_ethtool_ops = {
- 	.set_settings	= cpsw_set_settings,
- 	.get_coalesce	= cpsw_get_coalesce,
- 	.set_coalesce	= cpsw_set_coalesce,
-+	.get_sset_count		= cpsw_get_sset_count,
-+	.get_strings		= cpsw_get_strings,
-+	.get_ethtool_stats	= cpsw_get_ethtool_stats,
- };
- 
- static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv,
-@@ -1623,6 +1818,7 @@ static int cpsw_probe_dual_emac(struct platform_device *pdev,
- 	priv_sl2->host_port = priv->host_port;
- 	priv_sl2->host_port_regs = priv->host_port_regs;
- 	priv_sl2->wr_regs = priv->wr_regs;
-+	priv_sl2->hw_stats = priv->hw_stats;
- 	priv_sl2->dma = priv->dma;
- 	priv_sl2->txch = priv->txch;
- 	priv_sl2->rxch = priv->rxch;
-@@ -1780,7 +1976,8 @@ static int cpsw_probe(struct platform_device *pdev)
- 	switch (priv->version) {
- 	case CPSW_VERSION_1:
- 		priv->host_port_regs = ss_regs + CPSW1_HOST_PORT_OFFSET;
--		priv->cpts->reg       = ss_regs + CPSW1_CPTS_OFFSET;
-+		priv->cpts->reg      = ss_regs + CPSW1_CPTS_OFFSET;
-+		priv->hw_stats	     = ss_regs + CPSW1_HW_STATS;
- 		dma_params.dmaregs   = ss_regs + CPSW1_CPDMA_OFFSET;
- 		dma_params.txhdp     = ss_regs + CPSW1_STATERAM_OFFSET;
- 		ale_params.ale_regs  = ss_regs + CPSW1_ALE_OFFSET;
-@@ -1791,7 +1988,8 @@ static int cpsw_probe(struct platform_device *pdev)
- 		break;
- 	case CPSW_VERSION_2:
- 		priv->host_port_regs = ss_regs + CPSW2_HOST_PORT_OFFSET;
--		priv->cpts->reg       = ss_regs + CPSW2_CPTS_OFFSET;
-+		priv->cpts->reg      = ss_regs + CPSW2_CPTS_OFFSET;
-+		priv->hw_stats	     = ss_regs + CPSW2_HW_STATS;
- 		dma_params.dmaregs   = ss_regs + CPSW2_CPDMA_OFFSET;
- 		dma_params.txhdp     = ss_regs + CPSW2_STATERAM_OFFSET;
- 		ale_params.ale_regs  = ss_regs + CPSW2_ALE_OFFSET;
--- 
-1.7.9.5
+> +
+> +Such a fixed link situation is described within an Ethernet device
+> +Device Tree node using a 'fixed-link' property, composed of 5
+> +elements:
+
+I'm not sure grouping these values together is the best way of handling
+this. It's rather opaque, and inflexible for future extension.
+
+> +
+> + 1. A fake PHY ID, which must be unique accross all fixed-link PHYs in
+> +    the system.
+
+Is there any reason this couldn't be allocated dynamically within the
+kernel as needed? I don't see why an arbitrary unique value should be a
+dt binding requirement; it seems like a leak of Linux implementation
+details.
+
+> + 2. The duplex (1 for full-duplex, 0 for half-duplex)
+
+Will this change for a given MAC?
+
+Could we not have a boolean property for each of these, and require one
+to be present?
+
+Possibly fixed-link-full-duplex / fix-link-half-duplex?
+
+> + 3. The speed (10, 100, 1000)
+
+fixed-link-speed?
+
+> + 4. The pause setting (1 for enabled, 0 for disabled)
+> + 5. The asym pause setting (1 for enabled, 0 for disabled)
+
+Boolean properties for both of these?
+
+Thanks,
+Mark.
+
+> +
+> +Example:
+> +
+> +ethernet@0 {
+> +	...
+> +	fixed-link = <1 1 1000 0 0>;
+> +	...
+> +};
+> +
+> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+> index d5a57a9..66d5591 100644
+> --- a/drivers/of/of_mdio.c
+> +++ b/drivers/of/of_mdio.c
+> @@ -14,6 +14,7 @@
+>  #include <linux/netdevice.h>
+>  #include <linux/err.h>
+>  #include <linux/phy.h>
+> +#include <linux/phy_fixed.h>
+>  #include <linux/of.h>
+>  #include <linux/of_irq.h>
+>  #include <linux/of_mdio.h>
+> @@ -215,10 +216,6 @@ EXPORT_SYMBOL(of_phy_connect);
+>   * @dev: pointer to net_device claiming the phy
+>   * @hndlr: Link state callback for the network device
+>   * @iface: PHY data interface type
+> - *
+> - * This function is a temporary stop-gap and will be removed soon.  It is
+> - * only to support the fs_enet, ucc_geth and gianfar Ethernet drivers.  Do
+> - * not call this function from new drivers.
+>   */
+>  struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
+>  					     void (*hndlr)(struct net_device *),
+> @@ -247,3 +244,34 @@ struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
+>  	return IS_ERR(phy) ? NULL : phy;
+>  }
+>  EXPORT_SYMBOL(of_phy_connect_fixed_link);
+> +
+> +#if defined(CONFIG_FIXED_PHY)
+> +/**
+> + * of_phy_register_fixed_link - Parse fixed-link property and register a dummy phy
+> + * @np: pointer to the OF device node that contains the "fixed-link"
+> + * property for which a dummy phy should be registered.
+> + */
+> +#define FIXED_LINK_PROPERTIES_COUNT 5
+> +int of_phy_register_fixed_link(struct device_node *np)
+> +{
+> +	struct fixed_phy_status status = {};
+> +	u32 fixed_link_props[FIXED_LINK_PROPERTIES_COUNT];
+> +	int ret;
+> +
+> +	ret = of_property_read_u32_array(np, "fixed-link",
+> +					 fixed_link_props,
+> +					 FIXED_LINK_PROPERTIES_COUNT);
+> +	if (ret < 0)
+> +		return ret;
+> +
+> +	status.link       = 1;
+> +	status.duplex     = fixed_link_props[1];
+> +	status.speed      = fixed_link_props[2];
+> +	status.pause      = fixed_link_props[3];
+> +	status.asym_pause = fixed_link_props[4];
+> +
+> +	return fixed_phy_add(PHY_POLL, fixed_link_props[0],
+> +			     &status);
+> +}
+> +EXPORT_SYMBOL(of_phy_register_fixed_link);
+> +#endif
+> diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
+> index 8163107..bf6efea 100644
+> --- a/include/linux/of_mdio.h
+> +++ b/include/linux/of_mdio.h
+> @@ -57,4 +57,14 @@ static inline struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np)
+>  }
+>  #endif /* CONFIG_OF */
+>  
+> +#if defined(CONFIG_OF) && defined(CONFIG_FIXED_PHY)
+> +extern int of_phy_register_fixed_link(struct device_node *np);
+> +#else
+> +static inline int of_phy_register_fixed_link(struct device_node *np)
+> +{
+> +	return -ENOSYS;
+> +}
+> +#endif
+> +
+> +
+>  #endif /* __LINUX_OF_MDIO_H */
+> -- 
+> 1.8.1.2
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
