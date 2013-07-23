@@ -1,30 +1,226 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 0/6] be2net: patch set
-Date: Tue, 23 Jul 2013 15:24:58 +0530
-Message-ID: <1374573304-6865-1-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next 1/6] be2net: fix MAC address modification for VF
+Date: Tue, 23 Jul 2013 15:24:59 +0530
+Message-ID: <1374573304-6865-2-git-send-email-sathya.perla@emulex.com>
+References: <1374573304-6865-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:49011 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755977Ab3GWJvp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 05:51:45 -0400
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:59727 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755977Ab3GWJvq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 05:51:46 -0400
+In-Reply-To: <1374573304-6865-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following patches are mostly for providing MAC
-filtering ability for VFs. Pls apply. Thanks!
+Currently, the VFs by default don't have the privilege to modify MAC address.
+This will change in a subsequent fix wherein VFs will have the ability to
+modify MAC/VLAN filters.
 
-Sathya Perla (6):
-  be2net: fix MAC address modification for VF
-  be2net: allow VFs to program MAC and VLAN filters
-  be2net: fix pmac_id for BE3 VFs
-  be2net: refactor MAC-addr setup code
-  be2net: use SET/GET_MAC_LIST for SH-R
-  be2net: delete primary MAC address while unloading
+Fix be_mac_addr_set() logic to support MAC address modification on a
+privileged VF too.
 
- drivers/net/ethernet/emulex/benet/be_cmds.c |  116 ++++++++++++++-
- drivers/net/ethernet/emulex/benet/be_cmds.h |   13 ++
- drivers/net/ethernet/emulex/benet/be_main.c |  211 ++++++++++++---------------
- 3 files changed, 219 insertions(+), 121 deletions(-)
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   43 +++++++++++++++--
+ drivers/net/ethernet/emulex/benet/be_cmds.h |    2 +
+ drivers/net/ethernet/emulex/benet/be_main.c |   68 +++++++++++++-------------
+ 3 files changed, 74 insertions(+), 39 deletions(-)
+
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 6e6e0a1..632c0d3 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -2606,9 +2606,12 @@ err:
+ 	return status;
+ }
+ 
+-/* Uses synchronous MCCQ */
++/* pmac_id_valid: true => pmac_id is supplied and MAC address is requested.
++ * pmac_id_valid: false => pmac_id or MAC address is requested.
++ *		  If pmac_id is returned, pmac_id_valid is returned as true
++ */
+ int be_cmd_get_mac_from_list(struct be_adapter *adapter, u8 *mac,
+-			     bool *pmac_id_active, u32 *pmac_id, u8 domain)
++			     bool *pmac_id_valid, u32 *pmac_id, u8 domain)
+ {
+ 	struct be_mcc_wrb *wrb;
+ 	struct be_cmd_req_get_mac_list *req;
+@@ -2644,12 +2647,25 @@ int be_cmd_get_mac_from_list(struct be_adapter *adapter, u8 *mac,
+ 			       get_mac_list_cmd.size, wrb, &get_mac_list_cmd);
+ 	req->hdr.domain = domain;
+ 	req->mac_type = MAC_ADDRESS_TYPE_NETWORK;
+-	req->perm_override = 1;
++	if (*pmac_id_valid) {
++		req->mac_id = cpu_to_le32(*pmac_id);
++		req->iface_id = cpu_to_le16(adapter->if_handle);
++		req->perm_override = 0;
++	} else {
++		req->perm_override = 1;
++	}
+ 
+ 	status = be_mcc_notify_wait(adapter);
+ 	if (!status) {
+ 		struct be_cmd_resp_get_mac_list *resp =
+ 						get_mac_list_cmd.va;
++
++		if (*pmac_id_valid) {
++			memcpy(mac, resp->macid_macaddr.mac_addr_id.macaddr,
++			       ETH_ALEN);
++			goto out;
++		}
++
+ 		mac_count = resp->true_mac_count + resp->pseudo_mac_count;
+ 		/* Mac list returned could contain one or more active mac_ids
+ 		 * or one or more true or pseudo permanant mac addresses.
+@@ -2667,14 +2683,14 @@ int be_cmd_get_mac_from_list(struct be_adapter *adapter, u8 *mac,
+ 			 * is 6 bytes
+ 			 */
+ 			if (mac_addr_size == sizeof(u32)) {
+-				*pmac_id_active = true;
++				*pmac_id_valid = true;
+ 				mac_id = mac_entry->mac_addr_id.s_mac_id.mac_id;
+ 				*pmac_id = le32_to_cpu(mac_id);
+ 				goto out;
+ 			}
+ 		}
+ 		/* If no active mac_id found, return first mac addr */
+-		*pmac_id_active = false;
++		*pmac_id_valid = false;
+ 		memcpy(mac, resp->macaddr_list[0].mac_addr_id.macaddr,
+ 								ETH_ALEN);
+ 	}
+@@ -2686,6 +2702,23 @@ out:
+ 	return status;
+ }
+ 
++int be_cmd_get_active_mac(struct be_adapter *adapter, u32 curr_pmac_id, u8 *mac)
++{
++	int status;
++	bool active = true;
++
++	/* When SH FW is ready, SH should use Lancer path too */
++	if (lancer_chip(adapter)) {
++		/* Fetch the MAC address using pmac_id */
++		status = be_cmd_get_mac_from_list(adapter, mac, &active,
++						  &curr_pmac_id, 0);
++		return status;
++	} else {
++		return be_cmd_mac_addr_query(adapter, mac, false,
++					     adapter->if_handle, curr_pmac_id);
++	}
++}
++
+ /* Uses synchronous MCCQ */
+ int be_cmd_set_mac_list(struct be_adapter *adapter, u8 *mac_array,
+ 			u8 mac_count, u32 domain)
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index 5228d88..7ecca3b 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -1924,6 +1924,8 @@ extern int be_cmd_get_fn_privileges(struct be_adapter *adapter,
+ extern int be_cmd_get_mac_from_list(struct be_adapter *adapter, u8 *mac,
+ 				    bool *pmac_id_active, u32 *pmac_id,
+ 				    u8 domain);
++extern int be_cmd_get_active_mac(struct be_adapter *adapter, u32 pmac_id,
++				 u8 *mac);
+ extern int be_cmd_set_mac_list(struct be_adapter *adapter, u8 *mac_array,
+ 						u8 mac_count, u32 domain);
+ extern int be_cmd_set_hsw_config(struct be_adapter *adapter, u16 pvid,
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 2df48bb..b739ff2 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -247,54 +247,54 @@ void be_cq_notify(struct be_adapter *adapter, u16 qid, bool arm, u16 num_popped)
+ static int be_mac_addr_set(struct net_device *netdev, void *p)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
++	struct device *dev = &adapter->pdev->dev;
+ 	struct sockaddr *addr = p;
+-	int status = 0;
+-	u8 current_mac[ETH_ALEN];
+-	u32 pmac_id = adapter->pmac_id[0];
+-	bool active_mac = true;
++	int status;
++	u8 mac[ETH_ALEN];
++	u32 old_pmac_id = adapter->pmac_id[0], curr_pmac_id = 0;
+ 
+ 	if (!is_valid_ether_addr(addr->sa_data))
+ 		return -EADDRNOTAVAIL;
+ 
+-	/* For BE VF, MAC address is already activated by PF.
+-	 * Hence only operation left is updating netdev->devaddr.
+-	 * Update it if user is passing the same MAC which was used
+-	 * during configuring VF MAC from PF(Hypervisor).
++	/* The PMAC_ADD cmd may fail if the VF doesn't have FILTMGMT
++	 * privilege or if PF did not provision the new MAC address.
++	 * On BE3, this cmd will always fail if the VF doesn't have the
++	 * FILTMGMT privilege. This failure is OK, only if the PF programmed
++	 * the MAC for the VF.
+ 	 */
+-	if (!lancer_chip(adapter) && !be_physfn(adapter)) {
+-		status = be_cmd_mac_addr_query(adapter, current_mac,
+-					       false, adapter->if_handle, 0);
+-		if (!status && !memcmp(current_mac, addr->sa_data, ETH_ALEN))
+-			goto done;
+-		else
+-			goto err;
+-	}
+-
+-	if (!memcmp(addr->sa_data, netdev->dev_addr, ETH_ALEN))
+-		goto done;
+-
+-	/* For Lancer check if any MAC is active.
+-	 * If active, get its mac id.
+-	 */
+-	if (lancer_chip(adapter) && !be_physfn(adapter))
+-		be_cmd_get_mac_from_list(adapter, current_mac, &active_mac,
+-					 &pmac_id, 0);
+-
+ 	status = be_cmd_pmac_add(adapter, (u8 *)addr->sa_data,
+-				 adapter->if_handle,
+-				 &adapter->pmac_id[0], 0);
++				 adapter->if_handle, &adapter->pmac_id[0], 0);
++	if (!status) {
++		curr_pmac_id = adapter->pmac_id[0];
+ 
++		/* Delete the old programmed MAC. This call may fail if the
++		 * old MAC was already deleted by the PF driver.
++		 */
++		if (adapter->pmac_id[0] != old_pmac_id)
++			be_cmd_pmac_del(adapter, adapter->if_handle,
++					old_pmac_id, 0);
++	}
++
++	/* Decide if the new MAC is successfully activated only after
++	 * querying the FW
++	 */
++	status = be_cmd_get_active_mac(adapter, curr_pmac_id, mac);
+ 	if (status)
+ 		goto err;
+ 
+-	if (active_mac)
+-		be_cmd_pmac_del(adapter, adapter->if_handle,
+-				pmac_id, 0);
+-done:
++	/* The MAC change did not happen, either due to lack of privilege
++	 * or PF didn't pre-provision.
++	 */
++	if (memcmp(addr->sa_data, mac, ETH_ALEN)) {
++		status = -EPERM;
++		goto err;
++	}
++
+ 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
++	dev_info(dev, "MAC address changed to %pM\n", mac);
+ 	return 0;
+ err:
+-	dev_err(&adapter->pdev->dev, "MAC %pM set Failed\n", addr->sa_data);
++	dev_warn(dev, "MAC address change to %pM failed\n", addr->sa_data);
+ 	return status;
+ }
+ 
+-- 
+1.7.1
