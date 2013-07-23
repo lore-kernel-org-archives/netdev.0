@@ -1,58 +1,62 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: r8169: remove "PHY reset until link up" log spam
-Date: Tue, 23 Jul 2013 08:54:36 -0700
-Message-ID: <20130723085436.70e8588c@nehalam.linuxnetplumber.net>
-References: <4961229.bXDGvH0dpz@al>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH v2 net-next 1/4] tcp: consolidate SYNACK RTT sampling
+Date: Tue, 23 Jul 2013 08:54:35 -0700
+Message-ID: <CAK6E8=eO7Ktx0J+4QChiy09dJyoWdrL6+g53_d8+i-QCM9PynA@mail.gmail.com>
+References: <1374535248-27418-1-git-send-email-ycheng@google.com> <20130722.180255.685921996264320731.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	nic_swsd@realtek.com
-To: Peter Wu <lekensteyn@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Nandita Dukkipati <nanditad@google.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:61416 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932138Ab3GWPyj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 11:54:39 -0400
-Received: by mail-pd0-f176.google.com with SMTP id t12so8250405pdi.35
-        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 08:54:38 -0700 (PDT)
-In-Reply-To: <4961229.bXDGvH0dpz@al>
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:49192 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932138Ab3GWPy4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 11:54:56 -0400
+Received: by mail-ob0-f170.google.com with SMTP id ef5so10673689obb.29
+        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 08:54:55 -0700 (PDT)
+In-Reply-To: <20130722.180255.685921996264320731.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 23 Jul 2013 11:55:57 +0200
-Peter Wu <lekensteyn@gmail.com> wrote:
+On Mon, Jul 22, 2013 at 6:02 PM, David Miller <davem@davemloft.net> wrote:
+> From: Yuchung Cheng <ycheng@google.com>
+> Date: Mon, 22 Jul 2013 16:20:45 -0700
+>
+>> This patch series improve RTT sampling in three ways:
+>> 1. Sample RTT during fast recovery and reordering events.
+>> 2. Favor ack-based RTT to timestamps because of broken TS ECR fields
+>> 3. Consolidate the RTT measurement logic.
+>>
+>> The first patch consolidates SYNACK and other RTT measurement to use a
+>> central function tcp_ack_update_rtt(). A (small) bonus is now SYNACK
+>> RTT measurement happens after PAWS check, potentially reducing the
+>> impact of RTO seeding on bad TCP timestamps values.
+>>
+>> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+>
+> I like this series a lot, applied, thanks!
+>
+> Next time please submit a seperate "[PATCH 0/4] xxx" posting.
+>
+> If it has non-trivial content, I use the "0" posting as the
+> commit message of a merge commit when I apply your series.
+>
+> What I did here was take the text:
+>
+> ====================
+> This patch series improve RTT sampling in three ways:
+> 1. Sample RTT during fast recovery and reordering events.
+> 2. Favor ack-based RTT to timestamps because of broken TS ECR fields
+> 3. Consolidate the RTT measurement logic.
+> ====================
+>
+> and place it into that merge commit, removing it from the patch #1
+> commit message.
+Thank you David. Sorry for the extra hassle. Will definitely do that
+for next patch series.
 
-> This message was added in commit a7154cb8 (June 2004) and is printed
-> every ten seconds when no cable is connected.
-> 
-> Signed-off-by: Peter Wu <lekensteyn@gmail.com>
-> ---
-> Using ethtool to silence *all* link warnings is still a manual
-> operation, in my opinion not acceptable so let's remove this message.
-> 
-> The r8169 constantly resets the device when no link is connected,
-> contrary the r8168 vendor driver which only resets the link when some
-> PCI config fields have been modified. As the current reset logic in r8168
-> seems to work for broken device (which I do not have have and therefore
-> cannot test), I did not attempt to "clean this up".
-> ---
->  drivers/net/ethernet/realtek/r8169.c | 2 --
->  1 file changed, 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index 880015c..63f04af 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -3689,8 +3689,6 @@ static void rtl_phy_work(struct rtl8169_private *tp)
->  	if (tp->link_ok(ioaddr))
->  		return;
->  
-> -	netif_warn(tp, link, tp->dev, "PHY reset until link up\n");
-> -
->  	tp->phy_reset_enable(tp);
->  
->  out_mod_timer:
-
-Why not implement netif msg flag to allow user to control this?
+>
+> Thanks.
