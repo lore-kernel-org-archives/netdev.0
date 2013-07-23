@@ -1,71 +1,200 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH 1/1] drivers: net: cpsw: add support to show hw stats
- via ethtool
-Date: Tue, 23 Jul 2013 14:21:56 +0530
-Message-ID: <51EE442C.9040805@ti.com>
-References: <1374482231-8201-1-git-send-email-mugunthanvnm@ti.com> <1374512741.1635.12.camel@bwh-desktop.uk.level5networks.com>
+From: Peter Wu <lekensteyn@gmail.com>
+Subject: [PATCH 1/2] realtek: convert to per-chip mask
+Date: Tue, 23 Jul 2013 10:51:05 +0200
+Message-ID: <6657153.nK7z8HGonh@al>
+References: <3162188.mmLmSZRt9A@al>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<linux-omap@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:33980 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754916Ab3GWIwD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Jul 2013 04:52:03 -0400
-In-Reply-To: <1374512741.1635.12.camel@bwh-desktop.uk.level5networks.com>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:63858 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755823Ab3GWIyP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 04:54:15 -0400
+Received: by mail-ea0-f174.google.com with SMTP id o10so4275217eaj.19
+        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 01:54:13 -0700 (PDT)
+In-Reply-To: <3162188.mmLmSZRt9A@al>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/22/2013 10:35 PM, Ben Hutchings wrote:
-> On Mon, 2013-07-22 at 14:07 +0530, Mugunthan V N wrote:
->> Add support to show CPSW hardware statistics to user via ethtool
->> so user can find if there were any error reported by hardware or
->> the system is over loaded duing high data rate transfer.
->>
->> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
->> ---
->>  drivers/net/ethernet/ti/cpsw.c | 202 ++++++++++++++++++++++++++++++++++++++++-
->>  1 file changed, 200 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
->> index 05a1674..f344c05 100644
->> --- a/drivers/net/ethernet/ti/cpsw.c
->> +++ b/drivers/net/ethernet/ti/cpsw.c
-> [...]
->> +static const struct cpsw_stats cpsw_gstrings_stats[] = {
->> +	{ "Good Rx Frames", CPSW_STAT(rxgoodframes) },
->> +	{ "Broadcast Rx Frames", CPSW_STAT(rxbroadcastframes) },
->> +	{ "Multicast Rx Frames", CPSW_STAT(rxmulticastframes) },
->> +	{ "Pause Rx Frames", CPSW_STAT(rxpauseframes) },
->> +	{ "Rx CRC Errors", CPSW_STAT(rxcrcerrors) },
-> [...]
->
-> Statistic names usually don't contain spaces, though I can accept this
-> is probably more readable.
->
->> +static void cpsw_get_ethtool_stats(struct net_device *ndev,
->> +				    struct ethtool_stats *stats, u64 *data)
->> +{
->> +	struct cpsw_priv *priv = netdev_priv(ndev);
->> +	struct cpdma_chan_stats rx_stats;
->> +	struct cpdma_chan_stats tx_stats;
->> +	u32 val;
->> +	u8 *p;
->> +	int i;
->> +
->> +	/* Collect Davinci CPDMA stats for Rx and Tx Channel */
->> +	cpdma_chan_get_stats(priv->rxch, &rx_stats);
->> +	cpdma_chan_get_stats(priv->txch, &tx_stats);
->> +
->> +	for (i = 0; i < CPSW_STATS_LEN; i++) {
->> +		switch (cpsw_gstrings_stats[i].type) {
->> +		case CPSW_STATS:
->> +			val = readl((u8 *)priv->hw_stats +
-> Shouldn't this cast use 'u8 __iomem *'?
-Yes, will change this in v2 and submit it.
+The previous HW_REVID macro did not make identifiers more readable
+(compared to hex values like 0x12345678) and only allowed for one static
+mask. To make it easier to update the chips list, let's use similar
+structures as r8169 and remove HW_REVID.
 
-Regards
-Mugunthan V N
+Names are removed and separated from the table and separated because the
+mac_version does not have to be unique.
+
+There are no functional changes for the output, except that the output
+now mentions "TxConfig" instead of "mask" when a chip is not found.
+Since the mask can be anything, the word is not masked either.
+
+Signed-off-by: Peter Wu <lekensteyn@gmail.com>
+---
+ realtek.c | 106 
+++++++++++++++++++++++++++++++++++++--------------------------
+ 1 file changed, 62 insertions(+), 44 deletions(-)
+
+diff --git a/realtek.c b/realtek.c
+index c3d7ae5..5a1fba7 100644
+--- a/realtek.c
++++ b/realtek.c
+@@ -5,13 +5,8 @@
+ 
+ #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+ 
+-#define HW_REVID(b31, b30, b29, b28, b27, b26, b23, b22) \
+-	(b31<<31 | b30<<30 | b29<<29 | b28<<28 | \
+-	 b27<<27 | b26<<26 | b23<<23 | b22<<22)
+-
+ enum chip_type {
+-	RTLNONE,
+-	RTL8139,
++	RTL8139 = 1,
+ 	RTL8139_K,
+ 	RTL8139A,
+ 	RTL8139A_G,
+@@ -22,6 +17,8 @@ enum chip_type {
+ 	RTL8100B_8139D,
+ 	RTL8139Cp,
+ 	RTL8101,
++
++	/* chips not handled by 8139too/8139cp module */
+ 	RTL8169,
+ 	RTL8169S,
+ 	RTL8110S,
+@@ -35,36 +32,62 @@ enum chip_type {
+ 	RTL8100E2,
+ };
+ 
+-enum {
+-	chip_type_mask = HW_REVID(1, 1, 1, 1, 1, 1, 1, 1)
++static const char * const chip_names[] = {
++	[RTL8139] = "RTL-8139",
++	[RTL8139_K] = "RTL-8139-K",
++	[RTL8139A] = "RTL-8139A",
++	[RTL8139A_G] = "RTL-8139A-G",
++	[RTL8139B] = "RTL-8139B",
++	[RTL8130] = "RTL-8130",
++	[RTL8139C] = "RTL-8139C",
++	[RTL8100] = "RTL-8100",
++	[RTL8100B_8139D] = "RTL-8100B/8139D",
++	[RTL8139C] = "RTL-8139C+",
++	[RTL8101] = "RTL-8101",
++
++	/* chips not handled by 8139too/8139cp module */
++	[RTL8169] = "RTL-8169",
++	[RTL8169S] = "RTL-8169S",
++	[RTL8110S] = "RTL-8110S",
++	[RTL8169_8110SB] = "RTL-8169/8110SB",
++	[RTL8169_8110SCd] = "RTL-8169/8110SCd",
++	[RTL8169_8110SCe] = "RTL-8169/8110SCe",
++	[RTL8168_8111Bb] = "RTL-8168/8111Bb",
++	[RTL8168_8111Bef] = "RTL-8168/8111Bef",
++	[RTL8101Ebc] = "RTL-8101Ebc",
++	[RTL8100E1] = "RTL-8100E(1)",
++	[RTL8100E2] = "RTL-8100E(2)",
+ };
+ 
+ static struct chip_info {
+-	const char *name;
+ 	u32 id_mask;
++	u32 id_val;
++	int mac_version;
+ } rtl_info_tbl[] = {
+-	{ "RTL-8139",		HW_REVID(0, 1, 0, 0, 0, 0, 0, 0) },
+-	{ "RTL-8139-K",		HW_REVID(0, 1, 1, 0, 0, 0, 0, 0) },
+-	{ "RTL-8139A",		HW_REVID(0, 1, 1, 1, 0, 0, 0, 0) },
+-	{ "RTL-8139A-G",	HW_REVID(0, 1, 1, 1, 0, 0, 1, 0) },
+-	{ "RTL-8139B",		HW_REVID(0, 1, 1, 1, 1, 0, 0, 0) },
+-	{ "RTL-8130",		HW_REVID(0, 1, 1, 1, 1, 1, 0, 0) },
+-	{ "RTL-8139C",		HW_REVID(0, 1, 1, 1, 0, 1, 0, 0) },
+-	{ "RTL-8100",		HW_REVID(0, 1, 1, 1, 1, 0, 1, 0) },
+-	{ "RTL-8100B/8139D",	HW_REVID(0, 1, 1, 1, 0, 1, 0, 1) },
+-	{ "RTL-8139C+",		HW_REVID(0, 1, 1, 1, 0, 1, 1, 0) },
+-	{ "RTL-8101",		HW_REVID(0, 1, 1, 1, 0, 1, 1, 1) },
+-	{ "RTL-8169",		HW_REVID(0, 0, 0, 0, 0, 0, 0, 0) },
+-	{ "RTL-8169S",		HW_REVID(0, 0, 0, 0, 0, 0, 1, 0) },
+-	{ "RTL-8110S",		HW_REVID(0, 0, 0, 0, 0, 1, 0, 0) },
+-	{ "RTL-8169/8110SB",	HW_REVID(0, 0, 0, 1, 0, 0, 0, 0) },
+-	{ "RTL-8169/8110SCd",	HW_REVID(0, 0, 0, 1, 1, 0, 0, 0) },
+-	{ "RTL-8169/8110SCe",	HW_REVID(1, 0, 0, 1, 1, 0, 0, 0) },
+-	{ "RTL-8168/8111Bb",	HW_REVID(0, 0, 1, 1, 0, 0, 0, 0) },
+-	{ "RTL-8168/8111Bef",	HW_REVID(0, 0, 1, 1, 1, 0, 0, 0) },
+-	{ "RTL-8101Ebc",	HW_REVID(0, 0, 1, 1, 0, 1, 0, 0) },
+-	{ "RTL-8100E(1)",	HW_REVID(0, 0, 1, 1, 0, 0, 1, 0) },
+-	{ "RTL-8100E(2)",	HW_REVID(0, 0, 1, 1, 1, 0, 1, 0) },
++	{ 0xfcc00000, 0x40000000,	RTL8139 },
++	{ 0xfcc00000, 0x60000000,	RTL8139_K },
++	{ 0xfcc00000, 0x70000000,	RTL8139A },
++	{ 0xfcc00000, 0x70800000,	RTL8139A_G },
++	{ 0xfcc00000, 0x78000000,	RTL8139B },
++	{ 0xfcc00000, 0x7c000000,	RTL8130 },
++	{ 0xfcc00000, 0x74000000,	RTL8139C },
++	{ 0xfcc00000, 0x78800000,	RTL8100 },
++	{ 0xfcc00000, 0x74400000,	RTL8100B_8139D },
++	{ 0xfcc00000, 0x74800000,	RTL8139C },
++	{ 0xfcc00000, 0x74c00000,	RTL8101 },
++
++	/* chips not handled by 8139too/8139cp module */
++	{ 0xfcc00000, 0x00000000,	RTL8169 },
++	{ 0xfcc00000, 0x00800000,	RTL8169S },
++	{ 0xfcc00000, 0x04000000,	RTL8110S },
++	{ 0xfcc00000, 0x10000000,	RTL8169_8110SB },
++	{ 0xfcc00000, 0x18000000,	RTL8169_8110SCd },
++	{ 0xfcc00000, 0x68000000,	RTL8169_8110SCe },
++	{ 0xfcc00000, 0x30000000,	RTL8168_8111Bb },
++	{ 0xfcc00000, 0x38000000,	RTL8168_8111Bef },
++	{ 0xfcc00000, 0x34000000,	RTL8101Ebc },
++	{ 0xfcc00000, 0x30800000,	RTL8100E1 },
++	{ 0xfcc00000, 0x38800000,	RTL8100E2 },
+ 	{ }
+ };
+ 
+@@ -93,31 +116,26 @@ realtek_dump_regs(struct ethtool_drvinfo *info, struct 
+ethtool_regs *regs)
+ 	u8 *data8 = (u8 *) regs->data;
+ 	u32 v;
+ 	struct chip_info *ci;
+-	unsigned int board_type = RTLNONE, i;
++	unsigned int board_type;
+ 
+-	v = data[0x40 >> 2] & chip_type_mask;
++	v = data[0x40 >> 2]; /* TxConfig */
+ 
+ 	ci = &rtl_info_tbl[0];
+-	while (ci->name) {
+-		if (v == ci->id_mask)
++	while (ci->mac_version) {
++		if ((v & ci->id_mask) == ci->id_val)
+ 			break;
+ 		ci++;
+ 	}
+-	if (v != ci->id_mask) {
+-		fprintf(stderr, "Unknown RealTek chip (mask: 0x%08x)\n", v);
++	board_type = ci->mac_version;
++	if (!board_type) {
++		fprintf(stderr, "Unknown RealTek chip (TxConfig: 0x%08x)\n", v);
+ 		return 91;
+ 	}
+-	for (i = 0; i < ARRAY_SIZE(rtl_info_tbl); i++) {
+-		if (ci == &rtl_info_tbl[i])
+-			board_type = i + 1;
+-	}
+-	if (board_type == RTLNONE)
+-		abort();
+ 
+ 	fprintf(stdout,
+ 		"RealTek %s registers:\n"
+ 		"--------------------------------------------------------\n",
+-		ci->name);
++		chip_names[board_type]);
+ 
+ 	fprintf(stdout,
+ 		"0x00: MAC Address                      %02x:%02x:%02x:%02x:%02x:
+%02x\n",
+-- 
+1.8.3.3
