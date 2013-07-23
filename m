@@ -1,98 +1,80 @@
-From: JP Abgrall <jpa@google.com>
-Subject: Question about default route handling/lookup in a custom table
-Date: Mon, 22 Jul 2013 18:20:18 -0700
-Message-ID: <CAKP4w2Q_5V=2CdyUpeXrHg=dTv1LNynp87gy6nrQYWYyBuA39A@mail.gmail.com>
+From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Subject: Re: 3.11-rc regression bisected: s2disk does not work (was Re: [PATCH v3 13/16] futex: use freezable blocking call)
+Date: Tue, 23 Jul 2013 03:41:42 +0200
+Message-ID: <15305281.aClQ8XUG9t@vostro.rjw.lan>
+References: <1367884221-20462-1-git-send-email-ccross@android.com> <CA+55aFzUVPJe96z8V0F-znc8ZcpJid7LEeYww80M-Mx=S91tAA@mail.gmail.com> <CAMbhsRReF9xB597i9CcCj7D1P5kvB4cc0JmDQYeboqi11Kp99A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f45.google.com ([209.85.219.45]:41597 "EHLO
-	mail-oa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750798Ab3GWBUi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 21:20:38 -0400
-Received: by mail-oa0-f45.google.com with SMTP id j1so9966060oag.32
-        for <netdev@vger.kernel.org>; Mon, 22 Jul 2013 18:20:38 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7Bit
+Cc: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Michael Leun <lkml20130126-yS7QfQBdiAdyjo5WHAzKoQ@public.gmane.org>,
+	lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Mandeep Singh Baines <msb-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	linux-nfs <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM list <linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Darren Hart <dvhart-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+To: Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMbhsRReF9xB597i9CcCj7D1P5kvB4cc0JmDQYeboqi11Kp99A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The following sequence fails when adding the default route:
-(wlan0 is up, nothing is trying to manage,...)
+On Monday, July 22, 2013 05:42:49 PM Colin Cross wrote:
+> On Mon, Jul 22, 2013 at 5:32 PM, Linus Torvalds
+> <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> wrote:
+> > On Mon, Jul 22, 2013 at 4:55 PM, Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org> wrote:
+> >>
+> >> I think the right solution is to add a flag to the freezing task that
+> >> marks it unfreezable.  I  think PF_NOFREEZE would work, although it is
+> >> normally used on kernel threads, can you see if the attached patch
+> >> helps?
+> >
+> > Hmm. That does seem to be the right thing to do, but I wonder about
+> > the *other* callers of freeze_processes() IOW, kexec and friends.
+> >
+> > So maybe we should do this in {freeze|thaw}_processes() itself, and
+> > just make the rule be that the caller of freeze_processes() itself is
+> > obviously not frozen, and has to be the same one that then thaws
+> > things?
+> >
+> > Colin? Rafael? Comments?
+> >
+> >                 Linus
+> 
+> I was worried about clearing the flag in thaw_processes().  If a
+> kernel thread with PF_NOFREEZE set ever called thaw_processes(), which
+> autosleep might do, it would clear the flag.  Or if a different thread
+> called freeze_processes() and thaw_processes().
 
-       ip route flush dev wlan0 table all
-       ip route flush table 60
-       ip route add 1.1.1.1/32 dev wlan0 table 60
-       ip route add default via 1.1.1.1 dev wlan0 table 60
+Is that legitimate?
 
-Turns out that fib_lookup() uses the
-  cfg->fc_nlinfo.nl_net->ipv4.rules_ops->rules_list
-which does not contain rules for table 60.
+> All the other callers besides the SNAPSHOT_FREEZE ioctl stay in the kernel
+> between freeze_processes() and thaw_processes(), which makes the fanout of
+> places that could call try_to_freeze() much more controllable.
+> 
+> Using a new flag that operates like PF_NOFREEZE but doesn't conflict
+> with it, or a nofreeze_depth counter, would also work.
 
-Is there something broken with my assumptions that it should work?
-Is the lack for rules for table 60 in the rules_list a red herring or
-needs digging into?
+Well, that would be robust enough.  At least if the purpose of that new flag
+is clearly specified, people hopefully won't be tempted to optimize it away in
+the future.
 
-With my limited understanding of why things are going wrong, I'm tempted to
- - detect that fib_look() failed and cfg->cf_table is not unspecified.
- - then do an explicit fib table lookup.
-
-This behaviour is in 3.4.39 and I haven't seen much changes in later
-versions of fib_semantics.c or related files that might apply.
-
-* diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index c60a396..acf019d 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -567,6 +567,14 @@ static int fib_check_nh(struct fib_config *cfg,
-struct fib_info *fi,
-                        if (fl4.flowi4_scope < RT_SCOPE_LINK)
-                                fl4.flowi4_scope = RT_SCOPE_LINK;
-                        err = fib_lookup(net, &fl4, &res);
-+                       if (err && cfg->fc_table != RT_TABLE_UNSPEC) {
-+                               struct fib_table *table;
-+                               table = fib_get_table(net, cfg->fc_table);
-+                               if (table &&
-+                                   !fib_table_lookup(table, &fl4, &res,
-+                                                     FIB_LOOKUP_NOREF))
-+                                       err = 0;
-+                       }
-                        if (err) {
-                                rcu_read_unlock();
-                                return err;
+Thanks,
+Rafael
 
 
-* This is the sequence of function calls I thought were relevant for
-the "ip route add default ...table 60":
-
-inet_rtm_newroute(): table=60 scope=0
-fib_table_insert(): table=60 dst=0x0 type=1
-fib_create_info(): fc_mx=0x  (null) table=60 fi=0xc5266a00
-fib_create_info(): fc_mp=0x  (null) table=60 fi=0xc5266a00
-fib_create_info(): props[fc_type=1].error=0 table=60 fi=0xc5266a00
-fib_create_info(): cfg.table=60 scope=0
-fib_check_nh(): table=60 nh_gw=0x1010101 nh_flags=0x0
-fib_lookup(): table ?:
-fib_rules_lookup(): rule.table=255:
-fib4_rule_action(): table 255: action=1
-fib_table_lookup(): tb.id=255 tb.numdflt=0
-fib_table_lookup(): tb.id=255 pn{}: pref_mismatch
-fib_table_lookup(): tb.id=255 pn{}: chopped_off(3) > pn->bits(2)
-fib_rules_lookup(): rule.table=254:
-fib4_rule_action(): table 254: action=1
-fib_table_lookup(): tb.id=254 tb.numdflt=1
-fib_table_lookup(): tb.id=254 pn{}: chopped_off(3) > pn->bits(2)
-fib_rules_lookup(): rule.table=253:
-fib4_rule_action(): table 253: action=1
-fib_check_nh(): table=60 fib_lookup(fc_scope=253)=-3 res.type=0  <<<
-this is where it would normally fail.
-fib_check_nh(): table=60 fib_get_table(table=60)=c53d7cc0  <<< This is
-where the added code kicks in.
-fib_table_lookup(): tb.id=60 tb.numdflt=0
-fib_table_lookup(): tb.id=60 check_leaf()=0 res.type=1
-fib_check_nh(): table=60 fib_table_lookup()=0 res.type=1
-fib_create_info(): cfg.table=60 check_nh()=0
-fib_create_info(): table=60 fi=0xc5266a00
-fib_table_insert(): table=60 fib_create_info()=xc5266a00
-fib_table_insert(): table=60 created new_fa=xc4459f00->type=1
-inet_rtm_newroute(): table=60 err=0  <<< It now succeeds.
-
+-- 
+I speak only for myself.
+Rafael J. Wysocki, Intel Open Source Technology Center.
 --
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
