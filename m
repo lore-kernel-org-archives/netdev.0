@@ -1,78 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next 2/2] tcp: TCP_NOTSENT_LOWAT socket option
-Date: Tue, 23 Jul 2013 08:44:04 -0700
-Message-ID: <1374594244.3449.13.camel@edumazet-glaptop>
-References: <1374550027.4990.141.camel@edumazet-glaptop>
-	 <51EEA089.3040904@hp.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: TUN/TAP: tap driver reports bogus interface speed in ethtool
+ operations
+Date: Tue, 23 Jul 2013 08:49:01 -0700
+Message-ID: <51EEA5ED.6080404@hp.com>
+References: <2F174B03-5074-4BA0-B91A-8F2F62C2B082@cygnusnetworks.de> <5192BDD6.6060703@qti.qualcomm.com> <3E916AF0-C587-443D-B653-C968A96C8751@cygnusnetworks.de> <48A2F278-A32C-47C6-AD2D-1FC15EC73B88@cygnusnetworks.de> <51E5BE27.3060207@qti.qualcomm.com> <E4A37B97-95FE-42C3-AD78-119BA406A44A@cygnusnetworks.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Michael Kerrisk <mtk.manpages@gmail.com>
-To: Rick Jones <rick.jones2@hp.com>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Max Krasnyansky <maxk@qti.qualcomm.com>
+To: Helmut Grohne <h.grohne@cygnusnetworks.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:46073 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932138Ab3GWPoH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 11:44:07 -0400
-Received: by mail-pa0-f41.google.com with SMTP id bj3so8577241pad.14
-        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 08:44:06 -0700 (PDT)
-In-Reply-To: <51EEA089.3040904@hp.com>
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:20384 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933437Ab3GWPtF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 11:49:05 -0400
+In-Reply-To: <E4A37B97-95FE-42C3-AD78-119BA406A44A@cygnusnetworks.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-07-23 at 08:26 -0700, Rick Jones wrote:
+On 07/23/2013 06:32 AM, Helmut Grohne wrote:
+>
+> On 16.07.2013, at 23:41, Max Krasnyansky <maxk@qti.qualcomm.com> wrote:
+>> The patch looks fine to me (must admit that I only glanced at it). Please send it to the netdev
+>> mailing list netdev@vger.kernel.org, if you have't already done so.
+>> CC David Miller <davem@davemloft.net> and me.
+>
+> Doing that. Now summarizing the issue for the new recipients:
+>
+> Problem:
+>
+> When querying a tap device for its speed using ethtool the tun driver reports a speed
+> of SPEED_10. This number is hard coded into the driver. Nowadays virtual network devices
+> can go way faster than that. When doing automatic bandwidth monitoring based on the
+> speed reported by ethtool, tap devices tend to come up as false positives. Arguably the
+> hard coded speed is wrong.
+>
+> Proposed solution:
+>
+> To that end I propose supporting the ETHTOOL_SSET command in addition to the already
+> supported ETHTOOL_GSET. It would deny setting any setting except for the bandwidth
+> where it would allow arbitrary values. You can find this patch attached.
+>
+> With this patch an administrator can increase the reported speed for tap devices and
+> keep using automatic detection of interface speeds.
+>
+> Workarounds:
+>
+> Using ethtool a detection utility can determine the driver for an interface. If the
+> driver matches the string "tun", the reported speed should not be used.
+>
+> Helmut
+>
 
-> I see that now the service demand increase is more like 8%, though there 
-> is no longer a throughput increase.  Whether an 8% increase is not a bad 
-> effect on the CPU usage of a single flow is probably in the eye of the 
-> beholder.
+I like the idea of being able to set the reported speed for a tun/tap 
+interface.
 
-Again, it seems you didn't understand the goal of this patch.
-
-It's not trying to get lower cpu usage, but lower memory usage, _and_
-proper logical splitting of the write queue.
-
-> 
-> Anyway, on a more "how to use netperf" theme, while the final confidence 
-> interval width wasn't reported, given the combination of -l 20, -i 10,3 
-> and perf stat reporting an elapsed time of 200 seconds, we can conclude 
-> that the test went the full 10 iterations and so probably didn't 
-> actually hit the desired confidence interval of 5% wide at 99% probability.
-> 
-> 17321.16 Mbit/s is ~132150 16 KB sends per second.  There were roughly 
-> 13,379 context switches per second, so not quite 10 sends per context 
-> switch (~161831 bytes , that then is something like 161831 KB per 
-> context switch.  Does that then imply you could have achieved nearly the 
-> same performance with test-specific -s 160K -S 160K -m 16K ? (perhaps a 
-> bit more than that socket buffer size for contingencies and or what was 
-> "stored"/sent in the pipe?)  Or, given that the SO_SNDBUF grew to 
-> 1593240 bytes, was there really a need for  ~ 1593240 - 131072 or 
-> ~1462168 sent bytes in flight most of the time?
-> 
-
-Heh, you are trying the old crap again ;)
-
-Why should we care of setting buffer sizes at all, when we have
-autotuning ;)
-
-RTT can vary from 50us to 200ms, rate can vary dynamically as well, some
-AQM can trigger with whatever policy, you can have sudden reorders
-because some router chose to apply per packet load balancing :
-
-- You do not want to hard code buffer sizes, but instead let TCP stack
-tune it properly.
-
-Sure, I can probably can find out what are the optimal settings for a
-given workload and given network to get minimal cpu usage.
-
-But the point is having the stack finds this automatically.
-
-Further tweaks can be done to avoid a context switch per TSO packet for
-example. If we allow 10 notsent packets, we can probably  wait to have 5
-packets before doing a wakeup.
-
- 
+rick jones
