@@ -1,68 +1,55 @@
-From: Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: 3.11-rc regression bisected: s2disk does not work (was Re: [PATCH
- v3 13/16] futex: use freezable blocking call)
-Date: Mon, 22 Jul 2013 17:42:49 -0700
-Message-ID: <CAMbhsRReF9xB597i9CcCj7D1P5kvB4cc0JmDQYeboqi11Kp99A@mail.gmail.com>
-References: <1367884221-20462-1-git-send-email-ccross@android.com>
-	<1367884221-20462-14-git-send-email-ccross@android.com>
-	<20130723010250.5a3465ec@xenia.leun.net>
-	<CAMbhsRQv+W897_5qGuNJD47jQ9ozN6KxeCa6UJAvZpqVuBpQ4w@mail.gmail.com>
-	<CA+55aFzUVPJe96z8V0F-znc8ZcpJid7LEeYww80M-Mx=S91tAA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 1/4] tcp: consolidate SYNACK RTT sampling
+Date: Mon, 22 Jul 2013 18:02:55 -0700 (PDT)
+Message-ID: <20130722.180255.685921996264320731.davem@davemloft.net>
+References: <1374535248-27418-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Michael Leun <lkml20130126-yS7QfQBdiAdyjo5WHAzKoQ@public.gmane.org>,
-	lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Mandeep Singh Baines <msb-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	linux-nfs <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM list <linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Darren Hart <dvhart-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
-To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+55aFzUVPJe96z8V0F-znc8ZcpJid7LEeYww80M-Mx=S91tAA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ncardwell@google.com, edumazet@google.com, nanditad@google.com,
+	netdev@vger.kernel.org
+To: ycheng@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36419 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753311Ab3GWBC7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 21:02:59 -0400
+In-Reply-To: <1374535248-27418-1-git-send-email-ycheng@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 22, 2013 at 5:32 PM, Linus Torvalds
-<torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> wrote:
-> On Mon, Jul 22, 2013 at 4:55 PM, Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org> wrote:
->>
->> I think the right solution is to add a flag to the freezing task that
->> marks it unfreezable.  I  think PF_NOFREEZE would work, although it is
->> normally used on kernel threads, can you see if the attached patch
->> helps?
->
-> Hmm. That does seem to be the right thing to do, but I wonder about
-> the *other* callers of freeze_processes() IOW, kexec and friends.
->
-> So maybe we should do this in {freeze|thaw}_processes() itself, and
-> just make the rule be that the caller of freeze_processes() itself is
-> obviously not frozen, and has to be the same one that then thaws
-> things?
->
-> Colin? Rafael? Comments?
->
->                 Linus
+From: Yuchung Cheng <ycheng@google.com>
+Date: Mon, 22 Jul 2013 16:20:45 -0700
 
-I was worried about clearing the flag in thaw_processes().  If a
-kernel thread with PF_NOFREEZE set ever called thaw_processes(), which
-autosleep might do, it would clear the flag.  Or if a different thread
-called freeze_processes() and thaw_processes().  All the other callers
-besides the SNAPSHOT_FREEZE ioctl stay in the kernel between
-freeze_processes() and thaw_processes(), which makes the fanout of
-places that could call try_to_freeze() much more controllable.
+> This patch series improve RTT sampling in three ways:
+> 1. Sample RTT during fast recovery and reordering events.
+> 2. Favor ack-based RTT to timestamps because of broken TS ECR fields
+> 3. Consolidate the RTT measurement logic.
+> 
+> The first patch consolidates SYNACK and other RTT measurement to use a
+> central function tcp_ack_update_rtt(). A (small) bonus is now SYNACK
+> RTT measurement happens after PAWS check, potentially reducing the
+> impact of RTO seeding on bad TCP timestamps values.
+> 
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
 
-Using a new flag that operates like PF_NOFREEZE but doesn't conflict
-with it, or a nofreeze_depth counter, would also work.
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I like this series a lot, applied, thanks!
+
+Next time please submit a seperate "[PATCH 0/4] xxx" posting.
+
+If it has non-trivial content, I use the "0" posting as the
+commit message of a merge commit when I apply your series.
+
+What I did here was take the text:
+
+====================
+This patch series improve RTT sampling in three ways:
+1. Sample RTT during fast recovery and reordering events.
+2. Favor ack-based RTT to timestamps because of broken TS ECR fields
+3. Consolidate the RTT measurement logic.
+====================
+
+and place it into that merge commit, removing it from the patch #1
+commit message.
+
+Thanks.
