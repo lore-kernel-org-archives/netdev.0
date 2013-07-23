@@ -1,31 +1,76 @@
-From: Helmut Grohne <h.grohne@cygnusnetworks.de>
-Subject: Re: TUN/TAP: tap driver reports bogus interface speed in ethtool operations
-Date: Tue, 23 Jul 2013 18:03:54 +0200
-Message-ID: <27AF15CB-BF6D-4C28-B9C1-BF880C482D12@cygnusnetworks.de>
-References: <2F174B03-5074-4BA0-B91A-8F2F62C2B082@cygnusnetworks.de> <5192BDD6.6060703@qti.qualcomm.com> <3E916AF0-C587-443D-B653-C968A96C8751@cygnusnetworks.de> <48A2F278-A32C-47C6-AD2D-1FC15EC73B88@cygnusnetworks.de> <51E5BE27.3060207@qti.qualcomm.com> <E4A37B97-95FE-42C3-AD78-119BA406A44A@cygnusnetworks.de> <51EEA5ED.6080404@hp.com> <20130723085611.0c77c314@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0 (Mac OS X Mail 6.5 \(1508\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Max Krasnyansky <maxk@qti.qualcomm.com>
+From: Peter Wu <lekensteyn@gmail.com>
+Subject: Re: r8169: remove "PHY reset until link up" log spam
+Date: Tue, 23 Jul 2013 18:07:15 +0200
+Message-ID: <2856794.AWy189S2qk@al>
+References: <4961229.bXDGvH0dpz@al> <20130723085436.70e8588c@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	nic_swsd@realtek.com
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.w359.de ([46.189.116.21]:35284 "EHLO mail2.w359.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932595Ab3GWQD6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 12:03:58 -0400
-In-Reply-To: <20130723085611.0c77c314@nehalam.linuxnetplumber.net>
+Received: from mail-ea0-f170.google.com ([209.85.215.170]:57543 "EHLO
+	mail-ea0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932964Ab3GWQHU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 12:07:20 -0400
+Received: by mail-ea0-f170.google.com with SMTP id h10so4579036eaj.15
+        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 09:07:19 -0700 (PDT)
+In-Reply-To: <20130723085436.70e8588c@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23.07.2013, at 17:56, Stephen Hemminger <stephen@networkplumber.org> wrote:
-> I have hack patch to allow overwriting speed, info, and statistics that is part
-> of how we use TUN as dummy devices. How far do you think makes sense?
+On Tuesday 23 July 2013 08:54:36 Stephen Hemminger wrote:
+> On Tue, 23 Jul 2013 11:55:57 +0200
+> 
+> Peter Wu <lekensteyn@gmail.com> wrote:
+> > This message was added in commit a7154cb8 (June 2004) and is printed
+> > every ten seconds when no cable is connected.
+> > 
+> > Signed-off-by: Peter Wu <lekensteyn@gmail.com>
+> > ---
+> > Using ethtool to silence *all* link warnings is still a manual
+> > operation, in my opinion not acceptable so let's remove this message.
+> > 
+> > The r8169 constantly resets the device when no link is connected,
+> > contrary the r8168 vendor driver which only resets the link when some
+> > PCI config fields have been modified. As the current reset logic in r8168
+> > seems to work for broken device (which I do not have have and therefore
+> > cannot test), I did not attempt to "clean this up".
+> > ---
+> > 
+> >  drivers/net/ethernet/realtek/r8169.c | 2 --
+> >  1 file changed, 2 deletions(-)
+> > 
+> > diff --git a/drivers/net/ethernet/realtek/r8169.c
+> > b/drivers/net/ethernet/realtek/r8169.c index 880015c..63f04af 100644
+> > --- a/drivers/net/ethernet/realtek/r8169.c
+> > +++ b/drivers/net/ethernet/realtek/r8169.c
+> > @@ -3689,8 +3689,6 @@ static void rtl_phy_work(struct rtl8169_private *tp)
+> > 
+> >  	if (tp->link_ok(ioaddr))
+> >  	
+> >  		return;
+> > 
+> > -	netif_warn(tp, link, tp->dev, "PHY reset until link up\n");
+> > -
+> > 
+> >  	tp->phy_reset_enable(tp);
+> >  
+> >  out_mod_timer:
+> Why not implement netif msg flag to allow user to control this?
 
-That could prove useful for creating test environments for tools, that use ethtool.
-If you have a better patch, then go for it. The reason for why I did not include
-other settings was that I don't need them. I'm open to other solutions as well, as
-long as they either make the speed modifiable or something faster than SPEED_10.
+Which user wants to get log spam every ten seconds? I see no purpose except 
+when a developer asks a user to turn this on, or except if you are a 
+developer. This message was added almost ten years ago, Realtek must certainly 
+have improved their hardware not to be so crappy? 
 
-Helmut
+See also <http://marc.info/?l=linux-netdev&m=137452974325684&w=2> where David 
+Miller wrote:
+> In every case where this issue has popped up, we have decided that
+> printing messages when the cable is simply unplugged is very
+> undesirable.
+
+Regards,
+Peter
