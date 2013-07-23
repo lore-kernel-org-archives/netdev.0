@@ -1,66 +1,62 @@
-From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: Re: [PATCH] net: sun4i: fix timeout check
-Date: Tue, 23 Jul 2013 15:31:14 +0200
-Message-ID: <20130723133114.GG10389@lukather>
-References: <1374541758-2025-1-git-send-email-emilio@elopez.com.ar>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] ipv6: take rtnl_lock and mark mrt6 table as freed on namespace cleanup
+Date: Tue, 23 Jul 2013 15:39:47 +0200
+Message-ID: <20130723133947.GB32523@order.stressinduktion.org>
+References: <20130722214553.GF6538@order.stressinduktion.org> <51EE3E9E.9030406@windriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="OFj+1YLvsEfSXdCH"
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Emilio =?iso-8859-1?Q?L=F3pez?= <emilio@elopez.com.ar>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, srivatsa.bhat@linux.vnet.ibm.com
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([94.23.35.102]:48808 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932548Ab3GWNbV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 09:31:21 -0400
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:34284 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757279Ab3GWNjs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 09:39:48 -0400
 Content-Disposition: inline
-In-Reply-To: <1374541758-2025-1-git-send-email-emilio@elopez.com.ar>
+In-Reply-To: <51EE3E9E.9030406@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Jul 23, 2013 at 04:28:14PM +0800, Fan Du wrote:
+> This call trace actually comes a long way down from put_net, indicating net
+> reference count is ZERO, then clean all things up. Since Srivatsa didn't
+> enable CONFIG_IPV6_MROUTE_MULTIPLE_TABLES, so mrt could only be 
+> net->ipv6.mrt6,
+> which is allocated in ip6mr_rules_init. The only place to free mrt6 is
+> ip6mr_rules_exit in this configuration.
+> 
+> Question is how could mrt6 be freed in ip6mr_rules_exit, and then put_net 
+> has
+> decreased net->count to zero and then free all things up, all of this 
+> happened
+> in boot up process? Even if mrt6 has been freed, subsequent access on that 
+> area
+> didn't necessarily cause page fault, PTE 8000002018552060 shows the mapping 
+> is
+> not present at all. I think SLAB did tired down page entry for kfreed area 
+> once
+> pte has been setup already.
+> 
+> The scenario is weird for me, or my ignorance reach a new limit :)
 
---OFj+1YLvsEfSXdCH
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+The important thing is: net->ipv6.mrt6 = NULL;
 
-On Mon, Jul 22, 2013 at 10:09:18PM -0300, Emilio L=F3pez wrote:
-> The current timeout check is comparing two constant values, so it won't
-> ever detect a timeout. This patch reworks the affected code a bit so it
-> has a chance at detecting timeouts correctly.
->=20
-> Signed-off-by: Emilio L=F3pez <emilio@elopez.com.ar>
+After we freed the mrt6 table we leave the pointer value intact. So when the
+namespace cleanup calls the next callback and the icmpv6 socket closes, we try
+to check mrt->mroute6_sk again.
 
-Acked-by: Maxime Ripard <maxime.ripard@free-electrons.com>
+See how ip6mr_for_each_table expands if you compile without
+CONFIG_IPV6_MROUTE_MULTIPLE_TABLES:
 
-Thanks!
-Maxime
+#define ip6mr_for_each_table(mrt, net) \
+        for (mrt = net->ipv6.mrt6; mrt; mrt = NULL)
 
---=20
-Maxime Ripard, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+It is merely a NULL check.
 
---OFj+1YLvsEfSXdCH
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+Does it make sense now? I added the rtnl_lock for ip6mr_free_table ==>
+mroute_clean_tables ==> mif6_delete and the lock has nothing to do with this
+"race", as the netspace cleanup is serialized in the workqueue.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+Greetings,
 
-iQIcBAEBAgAGBQJR7oWiAAoJEBx+YmzsjxAgunYQAJZlQMLgwq+A4bpT4q6TmMKy
-lq2vKXIuuXSWYqHgQ2xjv4BDo6bJaaxB4CO1nnclsfyth6lv0aOXTVLL6rF3gR33
-i2th5M5TPWgM919i5CfLzV1fQu4g0TveC7blUBT8F6J3xzlQXGWZDGDn3q/OhApi
-3Lsg7PxAVIHR1/ZYbTs2jmXKZLm1xDidniTCB5NyXmxzxU+4FRNx73YMMVuJijiR
-Kqu3x9a97YvmgwH7NNiszFveHq9hZAjRCIMqKgP5kkkxyVN+TFUiX2tCB1ZprbCz
-Z+rldsF94Sj9PtliSe9nUCDs9CwkpYweUVld1XaLZkkC7y7uGNA8RG2Uhll3rn28
-QZsPJQthI1Wfa/syR8yWCdYqSNbr0P4yH0wUGby7UYJ7YZAebjvA5uKBz3F1ClTo
-8mak43HDRFBzbdllcb17bVYzNegFKju9G/hUbPE0nhkc2Puw1+Ed7Mki8qG5Vsls
-S/0rV1Hy12Da3m2A5A+lGX58uOscNeVC552ELUShkoXjulTLpDK5D66SF2gYQtHq
-1jsqLEZun89hI0sPA7kC/j+1Nq1VxXDfWLBfhBP3fXdNc8ry6wJQRJ1C74I/yfGP
-cqhK2WMXMJ4/AK8UILdtF1y1zB/YVsrzhIcmy0HIBJKiSDhts8gnWuVa7n/yO7W2
-WxpBF9X/tS9trjEFDAPM
-=SGmA
------END PGP SIGNATURE-----
-
---OFj+1YLvsEfSXdCH--
+  Hannes
