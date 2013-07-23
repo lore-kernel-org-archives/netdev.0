@@ -1,190 +1,169 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [RFC 1/2] tun: allow overrriding ethtool info
-Date: Tue, 23 Jul 2013 10:28:15 -0700
-Message-ID: <20130723102815.079bfe4a@nehalam.linuxnetplumber.net>
+Subject: [RFC 2/2] tun: allow overriding statistics
+Date: Tue, 23 Jul 2013 10:29:50 -0700
+Message-ID: <20130723102950.519f6891@nehalam.linuxnetplumber.net>
 References: <2F174B03-5074-4BA0-B91A-8F2F62C2B082@cygnusnetworks.de>
 	<5192BDD6.6060703@qti.qualcomm.com>
 	<3E916AF0-C587-443D-B653-C968A96C8751@cygnusnetworks.de>
 	<48A2F278-A32C-47C6-AD2D-1FC15EC73B88@cygnusnetworks.de>
 	<51E5BE27.3060207@qti.qualcomm.com>
 	<E4A37B97-95FE-42C3-AD78-119BA406A44A@cygnusnetworks.de>
+	<20130723102815.079bfe4a@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+Cc: Helmut Grohne <h.grohne@cygnusnetworks.de>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
 	Max Krasnyansky <maxk@qti.qualcomm.com>
-To: Helmut Grohne <h.grohne@cygnusnetworks.de>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:45761 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933220Ab3GWR34 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 13:29:56 -0400
-Received: by mail-pd0-f176.google.com with SMTP id t12so8347085pdi.35
-        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 10:29:55 -0700 (PDT)
-In-Reply-To: <E4A37B97-95FE-42C3-AD78-119BA406A44A@cygnusnetworks.de>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:58627 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933220Ab3GWR37 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 13:29:59 -0400
+Received: by mail-pa0-f48.google.com with SMTP id kp1so4292305pab.7
+        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 10:29:58 -0700 (PDT)
+In-Reply-To: <20130723102815.079bfe4a@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds new ioctl to allow overrriding the ethtool information
+This patch adds new ioctl to allow overrriding the link statistics
 returned by the TUN device. This is useful when using tun device as a surrogate
-for hardware or other software emulation.
+for hardware or other software emulation. 
 
-If the application does not override the ethtool settings, the
-original hard coded values are used.
+The application perodically uses ioctl(TUNSETSTTS) to periodically update statistics.
+Exchange and RCU is used to make this operation atomic.
 
-This version is compile tested only, included to show how API works.
+If TUNSETSTATS is not used the original software based statistics
+are used.
+
+This version compile tested only, to show how API works.
 
 Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
----
- drivers/net/tun.c           |   56 +++++++++++++++++++++++++++++++++-----------
- include/uapi/linux/if_tun.h |   15 +++++++++++
- 2 files changed, 58 insertions(+), 13 deletions(-)
-
---- a/drivers/net/tun.c	2013-07-23 09:18:01.936046624 -0700
-+++ b/drivers/net/tun.c	2013-07-23 09:52:37.054143993 -0700
-@@ -187,6 +187,8 @@ struct tun_struct {
- 	struct list_head disabled;
- 	void *security;
+--- a/drivers/net/tun.c	2013-07-23 10:17:04.335800821 -0700
++++ b/drivers/net/tun.c	2013-07-23 10:22:10.903948347 -0700
+@@ -189,6 +189,10 @@ struct tun_struct {
  	u32 flow_count;
-+
-+	struct tun_info info;
+ 
+ 	struct tun_info info;
++	struct tun_stats __rcu {
++		struct rtnl_link_stats64 link_stats;
++		struct rcu_head rcu;
++	} *stats;
  };
  
  static inline u32 tun_hashfn(u32 rxhash)
-@@ -870,9 +872,12 @@ static void tun_net_init(struct net_devi
- {
- 	struct tun_struct *tun = netdev_priv(dev);
+@@ -802,6 +806,32 @@ static netdev_features_t tun_net_fix_fea
  
-+	strlcpy(tun->info.driver, DRV_NAME, sizeof(tun->info.driver));
-+
- 	switch (tun->flags & TUN_TYPE_MASK) {
- 	case TUN_TUN_DEV:
- 		dev->netdev_ops = &tun_netdev_ops;
-+		strlcpy(tun->info.bus, "tun", sizeof(tun->info.bus));
- 
- 		/* Point-to-Point TUN Device */
- 		dev->hard_header_len = 0;
-@@ -887,6 +892,8 @@ static void tun_net_init(struct net_devi
- 
- 	case TUN_TAP_DEV:
- 		dev->netdev_ops = &tap_netdev_ops;
-+		strlcpy(tun->info.bus, "tap", sizeof(tun->info.bus));
-+
- 		/* Ethernet TAP Device */
- 		ether_setup(dev);
- 		dev->priv_flags &= ~IFF_TX_SKB_SHARING;
-@@ -1426,6 +1433,9 @@ static void tun_setup(struct net_device
- 
- 	tun->owner = INVALID_UID;
- 	tun->group = INVALID_GID;
-+	tun->info.speed = SPEED_10;
-+	tun->info.duplex = DUPLEX_FULL;
-+	tun->info.port = PORT_TP;
- 
- 	dev->ethtool_ops = &tun_ethtool_ops;
- 	dev->destructor = tun_free_netdev;
-@@ -2088,6 +2098,15 @@ static long __tun_chr_ioctl(struct file
- 		tun_detach_filter(tun, tun->numqueues);
- 		break;
- 
-+	case TUNSETINFO: {
-+		struct tun_info info;
-+		if (copy_from_user(argp, &info, sizeof(info)))
-+			ret = -EFAULT;
-+
-+		tun->info = info;
-+		break;
-+	}
-+
- 	default:
- 		ret = -EINVAL;
- 		break;
-@@ -2229,11 +2248,13 @@ static struct miscdevice tun_miscdev = {
- 
- static int tun_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
-+	struct tun_struct *tun = netdev_priv(dev);
-+
- 	cmd->supported		= 0;
- 	cmd->advertising	= 0;
--	ethtool_cmd_speed_set(cmd, SPEED_10);
--	cmd->duplex		= DUPLEX_FULL;
--	cmd->port		= PORT_TP;
-+	ethtool_cmd_speed_set(cmd, tun->info.speed);
-+	cmd->duplex		= tun->info.duplex;
-+	cmd->port		= tun->info.port;
- 	cmd->phy_address	= 0;
- 	cmd->transceiver	= XCVR_INTERNAL;
- 	cmd->autoneg		= AUTONEG_DISABLE;
-@@ -2242,21 +2263,24 @@ static int tun_get_settings(struct net_d
- 	return 0;
+ 	return (features & tun->set_features) | (features & ~TUN_USER_FEATURES);
  }
- 
-+static int tun_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
++
++static struct rtnl_link_stats64 *
++tun_net_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *storage)
 +{
 +	struct tun_struct *tun = netdev_priv(dev);
++	struct tun_stats __rcu *stats;
 +
-+	tun->info.speed  = ethtool_cmd_speed(ecmd);
-+	tun->info.duplex = ecmd->duplex;
-+	tun->info.port   = ecmd->port;
++	rcu_read_lock();
++	stats = rcu_dereference(tun->stats);
++	if (stats) {
++		/* Stats received from device */
++		*storage = stats->link_stats;
++		rcu_read_unlock();
++
++		/* Add tunnel detected errors to mix */
++		storage->tx_dropped += dev->stats.tx_dropped;
++		storage->rx_dropped += dev->stats.rx_dropped;
++		storage->rx_frame_errors += dev->stats.rx_frame_errors;
++		return storage;
++	}
++	rcu_read_unlock();
++
++	netdev_stats_to_stats64(storage, &dev->stats);
++	return storage;
++}
++
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void tun_poll_controller(struct net_device *dev)
+ {
+@@ -824,6 +854,7 @@ static const struct net_device_ops tun_n
+ 	.ndo_open		= tun_net_open,
+ 	.ndo_stop		= tun_net_close,
+ 	.ndo_start_xmit		= tun_net_xmit,
++	.ndo_get_stats64	= tun_net_get_stats64,
+ 	.ndo_change_mtu		= tun_net_change_mtu,
+ 	.ndo_fix_features	= tun_net_fix_features,
+ 	.ndo_select_queue	= tun_select_queue,
+@@ -837,6 +868,7 @@ static const struct net_device_ops tap_n
+ 	.ndo_open		= tun_net_open,
+ 	.ndo_stop		= tun_net_close,
+ 	.ndo_start_xmit		= tun_net_xmit,
++	.ndo_get_stats64	= tun_net_get_stats64,
+ 	.ndo_change_mtu		= tun_net_change_mtu,
+ 	.ndo_fix_features	= tun_net_fix_features,
+ 	.ndo_set_rx_mode	= tun_net_mclist,
+@@ -1420,9 +1452,13 @@ out:
+ static void tun_free_netdev(struct net_device *dev)
+ {
+ 	struct tun_struct *tun = netdev_priv(dev);
++	struct tun_stats *stats;
+ 
+ 	BUG_ON(!(list_empty(&tun->disabled)));
+ 	tun_flow_uninit(tun);
++	stats = xchg(&tun->stats, NULL);
++	if (stats)
++		kfree_rcu(stats, rcu);
+ 	security_tun_dev_free_security(tun->security);
+ 	free_netdev(dev);
+ }
+@@ -1885,6 +1921,28 @@ unlock:
+ 	return ret;
+ }
+ 
++static int tun_set_stats(struct tun_struct *tun, struct ifreq *ifr)
++{
++	struct tun_stats *stats, *old;
++
++	stats = kmalloc(sizeof(struct tun_stats), GFP_KERNEL);
++	if (!stats)
++		return -ENOMEM;
++
++	if (copy_from_user(&stats->link_stats,
++			   ifr->ifr_ifru.ifru_data,
++			   sizeof(struct rtnl_link_stats64))) {
++		kfree(stats);
++		return -EFAULT;
++	}
++
++	old = xchg(&tun->stats, stats);
++	if (old)
++		kfree_rcu(old, rcu);
 +
 +	return 0;
 +}
 +
- static void tun_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+ 			    unsigned long arg, int ifreq_len)
  {
- 	struct tun_struct *tun = netdev_priv(dev);
+@@ -2107,6 +2165,10 @@ static long __tun_chr_ioctl(struct file
+ 		break;
+ 	}
  
--	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
-+	strlcpy(info->driver, tun->info.driver, sizeof(info->driver));
- 	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
--
--	switch (tun->flags & TUN_TYPE_MASK) {
--	case TUN_TUN_DEV:
--		strlcpy(info->bus_info, "tun", sizeof(info->bus_info));
--		break;
--	case TUN_TAP_DEV:
--		strlcpy(info->bus_info, "tap", sizeof(info->bus_info));
--		break;
--	}
-+	strlcpy(info->bus_info, tun->info.bus, sizeof(info->bus_info));
- }
- 
- static u32 tun_get_msglevel(struct net_device *dev)
-@@ -2279,6 +2303,7 @@ static void tun_set_msglevel(struct net_
- 
- static const struct ethtool_ops tun_ethtool_ops = {
- 	.get_settings	= tun_get_settings,
-+	.set_settings	= tun_set_settings,
- 	.get_drvinfo	= tun_get_drvinfo,
- 	.get_msglevel	= tun_get_msglevel,
- 	.set_msglevel	= tun_set_msglevel,
---- a/include/uapi/linux/if_tun.h	2013-07-23 09:18:01.936046624 -0700
-+++ b/include/uapi/linux/if_tun.h	2013-07-23 09:52:26.870271418 -0700
-@@ -56,6 +56,7 @@
- #define TUNGETVNETHDRSZ _IOR('T', 215, int)
++	case TUNSETSTATS:
++		ret = tun_set_stats(tun, &ifr);
++		break;
++
+ 	default:
+ 		ret = -EINVAL;
+ 		break;
+--- a/include/uapi/linux/if_tun.h	2013-07-23 10:17:04.335800821 -0700
++++ b/include/uapi/linux/if_tun.h	2013-07-23 10:19:09.358230639 -0700
+@@ -57,6 +57,7 @@
  #define TUNSETVNETHDRSZ _IOW('T', 216, int)
  #define TUNSETQUEUE  _IOW('T', 217, int)
-+#define TUNSETINFO     _IOW('T', 219, struct tun_info)
+ #define TUNSETINFO     _IOW('T', 219, struct tun_info)
++#define TUNSETSTATS    _IOW('T', 220, struct rtnl_link_stats64)
  
  /* TUNSETIFF ifr flags */
  #define IFF_TUN		0x0001
-@@ -103,4 +104,17 @@ struct tun_filter {
- 	__u8   addr[0][ETH_ALEN];
- };
- 
-+/*
-+ * Ethtool info
-+ * This is used to allow spoofing the speed/duplex and driver information
-+ */
-+struct tun_info {
-+	__u32 speed;
-+	__u8  duplex;
-+	__u8  port;
-+
-+	char driver[32];
-+	char bus[32];
-+};
-+
- #endif /* _UAPI__IF_TUN_H */
