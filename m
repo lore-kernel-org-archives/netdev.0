@@ -1,32 +1,32 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] net: ipv6 eliminate parameter "int addrlen" in function fib6_add_1
-Date: Tue, 23 Jul 2013 03:52:18 +0200
-Message-ID: <20130723015218.GB30719@order.stressinduktion.org>
-References: <1374474069-22675-1-git-send-email-fan.du@windriver.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next 0/7] net: introduce generic type and helpers
+ for IP address
+Date: Tue, 23 Jul 2013 10:00:23 +0800
+Message-ID: <1374544823.24933.1.camel@cr0>
+References: <1374476713-8838-1-git-send-email-amwang@redhat.com>
+	 <1374525857.2061.57.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org, jmorris@namei.org,
-	netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:33259 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750872Ab3GWBwT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jul 2013 21:52:19 -0400
-Content-Disposition: inline
-In-Reply-To: <1374474069-22675-1-git-send-email-fan.du@windriver.com>
+Received: from mx1.redhat.com ([209.132.183.28]:33006 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750872Ab3GWCAc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Jul 2013 22:00:32 -0400
+In-Reply-To: <1374525857.2061.57.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 22, 2013 at 02:21:09PM +0800, Fan Du wrote:
-> The "int addrlen" in fib6_add_1 is rebundant, as we can get it from
-> parameter "struct in6_addr *addr" once we modified its type.
-> And also fix some coding style issues in fib6_add_1
+On Mon, 2013-07-22 at 13:44 -0700, Joe Perches wrote:
 > 
-> Signed-off-by: Fan Du <fan.du@windriver.com>
+> I see no reason why vsprint's support for
+> "struct sockaddr *" %pIS should be removed.
+> 
+> %pIS and %pIA can both exist.
+> 
+> 
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-
-Nice one,
-
-  Hannes
+Because there is no need to keep both of them, struct sockaddr can be
+safely converted to union inet_addr.
