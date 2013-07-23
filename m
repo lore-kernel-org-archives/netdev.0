@@ -1,119 +1,48 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH v3 net-next 2/2] tcp: TCP_NOTSENT_LOWAT socket option
-Date: Tue, 23 Jul 2013 15:19:08 -0400
-Message-ID: <CADVnQymGvV+Egy-w4K1QFNev=7i_iWuHX8oaNfaKAkUj6OWAXA@mail.gmail.com>
+From: "Florian Fainelli" <f.fainelli@gmail.com>
+Subject: [PATCH v2] net: fix comment above build_skb()
+Date: Tue, 23 Jul 2013 20:22:39 +0100
+Message-ID: <1374607359-20024-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Rick Jones <rick.jones2@hp.com>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Michael Kerrisk <mtk.manpages@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	bhutchings@solarflare.com,
+	"Florian Fainelli" <f.fainelli@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f43.google.com ([74.125.83.43]:37250 "EHLO
-	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933733Ab3GWTTJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 15:19:09 -0400
-Received: by mail-ee0-f43.google.com with SMTP id l10so4729901eei.30
-        for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 12:19:08 -0700 (PDT)
+Received: from mms3.broadcom.com ([216.31.210.19]:4959 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933944Ab3GWTXK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Jul 2013 15:23:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 22, 2013 at 11:27 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Idea of this patch is to add optional limitation of number of
-> unsent bytes in TCP sockets, to reduce usage of kernel memory.
->
-> TCP receiver might announce a big window, and TCP sender autotuning
-> might allow a large amount of bytes in write queue, but this has little
-> performance impact if a large part of this buffering is wasted :
->
-> Write queue needs to be large only to deal with large BDP, not
-> necessarily to cope with scheduling delays (incoming ACKS make room
-> for the application to queue more bytes)
->
-> For most workloads, using a value of 128 KB or less is OK to give
-> applications enough time to react to POLLOUT events in time
-> (or being awaken in a blocking sendmsg())
->
-> This patch adds two ways to set the limit :
->
-> 1) Per socket option TCP_NOTSENT_LOWAT
->
-> 2) A sysctl (/proc/sys/net/ipv4/tcp_notsent_lowat) for sockets
-> not using TCP_NOTSENT_LOWAT socket option (or setting a zero value)
-> Default value being UINT_MAX (0xFFFFFFFF), meaning this has no effect.
->
->
-> This changes poll()/select()/epoll() to report POLLOUT
-> only if number of unsent bytes is below tp->nosent_lowat
->
-> Note this might increase number of sendmsg()/sendfile() calls
-> when using non blocking sockets,
-> and increase number of context switches for blocking sockets.
->
-> Note this is not related to SO_SNDLOWAT (as SO_SNDLOWAT is
-> defined as :
->  Specify the minimum number of bytes in the buffer until
->  the socket layer will pass the data to the protocol)
->
-> Tested:
->
-> netperf sessions, and watching /proc/net/protocols "memory" column for TCP
->
-> With 200 concurrent netperf -t TCP_STREAM sessions, amount of kernel memory
-> used by TCP buffers shrinks by ~55 % (20567 pages instead of 45458)
->
-> lpq83:~# echo -1 >/proc/sys/net/ipv4/tcp_notsent_lowat
-> lpq83:~# (super_netperf 200 -t TCP_STREAM -H remote -l 90 &); sleep 60 ; grep TCP /proc/net/protocols
-> TCPv6     1880      2   45458   no     208   yes  ipv6        y  y  y  y  y  y  y  y  y  y  y  y  y  n  y  y  y  y  y
-> TCP       1696    508   45458   no     208   yes  kernel      y  y  y  y  y  y  y  y  y  y  y  y  y  n  y  y  y  y  y
->
-> lpq83:~# echo 131072 >/proc/sys/net/ipv4/tcp_notsent_lowat
-> lpq83:~# (super_netperf 200 -t TCP_STREAM -H remote -l 90 &); sleep 60 ; grep TCP /proc/net/protocols
-> TCPv6     1880      2   20567   no     208   yes  ipv6        y  y  y  y  y  y  y  y  y  y  y  y  y  n  y  y  y  y  y
-> TCP       1696    508   20567   no     208   yes  kernel      y  y  y  y  y  y  y  y  y  y  y  y  y  n  y  y  y  y  y
->
-> Using 128KB has no bad effect on the throughput or cpu usage
-> of a single flow, although there is an increase of context switches.
->
-> A bonus is that we hold socket lock for a shorter amount
-> of time and should improve latencies of ACK processing.
->
-> lpq83:~# echo -1 >/proc/sys/net/ipv4/tcp_notsent_lowat
-> lpq83:~# perf stat -e context-switches ./netperf -H 7.7.7.84 -t omni -l 20 -c -i10,3
-> OMNI Send TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 7.7.7.84 () port 0 AF_INET : +/-2.500% @ 99% conf.
-> Local       Remote      Local  Elapsed Throughput Throughput  Local Local  Remote Remote Local   Remote  Service
-> Send Socket Recv Socket Send   Time               Units       CPU   CPU    CPU    CPU    Service Service Demand
-> Size        Size        Size   (sec)                          Util  Util   Util   Util   Demand  Demand  Units
-> Final       Final                                             %     Method %      Method
-> 1651584     6291456     16384  20.00   17447.90   10^6bits/s  3.13  S      -1.00  U      0.353   -1.000  usec/KB
->
->  Performance counter stats for './netperf -H 7.7.7.84 -t omni -l 20 -c -i10,3':
->
->            412,514 context-switches
->
->      200.034645535 seconds time elapsed
->
-> lpq83:~# echo 131072 >/proc/sys/net/ipv4/tcp_notsent_lowat
-> lpq83:~# perf stat -e context-switches ./netperf -H 7.7.7.84 -t omni -l 20 -c -i10,3
-> OMNI Send TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 7.7.7.84 () port 0 AF_INET : +/-2.500% @ 99% conf.
-> Local       Remote      Local  Elapsed Throughput Throughput  Local Local  Remote Remote Local   Remote  Service
-> Send Socket Recv Socket Send   Time               Units       CPU   CPU    CPU    CPU    Service Service Demand
-> Size        Size        Size   (sec)                          Util  Util   Util   Util   Demand  Demand  Units
-> Final       Final                                             %     Method %      Method
-> 1593240     6291456     16384  20.00   17321.16   10^6bits/s  3.35  S      -1.00  U      0.381   -1.000  usec/KB
->
->  Performance counter stats for './netperf -H 7.7.7.84 -t omni -l 20 -c -i10,3':
->
->          2,675,818 context-switches
->
->      200.029651391 seconds time elapsed
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
+build_skb() specifies that the data parameter must come from a kmalloc'd
+area, this is only true if frag_size equals 0, because then build_skb()
+will use kzsize(data) to figure out the actual data size. Update the
+comment to reflect that special condition.
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+Changes since v1:
+- explain the case where frag_size != 0
+
+ net/core/skbuff.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 20e02d2..3df4d4c 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -309,7 +309,8 @@ EXPORT_SYMBOL(__alloc_skb);
+  * @frag_size: size of fragment, or 0 if head was kmalloced
+  *
+  * Allocate a new &sk_buff. Caller provides space holding head and
+- * skb_shared_info. @data must have been allocated by kmalloc()
++ * skb_shared_info. @data must have been allocated by kmalloc() only if
++ * @frag_size is 0, otherwise data should come from the page allocator.
+  * The return is the new skb buffer.
+  * On a failure the return is %NULL, and @data is not freed.
+  * Notes :
+-- 
+1.8.1.2
