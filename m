@@ -1,52 +1,90 @@
-From: Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 1/1] TX throttling bug-fixing patch of AX88179_178A
-Date: Tue, 23 Jul 2013 19:32:08 -0700
-Message-ID: <CANEJEGv9G0SSUQOPqbqb_Fpcth7Qz2nkT_zOUQG=U2FH=g1_XA@mail.gmail.com>
-References: <1374518841.4990.26.camel@edumazet-glaptop>
-	<1374522471.1635.48.camel@bwh-desktop.uk.level5networks.com>
-	<1374559827.4990.143.camel@edumazet-glaptop>
-	<20130723.164656.1794159338719943519.davem@davemloft.net>
-	<CANEJEGtLavwdPdq_Qojz_x-DQ3KXfZp0vPYr6imKtNxN0Hf_2Q@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] tuntap: hardware vlan tx support
+Date: Wed, 24 Jul 2013 11:19:24 +0800
+Message-ID: <51EF47BC.4090107@redhat.com>
+References: <1374563748-38821-1-git-send-email-jasowang@redhat.com> <51EE7341.4060404@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org,
-	Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	=?UTF-8?B?QVNJWCBMb3VpcyBb6JiH5aiB6Zm4XQ==?= <louis-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>,
-	Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CANEJEGtLavwdPdq_Qojz_x-DQ3KXfZp0vPYr6imKtNxN0Hf_2Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Basil Gor <basil.gor@gmail.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51EE7341.4060404@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 23, 2013 at 7:29 PM, Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org> wrote:
-> On Tue, Jul 23, 2013 at 4:46 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> ...
->> A quick scan shows that smsc75xx, smsc95xx, and ax88179_178a all have
->> this problem.
+On 07/23/2013 08:12 PM, Sergei Shtylyov wrote:
+> Hello.
+>
+> On 23-07-2013 11:15, Jason Wang wrote:
+>
+>> Inspired by commit f09e2249c4f5c7c13261ec73f5a7807076af0c8e (macvtap:
+>> restore
+>> vlan header on user read). This patch adds hardware vlan tx support for
+>> tuntap. This is done by copying vlan header directly into userspace in
+>> tun_put_user() instead of doing it through __vlan_put_tag() in
+>> dev_hard_start_xmit(). This eliminates one unnecessary memove in
+>
+>    s/memove/memmove/?
+>
+
+Yes.
+>> vlan_insert_tag() for 802.1ad and 802.1q traffic.
+>
+>> pktgen test shows about 20% improvement for 802.1q traffic:
+>
+>> Before:
+>>    662149pps 317Mb/sec (317831520bps) errors: 0
+>> After:
+>>    801033pps 384Mb/sec (384495840bps) errors: 0
+>
+>> Cc: Basil Gor <basil.gor@gmail.com>
+>> Cc: Michael S. Tsirkin <mst@redhat.com>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>>   drivers/net/tun.c |   39 +++++++++++++++++++++++++++++++++++----
+>>   1 files changed, 35 insertions(+), 4 deletions(-)
+>
+>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>> index a72d141..66e265d 100644
+>> --- a/drivers/net/tun.c
+>> +++ b/drivers/net/tun.c
+> [...]
+>> @@ -1328,11 +1330,39 @@ static ssize_t tun_put_user(struct tun_struct
+>> *tun,
+>>           total += tun->vnet_hdr_sz;
+>>       }
 >>
->> Instead of the patch starting this thread, I'd like to see one that
->> hits all three drivers and removes all SG and TSO features bits from
->> both the ->features _and_ ->hw_features settings.
+>> -    len = min_t(int, skb->len, len);
+>> +    if (!vlan_tx_tag_present(skb))
+>> +        len = min_t(int, skb->len, len);
+>> +    else {
 >
-> Since you are asking to remove TSO, do you also want skb_linearize()
-> calls in ax88179_178a.c and smsc75xx.c removed as well?
-
-Nevermind...Eric already removed skb_linearize calls in his patch.
-
-cheers,
-grant
-
+>    According to Documentation/CodingStyle chapter 3, both arms of an
+> *if* statement should have {} if one arm has it.
 >
-> Not part of the original patch - but based on this thread, Eric seems
-> to think calling skb_linearize isn't necessary or helpful either.
+
+Right.
+>> +        int copy, ret;
+>> +        struct {
+>> +            __be16 h_vlan_proto;
+>> +            __be16 h_vlan_TCI;
+>> +        } veth;
 >
-> cheers,
-> grant
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>    Empty line wouldn't hurt here, after declarations...
+>
+
+Ok
+>> +        veth.h_vlan_proto = skb->vlan_proto;
+>> +        veth.h_vlan_TCI = htons(vlan_tx_tag_get(skb));
+> [...]
+>
+> WBR, Sergei
+>
+
+Thanks, will correct them.
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
