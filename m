@@ -1,68 +1,110 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: igmp: Reduce Unsolicited report interval to 1s when
- using IGMPv3
-Date: Wed, 24 Jul 2013 18:51:25 +0400
-Message-ID: <51EFE9ED.4000400@cogentembedded.com>
-References: <1374527349.1635.55.camel@bwh-desktop.uk.level5networks.com> <1374673098-10295-1-git-send-email-william.manley@youview.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+From: Francesco Fusco <ffusco@redhat.com>
+Subject: [PATCH net-next v2 1/2] neigh: prevent overflowing params in /proc/sys/net/ipv4/neigh/
+Date: Wed, 24 Jul 2013 16:52:33 +0200
+Message-ID: <ceef40ec2f64a50afcfc43375a9306ab0661fdf7.1374677178.git.ffusco@redhat.com>
+References: <cover.1374677178.git.ffusco@redhat.com>
 Cc: netdev@vger.kernel.org
-To: William Manley <william.manley@youview.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f51.google.com ([209.85.215.51]:47124 "EHLO
-	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751005Ab3GXOvc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 10:51:32 -0400
-Received: by mail-la0-f51.google.com with SMTP id fp13so323620lab.24
-        for <netdev@vger.kernel.org>; Wed, 24 Jul 2013 07:51:30 -0700 (PDT)
-In-Reply-To: <1374673098-10295-1-git-send-email-william.manley@youview.com>
+Received: from mx1.redhat.com ([209.132.183.28]:26140 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750933Ab3GXOwi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Jul 2013 10:52:38 -0400
+In-Reply-To: <cover.1374677178.git.ffusco@redhat.com>
+In-Reply-To: <cover.1374677178.git.ffusco@redhat.com>
+References: <cover.1374677178.git.ffusco@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Without this patch, the fields app_solicit, gc_thresh1, gc_thresh2,
+gc_thresh3, proxy_qlen, ucast_solicit, mcast_solicit could have
+assumed negative values when setting large numbers.
 
-On 24-07-2013 17:38, William Manley wrote:
+Signed-off-by: Francesco Fusco <ffusco@redhat.com>
+---
+ net/core/neighbour.c | 29 ++++++++++++++++++++++-------
+ 1 file changed, 22 insertions(+), 7 deletions(-)
 
-> If an IGMP join packet is lost you will not receive data sent to the
-> multicast group so if no data arrives from that multicast group in a
-> period of time after the IGMP join a second IGMP join will be sent.  The
-> delay between joins is the "IGMP Unsolicited Report Interval".
-
-> Previously this value was hard coded to be chosen randomly between 0-10s.
-> This can be too long for some use-cases, such as IPTV as it can cause
-> channel change to be slow in the presence of packet loss.
-
-> The value 10s has come from IGMPv2 RFC2236, which was reduced to 1s in
-> IGMPv3 RFC3376.  This patch makes the kernel use the 1s value from the
-> later RFC if we are operating in IGMPv3 mode.  IGMPv2 behaviour is
-> unaffected.
-
-> Tested with Wireshark and a simple program to join a (non-existant)
-> multicast group.  The distribution of timings for the second join differ
-> based upon setting /proc/sys/net/ipv4/conf/eth0/force_igmp_version.
-> ---
->   net/ipv4/igmp.c |   17 ++++++++++++++---
->   1 file changed, 14 insertions(+), 3 deletions(-)
-
-> diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-> index d8c2327..f8142df 100644
-> --- a/net/ipv4/igmp.c
-> +++ b/net/ipv4/igmp.c
-[...]
-> @@ -138,6 +139,15 @@
->   	 ((in_dev)->mr_v2_seen && \
->   	  time_before(jiffies, (in_dev)->mr_v2_seen)))
->
-> +static int unsolicited_report_interval(struct in_device *in_dev)
-> +{
-> +	if (IGMP_V2_SEEN(in_dev)) {
-> +		return IGMP_V2_Unsolicited_Report_Interval;
-> +	} else { /* v3 */
-> +		return IGMP_V3_Unsolicited_Report_Interval;
-> +	}
-
-    {} not needed on either arm of *if*. I guess scripts/checkpatch.pl should 
-have warned you...
-
-WBR, Sergei
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index b7de821..9232c68 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -2767,6 +2767,7 @@ EXPORT_SYMBOL(neigh_app_ns);
+ 
+ #ifdef CONFIG_SYSCTL
+ static int zero;
++static int int_max = INT_MAX;
+ static int unres_qlen_max = INT_MAX / SKB_TRUESIZE(ETH_FRAME_LEN);
+ 
+ static int proc_unres_qlen(struct ctl_table *ctl, int write,
+@@ -2819,19 +2820,25 @@ static struct neigh_sysctl_table {
+ 			.procname	= "mcast_solicit",
+ 			.maxlen		= sizeof(int),
+ 			.mode		= 0644,
+-			.proc_handler	= proc_dointvec,
++			.extra1 	= &zero,
++			.extra2		= &int_max,
++			.proc_handler	= proc_dointvec_minmax,
+ 		},
+ 		[NEIGH_VAR_UCAST_PROBE] = {
+ 			.procname	= "ucast_solicit",
+ 			.maxlen		= sizeof(int),
+ 			.mode		= 0644,
+-			.proc_handler	= proc_dointvec,
++			.extra1 	= &zero,
++			.extra2		= &int_max,
++			.proc_handler	= proc_dointvec_minmax,
+ 		},
+ 		[NEIGH_VAR_APP_PROBE] = {
+ 			.procname	= "app_solicit",
+ 			.maxlen		= sizeof(int),
+ 			.mode		= 0644,
+-			.proc_handler	= proc_dointvec,
++			.extra1 	= &zero,
++			.extra2		= &int_max,
++			.proc_handler	= proc_dointvec_minmax,
+ 		},
+ 		[NEIGH_VAR_RETRANS_TIME] = {
+ 			.procname	= "retrans_time",
+@@ -2874,7 +2881,9 @@ static struct neigh_sysctl_table {
+ 			.procname	= "proxy_qlen",
+ 			.maxlen		= sizeof(int),
+ 			.mode		= 0644,
+-			.proc_handler	= proc_dointvec,
++			.extra1 	= &zero,
++			.extra2		= &int_max,
++			.proc_handler	= proc_dointvec_minmax,
+ 		},
+ 		[NEIGH_VAR_ANYCAST_DELAY] = {
+ 			.procname	= "anycast_delay",
+@@ -2916,19 +2925,25 @@ static struct neigh_sysctl_table {
+ 			.procname	= "gc_thresh1",
+ 			.maxlen		= sizeof(int),
+ 			.mode		= 0644,
+-			.proc_handler	= proc_dointvec,
++			.extra1 	= &zero,
++			.extra2		= &int_max,
++			.proc_handler	= proc_dointvec_minmax,
+ 		},
+ 		[NEIGH_VAR_GC_THRESH2] = {
+ 			.procname	= "gc_thresh2",
+ 			.maxlen		= sizeof(int),
+ 			.mode		= 0644,
+-			.proc_handler	= proc_dointvec,
++			.extra1 	= &zero,
++			.extra2		= &int_max,
++			.proc_handler	= proc_dointvec_minmax,
+ 		},
+ 		[NEIGH_VAR_GC_THRESH3] = {
+ 			.procname	= "gc_thresh3",
+ 			.maxlen		= sizeof(int),
+ 			.mode		= 0644,
+-			.proc_handler	= proc_dointvec,
++			.extra1 	= &zero,
++			.extra2		= &int_max,
++			.proc_handler	= proc_dointvec_minmax,
+ 		},
+ 		{},
+ 	},
+-- 
+1.8.3.1
