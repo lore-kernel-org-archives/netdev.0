@@ -1,74 +1,129 @@
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: Re: [PATCH 2/2] net/tg3: Fix warning from pci_disable_device()
-Date: Wed, 24 Jul 2013 05:27:28 -0700
-Message-ID: <51EFC830.9080801@broadcom.com>
-References: <1374657909-26929-1-git-send-email-shangw@linux.vnet.ibm.com>
- <1374657909-26929-2-git-send-email-shangw@linux.vnet.ibm.com>
+From: Wang Sheng-Hui <shhuiw@gmail.com>
+Subject: Re: [PATCH] bonding: use pre-defined macro in bond_mode_name instead
+ of magic number 0
+Date: Wed, 24 Jul 2013 20:38:02 +0800
+Message-ID: <51EFCAAA.4050402@gmail.com>
+References: <51EF79E6.9060309@gmail.com> <1374649819.18818.5.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mchan@broadcom.com, davem@davemloft.net
-To: "Gavin Shan" <shangw@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3146 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751243Ab3GXM1i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Jul 2013 08:27:38 -0400
-In-Reply-To: <1374657909-26929-2-git-send-email-shangw@linux.vnet.ibm.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:43731 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751069Ab3GXMiP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 08:38:15 -0400
+Received: by mail-pa0-f53.google.com with SMTP id lb1so602119pab.40
+        for <netdev@vger.kernel.org>; Wed, 24 Jul 2013 05:38:14 -0700 (PDT)
+In-Reply-To: <1374649819.18818.5.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 7/24/2013 2:25 AM, Gavin Shan wrote:
-> The patch fixes following warning. The PCI device might have been
-> disabled somewhere else when we have EEH errors during early stage.
+On 2013=E5=B9=B407=E6=9C=8824=E6=97=A5 15:10, Joe Perches wrote:
+> On Wed, 2013-07-24 at 14:53 +0800, Wang Sheng-Hui wrote:
+>> We have BOND_MODE_ROUNDROBIN pre-defined as 0, and it's the lowest m=
+ode number.
+>> Use it to check the arg lower bound instead of magic number 0 in bon=
+d_mode_name.
+> []
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/b=
+ond_main.c
+> []
+>> @@ -273,7 +273,7 @@ const char *bond_mode_name(int mode)
+>>    		[BOND_MODE_ALB] =3D "adaptive load balancing",
+>>    	};
+>>
+>> -	if (mode < 0 || mode > BOND_MODE_ALB)
+>> +	if (mode < BOND_MODE_ROUNDROBIN || mode > BOND_MODE_ALB)
+>>    		return "unknown";
+>>
+>>    	return names[mode];
 >
-> Device tg3 disabling already-disabled device
-> WARNING: at drivers/pci/pci.c:1403
-> :
-> NIP [c00000000044fd5c] .pci_disable_device+0xcc/0xe0
-> LR [c00000000044fd58] .pci_disable_device+0xc8/0xe0
-> Call Trace:
-> [c000003f80bc7370] [c00000000044fd58] .pci_disable_device+0xc8/0xe0
-> [c000003f80bc73f0] [d00000001cfe8fc0] .tg3_init_one+0x2f0/0x19f0 [tg3]
-> [c000003f80bc74d0] [c0000000004534e8] .local_pci_probe+0x68/0xb0
-> [c000003f80bc7560] [c0000000004537c8] .pci_device_probe+0x198/0x1a0
-> [c000003f80bc7610] [c0000000004f9e98] .driver_probe_device+0xd8/0x450
-> [c000003f80bc76a0] [c0000000004fa3bc] .__driver_attach+0x10c/0x110
-> [c000003f80bc7730] [c0000000004f6e94] .bus_for_each_dev+0x94/0x100
-> [c000003f80bc77d0] [c0000000004f9634] .driver_attach+0x34/0x50
-> [c000003f80bc7850] [c0000000004f8f98] .bus_add_driver+0x288/0x380
-> [c000003f80bc78f0] [c0000000004fae2c] .driver_register+0x9c/0x200
-> [c000003f80bc7980] [c000000000453214] .__pci_register_driver+0x64/0x90
-> [c000003f80bc7a10] [d00000001cff7a60] .tg3_driver_init+0x2c/0x40 [tg3]
-> [c000003f80bc7a80] [c00000000000b424] .do_one_initcall+0x144/0x1f0
-> [c000003f80bc7b70] [c0000000001244a0] .load_module+0x1f30/0x2700
-> [c000003f80bc7d40] [c000000000124e80] .SyS_finit_module+0xc0/0x110
-> [c000003f80bc7e30] [c000000000009dd4] syscall_exit+0x0/0x98
+> Probably be simpler, less confusing, and more normal style
+> to use a switch case.
 >
-> Reported-by: Wei Yang <weiyang@linux.vnet.ibm.com>
-> Signed-off-by: Gavin Shan <shangw@linux.vnet.ibm.com>
-> ---
->   drivers/net/ethernet/broadcom/tg3.c |    3 ++-
->   1 files changed, 2 insertions(+), 1 deletions(-)
+> 	switch (mode) {
+> 	case BOND_MODE_ROUNDROBIN:
+> 		return "load balancing (round-robin)";
+> 	case BOND_MODE_ACTIVEBACKUP:
+> 		return "fault-tolerance (active-backup)";
+> 	case BOND_MODE_XOR:
+> 		return "load balancing (xor)";
+> 	case BOND_MODE_BROADCAST;
+> 		return "fault-tolerance (broadcast)";
+> 	case BOND_MODE_8023AD:
+> 		return "IEEE 802.3ad Dynamic link aggregation";
+> 	case BOND_MODE_TLB:
+> 		return "transmit load balancing";
+> 	case BOND_MODE_ALB:
+> 		return "adaptive load balancing";
+> 	default:
+> 		return "unknown";
+> 	}
 >
-> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-> index aee1b9a..ddebc7a 100644
-> --- a/drivers/net/ethernet/broadcom/tg3.c
-> +++ b/drivers/net/ethernet/broadcom/tg3.c
-> @@ -17625,7 +17625,8 @@ err_out_free_res:
->   	pci_release_regions(pdev);
->
->   err_out_disable_pdev:
-> -	pci_disable_device(pdev);
-> +	if (pci_is_enabled(pdev))
-> +		pci_disable_device(pdev);
->   	pci_set_drvdata(pdev, NULL);
->   	return err;
->   }
 >
 
-Acked-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+Regenerated the patch on Joe's advice. Please check it.  Thanks,
+
+
+[PATCH] bonding: use switch case to make bond_mode_name more clear
+
+We have predefined the mode macros, and should avoid the
+magic number 0 in the old version. Also, use a switch case
+would be simpler, less confusing, and more normal style.
+
+Signed-off-by: Wang Sheng-Hui <shhuiw@gmail.com>
+---
+  drivers/net/bonding/bond_main.c |   30 +++++++++++++++++-------------
+  1 file changed, 17 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
+_main.c
+index 07f257d4..69bfb4c 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -263,20 +263,24 @@ static void bond_uninit(struct net_device *bond_d=
+ev);
+
+  const char *bond_mode_name(int mode)
+  {
+-	static const char *names[] =3D {
+-		[BOND_MODE_ROUNDROBIN] =3D "load balancing (round-robin)",
+-		[BOND_MODE_ACTIVEBACKUP] =3D "fault-tolerance (active-backup)",
+-		[BOND_MODE_XOR] =3D "load balancing (xor)",
+-		[BOND_MODE_BROADCAST] =3D "fault-tolerance (broadcast)",
+-		[BOND_MODE_8023AD] =3D "IEEE 802.3ad Dynamic link aggregation",
+-		[BOND_MODE_TLB] =3D "transmit load balancing",
+-		[BOND_MODE_ALB] =3D "adaptive load balancing",
+-	};
+-
+-	if (mode < 0 || mode > BOND_MODE_ALB)
++	switch (mode) {
++	case BOND_MODE_ROUNDROBIN:
++		return "load balancing (round-robin)";
++	case BOND_MODE_ACTIVEBACKUP:
++		return "fault-tolerance (active-backup)";
++	case BOND_MODE_XOR:
++		return "load balancing (xor)";
++	case BOND_MODE_BROADCAST:
++		return "fault-tolerance (broadcast)";
++	case BOND_MODE_8023AD:
++		return "IEEE 802.3ad Dynamic link aggregation";
++	case BOND_MODE_TLB:
++		return "transmit load balancing";
++	case BOND_MODE_ALB:
++		return "adaptive load balancing";
++	default:
+  		return "unknown";
+-
+-	return names[mode];
++	}
+  }
+
+  /*---------------------------------- VLAN ---------------------------=
+--------*/
+--=20
+1.7.10.4
