@@ -1,75 +1,142 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH] bgmac: make bgmac depend on bcm47xx
-Date: Wed, 24 Jul 2013 11:08:58 +1000
-Message-ID: <20130724110858.01e033323d739cf6b998e2ea@canb.auug.org.au>
-References: <1374614929-7528-1-git-send-email-hauke@hauke-m.de>
+From: Fan Du <fan.du@windriver.com>
+Subject: Re: [RFC PATCH net-next V2] net: split rt_genid for ipv4 and ipv6
+Date: Wed, 24 Jul 2013 09:30:26 +0800
+Message-ID: <51EF2E32.8020606@windriver.com>
+References: <1374543420-12657-1-git-send-email-fan.du@windriver.com> <51EEFAF9.2030300@6wind.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Wed__24_Jul_2013_11_08_58_+1000_ag9GYNau8qttZeTY"
-Cc: davem@davemloft.net, zajec5@gmail.com, netdev@vger.kernel.org,
-	linville@tuxdriver.com, linux-next@vger.kernel.org
-To: Hauke Mehrtens <hauke@hauke-m.de>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <davem@davemloft.net>, <yoshfuji@linux-ipv6.org>,
+	<jmorris@namei.org>, <steffen.klassert@secunet.com>,
+	<netdev@vger.kernel.org>
+To: <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from haggis.pcug.org.au ([203.10.76.10]:56983 "EHLO
-	members.tip.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750716Ab3GXBJJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 21:09:09 -0400
-In-Reply-To: <1374614929-7528-1-git-send-email-hauke@hauke-m.de>
+Received: from mail1.windriver.com ([147.11.146.13]:51666 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750731Ab3GXB3P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 21:29:15 -0400
+In-Reply-To: <51EEFAF9.2030300@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Signature=_Wed__24_Jul_2013_11_08_58_+1000_ag9GYNau8qttZeTY
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-Hi,
 
-On Tue, 23 Jul 2013 23:28:49 +0200 Hauke Mehrtens <hauke@hauke-m.de> wrote:
+On 2013=E5=B9=B407=E6=9C=8824=E6=97=A5 05:51, Nicolas Dichtel wrote:
+> Le 23/07/2013 03:37, Fan Du a =C3=A9crit :
+>> Current net name space has only one genid for both IPv4 and IPv6, it=
+ has below drawbacks:
+>>
+>> - Add/delete an IPv4 address will invalidate all IPv6 routing table =
+entries.
+>> - Insert/remove XFRM policy will also invalidate both IPv4/IPv6 rout=
+ing table entries
+>> even when the policy is only applied for one address family.
+>>
+>> Thus, this patch attempt to split one genid for two to cater for IPv=
+4 and IPv6 separately
+>> in a fine granularity.
+>>
+>> Signed-off-by: Fan Du <fan.du@windriver.com>
+>>
+>> V2:
+>> -Fix compile issue when IPv6 not enabled
+>> -Put genid into struct netns_ipv4/ipv6
+>> ---
+>> include/net/net_namespace.h | 39 ++++++++++++++++++++++++++++++++++-=
+----
+>> include/net/netns/ipv4.h | 1 +
+>> include/net/netns/ipv6.h | 1 +
+>> net/ipv4/route.c | 16 ++++++++--------
+>> net/ipv6/af_inet6.c | 1 +
+>> net/ipv6/route.c | 4 ++--
+>> net/xfrm/xfrm_policy.c | 8 +++++++-
+>> 7 files changed, 54 insertions(+), 16 deletions(-)
+>>
+>> diff --git a/include/net/net_namespace.h b/include/net/net_namespace=
+=2Eh
+>> index 84e37b1..763e63f 100644
+>> --- a/include/net/net_namespace.h
+>> +++ b/include/net/net_namespace.h
+>> @@ -119,7 +119,6 @@ struct net {
+>> struct netns_ipvs *ipvs;
+>> #endif
+>> struct sock *diag_nlsk;
+>> - atomic_t rt_genid;
+>> atomic_t fnhe_genid;
+>> };
+>>
+>> @@ -333,14 +332,44 @@ static inline void unregister_net_sysctl_table=
+(struct ctl_table_header *header)
+>> }
+>> #endif
+>>
+>> -static inline int rt_genid(struct net *net)
+>> +static inline int rt_genid_ipv4(struct net *net)
+>> {
+>> - return atomic_read(&net->rt_genid);
+>> + return atomic_read(&net->ipv4.rt_genid_ipv4);
+>> }
+>>
+>> -static inline void rt_genid_bump(struct net *net)
+>> +static inline void rt_genid_bump_ipv4(struct net *net)
+>> {
+>> - atomic_inc(&net->rt_genid);
+>> + atomic_inc(&net->ipv4.rt_genid_ipv4);
+>> +}
+>> +
+>> +#if IS_ENABLED(CONFIG_IPV6)
+>> +static inline int rt_genid_ipv6(struct net *net)
+>> +{
+>> + return atomic_read(&net->ipv6.rt_genid_ipv6);
+>> +}
+>> +
+>> +static inline void rt_genid_bump_ipv6(struct net *net)
+>> +{
+>> + atomic_inc(&net->ipv6.rt_genid_ipv6);
+>> +}
+>> +#else
+>> +static inline int rt_genid_ipv6(struct net *net)
+>> +{
+>> + return 0;
+>> +}
+>> +
+>> +static inline void rt_genid_bump_ipv6(struct net *net)
+>> +{
+>> +}
+>> +#endif
+>> +
+>> +/* For callers who don't really care about whether it's IPv4 or IPv=
+6 */
+>> +static inline void rt_genid_bump_all(struct net *net)
+>> +{
+>> + atomic_inc(&net->ipv4.rt_genid_ipv4);
+>> +#if IS_ENABLED(CONFIG_IPV6)
+>> + atomic_inc(&net->ipv6.rt_genid_ipv6);
+>> +#endif
+>> }
+>>
+>> static inline int fnhe_genid(struct net *net)
+>> diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+>> index 2ba9de8..d87af01 100644
+>> --- a/include/net/netns/ipv4.h
+>> +++ b/include/net/netns/ipv4.h
+>> @@ -77,5 +77,6 @@ struct netns_ipv4 {
+>> struct fib_rules_ops *mr_rules_ops;
+>> #endif
+>> #endif
+>> + atomic_t rt_genid_ipv4;
+> Just nitpiking: maybe _ipv4 is redundant? It's already in 'struct net=
+ns_ipv4'.
+> Same for IPv6.
 >
-> bgmac uses bcm47xx_nvram.h which is only available when BCM47XX was
-> selected. Earlier BCMA_HOST_SOC depended on BCM47XX so this was not
-> build on any other archs, but that changed. We should modify this
-> driver to get access to the nvram or the variables through platform
-> data.
->=20
-> This fixes a build problem in linux-next reported by Stephen Rothwell:
->=20
-> drivers/net/ethernet/broadcom/bgmac.c:19:27: fatal error: bcm47xx_nvram.h=
-: No such file or directory
->  #include <bcm47xx_nvram.h>
->                            ^
->=20
-> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
-> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+Hallo Nicolas
 
-This patch really needs to go to John as the patch that exposes the
-breakage is in his tree.
+That's not nitpicking at all :), will chop _ipv4/6 off in next version.
+Thanks for your comments.
 
 --=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
+=E7=AC=91
 
---Signature=_Wed__24_Jul_2013_11_08_58_+1000_ag9GYNau8qttZeTY
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.20 (GNU/Linux)
-
-iQIcBAEBCAAGBQJR7ykvAAoJEECxmPOUX5FEms8QAIKdECTaI148AlY1qD8REvJI
-4eO67vVGlBJgBmfK8fLvuiesvBCoc71+sYbXvrgkWErQr9XJf7ms9WPK8LTHne6U
-rda1vdQhIsJMOszOcsCQ7/YZI+f+fwX0LxHAQixNLE1y4Rh8PU6/tjo0qgSbPKml
-5jz4uOx9I3qi0D78F7wlKoMFCTJ7ccNDSIhoNyUVn5AcN7n8XrPpO5YuEHqRXQYU
-kAOHNVi+vcArJ3Ufn0HBiaRdRiRvbjum00tT6/7HHozOYxIO9hc/clbaFFOrocri
-QuWlM3SGHf5yzVd1ykGRwVut245dEy7nRa5uRAuh8NstE8hmMt+1lNqilX6httxY
-VxdYkLU1xYaBiGPAvqRByOBZBnaztxdV2xjVbUbm+3gm4N9SgY8Y/W1FkTEQVLCR
-nhfcml/jpDfXzYqDnf3udF/PY0BpXowX2nb44Ru3C9jOc8OhrCFlQJOqgzfyJa7z
-NS88BzFonFomSqzGCfQuTXKlTimem2pAMdXrKvBVRm0ftHBHg4FTUd0RxnZ+4cyO
-FOqAkE8eq4FNjeWGeEgaZBItWXOmWbl77I0z9BWIVEWt0kysRNnH1iSrVM7ldFbw
-Sgk9vndfAI4kgw23Teldaaxc5iyv1SSBThgeImqE88FUUSKiJ4q/AaGv9jqnuAog
-sFbhqiYAUBR3egC5eMFD
-=Fqq8
------END PGP SIGNATURE-----
-
---Signature=_Wed__24_Jul_2013_11_08_58_+1000_ag9GYNau8qttZeTY--
+--fan
