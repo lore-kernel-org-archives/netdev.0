@@ -1,41 +1,37 @@
-From: TC@zimbra.relato.net.br, idthida.choun@gmail.com
-Subject: Letter Of Intent
-Date: Wed, 24 Jul 2013 07:11:07 +0700
-Message-ID: <20130724001149.45EDE563500@zimbra.relato.net.br>
-Reply-To: thida.choun@yahoo.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ip6mr: change the prototype of
+ ip6_mr_forward().
+Date: Tue, 23 Jul 2013 17:21:00 -0700 (PDT)
+Message-ID: <20130723.172100.861888744953479475.davem@davemloft.net>
+References: <1374364831-13190-1-git-send-email-ramirose@gmail.com>
+	<51ED9A7A.1010008@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ramirose@gmail.com, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host53-147.brs.com.br ([177.11.53.147]:58718 "EHLO
-	zimbra.relato.net.br" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750762Ab3GXAU2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 20:20:28 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by zimbra.relato.net.br (Postfix) with ESMTP id C20685634EB
-	for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 21:11:50 -0300 (BRT)
-Received: from zimbra.relato.net.br ([127.0.0.1])
-	by localhost (zimbra.relato.net.br [127.0.0.1]) (amavisd-new, port 10032)
-	with ESMTP id bV1ZxTyHCR7w for <netdev@vger.kernel.org>;
-	Tue, 23 Jul 2013 21:11:50 -0300 (BRT)
-Received: from localhost (localhost [127.0.0.1])
-	by zimbra.relato.net.br (Postfix) with ESMTP id 5327B5634F6
-	for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 21:11:50 -0300 (BRT)
-Received: from zimbra.relato.net.br ([127.0.0.1])
-	by localhost (zimbra.relato.net.br [127.0.0.1]) (amavisd-new, port 10026)
-	with ESMTP id lpzE4L-lbEuI for <netdev@vger.kernel.org>;
-	Tue, 23 Jul 2013 21:11:50 -0300 (BRT)
-Received: from [10.9.87.214] (unknown [192.168.6.2])
-	by zimbra.relato.net.br (Postfix) with ESMTP id 45EDE563500
-	for <netdev@vger.kernel.org>; Tue, 23 Jul 2013 21:11:48 -0300 (BRT)
-Content-Description: Mail message body
+Received: from shards.monkeyblade.net ([149.20.54.216]:51287 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750804Ab3GXAVB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 20:21:01 -0400
+In-Reply-To: <51ED9A7A.1010008@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Friend
+=46rom: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Mon, 22 Jul 2013 22:47:54 +0200
 
-It is my interest to contact you in respect of our client from your country who died 3 years ago leaving some huge amount of money in our bank without any next of kin or link to his family. I shall explain in details when I read your reply.You are my first contact, I shall wait for days and if I do not hear from you. I shall continue with my search,
+> Le 21/07/2013 02:00, Rami Rosen a =E9crit :
+>> This patch changes the prototpye of the ip6_mr_forward() method to
+>> return void
+>> instead of int.
+>>
+>> The ip6_mr_forward() method always returns 0; moreover, the return
+>> value of this
+>> method is not checked anywhere.
+>>
+>> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+> Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Thanks.
-Thida Choun
+Applied.
