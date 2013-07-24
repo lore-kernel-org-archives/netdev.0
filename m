@@ -1,75 +1,40 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] fib_rules: add minimum prefix length
-Date: Wed, 24 Jul 2013 04:14:20 +0200
-Message-ID: <20130724021420.GA10670@order.stressinduktion.org>
-References: <20130723220221.GP10216@zirkel.wertarbyte.de>
+From: Grant Grundler <grundler@google.com>
+Subject: Re: [PATCH 1/1] TX throttling bug-fixing patch of AX88179_178A
+Date: Tue, 23 Jul 2013 19:29:13 -0700
+Message-ID: <CANEJEGtLavwdPdq_Qojz_x-DQ3KXfZp0vPYr6imKtNxN0Hf_2Q@mail.gmail.com>
+References: <1374518841.4990.26.camel@edumazet-glaptop>
+	<1374522471.1635.48.camel@bwh-desktop.uk.level5networks.com>
+	<1374559827.4990.143.camel@edumazet-glaptop>
+	<20130723.164656.1794159338719943519.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:35698 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750833Ab3GXCOW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 22:14:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20130723220221.GP10216@zirkel.wertarbyte.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>, oliver@neukum.org,
+	Freddy Xin <freddy@asix.com.tw>,
+	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	=?UTF-8?B?QVNJWCBMb3VpcyBb6JiH5aiB6Zm4XQ==?= <louis@asix.com.tw>,
+	Allan Chou <allan@asix.com.tw>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130723.164656.1794159338719943519.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi!
+On Tue, Jul 23, 2013 at 4:46 PM, David Miller <davem@davemloft.net> wrote:
+...
+> A quick scan shows that smsc75xx, smsc95xx, and ax88179_178a all have
+> this problem.
+>
+> Instead of the patch starting this thread, I'd like to see one that
+> hits all three drivers and removes all SG and TSO features bits from
+> both the ->features _and_ ->hw_features settings.
 
-On Wed, Jul 24, 2013 at 12:02:21AM +0200, Stefan Tomanek wrote:
-> This change adds a minimum prefix length to the structures of routing rules.
-> If a rule is added with a minimum prefix length >0, only routes meeting this
-> threshold will be considered. Any other (more general) routing table entries
-> will be ignored.
-> 
-> When configuring a system with multiple network uplinks and default routes, it
-> is often convinient to reference the main routing table multiple times - but
-> omitting the default route. Using this patch and a modified "ip" utility, this
-> can be achieved by using the following command sequence:
+Since you are asking to remove TSO, do you also want skb_linearize()
+calls in ax88179_178a.c and smsc75xx.c removed as well?
 
-Yeah, it is sometimes pretty hideous to set up, especially if one uses
-ppp stuff and such. But I am unsure if this change does actually improve
-that considerable. Static setups should be easily doable right now and for
-ppp/vpn stuff, I fear, it would still lack a bit of flexibility.
+Not part of the original patch - but based on this thread, Eric seems
+to think calling skb_linearize isn't necessary or helpful either.
 
-Off-topic:
-I had the idea of supporting per process routing tables to deal with
-that: ip route exec table foo pppd ...
-So that every change of pppd and childs would only affect table foo (the
-details could be hairy but currently not enough time to find out).
-
-> diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-> index 26aa65d..94e9051 100644
-> --- a/net/ipv4/fib_rules.c
-> +++ b/net/ipv4/fib_rules.c
-> @@ -95,8 +95,17 @@ static int fib4_rule_action(struct fib_rule *rule, struct flowi *flp,
->  		goto errout;
->  
->  	err = fib_table_lookup(tbl, &flp->u.ip4, (struct fib_result *) arg->result, arg->flags);
-> -	if (err > 0)
-> +	if (err > 0) {
->  		err = -EAGAIN;
-> +		goto errout;
-> +	}
-> +	/* do not accept result if the route does not meet the required prefix length */
-> +	if (arg->result) {
-> +		if (((struct fib_result *)arg->result)->prefixlen < rule->table_prefixlen_min) {
-> +			err = -EAGAIN;
-> +			goto errout;
-> +		}
-> +	}
->  errout:
->  	return err;
->  }
-
-I would try to factor the prefixlen_min check out into a
-e.g. fib4_rule_constrain function for which a new field in fib_rules_ops
-needs to be created as callback. Also it would be nice to have IPv6
-support, too. ;)
-
-Greetings,
-
-  Hannes
+cheers,
+grant
