@@ -1,82 +1,63 @@
-From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
-Subject: Re: [PATCH] fib_rules: add minimum prefix length
-Date: Wed, 24 Jul 2013 09:57:59 +0200
-Message-ID: <20130724075759.GS10216@zirkel.wertarbyte.de>
-References: <20130723220221.GP10216@zirkel.wertarbyte.de>
- <20130724021420.GA10670@order.stressinduktion.org>
+From: Fan Du <fan.du@windriver.com>
+Subject: Re: [RFC PATCH net-next V2] net: split rt_genid for ipv4 and ipv6
+Date: Wed, 24 Jul 2013 16:12:55 +0800
+Message-ID: <51EF8C87.4060707@windriver.com>
+References: <1374543420-12657-1-git-send-email-fan.du@windriver.com> <20130723020437.GC30719@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
+Cc: <davem@davemloft.net>, <nicolas.dichtel@6wind.com>,
+	<yoshfuji@linux-ipv6.org>, <jmorris@namei.org>,
+	<steffen.klassert@secunet.com>, <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zirkel.wertarbyte.de ([188.40.44.137]:45825 "EHLO
-	zirkel.wertarbyte.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750800Ab3GXH6F convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 03:58:05 -0400
-Content-Disposition: inline
-In-Reply-To: <20130724021420.GA10670@order.stressinduktion.org>
+Received: from mail.windriver.com ([147.11.1.11]:42794 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750865Ab3GXILw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 04:11:52 -0400
+In-Reply-To: <20130723020437.GC30719@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dies schrieb Hannes Frederic Sowa (hannes@stressinduktion.org):
+Hallo Hannes
 
-> Yeah, it is sometimes pretty hideous to set up, especially if one use=
-s
-> ppp stuff and such. But I am unsure if this change does actually impr=
-ove
-> that considerable. Static setups should be easily doable right now an=
-d for
-> ppp/vpn stuff, I fear, it would still lack a bit of flexibility.
+On 2013=E5=B9=B407=E6=9C=8823=E6=97=A5 10:04, Hannes Frederic Sowa wrot=
+e:
+> On Tue, Jul 23, 2013 at 09:37:00AM +0800, Fan Du wrote:
+>> Current net name space has only one genid for both IPv4 and IPv6, it=
+ has below drawbacks:
+>>
+>> - Add/delete an IPv4 address will invalidate all IPv6 routing table =
+entries.
+>> - Insert/remove XFRM policy will also invalidate both IPv4/IPv6 rout=
+ing table entries
+>>    even when the policy is only applied for one address family.
+>>
+>> Thus, this patch attempt to split one genid for two to cater for IPv=
+4 and IPv6 separately
+>> in a fine granularity.
+>
+> For me the approach seems reasonable. We should double-check if this
+> does not affect v4mapped af_inet6 sockets in any way. I could help to
+> do the review if there is an agreement that the split is desirable.
 
-Well, it does work for me. I am using a dynamic PPP uplink and an OpenV=
-PN
-tunnel where some marked traffic is guided through.
+Thank you for your attention :)
 
-To achieve this, I always had to configure pppd with "nodefaultroute" j=
-ust to
-add the default route it manually in a separate table, complicating the
-configuration process.
+v4mapped af_inet6 address shouldn't cause problem, as long as the mappe=
+d
+v4 address is routable in IPv4 stack, so add/delete IPv6 address doesn'=
+t
+interfere IPv4 routing entry.
 
-With my patches added, I can just reference a "masked" version of the m=
-ain
-routing table at first, ignoring the default route placed there by pppd=
-:
+> Thanks,
+>
+>    Hannes
+>
+>
 
-echo "vpn" >> /etc/iproute2/rt_tables
-ip route add table vpn default via tun0
-ip rule add pref 100 lookup main prefixlength 0
-ip rule add pref 200 fwmark 0xA lookup vpn
+--=20
+=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
+=E7=AC=91
 
-             |
-             V
-[ table main prefixlength >0 ]
-             |
-             V
-       <fwmark 0xA?>   ->  [ table vpn ]
-             |                   |
-	     |    ,--------------=B4
-	     V    V
-        [ table main ]
-
-That way, there is no need to reconfigure pppd, dhclient etc. If a spec=
-ific
-route of the main table matches, it will we used. If the main table jus=
-t points
-to the default route (prefixlengt =3D=3D 0), it will be ignored and the=
- packet
-travels to the next rule. In the end, the complete main table might sti=
-ll be
-consulted, including the previously shunned default route.
-
-Works great and requires little to no hacking around distribution speci=
-fic
-network scripts.
-
-> I would try to factor the prefixlen_min check out into a
-> e.g. fib4_rule_constrain function for which a new field in fib_rules_=
-ops
-> needs to be created as callback. Also it would be nice to have IPv6
-> support, too. ;)
-
-Why not, sure. Working solutions today, better solutions tomorrow :-)
+--fan
