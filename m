@@ -1,41 +1,32 @@
-From: TC@zimbra.relato.net.br, idthida.choun@gmail.com
-Subject: Letter Of Intent
-Date: Wed, 24 Jul 2013 12:25:24 +0700
-Message-ID: <20130724052606.991F456ECC0@zimbra.relato.net.br>
-Reply-To: thida.choun@yahoo.com
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] tuntap: hardware vlan tx support
+Date: Wed, 24 Jul 2013 13:55:14 +0800
+Message-ID: <51EF6C42.1070304@redhat.com>
+References: <1374563748-38821-1-git-send-email-jasowang@redhat.com> <20130723085310.4a036a47@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host53-147.brs.com.br ([177.11.53.147]:56971 "EHLO
-	zimbra.relato.net.br" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750867Ab3GXF0o convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 01:26:44 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by zimbra.relato.net.br (Postfix) with ESMTP id D24DB56ED15
-	for <netdev@vger.kernel.org>; Wed, 24 Jul 2013 02:26:07 -0300 (BRT)
-Received: from zimbra.relato.net.br ([127.0.0.1])
-	by localhost (zimbra.relato.net.br [127.0.0.1]) (amavisd-new, port 10032)
-	with ESMTP id 3Fi5vDsaLxaP for <netdev@vger.kernel.org>;
-	Wed, 24 Jul 2013 02:26:07 -0300 (BRT)
-Received: from localhost (localhost [127.0.0.1])
-	by zimbra.relato.net.br (Postfix) with ESMTP id 9F02056ECD7
-	for <netdev@vger.kernel.org>; Wed, 24 Jul 2013 02:26:07 -0300 (BRT)
-Received: from zimbra.relato.net.br ([127.0.0.1])
-	by localhost (zimbra.relato.net.br [127.0.0.1]) (amavisd-new, port 10026)
-	with ESMTP id B-h4xk36u56V for <netdev@vger.kernel.org>;
-	Wed, 24 Jul 2013 02:26:07 -0300 (BRT)
-Received: from [10.9.87.214] (unknown [192.168.6.2])
-	by zimbra.relato.net.br (Postfix) with ESMTP id 991F456ECC0
-	for <netdev@vger.kernel.org>; Wed, 24 Jul 2013 02:26:06 -0300 (BRT)
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Basil Gor <basil.gor@gmail.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130723085310.4a036a47@nehalam.linuxnetplumber.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear Friend
+On 07/23/2013 11:53 PM, Stephen Hemminger wrote:
+> On Tue, 23 Jul 2013 15:15:48 +0800
+> Jason Wang <jasowang@redhat.com> wrote:
+>
+>> +		struct {
+>> +			__be16 h_vlan_proto;
+>> +			__be16 h_vlan_TCI;
+>> +		} veth;
+> Don't you want to use struct vlan_hdr here? 
 
-It is my interest to contact you in respect of our client from your country who died 3 years ago leaving some huge amount of money in our bank without any next of kin or link to his family. I shall explain in details when I read your reply.You are my first contact, I shall wait for days and if I do not hear from you. I shall continue with my search,
+There's no need to care encapsulated proto here. In fact, we just
+emulate the hardware inserting of 802.1Q header. So only skb->vlan_tci
+and skb->vlan_proto needs to be cared.
+> Your definition puts the two fields out of order?
 
-Thanks.
-Thida Choun
+It's order is same as struct vlan_ethhdr. Did you see any issue?
