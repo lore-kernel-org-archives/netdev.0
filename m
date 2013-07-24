@@ -1,51 +1,60 @@
-From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: Re: [PATCH 05/13] tile: support PTP using the tilegx mPIPE (IEEE
- 1588)
-Date: Wed, 24 Jul 2013 12:17:31 -0400
-Message-ID: <51EFFE1B.3050909@tilera.com>
-References: <cover.1374609948.git.cmetcalf@tilera.com> <77f753af79722f39c5fa77cd35adefdd1634e5d5.1374609949.git.cmetcalf@tilera.com> <20130724062900.GB5163@netboy>
+From: Eli Cohen <eli@dev.mellanox.co.il>
+Subject: Re: [patch] mlx5: use after free in mlx5_cmd_comp_handler()
+Date: Wed, 24 Jul 2013 19:35:44 +0300
+Message-ID: <20130724163544.GA29427@mtldesk30>
+References: <20130722080201.GG14617@longonot.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130724062900.GB5163@netboy>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eli Cohen <eli@mellanox.com>, netdev@vger.kernel.org,
+	linux-rdma@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>, moshel@mellanox.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130722080201.GG14617@longonot.mountain>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 7/24/2013 2:29 AM, Richard Cochran wrote:
-> On Tue, Jul 23, 2013 at 04:05:48PM -0400, Chris Metcalf wrote:
->
->> diff --git a/drivers/ptp/Kconfig b/drivers/ptp/Kconfig
->> index 5be73ba..255ed1a 100644
->> --- a/drivers/ptp/Kconfig
->> +++ b/drivers/ptp/Kconfig
->> @@ -87,4 +87,14 @@ config PTP_1588_CLOCK_PCH
->>  	  To compile this driver as a module, choose M here: the module
->>  	  will be called ptp_pch.
->>  
->> +config PTP_1588_CLOCK_TILEGX
->> +        tristate "Tilera TILE-Gx mPIPE as PTP clock"
->> +        select PTP_1588_CLOCK
->> +        depends on TILEGX
->> +        help
->> +          This driver adds support for using the mPIPE as a PTP
->> +          clock. This clock is only useful if your PTP programs are
->> +          getting hardware time stamps on the PTP Ethernet packets
->> +          using the SO_TIMESTAMPING API.
->> +
-> Is this feature available on every TILEGX hardware variant?
-> If not, then there needs to be some provision for that.
+This race has been spotted and fixed by Moshe Lazer two weeks ago.
+Anyways,
 
-It is.
+Acked by Eli Cohen <eli@mellanox.com>
 
-> Also, this option should probably appear under the main MAC option.
-
-By that I assume you mean in drivers/net/ethernet/tile/Kconfig?  I will do that.
-
-Thanks!
-
--- 
-Chris Metcalf, Tilera Corp.
-http://www.tilera.com
+On Mon, Jul 22, 2013 at 11:02:01AM +0300, Dan Carpenter wrote:
+> We can't dereference "ent" after passing it to free_cmd().
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+> index 205753a..4037406 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+> @@ -1113,7 +1113,13 @@ void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, unsigned long vector)
+>  
+>  	for (i = 0; i < (1 << cmd->log_sz); i++) {
+>  		if (test_bit(i, &vector)) {
+> +			struct semaphore *sem;
+> +
+>  			ent = cmd->ent_arr[i];
+> +			if (ent->page_queue)
+> +				sem = &cmd->pages_sem;
+> +			else
+> +				sem = &cmd->sem;
+>  			ktime_get_ts(&ent->ts2);
+>  			memcpy(ent->out->first.data, ent->lay->out, sizeof(ent->lay->out));
+>  			dump_command(dev, ent, 0);
+> @@ -1136,10 +1142,7 @@ void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, unsigned long vector)
+>  			} else {
+>  				complete(&ent->done);
+>  			}
+> -			if (ent->page_queue)
+> -				up(&cmd->pages_sem);
+> -			else
+> -				up(&cmd->sem);
+> +			up(sem);
+>  		}
+>  	}
+>  }
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
