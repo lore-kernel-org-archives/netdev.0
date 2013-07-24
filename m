@@ -1,60 +1,41 @@
-From: Eli Cohen <eli@dev.mellanox.co.il>
-Subject: Re: [patch] mlx5: use after free in mlx5_cmd_comp_handler()
-Date: Wed, 24 Jul 2013 19:35:44 +0300
-Message-ID: <20130724163544.GA29427@mtldesk30>
-References: <20130722080201.GG14617@longonot.mountain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eli Cohen <eli@mellanox.com>, netdev@vger.kernel.org,
-	linux-rdma@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>, moshel@mellanox.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130722080201.GG14617@longonot.mountain>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net-next v3 0/6] openvswitch: VXLAN tunneling.
+Date: Wed, 24 Jul 2013 11:00:26 -0700
+Message-ID: <1374688826-14199-1-git-send-email-pshelar@nicira.com>
+Cc: stephen@networkplumber.org, Pravin B Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog119.obsmtp.com ([74.125.149.246]:37038 "HELO
+	na3sys009aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752437Ab3GXSA3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 14:00:29 -0400
+Received: by mail-pa0-f52.google.com with SMTP id kq13so937958pab.39
+        for <netdev@vger.kernel.org>; Wed, 24 Jul 2013 11:00:29 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This race has been spotted and fixed by Moshe Lazer two weeks ago.
-Anyways,
+First two patches extends vxlan so that openvswitch can
+share vxlan udp port with vxlan module. Rest of patches
+refactors vxlan data plane so that ovs can share that
+code with vxlan module.
+Last patch adds vxlan-vport to openvswitch.
 
-Acked by Eli Cohen <eli@mellanox.com>
+Pravin B Shelar (6):
+  vxlan: Allow multiple receive handlers.
+  vxlan: Extend vxlan handlers for openvswitch.
+  vxlan: Factor out vxlan send api.
+  vxlan: Improve vxlan headroom calculation.
+  vxlan: Add tx-vlan offload support.
+  openvswitch: Add vxlan tunneling support.
 
-On Mon, Jul 22, 2013 at 11:02:01AM +0300, Dan Carpenter wrote:
-> We can't dereference "ent" after passing it to free_cmd().
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-> index 205753a..4037406 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-> @@ -1113,7 +1113,13 @@ void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, unsigned long vector)
->  
->  	for (i = 0; i < (1 << cmd->log_sz); i++) {
->  		if (test_bit(i, &vector)) {
-> +			struct semaphore *sem;
-> +
->  			ent = cmd->ent_arr[i];
-> +			if (ent->page_queue)
-> +				sem = &cmd->pages_sem;
-> +			else
-> +				sem = &cmd->sem;
->  			ktime_get_ts(&ent->ts2);
->  			memcpy(ent->out->first.data, ent->lay->out, sizeof(ent->lay->out));
->  			dump_command(dev, ent, 0);
-> @@ -1136,10 +1142,7 @@ void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, unsigned long vector)
->  			} else {
->  				complete(&ent->done);
->  			}
-> -			if (ent->page_queue)
-> -				up(&cmd->pages_sem);
-> -			else
-> -				up(&cmd->sem);
-> +			up(sem);
->  		}
->  	}
->  }
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ drivers/net/vxlan.c              |  477 ++++++++++++++++++++++++--------------
+ include/net/vxlan.h              |   47 ++++
+ include/uapi/linux/openvswitch.h |   11 +
+ net/openvswitch/Kconfig          |   13 +
+ net/openvswitch/Makefile         |    4 +
+ net/openvswitch/vport-vxlan.c    |  208 +++++++++++++++++
+ net/openvswitch/vport.c          |    3 +
+ net/openvswitch/vport.h          |    1 +
+ 8 files changed, 590 insertions(+), 174 deletions(-)
+ create mode 100644 include/net/vxlan.h
+ create mode 100644 net/openvswitch/vport-vxlan.c
