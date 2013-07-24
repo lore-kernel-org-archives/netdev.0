@@ -1,32 +1,41 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] tuntap: hardware vlan tx support
-Date: Wed, 24 Jul 2013 13:55:14 +0800
-Message-ID: <51EF6C42.1070304@redhat.com>
-References: <1374563748-38821-1-git-send-email-jasowang@redhat.com> <20130723085310.4a036a47@nehalam.linuxnetplumber.net>
+From: Prashant Shah <pshah.mumbai@gmail.com>
+Subject: [PATCH] Change request_irq() to use struct net_device *dev->name
+Date: Wed, 24 Jul 2013 11:39:59 +0530
+Message-ID: <1374646199-9398-1-git-send-email-pshah.mumbai@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Basil Gor <basil.gor@gmail.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130723085310.4a036a47@nehalam.linuxnetplumber.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, kernel-mentors@selenic.com
+To: netdev@vger.kernel.org
+Return-path: <kernel-mentors-bounces@selenic.com>
+List-Unsubscribe: <http://selenic.com/mailman/options/kernel-mentors>,
+	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
+List-Archive: <http://selenic.com/pipermail/kernel-mentors>
+List-Post: <mailto:kernel-mentors@selenic.com>
+List-Help: <mailto:kernel-mentors-request@selenic.com?subject=help>
+List-Subscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
+	<mailto:kernel-mentors-request@selenic.com?subject=subscribe>
+Sender: kernel-mentors-bounces@selenic.com
+Errors-To: kernel-mentors-bounces@selenic.com
 List-Id: netdev.vger.kernel.org
 
-On 07/23/2013 11:53 PM, Stephen Hemminger wrote:
-> On Tue, 23 Jul 2013 15:15:48 +0800
-> Jason Wang <jasowang@redhat.com> wrote:
->
->> +		struct {
->> +			__be16 h_vlan_proto;
->> +			__be16 h_vlan_TCI;
->> +		} veth;
-> Don't you want to use struct vlan_hdr here? 
+Signed-off-by: Prashant Shah <pshah.mumbai@gmail.com>
+---
+ drivers/net/ethernet/8390/wd.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-There's no need to care encapsulated proto here. In fact, we just
-emulate the hardware inserting of 802.1Q header. So only skb->vlan_tci
-and skb->vlan_proto needs to be cared.
-> Your definition puts the two fields out of order?
-
-It's order is same as struct vlan_ethhdr. Did you see any issue?
+diff --git a/drivers/net/ethernet/8390/wd.c b/drivers/net/ethernet/8390/wd.c
+index 03eb3ee..b43a63f 100644
+--- a/drivers/net/ethernet/8390/wd.c
++++ b/drivers/net/ethernet/8390/wd.c
+@@ -308,7 +308,7 @@ static int __init wd_probe1(struct net_device *dev, int ioaddr)
+ 
+ 	/* Snarf the interrupt now.  There's no point in waiting since we cannot
+ 	   share and the board will usually be enabled. */
+-	i = request_irq(dev->irq, ei_interrupt, 0, DRV_NAME, dev);
++	i = request_irq(dev->irq, ei_interrupt, 0, dev->name, dev);
+ 	if (i) {
+ 		printk (" unable to get IRQ %d.\n", dev->irq);
+ 		return i;
+-- 
+1.7.9.5
