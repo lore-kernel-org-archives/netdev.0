@@ -1,44 +1,101 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH] net: trans_rdma: remove unused function
-Date: Thu, 25 Jul 2013 01:09:47 +0200
-Message-ID: <1374707387.29835.23.camel@x61.thuisdomein>
-References: <1374497956-32104-1-git-send-email-andi@etezian.org>
-	 <20130724.154646.2283898956674234778.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next 1/3] tuntap: allow changing ethtool speed (v2)
+Date: Wed, 24 Jul 2013 16:11:56 -0700
+Message-ID: <20130724161156.4a8cf02b@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: andi@etezian.org, ericvh@gmail.com, rminnich@sandia.gov,
-	lucho@ionkov.net, v9fs-developer@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130724.154646.2283898956674234778.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Helmut Grohne <h.grohne@cygnusnetworks.de>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:57635 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752418Ab3GXXP0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 19:15:26 -0400
+Received: by mail-pd0-f179.google.com with SMTP id v10so770518pde.10
+        for <netdev@vger.kernel.org>; Wed, 24 Jul 2013 16:15:25 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-07-24 at 15:46 -0700, David Miller wrote:
-> From: Andi Shyti <andi@etezian.org>
-> > This patch gets rid of the following warning:
-> >=20
-> > net/9p/trans_rdma.c:594:12: warning: =E2=80=98rdma_cancelled=E2=80=99=
- defined but not used [-Wunused-function]
-> >  static int rdma_cancelled(struct p9_client *client, struct p9_req_=
-t *req)
-> >=20
-> > The rdma_cancelled function is not called anywhere in the kernel
-> >=20
-> > Signed-off-by: Andi Shyti <andi@etezian.org>
->=20
-> Applied to net-next, thanks.
+The data reported by the ethtool interface for tun/tap devices is
+artificial. The default speed is 10Mbit. Virtual interfaces are often
+faster than this nowadays, so the observed bandwidth may exceed the
+available bandwidth. This patch allows an administrator to change the
+available bandwidth as reported by ethtool.
 
-After this patch one might as well revert the rest of commit
-80b45261a0b2 ("9P: Add cancelled() to the transport functions.") too. I=
-t
-seems the entire cancelled callback stuff is now pointless.
+Signed-off-by: Helmut Grohne <h.grohne@cygnusnetworks.de>
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-As I already asked in https://lkml.org/lkml/2013/7/15/87 : did that
-commit "forget to actually hook up rdma_cancelled() into
-p9_rdma_trans()?". It does look so to me.
+---
+v2 - allow setting duplex as well, fix patch formatting
+     ignore other settings in set
 
+ drivers/net/tun.c |   25 ++++++++++++++++++++++++-
+ 1 file changed, 24 insertions(+), 1 deletion(-)
 
-Paul Bolle
+--- a/drivers/net/tun.c	2013-07-24 11:24:55.543040360 -0700
++++ b/drivers/net/tun.c	2013-07-24 11:33:06.759433743 -0700
+@@ -187,6 +187,8 @@ struct tun_struct {
+ 	struct list_head disabled;
+ 	void *security;
+ 	u32 flow_count;
++	u32 speed;
++	u8 duplex;
+ };
+ 
+ static inline u32 tun_hashfn(u32 rxhash)
+@@ -1426,6 +1428,8 @@ static void tun_setup(struct net_device
+ 
+ 	tun->owner = INVALID_UID;
+ 	tun->group = INVALID_GID;
++	tun->speed = SPEED_10;
++	tun->duplex = DUPLEX_FULL;
+ 
+ 	dev->ethtool_ops = &tun_ethtool_ops;
+ 	dev->destructor = tun_free_netdev;
+@@ -2229,10 +2233,12 @@ static struct miscdevice tun_miscdev = {
+ 
+ static int tun_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
++	struct tun_struct *tun = netdev_priv(dev);
++
+ 	cmd->supported		= 0;
+ 	cmd->advertising	= 0;
+-	ethtool_cmd_speed_set(cmd, SPEED_10);
+-	cmd->duplex		= DUPLEX_FULL;
++	ethtool_cmd_speed_set(cmd, tun->speed);
++	cmd->duplex		= tun->duplex;
+ 	cmd->port		= PORT_TP;
+ 	cmd->phy_address	= 0;
+ 	cmd->transceiver	= XCVR_INTERNAL;
+@@ -2242,6 +2248,21 @@ static int tun_get_settings(struct net_d
+ 	return 0;
+ }
+ 
++static int tun_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	struct tun_struct *tun = netdev_priv(dev);
++
++	if (cmd->autoneg != AUTONEG_DISABLE)
++		return -EINVAL;
++
++	if (!(cmd->duplex == DUPLEX_FULL || cmd->duplex == DUPLEX_HALF))
++		return -EINVAL;
++
++	tun->speed = ethtool_cmd_speed(cmd);
++	tun->duplex = cmd->duplex;
++	return 0;
++}
++
+ static void tun_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+ {
+ 	struct tun_struct *tun = netdev_priv(dev);
+@@ -2279,6 +2300,7 @@ static void tun_set_msglevel(struct net_
+ 
+ static const struct ethtool_ops tun_ethtool_ops = {
+ 	.get_settings	= tun_get_settings,
++	.set_settings	= tun_set_settings,
+ 	.get_drvinfo	= tun_get_drvinfo,
+ 	.get_msglevel	= tun_get_msglevel,
+ 	.set_msglevel	= tun_set_msglevel,
