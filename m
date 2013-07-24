@@ -1,90 +1,78 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] tuntap: hardware vlan tx support
-Date: Wed, 24 Jul 2013 11:19:24 +0800
-Message-ID: <51EF47BC.4090107@redhat.com>
-References: <1374563748-38821-1-git-send-email-jasowang@redhat.com> <51EE7341.4060404@cogentembedded.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH] bgmac: make bgmac depend on bcm47xx
+Date: Wed, 24 Jul 2013 13:26:01 +1000
+Message-ID: <20130724132601.94633488e3cb8a3b84267247@canb.auug.org.au>
+References: <1374614929-7528-1-git-send-email-hauke@hauke-m.de>
+	<20130724110858.01e033323d739cf6b998e2ea@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Basil Gor <basil.gor@gmail.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51EE7341.4060404@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Wed__24_Jul_2013_13_26_01_+1000_qVw9_DmidIX24k5b"
+Cc: davem@davemloft.net, zajec5@gmail.com, netdev@vger.kernel.org,
+	linville@tuxdriver.com, linux-next@vger.kernel.org
+To: Hauke Mehrtens <hauke@hauke-m.de>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20130724110858.01e033323d739cf6b998e2ea@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/23/2013 08:12 PM, Sergei Shtylyov wrote:
-> Hello.
->
-> On 23-07-2013 11:15, Jason Wang wrote:
->
->> Inspired by commit f09e2249c4f5c7c13261ec73f5a7807076af0c8e (macvtap:
->> restore
->> vlan header on user read). This patch adds hardware vlan tx support for
->> tuntap. This is done by copying vlan header directly into userspace in
->> tun_put_user() instead of doing it through __vlan_put_tag() in
->> dev_hard_start_xmit(). This eliminates one unnecessary memove in
->
->    s/memove/memmove/?
->
+--Signature=_Wed__24_Jul_2013_13_26_01_+1000_qVw9_DmidIX24k5b
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Yes.
->> vlan_insert_tag() for 802.1ad and 802.1q traffic.
->
->> pktgen test shows about 20% improvement for 802.1q traffic:
->
->> Before:
->>    662149pps 317Mb/sec (317831520bps) errors: 0
->> After:
->>    801033pps 384Mb/sec (384495840bps) errors: 0
->
->> Cc: Basil Gor <basil.gor@gmail.com>
->> Cc: Michael S. Tsirkin <mst@redhat.com>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
->> ---
->>   drivers/net/tun.c |   39 +++++++++++++++++++++++++++++++++++----
->>   1 files changed, 35 insertions(+), 4 deletions(-)
->
->> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->> index a72d141..66e265d 100644
->> --- a/drivers/net/tun.c
->> +++ b/drivers/net/tun.c
-> [...]
->> @@ -1328,11 +1330,39 @@ static ssize_t tun_put_user(struct tun_struct
->> *tun,
->>           total += tun->vnet_hdr_sz;
->>       }
->>
->> -    len = min_t(int, skb->len, len);
->> +    if (!vlan_tx_tag_present(skb))
->> +        len = min_t(int, skb->len, len);
->> +    else {
->
->    According to Documentation/CodingStyle chapter 3, both arms of an
-> *if* statement should have {} if one arm has it.
->
+Hi,
 
-Right.
->> +        int copy, ret;
->> +        struct {
->> +            __be16 h_vlan_proto;
->> +            __be16 h_vlan_TCI;
->> +        } veth;
+On Wed, 24 Jul 2013 11:08:58 +1000 Stephen Rothwell <sfr@canb.auug.org.au> =
+wrote:
 >
->    Empty line wouldn't hurt here, after declarations...
->
+> On Tue, 23 Jul 2013 23:28:49 +0200 Hauke Mehrtens <hauke@hauke-m.de> wrot=
+e:
+> >
+> > bgmac uses bcm47xx_nvram.h which is only available when BCM47XX was
+> > selected. Earlier BCMA_HOST_SOC depended on BCM47XX so this was not
+> > build on any other archs, but that changed. We should modify this
+> > driver to get access to the nvram or the variables through platform
+> > data.
+> >=20
+> > This fixes a build problem in linux-next reported by Stephen Rothwell:
+> >=20
+> > drivers/net/ethernet/broadcom/bgmac.c:19:27: fatal error: bcm47xx_nvram=
+.h: No such file or directory
+> >  #include <bcm47xx_nvram.h>
+> >                            ^
+> >=20
+> > Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+> > Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+>=20
+> This patch really needs to go to John as the patch that exposes the
+> breakage is in his tree.
 
-Ok
->> +        veth.h_vlan_proto = skb->vlan_proto;
->> +        veth.h_vlan_TCI = htons(vlan_tx_tag_get(skb));
-> [...]
->
-> WBR, Sergei
->
+I applied this to the wireless-next tree merge today.
 
-Thanks, will correct them.
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Wed__24_Jul_2013_13_26_01_+1000_qVw9_DmidIX24k5b
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.20 (GNU/Linux)
+
+iQIcBAEBCAAGBQJR70lOAAoJEECxmPOUX5FEJxIP/A3pq/z/liEUwsmQk10V5ITr
+Kx9HR/rRTthxqIr627xnhlD6lb/Ugm1Lk2/cE5Wjt7OutV9DB6W597PDeGqJVv8c
+rkUnPjAb+qQaMrU11JsDxLic7pfEDPxFY3CyLDdsCq0QebLCH43rjXOmiEi7XC1j
+2N56lEAsA5lHyhSgYMwffCvQBpOnJCV3ZZlJ/lp68tQcbddKjAkJQCvCZFLjyZMF
+HQlvyh0b7Jx7g1rbe555vlZO/pID8hj0HcZeDPu0pdz5X6C4cSP5Ai2Lv1sXeXvg
+nTsUAEme4tmu7uAxAPVnVC28GKhhynEE9D7kx9Jp/6UwvzZjgogAdoAYfdl3py97
+6+H6fvadYHwJ0qHvoCbmHeuZuoyDoubBgGBMLQPtsAO+bUTnVOBZFQSwJVcf1/Z8
++ShnaNCM2G5xhQjMjxO8wFgDtgVp5DSMeXdkkAdplNdj7LoQdlmGhDefpKlCzLD7
+zleTUKy3M57BAAr5XfDquRiSE4bfA06zhR+pO+nQCJtd/+0Nq4xGuM+wTq1/1zT2
+y78VwEUJuBLiwJ7N354O80a2zvy4NPmiBlQS/l20Yraa8BfWY9ATT4koEpl9I5DW
++BxBqyRN1Id6/RaEgcpGoWuN5YiqIHNY1V6j/7MixNd5W7lEQhjIAlxHxoFqxyXQ
+at+UwbNj6W8UFumCNnEE
+=53oc
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__24_Jul_2013_13_26_01_+1000_qVw9_DmidIX24k5b--
