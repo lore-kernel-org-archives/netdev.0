@@ -1,63 +1,35 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [RFC PATCH net-next V2] net: split rt_genid for ipv4 and ipv6
-Date: Wed, 24 Jul 2013 16:12:55 +0800
-Message-ID: <51EF8C87.4060707@windriver.com>
-References: <1374543420-12657-1-git-send-email-fan.du@windriver.com> <20130723020437.GC30719@order.stressinduktion.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] mac80211: use oneshot blink API for LED triggers
+Date: Wed, 24 Jul 2013 10:14:25 +0200
+Message-ID: <1374653665.8180.0.camel@jlt4.sipsolutions.net>
+References: <1374624581-6012-1-git-send-email-fabio.baltieri@gmail.com>
+	 <1374624581-6012-2-git-send-email-fabio.baltieri@gmail.com>
+	 (sfid-20130724_020950_576315_9E59DD81)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <davem@davemloft.net>, <nicolas.dichtel@6wind.com>,
-	<yoshfuji@linux-ipv6.org>, <jmorris@namei.org>,
-	<steffen.klassert@secunet.com>, <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:42794 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750865Ab3GXILw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 04:11:52 -0400
-In-Reply-To: <20130723020437.GC30719@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@lists.infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Fabio Baltieri <fabio.baltieri@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1374624581-6012-2-git-send-email-fabio.baltieri@gmail.com> (sfid-20130724_020950_576315_9E59DD81)
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hallo Hannes
+On Wed, 2013-07-24 at 02:09 +0200, Fabio Baltieri wrote:
+> Changes mac80211 LED trigger code to use the generic
+> led_trigger_blink_oneshot() API for transmit and receive activity
+> indication.
+> 
+> This gives a better feedback to the user, as with the new API each
+> activity event results in a visible blink, while a constant traffic
+> results in a continuous blink at constant rate.
 
-On 2013=E5=B9=B407=E6=9C=8823=E6=97=A5 10:04, Hannes Frederic Sowa wrot=
-e:
-> On Tue, Jul 23, 2013 at 09:37:00AM +0800, Fan Du wrote:
->> Current net name space has only one genid for both IPv4 and IPv6, it=
- has below drawbacks:
->>
->> - Add/delete an IPv4 address will invalidate all IPv6 routing table =
-entries.
->> - Insert/remove XFRM policy will also invalidate both IPv4/IPv6 rout=
-ing table entries
->>    even when the policy is only applied for one address family.
->>
->> Thus, this patch attempt to split one genid for two to cater for IPv=
-4 and IPv6 separately
->> in a fine granularity.
->
-> For me the approach seems reasonable. We should double-check if this
-> does not affect v4mapped af_inet6 sockets in any way. I could help to
-> do the review if there is an agreement that the split is desirable.
+This seems a little pointless since our throughput-based trigger can do
+very similar (but somewhat better) behaviour? Maybe that should just be
+the default instead, with some sane default setup values?
 
-Thank you for your attention :)
+(Regardless of that, you also have indentation problems in your patch)
 
-v4mapped af_inet6 address shouldn't cause problem, as long as the mappe=
-d
-v4 address is routable in IPv4 stack, so add/delete IPv6 address doesn'=
-t
-interfere IPv4 routing entry.
-
-> Thanks,
->
->    Hannes
->
->
-
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
-
---fan
+johannes
