@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fib_trie: potential out of bounds access in
- trie_show_stats()
-Date: Wed, 24 Jul 2013 16:05:28 -0700 (PDT)
-Message-ID: <20130724.160528.250036563854826098.davem@davemloft.net>
-References: <1374519718-8299-1-git-send-email-jerry.snitselaar@oracle.com>
-	<20130724150000.GB22402@order.stressinduktion.org>
+Subject: Re: [PATCH net-next v2] drivers/net: enic: Move ethtool code to a
+ separate file
+Date: Wed, 24 Jul 2013 16:06:38 -0700 (PDT)
+Message-ID: <20130724.160638.2285834385861935079.davem@davemloft.net>
+References: <20130722165918.29393.85753.stgit@savbu-picasso-lnx1.cisco.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jerry.snitselaar@oracle.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: hannes@stressinduktion.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130724150000.GB22402@order.stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: neepatel@cisco.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36103 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752518Ab3GXXGj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 19:06:39 -0400
+In-Reply-To: <20130722165918.29393.85753.stgit@savbu-picasso-lnx1.cisco.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Wed, 24 Jul 2013 17:00:00 +0200
+From: Neel Patel <neepatel@cisco.com>
+Date: Mon, 22 Jul 2013 09:59:18 -0700
 
-> On Mon, Jul 22, 2013 at 12:01:58PM -0700, Jerry Snitselaar wrote:
->> With the <= max condition in the for loop, it will be always go 1
->> element further than needed. If the condition for the while loop is
->> never met, then max is MAX_STAT_DEPTH, and for loop will walk off the
->> end of nodesizes[].
->> 
->> Signed-off-by: Jerry Snitselaar <jerry.snitselaar@oracle.com>
+> From: Neel Patel <neepatel@cisco.com>
 > 
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> This patch moves all enic ethtool hooks from enic_main.c to a new file
+> enic_ethtool.c
+> 
+> Signed-off-by: Neel Patel <neepatel@cisco.com>
+> Signed-off-by: Christian Benvenuti <benve@cisco.com>
+> Signed-off-by: Nishank Trivedi <nistrive@cisco.com>
 
 Applied, thanks.
