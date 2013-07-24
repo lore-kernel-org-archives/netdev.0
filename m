@@ -1,36 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] TX throttling bug-fixing patch of AX88179_178A
-Date: Tue, 23 Jul 2013 17:05:10 -0700
-Message-ID: <1374624310.3449.53.camel@edumazet-glaptop>
-References: <1374518841.4990.26.camel@edumazet-glaptop>
-	 <1374522471.1635.48.camel@bwh-desktop.uk.level5networks.com>
-	 <1374559827.4990.143.camel@edumazet-glaptop>
-	 <20130723.164656.1794159338719943519.davem@davemloft.net>
-	 <1374623813.3449.52.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, oliver@neukum.org, grundler@google.com,
-	freddy@asix.com.tw, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	louis@asix.com.tw, allan@asix.com.tw
-To: David Miller <davem@davemloft.net>
+From: Fabio Baltieri <fabio.baltieri@gmail.com>
+Subject: [PATCH] mac80211: use oneshot blink API for LED triggers
+Date: Wed, 24 Jul 2013 02:09:40 +0200
+Message-ID: <1374624581-6012-1-git-send-email-fabio.baltieri@gmail.com>
+Cc: linux-wireless@lists.infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Fabio Baltieri <fabio.baltieri@gmail.com>
+To: Johannes Berg <johannes@sipsolutions.net>,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1374623813.3449.52.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-07-23 at 16:56 -0700, Eric Dumazet wrote:
+Hi Johannes, John,
 
-> > A quick scan shows that smsc75xx, smsc95xx, and ax88179_178a all have
-> > this problem.
-> > 
-> > Instead of the patch starting this thread, I'd like to see one that
-> > hits all three drivers and removes all SG and TSO features bits from
-> > both the ->features _and_ ->hw_features settings.
-> > 
-> > Could someone toss that together quickly?
-> 
-> Yes, I can prepare this patch.
+This patch changes the mac80211 LED driver to use the generic oneshot
+LED API.
 
-Looks like only ax88179_178a & smsc75xx are impacted.
+The current mac80211 blink code seems to lead to very short tx blinks
+and toggles the LED on tx.  The oneshot API ensure a complete LED on-off
+cycle for each blink event, thus getting a better result for an activity
+indicator: one visible blink for sporadic events and a steady on-off
+blink sequence on constant traffic.
+
+Would you consider this patch for wireless-next?
+
+Thanks,
+Fabio
+
+Fabio Baltieri (1):
+  mac80211: use oneshot blink API for LED triggers
+
+ net/mac80211/ieee80211_i.h |  1 -
+ net/mac80211/led.c         | 21 +++++++++------------
+ net/mac80211/led.h         |  2 +-
+ net/mac80211/status.c      |  2 +-
+ net/mac80211/tx.c          |  1 -
+ 5 files changed, 11 insertions(+), 16 deletions(-)
+
+-- 
+1.8.2
