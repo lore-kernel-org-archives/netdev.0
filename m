@@ -1,129 +1,88 @@
-From: Wang Sheng-Hui <shhuiw@gmail.com>
-Subject: Re: [PATCH] bonding: use pre-defined macro in bond_mode_name instead
- of magic number 0
-Date: Wed, 24 Jul 2013 20:38:02 +0800
-Message-ID: <51EFCAAA.4050402@gmail.com>
-References: <51EF79E6.9060309@gmail.com> <1374649819.18818.5.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+From: William Manley <william.manley@youview.com>
+Subject: [PATCH] net: igmp: Reduce Unsolicited report interval to 1s when using IGMPv3
+Date: Wed, 24 Jul 2013 14:38:18 +0100
+Message-ID: <1374673098-10295-1-git-send-email-william.manley@youview.com>
+References: <1374527349.1635.55.camel@bwh-desktop.uk.level5networks.com>
+Cc: William Manley <william.manley@youview.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:43731 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751069Ab3GXMiP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 08:38:15 -0400
-Received: by mail-pa0-f53.google.com with SMTP id lb1so602119pab.40
-        for <netdev@vger.kernel.org>; Wed, 24 Jul 2013 05:38:14 -0700 (PDT)
-In-Reply-To: <1374649819.18818.5.camel@joe-AO722>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:55305 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751711Ab3GXNjH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 09:39:07 -0400
+In-Reply-To: <1374527349.1635.55.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013=E5=B9=B407=E6=9C=8824=E6=97=A5 15:10, Joe Perches wrote:
-> On Wed, 2013-07-24 at 14:53 +0800, Wang Sheng-Hui wrote:
->> We have BOND_MODE_ROUNDROBIN pre-defined as 0, and it's the lowest m=
-ode number.
->> Use it to check the arg lower bound instead of magic number 0 in bon=
-d_mode_name.
-> []
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/b=
-ond_main.c
-> []
->> @@ -273,7 +273,7 @@ const char *bond_mode_name(int mode)
->>    		[BOND_MODE_ALB] =3D "adaptive load balancing",
->>    	};
->>
->> -	if (mode < 0 || mode > BOND_MODE_ALB)
->> +	if (mode < BOND_MODE_ROUNDROBIN || mode > BOND_MODE_ALB)
->>    		return "unknown";
->>
->>    	return names[mode];
->
-> Probably be simpler, less confusing, and more normal style
-> to use a switch case.
->
-> 	switch (mode) {
-> 	case BOND_MODE_ROUNDROBIN:
-> 		return "load balancing (round-robin)";
-> 	case BOND_MODE_ACTIVEBACKUP:
-> 		return "fault-tolerance (active-backup)";
-> 	case BOND_MODE_XOR:
-> 		return "load balancing (xor)";
-> 	case BOND_MODE_BROADCAST;
-> 		return "fault-tolerance (broadcast)";
-> 	case BOND_MODE_8023AD:
-> 		return "IEEE 802.3ad Dynamic link aggregation";
-> 	case BOND_MODE_TLB:
-> 		return "transmit load balancing";
-> 	case BOND_MODE_ALB:
-> 		return "adaptive load balancing";
-> 	default:
-> 		return "unknown";
-> 	}
->
->
+If an IGMP join packet is lost you will not receive data sent to the
+multicast group so if no data arrives from that multicast group in a
+period of time after the IGMP join a second IGMP join will be sent.  The
+delay between joins is the "IGMP Unsolicited Report Interval".
 
-Regenerated the patch on Joe's advice. Please check it.  Thanks,
+Previously this value was hard coded to be chosen randomly between 0-10s.
+This can be too long for some use-cases, such as IPTV as it can cause
+channel change to be slow in the presence of packet loss.
 
+The value 10s has come from IGMPv2 RFC2236, which was reduced to 1s in
+IGMPv3 RFC3376.  This patch makes the kernel use the 1s value from the
+later RFC if we are operating in IGMPv3 mode.  IGMPv2 behaviour is
+unaffected.
 
-[PATCH] bonding: use switch case to make bond_mode_name more clear
-
-We have predefined the mode macros, and should avoid the
-magic number 0 in the old version. Also, use a switch case
-would be simpler, less confusing, and more normal style.
-
-Signed-off-by: Wang Sheng-Hui <shhuiw@gmail.com>
+Tested with Wireshark and a simple program to join a (non-existant)
+multicast group.  The distribution of timings for the second join differ
+based upon setting /proc/sys/net/ipv4/conf/eth0/force_igmp_version.
 ---
-  drivers/net/bonding/bond_main.c |   30 +++++++++++++++++-------------
-  1 file changed, 17 insertions(+), 13 deletions(-)
+ net/ipv4/igmp.c |   17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
-_main.c
-index 07f257d4..69bfb4c 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -263,20 +263,24 @@ static void bond_uninit(struct net_device *bond_d=
-ev);
-
-  const char *bond_mode_name(int mode)
-  {
--	static const char *names[] =3D {
--		[BOND_MODE_ROUNDROBIN] =3D "load balancing (round-robin)",
--		[BOND_MODE_ACTIVEBACKUP] =3D "fault-tolerance (active-backup)",
--		[BOND_MODE_XOR] =3D "load balancing (xor)",
--		[BOND_MODE_BROADCAST] =3D "fault-tolerance (broadcast)",
--		[BOND_MODE_8023AD] =3D "IEEE 802.3ad Dynamic link aggregation",
--		[BOND_MODE_TLB] =3D "transmit load balancing",
--		[BOND_MODE_ALB] =3D "adaptive load balancing",
--	};
--
--	if (mode < 0 || mode > BOND_MODE_ALB)
-+	switch (mode) {
-+	case BOND_MODE_ROUNDROBIN:
-+		return "load balancing (round-robin)";
-+	case BOND_MODE_ACTIVEBACKUP:
-+		return "fault-tolerance (active-backup)";
-+	case BOND_MODE_XOR:
-+		return "load balancing (xor)";
-+	case BOND_MODE_BROADCAST:
-+		return "fault-tolerance (broadcast)";
-+	case BOND_MODE_8023AD:
-+		return "IEEE 802.3ad Dynamic link aggregation";
-+	case BOND_MODE_TLB:
-+		return "transmit load balancing";
-+	case BOND_MODE_ALB:
-+		return "adaptive load balancing";
-+	default:
-  		return "unknown";
--
--	return names[mode];
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index d8c2327..f8142df 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -113,7 +113,8 @@
+ 
+ #define IGMP_V1_Router_Present_Timeout		(400*HZ)
+ #define IGMP_V2_Router_Present_Timeout		(400*HZ)
+-#define IGMP_Unsolicited_Report_Interval	(10*HZ)
++#define IGMP_V2_Unsolicited_Report_Interval	(10*HZ)
++#define IGMP_V3_Unsolicited_Report_Interval	( 1*HZ)
+ #define IGMP_Query_Response_Interval		(10*HZ)
+ #define IGMP_Unsolicited_Report_Count		2
+ 
+@@ -138,6 +139,15 @@
+ 	 ((in_dev)->mr_v2_seen && \
+ 	  time_before(jiffies, (in_dev)->mr_v2_seen)))
+ 
++static int unsolicited_report_interval(struct in_device *in_dev)
++{
++	if (IGMP_V2_SEEN(in_dev)) {
++		return IGMP_V2_Unsolicited_Report_Interval;
++	} else { /* v3 */
++		return IGMP_V3_Unsolicited_Report_Interval;
 +	}
-  }
-
-  /*---------------------------------- VLAN ---------------------------=
---------*/
---=20
++}
++
+ static void igmpv3_add_delrec(struct in_device *in_dev, struct ip_mc_list *im);
+ static void igmpv3_del_delrec(struct in_device *in_dev, __be32 multiaddr);
+ static void igmpv3_clear_delrec(struct in_device *in_dev);
+@@ -719,7 +729,8 @@ static void igmp_ifc_timer_expire(unsigned long data)
+ 	igmpv3_send_cr(in_dev);
+ 	if (in_dev->mr_ifc_count) {
+ 		in_dev->mr_ifc_count--;
+-		igmp_ifc_start_timer(in_dev, IGMP_Unsolicited_Report_Interval);
++		igmp_ifc_start_timer(in_dev,
++				     unsolicited_report_interval(in_dev));
+ 	}
+ 	__in_dev_put(in_dev);
+ }
+@@ -744,7 +755,7 @@ static void igmp_timer_expire(unsigned long data)
+ 
+ 	if (im->unsolicit_count) {
+ 		im->unsolicit_count--;
+-		igmp_start_timer(im, IGMP_Unsolicited_Report_Interval);
++		igmp_start_timer(im, unsolicited_report_interval(in_dev));
+ 	}
+ 	im->reporter = 1;
+ 	spin_unlock(&im->lock);
+-- 
 1.7.10.4
