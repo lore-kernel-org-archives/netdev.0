@@ -1,37 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ip6mr: change the prototype of
- ip6_mr_forward().
-Date: Tue, 23 Jul 2013 17:21:00 -0700 (PDT)
-Message-ID: <20130723.172100.861888744953479475.davem@davemloft.net>
-References: <1374364831-13190-1-git-send-email-ramirose@gmail.com>
-	<51ED9A7A.1010008@6wind.com>
+Subject: Re: [PATCH] fec: Add MODULE_ALIAS
+Date: Tue, 23 Jul 2013 17:23:33 -0700 (PDT)
+Message-ID: <20130723.172333.295834844314327620.davem@davemloft.net>
+References: <1374348036-20654-1-git-send-email-festevam@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ramirose@gmail.com, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: nicolas.dichtel@6wind.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fabio.estevam@freescale.com
+To: festevam@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51287 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51309 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750804Ab3GXAVB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 20:21:01 -0400
-In-Reply-To: <51ED9A7A.1010008@6wind.com>
+	with ESMTP id S1750897Ab3GXAXe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jul 2013 20:23:34 -0400
+In-Reply-To: <1374348036-20654-1-git-send-email-festevam@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Mon, 22 Jul 2013 22:47:54 +0200
+From: Fabio Estevam <festevam@gmail.com>
+Date: Sat, 20 Jul 2013 16:20:36 -0300
 
-> Le 21/07/2013 02:00, Rami Rosen a =E9crit :
->> This patch changes the prototpye of the ip6_mr_forward() method to
->> return void
->> instead of int.
->>
->> The ip6_mr_forward() method always returns 0; moreover, the return
->> value of this
->> method is not checked anywhere.
->>
->> Signed-off-by: Rami Rosen <ramirose@gmail.com>
-> Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> From: Fabio Estevam <fabio.estevam@freescale.com>
+> 
+> Add MODULE_ALIAS, so that auto module loading can work.
+> 
+> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 
-Applied.
+Applied, thanks.
