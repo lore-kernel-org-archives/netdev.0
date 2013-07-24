@@ -1,51 +1,57 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] bgmac: make bgmac depend on bcm47xx
-Date: Wed, 24 Jul 2013 09:54:12 -0400
-Message-ID: <20130724135409.GA2385@tuxdriver.com>
-References: <1374614929-7528-1-git-send-email-hauke@hauke-m.de>
- <20130724110858.01e033323d739cf6b998e2ea@canb.auug.org.au>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 2/2] sysctl: range checking in do_proc_dointvec_ms_jiffies_conv
+Date: Wed, 24 Jul 2013 18:35:22 +0400
+Message-ID: <51EFE62A.70901@cogentembedded.com>
+References: <cover.1374654531.git.ffusco@redhat.com> <de72e4265ab874b70b127011bb1ef8c2d27bfe63.1374654531.git.ffusco@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hauke Mehrtens <hauke@hauke-m.de>, davem@davemloft.net,
-	zajec5@gmail.com, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:50393 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750795Ab3GXOAN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 10:00:13 -0400
-Content-Disposition: inline
-In-Reply-To: <20130724110858.01e033323d739cf6b998e2ea@canb.auug.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org
+To: Francesco Fusco <ffusco@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <de72e4265ab874b70b127011bb1ef8c2d27bfe63.1374654531.git.ffusco@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 24, 2013 at 11:08:58AM +1000, Stephen Rothwell wrote:
-> Hi,
-> 
-> On Tue, 23 Jul 2013 23:28:49 +0200 Hauke Mehrtens <hauke@hauke-m.de> wrote:
-> >
-> > bgmac uses bcm47xx_nvram.h which is only available when BCM47XX was
-> > selected. Earlier BCMA_HOST_SOC depended on BCM47XX so this was not
-> > build on any other archs, but that changed. We should modify this
-> > driver to get access to the nvram or the variables through platform
-> > data.
-> > 
-> > This fixes a build problem in linux-next reported by Stephen Rothwell:
-> > 
-> > drivers/net/ethernet/broadcom/bgmac.c:19:27: fatal error: bcm47xx_nvram.h: No such file or directory
-> >  #include <bcm47xx_nvram.h>
-> >                            ^
-> > 
-> > Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
-> > Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> 
-> This patch really needs to go to John as the patch that exposes the
-> breakage is in his tree.
+Hello.
 
-I'll merge this one -- OK, Dave?
+On 24-07-2013 12:39, Francesco Fusco wrote:
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+> When (integer) sysctl values are expressed in ms and have to be
+> represented internally as jiffies. The msecs_to_jiffies function
+> returns an unsigned long, which gets assigned to the integer.
+> This patch prevents the value to be assigned if bigger than
+> INT_MAX, done in a similar way as in cba9f3 ("Range checking in
+> do_proc_dointvec_(userhz_)jiffies_conv").
+
+> Signed-off-by: Francesco Fusco <ffusco@redhat.com>
+> CC: Andrew Morton <akpm@linux-foundation.org>
+> CC: linux-kernel@vger.kernel.org
+> ---
+>   kernel/sysctl.c | 6 +++++-
+>   1 file changed, 5 insertions(+), 1 deletion(-)
+
+> diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+> index ac09d98..00813e5 100644
+> --- a/kernel/sysctl.c
+> +++ b/kernel/sysctl.c
+> @@ -2346,7 +2346,11 @@ static int do_proc_dointvec_ms_jiffies_conv(bool *negp, unsigned long *lvalp,
+>   					    int write, void *data)
+>   {
+>   	if (write) {
+> -		*valp = msecs_to_jiffies(*negp ? -*lvalp : *lvalp);
+> +		unsigned long jif = 0;
+
+    Pointless initializer. And an empty line wouldn't hurt after declaration.
+
+> +		jif =  msecs_to_jiffies(*negp ? -*lvalp : *lvalp);
+
+    One space after = is enough.
+
+> +		if (jif > INT_MAX)
+> +			return 1;
+> +		*valp = (int)jif;
+
+WBR, Sergei
