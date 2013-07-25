@@ -1,136 +1,91 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: virtio-net: put virtio net header inline with data
-Date: Thu, 25 Jul 2013 10:20:23 +0930
-Message-ID: <87ppu78nu8.fsf@rustcorp.com.au>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: [PATCH 1/1] TX throttling bug-fixing patch of AX88179_178A
+Date: Thu, 25 Jul 2013 10:28:20 +0800
+Message-ID: <CACVXFVN0eN9E9efr8UdqFz68-emHa2o-RQ0RYfazEq8f=qxkLQ@mail.gmail.com>
+References: <1374311809-4155-1-git-send-email-freddy@asix.com.tw>
+	<1374512879.4990.19.camel@edumazet-glaptop>
+	<CANEJEGvPc56ePP=_bxfA4PZfsM3vw=MsRjbWwrFBC3eP-GtzZg@mail.gmail.com>
+	<1374518312.1635.29.camel@bwh-desktop.uk.level5networks.com>
+	<1374518841.4990.26.camel@edumazet-glaptop>
+	<1374522471.1635.48.camel@bwh-desktop.uk.level5networks.com>
+	<1374559827.4990.143.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <mst@redhat.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Oliver Neukum <oliver@neukum.org>,
+	Grant Grundler <grundler@google.com>,
+	Freddy Xin <freddy@asix.com.tw>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	=?Big5?B?QVNJWCBMb3VpcyBbxKyrwrOwXQ==?= <louis@asix.com.tw>,
+	Allan Chou <allan@asix.com.tw>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:38542 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753983Ab3GYB72 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Jul 2013 21:59:28 -0400
+Received: from mail-oa0-f54.google.com ([209.85.219.54]:49753 "EHLO
+	mail-oa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754587Ab3GYC2V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 22:28:21 -0400
+In-Reply-To: <1374559827.4990.143.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael S. Tsirkin <mst@redhat.com>
+On Tue, Jul 23, 2013 at 2:10 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2013-07-22 at 20:47 +0100, Ben Hutchings wrote:
+>> On Mon, 2013-07-22 at 11:47 -0700, Eric Dumazet wrote:
+>> > On Mon, 2013-07-22 at 19:38 +0100, Ben Hutchings wrote:
+>> > > On Mon, 2013-07-22 at 11:29 -0700, Grant Grundler wrote:
+>> > > > On Mon, Jul 22, 2013 at 10:07 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > > > ...
+>> > > > > I guess that if a driver does not advertise NETIF_F_SG, this
+>> > > > > skb_linearize() call is not needed : All frames reaching your xmit
+>> > > > > function should already be linear
+>> > > >
+>> > > > As Ben Hutchings pointed out, hw_features is still setting this...but
+>> > > > I'm not sure how that matters.
+>> > > >
+>> > > > ax88179_set_features() doesn't allow setting SG or TSO features.  But
+>> > > > I expect it would be "not too difficult" to add such that ethtool
+>> > > > could set those features after boot.
+>> > > [...]
+>> > >
+>> > > It already can.  That's what putting feature flags in hw_features does.
+>> >
+>> > My original concern, that inspired this patch, was to remove SG support,
+>> > as this driver does not have SG support at all.
+>> >
+>> > Linearize a full TSO packet needs order-5 allocations, thats likely to
+>> > fail and lead to very slow TCP performance, because it will only rely on
+>> > retransmits.
+>>
+>> The driver could set gso_max_size to reduce that problem.  But I rather
+>> doubt that TSO followed by skb_linearize() significantly improves
+>> throughput or CPU-efficiency.  (If the device has a 1G link but is
+>> connected to the host through a USB 2.0 port, then USB is the bottleneck
+>> and TSO could improve throughput a few percent.  But that's a silly
+>> configuration.)
+>>
+>> The real solution would be for someone to add SG support to the usbnet
+>> core.  Trying to support 1GbE with only linear skbs is not a great
+>> idea... and it can only be a matter of time before there is USB ultra
+>> speed (or whatever comes after 'super') with 10GbE devices...
+>>
+>
+> This sounds a good idea.
+>
+> Is anybody working on adding SG to usbnet ?
 
-For small packets we can simplify xmit processing
-by linearizing buffers with the header:
-most packets seem to have enough head room
-we can use for this purpose.
-Since existing hypervisors require that header
-is the first s/g element, we need a feature bit
-for this.
+It depends if size of sg buffer(except for last one) in the sg list can be
+divided by usb endpoint's max packet size(512 or 1024), at least there
+is the constraint:
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
----
- drivers/net/virtio_net.c        | 42 +++++++++++++++++++++++++++++++++--------
- include/uapi/linux/virtio_net.h |  4 +++-
- 2 files changed, 37 insertions(+), 9 deletions(-)
+http://git.kernel.org/cgit/linux/kernel/git/gregkh/usb.git/commit/?h=usb-next&id=10e232c597ac757e7f8600649f7e872e86de190f
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 3d2a90a..f216002 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -106,6 +106,9 @@ struct virtnet_info {
- 	/* Has control virtqueue */
- 	bool has_cvq;
- 
-+	/* Host can handle any s/g split between our header and packet data */
-+	bool any_header_sg;
-+
- 	/* enable config space updates */
- 	bool config_enable;
- 
-@@ -669,12 +672,28 @@ static void free_old_xmit_skbs(struct send_queue *sq)
- 
- static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
- {
--	struct skb_vnet_hdr *hdr = skb_vnet_hdr(skb);
-+	struct skb_vnet_hdr *hdr;
- 	const unsigned char *dest = ((struct ethhdr *)skb->data)->h_dest;
- 	struct virtnet_info *vi = sq->vq->vdev->priv;
- 	unsigned num_sg;
-+	unsigned hdr_len;
-+	bool can_push;
- 
- 	pr_debug("%s: xmit %p %pM\n", vi->dev->name, skb, dest);
-+	if (vi->mergeable_rx_bufs)
-+		hdr_len = sizeof hdr->mhdr;
-+	else
-+		hdr_len = sizeof hdr->hdr;
-+
-+	can_push = vi->any_header_sg &&
-+		!((unsigned long)skb->data & (__alignof__(*hdr) - 1)) &&
-+		!skb_header_cloned(skb) && skb_headroom(skb) >= hdr_len;
-+	/* Even if we can, don't push here yet as this would skew
-+	 * csum_start offset below. */
-+	if (can_push)
-+		hdr = (struct skb_vnet_hdr *)(skb->data - hdr_len);
-+	else
-+		hdr = skb_vnet_hdr(skb);
- 
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 		hdr->hdr.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
-@@ -703,15 +722,18 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
- 		hdr->hdr.gso_size = hdr->hdr.hdr_len = 0;
- 	}
- 
--	hdr->mhdr.num_buffers = 0;
--
--	/* Encode metadata header at front. */
- 	if (vi->mergeable_rx_bufs)
--		sg_set_buf(sq->sg, &hdr->mhdr, sizeof hdr->mhdr);
--	else
--		sg_set_buf(sq->sg, &hdr->hdr, sizeof hdr->hdr);
-+		hdr->mhdr.num_buffers = 0;
- 
--	num_sg = skb_to_sgvec(skb, sq->sg + 1, 0, skb->len) + 1;
-+	if (can_push) {
-+		__skb_push(skb, hdr_len);
-+		num_sg = skb_to_sgvec(skb, sq->sg, 0, skb->len);
-+		/* Pull header back to avoid skew in tx bytes calculations. */
-+		__skb_pull(skb, hdr_len);
-+	} else {
-+		sg_set_buf(sq->sg, hdr, hdr_len);
-+		num_sg = skb_to_sgvec(skb, sq->sg + 1, 0, skb->len) + 1;
-+	}
- 	return virtqueue_add_outbuf(sq->vq, sq->sg, num_sg, skb, GFP_ATOMIC);
- }
- 
-@@ -1552,6 +1574,9 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
- 		vi->mergeable_rx_bufs = true;
- 
-+	if (virtio_has_feature(vdev, VIRTIO_F_ANY_LAYOUT))
-+		vi->any_header_sg = true;
-+
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
- 		vi->has_cvq = true;
- 
-@@ -1727,6 +1752,7 @@ static unsigned int features[] = {
- 	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN,
- 	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
- 	VIRTIO_NET_F_CTRL_MAC_ADDR,
-+	VIRTIO_F_ANY_LAYOUT,
- };
- 
- static struct virtio_driver virtio_net_driver = {
-diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
-index c520203..227d4ce 100644
---- a/include/uapi/linux/virtio_net.h
-+++ b/include/uapi/linux/virtio_net.h
-@@ -70,7 +70,9 @@ struct virtio_net_config {
- 	__u16 max_virtqueue_pairs;
- } __attribute__((packed));
- 
--/* This is the first element of the scatter-gather list.  If you don't
-+/* This header comes first in the scatter-gather list.
-+ * If VIRTIO_F_ANY_LAYOUT is not negotiated, it must
-+ * be the first element of the scatter-gather list.  If you don't
-  * specify GSO or CSUM features, you can simply ignore the header. */
- struct virtio_net_hdr {
- #define VIRTIO_NET_HDR_F_NEEDS_CSUM	1	// Use csum_start, csum_offset
+I am wondering if network stack can meet that.  If not, it might be a
+bit difficult
+because lots of USB host controller don't support that, and driver may have
+to support SG and non-SG at the same time for working well on all HCs.
+
+Thanks,
+-- 
+Ming Lei
