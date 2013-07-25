@@ -1,60 +1,39 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: minimum ICMPv6 message size vs. RPL's DIS
-Date: Thu, 25 Jul 2013 20:40:44 +0200
-Message-ID: <20130725184044.GC24007@order.stressinduktion.org>
-References: <20130724232852.GA29572@ws> <20130725061731.GA12365@order.stressinduktion.org> <20130725103048.GB29572@ws> <20130725135820.GB11592@order.stressinduktion.org> <20130725143223.GC29572@ws>
+From: Aaro Koskinen <aaro.koskinen@iki.fi>
+Subject: Re: [PATCH] Change request_irq() to use struct net_device *dev->name
+Date: Thu, 25 Jul 2013 21:38:25 +0300
+Message-ID: <20130725183824.GA32658@blackmetal.musicnaut.iki.fi>
+References: <1374646199-9398-1-git-send-email-pshah.mumbai@gmail.com>
+ <51F07489.7010404@gmail.com>
+ <CAD6i1fJO3geZ0vkHLsJEd+KedHkpC1OZVTJJskU2RAAKYBhhJQ@mail.gmail.com>
+ <CAD6i1f+NYu7rcQwF-TXk4+OdjPNZwMKxxjJ9YA_+v9B6uPYq+g@mail.gmail.com>
+ <CAHp75VdouA2w5WjBPJ2cX8AKvTeCNrj6pM+3SS5DzU+ARM5M3Q@mail.gmail.com>
+ <CAP8WD_aKqqB4Fb4Vadj_AJ4ET5gxd+EkaCMMVvBxxqNwDjpBGg@mail.gmail.com>
+ <CAHp75VeqgqVdn+zRjW+McwFQfD73NhYz4X3M4ndeDZnkFmqyEg@mail.gmail.com>
+ <51F16F74.3070503@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Werner Almesberger <werner@almesberger.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:39746 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756958Ab3GYSkp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 14:40:45 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Shevchenko <andy.shevchenko@gmail.com>, whiteheadm@acm.org,
+	Prashant Shah <pshah.mumbai@gmail.com>,
+	Ryan Mallon <rmallon@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	mwhitehe@redhat.com, kernel-mentors@selenic.com
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20130725143223.GC29572@ws>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <51F16F74.3070503@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 25, 2013 at 11:32:23AM -0300, Werner Almesberger wrote:
-> Hannes Frederic Sowa wrote:
-> > I would say no problem. But as I just realized that it could be a bit
-> > problematic because the new defines have actually pretty common names,
-> > let's cc David Miller. Perhaps he has an advice?
-> 
-> Yeah, I'll let the issue sit here for a while so that more people
-> can comment. The change has numerous implications, including
-> 
-> - there may actually be a minimum size requirement *somewhere*
->   and I just didn't find it, in which case Linux would be right,
+Hi,
 
-I don't know how they could do this if they want to let other RFCs extend
-icmp types. It definitely makes sense that an icmpv6 packet could not have any
-payload (only for informational icmpv6 packets, error icmp msgs must have 32
-bits of payload, see Apendix A - RFC4443).
+On Thu, Jul 25, 2013 at 10:33:24PM +0400, Sergei Shtylyov wrote:
+>    It's also called managed device API. In fact, I've never heard it
+> named devres API.
 
-> - name pollution visible to future user space,
+Never read the documentation. :-)
 
-I did a search on codesearch.debian.org and the change seems safe from
-a first glimpse.
+$ head -1 Documentation/driver-model/devres.txt 
+Devres - Managed Device Resource
 
-> - subtly changes kernel API semantics for ICMPv6 receivers, to
->   the detriment of those that rely on the kernel to filter
->   messages < 8 bytes and misbehave if exposed to them.
-
-Yes, that could be an issue. I would be willing to accept this fallout. :)
-
-> So this is definitely not the kind of change I want to rush.
-> 
-> Even the pointer fix changes the API in a way that could break
-> applications that currently work (if only on 32 bit platforms,
-> but it's not their fault that things would go wrong on 64 bit),
-> so we can't apply that one before having a decision on the other
-> issue as well.
-
-Yes, you are right!
-
-Thanks,
-
-  Hannes
+A.
