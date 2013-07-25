@@ -1,136 +1,76 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH v2 2/3] net/usb/r8152: make sure the USB buffer is DMA-able
-Date: Thu, 25 Jul 2013 15:59:03 +0800
-Message-ID: <1374739144-732-2-git-send-email-hayeswang@realtek.com>
-References: <20130724.174947.452272360732442554.davem@davemloft.net>
- <1374739144-732-1-git-send-email-hayeswang@realtek.com>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: Re: [PATCH V3 net-next 2/2] pch_gbe: Add MinnowBoard support
+Date: Thu, 25 Jul 2013 11:00:58 +0300
+Message-ID: <1374739258.31118.63.camel@smile>
+References: <b04d68ebb04aa2d4ab9392c5353a53c81be7b847.1374728627.git.dvhart@linux.intel.com>
+	 <4d6af18d01b977c9db13c3d8052631c97e099ea0.1374728627.git.dvhart@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1374739144-732-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: Linux Net Dev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	Joe Perches <joe@perches.com>
+To: Darren Hart <dvhart@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:45450 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755244Ab3GYIBK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 04:01:10 -0400
+In-Reply-To: <4d6af18d01b977c9db13c3d8052631c97e099ea0.1374728627.git.dvhart@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Allocate the required memory before calling usb_control_msg. And
-the additional memory copy is necessary.
+On Wed, 2013-07-24 at 22:10 -0700, Darren Hart wrote: 
+> The MinnowBoard uses an AR803x PHY with the PCH GBE which requires
+> special handling. Use the MinnowBoard PCI Subsystem ID to detect this
+> and add a pci_device_id.driver_data structure and functions to handle
+> platform setup.
+> 
+> The AR803x does not implement the RGMII 2ns TX clock delay in the trace
+> routing nor via strapping. Add a detection method for the board and the
+> PHY and enable the TX clock delay via the registers.
+> 
+> This PHY will hibernate without link for 10 seconds. Ensure the PHY is
+> awake for probe and then disable hibernation. A future improvement would
+> be to convert pch_gbe to using PHYLIB and making sure we can wake the
+> PHY at the necessary times rather than permanently disabling it.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 60 ++++++++++++++++++++++++++++---------------------
- 1 file changed, 35 insertions(+), 25 deletions(-)
+Couple of nitpicks.
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index ee13f9e..ef033ab 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -344,17 +344,41 @@ static const int multicast_filter_limit = 32;
- static
- int get_registers(struct r8152 *tp, u16 value, u16 index, u16 size, void *data)
- {
--	return usb_control_msg(tp->udev, usb_rcvctrlpipe(tp->udev, 0),
-+	int ret;
-+	void *tmp;
-+
-+	tmp = kmalloc(size, GFP_KERNEL);
-+	if (!tmp)
-+		return -ENOMEM;
-+
-+	ret = usb_control_msg(tp->udev, usb_rcvctrlpipe(tp->udev, 0),
- 			       RTL8152_REQ_GET_REGS, RTL8152_REQT_READ,
--			       value, index, data, size, 500);
-+			       value, index, tmp, size, 500);
-+
-+	memcpy(data, tmp, size);
-+	kfree(tmp);
-+
-+	return ret;
- }
- 
- static
- int set_registers(struct r8152 *tp, u16 value, u16 index, u16 size, void *data)
- {
--	return usb_control_msg(tp->udev, usb_sndctrlpipe(tp->udev, 0),
-+	int ret;
-+	void *tmp;
-+
-+	tmp = kmalloc(size, GFP_KERNEL);
-+	if (!tmp)
-+		return -ENOMEM;
-+
-+	memcpy(tmp, data, size);
-+
-+	ret = usb_control_msg(tp->udev, usb_sndctrlpipe(tp->udev, 0),
- 			       RTL8152_REQ_SET_REGS, RTL8152_REQT_WRITE,
--			       value, index, data, size, 500);
-+			       value, index, tmp, size, 500);
-+
-+	kfree(tmp);
-+	return ret;
- }
- 
- static int generic_ocp_read(struct r8152 *tp, u16 index, u16 size,
-@@ -685,21 +709,14 @@ static void ocp_reg_write(struct r8152 *tp, u16 addr, u16 data)
- static inline void set_ethernet_addr(struct r8152 *tp)
- {
- 	struct net_device *dev = tp->netdev;
--	u8 *node_id;
-+	u8 node_id[8] = {0};
- 
--	node_id = kmalloc(sizeof(u8) * 8, GFP_KERNEL);
--	if (!node_id) {
--		netif_err(tp, probe, dev, "out of memory");
--		return;
--	}
--
--	if (pla_ocp_read(tp, PLA_IDR, sizeof(u8) * 8, node_id) < 0)
-+	if (pla_ocp_read(tp, PLA_IDR, sizeof(node_id), node_id) < 0)
- 		netif_notice(tp, probe, dev, "inet addr fail\n");
- 	else {
- 		memcpy(dev->dev_addr, node_id, dev->addr_len);
- 		memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
- 	}
--	kfree(node_id);
- }
- 
- static int rtl8152_set_mac_address(struct net_device *netdev, void *p)
-@@ -882,15 +899,10 @@ static void rtl8152_set_rx_mode(struct net_device *netdev)
- static void _rtl8152_set_rx_mode(struct net_device *netdev)
- {
- 	struct r8152 *tp = netdev_priv(netdev);
--	u32 tmp, *mc_filter;	/* Multicast hash filter */
-+	u32 mc_filter[2];	/* Multicast hash filter */
-+	__le32 tmp[2];
- 	u32 ocp_data;
- 
--	mc_filter = kmalloc(sizeof(u32) * 2, GFP_KERNEL);
--	if (!mc_filter) {
--		netif_err(tp, link, netdev, "out of memory");
--		return;
--	}
--
- 	clear_bit(RTL8152_SET_RX_MODE, &tp->flags);
- 	netif_stop_queue(netdev);
- 	ocp_data = ocp_read_dword(tp, MCU_TYPE_PLA, PLA_RCR);
-@@ -918,14 +930,12 @@ static void _rtl8152_set_rx_mode(struct net_device *netdev)
- 		}
- 	}
- 
--	tmp = mc_filter[0];
--	mc_filter[0] = __cpu_to_le32(swab32(mc_filter[1]));
--	mc_filter[1] = __cpu_to_le32(swab32(tmp));
-+	tmp[0] = __cpu_to_le32(swab32(mc_filter[1]));
-+	tmp[1] = __cpu_to_le32(swab32(mc_filter[0]));
- 
--	pla_ocp_write(tp, PLA_MAR, BYTE_EN_DWORD, sizeof(u32) * 2, mc_filter);
-+	pla_ocp_write(tp, PLA_MAR, BYTE_EN_DWORD, sizeof(tmp), tmp);
- 	ocp_write_dword(tp, MCU_TYPE_PLA, PLA_RCR, ocp_data);
- 	netif_wake_queue(netdev);
--	kfree(mc_filter);
- }
- 
- static netdev_tx_t rtl8152_start_xmit(struct sk_buff *skb,
+> --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
+> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
+> @@ -582,6 +582,19 @@ struct pch_gbe_hw_stats {
+>  };
+>  
+>  /**
+> + * struct pch_gbe_privdata - PCI Device ID driver data
+> + * @phy_tx_clk_delay:		Bool, configure the PHY TX delay in software
+> + * @phy_disable_hibernate:	Bool, disable PHY hibernation
+> + * @platform_init:		Platform initialization callback, called from
+> + *				probe, prior to PHY initialization.
+> + */
+> +struct pch_gbe_privdata {
+> +	bool phy_tx_clk_delay;
+> +	bool phy_disable_hibernate;
+> +	int(*platform_init)(struct pci_dev *pdev);
+
+I think space after "int" will be good.
+
+> --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+> @@ -23,6 +23,8 @@
+>  #include <linux/module.h>
+>  #include <linux/net_tstamp.h>
+>  #include <linux/ptp_classify.h>
+> +#include <linux/gpio.h>
+> +#include <linux/mod_devicetable.h>
+
+You do not need to include that file directly since pci.h includes it,
+and pci.h is included via pch_gbe.h.
+
+
 -- 
-1.8.3.1
+Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Intel Finland Oy
