@@ -1,79 +1,60 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: minimum ICMPv6 message size vs. RPL's DIS
-Date: Thu, 25 Jul 2013 08:17:31 +0200
-Message-ID: <20130725061731.GA12365@order.stressinduktion.org>
-References: <20130724232852.GA29572@ws>
+From: Dominique Martinet <dominique.martinet@cea.fr>
+Subject: Re: [V9fs-developer] [PATCH] net: trans_rdma: remove unused
+ function
+Date: Thu, 25 Jul 2013 08:14:11 +0200
+Message-ID: <20130725061411.GA8579@nautica>
+References: <1374497956-32104-1-git-send-email-andi@etezian.org>
+ <20130724.154646.2283898956674234778.davem@davemloft.net>
+ <1374707387.29835.23.camel@x61.thuisdomein>
+ <20130724.164514.393667021861625699.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Werner Almesberger <werner@almesberger.net>
+Cc: pebolle@tiscali.nl, lucho@ionkov.net, ericvh@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	andi@etezian.org, v9fs-developer@lists.sourceforge.net,
+	rminnich@sandia.gov
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:38214 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753005Ab3GYGRd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 02:17:33 -0400
+Received: from nautica.notk.org ([91.121.71.147]:42822 "EHLO nautica.notk.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753005Ab3GYGUt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jul 2013 02:20:49 -0400
 Content-Disposition: inline
-In-Reply-To: <20130724232852.GA29572@ws>
+In-Reply-To: <20130724.164514.393667021861625699.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 24, 2013 at 08:28:52PM -0300, Werner Almesberger wrote:
-> The kernel assumes that any valid ICMPv6 message is at least eight
-> bytes long, for example in net/ipv6/raw.c:icmpv6_filter
+Hi,
+
+David Miller wrote on Wed, Jul 24, 2013 :
+> From: Paul Bolle <pebolle@tiscali.nl>
+> Date: Thu, 25 Jul 2013 01:09:47 +0200
+> > After this patch one might as well revert the rest of commit
+> > 80b45261a0b2 ("9P: Add cancelled() to the transport functions.") too. It
+> > seems the entire cancelled callback stuff is now pointless.
+> > 
+> > As I already asked in https://lkml.org/lkml/2013/7/15/87 : did that
+> > commit "forget to actually hook up rdma_cancelled() into
+> > p9_rdma_trans()?". It does look so to me.
 > 
-> The DIS message of RPL (RFC 6550 section 6.2, from the 6LoWPAN
-> world), has a minimum length of six bytes, and is thus blocked by
-> icmpv6_filter.
+> If nobody responds to this in the next day or so, feel free to send me
+> a patch which rips it all out.
 > 
-> Contiki OS sends this sort of messages and is thus ignored by an
-> user-space RPL application on Linux (in my case simpleRPL). Nodes
-> will eventually join the network regardless, but this can take
-> hours instead of seconds.
->  
-> RFC 4443 seems to allow even a zero-sized body, making the minimum
-> allowable size four bytes.
-> 
-> A similar restriction exists in net/ipv6/icmp.c:icmpv6_rcv but
-> causes no harm there since all potential recipients at that point
-> expect a larger payload.
-> 
-> Now, while this is easy enough to fix on the Linux side (see
-> below), I wonder if it is really a Linux bug or if I (and the
-> authors of RPL in Contiki) may have missed some minimum size
-> requirement for ICMPv6 messages stated elsewhere.
-> 
-> Opinions ?
+> No response means they don't care, and neither, therefore, should we.
 
-Browsing the RFCs, I do think you are correct. Did you check what IPv4 does?
-(what a strange errata to RFC 4443...)
+Well, I do care - but I couldn't find where the trans->cancelled member
+function was supposed to be called anyway...
+So adding it to the struct and fixing the warning is well and fine, but
+if it's still never called in the end I don't see much point and there's
+nothing to test.
 
-> diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-> index c45f7a5..539534c 100644
-> --- a/net/ipv6/raw.c
-> +++ b/net/ipv6/raw.c
-> @@ -112,7 +112,7 @@ static int icmpv6_filter(const struct sock *sk, const struct sk_buff *skb)
->  	const struct icmp6hdr *hdr;
->  
->  	hdr = skb_header_pointer(skb, skb_transport_offset(skb),
-> -				 sizeof(_hdr), &_hdr);
-> +				 4, &_hdr);
->  	if (hdr) {
->  		const __u32 *data = &raw6_sk(sk)->filter.data[0];
->  		unsigned int type = hdr->icmp6_type;
+It's on my loooong todo list of things to look at, but as no other reply
+came and the patch was never picked up it kind of dropped in priority.
+I'll have another look next week
 
-Hmm, maybe we should update the icmp header to something like
+I guess the worst that could happen would be submitting the
+rdma_cancelled function again when this is sorted out :)
 
-struct icmp6hdr {
-	struct icmp6hdr_head {
-		__u8 icmp6_type;
-		...;
-	} icmpv6_head;
-#define icmp6_type icmpv6_head.icmp6_type
-
-and just change the type in icmpv6_filter to icmp6hdr_head.
-
-Hmm, there is a bug in this function, _hdr must not be a pointer.
-
-Greetings,
-
-  Hannes
+Regards,
+-- 
+Dominique Martinet
