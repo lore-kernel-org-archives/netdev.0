@@ -1,48 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: qlcnic binary sysfs file abuse
-Date: Thu, 25 Jul 2013 14:09:33 -0700 (PDT)
-Message-ID: <20130725.140933.1460349218585474906.davem@davemloft.net>
-References: <20130707002949.GA15822@kroah.com>
-	<0EA5B226BC5C7B45A71BF612AA8A019E355A3BD4@AVMB1.qlogic.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 2/3] tuntap: allow overriding ethtool driver
+ info
+Date: Thu, 25 Jul 2013 22:19:17 +0100
+Message-ID: <1374787157.3058.28.camel@bwh-desktop.uk.level5networks.com>
+References: <20130724161156.4a8cf02b@nehalam.linuxnetplumber.net>
+	 <20130724161325.38404ed3@nehalam.linuxnetplumber.net>
+	 <1374709687.1732.46.camel@bwh-desktop.uk.level5networks.com>
+	 <20130724171617.53a48d24@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, rajesh.borundia@qlogic.com,
-	shahed.shaikh@qlogic.com, jitendra.kalsaria@qlogic.com,
-	Linux-Driver@qlogic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: sony.chacko@qlogic.com
+Cc: Helmut Grohne <h.grohne@cygnusnetworks.de>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49675 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754781Ab3GYVJf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 17:09:35 -0400
-In-Reply-To: <0EA5B226BC5C7B45A71BF612AA8A019E355A3BD4@AVMB1.qlogic.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:61837 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754952Ab3GYVTV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 17:19:21 -0400
+In-Reply-To: <20130724171617.53a48d24@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sony Chacko <sony.chacko@qlogic.com>
-Date: Thu, 25 Jul 2013 19:37:46 +0000
-
->> -----Original Message-----
->> From: Greg KH [mailto:gregkh@linuxfoundation.org]
->> Sent: Saturday, July 06, 2013 5:30 PM
->> To: Rajesh Borundia; Shahed Shaikh; Jitendra Kalsaria; Sony Chacko; Dept-Eng
->> Linux Driver
->> Cc: netdev; linux-kernel
->> Subject: qlcnic binary sysfs file abuse
->> 
->> I was doing a kernel-wide audit on all of the binary sysfs files, and noticed a
->> metric ton of them in the qlcnic driver.
->> 
->> So, any objection to me just deleting these entirely?  Or, if they really are
->> needed, can I just move them to debugfs, which is where I think they should
->> have been from the beginning?
+On Wed, 2013-07-24 at 17:16 -0700, Stephen Hemminger wrote:
+> On Thu, 25 Jul 2013 00:48:07 +0100
+> Ben Hutchings <bhutchings@solarflare.com> wrote:
 > 
-> Some applications are using these files, please move them to debugfs.
+> > On Wed, 2013-07-24 at 16:13 -0700, Stephen Hemminger wrote:
+> > > This patch adds new ioctl to allow setting the ethtool information
+> > > returned by the TUN device. This is useful when using tun device as a surrogate
+> > > for hardware or other software emulation.
+> > 
+> > I don't like this idea.  Which tools are you trying to fool?  How does
+> > this work when you don't implement any driver-specific behaviour (e.g.
+> > SIOCDEVPRIVATE) they expect?
+> 
+> We use surrogate interfaces in user mode application and want to
+> display different information for these than the normal TUN device.
 
-This is quite a mess, and I've complained about all of the crazy
-files created by qlcnic in the past.
+What is the problem that can't be solved purely in userland?
 
-debugfs is for things that do not create a ABI which the kernel has to
-maintain forever.
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
