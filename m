@@ -1,49 +1,77 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 1/3] tuntap: allow changing ethtool speed (v2)
-Date: Wed, 24 Jul 2013 17:17:50 -0700
-Message-ID: <20130724171750.112cf0df@nehalam.linuxnetplumber.net>
-References: <20130724161156.4a8cf02b@nehalam.linuxnetplumber.net>
-	<1374709250.1732.40.camel@bwh-desktop.uk.level5networks.com>
+From: Darren Hart <dvhart@linux.intel.com>
+Subject: Re: [PATCH V2 net-next 2/2] pch_gbe: Add MinnowBoard support
+Date: Wed, 24 Jul 2013 17:20:03 -0700
+Message-ID: <1374711603.3436.246.camel@dvhart-mobl1.amr.corp.intel.com>
+References: <b939bb41630693171771c108801c1c5f688ecabc.1374525261.git.dvhart@linux.intel.com>
+	 <cover.1374525261.git.dvhart@linux.intel.com>
+	 <79241b53ec4e638008ba3384958ef9901ad11338.1374525261.git.dvhart@linux.intel.com>
+	 <20130724.170008.924195436945641752.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Helmut Grohne <h.grohne@cygnusnetworks.de>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org, hpa@zytor.com,
+	peter.p.waskiewicz.jr@intel.com, andriy.shevchenko@linux.intel.com,
+	joe@perches.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:36132 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753740Ab3GYARx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 20:17:53 -0400
-Received: by mail-pa0-f44.google.com with SMTP id jh10so1295000pab.17
-        for <netdev@vger.kernel.org>; Wed, 24 Jul 2013 17:17:53 -0700 (PDT)
-In-Reply-To: <1374709250.1732.40.camel@bwh-desktop.uk.level5networks.com>
+Received: from mga02.intel.com ([134.134.136.20]:55843 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753048Ab3GYAUF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Jul 2013 20:20:05 -0400
+In-Reply-To: <20130724.170008.924195436945641752.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 25 Jul 2013 00:40:50 +0100
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+On Wed, 2013-07-24 at 17:00 -0700, David Miller wrote:
+> From: Darren Hart <dvhart@linux.intel.com>
+> Date: Mon, 22 Jul 2013 14:41:59 -0700
+> 
+> > diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c
+> > index da07907..be513a9 100644
+> > --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c
+> > +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c
+>  ...
+> > @@ -277,4 +286,91 @@ void pch_gbe_phy_init_setting(struct pch_gbe_hw *hw)
+> >       pch_gbe_phy_read_reg_miic(hw, PHY_PHYSP_CONTROL, &mii_reg);
+> >       mii_reg |= PHYSP_CTRL_ASSERT_CRS_TX;
+> >       pch_gbe_phy_write_reg_miic(hw, PHY_PHYSP_CONTROL, mii_reg);
+> > +
+> > +     /* Setup a TX clock delay on certain platforms */
+> > +     if (adapter->pdata && adapter->pdata->phy_tx_clk_delay)
+> > +             pch_gbe_phy_tx_clk_delay(hw);
+> > +}
+> > +
+> > +/* pch_gbe_phy_tx_clk_delay - Setup TX clock delay via the PHY
+> > + * @hw:                  Pointer to the HW structure
+> > + * Returns
+> > + *   0:              Successful.
+> > + *   -EINVAL:        Invalid argument.
+> > + */
+> > +int pch_gbe_phy_tx_clk_delay(struct pch_gbe_hw *hw)
+>  ...
+> > diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h
+> > index 03264dc..e3e4bc9 100644
+> > --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h
+> > +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h
+> > @@ -33,5 +33,7 @@ void pch_gbe_phy_power_up(struct pch_gbe_hw *hw);
+> >  void pch_gbe_phy_power_down(struct pch_gbe_hw *hw);
+> >  void pch_gbe_phy_set_rgmii(struct pch_gbe_hw *hw);
+> >  void pch_gbe_phy_init_setting(struct pch_gbe_hw *hw);
+> > +int pch_gbe_phy_tx_clk_delay(struct pch_gbe_hw *hw);
+> > +int pch_gbe_phy_disable_hibernate(struct pch_gbe_hw *hw);
+> 
+> 
+> pch_gbe_phy_tx_clk_delay() is only invoked from pch_gbe_phy.c, where it is also
+> implemented.
+> 
+> Therefore it should be marked static and the declaration removed from
+> pch_gbe_phy.h
 
-> On Wed, 2013-07-24 at 16:11 -0700, Stephen Hemminger wrote:
-> > The data reported by the ethtool interface for tun/tap devices is
-> > artificial. The default speed is 10Mbit. Virtual interfaces are often
-> > faster than this nowadays, so the observed bandwidth may exceed the
-> > available bandwidth. This patch allows an administrator to change the
-> > available bandwidth as reported by ethtool.
-> > 
-> > Signed-off-by: Helmut Grohne <h.grohne@cygnusnetworks.de>
-> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> > 
-> > ---
-> > v2 - allow setting duplex as well, fix patch formatting
-> 
-> It's logically full duplex so this doesn't make sense to me.
-> 
-> >      ignore other settings in set
-> [...]
-> 
-> No, please never do that in ethtool_ops::set_settings.  Setting
-> unsupported values is an error.
+Ah, thanks. Leftover from a more complex driver_data with pointers to
+these functions. I'll fix and resubmit this patch alone as V3.
+Otherwise, no objections?
 
-Almost every hardware driver out there allows mucking with settings
-that it doesn't care about (like transceiver and port). Why be picky now?
+-- 
+Darren Hart
+Intel Open Source Technology Center
+Yocto Project - Linux Kernel
