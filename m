@@ -1,132 +1,159 @@
-From: Jason Cooper <jason@lakedaemon.net>
-Subject: Re: [PATCH v6 0/7] ARM: mvebu: switch to DT probed mv643xx_eth
-Date: Thu, 25 Jul 2013 13:11:06 -0400
-Message-ID: <20130725171106.GM23879@titan.lakedaemon.net>
-References: <1372762824-12202-1-git-send-email-sebastian.hesselbarth@gmail.com>
+From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
+Subject: [PATCH] fib_rules/fib6rules: add minimum prefix length
+Date: Thu, 25 Jul 2013 19:43:26 +0200
+Message-ID: <20130725174326.GY10216@zirkel.wertarbyte.de>
+References: <20130725162931.GX10216@zirkel.wertarbyte.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Russell King <linux@arm.linux.org.uk>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zirkel.wertarbyte.de ([188.40.44.137]:37297 "EHLO
+	zirkel.wertarbyte.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756228Ab3GYRn1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 13:43:27 -0400
+Received: from stefan by zirkel.wertarbyte.de with local (Exim 4.72)
+	(envelope-from <stefan.tomanek@wertarbyte.de>)
+	id 1V2PZW-0002lj-Ka
+	for netdev@vger.kernel.org; Thu, 25 Jul 2013 19:43:26 +0200
 Content-Disposition: inline
-In-Reply-To: <1372762824-12202-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20130725162931.GX10216@zirkel.wertarbyte.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 02, 2013 at 01:00:17PM +0200, Sebastian Hesselbarth wrote:
-> This patch set converts Marvell Dove, Kirkwood, and Orion5x DT enabled
-> boards to probe mv643xx_eth by DT. The corresponding DT support patches
-> for mv643xx_eth driver have already been taked by David Miller and are
-> available in next-20130701. This only contains the ARM part of
-> mv643xx_eth DT support patches and therefore patch counting is
-> continued as v6 with respect to the combined patch set.
-> 
-> The first three patches add nodes for ethernet-controller, mdio-bus,
-> and ethernet PHYs found on the three SoCs and their boards.
-> 
-> The last four patches convert DT boards for each SoC from platform_device
-> registration to DT based probing by removing the corresponding calls.
-> For Kirkwood this makes almost all DT board setup (except board-dnskw)
-> obsolete. Therefore, patch 5 removes board setup files, Kconfig, Makefile,
-> and defconfig entries for those boards.
-> 
-> This patch set has been tested on Marvell Dove, and compile-tested for
-> Kirkwood and Orion5x defconfig on top of next-20130701 with some fixes
-> sent earlier applied (DMA_MEMSET fixes and missing include on edmini_v2).
-> 
-> netdev is added on Cc for completeness, this is all Marvell related and
-> should go through Jason Cooper's branch if there are no objections.
-> 
-> Sebastian Hesselbarth (7):
->   ARM: dove: add gigabit ethernet and mvmdio device tree nodes
->   ARM: kirkwood: add gigabit ethernet and mvmdio device tree nodes
->   ARM: orion5x: add gigabit ethernet and mvmdio device tree nodes
->   ARM: dove: remove legacy mv643xx_eth setup
->   ARM: kirkwood: remove redundant DT board files
->   ARM: kirkwood: remove legacy clk alias for mv643xx_eth
->   ARM: orion5x: remove legacy mv643xx_eth board setup
-> 
->  arch/arm/boot/dts/dove-cubox.dts                   |    7 +
->  arch/arm/boot/dts/dove.dtsi                        |   35 +++++
->  arch/arm/boot/dts/kirkwood-cloudbox.dts            |   16 ++
->  arch/arm/boot/dts/kirkwood-db.dtsi                 |   16 ++
->  arch/arm/boot/dts/kirkwood-dnskw.dtsi              |   16 ++
->  arch/arm/boot/dts/kirkwood-dockstar.dts            |   17 ++
->  arch/arm/boot/dts/kirkwood-dreamplug.dts           |   28 ++++
->  arch/arm/boot/dts/kirkwood-goflexnet.dts           |   16 ++
->  .../arm/boot/dts/kirkwood-guruplug-server-plus.dts |   30 ++++
->  arch/arm/boot/dts/kirkwood-ib62x0.dts              |   16 ++
->  arch/arm/boot/dts/kirkwood-iconnect.dts            |   16 ++
->  arch/arm/boot/dts/kirkwood-iomega_ix2_200.dts      |   24 +++
->  arch/arm/boot/dts/kirkwood-is2.dts                 |    2 +
->  arch/arm/boot/dts/kirkwood-km_kirkwood.dts         |   16 ++
->  arch/arm/boot/dts/kirkwood-lsxl.dtsi               |   28 ++++
->  arch/arm/boot/dts/kirkwood-mplcec4.dts             |   27 ++++
->  .../boot/dts/kirkwood-netgear_readynas_duo_v2.dts  |   16 ++
->  arch/arm/boot/dts/kirkwood-ns2-common.dtsi         |   16 ++
->  arch/arm/boot/dts/kirkwood-ns2.dts                 |    2 +
->  arch/arm/boot/dts/kirkwood-ns2lite.dts             |    2 +
->  arch/arm/boot/dts/kirkwood-ns2max.dts              |    2 +
->  arch/arm/boot/dts/kirkwood-ns2mini.dts             |    2 +
->  arch/arm/boot/dts/kirkwood-openblocks_a6.dts       |   16 ++
->  arch/arm/boot/dts/kirkwood-sheevaplug-common.dtsi  |   16 ++
->  arch/arm/boot/dts/kirkwood-topkick.dts             |   16 ++
->  arch/arm/boot/dts/kirkwood-ts219-6281.dts          |    4 +-
->  arch/arm/boot/dts/kirkwood-ts219-6282.dts          |    4 +-
->  arch/arm/boot/dts/kirkwood-ts219.dtsi              |   16 ++
->  arch/arm/boot/dts/kirkwood.dtsi                    |   52 +++++++
->  .../dts/orion5x-lacie-ethernet-disk-mini-v2.dts    |   17 ++
->  arch/arm/boot/dts/orion5x.dtsi                     |   29 ++++
->  arch/arm/configs/kirkwood_defconfig                |   22 ---
->  arch/arm/mach-dove/board-dt.c                      |    9 -
->  arch/arm/mach-kirkwood/Kconfig                     |  156 --------------------
->  arch/arm/mach-kirkwood/Makefile                    |   23 +---
->  arch/arm/mach-kirkwood/board-db88f628x-bp.c        |   24 ---
->  arch/arm/mach-kirkwood/board-dnskw.c               |    7 -
->  arch/arm/mach-kirkwood/board-dockstar.c            |   32 ----
->  arch/arm/mach-kirkwood/board-dreamplug.c           |   35 -----
->  arch/arm/mach-kirkwood/board-dt.c                  |   86 +-----------
->  arch/arm/mach-kirkwood/board-goflexnet.c           |   34 -----
->  arch/arm/mach-kirkwood/board-guruplug.c            |   33 ----
->  arch/arm/mach-kirkwood/board-ib62x0.c              |   29 ----
->  arch/arm/mach-kirkwood/board-iconnect.c            |   24 ---
->  arch/arm/mach-kirkwood/board-iomega_ix2_200.c      |   34 -----
->  arch/arm/mach-kirkwood/board-km_kirkwood.c         |   44 ------
->  arch/arm/mach-kirkwood/board-lsxl.c                |   36 -----
->  arch/arm/mach-kirkwood/board-mplcec4.c             |   35 -----
->  arch/arm/mach-kirkwood/board-ns2.c                 |   35 -----
->  arch/arm/mach-kirkwood/board-openblocks_a6.c       |   26 ----
->  arch/arm/mach-kirkwood/board-readynas.c            |   27 ----
->  arch/arm/mach-kirkwood/board-sheevaplug.c          |   27 ----
->  arch/arm/mach-kirkwood/board-ts219.c               |   40 -----
->  arch/arm/mach-kirkwood/board-usi_topkick.c         |   29 ----
->  arch/arm/mach-orion5x/edmini_v2-setup.c            |   10 --
->  55 files changed, 520 insertions(+), 857 deletions(-)
->  delete mode 100644 arch/arm/mach-kirkwood/board-db88f628x-bp.c
->  delete mode 100644 arch/arm/mach-kirkwood/board-dockstar.c
->  delete mode 100644 arch/arm/mach-kirkwood/board-dreamplug.c
->  delete mode 100644 arch/arm/mach-kirkwood/board-goflexnet.c
->  delete mode 100644 arch/arm/mach-kirkwood/board-guruplug.c
->  delete mode 100644 arch/arm/mach-kirkwood/board-ib62x0.c
->  delete mode 100644 arch/arm/mach-kirkwood/board-iconnect.c
->  delete mode 100644 arch/arm/mach-kirkwood/board-iomega_ix2_200.c
->  delete mode 100644 arch/arm/mach-kirkwood/board-km_kirkwood.c
->  delete mode 100644 arch/arm/mach-kirkwood/board-lsxl.c
->  delete mode 100644 arch/arm/mach-kirkwood/board-mplcec4.c
->  delete mode 100644 arch/arm/mach-kirkwood/board-ns2.c
->  delete mode 100644 arch/arm/mach-kirkwood/board-openblocks_a6.c
->  delete mode 100644 arch/arm/mach-kirkwood/board-readynas.c
->  delete mode 100644 arch/arm/mach-kirkwood/board-sheevaplug.c
->  delete mode 100644 arch/arm/mach-kirkwood/board-ts219.c
->  delete mode 100644 arch/arm/mach-kirkwood/board-usi_topkick.c
+This change adds a minimum prefix length to the structures of routing rules.
+If a rule is added with a minimum prefix length >0, only routes meeting this
+threshold will be considered. Any other (more general) routing table entries
+will be ignored.
 
-Applied whole series to mvebu/boards (v7 of #2 and #5)
+When configuring a system with multiple network uplinks and default routes, it
+is often convinient to reference the main routing table multiple times - but
+omitting the default route. Using this patch and a modified "ip" utility, this
+can be achieved by using the following command sequence:
 
-thx,
+  $ ip route add table secuplink default via 10.42.23.1
 
-Jason.
+  $ ip rule add pref 100            table main prefixlength 1
+  $ ip rule add pref 150 fwmark 0xA table secuplink
+
+With this setup, packets marked 0xA will be processed by the additional routing
+table "secuplink", but only if no suitable route in the main routing table can
+be found. By using a minimal prefixlength of 1, the default route (/0) of the
+table "main" is hidden to packets processed by rule 100; packets traveling to
+destinations with more specific routing entries are processed as usual.
+
+Signed-off-by: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
+---
+ include/net/fib_rules.h        |    2 ++
+ include/uapi/linux/fib_rules.h |    2 +-
+ net/core/fib_rules.c           |    5 +++++
+ net/ipv4/fib_rules.c           |   11 ++++++++++-
+ net/ipv6/fib6_rules.c          |    8 ++++++++
+ 5 files changed, 26 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+index e361f48..70f020f 100644
+--- a/include/net/fib_rules.h
++++ b/include/net/fib_rules.h
+@@ -18,6 +18,7 @@ struct fib_rule {
+ 	u32			pref;
+ 	u32			flags;
+ 	u32			table;
++	u8			table_prefixlen_min;
+ 	u8			action;
+ 	u32			target;
+ 	struct fib_rule __rcu	*ctarget;
+@@ -80,6 +81,7 @@ struct fib_rules_ops {
+ 	[FRA_FWMARK]	= { .type = NLA_U32 }, \
+ 	[FRA_FWMASK]	= { .type = NLA_U32 }, \
+ 	[FRA_TABLE]     = { .type = NLA_U32 }, \
++	[FRA_TABLE_PREFIXLEN_MIN] = { .type = NLA_U8 }, \
+ 	[FRA_GOTO]	= { .type = NLA_U32 }
+ 
+ static inline void fib_rule_get(struct fib_rule *rule)
+diff --git a/include/uapi/linux/fib_rules.h b/include/uapi/linux/fib_rules.h
+index 51da65b..59cd31b 100644
+--- a/include/uapi/linux/fib_rules.h
++++ b/include/uapi/linux/fib_rules.h
+@@ -45,7 +45,7 @@ enum {
+ 	FRA_FLOW,	/* flow/class id */
+ 	FRA_UNUSED6,
+ 	FRA_UNUSED7,
+-	FRA_UNUSED8,
++	FRA_TABLE_PREFIXLEN_MIN,
+ 	FRA_TABLE,	/* Extended table id */
+ 	FRA_FWMASK,	/* mask for netfilter mark */
+ 	FRA_OIFNAME,
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 2173544..8a15621 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -337,6 +337,8 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
+ 	rule->action = frh->action;
+ 	rule->flags = frh->flags;
+ 	rule->table = frh_get_table(frh, tb);
++	if (tb[FRA_TABLE_PREFIXLEN_MIN])
++		rule->table_prefixlen_min = nla_get_u8(tb[FRA_TABLE_PREFIXLEN_MIN]);
+ 
+ 	if (!tb[FRA_PRIORITY] && ops->default_pref)
+ 		rule->pref = ops->default_pref(ops);
+@@ -523,6 +525,7 @@ static inline size_t fib_rule_nlmsg_size(struct fib_rules_ops *ops,
+ 			 + nla_total_size(IFNAMSIZ) /* FRA_OIFNAME */
+ 			 + nla_total_size(4) /* FRA_PRIORITY */
+ 			 + nla_total_size(4) /* FRA_TABLE */
++			 + nla_total_size(1) /* FRA_TABLE_PREFIXLEN_MIN */
+ 			 + nla_total_size(4) /* FRA_FWMARK */
+ 			 + nla_total_size(4); /* FRA_FWMASK */
+ 
+@@ -548,6 +551,8 @@ static int fib_nl_fill_rule(struct sk_buff *skb, struct fib_rule *rule,
+ 	frh->table = rule->table;
+ 	if (nla_put_u32(skb, FRA_TABLE, rule->table))
+ 		goto nla_put_failure;
++	if (nla_put_u8(skb, FRA_TABLE_PREFIXLEN_MIN, rule->table_prefixlen_min))
++		goto nla_put_failure;
+ 	frh->res1 = 0;
+ 	frh->res2 = 0;
+ 	frh->action = rule->action;
+diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+index 26aa65d..94e9051 100644
+--- a/net/ipv4/fib_rules.c
++++ b/net/ipv4/fib_rules.c
+@@ -95,8 +95,17 @@ static int fib4_rule_action(struct fib_rule *rule, struct flowi *flp,
+ 		goto errout;
+ 
+ 	err = fib_table_lookup(tbl, &flp->u.ip4, (struct fib_result *) arg->result, arg->flags);
+-	if (err > 0)
++	if (err > 0) {
+ 		err = -EAGAIN;
++		goto errout;
++	}
++	/* do not accept result if the route does not meet the required prefix length */
++	if (arg->result) {
++		if (((struct fib_result *)arg->result)->prefixlen < rule->table_prefixlen_min) {
++			err = -EAGAIN;
++			goto errout;
++		}
++	}
+ errout:
+ 	return err;
+ }
+diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
+index 2e1a432..d2fa795 100644
+--- a/net/ipv6/fib6_rules.c
++++ b/net/ipv6/fib6_rules.c
+@@ -79,6 +79,14 @@ static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
+ 		struct fib6_rule *r = (struct fib6_rule *)rule;
+ 
+ 		/*
++		 * do not accept result if the route does
++		 * not meet the required prefix length
++		 */
++		if (rt->rt6i_dst.plen < rule->table_prefixlen_min) {
++			goto again;
++		}
++
++		/*
+ 		 * If we need to find a source address for this traffic,
+ 		 * we check the result if it meets requirement of the rule.
+ 		 */
+-- 
+1.7.10.4
