@@ -1,70 +1,66 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [patch net-next v4 4/4] igb/igbvf: implement ndo_get_phys_port_id
-Date: Thu, 25 Jul 2013 09:17:35 -0700
-Message-ID: <51F14F9F.1010703@intel.com>
-References: <1374757385-10875-1-git-send-email-jiri@resnulli.us> <1374757385-10875-5-git-send-email-jiri@resnulli.us>
+From: tedheadster <tedheadster@gmail.com>
+Subject: Re: [PATCH] Change request_irq() to use struct net_device *dev->name
+Date: Thu, 25 Jul 2013 11:20:24 -0400
+Message-ID: <CAP8WD_aKqqB4Fb4Vadj_AJ4ET5gxd+EkaCMMVvBxxqNwDjpBGg@mail.gmail.com>
+References: <1374646199-9398-1-git-send-email-pshah.mumbai@gmail.com>
+	<51F07489.7010404@gmail.com>
+	<CAD6i1fJO3geZ0vkHLsJEd+KedHkpC1OZVTJJskU2RAAKYBhhJQ@mail.gmail.com>
+	<CAD6i1f+NYu7rcQwF-TXk4+OdjPNZwMKxxjJ9YA_+v9B6uPYq+g@mail.gmail.com>
+	<CAHp75VdouA2w5WjBPJ2cX8AKvTeCNrj6pM+3SS5DzU+ARM5M3Q@mail.gmail.com>
+Reply-To: whiteheadm@acm.org
 Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============1997288843=="
+Cc: kernel-mentors@selenic.com, Ryan Mallon <rmallon@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andy Shevchenko <andy.shevchenko@gmail.com>
+Return-path: <kernel-mentors-bounces@selenic.com>
+In-Reply-To: <CAHp75VdouA2w5WjBPJ2cX8AKvTeCNrj6pM+3SS5DzU+ARM5M3Q@mail.gmail.com>
+List-Unsubscribe: <http://selenic.com/mailman/options/kernel-mentors>,
+	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
+List-Archive: <http://selenic.com/pipermail/kernel-mentors>
+List-Post: <mailto:kernel-mentors@selenic.com>
+List-Help: <mailto:kernel-mentors-request@selenic.com?subject=help>
+List-Subscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
+	<mailto:kernel-mentors-request@selenic.com?subject=subscribe>
+Sender: kernel-mentors-bounces@selenic.com
+Errors-To: kernel-mentors-bounces@selenic.com
+List-Id: netdev.vger.kernel.org
+
+--===============1997288843==
+Content-Type: multipart/alternative; boundary=089e0122e922b6237604e25790c4
+
+--089e0122e922b6237604e25790c4
 Content-Type: text/plain; charset=ISO-8859-1
+
+Andy,
+  I can't find a single example of a devres_* call in
+drivers/net/ethernet/*. Does any networking code exist that we can look at
+as an example for conversion to the devres API?
+
+- Matthew
+
+--089e0122e922b6237604e25790c4
+Content-Type: text/html; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+<div dir=3D"ltr"><div><div>Andy,<br></div>=A0 I can&#39;t find a single exa=
+mple of a devres_* call in drivers/net/ethernet/*. Does any networking code=
+ exist that we can look at as an example for conversion to the devres API?<=
+br>
+<br></div>- Matthew<br><br></div>
+
+--089e0122e922b6237604e25790c4--
+
+--===============1997288843==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	stephen@networkplumber.org, Narendra_K@Dell.com,
-	bhutchings@solarflare.com, john.r.fastabend@intel.com,
-	or.gerlitz@gmail.com, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	gregory.v.rose@intel.com, peter.p.waskiewicz.jr@intel.com,
-	john.ronciak@intel.com, tushar.n.dave@intel.com,
-	matthew.vick@intel.com, mitch.a.williams@intel.com,
-	vyasevic@redhat.com, amwang@redhat.com, johannes@sipsolutions.net
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:41678 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753924Ab3GYQRg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jul 2013 12:17:36 -0400
-In-Reply-To: <1374757385-10875-5-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
 
-On 07/25/2013 06:03 AM, Jiri Pirko wrote:
-> @@ -1982,6 +2001,21 @@ static s32 igb_init_i2c(struct igb_adapter *adapter)
->  	return status;
->  }
->  
-> +static void igb_compute_phys_port_id(struct igb_adapter *adapter)
-> +{
-> +	adapter->phys_port_id = *((u32 *) adapter->netdev->dev_addr);
-> +	adapter->phys_port_id ^= *((u32 *) adapter->netdev->dev_addr + 4);
-> +	adapter->phys_port_id ^= (long) adapter;
-> +	adapter->phys_port_id ^= (long) adapter->hw.hw_addr;
-> +	adapter->phys_port_id ^= (long) adapter->hw.flash_address;
-> +	adapter->phys_port_id ^= (u32) adapter->hw.io_base;
-> +	adapter->phys_port_id ^= adapter->hw.device_id;
-> +	adapter->phys_port_id ^= adapter->hw.subsystem_vendor_id;
-> +	adapter->phys_port_id ^= adapter->hw.subsystem_device_id;
-> +	adapter->phys_port_id ^= adapter->hw.vendor_id;
-> +	adapter->phys_port_id ^= adapter->hw.revision_id;
-> +}
-> +
->  /**
->   *  igb_probe - Device Initialization Routine
->   *  @pdev: PCI device information struct
+_______________________________________________
+Kernel-mentors mailing list
+Kernel-mentors@selenic.com
+http://selenic.com/mailman/listinfo/kernel-mentors
 
-I really think this bit here should be standardized and made available
-to all drivers.  If nothing else maybe you should define a function that
-takes in the netdev and the pci_dev and computes the hash based on those
-values.  Otherwise you are going to end up with each driver doing its'
-own version of this function and that will make things rather messy.
-
-Also the port_id has a high likelihood of most fields canceling each
-other out.  For example, I'm not sure if you really want to try and find
-the offset of the hw_addr within the adapter structure but that is
-likely what you are getting by casting the adapter pointer and he
-hw_addr arrary as longs and XORing them together.  From what I can tell
-the only fields that are providing any real value in distinguishing
-between ports on a 4 port adapter would be the dev_addr, flash_address,
-and io_base.
-
-Thanks,
-
-Alex
+--===============1997288843==--
