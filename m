@@ -1,47 +1,69 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH v2 net-next] net/sctp: Refactor SCTP skb checksum
- computation
-Date: Thu, 25 Jul 2013 08:08:11 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1307250804180.1718@ja.ssi.bg>
-References: <1374717125-28969-1-git-send-email-joe@wand.net.nz>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
-	pablo@netfilter.org, horms@verge.net.au, jesse@nicira.com
-To: Joe Stringer <joe@wand.net.nz>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1374717125-28969-1-git-send-email-joe@wand.net.nz>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Darren Hart <dvhart@linux.intel.com>
+Subject: [PATCH V3 net-next 0/2] pch_gbe: Add MinnowBoard support
+Date: Wed, 24 Jul 2013 22:10:07 -0700
+Message-ID: <cover.1374728627.git.dvhart@linux.intel.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+	Darren Hart <dvhart@linux.intel.com>,
+	Joe Perches <joe@perches.com>
+To: Linux Net Dev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:26521 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751106Ab3GYFKN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jul 2013 01:10:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Add support for the MinnowBoard in the pch_gbe driver. This was
+originally sent to LKML as part of the MinnowBoard support series. That
+is now partially merged and this version of the patch has been isolated
+from those changes and is now completely self-contained.
 
-	Hello,
+Thanks to everyone on Cc for their time in reviewing, the patch series
+is better for it.
 
-On Thu, 25 Jul 2013, Joe Stringer wrote:
+V2:
+  Whitespace cleanup
+  Remove trailing period in messages
+  Comment formatting (added a colon)
+  Use devm_gpio_request_one
+  Fix missing adapter->pdata NULL check in PHY
+  Use netdev style comment blocks
+  Use kernel_ulong_t for driver_data cast
+  Use unsigned for gpio and unsigned long for flags
+V3:
+  Restore /** comment start for file consistency per Joe Perches
+    following his checkpatch.pl patch
+  Make pch_gbe_phy_tx_clk_delay() static per David Miller
 
-> This patch consolidates the SCTP checksum calculation code from various
-> places to a single new function, sctp_compute_cksum(skb, offset).
-> 
-> Signed-off-by: Joe Stringer <joe@wand.net.nz>
-> ---
-> v2:
-> * Use skb->data + offset for start position of checksum calculation
-> * Fix existing bug in sctp_csum_check() where the incorrect offset was used
-> * Remove redundant variable in sctp_nat_csum()
+I have included patch 1/2 as it was also marked with "Changes Requested"
+in patchwork. Hopefully resending is the preferred method.
 
-	v2 looks good to me, thanks!
+The following changes since commit 18afa4b028b46f8b45ca64f94aefe717c297b07d:
 
-Reviewed-by: Julian Anastasov <ja@ssi.bg>
+  net: Make devnet_rename_seq static (2013-07-24 17:57:26 -0700)
 
-> ---
->  include/net/sctp/checksum.h           |   15 +++++++++++++++
->  net/netfilter/ipvs/ip_vs_proto_sctp.c |   23 +++--------------------
->  net/netfilter/nf_nat_proto_sctp.c     |    8 +-------
->  net/sctp/input.c                      |   10 +---------
->  4 files changed, 20 insertions(+), 36 deletions(-)
+are available in the git repository at:
 
-Regards
+  git://git.infradead.org/users/dvhart/linux-2.6.git minnow/net-next
+  ssh://git.infradead.org/srv/git/users/dvhart/linux-2.6.git minnow/net-next
 
---
-Julian Anastasov <ja@ssi.bg>
+and browsable here:
+
+  http://git.infradead.org/users/dvhart/linux-2.6.git/shortlog/refs/heads/minnow/net-next
+
+Darren Hart (2):
+  pch_gbe: Use PCH_GBE_PHY_REGS_LEN instead of 32
+  pch_gbe: Add MinnowBoard support
+
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    | 15 ++++
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 52 +++++++++++-
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c    | 98 ++++++++++++++++++++++
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h    |  1 +
+ 4 files changed, 165 insertions(+), 1 deletion(-)
+
+-- 
+1.8.3.1
