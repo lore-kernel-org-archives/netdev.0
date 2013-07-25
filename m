@@ -1,39 +1,38 @@
-From: "Vitaly E. Lavrov" <lve@guap.ru>
-Subject: [PATCH] veth: remove hardware checksum feature
-Date: Thu, 25 Jul 2013 21:20:16 +0400
-Message-ID: <51F15E50.8080208@guap.ru>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v2] tile: support PTP using the tilegx mPIPE (IEEE 1588)
+Date: Thu, 25 Jul 2013 19:55:42 +0200
+Message-ID: <20130725175542.GD4619@netboy>
+References: <20130724062533.GA5163@netboy>
+ <cover.1374609948.git.cmetcalf@tilera.com>
+ <77f753af79722f39c5fa77cd35adefdd1634e5d5.1374609949.git.cmetcalf@tilera.com>
+ <201307251525.r6PFP7Ox030354@farm-0012.internal.tilera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.guap.ru ([91.151.188.3]:11647 "EHLO ns1.guap.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756228Ab3GYRnm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jul 2013 13:43:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Chris Metcalf <cmetcalf@tilera.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201307251525.r6PFP7Ox030354@farm-0012.internal.tilera.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The network device VETH can't support the feature NETIF_F_HW_CSUM.
-All locally generated packets have invalid checksum.
-Wrong commit http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=8093315a91340bca52549044975d8c7f673b28a1 ( 
-kernel 3.9.0 )
+On Thu, Jul 25, 2013 at 11:19:38AM -0400, Chris Metcalf wrote:
+> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
+> ---
+> v2:
+>  - Moved Kconfig stanza to drivers/ethernet/tile/Kconfig
+>  - Clarify minimum and maximum frequency adjustments
 
-Workaround "ethtool -K vethX tx off"
+So if the requested frequency adjustment lies within the +/-30 ppm
+interval, then you return EINVAL? Maybe ERANGE would be better.
+Perhaps the driver should just round to the closest value it can
+support? Unfortunately, we don't have a way to communicate this kind
+of limitation to user space.
 
-Possible patch:
+>  - Merge PTP support into tilegx.c driver source code directly
+>  - Support SIOCSHWTSTAMP ioctl appopriately
+>  - Rebased to be the last patch in the series to simplify development
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 177f911..3db97da 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -254,7 +254,7 @@ static const struct net_device_ops veth_netdev_ops = {
-  };
+Anyhow, this looks much better to me now.
 
-  #define VETH_FEATURES (NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_ALL_TSO |    \
--                      NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_HIGHDMA | \
-+                      NETIF_F_RXCSUM | NETIF_F_HIGHDMA | \
-                        NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX | \
-                        NETIF_F_HW_VLAN_STAG_TX | NETIF_F_HW_VLAN_STAG_RX )
---
+Acked-by: Richard Cochran <richardcochran@gmail.com>
