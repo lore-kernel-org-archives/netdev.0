@@ -1,62 +1,70 @@
-From: Werner Almesberger <werner@almesberger.net>
-Subject: Re: minimum ICMPv6 message size vs. RPL's DIS
-Date: Thu, 25 Jul 2013 18:47:49 -0300
-Message-ID: <20130725214749.GD29572@ws>
-References: <20130724232852.GA29572@ws>
- <20130725061731.GA12365@order.stressinduktion.org>
- <20130725103048.GB29572@ws>
- <20130725135820.GB11592@order.stressinduktion.org>
- <20130725143223.GC29572@ws>
- <20130725184044.GC24007@order.stressinduktion.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next 2/3] tuntap: allow overriding ethtool driver
+ info
+Date: Thu, 25 Jul 2013 14:56:08 -0700
+Message-ID: <20130725145608.3c123a9a@nehalam.linuxnetplumber.net>
+References: <20130724161156.4a8cf02b@nehalam.linuxnetplumber.net>
+	<20130724161325.38404ed3@nehalam.linuxnetplumber.net>
+	<1374709687.1732.46.camel@bwh-desktop.uk.level5networks.com>
+	<20130724171617.53a48d24@nehalam.linuxnetplumber.net>
+	<1374787157.3058.28.camel@bwh-desktop.uk.level5networks.com>
+	<20130725143206.03f4975a@nehalam.linuxnetplumber.net>
+	<1374788182.3058.32.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, davem@davemloft.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Helmut Grohne <h.grohne@cygnusnetworks.de>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hydra.openmoko.org ([144.76.72.4]:47084 "EHLO
-	hydra.openmoko.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754955Ab3GYVtT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 17:49:19 -0400
-Content-Disposition: inline
-In-Reply-To: <20130725184044.GC24007@order.stressinduktion.org>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:53519 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754001Ab3GYV4L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 17:56:11 -0400
+Received: by mail-pd0-f174.google.com with SMTP id 3so1133896pdj.5
+        for <netdev@vger.kernel.org>; Thu, 25 Jul 2013 14:56:10 -0700 (PDT)
+In-Reply-To: <1374788182.3058.32.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa wrote:
-> I don't know how they could do this if they want to let other RFCs extend
-> icmp types.
+On Thu, 25 Jul 2013 22:36:22 +0100
+Ben Hutchings <bhutchings@solarflare.com> wrote:
 
-Oh, ICMPs can have padding. That's used to enforce "nice" alignment.
-Even RFC 6550 (RPL) has that. For example, you could simply pad the
-troublesome DIS, message which is
+> On Thu, 2013-07-25 at 14:32 -0700, Stephen Hemminger wrote:
+> > On Thu, 25 Jul 2013 22:19:17 +0100
+> > Ben Hutchings <bhutchings@solarflare.com> wrote:
+> > 
+> > > On Wed, 2013-07-24 at 17:16 -0700, Stephen Hemminger wrote:
+> > > > On Thu, 25 Jul 2013 00:48:07 +0100
+> > > > Ben Hutchings <bhutchings@solarflare.com> wrote:
+> > > > 
+> > > > > On Wed, 2013-07-24 at 16:13 -0700, Stephen Hemminger wrote:
+> > > > > > This patch adds new ioctl to allow setting the ethtool information
+> > > > > > returned by the TUN device. This is useful when using tun device as a surrogate
+> > > > > > for hardware or other software emulation.
+> > > > > 
+> > > > > I don't like this idea.  Which tools are you trying to fool?  How does
+> > > > > this work when you don't implement any driver-specific behaviour (e.g.
+> > > > > SIOCDEVPRIVATE) they expect?
+> > > > 
+> > > > We use surrogate interfaces in user mode application and want to
+> > > > display different information for these than the normal TUN device.
+> > > 
+> > > What is the problem that can't be solved purely in userland?
+> > > 
+> > > Ben.
+> > > 
+> > 
+> > There applications (like SNMP) that use ethtool info.
+> 
+> Huh, I never expected they would record the driver and version.  So you
+> want them to report the userland software name and version?  I can sort
+> of see how this might be useful as part of a test harness, but I would
+> hate to see this get used in production.  Users ought to be able to
+> trust that 'ethtool -i' shows them the kernel driver information.
+> 
+> Ben.
+> 
 
-Offset	Value	Description
-------	-----	------------------------------------------------
-0	0x9b	ICMPv6 Type = RPL (155, section 6)
-1	0x00	ICMPv6 Code = DODAG Information Solicitation (0)
-2	0x??	Checksum
-3	0x??	(continued)
-
-4	0x00	Flags = 0 (section 6.2.1)
-5	0x00	Reserved
-
-to eight bytes (i.e., four bytes of body) by adding
-
-6	0x01	Option Type = PadN (section 6.7.3)
-7	0x00	Option Length = 0
-
-But if nothing obliges the sender to do so, there's no excuse for
-Linux to expect such padding.
-
-> Yes, that could be an issue. I would be willing to accept this fallout. :)
-
-I'm kinda curious what sort of policy we have on that. The worst
-case would be that there's a bunch of 64 bit Linux machines out
-there, doing critical infrastructure things in the Internet (not an
-unlikely role, given the API in question), and their user space has
-some vulnerability if the kernel lets a "short" ICMPv6 packet
-through.
-
-Of course, "The Almesberger-Sowa Internet Meltdown of 2013" does
-have a nice ring to it, in an apocalyptic kind of way ...
-
-- Werner
+It is more the bus info.
+The user mode driver knows the PCI address of the device it is controlling.
