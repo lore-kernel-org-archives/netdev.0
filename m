@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Make devnet_rename_seq static
-Date: Wed, 24 Jul 2013 17:57:50 -0700 (PDT)
-Message-ID: <20130724.175750.726744281960412667.davem@davemloft.net>
-References: <alpine.DEB.2.02.1307231559570.4089@ionos.tec.linutronix.de>
-	<alpine.DEB.2.02.1307231612300.4089@ionos.tec.linutronix.de>
-	<1374589035.1843.1.camel@edumazet-glaptop>
+Subject: Re: [PATCH v2] net: fix comment above build_skb()
+Date: Wed, 24 Jul 2013 17:59:31 -0700 (PDT)
+Message-ID: <20130724.175931.2162372173516934293.davem@davemloft.net>
+References: <1374607359-20024-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tglx@linutronix.de, netdev@vger.kernel.org, edumazet@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	bhutchings@solarflare.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37162 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37174 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752665Ab3GYA5v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 20:57:51 -0400
-In-Reply-To: <1374589035.1843.1.camel@edumazet-glaptop>
+	with ESMTP id S1752668Ab3GYA7c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 20:59:32 -0400
+In-Reply-To: <1374607359-20024-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 23 Jul 2013 07:17:15 -0700
+From: "Florian Fainelli" <f.fainelli@gmail.com>
+Date: Tue, 23 Jul 2013 20:22:39 +0100
 
-> On Tue, 2013-07-23 at 16:13 +0200, Thomas Gleixner wrote:
->> No users outside net/core/dev.c.
->> 
->> Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
->> ---
+> build_skb() specifies that the data parameter must come from a kmalloc'd
+> area, this is only true if frag_size equals 0, because then build_skb()
+> will use kzsize(data) to figure out the actual data size. Update the
+> comment to reflect that special condition.
 > 
-> Acked-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Applied to net-next, thanks.
+Applied, thanks.
