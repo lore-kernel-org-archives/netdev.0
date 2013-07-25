@@ -1,47 +1,62 @@
-From: Andrew Collins <bsderandrew@gmail.com>
-Subject: Re: [PATCH] fib_rules: add minimum prefix length
-Date: Thu, 25 Jul 2013 15:46:58 -0600
-Message-ID: <CAKTPYJReVfF85wvpbjCF1XREoh3+wzC1baxibZNE1auexcgigA@mail.gmail.com>
-References: <20130723220221.GP10216@zirkel.wertarbyte.de>
-	<20130724021420.GA10670@order.stressinduktion.org>
-	<20130725162931.GX10216@zirkel.wertarbyte.de>
-	<20130725181712.GB24007@order.stressinduktion.org>
-	<20130725182818.GZ10216@zirkel.wertarbyte.de>
+From: Werner Almesberger <werner@almesberger.net>
+Subject: Re: minimum ICMPv6 message size vs. RPL's DIS
+Date: Thu, 25 Jul 2013 18:47:49 -0300
+Message-ID: <20130725214749.GD29572@ws>
+References: <20130724232852.GA29572@ws>
+ <20130725061731.GA12365@order.stressinduktion.org>
+ <20130725103048.GB29572@ws>
+ <20130725135820.GB11592@order.stressinduktion.org>
+ <20130725143223.GC29572@ws>
+ <20130725184044.GC24007@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f52.google.com ([209.85.212.52]:44931 "EHLO
-	mail-vb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753048Ab3GYVrD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 17:47:03 -0400
-Received: by mail-vb0-f52.google.com with SMTP id f12so787538vbg.11
-        for <netdev@vger.kernel.org>; Thu, 25 Jul 2013 14:46:59 -0700 (PDT)
-In-Reply-To: <20130725182818.GZ10216@zirkel.wertarbyte.de>
+Received: from hydra.openmoko.org ([144.76.72.4]:47084 "EHLO
+	hydra.openmoko.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754955Ab3GYVtT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 17:49:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20130725184044.GC24007@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 25, 2013 at 12:28 PM, Stefan Tomanek
-<stefan.tomanek@wertarbyte.de> wrote:
-> Dies schrieb Hannes Frederic Sowa (hannes@stressinduktion.org):
->
->> > I however did like the idea of adding IPv6 support, so I did -
->> > I'll post the new patch later on.
->>
->> Cool, thanks.
->
-> I've just completed the patch and sent it to the list, and I also placed the
-> changes in my github account, just in case anyone wants to take a quick peek:
-> https://github.com/wertarbyte/linux/compare/prefixlength
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Hannes Frederic Sowa wrote:
+> I don't know how they could do this if they want to let other RFCs extend
+> icmp types.
 
-> +  if (arg->result) { ...
+Oh, ICMPs can have padding. That's used to enforce "nice" alignment.
+Even RFC 6550 (RPL) has that. For example, you could simply pad the
+troublesome DIS, message which is
 
-This NULL check seems unnecessary (fib_table_lookup doesn't check).
+Offset	Value	Description
+------	-----	------------------------------------------------
+0	0x9b	ICMPv6 Type = RPL (155, section 6)
+1	0x00	ICMPv6 Code = DODAG Information Solicitation (0)
+2	0x??	Checksum
+3	0x??	(continued)
 
-I like the idea, but I agree with Hannes that it'd be nice to split
-this out into a fib constraint callback.
+4	0x00	Flags = 0 (section 6.2.1)
+5	0x00	Reserved
+
+to eight bytes (i.e., four bytes of body) by adding
+
+6	0x01	Option Type = PadN (section 6.7.3)
+7	0x00	Option Length = 0
+
+But if nothing obliges the sender to do so, there's no excuse for
+Linux to expect such padding.
+
+> Yes, that could be an issue. I would be willing to accept this fallout. :)
+
+I'm kinda curious what sort of policy we have on that. The worst
+case would be that there's a bunch of 64 bit Linux machines out
+there, doing critical infrastructure things in the Internet (not an
+unlikely role, given the API in question), and their user space has
+some vulnerability if the kernel lets a "short" ICMPv6 packet
+through.
+
+Of course, "The Almesberger-Sowa Internet Meltdown of 2013" does
+have a nice ring to it, in an apocalyptic kind of way ...
+
+- Werner
