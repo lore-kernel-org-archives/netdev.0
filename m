@@ -1,58 +1,34 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [patch -mainline] af_key: more info leaks in pfkey messages
-Date: Thu, 25 Jul 2013 09:32:06 +0200
-Message-ID: <20130725073205.GQ3109@secunet.com>
-References: <20130724103956.GA30345@elgon.mountain>
+From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [PATCH 0/2] USBNET: max rx/tx qlen change
+Date: Thu, 25 Jul 2013 09:38:23 +0200
+Message-ID: <1374737903.4060.15.camel@linux-fkkt.site>
+References: <1374731274-27415-1-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mathias Krause <minipli@googlemail.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:58140 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753127Ab3GYHcL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jul 2013 03:32:11 -0400
-Content-Disposition: inline
-In-Reply-To: <20130724103956.GA30345@elgon.mountain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1374731274-27415-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 24, 2013 at 01:39:57PM +0300, Dan Carpenter wrote:
-> This is inspired by a5cc68f3d6 "af_key: fix info leaks in notify
-> messages".  There are some struct members which don't get initialized
-> and could disclose small amounts of private information.
+On Thu, 2013-07-25 at 13:47 +0800, Ming Lei wrote:
+> Hi,
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> ---
-> I'm at the "monkey see, monkey do" level of understanding this code so
-> let me know if I've missed something.
-> 
-> diff --git a/net/key/af_key.c b/net/key/af_key.c
-> index 456b262..e939d32 100644
-> --- a/net/key/af_key.c
-> +++ b/net/key/af_key.c
-> @@ -2081,6 +2081,7 @@ static int pfkey_xfrm_policy2msg(struct sk_buff *skb, const struct xfrm_policy *
->  			pol->sadb_x_policy_type = IPSEC_POLICY_NONE;
->  	}
->  	pol->sadb_x_policy_dir = dir+1;
-> +	pol->sadb_x_policy_reserved = 0;
->  	pol->sadb_x_policy_id = xp->index;
->  	pol->sadb_x_policy_priority = xp->priority;
->  
-> @@ -3137,7 +3138,9 @@ static int pfkey_send_acquire(struct xfrm_state *x, struct xfrm_tmpl *t, struct
->  	pol->sadb_x_policy_exttype = SADB_X_EXT_POLICY;
->  	pol->sadb_x_policy_type = IPSEC_POLICY_IPSEC;
->  	pol->sadb_x_policy_dir = XFRM_POLICY_OUT + 1;
-> +	pol->sadb_x_policy_reserved = 0;
->  	pol->sadb_x_policy_id = xp->index;
-> +	pol->sadb_x_policy_priority = 0;
+> There are two patches on computing max rx/tx qlen, and fix one
+> performance problem on USB3 NIC.
 
-Userspace seems not to care, but the correct setting would be
+I am afraid bisectability on SS is impaired. Otherwise
+this looks good.
 
-pol->sadb_x_policy_priority = xp->priority;
+	Regards
+		Oliver
 
-So maybe we should send the right priority to userspace, just for
-the case that anyone is interested in it.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
