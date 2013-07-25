@@ -1,111 +1,166 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH v2 1/3] net/usb/r815x: replace USB buffer from stack to DMA-able
-Date: Thu, 25 Jul 2013 15:59:02 +0800
-Message-ID: <1374739144-732-1-git-send-email-hayeswang@realtek.com>
+Subject: [PATCH v2 3/3] net/usb/r8152: adjust relative ocp function
+Date: Thu, 25 Jul 2013 15:59:04 +0800
+Message-ID: <1374739144-732-3-git-send-email-hayeswang@realtek.com>
 References: <20130724.174947.452272360732442554.davem@davemloft.net>
+ <1374739144-732-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
 To: <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130724.174947.452272360732442554.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([60.250.210.242]:42024 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755160Ab3GYH7s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 03:59:48 -0400
+In-Reply-To: <1374739144-732-1-git-send-email-hayeswang@realtek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some USB buffers use stack which may not be DMA-able.
-Use the buffers from kmalloc to replace those one.
+ - fix the conversion between cpu and __le32
+ - replace some pla_ocp and usb_ocp functions with generic_ocp function
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r815x.c | 44 +++++++++++++++++++++++++++-----------------
- 1 file changed, 27 insertions(+), 17 deletions(-)
+ drivers/net/usb/r8152.c | 66 +++++++++++++++++--------------------------------
+ 1 file changed, 23 insertions(+), 43 deletions(-)
 
-diff --git a/drivers/net/usb/r815x.c b/drivers/net/usb/r815x.c
-index 8523922..e9b99ba 100644
---- a/drivers/net/usb/r815x.c
-+++ b/drivers/net/usb/r815x.c
-@@ -24,34 +24,43 @@
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index ef033ab..11c51f2 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -514,37 +514,31 @@ int usb_ocp_write(struct r8152 *tp, u16 index, u16 byteen, u16 size, void *data)
  
- static int pla_read_word(struct usb_device *udev, u16 index)
+ static u32 ocp_read_dword(struct r8152 *tp, u16 type, u16 index)
  {
--	int data, ret;
-+	int ret;
- 	u8 shift = index & 2;
--	__le32 ocp_data;
-+	__le32 *tmp;
+-	u32 data;
++	__le32 data;
+ 
+-	if (type == MCU_TYPE_PLA)
+-		pla_ocp_read(tp, index, sizeof(data), &data);
+-	else
+-		usb_ocp_read(tp, index, sizeof(data), &data);
++	generic_ocp_read(tp, index, sizeof(data), &data, type);
+ 
+ 	return __le32_to_cpu(data);
+ }
+ 
+ static void ocp_write_dword(struct r8152 *tp, u16 type, u16 index, u32 data)
+ {
+-	if (type == MCU_TYPE_PLA)
+-		pla_ocp_write(tp, index, BYTE_EN_DWORD, sizeof(data), &data);
+-	else
+-		usb_ocp_write(tp, index, BYTE_EN_DWORD, sizeof(data), &data);
++	__le32 tmp = __cpu_to_le32(data);
 +
-+	tmp = kmalloc(sizeof(*tmp), GFP_KERNEL);
-+	if (!tmp)
-+		return -ENOMEM;
++	generic_ocp_write(tp, index, BYTE_EN_DWORD, sizeof(tmp), &tmp, type);
+ }
+ 
+ static u16 ocp_read_word(struct r8152 *tp, u16 type, u16 index)
+ {
+ 	u32 data;
++	__le32 tmp;
+ 	u8 shift = index & 2;
  
  	index &= ~3;
  
- 	ret = usb_control_msg(udev, usb_rcvctrlpipe(udev, 0),
- 			      RTL815x_REQ_GET_REGS, RTL815x_REQT_READ,
--			      index, MCU_TYPE_PLA, &ocp_data, sizeof(ocp_data),
--			      500);
-+			      index, MCU_TYPE_PLA, tmp, sizeof(*tmp), 500);
- 	if (ret < 0)
--		return ret;
-+		goto out2;
+-	if (type == MCU_TYPE_PLA)
+-		pla_ocp_read(tp, index, sizeof(data), &data);
+-	else
+-		usb_ocp_read(tp, index, sizeof(data), &data);
++	generic_ocp_read(tp, index, sizeof(tmp), &tmp, type);
  
--	data = __le32_to_cpu(ocp_data);
--	data >>= (shift * 8);
--	data &= 0xffff;
-+	ret = __le32_to_cpu(*tmp);
-+	ret >>= (shift * 8);
-+	ret &= 0xffff;
+-	data = __le32_to_cpu(data);
++	data = __le32_to_cpu(tmp);
+ 	data >>= (shift * 8);
+ 	data &= 0xffff;
  
--	return data;
-+out2:
-+	kfree(tmp);
-+	return ret;
- }
+@@ -553,7 +547,8 @@ static u16 ocp_read_word(struct r8152 *tp, u16 type, u16 index)
  
- static int pla_write_word(struct usb_device *udev, u16 index, u32 data)
+ static void ocp_write_word(struct r8152 *tp, u16 type, u16 index, u32 data)
  {
--	__le32 ocp_data;
-+	__le32 *tmp;
- 	u32 mask = 0xffff;
+-	u32 tmp, mask = 0xffff;
++	u32 mask = 0xffff;
++	__le32 tmp;
  	u16 byen = BYTE_EN_WORD;
  	u8 shift = index & 2;
- 	int ret;
  
-+	tmp = kmalloc(sizeof(*tmp), GFP_KERNEL);
-+	if (!tmp)
-+		return -ENOMEM;
-+
- 	data &= mask;
+@@ -566,34 +561,25 @@ static void ocp_write_word(struct r8152 *tp, u16 type, u16 index, u32 data)
+ 		index &= ~3;
+ 	}
  
- 	if (shift) {
-@@ -63,19 +72,20 @@ static int pla_write_word(struct usb_device *udev, u16 index, u32 data)
+-	if (type == MCU_TYPE_PLA)
+-		pla_ocp_read(tp, index, sizeof(tmp), &tmp);
+-	else
+-		usb_ocp_read(tp, index, sizeof(tmp), &tmp);
++	generic_ocp_read(tp, index, sizeof(tmp), &tmp, type);
  
- 	ret = usb_control_msg(udev, usb_rcvctrlpipe(udev, 0),
- 			      RTL815x_REQ_GET_REGS, RTL815x_REQT_READ,
--			      index, MCU_TYPE_PLA, &ocp_data, sizeof(ocp_data),
--			      500);
-+			      index, MCU_TYPE_PLA, tmp, sizeof(*tmp), 500);
- 	if (ret < 0)
--		return ret;
-+		goto out3;
+-	tmp = __le32_to_cpu(tmp) & ~mask;
+-	tmp |= data;
+-	tmp = __cpu_to_le32(tmp);
++	data |= __le32_to_cpu(tmp) & ~mask;
++	tmp = __cpu_to_le32(data);
  
--	data |= __le32_to_cpu(ocp_data) & ~mask;
--	ocp_data = __cpu_to_le32(data);
-+	data |= __le32_to_cpu(*tmp) & ~mask;
-+	*tmp = __cpu_to_le32(data);
- 
- 	ret = usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
- 			      RTL815x_REQ_SET_REGS, RTL815x_REQT_WRITE,
--			      index, MCU_TYPE_PLA | byen, &ocp_data,
--			      sizeof(ocp_data), 500);
-+			      index, MCU_TYPE_PLA | byen, tmp, sizeof(*tmp),
-+			      500);
- 
-+out3:
-+	kfree(tmp);
- 	return ret;
+-	if (type == MCU_TYPE_PLA)
+-		pla_ocp_write(tp, index, byen, sizeof(tmp), &tmp);
+-	else
+-		usb_ocp_write(tp, index, byen, sizeof(tmp), &tmp);
++	generic_ocp_write(tp, index, byen, sizeof(tmp), &tmp, type);
  }
  
+ static u8 ocp_read_byte(struct r8152 *tp, u16 type, u16 index)
+ {
+ 	u32 data;
++	__le32 tmp;
+ 	u8 shift = index & 3;
+ 
+ 	index &= ~3;
+ 
+-	if (type == MCU_TYPE_PLA)
+-		pla_ocp_read(tp, index, sizeof(data), &data);
+-	else
+-		usb_ocp_read(tp, index, sizeof(data), &data);
++	generic_ocp_read(tp, index, sizeof(tmp), &tmp, type);
+ 
+-	data = __le32_to_cpu(data);
++	data = __le32_to_cpu(tmp);
+ 	data >>= (shift * 8);
+ 	data &= 0xff;
+ 
+@@ -602,7 +588,8 @@ static u8 ocp_read_byte(struct r8152 *tp, u16 type, u16 index)
+ 
+ static void ocp_write_byte(struct r8152 *tp, u16 type, u16 index, u32 data)
+ {
+-	u32 tmp, mask = 0xff;
++	u32 mask = 0xff;
++	__le32 tmp;
+ 	u16 byen = BYTE_EN_BYTE;
+ 	u8 shift = index & 3;
+ 
+@@ -615,19 +602,12 @@ static void ocp_write_byte(struct r8152 *tp, u16 type, u16 index, u32 data)
+ 		index &= ~3;
+ 	}
+ 
+-	if (type == MCU_TYPE_PLA)
+-		pla_ocp_read(tp, index, sizeof(tmp), &tmp);
+-	else
+-		usb_ocp_read(tp, index, sizeof(tmp), &tmp);
++	generic_ocp_read(tp, index, sizeof(tmp), &tmp, type);
+ 
+-	tmp = __le32_to_cpu(tmp) & ~mask;
+-	tmp |= data;
+-	tmp = __cpu_to_le32(tmp);
++	data |= __le32_to_cpu(tmp) & ~mask;
++	tmp = __cpu_to_le32(data);
+ 
+-	if (type == MCU_TYPE_PLA)
+-		pla_ocp_write(tp, index, byen, sizeof(tmp), &tmp);
+-	else
+-		usb_ocp_write(tp, index, byen, sizeof(tmp), &tmp);
++	generic_ocp_write(tp, index, byen, sizeof(tmp), &tmp, type);
+ }
+ 
+ static void r8152_mdio_write(struct r8152 *tp, u32 reg_addr, u32 value)
 -- 
 1.8.3.1
