@@ -1,114 +1,122 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [patch net-next v4 4/4] igb/igbvf: implement
- ndo_get_phys_port_id
-Date: Thu, 25 Jul 2013 19:23:00 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A077466D9D6@ORSMSX108.amr.corp.intel.com>
-References: <1374757385-10875-1-git-send-email-jiri@resnulli.us>
-   <1374757385-10875-5-git-send-email-jiri@resnulli.us>
-   <51F14F9F.1010703@intel.com>
-  <1374770653.3058.9.camel@bwh-desktop.uk.level5networks.com>
-  <51F167A6.808@intel.com>
- <1374778266.3058.15.camel@bwh-desktop.uk.level5networks.com>
- <51F1769E.3050906@intel.com>
+From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@web.de>
+Subject: Re: [PATCHv2] bridge: disable snooping if there is no querier
+Date: Thu, 25 Jul 2013 21:31:26 +0200
+Message-ID: <20130725193126.GC11914@Linus-Debian>
+References: <1374757046-12463-1-git-send-email-linus.luessing@web.de>
+ <1374760580-12920-1-git-send-email-linus.luessing@web.de>
+ <20130725090140.658f33f7@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Narendra_K@Dell.com" <Narendra_K@Dell.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	"or.gerlitz@gmail.com" <or.gerlitz@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Dave, Tushar N" <tushar.n.dave@intel.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	"amwang@redhat.com" <
-To: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bridge@lists.linux-foundation.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Cong Wang <amwang@redhat.com>,
+	Adam Baker <linux@baker-net.org.uk>,
+	Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@web.de>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:55304 "EHLO mga02.intel.com"
+Received: from mout.web.de ([212.227.15.3]:49770 "EHLO mout.web.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756933Ab3GYTXg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jul 2013 15:23:36 -0400
-In-Reply-To: <51F1769E.3050906@intel.com>
-Content-Language: en-US
+	id S1756212Ab3GYTbl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jul 2013 15:31:41 -0400
+Received: from localhost ([46.246.33.183]) by smtp.web.de (mrweb103) with
+ ESMTPSA (Nemesis) id 0MRlED-1UdqwR2SfR-00Sx4E for <netdev@vger.kernel.org>;
+ Thu, 25 Jul 2013 21:31:40 +0200
+Content-Disposition: inline
+In-Reply-To: <20130725090140.658f33f7@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBEdXljaywgQWxleGFuZGVyIEgN
-Cj4gU2VudDogVGh1cnNkYXksIEp1bHkgMjUsIDIwMTMgMTI6MDQgUE0NCj4gVG86IEJlbiBIdXRj
-aGluZ3MNCj4gQ2M6IEppcmkgUGlya287IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGRhdmVtQGRh
-dmVtbG9mdC5uZXQ7DQo+IHN0ZXBoZW5AbmV0d29ya3BsdW1iZXIub3JnOyBOYXJlbmRyYV9LQERl
-bGwuY29tOyBGYXN0YWJlbmQsIEpvaG4gUjsNCj4gb3IuZ2VybGl0ekBnbWFpbC5jb207IEtpcnNo
-ZXIsIEplZmZyZXkgVDsgQnJhbmRlYnVyZywgSmVzc2U7IEFsbGFuLCBCcnVjZQ0KPiBXOyBXeWJv
-cm55LCBDYXJvbHluOyBTa2lkbW9yZSwgRG9uYWxkIEM7IFJvc2UsIEdyZWdvcnkgVjsgV2Fza2ll
-d2ljeiBKciwNCj4gUGV0ZXIgUDsgUm9uY2lhaywgSm9objsgRGF2ZSwgVHVzaGFyIE47IFZpY2ss
-IE1hdHRoZXc7IFdpbGxpYW1zLCBNaXRjaCBBOw0KPiB2eWFzZXZpY0ByZWRoYXQuY29tOyBhbXdh
-bmdAcmVkaGF0LmNvbTsgam9oYW5uZXNAc2lwc29sdXRpb25zLm5ldA0KPiBTdWJqZWN0OiBSZTog
-W3BhdGNoIG5ldC1uZXh0IHY0IDQvNF0gaWdiL2lnYnZmOiBpbXBsZW1lbnQNCj4gbmRvX2dldF9w
-aHlzX3BvcnRfaWQNCj4gDQo+IE9uIDA3LzI1LzIwMTMgMTE6NTEgQU0sIEJlbiBIdXRjaGluZ3Mg
-d3JvdGU6DQo+ID4gT24gVGh1LCAyMDEzLTA3LTI1IGF0IDExOjAwIC0wNzAwLCBBbGV4YW5kZXIg
-RHV5Y2sgd3JvdGU6DQo+ID4+IE9uIDA3LzI1LzIwMTMgMDk6NDQgQU0sIEJlbiBIdXRjaGluZ3Mg
-d3JvdGU6DQo+ID4+PiBPbiBUaHUsIDIwMTMtMDctMjUgYXQgMDk6MTcgLTA3MDAsIEFsZXhhbmRl
-ciBEdXljayB3cm90ZToNCj4gPj4+PiBPbiAwNy8yNS8yMDEzIDA2OjAzIEFNLCBKaXJpIFBpcmtv
-IHdyb3RlOg0KPiA+Pj4+PiBAQCAtMTk4Miw2ICsyMDAxLDIxIEBAIHN0YXRpYyBzMzIgaWdiX2lu
-aXRfaTJjKHN0cnVjdCBpZ2JfYWRhcHRlcg0KPiAqYWRhcHRlcikNCj4gPj4+Pj4gIAlyZXR1cm4g
-c3RhdHVzOw0KPiA+Pj4+PiAgfQ0KPiA+Pj4+Pg0KPiA+Pj4+PiArc3RhdGljIHZvaWQgaWdiX2Nv
-bXB1dGVfcGh5c19wb3J0X2lkKHN0cnVjdCBpZ2JfYWRhcHRlciAqYWRhcHRlcikNCj4gPj4+Pj4g
-K3sNCj4gPj4+Pj4gKwlhZGFwdGVyLT5waHlzX3BvcnRfaWQgPSAqKCh1MzIgKikgYWRhcHRlci0+
-bmV0ZGV2LT5kZXZfYWRkcik7DQo+ID4+Pj4+ICsJYWRhcHRlci0+cGh5c19wb3J0X2lkIF49ICoo
-KHUzMiAqKSBhZGFwdGVyLT5uZXRkZXYtPmRldl9hZGRyICsNCj4gNCk7DQo+ID4+Pj4+ICsJYWRh
-cHRlci0+cGh5c19wb3J0X2lkIF49IChsb25nKSBhZGFwdGVyOw0KPiA+Pj4+PiArCWFkYXB0ZXIt
-PnBoeXNfcG9ydF9pZCBePSAobG9uZykgYWRhcHRlci0+aHcuaHdfYWRkcjsNCj4gPj4+Pj4gKwlh
-ZGFwdGVyLT5waHlzX3BvcnRfaWQgXj0gKGxvbmcpIGFkYXB0ZXItPmh3LmZsYXNoX2FkZHJlc3M7
-DQo+ID4+Pj4+ICsJYWRhcHRlci0+cGh5c19wb3J0X2lkIF49ICh1MzIpIGFkYXB0ZXItPmh3Lmlv
-X2Jhc2U7DQo+ID4+Pj4+ICsJYWRhcHRlci0+cGh5c19wb3J0X2lkIF49IGFkYXB0ZXItPmh3LmRl
-dmljZV9pZDsNCj4gPj4+Pj4gKwlhZGFwdGVyLT5waHlzX3BvcnRfaWQgXj0gYWRhcHRlci0+aHcu
-c3Vic3lzdGVtX3ZlbmRvcl9pZDsNCj4gPj4+Pj4gKwlhZGFwdGVyLT5waHlzX3BvcnRfaWQgXj0g
-YWRhcHRlci0+aHcuc3Vic3lzdGVtX2RldmljZV9pZDsNCj4gPj4+Pj4gKwlhZGFwdGVyLT5waHlz
-X3BvcnRfaWQgXj0gYWRhcHRlci0+aHcudmVuZG9yX2lkOw0KPiA+Pj4+PiArCWFkYXB0ZXItPnBo
-eXNfcG9ydF9pZCBePSBhZGFwdGVyLT5ody5yZXZpc2lvbl9pZDsNCj4gPj4+IEkgZGlkbid0IGxv
-b2sgYXQgSmlyaSdzIHBhdGNoIGluaXRpYWxseSwgYnV0Li4uIHdoYXQncyB3cm9uZyB3aXRoDQo+
-ID4+PiB1c2luZyB0aGUgTUFDIGFkZHJlc3MgZnJvbSBOVlJBTSAoc2hvdWxkIGFscmVhZHkgYmUg
-aW4gbmV0ZGV2LQ0KPiA+cGVybV9hZGRyKT8NCj4gPj4+IFRoYXQncyB3aGF0IEknbSBleHBlY3Rp
-bmcgdG8gZG8gZm9yIHRoZSBTRkM5MDAwIGZhbWlseSBpbiBzZmMuDQo+ID4+Pg0KPiA+Pj4+PiAr
-fQ0KPiA+Pj4+PiArDQo+ID4+Pj4+ICAvKioNCj4gPj4+Pj4gICAqICBpZ2JfcHJvYmUgLSBEZXZp
-Y2UgSW5pdGlhbGl6YXRpb24gUm91dGluZQ0KPiA+Pj4+PiAgICogIEBwZGV2OiBQQ0kgZGV2aWNl
-IGluZm9ybWF0aW9uIHN0cnVjdA0KPiA+Pj4+IEkgcmVhbGx5IHRoaW5rIHRoaXMgYml0IGhlcmUg
-c2hvdWxkIGJlIHN0YW5kYXJkaXplZCBhbmQgbWFkZQ0KPiA+Pj4+IGF2YWlsYWJsZSB0byBhbGwg
-ZHJpdmVycy4NCj4gPj4+IFsuLi5dDQo+ID4+Pg0KPiA+Pj4gSSB0aGluayBpdCdzIGEgYmFkIGV4
-YW1wbGUgYW5kIHNob3VsZCBub3QgYmUgdXNlZCBpbiBhbnkgZHJpdmVycyENCj4gPj4+DQo+ID4+
-PiBCZW4uDQo+ID4+Pg0KPiA+PiBJIGFncmVlLiAgVGhhdCBpcyB3aHkgdGhlIHNlY29uZCBwYXJh
-Z3JhcGggc3RhcnRlZCBsaXN0aW5nIHdoYXQgd2FzDQo+ID4+IHdyb25nIHdpdGggdGhpcyBpbXBs
-ZW1lbnRhdGlvbi4gIFdoYXQgSSBzYWlkIHdhcyBtZWFudCBpbiB0aGUgbW9yZQ0KPiA+PiBnZW5l
-cmFsIHNlbnNlIHRoYXQgd2hhdGV2ZXIgc29sdXRpb24gc2hvdWxkIGJlIHVzZWQgc2hvdWxkIGJl
-IHRoZQ0KPiA+PiBzYW1lIGFjcm9zcyBtdWx0aXBsZSBkcml2ZXJzLCBub3QgdXAgdG8gZWFjaCBk
-cml2ZXIgdG8gY29tcHV0ZS4NCj4gPiBJIHdvdWxkIGxvdmUgdG8ga25vdyBob3cgeW91IHRoaW5r
-IHRoaXMgY2FuIGJlIGRvbmUgZ2VuZXJpY2FsbHkuICBJZg0KPiA+IGl0IGNhbiB0aGVuIHdlIGRv
-bid0IG5lZWQgdGhlIGRyaXZlciBvcGVyYXRpb24gYXQgYWxsLg0KPiA+DQo+ID4gQmVuLg0KPiA+
-DQo+IA0KPiBXZWxsIGxpa2UgeW91IG1lbnRpb25lZCwgeW91IGNvdWxkIGp1c3QgcHVsbCB0aGlz
-IG91dCBvdXQgb2YNCj4gbmV0ZGV2LT5wZXJtX2FkZHIuICBZb3UgZG9uJ3QgbmVlZCB0byBoYXZl
-IGFueXRoaW5nIGRyaXZlciBzcGVjaWZpYyBhcw0KPiBsb25nIGFzIHRoYXQgaXMgdGhlIGZpZWxk
-IHlvdSBhcmUgdXNpbmcgZ2VuZXJpYyBuZXRkZXYgb3IgcGNpX2Rldg0KPiBhdHRyaWJ1dGVzIHRv
-IGRvIHRoZSBpZGVudGlmaWNhdGlvbi4gIEFsbCB5b3UgbmVlZCBpcyBzb21ldGhpbmcgdGhhdA0K
-PiB1bmlxdWVseSBpZGVudGlmaWVzIHRoZSBkZXZpY2UgaW4gdGhlIHN5c3RlbSBjb3JyZWN0PyAg
-Rm9yIHRoYXQgbWF0dGVyIGl0DQo+IHNlZW1zIGxpa2UgeW91IGNvdWxkIHByb2JhYmx5IGp1c3Qg
-cHVsbCB0aGUgZG9tYWluLCBidXMsIGRldmljZSwgYW5kDQo+IGZ1bmN0aW9uIG51bWJlciBvdXQg
-b2YgdGhlIFBDSSBkZXZpY2UgYW5kIHRoYXQgd291bGQgcHJvYmFibHkgd29yayBhcyB3ZWxsDQo+
-IGFzIGxvbmcgYXMgeW91IGNhbm5vdCBzb21laG93IGhhdmUgUEZzIHJ1bm5pbmcgaW5zaWRlIG9m
-IGd1ZXN0cy4NCg0KTkFDSyBhbnkgZGlyZWN0IGluZm9ybWF0aW9uIHRvIHRoZSBWRiBndWVzdCBk
-ZXZpY2UgYXMgdG8gd2hhdCBpdHMgZG9tYWluLCBidXMsIGRldmljZSBhbmQgZnVuY3Rpb24gbnVt
-YmVycyBhcmUuICBUaGlzIG9wZW5zIHVwIHZhcmlvdXMgZXhwbG9pdHMuICBWaXJ0dWFsIGZ1bmN0
-aW9ucyBhcmUgbm90IGd1YXJhbnRlZWQgdG8gYWx3YXlzIHJ1biBpbiB0cnVzdGVkIGd1ZXN0IFZN
-cywgdGhleSBzaG91bGRuJ3QgYmUgZ2l2ZW4gYW55bW9yZSBIVyBpbmZvcm1hdGlvbiB0aGFuIG5l
-ZWRlZCB0byBmdW5jdGlvbi4NCg0KVGhlcmUncyBhIHJlYXNvbiB3ZSBhc2tlZCBKaXJpIHRvIHVz
-ZSBhIGhhc2ggdmFsdWUuDQoNCi0gR3JlZw0KDQo+IA0KPiBUaGFua3MsDQo+IA0KPiBBbGV4DQo=
+On Thu, Jul 25, 2013 at 09:01:40AM -0700, Stephen Hemminger wrote:
+> On Thu, 25 Jul 2013 15:56:20 +0200
+> Linus L=C3=BCssing <linus.luessing@web.de> wrote:
+>=20
+> > =20
+> > +static void br_multicast_update_querier_timer(struct net_bridge *b=
+r,
+> > +					      unsigned long max_delay)
+> > +{
+> > +	if (!timer_pending(&br->multicast_querier_timer))
+> > +		atomic64_set(&br->multicast_querier_delay_time,
+> > +			     jiffies + max_delay);
+> > +
+> > +	mod_timer(&br->multicast_querier_timer,
+> > +		  jiffies + br->multicast_querier_interval);
+> > +}
+> > +
+>=20
+> Isn't this test racing with timer expiration.
+>=20
+> static void br_multicast_update_querier_timer(struct net_bridge *br,
+> 					      unsigned long max_delay)
+> {
+> 	if (!timer_pending(&br->multicast_querier_timer))
+> 		atomic64_set(&br->multicast_querier_delay_time,
+> 			     jiffies + max_delay);
+> What if timer completes here?
+
+If the timer completes here, then for one thing this means that
+the query message is very late (we were supposed to have heard
+at least two query messages by now, query messages should by
+default arrive every 125 seconds, we are at 255 seconds now).
+
+Which in most cases would have the reason of the original querier
+having left.
+
+Not resetting the newly introduced
+br->multicast_querier_delay_time means that we won't switch back
+to flooding for a grace period (which we would have done if the
+timer had completed three lines earlier).
+
+So the question is, does refraining from switching back to
+flooding for the grace period result in any packet loss in this
+scenario?
+
+Yes and no. Our current records from the previous multicast
+listener reports are still valid until
+br->multicast_membership_interval, so for another 5 seconds.
+So in the worst case we can have lost multicast packets for
+up to five seconds for some listeners.
+
+However, normal multicast routers would have the same issue for
+this five seconds period. So to me it looks like this is
+actually a bug in RFC2710, section 7.4 - Multicast Listener
+Interval: We and multicast routers wouldn't have that problem if
+it were 'plus (one _and a half_ Query Response Interval)' instead.
+
+So maybe we could just increase br->multicast_membership_interval
+from 260 to 265 with another patch?
+
+
+Despite from that I don't see which other issues could arise from
+the race you pointed out here.
+
+>=20
+> 	mod_timer(&br->multicast_querier_timer,
+> 		  jiffies + br->multicast_querier_interval);
+> }
+>=20
+>=20
+> And another race if timer goes off?
+>=20
+> static void br_multicast_update_querier_timer(struct net_bridge *br,
+> 					      unsigned long max_delay)
+> {
+> 	if (!timer_pending(&br->multicast_querier_timer))
+> 		atomic64_set(&br->multicast_querier_delay_time,
+> 			     jiffies + max_delay);
+> Timer fires here...?
+>=20
+> 	mod_timer(&br->multicast_querier_timer,
+> 		  jiffies + br->multicast_querier_interval);
+> }
+
+Hm? Sorry, I don't quite see how this race differs from the one
+you pointed out before.
+
+
+Thanks for looking at this patch so far!
+
+Cheers, Linus
