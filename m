@@ -1,56 +1,60 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: [PATCH 1/1] TX throttling bug-fixing patch of AX88179_178A
-Date: Thu, 25 Jul 2013 13:25:12 +0800
-Message-ID: <CACVXFVNyFk0Zpi4tC0ENiq8RcrtrjYW-Dhs+A56+Pw4BKm8y8A@mail.gmail.com>
-References: <1374311809-4155-1-git-send-email-freddy@asix.com.tw>
-	<1374512879.4990.19.camel@edumazet-glaptop>
-	<CANEJEGvPc56ePP=_bxfA4PZfsM3vw=MsRjbWwrFBC3eP-GtzZg@mail.gmail.com>
-	<1374518312.1635.29.camel@bwh-desktop.uk.level5networks.com>
-	<1374518841.4990.26.camel@edumazet-glaptop>
-	<1374522471.1635.48.camel@bwh-desktop.uk.level5networks.com>
-	<1374559827.4990.143.camel@edumazet-glaptop>
-	<CACVXFVN0eN9E9efr8UdqFz68-emHa2o-RQ0RYfazEq8f=qxkLQ@mail.gmail.com>
-	<1374729058.23313.8.camel@edumazet-glaptop>
+From: Prashant Shah <pshah.mumbai@gmail.com>
+Subject: Re: [PATCH] Change request_irq() to use struct net_device *dev->name
+Date: Thu, 25 Jul 2013 11:08:37 +0530
+Message-ID: <CAD6i1f+NYu7rcQwF-TXk4+OdjPNZwMKxxjJ9YA_+v9B6uPYq+g@mail.gmail.com>
+References: <1374646199-9398-1-git-send-email-pshah.mumbai@gmail.com>
+	<51F07489.7010404@gmail.com>
+	<CAD6i1fJO3geZ0vkHLsJEd+KedHkpC1OZVTJJskU2RAAKYBhhJQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Oliver Neukum <oliver@neukum.org>,
-	Grant Grundler <grundler@google.com>,
-	Freddy Xin <freddy@asix.com.tw>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	=?Big5?B?QVNJWCBMb3VpcyBbxKyrwrOwXQ==?= <louis@asix.com.tw>,
-	Allan Chou <allan@asix.com.tw>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1374729058.23313.8.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kernel-mentors@selenic.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ryan Mallon <rmallon@gmail.com>
+Return-path: <kernel-mentors-bounces@selenic.com>
+In-Reply-To: <CAD6i1fJO3geZ0vkHLsJEd+KedHkpC1OZVTJJskU2RAAKYBhhJQ@mail.gmail.com>
+List-Unsubscribe: <http://selenic.com/mailman/options/kernel-mentors>,
+	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
+List-Archive: <http://selenic.com/pipermail/kernel-mentors>
+List-Post: <mailto:kernel-mentors@selenic.com>
+List-Help: <mailto:kernel-mentors-request@selenic.com?subject=help>
+List-Subscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
+	<mailto:kernel-mentors-request@selenic.com?subject=subscribe>
+Sender: kernel-mentors-bounces@selenic.com
+Errors-To: kernel-mentors-bounces@selenic.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 25, 2013 at 1:10 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2013-07-25 at 10:28 +0800, Ming Lei wrote:
->
->>
->> It depends if size of sg buffer(except for last one) in the sg list can be
->> divided by usb endpoint's max packet size(512 or 1024), at least there
->> is the constraint:
->>
->> http://git.kernel.org/cgit/linux/kernel/git/gregkh/usb.git/commit/?h=usb-next&id=10e232c597ac757e7f8600649f7e872e86de190f
->>
->> I am wondering if network stack can meet that.  If not, it might be a
->> bit difficult
->> because lots of USB host controller don't support that, and driver may have
->> to support SG and non-SG at the same time for working well on all HCs.
->
-> I do not see the problem.
->
-> If one skb has 2 fragments of 32KB, couldn't they be split into 64 1K
-> segments by the device driver ?
+Hi,
 
-OK, if length of fragments of all SKBs from network stack can always guarantee
-to be divided by 1024, that is fine,  seems I worry about too much, :-)
+On Thu, Jul 25, 2013 at 10:49 AM, Prashant Shah <pshah.mumbai@gmail.com> wrote:
+> Hi,
+>
+>> You should also remove the definition of DRV_NAME, since it is no longer
+>> used. The changelog should probably mention that this will change the
+>> interrupt name (which appears in /proc/interrupts for example) from "wd"
+>> to "eth%d".
+>>
 
-Thanks,
--- 
-Ming Lei
+I was going through the code. The apne driver apne.c in the same
+folder is using DRV_NAME in request_region()
+
+> if (!request_region(IOBASE, 0x20, DRV_NAME)) {
+
+I can change the wd.c request_region() code to use DRV_NAME. Currently
+it is using a string constant.
+
+> r = request_region(base_addr, WD_IO_EXTENT, "wd-probe");
+
+This will make it more consistent. Please suggest which change is more
+preferable.
+
+@Matthew, following drivers are not using dev->name in request_irq()
+axnet_cs.c
+mac8390.c
+hydra.c
+ne-h8300.c
+apne.c
+stnic.c
+zorro8390.c
+
+Regards.
