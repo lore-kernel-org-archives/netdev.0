@@ -1,47 +1,31 @@
-From: Dominique Martinet <dominique.martinet@cea.fr>
-Subject: Re: [V9fs-developer] [PATCH] net: trans_rdma: remove unused
- function
-Date: Thu, 25 Jul 2013 08:48:02 +0200
-Message-ID: <20130725064802.GA12569@nautica>
-References: <1374497956-32104-1-git-send-email-andi@etezian.org>
- <20130724.154646.2283898956674234778.davem@davemloft.net>
- <1374707387.29835.23.camel@x61.thuisdomein>
- <20130724.164514.393667021861625699.davem@davemloft.net>
- <20130725061411.GA8579@nautica>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 12/27] drivers/net/ethernet/stmicro/stmmac: don't check
+ resource with devm_ioremap_resource
+Date: Wed, 24 Jul 2013 23:59:46 -0700 (PDT)
+Message-ID: <20130724.235946.2251164173355173515.davem@davemloft.net>
+References: <1374602524-3398-1-git-send-email-wsa@the-dreams.de>
+	<1374602524-3398-13-git-send-email-wsa@the-dreams.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: pebolle@tiscali.nl, lucho@ionkov.net, ericvh@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	andi@etezian.org, v9fs-developer@lists.sourceforge.net,
-	rminnich@sandia.gov
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130725061411.GA8579@nautica>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, peppe.cavallaro@st.com,
+	netdev@vger.kernel.org
+To: wsa@the-dreams.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39834 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752854Ab3GYG7r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 02:59:47 -0400
+In-Reply-To: <1374602524-3398-13-git-send-email-wsa@the-dreams.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hard morning, sorry for the double mail.
+From: Wolfram Sang <wsa@the-dreams.de>
+Date: Tue, 23 Jul 2013 20:01:45 +0200
 
-Dominique Martinet wrote on Thu, Jul 25, 2013 :
-> Well, I do care - but I couldn't find where the trans->cancelled member
-> function was supposed to be called anyway...
-> So adding it to the struct and fixing the warning is well and fine, but
-> if it's still never called in the end I don't see much point and there's
-> nothing to test.
+> devm_ioremap_resource does sanity checks on the given resource. No need to
+> duplicate this in the driver.
+> 
+> Signed-off-by: Wolfram Sang <wsa@the-dreams.de>
 
-To be more precise, there's a single call to c->trans_mode->cancelled in
-net/9p/client.c, in p9_client_flush, which is called on subfunction returning
--ERESTARTSYS... which never happens as far as I could see.
-
-This will be useful once/if we start working on client recovery, though
-- so the function in itself definitely does interest me, and I guess
-that thinking about I would have preferred to have the hook added rather
-than the function removed.
-But there definitely is no hurry to add this cancelled function till
-then.
-
-
-Regards,
--- 
-Dominique Martinet
+Applied, thanks.
