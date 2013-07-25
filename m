@@ -1,257 +1,35 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: [PATCH net-next v3] net: split rt_genid for ipv4 and ipv6
-Date: Thu, 25 Jul 2013 17:47:12 +0800
-Message-ID: <1374745632-1624-1-git-send-email-fan.du@windriver.com>
+From: Fabio Baltieri <fabio.baltieri@gmail.com>
+Subject: Re: [PATCH] mac80211: use oneshot blink API for LED triggers
+Date: Thu, 25 Jul 2013 11:58:33 +0200
+Message-ID: <20130725095833.GA21158@balto.lan>
+References: <1374624581-6012-1-git-send-email-fabio.baltieri@gmail.com>
+ <1374624581-6012-2-git-send-email-fabio.baltieri@gmail.com>
+ <1374653665.8180.0.camel@jlt4.sipsolutions.net>
+ <20130724085337.GA7096@balto.lan>
+ <1374739101.8827.7.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>, <nicolas.dichtel@6wind.com>,
-	<yoshfuji@linux-ipv6.org>, <jmorris@namei.org>,
-	<steffen.klassert@secunet.com>, <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:43357 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752418Ab3GYJrc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 05:47:32 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1374739101.8827.7.camel@jlt4.sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Current net name space has only one genid for both IPv4 and IPv6, it has below drawbacks:
+On Thu, Jul 25, 2013 at 09:58:21AM +0200, Johannes Berg wrote:
+> > So, are you definitely rejecting this patch or should I fix indentation
+> > and send a v2?
+> 
+> I think I'll take it, I kinda hope nobody will really care much about it
+> but the behaviour looks better and the code is simpler, so ... :)
 
-- Add/delete an IPv4 address will invalidate all IPv6 routing table entries.
-- Insert/remove XFRM policy will also invalidate both IPv4/IPv6 routing table entries
-  even when the policy is only applied for one address family.
+Good enough...  I'll send the v2 then. :-)
 
-Thus, this patch attempt to split one genid for two to cater for IPv4 and IPv6 separately
-in a fine granularity.
+Thanks,
+Fabio
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
-
-v3:
- -Delete rt_genid_ipv4/ipv6 suffix
-
-v2:
- -Fix compile issue when IPv6 not enabled
- -Put genid into struct netns_ipv4/ipv6
----
- include/net/net_namespace.h |   39 ++++++++++++++++++++++++++++++++++-----
- include/net/netns/ipv4.h    |    1 +
- include/net/netns/ipv6.h    |    1 +
- net/ipv4/route.c            |   16 ++++++++--------
- net/ipv6/af_inet6.c         |    1 +
- net/ipv6/route.c            |    4 ++--
- net/xfrm/xfrm_policy.c      |    8 +++++++-
- 7 files changed, 54 insertions(+), 16 deletions(-)
-
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 84e37b1..2a1c546f 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -119,7 +119,6 @@ struct net {
- 	struct netns_ipvs	*ipvs;
- #endif
- 	struct sock		*diag_nlsk;
--	atomic_t		rt_genid;
- 	atomic_t		fnhe_genid;
- };
- 
-@@ -333,14 +332,44 @@ static inline void unregister_net_sysctl_table(struct ctl_table_header *header)
- }
- #endif
- 
--static inline int rt_genid(struct net *net)
-+static inline int rt_genid_ipv4(struct net *net)
- {
--	return atomic_read(&net->rt_genid);
-+	return atomic_read(&net->ipv4.rt_genid);
- }
- 
--static inline void rt_genid_bump(struct net *net)
-+static inline void rt_genid_bump_ipv4(struct net *net)
- {
--	atomic_inc(&net->rt_genid);
-+	atomic_inc(&net->ipv4.rt_genid);
-+}
-+
-+#if IS_ENABLED(CONFIG_IPV6)
-+static inline int rt_genid_ipv6(struct net *net)
-+{
-+	return atomic_read(&net->ipv6.rt_genid);
-+}
-+
-+static inline void rt_genid_bump_ipv6(struct net *net)
-+{
-+	atomic_inc(&net->ipv6.rt_genid);
-+}
-+#else
-+static inline int rt_genid_ipv6(struct net *net)
-+{
-+	return 0;
-+}
-+
-+static inline void rt_genid_bump_ipv6(struct net *net)
-+{
-+}
-+#endif
-+
-+/* For callers who don't really care about whether it's IPv4 or IPv6 */
-+static inline void rt_genid_bump_all(struct net *net)
-+{
-+	atomic_inc(&net->ipv4.rt_genid);
-+#if IS_ENABLED(CONFIG_IPV6)
-+	atomic_inc(&net->ipv6.rt_genid);
-+#endif
- }
- 
- static inline int fnhe_genid(struct net *net)
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 2ba9de8..bf2ec22 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -77,5 +77,6 @@ struct netns_ipv4 {
- 	struct fib_rules_ops	*mr_rules_ops;
- #endif
- #endif
-+	atomic_t	rt_genid;
- };
- #endif
-diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
-index 005e2c2..0fb2401 100644
---- a/include/net/netns/ipv6.h
-+++ b/include/net/netns/ipv6.h
-@@ -72,6 +72,7 @@ struct netns_ipv6 {
- #endif
- #endif
- 	atomic_t		dev_addr_genid;
-+	atomic_t		rt_genid;
- };
- 
- #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index a9a54a2..e805481 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -435,12 +435,12 @@ static inline int ip_rt_proc_init(void)
- 
- static inline bool rt_is_expired(const struct rtable *rth)
- {
--	return rth->rt_genid != rt_genid(dev_net(rth->dst.dev));
-+	return rth->rt_genid != rt_genid_ipv4(dev_net(rth->dst.dev));
- }
- 
- void rt_cache_flush(struct net *net)
- {
--	rt_genid_bump(net);
-+	rt_genid_bump_ipv4(net);
- }
- 
- static struct neighbour *ipv4_neigh_lookup(const struct dst_entry *dst,
-@@ -1458,7 +1458,7 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- #endif
- 	rth->dst.output = ip_rt_bug;
- 
--	rth->rt_genid	= rt_genid(dev_net(dev));
-+	rth->rt_genid	= rt_genid_ipv4(dev_net(dev));
- 	rth->rt_flags	= RTCF_MULTICAST;
- 	rth->rt_type	= RTN_MULTICAST;
- 	rth->rt_is_input= 1;
-@@ -1589,7 +1589,7 @@ static int __mkroute_input(struct sk_buff *skb,
- 		goto cleanup;
- 	}
- 
--	rth->rt_genid = rt_genid(dev_net(rth->dst.dev));
-+	rth->rt_genid = rt_genid_ipv4(dev_net(rth->dst.dev));
- 	rth->rt_flags = flags;
- 	rth->rt_type = res->type;
- 	rth->rt_is_input = 1;
-@@ -1760,7 +1760,7 @@ local_input:
- 	rth->dst.tclassid = itag;
- #endif
- 
--	rth->rt_genid = rt_genid(net);
-+	rth->rt_genid = rt_genid_ipv4(net);
- 	rth->rt_flags 	= flags|RTCF_LOCAL;
- 	rth->rt_type	= res.type;
- 	rth->rt_is_input = 1;
-@@ -1945,7 +1945,7 @@ add:
- 
- 	rth->dst.output = ip_output;
- 
--	rth->rt_genid = rt_genid(dev_net(dev_out));
-+	rth->rt_genid = rt_genid_ipv4(dev_net(dev_out));
- 	rth->rt_flags	= flags;
- 	rth->rt_type	= type;
- 	rth->rt_is_input = 0;
-@@ -2227,7 +2227,7 @@ struct dst_entry *ipv4_blackhole_route(struct net *net, struct dst_entry *dst_or
- 		rt->rt_iif = ort->rt_iif;
- 		rt->rt_pmtu = ort->rt_pmtu;
- 
--		rt->rt_genid = rt_genid(net);
-+		rt->rt_genid = rt_genid_ipv4(net);
- 		rt->rt_flags = ort->rt_flags;
- 		rt->rt_type = ort->rt_type;
- 		rt->rt_gateway = ort->rt_gateway;
-@@ -2665,7 +2665,7 @@ static __net_initdata struct pernet_operations sysctl_route_ops = {
- 
- static __net_init int rt_genid_init(struct net *net)
- {
--	atomic_set(&net->rt_genid, 0);
-+	atomic_set(&net->ipv4.rt_genid, 0);
- 	atomic_set(&net->fnhe_genid, 0);
- 	get_random_bytes(&net->ipv4.dev_addr_genid,
- 			 sizeof(net->ipv4.dev_addr_genid));
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index a5ac969..0d1a9b1 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -766,6 +766,7 @@ static int __net_init inet6_net_init(struct net *net)
- 
- 	net->ipv6.sysctl.bindv6only = 0;
- 	net->ipv6.sysctl.icmpv6_time = 1*HZ;
-+	atomic_set(&net->ipv6.rt_genid, 0);
- 
- 	err = ipv6_init_mibs(net);
- 	if (err)
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index a8c891a..45ca9af 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -283,7 +283,7 @@ static inline struct rt6_info *ip6_dst_alloc(struct net *net,
- 
- 		memset(dst + 1, 0, sizeof(*rt) - sizeof(*dst));
- 		rt6_init_peer(rt, table ? &table->tb6_peers : net->ipv6.peers);
--		rt->rt6i_genid = rt_genid(net);
-+		rt->rt6i_genid = rt_genid_ipv6(net);
- 		INIT_LIST_HEAD(&rt->rt6i_siblings);
- 		rt->rt6i_nsiblings = 0;
- 	}
-@@ -1062,7 +1062,7 @@ static struct dst_entry *ip6_dst_check(struct dst_entry *dst, u32 cookie)
- 	 * DST_OBSOLETE_FORCE_CHK which forces validation calls down
- 	 * into this function always.
- 	 */
--	if (rt->rt6i_genid != rt_genid(dev_net(rt->dst.dev)))
-+	if (rt->rt6i_genid != rt_genid_ipv6(dev_net(rt->dst.dev)))
- 		return NULL;
- 
- 	if (rt->rt6i_node && (rt->rt6i_node->fn_sernum == cookie))
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index e52cab3..d8da6b8 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -660,7 +660,13 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
- 	xfrm_pol_hold(policy);
- 	net->xfrm.policy_count[dir]++;
- 	atomic_inc(&flow_cache_genid);
--	rt_genid_bump(net);
-+
-+	/* After previous checking, family can either be AF_INET or AF_INET6 */
-+	if (policy->family == AF_INET)
-+		rt_genid_bump_ipv4(net);
-+	else
-+		rt_genid_bump_ipv6(net);
-+
- 	if (delpol) {
- 		xfrm_policy_requeue(delpol, policy);
- 		__xfrm_policy_unlink(delpol, dir);
 -- 
-1.7.9.5
+Fabio Baltieri
