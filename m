@@ -1,52 +1,116 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] TX throttling bug-fixing patch of AX88179_178A
-Date: Wed, 24 Jul 2013 22:10:58 -0700
-Message-ID: <1374729058.23313.8.camel@edumazet-glaptop>
-References: <1374311809-4155-1-git-send-email-freddy@asix.com.tw>
-	 <1374512879.4990.19.camel@edumazet-glaptop>
-	 <CANEJEGvPc56ePP=_bxfA4PZfsM3vw=MsRjbWwrFBC3eP-GtzZg@mail.gmail.com>
-	 <1374518312.1635.29.camel@bwh-desktop.uk.level5networks.com>
-	 <1374518841.4990.26.camel@edumazet-glaptop>
-	 <1374522471.1635.48.camel@bwh-desktop.uk.level5networks.com>
-	 <1374559827.4990.143.camel@edumazet-glaptop>
-	 <CACVXFVN0eN9E9efr8UdqFz68-emHa2o-RQ0RYfazEq8f=qxkLQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Oliver Neukum <oliver@neukum.org>,
-	Grant Grundler <grundler@google.com>,
-	Freddy Xin <freddy@asix.com.tw>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	ASIX Louis =?UTF-8?Q?=5B=E8=98=87=E5=A8=81=E9=99=B8=5D?=
-	<louis@asix.com.tw>, Allan Chou <allan@asix.com.tw>
-To: Ming Lei <tom.leiming@gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net-next V2] tuntap: hardware vlan tx support
+Date: Thu, 25 Jul 2013 13:00:33 +0800
+Message-ID: <1374728433-19843-1-git-send-email-jasowang@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>, Basil Gor <basil.gor@gmail.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f45.google.com ([209.85.212.45]:37450 "EHLO
-	mail-vb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751436Ab3GYFLC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 01:11:02 -0400
-In-Reply-To: <CACVXFVN0eN9E9efr8UdqFz68-emHa2o-RQ0RYfazEq8f=qxkLQ@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:22637 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751504Ab3GYFLi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jul 2013 01:11:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-07-25 at 10:28 +0800, Ming Lei wrote:
+Inspired by commit f09e2249c4f5c7c13261ec73f5a7807076af0c8e (macvtap: restore
+vlan header on user read). This patch adds hardware vlan tx support for
+tuntap. This is done by copying vlan header directly into userspace in
+tun_put_user() instead of doing it through __vlan_put_tag() in
+dev_hard_start_xmit(). This eliminates one unnecessary memmove() in
+vlan_insert_tag() for 802.1ad and 802.1q traffic.
 
-> 
-> It depends if size of sg buffer(except for last one) in the sg list can be
-> divided by usb endpoint's max packet size(512 or 1024), at least there
-> is the constraint:
-> 
-> http://git.kernel.org/cgit/linux/kernel/git/gregkh/usb.git/commit/?h=usb-next&id=10e232c597ac757e7f8600649f7e872e86de190f
-> 
-> I am wondering if network stack can meet that.  If not, it might be a
-> bit difficult
-> because lots of USB host controller don't support that, and driver may have
-> to support SG and non-SG at the same time for working well on all HCs.
+pktgen test shows about 20% improvement for 802.1q traffic:
 
-I do not see the problem.
+Before:
+  662149pps 317Mb/sec (317831520bps) errors: 0
+After:
+  801033pps 384Mb/sec (384495840bps) errors: 0
 
-If one skb has 2 fragments of 32KB, couldn't they be split into 64 1K
-segments by the device driver ?
+Cc: Basil Gor <basil.gor@gmail.com>
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+Changes from V1:
+- typo and style fixes
+---
+ drivers/net/tun.c |   40 ++++++++++++++++++++++++++++++++++++----
+ 1 files changed, 36 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index a72d141..5dce262 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -60,6 +60,7 @@
+ #include <linux/if_arp.h>
+ #include <linux/if_ether.h>
+ #include <linux/if_tun.h>
++#include <linux/if_vlan.h>
+ #include <linux/crc32.h>
+ #include <linux/nsproxy.h>
+ #include <linux/virtio_net.h>
+@@ -1265,6 +1266,7 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ {
+ 	struct tun_pi pi = { 0, skb->protocol };
+ 	ssize_t total = 0;
++	int vlan_offset = 0;
+ 
+ 	if (!(tun->flags & TUN_NO_PI)) {
+ 		if ((len -= sizeof(pi)) < 0)
+@@ -1328,11 +1330,40 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 		total += tun->vnet_hdr_sz;
+ 	}
+ 
+-	len = min_t(int, skb->len, len);
++	if (!vlan_tx_tag_present(skb)) {
++		len = min_t(int, skb->len, len);
++	} else {
++		int copy, ret;
++		struct {
++			__be16 h_vlan_proto;
++			__be16 h_vlan_TCI;
++		} veth;
++
++		veth.h_vlan_proto = skb->vlan_proto;
++		veth.h_vlan_TCI = htons(vlan_tx_tag_get(skb));
++
++		vlan_offset = offsetof(struct vlan_ethhdr, h_vlan_proto);
++		len = min_t(int, skb->len + VLAN_HLEN, len);
++
++		copy = min_t(int, vlan_offset, len);
++		ret = skb_copy_datagram_const_iovec(skb, 0, iv, total, copy);
++		len -= copy;
++		total += copy;
++		if (ret || !len)
++			goto done;
++
++		copy = min_t(int, sizeof(veth), len);
++		ret = memcpy_toiovecend(iv, (void *)&veth, total, copy);
++		len -= copy;
++		total += copy;
++		if (ret || !len)
++			goto done;
++	}
+ 
+-	skb_copy_datagram_const_iovec(skb, 0, iv, total, len);
+-	total += skb->len;
++	skb_copy_datagram_const_iovec(skb, vlan_offset, iv, total, len);
++	total += len;
+ 
++done:
+ 	tun->dev->stats.tx_packets++;
+ 	tun->dev->stats.tx_bytes += len;
+ 
+@@ -1691,7 +1722,8 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 		tun_flow_init(tun);
+ 
+ 		dev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST |
+-			TUN_USER_FEATURES;
++				   TUN_USER_FEATURES | NETIF_F_HW_VLAN_CTAG_TX |
++				   NETIF_F_HW_VLAN_STAG_TX;
+ 		dev->features = dev->hw_features;
+ 		dev->vlan_features = dev->features;
+ 
+-- 
+1.7.1
