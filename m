@@ -1,96 +1,71 @@
-From: Werner Almesberger <werner@almesberger.net>
-Subject: Re: minimum ICMPv6 message size vs. RPL's DIS
-Date: Thu, 25 Jul 2013 07:30:49 -0300
-Message-ID: <20130725103048.GB29572@ws>
-References: <20130724232852.GA29572@ws>
- <20130725061731.GA12365@order.stressinduktion.org>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/1] TX throttling bug-fixing patch of AX88179_178A
+Date: Thu, 25 Jul 2013 04:01:41 -0700
+Message-ID: <1374750101.23313.16.camel@edumazet-glaptop>
+References: <1374311809-4155-1-git-send-email-freddy@asix.com.tw>
+	 <1374512879.4990.19.camel@edumazet-glaptop>
+	 <CANEJEGvPc56ePP=_bxfA4PZfsM3vw=MsRjbWwrFBC3eP-GtzZg@mail.gmail.com>
+	 <1374518312.1635.29.camel@bwh-desktop.uk.level5networks.com>
+	 <1374518841.4990.26.camel@edumazet-glaptop>
+	 <1374522471.1635.48.camel@bwh-desktop.uk.level5networks.com>
+	 <1374559827.4990.143.camel@edumazet-glaptop>
+	 <CACVXFVN0eN9E9efr8UdqFz68-emHa2o-RQ0RYfazEq8f=qxkLQ@mail.gmail.com>
+	 <1374729058.23313.8.camel@edumazet-glaptop>
+	 <CACVXFVNyFk0Zpi4tC0ENiq8RcrtrjYW-Dhs+A56+Pw4BKm8y8A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hydra.openmoko.org ([144.76.72.4]:60737 "EHLO
-	hydra.openmoko.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753394Ab3GYKcT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 06:32:19 -0400
-Received: from 201-160-231-201.fibertel.com.ar ([201.231.160.201] helo=ws)
-	by hydra.openmoko.org with esmtpsa (TLS1.0:RSA_AES_128_CBC_SHA1:128)
-	(Exim 4.80)
-	(envelope-from <werner@almesberger.net>)
-	id 1V2IqF-0006tL-Un
-	for netdev@vger.kernel.org; Thu, 25 Jul 2013 12:32:17 +0200
-Content-Disposition: inline
-In-Reply-To: <20130725061731.GA12365@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	ASIX Louis =?UTF-8?Q?=5B=E8=98=87=E5=A8=81=E9=99=B8=5D?=
+	<louis-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>, Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+To: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CACVXFVNyFk0Zpi4tC0ENiq8RcrtrjYW-Dhs+A56+Pw4BKm8y8A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hannes Frederic Sowa wrote:
-> Hmm, maybe we should update the icmp header to something like
+On Thu, 2013-07-25 at 13:25 +0800, Ming Lei wrote:
+> On Thu, Jul 25, 2013 at 1:10 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> > On Thu, 2013-07-25 at 10:28 +0800, Ming Lei wrote:
+> >
+> >>
+> >> It depends if size of sg buffer(except for last one) in the sg list can be
+> >> divided by usb endpoint's max packet size(512 or 1024), at least there
+> >> is the constraint:
+> >>
+> >> http://git.kernel.org/cgit/linux/kernel/git/gregkh/usb.git/commit/?h=usb-next&id=10e232c597ac757e7f8600649f7e872e86de190f
+> >>
+> >> I am wondering if network stack can meet that.  If not, it might be a
+> >> bit difficult
+> >> because lots of USB host controller don't support that, and driver may have
+> >> to support SG and non-SG at the same time for working well on all HCs.
+> >
+> > I do not see the problem.
+> >
+> > If one skb has 2 fragments of 32KB, couldn't they be split into 64 1K
+> > segments by the device driver ?
+> 
+> OK, if length of fragments of all SKBs from network stack can always guarantee
+> to be divided by 1024, that is fine,  seems I worry about too much, :-)
 
-That would be quite clean. Is it okay to introduce new names
-like that in a uapi/ header (uapi/linux/icmpv6.h) ?
+Unfortunately, there is no such guarantee. TSO permits sendfile() zero
+copy operation, so the frags can be of any size, any offset...
 
-> Hmm, there is a bug in this function, _hdr must not be a pointer.
+In this mode, the first element (skb->head) will typically contains the
+headers, and there are way below 512 bytes.
 
-Oh, I didn't even notice that. Very good catch !
+So even with lowering netdev->gso_max_size under PAGE_SIZE, most of the
+packets will need to be copied into a single segment.
 
-So on 32 bit system, it would actually work even with "short"
-ICMPv6 messages. Two wrongs sometimes do make a right :-)
 
-I've attached a revised patch that, according to quick testing,
-still works and doesn't break anything else.
 
-Thanks,
-- Werner
-
----------------------------------- cut here -----------------------------------
-
-diff --git a/include/uapi/linux/icmpv6.h b/include/uapi/linux/icmpv6.h
-index e0133c7..11eb5ff 100644
---- a/include/uapi/linux/icmpv6.h
-+++ b/include/uapi/linux/icmpv6.h
-@@ -5,11 +5,15 @@
- #include <asm/byteorder.h>
- 
- struct icmp6hdr {
--
--	__u8		icmp6_type;
--	__u8		icmp6_code;
--	__sum16		icmp6_cksum;
--
-+	struct icmp6hdr_head {
-+		__u8		type;
-+		__u8		code;
-+		__sum16		cksum;
-+	} icmpv6_head;
-+
-+#define	icmp6_type	icmpv6_head.type
-+#define	icmp6_code	icmpv6_head.code
-+#define	icmp6_cksum	icmpv6_head.cksum
- 
- 	union {
- 		__be32			un_data32[1];
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index c45f7a5..99ab06f 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -108,14 +108,14 @@ found:
-  */
- static int icmpv6_filter(const struct sock *sk, const struct sk_buff *skb)
- {
--	struct icmp6hdr *_hdr;
--	const struct icmp6hdr *hdr;
-+	struct icmp6hdr_head _head;
-+	const struct icmp6hdr_head *head;
- 
--	hdr = skb_header_pointer(skb, skb_transport_offset(skb),
--				 sizeof(_hdr), &_hdr);
--	if (hdr) {
-+	head = skb_header_pointer(skb, skb_transport_offset(skb),
-+				  sizeof(_head), &_head);
-+	if (head) {
- 		const __u32 *data = &raw6_sk(sk)->filter.data[0];
--		unsigned int type = hdr->icmp6_type;
-+		unsigned int type = head->type;
- 
- 		return (data[type >> 5] & (1U << (type & 31))) != 0;
- 	}
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
