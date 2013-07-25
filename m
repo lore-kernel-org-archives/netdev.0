@@ -1,43 +1,37 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] fib_rules: add minimum prefix length
-Date: Thu, 25 Jul 2013 20:17:12 +0200
-Message-ID: <20130725181712.GB24007@order.stressinduktion.org>
-References: <20130723220221.GP10216@zirkel.wertarbyte.de> <20130724021420.GA10670@order.stressinduktion.org> <20130725162931.GX10216@zirkel.wertarbyte.de>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next v3 6/6] openvswitch: Add vxlan tunneling support.
+Date: Thu, 25 Jul 2013 11:19:47 -0700
+Message-ID: <CAEP_g=9K=a0BQPBugkExS_ZGySezohOBi9BUDW8c6dna698fMA@mail.gmail.com>
+References: <1374688857-14427-1-git-send-email-pshelar@nicira.com> <ksqhg8$jej$1@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:39668 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756308Ab3GYSRN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 14:17:13 -0400
-Content-Disposition: inline
-In-Reply-To: <20130725162931.GX10216@zirkel.wertarbyte.de>
+Received: from na3sys009aog131.obsmtp.com ([74.125.149.247]:51112 "HELO
+	na3sys009aog131.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756108Ab3GYSUI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 14:20:08 -0400
+Received: by mail-ob0-f172.google.com with SMTP id f8so2308508obp.3
+        for <netdev@vger.kernel.org>; Thu, 25 Jul 2013 11:20:07 -0700 (PDT)
+In-Reply-To: <ksqhg8$jej$1@ger.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 25, 2013 at 06:29:32PM +0200, Stefan Tomanek wrote:
-> Dies schrieb Hannes Frederic Sowa (hannes@stressinduktion.org):
-> 
-> > I would try to factor the prefixlen_min check out into a
-> > e.g. fib4_rule_constrain function for which a new field in fib_rules_ops
-> > needs to be created as callback. Also it would be nice to have IPv6
-> > support, too. ;)
-> 
-> I was working on my patchset again and considered your suggestion; however I'm
-> not sure whether factoring out the constraints into a separate function is
-> actually that useful, since they are only called from one specific location for
-> each protocol; can you think of another useful application?
+On Wed, Jul 24, 2013 at 11:44 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Wed, 24 Jul 2013 at 18:00 GMT, Pravin B Shelar <pshelar@nicira.com> wrote:
+>> +
+>> +config OPENVSWITCH_VXLAN
+>> +     bool "Open vSwitch VXLAN tunneling support"
+>> +     depends on INET
+>> +     depends on OPENVSWITCH
+>> +     depends on VXLAN && !(OPENVSWITCH=y && VXLAN=m)
+>
+> This seems ugly, is it possible to make these vxlan code be a library as
+> iptunnel code?
 
-I don't have a strong opinion on that but I do find that it does better fit into
-the design of fib_rules and will be easier to extend in future IMHO.
-
-> I however did like the idea of adding IPv6 support, so I did -
-> I'll post the new patch later on.
-
-Cool, thanks.
-
-Greetings,
-
-  Hannes
+The goal of separating things out this way is to provide nice layering
+between the protocol code and the consumers. There needs to be some
+interface between OVS and the tunnel code that straddles the boundary
+and putting it in OVS makes the most sense from a hierarchy
+perspective.
