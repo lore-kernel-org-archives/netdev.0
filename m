@@ -1,28 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4 v2] bonding: bond_sysfs.c checkpatch cleanup
-Date: Wed, 24 Jul 2013 17:46:06 -0700 (PDT)
-Message-ID: <20130724.174606.1096155494040766148.davem@davemloft.net>
-References: <51EE2FEC.6090009@huawei.com>
+Subject: Re: [PATCH 1/3] net/usb/r815x: replace USB buffer from stack to
+ DMA-able
+Date: Wed, 24 Jul 2013 17:49:47 -0700 (PDT)
+Message-ID: <20130724.174947.452272360732442554.davem@davemloft.net>
+References: <D7C722C73C7A400780358D0376412267@realtek.com.tw>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, andy@greyhouse.net, netdev@vger.kernel.org
-To: dingtianhong@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37019 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754590Ab3GYAqH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 20:46:07 -0400
-In-Reply-To: <51EE2FEC.6090009@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <D7C722C73C7A400780358D0376412267@realtek.com.tw>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Tue, 23 Jul 2013 15:25:32 +0800
+From: hayeswang <hayeswang@realtek.com>
+Date: Tue, 23 Jul 2013 17:26:04 +0800
 
-> net/bonding/bond_sysfs.c:1302: ERROR: else should follow close brace '}'
-> net/bonding/bond_sysfs.c:1314: ERROR: else should follow close brace '}'
-> 
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> diff --git a/drivers/net/usb/r815x.c b/drivers/net/usb/r815x.c
+> index 8523922..e9b99ba 100644
+> --- a/drivers/net/usb/r815x.c
+> +++ b/drivers/net/usb/r815x.c
+> @@ -24,34 +24,43 @@
+>  
+>  static int pla_read_word(struct usb_device *udev, u16 index)
+>  {
+> - int data, ret;
+> + int ret;
+>   u8 shift = index & 2;
+> - __le32 ocp_data;
+> + __le32 *tmp;
 
-Applied.
+Your email client has corrupted these patches.
