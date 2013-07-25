@@ -1,38 +1,47 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next v3 6/6] openvswitch: Add vxlan tunneling support.
-Date: Thu, 25 Jul 2013 06:44:24 +0000 (UTC)
-Message-ID: <ksqhg8$jej$1@ger.gmane.org>
-References: <1374688857-14427-1-git-send-email-pshelar@nicira.com>
+From: Dominique Martinet <dominique.martinet@cea.fr>
+Subject: Re: [V9fs-developer] [PATCH] net: trans_rdma: remove unused
+ function
+Date: Thu, 25 Jul 2013 08:48:02 +0200
+Message-ID: <20130725064802.GA12569@nautica>
+References: <1374497956-32104-1-git-send-email-andi@etezian.org>
+ <20130724.154646.2283898956674234778.davem@davemloft.net>
+ <1374707387.29835.23.camel@x61.thuisdomein>
+ <20130724.164514.393667021861625699.davem@davemloft.net>
+ <20130725061411.GA8579@nautica>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:44910 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751194Ab3GYGos (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jul 2013 02:44:48 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1V2FI3-0007tA-3o
-	for netdev@vger.kernel.org; Thu, 25 Jul 2013 08:44:43 +0200
-Received: from 119.6.80.230 ([119.6.80.230])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 25 Jul 2013 08:44:43 +0200
-Received: from xiyou.wangcong by 119.6.80.230 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 25 Jul 2013 08:44:43 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: pebolle@tiscali.nl, lucho@ionkov.net, ericvh@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	andi@etezian.org, v9fs-developer@lists.sourceforge.net,
+	rminnich@sandia.gov
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130725061411.GA8579@nautica>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 24 Jul 2013 at 18:00 GMT, Pravin B Shelar <pshelar@nicira.com> wrote:
-> +
-> +config OPENVSWITCH_VXLAN
-> +	bool "Open vSwitch VXLAN tunneling support"
-> +	depends on INET
-> +	depends on OPENVSWITCH
-> +	depends on VXLAN && !(OPENVSWITCH=y && VXLAN=m)
+Hard morning, sorry for the double mail.
 
-This seems ugly, is it possible to make these vxlan code be a library as
-iptunnel code?
+Dominique Martinet wrote on Thu, Jul 25, 2013 :
+> Well, I do care - but I couldn't find where the trans->cancelled member
+> function was supposed to be called anyway...
+> So adding it to the struct and fixing the warning is well and fine, but
+> if it's still never called in the end I don't see much point and there's
+> nothing to test.
+
+To be more precise, there's a single call to c->trans_mode->cancelled in
+net/9p/client.c, in p9_client_flush, which is called on subfunction returning
+-ERESTARTSYS... which never happens as far as I could see.
+
+This will be useful once/if we start working on client recovery, though
+- so the function in itself definitely does interest me, and I guess
+that thinking about I would have preferred to have the hook added rather
+than the function removed.
+But there definitely is no hurry to add this cancelled function till
+then.
+
+
+Regards,
+-- 
+Dominique Martinet
