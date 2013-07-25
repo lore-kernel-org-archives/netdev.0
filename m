@@ -1,34 +1,32 @@
-From: Joe Stringer <joe@wand.net.nz>
-Subject: Re: [net-next] net: Add NEXTHDR_SCTP to ipv6.h
-Date: Thu, 25 Jul 2013 10:18:27 +0900
-Message-ID: <CAOftzPiuOyX869_g=NnAfHRatAwmZ=fYVzpmTk_ijZdfyH36ng@mail.gmail.com>
-References: <1374554265-10611-1-git-send-email-joe@wand.net.nz> <20130724.174219.372069002030719666.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [RFC PATCH - diffstat only] include/net: Remove extern from
+ function prototypes
+Date: Thu, 25 Jul 2013 01:27:49 +0000 (UTC)
+Message-ID: <kspuuk$k2v$1@ger.gmane.org>
+References: <1374602291.3387.17.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Joe Stringer <joe@wand.net.nz>, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org, Simon Horman <horms@verge.net.au>,
-	Jesse Gross <jesse@nicira.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f51.google.com ([209.85.219.51]:57394 "EHLO
-	mail-oa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752981Ab3GYBSs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 21:18:48 -0400
-Received: by mail-oa0-f51.google.com with SMTP id i4so2877413oah.10
-        for <netdev@vger.kernel.org>; Wed, 24 Jul 2013 18:18:48 -0700 (PDT)
-In-Reply-To: <20130724.174219.372069002030719666.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Understood.
+On Tue, 23 Jul 2013 at 17:58 GMT, Joe Perches <joe@perches.com> wrote:
+> Function prototypes don't need to be declared
+> extern in .h files.  It's assumed by the compiler
+> and is as unnecessary as using auto is when
+> declaring automatic/local variables in a block.
+>
 
-On Thu, Jul 25, 2013 at 9:42 AM, David Miller <davem@davemloft.net> wrote:
-> From: Joe Stringer <joe@wand.net.nz>
-> Date: Tue, 23 Jul 2013 13:37:45 +0900
+Since we all know this, why bother it? Having "extern" doesn't harm
+readability, instead it probably helps.
+
+...
 >
->> Signed-off-by: Joe Stringer <joe@wand.net.nz>
+> I believe it makes grepping for extern useful as
+> all the matches are actual variables and structs.
 >
-> There is no value in adding a kernel internal define that is
-> completely unused.
->
-> Sorry I won't be applying this patch.
+
+You need a semantic tool.
