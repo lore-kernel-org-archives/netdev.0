@@ -1,95 +1,84 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH net-next v2] pktgen: Add UDPCSUM flag to support UDP checksums
-Date: Thu, 25 Jul 2013 07:01:49 -0700
-Message-ID: <51F12FCD.8080604@candelatech.com>
-References: <8e168d7f8b1d82be3d33f1790f3bf435a0ba1390.1374753898.git.tgraf@suug.ch>
+From: Darren Hart <dvhart@linux.intel.com>
+Subject: Re: [PATCH V3 net-next 0/2] pch_gbe: Add MinnowBoard support
+Date: Thu, 25 Jul 2013 07:04:36 -0700
+Message-ID: <1374761076.9799.2.camel@dvhart-mobl1.amr.corp.intel.com>
+References: <cover.1374728627.git.dvhart@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>
-To: Thomas Graf <tgraf@suug.ch>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+	Joe Perches <joe@perches.com>
+To: Linux Net Dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:46212 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755664Ab3GYOCV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 10:02:21 -0400
-In-Reply-To: <8e168d7f8b1d82be3d33f1790f3bf435a0ba1390.1374753898.git.tgraf@suug.ch>
+Received: from mga03.intel.com ([143.182.124.21]:63621 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755438Ab3GYOFE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jul 2013 10:05:04 -0400
+In-Reply-To: <cover.1374728627.git.dvhart@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/25/2013 05:07 AM, Thomas Graf wrote:
-> UDP checksums are optional, hence pktgen has been omitting them in
-> favour of performance. The optional flag UDPCSUM enables UDP
-> checksumming. If the output device supports hardware checksumming
-> the skb is prepared and marked CHECKSUM_PARTIAL, otherwise the
-> checksum is generated in software.
->
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> CC: Eric Dumazet <edumazet@google.com>
-> ---
-> v2: - Add IPv6 support
->
->   include/net/udp.h |  1 +
->   net/core/pktgen.c | 54 +++++++++++++++++++++++++++++++++++++++++++++++++-----
->   net/ipv4/udp.c    |  3 ++-
->   3 files changed, 52 insertions(+), 6 deletions(-)
->
-> diff --git a/include/net/udp.h b/include/net/udp.h
-> index 74c10ec..ef2e0b7 100644
-> --- a/include/net/udp.h
-> +++ b/include/net/udp.h
-> @@ -183,6 +183,7 @@ extern int udp_sendmsg(struct kiocb *iocb, struct sock *sk,
->   			    struct msghdr *msg, size_t len);
->   extern int udp_push_pending_frames(struct sock *sk);
->   extern void udp_flush_pending_frames(struct sock *sk);
-> +extern void udp4_hwcsum(struct sk_buff *skb, __be32 src, __be32 dst);
->   extern int udp_rcv(struct sk_buff *skb);
->   extern int udp_ioctl(struct sock *sk, int cmd, unsigned long arg);
->   extern int udp_disconnect(struct sock *sk, int flags);
-> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-> index 9640972..929eb7b 100644
-> --- a/net/core/pktgen.c
-> +++ b/net/core/pktgen.c
-> @@ -160,6 +160,7 @@
->   #include <net/net_namespace.h>
->   #include <net/checksum.h>
->   #include <net/ipv6.h>
-> +#include <net/udp.h>
->   #include <net/addrconf.h>
->   #ifdef CONFIG_XFRM
->   #include <net/xfrm.h>
-> @@ -198,6 +199,7 @@
->   #define F_QUEUE_MAP_RND (1<<13)	/* queue map Random */
->   #define F_QUEUE_MAP_CPU (1<<14)	/* queue map mirrors smp_processor_id() */
->   #define F_NODE          (1<<15)	/* Node memory alloc*/
-> +#define F_UDPCSUM       (1<<16)	/* Include UDP checksum */
->
->   /* Thread control flag bits */
->   #define T_STOP        (1<<0)	/* Stop run */
-> @@ -631,6 +633,9 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
->   	if (pkt_dev->flags & F_UDPDST_RND)
->   		seq_printf(seq, "UDPDST_RND  ");
->
-> +	if (pkt_dev->flags & F_UDPCSUM)
-> +		seq_printf(seq, "UDPCSUM  ");
-> +
->   	if (pkt_dev->flags & F_MPLS_RND)
->   		seq_printf(seq,  "MPLS_RND  ");
->
-> @@ -1228,6 +1233,9 @@ static ssize_t pktgen_if_write(struct file *file,
->   		else if (strcmp(f, "!NODE_ALLOC") == 0)
->   			pkt_dev->flags &= ~F_NODE;
->
-> +		else if (strcmp(f, "UDPCSUM") == 0)
-> +			pkt_dev->flags |= F_UDPCSUM;
-> +
-
-Looks like we need a way to turn it back off again too??
+Andy Shevchenko caught a couple minor errors in V3. I've incorporated
+his feedback and sent V4. Please disregard V3.
 
 Thanks,
-Ben
+
+Darren Hart
+
+On Wed, 2013-07-24 at 22:10 -0700, Darren Hart wrote:
+> Add support for the MinnowBoard in the pch_gbe driver. This was
+> originally sent to LKML as part of the MinnowBoard support series. That
+> is now partially merged and this version of the patch has been isolated
+> from those changes and is now completely self-contained.
+> 
+> Thanks to everyone on Cc for their time in reviewing, the patch series
+> is better for it.
+> 
+> V2:
+>   Whitespace cleanup
+>   Remove trailing period in messages
+>   Comment formatting (added a colon)
+>   Use devm_gpio_request_one
+>   Fix missing adapter->pdata NULL check in PHY
+>   Use netdev style comment blocks
+>   Use kernel_ulong_t for driver_data cast
+>   Use unsigned for gpio and unsigned long for flags
+> V3:
+>   Restore /** comment start for file consistency per Joe Perches
+>     following his checkpatch.pl patch
+>   Make pch_gbe_phy_tx_clk_delay() static per David Miller
+> 
+> I have included patch 1/2 as it was also marked with "Changes Requested"
+> in patchwork. Hopefully resending is the preferred method.
+> 
+> The following changes since commit 18afa4b028b46f8b45ca64f94aefe717c297b07d:
+> 
+>   net: Make devnet_rename_seq static (2013-07-24 17:57:26 -0700)
+> 
+> are available in the git repository at:
+> 
+>   git://git.infradead.org/users/dvhart/linux-2.6.git minnow/net-next
+>   ssh://git.infradead.org/srv/git/users/dvhart/linux-2.6.git minnow/net-next
+> 
+> and browsable here:
+> 
+>   http://git.infradead.org/users/dvhart/linux-2.6.git/shortlog/refs/heads/minnow/net-next
+> 
+> Darren Hart (2):
+>   pch_gbe: Use PCH_GBE_PHY_REGS_LEN instead of 32
+>   pch_gbe: Add MinnowBoard support
+> 
+>  drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    | 15 ++++
+>  .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 52 +++++++++++-
+>  .../net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c    | 98 ++++++++++++++++++++++
+>  .../net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h    |  1 +
+>  4 files changed, 165 insertions(+), 1 deletion(-)
+> 
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Darren Hart
+Intel Open Source Technology Center
+Yocto Project - Linux Kernel
