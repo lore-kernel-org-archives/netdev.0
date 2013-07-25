@@ -1,87 +1,126 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [patch net-next v4 4/4] igb/igbvf: implement
- ndo_get_phys_port_id
-Date: Thu, 25 Jul 2013 19:51:06 +0100
-Message-ID: <1374778266.3058.15.camel@bwh-desktop.uk.level5networks.com>
-References: <1374757385-10875-1-git-send-email-jiri@resnulli.us>
-	  <1374757385-10875-5-git-send-email-jiri@resnulli.us>
-	  <51F14F9F.1010703@intel.com>
-	 <1374770653.3058.9.camel@bwh-desktop.uk.level5networks.com>
-	 <51F167A6.808@intel.com>
+From: Joe Perches <joe@perches.com>
+Subject: [trivial PATCH] treewide: Fix printks with 0x%#
+Date: Thu, 25 Jul 2013 11:53:25 -0700
+Message-ID: <1374778405.1957.21.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>, <stephen@networkplumber.org>,
-	<Narendra_K@Dell.com>, <john.r.fastabend@intel.com>,
-	<or.gerlitz@gmail.com>, <jeffrey.t.kirsher@intel.com>,
-	<jesse.brandeburg@intel.com>, <bruce.w.allan@intel.com>,
-	<carolyn.wyborny@intel.com>, <donald.c.skidmore@intel.com>,
-	<gregory.v.rose@intel.com>, <peter.p.waskiewicz.jr@intel.com>,
-	<john.ronciak@intel.com>, <tushar.n.dave@intel.com>,
-	<matthew.vick@intel.com>, <mitch.a.williams@intel.com>,
-	<vyasevic@redhat.com>, <amwang@redhat.com>,
-	<johannes@sipsolutions.net>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:61364 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756230Ab3GYSvO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 14:51:14 -0400
-In-Reply-To: <51F167A6.808@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "James E.J. Bottomley" <jejb@parisc-linux.org>, Helge Deller
+ <deller@gmx.de>,  John Stultz <john.stultz@linaro.org>, Thomas Gleixner
+ <tglx@linutronix.de>, Daniele Venzano <venza@brownhat.org>, Andi Kleen
+ <andi@firstfloor.org>, Jaroslav Kysela <perex@perex.cz>, Takashi Iwai
+ <tiwai@suse.de>, linux-parisc@vger.kernel.org,
+ linux-kernel@vger.kernel.org, netdev@vger.kernel.org, linux-mm@kvack.org,
+ alsa-devel <alsa-devel@alsa-project.org>
+To: Jiri Kosina <trivial@kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-07-25 at 11:00 -0700, Alexander Duyck wrote:
-> On 07/25/2013 09:44 AM, Ben Hutchings wrote:
-> > On Thu, 2013-07-25 at 09:17 -0700, Alexander Duyck wrote:
-> >> On 07/25/2013 06:03 AM, Jiri Pirko wrote:
-> >>> @@ -1982,6 +2001,21 @@ static s32 igb_init_i2c(struct igb_adapter *adapter)
-> >>>  	return status;
-> >>>  }
-> >>>  
-> >>> +static void igb_compute_phys_port_id(struct igb_adapter *adapter)
-> >>> +{
-> >>> +	adapter->phys_port_id = *((u32 *) adapter->netdev->dev_addr);
-> >>> +	adapter->phys_port_id ^= *((u32 *) adapter->netdev->dev_addr + 4);
-> >>> +	adapter->phys_port_id ^= (long) adapter;
-> >>> +	adapter->phys_port_id ^= (long) adapter->hw.hw_addr;
-> >>> +	adapter->phys_port_id ^= (long) adapter->hw.flash_address;
-> >>> +	adapter->phys_port_id ^= (u32) adapter->hw.io_base;
-> >>> +	adapter->phys_port_id ^= adapter->hw.device_id;
-> >>> +	adapter->phys_port_id ^= adapter->hw.subsystem_vendor_id;
-> >>> +	adapter->phys_port_id ^= adapter->hw.subsystem_device_id;
-> >>> +	adapter->phys_port_id ^= adapter->hw.vendor_id;
-> >>> +	adapter->phys_port_id ^= adapter->hw.revision_id;
-> > I didn't look at Jiri's patch initially, but... what's wrong with using
-> > the MAC address from NVRAM (should already be in netdev->perm_addr)?
-> > That's what I'm expecting to do for the SFC9000 family in sfc.
-> >
-> >>> +}
-> >>> +
-> >>>  /**
-> >>>   *  igb_probe - Device Initialization Routine
-> >>>   *  @pdev: PCI device information struct
-> >> I really think this bit here should be standardized and made available
-> >> to all drivers.
-> > [...]
-> >
-> > I think it's a bad example and should not be used in any drivers!
-> >
-> > Ben.
-> >
-> 
-> I agree.  That is why the second paragraph started listing what was
-> wrong with this implementation.  What I said was meant in the more
-> general sense that whatever solution should be used should be the same
-> across multiple drivers, not up to each driver to compute.
 
-I would love to know how you think this can be done generically.  If it
-can then we don't need the driver operation at all.
+Using 0x%# emits 0x0x.  Only one is necessary.
 
-Ben.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ arch/parisc/kernel/signal.c       | 2 +-
+ drivers/clocksource/acpi_pm.c     | 4 ++--
+ drivers/net/ethernet/sis/sis900.c | 2 +-
+ mm/memory-failure.c               | 2 +-
+ sound/pci/ens1370.c               | 2 +-
+ sound/pci/via82xx.c               | 2 +-
+ 6 files changed, 7 insertions(+), 7 deletions(-)
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/arch/parisc/kernel/signal.c b/arch/parisc/kernel/signal.c
+index 940188d..35c5bf1 100644
+--- a/arch/parisc/kernel/signal.c
++++ b/arch/parisc/kernel/signal.c
+@@ -85,7 +85,7 @@ restore_sigcontext(struct sigcontext __user *sc, struct pt_regs *regs)
+ 	err |= __copy_from_user(regs->iaoq, sc->sc_iaoq, sizeof(regs->iaoq));
+ 	err |= __copy_from_user(regs->iasq, sc->sc_iasq, sizeof(regs->iasq));
+ 	err |= __get_user(regs->sar, &sc->sc_sar);
+-	DBG(2,"restore_sigcontext: iaoq is 0x%#lx / 0x%#lx\n", 
++	DBG(2,"restore_sigcontext: iaoq is %#lx / %#lx\n",
+ 			regs->iaoq[0],regs->iaoq[1]);
+ 	DBG(2,"restore_sigcontext: r28 is %ld\n", regs->gr[28]);
+ 	return err;
+diff --git a/drivers/clocksource/acpi_pm.c b/drivers/clocksource/acpi_pm.c
+index 6efe4d1..6eab889 100644
+--- a/drivers/clocksource/acpi_pm.c
++++ b/drivers/clocksource/acpi_pm.c
+@@ -200,14 +200,14 @@ static int __init init_acpi_pm_clocksource(void)
+ 			if ((value2 < value1) && ((value2) < 0xFFF))
+ 				break;
+ 			printk(KERN_INFO "PM-Timer had inconsistent results:"
+-			       " 0x%#llx, 0x%#llx - aborting.\n",
++			       " %#llx, %#llx - aborting.\n",
+ 			       value1, value2);
+ 			pmtmr_ioport = 0;
+ 			return -EINVAL;
+ 		}
+ 		if (i == ACPI_PM_READ_CHECKS) {
+ 			printk(KERN_INFO "PM-Timer failed consistency check "
+-			       " (0x%#llx) - aborting.\n", value1);
++			       " (%#llx) - aborting.\n", value1);
+ 			pmtmr_ioport = 0;
+ 			return -ENODEV;
+ 		}
+diff --git a/drivers/net/ethernet/sis/sis900.c b/drivers/net/ethernet/sis/sis900.c
+index eb4aea3..6c1e34c 100644
+--- a/drivers/net/ethernet/sis/sis900.c
++++ b/drivers/net/ethernet/sis/sis900.c
+@@ -1723,7 +1723,7 @@ static irqreturn_t sis900_interrupt(int irq, void *dev_instance)
+ 
+ 	if(netif_msg_intr(sis_priv))
+ 		printk(KERN_DEBUG "%s: exiting interrupt, "
+-		       "interrupt status = 0x%#8.8x.\n",
++		       "interrupt status = %#8.8x\n",
+ 		       net_dev->name, sr32(isr));
+ 
+ 	spin_unlock (&sis_priv->lock);
+diff --git a/mm/memory-failure.c b/mm/memory-failure.c
+index 09ae111..29d3f38 100644
+--- a/mm/memory-failure.c
++++ b/mm/memory-failure.c
+@@ -1267,7 +1267,7 @@ void memory_failure_queue(unsigned long pfn, int trapno, int flags)
+ 	if (kfifo_put(&mf_cpu->fifo, &entry))
+ 		schedule_work_on(smp_processor_id(), &mf_cpu->work);
+ 	else
+-		pr_err("Memory failure: buffer overflow when queuing memory failure at 0x%#lx\n",
++		pr_err("Memory failure: buffer overflow when queuing memory failure at %#lx\n",
+ 		       pfn);
+ 	spin_unlock_irqrestore(&mf_cpu->lock, proc_flags);
+ 	put_cpu_var(memory_failure_cpu);
+diff --git a/sound/pci/ens1370.c b/sound/pci/ens1370.c
+index ca8929b..61262f3 100644
+--- a/sound/pci/ens1370.c
++++ b/sound/pci/ens1370.c
+@@ -1842,7 +1842,7 @@ static int snd_ensoniq_create_gameport(struct ensoniq *ensoniq, int dev)
+ 
+ 	default:
+ 		if (!request_region(io_port, 8, "ens137x: gameport")) {
+-			printk(KERN_WARNING "ens137x: gameport io port 0x%#x in use\n",
++			printk(KERN_WARNING "ens137x: gameport io port %#x in use\n",
+ 			       io_port);
+ 			return -EBUSY;
+ 		}
+diff --git a/sound/pci/via82xx.c b/sound/pci/via82xx.c
+index 3c511d0..5ae6f04 100644
+--- a/sound/pci/via82xx.c
++++ b/sound/pci/via82xx.c
+@@ -1940,7 +1940,7 @@ static int snd_via686_create_gameport(struct via82xx *chip, unsigned char *legac
+ 
+ 	r = request_region(JOYSTICK_ADDR, 8, "VIA686 gameport");
+ 	if (!r) {
+-		printk(KERN_WARNING "via82xx: cannot reserve joystick port 0x%#x\n",
++		printk(KERN_WARNING "via82xx: cannot reserve joystick port %#x\n",
+ 		       JOYSTICK_ADDR);
+ 		return -EBUSY;
+ 	}
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
