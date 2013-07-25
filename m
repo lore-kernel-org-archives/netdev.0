@@ -1,57 +1,38 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] checkpatch: Fix networking kernel-doc block comment defect
-Date: Wed, 24 Jul 2013 20:31:52 -0700
-Message-ID: <1374723112.1924.41.camel@joe-AO722>
-References: <b939bb41630693171771c108801c1c5f688ecabc.1374525261.git.dvhart@linux.intel.com>
-	 <cover.1374525261.git.dvhart@linux.intel.com>
-	 <79241b53ec4e638008ba3384958ef9901ad11338.1374525261.git.dvhart@linux.intel.com>
-	 <20130724.170008.924195436945641752.davem@davemloft.net>
-	 <1374711603.3436.246.camel@dvhart-mobl1.amr.corp.intel.com>
-	 <1374712895.1924.13.camel@joe-AO722>
-	 <1374721094.3436.249.camel@dvhart-mobl1.amr.corp.intel.com>
-	 <1374721731.1924.34.camel@joe-AO722>
-	 <1374722064.3436.252.camel@dvhart-mobl1.amr.corp.intel.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] tuntap: hardware vlan tx support
+Date: Thu, 25 Jul 2013 11:31:55 +0800
+Message-ID: <51F09C2B.2080802@redhat.com>
+References: <1374563748-38821-1-git-send-email-jasowang@redhat.com> <20130723085310.4a036a47@nehalam.linuxnetplumber.net> <51EF6C42.1070304@redhat.com> <20130724081139.28ba3429@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	Andy Whitcroft <apw@canonical.com>
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Darren Hart <dvhart@linux.intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:50548 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753343Ab3GYDby (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Jul 2013 23:31:54 -0400
-In-Reply-To: <1374722064.3436.252.camel@dvhart-mobl1.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Basil Gor <basil.gor@gmail.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130724081139.28ba3429@nehalam.linuxnetplumber.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-checkpatch can generate a false positive when inserting
-a new kernel-doc block and function above an existing
-kernel-doc block.
+On 07/24/2013 11:11 PM, Stephen Hemminger wrote:
+> On Wed, 24 Jul 2013 13:55:14 +0800
+> Jason Wang <jasowang@redhat.com> wrote:
+>
+>> On 07/23/2013 11:53 PM, Stephen Hemminger wrote:
+>>> On Tue, 23 Jul 2013 15:15:48 +0800
+>>> Jason Wang <jasowang@redhat.com> wrote:
+>>>
+>>>> +		struct {
+>>>> +			__be16 h_vlan_proto;
+>>>> +			__be16 h_vlan_TCI;
+>>>> +		} veth;
+>>> Don't you want to use struct vlan_hdr here? 
+>> There's no need to care encapsulated proto here. In fact, we just
+>> emulate the hardware inserting of 802.1Q header. So only skb->vlan_tci
+>> and skb->vlan_proto needs to be cared.
+>>> Your definition puts the two fields out of order?
+>> It's order is same as struct vlan_ethhdr. Did you see any issue?
+> I was looking at if_vlan.h struct vlan_hdr. The veth structure
+> is a slice between ether and vlan header.
 
-Fix it by checking that the context line is also a newly
-inserted line.
-
-Reported-by: Darren Hart <dvhart@linux.intel.com>
-Signed-off-by: Joe Perches <joe@perches.com>
----
- scripts/checkpatch.pl | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
-index 23126d4..c18e1be 100755
---- a/scripts/checkpatch.pl
-+++ b/scripts/checkpatch.pl
-@@ -2074,6 +2074,7 @@ sub process {
- 		if ($realfile =~ m@^(drivers/net/|net/)@ &&
- 		    $prevrawline =~ /^\+[ \t]*\/\*/ &&		#starting /*
- 		    $prevrawline !~ /\*\/[ \t]*$/ &&		#no trailing */
-+		    $rawline =~ /^\+/ &&			#line is new
- 		    $rawline !~ /^\+[ \t]*\*/) {		#no leading *
- 			WARN("NETWORKING_BLOCK_COMMENT_STYLE",
- 			     "networking block comments start with * on subsequent lines\n" . $hereprev);
--- 
-1.8.1.2.459.gbcd45b4.dirty
+Right, so no functional issue.
