@@ -1,41 +1,41 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net-next] be2net: don't use dev_err when AER enabling fails
-Date: Thu, 25 Jul 2013 16:10:55 +0200
-Message-ID: <1374761455-28193-1-git-send-email-ivecera@redhat.com>
-Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
-	ajit.khaparde@emulex.com
-To: netdev@vger.kernel.org
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: [PATCH 0/2] USBNET: max rx/tx qlen change
+Date: Thu, 25 Jul 2013 22:19:17 +0800
+Message-ID: <CACVXFVO5XCY2i+QhHL500TqDp7DiLEyvgUvDWxVpMRwd+pt3VA@mail.gmail.com>
+References: <1374731274-27415-1-git-send-email-ming.lei@canonical.com>
+	<1374737903.4060.15.camel@linux-fkkt.site>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: Oliver Neukum <oneukum@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54667 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755649Ab3GYOLA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jul 2013 10:11:00 -0400
+Received: from youngberry.canonical.com ([91.189.89.112]:46797 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755576Ab3GYOTU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 10:19:20 -0400
+In-Reply-To: <1374737903.4060.15.camel@linux-fkkt.site>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver uses dev_err when enabling of AER fails (e.g. PCIe AER is not
-supported). The dev_info is more appropriate to avoid console pollution.
+Hi,
 
-Cc: sathya.perla@emulex.com
-Cc: subbu.seetharaman@emulex.com
-Cc: ajit.khaparde@emulex.com
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On Thu, Jul 25, 2013 at 3:38 PM, Oliver Neukum <oneukum@suse.de> wrote:
+> On Thu, 2013-07-25 at 13:47 +0800, Ming Lei wrote:
+>> Hi,
+>>
+>> There are two patches on computing max rx/tx qlen, and fix one
+>> performance problem on USB3 NIC.
+>
+> I am afraid bisectability on SS is impaired. Otherwise
+> this looks good.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 67deb21..3df1503 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4232,7 +4232,7 @@ static int be_probe(struct pci_dev *pdev, const struct pci_device_id *pdev_id)
- 
- 	status = pci_enable_pcie_error_reporting(pdev);
- 	if (status)
--		dev_err(&pdev->dev, "Could not use PCIe error reporting\n");
-+		dev_info(&pdev->dev, "Could not use PCIe error reporting\n");
- 
- 	status = be_ctrl_init(adapter);
- 	if (status)
--- 
-1.8.1.5
+Bisectability on SS can't be impaired, and it is always the 2nd
+patch which fixes the performance issue on SS, and the 1st one
+only does code refactoring thing.
+
+
+Thanks,
+--
+Ming Lei
