@@ -1,231 +1,159 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next 1/2] net: Export skb_zerocopy() to zerocopy from one skb to another
-Date: Thu, 25 Jul 2013 14:43:44 +0200
-Message-ID: <87045a6b80374a9be6a5c37241fed4b97af537cd.1374756042.git.tgraf@suug.ch>
+Subject: [PATCH net-next 2/2] openvswitch: Use skb_zerocopy() to prepare skb for upcall
+Date: Thu, 25 Jul 2013 14:43:45 +0200
+Message-ID: <9d4aaa5319c684e14721e0bed2ef22ddc409caf1.1374756042.git.tgraf@suug.ch>
 References: <cover.1374756042.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org, eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, dev@openvswitch.org,
+	eric.dumazet@gmail.com, Thomas Graf <tgraf@rhlap.localdomain>
 To: davem@davemloft.net, jesse@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:37142 "EHLO
+Received: from merlin.infradead.org ([205.233.59.134]:37146 "EHLO
 	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755457Ab3GYMnv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 08:43:51 -0400
+	with ESMTP id S1755400Ab3GYMnx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 08:43:53 -0400
 In-Reply-To: <cover.1374756042.git.tgraf@suug.ch>
 In-Reply-To: <cover.1374756042.git.tgraf@suug.ch>
 References: <cover.1374756042.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make the skb zerocopy logic written for nfnetlink queue available for
-use by other modules.
+From: Thomas Graf <tgraf@rhlap.localdomain>
+
+Use of skb_zerocopy() avoids the expensive call to memcpy() when
+copying the packet data into the Netlink skb. Completes checksum
+through skb_checksum_help() if needed (typicall packet input from
+software device) which invalidates some of the gains again.
+
+Stock-RX
+-  38.30%       swapper  [kernel.kallsyms]  [k] memcpy
+   - memcpy
+      + 87.46% queue_userspace_packet
+      + 12.54% nla_put
++  24.72%  ovs-vswitchd  libc-2.17.so       [.] __memcpy_ssse3_back
++  13.80%  ovs-vswitchd  [kernel.kallsyms]  [k] memcpy
+-   7.68%   ksoftirqd/2  [kernel.kallsyms]  [k] memcpy
+   - memcpy
+      + 85.83% queue_userspace_packet
+      + 14.17% nla_put
+-   7.06%   ksoftirqd/3  [kernel.kallsyms]  [k] memcpy
+   - memcpy
+      + 84.85% queue_userspace_packet
+      + 15.15% nla_put
+-   4.41%   ksoftirqd/0  [kernel.kallsyms]  [k] memcpy
+   - memcpy
+      + 83.48% queue_userspace_packet
+      + 16.52% nla_put
+
+Zerocopy-RX
++  50.35%  ovs-vswitchd  libc-2.17.so       [.] __memcpy_ssse3_back
+-  27.78%  ovs-vswitchd  [kernel.kallsyms]  [k] memcpy
+   - memcpy
+      + 74.53% ovs_packet_cmd_execute
+      + 24.11% nla_put
+      + 0.93% ovs_flow_cmd_new_or_set
++  13.49%       swapper  [kernel.kallsyms]  [k] memcpy
++   1.45%   ksoftirqd/3  [kernel.kallsyms]  [k] memcpy
++   1.20%   ksoftirqd/2  [kernel.kallsyms]  [k] memcpy
+
+10Gb remote pktgen, 1200 bytes, randomized flows, w/ UDPCSUM:
+                                Hits               Missed          Lost
+Stock RX                     731'945            6'315'739     3'606'678
+Zerocopy RX                  764'041            6'442'761     3'947'451
+
+local pktgen, 4/6 CPUs, 1200 bytes, randomized flows, UDPCSUM:
+                                Hits               Missed          Lost
+Stock TX                   2'071'030           17'929'192    16'807'785
+Zerocopy TX                1'951'142           18'049'056    16'977'296
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Cc: Jesse Gross <jesse@nicira.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- include/linux/skbuff.h               |  3 ++
- net/core/skbuff.c                    | 85 ++++++++++++++++++++++++++++++++++++
- net/netfilter/nfnetlink_queue_core.c | 59 ++-----------------------
- 3 files changed, 92 insertions(+), 55 deletions(-)
+ net/openvswitch/datapath.c | 47 ++++++++++++++++++++++++++++++++++++++++------
+ 1 file changed, 41 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 5afefa0..2f3c64f 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2381,6 +2381,9 @@ extern int             skb_splice_bits(struct sk_buff *skb,
- 						unsigned int len,
- 						unsigned int flags);
- extern void	       skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to);
-+extern unsigned int    skb_zerocopy_headlen(const struct sk_buff *from);
-+extern void	       skb_zerocopy(struct sk_buff *to, const struct sk_buff *from,
-+				    int len, int hlen);
- extern void	       skb_split(struct sk_buff *skb,
- 				 struct sk_buff *skb1, const u32 len);
- extern int	       skb_shift(struct sk_buff *tgt, struct sk_buff *skb,
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 20e02d2..23736ad 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2111,6 +2111,91 @@ void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to)
- EXPORT_SYMBOL(skb_copy_and_csum_dev);
- 
- /**
-+ *	skb_zerocopy_headlen - Calculate headroom needed for skb_zerocopy()
-+ *	@from: source buffer
-+ *
-+ *	Calculates the amount of linear headroom needed in the 'to' skb passed
-+ *	into skb_zerocopy().
-+ */
-+unsigned int
-+skb_zerocopy_headlen(const struct sk_buff *from)
-+{
-+	unsigned int hlen = 0;
-+
-+	if (!from->head_frag ||
-+	    skb_headlen(from) < L1_CACHE_BYTES ||
-+	    skb_shinfo(from)->nr_frags >= MAX_SKB_FRAGS)
-+		hlen = skb_headlen(from);
-+
-+	if (skb_has_frag_list(from))
-+		hlen = from->len;
-+
-+	return hlen;
-+}
-+EXPORT_SYMBOL_GPL(skb_zerocopy_headlen);
-+
-+/**
-+ *	skb_zerocopy - Zero copy skb to skb
-+ *	@to: destination buffer
-+ *	@source: source buffer
-+ *	@len: number of bytes to copy from source buffer
-+ *	@hlen: size of linear headroom in destination buffer
-+ *
-+ *	Copies up to `len` bytes from `from` to `to` by creating references
-+ *	to the frags in the source buffer.
-+ *
-+ *	The `hlen` as calculated by skb_zerocopy_headlen() specifies the
-+ *	headroom in the `to` buffer.
-+ */
-+void
-+skb_zerocopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
-+{
-+	int i, j = 0;
-+	int plen = 0; /* length of skb->head fragment */
-+	struct page *page;
-+	unsigned int offset;
-+
-+	BUG_ON(!from->head_frag && !hlen);
-+
-+	/* dont bother with small payloads */
-+	if (len <= skb_tailroom(to)) {
-+		skb_copy_bits(from, 0, skb_put(to, len), len);
-+		return;
-+	}
-+
-+	if (hlen) {
-+		skb_copy_bits(from, 0, skb_put(to, hlen), hlen);
-+		len -= hlen;
-+	} else {
-+		plen = min_t(int, skb_headlen(from), len);
-+		if (plen) {
-+			page = virt_to_head_page(from->head);
-+			offset = from->data - (unsigned char *)page_address(page);
-+			__skb_fill_page_desc(to, 0, page, offset, plen);
-+			get_page(page);
-+			j = 1;
-+			len -= plen;
-+		}
-+	}
-+
-+	to->truesize += len + plen;
-+	to->len += len + plen;
-+	to->data_len += len + plen;
-+
-+	for (i = 0; i < skb_shinfo(from)->nr_frags; i++) {
-+		if (!len)
-+			break;
-+		skb_shinfo(to)->frags[j] = skb_shinfo(from)->frags[i];
-+		skb_shinfo(to)->frags[j].size = min_t(int, skb_shinfo(to)->frags[j].size, len);
-+		len -= skb_shinfo(to)->frags[j].size;
-+		skb_frag_ref(to, j);
-+		j++;
-+	}
-+	skb_shinfo(to)->nr_frags = j;
-+}
-+EXPORT_SYMBOL_GPL(skb_zerocopy);
-+
-+/**
-  *	skb_dequeue - remove from the head of the queue
-  *	@list: list to dequeue from
-  *
-diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
-index 971ea14..ba539a8 100644
---- a/net/netfilter/nfnetlink_queue_core.c
-+++ b/net/netfilter/nfnetlink_queue_core.c
-@@ -235,51 +235,6 @@ nfqnl_flush(struct nfqnl_instance *queue, nfqnl_cmpfn cmpfn, unsigned long data)
- 	spin_unlock_bh(&queue->lock);
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index f7e3a0d..c5927ad 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -383,10 +383,11 @@ static size_t key_attr_size(void)
  }
  
--static void
--nfqnl_zcopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
--{
--	int i, j = 0;
--	int plen = 0; /* length of skb->head fragment */
--	struct page *page;
--	unsigned int offset;
--
--	/* dont bother with small payloads */
--	if (len <= skb_tailroom(to)) {
--		skb_copy_bits(from, 0, skb_put(to, len), len);
--		return;
--	}
--
--	if (hlen) {
--		skb_copy_bits(from, 0, skb_put(to, hlen), hlen);
--		len -= hlen;
--	} else {
--		plen = min_t(int, skb_headlen(from), len);
--		if (plen) {
--			page = virt_to_head_page(from->head);
--			offset = from->data - (unsigned char *)page_address(page);
--			__skb_fill_page_desc(to, 0, page, offset, plen);
--			get_page(page);
--			j = 1;
--			len -= plen;
--		}
--	}
--
--	to->truesize += len + plen;
--	to->len += len + plen;
--	to->data_len += len + plen;
--
--	for (i = 0; i < skb_shinfo(from)->nr_frags; i++) {
--		if (!len)
--			break;
--		skb_shinfo(to)->frags[j] = skb_shinfo(from)->frags[i];
--		skb_shinfo(to)->frags[j].size = min_t(int, skb_shinfo(to)->frags[j].size, len);
--		len -= skb_shinfo(to)->frags[j].size;
--		skb_frag_ref(to, j);
--		j++;
--	}
--	skb_shinfo(to)->nr_frags = j;
--}
--
- static int
- nfqnl_put_packet_info(struct sk_buff *nlskb, struct sk_buff *packet,
- 		      bool csum_verify)
-@@ -304,7 +259,7 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
+ static size_t upcall_msg_size(const struct sk_buff *skb,
+-			      const struct nlattr *userdata)
++			      const struct nlattr *userdata,
++			      unsigned int hdrlen)
  {
- 	size_t size;
- 	size_t data_len = 0, cap_len = 0;
--	int hlen = 0;
-+	unsigned int hlen = 0;
- 	struct sk_buff *skb;
+ 	size_t size = NLMSG_ALIGN(sizeof(struct ovs_header))
+-		+ nla_total_size(skb->len) /* OVS_PACKET_ATTR_PACKET */
++		+ nla_total_size(hdrlen) /* OVS_PACKET_ATTR_PACKET */
+ 		+ nla_total_size(key_attr_size()); /* OVS_PACKET_ATTR_KEY */
+ 
+ 	/* OVS_PACKET_ATTR_USERDATA */
+@@ -404,6 +405,7 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
+ 	struct sk_buff *nskb = NULL;
+ 	struct sk_buff *user_skb; /* to be queued to userspace */
  	struct nlattr *nla;
- 	struct nfqnl_msg_packet_hdr *pmsg;
-@@ -356,14 +311,8 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
- 		if (data_len > entskb->len)
- 			data_len = entskb->len;
++	unsigned int plen, hlen;
+ 	int err;
  
--		if (!entskb->head_frag ||
--		    skb_headlen(entskb) < L1_CACHE_BYTES ||
--		    skb_shinfo(entskb)->nr_frags >= MAX_SKB_FRAGS)
--			hlen = skb_headlen(entskb);
--
--		if (skb_has_frag_list(entskb))
--			hlen = entskb->len;
--		hlen = min_t(int, data_len, hlen);
-+		hlen = skb_zerocopy_headlen(entskb);
-+		hlen = min_t(unsigned int, hlen, data_len);
- 		size += sizeof(struct nlattr) + hlen;
- 		cap_len = entskb->len;
- 		break;
-@@ -501,7 +450,7 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
- 		nla->nla_type = NFQA_PAYLOAD;
- 		nla->nla_len = nla_attr_size(data_len);
- 
--		nfqnl_zcopy(skb, entskb, data_len, hlen);
-+		skb_zerocopy(skb, entskb, data_len, hlen);
+ 	if (vlan_tx_tag_present(skb)) {
+@@ -424,7 +426,12 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
+ 		goto out;
  	}
  
- 	nlh->nlmsg_len = skb->len;
+-	user_skb = genlmsg_new(upcall_msg_size(skb, upcall_info->userdata), GFP_ATOMIC);
++	if (skb->ip_summed == CHECKSUM_PARTIAL &&
++	    (err = skb_checksum_help(skb)))
++		goto out;
++
++	hlen = skb_zerocopy_headlen(skb);
++	user_skb = genlmsg_new(upcall_msg_size(skb, upcall_info->userdata, hlen), GFP_ATOMIC);
+ 	if (!user_skb) {
+ 		err = -ENOMEM;
+ 		goto out;
+@@ -443,11 +450,39 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
+ 			  nla_len(upcall_info->userdata),
+ 			  nla_data(upcall_info->userdata));
+ 
+-	nla = __nla_reserve(user_skb, OVS_PACKET_ATTR_PACKET, skb->len);
++	if (!(nla = nla_reserve(user_skb, OVS_PACKET_ATTR_PACKET, 0)))
++		goto out;
++	nla->nla_len = nla_attr_size(skb->len);
++
++	skb_zerocopy(user_skb, skb, skb->len, hlen);
++
++	/* Align the end of the attribute to NLA_ALIGNTO */
++	plen = NLA_ALIGN(user_skb->len) - user_skb->len;
++	if (plen > 0) {
++		int nr_frags = skb_shinfo(user_skb)->nr_frags;
+ 
+-	skb_copy_and_csum_dev(skb, nla_data(nla));
++		if (nr_frags) {
++			skb_frag_t *frag;
++
++			/* Assumption is made that PAGE_SIZE is always alligned
++			 * to at least NLA_ALIGNTO (4) which means that we it
++			 * should be safe to add the padding bytes to the frag
++			 */
++			frag = &skb_shinfo(user_skb)->frags[nr_frags -1];
++			skb_frag_size_add(frag, plen);
++
++			user_skb->truesize += plen;
++			user_skb->len += plen;
++			user_skb->data_len += plen;
++		} else
++			memset(skb_put(user_skb, plen), 0, plen);
++	}
++
++	/* Fix alignment of .nlmsg_len, OVS user space enforces a strict
++	 * total message size alignment.
++	 */
++	((struct nlmsghdr *) user_skb->data)->nlmsg_len = NLA_ALIGN(user_skb->len);
+ 
+-	genlmsg_end(user_skb, upcall);
+ 	err = genlmsg_unicast(net, user_skb, upcall_info->portid);
+ 
+ out:
 -- 
 1.8.3.1
