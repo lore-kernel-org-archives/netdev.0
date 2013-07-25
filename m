@@ -1,43 +1,136 @@
-From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
-Subject: Re: [PATCH] fib_rules: add minimum prefix length
-Date: Fri, 26 Jul 2013 00:11:16 +0200
-Message-ID: <20130725221116.GC10216@zirkel.wertarbyte.de>
-References: <20130723220221.GP10216@zirkel.wertarbyte.de>
- <20130724021420.GA10670@order.stressinduktion.org>
- <20130725162931.GX10216@zirkel.wertarbyte.de>
- <20130725181712.GB24007@order.stressinduktion.org>
- <20130725182818.GZ10216@zirkel.wertarbyte.de>
- <CAKTPYJReVfF85wvpbjCF1XREoh3+wzC1baxibZNE1auexcgigA@mail.gmail.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [patch net-next v4 4/4] igb/igbvf: implement ndo_get_phys_port_id
+Date: Thu, 25 Jul 2013 15:27:50 -0700
+Message-ID: <51F1A666.8050001@intel.com>
+References: <1374757385-10875-1-git-send-email-jiri@resnulli.us>    <1374757385-10875-5-git-send-email-jiri@resnulli.us>    <51F14F9F.1010703@intel.com>   <1374770653.3058.9.camel@bwh-desktop.uk.level5networks.com>   <51F167A6.808@intel.com>  <1374778266.3058.15.camel@bwh-desktop.uk.level5networks.com>  <51F1769E.3050906@intel.com> <1374779745.3058.24.camel@bwh-desktop.uk.level5networks.com> <51F18366.2040306@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Collins <bsderandrew@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	davem@davemloft.net, stephen@networkplumber.org,
+	Narendra_K@Dell.com, john.r.fastabend@intel.com,
+	or.gerlitz@gmail.com, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	gregory.v.rose@intel.com, peter.p.waskiewicz.jr@intel.com,
+	john.ronciak@intel.com, tushar.n.dave@intel.com,
+	matthew.vick@intel.com, mitch.a.williams@intel.com,
+	vyasevic@redhat.com, amwang@redhat.com, johannes@sipsolutions.net
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zirkel.wertarbyte.de ([188.40.44.137]:55967 "EHLO
-	zirkel.wertarbyte.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754659Ab3GYWLR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 18:11:17 -0400
-Content-Disposition: inline
-In-Reply-To: <CAKTPYJReVfF85wvpbjCF1XREoh3+wzC1baxibZNE1auexcgigA@mail.gmail.com>
+Received: from mga11.intel.com ([192.55.52.93]:57074 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756577Ab3GYW2M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jul 2013 18:28:12 -0400
+In-Reply-To: <51F18366.2040306@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dies schrieb Andrew Collins (bsderandrew@gmail.com):
+On 07/25/2013 12:58 PM, John Fastabend wrote:
+> On 07/25/2013 12:15 PM, Ben Hutchings wrote:
+>> On Thu, 2013-07-25 at 12:03 -0700, Alexander Duyck wrote:
+>>> On 07/25/2013 11:51 AM, Ben Hutchings wrote:
+>>>> On Thu, 2013-07-25 at 11:00 -0700, Alexander Duyck wrote:
+>>>>> On 07/25/2013 09:44 AM, Ben Hutchings wrote:
+>>>>>> On Thu, 2013-07-25 at 09:17 -0700, Alexander Duyck wrote:
+>>>>>>> On 07/25/2013 06:03 AM, Jiri Pirko wrote:
+>>>>>>>> @@ -1982,6 +2001,21 @@ static s32 igb_init_i2c(struct
+>>>>>>>> igb_adapter *adapter)
+>>>>>>>>       return status;
+>>>>>>>>   }
+>>>>>>>>
+>>>>>>>> +static void igb_compute_phys_port_id(struct igb_adapter *adapter)
+>>>>>>>> +{
+>>>>>>>> +    adapter->phys_port_id = *((u32 *) adapter->netdev->dev_addr);
+>>>>>>>> +    adapter->phys_port_id ^= *((u32 *)
+>>>>>>>> adapter->netdev->dev_addr + 4);
+>>>>>>>> +    adapter->phys_port_id ^= (long) adapter;
+>>>>>>>> +    adapter->phys_port_id ^= (long) adapter->hw.hw_addr;
+>>>>>>>> +    adapter->phys_port_id ^= (long) adapter->hw.flash_address;
+>>>>>>>> +    adapter->phys_port_id ^= (u32) adapter->hw.io_base;
+>>>>>>>> +    adapter->phys_port_id ^= adapter->hw.device_id;
+>>>>>>>> +    adapter->phys_port_id ^= adapter->hw.subsystem_vendor_id;
+>>>>>>>> +    adapter->phys_port_id ^= adapter->hw.subsystem_device_id;
+>>>>>>>> +    adapter->phys_port_id ^= adapter->hw.vendor_id;
+>>>>>>>> +    adapter->phys_port_id ^= adapter->hw.revision_id;
+>>>>>> I didn't look at Jiri's patch initially, but... what's wrong with
+>>>>>> using
+>>>>>> the MAC address from NVRAM (should already be in netdev->perm_addr)?
+>>>>>> That's what I'm expecting to do for the SFC9000 family in sfc.
+>>>>>>
+>>>>>>>> +}
+>>>>>>>> +
+>>>>>>>>   /**
+>>>>>>>>    *  igb_probe - Device Initialization Routine
+>>>>>>>>    *  @pdev: PCI device information struct
+>>>>>>> I really think this bit here should be standardized and made
+>>>>>>> available
+>>>>>>> to all drivers.
+>>>>>> [...]
+>>>>>>
+>>>>>> I think it's a bad example and should not be used in any drivers!
+>>>>>>
+>>>>>> Ben.
+>>>>>>
+>>>>> I agree.  That is why the second paragraph started listing what was
+>>>>> wrong with this implementation.  What I said was meant in the more
+>>>>> general sense that whatever solution should be used should be the
+>>>>> same
+>>>>> across multiple drivers, not up to each driver to compute.
+>>>> I would love to know how you think this can be done generically. 
+>>>> If it
+>>>> can then we don't need the driver operation at all.
+>>>>
+>>>> Ben.
+>>>>
+>>>
+>>> Well like you mentioned, you could just pull this out out of
+>>> netdev->perm_addr.  You don't need to have anything driver specific as
+>>> long as that is the field you are using generic netdev or pci_dev
+>>> attributes to do the identification.
+>>
+>> For a PF driver that never shares the port with another PF, yes.  There
+>> are a handful of those drivers so it might be worth sharing an
+>> implementation that uses perm_addr, but it's so trivial...
+>>
+>>> All you need is something that
+>>> uniquely identifies the device in the system correct?
+>>
+>> The spec is that it is universally unique.  I don't know who's going to
+>> need that property but I think it's achievable since each physical port
+>> normally has at least one globally unique MAC address assigned at
+>> manufacturing time.
+>>
+>>> For that matter
+>>> it seems like you could probably just pull the domain, bus, device, and
+>>> function number out of the PCI device and that would probably work as
+>>> well as long as you cannot somehow have PFs running inside of guests.
+>>
+>> Some NICs have multiple PFs for the same port, and those could be
+>> assigned to guest VMs.
+>>
+>> All VF drivers would need some way to get the port ID, and that can't be
+>> done generically from inside a guest VM.
+>>
+>> Ben.
+>>
+>
+> I doubt you'll be able to think up a way to do this generically as Ben
+> points out. But also no reason for the complicated hash just use the
+> perm address of the PF and if you have multiple PFs elect one of the
+> n perm address to be the stand-in for the unique one.
+>
+> .John
+>
 
-> > I've just completed the patch and sent it to the list, and I also placed the
-> > changes in my github account, just in case anyone wants to take a quick peek:
-> > https://github.com/wertarbyte/linux/compare/prefixlength
-> 
-> > +  if (arg->result) { ...
-> 
-> This NULL check seems unnecessary (fib_table_lookup doesn't check).
+I think there may have been some miscommunication.  I wasn't talking
+about the VF drivers having a generic means of getting the ID.  I would
+just want all of the drivers to be using a similar approach for
+generating the port ID so that we reduce the risk of any kind of port ID
+collision.  We need to make sure we are all stuffing the 6 bytes of
+perm_addr into the 4 byte port ID using the same approach.
 
-I wasn't sure if it was possible for fib_table_lookup to put a NULL pointer there,
-so I wanted to make sure following it with ->prefixlen was possible. 
+Thanks,
 
-> I like the idea, but I agree with Hannes that it'd be nice to split
-> this out into a fib constraint callback.
-
-I'm still not convinced that creating such a callback that will never be called
-from outside fib{4,}_rule_action() is worth the effort, but my insight into the code
-is still limited; if it's the right thing to do [tm], I won't stand in the way :-)
+Alex
