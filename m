@@ -1,36 +1,57 @@
-From: Prashant Shah <pshah.mumbai@gmail.com>
-Subject: Re: [PATCH] Change request_irq() to use struct net_device *dev->name
-Date: Thu, 25 Jul 2013 10:49:25 +0530
-Message-ID: <CAD6i1fJO3geZ0vkHLsJEd+KedHkpC1OZVTJJskU2RAAKYBhhJQ@mail.gmail.com>
-References: <1374646199-9398-1-git-send-email-pshah.mumbai@gmail.com>
-	<51F07489.7010404@gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v2 net-next] net/sctp: Refactor SCTP skb checksum
+ computation
+Date: Thu, 25 Jul 2013 14:24:38 +0900
+Message-ID: <20130725052437.GB25854@verge.net.au>
+References: <1374717125-28969-1-git-send-email-joe@wand.net.nz>
+ <alpine.LFD.2.00.1307250804180.1718@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kernel-mentors@selenic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ryan Mallon <rmallon@gmail.com>
-Return-path: <kernel-mentors-bounces@selenic.com>
-In-Reply-To: <51F07489.7010404@gmail.com>
-List-Unsubscribe: <http://selenic.com/mailman/options/kernel-mentors>,
-	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
-List-Archive: <http://selenic.com/pipermail/kernel-mentors>
-List-Post: <mailto:kernel-mentors@selenic.com>
-List-Help: <mailto:kernel-mentors-request@selenic.com?subject=help>
-List-Subscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
-	<mailto:kernel-mentors-request@selenic.com?subject=subscribe>
-Sender: kernel-mentors-bounces@selenic.com
-Errors-To: kernel-mentors-bounces@selenic.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Joe Stringer <joe@wand.net.nz>, davem@davemloft.net,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	lvs-devel@vger.kernel.org, pablo@netfilter.org, jesse@nicira.com
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.1307250804180.1718@ja.ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, Jul 25, 2013 at 08:08:11AM +0300, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Thu, 25 Jul 2013, Joe Stringer wrote:
+> 
+> > This patch consolidates the SCTP checksum calculation code from various
+> > places to a single new function, sctp_compute_cksum(skb, offset).
+> > 
+> > Signed-off-by: Joe Stringer <joe@wand.net.nz>
+> > ---
+> > v2:
+> > * Use skb->data + offset for start position of checksum calculation
+> > * Fix existing bug in sctp_csum_check() where the incorrect offset was used
+> > * Remove redundant variable in sctp_nat_csum()
+> 
+> 	v2 looks good to me, thanks!
+> 
+> Reviewed-by: Julian Anastasov <ja@ssi.bg>
 
-> You should also remove the definition of DRV_NAME, since it is no longer
-> used. The changelog should probably mention that this will change the
-> interrupt name (which appears in /proc/interrupts for example) from "wd"
-> to "eth%d".
->
+IPVS portion:
 
-I will resend the patch.
+Acked-by: Simon Horman <horms@verge.net.au>
 
-Regards.
+Dave, could you consider taking this through net-next?
+
+> > ---
+> >  include/net/sctp/checksum.h           |   15 +++++++++++++++
+> >  net/netfilter/ipvs/ip_vs_proto_sctp.c |   23 +++--------------------
+> >  net/netfilter/nf_nat_proto_sctp.c     |    8 +-------
+> >  net/sctp/input.c                      |   10 +---------
+> >  4 files changed, 20 insertions(+), 36 deletions(-)
+> 
+> Regards
+> 
+> --
+> Julian Anastasov <ja@ssi.bg>
+> 
