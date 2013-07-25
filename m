@@ -1,53 +1,90 @@
-From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
-Subject: Re: Hack bench regression with CONFIG_SLUB_CPU_PARTIAL disabled (info
- only)
-Date: Thu, 25 Jul 2013 18:50:58 +0530
-Message-ID: <51F1263A.6070704@linux.vnet.ibm.com>
-References: <51F0DB11.2080508@linux.vnet.ibm.com> <1374750359.23313.17.camel@edumazet-glaptop>
+From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: [PATCH] net/fec: call netif_carrier_off when not having link
+Date: Thu, 25 Jul 2013 15:27:55 +0200
+Message-ID: <1374758875-7926-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Gao feng <gaofeng@cn.fujitsu.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>,
+	Shawn Guo <shawn.guo@linaro.org>, kernel@pengutronix.de,
+	Hector Palacios <hector.palacios@digi.com>,
+	Tim Sander <tim.sander@hbm.com>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp06.au.ibm.com ([202.81.31.148]:52171 "EHLO
-	e23smtp06.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755618Ab3GYNNr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 09:13:47 -0400
-Received: from /spool/local
-	by e23smtp06.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <raghavendra.kt@linux.vnet.ibm.com>;
-	Thu, 25 Jul 2013 23:05:53 +1000
-In-Reply-To: <1374750359.23313.17.camel@edumazet-glaptop>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:46656 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755609Ab3GYN2P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 09:28:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/25/2013 04:35 PM, Eric Dumazet wrote:
-> On Thu, 2013-07-25 at 13:30 +0530, Raghavendra K T wrote:
->> Hi,
->>
->> While testing hackbench with 3.11-rc1 I observed hackbench testcase
->> took too long to complete (32 vcpu kvm guest on 32 core HT off machine).
->>
->> hackbench 1x degraded by 3 time (40sec vs 112sec)
->> hackbench 2x degraded by around 20time (90sec vs 1800 sec)
->>
->> When I bisected, I found that I had CONFIG_SLUB_CPU_PARTIAL
->> accidentally disabled.
->> I understand that  CONFIG_SLUB_CPU_PARTIAL=y by default and the config
->> option is to provide determinism for RT kernels and thus it is not a
->> problem.
->> But thought of sharing this here so that if somebody runs into same
->> issue accidently, it would save their time.
->
-> Incidentally, what difference do you currently get with SLUB and SLAB ?
->
+Without this patch I see a machine running an -rt patched Linux being
+stuck in sch_direct_xmit when it looses link while there is still a
+packet to be send. In this case the fec_enet_start_xmit routine returns
+NETDEV_TX_BUSY which makes the network stack reschedule the packet and
+so sch_direct_xmit calls fec_enet_start_xmit again.
 
-tested now,
-hackbench 1x is  almost 2 times slower (40 vs 93)
-hackbench 2x is almost 6times slower   (90sec vs 528)
+The right fix is to tell the network stack that the link was lost (usin=
+g
+netif_carrier_off) so that it doesn't even try to get rid of the pendin=
+g
+packets.
+
+Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+---
+Hello,
+
+this resembles a problem described on the linux-rt mailing list some
+time ago:
+
+	http://thread.gmane.org/gmane.linux.rt.user/7815
+
+So I Cc:d the people that participated in that thread.
+
+IMHO this is 3.11 material (assuming I did it right) and is even worth
+backporting as I think the problem exists in mainline, too, just harder
+to trigger.
+
+Best regards
+Uwe
+
+ drivers/net/ethernet/freescale/fec_main.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/et=
+hernet/freescale/fec_main.c
+index 0642006..631bd5a 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -280,11 +280,6 @@ fec_enet_start_xmit(struct sk_buff *skb, struct ne=
+t_device *ndev)
+ 	unsigned short	status;
+ 	unsigned int index;
+=20
+-	if (!fep->link) {
+-		/* Link is down or auto-negotiation is in progress. */
+-		return NETDEV_TX_BUSY;
+-	}
+-
+ 	/* Fill in a Tx ring entry */
+ 	bdp =3D fep->cur_tx;
+=20
+@@ -459,6 +454,11 @@ fec_restart(struct net_device *ndev, int duplex)
+ 		netif_tx_lock_bh(ndev);
+ 	}
+=20
++	if (!fep->link)
++		netif_carrier_off(ndev);
++	else
++		netif_carrier_on(ndev);
++
+ 	/* Whack a reset.  We should wait for this. */
+ 	writel(1, fep->hwp + FEC_ECNTRL);
+ 	udelay(10);
+--=20
+1.8.3.2
