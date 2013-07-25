@@ -1,50 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net/sctp: Refactor SCTP skb checksum
- computation
-Date: Wed, 24 Jul 2013 23:15:22 -0700 (PDT)
-Message-ID: <20130724.231522.347956000482833125.davem@davemloft.net>
-References: <1374717125-28969-1-git-send-email-joe@wand.net.nz>
-	<alpine.LFD.2.00.1307250804180.1718@ja.ssi.bg>
-	<20130725052437.GB25854@verge.net.au>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: minimum ICMPv6 message size vs. RPL's DIS
+Date: Thu, 25 Jul 2013 08:17:31 +0200
+Message-ID: <20130725061731.GA12365@order.stressinduktion.org>
+References: <20130724232852.GA29572@ws>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, joe@wand.net.nz, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
-	pablo@netfilter.org, jesse@nicira.com
-To: horms@verge.net.au
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20130725052437.GB25854@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Werner Almesberger <werner@almesberger.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:38214 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753005Ab3GYGRd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 02:17:33 -0400
+Content-Disposition: inline
+In-Reply-To: <20130724232852.GA29572@ws>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
-Date: Thu, 25 Jul 2013 14:24:38 +0900
+On Wed, Jul 24, 2013 at 08:28:52PM -0300, Werner Almesberger wrote:
+> The kernel assumes that any valid ICMPv6 message is at least eight
+> bytes long, for example in net/ipv6/raw.c:icmpv6_filter
+> 
+> The DIS message of RPL (RFC 6550 section 6.2, from the 6LoWPAN
+> world), has a minimum length of six bytes, and is thus blocked by
+> icmpv6_filter.
+> 
+> Contiki OS sends this sort of messages and is thus ignored by an
+> user-space RPL application on Linux (in my case simpleRPL). Nodes
+> will eventually join the network regardless, but this can take
+> hours instead of seconds.
+>  
+> RFC 4443 seems to allow even a zero-sized body, making the minimum
+> allowable size four bytes.
+> 
+> A similar restriction exists in net/ipv6/icmp.c:icmpv6_rcv but
+> causes no harm there since all potential recipients at that point
+> expect a larger payload.
+> 
+> Now, while this is easy enough to fix on the Linux side (see
+> below), I wonder if it is really a Linux bug or if I (and the
+> authors of RPL in Contiki) may have missed some minimum size
+> requirement for ICMPv6 messages stated elsewhere.
+> 
+> Opinions ?
 
-> On Thu, Jul 25, 2013 at 08:08:11AM +0300, Julian Anastasov wrote:
->> 
->> 	Hello,
->> 
->> On Thu, 25 Jul 2013, Joe Stringer wrote:
->> 
->> > This patch consolidates the SCTP checksum calculation code from various
->> > places to a single new function, sctp_compute_cksum(skb, offset).
->> > 
->> > Signed-off-by: Joe Stringer <joe@wand.net.nz>
->> > ---
->> > v2:
->> > * Use skb->data + offset for start position of checksum calculation
->> > * Fix existing bug in sctp_csum_check() where the incorrect offset was used
->> > * Remove redundant variable in sctp_nat_csum()
->> 
->> 	v2 looks good to me, thanks!
->> 
->> Reviewed-by: Julian Anastasov <ja@ssi.bg>
-> 
-> IPVS portion:
-> 
-> Acked-by: Simon Horman <horms@verge.net.au>
-> 
-> Dave, could you consider taking this through net-next?
+Browsing the RFCs, I do think you are correct. Did you check what IPv4 does?
+(what a strange errata to RFC 4443...)
 
-Sure.
+> diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+> index c45f7a5..539534c 100644
+> --- a/net/ipv6/raw.c
+> +++ b/net/ipv6/raw.c
+> @@ -112,7 +112,7 @@ static int icmpv6_filter(const struct sock *sk, const struct sk_buff *skb)
+>  	const struct icmp6hdr *hdr;
+>  
+>  	hdr = skb_header_pointer(skb, skb_transport_offset(skb),
+> -				 sizeof(_hdr), &_hdr);
+> +				 4, &_hdr);
+>  	if (hdr) {
+>  		const __u32 *data = &raw6_sk(sk)->filter.data[0];
+>  		unsigned int type = hdr->icmp6_type;
+
+Hmm, maybe we should update the icmp header to something like
+
+struct icmp6hdr {
+	struct icmp6hdr_head {
+		__u8 icmp6_type;
+		...;
+	} icmpv6_head;
+#define icmp6_type icmpv6_head.icmp6_type
+
+and just change the type in icmpv6_filter to icmp6hdr_head.
+
+Hmm, there is a bug in this function, _hdr must not be a pointer.
+
+Greetings,
+
+  Hannes
