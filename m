@@ -1,40 +1,29 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH] Change request_irq() to use struct net_device *dev->name
-Date: Thu, 25 Jul 2013 21:31:22 +0300
-Message-ID: <CAHp75VeqgqVdn+zRjW+McwFQfD73NhYz4X3M4ndeDZnkFmqyEg@mail.gmail.com>
-References: <1374646199-9398-1-git-send-email-pshah.mumbai@gmail.com>
-	<51F07489.7010404@gmail.com>
-	<CAD6i1fJO3geZ0vkHLsJEd+KedHkpC1OZVTJJskU2RAAKYBhhJQ@mail.gmail.com>
-	<CAD6i1f+NYu7rcQwF-TXk4+OdjPNZwMKxxjJ9YA_+v9B6uPYq+g@mail.gmail.com>
-	<CAHp75VdouA2w5WjBPJ2cX8AKvTeCNrj6pM+3SS5DzU+ARM5M3Q@mail.gmail.com>
-	<CAP8WD_aKqqB4Fb4Vadj_AJ4ET5gxd+EkaCMMVvBxxqNwDjpBGg@mail.gmail.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next v3 0/6] openvswitch: VXLAN tunneling.
+Date: Thu, 25 Jul 2013 11:33:02 -0700
+Message-ID: <CAEP_g=9_AWgGY9-pZnGSgk7XMScszUCvcUzzyB7=9FKAjO9iEA@mail.gmail.com>
+References: <1374688826-14199-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Prashant Shah <pshah.mumbai@gmail.com>,
-	Ryan Mallon <rmallon@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	mwhitehe@redhat.com, kernel-mentors@selenic.com
-To: whiteheadm@acm.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f175.google.com ([209.85.214.175]:42232 "EHLO
-	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756064Ab3GYSbX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 14:31:23 -0400
-In-Reply-To: <CAP8WD_aKqqB4Fb4Vadj_AJ4ET5gxd+EkaCMMVvBxxqNwDjpBGg@mail.gmail.com>
+Received: from na3sys009aog119.obsmtp.com ([74.125.149.246]:42247 "HELO
+	na3sys009aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1757649Ab3GYSdX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 14:33:23 -0400
+Received: by mail-ob0-f178.google.com with SMTP id fb19so2265746obc.23
+        for <netdev@vger.kernel.org>; Thu, 25 Jul 2013 11:33:22 -0700 (PDT)
+In-Reply-To: <1374688826-14199-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 25, 2013 at 6:20 PM, tedheadster <tedheadster@gmail.com> wrote:
-> Andy,
->   I can't find a single example of a devres_* call in
-> drivers/net/ethernet/*. Does any networking code exist that we can look at
-> as an example for conversion to the devres API?
+On Wed, Jul 24, 2013 at 11:00 AM, Pravin B Shelar <pshelar@nicira.com> wrote:
+> First two patches extends vxlan so that openvswitch can
+> share vxlan udp port with vxlan module. Rest of patches
+> refactors vxlan data plane so that ovs can share that
+> code with vxlan module.
+> Last patch adds vxlan-vport to openvswitch.
 
-devres API usually means managed version of the functions that used
-mostly at probe() stage.
-For example, devm_*() or pcim_*() calls.
-
--- 
-With Best Regards,
-Andy Shevchenko
+Stephen, will you take the first five so I can take the last one?
