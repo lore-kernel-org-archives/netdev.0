@@ -1,33 +1,56 @@
-From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
-Subject: Hack bench regression with CONFIG_SLUB_CPU_PARTIAL disabled (info
- only)
-Date: Thu, 25 Jul 2013 13:30:17 +0530
-Message-ID: <51F0DB11.2080508@linux.vnet.ibm.com>
+From: Duan Fugang-B38611 <B38611@freescale.com>
+Subject: RE: [PATCH v1 1/1 net] net: fec: workaround stop tx during errata
+ ERR006358
+Date: Thu, 25 Jul 2013 08:16:23 +0000
+Message-ID: <9848F2DB572E5649BA045B288BE08FBE015BE134@039-SN2MPN1-021.039d.mgd.msft.net>
+References: <1374732353-6505-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Gao feng <gaofeng@cn.fujitsu.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Li Frank-B20596 <B20596@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+	"r.schwebel@pengutronix.de" <r.schwebel@pengutronix.de>,
+	"lznuaa@gmail.com" <lznuaa@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db9lp0252.outbound.messaging.microsoft.com ([213.199.154.252]:12434
+	"EHLO db9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753938Ab3GYIQf convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jul 2013 04:16:35 -0400
+In-Reply-To: <1374732353-6505-1-git-send-email-Frank.Li@freescale.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 25/07/13 14:06, Li Frank wrote:
+>If the ready bit in the transmit buffer descriptor (TxBD[R]) is previously detected as not set during a prior frame transmission, then the ENET_TDAR[TDAR] bit is cleared at a later time, even if additional TxBDs were added to the ring and the ENET_TDAR[TDAR] bit is set. This results in frames not being transmitted until there is a 0-to-1 transition on ENET_TDAR[TDAR].
+>
+>Workarounds:
+>code can use the transmit frame interrupt flag (ENET_EIR[TXF]) as a method to detect whether the ENET has completed transmission and the ENET_TDAR[TDAR] has been cleared. If ENET_TDAR[TDAR] is detected as cleared when packets are queued and waiting for transmit, then a write to the TDAR bit will restart TxBD processing.
+>
+>This case main happen when loading is light. A ethernet package may not send out utile next package put into tx queue.
+>
+>How to test:
+>while [ true ]
+>do
+>	ping <IP> -s 10000 -w 4
+>	ping <IP> -s 6000 -w 2
+>	ping <IP> -s 4000 -w 2
+>	ping <IP> -s 10000 -w 2
+>done
+>
+>You will see below result in overnight test.
+>
+>6008 bytes from 10.192.242.116: seq=1 ttl=128 time=0.722 ms
+>4008 bytes from 10.192.242.116: seq=0 ttl=128 time=1001.008 ms
+>4008 bytes from 10.192.242.116: seq=1 ttl=128 time=1.010 ms
+>10008 bytes from 10.192.242.116: seq=0 ttl=128 time=0.896 ms
+>
+>After apply this patch, >1000ms delay disappear.
+>
+>Signed-off-by: Frank Li <Frank.Li@freescale.com>
 
-While testing hackbench with 3.11-rc1 I observed hackbench testcase
-took too long to complete (32 vcpu kvm guest on 32 core HT off machine).
-
-hackbench 1x degraded by 3 time (40sec vs 112sec)
-hackbench 2x degraded by around 20time (90sec vs 1800 sec)
-
-When I bisected, I found that I had CONFIG_SLUB_CPU_PARTIAL
-accidentally disabled.
-I understand that  CONFIG_SLUB_CPU_PARTIAL=y by default and the config
-option is to provide determinism for RT kernels and thus it is not a
-problem.
-But thought of sharing this here so that if somebody runs into same 
-issue accidently, it would save their time.
+Acked-by: Fugang Duan  <B38611@freescale.com>
