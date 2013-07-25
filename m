@@ -1,74 +1,132 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [patch net-next v4 4/4] igb/igbvf: implement
- ndo_get_phys_port_id
-Date: Thu, 25 Jul 2013 17:44:13 +0100
-Message-ID: <1374770653.3058.9.camel@bwh-desktop.uk.level5networks.com>
-References: <1374757385-10875-1-git-send-email-jiri@resnulli.us>
-	 <1374757385-10875-5-git-send-email-jiri@resnulli.us>
-	 <51F14F9F.1010703@intel.com>
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [PATCH v6 0/7] ARM: mvebu: switch to DT probed mv643xx_eth
+Date: Thu, 25 Jul 2013 13:11:06 -0400
+Message-ID: <20130725171106.GM23879@titan.lakedaemon.net>
+References: <1372762824-12202-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<stephen@networkplumber.org>, <Narendra_K@Dell.com>,
-	<john.r.fastabend@intel.com>, <or.gerlitz@gmail.com>,
-	<jeffrey.t.kirsher@intel.com>, <jesse.brandeburg@intel.com>,
-	<bruce.w.allan@intel.com>, <carolyn.wyborny@intel.com>,
-	<donald.c.skidmore@intel.com>, <gregory.v.rose@intel.com>,
-	<peter.p.waskiewicz.jr@intel.com>, <john.ronciak@intel.com>,
-	<tushar.n.dave@intel.com>, <matthew.vick@intel.com>,
-	<mitch.a.williams@intel.com>, <vyasevic@redhat.com>,
-	<amwang@redhat.com>, <johannes@sipsolutions.net>
-To: Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:16160 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755970Ab3GYQoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 12:44:20 -0400
-In-Reply-To: <51F14F9F.1010703@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Russell King <linux@arm.linux.org.uk>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1372762824-12202-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-07-25 at 09:17 -0700, Alexander Duyck wrote:
-> On 07/25/2013 06:03 AM, Jiri Pirko wrote:
-> > @@ -1982,6 +2001,21 @@ static s32 igb_init_i2c(struct igb_adapter *adapter)
-> >  	return status;
-> >  }
-> >  
-> > +static void igb_compute_phys_port_id(struct igb_adapter *adapter)
-> > +{
-> > +	adapter->phys_port_id = *((u32 *) adapter->netdev->dev_addr);
-> > +	adapter->phys_port_id ^= *((u32 *) adapter->netdev->dev_addr + 4);
-> > +	adapter->phys_port_id ^= (long) adapter;
-> > +	adapter->phys_port_id ^= (long) adapter->hw.hw_addr;
-> > +	adapter->phys_port_id ^= (long) adapter->hw.flash_address;
-> > +	adapter->phys_port_id ^= (u32) adapter->hw.io_base;
-> > +	adapter->phys_port_id ^= adapter->hw.device_id;
-> > +	adapter->phys_port_id ^= adapter->hw.subsystem_vendor_id;
-> > +	adapter->phys_port_id ^= adapter->hw.subsystem_device_id;
-> > +	adapter->phys_port_id ^= adapter->hw.vendor_id;
-> > +	adapter->phys_port_id ^= adapter->hw.revision_id;
-
-I didn't look at Jiri's patch initially, but... what's wrong with using
-the MAC address from NVRAM (should already be in netdev->perm_addr)?
-That's what I'm expecting to do for the SFC9000 family in sfc.
-
-> > +}
-> > +
-> >  /**
-> >   *  igb_probe - Device Initialization Routine
-> >   *  @pdev: PCI device information struct
+On Tue, Jul 02, 2013 at 01:00:17PM +0200, Sebastian Hesselbarth wrote:
+> This patch set converts Marvell Dove, Kirkwood, and Orion5x DT enabled
+> boards to probe mv643xx_eth by DT. The corresponding DT support patches
+> for mv643xx_eth driver have already been taked by David Miller and are
+> available in next-20130701. This only contains the ARM part of
+> mv643xx_eth DT support patches and therefore patch counting is
+> continued as v6 with respect to the combined patch set.
 > 
-> I really think this bit here should be standardized and made available
-> to all drivers.
-[...]
+> The first three patches add nodes for ethernet-controller, mdio-bus,
+> and ethernet PHYs found on the three SoCs and their boards.
+> 
+> The last four patches convert DT boards for each SoC from platform_device
+> registration to DT based probing by removing the corresponding calls.
+> For Kirkwood this makes almost all DT board setup (except board-dnskw)
+> obsolete. Therefore, patch 5 removes board setup files, Kconfig, Makefile,
+> and defconfig entries for those boards.
+> 
+> This patch set has been tested on Marvell Dove, and compile-tested for
+> Kirkwood and Orion5x defconfig on top of next-20130701 with some fixes
+> sent earlier applied (DMA_MEMSET fixes and missing include on edmini_v2).
+> 
+> netdev is added on Cc for completeness, this is all Marvell related and
+> should go through Jason Cooper's branch if there are no objections.
+> 
+> Sebastian Hesselbarth (7):
+>   ARM: dove: add gigabit ethernet and mvmdio device tree nodes
+>   ARM: kirkwood: add gigabit ethernet and mvmdio device tree nodes
+>   ARM: orion5x: add gigabit ethernet and mvmdio device tree nodes
+>   ARM: dove: remove legacy mv643xx_eth setup
+>   ARM: kirkwood: remove redundant DT board files
+>   ARM: kirkwood: remove legacy clk alias for mv643xx_eth
+>   ARM: orion5x: remove legacy mv643xx_eth board setup
+> 
+>  arch/arm/boot/dts/dove-cubox.dts                   |    7 +
+>  arch/arm/boot/dts/dove.dtsi                        |   35 +++++
+>  arch/arm/boot/dts/kirkwood-cloudbox.dts            |   16 ++
+>  arch/arm/boot/dts/kirkwood-db.dtsi                 |   16 ++
+>  arch/arm/boot/dts/kirkwood-dnskw.dtsi              |   16 ++
+>  arch/arm/boot/dts/kirkwood-dockstar.dts            |   17 ++
+>  arch/arm/boot/dts/kirkwood-dreamplug.dts           |   28 ++++
+>  arch/arm/boot/dts/kirkwood-goflexnet.dts           |   16 ++
+>  .../arm/boot/dts/kirkwood-guruplug-server-plus.dts |   30 ++++
+>  arch/arm/boot/dts/kirkwood-ib62x0.dts              |   16 ++
+>  arch/arm/boot/dts/kirkwood-iconnect.dts            |   16 ++
+>  arch/arm/boot/dts/kirkwood-iomega_ix2_200.dts      |   24 +++
+>  arch/arm/boot/dts/kirkwood-is2.dts                 |    2 +
+>  arch/arm/boot/dts/kirkwood-km_kirkwood.dts         |   16 ++
+>  arch/arm/boot/dts/kirkwood-lsxl.dtsi               |   28 ++++
+>  arch/arm/boot/dts/kirkwood-mplcec4.dts             |   27 ++++
+>  .../boot/dts/kirkwood-netgear_readynas_duo_v2.dts  |   16 ++
+>  arch/arm/boot/dts/kirkwood-ns2-common.dtsi         |   16 ++
+>  arch/arm/boot/dts/kirkwood-ns2.dts                 |    2 +
+>  arch/arm/boot/dts/kirkwood-ns2lite.dts             |    2 +
+>  arch/arm/boot/dts/kirkwood-ns2max.dts              |    2 +
+>  arch/arm/boot/dts/kirkwood-ns2mini.dts             |    2 +
+>  arch/arm/boot/dts/kirkwood-openblocks_a6.dts       |   16 ++
+>  arch/arm/boot/dts/kirkwood-sheevaplug-common.dtsi  |   16 ++
+>  arch/arm/boot/dts/kirkwood-topkick.dts             |   16 ++
+>  arch/arm/boot/dts/kirkwood-ts219-6281.dts          |    4 +-
+>  arch/arm/boot/dts/kirkwood-ts219-6282.dts          |    4 +-
+>  arch/arm/boot/dts/kirkwood-ts219.dtsi              |   16 ++
+>  arch/arm/boot/dts/kirkwood.dtsi                    |   52 +++++++
+>  .../dts/orion5x-lacie-ethernet-disk-mini-v2.dts    |   17 ++
+>  arch/arm/boot/dts/orion5x.dtsi                     |   29 ++++
+>  arch/arm/configs/kirkwood_defconfig                |   22 ---
+>  arch/arm/mach-dove/board-dt.c                      |    9 -
+>  arch/arm/mach-kirkwood/Kconfig                     |  156 --------------------
+>  arch/arm/mach-kirkwood/Makefile                    |   23 +---
+>  arch/arm/mach-kirkwood/board-db88f628x-bp.c        |   24 ---
+>  arch/arm/mach-kirkwood/board-dnskw.c               |    7 -
+>  arch/arm/mach-kirkwood/board-dockstar.c            |   32 ----
+>  arch/arm/mach-kirkwood/board-dreamplug.c           |   35 -----
+>  arch/arm/mach-kirkwood/board-dt.c                  |   86 +-----------
+>  arch/arm/mach-kirkwood/board-goflexnet.c           |   34 -----
+>  arch/arm/mach-kirkwood/board-guruplug.c            |   33 ----
+>  arch/arm/mach-kirkwood/board-ib62x0.c              |   29 ----
+>  arch/arm/mach-kirkwood/board-iconnect.c            |   24 ---
+>  arch/arm/mach-kirkwood/board-iomega_ix2_200.c      |   34 -----
+>  arch/arm/mach-kirkwood/board-km_kirkwood.c         |   44 ------
+>  arch/arm/mach-kirkwood/board-lsxl.c                |   36 -----
+>  arch/arm/mach-kirkwood/board-mplcec4.c             |   35 -----
+>  arch/arm/mach-kirkwood/board-ns2.c                 |   35 -----
+>  arch/arm/mach-kirkwood/board-openblocks_a6.c       |   26 ----
+>  arch/arm/mach-kirkwood/board-readynas.c            |   27 ----
+>  arch/arm/mach-kirkwood/board-sheevaplug.c          |   27 ----
+>  arch/arm/mach-kirkwood/board-ts219.c               |   40 -----
+>  arch/arm/mach-kirkwood/board-usi_topkick.c         |   29 ----
+>  arch/arm/mach-orion5x/edmini_v2-setup.c            |   10 --
+>  55 files changed, 520 insertions(+), 857 deletions(-)
+>  delete mode 100644 arch/arm/mach-kirkwood/board-db88f628x-bp.c
+>  delete mode 100644 arch/arm/mach-kirkwood/board-dockstar.c
+>  delete mode 100644 arch/arm/mach-kirkwood/board-dreamplug.c
+>  delete mode 100644 arch/arm/mach-kirkwood/board-goflexnet.c
+>  delete mode 100644 arch/arm/mach-kirkwood/board-guruplug.c
+>  delete mode 100644 arch/arm/mach-kirkwood/board-ib62x0.c
+>  delete mode 100644 arch/arm/mach-kirkwood/board-iconnect.c
+>  delete mode 100644 arch/arm/mach-kirkwood/board-iomega_ix2_200.c
+>  delete mode 100644 arch/arm/mach-kirkwood/board-km_kirkwood.c
+>  delete mode 100644 arch/arm/mach-kirkwood/board-lsxl.c
+>  delete mode 100644 arch/arm/mach-kirkwood/board-mplcec4.c
+>  delete mode 100644 arch/arm/mach-kirkwood/board-ns2.c
+>  delete mode 100644 arch/arm/mach-kirkwood/board-openblocks_a6.c
+>  delete mode 100644 arch/arm/mach-kirkwood/board-readynas.c
+>  delete mode 100644 arch/arm/mach-kirkwood/board-sheevaplug.c
+>  delete mode 100644 arch/arm/mach-kirkwood/board-ts219.c
+>  delete mode 100644 arch/arm/mach-kirkwood/board-usi_topkick.c
 
-I think it's a bad example and should not be used in any drivers!
+Applied whole series to mvebu/boards (v7 of #2 and #5)
 
-Ben.
+thx,
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Jason.
