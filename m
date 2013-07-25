@@ -1,73 +1,46 @@
-From: Gavin Shan <shangw@linux.vnet.ibm.com>
-Subject: [PATCH] net/CXGB3: Avoid access MMIO on offlined PCI dev
-Date: Thu, 25 Jul 2013 15:32:04 +0800
-Message-ID: <1374737524-8410-1-git-send-email-shangw@linux.vnet.ibm.com>
-Cc: divy@chelsio.com, davem@davemloft.net,
-	Gavin Shan <shangw@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v3 0/3] export device physical port id to
+ userspace
+Date: Thu, 25 Jul 2013 09:41:12 +0200
+Message-ID: <20130725074112.GA1621@minipsycho.brq.redhat.com>
+References: <1374498317-6442-1-git-send-email-jiri@resnulli.us>
+ <20130724.160037.37317394789474047.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	Narendra_K@Dell.com, bhutchings@solarflare.com,
+	john.r.fastabend@intel.com, or.gerlitz@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:43789 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752418Ab3GYHma (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 03:42:30 -0400
-Received: from /spool/local
-	by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <shangw@linux.vnet.ibm.com>;
-	Thu, 25 Jul 2013 07:32:12 -0000
-Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
-	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 5949C19D8041
-	for <netdev@vger.kernel.org>; Thu, 25 Jul 2013 01:31:59 -0600 (MDT)
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r6P7W9OK134884
-	for <netdev@vger.kernel.org>; Thu, 25 Jul 2013 01:32:09 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r6P7W7d5026550
-	for <netdev@vger.kernel.org>; Thu, 25 Jul 2013 01:32:08 -0600
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:37919 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751436Ab3GYHnY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 03:43:24 -0400
+Received: by mail-ee0-f46.google.com with SMTP id d41so721466eek.5
+        for <netdev@vger.kernel.org>; Thu, 25 Jul 2013 00:43:22 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20130724.160037.37317394789474047.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While we have EEH errors happened on specific PCI device, the PE
-(Partitionable Endpoint) which includes the PCI device is expected
-to be reset. During the reset, the PCI device should have been
-marked as "offline" and it's not safe to access MMIO of that PCI
-device with "offline" state. That might cause the failure to do
-EEH recovery and then the PCI device is removed from the system for
-ever before manual recovery.
+Thu, Jul 25, 2013 at 01:00:37AM CEST, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Mon, 22 Jul 2013 15:05:14 +0200
+>
+>> This patchset is based on patch by Narendra_K@Dell.com
+>> Once device which can change phys port id during its lifetime adopts this,
+>> NETDEV_CHANGEPHYSPORTID event will be added and driver will call
+>> call_netdevice_notifiers(NETDEV_NETDEV_CHANGEPHYSPORTID, dev) to propagate
+>> the change to userspace.
+>> 
+>> v1->v2: as suggested by Ben, handle -EOPNOTSUPP in rtnl code (wrapped up ndo call)
+>> v2->v3: adjusted patch 1 commit message
+>
+>As mentioned we'd like to have at least one driver implementing the new
+>interface as part of the patch set.
+>
+>Once you have that sorted I think this is mostly ready.
 
-The patch avoids access to MMIO while the PCI device has been marked
-"offline" so that to avoid additional EEH errors during reset and make
-sure that the EEH recovery can be done successfully.
 
-Signed-off-by: Gavin Shan <shangw@linux.vnet.ibm.com>
----
- drivers/net/ethernet/chelsio/cxgb3/adapter.h |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/adapter.h b/drivers/net/ethernet/chelsio/cxgb3/adapter.h
-index 8b395b5..5b20c5d 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/adapter.h
-+++ b/drivers/net/ethernet/chelsio/cxgb3/adapter.h
-@@ -270,7 +270,10 @@ struct adapter {
- 
- static inline u32 t3_read_reg(struct adapter *adapter, u32 reg_addr)
- {
--	u32 val = readl(adapter->regs + reg_addr);
-+	u32 val = 0xFFFFFFFF;
-+
-+	if (!pci_channel_offline(adapter->pdev))
-+		val = readl(adapter->regs + reg_addr);
- 
- 	CH_DBG(adapter, MMIO, "read register 0x%x value 0x%x\n", reg_addr, val);
- 	return val;
-@@ -279,7 +282,8 @@ static inline u32 t3_read_reg(struct adapter *adapter, u32 reg_addr)
- static inline void t3_write_reg(struct adapter *adapter, u32 reg_addr, u32 val)
- {
- 	CH_DBG(adapter, MMIO, "setting register 0x%x to 0x%x\n", reg_addr, val);
--	writel(val, adapter->regs + reg_addr);
-+	if (!pci_channel_offline(adapter->pdev))
-+		writel(val, adapter->regs + reg_addr);
- }
- 
- static inline struct port_info *adap2pinfo(struct adapter *adap, int idx)
--- 
-1.7.5.4
+Allright. Will repost with most probably igb/igbvf support implemented
+as well. Thanks!
