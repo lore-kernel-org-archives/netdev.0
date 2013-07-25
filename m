@@ -1,139 +1,34 @@
 From: Joe Stringer <joe@wand.net.nz>
-Subject: Re: [net-next] net/sctp: Refactor SCTP skb checksum computation
-Date: Thu, 25 Jul 2013 10:18:05 +0900
-Message-ID: <CAOftzPiqdTA4HYDm6_KF9KsFgjyRnFsoPyUuRPUmmCO8aaPZPQ@mail.gmail.com>
-References: <1374553858-9963-1-git-send-email-joe@wand.net.nz> <alpine.LFD.2.00.1307230948590.1676@ja.ssi.bg>
+Subject: Re: [net-next] net: Add NEXTHDR_SCTP to ipv6.h
+Date: Thu, 25 Jul 2013 10:18:27 +0900
+Message-ID: <CAOftzPiuOyX869_g=NnAfHRatAwmZ=fYVzpmTk_ijZdfyH36ng@mail.gmail.com>
+References: <1374554265-10611-1-git-send-email-joe@wand.net.nz> <20130724.174219.372069002030719666.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Joe Stringer <joe@wand.net.nz>, davem@davemloft.net,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	lvs-devel@vger.kernel.org, pablo@netfilter.org,
-	Simon Horman <horms@verge.net.au>,
+Cc: Joe Stringer <joe@wand.net.nz>, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, Simon Horman <horms@verge.net.au>,
 	Jesse Gross <jesse@nicira.com>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.1307230948590.1676@ja.ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f51.google.com ([209.85.219.51]:57394 "EHLO
+	mail-oa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752981Ab3GYBSs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 21:18:48 -0400
+Received: by mail-oa0-f51.google.com with SMTP id i4so2877413oah.10
+        for <netdev@vger.kernel.org>; Wed, 24 Jul 2013 18:18:48 -0700 (PDT)
+In-Reply-To: <20130724.174219.372069002030719666.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks for the quick response. I'll fix up these issues and repost.
+Understood.
 
-On Tue, Jul 23, 2013 at 4:14 PM, Julian Anastasov <ja@ssi.bg> wrote:
+On Thu, Jul 25, 2013 at 9:42 AM, David Miller <davem@davemloft.net> wrote:
+> From: Joe Stringer <joe@wand.net.nz>
+> Date: Tue, 23 Jul 2013 13:37:45 +0900
 >
->         Hello,
->
-> On Tue, 23 Jul 2013, Joe Stringer wrote:
->
->> This patch consolidates the SCTP checksum calculation code from various
->> places to a single new function, sctp_compute_cksum(skb, offset).
->>
 >> Signed-off-by: Joe Stringer <joe@wand.net.nz>
->> ---
->>  include/net/sctp/checksum.h           |   15 +++++++++++++++
->>  net/netfilter/ipvs/ip_vs_proto_sctp.c |   23 ++++-------------------
->>  net/netfilter/nf_nat_proto_sctp.c     |    8 +-------
->>  net/sctp/input.c                      |   10 +---------
->>  4 files changed, 21 insertions(+), 35 deletions(-)
->>
->> diff --git a/include/net/sctp/checksum.h b/include/net/sctp/checksum.h
->> index 0cb08e6..8675564 100644
->> --- a/include/net/sctp/checksum.h
->> +++ b/include/net/sctp/checksum.h
->> @@ -85,4 +85,19 @@ static inline __le32 sctp_end_cksum(__u32 crc32)
->>       return cpu_to_le32(~crc32);
->>  }
->>
->> +/* Calculate the CRC32C checksum of an SCTP packet.  */
->> +static inline __le32 sctp_compute_cksum(const struct sk_buff *skb,
->> +                                     unsigned int offset)
->> +{
->> +     const struct sk_buff *iter;
->> +
->> +     __u32 crc32 = sctp_start_cksum((__u8 *)sctp_hdr(skb),
->> +                                    skb_headlen(skb) - offset);
 >
->         sctp_hdr() is valid in INPUT hook after commit
-> 21d1196a35f5686c4323e42a62fdb4b23b0ab4a3 (ipv4: set transport header
-> earlier) but I'm not sure for the OUTPUT hook where
-> IPVS is working. I guess the same is valid for Netfilter.
+> There is no value in adding a kernel internal define that is
+> completely unused.
 >
->         IPVS uses skb_network_header(skb) + offset but
-> I guess it can work with skb->data, just like Netfilter:
->
->         __u32 crc32 = sctp_start_cksum(skb->data + offset,
->
->         This should work also in SCTP where skb->data points
-> to the SCTP header when sctp_rcv_checksum() is called.
->
->> +     skb_walk_frags(skb, iter)
->> +             crc32 = sctp_update_cksum((__u8 *) iter->data,
->> +                                       skb_headlen(iter), crc32);
->> +
->> +     return sctp_end_cksum(crc32);
->> +}
->> +
->>  #endif /* __sctp_checksum_h__ */
->> diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
->> index 3c0da87..b2e422d 100644
->> --- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
->> +++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
->> @@ -66,15 +66,9 @@ sctp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_proto_data *pd,
->>  static void sctp_nat_csum(struct sk_buff *skb, sctp_sctphdr_t *sctph,
->>                         unsigned int sctphoff)
->>  {
->> -     __u32 crc32;
->> -     struct sk_buff *iter;
->> -
->> -     crc32 = sctp_start_cksum((__u8 *)sctph, skb_headlen(skb) - sctphoff);
->> -     skb_walk_frags(skb, iter)
->> -             crc32 = sctp_update_cksum((u8 *) iter->data,
->> -                                       skb_headlen(iter), crc32);
->> -     sctph->checksum = sctp_end_cksum(crc32);
->> +     __le32 crc32 = sctp_compute_cksum(skb, sctphoff);
->
->         crc32 var is not needed anymore, eg:
->
->         sctph->checksum = sctp_compute_cksum(skb, sctphoff);
->
->> +     sctph->checksum = crc32;
->>       skb->ip_summed = CHECKSUM_UNNECESSARY;
->>  }
->>
->> @@ -151,10 +145,7 @@ sctp_csum_check(int af, struct sk_buff *skb, struct ip_vs_protocol *pp)
->>  {
->>       unsigned int sctphoff;
->>       struct sctphdr *sh, _sctph;
->> -     struct sk_buff *iter;
->> -     __le32 cmp;
->> -     __le32 val;
->> -     __u32 tmp;
->> +     __le32 cmp, val;
->>
->>  #ifdef CONFIG_IP_VS_IPV6
->>       if (af == AF_INET6)
->> @@ -168,13 +159,7 @@ sctp_csum_check(int af, struct sk_buff *skb, struct ip_vs_protocol *pp)
->>               return 0;
->>
->>       cmp = sh->checksum;
->> -
->> -     tmp = sctp_start_cksum((__u8 *) sh, skb_headlen(skb));
->> -     skb_walk_frags(skb, iter)
->> -             tmp = sctp_update_cksum((__u8 *) iter->data,
->> -                                     skb_headlen(iter), tmp);
->> -
->> -     val = sctp_end_cksum(tmp);
->> +     val = sctp_compute_cksum(skb, 0);
->
->         The original code has bug here, still the code
-> was never used because there are no IPVS apps with
-> SCTP support. You can safely use sctphoff here, not 0, eg:
->
->         val = sctp_compute_cksum(skb, sctphoff);
->
->>       if (val != cmp) {
->>               /* CRC failure, dump it. */
->
-> Regards
->
-> --
-> Julian Anastasov <ja@ssi.bg>
+> Sorry I won't be applying this patch.
