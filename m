@@ -1,31 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: take rtnl_lock and mark mrt6 table as freed
- on namespace cleanup
-Date: Wed, 24 Jul 2013 17:03:03 -0700 (PDT)
-Message-ID: <20130724.170303.1643662786074096216.davem@davemloft.net>
-References: <20130722214553.GF6538@order.stressinduktion.org>
+Subject: Re: [PATCH] net: sun4i: fix timeout check
+Date: Wed, 24 Jul 2013 17:04:49 -0700 (PDT)
+Message-ID: <20130724.170449.530206210183666106.davem@davemloft.net>
+References: <1374541758-2025-1-git-send-email-emilio@elopez.com.ar>
+	<20130723133114.GG10389@lukather>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, srivatsa.bhat@linux.vnet.ibm.com
-To: hannes@stressinduktion.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: emilio@elopez.com.ar, netdev@vger.kernel.org
+To: maxime.ripard@free-electrons.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36664 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36678 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752872Ab3GYADE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 20:03:04 -0400
-In-Reply-To: <20130722214553.GF6538@order.stressinduktion.org>
+	with ESMTP id S1753048Ab3GYAEu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 20:04:50 -0400
+In-Reply-To: <20130723133114.GG10389@lukather>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Mon, 22 Jul 2013 23:45:53 +0200
+=46rom: Maxime Ripard <maxime.ripard@free-electrons.com>
+Date: Tue, 23 Jul 2013 15:31:14 +0200
 
-> Otherwise we end up dereferencing the already freed net->ipv6.mrt pointer
-> which leads to a panic (from Srivatsa S. Bhat):
- ...
-> Reported-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
-> Tested-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> On Mon, Jul 22, 2013 at 10:09:18PM -0300, Emilio L=F3pez wrote:
+>> The current timeout check is comparing two constant values, so it wo=
+n't
+>> ever detect a timeout. This patch reworks the affected code a bit so=
+ it
+>> has a chance at detecting timeouts correctly.
+>>=20
+>> Signed-off-by: Emilio L=F3pez <emilio@elopez.com.ar>
+>=20
+> Acked-by: Maxime Ripard <maxime.ripard@free-electrons.com>
 
-Applied and queued up for -stable, thanks!
+Applied.
