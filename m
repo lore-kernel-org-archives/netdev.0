@@ -1,145 +1,67 @@
-From: Frank Li <Frank.Li@freescale.com>
-Subject: [PATCH v1 1/1 net] net: fec: workaround stop tx during errata ERR006358
-Date: Thu, 25 Jul 2013 14:05:53 +0800
-Message-ID: <1374732353-6505-1-git-send-email-Frank.Li@freescale.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH] mac80211: use oneshot blink API for LED triggers
+Date: Thu, 25 Jul 2013 09:58:21 +0200
+Message-ID: <1374739101.8827.7.camel@jlt4.sipsolutions.net>
+References: <1374624581-6012-1-git-send-email-fabio.baltieri@gmail.com>
+	 <1374624581-6012-2-git-send-email-fabio.baltieri@gmail.com>
+	 <1374653665.8180.0.camel@jlt4.sipsolutions.net>
+	 <20130724085337.GA7096@balto.lan> (sfid-20130724_105341_536708_82A83A0A)
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Frank Li <Frank.Li@freescale.com>
-To: <davem@davemloft.net>, <shawn.guo@linaro.org>,
-	<netdev@vger.kernel.org>, <B38611@freescale.com>,
-	<l.stach@pengutronix.de>, <r.schwebel@pengutronix.de>,
-	<lznuaa@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db9lp0252.outbound.messaging.microsoft.com ([213.199.154.252]:20366
-	"EHLO db9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751745Ab3GYHzW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 03:55:22 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Fabio Baltieri <fabio.baltieri-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130724085337.GA7096-lYxsXyORJ9v/PtFMR13I2A@public.gmane.org> (sfid-20130724_105341_536708_82A83A0A)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-If the ready bit in the transmit buffer descriptor (TxBD[R])
-is previously detected as not set during a prior frame transmission,
-then the ENET_TDAR[TDAR] bit is cleared at a later time, even if
-additional TxBDs were added to the ring and the ENET_TDAR[TDAR]
-bit is set. This results in frames not being transmitted until
-there is a 0-to-1 transition on ENET_TDAR[TDAR].
+On Wed, 2013-07-24 at 10:53 +0200, Fabio Baltieri wrote:
+> On Wed, Jul 24, 2013 at 10:14:25AM +0200, Johannes Berg wrote:
+> > On Wed, 2013-07-24 at 02:09 +0200, Fabio Baltieri wrote:
+> > > Changes mac80211 LED trigger code to use the generic
+> > > led_trigger_blink_oneshot() API for transmit and receive activity
+> > > indication.
+> > > 
+> > > This gives a better feedback to the user, as with the new API each
+> > > activity event results in a visible blink, while a constant traffic
+> > > results in a continuous blink at constant rate.
+> > 
+> > This seems a little pointless since our throughput-based trigger can do
+> > very similar (but somewhat better) behaviour? Maybe that should just be
+> > the default instead, with some sane default setup values?
+> 
+> Ok but that requires driver specific support and it's only implemented
+> on a subset of currently available drivers.
 
-Workarounds:
-code can use the transmit frame interrupt flag (ENET_EIR[TXF])
-as a method to detect whether the ENET has completed transmission
-and the ENET_TDAR[TDAR] has been cleared. If ENET_TDAR[TDAR] is
-detected as cleared when packets are queued and waiting for transmit,
-then a write to the TDAR bit will restart TxBD processing.
+Not necessarily, it's just done that way because we expected everyone to
+have their own idea of what the blink speeds should be, possibly even
+depending on the maximum speed the hardware can do etc.
 
-This case main happen when loading is light. A ethernet package may
-not send out utile next package put into tx queue.
+> This at least makes the basic tx/rx indication capability a better.
 
-How to test:
-while [ true ]
-do
-	ping <IP> -s 10000 -w 4
-	ping <IP> -s 6000 -w 2
-	ping <IP> -s 4000 -w 2
-	ping <IP> -s 10000 -w 2
-done
+Fair enough.
 
-You will see below result in overnight test.
+> > (Regardless of that, you also have indentation problems in your patch)
+> 
+> Ok, I guess you are referring to the this:
+> 
+> +       led_trigger_blink_oneshot(local->tx_led,                                
+> +                       &led_delay, &led_delay, 0);                             
 
-6008 bytes from 10.192.242.116: seq=1 ttl=128 time=0.722 ms
-4008 bytes from 10.192.242.116: seq=0 ttl=128 time=1001.008 ms
-4008 bytes from 10.192.242.116: seq=1 ttl=128 time=1.010 ms
-10008 bytes from 10.192.242.116: seq=0 ttl=128 time=0.896 ms
+Yes, that was the place I noticed, didn't check more closely.
 
-After apply this patch, >1000ms delay disappear.
+> So, are you definitely rejecting this patch or should I fix indentation
+> and send a v2?
 
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
----
- drivers/net/ethernet/freescale/fec.h      |    1 +
- drivers/net/ethernet/freescale/fec_main.c |   32 +++++++++++++++++++++++++++-
- 2 files changed, 31 insertions(+), 2 deletions(-)
+I think I'll take it, I kinda hope nobody will really care much about it
+but the behaviour looks better and the code is simpler, so ... :)
 
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index 2b0a0ea..ae23600 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -259,6 +259,7 @@ struct bufdesc_ex {
- struct fec_enet_delayed_work {
- 	struct delayed_work delay_work;
- 	bool timeout;
-+	bool trig_tx;
- };
- 
- /* The FEC buffer descriptors track the ring buffers.  The rx_bd_base and
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index d3ad5ea..dbc1881 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -93,6 +93,20 @@ static void set_multicast_list(struct net_device *ndev);
- #define FEC_QUIRK_HAS_CSUM		(1 << 5)
- /* Controller has hardware vlan support */
- #define FEC_QUIRK_HAS_VLAN		(1 << 6)
-+/* ENET IP errata ERR006358
-+ *
-+ * If the ready bit in the transmit buffer descriptor (TxBD[R]) is previously
-+ * detected as not set during a prior frame transmission, then the
-+ * ENET_TDAR[TDAR] bit is cleared at a later time, even if additional TxBDs
-+ * were added to the ring and the ENET_TDAR[TDAR] bit is set. This results in
-+ * If the ready bit in the transmit buffer descriptor (TxBD[R]) is previously
-+ * detected as not set during a prior frame transmission, then the
-+ * ENET_TDAR[TDAR] bit is cleared at a later time, even if additional TxBDs
-+ * were added to the ring and the ENET_TDAR[TDAR] bit is set. This results in
-+ * frames not being transmitted until there is a 0-to-1 transition on
-+ * ENET_TDAR[TDAR].
-+ */
-+#define FEC_QUIRK_ERR006358            (1 << 7)
- 
- static struct platform_device_id fec_devtype[] = {
- 	{
-@@ -112,7 +126,7 @@ static struct platform_device_id fec_devtype[] = {
- 		.name = "imx6q-fec",
- 		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
- 				FEC_QUIRK_HAS_BUFDESC_EX | FEC_QUIRK_HAS_CSUM |
--				FEC_QUIRK_HAS_VLAN,
-+				FEC_QUIRK_HAS_VLAN | FEC_QUIRK_ERR006358,
- 	}, {
- 		.name = "mvf600-fec",
- 		.driver_data = FEC_QUIRK_ENET_MAC,
-@@ -275,7 +289,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 	const struct platform_device_id *id_entry =
- 				platform_get_device_id(fep->pdev);
--	struct bufdesc *bdp;
-+	struct bufdesc *bdp, *bdp_pre;
- 	void *bufaddr;
- 	unsigned short	status;
- 	unsigned int index;
-@@ -370,6 +384,15 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 				ebdp->cbd_esc |= BD_ENET_TX_PINS;
- 		}
- 	}
-+
-+	bdp_pre = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
-+	if ((id_entry->driver_data & FEC_QUIRK_ERR006358) &&
-+	    !(bdp_pre->cbd_sc & BD_ENET_TX_READY)) {
-+		fep->delay_work.trig_tx = true;
-+		schedule_delayed_work(&(fep->delay_work.delay_work),
-+					msecs_to_jiffies(1));
-+	}
-+
- 	/* If this was the last BD in the ring, start at the beginning again. */
- 	if (status & BD_ENET_TX_WRAP)
- 		bdp = fep->tx_bd_base;
-@@ -689,6 +712,11 @@ static void fec_enet_work(struct work_struct *work)
- 		fec_restart(fep->netdev, fep->full_duplex);
- 		netif_wake_queue(fep->netdev);
- 	}
-+
-+	if (fep->delay_work.trig_tx) {
-+		fep->delay_work.trig_tx = false;
-+		writel(0, fep->hwp + FEC_X_DES_ACTIVE);
-+	}
- }
- 
- static void
--- 
-1.7.1
+johannes
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
