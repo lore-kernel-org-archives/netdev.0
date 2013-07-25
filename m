@@ -1,57 +1,56 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2 net-next] net/sctp: Refactor SCTP skb checksum
- computation
-Date: Thu, 25 Jul 2013 14:24:38 +0900
-Message-ID: <20130725052437.GB25854@verge.net.au>
-References: <1374717125-28969-1-git-send-email-joe@wand.net.nz>
- <alpine.LFD.2.00.1307250804180.1718@ja.ssi.bg>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: [PATCH 1/1] TX throttling bug-fixing patch of AX88179_178A
+Date: Thu, 25 Jul 2013 13:25:12 +0800
+Message-ID: <CACVXFVNyFk0Zpi4tC0ENiq8RcrtrjYW-Dhs+A56+Pw4BKm8y8A@mail.gmail.com>
+References: <1374311809-4155-1-git-send-email-freddy@asix.com.tw>
+	<1374512879.4990.19.camel@edumazet-glaptop>
+	<CANEJEGvPc56ePP=_bxfA4PZfsM3vw=MsRjbWwrFBC3eP-GtzZg@mail.gmail.com>
+	<1374518312.1635.29.camel@bwh-desktop.uk.level5networks.com>
+	<1374518841.4990.26.camel@edumazet-glaptop>
+	<1374522471.1635.48.camel@bwh-desktop.uk.level5networks.com>
+	<1374559827.4990.143.camel@edumazet-glaptop>
+	<CACVXFVN0eN9E9efr8UdqFz68-emHa2o-RQ0RYfazEq8f=qxkLQ@mail.gmail.com>
+	<1374729058.23313.8.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Stringer <joe@wand.net.nz>, davem@davemloft.net,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	lvs-devel@vger.kernel.org, pablo@netfilter.org, jesse@nicira.com
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1307250804180.1718@ja.ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Oliver Neukum <oliver@neukum.org>,
+	Grant Grundler <grundler@google.com>,
+	Freddy Xin <freddy@asix.com.tw>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	=?Big5?B?QVNJWCBMb3VpcyBbxKyrwrOwXQ==?= <louis@asix.com.tw>,
+	Allan Chou <allan@asix.com.tw>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1374729058.23313.8.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 25, 2013 at 08:08:11AM +0300, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Thu, 25 Jul 2013, Joe Stringer wrote:
-> 
-> > This patch consolidates the SCTP checksum calculation code from various
-> > places to a single new function, sctp_compute_cksum(skb, offset).
-> > 
-> > Signed-off-by: Joe Stringer <joe@wand.net.nz>
-> > ---
-> > v2:
-> > * Use skb->data + offset for start position of checksum calculation
-> > * Fix existing bug in sctp_csum_check() where the incorrect offset was used
-> > * Remove redundant variable in sctp_nat_csum()
-> 
-> 	v2 looks good to me, thanks!
-> 
-> Reviewed-by: Julian Anastasov <ja@ssi.bg>
+On Thu, Jul 25, 2013 at 1:10 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2013-07-25 at 10:28 +0800, Ming Lei wrote:
+>
+>>
+>> It depends if size of sg buffer(except for last one) in the sg list can be
+>> divided by usb endpoint's max packet size(512 or 1024), at least there
+>> is the constraint:
+>>
+>> http://git.kernel.org/cgit/linux/kernel/git/gregkh/usb.git/commit/?h=usb-next&id=10e232c597ac757e7f8600649f7e872e86de190f
+>>
+>> I am wondering if network stack can meet that.  If not, it might be a
+>> bit difficult
+>> because lots of USB host controller don't support that, and driver may have
+>> to support SG and non-SG at the same time for working well on all HCs.
+>
+> I do not see the problem.
+>
+> If one skb has 2 fragments of 32KB, couldn't they be split into 64 1K
+> segments by the device driver ?
 
-IPVS portion:
+OK, if length of fragments of all SKBs from network stack can always guarantee
+to be divided by 1024, that is fine,  seems I worry about too much, :-)
 
-Acked-by: Simon Horman <horms@verge.net.au>
-
-Dave, could you consider taking this through net-next?
-
-> > ---
-> >  include/net/sctp/checksum.h           |   15 +++++++++++++++
-> >  net/netfilter/ipvs/ip_vs_proto_sctp.c |   23 +++--------------------
-> >  net/netfilter/nf_nat_proto_sctp.c     |    8 +-------
-> >  net/sctp/input.c                      |   10 +---------
-> >  4 files changed, 20 insertions(+), 36 deletions(-)
-> 
-> Regards
-> 
-> --
-> Julian Anastasov <ja@ssi.bg>
-> 
+Thanks,
+-- 
+Ming Lei
