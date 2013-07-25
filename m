@@ -1,120 +1,114 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [patch net-next v4 4/4] igb/igbvf: implement
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [patch net-next v4 4/4] igb/igbvf: implement
  ndo_get_phys_port_id
-Date: Thu, 25 Jul 2013 20:15:45 +0100
-Message-ID: <1374779745.3058.24.camel@bwh-desktop.uk.level5networks.com>
+Date: Thu, 25 Jul 2013 19:23:00 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A077466D9D6@ORSMSX108.amr.corp.intel.com>
 References: <1374757385-10875-1-git-send-email-jiri@resnulli.us>
-	   <1374757385-10875-5-git-send-email-jiri@resnulli.us>
-	   <51F14F9F.1010703@intel.com>
-	  <1374770653.3058.9.camel@bwh-desktop.uk.level5networks.com>
-	  <51F167A6.808@intel.com>
-	 <1374778266.3058.15.camel@bwh-desktop.uk.level5networks.com>
-	 <51F1769E.3050906@intel.com>
+   <1374757385-10875-5-git-send-email-jiri@resnulli.us>
+   <51F14F9F.1010703@intel.com>
+  <1374770653.3058.9.camel@bwh-desktop.uk.level5networks.com>
+  <51F167A6.808@intel.com>
+ <1374778266.3058.15.camel@bwh-desktop.uk.level5networks.com>
+ <51F1769E.3050906@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>, <stephen@networkplumber.org>,
-	<Narendra_K@Dell.com>, <john.r.fastabend@intel.com>,
-	<or.gerlitz@gmail.com>, <jeffrey.t.kirsher@intel.com>,
-	<jesse.brandeburg@intel.com>, <bruce.w.allan@intel.com>,
-	<carolyn.wyborny@intel.com>, <donald.c.skidmore@intel.com>,
-	<gregory.v.rose@intel.com>, <peter.p.waskiewicz.jr@intel.com>,
-	<john.ronciak@intel.com>, <tushar.n.dave@intel.com>,
-	<matthew.vick@intel.com>, <mitch.a.williams@intel.com>,
-	<vyasevic@redhat.com>, <amwang@redhat.com>,
-	<johannes@sipsolutions.net>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Narendra_K@Dell.com" <Narendra_K@Dell.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"or.gerlitz@gmail.com" <or.gerlitz@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Dave, Tushar N" <tushar.n.dave@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	"amwang@redhat.com" <
+To: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:21457 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757251Ab3GYTPw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 15:15:52 -0400
+Received: from mga02.intel.com ([134.134.136.20]:55304 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756933Ab3GYTXg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jul 2013 15:23:36 -0400
 In-Reply-To: <51F1769E.3050906@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-07-25 at 12:03 -0700, Alexander Duyck wrote:
-> On 07/25/2013 11:51 AM, Ben Hutchings wrote:
-> > On Thu, 2013-07-25 at 11:00 -0700, Alexander Duyck wrote:
-> >> On 07/25/2013 09:44 AM, Ben Hutchings wrote:
-> >>> On Thu, 2013-07-25 at 09:17 -0700, Alexander Duyck wrote:
-> >>>> On 07/25/2013 06:03 AM, Jiri Pirko wrote:
-> >>>>> @@ -1982,6 +2001,21 @@ static s32 igb_init_i2c(struct igb_adapter *adapter)
-> >>>>>  	return status;
-> >>>>>  }
-> >>>>>  
-> >>>>> +static void igb_compute_phys_port_id(struct igb_adapter *adapter)
-> >>>>> +{
-> >>>>> +	adapter->phys_port_id = *((u32 *) adapter->netdev->dev_addr);
-> >>>>> +	adapter->phys_port_id ^= *((u32 *) adapter->netdev->dev_addr + 4);
-> >>>>> +	adapter->phys_port_id ^= (long) adapter;
-> >>>>> +	adapter->phys_port_id ^= (long) adapter->hw.hw_addr;
-> >>>>> +	adapter->phys_port_id ^= (long) adapter->hw.flash_address;
-> >>>>> +	adapter->phys_port_id ^= (u32) adapter->hw.io_base;
-> >>>>> +	adapter->phys_port_id ^= adapter->hw.device_id;
-> >>>>> +	adapter->phys_port_id ^= adapter->hw.subsystem_vendor_id;
-> >>>>> +	adapter->phys_port_id ^= adapter->hw.subsystem_device_id;
-> >>>>> +	adapter->phys_port_id ^= adapter->hw.vendor_id;
-> >>>>> +	adapter->phys_port_id ^= adapter->hw.revision_id;
-> >>> I didn't look at Jiri's patch initially, but... what's wrong with using
-> >>> the MAC address from NVRAM (should already be in netdev->perm_addr)?
-> >>> That's what I'm expecting to do for the SFC9000 family in sfc.
-> >>>
-> >>>>> +}
-> >>>>> +
-> >>>>>  /**
-> >>>>>   *  igb_probe - Device Initialization Routine
-> >>>>>   *  @pdev: PCI device information struct
-> >>>> I really think this bit here should be standardized and made available
-> >>>> to all drivers.
-> >>> [...]
-> >>>
-> >>> I think it's a bad example and should not be used in any drivers!
-> >>>
-> >>> Ben.
-> >>>
-> >> I agree.  That is why the second paragraph started listing what was
-> >> wrong with this implementation.  What I said was meant in the more
-> >> general sense that whatever solution should be used should be the same
-> >> across multiple drivers, not up to each driver to compute.
-> > I would love to know how you think this can be done generically.  If it
-> > can then we don't need the driver operation at all.
-> >
-> > Ben.
-> >
-> 
-> Well like you mentioned, you could just pull this out out of
-> netdev->perm_addr.  You don't need to have anything driver specific as
-> long as that is the field you are using generic netdev or pci_dev
-> attributes to do the identification.
-
-For a PF driver that never shares the port with another PF, yes.  There
-are a handful of those drivers so it might be worth sharing an
-implementation that uses perm_addr, but it's so trivial...
-
-> All you need is something that
-> uniquely identifies the device in the system correct?
-
-The spec is that it is universally unique.  I don't know who's going to
-need that property but I think it's achievable since each physical port
-normally has at least one globally unique MAC address assigned at
-manufacturing time.
-
-> For that matter
-> it seems like you could probably just pull the domain, bus, device, and
-> function number out of the PCI device and that would probably work as
-> well as long as you cannot somehow have PFs running inside of guests.
-
-Some NICs have multiple PFs for the same port, and those could be
-assigned to guest VMs.
-
-All VF drivers would need some way to get the port ID, and that can't be
-done generically from inside a guest VM.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBEdXljaywgQWxleGFuZGVyIEgN
+Cj4gU2VudDogVGh1cnNkYXksIEp1bHkgMjUsIDIwMTMgMTI6MDQgUE0NCj4gVG86IEJlbiBIdXRj
+aGluZ3MNCj4gQ2M6IEppcmkgUGlya287IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGRhdmVtQGRh
+dmVtbG9mdC5uZXQ7DQo+IHN0ZXBoZW5AbmV0d29ya3BsdW1iZXIub3JnOyBOYXJlbmRyYV9LQERl
+bGwuY29tOyBGYXN0YWJlbmQsIEpvaG4gUjsNCj4gb3IuZ2VybGl0ekBnbWFpbC5jb207IEtpcnNo
+ZXIsIEplZmZyZXkgVDsgQnJhbmRlYnVyZywgSmVzc2U7IEFsbGFuLCBCcnVjZQ0KPiBXOyBXeWJv
+cm55LCBDYXJvbHluOyBTa2lkbW9yZSwgRG9uYWxkIEM7IFJvc2UsIEdyZWdvcnkgVjsgV2Fza2ll
+d2ljeiBKciwNCj4gUGV0ZXIgUDsgUm9uY2lhaywgSm9objsgRGF2ZSwgVHVzaGFyIE47IFZpY2ss
+IE1hdHRoZXc7IFdpbGxpYW1zLCBNaXRjaCBBOw0KPiB2eWFzZXZpY0ByZWRoYXQuY29tOyBhbXdh
+bmdAcmVkaGF0LmNvbTsgam9oYW5uZXNAc2lwc29sdXRpb25zLm5ldA0KPiBTdWJqZWN0OiBSZTog
+W3BhdGNoIG5ldC1uZXh0IHY0IDQvNF0gaWdiL2lnYnZmOiBpbXBsZW1lbnQNCj4gbmRvX2dldF9w
+aHlzX3BvcnRfaWQNCj4gDQo+IE9uIDA3LzI1LzIwMTMgMTE6NTEgQU0sIEJlbiBIdXRjaGluZ3Mg
+d3JvdGU6DQo+ID4gT24gVGh1LCAyMDEzLTA3LTI1IGF0IDExOjAwIC0wNzAwLCBBbGV4YW5kZXIg
+RHV5Y2sgd3JvdGU6DQo+ID4+IE9uIDA3LzI1LzIwMTMgMDk6NDQgQU0sIEJlbiBIdXRjaGluZ3Mg
+d3JvdGU6DQo+ID4+PiBPbiBUaHUsIDIwMTMtMDctMjUgYXQgMDk6MTcgLTA3MDAsIEFsZXhhbmRl
+ciBEdXljayB3cm90ZToNCj4gPj4+PiBPbiAwNy8yNS8yMDEzIDA2OjAzIEFNLCBKaXJpIFBpcmtv
+IHdyb3RlOg0KPiA+Pj4+PiBAQCAtMTk4Miw2ICsyMDAxLDIxIEBAIHN0YXRpYyBzMzIgaWdiX2lu
+aXRfaTJjKHN0cnVjdCBpZ2JfYWRhcHRlcg0KPiAqYWRhcHRlcikNCj4gPj4+Pj4gIAlyZXR1cm4g
+c3RhdHVzOw0KPiA+Pj4+PiAgfQ0KPiA+Pj4+Pg0KPiA+Pj4+PiArc3RhdGljIHZvaWQgaWdiX2Nv
+bXB1dGVfcGh5c19wb3J0X2lkKHN0cnVjdCBpZ2JfYWRhcHRlciAqYWRhcHRlcikNCj4gPj4+Pj4g
+K3sNCj4gPj4+Pj4gKwlhZGFwdGVyLT5waHlzX3BvcnRfaWQgPSAqKCh1MzIgKikgYWRhcHRlci0+
+bmV0ZGV2LT5kZXZfYWRkcik7DQo+ID4+Pj4+ICsJYWRhcHRlci0+cGh5c19wb3J0X2lkIF49ICoo
+KHUzMiAqKSBhZGFwdGVyLT5uZXRkZXYtPmRldl9hZGRyICsNCj4gNCk7DQo+ID4+Pj4+ICsJYWRh
+cHRlci0+cGh5c19wb3J0X2lkIF49IChsb25nKSBhZGFwdGVyOw0KPiA+Pj4+PiArCWFkYXB0ZXIt
+PnBoeXNfcG9ydF9pZCBePSAobG9uZykgYWRhcHRlci0+aHcuaHdfYWRkcjsNCj4gPj4+Pj4gKwlh
+ZGFwdGVyLT5waHlzX3BvcnRfaWQgXj0gKGxvbmcpIGFkYXB0ZXItPmh3LmZsYXNoX2FkZHJlc3M7
+DQo+ID4+Pj4+ICsJYWRhcHRlci0+cGh5c19wb3J0X2lkIF49ICh1MzIpIGFkYXB0ZXItPmh3Lmlv
+X2Jhc2U7DQo+ID4+Pj4+ICsJYWRhcHRlci0+cGh5c19wb3J0X2lkIF49IGFkYXB0ZXItPmh3LmRl
+dmljZV9pZDsNCj4gPj4+Pj4gKwlhZGFwdGVyLT5waHlzX3BvcnRfaWQgXj0gYWRhcHRlci0+aHcu
+c3Vic3lzdGVtX3ZlbmRvcl9pZDsNCj4gPj4+Pj4gKwlhZGFwdGVyLT5waHlzX3BvcnRfaWQgXj0g
+YWRhcHRlci0+aHcuc3Vic3lzdGVtX2RldmljZV9pZDsNCj4gPj4+Pj4gKwlhZGFwdGVyLT5waHlz
+X3BvcnRfaWQgXj0gYWRhcHRlci0+aHcudmVuZG9yX2lkOw0KPiA+Pj4+PiArCWFkYXB0ZXItPnBo
+eXNfcG9ydF9pZCBePSBhZGFwdGVyLT5ody5yZXZpc2lvbl9pZDsNCj4gPj4+IEkgZGlkbid0IGxv
+b2sgYXQgSmlyaSdzIHBhdGNoIGluaXRpYWxseSwgYnV0Li4uIHdoYXQncyB3cm9uZyB3aXRoDQo+
+ID4+PiB1c2luZyB0aGUgTUFDIGFkZHJlc3MgZnJvbSBOVlJBTSAoc2hvdWxkIGFscmVhZHkgYmUg
+aW4gbmV0ZGV2LQ0KPiA+cGVybV9hZGRyKT8NCj4gPj4+IFRoYXQncyB3aGF0IEknbSBleHBlY3Rp
+bmcgdG8gZG8gZm9yIHRoZSBTRkM5MDAwIGZhbWlseSBpbiBzZmMuDQo+ID4+Pg0KPiA+Pj4+PiAr
+fQ0KPiA+Pj4+PiArDQo+ID4+Pj4+ICAvKioNCj4gPj4+Pj4gICAqICBpZ2JfcHJvYmUgLSBEZXZp
+Y2UgSW5pdGlhbGl6YXRpb24gUm91dGluZQ0KPiA+Pj4+PiAgICogIEBwZGV2OiBQQ0kgZGV2aWNl
+IGluZm9ybWF0aW9uIHN0cnVjdA0KPiA+Pj4+IEkgcmVhbGx5IHRoaW5rIHRoaXMgYml0IGhlcmUg
+c2hvdWxkIGJlIHN0YW5kYXJkaXplZCBhbmQgbWFkZQ0KPiA+Pj4+IGF2YWlsYWJsZSB0byBhbGwg
+ZHJpdmVycy4NCj4gPj4+IFsuLi5dDQo+ID4+Pg0KPiA+Pj4gSSB0aGluayBpdCdzIGEgYmFkIGV4
+YW1wbGUgYW5kIHNob3VsZCBub3QgYmUgdXNlZCBpbiBhbnkgZHJpdmVycyENCj4gPj4+DQo+ID4+
+PiBCZW4uDQo+ID4+Pg0KPiA+PiBJIGFncmVlLiAgVGhhdCBpcyB3aHkgdGhlIHNlY29uZCBwYXJh
+Z3JhcGggc3RhcnRlZCBsaXN0aW5nIHdoYXQgd2FzDQo+ID4+IHdyb25nIHdpdGggdGhpcyBpbXBs
+ZW1lbnRhdGlvbi4gIFdoYXQgSSBzYWlkIHdhcyBtZWFudCBpbiB0aGUgbW9yZQ0KPiA+PiBnZW5l
+cmFsIHNlbnNlIHRoYXQgd2hhdGV2ZXIgc29sdXRpb24gc2hvdWxkIGJlIHVzZWQgc2hvdWxkIGJl
+IHRoZQ0KPiA+PiBzYW1lIGFjcm9zcyBtdWx0aXBsZSBkcml2ZXJzLCBub3QgdXAgdG8gZWFjaCBk
+cml2ZXIgdG8gY29tcHV0ZS4NCj4gPiBJIHdvdWxkIGxvdmUgdG8ga25vdyBob3cgeW91IHRoaW5r
+IHRoaXMgY2FuIGJlIGRvbmUgZ2VuZXJpY2FsbHkuICBJZg0KPiA+IGl0IGNhbiB0aGVuIHdlIGRv
+bid0IG5lZWQgdGhlIGRyaXZlciBvcGVyYXRpb24gYXQgYWxsLg0KPiA+DQo+ID4gQmVuLg0KPiA+
+DQo+IA0KPiBXZWxsIGxpa2UgeW91IG1lbnRpb25lZCwgeW91IGNvdWxkIGp1c3QgcHVsbCB0aGlz
+IG91dCBvdXQgb2YNCj4gbmV0ZGV2LT5wZXJtX2FkZHIuICBZb3UgZG9uJ3QgbmVlZCB0byBoYXZl
+IGFueXRoaW5nIGRyaXZlciBzcGVjaWZpYyBhcw0KPiBsb25nIGFzIHRoYXQgaXMgdGhlIGZpZWxk
+IHlvdSBhcmUgdXNpbmcgZ2VuZXJpYyBuZXRkZXYgb3IgcGNpX2Rldg0KPiBhdHRyaWJ1dGVzIHRv
+IGRvIHRoZSBpZGVudGlmaWNhdGlvbi4gIEFsbCB5b3UgbmVlZCBpcyBzb21ldGhpbmcgdGhhdA0K
+PiB1bmlxdWVseSBpZGVudGlmaWVzIHRoZSBkZXZpY2UgaW4gdGhlIHN5c3RlbSBjb3JyZWN0PyAg
+Rm9yIHRoYXQgbWF0dGVyIGl0DQo+IHNlZW1zIGxpa2UgeW91IGNvdWxkIHByb2JhYmx5IGp1c3Qg
+cHVsbCB0aGUgZG9tYWluLCBidXMsIGRldmljZSwgYW5kDQo+IGZ1bmN0aW9uIG51bWJlciBvdXQg
+b2YgdGhlIFBDSSBkZXZpY2UgYW5kIHRoYXQgd291bGQgcHJvYmFibHkgd29yayBhcyB3ZWxsDQo+
+IGFzIGxvbmcgYXMgeW91IGNhbm5vdCBzb21laG93IGhhdmUgUEZzIHJ1bm5pbmcgaW5zaWRlIG9m
+IGd1ZXN0cy4NCg0KTkFDSyBhbnkgZGlyZWN0IGluZm9ybWF0aW9uIHRvIHRoZSBWRiBndWVzdCBk
+ZXZpY2UgYXMgdG8gd2hhdCBpdHMgZG9tYWluLCBidXMsIGRldmljZSBhbmQgZnVuY3Rpb24gbnVt
+YmVycyBhcmUuICBUaGlzIG9wZW5zIHVwIHZhcmlvdXMgZXhwbG9pdHMuICBWaXJ0dWFsIGZ1bmN0
+aW9ucyBhcmUgbm90IGd1YXJhbnRlZWQgdG8gYWx3YXlzIHJ1biBpbiB0cnVzdGVkIGd1ZXN0IFZN
+cywgdGhleSBzaG91bGRuJ3QgYmUgZ2l2ZW4gYW55bW9yZSBIVyBpbmZvcm1hdGlvbiB0aGFuIG5l
+ZWRlZCB0byBmdW5jdGlvbi4NCg0KVGhlcmUncyBhIHJlYXNvbiB3ZSBhc2tlZCBKaXJpIHRvIHVz
+ZSBhIGhhc2ggdmFsdWUuDQoNCi0gR3JlZw0KDQo+IA0KPiBUaGFua3MsDQo+IA0KPiBBbGV4DQo=
