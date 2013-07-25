@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] net/usb/r815x: replace USB buffer from stack to
- DMA-able
-Date: Wed, 24 Jul 2013 17:49:47 -0700 (PDT)
-Message-ID: <20130724.174947.452272360732442554.davem@davemloft.net>
-References: <D7C722C73C7A400780358D0376412267@realtek.com.tw>
+Subject: Re: [net-next PATCH v2 1/1] drivers: net: cpsw: add support to
+ show hw stats via ethtool
+Date: Wed, 24 Jul 2013 17:52:56 -0700 (PDT)
+Message-ID: <20130724.175256.27980970277643257.davem@davemloft.net>
+References: <1374574097-26188-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <D7C722C73C7A400780358D0376412267@realtek.com.tw>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org
+To: mugunthanvnm@ti.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37100 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752981Ab3GYAw5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jul 2013 20:52:57 -0400
+In-Reply-To: <1374574097-26188-1-git-send-email-mugunthanvnm@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: hayeswang <hayeswang@realtek.com>
-Date: Tue, 23 Jul 2013 17:26:04 +0800
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Date: Tue, 23 Jul 2013 15:38:17 +0530
 
-> diff --git a/drivers/net/usb/r815x.c b/drivers/net/usb/r815x.c
-> index 8523922..e9b99ba 100644
-> --- a/drivers/net/usb/r815x.c
-> +++ b/drivers/net/usb/r815x.c
-> @@ -24,34 +24,43 @@
->  
->  static int pla_read_word(struct usb_device *udev, u16 index)
->  {
-> - int data, ret;
-> + int ret;
->   u8 shift = index & 2;
-> - __le32 ocp_data;
-> + __le32 *tmp;
+> Add support to show CPSW hardware statistics to user via ethtool
+> so user can find if there were any error reported by hardware or
+> the system is over loaded duing high data rate transfer.
+> 
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> ---
+> Changes from initial version
+> * Change hw_stats variable from struct cpsw_hw_stats __iomem * to u8 __iomem *,
+>   so that accessing hw_stats doesn't require type casting.
 
-Your email client has corrupted these patches.
+This looks a lot better, applied, thanks.
