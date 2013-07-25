@@ -1,333 +1,246 @@
-From: Peter Wu <lekensteyn@gmail.com>
-Subject: [PATCH v3 2/2] realtek: update devices to 3.11
-Date: Thu, 25 Jul 2013 15:36:31 +0200
-Message-ID: <1374759391-16916-3-git-send-email-lekensteyn@gmail.com>
-References: <1374759391-16916-1-git-send-email-lekensteyn@gmail.com>
-Cc: lekensteyn@gmail.com, netdev@vger.kernel.org,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:64963 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755666Ab3GYNgr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 09:36:47 -0400
-Received: by mail-wg0-f45.google.com with SMTP id x12so1694762wgg.24
-        for <netdev@vger.kernel.org>; Thu, 25 Jul 2013 06:36:45 -0700 (PDT)
-In-Reply-To: <1374759391-16916-1-git-send-email-lekensteyn@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>
+Subject: [PATCHv2] bridge: disable snooping if there is no querier
+Date: Thu, 25 Jul 2013 15:56:20 +0200
+Message-ID: <1374760580-12920-1-git-send-email-linus.luessing@web.de>
+References: <1374757046-12463-1-git-send-email-linus.luessing@web.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Adam Baker <linux@baker-net.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>,
+	"David S. Miller" <davem@davemloft.net>, Cong Wang <amwang@redhat.com>
+To: bridge@lists.linux-foundation.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1374757046-12463-1-git-send-email-linus.luessing@web.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-RTL8168_8111Bb/RTL8168_8111Bef is like RTL8111B/RTL8168B, RTL8100E and RTL8101E
-(datasheet revision 1.0 from 26 January 2006). Assume that RTL8101e is also
-similar (I may be very wrong at that though...).
+If there is no querier on a link then we won't get periodic reports and
+therefore won't be able to learn about multicast listeners behind ports,
+potentially leading to lost multicast packets, especially for multicast
+listeners that joined before the creation of the bridge.
 
-Note that the scanning heuristics is the same as the r8169 module: newer devices
-with stronger masks come before the others. Perhaps the older 8139 cards should
-be appended to the list, after all r8169 chips.
+These lost multicast packets can appear since c5c23260594
+("bridge: Add multicast_querier toggle and disable queries by default")
+in particular.
 
-Signed-off-by: Peter Wu <lekensteyn@gmail.com>
+With this patch we are flooding multicast packets if our querier is
+disabled and if we didn't detect any other querier.
+
+A grace period of the Maximum Response Delay of the querier is added to
+give multicast responses enough time to arrive and to be learned from
+before disabling the flooding behaviour again.
+
+Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
 ---
- realtek.c | 221 +++++++++++++++++++++++++++++++++++++++++++++++++-------------
- 1 file changed, 177 insertions(+), 44 deletions(-)
+v2: added missing, empty br_multicast_querier_exists() to avoid
+    build failures if CONFIG_BRIDGE_IGMP_SNOOPING is not set
 
-diff --git a/realtek.c b/realtek.c
-index 6365a96..997b53c 100644
---- a/realtek.c
-+++ b/realtek.c
-@@ -19,17 +19,50 @@ enum chip_type {
- 	RTL8101,
- 
- 	/* chips not handled by 8139too/8139cp module */
--	RTL8169,
--	RTL8169S,
--	RTL8110S,
--	RTL8169_8110SB,
--	RTL8169_8110SCd,
--	RTL8169_8110SCe,
--	RTL8168_8111Bb,
--	RTL8168_8111Bef,
--	RTL8101Ebc,
--	RTL8100E1,
--	RTL8100E2,
-+	RTL_GIGA_MAC_VER_01,
-+	RTL_GIGA_MAC_VER_02,
-+	RTL_GIGA_MAC_VER_03,
-+	RTL_GIGA_MAC_VER_04,
-+	RTL_GIGA_MAC_VER_05,
-+	RTL_GIGA_MAC_VER_06,
-+	RTL_GIGA_MAC_VER_07,
-+	RTL_GIGA_MAC_VER_08,
-+	RTL_GIGA_MAC_VER_09,
-+	RTL_GIGA_MAC_VER_10,
-+	RTL_GIGA_MAC_VER_11,
-+	RTL_GIGA_MAC_VER_12,
-+	RTL_GIGA_MAC_VER_13,
-+	RTL_GIGA_MAC_VER_14,
-+	RTL_GIGA_MAC_VER_15,
-+	RTL_GIGA_MAC_VER_16,
-+	RTL_GIGA_MAC_VER_17,
-+	RTL_GIGA_MAC_VER_18,
-+	RTL_GIGA_MAC_VER_19,
-+	RTL_GIGA_MAC_VER_20,
-+	RTL_GIGA_MAC_VER_21,
-+	RTL_GIGA_MAC_VER_22,
-+	RTL_GIGA_MAC_VER_23,
-+	RTL_GIGA_MAC_VER_24,
-+	RTL_GIGA_MAC_VER_25,
-+	RTL_GIGA_MAC_VER_26,
-+	RTL_GIGA_MAC_VER_27,
-+	RTL_GIGA_MAC_VER_28,
-+	RTL_GIGA_MAC_VER_29,
-+	RTL_GIGA_MAC_VER_30,
-+	RTL_GIGA_MAC_VER_31,
-+	RTL_GIGA_MAC_VER_32,
-+	RTL_GIGA_MAC_VER_33,
-+	RTL_GIGA_MAC_VER_34,
-+	RTL_GIGA_MAC_VER_35,
-+	RTL_GIGA_MAC_VER_36,
-+	RTL_GIGA_MAC_VER_37,
-+	RTL_GIGA_MAC_VER_38,
-+	RTL_GIGA_MAC_VER_39,
-+	RTL_GIGA_MAC_VER_40,
-+	RTL_GIGA_MAC_VER_41,
-+	RTL_GIGA_MAC_VER_42,
-+	RTL_GIGA_MAC_VER_43,
-+	RTL_GIGA_MAC_VER_44,
- };
- 
- static const char * const chip_names[] = {
-@@ -46,17 +79,50 @@ static const char * const chip_names[] = {
- 	[RTL8101] =		"8101",
- 
- 	/* chips not handled by 8139too/8139cp module */
--	[RTL8169] =		"8169",
--	[RTL8169S] =		"8169S",
--	[RTL8110S] =		"8110S",
--	[RTL8169_8110SB] =	"8169/8110SB",
--	[RTL8169_8110SCd] =	"8169/8110SCd",
--	[RTL8169_8110SCe] =	"8169/8110SCe",
--	[RTL8168_8111Bb] =	"8168/8111Bb",
--	[RTL8168_8111Bef] =	"8168/8111Bef",
--	[RTL8101Ebc] =		"8101Ebc",
--	[RTL8100E1] =		"8100E(1)",
--	[RTL8100E2] =		"8100E(2)",
-+	[RTL_GIGA_MAC_VER_01] = "8169",
-+	[RTL_GIGA_MAC_VER_02] = "8169s",
-+	[RTL_GIGA_MAC_VER_03] = "8110s",
-+	[RTL_GIGA_MAC_VER_04] = "8169sb/8110sb",
-+	[RTL_GIGA_MAC_VER_05] = "8169sc/8110sc",
-+	[RTL_GIGA_MAC_VER_06] = "8169sc/8110sc",
-+	[RTL_GIGA_MAC_VER_07] = "8102e",
-+	[RTL_GIGA_MAC_VER_08] = "8102e",
-+	[RTL_GIGA_MAC_VER_09] = "8102e",
-+	[RTL_GIGA_MAC_VER_10] = "8101e",
-+	[RTL_GIGA_MAC_VER_11] = "8168b/8111b",
-+	[RTL_GIGA_MAC_VER_12] = "8168b/8111b",
-+	[RTL_GIGA_MAC_VER_13] = "8101e",
-+	[RTL_GIGA_MAC_VER_14] = "8100e",
-+	[RTL_GIGA_MAC_VER_15] = "8100e",
-+	[RTL_GIGA_MAC_VER_16] = "8101e",
-+	[RTL_GIGA_MAC_VER_17] = "8168b/8111b",
-+	[RTL_GIGA_MAC_VER_18] = "8168cp/8111cp",
-+	[RTL_GIGA_MAC_VER_19] = "8168c/8111c",
-+	[RTL_GIGA_MAC_VER_20] = "8168c/8111c",
-+	[RTL_GIGA_MAC_VER_21] = "8168c/8111c",
-+	[RTL_GIGA_MAC_VER_22] = "8168c/8111c",
-+	[RTL_GIGA_MAC_VER_23] = "8168cp/8111cp",
-+	[RTL_GIGA_MAC_VER_24] = "8168cp/8111cp",
-+	[RTL_GIGA_MAC_VER_25] = "8168d/8111d",
-+	[RTL_GIGA_MAC_VER_26] = "8168d/8111d",
-+	[RTL_GIGA_MAC_VER_27] = "8168dp/8111dp",
-+	[RTL_GIGA_MAC_VER_28] = "8168dp/8111dp",
-+	[RTL_GIGA_MAC_VER_29] = "8105e",
-+	[RTL_GIGA_MAC_VER_30] = "8105e",
-+	[RTL_GIGA_MAC_VER_31] = "8168dp/8111dp",
-+	[RTL_GIGA_MAC_VER_32] = "8168e/8111e",
-+	[RTL_GIGA_MAC_VER_33] = "8168e/8111e",
-+	[RTL_GIGA_MAC_VER_34] = "8168evl/8111evl",
-+	[RTL_GIGA_MAC_VER_35] = "8168f/8111f",
-+	[RTL_GIGA_MAC_VER_36] = "8168f/8111f",
-+	[RTL_GIGA_MAC_VER_37] = "8402",
-+	[RTL_GIGA_MAC_VER_38] = "8411",
-+	[RTL_GIGA_MAC_VER_39] = "8106e",
-+	[RTL_GIGA_MAC_VER_40] = "8168g/8111g",
-+	[RTL_GIGA_MAC_VER_41] = "8168g/8111g",
-+	[RTL_GIGA_MAC_VER_42] = "8168g/8111g",
-+	[RTL_GIGA_MAC_VER_43] = "8106e",
-+	[RTL_GIGA_MAC_VER_44] = "8411",
- };
- 
- static struct chip_info {
-@@ -77,17 +143,82 @@ static struct chip_info {
- 	{ 0xfcc00000, 0x74c00000,	RTL8101 },
- 
- 	/* chips not handled by 8139too/8139cp module */
--	{ 0xfcc00000, 0x00000000,	RTL8169 },
--	{ 0xfcc00000, 0x00800000,	RTL8169S },
--	{ 0xfcc00000, 0x04000000,	RTL8110S },
--	{ 0xfcc00000, 0x10000000,	RTL8169_8110SB },
--	{ 0xfcc00000, 0x18000000,	RTL8169_8110SCd },
--	{ 0xfcc00000, 0x68000000,	RTL8169_8110SCe },
--	{ 0xfcc00000, 0x30000000,	RTL8168_8111Bb },
--	{ 0xfcc00000, 0x38000000,	RTL8168_8111Bef },
--	{ 0xfcc00000, 0x34000000,	RTL8101Ebc },
--	{ 0xfcc00000, 0x30800000,	RTL8100E1 },
--	{ 0xfcc00000, 0x38800000,	RTL8100E2 },
-+	/* 8168G family. */
-+	{ 0x7cf00000, 0x5c800000,	RTL_GIGA_MAC_VER_44 },
-+	{ 0x7cf00000, 0x50900000,	RTL_GIGA_MAC_VER_42 },
-+	{ 0x7cf00000, 0x4c100000,	RTL_GIGA_MAC_VER_41 },
-+	{ 0x7cf00000, 0x4c000000,	RTL_GIGA_MAC_VER_40 },
+
+ net/bridge/br_device.c    |    3 ++-
+ net/bridge/br_input.c     |    3 ++-
+ net/bridge/br_multicast.c |   41 ++++++++++++++++++++++++++++++++-------=
+--
+ net/bridge/br_private.h   |   15 +++++++++++++++
+ 4 files changed, 51 insertions(+), 11 deletions(-)
+
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index 2ef6678..69363bd 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -70,7 +70,8 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net=
+_device *dev)
+ 		}
+=20
+ 		mdst =3D br_mdb_get(br, skb, vid);
+-		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb))
++		if ((mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) &&
++		    br_multicast_querier_exists(br))
+ 			br_multicast_deliver(mdst, skb);
+ 		else
+ 			br_flood_deliver(br, skb, false);
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 1b8b8b8..8c561c0 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -101,7 +101,8 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 		unicast =3D false;
+ 	} else if (is_multicast_ether_addr(dest)) {
+ 		mdst =3D br_mdb_get(br, skb, vid);
+-		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) {
++		if ((mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) &&
++		    br_multicast_querier_exists(br)) {
+ 			if ((mdst && mdst->mglist) ||
+ 			    br_multicast_is_router(br))
+ 				skb2 =3D skb;
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 69af490..5b5b9c0 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1011,6 +1011,17 @@ static int br_ip6_multicast_mld2_report(struct net=
+_bridge *br,
+ }
+ #endif
+=20
++static void br_multicast_update_querier_timer(struct net_bridge *br,
++					      unsigned long max_delay)
++{
++	if (!timer_pending(&br->multicast_querier_timer))
++		atomic64_set(&br->multicast_querier_delay_time,
++			     jiffies + max_delay);
 +
-+	/* 8168F family. */
-+	{ 0x7c800000, 0x48800000,	RTL_GIGA_MAC_VER_38 },
-+	{ 0x7cf00000, 0x48100000,	RTL_GIGA_MAC_VER_36 },
-+	{ 0x7cf00000, 0x48000000,	RTL_GIGA_MAC_VER_35 },
++	mod_timer(&br->multicast_querier_timer,
++		  jiffies + br->multicast_querier_interval);
++}
 +
-+	/* 8168E family. */
-+	{ 0x7c800000, 0x2c800000,	RTL_GIGA_MAC_VER_34 },
-+	{ 0x7cf00000, 0x2c200000,	RTL_GIGA_MAC_VER_33 },
-+	{ 0x7cf00000, 0x2c100000,	RTL_GIGA_MAC_VER_32 },
-+	{ 0x7c800000, 0x2c000000,	RTL_GIGA_MAC_VER_33 },
-+
-+	/* 8168D family. */
-+	{ 0x7cf00000, 0x28300000,	RTL_GIGA_MAC_VER_26 },
-+	{ 0x7cf00000, 0x28100000,	RTL_GIGA_MAC_VER_25 },
-+	{ 0x7c800000, 0x28000000,	RTL_GIGA_MAC_VER_26 },
-+
-+	/* 8168DP family. */
-+	{ 0x7cf00000, 0x28800000,	RTL_GIGA_MAC_VER_27 },
-+	{ 0x7cf00000, 0x28a00000,	RTL_GIGA_MAC_VER_28 },
-+	{ 0x7cf00000, 0x28b00000,	RTL_GIGA_MAC_VER_31 },
-+
-+	/* 8168C family. */
-+	{ 0x7cf00000, 0x3cb00000,	RTL_GIGA_MAC_VER_24 },
-+	{ 0x7cf00000, 0x3c900000,	RTL_GIGA_MAC_VER_23 },
-+	{ 0x7cf00000, 0x3c800000,	RTL_GIGA_MAC_VER_18 },
-+	{ 0x7c800000, 0x3c800000,	RTL_GIGA_MAC_VER_24 },
-+	{ 0x7cf00000, 0x3c000000,	RTL_GIGA_MAC_VER_19 },
-+	{ 0x7cf00000, 0x3c200000,	RTL_GIGA_MAC_VER_20 },
-+	{ 0x7cf00000, 0x3c300000,	RTL_GIGA_MAC_VER_21 },
-+	{ 0x7cf00000, 0x3c400000,	RTL_GIGA_MAC_VER_22 },
-+	{ 0x7c800000, 0x3c000000,	RTL_GIGA_MAC_VER_22 },
-+
-+	/* 8168B family. */
-+	{ 0x7cf00000, 0x38000000,	RTL_GIGA_MAC_VER_12 },
-+	{ 0x7cf00000, 0x38500000,	RTL_GIGA_MAC_VER_17 },
-+	{ 0x7c800000, 0x38000000,	RTL_GIGA_MAC_VER_17 },
-+	{ 0x7c800000, 0x30000000,	RTL_GIGA_MAC_VER_11 },
-+
-+	/* 8101 family. */
-+	{ 0x7cf00000, 0x44900000,	RTL_GIGA_MAC_VER_39 },
-+	{ 0x7c800000, 0x44800000,	RTL_GIGA_MAC_VER_39 },
-+	{ 0x7c800000, 0x44000000,	RTL_GIGA_MAC_VER_37 },
-+	{ 0x7cf00000, 0x40b00000,	RTL_GIGA_MAC_VER_30 },
-+	{ 0x7cf00000, 0x40a00000,	RTL_GIGA_MAC_VER_30 },
-+	{ 0x7cf00000, 0x40900000,	RTL_GIGA_MAC_VER_29 },
-+	{ 0x7c800000, 0x40800000,	RTL_GIGA_MAC_VER_30 },
-+	{ 0x7cf00000, 0x34a00000,	RTL_GIGA_MAC_VER_09 },
-+	{ 0x7cf00000, 0x24a00000,	RTL_GIGA_MAC_VER_09 },
-+	{ 0x7cf00000, 0x34900000,	RTL_GIGA_MAC_VER_08 },
-+	{ 0x7cf00000, 0x24900000,	RTL_GIGA_MAC_VER_08 },
-+	{ 0x7cf00000, 0x34800000,	RTL_GIGA_MAC_VER_07 },
-+	{ 0x7cf00000, 0x24800000,	RTL_GIGA_MAC_VER_07 },
-+	{ 0x7cf00000, 0x34000000,	RTL_GIGA_MAC_VER_13 },
-+	{ 0x7cf00000, 0x34300000,	RTL_GIGA_MAC_VER_10 },
-+	{ 0x7cf00000, 0x34200000,	RTL_GIGA_MAC_VER_16 },
-+	{ 0x7c800000, 0x34800000,	RTL_GIGA_MAC_VER_09 },
-+	{ 0x7c800000, 0x24800000,	RTL_GIGA_MAC_VER_09 },
-+	{ 0x7c800000, 0x34000000,	RTL_GIGA_MAC_VER_16 },
-+	/* FIXME: where did these entries come from ? -- FR */
-+	{ 0xfc800000, 0x38800000,	RTL_GIGA_MAC_VER_15 },
-+	{ 0xfc800000, 0x30800000,	RTL_GIGA_MAC_VER_14 },
-+
-+	/* 8110 family. */
-+	{ 0xfc800000, 0x98000000,	RTL_GIGA_MAC_VER_06 },
-+	{ 0xfc800000, 0x18000000,	RTL_GIGA_MAC_VER_05 },
-+	{ 0xfc800000, 0x10000000,	RTL_GIGA_MAC_VER_04 },
-+	{ 0xfc800000, 0x04000000,	RTL_GIGA_MAC_VER_03 },
-+	{ 0xfc800000, 0x00800000,	RTL_GIGA_MAC_VER_02 },
-+	{ 0xfc800000, 0x00000000,	RTL_GIGA_MAC_VER_01 },
-+
- 	{ }
- };
- 
-@@ -151,7 +282,7 @@ realtek_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
- 		data[0x08 >> 2],
- 		data[0x0c >> 2]);
- 
--	if (board_type == RTL8139Cp || board_type >= RTL8169) {
-+	if (board_type == RTL8139Cp || board_type >= RTL_GIGA_MAC_VER_01) {
- 	fprintf(stdout,
- 		"0x10: Dump Tally Counter Command   0x%08x 0x%08x\n",
- 		data[0x10 >> 2],
-@@ -187,8 +318,9 @@ realtek_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
- 		data[0x2C >> 2]);
+ /*
+  * Add port to router_list
+  *  list is maintained ordered by pointer value
+@@ -1061,11 +1072,11 @@ timer:
+=20
+ static void br_multicast_query_received(struct net_bridge *br,
+ 					struct net_bridge_port *port,
+-					int saddr)
++					int saddr,
++					unsigned long max_delay)
+ {
+ 	if (saddr)
+-		mod_timer(&br->multicast_querier_timer,
+-			  jiffies + br->multicast_querier_interval);
++		br_multicast_update_querier_timer(br, max_delay);
+ 	else if (timer_pending(&br->multicast_querier_timer))
+ 		return;
+=20
+@@ -1093,8 +1104,6 @@ static int br_ip4_multicast_query(struct net_bridge=
+ *br,
+ 	    (port && port->state =3D=3D BR_STATE_DISABLED))
+ 		goto out;
+=20
+-	br_multicast_query_received(br, port, !!iph->saddr);
+-
+ 	group =3D ih->group;
+=20
+ 	if (skb->len =3D=3D sizeof(*ih)) {
+@@ -1118,6 +1127,8 @@ static int br_ip4_multicast_query(struct net_bridge=
+ *br,
+ 			    IGMPV3_MRC(ih3->code) * (HZ / IGMP_TIMER_SCALE) : 1;
  	}
- 
--	if (board_type != RTL8168_8111Bb && board_type != RTL8168_8111Bef) {
--	if (board_type >= RTL8169) {
-+	if (board_type < RTL_GIGA_MAC_VER_11 ||
-+		board_type > RTL_GIGA_MAC_VER_17) {
-+	if (board_type >= RTL_GIGA_MAC_VER_01) {
- 	fprintf(stdout,
- 		"0x30: Flash memory read/write                 0x%08x\n",
- 		data[0x30 >> 2]);
-@@ -224,7 +356,7 @@ realtek_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
- 		v & (1 << 2) ? "on" : "off",
- 		v & (1 << 4) ? ", RESET" : "");
- 
--	if (board_type < RTL8169) {
-+	if (board_type < RTL_GIGA_MAC_VER_01) {
- 	fprintf(stdout,
- 		"0x38: Current Address of Packet Read (C mode)     0x%04x\n"
- 		"0x3A: Current Rx buffer address (C mode)          0x%04x\n",
-@@ -259,7 +391,7 @@ realtek_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
- 		data8[0x51],
- 		data8[0x52]);
- 
--	if (board_type >= RTL8169) {
-+	if (board_type >= RTL_GIGA_MAC_VER_01) {
- 	fprintf(stdout,
- 		"0x53: Config 2                                      0x%02x\n"
- 		"0x54: Config 3                                      0x%02x\n"
-@@ -298,12 +430,13 @@ realtek_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
- 		"0x5C: Multiple Interrupt Select                   0x%04x\n",
- 		data[0x5c >> 2] & 0xffff);
- 
--	if (board_type >= RTL8169) {
-+	if (board_type >= RTL_GIGA_MAC_VER_01) {
- 	fprintf(stdout,
- 		"0x60: PHY access                              0x%08x\n",
- 		data[0x60 >> 2]);
- 
--	if (board_type != RTL8168_8111Bb && board_type != RTL8168_8111Bef) {
-+	if (board_type < RTL_GIGA_MAC_VER_11 ||
-+		board_type > RTL_GIGA_MAC_VER_17) {
- 	fprintf(stdout,
- 		"0x64: TBI control and status                  0x%08x\n",
- 		data[0x64 >> 2]);
-@@ -492,7 +625,7 @@ realtek_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+=20
++	br_multicast_query_received(br, port, !!iph->saddr, max_delay);
++
+ 	if (!group)
+ 		goto out;
+=20
+@@ -1174,8 +1185,6 @@ static int br_ip6_multicast_query(struct net_bridge=
+ *br,
+ 	    (port && port->state =3D=3D BR_STATE_DISABLED))
+ 		goto out;
+=20
+-	br_multicast_query_received(br, port, !ipv6_addr_any(&ip6h->saddr));
+-
+ 	if (skb->len =3D=3D sizeof(*mld)) {
+ 		if (!pskb_may_pull(skb, sizeof(*mld))) {
+ 			err =3D -EINVAL;
+@@ -1196,6 +1205,9 @@ static int br_ip6_multicast_query(struct net_bridge=
+ *br,
+ 		max_delay =3D mld2q->mld2q_mrc ? MLDV2_MRC(ntohs(mld2q->mld2q_mrc)) : =
+1;
  	}
- 	}
- 
--	if (board_type == RTL8139Cp || board_type >= RTL8169) {
-+	if (board_type == RTL8139Cp || board_type >= RTL_GIGA_MAC_VER_01) {
- 	v = data[0xE0 >> 2] & 0xffff;
- 	fprintf(stdout,
- 		"0xE0: C+ Command                                  0x%04x\n",
-@@ -536,9 +669,9 @@ realtek_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
- 	fprintf(stdout,
- 		"0xFC: External MII register                   0x%08x\n",
- 		data[0xFC >> 2]);
--	} else if (board_type >= RTL8169 &&
--		   board_type != RTL8168_8111Bb &&
--		   board_type != RTL8168_8111Bef) {
-+	} else if (board_type >= RTL_GIGA_MAC_VER_01 &&
-+		(board_type < RTL_GIGA_MAC_VER_11 ||
-+		board_type > RTL_GIGA_MAC_VER_17)) {
- 	fprintf(stdout,
- 		"0xF0: Func Event                              0x%08x\n"
- 		"0xF4: Func Event Mask                         0x%08x\n"
--- 
-1.8.3.3
+=20
++	br_multicast_query_received(br, port, !ipv6_addr_any(&ip6h->saddr),
++				    max_delay);
++
+ 	if (!group)
+ 		goto out;
+=20
+@@ -1642,6 +1654,8 @@ void br_multicast_init(struct net_bridge *br)
+ 	br->multicast_querier_interval =3D 255 * HZ;
+ 	br->multicast_membership_interval =3D 260 * HZ;
+=20
++	atomic64_set(&br->multicast_querier_delay_time, 0);
++
+ 	spin_lock_init(&br->multicast_lock);
+ 	setup_timer(&br->multicast_router_timer,
+ 		    br_multicast_local_router_expired, 0);
+@@ -1830,6 +1844,8 @@ unlock:
+=20
+ int br_multicast_set_querier(struct net_bridge *br, unsigned long val)
+ {
++	unsigned long max_delay;
++
+ 	val =3D !!val;
+=20
+ 	spin_lock_bh(&br->multicast_lock);
+@@ -1837,8 +1853,15 @@ int br_multicast_set_querier(struct net_bridge *br=
+, unsigned long val)
+ 		goto unlock;
+=20
+ 	br->multicast_querier =3D val;
+-	if (val)
+-		br_multicast_start_querier(br);
++	if (!val)
++		goto unlock;
++
++	max_delay =3D br->multicast_query_response_interval;
++	if (!timer_pending(&br->multicast_querier_timer))
++		atomic64_set(&br->multicast_querier_delay_time,
++			     jiffies + max_delay);
++
++	br_multicast_start_querier(br);
+=20
+ unlock:
+ 	spin_unlock_bh(&br->multicast_lock);
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 3be89b3..5c04658 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -275,6 +275,7 @@ struct net_bridge
+ 	struct timer_list		multicast_router_timer;
+ 	struct timer_list		multicast_querier_timer;
+ 	struct timer_list		multicast_query_timer;
++	atomic64_t			multicast_querier_delay_time;
+ #endif
+=20
+ 	struct timer_list		hello_timer;
+@@ -501,6 +502,16 @@ static inline bool br_multicast_is_router(struct net=
+_bridge *br)
+ 	       (br->multicast_router =3D=3D 1 &&
+ 		timer_pending(&br->multicast_router_timer));
+ }
++
++static inline bool br_multicast_querier_exists(struct net_bridge *br)
++{
++	unsigned long delay_time =3D
++			atomic64_read(&br->multicast_querier_delay_time);
++
++	return time_is_before_jiffies(delay_time) &&
++	       (br->multicast_querier ||
++		timer_pending(&br->multicast_querier_timer));
++}
+ #else
+ static inline int br_multicast_rcv(struct net_bridge *br,
+ 				   struct net_bridge_port *port,
+@@ -557,6 +568,10 @@ static inline bool br_multicast_is_router(struct net=
+_bridge *br)
+ {
+ 	return 0;
+ }
++static inline bool br_multicast_querier_exists(struct net_bridge *br)
++{
++	return false;
++}
+ static inline void br_mdb_init(void)
+ {
+ }
+--=20
+1.7.10.4
