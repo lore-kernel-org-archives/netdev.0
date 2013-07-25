@@ -1,85 +1,78 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [patch net-next v4 4/4] igb/igbvf: implement ndo_get_phys_port_id
-Date: Thu, 25 Jul 2013 15:56:46 -0700
-Message-ID: <51F1AD2E.5000707@intel.com>
-References: <1374757385-10875-1-git-send-email-jiri@resnulli.us>     <1374757385-10875-5-git-send-email-jiri@resnulli.us>     <51F14F9F.1010703@intel.com>    <1374770653.3058.9.camel@bwh-desktop.uk.level5networks.com>    <51F167A6.808@intel.com>   <1374778266.3058.15.camel@bwh-desktop.uk.level5networks.com>   <51F1769E.3050906@intel.com>  <1374779745.3058.24.camel@bwh-desktop.uk.level5networks.com>  <51F18366.2040306@gmail.com> <51F1A666.8050001@intel.com> <1374792282.3058.35.camel@bwh-desktop.uk.level5networks.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: minimum ICMPv6 message size vs. RPL's DIS
+Date: Fri, 26 Jul 2013 01:31:34 +0200
+Message-ID: <20130725233134.GA24247@order.stressinduktion.org>
+References: <20130724232852.GA29572@ws> <20130725061731.GA12365@order.stressinduktion.org> <20130725103048.GB29572@ws> <20130725135820.GB11592@order.stressinduktion.org> <20130725143223.GC29572@ws> <20130725184044.GC24007@order.stressinduktion.org> <20130725214749.GD29572@ws>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	davem@davemloft.net, stephen@networkplumber.org,
-	Narendra_K@Dell.com, john.r.fastabend@intel.com,
-	or.gerlitz@gmail.com, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	gregory.v.rose@intel.com, peter.p.waskiewicz.jr@intel.com,
-	john.ronciak@intel.com, tushar.n.dave@intel.com,
-	matthew.vick@intel.com, mitch.a.williams@intel.com,
-	vyasevic@redhat.com, amwang@redhat.com, johannes@sipsolutions.net
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Werner Almesberger <werner@almesberger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:33210 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756722Ab3GYW4s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jul 2013 18:56:48 -0400
-In-Reply-To: <1374792282.3058.35.camel@bwh-desktop.uk.level5networks.com>
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:40179 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753048Ab3GYXbf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jul 2013 19:31:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20130725214749.GD29572@ws>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/25/2013 03:44 PM, Ben Hutchings wrote:
-> On Thu, 2013-07-25 at 15:27 -0700, Alexander Duyck wrote:
->> On 07/25/2013 12:58 PM, John Fastabend wrote:
->>> On 07/25/2013 12:15 PM, Ben Hutchings wrote:
->>>> On Thu, 2013-07-25 at 12:03 -0700, Alexander Duyck wrote:
-> [...]
->>>>> Well like you mentioned, you could just pull this out out of
->>>>> netdev->perm_addr.  You don't need to have anything driver specific as
->>>>> long as that is the field you are using generic netdev or pci_dev
->>>>> attributes to do the identification.
->>>> For a PF driver that never shares the port with another PF, yes.  There
->>>> are a handful of those drivers so it might be worth sharing an
->>>> implementation that uses perm_addr, but it's so trivial...
->>>>
->>>>> All you need is something that
->>>>> uniquely identifies the device in the system correct?
->>>> The spec is that it is universally unique.  I don't know who's going to
->>>> need that property but I think it's achievable since each physical port
->>>> normally has at least one globally unique MAC address assigned at
->>>> manufacturing time.
->>>>
->>>>> For that matter
->>>>> it seems like you could probably just pull the domain, bus, device, and
->>>>> function number out of the PCI device and that would probably work as
->>>>> well as long as you cannot somehow have PFs running inside of guests.
->>>> Some NICs have multiple PFs for the same port, and those could be
->>>> assigned to guest VMs.
->>>>
->>>> All VF drivers would need some way to get the port ID, and that can't be
->>>> done generically from inside a guest VM.
->>>>
->>>> Ben.
->>>>
->>> I doubt you'll be able to think up a way to do this generically as Ben
->>> points out. But also no reason for the complicated hash just use the
->>> perm address of the PF and if you have multiple PFs elect one of the
->>> n perm address to be the stand-in for the unique one.
->>>
->>> .John
->>>
->> I think there may have been some miscommunication.  I wasn't talking
->> about the VF drivers having a generic means of getting the ID.  I would
->> just want all of the drivers to be using a similar approach for
->> generating the port ID so that we reduce the risk of any kind of port ID
->> collision.  We need to make sure we are all stuffing the 6 bytes of
->> perm_addr into the 4 byte port ID using the same approach.
-> But we started with an up-to-32-byte port ID; why do you say 4 bytes?
->
-> Ben.
+On Thu, Jul 25, 2013 at 06:47:49PM -0300, Werner Almesberger wrote:
+> Hannes Frederic Sowa wrote:
+> > I don't know how they could do this if they want to let other RFCs extend
+> > icmp types.
+> 
+> Oh, ICMPs can have padding. That's used to enforce "nice" alignment.
+> Even RFC 6550 (RPL) has that. For example, you could simply pad the
+> troublesome DIS, message which is
+> 
+> Offset	Value	Description
+> ------	-----	------------------------------------------------
+> 0	0x9b	ICMPv6 Type = RPL (155, section 6)
+> 1	0x00	ICMPv6 Code = DODAG Information Solicitation (0)
+> 2	0x??	Checksum
+> 3	0x??	(continued)
+> 
+> 4	0x00	Flags = 0 (section 6.2.1)
+> 5	0x00	Reserved
+> 
+> to eight bytes (i.e., four bytes of body) by adding
+> 
+> 6	0x01	Option Type = PadN (section 6.7.3)
+> 7	0x00	Option Length = 0
+> 
+> But if nothing obliges the sender to do so, there's no excuse for
+> Linux to expect such padding.
 
-Sorry I was looking at the driver specific implementation that was only
-populating a u32.
+Yes, of course, that's possible but not specified at all in the general
+ICMPv6 RFC.  If packets are too short for some medium, I guess, one
+would stretch it with extension header paddings before the icmpv6 header.
 
-Thanks,
+> > Yes, that could be an issue. I would be willing to accept this fallout. :)
+> 
+> I'm kinda curious what sort of policy we have on that. The worst
+> case would be that there's a bunch of 64 bit Linux machines out
+> there, doing critical infrastructure things in the Internet (not an
+> unlikely role, given the API in question), and their user space has
+> some vulnerability if the kernel lets a "short" ICMPv6 packet
+> through.
 
-Alex
+You forgot one critical aspect: Important infrastructure is *never*
+going to be updated and definitely never runs IPv6. ;)
+
+I don't think there is a policy, just intuition.
+
+> Of course, "The Almesberger-Sowa Internet Meltdown of 2013" does
+> have a nice ring to it, in an apocalyptic kind of way ...
+
+I would like to avoid such a scenario, but have seen enough patches that
+I kind of cooled down a bit. ;)
+
+In summary, I agree, we should get both changes at once into the tree or
+none (of course I would still change the pointer to something reasonable
+and describe the circumstances in a comment if we don't change the
+current behaviour).
+
+Greetings,
+
+  Hannes
