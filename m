@@ -1,36 +1,53 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 2/2] net: igmp: Allow user-space configuration of igmp unsolicited report interval
-Date: Fri, 26 Jul 2013 18:36:10 +0200
-Message-ID: <20130726163610.GF3890@order.stressinduktion.org>
-References: <1374527349.1635.55.camel@bwh-desktop.uk.level5networks.com> <1374754445-5608-1-git-send-email-william.manley@youview.com> <1374754445-5608-2-git-send-email-william.manley@youview.com>
+Subject: Re: [PATCH 1/2] net: igmp: Reduce Unsolicited report interval to 1s when using IGMPv3
+Date: Fri, 26 Jul 2013 18:39:13 +0200
+Message-ID: <20130726163913.GG3890@order.stressinduktion.org>
+References: <1374527349.1635.55.camel@bwh-desktop.uk.level5networks.com> <1374754445-5608-1-git-send-email-william.manley@youview.com> <20130726163239.GE3890@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, bcrl@kvack.org, luky-37@hotmail.com,
+To: William Manley <william.manley@youview.com>,
+	netdev@vger.kernel.org, bcrl@kvack.org, luky-37@hotmail.com,
 	sergei.shtylyov@cogentembedded.com, bhutchings@solarflare.com,
 	davem@davemloft.net
-To: William Manley <william.manley@youview.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:41532 "EHLO
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:41543 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755325Ab3GZQgM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 12:36:12 -0400
+	with ESMTP id S1756941Ab3GZQjO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 12:39:14 -0400
 Content-Disposition: inline
-In-Reply-To: <1374754445-5608-2-git-send-email-william.manley@youview.com>
+In-Reply-To: <20130726163239.GE3890@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 25, 2013 at 01:14:05PM +0100, William Manley wrote:
-> Adds a new procfs knob:
+On Fri, Jul 26, 2013 at 06:32:39PM +0200, Hannes Frederic Sowa wrote:
+> On Thu, Jul 25, 2013 at 01:14:04PM +0100, William Manley wrote:
+> > If an IGMP join packet is lost you will not receive data sent to the
+> > multicast group so if no data arrives from that multicast group in a
+> > period of time after the IGMP join a second IGMP join will be sent.  The
+> > delay between joins is the "IGMP Unsolicited Report Interval".
+> > 
+> > Previously this value was hard coded to be chosen randomly between 0-10s.
+> > This can be too long for some use-cases, such as IPTV as it can cause
+> > channel change to be slow in the presence of packet loss.
+> > 
+> > The value 10s has come from IGMPv2 RFC2236, which was reduced to 1s in
+> > IGMPv3 RFC3376.  This patch makes the kernel use the 1s value from the
+> > later RFC if we are operating in IGMPv3 mode.  IGMPv2 behaviour is
+> > unaffected.
+> > 
+> > Tested with Wireshark and a simple program to join a (non-existent)
+> > multicast group.  The distribution of timings for the second join differ
+> > based upon setting /proc/sys/net/ipv4/conf/eth0/force_igmp_version.
+> >
+> > [...]
+> >
+>
+> [...]
 > 
->     /proc/sys/net/ipv4/conf/*/force_igmp_unsolicited_report_interval
-> 
-> Which will allow userspace configuration of the IGMP unsolicited report
-> interval (see below) in milliseconds.  The default is -1 which means use
-> default behaviour (10s for IGMPv3 and 1s for IGMPv2 in accordance with
-> RFC2236 and RFC3376).
+> Otherwise I am fine with it.
 
-Hm, would it be easy to split the timers per protocol? It seems a bit
-hackish to me.
+Also, could you have a look at IPv6, too? We currently use a hardcoded
+IGMP6_UNSOLICITED_IVAL = 10*HZ there.
 
 Thanks,
 
