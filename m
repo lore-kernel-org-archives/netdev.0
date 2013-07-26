@@ -1,51 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bonding: use pre-defined macro in bond_mode_name
- instead of magic number 0
-Date: Fri, 26 Jul 2013 13:53:30 -0700 (PDT)
-Message-ID: <20130726.135330.232525167518786234.davem@davemloft.net>
-References: <51EF79E6.9060309@gmail.com>
-	<1374649819.18818.5.camel@joe-AO722>
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Subject: [PATCH net 4/4] qlcnic: Fix diagnostic interrupt test for 83xx adapters.
+Date: Fri, 26 Jul 2013 16:24:03 -0400
+Message-ID: <03ef8c5f55cd7afa0a3c85ba670671aa86301087.1374891091.git.himanshu.madhani@qlogic.com>
+References: <cover.1374891091.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shhuiw@gmail.com, fubar@us.ibm.com, andy@greyhouse.net,
-	netdev@vger.kernel.org
-To: joe@perches.com
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Manish Chopra <manish.chopra@qlogic.com>,
+	<himanshu.madhani@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36857 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932768Ab3GZUxb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 16:53:31 -0400
-In-Reply-To: <1374649819.18818.5.camel@joe-AO722>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:53104 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932765Ab3GZV0I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 17:26:08 -0400
+In-Reply-To: <cover.1374891091.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Wed, 24 Jul 2013 00:10:19 -0700
+From: Manish Chopra <manish.chopra@qlogic.com>
 
-> Probably be simpler, less confusing, and more normal style
-> to use a switch case.
-> 
-> 	switch (mode) {
-> 	case BOND_MODE_ROUNDROBIN:
-> 		return "load balancing (round-robin)";
-> 	case BOND_MODE_ACTIVEBACKUP:
-> 		return "fault-tolerance (active-backup)";
-> 	case BOND_MODE_XOR:
-> 		return "load balancing (xor)";
-> 	case BOND_MODE_BROADCAST;
-> 		return "fault-tolerance (broadcast)";
-> 	case BOND_MODE_8023AD:
-> 		return "IEEE 802.3ad Dynamic link aggregation";
-> 	case BOND_MODE_TLB:
-> 		return "transmit load balancing";
-> 	case BOND_MODE_ALB:
-> 		return "adaptive load balancing";
-> 	default:
-> 		return "unknown";
-> 	}
+o Initialize proper interrupt handler for 83xx.
 
-I have to say that I do not prefer this approach.
+Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
+Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-I have a good idea what the compiler ends up outputting for the above,
-and the "indexed table of strings" approach is much less code.
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 41635f2..cc78d39 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -1383,6 +1383,8 @@ qlcnic_request_irq(struct qlcnic_adapter *adapter)
+ 	if (adapter->ahw->diag_test == QLCNIC_INTERRUPT_TEST) {
+ 		if (qlcnic_82xx_check(adapter))
+ 			handler = qlcnic_tmp_intr;
++		else
++			handler = qlcnic_83xx_tmp_intr;
+ 		if (!QLCNIC_IS_MSI_FAMILY(adapter))
+ 			flags |= IRQF_SHARED;
+ 
+-- 
+1.8.1.4
