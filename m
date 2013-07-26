@@ -1,21 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers: net: allwinner: Fix Kconfig indentation
-Date: Fri, 26 Jul 2013 13:58:15 -0700 (PDT)
-Message-ID: <20130726.135815.1088711490822448289.davem@davemloft.net>
-References: <1374649897-25952-1-git-send-email-maxime.ripard@free-electrons.com>
+Subject: Re: [PATCH net-next 1/2] neigh: prevent overflowing params in
+ /proc/sys/net/ipv4/neigh/
+Date: Fri, 26 Jul 2013 14:22:31 -0700 (PDT)
+Message-ID: <20130726.142231.339341472515071199.davem@davemloft.net>
+References: <cover.1374654531.git.ffusco@redhat.com>
+	<cover.1374654531.git.ffusco@redhat.com>
+	<ceef40ec2f64a50afcfc43375a9306ab0661fdf7.1374654531.git.ffusco@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: maxime.ripard@free-electrons.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1374649897-25952-1-git-send-email-maxime.ripard@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ffusco@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37616 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760631Ab3GZVWf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 17:22:35 -0400
+In-Reply-To: <ceef40ec2f64a50afcfc43375a9306ab0661fdf7.1374654531.git.ffusco@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Date: Wed, 24 Jul 2013 09:11:37 +0200
+From: Francesco Fusco <ffusco@redhat.com>
+Date: Wed, 24 Jul 2013 10:39:06 +0200
 
-> Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
+> Without this patch, the fields app_solicit, gc_thresh1, gc_thresh2,
+> gc_thresh3, proxy_qlen, ucast_solicit, mcast_solicit could have
+> assumed negative values when setting large numbers.
+> 
+> Signed-off-by: Francesco Fusco <ffusco@redhat.com>
 
 Applied.
