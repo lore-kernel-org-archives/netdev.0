@@ -1,31 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3 net-next] bond: cleanup netpoll code
-Date: Fri, 26 Jul 2013 15:25:27 -0700 (PDT)
-Message-ID: <20130726.152527.751275888873586427.davem@davemloft.net>
-References: <20130724115141.63bba894@nehalam.linuxnetplumber.net>
-	<20130724115357.4d4bddcb@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH 31/36] net: ieee802154: convert class code to use
+ dev_groups
+Date: Fri, 26 Jul 2013 15:40:21 -0700 (PDT)
+Message-ID: <20130726.154021.878367099404960400.davem@davemloft.net>
+References: <1374703539-9705-1-git-send-email-gregkh@linuxfoundation.org>
+	<1374703539-9705-32-git-send-email-gregkh@linuxfoundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, jiri@resnulli.us, fubar@us.ibm.com,
-	andy@greyhouse.net, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: linux-kernel@vger.kernel.org, alex.bluesman.smirnov@gmail.com,
+	dbaryshkov@gmail.com, netdev@vger.kernel.org
+To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38540 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38673 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759599Ab3GZWZ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 18:25:28 -0400
-In-Reply-To: <20130724115357.4d4bddcb@nehalam.linuxnetplumber.net>
+	with ESMTP id S1756108Ab3GZWkW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 18:40:22 -0400
+In-Reply-To: <1374703539-9705-32-git-send-email-gregkh@linuxfoundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Wed, 24 Jul 2013 11:53:57 -0700
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Date: Wed, 24 Jul 2013 15:05:34 -0700
 
-> This started out with fixing a sparse warning, then I realized that
-> the wrapper function bond_netpoll_info could just be removed
-> by rolling it into the enable code.
+> The dev_attrs field of struct class is going away soon, dev_groups
+> should be used instead.  This converts the ieee802154 class code to use
+> the correct field.
 > 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+> Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> ---
+> 
+> netdev@ maintainers, feel free to take this through your tree, or ACK it
+> and I can take it through mine.
 
-Applied.
+You can take it directly I don't anticipate any conflicts:
+
+Acked-by: David S. Miller <davem@davemloft.net>
