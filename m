@@ -1,35 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net/tg3: Fix warning from pci_disable_device()
-Date: Fri, 26 Jul 2013 14:28:52 -0700 (PDT)
-Message-ID: <20130726.142852.736320857031123666.davem@davemloft.net>
-References: <1374657909-26929-1-git-send-email-shangw@linux.vnet.ibm.com>
-	<1374657909-26929-2-git-send-email-shangw@linux.vnet.ibm.com>
-	<51EFC830.9080801@broadcom.com>
+From: Ani Sinha <ani@aristanetworks.com>
+Subject: sendmsg() and vlan tags
+Date: Fri, 26 Jul 2013 14:30:55 -0700
+Message-ID: <CAOxq_8Ni_WszNj0RW++2jdmLwBxbQCJSSC-AS1Ux5TgMEpd2iA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shangw@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	mchan@broadcom.com
-To: nsujir@broadcom.com
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37787 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932789Ab3GZV2w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 17:28:52 -0400
-In-Reply-To: <51EFC830.9080801@broadcom.com>
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:37065 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933669Ab3GZVbQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 17:31:16 -0400
+Received: by mail-oa0-f46.google.com with SMTP id h1so8555384oag.5
+        for <netdev@vger.kernel.org>; Fri, 26 Jul 2013 14:31:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Date: Wed, 24 Jul 2013 05:27:28 -0700
+Hi folks,
 
-> On 7/24/2013 2:25 AM, Gavin Shan wrote:
->> The patch fixes following warning. The PCI device might have been
->> disabled somewhere else when we have EEH errors during early stage.
- ...
->> Reported-by: Wei Yang <weiyang@linux.vnet.ibm.com>
->> Signed-off-by: Gavin Shan <shangw@linux.vnet.ibm.com>
- ...
-> Acked-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+We know that (since Linux 3.0) on raw sockets, the recvmsg() api
+returns the vlan tag information of the packet in the packet aux data.
+I looked at the kernel code and it seems on the TX side, in sendmsg(),
+we do not accept the vlan tag data from userland for a raw packet. So
+if the userland sends a raw packet using sendmsg() with vlan tag
+information in aux data, it will be discarded.
 
-Applied.
+Is my analysis correct?
+
+Cheers,
+Ani
