@@ -1,35 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net/tg3: Fix kernel crash
-Date: Fri, 26 Jul 2013 14:28:36 -0700 (PDT)
-Message-ID: <20130726.142836.1125568759731631815.davem@davemloft.net>
-References: <1374657909-26929-1-git-send-email-shangw@linux.vnet.ibm.com>
-	<51EFC840.4010307@broadcom.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 v2 2/2] lnstat: Fix compiler errors of unused
+ return-values
+Date: Fri, 26 Jul 2013 14:29:02 -0700
+Message-ID: <20130726142902.53c229b4@nehalam.linuxnetplumber.net>
+References: <1374513857-6096-1-git-send-email-christoph.paasch@uclouvain.be>
+	<1374513857-6096-3-git-send-email-christoph.paasch@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shangw@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	mchan@broadcom.com
-To: nsujir@broadcom.com
+Cc: netdev@vger.kernel.org
+To: Christoph Paasch <christoph.paasch@uclouvain.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37773 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932463Ab3GZV2h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 17:28:37 -0400
-In-Reply-To: <51EFC840.4010307@broadcom.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:37289 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933477Ab3GZV3G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 17:29:06 -0400
+Received: by mail-pa0-f48.google.com with SMTP id kp13so2462300pab.21
+        for <netdev@vger.kernel.org>; Fri, 26 Jul 2013 14:29:05 -0700 (PDT)
+In-Reply-To: <1374513857-6096-3-git-send-email-christoph.paasch@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Date: Wed, 24 Jul 2013 05:27:44 -0700
+On Mon, 22 Jul 2013 19:24:17 +0200
+Christoph Paasch <christoph.paasch@uclouvain.be> wrote:
 
-> On 7/24/2013 2:25 AM, Gavin Shan wrote:
->> While EEH error happens, we might not have network device instance
->> (struct net_device) yet. So we can't access the instance safely and
->> check its link state, which causes kernel crash. The patch fixes it.
- ...
->> Reported-by: Wei Yang <weiyang@linux.vnet.ibm.com>
->> Signed-off-by: Gavin Shan <shangw@linux.vnet.ibm.com>
-...
-> Acked-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+> Many errors when compiling with gcc 4.7.3 about unused return-values
+> upon the calls to fgets:
 
-Applied.
+Nak, I just took of Werror instead.
