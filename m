@@ -1,72 +1,156 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH] net/fec: call netif_carrier_off when not having link
-Date: Fri, 26 Jul 2013 11:06:06 +0100
-Message-ID: <CAGVrzcZMg28Cj=KncE=qDq8qLKY1WkiH5PiwrJECTYdBOe16sA@mail.gmail.com>
-References: <1374758875-7926-1-git-send-email-u.kleine-koenig@pengutronix.de>
- <20130725090352.574b874d@nehalam.linuxnetplumber.net> <9848F2DB572E5649BA045B288BE08FBE015C9315@039-SN2MPN1-023.039d.mgd.msft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next 2/2] openvswitch: Use skb_zerocopy() to prepare
+ skb for upcall
+Date: Fri, 26 Jul 2013 11:15:58 +0100
+Message-ID: <20130726101558.GA22120@casper.infradead.org>
+References: <cover.1374756042.git.tgraf@suug.ch>
+ <9d4aaa5319c684e14721e0bed2ef22ddc409caf1.1374756042.git.tgraf@suug.ch>
+ <CAEP_g=_ExeJ+pJ4KU7+=vdyFgLQtY2v6fiK0GzLKpeNF8NULbw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	=?UTF-8?Q?Uwe_Kleine=2DK=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Estevam Fabio-R49496 <r49496@freescale.com>,
-	Li Frank-B20596 <B20596@freescale.com>,
-	Shawn Guo <shawn.guo@linaro.org>,
-	"kernel@pengutronix.de" <kernel@pengutronix.de>,
-	Hector Palacios <hector.palacios@digi.com>,
-	Tim Sander <tim.sander@hbm.com>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Duan Fugang-B38611 <B38611@freescale.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:58404 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751921Ab3GZKGr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 06:06:47 -0400
-Received: by mail-pd0-f169.google.com with SMTP id y10so2765856pdj.14
-        for <netdev@vger.kernel.org>; Fri, 26 Jul 2013 03:06:47 -0700 (PDT)
-In-Reply-To: <9848F2DB572E5649BA045B288BE08FBE015C9315@039-SN2MPN1-023.039d.mgd.msft.net>
+Received: from casper.infradead.org ([85.118.1.10]:43902 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758483Ab3GZKQB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 06:16:01 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=_ExeJ+pJ4KU7+=vdyFgLQtY2v6fiK0GzLKpeNF8NULbw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On 07/25/13 at 06:39pm, Jesse Gross wrote:
+> On Thu, Jul 25, 2013 at 5:43 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> > From: Thomas Graf <tgraf@rhlap.localdomain>
+> >
+> > Use of skb_zerocopy() avoids the expensive call to memcpy() when
+> > copying the packet data into the Netlink skb. Completes checksum
+> > through skb_checksum_help() if needed (typicall packet input from
+> > software device) which invalidates some of the gains again.
+> >
+> > Stock-RX
+> > -  38.30%       swapper  [kernel.kallsyms]  [k] memcpy
+> >    - memcpy
+> >       + 87.46% queue_userspace_packet
+> >       + 12.54% nla_put
+> > +  24.72%  ovs-vswitchd  libc-2.17.so       [.] __memcpy_ssse3_back
+> > +  13.80%  ovs-vswitchd  [kernel.kallsyms]  [k] memcpy
+> > -   7.68%   ksoftirqd/2  [kernel.kallsyms]  [k] memcpy
+> >    - memcpy
+> >       + 85.83% queue_userspace_packet
+> >       + 14.17% nla_put
+> > -   7.06%   ksoftirqd/3  [kernel.kallsyms]  [k] memcpy
+> >    - memcpy
+> >       + 84.85% queue_userspace_packet
+> >       + 15.15% nla_put
+> > -   4.41%   ksoftirqd/0  [kernel.kallsyms]  [k] memcpy
+> >    - memcpy
+> >       + 83.48% queue_userspace_packet
+> >       + 16.52% nla_put
+> >
+> > Zerocopy-RX
+> > +  50.35%  ovs-vswitchd  libc-2.17.so       [.] __memcpy_ssse3_back
+> > -  27.78%  ovs-vswitchd  [kernel.kallsyms]  [k] memcpy
+> >    - memcpy
+> >       + 74.53% ovs_packet_cmd_execute
+> >       + 24.11% nla_put
+> >       + 0.93% ovs_flow_cmd_new_or_set
+> > +  13.49%       swapper  [kernel.kallsyms]  [k] memcpy
+> > +   1.45%   ksoftirqd/3  [kernel.kallsyms]  [k] memcpy
+> > +   1.20%   ksoftirqd/2  [kernel.kallsyms]  [k] memcpy
+> >
+> > 10Gb remote pktgen, 1200 bytes, randomized flows, w/ UDPCSUM:
+> >                                 Hits               Missed          Lost
+> > Stock RX                     731'945            6'315'739     3'606'678
+> > Zerocopy RX                  764'041            6'442'761     3'947'451
+> >
+> > local pktgen, 4/6 CPUs, 1200 bytes, randomized flows, UDPCSUM:
+> >                                 Hits               Missed          Lost
+> > Stock TX                   2'071'030           17'929'192    16'807'785
+> > Zerocopy TX                1'951'142           18'049'056    16'977'296
+> >
+> > Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> > Cc: Jesse Gross <jesse@nicira.com>
+> > Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> 
+> Thanks for the new version and performance numbers.
+> 
+> Reading the numbers that you provided it seems like this is a win for
+> received packets and basically a wash for outgoing packets (assuming
+> that they are using checksum offloading, which I suspect is most of
+> them). Is that also your conclusion?
 
-2013/7/26 Duan Fugang-B38611 <B38611@freescale.com>:
-> On Fir, 26 Jul 2013 12:04, Stephen Hemminger wrote:
->>> diff --git a/drivers/net/ethernet/freescale/fec_main.c
->>> b/drivers/net/ethernet/freescale/fec_main.c
->>> index 0642006..631bd5a 100644
->>> --- a/drivers/net/ethernet/freescale/fec_main.c
->>> +++ b/drivers/net/ethernet/freescale/fec_main.c
->>> @@ -280,11 +280,6 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
->>>      unsigned short  status;
->>>      unsigned int index;
->>>
->>> -    if (!fep->link) {
->>> -            /* Link is down or auto-negotiation is in progress. */
->>> -            return NETDEV_TX_BUSY;
->>> -    }
->>> -
->>
->>That is a bug anyway. Since it would cause spin loop in transmit code (even without -rt).
->>If the driver cared to test it (most drivers just let hardware deal with this situation),
->>then it should free packet and return TX_OK.
->
-> When link is down, the logic is
->         - call netif_stop_queue() to stop queue
->         - and then notify there have no link using netif_carrier_off().
+It's a wash for TX due to checksumming. You may have seen my patch to
+pktgen to produce udp checksum skbs. It'swhat I have used to produce
+the above numbers. It will will generate CHECKSUM_PARTIAL skbs due to
+vport internal announcing hw capability (which is fine). Leaving out
+the call to skb_checksum_help() increases the number of hits to 2.6M
+which would be a nice gain.
 
-netif_carrier_off() is handled by the PHY library before calling the
-adjust_link callback in FEC.
+The question is, can we move checksum completion to user space? We only
+need to complete the checksum if the packet is sent to a controller at
+which point performance does not matter anymore. What do you think
+about a datapath flag indicating whether user space supports checksum
+completion and if so skipping the checksum completion in the fast
+path?
 
->
-> But the flow must be handled in fec_enet_adjust_link() function, not in xmit().
+> > @@ -443,11 +450,39 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
+> >                           nla_len(upcall_info->userdata),
+> >                           nla_data(upcall_info->userdata));
+> >
+> > -       nla = __nla_reserve(user_skb, OVS_PACKET_ATTR_PACKET, skb->len);
+> > +       if (!(nla = nla_reserve(user_skb, OVS_PACKET_ATTR_PACKET, 0)))
+> > +               goto out;
+> 
+> Do we expect that this might fail now?
 
-What is special about this hardware that fec_restart() needs to do all
-that work? Can't you just update the duplex/speed/pause settings
-directly without doing a full hardware re-init? Also the comment above
-it is wrong, fec_restart() is not just called when the duplex changes,
-it is called when the link/speed/duplex settings changed and when the
-workqueue is scheduled from fec_timeout().
+It can fail if the message size is miscalculated. I don't like BUG()
+but WARN() would help here I guess.
+
+> > +       nla->nla_len = nla_attr_size(skb->len);
+> > +
+> > +       skb_zerocopy(user_skb, skb, skb->len, hlen);
+> > +
+> > +       /* Align the end of the attribute to NLA_ALIGNTO */
+> > +       plen = NLA_ALIGN(user_skb->len) - user_skb->len;
+> > +       if (plen > 0) {
+> > +               int nr_frags = skb_shinfo(user_skb)->nr_frags;
+> >
+> > -       skb_copy_and_csum_dev(skb, nla_data(nla));
+> > +               if (nr_frags) {
+> > +                       skb_frag_t *frag;
+> > +
+> > +                       /* Assumption is made that PAGE_SIZE is always alligned
+> > +                        * to at least NLA_ALIGNTO (4) which means that we it
+> > +                        * should be safe to add the padding bytes to the frag
+> > +                        */
+> 
+> I agree that it should be safe to assume that PAGE_SIZE is a multiple
+> of the netlink alignment requirements. However, we are calculating the
+> alignment over the total packet payload but applying the alignment to
+> the paged portion. Couldn't we have a non-aligned potion in the linear
+> data area followed by a full page?
+
+I was also assuming that headlen is always a multiple of 4 due to the
+2 byte shift accounting for the ethernet header but thinking about
+this harder this may not be the case after all. OTOH I ran a test with
+randomized packet sizes and didn't hit any walls.
+
+But you are right in general, the headlen we allocate will always be
+alligned but not the amount copy.
+
+> > +       /* Fix alignment of .nlmsg_len, OVS user space enforces a strict
+> > +        * total message size alignment.
+> > +        */
+> > +       ((struct nlmsghdr *) user_skb->data)->nlmsg_len = NLA_ALIGN(user_skb->len);
+> 
+> Do we still need to do this manually now that we are enforcing
+> alignment of the payload above?
+
+We could use genlmsg_end() again if we also fix the skb-> pointer
+above. But we could drop the NLA_ALIGN() because user_skb->len is
+not always aligned.
