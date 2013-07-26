@@ -1,123 +1,55 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v5 1/4] net: add ndo to get id of physical port of the device
-Date: Fri, 26 Jul 2013 14:09:53 +0200
-Message-ID: <1374840596-5748-2-git-send-email-jiri@resnulli.us>
-References: <1374840596-5748-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, stephen@networkplumber.org,
-	Narendra_K@Dell.com, bhutchings@solarflare.com,
-	john.r.fastabend@intel.com, or.gerlitz@gmail.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
-	peter.p.waskiewicz.jr@intel.com, alexander.h.duyck@intel.com,
-	john.ronciak@intel.com, tushar.n.dave@intel.com,
-	matthew.vick@intel.com, mitch.a.williams@intel.com,
-	vyasevic@redhat.com, amwang@redhat.com, johannes@sipsolutions.net
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 2/2] igb: fix vlan filtering in promisc mode when not in VT mode
+Date: Fri, 26 Jul 2013 05:46:36 -0700
+Message-ID: <1374842796-28445-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1374842796-28445-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f173.google.com ([209.85.215.173]:50425 "EHLO
-	mail-ea0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758592Ab3GZMKG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 08:10:06 -0400
-Received: by mail-ea0-f173.google.com with SMTP id g10so1527419eak.32
-        for <netdev@vger.kernel.org>; Fri, 26 Jul 2013 05:10:05 -0700 (PDT)
-In-Reply-To: <1374840596-5748-1-git-send-email-jiri@resnulli.us>
+Received: from mga14.intel.com ([143.182.124.37]:13871 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932232Ab3GZMrD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Jul 2013 08:47:03 -0400
+In-Reply-To: <1374842796-28445-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a ndo for getting physical port of the device. Driver
-which is aware of being virtual function of some physical port should
-implement this ndo. This is applicable not only for IOV, but for other
-solutions (NPAR, multichannel) as well. Basically if there is possible
-to have multiple netdevs on the single hw port.
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-Acked-by: Ben Hutchings <bhutchings@solarflare.com>
+This patch fixes a VT mode check to make sure VLAN filters are disabled when
+in promisc mode and VT is not enabled.
+
+The problem with the previous check was that:
+E1000_MRQC_ENABLE_VMDQ is defined as 0x00000003
+
+but when not in VT mode:
+mrqc |= E1000_MRQC_ENABLE_RSS_4Q (0x00000002)
+
+So the above check will trigger regardless if VT mode is being used or not.
+
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- include/linux/netdevice.h | 20 ++++++++++++++++++++
- net/core/dev.c            | 18 ++++++++++++++++++
- 2 files changed, 38 insertions(+)
+ drivers/net/ethernet/intel/igb/igb_main.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 3ca60b0..875f869 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -728,6 +728,16 @@ struct netdev_fcoe_hbainfo {
- };
- #endif
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 6a0c1b6..c1d72c0 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -3739,9 +3739,8 @@ static void igb_set_rx_mode(struct net_device *netdev)
+ 	rctl &= ~(E1000_RCTL_UPE | E1000_RCTL_MPE | E1000_RCTL_VFE);
  
-+#define MAX_PHYS_PORT_ID_LEN 32
-+
-+/* This structure holds a unique identifier to identify the
-+ * physical port used by a netdevice.
-+ */
-+struct netdev_phys_port_id {
-+	unsigned char id[MAX_PHYS_PORT_ID_LEN];
-+	unsigned char id_len;
-+};
-+
- /*
-  * This structure defines the management hooks for network devices.
-  * The following hooks can be defined; unless noted otherwise, they are
-@@ -932,6 +942,12 @@ struct netdev_fcoe_hbainfo {
-  *	that determine carrier state from physical hardware properties (eg
-  *	network cables) or protocol-dependent mechanisms (eg
-  *	USB_CDC_NOTIFY_NETWORK_CONNECTION) should NOT implement this function.
-+ *
-+ * int (*ndo_get_phys_port_id)(struct net_device *dev,
-+ *			       struct netdev_phys_port_id *ppid);
-+ *	Called to get ID of physical port of this device. If driver does
-+ *	not implement this, it is assumed that the hw is not able to have
-+ *	multiple net devices on single physical port.
-  */
- struct net_device_ops {
- 	int			(*ndo_init)(struct net_device *dev);
-@@ -1060,6 +1076,8 @@ struct net_device_ops {
- 						      struct nlmsghdr *nlh);
- 	int			(*ndo_change_carrier)(struct net_device *dev,
- 						      bool new_carrier);
-+	int			(*ndo_get_phys_port_id)(struct net_device *dev,
-+							struct netdev_phys_port_id *ppid);
- };
- 
- /*
-@@ -2315,6 +2333,8 @@ extern int		dev_set_mac_address(struct net_device *,
- 					    struct sockaddr *);
- extern int		dev_change_carrier(struct net_device *,
- 					   bool new_carrier);
-+extern int		dev_get_phys_port_id(struct net_device *dev,
-+					     struct netdev_phys_port_id *ppid);
- extern int		dev_hard_start_xmit(struct sk_buff *skb,
- 					    struct net_device *dev,
- 					    struct netdev_queue *txq);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index dfd9f5d..58eb802 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4989,6 +4989,24 @@ int dev_change_carrier(struct net_device *dev, bool new_carrier)
- EXPORT_SYMBOL(dev_change_carrier);
- 
- /**
-+ *	dev_get_phys_port_id - Get device physical port ID
-+ *	@dev: device
-+ *	@ppid: port ID
-+ *
-+ *	Get device physical port ID
-+ */
-+int dev_get_phys_port_id(struct net_device *dev,
-+			 struct netdev_phys_port_id *ppid)
-+{
-+	const struct net_device_ops *ops = dev->netdev_ops;
-+
-+	if (!ops->ndo_get_phys_port_id)
-+		return -EOPNOTSUPP;
-+	return ops->ndo_get_phys_port_id(dev, ppid);
-+}
-+EXPORT_SYMBOL(dev_get_phys_port_id);
-+
-+/**
-  *	dev_new_index	-	allocate an ifindex
-  *	@net: the applicable net namespace
-  *
+ 	if (netdev->flags & IFF_PROMISC) {
+-		u32 mrqc = rd32(E1000_MRQC);
+ 		/* retain VLAN HW filtering if in VT mode */
+-		if (mrqc & E1000_MRQC_ENABLE_VMDQ)
++		if (adapter->vfs_allocated_count)
+ 			rctl |= E1000_RCTL_VFE;
+ 		rctl |= (E1000_RCTL_UPE | E1000_RCTL_MPE);
+ 		vmolr |= (E1000_VMOLR_ROPE | E1000_VMOLR_MPME);
 -- 
-1.8.1.4
+1.7.11.7
