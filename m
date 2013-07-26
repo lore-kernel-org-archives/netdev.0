@@ -1,84 +1,65 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [patch net-next v5 4/4] igb/igbvf: implement
- ndo_get_phys_port_id
-Date: Fri, 26 Jul 2013 06:08:29 -0700
-Message-ID: <1374844109.32309.10.camel@jtkirshe-mobl>
-References: <1374840596-5748-1-git-send-email-jiri@resnulli.us>
-	 <1374840596-5748-5-git-send-email-jiri@resnulli.us>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: IGMP Unsolicited Report Interval too long for IGMPv3?
+Date: Fri, 26 Jul 2013 09:11:23 -0400
+Message-ID: <20130726131123.GC1281@kvack.org>
+References: <51ED998D.7000300@youview.com> <20130722211855.GL19643@kvack.org> <20130722215108.GG6538@order.stressinduktion.org> <20130725.164253.690113010547536005.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-6RTusz57YrMiCQJqsxyX"
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	stephen@networkplumber.org, Narendra_K@Dell.com,
-	bhutchings@solarflare.com, john.r.fastabend@intel.com,
-	or.gerlitz@gmail.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
-	peter.p.waskiewicz.jr@intel.com, alexander.h.duyck@intel.com,
-	john.ronciak@intel.com, tushar.n.dave@intel.com,
-	matthew.vick@intel.com, mitch.a.williams@intel.com,
-	vyasevic@redhat.com, amwang@redhat.com, johannes@sipsolutions.net
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=us-ascii
+Cc: hannes@stressinduktion.org, william.manley@youview.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:12882 "EHLO mga03.intel.com"
+Received: from kanga.kvack.org ([205.233.56.17]:36596 "EHLO kanga.kvack.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757620Ab3GZNIc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Jul 2013 09:08:32 -0400
-In-Reply-To: <1374840596-5748-5-git-send-email-jiri@resnulli.us>
+	id S1757889Ab3GZNLY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Jul 2013 09:11:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20130725.164253.690113010547536005.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Jul 25, 2013 at 04:42:53PM -0700, David Miller wrote:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Mon, 22 Jul 2013 23:51:08 +0200
+> 
+> > On Mon, Jul 22, 2013 at 05:18:55PM -0400, Benjamin LaHaise wrote:
+> >> On Mon, Jul 22, 2013 at 09:43:57PM +0100, William Manley wrote:
+> >> > If an IGMP join packet is lost you will not receive data sent to the 
+> >> > multicast group so if no data arrives from that multicast group in a 
+> >> > period of time after the IGMP join a second IGMP join will be sent.  The 
+> >> > delay between joins is the "IGMP Unsolicited Report Interval".
+> >> > 
+> >> > In the kernel this seems to be hard coded to be chosen randomly between 
+> >> > 0-10s.  In our use-case (IPTV) this is too long as it can cause channel 
+> >> > change to be slow in the presence of packet loss.
+> >> > 
+> >> > I would guess that this 10s has come from IGMPv2 RFC2236, which was 
+> >> > reduced to 1s in IGMPv3 RFC3376.
+> >> 
+> >> Reducing the timeout does not solve the problem you are encountering, as 
+> >> any packet loss will still result in a 1 second delay.  I've encountered 
+> >> similar issues dealing with LCP Echo request/replies for keepalive 
+> >> messages on PPP sessions.  The correct approach is to queue the IGMP 
+> >> multicast join with a higher priority than other traffic in the system 
+> >> so that the requests are not lost due to congestion of a single queue.  
+> >> Sending packets with an 802.1p header might be appropriate in your 
+> >> use-case, or perhaps using higher priority internal queues.
+> > 
+> > Yes, we can do a little bit better. What do you think?
+> > 
+> > [PATCH net-next] ipv6: send igmpv3/mld packets with TC_PRIO_CONTROL
+> > 
+> > Reported-by: William Manley <william.manley@youview.com>
+> > Suggested-by: Benjamin LaHaise <bcrl@kvack.org>
+> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> 
+> Ben, please give Hannes the feedback he is asking for.
+> 
+> Thanks.
 
---=-6RTusz57YrMiCQJqsxyX
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+I think Hannes' patch is good step in the right direction, so please add:
+Acked-by: Benjamin LaHaise <bcrl@kvack.org>
 
-On Fri, 2013-07-26 at 14:09 +0200, Jiri Pirko wrote:
-> igb driver generated random number which will identify physical port.
-> This id is available via ndo_get_phys_port_id directly on igb netdev.
-> Also, id is passed to igbvf using mailbox. After that, it is available
-> via
-> ndo_get_phys_port_id on igbvf netdev as well.
->=20
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->  drivers/net/ethernet/intel/igb/e1000_mbx.h |  1 +
->  drivers/net/ethernet/intel/igb/igb.h       |  2 ++
->  drivers/net/ethernet/intel/igb/igb_main.c  | 29
-> +++++++++++++++++++++-
->  drivers/net/ethernet/intel/igbvf/igbvf.h   |  3 +++
->  drivers/net/ethernet/intel/igbvf/mbx.h     |  1 +
->  drivers/net/ethernet/intel/igbvf/netdev.c  | 40
-> ++++++++++++++++++++++++++++++
->  drivers/net/ethernet/intel/igbvf/vf.c      | 34
-> +++++++++++++++++++++++++
->  drivers/net/ethernet/intel/igbvf/vf.h      |  1 +
->  8 files changed, 110 insertions(+), 1 deletion(-)=20
-
-Added this patch (actually the entire series) for testing.
-
---=-6RTusz57YrMiCQJqsxyX
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
-
-iQIcBAABCgAGBQJR8nTNAAoJEOVv75VaS+3OBZIP/R3cU49m4XR7Xm8gigXsjpTN
-BJAISbNlFMgbuvOtOBvvPbMUf28iF81IOBGMtqi9TfYjaEoGwxXPN1D/+yO6ZyQK
-dQY6ywF8V9uK5zqpE/SbetdgaiTcxkx3ccGKeb8iHYblKOj0bvk7q0ARZ1ljkI3W
-VIUpqVzoc6yR80xf1t+r53n5OVpMFvyoGwMi5ollTWjlOO1Dw8eZ+F1Hzxju/vAI
-dxXohuejshew6KFjZSOF6508ZC8KZF7uD1YSfp3SQ2dbs4BjeLUXAGG8eJ5kwStD
-j8CWLanFHTSuIzOvxzeGk06EEc4wcFI8PhGxKVTPMIQnWi7T7yvwVWdzu8eOipbD
-GrYcFi4SxfjNHcGrFi/NQsiMbm2rKPSvlHtF9fS5ejd6YDPxevzUPbefXFelfdaK
-u1zMPUAeHn3vg6D12z+xkHV1FIqOfYWGN40nYq9EL5VFYQHCz/tNyJYQsr+NTkaz
-gR7GMgY1OBmbyRHO1sii0jM91VNo0GRM5lLpAwUeTllRuIuUh4NdbW3ZAiyX0Uw6
-uL6GI+xkNRsiQuELFok92I0Q3PiaRLlphv0/FU/+aFleVKU6YEXzKrwOWq3nxB8Q
-tBkX5ky3iFzadtz9x58jER5hYydyaKC5/gQvGxZd0I4HN45Q5VQ9zXh0XKTi2VSk
-+aNa3QpNbjrYRNc7PrOv
-=ZDkG
------END PGP SIGNATURE-----
-
---=-6RTusz57YrMiCQJqsxyX--
+		-ben
+-- 
+"Thought is the essence of where you are now."
