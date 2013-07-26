@@ -1,176 +1,123 @@
-From: Hans Verkuil <hverkuil@xs4all.nl>
-Subject: Re: [PATCH 35/50] media: usb: cx231xx: spin_lock in complete() cleanup
-Date: Fri, 26 Jul 2013 16:28:30 +0200
-Message-ID: <51F2878E.90705@xs4all.nl>
-References: <1373533573-12272-1-git-send-email-ming.lei@canonical.com> <1373533573-12272-36-git-send-email-ming.lei@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	linux-input@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-media@vger.kernel.org, alsa-devel@alsa-project.org,
-	Mauro Carvalho Chehab <mchehab@redhat.com>,
-	Hans Verkuil <hans.verkuil@cisco.com>
-To: Ming Lei <ming.lei@canonical.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [net PATCH v2] 8139cp: Add dma_mapping_error checking
+Date: Fri, 26 Jul 2013 10:28:38 -0400
+Message-ID: <1374848918-17183-1-git-send-email-nhorman@tuxdriver.com>
+References: <1374516882-19131-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-vbr5.xs4all.nl ([194.109.24.25]:4793 "EHLO
-	smtp-vbr5.xs4all.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757181Ab3GZO2z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 10:28:55 -0400
-In-Reply-To: <1373533573-12272-36-git-send-email-ming.lei@canonical.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:52790 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757202Ab3GZO3F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 10:29:05 -0400
+In-Reply-To: <1374516882-19131-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Self explanitory dma_mapping_error addition to the 8139 driver, based on this:
+https://bugzilla.redhat.com/show_bug.cgi?id=947250
 
+It showed several backtraces arising for dma_map_* usage without checking the
+return code on the mapping.  Add the check and abort the rx/tx operation if its
+failed.  Untested as I have no hardware and the reporter has wandered off, but
+seems pretty straightforward.
 
-On 07/11/2013 11:05 AM, Ming Lei wrote:
-> Complete() will be run with interrupt enabled, so change to
-> spin_lock_irqsave().
-> 
-> Cc: Mauro Carvalho Chehab <mchehab@redhat.com>
-> Cc: Hans Verkuil <hans.verkuil@cisco.com>
-> Cc: linux-media@vger.kernel.org
-> Signed-off-by: Ming Lei <ming.lei@canonical.com>
-> ---
->  drivers/media/usb/cx231xx/cx231xx-audio.c |    6 ++++++
->  drivers/media/usb/cx231xx/cx231xx-core.c  |   10 ++++++----
->  drivers/media/usb/cx231xx/cx231xx-vbi.c   |    5 +++--
->  3 files changed, 15 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/media/usb/cx231xx/cx231xx-audio.c b/drivers/media/usb/cx231xx/cx231xx-audio.c
-> index 81a1d97..58c1b5c 100644
-> --- a/drivers/media/usb/cx231xx/cx231xx-audio.c
-> +++ b/drivers/media/usb/cx231xx/cx231xx-audio.c
-> @@ -136,6 +136,7 @@ static void cx231xx_audio_isocirq(struct urb *urb)
->  		stride = runtime->frame_bits >> 3;
->  
->  		for (i = 0; i < urb->number_of_packets; i++) {
-> +			unsigned long flags;
->  			int length = urb->iso_frame_desc[i].actual_length /
->  				     stride;
->  			cp = (unsigned char *)urb->transfer_buffer +
-> @@ -158,6 +159,7 @@ static void cx231xx_audio_isocirq(struct urb *urb)
->  				       length * stride);
->  			}
->  
-> +			local_irq_save(flags);
->  			snd_pcm_stream_lock(substream);
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Francois Romieu <romieu@fr.zoreil.com>
 
-Can't you use snd_pcm_stream_lock_irqsave here?
+---
+Change notes:
 
-Ditto for the other media drivers where this happens: em28xx and tlg2300.
+v2) Added stats update for tx_dropped as per Francois Romieu
+---
+ drivers/net/ethernet/realtek/8139cp.c | 37 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 37 insertions(+)
 
-I've reviewed the media driver changes and they look OK to me, so if
-my comment above is fixed, then I can merge them for 3.12. Or are these
-changes required for 3.11?
-
-Regards,
-
-	Hans
-
->  
->  			dev->adev.hwptr_done_capture += length;
-> @@ -174,6 +176,7 @@ static void cx231xx_audio_isocirq(struct urb *urb)
->  				period_elapsed = 1;
->  			}
->  			snd_pcm_stream_unlock(substream);
-> +			local_irq_restore(flags);
->  		}
->  		if (period_elapsed)
->  			snd_pcm_period_elapsed(substream);
-> @@ -224,6 +227,7 @@ static void cx231xx_audio_bulkirq(struct urb *urb)
->  		stride = runtime->frame_bits >> 3;
->  
->  		if (1) {
-> +			unsigned long flags;
->  			int length = urb->actual_length /
->  				     stride;
->  			cp = (unsigned char *)urb->transfer_buffer;
-> @@ -242,6 +246,7 @@ static void cx231xx_audio_bulkirq(struct urb *urb)
->  				       length * stride);
->  			}
->  
-> +			local_irq_save(flags);
->  			snd_pcm_stream_lock(substream);
->  
->  			dev->adev.hwptr_done_capture += length;
-> @@ -258,6 +263,7 @@ static void cx231xx_audio_bulkirq(struct urb *urb)
->  				period_elapsed = 1;
->  			}
->  			snd_pcm_stream_unlock(substream);
-> +			local_irq_restore(flags);
->  		}
->  		if (period_elapsed)
->  			snd_pcm_period_elapsed(substream);
-> diff --git a/drivers/media/usb/cx231xx/cx231xx-core.c b/drivers/media/usb/cx231xx/cx231xx-core.c
-> index 4ba3ce0..593b397 100644
-> --- a/drivers/media/usb/cx231xx/cx231xx-core.c
-> +++ b/drivers/media/usb/cx231xx/cx231xx-core.c
-> @@ -798,6 +798,7 @@ static void cx231xx_isoc_irq_callback(struct urb *urb)
->  	    container_of(dma_q, struct cx231xx_video_mode, vidq);
->  	struct cx231xx *dev = container_of(vmode, struct cx231xx, video_mode);
->  	int i;
-> +	unsigned long flags;
->  
->  	switch (urb->status) {
->  	case 0:		/* success */
-> @@ -813,9 +814,9 @@ static void cx231xx_isoc_irq_callback(struct urb *urb)
->  	}
->  
->  	/* Copy data from URB */
-> -	spin_lock(&dev->video_mode.slock);
-> +	spin_lock_irqsave(&dev->video_mode.slock, flags);
->  	dev->video_mode.isoc_ctl.isoc_copy(dev, urb);
-> -	spin_unlock(&dev->video_mode.slock);
-> +	spin_unlock_irqrestore(&dev->video_mode.slock, flags);
->  
->  	/* Reset urb buffers */
->  	for (i = 0; i < urb->number_of_packets; i++) {
-> @@ -842,6 +843,7 @@ static void cx231xx_bulk_irq_callback(struct urb *urb)
->  	struct cx231xx_video_mode *vmode =
->  	    container_of(dma_q, struct cx231xx_video_mode, vidq);
->  	struct cx231xx *dev = container_of(vmode, struct cx231xx, video_mode);
-> +	unsigned long flags;
->  
->  	switch (urb->status) {
->  	case 0:		/* success */
-> @@ -857,9 +859,9 @@ static void cx231xx_bulk_irq_callback(struct urb *urb)
->  	}
->  
->  	/* Copy data from URB */
-> -	spin_lock(&dev->video_mode.slock);
-> +	spin_lock_irqsave(&dev->video_mode.slock, flags);
->  	dev->video_mode.bulk_ctl.bulk_copy(dev, urb);
-> -	spin_unlock(&dev->video_mode.slock);
-> +	spin_unlock_irqrestore(&dev->video_mode.slock, flags);
->  
->  	/* Reset urb buffers */
->  	urb->status = usb_submit_urb(urb, GFP_ATOMIC);
-> diff --git a/drivers/media/usb/cx231xx/cx231xx-vbi.c b/drivers/media/usb/cx231xx/cx231xx-vbi.c
-> index c027942..38e78f8 100644
-> --- a/drivers/media/usb/cx231xx/cx231xx-vbi.c
-> +++ b/drivers/media/usb/cx231xx/cx231xx-vbi.c
-> @@ -306,6 +306,7 @@ static void cx231xx_irq_vbi_callback(struct urb *urb)
->  	struct cx231xx_video_mode *vmode =
->  	    container_of(dma_q, struct cx231xx_video_mode, vidq);
->  	struct cx231xx *dev = container_of(vmode, struct cx231xx, vbi_mode);
-> +	unsigned long flags;
->  
->  	switch (urb->status) {
->  	case 0:		/* success */
-> @@ -322,9 +323,9 @@ static void cx231xx_irq_vbi_callback(struct urb *urb)
->  	}
->  
->  	/* Copy data from URB */
-> -	spin_lock(&dev->vbi_mode.slock);
-> +	spin_lock_irqsave(&dev->vbi_mode.slock, flags);
->  	dev->vbi_mode.bulk_ctl.bulk_copy(dev, urb);
-> -	spin_unlock(&dev->vbi_mode.slock);
-> +	spin_unlock_irqrestore(&dev->vbi_mode.slock, flags);
->  
->  	/* Reset status */
->  	urb->status = 0;
-> 
+diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+index 0352345..ba0570a 100644
+--- a/drivers/net/ethernet/realtek/8139cp.c
++++ b/drivers/net/ethernet/realtek/8139cp.c
+@@ -533,6 +533,11 @@ rx_status_loop:
+ 
+ 		mapping = dma_map_single(&cp->pdev->dev, new_skb->data, buflen,
+ 					 PCI_DMA_FROMDEVICE);
++		if (dma_mapping_error(&cp->pdev->dev, mapping)) {
++			kfree_skb(skb);
++			break;
++		}
++
+ 		cp->rx_skb[rx_tail] = new_skb;
+ 
+ 		cp_rx_skb(cp, skb, desc);
+@@ -749,6 +754,12 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ 
+ 		len = skb->len;
+ 		mapping = dma_map_single(&cp->pdev->dev, skb->data, len, PCI_DMA_TODEVICE);
++		if (dma_mapping_error(&cp->pdev->dev, mapping)) {
++			kfree_skb(skb);
++			cp->dev->stats.tx_dropped++;
++			goto out_unlock;
++		}
++
+ 		txd->opts2 = opts2;
+ 		txd->addr = cpu_to_le64(mapping);
+ 		wmb();
+@@ -786,6 +797,12 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ 		first_len = skb_headlen(skb);
+ 		first_mapping = dma_map_single(&cp->pdev->dev, skb->data,
+ 					       first_len, PCI_DMA_TODEVICE);
++		if (dma_mapping_error(&cp->pdev->dev, first_mapping)) {
++			kfree_skb(skb);
++			cp->dev->stats.tx_dropped++;
++			goto out_unlock;
++		}
++
+ 		cp->tx_skb[entry] = skb;
+ 		entry = NEXT_TX(entry);
+ 
+@@ -799,6 +816,21 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ 			mapping = dma_map_single(&cp->pdev->dev,
+ 						 skb_frag_address(this_frag),
+ 						 len, PCI_DMA_TODEVICE);
++			if (dma_mapping_error(&cp->pdev->dev, mapping)) {
++				/* Unwind the mappnigs we have */
++				for (frag = 0; frag+first_entry < entry; frag++) {
++					cp->tx_skb[frag+first_entry] = NULL;
++					txd = &cp->tx_ring[frag+first_entry];
++					this_frag = &skb_shinfo(skb)->frags[frag];
++					dma_unmap_single(&cp->pdev->dev, le64_to_cpu(txd->addr),
++							 skb_frag_size(this_frag), PCI_DMA_TODEVICE);
++				}
++
++				cp->dev->stats.tx_dropped++;
++				kfree_skb(skb);
++				goto out_unlock;
++			}
++
+ 			eor = (entry == (CP_TX_RING_SIZE - 1)) ? RingEnd : 0;
+ 
+ 			ctrl = eor | len | DescOwn;
+@@ -859,6 +891,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ 	if (TX_BUFFS_AVAIL(cp) <= (MAX_SKB_FRAGS + 1))
+ 		netif_stop_queue(dev);
+ 
++out_unlock:
+ 	spin_unlock_irqrestore(&cp->lock, intr_flags);
+ 
+ 	cpw8(TxPoll, NormalTxPoll);
+@@ -1054,6 +1087,10 @@ static int cp_refill_rx(struct cp_private *cp)
+ 
+ 		mapping = dma_map_single(&cp->pdev->dev, skb->data,
+ 					 cp->rx_buf_sz, PCI_DMA_FROMDEVICE);
++		if (dma_mapping_error(&cp->pdev->dev, mapping)) {
++			kfree_skb(skb);
++			goto err_out;
++		}
+ 		cp->rx_skb[i] = skb;
+ 
+ 		cp->rx_ring[i].opts2 = 0;
+-- 
+1.8.1.4
