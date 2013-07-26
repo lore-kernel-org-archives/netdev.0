@@ -1,61 +1,54 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v5 0/3] ARM: shmobile: lager: enable Ether
-Date: Fri, 26 Jul 2013 18:33:49 +0400
-Message-ID: <51F288CD.60608@cogentembedded.com>
-References: <1374656169-9241-1-git-send-email-horms+renesas@verge.net.au> <3554825.Zlt5jMD3jh@avalon> <20130726005506.GD28912@verge.net.au>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next v3] net: split rt_genid for ipv4 and ipv6
+Date: Fri, 26 Jul 2013 16:43:16 +0200
+Message-ID: <20130726144316.GB3890@order.stressinduktion.org>
+References: <1374745632-1624-1-git-send-email-fan.du@windriver.com> <20130725181314.GA24007@order.stressinduktion.org> <51F20DEF.2090108@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
-	netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	Magnus Damm <magnus.damm@gmail.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20130726005506.GD28912@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: nicolas.dichtel@6wind.com, davem@davemloft.net,
+	yoshfuji@linux-ipv6.org, jmorris@namei.org,
+	steffen.klassert@secunet.com, netdev <netdev@vger.kernel.org>
+To: Fan Du <fan.du@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:41300 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759189Ab3GZOnR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 10:43:17 -0400
+Content-Disposition: inline
+In-Reply-To: <51F20DEF.2090108@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Fri, Jul 26, 2013 at 01:49:35PM +0800, Fan Du wrote:
+> diff --git a/security/selinux/include/xfrm.h 
+> b/security/selinux/include/xfrm.h
+> index 65f67cb..4f72d2c 100644
+> --- a/security/selinux/include/xfrm.h
+> +++ b/security/selinux/include/xfrm.h
+> @@ -50,8 +50,14 @@ int selinux_xfrm_decode_session(struct sk_buff *skb, u32 
+> *sid, int ckall);
+> 
+>  static inline void selinux_xfrm_notify_policyload(void)
+>  {
+> +       struct net *net;
+> +
+>         atomic_inc(&flow_cache_genid);
+> -       rt_genid_bump(&init_net);
+> +       rtnl_lock();
+> +       for_each_net(net) {
+> +               rt_genid_bump_all(net);
+> +       }
+> +       rtnl_unlock();
+>  }
+>  #else
+>  static inline int selinux_xfrm_enabled(void)
+> 
+> 
+> Let me know if I miss something inside it. Thanks.
 
-On 26-07-2013 4:55, Simon Horman wrote:
+I do think it is the correct change. The locking seems correct, too. I will
+excercise the code with lockdep as soon as you publish a new patch.
 
->>> this short series enables the on-board ethernet
->>> of the r8a7790 SoC for on lager board.
+Greetings,
 
->>> It has a run-time dependency on
->>> "sh_eth: add support for r8a7790 SoC"
-
->>> It has been built on top of renesas-next-20130724v2.
-
->>> Simon Horman (3):
->>>    ARM: shmobile: r8a7790: clocks for Ether support
->>>    ARM: shmobile: lager: enable Ether
->>>    ARM: shmobile: lager: enable nfsroot in DTS
-
->>>   arch/arm/boot/dts/r8a7790-lager.dts    |  2 +-
->>>   arch/arm/mach-shmobile/board-lager.c   | 30 ++++++++++++++++++++++++++++++
->>>   arch/arm/mach-shmobile/clock-r8a7790.c |  4 ++++
->>>   3 files changed, 35 insertions(+), 1 deletion(-)
-
->> With this series and "[PATCH 0/2 v4 net-next repost] sh_eth: Add support for
->> r8a7790 SoC" applied on top of renesas-devel-20130725, booting the Lager
->> board usually (about 90% of the time) results in receive FIFO overflows and
->> disabling of the sh-eth IRQ:
-
-    Looking at the trace, disabling of IRQ is probably caused by something 
-other than RX FIFO overflow (when it caused disabling IRQ, there were no error 
-messages printed because RFE interrupt went completely unhandled). Probably 
-there's more interrupt mask issues lurking in the driver...
-
-> Thanks.
-
-> Unfortunately I am having trouble with using NFS root at all
-> in my test environment. I'll work with Magnus to resolve this issue.
-
-> Sergei do you have any idea what might be causing this?
-
-    No idea. I still don't have access to Lager and on BOCK-W we have no 
-issues with NFS. What are your symptoms?
-
-WBR, Sergei
-
+  Hannes
