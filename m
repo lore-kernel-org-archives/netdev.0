@@ -1,41 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 30/36] net: core: convert class code to use dev_groups
-Date: Fri, 26 Jul 2013 15:40:35 -0700 (PDT)
-Message-ID: <20130726.154035.1983845199334433148.davem@davemloft.net>
-References: <1374703539-9705-1-git-send-email-gregkh@linuxfoundation.org>
-	<1374703539-9705-31-git-send-email-gregkh@linuxfoundation.org>
+Subject: Re: [net PATCH] atl1c: Fix misuse of netdev_alloc_skb in refilling
+ rx ring
+Date: Fri, 26 Jul 2013 15:56:18 -0700 (PDT)
+Message-ID: <20130726.155618.987909338861687509.davem@davemloft.net>
+References: <1374857234-1442-1-git-send-email-nhorman@tuxdriver.com>
+	<8761vxfefj.fsf@canonical.com>
+	<20130726170251.GC11633@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: gregkh@linuxfoundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38678 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759936Ab3GZWkg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 18:40:36 -0400
-In-Reply-To: <1374703539-9705-31-git-send-email-gregkh@linuxfoundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: luis.henriques@canonical.com, netdev@vger.kernel.org,
+	jcliburn@gmail.com, stable@vger.kernel.org
+To: nhorman@tuxdriver.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20130726170251.GC11633@hmsreliant.think-freely.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Wed, 24 Jul 2013 15:05:33 -0700
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Fri, 26 Jul 2013 13:02:51 -0400
 
-> The dev_attrs field of struct class is going away soon, dev_groups
-> should be used instead.  This converts the networking core class code to
-> use the correct field.
-> 
-> In order to do this in the "cleanest" way, some of the macros had to be
-> changed to reflect the driver core format of naming show/store
-> functions, which accounts for the majority of the churn in this file.
-> 
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> ---
-> 
-> netdev@ maintainers, feel free to take this through your tree, or ACK it
-> and I can take it through mine.
+> On Fri, Jul 26, 2013 at 05:56:16PM +0100, Luis Henriques wrote:
+>> Neil Horman <nhorman@tuxdriver.com> writes:
+>> 
+>> > atl1c uses netdev_alloc_skb to refill its rx dma ring, but that call makes no
+>> > guarantees about the suitability of the memory for use in DMA.  As a result
+>> > we've gotten reports of atl1c drivers occasionally hanging and needing to be
+>> > reset:
+>> > https://bugzilla.kernel.org/show_bug.cgi?id=54021
+>> >
+>> > Fix this by modifying the call to use the internal version __netdev_alloc_skb,
+>> > where you can set the gfp_mask explicitly to include GFP_DMA.
+>> >
+>> > Tested by two reporters in the above bug, who have the hardware to validate it.
+>> > Both report immediate cessation of the problem with this patch
+>> >
+>> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+>> > CC: Jay Cliburn <jcliburn@gmail.com>
+>> > CC: "David S. Miller" <davem@davemloft.net>
+>> > CC: stable@vger.kernel.org
+>> > Tested-by: Luis Henrix <luis.henrix@gmail.com>
+>> 
+>> Thanks Neil!
+>> 
+>> Would it be possible for you to update my name and email?  (I've just
+>> updated my bz account to remove my gmail account address -- I thought
+>> I had done this ages ago.)
+>> 
+>> Tested-by: Luis Henriques <luis.henriques@canonical.com>
+>> 
+> I'm sure if Dave has time, he will square that up.
 
-Likewise please take this through your tree Greg, thanks!
-
-Acked-by: David S. Miller <davem@davemloft.net>
+I took care of this while applying Neil's patch, thanks.
