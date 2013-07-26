@@ -1,87 +1,79 @@
-From: Dominique Martinet <dominique.martinet@cea.fr>
-Subject: Re: [V9fs-developer] [PATCH] net: trans_rdma: remove unused
- function
-Date: Fri, 26 Jul 2013 17:17:37 +0200
-Message-ID: <20130726151737.GA24757@nautica>
-References: <1374497956-32104-1-git-send-email-andi@etezian.org>
- <20130724.154646.2283898956674234778.davem@davemloft.net>
- <1374707387.29835.23.camel@x61.thuisdomein>
- <20130724.164514.393667021861625699.davem@davemloft.net>
- <20130725061411.GA8579@nautica>
- <20130725064802.GA12569@nautica>
- <CAFkjPTm1FH24EfWMDrXTh7DmU8WAb0ji-jkUgkayqMzfWj9O0A@mail.gmail.com>
- <20130725190506.GA32375@nautica>
- <CAFkjPTkr5JYf6qc=pjcG8rSoocFekU-cTw450SujTvpCp33cyw@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net/fec: call netif_carrier_off when not having link
+Date: Fri, 26 Jul 2013 16:31:52 +0100
+Message-ID: <1374852712.1666.20.camel@bwh-desktop.uk.level5networks.com>
+References: <1374758875-7926-1-git-send-email-u.kleine-koenig@pengutronix.de>
+	 <20130725090352.574b874d@nehalam.linuxnetplumber.net>
+	 <9848F2DB572E5649BA045B288BE08FBE015C9315@039-SN2MPN1-023.039d.mgd.msft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Latchesar Ionkov <lucho@ionkov.net>, pebolle@tiscali.nl,
-	netdev@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>, andi@etezian.org,
-	V9FS Developers <v9fs-developer@lists.sourceforge.net>,
-	rminnich@sandia.gov, David Miller <davem@davemloft.net>
-To: Eric Van Hensbergen <ericvh@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAFkjPTkr5JYf6qc=pjcG8rSoocFekU-cTw450SujTvpCp33cyw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Uwe =?ISO-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Estevam Fabio-R49496 <r49496@freescale.com>,
+	"Li Frank-B20596" <B20596@freescale.com>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>,
+	Hector Palacios <hector.palacios@digi.com>,
+	Tim Sander <tim.sander@hbm.com>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Duan Fugang-B38611 <B38611@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:9942 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756754Ab3GZPb6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 11:31:58 -0400
+In-Reply-To: <9848F2DB572E5649BA045B288BE08FBE015C9315@039-SN2MPN1-023.039d.mgd.msft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Van Hensbergen wrote on Fri, Jul 26, 2013 :
-> It depends on the flags you use with 9p.  If you mount with nodevmap it'll
-> treat them like normal files.  Alternatively you can use synthetics from
-> fuse or even 9p file systems from Plan 9 port.
-
-Ok, thank you for the explanation. Now I need to see if my server
-supports this :)
-
-> I need to go back and refresh more of my RDMA knowledge, I thought you
-> could provide a better more direct coupling between the request and
-> response buffers (similar to what we do in virtio).  In such a case, you'd
-> simply need to reclaim the "skipped" buffer not shuffle everything around.
-> Ultimately that would seem to work against the point of having "zero copy"
-> RDMA.
-
-What I said next was wrong, but the queue really isn't something you can
-control this finely. Once something is posted, you can't take it back,
-and you can't know which buffer will come back for which reply (but it's
-easy enough to read the tag from the reply and associate it back)
-
-For flush, I'm honestly not sure on how to deal with the possibility of
-the servers processing the original query and sending a reply after
-we've tagged our own buffer as free again, but I think there might
-actually be a problem even on sucessful flush if the next post is from a
-different tag (that has its own rc buffer) -- as far as I understand it,
-this one's reply will be considered duplicate reply in handle_recv.
-But I really need to do some more precise testing, I'll try playing with
-nodevmap, if I get the flush functions to be called I'll get this
-fixed.
-
-
-> > I haven't found how to reproduce this perfectly yet, but a dd with
-> > blocksize 1MB and one with blocksize 10B in parallel brought the
-> > mountpoint down (and the whole server was completely unavailable for the
-> > duration of the dd - TCP sessions timed out, I even got IO errors on the
-> > local disk :D)
+On Fri, 2013-07-26 at 09:35 +0000, Duan Fugang-B38611 wrote:
+> On Fir, 26 Jul 2013 12:04, Stephen Hemminger wrote:
+> >> diff --git a/drivers/net/ethernet/freescale/fec_main.c 
+> >> b/drivers/net/ethernet/freescale/fec_main.c
+> >> index 0642006..631bd5a 100644
+> >> --- a/drivers/net/ethernet/freescale/fec_main.c
+> >> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> >> @@ -280,11 +280,6 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+> >>  	unsigned short	status;
+> >>  	unsigned int index;
+> >>  
+> >> -	if (!fep->link) {
+> >> -		/* Link is down or auto-negotiation is in progress. */
+> >> -		return NETDEV_TX_BUSY;
+> >> -	}
+> >> -
 > >
+> >That is a bug anyway. Since it would cause spin loop in transmit code (even without -rt).
+> >If the driver cared to test it (most drivers just let hardware deal with this situation),
+> >then it should free packet and return TX_OK.
 > 
-> Sounds like you ran out of memory and things didn't degrade gracefully.
+> When link is down, the logic is
+> 	- call netif_stop_queue() to stop queue
+> 	- and then notify there have no link using netif_carrier_off().
 
-I think it's actually "just" in the debug, there are two p9_debug printk
-in p9_client_cb which are called from an rdma irq handler, and it gets
-messy once the kernel buffer is full and it wants to flush to the
-console.
-I've got a short patch that adds an argument to p9_client_cb with an
-indication that it shouldn't output messages, I'll send it to the v9fs
-mailing list for comments if you think the idea is acceptable.
+netif_stop_queue() *must not* be called before netif_carrier_off(),
+otherwise the TX watchdog can fire immediately.  The TX watchdog only
+knows when the last packet was passed to the driver, not when the queue
+was stopped.  The last packet could have been added an arbitrarily long
+time before the link went down, therefore it may appear that the timeout
+has already expired..
 
->  Which server are you using?
+Although it is safe to call netif_stop_queue() after
+netif_carrier_off(), it is not useful.  netif_stop_queue() should only
+be called from your ndo_start_xmit operation and only because the queue
+is full.  Any other reason to stop should be communicated to the kernel
+using netif_carrier_off() or netif_device_detach().
 
-I know of two servers out there which handle 9P/RDMA - diod (
-http://code.google.com/p/diod/ ) and nfs-ganesha (
-https://github.com/nfs-ganesha/nfs-ganesha )
-I wrote the RDMA implementation for ganesha and am mostly running tests
-on that, but both should somewhat work with their quirks :)
+Ben.
 
-Regards,
+> But the flow must be handled in fec_enet_adjust_link() function, not in xmit().
+
 -- 
-Dominique Martine
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
