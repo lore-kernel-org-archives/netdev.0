@@ -1,88 +1,62 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] openvswitch:: link upper device for port devices
-Date: Fri, 26 Jul 2013 14:01:54 +0200
-Message-ID: <1374840114-5622-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, jesse@nicira.com, dev@openvswitch.org
+Subject: [patch net-next v5 0/4] export device physical port id to userspace
+Date: Fri, 26 Jul 2013 14:09:52 +0200
+Message-ID: <1374840596-5748-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, stephen@networkplumber.org,
+	Narendra_K@Dell.com, bhutchings@solarflare.com,
+	john.r.fastabend@intel.com, or.gerlitz@gmail.com,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
+	peter.p.waskiewicz.jr@intel.com, alexander.h.duyck@intel.com,
+	john.ronciak@intel.com, tushar.n.dave@intel.com,
+	matthew.vick@intel.com, mitch.a.williams@intel.com,
+	vyasevic@redhat.com, amwang@redhat.com, johannes@sipsolutions.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f178.google.com ([209.85.215.178]:57870 "EHLO
-	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755400Ab3GZMCA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 08:02:00 -0400
-Received: by mail-ea0-f178.google.com with SMTP id a11so180451eae.37
-        for <netdev@vger.kernel.org>; Fri, 26 Jul 2013 05:01:59 -0700 (PDT)
+Received: from mail-ea0-f176.google.com ([209.85.215.176]:40285 "EHLO
+	mail-ea0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757003Ab3GZMKD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 08:10:03 -0400
+Received: by mail-ea0-f176.google.com with SMTP id q16so1511720ead.7
+        for <netdev@vger.kernel.org>; Fri, 26 Jul 2013 05:10:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Link upper device properly. That will make IFLA_MASTER filled up.
-Set the master to port 0 of the datapath under which the port belongs.
+This patchset is based on patch by Narendra_K@Dell.com
+Once device which can change phys port id during its lifetime adopts this,
+NETDEV_CHANGEPHYSPORTID event will be added and driver will call
+call_netdevice_notifiers(NETDEV_NETDEV_CHANGEPHYSPORTID, dev) to propagate
+the change to userspace.
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- net/openvswitch/vport-netdev.c | 20 +++++++++++++++++++-
- 1 file changed, 19 insertions(+), 1 deletion(-)
+v1->v2: as suggested by Ben, handle -EOPNOTSUPP in rtnl code (wrapped up ndo call)
+v2->v3: adjusted patch 1 commit message
+v3->v4: used "%phN" for sysfs printf as suggested by DaveM
+        added igb/igbvf implementation as requested by Or Gerlitz
+v4->v5: used prandom_u32 to generate id in igb_probe
+	removed duplicate code in ibgvf_probe
+	pushed dev_err string into one line in igbvf_refresh_ppid
 
-diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
-index 5982f3f..09d93c1 100644
---- a/net/openvswitch/vport-netdev.c
-+++ b/net/openvswitch/vport-netdev.c
-@@ -25,6 +25,7 @@
- #include <linux/llc.h>
- #include <linux/rtnetlink.h>
- #include <linux/skbuff.h>
-+#include <linux/openvswitch.h>
- 
- #include <net/llc.h>
- 
-@@ -74,6 +75,15 @@ static rx_handler_result_t netdev_frame_hook(struct sk_buff **pskb)
- 	return RX_HANDLER_CONSUMED;
- }
- 
-+static struct net_device *get_dpdev(struct datapath *dp)
-+{
-+	struct vport *local;
-+
-+	local = ovs_vport_ovsl(dp, OVSP_LOCAL);
-+	BUG_ON(!local);
-+	return netdev_vport_priv(local)->dev;
-+}
-+
- static struct vport *netdev_create(const struct vport_parms *parms)
- {
- 	struct vport *vport;
-@@ -103,10 +113,15 @@ static struct vport *netdev_create(const struct vport_parms *parms)
- 	}
- 
- 	rtnl_lock();
-+	err = netdev_master_upper_dev_link(netdev_vport->dev,
-+					   get_dpdev(vport->dp));
-+	if (err)
-+		goto error_unlock;
-+
- 	err = netdev_rx_handler_register(netdev_vport->dev, netdev_frame_hook,
- 					 vport);
- 	if (err)
--		goto error_unlock;
-+		goto error_master_upper_dev_unlink;
- 
- 	dev_set_promiscuity(netdev_vport->dev, 1);
- 	netdev_vport->dev->priv_flags |= IFF_OVS_DATAPATH;
-@@ -114,6 +129,8 @@ static struct vport *netdev_create(const struct vport_parms *parms)
- 
- 	return vport;
- 
-+error_master_upper_dev_unlink:
-+	netdev_upper_dev_unlink(netdev_vport->dev, get_dpdev(vport->dp));
- error_unlock:
- 	rtnl_unlock();
- error_put:
-@@ -140,6 +157,7 @@ static void netdev_destroy(struct vport *vport)
- 	rtnl_lock();
- 	netdev_vport->dev->priv_flags &= ~IFF_OVS_DATAPATH;
- 	netdev_rx_handler_unregister(netdev_vport->dev);
-+	netdev_upper_dev_unlink(netdev_vport->dev, get_dpdev(vport->dp));
- 	dev_set_promiscuity(netdev_vport->dev, -1);
- 	rtnl_unlock();
- 
+Jiri Pirko (4):
+  net: add ndo to get id of physical port of the device
+  rtnl: export physical port id via RT netlink
+  net: export physical port id via sysfs
+  igb/igbvf: implement ndo_get_phys_port_id
+
+ drivers/net/ethernet/intel/igb/e1000_mbx.h |  1 +
+ drivers/net/ethernet/intel/igb/igb.h       |  2 ++
+ drivers/net/ethernet/intel/igb/igb_main.c  | 29 +++++++++++++++++++++-
+ drivers/net/ethernet/intel/igbvf/igbvf.h   |  3 +++
+ drivers/net/ethernet/intel/igbvf/mbx.h     |  1 +
+ drivers/net/ethernet/intel/igbvf/netdev.c  | 40 ++++++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igbvf/vf.c      | 34 +++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igbvf/vf.h      |  1 +
+ include/linux/netdevice.h                  | 20 +++++++++++++++
+ include/uapi/linux/if_link.h               |  1 +
+ net/core/dev.c                             | 18 ++++++++++++++
+ net/core/net-sysfs.c                       | 22 ++++++++++++++++
+ net/core/rtnetlink.c                       | 25 ++++++++++++++++++-
+ 13 files changed, 195 insertions(+), 2 deletions(-)
+
 -- 
 1.8.1.4
