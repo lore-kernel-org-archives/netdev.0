@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v5 2/4] rtnl: export physical port id via RT netlink
-Date: Fri, 26 Jul 2013 14:09:54 +0200
-Message-ID: <1374840596-5748-3-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v5 4/4] igb/igbvf: implement ndo_get_phys_port_id
+Date: Fri, 26 Jul 2013 14:09:56 +0200
+Message-ID: <1374840596-5748-5-git-send-email-jiri@resnulli.us>
 References: <1374840596-5748-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, stephen@networkplumber.org,
 	Narendra_K@Dell.com, bhutchings@solarflare.com,
@@ -12,96 +12,315 @@ Cc: davem@davemloft.net, stephen@networkplumber.org,
 	peter.p.waskiewicz.jr@intel.com, alexander.h.duyck@intel.com,
 	john.ronciak@intel.com, tushar.n.dave@intel.com,
 	matthew.vick@intel.com, mitch.a.williams@intel.com,
-	vyasevic@redhat.com, amwang@redhat.com, johannes@sipsolutions.net,
-	Narendra K <narendra_k@dell.com>
+	vyasevic@redhat.com, amwang@redhat.com, johannes@sipsolutions.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f43.google.com ([74.125.83.43]:44627 "EHLO
-	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758600Ab3GZMKJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 08:10:09 -0400
-Received: by mail-ee0-f43.google.com with SMTP id l10so1515049eei.2
-        for <netdev@vger.kernel.org>; Fri, 26 Jul 2013 05:10:08 -0700 (PDT)
+Received: from mail-ea0-f180.google.com ([209.85.215.180]:59093 "EHLO
+	mail-ea0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758600Ab3GZMKP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 08:10:15 -0400
+Received: by mail-ea0-f180.google.com with SMTP id r16so1534622ead.25
+        for <netdev@vger.kernel.org>; Fri, 26 Jul 2013 05:10:14 -0700 (PDT)
 In-Reply-To: <1374840596-5748-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-Acked-by: Ben Hutchings <bhutchings@solarflare.com>
-Signed-off-by: Narendra K <narendra_k@dell.com>
----
- include/uapi/linux/if_link.h |  1 +
- net/core/rtnetlink.c         | 25 ++++++++++++++++++++++++-
- 2 files changed, 25 insertions(+), 1 deletion(-)
+igb driver generated random number which will identify physical port.
+This id is available via ndo_get_phys_port_id directly on igb netdev.
+Also, id is passed to igbvf using mailbox. After that, it is available via
+ndo_get_phys_port_id on igbvf netdev as well.
 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 03f6170..04c0e7a 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -143,6 +143,7 @@ enum {
- 	IFLA_NUM_TX_QUEUES,
- 	IFLA_NUM_RX_QUEUES,
- 	IFLA_CARRIER,
-+	IFLA_PHYS_PORT_ID,
- 	__IFLA_MAX
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ drivers/net/ethernet/intel/igb/e1000_mbx.h |  1 +
+ drivers/net/ethernet/intel/igb/igb.h       |  2 ++
+ drivers/net/ethernet/intel/igb/igb_main.c  | 29 +++++++++++++++++++++-
+ drivers/net/ethernet/intel/igbvf/igbvf.h   |  3 +++
+ drivers/net/ethernet/intel/igbvf/mbx.h     |  1 +
+ drivers/net/ethernet/intel/igbvf/netdev.c  | 40 ++++++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igbvf/vf.c      | 34 +++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igbvf/vf.h      |  1 +
+ 8 files changed, 110 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/intel/igb/e1000_mbx.h b/drivers/net/ethernet/intel/igb/e1000_mbx.h
+index de9bba4..1788480 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_mbx.h
++++ b/drivers/net/ethernet/intel/igb/e1000_mbx.h
+@@ -64,6 +64,7 @@
+ #define E1000_VF_SET_LPE	0x05 /* VF requests to set VMOLR.LPE */
+ #define E1000_VF_SET_PROMISC	0x06 /*VF requests to clear VMOLR.ROPE/MPME*/
+ #define E1000_VF_SET_PROMISC_MULTICAST	(0x02 << E1000_VT_MSGINFO_SHIFT)
++#define E1000_VF_GET_PHYS_PORT_ID 0x07 /* VF requests to get physical port id */
+ 
+ #define E1000_PF_CONTROL_MSG	0x0100 /* PF control message */
+ 
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index 15ea8dc..12a25b1 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -444,6 +444,8 @@ struct igb_adapter {
+ 	struct i2c_algo_bit_data i2c_algo;
+ 	struct i2c_adapter i2c_adap;
+ 	struct i2c_client *i2c_client;
++
++	u32 phys_port_id;
  };
  
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 3de7408..0b2972c 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -767,7 +767,8 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + rtnl_vfinfo_size(dev, ext_filter_mask) /* IFLA_VFINFO_LIST */
- 	       + rtnl_port_size(dev) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
- 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
--	       + rtnl_link_get_af_size(dev); /* IFLA_AF_SPEC */
-+	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
-+	       + nla_total_size(MAX_PHYS_PORT_ID_LEN); /* IFLA_PHYS_PORT_ID */
- }
+ #define IGB_FLAG_HAS_MSI		(1 << 0)
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 6a0c1b6..9ecb696 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -58,6 +58,7 @@
+ #include <linux/dca.h>
+ #endif
+ #include <linux/i2c.h>
++#include <linux/random.h>
+ #include "igb.h"
  
- static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
-@@ -846,6 +847,24 @@ static int rtnl_port_fill(struct sk_buff *skb, struct net_device *dev)
+ #define MAJ 5
+@@ -1892,6 +1893,24 @@ static int igb_set_features(struct net_device *netdev,
  	return 0;
  }
  
-+static int rtnl_phys_port_id_fill(struct sk_buff *skb, struct net_device *dev)
++/**
++ * igb_get_phys_port_id - Get physical port ID
++ * @netdev: network interface device structure
++ * @ppid: pointer to a physical port id structure
++ *
++ * Returns 0 on success, negative on failure
++ **/
++static int igb_get_phys_port_id(struct net_device *netdev,
++				struct netdev_phys_port_id *ppid)
 +{
-+	int err;
-+	struct netdev_phys_port_id ppid;
++	struct igb_adapter *adapter = netdev_priv(netdev);
 +
-+	err = dev_get_phys_port_id(dev, &ppid);
-+	if (err) {
-+		if (err == -EOPNOTSUPP)
-+			return 0;
-+		return err;
-+	}
-+
-+	if (nla_put(skb, IFLA_PHYS_PORT_ID, ppid.id_len, ppid.id))
-+		return -EMSGSIZE;
++	ppid->id_len = sizeof(adapter->phys_port_id);
++	memcpy(ppid->id, &adapter->phys_port_id, ppid->id_len);
 +
 +	return 0;
 +}
 +
- static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			    int type, u32 pid, u32 seq, u32 change,
- 			    unsigned int flags, u32 ext_filter_mask)
-@@ -913,6 +932,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			goto nla_put_failure;
+ static const struct net_device_ops igb_netdev_ops = {
+ 	.ndo_open		= igb_open,
+ 	.ndo_stop		= igb_close,
+@@ -1915,6 +1934,7 @@ static const struct net_device_ops igb_netdev_ops = {
+ #endif
+ 	.ndo_fix_features	= igb_fix_features,
+ 	.ndo_set_features	= igb_set_features,
++	.ndo_get_phys_port_id	= igb_get_phys_port_id,
+ };
+ 
+ /**
+@@ -2287,6 +2307,8 @@ static int igb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	 * driver. */
+ 	igb_get_hw_control(adapter);
+ 
++	adapter->phys_port_id = prandom_u32();
++
+ 	strcpy(netdev->name, "eth%d");
+ 	err = register_netdev(netdev);
+ 	if (err)
+@@ -5698,6 +5720,7 @@ static void igb_rcv_msg_from_vf(struct igb_adapter *adapter, u32 vf)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	struct vf_data_storage *vf_data = &adapter->vf_data[vf];
+ 	s32 retval;
++	u16 write_size = 1;
+ 
+ 	retval = igb_read_mbx(hw, msgbuf, E1000_VFMAILBOX_SIZE, vf);
+ 
+@@ -5757,6 +5780,10 @@ static void igb_rcv_msg_from_vf(struct igb_adapter *adapter, u32 vf)
+ 		else
+ 			retval = igb_set_vf_vlan(adapter, msgbuf, vf);
+ 		break;
++	case E1000_VF_GET_PHYS_PORT_ID:
++		msgbuf[1] = adapter->phys_port_id;
++		write_size = 2;
++		break;
+ 	default:
+ 		dev_err(&pdev->dev, "Unhandled Msg %08x\n", msgbuf[0]);
+ 		retval = -1;
+@@ -5771,7 +5798,7 @@ out:
+ 	else
+ 		msgbuf[0] |= E1000_VT_MSGTYPE_ACK;
+ 
+-	igb_write_mbx(hw, msgbuf, 1, vf);
++	igb_write_mbx(hw, msgbuf, write_size, vf);
+ }
+ 
+ static void igb_msg_task(struct igb_adapter *adapter)
+diff --git a/drivers/net/ethernet/intel/igbvf/igbvf.h b/drivers/net/ethernet/intel/igbvf/igbvf.h
+index a1463e3..559ccaf 100644
+--- a/drivers/net/ethernet/intel/igbvf/igbvf.h
++++ b/drivers/net/ethernet/intel/igbvf/igbvf.h
+@@ -283,6 +283,9 @@ struct igbvf_adapter {
+ 
+ 	unsigned int flags;
+ 	unsigned long last_reset;
++
++	u32 phys_port_id;
++	bool phys_port_id_set;
+ };
+ 
+ struct igbvf_info {
+diff --git a/drivers/net/ethernet/intel/igbvf/mbx.h b/drivers/net/ethernet/intel/igbvf/mbx.h
+index 24370bc..1040d36 100644
+--- a/drivers/net/ethernet/intel/igbvf/mbx.h
++++ b/drivers/net/ethernet/intel/igbvf/mbx.h
+@@ -66,6 +66,7 @@
+ #define E1000_VF_SET_MULTICAST    0x03 /* VF requests PF to set MC addr */
+ #define E1000_VF_SET_VLAN         0x04 /* VF requests PF to set VLAN */
+ #define E1000_VF_SET_LPE          0x05 /* VF requests PF to set VMOLR.LPE */
++#define E1000_VF_GET_PHYS_PORT_ID 0x07 /* VF requests to get physical port id */
+ 
+ #define E1000_PF_CONTROL_MSG      0x0100 /* PF control message */
+ 
+diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+index 93eb7ee..7f46c26 100644
+--- a/drivers/net/ethernet/intel/igbvf/netdev.c
++++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+@@ -1444,6 +1444,20 @@ static void igbvf_configure(struct igbvf_adapter *adapter)
+ 	                       igbvf_desc_unused(adapter->rx_ring));
+ }
+ 
++static void igbvf_refresh_ppid(struct igbvf_adapter *adapter)
++{
++	struct e1000_hw *hw = &adapter->hw;
++	int err;
++
++	err = hw->mac.ops.ppid_get_vf(hw, &adapter->phys_port_id);
++	if (err) {
++		adapter->phys_port_id_set = false;
++		dev_err(&adapter->pdev->dev, "Failed to get physical port ID\n");
++	} else {
++		adapter->phys_port_id_set = true;
++	}
++}
++
+ /* igbvf_reset - bring the hardware into a known good state
+  *
+  * This function boots the hardware and enables some settings that
+@@ -1461,6 +1475,8 @@ static void igbvf_reset(struct igbvf_adapter *adapter)
+ 	if (mac->ops.reset_hw(hw))
+ 		dev_err(&adapter->pdev->dev, "PF still resetting\n");
+ 
++	igbvf_refresh_ppid(adapter);
++
+ 	mac->ops.init_hw(hw);
+ 
+ 	if (is_valid_ether_addr(adapter->hw.mac.addr)) {
+@@ -1753,6 +1769,27 @@ static int igbvf_set_mac(struct net_device *netdev, void *p)
+ 	return 0;
+ }
+ 
++/**
++ * igbvf_get_phys_port_id - Get physical port ID
++ * @netdev: network interface device structure
++ * @ppid: pointer to a physical port id structure
++ *
++ * Returns 0 on success, negative on failure
++ **/
++static int igbvf_get_phys_port_id(struct net_device *netdev,
++				  struct netdev_phys_port_id *ppid)
++{
++	struct igbvf_adapter *adapter = netdev_priv(netdev);
++
++	if (!adapter->phys_port_id_set)
++		return -EOPNOTSUPP;
++
++	ppid->id_len = sizeof(adapter->phys_port_id);
++	memcpy(ppid->id, &adapter->phys_port_id, ppid->id_len);
++
++	return 0;
++}
++
+ #define UPDATE_VF_COUNTER(reg, name)                                    \
+ 	{                                                               \
+ 		u32 current_counter = er32(reg);                        \
+@@ -2610,6 +2647,7 @@ static const struct net_device_ops igbvf_netdev_ops = {
+ 	.ndo_poll_controller            = igbvf_netpoll,
+ #endif
+ 	.ndo_set_features               = igbvf_set_features,
++	.ndo_get_phys_port_id		= igbvf_get_phys_port_id,
+ };
+ 
+ /**
+@@ -2759,6 +2797,8 @@ static int igbvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 			netdev->addr_len);
  	}
  
-+	if (rtnl_phys_port_id_fill(skb, dev))
-+		goto nla_put_failure;
++	igbvf_refresh_ppid(adapter);
 +
- 	attr = nla_reserve(skb, IFLA_STATS,
- 			sizeof(struct rtnl_link_stats));
- 	if (attr == NULL)
-@@ -1113,6 +1135,7 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_PROMISCUITY]	= { .type = NLA_U32 },
- 	[IFLA_NUM_TX_QUEUES]	= { .type = NLA_U32 },
- 	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
-+	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_PORT_ID_LEN },
- };
- EXPORT_SYMBOL(ifla_policy);
+ 	setup_timer(&adapter->watchdog_timer, &igbvf_watchdog,
+ 	            (unsigned long) adapter);
  
+diff --git a/drivers/net/ethernet/intel/igbvf/vf.c b/drivers/net/ethernet/intel/igbvf/vf.c
+index eea0e10..1a4afa5 100644
+--- a/drivers/net/ethernet/intel/igbvf/vf.c
++++ b/drivers/net/ethernet/intel/igbvf/vf.c
+@@ -39,6 +39,7 @@ static void e1000_update_mc_addr_list_vf(struct e1000_hw *hw, u8 *,
+ static void e1000_rar_set_vf(struct e1000_hw *, u8 *, u32);
+ static s32 e1000_read_mac_addr_vf(struct e1000_hw *);
+ static s32 e1000_set_vfta_vf(struct e1000_hw *, u16, bool);
++static s32 e1000_ppid_get_vf(struct e1000_hw *hw, u32 *id);
+ 
+ /**
+  *  e1000_init_mac_params_vf - Inits MAC params
+@@ -70,6 +71,8 @@ static s32 e1000_init_mac_params_vf(struct e1000_hw *hw)
+ 	mac->ops.read_mac_addr = e1000_read_mac_addr_vf;
+ 	/* set vlan filter table array */
+ 	mac->ops.set_vfta = e1000_set_vfta_vf;
++	/* get physical port ID */
++	mac->ops.ppid_get_vf = e1000_ppid_get_vf;
+ 
+ 	return E1000_SUCCESS;
+ }
+@@ -398,3 +401,34 @@ out:
+ 	return ret_val;
+ }
+ 
++/**
++ *  e1000_ppid_get_vf - get device MAC physical port ID
++ *  @hw: pointer to the HW structure
++ *  @id: pointer where port ID will be written
++ **/
++static s32 e1000_ppid_get_vf(struct e1000_hw *hw, u32 *id)
++{
++	struct e1000_mbx_info *mbx = &hw->mbx;
++	u32 msgbuf[2];
++	s32 ret_val;
++
++	memset(msgbuf, 0, sizeof(msgbuf));
++	msgbuf[0] = E1000_VF_GET_PHYS_PORT_ID;
++
++	ret_val = mbx->ops.write_posted(hw, msgbuf, 1);
++	if (ret_val)
++		goto out;
++
++	ret_val = mbx->ops.read_posted(hw, msgbuf, 2);
++	if (ret_val)
++		goto out;
++
++	if (msgbuf[0] & E1000_VT_MSGTYPE_NACK) {
++		ret_val = -E1000_ERR_MAC_INIT;
++		goto out;
++	}
++	*id = msgbuf[1];
++
++out:
++	return ret_val;
++}
+diff --git a/drivers/net/ethernet/intel/igbvf/vf.h b/drivers/net/ethernet/intel/igbvf/vf.h
+index 57db3c6..aa04f46 100644
+--- a/drivers/net/ethernet/intel/igbvf/vf.h
++++ b/drivers/net/ethernet/intel/igbvf/vf.h
+@@ -188,6 +188,7 @@ struct e1000_mac_operations {
+ 	void (*rar_set)(struct e1000_hw *, u8*, u32);
+ 	s32  (*read_mac_addr)(struct e1000_hw *);
+ 	s32  (*set_vfta)(struct e1000_hw *, u16, bool);
++	s32  (*ppid_get_vf)(struct e1000_hw *, u32 *);
+ };
+ 
+ struct e1000_mac_info {
 -- 
 1.8.1.4
