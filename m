@@ -1,54 +1,38 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v3] net: split rt_genid for ipv4 and ipv6
-Date: Fri, 26 Jul 2013 16:43:16 +0200
-Message-ID: <20130726144316.GB3890@order.stressinduktion.org>
-References: <1374745632-1624-1-git-send-email-fan.du@windriver.com> <20130725181314.GA24007@order.stressinduktion.org> <51F20DEF.2090108@windriver.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: changing dev->needed_headroom/needed_tailroom?
+Date: Fri, 26 Jul 2013 16:50:10 +0200
+Message-ID: <1374850210.8248.59.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: nicolas.dichtel@6wind.com, davem@davemloft.net,
-	yoshfuji@linux-ipv6.org, jmorris@namei.org,
-	steffen.klassert@secunet.com, netdev <netdev@vger.kernel.org>
-To: Fan Du <fan.du@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:41300 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759189Ab3GZOnR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 10:43:17 -0400
-Content-Disposition: inline
-In-Reply-To: <51F20DEF.2090108@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 26, 2013 at 01:49:35PM +0800, Fan Du wrote:
-> diff --git a/security/selinux/include/xfrm.h 
-> b/security/selinux/include/xfrm.h
-> index 65f67cb..4f72d2c 100644
-> --- a/security/selinux/include/xfrm.h
-> +++ b/security/selinux/include/xfrm.h
-> @@ -50,8 +50,14 @@ int selinux_xfrm_decode_session(struct sk_buff *skb, u32 
-> *sid, int ckall);
-> 
->  static inline void selinux_xfrm_notify_policyload(void)
->  {
-> +       struct net *net;
-> +
->         atomic_inc(&flow_cache_genid);
-> -       rt_genid_bump(&init_net);
-> +       rtnl_lock();
-> +       for_each_net(net) {
-> +               rt_genid_bump_all(net);
-> +       }
-> +       rtnl_unlock();
->  }
->  #else
->  static inline int selinux_xfrm_enabled(void)
-> 
-> 
-> Let me know if I miss something inside it. Thanks.
+Does it seem reasonable to change dev->needed_headroom and
+dev->needed_tailroom on the fly?
 
-I do think it is the correct change. The locking seems correct, too. I will
-excercise the code with lockdep as soon as you publish a new patch.
+We currently set needed_headroom to the max of what we need, but we
+could do better like making it depend on the interface type (e.g. only
+asking for mesh space on mesh interfaces). This would be done only when
+the interface isn't connected, I can't promise it would be down but the
+carrier would be off.
 
-Greetings,
+Another thing we might want to do is change it according to the
+currently configured crypto (this would also affect
+dev->needed_tailroom) since we actually only need tailroom when TKIP is
+used. This could might be done on the fly, but could also be done when
+the carrier is still down during connection establishment (which would
+not be a complete optimisation but still be better than what we have
+now)
 
-  Hannes
+Thoughts?
+
+johannes
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
