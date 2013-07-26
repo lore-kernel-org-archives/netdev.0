@@ -1,49 +1,56 @@
-From: David Miller <davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
 Subject: Re: [PATCH] bonding: use pre-defined macro in bond_mode_name
  instead of magic number 0
-Date: Fri, 26 Jul 2013 13:54:09 -0700 (PDT)
-Message-ID: <20130726.135409.1813499553216352267.davem@davemloft.net>
+Date: Fri, 26 Jul 2013 13:56:10 -0700
+Message-ID: <1374872170.2009.1.camel@joe-AO722>
 References: <51EF79E6.9060309@gmail.com>
+	 <1374649819.18818.5.camel@joe-AO722>
+	 <20130726.135330.232525167518786234.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, andy@greyhouse.net, netdev@vger.kernel.org
-To: shhuiw@gmail.com
+Cc: shhuiw@gmail.com, fubar@us.ibm.com, andy@greyhouse.net,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36889 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933090Ab3GZUyK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 16:54:10 -0400
-In-Reply-To: <51EF79E6.9060309@gmail.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:50890 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933189Ab3GZU4M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Jul 2013 16:56:12 -0400
+In-Reply-To: <20130726.135330.232525167518786234.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wang Sheng-Hui <shhuiw@gmail.com>
-Date: Wed, 24 Jul 2013 14:53:26 +0800
+On Fri, 2013-07-26 at 13:53 -0700, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Wed, 24 Jul 2013 00:10:19 -0700
+> 
+> > Probably be simpler, less confusing, and more normal style
+> > to use a switch case.
+> > 
+> >       switch (mode) {
+> >       case BOND_MODE_ROUNDROBIN:
+> >               return "load balancing (round-robin)";
+> >       case BOND_MODE_ACTIVEBACKUP:
+> >               return "fault-tolerance (active-backup)";
+> >       case BOND_MODE_XOR:
+> >               return "load balancing (xor)";
+> >       case BOND_MODE_BROADCAST;
+> >               return "fault-tolerance (broadcast)";
+> >       case BOND_MODE_8023AD:
+> >               return "IEEE 802.3ad Dynamic link aggregation";
+> >       case BOND_MODE_TLB:
+> >               return "transmit load balancing";
+> >       case BOND_MODE_ALB:
+> >               return "adaptive load balancing";
+> >       default:
+> >               return "unknown";
+> >       }
+> 
+> I have to say that I do not prefer this approach.
+> 
+> I have a good idea what the compiler ends up outputting for the above,
+> and the "indexed table of strings" approach is much less code.
 
-> We have BOND_MODE_ROUNDROBIN pre-defined as 0, and it's the lowest
-> mode number.
-> Use it to check the arg lower bound instead of magic number 0 in
-> bond_mode_name.
-> 
-> Signed-off-by: Wang Sheng-Hui <shhuiw@gmail.com>
-> ---
->  drivers/net/bonding/bond_main.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c
-> b/drivers/net/bonding/bond_main.c
-> index 07f257d4..5890def 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -273,7 +273,7 @@ const char *bond_mode_name(int mode)
->  		[BOND_MODE_ALB] = "adaptive load balancing",
->  	};
-> 
-> -	if (mode < 0 || mode > BOND_MODE_ALB)
-> +	if (mode < BOND_MODE_ROUNDROBIN || mode > BOND_MODE_ALB)
->  		return "unknown";
-> 
->  	return names[mode];
-
-I applied this version of your patch, thanks.
+It has the benefit of not breaking if ever the
+BOND_MODE_<foo> #defines are ever non-consecutive.
