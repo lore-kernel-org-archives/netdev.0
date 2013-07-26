@@ -1,88 +1,48 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next] tcp: add tcp_syncookies mode to allow unconditionally generation of syncookies
-Date: Fri, 26 Jul 2013 17:43:23 +0200
-Message-ID: <20130726154323.GA12067@order.stressinduktion.org>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH V3 0/4] Add IPv6 support for iWARP
+Date: Fri, 26 Jul 2013 10:50:30 -0500
+Message-ID: <51F29AC6.7020202@opengridcomputing.com>
+References: <1372934447-16556-1-git-send-email-vipul@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: eric.dumazet@gmail.com, fw@strlen.de, davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Vipul Pandya <vipul@chelsio.com>, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net, divy@chelsio.com,
+	dm@chelsio.com, roland@kernel.org, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, tom@opengridcomputing.com,
+	faisal.latif@intel.com, tatyana.e.nikolova@intel.com,
+	akpm@linux-foundation.org, sasha.levin@oracle.com,
+	hariprasad@chelsio.com, nirranjan@chelsio.com
+To: roland@purestorage.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:41428 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756379Ab3GZPnY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 11:43:24 -0400
-Content-Disposition: inline
+Received: from smtp.opengridcomputing.com ([72.48.136.20]:59509 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758095Ab3GZPuY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 11:50:24 -0400
+In-Reply-To: <1372934447-16556-1-git-send-email-vipul@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From the documentation update:
-| If you want to test which effects syncookies have to your
-| network connections you can set this knob to 2 to enable
-| unconditionally generation of syncookies.
+On 7/4/2013 5:40 AM, Vipul Pandya wrote:
+> Hi All,
+>
+> This patch series adds IPv6 support for iWARP. It enables Chelsio's T4 and T5
+> adapters to transmitt RDMA traffic over IPv6 address. It adds new apis and cpl
+> messages in cxgb4 to support IPv6 operations and uses them in RDMA/cxgb4.
+>
+> The patch series  modifies the type of local_addr and remote_addr fields in
+> struct iw_cm_id from struct sockaddr_in to struct sockaddr_storage to hold IPv6
+> and IPv4 addresses uniformly. It changes the references of local_addr and
+> remote_addr in RDMA/cxgb4, RDMA/cxgb3, RDMA/nes and amso drivers such that build
+> failure is avoided.
+>
+> We would like to submit this patch series via Roland's infiniband tree for-next
+> branch.
+>
+>
 
-Original idea and first implementation by Eric Dumazet.
+Hey Roland, is this series ready to merge?
 
-Cc: Florian Westphal <fw@strlen.de>
-Cc: David Miller <davem@davemloft.net>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- Documentation/networking/ip-sysctl.txt | 4 ++++
- net/ipv4/tcp_ipv4.c                    | 5 +++--
- net/ipv6/tcp_ipv6.c                    | 3 ++-
- 3 files changed, 9 insertions(+), 3 deletions(-)
+Thanks,
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 53cea9b..36be26b 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -440,6 +440,10 @@ tcp_syncookies - BOOLEAN
- 	SYN flood warnings in logs not being really flooded, your server
- 	is seriously misconfigured.
- 
-+	If you want to test which effects syncookies have to your
-+	network connections you can set this knob to 2 to enable
-+	unconditionally generation of syncookies.
-+
- tcp_fastopen - INTEGER
- 	Enable TCP Fast Open feature (draft-ietf-tcpm-fastopen) to send data
- 	in the opening SYN packet. To use this feature, the client application
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 2a5d5c4..280efe5 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -890,7 +890,7 @@ bool tcp_syn_flood_action(struct sock *sk,
- 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPREQQFULLDROP);
- 
- 	lopt = inet_csk(sk)->icsk_accept_queue.listen_opt;
--	if (!lopt->synflood_warned) {
-+	if (!lopt->synflood_warned && sysctl_tcp_syncookies != 2) {
- 		lopt->synflood_warned = 1;
- 		pr_info("%s: Possible SYN flooding on port %d. %s.  Check SNMP counters.\n",
- 			proto, ntohs(tcp_hdr(skb)->dest), msg);
-@@ -1462,7 +1462,8 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	 * limitations, they conserve resources and peer is
- 	 * evidently real one.
- 	 */
--	if (inet_csk_reqsk_queue_is_full(sk) && !isn) {
-+	if ((sysctl_tcp_syncookies == 2 ||
-+	     inet_csk_reqsk_queue_is_full(sk)) && !isn) {
- 		want_cookie = tcp_syn_flood_action(sk, skb, "TCP");
- 		if (!want_cookie)
- 			goto drop;
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index b792e87..38c196c 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -963,7 +963,8 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 	if (!ipv6_unicast_destination(skb))
- 		goto drop;
- 
--	if (inet_csk_reqsk_queue_is_full(sk) && !isn) {
-+	if ((sysctl_tcp_syncookies == 2 ||
-+	     inet_csk_reqsk_queue_is_full(sk)) && !isn) {
- 		want_cookie = tcp_syn_flood_action(sk, skb, "TCPv6");
- 		if (!want_cookie)
- 			goto drop;
--- 
-1.8.3.1
+Steve.
