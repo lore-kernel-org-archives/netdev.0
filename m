@@ -1,194 +1,90 @@
-From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
-Subject: [PATCH] fib_rules: add .suppress operation
-Date: Fri, 26 Jul 2013 12:46:57 +0200
-Message-ID: <20130726104657.GF10216@zirkel.wertarbyte.de>
-References: <20130725221116.GC10216@zirkel.wertarbyte.de>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH] net/fec: call netif_carrier_off when not having link
+Date: Fri, 26 Jul 2013 12:52:17 +0200
+Message-ID: <20130726105217.GG2737@pengutronix.de>
+References: <1374758875-7926-1-git-send-email-u.kleine-koenig@pengutronix.de>
+ <20130725090352.574b874d@nehalam.linuxnetplumber.net>
+ <9848F2DB572E5649BA045B288BE08FBE015C9315@039-SN2MPN1-023.039d.mgd.msft.net>
+ <CAGVrzcZMg28Cj=KncE=qDq8qLKY1WkiH5PiwrJECTYdBOe16sA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Collins <bsderandrew@gmail.com>
-To: netdev@vger.kernel.org
+Cc: Duan Fugang-B38611 <B38611@freescale.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Uwe =?iso-8859-15?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Estevam Fabio-R49496 <r49496@freescale.com>,
+	Li Frank-B20596 <B20596@freescale.com>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>,
+	Hector Palacios <hector.palacios@digi.com>,
+	Tim Sander <tim.sander@hbm.com>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Florian Fainelli <florian@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zirkel.wertarbyte.de ([188.40.44.137]:47753 "EHLO
-	zirkel.wertarbyte.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756894Ab3GZKq7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 06:46:59 -0400
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:36488 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751983Ab3GZKw0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 06:52:26 -0400
 Content-Disposition: inline
-In-Reply-To: <20130725221116.GC10216@zirkel.wertarbyte.de>
+In-Reply-To: <CAGVrzcZMg28Cj=KncE=qDq8qLKY1WkiH5PiwrJECTYdBOe16sA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change adds a new operation to the fib_rules_ops struct; it allows the
-suppression of routing decisions if certain criteria are not met by its
-results.
+On Fri, Jul 26, 2013 at 11:06:06AM +0100, Florian Fainelli wrote:
+> Hello,
+> 
+> 2013/7/26 Duan Fugang-B38611 <B38611@freescale.com>:
+> > On Fir, 26 Jul 2013 12:04, Stephen Hemminger wrote:
+> >>> diff --git a/drivers/net/ethernet/freescale/fec_main.c
+> >>> b/drivers/net/ethernet/freescale/fec_main.c
+> >>> index 0642006..631bd5a 100644
+> >>> --- a/drivers/net/ethernet/freescale/fec_main.c
+> >>> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> >>> @@ -280,11 +280,6 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+> >>>      unsigned short  status;
+> >>>      unsigned int index;
+> >>>
+> >>> -    if (!fep->link) {
+> >>> -            /* Link is down or auto-negotiation is in progress. */
+> >>> -            return NETDEV_TX_BUSY;
+> >>> -    }
+> >>> -
+> >>
+> >>That is a bug anyway. Since it would cause spin loop in transmit code (even without -rt).
+> >>If the driver cared to test it (most drivers just let hardware deal with this situation),
+> >>then it should free packet and return TX_OK.
+> >
+> > When link is down, the logic is
+> >         - call netif_stop_queue() to stop queue
+> >         - and then notify there have no link using netif_carrier_off().
+> 
+> netif_carrier_off() is handled by the PHY library before calling the
+> adjust_link callback in FEC.
+> 
+> >
+> > But the flow must be handled in fec_enet_adjust_link() function, not in xmit().
+> 
+> What is special about this hardware that fec_restart() needs to do all
+> that work?
 
-The first implemented constraint is a minimum prefix length added to the
-structures of routing rules. If a rule is added with a minimum prefix length
->0, only routes meeting this threshold will be considered. Any other (more
-general) routing table entries will be ignored.
+The special thing is that the driver is written in a braindamaged way.
+fec_restart is kind of a suicide-and-resurrect function which is called
+whenever something changes.
 
-When configuring a system with multiple network uplinks and default routes, it
-is often convinient to reference the main routing table multiple times - but
-omitting the default route. Using this patch and a modified "ip" utility, this
-can be achieved by using the following command sequence:
+> Can't you just update the duplex/speed/pause settings
+> directly without doing a full hardware re-init?
 
-  $ ip route add table secuplink default via 10.42.23.1
+Yes, that's possible. I made some initial patches for this which we'll
+probably send soon.
 
-  $ ip rule add pref 100            table main prefixlength 1
-  $ ip rule add pref 150 fwmark 0xA table secuplink
+Sascha
 
-With this setup, packets marked 0xA will be processed by the additional routing
-table "secuplink", but only if no suitable route in the main routing table can
-be found. By using a minimal prefixlength of 1, the default route (/0) of the
-table "main" is hidden to packets processed by rule 100; packets traveling to
-destinations with more specific routing entries are processed as usual.
 
-Signed-off-by: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
----
- include/net/fib_rules.h        |    4 ++++
- include/uapi/linux/fib_rules.h |    2 +-
- net/core/fib_rules.c           |    8 ++++++++
- net/ipv4/fib_rules.c           |    9 +++++++++
- net/ipv6/fib6_rules.c          |   12 ++++++++++++
- 5 files changed, 34 insertions(+), 1 deletion(-)
-
-diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
-index e361f48..bb15664 100644
---- a/include/net/fib_rules.h
-+++ b/include/net/fib_rules.h
-@@ -18,6 +18,7 @@ struct fib_rule {
- 	u32			pref;
- 	u32			flags;
- 	u32			table;
-+	u8			table_prefixlen_min;
- 	u8			action;
- 	u32			target;
- 	struct fib_rule __rcu	*ctarget;
-@@ -46,6 +47,8 @@ struct fib_rules_ops {
- 	int			(*action)(struct fib_rule *,
- 					  struct flowi *, int,
- 					  struct fib_lookup_arg *);
-+	int			(*suppress)(struct fib_rule *,
-+					    struct fib_lookup_arg *);
- 	int			(*match)(struct fib_rule *,
- 					 struct flowi *, int);
- 	int			(*configure)(struct fib_rule *,
-@@ -80,6 +83,7 @@ struct fib_rules_ops {
- 	[FRA_FWMARK]	= { .type = NLA_U32 }, \
- 	[FRA_FWMASK]	= { .type = NLA_U32 }, \
- 	[FRA_TABLE]     = { .type = NLA_U32 }, \
-+	[FRA_TABLE_PREFIXLEN_MIN] = { .type = NLA_U8 }, \
- 	[FRA_GOTO]	= { .type = NLA_U32 }
- 
- static inline void fib_rule_get(struct fib_rule *rule)
-diff --git a/include/uapi/linux/fib_rules.h b/include/uapi/linux/fib_rules.h
-index 51da65b..59cd31b 100644
---- a/include/uapi/linux/fib_rules.h
-+++ b/include/uapi/linux/fib_rules.h
-@@ -45,7 +45,7 @@ enum {
- 	FRA_FLOW,	/* flow/class id */
- 	FRA_UNUSED6,
- 	FRA_UNUSED7,
--	FRA_UNUSED8,
-+	FRA_TABLE_PREFIXLEN_MIN,
- 	FRA_TABLE,	/* Extended table id */
- 	FRA_FWMASK,	/* mask for netfilter mark */
- 	FRA_OIFNAME,
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index 2173544..1e0e1f4 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -227,6 +227,9 @@ jumped:
- 			err = ops->action(rule, fl, flags, arg);
- 
- 		if (err != -EAGAIN) {
-+			if (ops->suppress && ops->suppress(rule, arg)) {
-+				continue;
-+			}
- 			if ((arg->flags & FIB_LOOKUP_NOREF) ||
- 			    likely(atomic_inc_not_zero(&rule->refcnt))) {
- 				arg->rule = rule;
-@@ -337,6 +340,8 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
- 	rule->action = frh->action;
- 	rule->flags = frh->flags;
- 	rule->table = frh_get_table(frh, tb);
-+	if (tb[FRA_TABLE_PREFIXLEN_MIN])
-+		rule->table_prefixlen_min = nla_get_u8(tb[FRA_TABLE_PREFIXLEN_MIN]);
- 
- 	if (!tb[FRA_PRIORITY] && ops->default_pref)
- 		rule->pref = ops->default_pref(ops);
-@@ -523,6 +528,7 @@ static inline size_t fib_rule_nlmsg_size(struct fib_rules_ops *ops,
- 			 + nla_total_size(IFNAMSIZ) /* FRA_OIFNAME */
- 			 + nla_total_size(4) /* FRA_PRIORITY */
- 			 + nla_total_size(4) /* FRA_TABLE */
-+			 + nla_total_size(1) /* FRA_TABLE_PREFIXLEN_MIN */
- 			 + nla_total_size(4) /* FRA_FWMARK */
- 			 + nla_total_size(4); /* FRA_FWMASK */
- 
-@@ -548,6 +554,8 @@ static int fib_nl_fill_rule(struct sk_buff *skb, struct fib_rule *rule,
- 	frh->table = rule->table;
- 	if (nla_put_u32(skb, FRA_TABLE, rule->table))
- 		goto nla_put_failure;
-+	if (nla_put_u8(skb, FRA_TABLE_PREFIXLEN_MIN, rule->table_prefixlen_min))
-+		goto nla_put_failure;
- 	frh->res1 = 0;
- 	frh->res2 = 0;
- 	frh->action = rule->action;
-diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-index 26aa65d..cb5fcc1 100644
---- a/net/ipv4/fib_rules.c
-+++ b/net/ipv4/fib_rules.c
-@@ -101,6 +101,14 @@ errout:
- 	return err;
- }
- 
-+static int fib4_rule_suppress(struct fib_rule *rule, struct fib_lookup_arg *arg) {
-+	/* do not accept result if the route does not meet the required prefix length */
-+	struct fib_result *result = (struct fib_result *) arg->result;
-+	if (result->prefixlen < rule->table_prefixlen_min) {
-+		return 1;
-+	}
-+	return 0;
-+}
- 
- static int fib4_rule_match(struct fib_rule *rule, struct flowi *fl, int flags)
- {
-@@ -267,6 +275,7 @@ static const struct fib_rules_ops __net_initconst fib4_rules_ops_template = {
- 	.rule_size	= sizeof(struct fib4_rule),
- 	.addr_size	= sizeof(u32),
- 	.action		= fib4_rule_action,
-+	.suppress	= fib4_rule_suppress,
- 	.match		= fib4_rule_match,
- 	.configure	= fib4_rule_configure,
- 	.delete		= fib4_rule_delete,
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index 2e1a432..dcba659 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -111,6 +111,17 @@ out:
- 	return rt == NULL ? -EAGAIN : 0;
- }
- 
-+static int fib6_rule_suppress(struct fib_rule *rule, struct fib_lookup_arg *arg) {
-+	struct rt6_info *rt = (struct rt6_info *) arg->result;
-+	/*
-+	 * do not accept result if the route does
-+	 * not meet the required prefix length
-+	 */
-+	if (rt->rt6i_dst.plen < rule->table_prefixlen_min) {
-+		return 1;
-+	}
-+	return 0;
-+}
- 
- static int fib6_rule_match(struct fib_rule *rule, struct flowi *fl, int flags)
- {
-@@ -244,6 +255,7 @@ static const struct fib_rules_ops __net_initconst fib6_rules_ops_template = {
- 	.addr_size		= sizeof(struct in6_addr),
- 	.action			= fib6_rule_action,
- 	.match			= fib6_rule_match,
-+	.suppress		= fib6_rule_suppress,
- 	.configure		= fib6_rule_configure,
- 	.compare		= fib6_rule_compare,
- 	.fill			= fib6_rule_fill,
 -- 
-1.7.10.4
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
