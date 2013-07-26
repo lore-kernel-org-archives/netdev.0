@@ -1,123 +1,61 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [net PATCH v2] 8139cp: Add dma_mapping_error checking
-Date: Fri, 26 Jul 2013 10:28:38 -0400
-Message-ID: <1374848918-17183-1-git-send-email-nhorman@tuxdriver.com>
-References: <1374516882-19131-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:52790 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757202Ab3GZO3F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 10:29:05 -0400
-In-Reply-To: <1374516882-19131-1-git-send-email-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v5 0/3] ARM: shmobile: lager: enable Ether
+Date: Fri, 26 Jul 2013 18:33:49 +0400
+Message-ID: <51F288CD.60608@cogentembedded.com>
+References: <1374656169-9241-1-git-send-email-horms+renesas@verge.net.au> <3554825.Zlt5jMD3jh@avalon> <20130726005506.GD28912@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
+	netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	Magnus Damm <magnus.damm@gmail.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20130726005506.GD28912@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Self explanitory dma_mapping_error addition to the 8139 driver, based on this:
-https://bugzilla.redhat.com/show_bug.cgi?id=947250
+Hello.
 
-It showed several backtraces arising for dma_map_* usage without checking the
-return code on the mapping.  Add the check and abort the rx/tx operation if its
-failed.  Untested as I have no hardware and the reporter has wandered off, but
-seems pretty straightforward.
+On 26-07-2013 4:55, Simon Horman wrote:
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Francois Romieu <romieu@fr.zoreil.com>
+>>> this short series enables the on-board ethernet
+>>> of the r8a7790 SoC for on lager board.
 
----
-Change notes:
+>>> It has a run-time dependency on
+>>> "sh_eth: add support for r8a7790 SoC"
 
-v2) Added stats update for tx_dropped as per Francois Romieu
----
- drivers/net/ethernet/realtek/8139cp.c | 37 +++++++++++++++++++++++++++++++++++
- 1 file changed, 37 insertions(+)
+>>> It has been built on top of renesas-next-20130724v2.
 
-diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
-index 0352345..ba0570a 100644
---- a/drivers/net/ethernet/realtek/8139cp.c
-+++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -533,6 +533,11 @@ rx_status_loop:
- 
- 		mapping = dma_map_single(&cp->pdev->dev, new_skb->data, buflen,
- 					 PCI_DMA_FROMDEVICE);
-+		if (dma_mapping_error(&cp->pdev->dev, mapping)) {
-+			kfree_skb(skb);
-+			break;
-+		}
-+
- 		cp->rx_skb[rx_tail] = new_skb;
- 
- 		cp_rx_skb(cp, skb, desc);
-@@ -749,6 +754,12 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 
- 		len = skb->len;
- 		mapping = dma_map_single(&cp->pdev->dev, skb->data, len, PCI_DMA_TODEVICE);
-+		if (dma_mapping_error(&cp->pdev->dev, mapping)) {
-+			kfree_skb(skb);
-+			cp->dev->stats.tx_dropped++;
-+			goto out_unlock;
-+		}
-+
- 		txd->opts2 = opts2;
- 		txd->addr = cpu_to_le64(mapping);
- 		wmb();
-@@ -786,6 +797,12 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 		first_len = skb_headlen(skb);
- 		first_mapping = dma_map_single(&cp->pdev->dev, skb->data,
- 					       first_len, PCI_DMA_TODEVICE);
-+		if (dma_mapping_error(&cp->pdev->dev, first_mapping)) {
-+			kfree_skb(skb);
-+			cp->dev->stats.tx_dropped++;
-+			goto out_unlock;
-+		}
-+
- 		cp->tx_skb[entry] = skb;
- 		entry = NEXT_TX(entry);
- 
-@@ -799,6 +816,21 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 			mapping = dma_map_single(&cp->pdev->dev,
- 						 skb_frag_address(this_frag),
- 						 len, PCI_DMA_TODEVICE);
-+			if (dma_mapping_error(&cp->pdev->dev, mapping)) {
-+				/* Unwind the mappnigs we have */
-+				for (frag = 0; frag+first_entry < entry; frag++) {
-+					cp->tx_skb[frag+first_entry] = NULL;
-+					txd = &cp->tx_ring[frag+first_entry];
-+					this_frag = &skb_shinfo(skb)->frags[frag];
-+					dma_unmap_single(&cp->pdev->dev, le64_to_cpu(txd->addr),
-+							 skb_frag_size(this_frag), PCI_DMA_TODEVICE);
-+				}
-+
-+				cp->dev->stats.tx_dropped++;
-+				kfree_skb(skb);
-+				goto out_unlock;
-+			}
-+
- 			eor = (entry == (CP_TX_RING_SIZE - 1)) ? RingEnd : 0;
- 
- 			ctrl = eor | len | DescOwn;
-@@ -859,6 +891,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 	if (TX_BUFFS_AVAIL(cp) <= (MAX_SKB_FRAGS + 1))
- 		netif_stop_queue(dev);
- 
-+out_unlock:
- 	spin_unlock_irqrestore(&cp->lock, intr_flags);
- 
- 	cpw8(TxPoll, NormalTxPoll);
-@@ -1054,6 +1087,10 @@ static int cp_refill_rx(struct cp_private *cp)
- 
- 		mapping = dma_map_single(&cp->pdev->dev, skb->data,
- 					 cp->rx_buf_sz, PCI_DMA_FROMDEVICE);
-+		if (dma_mapping_error(&cp->pdev->dev, mapping)) {
-+			kfree_skb(skb);
-+			goto err_out;
-+		}
- 		cp->rx_skb[i] = skb;
- 
- 		cp->rx_ring[i].opts2 = 0;
--- 
-1.8.1.4
+>>> Simon Horman (3):
+>>>    ARM: shmobile: r8a7790: clocks for Ether support
+>>>    ARM: shmobile: lager: enable Ether
+>>>    ARM: shmobile: lager: enable nfsroot in DTS
+
+>>>   arch/arm/boot/dts/r8a7790-lager.dts    |  2 +-
+>>>   arch/arm/mach-shmobile/board-lager.c   | 30 ++++++++++++++++++++++++++++++
+>>>   arch/arm/mach-shmobile/clock-r8a7790.c |  4 ++++
+>>>   3 files changed, 35 insertions(+), 1 deletion(-)
+
+>> With this series and "[PATCH 0/2 v4 net-next repost] sh_eth: Add support for
+>> r8a7790 SoC" applied on top of renesas-devel-20130725, booting the Lager
+>> board usually (about 90% of the time) results in receive FIFO overflows and
+>> disabling of the sh-eth IRQ:
+
+    Looking at the trace, disabling of IRQ is probably caused by something 
+other than RX FIFO overflow (when it caused disabling IRQ, there were no error 
+messages printed because RFE interrupt went completely unhandled). Probably 
+there's more interrupt mask issues lurking in the driver...
+
+> Thanks.
+
+> Unfortunately I am having trouble with using NFS root at all
+> in my test environment. I'll work with Magnus to resolve this issue.
+
+> Sergei do you have any idea what might be causing this?
+
+    No idea. I still don't have access to Lager and on BOCK-W we have no 
+issues with NFS. What are your symptoms?
+
+WBR, Sergei
+
