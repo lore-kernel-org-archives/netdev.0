@@ -1,40 +1,45 @@
-From: govind <govindarajulu90@gmail.com>
-Subject: Re: Updated FarSync driver
-Date: Sun, 28 Jul 2013 01:57:38 +0530
-Message-ID: <51F42D3A.1070200@gmail.com>
-References: <20121009072047.GB19159@elgon.mountain> <E603DC592C92B54A89CEF6B0919A0B1CA86BBBD5E2@SOLO.hq.farsitecommunications.com> <20130726234122.GH5585@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kevin Curtis <Kevin.Curtis@farsite.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20130726234122.GH5585@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
+From: Samuel Williams <sam8641@gmail.com>
+Subject: [PATCH] sky2: detect and prevent kernel panic from a possible faulty hardware
+Date: Sat, 27 Jul 2013 15:35:54 -0500
+Message-ID: <1374957354-10142-1-git-send-email-sam8641@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Samuel Williams <sam8641@gmail.com>
+To: mlindner@marvell.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/27/2013 05:11 AM, Dan Carpenter wrote:
-> On Fri, Jul 26, 2013 at 11:13:25AM +0100, Kevin Curtis wrote:
->> Hi David,
->>      I'd like to update the FarSync driver for our T-Series cards
->> in the latest Linux Kernel and I would also like to add a new
->> driver for our FarSync Flex USB device.
->>
->> Should I direct the patch to you?
->>
->
-> Read Documentation/SubmittingPatches
-> Use ./scripts/get_maintainer.pl to find who needs to be CC'd.
+A possible faulty hardware might interrupt with a status of 0xffffffff which
+may kernel panic if sky2 driver tries to handle it. Detecting this problem
+may avoid kernel panic.
 
-you can also go through
+Signed-off-by: Samuel Williams <sam8641@gmail.com>
+---
+ drivers/net/ethernet/marvell/sky2.c |   11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
 
-Write and Submit your first Linux kernel Patch - Greg KH 
-https://www.youtube.com/watch?v=LLBrBBImJt4
-Why I dont want your code - Greg KH https://www.youtube.com/watch?v=fMeH7wqOwXA
-
-helped me a lot.
-
-//govind
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index e09a8c6..43fe2f3 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -3049,8 +3049,17 @@ static int sky2_poll(struct napi_struct *napi, int work_limit)
+ 	int work_done = 0;
+ 	u16 idx;
+ 
+-	if (unlikely(status & Y2_IS_ERROR))
++	if (unlikely(status & Y2_IS_ERROR)) {
++		if (status == 0xFFFFFFFF) {
++			dev_err(&hw->pdev->dev,
++				"fatal hardware inturrupt error\n");
++			napi_complete(napi);
++			napi_disable(&hw->napi);
++			return 0;
++		}
+ 		sky2_err_intr(hw, status);
++	}
++
+ 
+ 	if (status & Y2_IS_IRQ_PHY1)
+ 		sky2_phy_intr(hw, 0);
+-- 
+1.7.10.4
