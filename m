@@ -1,44 +1,64 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next v4 1/7] vxlan: Add vxlan_handler.
-Date: Fri, 26 Jul 2013 16:52:20 -0700
-Message-ID: <20130726165220.1106ac41@nehalam.linuxnetplumber.net>
-References: <1374880488-2884-1-git-send-email-pshelar@nicira.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net PATCH] atl1c: Fix misuse of netdev_alloc_skb in refilling
+ rx ring
+Date: Sat, 27 Jul 2013 01:02:51 +0100
+Message-ID: <1374883371.1666.56.camel@bwh-desktop.uk.level5networks.com>
+References: <1374857234-1442-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Pravin B Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:58331 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756881Ab3GZXwX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jul 2013 19:52:23 -0400
-Received: by mail-pd0-f169.google.com with SMTP id y10so3448207pdj.0
-        for <netdev@vger.kernel.org>; Fri, 26 Jul 2013 16:52:23 -0700 (PDT)
-In-Reply-To: <1374880488-2884-1-git-send-email-pshelar@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, Jay Cliburn <jcliburn@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, <stable@vger.kernel.org>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1374857234-1442-1-git-send-email-nhorman@tuxdriver.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 26 Jul 2013 16:14:48 -0700
-Pravin B Shelar <pshelar@nicira.com> wrote:
-
-> vxlan and openvswitch modules needs to share port. Following
-> patch breaks down vxlan per port abstraction in two component.
-> So now vxlan_sock is broken into struct vxlan_sock handles socket
-> and vxlan_handler which handler for user of vxlan protocol.
+On Fri, 2013-07-26 at 12:47 -0400, Neil Horman wrote:
+> atl1c uses netdev_alloc_skb to refill its rx dma ring, but that call makes no
+> guarantees about the suitability of the memory for use in DMA.  As a result
+> we've gotten reports of atl1c drivers occasionally hanging and needing to be
+> reset:
+> https://bugzilla.kernel.org/show_bug.cgi?id=54021
 > 
-> Next commit will extend vxlan_handler for openvswitch.
+> Fix this by modifying the call to use the internal version __netdev_alloc_skb,
+> where you can set the gfp_mask explicitly to include GFP_DMA.
+
+This is a really bad idea.  GFP_DMA means allocation from the ISA DMA
+region (< 16 MB).  pci_map_single() takes care of allocating a bounce
+buffer if necessary.
+
+Ben.
+
+> Tested by two reporters in the above bug, who have the hardware to validate it.
+> Both report immediate cessation of the problem with this patch
 > 
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> CC: Jay Cliburn <jcliburn@gmail.com>
+> CC: "David S. Miller" <davem@davemloft.net>
+> CC: stable@vger.kernel.org
+> Tested-by: Luis Henrix <luis.henrix@gmail.com>
+> Tested-by: Vincent Alquier <vincent.alquier@gmail.com>
+> ---
+>  drivers/net/ethernet/atheros/atl1c/atl1c_main.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> index 786a874..d5e38d1 100644
+> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> @@ -1660,7 +1660,7 @@ static int atl1c_alloc_rx_buffer(struct atl1c_adapter *adapter)
+>  	while (next_info->flags & ATL1C_BUFFER_FREE) {
+>  		rfd_desc = ATL1C_RFD_DESC(rfd_ring, rfd_next_to_use);
+>  
+> -		skb = netdev_alloc_skb(adapter->netdev, adapter->rx_buffer_len);
+> +		skb = __netdev_alloc_skb(adapter->netdev, adapter->rx_buffer_len, GFP_ATOMIC|GFP_DMA);
+>  		if (unlikely(!skb)) {
+>  			if (netif_msg_rx_err(adapter))
+>  				dev_warn(&pdev->dev, "alloc rx buffer failed\n");
 
-Not sure why the added complexity here is needed.
-
-Since the are separate services, why not run them on separate
-UDP ports. Otherwise unless the kernel and the Openvswitch
-controller share state (which would be really hard given that
-OVS controller is in user space), the chance of overlapping
-configuration seems like a trap.
-
-There is already a lot of layering in VXLAN between the
-device, forwarding table, VNI, and multiple UDP sockets.
-Doing this needs more thought or persuasive use cases.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
