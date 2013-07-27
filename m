@@ -1,96 +1,62 @@
-From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@web.de>
-Subject: Re: [PATCHv2] bridge: disable snooping if there is no
-	querier
-Date: Sat, 27 Jul 2013 17:54:30 +0200
-Message-ID: <20130727155429.GE11914@Linus-Debian>
-References: <1374757046-12463-1-git-send-email-linus.luessing@web.de>
-	<1374760580-12920-1-git-send-email-linus.luessing@web.de>
-	<51F2F5D4.50409@baker-net.org.uk>
+From: Luis Henriques <luis.henriques@canonical.com>
+Subject: Re: [net PATCH] atl1c: Fix misuse of netdev_alloc_skb in refilling rx ring
+Date: Sat, 27 Jul 2013 17:25:17 +0100
+Message-ID: <87hafgrmvm.fsf@canonical.com>
+References: <1374857234-1442-1-git-send-email-nhorman@tuxdriver.com>
+	<8761vxfefj.fsf@canonical.com>
+	<20130726170251.GC11633@hmsreliant.think-freely.org>
+	<20130726.155618.987909338861687509.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>, Cong Wang <amwang@redhat.com>
-To: Adam Baker <linux@baker-net.org.uk>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <51F2F5D4.50409@baker-net.org.uk>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org, jcliburn@gmail.com,
+	stable@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20130726.155618.987909338861687509.davem@davemloft.net> (David
+	Miller's message of "Fri, 26 Jul 2013 15:56:18 -0700 (PDT)")
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 26, 2013 at 11:19:00PM +0100, Adam Baker wrote:
-> On 25/07/13 14:56, Linus L=C3=BCssing wrote:
-> >If there is no querier on a link then we won't get periodic reports an=
-d
-> >therefore won't be able to learn about multicast listeners behind port=
-s,
-> >potentially leading to lost multicast packets, especially for multicas=
-t
-> >listeners that joined before the creation of the bridge.
-> >
-> >These lost multicast packets can appear since c5c23260594
-> >("bridge: Add multicast_querier toggle and disable queries by default"=
-)
-> >in particular.
-> >
-> >With this patch we are flooding multicast packets if our querier is
-> >disabled and if we didn't detect any other querier.
-> >
-> >A grace period of the Maximum Response Delay of the querier is added t=
-o
-> >give multicast responses enough time to arrive and to be learned from
-> >before disabling the flooding behaviour again.
-> >
-> >Signed-off-by: Linus L=C3=BCssing<linus.luessing@web.de>
->=20
-> If the lack of queries if there is no other querier is unacceptable
-> to the majority of users (and I believe it is) then surely the
-> sensible option is to have the multicast querier toggle enabled by
-> default.
->=20
-> The toggle was added in the first place because the queries were
-> reported to be generating issues with certain other equipment. This
-> may have been because the queries by default have an invalid IP
-> address (although I have been unable to identify what equipment they
-> caused problems with so can't verify this).
->=20
-> If the only reason to turn the querier off is because it interferes
-> with other equipment then the solution to it being off by default
-> isn't to generate queries in some instances even if it is off but
-> rather to turn it on by default and only turn it off if it causes
-> problems. If multicast_query_use_ifaddr was also enabled by default
-> the the likelihood of the querier causing problems elsewhere should
-> be reduced.
->=20
-> Regards
->=20
-> Adam
+David Miller <davem@davemloft.net> writes:
 
-One more, general disadvantage I could see is, that in a network
-with multiple bridges basically a random one would become the querier
-and the according network segment would get hit by all the
-according multicast traffic. If the available bandwidth of links
-on your network varies, then you however usually want to have the
-querier in a "good" position of your network. Which might be a
-little harder to control if the querier is on by default.
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Fri, 26 Jul 2013 13:02:51 -0400
+>
+>> On Fri, Jul 26, 2013 at 05:56:16PM +0100, Luis Henriques wrote:
+>>> Neil Horman <nhorman@tuxdriver.com> writes:
+>>> 
+>>> > atl1c uses netdev_alloc_skb to refill its rx dma ring, but that call makes no
+>>> > guarantees about the suitability of the memory for use in DMA.  As a result
+>>> > we've gotten reports of atl1c drivers occasionally hanging and needing to be
+>>> > reset:
+>>> > https://bugzilla.kernel.org/show_bug.cgi?id=54021
+>>> >
+>>> > Fix this by modifying the call to use the internal version __netdev_alloc_skb,
+>>> > where you can set the gfp_mask explicitly to include GFP_DMA.
+>>> >
+>>> > Tested by two reporters in the above bug, who have the hardware to validate it.
+>>> > Both report immediate cessation of the problem with this patch
+>>> >
+>>> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+>>> > CC: Jay Cliburn <jcliburn@gmail.com>
+>>> > CC: "David S. Miller" <davem@davemloft.net>
+>>> > CC: stable@vger.kernel.org
+>>> > Tested-by: Luis Henrix <luis.henrix@gmail.com>
+>>> 
+>>> Thanks Neil!
+>>> 
+>>> Would it be possible for you to update my name and email?  (I've just
+>>> updated my bz account to remove my gmail account address -- I thought
+>>> I had done this ages ago.)
+>>> 
+>>> Tested-by: Luis Henriques <luis.henriques@canonical.com>
+>>> 
+>> I'm sure if Dave has time, he will square that up.
+>
+> I took care of this while applying Neil's patch, thanks.
 
-Also this specific, current querier implementation has two more
-disadvantages:=20
-* It's doing MLDv1/IGMPv2 queries, so it downgrades our whole
-  network to MLDv1/IGMPv2, no MLDv2/IGMPv3 and source specific
-  multicast could be used.
-* The querier selection is not RFC compliant (we should refrain
-  from sending queries if our address is higher, not if we hear
-  any query)
+Thanks!
 
-Cheers, Linus
+Cheers,
+-- 
+Luis
