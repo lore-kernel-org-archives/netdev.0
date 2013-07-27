@@ -1,49 +1,79 @@
-From: Prashant Shah <pshah.mumbai@gmail.com>
-Subject: Re: [PATCH] Change request_irq() to use struct net_device *dev->name
-Date: Sat, 27 Jul 2013 14:28:16 +0530
-Message-ID: <CAD6i1fKra9Z8C=jm-KYuWPwxd=u-8HMo8b=XJJOo8aS+4SdmWg@mail.gmail.com>
-References: <1374646199-9398-1-git-send-email-pshah.mumbai@gmail.com>
-	<51F07489.7010404@gmail.com>
-	<CAD6i1fJO3geZ0vkHLsJEd+KedHkpC1OZVTJJskU2RAAKYBhhJQ@mail.gmail.com>
-	<CAD6i1f+NYu7rcQwF-TXk4+OdjPNZwMKxxjJ9YA_+v9B6uPYq+g@mail.gmail.com>
-	<CAHp75VdouA2w5WjBPJ2cX8AKvTeCNrj6pM+3SS5DzU+ARM5M3Q@mail.gmail.com>
-	<CAP8WD_aKqqB4Fb4Vadj_AJ4ET5gxd+EkaCMMVvBxxqNwDjpBGg@mail.gmail.com>
-	<CAHp75VeqgqVdn+zRjW+McwFQfD73NhYz4X3M4ndeDZnkFmqyEg@mail.gmail.com>
-	<51F16F74.3070503@cogentembedded.com>
-	<20130725183824.GA32658@blackmetal.musicnaut.iki.fi>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: [PATCH 35/50] media: usb: cx231xx: spin_lock in complete() cleanup
+Date: Sat, 27 Jul 2013 17:34:07 +0800
+Message-ID: <CACVXFVMHecbxaGWe6-EeF-sDXRx0GnPHb4shRYOQxUXPbRMyGg@mail.gmail.com>
+References: <1373533573-12272-1-git-send-email-ming.lei@canonical.com>
+	<1373533573-12272-36-git-send-email-ming.lei@canonical.com>
+	<51F2878E.90705@xs4all.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kernel-mentors@selenic.com, Ryan Mallon <rmallon@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Andy Shevchenko <andy.shevchenko@gmail.com>, whiteheadm@acm.org
-To: Aaro Koskinen <aaro.koskinen@iki.fi>
-Return-path: <kernel-mentors-bounces@selenic.com>
-In-Reply-To: <20130725183824.GA32658@blackmetal.musicnaut.iki.fi>
-List-Unsubscribe: <http://selenic.com/mailman/options/kernel-mentors>,
-	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
-List-Archive: <http://selenic.com/pipermail/kernel-mentors>
-List-Post: <mailto:kernel-mentors@selenic.com>
-List-Help: <mailto:kernel-mentors-request@selenic.com?subject=help>
-List-Subscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
-	<mailto:kernel-mentors-request@selenic.com?subject=subscribe>
-Sender: kernel-mentors-bounces@selenic.com
-Errors-To: kernel-mentors-bounces@selenic.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	linux-input@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-media@vger.kernel.org, alsa-devel@alsa-project.org,
+	Mauro Carvalho Chehab <mchehab@redhat.com>,
+	Hans Verkuil <hans.verkuil@cisco.com>
+To: Hans Verkuil <hverkuil@xs4all.nl>
+Return-path: <linux-input-owner@vger.kernel.org>
+In-Reply-To: <51F2878E.90705@xs4all.nl>
+Sender: linux-input-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-On Fri, Jul 26, 2013 at 12:08 AM, Aaro Koskinen <aaro.koskinen@iki.fi> wrote:
-> Hi,
+On Fri, Jul 26, 2013 at 10:28 PM, Hans Verkuil <hverkuil@xs4all.nl> wrote:
 >
-> On Thu, Jul 25, 2013 at 10:33:24PM +0400, Sergei Shtylyov wrote:
->>    It's also called managed device API. In fact, I've never heard it
->> named devres API.
+>
+> On 07/11/2013 11:05 AM, Ming Lei wrote:
+>> Complete() will be run with interrupt enabled, so change to
+>> spin_lock_irqsave().
+>>
+>> Cc: Mauro Carvalho Chehab <mchehab@redhat.com>
+>> Cc: Hans Verkuil <hans.verkuil@cisco.com>
+>> Cc: linux-media@vger.kernel.org
+>> Signed-off-by: Ming Lei <ming.lei@canonical.com>
+>> ---
+>>  drivers/media/usb/cx231xx/cx231xx-audio.c |    6 ++++++
+>>  drivers/media/usb/cx231xx/cx231xx-core.c  |   10 ++++++----
+>>  drivers/media/usb/cx231xx/cx231xx-vbi.c   |    5 +++--
+>>  3 files changed, 15 insertions(+), 6 deletions(-)
+>>
+>> diff --git a/drivers/media/usb/cx231xx/cx231xx-audio.c b/drivers/media/usb/cx231xx/cx231xx-audio.c
+>> index 81a1d97..58c1b5c 100644
+>> --- a/drivers/media/usb/cx231xx/cx231xx-audio.c
+>> +++ b/drivers/media/usb/cx231xx/cx231xx-audio.c
+>> @@ -136,6 +136,7 @@ static void cx231xx_audio_isocirq(struct urb *urb)
+>>               stride = runtime->frame_bits >> 3;
+>>
+>>               for (i = 0; i < urb->number_of_packets; i++) {
+>> +                     unsigned long flags;
+>>                       int length = urb->iso_frame_desc[i].actual_length /
+>>                                    stride;
+>>                       cp = (unsigned char *)urb->transfer_buffer +
+>> @@ -158,6 +159,7 @@ static void cx231xx_audio_isocirq(struct urb *urb)
+>>                                      length * stride);
+>>                       }
+>>
+>> +                     local_irq_save(flags);
+>>                       snd_pcm_stream_lock(substream);
+>
+> Can't you use snd_pcm_stream_lock_irqsave here?
 
-If I understood it correctly it has to just calls
-devm_request_region() with the struct device pointer and there are no
-deallocation functions to call ? It manages deallocation on it own.
+Sure, that is already in my mind, :-)
 
-Regards.
+> Ditto for the other media drivers where this happens: em28xx and tlg2300.
+
+Yes.
+
+>
+> I've reviewed the media driver changes and they look OK to me, so if
+> my comment above is fixed, then I can merge them for 3.12. Or are these
+> changes required for 3.11?
+
+These are for 3.12.
+
+I will send out v2 next week, and thanks for your review.
+
+Thanks,
+--
+Ming Lei
