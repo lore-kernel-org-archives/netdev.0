@@ -1,38 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V2] tuntap: hardware vlan tx support
-Date: Sat, 27 Jul 2013 20:09:40 -0700 (PDT)
-Message-ID: <20130727.200940.1407377271115722165.davem@davemloft.net>
-References: <1374728433-19843-1-git-send-email-jasowang@redhat.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 0/2] USBNET: max rx/tx qlen change
+Date: Sat, 27 Jul 2013 20:11:13 -0700 (PDT)
+Message-ID: <20130727.201113.1881749060542907923.davem@davemloft.net>
+References: <1374731274-27415-1-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	basil.gor@gmail.com, mst@redhat.com
-To: jasowang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1374728433-19843-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, oneukum-l3A5Bk7waGM@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1374731274-27415-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Thu, 25 Jul 2013 13:00:33 +0800
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Date: Thu, 25 Jul 2013 13:47:52 +0800
 
-> Inspired by commit f09e2249c4f5c7c13261ec73f5a7807076af0c8e (macvtap: restore
-> vlan header on user read). This patch adds hardware vlan tx support for
-> tuntap. This is done by copying vlan header directly into userspace in
-> tun_put_user() instead of doing it through __vlan_put_tag() in
-> dev_hard_start_xmit(). This eliminates one unnecessary memmove() in
-> vlan_insert_tag() for 802.1ad and 802.1q traffic.
-> 
-> pktgen test shows about 20% improvement for 802.1q traffic:
-> 
-> Before:
->   662149pps 317Mb/sec (317831520bps) errors: 0
-> After:
->   801033pps 384Mb/sec (384495840bps) errors: 0
-> 
-> Cc: Basil Gor <basil.gor@gmail.com>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> There are two patches on computing max rx/tx qlen, and fix one
+> performance problem on USB3 NIC.
 
-Applied, thanks Jason.
+Applied to net-next, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
