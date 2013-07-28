@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/12] e1000e: fix I217/I218 PHY initialization flow
-Date: Sun, 28 Jul 2013 04:41:16 -0700
-Message-ID: <1375011676-30739-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/12] e1000e: do not resume device from RPM suspend to read PHY status registers
+Date: Sun, 28 Jul 2013 04:41:15 -0700
+Message-ID: <1375011676-30739-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1375011676-30739-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:10718 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:50676 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753516Ab3G1Llc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753512Ab3G1Llc (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 28 Jul 2013 07:41:32 -0400
 In-Reply-To: <1375011676-30739-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,172 +18,43 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-The initialization of the PHY on I217/I218, while similar to 82579, must
-also check to see if the MAC and PHY are in the same mode (PCIe vs. SMBus)
-otherwise the PHY will be inaccessible by the MAC.
+When the device is runtime suspended (e.g. when there is no link), do not
+wake it from D3 to read the PHY status; just set the values to typical
+power-on defaults as is done when runtime PM is not enabled and there is no
+link.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/ich8lan.c | 83 +++++++++++++++++------------
- 1 file changed, 50 insertions(+), 33 deletions(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 78d03d3..af08188 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -185,6 +185,7 @@ static bool e1000_phy_is_accessible_pchlan(struct e1000_hw *hw)
- 	u32 phy_id = 0;
- 	s32 ret_val;
- 	u16 retry_count;
-+	u32 mac_reg = 0;
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 650e569..e6d2c0f 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -4684,11 +4684,11 @@ static void e1000_phy_read_status(struct e1000_adapter *adapter)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	struct e1000_phy_regs *phy = &adapter->phy_regs;
  
- 	for (retry_count = 0; retry_count < 2; retry_count++) {
- 		ret_val = e1e_rphy_locked(hw, MII_PHYSID1, &phy_reg);
-@@ -203,11 +204,11 @@ static bool e1000_phy_is_accessible_pchlan(struct e1000_hw *hw)
+-	if ((er32(STATUS) & E1000_STATUS_LU) &&
++	if (!pm_runtime_suspended((&adapter->pdev->dev)->parent) &&
++	    (er32(STATUS) & E1000_STATUS_LU) &&
+ 	    (adapter->hw.phy.media_type == e1000_media_type_copper)) {
+ 		int ret_val;
  
- 	if (hw->phy.id) {
- 		if (hw->phy.id == phy_id)
--			return true;
-+			goto out;
- 	} else if (phy_id) {
- 		hw->phy.id = phy_id;
- 		hw->phy.revision = (u32)(phy_reg & ~PHY_REVISION_MASK);
--		return true;
-+		goto out;
- 	}
- 
- 	/* In case the PHY needs to be in mdio slow mode,
-@@ -219,7 +220,22 @@ static bool e1000_phy_is_accessible_pchlan(struct e1000_hw *hw)
- 		ret_val = e1000e_get_phy_id(hw);
- 	hw->phy.ops.acquire(hw);
- 
--	return !ret_val;
-+	if (ret_val)
-+		return false;
-+out:
-+	if (hw->mac.type == e1000_pch_lpt) {
-+		/* Unforce SMBus mode in PHY */
-+		e1e_rphy_locked(hw, CV_SMB_CTRL, &phy_reg);
-+		phy_reg &= ~CV_SMB_CTRL_FORCE_SMBUS;
-+		e1e_wphy_locked(hw, CV_SMB_CTRL, phy_reg);
-+
-+		/* Unforce SMBus mode in MAC */
-+		mac_reg = er32(CTRL_EXT);
-+		mac_reg &= ~E1000_CTRL_EXT_FORCE_SMBUS;
-+		ew32(CTRL_EXT, mac_reg);
-+	}
-+
-+	return true;
- }
- 
- /**
-@@ -233,7 +249,6 @@ static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
- {
- 	u32 mac_reg, fwsm = er32(FWSM);
- 	s32 ret_val;
--	u16 phy_reg;
- 
- 	/* Gate automatic PHY configuration by hardware on managed and
- 	 * non-managed 82579 and newer adapters.
-@@ -262,22 +277,16 @@ static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
- 		mac_reg |= E1000_CTRL_EXT_FORCE_SMBUS;
- 		ew32(CTRL_EXT, mac_reg);
- 
-+		/* Wait 50 milliseconds for MAC to finish any retries
-+		 * that it might be trying to perform from previous
-+		 * attempts to acknowledge any phy read requests.
-+		 */
-+		msleep(50);
-+
- 		/* fall-through */
- 	case e1000_pch2lan:
--		if (e1000_phy_is_accessible_pchlan(hw)) {
--			if (hw->mac.type == e1000_pch_lpt) {
--				/* Unforce SMBus mode in PHY */
--				e1e_rphy_locked(hw, CV_SMB_CTRL, &phy_reg);
--				phy_reg &= ~CV_SMB_CTRL_FORCE_SMBUS;
--				e1e_wphy_locked(hw, CV_SMB_CTRL, phy_reg);
--
--				/* Unforce SMBus mode in MAC */
--				mac_reg = er32(CTRL_EXT);
--				mac_reg &= ~E1000_CTRL_EXT_FORCE_SMBUS;
--				ew32(CTRL_EXT, mac_reg);
--			}
-+		if (e1000_phy_is_accessible_pchlan(hw))
- 			break;
--		}
- 
- 		/* fall-through */
- 	case e1000_pchlan:
-@@ -287,6 +296,7 @@ static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
- 
- 		if (hw->phy.ops.check_reset_block(hw)) {
- 			e_dbg("Required LANPHYPC toggle blocked by ME\n");
-+			ret_val = -E1000_ERR_PHY;
- 			break;
- 		}
- 
-@@ -298,15 +308,6 @@ static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
- 		mac_reg |= E1000_FEXTNVM3_PHY_CFG_COUNTER_50MSEC;
- 		ew32(FEXTNVM3, mac_reg);
- 
--		if (hw->mac.type == e1000_pch_lpt) {
--			/* Toggling LANPHYPC brings the PHY out of SMBus mode
--			 * So ensure that the MAC is also out of SMBus mode
--			 */
--			mac_reg = er32(CTRL_EXT);
--			mac_reg &= ~E1000_CTRL_EXT_FORCE_SMBUS;
--			ew32(CTRL_EXT, mac_reg);
--		}
--
- 		/* Toggle LANPHYPC Value bit */
- 		mac_reg = er32(CTRL);
- 		mac_reg |= E1000_CTRL_LANPHYPC_OVERRIDE;
-@@ -325,6 +326,21 @@ static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
- 				usleep_range(5000, 10000);
- 			} while (!(er32(CTRL_EXT) &
- 				   E1000_CTRL_EXT_LPCD) && count--);
-+			usleep_range(30000, 60000);
-+			if (e1000_phy_is_accessible_pchlan(hw))
-+				break;
-+
-+			/* Toggling LANPHYPC brings the PHY out of SMBus mode
-+			 * so ensure that the MAC is also out of SMBus mode
-+			 */
-+			mac_reg = er32(CTRL_EXT);
-+			mac_reg &= ~E1000_CTRL_EXT_FORCE_SMBUS;
-+			ew32(CTRL_EXT, mac_reg);
-+
-+			if (e1000_phy_is_accessible_pchlan(hw))
-+				break;
-+
-+			ret_val = -E1000_ERR_PHY;
- 		}
- 		break;
- 	default:
-@@ -332,13 +348,14 @@ static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
- 	}
- 
- 	hw->phy.ops.release(hw);
--
--	/* Reset the PHY before any access to it.  Doing so, ensures
--	 * that the PHY is in a known good state before we read/write
--	 * PHY registers.  The generic reset is sufficient here,
--	 * because we haven't determined the PHY type yet.
--	 */
--	ret_val = e1000e_phy_hw_reset_generic(hw);
-+	if (!ret_val) {
-+		/* Reset the PHY before any access to it.  Doing so, ensures
-+		 * that the PHY is in a known good state before we read/write
-+		 * PHY registers.  The generic reset is sufficient here,
-+		 * because we haven't determined the PHY type yet.
-+		 */
-+		ret_val = e1000e_phy_hw_reset_generic(hw);
-+	}
- 
- out:
- 	/* Ungate automatic PHY configuration on non-managed 82579 */
+-		pm_runtime_get_sync(&adapter->pdev->dev);
+ 		ret_val = e1e_rphy(hw, MII_BMCR, &phy->bmcr);
+ 		ret_val |= e1e_rphy(hw, MII_BMSR, &phy->bmsr);
+ 		ret_val |= e1e_rphy(hw, MII_ADVERTISE, &phy->advertise);
+@@ -4699,7 +4699,6 @@ static void e1000_phy_read_status(struct e1000_adapter *adapter)
+ 		ret_val |= e1e_rphy(hw, MII_ESTATUS, &phy->estatus);
+ 		if (ret_val)
+ 			e_warn("Error reading PHY register\n");
+-		pm_runtime_put_sync(&adapter->pdev->dev);
+ 	} else {
+ 		/* Do not read PHY registers if link is not up
+ 		 * Set values to typical power-on defaults
 -- 
 1.7.11.7
