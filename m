@@ -1,75 +1,77 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/12] e1000e: Use marco instead of digit for defining e1000_rx_desc_packet_split
-Date: Sun, 28 Jul 2013 04:41:08 -0700
-Message-ID: <1375011676-30739-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1375011676-30739-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Wei Yang <weiyang@linux.vnet.ibm.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/12][pull request] Intel Wired LAN Driver Updates
+Date: Sun, 28 Jul 2013 04:41:04 -0700
+Message-ID: <1375011676-30739-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:43491 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753427Ab3G1Ll0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Jul 2013 07:41:26 -0400
-In-Reply-To: <1375011676-30739-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1753412Ab3G1LlW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Jul 2013 07:41:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
+This series contains updates to e100 and e1000e.
 
-In structure e1000_rx_desc_packet_split, the size of wb.upper.length is
-defined by a digit. This may introduce some problem when the length is
-changed.
+The e100 patch from Andy simply updates the netif_printk() to use
+%*ph to dump small buffers.
 
-This patch use the macro PS_PAGE_BUFFERS for the definition. And move the
-definition to hw.h.
+The changes to e1000e include a fix from Dean Nelson to resolve a
+issue where a pci_clear_master() was accidentally dropped during a
+conflict resolution. Wei Young provides 2 patches, one removes an
+assignment of the default ring size because it was a duplicate. The
+second changes the packet split receive structure to use
+PS_PAGE_BUFFERS macro for the length so that problems won't occur
+when the length is changed.
 
-Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/e1000.h | 3 ---
- drivers/net/ethernet/intel/e1000e/hw.h    | 6 +++++-
- 2 files changed, 5 insertions(+), 4 deletions(-)
+The remaining patches for e1000e are from Bruce Allan, where he
+provides a number of fixes and updates for I218.  In addition, a
+fix for 82583 which can disappear off the PCIe bus, to resolve this,
+disable ASPM L1.  Bruce also provides a fix to a previous commit
+(commit e60b22c5b7 e1000e: fix accessing to suspended device) so that
+devices are only taken out of runtime power management for those
+ethtool operations that must access device registers.
 
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index ffbc08f..ad0edd1 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -90,9 +90,6 @@ struct e1000_info;
- 
- #define E1000_MNG_VLAN_NONE		(-1)
- 
--/* Number of packet split data buffers (not including the header buffer) */
--#define PS_PAGE_BUFFERS			(MAX_PS_BUFFERS - 1)
--
- #define DEFAULT_JUMBO			9234
- 
- /* Time to wait before putting the device into D3 if there's no link (in ms). */
-diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
-index a6f903a..cee565d 100644
---- a/drivers/net/ethernet/intel/e1000e/hw.h
-+++ b/drivers/net/ethernet/intel/e1000e/hw.h
-@@ -227,6 +227,9 @@ union e1000_rx_desc_extended {
- };
- 
- #define MAX_PS_BUFFERS 4
-+
-+/* Number of packet split data buffers (not including the header buffer) */
-+#define PS_PAGE_BUFFERS			(MAX_PS_BUFFERS - 1)
- /* Receive Descriptor - Packet Split */
- union e1000_rx_desc_packet_split {
- 	struct {
-@@ -251,7 +254,8 @@ union e1000_rx_desc_packet_split {
- 		} middle;
- 		struct {
- 			__le16 header_status;
--			__le16 length[3];	/* length of buffers 1-3 */
-+			/* length of buffers 1-3 */
-+			__le16 length[PS_PAGE_BUFFERS];
- 		} upper;
- 		__le64 reserved;
- 	} wb; /* writeback */
+The following are changes since commit dcfe8048de66c3468060c8a2ec2c04ae3725d002:
+  bonding: remove bond_resend_igmp_join_requests read_unlock leftover
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Andy Shevchenko (1):
+  e100: dump small buffers via %*ph
+
+Bruce Allan (8):
+  e1000e: disable ASPM L1 on 82583
+  e1000e: iAMT connections drop on driver unload when jumbo frames
+    enabled
+  e1000e: low throughput using 4K jumbos on I218
+  e1000e: Tx hang on I218 when linked at 100Half and slow response at
+    10Mbps
+  e1000e: ethtool unnecessarily takes device out of RPM suspend
+  e1000e: enable support for new device IDs
+  e1000e: do not resume device from RPM suspend to read PHY status
+    registers
+  e1000e: fix I217/I218 PHY initialization flow
+
+Dean Nelson (1):
+  e1000e: restore call to pci_clear_master()
+
+Wei Yang (2):
+  e1000e: Remove duplicate assignment of default rx/tx ring size
+  e1000e: Use marco instead of digit for defining
+    e1000_rx_desc_packet_split
+
+ drivers/net/ethernet/intel/e100.c           |  15 ++-
+ drivers/net/ethernet/intel/e1000e/82571.c   |   1 +
+ drivers/net/ethernet/intel/e1000e/e1000.h   |   3 -
+ drivers/net/ethernet/intel/e1000e/ethtool.c | 105 +++++++++++++++------
+ drivers/net/ethernet/intel/e1000e/hw.h      |  10 +-
+ drivers/net/ethernet/intel/e1000e/ich8lan.c | 140 +++++++++++++++++++---------
+ drivers/net/ethernet/intel/e1000e/ich8lan.h |   6 ++
+ drivers/net/ethernet/intel/e1000e/netdev.c  |  38 ++++----
+ 8 files changed, 217 insertions(+), 101 deletions(-)
+
 -- 
 1.7.11.7
