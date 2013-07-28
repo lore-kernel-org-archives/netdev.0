@@ -1,419 +1,81 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next] net/mlx4_core: Respond to operation request by firmware
-Date: Sun, 28 Jul 2013 18:54:21 +0300
-Message-ID: <1375026861-14215-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net PATCH] atl1c: Fix misuse of netdev_alloc_skb in refilling
+ rx ring
+Date: Sun, 28 Jul 2013 09:15:54 -0700
+Message-ID: <1375028154.3669.30.camel@edumazet-glaptop>
+References: <87k3kbdcmy.fsf@canonical.com>
+	 <1374960610.3607.13.camel@deadeye.wl.decadent.org.uk>
+	 <1374969583.3669.23.camel@edumazet-glaptop>
+	 <20130727.200205.67471633133830510.davem@davemloft.net>
+	 <20130728104446.GB9876@neilslaptop.think-freely.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
+	luis.henriques@canonical.com, netdev@vger.kernel.org,
+	jcliburn@gmail.com, stable@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:49256 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753713Ab3G1P4t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Jul 2013 11:56:49 -0400
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:34125 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753547Ab3G1QP4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jul 2013 12:15:56 -0400
+In-Reply-To: <20130728104446.GB9876@neilslaptop.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.com>
+On Sun, 2013-07-28 at 06:44 -0400, Neil Horman wrote:
+> On Sat, Jul 27, 2013 at 08:02:05PM -0700, David Miller wrote:
+> > From: Eric Dumazet <eric.dumazet@gmail.com>
+> > Date: Sat, 27 Jul 2013 16:59:43 -0700
+> > 
+> > > If a hardware needs frame being in a single 4K page, its driver must do
+> > > its own allocation, or add appropriate aligning logic.
+> > 
+> > Whatever the cause the original patch in this thread is not the
+> > correct fix and I've thus reverted it.
+> > 
+> 
+> So what exactly is the consensus here?  We can certainly modify the patch to
+> ensure allocation on a 4k boundary, and within a unique 4k page, but thats just
+> a guess at the problem, and the Qualcomm people have been silent on the issue
+> for weeks now.
+> 
 
-This commit adds new firmware command and new firmware event.  The firmware
-raises the MLX4_EVENT_TYPE_OP_REQUIRED event in order to signal the driver it
-needs to perform an administrative operation throughout the MLX4_CMD_GET_OP_REQ
-command. At the moment the supported operation is adding/removing multicast
-entries which are used by the firmware for handling NCSI traffic in B0
-steering mode.
+Thats the guess yes, but since MTU can be more than 4096 bytes, it could
+be something else, some kind of DMA problem.
 
-Also, had to swap the order of mlx4_init_mcg_table() and
-mlx4_init_eq_table() to make sure that driver will get events only after
-resources are initialized to handle it.
+I wonder why rx_buffer_len includes VLAN_HLEN as this nic provides
+accelerated vlan.
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.com>
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.com>
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/cmd.c  |   18 +++++
- drivers/net/ethernet/mellanox/mlx4/eq.c   |    9 +++
- drivers/net/ethernet/mellanox/mlx4/fw.c   |  104 +++++++++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/fw.h   |    1 +
- drivers/net/ethernet/mellanox/mlx4/main.c |   35 +++++-----
- drivers/net/ethernet/mellanox/mlx4/mcg.c  |   11 ---
- drivers/net/ethernet/mellanox/mlx4/mlx4.h |   13 ++++
- include/linux/mlx4/cmd.h                  |    1 +
- include/linux/mlx4/device.h               |    1 +
- 9 files changed, 166 insertions(+), 27 deletions(-)
+drivers/net/ethernet/atheros/atl1c/atl1c_main.c uses :
+ hw->dmar_block = atl1c_dma_req_1024;
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 299d018..141322c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -809,6 +809,15 @@ int MLX4_CMD_UPDATE_QP_wrapper(struct mlx4_dev *dev, int slave,
- 	return -EPERM;
- }
- 
-+int MLX4_CMD_GET_OP_REQ_wrapper(struct mlx4_dev *dev, int slave,
-+		     struct mlx4_vhcr *vhcr,
-+		     struct mlx4_cmd_mailbox *inbox,
-+		     struct mlx4_cmd_mailbox *outbox,
-+		     struct mlx4_cmd_info *cmd)
-+{
-+	return -EPERM;
-+}
-+
- int mlx4_DMA_wrapper(struct mlx4_dev *dev, int slave,
- 		     struct mlx4_vhcr *vhcr,
- 		     struct mlx4_cmd_mailbox *inbox,
-@@ -1252,6 +1261,15 @@ static struct mlx4_cmd_info cmd_info[] = {
- 		.wrapper = MLX4_CMD_UPDATE_QP_wrapper
- 	},
- 	{
-+		.opcode = MLX4_CMD_GET_OP_REQ,
-+		.has_inbox = false,
-+		.has_outbox = false,
-+		.out_is_imm = false,
-+		.encode_slave_id = false,
-+		.verify = NULL,
-+		.wrapper = MLX4_CMD_GET_OP_REQ_wrapper,
-+	},
-+	{
- 		.opcode = MLX4_CMD_CONF_SPECIAL_QP,
- 		.has_inbox = false,
- 		.has_outbox = false,
-diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
-index 7e04286..0416c5b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
-@@ -79,6 +79,7 @@ enum {
- 			       (1ull << MLX4_EVENT_TYPE_SRQ_QP_LAST_WQE)    | \
- 			       (1ull << MLX4_EVENT_TYPE_SRQ_LIMIT)	    | \
- 			       (1ull << MLX4_EVENT_TYPE_CMD)		    | \
-+			       (1ull << MLX4_EVENT_TYPE_OP_REQUIRED)	    | \
- 			       (1ull << MLX4_EVENT_TYPE_COMM_CHANNEL)       | \
- 			       (1ull << MLX4_EVENT_TYPE_FLR_EVENT)	    | \
- 			       (1ull << MLX4_EVENT_TYPE_FATAL_WARNING))
-@@ -629,6 +630,14 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- 			mlx4_warn(dev, "EQ overrun on EQN %d\n", eq->eqn);
- 			break;
- 
-+		case MLX4_EVENT_TYPE_OP_REQUIRED:
-+			atomic_inc(&priv->opreq_count);
-+			/* FW commands can't be executed from interrupt context
-+			 * working in deferred task
-+			 */
-+			queue_work(mlx4_wq, &priv->opreq_task);
-+			break;
-+
- 		case MLX4_EVENT_TYPE_COMM_CHANNEL:
- 			if (!mlx4_is_master(dev)) {
- 				mlx4_warn(dev, "Received comm channel event "
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 8873d68..aec6f58 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -1705,3 +1705,107 @@ int mlx4_wol_write(struct mlx4_dev *dev, u64 config, int port)
- 			MLX4_CMD_TIME_CLASS_A, MLX4_CMD_NATIVE);
- }
- EXPORT_SYMBOL_GPL(mlx4_wol_write);
-+
-+enum {
-+	ADD_TO_MCG = 0x26,
-+};
-+
-+
-+void mlx4_opreq_action(struct work_struct *work)
-+{
-+	struct mlx4_priv *priv = container_of(work, struct mlx4_priv,
-+					      opreq_task);
-+	struct mlx4_dev *dev = &priv->dev;
-+	int num_tasks = atomic_read(&priv->opreq_count);
-+	struct mlx4_cmd_mailbox *mailbox;
-+	struct mlx4_mgm *mgm;
-+	u32 *outbox;
-+	u32 modifier;
-+	u16 token;
-+	u16 type_m;
-+	u16 type;
-+	int err;
-+	u32 num_qps;
-+	struct mlx4_qp qp;
-+	int i;
-+	u8 rem_mcg;
-+	u8 prot;
-+
-+#define GET_OP_REQ_MODIFIER_OFFSET	0x08
-+#define GET_OP_REQ_TOKEN_OFFSET		0x14
-+#define GET_OP_REQ_TYPE_OFFSET		0x1a
-+#define GET_OP_REQ_DATA_OFFSET		0x20
-+
-+	mailbox = mlx4_alloc_cmd_mailbox(dev);
-+	if (IS_ERR(mailbox)) {
-+		mlx4_err(dev, "Failed to allocate mailbox for GET_OP_REQ\n");
-+		return;
-+	}
-+	outbox = mailbox->buf;
-+
-+	while (num_tasks) {
-+		err = mlx4_cmd_box(dev, 0, mailbox->dma, 0, 0,
-+				   MLX4_CMD_GET_OP_REQ, MLX4_CMD_TIME_CLASS_A,
-+				   MLX4_CMD_NATIVE);
-+		if (err) {
-+			mlx4_err(dev, "Failed to retreive required operation: %d\n",
-+				 err);
-+			return;
-+		}
-+		MLX4_GET(modifier, outbox, GET_OP_REQ_MODIFIER_OFFSET);
-+		MLX4_GET(token, outbox, GET_OP_REQ_TOKEN_OFFSET);
-+		MLX4_GET(type, outbox, GET_OP_REQ_TYPE_OFFSET);
-+		type_m = type >> 12;
-+		type &= 0xfff;
-+
-+		switch (type) {
-+		case ADD_TO_MCG:
-+			if (dev->caps.steering_mode ==
-+			    MLX4_STEERING_MODE_DEVICE_MANAGED) {
-+				mlx4_warn(dev, "ADD MCG operation is not supported in DEVICE_MANAGED steering mode\n");
-+				err = EPERM;
-+				break;
-+			}
-+			mgm = (struct mlx4_mgm *)((u8 *)(outbox) +
-+						  GET_OP_REQ_DATA_OFFSET);
-+			num_qps = be32_to_cpu(mgm->members_count) &
-+				  MGM_QPN_MASK;
-+			rem_mcg = ((u8 *)(&mgm->members_count))[0] & 1;
-+			prot = ((u8 *)(&mgm->members_count))[0] >> 6;
-+
-+			for (i = 0; i < num_qps; i++) {
-+				qp.qpn = be32_to_cpu(mgm->qp[i]);
-+				if (rem_mcg)
-+					err = mlx4_multicast_detach(dev, &qp,
-+								    mgm->gid,
-+								    prot, 0);
-+				else
-+					err = mlx4_multicast_attach(dev, &qp,
-+								    mgm->gid,
-+								    mgm->gid[5]
-+								    , 0, prot,
-+								    NULL);
-+				if (err)
-+					break;
-+			}
-+			break;
-+		default:
-+			mlx4_warn(dev, "Bad type for required operation\n");
-+			err = EINVAL;
-+			break;
-+		}
-+		err = mlx4_cmd(dev, 0, ((u32) err | cpu_to_be32(token) << 16),
-+			       1, MLX4_CMD_GET_OP_REQ, MLX4_CMD_TIME_CLASS_A,
-+			       MLX4_CMD_NATIVE);
-+		if (err) {
-+			mlx4_err(dev, "Failed to acknowledge required request: %d\n",
-+				 err);
-+			goto out;
-+		}
-+		memset(outbox, 0, 0xffc);
-+		num_tasks = atomic_dec_return(&priv->opreq_count);
-+	}
-+
-+out:
-+	mlx4_free_cmd_mailbox(dev, mailbox);
-+}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.h b/drivers/net/ethernet/mellanox/mlx4/fw.h
-index fdf4166..a0a368b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.h
-@@ -220,5 +220,6 @@ int mlx4_MAP_ICM_AUX(struct mlx4_dev *dev, struct mlx4_icm *icm);
- int mlx4_UNMAP_ICM_AUX(struct mlx4_dev *dev);
- int mlx4_NOP(struct mlx4_dev *dev);
- int mlx4_MOD_STAT_CFG(struct mlx4_dev *dev, struct mlx4_mod_stat_cfg *cfg);
-+void mlx4_opreq_action(struct work_struct *work);
- 
- #endif /* MLX4_FW_H */
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index e85af92..f1d818f 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -1692,11 +1692,19 @@ static int mlx4_setup_hca(struct mlx4_dev *dev)
- 		goto err_xrcd_table_free;
- 	}
- 
-+	if (!mlx4_is_slave(dev)) {
-+		err = mlx4_init_mcg_table(dev);
-+		if (err) {
-+			mlx4_err(dev, "Failed to initialize multicast group table, aborting.\n");
-+			goto err_mr_table_free;
-+		}
-+	}
-+
- 	err = mlx4_init_eq_table(dev);
- 	if (err) {
- 		mlx4_err(dev, "Failed to initialize "
- 			 "event queue table, aborting.\n");
--		goto err_mr_table_free;
-+		goto err_mcg_table_free;
- 	}
- 
- 	err = mlx4_cmd_use_events(dev);
-@@ -1746,19 +1754,10 @@ static int mlx4_setup_hca(struct mlx4_dev *dev)
- 		goto err_srq_table_free;
- 	}
- 
--	if (!mlx4_is_slave(dev)) {
--		err = mlx4_init_mcg_table(dev);
--		if (err) {
--			mlx4_err(dev, "Failed to initialize "
--				 "multicast group table, aborting.\n");
--			goto err_qp_table_free;
--		}
--	}
--
- 	err = mlx4_init_counters_table(dev);
- 	if (err && err != -ENOENT) {
- 		mlx4_err(dev, "Failed to initialize counters table, aborting.\n");
--		goto err_mcg_table_free;
-+		goto err_qp_table_free;
- 	}
- 
- 	if (!mlx4_is_slave(dev)) {
-@@ -1803,9 +1802,6 @@ static int mlx4_setup_hca(struct mlx4_dev *dev)
- err_counters_table_free:
- 	mlx4_cleanup_counters_table(dev);
- 
--err_mcg_table_free:
--	mlx4_cleanup_mcg_table(dev);
--
- err_qp_table_free:
- 	mlx4_cleanup_qp_table(dev);
- 
-@@ -1821,6 +1817,10 @@ err_cmd_poll:
- err_eq_table_free:
- 	mlx4_cleanup_eq_table(dev);
- 
-+err_mcg_table_free:
-+	if (!mlx4_is_slave(dev))
-+		mlx4_cleanup_mcg_table(dev);
-+
- err_mr_table_free:
- 	mlx4_cleanup_mr_table(dev);
- 
-@@ -2197,6 +2197,9 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
- 			}
- 		}
- 
-+		atomic_set(&priv->opreq_count, 0);
-+		INIT_WORK(&priv->opreq_task, mlx4_opreq_action);
-+
- 		/*
- 		 * Now reset the HCA before we touch the PCI capabilities or
- 		 * attempt a firmware command, since a boot ROM may have left
-@@ -2315,12 +2318,12 @@ err_port:
- 		mlx4_cleanup_port_info(&priv->port[port]);
- 
- 	mlx4_cleanup_counters_table(dev);
--	mlx4_cleanup_mcg_table(dev);
- 	mlx4_cleanup_qp_table(dev);
- 	mlx4_cleanup_srq_table(dev);
- 	mlx4_cleanup_cq_table(dev);
- 	mlx4_cmd_use_polling(dev);
- 	mlx4_cleanup_eq_table(dev);
-+	mlx4_cleanup_mcg_table(dev);
- 	mlx4_cleanup_mr_table(dev);
- 	mlx4_cleanup_xrcd_table(dev);
- 	mlx4_cleanup_pd_table(dev);
-@@ -2403,12 +2406,12 @@ static void mlx4_remove_one(struct pci_dev *pdev)
- 						   RES_TR_FREE_SLAVES_ONLY);
- 
- 		mlx4_cleanup_counters_table(dev);
--		mlx4_cleanup_mcg_table(dev);
- 		mlx4_cleanup_qp_table(dev);
- 		mlx4_cleanup_srq_table(dev);
- 		mlx4_cleanup_cq_table(dev);
- 		mlx4_cmd_use_polling(dev);
- 		mlx4_cleanup_eq_table(dev);
-+		mlx4_cleanup_mcg_table(dev);
- 		mlx4_cleanup_mr_table(dev);
- 		mlx4_cleanup_xrcd_table(dev);
- 		mlx4_cleanup_pd_table(dev);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index f3e804f..55f6245 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -39,19 +39,8 @@
- 
- #include "mlx4.h"
- 
--#define MGM_QPN_MASK       0x00FFFFFF
--#define MGM_BLCK_LB_BIT    30
--
- static const u8 zero_gid[16];	/* automatically initialized to 0 */
- 
--struct mlx4_mgm {
--	__be32			next_gid_index;
--	__be32			members_count;
--	u32			reserved[2];
--	u8			gid[16];
--	__be32			qp[MLX4_MAX_QP_PER_MGM];
--};
--
- int mlx4_get_mgm_entry_size(struct mlx4_dev *dev)
- {
- 	return 1 << dev->oper_log_mgm_entry_size;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index 17d9277..348bb8c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -554,6 +554,17 @@ struct mlx4_mfunc {
- 	struct mlx4_mfunc_master_ctx	master;
- };
- 
-+#define MGM_QPN_MASK       0x00FFFFFF
-+#define MGM_BLCK_LB_BIT    30
-+
-+struct mlx4_mgm {
-+	__be32			next_gid_index;
-+	__be32			members_count;
-+	u32			reserved[2];
-+	u8			gid[16];
-+	__be32			qp[MLX4_MAX_QP_PER_MGM];
-+};
-+
- struct mlx4_cmd {
- 	struct pci_pool	       *pool;
- 	void __iomem	       *hcr;
-@@ -802,6 +813,8 @@ struct mlx4_priv {
- 	u8 virt2phys_pkey[MLX4_MFUNC_MAX][MLX4_MAX_PORTS][MLX4_MAX_PORT_PKEYS];
- 	__be64			slave_node_guids[MLX4_MFUNC_MAX];
- 
-+	atomic_t		opreq_count;
-+	struct work_struct	opreq_task;
- };
- 
- static inline struct mlx4_priv *mlx4_priv(struct mlx4_dev *dev)
-diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
-index bb1c809..cd1fdf7 100644
---- a/include/linux/mlx4/cmd.h
-+++ b/include/linux/mlx4/cmd.h
-@@ -69,6 +69,7 @@ enum {
- 	MLX4_CMD_SET_ICM_SIZE	 = 0xffd,
- 	/*master notify fw on finish for slave's flr*/
- 	MLX4_CMD_INFORM_FLR_DONE = 0x5b,
-+	MLX4_CMD_GET_OP_REQ      = 0x59,
- 
- 	/* TPT commands */
- 	MLX4_CMD_SW2HW_MPT	 = 0xd,
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 52c23a8..6aebdfe 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -207,6 +207,7 @@ enum mlx4_event {
- 	MLX4_EVENT_TYPE_CMD		   = 0x0a,
- 	MLX4_EVENT_TYPE_VEP_UPDATE	   = 0x19,
- 	MLX4_EVENT_TYPE_COMM_CHANNEL	   = 0x18,
-+	MLX4_EVENT_TYPE_OP_REQUIRED	   = 0x1a,
- 	MLX4_EVENT_TYPE_FATAL_WARNING	   = 0x1b,
- 	MLX4_EVENT_TYPE_FLR_EVENT	   = 0x1c,
- 	MLX4_EVENT_TYPE_PORT_MNG_CHG_EVENT = 0x1d,
--- 
-1.7.1
+while drivers/net/ethernet/atheros/atlx/atl1.c uses :
+ hw->dmar_block = atl1_dma_req_256;
+
+drivers/net/ethernet/atheros/atlx/atl1.c also has this code around line
+1962 :
+
+                        /* rrd seems to be bad */
+                        if (unlikely(i-- > 0)) {
+                                /* rrd may not be DMAed completely */
+                                udelay(1);
+                                goto chk_rrd;
+                        }
+
+
+I would add the following debugging aid just to make sure...
+
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+index 786a874..4c794f9 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -1794,6 +1794,7 @@ rrs_checked:
+ 				buffer_info->length, PCI_DMA_FROMDEVICE);
+ 			skb = buffer_info->skb;
+ 		} else {
++			WARN_ON_ONCE(1);
+ 			/* TODO */
+ 			if (netif_msg_rx_err(adapter))
+ 				dev_warn(&pdev->dev,
