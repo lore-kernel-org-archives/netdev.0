@@ -1,151 +1,45 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/12] e1000e: Tx hang on I218 when linked at 100Half and slow response at 10Mbps
-Date: Sun, 28 Jul 2013 04:41:12 -0700
-Message-ID: <1375011676-30739-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/12] e1000e: disable ASPM L1 on 82583
+Date: Sun, 28 Jul 2013 04:41:09 -0700
+Message-ID: <1375011676-30739-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1375011676-30739-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:50676 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:43491 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753442Ab3G1Lla (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Jul 2013 07:41:30 -0400
+	id S1753427Ab3G1Ll2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Jul 2013 07:41:28 -0400
 In-Reply-To: <1375011676-30739-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Tx hang is an unintended consequence of another workaround that is in the
-EEPROM for an issue with the firmware at 10Mbps when K1 (a power mode of
-the MAC-PHY interconnect) is enabled.  The issue is resolved by setting
-appropriate Tx re-transmission timeouts in the PHY and associated K1 entry
-times in the MAC to allow enough transmissions to occur without triggering
-a Tx hang.  A similar change is needed when linked at 10Mbps to improve
-latency.
+The 82583 can disappear off the PCIe bus.  This device is a modified 82574
+which had the same problem which was fixed by disabling ASPM L1; disabling
+it on 82583 fixes the issue on this device.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/ich8lan.c | 49 ++++++++++++++++++++++++-----
- drivers/net/ethernet/intel/e1000e/ich8lan.h |  6 ++++
- 2 files changed, 48 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/e1000e/82571.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 9dde390..b56c61a 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -793,29 +793,31 @@ release:
-  *  When K1 is enabled for 1Gbps, the MAC can miss 2 DMA completion indications
-  *  preventing further DMA write requests.  Workaround the issue by disabling
-  *  the de-assertion of the clock request when in 1Gpbs mode.
-+ *  Also, set appropriate Tx re-transmission timeouts for 10 and 100Half link
-+ *  speeds in order to avoid Tx hangs.
-  **/
- static s32 e1000_k1_workaround_lpt_lp(struct e1000_hw *hw, bool link)
- {
- 	u32 fextnvm6 = er32(FEXTNVM6);
-+	u32 status = er32(STATUS);
- 	s32 ret_val = 0;
-+	u16 reg;
- 
--	if (link && (er32(STATUS) & E1000_STATUS_SPEED_1000)) {
--		u16 kmrn_reg;
--
-+	if (link && (status & E1000_STATUS_SPEED_1000)) {
- 		ret_val = hw->phy.ops.acquire(hw);
- 		if (ret_val)
- 			return ret_val;
- 
- 		ret_val =
- 		    e1000e_read_kmrn_reg_locked(hw, E1000_KMRNCTRLSTA_K1_CONFIG,
--						&kmrn_reg);
-+						&reg);
- 		if (ret_val)
- 			goto release;
- 
- 		ret_val =
- 		    e1000e_write_kmrn_reg_locked(hw,
- 						 E1000_KMRNCTRLSTA_K1_CONFIG,
--						 kmrn_reg &
-+						 reg &
- 						 ~E1000_KMRNCTRLSTA_K1_ENABLE);
- 		if (ret_val)
- 			goto release;
-@@ -827,12 +829,45 @@ static s32 e1000_k1_workaround_lpt_lp(struct e1000_hw *hw, bool link)
- 		ret_val =
- 		    e1000e_write_kmrn_reg_locked(hw,
- 						 E1000_KMRNCTRLSTA_K1_CONFIG,
--						 kmrn_reg);
-+						 reg);
- release:
- 		hw->phy.ops.release(hw);
- 	} else {
- 		/* clear FEXTNVM6 bit 8 on link down or 10/100 */
--		ew32(FEXTNVM6, fextnvm6 & ~E1000_FEXTNVM6_REQ_PLL_CLK);
-+		fextnvm6 &= ~E1000_FEXTNVM6_REQ_PLL_CLK;
-+
-+		if (!link || ((status & E1000_STATUS_SPEED_100) &&
-+			      (status & E1000_STATUS_FD)))
-+			goto update_fextnvm6;
-+
-+		ret_val = e1e_rphy(hw, I217_INBAND_CTRL, &reg);
-+		if (ret_val)
-+			return ret_val;
-+
-+		/* Clear link status transmit timeout */
-+		reg &= ~I217_INBAND_CTRL_LINK_STAT_TX_TIMEOUT_MASK;
-+
-+		if (status & E1000_STATUS_SPEED_100) {
-+			/* Set inband Tx timeout to 5x10us for 100Half */
-+			reg |= 5 << I217_INBAND_CTRL_LINK_STAT_TX_TIMEOUT_SHIFT;
-+
-+			/* Do not extend the K1 entry latency for 100Half */
-+			fextnvm6 &= ~E1000_FEXTNVM6_ENABLE_K1_ENTRY_CONDITION;
-+		} else {
-+			/* Set inband Tx timeout to 50x10us for 10Full/Half */
-+			reg |= 50 <<
-+			    I217_INBAND_CTRL_LINK_STAT_TX_TIMEOUT_SHIFT;
-+
-+			/* Extend the K1 entry latency for 10 Mbps */
-+			fextnvm6 |= E1000_FEXTNVM6_ENABLE_K1_ENTRY_CONDITION;
-+		}
-+
-+		ret_val = e1e_wphy(hw, I217_INBAND_CTRL, reg);
-+		if (ret_val)
-+			return ret_val;
-+
-+update_fextnvm6:
-+		ew32(FEXTNVM6, fextnvm6);
- 	}
- 
- 	return ret_val;
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.h b/drivers/net/ethernet/intel/e1000e/ich8lan.h
-index 80034a2..5986569 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.h
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.h
-@@ -93,6 +93,7 @@
- #define E1000_FEXTNVM4_BEACON_DURATION_16USEC	0x3
- 
- #define E1000_FEXTNVM6_REQ_PLL_CLK	0x00000100
-+#define E1000_FEXTNVM6_ENABLE_K1_ENTRY_CONDITION	0x00000200
- 
- #define PCIE_ICH8_SNOOP_ALL	PCIE_NO_SNOOP_ALL
- 
-@@ -197,6 +198,11 @@
- 
- #define SW_FLAG_TIMEOUT		1000	/* SW Semaphore flag timeout in ms */
- 
-+/* Inband Control */
-+#define I217_INBAND_CTRL				PHY_REG(770, 18)
-+#define I217_INBAND_CTRL_LINK_STAT_TX_TIMEOUT_MASK	0x3F00
-+#define I217_INBAND_CTRL_LINK_STAT_TX_TIMEOUT_SHIFT	8
-+
- /* PHY Low Power Idle Control */
- #define I82579_LPI_CTRL				PHY_REG(772, 20)
- #define I82579_LPI_CTRL_100_ENABLE		0x2000
+diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
+index 4c303e2..104fcec 100644
+--- a/drivers/net/ethernet/intel/e1000e/82571.c
++++ b/drivers/net/ethernet/intel/e1000e/82571.c
+@@ -2057,6 +2057,7 @@ const struct e1000_info e1000_82583_info = {
+ 				  | FLAG_HAS_JUMBO_FRAMES
+ 				  | FLAG_HAS_CTRLEXT_ON_LOAD,
+ 	.flags2			= FLAG2_DISABLE_ASPM_L0S
++				  | FLAG2_DISABLE_ASPM_L1
+ 				  | FLAG2_NO_DISABLE_RX,
+ 	.pba			= 32,
+ 	.max_hw_frame_size	= DEFAULT_JUMBO,
 -- 
 1.7.11.7
