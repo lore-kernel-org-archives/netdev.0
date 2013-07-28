@@ -1,8 +1,8 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [net PATCH] atl1c: Fix misuse of netdev_alloc_skb in refilling
  rx ring
-Date: Sun, 28 Jul 2013 16:20:54 -0700
-Message-ID: <1375053654.3669.58.camel@edumazet-glaptop>
+Date: Sun, 28 Jul 2013 16:25:05 -0700
+Message-ID: <1375053905.3669.59.camel@edumazet-glaptop>
 References: <87k3kbdcmy.fsf@canonical.com>
 	 <1374960610.3607.13.camel@deadeye.wl.decadent.org.uk>
 	 <1374969583.3669.23.camel@edumazet-glaptop>
@@ -12,6 +12,7 @@ References: <87k3kbdcmy.fsf@canonical.com>
 	 <20130728185318.GA10795@neilslaptop.think-freely.org>
 	 <1375042972.2546.17.camel@deadeye.wl.decadent.org.uk>
 	 <1375052482.3669.54.camel@edumazet-glaptop>
+	 <1375053654.3669.58.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -21,70 +22,88 @@ Cc: Neil Horman <nhorman@tuxdriver.com>,
 	jcliburn@gmail.com, stable@vger.kernel.org
 To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:38415 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751089Ab3G1XU4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jul 2013 19:20:56 -0400
-In-Reply-To: <1375052482.3669.54.camel@edumazet-glaptop>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:48569 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751089Ab3G1XZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jul 2013 19:25:07 -0400
+In-Reply-To: <1375053654.3669.58.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-07-28 at 16:01 -0700, Eric Dumazet wrote:
-> On Sun, 2013-07-28 at 21:22 +0100, Ben Hutchings wrote:
-> 
+On Sun, 2013-07-28 at 16:20 -0700, Eric Dumazet wrote:
+> On Sun, 2013-07-28 at 16:01 -0700, Eric Dumazet wrote:
+> > On Sun, 2013-07-28 at 21:22 +0100, Ben Hutchings wrote:
 > > 
-> > Since we know lengths > 4K work, perhaps it would be worth testing with
-> > the fragment cache size reduced to 16K?  The driver would never
-> > previously have used RX buffers crossing 16K boundaries, except if SLOB
-> > was used (and that's an unlikely combination).
+> > > 
+> > > Since we know lengths > 4K work, perhaps it would be worth testing with
+> > > the fragment cache size reduced to 16K?  The driver would never
+> > > previously have used RX buffers crossing 16K boundaries, except if SLOB
+> > > was used (and that's an unlikely combination).
+> > 
+> > Sure, please note the following maths :
+> > 
+> > NET_SKB_PAD + 1536 + sizeof(struct skb_shared_info) = 1920
+> > 
+> > 16384/1920 = 8
+> > 
+> > 32768/1920 = 17
+> > 
+> > I don't think atl1c is used in any critical host (given it doesn't even
+> > provide RX checksums and GRO ...), so I will provide a patch doing mere
+> > page allocations.
+> > 
 > 
-> Sure, please note the following maths :
+> Oh well, look at code around line 2530
 > 
-> NET_SKB_PAD + 1536 + sizeof(struct skb_shared_info) = 1920
+>         * The atl1c chip can DMA to 64-bit addresses, but it uses a single
+>          * shared register for the high 32 bits, so only a single, aligned,
+>          * 4 GB physical address range can be used at a time.
+>          *
+>          * Supporting 64-bit DMA on this hardware is more trouble than it's
+>          * worth.  It is far easier to limit to 32-bit DMA than update
+>          * various kernel subsystems to support the mechanics required by a
+>          * fixed-high-32-bit system.
+>          */
+>         if ((pci_set_dma_mask(pdev, DMA_BIT_MASK(32)) != 0) ||
+>             (pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32)) != 0)) {
+>                 dev_err(&pdev->dev, "No usable DMA configuration,aborting\n");
+>                 goto err_dma;
+>         }
 > 
-> 16384/1920 = 8
+> It looks like we have a winner !
 > 
-> 32768/1920 = 17
+> This $@!? really needs DMA32 allocations.
 > 
-> I don't think atl1c is used in any critical host (given it doesn't even
-> provide RX checksums and GRO ...), so I will provide a patch doing mere
-> page allocations.
+> Currently only tested on TX patch, it needs same care on RX
+> 
+> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> index 786a874..e2ee962 100644
+> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> @@ -1660,7 +1660,8 @@ static int atl1c_alloc_rx_buffer(struct atl1c_adapter *adapter)
+>  	while (next_info->flags & ATL1C_BUFFER_FREE) {
+>  		rfd_desc = ATL1C_RFD_DESC(rfd_ring, rfd_next_to_use);
+>  
+> -		skb = netdev_alloc_skb(adapter->netdev, adapter->rx_buffer_len);
+> +		skb = __netdev_alloc_skb(adapter->netdev, adapter->rx_buffer_len,
+> +					 GFP_ATOMIC | GFP_DMA32);
+>  		if (unlikely(!skb)) {
+>  			if (netif_msg_rx_err(adapter))
+>  				dev_warn(&pdev->dev, "alloc rx buffer failed\n");
 > 
 
-Oh well, look at code around line 2530
+And this needs following patch as well :
 
-        * The atl1c chip can DMA to 64-bit addresses, but it uses a single
-         * shared register for the high 32 bits, so only a single, aligned,
-         * 4 GB physical address range can be used at a time.
-         *
-         * Supporting 64-bit DMA on this hardware is more trouble than it's
-         * worth.  It is far easier to limit to 32-bit DMA than update
-         * various kernel subsystems to support the mechanics required by a
-         * fixed-high-32-bit system.
-         */
-        if ((pci_set_dma_mask(pdev, DMA_BIT_MASK(32)) != 0) ||
-            (pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32)) != 0)) {
-                dev_err(&pdev->dev, "No usable DMA configuration,aborting\n");
-                goto err_dma;
-        }
-
-It looks like we have a winner !
-
-This $@!? really needs DMA32 allocations.
-
-Currently only tested on TX patch, it needs same care on RX
-
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index 786a874..e2ee962 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -1660,7 +1660,8 @@ static int atl1c_alloc_rx_buffer(struct atl1c_adapter *adapter)
- 	while (next_info->flags & ATL1C_BUFFER_FREE) {
- 		rfd_desc = ATL1C_RFD_DESC(rfd_ring, rfd_next_to_use);
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 3df4d4c..1871ed8 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -441,7 +441,7 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
+ 	unsigned int fragsz = SKB_DATA_ALIGN(length + NET_SKB_PAD) +
+ 			      SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
  
--		skb = netdev_alloc_skb(adapter->netdev, adapter->rx_buffer_len);
-+		skb = __netdev_alloc_skb(adapter->netdev, adapter->rx_buffer_len,
-+					 GFP_ATOMIC | GFP_DMA32);
- 		if (unlikely(!skb)) {
- 			if (netif_msg_rx_err(adapter))
- 				dev_warn(&pdev->dev, "alloc rx buffer failed\n");
+-	if (fragsz <= PAGE_SIZE && !(gfp_mask & (__GFP_WAIT | GFP_DMA))) {
++	if (fragsz <= PAGE_SIZE && !(gfp_mask & (__GFP_WAIT | GFP_DMA | GFP_DMA32))) {
+ 		void *data;
+ 
+ 		if (sk_memalloc_socks())
