@@ -1,34 +1,45 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [net PATCH v2] 8139cp: Add dma_mapping_error checking
-Date: Sun, 28 Jul 2013 23:34:19 +0200
-Message-ID: <20130728213419.GA14253@electric-eye.fr.zoreil.com>
-References: <1374516882-19131-1-git-send-email-nhorman@tuxdriver.com>
- <1374848918-17183-1-git-send-email-nhorman@tuxdriver.com>
- <20130726200630.GA20690@electric-eye.fr.zoreil.com>
- <20130726204245.GD11633@hmsreliant.think-freely.org>
- <20130726212403.GA25674@electric-eye.fr.zoreil.com>
- <20130728104052.GA9876@neilslaptop.think-freely.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net PATCH] atl1c: Fix misuse of netdev_alloc_skb in refilling
+ rx ring
+Date: Sun, 28 Jul 2013 16:01:22 -0700
+Message-ID: <1375052482.3669.54.camel@edumazet-glaptop>
+References: <87k3kbdcmy.fsf@canonical.com>
+	 <1374960610.3607.13.camel@deadeye.wl.decadent.org.uk>
+	 <1374969583.3669.23.camel@edumazet-glaptop>
+	 <20130727.200205.67471633133830510.davem@davemloft.net>
+	 <20130728104446.GB9876@neilslaptop.think-freely.org>
+	 <1375028154.3669.30.camel@edumazet-glaptop>
+	 <20130728185318.GA10795@neilslaptop.think-freely.org>
+	 <1375042972.2546.17.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:34889 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751650Ab3G1Ved (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jul 2013 17:34:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20130728104052.GA9876@neilslaptop.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	David Miller <davem@davemloft.net>,
+	luis.henriques@canonical.com, netdev@vger.kernel.org,
+	jcliburn@gmail.com, stable@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1375042972.2546.17.camel@deadeye.wl.decadent.org.uk>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Neil Horman <nhorman@tuxdriver.com> :
-[...]
-> So you agree with the patch as it stands?
+On Sun, 2013-07-28 at 21:22 +0100, Ben Hutchings wrote:
 
-This part, yes.
+> 
+> Since we know lengths > 4K work, perhaps it would be worth testing with
+> the fragment cache size reduced to 16K?  The driver would never
+> previously have used RX buffers crossing 16K boundaries, except if SLOB
+> was used (and that's an unlikely combination).
 
-However I still see a need for a rx_dropped increase.
+Sure, please note the following maths :
 
--- 
-Ueimor
+NET_SKB_PAD + 1536 + sizeof(struct skb_shared_info) = 1920
+
+16384/1920 = 8
+
+32768/1920 = 17
+
+I don't think atl1c is used in any critical host (given it doesn't even
+provide RX checksums and GRO ...), so I will provide a patch doing mere
+page allocations.
