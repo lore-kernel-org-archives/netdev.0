@@ -1,77 +1,56 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/12][pull request] Intel Wired LAN Driver Updates
-Date: Sun, 28 Jul 2013 04:41:04 -0700
-Message-ID: <1375011676-30739-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 02/12] e1000e: restore call to pci_clear_master()
+Date: Sun, 28 Jul 2013 04:41:06 -0700
+Message-ID: <1375011676-30739-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1375011676-30739-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Dean Nelson <dnelson@redhat.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:43491 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753412Ab3G1LlW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Jul 2013 07:41:22 -0400
+	id S1753469Ab3G1LlX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Jul 2013 07:41:23 -0400
+In-Reply-To: <1375011676-30739-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to e100 and e1000e.
+From: Dean Nelson <dnelson@redhat.com>
 
-The e100 patch from Andy simply updates the netif_printk() to use
-%*ph to dump small buffers.
+In attempting to resolve a minor merge conflict, commit e5f2ef7ab4690d2e8faa
+(Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net) accidentally
+dropped a call to pci_clear_master() that was intended to remain in place.
 
-The changes to e1000e include a fix from Dean Nelson to resolve a
-issue where a pci_clear_master() was accidentally dropped during a
-conflict resolution. Wei Young provides 2 patches, one removes an
-assignment of the default ring size because it was a duplicate. The
-second changes the packet split receive structure to use
-PS_PAGE_BUFFERS macro for the length so that problems won't occur
-when the length is changed.
+Commit 4e0855dff094b0d56d6b (e1000e: fix pci-device enable-counter balance)
+replaced a call to pci_disable_device() by one to pci_clear_master(). And then
+commit 66148babe728f3e00e13 (e1000e: fix runtime power management transitions)
+deleted a number of lines starting two lines following that call.
 
-The remaining patches for e1000e are from Bruce Allan, where he
-provides a number of fixes and updates for I218.  In addition, a
-fix for 82583 which can disappear off the PCIe bus, to resolve this,
-disable ASPM L1.  Bruce also provides a fix to a previous commit
-(commit e60b22c5b7 e1000e: fix accessing to suspended device) so that
-devices are only taken out of runtime power management for those
-ethtool operations that must access device registers.
+This patch restores the call to pci_clear_master() in __e1000_shutdown().
 
-The following are changes since commit dcfe8048de66c3468060c8a2ec2c04ae3725d002:
-  bonding: remove bond_resend_igmp_join_requests read_unlock leftover
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+v2: added summary lines (enclosed in parens) following commit IDs
 
-Andy Shevchenko (1):
-  e100: dump small buffers via %*ph
+Signed-off-by: Dean Nelson <dnelson@redhat.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Acked-by: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Bruce Allan (8):
-  e1000e: disable ASPM L1 on 82583
-  e1000e: iAMT connections drop on driver unload when jumbo frames
-    enabled
-  e1000e: low throughput using 4K jumbos on I218
-  e1000e: Tx hang on I218 when linked at 100Half and slow response at
-    10Mbps
-  e1000e: ethtool unnecessarily takes device out of RPM suspend
-  e1000e: enable support for new device IDs
-  e1000e: do not resume device from RPM suspend to read PHY status
-    registers
-  e1000e: fix I217/I218 PHY initialization flow
-
-Dean Nelson (1):
-  e1000e: restore call to pci_clear_master()
-
-Wei Yang (2):
-  e1000e: Remove duplicate assignment of default rx/tx ring size
-  e1000e: Use marco instead of digit for defining
-    e1000_rx_desc_packet_split
-
- drivers/net/ethernet/intel/e100.c           |  15 ++-
- drivers/net/ethernet/intel/e1000e/82571.c   |   1 +
- drivers/net/ethernet/intel/e1000e/e1000.h   |   3 -
- drivers/net/ethernet/intel/e1000e/ethtool.c | 105 +++++++++++++++------
- drivers/net/ethernet/intel/e1000e/hw.h      |  10 +-
- drivers/net/ethernet/intel/e1000e/ich8lan.c | 140 +++++++++++++++++++---------
- drivers/net/ethernet/intel/e1000e/ich8lan.h |   6 ++
- drivers/net/ethernet/intel/e1000e/netdev.c  |  38 ++++----
- 8 files changed, 217 insertions(+), 101 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 77f81cb..5475cf4 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -5995,6 +5995,8 @@ static int __e1000_shutdown(struct pci_dev *pdev, bool runtime)
+ 	 */
+ 	e1000e_release_hw_control(adapter);
+ 
++	pci_clear_master(pdev);
++
+ 	/* The pci-e switch on some quad port adapters will report a
+ 	 * correctable error when the MAC transitions from D0 to D3.  To
+ 	 * prevent this we need to mask off the correctable errors on the
 -- 
 1.7.11.7
