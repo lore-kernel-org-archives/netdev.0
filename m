@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 0/7] openvswitch: VXLAN tunneling.
-Date: Sat, 27 Jul 2013 19:27:06 -0700 (PDT)
-Message-ID: <20130727.192706.956748015327892413.davem@davemloft.net>
-References: <1374880482-2846-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [net PATCH] atl1c: Fix misuse of netdev_alloc_skb in refilling
+ rx ring
+Date: Sat, 27 Jul 2013 20:02:05 -0700 (PDT)
+Message-ID: <20130727.200205.67471633133830510.davem@davemloft.net>
+References: <87k3kbdcmy.fsf@canonical.com>
+	<1374960610.3607.13.camel@deadeye.wl.decadent.org.uk>
+	<1374969583.3669.23.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: pshelar@nicira.com
+Cc: bhutchings@solarflare.com, luis.henriques@canonical.com,
+	nhorman@tuxdriver.com, netdev@vger.kernel.org, jcliburn@gmail.com,
+	stable@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51702 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52002 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752953Ab3G1C1J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Jul 2013 22:27:09 -0400
-In-Reply-To: <1374880482-2846-1-git-send-email-pshelar@nicira.com>
+	with ESMTP id S1753007Ab3G1DCG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Jul 2013 23:02:06 -0400
+In-Reply-To: <1374969583.3669.23.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Fri, 26 Jul 2013 16:14:42 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 27 Jul 2013 16:59:43 -0700
 
-> First three vxlan patches extends vxlan so that openvswitch 
-> can share vxlan udp port with vxlan module. Rest of patches
-> refactors vxlan data plane so that ovs can share that
-> code with vxlan module.
-> Last patch adds vxlan-vport to openvswitch.
+> If a hardware needs frame being in a single 4K page, its driver must do
+> its own allocation, or add appropriate aligning logic.
 
-Thanks Pravin, my concerns are addressed, I look forward to
-seeing this in it's final form from Stephen et al.
+Whatever the cause the original patch in this thread is not the
+correct fix and I've thus reverted it.
