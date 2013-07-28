@@ -1,57 +1,71 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -mainline v2] af_key: more info leaks in pfkey messages
-Date: Sun, 28 Jul 2013 23:04:45 +0300
-Message-ID: <20130728200444.GA8684@elgon.mountain>
-References: <20130725073205.GQ3109@secunet.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net PATCH] atl1c: Fix misuse of netdev_alloc_skb in refilling
+ rx ring
+Date: Sun, 28 Jul 2013 13:08:33 -0700
+Message-ID: <1375042113.3669.40.camel@edumazet-glaptop>
+References: <87k3kbdcmy.fsf@canonical.com>
+	 <1374960610.3607.13.camel@deadeye.wl.decadent.org.uk>
+	 <1374969583.3669.23.camel@edumazet-glaptop>
+	 <20130727.200205.67471633133830510.davem@davemloft.net>
+	 <20130728104446.GB9876@neilslaptop.think-freely.org>
+	 <1375028154.3669.30.camel@edumazet-glaptop>
+	 <20130728185318.GA10795@neilslaptop.think-freely.org>
+	 <1375039316.3669.36.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org,
-	Mathias Krause <minipli@googlemail.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130725073205.GQ3109@secunet.com>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
+	luis.henriques@canonical.com, netdev@vger.kernel.org,
+	jcliburn@gmail.com, stable@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1375039316.3669.36.camel@edumazet-glaptop>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is inspired by a5cc68f3d6 "af_key: fix info leaks in notify
-messages".  There are some struct members which don't get initialized
-and could disclose small amounts of private information.
+On Sun, 2013-07-28 at 12:21 -0700, Eric Dumazet wrote:
 
-Acked-by: Mathias Krause <minipli@googlemail.com>
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-v2: set ->sadb_x_policy_priority correctly instead of just clearing it
+> 
+> btw, this driver leaks skb horribly in this error path :
+> 
+>                 if (rrs->word3 & (RRS_RX_ERR_SUM | RRS_802_3_LEN_ERR)) {
+>                         atl1c_clean_rfd(rfd_ring, rrs, rfd_num);
+>                                 if (netif_msg_rx_err(adapter))
+>                                         dev_warn(&pdev->dev,
+>                                                 "wrong packet! rrs word3 is %x\n",
+>                                                 rrs->word3);
+>                         continue;
+>                 }
 
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 456b262..d49f676 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -2081,6 +2081,7 @@ static int pfkey_xfrm_policy2msg(struct sk_buff *skb, const struct xfrm_policy *
- 			pol->sadb_x_policy_type = IPSEC_POLICY_NONE;
- 	}
- 	pol->sadb_x_policy_dir = dir+1;
-+	pol->sadb_x_policy_reserved = 0;
- 	pol->sadb_x_policy_id = xp->index;
- 	pol->sadb_x_policy_priority = xp->priority;
+Possible fix would be :
+
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+index 786a874..e815c23 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -1729,11 +1729,16 @@ static void atl1c_clean_rfd(struct atl1c_rfd_ring *rfd_ring,
+ 	u16 i;
+ 	u16 rfd_index;
+ 	struct atl1c_buffer *buffer_info = rfd_ring->buffer_info;
++	struct sk_buff *skb;
  
-@@ -3137,7 +3138,9 @@ static int pfkey_send_acquire(struct xfrm_state *x, struct xfrm_tmpl *t, struct
- 	pol->sadb_x_policy_exttype = SADB_X_EXT_POLICY;
- 	pol->sadb_x_policy_type = IPSEC_POLICY_IPSEC;
- 	pol->sadb_x_policy_dir = XFRM_POLICY_OUT + 1;
-+	pol->sadb_x_policy_reserved = 0;
- 	pol->sadb_x_policy_id = xp->index;
-+	pol->sadb_x_policy_priority = xp->priority;
- 
- 	/* Set sadb_comb's. */
- 	if (x->id.proto == IPPROTO_AH)
-@@ -3525,6 +3528,7 @@ static int pfkey_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
- 	pol->sadb_x_policy_exttype = SADB_X_EXT_POLICY;
- 	pol->sadb_x_policy_type = IPSEC_POLICY_IPSEC;
- 	pol->sadb_x_policy_dir = dir + 1;
-+	pol->sadb_x_policy_reserved = 0;
- 	pol->sadb_x_policy_id = 0;
- 	pol->sadb_x_policy_priority = 0;
- 
+ 	rfd_index = (rrs->word0 >> RRS_RX_RFD_INDEX_SHIFT) &
+ 			RRS_RX_RFD_INDEX_MASK;
+ 	for (i = 0; i < num; i++) {
+-		buffer_info[rfd_index].skb = NULL;
++		skb = buffer_info[rfd_index].skb;
++		if (skb) {
++			kfree_skb(skb);
++			buffer_info[rfd_index].skb = NULL;
++		}
+ 		ATL1C_SET_BUFFER_STATE(&buffer_info[rfd_index],
+ 					ATL1C_BUFFER_FREE);
+ 		if (++rfd_index == rfd_ring->count)
+@@ -1793,6 +1798,7 @@ rrs_checked:
+ 			pci_unmap_single(pdev, buffer_info->dma,
+ 				buffer_info->length, PCI_DMA_FROMDEVICE);
+ 			skb = buffer_info->skb;
++			buffer_info->skb = NULL;
+ 		} else {
+ 			/* TODO */
+ 			if (netif_msg_rx_err(adapter))
