@@ -1,41 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net PATCH] atl1c: Fix misuse of netdev_alloc_skb in refilling
- rx ring
-Date: Sun, 28 Jul 2013 12:21:56 -0700
-Message-ID: <1375039316.3669.36.camel@edumazet-glaptop>
-References: <87k3kbdcmy.fsf@canonical.com>
-	 <1374960610.3607.13.camel@deadeye.wl.decadent.org.uk>
-	 <1374969583.3669.23.camel@edumazet-glaptop>
-	 <20130727.200205.67471633133830510.davem@davemloft.net>
-	 <20130728104446.GB9876@neilslaptop.think-freely.org>
-	 <1375028154.3669.30.camel@edumazet-glaptop>
-	 <20130728185318.GA10795@neilslaptop.think-freely.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch -mainline v2] af_key: more info leaks in pfkey messages
+Date: Sun, 28 Jul 2013 23:04:45 +0300
+Message-ID: <20130728200444.GA8684@elgon.mountain>
+References: <20130725073205.GQ3109@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
-	luis.henriques@canonical.com, netdev@vger.kernel.org,
-	jcliburn@gmail.com, stable@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20130728185318.GA10795@neilslaptop.think-freely.org>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org,
+	Mathias Krause <minipli@googlemail.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130725073205.GQ3109@secunet.com>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2013-07-28 at 14:53 -0400, Neil Horman wrote:
->  
-> I agree, I think perhaps a loop higher up prior to the rrs_checked label to
-> ensure that rfd_num is at least 1 prior to going through the rest of the rx
-> path.  I'll have something for the reporters to test tomorrow.
-> 
+This is inspired by a5cc68f3d6 "af_key: fix info leaks in notify
+messages".  There are some struct members which don't get initialized
+and could disclose small amounts of private information.
 
-btw, this driver leaks skb horribly in this error path :
+Acked-by: Mathias Krause <minipli@googlemail.com>
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+v2: set ->sadb_x_policy_priority correctly instead of just clearing it
 
-                if (rrs->word3 & (RRS_RX_ERR_SUM | RRS_802_3_LEN_ERR)) {
-                        atl1c_clean_rfd(rfd_ring, rrs, rfd_num);
-                                if (netif_msg_rx_err(adapter))
-                                        dev_warn(&pdev->dev,
-                                                "wrong packet! rrs word3 is %x\n",
-                                                rrs->word3);
-                        continue;
-                }
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 456b262..d49f676 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -2081,6 +2081,7 @@ static int pfkey_xfrm_policy2msg(struct sk_buff *skb, const struct xfrm_policy *
+ 			pol->sadb_x_policy_type = IPSEC_POLICY_NONE;
+ 	}
+ 	pol->sadb_x_policy_dir = dir+1;
++	pol->sadb_x_policy_reserved = 0;
+ 	pol->sadb_x_policy_id = xp->index;
+ 	pol->sadb_x_policy_priority = xp->priority;
+ 
+@@ -3137,7 +3138,9 @@ static int pfkey_send_acquire(struct xfrm_state *x, struct xfrm_tmpl *t, struct
+ 	pol->sadb_x_policy_exttype = SADB_X_EXT_POLICY;
+ 	pol->sadb_x_policy_type = IPSEC_POLICY_IPSEC;
+ 	pol->sadb_x_policy_dir = XFRM_POLICY_OUT + 1;
++	pol->sadb_x_policy_reserved = 0;
+ 	pol->sadb_x_policy_id = xp->index;
++	pol->sadb_x_policy_priority = xp->priority;
+ 
+ 	/* Set sadb_comb's. */
+ 	if (x->id.proto == IPPROTO_AH)
+@@ -3525,6 +3528,7 @@ static int pfkey_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 	pol->sadb_x_policy_exttype = SADB_X_EXT_POLICY;
+ 	pol->sadb_x_policy_type = IPSEC_POLICY_IPSEC;
+ 	pol->sadb_x_policy_dir = dir + 1;
++	pol->sadb_x_policy_reserved = 0;
+ 	pol->sadb_x_policy_id = 0;
+ 	pol->sadb_x_policy_priority = 0;
+ 
