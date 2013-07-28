@@ -1,92 +1,74 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/12] e1000e: enable support for new device IDs
-Date: Sun, 28 Jul 2013 04:41:14 -0700
-Message-ID: <1375011676-30739-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/12] e1000e: iAMT connections drop on driver unload when jumbo frames enabled
+Date: Sun, 28 Jul 2013 04:41:10 -0700
+Message-ID: <1375011676-30739-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1375011676-30739-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:10718 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:43491 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753505Ab3G1Llb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Jul 2013 07:41:31 -0400
+	id S1753500Ab3G1Ll2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Jul 2013 07:41:28 -0400
 In-Reply-To: <1375011676-30739-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-The device IDs 0x15a0 and 0x15a1 are new SKUs that contain the same MAC as
-I217 and same PHY as I218.
-
-The device IDs 0x15a2 and 0x15a3 are the same as existing I218 SKUs.
+The jumbo frame configuration in the MAC/PHY should be reverted on 82579
+and newer parts when the interface is brought down (not just when the MTU
+is changed back to standard frame size) otherwise iAMT connections (e.g.
+SoL, IDE-R) will be dropped and cannot be re-acquired until the MTU is
+changed again.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/hw.h      | 4 ++++
- drivers/net/ethernet/intel/e1000e/ich8lan.c | 8 ++++++--
- drivers/net/ethernet/intel/e1000e/netdev.c  | 4 ++++
- 3 files changed, 14 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c | 21 ++++++++++-----------
+ 1 file changed, 10 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
-index cee565d..b799fd9 100644
---- a/drivers/net/ethernet/intel/e1000e/hw.h
-+++ b/drivers/net/ethernet/intel/e1000e/hw.h
-@@ -90,6 +90,10 @@ struct e1000_hw;
- #define E1000_DEV_ID_PCH_LPT_I217_V		0x153B
- #define E1000_DEV_ID_PCH_LPTLP_I218_LM		0x155A
- #define E1000_DEV_ID_PCH_LPTLP_I218_V		0x1559
-+#define E1000_DEV_ID_PCH_I218_LM2		0x15A0
-+#define E1000_DEV_ID_PCH_I218_V2		0x15A1
-+#define E1000_DEV_ID_PCH_I218_LM3		0x15A2	/* Wildcat Point PCH */
-+#define E1000_DEV_ID_PCH_I218_V3		0x15A3	/* Wildcat Point PCH */
- 
- #define E1000_REVISION_4	4
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index b56c61a..78d03d3 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -1028,7 +1028,9 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
- 
- 	/* Work-around I218 hang issue */
- 	if ((hw->adapter->pdev->device == E1000_DEV_ID_PCH_LPTLP_I218_LM) ||
--	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_LPTLP_I218_V)) {
-+	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_LPTLP_I218_V) ||
-+	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_I218_LM3) ||
-+	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_I218_V3)) {
- 		ret_val = e1000_k1_workaround_lpt_lp(hw, link);
- 		if (ret_val)
- 			return ret_val;
-@@ -4203,7 +4205,9 @@ void e1000_suspend_workarounds_ich8lan(struct e1000_hw *hw)
- 		u16 phy_reg, device_id = hw->adapter->pdev->device;
- 
- 		if ((device_id == E1000_DEV_ID_PCH_LPTLP_I218_LM) ||
--		    (device_id == E1000_DEV_ID_PCH_LPTLP_I218_V)) {
-+		    (device_id == E1000_DEV_ID_PCH_LPTLP_I218_V) ||
-+		    (device_id == E1000_DEV_ID_PCH_I218_LM3) ||
-+		    (device_id == E1000_DEV_ID_PCH_I218_V3)) {
- 			u32 fextnvm6 = er32(FEXTNVM6);
- 
- 			ew32(FEXTNVM6, fextnvm6 & ~E1000_FEXTNVM6_REQ_PLL_CLK);
 diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 51b05fe..650e569 100644
+index 40e6232..99596a6 100644
 --- a/drivers/net/ethernet/intel/e1000e/netdev.c
 +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -6975,6 +6975,10 @@ static DEFINE_PCI_DEVICE_TABLE(e1000_pci_tbl) = {
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_LPT_I217_V), board_pch_lpt },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_LPTLP_I218_LM), board_pch_lpt },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_LPTLP_I218_V), board_pch_lpt },
-+	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_I218_LM2), board_pch_lpt },
-+	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_I218_V2), board_pch_lpt },
-+	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_I218_LM3), board_pch_lpt },
-+	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_I218_V3), board_pch_lpt },
+@@ -2979,17 +2979,10 @@ static void e1000_setup_rctl(struct e1000_adapter *adapter)
+ 	u32 pages = 0;
  
- 	{ 0, 0, 0, 0, 0, 0, 0 }	/* terminate list */
- };
+ 	/* Workaround Si errata on PCHx - configure jumbo frame flow */
+-	if (hw->mac.type >= e1000_pch2lan) {
+-		s32 ret_val;
+-
+-		if (adapter->netdev->mtu > ETH_DATA_LEN)
+-			ret_val = e1000_lv_jumbo_workaround_ich8lan(hw, true);
+-		else
+-			ret_val = e1000_lv_jumbo_workaround_ich8lan(hw, false);
+-
+-		if (ret_val)
+-			e_dbg("failed to enable jumbo frame workaround mode\n");
+-	}
++	if ((hw->mac.type >= e1000_pch2lan) &&
++	    (adapter->netdev->mtu > ETH_DATA_LEN) &&
++	    e1000_lv_jumbo_workaround_ich8lan(hw, true))
++		e_dbg("failed to enable jumbo frame workaround mode\n");
+ 
+ 	/* Program MC offset vector base */
+ 	rctl = er32(RCTL);
+@@ -4034,6 +4027,12 @@ void e1000e_down(struct e1000_adapter *adapter)
+ 	adapter->link_speed = 0;
+ 	adapter->link_duplex = 0;
+ 
++	/* Disable Si errata workaround on PCHx for jumbo frame flow */
++	if ((hw->mac.type >= e1000_pch2lan) &&
++	    (adapter->netdev->mtu > ETH_DATA_LEN) &&
++	    e1000_lv_jumbo_workaround_ich8lan(hw, false))
++		e_dbg("failed to disable jumbo frame workaround mode\n");
++
+ 	if (!pci_channel_offline(adapter->pdev))
+ 		e1000e_reset(adapter);
+ 
 -- 
 1.7.11.7
