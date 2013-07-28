@@ -1,43 +1,29 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2 1/3] net/usb/r815x: replace USB buffer from stack to
- DMA-able
-Date: Sat, 27 Jul 2013 20:21:07 -0700 (PDT)
-Message-ID: <20130727.202107.555068116238400560.davem@davemloft.net>
-References: <20130724.174947.452272360732442554.davem@davemloft.net>
-	<1374739144-732-1-git-send-email-hayeswang@realtek.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V3 net-next 0/2] pch_gbe: Add MinnowBoard support
+Date: Sat, 27 Jul 2013 22:13:16 -0700 (PDT)
+Message-ID: <20130727.221316.1777095418170689228.davem@davemloft.net>
+References: <cover.1374728627.git.dvhart@linux.intel.com>
+	<1374761076.9799.2.camel@dvhart-mobl1.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1374739144-732-1-git-send-email-hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hpa@zytor.com,
+	peter.p.waskiewicz.jr@intel.com, andriy.shevchenko@linux.intel.com,
+	joe@perches.com
+To: dvhart@linux.intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53072 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750831Ab3G1FNT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jul 2013 01:13:19 -0400
+In-Reply-To: <1374761076.9799.2.camel@dvhart-mobl1.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Date: Thu, 25 Jul 2013 15:59:02 +0800
+From: Darren Hart <dvhart@linux.intel.com>
+Date: Thu, 25 Jul 2013 07:04:36 -0700
 
-> Some USB buffers use stack which may not be DMA-able.
-> Use the buffers from kmalloc to replace those one.
-> 
-> Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+> Andy Shevchenko caught a couple minor errors in V3. I've incorporated
+> his feedback and sent V4. Please disregard V3.
 
-I don't think it's reasonable to kmalloc() a small integer every time
-you want to use a USB message transfer to read or write chip
-registers.
-
-Instead, add a scratch buffer to struct r8152 which is allocated once
-at driver attach time and which you can use for the transfers.
-
-I think you only need an array of two u32's so something like:
-
-	u32		transfer_buf[2];
-
-ought to be sufficient.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I've pulled V4 into net-next, thanks a lot.
