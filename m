@@ -1,155 +1,64 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/15] ixgbe: Retain VLAN filtering in promiscuous + VT mode
-Date: Mon, 29 Jul 2013 05:51:57 -0700
-Message-ID: <1375102331-23905-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1375102331-23905-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Thomas Richter <tmricht@linux.vnet.ibm.com>
+Subject: (unknown)
+Date: Mon, 29 Jul 2013 15:18:55 +0200
+Message-ID: <1375103935-24242-1-git-send-email-tmricht@linux.vnet.ibm.com>
+Cc: Thomas Richter <tmricht@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:29759 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752883Ab3G2Mw1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jul 2013 08:52:27 -0400
-In-Reply-To: <1375102331-23905-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from e06smtp11.uk.ibm.com ([195.75.94.107]:52089 "EHLO
+	e06smtp11.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752914Ab3G2NTI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 09:19:08 -0400
+Received: from /spool/local
+	by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <tmricht@linux.vnet.ibm.com>;
+	Mon, 29 Jul 2013 14:12:58 +0100
+Received: from b06cxnps4075.portsmouth.uk.ibm.com (d06relay12.portsmouth.uk.ibm.com [9.149.109.197])
+	by d06dlp01.portsmouth.uk.ibm.com (Postfix) with ESMTP id 568C517D805D
+	for <netdev@vger.kernel.org>; Mon, 29 Jul 2013 14:20:45 +0100 (BST)
+Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
+	by b06cxnps4075.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r6TDIoF366257094
+	for <netdev@vger.kernel.org>; Mon, 29 Jul 2013 13:18:50 GMT
+Received: from d06av03.portsmouth.uk.ibm.com (localhost [127.0.0.1])
+	by d06av03.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id r6TDJ0Sm030967
+	for <netdev@vger.kernel.org>; Mon, 29 Jul 2013 07:19:01 -0600
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+Add support for the bridge fdb replace command to replace an
+existing entry in the vxlan device driver forwarding data base.
+The entry is identified with its unicast mac address and its
+corresponding remote destination information is updated.
 
-When using the new bridge FDB interface to allow SR-IOV virtual function
-network devices to communicate with SW bridged network devices the
-physical function is placed into promiscuous mode and hardware VLAN
-filtering is disabled.  This defeats the ability to use VLAN tagging
-to isolate user networks.  When the device is in promiscuous mode and
-VT mode simultaneously ensure that VLAN hardware filtering remains
-enabled.
+This is useful for virtual machine migration and replaces the
+bridge fdb del and bridge fdb add commands.
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+It follows the same interface as ip neigh replace commands.
+
+Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 11 ++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 66 ++++++++++++++++++++++++++
- 2 files changed, 75 insertions(+), 2 deletions(-)
+bridge/fdb.c |    4 +++-
+1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index bad8f14..d837f81 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3724,8 +3724,15 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 		hw->addr_ctrl.user_set_promisc = true;
- 		fctrl |= (IXGBE_FCTRL_UPE | IXGBE_FCTRL_MPE);
- 		vmolr |= (IXGBE_VMOLR_ROPE | IXGBE_VMOLR_MPE);
--		/* don't hardware filter vlans in promisc mode */
--		ixgbe_vlan_filter_disable(adapter);
-+		/* Only disable hardware filter vlans in promiscuous mode
-+		 * if SR-IOV and VMDQ are disabled - otherwise ensure
-+		 * that hardware VLAN filters remain enabled.
-+		 */
-+		if (!(adapter->flags & (IXGBE_FLAG_VMDQ_ENABLED |
-+					IXGBE_FLAG_SRIOV_ENABLED)))
-+			ixgbe_vlan_filter_disable(adapter);
-+		else
-+			ixgbe_vlan_filter_enable(adapter);
- 	} else {
- 		if (netdev->flags & IFF_ALLMULTI) {
- 			fctrl |= IXGBE_FCTRL_MPE;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 1e7d587..6c624c9 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -768,6 +768,29 @@ static int ixgbe_set_vf_mac_addr(struct ixgbe_adapter *adapter,
- 	return ixgbe_set_vf_mac(adapter, vf, new_mac) < 0;
- }
+
+--- a/bridge/fdb.c	2013-07-10 07:52:18.000000000 +0200
++++ b/bridge/fdb.c	2013-07-29 13:48:33.253679281 +0200
+@@ -30,7 +30,7 @@
  
-+static int ixgbe_find_vlvf_entry(struct ixgbe_hw *hw, u32 vlan)
-+{
-+	u32 vlvf;
-+	s32 regindex;
-+
-+	/* short cut the special case */
-+	if (vlan == 0)
-+		return 0;
-+
-+	/* Search for the vlan id in the VLVF entries */
-+	for (regindex = 1; regindex < IXGBE_VLVF_ENTRIES; regindex++) {
-+		vlvf = IXGBE_READ_REG(hw, IXGBE_VLVF(regindex));
-+		if ((vlvf & VLAN_VID_MASK) == vlan)
-+			break;
-+	}
-+
-+	/* Return a negative value if not found */
-+	if (regindex >= IXGBE_VLVF_ENTRIES)
-+		regindex = -1;
-+
-+	return regindex;
-+}
-+
- static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
- 				 u32 *msgbuf, u32 vf)
+ static void usage(void)
  {
-@@ -775,6 +798,9 @@ static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
- 	int add = (msgbuf[0] & IXGBE_VT_MSGINFO_MASK) >> IXGBE_VT_MSGINFO_SHIFT;
- 	int vid = (msgbuf[1] & IXGBE_VLVF_VLANID_MASK);
- 	int err;
-+	s32 reg_ndx;
-+	u32 vlvf;
-+	u32 bits;
- 	u8 tcs = netdev_get_num_tc(adapter->netdev);
- 
- 	if (adapter->vfinfo[vf].pf_vlan || tcs) {
-@@ -790,10 +816,50 @@ static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
- 	else if (adapter->vfinfo[vf].vlan_count)
- 		adapter->vfinfo[vf].vlan_count--;
- 
-+	/* in case of promiscuous mode any VLAN filter set for a VF must
-+	 * also have the PF pool added to it.
-+	 */
-+	if (add && adapter->netdev->flags & IFF_PROMISC)
-+		err = ixgbe_set_vf_vlan(adapter, add, vid, VMDQ_P(0));
-+
- 	err = ixgbe_set_vf_vlan(adapter, add, vid, vf);
- 	if (!err && adapter->vfinfo[vf].spoofchk_enabled)
- 		hw->mac.ops.set_vlan_anti_spoofing(hw, true, vf);
- 
-+	/* Go through all the checks to see if the VLAN filter should
-+	 * be wiped completely.
-+	 */
-+	if (!add && adapter->netdev->flags & IFF_PROMISC) {
-+		reg_ndx = ixgbe_find_vlvf_entry(hw, vid);
-+		if (reg_ndx < 0)
-+			goto out;
-+		vlvf = IXGBE_READ_REG(hw, IXGBE_VLVF(reg_ndx));
-+		/* See if any other pools are set for this VLAN filter
-+		 * entry other than the PF.
-+		 */
-+		if (VMDQ_P(0) < 32) {
-+			bits = IXGBE_READ_REG(hw, IXGBE_VLVFB(reg_ndx * 2));
-+			bits &= ~(1 << VMDQ_P(0));
-+			bits |= IXGBE_READ_REG(hw,
-+					       IXGBE_VLVFB(reg_ndx * 2) + 1);
-+		} else {
-+			bits = IXGBE_READ_REG(hw,
-+					      IXGBE_VLVFB(reg_ndx * 2) + 1);
-+			bits &= ~(1 << (VMDQ_P(0) - 32));
-+			bits |= IXGBE_READ_REG(hw, IXGBE_VLVFB(reg_ndx * 2));
-+		}
-+
-+		/* If the filter was removed then ensure PF pool bit
-+		 * is cleared if the PF only added itself to the pool
-+		 * because the PF is in promiscuous mode.
-+		 */
-+		if ((vlvf & VLAN_VID_MASK) == vid &&
-+		    !test_bit(vid, adapter->active_vlans) && !bits)
-+			ixgbe_set_vf_vlan(adapter, add, vid, VMDQ_P(0));
-+	}
-+
-+out:
-+
- 	return err;
- }
- 
--- 
-1.7.11.7
+-	fprintf(stderr, "Usage: bridge fdb { add | append | del } ADDR dev DEV {self|master} [ temp ]\n"
++	fprintf(stderr, "Usage: bridge fdb { add | append | del | replace } ADDR dev DEV {self|master} [ temp ]\n"
+ 		        "              [router] [ dst IPADDR] [ vlan VID ]\n"
+ 		        "              [ port PORT] [ vni VNI ] [via DEV]\n");
+ 	fprintf(stderr, "       bridge fdb {show} [ dev DEV ]\n");
+@@ -334,6 +334,8 @@
+ 			return fdb_modify(RTM_NEWNEIGH, NLM_F_CREATE|NLM_F_EXCL, argc-1, argv+1);
+ 		if (matches(*argv, "append") == 0)
+ 			return fdb_modify(RTM_NEWNEIGH, NLM_F_CREATE|NLM_F_APPEND, argc-1, argv+1);
++		if (matches(*argv, "replace") == 0)
++			return fdb_modify(RTM_NEWNEIGH, NLM_F_CREATE|NLM_F_REPLACE, argc-1, argv+1);
+ 		if (matches(*argv, "delete") == 0)
+ 			return fdb_modify(RTM_DELNEIGH, 0, argc-1, argv+1);
+ 		if (matches(*argv, "show") == 0 ||
