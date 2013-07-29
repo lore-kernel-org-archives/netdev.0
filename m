@@ -1,91 +1,86 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
-Date: Mon, 29 Jul 2013 05:51:56 -0700
-Message-ID: <1375102331-23905-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, linux-pci@vger.kernel.org
-To: davem@davemloft.net, bhelgaas@google.com
-Return-path: <linux-pci-owner@vger.kernel.org>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [net-next 02/15] ixgbe: Use pci_vfs_assigned instead of ixgbe_vfs_are_assigned
+Date: Mon, 29 Jul 2013 05:51:58 -0700
+Message-ID: <1375102331-23905-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1375102331-23905-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:29759 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753638Ab3G2Mw2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jul 2013 08:52:28 -0400
+In-Reply-To: <1375102331-23905-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe and pci.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The first patch for ixgbe from Greg Rose is the second submission.  The
-first submission of "ixgbe: Retain VLAN filtering in promiscuous + VT
-mode" had a typo, which Joe Perches pointed out and is fixed in this
-submission.
+This change makes it so that the ixgbe driver uses the generic helper
+pci_vfs_assigned instead of the ixgbe specific function
+ixgbe_vfs_are_assigned.
 
-Alex updates the ixgbe driver to use the generic helper pci_vfs_assigned
-instead of the driver specific function ixgbe_vfs_are_assigned.
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 35 +-------------------------
+ 1 file changed, 1 insertion(+), 34 deletions(-)
 
-Don Skidmore provides 4 patches for ixgbe, the first being a fix for
-flow control ethtool reporting.  Originally ixgbe_device_supports_autoneg_fc()
-was expected to be called by only copper devices, which lead to false
-information being displayed via ethtool.  Two other patches add support
-for fixed fiber for SFP+ devices and the addition of a quad-port x520
-adapter.  The last patch simply bumps the driver version.
-
-Emil Tantilov provides 3 fixes for ixgbe, two of which resolve
-semaphore lock issues.  The third fix resolves several issues in the
-previous implementation of the SFF data dumps of SFP+ modules.
-
-The remaining ixgbe and pci patches are from Jacob Keller.  The pci
-patches exposes bus speed, link speed and bus width so that drivers
-can take advantage of this information.  In addition, adds a pci function
-which obtains minimum link width and speed.  Jacob also provides the
-ixgbe patch to incorporate the pci function. He provides a patch that
-fixes a lockdep issue created due to ixgbe_ptp_stop always running
-cancel_work_sync even if the work item had not been created properly with
-INIT_WORK. This issue was found and reported by Stephen Hemminger.
-
-The following are changes since commit fe6f700d6cbb7e8a61711e325f53d9c9e0a42a4c:
-  net/mlx4_core: Respond to operation request by firmware
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Alexander Duyck (1):
-  ixgbe: Use pci_vfs_assigned instead of ixgbe_vfs_are_assigned
-
-Don Skidmore (4):
-  ixgbe: fix fc autoneg ethtool reporting.
-  ixgbe: add new media type
-  ixgbe: bump version number
-  ixgbe: add support for quad-port x520 adapter
-
-Emil Tantilov (3):
-  ixgbe: fix semaphore lock for I2C read/writes on 82598
-  ixgbe: fix SFF data dumps of SFP+ modules
-  ixgbe: clear semaphore bits on timeouts
-
-Greg Rose (1):
-  ixgbe: Retain VLAN filtering in promiscuous + VT mode
-
-Jacob Keller (6):
-  pci: expose pcie_link_speed and pcix_bus_speed arrays
-  pci: move enum pcie_link_width into pci.h
-  pci: Add function to obtain minimum link width and speed
-  ixgbe: call pcie_get_mimimum_link to check if device has enough
-    bandwidth
-  ixgbe: fix lockdep annotation issue for ptp's work item
-  ixgbe: rename LL_EXTENDED_STATS to use queue instead of q
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   7 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   |  34 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   | 231 ++++++++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  |  88 +++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  94 ++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 158 +++++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     | 470 ++++++++++++++++-------
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h     |  41 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c     |  12 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c   | 101 +++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |  12 +
- drivers/pci/pci.c                                |  43 +++
- drivers/pci/probe.c                              |   4 +-
- include/linux/pci.h                              |  18 +
- include/linux/pci_hotplug.h                      |  13 -
- 15 files changed, 983 insertions(+), 343 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 6c624c9..73c8e73 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -173,39 +173,6 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
+ 	ixgbe_disable_sriov(adapter);
+ }
+ 
+-static bool ixgbe_vfs_are_assigned(struct ixgbe_adapter *adapter)
+-{
+-	struct pci_dev *pdev = adapter->pdev;
+-	struct pci_dev *vfdev;
+-	int dev_id;
+-
+-	switch (adapter->hw.mac.type) {
+-	case ixgbe_mac_82599EB:
+-		dev_id = IXGBE_DEV_ID_82599_VF;
+-		break;
+-	case ixgbe_mac_X540:
+-		dev_id = IXGBE_DEV_ID_X540_VF;
+-		break;
+-	default:
+-		return false;
+-	}
+-
+-	/* loop through all the VFs to see if we own any that are assigned */
+-	vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, NULL);
+-	while (vfdev) {
+-		/* if we don't own it we don't care */
+-		if (vfdev->is_virtfn && vfdev->physfn == pdev) {
+-			/* if it is assigned we cannot release it */
+-			if (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
+-				return true;
+-		}
+-
+-		vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, vfdev);
+-	}
+-
+-	return false;
+-}
+-
+ #endif /* #ifdef CONFIG_PCI_IOV */
+ int ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
+ {
+@@ -235,7 +202,7 @@ int ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
+ 	 * without causing issues, so just leave the hardware
+ 	 * available but disabled
+ 	 */
+-	if (ixgbe_vfs_are_assigned(adapter)) {
++	if (pci_vfs_assigned(adapter->pdev)) {
+ 		e_dev_warn("Unloading driver while VFs are assigned - VFs will not be deallocated\n");
+ 		return -EPERM;
+ 	}
 -- 
 1.7.11.7
