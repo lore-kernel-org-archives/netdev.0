@@ -1,41 +1,68 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [patch] net_sched: stack info leak in cbq_dump_wrr()
-Date: Mon, 29 Jul 2013 23:01:14 +0300
-Message-ID: <20130729200114.GA29160@mwanda>
-References: <20130729193651.GA12525@elgon.mountain>
- <1375127072.2075.48.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1375127072.2075.48.camel@joe-AO722>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Arnaud Patard (Rtp) <arnaud.patard@rtp-net.org>
+Subject: [patch v2 1/2] Fix hang when loading the mvneta driver
+Date: Mon, 29 Jul 2013 21:56:47 +0200
+Message-ID: <20130729195711.790715677@rtp-net.org>
+References: <20130729195646.433524957@rtp-net.org>
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lebrac.rtp-net.org ([88.191.135.105]:53117 "EHLO
+	lebrac.rtp-net.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751551Ab3G2UDs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 16:03:48 -0400
+Content-Disposition: inline; filename=mvneta-module-hang.patch
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 29, 2013 at 12:44:32PM -0700, Joe Perches wrote:
-> On Mon, 2013-07-29 at 22:36 +0300, Dan Carpenter wrote:
-> > opt.__reserved isn't cleared so we leak a byte of stack information.
-> []
-> > diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-> []
-> > @@ -1469,6 +1469,7 @@ static int cbq_dump_wrr(struct sk_buff *skb, struct cbq_class *cl)
-> >  	opt.allot = cl->allot;
-> >  	opt.priority = cl->priority + 1;
-> >  	opt.cpriority = cl->cpriority + 1;
-> > +	opt.__reserved = 0;
-> >  	opt.weight = cl->weight;
-> >  	if (nla_put(skb, TCA_CBQ_WRROPT, sizeof(opt), &opt))
-> >  		goto nla_put_failure;
-> 
-> Alignment isn't guaranteed here so it'd
-> probably be better with a memset.
-> 
+When the mvneta driver is compiled, it'll be loaded with clocks disabled.
+This implies that the clocks should be enabled again before any register
+access or it'll hang.
 
-Hm...  Which arches would align it differently?
+To fix it:
+- enable clock earlier
+- move timer callback after setting timer.data
 
-regards,
-dan carpenter
+Signed-off-by: Arnaud Patard <arnaud.patard@rtp-net.org>
+
+Index: linux-next/drivers/net/ethernet/marvell/mvneta.c
+===================================================================
+--- linux-next.orig/drivers/net/ethernet/marvell/mvneta.c	2013-06-20 23:39:37.485391949 +0200
++++ linux-next/drivers/net/ethernet/marvell/mvneta.c	2013-06-20 23:39:37.481391949 +0200
+@@ -2728,20 +2733,10 @@ static int mvneta_probe(struct platform_
+ 
+ 	pp = netdev_priv(dev);
+ 
+-	pp->tx_done_timer.function = mvneta_tx_done_timer_callback;
+-	init_timer(&pp->tx_done_timer);
+-	clear_bit(MVNETA_F_TX_DONE_TIMER_BIT, &pp->flags);
+-
+ 	pp->weight = MVNETA_RX_POLL_WEIGHT;
+ 	pp->phy_node = phy_node;
+ 	pp->phy_interface = phy_mode;
+ 
+-	pp->base = of_iomap(dn, 0);
+-	if (pp->base == NULL) {
+-		err = -ENOMEM;
+-		goto err_free_irq;
+-	}
+-
+ 	pp->clk = devm_clk_get(&pdev->dev, NULL);
+ 	if (IS_ERR(pp->clk)) {
+ 		err = PTR_ERR(pp->clk);
+@@ -2765,7 +2760,16 @@ static int mvneta_probe(struct platform_
+ 		}
+ 	}
+ 
++	pp->base = of_iomap(dn, 0);
++	if (pp->base == NULL) {
++		err = -ENOMEM;
++		goto err_free_irq;
++	}
++
+ 	pp->tx_done_timer.data = (unsigned long)dev;
++	pp->tx_done_timer.function = mvneta_tx_done_timer_callback;
++	init_timer(&pp->tx_done_timer);
++	clear_bit(MVNETA_F_TX_DONE_TIMER_BIT, &pp->flags);
+ 
+ 	pp->tx_ring_size = MVNETA_MAX_TXD;
+ 	pp->rx_ring_size = MVNETA_MAX_RXD;
