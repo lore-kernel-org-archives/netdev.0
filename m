@@ -1,66 +1,104 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/15] ixgbe: rename LL_EXTENDED_STATS to use queue instead of q
-Date: Mon, 29 Jul 2013 05:52:09 -0700
-Message-ID: <1375102331-23905-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/15] ixgbe: clear semaphore bits on timeouts
+Date: Mon, 29 Jul 2013 05:52:10 -0700
+Message-ID: <1375102331-23905-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1375102331-23905-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:3955 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753804Ab3G2Mwg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753692Ab3G2Mwg (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 29 Jul 2013 08:52:36 -0400
 In-Reply-To: <1375102331-23905-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-This patch renames the stats introduced by the busy poll feature so that they
-are more inline with the current statistics naming schemes.
+This patch changes the error code path in ixgbe_acquire_swfw_sync() to deal
+with cases where acquiring SW semaphore times out.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+In cases where the SW/FW semaphore bits were set (i.e. due to a crash) the
+driver will hang on load. With this patch the driver will clear
+the stuck bits if the semaphore was not acquired in the allotted time.
+
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 45 ++++++++++++-------------
+ 1 file changed, 21 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index da1ea28..50c1e9b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -1141,11 +1141,11 @@ static void ixgbe_get_strings(struct net_device *netdev, u32 stringset,
- 			sprintf(p, "tx_queue_%u_bytes", i);
- 			p += ETH_GSTRING_LEN;
- #ifdef LL_EXTENDED_STATS
--			sprintf(p, "tx_q_%u_napi_yield", i);
-+			sprintf(p, "tx_queue_%u_ll_napi_yield", i);
- 			p += ETH_GSTRING_LEN;
--			sprintf(p, "tx_q_%u_misses", i);
-+			sprintf(p, "tx_queue_%u_ll_misses", i);
- 			p += ETH_GSTRING_LEN;
--			sprintf(p, "tx_q_%u_cleaned", i);
-+			sprintf(p, "tx_queue_%u_ll_cleaned", i);
- 			p += ETH_GSTRING_LEN;
- #endif /* LL_EXTENDED_STATS */
- 		}
-@@ -1155,11 +1155,11 @@ static void ixgbe_get_strings(struct net_device *netdev, u32 stringset,
- 			sprintf(p, "rx_queue_%u_bytes", i);
- 			p += ETH_GSTRING_LEN;
- #ifdef LL_EXTENDED_STATS
--			sprintf(p, "rx_q_%u_ll_poll_yield", i);
-+			sprintf(p, "rx_queue_%u_ll_poll_yield", i);
- 			p += ETH_GSTRING_LEN;
--			sprintf(p, "rx_q_%u_misses", i);
-+			sprintf(p, "rx_queue_%u_ll_misses", i);
- 			p += ETH_GSTRING_LEN;
--			sprintf(p, "rx_q_%u_cleaned", i);
-+			sprintf(p, "rx_queue_%u_ll_cleaned", i);
- 			p += ETH_GSTRING_LEN;
- #endif /* LL_EXTENDED_STATS */
- 		}
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 6e5d4bc..5f05f8d 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -2506,42 +2506,39 @@ out:
+  **/
+ s32 ixgbe_acquire_swfw_sync(struct ixgbe_hw *hw, u16 mask)
+ {
+-	u32 gssr;
++	u32 gssr = 0;
+ 	u32 swmask = mask;
+ 	u32 fwmask = mask << 5;
+-	s32 timeout = 200;
++	u32 timeout = 200;
++	u32 i;
+ 
+-	while (timeout) {
++	for (i = 0; i < timeout; i++) {
+ 		/*
+-		 * SW EEPROM semaphore bit is used for access to all
+-		 * SW_FW_SYNC/GSSR bits (not just EEPROM)
++		 * SW NVM semaphore bit is used for access to all
++		 * SW_FW_SYNC bits (not just NVM)
+ 		 */
+ 		if (ixgbe_get_eeprom_semaphore(hw))
+ 			return IXGBE_ERR_SWFW_SYNC;
+ 
+ 		gssr = IXGBE_READ_REG(hw, IXGBE_GSSR);
+-		if (!(gssr & (fwmask | swmask)))
+-			break;
+-
+-		/*
+-		 * Firmware currently using resource (fwmask) or other software
+-		 * thread currently using resource (swmask)
+-		 */
+-		ixgbe_release_eeprom_semaphore(hw);
+-		usleep_range(5000, 10000);
+-		timeout--;
+-	}
+-
+-	if (!timeout) {
+-		hw_dbg(hw, "Driver can't access resource, SW_FW_SYNC timeout.\n");
+-		return IXGBE_ERR_SWFW_SYNC;
++		if (!(gssr & (fwmask | swmask))) {
++			gssr |= swmask;
++			IXGBE_WRITE_REG(hw, IXGBE_GSSR, gssr);
++			ixgbe_release_eeprom_semaphore(hw);
++			return 0;
++		} else {
++			/* Resource is currently in use by FW or SW */
++			ixgbe_release_eeprom_semaphore(hw);
++			usleep_range(5000, 10000);
++		}
+ 	}
+ 
+-	gssr |= swmask;
+-	IXGBE_WRITE_REG(hw, IXGBE_GSSR, gssr);
++	/* If time expired clear the bits holding the lock and retry */
++	if (gssr & (fwmask | swmask))
++		ixgbe_release_swfw_sync(hw, gssr & (fwmask | swmask));
+ 
+-	ixgbe_release_eeprom_semaphore(hw);
+-	return 0;
++	usleep_range(5000, 10000);
++	return IXGBE_ERR_SWFW_SYNC;
+ }
+ 
+ /**
 -- 
 1.7.11.7
