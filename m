@@ -1,82 +1,66 @@
-From: Andy Isaacson <adi@hexapodia.org>
-Subject: 3.10, iwlwifi 6200AGN: AP changed bandwidth in a way we can't
- support - disconnect
-Date: Mon, 29 Jul 2013 09:34:52 -0700
-Message-ID: <20130729163452.GA454@hexapodia.org>
+From: Phil Sutter <phil@nwl.cc>
+Subject: packet_mmap, 802.1Q and bridges
+Date: Mon, 29 Jul 2013 18:53:57 +0200
+Message-ID: <20130729165357.GA23134@orbit.nwl.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Johannes Berg <johannes.berg@intel.com>
+Cc: Ben Greear <greearb@candelatech.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	bridge@lists.linux-foundation.org,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from straum.hexapodia.org ([66.109.99.53]:42671 "EHLO
-	straum.hexapodia.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756118Ab3G2QlY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 12:41:24 -0400
+Received: from orbit.nwl.cc ([176.31.251.142]:41805 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752030Ab3G2RCI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jul 2013 13:02:08 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After upgrading to 3.10.4 and traveling to Europe I'm often suffering
-from failures to associate with the following in dmesg:
+Hello everyone,
 
-[   37.351621] wlan0: authenticate with 64:70:02:e6:a6:ba
-[   37.364701] wlan0: send auth to 64:70:02:e6:a6:ba (try 1/3)
-[   37.366358] wlan0: authenticated
-[   37.368543] wlan0: associate with 64:70:02:e6:a6:ba (try 1/3)
-[   37.372765] wlan0: RX AssocResp from 64:70:02:e6:a6:ba (capab=0x431 status=0 aid=8)
-[   37.380190] wlan0: associated
-[   37.438935] wlan0: AP 64:70:02:e6:a6:ba changed bandwidth, new config is 2447 MHz, width 1 (2447/0 MHz)
-[   37.438941] wlan0: AP 64:70:02:e6:a6:ba changed bandwidth in a way we can't support - disconnect
+I have found a situation where sending of VLAN tagged packets via
+packet_mmap over a bridge creates MTU problems.
 
-I hacked the driver to do
+The setup is as follows:
+- physical interface eth0 (mv643xx)
+- bridge interface br0 contains just eth0
+- packet_mmap sender bound to br0, socket() called with SOCK_RAW and
+  ETH_P_ALL as arguments, PACKET_VERSION set to TPACKET_V2
+- MTU is 1500 on all involved interfaces
 
--                  "AP %pM changed bandwidth, new config is %d MHz, width %d (%d/%d MHz)\n",
-+                  "AP %pM changed bandwidth, new config is %d MHz, width %d (%d/%d MHz) flags %x/%x\n",
-                   ifmgd->bssid, chandef.chan->center_freq, chandef.width,
--                  chandef.center_freq1, chandef.center_freq2);
-+                  chandef.center_freq1, chandef.center_freq2, flags, ifmgd->flags);
+When userspace sends a full frame, it will pass tpacket_snd which will
+reject it unless there is a small patch of mine applied (for patch and
+related discussion, see: http://patchwork.ozlabs.org/patch/67422/).
+Tpacket_snd creates an SKB around the passed data, with 'protocol' field
+set to whatever was specified at socket() stage (in this case,
+ETH_P_ALL). Eventually, dev_queue_xmit() is called.
 
-and
+The SKB created in af_packet.c is passed to the bridge code, while the
+interesting part is the function br_dev_queue_push_xmit() in
+net/bridge/br_forward.c. This function checks the frame's length against
+the device's MTU, therefore calling packet_length() which in turn does
+look at the SKB's protocol field for whether to account for an
+additional VLAN header or not. In this case, br_dev_queue_push_xmit()
+will drop the frame since ETH_P_ALL != ETH_P_8021Q.
 
--       if (flags != (ifmgd->flags & (IEEE80211_STA_DISABLE_HT |
-+       if ((flags != 0x810 && ifmgd->flags != 0x804) && (
-+            flags != (ifmgd->flags & (IEEE80211_STA_DISABLE_HT |
+Using tcpdump, I could observe the packet occurs on br0, but not eth0.
+Changing packet_length() to also subtract VLAN_HLEN if skb->protocol is
+htons(ETH_P_ALL) fixed the problem.
 
-and the result is a working link with
+While preparing this email, I read again the discussion referenced above
+and found it surprisingly adequate for the problem described here. If I
+am not mistaken, the consensus was whether we should parse the given
+buffer in order to extract the real ethernet protocol or just account
+for four extra bytes, regardless of the actual packet.
 
-[ 1277.069287] wlan0: authenticate with 64:70:02:e6:a6:ba
-[ 1277.118344] wlan0: send auth to 64:70:02:e6:a6:ba (try 1/3)
-[ 1277.222126] wlan0: send auth to 64:70:02:e6:a6:ba (try 2/3)
-[ 1277.226656] wlan0: authenticated
-[ 1277.226806] wlan0: waiting for beacon from 64:70:02:e6:a6:ba
-[ 1277.258119] wlan0: associate with 64:70:02:e6:a6:ba (try 1/3)
-[ 1277.262717] wlan0: RX AssocResp from 64:70:02:e6:a6:ba (capab=0x431 status=0 aid=9)
-[ 1277.269678] wlan0: associated
-[ 1277.269727] IPv6: ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
-[ 1277.366049] wlan0: AP 64:70:02:e6:a6:ba changed bandwidth, new config is 2447 MHz, width 1 (2447/0 MHz) flags 810/804
-[ 2219.627077] wlan0: AP 64:70:02:e6:a6:ba changed bandwidth, new config is 2447 MHz, width 2 (2437/0 MHz) flags 800/804
-[ 2220.668210] wlan0: AP 64:70:02:e6:a6:ba changed bandwidth, new config is 2447 MHz, width 1 (2447/0 MHz) flags 810/804
+IMHO the problem described above is a strong argument for the first
+option. There is code which depends on skb->protocol's content to be
+correct, so af_packet should stick to it.
 
-My userland is Debian unstable with 
+Comments are highly appreciated. In the meantime, I will have a look at
+how to parse the packet_mmap buffer. If you got anything in that
+direction already, please feel free to come forward.
 
-ii  wpasupplicant    1.0-3+b2      amd64 client support for WPA and WPA2 (IEEE 802.11i)
-ii  firmware-iwlwifi 0.36+wheezy.1 all   Binary firmware for Intel PRO/Wireless 3945 and 802.11
-
-using ifup with the WPA configuration in /etc/network/interfaces.
-Hardware is a Thinkpad x201s.  Bootup iwlwifi messages are
-
-[    7.985050] iwlwifi 0000:02:00.0: irq 42 for MSI/MSI-X
-[    8.061896] iwlwifi 0000:02:00.0: loaded firmware version 9.221.4.1 build 25532 op_mode iwldvm
-[    8.087255] iwlwifi 0000:02:00.0: CONFIG_IWLWIFI_DEBUG enabled
-[    8.087257] iwlwifi 0000:02:00.0: CONFIG_IWLWIFI_DEBUGFS enabled
-[    8.087258] iwlwifi 0000:02:00.0: CONFIG_IWLWIFI_DEVICE_TRACING enabled
-[    8.087260] iwlwifi 0000:02:00.0: CONFIG_IWLWIFI_DEVICE_TESTMODE disabled
-[    8.087261] iwlwifi 0000:02:00.0: CONFIG_IWLWIFI_P2P enabled
-[    8.087264] iwlwifi 0000:02:00.0: Detected Intel(R) Centrino(R) Advanced-N 6200 AGN, REV=0x74
-[    8.087379] iwlwifi 0000:02:00.0: L1 Enabled; Disabling L0S
-[   26.676655] iwlwifi 0000:02:00.0: L1 Enabled; Disabling L0S
-[   26.683499] iwlwifi 0000:02:00.0: Radio type=0x1-0x3-0x1
-[   27.023090] iwlwifi 0000:02:00.0: L1 Enabled; Disabling L0S
-[   27.029927] iwlwifi 0000:02:00.0: Radio type=0x1-0x3-0x1
-
--andy
+Best wishes, Phil
