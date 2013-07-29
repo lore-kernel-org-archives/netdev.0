@@ -1,41 +1,88 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v3 1/2] flow_dissector: clean up IPIP case
-Date: Mon, 29 Jul 2013 11:07:36 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1307291103330.21411@tomh.mtv.corp.google.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: Re: [net-next 09/15] pci: move enum pcie_link_width into pci.h
+Date: Mon, 29 Jul 2013 12:39:54 -0600
+Message-ID: <CAErSpo4SML99Gs=oa9m_dS8Bum4WaE-9Jhxc0muRoEHXuKQMDg@mail.gmail.com>
+References: <1375102331-23905-1-git-send-email-jeffrey.t.kirsher@intel.com> <1375102331-23905-10-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f202.google.com ([209.85.220.202]:46627 "EHLO
-	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751213Ab3G2SiI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 14:38:08 -0400
-Received: by mail-vc0-f202.google.com with SMTP id gd11so295499vcb.3
-        for <netdev@vger.kernel.org>; Mon, 29 Jul 2013 11:38:07 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	netdev <netdev@vger.kernel.org>, gospo@redhat.com,
+	sassmann@redhat.com,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1375102331-23905-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Explicitly set proto to ETH_P_IP and jump directly to ip processing.
+On Mon, Jul 29, 2013 at 6:52 AM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> From: Jacob Keller <jacob.e.keller@intel.com>
+>
+> pcie_link_width is the enum used to define the link width values for a pcie
+> device. This enum should not be contained solely in pci_hotplug.h, and this
+> patch moves it next to pci_bus_speed in pci.h
+>
+> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/core/flow_dissector.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Acked-by: Bjorn Helgaas <bhelgaas@google.com>
 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 00ee068..3259446 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -139,7 +139,8 @@ ipv6:
- 		break;
- 	}
- 	case IPPROTO_IPIP:
--		goto again;
-+		proto = htons(ETH_P_IP);
-+		goto ip;
- 	default:
- 		break;
- 	}
--- 
-1.8.3
+> ---
+>  include/linux/pci.h         | 13 +++++++++++++
+>  include/linux/pci_hotplug.h | 13 -------------
+>  2 files changed, 13 insertions(+), 13 deletions(-)
+>
+> diff --git a/include/linux/pci.h b/include/linux/pci.h
+> index 95ff993..fc2d1fb 100644
+> --- a/include/linux/pci.h
+> +++ b/include/linux/pci.h
+> @@ -186,6 +186,19 @@ enum pci_bus_flags {
+>         PCI_BUS_FLAGS_NO_MMRBC = (__force pci_bus_flags_t) 2,
+>  };
+>
+> +/* These values come from the PCI Express Spec */
+> +enum pcie_link_width {
+> +       PCIE_LNK_WIDTH_RESRV    = 0x00,
+> +       PCIE_LNK_X1             = 0x01,
+> +       PCIE_LNK_X2             = 0x02,
+> +       PCIE_LNK_X4             = 0x04,
+> +       PCIE_LNK_X8             = 0x08,
+> +       PCIE_LNK_X12            = 0x0C,
+> +       PCIE_LNK_X16            = 0x10,
+> +       PCIE_LNK_X32            = 0x20,
+> +       PCIE_LNK_WIDTH_UNKNOWN  = 0xFF,
+> +};
+> +
+>  /* Based on the PCI Hotplug Spec, but some values are made up by us */
+>  enum pci_bus_speed {
+>         PCI_SPEED_33MHz                 = 0x00,
+> diff --git a/include/linux/pci_hotplug.h b/include/linux/pci_hotplug.h
+> index 8db71dc..64e61e0 100644
+> --- a/include/linux/pci_hotplug.h
+> +++ b/include/linux/pci_hotplug.h
+> @@ -28,19 +28,6 @@
+>  #ifndef _PCI_HOTPLUG_H
+>  #define _PCI_HOTPLUG_H
+>
+> -/* These values come from the PCI Express Spec */
+> -enum pcie_link_width {
+> -       PCIE_LNK_WIDTH_RESRV    = 0x00,
+> -       PCIE_LNK_X1             = 0x01,
+> -       PCIE_LNK_X2             = 0x02,
+> -       PCIE_LNK_X4             = 0x04,
+> -       PCIE_LNK_X8             = 0x08,
+> -       PCIE_LNK_X12            = 0x0C,
+> -       PCIE_LNK_X16            = 0x10,
+> -       PCIE_LNK_X32            = 0x20,
+> -       PCIE_LNK_WIDTH_UNKNOWN  = 0xFF,
+> -};
+> -
+>  /**
+>   * struct hotplug_slot_ops -the callbacks that the hotplug pci core can use
+>   * @owner: The module owner of this structure
+> --
+> 1.7.11.7
+>
