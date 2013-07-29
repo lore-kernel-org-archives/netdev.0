@@ -1,71 +1,46 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH RFC] xfrm{4,6}: only report errors back to local sockets if we don't cross address family
-Date: Mon, 29 Jul 2013 16:50:17 +0200
-Message-ID: <20130729145017.GD2490@order.stressinduktion.org>
+Subject: Re: [PATCH 1/2] net: igmp: Reduce Unsolicited report interval to 1s when using IGMPv3
+Date: Mon, 29 Jul 2013 16:56:03 +0200
+Message-ID: <20130729145603.GE2490@order.stressinduktion.org>
+References: <1374527349.1635.55.camel@bwh-desktop.uk.level5networks.com> <1374754445-5608-1-git-send-email-william.manley@youview.com> <20130726163239.GE3890@order.stressinduktion.org> <20130726163913.GG3890@order.stressinduktion.org> <51F67E88.6030006@youview.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: vi0oss@gmail.com, steffen.klassert@secunet.com
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, bcrl@kvack.org, luky-37@hotmail.com,
+	sergei.shtylyov@cogentembedded.com, bhutchings@solarflare.com,
+	davem@davemloft.net
+To: William Manley <william.manley@youview.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:46356 "EHLO
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:46371 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753217Ab3G2OuT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 10:50:19 -0400
+	with ESMTP id S1757058Ab3G2O4F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 10:56:05 -0400
 Content-Disposition: inline
+In-Reply-To: <51F67E88.6030006@youview.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-xfrm6_local_error/xfrm4_tunnel_check_size report mtu errors back to a
-socket in case it is locally generated. If the packet first traversed
-a 6in4/4in6 tunnel before passing the xfrm layer, we could get a panic
-because of address family type mismatch in the error reporting functions.
+On Mon, Jul 29, 2013 at 03:39:04PM +0100, William Manley wrote:
+> I'll have a look, but I have to admit my ignorance on how multicast 
+> works with IPv6 and I may have difficulty setting up a test environment.
+> 
+> It seems that IGMP has been replaced with "Multicast Listener Discovery" 
+> on top of ICMPv6 and much like IGMP there is more than one version:
+> 
+> 1. RFC2710 - MLD - Unsolicited Report Interval = 10s
+> 2. RFC3810 - MLDv2 - Unsolicited Report Interval = 1s
 
-This bug fixes only the panic part of the excellent bug report
-<https://bugzilla.kernel.org/show_bug.cgi?id=58691> by vi0oss.
+Correct.
 
-It is unclear to me how to let these mtu change events travel up the
-stack. A match on (skb->sk && (skb->dev | tunnel_types)) could be made
-first and we forcefully decrease the mtu of that interface with a warning?
-This seems to be fragile to me.
+> There also seems to be a /proc/sys/net/ipv6/conf/all/force_mld_version. 
+>  Ok, so maybe it's not so difficult.  I'll see if I can come up with 
+> some additional patches but I'd prefer to keep them separate from the 
+> IPv4 ones which I hope are now good-to-go.
 
-Reported-by: <vi0oss@gmail.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv4/xfrm4_output.c | 4 ++--
- net/ipv6/xfrm6_output.c | 3 +++
- 2 files changed, 5 insertions(+), 2 deletions(-)
+Of course, separate patches for ipv6 are favorable. The code is actually
+pretty similar to IPv4. Let me know if you need help.
 
-diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
-index 327a617..61f6cae 100644
---- a/net/ipv4/xfrm4_output.c
-+++ b/net/ipv4/xfrm4_output.c
-@@ -32,10 +32,10 @@ static int xfrm4_tunnel_check_size(struct sk_buff *skb)
- 	dst = skb_dst(skb);
- 	mtu = dst_mtu(dst);
- 	if (skb->len > mtu) {
--		if (skb->sk)
-+		if (skb->sk && skb->sk->sk_family == AF_INET)
- 			ip_local_error(skb->sk, EMSGSIZE, ip_hdr(skb)->daddr,
- 				       inet_sk(skb->sk)->inet_dport, mtu);
--		else
-+		else if (!skb->sk)
- 			icmp_send(skb, ICMP_DEST_UNREACH,
- 				  ICMP_FRAG_NEEDED, htonl(mtu));
- 		ret = -EMSGSIZE;
-diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
-index 8755a30..29f6db7 100644
---- a/net/ipv6/xfrm6_output.c
-+++ b/net/ipv6/xfrm6_output.c
-@@ -59,6 +59,9 @@ static void xfrm6_local_error(struct sk_buff *skb, u32 mtu)
- 	struct flowi6 fl6;
- 	struct sock *sk = skb->sk;
- 
-+	if (sk->sk_family != AF_INET6)
-+		return;
-+
- 	fl6.fl6_dport = inet_sk(sk)->inet_dport;
- 	fl6.daddr = ipv6_hdr(skb)->daddr;
- 
--- 
-1.8.3.1
+I'll review your IPv4 patches now.
+
+Thanks,
+
+  Hannes
