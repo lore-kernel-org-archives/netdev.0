@@ -1,41 +1,38 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 2/2] flow_dissector: Add support for IPPROTO_IPV6
-Date: Mon, 29 Jul 2013 10:50:52 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1307291048420.10983@tomh.mtv.corp.google.com>
+From: "Artem S. Tashkinov" <t.artem@lycos.com>
+Subject: Re: A call to revise sockets behaviour
+Date: Mon, 29 Jul 2013 18:02:16 +0000 (UTC)
+Message-ID: <2134648871.43175.1375120936132.JavaMail.mail@webmail09>
+References: <2066879158.39771.1375110634453.JavaMail.mail@webmail09>
+ <20130729083519.5d574f16@nehalam.linuxnetplumber.net>
+ <2063167407.40450.1375112877907.JavaMail.mail@webmail09><1375119778.10515.20.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f201.google.com ([209.85.128.201]:41040 "EHLO
-	mail-ve0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757381Ab3G2Ru6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 13:50:58 -0400
-Received: by mail-ve0-f201.google.com with SMTP id m1so342757ves.2
-        for <netdev@vger.kernel.org>; Mon, 29 Jul 2013 10:50:58 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Support IPPROTO_IPV6 similar to IPPROTO_IPIP
+Jul 29, 2013 11:43:00 PM, Eric wrote:
+On Mon, 2013-07-29 at 15:47 +0000, Artem S. Tashkinov wrote:
+>
+>> A wine developer clearly showed that this option simply doesn't work. 
+>> 
+>> http://bugs.winehq.org/show_bug.cgi?id=26031#c21
+>> 
+>> Output of strace:
+>> getsockopt(24, SOL_SOCKET, SO_REUSEADDR, [0], [4]) = 0
+>> setsockopt(24, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+>> bind(24, {sa_family=AF_INET, sin_port=htons(43012), sin_addr=inet_addr("0.     
+>> 0.0.0")}, 16) = -1 EADDRINUSE (Address already in use)
+>
+>Its clear that some other socket did not use SO_REUSADDR
+>
+>All sockets using a given port _must_ have use SO_REUSADDR to allow this
+>port being reused.
+>
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/core/flow_dissector.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 3259446..9b96ba5 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -141,6 +141,9 @@ ipv6:
- 	case IPPROTO_IPIP:
- 		proto = htons(ETH_P_IP);
- 		goto ip;
-+	case IPPROTO_IPV6:
-+		proto = htons(ETH_P_IPV6);
-+		goto ip;
- 	default:
- 		break;
- 	}
--- 
-1.8.3
+It's exactly what's been tried. A program running with SO_REUSADDR, once no longer
+running consequently fails to regain the rights for the port.
