@@ -1,45 +1,81 @@
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: [PATCH net-next 6/6] tg3: Update version to 3.133
-Date: Mon, 29 Jul 2013 13:58:40 -0700
-Message-ID: <1375131520-1746-7-git-send-email-nsujir@broadcom.com>
-References: <1375131520-1746-1-git-send-email-nsujir@broadcom.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [net-next 08/15] pci: expose pcie_link_speed and pcix_bus_speed
+ arrays
+Date: Mon, 29 Jul 2013 21:03:53 +0000
+Message-ID: <1375131833.5297.14.camel@jekeller-desk1.amr.corp.intel.com>
+References: <1375102331-23905-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1375102331-23905-9-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <CAErSpo5sVTveY54iodDuqLXqsUTqUXTfDLh14k3=okneHB+ikg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Nithin Nayak Sujir" <nsujir@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2531 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753002Ab3G2U6w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jul 2013 16:58:52 -0400
-In-Reply-To: <1375131520-1746-1-git-send-email-nsujir@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Bjorn Helgaas <bhelgaas@google.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <CAErSpo5sVTveY54iodDuqLXqsUTqUXTfDLh14k3=okneHB+ikg@mail.gmail.com>
+Content-Language: en-US
+Content-ID: <1ECE3B58D1FCA54D9B6AC4AB673C5250@intel.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/ethernet/broadcom/tg3.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 6e59ef1..2aa8624 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -94,10 +94,10 @@ static inline void _tg3_flag_clear(enum TG3_FLAGS flag, unsigned long *bits)
- 
- #define DRV_MODULE_NAME		"tg3"
- #define TG3_MAJ_NUM			3
--#define TG3_MIN_NUM			132
-+#define TG3_MIN_NUM			133
- #define DRV_MODULE_VERSION	\
- 	__stringify(TG3_MAJ_NUM) "." __stringify(TG3_MIN_NUM)
--#define DRV_MODULE_RELDATE	"May 21, 2013"
-+#define DRV_MODULE_RELDATE	"Jul 29, 2013"
- 
- #define RESET_KIND_SHUTDOWN	0
- #define RESET_KIND_INIT		1
--- 
-1.8.1.4
+T24gTW9uLCAyMDEzLTA3LTI5IGF0IDEyOjQ0IC0wNjAwLCBCam9ybiBIZWxnYWFzIHdyb3RlOg0K
+PiBPbiBNb24sIEp1bCAyOSwgMjAxMyBhdCA2OjUyIEFNLCBKZWZmIEtpcnNoZXINCj4gPGplZmZy
+ZXkudC5raXJzaGVyQGludGVsLmNvbT4gd3JvdGU6DQo+ID4gRnJvbTogSmFjb2IgS2VsbGVyIDxq
+YWNvYi5lLmtlbGxlckBpbnRlbC5jb20+DQo+ID4NCj4gPiBwY2llX2xpbmtfc3BlZWQgYW5kIHBj
+aXhfYnVzX3NwZWVkIGFyZSBhcnJheXMgdXNlZCBieSBwcm9iZS5jIHRvIGNvcnJlY3RseQ0KPiA+
+IGNvbnZlcnQgbG5rc3RhIHJlZ2lzdGVyIHZhbHVlcyBpbnRvIHRoZSBwY2lfYnVzX3NwZWVkIGVu
+dW0uIFRoZXNlIHN0YXRpYyBhcnJheXMNCj4gPiBhcmUgdXNlZnVsIG91dHNpZGUgcHJvYmUgZm9y
+IHRoaXMgcHVycG9zZS4gVGhpcyBwYXRjaCBtYWtlcyB0aGVzZSBkZWZpbmVzIGludG8NCj4gPiBj
+b25zdCBhcnJheXMgYW5kIGV4cG9zZXMgdGhlbSB3aXRoIGFuIGV4dGVybiBoZWFkZXIgaW4gbGlu
+dXgvaW5jbHVkZS9wY2kuaA0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogSmFjb2IgS2VsbGVyIDxq
+YWNvYi5lLmtlbGxlckBpbnRlbC5jb20+DQo+ID4gVGVzdGVkLWJ5OiBQaGlsIFNjaG1pdHQgPHBo
+aWxsaXAuai5zY2htaXR0QGludGVsLmNvbT4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBKZWZmIEtpcnNo
+ZXIgPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4gPiAtLS0NCj4gPiAgZHJpdmVycy9w
+Y2kvcHJvYmUuYyB8IDQgKystLQ0KPiA+ICBpbmNsdWRlL2xpbnV4L3BjaS5oIHwgMyArKysNCj4g
+PiAgMiBmaWxlcyBjaGFuZ2VkLCA1IGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pDQo+ID4N
+Cj4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9wY2kvcHJvYmUuYyBiL2RyaXZlcnMvcGNpL3Byb2Jl
+LmMNCj4gPiBpbmRleCA0NmFkYTVjLi40OTZjNWIwIDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZlcnMv
+cGNpL3Byb2JlLmMNCj4gPiArKysgYi9kcml2ZXJzL3BjaS9wcm9iZS5jDQo+ID4gQEAgLTUxMyw3
+ICs1MTMsNyBAQCBzdGF0aWMgc3RydWN0IHBjaV9ob3N0X2JyaWRnZSAqcGNpX2FsbG9jX2hvc3Rf
+YnJpZGdlKHN0cnVjdCBwY2lfYnVzICpiKQ0KPiA+ICAgICAgICAgcmV0dXJuIGJyaWRnZTsNCj4g
+PiAgfQ0KPiA+DQo+ID4gLXN0YXRpYyB1bnNpZ25lZCBjaGFyIHBjaXhfYnVzX3NwZWVkW10gPSB7
+DQo+ID4gK2NvbnN0IHVuc2lnbmVkIGNoYXIgcGNpeF9idXNfc3BlZWRbXSA9IHsNCj4gPiAgICAg
+ICAgIFBDSV9TUEVFRF9VTktOT1dOLCAgICAgICAgICAgICAgLyogMCAqLw0KPiA+ICAgICAgICAg
+UENJX1NQRUVEXzY2TUh6X1BDSVgsICAgICAgICAgICAvKiAxICovDQo+ID4gICAgICAgICBQQ0lf
+U1BFRURfMTAwTUh6X1BDSVgsICAgICAgICAgIC8qIDIgKi8NCj4gPiBAQCAtNTMyLDcgKzUzMiw3
+IEBAIHN0YXRpYyB1bnNpZ25lZCBjaGFyIHBjaXhfYnVzX3NwZWVkW10gPSB7DQo+ID4gICAgICAg
+ICBQQ0lfU1BFRURfMTMzTUh6X1BDSVhfNTMzICAgICAgIC8qIEYgKi8NCj4gPiAgfTsNCj4gPg0K
+PiA+IC1zdGF0aWMgdW5zaWduZWQgY2hhciBwY2llX2xpbmtfc3BlZWRbXSA9IHsNCj4gPiArY29u
+c3QgdW5zaWduZWQgY2hhciBwY2llX2xpbmtfc3BlZWRbXSA9IHsNCj4gPiAgICAgICAgIFBDSV9T
+UEVFRF9VTktOT1dOLCAgICAgICAgICAgICAgLyogMCAqLw0KPiA+ICAgICAgICAgUENJRV9TUEVF
+RF8yXzVHVCwgICAgICAgICAgICAgICAvKiAxICovDQo+ID4gICAgICAgICBQQ0lFX1NQRUVEXzVf
+MEdULCAgICAgICAgICAgICAgIC8qIDIgKi8NCj4gPiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51
+eC9wY2kuaCBiL2luY2x1ZGUvbGludXgvcGNpLmgNCj4gPiBpbmRleCAwZmQxZjE1Li45NWZmOTkz
+IDEwMDY0NA0KPiA+IC0tLSBhL2luY2x1ZGUvbGludXgvcGNpLmgNCj4gPiArKysgYi9pbmNsdWRl
+L2xpbnV4L3BjaS5oDQo+ID4gQEAgLTEyMCw2ICsxMjAsOSBAQCB0eXBlZGVmIGludCBfX2JpdHdp
+c2UgcGNpX3Bvd2VyX3Q7DQo+ID4gIC8qIFJlbWVtYmVyIHRvIHVwZGF0ZSB0aGlzIHdoZW4gdGhl
+IGxpc3QgYWJvdmUgY2hhbmdlcyEgKi8NCj4gPiAgZXh0ZXJuIGNvbnN0IGNoYXIgKnBjaV9wb3dl
+cl9uYW1lc1tdOw0KPiA+DQo+ID4gK2V4dGVybiBjb25zdCB1bnNpZ25lZCBjaGFyIHBjaXhfYnVz
+X3NwZWVkW107DQo+ID4gK2V4dGVybiBjb25zdCB1bnNpZ25lZCBjaGFyIHBjaWVfbGlua19zcGVl
+ZFtdOw0KPiANCj4gQXMgZmFyIGFzIEkgY2FuIHRlbGwsIHlvdSBkaWRuJ3QgYWN0dWFsbHkgYWRk
+IGFueXRoaW5nIHRoYXQgdXNlcw0KPiBwY2l4X2J1c19zcGVlZFtdLg0KPiANCg0KSSBtb3N0bHkg
+YWRkZWQgdGhpcyBmb3IgY29uc2lzdGVuY3kuLi4NCg0KPiBZb3UgYWRkZWQgYSBwY2llX2xpbmtf
+c3BlZWRbXSB1c2Ugb25seSBpbiBkcml2ZXJzL3BjaS9wY2kuYzsgbWF5YmUNCj4gdGhpcyBleHRl
+cm4gZGVjbGFyYXRpb24gY291bGQgZ28gaW4gZHJpdmVycy9wY2kvcGNpLmggdG8gbGltaXQgaXRz
+DQo+IHZpc2liaWxpdHk/DQoNClByZXR0eSBzdXJlIEkgdXNlIHRoZSBwY2llX2xpbmtfc3BlZWQg
+aW4gdGhlIGl4Z2JlIGRyaXZlciBieSBpbmNsdWRpbmcNCnRoZSBsaW51eC9wY2kuaCBoZWFkZXIu
+Li4gIENoZWNrIHBhdGNoIDExLzE1IG9mIHRoaXMgc2VyaWVzIHdoZXJlIEkNCmFjdHVhbGx5IHVz
+ZSB0aGUgdmFsdWVzLCBzbyBpdCB3b3VsZCBuZWVkIHRvIGJlIGluIHRoZSBsaW51eC9wY2kuaA0K
+aGVhZGVyLg0KDQo+IA0KPiBJZiB5b3UgdXBkYXRlIHRoaXMgcGF0Y2gsIG5vdGUgdGhhdCB3ZSBj
+b252ZW50aW9uYWxseSBjYXBpdGFsaXplICJQQ0k6DQo+IEV4cG9zZSAuLi4iIGluIHRoZSBjaGFu
+Z2Vsb2cgc3VtbWFyeSwgZS5nLiwgImdpdCBsb2cgLS1vbmVsaW5lDQo+IGRyaXZlcnMvcGNpIi4N
+Cg0KT2guIGdvb2QgdG8ga25vdywgSSB3aWxsIGtlZXAgdGhhdCBpbiBtaW5kIGZvciBmdXR1cmUu
+DQo+IA0KPiA+ICBzdGF0aWMgaW5saW5lIGNvbnN0IGNoYXIgKnBjaV9wb3dlcl9uYW1lKHBjaV9w
+b3dlcl90IHN0YXRlKQ0KPiA+ICB7DQo+ID4gICAgICAgICByZXR1cm4gcGNpX3Bvd2VyX25hbWVz
+WzEgKyAoaW50KSBzdGF0ZV07DQo+ID4gLS0NCj4gPiAxLjcuMTEuNw0KPiA+DQoNClRoYW5rcywN
+Ckpha2UNCg==
