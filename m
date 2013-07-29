@@ -1,479 +1,242 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH 2/3] include: Convert ethernet mac address declarations to use ETH_ALEN
-Date: Mon, 29 Jul 2013 13:59:24 +0200
-Message-ID: <2929374.frUlkyTFNL@vostro.rjw.lan>
-References: <cover.1375075325.git.joe@perches.com> <a769aba61c43967257854413f16d2b935cc54972.1375075325.git.joe@perches.com>
+From: Luis Henriques <luis.henriques@canonical.com>
+Subject: Re: [net PATCH] atl1c: Fix misuse of netdev_alloc_skb in refilling rx ring
+Date: Mon, 29 Jul 2013 13:09:27 +0100
+Message-ID: <87y58pva88.fsf@canonical.com>
+References: <87k3kbdcmy.fsf@canonical.com>
+	<1374960610.3607.13.camel@deadeye.wl.decadent.org.uk>
+	<1374969583.3669.23.camel@edumazet-glaptop>
+	<20130727.200205.67471633133830510.davem@davemloft.net>
+	<20130728104446.GB9876@neilslaptop.think-freely.org>
+	<1375028154.3669.30.camel@edumazet-glaptop>
+	<20130728185318.GA10795@neilslaptop.think-freely.org>
+	<1375042972.2546.17.camel@deadeye.wl.decadent.org.uk>
+	<1375052482.3669.54.camel@edumazet-glaptop>
+	<1375053654.3669.58.camel@edumazet-glaptop>
+	<877gg9wv08.fsf@canonical.com>
+	<1375095442.3669.67.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, Len Brown <lenb@kernel.org>,
-	Pantelis Antoniou <pantelis.antoniou@gmail.com>,
-	Vitaly Bordug <vbordug@ru.mvista.com>,
-	Steve Glendinning <steve.glendinning@shawell.net>,
-	Mauro Carvalho Chehab <m.chehab@samsung.com>,
-	Samuel Ortiz <samuel@sortiz.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, linux-usb@vger.kernel.org,
-	linux-media@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <a769aba61c43967257854413f16d2b935cc54972.1375075325.git.joe@perches.com>
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jcliburn@gmail.com, stable@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1375095442.3669.67.camel@edumazet-glaptop> (Eric Dumazet's
+	message of "Mon, 29 Jul 2013 03:57:22 -0700")
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday, July 28, 2013 10:29:04 PM Joe Perches wrote:
-> It's convenient to have ethernet mac addresses use
-> ETH_ALEN to be able to grep for them a bit easier and
-> also to ensure that the addresses are __aligned(2).
-> 
-> Add #include <linux/if_ether.h> as necessary.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  include/acpi/actbl2.h           |  4 ++-
->  include/linux/dm9000.h          |  4 ++-
->  include/linux/fs_enet_pd.h      |  3 ++-
->  include/linux/ieee80211.h       | 59 +++++++++++++++++++++--------------------
->  include/linux/mlx4/device.h     | 11 ++++----
->  include/linux/mlx4/qp.h         |  5 ++--
->  include/linux/mv643xx_eth.h     |  3 ++-
->  include/linux/sh_eth.h          |  3 ++-
->  include/linux/smsc911x.h        |  3 ++-
->  include/linux/uwb/spec.h        |  5 ++--
->  include/media/tveeprom.h        |  4 ++-
->  include/net/irda/irlan_common.h |  3 ++-
->  12 files changed, 61 insertions(+), 46 deletions(-)
-> 
-> diff --git a/include/acpi/actbl2.h b/include/acpi/actbl2.h
-> index ffaac0e..3f0f11c 100644
-> --- a/include/acpi/actbl2.h
-> +++ b/include/acpi/actbl2.h
-> @@ -44,6 +44,8 @@
->  #ifndef __ACTBL2_H__
->  #define __ACTBL2_H__
+Eric Dumazet <eric.dumazet@gmail.com> writes:
+
+> On Mon, 2013-07-29 at 10:55 +0100, Luis Henriques wrote:
+>> Eric Dumazet <eric.dumazet@gmail.com> writes:
+>> 
+>> > On Sun, 2013-07-28 at 16:01 -0700, Eric Dumazet wrote:
+>> >> On Sun, 2013-07-28 at 21:22 +0100, Ben Hutchings wrote:
+>> >> 
+>> >> > 
+>> >> > Since we know lengths > 4K work, perhaps it would be worth testing with
+>> >> > the fragment cache size reduced to 16K?  The driver would never
+>> >> > previously have used RX buffers crossing 16K boundaries, except if SLOB
+>> >> > was used (and that's an unlikely combination).
+>> >> 
+>> >> Sure, please note the following maths :
+>> >> 
+>> >> NET_SKB_PAD + 1536 + sizeof(struct skb_shared_info) = 1920
+>> >> 
+>> >> 16384/1920 = 8
+>> >> 
+>> >> 32768/1920 = 17
+>> >> 
+>> >> I don't think atl1c is used in any critical host (given it doesn't even
+>> >> provide RX checksums and GRO ...), so I will provide a patch doing mere
+>> >> page allocations.
+>> >> 
+>> >
+>> > Oh well, look at code around line 2530
+>> >
+>> >         * The atl1c chip can DMA to 64-bit addresses, but it uses a single
+>> >          * shared register for the high 32 bits, so only a single, aligned,
+>> >          * 4 GB physical address range can be used at a time.
+>> >          *
+>> >          * Supporting 64-bit DMA on this hardware is more trouble than it's
+>> >          * worth.  It is far easier to limit to 32-bit DMA than update
+>> >          * various kernel subsystems to support the mechanics required by a
+>> >          * fixed-high-32-bit system.
+>> >          */
+>> >         if ((pci_set_dma_mask(pdev, DMA_BIT_MASK(32)) != 0) ||
+>> >             (pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32)) != 0)) {
+>> >                 dev_err(&pdev->dev, "No usable DMA configuration,aborting\n");
+>> >                 goto err_dma;
+>> >         }
+>> >
+>> > It looks like we have a winner !
+>> >
+>> > This $@!? really needs DMA32 allocations.
+>> >
+>> > Currently only tested on TX patch, it needs same care on RX
+>> >
+>> > diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+>> > index 786a874..e2ee962 100644
+>> > --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+>> > +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+>> > @@ -1660,7 +1660,8 @@ static int atl1c_alloc_rx_buffer(struct atl1c_adapter *adapter)
+>> >  	while (next_info->flags & ATL1C_BUFFER_FREE) {
+>> >  		rfd_desc = ATL1C_RFD_DESC(rfd_ring, rfd_next_to_use);
+>> >  
+>> > -		skb = netdev_alloc_skb(adapter->netdev, adapter->rx_buffer_len);
+>> > +		skb = __netdev_alloc_skb(adapter->netdev, adapter->rx_buffer_len,
+>> > +					 GFP_ATOMIC | GFP_DMA32);
+>> >  		if (unlikely(!skb)) {
+>> >  			if (netif_msg_rx_err(adapter))
+>> >  				dev_warn(&pdev->dev, "alloc rx buffer failed\n");
+>> >
+>> >
+>> > --
+>> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> > the body of a message to majordomo@vger.kernel.org
+>> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> 
+>> Using both patches from Eric (to the atl1c driver and to
+>> net/core/skbuff.c) , I got the following:
+>> 
+>> [   25.176311] ------------[ cut here ]------------
+>> [   25.179857] kernel BUG at mm/slub.c:1360!
+>> [   25.183495] invalid opcode: 0000 [#1] SMP 
+>> [   25.186919] CPU: 3 PID: 1705 Comm: ip Not tainted 3.11.0-rc2+ #15
+>> [   25.190319] Hardware name: ASUSTeK COMPUTER INC. X101CH/X101CH, BIOS X101CH.1203 07/30/2012
+>> [   25.193828] task: f504f8c0 ti: f514e000 task.ti: f514e000
+>> [   25.197348] EIP: 0060:[<c1135e27>] EFLAGS: 00010002 CPU: 3
+>> [   25.200896] EIP is at new_slab+0x1c7/0x200
+>> [   25.204391] EAX: f6801a00 EBX: f6801a00 ECX: ffffffff EDX: 00010224
+>> [   25.207942] ESI: f6800ea0 EDI: f6801a00 EBP: f514f91c ESP: f514f904
+>> [   25.211541]  DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
+>> [   25.215113] CR0: 80050033 CR2: bff28afc CR3: 35fcd000 CR4: 000007f0
+>> [   25.218695] Stack:
+>> [   25.222259]  f514f954 c107acc7 00000003 00000000 f6800ea0 f6801a00 f514f984 c179d9e6
+>> [   25.226156]  80100010 00000000 00100010 c162fb40 00010224 f6800ea0 8015000b 00000000
+>> [   25.226168]  00000286 c162fb1c 00000024 f514f964 00000000 f5d963c0 00000296 f5d963c0
+>> [   25.226170] Call Trace:
+>> [   25.226184]  [<c107acc7>] ? enqueue_task_fair+0x5c7/0x7d0
+>> [   25.226197]  [<c179d9e6>] __slab_alloc.constprop.71+0x248/0x409
+>> [   25.226205]  [<c162fb40>] ? __alloc_skb+0x60/0x270
+>> [   25.226211]  [<c162fb1c>] ? __alloc_skb+0x3c/0x270
+>> [   25.226218]  [<c106f688>] ? ttwu_do_wakeup+0x18/0x100
+>> [   25.226226]  [<c1139440>] __kmalloc_track_caller+0x100/0x150
+>> [   25.226232]  [<c10718a9>] ? try_to_wake_up+0x149/0x230
+>> [   25.226238]  [<c162fb40>] ? __alloc_skb+0x60/0x270
+>> [   25.226244]  [<c162f482>] __kmalloc_reserve.isra.30+0x22/0x70
+>> [   25.226250]  [<c162fb40>] __alloc_skb+0x60/0x270
+>> [   25.226257]  [<c162ff71>] __netdev_alloc_skb+0x41/0xc0
+>> [   25.226265]  [<c145cbe5>] atl1c_alloc_rx_buffer+0x125/0x290
+>> [   25.226272]  [<c145ce79>] atl1c_configure+0x129/0x420
+>> [   25.226279]  [<c164d48f>] ? linkwatch_fire_event+0x2f/0x90
+>> [   25.226286]  [<c1006a10>] ? via_no_dac+0x40/0x40
+>> [   25.226292]  [<c145dcb3>] atl1c_up+0x23/0x1e0
+>> [   25.226298]  [<c1006a10>] ? via_no_dac+0x40/0x40
+>> [   25.226305]  [<c145e3c9>] atl1c_open+0x269/0x310
+>> [   25.226311]  [<c1006a10>] ? via_no_dac+0x40/0x40
+>> [   25.226317]  [<c163dd43>] __dev_open+0x83/0xf0
+>> [   25.226325]  [<c17a7224>] ? _raw_spin_unlock_bh+0x14/0x20
+>> [   25.226331]  [<c163e021>] __dev_change_flags+0x81/0x160
+>> [   25.226337]  [<c163e1a8>] dev_change_flags+0x18/0x50
+>> [   25.226343]  [<c164b200>] do_setlink+0x2e0/0x810
+>> [   25.226350]  [<c10fc110>] ? find_get_page+0x20/0xa0
+>> [   25.226357]  [<c12ccff2>] ? nla_parse+0x22/0xa0
+>> [   25.226364]  [<c116b413>] ? __find_get_block_slow+0xd3/0x180
+>> [   25.226370]  [<c164bd92>] rtnl_newlink+0x282/0x510
+>> [   25.226378]  [<c12735cc>] ? security_capable+0x1c/0x30
+>> [   25.226384]  [<c1648c68>] rtnetlink_rcv_msg+0x88/0x1f0
+>> [   25.226391]  [<c1139386>] ? __kmalloc_track_caller+0x46/0x150
+>> [   25.226397]  [<c162fb40>] ? __alloc_skb+0x60/0x270
+>> [   25.226403]  [<c1648be0>] ? rtnetlink_rcv+0x30/0x30
+>> [   25.226410]  [<c165f016>] netlink_rcv_skb+0x86/0xa0
+>> [   25.226416]  [<c1648bd1>] rtnetlink_rcv+0x21/0x30
+>> [   25.226422]  [<c165db38>] netlink_unicast+0x118/0x1b0
+>> [   25.226428]  [<c165e17f>] netlink_sendmsg+0x23f/0x3f0
+>> [   25.226435]  [<c162926b>] sock_sendmsg+0x7b/0xb0
+>> [   25.226443]  [<c1102dc9>] ? __alloc_pages_nodemask+0x119/0x7a0
+>> [   25.226450]  [<c1629661>] ___sys_sendmsg+0x291/0x2a0
+>> [   25.226457]  [<c10fbe56>] ? unlock_page+0x46/0x50
+>> [   25.226464]  [<c111a348>] ? __do_fault+0x388/0x4a0
+>> [   25.226471]  [<c1107196>] ? lru_cache_add+0x16/0x20
+>> [   25.226477]  [<c1125174>] ? page_add_new_anon_rmap+0x74/0x100
+>> [   25.226483]  [<c1631dd5>] ? skb_dequeue+0x45/0x60
+>> [   25.226491]  [<c111da1a>] ? handle_mm_fault+0x1ca/0x2b0
+>> [   25.226497]  [<c11545d1>] ? __d_free+0x31/0x50
+>> [   25.226504]  [<c162a4e8>] __sys_sendmsg+0x38/0x70
+>> [   25.226510]  [<c162a536>] SyS_sendmsg+0x16/0x20
+>> [   25.226517]  [<c162ac1b>] SyS_socketcall+0x29b/0x2f0
+>> [   25.226524]  [<c11440bd>] ? ____fput+0xd/0x10
+>> [   25.226531]  [<c1035b80>] ? vmalloc_sync_all+0x10/0x10
+>> [   25.226537]  [<c17a7fbb>] sysenter_do_call+0x12/0x22
+>> [ 25.226600] Code: e9 4a ff ff ff 8b 7d f0 eb b5 31 c0 eb dc 89 f9 b8 00 10 00
+>> 00 d3 e0 ba 5a 00 00 00 89 c1 8b 45 f0 e8 ae 42 18 00 e9 38 ff ff ff <0f> 0b
+>> 8b 7b 24 b9 00 0f af c1 8b 45 f0 c7 04 24 00 00 00 00 89
+>> [   25.226609] EIP: [<c1135e27>] new_slab+0x1c7/0x200 SS:ESP 0068:f514f904
+>> [   25.226614] ---[ end trace 6188393b9e234ab1 ]---
+>> [   26.757161] input: ACPI Virtual Keyboard Device as /devices/virtual/input/input13
+>> 
+>> Reverting the skbuff.c patch and using only the atl1c_main.c one, I
+>> see again the failures with the driver.
+>> 
+>> So far the only options that seem to get the driver working for me are
+>> either Neil Horman's patch or reverting 69b08f6 ("net: use bigger
+>> pages in __netdev_alloc_frag").
+>> 
+>> Cheers
+>
+> Yes, forget about kmalloc() use GFP_DMA32, its not supported.
+>
+> Lets try following patch ?
+>
+> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> index 786a874..f32189b 100644
+> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> @@ -1639,6 +1639,28 @@ static inline void atl1c_rx_checksum(struct atl1c_adapter *adapter,
+>  	skb_checksum_none_assert(skb);
+>  }
 >  
-> +#include <linux/if_ether.h>
 > +
->  /*******************************************************************************
->   *
->   * Additional ACPI Tables (2)
-> @@ -605,7 +607,7 @@ struct acpi_ibft_nic {
->  	u8 secondary_dns[16];
->  	u8 dhcp[16];
->  	u16 vlan;
-> -	u8 mac_address[6];
-> +	u8 mac_address[ETH_ALEN];
->  	u16 pci_address;
->  	u16 name_length;
->  	u16 name_offset;
-
-Please don't touch this file.
-
-It comes from a code base outside of the kernel and should be kept in sync with
-the upstream.
-
-Thanks,
-Rafael
-
-
-> diff --git a/include/linux/dm9000.h b/include/linux/dm9000.h
-> index 96e8769..841925f 100644
-> --- a/include/linux/dm9000.h
-> +++ b/include/linux/dm9000.h
-> @@ -14,6 +14,8 @@
->  #ifndef __DM9000_PLATFORM_DATA
->  #define __DM9000_PLATFORM_DATA __FILE__
->  
-> +#include <linux/if_ether.h>
+> +static struct sk_buff *atl1c_alloc_skb(unsigned int len)
+> +{
+> +	unsigned int head_size;
+> +	void *data;
 > +
->  /* IO control flags */
->  
->  #define DM9000_PLATF_8BITONLY	(0x0001)
-> @@ -27,7 +29,7 @@
->  
->  struct dm9000_plat_data {
->  	unsigned int	flags;
-> -	unsigned char	dev_addr[6];
-> +	unsigned char	dev_addr[ETH_ALEN];
->  
->  	/* allow replacement IO routines */
->  
-> diff --git a/include/linux/fs_enet_pd.h b/include/linux/fs_enet_pd.h
-> index 51b7934..343d82a 100644
-> --- a/include/linux/fs_enet_pd.h
-> +++ b/include/linux/fs_enet_pd.h
-> @@ -18,6 +18,7 @@
->  
->  #include <linux/string.h>
->  #include <linux/of_mdio.h>
-> +#include <linux/if_ether.h>
->  #include <asm/types.h>
->  
->  #define FS_ENET_NAME	"fs_enet"
-> @@ -135,7 +136,7 @@ struct fs_platform_info {
->  	const struct fs_mii_bus_info *bus_info;
->  
->  	int rx_ring, tx_ring;	/* number of buffers on rx     */
-> -	__u8 macaddr[6];	/* mac address                 */
-> +	__u8 macaddr[ETH_ALEN];	/* mac address                 */
->  	int rx_copybreak;	/* limit we copy small frames  */
->  	int use_napi;		/* use NAPI                    */
->  	int napi_weight;	/* NAPI weight                 */
-> diff --git a/include/linux/ieee80211.h b/include/linux/ieee80211.h
-> index b0dc87a..4e101af 100644
-> --- a/include/linux/ieee80211.h
-> +++ b/include/linux/ieee80211.h
-> @@ -16,6 +16,7 @@
->  #define LINUX_IEEE80211_H
->  
->  #include <linux/types.h>
-> +#include <linux/if_ether.h>
->  #include <asm/byteorder.h>
->  
->  /*
-> @@ -209,28 +210,28 @@ static inline u16 ieee80211_sn_sub(u16 sn1, u16 sn2)
->  struct ieee80211_hdr {
->  	__le16 frame_control;
->  	__le16 duration_id;
-> -	u8 addr1[6];
-> -	u8 addr2[6];
-> -	u8 addr3[6];
-> +	u8 addr1[ETH_ALEN];
-> +	u8 addr2[ETH_ALEN];
-> +	u8 addr3[ETH_ALEN];
->  	__le16 seq_ctrl;
-> -	u8 addr4[6];
-> +	u8 addr4[ETH_ALEN];
->  } __packed __aligned(2);
->  
->  struct ieee80211_hdr_3addr {
->  	__le16 frame_control;
->  	__le16 duration_id;
-> -	u8 addr1[6];
-> -	u8 addr2[6];
-> -	u8 addr3[6];
-> +	u8 addr1[ETH_ALEN];
-> +	u8 addr2[ETH_ALEN];
-> +	u8 addr3[ETH_ALEN];
->  	__le16 seq_ctrl;
->  } __packed __aligned(2);
->  
->  struct ieee80211_qos_hdr {
->  	__le16 frame_control;
->  	__le16 duration_id;
-> -	u8 addr1[6];
-> -	u8 addr2[6];
-> -	u8 addr3[6];
-> +	u8 addr1[ETH_ALEN];
-> +	u8 addr2[ETH_ALEN];
-> +	u8 addr3[ETH_ALEN];
->  	__le16 seq_ctrl;
->  	__le16 qos_ctrl;
->  } __packed __aligned(2);
-> @@ -608,8 +609,8 @@ struct ieee80211s_hdr {
->  	u8 flags;
->  	u8 ttl;
->  	__le32 seqnum;
-> -	u8 eaddr1[6];
-> -	u8 eaddr2[6];
-> +	u8 eaddr1[ETH_ALEN];
-> +	u8 eaddr2[ETH_ALEN];
->  } __packed __aligned(2);
->  
->  /* Mesh flags */
-> @@ -758,7 +759,7 @@ struct ieee80211_rann_ie {
->  	u8 rann_flags;
->  	u8 rann_hopcount;
->  	u8 rann_ttl;
-> -	u8 rann_addr[6];
-> +	u8 rann_addr[ETH_ALEN];
->  	__le32 rann_seq;
->  	__le32 rann_interval;
->  	__le32 rann_metric;
-> @@ -802,9 +803,9 @@ enum ieee80211_vht_opmode_bits {
->  struct ieee80211_mgmt {
->  	__le16 frame_control;
->  	__le16 duration;
-> -	u8 da[6];
-> -	u8 sa[6];
-> -	u8 bssid[6];
-> +	u8 da[ETH_ALEN];
-> +	u8 sa[ETH_ALEN];
-> +	u8 bssid[ETH_ALEN];
->  	__le16 seq_ctrl;
->  	union {
->  		struct {
-> @@ -833,7 +834,7 @@ struct ieee80211_mgmt {
->  		struct {
->  			__le16 capab_info;
->  			__le16 listen_interval;
-> -			u8 current_ap[6];
-> +			u8 current_ap[ETH_ALEN];
->  			/* followed by SSID and Supported rates */
->  			u8 variable[0];
->  		} __packed reassoc_req;
-> @@ -966,21 +967,21 @@ struct ieee80211_vendor_ie {
->  struct ieee80211_rts {
->  	__le16 frame_control;
->  	__le16 duration;
-> -	u8 ra[6];
-> -	u8 ta[6];
-> +	u8 ra[ETH_ALEN];
-> +	u8 ta[ETH_ALEN];
->  } __packed __aligned(2);
->  
->  struct ieee80211_cts {
->  	__le16 frame_control;
->  	__le16 duration;
-> -	u8 ra[6];
-> +	u8 ra[ETH_ALEN];
->  } __packed __aligned(2);
->  
->  struct ieee80211_pspoll {
->  	__le16 frame_control;
->  	__le16 aid;
-> -	u8 bssid[6];
-> -	u8 ta[6];
-> +	u8 bssid[ETH_ALEN];
-> +	u8 ta[ETH_ALEN];
->  } __packed __aligned(2);
->  
->  /* TDLS */
-> @@ -989,14 +990,14 @@ struct ieee80211_pspoll {
->  struct ieee80211_tdls_lnkie {
->  	u8 ie_type; /* Link Identifier IE */
->  	u8 ie_len;
-> -	u8 bssid[6];
-> -	u8 init_sta[6];
-> -	u8 resp_sta[6];
-> +	u8 bssid[ETH_ALEN];
-> +	u8 init_sta[ETH_ALEN];
-> +	u8 resp_sta[ETH_ALEN];
->  } __packed;
->  
->  struct ieee80211_tdls_data {
-> -	u8 da[6];
-> -	u8 sa[6];
-> +	u8 da[ETH_ALEN];
-> +	u8 sa[ETH_ALEN];
->  	__be16 ether_type;
->  	u8 payload_type;
->  	u8 category;
-> @@ -1090,8 +1091,8 @@ struct ieee80211_p2p_noa_attr {
->  struct ieee80211_bar {
->  	__le16 frame_control;
->  	__le16 duration;
-> -	__u8 ra[6];
-> -	__u8 ta[6];
-> +	__u8 ra[ETH_ALEN];
-> +	__u8 ta[ETH_ALEN];
->  	__le16 control;
->  	__le16 start_seq_num;
->  } __packed;
-> diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-> index 52c23a8..e37ac2b 100644
-> --- a/include/linux/mlx4/device.h
-> +++ b/include/linux/mlx4/device.h
-> @@ -33,6 +33,7 @@
->  #ifndef MLX4_DEVICE_H
->  #define MLX4_DEVICE_H
->  
-> +#include <linux/if_ether.h>
->  #include <linux/pci.h>
->  #include <linux/completion.h>
->  #include <linux/radix-tree.h>
-> @@ -619,7 +620,7 @@ struct mlx4_eth_av {
->  	u8		dgid[16];
->  	u32		reserved4[2];
->  	__be16		vlan;
-> -	u8		mac[6];
-> +	u8		mac[ETH_ALEN];
->  };
->  
->  union mlx4_ext_av {
-> @@ -913,10 +914,10 @@ enum mlx4_net_trans_promisc_mode {
->  };
->  
->  struct mlx4_spec_eth {
-> -	u8	dst_mac[6];
-> -	u8	dst_mac_msk[6];
-> -	u8	src_mac[6];
-> -	u8	src_mac_msk[6];
-> +	u8	dst_mac[ETH_ALEN];
-> +	u8	dst_mac_msk[ETH_ALEN];
-> +	u8	src_mac[ETH_ALEN];
-> +	u8	src_mac_msk[ETH_ALEN];
->  	u8	ether_type_enable;
->  	__be16	ether_type;
->  	__be16	vlan_id_msk;
-> diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
-> index 262deac..6d35147 100644
-> --- a/include/linux/mlx4/qp.h
-> +++ b/include/linux/mlx4/qp.h
-> @@ -34,6 +34,7 @@
->  #define MLX4_QP_H
->  
->  #include <linux/types.h>
-> +#include <linux/if_ether.h>
->  
->  #include <linux/mlx4/device.h>
->  
-> @@ -143,7 +144,7 @@ struct mlx4_qp_path {
->  	u8			feup;
->  	u8			fvl_rx;
->  	u8			reserved4[2];
-> -	u8			dmac[6];
-> +	u8			dmac[ETH_ALEN];
->  };
->  
->  enum { /* fl */
-> @@ -318,7 +319,7 @@ struct mlx4_wqe_datagram_seg {
->  	__be32			dqpn;
->  	__be32			qkey;
->  	__be16			vlan;
-> -	u8			mac[6];
-> +	u8			mac[ETH_ALEN];
->  };
->  
->  struct mlx4_wqe_lso_seg {
-> diff --git a/include/linux/mv643xx_eth.h b/include/linux/mv643xx_eth.h
-> index 6e8215b..61a0da3 100644
-> --- a/include/linux/mv643xx_eth.h
-> +++ b/include/linux/mv643xx_eth.h
-> @@ -6,6 +6,7 @@
->  #define __LINUX_MV643XX_ETH_H
->  
->  #include <linux/mbus.h>
-> +#include <linux/if_ether.h>
->  
->  #define MV643XX_ETH_SHARED_NAME		"mv643xx_eth"
->  #define MV643XX_ETH_NAME		"mv643xx_eth_port"
-> @@ -48,7 +49,7 @@ struct mv643xx_eth_platform_data {
->  	 * Use this MAC address if it is valid, overriding the
->  	 * address that is already in the hardware.
->  	 */
-> -	u8			mac_addr[6];
-> +	u8			mac_addr[ETH_ALEN];
->  
->  	/*
->  	 * If speed is 0, autonegotiation is enabled.
-> diff --git a/include/linux/sh_eth.h b/include/linux/sh_eth.h
-> index fc30571..6205eeb 100644
-> --- a/include/linux/sh_eth.h
-> +++ b/include/linux/sh_eth.h
-> @@ -2,6 +2,7 @@
->  #define __ASM_SH_ETH_H__
->  
->  #include <linux/phy.h>
-> +#include <linux/if_ether.h>
->  
->  enum {EDMAC_LITTLE_ENDIAN, EDMAC_BIG_ENDIAN};
->  enum {
-> @@ -18,7 +19,7 @@ struct sh_eth_plat_data {
->  	phy_interface_t phy_interface;
->  	void (*set_mdio_gate)(void *addr);
->  
-> -	unsigned char mac_addr[6];
-> +	unsigned char mac_addr[ETH_ALEN];
->  	unsigned no_ether_link:1;
->  	unsigned ether_link_active_low:1;
->  	unsigned needs_init:1;
-> diff --git a/include/linux/smsc911x.h b/include/linux/smsc911x.h
-> index 4dde70e..eec3efd 100644
-> --- a/include/linux/smsc911x.h
-> +++ b/include/linux/smsc911x.h
-> @@ -22,6 +22,7 @@
->  #define __LINUX_SMSC911X_H__
->  
->  #include <linux/phy.h>
-> +#include <linux/if_ether.h>
->  
->  /* platform_device configuration data, should be assigned to
->   * the platform_device's dev.platform_data */
-> @@ -31,7 +32,7 @@ struct smsc911x_platform_config {
->  	unsigned int flags;
->  	unsigned int shift;
->  	phy_interface_t phy_interface;
-> -	unsigned char mac[6];
-> +	unsigned char mac[ETH_ALEN];
->  };
->  
->  /* Constants for platform_device irq polarity configuration */
-> diff --git a/include/linux/uwb/spec.h b/include/linux/uwb/spec.h
-> index b52e44f..0df24bf 100644
-> --- a/include/linux/uwb/spec.h
-> +++ b/include/linux/uwb/spec.h
-> @@ -32,6 +32,7 @@
->  
->  #include <linux/types.h>
->  #include <linux/bitmap.h>
-> +#include <linux/if_ether.h>
->  
->  #define i1480_FW 0x00000303
->  /* #define i1480_FW 0x00000302 */
-> @@ -130,7 +131,7 @@ enum { UWB_DRP_BACKOFF_WIN_MAX = 16 };
->   * it is also used to define headers sent down and up the wire/radio).
->   */
->  struct uwb_mac_addr {
-> -	u8 data[6];
-> +	u8 data[ETH_ALEN];
->  } __attribute__((packed));
->  
->  
-> @@ -568,7 +569,7 @@ struct uwb_rc_evt_confirm {
->  /* Device Address Management event. [WHCI] section 3.1.3.2. */
->  struct uwb_rc_evt_dev_addr_mgmt {
->  	struct uwb_rceb rceb;
-> -	u8 baAddr[6];
-> +	u8 baAddr[ETH_ALEN];
->  	u8 bResultCode;
->  } __attribute__((packed));
->  
-> diff --git a/include/media/tveeprom.h b/include/media/tveeprom.h
-> index 4a1191a..f7119ee 100644
-> --- a/include/media/tveeprom.h
-> +++ b/include/media/tveeprom.h
-> @@ -12,6 +12,8 @@ enum tveeprom_audio_processor {
->  	TVEEPROM_AUDPROC_OTHER,
->  };
->  
-> +#include <linux/if_ether.h>
+> +	head_size = SKB_DATA_ALIGN(len + NET_SKB_PAD) +
+> +		    SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
 > +
->  struct tveeprom {
->  	u32 has_radio;
->  	/* If has_ir == 0, then it is unknown what the IR capabilities are,
-> @@ -40,7 +42,7 @@ struct tveeprom {
->  	u32 revision;
->  	u32 serial_number;
->  	char rev_str[5];
-> -	u8 MAC_address[6];
-> +	u8 MAC_address[ETH_ALEN];
->  };
+> +	if (head_size <= PAGE_SIZE) {
+> +		struct page *page = alloc_page(GFP_ATOMIC);
+> +
+> +		data = page ? page_address(page) : NULL;
+> +	} else {
+> +		data = kmalloc(head_size, GFP_ATOMIC);
+> +		head_size = 0;
+> +	}
+> +	if (data)
+> +		return build_skb(data, head_size);
+> +	return NULL;
+> +}
+> +
+>  static int atl1c_alloc_rx_buffer(struct atl1c_adapter *adapter)
+>  {
+>  	struct atl1c_rfd_ring *rfd_ring = &adapter->rfd_ring;
+> @@ -1660,7 +1682,7 @@ static int atl1c_alloc_rx_buffer(struct atl1c_adapter *adapter)
+>  	while (next_info->flags & ATL1C_BUFFER_FREE) {
+>  		rfd_desc = ATL1C_RFD_DESC(rfd_ring, rfd_next_to_use);
 >  
->  void tveeprom_hauppauge_analog(struct i2c_client *c, struct tveeprom *tvee,
-> diff --git a/include/net/irda/irlan_common.h b/include/net/irda/irlan_common.h
-> index 0af8b8d..550c2d6 100644
-> --- a/include/net/irda/irlan_common.h
-> +++ b/include/net/irda/irlan_common.h
-> @@ -32,6 +32,7 @@
->  #include <linux/types.h>
->  #include <linux/skbuff.h>
->  #include <linux/netdevice.h>
-> +#include <linux/if_ether.h>
->  
->  #include <net/irda/irttp.h>
->  
-> @@ -161,7 +162,7 @@ struct irlan_provider_cb {
->  	int access_type;     /* Access type */
->  	__u16 send_arb_val;
->  
-> -	__u8 mac_address[6]; /* Generated MAC address for peer device */
-> +	__u8 mac_address[ETH_ALEN]; /* Generated MAC address for peer device */
->  };
->  
->  /*
-> 
+> -		skb = netdev_alloc_skb(adapter->netdev, adapter->rx_buffer_len);
+> +		skb = atl1c_alloc_skb(adapter->rx_buffer_len);
+>  		if (unlikely(!skb)) {
+>  			if (netif_msg_rx_err(adapter))
+>  				dev_warn(&pdev->dev, "alloc rx buffer failed\n");
+>
+
+I confirm that I can't reproduce the issue using this patch.
+
+Cheers,
 -- 
-I speak only for myself.
-Rafael J. Wysocki, Intel Open Source Technology Center.
+Luis
