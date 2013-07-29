@@ -1,45 +1,63 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 3/6] cnic: Reset tcp_flags during cnic_cm_create().
-Date: Sun, 28 Jul 2013 19:03:57 -0700
-Message-ID: <1375063440-4016-3-git-send-email-mchan@broadcom.com>
+Subject: [PATCH 5/6 net-next] cnic: Add missing error checking for
+ RAMROD_CMD_ID_CLOSE
+Date: Sun, 28 Jul 2013 19:03:59 -0700
+Message-ID: <1375063440-4016-5-git-send-email-mchan@broadcom.com>
 References: <1375063440-4016-1-git-send-email-mchan@broadcom.com>
  <1375063440-4016-2-git-send-email-mchan@broadcom.com>
+ <1375063440-4016-3-git-send-email-mchan@broadcom.com>
+ <1375063440-4016-4-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4305 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4318 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752062Ab3G2BmN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752045Ab3G2BmN (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 28 Jul 2013 21:42:13 -0400
-In-Reply-To: <1375063440-4016-2-git-send-email-mchan@broadcom.com>
+In-Reply-To: <1375063440-4016-4-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eddie Wai <eddie.wai@broadcom.com>
 
-Without resetting it, the bnx2i driver cannot use different options for
-different iSCSI connections.
+Completion status field should also be checked for non-zero error
+condition.
 
 Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/cnic.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/broadcom/cnic.c |   11 +++++++----
+ 1 files changed, 7 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
-index c6822e1..1a2e5ff 100644
+index 24f2a09..07ec4ce 100644
 --- a/drivers/net/ethernet/broadcom/cnic.c
 +++ b/drivers/net/ethernet/broadcom/cnic.c
-@@ -3603,6 +3603,7 @@ static int cnic_cm_create(struct cnic_dev *dev, int ulp_type, u32 cid,
- 	csk1->rcv_buf = DEF_RCV_BUF;
- 	csk1->snd_buf = DEF_SND_BUF;
- 	csk1->seed = DEF_SEED;
-+	csk1->tcp_flags = 0;
+@@ -4022,15 +4022,18 @@ static void cnic_cm_process_kcqe(struct cnic_dev *dev, struct kcqe *kcqe)
+ 		cnic_cm_upcall(cp, csk, opcode);
+ 		break;
  
- 	*csk = csk1;
- 	return 0;
+-	case L5CM_RAMROD_CMD_ID_CLOSE:
+-		if (l4kcqe->status != 0) {
+-			netdev_warn(dev->netdev, "RAMROD CLOSE compl with "
+-				    "status 0x%x\n", l4kcqe->status);
++	case L5CM_RAMROD_CMD_ID_CLOSE: {
++		struct iscsi_kcqe *l5kcqe = (struct iscsi_kcqe *) kcqe;
++
++		if (l4kcqe->status != 0 || l5kcqe->completion_status != 0) {
++			netdev_warn(dev->netdev, "RAMROD CLOSE compl with status 0x%x completion status 0x%x\n",
++				    l4kcqe->status, l5kcqe->completion_status);
+ 			opcode = L4_KCQE_OPCODE_VALUE_CLOSE_COMP;
+ 			/* Fall through */
+ 		} else {
+ 			break;
+ 		}
++	}
+ 	case L4_KCQE_OPCODE_VALUE_RESET_RECEIVED:
+ 	case L4_KCQE_OPCODE_VALUE_CLOSE_COMP:
+ 	case L4_KCQE_OPCODE_VALUE_RESET_COMP:
 -- 
 1.7.1
