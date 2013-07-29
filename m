@@ -1,32 +1,32 @@
-From: Neil Horman <nhorman@tuxdriver.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: Re: [net PATCH] atl1c: Fix misuse of netdev_alloc_skb in refilling
  rx ring
-Date: Sun, 28 Jul 2013 19:38:40 -0400
-Message-ID: <20130728233840.GB15543@neilslaptop.think-freely.org>
+Date: Mon, 29 Jul 2013 01:07:18 +0100
+Message-ID: <1375056438.2546.55.camel@deadeye.wl.decadent.org.uk>
 References: <87k3kbdcmy.fsf@canonical.com>
- <1374960610.3607.13.camel@deadeye.wl.decadent.org.uk>
- <1374969583.3669.23.camel@edumazet-glaptop>
- <20130727.200205.67471633133830510.davem@davemloft.net>
- <20130728104446.GB9876@neilslaptop.think-freely.org>
- <1375028154.3669.30.camel@edumazet-glaptop>
- <20130728185318.GA10795@neilslaptop.think-freely.org>
- <1375042972.2546.17.camel@deadeye.wl.decadent.org.uk>
- <1375052482.3669.54.camel@edumazet-glaptop>
- <1375053654.3669.58.camel@edumazet-glaptop>
+	 <1374960610.3607.13.camel@deadeye.wl.decadent.org.uk>
+	 <1374969583.3669.23.camel@edumazet-glaptop>
+	 <20130727.200205.67471633133830510.davem@davemloft.net>
+	 <20130728104446.GB9876@neilslaptop.think-freely.org>
+	 <1375028154.3669.30.camel@edumazet-glaptop>
+	 <20130728185318.GA10795@neilslaptop.think-freely.org>
+	 <1375042972.2546.17.camel@deadeye.wl.decadent.org.uk>
+	 <1375052482.3669.54.camel@edumazet-glaptop>
+	 <1375053654.3669.58.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Neil Horman <nhorman@tuxdriver.com>,
 	David Miller <davem@davemloft.net>,
-	luis.henriques@canonical.com, netdev@vger.kernel.org,
-	jcliburn@gmail.com, stable@vger.kernel.org
+	<luis.henriques@canonical.com>, <netdev@vger.kernel.org>,
+	<jcliburn@gmail.com>, <stable@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
 In-Reply-To: <1375053654.3669.58.camel@edumazet-glaptop>
 Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jul 28, 2013 at 04:20:54PM -0700, Eric Dumazet wrote:
+On Sun, 2013-07-28 at 16:20 -0700, Eric Dumazet wrote:
 > On Sun, 2013-07-28 at 16:01 -0700, Eric Dumazet wrote:
 > > On Sun, 2013-07-28 at 21:22 +0100, Ben Hutchings wrote:
 > > 
@@ -69,26 +69,15 @@ On Sun, Jul 28, 2013 at 04:20:54PM -0700, Eric Dumazet wrote:
 > It looks like we have a winner !
 > 
 > This $@!? really needs DMA32 allocations.
-> 
-> Currently only tested on TX patch, it needs same care on RX
-> 
-> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> index 786a874..e2ee962 100644
-> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> @@ -1660,7 +1660,8 @@ static int atl1c_alloc_rx_buffer(struct atl1c_adapter *adapter)
->  	while (next_info->flags & ATL1C_BUFFER_FREE) {
->  		rfd_desc = ATL1C_RFD_DESC(rfd_ring, rfd_next_to_use);
->  
-> -		skb = netdev_alloc_skb(adapter->netdev, adapter->rx_buffer_len);
-> +		skb = __netdev_alloc_skb(adapter->netdev, adapter->rx_buffer_len,
-> +					 GFP_ATOMIC | GFP_DMA32);
->  		if (unlikely(!skb)) {
->  			if (netif_msg_rx_err(adapter))
->  				dev_warn(&pdev->dev, "alloc rx buffer failed\n");
-> 
-> 
-> 
-HA!  I was 99% right on my first patch! :)  Luis, Can you test this patch out
-and confirm that it fixes the issue.
-Neil
+[...]
+
+Just like many older PCI/PCIe devices.  So what?  pci_map_single() takes
+care of that, just so long as the driver sets the DMA mask correctly.
+In fact, PCI devices have a 32-bit DMA mask by default.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
