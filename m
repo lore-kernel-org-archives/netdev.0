@@ -1,94 +1,59 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 6/6 net-next] cnic: Update version to 2.5.17 and
- copyright year.
-Date: Sun, 28 Jul 2013 19:04:00 -0700
-Message-ID: <1375063440-4016-6-git-send-email-mchan@broadcom.com>
-References: <1375063440-4016-1-git-send-email-mchan@broadcom.com>
- <1375063440-4016-2-git-send-email-mchan@broadcom.com>
- <1375063440-4016-3-git-send-email-mchan@broadcom.com>
- <1375063440-4016-4-git-send-email-mchan@broadcom.com>
- <1375063440-4016-5-git-send-email-mchan@broadcom.com>
+Subject: [PATCH 1/6 net-next] cnic: Simplify netdev events handling.
+Date: Sun, 28 Jul 2013 19:03:55 -0700
+Message-ID: <1375063440-4016-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2889 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4299 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751642Ab3G2BmK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Jul 2013 21:42:10 -0400
-In-Reply-To: <1375063440-4016-5-git-send-email-mchan@broadcom.com>
+	id S1751642Ab3G2BmN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Jul 2013 21:42:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+After this earlier commit to simplify probing:
+
+    commit 4bd9b0fffb193d2e288f67f81821af32df8d4349
+    cnic, bnx2x, bnx2: Simplify cnic probing.
+
+we can now reliably receive netdev events and we can simplify the handling
+of these events.  We now remove the logic that tries to handle missed
+NETDEV_REGISTER events.
+
+This change will allow cleanup to be simplified in the next patch.  We can
+now rely on the play back of netdev events during
+unregister_netdevice_notifier() to cleanup the structures.
+
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/cnic.c      |    2 +-
- drivers/net/ethernet/broadcom/cnic.h      |    2 +-
- drivers/net/ethernet/broadcom/cnic_defs.h |    2 +-
- drivers/net/ethernet/broadcom/cnic_if.h   |    6 +++---
- 4 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/broadcom/cnic.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
-index 07ec4ce..6bd6d14 100644
+index d78d4cf..764bfc1 100644
 --- a/drivers/net/ethernet/broadcom/cnic.c
 +++ b/drivers/net/ethernet/broadcom/cnic.c
-@@ -1,6 +1,6 @@
- /* cnic.c: Broadcom CNIC core network driver.
-  *
-- * Copyright (c) 2006-2012 Broadcom Corporation
-+ * Copyright (c) 2006-2013 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-diff --git a/drivers/net/ethernet/broadcom/cnic.h b/drivers/net/ethernet/broadcom/cnic.h
-index 62c6706..e7a2474 100644
---- a/drivers/net/ethernet/broadcom/cnic.h
-+++ b/drivers/net/ethernet/broadcom/cnic.h
-@@ -1,6 +1,6 @@
- /* cnic.h: Broadcom CNIC core network driver.
-  *
-- * Copyright (c) 2006-2011 Broadcom Corporation
-+ * Copyright (c) 2006-2013 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-diff --git a/drivers/net/ethernet/broadcom/cnic_defs.h b/drivers/net/ethernet/broadcom/cnic_defs.h
-index e53f09d..95a8e4b 100644
---- a/drivers/net/ethernet/broadcom/cnic_defs.h
-+++ b/drivers/net/ethernet/broadcom/cnic_defs.h
-@@ -1,7 +1,7 @@
+@@ -5628,7 +5628,7 @@ static int cnic_netdev_event(struct notifier_block *this, unsigned long event,
  
- /* cnic.c: Broadcom CNIC core network driver.
-  *
-- * Copyright (c) 2006-2012 Broadcom Corporation
-+ * Copyright (c) 2006-2013 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-diff --git a/drivers/net/ethernet/broadcom/cnic_if.h b/drivers/net/ethernet/broadcom/cnic_if.h
-index ec9bb9a..82a0312 100644
---- a/drivers/net/ethernet/broadcom/cnic_if.h
-+++ b/drivers/net/ethernet/broadcom/cnic_if.h
-@@ -1,6 +1,6 @@
- /* cnic_if.h: Broadcom CNIC core network driver.
-  *
-- * Copyright (c) 2006-2012 Broadcom Corporation
-+ * Copyright (c) 2006-2013 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -14,8 +14,8 @@
+ 	dev = cnic_from_netdev(netdev);
  
- #include "bnx2x/bnx2x_mfw_req.h"
+-	if (!dev && (event == NETDEV_REGISTER || netif_running(netdev))) {
++	if (!dev && event == NETDEV_REGISTER) {
+ 		/* Check for the hot-plug device */
+ 		dev = is_cnic_dev(netdev);
+ 		if (dev) {
+@@ -5644,7 +5644,7 @@ static int cnic_netdev_event(struct notifier_block *this, unsigned long event,
+ 		else if (event == NETDEV_UNREGISTER)
+ 			cnic_ulp_exit(dev);
  
--#define CNIC_MODULE_VERSION	"2.5.16"
--#define CNIC_MODULE_RELDATE	"Dec 05, 2012"
-+#define CNIC_MODULE_VERSION	"2.5.17"
-+#define CNIC_MODULE_RELDATE	"July 28, 2013"
- 
- #define CNIC_ULP_RDMA		0
- #define CNIC_ULP_ISCSI		1
+-		if (event == NETDEV_UP || (new_dev && netif_running(netdev))) {
++		if (event == NETDEV_UP) {
+ 			if (cnic_register_netdev(dev) != 0) {
+ 				cnic_put(dev);
+ 				goto done;
 -- 
 1.7.1
