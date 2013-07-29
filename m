@@ -1,50 +1,44 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next v4 1/7] vxlan: Add vxlan_handler.
-Date: Mon, 29 Jul 2013 13:17:42 -0700
-Message-ID: <CALnjE+rexP5B5Ofqwbtj_bmj-gABHORmV-DyoceGi7XV90d=EA@mail.gmail.com>
-References: <1374880488-2884-1-git-send-email-pshelar@nicira.com>
-	<20130726165220.1106ac41@nehalam.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: More details on why received UDP packets are treated as errors?
+Date: Mon, 29 Jul 2013 13:21:32 -0700
+Message-ID: <1375129292.10515.21.camel@edumazet-glaptop>
+References: <51F6B2AB.5050607@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog120.obsmtp.com ([74.125.149.140]:42617 "HELO
-	na3sys009aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754318Ab3G2URn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 16:17:43 -0400
-Received: by mail-qc0-f171.google.com with SMTP id n1so3110747qcw.16
-        for <netdev@vger.kernel.org>; Mon, 29 Jul 2013 13:17:42 -0700 (PDT)
-In-Reply-To: <20130726165220.1106ac41@nehalam.linuxnetplumber.net>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:37295 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754491Ab3G2UVe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 16:21:34 -0400
+Received: by mail-pb0-f46.google.com with SMTP id rq2so1361744pbb.5
+        for <netdev@vger.kernel.org>; Mon, 29 Jul 2013 13:21:33 -0700 (PDT)
+In-Reply-To: <51F6B2AB.5050607@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 26, 2013 at 4:52 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Fri, 26 Jul 2013 16:14:48 -0700
-> Pravin B Shelar <pshelar@nicira.com> wrote:
->
->> vxlan and openvswitch modules needs to share port. Following
->> patch breaks down vxlan per port abstraction in two component.
->> So now vxlan_sock is broken into struct vxlan_sock handles socket
->> and vxlan_handler which handler for user of vxlan protocol.
->>
->> Next commit will extend vxlan_handler for openvswitch.
->>
->> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
->
-> Not sure why the added complexity here is needed.
->
-> Since the are separate services, why not run them on separate
-> UDP ports. Otherwise unless the kernel and the Openvswitch
-> controller share state (which would be really hard given that
-> OVS controller is in user space), the chance of overlapping
-> configuration seems like a trap.
->
-> There is already a lot of layering in VXLAN between the
-> device, forwarding table, VNI, and multiple UDP sockets.
-> Doing this needs more thought or persuasive use cases.
+On Mon, 2013-07-29 at 11:21 -0700, Ben Greear wrote:
+> We have a test case on 3.9.9+ (local patches applied) where sending from
+> VETH interface, through peer VETH bridged (with our own emulator bridge module)
+> to physical interface, which is then looped to another physical interface (B).
+> The VETH and the wired B interface are sending UDP traffic to each other.
+> Routing rules should be configured such that this all works appropriately.
+> 
+> Replacing our bridging module with a user-space bridge has same behaviour.
+> 
+> This setup works on the 3.7.y kernel, but we only get one-way traffic
+> (B to VETH) on 3.9.9+.
+> 
+> I sniffed the B port, and traffic appears to be sent and received
+> properly (ie, no checksum errors, etc).  But, our user-space app
+> shows no received UDP frames on B, and netstat -s gives the
+> output below.
+> 
+> Is there any way to get more details about what these 'packet receive errors'
+> are caused by using normal-ish tools?
 
-I agree sharing state between kernel-vxlan and ovs-vxlan does not
-makes much sense. I will rework patches without vxlan-udp-port sharing
-which will eliminate that possibility entirely.
+You could try dropwatch for this kind of obscure drops
+
+https://fedorahosted.org/dropwatch/
