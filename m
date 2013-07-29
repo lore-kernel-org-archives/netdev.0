@@ -1,37 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net PATCH] atl1c: Fix misuse of netdev_alloc_skb in refilling
- rx ring
-Date: Mon, 29 Jul 2013 08:30:04 -0700
-Message-ID: <1375111804.10515.1.camel@edumazet-glaptop>
-References: <87k3kbdcmy.fsf@canonical.com>
-	 <1374960610.3607.13.camel@deadeye.wl.decadent.org.uk>
-	 <1374969583.3669.23.camel@edumazet-glaptop>
-	 <20130727.200205.67471633133830510.davem@davemloft.net>
-	 <20130728104446.GB9876@neilslaptop.think-freely.org>
-	 <1375028154.3669.30.camel@edumazet-glaptop>
-	 <20130728185318.GA10795@neilslaptop.think-freely.org>
-	 <1375042972.2546.17.camel@deadeye.wl.decadent.org.uk>
-	 <1375052482.3669.54.camel@edumazet-glaptop>
-	 <1375053654.3669.58.camel@edumazet-glaptop> <877gg9wv08.fsf@canonical.com>
-	 <1375095442.3669.67.camel@edumazet-glaptop> <87y58pva88.fsf@canonical.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: A call to revise sockets behaviour
+Date: Mon, 29 Jul 2013 08:35:19 -0700
+Message-ID: <20130729083519.5d574f16@nehalam.linuxnetplumber.net>
+References: <2066879158.39771.1375110634453.JavaMail.mail@webmail09>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jcliburn@gmail.com, stable@vger.kernel.org
-To: Luis Henriques <luis.henriques@canonical.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <87y58pva88.fsf@canonical.com>
-Sender: stable-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Artem S. Tashkinov" <t.artem@lycos.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2066879158.39771.1375110634453.JavaMail.mail@webmail09>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-07-29 at 13:09 +0100, Luis Henriques wrote:
+On Mon, 29 Jul 2013 15:10:34 +0000 (UTC)
+"Artem S. Tashkinov" <t.artem@lycos.com> wrote:
 
+> Hello,
 > 
-> I confirm that I can't reproduce the issue using this patch.
+> Currently the Linux kernel disallows to start listening on a TCP/UDP socket if
+> there are open connections against the port, regardless connections status. So even
+> if _all_ you have is some stale (i.e. no longer active connections pending destruction)
+> the kernel will not allow to reuse this socket.
 > 
+> Stephen Hemminger argues that this behaviour is expected even though it's 100%
+> counter productive, it defies common sense and I cannot think of any security implications
+> should this feature be allowed.
+> 
+> Besides, when discussing this bug on Wine's bugzilla I have shown that this behavior not
+> only affect Windows applications running under Wine, but also native POSIX applications.
+> 
+> If nothing else is listening to incoming connections how can _old_ _stale_ connections
+> prevent an application from listening on the port? Windows has no qualms about allowing
+> that, why the Linux kernel works differently?
+> 
+> I want to hear how the current apparently _broken_ behaviour, "The current socket API
+> behavior is unlikely to be changed because so many applications expect it", can be expected.
+> 
+> Also I'd like to know which applications depend on this "feature".
+> 
+> Imagine a situation,
+> 
+> You have an apache server serving connections on port 80. For some reasons a crash in
+> one of its modules causes the daemon crash but during the crash Apache had some open
+> connections on this port.
+> 
+> According to Stephen Hemminger I cannot relaunch Apache until the kernel waits arbitrary
+> time in order to clean stale connections for its networking pool.
+> 
+> I fail to see how this behaviour can be "expected".
+> 
+> More on it here:
+> 
+> https://bugzilla.kernel.org/show_bug.cgi?id=45571
+> http://bugs.winehq.org/show_bug.cgi?id=26031
 
-Thanks, I'll send a polished patch, as this one had an error if
-build_skb() returns NULL (in case sk_buff allocation fails)
+I understand your problem, people have been having to deal with it for 30 years.
+The attitude in your response makes it seem like you just discovered fire,
+read a book like Steven's network programming if you need more info.
+
+If you don't use SO_REUSEADDR then yes application has to wait for time wait
+period.
+
+If you do enable SO_REUSEADDR then it is possible to bind to a port with existing
+stale connections.
