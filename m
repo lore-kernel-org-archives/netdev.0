@@ -1,42 +1,52 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] net: remove an unneeded check
-Date: Mon, 29 Jul 2013 22:15:19 +0300
-Message-ID: <20130729191519.GA11874@elgon.mountain>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 2/3] include: Convert ethernet mac address declarations
+ to use ETH_ALEN
+Date: Mon, 29 Jul 2013 12:34:24 -0700
+Message-ID: <1375126464.2075.46.camel@joe-AO722>
+References: <cover.1375075325.git.joe@perches.com>
+	 <a769aba61c43967257854413f16d2b935cc54972.1375075325.git.joe@perches.com>
+	 <2929374.frUlkyTFNL@vostro.rjw.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:50182 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751128Ab3G2TQW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 15:16:22 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Len Brown <lenb@kernel.org>,
+	Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+	Vitaly Bordug <vbordug@ru.mvista.com>,
+	Steve Glendinning <steve.glendinning@shawell.net>,
+	Mauro Carvalho Chehab <m.chehab@samsung.com>,
+	Samuel Ortiz <samuel@sortiz.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, linux-usb@vger.kernel.org,
+	linux-media@vger.kernel.org
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2929374.frUlkyTFNL@vostro.rjw.lan>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-"ifa->ifa_label" is an array inside the in_ifaddr struct.  It can never
-be NULL so we can remove this check.
+On Mon, 2013-07-29 at 13:59 +0200, Rafael J. Wysocki wrote:
+> On Sunday, July 28, 2013 10:29:04 PM Joe Perches wrote:
+> > It's convenient to have ethernet mac addresses use
+> > ETH_ALEN to be able to grep for them a bit easier and
+> > also to ensure that the addresses are __aligned(2).
+[]
+> > diff --git a/include/acpi/actbl2.h b/include/acpi/actbl2.h
+[]
+> > @@ -44,6 +44,8 @@
+[]
+> > +#include <linux/if_ether.h>
+> > +
+[]
+> > @@ -605,7 +607,7 @@ struct acpi_ibft_nic {
+[]
+> > -	u8 mac_address[6];
+> > +	u8 mac_address[ETH_ALEN];
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Please don't touch this file.
+> 
+> It comes from a code base outside of the kernel and should be kept in sync with
+> the upstream.
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 8d48c39..1b7f7ae 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1124,10 +1124,7 @@ static int inet_gifconf(struct net_device *dev, char __user *buf, int len)
- 		if (len < (int) sizeof(ifr))
- 			break;
- 		memset(&ifr, 0, sizeof(struct ifreq));
--		if (ifa->ifa_label)
--			strcpy(ifr.ifr_name, ifa->ifa_label);
--		else
--			strcpy(ifr.ifr_name, dev->name);
-+		strcpy(ifr.ifr_name, ifa->ifa_label);
- 
- 		(*(struct sockaddr_in *)&ifr.ifr_addr).sin_family = AF_INET;
- 		(*(struct sockaddr_in *)&ifr.ifr_addr).sin_addr.s_addr =
+Which files in include/acpi have this characteristic?
+Perhaps an include/acpi/README is appropriate.
