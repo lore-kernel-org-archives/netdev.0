@@ -1,85 +1,47 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] libceph: fix deadlock in ceph_build_auth()
-Date: Mon, 29 Jul 2013 06:58:08 +0400
-Message-ID: <1375066688-12367-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	ceph-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Sage Weil <sage@inktank.com>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH v2 1/3] net/usb/r815x: replace USB buffer from stack to
+ DMA-able
+Date: Mon, 29 Jul 2013 07:20:24 +0200
+Message-ID: <1375075224.25230.1.camel@linux-fkkt.site>
+References: <20130724.174947.452272360732442554.davem@davemloft.net>
+	 <1374739144-732-1-git-send-email-hayeswang@realtek.com>
+	 <20130727.202107.555068116238400560.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: hayeswang@realtek.com, gregkh@linuxfoundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130727.202107.555068116238400560.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ceph_build_auth() locks ac->mutex and then calls ceph_auth_build_hello()
-that locks the same mutex, i.e. bring itself to deadlock.
+On Sat, 2013-07-27 at 20:21 -0700, David Miller wrote:
+> From: Hayes Wang <hayeswang@realtek.com>
+> Date: Thu, 25 Jul 2013 15:59:02 +0800
+> 
+> > Some USB buffers use stack which may not be DMA-able.
+> > Use the buffers from kmalloc to replace those one.
+> > 
+> > Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> 
+> I don't think it's reasonable to kmalloc() a small integer every time
+> you want to use a USB message transfer to read or write chip
+> registers.
+> 
+> Instead, add a scratch buffer to struct r8152 which is allocated once
+> at driver attach time and which you can use for the transfers.
+> 
+> I think you only need an array of two u32's so something like:
+> 
+> 	u32		transfer_buf[2];
+> 
+> ought to be sufficient.
 
-The patch moves actual code from ceph_auth_build_hello() to
-ceph_build_hello_auth_request() that should be called with ac->mutex held
-and makes ceph_build_auth() calling it.
-ceph_auth_build_hello() is left with untouched semantics as a wrapper
-around ceph_build_hello_auth_request().
+We cannot do that. It would violate the rules about DMA coherency.
+We must not touch the same cacheline while DMA is in operation.
 
-Found by Linux Driver Verification project (linuxtesting.org).
-
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- net/ceph/auth.c | 17 +++++++++++++----
- 1 file changed, 13 insertions(+), 4 deletions(-)
-
-diff --git a/net/ceph/auth.c b/net/ceph/auth.c
-index 6b923bc..59594a6 100644
---- a/net/ceph/auth.c
-+++ b/net/ceph/auth.c
-@@ -98,14 +98,14 @@ int ceph_entity_name_encode(const char *name, void **p, void *end)
-  * Initiate protocol negotiation with monitor.  Include entity name
-  * and list supported protocols.
-  */
--int ceph_auth_build_hello(struct ceph_auth_client *ac, void *buf, size_t len)
-+static int ceph_build_hello_auth_request(struct ceph_auth_client *ac,
-+					 void *buf, size_t len)
- {
- 	struct ceph_mon_request_header *monhdr = buf;
- 	void *p = monhdr + 1, *end = buf + len, *lenp;
- 	int i, num;
- 	int ret;
- 
--	mutex_lock(&ac->mutex);
- 	dout("auth_build_hello\n");
- 	monhdr->have_version = 0;
- 	monhdr->session_mon = cpu_to_le16(-1);
-@@ -133,7 +133,6 @@ int ceph_auth_build_hello(struct ceph_auth_client *ac, void *buf, size_t len)
- 	ceph_encode_32(&lenp, p - lenp - sizeof(u32));
- 	ret = p - buf;
- out:
--	mutex_unlock(&ac->mutex);
- 	return ret;
- 
- bad:
-@@ -141,6 +140,16 @@ bad:
- 	goto out;
- }
- 
-+int ceph_auth_build_hello(struct ceph_auth_client *ac, void *buf, size_t len)
-+{
-+	int ret;
-+
-+	mutex_lock(&ac->mutex);
-+	ret = ceph_build_hello_auth_request(ac, buf, len);
-+	mutex_unlock(&ac->mutex);
-+	return ret;
-+}
-+
- static int ceph_build_auth_request(struct ceph_auth_client *ac,
- 				   void *msg_buf, size_t msg_len)
- {
-@@ -260,7 +269,7 @@ int ceph_build_auth(struct ceph_auth_client *ac,
- 
- 	mutex_lock(&ac->mutex);
- 	if (!ac->protocol)
--		ret = ceph_auth_build_hello(ac, msg_buf, msg_len);
-+		ret = ceph_build_hello_auth_request(ac, msg_buf, msg_len);
- 	else if (ac->ops->should_authenticate(ac))
- 		ret = ceph_build_auth_request(ac, msg_buf, msg_len);
- 	mutex_unlock(&ac->mutex);
--- 
-1.8.1.2
+	Regards
+		Oliver
