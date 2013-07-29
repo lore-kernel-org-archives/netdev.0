@@ -1,44 +1,42 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH] flow_diseector: Add support for IPPROTO_IPV6
-Date: Mon, 29 Jul 2013 08:06:51 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1307290805030.13533@tomh.mtv.corp.google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re:
+Date: Mon, 29 Jul 2013 08:17:22 -0700
+Message-ID: <20130729081722.40ff66ad@nehalam.linuxnetplumber.net>
+References: <1375103935-24242-1-git-send-email-tmricht@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+To: Thomas Richter <tmricht@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f73.google.com ([209.85.212.73]:47115 "EHLO
-	mail-vb0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756147Ab3G2PMU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 11:12:20 -0400
-Received: by mail-vb0-f73.google.com with SMTP id e12so127203vbg.2
-        for <netdev@vger.kernel.org>; Mon, 29 Jul 2013 08:12:19 -0700 (PDT)
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:42397 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751108Ab3G2PR3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 11:17:29 -0400
+Received: by mail-pd0-f174.google.com with SMTP id 3so4542290pdj.33
+        for <netdev@vger.kernel.org>; Mon, 29 Jul 2013 08:17:26 -0700 (PDT)
+In-Reply-To: <1375103935-24242-1-git-send-email-tmricht@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for dissecting flows in IPv6/IPv4 packets.
+On Mon, 29 Jul 2013 15:18:55 +0200
+Thomas Richter <tmricht@linux.vnet.ibm.com> wrote:
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/core/flow_dissector.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+> Add support for the bridge fdb replace command to replace an
+> existing entry in the vxlan device driver forwarding data base.
+> The entry is identified with its unicast mac address and its
+> corresponding remote destination information is updated.
+> 
+> This is useful for virtual machine migration and replaces the
+> bridge fdb del and bridge fdb add commands.
+> 
+> It follows the same interface as ip neigh replace commands.
+> 
+> Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
+> ---
+> bridge/fdb.c |    4 +++-
+> 1 files changed, 3 insertions(+), 1 deletions(-)
+> 
 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 00ee068..96901de 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -139,7 +139,11 @@ ipv6:
- 		break;
- 	}
- 	case IPPROTO_IPIP:
--		goto again;
-+		proto = __constant_htons(ETH_P_IP);
-+		goto ip;
-+	case IPPROTO_IPV6:
-+		proto = __constant_htons(ETH_P_IPV6);
-+		goto ipv6;
- 	default:
- 		break;
- 	}
--- 
-1.8.3
+Please resubmit with proper subject so it gets picked up by
+patchwork and can be merged into iproute
