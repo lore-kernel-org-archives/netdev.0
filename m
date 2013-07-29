@@ -1,103 +1,66 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/15] pci: Add function to obtain minimum link width and speed
-Date: Mon, 29 Jul 2013 05:52:06 -0700
-Message-ID: <1375102331-23905-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/15] ixgbe: rename LL_EXTENDED_STATS to use queue instead of q
+Date: Mon, 29 Jul 2013 05:52:09 -0700
+Message-ID: <1375102331-23905-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1375102331-23905-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, linux-pci@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net, bhelgaas@google.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:38183 "EHLO mga03.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:3955 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753692Ab3G2Mwc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jul 2013 08:52:32 -0400
+	id S1753804Ab3G2Mwg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jul 2013 08:52:36 -0400
 In-Reply-To: <1375102331-23905-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-A PCI Express device can potentially report a link width and speed which it will
-not properly fulfill due to being plugged into a slower link higher in the
-chain. This function walks up the PCI bus chain and calculates the minimum link
-width and speed of this entire chain. This can be useful to enable a device to
-determine if it has enough bandwidth for optimum functionality.
+This patch renames the stats introduced by the busy poll feature so that they
+are more inline with the current statistics naming schemes.
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/pci/pci.c   | 43 +++++++++++++++++++++++++++++++++++++++++++
- include/linux/pci.h |  2 ++
- 2 files changed, 45 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-index e37fea6..c71e78c 100644
---- a/drivers/pci/pci.c
-+++ b/drivers/pci/pci.c
-@@ -3579,6 +3579,49 @@ int pcie_set_mps(struct pci_dev *dev, int mps)
- }
- 
- /**
-+ * pcie_get_minimum_link - determine minimum link settings of a PCI device
-+ * @dev: PCI device to query
-+ * @speed: storage for minimum speed
-+ * @width: storage for minimum width
-+ *
-+ * This function will walk up the PCI device chain and determine the minimum
-+ * link width and speed of the device.
-+ */
-+int pcie_get_minimum_link(struct pci_dev *dev, enum pci_bus_speed *speed,
-+			  enum pcie_link_width *width)
-+{
-+	int ret;
-+
-+	*speed = PCI_SPEED_UNKNOWN;
-+	*width = PCIE_LNK_WIDTH_UNKNOWN;
-+
-+	while (dev) {
-+		u16 lnksta;
-+		enum pci_bus_speed next_speed;
-+		enum pcie_link_width next_width;
-+
-+		ret = pcie_capability_read_word(dev, PCI_EXP_LNKSTA, &lnksta);
-+		if (ret)
-+			return ret;
-+
-+		next_speed = pcie_link_speed[lnksta & PCI_EXP_LNKSTA_CLS];
-+		next_width = (lnksta & PCI_EXP_LNKSTA_NLW) >>
-+			PCI_EXP_LNKSTA_NLW_SHIFT;
-+
-+		if (next_speed < *speed)
-+			*speed = next_speed;
-+
-+		if (next_width < *width)
-+			*width = next_width;
-+
-+		dev = dev->bus->self;
-+	}
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(pcie_get_minimum_link);
-+
-+/**
-  * pci_select_bars - Make BAR mask from the type of resource
-  * @dev: the PCI device for which BAR mask is made
-  * @flags: resource type mask to be selected
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index fc2d1fb..38994de 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -937,6 +937,8 @@ int pcie_get_readrq(struct pci_dev *dev);
- int pcie_set_readrq(struct pci_dev *dev, int rq);
- int pcie_get_mps(struct pci_dev *dev);
- int pcie_set_mps(struct pci_dev *dev, int mps);
-+int pcie_get_minimum_link(struct pci_dev *dev, enum pci_bus_speed *speed,
-+			  enum pcie_link_width *width);
- int __pci_reset_function(struct pci_dev *dev);
- int __pci_reset_function_locked(struct pci_dev *dev);
- int pci_reset_function(struct pci_dev *dev);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index da1ea28..50c1e9b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -1141,11 +1141,11 @@ static void ixgbe_get_strings(struct net_device *netdev, u32 stringset,
+ 			sprintf(p, "tx_queue_%u_bytes", i);
+ 			p += ETH_GSTRING_LEN;
+ #ifdef LL_EXTENDED_STATS
+-			sprintf(p, "tx_q_%u_napi_yield", i);
++			sprintf(p, "tx_queue_%u_ll_napi_yield", i);
+ 			p += ETH_GSTRING_LEN;
+-			sprintf(p, "tx_q_%u_misses", i);
++			sprintf(p, "tx_queue_%u_ll_misses", i);
+ 			p += ETH_GSTRING_LEN;
+-			sprintf(p, "tx_q_%u_cleaned", i);
++			sprintf(p, "tx_queue_%u_ll_cleaned", i);
+ 			p += ETH_GSTRING_LEN;
+ #endif /* LL_EXTENDED_STATS */
+ 		}
+@@ -1155,11 +1155,11 @@ static void ixgbe_get_strings(struct net_device *netdev, u32 stringset,
+ 			sprintf(p, "rx_queue_%u_bytes", i);
+ 			p += ETH_GSTRING_LEN;
+ #ifdef LL_EXTENDED_STATS
+-			sprintf(p, "rx_q_%u_ll_poll_yield", i);
++			sprintf(p, "rx_queue_%u_ll_poll_yield", i);
+ 			p += ETH_GSTRING_LEN;
+-			sprintf(p, "rx_q_%u_misses", i);
++			sprintf(p, "rx_queue_%u_ll_misses", i);
+ 			p += ETH_GSTRING_LEN;
+-			sprintf(p, "rx_q_%u_cleaned", i);
++			sprintf(p, "rx_queue_%u_ll_cleaned", i);
+ 			p += ETH_GSTRING_LEN;
+ #endif /* LL_EXTENDED_STATS */
+ 		}
 -- 
 1.7.11.7
