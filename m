@@ -1,7 +1,7 @@
 From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: [PATCH net-next 5/6] tg3: Fix UDP fragments treated as RMCP
-Date: Mon, 29 Jul 2013 13:58:39 -0700
-Message-ID: <1375131520-1746-6-git-send-email-nsujir@broadcom.com>
+Subject: [PATCH net-next 3/6] tg3: Implement the shutdown handler
+Date: Mon, 29 Jul 2013 13:58:37 -0700
+Message-ID: <1375131520-1746-4-git-send-email-nsujir@broadcom.com>
 References: <1375131520-1746-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,48 +12,65 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms1.broadcom.com ([216.31.210.17]:2530 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755225Ab3G2U65 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jul 2013 16:58:57 -0400
+	id S1754825Ab3G2U6w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jul 2013 16:58:52 -0400
 In-Reply-To: <1375131520-1746-1-git-send-email-nsujir@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The 5762 devices sometimes incorrectly treat udp fragments as RMCP
-packets and route to the APE. This patch sets the RX_MODE_IPV4_FRAG_FIX
-bit for these devices which enables the proper behaviour.
+Also remove the call to tg3_power_down_prepare() in tg3_power_down()
+since tg3_close() calls it.
 
 Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c | 3 +++
- drivers/net/ethernet/broadcom/tg3.h | 1 +
- 2 files changed, 4 insertions(+)
+ drivers/net/ethernet/broadcom/tg3.c | 20 ++++++++++++++++++--
+ 1 file changed, 18 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index f077c8f..6e59ef1 100644
+index ec244c9..9351707 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -10420,6 +10420,9 @@ static int tg3_reset_hw(struct tg3 *tp, bool reset_phy)
- 	if (tg3_flag(tp, 5755_PLUS))
- 		tp->rx_mode |= RX_MODE_IPV6_CSUM_ENABLE;
+@@ -4226,8 +4226,6 @@ static int tg3_power_down_prepare(struct tg3 *tp)
  
-+	if (tg3_asic_rev(tp) == ASIC_REV_5762)
-+		tp->rx_mode |= RX_MODE_IPV4_FRAG_FIX;
+ static void tg3_power_down(struct tg3 *tp)
+ {
+-	tg3_power_down_prepare(tp);
+-
+ 	pci_wake_from_d3(tp->pdev, tg3_flag(tp, WOL_ENABLE));
+ 	pci_set_power_state(tp->pdev, PCI_D3hot);
+ }
+@@ -17743,6 +17741,23 @@ out:
+ 
+ static SIMPLE_DEV_PM_OPS(tg3_pm_ops, tg3_suspend, tg3_resume);
+ 
++static void tg3_shutdown(struct pci_dev *pdev)
++{
++	struct net_device *dev = pci_get_drvdata(pdev);
++	struct tg3 *tp = netdev_priv(dev);
 +
- 	if (tg3_flag(tp, ENABLE_RSS))
- 		tp->rx_mode |= RX_MODE_RSS_ENABLE |
- 			       RX_MODE_RSS_ITBL_HASH_BITS_7 |
-diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
-index 2e0f3d3..ddb8be1 100644
---- a/drivers/net/ethernet/broadcom/tg3.h
-+++ b/drivers/net/ethernet/broadcom/tg3.h
-@@ -532,6 +532,7 @@
- #define  RX_MODE_RSS_ITBL_HASH_BITS_7	 0x00700000
- #define  RX_MODE_RSS_ENABLE		 0x00800000
- #define  RX_MODE_IPV6_CSUM_ENABLE	 0x01000000
-+#define  RX_MODE_IPV4_FRAG_FIX		 0x02000000
- #define MAC_RX_STATUS			0x0000046c
- #define  RX_STATUS_REMOTE_TX_XOFFED	 0x00000001
- #define  RX_STATUS_XOFF_RCVD		 0x00000002
++	rtnl_lock();
++	netif_device_detach(dev);
++
++	if (netif_running(dev))
++		dev_close(dev);
++
++	if (system_state == SYSTEM_POWER_OFF)
++		tg3_power_down(tp);
++
++	rtnl_unlock();
++}
++
+ /**
+  * tg3_io_error_detected - called when PCI error is detected
+  * @pdev: Pointer to PCI device
+@@ -17898,6 +17913,7 @@ static struct pci_driver tg3_driver = {
+ 	.remove		= tg3_remove_one,
+ 	.err_handler	= &tg3_err_handler,
+ 	.driver.pm	= &tg3_pm_ops,
++	.shutdown	= tg3_shutdown,
+ };
+ 
+ module_pci_driver(tg3_driver);
 -- 
 1.8.1.4
