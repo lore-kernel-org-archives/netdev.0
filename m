@@ -1,40 +1,115 @@
-From: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] mlx5: fix error return code in mlx5_alloc_uuars()
-Date: Tue, 30 Jul 2013 07:57:06 +0800
-Message-ID: <CAPgLHd-BWzEPhH=Otzyc5p-MEm7MXQNvEPTyYhRLzq4d=FT2tg@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v4 net-next repost 2/2] sh_eth: Add support for r8a7790
+ SoC
+Date: Tue, 30 Jul 2013 08:59:52 +0900
+Message-ID: <20130729235952.GD11142@verge.net.au>
+References: <1374542285-19602-1-git-send-email-horms+renesas@verge.net.au>
+ <1374542285-19602-3-git-send-email-horms+renesas@verge.net.au>
+ <3564962.xOo6qNYDyG@avalon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <3564962.xOo6qNYDyG@avalon>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
+On Tue, Jul 30, 2013 at 01:32:33AM +0200, Laurent Pinchart wrote:
+> Hi Simon,
+> 
+> On Tuesday 23 July 2013 10:18:05 Simon Horman wrote:
+> > This is a copy of support for r8a7778/9 with the .rmiimode mode bit
+> > of struct sh_eth_cpu_data set.
+> > 
+> > Also update R8A7779 to R8A777x.
+> > 
+> > Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> > 
+> > ---
+> > 
+> > v4
+> > * s/R8A7779/R8A777x/ as requested by Sergei Shtylyov.
+> > 
+> > v3
+> > * Add r8a7790_data rather than updating r8a777x_data.
+> >   As requested by Sergei Shtylyov.
+> > 
+> > v2
+> > * Split from "sh_eth: add support RMIIMODE register"
+> > ---
+> >  drivers/net/ethernet/renesas/Kconfig  |  2 +-
+> >  drivers/net/ethernet/renesas/sh_eth.c | 21 +++++++++++++++++++++
+> >  2 files changed, 22 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/drivers/net/ethernet/renesas/Kconfig
+> > b/drivers/net/ethernet/renesas/Kconfig index 19a8a04..a30c439 100644
+> > --- a/drivers/net/ethernet/renesas/Kconfig
+> > +++ b/drivers/net/ethernet/renesas/Kconfig
+> > @@ -13,4 +13,4 @@ config SH_ETH
+> >  	  Renesas SuperH Ethernet device driver.
+> >  	  This driver supporting CPUs are:
+> >  		- SH7619, SH7710, SH7712, SH7724, SH7734, SH7763, SH7757,
+> > -		  R8A7740 and R8A7779.
+> > +		  R8A7740, R8A777x and R8A7790.
+> > diff --git a/drivers/net/ethernet/renesas/sh_eth.c
+> > b/drivers/net/ethernet/renesas/sh_eth.c index 87af49f..fedc0a0 100644
+> > --- a/drivers/net/ethernet/renesas/sh_eth.c
+> > +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> > @@ -393,6 +393,26 @@ static struct sh_eth_cpu_data r8a777x_data = {
+> >  	.hw_swap	= 1,
+> >  };
+> > 
+> > +/* R8A7790 */
+> > +static struct sh_eth_cpu_data r8a7790_data = {
+> > +	.set_duplex	= sh_eth_set_duplex,
+> > +	.set_rate	= sh_eth_set_rate_r8a777x,
+> > +
+> > +	.ecsr_value	= ECSR_PSRTO | ECSR_LCHNG | ECSR_ICD,
+> > +	.ecsipr_value	= ECSIPR_PSRTOIP | ECSIPR_LCHNGIP | ECSIPR_ICDIP,
+> > +	.eesipr_value	= 0x01ff009f,
+> > +
+> > +	.tx_check	= EESR_FTC | EESR_CND | EESR_DLC | EESR_CD | EESR_RTO,
+> > +	.eesr_err_check	= EESR_TWB | EESR_TABT | EESR_RABT | EESR_RDE |
+> > +			  EESR_RFRMER | EESR_TFE | EESR_TDE | EESR_ECI,
+> 
+> Is there a reason why the EESR_RFE bit isn't set in eesr_err_check (and thus 
+> ignored in the interrupt handler) but set in eesipr_value ?
+> 
+> If it's just an omission I'll send a patch.
 
-Fix to return -ENOMEM from the ioremap error handling
-case instead of 0, as done elsewhere in this function.
+I believe it is just an omission.
 
-Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
----
- drivers/net/ethernet/mellanox/mlx5/core/uar.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/uar.c b/drivers/net/ethernet/mellanox/mlx5/core/uar.c
-index 71d4a39..68f5d9c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/uar.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/uar.c
-@@ -164,6 +164,7 @@ int mlx5_alloc_uuars(struct mlx5_core_dev *dev, struct mlx5_uuar_info *uuari)
- 		uuari->uars[i].map = ioremap(addr, PAGE_SIZE);
- 		if (!uuari->uars[i].map) {
- 			mlx5_cmd_free_uar(dev, uuari->uars[i].index);
-+			err = -ENOMEM;
- 			goto out_count;
- 		}
- 		mlx5_core_dbg(dev, "allocated uar index 0x%x, mmaped at %p\n",
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > +
+> > +	.apr		= 1,
+> > +	.mpr		= 1,
+> > +	.tpauser	= 1,
+> > +	.hw_swap	= 1,
+> > +	.rmiimode	= 1,
+> > +};
+> > +
+> >  static void sh_eth_set_rate_sh7724(struct net_device *ndev)
+> >  {
+> >  	struct sh_eth_private *mdp = netdev_priv(ndev);
+> > @@ -2753,6 +2773,7 @@ static struct platform_device_id sh_eth_id_table[] = {
+> > { "sh7763-gether", (kernel_ulong_t)&sh7763_data },
+> >  	{ "r8a7740-gether", (kernel_ulong_t)&r8a7740_data },
+> >  	{ "r8a777x-ether", (kernel_ulong_t)&r8a777x_data },
+> > +	{ "r8a7790-ether", (kernel_ulong_t)&r8a7790_data },
+> >  	{ }
+> >  };
+> >  MODULE_DEVICE_TABLE(platform, sh_eth_id_table);
+> 
+> -- 
+> Regards,
+> 
+> Laurent Pinchart
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sh" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
