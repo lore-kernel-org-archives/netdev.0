@@ -1,63 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/12][pull request] Intel Wired LAN Driver Updates
-Date: Sun, 28 Jul 2013 17:20:22 -0700 (PDT)
-Message-ID: <20130728.172022.2147023715179571146.davem@davemloft.net>
-References: <1375011676-30739-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20130728.132105.1045846024944164783.davem@davemloft.net>
-	<1375053098.32309.28.camel@jtkirshe-mobl>
+Subject: Re: [net PATCH] atl1c: Fix misuse of netdev_alloc_skb in refilling
+ rx ring
+Date: Sun, 28 Jul 2013 17:21:38 -0700 (PDT)
+Message-ID: <20130728.172138.870691960277941452.davem@davemloft.net>
+References: <1375052482.3669.54.camel@edumazet-glaptop>
+	<1375053654.3669.58.camel@edumazet-glaptop>
+	<1375056438.2546.55.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37343 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751395Ab3G2AUZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jul 2013 20:20:25 -0400
-In-Reply-To: <1375053098.32309.28.camel@jtkirshe-mobl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, nhorman@tuxdriver.com,
+	luis.henriques@canonical.com, netdev@vger.kernel.org,
+	jcliburn@gmail.com, stable@vger.kernel.org
+To: bhutchings@solarflare.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1375056438.2546.55.camel@deadeye.wl.decadent.org.uk>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sun, 28 Jul 2013 16:11:38 -0700
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Mon, 29 Jul 2013 01:07:18 +0100
 
-> On Sun, 2013-07-28 at 13:21 -0700, David Miller wrote:
->> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> Date: Sun, 28 Jul 2013 04:41:04 -0700
->> 
->> > This series contains updates to e100 and e1000e.
->> > 
->> > The e100 patch from Andy simply updates the netif_printk() to use
->> > %*ph to dump small buffers.
->> > 
->> > The changes to e1000e include a fix from Dean Nelson to resolve a
->> > issue where a pci_clear_master() was accidentally dropped during a
->> > conflict resolution. Wei Young provides 2 patches, one removes an
->> > assignment of the default ring size because it was a duplicate. The
->> > second changes the packet split receive structure to use
->> > PS_PAGE_BUFFERS macro for the length so that problems won't occur
->> > when the length is changed.
->> > 
->> > The remaining patches for e1000e are from Bruce Allan, where he
->> > provides a number of fixes and updates for I218.  In addition, a
->> > fix for 82583 which can disappear off the PCIe bus, to resolve this,
->> > disable ASPM L1.  Bruce also provides a fix to a previous commit
->> > (commit e60b22c5b7 e1000e: fix accessing to suspended device) so that
->> > devices are only taken out of runtime power management for those
->> > ethtool operations that must access device registers.
->> > 
->> > The following are changes since commit dcfe8048de66c3468060c8a2ec2c04ae3725d002:
->> >   bonding: remove bond_resend_igmp_join_requests read_unlock leftover
->> > and are available in the git repository at:
->> >   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
->> 
->> Pulled, thanks a lot Jeff.
-> 
-> It looks like you pulled my net tree instead of my net-next tree.
-> Fortunately, I did not have anything applied to my net tree that had not
-> already been sent out.
+> Just like many older PCI/PCIe devices.  So what?  pci_map_single() takes
+> care of that, just so long as the driver sets the DMA mask correctly.
+> In fact, PCI devices have a 32-bit DMA mask by default.
 
-No, really, I did this:
-
-git pull git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+Right, the DMA API should be taking care of this.
