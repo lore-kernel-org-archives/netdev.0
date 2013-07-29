@@ -1,205 +1,209 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/15] ixgbe: call pcie_get_mimimum_link to check if device has enough bandwidth
-Date: Mon, 29 Jul 2013 05:52:07 -0700
-Message-ID: <1375102331-23905-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/15] ixgbe: add new media type
+Date: Mon, 29 Jul 2013 05:52:00 -0700
+Message-ID: <1375102331-23905-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1375102331-23905-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:22772 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753830Ab3G2Mwc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jul 2013 08:52:32 -0400
+	id S1753691Ab3G2Mw3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jul 2013 08:52:29 -0400
 In-Reply-To: <1375102331-23905-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-This patch uses the new pcie_get_minimum_link function to perform a check to
-ensure that the adapter is hooked into a slot which is capable of providing the
-necessary bandwidth. This check supersedes the original method which only
-checked the current pci device. The new method is capable of determining the
-minimum speed and link of an entire PCI chain.
+This patch adds support for a new media type fiber_fixed.  This is useful
+to avoid all the SFP+ hot plug support path on devices who's fix fiber need
+not worry about such things.  This patch is needed for a following patch
+that adds support for "fiber_fixed" devices.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 130 ++++++++++++++++++++++++--
- 1 file changed, 123 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  | 84 ++++++++++++++++++++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  3 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h    |  5 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |  1 +
+ 4 files changed, 86 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 3aff87e..5ec2b74 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -195,6 +195,79 @@ static s32 ixgbe_get_parent_bus_info(struct ixgbe_adapter *adapter)
- 	return 0;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index 0b82d38..b92765b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -527,6 +527,66 @@ static void ixgbe_flap_tx_laser_multispeed_fiber(struct ixgbe_hw *hw)
  }
  
-+/**
-+ * ixgbe_check_from_parent - Determine whether PCIe info should come from parent
-+ * @hw: hw specific details
+ /**
++ *  ixgbe_set_fiber_fixed_speed - Set module link speed for fixed fiber
++ *  @hw: pointer to hardware structure
++ *  @speed: link speed to set
 + *
-+ * This function is used by probe to determine whether a device's PCI-Express
-+ * bandwidth details should be gathered from the parent bus instead of from the
-+ * device. Used to ensure that various locations all have the correct device ID
-+ * checks.
++ *  We set the module speed differently for fixed fiber.  For other
++ *  multi-speed devices we don't have an error value so here if we
++ *  detect an error we just log it and exit.
 + */
-+static inline bool ixgbe_pcie_from_parent(struct ixgbe_hw *hw)
++static void ixgbe_set_fiber_fixed_speed(struct ixgbe_hw *hw,
++					ixgbe_link_speed speed)
 +{
-+	switch (hw->device_id) {
-+	case IXGBE_DEV_ID_82599_SFP_SF_QP:
-+		return true;
-+	default:
-+		return false;
-+	}
-+}
-+
-+static void ixgbe_check_minimum_link(struct ixgbe_adapter *adapter,
-+				     int expected_gts)
-+{
-+	int max_gts = 0;
-+	enum pci_bus_speed speed = PCI_SPEED_UNKNOWN;
-+	enum pcie_link_width width = PCIE_LNK_WIDTH_UNKNOWN;
-+	struct pci_dev *pdev;
-+
-+	/* determine whether to use the the parent device
-+	 */
-+	if (ixgbe_pcie_from_parent(&adapter->hw))
-+		pdev = adapter->pdev->bus->parent->self;
-+	else
-+		pdev = adapter->pdev;
-+
-+	if (pcie_get_minimum_link(pdev, &speed, &width) ||
-+	    speed == PCI_SPEED_UNKNOWN || width == PCIE_LNK_WIDTH_UNKNOWN) {
-+		e_dev_warn("Unable to determine PCI-Express slot throughput.\n");
-+		return;
-+	}
++	s32 status;
++	u8 rs, eeprom_data;
 +
 +	switch (speed) {
-+	case PCIE_SPEED_2_5GT:
-+		/* 8b/10b encoding reduces max throughput */
-+		max_gts = 2 * width;
++	case IXGBE_LINK_SPEED_10GB_FULL:
++		/* one bit mask same as setting on */
++		rs = IXGBE_SFF_SOFT_RS_SELECT_10G;
 +		break;
-+	case PCIE_SPEED_5_0GT:
-+		/* 8b/10b encoding reduces max throughput */
-+		max_gts = 4 * width;
-+		break;
-+	case PCIE_SPEED_8_0GT:
-+		/* 128b/130b encoding has less impact on throughput */
-+		max_gts = 8 * width;
++	case IXGBE_LINK_SPEED_1GB_FULL:
++		rs = IXGBE_SFF_SOFT_RS_SELECT_1G;
 +		break;
 +	default:
-+		e_dev_warn("Unable to determine PCI-Express throughput.\n");
++		hw_dbg(hw, "Invalid fixed module speed\n");
 +		return;
 +	}
 +
-+	if (max_gts < expected_gts) {
-+		e_dev_warn("PCI-Express bandwidth of %dGT/s available (PCI Express:%s:Width x%d)\n",
-+			   max_gts,
-+			   (speed == PCIE_SPEED_8_0GT ? "8.0GT/s" :
-+			    speed == PCIE_SPEED_5_0GT ? "5.0GT/s" :
-+			    speed == PCIE_SPEED_2_5GT ? "2.5GT/s" :
-+			    "Unknown"),
-+			   width);
-+		e_dev_warn("This is not sufficient for optimal performance of this card.\n");
-+		e_dev_warn("For optimal performance, at least %dGT/s of bandwidth is required.\n",
-+			expected_gts);
-+		e_dev_warn("A slot with more lanes and/or higher speed is suggested.\n");
-+	}
-+}
-+
- static void ixgbe_service_event_schedule(struct ixgbe_adapter *adapter)
- {
- 	if (!test_bit(__IXGBE_DOWN, &adapter->state) &&
-@@ -7250,6 +7323,41 @@ static const struct net_device_ops ixgbe_netdev_ops = {
- };
- 
- /**
-+ * ixgbe_enumerate_functions - Get the number of ports this device has
-+ * @adapter: adapter structure
-+ *
-+ * This function enumerates the phsyical functions co-located on a single slot,
-+ * in order to determine how many ports a device has. This is most useful in
-+ * determining the required GT/s of PCIe bandwidth necessary for optimal
-+ * performance.
-+ **/
-+static inline int ixgbe_enumerate_functions(struct ixgbe_adapter *adapter)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	struct list_head *entry;
-+	int physfns = 0;
-+
-+	/* Some cards can not use the generic count PCIe functions method, and
-+	 * so must be hardcoded to the correct value.
-+	 */
-+	switch (hw->device_id) {
-+	case IXGBE_DEV_ID_82599_SFP_SF_QP:
-+		physfns = 4;
-+		break;
-+	default:
-+		list_for_each(entry, &adapter->pdev->bus_list) {
-+			struct pci_dev *pdev =
-+				list_entry(entry, struct pci_dev, bus_list);
-+			/* don't count virtual functions */
-+			if (!pdev->is_virtfn)
-+				physfns++;
-+		}
++	/* Set RS0 */
++	status = hw->phy.ops.read_i2c_byte(hw, IXGBE_SFF_SFF_8472_OSCB,
++					   IXGBE_I2C_EEPROM_DEV_ADDR2,
++					   &eeprom_data);
++	if (status) {
++		hw_dbg(hw, "Failed to read Rx Rate Select RS0\n");
++		goto out;
 +	}
 +
-+	return physfns;
++	eeprom_data = (eeprom_data & ~IXGBE_SFF_SOFT_RS_SELECT_MASK) & rs;
++
++	status = hw->phy.ops.write_i2c_byte(hw, IXGBE_SFF_SFF_8472_OSCB,
++					    IXGBE_I2C_EEPROM_DEV_ADDR2,
++					    eeprom_data);
++	if (status) {
++		hw_dbg(hw, "Failed to read Rx Rate Select RS1\n");
++		goto out;
++	}
++
++	eeprom_data = (eeprom_data & ~IXGBE_SFF_SOFT_RS_SELECT_MASK) & rs;
++
++	status = hw->phy.ops.write_i2c_byte(hw, IXGBE_SFF_SFF_8472_ESCB,
++					    IXGBE_I2C_EEPROM_DEV_ADDR2,
++					    eeprom_data);
++	if (status) {
++		hw_dbg(hw, "Failed to write Rx Rate Select RS1\n");
++		goto out;
++	}
++out:
++	return;
 +}
 +
 +/**
-  * ixgbe_wol_supported - Check whether device supports WoL
-  * @hw: hw specific details
-  * @device_id: the device ID
-@@ -7331,7 +7439,7 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	struct ixgbe_hw *hw;
- 	const struct ixgbe_info *ii = ixgbe_info_tbl[ent->driver_data];
- 	static int cards_found;
--	int i, err, pci_using_dac;
-+	int i, err, pci_using_dac, expected_gts;
- 	unsigned int indices = MAX_TX_QUEUES;
- 	u8 part_str[IXGBE_PBANUM_LENGTH];
- #ifdef IXGBE_FCOE
-@@ -7620,7 +7728,7 @@ skip_sriov:
+  *  ixgbe_setup_mac_link_multispeed_fiber - Set MAC link speed
+  *  @hw: pointer to hardware structure
+  *  @speed: new link speed
+@@ -573,9 +633,14 @@ static s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
+ 			goto out;
  
- 	/* pick up the PCI bus settings for reporting later */
- 	hw->mac.ops.get_bus_info(hw);
--	if (hw->device_id == IXGBE_DEV_ID_82599_SFP_SF_QP)
-+	if (ixgbe_pcie_from_parent(hw))
- 		ixgbe_get_parent_bus_info(adapter);
+ 		/* Set the module link speed */
+-		esdp_reg |= (IXGBE_ESDP_SDP5_DIR | IXGBE_ESDP_SDP5);
+-		IXGBE_WRITE_REG(hw, IXGBE_ESDP, esdp_reg);
+-		IXGBE_WRITE_FLUSH(hw);
++		if (hw->phy.media_type == ixgbe_media_type_fiber_fixed) {
++			ixgbe_set_fiber_fixed_speed(hw,
++					IXGBE_LINK_SPEED_10GB_FULL);
++		} else {
++			esdp_reg |= (IXGBE_ESDP_SDP5_DIR | IXGBE_ESDP_SDP5);
++			IXGBE_WRITE_REG(hw, IXGBE_ESDP, esdp_reg);
++			IXGBE_WRITE_FLUSH(hw);
++		}
  
- 	/* print bus type/speed/width info */
-@@ -7646,12 +7754,20 @@ skip_sriov:
- 		e_dev_info("MAC: %d, PHY: %d, PBA No: %s\n",
- 			   hw->mac.type, hw->phy.type, part_str);
+ 		/* Allow module to change analog characteristics (1G->10G) */
+ 		msleep(40);
+@@ -625,10 +690,15 @@ static s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
+ 			goto out;
  
--	if (hw->bus.width <= ixgbe_bus_width_pcie_x4) {
--		e_dev_warn("PCI-Express bandwidth available for this card is "
--			   "not sufficient for optimal performance.\n");
--		e_dev_warn("For optimal performance a x8 PCI-Express slot "
--			   "is required.\n");
-+	/* calculate the expected PCIe bandwidth required for optimal
-+	 * performance. Note that some older parts will never have enough
-+	 * bandwidth due to being older generation PCIe parts. We clamp these
-+	 * parts to ensure no warning is displayed if it can't be fixed.
-+	 */
-+	switch (hw->mac.type) {
-+	case ixgbe_mac_82598EB:
-+		expected_gts = min(ixgbe_enumerate_functions(adapter) * 10, 16);
-+		break;
-+	default:
-+		expected_gts = ixgbe_enumerate_functions(adapter) * 10;
-+		break;
- 	}
-+	ixgbe_check_minimum_link(adapter, expected_gts);
+ 		/* Set the module link speed */
+-		esdp_reg &= ~IXGBE_ESDP_SDP5;
+-		esdp_reg |= IXGBE_ESDP_SDP5_DIR;
+-		IXGBE_WRITE_REG(hw, IXGBE_ESDP, esdp_reg);
+-		IXGBE_WRITE_FLUSH(hw);
++		if (hw->phy.media_type == ixgbe_media_type_fiber_fixed) {
++			ixgbe_set_fiber_fixed_speed(hw,
++						IXGBE_LINK_SPEED_1GB_FULL);
++		} else {
++			esdp_reg &= ~IXGBE_ESDP_SDP5;
++			esdp_reg |= IXGBE_ESDP_SDP5_DIR;
++			IXGBE_WRITE_REG(hw, IXGBE_ESDP, esdp_reg);
++			IXGBE_WRITE_FLUSH(hw);
++		}
  
- 	/* reset the hardware with the new settings */
- 	err = hw->mac.ops.start_hw(hw);
+ 		/* Allow module to change analog characteristics (10G->1G) */
+ 		msleep(40);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 3c6859f..6e5d4bc 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -72,6 +72,7 @@ s32 ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
+ 	bool link_up;
+ 
+ 	switch (hw->phy.media_type) {
++	case ixgbe_media_type_fiber_fixed:
+ 	case ixgbe_media_type_fiber:
+ 		hw->mac.ops.check_link(hw, &speed, &link_up, false);
+ 		/* if link is down, assume supported */
+@@ -138,6 +139,7 @@ static s32 ixgbe_setup_fc(struct ixgbe_hw *hw)
+ 	 * we link at 10G, the 1G advertisement is harmless and vice versa.
+ 	 */
+ 	switch (hw->phy.media_type) {
++	case ixgbe_media_type_fiber_fixed:
+ 	case ixgbe_media_type_fiber:
+ 	case ixgbe_media_type_backplane:
+ 		reg = IXGBE_READ_REG(hw, IXGBE_PCS1GANA);
+@@ -2404,6 +2406,7 @@ void ixgbe_fc_autoneg(struct ixgbe_hw *hw)
+ 
+ 	switch (hw->phy.media_type) {
+ 	/* Autoneg flow control on fiber adapters */
++	case ixgbe_media_type_fiber_fixed:
+ 	case ixgbe_media_type_fiber:
+ 		if (speed == IXGBE_LINK_SPEED_1GB_FULL)
+ 			ret_val = ixgbe_fc_autoneg_fiber(hw);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
+index 886a343..046a01e 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
+@@ -44,6 +44,8 @@
+ #define IXGBE_SFF_CABLE_SPEC_COMP    0x3C
+ #define IXGBE_SFF_SFF_8472_SWAP      0x5C
+ #define IXGBE_SFF_SFF_8472_COMP      0x5E
++#define IXGBE_SFF_SFF_8472_OSCB         0x6E
++#define IXGBE_SFF_SFF_8472_ESCB         0x76
+ 
+ /* Bitmasks */
+ #define IXGBE_SFF_DA_PASSIVE_CABLE           0x4
+@@ -54,6 +56,9 @@
+ #define IXGBE_SFF_1GBASET_CAPABLE            0x8
+ #define IXGBE_SFF_10GBASESR_CAPABLE          0x10
+ #define IXGBE_SFF_10GBASELR_CAPABLE          0x20
++#define IXGBE_SFF_SOFT_RS_SELECT_MASK   0x8
++#define IXGBE_SFF_SOFT_RS_SELECT_10G    0x8
++#define IXGBE_SFF_SOFT_RS_SELECT_1G     0x0
+ #define IXGBE_SFF_ADDRESSING_MODE	     0x4
+ #define IXGBE_I2C_EEPROM_READ_MASK           0x100
+ #define IXGBE_I2C_EEPROM_STATUS_MASK         0x3
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 70c6aa3..8968ea0 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -2622,6 +2622,7 @@ enum ixgbe_sfp_type {
+ enum ixgbe_media_type {
+ 	ixgbe_media_type_unknown = 0,
+ 	ixgbe_media_type_fiber,
++	ixgbe_media_type_fiber_fixed,
+ 	ixgbe_media_type_fiber_lco,
+ 	ixgbe_media_type_copper,
+ 	ixgbe_media_type_backplane,
 -- 
 1.7.11.7
