@@ -1,69 +1,71 @@
-From: William Manley <william.manley@youview.com>
-Subject: Re: [PATCH 1/2] net: igmp: Reduce Unsolicited report interval to
- 1s when using IGMPv3
-Date: Mon, 29 Jul 2013 15:39:04 +0100
-Message-ID: <51F67E88.6030006@youview.com>
-References: <1374527349.1635.55.camel@bwh-desktop.uk.level5networks.com> <1374754445-5608-1-git-send-email-william.manley@youview.com> <20130726163239.GE3890@order.stressinduktion.org> <20130726163913.GG3890@order.stressinduktion.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH RFC] xfrm{4,6}: only report errors back to local sockets if we don't cross address family
+Date: Mon, 29 Jul 2013 16:50:17 +0200
+Message-ID: <20130729145017.GD2490@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>, <bcrl@kvack.org>, <luky-37@hotmail.com>,
-	<sergei.shtylyov@cogentembedded.com>, <bhutchings@solarflare.com>,
-	<davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: vi0oss@gmail.com, steffen.klassert@secunet.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe005.messaging.microsoft.com ([216.32.181.185]:44055
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753765Ab3G2Oji (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 10:39:38 -0400
-In-Reply-To: <20130726163913.GG3890@order.stressinduktion.org>
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:46356 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753217Ab3G2OuT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 10:50:19 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26/07/13 17:39, Hannes Frederic Sowa wrote:
-> On Fri, Jul 26, 2013 at 06:32:39PM +0200, Hannes Frederic Sowa wrote:
->> On Thu, Jul 25, 2013 at 01:14:04PM +0100, William Manley wrote:
->>> If an IGMP join packet is lost you will not receive data sent to the
->>> multicast group so if no data arrives from that multicast group in a
->>> period of time after the IGMP join a second IGMP join will be sent.  The
->>> delay between joins is the "IGMP Unsolicited Report Interval".
->>>
->>> Previously this value was hard coded to be chosen randomly between 0-10s.
->>> This can be too long for some use-cases, such as IPTV as it can cause
->>> channel change to be slow in the presence of packet loss.
->>>
->>> The value 10s has come from IGMPv2 RFC2236, which was reduced to 1s in
->>> IGMPv3 RFC3376.  This patch makes the kernel use the 1s value from the
->>> later RFC if we are operating in IGMPv3 mode.  IGMPv2 behaviour is
->>> unaffected.
->>>
->>> Tested with Wireshark and a simple program to join a (non-existent)
->>> multicast group.  The distribution of timings for the second join differ
->>> based upon setting /proc/sys/net/ipv4/conf/eth0/force_igmp_version.
->>>
->>> [...]
->>>
->>
->> [...]
->>
->> Otherwise I am fine with it.
->
-> Also, could you have a look at IPv6, too? We currently use a hardcoded
-> IGMP6_UNSOLICITED_IVAL = 10*HZ there.
+xfrm6_local_error/xfrm4_tunnel_check_size report mtu errors back to a
+socket in case it is locally generated. If the packet first traversed
+a 6in4/4in6 tunnel before passing the xfrm layer, we could get a panic
+because of address family type mismatch in the error reporting functions.
 
-I'll have a look, but I have to admit my ignorance on how multicast 
-works with IPv6 and I may have difficulty setting up a test environment.
+This bug fixes only the panic part of the excellent bug report
+<https://bugzilla.kernel.org/show_bug.cgi?id=58691> by vi0oss.
 
-It seems that IGMP has been replaced with "Multicast Listener Discovery" 
-on top of ICMPv6 and much like IGMP there is more than one version:
+It is unclear to me how to let these mtu change events travel up the
+stack. A match on (skb->sk && (skb->dev | tunnel_types)) could be made
+first and we forcefully decrease the mtu of that interface with a warning?
+This seems to be fragile to me.
 
-1. RFC2710 - MLD - Unsolicited Report Interval = 10s
-2. RFC3810 - MLDv2 - Unsolicited Report Interval = 1s
+Reported-by: <vi0oss@gmail.com>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/ipv4/xfrm4_output.c | 4 ++--
+ net/ipv6/xfrm6_output.c | 3 +++
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
-There also seems to be a /proc/sys/net/ipv6/conf/all/force_mld_version. 
-  Ok, so maybe it's not so difficult.  I'll see if I can come up with 
-some additional patches but I'd prefer to keep them separate from the 
-IPv4 ones which I hope are now good-to-go.
-
-Thanks
-
-Will
+diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
+index 327a617..61f6cae 100644
+--- a/net/ipv4/xfrm4_output.c
++++ b/net/ipv4/xfrm4_output.c
+@@ -32,10 +32,10 @@ static int xfrm4_tunnel_check_size(struct sk_buff *skb)
+ 	dst = skb_dst(skb);
+ 	mtu = dst_mtu(dst);
+ 	if (skb->len > mtu) {
+-		if (skb->sk)
++		if (skb->sk && skb->sk->sk_family == AF_INET)
+ 			ip_local_error(skb->sk, EMSGSIZE, ip_hdr(skb)->daddr,
+ 				       inet_sk(skb->sk)->inet_dport, mtu);
+-		else
++		else if (!skb->sk)
+ 			icmp_send(skb, ICMP_DEST_UNREACH,
+ 				  ICMP_FRAG_NEEDED, htonl(mtu));
+ 		ret = -EMSGSIZE;
+diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+index 8755a30..29f6db7 100644
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@ -59,6 +59,9 @@ static void xfrm6_local_error(struct sk_buff *skb, u32 mtu)
+ 	struct flowi6 fl6;
+ 	struct sock *sk = skb->sk;
+ 
++	if (sk->sk_family != AF_INET6)
++		return;
++
+ 	fl6.fl6_dport = inet_sk(sk)->inet_dport;
+ 	fl6.daddr = ipv6_hdr(skb)->daddr;
+ 
+-- 
+1.8.3.1
