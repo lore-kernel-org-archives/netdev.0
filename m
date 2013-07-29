@@ -1,33 +1,47 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch] net_sched: stack info leak in cbq_dump_wrr()
-Date: Mon, 29 Jul 2013 23:20:33 +0200
-Message-ID: <20130729212033.GB6386@minipsycho.orion>
-References: <20130729193651.GA12525@elgon.mountain>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v3 1/2] net: igmp: Reduce Unsolicited report interval to 1s when using IGMPv3
+Date: Mon, 29 Jul 2013 23:34:40 +0200
+Message-ID: <20130729213440.GB24355@order.stressinduktion.org>
+References: <20130726163610.GF3890@order.stressinduktion.org> <1375107711-9029-1-git-send-email-william.manley@youview.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, bcrl@kvack.org, luky-37@hotmail.com,
+	sergei.shtylyov@cogentembedded.com, bhutchings@solarflare.com,
+	davem@davemloft.net
+To: William Manley <william.manley@youview.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:47128 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752633Ab3G2Vem (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 17:34:42 -0400
 Content-Disposition: inline
-In-Reply-To: <20130729193651.GA12525@elgon.mountain>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1375107711-9029-1-git-send-email-william.manley@youview.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mon, Jul 29, 2013 at 09:36:51PM CEST, dan.carpenter@oracle.com wrote:
->opt.__reserved isn't cleared so we leak a byte of stack information.
->
->Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->
->diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
->index 71a5688..6398a61 100644
->--- a/net/sched/sch_cbq.c
->+++ b/net/sched/sch_cbq.c
->@@ -1469,6 +1469,7 @@ static int cbq_dump_wrr(struct sk_buff *skb, struct cbq_class *cl)
-> 	opt.allot = cl->allot;
-> 	opt.priority = cl->priority + 1;
-> 	opt.cpriority = cl->cpriority + 1;
->+	opt.__reserved = 0;
+On Mon, Jul 29, 2013 at 03:21:50PM +0100, William Manley wrote:
+> If an IGMP join packet is lost you will not receive data sent to the
+> multicast group so if no data arrives from that multicast group in a
+> period of time after the IGMP join a second IGMP join will be sent.  The
+> delay between joins is the "IGMP Unsolicited Report Interval".
+> 
+> Previously this value was hard coded to be chosen randomly between 0-10s.
+> This can be too long for some use-cases, such as IPTV as it can cause
+> channel change to be slow in the presence of packet loss.
+> 
+> The value 10s has come from IGMPv2 RFC2236, which was reduced to 1s in
+> IGMPv3 RFC3376.  This patch makes the kernel use the 1s value from the
+> later RFC if we are operating in IGMPv3 mode.  IGMPv2 behaviour is
+> unaffected.
+> 
+> Tested with Wireshark and a simple program to join a (non-existent)
+> multicast group.  The distribution of timings for the second join differ
+> based upon setting /proc/sys/net/ipv4/conf/eth0/force_igmp_version.
+> 
+> Signed-off-by: William Manley <william.manley@youview.com>
 
-There's probably better to zero whole opt at the beginning of the function.
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+
+Thanks,
+
+  Hannes
