@@ -1,44 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: More details on why received UDP packets are treated as errors?
-Date: Mon, 29 Jul 2013 13:21:32 -0700
-Message-ID: <1375129292.10515.21.camel@edumazet-glaptop>
-References: <51F6B2AB.5050607@candelatech.com>
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Subject: [PATCH net-next 2/6] tg3: Allow NVRAM programming when
+ interface is down
+Date: Mon, 29 Jul 2013 13:58:36 -0700
+Message-ID: <1375131520-1746-3-git-send-email-nsujir@broadcom.com>
+References: <1375131520-1746-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Cc: netdev@vger.kernel.org, "Nithin Nayak Sujir" <nsujir@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:37295 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754491Ab3G2UVe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 16:21:34 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rq2so1361744pbb.5
-        for <netdev@vger.kernel.org>; Mon, 29 Jul 2013 13:21:33 -0700 (PDT)
-In-Reply-To: <51F6B2AB.5050607@candelatech.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:2532 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754781Ab3G2U6w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jul 2013 16:58:52 -0400
+In-Reply-To: <1375131520-1746-1-git-send-email-nsujir@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-07-29 at 11:21 -0700, Ben Greear wrote:
-> We have a test case on 3.9.9+ (local patches applied) where sending from
-> VETH interface, through peer VETH bridged (with our own emulator bridge module)
-> to physical interface, which is then looped to another physical interface (B).
-> The VETH and the wired B interface are sending UDP traffic to each other.
-> Routing rules should be configured such that this all works appropriately.
-> 
-> Replacing our bridging module with a user-space bridge has same behaviour.
-> 
-> This setup works on the 3.7.y kernel, but we only get one-way traffic
-> (B to VETH) on 3.9.9+.
-> 
-> I sniffed the B port, and traffic appears to be sent and received
-> properly (ie, no checksum errors, etc).  But, our user-space app
-> shows no received UDP frames on B, and netstat -s gives the
-> output below.
-> 
-> Is there any way to get more details about what these 'packet receive errors'
-> are caused by using normal-ish tools?
+Previously, when the interface was brought down, the driver would set
+the power state to D3hot. In D3hot, we don't have access to the NVRAM.
+This patch removes the call to set the power state to PCI_D3hot in
+close. A following patch will implement the shutdown handler to properly
+set the D3hot state when the system is going down.
 
-You could try dropwatch for this kind of obscure drops
+Doing the above means that the TG3_PHYFLG_IS_LOW_POWER should not be
+checked to validate access to the NVRAM.
 
-https://fedorahosted.org/dropwatch/
+Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c | 10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 2e4bf5f..ec244c9 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -11502,7 +11502,7 @@ static int tg3_close(struct net_device *dev)
+ 	memset(&tp->net_stats_prev, 0, sizeof(tp->net_stats_prev));
+ 	memset(&tp->estats_prev, 0, sizeof(tp->estats_prev));
+ 
+-	tg3_power_down(tp);
++	tg3_power_down_prepare(tp);
+ 
+ 	tg3_carrier_off(tp);
+ 
+@@ -11724,9 +11724,6 @@ static int tg3_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
+ 	if (tg3_flag(tp, NO_NVRAM))
+ 		return -EINVAL;
+ 
+-	if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
+-		return -EAGAIN;
+-
+ 	offset = eeprom->offset;
+ 	len = eeprom->len;
+ 	eeprom->len = 0;
+@@ -11784,9 +11781,6 @@ static int tg3_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
+ 	u8 *buf;
+ 	__be32 start, end;
+ 
+-	if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
+-		return -EAGAIN;
+-
+ 	if (tg3_flag(tp, NO_NVRAM) ||
+ 	    eeprom->magic != TG3_EEPROM_MAGIC)
+ 		return -EINVAL;
+@@ -13515,7 +13509,7 @@ static void tg3_self_test(struct net_device *dev, struct ethtool_test *etest,
+ 			tg3_phy_start(tp);
+ 	}
+ 	if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
+-		tg3_power_down(tp);
++		tg3_power_down_prepare(tp);
+ 
+ }
+ 
+-- 
+1.8.1.4
