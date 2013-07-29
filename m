@@ -1,42 +1,53 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re:
-Date: Mon, 29 Jul 2013 08:17:22 -0700
-Message-ID: <20130729081722.40ff66ad@nehalam.linuxnetplumber.net>
-References: <1375103935-24242-1-git-send-email-tmricht@linux.vnet.ibm.com>
+From: "Artem S. Tashkinov" <t.artem@lycos.com>
+Subject: A call to revise sockets behaviour
+Date: Mon, 29 Jul 2013 15:10:34 +0000 (UTC)
+Message-ID: <2066879158.39771.1375110634453.JavaMail.mail@webmail09>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Thomas Richter <tmricht@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:42397 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751108Ab3G2PR3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 11:17:29 -0400
-Received: by mail-pd0-f174.google.com with SMTP id 3so4542290pdj.33
-        for <netdev@vger.kernel.org>; Mon, 29 Jul 2013 08:17:26 -0700 (PDT)
-In-Reply-To: <1375103935-24242-1-git-send-email-tmricht@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 29 Jul 2013 15:18:55 +0200
-Thomas Richter <tmricht@linux.vnet.ibm.com> wrote:
+Hello,
 
-> Add support for the bridge fdb replace command to replace an
-> existing entry in the vxlan device driver forwarding data base.
-> The entry is identified with its unicast mac address and its
-> corresponding remote destination information is updated.
-> 
-> This is useful for virtual machine migration and replaces the
-> bridge fdb del and bridge fdb add commands.
-> 
-> It follows the same interface as ip neigh replace commands.
-> 
-> Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
-> ---
-> bridge/fdb.c |    4 +++-
-> 1 files changed, 3 insertions(+), 1 deletions(-)
-> 
+Currently the Linux kernel disallows to start listening on a TCP/UDP socket if
+there are open connections against the port, regardless connections status. So even
+if _all_ you have is some stale (i.e. no longer active connections pending destruction)
+the kernel will not allow to reuse this socket.
 
-Please resubmit with proper subject so it gets picked up by
-patchwork and can be merged into iproute
+Stephen Hemminger argues that this behaviour is expected even though it's 100%
+counter productive, it defies common sense and I cannot think of any security implications
+should this feature be allowed.
+
+Besides, when discussing this bug on Wine's bugzilla I have shown that this behavior not
+only affect Windows applications running under Wine, but also native POSIX applications.
+
+If nothing else is listening to incoming connections how can _old_ _stale_ connections
+prevent an application from listening on the port? Windows has no qualms about allowing
+that, why the Linux kernel works differently?
+
+I want to hear how the current apparently _broken_ behaviour, "The current socket API
+behavior is unlikely to be changed because so many applications expect it", can be expected.
+
+Also I'd like to know which applications depend on this "feature".
+
+Imagine a situation,
+
+You have an apache server serving connections on port 80. For some reasons a crash in
+one of its modules causes the daemon crash but during the crash Apache had some open
+connections on this port.
+
+According to Stephen Hemminger I cannot relaunch Apache until the kernel waits arbitrary
+time in order to clean stale connections for its networking pool.
+
+I fail to see how this behaviour can be "expected".
+
+More on it here:
+
+https://bugzilla.kernel.org/show_bug.cgi?id=45571
+http://bugs.winehq.org/show_bug.cgi?id=26031
+
+Artem
