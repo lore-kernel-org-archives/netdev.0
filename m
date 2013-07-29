@@ -1,130 +1,155 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/15] ixgbe: fix fc autoneg ethtool reporting.
-Date: Mon, 29 Jul 2013 05:51:59 -0700
-Message-ID: <1375102331-23905-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/15] ixgbe: Retain VLAN filtering in promiscuous + VT mode
+Date: Mon, 29 Jul 2013 05:51:57 -0700
+Message-ID: <1375102331-23905-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1375102331-23905-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:57563 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:29759 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753441Ab3G2Mw1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752883Ab3G2Mw1 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 29 Jul 2013 08:52:27 -0400
 In-Reply-To: <1375102331-23905-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-Originally ixgbe_device_supports_autoneg_fc() was only expected to
-be called by copper devices.  This would lead to false information
-to be displayed via ethtool.
+When using the new bridge FDB interface to allow SR-IOV virtual function
+network devices to communicate with SW bridged network devices the
+physical function is placed into promiscuous mode and hardware VLAN
+filtering is disabled.  This defeats the ability to use VLAN tagging
+to isolate user networks.  When the device is in promiscuous mode and
+VT mode simultaneously ensure that VLAN hardware filtering remains
+enabled.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  | 40 +++++++++++++++++++-----
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  9 +++---
- 2 files changed, 37 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 11 ++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 66 ++++++++++++++++++++++++++
+ 2 files changed, 75 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 9bcdeb8..3c6859f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -67,15 +67,39 @@ static s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw);
-  **/
- s32 ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
- {
-+	bool supported = false;
-+	ixgbe_link_speed speed;
-+	bool link_up;
- 
--	switch (hw->device_id) {
--	case IXGBE_DEV_ID_X540T:
--	case IXGBE_DEV_ID_X540T1:
--	case IXGBE_DEV_ID_82599_T3_LOM:
--		return 0;
-+	switch (hw->phy.media_type) {
-+	case ixgbe_media_type_fiber:
-+		hw->mac.ops.check_link(hw, &speed, &link_up, false);
-+		/* if link is down, assume supported */
-+		if (link_up)
-+			supported = speed == IXGBE_LINK_SPEED_1GB_FULL ?
-+				true : false;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index bad8f14..d837f81 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3724,8 +3724,15 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ 		hw->addr_ctrl.user_set_promisc = true;
+ 		fctrl |= (IXGBE_FCTRL_UPE | IXGBE_FCTRL_MPE);
+ 		vmolr |= (IXGBE_VMOLR_ROPE | IXGBE_VMOLR_MPE);
+-		/* don't hardware filter vlans in promisc mode */
+-		ixgbe_vlan_filter_disable(adapter);
++		/* Only disable hardware filter vlans in promiscuous mode
++		 * if SR-IOV and VMDQ are disabled - otherwise ensure
++		 * that hardware VLAN filters remain enabled.
++		 */
++		if (!(adapter->flags & (IXGBE_FLAG_VMDQ_ENABLED |
++					IXGBE_FLAG_SRIOV_ENABLED)))
++			ixgbe_vlan_filter_disable(adapter);
 +		else
-+			supported = true;
-+		break;
-+	case ixgbe_media_type_backplane:
-+		supported = true;
-+		break;
-+	case ixgbe_media_type_copper:
-+		/* only some copper devices support flow control autoneg */
-+		switch (hw->device_id) {
-+		case IXGBE_DEV_ID_82599_T3_LOM:
-+		case IXGBE_DEV_ID_X540T:
-+		case IXGBE_DEV_ID_X540T1:
-+			supported = true;
-+			break;
-+		default:
-+			break;
-+		}
- 	default:
--		return IXGBE_ERR_FC_NOT_SUPPORTED;
-+		break;
- 	}
-+
-+	return supported;
++			ixgbe_vlan_filter_enable(adapter);
+ 	} else {
+ 		if (netdev->flags & IFF_ALLMULTI) {
+ 			fctrl |= IXGBE_FCTRL_MPE;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 1e7d587..6c624c9 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -768,6 +768,29 @@ static int ixgbe_set_vf_mac_addr(struct ixgbe_adapter *adapter,
+ 	return ixgbe_set_vf_mac(adapter, vf, new_mac) < 0;
  }
  
- /**
-@@ -234,7 +258,7 @@ static s32 ixgbe_setup_fc(struct ixgbe_hw *hw)
- 						      IXGBE_GSSR_MAC_CSR_SM);
++static int ixgbe_find_vlvf_entry(struct ixgbe_hw *hw, u32 vlan)
++{
++	u32 vlvf;
++	s32 regindex;
++
++	/* short cut the special case */
++	if (vlan == 0)
++		return 0;
++
++	/* Search for the vlan id in the VLVF entries */
++	for (regindex = 1; regindex < IXGBE_VLVF_ENTRIES; regindex++) {
++		vlvf = IXGBE_READ_REG(hw, IXGBE_VLVF(regindex));
++		if ((vlvf & VLAN_VID_MASK) == vlan)
++			break;
++	}
++
++	/* Return a negative value if not found */
++	if (regindex >= IXGBE_VLVF_ENTRIES)
++		regindex = -1;
++
++	return regindex;
++}
++
+ static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
+ 				 u32 *msgbuf, u32 vf)
+ {
+@@ -775,6 +798,9 @@ static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
+ 	int add = (msgbuf[0] & IXGBE_VT_MSGINFO_MASK) >> IXGBE_VT_MSGINFO_SHIFT;
+ 	int vid = (msgbuf[1] & IXGBE_VLVF_VLANID_MASK);
+ 	int err;
++	s32 reg_ndx;
++	u32 vlvf;
++	u32 bits;
+ 	u8 tcs = netdev_get_num_tc(adapter->netdev);
  
- 	} else if ((hw->phy.media_type == ixgbe_media_type_copper) &&
--		    (ixgbe_device_supports_autoneg_fc(hw) == 0)) {
-+		    (ixgbe_device_supports_autoneg_fc(hw))) {
- 		hw->phy.ops.write_reg(hw, MDIO_AN_ADVERTISE,
- 				      MDIO_MMD_AN, reg_cu);
- 	}
-@@ -2392,7 +2416,7 @@ void ixgbe_fc_autoneg(struct ixgbe_hw *hw)
+ 	if (adapter->vfinfo[vf].pf_vlan || tcs) {
+@@ -790,10 +816,50 @@ static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
+ 	else if (adapter->vfinfo[vf].vlan_count)
+ 		adapter->vfinfo[vf].vlan_count--;
  
- 	/* Autoneg flow control on copper adapters */
- 	case ixgbe_media_type_copper:
--		if (ixgbe_device_supports_autoneg_fc(hw) == 0)
-+		if (ixgbe_device_supports_autoneg_fc(hw))
- 			ret_val = ixgbe_fc_autoneg_copper(hw);
- 		break;
++	/* in case of promiscuous mode any VLAN filter set for a VF must
++	 * also have the PF pool added to it.
++	 */
++	if (add && adapter->netdev->flags & IFF_PROMISC)
++		err = ixgbe_set_vf_vlan(adapter, add, vid, VMDQ_P(0));
++
+ 	err = ixgbe_set_vf_vlan(adapter, add, vid, vf);
+ 	if (!err && adapter->vfinfo[vf].spoofchk_enabled)
+ 		hw->mac.ops.set_vlan_anti_spoofing(hw, true, vf);
  
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index 24e2e7a..ae58a92 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -355,10 +355,11 @@ static void ixgbe_get_pauseparam(struct net_device *netdev,
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
++	/* Go through all the checks to see if the VLAN filter should
++	 * be wiped completely.
++	 */
++	if (!add && adapter->netdev->flags & IFF_PROMISC) {
++		reg_ndx = ixgbe_find_vlvf_entry(hw, vid);
++		if (reg_ndx < 0)
++			goto out;
++		vlvf = IXGBE_READ_REG(hw, IXGBE_VLVF(reg_ndx));
++		/* See if any other pools are set for this VLAN filter
++		 * entry other than the PF.
++		 */
++		if (VMDQ_P(0) < 32) {
++			bits = IXGBE_READ_REG(hw, IXGBE_VLVFB(reg_ndx * 2));
++			bits &= ~(1 << VMDQ_P(0));
++			bits |= IXGBE_READ_REG(hw,
++					       IXGBE_VLVFB(reg_ndx * 2) + 1);
++		} else {
++			bits = IXGBE_READ_REG(hw,
++					      IXGBE_VLVFB(reg_ndx * 2) + 1);
++			bits &= ~(1 << (VMDQ_P(0) - 32));
++			bits |= IXGBE_READ_REG(hw, IXGBE_VLVFB(reg_ndx * 2));
++		}
++
++		/* If the filter was removed then ensure PF pool bit
++		 * is cleared if the PF only added itself to the pool
++		 * because the PF is in promiscuous mode.
++		 */
++		if ((vlvf & VLAN_VID_MASK) == vid &&
++		    !test_bit(vid, adapter->active_vlans) && !bits)
++			ixgbe_set_vf_vlan(adapter, add, vid, VMDQ_P(0));
++	}
++
++out:
++
+ 	return err;
+ }
  
--	if (hw->fc.disable_fc_autoneg)
--		pause->autoneg = 0;
--	else
-+	if (ixgbe_device_supports_autoneg_fc(hw) &&
-+	    !hw->fc.disable_fc_autoneg)
- 		pause->autoneg = 1;
-+	else
-+		pause->autoneg = 0;
- 
- 	if (hw->fc.current_mode == ixgbe_fc_rx_pause) {
- 		pause->rx_pause = 1;
-@@ -384,7 +385,7 @@ static int ixgbe_set_pauseparam(struct net_device *netdev,
- 
- 	/* some devices do not support autoneg of link flow control */
- 	if ((pause->autoneg == AUTONEG_ENABLE) &&
--	    (ixgbe_device_supports_autoneg_fc(hw) != 0))
-+	    !ixgbe_device_supports_autoneg_fc(hw))
- 		return -EINVAL;
- 
- 	fc.disable_fc_autoneg = (pause->autoneg != AUTONEG_ENABLE);
 -- 
 1.7.11.7
