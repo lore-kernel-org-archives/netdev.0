@@ -1,34 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: A call to revise sockets behaviour
-Date: Mon, 29 Jul 2013 10:42:58 -0700
-Message-ID: <1375119778.10515.20.camel@edumazet-glaptop>
-References: <2066879158.39771.1375110634453.JavaMail.mail@webmail09>
-	<20130729083519.5d574f16@nehalam.linuxnetplumber.net>
-	 <2063167407.40450.1375112877907.JavaMail.mail@webmail09>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH 1/2] flow_dissector: clean up IPIP case
+Date: Mon, 29 Jul 2013 10:50:55 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1307291046250.10729@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Artem S. Tashkinov" <t.artem@lycos.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2063167407.40450.1375112877907.JavaMail.mail@webmail09>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f73.google.com ([209.85.216.73]:63323 "EHLO
+	mail-qa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755763Ab3G2Ru4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 13:50:56 -0400
+Received: by mail-qa0-f73.google.com with SMTP id f14so297494qak.4
+        for <netdev@vger.kernel.org>; Mon, 29 Jul 2013 10:50:55 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-07-29 at 15:47 +0000, Artem S. Tashkinov wrote:
+Explicitly set proto to ETH_P_IP and jump directly to ip processing.
 
-> A wine developer clearly showed that this option simply doesn't work. 
-> 
-> http://bugs.winehq.org/show_bug.cgi?id=26031#c21
-> 
-> Output of strace:
-> getsockopt(24, SOL_SOCKET, SO_REUSEADDR, [0], [4]) = 0
-> setsockopt(24, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
-> bind(24, {sa_family=AF_INET, sin_port=htons(43012), sin_addr=inet_addr("0.     
-> 0.0.0")}, 16) = -1 EADDRINUSE (Address already in use)
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ net/core/flow_dissector.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Its clear that some other socket did not use SO_REUSADDR
-
-All sockets using a given port _must_ have use SO_REUSADDR to allow this
-port being reused.
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 00ee068..3259446 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -139,7 +139,8 @@ ipv6:
+ 		break;
+ 	}
+ 	case IPPROTO_IPIP:
+-		goto again;
++		proto = htons(ETH_P_IP);
++		goto ip;
+ 	default:
+ 		break;
+ 	}
+-- 
+1.8.3
