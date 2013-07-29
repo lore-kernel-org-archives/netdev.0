@@ -1,103 +1,91 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv2 2/2] net: mvneta: support big endian
-Date: Mon, 29 Jul 2013 15:21:28 +0200
-Message-ID: <1375104088-24654-3-git-send-email-thomas.petazzoni@free-electrons.com>
-References: <1375104088-24654-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: linux-arm-kernel@lists.infradead.org,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: William Manley <william.manley@youview.com>
+Subject: [PATCH v3 1/2] net: igmp: Reduce Unsolicited report interval to 1s when using IGMPv3
+Date: Mon, 29 Jul 2013 15:21:50 +0100
+Message-ID: <1375107711-9029-1-git-send-email-william.manley@youview.com>
+References: <20130726163610.GF3890@order.stressinduktion.org>
+Cc: William Manley <william.manley@youview.com>
+To: netdev@vger.kernel.org, bcrl@kvack.org, hannes@stressinduktion.org,
+	luky-37@hotmail.com, sergei.shtylyov@cogentembedded.com,
+	bhutchings@solarflare.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([94.23.35.102]:47885 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754233Ab3G2NVc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 09:21:32 -0400
-In-Reply-To: <1375104088-24654-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:37923 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750857Ab3G2OWa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 10:22:30 -0400
+In-Reply-To: <20130726163610.GF3890@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the "swap descriptor" feature of the hardware to properly swap the
-descriptors when running in big endian mode. Since the swapping occurs
-on 64 bits words, we also need to provide a separate structure layout
-for the DMA descriptors between little endian and big endian mode,
-like is done in the mv643xx_eth driver.
+If an IGMP join packet is lost you will not receive data sent to the
+multicast group so if no data arrives from that multicast group in a
+period of time after the IGMP join a second IGMP join will be sent.  The
+delay between joins is the "IGMP Unsolicited Report Interval".
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Previously this value was hard coded to be chosen randomly between 0-10s.
+This can be too long for some use-cases, such as IPTV as it can cause
+channel change to be slow in the presence of packet loss.
+
+The value 10s has come from IGMPv2 RFC2236, which was reduced to 1s in
+IGMPv3 RFC3376.  This patch makes the kernel use the 1s value from the
+later RFC if we are operating in IGMPv3 mode.  IGMPv2 behaviour is
+unaffected.
+
+Tested with Wireshark and a simple program to join a (non-existent)
+multicast group.  The distribution of timings for the second join differ
+based upon setting /proc/sys/net/ipv4/conf/eth0/force_igmp_version.
+
+Signed-off-by: William Manley <william.manley@youview.com>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 35 ++++++++++++++++++++++++++++++++---
- 1 file changed, 32 insertions(+), 3 deletions(-)
+ net/ipv4/igmp.c |   16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 649162e..9647976 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -79,10 +79,10 @@
- #define MVNETA_MAC_ADDR_HIGH                     0x2418
- #define MVNETA_SDMA_CONFIG                       0x241c
- #define      MVNETA_SDMA_BRST_SIZE_16            4
--#define      MVNETA_NO_DESC_SWAP                 0x0
- #define      MVNETA_RX_BRST_SZ_MASK(burst)       ((burst) << 1)
- #define      MVNETA_RX_NO_DATA_SWAP              BIT(4)
- #define      MVNETA_TX_NO_DATA_SWAP              BIT(5)
-+#define      MVNETA_DESC_SWAP                    BIT(6)
- #define      MVNETA_TX_BRST_SZ_MASK(burst)       ((burst) << 22)
- #define MVNETA_PORT_STATUS                       0x2444
- #define      MVNETA_TX_IN_PRGRS                  BIT(1)
-@@ -287,6 +287,7 @@ struct mvneta_port {
- #define MVNETA_RXD_FIRST_LAST_DESC	(BIT(26) | BIT(27))
- #define MVNETA_RXD_L4_CSUM_OK		BIT(30)
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index d8c2327..9f0aaea 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -113,7 +113,8 @@
  
-+#if defined(__LITTLE_ENDIAN)
- struct mvneta_tx_desc {
- 	u32  command;		/* Options used by HW for packet transmitting.*/
- 	u16  reserverd1;	/* csum_l4 (for future use)		*/
-@@ -311,6 +312,32 @@ struct mvneta_rx_desc {
- 	u32  reserved5;		/* pnc_extra PnC (for future use, PnC)	*/
- 	u32  reserved6;		/* hw_cmd (for future use, PnC and HWF)	*/
- };
-+#else
-+struct mvneta_tx_desc {
-+	u16  data_size;		/* Data size of transmitted packet in bytes */
-+	u16  reserverd1;	/* csum_l4 (for future use)		*/
-+	u32  command;		/* Options used by HW for packet transmitting.*/
-+	u32  reserved2;		/* hw_cmd - (for future use, PMT)	*/
-+	u32  buf_phys_addr;	/* Physical addr of transmitted buffer	*/
-+	u32  reserved3[4];	/* Reserved - (for future use)		*/
-+};
-+
-+struct mvneta_rx_desc {
-+	u16  data_size;		/* Size of received packet in bytes	*/
-+	u16  reserved1;		/* pnc_info - (for future use, PnC)	*/
-+	u32  status;		/* Info about received packet		*/
-+
-+	u32  reserved2;		/* pnc_flow_id  (for future use, PnC)	*/
-+	u32  buf_phys_addr;	/* Physical address of the buffer	*/
-+
-+	u16  reserved4;		/* csum_l4 - (for future use, PnC)	*/
-+	u16  reserved3;		/* prefetch_cmd, for future use		*/
-+	u32  buf_cookie;	/* cookie for access to RX buffer in rx path */
-+
-+	u32  reserved5;		/* pnc_extra PnC (for future use, PnC)	*/
-+	u32  reserved6;		/* hw_cmd (for future use, PnC and HWF)	*/
-+};
-+#endif
+ #define IGMP_V1_Router_Present_Timeout		(400*HZ)
+ #define IGMP_V2_Router_Present_Timeout		(400*HZ)
+-#define IGMP_Unsolicited_Report_Interval	(10*HZ)
++#define IGMP_V2_Unsolicited_Report_Interval	(10*HZ)
++#define IGMP_V3_Unsolicited_Report_Interval	(1*HZ)
+ #define IGMP_Query_Response_Interval		(10*HZ)
+ #define IGMP_Unsolicited_Report_Count		2
  
- struct mvneta_tx_queue {
- 	/* Number of this TX queue, in the range 0-7 */
-@@ -908,9 +935,11 @@ static void mvneta_defaults_set(struct mvneta_port *pp)
- 	/* Default burst size */
- 	val |= MVNETA_TX_BRST_SZ_MASK(MVNETA_SDMA_BRST_SIZE_16);
- 	val |= MVNETA_RX_BRST_SZ_MASK(MVNETA_SDMA_BRST_SIZE_16);
-+	val |= MVNETA_RX_NO_DATA_SWAP | MVNETA_TX_NO_DATA_SWAP;
+@@ -138,6 +139,14 @@
+ 	 ((in_dev)->mr_v2_seen && \
+ 	  time_before(jiffies, (in_dev)->mr_v2_seen)))
  
--	val |= (MVNETA_RX_NO_DATA_SWAP | MVNETA_TX_NO_DATA_SWAP |
--		MVNETA_NO_DESC_SWAP);
-+#if defined(__BIG_ENDIAN)
-+	val |= MVNETA_DESC_SWAP;
-+#endif
++static int unsolicited_report_interval(struct in_device *in_dev)
++{
++	if (IGMP_V1_SEEN(in_dev) || IGMP_V2_SEEN(in_dev))
++		return IGMP_V2_Unsolicited_Report_Interval;
++	else /* v3 */
++		return IGMP_V3_Unsolicited_Report_Interval;
++}
++
+ static void igmpv3_add_delrec(struct in_device *in_dev, struct ip_mc_list *im);
+ static void igmpv3_del_delrec(struct in_device *in_dev, __be32 multiaddr);
+ static void igmpv3_clear_delrec(struct in_device *in_dev);
+@@ -719,7 +728,8 @@ static void igmp_ifc_timer_expire(unsigned long data)
+ 	igmpv3_send_cr(in_dev);
+ 	if (in_dev->mr_ifc_count) {
+ 		in_dev->mr_ifc_count--;
+-		igmp_ifc_start_timer(in_dev, IGMP_Unsolicited_Report_Interval);
++		igmp_ifc_start_timer(in_dev,
++				     unsolicited_report_interval(in_dev));
+ 	}
+ 	__in_dev_put(in_dev);
+ }
+@@ -744,7 +754,7 @@ static void igmp_timer_expire(unsigned long data)
  
- 	/* Assign port SDMA configuration */
- 	mvreg_write(pp, MVNETA_SDMA_CONFIG, val);
+ 	if (im->unsolicit_count) {
+ 		im->unsolicit_count--;
+-		igmp_start_timer(im, IGMP_Unsolicited_Report_Interval);
++		igmp_start_timer(im, unsolicited_report_interval(in_dev));
+ 	}
+ 	im->reporter = 1;
+ 	spin_unlock(&im->lock);
 -- 
-1.8.1.2
+1.7.10.4
