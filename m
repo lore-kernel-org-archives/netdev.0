@@ -1,64 +1,41 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH 2/3] include: Convert ethernet mac address declarations to use ETH_ALEN
-Date: Mon, 29 Jul 2013 22:06:58 +0200
-Message-ID: <4497056.HfyZknBA2p@vostro.rjw.lan>
-References: <cover.1375075325.git.joe@perches.com> <2929374.frUlkyTFNL@vostro.rjw.lan> <1375126464.2075.46.camel@joe-AO722>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [patch] net_sched: stack info leak in cbq_dump_wrr()
+Date: Mon, 29 Jul 2013 23:01:14 +0300
+Message-ID: <20130729200114.GA29160@mwanda>
+References: <20130729193651.GA12525@elgon.mountain>
+ <1375127072.2075.48.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, Len Brown <lenb@kernel.org>,
-	Pantelis Antoniou <pantelis.antoniou@gmail.com>,
-	Vitaly Bordug <vbordug@ru.mvista.com>,
-	Steve Glendinning <steve.glendinning@shawell.net>,
-	Mauro Carvalho Chehab <m.chehab@samsung.com>,
-	Samuel Ortiz <samuel@sortiz.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, linux-usb@vger.kernel.org,
-	linux-media@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
 To: Joe Perches <joe@perches.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1375126464.2075.46.camel@joe-AO722>
-Sender: linux-acpi-owner@vger.kernel.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1375127072.2075.48.camel@joe-AO722>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday, July 29, 2013 12:34:24 PM Joe Perches wrote:
-> On Mon, 2013-07-29 at 13:59 +0200, Rafael J. Wysocki wrote:
-> > On Sunday, July 28, 2013 10:29:04 PM Joe Perches wrote:
-> > > It's convenient to have ethernet mac addresses use
-> > > ETH_ALEN to be able to grep for them a bit easier and
-> > > also to ensure that the addresses are __aligned(2).
+On Mon, Jul 29, 2013 at 12:44:32PM -0700, Joe Perches wrote:
+> On Mon, 2013-07-29 at 22:36 +0300, Dan Carpenter wrote:
+> > opt.__reserved isn't cleared so we leak a byte of stack information.
 > []
-> > > diff --git a/include/acpi/actbl2.h b/include/acpi/actbl2.h
+> > diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
 > []
-> > > @@ -44,6 +44,8 @@
-> []
-> > > +#include <linux/if_ether.h>
-> > > +
-> []
-> > > @@ -605,7 +607,7 @@ struct acpi_ibft_nic {
-> []
-> > > -	u8 mac_address[6];
-> > > +	u8 mac_address[ETH_ALEN];
+> > @@ -1469,6 +1469,7 @@ static int cbq_dump_wrr(struct sk_buff *skb, struct cbq_class *cl)
+> >  	opt.allot = cl->allot;
+> >  	opt.priority = cl->priority + 1;
+> >  	opt.cpriority = cl->cpriority + 1;
+> > +	opt.__reserved = 0;
+> >  	opt.weight = cl->weight;
+> >  	if (nla_put(skb, TCA_CBQ_WRROPT, sizeof(opt), &opt))
+> >  		goto nla_put_failure;
 > 
-> > Please don't touch this file.
-> > 
-> > It comes from a code base outside of the kernel and should be kept in sync with
-> > the upstream.
+> Alignment isn't guaranteed here so it'd
+> probably be better with a memset.
 > 
-> Which files in include/acpi have this characteristic?
 
-Generally, all whose names start with "ac" except for acpi_bus.h,
-acpi_drivers.h and acpi_numa.h.
+Hm...  Which arches would align it differently?
 
-> Perhaps an include/acpi/README is appropriate.
-
-Yes, we can add one.
-
-Thanks,
-Rafael
-
-
--- 
-I speak only for myself.
-Rafael J. Wysocki, Intel Open Source Technology Center.
+regards,
+dan carpenter
