@@ -1,86 +1,45 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/15] ixgbe: Use pci_vfs_assigned instead of ixgbe_vfs_are_assigned
-Date: Mon, 29 Jul 2013 05:51:58 -0700
-Message-ID: <1375102331-23905-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/15] ixgbe: bump version number
+Date: Mon, 29 Jul 2013 05:52:01 -0700
+Message-ID: <1375102331-23905-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1375102331-23905-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:29759 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:57563 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753638Ab3G2Mw2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jul 2013 08:52:28 -0400
+	id S1753692Ab3G2Mw3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jul 2013 08:52:29 -0400
 In-Reply-To: <1375102331-23905-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-This change makes it so that the ixgbe driver uses the generic helper
-pci_vfs_assigned instead of the ixgbe specific function
-ixgbe_vfs_are_assigned.
+Bump the version number to better match with a similar version of the
+out of tree driver.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 35 +-------------------------
- 1 file changed, 1 insertion(+), 34 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 6c624c9..73c8e73 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -173,39 +173,6 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
- 	ixgbe_disable_sriov(adapter);
- }
- 
--static bool ixgbe_vfs_are_assigned(struct ixgbe_adapter *adapter)
--{
--	struct pci_dev *pdev = adapter->pdev;
--	struct pci_dev *vfdev;
--	int dev_id;
--
--	switch (adapter->hw.mac.type) {
--	case ixgbe_mac_82599EB:
--		dev_id = IXGBE_DEV_ID_82599_VF;
--		break;
--	case ixgbe_mac_X540:
--		dev_id = IXGBE_DEV_ID_X540_VF;
--		break;
--	default:
--		return false;
--	}
--
--	/* loop through all the VFs to see if we own any that are assigned */
--	vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, NULL);
--	while (vfdev) {
--		/* if we don't own it we don't care */
--		if (vfdev->is_virtfn && vfdev->physfn == pdev) {
--			/* if it is assigned we cannot release it */
--			if (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
--				return true;
--		}
--
--		vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, vfdev);
--	}
--
--	return false;
--}
--
- #endif /* #ifdef CONFIG_PCI_IOV */
- int ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
- {
-@@ -235,7 +202,7 @@ int ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
- 	 * without causing issues, so just leave the hardware
- 	 * available but disabled
- 	 */
--	if (ixgbe_vfs_are_assigned(adapter)) {
-+	if (pci_vfs_assigned(adapter->pdev)) {
- 		e_dev_warn("Unloading driver while VFs are assigned - VFs will not be deallocated\n");
- 		return -EPERM;
- 	}
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index d837f81..6a2b7a0 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -63,7 +63,7 @@ char ixgbe_default_device_descr[] =
+ static char ixgbe_default_device_descr[] =
+ 			      "Intel(R) 10 Gigabit Network Connection";
+ #endif
+-#define DRV_VERSION "3.13.10-k"
++#define DRV_VERSION "3.15.1-k"
+ const char ixgbe_driver_version[] = DRV_VERSION;
+ static const char ixgbe_copyright[] =
+ 				"Copyright (c) 1999-2013 Intel Corporation.";
 -- 
 1.7.11.7
