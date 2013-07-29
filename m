@@ -1,109 +1,107 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 00/12][pull request] Intel Wired LAN Driver Updates
-Date: Sun, 28 Jul 2013 19:08:55 -0700
-Message-ID: <1375063735.32309.32.camel@jtkirshe-mobl>
-References: <1375011676-30739-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20130728.132105.1045846024944164783.davem@davemloft.net>
-	 <1375053098.32309.28.camel@jtkirshe-mobl>
-	 <20130728.172022.2147023715179571146.davem@davemloft.net>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Duan Fugang-B38611 <B38611@freescale.com>
+Subject: RE: [PATCH] net/fec: call netif_carrier_off when not having link
+Date: Mon, 29 Jul 2013 02:10:31 +0000
+Message-ID: <9848F2DB572E5649BA045B288BE08FBE015D5CFD@039-SN2MPN1-023.039d.mgd.msft.net>
+References: <1374758875-7926-1-git-send-email-u.kleine-koenig@pengutronix.de>
+	 <20130725090352.574b874d@nehalam.linuxnetplumber.net>
+	 <9848F2DB572E5649BA045B288BE08FBE015C9315@039-SN2MPN1-023.039d.mgd.msft.net>
+ <1374852712.1666.20.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-7u8HKrV/9yZcU4QwPBdO"
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	=?utf-8?B?VXdlIEtsZWluZS1Lw7ZuaWc=?=
+	<u.kleine-koenig@pengutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Estevam Fabio-R49496 <r49496@freescale.com>,
+	Li Frank-B20596 <B20596@freescale.com>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>,
+	Hector Palacios <hector.palacios@digi.com>,
+	Tim Sander <tim.sander@hbm.com>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:37911 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752189Ab3G2CI5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Jul 2013 22:08:57 -0400
-In-Reply-To: <20130728.172022.2147023715179571146.davem@davemloft.net>
+Received: from [216.32.181.183] ([216.32.181.183]:2173 "EHLO
+	ch1outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752037Ab3G2CLo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jul 2013 22:11:44 -0400
+In-Reply-To: <1374852712.1666.20.camel@bwh-desktop.uk.level5networks.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---=-7u8HKrV/9yZcU4QwPBdO
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Sun, 2013-07-28 at 17:20 -0700, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Sun, 28 Jul 2013 16:11:38 -0700
->=20
-> > On Sun, 2013-07-28 at 13:21 -0700, David Miller wrote:
-> >> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> >> Date: Sun, 28 Jul 2013 04:41:04 -0700
-> >>=20
-> >> > This series contains updates to e100 and e1000e.
-> >> >=20
-> >> > The e100 patch from Andy simply updates the netif_printk() to use
-> >> > %*ph to dump small buffers.
-> >> >=20
-> >> > The changes to e1000e include a fix from Dean Nelson to resolve a
-> >> > issue where a pci_clear_master() was accidentally dropped during a
-> >> > conflict resolution. Wei Young provides 2 patches, one removes an
-> >> > assignment of the default ring size because it was a duplicate. The
-> >> > second changes the packet split receive structure to use
-> >> > PS_PAGE_BUFFERS macro for the length so that problems won't occur
-> >> > when the length is changed.
-> >> >=20
-> >> > The remaining patches for e1000e are from Bruce Allan, where he
-> >> > provides a number of fixes and updates for I218.  In addition, a
-> >> > fix for 82583 which can disappear off the PCIe bus, to resolve this,
-> >> > disable ASPM L1.  Bruce also provides a fix to a previous commit
-> >> > (commit e60b22c5b7 e1000e: fix accessing to suspended device) so tha=
-t
-> >> > devices are only taken out of runtime power management for those
-> >> > ethtool operations that must access device registers.
-> >> >=20
-> >> > The following are changes since commit dcfe8048de66c3468060c8a2ec2c0=
-4ae3725d002:
-> >> >   bonding: remove bond_resend_igmp_join_requests read_unlock leftove=
-r
-> >> > and are available in the git repository at:
-> >> >   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next ma=
-ster
-> >>=20
-> >> Pulled, thanks a lot Jeff.
-> >=20
-> > It looks like you pulled my net tree instead of my net-next tree.
-> > Fortunately, I did not have anything applied to my net tree that had no=
-t
-> > already been sent out.
->=20
-> No, really, I did this:
->=20
-> git pull git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next =
-master
-
-Disregard, it was me misreading my git log in my net tree after updating
-it against your latest tree.
-
-When will your kernel.org net-next be updated?  I ask because I have a
-series for ixgbe I am putting together and wanted to make sure it is
-against the latest net-next.
-
---=-7u8HKrV/9yZcU4QwPBdO
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
-
-iQIcBAABCgAGBQJR9c63AAoJEOVv75VaS+3OHlcQAIuLyl/Oc/3hE603v7QlLEpK
-Z7L+hUPmpYehcqkBMD89iz2cgFG+yzg0E9FLE3HvaxBsqjIuEeWWSmeR0liMuwpq
-in/NwgyAFn8mPWS7Uh4O4lGpBH9c/RBnQFtcly1eIDI7b6vVxSC0EvSNcHu7gwNp
-pcUkVHnkneLAkRUD6K9Dx+xwsAKcEb9KNKMPK1n2enEVEu44qKu9RXs03QcI/ibc
-W0OEwpneLDJqD3JSrTZ06zZ4DbeqfuzPHaKVjMf+4d/msLi2vJhjRvica7osTQg6
-1R2OHieU/gaKJLIulx3Vt/9WKfIdDGYZVrOrSib3dLRsj6fxFmEs90yHfE02CmAi
-JfAuJublgnbYFU6I0e0xnd6/K0Tsf3Tcp2vOsX3JXV1wJOGfpdKB5MCQluRF1v7j
-e/BNnzIaxD3eLwkFa+Utt87+2VPSarR6sZSfDdy0NR7qnPBqHTlikGDmr8c/RdgQ
-/YsSYEI8F4uQykWD/xKiSq5bvVsFINXpEKUGfJcqoqxGFiQUCgynJj7mq8r0kkGI
-kOG7Yk7Nun/kuWsl2ofUx0UB+D94gEm4DWYsMZfxUg5dOQbr/e7W9vqwHA8HrcYC
-1OtJ1e4TNByQC1+wG8L0Ph+JgRLGluI7TnieqdCiWUM/ERcS1BXNHY0bE6EQjV2l
-bveWhIdIMG00+TP6fs61
-=+TlM
------END PGP SIGNATURE-----
-
---=-7u8HKrV/9yZcU4QwPBdO--
+Pm5ldGlmX3N0b3BfcXVldWUoKSAqbXVzdCBub3QqIGJlIGNhbGxlZCBiZWZvcmUgbmV0aWZfY2Fy
+cmllcl9vZmYoKSwgb3RoZXJ3aXNlIHRoZSBUWCB3YXRjaGRvZyBjYW4gZmlyZSBpbW1lZGlhdGVs
+eS4NCj5UaGUgVFggd2F0Y2hkb2cgb25seSBrbm93cyB3aGVuIHRoZSBsYXN0IHBhY2tldCB3YXMg
+cGFzc2VkIHRvIHRoZSBkcml2ZXIsIG5vdCB3aGVuIHRoZSBxdWV1ZSB3YXMgc3RvcHBlZC4NCj5U
+aGUgbGFzdCBwYWNrZXQgY291bGQgaGF2ZSBiZWVuIGFkZGVkIGFuIGFyYml0cmFyaWx5IGxvbmcg
+dGltZSBiZWZvcmUgdGhlIGxpbmsgd2VudCBkb3duLCB0aGVyZWZvcmUgaXQgbWF5IGFwcGVhciB0
+aGF0IHRoZSB0aW1lb3V0IGhhcyBhbHJlYWR5IGV4cGlyZWQuLg0KPg0KPkFsdGhvdWdoIGl0IGlz
+IHNhZmUgdG8gY2FsbCBuZXRpZl9zdG9wX3F1ZXVlKCkgYWZ0ZXIgbmV0aWZfY2Fycmllcl9vZmYo
+KSwgaXQgaXMgbm90IHVzZWZ1bC4NCj5uZXRpZl9zdG9wX3F1ZXVlKCkgc2hvdWxkIG9ubHkgYmUg
+Y2FsbGVkIGZyb20geW91ciBuZG9fc3RhcnRfeG1pdCBvcGVyYXRpb24gYW5kIG9ubHkgYmVjYXVz
+ZSB0aGUgcXVldWUgaXMgZnVsbC4gDQo+QW55IG90aGVyIHJlYXNvbiB0byBzdG9wIHNob3VsZCBi
+ZSBjb21tdW5pY2F0ZWQgdG8gdGhlIGtlcm5lbCB1c2luZyBuZXRpZl9jYXJyaWVyX29mZigpIG9y
+IG5ldGlmX2RldmljZV9kZXRhY2goKS4NCj4NCj5CZW4uDQoNCkFncmVlLg0KSSByZW1lbWJlciB5
+b3Ugc2FpZDoNClRoZSB3YXRjaGRvZyBmaXJlcyB3aGVuIHRoZSBzb2Z0d2FyZSBxdWV1ZSBoYXMg
+YmVlbiBzdG9wcGVkICphbmQqIHRoZSBsaW5rIGhhcyBiZWVuIHJlcG9ydGVkIGFzIHVwIGZvciBv
+dmVyIGRldi0+d2F0Y2hkb2dfdGltZW8gdGlja3MuDQpUaGUgc29mdHdhcmUgcXVldWUgc2hvdWxk
+IGJlIHN0b3BwZWQgaWYgdGhlIGhhcmR3YXJlIHF1ZXVlIGlzIGZ1bGwgb3IgbmVhcmx5IGZ1bGwu
+ICBJZiB0aGUgc29mdHdhcmUgcXVldWUgcmVtYWlucyBzdG9wcGVkIGFuZCB0aGUgbGluayBpcw0K
+c3RpbGwgcmVwb3J0ZWQgdXAsIHRoZW4gb25lIG9mIHRoZXNlIHRoaW5ncyBpcyBoYXBwZW5pbmc6
+DQoNCjEuIFRoZSBsaW5rIHdlbnQgZG93biBidXQgdGhlIGRyaXZlciBkaWRuJ3Qgbm90aWNlLCBv
+ciBzZW50IGEgdHJhbnNtaXQgcGFja2V0IHdoaWNoIG5ldmVyIGNvbXBsZXRlcw0KMi4gVFggY29t
+cGxldGlvbnMgYXJlIG5vdCBiZWluZyBpbmRpY2F0ZWQgb3IgaGFuZGxlZCBjb3JyZWN0bHkNCjMu
+IFRoZSBoYXJkd2FyZSBUWCBwYXRoIGhhcyBsb2NrZWQgdXANCjQuIFRoZSBsaW5rIGlzIHN0YWxs
+ZWQgYnkgZXhjZXNzaXZlIHBhdXNlIGZyYW1lcyBvciBjb2xsaXNpb25zDQo1LiBUaW1lb3V0IGlz
+IHRvbyBsb3cgYW5kL29yIGxvdyB3YXRlcm1hcmsgaXMgdG9vIGhpZ2gNCih0aGVyZSBtYXkgYmUg
+b3RoZXIgZXhwbGFuYXRpb25zKQ0KDQpUaGUgd2F0Y2hkb2cgaXMgcHJpbWFyaWx5IG1lYW50IHRv
+IGRlYWwgd2l0aCBjYXNlIDMsIHRob3VnaCBhbGwgb2YgY2FzZXMgMS0zIG1heSBiZSB3b3JrZWQg
+YXJvdW5kIGJ5IHJlc2V0dGluZyB0aGUgaGFyZHdhcmUuDQoNCg0KVGhhbmtzLA0KQW5keQ0KDQot
+LS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRvOmJo
+dXRjaGluZ3NAc29sYXJmbGFyZS5jb21dIA0KU2VudDogRnJpZGF5LCBKdWx5IDI2LCAyMDEzIDEx
+OjMyIFBNDQpUbzogRHVhbiBGdWdhbmctQjM4NjExDQpDYzogU3RlcGhlbiBIZW1taW5nZXI7IFV3
+ZSBLbGVpbmUtS8O2bmlnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBEYXZpZCBTLiBNaWxsZXI7
+IEVzdGV2YW0gRmFiaW8tUjQ5NDk2OyBMaSBGcmFuay1CMjA1OTY7IFNoYXduIEd1bzsga2VybmVs
+QHBlbmd1dHJvbml4LmRlOyBIZWN0b3IgUGFsYWNpb3M7IFRpbSBTYW5kZXI7IFN0ZXZlbiBSb3N0
+ZWR0OyBUaG9tYXMgR2xlaXhuZXINClN1YmplY3Q6IFJlOiBbUEFUQ0hdIG5ldC9mZWM6IGNhbGwg
+bmV0aWZfY2Fycmllcl9vZmYgd2hlbiBub3QgaGF2aW5nIGxpbmsNCg0KT24gRnJpLCAyMDEzLTA3
+LTI2IGF0IDA5OjM1ICswMDAwLCBEdWFuIEZ1Z2FuZy1CMzg2MTEgd3JvdGU6DQo+IE9uIEZpciwg
+MjYgSnVsIDIwMTMgMTI6MDQsIFN0ZXBoZW4gSGVtbWluZ2VyIHdyb3RlOg0KPiA+PiBkaWZmIC0t
+Z2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4gPj4gYi9k
+cml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYw0KPiA+PiBpbmRleCAwNjQy
+MDA2Li42MzFiZDVhIDEwMDY0NA0KPiA+PiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVl
+c2NhbGUvZmVjX21haW4uYw0KPiA+PiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2Nh
+bGUvZmVjX21haW4uYw0KPiA+PiBAQCAtMjgwLDExICsyODAsNiBAQCBmZWNfZW5ldF9zdGFydF94
+bWl0KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2KQ0KPiA+PiAg
+CXVuc2lnbmVkIHNob3J0CXN0YXR1czsNCj4gPj4gIAl1bnNpZ25lZCBpbnQgaW5kZXg7DQo+ID4+
+ICANCj4gPj4gLQlpZiAoIWZlcC0+bGluaykgew0KPiA+PiAtCQkvKiBMaW5rIGlzIGRvd24gb3Ig
+YXV0by1uZWdvdGlhdGlvbiBpcyBpbiBwcm9ncmVzcy4gKi8NCj4gPj4gLQkJcmV0dXJuIE5FVERF
+Vl9UWF9CVVNZOw0KPiA+PiAtCX0NCj4gPj4gLQ0KPiA+DQo+ID5UaGF0IGlzIGEgYnVnIGFueXdh
+eS4gU2luY2UgaXQgd291bGQgY2F1c2Ugc3BpbiBsb29wIGluIHRyYW5zbWl0IGNvZGUgKGV2ZW4g
+d2l0aG91dCAtcnQpLg0KPiA+SWYgdGhlIGRyaXZlciBjYXJlZCB0byB0ZXN0IGl0IChtb3N0IGRy
+aXZlcnMganVzdCBsZXQgaGFyZHdhcmUgZGVhbCANCj4gPndpdGggdGhpcyBzaXR1YXRpb24pLCB0
+aGVuIGl0IHNob3VsZCBmcmVlIHBhY2tldCBhbmQgcmV0dXJuIFRYX09LLg0KPiANCj4gV2hlbiBs
+aW5rIGlzIGRvd24sIHRoZSBsb2dpYyBpcw0KPiAJLSBjYWxsIG5ldGlmX3N0b3BfcXVldWUoKSB0
+byBzdG9wIHF1ZXVlDQo+IAktIGFuZCB0aGVuIG5vdGlmeSB0aGVyZSBoYXZlIG5vIGxpbmsgdXNp
+bmcgbmV0aWZfY2Fycmllcl9vZmYoKS4NCg0KbmV0aWZfc3RvcF9xdWV1ZSgpICptdXN0IG5vdCog
+YmUgY2FsbGVkIGJlZm9yZSBuZXRpZl9jYXJyaWVyX29mZigpLCBvdGhlcndpc2UgdGhlIFRYIHdh
+dGNoZG9nIGNhbiBmaXJlIGltbWVkaWF0ZWx5LiAgVGhlIFRYIHdhdGNoZG9nIG9ubHkga25vd3Mg
+d2hlbiB0aGUgbGFzdCBwYWNrZXQgd2FzIHBhc3NlZCB0byB0aGUgZHJpdmVyLCBub3Qgd2hlbiB0
+aGUgcXVldWUgd2FzIHN0b3BwZWQuICBUaGUgbGFzdCBwYWNrZXQgY291bGQgaGF2ZSBiZWVuIGFk
+ZGVkIGFuIGFyYml0cmFyaWx5IGxvbmcgdGltZSBiZWZvcmUgdGhlIGxpbmsgd2VudCBkb3duLCB0
+aGVyZWZvcmUgaXQgbWF5IGFwcGVhciB0aGF0IHRoZSB0aW1lb3V0IGhhcyBhbHJlYWR5IGV4cGly
+ZWQuLg0KDQpBbHRob3VnaCBpdCBpcyBzYWZlIHRvIGNhbGwgbmV0aWZfc3RvcF9xdWV1ZSgpIGFm
+dGVyIG5ldGlmX2NhcnJpZXJfb2ZmKCksIGl0IGlzIG5vdCB1c2VmdWwuICBuZXRpZl9zdG9wX3F1
+ZXVlKCkgc2hvdWxkIG9ubHkgYmUgY2FsbGVkIGZyb20geW91ciBuZG9fc3RhcnRfeG1pdCBvcGVy
+YXRpb24gYW5kIG9ubHkgYmVjYXVzZSB0aGUgcXVldWUgaXMgZnVsbC4gIEFueSBvdGhlciByZWFz
+b24gdG8gc3RvcCBzaG91bGQgYmUgY29tbXVuaWNhdGVkIHRvIHRoZSBrZXJuZWwgdXNpbmcgbmV0
+aWZfY2Fycmllcl9vZmYoKSBvciBuZXRpZl9kZXZpY2VfZGV0YWNoKCkuDQoNCkJlbi4NCg0KPiBC
+dXQgdGhlIGZsb3cgbXVzdCBiZSBoYW5kbGVkIGluIGZlY19lbmV0X2FkanVzdF9saW5rKCkgZnVu
+Y3Rpb24sIG5vdCBpbiB4bWl0KCkuDQoNCi0tDQpCZW4gSHV0Y2hpbmdzLCBTdGFmZiBFbmdpbmVl
+ciwgU29sYXJmbGFyZSBOb3Qgc3BlYWtpbmcgZm9yIG15IGVtcGxveWVyOyB0aGF0J3MgdGhlIG1h
+cmtldGluZyBkZXBhcnRtZW50J3Mgam9iLg0KVGhleSBhc2tlZCB1cyB0byBub3RlIHRoYXQgU29s
+YXJmbGFyZSBwcm9kdWN0IG5hbWVzIGFyZSB0cmFkZW1hcmtlZC4NCg0KDQo=
