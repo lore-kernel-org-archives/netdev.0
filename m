@@ -1,134 +1,195 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [patch net-next v6 0/4] export device physical port id to
- userspace
-Date: Mon, 29 Jul 2013 15:23:15 -0700
-Message-ID: <1375136595.2104.13.camel@jtkirshe-mobl>
-References: <1375114612-537-1-git-send-email-jiri@resnulli.us>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Subject: Re: rtnl_lock deadlock on 3.10
+Date: Mon, 29 Jul 2013 18:02:16 -0500
+Message-ID: <20130729230216.GB4396@sbohrermbp13-local.rgmadvisors.com>
+References: <20130701145456.GA7756@sbohrermbp13-local.rgmadvisors.com>
+ <20130702082818.GA26178@order.stressinduktion.org>
+ <kqul4h$ib8$1@ger.gmane.org>
+ <20130703051152.GA12615@order.stressinduktion.org>
+ <20130703053307.GB12615@order.stressinduktion.org>
+ <20130703172239.GA3439@sbohrermbp13-local.rgmadvisors.com>
+ <51D45EB3.7030404@mellanox.com>
+ <20130715143819.GA3084@sbohrermbp13-local.rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-eAP/VfyqYvTdm2geA+O/"
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	stephen@networkplumber.org, Narendra_K@Dell.com,
-	bhutchings@solarflare.com, john.r.fastabend@intel.com,
-	or.gerlitz@gmail.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
-	peter.p.waskiewicz.jr@intel.com, alexander.h.duyck@intel.com,
-	john.ronciak@intel.com, tushar.n.dave@intel.com,
-	matthew.vick@intel.com, mitch.a.williams@intel.com,
-	vyasevic@redhat.com, amwang@redhat.com, johannes@sipsolutions.net
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=US-ASCII
+Cc: Shawn Bohrer <shawn.bohrer@gmail.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
+	linux-rdma@vger.kernel.org, roland@purestorage.com,
+	swise@chelsio.com
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:8647 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754397Ab3G2WXQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jul 2013 18:23:16 -0400
-In-Reply-To: <1375114612-537-1-git-send-email-jiri@resnulli.us>
+Received: from na3sys009aog104.obsmtp.com ([74.125.149.73]:35086 "EHLO
+	na3sys009aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755005Ab3G2XCU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 19:02:20 -0400
+Received: by mail-oa0-f50.google.com with SMTP id i4so1708942oah.23
+        for <netdev@vger.kernel.org>; Mon, 29 Jul 2013 16:02:19 -0700 (PDT)
+In-Reply-To: <20130715143819.GA3084@sbohrermbp13-local.rgmadvisors.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Jul 15, 2013 at 09:38:19AM -0500, Shawn Bohrer wrote:
+> On Wed, Jul 03, 2013 at 08:26:11PM +0300, Or Gerlitz wrote:
+> > On 03/07/2013 20:22, Shawn Bohrer wrote:
+> > >On Wed, Jul 03, 2013 at 07:33:07AM +0200, Hannes Frederic Sowa wrote:
+> > >>On Wed, Jul 03, 2013 at 07:11:52AM +0200, Hannes Frederic Sowa wrote:
+> > >>>On Tue, Jul 02, 2013 at 01:38:26PM +0000, Cong Wang wrote:
+> > >>>>On Tue, 02 Jul 2013 at 08:28 GMT, Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> > >>>>>On Mon, Jul 01, 2013 at 09:54:56AM -0500, Shawn Bohrer wrote:
+> > >>>>>>I've managed to hit a deadlock at boot a couple times while testing
+> > >>>>>>the 3.10 rc kernels.  It seems to always happen when my network
+> > >>>>>>devices are initializing.  This morning I updated to v3.10 and made a
+> > >>>>>>few config tweaks and so far I've hit it 4 out of 5 reboots.  It looks
+> > >>>>>>like most processes are getting stuck on rtnl_lock.  Below is a boot
+> > >>>>>>log with the soft lockup prints.  Please let know if there is any
+> > >>>>>>other information I can provide:
+> > >>>>>Could you try a build with CONFIG_LOCKDEP enabled?
+> > >>>>>
+> > >>>>The problem is clear: ib_register_device() is called with rtnl_lock,
+> > >>>>but itself needs device_mutex, however, ib_register_client() first
+> > >>>>acquires device_mutex, then indirectly calls register_netdev() which
+> > >>>>takes rtnl_lock. Deadlock!
+> > >>>>
+> > >>>>One possible fix is always taking rtnl_lock before taking
+> > >>>>device_mutex, something like below:
+> > >>>>
+> > >>>>diff --git a/drivers/infiniband/core/device.c b/drivers/infiniband/core/device.c
+> > >>>>index 18c1ece..890870b 100644
+> > >>>>--- a/drivers/infiniband/core/device.c
+> > >>>>+++ b/drivers/infiniband/core/device.c
+> > >>>>@@ -381,6 +381,7 @@ int ib_register_client(struct ib_client *client)
+> > >>>>  {
+> > >>>>  	struct ib_device *device;
+> > >>>>+	rtnl_lock();
+> > >>>>  	mutex_lock(&device_mutex);
+> > >>>>  	list_add_tail(&client->list, &client_list);
+> > >>>>@@ -389,6 +390,7 @@ int ib_register_client(struct ib_client *client)
+> > >>>>  			client->add(device);
+> > >>>>  	mutex_unlock(&device_mutex);
+> > >>>>+	rtnl_unlock();
+> > >>>>  	return 0;
+> > >>>>  }
+> > >>>>diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+> > >>>>index b6e049a..5a7a048 100644
+> > >>>>--- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
+> > >>>>+++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+> > >>>>@@ -1609,7 +1609,7 @@ static struct net_device *ipoib_add_port(const char *format,
+> > >>>>  		goto event_failed;
+> > >>>>  	}
+> > >>>>-	result = register_netdev(priv->dev);
+> > >>>>+	result = register_netdevice(priv->dev);
+> > >>>>  	if (result) {
+> > >>>>  		printk(KERN_WARNING "%s: couldn't register ipoib port %d; error %d\n",
+> > >>>>  		       hca->name, port, result);
+> > >>>Looks good to me. Shawn, could you test this patch?
+> > >>ib_unregister_device/ib_unregister_client would need the same change,
+> > >>too. I have not checked the other ->add() and ->remove() functions. Also
+> > >>cc'ed linux-rdma@vger.kernel.org, Roland Dreier.
+> > >Cong's patch is missing the #include <linux/rtnetlink.h> but otherwise
+> > >I've had 34 successful reboots with no deadlocks which is a good sign.
+> > >It sounds like there are more paths that need to be audited and a
+> > >proper patch submitted.  I can do more testing later if needed.
+> > >
+> > >Thanks,
+> > >Shawn
+> > >
+> > 
+> > Guys, I was a bit busy today looking into that, but I don't think we
+> > want the IB core layer  (core/device.c) to
+> > use rtnl locking which is something that belongs to the network stack.
+> 
+> Has anymore thought been put into a proper fix for this issue?
 
---=-eAP/VfyqYvTdm2geA+O/
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+I'm no expert in this area but I'm having a hard time seeing a
+different solution than the one Cong suggested.  Just to be clear the
+deadlock I hit was between cxgb3 and the ipoib module, so I've Cc'd
+Steve Wise in case he has a better solution from the Chelsio side.
+Here are those two stacks again as a reminder:
 
-On Mon, 2013-07-29 at 18:16 +0200, Jiri Pirko wrote:
-> This patchset is based on patch by Narendra_K@Dell.com
-> Once device which can change phys port id during its lifetime adopts
-> this,
-> NETDEV_CHANGEPHYSPORTID event will be added and driver will call
-> call_netdevice_notifiers(NETDEV_NETDEV_CHANGEPHYSPORTID, dev) to
-> propagate
-> the change to userspace.
->=20
-> v1->v2: as suggested by Ben, handle -EOPNOTSUPP in rtnl code (wrapped
-> up ndo call)
-> v2->v3: adjusted patch 1 commit message
-> v3->v4: used "%phN" for sysfs printf as suggested by DaveM
->         added igb/igbvf implementation as requested by Or Gerlitz
-> v4->v5: used prandom_u32 to generate id in igb_probe
->         removed duplicate code in ibgvf_probe
->         pushed dev_err string into one line in igbvf_refresh_ppid
-> v5->v6: use uuid_le_gen for generating 16-byte phys port id for
-> igb/igbvf
->         as suggested by BenH
->=20
-> 1) Why do we need this, and why do existing facilities fail to provide
->    a way to accomplish this?
->=20
-> Currenty there's very hard to tell if two netdevs are using the same
-> physical
-> port. For sr-iov this can be get by sysfs. For other mechanisms, like
-> NPAR
-> there's very hard to do it (one must learn it from NIC BIOS). But even
-> for
-> sr-iov there's no way to say if two netdevs are using the same phys
-> port when
-> these are passed through to virtual guests.
->=20
-> This patchset provides the generic way of letting this information
-> know to
-> userspace. This info can be used by apps like NetworkManager, teamd,
-> Wicked,
-> ovs daemon, etc, to do smarter bonding decisions.
->=20
-> 2) Why is the physical port ID defined as a 32 byte opaque cookie?
->    What formats and layouts need to be accomodated, and which
->    influenced the design of the ID?
->=20
-> For user to distinguish if two netdevs are using the same port, he
-> only needs
-> to compare their phys port ids. Nothing else is needed. This id has no
-> structure for security reasons. VF should not know anything about PF.
->=20
-> 3) Are IDs globally unique?  Why or why not?  If IDs should be
->    globally unique, but only in certain cases, what exactly are those
->    cases.
->=20
-> Most of the time only uniqueness needed is in scope of single machine.
-> There might be case when the id should be unique between couple of
-> machines
-> in virtualization environment. Given that for example for igb/igbvf
-> 16B uuid
-> is used, there is no problem for this case as well. But each driver
-> can
-> implement this differently focusing the hw capabilities and needs.
->=20
-> Jiri Pirko (4):
->   net: add ndo to get id of physical port of the device
->   rtnl: export physical port id via RT netlink
->   net: export physical port id via sysfs
->   igb/igbvf: implement ndo_get_phys_port_id=20
+[  243.301380] INFO: task modprobe:2635 blocked for more than 120 seconds.
+[  243.321495] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+[  243.343008] modprobe        D ffffffff81607960     0  2635   1917 0x00000000
+[  243.363956]  ffff880612c11b98 0000000000000002 ffffffff81a10440 ffff880612c11b90
+[  243.385305]  00003ffffffff000 ffff880612a8adc0 ffff880612c11fd8 ffff880612c11fd8
+[  243.406670]  ffff880612c11fd8 ffff880612a8adc0 ffff880612c11fd8 ffffffff81a9c9e0
+[  243.428043] Call Trace:
+[  243.444258]  [<ffffffff814c4969>] schedule+0x29/0x70
+[  243.463136]  [<ffffffff814c4c6e>] schedule_preempt_disabled+0xe/0x10
+[  243.483464]  [<ffffffff814c2f62>] __mutex_lock_slowpath+0x112/0x1b0
+[  243.503753]  [<ffffffff814c2dda>] mutex_lock+0x2a/0x50
+[  243.530031]  [<ffffffff814261e5>] rtnl_lock+0x15/0x20
+[  243.549063]  [<ffffffff8141b6f6>] register_netdev+0x16/0x30
+[  243.568635]  [<ffffffffa02a71db>] ipoib_add_one+0x32b/0x4c0 [ib_ipoib]
+[  243.589253]  [<ffffffff8113361d>] ? kmem_cache_alloc_trace+0x12d/0x160
+[  243.609940]  [<ffffffffa00f5be7>] ib_register_client+0x87/0xc0 [ib_core]
+[  243.630862]  [<ffffffffa02b9000>] ? 0xffffffffa02b8fff
+[  243.650169]  [<ffffffffa02b90e6>] ipoib_init_module+0xe6/0x137 [ib_ipoib]
+[  243.671213]  [<ffffffff810002ca>] do_one_initcall+0xea/0x190
+[  243.690975]  [<ffffffff81090377>] load_module+0x1407/0x1af0
+[  243.710445]  [<ffffffff812868c0>] ? ddebug_add_module+0xf0/0xf0
+[  243.730098]  [<ffffffff81090b32>] SyS_init_module+0xd2/0x120
+[  243.749357]  [<ffffffff814ce2b9>] tracesys+0xd0/0xd5
 
-As before, I have applied this patch series so that we can get some
-validation done on patch 4.  I do not want to hold up the patch series,
-if Ben/Dave are fine with the recent changes, although I would like to
-either get an ACK from Greg Rose or a thumbs up from our testers.
+[  243.767809] INFO: task ip:2662 blocked for more than 120 seconds.
+[  243.787583] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+[  243.809193] ip              D ffffffff81607960     0  2662   2637 0x00000000
+[  243.830165]  ffff880c04b5f558 0000000000000002 ffff880c13d844a0 ffffffff8127d463
+[  243.851709]  000080d00030c0d0 ffff880c12e8db80 ffff880c04b5ffd8 ffff880c04b5ffd8
+[  243.873311]  ffff880c04b5ffd8 ffff880c12e8db80 0000000000008000 ffffffffa00fd400
+[  243.894929] Call Trace:
+[  243.911445]  [<ffffffff8127d463>] ? gen_pool_add_virt+0x53/0xb0
+[  243.931762]  [<ffffffff814c4969>] schedule+0x29/0x70
+[  243.951054]  [<ffffffff814c4c6e>] schedule_preempt_disabled+0xe/0x10
+[  243.971786]  [<ffffffff814c2f62>] __mutex_lock_slowpath+0x112/0x1b0
+[  243.992424]  [<ffffffff8127d463>] ? gen_pool_add_virt+0x53/0xb0
+[  244.012708]  [<ffffffff814c2dda>] mutex_lock+0x2a/0x50
+[  244.032203]  [<ffffffffa00f5c5f>] ib_register_device+0x3f/0x4d0 [ib_core]
+[  244.053500]  [<ffffffff8113361d>] ? kmem_cache_alloc_trace+0x12d/0x160
+[  244.074665]  [<ffffffffa01fba3e>] ? iwch_register_device+0x2ae/0x3d0 [iw_cxgb3]
+[  244.096749]  [<ffffffffa01fbac8>] iwch_register_device+0x338/0x3d0 [iw_cxgb3]
+[  244.118752]  [<ffffffffa01fc1e7>] open_rnic_dev+0x247/0x340 [iw_cxgb3]
+[  244.140170]  [<ffffffffa0a192be>] cxgb3_add_clients+0x3e/0x60 [cxgb3]
+[  244.161569]  [<ffffffffa0a069c0>] cxgb_open+0x320/0x360 [cxgb3]
+[  244.182341]  [<ffffffff8141aa3f>] __dev_open+0xcf/0x150
+[  244.202210]  [<ffffffff8141ad11>] __dev_change_flags+0xa1/0x180
+[  244.222602]  [<ffffffff8141aea8>] dev_change_flags+0x28/0x70
+[  244.242568]  [<ffffffff81426652>] do_setlink+0x252/0x960
+[  244.262128]  [<ffffffffa005500a>] ? inet6_fill_link_af+0x1a/0x30 [ipv6]
+[  244.283144]  [<ffffffff81286fc0>] ? nla_parse+0x30/0xe0
+[  244.302572]  [<ffffffff81429a19>] rtnl_newlink+0x359/0x560
+[  244.322229]  [<ffffffff814295dd>] rtnetlink_rcv_msg+0x14d/0x230
+[  244.342348]  [<ffffffff8140b22b>] ? __alloc_skb+0x8b/0x2b0
+[  244.361988]  [<ffffffff81429490>] ? __rtnl_unlock+0x20/0x20
+[  244.381664]  [<ffffffff81444079>] netlink_rcv_skb+0xa9/0xd0
+[  244.401320]  [<ffffffff81426215>] rtnetlink_rcv+0x25/0x40
+[  244.420848]  [<ffffffff81443a31>] netlink_unicast+0x161/0x1e0
+[  244.440693]  [<ffffffff81443d4b>] netlink_sendmsg+0x29b/0x340
+[  244.460443]  [<ffffffff81400776>] sock_sendmsg+0x76/0x90
+[  244.479751]  [<ffffffff81403564>] ? move_addr_to_kernel+0x44/0x60
+[  244.499905]  [<ffffffff8140f426>] ? verify_iovec+0x56/0xd0
+[  244.519493]  [<ffffffff8140292c>] ___sys_sendmsg+0x38c/0x3a0
+[  244.539314]  [<ffffffff8110fee0>] ? handle_mm_fault+0x210/0x310
+[  244.559424]  [<ffffffff814c9714>] ? __do_page_fault+0x274/0x4c0
+[  244.579490]  [<ffffffff811135d5>] ? __vma_link_rb+0x105/0x120
+[  244.599250]  [<ffffffff811136bf>] ? vma_link+0xcf/0xe0
+[  244.618153]  [<ffffffff810ac809>] ? rcu_eqs_exit+0x59/0xb0
+[  244.637209]  [<ffffffff81403f19>] __sys_sendmsg+0x49/0x90
+[  244.656010]  [<ffffffff81403f79>] SyS_sendmsg+0x19/0x20
+[  244.674518]  [<ffffffff814ce2b9>] tracesys+0xd0/0xd5
 
-Thanks Jiri!
+Looking back at the history these code paths it looks like they've
+been there since day one, so I suppose I've just been lucky to not his
+this before.  Even so I'd like to see some kind of official fix for
+this so I don't have to carry a custom patch in my tree forever.
 
---=-eAP/VfyqYvTdm2geA+O/
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+--
+Shawn
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
+-- 
 
-iQIcBAABCgAGBQJR9utTAAoJEOVv75VaS+3OkGgP/AhtH8eBZygAc+z2sFSxJr65
-kFyRz5xrPHj4YjbGhc0V70dJ3j/KenB4GEJJx7EqP6GqUCpLpRUP5Ey8ZeUgtFQn
-xvQzQA0xaX+laJa+tRQjCiQ5yeMX3sZMszbrcawScLFLlBm5OPhZ8Gi0K6pl+0e1
-LfFz1pQ3Nk7C0pJQTSNmhtbTScUdr6jYC8z7X3ClF6GbjDmtDZ0cvnLMOJizK6Bt
-e3BIOd1W4qBaARJbL54tonsHwqfXmFwHmVGCWXznwGcBTEgcIHt1cHn4UGBiZiHW
-CYeI9gkft1xhm5p3Svx44kHMU202GXnfl4oDqI7piixDuDGtj0h6IGnM9rdXTio7
-Ibcws7Og1nGzJWJQ5TkYlVtYjlywPi8c97b73Kwc/5bcIqY83iBAqWi2nKDcLdpb
-49Pd725hiY91zpoCtwrpaJYfnappB3skOZvmsj0lOCOQQIYcDEEmMho5jfL1zqTu
-xGIWju7IlP0JeuG5dPyt6Yq8Tr/UF5x1nYp9+P6zKD5Kh7Qr8ah07RNY5YVjI6tA
-1UqA0RGcqjN5/+iUHEmyQlNLjmvfY0pAQcX9ht2a//E6VJqPoDYpq3Tg2pk/6+5b
-OFDF/f/W84VRQB/K71ZdFCeH8LfpMIzylk9eS+laQijz8JntLQcR+MMUe5niUhMq
-FSCqqAXAmcHBoqk70/BP
-=dqbt
------END PGP SIGNATURE-----
-
---=-eAP/VfyqYvTdm2geA+O/--
+---------------------------------------------------------------
+This email, along with any attachments, is confidential. If you 
+believe you received this message in error, please contact the 
+sender immediately and delete all copies of the message.  
+Thank you.
