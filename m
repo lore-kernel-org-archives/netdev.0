@@ -1,47 +1,67 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH v2 1/3] net/usb/r815x: replace USB buffer from stack to
- DMA-able
-Date: Mon, 29 Jul 2013 07:20:24 +0200
-Message-ID: <1375075224.25230.1.camel@linux-fkkt.site>
-References: <20130724.174947.452272360732442554.davem@davemloft.net>
-	 <1374739144-732-1-git-send-email-hayeswang@realtek.com>
-	 <20130727.202107.555068116238400560.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 0/3] networking: Use ETH_ALEN where appropriate
+Date: Sun, 28 Jul 2013 22:29:02 -0700
+Message-ID: <cover.1375075325.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: hayeswang@realtek.com, gregkh@linuxfoundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130727.202107.555068116238400560.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: wimax@linuxwimax.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-acpi@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org,
+	linux-media@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2013-07-27 at 20:21 -0700, David Miller wrote:
-> From: Hayes Wang <hayeswang@realtek.com>
-> Date: Thu, 25 Jul 2013 15:59:02 +0800
-> 
-> > Some USB buffers use stack which may not be DMA-able.
-> > Use the buffers from kmalloc to replace those one.
-> > 
-> > Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-> 
-> I don't think it's reasonable to kmalloc() a small integer every time
-> you want to use a USB message transfer to read or write chip
-> registers.
-> 
-> Instead, add a scratch buffer to struct r8152 which is allocated once
-> at driver attach time and which you can use for the transfers.
-> 
-> I think you only need an array of two u32's so something like:
-> 
-> 	u32		transfer_buf[2];
-> 
-> ought to be sufficient.
+Convert the uses mac addresses to ETH_ALEN so
+it's easier to find and verify where mac addresses
+need to be __aligned(2)
 
-We cannot do that. It would violate the rules about DMA coherency.
-We must not touch the same cacheline while DMA is in operation.
+Joe Perches (3):
+  uapi: Convert some uses of 6 to ETH_ALEN
+  include: Convert ethernet mac address declarations to use ETH_ALEN
+  ethernet: Convert mac address uses of 6 to ETH_ALEN
 
-	Regards
-		Oliver
+ drivers/net/ethernet/8390/ax88796.c                |  4 +-
+ drivers/net/ethernet/amd/pcnet32.c                 |  6 +--
+ drivers/net/ethernet/broadcom/cnic_if.h            |  6 +--
+ drivers/net/ethernet/dec/tulip/tulip_core.c        |  8 +--
+ drivers/net/ethernet/i825xx/sun3_82586.h           |  4 +-
+ drivers/net/ethernet/myricom/myri10ge/myri10ge.c   |  2 +-
+ drivers/net/ethernet/nuvoton/w90p910_ether.c       |  4 +-
+ drivers/net/ethernet/pasemi/pasemi_mac.c           | 13 ++---
+ drivers/net/ethernet/pasemi/pasemi_mac.h           |  4 +-
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c |  4 +-
+ drivers/net/ethernet/qlogic/qlge/qlge.h            |  2 +-
+ include/acpi/actbl2.h                              |  4 +-
+ include/linux/dm9000.h                             |  4 +-
+ include/linux/fs_enet_pd.h                         |  3 +-
+ include/linux/ieee80211.h                          | 59 +++++++++++-----------
+ include/linux/mlx4/device.h                        | 11 ++--
+ include/linux/mlx4/qp.h                            |  5 +-
+ include/linux/mv643xx_eth.h                        |  3 +-
+ include/linux/sh_eth.h                             |  3 +-
+ include/linux/smsc911x.h                           |  3 +-
+ include/linux/uwb/spec.h                           |  5 +-
+ include/media/tveeprom.h                           |  4 +-
+ include/net/irda/irlan_common.h                    |  3 +-
+ include/uapi/linux/dn.h                            |  3 +-
+ include/uapi/linux/if_bridge.h                     |  3 +-
+ include/uapi/linux/netfilter_bridge/ebt_802_3.h    |  5 +-
+ include/uapi/linux/netfilter_ipv4/ipt_CLUSTERIP.h  |  3 +-
+ include/uapi/linux/virtio_net.h                    |  2 +-
+ include/uapi/linux/wimax/i2400m.h                  |  4 +-
+ 29 files changed, 103 insertions(+), 81 deletions(-)
+
+-- 
+1.8.1.2.459.gbcd45b4.dirty
