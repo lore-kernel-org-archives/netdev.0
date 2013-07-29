@@ -1,83 +1,63 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net PATCH] atl1c: Fix misuse of netdev_alloc_skb in refilling
- rx ring
-Date: Mon, 29 Jul 2013 01:07:18 +0100
-Message-ID: <1375056438.2546.55.camel@deadeye.wl.decadent.org.uk>
-References: <87k3kbdcmy.fsf@canonical.com>
-	 <1374960610.3607.13.camel@deadeye.wl.decadent.org.uk>
-	 <1374969583.3669.23.camel@edumazet-glaptop>
-	 <20130727.200205.67471633133830510.davem@davemloft.net>
-	 <20130728104446.GB9876@neilslaptop.think-freely.org>
-	 <1375028154.3669.30.camel@edumazet-glaptop>
-	 <20130728185318.GA10795@neilslaptop.think-freely.org>
-	 <1375042972.2546.17.camel@deadeye.wl.decadent.org.uk>
-	 <1375052482.3669.54.camel@edumazet-glaptop>
-	 <1375053654.3669.58.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/12][pull request] Intel Wired LAN Driver Updates
+Date: Sun, 28 Jul 2013 17:20:22 -0700 (PDT)
+Message-ID: <20130728.172022.2147023715179571146.davem@davemloft.net>
+References: <1375011676-30739-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<20130728.132105.1045846024944164783.davem@davemloft.net>
+	<1375053098.32309.28.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>,
-	<luis.henriques@canonical.com>, <netdev@vger.kernel.org>,
-	<jcliburn@gmail.com>, <stable@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1375053654.3669.58.camel@edumazet-glaptop>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37343 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751395Ab3G2AUZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jul 2013 20:20:25 -0400
+In-Reply-To: <1375053098.32309.28.camel@jtkirshe-mobl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-07-28 at 16:20 -0700, Eric Dumazet wrote:
-> On Sun, 2013-07-28 at 16:01 -0700, Eric Dumazet wrote:
-> > On Sun, 2013-07-28 at 21:22 +0100, Ben Hutchings wrote:
-> > 
-> > > 
-> > > Since we know lengths > 4K work, perhaps it would be worth testing with
-> > > the fragment cache size reduced to 16K?  The driver would never
-> > > previously have used RX buffers crossing 16K boundaries, except if SLOB
-> > > was used (and that's an unlikely combination).
-> > 
-> > Sure, please note the following maths :
-> > 
-> > NET_SKB_PAD + 1536 + sizeof(struct skb_shared_info) = 1920
-> > 
-> > 16384/1920 = 8
-> > 
-> > 32768/1920 = 17
-> > 
-> > I don't think atl1c is used in any critical host (given it doesn't even
-> > provide RX checksums and GRO ...), so I will provide a patch doing mere
-> > page allocations.
-> > 
-> 
-> Oh well, look at code around line 2530
-> 
->         * The atl1c chip can DMA to 64-bit addresses, but it uses a single
->          * shared register for the high 32 bits, so only a single, aligned,
->          * 4 GB physical address range can be used at a time.
->          *
->          * Supporting 64-bit DMA on this hardware is more trouble than it's
->          * worth.  It is far easier to limit to 32-bit DMA than update
->          * various kernel subsystems to support the mechanics required by a
->          * fixed-high-32-bit system.
->          */
->         if ((pci_set_dma_mask(pdev, DMA_BIT_MASK(32)) != 0) ||
->             (pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32)) != 0)) {
->                 dev_err(&pdev->dev, "No usable DMA configuration,aborting\n");
->                 goto err_dma;
->         }
-> 
-> It looks like we have a winner !
-> 
-> This $@!? really needs DMA32 allocations.
-[...]
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Sun, 28 Jul 2013 16:11:38 -0700
 
-Just like many older PCI/PCIe devices.  So what?  pci_map_single() takes
-care of that, just so long as the driver sets the DMA mask correctly.
-In fact, PCI devices have a 32-bit DMA mask by default.
+> On Sun, 2013-07-28 at 13:21 -0700, David Miller wrote:
+>> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> Date: Sun, 28 Jul 2013 04:41:04 -0700
+>> 
+>> > This series contains updates to e100 and e1000e.
+>> > 
+>> > The e100 patch from Andy simply updates the netif_printk() to use
+>> > %*ph to dump small buffers.
+>> > 
+>> > The changes to e1000e include a fix from Dean Nelson to resolve a
+>> > issue where a pci_clear_master() was accidentally dropped during a
+>> > conflict resolution. Wei Young provides 2 patches, one removes an
+>> > assignment of the default ring size because it was a duplicate. The
+>> > second changes the packet split receive structure to use
+>> > PS_PAGE_BUFFERS macro for the length so that problems won't occur
+>> > when the length is changed.
+>> > 
+>> > The remaining patches for e1000e are from Bruce Allan, where he
+>> > provides a number of fixes and updates for I218.  In addition, a
+>> > fix for 82583 which can disappear off the PCIe bus, to resolve this,
+>> > disable ASPM L1.  Bruce also provides a fix to a previous commit
+>> > (commit e60b22c5b7 e1000e: fix accessing to suspended device) so that
+>> > devices are only taken out of runtime power management for those
+>> > ethtool operations that must access device registers.
+>> > 
+>> > The following are changes since commit dcfe8048de66c3468060c8a2ec2c04ae3725d002:
+>> >   bonding: remove bond_resend_igmp_join_requests read_unlock leftover
+>> > and are available in the git repository at:
+>> >   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+>> 
+>> Pulled, thanks a lot Jeff.
+> 
+> It looks like you pulled my net tree instead of my net-next tree.
+> Fortunately, I did not have anything applied to my net tree that had not
+> already been sent out.
 
-Ben.
+No, really, I did this:
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+git pull git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
