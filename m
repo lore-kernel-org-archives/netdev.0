@@ -1,40 +1,94 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net PATCH] atl1c: Fix misuse of netdev_alloc_skb in refilling
- rx ring
-Date: Sun, 28 Jul 2013 17:26:34 -0700
-Message-ID: <1375057594.3669.64.camel@edumazet-glaptop>
-References: <87k3kbdcmy.fsf@canonical.com>
-	 <1374960610.3607.13.camel@deadeye.wl.decadent.org.uk>
-	 <1374969583.3669.23.camel@edumazet-glaptop>
-	 <20130727.200205.67471633133830510.davem@davemloft.net>
-	 <20130728104446.GB9876@neilslaptop.think-freely.org>
-	 <1375028154.3669.30.camel@edumazet-glaptop>
-	 <20130728185318.GA10795@neilslaptop.think-freely.org>
-	 <1375042972.2546.17.camel@deadeye.wl.decadent.org.uk>
-	 <1375052482.3669.54.camel@edumazet-glaptop>
-	 <1375053654.3669.58.camel@edumazet-glaptop>
-	 <1375056438.2546.55.camel@deadeye.wl.decadent.org.uk>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 6/6 net-next] cnic: Update version to 2.5.17 and
+ copyright year.
+Date: Sun, 28 Jul 2013 19:04:00 -0700
+Message-ID: <1375063440-4016-6-git-send-email-mchan@broadcom.com>
+References: <1375063440-4016-1-git-send-email-mchan@broadcom.com>
+ <1375063440-4016-2-git-send-email-mchan@broadcom.com>
+ <1375063440-4016-3-git-send-email-mchan@broadcom.com>
+ <1375063440-4016-4-git-send-email-mchan@broadcom.com>
+ <1375063440-4016-5-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>,
-	luis.henriques@canonical.com, netdev@vger.kernel.org,
-	jcliburn@gmail.com, stable@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1375056438.2546.55.camel@deadeye.wl.decadent.org.uk>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:2889 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751642Ab3G2BmK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Jul 2013 21:42:10 -0400
+In-Reply-To: <1375063440-4016-5-git-send-email-mchan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-07-29 at 01:07 +0100, Ben Hutchings wrote:
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/cnic.c      |    2 +-
+ drivers/net/ethernet/broadcom/cnic.h      |    2 +-
+ drivers/net/ethernet/broadcom/cnic_defs.h |    2 +-
+ drivers/net/ethernet/broadcom/cnic_if.h   |    6 +++---
+ 4 files changed, 6 insertions(+), 6 deletions(-)
 
-> Just like many older PCI/PCIe devices.  So what?  pci_map_single() takes
-> care of that, just so long as the driver sets the DMA mask correctly.
-> In fact, PCI devices have a 32-bit DMA mask by default.
-
-I don't know, maybe the remapping doesn't work if area splits several
-pages ?
-
-I mean, why bouncing memory if we can allocate in the right zone in the
-first place ?
+diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
+index 07ec4ce..6bd6d14 100644
+--- a/drivers/net/ethernet/broadcom/cnic.c
++++ b/drivers/net/ethernet/broadcom/cnic.c
+@@ -1,6 +1,6 @@
+ /* cnic.c: Broadcom CNIC core network driver.
+  *
+- * Copyright (c) 2006-2012 Broadcom Corporation
++ * Copyright (c) 2006-2013 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+diff --git a/drivers/net/ethernet/broadcom/cnic.h b/drivers/net/ethernet/broadcom/cnic.h
+index 62c6706..e7a2474 100644
+--- a/drivers/net/ethernet/broadcom/cnic.h
++++ b/drivers/net/ethernet/broadcom/cnic.h
+@@ -1,6 +1,6 @@
+ /* cnic.h: Broadcom CNIC core network driver.
+  *
+- * Copyright (c) 2006-2011 Broadcom Corporation
++ * Copyright (c) 2006-2013 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+diff --git a/drivers/net/ethernet/broadcom/cnic_defs.h b/drivers/net/ethernet/broadcom/cnic_defs.h
+index e53f09d..95a8e4b 100644
+--- a/drivers/net/ethernet/broadcom/cnic_defs.h
++++ b/drivers/net/ethernet/broadcom/cnic_defs.h
+@@ -1,7 +1,7 @@
+ 
+ /* cnic.c: Broadcom CNIC core network driver.
+  *
+- * Copyright (c) 2006-2012 Broadcom Corporation
++ * Copyright (c) 2006-2013 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+diff --git a/drivers/net/ethernet/broadcom/cnic_if.h b/drivers/net/ethernet/broadcom/cnic_if.h
+index ec9bb9a..82a0312 100644
+--- a/drivers/net/ethernet/broadcom/cnic_if.h
++++ b/drivers/net/ethernet/broadcom/cnic_if.h
+@@ -1,6 +1,6 @@
+ /* cnic_if.h: Broadcom CNIC core network driver.
+  *
+- * Copyright (c) 2006-2012 Broadcom Corporation
++ * Copyright (c) 2006-2013 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -14,8 +14,8 @@
+ 
+ #include "bnx2x/bnx2x_mfw_req.h"
+ 
+-#define CNIC_MODULE_VERSION	"2.5.16"
+-#define CNIC_MODULE_RELDATE	"Dec 05, 2012"
++#define CNIC_MODULE_VERSION	"2.5.17"
++#define CNIC_MODULE_RELDATE	"July 28, 2013"
+ 
+ #define CNIC_ULP_RDMA		0
+ #define CNIC_ULP_ISCSI		1
+-- 
+1.7.1
