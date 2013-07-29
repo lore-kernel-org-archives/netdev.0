@@ -1,7 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v6 0/4] export device physical port id to userspace
-Date: Mon, 29 Jul 2013 18:16:48 +0200
-Message-ID: <1375114612-537-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v6 1/4] net: add ndo to get id of physical port of the device
+Date: Mon, 29 Jul 2013 18:16:49 +0200
+Message-ID: <1375114612-537-2-git-send-email-jiri@resnulli.us>
+References: <1375114612-537-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, stephen@networkplumber.org,
 	Narendra_K@Dell.com, bhutchings@solarflare.com,
 	john.r.fastabend@intel.com, or.gerlitz@gmail.com,
@@ -14,82 +15,109 @@ Cc: davem@davemloft.net, stephen@networkplumber.org,
 	vyasevic@redhat.com, amwang@redhat.com, johannes@sipsolutions.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f51.google.com ([74.125.82.51]:45592 "EHLO
-	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752899Ab3G2QQ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 12:16:57 -0400
-Received: by mail-wg0-f51.google.com with SMTP id a12so1290250wgh.18
-        for <netdev@vger.kernel.org>; Mon, 29 Jul 2013 09:16:56 -0700 (PDT)
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:56598 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752899Ab3G2QRA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 12:17:00 -0400
+Received: by mail-wi0-f179.google.com with SMTP id hr7so1603663wib.12
+        for <netdev@vger.kernel.org>; Mon, 29 Jul 2013 09:16:59 -0700 (PDT)
+In-Reply-To: <1375114612-537-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset is based on patch by Narendra_K@Dell.com
-Once device which can change phys port id during its lifetime adopts this,
-NETDEV_CHANGEPHYSPORTID event will be added and driver will call
-call_netdevice_notifiers(NETDEV_NETDEV_CHANGEPHYSPORTID, dev) to propagate
-the change to userspace.
+This patch adds a ndo for getting physical port of the device. Driver
+which is aware of being virtual function of some physical port should
+implement this ndo. This is applicable not only for IOV, but for other
+solutions (NPAR, multichannel) as well. Basically if there is possible
+to have multiple netdevs on the single hw port.
 
-v1->v2: as suggested by Ben, handle -EOPNOTSUPP in rtnl code (wrapped up ndo call)
-v2->v3: adjusted patch 1 commit message
-v3->v4: used "%phN" for sysfs printf as suggested by DaveM
-        added igb/igbvf implementation as requested by Or Gerlitz
-v4->v5: used prandom_u32 to generate id in igb_probe
-        removed duplicate code in ibgvf_probe
-        pushed dev_err string into one line in igbvf_refresh_ppid
-v5->v6: use uuid_le_gen for generating 16-byte phys port id for igb/igbvf
-	as suggested by BenH
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Acked-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ include/linux/netdevice.h | 20 ++++++++++++++++++++
+ net/core/dev.c            | 18 ++++++++++++++++++
+ 2 files changed, 38 insertions(+)
 
-1) Why do we need this, and why do existing facilities fail to provide
-   a way to accomplish this?
-
-Currenty there's very hard to tell if two netdevs are using the same physical
-port. For sr-iov this can be get by sysfs. For other mechanisms, like NPAR
-there's very hard to do it (one must learn it from NIC BIOS). But even for
-sr-iov there's no way to say if two netdevs are using the same phys port when
-these are passed through to virtual guests.
-
-This patchset provides the generic way of letting this information know to
-userspace. This info can be used by apps like NetworkManager, teamd, Wicked,
-ovs daemon, etc, to do smarter bonding decisions.
-
-2) Why is the physical port ID defined as a 32 byte opaque cookie?
-   What formats and layouts need to be accomodated, and which
-   influenced the design of the ID?
-
-For user to distinguish if two netdevs are using the same port, he only needs
-to compare their phys port ids. Nothing else is needed. This id has no
-structure for security reasons. VF should not know anything about PF.
-
-3) Are IDs globally unique?  Why or why not?  If IDs should be
-   globally unique, but only in certain cases, what exactly are those
-   cases.
-
-Most of the time only uniqueness needed is in scope of single machine.
-There might be case when the id should be unique between couple of machines
-in virtualization environment. Given that for example for igb/igbvf 16B uuid
-is used, there is no problem for this case as well. But each driver can
-implement this differently focusing the hw capabilities and needs.
-
-Jiri Pirko (4):
-  net: add ndo to get id of physical port of the device
-  rtnl: export physical port id via RT netlink
-  net: export physical port id via sysfs
-  igb/igbvf: implement ndo_get_phys_port_id
-
- drivers/net/ethernet/intel/igb/e1000_mbx.h |  1 +
- drivers/net/ethernet/intel/igb/igb.h       |  3 +++
- drivers/net/ethernet/intel/igb/igb_main.c  | 37 ++++++++++++++++++++++++++++-
- drivers/net/ethernet/intel/igbvf/igbvf.h   |  4 ++++
- drivers/net/ethernet/intel/igbvf/mbx.h     |  1 +
- drivers/net/ethernet/intel/igbvf/netdev.c  | 38 ++++++++++++++++++++++++++++++
- drivers/net/ethernet/intel/igbvf/vf.c      | 34 ++++++++++++++++++++++++++
- drivers/net/ethernet/intel/igbvf/vf.h      |  1 +
- include/linux/netdevice.h                  | 20 ++++++++++++++++
- include/uapi/linux/if_link.h               |  1 +
- net/core/dev.c                             | 18 ++++++++++++++
- net/core/net-sysfs.c                       | 22 +++++++++++++++++
- net/core/rtnetlink.c                       | 25 +++++++++++++++++++-
- 13 files changed, 203 insertions(+), 2 deletions(-)
-
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 3ca60b0..875f869 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -728,6 +728,16 @@ struct netdev_fcoe_hbainfo {
+ };
+ #endif
+ 
++#define MAX_PHYS_PORT_ID_LEN 32
++
++/* This structure holds a unique identifier to identify the
++ * physical port used by a netdevice.
++ */
++struct netdev_phys_port_id {
++	unsigned char id[MAX_PHYS_PORT_ID_LEN];
++	unsigned char id_len;
++};
++
+ /*
+  * This structure defines the management hooks for network devices.
+  * The following hooks can be defined; unless noted otherwise, they are
+@@ -932,6 +942,12 @@ struct netdev_fcoe_hbainfo {
+  *	that determine carrier state from physical hardware properties (eg
+  *	network cables) or protocol-dependent mechanisms (eg
+  *	USB_CDC_NOTIFY_NETWORK_CONNECTION) should NOT implement this function.
++ *
++ * int (*ndo_get_phys_port_id)(struct net_device *dev,
++ *			       struct netdev_phys_port_id *ppid);
++ *	Called to get ID of physical port of this device. If driver does
++ *	not implement this, it is assumed that the hw is not able to have
++ *	multiple net devices on single physical port.
+  */
+ struct net_device_ops {
+ 	int			(*ndo_init)(struct net_device *dev);
+@@ -1060,6 +1076,8 @@ struct net_device_ops {
+ 						      struct nlmsghdr *nlh);
+ 	int			(*ndo_change_carrier)(struct net_device *dev,
+ 						      bool new_carrier);
++	int			(*ndo_get_phys_port_id)(struct net_device *dev,
++							struct netdev_phys_port_id *ppid);
+ };
+ 
+ /*
+@@ -2315,6 +2333,8 @@ extern int		dev_set_mac_address(struct net_device *,
+ 					    struct sockaddr *);
+ extern int		dev_change_carrier(struct net_device *,
+ 					   bool new_carrier);
++extern int		dev_get_phys_port_id(struct net_device *dev,
++					     struct netdev_phys_port_id *ppid);
+ extern int		dev_hard_start_xmit(struct sk_buff *skb,
+ 					    struct net_device *dev,
+ 					    struct netdev_queue *txq);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index dfd9f5d..58eb802 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4989,6 +4989,24 @@ int dev_change_carrier(struct net_device *dev, bool new_carrier)
+ EXPORT_SYMBOL(dev_change_carrier);
+ 
+ /**
++ *	dev_get_phys_port_id - Get device physical port ID
++ *	@dev: device
++ *	@ppid: port ID
++ *
++ *	Get device physical port ID
++ */
++int dev_get_phys_port_id(struct net_device *dev,
++			 struct netdev_phys_port_id *ppid)
++{
++	const struct net_device_ops *ops = dev->netdev_ops;
++
++	if (!ops->ndo_get_phys_port_id)
++		return -EOPNOTSUPP;
++	return ops->ndo_get_phys_port_id(dev, ppid);
++}
++EXPORT_SYMBOL(dev_get_phys_port_id);
++
++/**
+  *	dev_new_index	-	allocate an ifindex
+  *	@net: the applicable net namespace
+  *
 -- 
 1.8.1.4
