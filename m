@@ -1,56 +1,45 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 2/6 net-next] cnic: Simplify cnic_release().
-Date: Sun, 28 Jul 2013 19:03:56 -0700
-Message-ID: <1375063440-4016-2-git-send-email-mchan@broadcom.com>
+Subject: [PATCH 3/6] cnic: Reset tcp_flags during cnic_cm_create().
+Date: Sun, 28 Jul 2013 19:03:57 -0700
+Message-ID: <1375063440-4016-3-git-send-email-mchan@broadcom.com>
 References: <1375063440-4016-1-git-send-email-mchan@broadcom.com>
+ <1375063440-4016-2-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4310 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4305 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752050Ab3G2BmN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752062Ab3G2BmN (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 28 Jul 2013 21:42:13 -0400
-In-Reply-To: <1375063440-4016-1-git-send-email-mchan@broadcom.com>
+In-Reply-To: <1375063440-4016-2-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since unregister_netdevice_notifier() will replay the NETDEV_DOWN and
-NETDEV_UNREGISTER_EVENTS, the cnic_dev_list will be cleaned up automatically.
-The loop to cleanup the cnic_dev_list can be removed in cnic_release().
+From: Eddie Wai <eddie.wai@broadcom.com>
 
+Without resetting it, the bnx2i driver cannot use different options for
+different iSCSI connections.
+
+Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/cnic.c |   13 -------------
- 1 files changed, 0 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/broadcom/cnic.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
-index 764bfc1..c6822e1 100644
+index c6822e1..1a2e5ff 100644
 --- a/drivers/net/ethernet/broadcom/cnic.c
 +++ b/drivers/net/ethernet/broadcom/cnic.c
-@@ -5693,21 +5693,8 @@ static struct notifier_block cnic_netdev_notifier = {
+@@ -3603,6 +3603,7 @@ static int cnic_cm_create(struct cnic_dev *dev, int ulp_type, u32 cid,
+ 	csk1->rcv_buf = DEF_RCV_BUF;
+ 	csk1->snd_buf = DEF_SND_BUF;
+ 	csk1->seed = DEF_SEED;
++	csk1->tcp_flags = 0;
  
- static void cnic_release(void)
- {
--	struct cnic_dev *dev;
- 	struct cnic_uio_dev *udev;
- 
--	while (!list_empty(&cnic_dev_list)) {
--		dev = list_entry(cnic_dev_list.next, struct cnic_dev, list);
--		if (test_bit(CNIC_F_CNIC_UP, &dev->flags)) {
--			cnic_ulp_stop(dev);
--			cnic_stop_hw(dev);
--		}
--
--		cnic_ulp_exit(dev);
--		cnic_unregister_netdev(dev);
--		list_del_init(&dev->list);
--		cnic_free_dev(dev);
--	}
- 	while (!list_empty(&cnic_udev_list)) {
- 		udev = list_entry(cnic_udev_list.next, struct cnic_uio_dev,
- 				  list);
+ 	*csk = csk1;
+ 	return 0;
 -- 
 1.7.1
