@@ -1,79 +1,95 @@
-From: "Artem S. Tashkinov" <t.artem@lycos.com>
-Subject: Re: A call to revise sockets behaviour
-Date: Mon, 29 Jul 2013 15:47:57 +0000 (UTC)
-Message-ID: <2063167407.40450.1375112877907.JavaMail.mail@webmail09>
-References: <2066879158.39771.1375110634453.JavaMail.mail@webmail09><20130729083519.5d574f16@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v6 0/4] export device physical port id to userspace
+Date: Mon, 29 Jul 2013 18:16:48 +0200
+Message-ID: <1375114612-537-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, stephen@networkplumber.org,
+	Narendra_K@Dell.com, bhutchings@solarflare.com,
+	john.r.fastabend@intel.com, or.gerlitz@gmail.com,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
+	peter.p.waskiewicz.jr@intel.com, alexander.h.duyck@intel.com,
+	john.ronciak@intel.com, tushar.n.dave@intel.com,
+	matthew.vick@intel.com, mitch.a.williams@intel.com,
+	vyasevic@redhat.com, amwang@redhat.com, johannes@sipsolutions.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f51.google.com ([74.125.82.51]:45592 "EHLO
+	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752899Ab3G2QQ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 12:16:57 -0400
+Received: by mail-wg0-f51.google.com with SMTP id a12so1290250wgh.18
+        for <netdev@vger.kernel.org>; Mon, 29 Jul 2013 09:16:56 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jul 29, 2013 09:35:25 PM, Stephen wrote:
-On Mon, 29 Jul 2013 15:10:34 +0000 (UTC)
->"Artem S. Tashkinov" wrote:
->
->> Hello,
->> 
->> Currently the Linux kernel disallows to start listening on a TCP/UDP socket if
->> there are open connections against the port, regardless connections status. So even
->> if _all_ you have is some stale (i.e. no longer active connections pending destruction)
->> the kernel will not allow to reuse this socket.
->> 
->> Stephen Hemminger argues that this behaviour is expected even though it's 100%
->> counter productive, it defies common sense and I cannot think of any security implications
->> should this feature be allowed.
->> 
->> Besides, when discussing this bug on Wine's bugzilla I have shown that this behavior not
->> only affect Windows applications running under Wine, but also native POSIX applications.
->> 
->> If nothing else is listening to incoming connections how can _old_ _stale_ connections
->> prevent an application from listening on the port? Windows has no qualms about allowing
->> that, why the Linux kernel works differently?
->> 
->> I want to hear how the current apparently _broken_ behaviour, "The current socket API
->> behavior is unlikely to be changed because so many applications expect it", can be expected.
->> 
->> Also I'd like to know which applications depend on this "feature".
->> 
->> Imagine a situation,
->> 
->> You have an apache server serving connections on port 80. For some reasons a crash in
->> one of its modules causes the daemon crash but during the crash Apache had some open
->> connections on this port.
->> 
->> According to Stephen Hemminger I cannot relaunch Apache until the kernel waits arbitrary
->> time in order to clean stale connections for its networking pool.
->> 
->> I fail to see how this behaviour can be "expected".
->> 
->> More on it here:
->> 
->> https://bugzilla.kernel.org/show_bug.cgi?id=45571
->> http://bugs.winehq.org/show_bug.cgi?id=26031
->
->I understand your problem, people have been having to deal with it for 30 years.
->The attitude in your response makes it seem like you just discovered fire,
->read a book like Steven's network programming if you need more info.
->
->If you don't use SO_REUSEADDR then yes application has to wait for time wait
->period.
->
->If you do enable SO_REUSEADDR then it is possible to bind to a port with existing
->stale connections.
->
+This patchset is based on patch by Narendra_K@Dell.com
+Once device which can change phys port id during its lifetime adopts this,
+NETDEV_CHANGEPHYSPORTID event will be added and driver will call
+call_netdevice_notifiers(NETDEV_NETDEV_CHANGEPHYSPORTID, dev) to propagate
+the change to userspace.
 
-A wine developer clearly showed that this option simply doesn't work. 
+v1->v2: as suggested by Ben, handle -EOPNOTSUPP in rtnl code (wrapped up ndo call)
+v2->v3: adjusted patch 1 commit message
+v3->v4: used "%phN" for sysfs printf as suggested by DaveM
+        added igb/igbvf implementation as requested by Or Gerlitz
+v4->v5: used prandom_u32 to generate id in igb_probe
+        removed duplicate code in ibgvf_probe
+        pushed dev_err string into one line in igbvf_refresh_ppid
+v5->v6: use uuid_le_gen for generating 16-byte phys port id for igb/igbvf
+	as suggested by BenH
 
-http://bugs.winehq.org/show_bug.cgi?id=26031#c21
+1) Why do we need this, and why do existing facilities fail to provide
+   a way to accomplish this?
 
-Output of strace:
-getsockopt(24, SOL_SOCKET, SO_REUSEADDR, [0], [4]) = 0
-setsockopt(24, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
-bind(24, {sa_family=AF_INET, sin_port=htons(43012), sin_addr=inet_addr("0.     
-0.0.0")}, 16) = -1 EADDRINUSE (Address already in use)
+Currenty there's very hard to tell if two netdevs are using the same physical
+port. For sr-iov this can be get by sysfs. For other mechanisms, like NPAR
+there's very hard to do it (one must learn it from NIC BIOS). But even for
+sr-iov there's no way to say if two netdevs are using the same phys port when
+these are passed through to virtual guests.
 
-Artem
+This patchset provides the generic way of letting this information know to
+userspace. This info can be used by apps like NetworkManager, teamd, Wicked,
+ovs daemon, etc, to do smarter bonding decisions.
+
+2) Why is the physical port ID defined as a 32 byte opaque cookie?
+   What formats and layouts need to be accomodated, and which
+   influenced the design of the ID?
+
+For user to distinguish if two netdevs are using the same port, he only needs
+to compare their phys port ids. Nothing else is needed. This id has no
+structure for security reasons. VF should not know anything about PF.
+
+3) Are IDs globally unique?  Why or why not?  If IDs should be
+   globally unique, but only in certain cases, what exactly are those
+   cases.
+
+Most of the time only uniqueness needed is in scope of single machine.
+There might be case when the id should be unique between couple of machines
+in virtualization environment. Given that for example for igb/igbvf 16B uuid
+is used, there is no problem for this case as well. But each driver can
+implement this differently focusing the hw capabilities and needs.
+
+Jiri Pirko (4):
+  net: add ndo to get id of physical port of the device
+  rtnl: export physical port id via RT netlink
+  net: export physical port id via sysfs
+  igb/igbvf: implement ndo_get_phys_port_id
+
+ drivers/net/ethernet/intel/igb/e1000_mbx.h |  1 +
+ drivers/net/ethernet/intel/igb/igb.h       |  3 +++
+ drivers/net/ethernet/intel/igb/igb_main.c  | 37 ++++++++++++++++++++++++++++-
+ drivers/net/ethernet/intel/igbvf/igbvf.h   |  4 ++++
+ drivers/net/ethernet/intel/igbvf/mbx.h     |  1 +
+ drivers/net/ethernet/intel/igbvf/netdev.c  | 38 ++++++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igbvf/vf.c      | 34 ++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igbvf/vf.h      |  1 +
+ include/linux/netdevice.h                  | 20 ++++++++++++++++
+ include/uapi/linux/if_link.h               |  1 +
+ net/core/dev.c                             | 18 ++++++++++++++
+ net/core/net-sysfs.c                       | 22 +++++++++++++++++
+ net/core/rtnetlink.c                       | 25 +++++++++++++++++++-
+ 13 files changed, 203 insertions(+), 2 deletions(-)
+
+-- 
+1.8.1.4
