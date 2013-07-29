@@ -1,43 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/mlx4_core: Respond to operation request
- by firmware
-Date: Mon, 29 Jul 2013 01:12:53 -0700 (PDT)
-Message-ID: <20130729.011253.1064287168678653852.davem@davemloft.net>
-References: <1375026861-14215-1-git-send-email-amirv@mellanox.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: linux-next: build failure after merge of the final tree
+ (netnext-tree related)
+Date: Mon, 29 Jul 2013 09:13:50 +0100
+Message-ID: <20130729081350.GA28340@casper.infradead.org>
+References: <20130729162544.574e4d7ffccf0f6bff5ba4c4@canb.auug.org.au>
+ <20130729.004746.91827990830866654.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	yevgenyp@mellanox.com, jackm@dev.mellanox.com, eugenia@mellanox.com
-To: amirv@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41990 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751038Ab3G2IMy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 04:12:54 -0400
-In-Reply-To: <1375026861-14215-1-git-send-email-amirv@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130729.004746.91827990830866654.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Amir Vadai <amirv@mellanox.com>
-Date: Sun, 28 Jul 2013 18:54:21 +0300
+On 07/29/13 at 12:47am, David Miller wrote:
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Mon, 29 Jul 2013 16:25:44 +1000
+> 
+> > After merging the final tree, today's linux-next build (powerpc
+> > allyesconfig) failed like this:
+> 
+> Sorry about that.
+> 
+> > I added this commit:
+> 
+> Applied, thanks Stephen.
 
-> From: Yevgeny Petrilin <yevgenyp@mellanox.com>
-> 
-> This commit adds new firmware command and new firmware event.  The firmware
-> raises the MLX4_EVENT_TYPE_OP_REQUIRED event in order to signal the driver it
-> needs to perform an administrative operation throughout the MLX4_CMD_GET_OP_REQ
-> command. At the moment the supported operation is adding/removing multicast
-> entries which are used by the firmware for handling NCSI traffic in B0
-> steering mode.
-> 
-> Also, had to swap the order of mlx4_init_mcg_table() and
-> mlx4_init_eq_table() to make sure that driver will get events only after
-> resources are initialized to handle it.
-> 
-> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.com>
-> Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.com>
-> Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
-
-Applied, thanks.
+Thanks for the fix-up Stephen, the include is needed on archs that
+don't provide an optimized csum_ipv6_magic().
