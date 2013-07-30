@@ -1,34 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH - diffstat only] include/net: Remove extern from
- function prototypes
-Date: Tue, 30 Jul 2013 00:49:23 -0700 (PDT)
-Message-ID: <20130730.004923.1092822113714066844.davem@davemloft.net>
-References: <1374602291.3387.17.camel@joe-AO722>
-	<20130730.001001.618776305200728182.davem@davemloft.net>
-	<20130730173800.1825a1452694f40370699413@canb.auug.org.au>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH RFC] xfrm{4,6}: only report errors back to local sockets
+ if we don't cross address family
+Date: Tue, 30 Jul 2013 10:21:18 +0200
+Message-ID: <20130730082118.GA25511@secunet.com>
+References: <20130729145017.GD2490@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: sfr@canb.auug.org.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130730173800.1825a1452694f40370699413@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, vi0oss@gmail.com,
+	hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:58550 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754524Ab3G3IVU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Jul 2013 04:21:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20130729145017.GD2490@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Tue, 30 Jul 2013 17:38:00 +1000
-
-> I must admit I prefer the other way (i.e. with the explicit extern).  If
-> nothing else it makes it consistent with variable declarations in header
-> files (which need the extern) and "static inlines" ...
+On Mon, Jul 29, 2013 at 04:50:17PM +0200, Hannes Frederic Sowa wrote:
+> xfrm6_local_error/xfrm4_tunnel_check_size report mtu errors back to a
+> socket in case it is locally generated. If the packet first traversed
+> a 6in4/4in6 tunnel before passing the xfrm layer, we could get a panic
+> because of address family type mismatch in the error reporting functions.
 > 
-> Making these churn changes also will almost certainly cause unnecessary
-> conflicts :-(
 
-Regardless of preferences, the whole tree is a mix, and we should choose
-one way or the other consistently.
-
-It seems like new code in other major subsystems are using the
-no-extern scheme, and I'm more than happy to follow suit.
+So the skb is still owned by a socket of the inner address family.
+Is this intentional? Maybe the ndo_start_xmit() function of the
+tunnel device should orphan the skb if we tunnel the packet
+through a different address family.
