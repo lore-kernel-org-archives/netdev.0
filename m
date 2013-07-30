@@ -1,163 +1,39 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH v3 3/3] net/usb/r8152: adjust relative ocp function
-Date: Tue, 30 Jul 2013 16:28:56 +0800
-Message-ID: <1375172936-4145-3-git-send-email-hayeswang@realtek.com>
-References: <D7C722C73C7A400780358D0376412267@realtek.com.tw>
- <1375172936-4145-1-git-send-email-hayeswang@realtek.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RFC] xfrm{4,6}: only report errors back to local sockets if we don't cross address family
+Date: Tue, 30 Jul 2013 10:30:17 +0200
+Message-ID: <20130730083017.GA7068@order.stressinduktion.org>
+References: <20130729145017.GD2490@order.stressinduktion.org> <20130730082118.GA25511@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, <nic_swsd@realtek.com>,
-	Hayes Wang <hayeswang@realtek.com>
-To: <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1375172936-4145-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, vi0oss@gmail.com
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:47895 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751363Ab3G3IaS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 04:30:18 -0400
+Content-Disposition: inline
+In-Reply-To: <20130730082118.GA25511@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- - fix the conversion between cpu and __le32
- - replace some pla_ocp and usb_ocp functions with generic_ocp function
+On Tue, Jul 30, 2013 at 10:21:18AM +0200, Steffen Klassert wrote:
+> On Mon, Jul 29, 2013 at 04:50:17PM +0200, Hannes Frederic Sowa wrote:
+> > xfrm6_local_error/xfrm4_tunnel_check_size report mtu errors back to a
+> > socket in case it is locally generated. If the packet first traversed
+> > a 6in4/4in6 tunnel before passing the xfrm layer, we could get a panic
+> > because of address family type mismatch in the error reporting functions.
+> > 
+> 
+> So the skb is still owned by a socket of the inner address family.
+> Is this intentional? Maybe the ndo_start_xmit() function of the
+> tunnel device should orphan the skb if we tunnel the packet
+> through a different address family.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 66 +++++++++++++++++--------------------------------
- 1 file changed, 23 insertions(+), 43 deletions(-)
+I thought about this, too. But then we would stop accounting the data
+to the socket while it is travelling the stack. I don't know about the
+possible problems resulting from this.
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 93a7baa..252b61b 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -536,37 +536,31 @@ int usb_ocp_write(struct r8152 *tp, u16 index, u16 byteen, u16 size, void *data)
- 
- static u32 ocp_read_dword(struct r8152 *tp, u16 type, u16 index)
- {
--	u32 data;
-+	__le32 data;
- 
--	if (type == MCU_TYPE_PLA)
--		pla_ocp_read(tp, index, sizeof(data), &data);
--	else
--		usb_ocp_read(tp, index, sizeof(data), &data);
-+	generic_ocp_read(tp, index, sizeof(data), &data, type);
- 
- 	return __le32_to_cpu(data);
- }
- 
- static void ocp_write_dword(struct r8152 *tp, u16 type, u16 index, u32 data)
- {
--	if (type == MCU_TYPE_PLA)
--		pla_ocp_write(tp, index, BYTE_EN_DWORD, sizeof(data), &data);
--	else
--		usb_ocp_write(tp, index, BYTE_EN_DWORD, sizeof(data), &data);
-+	__le32 tmp = __cpu_to_le32(data);
-+
-+	generic_ocp_write(tp, index, BYTE_EN_DWORD, sizeof(tmp), &tmp, type);
- }
- 
- static u16 ocp_read_word(struct r8152 *tp, u16 type, u16 index)
- {
- 	u32 data;
-+	__le32 tmp;
- 	u8 shift = index & 2;
- 
- 	index &= ~3;
- 
--	if (type == MCU_TYPE_PLA)
--		pla_ocp_read(tp, index, sizeof(data), &data);
--	else
--		usb_ocp_read(tp, index, sizeof(data), &data);
-+	generic_ocp_read(tp, index, sizeof(tmp), &tmp, type);
- 
--	data = __le32_to_cpu(data);
-+	data = __le32_to_cpu(tmp);
- 	data >>= (shift * 8);
- 	data &= 0xffff;
- 
-@@ -575,7 +569,8 @@ static u16 ocp_read_word(struct r8152 *tp, u16 type, u16 index)
- 
- static void ocp_write_word(struct r8152 *tp, u16 type, u16 index, u32 data)
- {
--	u32 tmp, mask = 0xffff;
-+	u32 mask = 0xffff;
-+	__le32 tmp;
- 	u16 byen = BYTE_EN_WORD;
- 	u8 shift = index & 2;
- 
-@@ -588,34 +583,25 @@ static void ocp_write_word(struct r8152 *tp, u16 type, u16 index, u32 data)
- 		index &= ~3;
- 	}
- 
--	if (type == MCU_TYPE_PLA)
--		pla_ocp_read(tp, index, sizeof(tmp), &tmp);
--	else
--		usb_ocp_read(tp, index, sizeof(tmp), &tmp);
-+	generic_ocp_read(tp, index, sizeof(tmp), &tmp, type);
- 
--	tmp = __le32_to_cpu(tmp) & ~mask;
--	tmp |= data;
--	tmp = __cpu_to_le32(tmp);
-+	data |= __le32_to_cpu(tmp) & ~mask;
-+	tmp = __cpu_to_le32(data);
- 
--	if (type == MCU_TYPE_PLA)
--		pla_ocp_write(tp, index, byen, sizeof(tmp), &tmp);
--	else
--		usb_ocp_write(tp, index, byen, sizeof(tmp), &tmp);
-+	generic_ocp_write(tp, index, byen, sizeof(tmp), &tmp, type);
- }
- 
- static u8 ocp_read_byte(struct r8152 *tp, u16 type, u16 index)
- {
- 	u32 data;
-+	__le32 tmp;
- 	u8 shift = index & 3;
- 
- 	index &= ~3;
- 
--	if (type == MCU_TYPE_PLA)
--		pla_ocp_read(tp, index, sizeof(data), &data);
--	else
--		usb_ocp_read(tp, index, sizeof(data), &data);
-+	generic_ocp_read(tp, index, sizeof(tmp), &tmp, type);
- 
--	data = __le32_to_cpu(data);
-+	data = __le32_to_cpu(tmp);
- 	data >>= (shift * 8);
- 	data &= 0xff;
- 
-@@ -624,7 +610,8 @@ static u8 ocp_read_byte(struct r8152 *tp, u16 type, u16 index)
- 
- static void ocp_write_byte(struct r8152 *tp, u16 type, u16 index, u32 data)
- {
--	u32 tmp, mask = 0xff;
-+	u32 mask = 0xff;
-+	__le32 tmp;
- 	u16 byen = BYTE_EN_BYTE;
- 	u8 shift = index & 3;
- 
-@@ -637,19 +624,12 @@ static void ocp_write_byte(struct r8152 *tp, u16 type, u16 index, u32 data)
- 		index &= ~3;
- 	}
- 
--	if (type == MCU_TYPE_PLA)
--		pla_ocp_read(tp, index, sizeof(tmp), &tmp);
--	else
--		usb_ocp_read(tp, index, sizeof(tmp), &tmp);
-+	generic_ocp_read(tp, index, sizeof(tmp), &tmp, type);
- 
--	tmp = __le32_to_cpu(tmp) & ~mask;
--	tmp |= data;
--	tmp = __cpu_to_le32(tmp);
-+	data |= __le32_to_cpu(tmp) & ~mask;
-+	tmp = __cpu_to_le32(data);
- 
--	if (type == MCU_TYPE_PLA)
--		pla_ocp_write(tp, index, byen, sizeof(tmp), &tmp);
--	else
--		usb_ocp_write(tp, index, byen, sizeof(tmp), &tmp);
-+	generic_ocp_write(tp, index, byen, sizeof(tmp), &tmp, type);
- }
- 
- static void r8152_mdio_write(struct r8152 *tp, u32 reg_addr, u32 value)
--- 
-1.8.3.1
+Greetings,
+
+  Hannes
