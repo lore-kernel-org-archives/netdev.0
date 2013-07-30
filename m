@@ -1,66 +1,47 @@
-From: Thomas Richter <tmricht@linux.vnet.ibm.com>
-Subject: [PATCH] iproute vxlan add support for fdb replace command
-Date: Tue, 30 Jul 2013 08:16:41 +0200
-Message-ID: <1375165001-6776-1-git-send-email-tmricht@linux.vnet.ibm.com>
-Cc: Thomas Richter <tmricht@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+From: Helmut Grohne <h.grohne@cygnusnetworks.de>
+Subject: Re: TUN/TAP: tap driver reports bogus interface speed in ethtool operations
+Date: Tue, 30 Jul 2013 08:20:43 +0200
+Message-ID: <FDC644D3-D724-4D28-A5A2-A11A45F81545@cygnusnetworks.de>
+References: <2F174B03-5074-4BA0-B91A-8F2F62C2B082@cygnusnetworks.de> <5192BDD6.6060703@qti.qualcomm.com> <3E916AF0-C587-443D-B653-C968A96C8751@cygnusnetworks.de> <48A2F278-A32C-47C6-AD2D-1FC15EC73B88@cygnusnetworks.de> <51E5BE27.3060207@qti.qualcomm.com> <E4A37B97-95FE-42C3-AD78-119BA406A44A@cygnusnetworks.de> <1374606278.2072.11.camel@bwh-desktop.uk.level5networks.com>
+Mime-Version: 1.0 (Mac OS X Mail 6.5 \(1508\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Max Krasnyansky <maxk@qti.qualcomm.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:46565 "EHLO
-	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752623Ab3G3GQs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 02:16:48 -0400
-Received: from /spool/local
-	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <tmricht@linux.vnet.ibm.com>;
-	Tue, 30 Jul 2013 07:08:06 +0100
-Received: from b06cxnps4075.portsmouth.uk.ibm.com (d06relay12.portsmouth.uk.ibm.com [9.149.109.197])
-	by d06dlp03.portsmouth.uk.ibm.com (Postfix) with ESMTP id CF0821B0805F
-	for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 07:16:45 +0100 (BST)
-Received: from d06av09.portsmouth.uk.ibm.com (d06av09.portsmouth.uk.ibm.com [9.149.37.250])
-	by b06cxnps4075.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r6U6GXlb66846954
-	for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 06:16:34 GMT
-Received: from d06av09.portsmouth.uk.ibm.com (localhost [127.0.0.1])
-	by d06av09.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id r6U6GilL011092
-	for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 00:16:45 -0600
+Received: from mail2.w359.de ([46.189.116.21]:39002 "EHLO mail2.w359.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752267Ab3G3GUX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Jul 2013 02:20:23 -0400
+In-Reply-To: <1374606278.2072.11.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for the bridge fdb replace command to replace an
-existing entry in the vxlan device driver forwarding data base.
-The entry is identified with its unicast mac address and its
-corresponding remote destination information is updated.
+Thanks for your review! Given the v2 patch Stephen Hemminger posted, I
+think that his series is where development should continue.
 
-This is useful for virtual machine migration and replaces the
-bridge fdb del and bridge fdb add commands.
+On 23.07.2013, at 21:04, Ben Hutchings <bhutchings@solarflare.com> wrote:
+> This is formatted wrongly - needs a space after 'if' and all the
+> continuation lines should be lined up under 'cmd->supported'.
 
-It follows the same interface as ip neigh replace commands.
+I am sorry for not having run checkpatch and will try to remember next time.
 
-Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
----
- bridge/fdb.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+>> +               return -EOPNOTSUPP;
+> 
+> EINVAL
 
-diff --git a/bridge/fdb.c b/bridge/fdb.c
-index 591fbbe..e2e53f1 100644
---- a/bridge/fdb.c
-+++ b/bridge/fdb.c
-@@ -30,7 +30,7 @@ int filter_index;
- 
- static void usage(void)
- {
--	fprintf(stderr, "Usage: bridge fdb { add | append | del } ADDR dev DEV {self|master} [ temp ]\n"
-+	fprintf(stderr, "Usage: bridge fdb { add | append | del | replace } ADDR dev DEV {self|master} [ temp ]\n"
- 		        "              [router] [ dst IPADDR] [ vlan VID ]\n"
- 		        "              [ port PORT] [ vni VNI ] [via DEV]\n");
- 	fprintf(stderr, "       bridge fdb {show} [ dev DEV ]\n");
-@@ -334,6 +334,8 @@ int do_fdb(int argc, char **argv)
- 			return fdb_modify(RTM_NEWNEIGH, NLM_F_CREATE|NLM_F_EXCL, argc-1, argv+1);
- 		if (matches(*argv, "append") == 0)
- 			return fdb_modify(RTM_NEWNEIGH, NLM_F_CREATE|NLM_F_APPEND, argc-1, argv+1);
-+		if (matches(*argv, "replace") == 0)
-+			return fdb_modify(RTM_NEWNEIGH, NLM_F_CREATE|NLM_F_REPLACE, argc-1, argv+1);
- 		if (matches(*argv, "delete") == 0)
- 			return fdb_modify(RTM_DELNEIGH, 0, argc-1, argv+1);
- 		if (matches(*argv, "show") == 0 ||
--- 
-1.7.1
+Makes sense, once you are pointed to it.
+
+> I notice the port type is reported as PORT_TP.  Perhaps that should also
+> be changed to PORT_NONE (in a separate patch)?
+
+This appears not yet addressed in the v2 patch yet.
+
+I am not sure how to go on here. Clearly the v2 patch set, is an improvement
+over my initial version. The additional capabilities of changing the reported
+driver and similar aspects appear controversial though. Would it make sense
+to split this into two patch sets to be handled independently?
+
+Helmut
