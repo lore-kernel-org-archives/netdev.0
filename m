@@ -1,35 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 9p: client: remove unused code and any reference to
- "cancelled" function
-Date: Tue, 30 Jul 2013 15:54:50 -0700 (PDT)
-Message-ID: <20130730.155450.370003633888422808.davem@davemloft.net>
-References: <20130725061411.GA8579@nautica>
-	<1374742464-10686-1-git-send-email-andi@etezian.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next] vxlan: fix rcu related warnings
+Date: Tue, 30 Jul 2013 16:02:45 -0700
+Message-ID: <20130730160245.4b7b84a1@nehalam.linuxnetplumber.net>
+References: <20130730131844.7d3f92de@nehalam.linuxnetplumber.net>
+	<CALnjE+qx1L5p6CzFcd4nMTvWbxm-7_bz10wjbuUJdt12Q4Kqpg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: dominique.martinet@cea.fr, pebolle@tiscali.nl, lucho@ionkov.net,
-	ericvh@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, v9fs-developer@lists.sourceforge.net,
-	rminnich@sandia.gov
-To: andi@etezian.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1374742464-10686-1-git-send-email-andi@etezian.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Thomas Richter <tmricht@linux.vnet.ibm.com>,
+	Mike Rapoport <mike.rapoport@ravellosystems.com>,
+	netdev@vger.kernel.org
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:63138 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752631Ab3G3XCt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 19:02:49 -0400
+Received: by mail-pb0-f54.google.com with SMTP id ro12so11277pbb.13
+        for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 16:02:49 -0700 (PDT)
+In-Reply-To: <CALnjE+qx1L5p6CzFcd4nMTvWbxm-7_bz10wjbuUJdt12Q4Kqpg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andi Shyti <andi@etezian.org>
-Date: Thu, 25 Jul 2013 10:54:24 +0200
+On Tue, 30 Jul 2013 15:17:21 -0700
+Pravin Shelar <pshelar@nicira.com> wrote:
 
-> This patch reverts commit
+> On Tue, Jul 30, 2013 at 1:18 PM, Stephen Hemminger
+> <stephen@networkplumber.org> wrote:
+> > Vxlan remote list is protected by RCU but since first_remote
+> > returns a bare pointer, sparse complains.
+> > Split out the rcu and non-rcu access to the list.
+> >
+> > Ok to replace list_for_or_null with just list_entry_rcu because
+> > remotes list must be non-empty.
+> >
+> I am still getting following sparse waning.
 > 
-> 80b45261a0b263536b043c5ccfc4ba4fc27c2acc
-> 
-> which was implementing a 'cancelled' functionality to notify that
-> a cancelled request will not be replied.
-> 
-> This implementation was not used anywhere and therefore removed.
-> 
-> Signed-off-by: Andi Shyti <andi@etezian.org>
+>   CHECK   drivers/net/vxlan.c
+> drivers/net/vxlan.c:181:16: warning: incorrect type in return
+> expression (different address spaces)
+> drivers/net/vxlan.c:181:16:    expected struct vxlan_rdst [noderef] <asn:4>*
+> drivers/net/vxlan.c:181:16:    got struct vxlan_rdst *<noident>
+> drivers/net/vxlan.c:748:59: warning: incorrect type in initializer
+> (different address spaces)
+> drivers/net/vxlan.c:748:59:    expected struct vxlan_rdst *rdst
+> drivers/net/vxlan.c:748:59:    got struct vxlan_rdst [noderef] <asn:4>*
+> drivers/net/vxlan.c:181:16: warning: incorrect type in return
+> expression (different address spaces)
+> drivers/net/vxlan.c:181:16:    expected struct vxlan_rdst [noderef] <asn:4>*
+> drivers/net/vxlan.c:181:16:    got struct vxlan_rdst *<noident>
+> drivers/net/vxlan.c:996:42: warning: dereference of noderef expression
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Applied, thanks Andi.
+
+Which version of sparse? I don't see this with latest version.
