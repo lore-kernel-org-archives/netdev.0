@@ -1,204 +1,175 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH v3 2/3] net/usb/r8152: replace USB buffer from stack to DMA-able
-Date: Tue, 30 Jul 2013 16:28:55 +0800
-Message-ID: <1375172936-4145-2-git-send-email-hayeswang@realtek.com>
-References: <D7C722C73C7A400780358D0376412267@realtek.com.tw>
- <1375172936-4145-1-git-send-email-hayeswang@realtek.com>
+From: Luis Henriques <luis.henriques@canonical.com>
+Subject: Re: [net PATCH] atl1c: Fix misuse of netdev_alloc_skb in refilling rx ring
+Date: Tue, 30 Jul 2013 09:53:02 +0100
+Message-ID: <87fvuwh1jl.fsf@canonical.com>
+References: <87k3kbdcmy.fsf@canonical.com>
+	<1374960610.3607.13.camel@deadeye.wl.decadent.org.uk>
+	<1374969583.3669.23.camel@edumazet-glaptop>
+	<20130727.200205.67471633133830510.davem@davemloft.net>
+	<20130728104446.GB9876@neilslaptop.think-freely.org>
+	<1375028154.3669.30.camel@edumazet-glaptop>
+	<20130728185318.GA10795@neilslaptop.think-freely.org>
+	<1375042972.2546.17.camel@deadeye.wl.decadent.org.uk>
+	<1375052482.3669.54.camel@edumazet-glaptop>
+	<1375053654.3669.58.camel@edumazet-glaptop>
+	<877gg9wv08.fsf@canonical.com>
+	<1375095442.3669.67.camel@edumazet-glaptop>
+	<87y58pva88.fsf@canonical.com>
+	<1375111804.10515.1.camel@edumazet-glaptop>
+	<1375118644.10515.18.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, <nic_swsd@realtek.com>,
-	Hayes Wang <hayeswang@realtek.com>
-To: <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1375172936-4145-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jcliburn@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:52679 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755432Ab3G3IxJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 04:53:09 -0400
+In-Reply-To: <1375118644.10515.18.camel@edumazet-glaptop> (Eric Dumazet's
+	message of "Mon, 29 Jul 2013 10:24:04 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Allocate the required transfer buffer for usb_control_msg.
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 91 +++++++++++++++++++++++++++++++++++--------------
- 1 file changed, 66 insertions(+), 25 deletions(-)
+> From: Eric Dumazet <edumazet@google.com>
+>
+> On Mon, 2013-07-29 at 08:30 -0700, Eric Dumazet wrote:
+>> On Mon, 2013-07-29 at 13:09 +0100, Luis Henriques wrote:
+>> 
+>> > 
+>> > I confirm that I can't reproduce the issue using this patch.
+>> > 
+>> 
+>> Thanks, I'll send a polished patch, as this one had an error if
+>> build_skb() returns NULL (in case sk_buff allocation fails)
+>
+> Please try the following patch : It should use 2K frags instead of 4K
+> for normal 1500 mtu
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index ee13f9e..93a7baa 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -282,6 +282,8 @@ enum rtl_register_content {
- #define RTL8152_RMS		(VLAN_ETH_FRAME_LEN + VLAN_HLEN)
- #define RTL8152_TX_TIMEOUT	(HZ)
- 
-+#define RTL8152_MAX_TRANSFER_SIZE	8
-+
- /* rtl8152 flags */
- enum rtl8152_flags {
- 	RTL8152_UNPLUG = 0,
-@@ -324,8 +326,10 @@ struct r8152 {
- 	struct sk_buff *tx_skb, *rx_skb;
- 	struct delayed_work schedule;
- 	struct mii_if_info mii;
-+	struct mutex transfer_mutex;
- 	u32 msg_enable;
- 	u16 ocp_base;
-+	u8 *transfer_buf;
- 	u8 version;
- 	u8 speed;
- };
-@@ -344,17 +348,59 @@ static const int multicast_filter_limit = 32;
- static
- int get_registers(struct r8152 *tp, u16 value, u16 index, u16 size, void *data)
- {
--	return usb_control_msg(tp->udev, usb_rcvctrlpipe(tp->udev, 0),
-+	int ret;
-+	void *tmp;
-+
-+	if (size > RTL8152_MAX_TRANSFER_SIZE || !tp->transfer_buf) {
-+		tmp = kmalloc(size, GFP_KERNEL);
-+		if (!tmp)
-+			return -ENOMEM;
-+	} else {
-+		mutex_lock(&tp->transfer_mutex);
-+		tmp = tp->transfer_buf;
-+	}
-+
-+	ret = usb_control_msg(tp->udev, usb_rcvctrlpipe(tp->udev, 0),
- 			       RTL8152_REQ_GET_REGS, RTL8152_REQT_READ,
--			       value, index, data, size, 500);
-+			       value, index, tmp, size, 500);
-+
-+	memcpy(data, tmp, size);
-+
-+	if (tmp == tp->transfer_buf)
-+		mutex_unlock(&tp->transfer_mutex);
-+	else
-+		kfree(tmp);
-+
-+	return ret;
- }
- 
- static
- int set_registers(struct r8152 *tp, u16 value, u16 index, u16 size, void *data)
- {
--	return usb_control_msg(tp->udev, usb_sndctrlpipe(tp->udev, 0),
-+	int ret;
-+	void *tmp;
-+
-+	if (size > RTL8152_MAX_TRANSFER_SIZE || !tp->transfer_buf) {
-+		tmp = kmalloc(size, GFP_KERNEL);
-+		if (!tmp)
-+			return -ENOMEM;
-+	} else {
-+		mutex_lock(&tp->transfer_mutex);
-+		tmp = tp->transfer_buf;
-+	}
-+
-+	memcpy(tmp, data, size);
-+
-+	ret = usb_control_msg(tp->udev, usb_sndctrlpipe(tp->udev, 0),
- 			       RTL8152_REQ_SET_REGS, RTL8152_REQT_WRITE,
--			       value, index, data, size, 500);
-+			       value, index, tmp, size, 500);
-+
-+	if (tmp == tp->transfer_buf)
-+		mutex_unlock(&tp->transfer_mutex);
-+	else
-+		kfree(tmp);
-+
-+	return ret;
- }
- 
- static int generic_ocp_read(struct r8152 *tp, u16 index, u16 size,
-@@ -685,21 +731,14 @@ static void ocp_reg_write(struct r8152 *tp, u16 addr, u16 data)
- static inline void set_ethernet_addr(struct r8152 *tp)
- {
- 	struct net_device *dev = tp->netdev;
--	u8 *node_id;
--
--	node_id = kmalloc(sizeof(u8) * 8, GFP_KERNEL);
--	if (!node_id) {
--		netif_err(tp, probe, dev, "out of memory");
--		return;
--	}
-+	u8 node_id[8] = {0};
- 
--	if (pla_ocp_read(tp, PLA_IDR, sizeof(u8) * 8, node_id) < 0)
-+	if (pla_ocp_read(tp, PLA_IDR, sizeof(node_id), node_id) < 0)
- 		netif_notice(tp, probe, dev, "inet addr fail\n");
- 	else {
- 		memcpy(dev->dev_addr, node_id, dev->addr_len);
- 		memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
- 	}
--	kfree(node_id);
- }
- 
- static int rtl8152_set_mac_address(struct net_device *netdev, void *p)
-@@ -882,15 +921,10 @@ static void rtl8152_set_rx_mode(struct net_device *netdev)
- static void _rtl8152_set_rx_mode(struct net_device *netdev)
- {
- 	struct r8152 *tp = netdev_priv(netdev);
--	u32 tmp, *mc_filter;	/* Multicast hash filter */
-+	u32 mc_filter[2];	/* Multicast hash filter */
-+	__le32 tmp[2];
- 	u32 ocp_data;
- 
--	mc_filter = kmalloc(sizeof(u32) * 2, GFP_KERNEL);
--	if (!mc_filter) {
--		netif_err(tp, link, netdev, "out of memory");
--		return;
--	}
--
- 	clear_bit(RTL8152_SET_RX_MODE, &tp->flags);
- 	netif_stop_queue(netdev);
- 	ocp_data = ocp_read_dword(tp, MCU_TYPE_PLA, PLA_RCR);
-@@ -918,14 +952,12 @@ static void _rtl8152_set_rx_mode(struct net_device *netdev)
- 		}
- 	}
- 
--	tmp = mc_filter[0];
--	mc_filter[0] = __cpu_to_le32(swab32(mc_filter[1]));
--	mc_filter[1] = __cpu_to_le32(swab32(tmp));
-+	tmp[0] = __cpu_to_le32(swab32(mc_filter[1]));
-+	tmp[1] = __cpu_to_le32(swab32(mc_filter[0]));
- 
--	pla_ocp_write(tp, PLA_MAR, BYTE_EN_DWORD, sizeof(u32) * 2, mc_filter);
-+	pla_ocp_write(tp, PLA_MAR, BYTE_EN_DWORD, sizeof(tmp), tmp);
- 	ocp_write_dword(tp, MCU_TYPE_PLA, PLA_RCR, ocp_data);
- 	netif_wake_queue(netdev);
--	kfree(mc_filter);
- }
- 
- static netdev_tx_t rtl8152_start_xmit(struct sk_buff *skb,
-@@ -1644,6 +1676,7 @@ static int rtl8152_probe(struct usb_interface *intf,
- 	tp = netdev_priv(netdev);
- 	tp->msg_enable = 0x7FFF;
- 
-+	mutex_init (&tp->transfer_mutex);
- 	tasklet_init(&tp->tl, rx_fixup, (unsigned long)tp);
- 	INIT_DELAYED_WORK(&tp->schedule, rtl_work_func_t);
- 
-@@ -1655,6 +1688,12 @@ static int rtl8152_probe(struct usb_interface *intf,
- 	SET_ETHTOOL_OPS(netdev, &ops);
- 	tp->speed = 0;
- 
-+	tp->transfer_buf = kmalloc(RTL8152_MAX_TRANSFER_SIZE, GFP_KERNEL);
-+	if (!tp->transfer_buf) {
-+		netif_err(tp, probe, netdev, "out of memory");
-+		goto out;
-+	}
-+
- 	tp->mii.dev = netdev;
- 	tp->mii.mdio_read = read_mii_word;
- 	tp->mii.mdio_write = write_mii_word;
-@@ -1728,6 +1767,8 @@ static void rtl8152_disconnect(struct usb_interface *intf)
- 		free_all_urbs(tp);
- 		if (tp->rx_skb)
- 			dev_kfree_skb(tp->rx_skb);
-+		if (tp->transfer_buf)
-+			kfree(tp->transfer_buf);
- 		free_netdev(tp->netdev);
- 	}
- }
+This patch seems to work fine as well -- I'm unable to reproduce the
+issue.
+
+Cheers,
 -- 
-1.8.3.1
+Luis
+
+
+>
+> Thanks !
+>
+> [PATCH] atl1c: use custom skb allocator
+>
+> We had reports ( https://bugzilla.kernel.org/show_bug.cgi?id=54021 )
+> that using high order pages for skb allocations is problematic for atl1c
+>
+> We do not know exactly what the problem is, but we suspect that crossing
+> 4K pages is not well supported by this hardware.
+>
+> Use a custom allocator, using page allocator and 2K fragments for
+> optimal stack behavior. We might make this allocator generic
+> in future kernels.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Luis Henriques <luis.henriques@canonical.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> ---
+>  drivers/net/ethernet/atheros/atl1c/atl1c.h      |    3 +
+>  drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   40 +++++++++++++-
+>  2 files changed, 42 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c.h b/drivers/net/ethernet/atheros/atl1c/atl1c.h
+> index b2bf324..0f05565 100644
+> --- a/drivers/net/ethernet/atheros/atl1c/atl1c.h
+> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c.h
+> @@ -520,6 +520,9 @@ struct atl1c_adapter {
+>  	struct net_device   *netdev;
+>  	struct pci_dev      *pdev;
+>  	struct napi_struct  napi;
+> +	struct page         *rx_page;
+> +	unsigned int	    rx_page_offset;
+> +	unsigned int	    rx_frag_size;
+>  	struct atl1c_hw        hw;
+>  	struct atl1c_hw_stats  hw_stats;
+>  	struct mii_if_info  mii;    /* MII interface info */
+> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> index 786a874..a36a760 100644
+> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> @@ -481,10 +481,15 @@ static int atl1c_set_mac_addr(struct net_device *netdev, void *p)
+>  static void atl1c_set_rxbufsize(struct atl1c_adapter *adapter,
+>  				struct net_device *dev)
+>  {
+> +	unsigned int head_size;
+>  	int mtu = dev->mtu;
+>  
+>  	adapter->rx_buffer_len = mtu > AT_RX_BUF_SIZE ?
+>  		roundup(mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN, 8) : AT_RX_BUF_SIZE;
+> +
+> +	head_size = SKB_DATA_ALIGN(adapter->rx_buffer_len + NET_SKB_PAD) +
+> +		    SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+> +	adapter->rx_frag_size = roundup_pow_of_two(head_size);
+>  }
+>  
+>  static netdev_features_t atl1c_fix_features(struct net_device *netdev,
+> @@ -952,6 +957,10 @@ static void atl1c_free_ring_resources(struct atl1c_adapter *adapter)
+>  		kfree(adapter->tpd_ring[0].buffer_info);
+>  		adapter->tpd_ring[0].buffer_info = NULL;
+>  	}
+> +	if (adapter->rx_page) {
+> +		put_page(adapter->rx_page);
+> +		adapter->rx_page = NULL;
+> +	}
+>  }
+>  
+>  /**
+> @@ -1639,6 +1648,35 @@ static inline void atl1c_rx_checksum(struct atl1c_adapter *adapter,
+>  	skb_checksum_none_assert(skb);
+>  }
+>  
+> +static struct sk_buff *atl1c_alloc_skb(struct atl1c_adapter *adapter)
+> +{
+> +	struct sk_buff *skb;
+> +	struct page *page;
+> +
+> +	if (adapter->rx_frag_size > PAGE_SIZE)
+> +		return netdev_alloc_skb(adapter->netdev,
+> +					adapter->rx_buffer_len);
+> +
+> +	page = adapter->rx_page;
+> +	if (!page) {
+> +		adapter->rx_page = page = alloc_page(GFP_ATOMIC);
+> +		if (unlikely(!page))
+> +			return NULL;
+> +		adapter->rx_page_offset = 0;
+> +	}
+> +
+> +	skb = build_skb(page_address(page) + adapter->rx_page_offset,
+> +			adapter->rx_frag_size);
+> +	if (likely(skb)) {
+> +		adapter->rx_page_offset += adapter->rx_frag_size;
+> +		if (adapter->rx_page_offset >= PAGE_SIZE)
+> +			adapter->rx_page = NULL;
+> +		else
+> +			get_page(page);
+> +	}
+> +	return skb;
+> +}
+> +
+>  static int atl1c_alloc_rx_buffer(struct atl1c_adapter *adapter)
+>  {
+>  	struct atl1c_rfd_ring *rfd_ring = &adapter->rfd_ring;
+> @@ -1660,7 +1698,7 @@ static int atl1c_alloc_rx_buffer(struct atl1c_adapter *adapter)
+>  	while (next_info->flags & ATL1C_BUFFER_FREE) {
+>  		rfd_desc = ATL1C_RFD_DESC(rfd_ring, rfd_next_to_use);
+>  
+> -		skb = netdev_alloc_skb(adapter->netdev, adapter->rx_buffer_len);
+> +		skb = atl1c_alloc_skb(adapter);
+>  		if (unlikely(!skb)) {
+>  			if (netif_msg_rx_err(adapter))
+>  				dev_warn(&pdev->dev, "alloc rx buffer failed\n");
+>
