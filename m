@@ -1,38 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] libceph: fix deadlock in ceph_build_auth()
-Date: Tue, 30 Jul 2013 16:27:14 -0700 (PDT)
-Message-ID: <20130730.162714.310395724208648975.davem@davemloft.net>
-References: <1375066688-12367-1-git-send-email-khoroshilov@ispras.ru>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] sky2: detect and prevent kernel panic from a possible
+ faulty hardware
+Date: Tue, 30 Jul 2013 16:32:17 -0700
+Message-ID: <20130730163217.130cbe08@nehalam.linuxnetplumber.net>
+References: <1374957354-10142-1-git-send-email-sam8641@gmail.com>
+	<20130730.161906.1898764862564749288.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: sage@inktank.com, ceph-devel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ldv-project@linuxtesting.org
-To: khoroshilov@ispras.ru
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43374 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758292Ab3G3X1P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 19:27:15 -0400
-In-Reply-To: <1375066688-12367-1-git-send-email-khoroshilov@ispras.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sam8641@gmail.com, mlindner@marvell.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130730.161906.1898764862564749288.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Date: Mon, 29 Jul 2013 06:58:08 +0400
+On Tue, 30 Jul 2013 16:19:06 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> ceph_build_auth() locks ac->mutex and then calls ceph_auth_build_hello()
-> that locks the same mutex, i.e. bring itself to deadlock.
+> From: Samuel Williams <sam8641@gmail.com>
+> Date: Sat, 27 Jul 2013 15:35:54 -0500
 > 
-> The patch moves actual code from ceph_auth_build_hello() to
-> ceph_build_hello_auth_request() that should be called with ac->mutex held
-> and makes ceph_build_auth() calling it.
-> ceph_auth_build_hello() is left with untouched semantics as a wrapper
-> around ceph_build_hello_auth_request().
+> > A possible faulty hardware might interrupt with a status of 0xffffffff which
+> > may kernel panic if sky2 driver tries to handle it. Detecting this problem
+> > may avoid kernel panic.
+> > 
+> > Signed-off-by: Samuel Williams <sam8641@gmail.com>
 > 
-> Found by Linux Driver Verification project (linuxtesting.org).
+> Sure, but then the device is basically just going to stop.
 > 
-> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+> I think this change needs to be more comprehensive, for example it
+> needs to fully reset the device and try to get it operational again.
 
-I'm assume the ceph developers will pick this up, thanks.
+Not only that it is going to assert IRQ until the device is hard
+reset. Plus it is not clear that cleaning up after sick hardware
+is possible at all.
