@@ -1,63 +1,49 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net-next tree
-Date: Tue, 30 Jul 2013 12:16:05 +1000
-Message-ID: <20130730121605.35c4de9d82b753a5a763f5c9@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/6 net-next] cnic: Simplify netdev events handling.
+Date: Mon, 29 Jul 2013 22:04:26 -0700 (PDT)
+Message-ID: <20130729.220426.224154594518699860.davem@davemloft.net>
+References: <1375063440-4016-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Tue__30_Jul_2013_12_16_05_+1000_4isAhAXf5loV4.2D"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Eric Van Hensbergen <ericvh@gmail.com>,
-	Andi Shyti <andi@etezian.org>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57192 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754498Ab3G3FE3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 01:04:29 -0400
+In-Reply-To: <1375063440-4016-1-git-send-email-mchan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Tue__30_Jul_2013_12_16_05_+1000_4isAhAXf5loV4.2D
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Sun, 28 Jul 2013 19:03:55 -0700
 
-Hi all,
+> After this earlier commit to simplify probing:
+> 
+>     commit 4bd9b0fffb193d2e288f67f81821af32df8d4349
+>     cnic, bnx2x, bnx2: Simplify cnic probing.
+> 
+> we can now reliably receive netdev events and we can simplify the handling
+> of these events.  We now remove the logic that tries to handle missed
+> NETDEV_REGISTER events.
+> 
+> This change will allow cleanup to be simplified in the next patch.  We can
+> now rely on the play back of netdev events during
+> unregister_netdevice_notifier() to cleanup the structures.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-After merging the net-next tree, today's linux-next build (x86_64
-allmodconfig) failed like this:
+Please, in the future, give me an introductory "[PATCH 0/6 ..." posting,
+for two reasons:
 
-net/9p/trans_rdma.c:724:15: error: 'rdma_cancelled' undeclared here (not in=
- a function)
-  .cancelled =3D rdma_cancelled,
-               ^
+1) So that you can give me a top-level description of the changes that
+   are happening.
 
-Caused by commit 59ea52dc461e ("net: trans_rdma: remove unused function")
-interacting with commit d538a4ba906a ("net/9p: link rdma_cancelled in
-with trans_module") from the v9fs tree.
+2) To provide me with a single email I can reply to when I decide that
+   the entire series is OK.
 
-I just reverted that net-next tree commit for today.
+I applied this entire series, thanks.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Signature=_Tue__30_Jul_2013_12_16_05_+1000_4isAhAXf5loV4.2D
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.20 (GNU/Linux)
-
-iQIcBAEBCAAGBQJR9yHpAAoJEECxmPOUX5FE0dYP/0OAiecjYd4w+YW3GF0RXpws
-vWS0zfJF1ASkdhK52ujQ11lVZfc97GfBjizJZ66PtNjL3Y/w6wtEu+Y0cJ4O/z8t
-PDa+pMnOC5ZIHcsk/Y72nr93k05EFEhmLvaIcXK3ehRaiQaqbCnSHRXAMbvh6mPy
-ajoFVn5X5gOlFebaEsyyBCYMCD9IxRVdcGIYxPtvbEnKQ+/xqsQeQKa+GQsD+yGr
-aqFVCENmPtfIf+MloKFUVoFlRG3swaoqZUDboXjN2L1WrcptGU4pU82YgCu+E1wQ
-CB76e3O41abYGHwJ+aolAdRhE2z7ZG4h+sONdktPjR5RGm309JxMLjfkp4Pjk6c+
-7OBdXu4JRrfYlaWDMXGKMG4RrcVfUTE3BPec7DjKcG6ucaMizEmlzoFyxgTqogLz
-yXlLMFa9QJgqgtBNmVjA/V2QSr0rAZQPMpM2XdCYzX1P8qy91/m2riRnCjvHGSPk
-1JKAedG/AGxR3Yt8VRAcsWJDEhs0Hzs4ckwf92plQh9zQ+72lF34Q7eUKFLnMR/R
-bYzoP2CVcSZ0Nf5HXf+Mn9V+MhIqCsnJJCXFcPvQR5+i4+LBAT6Gtpt1RGwpDDxC
-VeSvwCJhK1Ee2bEHCFyu8y+S8PvH3K88oq1Ty+eY1ioU9vNTYM9VYtrh+x/iEgJV
-1dVswf/TE2JUdal+Dl9C
-=8wLd
------END PGP SIGNATURE-----
-
---Signature=_Tue__30_Jul_2013_12_16_05_+1000_4isAhAXf5loV4.2D--
+Thanks.
