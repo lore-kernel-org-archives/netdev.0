@@ -1,97 +1,57 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: [RFC PATCH 1/3] of: provide a binding for the 'fixed-link'
- property
-Date: Tue, 30 Jul 2013 16:31:21 +0100
-Message-ID: <20130730153121.GC29859@e106331-lin.cambridge.arm.com>
-References: <1373902450-11857-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <1373902450-11857-2-git-send-email-thomas.petazzoni@free-electrons.com>
- <CACxGe6td6uM0v5w92xPVCaVH4tP4AJ-h4SnN-mFoz5gSSosnQw@mail.gmail.com>
- <20130730110705.3262bc3d@skate>
+From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Subject: RE: [net-next 03/15] ixgbe: fix fc autoneg ethtool reporting.
+Date: Tue, 30 Jul 2013 16:17:57 +0000
+Message-ID: <F6FB0E698C9B3143BDF729DF222866466FD39A77@ORSMSX110.amr.corp.intel.com>
+References: <1375102331-23905-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1375102331-23905-4-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20130729.221833.2091004041005201998.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Lior Amsalem <alior@marvell.com>, netdev <netdev@vger.kernel.org>,
- devicetree-discuss <devicetree-discuss@lists.ozlabs.org>,
- "rob.herring@calxeda.com" <rob.herring@calxeda.com>,
- Florian Fainelli <florian@openwrt.org>,
- Grant Likely <grant.likely@secretlab.ca>,
- Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- "David S. Miller" <davem@davemloft.net>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20130730110705.3262bc3d@skate>
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: David Miller <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:50862 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752310Ab3G3QSB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 12:18:01 -0400
+In-Reply-To: <20130729.221833.2091004041005201998.davem@davemloft.net>
 Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 30, 2013 at 10:07:05AM +0100, Thomas Petazzoni wrote:
-> Dear Grant Likely,
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Monday, July 29, 2013 10:19 PM
+> To: Kirsher, Jeffrey T
+> Cc: Skidmore, Donald C; netdev@vger.kernel.org; gospo@redhat.com;
+> sassmann@redhat.com
+> Subject: Re: [net-next 03/15] ixgbe: fix fc autoneg ethtool reporting.
 > 
-> On Tue, 23 Jul 2013 12:39:52 +0100, Grant Likely wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Mon, 29 Jul 2013 05:51:59 -0700
+> > @@ -67,15 +67,39 @@ static s32 ixgbe_disable_pcie_master(struct
+> ixgbe_hw *hw);
+> >   **/
+> >  s32 ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)  {
+> > +	bool supported = false;
+>  ...
+> > +	return supported;
 > 
-> > > +Such a fixed link situation is described within an Ethernet device
-> > > +Device Tree node using a 'fixed-link' property, composed of 5
-> > > +elements:
-> > > +
-> > > + 1. A fake PHY ID, which must be unique accross all fixed-link PHYs in
-> > > +    the system.
-> > 
-> > That's just loony!  :)  Regardless of existing code doing this, it is
-> > absolutely ridiculous to have it in the driver. The kernel should
-> > handle generating a phy id transparently. I'd rather mark this field
-> > as reserved in the binding and change the code to not care about it
-> > anymore.
+> If the function is returning bool, fix the function's return type from 's32' to
+> 'bool'.
 > 
-> In fact, this value is used for two things:
 > 
->  * As the PHY address on the fake "fixed" MDIO bus.
+> > -		    (ixgbe_device_supports_autoneg_fc(hw) == 0)) {
+> > +		    (ixgbe_device_supports_autoneg_fc(hw))) {
 > 
->  * As the PHY identifier, as reported by the MII registers PHYS_ID1
->    (0x2) and PHYS_ID2 (0x3).
-> 
-> I think this doesn't make sense, because the two things are completely
-> unrelated. Ideally, we'd like the PHY identifier for fixed PHYs to be
-> something fixed, identical for all fixed PHYs. The problem is finding
-> an OUI and device number that is available for that, but maybe we can
-> ask the OpenMoko people to allocate one (see
-> http://wiki.openmoko.org/wiki/OUI).
-> 
-> Then, the PHY address could be generated dynamically. This would
-> require:
-> 
->  * Adding a fixed_phy_create() function that internally uses
->    fixed_phy_add(), but before that creates an unique PHY address for
->    this newly created PHY. Those unique addresses will be generated by
->    incrementing a global number of fixed PHYs, up to PHY_MAX_ADDR,
->    which is the maximum number of fixed PHYs that can anyway be
->    registered on the fixed MDIO bus.
-> 
->    fixed_phy_create() would return this PHY address (positive) on
->    success, or a negative error code on failure.
-> 
->  * Change of_phy_register_fixed_link() to call fixed_phy_create()
->    instead of fixed_phy_add() and make it return the PHY address
->    allocated by fixed_phy_create().
-> 
->  * Add a of_phy_connect_fixed_link_direct() that is similar to
->    of_phy_connect_fixed_link() but takes an additional PHY address as
->    argument and uses that to generate the 'bus_id' used to find the
->    phy_device.
-> 
-> Grant, Mark, Florian, do you have other proposals?
+> I think the outermost parenthesis in
+> "(ixgbe_device_supports_autoneg_fc(hw))"
+> should be removed.
 
-The above sounds good to me.
+Thanks Dave, I'll clean this up and send the new patches to Jeff.
 
-Thanks,
-Mark.
+-Don Skidmore <donald.c.skidmore>
