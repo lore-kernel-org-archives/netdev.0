@@ -1,56 +1,63 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH RFC] xfrm{4,6}: only report errors back to local sockets if we don't cross address family
-Date: Tue, 30 Jul 2013 12:40:38 +0200
-Message-ID: <20130730104038.GB7068@order.stressinduktion.org>
-References: <20130729145017.GD2490@order.stressinduktion.org> <20130730082118.GA25511@secunet.com> <20130730083017.GA7068@order.stressinduktion.org> <20130730102611.GB25511@secunet.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: TUN/TAP: tap driver reports bogus interface speed in ethtool
+ operations
+Date: Tue, 30 Jul 2013 12:51:17 +0200
+Message-ID: <1375181477.13657.0.camel@deadeye.wl.decadent.org.uk>
+References: <2F174B03-5074-4BA0-B91A-8F2F62C2B082@cygnusnetworks.de>
+	 <5192BDD6.6060703@qti.qualcomm.com>
+	 <3E916AF0-C587-443D-B653-C968A96C8751@cygnusnetworks.de>
+	 <48A2F278-A32C-47C6-AD2D-1FC15EC73B88@cygnusnetworks.de>
+	 <51E5BE27.3060207@qti.qualcomm.com>
+	 <E4A37B97-95FE-42C3-AD78-119BA406A44A@cygnusnetworks.de>
+	 <1374606278.2072.11.camel@bwh-desktop.uk.level5networks.com>
+	 <FDC644D3-D724-4D28-A5A2-A11A45F81545@cygnusnetworks.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, vi0oss@gmail.com
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
+	"Max Krasnyansky" <maxk@qti.qualcomm.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Helmut Grohne <h.grohne@cygnusnetworks.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:48251 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750711Ab3G3Kkk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 06:40:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20130730102611.GB25511@secunet.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:23806 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752310Ab3G3KvY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 06:51:24 -0400
+In-Reply-To: <FDC644D3-D724-4D28-A5A2-A11A45F81545@cygnusnetworks.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 30, 2013 at 12:26:11PM +0200, Steffen Klassert wrote:
-> On Tue, Jul 30, 2013 at 10:30:17AM +0200, Hannes Frederic Sowa wrote:
-> > On Tue, Jul 30, 2013 at 10:21:18AM +0200, Steffen Klassert wrote:
-> > > On Mon, Jul 29, 2013 at 04:50:17PM +0200, Hannes Frederic Sowa wrote:
-> > > > xfrm6_local_error/xfrm4_tunnel_check_size report mtu errors back to a
-> > > > socket in case it is locally generated. If the packet first traversed
-> > > > a 6in4/4in6 tunnel before passing the xfrm layer, we could get a panic
-> > > > because of address family type mismatch in the error reporting functions.
-> > > > 
-> > > 
-> > > So the skb is still owned by a socket of the inner address family.
-> > > Is this intentional? Maybe the ndo_start_xmit() function of the
-> > > tunnel device should orphan the skb if we tunnel the packet
-> > > through a different address family.
-> > 
-> > I thought about this, too. But then we would stop accounting the data
-> > to the socket while it is travelling the stack. I don't know about the
-> > possible problems resulting from this.
-> > 
+On Tue, 2013-07-30 at 08:20 +0200, Helmut Grohne wrote:
+> Thanks for your review! Given the v2 patch Stephen Hemminger posted, I
+> think that his series is where development should continue.
 > 
-> I'm also not absolutely sure, but we reinsert the packet to
-> the ipv4/ipv6 output path which is also used to output forwarded
-> packets. So the code should be prepared for handling a skb without
-> socket context.
+> On 23.07.2013, at 21:04, Ben Hutchings <bhutchings@solarflare.com> wrote:
+> > This is formatted wrongly - needs a space after 'if' and all the
+> > continuation lines should be lined up under 'cmd->supported'.
 > 
-> There are already situations where we orphan the skb in some
-> tunnel xmit functions. For example if we tunnel through
-> another namespace.
+> I am sorry for not having run checkpatch and will try to remember next time.
+> 
+> >> +               return -EOPNOTSUPP;
+> > 
+> > EINVAL
+> 
+> Makes sense, once you are pointed to it.
+> 
+> > I notice the port type is reported as PORT_TP.  Perhaps that should also
+> > be changed to PORT_NONE (in a separate patch)?
+> 
+> This appears not yet addressed in the v2 patch yet.
+> 
+> I am not sure how to go on here. Clearly the v2 patch set, is an improvement
+> over my initial version. The additional capabilities of changing the reported
+> driver and similar aspects appear controversial though. Would it make sense
+> to split this into two patch sets to be handled independently?
 
-Somehow this seems the way to go.
+Yes, I think that would make sense.
 
-Even if we get a matching address family socket we would still call
-ipv6_local_error with the wrong fl6.daddr for that socket. I do think
-IPv4 has the same issue, but I have not checked.
+Ben.
 
-Because skbs could circulate multiple times through devices, a check as
-(skb->dev->type | tunnel_types) seems to be not enough, too.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
