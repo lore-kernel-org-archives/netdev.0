@@ -1,115 +1,45 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v4 net-next repost 2/2] sh_eth: Add support for r8a7790
- SoC
-Date: Tue, 30 Jul 2013 08:59:52 +0900
-Message-ID: <20130729235952.GD11142@verge.net.au>
-References: <1374542285-19602-1-git-send-email-horms+renesas@verge.net.au>
- <1374542285-19602-3-git-send-email-horms+renesas@verge.net.au>
- <3564962.xOo6qNYDyG@avalon>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+From: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
+Subject: [PATCH] sh_eth: r8a7790: Handle the RFE (Receive FIFO overflow Error) interrupt
+Date: Tue, 30 Jul 2013 02:08:48 +0200
+Message-ID: <1375142928-17769-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
+Cc: linux-sh@vger.kernel.org, Simon Horman <horms@verge.net.au>,
 	Magnus Damm <magnus.damm@gmail.com>,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-sh-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <3564962.xOo6qNYDyG@avalon>
 Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 30, 2013 at 01:32:33AM +0200, Laurent Pinchart wrote:
-> Hi Simon,
-> 
-> On Tuesday 23 July 2013 10:18:05 Simon Horman wrote:
-> > This is a copy of support for r8a7778/9 with the .rmiimode mode bit
-> > of struct sh_eth_cpu_data set.
-> > 
-> > Also update R8A7779 to R8A777x.
-> > 
-> > Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-> > 
-> > ---
-> > 
-> > v4
-> > * s/R8A7779/R8A777x/ as requested by Sergei Shtylyov.
-> > 
-> > v3
-> > * Add r8a7790_data rather than updating r8a777x_data.
-> >   As requested by Sergei Shtylyov.
-> > 
-> > v2
-> > * Split from "sh_eth: add support RMIIMODE register"
-> > ---
-> >  drivers/net/ethernet/renesas/Kconfig  |  2 +-
-> >  drivers/net/ethernet/renesas/sh_eth.c | 21 +++++++++++++++++++++
-> >  2 files changed, 22 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/drivers/net/ethernet/renesas/Kconfig
-> > b/drivers/net/ethernet/renesas/Kconfig index 19a8a04..a30c439 100644
-> > --- a/drivers/net/ethernet/renesas/Kconfig
-> > +++ b/drivers/net/ethernet/renesas/Kconfig
-> > @@ -13,4 +13,4 @@ config SH_ETH
-> >  	  Renesas SuperH Ethernet device driver.
-> >  	  This driver supporting CPUs are:
-> >  		- SH7619, SH7710, SH7712, SH7724, SH7734, SH7763, SH7757,
-> > -		  R8A7740 and R8A7779.
-> > +		  R8A7740, R8A777x and R8A7790.
-> > diff --git a/drivers/net/ethernet/renesas/sh_eth.c
-> > b/drivers/net/ethernet/renesas/sh_eth.c index 87af49f..fedc0a0 100644
-> > --- a/drivers/net/ethernet/renesas/sh_eth.c
-> > +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> > @@ -393,6 +393,26 @@ static struct sh_eth_cpu_data r8a777x_data = {
-> >  	.hw_swap	= 1,
-> >  };
-> > 
-> > +/* R8A7790 */
-> > +static struct sh_eth_cpu_data r8a7790_data = {
-> > +	.set_duplex	= sh_eth_set_duplex,
-> > +	.set_rate	= sh_eth_set_rate_r8a777x,
-> > +
-> > +	.ecsr_value	= ECSR_PSRTO | ECSR_LCHNG | ECSR_ICD,
-> > +	.ecsipr_value	= ECSIPR_PSRTOIP | ECSIPR_LCHNGIP | ECSIPR_ICDIP,
-> > +	.eesipr_value	= 0x01ff009f,
-> > +
-> > +	.tx_check	= EESR_FTC | EESR_CND | EESR_DLC | EESR_CD | EESR_RTO,
-> > +	.eesr_err_check	= EESR_TWB | EESR_TABT | EESR_RABT | EESR_RDE |
-> > +			  EESR_RFRMER | EESR_TFE | EESR_TDE | EESR_ECI,
-> 
-> Is there a reason why the EESR_RFE bit isn't set in eesr_err_check (and thus 
-> ignored in the interrupt handler) but set in eesipr_value ?
-> 
-> If it's just an omission I'll send a patch.
+The RFE interrupt is enabled for the r8a7790 but isn't handled,
+resulting in the interrupts core noticing unhandled interrupts, and
+eventually disabling the ethernet IRQ.
 
-I believe it is just an omission.
+Fix it by adding RFE to the bitmask of error interrupts to be handled
+for r8a7790.
 
-> > +
-> > +	.apr		= 1,
-> > +	.mpr		= 1,
-> > +	.tpauser	= 1,
-> > +	.hw_swap	= 1,
-> > +	.rmiimode	= 1,
-> > +};
-> > +
-> >  static void sh_eth_set_rate_sh7724(struct net_device *ndev)
-> >  {
-> >  	struct sh_eth_private *mdp = netdev_priv(ndev);
-> > @@ -2753,6 +2773,7 @@ static struct platform_device_id sh_eth_id_table[] = {
-> > { "sh7763-gether", (kernel_ulong_t)&sh7763_data },
-> >  	{ "r8a7740-gether", (kernel_ulong_t)&r8a7740_data },
-> >  	{ "r8a777x-ether", (kernel_ulong_t)&r8a777x_data },
-> > +	{ "r8a7790-ether", (kernel_ulong_t)&r8a7790_data },
-> >  	{ }
-> >  };
-> >  MODULE_DEVICE_TABLE(platform, sh_eth_id_table);
-> 
-> -- 
-> Regards,
-> 
-> Laurent Pinchart
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sh" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Signed-off-by: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
+---
+ drivers/net/ethernet/renesas/sh_eth.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index fedc0a0..9e2afe8 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -403,8 +403,9 @@ static struct sh_eth_cpu_data r8a7790_data = {
+ 	.eesipr_value	= 0x01ff009f,
+ 
+ 	.tx_check	= EESR_FTC | EESR_CND | EESR_DLC | EESR_CD | EESR_RTO,
+-	.eesr_err_check	= EESR_TWB | EESR_TABT | EESR_RABT | EESR_RDE |
+-			  EESR_RFRMER | EESR_TFE | EESR_TDE | EESR_ECI,
++	.eesr_err_check	= EESR_TWB | EESR_TABT | EESR_RABT | EESR_RFE |
++			  EESR_RDE | EESR_RFRMER | EESR_TFE | EESR_TDE |
++			  EESR_ECI,
+ 
+ 	.apr		= 1,
+ 	.mpr		= 1,
+-- 
+Regards,
+
+Laurent Pinchart
+
