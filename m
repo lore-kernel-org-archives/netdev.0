@@ -1,121 +1,66 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v3 2/2] net: igmp: Allow user-space configuration of igmp unsolicited report interval
-Date: Tue, 30 Jul 2013 08:14:26 +0200
-Message-ID: <20130730061426.GF2490@order.stressinduktion.org>
-References: <20130726163610.GF3890@order.stressinduktion.org> <1375107711-9029-1-git-send-email-william.manley@youview.com> <1375107711-9029-2-git-send-email-william.manley@youview.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, bcrl@kvack.org, luky-37@hotmail.com,
-	sergei.shtylyov@cogentembedded.com, bhutchings@solarflare.com,
-	davem@davemloft.net
-To: William Manley <william.manley@youview.com>
+From: Thomas Richter <tmricht@linux.vnet.ibm.com>
+Subject: [PATCH] iproute vxlan add support for fdb replace command
+Date: Tue, 30 Jul 2013 08:16:41 +0200
+Message-ID: <1375165001-6776-1-git-send-email-tmricht@linux.vnet.ibm.com>
+Cc: Thomas Richter <tmricht@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:47673 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754782Ab3G3GO2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 02:14:28 -0400
-Content-Disposition: inline
-In-Reply-To: <1375107711-9029-2-git-send-email-william.manley@youview.com>
+Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:46565 "EHLO
+	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752623Ab3G3GQs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 02:16:48 -0400
+Received: from /spool/local
+	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <tmricht@linux.vnet.ibm.com>;
+	Tue, 30 Jul 2013 07:08:06 +0100
+Received: from b06cxnps4075.portsmouth.uk.ibm.com (d06relay12.portsmouth.uk.ibm.com [9.149.109.197])
+	by d06dlp03.portsmouth.uk.ibm.com (Postfix) with ESMTP id CF0821B0805F
+	for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 07:16:45 +0100 (BST)
+Received: from d06av09.portsmouth.uk.ibm.com (d06av09.portsmouth.uk.ibm.com [9.149.37.250])
+	by b06cxnps4075.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r6U6GXlb66846954
+	for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 06:16:34 GMT
+Received: from d06av09.portsmouth.uk.ibm.com (localhost [127.0.0.1])
+	by d06av09.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id r6U6GilL011092
+	for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 00:16:45 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 29, 2013 at 03:21:51PM +0100, William Manley wrote:
-> --- a/include/linux/inetdevice.h
-> +++ b/include/linux/inetdevice.h
-> @@ -30,6 +30,8 @@ enum
->  	IPV4_DEVCONF_NOXFRM,
->  	IPV4_DEVCONF_NOPOLICY,
->  	IPV4_DEVCONF_FORCE_IGMP_VERSION,
-> +	IPV4_DEVCONF_IGMPV2_UNSOLICITED_REPORT_INTERVAL,
-> +	IPV4_DEVCONF_IGMPV3_UNSOLICITED_REPORT_INTERVAL,
->  	IPV4_DEVCONF_ARP_ANNOUNCE,
->  	IPV4_DEVCONF_ARP_IGNORE,
->  	IPV4_DEVCONF_PROMOTE_SECONDARIES,
-> @@ -62,6 +64,8 @@ struct in_device {
->  	unsigned long		mr_v1_seen;
->  	unsigned long		mr_v2_seen;
->  	unsigned long		mr_maxdelay;
-> +	unsigned long		mr_v2_unsolicited_report_interval;
-> +	unsigned long		mr_v3_unsolicited_report_interval;
->  	unsigned char		mr_qrv;
->  	unsigned char		mr_gq_running;
->  	unsigned char		mr_ifc_count;
-> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-> index dfc39d4..f681518 100644
-> --- a/net/ipv4/devinet.c
-> +++ b/net/ipv4/devinet.c
-> @@ -73,6 +73,8 @@ static struct ipv4_devconf ipv4_devconf = {
->  		[IPV4_DEVCONF_SEND_REDIRECTS - 1] = 1,
->  		[IPV4_DEVCONF_SECURE_REDIRECTS - 1] = 1,
->  		[IPV4_DEVCONF_SHARED_MEDIA - 1] = 1,
-> +		[IPV4_DEVCONF_IGMPV2_UNSOLICITED_REPORT_INTERVAL - 1] = 10000 /*ms*/,
-> +		[IPV4_DEVCONF_IGMPV3_UNSOLICITED_REPORT_INTERVAL - 1] =  1000 /*ms*/,
->  	},
->  };
->  
-> @@ -83,6 +85,8 @@ static struct ipv4_devconf ipv4_devconf_dflt = {
->  		[IPV4_DEVCONF_SECURE_REDIRECTS - 1] = 1,
->  		[IPV4_DEVCONF_SHARED_MEDIA - 1] = 1,
->  		[IPV4_DEVCONF_ACCEPT_SOURCE_ROUTE - 1] = 1,
-> +		[IPV4_DEVCONF_IGMPV2_UNSOLICITED_REPORT_INTERVAL - 1] = 10000 /*ms*/,
-> +		[IPV4_DEVCONF_IGMPV3_UNSOLICITED_REPORT_INTERVAL - 1] =  1000 /*ms*/,
->  	},
->  };
->  
-> @@ -2099,6 +2103,10 @@ static struct devinet_sysctl_table {
->  		DEVINET_SYSCTL_FLUSHING_ENTRY(NOPOLICY, "disable_policy"),
->  		DEVINET_SYSCTL_FLUSHING_ENTRY(FORCE_IGMP_VERSION,
->  					      "force_igmp_version"),
-> +		DEVINET_SYSCTL_FLUSHING_ENTRY(IGMPV2_UNSOLICITED_REPORT_INTERVAL,
-> +					      "igmpv2_unsolicited_report_interval"),
-> +		DEVINET_SYSCTL_FLUSHING_ENTRY(IGMPV3_UNSOLICITED_REPORT_INTERVAL,
-> +					      "igmpv3_unsolicited_report_interval"),
->  		DEVINET_SYSCTL_FLUSHING_ENTRY(PROMOTE_SECONDARIES,
->  					      "promote_secondaries"),
->  		DEVINET_SYSCTL_FLUSHING_ENTRY(ROUTE_LOCALNET,
+Add support for the bridge fdb replace command to replace an
+existing entry in the vxlan device driver forwarding data base.
+The entry is identified with its unicast mac address and its
+corresponding remote destination information is updated.
 
-Why did you use DEVINET_SYSCTL_FLUSHING_ENTRY here? Wouldn't
-DEVINET_SYSCTL_RW_ENTRY be a better choice?
+This is useful for virtual machine migration and replaces the
+bridge fdb del and bridge fdb add commands.
 
-> diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-> index 9f0aaea..035ee77 100644
-> --- a/net/ipv4/igmp.c
-> +++ b/net/ipv4/igmp.c
-> @@ -141,10 +141,25 @@
->  
->  static int unsolicited_report_interval(struct in_device *in_dev)
->  {
-> +	int interval_ms, interval_jiffies;
-> +
->  	if (IGMP_V1_SEEN(in_dev) || IGMP_V2_SEEN(in_dev))
-> -		return IGMP_V2_Unsolicited_Report_Interval;
-> +		interval_ms = IPV4_DEVCONF_ALL(
-> +			dev_net(in_dev->dev),
-> +			IGMPV2_UNSOLICITED_REPORT_INTERVAL);
+It follows the same interface as ip neigh replace commands.
 
-IN_DEV_CONF_GET()?
+Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
+---
+ bridge/fdb.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-Or should the igmpv{2,3}_unsolicited_report_interval only be a global setting?
-
->  	else /* v3 */
-> -		return IGMP_V3_Unsolicited_Report_Interval;
-> +		interval_ms = IPV4_DEVCONF_ALL(
-> +			dev_net(in_dev->dev),
-> +			IGMPV3_UNSOLICITED_REPORT_INTERVAL);
-
-Here as well.
-
-> +
-> +	interval_jiffies = msecs_to_jiffies(interval_ms);
-> +
-> +	/* _timer functions can't handle a delay of 0 jiffies so ensure
-> +	 *  we always return a positive value.
-> +	 */
-
-I am not sure here, but have seen mod_timer with 0 work before. But it is a
-good idea anyway.
-
-> +	if (interval_jiffies <= 0)
-> +		interval_jiffies = 1;
-> +	return interval_jiffies;
->  }
+diff --git a/bridge/fdb.c b/bridge/fdb.c
+index 591fbbe..e2e53f1 100644
+--- a/bridge/fdb.c
++++ b/bridge/fdb.c
+@@ -30,7 +30,7 @@ int filter_index;
+ 
+ static void usage(void)
+ {
+-	fprintf(stderr, "Usage: bridge fdb { add | append | del } ADDR dev DEV {self|master} [ temp ]\n"
++	fprintf(stderr, "Usage: bridge fdb { add | append | del | replace } ADDR dev DEV {self|master} [ temp ]\n"
+ 		        "              [router] [ dst IPADDR] [ vlan VID ]\n"
+ 		        "              [ port PORT] [ vni VNI ] [via DEV]\n");
+ 	fprintf(stderr, "       bridge fdb {show} [ dev DEV ]\n");
+@@ -334,6 +334,8 @@ int do_fdb(int argc, char **argv)
+ 			return fdb_modify(RTM_NEWNEIGH, NLM_F_CREATE|NLM_F_EXCL, argc-1, argv+1);
+ 		if (matches(*argv, "append") == 0)
+ 			return fdb_modify(RTM_NEWNEIGH, NLM_F_CREATE|NLM_F_APPEND, argc-1, argv+1);
++		if (matches(*argv, "replace") == 0)
++			return fdb_modify(RTM_NEWNEIGH, NLM_F_CREATE|NLM_F_REPLACE, argc-1, argv+1);
+ 		if (matches(*argv, "delete") == 0)
+ 			return fdb_modify(RTM_DELNEIGH, 0, argc-1, argv+1);
+ 		if (matches(*argv, "show") == 0 ||
+-- 
+1.7.1
