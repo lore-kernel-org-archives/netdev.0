@@ -1,44 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/fec: Don't let ndo_start_xmit return
- NETDEV_TX_BUSY without link
-Date: Tue, 30 Jul 2013 16:05:30 -0700 (PDT)
-Message-ID: <20130730.160530.831845971567683172.davem@davemloft.net>
-References: <1374758875-7926-1-git-send-email-u.kleine-koenig@pengutronix.de>
-	<1375176580-7368-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCHv2] bridge: disable snooping if there is no
+	querier
+Date: Tue, 30 Jul 2013 16:10:35 -0700 (PDT)
+Message-ID: <20130730.161035.1646022729333223847.davem@davemloft.net>
+References: <1374757046-12463-1-git-send-email-linus.luessing@web.de>
+	<1374760580-12920-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, fabio.estevam@freescale.com,
-	Frank.Li@freescale.com, shawn.guo@linaro.org,
-	kernel@pengutronix.de, hector.palacios@digi.com,
-	tim.sander@hbm.com, rostedt@goodmis.org, tglx@linutronix.de,
-	stephen@networkplumber.org, B38611@freescale.com,
-	florian@openwrt.org, bhutchings@solarflare.com
-To: u.kleine-koenig@pengutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43060 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756106Ab3G3XFe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 19:05:34 -0400
-In-Reply-To: <1375176580-7368-1-git-send-email-u.kleine-koenig@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
+Cc: amwang@redhat.com, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	linux@baker-net.org.uk, stephen@networkplumber.org,
+	herbert@gondor.apana.org.au
+To: linus.luessing@web.de
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1374760580-12920-1-git-send-email-linus.luessing@web.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-Date: Tue, 30 Jul 2013 11:29:40 +0200
+From: Linus L=FCssing <linus.luessing@web.de>
+Date: Thu, 25 Jul 2013 15:56:20 +0200
 
-> Don't test for having link and let hardware deal with this situation.
->=20
-> Without this patch I see a machine running an -rt patched Linux being
-> stuck in sch_direct_xmit when it looses link while there is still a
-> packet to be sent. In this case the fec_enet_start_xmit routine retur=
-ned
-> NETDEV_TX_BUSY which makes the network stack reschedule the packet an=
-d
-> so sch_direct_xmit calls fec_enet_start_xmit again.
-> I failed to reproduce a complete hang without -rt, but I think the
-> problem exists there, too.
->=20
-> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+> +	atomic64_t			multicast_querier_delay_time;
 
-Applied, thanks.
+Please don't use an atomic64_t here, it's pointless.
+
+You're only doing set and read operations on it, there's absolutely
+nothing atomic about that.
+
+You have to make sure that the top-level operations that use this
+new value use an appropriate amount of locking on the higher level
+objects.
