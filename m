@@ -1,33 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net V2 2/2] macvtap: do not zerocopy if iov needs more
- pages than MAX_SKB_FRAGS
-Date: Tue, 30 Jul 2013 12:55:42 -0700 (PDT)
-Message-ID: <20130730.125542.2060050812919169911.davem@davemloft.net>
-References: <1374116116-43844-2-git-send-email-jasowang@redhat.com>
-	<20130719050351.GB8537@redhat.com>
-	<20130730114125.GB22218@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next] vxlan: fix rcu related warnings
+Date: Tue, 30 Jul 2013 13:18:44 -0700
+Message-ID: <20130730131844.7d3f92de@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jasowang@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: mst@redhat.com
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Thomas Richter <tmricht@linux.vnet.ibm.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Mike Rapoport <mike.rapoport@ravellosystems.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40993 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757074Ab3G3Tzn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 15:55:43 -0400
-In-Reply-To: <20130730114125.GB22218@redhat.com>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:34607 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751777Ab3G3USs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 16:18:48 -0400
+Received: by mail-pd0-f179.google.com with SMTP id v10so6900017pde.38
+        for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 13:18:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Tue, 30 Jul 2013 14:41:25 +0300
+Vxlan remote list is protected by RCU but since first_remote
+returns a bare pointer, sparse complains.
+Split out the rcu and non-rcu access to the list.
 
-> Was this patch dropped?
+Ok to replace list_for_or_null with just list_entry_rcu because
+remotes list must be non-empty.
 
-Nope, it's commit ece793fcfc417b3925844be88a6a6dc82ae8f7c6
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-> Any objections to merging it for 3.11 and stable?
-
-No objection, queued up for -stable.
+--- a/drivers/net/vxlan.c	2013-07-24 12:42:42.919769763 -0700
++++ b/drivers/net/vxlan.c	2013-07-30 13:15:21.436571647 -0700
+@@ -176,9 +176,14 @@ static inline struct hlist_head *vs_head
+ /* First remote destination for a forwarding entry.
+  * Guaranteed to be non-NULL because remotes are never deleted.
+  */
+-static inline struct vxlan_rdst *first_remote(struct vxlan_fdb *fdb)
++static inline struct vxlan_rdst __rcu *first_remote_rcu(struct vxlan_fdb *fdb)
+ {
+-	return list_first_or_null_rcu(&fdb->remotes, struct vxlan_rdst, list);
++	return list_entry_rcu(fdb->remotes.next, struct vxlan_rdst, list);
++}
++
++static inline struct vxlan_rdst *first_remote_rtnl(struct vxlan_fdb *fdb)
++{
++	return list_first_entry(&fdb->remotes, struct vxlan_rdst, list);
+ }
+ 
+ /* Find VXLAN socket based on network namespace and UDP port */
+@@ -296,7 +301,8 @@ static void vxlan_fdb_notify(struct vxla
+ 	if (skb == NULL)
+ 		goto errout;
+ 
+-	err = vxlan_fdb_info(skb, vxlan, fdb, 0, 0, type, 0, first_remote(fdb));
++	err = vxlan_fdb_info(skb, vxlan, fdb, 0, 0, type, 0,
++			     first_remote_rtnl(fdb));
+ 	if (err < 0) {
+ 		/* -EMSGSIZE implies BUG in vxlan_nlmsg_size() */
+ 		WARN_ON(err == -EMSGSIZE);
+@@ -739,7 +745,7 @@ static bool vxlan_snoop(struct net_devic
+ 
+ 	f = vxlan_find_mac(vxlan, src_mac);
+ 	if (likely(f)) {
+-		struct vxlan_rdst *rdst = first_remote(f);
++		struct vxlan_rdst *rdst = first_remote_rcu(f);
+ 
+ 		if (likely(rdst->remote_ip == src_ip))
+ 			return false;
+@@ -987,7 +993,7 @@ static int arp_reduce(struct net_device
+ 		}
+ 
+ 		f = vxlan_find_mac(vxlan, n->ha);
+-		if (f && first_remote(f)->remote_ip == htonl(INADDR_ANY)) {
++		if (f && first_remote_rcu(f)->remote_ip == htonl(INADDR_ANY)) {
+ 			/* bridge-local neighbor */
+ 			neigh_release(n);
+ 			goto out;
