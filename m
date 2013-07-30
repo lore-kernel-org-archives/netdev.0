@@ -1,30 +1,143 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] pktgen: Require CONFIG_INET due to use of
- IPv4 checksum function
-Date: Tue, 30 Jul 2013 16:45:24 -0700 (PDT)
-Message-ID: <20130730.164524.250005584108750137.davem@davemloft.net>
-References: <ac3413a475e921b6ea915ecd1c610e6df07484f7.1375098208.git.tgraf@suug.ch>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH net] tipc: fix oops when creating server socket fails
+Date: Tue, 30 Jul 2013 19:46:35 -0400
+Message-ID: <1375227995-9581-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tgraf@suug.ch
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Ying Xue <ying.xue@windriver.com>,
+	Jon Maloy <jon.maloy@ericsson.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43607 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758511Ab3G3XpZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 19:45:25 -0400
-In-Reply-To: <ac3413a475e921b6ea915ecd1c610e6df07484f7.1375098208.git.tgraf@suug.ch>
+Received: from mail1.windriver.com ([147.11.146.13]:45456 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755837Ab3G3Xq4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 19:46:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Mon, 29 Jul 2013 13:44:15 +0200
+From: Ying Xue <ying.xue@windriver.com>
 
-> Unlike for IPv6, the IPv4 checksum functions are only available
-> if CONFIG_INET is set.
-> 
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+When creation of TIPC internal server socket fails, we get an oops
+with the following dump:
 
-Applied, thanks Thomas.
+BUG: unable to handle kernel NULL pointer dereference at 0000000000000020
+IP: [<ffffffffa0011f49>] tipc_close_conn+0x59/0xb0 [tipc]
+PGD 13719067 PUD 12008067 PMD 0
+Oops: 0000 [#1] SMP DEBUG_PAGEALLOC
+Modules linked in: tipc(+)
+CPU: 4 PID: 4340 Comm: insmod Not tainted 3.10.0+ #1
+Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
+task: ffff880014360000 ti: ffff88001374c000 task.ti: ffff88001374c000
+RIP: 0010:[<ffffffffa0011f49>]  [<ffffffffa0011f49>] tipc_close_conn+0x59/0xb0 [tipc]
+RSP: 0018:ffff88001374dc98  EFLAGS: 00010292
+RAX: 0000000000000000 RBX: ffff880012ac09d8 RCX: 0000000000000000
+RDX: 0000000000000046 RSI: 0000000000000001 RDI: ffff880014360000
+RBP: ffff88001374dcb8 R08: 0000000000000001 R09: 0000000000000001
+R10: 0000000000000000 R11: 0000000000000000 R12: ffffffffa0016fa0
+R13: ffffffffa0017010 R14: ffffffffa0017010 R15: ffff880012ac09d8
+FS:  0000000000000000(0000) GS:ffff880016600000(0063) knlGS:00000000f76668d0
+CS:  0010 DS: 002b ES: 002b CR0: 000000008005003b
+CR2: 0000000000000020 CR3: 0000000012227000 CR4: 00000000000006e0
+Stack:
+ffff88001374dcb8 ffffffffa0016fa0 0000000000000000 0000000000000001
+ffff88001374dcf8 ffffffffa0012922 ffff88001374dce8 00000000ffffffea
+ffffffffa0017100 0000000000000000 ffff8800134241a8 ffffffffa0017150
+Call Trace:
+[<ffffffffa0012922>] tipc_server_stop+0xa2/0x1b0 [tipc]
+[<ffffffffa0009995>] tipc_subscr_stop+0x15/0x20 [tipc]
+[<ffffffffa00130f5>] tipc_core_stop+0x1d/0x33 [tipc]
+[<ffffffffa001f0d4>] tipc_init+0xd4/0xf8 [tipc]
+[<ffffffffa001f000>] ? 0xffffffffa001efff
+[<ffffffff8100023f>] do_one_initcall+0x3f/0x150
+[<ffffffff81082f4d>] ? __blocking_notifier_call_chain+0x7d/0xd0
+[<ffffffff810cc58a>] load_module+0x11aa/0x19c0
+[<ffffffff810c8d60>] ? show_initstate+0x50/0x50
+[<ffffffff8190311c>] ? retint_restore_args+0xe/0xe
+[<ffffffff810cce79>] SyS_init_module+0xd9/0x110
+[<ffffffff8190dc65>] sysenter_dispatch+0x7/0x1f
+Code: 6c 24 70 4c 89 ef e8 b7 04 8f e1 8b 73 04 4c 89 e7 e8 7c 9e 32 e1 41 83 ac 24
+b8 00 00 00 01 4c 89 ef e8 eb 0a 8f e1 48 8b 43 08 <4c> 8b 68 20 4d 8d a5 48 03 00
+00 4c 89 e7 e8 04 05 8f e1 4c 89
+RIP  [<ffffffffa0011f49>] tipc_close_conn+0x59/0xb0 [tipc]
+RSP <ffff88001374dc98>
+CR2: 0000000000000020
+---[ end trace b02321f40e4269a3 ]---
+
+We have the following call chain:
+
+tipc_core_start()
+    ret = tipc_subscr_start()
+        ret = tipc_server_start(){
+                  server->enabled = 1;
+                  ret = tipc_open_listening_sock()
+              }
+
+I.e., the server->enabled flag is unconditionally set to 1, whatever
+the return value of tipc_open_listening_sock().
+
+This causes a crash when tipc_core_start() tries to clean up
+resources after a failed initialization:
+
+    if (ret == failed)
+        tipc_subscr_stop()
+            tipc_server_stop(){
+                if (server->enabled)
+                    tipc_close_conn(){
+                        NULL reference of con->sock-sk
+                        OOPS!
+                }
+            }
+
+To avoid this, tipc_server_start() should only set server->enabled
+to 1 in case of a succesful socket creation. In case of failure, it
+should release all allocated resources before returning.
+
+Problem introduced as of v3.11-rc1~16^2~73^2~12 -- note that it won't
+be seen often; it takes a module load under memory constrained
+conditions in order to trigger the failure condition.
+
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+ net/tipc/server.c | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/net/tipc/server.c b/net/tipc/server.c
+index 19da5ab..fd3fa57 100644
+--- a/net/tipc/server.c
++++ b/net/tipc/server.c
+@@ -355,8 +355,12 @@ static int tipc_open_listening_sock(struct tipc_server *s)
+ 		return PTR_ERR(con);
+ 
+ 	sock = tipc_create_listen_sock(con);
+-	if (!sock)
++	if (!sock) {
++		idr_remove(&s->conn_idr, con->conid);
++		s->idr_in_use--;
++		kfree(con);
+ 		return -EINVAL;
++	}
+ 
+ 	tipc_register_callbacks(sock, con);
+ 	return 0;
+@@ -563,9 +567,14 @@ int tipc_server_start(struct tipc_server *s)
+ 		kmem_cache_destroy(s->rcvbuf_cache);
+ 		return ret;
+ 	}
++	ret = tipc_open_listening_sock(s);
++	if (ret < 0) {
++		tipc_work_stop(s);
++		kmem_cache_destroy(s->rcvbuf_cache);
++		return ret;
++	}
+ 	s->enabled = 1;
+-
+-	return tipc_open_listening_sock(s);
++	return ret;
+ }
+ 
+ void tipc_server_stop(struct tipc_server *s)
+-- 
+1.8.1.2
