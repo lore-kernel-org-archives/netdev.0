@@ -1,113 +1,105 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [RFC PATCH 1/3] of: provide a binding for the 'fixed-link' property
-Date: Tue, 30 Jul 2013 11:05:04 +0100
-Message-ID: <CAGVrzcZC9G2ny5rtojbzxmPu8-6EKQ_3io-+fxi61LLCt4Hk=w@mail.gmail.com>
-References: <1373902450-11857-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <1373902450-11857-2-git-send-email-thomas.petazzoni@free-electrons.com>
- <CACxGe6td6uM0v5w92xPVCaVH4tP4AJ-h4SnN-mFoz5gSSosnQw@mail.gmail.com> <20130730110705.3262bc3d@skate>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [patch] net_sched: stack info leak in cbq_dump_wrr()
+Date: Tue, 30 Jul 2013 12:18:03 +0200
+Message-ID: <51F792DB.5030405@bfs.de>
+References: <1375128751.2075.58.camel@joe-AO722>	<20130730065509.GB29160@mwanda>	<1375168352.2075.110.camel@joe-AO722> <20130730.001808.1649128808672716753.davem@davemloft.net>
+Reply-To: wharms@bfs.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Grant Likely <grant.likely@secretlab.ca>,
-	Rob Herring <rob.herring@calxeda.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	netdev <netdev@vger.kernel.org>,
-	devicetree-discuss <devicetree-discuss@lists.ozlabs.org>,
-	Lior Amsalem <alior@marvell.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Mark Rutland <mark.rutland@arm.com>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:43239 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758992Ab3G3KFp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 06:05:45 -0400
-Received: by mail-pb0-f44.google.com with SMTP id wy7so5786662pbc.31
-        for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 03:05:44 -0700 (PDT)
-In-Reply-To: <20130730110705.3262bc3d@skate>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: joe@perches.com, dan.carpenter@oracle.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20130730.001808.1649128808672716753.davem@davemloft.net>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Thomas,
 
-2013/7/30 Thomas Petazzoni <thomas.petazzoni@free-electrons.com>:
-> Dear Grant Likely,
->
-> On Tue, 23 Jul 2013 12:39:52 +0100, Grant Likely wrote:
->
->> > +Such a fixed link situation is described within an Ethernet device
->> > +Device Tree node using a 'fixed-link' property, composed of 5
->> > +elements:
->> > +
->> > + 1. A fake PHY ID, which must be unique accross all fixed-link PHYs in
->> > +    the system.
+
+Am 30.07.2013 09:18, schrieb David Miller:
+> From: Joe Perches <joe@perches.com>
+> Date: Tue, 30 Jul 2013 00:12:32 -0700
+> 
+>> On Tue, 2013-07-30 at 09:55 +0300, Dan Carpenter wrote:
+>>> On Mon, Jul 29, 2013 at 01:12:31PM -0700, Joe Perches wrote:
+>>>> On Mon, 2013-07-29 at 23:01 +0300, Dan Carpenter wrote:
+>>>>> On Mon, Jul 29, 2013 at 12:44:32PM -0700, Joe Perches wrote:
+>>>>>> On Mon, 2013-07-29 at 22:36 +0300, Dan Carpenter wrote:
+>>>>>>> opt.__reserved isn't cleared so we leak a byte of stack information.
+>>>>>> []
+>>>>>>> diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+>>>>>> []
+>>>>>>> @@ -1469,6 +1469,7 @@ static int cbq_dump_wrr(struct sk_buff *skb, struct cbq_class *cl)
+>>>>>>>  	opt.allot = cl->allot;
+>>>>>>>  	opt.priority = cl->priority + 1;
+>>>>>>>  	opt.cpriority = cl->cpriority + 1;
+>>>>>>> +	opt.__reserved = 0;
+>>>>>>>  	opt.weight = cl->weight;
+>>>>>>>  	if (nla_put(skb, TCA_CBQ_WRROPT, sizeof(opt), &opt))
+>>>>>>>  		goto nla_put_failure;
+>>>>>>
+>>>>>> Alignment isn't guaranteed here so it'd
+>>>>>> probably be better with a memset.
+>>>>>>
+>>>>>
+>>>>> Hm...  Which arches would align it differently?
+>>>>
+>>>> Hey Dan.
+>>>>
+>>>> None so far as I know, but what difference does it make
+>>>> when it's a general correctness issue?
+>>>>
+>>>
+>>> Because I would assume if these aren't aligned the same way we have
+>>> far more serious problems than just this one case.  It would change
+>>> the user space API and break network protocols.
 >>
->> That's just loony!  :)  Regardless of existing code doing this, it is
->> absolutely ridiculous to have it in the driver. The kernel should
->> handle generating a phy id transparently. I'd rather mark this field
->> as reserved in the binding and change the code to not care about it
->> anymore.
->
-> In fact, this value is used for two things:
->
->  * As the PHY address on the fake "fixed" MDIO bus.
->
->  * As the PHY identifier, as reported by the MII registers PHYS_ID1
->    (0x2) and PHYS_ID2 (0x3).
+>> <shrug>
+>>
+>> I didn't say it was necessary to be done here, I said it
+>> was a correctness issue.  I still believe that's true.
+>>
+>> The nla_put here is by structure, the struct is unpacked,
+>> and it's local to the arch, not a particular endian type.
+>>
+>> btw: to answer David's question, gcc 4.7 is smart enough
+>> to elide resetting values when the struct is initialized
+>> to 0 either with a memset or using {0}.
+> 
+> Ok, I've just commited the following, thanks everyone.
+> 
+> --------------------
+>>From a0db856a95a29efb1c23db55c02d9f0ff4f0db48 Mon Sep 17 00:00:00 2001
+> From: "David S. Miller" <davem@davemloft.net>
+> Date: Tue, 30 Jul 2013 00:16:21 -0700
+> Subject: [PATCH] net_sched: Fix stack info leak in cbq_dump_wrr().
+> 
+> Make sure the reserved fields, and padding (if any), are
+> fully initialized.
+> 
+> Based upon a patch by Dan Carpenter and feedback from
+> Joe Perches.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  net/sched/sch_cbq.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+> index 71a5688..7a42c81 100644
+> --- a/net/sched/sch_cbq.c
+> +++ b/net/sched/sch_cbq.c
+> @@ -1465,6 +1465,7 @@ static int cbq_dump_wrr(struct sk_buff *skb, struct cbq_class *cl)
+>  	unsigned char *b = skb_tail_pointer(skb);
+>  	struct tc_cbq_wrropt opt;
+>  
+> +	memset(&opt, 0, sizeof(opt));
+>  	opt.flags = 0;
+>  	opt.allot = cl->allot;
+>  	opt.priority = cl->priority + 1;
 
-Right, so I would start with disambiguating the two and just forget
-about PHYS_ID1 and PHYS_ID2 for the moment since they probably do not
-need to be per-PHY configurable.
+You can remove opt.flags = 0; then :=)
 
->
-> I think this doesn't make sense, because the two things are completely
-> unrelated. Ideally, we'd like the PHY identifier for fixed PHYs to be
-> something fixed, identical for all fixed PHYs. The problem is finding
-> an OUI and device number that is available for that, but maybe we can
-> ask the OpenMoko people to allocate one (see
-> http://wiki.openmoko.org/wiki/OUI).
-
-Well that would be ideal indeed, but I am wondering if we cannot just
-go with some kind of magic value here anyway, regardless of
-allocations since this is not a real hardware device. How about the
-Linux Foundation? Is not that the same problem as with gadget USB
-devices which should have some sort of real MAC address for instance?
-
->
-> Then, the PHY address could be generated dynamically. This would
-> require:
->
->  * Adding a fixed_phy_create() function that internally uses
->    fixed_phy_add(), but before that creates an unique PHY address for
->    this newly created PHY. Those unique addresses will be generated by
->    incrementing a global number of fixed PHYs, up to PHY_MAX_ADDR,
->    which is the maximum number of fixed PHYs that can anyway be
->    registered on the fixed MDIO bus.
-
-Even though these are purely software PHY implementations, I believe
-that some sort of predictability would be welcome, so I would just use
-the phy_id argument passed to fixed_phy_add() as the address on the
-fixed MDIO bus like it is today.
-
->
->    fixed_phy_create() would return this PHY address (positive) on
->    success, or a negative error code on failure.
->
->  * Change of_phy_register_fixed_link() to call fixed_phy_create()
->    instead of fixed_phy_add() and make it return the PHY address
->    allocated by fixed_phy_create().
->
->  * Add a of_phy_connect_fixed_link_direct() that is similar to
->    of_phy_connect_fixed_link() but takes an additional PHY address as
->    argument and uses that to generate the 'bus_id' used to find the
->    phy_device.
->
-> Grant, Mark, Florian, do you have other proposals?
-
-To sum up, let's just forget about the misuse of phy_id to fill in
-PHYS_ID1 and PHYS_ID2 registers and keep the existing code with a
-clear note that phy_id means the "PHY address on the fixed MDIO bus".
---
-Florian
+re,
+ wh
