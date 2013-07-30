@@ -1,149 +1,120 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net V2 2/2] macvtap: do not zerocopy if iov needs more
- pages than MAX_SKB_FRAGS
-Date: Tue, 30 Jul 2013 14:41:25 +0300
-Message-ID: <20130730114125.GB22218@redhat.com>
-References: <1374116116-43844-1-git-send-email-jasowang@redhat.com>
- <1374116116-43844-2-git-send-email-jasowang@redhat.com>
- <20130719050351.GB8537@redhat.com>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [RFC PATCH 1/3] of: provide a binding for the 'fixed-link' property
+Date: Tue, 30 Jul 2013 12:43:22 +0100
+Message-ID: <CAGVrzcZWHXfQP0=HASSybfLRzKJqmS5t_Y+H0se+VU5oHDWhCA@mail.gmail.com>
+References: <1373902450-11857-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <1373902450-11857-2-git-send-email-thomas.petazzoni@free-electrons.com>
+ <CACxGe6td6uM0v5w92xPVCaVH4tP4AJ-h4SnN-mFoz5gSSosnQw@mail.gmail.com>
+ <20130730110705.3262bc3d@skate> <CAGVrzcZC9G2ny5rtojbzxmPu8-6EKQ_3io-+fxi61LLCt4Hk=w@mail.gmail.com>
+ <20130730132318.0270fc4b@skate>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130719050351.GB8537@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	netdev <netdev@vger.kernel.org>,
+	devicetree-discuss <devicetree-discuss@lists.ozlabs.org>,
+	Lior Amsalem <alior@marvell.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Mark Rutland <mark.rutland@arm.com>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:57247 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752279Ab3G3LoC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 07:44:02 -0400
+Received: by mail-pb0-f49.google.com with SMTP id xb4so1653223pbc.22
+        for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 04:44:02 -0700 (PDT)
+In-Reply-To: <20130730132318.0270fc4b@skate>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 19, 2013 at 08:03:51AM +0300, Michael S. Tsirkin wrote:
-> On Thu, Jul 18, 2013 at 10:55:16AM +0800, Jason Wang wrote:
-> > We try to linearize part of the skb when the number of iov is greater than
-> > MAX_SKB_FRAGS. This is not enough since each single vector may occupy more than
-> > one pages, so zerocopy_sg_fromiovec() may still fail and may break the guest
-> > network.
-> > 
-> > Solve this problem by calculate the pages needed for iov before trying to do
-> > zerocopy and switch to use copy instead of zerocopy if it needs more than
-> > MAX_SKB_FRAGS.
-> > 
-> > This is done through introducing a new helper to count the pages for iov, and
-> > call uarg->callback() manually when switching from zerocopy to copy to notify
-> > vhost.
-> > 
-> > We can do further optimization on top.
-> > 
-> > This bug were introduced from b92946e2919134ebe2a4083e4302236295ea2a73
-> > (macvtap: zerocopy: validate vectors before building skb).
-> > 
-> > Cc: Michael S. Tsirkin <mst@redhat.com>
-> > Signed-off-by: Jason Wang <jasowang@redhat.com>
-> 
-> 
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+2013/7/30 Thomas Petazzoni <thomas.petazzoni@free-electrons.com>:
+> Dear Florian Fainelli,
+>
+> On Tue, 30 Jul 2013 11:05:04 +0100, Florian Fainelli wrote:
+>
+>> > In fact, this value is used for two things:
+>> >
+>> >  * As the PHY address on the fake "fixed" MDIO bus.
+>> >
+>> >  * As the PHY identifier, as reported by the MII registers PHYS_ID1
+>> >    (0x2) and PHYS_ID2 (0x3).
+>>
+>> Right, so I would start with disambiguating the two and just forget
+>> about PHYS_ID1 and PHYS_ID2 for the moment since they probably do not
+>> need to be per-PHY configurable.
+>
+> Agreed.
+>
+>> > I think this doesn't make sense, because the two things are completely
+>> > unrelated. Ideally, we'd like the PHY identifier for fixed PHYs to be
+>> > something fixed, identical for all fixed PHYs. The problem is finding
+>> > an OUI and device number that is available for that, but maybe we can
+>> > ask the OpenMoko people to allocate one (see
+>> > http://wiki.openmoko.org/wiki/OUI).
+>>
+>> Well that would be ideal indeed, but I am wondering if we cannot just
+>> go with some kind of magic value here anyway, regardless of
+>> allocations since this is not a real hardware device.
+>
+> Well, isn't that exactly what I'm proposing? Have a fixed value for
+> PHYS_ID1 and PHYS_ID2, that is used for /all/ fixed PHYs.
+>
+>> How about the Linux Foundation?
+>
+> I am concerned about the time it would take to get a new OUI
+> attributed. The OpenMoko OUI is said to be open for free and open
+> source projects, I think the Linux kernel qualifies :)
+>
+>> Is not that the same problem as with gadget USB
+>> devices which should have some sort of real MAC address for instance?
+>
+> They are either provided by the user or generated randomly, as far as I
+> can see.
+>
+>> > Then, the PHY address could be generated dynamically. This would
+>> > require:
+>> >
+>> >  * Adding a fixed_phy_create() function that internally uses
+>> >    fixed_phy_add(), but before that creates an unique PHY address for
+>> >    this newly created PHY. Those unique addresses will be generated by
+>> >    incrementing a global number of fixed PHYs, up to PHY_MAX_ADDR,
+>> >    which is the maximum number of fixed PHYs that can anyway be
+>> >    registered on the fixed MDIO bus.
+>>
+>> Even though these are purely software PHY implementations, I believe
+>> that some sort of predictability would be welcome, so I would just use
+>> the phy_id argument passed to fixed_phy_add() as the address on the
+>> fixed MDIO bus like it is today.
+>
+> Well, the whole starting point of this discussion is precisely that
+> both Grant and Mark disliked this phy ID that had to be globally
+> unique, and they wanted it to be dynamically allocated by the kernel,
+> because the DT shouldn't have to care about such internal details.
 
-Was this patch dropped?
-Any objections to merging it for 3.11 and stable?
+Ok, well, thinking about this some more, we do not need to be able to
+specify the fixed PHY fake MDIO address in the binding anyway. My
+concern was first with how to ensure that this would be relatively
+stable from an Ethernet driver and user-space perspective, but this
+will be stable if we allocate unique IDs in say, parsing/probing order
+anyway.
 
+>
+>> > Grant, Mark, Florian, do you have other proposals?
+>>
+>> To sum up, let's just forget about the misuse of phy_id to fill in
+>> PHYS_ID1 and PHYS_ID2 registers and keep the existing code with a
+>> clear note that phy_id means the "PHY address on the fixed MDIO bus".
+>
+> Except that Grant and Mark point was precisely that the "PHY address on
+> the fake MDIO bus" is not a description of the hardware, and therefore
+> shouldn't be mentioned in the Device Tree but instead taken care of by
+> the kernel itself.
 
-> > ---
-> > The patch is needed for -stable.
-> > Changes from V1:
-> > - remove the wrong comment
-> > ---
-> >  drivers/net/macvtap.c |   62 +++++++++++++++++++++++++++++-------------------
-> >  1 files changed, 37 insertions(+), 25 deletions(-)
-> > 
-> > diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> > index a7c5654..a98fb0e 100644
-> > --- a/drivers/net/macvtap.c
-> > +++ b/drivers/net/macvtap.c
-> > @@ -698,6 +698,28 @@ static int macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
-> >  	return 0;
-> >  }
-> >  
-> > +static unsigned long iov_pages(const struct iovec *iv, int offset,
-> > +			       unsigned long nr_segs)
-> > +{
-> > +	unsigned long seg, base;
-> > +	int pages = 0, len, size;
-> > +
-> > +	while (nr_segs && (offset >= iv->iov_len)) {
-> > +		offset -= iv->iov_len;
-> > +		++iv;
-> > +		--nr_segs;
-> > +	}
-> > +
-> > +	for (seg = 0; seg < nr_segs; seg++) {
-> > +		base = (unsigned long)iv[seg].iov_base + offset;
-> > +		len = iv[seg].iov_len - offset;
-> > +		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
-> > +		pages += size;
-> > +		offset = 0;
-> > +	}
-> > +
-> > +	return pages;
-> > +}
-> >  
-> >  /* Get packet from user space buffer */
-> >  static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
-> > @@ -744,31 +766,15 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
-> >  	if (unlikely(count > UIO_MAXIOV))
-> >  		goto err;
-> >  
-> > -	if (m && m->msg_control && sock_flag(&q->sk, SOCK_ZEROCOPY))
-> > -		zerocopy = true;
-> > -
-> > -	if (zerocopy) {
-> > -		/* Userspace may produce vectors with count greater than
-> > -		 * MAX_SKB_FRAGS, so we need to linearize parts of the skb
-> > -		 * to let the rest of data to be fit in the frags.
-> > -		 */
-> > -		if (count > MAX_SKB_FRAGS) {
-> > -			copylen = iov_length(iv, count - MAX_SKB_FRAGS);
-> > -			if (copylen < vnet_hdr_len)
-> > -				copylen = 0;
-> > -			else
-> > -				copylen -= vnet_hdr_len;
-> > -		}
-> > -		/* There are 256 bytes to be copied in skb, so there is enough
-> > -		 * room for skb expand head in case it is used.
-> > -		 * The rest buffer is mapped from userspace.
-> > -		 */
-> > -		if (copylen < vnet_hdr.hdr_len)
-> > -			copylen = vnet_hdr.hdr_len;
-> > -		if (!copylen)
-> > -			copylen = GOODCOPY_LEN;
-> > +	if (m && m->msg_control && sock_flag(&q->sk, SOCK_ZEROCOPY)) {
-> > +		copylen = vnet_hdr.hdr_len ? vnet_hdr.hdr_len : GOODCOPY_LEN;
-> >  		linear = copylen;
-> > -	} else {
-> > +		if (iov_pages(iv, vnet_hdr_len + copylen, count)
-> > +		    <= MAX_SKB_FRAGS)
-> > +			zerocopy = true;
-> > +	}
-> > +
-> > +	if (!zerocopy) {
-> >  		copylen = len;
-> >  		linear = vnet_hdr.hdr_len;
-> >  	}
-> > @@ -780,9 +786,15 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
-> >  
-> >  	if (zerocopy)
-> >  		err = zerocopy_sg_from_iovec(skb, iv, vnet_hdr_len, count);
-> > -	else
-> > +	else {
-> >  		err = skb_copy_datagram_from_iovec(skb, 0, iv, vnet_hdr_len,
-> >  						   len);
-> > +		if (!err && m && m->msg_control) {
-> > +			struct ubuf_info *uarg = m->msg_control;
-> > +			uarg->callback(uarg, false);
-> > +		}
-> > +	}
-> > +
-> >  	if (err)
-> >  		goto err_kfree;
-> >  
-> > -- 
-> > 1.7.1
+Right, that works for me now.
+--
+Florian
