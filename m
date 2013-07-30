@@ -1,46 +1,29 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH v3 1/3] net/usb/r815x: replace USB buffer from stack to
- DMA-able
-Date: Tue, 30 Jul 2013 11:58:08 -0700
-Message-ID: <20130730185808.GA25353@kroah.com>
-References: <D7C722C73C7A400780358D0376412267@realtek.com.tw>
- <1375172936-4145-1-git-send-email-hayeswang@realtek.com>
- <20130730140059.GE27962@kroah.com>
- <20130730.113329.1450325193505423812.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net V2 1/2] tuntap: do not zerocopy if iov needs more
+ pages than MAX_SKB_FRAGS
+Date: Tue, 30 Jul 2013 12:55:06 -0700 (PDT)
+Message-ID: <20130730.125506.1487990387098277825.davem@davemloft.net>
+References: <1374116116-43844-1-git-send-email-jasowang@redhat.com>
+	<20130719050335.GA8537@redhat.com>
+	<20130730114113.GA22218@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hayeswang@realtek.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-	nic_swsd@realtek.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jasowang@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: mst@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130730.113329.1450325193505423812.davem@davemloft.net>
+In-Reply-To: <20130730114113.GA22218@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 30, 2013 at 11:33:29AM -0700, David Miller wrote:
-> From: Greg KH <gregkh@linuxfoundation.org>
-> Date: Tue, 30 Jul 2013 07:00:59 -0700
-> 
-> > This call is so slow, you can afford to make a call to kmalloc for the
-> > data, as it sure just did for other structures it needed :)
-> 
-> I told him to implement things this way, to avoid calling kmalloc every
-> single register access.
-> 
-> Using kmalloc all the time makes the access fragile, since a badly timed
-> call during high memory pressure can fail.
-> 
-> I'd rather the potential failure happen at one time, probe time.
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Tue, 30 Jul 2013 14:41:13 +0300
 
-I agree, but the call usb_control_message() also does a tiny kmalloc(),
-and is _very_ slow and if you have high memory pressure, doing USB
-messages like this is not what you want to do anyway (the host
-controller does it's own allocations and the like as well.)
+> Was this patch dropped?
 
-USB isn't "fast" like most normal networking physical layers :)
+No, it's commit 885291761dba2bfe04df4c0f7bb75e4c920ab82e
 
-thanks,
+> Any objections to merging it for 3.11 and stable?
 
-greg k-h
+No objections, queued up for -stable.
