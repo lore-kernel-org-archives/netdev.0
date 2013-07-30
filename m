@@ -1,29 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] openvswitch:: link upper device for port
- devices
-Date: Tue, 30 Jul 2013 00:07:09 -0700 (PDT)
-Message-ID: <20130730.000709.1445016739803018253.davem@davemloft.net>
-References: <1374840114-5622-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [RFC PATCH - diffstat only] include/net: Remove extern from
+ function prototypes
+Date: Tue, 30 Jul 2013 00:10:01 -0700 (PDT)
+Message-ID: <20130730.001001.618776305200728182.davem@davemloft.net>
+References: <1374602291.3387.17.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse@nicira.com, dev@openvswitch.org
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58126 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753194Ab3G3HHK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 03:07:10 -0400
-In-Reply-To: <1374840114-5622-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1374602291.3387.17.camel@joe-AO722>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Fri, 26 Jul 2013 14:01:54 +0200
+From: Joe Perches <joe@perches.com>
+Date: Tue, 23 Jul 2013 10:58:11 -0700
 
-> Link upper device properly. That will make IFLA_MASTER filled up.
-> Set the master to port 0 of the datapath under which the port belongs.
+> Function prototypes don't need to be declared
+> extern in .h files.  It's assumed by the compiler
+> and is as unnecessary as using auto is when
+> declaring automatic/local variables in a block.
 > 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> I ran a script to remove these unnecessary extern
+> uses from function prototypes in include/net/ as
+> well as reflow the function arguments to 80 cols.
+> 
+> It's 370KB, far too large to submit at once.
+> 
+> Of course it could be broken into multiple patches
+> for the various directories/subsystems.
 
-Jesse you got this?
+No objections from me.
+
+Please submit a small number at a time so that my already overflowing
+backlog isn't overwhelmed even more.
+
+Thanks.
