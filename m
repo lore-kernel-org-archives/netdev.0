@@ -1,36 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: add tcp_syncookies mode to allow
- unconditionally generation of syncookies
-Date: Tue, 30 Jul 2013 16:18:02 -0700 (PDT)
-Message-ID: <20130730.161802.528934142494009234.davem@davemloft.net>
-References: <20130726154323.GA12067@order.stressinduktion.org>
+Subject: Re: [PATCH] sky2: detect and prevent kernel panic from a possible
+ faulty hardware
+Date: Tue, 30 Jul 2013 16:19:06 -0700 (PDT)
+Message-ID: <20130730.161906.1898764862564749288.davem@davemloft.net>
+References: <1374957354-10142-1-git-send-email-sam8641@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, fw@strlen.de
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43286 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758221Ab3G3XSC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 19:18:02 -0400
-In-Reply-To: <20130726154323.GA12067@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mlindner@marvell.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: sam8641@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1374957354-10142-1-git-send-email-sam8641@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri, 26 Jul 2013 17:43:23 +0200
+From: Samuel Williams <sam8641@gmail.com>
+Date: Sat, 27 Jul 2013 15:35:54 -0500
 
-> From the documentation update:
-> | If you want to test which effects syncookies have to your
-> | network connections you can set this knob to 2 to enable
-> | unconditionally generation of syncookies.
+> A possible faulty hardware might interrupt with a status of 0xffffffff which
+> may kernel panic if sky2 driver tries to handle it. Detecting this problem
+> may avoid kernel panic.
 > 
-> Original idea and first implementation by Eric Dumazet.
-> 
-> Cc: Florian Westphal <fw@strlen.de>
-> Cc: David Miller <davem@davemloft.net>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Samuel Williams <sam8641@gmail.com>
 
-Applied.
+Sure, but then the device is basically just going to stop.
+
+I think this change needs to be more comprehensive, for example it
+needs to fully reset the device and try to get it operational again.
