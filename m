@@ -1,116 +1,146 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [RFC PATCH 1/3] of: provide a binding for the 'fixed-link'
- property
-Date: Tue, 30 Jul 2013 13:23:18 +0200
-Message-ID: <20130730132318.0270fc4b@skate>
-References: <1373902450-11857-1-git-send-email-thomas.petazzoni@free-electrons.com>
-	<1373902450-11857-2-git-send-email-thomas.petazzoni@free-electrons.com>
-	<CACxGe6td6uM0v5w92xPVCaVH4tP4AJ-h4SnN-mFoz5gSSosnQw@mail.gmail.com>
-	<20130730110705.3262bc3d@skate>
-	<CAGVrzcZC9G2ny5rtojbzxmPu8-6EKQ_3io-+fxi61LLCt4Hk=w@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net V2 1/2] tuntap: do not zerocopy if iov needs more
+ pages than MAX_SKB_FRAGS
+Date: Tue, 30 Jul 2013 14:41:13 +0300
+Message-ID: <20130730114113.GA22218@redhat.com>
+References: <1374116116-43844-1-git-send-email-jasowang@redhat.com>
+ <20130719050335.GA8537@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Grant Likely <grant.likely@secretlab.ca>,
-	Rob Herring <rob.herring@calxeda.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	netdev <netdev@vger.kernel.org>,
-	devicetree-discuss <devicetree-discuss@lists.ozlabs.org>,
-	Lior Amsalem <alior@marvell.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Mark Rutland <mark.rutland@arm.com>
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([94.23.35.102]:40771 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751719Ab3G3LXW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 07:23:22 -0400
-In-Reply-To: <CAGVrzcZC9G2ny5rtojbzxmPu8-6EKQ_3io-+fxi61LLCt4Hk=w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130719050335.GA8537@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear Florian Fainelli,
-
-On Tue, 30 Jul 2013 11:05:04 +0100, Florian Fainelli wrote:
-
-> > In fact, this value is used for two things:
-> >
-> >  * As the PHY address on the fake "fixed" MDIO bus.
-> >
-> >  * As the PHY identifier, as reported by the MII registers PHYS_ID1
-> >    (0x2) and PHYS_ID2 (0x3).
+On Fri, Jul 19, 2013 at 08:03:35AM +0300, Michael S. Tsirkin wrote:
+> On Thu, Jul 18, 2013 at 10:55:15AM +0800, Jason Wang wrote:
+> > We try to linearize part of the skb when the number of iov is greater than
+> > MAX_SKB_FRAGS. This is not enough since each single vector may occupy more than
+> > one pages, so zerocopy_sg_fromiovec() may still fail and may break the guest
+> > network.
+> > 
+> > Solve this problem by calculate the pages needed for iov before trying to do
+> > zerocopy and switch to use copy instead of zerocopy if it needs more than
+> > MAX_SKB_FRAGS.
+> > 
+> > This is done through introducing a new helper to count the pages for iov, and
+> > call uarg->callback() manually when switching from zerocopy to copy to notify
+> > vhost.
+> > 
+> > We can do further optimization on top.
+> > 
+> > The bug were introduced from commit 0690899b4d4501b3505be069b9a687e68ccbe15b
+> > (tun: experimental zero copy tx support)
+> > 
+> > Cc: Michael S. Tsirkin <mst@redhat.com>
+> > Signed-off-by: Jason Wang <jasowang@redhat.com>
 > 
-> Right, so I would start with disambiguating the two and just forget
-> about PHYS_ID1 and PHYS_ID2 for the moment since they probably do not
-> need to be per-PHY configurable.
-
-Agreed.
-
-> > I think this doesn't make sense, because the two things are completely
-> > unrelated. Ideally, we'd like the PHY identifier for fixed PHYs to be
-> > something fixed, identical for all fixed PHYs. The problem is finding
-> > an OUI and device number that is available for that, but maybe we can
-> > ask the OpenMoko people to allocate one (see
-> > http://wiki.openmoko.org/wiki/OUI).
 > 
-> Well that would be ideal indeed, but I am wondering if we cannot just
-> go with some kind of magic value here anyway, regardless of
-> allocations since this is not a real hardware device.
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-Well, isn't that exactly what I'm proposing? Have a fixed value for
-PHYS_ID1 and PHYS_ID2, that is used for /all/ fixed PHYs.
+Was this patch dropped?
+Any objections to merging it for 3.11 and stable?
 
-> How about the Linux Foundation?
-
-I am concerned about the time it would take to get a new OUI
-attributed. The OpenMoko OUI is said to be open for free and open
-source projects, I think the Linux kernel qualifies :)
-
-> Is not that the same problem as with gadget USB
-> devices which should have some sort of real MAC address for instance?
-
-They are either provided by the user or generated randomly, as far as I
-can see.
-
-> > Then, the PHY address could be generated dynamically. This would
-> > require:
-> >
-> >  * Adding a fixed_phy_create() function that internally uses
-> >    fixed_phy_add(), but before that creates an unique PHY address for
-> >    this newly created PHY. Those unique addresses will be generated by
-> >    incrementing a global number of fixed PHYs, up to PHY_MAX_ADDR,
-> >    which is the maximum number of fixed PHYs that can anyway be
-> >    registered on the fixed MDIO bus.
-> 
-> Even though these are purely software PHY implementations, I believe
-> that some sort of predictability would be welcome, so I would just use
-> the phy_id argument passed to fixed_phy_add() as the address on the
-> fixed MDIO bus like it is today.
-
-Well, the whole starting point of this discussion is precisely that
-both Grant and Mark disliked this phy ID that had to be globally
-unique, and they wanted it to be dynamically allocated by the kernel,
-because the DT shouldn't have to care about such internal details.
-
-> > Grant, Mark, Florian, do you have other proposals?
-> 
-> To sum up, let's just forget about the misuse of phy_id to fill in
-> PHYS_ID1 and PHYS_ID2 registers and keep the existing code with a
-> clear note that phy_id means the "PHY address on the fixed MDIO bus".
-
-Except that Grant and Mark point was precisely that the "PHY address on
-the fake MDIO bus" is not a description of the hardware, and therefore
-shouldn't be mentioned in the Device Tree but instead taken care of by
-the kernel itself.
-
-Best regards,
-
-Thomas
--- 
-Thomas Petazzoni, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+> > ---
+> > The patch is needed fot -stable.
+> > ---
+> >  drivers/net/tun.c |   62 ++++++++++++++++++++++++++++++++--------------------
+> >  1 files changed, 38 insertions(+), 24 deletions(-)
+> > 
+> > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> > index 5cdcf92..db690a3 100644
+> > --- a/drivers/net/tun.c
+> > +++ b/drivers/net/tun.c
+> > @@ -1035,6 +1035,29 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
+> >  	return 0;
+> >  }
+> >  
+> > +static unsigned long iov_pages(const struct iovec *iv, int offset,
+> > +			       unsigned long nr_segs)
+> > +{
+> > +	unsigned long seg, base;
+> > +	int pages = 0, len, size;
+> > +
+> > +	while (nr_segs && (offset >= iv->iov_len)) {
+> > +		offset -= iv->iov_len;
+> > +		++iv;
+> > +		--nr_segs;
+> > +	}
+> > +
+> > +	for (seg = 0; seg < nr_segs; seg++) {
+> > +		base = (unsigned long)iv[seg].iov_base + offset;
+> > +		len = iv[seg].iov_len - offset;
+> > +		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
+> > +		pages += size;
+> > +		offset = 0;
+> > +	}
+> > +
+> > +	return pages;
+> > +}
+> > +
+> >  /* Get packet from user space buffer */
+> >  static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+> >  			    void *msg_control, const struct iovec *iv,
+> > @@ -1082,32 +1105,18 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+> >  			return -EINVAL;
+> >  	}
+> >  
+> > -	if (msg_control)
+> > -		zerocopy = true;
+> > -
+> > -	if (zerocopy) {
+> > -		/* Userspace may produce vectors with count greater than
+> > -		 * MAX_SKB_FRAGS, so we need to linearize parts of the skb
+> > -		 * to let the rest of data to be fit in the frags.
+> > -		 */
+> > -		if (count > MAX_SKB_FRAGS) {
+> > -			copylen = iov_length(iv, count - MAX_SKB_FRAGS);
+> > -			if (copylen < offset)
+> > -				copylen = 0;
+> > -			else
+> > -				copylen -= offset;
+> > -		} else
+> > -				copylen = 0;
+> > -		/* There are 256 bytes to be copied in skb, so there is enough
+> > -		 * room for skb expand head in case it is used.
+> > +	if (msg_control) {
+> > +		/* There are 256 bytes to be copied in skb, so there is
+> > +		 * enough room for skb expand head in case it is used.
+> >  		 * The rest of the buffer is mapped from userspace.
+> >  		 */
+> > -		if (copylen < gso.hdr_len)
+> > -			copylen = gso.hdr_len;
+> > -		if (!copylen)
+> > -			copylen = GOODCOPY_LEN;
+> > +		copylen = gso.hdr_len ? gso.hdr_len : GOODCOPY_LEN;
+> >  		linear = copylen;
+> > -	} else {
+> > +		if (iov_pages(iv, offset + copylen, count) <= MAX_SKB_FRAGS)
+> > +			zerocopy = true;
+> > +	}
+> > +
+> > +	if (!zerocopy) {
+> >  		copylen = len;
+> >  		linear = gso.hdr_len;
+> >  	}
+> > @@ -1121,8 +1130,13 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+> >  
+> >  	if (zerocopy)
+> >  		err = zerocopy_sg_from_iovec(skb, iv, offset, count);
+> > -	else
+> > +	else {
+> >  		err = skb_copy_datagram_from_iovec(skb, 0, iv, offset, len);
+> > +		if (!err && msg_control) {
+> > +			struct ubuf_info *uarg = msg_control;
+> > +			uarg->callback(uarg, false);
+> > +		}
+> > +	}
+> >  
+> >  	if (err) {
+> >  		tun->dev->stats.rx_dropped++;
+> > -- 
+> > 1.7.1
