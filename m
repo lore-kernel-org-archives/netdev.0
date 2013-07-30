@@ -1,175 +1,95 @@
-From: Luis Henriques <luis.henriques@canonical.com>
-Subject: Re: [net PATCH] atl1c: Fix misuse of netdev_alloc_skb in refilling rx ring
-Date: Tue, 30 Jul 2013 09:53:02 +0100
-Message-ID: <87fvuwh1jl.fsf@canonical.com>
-References: <87k3kbdcmy.fsf@canonical.com>
-	<1374960610.3607.13.camel@deadeye.wl.decadent.org.uk>
-	<1374969583.3669.23.camel@edumazet-glaptop>
-	<20130727.200205.67471633133830510.davem@davemloft.net>
-	<20130728104446.GB9876@neilslaptop.think-freely.org>
-	<1375028154.3669.30.camel@edumazet-glaptop>
-	<20130728185318.GA10795@neilslaptop.think-freely.org>
-	<1375042972.2546.17.camel@deadeye.wl.decadent.org.uk>
-	<1375052482.3669.54.camel@edumazet-glaptop>
-	<1375053654.3669.58.camel@edumazet-glaptop>
-	<877gg9wv08.fsf@canonical.com>
-	<1375095442.3669.67.camel@edumazet-glaptop>
-	<87y58pva88.fsf@canonical.com>
-	<1375111804.10515.1.camel@edumazet-glaptop>
-	<1375118644.10515.18.camel@edumazet-glaptop>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [RFC PATCH 1/3] of: provide a binding for the 'fixed-link'
+ property
+Date: Tue, 30 Jul 2013 11:07:05 +0200
+Message-ID: <20130730110705.3262bc3d@skate>
+References: <1373902450-11857-1-git-send-email-thomas.petazzoni@free-electrons.com>
+	<1373902450-11857-2-git-send-email-thomas.petazzoni@free-electrons.com>
+	<CACxGe6td6uM0v5w92xPVCaVH4tP4AJ-h4SnN-mFoz5gSSosnQw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jcliburn@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Rob Herring <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <florian@openwrt.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	netdev <netdev@vger.kernel.org>,
+	devicetree-discuss <devicetree-discuss@lists.ozlabs.org>,
+	Lior Amsalem <alior@marvell.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Mark Rutland <mark.rutland@arm.com>
+To: Grant Likely <grant.likely@secretlab.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:52679 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755432Ab3G3IxJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 04:53:09 -0400
-In-Reply-To: <1375118644.10515.18.camel@edumazet-glaptop> (Eric Dumazet's
-	message of "Mon, 29 Jul 2013 10:24:04 -0700")
+Received: from mail.free-electrons.com ([94.23.35.102]:39866 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752134Ab3G3JHI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 05:07:08 -0400
+In-Reply-To: <CACxGe6td6uM0v5w92xPVCaVH4tP4AJ-h4SnN-mFoz5gSSosnQw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
+Dear Grant Likely,
 
-> From: Eric Dumazet <edumazet@google.com>
->
-> On Mon, 2013-07-29 at 08:30 -0700, Eric Dumazet wrote:
->> On Mon, 2013-07-29 at 13:09 +0100, Luis Henriques wrote:
->> 
->> > 
->> > I confirm that I can't reproduce the issue using this patch.
->> > 
->> 
->> Thanks, I'll send a polished patch, as this one had an error if
->> build_skb() returns NULL (in case sk_buff allocation fails)
->
-> Please try the following patch : It should use 2K frags instead of 4K
-> for normal 1500 mtu
+On Tue, 23 Jul 2013 12:39:52 +0100, Grant Likely wrote:
 
-This patch seems to work fine as well -- I'm unable to reproduce the
-issue.
+> > +Such a fixed link situation is described within an Ethernet device
+> > +Device Tree node using a 'fixed-link' property, composed of 5
+> > +elements:
+> > +
+> > + 1. A fake PHY ID, which must be unique accross all fixed-link PHYs in
+> > +    the system.
+> 
+> That's just loony!  :)  Regardless of existing code doing this, it is
+> absolutely ridiculous to have it in the driver. The kernel should
+> handle generating a phy id transparently. I'd rather mark this field
+> as reserved in the binding and change the code to not care about it
+> anymore.
 
-Cheers,
+In fact, this value is used for two things:
+
+ * As the PHY address on the fake "fixed" MDIO bus.
+
+ * As the PHY identifier, as reported by the MII registers PHYS_ID1
+   (0x2) and PHYS_ID2 (0x3).
+
+I think this doesn't make sense, because the two things are completely
+unrelated. Ideally, we'd like the PHY identifier for fixed PHYs to be
+something fixed, identical for all fixed PHYs. The problem is finding
+an OUI and device number that is available for that, but maybe we can
+ask the OpenMoko people to allocate one (see
+http://wiki.openmoko.org/wiki/OUI).
+
+Then, the PHY address could be generated dynamically. This would
+require:
+
+ * Adding a fixed_phy_create() function that internally uses
+   fixed_phy_add(), but before that creates an unique PHY address for
+   this newly created PHY. Those unique addresses will be generated by
+   incrementing a global number of fixed PHYs, up to PHY_MAX_ADDR,
+   which is the maximum number of fixed PHYs that can anyway be
+   registered on the fixed MDIO bus.
+
+   fixed_phy_create() would return this PHY address (positive) on
+   success, or a negative error code on failure.
+
+ * Change of_phy_register_fixed_link() to call fixed_phy_create()
+   instead of fixed_phy_add() and make it return the PHY address
+   allocated by fixed_phy_create().
+
+ * Add a of_phy_connect_fixed_link_direct() that is similar to
+   of_phy_connect_fixed_link() but takes an additional PHY address as
+   argument and uses that to generate the 'bus_id' used to find the
+   phy_device.
+
+Grant, Mark, Florian, do you have other proposals?
+
+Thanks,
+
+Thomas Petazzoni
 -- 
-Luis
-
-
->
-> Thanks !
->
-> [PATCH] atl1c: use custom skb allocator
->
-> We had reports ( https://bugzilla.kernel.org/show_bug.cgi?id=54021 )
-> that using high order pages for skb allocations is problematic for atl1c
->
-> We do not know exactly what the problem is, but we suspect that crossing
-> 4K pages is not well supported by this hardware.
->
-> Use a custom allocator, using page allocator and 2K fragments for
-> optimal stack behavior. We might make this allocator generic
-> in future kernels.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Luis Henriques <luis.henriques@canonical.com>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> ---
->  drivers/net/ethernet/atheros/atl1c/atl1c.h      |    3 +
->  drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   40 +++++++++++++-
->  2 files changed, 42 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c.h b/drivers/net/ethernet/atheros/atl1c/atl1c.h
-> index b2bf324..0f05565 100644
-> --- a/drivers/net/ethernet/atheros/atl1c/atl1c.h
-> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c.h
-> @@ -520,6 +520,9 @@ struct atl1c_adapter {
->  	struct net_device   *netdev;
->  	struct pci_dev      *pdev;
->  	struct napi_struct  napi;
-> +	struct page         *rx_page;
-> +	unsigned int	    rx_page_offset;
-> +	unsigned int	    rx_frag_size;
->  	struct atl1c_hw        hw;
->  	struct atl1c_hw_stats  hw_stats;
->  	struct mii_if_info  mii;    /* MII interface info */
-> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> index 786a874..a36a760 100644
-> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> @@ -481,10 +481,15 @@ static int atl1c_set_mac_addr(struct net_device *netdev, void *p)
->  static void atl1c_set_rxbufsize(struct atl1c_adapter *adapter,
->  				struct net_device *dev)
->  {
-> +	unsigned int head_size;
->  	int mtu = dev->mtu;
->  
->  	adapter->rx_buffer_len = mtu > AT_RX_BUF_SIZE ?
->  		roundup(mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN, 8) : AT_RX_BUF_SIZE;
-> +
-> +	head_size = SKB_DATA_ALIGN(adapter->rx_buffer_len + NET_SKB_PAD) +
-> +		    SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-> +	adapter->rx_frag_size = roundup_pow_of_two(head_size);
->  }
->  
->  static netdev_features_t atl1c_fix_features(struct net_device *netdev,
-> @@ -952,6 +957,10 @@ static void atl1c_free_ring_resources(struct atl1c_adapter *adapter)
->  		kfree(adapter->tpd_ring[0].buffer_info);
->  		adapter->tpd_ring[0].buffer_info = NULL;
->  	}
-> +	if (adapter->rx_page) {
-> +		put_page(adapter->rx_page);
-> +		adapter->rx_page = NULL;
-> +	}
->  }
->  
->  /**
-> @@ -1639,6 +1648,35 @@ static inline void atl1c_rx_checksum(struct atl1c_adapter *adapter,
->  	skb_checksum_none_assert(skb);
->  }
->  
-> +static struct sk_buff *atl1c_alloc_skb(struct atl1c_adapter *adapter)
-> +{
-> +	struct sk_buff *skb;
-> +	struct page *page;
-> +
-> +	if (adapter->rx_frag_size > PAGE_SIZE)
-> +		return netdev_alloc_skb(adapter->netdev,
-> +					adapter->rx_buffer_len);
-> +
-> +	page = adapter->rx_page;
-> +	if (!page) {
-> +		adapter->rx_page = page = alloc_page(GFP_ATOMIC);
-> +		if (unlikely(!page))
-> +			return NULL;
-> +		adapter->rx_page_offset = 0;
-> +	}
-> +
-> +	skb = build_skb(page_address(page) + adapter->rx_page_offset,
-> +			adapter->rx_frag_size);
-> +	if (likely(skb)) {
-> +		adapter->rx_page_offset += adapter->rx_frag_size;
-> +		if (adapter->rx_page_offset >= PAGE_SIZE)
-> +			adapter->rx_page = NULL;
-> +		else
-> +			get_page(page);
-> +	}
-> +	return skb;
-> +}
-> +
->  static int atl1c_alloc_rx_buffer(struct atl1c_adapter *adapter)
->  {
->  	struct atl1c_rfd_ring *rfd_ring = &adapter->rfd_ring;
-> @@ -1660,7 +1698,7 @@ static int atl1c_alloc_rx_buffer(struct atl1c_adapter *adapter)
->  	while (next_info->flags & ATL1C_BUFFER_FREE) {
->  		rfd_desc = ATL1C_RFD_DESC(rfd_ring, rfd_next_to_use);
->  
-> -		skb = netdev_alloc_skb(adapter->netdev, adapter->rx_buffer_len);
-> +		skb = atl1c_alloc_skb(adapter);
->  		if (unlikely(!skb)) {
->  			if (netif_msg_rx_err(adapter))
->  				dev_warn(&pdev->dev, "alloc rx buffer failed\n");
->
+Thomas Petazzoni, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
