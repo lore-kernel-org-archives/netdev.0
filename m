@@ -1,43 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch -mainline v2] af_key: more info leaks in pfkey messages
-Date: Tue, 30 Jul 2013 16:26:50 -0700 (PDT)
-Message-ID: <20130730.162650.1407736100425232005.davem@davemloft.net>
-References: <20130728200444.GA8684@elgon.mountain>
-	<20130728.132128.473273050357111535.davem@davemloft.net>
-	<20130729091653.GS3109@secunet.com>
+Subject: Re: [PATCH] libceph: fix deadlock in ceph_build_auth()
+Date: Tue, 30 Jul 2013 16:27:14 -0700 (PDT)
+Message-ID: <20130730.162714.310395724208648975.davem@davemloft.net>
+References: <1375066688-12367-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dan.carpenter@oracle.com, herbert@gondor.hengli.com.au,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	minipli@googlemail.com
-To: steffen.klassert@secunet.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20130729091653.GS3109@secunet.com>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: sage@inktank.com, ceph-devel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ldv-project@linuxtesting.org
+To: khoroshilov@ispras.ru
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43374 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758292Ab3G3X1P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 19:27:15 -0400
+In-Reply-To: <1375066688-12367-1-git-send-email-khoroshilov@ispras.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Mon, 29 Jul 2013 11:16:53 +0200
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Date: Mon, 29 Jul 2013 06:58:08 +0400
 
-> On Sun, Jul 28, 2013 at 01:21:28PM -0700, David Miller wrote:
->> From: Dan Carpenter <dan.carpenter@oracle.com>
->> Date: Sun, 28 Jul 2013 23:04:45 +0300
->> 
->> > This is inspired by a5cc68f3d6 "af_key: fix info leaks in notify
->> > messages".  There are some struct members which don't get initialized
->> > and could disclose small amounts of private information.
->> > 
->> > Acked-by: Mathias Krause <minipli@googlemail.com>
->> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->> > ---
->> > v2: set ->sadb_x_policy_priority correctly instead of just clearing it
->> 
->> I'll apply this as soon as Steffen reviews it.
+> ceph_build_auth() locks ac->mutex and then calls ceph_auth_build_hello()
+> that locks the same mutex, i.e. bring itself to deadlock.
 > 
-> The patch looks good, for the case you want to apply it directly to
-> the net tree:
+> The patch moves actual code from ceph_auth_build_hello() to
+> ceph_build_hello_auth_request() that should be called with ac->mutex held
+> and makes ceph_build_auth() calling it.
+> ceph_auth_build_hello() is left with untouched semantics as a wrapper
+> around ceph_build_hello_auth_request().
 > 
-> Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
+> Found by Linux Driver Verification project (linuxtesting.org).
+> 
+> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
 
-Applied and queued up for -stable, thanks everyone.
+I'm assume the ceph developers will pick this up, thanks.
