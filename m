@@ -1,30 +1,53 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] net_sched: info leak in atm_tc_dump_class()
-Date: Tue, 30 Jul 2013 13:23:39 +0300
-Message-ID: <20130730102339.GA14869@elgon.mountain>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH RFC] xfrm{4,6}: only report errors back to local sockets
+ if we don't cross address family
+Date: Tue, 30 Jul 2013 12:26:11 +0200
+Message-ID: <20130730102611.GB25511@secunet.com>
+References: <20130729145017.GD2490@order.stressinduktion.org>
+ <20130730082118.GA25511@secunet.com>
+ <20130730083017.GA7068@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, vi0oss@gmail.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:33891 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752256Ab3G3K0O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Jul 2013 06:26:14 -0400
 Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20130730083017.GA7068@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The "pvc" struct has a hole after pvc.sap_family which is not cleared.
+On Tue, Jul 30, 2013 at 10:30:17AM +0200, Hannes Frederic Sowa wrote:
+> On Tue, Jul 30, 2013 at 10:21:18AM +0200, Steffen Klassert wrote:
+> > On Mon, Jul 29, 2013 at 04:50:17PM +0200, Hannes Frederic Sowa wrote:
+> > > xfrm6_local_error/xfrm4_tunnel_check_size report mtu errors back to a
+> > > socket in case it is locally generated. If the packet first traversed
+> > > a 6in4/4in6 tunnel before passing the xfrm layer, we could get a panic
+> > > because of address family type mismatch in the error reporting functions.
+> > > 
+> > 
+> > So the skb is still owned by a socket of the inner address family.
+> > Is this intentional? Maybe the ndo_start_xmit() function of the
+> > tunnel device should orphan the skb if we tunnel the packet
+> > through a different address family.
+> 
+> I thought about this, too. But then we would stop accounting the data
+> to the socket while it is travelling the stack. I don't know about the
+> possible problems resulting from this.
+> 
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+I'm also not absolutely sure, but we reinsert the packet to
+the ipv4/ipv6 output path which is also used to output forwarded
+packets. So the code should be prepared for handling a skb without
+socket context.
 
-diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
-index ca8e0a5..1f9c314 100644
---- a/net/sched/sch_atm.c
-+++ b/net/sched/sch_atm.c
-@@ -605,6 +605,7 @@ static int atm_tc_dump_class(struct Qdisc *sch, unsigned long cl,
- 		struct sockaddr_atmpvc pvc;
- 		int state;
- 
-+		memset(&pvc, 0, sizeof(pvc));
- 		pvc.sap_family = AF_ATMPVC;
- 		pvc.sap_addr.itf = flow->vcc->dev ? flow->vcc->dev->number : -1;
- 		pvc.sap_addr.vpi = flow->vcc->vpi;
+There are already situations where we orphan the skb in some
+tunnel xmit functions. For example if we tunnel through
+another namespace.
+
+Lets see if anyone else has an opinion to that. I'll go
+and look what we can do if we have to fix it in the IPsec
+code in the meantime.
