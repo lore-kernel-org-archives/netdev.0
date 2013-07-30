@@ -1,78 +1,51 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] vxlan: fix rcu related warnings
-Date: Tue, 30 Jul 2013 13:18:44 -0700
-Message-ID: <20130730131844.7d3f92de@nehalam.linuxnetplumber.net>
+From: Benjamin Poirier <benjamin.poirier@gmail.com>
+Subject: Re: More details on why received UDP packets are treated as errors?
+Date: Tue, 30 Jul 2013 16:38:10 -0400
+Message-ID: <20130730203810.GC24932@d2.synalogic.ca>
+References: <51F6B2AB.5050607@candelatech.com>
+ <1375129292.10515.21.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Thomas Richter <tmricht@linux.vnet.ibm.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Mike Rapoport <mike.rapoport@ravellosystems.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Greear <greearb@candelatech.com>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:34607 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751777Ab3G3USs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 16:18:48 -0400
-Received: by mail-pd0-f179.google.com with SMTP id v10so6900017pde.38
-        for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 13:18:48 -0700 (PDT)
+Received: from mail-qc0-f178.google.com ([209.85.216.178]:48633 "EHLO
+	mail-qc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757122Ab3G3UiO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 16:38:14 -0400
+Received: by mail-qc0-f178.google.com with SMTP id s1so1519788qcw.37
+        for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 13:38:13 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1375129292.10515.21.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vxlan remote list is protected by RCU but since first_remote
-returns a bare pointer, sparse complains.
-Split out the rcu and non-rcu access to the list.
+On 2013/07/29 13:21, Eric Dumazet wrote:
+> On Mon, 2013-07-29 at 11:21 -0700, Ben Greear wrote:
+> > We have a test case on 3.9.9+ (local patches applied) where sending from
+> > VETH interface, through peer VETH bridged (with our own emulator bridge module)
+> > to physical interface, which is then looped to another physical interface (B).
+> > The VETH and the wired B interface are sending UDP traffic to each other.
+> > Routing rules should be configured such that this all works appropriately.
+> > 
+> > Replacing our bridging module with a user-space bridge has same behaviour.
+> > 
+> > This setup works on the 3.7.y kernel, but we only get one-way traffic
+> > (B to VETH) on 3.9.9+.
+> > 
+> > I sniffed the B port, and traffic appears to be sent and received
+> > properly (ie, no checksum errors, etc).  But, our user-space app
+> > shows no received UDP frames on B, and netstat -s gives the
+> > output below.
+> > 
+> > Is there any way to get more details about what these 'packet receive errors'
+> > are caused by using normal-ish tools?
+> 
+> You could try dropwatch for this kind of obscure drops
+> 
+> https://fedorahosted.org/dropwatch/
 
-Ok to replace list_for_or_null with just list_entry_rcu because
-remotes list must be non-empty.
-
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-
---- a/drivers/net/vxlan.c	2013-07-24 12:42:42.919769763 -0700
-+++ b/drivers/net/vxlan.c	2013-07-30 13:15:21.436571647 -0700
-@@ -176,9 +176,14 @@ static inline struct hlist_head *vs_head
- /* First remote destination for a forwarding entry.
-  * Guaranteed to be non-NULL because remotes are never deleted.
-  */
--static inline struct vxlan_rdst *first_remote(struct vxlan_fdb *fdb)
-+static inline struct vxlan_rdst __rcu *first_remote_rcu(struct vxlan_fdb *fdb)
- {
--	return list_first_or_null_rcu(&fdb->remotes, struct vxlan_rdst, list);
-+	return list_entry_rcu(fdb->remotes.next, struct vxlan_rdst, list);
-+}
-+
-+static inline struct vxlan_rdst *first_remote_rtnl(struct vxlan_fdb *fdb)
-+{
-+	return list_first_entry(&fdb->remotes, struct vxlan_rdst, list);
- }
- 
- /* Find VXLAN socket based on network namespace and UDP port */
-@@ -296,7 +301,8 @@ static void vxlan_fdb_notify(struct vxla
- 	if (skb == NULL)
- 		goto errout;
- 
--	err = vxlan_fdb_info(skb, vxlan, fdb, 0, 0, type, 0, first_remote(fdb));
-+	err = vxlan_fdb_info(skb, vxlan, fdb, 0, 0, type, 0,
-+			     first_remote_rtnl(fdb));
- 	if (err < 0) {
- 		/* -EMSGSIZE implies BUG in vxlan_nlmsg_size() */
- 		WARN_ON(err == -EMSGSIZE);
-@@ -739,7 +745,7 @@ static bool vxlan_snoop(struct net_devic
- 
- 	f = vxlan_find_mac(vxlan, src_mac);
- 	if (likely(f)) {
--		struct vxlan_rdst *rdst = first_remote(f);
-+		struct vxlan_rdst *rdst = first_remote_rcu(f);
- 
- 		if (likely(rdst->remote_ip == src_ip))
- 			return false;
-@@ -987,7 +993,7 @@ static int arp_reduce(struct net_device
- 		}
- 
- 		f = vxlan_find_mac(vxlan, n->ha);
--		if (f && first_remote(f)->remote_ip == htonl(INADDR_ANY)) {
-+		if (f && first_remote_rcu(f)->remote_ip == htonl(INADDR_ANY)) {
- 			/* bridge-local neighbor */
- 			neigh_release(n);
- 			goto out;
+If the drop happens in __udp_queue_rcv_skb() you can also get some info from
+the udp_fail_queue_rcv_skb tracepoint. See "296f7ea udp: add tracepoints for
+queueing skb to rcvbuf (v3.1-rc1)".
