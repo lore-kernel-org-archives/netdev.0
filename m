@@ -1,26 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Tue, 30 Jul 2013 15:54:10 -0700 (PDT)
-Message-ID: <20130730.155410.1872361604983850125.davem@davemloft.net>
-References: <20130730121605.35c4de9d82b753a5a763f5c9@canb.auug.org.au>
-	<CAFkjPTny4TUFu9xrF-90DrJwXsfzBOpb_yYOwe_0r9ohsc2vcQ@mail.gmail.com>
+Subject: Re: [PATCH] 9p: client: remove unused code and any reference to
+ "cancelled" function
+Date: Tue, 30 Jul 2013 15:54:50 -0700 (PDT)
+Message-ID: <20130730.155450.370003633888422808.davem@davemloft.net>
+References: <20130725061411.GA8579@nautica>
+	<1374742464-10686-1-git-send-email-andi@etezian.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	andi@etezian.org
-To: ericvh@gmail.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <CAFkjPTny4TUFu9xrF-90DrJwXsfzBOpb_yYOwe_0r9ohsc2vcQ@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
+Cc: dominique.martinet@cea.fr, pebolle@tiscali.nl, lucho@ionkov.net,
+	ericvh@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, v9fs-developer@lists.sourceforge.net,
+	rminnich@sandia.gov
+To: andi@etezian.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1374742464-10686-1-git-send-email-andi@etezian.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Van Hensbergen <ericvh@gmail.com>
-Date: Mon, 29 Jul 2013 21:30:20 -0500
+From: Andi Shyti <andi@etezian.org>
+Date: Thu, 25 Jul 2013 10:54:24 +0200
 
-> I didn't realize that had trickled in already, I can go ahead and revert
-> the commit in my tree.  Neither is perfect, hopefully the folks working on
-> it will get something a bit better before the next merge window.
+> This patch reverts commit
+> 
+> 80b45261a0b263536b043c5ccfc4ba4fc27c2acc
+> 
+> which was implementing a 'cancelled' functionality to notify that
+> a cancelled request will not be replied.
+> 
+> This implementation was not used anywhere and therefore removed.
+> 
+> Signed-off-by: Andi Shyti <andi@etezian.org>
 
-Please revert, thanks.
+Applied, thanks Andi.
