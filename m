@@ -1,53 +1,39 @@
-From: Xishi Qiu <qiuxishi@huawei.com>
-Subject: [PATCH] net: fix build warning in trans_rdma.c
-Date: Tue, 30 Jul 2013 17:15:59 +0800
-Message-ID: <51F7844F.60904@huawei.com>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: Re: [PATCH] bonding: set correct tx_queue_len for bond_dev
+Date: Tue, 30 Jul 2013 17:24:54 +0800
+Message-ID: <51F78666.3050801@huawei.com>
+References: <51F7694A.1060703@huawei.com> <20130730.003403.299786235452826263.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <ericvh@gmail.com>, <rminnich@sandia.gov>, <lucho@ionkov.net>,
-	<davem@davemloft.net>, <v9fs-developer@lists.sourceforge.net>,
-	<netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <fubar@us.ibm.com>, <andy@greyhouse.net>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:58561 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754680Ab3G3JZL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 05:25:11 -0400
+In-Reply-To: <20130730.003403.299786235452826263.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When building v3.11-rc3, I get the following warning:
-=2E..
-net/9p/trans_rdma.c:594: warning: =91rdma_cancelled=92 defined but not =
-used
-=2E..
-As the function is not be used, so remove it.
+On 2013/7/30 15:34, David Miller wrote:
+> From: Yang Yingliang <yangyingliang@huawei.com>
+> Date: Tue, 30 Jul 2013 15:20:42 +0800
+> 
+>> With htb, sch->limit is set from bond_dev->tx_queue_len which
+>> is initialized to 0 in bond_setup.
+> 
+> This is intentional, software devices should not queue TX
+> packets.
 
-Signed-off-by: Xishi Qiu <qiuxishi@huawei.com>
----
- net/9p/trans_rdma.c |   11 -----------
- 1 files changed, 0 insertions(+), 11 deletions(-)
+This makes software devices with htb qdisc can hold only
+one packet, others are dropped.
 
-diff --git a/net/9p/trans_rdma.c b/net/9p/trans_rdma.c
-index 928f2bb..8f68df5 100644
---- a/net/9p/trans_rdma.c
-+++ b/net/9p/trans_rdma.c
-@@ -588,17 +588,6 @@ static int rdma_cancel(struct p9_client *client, s=
-truct p9_req_t *req)
- 	return 1;
- }
-=20
--/* A request has been fully flushed without a reply.
-- * That means we have posted one buffer in excess.
-- */
--static int rdma_cancelled(struct p9_client *client, struct p9_req_t *r=
-eq)
--{
--	struct p9_trans_rdma *rdma =3D client->trans;
--
--	atomic_inc(&rdma->excess_rc);
--	return 0;
--}
--
- /**
-  * trans_create_rdma - Transport method for creating atransport instan=
-ce
-  * @client: client instance
---=20
-1.7.1
+Maybe sch->limit's default value which is 1 is too small. 
+Instead of this patch, I'll send another patch to fix this 
+value for fixing this issue.
+> 
+> You can only use the packet scheduler with hardware devices.
+> 
+> 
