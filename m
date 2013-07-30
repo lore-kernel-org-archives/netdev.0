@@ -1,84 +1,110 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH v3 2/3] net/usb/r8152: replace USB buffer from stack to
- DMA-able
-Date: Tue, 30 Jul 2013 07:01:52 -0700
-Message-ID: <20130730140152.GF27962@kroah.com>
-References: <D7C722C73C7A400780358D0376412267@realtek.com.tw>
- <1375172936-4145-1-git-send-email-hayeswang@realtek.com>
- <1375172936-4145-2-git-send-email-hayeswang@realtek.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: How do I receive vlan tags on an AF_PACKET socket in 3.4 kernel?
+Date: Tue, 30 Jul 2013 07:09:52 -0700
+Message-ID: <1375193392.10515.28.camel@edumazet-glaptop>
+References: <CAMJ=MEe4cvp7-fwbCnq7SLM=44Zy8Jrz35FwRoWG-ytahdPRQA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-usb@vger.kernel.org, nic_swsd@realtek.com
-To: Hayes Wang <hayeswang@realtek.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Ronny Meeus <ronny.meeus@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:40458 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754394Ab3G3OAe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 10:00:34 -0400
-Content-Disposition: inline
-In-Reply-To: <1375172936-4145-2-git-send-email-hayeswang@realtek.com>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:38215 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753988Ab3G3OJy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 10:09:54 -0400
+Received: by mail-pd0-f174.google.com with SMTP id 3so5761992pdj.33
+        for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 07:09:53 -0700 (PDT)
+In-Reply-To: <CAMJ=MEe4cvp7-fwbCnq7SLM=44Zy8Jrz35FwRoWG-ytahdPRQA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 30, 2013 at 04:28:55PM +0800, Hayes Wang wrote:
-> Allocate the required transfer buffer for usb_control_msg.
+On Tue, 2013-07-30 at 15:07 +0200, Ronny Meeus wrote:
+> Hello
 > 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-> ---
->  drivers/net/usb/r8152.c | 91 +++++++++++++++++++++++++++++++++++--------------
->  1 file changed, 66 insertions(+), 25 deletions(-)
+> I have ported a legacy application that is processing several packet
+> streams based on protocol and vlan.
+> Internally in the application a dispatching is done based on the
+> VLAN/Protocol field in the Ethernet packets.
 > 
-> diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-> index ee13f9e..93a7baa 100644
-> --- a/drivers/net/usb/r8152.c
-> +++ b/drivers/net/usb/r8152.c
-> @@ -282,6 +282,8 @@ enum rtl_register_content {
->  #define RTL8152_RMS		(VLAN_ETH_FRAME_LEN + VLAN_HLEN)
->  #define RTL8152_TX_TIMEOUT	(HZ)
->  
-> +#define RTL8152_MAX_TRANSFER_SIZE	8
-> +
->  /* rtl8152 flags */
->  enum rtl8152_flags {
->  	RTL8152_UNPLUG = 0,
-> @@ -324,8 +326,10 @@ struct r8152 {
->  	struct sk_buff *tx_skb, *rx_skb;
->  	struct delayed_work schedule;
->  	struct mii_if_info mii;
-> +	struct mutex transfer_mutex;
->  	u32 msg_enable;
->  	u16 ocp_base;
-> +	u8 *transfer_buf;
->  	u8 version;
->  	u8 speed;
->  };
-> @@ -344,17 +348,59 @@ static const int multicast_filter_limit = 32;
->  static
->  int get_registers(struct r8152 *tp, u16 value, u16 index, u16 size, void *data)
->  {
-> -	return usb_control_msg(tp->udev, usb_rcvctrlpipe(tp->udev, 0),
-> +	int ret;
-> +	void *tmp;
-> +
-> +	if (size > RTL8152_MAX_TRANSFER_SIZE || !tp->transfer_buf) {
-> +		tmp = kmalloc(size, GFP_KERNEL);
-> +		if (!tmp)
-> +			return -ENOMEM;
-> +	} else {
-> +		mutex_lock(&tp->transfer_mutex);
-> +		tmp = tp->transfer_buf;
-> +	}
-> +
-> +	ret = usb_control_msg(tp->udev, usb_rcvctrlpipe(tp->udev, 0),
->  			       RTL8152_REQ_GET_REGS, RTL8152_REQT_READ,
-> -			       value, index, data, size, 500);
-> +			       value, index, tmp, size, 500);
+> To receive the packets I use a AF_PACKET socket on a pure Ethernet
+> interface (not vlan aware).
+> A BPF filter is attached to the socket to drop packets I'm not
+> interested in as soon as possible in the processing path.
+> 
+> This setup worked well until I switched to a 3.4 kernel (I was using
+> 2.6.32 before).
+> In the 3.4 kernel I see that the vlan information is stripped from the
+> packets I receive from the socket.
+> 
+> After some searches on Google and browsing the Linux code I found that
+> the Vlan is stripped from the packet very early in the receive path.
+> This is the info of the commit:
+> 
+> commit bcc6d47903612c3861201cc3a866fb604f26b8b2
+> Author: Jiri Pirko <jpirko@redhat.com>
+> Date:   Thu Apr 7 19:48:33 2011 +0000
+> 
+>     net: vlan: make non-hw-accel rx path similar to hw-accel
+> 
+>     Now there are 2 paths for rx vlan frames. When rx-vlan-hw-accel is
+>     enabled, skb is untagged by NIC, vlan_tci is set and the skb gets into
+>     vlan code in __netif_receive_skb - vlan_hwaccel_do_receive.
+> 
+>     For non-rx-vlan-hw-accel however, tagged skb goes thru whole
+>     __netif_receive_skb, it's untagged in ptype_base hander and reinjected
+> 
+>     This incosistency is fixed by this patch. Vlan untagging happens early in
+>     __netif_receive_skb so the rest of code (ptype_all handlers, rx_handlers)
+>     see the skb like it was untagged by hw.
+> 
+> 
+> Now the question is: What is the correct solution to handle this?
+> 
+> One option I found is using the pcap library since this uses the
+> auxillary data received from the recvmsg call to reconstruct the vlan
+> headers, but this would mean that first of all I have to adapt my
+> application(s) and more importantly that I loose the BPF filter
+> feature since this is implemented in the kernel.
+> Another disadvantage is that this requires more processing since the
+> mac header needs to be moved the packet to make room to store the VLAN
+> tags.
+> So first cycles are lost in the kernel to strip the info and a bit
+> later, the packet to be reconstructed again.
+> 
+> Is there any other way to proceed?
+> 
+> A side question: If I would switch to the libpcap approach, I assume
+> the application can work on both the 2.6 and 3.4 version of the
+> kernel, but is there a guarantee that this will also work on future
+> versions?
 
-Same here, no need for your "transfer buf" structure, just always
-kmalloc the data, copy it in, and make the call.  It's _really_ slow
-anyway, you will never notice any speed overhead by doing this.
 
-thanks,
+If you use a BPF, it can access vlan tag (skb->vlan_tci) since linux-3.8
 
-greg k-h
+commit f3335031b9452baebfe49b8b5e55d3fe0c4677d1
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Sat Oct 27 02:26:17 2012 +0000
+
+    net: filter: add vlan tag access
+    
+    BPF filters lack ability to access skb->vlan_tci
+    
+    This patch adds two new ancillary accessors :
+    
+    SKF_AD_VLAN_TAG         (44) mapped to vlan_tx_tag_get(skb)
+    
+    SKF_AD_VLAN_TAG_PRESENT (48) mapped to vlan_tx_tag_present(skb)
+    
+    This allows libpcap/tcpdump to use a kernel filter instead of
+    having to fallback to accept all packets, then filter them in
+    user space.
+    
+    Signed-off-by: Eric Dumazet <edumazet@google.com>
+    Suggested-by: Ani Sinha <ani@aristanetworks.com>
+    Suggested-by: Daniel Borkmann <danborkmann@iogearbox.net>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+
+You can update your BPF to use these new features, and get support for
+both old kernels and new ones.
