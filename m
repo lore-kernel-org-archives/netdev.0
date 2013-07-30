@@ -1,41 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2] bridge: disable snooping if there is no
-	querier
-Date: Tue, 30 Jul 2013 16:10:35 -0700 (PDT)
-Message-ID: <20130730.161035.1646022729333223847.davem@davemloft.net>
-References: <1374757046-12463-1-git-send-email-linus.luessing@web.de>
-	<1374760580-12920-1-git-send-email-linus.luessing@web.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net:  skb_orphan() changes
+Date: Tue, 30 Jul 2013 16:11:15 -0700
+Message-ID: <1375225875.10515.36.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: amwang@redhat.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	linux@baker-net.org.uk, stephen@networkplumber.org,
-	herbert@gondor.apana.org.au
-To: linus.luessing@web.de
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1374760580-12920-1-git-send-email-linus.luessing@web.de>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:40711 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756106Ab3G3XLQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 19:11:16 -0400
+Received: by mail-pb0-f45.google.com with SMTP id mc8so19303pbc.4
+        for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 16:11:16 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Linus L=FCssing <linus.luessing@web.de>
-Date: Thu, 25 Jul 2013 15:56:20 +0200
+From: Eric Dumazet <edumazet@google.com>
 
-> +	atomic64_t			multicast_querier_delay_time;
+It is illegal to set skb->sk without corresponding destructor.
 
-Please don't use an atomic64_t here, it's pointless.
+Its therefore safe for skb_orphan() to not clear skb->sk if
+skb->destructor is not set.
 
-You're only doing set and read operations on it, there's absolutely
-nothing atomic about that.
+Also avoid clearing skb->destructor if already NULL.
 
-You have to make sure that the top-level operations that use this
-new value use an appropriate amount of locking on the higher level
-objects.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/linux/skbuff.h |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 5afefa0..a95547a 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1805,10 +1805,11 @@ static inline void pskb_trim_unique(struct sk_buff *skb, unsigned int len)
+  */
+ static inline void skb_orphan(struct sk_buff *skb)
+ {
+-	if (skb->destructor)
++	if (skb->destructor) {
+ 		skb->destructor(skb);
+-	skb->destructor = NULL;
+-	skb->sk		= NULL;
++		skb->destructor = NULL;
++		skb->sk		= NULL;
++	}
+ }
+ 
+ /**
