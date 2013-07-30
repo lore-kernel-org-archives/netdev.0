@@ -1,730 +1,430 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH v16 3/4] Add MPLS recirculation tests
-Date: Tue, 30 Jul 2013 10:14:32 +0900
-Message-ID: <1375146873-3192-4-git-send-email-horms@verge.net.au>
-References: <1375146873-3192-1-git-send-email-horms@verge.net.au>
+Subject: [PATCH v16 0/4] Add packet recirculation
+Date: Tue, 30 Jul 2013 10:14:29 +0900
+Message-ID: <1375146873-3192-1-git-send-email-horms@verge.net.au>
 Cc: Ravi K <rkerur@gmail.com>, Isaku Yamahata <yamahata@valinux.co.jp>,
 	Jesse Gross <jesse@nicira.com>,
 	Pravin B Shelar <pshelar@nicira.com>,
 	jarno.rajahalme@nsn.com, Joe Stringer <joe@wand.net.nz>
 To: dev@openvswitch.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:39576 "EHLO
+Received: from kirsty.vergenet.net ([202.4.237.240]:39565 "EHLO
 	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756511Ab3G3BPf (ORCPT
+	with ESMTP id S1756442Ab3G3BPf (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jul 2013 21:15:35 -0400
-In-Reply-To: <1375146873-3192-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Stringer <joe@wand.net.nz>
+[ CC Ethan Jackson.
 
-This patch introduces a python script to generate about 1500 tests for
-permutations of mpls_push,mpls_pop,dec_mpls_ttl,dec_ttl where
-recirculation occurs up to (and including) three times.
+  Ethan, this makes changes to ofproto-dpif and ofproto-dpif-xlate.
+  We would appreciate some feedback with how these changes fit with
+  your ongoing refactoring in this area. ]
 
-Signed-off-by: Joe Stringer <joe@wand.net.nz>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Recirculation is a technique to allow a frame to re-enter
+frame processing. This is intended to be used after actions
+have been applied to the frame with modify the frame in
+some way that makes it possible for richer processing to occur.
 
----
+An example is and indeed targeted use case is MPLS. If an MPLS frame has an
+mpls_pop action applied with the IPv4 ethernet type then it becomes
+possible to decode the IPv4 portion of the frame. This may be used to
+construct a facet that modifies the IPv4 portion of the frame. This is not
+possible prior to the mpls_pop action as the contents of the frame after
+the MPLS stack is not known to be IPv4.
+
+
+Design:
+
+* New recirculation action.
+
+  ovs-vswitchd adds a recirculation action to the end of a list of
+  datapath actions for a flow when the actions are truncated because
+  insufficient flow match information is available to add the next
+  OpenFlow action.  The recirculation action is preceded by an action
+  to set the skb_mark to an id which can be used to scope a facet lookup
+  of a recirculated packet.
+
+  e.g.  pop_mpls(0x0800),dec_ttl becomes pop_mpls(0x800),set(skb_mark(id)),recirculate
+
+* Datapath behaviour
+
+  Then the datapath encounters a recirculate action it:
+  + Recalculates the flow key based on the packet
+    which will typically have been modified by previous actions
+  + As the recirculate action is preceded by a set(skb_mark(id)) action,
+    the new match key will now include skb_mark=id.
+  + Performs a lookup using the new match key
+  + Processes the packet if a facet matches the key or;
+  + Makes an upcall if necessary
+
+* No facet behaviour
+
+  + Loop:
+    1) translate actions
+    2) If there is a recirculate action, execute packet
+       and go back to 1) for remaining actions.
+
+
+Base/Pre-requisites:
+
+This series applies to the git master branch on openvswtich.org
+and does not have any pre-requisites.
+
+
+Availability:
+
+To aid review and testing this series is available in git at:
+
+	git://github.com/horms/openvswitch.git devel/mpls-recirculate-v16
+
+N.B: The above branch is based on a merge of the openvswtich.org master
+branch and devel/mpls-v2.35. As such it supports both MPLS in
+the kernel datapath and recirculation.
+
+
+
+Change Log Highlights:
 
 v16
-* No change
+* Ensure that locks are released and memory freed in the case
+  of recirculation in dpif_netdev_execute()
+* Separate controller and MPLS tests
+  - MPLS adds a number of tests and there are already a number 
+    of controller tests. It seems to make sense to separate them.
+* Do not add reference count to facet
+  - This does not appear to be necessary any more as situations
+    where the parent-facet of a recirculated child-facet does not exist
+    may be handled using the drop rule.
+* Do not add 'strict' parameter from get_facet_chain.        
+  This is no longer useful as recirculated facets chains
+  may me incomplete if parent-facets may be removed before child-facets. 
+  This is quite possible now that there is no reference count.
+* Clarify comments relating to recirculated facet chain revalidation
+* Now based on MPLS datapath "[PATCH v2.35 0/6] MPLS actions and matches"
+  Accordingly, a patch is added to this series to allow multiple levels
+  of MPLS pop in the kernel datapath. This depends on MPLS support for
+  the kernel datapath, which is added in the series mentioned, and
+  recirculation, which is added by this series.
 
 v15
 * Add additional flow removal tests to cover double,multiple recirculation
+* Rebase for ofproto-dpif-xlate modularization
+* Replace rule pointers in facet with offsets
+ - Use rule offset to determine if facet was created by recirculation
+ - Refactor xin->ofpacts initialisation to handle cases where the rule
+   has disappeared but the facets still exist
 
 v14
-* Allow testing remote datapaths
- - Expose egress bridge, datapath under test, destination mac parameters
-* Add option to remove flows after each test
+* Enhance "ofproto-dpif: Add 'force-miss-model' configuration" patch
+  to use strings.
+* Enhance "Add MPLS recirculation tests" to allow testing of remote datapaths
+  - this was used to create an environment to test the kernel datapath
+* Allow matching of zero skb_mark
+ - Include skb_mark in flow key passed from datapath
+ - Include skb_mark in flow key constructed from flow if the mask is non-zero
+* Set skb_mark mask for recirculated facets during revalidation
+* Run through facets in reverse order in facet_revalidate(), so that children
+  are always destroyed before their parents.
+* Recirculate on more than one pop otherwise intermediate eth type is lost
 
 v13
-* Use the new force-miss-model config option to test MPLS on ofproto-dpif
-  through the code paths for both handle_flow_miss_with_facet() and
-  handle_flow_miss_without_facet().
+* Add patch to allow configuration of flow miss handling to force
+  handling with or without facets. This is used by the
+  patch to exercise recirculation using ofproto-dpif.
+* Extensive rebase for megaflow changes
 
 v12
-* First post
----
- tests/automake.mk     |   1 +
- tests/ofproto-dpif.at | 153 ++++++++++++++++
- tests/test-mpls.py    | 491 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 645 insertions(+)
+* Rebase
+* Add much more extensive tests by Joe Stringer
+* Ensure pre_push_mpls_lse is never used uninitialised in do_xlate_actions()
+* Copy flow tunnel when recirculating in xlate_and_recirculate().
+  This avoids a bug that occurred when recirculating more than once
+  and thus using flow_storage as the flow passed to flow_extract()
+  and flow_storage.tunnel as the tunnel passed to flow_extract().
+  The tunnel parameter passed to flow_extract() must not be
+  the tunnel element of its flow parameter.
+* In xlate_and_recirculate() ensure that there is sufficient headroom in
+  packet for both the key, which is present if xlate_and_recirculate()
+  is called by handle_flow_miss_without_facet(), and an MPLS LSE in case
+  mpls_push() occurs.
+* As suggested by Ben Pfaff
+  - Do not unnecessarily rename flow variable in dp_netdev_port_input()
+  - Rename tun_key_from_attr() as odp_tun_key_from_attr() as it is now
+    exported
+
+v11
+* Add patches to handle multiple levels of push and pop
+* Addressed review by Jarno Rajahalme
+
+v10
+* As suggested by Ben Pfaff
+- Rename lib/execute-actions.[ch] as lib/odp-execute.[ch]
+- Sort headers in alphabetical order
+- Minimise includes in lib/odp-execute.h
+- Include lib/odp-execute.h immediately after config.h in lib/odp-execute.c
+- Correct coding style of prototype of tun_key_from_attr
+- Remove dubious memset from set_tunnel_action
+- use {} with if statement for OVS_ACTION_ATTR_OUTPUT in execute_actions()
+- Do not put required side effects in conditions for ovs_assert();
+- Remove execute_actions_for_recircualtion() helper and
+  use odp_execute_actions directly()
+
+v9
+* As suggested by Jesse Gross
+- Follow the convention on other code that when passing around
+  a void pointer and casting it, the variable named with an underscore
+  is the void pointer.
+- Move extraction of userspace data into execute_actions().
+  Previously it was in the userspace callback passed to execute_actions().
+- Remove ovs_assert() calls from execute_actions().
+  They seem unnecessary at best.
+- Reduce the number of new parameters added to functions,
+  in many cases to zero, by using the skb_priority, skb_mark
+  and tunnel elements of struct flow.
+- Add patch to make use of execute_actions() to execute controller actions
+
+v8
+* For a learn action recirculate regardless of the value of
+  ctx->may_learn in do_xlate_actions(). Previously recirculation
+  only occurred if ctx->may_learn was true. That is a bug as it causes
+  revalidation to fail. Flagged by the tests developed as part of a patch
+  to allow multiple MPLS push and poop actions.
+* Update tests removing unnecessary dl_type pre-requisite
+
+v7
+* Rebase
+* Add skb_priority, skb_mark and tun_key parameters to dp_netdev_port_input()
+  This allows the skb_priority, skb_mark and tun_key  to be passed from
+  dpif_netdev_execute() to honour corresponding set actions.
+* Recirculate on reg load and move, stack push and pop,
+  multipath, bundle, and learn actions.
+* Add tests
+
+v6
+* Rearange patches so as only to add self-contained working chages
+* Create execute_actions() in lib/execute-actions.c
+  - This moves makes much more action execution code than before
+    from the user-spcace datapath into common library code.
+* Add set skb_priority support to execute_set_action()
+* Add set tunnel support to execute_set_action()
+* Support revalidation of facets for recirculated packets
+* Address other elements Jesse's review, as noted in
+  per-patch changelogs
+
+
+v5
+* Correct declaration of facet_find_by_id to match definition:
+  ovs_be32 -> uint32_t.
+* Enhancements to recirculation id code:
+  - Allow efficient lookup of facets by their recirculation id
+  - Add RECIRCULATION_ID_DUMMY which may be used in cases
+    where no facet it used. It is an arbitrary valid id.
+  - Also add recirculated element to action_xlate_ctx()
+    to use to detect if a recirculation action was added during
+    translation. The previous scheme of checking if recirculation_id
+    was not RECIRCULATION_ID_NONE is broken for cases where
+    the context is initialised with a recirculation_id other than
+    RECIRCULATION_ID_NONE. E.g. when RECIRCULATION_ID_DUMMY is used.
+  - Avoid id collision
+
+rfc4:
+* Allow recirculation without facets in ovs-vswitchd
+  - Handle flow miss without facet
+  - Packet out
+* Minor enhancement to recirculation id management: Add RECIRCULATE_ID_NONE
+  to use instead of using 0 directly.
+* Correct calculation of facet->recirculation_ofpacts and
+  facet->recirculation_ofpacts_len in subfacet_make_actions()
+  in the case of more than one level of recirculation.
+
+rfc3
+* Use IS_ERR_OR_NULL()
+* Handle facet consistency checking by constructing a chain of facets
+  from the given facet, to its recirculation parent and then its parent
+  until the topmost facet.  If there is no recirculation  the chain will
+  be of length one. If there is one recirculation action then the chain
+  will be of length two. And so on.
+
+  The topmost facet in the chain can is used to lookup the rule to be
+  verified. The chain is then walked from top to bottom, translating
+  actions up to the end or the first recirculation action that is
+  encountered, whichever comes first. As the code walks down the chain
+  it updates the actions that are executed to start of the actions to
+  be executed to be just after the end of the actions executed in the
+  previous facet in the chain. This is similar to the way that facets
+  are created when a recirculation action is encountered.
+
+rfc2
+* As suggested by Jesse Gross
+  - Update for changes to ovs_dp_process_received_packet()
+    to no longer check if OVS_CB(skb)->flow is pre-initialised.
+  - Do not add spurious printk debugging to ovs_execute_actions()
+  - Do not add spurious debugging messages to commit_set_nw_action()
+  - Correct typo in comment above commit_odp_actions().
+  - Do not execute recirculation in ovs-vswitchd, rather allow
+    the datapath to make an upcall when a recirculation action
+    is encountered on execute.
+    + This implicitly breaks support for recirculation without facets,
+      so for now force all misses of MPLS frames to be handled with
+      a facet; and treat handling of recirculation for packet_out as
+      a todo item.
+  - Use skb_mark for recirculation_id in match. This avoids
+    both expanding the match and including a recirculation_id parameter
+    with the recirculation action: set_skb_mark should be used before
+    the recirculation action.
+  - Tidy up ownership of skb in ovs_execute_actions
+
+rfc1
+* Initial post
+
+
+Patch List and Diffstat:
+
+Joe Stringer (2):
+  ofproto-dpif: Add 'force-miss-model' configuration
+  Add MPLS recirculation tests
+
+Simon Horman (2):
+  Add packet recirculation
+  Allow multiple levels of MPLS push and pop
+
+ datapath/actions.c           |   9 +-
+ datapath/datapath.c          | 105 +++---
+ datapath/datapath.h          |   2 +-
+ datapath/flow.c              |   5 +-
+ include/linux/openvswitch.h  |   4 +
+ lib/dpif-netdev.c            |  79 +++--
+ lib/flow.c                   |   6 +-
+ lib/flow.h                   |  13 +-
+ lib/list.h                   |   6 +
+ lib/match.c                  |   2 +-
+ lib/nx-match.c               |   2 +-
+ lib/odp-execute.c            |   7 +-
+ lib/odp-execute.h            |   3 +-
+ lib/odp-util.c               |  69 ++--
+ lib/odp-util.h               |   3 +-
+ lib/ofp-actions.c            |   6 -
+ lib/ofp-util.c               |   5 +-
+ lib/packets.c                |  33 +-
+ lib/packets.h                |   2 -
+ ofproto/ofproto-dpif-xlate.c | 293 +++++++++++++++--
+ ofproto/ofproto-dpif-xlate.h |  27 +-
+ ofproto/ofproto-dpif.c       | 580 ++++++++++++++++++++++++++++++---
+ ofproto/ofproto-dpif.h       |   7 +-
+ ofproto/ofproto-provider.h   |   4 +
+ ofproto/ofproto.c            |   8 +
+ ofproto/ofproto.h            |   8 +
+ tests/automake.mk            |   1 +
+ tests/ofproto-dpif.at        | 752 +++++++++++++++++++++++++++++++++++++++++--
+ tests/test-bundle.c          |   1 -
+ tests/test-mpls.py           | 491 ++++++++++++++++++++++++++++
+ tests/test-multipath.c       |   1 -
+ utilities/ovs-dpctl.c        |   2 +-
+ utilities/ovs-ofctl.8.in     |  20 +-
+ vswitchd/bridge.c            |  23 ++
+ vswitchd/vswitch.xml         |  22 ++
+ 35 files changed, 2329 insertions(+), 272 deletions(-)
  create mode 100644 tests/test-mpls.py
 
-diff --git a/tests/automake.mk b/tests/automake.mk
-index 755d88e..9e6935f 100644
---- a/tests/automake.mk
-+++ b/tests/automake.mk
-@@ -326,6 +326,7 @@ CHECK_PYFILES = \
- 	tests/test-jsonrpc.py \
- 	tests/test-ovsdb.py \
- 	tests/test-reconnect.py \
-+	tests/test-mpls.py \
- 	tests/MockXenAPI.py \
- 	tests/test-unix-socket.py \
- 	tests/test-unixctl.py \
-diff --git a/tests/ofproto-dpif.at b/tests/ofproto-dpif.at
-index dded496..9383194 100644
---- a/tests/ofproto-dpif.at
-+++ b/tests/ofproto-dpif.at
-@@ -1301,6 +1301,159 @@ NXST_FLOW reply:
- OVS_VSWITCHD_STOP
- AT_CLEANUP
- 
-+AT_SETUP([ofproto-dpif - MPLS recirculation])
-+OVS_VSWITCHD_START([dnl
-+   add-port br0 p1 -- set Interface p1 type=dummy -- \
-+   set Open_vSwitch . other_config:force-miss-model=with-facets
-+])
-+
-+AT_CAPTURE_FILE([ofctl_monitor.log])
-+AT_CHECK([$PYTHON $srcdir/test-mpls.py 1])
-+
-+OVS_VSWITCHD_STOP
-+AT_CLEANUP
-+
-+AT_SETUP([ofproto-dpif - MPLS recirculation, no facets])
-+OVS_VSWITCHD_START([dnl
-+   add-port br0 p1 -- set Interface p1 type=dummy -- \
-+   set Open_vSwitch . other_config:force-miss-model=without-facets
-+])
-+
-+AT_CAPTURE_FILE([ofctl_monitor.log])
-+AT_CHECK([$PYTHON $srcdir/test-mpls.py 1])
-+
-+OVS_VSWITCHD_STOP
-+AT_CLEANUP
-+
-+AT_SETUP([ofproto-dpif - MPLS recirculation, delete rules between])
-+OVS_VSWITCHD_START([dnl
-+   add-port br0 p1 -- set Interface p1 type=dummy
-+])
-+
-+AT_CAPTURE_FILE([ofctl_monitor.log])
-+AT_CHECK([$PYTHON $srcdir/test-mpls.py -c 1])
-+
-+OVS_VSWITCHD_STOP
-+AT_CLEANUP
-+
-+AT_SETUP([ofproto-dpif - MPLS double-recirculate])
-+OVS_VSWITCHD_START([dnl
-+   add-port br0 p1 -- set Interface p1 type=dummy -- \
-+   set Open_vSwitch . other_config:force-miss-model=with-facets
-+])
-+
-+AT_CAPTURE_FILE([ofctl_monitor.log])
-+
-+for i in {0..150..50}; do
-+    AT_CHECK([$PYTHON $srcdir/test-mpls.py 2 $i])
-+done
-+
-+OVS_VSWITCHD_STOP
-+AT_CLEANUP
-+
-+AT_SETUP([ofproto-dpif - MPLS double-recirculate, no facets])
-+OVS_VSWITCHD_START([dnl
-+   add-port br0 p1 -- set Interface p1 type=dummy -- \
-+   set Open_vSwitch . other_config:force-miss-model=without-facets
-+])
-+
-+AT_CAPTURE_FILE([ofctl_monitor.log])
-+
-+for i in {0..150..50}; do
-+    AT_CHECK([$PYTHON $srcdir/test-mpls.py 2 $i])
-+done
-+
-+OVS_VSWITCHD_STOP
-+AT_CLEANUP
-+
-+AT_SETUP([ofproto-dpif - MPLS double-recirculate, delete rules between])
-+OVS_VSWITCHD_START([dnl
-+   add-port br0 p1 -- set Interface p1 type=dummy
-+])
-+
-+AT_CAPTURE_FILE([ofctl_monitor.log])
-+
-+for i in {0..150..50}; do
-+    AT_CHECK([$PYTHON $srcdir/test-mpls.py -c 2 $i])
-+done
-+
-+OVS_VSWITCHD_STOP
-+AT_CLEANUP
-+
-+AT_SETUP([ofproto-dpif - MPLS multi-recirculate])
-+OVS_VSWITCHD_START([dnl
-+   add-port br0 p1 -- set Interface p1 type=dummy -- \
-+   set Open_vSwitch . other_config:force-miss-model=with-facets
-+])
-+
-+AT_CAPTURE_FILE([ofctl_monitor.log])
-+
-+for i in {0..550..50}; do
-+    AT_CHECK([$PYTHON $srcdir/test-mpls.py 3 $i])
-+done
-+
-+OVS_VSWITCHD_STOP
-+AT_CLEANUP
-+
-+AT_SETUP([ofproto-dpif - MPLS multi-recirculate, no facets])
-+OVS_VSWITCHD_START([dnl
-+   add-port br0 p1 -- set Interface p1 type=dummy -- \
-+   set Open_vSwitch . other_config:force-miss-model=without-facets
-+])
-+
-+AT_CAPTURE_FILE([ofctl_monitor.log])
-+
-+for i in {0..550..50}; do
-+    AT_CHECK([$PYTHON $srcdir/test-mpls.py 3 $i])
-+done
-+
-+OVS_VSWITCHD_STOP
-+AT_CLEANUP
-+
-+AT_SETUP([ofproto-dpif - MPLS multi-recirculate, delete rules between])
-+OVS_VSWITCHD_START([dnl
-+   add-port br0 p1 -- set Interface p1 type=dummy
-+])
-+
-+AT_CAPTURE_FILE([ofctl_monitor.log])
-+
-+for i in {0..550..50}; do
-+    AT_CHECK([$PYTHON $srcdir/test-mpls.py -c 3 $i])
-+done
-+
-+OVS_VSWITCHD_STOP
-+AT_CLEANUP
-+
-+AT_SETUP([ofproto-dpif - MPLS multi-recirculate 2])
-+OVS_VSWITCHD_START([dnl
-+   add-port br0 p1 -- set Interface p1 type=dummy -- \
-+   set Open_vSwitch . other_config:force-miss-model=with-facets
-+])
-+
-+AT_CAPTURE_FILE([ofctl_monitor.log])
-+
-+for i in {600..1200..50}; do
-+    AT_CHECK([$PYTHON $srcdir/test-mpls.py 3 $i])
-+done
-+
-+OVS_VSWITCHD_STOP
-+AT_CLEANUP
-+
-+AT_SETUP([ofproto-dpif - MPLS multi-recirculate 2, no facets])
-+OVS_VSWITCHD_START([dnl
-+   add-port br0 p1 -- set Interface p1 type=dummy -- \
-+   set Open_vSwitch . other_config:force-miss-model=without-facets
-+])
-+
-+AT_CAPTURE_FILE([ofctl_monitor.log])
-+
-+for i in {600..1200..50}; do
-+    AT_CHECK([$PYTHON $srcdir/test-mpls.py 3 $i])
-+done
-+
-+OVS_VSWITCHD_STOP
-+AT_CLEANUP
-+
- AT_SETUP([ofproto-dpif - VLAN handling])
- OVS_VSWITCHD_START(
-   [set Bridge br0 fail-mode=standalone -- \
-diff --git a/tests/test-mpls.py b/tests/test-mpls.py
-new file mode 100644
-index 0000000..90f3b7b
---- /dev/null
-+++ b/tests/test-mpls.py
-@@ -0,0 +1,491 @@
-+# Copyright (c) 2013 Joe Stringer
-+#
-+# Licensed under the Apache License, Version 2.0 (the "License");
-+# you may not use this file except in compliance with the License.
-+# You may obtain a copy of the License at:
-+#
-+#     http://www.apache.org/licenses/LICENSE-2.0
-+#
-+# Unless required by applicable law or agreed to in writing, software
-+# distributed under the License is distributed on an "AS IS" BASIS,
-+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+# See the License for the specific language governing permissions and
-+# limitations under the License.
-+
-+import argparse
-+import subprocess
-+import sys
-+
-+from collections import defaultdict
-+
-+MAC_PREFIX = '606677'
-+FINAL_ACTION = 'CONTROLLER:65535'
-+
-+CMD_BR_INDEX=2
-+MONITOR_LOG='ofctl_monitor.log'
-+OVSTEST_COMMANDS={
-+        'add' : ['ovs-ofctl', 'add-flow', ''],
-+        'dump' : ['ovs-ofctl', 'dump-flows', ''],
-+        'clear' : ['ovs-ofctl', 'del-flows', ''],
-+        'monitor' : ['ovs-ofctl', 'monitor', '', '-m', '65534', '-P', 'nxm',
-+                     '--detach', '--no-chdir', '--pidfile', '--verbose'],
-+        'send' : ['ovs-appctl', 'netdev-dummy/receive', 'p1'],
-+        'stop' : ['ovs-appctl', '-t', 'ovs-ofctl', 'exit']}
-+
-+MPLS_TYPES = [0x8847, 0x8848]
-+IP_TYPES = [0x0800]
-+ALL_TYPES = IP_TYPES+MPLS_TYPES
-+
-+PKT_INDEX_L2 = 0
-+PKT_INDEX_ETHERTYPE = 1
-+PKT_INDEX_L2_5 = 2
-+PKT_INDEX_L3 = 3
-+
-+EXAMPLE_PKT=['505400000007606677770000','0800','', '4500002c00000000ff063a78' \
-+        'c0a80001c0a80002005000000000002a0000002a5000271077440000484f47450000']
-+
-+ETHERTYPE_LEN = 4 # Ethernet ethertype is 2 octets long
-+ETHADDR_LEN = 12 # Ethernet addresses are 6 octets long
-+LSE_LEN = 8 # MPLS labels are 4 octets long
-+LABEL_LEN = 6 # The label is the highest 20 bits
-+TTL_LEN = 2 # IP and MPLS TTL are both 1 octet long
-+CSUM_LEN = 2 # IPv4 Checksums are 2 octets long
-+
-+ETHERTYPE_OFFSET = len(EXAMPLE_PKT[PKT_INDEX_L2])
-+ETH_SRC_OFFSET = 12
-+L2_5_OFFSET = ETHERTYPE_OFFSET + len(EXAMPLE_PKT[PKT_INDEX_ETHERTYPE])
-+L3_OFFSET = L2_5_OFFSET
-+MPLS_TTL_OFFSET = L2_5_OFFSET + LSE_LEN - TTL_LEN
-+IP_TTL_OFFSET = L3_OFFSET + 16 # TTL is the 9th octet in an IPv4 packet.
-+IP_CSUM_OFFSET = L3_OFFSET + 20 # CSUM begins at the 11th octet in IPv4.
-+
-+class Action():
-+    '''OpenFlow action.
-+
-+    Action handles the pre and post conditions of an OpenFlow action and stores
-+    whether or not it is expected to cause recirculation.
-+    '''
-+    def __init__(self, name='', pre=[], post=[], recirculate=1, depth=0):
-+        self.name = name
-+        self.pre = pre
-+        self.post = post
-+        self.recirculate = recirculate
-+        self.depth = depth
-+
-+    def __eq__(self, other):
-+        if self.name != other.name:
-+            return False
-+
-+        test_set = set(self.pre) & set(other.pre)
-+        if len(self.pre) != len(test_set):
-+            return False
-+
-+        test_set = set(self.post) & set(other.post)
-+        if len(self.post) != len(test_set):
-+            return False
-+
-+        if self.recirculate != other.recirculate:
-+            return False
-+
-+        return True
-+
-+    def __ne__(self, other):
-+        return not self.__eq__(other)
-+
-+    def __str__(self):
-+        result = ''
-+        just = 24
-+        result = self.name.ljust(just) + str(self.pre).ljust(just) + \
-+            str(self.post).ljust(just) + str(self.recirculate)
-+        return result
-+
-+    def execute(self, packet):
-+        ethertype = packet[ETHERTYPE_OFFSET:L2_5_OFFSET]
-+
-+        if 'push' in self.name:
-+            label = 0
-+            bottom = 0
-+            ttl = 0xFF
-+            if int(ethertype, 16) in IP_TYPES:
-+                ttl_offset = IP_TTL_OFFSET
-+                bottom = 1
-+            else:
-+                ttl_offset = MPLS_TTL_OFFSET
-+                label = int(packet[L2_5_OFFSET:L2_5_OFFSET + LABEL_LEN], 16)
-+                label >>= 4
-+            ttl = int(packet[ttl_offset:ttl_offset+TTL_LEN], 16)
-+            lse = lse_str(label, ttl, bottom)
-+            packet = str_substitute(packet, L2_5_OFFSET, 0, lse)
-+        elif 'pop' in self.name:
-+            packet = str_substitute(packet, L2_5_OFFSET, LSE_LEN, '')
-+        else:
-+            ttl_offset = 0
-+            if 'CONTROLLER' not in self.name:
-+                # Not Controller -> dec_ttl or dec_mpls_ttl
-+                if 'mpls' in self.name:
-+                    ttl_offset = MPLS_TTL_OFFSET
-+                else:
-+                    # IPv4 TTL
-+                    ttl_offset = IP_TTL_OFFSET
-+
-+                    # We can get away with just incrementing the first byte
-+                    # in the checksum, because we only decrement the TTL.
-+                    csum = packet[IP_CSUM_OFFSET:IP_CSUM_OFFSET+CSUM_LEN]
-+                    new_csum = int(csum, 16) + 1
-+                    packet = str_substitute(packet, IP_CSUM_OFFSET, CSUM_LEN,
-+                                            hex_str(new_csum, CSUM_LEN))
-+
-+                new_ttl = int(packet[ttl_offset:ttl_offset+TTL_LEN], 16) - 1
-+                packet = str_substitute(packet, ttl_offset, TTL_LEN,
-+                                        hex_str(new_ttl, TTL_LEN))
-+
-+        if self.depth != 0:
-+            ethertype = hex_str(self.post[0])
-+        packet = str_substitute(packet, ETHERTYPE_OFFSET, ETHERTYPE_LEN,
-+                                ethertype)
-+
-+        return packet
-+
-+class ActionList(list):
-+    '''A list of Action objects.
-+
-+    ActionList will be used to generate test conditions including the input
-+    and output packets for the given list of actions.
-+    '''
-+    def __init__(self, *args, **kwargs):
-+        list.__init__(self)
-+        self.maxdepth = 0
-+        self.recirculation = 0
-+        self.types_index = 0
-+        self.types_map = defaultdict(lambda: ALL_TYPES)
-+
-+        for action in args:
-+            self.set_dependencies(action.depth, action.pre, action.post)
-+            self.append(action)
-+
-+        if 'actionlist' in kwargs:
-+            al = kwargs['actionlist']
-+            self += al[0:len(al)]
-+            self.maxdepth = al.maxdepth
-+            self.recirculation = al.recirculation
-+            self.types_index = al.types_index
-+            self.types_map = al.types_map.copy()
-+
-+    def __eq__(self, other):
-+        if self.maxdepth != other.maxdepth:
-+            return False
-+        if self.recirculation != other.recirculation:
-+            return False
-+        if self.types_index != other.types_index:
-+            return False
-+        if not self.types_map.__eq__(other.types_map):
-+            return False
-+        return list.__eq__(self, other)
-+
-+    def __ne__(self, other):
-+        return not self.__eq__(other)
-+
-+    def __str__(self):
-+        return '\n' + ','.join([a.name for a in self[0:len(self)]]) + '\n' + \
-+                str(self.types_map) + '\nMax Depth: ' + str(self.maxdepth)
-+
-+    def format_match(self, addr):
-+        return 'dl_src=%s,dl_type=0x%s' % (format_mac(addr),
-+                                         self.base_ethertype())
-+
-+    def generate_flow(self, index=0, matchonly=False):
-+        addr = MAC_PREFIX + hex_str(index)
-+        if matchonly:
-+            return self.format_match(addr)
-+        return 'cookie=' + hex(index) + ' ' + self.format_match(addr) + \
-+               ' actions=' + ','.join([a.name for a in self[:]])
-+
-+    def base_ethertype(self):
-+        ethertype = iter(self.types_map[0]).next()
-+        return hex_str(ethertype)
-+
-+    def pkt_pre(self):
-+        result = []
-+        index = 0
-+        for index in range(0, self.maxdepth, -1):
-+            bottom = 0
-+            if index == self.maxdepth + 1:
-+                bottom = 1
-+            result.append(lse_str(-index, bottom=bottom))
-+        return ''.join(result)
-+
-+    def generate_in_packet(self, index=0):
-+        addr = MAC_PREFIX + hex_str(index)
-+        eth_addrs = str_substitute(EXAMPLE_PKT[PKT_INDEX_L2], ETH_SRC_OFFSET,
-+                                   ETHADDR_LEN, addr)
-+
-+        result = EXAMPLE_PKT[:]
-+        result[PKT_INDEX_L2] = eth_addrs
-+        result[PKT_INDEX_ETHERTYPE] = self.base_ethertype()
-+        result[PKT_INDEX_L2_5] = self.pkt_pre()
-+        return ''.join(result)
-+
-+    def generate_out_packet(self, in_pkt):
-+        result = in_pkt[:]
-+        for act in self[0:len(self)]:
-+            result = act.execute(result)
-+        return result
-+
-+    def set_dependencies(self, direction, pre, post):
-+        pre_index = self.types_index
-+        post_index = pre_index + direction
-+
-+        pre_intersection = set(self.types_map[pre_index]) & set(pre)
-+        post_intersection = set(self.types_map[post_index]) & set(post)
-+
-+        # Track the depth and expected protocols after the given action
-+        self.types_map[pre_index] = pre_intersection
-+        self.types_map[post_index] = post_intersection
-+        self.types_index += direction
-+        if self.types_index < self.maxdepth:
-+            self.maxdepth = self.types_index
-+
-+    def check_dependencies(self, direction, pre, post):
-+        pre_index = self.types_index
-+        post_index = pre_index + direction
-+
-+        # Check pre-conditions
-+        pre_intersection = set(self.types_map[pre_index]) & set(pre)
-+        if len(pre_intersection) == 0:
-+            return False
-+
-+        # Check post-conditions
-+        post_intersection = set(self.types_map[post_index]) & set(post)
-+        if direction < 0:
-+            if len(post_intersection) == 0:
-+                return False
-+
-+        return True
-+
-+    def append(self, action):
-+        self += [action]
-+        self.recirculation += action.recirculate
-+
-+    def try_append(self, action, recirculation):
-+        '''Only append if the action is valid after all other actions.
-+
-+        Returns True if the action is appended, False if not.
-+        '''
-+        last_action = self[-1]
-+
-+        if action.recirculate == 0:
-+            if action.recirculate == last_action.recirculate:
-+                return False
-+        elif self.recirculation == recirculation:
-+            return False
-+
-+        if self.check_dependencies(action.depth, action.pre, action.post):
-+            self.set_dependencies(action.depth, action.pre, action.post)
-+            self.append(action)
-+            return True
-+
-+        return False
-+
-+def construct_base_actions(alist=ActionList()):
-+    alist.append(Action('dec_mpls_ttl', MPLS_TYPES, MPLS_TYPES, recirculate=0))
-+    alist.append(Action('dec_ttl', IP_TYPES, IP_TYPES, recirculate=0))
-+
-+    for t in ALL_TYPES:
-+        ttype = hex_str(t)
-+        alist.append(Action('pop_mpls:0x'+ttype, MPLS_TYPES, [t], depth=-1))
-+        if t in MPLS_TYPES:
-+            alist.append(Action('push_mpls:0x'+ttype, ALL_TYPES, [t], depth=1))
-+
-+    return alist
-+
-+def str_substitute(string, start, length, content):
-+    return string[:start] + content + string[start+length:]
-+
-+def hex_str(val, strlen=ETHERTYPE_LEN):
-+    '''Return a "strlen"-length hex string of the given value'''
-+    if val < 0:
-+        val = (2 ** (strlen << 2)) + val
-+    result = str(hex(val))[2:].rstrip('L')
-+    return format(val, '0'+str(strlen)+'x')
-+
-+def lse_str(label, ttl=0xff, bottom=0):
-+    label &= 0xffffff
-+    value = label << 12
-+    value += bottom << 8
-+    value += ttl
-+    return hex_str(value, strlen=LSE_LEN)
-+
-+def insert_char(string, char, c):
-+    return char.join([string[i:i+c] for i in range(0, len(string), c)])
-+
-+def insert_spaces(string):
-+    return insert_char(string, ' ', 2)
-+
-+def format_mac(mac):
-+    return insert_char(mac, ':', 2)
-+
-+def format_packet(packet):
-+    result = []
-+    for c in range(0, len(packet), 32):
-+        byte = c>>1
-+        line = []
-+        line.append(hex_str(byte, 8))
-+        line.append('  ')
-+        line.append(insert_spaces(packet[c:c+16]))
-+        if c+16 <= len(packet):
-+            line.append('-')
-+            line.append(insert_spaces(packet[c+16:c+32]))
-+        result.append(''.join(line))
-+    return '\n'.join(result)
-+
-+def permutations(base_actions, recirculation):
-+    '''Generate rules with the given number of recirculations'''
-+    current = []
-+    result = []
-+
-+    for act in base_actions:
-+        current.append(ActionList(act))
-+
-+    while len(current) > 0:
-+        al = current.pop()
-+
-+        # Include rules that already meet the recirculation criteria.
-+        if al.recirculation == recirculation:
-+            result.append(ActionList(actionlist=al))
-+            result[-1].append(Action(FINAL_ACTION, recirculate=0))
-+
-+        # Try constructing more complex rules. Not all actions will increase
-+        # the number of recirculations for the given ActionList.
-+        for act in base_actions:
-+            new_list = ActionList(actionlist=al)
-+            if new_list.try_append(act, recirculation):
-+                current.append(new_list)
-+
-+    return result
-+
-+def error(pre_string, flow, index, in_pkt, expout, output=[]):
-+    result = [pre_string, '',
-+            'Flow rule:', flow, '',
-+            'Input packet:', format_packet(in_pkt), '',
-+            'Expected output:', '\n'.join(expout), '']
-+
-+    if len(output) == 0:
-+        result.append('No output observed.')
-+    else:
-+        result.append('Observed output:')
-+        for line in output:
-+            result.append(line)
-+        result.append('')
-+
-+    diff = min(len(output), len(expout))
-+    if diff > 0:
-+        result.append('Difference:')
-+        for i in range(diff):
-+            if expout[i] != output[i]:
-+                result.append('-' + expout[i])
-+                result.append('+' + output[i])
-+                result.append('')
-+    if output == []:
-+        trail = 'No packet was forwarded to the controller.'
-+    sys.stderr.write('\n'.join(result) + '\n')
-+    sys.exit(1)
-+
-+def parse_args(args):
-+    global MAC_PREFIX
-+
-+    parser = argparse.ArgumentParser(
-+            description='MPLS recirculation test utility for Python.',
-+            formatter_class=argparse.RawDescriptionHelpFormatter)
-+    parser.add_argument('-b', '--bridge', default='br0',
-+                        help='Local bridge to send packet through')
-+    parser.add_argument('-c', '--clear-flows', action='store_true',
-+                        default=False, help='Remove flows after each test')
-+    parser.add_argument('-d', '--datapath', default='',
-+                        help='OpenFlow datapath to test, ' \
-+                             'eg "br0" or "tcp:127.0.0.1"')
-+    parser.add_argument('-m', '--mac', default='505400000007',
-+                        help='Destination MAC address without colons, ' \
-+                             'eg "505400000007"')
-+    parser.add_argument('recirculation', nargs='?', type=int, default=1,
-+                        help='Number of recirculations in generated rules')
-+    parser.add_argument('offset', nargs='?', type=int, default=0,
-+                        help='Begin with this test')
-+    parser.add_argument('num_tests', nargs='?', type=int, default=50,
-+                        help='Conduct this number of tests')
-+    result = parser.parse_args(args)
-+
-+    EXAMPLE_PKT[PKT_INDEX_L2] = result.mac + '606677770000'
-+
-+    for cmd in OVSTEST_COMMANDS:
-+        if OVSTEST_COMMANDS[cmd][0] == 'ovs-ofctl':
-+            if result.datapath == '':
-+                OVSTEST_COMMANDS[cmd][CMD_BR_INDEX] = result.bridge
-+            else:
-+                OVSTEST_COMMANDS[cmd][CMD_BR_INDEX] = result.datapath
-+    if result.datapath != '':
-+        OVSTEST_COMMANDS['send'] = ['mz', result.bridge]
-+
-+    MAC_PREFIX = MAC_PREFIX + hex_str(result.recirculation, 2)
-+
-+    return result
-+
-+def main(argv):
-+    args = parse_args(argv[1:])
-+
-+    # Basic permutations of push/pop mpls, dec mpls/ip ttl, one recirculation
-+    base_actions = construct_base_actions()
-+    rules = permutations(base_actions, args.recirculation)
-+
-+    if args.offset > len(rules):
-+        sys.stderr.write('offset (%d) is higher than number of rules (%d)' %
-+                         (args.offset, len(rules)))
-+        sys.exit(1)
-+    max_test = min(args.offset+args.num_tests, len(rules))
-+
-+    for index in range(args.offset, max_test):
-+        rule = rules[index]
-+        flow = rule.generate_flow(index)
-+
-+        add_cmd = OVSTEST_COMMANDS['add'][:]
-+        add_cmd.append(flow)
-+        subprocess.check_call(add_cmd)
-+
-+        in_pkt = rule.generate_in_packet(index)
-+        out_pkt = rule.generate_out_packet(in_pkt)
-+
-+        expout = []
-+        MAX_PACKETS = 3
-+        for i in range(MAX_PACKETS):
-+            expout += format_packet(out_pkt).split('\n')
-+
-+        with open(MONITOR_LOG, 'w+') as log:
-+            subprocess.check_call(OVSTEST_COMMANDS['monitor'], stderr=log)
-+            for i in range(MAX_PACKETS):
-+                command = OVSTEST_COMMANDS['send'][:]
-+                command.append(insert_spaces(in_pkt))
-+                try:
-+                    subprocess.check_call(command)
-+                except subprocess.CalledProcessError as err:
-+                    error('Failed to send packet to datapath: %s' % (str(err)),
-+                          flow, index, in_pkt, expout)
-+            subprocess.check_call(OVSTEST_COMMANDS['stop'])
-+
-+            log.seek(0)
-+            output = []
-+            for line in log:
-+                if line[0] != '0':
-+                    continue
-+                output.append(line.rstrip())
-+
-+            output_difference = set(expout) ^ set(output)
-+            if len(output_difference) > 0:
-+                error('MPLS test case %d failed' % (index), flow, index,
-+                      in_pkt, expout, output)
-+
-+        if args.clear_flows:
-+            clear_cmd = OVSTEST_COMMANDS['clear'][:]
-+            clear_cmd.append(rule.generate_flow(index, matchonly=True))
-+            subprocess.check_call(clear_cmd)
-+
-+if __name__ == '__main__':
-+    main(sys.argv)
+-- 
+1.8.2.1
+
+_______________________________________________
+dev mailing list
+dev@openvswitch.org
+http://openvswitch.org/mailman/listinfo/dev
+
+
+Joe Stringer (1):
+  Add MPLS recirculation tests
+
+Simon Horman (2):
+  Add packet recirculation
+  Allow multiple levels of MPLS push and pop
+
+ datapath/actions.c           |   9 +-
+ datapath/datapath.c          | 105 ++++--
+ datapath/datapath.h          |   2 +-
+ datapath/flow.c              |   5 +-
+ include/linux/openvswitch.h  |   4 +
+ lib/dpif-netdev.c            |  79 +++--
+ lib/flow.c                   |   6 +-
+ lib/flow.h                   |  13 +-
+ lib/match.c                  |   2 +-
+ lib/nx-match.c               |   2 +-
+ lib/odp-execute.c            |   7 +-
+ lib/odp-execute.h            |   3 +-
+ lib/odp-util.c               |  68 ++--
+ lib/odp-util.h               |   3 +-
+ lib/ofp-actions.c            |   6 -
+ lib/ofp-actions.h            |   6 +
+ lib/ofp-util.c               |   5 +-
+ lib/packets.c                |  33 +-
+ lib/packets.h                |   2 -
+ ofproto/ofproto-dpif-xlate.c | 304 +++++++++++++++--
+ ofproto/ofproto-dpif-xlate.h |  27 +-
+ ofproto/ofproto-dpif.c       | 521 +++++++++++++++++++++++++++--
+ ofproto/ofproto-dpif.h       |   5 +
+ tests/automake.mk            |   1 +
+ tests/ofproto-dpif.at        | 780 +++++++++++++++++++++++++++++++++++++++++--
+ tests/test-bundle.c          |   1 -
+ tests/test-mpls.py           | 491 +++++++++++++++++++++++++++
+ tests/test-multipath.c       |   1 -
+ utilities/ovs-dpctl.c        |   2 +-
+ utilities/ovs-ofctl.8.in     |  20 +-
+ 30 files changed, 2260 insertions(+), 253 deletions(-)
+ create mode 100644 tests/test-mpls.py
+
+-- 
+1.8.2.1
+
+_______________________________________________
+dev mailing list
+dev@openvswitch.org
+http://openvswitch.org/mailman/listinfo/dev
+
+
+Joe Stringer (1):
+  Add MPLS recirculation tests
+
+Simon Horman (3):
+  Add packet recirculation
+  Allow multiple levels of MPLS push and pop
+  datapath: Enable multiple levels of MPLS pop
+
+ datapath/actions.c           |    9 +-
+ datapath/datapath.c          |  116 +++--
+ datapath/datapath.h          |    2 +-
+ datapath/flow.c              |    5 +-
+ include/linux/openvswitch.h  |    4 +
+ lib/dpif-netdev.c            |   80 +++-
+ lib/flow.c                   |    6 +-
+ lib/flow.h                   |   13 +-
+ lib/match.c                  |    2 +-
+ lib/nx-match.c               |    2 +-
+ lib/odp-execute.c            |    7 +-
+ lib/odp-execute.h            |    3 +-
+ lib/odp-util.c               |   69 +--
+ lib/odp-util.h               |    5 +-
+ lib/ofp-actions.c            |    6 -
+ lib/ofp-actions.h            |    6 +
+ lib/ofp-util.c               |    5 +-
+ lib/packets.c                |   33 +-
+ lib/packets.h                |    2 -
+ ofproto/ofproto-dpif-xlate.c |  307 ++++++++++--
+ ofproto/ofproto-dpif-xlate.h |   27 +-
+ ofproto/ofproto-dpif.c       |  504 ++++++++++++++++++--
+ ofproto/ofproto-dpif.h       |    5 +
+ tests/automake.mk            |    1 +
+ tests/ofproto-dpif.at        | 1077 ++++++++++++++++++++++++++++++++++++------
+ tests/test-bundle.c          |    1 -
+ tests/test-mpls.py           |  491 +++++++++++++++++++
+ tests/test-multipath.c       |    1 -
+ utilities/ovs-dpctl.c        |    2 +-
+ utilities/ovs-ofctl.8.in     |   20 +-
+ 30 files changed, 2417 insertions(+), 394 deletions(-)
+ create mode 100644 tests/test-mpls.py
+
 -- 
 1.8.3.2
