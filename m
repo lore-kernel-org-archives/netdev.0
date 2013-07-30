@@ -1,31 +1,34 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [patch net-next] openvswitch:: link upper device for port devices
-Date: Tue, 30 Jul 2013 16:11:45 -0700
-Message-ID: <CAEP_g=-6GZ7U8rxBztcBsndioxogd2fRXPnXyO9Mny0ojF0etQ@mail.gmail.com>
-References: <1374840114-5622-1-git-send-email-jiri@resnulli.us>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] tile: handle 64-bit statistics in tilepro network
+ driver
+Date: Tue, 30 Jul 2013 16:16:34 -0700 (PDT)
+Message-ID: <20130730.161634.1378046909890599017.davem@davemloft.net>
+References: <cover.1374609948.git.cmetcalf@tilera.com>
+	<40362053a9f02d56a4f0c07a9982d96203723ec8.1374609948.git.cmetcalf@tilera.com>
+	<201307251642.r6PGgHx2002404@farm-0012.internal.tilera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: cmetcalf@tilera.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog127.obsmtp.com ([74.125.149.107]:51963 "HELO
-	na3sys009aog127.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1758239Ab3G3XMG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 19:12:06 -0400
-Received: by mail-ob0-f171.google.com with SMTP id tb18so34899obb.16
-        for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 16:12:06 -0700 (PDT)
-In-Reply-To: <1374840114-5622-1-git-send-email-jiri@resnulli.us>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43258 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758221Ab3G3XQf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 19:16:35 -0400
+In-Reply-To: <201307251642.r6PGgHx2002404@farm-0012.internal.tilera.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 26, 2013 at 5:01 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Link upper device properly. That will make IFLA_MASTER filled up.
-> Set the master to port 0 of the datapath under which the port belongs.
->
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Date: Thu, 25 Jul 2013 12:41:15 -0400
+
+> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
 
 Applied, thanks.
 
-Sorry about the delay - I was waiting to see if the vxlan stuff would wrap up.
+Your PTP patch for the Tile driver doesn't even come close to
+applying properly to net-next, please respin it and report if
+you want me to apply it.
+
+Thanks.
