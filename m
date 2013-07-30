@@ -1,104 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] net_sched: stack info leak in cbq_dump_wrr()
-Date: Tue, 30 Jul 2013 00:18:08 -0700 (PDT)
-Message-ID: <20130730.001808.1649128808672716753.davem@davemloft.net>
-References: <1375128751.2075.58.camel@joe-AO722>
-	<20130730065509.GB29160@mwanda>
-	<1375168352.2075.110.camel@joe-AO722>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH] bonding: set correct tx_queue_len for bond_dev
+Date: Tue, 30 Jul 2013 15:20:42 +0800
+Message-ID: <51F7694A.1060703@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: dan.carpenter@oracle.com, jhs@mojatatu.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: joe@perches.com
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58301 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753572Ab3G3HSJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 03:18:09 -0400
-In-Reply-To: <1375168352.2075.110.camel@joe-AO722>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:36462 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752149Ab3G3HVP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 03:21:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 30 Jul 2013 00:12:32 -0700
+When we set bandwidth on bond_dev with htb, it's not precise.
+Because the length of skb_buff queue is bigger than sch->limit
+whose value is 0, some packets are dropped.
+This leads to bond device can't make full use of the bandwidth
+and influence the accuracy.
 
-> On Tue, 2013-07-30 at 09:55 +0300, Dan Carpenter wrote:
->> On Mon, Jul 29, 2013 at 01:12:31PM -0700, Joe Perches wrote:
->> > On Mon, 2013-07-29 at 23:01 +0300, Dan Carpenter wrote:
->> > > On Mon, Jul 29, 2013 at 12:44:32PM -0700, Joe Perches wrote:
->> > > > On Mon, 2013-07-29 at 22:36 +0300, Dan Carpenter wrote:
->> > > > > opt.__reserved isn't cleared so we leak a byte of stack information.
->> > > > []
->> > > > > diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
->> > > > []
->> > > > > @@ -1469,6 +1469,7 @@ static int cbq_dump_wrr(struct sk_buff *skb, struct cbq_class *cl)
->> > > > >  	opt.allot = cl->allot;
->> > > > >  	opt.priority = cl->priority + 1;
->> > > > >  	opt.cpriority = cl->cpriority + 1;
->> > > > > +	opt.__reserved = 0;
->> > > > >  	opt.weight = cl->weight;
->> > > > >  	if (nla_put(skb, TCA_CBQ_WRROPT, sizeof(opt), &opt))
->> > > > >  		goto nla_put_failure;
->> > > > 
->> > > > Alignment isn't guaranteed here so it'd
->> > > > probably be better with a memset.
->> > > > 
->> > > 
->> > > Hm...  Which arches would align it differently?
->> > 
->> > Hey Dan.
->> > 
->> > None so far as I know, but what difference does it make
->> > when it's a general correctness issue?
->> > 
->> 
->> Because I would assume if these aren't aligned the same way we have
->> far more serious problems than just this one case.  It would change
->> the user space API and break network protocols.
-> 
-> <shrug>
-> 
-> I didn't say it was necessary to be done here, I said it
-> was a correctness issue.  I still believe that's true.
-> 
-> The nla_put here is by structure, the struct is unpacked,
-> and it's local to the arch, not a particular endian type.
-> 
-> btw: to answer David's question, gcc 4.7 is smart enough
-> to elide resetting values when the struct is initialized
-> to 0 either with a memset or using {0}.
+With htb, sch->limit is set from bond_dev->tx_queue_len which
+is initialized to 0 in bond_setup.
 
-Ok, I've just commited the following, thanks everyone.
+To fix this issue, set the bond_dev's tx_queue_len to slave_dev's.
 
---------------------
->From a0db856a95a29efb1c23db55c02d9f0ff4f0db48 Mon Sep 17 00:00:00 2001
-From: "David S. Miller" <davem@davemloft.net>
-Date: Tue, 30 Jul 2013 00:16:21 -0700
-Subject: [PATCH] net_sched: Fix stack info leak in cbq_dump_wrr().
+Example:
+tc qdisc add dev bond0 root handle 1: htb default 1
+tc class add dev bond0 parent 1:0 classid 1:1 htb rate 1Gbit ceil 1Gbit
+iperf -c host -t 30 -i 10
 
-Make sure the reserved fields, and padding (if any), are
-fully initialized.
+With old bonding:
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec   579 MBytes   486 Mbits/sec
+[  3] 10.0-20.0 sec   604 MBytes   507 Mbits/sec
+[  3] 20.0-30.0 sec   551 MBytes   462 Mbits/sec
+[  3]  0.0-30.0 sec  1.69 GBytes   485 Mbits/sec
 
-Based upon a patch by Dan Carpenter and feedback from
-Joe Perches.
+With new bonding:
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.11 GBytes   955 Mbits/sec
+[  3] 10.0-20.0 sec  1.11 GBytes   955 Mbits/sec
+[  3] 20.0-30.0 sec  1.11 GBytes   955 Mbits/sec
+[  3]  0.0-30.0 sec  3.33 GBytes   955 Mbits/sec
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
 ---
- net/sched/sch_cbq.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/bonding/bond_main.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index 71a5688..7a42c81 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -1465,6 +1465,7 @@ static int cbq_dump_wrr(struct sk_buff *skb, struct cbq_class *cl)
- 	unsigned char *b = skb_tail_pointer(skb);
- 	struct tc_cbq_wrropt opt;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index dbbea0e..2536426 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1860,6 +1860,12 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		goto err_dest_symlinks;
+ 	}
  
-+	memset(&opt, 0, sizeof(opt));
- 	opt.flags = 0;
- 	opt.allot = cl->allot;
- 	opt.priority = cl->priority + 1;
++	if (!bond_dev->tx_queue_len)
++		bond_dev->tx_queue_len = slave_dev->tx_queue_len;
++	else
++		bond_dev->tx_queue_len = min(slave_dev->tx_queue_len,
++				bond_dev->tx_queue_len);
++
+ 	pr_info("%s: enslaving %s as a%s interface with a%s link.\n",
+ 		bond_dev->name, slave_dev->name,
+ 		bond_is_active_slave(new_slave) ? "n active" : " backup",
 -- 
-1.7.11.7
+1.7.12
+
+
+
+.
