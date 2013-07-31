@@ -1,32 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tipc: fix oops when creating server socket fails
-Date: Wed, 31 Jul 2013 15:20:20 -0700 (PDT)
-Message-ID: <20130731.152020.219915207900769828.davem@davemloft.net>
-References: <1375227995-9581-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: Re: [PATCH net-next] net: skb_orphan() changes
+Date: Wed, 31 Jul 2013 15:24:58 -0700 (PDT)
+Message-ID: <20130731.152458.92056892741307118.davem@davemloft.net>
+References: <1375225875.10515.36.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ying.xue@windriver.com,
-	jon.maloy@ericsson.com
-To: paul.gortmaker@windriver.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34050 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34223 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757781Ab3GaWUV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 18:20:21 -0400
-In-Reply-To: <1375227995-9581-1-git-send-email-paul.gortmaker@windriver.com>
+	with ESMTP id S1760877Ab3GaWY7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 18:24:59 -0400
+In-Reply-To: <1375225875.10515.36.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Tue, 30 Jul 2013 19:46:35 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 30 Jul 2013 16:11:15 -0700
 
-> Problem introduced as of v3.11-rc1~16^2~73^2~12
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> It is illegal to set skb->sk without corresponding destructor.
+> 
+> Its therefore safe for skb_orphan() to not clear skb->sk if
+> skb->destructor is not set.
+> 
+> Also avoid clearing skb->destructor if already NULL.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Please do not refer to commits this way.
-
-Use the format:
-
-	SHA1_ID ("Commit message header line")
-
-thank you.
+Applied, but personally I would have considered adding an
+else clause checking BUG_ON(skb->sk), or are you not so
+confident in your assertion? :-)
