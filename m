@@ -1,28 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch v2 0/2] Fix system hang when loading mvneta module -
- take 2
-Date: Tue, 30 Jul 2013 19:32:55 -0700 (PDT)
-Message-ID: <20130730.193255.1830316236868115039.davem@davemloft.net>
-References: <20130729195646.433524957@rtp-net.org>
+Subject: Re: [PATCH] mlx5: fix error return code in mlx5_alloc_uuars()
+Date: Tue, 30 Jul 2013 19:34:02 -0700 (PDT)
+Message-ID: <20130730.193402.158391859266321153.davem@davemloft.net>
+References: <CAPgLHd-BWzEPhH=Otzyc5p-MEm7MXQNvEPTyYhRLzq4d=FT2tg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, thomas.petazzoni@free-electrons.com
-To: arnaud.patard@rtp-net.org
+Cc: eli@mellanox.com, yongjun_wei@trendmicro.com.cn,
+	netdev@vger.kernel.org, linux-rdma@vger.kernel.org
+To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45004 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45015 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751171Ab3GaCc4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 22:32:56 -0400
-In-Reply-To: <20130729195646.433524957@rtp-net.org>
+	with ESMTP id S1758875Ab3GaCeD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 22:34:03 -0400
+In-Reply-To: <CAPgLHd-BWzEPhH=Otzyc5p-MEm7MXQNvEPTyYhRLzq4d=FT2tg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnaud Patard (Rtp) <arnaud.patard@rtp-net.org>
-Date: Mon, 29 Jul 2013 21:56:46 +0200
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Tue, 30 Jul 2013 07:57:06 +0800
 
-> This is a second version of my patchset to fix mvneta as module.
-> I've addressed previous comments. I've also fixed probe
-> error path which was broken in the previous version.
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> 
+> Fix to return -ENOMEM from the ioremap error handling
+> case instead of 0, as done elsewhere in this function.
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Both applied, thanks.
+Applied, thanks.
