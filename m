@@ -1,132 +1,79 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: How do I receive vlan tags on an AF_PACKET socket in 3.4 kernel?
-Date: Wed, 31 Jul 2013 14:54:26 +0200
-Message-ID: <51F90902.3020201@redhat.com>
-References: <CAMJ=MEe4cvp7-fwbCnq7SLM=44Zy8Jrz35FwRoWG-ytahdPRQA@mail.gmail.com> <1375193392.10515.28.camel@edumazet-glaptop> <CAMJ=MEdfn2uPHbNQZ1LOytOqwFTbAyV1ZtxOW8NomLCZJq+caQ@mail.gmail.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: ipv4: crash at leaf_walk_rcu
+Date: Wed, 31 Jul 2013 05:55:13 -0700
+Message-ID: <20130731125513.GS26694@linux.vnet.ibm.com>
+References: <CAOaiJ-k14g6ihjVfgHqgq48KV7-dRJ1_owNyDkza-r=36gscsQ@mail.gmail.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Ronny Meeus <ronny.meeus@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	getarunks@gmail.com, netdev@vger.kernel.org
+To: vinayak menon <vinayakm.list@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48782 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751360Ab3GaMyc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jul 2013 08:54:32 -0400
-In-Reply-To: <CAMJ=MEdfn2uPHbNQZ1LOytOqwFTbAyV1ZtxOW8NomLCZJq+caQ@mail.gmail.com>
+Received: from e37.co.us.ibm.com ([32.97.110.158]:57457 "EHLO
+	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751553Ab3GaMzW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 08:55:22 -0400
+Received: from /spool/local
+	by e37.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
+	Wed, 31 Jul 2013 06:55:20 -0600
+Content-Disposition: inline
+In-Reply-To: <CAOaiJ-k14g6ihjVfgHqgq48KV7-dRJ1_owNyDkza-r=36gscsQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/31/2013 02:51 PM, Ronny Meeus wrote:
-> On Tue, Jul 30, 2013 at 4:09 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> On Tue, 2013-07-30 at 15:07 +0200, Ronny Meeus wrote:
->>> Hello
->>>
->>> I have ported a legacy application that is processing several packet
->>> streams based on protocol and vlan.
->>> Internally in the application a dispatching is done based on the
->>> VLAN/Protocol field in the Ethernet packets.
->>>
->>> To receive the packets I use a AF_PACKET socket on a pure Ethernet
->>> interface (not vlan aware).
->>> A BPF filter is attached to the socket to drop packets I'm not
->>> interested in as soon as possible in the processing path.
->>>
->>> This setup worked well until I switched to a 3.4 kernel (I was using
->>> 2.6.32 before).
->>> In the 3.4 kernel I see that the vlan information is stripped from the
->>> packets I receive from the socket.
->>>
->>> After some searches on Google and browsing the Linux code I found that
->>> the Vlan is stripped from the packet very early in the receive path.
->>> This is the info of the commit:
->>>
->>> commit bcc6d47903612c3861201cc3a866fb604f26b8b2
->>> Author: Jiri Pirko <jpirko@redhat.com>
->>> Date:   Thu Apr 7 19:48:33 2011 +0000
->>>
->>>      net: vlan: make non-hw-accel rx path similar to hw-accel
->>>
->>>      Now there are 2 paths for rx vlan frames. When rx-vlan-hw-accel is
->>>      enabled, skb is untagged by NIC, vlan_tci is set and the skb gets into
->>>      vlan code in __netif_receive_skb - vlan_hwaccel_do_receive.
->>>
->>>      For non-rx-vlan-hw-accel however, tagged skb goes thru whole
->>>      __netif_receive_skb, it's untagged in ptype_base hander and reinjected
->>>
->>>      This incosistency is fixed by this patch. Vlan untagging happens early in
->>>      __netif_receive_skb so the rest of code (ptype_all handlers, rx_handlers)
->>>      see the skb like it was untagged by hw.
->>>
->>>
->>> Now the question is: What is the correct solution to handle this?
->>>
->>> One option I found is using the pcap library since this uses the
->>> auxillary data received from the recvmsg call to reconstruct the vlan
->>> headers, but this would mean that first of all I have to adapt my
->>> application(s) and more importantly that I loose the BPF filter
->>> feature since this is implemented in the kernel.
->>> Another disadvantage is that this requires more processing since the
->>> mac header needs to be moved the packet to make room to store the VLAN
->>> tags.
->>> So first cycles are lost in the kernel to strip the info and a bit
->>> later, the packet to be reconstructed again.
->>>
->>> Is there any other way to proceed?
->>>
->>> A side question: If I would switch to the libpcap approach, I assume
->>> the application can work on both the 2.6 and 3.4 version of the
->>> kernel, but is there a guarantee that this will also work on future
->>> versions?
->>
->>
->> If you use a BPF, it can access vlan tag (skb->vlan_tci) since linux-3.8
->>
->> commit f3335031b9452baebfe49b8b5e55d3fe0c4677d1
->> Author: Eric Dumazet <edumazet@google.com>
->> Date:   Sat Oct 27 02:26:17 2012 +0000
->>
->>      net: filter: add vlan tag access
->>
->>      BPF filters lack ability to access skb->vlan_tci
->>
->>      This patch adds two new ancillary accessors :
->>
->>      SKF_AD_VLAN_TAG         (44) mapped to vlan_tx_tag_get(skb)
->>
->>      SKF_AD_VLAN_TAG_PRESENT (48) mapped to vlan_tx_tag_present(skb)
->>
->>      This allows libpcap/tcpdump to use a kernel filter instead of
->>      having to fallback to accept all packets, then filter them in
->>      user space.
->>
->>      Signed-off-by: Eric Dumazet <edumazet@google.com>
->>      Suggested-by: Ani Sinha <ani@aristanetworks.com>
->>      Suggested-by: Daniel Borkmann <danborkmann@iogearbox.net>
->>      Signed-off-by: David S. Miller <davem@davemloft.net>
->>
->>
->> You can update your BPF to use these new features, and get support for
->> both old kernels and new ones.
->
-> Thanks for the feedback. High level it is almost clear.
->
-> At implementation level I do not understand how it is supposed to work.
-> If I use tcpdump to generate a filter for example on vlan 4094 I see
-> no reference at all to the newly added instructions to get the VLAN.
->
-> ~ # tcpdump -i eth-ntb vlan 4094 -d
-> tcpdump: WARNING: eth-ntb: no IPv4 address assigned
-> (000) ldh      [12]
-> (001) jeq      #0x8100          jt 3    jf 2
-> (002) jeq      #0x9100          jt 3    jf 7
-> (003) ldh      [14]
-> (004) and      #0xfff
-> (005) jeq      #0xffe           jt 6    jf 7
-> (006) ret      #65535
-> (007) ret      #0
+On Wed, Jul 31, 2013 at 04:40:47PM +0530, vinayak menon wrote:
+> Hi,
+> 
+> A crash was seen on 3.4.5 kernel during some random wlan operations.
+> 
+> CPU: Single core ARM Cortex A9.
+> 
+> fib_route_seq_next was called with second argument (void *v) as 0xd6e3e360
+> which is a "freed" object of the "ip_fib_trie" cache. I confirmed that the
+> object was freed with crash utility.
+> 
+> Sequence: fib_route_seq_next->trie_nextleaf->leaf_walk_rcu
+> 
+> As "v" was a freed object, inside trie_nextleaf(), node_parent_rcu()
+> returned an invalid tnode. But as I had enabled slab poisoning and the
+> object was already freed, the tnode was 0x6b6b6b6b. And this was passed to
+> leaf_walk_rcu and resulted in the crash.
+> 
+> fib_route_seq_start, takes rcu_read_lock(), but free_leaf
+> calls call_rcu_bh. Can this be the problem ?
+> Should rcu_read_lock() in fib_route_seq_start be changed to rcu_read_lock_bh()
+> ?
 
-I assume that's because libpcap BPF compiler has not implemented it so far.
+One way or the other, the RCU read-side primitives need to match the RCU
+update-side primitives.  Adding netdev...
 
-Therefore, tcpdump doesn't make use of it either.
+							Thanx, Paul
+
+> ----------------------------------------------------------------------------
+> PC is at leaf_walk_rcu+0x10/0xa0
+> LR is at fib_route_seq_next+0x58/0x74
+> pc : [<c0500e5c>]    lr : [<c050108c>]    psr: a0000013
+> sp : c150bee0  ip : 00000000  fp : 00000000
+> r10: 00000400  r9 : 53701020  r8 : c32345c0
+> r7 : 00000000  r6 : 00000001  r5 : 00000000  r4 : 00000002
+> r3 : 6b6b6b6b  r2 : 00000001  r1 : d6e3e360  r0 : 6b6b6b6a
+> Flags: NzCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment user
+> Control: 10c53c7d  Table: 835dc059  DAC: 00000015
+> 
+> Backtrace:
+> [<c0500e5c>] (leaf_walk_rcu+0x10/0xa0) from [<c050108c>]
+> (fib_route_seq_next+0x58/0x74)
+> [<c050108c>] (fib_route_seq_next+0x58/0x74) from [<c011c06c>]
+> (seq_read+0x2cc/0x438)
+> [<c011c06c>] (seq_read+0x2cc/0x438) from [<c0145734>]
+> (proc_reg_read+0xb0/0xcc)
+> [<c0145734>] (proc_reg_read+0xb0/0xcc) from [<c0100798>]
+> (vfs_read+0xac/0x124)
+> [<c0100798>] (vfs_read+0xac/0x124) from [<c0100848>] (sys_read+0x38/0x64)
+> [<c0100848>] (sys_read+0x38/0x64) from [<c000e100>]
+> (ret_fast_syscall+0x0/0x48)
+> 
+> Thanks,
+> Vinayak
