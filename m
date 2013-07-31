@@ -1,46 +1,73 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH 4/4] USBNET: ax88179_178a: enable tso if host supports
- sg dma
-Date: Wed, 31 Jul 2013 16:02:46 +0200
-Message-ID: <1375279366.14846.1.camel@linux-fkkt.site>
-References: <1375267909-30373-1-git-send-email-ming.lei@canonical.com>
-	 <1375267909-30373-5-git-send-email-ming.lei@canonical.com>
-	 <20130731124707.GA30635@kroah.com>
-	 <CACVXFVNk+h7kBWTFT2NiGy+2F6LPatda3oL9+uuaQnT-u5J8wg@mail.gmail.com>
+From: Roman Gushchin <klamm@yandex-team.ru>
+Subject: [PATCH] net: check net.core.somaxconn sysctl values
+Date: Wed, 31 Jul 2013 17:57:35 +0400
+Message-ID: <51F917CF.7010905@yandex-team.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Freddy Xin <freddy@asix.com.tw>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Grant Grundler <grundler@google.com>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: Ming Lei <ming.lei@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:38194 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754950Ab3GaOCs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jul 2013 10:02:48 -0400
-In-Reply-To: <CACVXFVNk+h7kBWTFT2NiGy+2F6LPatda3oL9+uuaQnT-u5J8wg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, raise.sail@gmail.com,
+	ebiederm@xmission.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-07-31 at 21:50 +0800, Ming Lei wrote:
+It's possible to assign an invalid value to the net.core.somaxconn
+sysctl variable, because there is no checks at all.
 
-> In the usbnet case, the driver already supports non-sg well. Actually,
-> all current drivers should support non-sg well because urb->sg wasn't
-> introduced for very long time. We can think it as a new feature or DMA
-> enhancement for xHCI controller.
-> 
-> If you mean buffer debounce for dma sg support on ehci/uhci/ohci/..,
-> maybe we need to discuss and evaluate further.
+The sk_max_ack_backlog field of the sock structure is defined as
+unsigned short. Therefore, the backlog argument in inet_listen()
+shouldn't exceed USHRT_MAX. The backlog argument in the listen() syscall
+is truncated to the somaxconn value. So, the somaxconn value shouldn't
+exceed 65535 (USHRT_MAX).
+Also, negative values of somaxconn are meaningless.
 
-We cannot lie to the networking layer. Either we can do sg in hardware
-or we cannot. This is unfortunately determined by the HC not the device
-on the bus. How else but from the host driver would we get the
-information?
+before:
+$ sysctl -w net.core.somaxconn=256
+net.core.somaxconn = 256
+$ sysctl -w net.core.somaxconn=65536
+net.core.somaxconn = 65536
+$ sysctl -w net.core.somaxconn=-100
+net.core.somaxconn = -100
 
-	Regards
-		Oliver
+after:
+$ sysctl -w net.core.somaxconn=256
+net.core.somaxconn = 256
+$ sysctl -w net.core.somaxconn=65536
+error: "Invalid argument" setting key "net.core.somaxconn"
+$ sysctl -w net.core.somaxconn=-100
+error: "Invalid argument" setting key "net.core.somaxconn"
+
+Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
+---
+  net/core/sysctl_net_core.c | 6 +++++-
+  1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index cfdb46a..2ff093b 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -20,7 +20,9 @@
+  #include <net/sock.h>
+  #include <net/net_ratelimit.h>
+
++static int zero = 0;
+  static int one = 1;
++static int ushort_max = USHRT_MAX;
+
+  #ifdef CONFIG_RPS
+  static int rps_sock_flow_sysctl(ctl_table *table, int write,
+@@ -204,7 +206,9 @@ static struct ctl_table netns_core_table[] = {
+  		.data		= &init_net.core.sysctl_somaxconn,
+  		.maxlen		= sizeof(int),
+  		.mode		= 0644,
+-		.proc_handler	= proc_dointvec
++		.extra1		= &zero,
++		.extra2		= &ushort_max,
++		.proc_handler	= proc_dointvec_minmax
+  	},
+  	{ }
+  };
+-- 
+1.8.1.2
