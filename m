@@ -1,51 +1,111 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH v4 3/5] net/usb/r815x: change the return value for bind functions
-Date: Wed, 31 Jul 2013 17:21:24 +0800
-Message-ID: <1375262486-5373-3-git-send-email-hayeswang@realtek.com>
+Subject: [PATCH v4 1/5] net/usb/r815x: replace USB buffer from stack to DMA-able
+Date: Wed, 31 Jul 2013 17:21:22 +0800
+Message-ID: <1375262486-5373-1-git-send-email-hayeswang@realtek.com>
 References: <D7C722C73C7A400780358D0376412267@realtek.com.tw>
- <1375262486-5373-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <linux-kernel@vger.kernel.org>, <linux-usb@vger.kernel.org>,
 	Hayes Wang <hayeswang@realtek.com>
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:43000 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755043Ab3GaJV5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 05:21:57 -0400
-In-Reply-To: <1375262486-5373-1-git-send-email-hayeswang@realtek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <D7C722C73C7A400780358D0376412267@realtek.com.tw>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Replace 0 with the result from usbnet_cdc_bind().
+Some USB buffers use stack which may not be DMA-able.
+Use the buffers from kmalloc to replace those one.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r815x.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/usb/r815x.c | 44 +++++++++++++++++++++++++++-----------------
+ 1 file changed, 27 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/usb/r815x.c b/drivers/net/usb/r815x.c
-index 1a80e76..2df2f4f 100644
+index 8523922..e9b99ba 100644
 --- a/drivers/net/usb/r815x.c
 +++ b/drivers/net/usb/r815x.c
-@@ -172,7 +172,7 @@ static int r8153_bind(struct usbnet *dev, struct usb_interface *intf)
- 	dev->mii.phy_id = R815x_PHY_ID;
- 	dev->mii.supports_gmii = 1;
+@@ -24,34 +24,43 @@
  
--	return 0;
-+	return status;
+ static int pla_read_word(struct usb_device *udev, u16 index)
+ {
+-	int data, ret;
++	int ret;
+ 	u8 shift = index & 2;
+-	__le32 ocp_data;
++	__le32 *tmp;
++
++	tmp = kmalloc(sizeof(*tmp), GFP_KERNEL);
++	if (!tmp)
++		return -ENOMEM;
+ 
+ 	index &= ~3;
+ 
+ 	ret = usb_control_msg(udev, usb_rcvctrlpipe(udev, 0),
+ 			      RTL815x_REQ_GET_REGS, RTL815x_REQT_READ,
+-			      index, MCU_TYPE_PLA, &ocp_data, sizeof(ocp_data),
+-			      500);
++			      index, MCU_TYPE_PLA, tmp, sizeof(*tmp), 500);
+ 	if (ret < 0)
+-		return ret;
++		goto out2;
+ 
+-	data = __le32_to_cpu(ocp_data);
+-	data >>= (shift * 8);
+-	data &= 0xffff;
++	ret = __le32_to_cpu(*tmp);
++	ret >>= (shift * 8);
++	ret &= 0xffff;
+ 
+-	return data;
++out2:
++	kfree(tmp);
++	return ret;
  }
  
- static int r8152_bind(struct usbnet *dev, struct usb_interface *intf)
-@@ -191,7 +191,7 @@ static int r8152_bind(struct usbnet *dev, struct usb_interface *intf)
- 	dev->mii.phy_id = R815x_PHY_ID;
- 	dev->mii.supports_gmii = 0;
+ static int pla_write_word(struct usb_device *udev, u16 index, u32 data)
+ {
+-	__le32 ocp_data;
++	__le32 *tmp;
+ 	u32 mask = 0xffff;
+ 	u16 byen = BYTE_EN_WORD;
+ 	u8 shift = index & 2;
+ 	int ret;
  
--	return 0;
-+	return status;
++	tmp = kmalloc(sizeof(*tmp), GFP_KERNEL);
++	if (!tmp)
++		return -ENOMEM;
++
+ 	data &= mask;
+ 
+ 	if (shift) {
+@@ -63,19 +72,20 @@ static int pla_write_word(struct usb_device *udev, u16 index, u32 data)
+ 
+ 	ret = usb_control_msg(udev, usb_rcvctrlpipe(udev, 0),
+ 			      RTL815x_REQ_GET_REGS, RTL815x_REQT_READ,
+-			      index, MCU_TYPE_PLA, &ocp_data, sizeof(ocp_data),
+-			      500);
++			      index, MCU_TYPE_PLA, tmp, sizeof(*tmp), 500);
+ 	if (ret < 0)
+-		return ret;
++		goto out3;
+ 
+-	data |= __le32_to_cpu(ocp_data) & ~mask;
+-	ocp_data = __cpu_to_le32(data);
++	data |= __le32_to_cpu(*tmp) & ~mask;
++	*tmp = __cpu_to_le32(data);
+ 
+ 	ret = usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
+ 			      RTL815x_REQ_SET_REGS, RTL815x_REQT_WRITE,
+-			      index, MCU_TYPE_PLA | byen, &ocp_data,
+-			      sizeof(ocp_data), 500);
++			      index, MCU_TYPE_PLA | byen, tmp, sizeof(*tmp),
++			      500);
+ 
++out3:
++	kfree(tmp);
+ 	return ret;
  }
  
- static const struct driver_info r8152_info = {
 -- 
 1.8.3.1
