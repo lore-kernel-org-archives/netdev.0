@@ -1,86 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] pkt_sched: fix bandwidth's accuracy of software device
- with htb
-Date: Tue, 30 Jul 2013 20:08:42 -0700
-Message-ID: <1375240122.10515.54.camel@edumazet-glaptop>
-References: <51F878E6.1070806@huawei.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next] tcp_metrics: rearrange fields to avoid holes
+Date: Wed, 31 Jul 2013 11:13:22 +0800
+Message-ID: <1375240402.22980.5.camel@cr0>
+References: <1375238905-6423-1-git-send-email-amwang@redhat.com>
+	 <1375240090.10515.53.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Yang Yingliang <yangyingliang@huawei.com>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:36100 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751683Ab3GaDIo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 23:08:44 -0400
-Received: by mail-pb0-f52.google.com with SMTP id wz12so205649pbc.39
-        for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 20:08:44 -0700 (PDT)
-In-Reply-To: <51F878E6.1070806@huawei.com>
+Received: from mx1.redhat.com ([209.132.183.28]:30227 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758907Ab3GaDNc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Jul 2013 23:13:32 -0400
+In-Reply-To: <1375240090.10515.53.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-07-31 at 10:39 +0800, Yang Yingliang wrote:
-> When we set bandwidth on the software devices with htb,
-> it's not precise.
+On Tue, 2013-07-30 at 20:08 -0700, Eric Dumazet wrote:
 > 
-> With htb, sch->limit is set from devices TX queue's
-> length that is not 0. Because software devices TX
-> queue is 0, sch->limit is set to default value 1.
+> Oh well, this patch is pure noise...
 > 
-> Because the length of skb_buff queue is bigger than
-> sch->limit whose value is 1, some packets are dropped.
-> This leads to software devices can't make full use of
-> the bandwidth and influence the accuracy.
 > 
-> To fix this issue, set the default value of sch->limit
-> to 1000 that is the value of eth device's tx_queueu_len.
-> 
-> Example:
-> tc qdisc add dev bond0 root handle 1: htb default 1
-> tc class add dev bond0 parent 1:0 classid 1:1 htb rate 1Gbit ceil 1Gbit
-> iperf -c host -t 30 -i 10
-> 
-> With old sch->limit:
-> [ ID] Interval       Transfer     Bandwidth
-> [  3]  0.0-10.0 sec   579 MBytes   486 Mbits/sec
-> [  3] 10.0-20.0 sec   604 MBytes   507 Mbits/sec
-> [  3] 20.0-30.0 sec   551 MBytes   462 Mbits/sec
-> [  3]  0.0-30.0 sec  1.69 GBytes   485 Mbits/sec
-> 
-> With new sch->limit:
-> [ ID] Interval       Transfer     Bandwidth
-> [  3]  0.0-10.0 sec  1.11 GBytes   955 Mbits/sec
-> [  3] 10.0-20.0 sec  1.11 GBytes   955 Mbits/sec
-> [  3] 20.0-30.0 sec  1.11 GBytes   955 Mbits/sec
-> [  3]  0.0-30.0 sec  3.33 GBytes   955 Mbits/sec
-> 
-> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-> ---
->  net/sched/sch_fifo.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
-> index e15a9eb..8dd27ec 100644
-> --- a/net/sched/sch_fifo.c
-> +++ b/net/sched/sch_fifo.c
-> @@ -54,7 +54,7 @@ static int fifo_init(struct Qdisc *sch, struct nlattr *opt)
->  	bool is_bfifo = sch->ops == &bfifo_qdisc_ops;
->  
->  	if (opt == NULL) {
-> -		u32 limit = qdisc_dev(sch)->tx_queue_len ? : 1;
-> +		u32 limit = qdisc_dev(sch)->tx_queue_len ? : 1000;
->  
->  		if (is_bfifo)
->  			limit *= psched_mtu(qdisc_dev(sch));
 
-Hmm. This looks like user error to me.
+Mind to be specific?
 
-What if existing scripts relied on the limit being 1 ?
-
-If you want to use pfifo on a virtual device, while not setting explicit
-limit, you have to "ifconfig bond0 txqueuelen 1000"
-
-Seriously, using pfifo or bfifo without setting explicit plimit/blimit
-is not very safe, even with non virtual devices.
+I know saving 8 bytes is not interesting for you, but it is for me,
+since I need some room in struct tcp_metrics_block for union inet_addr.
+With this patch, I don't have to make struct tcp_metrics_block expand to
+3 cachelines. :)
