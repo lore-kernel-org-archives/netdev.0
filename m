@@ -1,182 +1,58 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [net PATCH v4] 8139cp: Add dma_mapping_error checking
-Date: Wed, 31 Jul 2013 09:03:56 -0400
-Message-ID: <1375275836-22187-1-git-send-email-nhorman@tuxdriver.com>
-References: <1374516882-19131-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:51724 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751310Ab3GaNEc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 09:04:32 -0400
-In-Reply-To: <1374516882-19131-1-git-send-email-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: ipv4: crash at leaf_walk_rcu
+Date: Wed, 31 Jul 2013 15:13:23 +0200
+Message-ID: <20130731131323.GB31245@order.stressinduktion.org>
+References: <CAOaiJ-k14g6ihjVfgHqgq48KV7-dRJ1_owNyDkza-r=36gscsQ@mail.gmail.com> <20130731125513.GS26694@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: vinayak menon <vinayakm.list@gmail.com>,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	getarunks@gmail.com, netdev@vger.kernel.org
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130731125513.GS26694@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Self explanitory dma_mapping_error addition to the 8139 driver, based on this:
-https://bugzilla.redhat.com/show_bug.cgi?id=947250
+On Wed, Jul 31, 2013 at 05:55:13AM -0700, Paul E. McKenney wrote:
+> On Wed, Jul 31, 2013 at 04:40:47PM +0530, vinayak menon wrote:
+> > Hi,
+> > 
+> > A crash was seen on 3.4.5 kernel during some random wlan operations.
+> > 
+> > CPU: Single core ARM Cortex A9.
+> > 
+> > fib_route_seq_next was called with second argument (void *v) as 0xd6e3e360
+> > which is a "freed" object of the "ip_fib_trie" cache. I confirmed that the
+> > object was freed with crash utility.
+> > 
+> > Sequence: fib_route_seq_next->trie_nextleaf->leaf_walk_rcu
+> > 
+> > As "v" was a freed object, inside trie_nextleaf(), node_parent_rcu()
+> > returned an invalid tnode. But as I had enabled slab poisoning and the
+> > object was already freed, the tnode was 0x6b6b6b6b. And this was passed to
+> > leaf_walk_rcu and resulted in the crash.
+> > 
+> > fib_route_seq_start, takes rcu_read_lock(), but free_leaf
+> > calls call_rcu_bh. Can this be the problem ?
+> > Should rcu_read_lock() in fib_route_seq_start be changed to rcu_read_lock_bh()
+> > ?
+> 
+> One way or the other, the RCU read-side primitives need to match the RCU
+> update-side primitives.  Adding netdev...
 
-It showed several backtraces arising for dma_map_* usage without checking the
-return code on the mapping.  Add the check and abort the rx/tx operation if its
-failed.  Untested as I have no hardware and the reporter has wandered off, but
-seems pretty straightforward.
+Already fixed by:
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Francois Romieu <romieu@fr.zoreil.com>
+commit 0c03eca3d995e73d691edea8c787e25929ec156d
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Tue Aug 7 00:47:11 2012 +0000
 
----
-Change notes:
-
-v2) Added stats update for tx_dropped as per Francois Romieu
-
-v3)
-* Updated rx patch to handle dma errors properly.  Francois had pointed out that
-I needed to increment the rx_dropped stat there, but the problem was a bit
-deeper.  I actually had to move the dma_mapping and error check higher in the
-path, so that, in the event of a failure, we could drop the received skb, and
-reuse its existing mapping in the rx ring.  this is in line with what happens if
-the skb allocation fails
-
-* Updated the tx path to have a common goto for mapping failures, so we only
-have one location to drop the skb
-
-* Moved the unwind code into a separate helper function, as per Francois
-suggestion.  I though it would be alot of parameter passing and not very
-adventageous, but on second look I think its more readable.
-
-v4)
-* Fix rx/tx naming error.
----
- drivers/net/ethernet/realtek/8139cp.c | 48 ++++++++++++++++++++++++++++++++---
- 1 file changed, 45 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
-index 0352345..887aebe 100644
---- a/drivers/net/ethernet/realtek/8139cp.c
-+++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -478,7 +478,7 @@ rx_status_loop:
- 
- 	while (1) {
- 		u32 status, len;
--		dma_addr_t mapping;
-+		dma_addr_t mapping, new_mapping;
- 		struct sk_buff *skb, *new_skb;
- 		struct cp_desc *desc;
- 		const unsigned buflen = cp->rx_buf_sz;
-@@ -520,6 +520,13 @@ rx_status_loop:
- 			goto rx_next;
- 		}
- 
-+		new_mapping = dma_map_single(&cp->pdev->dev, new_skb->data, buflen,
-+					 PCI_DMA_FROMDEVICE);
-+		if (dma_mapping_error(&cp->pdev->dev, new_mapping)) {
-+			dev->stats.rx_dropped++;
-+			goto rx_next;
-+		}
-+
- 		dma_unmap_single(&cp->pdev->dev, mapping,
- 				 buflen, PCI_DMA_FROMDEVICE);
- 
-@@ -531,12 +538,11 @@ rx_status_loop:
- 
- 		skb_put(skb, len);
- 
--		mapping = dma_map_single(&cp->pdev->dev, new_skb->data, buflen,
--					 PCI_DMA_FROMDEVICE);
- 		cp->rx_skb[rx_tail] = new_skb;
- 
- 		cp_rx_skb(cp, skb, desc);
- 		rx++;
-+		mapping = new_mapping;
- 
- rx_next:
- 		cp->rx_ring[rx_tail].opts2 = 0;
-@@ -716,6 +722,22 @@ static inline u32 cp_tx_vlan_tag(struct sk_buff *skb)
- 		TxVlanTag | swab16(vlan_tx_tag_get(skb)) : 0x00;
- }
- 
-+static void unwind_tx_frag_mapping(struct cp_private *cp, struct sk_buff *skb,
-+				   int first, int entry_last)
-+{
-+	int frag, index;
-+	struct cp_desc *txd;
-+	skb_frag_t *this_frag;
-+	for (frag = 0; frag+first < entry_last; frag++) {
-+		index = first+frag;
-+		cp->tx_skb[index] = NULL;
-+		txd = &cp->tx_ring[index];
-+		this_frag = &skb_shinfo(skb)->frags[frag];
-+		dma_unmap_single(&cp->pdev->dev, le64_to_cpu(txd->addr),
-+				 skb_frag_size(this_frag), PCI_DMA_TODEVICE);
-+	}
-+}
-+
- static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 					struct net_device *dev)
- {
-@@ -749,6 +771,9 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 
- 		len = skb->len;
- 		mapping = dma_map_single(&cp->pdev->dev, skb->data, len, PCI_DMA_TODEVICE);
-+		if (dma_mapping_error(&cp->pdev->dev, mapping))
-+			goto out_dma_error;
-+
- 		txd->opts2 = opts2;
- 		txd->addr = cpu_to_le64(mapping);
- 		wmb();
-@@ -786,6 +811,9 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 		first_len = skb_headlen(skb);
- 		first_mapping = dma_map_single(&cp->pdev->dev, skb->data,
- 					       first_len, PCI_DMA_TODEVICE);
-+		if (dma_mapping_error(&cp->pdev->dev, first_mapping))
-+			goto out_dma_error;
-+
- 		cp->tx_skb[entry] = skb;
- 		entry = NEXT_TX(entry);
- 
-@@ -799,6 +827,11 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 			mapping = dma_map_single(&cp->pdev->dev,
- 						 skb_frag_address(this_frag),
- 						 len, PCI_DMA_TODEVICE);
-+			if (dma_mapping_error(&cp->pdev->dev, mapping)) {
-+				unwind_tx_frag_mapping(cp, skb, first_entry, entry);
-+				goto out_dma_error;
-+			}
-+
- 			eor = (entry == (CP_TX_RING_SIZE - 1)) ? RingEnd : 0;
- 
- 			ctrl = eor | len | DescOwn;
-@@ -859,11 +892,16 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
- 	if (TX_BUFFS_AVAIL(cp) <= (MAX_SKB_FRAGS + 1))
- 		netif_stop_queue(dev);
- 
-+out_unlock:
- 	spin_unlock_irqrestore(&cp->lock, intr_flags);
- 
- 	cpw8(TxPoll, NormalTxPoll);
- 
- 	return NETDEV_TX_OK;
-+out_dma_error:
-+	kfree_skb(skb);
-+	cp->dev->stats.tx_dropped++;
-+	goto out_unlock;
- }
- 
- /* Set or clear the multicast filter for this adaptor.
-@@ -1054,6 +1092,10 @@ static int cp_refill_rx(struct cp_private *cp)
- 
- 		mapping = dma_map_single(&cp->pdev->dev, skb->data,
- 					 cp->rx_buf_sz, PCI_DMA_FROMDEVICE);
-+		if (dma_mapping_error(&cp->pdev->dev, mapping)) {
-+			kfree_skb(skb);
-+			goto err_out;
-+		}
- 		cp->rx_skb[i] = skb;
- 
- 		cp->rx_ring[i].opts2 = 0;
--- 
-1.8.1.4
+    net: fib: fix incorrect call_rcu_bh()
+    
+    After IP route cache removal, I believe rcu_bh() has very little use and
+    we should remove this RCU variant, since it adds some cycles in fast
+    path.
+    
+    Anyway, the call_rcu_bh() use in fib_true is obviously wrong, since
+    some users only assert rcu_read_lock().
