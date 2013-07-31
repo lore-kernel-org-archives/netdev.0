@@ -1,49 +1,283 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH] atl1c: Fix misuse of netdev_alloc_skb in refilling
- rx ring
-Date: Wed, 31 Jul 2013 12:01:26 -0700 (PDT)
-Message-ID: <20130731.120126.2193837817631047825.davem@davemloft.net>
-References: <1375118644.10515.18.camel@edumazet-glaptop>
-	<20130730.191138.420648092010563209.davem@davemloft.net>
-	<20130731174854.GA27714@d2.synalogic.ca>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH net-next] Documentation: add networking/netdev-FAQ.txt
+Date: Wed, 31 Jul 2013 15:16:20 -0400
+Message-ID: <1375298180-17628-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, luis.henriques@canonical.com,
-	bhutchings@solarflare.com, nhorman@tuxdriver.com,
-	netdev@vger.kernel.org, jcliburn@gmail.com
-To: benjamin.poirier@gmail.com
+Content-Type: text/plain
+Cc: <linux-doc@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59147 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752816Ab3GaTB1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 15:01:27 -0400
-In-Reply-To: <20130731174854.GA27714@d2.synalogic.ca>
+Received: from mail1.windriver.com ([147.11.146.13]:61044 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752223Ab3GaTQ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 15:16:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Poirier <benjamin.poirier@gmail.com>
-Date: Wed, 31 Jul 2013 13:48:54 -0400
+A collection of expectations and operational details about how
+networking development takes place in the context of the netdev
+mailing list.
 
-> On 2013/07/30 19:11, David Miller wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Mon, 29 Jul 2013 10:24:04 -0700
->> 
->> > [PATCH] atl1c: use custom skb allocator
->> > 
-> 
-> BTW, this didn't end up in git with the intended patch subject. The
-> extra text prepended in the email also made it to the log.
-> 
-> 7b70176 atl1c: Fix misuse of netdev_alloc_skb in refilling rx ring
+The content is meant to capture specific items that are unique
+to netdev workflow, and not re-document generic linux expectations
+that are already captured elsewhere.
 
-I know, I realized this when I sent the pull request to Linus.
+This was originally proposed[1] as a regular posting mailing list
+FAQ, but it probably is more universally accessible here in tree.
 
-Eric, your patch submission format is extremely error prone for me
-sometime.  When you submit patches in email thread, and do things like
-you did here, it causes problems sometimes.
+[1] https://lwn.net/Articles/559211/
 
-Really just send it in the usual way, with the real Subject line
-matching the commit message header line you wish to use etc.
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
 
-Thanks!
+ Documentation/networking/00-INDEX       |   2 +
+ Documentation/networking/netdev-FAQ.txt | 224 ++++++++++++++++++++++++++++++++
+ 2 files changed, 226 insertions(+)
+ create mode 100644 Documentation/networking/netdev-FAQ.txt
+
+diff --git a/Documentation/networking/00-INDEX b/Documentation/networking/00-INDEX
+index 32dfbd9..18b64b2 100644
+--- a/Documentation/networking/00-INDEX
++++ b/Documentation/networking/00-INDEX
+@@ -124,6 +124,8 @@ multiqueue.txt
+ 	- HOWTO for multiqueue network device support.
+ netconsole.txt
+ 	- The network console module netconsole.ko: configuration and notes.
++netdev-FAQ.txt
++	- FAQ describing how to submit net changes to netdev mailing list.
+ netdev-features.txt
+ 	- Network interface features API description.
+ netdevices.txt
+diff --git a/Documentation/networking/netdev-FAQ.txt b/Documentation/networking/netdev-FAQ.txt
+new file mode 100644
+index 0000000..d9112f0
+--- /dev/null
++++ b/Documentation/networking/netdev-FAQ.txt
+@@ -0,0 +1,224 @@
++
++Information you need to know about netdev
++-----------------------------------------
++
++Q: What is netdev?
++
++A: It is a mailing list for all network related linux stuff.  This includes
++   anything found under net/  (i.e. core code like IPv6) and drivers/net
++   (i.e. hardware specific drivers) in the linux source tree.
++
++   Note that some subsystems (e.g. wireless drivers) which have a high volume
++   of traffic have their own specific mailing lists.
++
++   The netdev list is managed (like many other linux mailing lists) through
++   VGER ( http://vger.kernel.org/ ) and archives can be found below:
++
++	http://marc.info/?l=linux-netdev
++	http://www.spinics.net/lists/netdev/
++
++   Aside from subsystems like that mentioned above, all network related linux
++   development (i.e. RFC, review, comments, etc) takes place on netdev.
++
++Q: How do the changes posted to netdev make their way into linux?
++
++A: There are always two trees (git repositories) in play.  Both are driven
++   by David Miller, the main network maintainer.  There is the "net" tree,
++   and the "net-next" tree.  As you can probably guess from the names, the
++   net tree is for fixes to existing code already in the mainline tree from
++   Linus, and net-next is where the new code goes for the future release.
++   You can find the trees here:
++
++	http://git.kernel.org/?p=linux/kernel/git/davem/net.git
++	http://git.kernel.org/?p=linux/kernel/git/davem/net-next.git
++
++Q: How often do changes from these trees make it to the mainline Linus tree?
++
++A: To understand this, you need to know a bit of background information
++   on the cadence of linux development.  Each new release starts off with
++   a two week "merge window" where the main maintainers feed their new
++   stuff to Linus for merging into the mainline tree.  After the two weeks,
++   the merge window is closed, and it is called/tagged "-rc1".  No new
++   features get mainlined after this -- only fixes to the rc1 content
++   are expected.  After roughly a week of collecting fixes to the rc1
++   content, rc2 is released.  This repeats on a roughly weekly basis
++   until rc7 (typically; sometimes rc6 if things are quiet, or rc8 if
++   things are in a state of churn), and a week after the last vX.Y-rcN
++   was done, the official "vX.Y" is released.
++
++   Relating that to netdev:  At the beginning of the 2 week merge window,
++   the net-next tree will be closed - no new changes/features.  The
++   accumulated new content of the past ~10 weeks will be passed onto
++   mainline/Linus via a pull request for vX.Y -- at the same time,
++   the "net" tree will start accumulating fixes for this pulled content
++   relating to vX.Y
++
++   An announcement indicating when net-next has been closed is usually
++   sent to netdev, but knowing the above, you can predict that in advance.
++
++   IMPORTANT:  Do not send new net-next content to netdev during the
++   period during which net-next tree is closed.
++
++   Shortly after the two weeks have passed, (and vX.Y-rc1 is released) the
++   tree for net-next reopens to collect content for the next (vX.Y+1) release.
++
++   If you aren't subscribed to netdev and/or are simply unsure if net-next
++   has re-opened yet, simply check the net-next git repository link above for
++   any new networking related commits.
++
++   The "net" tree continues to collect fixes for the vX.Y content, and
++   is fed back to Linus at regular (~weekly) intervals.  Meaning that the
++   focus for "net" is on stablilization and bugfixes.
++
++   Finally, the vX.Y gets released, and the whole cycle starts over.
++
++Q: So where are we now in this cycle?
++
++A: Load the mainline (Linus) page here:
++
++	http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git
++
++   and note the top of the "tags" section.  If it is rc1, it is early
++   in the dev cycle.  If it was tagged rc7 a week ago, then a release
++   is probably imminent.
++
++Q: How do I indicate which tree (net vs. net-next) my patch should be in?
++
++A: Firstly, think whether you have a bug fix or new "next-like" content.
++   Then once decided, assuming that you use git, use the prefix flag, i.e.
++
++	git format-patch --subject-prefix='PATCH net-next' start..finish
++
++   Use "net" instead of "net-next" (always lower case) in the above for
++   bug-fix net content.  If you don't use git, then note the only magic in
++   the above is just the subject text of the outgoing e-mail, and you can
++   manually change it yourself with whatever MUA you are comfortable with.
++
++Q: I sent a patch and I'm wondering what happened to it.  How can I tell
++   whether it got merged?
++
++A: Start by looking at the main patchworks queue for netdev:
++
++	http://patchwork.ozlabs.org/project/netdev/list/
++
++   The "State" field will tell you exactly where things are at with
++   your patch.
++
++Q: The above only says "Under Review".  How can I find out more?
++
++A: Generally speaking, the patches get triaged quickly (in less than 48h).
++   So be patient.  Asking the maintainer for status updates on your
++   patch is a good way to ensure your patch is ignored or pushed to
++   the bottom of the priority list.
++
++Q: How can I tell what patches are queued up for backporting to the
++   various stable releases?
++
++A: Normally Greg Kroah-Hartman collects stable commits himself, but
++   for networking, Dave collects up patches he deems critical for the
++   networking subsystem, and then hands them off to Greg.
++
++   There is a patchworks queue that you can see here:
++	http://patchwork.ozlabs.org/bundle/davem/stable/?state=*
++
++   It contains the patches which Dave has selected, but not yet handed
++   off to Greg.  If Greg already has the patch, then it will be here:
++	http://git.kernel.org/cgit/linux/kernel/git/stable/stable-queue.git
++
++   A quick way to find whether the patch is in this stable-queue is
++   to simply clone the repo, and then git grep the mainline commit ID, e.g.
++
++	stable-queue$ git grep -l 284041ef21fdf2e
++	releases/3.0.84/ipv6-fix-possible-crashes-in-ip6_cork_release.patch
++	releases/3.4.51/ipv6-fix-possible-crashes-in-ip6_cork_release.patch
++	releases/3.9.8/ipv6-fix-possible-crashes-in-ip6_cork_release.patch
++	stable/stable-queue$
++
++Q: I see a network patch and I think it should be backported to stable.
++   Should I request it via "stable@vger.kernel.org" like the references in
++   the kernel's Documentation/stable_kernel_rules.txt file say?
++
++A: No, not for networking.  Check the stable queues as per above 1st to see
++   if it is already queued.  If not, then send a mail to netdev, listing
++   the upstream commit ID and why you think it should be a stable candidate.
++
++   Before you jump to go do the above, do note that the normal stable rules
++   in Documentation/stable_kernel_rules.txt still apply.  So you need to
++   explicitly indicate why it is a critical fix and exactly what users are
++   impacted.  In addition, you need to convince yourself that you _really_
++   think it has been overlooked, vs. having been considered and rejected.
++
++   Generally speaking, the longer it has had a chance to "soak" in mainline,
++   the better the odds that it is an OK candidate for stable.  So scrambling
++   to request a commit be added the day after it appears should be avoided.
++
++Q: I have created a network patch and I think it should be backported to
++   stable.  Should I add a "Cc: stable@vger.kernel.org" like the references
++   in the kernel's Documentation/ directory say?
++
++A: No.  See above answer.  In short, if you think it really belongs in
++   stable, then ensure you write a decent commit log that describes who
++   gets impacted by the bugfix and how it manifests itself, and when the
++   bug was introduced.  If you do that properly, then the commit will
++   get handled appropriately and most likely get put in the patchworks
++   stable queue if it really warrants it.
++
++   If you think there is some valid information relating to it being in
++   stable that does _not_ belong in the commit log, then use the three
++   dash marker line as described in Documentation/SubmittingPatches to
++   temporarily embed that information into the patch that you send.
++
++Q: Someone said that the comment style and coding convention is different
++   for the networking content.  Is this true?
++
++A: Yes, in a largely trivial way.  Instead of this:
++
++	/*
++	 * foobar blah blah blah
++	 * another line of text
++	 */
++
++   it is requested that you make it look like this:
++
++	/* foobar blah blah blah
++	 * another line of text
++	 */
++
++Q: I am working in existing code that has the former comment style and not the
++   latter.  Should I submit new code in the former style or the latter?
++
++A: Make it the latter style, so that eventually all code in the domain of
++   netdev is of this format.
++
++Q: I found a bug that might have possible security implications or similar.
++   Should I mail the main netdev maintainer off-list?
++
++A: No. The current netdev maintainer has consistently requested that people
++   use the mailing lists and not reach out directly.  If you aren't OK with
++   that, then perhaps consider mailing "security@kernel.org" or reading about
++   http://oss-security.openwall.org/wiki/mailing-lists/distros
++   as possible alternative mechanisms.
++
++Q: What level of testing is expected before I submit my change?
++
++A: If your changes are against net-next, the expectation is that you
++   have tested by layering your changes on top of net-next.  Ideally you
++   will have done run-time testing specific to your change, but at a
++   minimum, your changes should survive an "allyesconfig" and an
++   "allmodconfig" build without new warnings or failures.
++
++Q: Any other tips to help ensure my net/net-next patch gets OK'd?
++
++A: Attention to detail.  Re-read your own work as if you were the
++   reviewer.  You can start with using checkpatch.pl, perhaps even
++   with the "--strict" flag.  But do not be mindlessly robotic in
++   doing so.  If your change is a bug-fix, make sure your commit log
++   indicates the end-user visible symptom, the underlying reason as
++   to why it happens, and then if necessary, explain why the fix proposed
++   is the best way to get things done.   Don't mangle whitespace, and as
++   is common, don't mis-indent function arguments that span multiple lines.
++   If it is your 1st patch, mail it to yourself so you can test apply
++   it to an unpatched tree to confirm infrastructure didn't mangle it.
++
++   Finally, go back and read Documentation/SubmittingPatches to be
++   sure you are not repeating some common mistake documented there.
+-- 
+1.8.1.2
