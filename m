@@ -1,73 +1,73 @@
-From: Roman Gushchin <klamm@yandex-team.ru>
-Subject: [PATCH] net: check net.core.somaxconn sysctl values
-Date: Wed, 31 Jul 2013 17:57:35 +0400
-Message-ID: <51F917CF.7010905@yandex-team.ru>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: ipv4: crash at leaf_walk_rcu
+Date: Wed, 31 Jul 2013 07:13:06 -0700
+Message-ID: <20130731141306.GT26694@linux.vnet.ibm.com>
+References: <CAOaiJ-k14g6ihjVfgHqgq48KV7-dRJ1_owNyDkza-r=36gscsQ@mail.gmail.com>
+ <20130731125513.GS26694@linux.vnet.ibm.com>
+ <20130731131323.GB31245@order.stressinduktion.org>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>, raise.sail@gmail.com,
-	ebiederm@xmission.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: vinayak menon <vinayakm.list@gmail.com>,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	getarunks@gmail.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e8.ny.us.ibm.com ([32.97.182.138]:52125 "EHLO e8.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755736Ab3GaONO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jul 2013 10:13:14 -0400
+Received: from /spool/local
+	by e8.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
+	Wed, 31 Jul 2013 15:13:13 +0100
+Content-Disposition: inline
+In-Reply-To: <20130731131323.GB31245@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It's possible to assign an invalid value to the net.core.somaxconn
-sysctl variable, because there is no checks at all.
+On Wed, Jul 31, 2013 at 03:13:23PM +0200, Hannes Frederic Sowa wrote:
+> On Wed, Jul 31, 2013 at 05:55:13AM -0700, Paul E. McKenney wrote:
+> > On Wed, Jul 31, 2013 at 04:40:47PM +0530, vinayak menon wrote:
+> > > Hi,
+> > > 
+> > > A crash was seen on 3.4.5 kernel during some random wlan operations.
+> > > 
+> > > CPU: Single core ARM Cortex A9.
+> > > 
+> > > fib_route_seq_next was called with second argument (void *v) as 0xd6e3e360
+> > > which is a "freed" object of the "ip_fib_trie" cache. I confirmed that the
+> > > object was freed with crash utility.
+> > > 
+> > > Sequence: fib_route_seq_next->trie_nextleaf->leaf_walk_rcu
+> > > 
+> > > As "v" was a freed object, inside trie_nextleaf(), node_parent_rcu()
+> > > returned an invalid tnode. But as I had enabled slab poisoning and the
+> > > object was already freed, the tnode was 0x6b6b6b6b. And this was passed to
+> > > leaf_walk_rcu and resulted in the crash.
+> > > 
+> > > fib_route_seq_start, takes rcu_read_lock(), but free_leaf
+> > > calls call_rcu_bh. Can this be the problem ?
+> > > Should rcu_read_lock() in fib_route_seq_start be changed to rcu_read_lock_bh()
+> > > ?
+> > 
+> > One way or the other, the RCU read-side primitives need to match the RCU
+> > update-side primitives.  Adding netdev...
+> 
+> Already fixed by:
+> 
+> commit 0c03eca3d995e73d691edea8c787e25929ec156d
+> Author: Eric Dumazet <edumazet@google.com>
+> Date:   Tue Aug 7 00:47:11 2012 +0000
+> 
+>     net: fib: fix incorrect call_rcu_bh()
+>     
+>     After IP route cache removal, I believe rcu_bh() has very little use and
+>     we should remove this RCU variant, since it adds some cycles in fast
+>     path.
+>     
+>     Anyway, the call_rcu_bh() use in fib_true is obviously wrong, since
+>     some users only assert rcu_read_lock().
 
-The sk_max_ack_backlog field of the sock structure is defined as
-unsigned short. Therefore, the backlog argument in inet_listen()
-shouldn't exceed USHRT_MAX. The backlog argument in the listen() syscall
-is truncated to the somaxconn value. So, the somaxconn value shouldn't
-exceed 65535 (USHRT_MAX).
-Also, negative values of somaxconn are meaningless.
+Even better!  ;-)
 
-before:
-$ sysctl -w net.core.somaxconn=256
-net.core.somaxconn = 256
-$ sysctl -w net.core.somaxconn=65536
-net.core.somaxconn = 65536
-$ sysctl -w net.core.somaxconn=-100
-net.core.somaxconn = -100
-
-after:
-$ sysctl -w net.core.somaxconn=256
-net.core.somaxconn = 256
-$ sysctl -w net.core.somaxconn=65536
-error: "Invalid argument" setting key "net.core.somaxconn"
-$ sysctl -w net.core.somaxconn=-100
-error: "Invalid argument" setting key "net.core.somaxconn"
-
-Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
----
-  net/core/sysctl_net_core.c | 6 +++++-
-  1 file changed, 5 insertions(+), 1 deletion(-)
-
-diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-index cfdb46a..2ff093b 100644
---- a/net/core/sysctl_net_core.c
-+++ b/net/core/sysctl_net_core.c
-@@ -20,7 +20,9 @@
-  #include <net/sock.h>
-  #include <net/net_ratelimit.h>
-
-+static int zero = 0;
-  static int one = 1;
-+static int ushort_max = USHRT_MAX;
-
-  #ifdef CONFIG_RPS
-  static int rps_sock_flow_sysctl(ctl_table *table, int write,
-@@ -204,7 +206,9 @@ static struct ctl_table netns_core_table[] = {
-  		.data		= &init_net.core.sysctl_somaxconn,
-  		.maxlen		= sizeof(int),
-  		.mode		= 0644,
--		.proc_handler	= proc_dointvec
-+		.extra1		= &zero,
-+		.extra2		= &ushort_max,
-+		.proc_handler	= proc_dointvec_minmax
-  	},
-  	{ }
-  };
--- 
-1.8.1.2
+							Thanx, Paul
