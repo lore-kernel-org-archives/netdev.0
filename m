@@ -1,72 +1,107 @@
-From: Borislav Petkov <bp@alien8.de>
-Subject: e1000e suspend-to-disk reboots box with 3.11-rc3+
-Date: Wed, 31 Jul 2013 22:40:40 +0200
-Message-ID: <20130731204040.GE4724@pd.tnic>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: How do I receive vlan tags on an AF_PACKET socket in 3.4 kernel?
+Date: Wed, 31 Jul 2013 13:47:31 -0700
+Message-ID: <1375303651.10515.110.camel@edumazet-glaptop>
+References: <CAMJ=MEe4cvp7-fwbCnq7SLM=44Zy8Jrz35FwRoWG-ytahdPRQA@mail.gmail.com>
+	 <1375193392.10515.28.camel@edumazet-glaptop>
+	 <CAMJ=MEdfn2uPHbNQZ1LOytOqwFTbAyV1ZtxOW8NomLCZJq+caQ@mail.gmail.com>
+	 <1375280187.10515.92.camel@edumazet-glaptop>
+	 <CAMJ=MEeLRQTROpj4LBJ2b--dqyxBUKPcW7F=q9qdqxm_4kHL7g@mail.gmail.com>
+	 <51F9226F.30202@redhat.com> <1375283370.10515.100.camel@edumazet-glaptop>
+	 <CAMJ=MEcZBU9e+X3w5EFv3+FfKq5K7nKpF+Qc4XWYOFq7apKprw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: e1000-devel@lists.sourceforge.net
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	netdev <netdev@vger.kernel.org>
+To: Ronny Meeus <ronny.meeus@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f48.google.com ([209.85.219.48]:34363 "EHLO
+	mail-oa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757550Ab3GaUrf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 16:47:35 -0400
+Received: by mail-oa0-f48.google.com with SMTP id f4so2559762oah.21
+        for <netdev@vger.kernel.org>; Wed, 31 Jul 2013 13:47:33 -0700 (PDT)
+In-Reply-To: <CAMJ=MEcZBU9e+X3w5EFv3+FfKq5K7nKpF+Qc4XWYOFq7apKprw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, 2013-07-31 at 22:01 +0200, Ronny Meeus wrote:
+> On Wed, Jul 31, 2013 at 5:09 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Wed, 2013-07-31 at 16:42 +0200, Daniel Borkmann wrote:
+> >
+> >> You can use bpfc (git://github.com/borkmann/netsniff-ng.git), it also has
+> >> an extensive man page. That should probably do it:
+> >>
+> >> $ cat foo
+> >> ld vlant
+> >> jneq #4094, drop
+> >> ret #-1
+> >> drop: ret #0
+> >>
+> >> $ bpfc foo
+> >> { 0x20, 0, 0, 0xfffff02c },
+> >> { 0x15, 0, 1, 0x00000ffe },
+> >> { 0x6, 0, 0, 0xffffffff },
+> >> { 0x6, 0, 0, 0x00000000 },
+> >
+> 
+> Thanks Daniel, this is very useful information.
+> I have cloned the repo and compiled the tool myself. It will be very
+> useful in the future.
+> 
+> > Thanks Daniel.
+> >
+> > If the load of this BPF fails (because its an old kernel), then load
+> > your old filter.
+> >
+> 
+> I created a small test application after I backported the filter code
+> to the 3.4 kernel.
+> I instrumented the kernel with a printk at the moment the
+> vlan_tx_tag_get call is done to see the actual value of the vlan tag
+> since it did not work initially.
+> 
+> These are the packets displayed by tcpdump:
+> 
+> tcpdump: WARNING: eth-ntb: no IPv4 address assigned
+> tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+> listening on eth-ntb, link-type EN10MB (Ethernet), capture size 65535 bytes
+> 00:18:49.233283 06:00:00:00:00:80 > f7:00:00:00:ff:ff, ethertype
+> 802.1Q (0x8100), length 64:
+>         0x0000:  f700 0000 ffff 0600 0000 0080 8100 affe
+>         0x0010:  08ab 0014 0000 0000 0f00 0001 0096 6000
+>         0x0020:  0096 0000 0001 0000 000d 0000 0000 0000
+>         0x0030:  0000 0000 0000 0000 0000 0000 0000 0000
+> 
+> So the Vlan is 0xffe and the priority/CFI field is 0xA.
+> Apparently the value I need to  use in the filter is 0xaffe to make it
+> work. Is this normal or is this a bug in the kernel?
+> 
+> This is the filter I used:
+> { 0x20, 0, 0, 0xfffff02c }
+> { 0x15, 0, 1, 0x0000affe }
+> { 0x06, 0, 0, 0x00000800 }
+> { 0x06, 0, 0, 0x00000000 }
+> 
+> And this is the trace of the kernel and my application:
+> 
+> [12529.357172] BPF_S_ANC_VLAN_TAG: affe
+> packets received:          1
+> [12533.020743] BPF_S_ANC_VLAN_TAG: affe
+> packets received:          2
+> [12536.667159] BPF_S_ANC_VLAN_TAG: affe
+> packets received:          3
+> [12540.343857] BPF_S_ANC_VLAN_TAG: affe
+> packets received:          4
 
-I'm experiencing the strange observation that when I hibernate my x230
-with Linus HEAD from today + tip/master (3.11-rc3+), the box doesn't
-remain off but reboots immediately.
+Right, vlan_tx_tag_get() gets the whole tag, so you want to mask A with
+0xfff before the compare (to strip the prio)
 
-Since I have a similar bug where an e1000e box reboots
-when "Wake on LAN from S4/S5" is enabled in the BIOS
-(https://bugzilla.novell.com/show_bug.cgi?id=812592) I decided to test
-with LAN cable removed.
+ld vlant
+and #4095
+jneq #4094, drop
+ret #-1
+drop: ret #0
 
-And yes, when the ethernet cable is not connected, the box hibernates
-and remains off. When I hibernate with the cable attached, the box
-doesn't remain off but reboots.
-
-The card is:
-
-[    1.620772] e1000e: Intel(R) PRO/1000 Network Driver - 2.3.2-k
-[    1.622116] e1000e: Copyright(c) 1999 - 2013 Intel Corporation.
-[    1.623687] e1000e 0000:00:19.0: setting latency timer to 64
-[    1.625160] e1000e 0000:00:19.0: Interrupt Throttling Rate (ints/sec) set to dynamic conservative mode
-[    1.626640] e1000e 0000:00:19.0: irq 44 for MSI/MSI-X
-[    1.884432] e1000e 0000:00:19.0 eth0: registered PHC clock
-[    1.885925] e1000e 0000:00:19.0 eth0: (PCI Express:2.5GT/s:Width x1) 3c:97:0e:6b:ef:e7
-[    1.887466] e1000e 0000:00:19.0 eth0: Intel(R) PRO/1000 Network Connection
-[    1.889089] e1000e 0000:00:19.0 eth0: MAC: 10, PHY: 11, PBA No: 1000FF-0FF
-
-And of course, 3.10 is fine.
-
-Any ideas?
-
-I'll try to bisect it when I get a chance.
-
--- 
-Regards/Gruss,
-    Boris.
-
-Sent from a fat crate under my desk. Formatting is fine.
---
-
-------------------------------------------------------------------------------
-Get your SQL database under version control now!
-Version control is standard for application code, but databases havent 
-caught up. So what steps can you take to put your SQL databases under 
-version control? Why should you start doing it? Read more to find out.
-http://pubads.g.doubleclick.net/gampad/clk?id=49501711&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+or something like that.
