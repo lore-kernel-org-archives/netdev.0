@@ -1,37 +1,86 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [Patch net-next] net: rename CONFIG_NET_LL_RX_POLL to CONFIG_NET_RX_BUSY_POLL
-Date: Wed, 31 Jul 2013 16:35:11 +0300
-Message-ID: <51F9128F.6030700@linux.intel.com>
-References: <1375177125-7209-1-git-send-email-amwang@redhat.com>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: [PATCH 4/4] USBNET: ax88179_178a: enable tso if host supports sg dma
+Date: Wed, 31 Jul 2013 21:50:54 +0800
+Message-ID: <CACVXFVNk+h7kBWTFT2NiGy+2F6LPatda3oL9+uuaQnT-u5J8wg@mail.gmail.com>
+References: <1375267909-30373-1-git-send-email-ming.lei@canonical.com>
+	<1375267909-30373-5-git-send-email-ming.lei@canonical.com>
+	<20130731124707.GA30635@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Oliver Neukum <oneukum@suse.de>,
+	Freddy Xin <freddy@asix.com.tw>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Grant Grundler <grundler@google.com>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:42521 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759822Ab3GaNfQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jul 2013 09:35:16 -0400
-In-Reply-To: <1375177125-7209-1-git-send-email-amwang@redhat.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:33814 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752226Ab3GaNu5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 09:50:57 -0400
+In-Reply-To: <20130731124707.GA30635@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 30/07/2013 12:38, Cong Wang wrote:
-> From: Cong Wang <amwang@redhat.com>
-> 
-> Eliezer renames several *ll_poll to *busy_poll, but forgets
-> CONFIG_NET_LL_RX_POLL, so in case of confusion, rename it too.
-> 
-> Cc: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+On Wed, Jul 31, 2013 at 8:47 PM, Greg Kroah-Hartman
+<gregkh@linuxfoundation.org> wrote:
+> On Wed, Jul 31, 2013 at 06:51:49PM +0800, Ming Lei wrote:
+>> This patch enables 'can_dma_sg' flag for ax88179_178a device
+>> if the attached host controller supports building packet from
+>> discontinuous buffers(DMA SG is possible), so both frame header
+>> and skb data buffers can be passed to usb stack via urb->sg,
+>> then skb data copy can be saved.
+>>
+>> With the patch, CPU utilization decreased much in iperf test at
+>> client mode.
+>
+> What is "much"?
 
-Looks OK to me, but I'm not able to test it since I'm away on vacation.
-If you can test it with the usual config options and allnoconfig, then I
-have no objections to this patch.
+The data is platform dependent, on one dual-core ARM A15 board
+at my hand, ~30~40% CPU utilization is saved with the patchset
+when doing 'iperf -c' test on this board.
 
-If you want me to test it, that can only happen early next week.
+>
+>> --- a/drivers/net/usb/ax88179_178a.c
+>> +++ b/drivers/net/usb/ax88179_178a.c
+>> @@ -1031,12 +1031,20 @@ static int ax88179_bind(struct usbnet *dev, struct usb_interface *intf)
+>>       dev->mii.phy_id = 0x03;
+>>       dev->mii.supports_gmii = 1;
+>>
+>> +     if (dev->udev->bus->no_sg_limit)
+>> +             dev->can_dma_sg = 1;
+>
+> I don't feel comfortable with USB drivers poking about in the USB host
+> controller structures like this.  If we really do this, please provide a
+> function call for it to make to determine this.
+
+OK, that is fine.
+
+>
+> But even then, is this really something that we want/need to do at all?
+> If only some xhci controller support this, we will start to see more
+
+It should be all xhci controllers support this, per xHCI spec.
+
+> driver-specific changes just to handle one type of host controller.  Why
+
+We already have this kind of changes, such as usbfs and mass storage
+driver, the two drivers support both sg list and non-sg list cases(depends
+on HCD).
+
+> not have the USB core handle it instead and if the host controller can
+> not do sg lists like this, fall back to a slower implementation?
+
+In the usbnet case, the driver already supports non-sg well. Actually,
+all current drivers should support non-sg well because urb->sg wasn't
+introduced for very long time. We can think it as a new feature or DMA
+enhancement for xHCI controller.
+
+If you mean buffer debounce for dma sg support on ehci/uhci/ohci/..,
+maybe we need to discuss and evaluate further.
 
 Thanks,
-Eliezer
+--
+Ming Lei
