@@ -1,54 +1,61 @@
-From: "George Spelvin" <linux@horizon.com>
-Subject: Re: [RFC] tulip: Support for byte queue limits
-Date: 31 Jul 2013 08:34:50 -0400
-Message-ID: <20130731123450.5324.qmail@science.horizon.com>
-References: <1374075727.3861.6.camel@bwh-desktop.uk.level5networks.com>
-Cc: eric.dumazet@gmail.com, grantgrundler@gmail.com,
-	grundler@parisc-linux.org, netdev@vger.kernel.org
-To: bhutchings@solarflare.com, linux@horizon.com
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 4/4] USBNET: ax88179_178a: enable tso if host supports sg
+ dma
+Date: Wed, 31 Jul 2013 05:47:07 -0700
+Message-ID: <20130731124707.GA30635@kroah.com>
+References: <1375267909-30373-1-git-send-email-ming.lei@canonical.com>
+ <1375267909-30373-5-git-send-email-ming.lei@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Oliver Neukum <oneukum@suse.de>,
+	Freddy Xin <freddy@asix.com.tw>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Grant Grundler <grundler@google.com>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: Ming Lei <ming.lei@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from science.horizon.com ([71.41.210.146]:28603 "HELO
-	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751403Ab3GaMe7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 08:34:59 -0400
-In-Reply-To: <1374075727.3861.6.camel@bwh-desktop.uk.level5networks.com>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:55854 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751553Ab3GaMpu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 08:45:50 -0400
+Content-Disposition: inline
+In-Reply-To: <1375267909-30373-5-git-send-email-ming.lei@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Grumble.  After a week of uptime with my tulip patches
-(the ones I posted here plus some cleanup patches) my
-kernel gave me this:
+On Wed, Jul 31, 2013 at 06:51:49PM +0800, Ming Lei wrote:
+> This patch enables 'can_dma_sg' flag for ax88179_178a device
+> if the attached host controller supports building packet from
+> discontinuous buffers(DMA SG is possible), so both frame header
+> and skb data buffers can be passed to usb stack via urb->sg,
+> then skb data copy can be saved.
+> 
+> With the patch, CPU utilization decreased much in iperf test at
+> client mode.
 
-------------[ cut here ]------------
-WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0xd9/0x137()
-NETDEV WATCHDOG: cable (tulip): transmit queue 0 timed out
-CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.10.2-00033-gca137af #47
-Hardware name: MICRO-STAR INTERNATIONAL CO.,LTD MS-7376/MS-7376, BIOS V1.7 01/13/2009
- 0000000000000000 ffffffff81028aba ffff88021fc03e68 ffff880216b38000
- ffff88021fc03eb8 ffffffff8133643a ffffffff8133643a ffffffff81028b33
- ffffffff8159fe93 ffff880200000030 ffff88021fc03ec8 ffff88021fc03e88
-Call Trace:
- <IRQ>  [<ffffffff81028aba>] ? warn_slowpath_common+0x56/0x6b
- [<ffffffff8133643a>] ? qdisc_rcu_free+0x19/0x19
- [<ffffffff8133643a>] ? qdisc_rcu_free+0x19/0x19
- [<ffffffff81028b33>] ? warn_slowpath_fmt+0x47/0x49
- [<ffffffff8133634e>] ? netif_tx_lock+0x47/0x72
- [<ffffffff81336513>] ? dev_watchdog+0xd9/0x137
- [<ffffffff81031f40>] ? call_timer_fn.isra.29+0x1c/0x6f
- [<ffffffff810321a2>] ? run_timer_softirq+0x19a/0x1c2
- [<ffffffff8102de09>] ? __do_softirq+0xb9/0x171
- [<ffffffff8102df7f>] ? irq_exit+0x3a/0x7a
- [<ffffffff8101967a>] ? smp_apic_timer_interrupt+0x72/0x7e
- [<ffffffff8142a60a>] ? apic_timer_interrupt+0x6a/0x70
- <EOI>  [<ffffffff81007e34>] ? amd_e400_idle+0xbf/0xc1
- [<ffffffff81007e2c>] ? amd_e400_idle+0xb7/0xc1
- [<ffffffff8104f74d>] ? cpu_startup_entry+0x9c/0xec
- [<ffffffff8164eb91>] ? start_kernel+0x2bd/0x2c8
- [<ffffffff8164e6f7>] ? repair_env_string+0x54/0x54
----[ end trace fa3269ab5c1a15ad ]---
+What is "much"?
 
-Since it's on the tulip device, it's probably my fault, and
-since it took a week to manifest itself, it's going to be
-a complete PITA to reproduce.
+> --- a/drivers/net/usb/ax88179_178a.c
+> +++ b/drivers/net/usb/ax88179_178a.c
+> @@ -1031,12 +1031,20 @@ static int ax88179_bind(struct usbnet *dev, struct usb_interface *intf)
+>  	dev->mii.phy_id = 0x03;
+>  	dev->mii.supports_gmii = 1;
+>  
+> +	if (dev->udev->bus->no_sg_limit)
+> +		dev->can_dma_sg = 1;
 
-Anyway, I haven't forgotten.
+I don't feel comfortable with USB drivers poking about in the USB host
+controller structures like this.  If we really do this, please provide a
+function call for it to make to determine this.
+
+But even then, is this really something that we want/need to do at all?
+If only some xhci controller support this, we will start to see more
+driver-specific changes just to handle one type of host controller.  Why
+not have the USB core handle it instead and if the host controller can
+not do sg lists like this, fall back to a slower implementation?
+
+thanks,
+
+greg k-h
