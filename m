@@ -1,33 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net-next] tcp_metrics: rearrange fields to avoid holes
-Date: Tue, 30 Jul 2013 20:57:21 -0700
-Message-ID: <1375243041.10515.66.camel@edumazet-glaptop>
-References: <1375238905-6423-1-git-send-email-amwang@redhat.com>
-	 <1375240090.10515.53.camel@edumazet-glaptop> <1375240402.22980.5.camel@cr0>
-	 <1375241072.10515.59.camel@edumazet-glaptop> <1375241828.22980.6.camel@cr0>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH v3 2/2] net: igmp: Allow user-space configuration of
+ igmp unsolicited report interval
+Date: Wed, 31 Jul 2013 01:07:37 -0400
+Message-ID: <20130731010737.5e184786.billfink@mindspring.com>
+References: <20130726163610.GF3890@order.stressinduktion.org>
+	<1375107711-9029-1-git-send-email-william.manley@youview.com>
+	<1375107711-9029-2-git-send-email-william.manley@youview.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: Cong Wang <amwang@redhat.com>
+Cc: netdev@vger.kernel.org, bcrl@kvack.org, hannes@stressinduktion.org,
+	luky-37@hotmail.com, sergei.shtylyov@cogentembedded.com,
+	bhutchings@solarflare.com, davem@davemloft.net
+To: William Manley <william.manley@youview.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:40710 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752204Ab3GaD5Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 23:57:24 -0400
-Received: by mail-pb0-f49.google.com with SMTP id xb4so250955pbc.22
-        for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 20:57:23 -0700 (PDT)
-In-Reply-To: <1375241828.22980.6.camel@cr0>
+Received: from elasmtp-masked.atl.sa.earthlink.net ([209.86.89.68]:41671 "EHLO
+	elasmtp-masked.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752988Ab3GaFNa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 01:13:30 -0400
+In-Reply-To: <1375107711-9029-2-git-send-email-william.manley@youview.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-07-31 at 11:37 +0800, Cong Wang wrote:
+On Mon, 29 Jul 2013, William Manley wrote:
 
-> So, you mean this patch only makes sense after my union inet_addr? If
-> so, I will merge it into my inet_addr patch.
+> Adds the new procfs knobs:
+> 
+>     /proc/sys/net/ipv4/conf/*/igmpv2_unsolicited_report_interval
+>     /proc/sys/net/ipv4/conf/*/igmpv3_unsolicited_report_interval
+> 
+> Which will allow userspace configuration of the IGMP unsolicited report
+> interval (see below) in milliseconds.  The default 1000ms for IGMPv2 and
+> 10000 for IGMPv3 in accordance with RFC2236 and RFC3376.
 
-What about removing the noise from changelog, and give us the true
-story ?
+You have the 1000/10000 ms for IGMPv2/IGMPv3 flipped in your
+commit message above.
+
+					-Bill
