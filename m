@@ -1,75 +1,36 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [PATCH 1/3] af_packet: when sending ethernet frames, parse header for skb->protocol
-Date: Wed, 31 Jul 2013 19:27:45 +0200
-Message-ID: <1375291667-9572-2-git-send-email-phil@nwl.cc>
-References: <20130729165357.GA23134@orbit.nwl.cc>
- <1375291667-9572-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next 1/6] qlcnic: Add ethtool statistics for board
+ temperature.
+Date: Wed, 31 Jul 2013 10:47:58 -0700
+Message-ID: <20130731104758.20dc03b1@nehalam.linuxnetplumber.net>
+References: <cover.1375244889.git.himanshu.madhani@qlogic.com>
+	<6a88678cfe46e0e4f639e8f80834dd3e4b46fdd1.1375244889.git.himanshu.madhani@qlogic.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<Dept_NX_Linux_NIC_Driver@qlogic.com>
+To: Himanshu Madhani <himanshu.madhani@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:44443 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754304Ab3GaR2T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jul 2013 13:28:19 -0400
-In-Reply-To: <1375291667-9572-1-git-send-email-phil@nwl.cc>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:59360 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760687Ab3GaRsD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 13:48:03 -0400
+Received: by mail-pd0-f177.google.com with SMTP id u10so941544pdi.36
+        for <netdev@vger.kernel.org>; Wed, 31 Jul 2013 10:48:02 -0700 (PDT)
+In-Reply-To: <6a88678cfe46e0e4f639e8f80834dd3e4b46fdd1.1375244889.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This may be necessary when the SKB is passed to other layers on the go,
-which may check the protocol field on their own. An example is a VLAN
-packet sent using AF_PACKET out on a bridge interface. The bridging code
-does check the SKB size, accounting for any VLAN header only if the
-protocol field is set accordingly.
+On Tue, 30 Jul 2013 21:54:19 -0400
+Himanshu Madhani <himanshu.madhani@qlogic.com> wrote:
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- net/packet/af_packet.c | 13 +++++++++++--
- 1 file changed, 11 insertions(+), 2 deletions(-)
+> From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+> 
+> o Added ethtool statistics to display adapter board
+>   temperature.
+> 
+> Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 20a1bd0..e549e17 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -88,6 +88,7 @@
- #include <linux/virtio_net.h>
- #include <linux/errqueue.h>
- #include <linux/net_tstamp.h>
-+#include <linux/if_arp.h>
- 
- #ifdef CONFIG_INET
- #include <net/inet_common.h>
-@@ -2005,6 +2006,9 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 		if (unlikely(err))
- 			return err;
- 
-+		if (dev->type == ARPHRD_ETHER)
-+			skb->protocol = eth_type_trans(skb, dev);
-+
- 		data += dev->hard_header_len;
- 		to_write -= dev->hard_header_len;
- 	}
-@@ -2324,6 +2328,13 @@ static int packet_snd(struct socket *sock,
- 
- 	sock_tx_timestamp(sk, &skb_shinfo(skb)->tx_flags);
- 
-+	if (dev->type == ARPHRD_ETHER) {
-+		skb->protocol = eth_type_trans(skb, dev);
-+	} else {
-+		skb->protocol = proto;
-+		skb->dev = dev;
-+	}
-+
- 	if (!gso_type && (len > dev->mtu + reserve + extra_len)) {
- 		/* Earlier code assumed this would be a VLAN pkt,
- 		 * double-check this now that we have the actual
-@@ -2338,8 +2349,6 @@ static int packet_snd(struct socket *sock,
- 		}
- 	}
- 
--	skb->protocol = proto;
--	skb->dev = dev;
- 	skb->priority = sk->sk_priority;
- 	skb->mark = sk->sk_mark;
- 
--- 
-1.8.1.5
+If you look at igb driver you will see how Intel implemented temperature
+monitoring to make it available through standard sensors.
