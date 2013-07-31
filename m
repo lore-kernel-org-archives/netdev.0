@@ -1,97 +1,95 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: Re: [net-next v2 08/15] PCI: expose pcie_link_speed and
- pcix_bus_speed arrays
-Date: Wed, 31 Jul 2013 13:56:40 -0600
-Message-ID: <CAErSpo4Y=faP889_SQUoSDF75B+RYctV1q8hjhk1ixAmUXUzEg@mail.gmail.com>
-References: <1375264777-13595-1-git-send-email-jeffrey.t.kirsher@intel.com> <1375264777-13595-9-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Ronny Meeus <ronny.meeus@gmail.com>
+Subject: Re: How do I receive vlan tags on an AF_PACKET socket in 3.4 kernel?
+Date: Wed, 31 Jul 2013 22:01:39 +0200
+Message-ID: <CAMJ=MEcZBU9e+X3w5EFv3+FfKq5K7nKpF+Qc4XWYOFq7apKprw@mail.gmail.com>
+References: <CAMJ=MEe4cvp7-fwbCnq7SLM=44Zy8Jrz35FwRoWG-ytahdPRQA@mail.gmail.com>
+ <1375193392.10515.28.camel@edumazet-glaptop> <CAMJ=MEdfn2uPHbNQZ1LOytOqwFTbAyV1ZtxOW8NomLCZJq+caQ@mail.gmail.com>
+ <1375280187.10515.92.camel@edumazet-glaptop> <CAMJ=MEeLRQTROpj4LBJ2b--dqyxBUKPcW7F=q9qdqxm_4kHL7g@mail.gmail.com>
+ <51F9226F.30202@redhat.com> <1375283370.10515.100.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	netdev <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:57808 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760723Ab3GaT5B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 15:57:01 -0400
-Received: by mail-ob0-f174.google.com with SMTP id wd6so2208054obb.19
-        for <netdev@vger.kernel.org>; Wed, 31 Jul 2013 12:57:00 -0700 (PDT)
-In-Reply-To: <1375264777-13595-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-oa0-f48.google.com ([209.85.219.48]:51699 "EHLO
+	mail-oa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754297Ab3GaUCB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 16:02:01 -0400
+Received: by mail-oa0-f48.google.com with SMTP id f4so2412128oah.7
+        for <netdev@vger.kernel.org>; Wed, 31 Jul 2013 13:02:00 -0700 (PDT)
+In-Reply-To: <1375283370.10515.100.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 31, 2013 at 3:59 AM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> From: Jacob Keller <jacob.e.keller@intel.com>
+On Wed, Jul 31, 2013 at 5:09 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2013-07-31 at 16:42 +0200, Daniel Borkmann wrote:
 >
-> pcie_link_speed and pcix_bus_speed are arrays used by probe.c to correctly
-> convert lnksta register values into the pci_bus_speed enum. These static arrays
-> are useful outside probe for this purpose. This patch makes these defines into
-> conist arrays and exposes them with an extern header in drivers/pci/pci.h
+>> You can use bpfc (git://github.com/borkmann/netsniff-ng.git), it also has
+>> an extensive man page. That should probably do it:
+>>
+>> $ cat foo
+>> ld vlant
+>> jneq #4094, drop
+>> ret #-1
+>> drop: ret #0
+>>
+>> $ bpfc foo
+>> { 0x20, 0, 0, 0xfffff02c },
+>> { 0x15, 0, 1, 0x00000ffe },
+>> { 0x6, 0, 0, 0xffffffff },
+>> { 0x6, 0, 0, 0x00000000 },
 >
-> -v2-
-> * move extern declarations to drivers/pci/pci.h
->
-> CC: Bjorn Helgaas <bhelgaas@google.com>
-> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Acked-by: Bjorn Helgaas <bhelgaas@google.com>
+Thanks Daniel, this is very useful information.
+I have cloned the repo and compiled the tool myself. It will be very
+useful in the future.
 
-If you edit this patch to add my ack or for other reasons,
-s/conist/const/ above.  The "-v2-" text doesn't need to be in the
-changelog, so you can omit it completely, or put it after a line
-containing only "---".  I also conventionally capitalize the first
-word of the change summary ("Expose") here; run "git log --oneline
-drivers/pci/" to see samples.
+> Thanks Daniel.
+>
+> If the load of this BPF fails (because its an old kernel), then load
+> your old filter.
+>
 
-But don't respin these patches just for that :)
+I created a small test application after I backported the filter code
+to the 3.4 kernel.
+I instrumented the kernel with a printk at the moment the
+vlan_tx_tag_get call is done to see the actual value of the vlan tag
+since it did not work initially.
 
-> ---
->  drivers/pci/pci.h   | 3 +++
->  drivers/pci/probe.c | 4 ++--
->  2 files changed, 5 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/pci/pci.h b/drivers/pci/pci.h
-> index d1182c4..948d1a0 100644
-> --- a/drivers/pci/pci.h
-> +++ b/drivers/pci/pci.h
-> @@ -6,6 +6,9 @@
->  #define PCI_CFG_SPACE_SIZE     256
->  #define PCI_CFG_SPACE_EXP_SIZE 4096
->
-> +extern const unsigned char pcix_bus_speed[];
-> +extern const unsigned char pcie_link_speed[];
-> +
->  /* Functions internal to the PCI core code */
->
->  int pci_create_sysfs_dev_files(struct pci_dev *pdev);
-> diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-> index 46ada5c..496c5b0 100644
-> --- a/drivers/pci/probe.c
-> +++ b/drivers/pci/probe.c
-> @@ -513,7 +513,7 @@ static struct pci_host_bridge *pci_alloc_host_bridge(struct pci_bus *b)
->         return bridge;
->  }
->
-> -static unsigned char pcix_bus_speed[] = {
-> +const unsigned char pcix_bus_speed[] = {
->         PCI_SPEED_UNKNOWN,              /* 0 */
->         PCI_SPEED_66MHz_PCIX,           /* 1 */
->         PCI_SPEED_100MHz_PCIX,          /* 2 */
-> @@ -532,7 +532,7 @@ static unsigned char pcix_bus_speed[] = {
->         PCI_SPEED_133MHz_PCIX_533       /* F */
->  };
->
-> -static unsigned char pcie_link_speed[] = {
-> +const unsigned char pcie_link_speed[] = {
->         PCI_SPEED_UNKNOWN,              /* 0 */
->         PCIE_SPEED_2_5GT,               /* 1 */
->         PCIE_SPEED_5_0GT,               /* 2 */
-> --
-> 1.7.11.7
->
+These are the packets displayed by tcpdump:
+
+tcpdump: WARNING: eth-ntb: no IPv4 address assigned
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on eth-ntb, link-type EN10MB (Ethernet), capture size 65535 bytes
+00:18:49.233283 06:00:00:00:00:80 > f7:00:00:00:ff:ff, ethertype
+802.1Q (0x8100), length 64:
+        0x0000:  f700 0000 ffff 0600 0000 0080 8100 affe
+        0x0010:  08ab 0014 0000 0000 0f00 0001 0096 6000
+        0x0020:  0096 0000 0001 0000 000d 0000 0000 0000
+        0x0030:  0000 0000 0000 0000 0000 0000 0000 0000
+
+So the Vlan is 0xffe and the priority/CFI field is 0xA.
+Apparently the value I need to  use in the filter is 0xaffe to make it
+work. Is this normal or is this a bug in the kernel?
+
+This is the filter I used:
+{ 0x20, 0, 0, 0xfffff02c }
+{ 0x15, 0, 1, 0x0000affe }
+{ 0x06, 0, 0, 0x00000800 }
+{ 0x06, 0, 0, 0x00000000 }
+
+And this is the trace of the kernel and my application:
+
+[12529.357172] BPF_S_ANC_VLAN_TAG: affe
+packets received:          1
+[12533.020743] BPF_S_ANC_VLAN_TAG: affe
+packets received:          2
+[12536.667159] BPF_S_ANC_VLAN_TAG: affe
+packets received:          3
+[12540.343857] BPF_S_ANC_VLAN_TAG: affe
+packets received:          4
+
+
+Best regards,
+Ronny
