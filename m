@@ -1,48 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: How do I receive vlan tags on an AF_PACKET socket in 3.4 kernel?
-Date: Wed, 31 Jul 2013 08:09:30 -0700
-Message-ID: <1375283370.10515.100.camel@edumazet-glaptop>
-References: <CAMJ=MEe4cvp7-fwbCnq7SLM=44Zy8Jrz35FwRoWG-ytahdPRQA@mail.gmail.com>
-	 <1375193392.10515.28.camel@edumazet-glaptop>
-	 <CAMJ=MEdfn2uPHbNQZ1LOytOqwFTbAyV1ZtxOW8NomLCZJq+caQ@mail.gmail.com>
-	 <1375280187.10515.92.camel@edumazet-glaptop>
-	 <CAMJ=MEeLRQTROpj4LBJ2b--dqyxBUKPcW7F=q9qdqxm_4kHL7g@mail.gmail.com>
-	 <51F9226F.30202@redhat.com>
+From: Roman Gushchin <klamm@yandex-team.ru>
+Subject: Re: [PATCH] net: check net.core.somaxconn sysctl values
+Date: Wed, 31 Jul 2013 19:03:23 +0400
+Message-ID: <51F9273B.2020408@yandex-team.ru>
+References: <51F917CF.7010905@yandex-team.ru> <1375281457.10515.98.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ronny Meeus <ronny.meeus@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:57973 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756442Ab3GaPJd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 11:09:33 -0400
-Received: by mail-pd0-f176.google.com with SMTP id q10so855877pdj.35
-        for <netdev@vger.kernel.org>; Wed, 31 Jul 2013 08:09:33 -0700 (PDT)
-In-Reply-To: <51F9226F.30202@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>, raise.sail@gmail.com,
+	ebiederm@xmission.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1375281457.10515.98.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-07-31 at 16:42 +0200, Daniel Borkmann wrote:
+On 31.07.2013 18:37, Eric Dumazet wrote:
+> On Wed, 2013-07-31 at 17:57 +0400, Roman Gushchin wrote:
+>> It's possible to assign an invalid value to the net.core.somaxconn
+>> sysctl variable, because there is no checks at all.
+>>
+>> The sk_max_ack_backlog field of the sock structure is defined as
+>> unsigned short. Therefore, the backlog argument in inet_listen()
+>> shouldn't exceed USHRT_MAX. The backlog argument in the listen() syscall
+>> is truncated to the somaxconn value. So, the somaxconn value shouldn't
+>> exceed 65535 (USHRT_MAX).
+>> Also, negative values of somaxconn are meaningless.
+>>
+>> before:
+>> $ sysctl -w net.core.somaxconn=256
+>> net.core.somaxconn = 256
+>> $ sysctl -w net.core.somaxconn=65536
+>> net.core.somaxconn = 65536
+>> $ sysctl -w net.core.somaxconn=-100
+>> net.core.somaxconn = -100
+>>
+>> after:
+>> $ sysctl -w net.core.somaxconn=256
+>> net.core.somaxconn = 256
+>> $ sysctl -w net.core.somaxconn=65536
+>> error: "Invalid argument" setting key "net.core.somaxconn"
+>> $ sysctl -w net.core.somaxconn=-100
+>> error: "Invalid argument" setting key "net.core.somaxconn"
+>>
+>> Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
+>> ---
+>>    net/core/sysctl_net_core.c | 6 +++++-
+>>    1 file changed, 5 insertions(+), 1 deletion(-)
+>
+>
+> We had a discussion about this one month ago, as Changli Gao posted a
+> patch. http://patchwork.ozlabs.org/patch/255460/
+>
+> So proper credits would be nice ;)
 
-> You can use bpfc (git://github.com/borkmann/netsniff-ng.git), it also has
-> an extensive man page. That should probably do it:
-> 
-> $ cat foo
-> ld vlant
-> jneq #4094, drop
-> ret #-1
-> drop: ret #0
-> 
-> $ bpfc foo
-> { 0x20, 0, 0, 0xfffff02c },
-> { 0x15, 0, 1, 0x00000ffe },
-> { 0x6, 0, 0, 0xffffffff },
-> { 0x6, 0, 0, 0x00000000 },
+Ok :)
 
-Thanks Daniel.
+> Based on a prior patch from Changli Gao
+>
+> Reported-by: Changli Gao <xiaosuo@gmail.com>
+> Suggested-by: Eric Dumazet <edumazet@google.com>
+>
+> Acked-by: Eric Dumazet <edumazet@google.com>
+>
 
-If the load of this BPF fails (because its an old kernel), then load
-your old filter.
+Thanks!
+
+PS I've forwarded your letter back to the lkml by mistake.
+Sorry)
+
+Regards,
+Roman
