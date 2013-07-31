@@ -1,48 +1,62 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [net-next PATCH 1/1] drivers: net: cpsw: Add support for new
- CPSW IP version
-Date: Wed, 31 Jul 2013 18:38:46 +0200
-Message-ID: <20130731163845.GB4234@netboy>
-References: <1375272746-24446-1-git-send-email-mugunthanvnm@ti.com>
- <20130731144957.GC4904@netboy>
- <20130731152827.GB25618@radagast>
+From: Sarah Sharp <sarah.a.sharp@linux.intel.com>
+Subject: Re: [PATCH 2/4] USB: XHCI: mark no_sg_limit
+Date: Wed, 31 Jul 2013 09:40:26 -0700
+Message-ID: <20130731164026.GB5714@xanatos>
+References: <1375267909-30373-1-git-send-email-ming.lei@canonical.com>
+ <1375267909-30373-3-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Mugunthan V N <mugunthanvnm@ti.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, linux-omap@vger.kernel.org
-To: Felipe Balbi <balbi@ti.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Oliver Neukum <oneukum@suse.de>,
+	Freddy Xin <freddy@asix.com.tw>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Grant Grundler <grundler@google.com>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: Ming Lei <ming.lei@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f172.google.com ([209.85.215.172]:59823 "EHLO
-	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751435Ab3GaQi7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 12:38:59 -0400
+Received: from mga02.intel.com ([134.134.136.20]:25376 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751894Ab3GaQk1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jul 2013 12:40:27 -0400
 Content-Disposition: inline
-In-Reply-To: <20130731152827.GB25618@radagast>
+In-Reply-To: <1375267909-30373-3-git-send-email-ming.lei@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 31, 2013 at 06:28:27PM +0300, Felipe Balbi wrote:
-> On Wed, Jul 31, 2013 at 04:49:59PM +0200, Richard Cochran wrote:
-> > On Wed, Jul 31, 2013 at 05:42:26PM +0530, Mugunthan V N wrote:
-> > > The new IP version has a minor changes and the offsets are same as the previous
-> > > version, so instead of adding CPSW version number in the driver, make the driver
-> > > to fall through to the latest versions so that the new version of CPSW which has
-> > > the same register offsets will work directly without patching the driver.
-> > 
-> > This doesn't make any sense to me. Why not just add the new version
-> > number?
-> > 
-> > None of the hunks in your patch are on performance sensitive paths, so
-> > I really can't see any point in removing the error checking.
+On Wed, Jul 31, 2013 at 06:51:47PM +0800, Ming Lei wrote:
+> This patch marks all xHCI controllers as no_sg_limit since
+> xHCI supports building packet from discontinuous buffers.
 > 
-> well, if a new revision of the IP comes, the driver at least has some
-> chance to work without having to be modified. If it turns out that there
-> are really different features, then we patch a new version, otherwise we
-> should just assume highest known version and try it out.
+> Cc: Sarah Sharp <sarah.a.sharp@linux.intel.com>
+> Signed-off-by: Ming Lei <ming.lei@canonical.com>
 
-And if the driver reads junk from some random address due to
-bootloader/DT/multikernel madness, it will happily peek and poke
-around instead of rejecting the wrong version number.
+Acked-by: Sarah Sharp <sarah.a.sharp@linux.intel.com>
 
-Thanks,
-Richard
+> ---
+>  drivers/usb/host/xhci.c |    4 ++++
+>  1 file changed, 4 insertions(+)
+> 
+> diff --git a/drivers/usb/host/xhci.c b/drivers/usb/host/xhci.c
+> index 2c49f00..541b155 100644
+> --- a/drivers/usb/host/xhci.c
+> +++ b/drivers/usb/host/xhci.c
+> @@ -4841,6 +4841,10 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
+>  
+>  	/* Accept arbitrarily long scatter-gather lists */
+>  	hcd->self.sg_tablesize = ~0;
+> +
+> +	/* support to build packet from discontinuous buffers */
+> +	hcd->self.no_sg_limit = 1;
+> +
+>  	/* XHCI controllers don't stop the ep queue on short packets :| */
+>  	hcd->self.no_stop_on_short = 1;
+>  
+> -- 
+> 1.7.9.5
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
