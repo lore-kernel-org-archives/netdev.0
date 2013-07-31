@@ -1,57 +1,78 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: Re: 3.10, iwlwifi 6200AGN: AP changed bandwidth in a way we can't
- support - disconnect
-Date: Wed, 31 Jul 2013 10:59:56 +0200
-Message-ID: <20130731085956.GC1681@redhat.com>
-References: <20130729163452.GA454@hexapodia.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 1/2] igb: Add macro for size of RETA indirection table
+Date: Wed, 31 Jul 2013 02:14:54 -0700
+Message-ID: <1375262094.2877.31.camel@jtkirshe-mobl>
+References: <1375260212-19351-1-git-send-email-laura.vasilescu@rosedu.org>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes.berg@intel.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
-To: Andy Isaacson <adi@hexapodia.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-2xo3hTqzqD9M/o0vt7XK"
+Cc: netdev@vger.kernel.org, carolyn.wyborny@intel.com,
+	anjali.singhai@intel.com, alexander.h.duyck@intel.com
+To: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43179 "EHLO mx1.redhat.com"
+Received: from mga11.intel.com ([192.55.52.93]:2339 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759185Ab3GaI4v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jul 2013 04:56:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20130729163452.GA454@hexapodia.org>
+	id S1755476Ab3GaJO5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jul 2013 05:14:57 -0400
+In-Reply-To: <1375260212-19351-1-git-send-email-laura.vasilescu@rosedu.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 29, 2013 at 09:34:52AM -0700, Andy Isaacson wrote:
-> After upgrading to 3.10.4 and traveling to Europe I'm often suffering
-> from failures to associate with the following in dmesg:
-> 
-> [   37.351621] wlan0: authenticate with 64:70:02:e6:a6:ba
-> [   37.364701] wlan0: send auth to 64:70:02:e6:a6:ba (try 1/3)
-> [   37.366358] wlan0: authenticated
-> [   37.368543] wlan0: associate with 64:70:02:e6:a6:ba (try 1/3)
-> [   37.372765] wlan0: RX AssocResp from 64:70:02:e6:a6:ba (capab=0x431 status=0 aid=8)
-> [   37.380190] wlan0: associated
-> [   37.438935] wlan0: AP 64:70:02:e6:a6:ba changed bandwidth, new config is 2447 MHz, width 1 (2447/0 MHz)
-> [   37.438941] wlan0: AP 64:70:02:e6:a6:ba changed bandwidth in a way we can't support - disconnect
-> 
-> I hacked the driver to do
-> 
-> -                  "AP %pM changed bandwidth, new config is %d MHz, width %d (%d/%d MHz)\n",
-> +                  "AP %pM changed bandwidth, new config is %d MHz, width %d (%d/%d MHz) flags %x/%x\n",
->                    ifmgd->bssid, chandef.chan->center_freq, chandef.width,
-> -                  chandef.center_freq1, chandef.center_freq2);
-> +                  chandef.center_freq1, chandef.center_freq2, flags, ifmgd->flags);
-> 
-> and
-> 
-> -       if (flags != (ifmgd->flags & (IEEE80211_STA_DISABLE_HT |
-> +       if ((flags != 0x810 && ifmgd->flags != 0x804) && (
-> +            flags != (ifmgd->flags & (IEEE80211_STA_DISABLE_HT |
-> 
-> and the result is a working link with
 
-We have few reports about this. Johannes, proposed this patch
-http://p.sipsolutions.net/9d1dd0734d2c3a7a.txt
+--=-2xo3hTqzqD9M/o0vt7XK
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Could you check if it fixes the problem for you?
+On Wed, 2013-07-31 at 11:43 +0300, Laura Mihaela Vasilescu wrote:
+> Signed-off-by: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
+> ---
+>  drivers/net/ethernet/intel/igb/igb.h      |    2 ++
+>  drivers/net/ethernet/intel/igb/igb_main.c |    2 +-
+>  2 files changed, 3 insertions(+), 1 deletion(-)=20
 
-Stanislaw
+Not sure if I mentioned it in your first submission, if I did not then
+my bad. The title of your patch is descriptive of the changes, but it is
+always nice to have a detailed patch description.  I noticed your second
+patch is similar to the first, in that it does not have a detailed patch
+description.
+
+Information that would be good to include in the patch description is:
+- why the change or reason for the change
+- advantages/disadvantages to the change
+
+Laura please re-submit your two patches with a detailed/meaningful patch
+description to at least the second patch (but both would be great).
+
+Think of it this way, if someone were to look at your changes 10 years
+from now and did not understand why the change, your patch description
+would explain all.
+
+Cheers,
+Jeff
+
+
+--=-2xo3hTqzqD9M/o0vt7XK
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.13 (GNU/Linux)
+
+iQIcBAABCgAGBQJR+NWOAAoJEOVv75VaS+3OIzUP/iALFDtjbuXXtA4wdQY8LBFp
+z1XIBDPHxG6qbUaamA6tfjvHmaTB/lgl/yes1xVGmArr78HNUPn92BsKzlkaUK3c
+oMexVDrcSc9xIagBAY7DhjhCbCOwSuqc6HXcQcmBy7+bJ+JFlRMcaXypEuoEPXHl
+ZLbq8c0uKMcvM3NEDV2x179RHUWKLK/NisFBYJ7tEjToHv9xNC70bu58M94JEgpt
+fHu1wxj+x0iznSaTwYz8WJnpYFC3nQX/NA5/SklRy1pAphmDAYAANaTMJY5xHKMT
+SQm/PSa6X+zi673+hOBuF/08iJH9NApmMxXs8br48q+FoB/k8G0Ci9DuJw+RQhh/
+CwgkzenvlNzgGU+E92SwDos+HJGx0h58gFGmTuGEgv23H54dUudsLxxFEEnWQ9BM
+kiXveP4lybT4ngy0a45XFizN/MsrswgwId0JI1xWEYcVAzhsgzTZuD9yQc5qkT2B
+Cew37lr8m9jNmlS17ay02rCIrAyrhFDj5gXlMZUIQp0K5FNPfnFyk7fLfb6oCq+K
+1qMWboE5QJa/7R4YUUMckGhVLzVgcAsDE4oFlQ4VUIfIWUU2SFnQG4iSoJlfaHKh
+l8mSTFdnVNAr6ejp579ntTwAv4DcevU61A51BCO8C4zze+tUnfId1eukRC3WsY3Y
+jtMRImvY/C46uhEBpmyk
+=OQxV
+-----END PGP SIGNATURE-----
+
+--=-2xo3hTqzqD9M/o0vt7XK--
