@@ -1,79 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/fec: Don't let ndo_start_xmit return
- NETDEV_TX_BUSY without link
-Date: Wed, 31 Jul 2013 11:51:01 -0700 (PDT)
-Message-ID: <20130731.115101.340503855490269301.davem@davemloft.net>
-References: <1375176580-7368-1-git-send-email-u.kleine-koenig@pengutronix.de>
-	<20130730.160530.831845971567683172.davem@davemloft.net>
-	<20130731081649.GA1754@pengutronix.de>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v3] net: Add MOXA ART SoCs ethernet driver
+Date: Wed, 31 Jul 2013 11:56:38 -0700
+Message-ID: <1375296998.5729.8.camel@joe-AO722>
+References: <1374842890-20735-1-git-send-email-jonas.jensen@gmail.com>
+	 <1375280401-5564-1-git-send-email-jonas.jensen@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, fabio.estevam@freescale.com,
-	Frank.Li@freescale.com, shawn.guo@linaro.org,
-	kernel@pengutronix.de, hector.palacios@digi.com,
-	tim.sander@hbm.com, rostedt@goodmis.org, tglx@linutronix.de,
-	stephen@networkplumber.org, B38611@freescale.com,
-	florian@openwrt.org, bhutchings@solarflare.com
-To: u.kleine-koenig@pengutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58942 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753289Ab3GaSvF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 14:51:05 -0400
-In-Reply-To: <20130731081649.GA1754@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-doc@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	arm@kernel.org, florian@openwrt.org
+To: Jonas Jensen <jonas.jensen@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1375280401-5564-1-git-send-email-jonas.jensen@gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-Date: Wed, 31 Jul 2013 10:16:49 +0200
+On Wed, 2013-07-31 at 16:20 +0200, Jonas Jensen wrote:
+> The MOXA UC-711X hardware(s) has an ethernet controller that seem to be
+> developed internally. The IC used is "RTL8201CP".
 
-> On Tue, Jul 30, 2013 at 04:05:30PM -0700, David Miller wrote:
->> From: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
->> Date: Tue, 30 Jul 2013 11:29:40 +0200
->>=20
->> > Don't test for having link and let hardware deal with this situati=
-on.
->> >=20
->> > Without this patch I see a machine running an -rt patched Linux be=
-ing
->> > stuck in sch_direct_xmit when it looses link while there is still =
-a
->> > packet to be sent. In this case the fec_enet_start_xmit routine re=
-turned
->> > NETDEV_TX_BUSY which makes the network stack reschedule the packet=
- and
->> > so sch_direct_xmit calls fec_enet_start_xmit again.
->> > I failed to reproduce a complete hang without -rt, but I think the
->> > problem exists there, too.
->> >=20
->> > Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
->>=20
->> Applied, thanks.
-> Thanks, I see it as a264b981f2c76e281ef27e7232774bf6c54ec865 in net.g=
-it
-> (i.e.
-> https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=
-=3Da264b981f2c76e281ef27e7232774bf6c54ec865)
->=20
-> You missed to take the
->=20
-> 	Acked-and-tested-by: Fugang Duan <B38611@freescale.com>
+Just some simple comments...
 
-This is not an official tag recognized by patchwork, he should say:
+> diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
+[]
+> +static int moxart_rx_poll(struct napi_struct *napi, int budget)
+[]
+> +	while (1) {
+[]
+> +		if (ui & (RX_ERR | CRC_ERR | FTL | RUNT | RX_ODD_NB)) {
+> +			netdev_err(ndev, "packet error\n");
 
-Acked-by: Fugang Duan <B38611@freescale.com>
-Tested-by: Fugang Duan <B38611@freescale.com>
+This is generally a bad idea as it can flood
+the log.  It's probably better to remove it.
+If you really want logging, then at least use
+net_ratelimit().  Generally, the stats are
+enough.
 
-> . If you want to fix that, you can do:
->=20
-> 	git filter-branch --msg-filter 'if test $GIT_COMMIT =3D a264b981f2c7=
-6e281ef27e7232774bf6c54ec865; then sed "/David/ i Acked-and-tested-by: =
-=46ugang Duan <B38611@freescale.com>"; else cat; fi' a264b981f2c76e281^=
-=2E.
->=20
-> on your master branch to add it to that commit.
+> +			priv->stats.rx_dropped++;
+> +			priv->stats.rx_errors++;
+[]
+> +static int moxart_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+[]
+> +	if (txdesc->txdes0.ubit.tx_dma_own) {
+> +		netdev_err(ndev, "no TX space for packet\n");
+> +		priv->stats.tx_dropped++;
 
-My GIT history is permanent once pushed out, I cannot change history or=
- else it
-would break everyone cloning my tree.
+here too.
+
+> +static int moxart_mac_probe(struct platform_device *pdev)
+[]
+> +	priv->tx_buf_base = kmalloc(priv->tx_buf_size * TX_DESC_NUM,
+> +				    GFP_ATOMIC);
+> +	if (!priv->tx_buf_base) {
+> +		netdev_err(ndev, "TX buffer alloc failed\n");
+> +		goto init_fail;
+> +	}
+> +
+> +	priv->rx_buf_base = kmalloc(priv->rx_buf_size * RX_DESC_NUM,
+> +				    GFP_ATOMIC);
+> +	if (!priv->rx_buf_base) {
+> +		netdev_err(ndev, "RX buffer alloc failed\n");
+> +		goto init_fail;
+> +	}
+
+Extra OOM messages aren't useful, there's a generic
+OOM and a dump_stack from the kernel.
+
+> +	netdev_dbg(ndev, "%s: IRQ=%d address=%02x:%02x:%02x:%02x:%02x:%02x\n",
+> +		   __func__, ndev->irq,
+> +		   ndev->dev_addr[0], ndev->dev_addr[1], ndev->dev_addr[2],
+> +		   ndev->dev_addr[3], ndev->dev_addr[4], ndev->dev_addr[5]);
+
+There's a mac address helper you can use:
+
+	netdev_dbg(ndev, "%s: IRQ=%d address=%pM\n"
+		   __func__, ndev->irq, ndev->dev_addr);
+
+
