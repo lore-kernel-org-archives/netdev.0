@@ -1,101 +1,97 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: [net-next PATCH 1/1] drivers: net: cpsw: Add support for new
- CPSW IP version
-Date: Wed, 31 Jul 2013 22:45:23 +0300
-Message-ID: <20130731194523.GB900@radagast>
-References: <1375272746-24446-1-git-send-email-mugunthanvnm@ti.com>
- <20130731144957.GC4904@netboy>
- <20130731152827.GB25618@radagast>
- <20130731163845.GB4234@netboy>
- <20130731184525.GA629@radagast>
- <20130731192229.GB8027@netboy>
- <20130731194332.GA900@radagast>
-Reply-To: <balbi@ti.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: Re: [net-next v2 08/15] PCI: expose pcie_link_speed and
+ pcix_bus_speed arrays
+Date: Wed, 31 Jul 2013 13:56:40 -0600
+Message-ID: <CAErSpo4Y=faP889_SQUoSDF75B+RYctV1q8hjhk1ixAmUXUzEg@mail.gmail.com>
+References: <1375264777-13595-1-git-send-email-jeffrey.t.kirsher@intel.com> <1375264777-13595-9-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="aM3YZ0Iwxop3KEKx"
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	<netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<linux-omap@vger.kernel.org>
-To: Felipe Balbi <balbi@ti.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:36574 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752816Ab3GaTph (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jul 2013 15:45:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20130731194332.GA900@radagast>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:57808 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760723Ab3GaT5B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 15:57:01 -0400
+Received: by mail-ob0-f174.google.com with SMTP id wd6so2208054obb.19
+        for <netdev@vger.kernel.org>; Wed, 31 Jul 2013 12:57:00 -0700 (PDT)
+In-Reply-To: <1375264777-13595-9-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---aM3YZ0Iwxop3KEKx
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Wed, Jul 31, 2013 at 3:59 AM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> From: Jacob Keller <jacob.e.keller@intel.com>
+>
+> pcie_link_speed and pcix_bus_speed are arrays used by probe.c to correctly
+> convert lnksta register values into the pci_bus_speed enum. These static arrays
+> are useful outside probe for this purpose. This patch makes these defines into
+> conist arrays and exposes them with an extern header in drivers/pci/pci.h
+>
+> -v2-
+> * move extern declarations to drivers/pci/pci.h
+>
+> CC: Bjorn Helgaas <bhelgaas@google.com>
+> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Hi,
+Acked-by: Bjorn Helgaas <bhelgaas@google.com>
 
-On Wed, Jul 31, 2013 at 10:43:32PM +0300, Felipe Balbi wrote:
-> > > > > > > The new IP version has a minor changes and the offsets are sa=
-me as the previous
-> > > > > > > version, so instead of adding CPSW version number in the driv=
-er, make the driver
-> > > > > > > to fall through to the latest versions so that the new versio=
-n of CPSW which has
-> > > > > > > the same register offsets will work directly without patching=
- the driver.
-> > > > > >=20
-> > > > > > This doesn't make any sense to me. Why not just add the new ver=
-sion
-> > > > > > number?
-> > > > > >=20
-> > > > > > None of the hunks in your patch are on performance sensitive pa=
-ths, so
-> > > > > > I really can't see any point in removing the error checking.
-> > > > >=20
-> > > > > well, if a new revision of the IP comes, the driver at least has =
-some
-> > > > > chance to work without having to be modified. If it turns out tha=
-t there
-> > > > > are really different features, then we patch a new version, other=
-wise we
-> > > > > should just assume highest known version and try it out.
-> > > >=20
-> > > > And if the driver reads junk from some random address due to
-> > > > bootloader/DT/multikernel madness, it will happily peek and poke
-> > > > around instead of rejecting the wrong version number.
-> > >=20
-> > > that'd be a bug in the DT anyway, why should the driver have to cope
-> > > with broken data ?
-> >=20
-> > Um, it is called error checking?
+If you edit this patch to add my ack or for other reasons,
+s/conist/const/ above.  The "-v2-" text doesn't need to be in the
+changelog, so you can omit it completely, or put it after a line
+containing only "---".  I also conventionally capitalize the first
+word of the change summary ("Expose") here; run "git log --oneline
+drivers/pci/" to see samples.
 
-one more thing, why do you consider a new revision to be an error ?
+But don't respin these patches just for that :)
 
---=20
-balbi
-
---aM3YZ0Iwxop3KEKx
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBAgAGBQJR+WlTAAoJEIaOsuA1yqREe2wP/067hpt7g0f40XG550GdnW8q
-Sq9MuhsuvkF5HN6n/VndvvVf4Yr8ZayulWnW/wXJDBpGBvMSgKRunTRUVstmyHbe
-i3Y8Y0Au5xhbToKIRtrPdY2uXXFoS+wVqhlDSHke9+f+2N6de2ohpOXJUp2aQBQd
-HRt1HwapYQDAzDn0SuFjitBLNmQ9LetdKOJ4oSJMICEVjjZ8xsAzLLnG5TxcI7a6
-U9kU8hE1kp+aO03DyuM2hOp7l+C17rdSrR0Pl5fe97ti2wGMxW8WFBf8mF5MJQ0u
-Uj/gJmSurqAKw0B5u3Z815sk+ZF/PE3c4ohr4ZRvI5lNyIW9uq6oFFQ5UVojY+UJ
-AnLsman3CuegFgR6lgDwv7lWWPSIVk0xv8E1XOhn2rHj2tcPT0vxp3A3E37QMYNi
-4yTuoDOTmjF5HAzlfnA9cp0MsCuAypTKJ9oeHiWQir3Uw41F6gTYAZvwaGmPHTX8
-wFXXZvT7najRcoTLXfmN6s6obQiUfYQyE12Oo8X5wbPv5vX9L0A2Yx3Y1/Qc32xV
-e9/Rrc6n6qjtlgQ8uwXzUKI7Gz92SEfeFW3BpSozvoJKg0empGUp81B92dJdPDQr
-Rf9o35LHnrtNcjmqTqbvx/gJn4Ya/afbbpn1c7gxVnHsR6VpGp4t67zYe2jIHFMd
-Qb7Z7Jy035wxFqvtuQBu
-=S+ki
------END PGP SIGNATURE-----
-
---aM3YZ0Iwxop3KEKx--
+> ---
+>  drivers/pci/pci.h   | 3 +++
+>  drivers/pci/probe.c | 4 ++--
+>  2 files changed, 5 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/pci/pci.h b/drivers/pci/pci.h
+> index d1182c4..948d1a0 100644
+> --- a/drivers/pci/pci.h
+> +++ b/drivers/pci/pci.h
+> @@ -6,6 +6,9 @@
+>  #define PCI_CFG_SPACE_SIZE     256
+>  #define PCI_CFG_SPACE_EXP_SIZE 4096
+>
+> +extern const unsigned char pcix_bus_speed[];
+> +extern const unsigned char pcie_link_speed[];
+> +
+>  /* Functions internal to the PCI core code */
+>
+>  int pci_create_sysfs_dev_files(struct pci_dev *pdev);
+> diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+> index 46ada5c..496c5b0 100644
+> --- a/drivers/pci/probe.c
+> +++ b/drivers/pci/probe.c
+> @@ -513,7 +513,7 @@ static struct pci_host_bridge *pci_alloc_host_bridge(struct pci_bus *b)
+>         return bridge;
+>  }
+>
+> -static unsigned char pcix_bus_speed[] = {
+> +const unsigned char pcix_bus_speed[] = {
+>         PCI_SPEED_UNKNOWN,              /* 0 */
+>         PCI_SPEED_66MHz_PCIX,           /* 1 */
+>         PCI_SPEED_100MHz_PCIX,          /* 2 */
+> @@ -532,7 +532,7 @@ static unsigned char pcix_bus_speed[] = {
+>         PCI_SPEED_133MHz_PCIX_533       /* F */
+>  };
+>
+> -static unsigned char pcie_link_speed[] = {
+> +const unsigned char pcie_link_speed[] = {
+>         PCI_SPEED_UNKNOWN,              /* 0 */
+>         PCIE_SPEED_2_5GT,               /* 1 */
+>         PCIE_SPEED_5_0GT,               /* 2 */
+> --
+> 1.7.11.7
+>
