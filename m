@@ -1,46 +1,46 @@
-From: Ani Sinha <ani@aristanetworks.com>
-Subject: Re: sendmsg() and vlan tags
-Date: Tue, 30 Jul 2013 17:29:30 -0700
-Message-ID: <CAOxq_8PW9ggzOeoXJGxP1+48O=0A=5HAdpP9JJoe_iz=a2vgtw@mail.gmail.com>
-References: <CAOxq_8Ni_WszNj0RW++2jdmLwBxbQCJSSC-AS1Ux5TgMEpd2iA@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] sh_eth: r8a7790: Handle the RFE (Receive FIFO overflow
+ Error) interrupt
+Date: Wed, 31 Jul 2013 09:32:15 +0900
+Message-ID: <20130731003215.GF17209@verge.net.au>
+References: <1375142928-17769-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
+ <51F7CADE.5070801@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f51.google.com ([209.85.219.51]:45497 "EHLO
-	mail-oa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757569Ab3GaA3w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 20:29:52 -0400
-Received: by mail-oa0-f51.google.com with SMTP id h2so167643oag.10
-        for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 17:29:51 -0700 (PDT)
-In-Reply-To: <CAOxq_8Ni_WszNj0RW++2jdmLwBxbQCJSSC-AS1Ux5TgMEpd2iA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>,
+	netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	Magnus Damm <magnus.damm@gmail.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <51F7CADE.5070801@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-hello folks.
+On Tue, Jul 30, 2013 at 06:17:02PM +0400, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 30-07-2013 4:08, Laurent Pinchart wrote:
+> 
+> >The RFE interrupt is enabled for the r8a7790 but isn't handled,
+> >resulting in the interrupts core noticing unhandled interrupts, and
+> >eventually disabling the ethernet IRQ.
+> 
+> >Fix it by adding RFE to the bitmask of error interrupts to be handled
+> >for r8a7790.
+> 
+>    So, Simon hasn't synced his patch to my late bug fix in 3.10...
 
-Can anyone please shed lights on this?
+Sorry for missing that.
 
-thanks,
-ani
-
-
-On Fri, Jul 26, 2013 at 2:30 PM, Ani Sinha <ani@aristanetworks.com> wrote:
-> Hi folks,
->
-> We know that (since Linux 3.0) on raw sockets, the recvmsg() api
-> returns the vlan tag information of the packet in the packet aux data.
-> I looked at the kernel code and it seems on the TX side, in sendmsg(),
-> we do not accept the vlan tag data from userland for a raw packet. So
-> if the userland sends a raw packet using sendmsg() with vlan tag
-> information in aux data, it will be discarded.
->
-> Is my analysis correct?
->
-> Cheers,
-> Ani
-
-
-
--- 
-Ani
+> Did this patch help you with your NFS boot issue, Laurent?
+> 
+> >Signed-off-by: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
+> 
+> WBR, Sergei
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sh" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
