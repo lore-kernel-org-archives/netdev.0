@@ -1,61 +1,36 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [PATCH 3/3] af_packet: simplify VLAN frame check in packet_snd
-Date: Wed, 31 Jul 2013 19:27:47 +0200
-Message-ID: <1375291667-9572-4-git-send-email-phil@nwl.cc>
+Subject: Parse ethernet headers in af_packet.c
+Date: Wed, 31 Jul 2013 19:27:44 +0200
+Message-ID: <1375291667-9572-1-git-send-email-phil@nwl.cc>
 References: <20130729165357.GA23134@orbit.nwl.cc>
- <1375291667-9572-1-git-send-email-phil@nwl.cc>
- <1375291667-9572-2-git-send-email-phil@nwl.cc>
- <1375291667-9572-3-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:37202 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([176.31.251.142]:41420 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753154Ab3GaR2S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jul 2013 13:28:18 -0400
-In-Reply-To: <1375291667-9572-3-git-send-email-phil@nwl.cc>
+	id S1754008Ab3GaR2T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jul 2013 13:28:19 -0400
+In-Reply-To: <20130729165357.GA23134@orbit.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For ethernet frames, eth_type_trans() already parses the header, so one
-can skip this when checking the frame size.
+Hi,
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- net/packet/af_packet.c | 15 ++++-----------
- 1 file changed, 4 insertions(+), 11 deletions(-)
+This is an AF_PACKET specific solution to the problems discussed in [1]
+and [2].
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index ce7b4f0..bbe1ece 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -2333,23 +2333,16 @@ static int packet_snd(struct socket *sock,
- 
- 	if (dev->type == ARPHRD_ETHER) {
- 		skb->protocol = eth_type_trans(skb, dev);
-+		if (skb->protocol == htons(ETH_P_8021Q))
-+			reserve += VLAN_HLEN;
- 	} else {
- 		skb->protocol = proto;
- 		skb->dev = dev;
- 	}
- 
- 	if (!gso_type && (len > dev->mtu + reserve + extra_len)) {
--		/* Earlier code assumed this would be a VLAN pkt,
--		 * double-check this now that we have the actual
--		 * packet in hand.
--		 */
--		struct ethhdr *ehdr;
--		skb_reset_mac_header(skb);
--		ehdr = eth_hdr(skb);
--		if (ehdr->h_proto != htons(ETH_P_8021Q)) {
--			err = -EMSGSIZE;
--			goto out_free;
--		}
-+		err = -EMSGSIZE;
-+		goto out_free;
- 	}
- 
- 	skb->priority = sk->sk_priority;
--- 
-1.8.1.5
+Basically this incorporates calling eth_type_trans() for packets to send
+when the outgoing device's type is ARPHRD_ETHER.
+
+In order to having a more generic solution which could be used in other
+places (like e.g. tun.c), I second Michael's approach in [2], but would
+extend it to a generic equivalent to eth_type_trans(). A device-type
+specific layer-2 header parser if you will. Note that eth_type_trans()
+also sets skbuff's dev, pkt_type and mac_header fields. A
+dev->header_ops->type_trans() could do just that plus set skb->protocol
+(maybe only if it's ETH_P_ALL).
+
+[1] http://patchwork.ozlabs.org/patch/67422/
+[2] http://lists.openwall.net/netdev/2010/01/06/38
+
+Best wishes, Phil
