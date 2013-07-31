@@ -1,502 +1,74 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 06/15] ixgbe: fix semaphore lock for I2C read/writes on 82598
-Date: Wed, 31 Jul 2013 02:59:28 -0700
-Message-ID: <1375264777-13595-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 08/15] PCI: expose pcie_link_speed and pcix_bus_speed arrays
+Date: Wed, 31 Jul 2013 02:59:30 -0700
+Message-ID: <1375264777-13595-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1375264777-13595-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com, linux-pci@vger.kernel.org,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+To: davem@davemloft.net, bhelgaas@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:59620 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:43699 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754884Ab3GaJ7p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jul 2013 05:59:45 -0400
+	id S1759124Ab3GaJ7q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jul 2013 05:59:46 -0400
 In-Reply-To: <1375264777-13595-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-ixgbe_read/write_i2c_phy_82598() does not hold the SWFW_SYNC
-semaphore for the entire function. Instead the lock is held only
-during the phy.ops.read/write_reg operations. As result when the
-function is being called simultaneously the I2C read/writes can
-be corrupted.
+pcie_link_speed and pcix_bus_speed are arrays used by probe.c to correctly
+convert lnksta register values into the pci_bus_speed enum. These static arrays
+are useful outside probe for this purpose. This patch makes these defines into
+conist arrays and exposes them with an extern header in drivers/pci/pci.h
 
-The following patch introduces the SWFW_SYNC semaphore for the
-entire ixgbe_read/write_i2c_phy_82598() function. To accomplish
-this I had to create 2 separate functions:
+-v2-
+* move extern declarations to drivers/pci/pci.h
 
-ixgbe_read_phy_reg_mdi()
-ixgbe_write_phy_reg_mdi()
-
-Those functions are identical to ixgbe_read/write_phy_reg_generic()
-sans the locking, and can be used in ixgbe_read/write_i2c_phy_82598()
-with the SWFW_SYNC semaphore being held.
-
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+CC: Bjorn Helgaas <bhelgaas@google.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c |  32 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c   | 292 +++++++++++++------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h   |   4 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |   2 +
- 4 files changed, 182 insertions(+), 148 deletions(-)
+ drivers/pci/pci.h   | 3 +++
+ drivers/pci/probe.c | 4 ++--
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-index 4a5bfb6..d011d5c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -1018,8 +1018,17 @@ static s32 ixgbe_read_i2c_phy_82598(struct ixgbe_hw *hw, u8 dev_addr,
- 	u16 sfp_addr = 0;
- 	u16 sfp_data = 0;
- 	u16 sfp_stat = 0;
-+	u16 gssr;
- 	u32 i;
+diff --git a/drivers/pci/pci.h b/drivers/pci/pci.h
+index d1182c4..948d1a0 100644
+--- a/drivers/pci/pci.h
++++ b/drivers/pci/pci.h
+@@ -6,6 +6,9 @@
+ #define PCI_CFG_SPACE_SIZE	256
+ #define PCI_CFG_SPACE_EXP_SIZE	4096
  
-+	if (IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_LAN_ID_1)
-+		gssr = IXGBE_GSSR_PHY1_SM;
-+	else
-+		gssr = IXGBE_GSSR_PHY0_SM;
++extern const unsigned char pcix_bus_speed[];
++extern const unsigned char pcie_link_speed[];
 +
-+	if (hw->mac.ops.acquire_swfw_sync(hw, gssr) != 0)
-+		return IXGBE_ERR_SWFW_SYNC;
-+
- 	if (hw->phy.type == ixgbe_phy_nl) {
- 		/*
- 		 * phy SDA/SCL registers are at addresses 0xC30A to
-@@ -1028,17 +1037,17 @@ static s32 ixgbe_read_i2c_phy_82598(struct ixgbe_hw *hw, u8 dev_addr,
- 		 */
- 		sfp_addr = (dev_addr << 8) + byte_offset;
- 		sfp_addr = (sfp_addr | IXGBE_I2C_EEPROM_READ_MASK);
--		hw->phy.ops.write_reg(hw,
--		                      IXGBE_MDIO_PMA_PMD_SDA_SCL_ADDR,
--		                      MDIO_MMD_PMAPMD,
--		                      sfp_addr);
-+		hw->phy.ops.write_reg_mdi(hw,
-+					  IXGBE_MDIO_PMA_PMD_SDA_SCL_ADDR,
-+					  MDIO_MMD_PMAPMD,
-+					  sfp_addr);
+ /* Functions internal to the PCI core code */
  
- 		/* Poll status */
- 		for (i = 0; i < 100; i++) {
--			hw->phy.ops.read_reg(hw,
--			                     IXGBE_MDIO_PMA_PMD_SDA_SCL_STAT,
--			                     MDIO_MMD_PMAPMD,
--			                     &sfp_stat);
-+			hw->phy.ops.read_reg_mdi(hw,
-+						IXGBE_MDIO_PMA_PMD_SDA_SCL_STAT,
-+						MDIO_MMD_PMAPMD,
-+						&sfp_stat);
- 			sfp_stat = sfp_stat & IXGBE_I2C_EEPROM_STATUS_MASK;
- 			if (sfp_stat != IXGBE_I2C_EEPROM_STATUS_IN_PROGRESS)
- 				break;
-@@ -1052,8 +1061,8 @@ static s32 ixgbe_read_i2c_phy_82598(struct ixgbe_hw *hw, u8 dev_addr,
- 		}
- 
- 		/* Read data */
--		hw->phy.ops.read_reg(hw, IXGBE_MDIO_PMA_PMD_SDA_SCL_DATA,
--		                     MDIO_MMD_PMAPMD, &sfp_data);
-+		hw->phy.ops.read_reg_mdi(hw, IXGBE_MDIO_PMA_PMD_SDA_SCL_DATA,
-+					MDIO_MMD_PMAPMD, &sfp_data);
- 
- 		*eeprom_data = (u8)(sfp_data >> 8);
- 	} else {
-@@ -1061,6 +1070,7 @@ static s32 ixgbe_read_i2c_phy_82598(struct ixgbe_hw *hw, u8 dev_addr,
- 	}
- 
- out:
-+	hw->mac.ops.release_swfw_sync(hw, gssr);
- 	return status;
+ int pci_create_sysfs_dev_files(struct pci_dev *pdev);
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index 46ada5c..496c5b0 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -513,7 +513,7 @@ static struct pci_host_bridge *pci_alloc_host_bridge(struct pci_bus *b)
+ 	return bridge;
  }
  
-@@ -1326,6 +1336,8 @@ static struct ixgbe_phy_operations phy_ops_82598 = {
- 	.reset			= &ixgbe_reset_phy_generic,
- 	.read_reg		= &ixgbe_read_phy_reg_generic,
- 	.write_reg		= &ixgbe_write_phy_reg_generic,
-+	.read_reg_mdi		= &ixgbe_read_phy_reg_mdi,
-+	.write_reg_mdi		= &ixgbe_write_phy_reg_mdi,
- 	.setup_link		= &ixgbe_setup_phy_link_generic,
- 	.setup_link_speed	= &ixgbe_setup_phy_link_speed_generic,
- 	.read_i2c_sff8472	= &ixgbe_read_i2c_sff8472_82598,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-index e5691cc..71f554a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-@@ -204,7 +204,83 @@ out:
- }
+-static unsigned char pcix_bus_speed[] = {
++const unsigned char pcix_bus_speed[] = {
+ 	PCI_SPEED_UNKNOWN,		/* 0 */
+ 	PCI_SPEED_66MHz_PCIX,		/* 1 */
+ 	PCI_SPEED_100MHz_PCIX,		/* 2 */
+@@ -532,7 +532,7 @@ static unsigned char pcix_bus_speed[] = {
+ 	PCI_SPEED_133MHz_PCIX_533	/* F */
+ };
  
- /**
-+ *  ixgbe_read_phy_mdi - Reads a value from a specified PHY register without
-+ *  the SWFW lock
-+ *  @hw: pointer to hardware structure
-+ *  @reg_addr: 32 bit address of PHY register to read
-+ *  @phy_data: Pointer to read data from PHY register
-+ **/
-+s32 ixgbe_read_phy_reg_mdi(struct ixgbe_hw *hw, u32 reg_addr, u32 device_type,
-+		       u16 *phy_data)
-+{
-+	u32 i, data, command;
-+
-+	/* Setup and write the address cycle command */
-+	command = ((reg_addr << IXGBE_MSCA_NP_ADDR_SHIFT)  |
-+		   (device_type << IXGBE_MSCA_DEV_TYPE_SHIFT) |
-+		   (hw->phy.mdio.prtad << IXGBE_MSCA_PHY_ADDR_SHIFT) |
-+		   (IXGBE_MSCA_ADDR_CYCLE | IXGBE_MSCA_MDI_COMMAND));
-+
-+	IXGBE_WRITE_REG(hw, IXGBE_MSCA, command);
-+
-+	/* Check every 10 usec to see if the address cycle completed.
-+	 * The MDI Command bit will clear when the operation is
-+	 * complete
-+	 */
-+	for (i = 0; i < IXGBE_MDIO_COMMAND_TIMEOUT; i++) {
-+		udelay(10);
-+
-+		command = IXGBE_READ_REG(hw, IXGBE_MSCA);
-+		if ((command & IXGBE_MSCA_MDI_COMMAND) == 0)
-+				break;
-+	}
-+
-+
-+	if ((command & IXGBE_MSCA_MDI_COMMAND) != 0) {
-+		hw_dbg(hw, "PHY address command did not complete.\n");
-+		return IXGBE_ERR_PHY;
-+	}
-+
-+	/* Address cycle complete, setup and write the read
-+	 * command
-+	 */
-+	command = ((reg_addr << IXGBE_MSCA_NP_ADDR_SHIFT)  |
-+		   (device_type << IXGBE_MSCA_DEV_TYPE_SHIFT) |
-+		   (hw->phy.mdio.prtad << IXGBE_MSCA_PHY_ADDR_SHIFT) |
-+		   (IXGBE_MSCA_READ | IXGBE_MSCA_MDI_COMMAND));
-+
-+	IXGBE_WRITE_REG(hw, IXGBE_MSCA, command);
-+
-+	/* Check every 10 usec to see if the address cycle
-+	 * completed. The MDI Command bit will clear when the
-+	 * operation is complete
-+	 */
-+	for (i = 0; i < IXGBE_MDIO_COMMAND_TIMEOUT; i++) {
-+		udelay(10);
-+
-+		command = IXGBE_READ_REG(hw, IXGBE_MSCA);
-+		if ((command & IXGBE_MSCA_MDI_COMMAND) == 0)
-+			break;
-+	}
-+
-+	if ((command & IXGBE_MSCA_MDI_COMMAND) != 0) {
-+		hw_dbg(hw, "PHY read command didn't complete\n");
-+		return IXGBE_ERR_PHY;
-+	}
-+
-+	/* Read operation is complete.  Get the data
-+	 * from MSRWD
-+	 */
-+	data = IXGBE_READ_REG(hw, IXGBE_MSRWD);
-+	data >>= IXGBE_MSRWD_READ_DATA_SHIFT;
-+	*phy_data = (u16)(data);
-+
-+	return 0;
-+}
-+
-+/**
-  *  ixgbe_read_phy_reg_generic - Reads a value from a specified PHY register
-+ *  using the SWFW lock - this function is needed in most cases
-  *  @hw: pointer to hardware structure
-  *  @reg_addr: 32 bit address of PHY register to read
-  *  @phy_data: Pointer to read data from PHY register
-@@ -212,10 +288,7 @@ out:
- s32 ixgbe_read_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
-                                u32 device_type, u16 *phy_data)
- {
--	u32 command;
--	u32 i;
--	u32 data;
--	s32 status = 0;
-+	s32 status;
- 	u16 gssr;
- 
- 	if (IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_LAN_ID_1)
-@@ -223,86 +296,93 @@ s32 ixgbe_read_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
- 	else
- 		gssr = IXGBE_GSSR_PHY0_SM;
- 
--	if (hw->mac.ops.acquire_swfw_sync(hw, gssr) != 0)
-+	if (hw->mac.ops.acquire_swfw_sync(hw, gssr) == 0) {
-+		status = ixgbe_read_phy_reg_mdi(hw, reg_addr, device_type,
-+						phy_data);
-+		hw->mac.ops.release_swfw_sync(hw, gssr);
-+	} else {
- 		status = IXGBE_ERR_SWFW_SYNC;
-+	}
- 
--	if (status == 0) {
--		/* Setup and write the address cycle command */
--		command = ((reg_addr << IXGBE_MSCA_NP_ADDR_SHIFT)  |
--		           (device_type << IXGBE_MSCA_DEV_TYPE_SHIFT) |
--		           (hw->phy.mdio.prtad << IXGBE_MSCA_PHY_ADDR_SHIFT) |
--		           (IXGBE_MSCA_ADDR_CYCLE | IXGBE_MSCA_MDI_COMMAND));
-+	return status;
-+}
- 
--		IXGBE_WRITE_REG(hw, IXGBE_MSCA, command);
-+/**
-+ *  ixgbe_write_phy_reg_mdi - Writes a value to specified PHY register
-+ *  without SWFW lock
-+ *  @hw: pointer to hardware structure
-+ *  @reg_addr: 32 bit PHY register to write
-+ *  @device_type: 5 bit device type
-+ *  @phy_data: Data to write to the PHY register
-+ **/
-+s32 ixgbe_write_phy_reg_mdi(struct ixgbe_hw *hw, u32 reg_addr,
-+				u32 device_type, u16 phy_data)
-+{
-+	u32 i, command;
- 
--		/*
--		 * Check every 10 usec to see if the address cycle completed.
--		 * The MDI Command bit will clear when the operation is
--		 * complete
--		 */
--		for (i = 0; i < IXGBE_MDIO_COMMAND_TIMEOUT; i++) {
--			udelay(10);
-+	/* Put the data in the MDI single read and write data register*/
-+	IXGBE_WRITE_REG(hw, IXGBE_MSRWD, (u32)phy_data);
- 
--			command = IXGBE_READ_REG(hw, IXGBE_MSCA);
-+	/* Setup and write the address cycle command */
-+	command = ((reg_addr << IXGBE_MSCA_NP_ADDR_SHIFT)  |
-+		   (device_type << IXGBE_MSCA_DEV_TYPE_SHIFT) |
-+		   (hw->phy.mdio.prtad << IXGBE_MSCA_PHY_ADDR_SHIFT) |
-+		   (IXGBE_MSCA_ADDR_CYCLE | IXGBE_MSCA_MDI_COMMAND));
- 
--			if ((command & IXGBE_MSCA_MDI_COMMAND) == 0)
--				break;
--		}
-+	IXGBE_WRITE_REG(hw, IXGBE_MSCA, command);
- 
--		if ((command & IXGBE_MSCA_MDI_COMMAND) != 0) {
--			hw_dbg(hw, "PHY address command did not complete.\n");
--			status = IXGBE_ERR_PHY;
--		}
-+	/*
-+	 * Check every 10 usec to see if the address cycle completed.
-+	 * The MDI Command bit will clear when the operation is
-+	 * complete
-+	 */
-+	for (i = 0; i < IXGBE_MDIO_COMMAND_TIMEOUT; i++) {
-+		udelay(10);
- 
--		if (status == 0) {
--			/*
--			 * Address cycle complete, setup and write the read
--			 * command
--			 */
--			command = ((reg_addr << IXGBE_MSCA_NP_ADDR_SHIFT)  |
--			           (device_type << IXGBE_MSCA_DEV_TYPE_SHIFT) |
--			           (hw->phy.mdio.prtad <<
--				    IXGBE_MSCA_PHY_ADDR_SHIFT) |
--			           (IXGBE_MSCA_READ | IXGBE_MSCA_MDI_COMMAND));
--
--			IXGBE_WRITE_REG(hw, IXGBE_MSCA, command);
--
--			/*
--			 * Check every 10 usec to see if the address cycle
--			 * completed. The MDI Command bit will clear when the
--			 * operation is complete
--			 */
--			for (i = 0; i < IXGBE_MDIO_COMMAND_TIMEOUT; i++) {
--				udelay(10);
--
--				command = IXGBE_READ_REG(hw, IXGBE_MSCA);
--
--				if ((command & IXGBE_MSCA_MDI_COMMAND) == 0)
--					break;
--			}
-+		command = IXGBE_READ_REG(hw, IXGBE_MSCA);
-+		if ((command & IXGBE_MSCA_MDI_COMMAND) == 0)
-+			break;
-+	}
- 
--			if ((command & IXGBE_MSCA_MDI_COMMAND) != 0) {
--				hw_dbg(hw, "PHY read command didn't complete\n");
--				status = IXGBE_ERR_PHY;
--			} else {
--				/*
--				 * Read operation is complete.  Get the data
--				 * from MSRWD
--				 */
--				data = IXGBE_READ_REG(hw, IXGBE_MSRWD);
--				data >>= IXGBE_MSRWD_READ_DATA_SHIFT;
--				*phy_data = (u16)(data);
--			}
--		}
-+	if ((command & IXGBE_MSCA_MDI_COMMAND) != 0) {
-+		hw_dbg(hw, "PHY address cmd didn't complete\n");
-+		return IXGBE_ERR_PHY;
-+	}
- 
--		hw->mac.ops.release_swfw_sync(hw, gssr);
-+	/*
-+	 * Address cycle complete, setup and write the write
-+	 * command
-+	 */
-+	command = ((reg_addr << IXGBE_MSCA_NP_ADDR_SHIFT)  |
-+		   (device_type << IXGBE_MSCA_DEV_TYPE_SHIFT) |
-+		   (hw->phy.mdio.prtad << IXGBE_MSCA_PHY_ADDR_SHIFT) |
-+		   (IXGBE_MSCA_WRITE | IXGBE_MSCA_MDI_COMMAND));
-+
-+	IXGBE_WRITE_REG(hw, IXGBE_MSCA, command);
-+
-+	/* Check every 10 usec to see if the address cycle
-+	 * completed. The MDI Command bit will clear when the
-+	 * operation is complete
-+	 */
-+	for (i = 0; i < IXGBE_MDIO_COMMAND_TIMEOUT; i++) {
-+		udelay(10);
-+
-+		command = IXGBE_READ_REG(hw, IXGBE_MSCA);
-+		if ((command & IXGBE_MSCA_MDI_COMMAND) == 0)
-+			break;
- 	}
- 
--	return status;
-+	if ((command & IXGBE_MSCA_MDI_COMMAND) != 0) {
-+		hw_dbg(hw, "PHY write cmd didn't complete\n");
-+		return IXGBE_ERR_PHY;
-+	}
-+
-+	return 0;
- }
- 
- /**
-  *  ixgbe_write_phy_reg_generic - Writes a value to specified PHY register
-+ *  using SWFW lock- this function is needed in most cases
-  *  @hw: pointer to hardware structure
-  *  @reg_addr: 32 bit PHY register to write
-  *  @device_type: 5 bit device type
-@@ -311,9 +391,7 @@ s32 ixgbe_read_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
- s32 ixgbe_write_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
-                                 u32 device_type, u16 phy_data)
- {
--	u32 command;
--	u32 i;
--	s32 status = 0;
-+	s32 status;
- 	u16 gssr;
- 
- 	if (IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_LAN_ID_1)
-@@ -321,74 +399,12 @@ s32 ixgbe_write_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
- 	else
- 		gssr = IXGBE_GSSR_PHY0_SM;
- 
--	if (hw->mac.ops.acquire_swfw_sync(hw, gssr) != 0)
--		status = IXGBE_ERR_SWFW_SYNC;
--
--	if (status == 0) {
--		/* Put the data in the MDI single read and write data register*/
--		IXGBE_WRITE_REG(hw, IXGBE_MSRWD, (u32)phy_data);
--
--		/* Setup and write the address cycle command */
--		command = ((reg_addr << IXGBE_MSCA_NP_ADDR_SHIFT)  |
--		           (device_type << IXGBE_MSCA_DEV_TYPE_SHIFT) |
--		           (hw->phy.mdio.prtad << IXGBE_MSCA_PHY_ADDR_SHIFT) |
--		           (IXGBE_MSCA_ADDR_CYCLE | IXGBE_MSCA_MDI_COMMAND));
--
--		IXGBE_WRITE_REG(hw, IXGBE_MSCA, command);
--
--		/*
--		 * Check every 10 usec to see if the address cycle completed.
--		 * The MDI Command bit will clear when the operation is
--		 * complete
--		 */
--		for (i = 0; i < IXGBE_MDIO_COMMAND_TIMEOUT; i++) {
--			udelay(10);
--
--			command = IXGBE_READ_REG(hw, IXGBE_MSCA);
--
--			if ((command & IXGBE_MSCA_MDI_COMMAND) == 0)
--				break;
--		}
--
--		if ((command & IXGBE_MSCA_MDI_COMMAND) != 0) {
--			hw_dbg(hw, "PHY address cmd didn't complete\n");
--			status = IXGBE_ERR_PHY;
--		}
--
--		if (status == 0) {
--			/*
--			 * Address cycle complete, setup and write the write
--			 * command
--			 */
--			command = ((reg_addr << IXGBE_MSCA_NP_ADDR_SHIFT)  |
--			           (device_type << IXGBE_MSCA_DEV_TYPE_SHIFT) |
--			           (hw->phy.mdio.prtad <<
--				    IXGBE_MSCA_PHY_ADDR_SHIFT) |
--			           (IXGBE_MSCA_WRITE | IXGBE_MSCA_MDI_COMMAND));
--
--			IXGBE_WRITE_REG(hw, IXGBE_MSCA, command);
--
--			/*
--			 * Check every 10 usec to see if the address cycle
--			 * completed. The MDI Command bit will clear when the
--			 * operation is complete
--			 */
--			for (i = 0; i < IXGBE_MDIO_COMMAND_TIMEOUT; i++) {
--				udelay(10);
--
--				command = IXGBE_READ_REG(hw, IXGBE_MSCA);
--
--				if ((command & IXGBE_MSCA_MDI_COMMAND) == 0)
--					break;
--			}
--
--			if ((command & IXGBE_MSCA_MDI_COMMAND) != 0) {
--				hw_dbg(hw, "PHY address cmd didn't complete\n");
--				status = IXGBE_ERR_PHY;
--			}
--		}
--
-+	if (hw->mac.ops.acquire_swfw_sync(hw, gssr) == 0) {
-+		status = ixgbe_write_phy_reg_mdi(hw, reg_addr, device_type,
-+						 phy_data);
- 		hw->mac.ops.release_swfw_sync(hw, gssr);
-+	} else {
-+		status = IXGBE_ERR_SWFW_SYNC;
- 	}
- 
- 	return status;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-index 2d3433f..647203a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-@@ -107,6 +107,10 @@ s32 ixgbe_read_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
-                                u32 device_type, u16 *phy_data);
- s32 ixgbe_write_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
-                                 u32 device_type, u16 phy_data);
-+s32 ixgbe_read_phy_reg_mdi(struct ixgbe_hw *hw, u32 reg_addr,
-+			   u32 device_type, u16 *phy_data);
-+s32 ixgbe_write_phy_reg_mdi(struct ixgbe_hw *hw, u32 reg_addr,
-+			    u32 device_type, u16 phy_data);
- s32 ixgbe_setup_phy_link_generic(struct ixgbe_hw *hw);
- s32 ixgbe_setup_phy_link_speed_generic(struct ixgbe_hw *hw,
-                                        ixgbe_link_speed speed,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 8968ea0..4c91ea6 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -2886,6 +2886,8 @@ struct ixgbe_phy_operations {
- 	s32 (*reset)(struct ixgbe_hw *);
- 	s32 (*read_reg)(struct ixgbe_hw *, u32, u32, u16 *);
- 	s32 (*write_reg)(struct ixgbe_hw *, u32, u32, u16);
-+	s32 (*read_reg_mdi)(struct ixgbe_hw *, u32, u32, u16 *);
-+	s32 (*write_reg_mdi)(struct ixgbe_hw *, u32, u32, u16);
- 	s32 (*setup_link)(struct ixgbe_hw *);
- 	s32 (*setup_link_speed)(struct ixgbe_hw *, ixgbe_link_speed, bool);
- 	s32 (*check_link)(struct ixgbe_hw *, ixgbe_link_speed *, bool *);
+-static unsigned char pcie_link_speed[] = {
++const unsigned char pcie_link_speed[] = {
+ 	PCI_SPEED_UNKNOWN,		/* 0 */
+ 	PCIE_SPEED_2_5GT,		/* 1 */
+ 	PCIE_SPEED_5_0GT,		/* 2 */
 -- 
 1.7.11.7
