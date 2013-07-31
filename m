@@ -1,101 +1,164 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 00/15][pull request] Intel Wired LAN Driver Updates
-Date: Wed, 31 Jul 2013 02:59:22 -0700
-Message-ID: <1375264777-13595-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, linux-pci@vger.kernel.org
-To: davem@davemloft.net, bhelgaas@google.com
-Return-path: <linux-pci-owner@vger.kernel.org>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [net-next v2 03/15] ixgbe: fix fc autoneg ethtool reporting.
+Date: Wed, 31 Jul 2013 02:59:25 -0700
+Message-ID: <1375264777-13595-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1375264777-13595-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:43699 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755458Ab3GaJ7n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jul 2013 05:59:43 -0400
+In-Reply-To: <1375264777-13595-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe and pci.
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-The first patch for ixgbe from Greg Rose is the second submission.  The
-first submission of "ixgbe: Retain VLAN filtering in promiscuous + VT
-mode" had a typo, which Joe Perches pointed out and is fixed in this
-submission.
+Originally ixgbe_device_supports_autoneg_fc() was only expected to
+be called by copper devices.  This would lead to false information
+to be displayed via ethtool.
 
-Alex updates the ixgbe driver to use the generic helper pci_vfs_assigned
-instead of the driver specific function ixgbe_vfs_are_assigned.
+v2: changed ixgbe_device_supports_autoneg_fc() to a bool function,
+    it returns bool.  Based on feedback from David Miller
 
-Don Skidmore provides 4 patches for ixgbe, the first being a fix for
-flow control ethtool reporting.  Originally ixgbe_device_supports_autoneg_fc()
-was expected to be called by only copper devices, which lead to false
-information being displayed via ethtool.  Two other patches add support
-for fixed fiber for SFP+ devices and the addition of a quad-port x520
-adapter.  The last patch simply bumps the driver version.
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  | 42 +++++++++++++++++++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h  |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  9 ++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  3 +-
+ 4 files changed, 40 insertions(+), 16 deletions(-)
 
-Emil Tantilov provides 3 fixes for ixgbe, two of which resolve
-semaphore lock issues.  The third fix resolves several issues in the
-previous implementation of the SFF data dumps of SFP+ modules.
-
-The remaining ixgbe and pci patches are from Jacob Keller.  The pci
-patches exposes bus speed, link speed and bus width so that drivers
-can take advantage of this information.  In addition, adds a pci function
-which obtains minimum link width and speed.  Jacob also provides the
-ixgbe patch to incorporate the pci function. He provides a patch that
-fixes a lockdep issue created due to ixgbe_ptp_stop always running
-cancel_work_sync even if the work item had not been created properly with
-INIT_WORK. This issue was found and reported by Stephen Hemminger.
-
--v2-
-* fix patch 3 to be a bool function based on David Miller's feedback
-* fix patch 4 debug message based on David Miller's feedback
-* fix patch 8 moved the extern declarations to pci.h based on Bjorn
-  Helgaas's feedback
-* fix patch 11 update the error message to include encoding loss based
-* fix patch 8/9/10 title based on Bjorn's feedback
-
-The following are changes since commit 60ff779c4abba37a31bd8624ef45026f7fb1b70c:
-  9p: client: remove unused code and any reference to "cancelled" function
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Alexander Duyck (1):
-  ixgbe: Use pci_vfs_assigned instead of ixgbe_vfs_are_assigned
-
-Don Skidmore (4):
-  ixgbe: fix fc autoneg ethtool reporting.
-  ixgbe: add new media type.
-  ixgbe: bump version number
-  ixgbe: add support for quad-port x520 adapter
-
-Emil Tantilov (3):
-  ixgbe: fix semaphore lock for I2C read/writes on 82598
-  ixgbe: fix SFF data dumps of SFP+ modules
-  ixgbe: clear semaphore bits on timeouts
-
-Greg Rose (1):
-  ixgbe: Retain VLAN filtering in promiscuous + VT mode
-
-Jacob Keller (6):
-  PCI: expose pcie_link_speed and pcix_bus_speed arrays
-  PCI: move enum pcie_link_width into pci.h
-  PCI: Add function to obtain minimum link width and speed
-  ixgbe: call pcie_get_mimimum_link to check if device has enough
-    bandwidth
-  ixgbe: fix lockdep annotation issue for ptp's work item
-  ixgbe: rename LL_EXTENDED_STATS to use queue instead of q
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   7 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   |  34 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   | 240 +++++++++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  |  90 +++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h  |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  94 ++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 167 +++++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     | 470 ++++++++++++++++-------
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h     |  41 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c     |  12 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c   | 101 +++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |  12 +
- drivers/pci/pci.c                                |  43 +++
- drivers/pci/pci.h                                |   3 +
- drivers/pci/probe.c                              |   4 +-
- include/linux/pci.h                              |  15 +
- include/linux/pci_hotplug.h                      |  13 -
- 17 files changed, 1001 insertions(+), 347 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 9bcdeb8..ddbc3ee 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -65,17 +65,41 @@ static s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw);
+  *  function check the device id to see if the associated phy supports
+  *  autoneg flow control.
+  **/
+-s32 ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
++bool ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
+ {
++	bool supported = false;
++	ixgbe_link_speed speed;
++	bool link_up;
+ 
+-	switch (hw->device_id) {
+-	case IXGBE_DEV_ID_X540T:
+-	case IXGBE_DEV_ID_X540T1:
+-	case IXGBE_DEV_ID_82599_T3_LOM:
+-		return 0;
++	switch (hw->phy.media_type) {
++	case ixgbe_media_type_fiber:
++		hw->mac.ops.check_link(hw, &speed, &link_up, false);
++		/* if link is down, assume supported */
++		if (link_up)
++			supported = speed == IXGBE_LINK_SPEED_1GB_FULL ?
++				true : false;
++		else
++			supported = true;
++		break;
++	case ixgbe_media_type_backplane:
++		supported = true;
++		break;
++	case ixgbe_media_type_copper:
++		/* only some copper devices support flow control autoneg */
++		switch (hw->device_id) {
++		case IXGBE_DEV_ID_82599_T3_LOM:
++		case IXGBE_DEV_ID_X540T:
++		case IXGBE_DEV_ID_X540T1:
++			supported = true;
++			break;
++		default:
++			break;
++		}
+ 	default:
+-		return IXGBE_ERR_FC_NOT_SUPPORTED;
++		break;
+ 	}
++
++	return supported;
+ }
+ 
+ /**
+@@ -234,7 +258,7 @@ static s32 ixgbe_setup_fc(struct ixgbe_hw *hw)
+ 						      IXGBE_GSSR_MAC_CSR_SM);
+ 
+ 	} else if ((hw->phy.media_type == ixgbe_media_type_copper) &&
+-		    (ixgbe_device_supports_autoneg_fc(hw) == 0)) {
++		    ixgbe_device_supports_autoneg_fc(hw)) {
+ 		hw->phy.ops.write_reg(hw, MDIO_AN_ADVERTISE,
+ 				      MDIO_MMD_AN, reg_cu);
+ 	}
+@@ -2392,7 +2416,7 @@ void ixgbe_fc_autoneg(struct ixgbe_hw *hw)
+ 
+ 	/* Autoneg flow control on copper adapters */
+ 	case ixgbe_media_type_copper:
+-		if (ixgbe_device_supports_autoneg_fc(hw) == 0)
++		if (ixgbe_device_supports_autoneg_fc(hw))
+ 			ret_val = ixgbe_fc_autoneg_copper(hw);
+ 		break;
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+index 22eee38..1315b8a 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+@@ -80,7 +80,7 @@ s32 ixgbe_disable_rx_buff_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_enable_rx_buff_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_enable_rx_dma_generic(struct ixgbe_hw *hw, u32 regval);
+ s32 ixgbe_fc_enable_generic(struct ixgbe_hw *hw);
+-s32 ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw);
++bool ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw);
+ void ixgbe_fc_autoneg(struct ixgbe_hw *hw);
+ 
+ s32 ixgbe_acquire_swfw_sync(struct ixgbe_hw *hw, u16 mask);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index 24e2e7a..ae58a92 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -355,10 +355,11 @@ static void ixgbe_get_pauseparam(struct net_device *netdev,
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 
+-	if (hw->fc.disable_fc_autoneg)
+-		pause->autoneg = 0;
+-	else
++	if (ixgbe_device_supports_autoneg_fc(hw) &&
++	    !hw->fc.disable_fc_autoneg)
+ 		pause->autoneg = 1;
++	else
++		pause->autoneg = 0;
+ 
+ 	if (hw->fc.current_mode == ixgbe_fc_rx_pause) {
+ 		pause->rx_pause = 1;
+@@ -384,7 +385,7 @@ static int ixgbe_set_pauseparam(struct net_device *netdev,
+ 
+ 	/* some devices do not support autoneg of link flow control */
+ 	if ((pause->autoneg == AUTONEG_ENABLE) &&
+-	    (ixgbe_device_supports_autoneg_fc(hw) != 0))
++	    !ixgbe_device_supports_autoneg_fc(hw))
+ 		return -EINVAL;
+ 
+ 	fc.disable_fc_autoneg = (pause->autoneg != AUTONEG_ENABLE);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index d837f81..531ee44 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -4721,8 +4721,7 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 	ixgbe_pbthresh_setup(adapter);
+ 	hw->fc.pause_time = IXGBE_DEFAULT_FCPAUSE;
+ 	hw->fc.send_xon = true;
+-	hw->fc.disable_fc_autoneg =
+-		(ixgbe_device_supports_autoneg_fc(hw) == 0) ? false : true;
++	hw->fc.disable_fc_autoneg = ixgbe_device_supports_autoneg_fc(hw);
+ 
+ #ifdef CONFIG_PCI_IOV
+ 	/* assign number of SR-IOV VFs */
 -- 
 1.7.11.7
