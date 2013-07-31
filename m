@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 05/15] ixgbe: bump version number
-Date: Wed, 31 Jul 2013 02:59:27 -0700
-Message-ID: <1375264777-13595-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 04/15] ixgbe: add new media type.
+Date: Wed, 31 Jul 2013 02:59:26 -0700
+Message-ID: <1375264777-13595-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1375264777-13595-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:43699 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:59620 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753069Ab3GaJ7o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1759068Ab3GaJ7o (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 31 Jul 2013 05:59:44 -0400
 In-Reply-To: <1375264777-13595-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,28 +18,202 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Bump the version number to better match with a similar version of the
-out of tree driver.
+This patch adds support for a new media type fiber_fixed.  This is useful
+to avoid all the SFP+ hot plug support path on devices who's fix fiber need
+not worry about such things.  This patch is needed for a following patch
+that adds support for "fiber_fixed" devices.
+
+v2: cleaned up logging message based on feedback from David Miller
 
 Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  | 93 +++++++++++++++++++++++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  3 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h    |  5 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |  1 +
+ 4 files changed, 95 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 531ee44..61fa0c3 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -63,7 +63,7 @@ char ixgbe_default_device_descr[] =
- static char ixgbe_default_device_descr[] =
- 			      "Intel(R) 10 Gigabit Network Connection";
- #endif
--#define DRV_VERSION "3.13.10-k"
-+#define DRV_VERSION "3.15.1-k"
- const char ixgbe_driver_version[] = DRV_VERSION;
- static const char ixgbe_copyright[] =
- 				"Copyright (c) 1999-2013 Intel Corporation.";
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index 0b82d38..9d627fd 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -527,6 +527,75 @@ static void ixgbe_flap_tx_laser_multispeed_fiber(struct ixgbe_hw *hw)
+ }
+ 
+ /**
++ *  ixgbe_set_fiber_fixed_speed - Set module link speed for fixed fiber
++ *  @hw: pointer to hardware structure
++ *  @speed: link speed to set
++ *
++ *  We set the module speed differently for fixed fiber.  For other
++ *  multi-speed devices we don't have an error value so here if we
++ *  detect an error we just log it and exit.
++ */
++static void ixgbe_set_fiber_fixed_speed(struct ixgbe_hw *hw,
++					ixgbe_link_speed speed)
++{
++	s32 status;
++	u8 rs, eeprom_data;
++
++	switch (speed) {
++	case IXGBE_LINK_SPEED_10GB_FULL:
++		/* one bit mask same as setting on */
++		rs = IXGBE_SFF_SOFT_RS_SELECT_10G;
++		break;
++	case IXGBE_LINK_SPEED_1GB_FULL:
++		rs = IXGBE_SFF_SOFT_RS_SELECT_1G;
++		break;
++	default:
++		hw_dbg(hw, "Invalid fixed module speed\n");
++		return;
++	}
++
++	/* Set RS0 */
++	status = hw->phy.ops.read_i2c_byte(hw, IXGBE_SFF_SFF_8472_OSCB,
++					   IXGBE_I2C_EEPROM_DEV_ADDR2,
++					   &eeprom_data);
++	if (status) {
++		hw_dbg(hw, "Failed to read Rx Rate Select RS0\n");
++		goto out;
++	}
++
++	eeprom_data = (eeprom_data & ~IXGBE_SFF_SOFT_RS_SELECT_MASK) & rs;
++
++	status = hw->phy.ops.write_i2c_byte(hw, IXGBE_SFF_SFF_8472_OSCB,
++					    IXGBE_I2C_EEPROM_DEV_ADDR2,
++					    eeprom_data);
++	if (status) {
++		hw_dbg(hw, "Failed to write Rx Rate Select RS0\n");
++		goto out;
++	}
++
++	/* Set RS1 */
++	status = hw->phy.ops.read_i2c_byte(hw, IXGBE_SFF_SFF_8472_ESCB,
++					   IXGBE_I2C_EEPROM_DEV_ADDR2,
++					   &eeprom_data);
++	if (status) {
++		hw_dbg(hw, "Failed to read Rx Rate Select RS1\n");
++		goto out;
++	}
++
++	eeprom_data = (eeprom_data & ~IXGBE_SFF_SOFT_RS_SELECT_MASK) & rs;
++
++	status = hw->phy.ops.write_i2c_byte(hw, IXGBE_SFF_SFF_8472_ESCB,
++					    IXGBE_I2C_EEPROM_DEV_ADDR2,
++					    eeprom_data);
++	if (status) {
++		hw_dbg(hw, "Failed to write Rx Rate Select RS1\n");
++		goto out;
++	}
++out:
++	return;
++}
++
++/**
+  *  ixgbe_setup_mac_link_multispeed_fiber - Set MAC link speed
+  *  @hw: pointer to hardware structure
+  *  @speed: new link speed
+@@ -573,9 +642,14 @@ static s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
+ 			goto out;
+ 
+ 		/* Set the module link speed */
+-		esdp_reg |= (IXGBE_ESDP_SDP5_DIR | IXGBE_ESDP_SDP5);
+-		IXGBE_WRITE_REG(hw, IXGBE_ESDP, esdp_reg);
+-		IXGBE_WRITE_FLUSH(hw);
++		if (hw->phy.media_type == ixgbe_media_type_fiber_fixed) {
++			ixgbe_set_fiber_fixed_speed(hw,
++					IXGBE_LINK_SPEED_10GB_FULL);
++		} else {
++			esdp_reg |= (IXGBE_ESDP_SDP5_DIR | IXGBE_ESDP_SDP5);
++			IXGBE_WRITE_REG(hw, IXGBE_ESDP, esdp_reg);
++			IXGBE_WRITE_FLUSH(hw);
++		}
+ 
+ 		/* Allow module to change analog characteristics (1G->10G) */
+ 		msleep(40);
+@@ -625,10 +699,15 @@ static s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
+ 			goto out;
+ 
+ 		/* Set the module link speed */
+-		esdp_reg &= ~IXGBE_ESDP_SDP5;
+-		esdp_reg |= IXGBE_ESDP_SDP5_DIR;
+-		IXGBE_WRITE_REG(hw, IXGBE_ESDP, esdp_reg);
+-		IXGBE_WRITE_FLUSH(hw);
++		if (hw->phy.media_type == ixgbe_media_type_fiber_fixed) {
++			ixgbe_set_fiber_fixed_speed(hw,
++						IXGBE_LINK_SPEED_1GB_FULL);
++		} else {
++			esdp_reg &= ~IXGBE_ESDP_SDP5;
++			esdp_reg |= IXGBE_ESDP_SDP5_DIR;
++			IXGBE_WRITE_REG(hw, IXGBE_ESDP, esdp_reg);
++			IXGBE_WRITE_FLUSH(hw);
++		}
+ 
+ 		/* Allow module to change analog characteristics (10G->1G) */
+ 		msleep(40);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index ddbc3ee..0d09711 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -72,6 +72,7 @@ bool ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
+ 	bool link_up;
+ 
+ 	switch (hw->phy.media_type) {
++	case ixgbe_media_type_fiber_fixed:
+ 	case ixgbe_media_type_fiber:
+ 		hw->mac.ops.check_link(hw, &speed, &link_up, false);
+ 		/* if link is down, assume supported */
+@@ -138,6 +139,7 @@ static s32 ixgbe_setup_fc(struct ixgbe_hw *hw)
+ 	 * we link at 10G, the 1G advertisement is harmless and vice versa.
+ 	 */
+ 	switch (hw->phy.media_type) {
++	case ixgbe_media_type_fiber_fixed:
+ 	case ixgbe_media_type_fiber:
+ 	case ixgbe_media_type_backplane:
+ 		reg = IXGBE_READ_REG(hw, IXGBE_PCS1GANA);
+@@ -2404,6 +2406,7 @@ void ixgbe_fc_autoneg(struct ixgbe_hw *hw)
+ 
+ 	switch (hw->phy.media_type) {
+ 	/* Autoneg flow control on fiber adapters */
++	case ixgbe_media_type_fiber_fixed:
+ 	case ixgbe_media_type_fiber:
+ 		if (speed == IXGBE_LINK_SPEED_1GB_FULL)
+ 			ret_val = ixgbe_fc_autoneg_fiber(hw);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
+index 886a343..2d3433f 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
+@@ -44,6 +44,8 @@
+ #define IXGBE_SFF_CABLE_SPEC_COMP    0x3C
+ #define IXGBE_SFF_SFF_8472_SWAP      0x5C
+ #define IXGBE_SFF_SFF_8472_COMP      0x5E
++#define IXGBE_SFF_SFF_8472_OSCB	0x6E
++#define IXGBE_SFF_SFF_8472_ESCB	0x76
+ 
+ /* Bitmasks */
+ #define IXGBE_SFF_DA_PASSIVE_CABLE           0x4
+@@ -54,6 +56,9 @@
+ #define IXGBE_SFF_1GBASET_CAPABLE            0x8
+ #define IXGBE_SFF_10GBASESR_CAPABLE          0x10
+ #define IXGBE_SFF_10GBASELR_CAPABLE          0x20
++#define IXGBE_SFF_SOFT_RS_SELECT_MASK	0x8
++#define IXGBE_SFF_SOFT_RS_SELECT_10G	0x8
++#define IXGBE_SFF_SOFT_RS_SELECT_1G	0x0
+ #define IXGBE_SFF_ADDRESSING_MODE	     0x4
+ #define IXGBE_I2C_EEPROM_READ_MASK           0x100
+ #define IXGBE_I2C_EEPROM_STATUS_MASK         0x3
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 70c6aa3..8968ea0 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -2622,6 +2622,7 @@ enum ixgbe_sfp_type {
+ enum ixgbe_media_type {
+ 	ixgbe_media_type_unknown = 0,
+ 	ixgbe_media_type_fiber,
++	ixgbe_media_type_fiber_fixed,
+ 	ixgbe_media_type_fiber_lco,
+ 	ixgbe_media_type_copper,
+ 	ixgbe_media_type_backplane,
 -- 
 1.7.11.7
