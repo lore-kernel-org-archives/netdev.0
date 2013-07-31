@@ -1,155 +1,104 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 01/15] ixgbe: Retain VLAN filtering in promiscuous + VT mode
-Date: Wed, 31 Jul 2013 02:59:23 -0700
-Message-ID: <1375264777-13595-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 14/15] ixgbe: clear semaphore bits on timeouts
+Date: Wed, 31 Jul 2013 02:59:36 -0700
+Message-ID: <1375264777-13595-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1375264777-13595-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:59620 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:43699 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753069Ab3GaJ7m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jul 2013 05:59:42 -0400
+	id S1759332Ab3GaJ7u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jul 2013 05:59:50 -0400
 In-Reply-To: <1375264777-13595-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-When using the new bridge FDB interface to allow SR-IOV virtual function
-network devices to communicate with SW bridged network devices the
-physical function is placed into promiscuous mode and hardware VLAN
-filtering is disabled.  This defeats the ability to use VLAN tagging
-to isolate user networks.  When the device is in promiscuous mode and
-VT mode simultaneously ensure that VLAN hardware filtering remains
-enabled.
+This patch changes the error code path in ixgbe_acquire_swfw_sync() to deal
+with cases where acquiring SW semaphore times out.
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+In cases where the SW/FW semaphore bits were set (i.e. due to a crash) the
+driver will hang on load. With this patch the driver will clear
+the stuck bits if the semaphore was not acquired in the allotted time.
+
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 11 ++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 66 ++++++++++++++++++++++++++
- 2 files changed, 75 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 45 ++++++++++++-------------
+ 1 file changed, 21 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index bad8f14..d837f81 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3724,8 +3724,15 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 		hw->addr_ctrl.user_set_promisc = true;
- 		fctrl |= (IXGBE_FCTRL_UPE | IXGBE_FCTRL_MPE);
- 		vmolr |= (IXGBE_VMOLR_ROPE | IXGBE_VMOLR_MPE);
--		/* don't hardware filter vlans in promisc mode */
--		ixgbe_vlan_filter_disable(adapter);
-+		/* Only disable hardware filter vlans in promiscuous mode
-+		 * if SR-IOV and VMDQ are disabled - otherwise ensure
-+		 * that hardware VLAN filters remain enabled.
-+		 */
-+		if (!(adapter->flags & (IXGBE_FLAG_VMDQ_ENABLED |
-+					IXGBE_FLAG_SRIOV_ENABLED)))
-+			ixgbe_vlan_filter_disable(adapter);
-+		else
-+			ixgbe_vlan_filter_enable(adapter);
- 	} else {
- 		if (netdev->flags & IFF_ALLMULTI) {
- 			fctrl |= IXGBE_FCTRL_MPE;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 1e7d587..6c624c9 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -768,6 +768,29 @@ static int ixgbe_set_vf_mac_addr(struct ixgbe_adapter *adapter,
- 	return ixgbe_set_vf_mac(adapter, vf, new_mac) < 0;
- }
- 
-+static int ixgbe_find_vlvf_entry(struct ixgbe_hw *hw, u32 vlan)
-+{
-+	u32 vlvf;
-+	s32 regindex;
-+
-+	/* short cut the special case */
-+	if (vlan == 0)
-+		return 0;
-+
-+	/* Search for the vlan id in the VLVF entries */
-+	for (regindex = 1; regindex < IXGBE_VLVF_ENTRIES; regindex++) {
-+		vlvf = IXGBE_READ_REG(hw, IXGBE_VLVF(regindex));
-+		if ((vlvf & VLAN_VID_MASK) == vlan)
-+			break;
-+	}
-+
-+	/* Return a negative value if not found */
-+	if (regindex >= IXGBE_VLVF_ENTRIES)
-+		regindex = -1;
-+
-+	return regindex;
-+}
-+
- static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
- 				 u32 *msgbuf, u32 vf)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 0d09711..50e62a2 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -2506,42 +2506,39 @@ out:
+  **/
+ s32 ixgbe_acquire_swfw_sync(struct ixgbe_hw *hw, u16 mask)
  {
-@@ -775,6 +798,9 @@ static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
- 	int add = (msgbuf[0] & IXGBE_VT_MSGINFO_MASK) >> IXGBE_VT_MSGINFO_SHIFT;
- 	int vid = (msgbuf[1] & IXGBE_VLVF_VLANID_MASK);
- 	int err;
-+	s32 reg_ndx;
-+	u32 vlvf;
-+	u32 bits;
- 	u8 tcs = netdev_get_num_tc(adapter->netdev);
+-	u32 gssr;
++	u32 gssr = 0;
+ 	u32 swmask = mask;
+ 	u32 fwmask = mask << 5;
+-	s32 timeout = 200;
++	u32 timeout = 200;
++	u32 i;
  
- 	if (adapter->vfinfo[vf].pf_vlan || tcs) {
-@@ -790,10 +816,50 @@ static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
- 	else if (adapter->vfinfo[vf].vlan_count)
- 		adapter->vfinfo[vf].vlan_count--;
+-	while (timeout) {
++	for (i = 0; i < timeout; i++) {
+ 		/*
+-		 * SW EEPROM semaphore bit is used for access to all
+-		 * SW_FW_SYNC/GSSR bits (not just EEPROM)
++		 * SW NVM semaphore bit is used for access to all
++		 * SW_FW_SYNC bits (not just NVM)
+ 		 */
+ 		if (ixgbe_get_eeprom_semaphore(hw))
+ 			return IXGBE_ERR_SWFW_SYNC;
  
-+	/* in case of promiscuous mode any VLAN filter set for a VF must
-+	 * also have the PF pool added to it.
-+	 */
-+	if (add && adapter->netdev->flags & IFF_PROMISC)
-+		err = ixgbe_set_vf_vlan(adapter, add, vid, VMDQ_P(0));
-+
- 	err = ixgbe_set_vf_vlan(adapter, add, vid, vf);
- 	if (!err && adapter->vfinfo[vf].spoofchk_enabled)
- 		hw->mac.ops.set_vlan_anti_spoofing(hw, true, vf);
- 
-+	/* Go through all the checks to see if the VLAN filter should
-+	 * be wiped completely.
-+	 */
-+	if (!add && adapter->netdev->flags & IFF_PROMISC) {
-+		reg_ndx = ixgbe_find_vlvf_entry(hw, vid);
-+		if (reg_ndx < 0)
-+			goto out;
-+		vlvf = IXGBE_READ_REG(hw, IXGBE_VLVF(reg_ndx));
-+		/* See if any other pools are set for this VLAN filter
-+		 * entry other than the PF.
-+		 */
-+		if (VMDQ_P(0) < 32) {
-+			bits = IXGBE_READ_REG(hw, IXGBE_VLVFB(reg_ndx * 2));
-+			bits &= ~(1 << VMDQ_P(0));
-+			bits |= IXGBE_READ_REG(hw,
-+					       IXGBE_VLVFB(reg_ndx * 2) + 1);
+ 		gssr = IXGBE_READ_REG(hw, IXGBE_GSSR);
+-		if (!(gssr & (fwmask | swmask)))
+-			break;
+-
+-		/*
+-		 * Firmware currently using resource (fwmask) or other software
+-		 * thread currently using resource (swmask)
+-		 */
+-		ixgbe_release_eeprom_semaphore(hw);
+-		usleep_range(5000, 10000);
+-		timeout--;
+-	}
+-
+-	if (!timeout) {
+-		hw_dbg(hw, "Driver can't access resource, SW_FW_SYNC timeout.\n");
+-		return IXGBE_ERR_SWFW_SYNC;
++		if (!(gssr & (fwmask | swmask))) {
++			gssr |= swmask;
++			IXGBE_WRITE_REG(hw, IXGBE_GSSR, gssr);
++			ixgbe_release_eeprom_semaphore(hw);
++			return 0;
 +		} else {
-+			bits = IXGBE_READ_REG(hw,
-+					      IXGBE_VLVFB(reg_ndx * 2) + 1);
-+			bits &= ~(1 << (VMDQ_P(0) - 32));
-+			bits |= IXGBE_READ_REG(hw, IXGBE_VLVFB(reg_ndx * 2));
++			/* Resource is currently in use by FW or SW */
++			ixgbe_release_eeprom_semaphore(hw);
++			usleep_range(5000, 10000);
 +		}
-+
-+		/* If the filter was removed then ensure PF pool bit
-+		 * is cleared if the PF only added itself to the pool
-+		 * because the PF is in promiscuous mode.
-+		 */
-+		if ((vlvf & VLAN_VID_MASK) == vid &&
-+		    !test_bit(vid, adapter->active_vlans) && !bits)
-+			ixgbe_set_vf_vlan(adapter, add, vid, VMDQ_P(0));
-+	}
-+
-+out:
-+
- 	return err;
+ 	}
+ 
+-	gssr |= swmask;
+-	IXGBE_WRITE_REG(hw, IXGBE_GSSR, gssr);
++	/* If time expired clear the bits holding the lock and retry */
++	if (gssr & (fwmask | swmask))
++		ixgbe_release_swfw_sync(hw, gssr & (fwmask | swmask));
+ 
+-	ixgbe_release_eeprom_semaphore(hw);
+-	return 0;
++	usleep_range(5000, 10000);
++	return IXGBE_ERR_SWFW_SYNC;
  }
  
+ /**
 -- 
 1.7.11.7
