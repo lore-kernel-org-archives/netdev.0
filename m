@@ -1,81 +1,61 @@
-From: Ronny Meeus <ronny.meeus@gmail.com>
-Subject: Re: How do I receive vlan tags on an AF_PACKET socket in 3.4 kernel?
-Date: Wed, 31 Jul 2013 16:36:41 +0200
-Message-ID: <CAMJ=MEeLRQTROpj4LBJ2b--dqyxBUKPcW7F=q9qdqxm_4kHL7g@mail.gmail.com>
-References: <CAMJ=MEe4cvp7-fwbCnq7SLM=44Zy8Jrz35FwRoWG-ytahdPRQA@mail.gmail.com>
- <1375193392.10515.28.camel@edumazet-glaptop> <CAMJ=MEdfn2uPHbNQZ1LOytOqwFTbAyV1ZtxOW8NomLCZJq+caQ@mail.gmail.com>
- <1375280187.10515.92.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: check net.core.somaxconn sysctl values
+Date: Wed, 31 Jul 2013 07:37:37 -0700
+Message-ID: <1375281457.10515.98.camel@edumazet-glaptop>
+References: <51F917CF.7010905@yandex-team.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f42.google.com ([209.85.219.42]:43434 "EHLO
-	mail-oa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755736Ab3GaOhD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 10:37:03 -0400
-Received: by mail-oa0-f42.google.com with SMTP id i18so1691324oag.29
-        for <netdev@vger.kernel.org>; Wed, 31 Jul 2013 07:37:02 -0700 (PDT)
-In-Reply-To: <1375280187.10515.92.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, raise.sail@gmail.com,
+	ebiederm@xmission.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Roman Gushchin <klamm@yandex-team.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51F917CF.7010905@yandex-team.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 31, 2013 at 4:16 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2013-07-31 at 14:51 +0200, Ronny Meeus wrote:
->
->> Thanks for the feedback. High level it is almost clear.
->>
->> At implementation level I do not understand how it is supposed to work.
->> If I use tcpdump to generate a filter for example on vlan 4094 I see
->> no reference at all to the newly added instructions to get the VLAN.
->>
->> ~ # tcpdump -i eth-ntb vlan 4094 -d
->> tcpdump: WARNING: eth-ntb: no IPv4 address assigned
->> (000) ldh      [12]
->> (001) jeq      #0x8100          jt 3    jf 2
->> (002) jeq      #0x9100          jt 3    jf 7
->> (003) ldh      [14]
->> (004) and      #0xfff
->> (005) jeq      #0xffe           jt 6    jf 7
->> (006) ret      #65535
->> (007) ret      #0
->>
->> To me it looks like to code above is just checking the bytes in the
->> raw Ethernet packet at offset 12 and 14.
->> Since the command above seems to work it looks to me that the
->> filtering is done in the tcpdump application instead of in the kernel.
->>
->> If I use the strace command while starting tcpdump I see that the
->> SO_ATTACH_FILTER sockopt is passed to the kernel:
->>
->> <snip>
->> setsockopt(3, SOL_SOCKET, SO_ATTACH_FILTER, "\0\1\0\0\20\f\366\340", 8) = 0
->> fcntl64(3, F_GETFL)                     = 0x2 (flags O_RDWR)
->> fcntl64(3, F_SETFL, O_RDWR|O_NONBLOCK)  = 0
->> recvfrom(3, 0x7f6f6630, 1, 32, 0, 0)    = -1 EAGAIN (Resource
->> temporarily unavailable)
->> fcntl64(3, F_SETFL, O_RDWR)             = 0
->> setsockopt(3, SOL_SOCKET, SO_ATTACH_FILTER, "\0\10\0\0\20>\210@", 8) = 0
->> <snip>
->>
->> So I'm confused. I would expect to see some commands to read access
->> the VLAN field in the additional data and compare it to the VLAN
->> (4094) I want to filter.
->>
->
-> I assumed from you initial mail you were using a BPF filter, not
-> libpcap, which presumably doesnt use these new 'instructions'
->
+On Wed, 2013-07-31 at 17:57 +0400, Roman Gushchin wrote:
+> It's possible to assign an invalid value to the net.core.somaxconn
+> sysctl variable, because there is no checks at all.
+> 
+> The sk_max_ack_backlog field of the sock structure is defined as
+> unsigned short. Therefore, the backlog argument in inet_listen()
+> shouldn't exceed USHRT_MAX. The backlog argument in the listen() syscall
+> is truncated to the somaxconn value. So, the somaxconn value shouldn't
+> exceed 65535 (USHRT_MAX).
+> Also, negative values of somaxconn are meaningless.
+> 
+> before:
+> $ sysctl -w net.core.somaxconn=256
+> net.core.somaxconn = 256
+> $ sysctl -w net.core.somaxconn=65536
+> net.core.somaxconn = 65536
+> $ sysctl -w net.core.somaxconn=-100
+> net.core.somaxconn = -100
+> 
+> after:
+> $ sysctl -w net.core.somaxconn=256
+> net.core.somaxconn = 256
+> $ sysctl -w net.core.somaxconn=65536
+> error: "Invalid argument" setting key "net.core.somaxconn"
+> $ sysctl -w net.core.somaxconn=-100
+> error: "Invalid argument" setting key "net.core.somaxconn"
+> 
+> Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
+> ---
+>   net/core/sysctl_net_core.c | 6 +++++-
+>   1 file changed, 5 insertions(+), 1 deletion(-)
 
-I used the tcpdump tool to generate the filter I need to use in my application.
 
-> Adapting the BPF filter generated by libpcap is a matter of adding 3 or
-> 4 instructions. In your case 2 instructions actually
->
-> One to load tag id into A
-> One to compare A against immediate value 4094 and conditional jump.
->
+We had a discussion about this one month ago, as Changli Gao posted a
+patch. http://patchwork.ozlabs.org/patch/255460/
 
-Can you give an real example of a filter that passes all packets that
-have a VLAN 4094 attached and drops all others?
-Thanks
+So proper credits would be nice ;)
+
+Based on a prior patch from Changli Gao
+
+Reported-by: Changli Gao <xiaosuo@gmail.com>
+Suggested-by: Eric Dumazet <edumazet@google.com>
+
+Acked-by: Eric Dumazet <edumazet@google.com>
