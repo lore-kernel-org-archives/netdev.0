@@ -1,38 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/6] qlcnic: Add ethtool statistics for board
- temperature.
-Date: Tue, 30 Jul 2013 19:27:23 -0700 (PDT)
-Message-ID: <20130730.192723.699554467882059430.davem@davemloft.net>
-References: <cover.1375244889.git.himanshu.madhani@qlogic.com>
-	<6a88678cfe46e0e4f639e8f80834dd3e4b46fdd1.1375244889.git.himanshu.madhani@qlogic.com>
+Subject: Re: [patch v2 0/2] Fix system hang when loading mvneta module -
+ take 2
+Date: Tue, 30 Jul 2013 19:32:55 -0700 (PDT)
+Message-ID: <20130730.193255.1830316236868115039.davem@davemloft.net>
+References: <20130729195646.433524957@rtp-net.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: himanshu.madhani@qlogic.com
+Cc: netdev@vger.kernel.org, thomas.petazzoni@free-electrons.com
+To: arnaud.patard@rtp-net.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44936 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45004 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751892Ab3GaC1Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 22:27:24 -0400
-In-Reply-To: <6a88678cfe46e0e4f639e8f80834dd3e4b46fdd1.1375244889.git.himanshu.madhani@qlogic.com>
+	with ESMTP id S1751171Ab3GaCc4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 22:32:56 -0400
+In-Reply-To: <20130729195646.433524957@rtp-net.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Date: Tue, 30 Jul 2013 21:54:19 -0400
+From: Arnaud Patard (Rtp) <arnaud.patard@rtp-net.org>
+Date: Mon, 29 Jul 2013 21:56:46 +0200
 
-> From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-> 
-> o Added ethtool statistics to display adapter board
->   temperature.
-> 
-> Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+> This is a second version of my patchset to fix mvneta as module.
+> I've addressed previous comments. I've also fixed probe
+> error path which was broken in the previous version.
 
-A statistic is a count of events, this is not such a thing.
-
-Furthermore, even if this fit the model of statistical events,
-there is no way for the user to know what units the value is
-in.
-
-Sorry I'm not applying these patches.
+Both applied, thanks.
