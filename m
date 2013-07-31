@@ -1,76 +1,51 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 60669] New: Kernel panic when using HTB qdisc
-Date: Wed, 31 Jul 2013 12:25:32 -0700
-Message-ID: <20130731122532.171f76bf@nehalam.linuxnetplumber.net>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH 09/12] tile: support TSO for IPv6 in tilegx network
+ driver
+Date: Wed, 31 Jul 2013 12:25:34 -0700 (PDT)
+Message-ID: <20130731.122534.774117327230299927.davem@redhat.com>
+References: <cover.1374609948.git.cmetcalf@tilera.com>
+	<cover.1375283104.git.cmetcalf@tilera.com>
+	<799eca39dc7f85ba12e1d8c5b072f8b6740fda1c.1375283106.git.cmetcalf@tilera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: cmetcalf@tilera.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:63227 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752223Ab3GaTZf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 15:25:35 -0400
-Received: by mail-pd0-f182.google.com with SMTP id r10so1119703pdi.27
-        for <netdev@vger.kernel.org>; Wed, 31 Jul 2013 12:25:35 -0700 (PDT)
-Received: from nehalam.linuxnetplumber.net (static-50-53-71-109.bvtn.or.frontiernet.net. [50.53.71.109])
-        by mx.google.com with ESMTPSA id tr10sm3770634pbc.22.2013.07.31.12.25.34
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
-        Wed, 31 Jul 2013 12:25:34 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:34575 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752223Ab3GaTZh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jul 2013 15:25:37 -0400
+In-Reply-To: <799eca39dc7f85ba12e1d8c5b072f8b6740fda1c.1375283106.git.cmetcalf@tilera.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Chris Metcalf <cmetcalf@tilera.com>
+Date: Wed, 31 Jul 2013 11:05:04 -0400
 
+> @@ -1950,6 +1963,7 @@ static void tile_net_setup(struct net_device *dev)
+>  	dev->features |= NETIF_F_HW_CSUM;
+>  	dev->features |= NETIF_F_SG;
+>  	dev->features |= NETIF_F_TSO;
+> +	dev->features |= NETIF_F_TSO6;
+>  	dev->mtu = 1500;
 
-Begin forwarded message:
+This driver is severely out of date wrt. how to properly advertise
+device features, and you really need to fix this _before_ adding
+support for new capabilities.
 
-Date: Wed, 31 Jul 2013 12:18:55 -0700
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-Subject: [Bug 60669] New: Kernel panic when using HTB qdisc
+dev->hw_features specifies what the device is capable of, whereas
+dev->features specifies what features are currently enabled.
 
+Using these two values we determine what feature bits the user
+can configure on and off using generic code which checks
+dev->hw_features when the user makes a request.
 
-https://bugzilla.kernel.org/show_bug.cgi?id=60669
+You'll also want to have a look at netdev_ops->ndo_fix_features
+and netdev_ops->ndo_set_features which allow a driver to handle
+attempts to install illegal combinations of features.
 
-            Bug ID: 60669
-           Summary: Kernel panic when using HTB qdisc
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 3.11.0-rc2+
-          Hardware: All
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: Other
-          Assignee: shemminger@linux-foundation.org
-          Reporter: vi0oss@gmail.com
-        Regression: No
+You can look at other well maintained drivers to see how this
+works.
 
-Created attachment 107064
-  --> https://bugzilla.kernel.org/attachment.cgi?id=107064&action=edit
-Kernel panic output
-
-I'm trying to use HTB qdisc. Using something like this commands:
-
-tc qdisc add dev eth1 root handle 55: htb default 1
-tc class add dev eth1 parent 55: classid 55:1 htb rate 50000000
-tc class add dev eth1 parent 55: classid 55:2 htb rate 50000000 prio -1
-tc class add dev eth1 parent 55: classid 55:3 htb rate 50000000
-iptables -t mangle -A OUTPUT -p icmp -j CLASSIFY --set-class 55:2
-iptables -t mangle -A OUTPUT -p tcp --dport 5555 -j CLASSIFY --set-class 55:3
-ifconfig eth1 192.168.98.2 up
-cat /dev/zero | nc 192.168.98.2 5555&
-cat /dev/zero | nc 192.168.98.2 5556&
-
-The network connection shall be be fully loaded (so classes compete with each
-other).
-
-The "+" in kernel version is because of I am using a patch from bug 58691
-(should be unrelated with iptables or traffic shaping).
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+Thanks.
