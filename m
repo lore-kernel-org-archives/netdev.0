@@ -1,83 +1,86 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 09/15] PCI: move enum pcie_link_width into pci.h
-Date: Wed, 31 Jul 2013 02:59:31 -0700
-Message-ID: <1375264777-13595-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 02/15] ixgbe: Use pci_vfs_assigned instead of ixgbe_vfs_are_assigned
+Date: Wed, 31 Jul 2013 02:59:24 -0700
+Message-ID: <1375264777-13595-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1375264777-13595-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, linux-pci@vger.kernel.org,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net, bhelgaas@google.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:24036 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:59620 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759162Ab3GaJ7q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jul 2013 05:59:46 -0400
+	id S1752396Ab3GaJ7n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jul 2013 05:59:43 -0400
 In-Reply-To: <1375264777-13595-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-pcie_link_width is the enum used to define the link width values for a pcie
-device. This enum should not be contained solely in pci_hotplug.h, and this
-patch moves it next to pci_bus_speed in pci.h
+This change makes it so that the ixgbe driver uses the generic helper
+pci_vfs_assigned instead of the ixgbe specific function
+ixgbe_vfs_are_assigned.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Acked-by: Bjorn Helgaas <bhelgaas@google.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- include/linux/pci.h         | 13 +++++++++++++
- include/linux/pci_hotplug.h | 13 -------------
- 2 files changed, 13 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 35 +-------------------------
+ 1 file changed, 1 insertion(+), 34 deletions(-)
 
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 0fd1f15..a0bf22d 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -183,6 +183,19 @@ enum pci_bus_flags {
- 	PCI_BUS_FLAGS_NO_MMRBC = (__force pci_bus_flags_t) 2,
- };
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 6c624c9..73c8e73 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -173,39 +173,6 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
+ 	ixgbe_disable_sriov(adapter);
+ }
  
-+/* These values come from the PCI Express Spec */
-+enum pcie_link_width {
-+	PCIE_LNK_WIDTH_RESRV	= 0x00,
-+	PCIE_LNK_X1		= 0x01,
-+	PCIE_LNK_X2		= 0x02,
-+	PCIE_LNK_X4		= 0x04,
-+	PCIE_LNK_X8		= 0x08,
-+	PCIE_LNK_X12		= 0x0C,
-+	PCIE_LNK_X16		= 0x10,
-+	PCIE_LNK_X32		= 0x20,
-+	PCIE_LNK_WIDTH_UNKNOWN  = 0xFF,
-+};
-+
- /* Based on the PCI Hotplug Spec, but some values are made up by us */
- enum pci_bus_speed {
- 	PCI_SPEED_33MHz			= 0x00,
-diff --git a/include/linux/pci_hotplug.h b/include/linux/pci_hotplug.h
-index 8db71dc..64e61e0 100644
---- a/include/linux/pci_hotplug.h
-+++ b/include/linux/pci_hotplug.h
-@@ -28,19 +28,6 @@
- #ifndef _PCI_HOTPLUG_H
- #define _PCI_HOTPLUG_H
- 
--/* These values come from the PCI Express Spec */
--enum pcie_link_width {
--	PCIE_LNK_WIDTH_RESRV	= 0x00,
--	PCIE_LNK_X1		= 0x01,
--	PCIE_LNK_X2		= 0x02,
--	PCIE_LNK_X4		= 0x04,
--	PCIE_LNK_X8		= 0x08,
--	PCIE_LNK_X12		= 0x0C,
--	PCIE_LNK_X16		= 0x10,
--	PCIE_LNK_X32		= 0x20,
--	PCIE_LNK_WIDTH_UNKNOWN  = 0xFF,
--};
+-static bool ixgbe_vfs_are_assigned(struct ixgbe_adapter *adapter)
+-{
+-	struct pci_dev *pdev = adapter->pdev;
+-	struct pci_dev *vfdev;
+-	int dev_id;
 -
- /**
-  * struct hotplug_slot_ops -the callbacks that the hotplug pci core can use
-  * @owner: The module owner of this structure
+-	switch (adapter->hw.mac.type) {
+-	case ixgbe_mac_82599EB:
+-		dev_id = IXGBE_DEV_ID_82599_VF;
+-		break;
+-	case ixgbe_mac_X540:
+-		dev_id = IXGBE_DEV_ID_X540_VF;
+-		break;
+-	default:
+-		return false;
+-	}
+-
+-	/* loop through all the VFs to see if we own any that are assigned */
+-	vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, NULL);
+-	while (vfdev) {
+-		/* if we don't own it we don't care */
+-		if (vfdev->is_virtfn && vfdev->physfn == pdev) {
+-			/* if it is assigned we cannot release it */
+-			if (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
+-				return true;
+-		}
+-
+-		vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, vfdev);
+-	}
+-
+-	return false;
+-}
+-
+ #endif /* #ifdef CONFIG_PCI_IOV */
+ int ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
+ {
+@@ -235,7 +202,7 @@ int ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
+ 	 * without causing issues, so just leave the hardware
+ 	 * available but disabled
+ 	 */
+-	if (ixgbe_vfs_are_assigned(adapter)) {
++	if (pci_vfs_assigned(adapter->pdev)) {
+ 		e_dev_warn("Unloading driver while VFs are assigned - VFs will not be deallocated\n");
+ 		return -EPERM;
+ 	}
 -- 
 1.7.11.7
