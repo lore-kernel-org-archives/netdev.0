@@ -1,120 +1,67 @@
 From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: [PATCH 09/12] tile: support TSO for IPv6 in tilegx network driver
+Subject: [PATCH v2 00/12] update tile network drivers
 Date: Wed, 31 Jul 2013 11:05:04 -0400
-Message-ID: <799eca39dc7f85ba12e1d8c5b072f8b6740fda1c.1375283106.git.cmetcalf@tilera.com>
+Message-ID: <cover.1375283104.git.cmetcalf@tilera.com>
 References: <cover.1374609948.git.cmetcalf@tilera.com>
-	<cover.1375283104.git.cmetcalf@tilera.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	"Richard Cochran <richardcochran@gmail.com> Eric Dumazet"
+	<eric.dumazet@gmail.com>, "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1375283104.git.cmetcalf@tilera.com>
+In-Reply-To: <cover.1374609948.git.cmetcalf@tilera.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
----
- drivers/net/ethernet/tile/tilegx.c | 44 +++++++++++++++++++++++++-------------
- 1 file changed, 29 insertions(+), 15 deletions(-)
+This is v2 of the patch series to update the Tilera network drivers.
 
-diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
-index 01068a9..ebc1b43 100644
---- a/drivers/net/ethernet/tile/tilegx.c
-+++ b/drivers/net/ethernet/tile/tilegx.c
-@@ -36,6 +36,7 @@
- #include <linux/io.h>
- #include <linux/ctype.h>
- #include <linux/ip.h>
-+#include <linux/ipv6.h>
- #include <linux/tcp.h>
- 
- #include <asm/checksum.h>
-@@ -1512,20 +1513,20 @@ static int tso_count_edescs(struct sk_buff *skb)
- 	return num_edescs;
- }
- 
--/* Prepare modified copies of the skbuff headers.
-- * FIXME: add support for IPv6.
-- */
-+/* Prepare modified copies of the skbuff headers. */
- static void tso_headers_prepare(struct sk_buff *skb, unsigned char *headers,
- 				s64 slot)
- {
- 	struct skb_shared_info *sh = skb_shinfo(skb);
- 	struct iphdr *ih;
-+	struct ipv6hdr *ih6;
- 	struct tcphdr *th;
- 	unsigned int sh_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
- 	unsigned int data_len = skb->len - sh_len;
- 	unsigned char *data = skb->data;
- 	unsigned int ih_off, th_off, p_len;
- 	unsigned int isum_seed, tsum_seed, id, seq;
-+	int is_ipv6;
- 	long f_id = -1;    /* id of the current fragment */
- 	long f_size = skb_headlen(skb) - sh_len;  /* current fragment size */
- 	long f_used = 0;  /* bytes used from the current fragment */
-@@ -1533,18 +1534,24 @@ static void tso_headers_prepare(struct sk_buff *skb, unsigned char *headers,
- 	int segment;
- 
- 	/* Locate original headers and compute various lengths. */
--	ih = ip_hdr(skb);
-+	is_ipv6 = skb_is_gso_v6(skb);
-+	if (is_ipv6) {
-+		ih6 = ipv6_hdr(skb);
-+		ih_off = skb_network_offset(skb);
-+	} else {
-+		ih = ip_hdr(skb);
-+		ih_off = skb_network_offset(skb);
-+		isum_seed = ((0xFFFF - ih->check) +
-+			     (0xFFFF - ih->tot_len) +
-+			     (0xFFFF - ih->id));
-+		id = ntohs(ih->id);
-+	}
-+
- 	th = tcp_hdr(skb);
--	ih_off = skb_network_offset(skb);
- 	th_off = skb_transport_offset(skb);
- 	p_len = sh->gso_size;
- 
--	/* Set up seed values for IP and TCP csum and initialize id and seq. */
--	isum_seed = ((0xFFFF - ih->check) +
--		     (0xFFFF - ih->tot_len) +
--		     (0xFFFF - ih->id));
- 	tsum_seed = th->check + (0xFFFF ^ htons(skb->len));
--	id = ntohs(ih->id);
- 	seq = ntohl(th->seq);
- 
- 	/* Prepare all the headers. */
-@@ -1558,11 +1565,17 @@ static void tso_headers_prepare(struct sk_buff *skb, unsigned char *headers,
- 		memcpy(buf, data, sh_len);
- 
- 		/* Update copied ip header. */
--		ih = (struct iphdr *)(buf + ih_off);
--		ih->tot_len = htons(sh_len + p_len - ih_off);
--		ih->id = htons(id);
--		ih->check = csum_long(isum_seed + ih->tot_len +
--				      ih->id) ^ 0xffff;
-+		if (is_ipv6) {
-+			ih6 = (struct ipv6hdr *)(buf + ih_off);
-+			ih6->payload_len = htons(sh_len + p_len - ih_off -
-+						 sizeof(*ih6));
-+		} else {
-+			ih = (struct iphdr *)(buf + ih_off);
-+			ih->tot_len = htons(sh_len + p_len - ih_off);
-+			ih->id = htons(id);
-+			ih->check = csum_long(isum_seed + ih->tot_len +
-+					      ih->id) ^ 0xffff;
-+		}
- 
- 		/* Update copied tcp header. */
- 		th = (struct tcphdr *)(buf + th_off);
-@@ -1950,6 +1963,7 @@ static void tile_net_setup(struct net_device *dev)
- 	dev->features |= NETIF_F_HW_CSUM;
- 	dev->features |= NETIF_F_SG;
- 	dev->features |= NETIF_F_TSO;
-+	dev->features |= NETIF_F_TSO6;
- 	dev->mtu = 1500;
- }
- 
+>From the v1 00/13 cover letter: "This patch series contains changes made
+to the Tilera on-chip network drivers for both the 64-bit tilegx and
+32-bit tilepro architectures.  The changes involve a number of bug fixes,
+support for the multiple mPIPEs on the new Gx72 chip, support for jumbo
+frames, TSO for IPv6, GRO, PTP support, and statistics improvements."
+
+David has already applied the v2 patch for what was patch 01/13 in the
+first series ("handle 64-bit statistics in tilepro network driver")
+so it is not included in this v2 series.
+
+Changes from the v1 series include:
+
+- Nearly complete rewrite of PTP changes based on feedback from
+  Richard Cochran
+- Removal of NETIF_F_GRO as unnecessary (from Eric Dumazet)
+- A few minor whitespace and code style changes
+
+The revised PTP change (12/12 in this series) was already posted
+separately, but this version includes one whitespace tweak (leading tabs
+instead of spaces on one line) that I missed in the initial PTP v2,
+as well as the Acked-by from Richard Cochran.
+
+Chris Metcalf (12):
+  tile: support rx_dropped/rx_errors in tilepro net driver
+  tile: avoid bug in tilepro net driver built with old hypervisor
+  tile: remove dead is_dup_ack() function from tilepro net driver
+  tile: support jumbo frames in the tilegx network driver
+  tile: update dev->stats directly in tilegx network driver
+  tile: fix panic bug in napi support for tilegx network driver
+  tile: enable GRO in the tilegx network driver
+  tile: support multiple mPIPE shims in tilegx network driver
+  tile: support TSO for IPv6 in tilegx network driver
+  tile: make "tile_net.custom" a proper bool module parameter
+  tile: remove deprecated NETIF_F_LLTX flag from tile drivers
+  tile: support PTP using the tilegx mPIPE (IEEE 1588)
+
+ arch/tile/gxio/iorpc_mpipe.c              |   66 ++
+ arch/tile/gxio/iorpc_mpipe_info.c         |   18 +
+ arch/tile/gxio/mpipe.c                    |   43 +-
+ arch/tile/include/gxio/iorpc_mpipe.h      |   14 +-
+ arch/tile/include/gxio/iorpc_mpipe_info.h |    4 +
+ arch/tile/include/gxio/mpipe.h            |  143 +++-
+ arch/tile/include/hv/drv_mpipe_intf.h     |    3 +
+ drivers/net/ethernet/tile/Kconfig         |   11 +
+ drivers/net/ethernet/tile/tilegx.c        | 1097 +++++++++++++++++++----------
+ drivers/net/ethernet/tile/tilepro.c       |  129 +---
+ 10 files changed, 1046 insertions(+), 482 deletions(-)
+
 -- 
 1.8.3.1
