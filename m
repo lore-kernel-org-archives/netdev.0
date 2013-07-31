@@ -1,76 +1,54 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [E1000-devel] [PATCH] e100: dump small buffers via %*phC
-Date: Wed, 31 Jul 2013 05:32:57 -0700
-Message-ID: <1375273977.2877.42.camel@jtkirshe-mobl>
-References: <1374751459-17994-1-git-send-email-andriy.shevchenko@linux.intel.com>
-	 <1374837154.32309.1.camel@jtkirshe-mobl> <1375273205.31118.68.camel@smile>
-Reply-To: jeffrey.t.kirsher@intel.com
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-F+pdMwPNZp92yLKJroHl"
-Cc: netdev@vger.kernel.org,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	e1000-devel@lists.sourceforge.net
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+From: "George Spelvin" <linux@horizon.com>
+Subject: Re: [RFC] tulip: Support for byte queue limits
+Date: 31 Jul 2013 08:34:50 -0400
+Message-ID: <20130731123450.5324.qmail@science.horizon.com>
+References: <1374075727.3861.6.camel@bwh-desktop.uk.level5networks.com>
+Cc: eric.dumazet@gmail.com, grantgrundler@gmail.com,
+	grundler@parisc-linux.org, netdev@vger.kernel.org
+To: bhutchings@solarflare.com, linux@horizon.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:35825 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751268Ab3GaMd4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jul 2013 08:33:56 -0400
-In-Reply-To: <1375273205.31118.68.camel@smile>
+Received: from science.horizon.com ([71.41.210.146]:28603 "HELO
+	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751403Ab3GaMe7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 08:34:59 -0400
+In-Reply-To: <1374075727.3861.6.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Grumble.  After a week of uptime with my tulip patches
+(the ones I posted here plus some cleanup patches) my
+kernel gave me this:
 
---=-F+pdMwPNZp92yLKJroHl
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+------------[ cut here ]------------
+WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0xd9/0x137()
+NETDEV WATCHDOG: cable (tulip): transmit queue 0 timed out
+CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.10.2-00033-gca137af #47
+Hardware name: MICRO-STAR INTERNATIONAL CO.,LTD MS-7376/MS-7376, BIOS V1.7 01/13/2009
+ 0000000000000000 ffffffff81028aba ffff88021fc03e68 ffff880216b38000
+ ffff88021fc03eb8 ffffffff8133643a ffffffff8133643a ffffffff81028b33
+ ffffffff8159fe93 ffff880200000030 ffff88021fc03ec8 ffff88021fc03e88
+Call Trace:
+ <IRQ>  [<ffffffff81028aba>] ? warn_slowpath_common+0x56/0x6b
+ [<ffffffff8133643a>] ? qdisc_rcu_free+0x19/0x19
+ [<ffffffff8133643a>] ? qdisc_rcu_free+0x19/0x19
+ [<ffffffff81028b33>] ? warn_slowpath_fmt+0x47/0x49
+ [<ffffffff8133634e>] ? netif_tx_lock+0x47/0x72
+ [<ffffffff81336513>] ? dev_watchdog+0xd9/0x137
+ [<ffffffff81031f40>] ? call_timer_fn.isra.29+0x1c/0x6f
+ [<ffffffff810321a2>] ? run_timer_softirq+0x19a/0x1c2
+ [<ffffffff8102de09>] ? __do_softirq+0xb9/0x171
+ [<ffffffff8102df7f>] ? irq_exit+0x3a/0x7a
+ [<ffffffff8101967a>] ? smp_apic_timer_interrupt+0x72/0x7e
+ [<ffffffff8142a60a>] ? apic_timer_interrupt+0x6a/0x70
+ <EOI>  [<ffffffff81007e34>] ? amd_e400_idle+0xbf/0xc1
+ [<ffffffff81007e2c>] ? amd_e400_idle+0xb7/0xc1
+ [<ffffffff8104f74d>] ? cpu_startup_entry+0x9c/0xec
+ [<ffffffff8164eb91>] ? start_kernel+0x2bd/0x2c8
+ [<ffffffff8164e6f7>] ? repair_env_string+0x54/0x54
+---[ end trace fa3269ab5c1a15ad ]---
 
-On Wed, 2013-07-31 at 15:20 +0300, Andy Shevchenko wrote:
-> On Fri, 2013-07-26 at 04:12 -0700, Jeff Kirsher wrote:=20
-> > On Thu, 2013-07-25 at 14:24 +0300, Andy Shevchenko wrote:
-> > > There is nice specifier in kernel that allows us to print small
-> > > buffers easily.
-> > >=20
-> > > Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-> > > ---
-> > >  drivers/net/ethernet/intel/e100.c | 15 ++++++---------
-> > >  1 file changed, 6 insertions(+), 9 deletions(-)=20
-> >=20
-> > Thanks, I appreciate you sending this again...
-> >=20
-> > I already have this patch queued up for upstream and it will be in
-> the
-> > next series I send.
->=20
-> Oh, sorry for resending.
-> I cleared up my queue after rebasing to recent linux-next, where the
-> patch is not appeared yet, that's why duplicate was created.=20
+Since it's on the tulip device, it's probably my fault, and
+since it took a week to manifest itself, it's going to be
+a complete PITA to reproduce.
 
-No problem, sorry for the delay in getting it upstream and feel free to
-ping me next time.
-
---=-F+pdMwPNZp92yLKJroHl
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
-
-iQIcBAABCgAGBQJR+QP5AAoJEOVv75VaS+3Oh2YQAKOROlW3nNDrJk60qgTCI57w
-mJhW7bZdS1jr/Vg/Wf0Pl3hjqtBCajPq8/7hVTpDPUEK365D7do+e9Hzjj08ZTmj
-cqADKNebmbPbpxpI3RH5jfLLyCyhiOYTY+xay3kxoQ8nIRUbXhN2lM8xf6B7HeAf
-OuapEIdddv88b9kYxHWuTESKCSIOvGe6qbvWw7/BxvGhZDuoXy/4HAvXgobLZytx
-CnSeNXOJlKSYiEEPH4RyXdN8nxbsKueC+miFn0B2IGmP5sSGvlZ7Tvm5cSWjQRl4
-xs4qmDK9S1enCURH2uJ6CCB7oOMwJTrM4jgG2JE4TRi/hHSQXctbBwKFjnqu5Bqb
-56zm8NSAWdJe/cZMlJb8YNLDmG1xBrNang0SLYooJr4Rx8YkjP+bIkh2VRlE+1CA
-0Md+XNdA9DWSVc8hwRZtiVim9QrwdOD86tSrHepKAM5NsuRsSehD2tfaPvQDcBrB
-X7N3AZ0KM4SqvHs4tpSu6Md9VBUt2aWGjiNPrVj42KvWnfJsGbph8v6QlMs+hIeY
-TU2PW3DpW5yN4DhB7xONX6curV35PSoIMQw5VLY6XOOtVrQarV5ZbInv/6Ps/mlc
-qz0niihVVNut/bLjT87NjZW8pWCJZ3egyWVN0EYQFxuWsVRsG7Bh+Xjv2MNxotq4
-3uKAAMj2k0jB/vyCr+pW
-=DkzG
------END PGP SIGNATURE-----
-
---=-F+pdMwPNZp92yLKJroHl--
+Anyway, I haven't forgotten.
