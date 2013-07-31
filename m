@@ -1,73 +1,84 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net-next PATCH 1/1] drivers: net: cpsw: Add support for new CPSW IP version
-Date: Wed, 31 Jul 2013 17:42:26 +0530
-Message-ID: <1375272746-24446-1-git-send-email-mugunthanvnm@ti.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 2/2 v2] igb: Expose RSS indirection table for ethtool
+Date: Wed, 31 Jul 2013 05:13:22 -0700
+Message-ID: <1375272802.2877.35.camel@jtkirshe-mobl>
+References: <1375271273-20122-1-git-send-email-laura.vasilescu@rosedu.org>
+	 <1375271273-20122-2-git-send-email-laura.vasilescu@rosedu.org>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <linux-omap@vger.kernel.org>,
-	<balbi@ti.com>, Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-VdN3aqHvjiO2/UCz7Nee"
+Cc: netdev@vger.kernel.org, carolyn.wyborny@intel.com,
+	anjali.singhai@intel.com, alexander.h.duyck@intel.com
+To: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:42904 "EHLO arroyo.ext.ti.com"
+Received: from mga01.intel.com ([192.55.52.88]:47841 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752493Ab3GaMMw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jul 2013 08:12:52 -0400
+	id S1751288Ab3GaMNc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jul 2013 08:13:32 -0400
+In-Reply-To: <1375271273-20122-2-git-send-email-laura.vasilescu@rosedu.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The new IP version has a minor changes and the offsets are same as the previous
-version, so instead of adding CPSW version number in the driver, make the driver
-to fall through to the latest versions so that the new version of CPSW which has
-the same register offsets will work directly without patching the driver.
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-Reviewed-by: Felipe Balbi <balbi@ti.com>
----
- drivers/net/ethernet/ti/cpsw.c | 9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
+--=-VdN3aqHvjiO2/UCz7Nee
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 05a1674..a6b9700 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -799,6 +799,7 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
- 		slave_write(slave, TX_PRIORITY_MAPPING, CPSW1_TX_PRI_MAP);
- 		break;
- 	case CPSW_VERSION_2:
-+	default:
- 		slave_write(slave, TX_PRIORITY_MAPPING, CPSW2_TX_PRI_MAP);
- 		break;
- 	}
-@@ -1180,10 +1181,9 @@ static int cpsw_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
- 		cpsw_hwtstamp_v1(priv);
- 		break;
- 	case CPSW_VERSION_2:
-+	default:
- 		cpsw_hwtstamp_v2(priv);
- 		break;
--	default:
--		return -ENOTSUPP;
- 	}
- 
- 	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
-@@ -1790,6 +1790,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 		dma_params.desc_mem_phys = 0;
- 		break;
- 	case CPSW_VERSION_2:
-+	default:
- 		priv->host_port_regs = ss_regs + CPSW2_HOST_PORT_OFFSET;
- 		priv->cpts->reg       = ss_regs + CPSW2_CPTS_OFFSET;
- 		dma_params.dmaregs   = ss_regs + CPSW2_CPDMA_OFFSET;
-@@ -1801,10 +1802,6 @@ static int cpsw_probe(struct platform_device *pdev)
- 		dma_params.desc_mem_phys =
- 			(u32 __force) priv->cpsw_res->start + CPSW2_BD_OFFSET;
- 		break;
--	default:
--		dev_err(priv->dev, "unknown version 0x%08x\n", priv->version);
--		ret = -ENODEV;
--		goto clean_cpsw_wr_iores_ret;
- 	}
- 	for (i = 0; i < priv->data.slaves; i++) {
- 		struct cpsw_slave *slave = &priv->slaves[i];
--- 
-1.8.4.rc0.11.g35f5eaa
+On Wed, 2013-07-31 at 14:47 +0300, Laura Mihaela Vasilescu wrote:
+> This patch adds the ethtool callbacks necessary to change the RETA
+> indirection table from userspace.
+>=20
+> In order to achieve this, we add the indirection table field
+> (rss_indir_tbl)
+> in the board specific data structure (struct igb_adapter) to preserve
+> the
+> values across hardware resets.
+>=20
+> The indirection table must be initialized with default values in the
+> following cases:
+>         * at module init time
+>         * when the number of RX queues changes.
+> For this reason we add a new field (rss_indir_tbl_init) in igb_adapter
+> that keeps track of the number of RX queues. Whenever the number of RX
+> queues changes, the rss_indir_tbl is modified and initialized with
+> default
+> values. The rss_indir_tbl_init is updated accordingly.
+>=20
+> Signed-off-by: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
+> ---
+> Changes since v1:
+>         * enhance commit description
+>=20
+>  drivers/net/ethernet/intel/igb/igb.h         |    3 +
+>  drivers/net/ethernet/intel/igb/igb_ethtool.c |   87
+> ++++++++++++++++++++++++++
+>  drivers/net/ethernet/intel/igb/igb_main.c    |   28 +++------
+>  3 files changed, 97 insertions(+), 21 deletions(-)=20
+
+Added to my queue, thanks again Laura!
+
+--=-VdN3aqHvjiO2/UCz7Nee
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.13 (GNU/Linux)
+
+iQIcBAABCgAGBQJR+P9iAAoJEOVv75VaS+3Otm0P/2WnjgyM7hKdwSc7x6GkwO+E
+qvY/O5kehjvMoaF7ZxcTH7IaMULulAQZ8HEvH75Re1/ZVcd0N0d98uEUx1ol/05S
+lC3a42p07LwrZwGcsZXcbgmd3Wqjfjl/AmO3hZuTSdaYGaODjWjgV8B2qMbWimCA
+NCVH6OZebnq/mz25IhON2hOZ7JOSnQfDkYHCcPpylQ5pMVql8bJRMPuFJn1gDU7/
+oEyB6opFJdtob3KiPWNHcrgqSqSIwTDXYqTpyni5aU9Z+yTWh7TtKN86Y1LTiNRd
+Jcq/l7cfPy1q+ZMDn8U4tzwBq5HkxLr1Y6N27EklFoGTMvxw3YiAJyq1PGpWsOj7
+G0bpm+eUBoSFbtUf9Ay71fr5ogYeSjgzkpB2LqcF1EdjpvIOGcciyomK4Pp8qaTz
+Rv2YCwD8BTkpe05t+H+osu9zciZco7PiX7KQtuhn7MwH/JfZxst5T2/KUQqtf4Zx
+iaFWJyvPHSsPyUkx/ynvc8zsdRLSsJPe3zzVkW/G12GtmsduUSbBBb/Bk2DcxcpU
+pLdNiZsbrSSwmbDu8/B3zT/DEVeMuGOvW77g88RMHMjk+JiaqbLUiSJl3xPQ213x
+M+XNUHg9L+vxoXwJT0v6xWzBGMQooh6SQvp1zbSDT8jnL1jUkEqK3C+7+gv9Kz0x
+vRA3dhqiigN/R4KCP7mI
+=f+7v
+-----END PGP SIGNATURE-----
+
+--=-VdN3aqHvjiO2/UCz7Nee--
