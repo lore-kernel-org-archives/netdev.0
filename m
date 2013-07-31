@@ -1,73 +1,73 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: ipv4: crash at leaf_walk_rcu
-Date: Wed, 31 Jul 2013 07:13:06 -0700
-Message-ID: <20130731141306.GT26694@linux.vnet.ibm.com>
-References: <CAOaiJ-k14g6ihjVfgHqgq48KV7-dRJ1_owNyDkza-r=36gscsQ@mail.gmail.com>
- <20130731125513.GS26694@linux.vnet.ibm.com>
- <20130731131323.GB31245@order.stressinduktion.org>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: How do I receive vlan tags on an AF_PACKET socket in 3.4 kernel?
+Date: Wed, 31 Jul 2013 07:16:27 -0700
+Message-ID: <1375280187.10515.92.camel@edumazet-glaptop>
+References: <CAMJ=MEe4cvp7-fwbCnq7SLM=44Zy8Jrz35FwRoWG-ytahdPRQA@mail.gmail.com>
+	 <1375193392.10515.28.camel@edumazet-glaptop>
+	 <CAMJ=MEdfn2uPHbNQZ1LOytOqwFTbAyV1ZtxOW8NomLCZJq+caQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: vinayak menon <vinayakm.list@gmail.com>,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	getarunks@gmail.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Ronny Meeus <ronny.meeus@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:52125 "EHLO e8.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755736Ab3GaONO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jul 2013 10:13:14 -0400
-Received: from /spool/local
-	by e8.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
-	Wed, 31 Jul 2013 15:13:13 +0100
-Content-Disposition: inline
-In-Reply-To: <20130731131323.GB31245@order.stressinduktion.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:49170 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756528Ab3GaOQ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 10:16:29 -0400
+Received: by mail-pd0-f173.google.com with SMTP id p11so802528pdj.4
+        for <netdev@vger.kernel.org>; Wed, 31 Jul 2013 07:16:29 -0700 (PDT)
+In-Reply-To: <CAMJ=MEdfn2uPHbNQZ1LOytOqwFTbAyV1ZtxOW8NomLCZJq+caQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 31, 2013 at 03:13:23PM +0200, Hannes Frederic Sowa wrote:
-> On Wed, Jul 31, 2013 at 05:55:13AM -0700, Paul E. McKenney wrote:
-> > On Wed, Jul 31, 2013 at 04:40:47PM +0530, vinayak menon wrote:
-> > > Hi,
-> > > 
-> > > A crash was seen on 3.4.5 kernel during some random wlan operations.
-> > > 
-> > > CPU: Single core ARM Cortex A9.
-> > > 
-> > > fib_route_seq_next was called with second argument (void *v) as 0xd6e3e360
-> > > which is a "freed" object of the "ip_fib_trie" cache. I confirmed that the
-> > > object was freed with crash utility.
-> > > 
-> > > Sequence: fib_route_seq_next->trie_nextleaf->leaf_walk_rcu
-> > > 
-> > > As "v" was a freed object, inside trie_nextleaf(), node_parent_rcu()
-> > > returned an invalid tnode. But as I had enabled slab poisoning and the
-> > > object was already freed, the tnode was 0x6b6b6b6b. And this was passed to
-> > > leaf_walk_rcu and resulted in the crash.
-> > > 
-> > > fib_route_seq_start, takes rcu_read_lock(), but free_leaf
-> > > calls call_rcu_bh. Can this be the problem ?
-> > > Should rcu_read_lock() in fib_route_seq_start be changed to rcu_read_lock_bh()
-> > > ?
-> > 
-> > One way or the other, the RCU read-side primitives need to match the RCU
-> > update-side primitives.  Adding netdev...
-> 
-> Already fixed by:
-> 
-> commit 0c03eca3d995e73d691edea8c787e25929ec156d
-> Author: Eric Dumazet <edumazet@google.com>
-> Date:   Tue Aug 7 00:47:11 2012 +0000
-> 
->     net: fib: fix incorrect call_rcu_bh()
->     
->     After IP route cache removal, I believe rcu_bh() has very little use and
->     we should remove this RCU variant, since it adds some cycles in fast
->     path.
->     
->     Anyway, the call_rcu_bh() use in fib_true is obviously wrong, since
->     some users only assert rcu_read_lock().
+On Wed, 2013-07-31 at 14:51 +0200, Ronny Meeus wrote:
 
-Even better!  ;-)
+> Thanks for the feedback. High level it is almost clear.
+> 
+> At implementation level I do not understand how it is supposed to work.
+> If I use tcpdump to generate a filter for example on vlan 4094 I see
+> no reference at all to the newly added instructions to get the VLAN.
+> 
+> ~ # tcpdump -i eth-ntb vlan 4094 -d
+> tcpdump: WARNING: eth-ntb: no IPv4 address assigned
+> (000) ldh      [12]
+> (001) jeq      #0x8100          jt 3    jf 2
+> (002) jeq      #0x9100          jt 3    jf 7
+> (003) ldh      [14]
+> (004) and      #0xfff
+> (005) jeq      #0xffe           jt 6    jf 7
+> (006) ret      #65535
+> (007) ret      #0
+> 
+> To me it looks like to code above is just checking the bytes in the
+> raw Ethernet packet at offset 12 and 14.
+> Since the command above seems to work it looks to me that the
+> filtering is done in the tcpdump application instead of in the kernel.
+> 
+> If I use the strace command while starting tcpdump I see that the
+> SO_ATTACH_FILTER sockopt is passed to the kernel:
+> 
+> <snip>
+> setsockopt(3, SOL_SOCKET, SO_ATTACH_FILTER, "\0\1\0\0\20\f\366\340", 8) = 0
+> fcntl64(3, F_GETFL)                     = 0x2 (flags O_RDWR)
+> fcntl64(3, F_SETFL, O_RDWR|O_NONBLOCK)  = 0
+> recvfrom(3, 0x7f6f6630, 1, 32, 0, 0)    = -1 EAGAIN (Resource
+> temporarily unavailable)
+> fcntl64(3, F_SETFL, O_RDWR)             = 0
+> setsockopt(3, SOL_SOCKET, SO_ATTACH_FILTER, "\0\10\0\0\20>\210@", 8) = 0
+> <snip>
+> 
+> So I'm confused. I would expect to see some commands to read access
+> the VLAN field in the additional data and compare it to the VLAN
+> (4094) I want to filter.
+> 
 
-							Thanx, Paul
+I assumed from you initial mail you were using a BPF filter, not
+libpcap, which presumably doesnt use these new 'instructions'
+
+Adapting the BPF filter generated by libpcap is a matter of adding 3 or
+4 instructions. In your case 2 instructions actually
+
+One to load tag id into A
+One to compare A against immediate value 4094 and conditional jump.
