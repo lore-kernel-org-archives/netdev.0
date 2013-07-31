@@ -1,62 +1,76 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [net-next PATCH 1/1] drivers: net: cpsw: Add support for new
- CPSW IP version
-Date: Wed, 31 Jul 2013 21:22:29 +0200
-Message-ID: <20130731192229.GB8027@netboy>
-References: <1375272746-24446-1-git-send-email-mugunthanvnm@ti.com>
- <20130731144957.GC4904@netboy>
- <20130731152827.GB25618@radagast>
- <20130731163845.GB4234@netboy>
- <20130731184525.GA629@radagast>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 60669] New: Kernel panic when using HTB qdisc
+Date: Wed, 31 Jul 2013 12:25:32 -0700
+Message-ID: <20130731122532.171f76bf@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mugunthan V N <mugunthanvnm@ti.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, linux-omap@vger.kernel.org
-To: Felipe Balbi <balbi@ti.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f179.google.com ([209.85.215.179]:33655 "EHLO
-	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751888Ab3GaTWm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 15:22:42 -0400
-Content-Disposition: inline
-In-Reply-To: <20130731184525.GA629@radagast>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:63227 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752223Ab3GaTZf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 15:25:35 -0400
+Received: by mail-pd0-f182.google.com with SMTP id r10so1119703pdi.27
+        for <netdev@vger.kernel.org>; Wed, 31 Jul 2013 12:25:35 -0700 (PDT)
+Received: from nehalam.linuxnetplumber.net (static-50-53-71-109.bvtn.or.frontiernet.net. [50.53.71.109])
+        by mx.google.com with ESMTPSA id tr10sm3770634pbc.22.2013.07.31.12.25.34
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Wed, 31 Jul 2013 12:25:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 31, 2013 at 09:45:25PM +0300, Felipe Balbi wrote:
-> On Wed, Jul 31, 2013 at 06:38:46PM +0200, Richard Cochran wrote:
-> > On Wed, Jul 31, 2013 at 06:28:27PM +0300, Felipe Balbi wrote:
-> > > On Wed, Jul 31, 2013 at 04:49:59PM +0200, Richard Cochran wrote:
-> > > > On Wed, Jul 31, 2013 at 05:42:26PM +0530, Mugunthan V N wrote:
-> > > > > The new IP version has a minor changes and the offsets are same as the previous
-> > > > > version, so instead of adding CPSW version number in the driver, make the driver
-> > > > > to fall through to the latest versions so that the new version of CPSW which has
-> > > > > the same register offsets will work directly without patching the driver.
-> > > > 
-> > > > This doesn't make any sense to me. Why not just add the new version
-> > > > number?
-> > > > 
-> > > > None of the hunks in your patch are on performance sensitive paths, so
-> > > > I really can't see any point in removing the error checking.
-> > > 
-> > > well, if a new revision of the IP comes, the driver at least has some
-> > > chance to work without having to be modified. If it turns out that there
-> > > are really different features, then we patch a new version, otherwise we
-> > > should just assume highest known version and try it out.
-> > 
-> > And if the driver reads junk from some random address due to
-> > bootloader/DT/multikernel madness, it will happily peek and poke
-> > around instead of rejecting the wrong version number.
-> 
-> that'd be a bug in the DT anyway, why should the driver have to cope
-> with broken data ?
 
-Um, it is called error checking?
 
-Besides, by not checking the version number, you are pre-programming a
-disaster that will occur when an older kernel is booted on the first
-new IP version with important changes. Can you really be sure that all
-users will have the new, patched kernel?
+Begin forwarded message:
 
-Thanks,
-Richard
+Date: Wed, 31 Jul 2013 12:18:55 -0700
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 60669] New: Kernel panic when using HTB qdisc
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=60669
+
+            Bug ID: 60669
+           Summary: Kernel panic when using HTB qdisc
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.11.0-rc2+
+          Hardware: All
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: Other
+          Assignee: shemminger@linux-foundation.org
+          Reporter: vi0oss@gmail.com
+        Regression: No
+
+Created attachment 107064
+  --> https://bugzilla.kernel.org/attachment.cgi?id=107064&action=edit
+Kernel panic output
+
+I'm trying to use HTB qdisc. Using something like this commands:
+
+tc qdisc add dev eth1 root handle 55: htb default 1
+tc class add dev eth1 parent 55: classid 55:1 htb rate 50000000
+tc class add dev eth1 parent 55: classid 55:2 htb rate 50000000 prio -1
+tc class add dev eth1 parent 55: classid 55:3 htb rate 50000000
+iptables -t mangle -A OUTPUT -p icmp -j CLASSIFY --set-class 55:2
+iptables -t mangle -A OUTPUT -p tcp --dport 5555 -j CLASSIFY --set-class 55:3
+ifconfig eth1 192.168.98.2 up
+cat /dev/zero | nc 192.168.98.2 5555&
+cat /dev/zero | nc 192.168.98.2 5556&
+
+The network connection shall be be fully loaded (so classes compete with each
+other).
+
+The "+" in kernel version is because of I am using a patch from bug 58691
+(should be unrelated with iptables or traffic shaping).
+
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
