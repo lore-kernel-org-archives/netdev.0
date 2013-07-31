@@ -1,61 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC] xfrm{4,6}: only report errors back to local
- sockets if we don't cross address family
-Date: Tue, 30 Jul 2013 17:01:12 -0700 (PDT)
-Message-ID: <20130730.170112.144587526646564755.davem@davemloft.net>
-References: <20130730083017.GA7068@order.stressinduktion.org>
-	<20130730102611.GB25511@secunet.com>
-	<20130730104038.GB7068@order.stressinduktion.org>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next 2/2] openvswitch: Use skb_zerocopy() to prepare
+ skb for upcall
+Date: Tue, 30 Jul 2013 17:02:50 -0700
+Message-ID: <CAEP_g=-YTwbPQ9iH+fd=pODpaciTJakd_1D_drwfDJ0j9OsB5g@mail.gmail.com>
+References: <cover.1374756042.git.tgraf@suug.ch> <9d4aaa5319c684e14721e0bed2ef22ddc409caf1.1374756042.git.tgraf@suug.ch>
+ <CAEP_g=_ExeJ+pJ4KU7+=vdyFgLQtY2v6fiK0GzLKpeNF8NULbw@mail.gmail.com> <20130726101558.GA22120@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org,
-	vi0oss@gmail.com
-To: hannes@stressinduktion.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43724 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758488Ab3GaABN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 20:01:13 -0400
-In-Reply-To: <20130730104038.GB7068@order.stressinduktion.org>
+Received: from na3sys009aog130.obsmtp.com ([74.125.149.143]:37950 "HELO
+	na3sys009aog130.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1758334Ab3GaADK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 20:03:10 -0400
+Received: by mail-oa0-f49.google.com with SMTP id n16so118406oag.22
+        for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 17:03:10 -0700 (PDT)
+In-Reply-To: <20130726101558.GA22120@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue, 30 Jul 2013 12:40:38 +0200
+On Fri, Jul 26, 2013 at 3:15 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 07/25/13 at 06:39pm, Jesse Gross wrote:
+>> On Thu, Jul 25, 2013 at 5:43 AM, Thomas Graf <tgraf@suug.ch> wrote:
+>> > From: Thomas Graf <tgraf@rhlap.localdomain>
+>
+> The question is, can we move checksum completion to user space? We only
+> need to complete the checksum if the packet is sent to a controller at
+> which point performance does not matter anymore. What do you think
+> about a datapath flag indicating whether user space supports checksum
+> completion and if so skipping the checksum completion in the fast
+> path?
 
-> On Tue, Jul 30, 2013 at 12:26:11PM +0200, Steffen Klassert wrote:
->> On Tue, Jul 30, 2013 at 10:30:17AM +0200, Hannes Frederic Sowa wrote:
->> > On Tue, Jul 30, 2013 at 10:21:18AM +0200, Steffen Klassert wrote:
->> > > On Mon, Jul 29, 2013 at 04:50:17PM +0200, Hannes Frederic Sowa wrote:
->> > > > xfrm6_local_error/xfrm4_tunnel_check_size report mtu errors back to a
->> > > > socket in case it is locally generated. If the packet first traversed
->> > > > a 6in4/4in6 tunnel before passing the xfrm layer, we could get a panic
->> > > > because of address family type mismatch in the error reporting functions.
->> > > > 
->> > > 
->> > > So the skb is still owned by a socket of the inner address family.
->> > > Is this intentional? Maybe the ndo_start_xmit() function of the
->> > > tunnel device should orphan the skb if we tunnel the packet
->> > > through a different address family.
->> > 
->> > I thought about this, too. But then we would stop accounting the data
->> > to the socket while it is travelling the stack. I don't know about the
->> > possible problems resulting from this.
->> > 
->> 
->> I'm also not absolutely sure, but we reinsert the packet to
->> the ipv4/ipv6 output path which is also used to output forwarded
->> packets. So the code should be prepared for handling a skb without
->> socket context.
->> 
->> There are already situations where we orphan the skb in some
->> tunnel xmit functions. For example if we tunnel through
->> another namespace.
-> 
-> Somehow this seems the way to go.
+This seems like a premature optimization to me. In order for userspace
+to be able to either complete the checksums in cases where it needs it
+or allow the NIC to do it when packets are resent, we would have to
+also carry around offsets, etc. I would also consider the various
+hardware offloads to be internal kernel optimization which tend to be
+fairly platform specific and shouldn't really be exposed to userspace.
 
-Agreed, I think we should just orphan the SKB.
+>> > +       /* Fix alignment of .nlmsg_len, OVS user space enforces a strict
+>> > +        * total message size alignment.
+>> > +        */
+>> > +       ((struct nlmsghdr *) user_skb->data)->nlmsg_len = NLA_ALIGN(user_skb->len);
+>>
+>> Do we still need to do this manually now that we are enforcing
+>> alignment of the payload above?
+>
+> We could use genlmsg_end() again if we also fix the skb-> pointer
+> above. But we could drop the NLA_ALIGN() because user_skb->len is
+> not always aligned.
 
-There was talk about this when the skb_scrub_packet() interface was
-added, maybe we should do it unconditionally after all.
+Isn't the goal of the block above this to make user_skb->len aligned?
