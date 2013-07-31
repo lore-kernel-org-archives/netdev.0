@@ -1,56 +1,101 @@
-From: William Manley <william.manley@youview.com>
-Subject: Re: [PATCH v3 2/2] net: igmp: Allow user-space configuration of igmp
- unsolicited report interval
-Date: Wed, 31 Jul 2013 10:47:19 +0100
-Message-ID: <51F8DD27.7000305@youview.com>
-References: <1375107711-9029-1-git-send-email-william.manley@youview.com> <1375107711-9029-2-git-send-email-william.manley@youview.com> <20130730061426.GF2490@order.stressinduktion.org> <20130730.165557.1185057462473078021.davem@davemloft.net> <20130731063442.GA10498@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<bcrl@kvack.org>, <luky-37@hotmail.com>,
-	<sergei.shtylyov@cogentembedded.com>, <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from co9ehsobe001.messaging.microsoft.com ([207.46.163.24]:51885
-	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750775Ab3GaJry (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 05:47:54 -0400
-In-Reply-To: <20130731063442.GA10498@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 00/15][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 31 Jul 2013 02:59:22 -0700
+Message-ID: <1375264777-13595-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com, linux-pci@vger.kernel.org
+To: davem@davemloft.net, bhelgaas@google.com
+Return-path: <linux-pci-owner@vger.kernel.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 31/07/13 07:34, Hannes Frederic Sowa wrote:
-> On Tue, Jul 30, 2013 at 04:55:57PM -0700, David Miller wrote:
->> From: Hannes Frederic Sowa<hannes@stressinduktion.org>
->> Date: Tue, 30 Jul 2013 08:14:26 +0200
->>
->>> On Mon, Jul 29, 2013 at 03:21:51PM +0100, William Manley wrote:
->>>> @@ -2099,6 +2103,10 @@ static struct devinet_sysctl_table {
->>>>   		DEVINET_SYSCTL_FLUSHING_ENTRY(NOPOLICY, "disable_policy"),
->>>>   		DEVINET_SYSCTL_FLUSHING_ENTRY(FORCE_IGMP_VERSION,
->>>>   					      "force_igmp_version"),
->>>> +		DEVINET_SYSCTL_FLUSHING_ENTRY(IGMPV2_UNSOLICITED_REPORT_INTERVAL,
->>>> +					      "igmpv2_unsolicited_report_interval"),
->>>> +		DEVINET_SYSCTL_FLUSHING_ENTRY(IGMPV3_UNSOLICITED_REPORT_INTERVAL,
->>>> +					      "igmpv3_unsolicited_report_interval"),
->>>>   		DEVINET_SYSCTL_FLUSHING_ENTRY(PROMOTE_SECONDARIES,
->>>>   					      "promote_secondaries"),
->>>>   		DEVINET_SYSCTL_FLUSHING_ENTRY(ROUTE_LOCALNET,
->>>
->>> Why did you use DEVINET_SYSCTL_FLUSHING_ENTRY here? Wouldn't
->>> DEVINET_SYSCTL_RW_ENTRY be a better choice?
->>
->> Agreed, there is no reason to flush the routing cache just because
->> the igmp unsolicited report interval changed.
->
-> William, could you convert force_igmp_version to DEVINET_SYSCTL_RW_ENTRY as
-> well when you send a new patch?
+This series contains updates to ixgbe and pci.
 
-Will do.  I have to confess I only made it flushing because I was 
-copying force_igmp_version without understanding.
+The first patch for ixgbe from Greg Rose is the second submission.  The
+first submission of "ixgbe: Retain VLAN filtering in promiscuous + VT
+mode" had a typo, which Joe Perches pointed out and is fixed in this
+submission.
 
-Will take a couple of days as I have a bunch of other stuff on ATM.
+Alex updates the ixgbe driver to use the generic helper pci_vfs_assigned
+instead of the driver specific function ixgbe_vfs_are_assigned.
 
-Thanks
+Don Skidmore provides 4 patches for ixgbe, the first being a fix for
+flow control ethtool reporting.  Originally ixgbe_device_supports_autoneg_fc()
+was expected to be called by only copper devices, which lead to false
+information being displayed via ethtool.  Two other patches add support
+for fixed fiber for SFP+ devices and the addition of a quad-port x520
+adapter.  The last patch simply bumps the driver version.
 
-Will
+Emil Tantilov provides 3 fixes for ixgbe, two of which resolve
+semaphore lock issues.  The third fix resolves several issues in the
+previous implementation of the SFF data dumps of SFP+ modules.
+
+The remaining ixgbe and pci patches are from Jacob Keller.  The pci
+patches exposes bus speed, link speed and bus width so that drivers
+can take advantage of this information.  In addition, adds a pci function
+which obtains minimum link width and speed.  Jacob also provides the
+ixgbe patch to incorporate the pci function. He provides a patch that
+fixes a lockdep issue created due to ixgbe_ptp_stop always running
+cancel_work_sync even if the work item had not been created properly with
+INIT_WORK. This issue was found and reported by Stephen Hemminger.
+
+-v2-
+* fix patch 3 to be a bool function based on David Miller's feedback
+* fix patch 4 debug message based on David Miller's feedback
+* fix patch 8 moved the extern declarations to pci.h based on Bjorn
+  Helgaas's feedback
+* fix patch 11 update the error message to include encoding loss based
+* fix patch 8/9/10 title based on Bjorn's feedback
+
+The following are changes since commit 60ff779c4abba37a31bd8624ef45026f7fb1b70c:
+  9p: client: remove unused code and any reference to "cancelled" function
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Alexander Duyck (1):
+  ixgbe: Use pci_vfs_assigned instead of ixgbe_vfs_are_assigned
+
+Don Skidmore (4):
+  ixgbe: fix fc autoneg ethtool reporting.
+  ixgbe: add new media type.
+  ixgbe: bump version number
+  ixgbe: add support for quad-port x520 adapter
+
+Emil Tantilov (3):
+  ixgbe: fix semaphore lock for I2C read/writes on 82598
+  ixgbe: fix SFF data dumps of SFP+ modules
+  ixgbe: clear semaphore bits on timeouts
+
+Greg Rose (1):
+  ixgbe: Retain VLAN filtering in promiscuous + VT mode
+
+Jacob Keller (6):
+  PCI: expose pcie_link_speed and pcix_bus_speed arrays
+  PCI: move enum pcie_link_width into pci.h
+  PCI: Add function to obtain minimum link width and speed
+  ixgbe: call pcie_get_mimimum_link to check if device has enough
+    bandwidth
+  ixgbe: fix lockdep annotation issue for ptp's work item
+  ixgbe: rename LL_EXTENDED_STATS to use queue instead of q
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   7 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   |  34 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   | 240 +++++++++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  |  90 +++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h  |   2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  94 ++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 167 +++++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     | 470 ++++++++++++++++-------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h     |  41 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c     |  12 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c   | 101 +++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |  12 +
+ drivers/pci/pci.c                                |  43 +++
+ drivers/pci/pci.h                                |   3 +
+ drivers/pci/probe.c                              |   4 +-
+ include/linux/pci.h                              |  15 +
+ include/linux/pci_hotplug.h                      |  13 -
+ 17 files changed, 1001 insertions(+), 347 deletions(-)
+
+-- 
+1.7.11.7
