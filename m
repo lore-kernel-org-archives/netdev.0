@@ -1,42 +1,52 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH] sky2: detect and prevent kernel panic from a possible
- faulty hardware
-Date: Wed, 31 Jul 2013 10:18:13 +0200
-Message-ID: <1375258693.17175.4.camel@linux-fkkt.site>
-References: <1374957354-10142-1-git-send-email-sam8641@gmail.com>
-	 <20130730.161906.1898764862564749288.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: sam8641@gmail.com, mlindner@marvell.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
+Subject: [PATCH 1/2] igb: Add macro for size of RETA indirection table
+Date: Wed, 31 Jul 2013 11:43:31 +0300
+Message-ID: <1375260212-19351-1-git-send-email-laura.vasilescu@rosedu.org>
+Cc: carolyn.wyborny@intel.com, anjali.singhai@intel.com,
+	jeffrey.t.kirsher@intel.com, alexander.h.duyck@intel.com,
+	Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:44165 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759231Ab3GaISP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jul 2013 04:18:15 -0400
-In-Reply-To: <20130730.161906.1898764862564749288.davem@davemloft.net>
+Received: from mail-qa0-f45.google.com ([209.85.216.45]:46396 "EHLO
+	mail-qa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754023Ab3GaInf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 04:43:35 -0400
+Received: by mail-qa0-f45.google.com with SMTP id l18so2877225qak.4
+        for <netdev@vger.kernel.org>; Wed, 31 Jul 2013 01:43:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-07-30 at 16:19 -0700, David Miller wrote:
-> From: Samuel Williams <sam8641@gmail.com>
-> Date: Sat, 27 Jul 2013 15:35:54 -0500
-> 
-> > A possible faulty hardware might interrupt with a status of 0xffffffff which
-> > may kernel panic if sky2 driver tries to handle it. Detecting this problem
-> > may avoid kernel panic.
-> > 
-> > Signed-off-by: Samuel Williams <sam8641@gmail.com>
-> 
-> Sure, but then the device is basically just going to stop.
-> 
-> I think this change needs to be more comprehensive, for example it
-> needs to fully reset the device and try to get it operational again.
+Signed-off-by: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
+---
+ drivers/net/ethernet/intel/igb/igb.h      |    2 ++
+ drivers/net/ethernet/intel/igb/igb_main.c |    2 +-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
 
-But sky2 is used in some hotremovable cards. You can hit the window
-for this race. It is unlikely but still this simple check fixes a bug.
-
-	Regards
-		Oliver
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index 15ea8dc..5a2659b 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -343,6 +343,8 @@ struct hwmon_buff {
+ 	};
+ #endif
+ 
++#define IGB_RETA_SIZE	128
++
+ /* board specific private data structure */
+ struct igb_adapter {
+ 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 6a0c1b6..00f5d96 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -3127,7 +3127,7 @@ static void igb_setup_mrqc(struct igb_adapter *adapter)
+ 	 * we are generating the results for n and n+2 and then interleaving
+ 	 * those with the results with n+1 and n+3.
+ 	 */
+-	for (j = 0; j < 32; j++) {
++	for (j = 0; j < IGB_RETA_SIZE / 4; j++) {
+ 		/* first pass generates n and n+2 */
+ 		u32 base = ((j * 0x00040004) + 0x00020000) * num_rx_queues;
+ 		u32 reta = (base & 0x07800780) >> (7 - shift);
+-- 
+1.7.10.4
