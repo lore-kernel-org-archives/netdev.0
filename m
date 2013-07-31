@@ -1,86 +1,58 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 02/15] ixgbe: Use pci_vfs_assigned instead of ixgbe_vfs_are_assigned
-Date: Wed, 31 Jul 2013 02:59:24 -0700
-Message-ID: <1375264777-13595-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1375264777-13595-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:59620 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752396Ab3GaJ7n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jul 2013 05:59:43 -0400
-In-Reply-To: <1375264777-13595-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: [PATCH v3 1/3] net/usb/r815x: replace USB buffer from stack to DMA-able
+Date: Wed, 31 Jul 2013 18:29:47 +0800
+Message-ID: <CACVXFVNH=71cEncYfJRAf61j-WJWmoZrs+PdsC1XtWybu8v-Gw@mail.gmail.com>
+References: <20130730140059.GE27962@kroah.com>
+	<20130730.113329.1450325193505423812.davem@davemloft.net>
+	<1375209677.2075.129.camel@joe-AO722>
+	<20130730.114900.5636932806999400.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: joe@perches.com, gregkh@linuxfoundation.org, hayeswang@realtek.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-usb@vger.kernel.org, nic_swsd@realtek.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130730.114900.5636932806999400.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+On Wed, Jul 31, 2013 at 2:49 AM, David Miller <davem@davemloft.net> wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Tue, 30 Jul 2013 11:41:17 -0700
+>
+>> On Tue, 2013-07-30 at 11:33 -0700, David Miller wrote:
+>>> From: Greg KH <gregkh@linuxfoundation.org>
+>>> Date: Tue, 30 Jul 2013 07:00:59 -0700
+>>>
+>>> > This call is so slow, you can afford to make a call to kmalloc for the
+>>> > data, as it sure just did for other structures it needed :)
+>>>
+>>> I told him to implement things this way, to avoid calling kmalloc every
+>>> single register access.
+>>>
+>>> Using kmalloc all the time makes the access fragile, since a badly timed
+>>> call during high memory pressure can fail.
+>>>
+>>> I'd rather the potential failure happen at one time, probe time.
+>>>
+>>> In any event, Ming Lei has suggested using usbnet_{read,write}_cmd()
+>>> instead, which sounds like a good solution to this problem.
+>>
+>> Those do per-call allocs too.
+>
+> Sigh...  Ok I won't fight this any longer then :-)
 
-This change makes it so that the ixgbe driver uses the generic helper
-pci_vfs_assigned instead of the ixgbe specific function
-ixgbe_vfs_are_assigned.
+It might not be a big deal because most of these commands are sent
+during probe()/ethtool/... context, and not in tx/rx path.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 35 +-------------------------
- 1 file changed, 1 insertion(+), 34 deletions(-)
+Another choice is to reserve a big enough buffer during probe()
+for read/write command, but one mutex is needed too for avoiding
+concurrent calling.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 6c624c9..73c8e73 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -173,39 +173,6 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
- 	ixgbe_disable_sriov(adapter);
- }
- 
--static bool ixgbe_vfs_are_assigned(struct ixgbe_adapter *adapter)
--{
--	struct pci_dev *pdev = adapter->pdev;
--	struct pci_dev *vfdev;
--	int dev_id;
--
--	switch (adapter->hw.mac.type) {
--	case ixgbe_mac_82599EB:
--		dev_id = IXGBE_DEV_ID_82599_VF;
--		break;
--	case ixgbe_mac_X540:
--		dev_id = IXGBE_DEV_ID_X540_VF;
--		break;
--	default:
--		return false;
--	}
--
--	/* loop through all the VFs to see if we own any that are assigned */
--	vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, NULL);
--	while (vfdev) {
--		/* if we don't own it we don't care */
--		if (vfdev->is_virtfn && vfdev->physfn == pdev) {
--			/* if it is assigned we cannot release it */
--			if (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
--				return true;
--		}
--
--		vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, vfdev);
--	}
--
--	return false;
--}
--
- #endif /* #ifdef CONFIG_PCI_IOV */
- int ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
- {
-@@ -235,7 +202,7 @@ int ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
- 	 * without causing issues, so just leave the hardware
- 	 * available but disabled
- 	 */
--	if (ixgbe_vfs_are_assigned(adapter)) {
-+	if (pci_vfs_assigned(adapter->pdev)) {
- 		e_dev_warn("Unloading driver while VFs are assigned - VFs will not be deallocated\n");
- 		return -EPERM;
- 	}
+Anyway, please call the command API to do such thing, so that we
+can improve it easily in future.
+
+Thanks,
 -- 
-1.7.11.7
+Ming Lei
