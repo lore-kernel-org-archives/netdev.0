@@ -1,73 +1,71 @@
-From: Roman Gushchin <klamm@yandex-team.ru>
-Subject: Re: [PATCH] net: check net.core.somaxconn sysctl values
-Date: Wed, 31 Jul 2013 19:03:23 +0400
-Message-ID: <51F9273B.2020408@yandex-team.ru>
-References: <51F917CF.7010905@yandex-team.ru> <1375281457.10515.98.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 4/4] USBNET: ax88179_178a: enable tso if host supports
+ sg dma
+Date: Wed, 31 Jul 2013 08:15:11 -0700
+Message-ID: <1375283711.10515.104.camel@edumazet-glaptop>
+References: <1375267909-30373-1-git-send-email-ming.lei@canonical.com>
+	 <1375267909-30373-5-git-send-email-ming.lei@canonical.com>
+	 <20130731124707.GA30635@kroah.com>
+	 <CACVXFVNk+h7kBWTFT2NiGy+2F6LPatda3oL9+uuaQnT-u5J8wg@mail.gmail.com>
+	 <1375279366.14846.1.camel@linux-fkkt.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, raise.sail@gmail.com,
-	ebiederm@xmission.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1375281457.10515.98.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>,
+	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1375279366.14846.1.camel-B2T3B9s34ElbnMAlSieJcQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 31.07.2013 18:37, Eric Dumazet wrote:
-> On Wed, 2013-07-31 at 17:57 +0400, Roman Gushchin wrote:
->> It's possible to assign an invalid value to the net.core.somaxconn
->> sysctl variable, because there is no checks at all.
->>
->> The sk_max_ack_backlog field of the sock structure is defined as
->> unsigned short. Therefore, the backlog argument in inet_listen()
->> shouldn't exceed USHRT_MAX. The backlog argument in the listen() syscall
->> is truncated to the somaxconn value. So, the somaxconn value shouldn't
->> exceed 65535 (USHRT_MAX).
->> Also, negative values of somaxconn are meaningless.
->>
->> before:
->> $ sysctl -w net.core.somaxconn=256
->> net.core.somaxconn = 256
->> $ sysctl -w net.core.somaxconn=65536
->> net.core.somaxconn = 65536
->> $ sysctl -w net.core.somaxconn=-100
->> net.core.somaxconn = -100
->>
->> after:
->> $ sysctl -w net.core.somaxconn=256
->> net.core.somaxconn = 256
->> $ sysctl -w net.core.somaxconn=65536
->> error: "Invalid argument" setting key "net.core.somaxconn"
->> $ sysctl -w net.core.somaxconn=-100
->> error: "Invalid argument" setting key "net.core.somaxconn"
->>
->> Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
->> ---
->>    net/core/sysctl_net_core.c | 6 +++++-
->>    1 file changed, 5 insertions(+), 1 deletion(-)
->
->
-> We had a discussion about this one month ago, as Changli Gao posted a
-> patch. http://patchwork.ozlabs.org/patch/255460/
->
-> So proper credits would be nice ;)
+On Wed, 2013-07-31 at 16:02 +0200, Oliver Neukum wrote:
+> On Wed, 2013-07-31 at 21:50 +0800, Ming Lei wrote:
+> 
+> > In the usbnet case, the driver already supports non-sg well. Actually,
+> > all current drivers should support non-sg well because urb->sg wasn't
+> > introduced for very long time. We can think it as a new feature or DMA
+> > enhancement for xHCI controller.
+> > 
+> > If you mean buffer debounce for dma sg support on ehci/uhci/ohci/..,
+> > maybe we need to discuss and evaluate further.
+> 
+> We cannot lie to the networking layer. Either we can do sg in hardware
+> or we cannot. This is unfortunately determined by the HC not the device
+> on the bus. How else but from the host driver would we get the
+> information?
+> 
 
-Ok :)
+Hmm, I would rather make sure SG is really supported before adding TSO
+support.
 
-> Based on a prior patch from Changli Gao
->
-> Reported-by: Changli Gao <xiaosuo@gmail.com>
-> Suggested-by: Eric Dumazet <edumazet@google.com>
->
-> Acked-by: Eric Dumazet <edumazet@google.com>
->
+TCP stack can build skb with fragments of any size, not multiple
+of 512 or 1024 bytes.
 
-Thanks!
+commit 20f0170377264e8449b6987041f0bcc4d746d3ed
 
-PS I've forwarded your letter back to the lkml by mistake.
-Sorry)
+    usbnet: do not pretend to support SG/TSO
+    
+    usbnet doesn't support yet SG, so drivers should not advertise SG or TSO
+    capabilities, as they allow TCP stack to build large TSO packets that
+    need to be linearized and might use order-5 pages.
+    
+    This adds an extra copy overhead and possible allocation failures.
+    
+    Current code ignore skb_linearize() return code so crashes are even
+    possible.
+    
+    Best is to not pretend SG/TSO is supported, and add this again when/if
+    usbnet really supports SG for devices who could get a performance gain.
+    
 
-Regards,
-Roman
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
