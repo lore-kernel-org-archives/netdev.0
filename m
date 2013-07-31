@@ -1,76 +1,83 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH] pkt_sched: fix bandwidth's accuracy of software device with
- htb
-Date: Wed, 31 Jul 2013 10:39:34 +0800
-Message-ID: <51F878E6.1070806@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next] tcp_metrics: rearrange fields to avoid holes
+Date: Wed, 31 Jul 2013 10:48:25 +0800
+Message-ID: <1375238905-6423-1-git-send-email-amwang@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:19588 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751494Ab3GaClQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 22:41:16 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:37532 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751494Ab3GaCsg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Jul 2013 22:48:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When we set bandwidth on the software devices with htb,
-it's not precise.
+From: Cong Wang <amwang@redhat.com>
 
-With htb, sch->limit is set from devices TX queue's
-length that is not 0. Because software devices TX
-queue is 0, sch->limit is set to default value 1.
+On x86_64, before this patch:
 
-Because the length of skb_buff queue is bigger than
-sch->limit whose value is 1, some packets are dropped.
-This leads to software devices can't make full use of
-the bandwidth and influence the accuracy.
+struct tcp_fastopen_metrics {
+	u16                        mss;                  /*     0     2 */
+	u16                        syn_loss:10;          /*     2: 6  2 */
 
-To fix this issue, set the default value of sch->limit
-to 1000 that is the value of eth device's tx_queueu_len.
+	/* XXX 6 bits hole, try to pack */
+	/* XXX 4 bytes hole, try to pack */
 
-Example:
-tc qdisc add dev bond0 root handle 1: htb default 1
-tc class add dev bond0 parent 1:0 classid 1:1 htb rate 1Gbit ceil 1Gbit
-iperf -c host -t 30 -i 10
+	long unsigned int          last_syn_loss;        /*     8     8 */
+	struct tcp_fastopen_cookie cookie;               /*    16    17 */
 
-With old sch->limit:
-[ ID] Interval       Transfer     Bandwidth
-[  3]  0.0-10.0 sec   579 MBytes   486 Mbits/sec
-[  3] 10.0-20.0 sec   604 MBytes   507 Mbits/sec
-[  3] 20.0-30.0 sec   551 MBytes   462 Mbits/sec
-[  3]  0.0-30.0 sec  1.69 GBytes   485 Mbits/sec
+	/* size: 40, cachelines: 1, members: 4 */
+	/* sum members: 29, holes: 1, sum holes: 4 */
+	/* bit holes: 1, sum bit holes: 6 bits */
+	/* padding: 7 */
+	/* last cacheline: 40 bytes */
+};
 
-With new sch->limit:
-[ ID] Interval       Transfer     Bandwidth
-[  3]  0.0-10.0 sec  1.11 GBytes   955 Mbits/sec
-[  3] 10.0-20.0 sec  1.11 GBytes   955 Mbits/sec
-[  3] 20.0-30.0 sec  1.11 GBytes   955 Mbits/sec
-[  3]  0.0-30.0 sec  3.33 GBytes   955 Mbits/sec
+after this patch:
 
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+struct tcp_fastopen_metrics {
+	u16                        mss;                  /*     0     2 */
+	u16                        syn_loss:10;          /*     2: 6  2 */
+
+	/* XXX 6 bits hole, try to pack */
+
+	struct tcp_fastopen_cookie cookie;               /*     4    17 */
+
+	/* XXX 3 bytes hole, try to pack */
+
+	long unsigned int          last_syn_loss;        /*    24     8 */
+
+	/* size: 32, cachelines: 1, members: 4 */
+	/* sum members: 29, holes: 1, sum holes: 3 */
+	/* bit holes: 1, sum bit holes: 6 bits */
+	/* last cacheline: 32 bytes */
+};
+
+On 32bit, the 4-byte hole should not exist, so this patch probably
+doesn't change anything.
+
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+
 ---
- net/sched/sch_fifo.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
-index e15a9eb..8dd27ec 100644
---- a/net/sched/sch_fifo.c
-+++ b/net/sched/sch_fifo.c
-@@ -54,7 +54,7 @@ static int fifo_init(struct Qdisc *sch, struct nlattr *opt)
- 	bool is_bfifo = sch->ops == &bfifo_qdisc_ops;
+diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+index 10b3796..438393f 100644
+--- a/net/ipv4/tcp_metrics.c
++++ b/net/ipv4/tcp_metrics.c
+@@ -25,8 +25,8 @@ int sysctl_tcp_nometrics_save __read_mostly;
+ struct tcp_fastopen_metrics {
+ 	u16	mss;
+ 	u16	syn_loss:10;		/* Recurring Fast Open SYN losses */
+-	unsigned long	last_syn_loss;	/* Last Fast Open SYN loss */
+ 	struct	tcp_fastopen_cookie	cookie;
++	unsigned long	last_syn_loss;	/* Last Fast Open SYN loss */
+ };
  
- 	if (opt == NULL) {
--		u32 limit = qdisc_dev(sch)->tx_queue_len ? : 1;
-+		u32 limit = qdisc_dev(sch)->tx_queue_len ? : 1000;
- 
- 		if (is_bfifo)
- 			limit *= psched_mtu(qdisc_dev(sch));
--- 
-1.7.12
-
-
-
-.
+ struct tcp_metrics_block {
