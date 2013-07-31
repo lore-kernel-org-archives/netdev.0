@@ -1,44 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4] net: split rt_genid for ipv4 and ipv6
-Date: Wed, 31 Jul 2013 14:57:10 -0700 (PDT)
-Message-ID: <20130731.145710.1507535169314670977.davem@davemloft.net>
-References: <1375144433-731-1-git-send-email-fan.du@windriver.com>
-	<20130730070702.GG2490@order.stressinduktion.org>
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Subject: [PATCH net-next v2 0/5] qlcnic: Mailbox refactoring
+Date: Wed, 31 Jul 2013 17:10:57 -0400
+Message-ID: <cover.1375314056.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fan.du@windriver.com, nicolas.dichtel@6wind.com,
-	yoshfuji@linux-ipv6.org, jmorris@namei.org,
-	steffen.klassert@secunet.com, paul@paul-moore.com,
-	netdev@vger.kernel.org
-To: hannes@stressinduktion.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Himanshu Madhani <himanshu.madhani@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33621 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753732Ab3GaV5L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 17:57:11 -0400
-In-Reply-To: <20130730070702.GG2490@order.stressinduktion.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:44165 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751835Ab3GaV6c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 17:58:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue, 30 Jul 2013 09:07:02 +0200
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
 
-> On Tue, Jul 30, 2013 at 08:33:53AM +0800, Fan Du wrote:
->> Current net name space has only one genid for both IPv4 and IPv6, it has below
->> drawbacks:
->> 
->> - Add/delete an IPv4 address will invalidate all IPv6 routing table entries.
->> - Insert/remove XFRM policy will also invalidate both IPv4/IPv6 routing table
->>   entries even when the policy is only applied for one address family.
->> 
->> Thus, this patch attempt to split one genid for two to cater for IPv4 and IPv6
->> separately in a fine granularity.
->> 
->> Signed-off-by: Fan Du <fan.du@windriver.com>
-> 
-> Also this patch only applies with some fuzz, it addressed all my issues:
-> 
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+This  series contains 
+* patch for returning correct error code for loopback diagnostic test.
+* patches for mailbox refactoring. 
 
-Applied, thanks.
+changes from v1 -> v2
+* dropped "qlcnic: Add ethtool statistics for board temperature."
+
+Please consider applying to net-next.
+
+Thanks,
+Himanshu
+
+Himanshu Madhani (1):
+  qlcnic: Update version to 5.2.45
+
+Jitendra Kalsaria (1):
+  qlcnic: Return appropriate error code.
+
+Manish Chopra (3):
+  qlcnic: Interrupt based driver firmware mailbox mechanism
+  qlcnic: Replace poll mode mailbox interface with interrupt based
+    mailbox interface
+  qlcnic: Enable mailbox interface in poll mode when interrupts are not
+    available
+
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |  56 +-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    | 615 +++++++++++++++------
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |  27 +-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |  83 ++-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |   2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  18 +-
+ .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   | 146 ++---
+ 7 files changed, 648 insertions(+), 299 deletions(-)
+
+-- 
+1.8.1.4
