@@ -1,7 +1,7 @@
 From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH 3/4] USBNET: support DMA SG
-Date: Wed, 31 Jul 2013 18:51:48 +0800
-Message-ID: <1375267909-30373-4-git-send-email-ming.lei@canonical.com>
+Subject: [PATCH 4/4] USBNET: ax88179_178a: enable tso if host supports sg dma
+Date: Wed, 31 Jul 2013 18:51:49 +0800
+Message-ID: <1375267909-30373-5-git-send-email-ming.lei@canonical.com>
 References: <1375267909-30373-1-git-send-email-ming.lei@canonical.com>
 Cc: Oliver Neukum <oneukum@suse.de>, Freddy Xin <freddy@asix.com.tw>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
@@ -11,136 +11,94 @@ Cc: Oliver Neukum <oneukum@suse.de>, Freddy Xin <freddy@asix.com.tw>,
 To: "David S. Miller" <davem@davemloft.net>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:61986 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759115Ab3GaKwq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 06:52:46 -0400
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:51670 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759115Ab3GaKxA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 06:53:00 -0400
 In-Reply-To: <1375267909-30373-1-git-send-email-ming.lei@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch introduces support of DMA SG if the USB host controller
-attached by usbnet device is capable of building packet from
-discontinuous buffers.
+This patch enables 'can_dma_sg' flag for ax88179_178a device
+if the attached host controller supports building packet from
+discontinuous buffers(DMA SG is possible), so both frame header
+and skb data buffers can be passed to usb stack via urb->sg,
+then skb data copy can be saved.
 
-Firstly, one header for usb transfer is often needed for device, and
-this patch introduces one extra small buffer to hold the header, then
-we can avoid move or copy data over the whole skb.
-
-Secondaly, the patch supports passing the skb fragment buffers to
-usb stack directly via urb->sg.
+With the patch, CPU utilization decreased much in iperf test at
+client mode.
 
 Signed-off-by: Ming Lei <ming.lei@canonical.com>
 ---
- drivers/net/usb/usbnet.c   |   48 ++++++++++++++++++++++++++++++++++++++++++--
- include/linux/usb/usbnet.h |    4 ++++
- 2 files changed, 50 insertions(+), 2 deletions(-)
+ drivers/net/usb/ax88179_178a.c |   30 ++++++++++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index e4811d7..c04682b 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1232,6 +1232,45 @@ EXPORT_SYMBOL_GPL(usbnet_tx_timeout);
+diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
+index 5a468f3..c75bded 100644
+--- a/drivers/net/usb/ax88179_178a.c
++++ b/drivers/net/usb/ax88179_178a.c
+@@ -1031,12 +1031,20 @@ static int ax88179_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	dev->mii.phy_id = 0x03;
+ 	dev->mii.supports_gmii = 1;
  
- /*-------------------------------------------------------------------------*/
++	if (dev->udev->bus->no_sg_limit)
++		dev->can_dma_sg = 1;
++
+ 	dev->net->features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+ 			      NETIF_F_RXCSUM;
  
-+static int build_dma_sg(const struct sk_buff *skb, struct urb *urb)
-+{
-+	unsigned num_sgs, total_len = 0;
-+	int i, s = 0;
-+	struct skb_data *entry = (struct skb_data *)skb->cb;
-+	int has_header = !!entry->length;
-+
-+	num_sgs = skb_shinfo(skb)->nr_frags + has_header + 1;
-+	if (num_sgs == 1)
-+		return 0;
-+
-+	urb->sg = kmalloc(num_sgs * sizeof(struct scatterlist), GFP_ATOMIC);
-+	if (!urb->sg)
-+		return -ENOMEM;
-+
-+	urb->num_sgs = num_sgs;
-+	sg_init_table(urb->sg, urb->num_sgs);
-+
-+	if (has_header) {
-+		sg_set_buf(&urb->sg[s++], entry->header,
-+				entry->length);
-+		total_len += entry->length;
-+	}
-+
-+	sg_set_buf(&urb->sg[s++], skb->data, skb_headlen(skb));
-+	total_len += skb_headlen(skb);
-+
-+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-+		struct skb_frag_struct *f = &skb_shinfo(skb)->frags[i];
-+
-+		total_len += skb_frag_size(f);
-+		sg_set_page(&urb->sg[i + s], f->page.p, f->size,
-+				f->page_offset);
-+	}
-+	urb->transfer_buffer_length = total_len;
-+
-+	return 1;
-+}
-+
- netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
- 				     struct net_device *net)
- {
-@@ -1258,7 +1297,6 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
- 			goto drop;
- 		}
- 	}
--	length = skb->len;
+ 	dev->net->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+ 				 NETIF_F_RXCSUM;
  
- 	if (!(urb = usb_alloc_urb (0, GFP_ATOMIC))) {
- 		netif_dbg(dev, tx_err, dev->net, "no urb\n");
-@@ -1268,10 +1306,14 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
- 	entry = (struct skb_data *) skb->cb;
- 	entry->urb = urb;
- 	entry->dev = dev;
--	entry->length = length;
- 
- 	usb_fill_bulk_urb (urb, dev->udev, dev->out,
- 			skb->data, skb->len, tx_complete, skb);
 +	if (dev->can_dma_sg) {
-+		if (build_dma_sg(skb, urb) < 0)
-+			goto drop;
++		dev->net->features |= NETIF_F_SG | NETIF_F_TSO;
++		dev->net->hw_features |= NETIF_F_SG | NETIF_F_TSO;
 +	}
-+	entry->length = length = urb->transfer_buffer_length;
- 
- 	/* don't assume the hardware handles USB_ZERO_PACKET
- 	 * NOTE:  strictly conforming cdc-ether devices should expect
-@@ -1391,6 +1433,8 @@ static void usbnet_bh (unsigned long param)
- 			rx_process (dev, skb);
- 			continue;
- 		case tx_done:
-+			kfree(entry->header);
-+			kfree(entry->urb->sg);
- 		case rx_cleanup:
- 			usb_free_urb (entry->urb);
- 			dev_kfree_skb (skb);
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index 8fbc008..51aa466 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -35,6 +35,7 @@ struct usbnet {
- 	unsigned char		suspend_count;
- 	unsigned char		pkt_cnt, pkt_err;
- 	unsigned short		rx_qlen, tx_qlen;
-+	unsigned		can_dma_sg:1;
- 
- 	/* i/o info: pipes etc */
- 	unsigned		in, out;
-@@ -217,7 +218,10 @@ enum skb_state {
- struct skb_data {	/* skb->cb is one of these */
- 	struct urb		*urb;
- 	struct usbnet		*dev;
-+	void			*header;
- 	enum skb_state		state;
 +
-+	/* either header length for dma sg or transfer buffer lenght */
- 	size_t			length;
- };
+ 	/* Enable checksum offload */
+ 	*tmp = AX_RXCOE_IP | AX_RXCOE_TCP | AX_RXCOE_UDP |
+ 	       AX_RXCOE_TCPV6 | AX_RXCOE_UDPV6;
+@@ -1170,12 +1178,30 @@ ax88179_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
+ 	int mss = skb_shinfo(skb)->gso_size;
+ 	int headroom;
+ 	int tailroom;
++	struct skb_data *entry = (struct skb_data *)skb->cb;
  
+ 	tx_hdr1 = skb->len;
+ 	tx_hdr2 = mss;
+ 	if (((skb->len + 8) % frame_size) == 0)
+ 		tx_hdr2 |= 0x80008000;	/* Enable padding */
+ 
++	if (dev->can_dma_sg) {
++		if (!(entry->header = kmalloc(8, GFP_ATOMIC)))
++			goto no_sg;
++
++		entry->length = 8;
++		cpu_to_le32s(&tx_hdr1);
++		cpu_to_le32s(&tx_hdr2);
++		memcpy(entry->header, &tx_hdr1, 4);
++		memcpy(entry->header + 4, &tx_hdr2, 4);
++
++		return skb;
++	} else {
++no_sg:
++		entry->header = NULL;
++		entry->length = 0;
++	}
++
+ 	headroom = skb_headroom(skb);
+ 	tailroom = skb_tailroom(skb);
+ 
+@@ -1323,6 +1349,10 @@ static int ax88179_reset(struct usbnet *dev)
+ 
+ 	dev->net->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+ 				 NETIF_F_RXCSUM;
++	if (dev->can_dma_sg) {
++		dev->net->features |= NETIF_F_SG | NETIF_F_TSO;
++		dev->net->hw_features |= NETIF_F_SG | NETIF_F_TSO;
++	}
+ 
+ 	/* Enable checksum offload */
+ 	*tmp = AX_RXCOE_IP | AX_RXCOE_TCP | AX_RXCOE_UDP |
 -- 
 1.7.9.5
