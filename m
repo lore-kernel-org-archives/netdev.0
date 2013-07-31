@@ -1,112 +1,72 @@
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH v4 4/5] net/usb/r8152: make sure the USB buffer is DMA-able
-Date: Wed, 31 Jul 2013 17:21:25 +0800
-Message-ID: <1375262486-5373-4-git-send-email-hayeswang@realtek.com>
-References: <D7C722C73C7A400780358D0376412267@realtek.com.tw>
- <1375262486-5373-1-git-send-email-hayeswang@realtek.com>
+From: Dmitry Popov <dp@highloadlab.com>
+Subject: [PATCH] tcp: Remove unused tcpct declarations and comments
+Date: Wed, 31 Jul 2013 13:39:45 +0400
+Message-ID: <20130731133945.5b7b3f7487491f41ea45a7f6@highloadlab.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1375262486-5373-1-git-send-email-hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	trivial@kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allocate the required memory before calling usb_control_msg. And
-the additional memory copy is necessary.
+Remove declaration, 4 defines and confusing comment that are no longer used
+since 1a2c6181c4 ("tcp: Remove TCPCT").
 
-Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Dmitry Popov <dp@highloadlab.com>
 ---
- drivers/net/usb/r8152.c | 60 ++++++++++++++++++++++++++++---------------------
- 1 file changed, 35 insertions(+), 25 deletions(-)
+ include/linux/tcp.h | 1 -
+ include/net/tcp.h   | 4 ----
+ net/ipv4/tcp.c      | 4 ----
+ 3 files changed, 9 deletions(-)
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index ee13f9e..ef033ab 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -344,17 +344,41 @@ static const int multicast_filter_limit = 32;
- static
- int get_registers(struct r8152 *tp, u16 value, u16 index, u16 size, void *data)
- {
--	return usb_control_msg(tp->udev, usb_rcvctrlpipe(tp->udev, 0),
-+	int ret;
-+	void *tmp;
-+
-+	tmp = kmalloc(size, GFP_KERNEL);
-+	if (!tmp)
-+		return -ENOMEM;
-+
-+	ret = usb_control_msg(tp->udev, usb_rcvctrlpipe(tp->udev, 0),
- 			       RTL8152_REQ_GET_REGS, RTL8152_REQT_READ,
--			       value, index, data, size, 500);
-+			       value, index, tmp, size, 500);
-+
-+	memcpy(data, tmp, size);
-+	kfree(tmp);
-+
-+	return ret;
- }
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 472120b..b7e01bc 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -107,7 +107,6 @@ static inline void tcp_clear_options(struct tcp_options_received *rx_opt)
+  * only four options will fit in a standard TCP header */
+ #define TCP_NUM_SACKS 4
  
- static
- int set_registers(struct r8152 *tp, u16 value, u16 index, u16 size, void *data)
- {
--	return usb_control_msg(tp->udev, usb_sndctrlpipe(tp->udev, 0),
-+	int ret;
-+	void *tmp;
-+
-+	tmp = kmalloc(size, GFP_KERNEL);
-+	if (!tmp)
-+		return -ENOMEM;
-+
-+	memcpy(tmp, data, size);
-+
-+	ret = usb_control_msg(tp->udev, usb_sndctrlpipe(tp->udev, 0),
- 			       RTL8152_REQ_SET_REGS, RTL8152_REQT_WRITE,
--			       value, index, data, size, 500);
-+			       value, index, tmp, size, 500);
-+
-+	kfree(tmp);
-+	return ret;
- }
+-struct tcp_cookie_values;
+ struct tcp_request_sock_ops;
  
- static int generic_ocp_read(struct r8152 *tp, u16 index, u16 size,
-@@ -685,21 +709,14 @@ static void ocp_reg_write(struct r8152 *tp, u16 addr, u16 data)
- static inline void set_ethernet_addr(struct r8152 *tp)
- {
- 	struct net_device *dev = tp->netdev;
--	u8 *node_id;
-+	u8 node_id[8] = {0};
+ struct tcp_request_sock {
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index d198005..fa6893c 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -192,10 +192,6 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
+ #define TCPOLEN_TIMESTAMP      10
+ #define TCPOLEN_MD5SIG         18
+ #define TCPOLEN_EXP_FASTOPEN_BASE  4
+-#define TCPOLEN_COOKIE_BASE    2	/* Cookie-less header extension */
+-#define TCPOLEN_COOKIE_PAIR    3	/* Cookie pair header extension */
+-#define TCPOLEN_COOKIE_MIN     (TCPOLEN_COOKIE_BASE+TCP_COOKIE_MIN)
+-#define TCPOLEN_COOKIE_MAX     (TCPOLEN_COOKIE_BASE+TCP_COOKIE_MAX)
  
--	node_id = kmalloc(sizeof(u8) * 8, GFP_KERNEL);
--	if (!node_id) {
--		netif_err(tp, probe, dev, "out of memory");
--		return;
--	}
--
--	if (pla_ocp_read(tp, PLA_IDR, sizeof(u8) * 8, node_id) < 0)
-+	if (pla_ocp_read(tp, PLA_IDR, sizeof(node_id), node_id) < 0)
- 		netif_notice(tp, probe, dev, "inet addr fail\n");
- 	else {
- 		memcpy(dev->dev_addr, node_id, dev->addr_len);
- 		memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
- 	}
--	kfree(node_id);
- }
+ /* But this is what stacks really send out. */
+ #define TCPOLEN_TSTAMP_ALIGNED		12
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 5423223..077abde 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -410,10 +410,6 @@ void tcp_init_sock(struct sock *sk)
  
- static int rtl8152_set_mac_address(struct net_device *netdev, void *p)
-@@ -882,15 +899,10 @@ static void rtl8152_set_rx_mode(struct net_device *netdev)
- static void _rtl8152_set_rx_mode(struct net_device *netdev)
- {
- 	struct r8152 *tp = netdev_priv(netdev);
--	u32 tmp, *mc_filter;	/* Multicast hash filter */
-+	u32 mc_filter[2];	/* Multicast hash filter */
-+	__le32 tmp[2];
- 	u32 ocp_data;
+ 	icsk->icsk_sync_mss = tcp_sync_mss;
  
--	mc_filter = kmalloc(sizeof(u32) * 2, GFP_KERNEL);
--	if (!mc_filter) {
--		netif_err(tp, link, netdev, "out of memory");
--		return;
--	}
+-	/* Presumed zeroed, in order of appearance:
+-	 *	cookie_in_always, cookie_out_never,
+-	 *	s_data_constant, s_data_in, s_data_out
+-	 */
+ 	sk->sk_sndbuf = sysctl_tcp_wmem[1];
+ 	sk->sk_rcvbuf = sysctl_tcp_rmem[1];
+ 
