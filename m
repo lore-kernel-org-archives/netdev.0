@@ -1,45 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH] atl1c: Fix misuse of netdev_alloc_skb in refilling
- rx ring
-Date: Tue, 30 Jul 2013 19:11:38 -0700 (PDT)
-Message-ID: <20130730.191138.420648092010563209.davem@davemloft.net>
-References: <87y58pva88.fsf@canonical.com>
-	<1375111804.10515.1.camel@edumazet-glaptop>
-	<1375118644.10515.18.camel@edumazet-glaptop>
+Subject: Re: [PATCH v3 1/2] flow_dissector: clean up IPIP case
+Date: Tue, 30 Jul 2013 19:17:02 -0700 (PDT)
+Message-ID: <20130730.191702.2134256202048192295.davem@davemloft.net>
+References: <alpine.DEB.2.02.1307291103330.21411@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: luis.henriques@canonical.com, bhutchings@solarflare.com,
-	nhorman@tuxdriver.com, netdev@vger.kernel.org, jcliburn@gmail.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44783 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44821 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751560Ab3GaCLm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 22:11:42 -0400
-In-Reply-To: <1375118644.10515.18.camel@edumazet-glaptop>
+	with ESMTP id S1750882Ab3GaCRD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 22:17:03 -0400
+In-Reply-To: <alpine.DEB.2.02.1307291103330.21411@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 29 Jul 2013 10:24:04 -0700
+From: Tom Herbert <therbert@google.com>
+Date: Mon, 29 Jul 2013 11:07:36 -0700 (PDT)
 
-> [PATCH] atl1c: use custom skb allocator
+> Explicitly set proto to ETH_P_IP and jump directly to ip processing.
 > 
-> We had reports ( https://bugzilla.kernel.org/show_bug.cgi?id=54021 )
-> that using high order pages for skb allocations is problematic for atl1c
-> 
-> We do not know exactly what the problem is, but we suspect that crossing
-> 4K pages is not well supported by this hardware.
-> 
-> Use a custom allocator, using page allocator and 2K fragments for
-> optimal stack behavior. We might make this allocator generic
-> in future kernels.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
-Theoretically we'll still potentially hit this with > PAGE_SIZE
-MTUs....
-
-But whatever, this is a step in the positive direction so applied
-and queued up for -stable, thanks Eric!
+Applied.
