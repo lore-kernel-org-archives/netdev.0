@@ -1,69 +1,59 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 60665] New: `int backlog` is assigned to `unsigned short
- sk_max_ack_backlog` -> overflow
-Date: Wed, 31 Jul 2013 08:36:14 -0700
-Message-ID: <20130731083614.4174035a@nehalam.linuxnetplumber.net>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH net-next 0/5] bonding: groundwork and initial conversion
+ to RCU
+Date: Wed, 31 Jul 2013 17:39:36 +0200
+Message-ID: <51F92FB8.1090000@redhat.com>
+References: <1375283553-32070-1-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
+Cc: andy@greyhouse.net, davem@davemloft.net, fubar@us.ibm.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f66.google.com ([209.85.160.66]:60098 "EHLO
-	mail-pb0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760297Ab3GaPgT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 11:36:19 -0400
-Received: by mail-pb0-f66.google.com with SMTP id mc8so430210pbc.5
-        for <netdev@vger.kernel.org>; Wed, 31 Jul 2013 08:36:19 -0700 (PDT)
-Received: from nehalam.linuxnetplumber.net (static-50-53-71-109.bvtn.or.frontiernet.net. [50.53.71.109])
-        by mx.google.com with ESMTPSA id py4sm2834274pbc.14.2013.07.31.08.36.18
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
-        Wed, 31 Jul 2013 08:36:18 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:41604 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756599Ab3GaPnM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jul 2013 11:43:12 -0400
+In-Reply-To: <1375283553-32070-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 07/31/2013 05:12 PM, Nikolay Aleksandrov wrote:
+<snip>
+>  For performance notes please refer to patch 5 (RCU conversion one).
+> 
+Oops, I've forgotten to include the performance tests, here they are:
+2 slaves were used in all tests.
+
+1. Active-backup mode
+ 1.1 Perf recording while doing iperf -P 4
+  - old bonding: iperf spent 0.55% in bonding, system spent 0.29% CPU
+                 in bonding
+  - new bonding: iperf spent 0.29% in bonding, system spent 0.15% CPU
+                 in bonding
+ 1.2. Bandwidth measurements
+  - old bonding: 16.1 gbps consistently
+  - new bonding: 17.5 gbps consistently
+
+2. Round-robin mode
+ 2.1 Perf recording while doing iperf -P 4
+  - old bonding: iperf spent 0.51% in bonding, system spent 0.24% CPU
+                 in bonding
+  - new bonding: iperf spent 0.16% in bonding, system spent 0.11% CPU
+                 in bonding
+ 2.2 Bandwidth measurements
+  - old bonding: 8 gbps (variable due to packet reorderings)
+  - new bonding: 10 gbps (variable due to packet reorderings)
 
 
-Begin forwarded message:
+Of course the latency has improved in all converted modes, and moreover while
+doing enslave/release (since it doesn't affect tx anymore).
 
-Date: Wed, 31 Jul 2013 06:33:07 -0700
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-Subject: [Bug 60665] New: `int backlog` is assigned to `unsigned short sk_max_ack_backlog` -> overflow
+Also I've stress tested all modes doing enslave/release in a loop while
+transmitting traffic.
 
-
-https://bugzilla.kernel.org/show_bug.cgi?id=60665
-
-            Bug ID: 60665
-           Summary: `int backlog` is assigned to `unsigned short
-                    sk_max_ack_backlog` -> overflow
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 3.11-rc3
-          Hardware: All
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: high
-          Priority: P1
-         Component: IPV4
-          Assignee: shemminger@linux-foundation.org
-          Reporter: ojab@ojab.ru
-        Regression: No
-
-I'm not sure that my analysis is correct, but:
-sk_max_ack_backlog declared as unsigned short @
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/include/net/sock.h?id=refs/tags/v3.11-rc3#n377
-and we're assigning `int backlog` to it @
-https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/tree/net/ipv4/af_inet.c?id=refs/tags/v3.10.4#n239
-
-So if we'll set sysctls "net.ipv4.tcp_abort_on_overflow=1",
-"net.core.somaxconn=65536" (or larger) and backlog > 65536, we'll have real
-backlog = `somaxconn mod 65536`.
-
-So AFAIU there shouldn't be possible to set somaxconn > 65535 or this behaviour
-should be fixed.
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+Cheers,
+ Nik
+> Best regards,
+>  Nikolay Aleksandrov
+<snip>
