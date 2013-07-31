@@ -1,81 +1,67 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v3] net: Add MOXA ART SoCs ethernet driver
-Date: Wed, 31 Jul 2013 11:56:38 -0700
-Message-ID: <1375296998.5729.8.camel@joe-AO722>
-References: <1374842890-20735-1-git-send-email-jonas.jensen@gmail.com>
-	 <1375280401-5564-1-git-send-email-jonas.jensen@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next 1/5] bonding: convert to list API and replace
+ bond's custom list
+Date: Wed, 31 Jul 2013 11:56:57 -0700
+Message-ID: <20130731115657.4262a7fe@nehalam.linuxnetplumber.net>
+References: <1375283553-32070-1-git-send-email-nikolay@redhat.com>
+	<1375283553-32070-2-git-send-email-nikolay@redhat.com>
+	<20130731113717.32f48d71@nehalam.linuxnetplumber.net>
+	<51F95B21.5020004@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-doc@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	arm@kernel.org, florian@openwrt.org
-To: Jonas Jensen <jonas.jensen@gmail.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1375280401-5564-1-git-send-email-jonas.jensen@gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, davem@davemloft.net,
+	fubar@us.ibm.com
+To: Nikolay Aleksandrov <nikolay@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:53777 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757132Ab3GaS5C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 14:57:02 -0400
+Received: by mail-pa0-f45.google.com with SMTP id bg4so1200289pad.4
+        for <netdev@vger.kernel.org>; Wed, 31 Jul 2013 11:57:01 -0700 (PDT)
+In-Reply-To: <51F95B21.5020004@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-07-31 at 16:20 +0200, Jonas Jensen wrote:
-> The MOXA UC-711X hardware(s) has an ethernet controller that seem to be
-> developed internally. The IC used is "RTL8201CP".
+On Wed, 31 Jul 2013 20:44:49 +0200
+Nikolay Aleksandrov <nikolay@redhat.com> wrote:
 
-Just some simple comments...
+> On 07/31/2013 08:37 PM, Stephen Hemminger wrote:
+> > On Wed, 31 Jul 2013 17:12:29 +0200
+> > Nikolay Aleksandrov <nikolay@redhat.com> wrote:
+> > 
+> >> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+> >> index 390061d..80e288c 100644
+> >> --- a/drivers/net/bonding/bond_3ad.c
+> >> +++ b/drivers/net/bonding/bond_3ad.c
+> >> @@ -143,10 +143,13 @@ static inline struct bonding *__get_bond_by_port(struct port *port)
+> >>   */
+> >>  static inline struct port *__get_first_port(struct bonding *bond)
+> >>  {
+> >> +	struct slave *first_slave;
+> >> +
+> >>  	if (bond->slave_cnt == 0)
+> >>  		return NULL;
+> >> +	first_slave = bond_first_slave(bond);
+> > 
+> > As Jay said, it would be be better to have bond_first_slave return
+> > NULL (if no slaves), and eliminate slave_cnt. It would also fix
+> > a race here between slave_cnt and all slave's being removed.
+> > 
+> Hi Stephen,
+> First off - thank you for the review.
+> 
+> What do you mean by eliminate slave_cnt ?
+> We need it for various calculations throughout the bonding.
+> There's no race here because read_lock(&bond->lock) is held every time this
+> is called and slave_cnt can change only under write_lock of the same lock,
+> the 3ad code is not yet converted to RCU.
+> 
+> Nik
 
-> diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
-[]
-> +static int moxart_rx_poll(struct napi_struct *napi, int budget)
-[]
-> +	while (1) {
-[]
-> +		if (ui & (RX_ERR | CRC_ERR | FTL | RUNT | RX_ODD_NB)) {
-> +			netdev_err(ndev, "packet error\n");
+I would hope the goal would be to eliminate all read_lock's and allow
+it to be totally RCU based.
 
-This is generally a bad idea as it can flood
-the log.  It's probably better to remove it.
-If you really want logging, then at least use
-net_ratelimit().  Generally, the stats are
-enough.
-
-> +			priv->stats.rx_dropped++;
-> +			priv->stats.rx_errors++;
-[]
-> +static int moxart_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
-[]
-> +	if (txdesc->txdes0.ubit.tx_dma_own) {
-> +		netdev_err(ndev, "no TX space for packet\n");
-> +		priv->stats.tx_dropped++;
-
-here too.
-
-> +static int moxart_mac_probe(struct platform_device *pdev)
-[]
-> +	priv->tx_buf_base = kmalloc(priv->tx_buf_size * TX_DESC_NUM,
-> +				    GFP_ATOMIC);
-> +	if (!priv->tx_buf_base) {
-> +		netdev_err(ndev, "TX buffer alloc failed\n");
-> +		goto init_fail;
-> +	}
-> +
-> +	priv->rx_buf_base = kmalloc(priv->rx_buf_size * RX_DESC_NUM,
-> +				    GFP_ATOMIC);
-> +	if (!priv->rx_buf_base) {
-> +		netdev_err(ndev, "RX buffer alloc failed\n");
-> +		goto init_fail;
-> +	}
-
-Extra OOM messages aren't useful, there's a generic
-OOM and a dump_stack from the kernel.
-
-> +	netdev_dbg(ndev, "%s: IRQ=%d address=%02x:%02x:%02x:%02x:%02x:%02x\n",
-> +		   __func__, ndev->irq,
-> +		   ndev->dev_addr[0], ndev->dev_addr[1], ndev->dev_addr[2],
-> +		   ndev->dev_addr[3], ndev->dev_addr[4], ndev->dev_addr[5]);
-
-There's a mac address helper you can use:
-
-	netdev_dbg(ndev, "%s: IRQ=%d address=%pM\n"
-		   __func__, ndev->irq, ndev->dev_addr);
-
-
+You could then reduce slave_cnt to being only accessed by under a spin_lock
+when doing management actions.
