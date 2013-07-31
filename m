@@ -1,139 +1,186 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 12/15] ixgbe: fix lockdep annotation issue for ptp's work item
-Date: Wed, 31 Jul 2013 02:59:34 -0700
-Message-ID: <1375264777-13595-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 07/15] ixgbe: fix SFF data dumps of SFP+ modules
+Date: Wed, 31 Jul 2013 02:59:29 -0700
+Message-ID: <1375264777-13595-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1375264777-13595-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:24036 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:43699 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756061Ab3GaJ7t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jul 2013 05:59:49 -0400
+	id S1756061Ab3GaJ7p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jul 2013 05:59:45 -0400
 In-Reply-To: <1375264777-13595-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-This patch fixes a lockdep issue created due to ixgbe_ptp_stop always running
-cancel_work_sync even if the work item had not been created properly with
-INIT_WORK. This is caused because ixgbe_ptp_stop did not check to actually
-ensure PTP was running first. The new implementation introduces a state in the
-&adapter->state field which is used to indicate that PTP is running. (This
-replaces the IXGBE_FLAG2_PTP_ENABLED field). This state will use the atomic
-set_bit, test_bit, and test_and_clear_bit functions. ixgbe_ptp_stop will check
-to ensure that PTP was enabled, (and if not, it will not attempt to do any
-cleanup work from ixgbe_ptp_init). This resolves the lockdep annotation warning
-found by Stephen Hemminger
+This patch fixes several issues with the previous implementation of the
+SFF data dump of SFP+ modules:
 
-Reported-by: Stephen Hemminger <stephen@networkplumber.org>
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Acked-by: Don Skidmore <donald.c.skidmore@intel.com>
+- removed the __IXGBE_READ_I2C flag - I2C access locking is handled in the
+  HW specific routines
+
+- fixed the read loop to read data from ee->offset to ee->len
+
+- the reads fail if __IXGBE_IN_SFP_INIT is set in the process - this is
+  needed because on some HW I2C operations can take long time and disrupt
+  the SFP and link detection process
+
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Reported-by: Ben Hutchings <bhutchings@solarflare.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |  6 +++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  8 ++++----
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c  | 12 +++++++-----
- 3 files changed, 14 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |  1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 73 ++++++------------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  4 --
+ 3 files changed, 18 insertions(+), 60 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index d882278..6844f39 100644
+index 7be725c..d882278 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -618,9 +618,8 @@ struct ixgbe_adapter {
- #define IXGBE_FLAG2_FDIR_REQUIRES_REINIT        (u32)(1 << 7)
- #define IXGBE_FLAG2_RSS_FIELD_IPV4_UDP		(u32)(1 << 8)
- #define IXGBE_FLAG2_RSS_FIELD_IPV6_UDP		(u32)(1 << 9)
--#define IXGBE_FLAG2_PTP_ENABLED			(u32)(1 << 10)
--#define IXGBE_FLAG2_PTP_PPS_ENABLED		(u32)(1 << 11)
--#define IXGBE_FLAG2_BRIDGE_MODE_VEB		(u32)(1 << 12)
-+#define IXGBE_FLAG2_PTP_PPS_ENABLED		(u32)(1 << 10)
-+#define IXGBE_FLAG2_BRIDGE_MODE_VEB		(u32)(1 << 11)
- 
- 	/* Tx fast path data */
- 	int num_tx_queues;
-@@ -754,6 +753,7 @@ enum ixgbe_state_t {
+@@ -754,7 +754,6 @@ enum ixgbe_state_t {
  	__IXGBE_DOWN,
  	__IXGBE_SERVICE_SCHED,
  	__IXGBE_IN_SFP_INIT,
-+	__IXGBE_PTP_RUNNING,
+-	__IXGBE_READ_I2C,
  };
  
  struct ixgbe_cb {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index ae58a92..da1ea28 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -2910,33 +2910,21 @@ static int ixgbe_get_module_info(struct net_device *dev,
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	u32 status;
+ 	u8 sff8472_rev, addr_mode;
+-	int ret_val = 0;
+ 	bool page_swap = false;
+ 
+-	/* avoid concurent i2c reads */
+-	while (test_bit(__IXGBE_IN_SFP_INIT, &adapter->state))
+-		msleep(100);
+-
+-	/* used by the service task */
+-	set_bit(__IXGBE_READ_I2C, &adapter->state);
+-
+ 	/* Check whether we support SFF-8472 or not */
+ 	status = hw->phy.ops.read_i2c_eeprom(hw,
+ 					     IXGBE_SFF_SFF_8472_COMP,
+ 					     &sff8472_rev);
+-	if (status != 0) {
+-		ret_val = -EIO;
+-		goto err_out;
+-	}
++	if (status != 0)
++		return -EIO;
+ 
+ 	/* addressing mode is not supported */
+ 	status = hw->phy.ops.read_i2c_eeprom(hw,
+ 					     IXGBE_SFF_SFF_8472_SWAP,
+ 					     &addr_mode);
+-	if (status != 0) {
+-		ret_val = -EIO;
+-		goto err_out;
+-	}
++	if (status != 0)
++		return -EIO;
+ 
+ 	if (addr_mode & IXGBE_SFF_ADDRESSING_MODE) {
+ 		e_err(drv, "Address change required to access page 0xA2, but not supported. Please report the module type to the driver maintainers.\n");
+@@ -2953,9 +2941,7 @@ static int ixgbe_get_module_info(struct net_device *dev,
+ 		modinfo->eeprom_len = ETH_MODULE_SFF_8472_LEN;
+ 	}
+ 
+-err_out:
+-	clear_bit(__IXGBE_READ_I2C, &adapter->state);
+-	return ret_val;
++	return 0;
+ }
+ 
+ static int ixgbe_get_module_eeprom(struct net_device *dev,
+@@ -2969,48 +2955,25 @@ static int ixgbe_get_module_eeprom(struct net_device *dev,
+ 	int i = 0;
+ 	int ret_val = 0;
+ 
+-	/* ixgbe_get_module_info is called before this function in all
+-	 * cases, so we do not need any checks we already do above,
+-	 * and can trust ee->len to be a known value.
+-	 */
++	if (ee->len == 0)
++		return -EINVAL;
+ 
+-	while (test_bit(__IXGBE_IN_SFP_INIT, &adapter->state))
+-		msleep(100);
+-	set_bit(__IXGBE_READ_I2C, &adapter->state);
++	for (i = ee->offset; i < ee->len; i++) {
++		/* I2C reads can take long time */
++		if (test_bit(__IXGBE_IN_SFP_INIT, &adapter->state))
++			return -EBUSY;
+ 
+-	/* Read the first block, SFF-8079 */
+-	for (i = 0; i < ETH_MODULE_SFF_8079_LEN; i++) {
+-		status = hw->phy.ops.read_i2c_eeprom(hw, i, &databyte);
+-		if (status != 0) {
+-			/* Error occured while reading module */
++		if (i < ETH_MODULE_SFF_8079_LEN)
++			status  = hw->phy.ops.read_i2c_eeprom(hw, i, &databyte);
++		else
++			status = hw->phy.ops.read_i2c_sff8472(hw, i, &databyte);
++
++		if (status != 0)
+ 			ret_val = -EIO;
+-			goto err_out;
+-		}
+-		data[i] = databyte;
+-	}
+ 
+-	/* If the second block is requested, check if SFF-8472 is supported. */
+-	if (ee->len == ETH_MODULE_SFF_8472_LEN) {
+-		if (data[IXGBE_SFF_SFF_8472_COMP] == IXGBE_SFF_SFF_8472_UNSUP)
+-			return -EOPNOTSUPP;
+-
+-		/* Read the second block, SFF-8472 */
+-		for (i = ETH_MODULE_SFF_8079_LEN;
+-		     i < ETH_MODULE_SFF_8472_LEN; i++) {
+-			status = hw->phy.ops.read_i2c_sff8472(hw,
+-				i - ETH_MODULE_SFF_8079_LEN, &databyte);
+-			if (status != 0) {
+-				/* Error occured while reading module */
+-				ret_val = -EIO;
+-				goto err_out;
+-			}
+-			data[i] = databyte;
+-		}
++		data[i - ee->offset] = databyte;
+ 	}
+ 
+-err_out:
+-	clear_bit(__IXGBE_READ_I2C, &adapter->state);
+-
+ 	return ret_val;
+ }
+ 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 69c6a49..785eafa 100644
+index 61fa0c3..2d0e846 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -4438,7 +4438,7 @@ void ixgbe_reset(struct ixgbe_adapter *adapter)
- 	if (hw->mac.san_mac_rar_index)
- 		hw->mac.ops.set_vmdq_san_mac(hw, VMDQ_P(0));
+@@ -5832,10 +5832,6 @@ static void ixgbe_sfp_detection_subtask(struct ixgbe_adapter *adapter)
+ 	    !(adapter->flags2 & IXGBE_FLAG2_SFP_NEEDS_RESET))
+ 		return;
  
--	if (adapter->flags2 & IXGBE_FLAG2_PTP_ENABLED)
-+	if (test_bit(__IXGBE_PTP_RUNNING, &adapter->state))
- 		ixgbe_ptp_reset(adapter);
- }
- 
-@@ -5766,7 +5766,7 @@ static void ixgbe_watchdog_link_is_up(struct ixgbe_adapter *adapter)
- 
- 	adapter->last_rx_ptp_check = jiffies;
- 
--	if (adapter->flags2 & IXGBE_FLAG2_PTP_ENABLED)
-+	if (test_bit(__IXGBE_PTP_RUNNING, &adapter->state))
- 		ixgbe_ptp_start_cyclecounter(adapter);
- 
- 	e_info(drv, "NIC Link is Up %s, Flow Control: %s\n",
-@@ -5812,7 +5812,7 @@ static void ixgbe_watchdog_link_is_down(struct ixgbe_adapter *adapter)
- 	if (ixgbe_is_sfp(hw) && hw->mac.type == ixgbe_mac_82598EB)
- 		adapter->flags2 |= IXGBE_FLAG2_SEARCH_FOR_SFP;
- 
--	if (adapter->flags2 & IXGBE_FLAG2_PTP_ENABLED)
-+	if (test_bit(__IXGBE_PTP_RUNNING, &adapter->state))
- 		ixgbe_ptp_start_cyclecounter(adapter);
- 
- 	e_info(drv, "NIC Link is Down\n");
-@@ -6119,7 +6119,7 @@ static void ixgbe_service_task(struct work_struct *work)
- 	ixgbe_fdir_reinit_subtask(adapter);
- 	ixgbe_check_hang_subtask(adapter);
- 
--	if (adapter->flags2 & IXGBE_FLAG2_PTP_ENABLED) {
-+	if (test_bit(__IXGBE_PTP_RUNNING, &adapter->state)) {
- 		ixgbe_ptp_overflow_check(adapter);
- 		ixgbe_ptp_rx_hang(adapter);
- 	}
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-index 331987d..5184e2a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-@@ -885,8 +885,8 @@ void ixgbe_ptp_init(struct ixgbe_adapter *adapter)
- 
- 	ixgbe_ptp_reset(adapter);
- 
--	/* set the flag that PTP has been enabled */
--	adapter->flags2 |= IXGBE_FLAG2_PTP_ENABLED;
-+	/* enter the IXGBE_PTP_RUNNING state */
-+	set_bit(__IXGBE_PTP_RUNNING, &adapter->state);
- 
- 	return;
- }
-@@ -899,10 +899,12 @@ void ixgbe_ptp_init(struct ixgbe_adapter *adapter)
-  */
- void ixgbe_ptp_stop(struct ixgbe_adapter *adapter)
- {
--	/* stop the overflow check task */
--	adapter->flags2 &= ~(IXGBE_FLAG2_PTP_ENABLED |
--			     IXGBE_FLAG2_PTP_PPS_ENABLED);
-+	/* Leave the IXGBE_PTP_RUNNING state. */
-+	if (!test_and_clear_bit(__IXGBE_PTP_RUNNING, &adapter->state))
-+		return;
- 
-+	/* stop the PPS signal */
-+	adapter->flags2 &= ~IXGBE_FLAG2_PTP_PPS_ENABLED;
- 	ixgbe_ptp_setup_sdp(adapter);
- 
- 	cancel_work_sync(&adapter->ptp_tx_work);
+-	/* concurent i2c reads are not supported */
+-	if (test_bit(__IXGBE_READ_I2C, &adapter->state))
+-		return;
+-
+ 	/* someone else is in init, wait until next service event */
+ 	if (test_and_set_bit(__IXGBE_IN_SFP_INIT, &adapter->state))
+ 		return;
 -- 
 1.7.11.7
