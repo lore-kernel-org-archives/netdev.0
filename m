@@ -1,81 +1,144 @@
 From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net-next 1/6] qlcnic: Add ethtool statistics for board temperature.
-Date: Tue, 30 Jul 2013 21:54:19 -0400
-Message-ID: <6a88678cfe46e0e4f639e8f80834dd3e4b46fdd1.1375244889.git.himanshu.madhani@qlogic.com>
+Subject: [PATCH net-next 2/6] qlcnic: Return appropriate error code.
+Date: Tue, 30 Jul 2013 21:54:20 -0400
+Message-ID: <4b8aa090f215fba7e929d3b97dadd11e82ab0828.1375244889.git.himanshu.madhani@qlogic.com>
 References: <cover.1375244889.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+	<himanshu.madhani@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:35172 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:35174 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751612Ab3GaCWH (ORCPT
+	by vger.kernel.org with ESMTP id S1751784Ab3GaCWH (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 22:22:07 -0400
 In-Reply-To: <cover.1375244889.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 
-o Added ethtool statistics to display adapter board
-  temperature.
+Driver should return appropriate error code when diagnotics
+loopback test is performed.
 
+Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h         | 1 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c | 5 +++++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c    | 2 ++
- 3 files changed, 8 insertions(+)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |  3 ++-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    | 23 +++++++++++++++-------
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |  2 +-
+ 3 files changed, 19 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index b00cf56..ac4160c 100644
+index ac4160c..469f049 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -490,6 +490,7 @@ struct qlcnic_adapter_stats {
- 	u64  tx_dma_map_error;
- 	u64  spurious_intr;
- 	u64  mac_filter_limit_overrun;
-+	u64  board_temperature;
- };
+@@ -953,10 +953,11 @@ struct qlcnic_ipaddr {
+ #define QLCNIC_LB_BUCKET_SIZE	32
  
- /*
+ /* QLCNIC Driver Error Code */
+-#define QLCNIC_FW_NOT_RESPOND		51
++#define QLCNIC_FW_RESPONSE_TIMEOUT	51
+ #define QLCNIC_TEST_IN_PROGRESS		52
+ #define QLCNIC_UNDEFINED_ERROR		53
+ #define QLCNIC_LB_CABLE_NOT_CONN	54
++#define QLCNIC_LB_IN_PROGRESS		55
+ #define QLCNIC_ILB_MAX_RCV_LOOP	10
+ 
+ struct qlcnic_filter {
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+index 0913c62..48666d4 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+@@ -1652,7 +1652,7 @@ int qlcnic_83xx_loopback_test(struct net_device *netdev, u8 mode)
+ 	if (ahw->op_mode == QLCNIC_NON_PRIV_FUNC) {
+ 		netdev_warn(netdev,
+ 			    "Loopback test not supported in non privileged mode\n");
+-		return ret;
++		return -ENOTSUPP;
+ 	}
+ 
+ 	if (test_bit(__QLCNIC_RESETTING, &adapter->state)) {
+@@ -1686,13 +1686,13 @@ int qlcnic_83xx_loopback_test(struct net_device *netdev, u8 mode)
+ 		if (test_bit(__QLCNIC_RESETTING, &adapter->state)) {
+ 			netdev_info(netdev,
+ 				    "Device is resetting, free LB test resources\n");
+-			ret = -EIO;
++			ret = -EBUSY;
+ 			goto free_diag_res;
+ 		}
+ 		if (loop++ > QLC_83XX_LB_WAIT_COUNT) {
+ 			netdev_info(netdev,
+ 				    "Firmware didn't sent link up event to loopback request\n");
+-			ret = -QLCNIC_FW_NOT_RESPOND;
++			ret = -QLCNIC_FW_RESPONSE_TIMEOUT;
+ 			qlcnic_83xx_clear_lb_mode(adapter, mode);
+ 			goto free_diag_res;
+ 		}
+@@ -1729,6 +1729,15 @@ int qlcnic_83xx_set_lb_mode(struct qlcnic_adapter *adapter, u8 mode)
+ 		return status;
+ 
+ 	config = ahw->port_config;
++
++	/* Check if port is already in loopback mode */
++	if ((config & QLC_83XX_CFG_LOOPBACK_HSS) ||
++	    (config & QLC_83XX_CFG_LOOPBACK_EXT)) {
++		netdev_err(netdev,
++			   "Port already in Loopback mode.\n");
++		return -QLCNIC_LB_IN_PROGRESS;
++	}
++
+ 	set_bit(QLC_83XX_IDC_COMP_AEN, &ahw->idc.status);
+ 
+ 	if (mode == QLCNIC_ILB_MODE)
+@@ -1756,14 +1765,14 @@ int qlcnic_83xx_set_lb_mode(struct qlcnic_adapter *adapter, u8 mode)
+ 			netdev_info(netdev,
+ 				    "Device is resetting, free LB test resources\n");
+ 			clear_bit(QLC_83XX_IDC_COMP_AEN, &ahw->idc.status);
+-			return -EIO;
++			return -EBUSY;
+ 		}
+ 		if (loop++ > QLC_83XX_LB_WAIT_COUNT) {
+ 			netdev_err(netdev,
+ 				   "Did not receive IDC completion AEN\n");
+ 			clear_bit(QLC_83XX_IDC_COMP_AEN, &ahw->idc.status);
+ 			qlcnic_83xx_clear_lb_mode(adapter, mode);
+-			return -EIO;
++			return -QLCNIC_FW_RESPONSE_TIMEOUT;
+ 		}
+ 	} while (test_bit(QLC_83XX_IDC_COMP_AEN, &ahw->idc.status));
+ 
+@@ -1805,14 +1814,14 @@ int qlcnic_83xx_clear_lb_mode(struct qlcnic_adapter *adapter, u8 mode)
+ 			netdev_info(netdev,
+ 				    "Device is resetting, free LB test resources\n");
+ 			clear_bit(QLC_83XX_IDC_COMP_AEN, &ahw->idc.status);
+-			return -EIO;
++			return -EBUSY;
+ 		}
+ 
+ 		if (loop++ > QLC_83XX_LB_WAIT_COUNT) {
+ 			netdev_err(netdev,
+ 				   "Did not receive IDC completion AEN\n");
+ 			clear_bit(QLC_83XX_IDC_COMP_AEN, &ahw->idc.status);
+-			return -EIO;
++			return -QLCNIC_FW_RESPONSE_TIMEOUT;
+ 		}
+ 	} while (test_bit(QLC_83XX_IDC_COMP_AEN, &ahw->idc.status));
+ 
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index 700a463..6edebe2 100644
+index 6edebe2..9eb97cd 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -53,6 +53,8 @@ static const struct qlcnic_stats qlcnic_gstrings_stats[] = {
- 				QLC_OFF(stats.mac_filter_limit_overrun)},
- 	{"spurious intr", QLC_SIZEOF(stats.spurious_intr),
- 	 QLC_OFF(stats.spurious_intr)},
-+	{"board_temperature", QLC_SIZEOF(stats.board_temperature),
-+	 QLC_OFF(stats.board_temperature)},
- 
- };
- 
-@@ -1147,6 +1149,9 @@ static void qlcnic_get_ethtool_stats(struct net_device *dev,
- 
- 	memset(data, 0, stats->n_stats * sizeof(u64));
- 	length = QLCNIC_STATS_LEN;
-+
-+	qlcnic_check_temp(adapter);
-+
- 	for (index = 0; index < length; index++) {
- 		p = (char *)adapter + qlcnic_gstrings_stats[index].stat_offset;
- 		size = qlcnic_gstrings_stats[index].sizeof_stat;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 4528f8e..7d5a932 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -2457,6 +2457,8 @@ int qlcnic_check_temp(struct qlcnic_adapter *adapter)
- 		}
- 	}
- 	adapter->ahw->temp = temp_state;
-+	adapter->stats.board_temperature = temp_val;
-+
- 	return rv;
- }
- 
+@@ -984,7 +984,7 @@ int qlcnic_loopback_test(struct net_device *netdev, u8 mode)
+ 		if (loop++ > QLCNIC_ILB_MAX_RCV_LOOP) {
+ 			netdev_info(netdev, "firmware didnt respond to loopback"
+ 				" configure request\n");
+-			ret = -QLCNIC_FW_NOT_RESPOND;
++			ret = -QLCNIC_FW_RESPONSE_TIMEOUT;
+ 			goto free_res;
+ 		} else if (adapter->ahw->diag_cnt) {
+ 			ret = adapter->ahw->diag_cnt;
 -- 
 1.8.1.4
