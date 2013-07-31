@@ -1,76 +1,86 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net-next] tcp_metrics: rearrange fields to avoid holes
-Date: Tue, 30 Jul 2013 20:08:10 -0700
-Message-ID: <1375240090.10515.53.camel@edumazet-glaptop>
-References: <1375238905-6423-1-git-send-email-amwang@redhat.com>
+Subject: Re: [PATCH] pkt_sched: fix bandwidth's accuracy of software device
+ with htb
+Date: Tue, 30 Jul 2013 20:08:42 -0700
+Message-ID: <1375240122.10515.54.camel@edumazet-glaptop>
+References: <51F878E6.1070806@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: Cong Wang <amwang@redhat.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Yang Yingliang <yangyingliang@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:59366 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751683Ab3GaDIM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 23:08:12 -0400
-Received: by mail-pd0-f172.google.com with SMTP id z10so205694pdj.17
-        for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 20:08:12 -0700 (PDT)
-In-Reply-To: <1375238905-6423-1-git-send-email-amwang@redhat.com>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:36100 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751683Ab3GaDIo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 23:08:44 -0400
+Received: by mail-pb0-f52.google.com with SMTP id wz12so205649pbc.39
+        for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 20:08:44 -0700 (PDT)
+In-Reply-To: <51F878E6.1070806@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-07-31 at 10:48 +0800, Cong Wang wrote:
-> From: Cong Wang <amwang@redhat.com>
+On Wed, 2013-07-31 at 10:39 +0800, Yang Yingliang wrote:
+> When we set bandwidth on the software devices with htb,
+> it's not precise.
 > 
-> On x86_64, before this patch:
+> With htb, sch->limit is set from devices TX queue's
+> length that is not 0. Because software devices TX
+> queue is 0, sch->limit is set to default value 1.
 > 
-> struct tcp_fastopen_metrics {
-> 	u16                        mss;                  /*     0     2 */
-> 	u16                        syn_loss:10;          /*     2: 6  2 */
+> Because the length of skb_buff queue is bigger than
+> sch->limit whose value is 1, some packets are dropped.
+> This leads to software devices can't make full use of
+> the bandwidth and influence the accuracy.
 > 
-> 	/* XXX 6 bits hole, try to pack */
-> 	/* XXX 4 bytes hole, try to pack */
+> To fix this issue, set the default value of sch->limit
+> to 1000 that is the value of eth device's tx_queueu_len.
 > 
-> 	long unsigned int          last_syn_loss;        /*     8     8 */
-> 	struct tcp_fastopen_cookie cookie;               /*    16    17 */
+> Example:
+> tc qdisc add dev bond0 root handle 1: htb default 1
+> tc class add dev bond0 parent 1:0 classid 1:1 htb rate 1Gbit ceil 1Gbit
+> iperf -c host -t 30 -i 10
 > 
-> 	/* size: 40, cachelines: 1, members: 4 */
-> 	/* sum members: 29, holes: 1, sum holes: 4 */
-> 	/* bit holes: 1, sum bit holes: 6 bits */
-> 	/* padding: 7 */
-> 	/* last cacheline: 40 bytes */
-> };
+> With old sch->limit:
+> [ ID] Interval       Transfer     Bandwidth
+> [  3]  0.0-10.0 sec   579 MBytes   486 Mbits/sec
+> [  3] 10.0-20.0 sec   604 MBytes   507 Mbits/sec
+> [  3] 20.0-30.0 sec   551 MBytes   462 Mbits/sec
+> [  3]  0.0-30.0 sec  1.69 GBytes   485 Mbits/sec
 > 
-> after this patch:
+> With new sch->limit:
+> [ ID] Interval       Transfer     Bandwidth
+> [  3]  0.0-10.0 sec  1.11 GBytes   955 Mbits/sec
+> [  3] 10.0-20.0 sec  1.11 GBytes   955 Mbits/sec
+> [  3] 20.0-30.0 sec  1.11 GBytes   955 Mbits/sec
+> [  3]  0.0-30.0 sec  3.33 GBytes   955 Mbits/sec
 > 
-> struct tcp_fastopen_metrics {
-> 	u16                        mss;                  /*     0     2 */
-> 	u16                        syn_loss:10;          /*     2: 6  2 */
+> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+> ---
+>  net/sched/sch_fifo.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> 	/* XXX 6 bits hole, try to pack */
-> 
-> 	struct tcp_fastopen_cookie cookie;               /*     4    17 */
-> 
-> 	/* XXX 3 bytes hole, try to pack */
-> 
-> 	long unsigned int          last_syn_loss;        /*    24     8 */
-> 
-> 	/* size: 32, cachelines: 1, members: 4 */
-> 	/* sum members: 29, holes: 1, sum holes: 3 */
-> 	/* bit holes: 1, sum bit holes: 6 bits */
-> 	/* last cacheline: 32 bytes */
-> };
-> 
-> On 32bit, the 4-byte hole should not exist, so this patch probably
-> doesn't change anything.
-> 
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+> diff --git a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
+> index e15a9eb..8dd27ec 100644
+> --- a/net/sched/sch_fifo.c
+> +++ b/net/sched/sch_fifo.c
+> @@ -54,7 +54,7 @@ static int fifo_init(struct Qdisc *sch, struct nlattr *opt)
+>  	bool is_bfifo = sch->ops == &bfifo_qdisc_ops;
+>  
+>  	if (opt == NULL) {
+> -		u32 limit = qdisc_dev(sch)->tx_queue_len ? : 1;
+> +		u32 limit = qdisc_dev(sch)->tx_queue_len ? : 1000;
+>  
+>  		if (is_bfifo)
+>  			limit *= psched_mtu(qdisc_dev(sch));
 
-Oh well, this patch is pure noise...
+Hmm. This looks like user error to me.
+
+What if existing scripts relied on the limit being 1 ?
+
+If you want to use pfifo on a virtual device, while not setting explicit
+limit, you have to "ifconfig bond0 txqueuelen 1000"
+
+Seriously, using pfifo or bfifo without setting explicit plimit/blimit
+is not very safe, even with non virtual devices.
