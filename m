@@ -1,219 +1,502 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 04/15] ixgbe: add new media type.
-Date: Wed, 31 Jul 2013 02:59:26 -0700
-Message-ID: <1375264777-13595-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 06/15] ixgbe: fix semaphore lock for I2C read/writes on 82598
+Date: Wed, 31 Jul 2013 02:59:28 -0700
+Message-ID: <1375264777-13595-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1375264777-13595-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:59620 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759068Ab3GaJ7o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jul 2013 05:59:44 -0400
+	id S1754884Ab3GaJ7p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jul 2013 05:59:45 -0400
 In-Reply-To: <1375264777-13595-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-This patch adds support for a new media type fiber_fixed.  This is useful
-to avoid all the SFP+ hot plug support path on devices who's fix fiber need
-not worry about such things.  This patch is needed for a following patch
-that adds support for "fiber_fixed" devices.
+ixgbe_read/write_i2c_phy_82598() does not hold the SWFW_SYNC
+semaphore for the entire function. Instead the lock is held only
+during the phy.ops.read/write_reg operations. As result when the
+function is being called simultaneously the I2C read/writes can
+be corrupted.
 
-v2: cleaned up logging message based on feedback from David Miller
+The following patch introduces the SWFW_SYNC semaphore for the
+entire ixgbe_read/write_i2c_phy_82598() function. To accomplish
+this I had to create 2 separate functions:
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+ixgbe_read_phy_reg_mdi()
+ixgbe_write_phy_reg_mdi()
+
+Those functions are identical to ixgbe_read/write_phy_reg_generic()
+sans the locking, and can be used in ixgbe_read/write_i2c_phy_82598()
+with the SWFW_SYNC semaphore being held.
+
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  | 93 +++++++++++++++++++++++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  3 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h    |  5 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |  1 +
- 4 files changed, 95 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c |  32 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c   | 292 +++++++++++++------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h   |   4 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |   2 +
+ 4 files changed, 182 insertions(+), 148 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index 0b82d38..9d627fd 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -527,6 +527,75 @@ static void ixgbe_flap_tx_laser_multispeed_fiber(struct ixgbe_hw *hw)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+index 4a5bfb6..d011d5c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+@@ -1018,8 +1018,17 @@ static s32 ixgbe_read_i2c_phy_82598(struct ixgbe_hw *hw, u8 dev_addr,
+ 	u16 sfp_addr = 0;
+ 	u16 sfp_data = 0;
+ 	u16 sfp_stat = 0;
++	u16 gssr;
+ 	u32 i;
+ 
++	if (IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_LAN_ID_1)
++		gssr = IXGBE_GSSR_PHY1_SM;
++	else
++		gssr = IXGBE_GSSR_PHY0_SM;
++
++	if (hw->mac.ops.acquire_swfw_sync(hw, gssr) != 0)
++		return IXGBE_ERR_SWFW_SYNC;
++
+ 	if (hw->phy.type == ixgbe_phy_nl) {
+ 		/*
+ 		 * phy SDA/SCL registers are at addresses 0xC30A to
+@@ -1028,17 +1037,17 @@ static s32 ixgbe_read_i2c_phy_82598(struct ixgbe_hw *hw, u8 dev_addr,
+ 		 */
+ 		sfp_addr = (dev_addr << 8) + byte_offset;
+ 		sfp_addr = (sfp_addr | IXGBE_I2C_EEPROM_READ_MASK);
+-		hw->phy.ops.write_reg(hw,
+-		                      IXGBE_MDIO_PMA_PMD_SDA_SCL_ADDR,
+-		                      MDIO_MMD_PMAPMD,
+-		                      sfp_addr);
++		hw->phy.ops.write_reg_mdi(hw,
++					  IXGBE_MDIO_PMA_PMD_SDA_SCL_ADDR,
++					  MDIO_MMD_PMAPMD,
++					  sfp_addr);
+ 
+ 		/* Poll status */
+ 		for (i = 0; i < 100; i++) {
+-			hw->phy.ops.read_reg(hw,
+-			                     IXGBE_MDIO_PMA_PMD_SDA_SCL_STAT,
+-			                     MDIO_MMD_PMAPMD,
+-			                     &sfp_stat);
++			hw->phy.ops.read_reg_mdi(hw,
++						IXGBE_MDIO_PMA_PMD_SDA_SCL_STAT,
++						MDIO_MMD_PMAPMD,
++						&sfp_stat);
+ 			sfp_stat = sfp_stat & IXGBE_I2C_EEPROM_STATUS_MASK;
+ 			if (sfp_stat != IXGBE_I2C_EEPROM_STATUS_IN_PROGRESS)
+ 				break;
+@@ -1052,8 +1061,8 @@ static s32 ixgbe_read_i2c_phy_82598(struct ixgbe_hw *hw, u8 dev_addr,
+ 		}
+ 
+ 		/* Read data */
+-		hw->phy.ops.read_reg(hw, IXGBE_MDIO_PMA_PMD_SDA_SCL_DATA,
+-		                     MDIO_MMD_PMAPMD, &sfp_data);
++		hw->phy.ops.read_reg_mdi(hw, IXGBE_MDIO_PMA_PMD_SDA_SCL_DATA,
++					MDIO_MMD_PMAPMD, &sfp_data);
+ 
+ 		*eeprom_data = (u8)(sfp_data >> 8);
+ 	} else {
+@@ -1061,6 +1070,7 @@ static s32 ixgbe_read_i2c_phy_82598(struct ixgbe_hw *hw, u8 dev_addr,
+ 	}
+ 
+ out:
++	hw->mac.ops.release_swfw_sync(hw, gssr);
+ 	return status;
+ }
+ 
+@@ -1326,6 +1336,8 @@ static struct ixgbe_phy_operations phy_ops_82598 = {
+ 	.reset			= &ixgbe_reset_phy_generic,
+ 	.read_reg		= &ixgbe_read_phy_reg_generic,
+ 	.write_reg		= &ixgbe_write_phy_reg_generic,
++	.read_reg_mdi		= &ixgbe_read_phy_reg_mdi,
++	.write_reg_mdi		= &ixgbe_write_phy_reg_mdi,
+ 	.setup_link		= &ixgbe_setup_phy_link_generic,
+ 	.setup_link_speed	= &ixgbe_setup_phy_link_speed_generic,
+ 	.read_i2c_sff8472	= &ixgbe_read_i2c_sff8472_82598,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+index e5691cc..71f554a 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+@@ -204,7 +204,83 @@ out:
  }
  
  /**
-+ *  ixgbe_set_fiber_fixed_speed - Set module link speed for fixed fiber
++ *  ixgbe_read_phy_mdi - Reads a value from a specified PHY register without
++ *  the SWFW lock
 + *  @hw: pointer to hardware structure
-+ *  @speed: link speed to set
-+ *
-+ *  We set the module speed differently for fixed fiber.  For other
-+ *  multi-speed devices we don't have an error value so here if we
-+ *  detect an error we just log it and exit.
-+ */
-+static void ixgbe_set_fiber_fixed_speed(struct ixgbe_hw *hw,
-+					ixgbe_link_speed speed)
++ *  @reg_addr: 32 bit address of PHY register to read
++ *  @phy_data: Pointer to read data from PHY register
++ **/
++s32 ixgbe_read_phy_reg_mdi(struct ixgbe_hw *hw, u32 reg_addr, u32 device_type,
++		       u16 *phy_data)
 +{
-+	s32 status;
-+	u8 rs, eeprom_data;
++	u32 i, data, command;
 +
-+	switch (speed) {
-+	case IXGBE_LINK_SPEED_10GB_FULL:
-+		/* one bit mask same as setting on */
-+		rs = IXGBE_SFF_SOFT_RS_SELECT_10G;
-+		break;
-+	case IXGBE_LINK_SPEED_1GB_FULL:
-+		rs = IXGBE_SFF_SOFT_RS_SELECT_1G;
-+		break;
-+	default:
-+		hw_dbg(hw, "Invalid fixed module speed\n");
-+		return;
++	/* Setup and write the address cycle command */
++	command = ((reg_addr << IXGBE_MSCA_NP_ADDR_SHIFT)  |
++		   (device_type << IXGBE_MSCA_DEV_TYPE_SHIFT) |
++		   (hw->phy.mdio.prtad << IXGBE_MSCA_PHY_ADDR_SHIFT) |
++		   (IXGBE_MSCA_ADDR_CYCLE | IXGBE_MSCA_MDI_COMMAND));
++
++	IXGBE_WRITE_REG(hw, IXGBE_MSCA, command);
++
++	/* Check every 10 usec to see if the address cycle completed.
++	 * The MDI Command bit will clear when the operation is
++	 * complete
++	 */
++	for (i = 0; i < IXGBE_MDIO_COMMAND_TIMEOUT; i++) {
++		udelay(10);
++
++		command = IXGBE_READ_REG(hw, IXGBE_MSCA);
++		if ((command & IXGBE_MSCA_MDI_COMMAND) == 0)
++				break;
 +	}
 +
-+	/* Set RS0 */
-+	status = hw->phy.ops.read_i2c_byte(hw, IXGBE_SFF_SFF_8472_OSCB,
-+					   IXGBE_I2C_EEPROM_DEV_ADDR2,
-+					   &eeprom_data);
-+	if (status) {
-+		hw_dbg(hw, "Failed to read Rx Rate Select RS0\n");
-+		goto out;
++
++	if ((command & IXGBE_MSCA_MDI_COMMAND) != 0) {
++		hw_dbg(hw, "PHY address command did not complete.\n");
++		return IXGBE_ERR_PHY;
 +	}
 +
-+	eeprom_data = (eeprom_data & ~IXGBE_SFF_SOFT_RS_SELECT_MASK) & rs;
++	/* Address cycle complete, setup and write the read
++	 * command
++	 */
++	command = ((reg_addr << IXGBE_MSCA_NP_ADDR_SHIFT)  |
++		   (device_type << IXGBE_MSCA_DEV_TYPE_SHIFT) |
++		   (hw->phy.mdio.prtad << IXGBE_MSCA_PHY_ADDR_SHIFT) |
++		   (IXGBE_MSCA_READ | IXGBE_MSCA_MDI_COMMAND));
 +
-+	status = hw->phy.ops.write_i2c_byte(hw, IXGBE_SFF_SFF_8472_OSCB,
-+					    IXGBE_I2C_EEPROM_DEV_ADDR2,
-+					    eeprom_data);
-+	if (status) {
-+		hw_dbg(hw, "Failed to write Rx Rate Select RS0\n");
-+		goto out;
++	IXGBE_WRITE_REG(hw, IXGBE_MSCA, command);
++
++	/* Check every 10 usec to see if the address cycle
++	 * completed. The MDI Command bit will clear when the
++	 * operation is complete
++	 */
++	for (i = 0; i < IXGBE_MDIO_COMMAND_TIMEOUT; i++) {
++		udelay(10);
++
++		command = IXGBE_READ_REG(hw, IXGBE_MSCA);
++		if ((command & IXGBE_MSCA_MDI_COMMAND) == 0)
++			break;
 +	}
 +
-+	/* Set RS1 */
-+	status = hw->phy.ops.read_i2c_byte(hw, IXGBE_SFF_SFF_8472_ESCB,
-+					   IXGBE_I2C_EEPROM_DEV_ADDR2,
-+					   &eeprom_data);
-+	if (status) {
-+		hw_dbg(hw, "Failed to read Rx Rate Select RS1\n");
-+		goto out;
++	if ((command & IXGBE_MSCA_MDI_COMMAND) != 0) {
++		hw_dbg(hw, "PHY read command didn't complete\n");
++		return IXGBE_ERR_PHY;
 +	}
 +
-+	eeprom_data = (eeprom_data & ~IXGBE_SFF_SOFT_RS_SELECT_MASK) & rs;
++	/* Read operation is complete.  Get the data
++	 * from MSRWD
++	 */
++	data = IXGBE_READ_REG(hw, IXGBE_MSRWD);
++	data >>= IXGBE_MSRWD_READ_DATA_SHIFT;
++	*phy_data = (u16)(data);
 +
-+	status = hw->phy.ops.write_i2c_byte(hw, IXGBE_SFF_SFF_8472_ESCB,
-+					    IXGBE_I2C_EEPROM_DEV_ADDR2,
-+					    eeprom_data);
-+	if (status) {
-+		hw_dbg(hw, "Failed to write Rx Rate Select RS1\n");
-+		goto out;
-+	}
-+out:
-+	return;
++	return 0;
 +}
 +
 +/**
-  *  ixgbe_setup_mac_link_multispeed_fiber - Set MAC link speed
+  *  ixgbe_read_phy_reg_generic - Reads a value from a specified PHY register
++ *  using the SWFW lock - this function is needed in most cases
   *  @hw: pointer to hardware structure
-  *  @speed: new link speed
-@@ -573,9 +642,14 @@ static s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
- 			goto out;
+  *  @reg_addr: 32 bit address of PHY register to read
+  *  @phy_data: Pointer to read data from PHY register
+@@ -212,10 +288,7 @@ out:
+ s32 ixgbe_read_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
+                                u32 device_type, u16 *phy_data)
+ {
+-	u32 command;
+-	u32 i;
+-	u32 data;
+-	s32 status = 0;
++	s32 status;
+ 	u16 gssr;
  
- 		/* Set the module link speed */
--		esdp_reg |= (IXGBE_ESDP_SDP5_DIR | IXGBE_ESDP_SDP5);
--		IXGBE_WRITE_REG(hw, IXGBE_ESDP, esdp_reg);
--		IXGBE_WRITE_FLUSH(hw);
-+		if (hw->phy.media_type == ixgbe_media_type_fiber_fixed) {
-+			ixgbe_set_fiber_fixed_speed(hw,
-+					IXGBE_LINK_SPEED_10GB_FULL);
-+		} else {
-+			esdp_reg |= (IXGBE_ESDP_SDP5_DIR | IXGBE_ESDP_SDP5);
-+			IXGBE_WRITE_REG(hw, IXGBE_ESDP, esdp_reg);
-+			IXGBE_WRITE_FLUSH(hw);
-+		}
+ 	if (IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_LAN_ID_1)
+@@ -223,86 +296,93 @@ s32 ixgbe_read_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
+ 	else
+ 		gssr = IXGBE_GSSR_PHY0_SM;
  
- 		/* Allow module to change analog characteristics (1G->10G) */
- 		msleep(40);
-@@ -625,10 +699,15 @@ static s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
- 			goto out;
+-	if (hw->mac.ops.acquire_swfw_sync(hw, gssr) != 0)
++	if (hw->mac.ops.acquire_swfw_sync(hw, gssr) == 0) {
++		status = ixgbe_read_phy_reg_mdi(hw, reg_addr, device_type,
++						phy_data);
++		hw->mac.ops.release_swfw_sync(hw, gssr);
++	} else {
+ 		status = IXGBE_ERR_SWFW_SYNC;
++	}
  
- 		/* Set the module link speed */
--		esdp_reg &= ~IXGBE_ESDP_SDP5;
--		esdp_reg |= IXGBE_ESDP_SDP5_DIR;
--		IXGBE_WRITE_REG(hw, IXGBE_ESDP, esdp_reg);
--		IXGBE_WRITE_FLUSH(hw);
-+		if (hw->phy.media_type == ixgbe_media_type_fiber_fixed) {
-+			ixgbe_set_fiber_fixed_speed(hw,
-+						IXGBE_LINK_SPEED_1GB_FULL);
-+		} else {
-+			esdp_reg &= ~IXGBE_ESDP_SDP5;
-+			esdp_reg |= IXGBE_ESDP_SDP5_DIR;
-+			IXGBE_WRITE_REG(hw, IXGBE_ESDP, esdp_reg);
-+			IXGBE_WRITE_FLUSH(hw);
-+		}
+-	if (status == 0) {
+-		/* Setup and write the address cycle command */
+-		command = ((reg_addr << IXGBE_MSCA_NP_ADDR_SHIFT)  |
+-		           (device_type << IXGBE_MSCA_DEV_TYPE_SHIFT) |
+-		           (hw->phy.mdio.prtad << IXGBE_MSCA_PHY_ADDR_SHIFT) |
+-		           (IXGBE_MSCA_ADDR_CYCLE | IXGBE_MSCA_MDI_COMMAND));
++	return status;
++}
  
- 		/* Allow module to change analog characteristics (10G->1G) */
- 		msleep(40);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index ddbc3ee..0d09711 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -72,6 +72,7 @@ bool ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
- 	bool link_up;
+-		IXGBE_WRITE_REG(hw, IXGBE_MSCA, command);
++/**
++ *  ixgbe_write_phy_reg_mdi - Writes a value to specified PHY register
++ *  without SWFW lock
++ *  @hw: pointer to hardware structure
++ *  @reg_addr: 32 bit PHY register to write
++ *  @device_type: 5 bit device type
++ *  @phy_data: Data to write to the PHY register
++ **/
++s32 ixgbe_write_phy_reg_mdi(struct ixgbe_hw *hw, u32 reg_addr,
++				u32 device_type, u16 phy_data)
++{
++	u32 i, command;
  
- 	switch (hw->phy.media_type) {
-+	case ixgbe_media_type_fiber_fixed:
- 	case ixgbe_media_type_fiber:
- 		hw->mac.ops.check_link(hw, &speed, &link_up, false);
- 		/* if link is down, assume supported */
-@@ -138,6 +139,7 @@ static s32 ixgbe_setup_fc(struct ixgbe_hw *hw)
- 	 * we link at 10G, the 1G advertisement is harmless and vice versa.
- 	 */
- 	switch (hw->phy.media_type) {
-+	case ixgbe_media_type_fiber_fixed:
- 	case ixgbe_media_type_fiber:
- 	case ixgbe_media_type_backplane:
- 		reg = IXGBE_READ_REG(hw, IXGBE_PCS1GANA);
-@@ -2404,6 +2406,7 @@ void ixgbe_fc_autoneg(struct ixgbe_hw *hw)
+-		/*
+-		 * Check every 10 usec to see if the address cycle completed.
+-		 * The MDI Command bit will clear when the operation is
+-		 * complete
+-		 */
+-		for (i = 0; i < IXGBE_MDIO_COMMAND_TIMEOUT; i++) {
+-			udelay(10);
++	/* Put the data in the MDI single read and write data register*/
++	IXGBE_WRITE_REG(hw, IXGBE_MSRWD, (u32)phy_data);
  
- 	switch (hw->phy.media_type) {
- 	/* Autoneg flow control on fiber adapters */
-+	case ixgbe_media_type_fiber_fixed:
- 	case ixgbe_media_type_fiber:
- 		if (speed == IXGBE_LINK_SPEED_1GB_FULL)
- 			ret_val = ixgbe_fc_autoneg_fiber(hw);
+-			command = IXGBE_READ_REG(hw, IXGBE_MSCA);
++	/* Setup and write the address cycle command */
++	command = ((reg_addr << IXGBE_MSCA_NP_ADDR_SHIFT)  |
++		   (device_type << IXGBE_MSCA_DEV_TYPE_SHIFT) |
++		   (hw->phy.mdio.prtad << IXGBE_MSCA_PHY_ADDR_SHIFT) |
++		   (IXGBE_MSCA_ADDR_CYCLE | IXGBE_MSCA_MDI_COMMAND));
+ 
+-			if ((command & IXGBE_MSCA_MDI_COMMAND) == 0)
+-				break;
+-		}
++	IXGBE_WRITE_REG(hw, IXGBE_MSCA, command);
+ 
+-		if ((command & IXGBE_MSCA_MDI_COMMAND) != 0) {
+-			hw_dbg(hw, "PHY address command did not complete.\n");
+-			status = IXGBE_ERR_PHY;
+-		}
++	/*
++	 * Check every 10 usec to see if the address cycle completed.
++	 * The MDI Command bit will clear when the operation is
++	 * complete
++	 */
++	for (i = 0; i < IXGBE_MDIO_COMMAND_TIMEOUT; i++) {
++		udelay(10);
+ 
+-		if (status == 0) {
+-			/*
+-			 * Address cycle complete, setup and write the read
+-			 * command
+-			 */
+-			command = ((reg_addr << IXGBE_MSCA_NP_ADDR_SHIFT)  |
+-			           (device_type << IXGBE_MSCA_DEV_TYPE_SHIFT) |
+-			           (hw->phy.mdio.prtad <<
+-				    IXGBE_MSCA_PHY_ADDR_SHIFT) |
+-			           (IXGBE_MSCA_READ | IXGBE_MSCA_MDI_COMMAND));
+-
+-			IXGBE_WRITE_REG(hw, IXGBE_MSCA, command);
+-
+-			/*
+-			 * Check every 10 usec to see if the address cycle
+-			 * completed. The MDI Command bit will clear when the
+-			 * operation is complete
+-			 */
+-			for (i = 0; i < IXGBE_MDIO_COMMAND_TIMEOUT; i++) {
+-				udelay(10);
+-
+-				command = IXGBE_READ_REG(hw, IXGBE_MSCA);
+-
+-				if ((command & IXGBE_MSCA_MDI_COMMAND) == 0)
+-					break;
+-			}
++		command = IXGBE_READ_REG(hw, IXGBE_MSCA);
++		if ((command & IXGBE_MSCA_MDI_COMMAND) == 0)
++			break;
++	}
+ 
+-			if ((command & IXGBE_MSCA_MDI_COMMAND) != 0) {
+-				hw_dbg(hw, "PHY read command didn't complete\n");
+-				status = IXGBE_ERR_PHY;
+-			} else {
+-				/*
+-				 * Read operation is complete.  Get the data
+-				 * from MSRWD
+-				 */
+-				data = IXGBE_READ_REG(hw, IXGBE_MSRWD);
+-				data >>= IXGBE_MSRWD_READ_DATA_SHIFT;
+-				*phy_data = (u16)(data);
+-			}
+-		}
++	if ((command & IXGBE_MSCA_MDI_COMMAND) != 0) {
++		hw_dbg(hw, "PHY address cmd didn't complete\n");
++		return IXGBE_ERR_PHY;
++	}
+ 
+-		hw->mac.ops.release_swfw_sync(hw, gssr);
++	/*
++	 * Address cycle complete, setup and write the write
++	 * command
++	 */
++	command = ((reg_addr << IXGBE_MSCA_NP_ADDR_SHIFT)  |
++		   (device_type << IXGBE_MSCA_DEV_TYPE_SHIFT) |
++		   (hw->phy.mdio.prtad << IXGBE_MSCA_PHY_ADDR_SHIFT) |
++		   (IXGBE_MSCA_WRITE | IXGBE_MSCA_MDI_COMMAND));
++
++	IXGBE_WRITE_REG(hw, IXGBE_MSCA, command);
++
++	/* Check every 10 usec to see if the address cycle
++	 * completed. The MDI Command bit will clear when the
++	 * operation is complete
++	 */
++	for (i = 0; i < IXGBE_MDIO_COMMAND_TIMEOUT; i++) {
++		udelay(10);
++
++		command = IXGBE_READ_REG(hw, IXGBE_MSCA);
++		if ((command & IXGBE_MSCA_MDI_COMMAND) == 0)
++			break;
+ 	}
+ 
+-	return status;
++	if ((command & IXGBE_MSCA_MDI_COMMAND) != 0) {
++		hw_dbg(hw, "PHY write cmd didn't complete\n");
++		return IXGBE_ERR_PHY;
++	}
++
++	return 0;
+ }
+ 
+ /**
+  *  ixgbe_write_phy_reg_generic - Writes a value to specified PHY register
++ *  using SWFW lock- this function is needed in most cases
+  *  @hw: pointer to hardware structure
+  *  @reg_addr: 32 bit PHY register to write
+  *  @device_type: 5 bit device type
+@@ -311,9 +391,7 @@ s32 ixgbe_read_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
+ s32 ixgbe_write_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
+                                 u32 device_type, u16 phy_data)
+ {
+-	u32 command;
+-	u32 i;
+-	s32 status = 0;
++	s32 status;
+ 	u16 gssr;
+ 
+ 	if (IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_LAN_ID_1)
+@@ -321,74 +399,12 @@ s32 ixgbe_write_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
+ 	else
+ 		gssr = IXGBE_GSSR_PHY0_SM;
+ 
+-	if (hw->mac.ops.acquire_swfw_sync(hw, gssr) != 0)
+-		status = IXGBE_ERR_SWFW_SYNC;
+-
+-	if (status == 0) {
+-		/* Put the data in the MDI single read and write data register*/
+-		IXGBE_WRITE_REG(hw, IXGBE_MSRWD, (u32)phy_data);
+-
+-		/* Setup and write the address cycle command */
+-		command = ((reg_addr << IXGBE_MSCA_NP_ADDR_SHIFT)  |
+-		           (device_type << IXGBE_MSCA_DEV_TYPE_SHIFT) |
+-		           (hw->phy.mdio.prtad << IXGBE_MSCA_PHY_ADDR_SHIFT) |
+-		           (IXGBE_MSCA_ADDR_CYCLE | IXGBE_MSCA_MDI_COMMAND));
+-
+-		IXGBE_WRITE_REG(hw, IXGBE_MSCA, command);
+-
+-		/*
+-		 * Check every 10 usec to see if the address cycle completed.
+-		 * The MDI Command bit will clear when the operation is
+-		 * complete
+-		 */
+-		for (i = 0; i < IXGBE_MDIO_COMMAND_TIMEOUT; i++) {
+-			udelay(10);
+-
+-			command = IXGBE_READ_REG(hw, IXGBE_MSCA);
+-
+-			if ((command & IXGBE_MSCA_MDI_COMMAND) == 0)
+-				break;
+-		}
+-
+-		if ((command & IXGBE_MSCA_MDI_COMMAND) != 0) {
+-			hw_dbg(hw, "PHY address cmd didn't complete\n");
+-			status = IXGBE_ERR_PHY;
+-		}
+-
+-		if (status == 0) {
+-			/*
+-			 * Address cycle complete, setup and write the write
+-			 * command
+-			 */
+-			command = ((reg_addr << IXGBE_MSCA_NP_ADDR_SHIFT)  |
+-			           (device_type << IXGBE_MSCA_DEV_TYPE_SHIFT) |
+-			           (hw->phy.mdio.prtad <<
+-				    IXGBE_MSCA_PHY_ADDR_SHIFT) |
+-			           (IXGBE_MSCA_WRITE | IXGBE_MSCA_MDI_COMMAND));
+-
+-			IXGBE_WRITE_REG(hw, IXGBE_MSCA, command);
+-
+-			/*
+-			 * Check every 10 usec to see if the address cycle
+-			 * completed. The MDI Command bit will clear when the
+-			 * operation is complete
+-			 */
+-			for (i = 0; i < IXGBE_MDIO_COMMAND_TIMEOUT; i++) {
+-				udelay(10);
+-
+-				command = IXGBE_READ_REG(hw, IXGBE_MSCA);
+-
+-				if ((command & IXGBE_MSCA_MDI_COMMAND) == 0)
+-					break;
+-			}
+-
+-			if ((command & IXGBE_MSCA_MDI_COMMAND) != 0) {
+-				hw_dbg(hw, "PHY address cmd didn't complete\n");
+-				status = IXGBE_ERR_PHY;
+-			}
+-		}
+-
++	if (hw->mac.ops.acquire_swfw_sync(hw, gssr) == 0) {
++		status = ixgbe_write_phy_reg_mdi(hw, reg_addr, device_type,
++						 phy_data);
+ 		hw->mac.ops.release_swfw_sync(hw, gssr);
++	} else {
++		status = IXGBE_ERR_SWFW_SYNC;
+ 	}
+ 
+ 	return status;
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-index 886a343..2d3433f 100644
+index 2d3433f..647203a 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-@@ -44,6 +44,8 @@
- #define IXGBE_SFF_CABLE_SPEC_COMP    0x3C
- #define IXGBE_SFF_SFF_8472_SWAP      0x5C
- #define IXGBE_SFF_SFF_8472_COMP      0x5E
-+#define IXGBE_SFF_SFF_8472_OSCB	0x6E
-+#define IXGBE_SFF_SFF_8472_ESCB	0x76
- 
- /* Bitmasks */
- #define IXGBE_SFF_DA_PASSIVE_CABLE           0x4
-@@ -54,6 +56,9 @@
- #define IXGBE_SFF_1GBASET_CAPABLE            0x8
- #define IXGBE_SFF_10GBASESR_CAPABLE          0x10
- #define IXGBE_SFF_10GBASELR_CAPABLE          0x20
-+#define IXGBE_SFF_SOFT_RS_SELECT_MASK	0x8
-+#define IXGBE_SFF_SOFT_RS_SELECT_10G	0x8
-+#define IXGBE_SFF_SOFT_RS_SELECT_1G	0x0
- #define IXGBE_SFF_ADDRESSING_MODE	     0x4
- #define IXGBE_I2C_EEPROM_READ_MASK           0x100
- #define IXGBE_I2C_EEPROM_STATUS_MASK         0x3
+@@ -107,6 +107,10 @@ s32 ixgbe_read_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
+                                u32 device_type, u16 *phy_data);
+ s32 ixgbe_write_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
+                                 u32 device_type, u16 phy_data);
++s32 ixgbe_read_phy_reg_mdi(struct ixgbe_hw *hw, u32 reg_addr,
++			   u32 device_type, u16 *phy_data);
++s32 ixgbe_write_phy_reg_mdi(struct ixgbe_hw *hw, u32 reg_addr,
++			    u32 device_type, u16 phy_data);
+ s32 ixgbe_setup_phy_link_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_setup_phy_link_speed_generic(struct ixgbe_hw *hw,
+                                        ixgbe_link_speed speed,
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 70c6aa3..8968ea0 100644
+index 8968ea0..4c91ea6 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -2622,6 +2622,7 @@ enum ixgbe_sfp_type {
- enum ixgbe_media_type {
- 	ixgbe_media_type_unknown = 0,
- 	ixgbe_media_type_fiber,
-+	ixgbe_media_type_fiber_fixed,
- 	ixgbe_media_type_fiber_lco,
- 	ixgbe_media_type_copper,
- 	ixgbe_media_type_backplane,
+@@ -2886,6 +2886,8 @@ struct ixgbe_phy_operations {
+ 	s32 (*reset)(struct ixgbe_hw *);
+ 	s32 (*read_reg)(struct ixgbe_hw *, u32, u32, u16 *);
+ 	s32 (*write_reg)(struct ixgbe_hw *, u32, u32, u16);
++	s32 (*read_reg_mdi)(struct ixgbe_hw *, u32, u32, u16 *);
++	s32 (*write_reg_mdi)(struct ixgbe_hw *, u32, u32, u16);
+ 	s32 (*setup_link)(struct ixgbe_hw *);
+ 	s32 (*setup_link_speed)(struct ixgbe_hw *, ixgbe_link_speed, bool);
+ 	s32 (*check_link)(struct ixgbe_hw *, ixgbe_link_speed *, bool *);
 -- 
 1.7.11.7
