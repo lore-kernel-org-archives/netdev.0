@@ -1,59 +1,72 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next 0/5] bonding: groundwork and initial conversion
- to RCU
-Date: Wed, 31 Jul 2013 17:39:36 +0200
-Message-ID: <51F92FB8.1090000@redhat.com>
-References: <1375283553-32070-1-git-send-email-nikolay@redhat.com>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: issues with commit usbnet: mcs7830: apply usbnet_link_change
+Date: Wed, 31 Jul 2013 23:49:48 +0800
+Message-ID: <CACVXFVMwbCjcfeSeD907FDRoqkdN6YDYZ5mxt36ZZceenK8EGQ@mail.gmail.com>
+References: <51F8DF64.4030108@schmalmack.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: andy@greyhouse.net, davem@davemloft.net, fubar@us.ibm.com
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary=047d7b3435f6de80ef04e2d0ac7c
+Cc: Network Development <netdev@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>
+To: Till Schmalmack <till@schmalmack.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41604 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756599Ab3GaPnM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jul 2013 11:43:12 -0400
-In-Reply-To: <1375283553-32070-1-git-send-email-nikolay@redhat.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:34592 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756765Ab3GaPtu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 11:49:50 -0400
+In-Reply-To: <51F8DF64.4030108@schmalmack.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/31/2013 05:12 PM, Nikolay Aleksandrov wrote:
-<snip>
->  For performance notes please refer to patch 5 (RCU conversion one).
-> 
-Oops, I've forgotten to include the performance tests, here they are:
-2 slaves were used in all tests.
+--047d7b3435f6de80ef04e2d0ac7c
+Content-Type: text/plain; charset=ISO-8859-1
 
-1. Active-backup mode
- 1.1 Perf recording while doing iperf -P 4
-  - old bonding: iperf spent 0.55% in bonding, system spent 0.29% CPU
-                 in bonding
-  - new bonding: iperf spent 0.29% in bonding, system spent 0.15% CPU
-                 in bonding
- 1.2. Bandwidth measurements
-  - old bonding: 16.1 gbps consistently
-  - new bonding: 17.5 gbps consistently
+On Wed, Jul 31, 2013 at 5:56 PM, Till Schmalmack <till@schmalmack.net> wrote:
+> Hello Ming,
+>
+> I am experiencing issues with the usbnet commits you did for the 3.10
+> kernel, in particular with
+>
+> 4be74c13 usbnet: mcs7830: apply usbnet_link_change
+>
+> I filed this bug
+>
+> https://bugzilla.kernel.org/show_bug.cgi?id=60662
 
-2. Round-robin mode
- 2.1 Perf recording while doing iperf -P 4
-  - old bonding: iperf spent 0.51% in bonding, system spent 0.24% CPU
-                 in bonding
-  - new bonding: iperf spent 0.16% in bonding, system spent 0.11% CPU
-                 in bonding
- 2.2 Bandwidth measurements
-  - old bonding: 8 gbps (variable due to packet reorderings)
-  - new bonding: 10 gbps (variable due to packet reorderings)
+Thanks for the report.
+
+Looks you didn't provide any debug info, could you apply the attachment
+patch and post the 'dmesg' info when you reproduce the bug.
 
 
-Of course the latency has improved in all converted modes, and moreover while
-doing enslave/release (since it doesn't affect tx anymore).
+Thanks,
+--
+Ming Lei
 
-Also I've stress tested all modes doing enslave/release in a loop while
-transmitting traffic.
+--047d7b3435f6de80ef04e2d0ac7c
+Content-Type: application/octet-stream; name="usbnet-link-dgb.patch"
+Content-Disposition: attachment; filename="usbnet-link-dgb.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hjspipbx0
 
-Cheers,
- Nik
-> Best regards,
->  Nikolay Aleksandrov
-<snip>
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3VzYi91c2JuZXQuYyBiL2RyaXZlcnMvbmV0L3VzYi91
+c2JuZXQuYwppbmRleCAwNmVlODJmLi4xNDIwNDE4IDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC91
+c2IvdXNibmV0LmMKKysrIGIvZHJpdmVycy9uZXQvdXNiL3VzYm5ldC5jCkBAIC0xMDA0LDYgKzEw
+MDQsOCBAQCBzdGF0aWMgY29uc3Qgc3RydWN0IGV0aHRvb2xfb3BzIHVzYm5ldF9ldGh0b29sX29w
+cyA9IHsKIAogc3RhdGljIHZvaWQgX19oYW5kbGVfbGlua19jaGFuZ2Uoc3RydWN0IHVzYm5ldCAq
+ZGV2KQogeworCWludCBsaW5rOworCiAJaWYgKCF0ZXN0X2JpdChFVkVOVF9ERVZfT1BFTiwgJmRl
+di0+ZmxhZ3MpKQogCQlyZXR1cm47CiAKQEAgLTEwMTUsMTIgKzEwMTcsMTUgQEAgc3RhdGljIHZv
+aWQgX19oYW5kbGVfbGlua19jaGFuZ2Uoc3RydWN0IHVzYm5ldCAqZGV2KQogCQkgKiB0eF90aW1l
+b3V0IHdpbGwgdW5saW5rIFVSQnMgZm9yIHNlbmRpbmcgcGFja2V0cyBhbmQKIAkJICogdHggcXVl
+dWUgaXMgc3RvcHBlZCBieSBuZXRjb3JlIGFmdGVyIGxpbmsgYmVjb21lcyBvZmYKIAkJICovCisJ
+CWxpbmsgPSAwOwogCX0gZWxzZSB7CiAJCS8qIHN1Ym1pdHRpbmcgVVJCcyBmb3IgcmVhZGluZyBw
+YWNrZXRzICovCiAJCXRhc2tsZXRfc2NoZWR1bGUoJmRldi0+YmgpOworCQlsaW5rID0gMTsKIAl9
+CiAKIAljbGVhcl9iaXQoRVZFTlRfTElOS19DSEFOR0UsICZkZXYtPmZsYWdzKTsKKwlkZXZfaW5m
+bygmZGV2LT51ZGV2LT5kZXYsICIlcyBsaW5rPSVkXG4iLCBfX2Z1bmNfXywgbGluayk7CiB9CiAK
+IC8qIHdvcmsgdGhhdCBjYW5ub3QgYmUgZG9uZSBpbiBpbnRlcnJ1cHQgY29udGV4dCB1c2VzIGtl
+dmVudGQuCkBAIC0xNzQ4LDYgKzE3NTMsOCBAQCBFWFBPUlRfU1lNQk9MKHVzYm5ldF9tYW5hZ2Vf
+cG93ZXIpOwogCiB2b2lkIHVzYm5ldF9saW5rX2NoYW5nZShzdHJ1Y3QgdXNibmV0ICpkZXYsIGJv
+b2wgbGluaywgYm9vbCBuZWVkX3Jlc2V0KQogeworCWRldl9pbmZvKCZkZXYtPnVkZXYtPmRldiwg
+IiVzIGxpbms9JWQgcmVzZXQ9JWRcbiIsIF9fZnVuY19fLCBsaW5rLAorCQkJbmVlZF9yZXNldCk7
+CiAJLyogdXBkYXRlIGxpbmsgYWZ0ZXIgbGluayBpcyByZXNldGVkICovCiAJaWYgKGxpbmsgJiYg
+IW5lZWRfcmVzZXQpCiAJCW5ldGlmX2NhcnJpZXJfb24oZGV2LT5uZXQpOwo=
+--047d7b3435f6de80ef04e2d0ac7c--
