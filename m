@@ -1,95 +1,35 @@
-From: Ronny Meeus <ronny.meeus@gmail.com>
-Subject: Re: How do I receive vlan tags on an AF_PACKET socket in 3.4 kernel?
-Date: Wed, 31 Jul 2013 22:01:39 +0200
-Message-ID: <CAMJ=MEcZBU9e+X3w5EFv3+FfKq5K7nKpF+Qc4XWYOFq7apKprw@mail.gmail.com>
-References: <CAMJ=MEe4cvp7-fwbCnq7SLM=44Zy8Jrz35FwRoWG-ytahdPRQA@mail.gmail.com>
- <1375193392.10515.28.camel@edumazet-glaptop> <CAMJ=MEdfn2uPHbNQZ1LOytOqwFTbAyV1ZtxOW8NomLCZJq+caQ@mail.gmail.com>
- <1375280187.10515.92.camel@edumazet-glaptop> <CAMJ=MEeLRQTROpj4LBJ2b--dqyxBUKPcW7F=q9qdqxm_4kHL7g@mail.gmail.com>
- <51F9226F.30202@redhat.com> <1375283370.10515.100.camel@edumazet-glaptop>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [net-next PATCH 1/1] drivers: net: cpsw: Add support for new
+ CPSW IP version
+Date: Wed, 31 Jul 2013 22:04:28 +0200
+Message-ID: <20130731200428.GD8027@netboy>
+References: <1375272746-24446-1-git-send-email-mugunthanvnm@ti.com>
+ <20130731144957.GC4904@netboy>
+ <20130731152827.GB25618@radagast>
+ <20130731163845.GB4234@netboy>
+ <20130731184525.GA629@radagast>
+ <20130731192229.GB8027@netboy>
+ <20130731194332.GA900@radagast>
+ <20130731194523.GB900@radagast>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f48.google.com ([209.85.219.48]:51699 "EHLO
-	mail-oa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754297Ab3GaUCB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 16:02:01 -0400
-Received: by mail-oa0-f48.google.com with SMTP id f4so2412128oah.7
-        for <netdev@vger.kernel.org>; Wed, 31 Jul 2013 13:02:00 -0700 (PDT)
-In-Reply-To: <1375283370.10515.100.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mugunthan V N <mugunthanvnm@ti.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, linux-omap@vger.kernel.org
+To: Felipe Balbi <balbi@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130731194523.GB900@radagast>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 31, 2013 at 5:09 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2013-07-31 at 16:42 +0200, Daniel Borkmann wrote:
->
->> You can use bpfc (git://github.com/borkmann/netsniff-ng.git), it also has
->> an extensive man page. That should probably do it:
->>
->> $ cat foo
->> ld vlant
->> jneq #4094, drop
->> ret #-1
->> drop: ret #0
->>
->> $ bpfc foo
->> { 0x20, 0, 0, 0xfffff02c },
->> { 0x15, 0, 1, 0x00000ffe },
->> { 0x6, 0, 0, 0xffffffff },
->> { 0x6, 0, 0, 0x00000000 },
->
+On Wed, Jul 31, 2013 at 10:45:23PM +0300, Felipe Balbi wrote:
+> 
+> one more thing, why do you consider a new revision to be an error ?
 
-Thanks Daniel, this is very useful information.
-I have cloned the repo and compiled the tool myself. It will be very
-useful in the future.
+Okay, so why don't you go and remove the version checking code
+altogether?
 
-> Thanks Daniel.
->
-> If the load of this BPF fails (because its an old kernel), then load
-> your old filter.
->
-
-I created a small test application after I backported the filter code
-to the 3.4 kernel.
-I instrumented the kernel with a printk at the moment the
-vlan_tx_tag_get call is done to see the actual value of the vlan tag
-since it did not work initially.
-
-These are the packets displayed by tcpdump:
-
-tcpdump: WARNING: eth-ntb: no IPv4 address assigned
-tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-listening on eth-ntb, link-type EN10MB (Ethernet), capture size 65535 bytes
-00:18:49.233283 06:00:00:00:00:80 > f7:00:00:00:ff:ff, ethertype
-802.1Q (0x8100), length 64:
-        0x0000:  f700 0000 ffff 0600 0000 0080 8100 affe
-        0x0010:  08ab 0014 0000 0000 0f00 0001 0096 6000
-        0x0020:  0096 0000 0001 0000 000d 0000 0000 0000
-        0x0030:  0000 0000 0000 0000 0000 0000 0000 0000
-
-So the Vlan is 0xffe and the priority/CFI field is 0xA.
-Apparently the value I need to  use in the filter is 0xaffe to make it
-work. Is this normal or is this a bug in the kernel?
-
-This is the filter I used:
-{ 0x20, 0, 0, 0xfffff02c }
-{ 0x15, 0, 1, 0x0000affe }
-{ 0x06, 0, 0, 0x00000800 }
-{ 0x06, 0, 0, 0x00000000 }
-
-And this is the trace of the kernel and my application:
-
-[12529.357172] BPF_S_ANC_VLAN_TAG: affe
-packets received:          1
-[12533.020743] BPF_S_ANC_VLAN_TAG: affe
-packets received:          2
-[12536.667159] BPF_S_ANC_VLAN_TAG: affe
-packets received:          3
-[12540.343857] BPF_S_ANC_VLAN_TAG: affe
-packets received:          4
+Thanks,
+Richard
 
 
-Best regards,
-Ronny
