@@ -1,47 +1,62 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 0/4] USB & USBNET: loose DMA SG check and support usbnet
- DMA SG
-Date: Wed, 31 Jul 2013 08:25:40 -0700
-Message-ID: <1375284340.10515.105.camel@edumazet-glaptop>
-References: <1375267909-30373-1-git-send-email-ming.lei@canonical.com>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: [PATCH 02/12] tile: avoid bug in tilepro net driver built with old hypervisor
+Date: Wed, 31 Jul 2013 11:05:04 -0400
+Message-ID: <689af33d3dd10d94ab71d177182055680a5a48a0.1375283105.git.cmetcalf@tilera.com>
+References: <cover.1374609948.git.cmetcalf@tilera.com>
+	<cover.1375283104.git.cmetcalf@tilera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
-	Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>,
-	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1375267909-30373-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from usmamail.tilera.com ([12.216.194.151]:31239 "EHLO
+	USMAMAIL.TILERA.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753117Ab3GaPVm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 11:21:42 -0400
+In-Reply-To: <cover.1375283104.git.cmetcalf@tilera.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-07-31 at 18:51 +0800, Ming Lei wrote:
-> Hi,
-> 
-> This patchset allows drivers to pass sg buffers which size can't be divided
-> by max packet size of endpoint if the host controllers support this kind
-> of sg buffers.
-> 
-> Previously we add check[1] on the situation and don't allow these sg buffers
-> passed to USB HCD, looks the check is too strict because some applications(such
-> as network stack) can't provide this sg buffers which size can be divided by
-> max packet size, so this patch looses the check in case that the host controllers
-> support it.
-> 
-> Also patch 3/4 implements DMA SG on usbnet driver, and patch 4/4
-> enables it on ax88179_178a USB3 NIC, so CPU utilization can be
-> decreased much with usbnet DMA SG when the USB3 NIC is attached to
-> xHCI controller.
+Building against headers from an older Tilera hypervisor can cause
+the frags[] array to be overrun.  Don't enable TSO in that case.
 
-This looks very promising to me, thanks a lot for doing this Ming.
+Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
+---
+ drivers/net/ethernet/tile/tilepro.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/tile/tilepro.c b/drivers/net/ethernet/tile/tilepro.c
+index 63fd9cc..cb67df7 100644
+--- a/drivers/net/ethernet/tile/tilepro.c
++++ b/drivers/net/ethernet/tile/tilepro.c
+@@ -1933,7 +1933,7 @@ static int tile_net_tx(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	unsigned int csum_start = skb_checksum_start_offset(skb);
+ 
+-	lepp_frag_t frags[LEPP_MAX_FRAGS];
++	lepp_frag_t frags[1 + MAX_SKB_FRAGS];
+ 
+ 	unsigned int num_frags;
+ 
+@@ -1948,7 +1948,7 @@ static int tile_net_tx(struct sk_buff *skb, struct net_device *dev)
+ 	unsigned int cmd_head, cmd_tail, cmd_next;
+ 	unsigned int comp_tail;
+ 
+-	lepp_cmd_t cmds[LEPP_MAX_FRAGS];
++	lepp_cmd_t cmds[1 + MAX_SKB_FRAGS];
+ 
+ 
+ 	/*
+@@ -2342,8 +2342,9 @@ static void tile_net_setup(struct net_device *dev)
+ 	/* We support scatter/gather. */
+ 	dev->features |= NETIF_F_SG;
+ 
+-	/* We support TSO. */
+-	dev->features |= NETIF_F_TSO;
++	/* We support TSO iff the HV supports sufficient frags. */
++	if (LEPP_MAX_FRAGS >= 1 + MAX_SKB_FRAGS)
++		dev->features |= NETIF_F_TSO;
+ 
+ #ifdef TILE_NET_GSO
+ 	/* We support GSO. */
+-- 
+1.8.3.1
