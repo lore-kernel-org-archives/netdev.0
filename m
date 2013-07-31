@@ -1,31 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mlx5: fix error return code in mlx5_alloc_uuars()
-Date: Tue, 30 Jul 2013 19:34:02 -0700 (PDT)
-Message-ID: <20130730.193402.158391859266321153.davem@davemloft.net>
-References: <CAPgLHd-BWzEPhH=Otzyc5p-MEm7MXQNvEPTyYhRLzq4d=FT2tg@mail.gmail.com>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH] pkt_sched: fix bandwidth's accuracy of software device with
+ htb
+Date: Wed, 31 Jul 2013 10:39:34 +0800
+Message-ID: <51F878E6.1070806@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: eli@mellanox.com, yongjun_wei@trendmicro.com.cn,
-	netdev@vger.kernel.org, linux-rdma@vger.kernel.org
-To: weiyj.lk@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45015 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758875Ab3GaCeD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 22:34:03 -0400
-In-Reply-To: <CAPgLHd-BWzEPhH=Otzyc5p-MEm7MXQNvEPTyYhRLzq4d=FT2tg@mail.gmail.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:19588 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751494Ab3GaClQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 22:41:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Tue, 30 Jul 2013 07:57:06 +0800
+When we set bandwidth on the software devices with htb,
+it's not precise.
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> 
-> Fix to return -ENOMEM from the ioremap error handling
-> case instead of 0, as done elsewhere in this function.
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+With htb, sch->limit is set from devices TX queue's
+length that is not 0. Because software devices TX
+queue is 0, sch->limit is set to default value 1.
 
-Applied, thanks.
+Because the length of skb_buff queue is bigger than
+sch->limit whose value is 1, some packets are dropped.
+This leads to software devices can't make full use of
+the bandwidth and influence the accuracy.
+
+To fix this issue, set the default value of sch->limit
+to 1000 that is the value of eth device's tx_queueu_len.
+
+Example:
+tc qdisc add dev bond0 root handle 1: htb default 1
+tc class add dev bond0 parent 1:0 classid 1:1 htb rate 1Gbit ceil 1Gbit
+iperf -c host -t 30 -i 10
+
+With old sch->limit:
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec   579 MBytes   486 Mbits/sec
+[  3] 10.0-20.0 sec   604 MBytes   507 Mbits/sec
+[  3] 20.0-30.0 sec   551 MBytes   462 Mbits/sec
+[  3]  0.0-30.0 sec  1.69 GBytes   485 Mbits/sec
+
+With new sch->limit:
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.11 GBytes   955 Mbits/sec
+[  3] 10.0-20.0 sec  1.11 GBytes   955 Mbits/sec
+[  3] 20.0-30.0 sec  1.11 GBytes   955 Mbits/sec
+[  3]  0.0-30.0 sec  3.33 GBytes   955 Mbits/sec
+
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+---
+ net/sched/sch_fifo.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
+index e15a9eb..8dd27ec 100644
+--- a/net/sched/sch_fifo.c
++++ b/net/sched/sch_fifo.c
+@@ -54,7 +54,7 @@ static int fifo_init(struct Qdisc *sch, struct nlattr *opt)
+ 	bool is_bfifo = sch->ops == &bfifo_qdisc_ops;
+ 
+ 	if (opt == NULL) {
+-		u32 limit = qdisc_dev(sch)->tx_queue_len ? : 1;
++		u32 limit = qdisc_dev(sch)->tx_queue_len ? : 1000;
+ 
+ 		if (is_bfifo)
+ 			limit *= psched_mtu(qdisc_dev(sch));
+-- 
+1.7.12
+
+
+
+.
