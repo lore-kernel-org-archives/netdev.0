@@ -1,40 +1,41 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next] vxlan: fix rcu related warnings
-Date: Tue, 30 Jul 2013 17:35:16 -0700
-Message-ID: <20130730173516.3d536077@nehalam.linuxnetplumber.net>
-References: <20130730131844.7d3f92de@nehalam.linuxnetplumber.net>
-	<CALnjE+qx1L5p6CzFcd4nMTvWbxm-7_bz10wjbuUJdt12Q4Kqpg@mail.gmail.com>
-	<20130730160245.4b7b84a1@nehalam.linuxnetplumber.net>
-	<1375225499.10515.31.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next v6 0/4] export device physical port id to
+ userspace
+Date: Tue, 30 Jul 2013 17:36:03 -0700 (PDT)
+Message-ID: <20130730.173603.2133735333775668182.davem@davemloft.net>
+References: <1375114612-537-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Pravin Shelar <pshelar@nicira.com>,
-	David Miller <davem@davemloft.net>,
-	Thomas Richter <tmricht@linux.vnet.ibm.com>,
-	Mike Rapoport <mike.rapoport@ravellosystems.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	Narendra_K@Dell.com, bhutchings@solarflare.com,
+	john.r.fastabend@intel.com, or.gerlitz@gmail.com,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
+	peter.p.waskiewicz.jr@intel.com, alexander.h.duyck@intel.com,
+	john.ronciak@intel.com, tushar.n.dave@intel.com,
+	matthew.vick@intel.com, mitch.a.williams@intel.com,
+	vyasevic@redhat.com, amwang@redhat.com, johannes@sipsolutions.net
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:52848 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757395Ab3GaAfU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 20:35:20 -0400
-Received: by mail-pb0-f47.google.com with SMTP id rr13so81015pbb.20
-        for <netdev@vger.kernel.org>; Tue, 30 Jul 2013 17:35:20 -0700 (PDT)
-In-Reply-To: <1375225499.10515.31.camel@edumazet-glaptop>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43969 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758632Ab3GaAgH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jul 2013 20:36:07 -0400
+In-Reply-To: <1375114612-537-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 30 Jul 2013 16:04:59 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Mon, 29 Jul 2013 18:16:48 +0200
 
-> On Tue, 2013-07-30 at 16:02 -0700, Stephen Hemminger wrote:
-> 
-> > Which version of sparse? I don't see this with latest version.
-> 
-> Make sure you have CONFIG_SPARSE_RCU_POINTER=y
-> 
-> 
+> Jiri Pirko (4):
+>   net: add ndo to get id of physical port of the device
+>   rtnl: export physical port id via RT netlink
+>   net: export physical port id via sysfs
+>   igb/igbvf: implement ndo_get_phys_port_id
 
-I have it enabled. And am using latest version from git.
+I applied all of the infrastructure patches (#1, #2, and #3) to net-next.
+
+I'll let Jeff Kirsher pick up the Intel driver bits.
