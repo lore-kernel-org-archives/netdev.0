@@ -1,77 +1,73 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: [net-next PATCH 1/1] drivers: net: cpsw: Add support for new
- CPSW IP version
-Date: Wed, 31 Jul 2013 18:28:27 +0300
-Message-ID: <20130731152827.GB25618@radagast>
-References: <1375272746-24446-1-git-send-email-mugunthanvnm@ti.com>
- <20130731144957.GC4904@netboy>
-Reply-To: <balbi@ti.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 60662] New: MosChip MCS7830 Ethernet adapter no longer
+ working after usbnet changes in 3.10
+Date: Wed, 31 Jul 2013 08:35:56 -0700
+Message-ID: <20130731083556.63e31c71@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="NDin8bjvE/0mNLFQ"
-Cc: Mugunthan V N <mugunthanvnm@ti.com>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>, <linux-omap@vger.kernel.org>, <balbi@ti.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:43457 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756809Ab3GaP2k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jul 2013 11:28:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20130731144957.GC4904@netboy>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:34323 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756560Ab3GaPgA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 11:36:00 -0400
+Received: by mail-pa0-f52.google.com with SMTP id kq13so987626pab.39
+        for <netdev@vger.kernel.org>; Wed, 31 Jul 2013 08:36:00 -0700 (PDT)
+Received: from nehalam.linuxnetplumber.net (static-50-53-71-109.bvtn.or.frontiernet.net. [50.53.71.109])
+        by mx.google.com with ESMTPSA id ue9sm5207572pab.7.2013.07.31.08.35.59
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Wed, 31 Jul 2013 08:35:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---NDin8bjvE/0mNLFQ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-On Wed, Jul 31, 2013 at 04:49:59PM +0200, Richard Cochran wrote:
-> On Wed, Jul 31, 2013 at 05:42:26PM +0530, Mugunthan V N wrote:
-> > The new IP version has a minor changes and the offsets are same as the =
-previous
-> > version, so instead of adding CPSW version number in the driver, make t=
-he driver
-> > to fall through to the latest versions so that the new version of CPSW =
-which has
-> > the same register offsets will work directly without patching the drive=
-r.
->=20
-> This doesn't make any sense to me. Why not just add the new version
-> number?
->=20
-> None of the hunks in your patch are on performance sensitive paths, so
-> I really can't see any point in removing the error checking.
 
-well, if a new revision of the IP comes, the driver at least has some
-chance to work without having to be modified. If it turns out that there
-are really different features, then we patch a new version, otherwise we
-should just assume highest known version and try it out.
+Begin forwarded message:
 
---=20
-balbi
+Date: Wed, 31 Jul 2013 02:40:48 -0700
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 60662] New: MosChip MCS7830 Ethernet adapter no longer working after usbnet changes in 3.10
 
---NDin8bjvE/0mNLFQ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+https://bugzilla.kernel.org/show_bug.cgi?id=60662
 
-iQIcBAEBAgAGBQJR+S0bAAoJEIaOsuA1yqREqiQQAJppTWd65kD8C3hDmvsirpf7
-4a0Z2ZMVgSgblk2bVdL+clpRYa+SqsmKhpCbBCHgUJBPUoiq+zfUUb5m7LL4oFsN
-3k7/9+XQ766YOQBk0VxkNDlGLHr8ZqOPAagH0mTjAaF7abcuV3EYk6r0XYJqKSKp
-126OqpVQmdcqXzeNwhEAnz5PZAQnYwwz6+7GWIpHAyl3CToVTUi81wmJU6YMT9ef
-3nzTocvInZnEor20203wbFVB7KTsdxWNYy12QLzndKe6OJWL8opGNzzdJZ858tvR
-NKEQpcWnzmQA3KOCEmfjcvPVNVV9FZXM9V52H28hYC47PVNa1VFUck6V1a88pFrk
-K1dQPdZwRvJUWPiXFvuc3y+VA/exB6ngWpN2GjwHwp2rQTP9qcgMv794quHmR/VI
-6bmU2VwIziKxOl9hR1bo+81d67eNvYJ8fWh8iH8jD4m1oI1B6IKTzfYUHt0GCHBN
-HSl3Pvw5APGPHfghGP9ty3Z2l2lPEsIEDox2QLy8MQKORWXBLSL+ElJeedmjgKn6
-MCb8ldEhsIH5YyNqFcQ/YsfdFXaBRP0FONw/OtfCNWeQwHvw9k7ldBAb4BKnvNlm
-IQEFKBj8NtzmEBM6g16BGy/7MdYxzen/L9IfHk0R0yT7YdvZ6zx4UXJ05Uw+WkEY
-IJZTBtAvwNQsjXlQojrB
-=fcQk
------END PGP SIGNATURE-----
+            Bug ID: 60662
+           Summary: MosChip MCS7830 Ethernet adapter no longer working
+                    after usbnet changes in 3.10
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.10.4
+          Hardware: x86-64
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: blocking
+          Priority: P1
+         Component: IPV4
+          Assignee: shemminger@linux-foundation.org
+          Reporter: kernel-bugzilla@schmalmack.net
+        Regression: No
 
---NDin8bjvE/0mNLFQ--
+This bug may or may not be related to
+bug #60521 usbnet changes in 3.10 stop use of sierra_net devices
+Since both resolutions are different, I decided to create a new bug.
+
+With kernels 3.10.4 and 3.10.0, my Delock USB Ethernet adapter (using a MosChip
+device) hardly survives the DHCP phase, then quickly becomes unresponsive. 
+Sometimes even during DHCP.
+
+Things went back to normal after reverting commit
+
+4be74c130d1c5c03bccef0ab8d7a6bb71c7de53a usbnet: mcs7830: apply
+usbnet_link_change
+
+I haven't digged any further so far.
+
+  Till
+
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
