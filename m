@@ -1,31 +1,43 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next v2] bonding: fix system hang due to fast igmp
- timer rescheduling
-Date: Thu, 01 Aug 2013 09:45:31 +0200
-Message-ID: <51FA121B.4010100@redhat.com>
-References: <1375227846-17761-1-git-send-email-nikolay@redhat.com> <20130731.170547.33285495878732634.davem@davemloft.net>
+Subject: Re: [PATCH net-next 5/5] bonding: initial RCU conversion
+Date: Thu, 01 Aug 2013 09:55:07 +0200
+Message-ID: <51FA145B.3000509@redhat.com>
+References: <1375283553-32070-1-git-send-email-nikolay@redhat.com> <1375283553-32070-6-git-send-email-nikolay@redhat.com> <51FA0453.5000902@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, davem@davemloft.net,
+	fubar@us.ibm.com
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22528 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:49675 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752785Ab3HAHph (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Aug 2013 03:45:37 -0400
-In-Reply-To: <20130731.170547.33285495878732634.davem@davemloft.net>
+	id S1750856Ab3HAHzQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Aug 2013 03:55:16 -0400
+In-Reply-To: <51FA0453.5000902@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/01/2013 02:05 AM, David Miller wrote:
-> From: Nikolay Aleksandrov <nikolay@redhat.com>
-> Date: Wed, 31 Jul 2013 01:44:06 +0200
+On 08/01/2013 08:46 AM, Ding Tianhong wrote:
+> On 2013/7/31 23:12, Nikolay Aleksandrov wrote:
+>> This patch does the initial bonding conversion to RCU. After it the
+>> following modes are protected by RCU alone: roundrobin, active-backup,
+>> broadcast and xor. Modes ALB/TLB and 3ad still acquire bond->lock for
+>> reading, and will be dealt with later. curr_active_slave needs to be
+>> dereferenced via rcu in the converted modes because the only thing
+>> protecting the slave after this patch is rcu_read_lock, so we need the
+>> proper barrier for weakly ordered archs and to make sure we don't have
+>> stale pointer. It's not tagged with __rcu yet because there's still work
+>> to be done to remove the curr_slave_lock, so sparse will complain when
+>> rcu_assign_pointer and rcu_dereference are used, but the alternative to use
+>> rcu_dereference_protected would've created much bigger code churn which is
+>> more difficult to test and review. That will be converted in time.
+>>
+>> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 > 
->> From: "nikolay@redhat.com" <nikolay@redhat.com>
 > 
-> I don't think that "nikolay@redhat.com" is your name. :-)
+> great job! but I think you miss come place to replace by rcu protect.
+> example: bonding_show_active_slave() still has curr = bond->curr_active_slave,
+> so I think you could replace them all and send together.
 > 
-> Please fix this up and resubmit, thanks.
-> 
-hehe nothing like a little git mess, will do. Thanks :-)
+Thanks, I'll fix this. In fact that code always looked racy to me :)
