@@ -1,39 +1,33 @@
-From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
-Subject: Re: [PATCH v3] fib_rules: add .suppress operation
-Date: Thu, 1 Aug 2013 02:24:07 +0200
-Message-ID: <20130801002407.GL10550@zirkel.wertarbyte.de>
-References: <20130727070758.GA23904@order.stressinduktion.org>
- <20130730074636.GC10550@zirkel.wertarbyte.de>
- <20130731.151354.1698882304457097890.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Remove extern from include/net/ scheduling
+ prototypes
+Date: Wed, 31 Jul 2013 17:24:37 -0700 (PDT)
+Message-ID: <20130731.172437.198780183941616730.davem@davemloft.net>
+References: <470a8782ea89cee979eca82c7847748129de6bd0.1375249605.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-	bsderandrew@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zirkel.wertarbyte.de ([188.40.44.137]:58184 "EHLO
-	zirkel.wertarbyte.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750857Ab3HAAYI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 20:24:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20130731.151354.1698882304457097890.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com,
+	linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <470a8782ea89cee979eca82c7847748129de6bd0.1375249605.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dies schrieb David Miller (davem@davemloft.net):
+From: Joe Perches <joe@perches.com>
+Date: Tue, 30 Jul 2013 22:47:13 -0700
 
-> I just want to mention that the more quirky crap we put into the FIB
-> rules layer, the harder it will every be to make a scalable data
-> structure for FIB rule handling.
+> There are a mix of function prototypes with and without extern
+> in the kernel sources.  Standardize on not using extern for
+> function prototypes.
 > 
-> Right now it's basically a linear walk of rules, with processing at
-> each level.
+> Function prototypes don't need to be written with extern.
+> extern is assumed by the compiler.  Its use is as unnecessary as
+> using auto to declare automatic/local variables in a block.
+> 
+> Reflow modified prototypes to 80 columns.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-And it still is: but instead of just having pre-conditions whether to
-consult a table, the patch introduces post-conditions that can reject
-a routing decision retrieved from it.
-
-> Anyways, there are coding style problems in your change which you'll
-> need to address:
-
-Fixed in latest patch, thanks for the hints.
+Applied, thanks.
