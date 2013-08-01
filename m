@@ -1,134 +1,40 @@
-From: Ronny Meeus <ronny.meeus@gmail.com>
-Subject: Re: How do I receive vlan tags on an AF_PACKET socket in 3.4 kernel?
-Date: Thu, 1 Aug 2013 11:24:26 +0200
-Message-ID: <CAMJ=MEfZbCzQAzA-G9ooZQrwjR2vf7FGf4p66J0H6Eo2Xtdw0A@mail.gmail.com>
-References: <CAMJ=MEe4cvp7-fwbCnq7SLM=44Zy8Jrz35FwRoWG-ytahdPRQA@mail.gmail.com>
- <1375193392.10515.28.camel@edumazet-glaptop> <CAMJ=MEdfn2uPHbNQZ1LOytOqwFTbAyV1ZtxOW8NomLCZJq+caQ@mail.gmail.com>
- <1375280187.10515.92.camel@edumazet-glaptop> <CAMJ=MEeLRQTROpj4LBJ2b--dqyxBUKPcW7F=q9qdqxm_4kHL7g@mail.gmail.com>
- <51F9226F.30202@redhat.com> <1375283370.10515.100.camel@edumazet-glaptop>
- <CAMJ=MEcZBU9e+X3w5EFv3+FfKq5K7nKpF+Qc4XWYOFq7apKprw@mail.gmail.com> <1375303651.10515.110.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Sean Cross <xobs@kosagi.com>
+Subject: [PATCH v3] Add OF bindings to Micrel ksz9021 PHY
+Date: Thu,  1 Aug 2013 09:19:16 +0000
+Message-ID: <1375348757-12856-1-git-send-email-xobs@kosagi.com>
+Cc: David Miller <davem@davemloft.net>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Sean Cross <xobs@kosagi.com>
+To: Sascha Hauer <s.hauer@pengutronix.de>,
+	Duan Fugang-B38611 <B38611@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f170.google.com ([209.85.214.170]:37578 "EHLO
-	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753016Ab3HAJYs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 05:24:48 -0400
-Received: by mail-ob0-f170.google.com with SMTP id eh20so3439990obb.1
-        for <netdev@vger.kernel.org>; Thu, 01 Aug 2013 02:24:48 -0700 (PDT)
-In-Reply-To: <1375303651.10515.110.camel@edumazet-glaptop>
+Received: from mail1.g1.pair.com ([66.39.3.162]:28799 "EHLO mail1.g1.pair.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752204Ab3HAJgJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Aug 2013 05:36:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 31, 2013 at 10:47 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2013-07-31 at 22:01 +0200, Ronny Meeus wrote:
->> On Wed, Jul 31, 2013 at 5:09 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Wed, 2013-07-31 at 16:42 +0200, Daniel Borkmann wrote:
->> >
->> >> You can use bpfc (git://github.com/borkmann/netsniff-ng.git), it also has
->> >> an extensive man page. That should probably do it:
->> >>
->> >> $ cat foo
->> >> ld vlant
->> >> jneq #4094, drop
->> >> ret #-1
->> >> drop: ret #0
->> >>
->> >> $ bpfc foo
->> >> { 0x20, 0, 0, 0xfffff02c },
->> >> { 0x15, 0, 1, 0x00000ffe },
->> >> { 0x6, 0, 0, 0xffffffff },
->> >> { 0x6, 0, 0, 0x00000000 },
->> >
->>
->> Thanks Daniel, this is very useful information.
->> I have cloned the repo and compiled the tool myself. It will be very
->> useful in the future.
->>
->> > Thanks Daniel.
->> >
->> > If the load of this BPF fails (because its an old kernel), then load
->> > your old filter.
->> >
->>
->> I created a small test application after I backported the filter code
->> to the 3.4 kernel.
->> I instrumented the kernel with a printk at the moment the
->> vlan_tx_tag_get call is done to see the actual value of the vlan tag
->> since it did not work initially.
->>
->> These are the packets displayed by tcpdump:
->>
->> tcpdump: WARNING: eth-ntb: no IPv4 address assigned
->> tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
->> listening on eth-ntb, link-type EN10MB (Ethernet), capture size 65535 bytes
->> 00:18:49.233283 06:00:00:00:00:80 > f7:00:00:00:ff:ff, ethertype
->> 802.1Q (0x8100), length 64:
->>         0x0000:  f700 0000 ffff 0600 0000 0080 8100 affe
->>         0x0010:  08ab 0014 0000 0000 0f00 0001 0096 6000
->>         0x0020:  0096 0000 0001 0000 000d 0000 0000 0000
->>         0x0030:  0000 0000 0000 0000 0000 0000 0000 0000
->>
->> So the Vlan is 0xffe and the priority/CFI field is 0xA.
->> Apparently the value I need to  use in the filter is 0xaffe to make it
->> work. Is this normal or is this a bug in the kernel?
->>
->> This is the filter I used:
->> { 0x20, 0, 0, 0xfffff02c }
->> { 0x15, 0, 1, 0x0000affe }
->> { 0x06, 0, 0, 0x00000800 }
->> { 0x06, 0, 0, 0x00000000 }
->>
->> And this is the trace of the kernel and my application:
->>
->> [12529.357172] BPF_S_ANC_VLAN_TAG: affe
->> packets received:          1
->> [12533.020743] BPF_S_ANC_VLAN_TAG: affe
->> packets received:          2
->> [12536.667159] BPF_S_ANC_VLAN_TAG: affe
->> packets received:          3
->> [12540.343857] BPF_S_ANC_VLAN_TAG: affe
->> packets received:          4
->
-> Right, vlan_tx_tag_get() gets the whole tag, so you want to mask A with
-> 0xfff before the compare (to strip the prio)
->
-> ld vlant
-> and #4095
-> jneq #4094, drop
-> ret #-1
-> drop: ret #0
->
-> or something like that.
->
->
->
+Some boards require custom parameters be passed to the Micrel PHY.
+Allow these boards to specify custom timing parameters in the device
+tree node.
 
-OK the receiving side is clear now. Thanks.
+Changes since v2:
+ - limited the scope to just ksz9021 rather than all PHYs
 
-Now the sending side.
-I created an application that sends packets using libpcap. These
-packets are full Ethernet packets, including VLAN tags etc.
-If I connect a PC running Wireshark to the Ethernet port I'm sending
-on I receive the packets, no issues.
+Changes since v1:
+ - removed redefinition of registers and addresses 
 
-If a start on the device that is sending the packets also the receive
-application I created before I do not receive anything.
-This is because the filter attached to the kernel by this application
-is checking the VLAN tag in metadata of the buffer, which is in this
-case not filled in.
-If I do not attach a filter to the receiving application all packets I
-send are also received by the receiving application, which is what I
-expect since all packets sent on a raw socket are received by all
-other sockets listening on the same interface.
+Sean Cross (1):
+  net/phy: micrel: Add OF configuration support for ksz9021
 
-I have the feeling that there is something wrong with the current
-implementation.
-In my opinion, the same VLAN processing as done for packets received
-from the network (strip vlan and put it in the meta data) should be
-done on packets that are sent by an application just before passing
-them to other sockets listening on the same interface.
-Right?
+ .../devicetree/bindings/net/micrel-ksz9021.txt     |   19 +++++++
+ drivers/net/phy/micrel.c                           |   57 +++++++++++++++++++-
+ 2 files changed, 75 insertions(+), 1 deletion(-)
+ create mode 100644 Documentation/devicetree/bindings/net/micrel-ksz9021.txt
+
+-- 
+1.7.9.5
