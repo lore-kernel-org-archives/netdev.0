@@ -1,105 +1,89 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net 1/2] ipv6: move peer_addr init into ipv6_add_addr()
-Date: Thu,  1 Aug 2013 10:41:27 +0200
-Message-ID: <1375346488-1001-2-git-send-email-jiri@resnulli.us>
-References: <1375346488-1001-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, jbenc@redhat.com, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: netdev@vger.kernel.org
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH v2] net/phy: micrel: Add OF configuration support
+Date: Thu, 1 Aug 2013 10:47:28 +0200
+Message-ID: <20130801084728.GE26614@pengutronix.de>
+References: <1375340034-23846-1-git-send-email-xobs@kosagi.com>
+ <1375340034-23846-2-git-send-email-xobs@kosagi.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Duan Fugang-B38611 <B38611@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	Steven Rostedt <rostedt@goodmis.org>
+To: Sean Cross <xobs@kosagi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:64318 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753436Ab3HAIli (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 04:41:38 -0400
-Received: by mail-wi0-f180.google.com with SMTP id f14so1548815wiw.1
-        for <netdev@vger.kernel.org>; Thu, 01 Aug 2013 01:41:34 -0700 (PDT)
-In-Reply-To: <1375346488-1001-1-git-send-email-jiri@resnulli.us>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:33030 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753261Ab3HAIrg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 04:47:36 -0400
+Content-Disposition: inline
+In-Reply-To: <1375340034-23846-2-git-send-email-xobs@kosagi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- net/ipv6/addrconf.c | 20 +++++++++++---------
- 1 file changed, 11 insertions(+), 9 deletions(-)
+On Thu, Aug 01, 2013 at 06:53:54AM +0000, Sean Cross wrote:
+> Some boards require custom PHY configuration, for example due to trace
+> length differences.  Add the ability to configure these registers in
+> order to get the PHY to function on boards that need it.
+> 
+> Because PHYs are auto-detected based on MDIO device IDs, allow PHY
+> configuration to be specified in the parent Ethernet device node if no
+> PHY device node is present.
+> 
+> Signed-off-by: Sean Cross <xobs@kosagi.com>
+> ---
+>  .../devicetree/bindings/net/micrel-phy.txt         |   20 ++++++++
+>  drivers/net/phy/micrel.c                           |   50 ++++++++++++++++++++
+>  2 files changed, 70 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/micrel-phy.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/micrel-phy.txt b/Documentation/devicetree/bindings/net/micrel-phy.txt
+> new file mode 100644
+> index 0000000..97c1ef2
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/micrel-phy.txt
+> @@ -0,0 +1,20 @@
+> +Micrel KS8737, KSZ8041, KSZ8001, KS8721, KSZ8081, KSZ8091, KSZ8061, KSZ9021,
+> +KSZ9031, Ethernet PHYs, and KSZ8873MLL and KSZ886X Ethernet switches.
+> +
+> +Some boards require special tuning values, particularly when it comes to
+> +clock delays.  You can specify clock delay values by adding
+> +micrel-specific properties to an Ethernet OF device node.
+> +
+> +Optional properties:
+> +- micrel,clk-control-pad-skew : Timing offset for the MII clock line
+> +- micrel,rx-data-pad-skew : Timing offset for the RX MII pad
+> +- micrel,tx-data-pad-skew : Timing offset for the TX MII pad
+> +
+> +Example:
+> +	&enet {
+> +		micrel,clk-control-pad-skew = <0xf0f0>;
+> +		micrel,rx-data-pad-skew = <0x0000>;
+> +		micrel,tx-data-pad-skew = <0xffff>;
+> +		status = "okay";
+> +	};
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index cfdcf7b..a0ce957 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -813,7 +813,8 @@ static u32 inet6_addr_hash(const struct in6_addr *addr)
- /* On success it returns ifp with increased reference count */
- 
- static struct inet6_ifaddr *
--ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr, int pfxlen,
-+ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
-+	      const struct in6_addr *peer_addr, int pfxlen,
- 	      int scope, u32 flags)
- {
- 	struct inet6_ifaddr *ifa = NULL;
-@@ -863,6 +864,8 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr, int pfxlen,
- 	}
- 
- 	ifa->addr = *addr;
-+	if (peer_addr)
-+		ifa->peer_addr = *peer_addr;
- 
- 	spin_lock_init(&ifa->lock);
- 	spin_lock_init(&ifa->state_lock);
-@@ -1123,8 +1126,8 @@ retry:
- 
- 	ift = !max_addresses ||
- 	      ipv6_count_addresses(idev) < max_addresses ?
--		ipv6_add_addr(idev, &addr, tmp_plen, ipv6_addr_scope(&addr),
--			      addr_flags) : NULL;
-+		ipv6_add_addr(idev, &addr, NULL, tmp_plen,
-+			      ipv6_addr_scope(&addr), addr_flags) : NULL;
- 	if (IS_ERR_OR_NULL(ift)) {
- 		in6_ifa_put(ifp);
- 		in6_dev_put(idev);
-@@ -2179,7 +2182,8 @@ ok:
- 			 */
- 			if (!max_addresses ||
- 			    ipv6_count_addresses(in6_dev) < max_addresses)
--				ifp = ipv6_add_addr(in6_dev, &addr, pinfo->prefix_len,
-+				ifp = ipv6_add_addr(in6_dev, &addr, NULL,
-+						    pinfo->prefix_len,
- 						    addr_type&IPV6_ADDR_SCOPE_MASK,
- 						    addr_flags);
- 
-@@ -2455,15 +2459,13 @@ static int inet6_addr_add(struct net *net, int ifindex, const struct in6_addr *p
- 		prefered_lft = timeout;
- 	}
- 
--	ifp = ipv6_add_addr(idev, pfx, plen, scope, ifa_flags);
-+	ifp = ipv6_add_addr(idev, pfx, peer_pfx, plen, scope, ifa_flags);
- 
- 	if (!IS_ERR(ifp)) {
- 		spin_lock_bh(&ifp->lock);
- 		ifp->valid_lft = valid_lft;
- 		ifp->prefered_lft = prefered_lft;
- 		ifp->tstamp = jiffies;
--		if (peer_pfx)
--			ifp->peer_addr = *peer_pfx;
- 		spin_unlock_bh(&ifp->lock);
- 
- 		addrconf_prefix_route(&ifp->addr, ifp->prefix_len, dev,
-@@ -2557,7 +2559,7 @@ static void add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
- {
- 	struct inet6_ifaddr *ifp;
- 
--	ifp = ipv6_add_addr(idev, addr, plen, scope, IFA_F_PERMANENT);
-+	ifp = ipv6_add_addr(idev, addr, NULL, plen, scope, IFA_F_PERMANENT);
- 	if (!IS_ERR(ifp)) {
- 		spin_lock_bh(&ifp->lock);
- 		ifp->flags &= ~IFA_F_TENTATIVE;
-@@ -2683,7 +2685,7 @@ static void addrconf_add_linklocal(struct inet6_dev *idev, const struct in6_addr
- #endif
- 
- 
--	ifp = ipv6_add_addr(idev, addr, 64, IFA_LINK, addr_flags);
-+	ifp = ipv6_add_addr(idev, addr, NULL, 64, IFA_LINK, addr_flags);
- 	if (!IS_ERR(ifp)) {
- 		addrconf_prefix_route(&ifp->addr, ifp->prefix_len, idev->dev, 0, 0);
- 		addrconf_dad_start(ifp);
+Given that this patch adds a devicetree binding which I think we now
+agree that this introduces an ABI I think this needs more thought. Some
+questions:
+
+- Does binding this also work for MII controllers external to the MAC?
+  Several Marvell SoCs have this situation. MDIO is a bus. With the
+  binding above you assume that all devices on the bus use the same
+  settings
+- You directly put the register contents into dt. This assumes that all
+  micrel phys have a compatible register layout. This may be the case
+  now, but what's with future phys?
+- The pad skew settings are needed for other phys aswell. It might be
+  worth introducing a binding which could work for say Artheros phys
+  aswell.
+
+Sascha
+
 -- 
-1.7.11.7
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
