@@ -1,57 +1,29 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH 4/4] USBNET: ax88179_178a: enable tso if host supports sg dma
-Date: Thu, 1 Aug 2013 16:10:48 +0800
-Message-ID: <CACVXFVMt-TgRVU+iA3NVuUzJSeXUPGvV89OnDdHaLEB1Ua6aAw@mail.gmail.com>
-References: <1375267909-30373-1-git-send-email-ming.lei@canonical.com>
-	<1375267909-30373-5-git-send-email-ming.lei@canonical.com>
-	<1375329066.10515.125.camel@edumazet-glaptop>
-	<CACVXFVNSZJ+ojjBCwYDKsWWvs03aL8BugcX7u483MvBCQCH1sg@mail.gmail.com>
-	<1375333461.10515.133.camel@edumazet-glaptop>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RFC] xfrm{4,6}: only report errors back to local sockets if we don't cross address family
+Date: Thu, 1 Aug 2013 10:11:50 +0200
+Message-ID: <20130801081150.GF3688@order.stressinduktion.org>
+References: <20130729145017.GD2490@order.stressinduktion.org> <20130730082118.GA25511@secunet.com> <20130730083017.GA7068@order.stressinduktion.org> <20130730102611.GB25511@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
-	Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>,
-	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1375333461.10515.133.camel@edumazet-glaptop>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, vi0oss@gmail.com
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:52991 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752590Ab3HAILw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 04:11:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20130730102611.GB25511@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 1, 2013 at 1:04 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Thu, 2013-08-01 at 12:41 +0800, Ming Lei wrote:
->
->> From my trace result, lots of linear SKBs are cloned or header-cloned, so
->> it needs skb copy too.
->>
->> Is it normal in xmit path to see cloned SKBs for driver? If not, I can add check
->> to avoid allocation of 8 bytes header for non-cloned skb.
->
-> Existing code is not very friendly and very complex.
->
-> Sure TCP stack does a clone for every skb from socket write queue,
-> but header should be available for pushing 8 bytes.
->
-> The !skb_cloned(skb) test should be removed if the memmove() is not
-> needed.
->
-> Could you try following patch ?
+On Tue, Jul 30, 2013 at 12:26:11PM +0200, Steffen Klassert wrote:
+> Lets see if anyone else has an opinion to that. I'll go
+> and look what we can do if we have to fix it in the IPsec
+> code in the meantime.
 
-Tested-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-
-This patch does work, and it will make the patch 4/4 become very
-simple, :-)
-
-I will rewrite this one against your patch.
+If you have not yet done so, I would try to find a solution over the weekend.
 
 Thanks,
---
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+  Hannes
