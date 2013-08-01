@@ -1,172 +1,159 @@
-From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
-Subject: [PATCH] fib_rules: add route suppression based on ifgroup
-Date: Thu, 1 Aug 2013 17:18:09 +0200
-Message-ID: <20130801151809.GB21970@zirkel.wertarbyte.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: add SNMP counters tracking incoming ECN bits
+Date: Thu, 01 Aug 2013 08:26:31 -0700
+Message-ID: <1375370791.10515.154.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zirkel.wertarbyte.de ([188.40.44.137]:51098 "EHLO
-	zirkel.wertarbyte.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755365Ab3HAPSL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 11:18:11 -0400
-Received: from stefan by zirkel.wertarbyte.de with local (Exim 4.72)
-	(envelope-from <stefan.tomanek@wertarbyte.de>)
-	id 1V4udl-0002bb-CF
-	for netdev@vger.kernel.org; Thu, 01 Aug 2013 17:18:09 +0200
-Content-Disposition: inline
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:48031 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755365Ab3HAP0e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 11:26:34 -0400
+Received: by mail-pa0-f49.google.com with SMTP id bi5so2252884pad.36
+        for <netdev@vger.kernel.org>; Thu, 01 Aug 2013 08:26:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change adds the ability to suppress a routing decision based upon the
-interface group the selected interface belongs to.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
+With GRO/LRO processing, there is a problem because Ip[6]InReceives SNMP
+counters do not count the number of frames, but number of aggregated
+segments.
+
+Its probably too late to change this now.
+
+This patch adds four new counters, tracking number of frames, regardless
+of LRO/GRO, and on a per ECN status basis, for IPv4 and IPv6.
+
+Ip[6]NoECTPkts : Number of packets received with NOECT
+Ip[6]ECT1Pkts  : Number of packets received with ECT(1)
+Ip[6]ECT0Pkts  : Number of packets received with ECT(0)
+Ip[6]CEPkts    : Number of packets received with Congestion Experimented
+
+lph37:~# nstat | egrep "Pkts|InReceive"
+IpInReceives                    1634137            0.0
+Ip6InReceives                   3714107            0.0
+Ip6InNoECTPkts                  19205              0.0
+Ip6InECT0Pkts                   52651828           0.0
+IpExtInNoECTPkts                33630              0.0
+IpExtInECT0Pkts                 15581379           0.0
+IpExtInCEPkts                   6                  0.0
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/fib_rules.h        |    2 ++
- include/uapi/linux/fib_rules.h |    2 +-
- net/core/fib_rules.c           |   10 ++++++++++
- net/ipv4/fib_rules.c           |   23 +++++++++++++++++------
- net/ipv6/fib6_rules.c          |   16 +++++++++++++---
- 5 files changed, 43 insertions(+), 10 deletions(-)
+ include/uapi/linux/snmp.h |    4 ++++
+ net/ipv4/ip_input.c       |    8 ++++++++
+ net/ipv4/proc.c           |    7 ++++++-
+ net/ipv6/ip6_input.c      |    6 +++++-
+ net/ipv6/proc.c           |    4 ++++
+ 5 files changed, 27 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
-index 2f286dc..4d32ecc 100644
---- a/include/net/fib_rules.h
-+++ b/include/net/fib_rules.h
-@@ -19,6 +19,7 @@ struct fib_rule {
- 	u32			flags;
- 	u32			table;
- 	u8			table_prefixlen_min;
-+	int			suppress_ifgroup;
- 	u8			action;
- 	u32			target;
- 	struct fib_rule __rcu	*ctarget;
-@@ -84,6 +85,7 @@ struct fib_rules_ops {
- 	[FRA_FWMASK]	= { .type = NLA_U32 }, \
- 	[FRA_TABLE]     = { .type = NLA_U32 }, \
- 	[FRA_TABLE_PREFIXLEN_MIN] = { .type = NLA_U8 }, \
-+	[FRA_SUPPRESS_IFGROUP] = { .type = NLA_U32 }, \
- 	[FRA_GOTO]	= { .type = NLA_U32 }
+diff --git a/include/uapi/linux/snmp.h b/include/uapi/linux/snmp.h
+index af0a674..60601d2 100644
+--- a/include/uapi/linux/snmp.h
++++ b/include/uapi/linux/snmp.h
+@@ -51,6 +51,10 @@ enum
+ 	IPSTATS_MIB_INBCASTOCTETS,		/* InBcastOctets */
+ 	IPSTATS_MIB_OUTBCASTOCTETS,		/* OutBcastOctets */
+ 	IPSTATS_MIB_CSUMERRORS,			/* InCsumErrors */
++	IPSTATS_MIB_NOECTPKTS,			/* InNoECTPkts */
++	IPSTATS_MIB_ECT1PKTS,			/* InECT1Pkts */
++	IPSTATS_MIB_ECT0PKTS,			/* InECT0Pkts */
++	IPSTATS_MIB_CEPKTS,			/* InCEPkts */
+ 	__IPSTATS_MIB_MAX
+ };
  
- static inline void fib_rule_get(struct fib_rule *rule)
-diff --git a/include/uapi/linux/fib_rules.h b/include/uapi/linux/fib_rules.h
-index 59cd31b..63e3116 100644
---- a/include/uapi/linux/fib_rules.h
-+++ b/include/uapi/linux/fib_rules.h
-@@ -44,7 +44,7 @@ enum {
- 	FRA_FWMARK,	/* mark */
- 	FRA_FLOW,	/* flow/class id */
- 	FRA_UNUSED6,
--	FRA_UNUSED7,
-+	FRA_SUPPRESS_IFGROUP,
- 	FRA_TABLE_PREFIXLEN_MIN,
- 	FRA_TABLE,	/* Extended table id */
- 	FRA_FWMASK,	/* mask for netfilter mark */
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index 2ef5040..5040a61 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -343,6 +343,9 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
- 	if (tb[FRA_TABLE_PREFIXLEN_MIN])
- 		rule->table_prefixlen_min = nla_get_u8(tb[FRA_TABLE_PREFIXLEN_MIN]);
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index 15e3e68..054a3e9 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -141,6 +141,7 @@
+ #include <net/icmp.h>
+ #include <net/raw.h>
+ #include <net/checksum.h>
++#include <net/inet_ecn.h>
+ #include <linux/netfilter_ipv4.h>
+ #include <net/xfrm.h>
+ #include <linux/mroute.h>
+@@ -410,6 +411,13 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
+ 	if (iph->ihl < 5 || iph->version != 4)
+ 		goto inhdr_error;
  
-+	if (tb[FRA_SUPPRESS_IFGROUP])
-+		rule->suppress_ifgroup = nla_get_u32(tb[FRA_SUPPRESS_IFGROUP]);
++	BUILD_BUG_ON(IPSTATS_MIB_ECT1PKTS != IPSTATS_MIB_NOECTPKTS + INET_ECN_ECT_1);
++	BUILD_BUG_ON(IPSTATS_MIB_ECT0PKTS != IPSTATS_MIB_NOECTPKTS + INET_ECN_ECT_0);
++	BUILD_BUG_ON(IPSTATS_MIB_CEPKTS != IPSTATS_MIB_NOECTPKTS + INET_ECN_CE);
++	IP_ADD_STATS_BH(dev_net(dev),
++			IPSTATS_MIB_NOECTPKTS + (iph->tos & INET_ECN_MASK),
++			max_t(unsigned short, 1, skb_shinfo(skb)->gso_segs));
 +
- 	if (!tb[FRA_PRIORITY] && ops->default_pref)
- 		rule->pref = ops->default_pref(ops);
+ 	if (!pskb_may_pull(skb, iph->ihl*4))
+ 		goto inhdr_error;
  
-@@ -529,6 +532,7 @@ static inline size_t fib_rule_nlmsg_size(struct fib_rules_ops *ops,
- 			 + nla_total_size(4) /* FRA_PRIORITY */
- 			 + nla_total_size(4) /* FRA_TABLE */
- 			 + nla_total_size(1) /* FRA_TABLE_PREFIXLEN_MIN */
-+			 + nla_total_size(4) /* FRA_SUPPRESS_IFGROUP */
- 			 + nla_total_size(4) /* FRA_FWMARK */
- 			 + nla_total_size(4); /* FRA_FWMASK */
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index 6577a11..5f5fa61 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -111,7 +111,7 @@ static const struct snmp_mib snmp4_ipstats_list[] = {
+ 	SNMP_MIB_SENTINEL
+ };
  
-@@ -588,6 +592,12 @@ static int fib_nl_fill_rule(struct sk_buff *skb, struct fib_rule *rule,
- 	    (rule->target &&
- 	     nla_put_u32(skb, FRA_GOTO, rule->target)))
- 		goto nla_put_failure;
-+
-+	if (rule->suppress_ifgroup != -1) {
-+		if (nla_put_u32(skb, FRA_SUPPRESS_IFGROUP, rule->suppress_ifgroup))
-+			goto nla_put_failure;
-+	}
-+
- 	if (ops->fill(rule, skb, frh) < 0)
- 		goto nla_put_failure;
+-/* Following RFC4293 items are displayed in /proc/net/netstat */
++/* Following items are displayed in /proc/net/netstat */
+ static const struct snmp_mib snmp4_ipextstats_list[] = {
+ 	SNMP_MIB_ITEM("InNoRoutes", IPSTATS_MIB_INNOROUTES),
+ 	SNMP_MIB_ITEM("InTruncatedPkts", IPSTATS_MIB_INTRUNCATEDPKTS),
+@@ -125,7 +125,12 @@ static const struct snmp_mib snmp4_ipextstats_list[] = {
+ 	SNMP_MIB_ITEM("OutMcastOctets", IPSTATS_MIB_OUTMCASTOCTETS),
+ 	SNMP_MIB_ITEM("InBcastOctets", IPSTATS_MIB_INBCASTOCTETS),
+ 	SNMP_MIB_ITEM("OutBcastOctets", IPSTATS_MIB_OUTBCASTOCTETS),
++	/* Non RFC4293 fields */
+ 	SNMP_MIB_ITEM("InCsumErrors", IPSTATS_MIB_CSUMERRORS),
++	SNMP_MIB_ITEM("InNoECTPkts", IPSTATS_MIB_NOECTPKTS),
++	SNMP_MIB_ITEM("InECT1Pkts", IPSTATS_MIB_ECT1PKTS),
++	SNMP_MIB_ITEM("InECT0Pkts", IPSTATS_MIB_ECT0PKTS),
++	SNMP_MIB_ITEM("InCEPkts", IPSTATS_MIB_CEPKTS),
+ 	SNMP_MIB_SENTINEL
+ };
  
-diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-index 9f29066..234b085 100644
---- a/net/ipv4/fib_rules.c
-+++ b/net/ipv4/fib_rules.c
-@@ -103,16 +103,27 @@ errout:
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index 2bab2aa..302d6fb 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -44,7 +44,7 @@
+ #include <net/ip6_route.h>
+ #include <net/addrconf.h>
+ #include <net/xfrm.h>
+-
++#include <net/inet_ecn.h>
  
- static bool fib4_rule_suppress(struct fib_rule *rule, struct fib_lookup_arg *arg)
- {
-+	struct fib_result *result = (struct fib_result *) arg->result;
-+	struct net_device *dev = result->fi->fib_dev;
-+
- 	/* do not accept result if the route does
- 	 * not meet the required prefix length
- 	 */
--	struct fib_result *result = (struct fib_result *) arg->result;
--	if (result->prefixlen < rule->table_prefixlen_min) {
--		if (!(arg->flags & FIB_LOOKUP_NOREF))
--			fib_info_put(result->fi);
--		return true;
--	}
-+	if (result->prefixlen < rule->table_prefixlen_min)
-+		goto suppress_route;
-+
-+	/* do not accept result if the route uses a device
-+	 * belonging to a forbidden interface group (!= 0)
-+	 */
-+	if (rule->suppress_ifgroup != -1 && dev && dev->group == rule->suppress_ifgroup)
-+		goto suppress_route;
-+
- 	return false;
-+
-+suppress_route:
-+	if (!(arg->flags & FIB_LOOKUP_NOREF))
-+		fib_info_put(result->fi);
-+	return true;
- }
  
- static int fib4_rule_match(struct fib_rule *rule, struct flowi *fl, int flags)
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index 554a4fb..84cf125 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -122,14 +122,24 @@ out:
- static bool fib6_rule_suppress(struct fib_rule *rule, struct fib_lookup_arg *arg)
- {
- 	struct rt6_info *rt = (struct rt6_info *) arg->result;
-+	struct net_device *dev = rt->rt6i_idev->dev;
- 	/* do not accept result if the route does
- 	 * not meet the required prefix length
- 	 */
--	if (rt->rt6i_dst.plen < rule->table_prefixlen_min) {
-+	if (rt->rt6i_dst.plen < rule->table_prefixlen_min)
-+		goto suppress_route;
-+
-+	/* do not accept result if the route uses a device
-+	 * belonging to a forbidden interface group (!= 0)
-+	 */
-+	if (rule->suppress_ifgroup != -1 && dev && dev->group == rule->suppress_ifgroup)
-+		goto suppress_route;
-+
-+	return false;
-+
-+suppress_route:
- 		ip6_rt_put(rt);
- 		return true;
--	}
--	return false;
- }
+ int ip6_rcv_finish(struct sk_buff *skb)
+@@ -109,6 +109,10 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
+ 	if (hdr->version != 6)
+ 		goto err;
  
- static int fib6_rule_match(struct fib_rule *rule, struct flowi *fl, int flags)
--- 
-1.7.10.4
++	IP6_ADD_STATS_BH(dev_net(dev), idev,
++			 IPSTATS_MIB_NOECTPKTS +
++				(ipv6_get_dsfield(hdr) & INET_ECN_MASK),
++			 max_t(unsigned short, 1, skb_shinfo(skb)->gso_segs));
+ 	/*
+ 	 * RFC4291 2.5.3
+ 	 * A packet received on an interface with a destination address
+diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
+index 51c3285..091d066 100644
+--- a/net/ipv6/proc.c
++++ b/net/ipv6/proc.c
+@@ -91,6 +91,10 @@ static const struct snmp_mib snmp6_ipstats_list[] = {
+ 	SNMP_MIB_ITEM("Ip6InBcastOctets", IPSTATS_MIB_INBCASTOCTETS),
+ 	SNMP_MIB_ITEM("Ip6OutBcastOctets", IPSTATS_MIB_OUTBCASTOCTETS),
+ 	/* IPSTATS_MIB_CSUMERRORS is not relevant in IPv6 (no checksum) */
++	SNMP_MIB_ITEM("Ip6InNoECTPkts", IPSTATS_MIB_NOECTPKTS),
++	SNMP_MIB_ITEM("Ip6InECT1Pkts", IPSTATS_MIB_ECT1PKTS),
++	SNMP_MIB_ITEM("Ip6InECT0Pkts", IPSTATS_MIB_ECT0PKTS),
++	SNMP_MIB_ITEM("Ip6InCEPkts", IPSTATS_MIB_CEPKTS),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
