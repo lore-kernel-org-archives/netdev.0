@@ -1,32 +1,39 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH RFC] xfrm{4,6}: only report errors back to local sockets
- if we don't cross address family
-Date: Thu, 1 Aug 2013 12:05:22 +0200
-Message-ID: <20130801100522.GC25511@secunet.com>
-References: <20130729145017.GD2490@order.stressinduktion.org>
- <20130730082118.GA25511@secunet.com>
- <20130730083017.GA7068@order.stressinduktion.org>
- <20130730102611.GB25511@secunet.com>
- <20130801081150.GF3688@order.stressinduktion.org>
+From: Fan Du <fan.du@windriver.com>
+Subject: [PATCH net] xfrm: Delete hold_timer when destroy policy
+Date: Thu, 1 Aug 2013 18:08:36 +0800
+Message-ID: <1375351716-3265-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, vi0oss@gmail.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:41203 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752407Ab3HAKFZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Aug 2013 06:05:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20130801081150.GF3688@order.stressinduktion.org>
+Received: from mail1.windriver.com ([147.11.146.13]:63830 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751418Ab3HAKGf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 06:06:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 01, 2013 at 10:11:50AM +0200, Hannes Frederic Sowa wrote:
-> 
-> If you have not yet done so, I would try to find a solution over the weekend.
-> 
+Both policy timer and hold_timer need to be deleted when destroy policy
+Bad mood today, maybe I'm wrong about this...
 
-I have not yet done so, please go ahead.
+Signed-off-by: Fan Du <fan.du@windriver.com>
+---
+ net/xfrm/xfrm_policy.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Thanks a lot!
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index d8da6b8..f7078eb 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -308,7 +308,7 @@ void xfrm_policy_destroy(struct xfrm_policy *policy)
+ {
+ 	BUG_ON(!policy->walk.dead);
+ 
+-	if (del_timer(&policy->timer))
++	if (del_timer(&policy->timer) || del_timer(&policy->polq.hold_timer))
+ 		BUG();
+ 
+ 	security_xfrm_policy_free(policy->security);
+-- 
+1.7.1
