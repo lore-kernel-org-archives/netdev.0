@@ -1,11 +1,13 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Sebastiano Spicuglia <spicuglia.sebastiano@gmail.com>
 Subject: Re: PROBLEM: 3.11.0-rc2+ lost of connectivity
-Date: Thu, 1 Aug 2013 16:36:50 +0200
-Message-ID: <20130801143650.GB22250@order.stressinduktion.org>
+Date: Thu, 1 Aug 2013 16:40:55 +0200
+Message-ID: <CAOSRKdRTrORuV0zibXZT=P-aL98QOkouZ=PreFs7wWSjjaAFLA@mail.gmail.com>
 References: <CAOSRKdTOcYOZ4fD5gXe_57dA028rGmR30T32FQ6MeruAq2p04g@mail.gmail.com>
+	<20130801143650.GB22250@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+Content-Type: text/plain; charset=ISO-8859-1
+To: Sebastiano Spicuglia <spicuglia.sebastiano@gmail.com>,
+	linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com,
 	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
 	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
 	gregory.v.rose@intel.com, peter.p.waskiewicz.jr@intel.com,
@@ -13,21 +15,39 @@ Cc: linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com,
 	tushar.n.dave@intel.com, davem@davemloft.net,
 	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
 	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: Sebastiano Spicuglia <spicuglia.sebastiano@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAOSRKdTOcYOZ4fD5gXe_57dA028rGmR30T32FQ6MeruAq2p04g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f176.google.com ([209.85.215.176]:37371 "EHLO
+	mail-ea0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755405Ab3HAOk4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 10:40:56 -0400
+In-Reply-To: <20130801143650.GB22250@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 01, 2013 at 04:34:00PM +0200, Sebastiano Spicuglia wrote:
-> [Kernel version from /proc/version ]
-> 
-> Linux version 3.11.0-rc2+ (root@cache.pdbg) (gcc version 4.7.2 (Debian
-> 4.7.2-5) ) #5 SMP Thu Aug 1 14:20:35 CEST 2013
+Hi Hannes,
 
-Which commit exactly?
+here the info about the commit:
 
-Thanks,
+commit 6c504ecf506705a6575541b28824e13090bd223b
+Merge: 2408c2e bf903e4
+Author: Linus Torvalds <torvalds@linux-foundation.org>
+Date:   Fri Jul 26 14:40:10 2013 -0700
 
-  Hannes
+Regards
+Sebastiano
+
+
+On Thu, Aug 1, 2013 at 4:36 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On Thu, Aug 01, 2013 at 04:34:00PM +0200, Sebastiano Spicuglia wrote:
+>> [Kernel version from /proc/version ]
+>>
+>> Linux version 3.11.0-rc2+ (root@cache.pdbg) (gcc version 4.7.2 (Debian
+>> 4.7.2-5) ) #5 SMP Thu Aug 1 14:20:35 CEST 2013
+>
+> Which commit exactly?
+>
+> Thanks,
+>
+>   Hannes
+>
