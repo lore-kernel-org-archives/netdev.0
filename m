@@ -1,7 +1,7 @@
 From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: [PATCH v3 04/13] tile: remove dead is_dup_ack() function from tilepro net driver
+Subject: [PATCH v3 07/13] tile: fix panic bug in napi support for tilegx network driver
 Date: Thu, 1 Aug 2013 11:36:42 -0400
-Message-ID: <d23deb61e02777735600b34e6583dab8c3436c00.1375385120.git.cmetcalf@tilera.com>
+Message-ID: <ef7f97bf9c45238fea2caa11143c306d0d528466.1375385120.git.cmetcalf@tilera.com>
 References: <20130801.113100.2059303096028571906.davem@davemloft.net>
 	<cover.1375385119.git.cmetcalf@tilera.com>
 Mime-Version: 1.0
@@ -12,104 +12,106 @@ In-Reply-To: <cover.1375385119.git.cmetcalf@tilera.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+The code used to call napi_disable() in an interrupt handler
+(from smp_call_function), which in turn could call msleep().
+Unfortunately you can't sleep in an interrupt context.
+
+Luckily it turns out all the NAPI support functions are
+just operating on data structures and not on any deeply
+per-cpu data, so we can arrange to set up and tear down all
+the NAPI state on the core driving the process, and just
+do the IRQ enable/disable as a smp_call_function thing.
+
 Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
 ---
- drivers/net/ethernet/tile/tilepro.c | 76 -------------------------------------
- 1 file changed, 76 deletions(-)
+ drivers/net/ethernet/tile/tilegx.c | 65 +++++++++++++++++++-------------------
+ 1 file changed, 33 insertions(+), 32 deletions(-)
 
-diff --git a/drivers/net/ethernet/tile/tilepro.c b/drivers/net/ethernet/tile/tilepro.c
-index 2f4b7b9..fd17af5 100644
---- a/drivers/net/ethernet/tile/tilepro.c
-+++ b/drivers/net/ethernet/tile/tilepro.c
-@@ -89,9 +89,6 @@
- /* ISSUE: This has not been thoroughly tested (except at 1500). */
- #define TILE_NET_MTU 1500
- 
--/* Define this to collapse "duplicate" acks. */
--/* #define IGNORE_DUP_ACKS */
--
- /* HACK: Define this to verify incoming packets. */
- /* #define TILE_NET_VERIFY_INGRESS */
- 
-@@ -625,79 +622,6 @@ static void tile_net_handle_egress_timer(unsigned long arg)
+diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
+index e9eba2b..17bcf33 100644
+--- a/drivers/net/ethernet/tile/tilegx.c
++++ b/drivers/net/ethernet/tile/tilegx.c
+@@ -650,37 +650,13 @@ static enum hrtimer_restart tile_net_handle_egress_timer(struct hrtimer *t)
+ 	return HRTIMER_NORESTART;
  }
  
- 
--#ifdef IGNORE_DUP_ACKS
--
--/*
-- * Help detect "duplicate" ACKs.  These are sequential packets (for a
-- * given flow) which are exactly 66 bytes long, sharing everything but
-- * ID=2@0x12, Hsum=2@0x18, Ack=4@0x2a, WinSize=2@0x30, Csum=2@0x32,
-- * Tstamps=10@0x38.  The ID's are +1, the Hsum's are -1, the Ack's are
-- * +N, and the Tstamps are usually identical.
-- *
-- * NOTE: Apparently truly duplicate acks (with identical "ack" values),
-- * should not be collapsed, as they are used for some kind of flow control.
+-/* Helper function for "tile_net_update()".
+- * "dev" (i.e. arg) is the device being brought up or down,
+- * or NULL if all devices are now down.
 - */
--static bool is_dup_ack(char *s1, char *s2, unsigned int len)
--{
--	int i;
--
--	unsigned long long ignorable = 0;
--
--	/* Identification. */
--	ignorable |= (1ULL << 0x12);
--	ignorable |= (1ULL << 0x13);
--
--	/* Header checksum. */
--	ignorable |= (1ULL << 0x18);
--	ignorable |= (1ULL << 0x19);
--
--	/* ACK. */
--	ignorable |= (1ULL << 0x2a);
--	ignorable |= (1ULL << 0x2b);
--	ignorable |= (1ULL << 0x2c);
--	ignorable |= (1ULL << 0x2d);
--
--	/* WinSize. */
--	ignorable |= (1ULL << 0x30);
--	ignorable |= (1ULL << 0x31);
--
--	/* Checksum. */
--	ignorable |= (1ULL << 0x32);
--	ignorable |= (1ULL << 0x33);
--
--	for (i = 0; i < len; i++, ignorable >>= 1) {
--
--		if ((ignorable & 1) || (s1[i] == s2[i]))
--			continue;
--
--#ifdef TILE_NET_DEBUG
--		/* HACK: Mention non-timestamp diffs. */
--		if (i < 0x38 && i != 0x2f &&
--		    net_ratelimit())
--			pr_info("Diff at 0x%x\n", i);
--#endif
--
--		return false;
--	}
--
--#ifdef TILE_NET_NO_SUPPRESS_DUP_ACKS
--	/* HACK: Do not suppress truly duplicate ACKs. */
--	/* ISSUE: Is this actually necessary or helpful? */
--	if (s1[0x2a] == s2[0x2a] &&
--	    s1[0x2b] == s2[0x2b] &&
--	    s1[0x2c] == s2[0x2c] &&
--	    s1[0x2d] == s2[0x2d]) {
--		return false;
--	}
--#endif
--
--	return true;
--}
--
--#endif
--
--
--
- static void tile_net_discard_aux(struct tile_net_cpu *info, int index)
+-static void tile_net_update_cpu(void *arg)
++/* Helper function for "tile_net_update()". */
++static void manage_ingress_irq(void *enable)
  {
- 	struct tile_netio_queue *queue = &info->queue;
+-	struct tile_net_info *info = &__get_cpu_var(per_cpu_info);
+-	struct net_device *dev = arg;
+-
+-	if (!info->has_iqueue)
+-		return;
+-
+-	if (dev != NULL) {
+-		if (!info->napi_added) {
+-			netif_napi_add(dev, &info->napi,
+-				       tile_net_poll, TILE_NET_WEIGHT);
+-			info->napi_added = true;
+-		}
+-		if (!info->napi_enabled) {
+-			napi_enable(&info->napi);
+-			info->napi_enabled = true;
+-		}
++	if (enable)
+ 		enable_percpu_irq(ingress_irq, 0);
+-	} else {
++	else
+ 		disable_percpu_irq(ingress_irq);
+-		if (info->napi_enabled) {
+-			napi_disable(&info->napi);
+-			info->napi_enabled = false;
+-		}
+-		/* FIXME: Drain the iqueue. */
+-	}
+ }
+ 
+ /* Helper function for tile_net_open() and tile_net_stop().
+@@ -717,10 +693,35 @@ static int tile_net_update(struct net_device *dev)
+ 		return -EIO;
+ 	}
+ 
+-	/* Update all cpus, sequentially (to protect "netif_napi_add()"). */
+-	for_each_online_cpu(cpu)
+-		smp_call_function_single(cpu, tile_net_update_cpu,
+-					 (saw_channel ? dev : NULL), 1);
++	/* Update all cpus, sequentially (to protect "netif_napi_add()").
++	 * We use on_each_cpu to handle the IPI mask or unmask.
++	 */
++	if (!saw_channel)
++		on_each_cpu(manage_ingress_irq, (void *)0, 1);
++	for_each_online_cpu(cpu) {
++		struct tile_net_info *info = &per_cpu(per_cpu_info, cpu);
++		if (!info->has_iqueue)
++			continue;
++		if (saw_channel) {
++			if (!info->napi_added) {
++				netif_napi_add(dev, &info->napi,
++					       tile_net_poll, TILE_NET_WEIGHT);
++				info->napi_added = true;
++			}
++			if (!info->napi_enabled) {
++				napi_enable(&info->napi);
++				info->napi_enabled = true;
++			}
++		} else {
++			if (info->napi_enabled) {
++				napi_disable(&info->napi);
++				info->napi_enabled = false;
++			}
++			/* FIXME: Drain the iqueue. */
++		}
++	}
++	if (saw_channel)
++		on_each_cpu(manage_ingress_irq, (void *)1, 1);
+ 
+ 	/* HACK: Allow packets to flow in the simulator. */
+ 	if (saw_channel)
 -- 
 1.8.3.1
