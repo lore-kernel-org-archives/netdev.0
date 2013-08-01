@@ -1,90 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 4/4] USBNET: ax88179_178a: enable tso if host supports
- sg dma
-Date: Wed, 31 Jul 2013 22:04:21 -0700
-Message-ID: <1375333461.10515.133.camel@edumazet-glaptop>
-References: <1375267909-30373-1-git-send-email-ming.lei@canonical.com>
-	 <1375267909-30373-5-git-send-email-ming.lei@canonical.com>
-	 <1375329066.10515.125.camel@edumazet-glaptop>
-	 <CACVXFVNSZJ+ojjBCwYDKsWWvs03aL8BugcX7u483MvBCQCH1sg@mail.gmail.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: Question regarding failure utilizing bonding mode 5
+ (balance-tlb)
+Date: Thu, 1 Aug 2013 08:12:48 +0300
+Message-ID: <1375333968.21294.30.camel@lb-tlvb-yuvalmin.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Oliver Neukum <oneukum@suse.de>,
-	Freddy Xin <freddy@asix.com.tw>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Grant Grundler <grundler@google.com>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: Ming Lei <ming.lei@canonical.com>
+Cc: "Ariel Elior" <ariele@broadcom.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:40971 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751039Ab3HAFEX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 01:04:23 -0400
-In-Reply-To: <CACVXFVNSZJ+ojjBCwYDKsWWvs03aL8BugcX7u483MvBCQCH1sg@mail.gmail.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:2274 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751037Ab3HAFNA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Aug 2013 01:13:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-08-01 at 12:41 +0800, Ming Lei wrote:
+We've had reports that load/unload tests using bonding driver in
+balance-tlb mode over bnx2x interfaces results in loss of traffic.
 
-> From my trace result, lots of linear SKBs are cloned or header-cloned, so
-> it needs skb copy too.
-> 
-> Is it normal in xmit path to see cloned SKBs for driver? If not, I can add check
-> to avoid allocation of 8 bytes header for non-cloned skb.
+When investigating, we've found out that the bonding driver uses the ndo
+(ndo_change_mac_addr()) during ifenslave to override the slaves' HW MAC
+address. It then directly goes and changes the slaves netdevices'
+dev_addr so that each network interface would posses a distinguish MAC
+address (as seen in ifconfig), while the FW/HW of both interfaces is
+still configured by the MAC passed by the ndo.
 
-Existing code is not very friendly and very complex.
+When the active slave is unloaded, the ifconfig MAC (dev_addr) is
+swapped between the slaves directly, i.e., without calling the ndo. Once
+the interface of the previously active slave will be reloaded, it will
+configure it's HW MAC according to that dev_addr value  (i.e., the
+bonding driver takes no additional measures to force it's own MAC on the
+interface when re-loading), causing it to have a configured MAC which
+differs from the one that is held by the bonding driver.
 
-Sure TCP stack does a clone for every skb from socket write queue,
-but header should be available for pushing 8 bytes.
+If this is done an additional time (on the newly active slave), both
+slave devices will be configured to a MAC which differs from the one
+held by the bond interface (i.e., the bond interface holds the MAC of
+the original active slave, while both interfaces configured the MAC of
+the original inactive slave). This obviously prevents any traffic from
+being successfully sent/received.
 
-The !skb_cloned(skb) test should be removed if the memmove() is not
-needed.
+bnx2x uses dev_addr directly for MAC configuration, which I think is the
+default behaviour for most network drivers - ixgbe has a shadow value
+which it uses instead, but I think that's the exception and not the
+rule.
 
-Could you try following patch ?
+As I see it, either:
 
- drivers/net/usb/ax88179_178a.c |   21 ++++-----------------
- 1 file changed, 4 insertions(+), 17 deletions(-)
+   1. The bonding driver is flawed in balance-tlb mode and should be
+fixed.
 
-diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
-index 2bc87e3..e2120d6 100644
---- a/drivers/net/usb/ax88179_178a.c
-+++ b/drivers/net/usb/ax88179_178a.c
-@@ -1166,31 +1166,18 @@ ax88179_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
- 	int frame_size = dev->maxpacket;
- 	int mss = skb_shinfo(skb)->gso_size;
- 	int headroom;
--	int tailroom;
- 
- 	tx_hdr1 = skb->len;
- 	tx_hdr2 = mss;
- 	if (((skb->len + 8) % frame_size) == 0)
- 		tx_hdr2 |= 0x80008000;	/* Enable padding */
- 
--	headroom = skb_headroom(skb);
--	tailroom = skb_tailroom(skb);
-+	headroom = skb_headroom(skb) - 8;
- 
--	if (!skb_header_cloned(skb) &&
--	    !skb_cloned(skb) &&
--	    (headroom + tailroom) >= 8) {
--		if (headroom < 8) {
--			skb->data = memmove(skb->head + 8, skb->data, skb->len);
--			skb_set_tail_pointer(skb, skb->len);
--		}
--	} else {
--		struct sk_buff *skb2;
--
--		skb2 = skb_copy_expand(skb, 8, 0, flags);
-+	if ((skb_header_cloned(skb) || headroom < 0) &&
-+	    pskb_expand_head(skb, headroom < 0 ? 8 : 0, 0, GFP_ATOMIC)) {
- 		dev_kfree_skb_any(skb);
--		skb = skb2;
--		if (!skb)
--			return NULL;
-+		return NULL;
- 	}
- 
- 	skb_push(skb, 4);
+   2. bnx2x's behaviour is flawed - it should have some persistent
+shadow MAC which should contain the last MAC set - either factory value
+or what was configured by the ndo, and use it instead of dev_addr when
+configuring the HW MAC.
+This would probably indicate that other drivers are flawed as well.
+
+   3. The test itself is flawed, since user should not unload slave
+interfaces.
+
+What's the correct approach for fixing the issue?
+Idea's will be welcomed.
+
+Thanks,
+Yuval
