@@ -1,56 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] af_packet: when sending ethernet frames, parse
- header for skb->protocol
-Date: Wed, 31 Jul 2013 17:30:17 -0700 (PDT)
-Message-ID: <20130731.173017.624144247713296239.davem@davemloft.net>
-References: <20130729165357.GA23134@orbit.nwl.cc>
-	<1375291667-9572-1-git-send-email-phil@nwl.cc>
-	<1375291667-9572-2-git-send-email-phil@nwl.cc>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: phil@nwl.cc
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36560 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750856Ab3HAAaR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 20:30:17 -0400
-In-Reply-To: <1375291667-9572-2-git-send-email-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 0/8] include/net: next set of extern removals
+Date: Wed, 31 Jul 2013 17:31:31 -0700
+Message-ID: <cover.1375316912.git.joe@perches.com>
+Cc: linux-kernel@vger.kernel.org, linux-afs@lists.infradead.org,
+	linux-hams@vger.kernel.org, linux-wireless@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Phil Sutter <phil@nwl.cc>
-Date: Wed, 31 Jul 2013 19:27:45 +0200
+Standardize on no extern use on function prototypes
 
-> @@ -2324,6 +2328,13 @@ static int packet_snd(struct socket *sock,
->  
->  	sock_tx_timestamp(sk, &skb_shinfo(skb)->tx_flags);
->  
-> +	if (dev->type == ARPHRD_ETHER) {
-> +		skb->protocol = eth_type_trans(skb, dev);
-> +	} else {
-> +		skb->protocol = proto;
-> +		skb->dev = dev;
-> +	}
-> +
->  	if (!gso_type && (len > dev->mtu + reserve + extra_len)) {
->  		/* Earlier code assumed this would be a VLAN pkt,
->  		 * double-check this now that we have the actual
-> @@ -2338,8 +2349,6 @@ static int packet_snd(struct socket *sock,
->  		}
->  	}
->  
-> -	skb->protocol = proto;
-> -	skb->dev = dev;
->  	skb->priority = sk->sk_priority;
->  	skb->mark = sk->sk_mark;
+Joe Perches (8):
+  addrconf.h: Remove extern function prototypes
+  af_unix.h: Remove extern from function prototypes
+  af_rxrpc.h: Remove extern from function prototypes
+  arp/neighbour.h: Remove extern from function prototypes
+  ax25.h: Remove extern from function prototypes
+  cfg80211.h/mac80211.h: Remove extern from function prototypes
+  checksum: Remove extern from function prototypes
+  cls_cgroup.h netprio_cgroup.h: Remove extern from function prototypes
 
-I don't see anything explaining why you are avoiding setting skb->dev when
-you use eth_type_trans() to set the skb->protocol field.
+ include/net/addrconf.h       | 160 +++++++++++++++-----------------
+ include/net/af_rxrpc.h       |  35 ++++---
+ include/net/af_unix.h        |  16 ++--
+ include/net/arp.h            |  30 +++---
+ include/net/ax25.h           | 215 ++++++++++++++++++++++---------------------
+ include/net/cfg80211.h       |  34 +++----
+ include/net/checksum.h       |  10 +-
+ include/net/cls_cgroup.h     |   2 +-
+ include/net/mac80211.h       |  16 ++--
+ include/net/neighbour.h      |  98 ++++++++++----------
+ include/net/netprio_cgroup.h |   2 +-
+ 11 files changed, 300 insertions(+), 318 deletions(-)
 
-Also, why isn't the user setting the protocol field correctly?  Isn't
-that the _real_ source of these problems?
-
-This patch series cannot be applied as is, it's either wrong, or
-explanations are missing from the commit messages.
+-- 
+1.8.1.2.459.gbcd45b4.dirty
