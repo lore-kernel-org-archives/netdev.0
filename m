@@ -1,70 +1,63 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: [PATCH net-next] ipv6: bump genid when delete/add address
-Date: Thu, 1 Aug 2013 17:44:44 +0800
-Message-ID: <1375350284-32725-1-git-send-email-fan.du@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>, <yoshfuji@linux-ipv6.org>,
-	<jmorris@namei.org>, <hannes@stressinduktion.org>,
-	<vyasevich@gmail.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net-next v3] bonding: fix system hang due to fast igmp timer rescheduling
+Date: Thu,  1 Aug 2013 11:51:42 +0200
+Message-ID: <1375350702-7777-1-git-send-email-nikolay@redhat.com>
+Cc: davem@davemloft.net, andy@greyhouse.net, fubar@us.ibm.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:62810 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753524Ab3HAJmw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 05:42:52 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:18045 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752167Ab3HAJzR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Aug 2013 05:55:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-     Server           Client
-2001:1::803/64  <-> 2001:1::805/64
-2001:2::804/64  <-> 2001:2::806/64
+From: "Nikolay Aleksandrov" <nikolay@redhat.com>
 
-Server side fib binary tree looks like this:
+After commit 4aa5dee4d9 ("net: convert resend IGMP to notifier event")
+we try to acquire rtnl in bond_resend_igmp_join_requests but it can be
+scheduled with rtnl already held (e.g. when bond_change_active_slave is
+called with rtnl) causing a loop of immediate reschedules + calls because
+rtnl_trylock fails each time since it's being already held.
+For me this issue leads to system hangs very easy:
+modprobe bonding; ifconfig bond0 up; ifenslave bond0 eth0; rmmod
+bonding;
 
-                                   (2001:/64)
-                                   /
-                                  /
-                   ffff88002103c380
-                 /                 \
-     (2)        /                   \
- (2001::803/128)                     ffff880037ac07c0
-                                    /               \
-                                   /                 \  (3)
-                      ffff880037ac0640               (2001::806/128)
-                       /             \
-             (1)      /               \
-        (2001::804/128)               (2001::805/128)
+The fix is to introduce a small (1 jiffy) delay which is enough for the
+sections holding rtnl to finish without putting any strain on the system.
+Also adjust the timer in bond_change_active_slave to be 1 jiffy, since
+most of the time it's called with rtnl already held.
 
-Delete 2001::804/64 won't cause prefix route deleted as well as rt in (3)
-destinate to 2001::806 with source address as 2001::804/64. That's because
-2001::803/64 is still alive, which make onlink=1 in ipv6_del_addr, this is
-where the substantial difference between same prefix configuration and
-different prefix configuration :) So packet are still transmitted out to
-2001::806 with source address as 2001::804/64.
-
-So bump genid will clear rt in (3), and up layer protocol will eventually
-find the right one for themselves.
-
-This problem arised from the discussion in here:
-http://marc.info/?l=linux-netdev&m=137404469219410&w=4
-
-Signed-off-by: Fan Du <fan.du@windriver.com>
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- net/ipv6/addrconf.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+v3: learn to spell my name :-)
+v2: adjust bond_change_active_slave's mcast_work delay to 1 jiffy because
+it's called with rtnl held most of the time as Jay suggested
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index cfdcf7b..e7780d7 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4653,6 +4653,7 @@ static void __ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
- 		break;
+ drivers/net/bonding/bond_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index da3af63..bc3578e 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -723,7 +723,7 @@ static int bond_set_allmulti(struct bonding *bond, int inc)
+ static void bond_resend_igmp_join_requests(struct bonding *bond)
+ {
+ 	if (!rtnl_trylock()) {
+-		queue_delayed_work(bond->wq, &bond->mcast_work, 0);
++		queue_delayed_work(bond->wq, &bond->mcast_work, 1);
+ 		return;
  	}
- 	atomic_inc(&net->ipv6.dev_addr_genid);
-+	rt_genid_bump_ipv6(net);
+ 	call_netdevice_notifiers(NETDEV_RESEND_IGMP, bond->dev);
+@@ -1084,7 +1084,7 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+ 	    ((USES_PRIMARY(bond->params.mode) && new_active) ||
+ 	     bond->params.mode == BOND_MODE_ROUNDROBIN)) {
+ 		bond->igmp_retrans = bond->params.resend_igmp;
+-		queue_delayed_work(bond->wq, &bond->mcast_work, 0);
++		queue_delayed_work(bond->wq, &bond->mcast_work, 1);
+ 	}
  }
  
- static void ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
 -- 
-1.7.1
+1.8.1.4
