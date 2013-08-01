@@ -1,122 +1,228 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next v3 2/5] bonding: remove unnecessary read_locks of curr_slave_lock
-Date: Thu,  1 Aug 2013 16:54:48 +0200
-Message-ID: <1375368891-9979-3-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next v3 4/5] bonding: factor out slave id tx code and simplify xmit paths
+Date: Thu,  1 Aug 2013 16:54:50 +0200
+Message-ID: <1375368891-9979-5-git-send-email-nikolay@redhat.com>
 References: <1375368891-9979-1-git-send-email-nikolay@redhat.com>
 Cc: davem@davemloft.net, andy@greyhouse.net, fubar@us.ibm.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45844 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44550 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755753Ab3HAO6b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Aug 2013 10:58:31 -0400
+	id S1755847Ab3HAO6e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Aug 2013 10:58:34 -0400
 In-Reply-To: <1375368891-9979-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In all the cases we already hold bond->lock for reading, so the slave
-can't get away and the check != NULL is sufficient. curr_active_slave
-can still change after the read_lock is unlocked prior to use of the
-dereferenced value, so there's no need for it. It either contains a
-valid slave which we use (and can't get away), or it is NULL which is
-checked.
-In some places the read_lock of curr_slave_lock was left because we need
-it not to change while performing some action (e.g. syncing current
-active slave's addresses, sending ARP requests through the active slave)
-such cases will be dealt with individually while converting to RCU.
+From: Nikolay Aleksandrov <razor@BlackWall.org>
+
+I factored out the tx xmit code which relies on slave id in
+bond_xmit_slave_id. It is global because later it can be used also in
+3ad mode xmit. Unnecessary obvious comments are removed. Active-backup
+mode is simplified because bond_dev_queue_xmit always consumes the skb.
+bond_xmit_xor becomes one line because of bond_xmit_slave_id.
+bond_for_each_slave_from is not used in bond_xmit_slave_id because later
+when RCU is used we can avoid important race condition by using standard
+rculist routines.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
-v2, v3: no change
+v3: no change
+v2: no need to NULL slave in xmit_roundrobin
 
- drivers/net/bonding/bond_main.c | 33 ++++++++-------------------------
- 1 file changed, 8 insertions(+), 25 deletions(-)
+ drivers/net/bonding/bond_main.c | 118 +++++++++++++++++-----------------------
+ drivers/net/bonding/bonding.h   |  10 ++++
+ 2 files changed, 61 insertions(+), 67 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 3636a04..9bdc701 100644
+index 5f9d2fa..196febb 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -2092,23 +2092,19 @@ static int bond_ioctl_change_active(struct net_device *bond_dev, struct net_devi
+@@ -3795,12 +3795,50 @@ unwind:
+ 	return res;
+ }
  
- 	read_lock(&bond->lock);
- 
--	read_lock(&bond->curr_slave_lock);
- 	old_active = bond->curr_active_slave;
--	read_unlock(&bond->curr_slave_lock);
--
- 	new_active = bond_get_slave_by_dev(bond, slave_dev);
--
- 	/*
- 	 * Changing to the current active: do nothing; return success.
- 	 */
--	if (new_active && (new_active == old_active)) {
-+	if (new_active && new_active == old_active) {
- 		read_unlock(&bond->lock);
- 		return 0;
- 	}
- 
--	if ((new_active) &&
--	    (old_active) &&
--	    (new_active->link == BOND_LINK_UP) &&
-+	if (new_active &&
-+	    old_active &&
-+	    new_active->link == BOND_LINK_UP &&
- 	    IS_UP(new_active->dev)) {
- 		block_netpoll_tx();
- 		write_lock_bh(&bond->curr_slave_lock);
-@@ -2660,10 +2656,7 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
- 	if (list_empty(&bond->slave_list))
- 		goto re_arm;
- 
--	read_lock(&bond->curr_slave_lock);
- 	oldcurrent = bond->curr_active_slave;
--	read_unlock(&bond->curr_slave_lock);
--
- 	/* see if any of the previous devices are up now (i.e. they have
- 	 * xmt and rcv traffic). the curr_active_slave does not come into
- 	 * the picture unless it is null. also, slave->jiffies is not needed
-@@ -3818,11 +3811,7 @@ static int bond_xmit_roundrobin(struct sk_buff *skb, struct net_device *bond_dev
- 	 */
- 	if ((iph->protocol == IPPROTO_IGMP) &&
- 	    (skb->protocol == htons(ETH_P_IP))) {
--
--		read_lock(&bond->curr_slave_lock);
- 		slave = bond->curr_active_slave;
--		read_unlock(&bond->curr_slave_lock);
--
- 		if (!slave)
- 			goto out;
- 	} else {
-@@ -3867,15 +3856,12 @@ out:
- static int bond_xmit_activebackup(struct sk_buff *skb, struct net_device *bond_dev)
++/**
++ * bond_xmit_slave_id - transmit skb through slave with slave_id
++ * @bond: bonding device that is transmitting
++ * @skb: buffer to transmit
++ * @slave_id: slave id up to slave_cnt-1 through which to transmit
++ *
++ * This function tries to transmit through slave with slave_id but in case
++ * it fails, it tries to find the first available slave for transmission.
++ * The skb is consumed in all cases, thus the function is void.
++ */
++void bond_xmit_slave_id(struct bonding *bond, struct sk_buff *skb, int slave_id)
++{
++	struct slave *slave;
++	int i = slave_id;
++
++	/* Here we start from the slave with slave_id */
++	bond_for_each_slave(bond, slave) {
++		if (--i < 0) {
++			if (slave_can_tx(slave)) {
++				bond_dev_queue_xmit(bond, skb, slave->dev);
++				return;
++			}
++		}
++	}
++
++	/* Here we start from the first slave up to slave_id */
++	i = slave_id;
++	bond_for_each_slave(bond, slave) {
++		if (--i < 0)
++			break;
++		if (slave_can_tx(slave)) {
++			bond_dev_queue_xmit(bond, skb, slave->dev);
++			return;
++		}
++	}
++	/* no slave that can tx has been found */
++	kfree_skb(skb);
++}
++
+ static int bond_xmit_roundrobin(struct sk_buff *skb, struct net_device *bond_dev)
  {
  	struct bonding *bond = netdev_priv(bond_dev);
+-	struct slave *slave, *start_at;
+-	int i, slave_no, res = 1;
+ 	struct iphdr *iph = ip_hdr(skb);
 +	struct slave *slave;
- 	int res = 1;
  
--	read_lock(&bond->curr_slave_lock);
+ 	/*
+ 	 * Start with the curr_active_slave that joined the bond as the
+@@ -3809,46 +3847,20 @@ static int bond_xmit_roundrobin(struct sk_buff *skb, struct net_device *bond_dev
+ 	 * send the join/membership reports.  The curr_active_slave found
+ 	 * will send all of this type of traffic.
+ 	 */
+-	if ((iph->protocol == IPPROTO_IGMP) &&
+-	    (skb->protocol == htons(ETH_P_IP))) {
++	if (iph->protocol == IPPROTO_IGMP && skb->protocol == htons(ETH_P_IP)) {
+ 		slave = bond->curr_active_slave;
+-		if (!slave)
+-			goto out;
++		if (slave && slave_can_tx(slave))
++			bond_dev_queue_xmit(bond, skb, slave->dev);
++		else
++			bond_xmit_slave_id(bond, skb, 0);
+ 	} else {
+-		/*
+-		 * Concurrent TX may collide on rr_tx_counter; we accept
+-		 * that as being rare enough not to justify using an
+-		 * atomic op here.
+-		 */
+-		slave_no = bond->rr_tx_counter++ % bond->slave_cnt;
 -
--	if (bond->curr_active_slave)
--		res = bond_dev_queue_xmit(bond, skb,
--			bond->curr_active_slave->dev);
+-		bond_for_each_slave(bond, slave) {
+-			slave_no--;
+-			if (slave_no < 0)
+-				break;
+-		}
+-	}
 -
--	read_unlock(&bond->curr_slave_lock);
-+	slave = bond->curr_active_slave;
-+	if (slave)
-+		res = bond_dev_queue_xmit(bond, skb, slave->dev);
- 
- 	if (res)
- 		/* no suitable interface, frame not sent */
-@@ -3935,10 +3921,7 @@ static int bond_xmit_broadcast(struct sk_buff *skb, struct net_device *bond_dev)
- 	int i;
- 	int res = 1;
- 
--	read_lock(&bond->curr_slave_lock);
- 	start_at = bond->curr_active_slave;
--	read_unlock(&bond->curr_slave_lock);
+-	start_at = slave;
+-	bond_for_each_slave_from(bond, slave, i, start_at) {
+-		if (IS_UP(slave->dev) &&
+-		    (slave->link == BOND_LINK_UP) &&
+-		    bond_is_active_slave(slave)) {
+-			res = bond_dev_queue_xmit(bond, skb, slave->dev);
+-			break;
+-		}
+-	}
 -
- 	if (!start_at)
- 		goto out;
+-out:
+-	if (res) {
+-		/* no suitable interface, frame not sent */
+-		kfree_skb(skb);
++		bond_xmit_slave_id(bond, skb,
++				   bond->rr_tx_counter++ % bond->slave_cnt);
+ 	}
  
+ 	return NETDEV_TX_OK;
+ }
+ 
+-
+ /*
+  * in active-backup mode, we know that bond->curr_active_slave is always valid if
+  * the bond has a usable interface.
+@@ -3857,14 +3869,11 @@ static int bond_xmit_activebackup(struct sk_buff *skb, struct net_device *bond_d
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+ 	struct slave *slave;
+-	int res = 1;
+ 
+ 	slave = bond->curr_active_slave;
+ 	if (slave)
+-		res = bond_dev_queue_xmit(bond, skb, slave->dev);
+-
+-	if (res)
+-		/* no suitable interface, frame not sent */
++		bond_dev_queue_xmit(bond, skb, slave->dev);
++	else
+ 		kfree_skb(skb);
+ 
+ 	return NETDEV_TX_OK;
+@@ -3878,34 +3887,9 @@ static int bond_xmit_activebackup(struct sk_buff *skb, struct net_device *bond_d
+ static int bond_xmit_xor(struct sk_buff *skb, struct net_device *bond_dev)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+-	struct slave *slave, *start_at;
+-	int slave_no;
+-	int i;
+-	int res = 1;
+-
+-	slave_no = bond->xmit_hash_policy(skb, bond->slave_cnt);
+-
+-	bond_for_each_slave(bond, slave) {
+-		slave_no--;
+-		if (slave_no < 0)
+-			break;
+-	}
+-
+-	start_at = slave;
+ 
+-	bond_for_each_slave_from(bond, slave, i, start_at) {
+-		if (IS_UP(slave->dev) &&
+-		    (slave->link == BOND_LINK_UP) &&
+-		    bond_is_active_slave(slave)) {
+-			res = bond_dev_queue_xmit(bond, skb, slave->dev);
+-			break;
+-		}
+-	}
+-
+-	if (res) {
+-		/* no suitable interface, frame not sent */
+-		kfree_skb(skb);
+-	}
++	bond_xmit_slave_id(bond, skb,
++			   bond->xmit_hash_policy(skb, bond->slave_cnt));
+ 
+ 	return NETDEV_TX_OK;
+ }
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index cfd9b49..0995974 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -426,10 +426,20 @@ static inline __be32 bond_confirm_addr(struct net_device *dev, __be32 dst, __be3
+ 	return addr;
+ }
+ 
++static inline bool slave_can_tx(struct slave *slave)
++{
++	if (IS_UP(slave->dev) && slave->link == BOND_LINK_UP &&
++	    bond_is_active_slave(slave))
++		return true;
++	else
++		return false;
++}
++
+ struct bond_net;
+ 
+ struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr);
+ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb, struct net_device *slave_dev);
++void bond_xmit_slave_id(struct bonding *bond, struct sk_buff *skb, int slave_id);
+ int bond_create(struct net *net, const char *name);
+ int bond_create_sysfs(struct bond_net *net);
+ void bond_destroy_sysfs(struct bond_net *net);
 -- 
 1.8.1.4
