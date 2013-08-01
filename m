@@ -1,91 +1,79 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] genetlink: fix usage of NLM_F_EXCL or NLM_F_REPLACE
-Date: Thu, 1 Aug 2013 04:00:49 +0200
-Message-ID: <20130801020049.GA4067@localhost>
-References: <1375093804-7534-1-git-send-email-pablo@netfilter.org>
- <20130730.164423.1103943978365554977.davem@davemloft.net>
- <20130731111215.GA6062@localhost>
- <20130731.170348.1752477967026355787.davem@davemloft.net>
- <20130801003710.GA19777@localhost>
+From: Duan Fugang-B38611 <B38611@freescale.com>
+Subject: RE: [PATCH] net/fec: Don't let ndo_start_xmit return NETDEV_TX_BUSY
+ without link
+Date: Thu, 1 Aug 2013 02:01:05 +0000
+Message-ID: <9848F2DB572E5649BA045B288BE08FBE015E3A69@039-SN2MPN1-023.039d.mgd.msft.net>
+References: <1375176580-7368-1-git-send-email-u.kleine-koenig@pengutronix.de>
+	<20130730.160530.831845971567683172.davem@davemloft.net>
+	<20130731081649.GA1754@pengutronix.de>
+ <20130731.115101.340503855490269301.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="W/nzBZO5zC0uMSeA"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Estevam Fabio-R49496 <r49496@freescale.com>,
+	Li Frank-B20596 <B20596@freescale.com>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>,
+	"hector.palacios@digi.com" <hector.palacios@digi.com>,
+	"tim.sander@hbm.com" <tim.sander@hbm.com>,
+	"rostedt@goodmis.org" <rostedt@goodmis.org>,
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"florian@openwrt.org" <florian@openwrt.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+To: David Miller <davem@davemloft.net>,
+	"u.kleine-koenig@pengutronix.de" <u.kleine-koenig@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55039 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751335Ab3HACA4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jul 2013 22:00:56 -0400
-Content-Disposition: inline
-In-Reply-To: <20130801003710.GA19777@localhost>
+Received: from mail-db8lp0188.outbound.messaging.microsoft.com ([213.199.154.188]:2197
+	"EHLO db8outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752810Ab3HACBZ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jul 2013 22:01:25 -0400
+In-Reply-To: <20130731.115101.340503855490269301.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Aug 01, 2013 at 02:51 AM, David Miller wrote:
 
---W/nzBZO5zC0uMSeA
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+>> On Tue, Jul 30, 2013 at 04:05:30PM -0700, David Miller wrote:
+>>> From: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+>>> Date: Tue, 30 Jul 2013 11:29:40 +0200
+>>>=20
+>>> > Don't test for having link and let hardware deal with this situat=
+ion.
+>>> >=20
+>>> > Without this patch I see a machine running an -rt patched Linux=20
+>>> > being stuck in sch_direct_xmit when it looses link while there is=
+=20
+>>> > still a packet to be sent. In this case the fec_enet_start_xmit=20
+>>> > routine returned NETDEV_TX_BUSY which makes the network stack=20
+>>> > reschedule the packet and so sch_direct_xmit calls fec_enet_start=
+_xmit again.
+>>> > I failed to reproduce a complete hang without -rt, but I think th=
+e=20
+>>> > problem exists there, too.
+>>> >=20
+>>> > Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de=
+>
+>>>=20
+>>> Applied, thanks.
+>> Thanks, I see it as a264b981f2c76e281ef27e7232774bf6c54ec865 in=20
+>> net.git (i.e.
+>> https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?i=
+d=3D
+>> a264b981f2c76e281ef27e7232774bf6c54ec865)
+>>=20
+>> You missed to take the
+>>=20
+>> 	Acked-and-tested-by: Fugang Duan <B38611@freescale.com>
+>
+> This is not an official tag recognized by patchwork, he should say:
+>
+> Acked-by: Fugang Duan <B38611@freescale.com>
+> Tested-by: Fugang Duan <B38611@freescale.com>
 
-On Thu, Aug 01, 2013 at 02:37:10AM +0200, Pablo Neira Ayuso wrote:
-> On Wed, Jul 31, 2013 at 05:03:48PM -0700, David Miller wrote:
-[...]
-> > Therefore I don't see how NLM_F_REPLACE and NLM_F_EXCL can be used
-> > at all, in those places, because the check is still "& NLM_F_DUMP"
-> 
-> The kind = type&3; is doing the magic there for rtnetlink. kind == 2
-> means that this is a get command, and you can only set NLM_F_DUMP
-> using the get command.
-> 
-> Since it doesn't make sense to use NLM_F_EXCL or NLM_F_REPLACE for get
-> commands, there is no room for ambiguity and rtnetlink is fine.
-
-I had re-read what I wrote to get your point. We can fix in a
-different way by checking for: ops->flags & GENL_CMD_CAP_DUMP, which
-means we have a .dumpit callback, so only in that case genetlink
-should interpret the flags as NLM_F_DUMP.
-
-Please, see patch attached.
-
---W/nzBZO5zC0uMSeA
-Content-Type: text/x-diff; charset=us-ascii
-Content-Disposition: attachment; filename="0001-genetlink-interpret-NLM_F_DUMP-if-GENL_CMD_CAP_DUMP-.patch"
-
->From 0536ae81c430d007a81dbdf2989b736f4f5057f1 Mon Sep 17 00:00:00 2001
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Thu, 1 Aug 2013 03:32:11 +0200
-Subject: [PATCH] genetlink: interpret NLM_F_DUMP if GENL_CMD_CAP_DUMP flag is
- set
-
-This patch reverts (e1ee367 genetlink: fix usage of NLM_F_EXCL
-or NLM_F_REPLACE) to fix the possible ambiguity for non-get
-commands in a different way. Basically, we assume that genetlink
-should only interpret the NLM_F_DUMP flags if the .dumpit callback
-is set, which is the common case for getoperation.
-
-This approach is similar to what rtnetlink does to resolve this
-ambiguity.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netlink/genetlink.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index 512718a..d034728 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -571,7 +571,8 @@ static int genl_family_rcv_msg(struct genl_family *family,
- 	    !capable(CAP_NET_ADMIN))
- 		return -EPERM;
- 
--	if ((nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP) {
-+	if ((ops->flags & GENL_CMD_CAP_DUMP) &&
-+	    nlh->nlmsg_flags & NLM_F_DUMP) {
- 		struct netlink_dump_control c = {
- 			.dump = ops->dumpit,
- 			.done = ops->done,
--- 
-1.7.10.4
-
-
---W/nzBZO5zC0uMSeA--
+I see Linux kernel trees have many non-official tag such as: Acked-and-=
+tested-by.
+Anyway, we must follow the official rules. Thanks, David.
