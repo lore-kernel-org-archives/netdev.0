@@ -1,53 +1,57 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next 1/2] net: fix a compile error when
- CONFIG_NET_LL_RX_POLL is not set
-Date: Thu, 01 Aug 2013 16:08:07 +0800
-Message-ID: <1375344487.7780.14.camel@cr0>
-References: <1375326625-21427-1-git-send-email-amwang@redhat.com>
-	 <51FA060A.2060202@linux.intel.com>
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH 4/4] USBNET: ax88179_178a: enable tso if host supports sg dma
+Date: Thu, 1 Aug 2013 16:10:48 +0800
+Message-ID: <CACVXFVMt-TgRVU+iA3NVuUzJSeXUPGvV89OnDdHaLEB1Ua6aAw@mail.gmail.com>
+References: <1375267909-30373-1-git-send-email-ming.lei@canonical.com>
+	<1375267909-30373-5-git-send-email-ming.lei@canonical.com>
+	<1375329066.10515.125.camel@edumazet-glaptop>
+	<CACVXFVNSZJ+ojjBCwYDKsWWvs03aL8BugcX7u483MvBCQCH1sg@mail.gmail.com>
+	<1375333461.10515.133.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12447 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751663Ab3HAIIY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Aug 2013 04:08:24 -0400
-In-Reply-To: <51FA060A.2060202@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
+	Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>,
+	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1375333461.10515.133.camel@edumazet-glaptop>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-08-01 at 09:54 +0300, Eliezer Tamir wrote:
-> On 01/08/2013 06:10, Cong Wang wrote:
-> > From: Cong Wang <amwang@redhat.com>
-> >=20
-> > When CONFIG_NET_LL_RX_POLL is not set, I got:
-> >=20
-> > net/socket.c: In function =E2=80=98sock_poll=E2=80=99:
-> > net/socket.c:1165:4: error: implicit declaration of function =E2=80=
-=98sk_busy_loop=E2=80=99 [-Werror=3Dimplicit-function-declaration]
-> >=20
-> > Fix this by adding a nop when !CONFIG_NET_LL_RX_POLL.
-> >=20
->=20
-> Good catch!
->=20
-> There is a placeholder function, but it has a typo in the name.
-> With all the renaming I made a mistake and called the do-nothing
-> function sk_busy_poll while the implemented function is called sk_bus=
-y_loop.
->=20
-> so what we need is to rename sk_busy_loop() into sk_busy_poll.
->=20
+On Thu, Aug 1, 2013 at 1:04 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On Thu, 2013-08-01 at 12:41 +0800, Ming Lei wrote:
+>
+>> From my trace result, lots of linear SKBs are cloned or header-cloned, so
+>> it needs skb copy too.
+>>
+>> Is it normal in xmit path to see cloned SKBs for driver? If not, I can add check
+>> to avoid allocation of 8 bytes header for non-cloned skb.
+>
+> Existing code is not very friendly and very complex.
+>
+> Sure TCP stack does a clone for every skb from socket write queue,
+> but header should be available for pushing 8 bytes.
+>
+> The !skb_cloned(skb) test should be removed if the memmove() is not
+> needed.
+>
+> Could you try following patch ?
 
-Ok.
+Tested-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
-Thinking about it again, what is the point of your commit commit
-89bf1b5a683df497c572c4d3bd3f9c9aa919d773 (net: remove NET_LL_RX_POLL
-config menue)? After that commit, CONFIG_NET_LL_RX_POLL is not visible
-by user and no other configs select it, also since it defaults to y, it
-will be _always_ enabled. If this is really what you want, we can simpl=
-y
-remove all !CONFIG_NET_LL_RX_POLL code.
+This patch does work, and it will make the patch 4/4 become very
+simple, :-)
+
+I will rewrite this one against your patch.
+
+Thanks,
+--
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
