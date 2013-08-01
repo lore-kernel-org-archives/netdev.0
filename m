@@ -1,63 +1,32 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next v3] bonding: fix system hang due to fast igmp timer rescheduling
-Date: Thu,  1 Aug 2013 11:51:42 +0200
-Message-ID: <1375350702-7777-1-git-send-email-nikolay@redhat.com>
-Cc: davem@davemloft.net, andy@greyhouse.net, fubar@us.ibm.com
-To: netdev@vger.kernel.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH RFC] xfrm{4,6}: only report errors back to local sockets
+ if we don't cross address family
+Date: Thu, 1 Aug 2013 12:05:22 +0200
+Message-ID: <20130801100522.GC25511@secunet.com>
+References: <20130729145017.GD2490@order.stressinduktion.org>
+ <20130730082118.GA25511@secunet.com>
+ <20130730083017.GA7068@order.stressinduktion.org>
+ <20130730102611.GB25511@secunet.com>
+ <20130801081150.GF3688@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, vi0oss@gmail.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:18045 "EHLO mx1.redhat.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:41203 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752167Ab3HAJzR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Aug 2013 05:55:17 -0400
+	id S1752407Ab3HAKFZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Aug 2013 06:05:25 -0400
+Content-Disposition: inline
+In-Reply-To: <20130801081150.GF3688@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Nikolay Aleksandrov" <nikolay@redhat.com>
+On Thu, Aug 01, 2013 at 10:11:50AM +0200, Hannes Frederic Sowa wrote:
+> 
+> If you have not yet done so, I would try to find a solution over the weekend.
+> 
 
-After commit 4aa5dee4d9 ("net: convert resend IGMP to notifier event")
-we try to acquire rtnl in bond_resend_igmp_join_requests but it can be
-scheduled with rtnl already held (e.g. when bond_change_active_slave is
-called with rtnl) causing a loop of immediate reschedules + calls because
-rtnl_trylock fails each time since it's being already held.
-For me this issue leads to system hangs very easy:
-modprobe bonding; ifconfig bond0 up; ifenslave bond0 eth0; rmmod
-bonding;
+I have not yet done so, please go ahead.
 
-The fix is to introduce a small (1 jiffy) delay which is enough for the
-sections holding rtnl to finish without putting any strain on the system.
-Also adjust the timer in bond_change_active_slave to be 1 jiffy, since
-most of the time it's called with rtnl already held.
-
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
----
-v3: learn to spell my name :-)
-v2: adjust bond_change_active_slave's mcast_work delay to 1 jiffy because
-it's called with rtnl held most of the time as Jay suggested
-
- drivers/net/bonding/bond_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index da3af63..bc3578e 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -723,7 +723,7 @@ static int bond_set_allmulti(struct bonding *bond, int inc)
- static void bond_resend_igmp_join_requests(struct bonding *bond)
- {
- 	if (!rtnl_trylock()) {
--		queue_delayed_work(bond->wq, &bond->mcast_work, 0);
-+		queue_delayed_work(bond->wq, &bond->mcast_work, 1);
- 		return;
- 	}
- 	call_netdevice_notifiers(NETDEV_RESEND_IGMP, bond->dev);
-@@ -1084,7 +1084,7 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
- 	    ((USES_PRIMARY(bond->params.mode) && new_active) ||
- 	     bond->params.mode == BOND_MODE_ROUNDROBIN)) {
- 		bond->igmp_retrans = bond->params.resend_igmp;
--		queue_delayed_work(bond->wq, &bond->mcast_work, 0);
-+		queue_delayed_work(bond->wq, &bond->mcast_work, 1);
- 	}
- }
- 
--- 
-1.8.1.4
+Thanks a lot!
