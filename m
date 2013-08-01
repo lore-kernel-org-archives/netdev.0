@@ -1,91 +1,79 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: locating the 'tc actions' hook
-Date: Thu, 01 Aug 2013 07:40:44 -0400
-Message-ID: <51FA493C.8080207@mojatatu.com>
-References: <51F97F4E.5070102@gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2013-08-01
+Date: Thu, 01 Aug 2013 14:00:24 +0200
+Message-ID: <51FA4DD8.1040903@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:36757 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751177Ab3HALk5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 07:40:57 -0400
-Received: by mail-pa0-f45.google.com with SMTP id bg4so2041300pad.32
-        for <netdev@vger.kernel.org>; Thu, 01 Aug 2013 04:40:56 -0700 (PDT)
-In-Reply-To: <51F97F4E.5070102@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="UEijNQR3C2PEhaXBtb2IVx48wkk72aw0Q"
+Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 13-07-31 05:19 PM, John Fastabend wrote:
-> Hi Jamal,
->
-> I'm trying to sort out why I would use 'tc actions' and exactly
-> what it is doing.
->
-> Its clear I think adding one or more actions to filters will be
-> used in the classifier via tcf_exts_exec() through the classify
-> hook called from a qdisc.
->
-> This is your standard
->
->      # tc filter add ... {u32|fw|tcindex|route|...} ... action ...
->
-> When these actions get configured the specific actions tc_action_ops
-> will be used to init the action create the hash 'tcf_hash_create' and
-> parse the options. All this I can follow in ./net/sched/
->
-> But the actions netlink hook does this,
->
-> tc_ctl_action()
->      tcf_action_add()
->          tcf_action_init() <- inserts action in the table
->
-> So at this point we have the entry in the table but I must be missing
-> where the tc_action_ops act() is going to be called because its not via
-> tcf_exts_exec().
->
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--UEijNQR3C2PEhaXBtb2IVx48wkk72aw0Q
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
+Hello David,
 
-There are two ways to add actions.
-a) you specify a filter followed by a graph of actions to be executed
-on a match (yes, in the kernel 10 years before Openflow and still
-expressively more powerful;->)
+this is a pull-request for net-next/master. It consists of two patches
+by Fabio Estevam. Them first convert the flexcan driver to use
+devm_ioremap_resource(), the second adds return value checking for
+clk_prepare_enable().
 
-b) You can add actions first, then later specify the filter followed by
-a graph of actions. Actions in such a case are referenced by their
-table indices.
+regards,
+Marc
 
-#a tends to be more popular way of provisioning.
+---
 
-> Am I missing something obvious here? Is there a way to link them to
-> filters? Sorry if it turns out to be a stupid question.
->
+The following changes since commit 46b3a421903aa2a4bc9731ca4663cee3ea869d=
+ab:
 
-I think the second use case is what you are bumping into. I know from
-answering questions this is a very popular use case in some eastern
-European countries (where one policer with a specific rate is shared
-by many flows); i think they have a setup where you share your DSL
-connection with your neighbors. Its quiet a clever setup.
+  ipv6: fib6_rules should return exact return value (2013-08-01 00:26:22 =
+-0700)
+
+are available in the git repository at:
+
+  git://gitorious.org/linux-can/linux-can-next.git for-davem
+
+for you to fetch changes up to aa10181bdac99a623517f0f2bfa14cd98c749246:
+
+  can: flexcan: Check the return value from clk_prepare_enable() (2013-08=
+-01 12:36:20 +0200)
+
+----------------------------------------------------------------
+Fabio Estevam (2):
+      can: flexcan: Use devm_ioremap_resource()
+      can: flexcan: Check the return value from clk_prepare_enable()
+
+ drivers/net/can/flexcan.c | 81 +++++++++++++++++++----------------------=
+------
+ 1 file changed, 32 insertions(+), 49 deletions(-)
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
-> My motivation here is to use the filters/actions outside the qdisc lock
-> for mq, mqprio, and the ingress qdisc.
->
+--UEijNQR3C2PEhaXBtb2IVx48wkk72aw0Q
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-Are you trying to offload these actions into hardware?
-Is the classifier in hardware?
-Please let me know if you need further help. Example, I could send you
-a bunch of examples for either
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
 
-cheers,
-jamal
+iEYEARECAAYFAlH6TdkACgkQjTAFq1RaXHMkpgCglZ6mMr0ZHOFglE6yBXKoB98i
+aq4AoIlne63JaE6G0p685o/qqhYleeO8
+=q8tJ
+-----END PGP SIGNATURE-----
 
-
-> .John
->
+--UEijNQR3C2PEhaXBtb2IVx48wkk72aw0Q--
