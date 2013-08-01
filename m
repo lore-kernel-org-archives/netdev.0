@@ -1,87 +1,53 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net v2 2/2] ipv6: update ip6_rt_last_gc every time GC is run
-Date: Thu,  1 Aug 2013 10:04:24 +0200 (CEST)
-Message-ID: <90c502fd0473af9e756436647bce8d89ddbd29d4.1375343204.git.mkubecek@suse.cz>
-References: <cover.1375343204.git.mkubecek@suse.cz>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: "David S. Miller" <davem@davemloft.net>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next 1/2] net: fix a compile error when
+ CONFIG_NET_LL_RX_POLL is not set
+Date: Thu, 01 Aug 2013 16:08:07 +0800
+Message-ID: <1375344487.7780.14.camel@cr0>
+References: <1375326625-21427-1-git-send-email-amwang@redhat.com>
+	 <51FA060A.2060202@linux.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:42462 "EHLO mx2.suse.de"
+Received: from mx1.redhat.com ([209.132.183.28]:12447 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752521Ab3HAIEZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Aug 2013 04:04:25 -0400
-In-Reply-To: <cover.1375343204.git.mkubecek@suse.cz>
+	id S1751663Ab3HAIIY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Aug 2013 04:08:24 -0400
+In-Reply-To: <51FA060A.2060202@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As pointed out by Eric Dumazet, net->ipv6.ip6_rt_last_gc should
-hold the last time garbage collector was run so that we should
-update it whenever fib6_run_gc() calls fib6_clean_all(), not only
-if we got there from ip6_dst_gc().
+On Thu, 2013-08-01 at 09:54 +0300, Eliezer Tamir wrote:
+> On 01/08/2013 06:10, Cong Wang wrote:
+> > From: Cong Wang <amwang@redhat.com>
+> >=20
+> > When CONFIG_NET_LL_RX_POLL is not set, I got:
+> >=20
+> > net/socket.c: In function =E2=80=98sock_poll=E2=80=99:
+> > net/socket.c:1165:4: error: implicit declaration of function =E2=80=
+=98sk_busy_loop=E2=80=99 [-Werror=3Dimplicit-function-declaration]
+> >=20
+> > Fix this by adding a nop when !CONFIG_NET_LL_RX_POLL.
+> >=20
+>=20
+> Good catch!
+>=20
+> There is a placeholder function, but it has a typo in the name.
+> With all the renaming I made a mistake and called the do-nothing
+> function sk_busy_poll while the implemented function is called sk_bus=
+y_loop.
+>=20
+> so what we need is to rename sk_busy_loop() into sk_busy_poll.
+>=20
 
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
----
- net/ipv6/ip6_fib.c | 6 +++++-
- net/ipv6/route.c   | 4 +---
- 2 files changed, 6 insertions(+), 4 deletions(-)
+Ok.
 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index d872553..bff3d82 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -1634,6 +1634,8 @@ static DEFINE_SPINLOCK(fib6_gc_lock);
- 
- void fib6_run_gc(unsigned long expires, struct net *net, bool force)
- {
-+	unsigned long now;
-+
- 	if (force) {
- 		spin_lock_bh(&fib6_gc_lock);
- 	} else if (!spin_trylock_bh(&fib6_gc_lock)) {
-@@ -1646,10 +1648,12 @@ void fib6_run_gc(unsigned long expires, struct net *net, bool force)
- 	gc_args.more = icmp6_dst_gc();
- 
- 	fib6_clean_all(net, fib6_age, 0, NULL);
-+	now = jiffies;
-+	net->ipv6.ip6_rt_last_gc = now;
- 
- 	if (gc_args.more)
- 		mod_timer(&net->ipv6.ip6_fib_timer,
--			  round_jiffies(jiffies
-+			  round_jiffies(now
- 					+ net->ipv6.sysctl.ip6_rt_gc_interval));
- 	else
- 		del_timer(&net->ipv6.ip6_fib_timer);
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 824c424..b70f897 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1311,7 +1311,6 @@ static void icmp6_clean_all(int (*func)(struct rt6_info *rt, void *arg),
- 
- static int ip6_dst_gc(struct dst_ops *ops)
- {
--	unsigned long now = jiffies;
- 	struct net *net = container_of(ops, struct net, ipv6.ip6_dst_ops);
- 	int rt_min_interval = net->ipv6.sysctl.ip6_rt_gc_min_interval;
- 	int rt_max_size = net->ipv6.sysctl.ip6_rt_max_size;
-@@ -1321,13 +1320,12 @@ static int ip6_dst_gc(struct dst_ops *ops)
- 	int entries;
- 
- 	entries = dst_entries_get_fast(ops);
--	if (time_after(rt_last_gc + rt_min_interval, now) &&
-+	if (time_after(rt_last_gc + rt_min_interval, jiffies) &&
- 	    entries <= rt_max_size)
- 		goto out;
- 
- 	net->ipv6.ip6_rt_gc_expire++;
- 	fib6_run_gc(net->ipv6.ip6_rt_gc_expire, net, entries > rt_max_size);
--	net->ipv6.ip6_rt_last_gc = now;
- 	entries = dst_entries_get_slow(ops);
- 	if (entries < ops->gc_thresh)
- 		net->ipv6.ip6_rt_gc_expire = rt_gc_timeout>>1;
--- 
-1.8.1.4
+Thinking about it again, what is the point of your commit commit
+89bf1b5a683df497c572c4d3bd3f9c9aa919d773 (net: remove NET_LL_RX_POLL
+config menue)? After that commit, CONFIG_NET_LL_RX_POLL is not visible
+by user and no other configs select it, also since it defaults to y, it
+will be _always_ enabled. If this is really what you want, we can simpl=
+y
+remove all !CONFIG_NET_LL_RX_POLL code.
