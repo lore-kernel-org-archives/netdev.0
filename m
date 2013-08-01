@@ -1,98 +1,122 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next v3 0/5] bonding: groundwork and initial conversion to RCU
-Date: Thu,  1 Aug 2013 16:54:46 +0200
-Message-ID: <1375368891-9979-1-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next v3 2/5] bonding: remove unnecessary read_locks of curr_slave_lock
+Date: Thu,  1 Aug 2013 16:54:48 +0200
+Message-ID: <1375368891-9979-3-git-send-email-nikolay@redhat.com>
+References: <1375368891-9979-1-git-send-email-nikolay@redhat.com>
 Cc: davem@davemloft.net, andy@greyhouse.net, fubar@us.ibm.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33023 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:45844 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755477Ab3HAO61 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Aug 2013 10:58:27 -0400
+	id S1755753Ab3HAO6b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Aug 2013 10:58:31 -0400
+In-Reply-To: <1375368891-9979-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <Nikolay Aleksandrov nikolay@redhat.com>
+In all the cases we already hold bond->lock for reading, so the slave
+can't get away and the check != NULL is sufficient. curr_active_slave
+can still change after the read_lock is unlocked prior to use of the
+dereferenced value, so there's no need for it. It either contains a
+valid slave which we use (and can't get away), or it is NULL which is
+checked.
+In some places the read_lock of curr_slave_lock was left because we need
+it not to change while performing some action (e.g. syncing current
+active slave's addresses, sending ARP requests through the active slave)
+such cases will be dealt with individually while converting to RCU.
 
-Hello,
- This patchset aims to lay the groundwork, and do the initial conversion to
-RCUism. I decided that it'll be much better to make the bonding RCU
-conversion gradual, so patches can be reviewed and tested better rather
-than having one huge patch (which I did in the beginning, before this).
-The first patch is straightforward and it converts the bonding to the
-standard list API, simplifying a lot of code, removing unnecessary local
-variables and allowing to use the nice rculist API later. It also takes
-care of some minor styling issues (re-arranging local variables longest ->
-shortest, removing brackets for single statement if/else, leaving new line
-before return statement etc.).
- The second patch simplifies the conversion by removing unnecessary
-read_lock(&bond->curr_slave_lock) in xmit paths that are to be converted
-later, because we only care if the pointer is NULL or a slave there, since
-we already have bond->lock the slave can't go away.
- The third patch simplifies the broadcast xmit function by removing
-the use of curr_active_slave and converting to standard list API. Also this
-design of the broadcast xmit function avoids a subtle double packet tx race
-when converted to RCU.
- The fourth patch factors out the code that transmits skb through a slave
-with given id (i.e. rr_tx_counter in rr mode, hashed value in xor mode) and
-simplifies the active-backup xmit path because bond_dev_queue_xmit always
-consumes the skb. The new bond_xmit_slave_id function is used in rr and xor
-modes currently, but the plans are to use it in 3ad mode as well thus it's
-made global. I've left the function prototype to be 81 chars so I wouldn't
-break it, if this is an issue I can always break it in more lines.
- The fifth patch introduces RCU by converting attach/detach and release to
-RCU. It also converts dereferencing of curr_active_slave to rcu_dereference
-although it's not fully converted to RCU, that is needed for the converted
-xmit paths. And it converts roundrobin, broadcast, xor and active-backup
-xmit paths to RCU. The 3ad and ALB/TLB modes acquire read_lock(&bond->lock)
-to make sure that no slave will be removed and to sync properly with
-enslave and release as before.
- This way for the price of a little complexity, we'll be able to convert
-individual parts of the bonding to RCU, and test them easier in the
-process. If this patchset is accepted in some form, I'll post followups
-in the next weeks that gradually convert the bonding to RCU and remove the
-need for the rwlocks.
- For performance notes please refer to patch 5 (RCU conversion one).
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+v2, v3: no change
 
-v3 summary:
- patch 1 - fix 3ad bug where next_slave wasn't checked if we've crossed
- to the first slave again (v2 introduced bug).
- Note: I know that it's not necessary to check next_slave for NULL but
- later when the mode is converted to RCU that'll be necessary so I put
- it there from now
+ drivers/net/bonding/bond_main.c | 33 ++++++++-------------------------
+ 1 file changed, 8 insertions(+), 25 deletions(-)
 
-v2 summary:
- patch 1 - new primitives as suggested, removal of slave_cnt for checking
- if there're slaves in the bonding (using list_empty instead), using
- bond_for_each_slave and introducing bond_for_each_slave_continue_reverse
- for consistency, also making bond_next/prev_slave return NULL and
- simplifying further, also make bond_for_each_slave_from check if pos is
- NULL, also I think we fix an ALB bug in bond_alb_deinit_slave because
- we have to check if any slaves have the released slave's MAC address, and
- in case we have 2 slaves "> 1" would fail since this one has been already
- detached and slave_cnt is == 1 exactly, so switch to !list_empty
-
- patch 4 - don't set slave to NULL in roundrobin, it's not necessary
-
- patch 5 - included the performance notes, converted curr_active_slave in
- bond_sysfs.c to rcu_dereference, fixed a potential latency issue in slave
- release because TX was unblocked after synchronize_rcu which might take a
- while
-
-Nikolay Aleksandrov (5):
-  bonding: convert to list API and replace bond's custom list
-  bonding: remove unnecessary read_locks of curr_slave_lock
-  bonding: simplify broadcast_xmit function
-  bonding: factor out slave id tx code and simplify xmit paths
-  bonding: initial RCU conversion
-
- drivers/net/bonding/bond_3ad.c    |  44 ++--
- drivers/net/bonding/bond_alb.c    |  57 +++--
- drivers/net/bonding/bond_main.c   | 433 +++++++++++++++-----------------------
- drivers/net/bonding/bond_procfs.c |  12 +-
- drivers/net/bonding/bond_sysfs.c  |  62 +++---
- drivers/net/bonding/bonding.h     |  85 +++++---
- 6 files changed, 310 insertions(+), 383 deletions(-)
-
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 3636a04..9bdc701 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2092,23 +2092,19 @@ static int bond_ioctl_change_active(struct net_device *bond_dev, struct net_devi
+ 
+ 	read_lock(&bond->lock);
+ 
+-	read_lock(&bond->curr_slave_lock);
+ 	old_active = bond->curr_active_slave;
+-	read_unlock(&bond->curr_slave_lock);
+-
+ 	new_active = bond_get_slave_by_dev(bond, slave_dev);
+-
+ 	/*
+ 	 * Changing to the current active: do nothing; return success.
+ 	 */
+-	if (new_active && (new_active == old_active)) {
++	if (new_active && new_active == old_active) {
+ 		read_unlock(&bond->lock);
+ 		return 0;
+ 	}
+ 
+-	if ((new_active) &&
+-	    (old_active) &&
+-	    (new_active->link == BOND_LINK_UP) &&
++	if (new_active &&
++	    old_active &&
++	    new_active->link == BOND_LINK_UP &&
+ 	    IS_UP(new_active->dev)) {
+ 		block_netpoll_tx();
+ 		write_lock_bh(&bond->curr_slave_lock);
+@@ -2660,10 +2656,7 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
+ 	if (list_empty(&bond->slave_list))
+ 		goto re_arm;
+ 
+-	read_lock(&bond->curr_slave_lock);
+ 	oldcurrent = bond->curr_active_slave;
+-	read_unlock(&bond->curr_slave_lock);
+-
+ 	/* see if any of the previous devices are up now (i.e. they have
+ 	 * xmt and rcv traffic). the curr_active_slave does not come into
+ 	 * the picture unless it is null. also, slave->jiffies is not needed
+@@ -3818,11 +3811,7 @@ static int bond_xmit_roundrobin(struct sk_buff *skb, struct net_device *bond_dev
+ 	 */
+ 	if ((iph->protocol == IPPROTO_IGMP) &&
+ 	    (skb->protocol == htons(ETH_P_IP))) {
+-
+-		read_lock(&bond->curr_slave_lock);
+ 		slave = bond->curr_active_slave;
+-		read_unlock(&bond->curr_slave_lock);
+-
+ 		if (!slave)
+ 			goto out;
+ 	} else {
+@@ -3867,15 +3856,12 @@ out:
+ static int bond_xmit_activebackup(struct sk_buff *skb, struct net_device *bond_dev)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
++	struct slave *slave;
+ 	int res = 1;
+ 
+-	read_lock(&bond->curr_slave_lock);
+-
+-	if (bond->curr_active_slave)
+-		res = bond_dev_queue_xmit(bond, skb,
+-			bond->curr_active_slave->dev);
+-
+-	read_unlock(&bond->curr_slave_lock);
++	slave = bond->curr_active_slave;
++	if (slave)
++		res = bond_dev_queue_xmit(bond, skb, slave->dev);
+ 
+ 	if (res)
+ 		/* no suitable interface, frame not sent */
+@@ -3935,10 +3921,7 @@ static int bond_xmit_broadcast(struct sk_buff *skb, struct net_device *bond_dev)
+ 	int i;
+ 	int res = 1;
+ 
+-	read_lock(&bond->curr_slave_lock);
+ 	start_at = bond->curr_active_slave;
+-	read_unlock(&bond->curr_slave_lock);
+-
+ 	if (!start_at)
+ 		goto out;
+ 
 -- 
 1.8.1.4
