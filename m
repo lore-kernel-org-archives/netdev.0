@@ -1,100 +1,56 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: minimum ICMPv6 message size vs. RPL's DIS
-Date: Thu, 1 Aug 2013 07:48:44 +0200
-Message-ID: <20130801054844.GC3688@order.stressinduktion.org>
-References: <20130724232852.GA29572@ws> <20130725061731.GA12365@order.stressinduktion.org> <20130725103048.GB29572@ws>
+From: Wang Sheng-Hui <shhuiw@gmail.com>
+Subject: [PATCH] vlan: cleanup the usage of *vlan in vlan_dev_hard_header
+Date: Thu, 01 Aug 2013 14:10:23 +0800
+Message-ID: <51F9FBCF.9060405@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Werner Almesberger <werner@almesberger.net>, davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:52721 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751954Ab3HAFsp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 01:48:45 -0400
-Content-Disposition: inline
-In-Reply-To: <20130725103048.GB29572@ws>
+Received: from mail-pb0-f43.google.com ([209.85.160.43]:53138 "EHLO
+	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752887Ab3HAGLj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 02:11:39 -0400
+Received: by mail-pb0-f43.google.com with SMTP id md4so1671173pbc.30
+        for <netdev@vger.kernel.org>; Wed, 31 Jul 2013 23:11:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Werner!
+We can use vlan directly after we get the pointer at the beginning
+     *vlan = vlan_dev_priv(dev)
+and do not use vlan_dev_priv(dev) to access its fields afterwards.
 
-On Thu, Jul 25, 2013 at 07:30:49AM -0300, Werner Almesberger wrote:
-> Hannes Frederic Sowa wrote:
-> > Hmm, maybe we should update the icmp header to something like
-> 
-> That would be quite clean. Is it okay to introduce new names
-> like that in a uapi/ header (uapi/linux/icmpv6.h) ?
-> 
-> > Hmm, there is a bug in this function, _hdr must not be a pointer.
-> 
-> Oh, I didn't even notice that. Very good catch !
-> 
-> So on 32 bit system, it would actually work even with "short"
-> ICMPv6 messages. Two wrongs sometimes do make a right :-)
-> 
-> I've attached a revised patch that, according to quick testing,
-> still works and doesn't break anything else.
-> 
-> Thanks,
-> - Werner
-> 
-> ---------------------------------- cut here -----------------------------------
-> 
-> diff --git a/include/uapi/linux/icmpv6.h b/include/uapi/linux/icmpv6.h
-> index e0133c7..11eb5ff 100644
-> --- a/include/uapi/linux/icmpv6.h
-> +++ b/include/uapi/linux/icmpv6.h
-> @@ -5,11 +5,15 @@
->  #include <asm/byteorder.h>
->  
->  struct icmp6hdr {
-> -
-> -	__u8		icmp6_type;
-> -	__u8		icmp6_code;
-> -	__sum16		icmp6_cksum;
-> -
-> +	struct icmp6hdr_head {
-> +		__u8		type;
-> +		__u8		code;
-> +		__sum16		cksum;
-> +	} icmpv6_head;
-> +
-> +#define	icmp6_type	icmpv6_head.type
-> +#define	icmp6_code	icmpv6_head.code
-> +#define	icmp6_cksum	icmpv6_head.cksum
->  
->  	union {
->  		__be32			un_data32[1];
-> diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-> index c45f7a5..99ab06f 100644
-> --- a/net/ipv6/raw.c
-> +++ b/net/ipv6/raw.c
-> @@ -108,14 +108,14 @@ found:
->   */
->  static int icmpv6_filter(const struct sock *sk, const struct sk_buff *skb)
->  {
-> -	struct icmp6hdr *_hdr;
-> -	const struct icmp6hdr *hdr;
-> +	struct icmp6hdr_head _head;
-> +	const struct icmp6hdr_head *head;
->  
-> -	hdr = skb_header_pointer(skb, skb_transport_offset(skb),
-> -				 sizeof(_hdr), &_hdr);
-> -	if (hdr) {
-> +	head = skb_header_pointer(skb, skb_transport_offset(skb),
-> +				  sizeof(_head), &_head);
-> +	if (head) {
->  		const __u32 *data = &raw6_sk(sk)->filter.data[0];
-> -		unsigned int type = hdr->icmp6_type;
-> +		unsigned int type = head->type;
->  
->  		return (data[type >> 5] & (1U << (type & 31))) != 0;
->  	}
+Signed-off-by: Wang Sheng-Hui <shhuiw@gmail.com>
+---
+  net/8021q/vlan_dev.c |    6 +++---
+  1 file changed, 3 insertions(+), 3 deletions(-)
 
-I would go ahead and post this as an offical patch submission now and let
-David Miller have a look.
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 1cd3d2a..9ab8a7e 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -107,10 +107,10 @@ static int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+  	u16 vlan_tci = 0;
+  	int rc;
 
-Thanks,
+-	if (!(vlan_dev_priv(dev)->flags & VLAN_FLAG_REORDER_HDR)) {
++	if (!(vlan->flags & VLAN_FLAG_REORDER_HDR)) {
+  		vhdr = (struct vlan_hdr *) skb_push(skb, VLAN_HLEN);
 
-  Hannes
+-		vlan_tci = vlan_dev_priv(dev)->vlan_id;
++		vlan_tci = vlan->vlan_id;
+  		vlan_tci |= vlan_dev_get_egress_qos_mask(dev, skb);
+  		vhdr->h_vlan_TCI = htons(vlan_tci);
+
+@@ -133,7 +133,7 @@ static int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+  		saddr = dev->dev_addr;
+
+  	/* Now make the underlying real hard header */
+-	dev = vlan_dev_priv(dev)->real_dev;
++	dev = vlan->real_dev;
+  	rc = dev_hard_header(skb, dev, type, daddr, saddr, len + vhdrlen);
+  	if (rc > 0)
+  		rc += vhdrlen;
+-- 
+1.7.10.4
