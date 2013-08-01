@@ -1,52 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4] fib_rules: add .suppress operation
-Date: Wed, 31 Jul 2013 17:27:40 -0700 (PDT)
-Message-ID: <20130731.172740.549970338016485006.davem@davemloft.net>
-References: <20130727070758.GA23904@order.stressinduktion.org>
-	<20130801001715.GA27283@zirkel.wertarbyte.de>
+Subject: Re: [PATCH 1/3] af_packet: when sending ethernet frames, parse
+ header for skb->protocol
+Date: Wed, 31 Jul 2013 17:30:17 -0700 (PDT)
+Message-ID: <20130731.173017.624144247713296239.davem@davemloft.net>
+References: <20130729165357.GA23134@orbit.nwl.cc>
+	<1375291667-9572-1-git-send-email-phil@nwl.cc>
+	<1375291667-9572-2-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-	bsderandrew@gmail.com
-To: stefan.tomanek@wertarbyte.de
+Cc: netdev@vger.kernel.org
+To: phil@nwl.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36430 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36560 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750856Ab3HAA1l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 20:27:41 -0400
-In-Reply-To: <20130801001715.GA27283@zirkel.wertarbyte.de>
+	with ESMTP id S1750856Ab3HAAaR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 20:30:17 -0400
+In-Reply-To: <1375291667-9572-2-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
-Date: Thu, 1 Aug 2013 02:17:15 +0200
+From: Phil Sutter <phil@nwl.cc>
+Date: Wed, 31 Jul 2013 19:27:45 +0200
 
-> This change adds a new operation to the fib_rules_ops struct; it allows the
-> suppression of routing decisions if certain criteria are not met by its
-> results.
-> 
-> The first implemented constraint is a minimum prefix length added to the
-> structures of routing rules. If a rule is added with a minimum prefix length
->>0, only routes meeting this threshold will be considered. Any other (more
-> general) routing table entries will be ignored.
-> 
-> When configuring a system with multiple network uplinks and default routes, it
-> is often convinient to reference the main routing table multiple times - but
-> omitting the default route. Using this patch and a modified "ip" utility, this
-> can be achieved by using the following command sequence:
-> 
->   $ ip route add table secuplink default via 10.42.23.1
-> 
->   $ ip rule add pref 100            table main prefixlength 1
->   $ ip rule add pref 150 fwmark 0xA table secuplink
-> 
-> With this setup, packets marked 0xA will be processed by the additional routing
-> table "secuplink", but only if no suitable route in the main routing table can
-> be found. By using a minimal prefixlength of 1, the default route (/0) of the
-> table "main" is hidden to packets processed by rule 100; packets traveling to
-> destinations with more specific routing entries are processed as usual.
-> 
-> Signed-off-by: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
+> @@ -2324,6 +2328,13 @@ static int packet_snd(struct socket *sock,
+>  
+>  	sock_tx_timestamp(sk, &skb_shinfo(skb)->tx_flags);
+>  
+> +	if (dev->type == ARPHRD_ETHER) {
+> +		skb->protocol = eth_type_trans(skb, dev);
+> +	} else {
+> +		skb->protocol = proto;
+> +		skb->dev = dev;
+> +	}
+> +
+>  	if (!gso_type && (len > dev->mtu + reserve + extra_len)) {
+>  		/* Earlier code assumed this would be a VLAN pkt,
+>  		 * double-check this now that we have the actual
+> @@ -2338,8 +2349,6 @@ static int packet_snd(struct socket *sock,
+>  		}
+>  	}
+>  
+> -	skb->protocol = proto;
+> -	skb->dev = dev;
+>  	skb->priority = sk->sk_priority;
+>  	skb->mark = sk->sk_mark;
 
-Applied, thanks.
+I don't see anything explaining why you are avoiding setting skb->dev when
+you use eth_type_trans() to set the skb->protocol field.
+
+Also, why isn't the user setting the protocol field correctly?  Isn't
+that the _real_ source of these problems?
+
+This patch series cannot be applied as is, it's either wrong, or
+explanations are missing from the commit messages.
