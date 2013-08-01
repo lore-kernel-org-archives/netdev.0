@@ -1,88 +1,441 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: locating the 'tc actions' hook
-Date: Thu, 01 Aug 2013 16:18:23 -0700
-Message-ID: <51FAECBF.3030704@intel.com>
-References: <51F97F4E.5070102@gmail.com> <51FA493C.8080207@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:22422 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757589Ab3HAXSZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Aug 2013 19:18:25 -0400
-In-Reply-To: <51FA493C.8080207@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH V3 2/3] include: Convert ethernet mac address declarations to use ETH_ALEN
+Date: Thu,  1 Aug 2013 16:17:48 -0700
+Message-ID: <9988b63dab92842f5fa48a5330c8187bf391fa17.1375398692.git.joe@perches.com>
+References: <20130801.143137.331385226409040561.davem@davemloft.net>
+Cc: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+	Vitaly Bordug <vbordug@ru.mvista.com>,
+	Steve Glendinning <steve.glendinning@shawell.net>,
+	Mauro Carvalho Chehab <m.chehab@samsung.com>,
+	Samuel Ortiz <samuel@sortiz.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	linux-usb@vger.kernel.org, linux-media@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130801.143137.331385226409040561.davem@davemloft.net>
+In-Reply-To: <cover.1375398692.git.joe@perches.com>
+References: <cover.1375398692.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[...]
+It's convenient to have ethernet mac addresses use
+ETH_ALEN to be able to grep for them a bit easier and
+also to ensure that the addresses are __aligned(2).
 
->> Am I missing something obvious here? Is there a way to link them to
->> filters? Sorry if it turns out to be a stupid question.
->>
->
-> I think the second use case is what you are bumping into. I know from
-> answering questions this is a very popular use case in some eastern
-> European countries (where one policer with a specific rate is shared
-> by many flows); i think they have a setup where you share your DSL
-> connection with your neighbors. Its quiet a clever setup.
->
+Add #include <linux/if_ether.h> as necessary.
 
-Great thanks I was missing part (b) above. Now I see how the index
-works.
+Signed-off-by: Joe Perches <joe@perches.com>
+Acked-by: Mauro Carvalho Chehab <m.chehab@samsung.com>
+---
+ include/linux/dm9000.h          |  4 ++-
+ include/linux/fs_enet_pd.h      |  3 ++-
+ include/linux/ieee80211.h       | 59 +++++++++++++++++++++--------------------
+ include/linux/mlx4/device.h     | 11 ++++----
+ include/linux/mlx4/qp.h         |  5 ++--
+ include/linux/mv643xx_eth.h     |  3 ++-
+ include/linux/sh_eth.h          |  3 ++-
+ include/linux/smsc911x.h        |  3 ++-
+ include/linux/uwb/spec.h        |  5 ++--
+ include/media/tveeprom.h        |  4 ++-
+ include/net/irda/irlan_common.h |  3 ++-
+ 11 files changed, 58 insertions(+), 45 deletions(-)
 
->
->> My motivation here is to use the filters/actions outside the qdisc lock
->> for mq, mqprio, and the ingress qdisc.
->>
->
-> Are you trying to offload these actions into hardware?
-> Is the classifier in hardware?
-> Please let me know if you need further help. Example, I could send you
-> a bunch of examples for either
->
-
-I have two things in mind for this.
-
-The first being directly related to the previous per queue rate limiter
-patch. With rate limiters per queue on a multiqueue device using mq or
-mqprio I need some mechanism to steer packets to queues. One way to do
-this is to use mqprio and create a 'tc' with a single queue in it.
-And then use iptables or netprio_cgroup to steer packets. Another way
-to do this would be to use 'skbedit queue_mapping' to set the queue from
-'tc' but unfortunately with the existing flows the queue has already
-been selected by the time the classifiers are called. Calling into the
-classifier chain before picking the qdisc would fix this. For flow based
-QOS with multiqueue devices this type of functionality would be useful.
-
-The second thought that I've been piecing together would be to populate
-the rxhash (or maybe some other field) using the hardware flow
-classifier in some meaningful way for the ingress qdisc. Some of the
-existing Intel NICs can do this and I believe other vendors have similar
-capabilities. Although currently with the qdisc lock running around the
-ingress qdisc the multiqueue devices take a perf hit just by
-instantiating the ingress qdisc which really is only using the lock to
-guard some stats and keep the classifier/action chains sane.
-
-If you have some good examples it would be great to see them and drop
-them in my testbed. Go ahead and send them to me offlist if you can.
-
-.John
-
-> cheers,
-> jamal
->
->
->> .John
->>
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/linux/dm9000.h b/include/linux/dm9000.h
+index 96e8769..841925f 100644
+--- a/include/linux/dm9000.h
++++ b/include/linux/dm9000.h
+@@ -14,6 +14,8 @@
+ #ifndef __DM9000_PLATFORM_DATA
+ #define __DM9000_PLATFORM_DATA __FILE__
+ 
++#include <linux/if_ether.h>
++
+ /* IO control flags */
+ 
+ #define DM9000_PLATF_8BITONLY	(0x0001)
+@@ -27,7 +29,7 @@
+ 
+ struct dm9000_plat_data {
+ 	unsigned int	flags;
+-	unsigned char	dev_addr[6];
++	unsigned char	dev_addr[ETH_ALEN];
+ 
+ 	/* allow replacement IO routines */
+ 
+diff --git a/include/linux/fs_enet_pd.h b/include/linux/fs_enet_pd.h
+index 51b7934..343d82a 100644
+--- a/include/linux/fs_enet_pd.h
++++ b/include/linux/fs_enet_pd.h
+@@ -18,6 +18,7 @@
+ 
+ #include <linux/string.h>
+ #include <linux/of_mdio.h>
++#include <linux/if_ether.h>
+ #include <asm/types.h>
+ 
+ #define FS_ENET_NAME	"fs_enet"
+@@ -135,7 +136,7 @@ struct fs_platform_info {
+ 	const struct fs_mii_bus_info *bus_info;
+ 
+ 	int rx_ring, tx_ring;	/* number of buffers on rx     */
+-	__u8 macaddr[6];	/* mac address                 */
++	__u8 macaddr[ETH_ALEN];	/* mac address                 */
+ 	int rx_copybreak;	/* limit we copy small frames  */
+ 	int use_napi;		/* use NAPI                    */
+ 	int napi_weight;	/* NAPI weight                 */
+diff --git a/include/linux/ieee80211.h b/include/linux/ieee80211.h
+index b0dc87a..4e101af 100644
+--- a/include/linux/ieee80211.h
++++ b/include/linux/ieee80211.h
+@@ -16,6 +16,7 @@
+ #define LINUX_IEEE80211_H
+ 
+ #include <linux/types.h>
++#include <linux/if_ether.h>
+ #include <asm/byteorder.h>
+ 
+ /*
+@@ -209,28 +210,28 @@ static inline u16 ieee80211_sn_sub(u16 sn1, u16 sn2)
+ struct ieee80211_hdr {
+ 	__le16 frame_control;
+ 	__le16 duration_id;
+-	u8 addr1[6];
+-	u8 addr2[6];
+-	u8 addr3[6];
++	u8 addr1[ETH_ALEN];
++	u8 addr2[ETH_ALEN];
++	u8 addr3[ETH_ALEN];
+ 	__le16 seq_ctrl;
+-	u8 addr4[6];
++	u8 addr4[ETH_ALEN];
+ } __packed __aligned(2);
+ 
+ struct ieee80211_hdr_3addr {
+ 	__le16 frame_control;
+ 	__le16 duration_id;
+-	u8 addr1[6];
+-	u8 addr2[6];
+-	u8 addr3[6];
++	u8 addr1[ETH_ALEN];
++	u8 addr2[ETH_ALEN];
++	u8 addr3[ETH_ALEN];
+ 	__le16 seq_ctrl;
+ } __packed __aligned(2);
+ 
+ struct ieee80211_qos_hdr {
+ 	__le16 frame_control;
+ 	__le16 duration_id;
+-	u8 addr1[6];
+-	u8 addr2[6];
+-	u8 addr3[6];
++	u8 addr1[ETH_ALEN];
++	u8 addr2[ETH_ALEN];
++	u8 addr3[ETH_ALEN];
+ 	__le16 seq_ctrl;
+ 	__le16 qos_ctrl;
+ } __packed __aligned(2);
+@@ -608,8 +609,8 @@ struct ieee80211s_hdr {
+ 	u8 flags;
+ 	u8 ttl;
+ 	__le32 seqnum;
+-	u8 eaddr1[6];
+-	u8 eaddr2[6];
++	u8 eaddr1[ETH_ALEN];
++	u8 eaddr2[ETH_ALEN];
+ } __packed __aligned(2);
+ 
+ /* Mesh flags */
+@@ -758,7 +759,7 @@ struct ieee80211_rann_ie {
+ 	u8 rann_flags;
+ 	u8 rann_hopcount;
+ 	u8 rann_ttl;
+-	u8 rann_addr[6];
++	u8 rann_addr[ETH_ALEN];
+ 	__le32 rann_seq;
+ 	__le32 rann_interval;
+ 	__le32 rann_metric;
+@@ -802,9 +803,9 @@ enum ieee80211_vht_opmode_bits {
+ struct ieee80211_mgmt {
+ 	__le16 frame_control;
+ 	__le16 duration;
+-	u8 da[6];
+-	u8 sa[6];
+-	u8 bssid[6];
++	u8 da[ETH_ALEN];
++	u8 sa[ETH_ALEN];
++	u8 bssid[ETH_ALEN];
+ 	__le16 seq_ctrl;
+ 	union {
+ 		struct {
+@@ -833,7 +834,7 @@ struct ieee80211_mgmt {
+ 		struct {
+ 			__le16 capab_info;
+ 			__le16 listen_interval;
+-			u8 current_ap[6];
++			u8 current_ap[ETH_ALEN];
+ 			/* followed by SSID and Supported rates */
+ 			u8 variable[0];
+ 		} __packed reassoc_req;
+@@ -966,21 +967,21 @@ struct ieee80211_vendor_ie {
+ struct ieee80211_rts {
+ 	__le16 frame_control;
+ 	__le16 duration;
+-	u8 ra[6];
+-	u8 ta[6];
++	u8 ra[ETH_ALEN];
++	u8 ta[ETH_ALEN];
+ } __packed __aligned(2);
+ 
+ struct ieee80211_cts {
+ 	__le16 frame_control;
+ 	__le16 duration;
+-	u8 ra[6];
++	u8 ra[ETH_ALEN];
+ } __packed __aligned(2);
+ 
+ struct ieee80211_pspoll {
+ 	__le16 frame_control;
+ 	__le16 aid;
+-	u8 bssid[6];
+-	u8 ta[6];
++	u8 bssid[ETH_ALEN];
++	u8 ta[ETH_ALEN];
+ } __packed __aligned(2);
+ 
+ /* TDLS */
+@@ -989,14 +990,14 @@ struct ieee80211_pspoll {
+ struct ieee80211_tdls_lnkie {
+ 	u8 ie_type; /* Link Identifier IE */
+ 	u8 ie_len;
+-	u8 bssid[6];
+-	u8 init_sta[6];
+-	u8 resp_sta[6];
++	u8 bssid[ETH_ALEN];
++	u8 init_sta[ETH_ALEN];
++	u8 resp_sta[ETH_ALEN];
+ } __packed;
+ 
+ struct ieee80211_tdls_data {
+-	u8 da[6];
+-	u8 sa[6];
++	u8 da[ETH_ALEN];
++	u8 sa[ETH_ALEN];
+ 	__be16 ether_type;
+ 	u8 payload_type;
+ 	u8 category;
+@@ -1090,8 +1091,8 @@ struct ieee80211_p2p_noa_attr {
+ struct ieee80211_bar {
+ 	__le16 frame_control;
+ 	__le16 duration;
+-	__u8 ra[6];
+-	__u8 ta[6];
++	__u8 ra[ETH_ALEN];
++	__u8 ta[ETH_ALEN];
+ 	__le16 control;
+ 	__le16 start_seq_num;
+ } __packed;
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 6aebdfe..09ef2f4 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -33,6 +33,7 @@
+ #ifndef MLX4_DEVICE_H
+ #define MLX4_DEVICE_H
+ 
++#include <linux/if_ether.h>
+ #include <linux/pci.h>
+ #include <linux/completion.h>
+ #include <linux/radix-tree.h>
+@@ -620,7 +621,7 @@ struct mlx4_eth_av {
+ 	u8		dgid[16];
+ 	u32		reserved4[2];
+ 	__be16		vlan;
+-	u8		mac[6];
++	u8		mac[ETH_ALEN];
+ };
+ 
+ union mlx4_ext_av {
+@@ -914,10 +915,10 @@ enum mlx4_net_trans_promisc_mode {
+ };
+ 
+ struct mlx4_spec_eth {
+-	u8	dst_mac[6];
+-	u8	dst_mac_msk[6];
+-	u8	src_mac[6];
+-	u8	src_mac_msk[6];
++	u8	dst_mac[ETH_ALEN];
++	u8	dst_mac_msk[ETH_ALEN];
++	u8	src_mac[ETH_ALEN];
++	u8	src_mac_msk[ETH_ALEN];
+ 	u8	ether_type_enable;
+ 	__be16	ether_type;
+ 	__be16	vlan_id_msk;
+diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
+index 262deac..6d35147 100644
+--- a/include/linux/mlx4/qp.h
++++ b/include/linux/mlx4/qp.h
+@@ -34,6 +34,7 @@
+ #define MLX4_QP_H
+ 
+ #include <linux/types.h>
++#include <linux/if_ether.h>
+ 
+ #include <linux/mlx4/device.h>
+ 
+@@ -143,7 +144,7 @@ struct mlx4_qp_path {
+ 	u8			feup;
+ 	u8			fvl_rx;
+ 	u8			reserved4[2];
+-	u8			dmac[6];
++	u8			dmac[ETH_ALEN];
+ };
+ 
+ enum { /* fl */
+@@ -318,7 +319,7 @@ struct mlx4_wqe_datagram_seg {
+ 	__be32			dqpn;
+ 	__be32			qkey;
+ 	__be16			vlan;
+-	u8			mac[6];
++	u8			mac[ETH_ALEN];
+ };
+ 
+ struct mlx4_wqe_lso_seg {
+diff --git a/include/linux/mv643xx_eth.h b/include/linux/mv643xx_eth.h
+index 6e8215b..61a0da3 100644
+--- a/include/linux/mv643xx_eth.h
++++ b/include/linux/mv643xx_eth.h
+@@ -6,6 +6,7 @@
+ #define __LINUX_MV643XX_ETH_H
+ 
+ #include <linux/mbus.h>
++#include <linux/if_ether.h>
+ 
+ #define MV643XX_ETH_SHARED_NAME		"mv643xx_eth"
+ #define MV643XX_ETH_NAME		"mv643xx_eth_port"
+@@ -48,7 +49,7 @@ struct mv643xx_eth_platform_data {
+ 	 * Use this MAC address if it is valid, overriding the
+ 	 * address that is already in the hardware.
+ 	 */
+-	u8			mac_addr[6];
++	u8			mac_addr[ETH_ALEN];
+ 
+ 	/*
+ 	 * If speed is 0, autonegotiation is enabled.
+diff --git a/include/linux/sh_eth.h b/include/linux/sh_eth.h
+index fc30571..6205eeb 100644
+--- a/include/linux/sh_eth.h
++++ b/include/linux/sh_eth.h
+@@ -2,6 +2,7 @@
+ #define __ASM_SH_ETH_H__
+ 
+ #include <linux/phy.h>
++#include <linux/if_ether.h>
+ 
+ enum {EDMAC_LITTLE_ENDIAN, EDMAC_BIG_ENDIAN};
+ enum {
+@@ -18,7 +19,7 @@ struct sh_eth_plat_data {
+ 	phy_interface_t phy_interface;
+ 	void (*set_mdio_gate)(void *addr);
+ 
+-	unsigned char mac_addr[6];
++	unsigned char mac_addr[ETH_ALEN];
+ 	unsigned no_ether_link:1;
+ 	unsigned ether_link_active_low:1;
+ 	unsigned needs_init:1;
+diff --git a/include/linux/smsc911x.h b/include/linux/smsc911x.h
+index 4dde70e..eec3efd 100644
+--- a/include/linux/smsc911x.h
++++ b/include/linux/smsc911x.h
+@@ -22,6 +22,7 @@
+ #define __LINUX_SMSC911X_H__
+ 
+ #include <linux/phy.h>
++#include <linux/if_ether.h>
+ 
+ /* platform_device configuration data, should be assigned to
+  * the platform_device's dev.platform_data */
+@@ -31,7 +32,7 @@ struct smsc911x_platform_config {
+ 	unsigned int flags;
+ 	unsigned int shift;
+ 	phy_interface_t phy_interface;
+-	unsigned char mac[6];
++	unsigned char mac[ETH_ALEN];
+ };
+ 
+ /* Constants for platform_device irq polarity configuration */
+diff --git a/include/linux/uwb/spec.h b/include/linux/uwb/spec.h
+index b52e44f..0df24bf 100644
+--- a/include/linux/uwb/spec.h
++++ b/include/linux/uwb/spec.h
+@@ -32,6 +32,7 @@
+ 
+ #include <linux/types.h>
+ #include <linux/bitmap.h>
++#include <linux/if_ether.h>
+ 
+ #define i1480_FW 0x00000303
+ /* #define i1480_FW 0x00000302 */
+@@ -130,7 +131,7 @@ enum { UWB_DRP_BACKOFF_WIN_MAX = 16 };
+  * it is also used to define headers sent down and up the wire/radio).
+  */
+ struct uwb_mac_addr {
+-	u8 data[6];
++	u8 data[ETH_ALEN];
+ } __attribute__((packed));
+ 
+ 
+@@ -568,7 +569,7 @@ struct uwb_rc_evt_confirm {
+ /* Device Address Management event. [WHCI] section 3.1.3.2. */
+ struct uwb_rc_evt_dev_addr_mgmt {
+ 	struct uwb_rceb rceb;
+-	u8 baAddr[6];
++	u8 baAddr[ETH_ALEN];
+ 	u8 bResultCode;
+ } __attribute__((packed));
+ 
+diff --git a/include/media/tveeprom.h b/include/media/tveeprom.h
+index 4a1191a..f7119ee 100644
+--- a/include/media/tveeprom.h
++++ b/include/media/tveeprom.h
+@@ -12,6 +12,8 @@ enum tveeprom_audio_processor {
+ 	TVEEPROM_AUDPROC_OTHER,
+ };
+ 
++#include <linux/if_ether.h>
++
+ struct tveeprom {
+ 	u32 has_radio;
+ 	/* If has_ir == 0, then it is unknown what the IR capabilities are,
+@@ -40,7 +42,7 @@ struct tveeprom {
+ 	u32 revision;
+ 	u32 serial_number;
+ 	char rev_str[5];
+-	u8 MAC_address[6];
++	u8 MAC_address[ETH_ALEN];
+ };
+ 
+ void tveeprom_hauppauge_analog(struct i2c_client *c, struct tveeprom *tvee,
+diff --git a/include/net/irda/irlan_common.h b/include/net/irda/irlan_common.h
+index 0af8b8d..550c2d6 100644
+--- a/include/net/irda/irlan_common.h
++++ b/include/net/irda/irlan_common.h
+@@ -32,6 +32,7 @@
+ #include <linux/types.h>
+ #include <linux/skbuff.h>
+ #include <linux/netdevice.h>
++#include <linux/if_ether.h>
+ 
+ #include <net/irda/irttp.h>
+ 
+@@ -161,7 +162,7 @@ struct irlan_provider_cb {
+ 	int access_type;     /* Access type */
+ 	__u16 send_arb_val;
+ 
+-	__u8 mac_address[6]; /* Generated MAC address for peer device */
++	__u8 mac_address[ETH_ALEN]; /* Generated MAC address for peer device */
+ };
+ 
+ /*
+-- 
+1.8.1.2.459.gbcd45b4.dirty
