@@ -1,102 +1,43 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v2] ipv6: fib6_rules should return exact return value
-Date: Thu, 1 Aug 2013 08:54:47 +0200
-Message-ID: <20130801065447.GE3688@order.stressinduktion.org>
+From: Duan Fugang-B38611 <B38611@freescale.com>
+Subject: RE: [PATCH] net/phy: micrel: Add OF configuration support
+Date: Thu, 1 Aug 2013 06:52:22 +0000
+Message-ID: <9848F2DB572E5649BA045B288BE08FBE015E4111@039-SN2MPN1-023.039d.mgd.msft.net>
+References: <1375330601-3609-1-git-send-email-xobs@kosagi.com>
+ <1375330601-3609-2-git-send-email-xobs@kosagi.com>
+ <9848F2DB572E5649BA045B288BE08FBE015E3F06@039-SN2MPN1-023.039d.mgd.msft.net>
+ <90629591B1A5485C845DAC6572F25924@kosagi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: stefan.tomanek@wertarbyte.de, yoshfuji@linux-ipv6.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	Steven Rostedt <rostedt@goodmis.org>
+To: Sean Cross <xobs@kosagi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:52812 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751853Ab3HAGys (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 02:54:48 -0400
-Content-Disposition: inline
+Received: from mail-db9lp0249.outbound.messaging.microsoft.com ([213.199.154.249]:48431
+	"EHLO db9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751201Ab3HAHHb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 03:07:31 -0400
+In-Reply-To: <90629591B1A5485C845DAC6572F25924@kosagi.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With the addition of the suppress operation
-(7764a45a8f1fe74d4f7d301eaca2e558e7e2831a ("fib_rules: add .suppress
-operation") we rely on accurate error reporting of the fib_rules.actions.
-
-fib6_rule_action always returned -EAGAIN in case we could not find a
-matching route and 0 if a rule was matched. This also included a match
-for blackhole or prohibited rule actions which could get suppressed by
-the new logic.
-
-So adapt fib6_rule_action to always return the correct error code as
-its counterpart fib4_rule_action does. This also fixes a possiblity of
-nullptr-deref where we don't find a table, thus rt == NULL. Because
-the condition rt != ip6_null_entry still holdes it seems we could later
-get a nullptr bug on dereference rt->dst.
-
-v2:
-a) Fixed a brain fart in the commit msg (the rule => a table, etc). No
-   changes to the patch.
-
-Cc: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/fib6_rules.c | 14 +++++++++++---
- 1 file changed, 11 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index e64e6a5..554a4fb 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -55,26 +55,33 @@ static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
- 	struct fib6_table *table;
- 	struct net *net = rule->fr_net;
- 	pol_lookup_t lookup = arg->lookup_ptr;
-+	int err = 0;
- 
- 	switch (rule->action) {
- 	case FR_ACT_TO_TBL:
- 		break;
- 	case FR_ACT_UNREACHABLE:
-+		err = -ENETUNREACH;
- 		rt = net->ipv6.ip6_null_entry;
- 		goto discard_pkt;
- 	default:
- 	case FR_ACT_BLACKHOLE:
-+		err = -EINVAL;
- 		rt = net->ipv6.ip6_blk_hole_entry;
- 		goto discard_pkt;
- 	case FR_ACT_PROHIBIT:
-+		err = -EACCES;
- 		rt = net->ipv6.ip6_prohibit_entry;
- 		goto discard_pkt;
- 	}
- 
- 	table = fib6_get_table(net, rule->table);
--	if (table)
--		rt = lookup(net, table, flp6, flags);
-+	if (!table) {
-+		err = -EAGAIN;
-+		goto out;
-+	}
- 
-+	rt = lookup(net, table, flp6, flags);
- 	if (rt != net->ipv6.ip6_null_entry) {
- 		struct fib6_rule *r = (struct fib6_rule *)rule;
- 
-@@ -101,6 +108,7 @@ static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
- 	}
- again:
- 	ip6_rt_put(rt);
-+	err = -EAGAIN;
- 	rt = NULL;
- 	goto out;
- 
-@@ -108,7 +116,7 @@ discard_pkt:
- 	dst_hold(&rt->dst);
- out:
- 	arg->result = rt;
--	return rt == NULL ? -EAGAIN : 0;
-+	return err;
- }
- 
- static bool fib6_rule_suppress(struct fib_rule *rule, struct fib_lookup_arg *arg)
--- 
-1.8.3.1
+T24gVGh1cnNkYXksIEF1Z3VzdCAxLCAyMDEzIGF0IDI6MjMgUE0sIFNlYW4gQ3Jvc3Mgd3JvdGU6
+DQo+PiBXaGVuIHJlLXNldCByeC90eCBjbG9jayBkZWxheSwgcngvdHggY29udHJvbCBkZWxheSwg
+aXQgaXMgYmV0dGVyIHRvIGRvIGR1bW15IHJlYWQgdGhlIGV4dGVuZGVkIE1JSV9LU1pQSFlfQ0xL
+X0NPTlRST0xfUEFEX1NLRVcgcmVnaXN0ZXIgb25lIHRpbWUuDQo+IENhbiB5b3UgcGxlYXNlIGV4
+cGxhaW4gdGhpcz8gIEkgZG9uJ3Qgc2VlIGFueXRoaW5nIGluIHRoZSBkYXRhc2hlZXQgSSdtIGxv
+b2tpbmcgYXQgKGtzejkwMjFybCkgZGVzY3JpYmluZyBkdW1teSByZWFkcy4NCj4gSWYgYm90aCB0
+eCBhbmQgcnggc2tldyBhcmUgYWRqdXN0ZWQsIHNob3VsZCB0aGVyZSBiZSA+dHdvIGR1bW15IHJl
+YWRzIG9yIGp1c3Qgb25lPyANCg0KV2hlbiBmcmVlc2NhbGUgZW5naW5lZXJzIGRvIHRoZSBwaHkg
+YnJpbmcgdXAsIHRoZXkgYWRkIHRoZSBkdW1teSByZWFkLiBQbHMgcmVmZXIgdGhlIHRoZSBwYXRj
+aHdvcms6IGh0dHA6Ly9wYXRjaHdvcmsub3psYWJzLm9yZy9wYXRjaC8yNDY2MTYvDQpGcm9tIGtz
+ejkwMjFyMSwgdGhlcmUgaGF2ZSBubyBzdWNoIGNvbmRpdGlvbi4gQWZ0ZXIgSSByZW1vdmUgdGhl
+IGR1bW15IHJlYWQsIHRoZSBpbXg2cSBzYWJyZWxpdGUgcGxhdGZvcm0gZXRoZXJuZXQgR2JwcyBt
+b2RlIHdvcmsgZmluZS4NCkZvciBhdDkxIG1pY3JlbCBwaHkgZml4dXAsIHRoZXJlIGhhdmUgbm8g
+ZHVtbXkgcmVhZDogaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvcGlwZXJtYWlsL2xpbnV4LWFy
+bS1rZXJuZWwvMjAxMy1KdWx5LzE4MzYyNi5odG1sDQpTbywgaXQganVzdCBvbmUgY29uZnVzZSwg
+YW5kIHRoZSBkdW1teSByZWFkIGlzIHVubmVjZXNzYXJ5Lg0KDQoNCg==
