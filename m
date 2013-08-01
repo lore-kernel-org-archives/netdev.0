@@ -1,111 +1,71 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH v2] macvlan: validate flags
-Date: Thu, 01 Aug 2013 12:34:28 -0700
-Message-ID: <51FAB844.6090807@intel.com>
-References: <1375373227-17986-1-git-send-email-mst@redhat.com> <51FA99C3.8020508@intel.com> <20130801191957.GA19580@redhat.com>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: [PATCH v3 00/13] update tile network drivers
+Date: Thu, 1 Aug 2013 15:25:19 -0400
+Message-ID: <cover.1375385119.git.cmetcalf@tilera.com>
+References: <20130801.113100.2059303096028571906.davem@davemloft.net>
+    <799eca39dc7f85ba12e1d8c5b072f8b6740fda1c.1375283106.git.cmetcalf@tilera.com>
+    <20130731.122534.774117327230299927.davem@redhat.com>
+    <201308011545.r71Fjbco017295@farm-0002.internal.tilera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain
+To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130801191957.GA19580@redhat.com>
+In-Reply-To: <20130801.113100.2059303096028571906.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/1/2013 12:19 PM, Michael S. Tsirkin wrote:
-> On Thu, Aug 01, 2013 at 10:24:19AM -0700, John Fastabend wrote:
->> On 8/1/2013 9:09 AM, Michael S. Tsirkin wrote:
->>> commit df8ef8f3aaa6692970a436204c4429210addb23a
->>>      macvlan: add FDB bridge ops and macvlan flags
->>> added a flags field to macvlan, which can be
->>> controlled from userspace.
->>> The idea is to make the interface future-proof
->>> so we can add flags and not new fields.
->>>
->>> However, flags value isn't validated, as a result,
->>> userspace can't detect which flags are supported.
->>>
->>> Cc: "David S. Miller" <davem@davemloft.net>
->>> Cc: John Fastabend <john.r.fastabend@intel.com>
->>> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->>> ---
->>>
->>> Changes from v1:
->>> 	tweaked commit message
->>> 	no code changes
->>>
->>> Please consider this patch for -stable.
->>>
->>> The idea is by the time we add more flags,
->>> everyone has updated to a kernel that
->>> detects errors, so userspace will be able
->>> to detect supported flags cleanly.
->>>
->>
->> Agreed and because we haven't added more flags yet this shouldn't
->> break uapi. Thanks for catching this.
->>
->>>
->>>   drivers/net/macvlan.c | 7 +++++++
->>>   1 file changed, 7 insertions(+)
->>>
->>
->> By the same logic should we also add the check to macvlan_changelink()?
->
-> I'm not sure what do you mean "By the same logic" -
-> macvlan_changelink is static unlike macvlan_common_newlink
-> which is exported to modules.
+This is v3 of the patch series to update the Tilera network drivers.
 
-"By the same logic" I only meant to allow userspace to cleanly detect
-supported flags even in the changelink case.
+>From the v1 00/13 cover letter: "This patch series contains changes made
+to the Tilera on-chip network drivers for both the 64-bit tilegx and
+32-bit tilepro architectures.  The changes involve a number of bug fixes,
+support for the multiple mPIPEs on the new Gx72 chip, support for jumbo
+frames, TSO for IPv6, GRO, PTP support, and statistics improvements."
 
-> So why isn't macvlan_validate sufficient for macvlan_changelink?
+David has already applied the v2 patch for what was patch 01/13 in the
+first series ("handle 64-bit statistics in tilepro network driver")
+so it is not included in this v3 series.
 
-It is you are correct.
+Changes from the v1 series include:
 
->
->>> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
->>> index 18373b6..8445a94 100644
->>> --- a/drivers/net/macvlan.c
->>> +++ b/drivers/net/macvlan.c
->>> @@ -736,6 +736,10 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[])
->>>   			return -EADDRNOTAVAIL;
->>>   	}
->>>
->>> +	if (data && data[IFLA_MACVLAN_FLAGS] &&
->>> +	    nla_get_u16(data[IFLA_MACVLAN_FLAGS]) & ~MACVLAN_FLAG_NOPROMISC)
->>> +		return -EINVAL;
->>> +
->>>   	if (data && data[IFLA_MACVLAN_MODE]) {
->>>   		switch (nla_get_u32(data[IFLA_MACVLAN_MODE])) {
->>>   		case MACVLAN_MODE_PRIVATE:
->>> @@ -809,6 +813,9 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
->>>   	if (data && data[IFLA_MACVLAN_FLAGS])
->>>   		vlan->flags = nla_get_u16(data[IFLA_MACVLAN_FLAGS]);
->>>
->>> +	if (vlan->flags & ~MACVLAN_FLAG_NOPROMISC)
->>> +		return -EINVAL;
->>> +
->>
->> Is there really a case where newlink is called without first calling
->> validate? I don't think there is so the snippet here in newlink could
->> be dropped.
->>
->> Thanks,
->> John
->
-> It seems so - macvtap_newlink calls macvlan_common_newlink.
-> macvtap does not seem to have .validate.
->
+- Nearly complete rewrite of PTP changes based on feedback from
+  Richard Cochran
+- Removal of NETIF_F_GRO as unnecessary (from Eric Dumazet)
+- A few minor whitespace and code style changes
 
-but it calls macvlan_link_register() from macvtap_init which sets
-up the validate ops,
+Changes from the v2 series:
 
-int macvlan_link_register(struct rtnl_link_ops *ops)
-{
-         /* common fields */
-         ops->priv_size          = sizeof(struct macvlan_dev);
-         ops->validate           = macvlan_validate
+- use of dev->hw_features instead of just dev->features
+
+Chris Metcalf (13):
+  tile: set hw_features and vlan_features in setup
+  tile: support rx_dropped/rx_errors in tilepro net driver
+  tile: avoid bug in tilepro net driver built with old hypervisor
+  tile: remove dead is_dup_ack() function from tilepro net driver
+  tile: support jumbo frames in the tilegx network driver
+  tile: update dev->stats directly in tilegx network driver
+  tile: fix panic bug in napi support for tilegx network driver
+  tile: enable GRO in the tilegx network driver
+  tile: support multiple mPIPE shims in tilegx network driver
+  tile: support TSO for IPv6 in tilegx network driver
+  tile: make "tile_net.custom" a proper bool module parameter
+  tile: remove deprecated NETIF_F_LLTX flag from tile drivers
+  tile: support PTP using the tilegx mPIPE (IEEE 1588)
+
+ arch/tile/gxio/iorpc_mpipe.c              |   66 ++
+ arch/tile/gxio/iorpc_mpipe_info.c         |   18 +
+ arch/tile/gxio/mpipe.c                    |   43 +-
+ arch/tile/include/gxio/iorpc_mpipe.h      |   14 +-
+ arch/tile/include/gxio/iorpc_mpipe_info.h |    4 +
+ arch/tile/include/gxio/mpipe.h            |  143 +++-
+ arch/tile/include/hv/drv_mpipe_intf.h     |    3 +
+ drivers/net/ethernet/tile/Kconfig         |   11 +
+ drivers/net/ethernet/tile/tilegx.c        | 1112 +++++++++++++++++++----------
+ drivers/net/ethernet/tile/tilepro.c       |  164 +----
+ 10 files changed, 1069 insertions(+), 509 deletions(-)
+
+-- 
+1.8.3.1
