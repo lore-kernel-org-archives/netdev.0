@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] mlx4_core fixes
-Date: Thu, 01 Aug 2013 15:10:15 -0700 (PDT)
-Message-ID: <20130801.151015.2088233583213655382.davem@davemloft.net>
-References: <1375376101-20435-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [Patch net-next 1/2] net: fix a compile error when
+ CONFIG_NET_LL_RX_POLL is not set
+Date: Thu, 01 Aug 2013 15:12:07 -0700 (PDT)
+Message-ID: <20130801.151207.1619353068833976582.davem@davemloft.net>
+References: <1375326625-21427-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com
-To: ogerlitz@mellanox.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, eliezer.tamir@linux.intel.com
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54970 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54989 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757565Ab3HAWKQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 18:10:16 -0400
-In-Reply-To: <1375376101-20435-1-git-send-email-ogerlitz@mellanox.com>
+	with ESMTP id S1756855Ab3HAWMI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 18:12:08 -0400
+In-Reply-To: <1375326625-21427-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Thu,  1 Aug 2013 19:54:59 +0300
-
-> Patch #1 complements commit ef96f7d46ad "net/mlx4_en: Handle unassigned VF MAC
-> address correctly" which took care of the VM side of things. It follows the
-> approach taken by the ixgbevf (e1941a7 "ixgbevf: Adjust to handle unassigned
-> MAC address from PF") and bnx2x (e09b74d01 "bnx2x: Zero VFs starting MACs")
-> drivers too, so users will experience unified approach across vendors.
-> 
-> Would be happy to see both patches land in -stable for 3.10.y - do you 
-> want to handle that through the peridioc batches you send to Greg?
-> 
-> The patches were done against the net tree, commit e44892c1b "igb: 
-> fix vlan filtering in promisc mode when not in VT mode"
-
-Applied and queued up for -stable, thanks.
+RnJvbTogQ29uZyBXYW5nIDxhbXdhbmdAcmVkaGF0LmNvbT4NCkRhdGU6IFRodSwgIDEgQXVnIDIw
+MTMgMTE6MTA6MjQgKzA4MDANCg0KPiBGcm9tOiBDb25nIFdhbmcgPGFtd2FuZ0ByZWRoYXQuY29t
+Pg0KPiANCj4gV2hlbiBDT05GSUdfTkVUX0xMX1JYX1BPTEwgaXMgbm90IHNldCwgSSBnb3Q6DQo+
+IA0KPiBuZXQvc29ja2V0LmM6IEluIGZ1bmN0aW9uIKFzb2NrX3BvbGyiOg0KPiBuZXQvc29ja2V0
+LmM6MTE2NTo0OiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24goXNrX2J1
+c3lfbG9vcKIgWy1XZXJyb3I9aW1wbGljaXQtZnVuY3Rpb24tZGVjbGFyYXRpb25dDQo+IA0KPiBG
+aXggdGhpcyBieSBhZGRpbmcgYSBub3Agd2hlbiAhQ09ORklHX05FVF9MTF9SWF9QT0xMLg0KPiAN
+Cj4gQ2M6IEVsaWV6ZXIgVGFtaXIgPGVsaWV6ZXIudGFtaXJAbGludXguaW50ZWwuY29tPg0KPiBD
+YzogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KPiBTaWduZWQtb2ZmLWJ5
+OiBDb25nIFdhbmcgPGFtd2FuZ0ByZWRoYXQuY29tPg0KDQpBcHBsaWVkIHRvIG5ldA0K
