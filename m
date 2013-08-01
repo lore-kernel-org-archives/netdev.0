@@ -1,7 +1,7 @@
 From: John Fastabend <john.r.fastabend@intel.com>
 Subject: Re: [PATCH v2] macvlan: validate flags
-Date: Thu, 01 Aug 2013 12:34:24 -0700
-Message-ID: <51FAB840.6000705@intel.com>
+Date: Thu, 01 Aug 2013 12:34:28 -0700
+Message-ID: <51FAB844.6090807@intel.com>
 References: <1375373227-17986-1-git-send-email-mst@redhat.com> <51FA99C3.8020508@intel.com> <20130801191957.GA19580@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
