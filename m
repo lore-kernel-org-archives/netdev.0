@@ -1,52 +1,40 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 1/2] net/mlx4_core: Don't give VFs MAC addresses which are derived from the PF MAC
-Date: Thu,  1 Aug 2013 19:55:00 +0300
-Message-ID: <1375376101-20435-2-git-send-email-ogerlitz@mellanox.com>
-References: <1375376101-20435-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net 0/2] mlx4_core fixes
+Date: Thu,  1 Aug 2013 19:54:59 +0300
+Message-ID: <1375376101-20435-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, amirv@mellanox.com,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:45206 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:54540 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755883Ab3HAQy1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755792Ab3HAQy1 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 1 Aug 2013 12:54:27 -0400
-In-Reply-To: <1375376101-20435-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the user has not assigned a MAC address to a VM, then don't give it MAC which
-is based on the PF one. The current derivation scheme is wrong and leads to VM
-MAC collisions when the number of cards/hypervisors becomes big enough.
+Hi Dave,
 
-Instead, just give it zeros and let them figure out what to do with that.
+Patch #1 complements commit ef96f7d46ad "net/mlx4_en: Handle unassigned VF MAC
+address correctly" which took care of the VM side of things. It follows the
+approach taken by the ixgbevf (e1941a7 "ixgbevf: Adjust to handle unassigned
+MAC address from PF") and bnx2x (e09b74d01 "bnx2x: Zero VFs starting MACs")
+drivers too, so users will experience unified approach across vendors.
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/fw.c |   11 +----------
- 1 files changed, 1 insertions(+), 10 deletions(-)
+Would be happy to see both patches land in -stable for 3.10.y - do you 
+want to handle that through the peridioc batches you send to Greg?
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 8873d68..6fc6dab 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -845,16 +845,7 @@ int mlx4_QUERY_PORT_wrapper(struct mlx4_dev *dev, int slave,
- 			   MLX4_CMD_NATIVE);
- 
- 	if (!err && dev->caps.function != slave) {
--		/* if config MAC in DB use it */
--		if (priv->mfunc.master.vf_oper[slave].vport[vhcr->in_modifier].state.mac)
--			def_mac = priv->mfunc.master.vf_oper[slave].vport[vhcr->in_modifier].state.mac;
--		else {
--			/* set slave default_mac address */
--			MLX4_GET(def_mac, outbox->buf, QUERY_PORT_MAC_OFFSET);
--			def_mac += slave << 8;
--			priv->mfunc.master.vf_admin[slave].vport[vhcr->in_modifier].mac = def_mac;
--		}
--
-+		def_mac = priv->mfunc.master.vf_oper[slave].vport[vhcr->in_modifier].state.mac;
- 		MLX4_PUT(outbox->buf, def_mac, QUERY_PORT_MAC_OFFSET);
- 
- 		/* get port type - currently only eth is enabled */
--- 
-1.7.1
+The patches were done against the net tree, commit e44892c1b "igb: 
+fix vlan filtering in promisc mode when not in VT mode"
+
+Or.
+
+Jack Morgenstein (1):
+  net/mlx4_core: VFs must ignore the enable_64b_cqe_eqe module param
+
+Or Gerlitz (1):
+  net/mlx4_core: Don't give VFs MAC addresses which are derived from the PF MAC
+
+ drivers/net/ethernet/mellanox/mlx4/fw.c   |   11 +----------
+ drivers/net/ethernet/mellanox/mlx4/main.c |    2 +-
+ 2 files changed, 2 insertions(+), 11 deletions(-)
