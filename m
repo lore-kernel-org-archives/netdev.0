@@ -1,79 +1,46 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2013-08-01
-Date: Thu, 01 Aug 2013 14:00:24 +0200
-Message-ID: <51FA4DD8.1040903@pengutronix.de>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net] xfrm: Delete hold_timer when destroy policy
+Date: Thu, 1 Aug 2013 14:01:47 +0200
+Message-ID: <20130801120146.GD25511@secunet.com>
+References: <1375351716-3265-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="UEijNQR3C2PEhaXBtb2IVx48wkk72aw0Q"
-Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"kernel@pengutronix.de" <kernel@pengutronix.de>
-To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:42929 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752542Ab3HAMBt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Aug 2013 08:01:49 -0400
+Content-Disposition: inline
+In-Reply-To: <1375351716-3265-1-git-send-email-fan.du@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---UEijNQR3C2PEhaXBtb2IVx48wkk72aw0Q
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On Thu, Aug 01, 2013 at 06:08:36PM +0800, Fan Du wrote:
+> Both policy timer and hold_timer need to be deleted when destroy policy
+> Bad mood today, maybe I'm wrong about this...
+> 
+> Signed-off-by: Fan Du <fan.du@windriver.com>
+> ---
+>  net/xfrm/xfrm_policy.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> index d8da6b8..f7078eb 100644
+> --- a/net/xfrm/xfrm_policy.c
+> +++ b/net/xfrm/xfrm_policy.c
+> @@ -308,7 +308,7 @@ void xfrm_policy_destroy(struct xfrm_policy *policy)
+>  {
+>  	BUG_ON(!policy->walk.dead);
+>  
+> -	if (del_timer(&policy->timer))
+> +	if (del_timer(&policy->timer) || del_timer(&policy->polq.hold_timer))
+>  		BUG();
+>  
 
-Hello David,
-
-this is a pull-request for net-next/master. It consists of two patches
-by Fabio Estevam. Them first convert the flexcan driver to use
-devm_ioremap_resource(), the second adds return value checking for
-clk_prepare_enable().
-
-regards,
-Marc
-
----
-
-The following changes since commit 46b3a421903aa2a4bc9731ca4663cee3ea869d=
-ab:
-
-  ipv6: fib6_rules should return exact return value (2013-08-01 00:26:22 =
--0700)
-
-are available in the git repository at:
-
-  git://gitorious.org/linux-can/linux-can-next.git for-davem
-
-for you to fetch changes up to aa10181bdac99a623517f0f2bfa14cd98c749246:
-
-  can: flexcan: Check the return value from clk_prepare_enable() (2013-08=
--01 12:36:20 +0200)
-
-----------------------------------------------------------------
-Fabio Estevam (2):
-      can: flexcan: Use devm_ioremap_resource()
-      can: flexcan: Check the return value from clk_prepare_enable()
-
- drivers/net/can/flexcan.c | 81 +++++++++++++++++++----------------------=
-------
- 1 file changed, 32 insertions(+), 49 deletions(-)
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---UEijNQR3C2PEhaXBtb2IVx48wkk72aw0Q
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlH6TdkACgkQjTAFq1RaXHMkpgCglZ6mMr0ZHOFglE6yBXKoB98i
-aq4AoIlne63JaE6G0p685o/qqhYleeO8
-=q8tJ
------END PGP SIGNATURE-----
-
---UEijNQR3C2PEhaXBtb2IVx48wkk72aw0Q--
+The timers should be already deleted when xfrm_policy_destroy() is
+called. This is just to check if that really happened and to
+catch this bug if not. So it's not a bug fix, it just helps to
+catch a potential bug. I'll consider to take this into ipsec-next
+after some testing.
