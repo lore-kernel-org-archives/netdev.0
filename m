@@ -1,40 +1,98 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next 5/5] bonding: initial RCU conversion
-Date: Thu, 1 Aug 2013 14:46:43 +0800
-Message-ID: <51FA0453.5000902@huawei.com>
-References: <1375283553-32070-1-git-send-email-nikolay@redhat.com> <1375283553-32070-6-git-send-email-nikolay@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next] ipv6: fib6_rules should return exact return value
+Date: Thu, 1 Aug 2013 08:48:46 +0200
+Message-ID: <20130801064846.GD3688@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <andy@greyhouse.net>,
-	<davem@davemloft.net>, <fubar@us.ibm.com>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Cc: stefan.tomanek@wertarbyte.de, yoshfuji@linux-ipv6.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:64743 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751004Ab3HAGsW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 02:48:22 -0400
-In-Reply-To: <1375283553-32070-6-git-send-email-nikolay@redhat.com>
+Received: from s15338416.onlinehome-server.info ([87.106.68.36]:52804 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751192Ab3HAGsr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 02:48:47 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/7/31 23:12, Nikolay Aleksandrov wrote:
-> This patch does the initial bonding conversion to RCU. After it the
-> following modes are protected by RCU alone: roundrobin, active-backup,
-> broadcast and xor. Modes ALB/TLB and 3ad still acquire bond->lock for
-> reading, and will be dealt with later. curr_active_slave needs to be
-> dereferenced via rcu in the converted modes because the only thing
-> protecting the slave after this patch is rcu_read_lock, so we need the
-> proper barrier for weakly ordered archs and to make sure we don't have
-> stale pointer. It's not tagged with __rcu yet because there's still work
-> to be done to remove the curr_slave_lock, so sparse will complain when
-> rcu_assign_pointer and rcu_dereference are used, but the alternative to use
-> rcu_dereference_protected would've created much bigger code churn which is
-> more difficult to test and review. That will be converted in time.
-> 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+With the addition of the suppress operation
+(7764a45a8f1fe74d4f7d301eaca2e558e7e2831a ("fib_rules: add .suppress
+operation") we rely on accurate error reporting of the fib_rules.actions.
 
+fib6_rule_action always returned -EAGAIN in case we could not find a
+matching route and 0 if a rule was matched. This also included a match
+for blackhole or prohibited rule actions which could get suppressed by
+the new logic.
 
-great job! but I think you miss come place to replace by rcu protect.
-example: bonding_show_active_slave() still has curr = bond->curr_active_slave,
-so I think you could replace them all and send together.
+So adapt fib6_rule_action to always return the correct error code as
+its counterpart fib4_rule_action does. This also fixes a possiblity of
+nullptr-deref, where we don't match the rule, thus rt == NULL. Because
+the condition rt != ip6_null_entry still holdes it seems we could later
+on dereference rt->dst.
+
+Cc: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/ipv6/fib6_rules.c | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
+index e64e6a5..554a4fb 100644
+--- a/net/ipv6/fib6_rules.c
++++ b/net/ipv6/fib6_rules.c
+@@ -55,26 +55,33 @@ static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
+ 	struct fib6_table *table;
+ 	struct net *net = rule->fr_net;
+ 	pol_lookup_t lookup = arg->lookup_ptr;
++	int err = 0;
+ 
+ 	switch (rule->action) {
+ 	case FR_ACT_TO_TBL:
+ 		break;
+ 	case FR_ACT_UNREACHABLE:
++		err = -ENETUNREACH;
+ 		rt = net->ipv6.ip6_null_entry;
+ 		goto discard_pkt;
+ 	default:
+ 	case FR_ACT_BLACKHOLE:
++		err = -EINVAL;
+ 		rt = net->ipv6.ip6_blk_hole_entry;
+ 		goto discard_pkt;
+ 	case FR_ACT_PROHIBIT:
++		err = -EACCES;
+ 		rt = net->ipv6.ip6_prohibit_entry;
+ 		goto discard_pkt;
+ 	}
+ 
+ 	table = fib6_get_table(net, rule->table);
+-	if (table)
+-		rt = lookup(net, table, flp6, flags);
++	if (!table) {
++		err = -EAGAIN;
++		goto out;
++	}
+ 
++	rt = lookup(net, table, flp6, flags);
+ 	if (rt != net->ipv6.ip6_null_entry) {
+ 		struct fib6_rule *r = (struct fib6_rule *)rule;
+ 
+@@ -101,6 +108,7 @@ static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
+ 	}
+ again:
+ 	ip6_rt_put(rt);
++	err = -EAGAIN;
+ 	rt = NULL;
+ 	goto out;
+ 
+@@ -108,7 +116,7 @@ discard_pkt:
+ 	dst_hold(&rt->dst);
+ out:
+ 	arg->result = rt;
+-	return rt == NULL ? -EAGAIN : 0;
++	return err;
+ }
+ 
+ static bool fib6_rule_suppress(struct fib_rule *rule, struct fib_lookup_arg *arg)
+-- 
+1.8.3.1
