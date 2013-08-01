@@ -1,121 +1,41 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2] macvlan: validate flags
-Date: Thu, 1 Aug 2013 22:43:46 +0300
-Message-ID: <20130801194346.GB20061@redhat.com>
-References: <1375373227-17986-1-git-send-email-mst@redhat.com>
- <51FA99C3.8020508@intel.com>
- <20130801191957.GA19580@redhat.com>
- <51FAB840.6000705@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: add a temporary sanity check in
+ skb_orphan()
+Date: Thu, 01 Aug 2013 12:49:41 -0700 (PDT)
+Message-ID: <20130801.124941.615533263470839691.davem@davemloft.net>
+References: <1375382588.10515.181.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <51FAB840.6000705@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52986 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755817Ab3HATto (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 15:49:44 -0400
+In-Reply-To: <1375382588.10515.181.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 01, 2013 at 12:34:24PM -0700, John Fastabend wrote:
-> On 8/1/2013 12:19 PM, Michael S. Tsirkin wrote:
-> >On Thu, Aug 01, 2013 at 10:24:19AM -0700, John Fastabend wrote:
-> >>On 8/1/2013 9:09 AM, Michael S. Tsirkin wrote:
-> >>>commit df8ef8f3aaa6692970a436204c4429210addb23a
-> >>>     macvlan: add FDB bridge ops and macvlan flags
-> >>>added a flags field to macvlan, which can be
-> >>>controlled from userspace.
-> >>>The idea is to make the interface future-proof
-> >>>so we can add flags and not new fields.
-> >>>
-> >>>However, flags value isn't validated, as a result,
-> >>>userspace can't detect which flags are supported.
-> >>>
-> >>>Cc: "David S. Miller" <davem@davemloft.net>
-> >>>Cc: John Fastabend <john.r.fastabend@intel.com>
-> >>>Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> >>>---
-> >>>
-> >>>Changes from v1:
-> >>>	tweaked commit message
-> >>>	no code changes
-> >>>
-> >>>Please consider this patch for -stable.
-> >>>
-> >>>The idea is by the time we add more flags,
-> >>>everyone has updated to a kernel that
-> >>>detects errors, so userspace will be able
-> >>>to detect supported flags cleanly.
-> >>>
-> >>
-> >>Agreed and because we haven't added more flags yet this shouldn't
-> >>break uapi. Thanks for catching this.
-> >>
-> >>>
-> >>>  drivers/net/macvlan.c | 7 +++++++
-> >>>  1 file changed, 7 insertions(+)
-> >>>
-> >>
-> >>By the same logic should we also add the check to macvlan_changelink()?
-> >
-> >I'm not sure what do you mean "By the same logic" -
-> >macvlan_changelink is static unlike macvlan_common_newlink
-> >which is exported to modules.
-> 
-> "By the same logic" I only meant to allow userspace to cleanly detect
-> supported flags even in the changelink case.
-> 
-> >So why isn't macvlan_validate sufficient for macvlan_changelink?
-> 
-> It is you are correct.
-> 
-> >
-> >>>diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-> >>>index 18373b6..8445a94 100644
-> >>>--- a/drivers/net/macvlan.c
-> >>>+++ b/drivers/net/macvlan.c
-> >>>@@ -736,6 +736,10 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[])
-> >>>  			return -EADDRNOTAVAIL;
-> >>>  	}
-> >>>
-> >>>+	if (data && data[IFLA_MACVLAN_FLAGS] &&
-> >>>+	    nla_get_u16(data[IFLA_MACVLAN_FLAGS]) & ~MACVLAN_FLAG_NOPROMISC)
-> >>>+		return -EINVAL;
-> >>>+
-> >>>  	if (data && data[IFLA_MACVLAN_MODE]) {
-> >>>  		switch (nla_get_u32(data[IFLA_MACVLAN_MODE])) {
-> >>>  		case MACVLAN_MODE_PRIVATE:
-> >>>@@ -809,6 +813,9 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
-> >>>  	if (data && data[IFLA_MACVLAN_FLAGS])
-> >>>  		vlan->flags = nla_get_u16(data[IFLA_MACVLAN_FLAGS]);
-> >>>
-> >>>+	if (vlan->flags & ~MACVLAN_FLAG_NOPROMISC)
-> >>>+		return -EINVAL;
-> >>>+
-> >>
-> >>Is there really a case where newlink is called without first calling
-> >>validate? I don't think there is so the snippet here in newlink could
-> >>be dropped.
-> >>
-> >>Thanks,
-> >>John
-> >
-> >It seems so - macvtap_newlink calls macvlan_common_newlink.
-> >macvtap does not seem to have .validate.
-> >
-> 
-> but it calls macvlan_link_register() from macvtap_init which sets
-> up the validate ops,
-> 
-> int macvlan_link_register(struct rtnl_link_ops *ops)
-> {
->         /* common fields */
->         ops->priv_size          = sizeof(struct macvlan_dev);
->         ops->validate           = macvlan_validate
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 01 Aug 2013 11:43:08 -0700
 
-I see. I'll drop this second chunk in the patch,
-thanks for catching this.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> David suggested to add a BUG_ON() to catch if some layer
+> sets skb->sk pointer without a corresponding destructor.
+> 
+> As skb can sit in a queue, it's mandatory to make sure the
+> socket cannot disappear, and it's usually done by taking a
+> reference on the socket, then releasing it from the skb
+> destructor.
+> 
+> This patch is a follow-up to commit c34a761231b5
+> ("net: skb_orphan() changes") and will be reverted after
+> catching all possible offenders if any.
+> 
+> Suggested-by: David Miller <davem@davemloft.net>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
--- 
-MST
+Applied, thanks Eric.
