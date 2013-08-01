@@ -1,98 +1,46 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next] ipv6: fib6_rules should return exact return value
-Date: Thu, 1 Aug 2013 08:48:46 +0200
-Message-ID: <20130801064846.GD3688@order.stressinduktion.org>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [Patch net-next 1/2] net: fix a compile error when CONFIG_NET_LL_RX_POLL
+ is not set
+Date: Thu, 01 Aug 2013 09:54:02 +0300
+Message-ID: <51FA060A.2060202@linux.intel.com>
+References: <1375326625-21427-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: stefan.tomanek@wertarbyte.de, yoshfuji@linux-ipv6.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:52804 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751192Ab3HAGsr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 02:48:47 -0400
-Content-Disposition: inline
+Received: from mga14.intel.com ([143.182.124.37]:18437 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751460Ab3HAGyG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Aug 2013 02:54:06 -0400
+In-Reply-To: <1375326625-21427-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With the addition of the suppress operation
-(7764a45a8f1fe74d4f7d301eaca2e558e7e2831a ("fib_rules: add .suppress
-operation") we rely on accurate error reporting of the fib_rules.actions.
+On 01/08/2013 06:10, Cong Wang wrote:
+> From: Cong Wang <amwang@redhat.com>
+>=20
+> When CONFIG_NET_LL_RX_POLL is not set, I got:
+>=20
+> net/socket.c: In function =E2=80=98sock_poll=E2=80=99:
+> net/socket.c:1165:4: error: implicit declaration of function =E2=80=98=
+sk_busy_loop=E2=80=99 [-Werror=3Dimplicit-function-declaration]
+>=20
+> Fix this by adding a nop when !CONFIG_NET_LL_RX_POLL.
+>=20
 
-fib6_rule_action always returned -EAGAIN in case we could not find a
-matching route and 0 if a rule was matched. This also included a match
-for blackhole or prohibited rule actions which could get suppressed by
-the new logic.
+Good catch!
 
-So adapt fib6_rule_action to always return the correct error code as
-its counterpart fib4_rule_action does. This also fixes a possiblity of
-nullptr-deref, where we don't match the rule, thus rt == NULL. Because
-the condition rt != ip6_null_entry still holdes it seems we could later
-on dereference rt->dst.
+There is a placeholder function, but it has a typo in the name.
+With all the renaming I made a mistake and called the do-nothing
+function sk_busy_poll while the implemented function is called sk_busy_=
+loop.
 
-Cc: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/fib6_rules.c | 14 +++++++++++---
- 1 file changed, 11 insertions(+), 3 deletions(-)
+so what we need is to rename sk_busy_loop() into sk_busy_poll.
 
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index e64e6a5..554a4fb 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -55,26 +55,33 @@ static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
- 	struct fib6_table *table;
- 	struct net *net = rule->fr_net;
- 	pol_lookup_t lookup = arg->lookup_ptr;
-+	int err = 0;
- 
- 	switch (rule->action) {
- 	case FR_ACT_TO_TBL:
- 		break;
- 	case FR_ACT_UNREACHABLE:
-+		err = -ENETUNREACH;
- 		rt = net->ipv6.ip6_null_entry;
- 		goto discard_pkt;
- 	default:
- 	case FR_ACT_BLACKHOLE:
-+		err = -EINVAL;
- 		rt = net->ipv6.ip6_blk_hole_entry;
- 		goto discard_pkt;
- 	case FR_ACT_PROHIBIT:
-+		err = -EACCES;
- 		rt = net->ipv6.ip6_prohibit_entry;
- 		goto discard_pkt;
- 	}
- 
- 	table = fib6_get_table(net, rule->table);
--	if (table)
--		rt = lookup(net, table, flp6, flags);
-+	if (!table) {
-+		err = -EAGAIN;
-+		goto out;
-+	}
- 
-+	rt = lookup(net, table, flp6, flags);
- 	if (rt != net->ipv6.ip6_null_entry) {
- 		struct fib6_rule *r = (struct fib6_rule *)rule;
- 
-@@ -101,6 +108,7 @@ static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
- 	}
- again:
- 	ip6_rt_put(rt);
-+	err = -EAGAIN;
- 	rt = NULL;
- 	goto out;
- 
-@@ -108,7 +116,7 @@ discard_pkt:
- 	dst_hold(&rt->dst);
- out:
- 	arg->result = rt;
--	return rt == NULL ? -EAGAIN : 0;
-+	return err;
- }
- 
- static bool fib6_rule_suppress(struct fib_rule *rule, struct fib_lookup_arg *arg)
--- 
-1.8.3.1
+(sorry I'm out of the office so I can't do much more than look at the
+code at the moment.)
+
+Thanks,
+Eliezer
