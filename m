@@ -1,65 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 0/8] include/net: next set of extern removals
-Date: Thu, 01 Aug 2013 09:44:46 -0700
-Message-ID: <1375375486.10515.170.camel@edumazet-glaptop>
-References: <cover.1375316912.git.joe@perches.com>
-	 <24958.1375358650@warthog.procyon.org.uk>
-	 <1375374560.2034.52.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Howells <dhowells@redhat.com>, netdev@vger.kernel.org,
-	linux-hams@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-afs@lists.infradead.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <1375374560.2034.52.camel@joe-AO722>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 1/2] net/mlx4_core: Don't give VFs MAC addresses which are derived from the PF MAC
+Date: Thu,  1 Aug 2013 19:55:00 +0300
+Message-ID: <1375376101-20435-2-git-send-email-ogerlitz@mellanox.com>
+References: <1375376101-20435-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:45206 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755883Ab3HAQy1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Aug 2013 12:54:27 -0400
+In-Reply-To: <1375376101-20435-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-08-01 at 09:29 -0700, Joe Perches wrote:
-> On Thu, 2013-08-01 at 13:04 +0100, David Howells wrote:
-> > Joe Perches <joe@perches.com> wrote:
-> > > Standardize on no extern use on function prototypes
-> > Can we please standardise on _having_ externs on function prototypes?
-> 
-> Why?
-> 
-> What value is there in using extern for function prototypes?
-> 
-> Your argument for "picking out at a glance"
-> https://lkml.org/lkml/2013/8/1/237
-> really doesn't make sense to me.
-> 
-> Basically, anything with parentheses that's not a #define
-> is an extern.
-> 
-> Exceptions exist for extern function pointers, but those
-> are fairly unusual anyway.  Outside of netfilter,
-> extern function pointers are only used about a dozen times
-> total in the kernel tree.
-> 
-> So, please provide some examples supporting your view.
+If the user has not assigned a MAC address to a VM, then don't give it MAC which
+is based on the PF one. The current derivation scheme is wrong and leads to VM
+MAC collisions when the number of cards/hypervisors becomes big enough.
 
-My main concern about these changes is they are a huge pain for us
-doing bug tracking, rebases and backports. "git blame" and friends will
-show lot of noise.
+Instead, just give it zeros and let them figure out what to do with that.
 
-'extern' in include files are an easy way to have a grep friendly
-marker, and otherwise are harmless.
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/fw.c |   11 +----------
+ 1 files changed, 1 insertions(+), 10 deletions(-)
 
-_You_ believe they are useless, other people think otherwise.
-
-I really don't see any value doing all these changes on existing code,
-apart from adding noise to netdev and adding more work for us.
-
-Using rules for new code is fine, but changing 10 years old code is
-really not worth the pain.
-
-I learned C 30 years ago, and using 'extern' is quite natural for me.
-
-It's crazy the time we have to spend on these issues, while we have so
-many bugs to fix in the kernel.
-
-
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 8873d68..6fc6dab 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -845,16 +845,7 @@ int mlx4_QUERY_PORT_wrapper(struct mlx4_dev *dev, int slave,
+ 			   MLX4_CMD_NATIVE);
+ 
+ 	if (!err && dev->caps.function != slave) {
+-		/* if config MAC in DB use it */
+-		if (priv->mfunc.master.vf_oper[slave].vport[vhcr->in_modifier].state.mac)
+-			def_mac = priv->mfunc.master.vf_oper[slave].vport[vhcr->in_modifier].state.mac;
+-		else {
+-			/* set slave default_mac address */
+-			MLX4_GET(def_mac, outbox->buf, QUERY_PORT_MAC_OFFSET);
+-			def_mac += slave << 8;
+-			priv->mfunc.master.vf_admin[slave].vport[vhcr->in_modifier].mac = def_mac;
+-		}
+-
++		def_mac = priv->mfunc.master.vf_oper[slave].vport[vhcr->in_modifier].state.mac;
+ 		MLX4_PUT(outbox->buf, def_mac, QUERY_PORT_MAC_OFFSET);
+ 
+ 		/* get port type - currently only eth is enabled */
+-- 
+1.7.1
