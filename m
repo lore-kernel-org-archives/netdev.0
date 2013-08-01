@@ -1,34 +1,38 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v2] mac80211: use oneshot blink API for LED triggers
-Date: Thu, 01 Aug 2013 09:29:11 +0200
-Message-ID: <1375342151.8608.0.camel@jlt4.sipsolutions.net>
-References: <1374746426-22030-1-git-send-email-fabio.baltieri@gmail.com>
-	 (sfid-20130725_120041_569594_897514BC)
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [Patch net-next 1/2] net: fix a compile error when CONFIG_NET_LL_RX_POLL
+ is not set
+Date: Thu, 01 Aug 2013 10:29:52 +0300
+Message-ID: <51FA0E70.6080408@linux.intel.com>
+References: <1375326625-21427-1-git-send-email-amwang@redhat.com> <20130801.001803.72283212544630263.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Fabio Baltieri <fabio.baltieri@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-7
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: amwang@redhat.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:53893 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751065Ab3HAH3V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 03:29:21 -0400
-In-Reply-To: <1374746426-22030-1-git-send-email-fabio.baltieri@gmail.com> (sfid-20130725_120041_569594_897514BC)
+Received: from mga01.intel.com ([192.55.52.88]:6748 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751551Ab3HAH3z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Aug 2013 03:29:55 -0400
+In-Reply-To: <20130801.001803.72283212544630263.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-07-25 at 12:00 +0200, Fabio Baltieri wrote:
-> Change mac80211 LED trigger code to use the generic
-> led_trigger_blink_oneshot() API for transmit and receive activity
-> indication.
-> 
-> This gives a better feedback to the user, as with the new API each
-> activity event results in a visible blink, while a constant traffic
-> results in a continuous blink at constant rate.
+On 01/08/2013 10:18, David Miller wrote:
+>> net/socket.c: In function =A1sock_poll=A2:
+>> net/socket.c:1165:4: error: implicit declaration of function =A1sk_b=
+usy_loop=A2 [-Werror=3Dimplicit-function-declaration]
+>>
+>> Fix this by adding a nop when !CONFIG_NET_LL_RX_POLL.
+>>
+>> Cc: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+>> Cc: David S. Miller <davem@davemloft.net>
+>> Signed-off-by: Cong Wang <amwang@redhat.com>
+>=20
+> Is this really a net-next specific problem?  Doesn't it happen in
+> 'net' too?
+>=20
+> If so, it should be fixed in 'net', not just 'net-next'.
 
-Applied.
-
-johannes
+Both issues are present in net.
+And since these are bug fixes, IMHO both patches should go to net.
