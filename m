@@ -1,43 +1,65 @@
-From: Duan Fugang-B38611 <B38611@freescale.com>
-Subject: RE: [PATCH] net/phy: micrel: Add OF configuration support
-Date: Thu, 1 Aug 2013 06:52:22 +0000
-Message-ID: <9848F2DB572E5649BA045B288BE08FBE015E4111@039-SN2MPN1-023.039d.mgd.msft.net>
-References: <1375330601-3609-1-git-send-email-xobs@kosagi.com>
- <1375330601-3609-2-git-send-email-xobs@kosagi.com>
- <9848F2DB572E5649BA045B288BE08FBE015E3F06@039-SN2MPN1-023.039d.mgd.msft.net>
- <90629591B1A5485C845DAC6572F25924@kosagi.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: [PATCH][net-next] gianfar: Remove unused field grp_id from gfar_priv_grp
+Date: Thu, 1 Aug 2013 10:07:05 +0300
+Message-ID: <1375340825-6524-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	Steven Rostedt <rostedt@goodmis.org>
-To: Sean Cross <xobs@kosagi.com>
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db9lp0249.outbound.messaging.microsoft.com ([213.199.154.249]:48431
-	"EHLO db9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751201Ab3HAHHb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 03:07:31 -0400
-In-Reply-To: <90629591B1A5485C845DAC6572F25924@kosagi.com>
-Content-Language: en-US
+Received: from tx2ehsobe001.messaging.microsoft.com ([65.55.88.11]:22528 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751192Ab3HAHHg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 03:07:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1cnNkYXksIEF1Z3VzdCAxLCAyMDEzIGF0IDI6MjMgUE0sIFNlYW4gQ3Jvc3Mgd3JvdGU6
-DQo+PiBXaGVuIHJlLXNldCByeC90eCBjbG9jayBkZWxheSwgcngvdHggY29udHJvbCBkZWxheSwg
-aXQgaXMgYmV0dGVyIHRvIGRvIGR1bW15IHJlYWQgdGhlIGV4dGVuZGVkIE1JSV9LU1pQSFlfQ0xL
-X0NPTlRST0xfUEFEX1NLRVcgcmVnaXN0ZXIgb25lIHRpbWUuDQo+IENhbiB5b3UgcGxlYXNlIGV4
-cGxhaW4gdGhpcz8gIEkgZG9uJ3Qgc2VlIGFueXRoaW5nIGluIHRoZSBkYXRhc2hlZXQgSSdtIGxv
-b2tpbmcgYXQgKGtzejkwMjFybCkgZGVzY3JpYmluZyBkdW1teSByZWFkcy4NCj4gSWYgYm90aCB0
-eCBhbmQgcnggc2tldyBhcmUgYWRqdXN0ZWQsIHNob3VsZCB0aGVyZSBiZSA+dHdvIGR1bW15IHJl
-YWRzIG9yIGp1c3Qgb25lPyANCg0KV2hlbiBmcmVlc2NhbGUgZW5naW5lZXJzIGRvIHRoZSBwaHkg
-YnJpbmcgdXAsIHRoZXkgYWRkIHRoZSBkdW1teSByZWFkLiBQbHMgcmVmZXIgdGhlIHRoZSBwYXRj
-aHdvcms6IGh0dHA6Ly9wYXRjaHdvcmsub3psYWJzLm9yZy9wYXRjaC8yNDY2MTYvDQpGcm9tIGtz
-ejkwMjFyMSwgdGhlcmUgaGF2ZSBubyBzdWNoIGNvbmRpdGlvbi4gQWZ0ZXIgSSByZW1vdmUgdGhl
-IGR1bW15IHJlYWQsIHRoZSBpbXg2cSBzYWJyZWxpdGUgcGxhdGZvcm0gZXRoZXJuZXQgR2JwcyBt
-b2RlIHdvcmsgZmluZS4NCkZvciBhdDkxIG1pY3JlbCBwaHkgZml4dXAsIHRoZXJlIGhhdmUgbm8g
-ZHVtbXkgcmVhZDogaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvcGlwZXJtYWlsL2xpbnV4LWFy
-bS1rZXJuZWwvMjAxMy1KdWx5LzE4MzYyNi5odG1sDQpTbywgaXQganVzdCBvbmUgY29uZnVzZSwg
-YW5kIHRoZSBkdW1teSByZWFkIGlzIHVubmVjZXNzYXJ5Lg0KDQoNCg==
+grp->grp_id is obsolete. It has no use in the current driver.
+Remove it from gfar_priv_grp and put the 'rstat' member
+in its place, in the 2nd cache line, as rstat needs fast access.
+
+Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+---
+ drivers/net/ethernet/freescale/gianfar.c | 1 -
+ drivers/net/ethernet/freescale/gianfar.h | 4 +---
+ 2 files changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 0f05b96..8bd4e39 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -593,7 +593,6 @@ static int gfar_parse_group(struct device_node *np,
+ 			return -EINVAL;
+ 	}
+ 
+-	grp->grp_id = priv->num_grps;
+ 	grp->priv = priv;
+ 	spin_lock_init(&grp->grplock);
+ 	if (priv->mode == MQ_MG_MODE) {
+diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
+index 04b552c..ee19f2c 100644
+--- a/drivers/net/ethernet/freescale/gianfar.h
++++ b/drivers/net/ethernet/freescale/gianfar.h
+@@ -1009,7 +1009,6 @@ struct gfar_irqinfo {
+  *	@napi: the napi poll function
+  *	@priv: back pointer to the priv structure
+  *	@regs: the ioremapped register space for this group
+- *	@grp_id: group id for this group
+  *	@irqinfo: TX/RX/ER irq data for this group
+  */
+ 
+@@ -1018,11 +1017,10 @@ struct gfar_priv_grp {
+ 	struct	napi_struct napi;
+ 	struct gfar_private *priv;
+ 	struct gfar __iomem *regs;
+-	unsigned int grp_id;
++	unsigned int rstat;
+ 	unsigned long num_rx_queues;
+ 	unsigned long rx_bit_map;
+ 	/* cacheline 3 */
+-	unsigned int rstat;
+ 	unsigned int tstat;
+ 	unsigned long num_tx_queues;
+ 	unsigned long tx_bit_map;
+-- 
+1.7.11.7
