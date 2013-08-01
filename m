@@ -1,73 +1,67 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH 1/3] af_packet: when sending ethernet frames, parse
- header for skb->protocol
-Date: Thu, 1 Aug 2013 12:35:09 +0200
-Message-ID: <20130801103509.GB27563@orbit.nwl.cc>
-References: <20130729165357.GA23134@orbit.nwl.cc>
- <1375291667-9572-1-git-send-email-phil@nwl.cc>
- <1375291667-9572-2-git-send-email-phil@nwl.cc>
- <20130731.173017.624144247713296239.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH] macvlan: better mode validation
+Date: Thu, 1 Aug 2013 13:43:19 +0300
+Message-ID: <20130801104319.GA7127@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:37703 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752204Ab3HAKfg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Aug 2013 06:35:36 -0400
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20130731.173017.624144247713296239.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+macvlan passthrough mode is special: it's not possible to switch to or
+from it through a netlink command.
 
-On Wed, Jul 31, 2013 at 05:30:17PM -0700, David Miller wrote:
-> From: Phil Sutter <phil@nwl.cc>
-> Date: Wed, 31 Jul 2013 19:27:45 +0200
-> 
-> > @@ -2324,6 +2328,13 @@ static int packet_snd(struct socket *sock,
-> >  
-> >  	sock_tx_timestamp(sk, &skb_shinfo(skb)->tx_flags);
-> >  
-> > +	if (dev->type == ARPHRD_ETHER) {
-> > +		skb->protocol = eth_type_trans(skb, dev);
-> > +	} else {
-> > +		skb->protocol = proto;
-> > +		skb->dev = dev;
-> > +	}
-> > +
-> >  	if (!gso_type && (len > dev->mtu + reserve + extra_len)) {
-> >  		/* Earlier code assumed this would be a VLAN pkt,
-> >  		 * double-check this now that we have the actual
-> > @@ -2338,8 +2349,6 @@ static int packet_snd(struct socket *sock,
-> >  		}
-> >  	}
-> >  
-> > -	skb->protocol = proto;
-> > -	skb->dev = dev;
-> >  	skb->priority = sk->sk_priority;
-> >  	skb->mark = sk->sk_mark;
-> 
-> I don't see anything explaining why you are avoiding setting skb->dev when
-> you use eth_type_trans() to set the skb->protocol field.
+But if you try, the command will succeed, which is
+confusing.
 
-Simply because eth_type_trans() sets skb->dev already. You're right, I
-probably should have mentioned this explicitly. At least my introductory
-mail elaborated on this.
+Validate input and return error to user.
 
-> Also, why isn't the user setting the protocol field correctly?  Isn't
-> that the _real_ source of these problems?
+Cc:  Sridhar Samudrala <sri@us.ibm.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/net/macvlan.c | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
 
-Because the user specifies the value later used for skb->protocol at
-either socket(), bind() or sendto() (i.e. flush) stage. Having both
-"regular" and VLAN frames in the same TX ring is not possible at least.
-
-> This patch series cannot be applied as is, it's either wrong, or
-> explanations are missing from the commit messages.
-
-Hmm. Is it OK to rely on eth_type_trans() setting skb->dev after all?
-Depending on that, I would either add a comment or drop the change.
-
-Best wishes, Phil
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 18373b6..13937f9 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -863,6 +863,18 @@ static int macvlan_changelink(struct net_device *dev,
+ 		struct nlattr *tb[], struct nlattr *data[])
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
++	enum macvlan_mode mode;
++	bool set_mode = false;
++
++	/* Validate mode, but don't set yet: setting flags may fail. */
++	if (data && data[IFLA_MACVLAN_MODE]) {
++		set_mode = true;
++		mode = nla_get_u32(data[IFLA_MACVLAN_MODE]);
++		/* Passthrough mode can't be set or cleared dynamically */
++		if ((mode == MACVLAN_MODE_PASSTHRU) !=
++		    (vlan->mode == MACVLAN_MODE_PASSTHRU))
++			return -EINVAL;
++	}
+ 
+ 	if (data && data[IFLA_MACVLAN_FLAGS]) {
+ 		__u16 flags = nla_get_u16(data[IFLA_MACVLAN_FLAGS]);
+@@ -879,8 +891,8 @@ static int macvlan_changelink(struct net_device *dev,
+ 		}
+ 		vlan->flags = flags;
+ 	}
+-	if (data && data[IFLA_MACVLAN_MODE])
+-		vlan->mode = nla_get_u32(data[IFLA_MACVLAN_MODE]);
++	if (set_mode)
++		vlan->mode = mode;
+ 	return 0;
+ }
+ 
+-- 
+MST
