@@ -1,33 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Remove extern from include/net/ scheduling
- prototypes
-Date: Wed, 31 Jul 2013 17:24:37 -0700 (PDT)
-Message-ID: <20130731.172437.198780183941616730.davem@davemloft.net>
-References: <470a8782ea89cee979eca82c7847748129de6bd0.1375249605.git.joe@perches.com>
+Subject: Re: [PATCH v3] fib_rules: add .suppress operation
+Date: Wed, 31 Jul 2013 17:26:43 -0700 (PDT)
+Message-ID: <20130731.172643.1587377835518449424.davem@davemloft.net>
+References: <20130730074636.GC10550@zirkel.wertarbyte.de>
+	<20130731.151354.1698882304457097890.davem@davemloft.net>
+	<20130801002407.GL10550@zirkel.wertarbyte.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com,
-	linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <470a8782ea89cee979eca82c7847748129de6bd0.1375249605.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
+	bsderandrew@gmail.com
+To: stefan.tomanek@wertarbyte.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36398 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750856Ab3HAA0o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 20:26:44 -0400
+In-Reply-To: <20130801002407.GL10550@zirkel.wertarbyte.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 30 Jul 2013 22:47:13 -0700
+From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
+Date: Thu, 1 Aug 2013 02:24:07 +0200
 
-> There are a mix of function prototypes with and without extern
-> in the kernel sources.  Standardize on not using extern for
-> function prototypes.
+> Dies schrieb David Miller (davem@davemloft.net):
 > 
-> Function prototypes don't need to be written with extern.
-> extern is assumed by the compiler.  Its use is as unnecessary as
-> using auto to declare automatic/local variables in a block.
+>> I just want to mention that the more quirky crap we put into the FIB
+>> rules layer, the harder it will every be to make a scalable data
+>> structure for FIB rule handling.
+>> 
+>> Right now it's basically a linear walk of rules, with processing at
+>> each level.
 > 
-> Reflow modified prototypes to 80 columns.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> And it still is: but instead of just having pre-conditions whether to
+> consult a table, the patch introduces post-conditions that can reject
+> a routing decision retrieved from it.
 
-Applied, thanks.
+This doesn't change my argument at all.  The fact remains that the
+more complex conditions we add to the fib rule lookup, the harder it
+will be to optimize fib rule lookups into an O(1) or O(log n)
+operation.
