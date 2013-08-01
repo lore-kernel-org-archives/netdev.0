@@ -1,43 +1,37 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next 5/5] bonding: initial RCU conversion
-Date: Thu, 01 Aug 2013 09:55:07 +0200
-Message-ID: <51FA145B.3000509@redhat.com>
-References: <1375283553-32070-1-git-send-email-nikolay@redhat.com> <1375283553-32070-6-git-send-email-nikolay@redhat.com> <51FA0453.5000902@huawei.com>
+From: Duan Fugang-B38611 <B38611@freescale.com>
+Subject: RE: [PATCH v2] net/phy: micrel: Add OF configuration support
+Date: Thu, 1 Aug 2013 08:03:33 +0000
+Message-ID: <9848F2DB572E5649BA045B288BE08FBE015E4437@039-SN2MPN1-023.039d.mgd.msft.net>
+References: <1375340034-23846-1-git-send-email-xobs@kosagi.com>
+ <1375340034-23846-2-git-send-email-xobs@kosagi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, davem@davemloft.net,
-	fubar@us.ibm.com
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	Steven Rostedt <rostedt@goodmis.org>
+To: Sean Cross <xobs@kosagi.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49675 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750856Ab3HAHzQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Aug 2013 03:55:16 -0400
-In-Reply-To: <51FA0453.5000902@huawei.com>
+Received: from co1ehsobe005.messaging.microsoft.com ([216.32.180.188]:28871
+	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751651Ab3HAIDh convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Aug 2013 04:03:37 -0400
+In-Reply-To: <1375340034-23846-2-git-send-email-xobs@kosagi.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/01/2013 08:46 AM, Ding Tianhong wrote:
-> On 2013/7/31 23:12, Nikolay Aleksandrov wrote:
->> This patch does the initial bonding conversion to RCU. After it the
->> following modes are protected by RCU alone: roundrobin, active-backup,
->> broadcast and xor. Modes ALB/TLB and 3ad still acquire bond->lock for
->> reading, and will be dealt with later. curr_active_slave needs to be
->> dereferenced via rcu in the converted modes because the only thing
->> protecting the slave after this patch is rcu_read_lock, so we need the
->> proper barrier for weakly ordered archs and to make sure we don't have
->> stale pointer. It's not tagged with __rcu yet because there's still work
->> to be done to remove the curr_slave_lock, so sparse will complain when
->> rcu_assign_pointer and rcu_dereference are used, but the alternative to use
->> rcu_dereference_protected would've created much bigger code churn which is
->> more difficult to test and review. That will be converted in time.
->>
->> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
-> 
-> 
-> great job! but I think you miss come place to replace by rcu protect.
-> example: bonding_show_active_slave() still has curr = bond->curr_active_slave,
-> so I think you could replace them all and send together.
-> 
-Thanks, I'll fix this. In fact that code always looked racy to me :)
+On Thursday, August 1, 2013 at 2:54 PM, Sean Cross wrote:
+
+> Some boards require custom PHY configuration, for example due to trace length differences. 
+> Add the ability to configure these registers in order to get the PHY to function on boards that need it.
+>
+> Because PHYs are auto-detected based on MDIO device IDs, allow PHY configuration to be specified in the parent Ethernet device node
+> if no PHY device node is present.
+>
+> Signed-off-by: Sean Cross <xobs@kosagi.com>
+
+Acked-by: Fugang Duan <B38611@freescale.com>
