@@ -1,95 +1,49 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next v5 2/7] vxlan: Restructure vxlan receive for
- multiple protocols.
-Date: Wed, 31 Jul 2013 20:01:04 -0700
-Message-ID: <CALnjE+ogr7PYnEMtAyMmZUzLhTtAdqS3FBOQ1BCvkhjEvCgHqQ@mail.gmail.com>
-References: <1375312469-18623-1-git-send-email-pshelar@nicira.com>
-	<20130731164749.58b6ee1b@nehalam.linuxnetplumber.net>
+From: Cong Wang <amwang@redhat.com>
+Subject: =?UTF-8?q?=5BPatch=20net-next=201/2=5D=20net=3A=20fix=20a=20compile=20error=20when=20CONFIG=5FNET=5FLL=5FRX=5FPOLL=20is=20not=20set?=
+Date: Thu,  1 Aug 2013 11:10:24 +0800
+Message-ID: <1375326625-21427-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog134.obsmtp.com ([74.125.149.83]:54421 "HELO
-	na3sys009aog134.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752222Ab3HADBG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jul 2013 23:01:06 -0400
-Received: by mail-qc0-f177.google.com with SMTP id e11so806803qcx.36
-        for <netdev@vger.kernel.org>; Wed, 31 Jul 2013 20:01:04 -0700 (PDT)
-In-Reply-To: <20130731164749.58b6ee1b@nehalam.linuxnetplumber.net>
+Received: from mx1.redhat.com ([209.132.183.28]:53639 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751083Ab3HADKh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jul 2013 23:10:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 31, 2013 at 4:47 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Wed, 31 Jul 2013 16:14:29 -0700
-> Pravin B Shelar <pshelar@nicira.com> wrote:
->
->> -- a/drivers/net/vxlan.c
->> +++ b/drivers/net/vxlan.c
->> @@ -57,6 +57,7 @@
->>  #define VXLAN_VID_MASK       (VXLAN_N_VID - 1)
->>  /* IP header + UDP + VXLAN + Ethernet header */
->>  #define VXLAN_HEADROOM (20 + 8 + 8 + 14)
->> +#define VXLAN_HLEN (sizeof(struct udphdr) + sizeof(struct vxlanhdr))
->>
->>  #define VXLAN_FLAGS 0x08000000       /* struct vxlanhdr.vx_flags required value. */
->>
->> @@ -82,8 +83,12 @@ static int vxlan_net_id;
->>
->>  static const u8 all_zeros_mac[ETH_ALEN];
->>
->> +struct vxlan_sock;
->> +typedef void (vxlan_rcv_t)(struct vxlan_sock *vh, struct sk_buff *skb, __be32 key);
->> +
->>  /* per UDP socket information */
->>  struct vxlan_sock {
->> +     vxlan_rcv_t      *rcv;
->>       struct hlist_node hlist;
->>       struct rcu_head   rcu;
->>       struct work_struct del_work;
->> @@ -211,6 +216,18 @@ static struct vxlan_dev *vxlan_find_vni(struct net *net, u32 id, __be16 port)
->>       return NULL;
->>  }
->>
->> +static struct vxlan_dev *vxlan_find_vni_port(struct vxlan_sock *vs, u32 id)
->> +{
->> +     struct vxlan_dev *vxlan;
->> +
->> +     hlist_for_each_entry_rcu(vxlan, vni_head(vs, id), hlist) {
->> +             if (vxlan->default_dst.remote_vni == id)
->> +                     return vxlan;
->> +     }
->> +
->> +     return NULL;
->> +}
->> +
->>  /* Fill in neighbour message in skbuff. */
->>  static int vxlan_fdb_info(struct sk_buff *skb, struct vxlan_dev *vxlan,
->>                         const struct vxlan_fdb *fdb,
->> @@ -836,23 +853,16 @@ static void vxlan_igmp_work(struct work_struct *work)
->>  /* Callback from net/ipv4/udp.c to receive packets */
->>  static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
->>  {
->> -     struct iphdr *oip;
->> +     struct vxlan_sock *vs;
->>       struct vxlanhdr *vxh;
->> -     struct vxlan_dev *vxlan;
->> -     struct pcpu_tstats *stats;
->>       __be16 port;
->> -     __u32 vni;
->> -     int err;
->> -
->> -     /* pop off outer UDP header */
->> -     __skb_pull(skb, sizeof(struct udphdr));
->>
->>       /* Need Vxlan and inner Ethernet header to be present */
->> -     if (!pskb_may_pull(skb, sizeof(struct vxlanhdr)))
->> +     if (!pskb_may_pull(skb, VXLAN_HLEN))
->>               goto error;
->
-> This patch would be clearer if split into two parts.
-> One for the parsing changes (like VXLAN_HLEN) and other for the receive
-> callback.
+=46rom: Cong Wang <amwang@redhat.com>
 
-ok, I will send updated patch.
+When CONFIG_NET_LL_RX_POLL is not set, I got:
+
+net/socket.c: In function =E2=80=98sock_poll=E2=80=99:
+net/socket.c:1165:4: error: implicit declaration of function =E2=80=98s=
+k_busy_loop=E2=80=99 [-Werror=3Dimplicit-function-declaration]
+
+=46ix this by adding a nop when !CONFIG_NET_LL_RX_POLL.
+
+Cc: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+---
+diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
+index a14339c..6cd8848 100644
+--- a/include/net/busy_poll.h
++++ b/include/net/busy_poll.h
+@@ -181,5 +181,10 @@ static inline bool busy_loop_timeout(unsigned long=
+ end_time)
+ 	return true;
+ }
+=20
++static inline bool sk_busy_loop(struct sock *sk, int nonblock)
++{
++	return false;
++}
++
+ #endif /* CONFIG_NET_LL_RX_POLL */
+ #endif /* _LINUX_NET_BUSY_POLL_H */
