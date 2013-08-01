@@ -1,118 +1,134 @@
-From: Sean Cross <xobs@kosagi.com>
-Subject: Re: [PATCH v2] net/phy: micrel: Add OF configuration support
-Date: Thu, 1 Aug 2013 17:06:13 +0800
-Message-ID: <3050A7D1D42E4A0CBC48C9620889E749@kosagi.com>
-References: <1375340034-23846-1-git-send-email-xobs@kosagi.com>
- <1375340034-23846-2-git-send-email-xobs@kosagi.com>
- <20130801084728.GE26614@pengutronix.de>
+From: Ronny Meeus <ronny.meeus@gmail.com>
+Subject: Re: How do I receive vlan tags on an AF_PACKET socket in 3.4 kernel?
+Date: Thu, 1 Aug 2013 11:24:26 +0200
+Message-ID: <CAMJ=MEfZbCzQAzA-G9ooZQrwjR2vf7FGf4p66J0H6Eo2Xtdw0A@mail.gmail.com>
+References: <CAMJ=MEe4cvp7-fwbCnq7SLM=44Zy8Jrz35FwRoWG-ytahdPRQA@mail.gmail.com>
+ <1375193392.10515.28.camel@edumazet-glaptop> <CAMJ=MEdfn2uPHbNQZ1LOytOqwFTbAyV1ZtxOW8NomLCZJq+caQ@mail.gmail.com>
+ <1375280187.10515.92.camel@edumazet-glaptop> <CAMJ=MEeLRQTROpj4LBJ2b--dqyxBUKPcW7F=q9qdqxm_4kHL7g@mail.gmail.com>
+ <51F9226F.30202@redhat.com> <1375283370.10515.100.camel@edumazet-glaptop>
+ <CAMJ=MEcZBU9e+X3w5EFv3+FfKq5K7nKpF+Qc4XWYOFq7apKprw@mail.gmail.com> <1375303651.10515.110.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Duan Fugang-B38611 <B38611@freescale.com>,
-	"=?utf-8?Q?netdev=40vger.kernel.org?=" <netdev@vger.kernel.org>,
-	"=?utf-8?Q?devicetree=40vger.kernel.org?="
-	<devicetree@vger.kernel.org>, David Miller <davem@davemloft.net>,
-	"=?utf-8?Q?stephen=40networkplumber.org?="
-	<stephen@networkplumber.org>, Steven Rostedt <rostedt@goodmis.org>
-To: Sascha Hauer <s.hauer@pengutronix.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.g1.pair.com ([66.39.3.162]:27764 "EHLO mail1.g1.pair.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751604Ab3HAJGT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Aug 2013 05:06:19 -0400
-In-Reply-To: <20130801084728.GE26614@pengutronix.de>
-Content-Disposition: inline
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:37578 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753016Ab3HAJYs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 05:24:48 -0400
+Received: by mail-ob0-f170.google.com with SMTP id eh20so3439990obb.1
+        for <netdev@vger.kernel.org>; Thu, 01 Aug 2013 02:24:48 -0700 (PDT)
+In-Reply-To: <1375303651.10515.110.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Jul 31, 2013 at 10:47 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2013-07-31 at 22:01 +0200, Ronny Meeus wrote:
+>> On Wed, Jul 31, 2013 at 5:09 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > On Wed, 2013-07-31 at 16:42 +0200, Daniel Borkmann wrote:
+>> >
+>> >> You can use bpfc (git://github.com/borkmann/netsniff-ng.git), it also has
+>> >> an extensive man page. That should probably do it:
+>> >>
+>> >> $ cat foo
+>> >> ld vlant
+>> >> jneq #4094, drop
+>> >> ret #-1
+>> >> drop: ret #0
+>> >>
+>> >> $ bpfc foo
+>> >> { 0x20, 0, 0, 0xfffff02c },
+>> >> { 0x15, 0, 1, 0x00000ffe },
+>> >> { 0x6, 0, 0, 0xffffffff },
+>> >> { 0x6, 0, 0, 0x00000000 },
+>> >
+>>
+>> Thanks Daniel, this is very useful information.
+>> I have cloned the repo and compiled the tool myself. It will be very
+>> useful in the future.
+>>
+>> > Thanks Daniel.
+>> >
+>> > If the load of this BPF fails (because its an old kernel), then load
+>> > your old filter.
+>> >
+>>
+>> I created a small test application after I backported the filter code
+>> to the 3.4 kernel.
+>> I instrumented the kernel with a printk at the moment the
+>> vlan_tx_tag_get call is done to see the actual value of the vlan tag
+>> since it did not work initially.
+>>
+>> These are the packets displayed by tcpdump:
+>>
+>> tcpdump: WARNING: eth-ntb: no IPv4 address assigned
+>> tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+>> listening on eth-ntb, link-type EN10MB (Ethernet), capture size 65535 bytes
+>> 00:18:49.233283 06:00:00:00:00:80 > f7:00:00:00:ff:ff, ethertype
+>> 802.1Q (0x8100), length 64:
+>>         0x0000:  f700 0000 ffff 0600 0000 0080 8100 affe
+>>         0x0010:  08ab 0014 0000 0000 0f00 0001 0096 6000
+>>         0x0020:  0096 0000 0001 0000 000d 0000 0000 0000
+>>         0x0030:  0000 0000 0000 0000 0000 0000 0000 0000
+>>
+>> So the Vlan is 0xffe and the priority/CFI field is 0xA.
+>> Apparently the value I need to  use in the filter is 0xaffe to make it
+>> work. Is this normal or is this a bug in the kernel?
+>>
+>> This is the filter I used:
+>> { 0x20, 0, 0, 0xfffff02c }
+>> { 0x15, 0, 1, 0x0000affe }
+>> { 0x06, 0, 0, 0x00000800 }
+>> { 0x06, 0, 0, 0x00000000 }
+>>
+>> And this is the trace of the kernel and my application:
+>>
+>> [12529.357172] BPF_S_ANC_VLAN_TAG: affe
+>> packets received:          1
+>> [12533.020743] BPF_S_ANC_VLAN_TAG: affe
+>> packets received:          2
+>> [12536.667159] BPF_S_ANC_VLAN_TAG: affe
+>> packets received:          3
+>> [12540.343857] BPF_S_ANC_VLAN_TAG: affe
+>> packets received:          4
+>
+> Right, vlan_tx_tag_get() gets the whole tag, so you want to mask A with
+> 0xfff before the compare (to strip the prio)
+>
+> ld vlant
+> and #4095
+> jneq #4094, drop
+> ret #-1
+> drop: ret #0
+>
+> or something like that.
+>
+>
+>
 
+OK the receiving side is clear now. Thanks.
 
--- 
-Sean Cross
+Now the sending side.
+I created an application that sends packets using libpcap. These
+packets are full Ethernet packets, including VLAN tags etc.
+If I connect a PC running Wireshark to the Ethernet port I'm sending
+on I receive the packets, no issues.
 
+If a start on the device that is sending the packets also the receive
+application I created before I do not receive anything.
+This is because the filter attached to the kernel by this application
+is checking the VLAN tag in metadata of the buffer, which is in this
+case not filled in.
+If I do not attach a filter to the receiving application all packets I
+send are also received by the receiving application, which is what I
+expect since all packets sent on a raw socket are received by all
+other sockets listening on the same interface.
 
-On Thursday, August 1, 2013 at 4:47 PM, Sascha Hauer wrote:
-
-> On Thu, Aug 01, 2013 at 06:53:54AM +0000, Sean Cross wrote:
-> > Some boards require custom PHY configuration, for example due to trace
-> > length differences. Add the ability to configure these registers in
-> > order to get the PHY to function on boards that need it.
-> > 
-> > Because PHYs are auto-detected based on MDIO device IDs, allow PHY
-> > configuration to be specified in the parent Ethernet device node if no
-> > PHY device node is present.
-> > 
-> > Signed-off-by: Sean Cross <xobs@kosagi.com (mailto:xobs@kosagi.com)>
-> > ---
-> > .../devicetree/bindings/net/micrel-phy.txt | 20 ++++++++
-> > drivers/net/phy/micrel.c | 50 ++++++++++++++++++++
-> > 2 files changed, 70 insertions(+)
-> > create mode 100644 Documentation/devicetree/bindings/net/micrel-phy.txt
-> > 
-> > diff --git a/Documentation/devicetree/bindings/net/micrel-phy.txt b/Documentation/devicetree/bindings/net/micrel-phy.txt
-> > new file mode 100644
-> > index 0000000..97c1ef2
-> > --- /dev/null
-> > +++ b/Documentation/devicetree/bindings/net/micrel-phy.txt
-> > @@ -0,0 +1,20 @@
-> > +Micrel KS8737, KSZ8041, KSZ8001, KS8721, KSZ8081, KSZ8091, KSZ8061, KSZ9021,
-> > +KSZ9031, Ethernet PHYs, and KSZ8873MLL and KSZ886X Ethernet switches.
-> > +
-> > +Some boards require special tuning values, particularly when it comes to
-> > +clock delays. You can specify clock delay values by adding
-> > +micrel-specific properties to an Ethernet OF device node.
-> > +
-> > +Optional properties:
-> > +- micrel,clk-control-pad-skew : Timing offset for the MII clock line
-> > +- micrel,rx-data-pad-skew : Timing offset for the RX MII pad
-> > +- micrel,tx-data-pad-skew : Timing offset for the TX MII pad
-> > +
-> > +Example:
-> > + &enet {
-> > + micrel,clk-control-pad-skew = <0xf0f0>;
-> > + micrel,rx-data-pad-skew = <0x0000>;
-> > + micrel,tx-data-pad-skew = <0xffff>;
-> > + status = "okay";
-> > + };
-> 
-> 
-> 
-> Given that this patch adds a devicetree binding which I think we now
-> agree that this introduces an ABI I think this needs more thought. Some
-> questions:
-> 
-> - Does binding this also work for MII controllers external to the MAC?
-> Several Marvell SoCs have this situation. MDIO is a bus. With the
-> binding above you assume that all devices on the bus use the same
-> settings
-
-I'm not quite sure what you mean here.  The board I'm testing on is based on an i.MX6q, which has a gigabit MAC and uses a Micrel PHY connected via MDIO.  I assumed (perhaps inaccurately) that phy_write() would pick the correct PHY.  The example binding is for a single Ethernet device, named "enet".  If a board had two Ethernet devices, enet1 and enet2, each could have its own micrel definitions.  For example:
-
-&enet1 {
-    micrel,clk-control-pad-skew = <0xf0f0>;
-    micrel,rx-data-pad-skew = <0x0000>;
-    micrel,tx-data-pad-skew = <0xffff>;
-    status = "okay";
-};
-
-&enet2 {
-    micrel,clk-control-pad-skew = <0x0000>;
-    micrel,rx-data-pad-skew = <0x0000>;
-    micrel,tx-data-pad-skew = <0x0000>;
-    status = "okay";
-};
-
-
-
-> - You directly put the register contents into dt. This assumes that all
-> micrel phys have a compatible register layout. This may be the case
-> now, but what's with future phys?
-
-This is a very valid point.  I assumed that most Micrel PHYs had similar register sets, but upon closer inspection it seems as though the KSZ9021RN is unique in this regard.  I should come up with a new function ksz9021_config_init that does this only for that one PHY, and rename the devicetree doc to reflect that. 
-> - The pad skew settings are needed for other phys aswell. It might be
-> worth introducing a binding which could work for say Artheros phys
-> aswell.
-
-I can't comment on other phys, as I'm not familiar with them.  How would such a system work?  This certainly seems like the most open-ended of the questions. 
-
-I'll limit the scope of the patch to the KSZ9021 family of parts, and submit a v3 patch.
+I have the feeling that there is something wrong with the current
+implementation.
+In my opinion, the same VLAN processing as done for packets received
+from the network (strip vlan and put it in the meta data) should be
+done on packets that are sent by an application just before passing
+them to other sockets listening on the same interface.
+Right?
