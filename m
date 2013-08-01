@@ -1,124 +1,148 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 4/4] USBNET: ax88179_178a: enable tso if host supports
- sg dma
-Date: Wed, 31 Jul 2013 20:51:06 -0700
-Message-ID: <1375329066.10515.125.camel@edumazet-glaptop>
-References: <1375267909-30373-1-git-send-email-ming.lei@canonical.com>
-	 <1375267909-30373-5-git-send-email-ming.lei@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
-	Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>,
-	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1375267909-30373-5-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Sean Cross <xobs@kosagi.com>
+Subject: [PATCH] net/phy: micrel: Add OF configuration support
+Date: Thu,  1 Aug 2013 04:16:41 +0000
+Message-ID: <1375330601-3609-2-git-send-email-xobs@kosagi.com>
+References: <1375330601-3609-1-git-send-email-xobs@kosagi.com>
+Cc: Sean Cross <xobs@kosagi.com>
+To: netdev@vger.kernel.org, devicetree@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.g1.pair.com ([66.39.3.162]:34321 "EHLO mail1.g1.pair.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750826Ab3HAEkC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Aug 2013 00:40:02 -0400
+In-Reply-To: <1375330601-3609-1-git-send-email-xobs@kosagi.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-07-31 at 18:51 +0800, Ming Lei wrote:
-> This patch enables 'can_dma_sg' flag for ax88179_178a device
-> if the attached host controller supports building packet from
-> discontinuous buffers(DMA SG is possible), so both frame header
-> and skb data buffers can be passed to usb stack via urb->sg,
-> then skb data copy can be saved.
-> 
-> With the patch, CPU utilization decreased much in iperf test at
-> client mode.
-> 
-> Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> ---
->  drivers/net/usb/ax88179_178a.c |   30 ++++++++++++++++++++++++++++++
->  1 file changed, 30 insertions(+)
-> 
-> diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
-> index 5a468f3..c75bded 100644
-> --- a/drivers/net/usb/ax88179_178a.c
-> +++ b/drivers/net/usb/ax88179_178a.c
-> @@ -1031,12 +1031,20 @@ static int ax88179_bind(struct usbnet *dev, struct usb_interface *intf)
->  	dev->mii.phy_id = 0x03;
->  	dev->mii.supports_gmii = 1;
->  
-> +	if (dev->udev->bus->no_sg_limit)
-> +		dev->can_dma_sg = 1;
-> +
->  	dev->net->features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
->  			      NETIF_F_RXCSUM;
->  
->  	dev->net->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
->  				 NETIF_F_RXCSUM;
->  
-> +	if (dev->can_dma_sg) {
-> +		dev->net->features |= NETIF_F_SG | NETIF_F_TSO;
-> +		dev->net->hw_features |= NETIF_F_SG | NETIF_F_TSO;
-> +	}
-> +
->  	/* Enable checksum offload */
->  	*tmp = AX_RXCOE_IP | AX_RXCOE_TCP | AX_RXCOE_UDP |
->  	       AX_RXCOE_TCPV6 | AX_RXCOE_UDPV6;
-> @@ -1170,12 +1178,30 @@ ax88179_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
->  	int mss = skb_shinfo(skb)->gso_size;
->  	int headroom;
->  	int tailroom;
-> +	struct skb_data *entry = (struct skb_data *)skb->cb;
->  
->  	tx_hdr1 = skb->len;
->  	tx_hdr2 = mss;
->  	if (((skb->len + 8) % frame_size) == 0)
->  		tx_hdr2 |= 0x80008000;	/* Enable padding */
->  
-> +	if (dev->can_dma_sg) {
+Some boards require custom PHY configuration, for example due to trace
+length differences.  Add the ability to configure these registers in
+order to get the PHY to function on boards that need it.
 
+Because PHYs are auto-detected based on MDIO device IDs, allow PHY
+configuration to be specified in the parent Ethernet device node if no
+PHY device node is present.
 
+Signed-off-by: Sean Cross <xobs@kosagi.com>
+---
+ .../devicetree/bindings/net/micrel-phy.txt         |   20 +++++++
+ drivers/net/phy/micrel.c                           |   57 ++++++++++++++++++++
+ 2 files changed, 77 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/micrel-phy.txt
 
-> +		if (!(entry->header = kmalloc(8, GFP_ATOMIC)))
-> +			goto no_sg;
-> +
-> +		entry->length = 8;
-> +		cpu_to_le32s(&tx_hdr1);
-> +		cpu_to_le32s(&tx_hdr2);
-
-You could do these cpu_to_le32s() calls before the if (dev->can_dma_sg)
-and remove them before the skb_copy_to_linear_data() calls.
-
-> +		memcpy(entry->header, &tx_hdr1, 4);
-> +		memcpy(entry->header + 4, &tx_hdr2, 4);
-> +
-> +		return skb;
-> +	} else {
-> +no_sg:
-> +		entry->header = NULL;
-> +		entry->length = 0;
-> +	}
-> +
->  	headroom = skb_headroom(skb);
->  	tailroom = skb_tailroom(skb);
->  
-> @@ -1323,6 +1349,10 @@ static int ax88179_reset(struct usbnet *dev)
->  
->  	dev->net->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
->  				 NETIF_F_RXCSUM;
-> +	if (dev->can_dma_sg) {
-> +		dev->net->features |= NETIF_F_SG | NETIF_F_TSO;
-> +		dev->net->hw_features |= NETIF_F_SG | NETIF_F_TSO;
-> +	}
-
-Are you sure this part is needed ?
-
-Also it looks like that you are going through this sg allocation/setup
-even for linear skb ?
-
-For linear skb, with 8+ bytes of headroom, I guess this adds significant
-overhead (2 kmalloc() + sg setup)
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/Documentation/devicetree/bindings/net/micrel-phy.txt b/Documentation/devicetree/bindings/net/micrel-phy.txt
+new file mode 100644
+index 0000000..97c1ef2
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/micrel-phy.txt
+@@ -0,0 +1,20 @@
++Micrel KS8737, KSZ8041, KSZ8001, KS8721, KSZ8081, KSZ8091, KSZ8061, KSZ9021,
++KSZ9031, Ethernet PHYs, and KSZ8873MLL and KSZ886X Ethernet switches.
++
++Some boards require special tuning values, particularly when it comes to
++clock delays.  You can specify clock delay values by adding
++micrel-specific properties to an Ethernet OF device node.
++
++Optional properties:
++- micrel,clk-control-pad-skew : Timing offset for the MII clock line
++- micrel,rx-data-pad-skew : Timing offset for the RX MII pad
++- micrel,tx-data-pad-skew : Timing offset for the TX MII pad
++
++Example:
++	&enet {
++		micrel,clk-control-pad-skew = <0xf0f0>;
++		micrel,rx-data-pad-skew = <0x0000>;
++		micrel,tx-data-pad-skew = <0xffff>;
++		status = "okay";
++	};
++
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 2510435..0abe821 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -25,6 +25,7 @@
+ #include <linux/module.h>
+ #include <linux/phy.h>
+ #include <linux/micrel_phy.h>
++#include <linux/of.h>
+ 
+ /* Operation Mode Strap Override */
+ #define MII_KSZPHY_OMSO				0x16
+@@ -53,6 +54,25 @@
+ #define KS8737_CTRL_INT_ACTIVE_HIGH		(1 << 14)
+ #define KSZ8051_RMII_50MHZ_CLK			(1 << 7)
+ 
++/* Write/read to/from extended registers */
++#define MII_KSZPHY_EXTREG                       0x0b
++#define KSZPHY_EXTREG_WRITE                     0x8000
++
++#define MII_KSZPHY_EXTREG_WRITE                 0x0c
++#define MII_KSZPHY_EXTREG_READ                  0x0d
++
++/* Write/read to/from extended registers */
++#define MII_KSZPHY_EXTREG                       0x0b
++#define KSZPHY_EXTREG_WRITE                     0x8000
++
++#define MII_KSZPHY_EXTREG_WRITE                 0x0c
++#define MII_KSZPHY_EXTREG_READ                  0x0d
++
++/* Extended registers */
++#define MII_KSZPHY_CLK_CONTROL_PAD_SKEW         0x104
++#define MII_KSZPHY_RX_DATA_PAD_SKEW             0x105
++#define MII_KSZPHY_TX_DATA_PAD_SKEW             0x106
++
+ static int ksz_config_flags(struct phy_device *phydev)
+ {
+ 	int regval;
+@@ -65,6 +85,13 @@ static int ksz_config_flags(struct phy_device *phydev)
+ 	return 0;
+ }
+ 
++static int kszphy_extended_write(struct phy_device *phydev,
++                                 u32 regnum, u16 val)
++{
++	phy_write(phydev, MII_KSZPHY_EXTREG, KSZPHY_EXTREG_WRITE | regnum);
++	return phy_write(phydev, MII_KSZPHY_EXTREG_WRITE, val);
++}
++
+ static int kszphy_ack_interrupt(struct phy_device *phydev)
+ {
+ 	/* bit[7..0] int status, which is a read and clear register. */
+@@ -121,6 +148,36 @@ static int ks8737_config_intr(struct phy_device *phydev)
+ 
+ static int kszphy_config_init(struct phy_device *phydev)
+ {
++	struct device *dev = &phydev->dev;
++	struct device_node *of_node = dev->of_node;
++
++	if (!of_node && dev->parent->of_node)
++		of_node = dev->parent->of_node;
++
++	if (of_node) {
++		u32 val;
++
++		if (!of_property_read_u32(of_node,
++					  "micrel,clk-control-pad-skew",
++					  &val))
++			kszphy_extended_write(phydev,
++					      MII_KSZPHY_CLK_CONTROL_PAD_SKEW,
++					      val);
++
++		if (!of_property_read_u32(of_node,
++					  "micrel,rx-data-pad-skew",
++					  &val))
++			kszphy_extended_write(phydev,
++					      MII_KSZPHY_RX_DATA_PAD_SKEW,
++					      val);
++
++		if (!of_property_read_u32(of_node,
++					  "micrel,tx-data-pad-skew",
++					  &val))
++			kszphy_extended_write(phydev,
++					      MII_KSZPHY_TX_DATA_PAD_SKEW,
++					      val);
++	}
+ 	return 0;
+ }
+ 
+-- 
+1.7.9.5
