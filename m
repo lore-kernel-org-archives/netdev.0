@@ -1,47 +1,48 @@
-From: Duan Fugang-B38611 <B38611@freescale.com>
-Subject: RE: [PATCH v2] sis900: Fix the tx queue timeout issue
-Date: Thu, 1 Aug 2013 15:50:51 +0000
-Message-ID: <9848F2DB572E5649BA045B288BE08FBE015E5576@039-SN2MPN1-023.039d.mgd.msft.net>
-References: <1375340470-2126-1-git-send-email-kda@linux-powerpc.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] fib_rules: add route suppression based on ifgroup
+Date: Thu, 01 Aug 2013 09:06:34 -0700
+Message-ID: <1375373194.10515.158.camel@edumazet-glaptop>
+References: <20130801151809.GB21970@zirkel.wertarbyte.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Denis Kirjanov <kda@linux-powerpc.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"venza@brownhat.org" <venza@brownhat.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [216.32.180.188] ([216.32.180.188]:38038 "EHLO
-	co1outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755957Ab3HAPyg convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Aug 2013 11:54:36 -0400
-In-Reply-To: <1375340470-2126-1-git-send-email-kda@linux-powerpc.org>
-Content-Language: en-US
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:51967 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755470Ab3HAQGj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 12:06:39 -0400
+Received: by mail-pb0-f44.google.com with SMTP id xa7so2253640pbc.3
+        for <netdev@vger.kernel.org>; Thu, 01 Aug 2013 09:06:38 -0700 (PDT)
+In-Reply-To: <20130801151809.GB21970@zirkel.wertarbyte.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday, August 01, 2013 at 3:01 PM, Denis Kirjanov wrote:
-
-> @@ -1613,9 +1613,12 @@ sis900_start_xmit(struct sk_buff *skb, struct net_device *net_dev)
-> 	unsigned int  count_dirty_tx;
+On Thu, 2013-08-01 at 17:18 +0200, Stefan Tomanek wrote:
+> This change adds the ability to suppress a routing decision based upon the
+> interface group the selected interface belongs to.
 > 
-> 	/* Don't transmit data before the complete of auto-negotiation */
-> -	if(!sis_priv->autong_complete){
-> -		netif_stop_queue(net_dev);
-> -		return NETDEV_TX_BUSY;
-> +	if (unlikely(!sis_priv->autong_complete)) {
-> +		if (netif_msg_tx_err(sis_priv) && net_ratelimit())
-> +			netdev_dbg(net_dev, "Auto negotiation in progress\n");
-> +		net_dev->stats.tx_dropped++;
-> +		dev_kfree_skb(skb);
-> +		return NETDEV_TX_OK;
->  	}
+> Signed-off-by: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
+> ---
+>  include/net/fib_rules.h        |    2 ++
+>  include/uapi/linux/fib_rules.h |    2 +-
+>  net/core/fib_rules.c           |   10 ++++++++++
+>  net/ipv4/fib_rules.c           |   23 +++++++++++++++++------
+>  net/ipv6/fib6_rules.c          |   16 +++++++++++++---
+>  5 files changed, 43 insertions(+), 10 deletions(-)
+> 
+> diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+> index 2f286dc..4d32ecc 100644
+> --- a/include/net/fib_rules.h
+> +++ b/include/net/fib_rules.h
+> @@ -19,6 +19,7 @@ struct fib_rule {
+>  	u32			flags;
+>  	u32			table;
+>  	u8			table_prefixlen_min;
+> +	int			suppress_ifgroup;
+>  	u8			action;
+>  	u32			target;
+>  	struct fib_rule __rcu	*ctarget;
 
-I always insist on that tx queue timeout is caused by un-correctly phy link handler flow.
-The link up handler flow: Auto-negotiation done-> netif_carrier_on()
- 
-The issue cannot be processed in xmit callback, which must be handled in link adjust process.
-
-Thanks,
-Andy
+Why adding holes in this structure ?
