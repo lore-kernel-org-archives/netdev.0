@@ -1,71 +1,98 @@
 From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: [PATCH v3 00/13] update tile network drivers
-Date: Thu, 1 Aug 2013 15:25:19 -0400
-Message-ID: <cover.1375385119.git.cmetcalf@tilera.com>
+Subject: [PATCH v3 02/13] tile: support rx_dropped/rx_errors in tilepro net driver
+Date: Thu, 1 Aug 2013 11:36:42 -0400
+Message-ID: <916f447a70a69e4ac4e118528628ee1df8f55713.1375385119.git.cmetcalf@tilera.com>
 References: <20130801.113100.2059303096028571906.davem@davemloft.net>
-    <799eca39dc7f85ba12e1d8c5b072f8b6740fda1c.1375283106.git.cmetcalf@tilera.com>
-    <20130731.122534.774117327230299927.davem@redhat.com>
-    <201308011545.r71Fjbco017295@farm-0002.internal.tilera.com>
+	<cover.1375385119.git.cmetcalf@tilera.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
+To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130801.113100.2059303096028571906.davem@davemloft.net>
+In-Reply-To: <cover.1375385119.git.cmetcalf@tilera.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is v3 of the patch series to update the Tilera network drivers.
+Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
+---
+ drivers/net/ethernet/tile/tilepro.c | 41 ++++++++++++++-----------------------
+ 1 file changed, 15 insertions(+), 26 deletions(-)
 
->From the v1 00/13 cover letter: "This patch series contains changes made
-to the Tilera on-chip network drivers for both the 64-bit tilegx and
-32-bit tilepro architectures.  The changes involve a number of bug fixes,
-support for the multiple mPIPEs on the new Gx72 chip, support for jumbo
-frames, TSO for IPv6, GRO, PTP support, and statistics improvements."
-
-David has already applied the v2 patch for what was patch 01/13 in the
-first series ("handle 64-bit statistics in tilepro network driver")
-so it is not included in this v3 series.
-
-Changes from the v1 series include:
-
-- Nearly complete rewrite of PTP changes based on feedback from
-  Richard Cochran
-- Removal of NETIF_F_GRO as unnecessary (from Eric Dumazet)
-- A few minor whitespace and code style changes
-
-Changes from the v2 series:
-
-- use of dev->hw_features instead of just dev->features
-
-Chris Metcalf (13):
-  tile: set hw_features and vlan_features in setup
-  tile: support rx_dropped/rx_errors in tilepro net driver
-  tile: avoid bug in tilepro net driver built with old hypervisor
-  tile: remove dead is_dup_ack() function from tilepro net driver
-  tile: support jumbo frames in the tilegx network driver
-  tile: update dev->stats directly in tilegx network driver
-  tile: fix panic bug in napi support for tilegx network driver
-  tile: enable GRO in the tilegx network driver
-  tile: support multiple mPIPE shims in tilegx network driver
-  tile: support TSO for IPv6 in tilegx network driver
-  tile: make "tile_net.custom" a proper bool module parameter
-  tile: remove deprecated NETIF_F_LLTX flag from tile drivers
-  tile: support PTP using the tilegx mPIPE (IEEE 1588)
-
- arch/tile/gxio/iorpc_mpipe.c              |   66 ++
- arch/tile/gxio/iorpc_mpipe_info.c         |   18 +
- arch/tile/gxio/mpipe.c                    |   43 +-
- arch/tile/include/gxio/iorpc_mpipe.h      |   14 +-
- arch/tile/include/gxio/iorpc_mpipe_info.h |    4 +
- arch/tile/include/gxio/mpipe.h            |  143 +++-
- arch/tile/include/hv/drv_mpipe_intf.h     |    3 +
- drivers/net/ethernet/tile/Kconfig         |   11 +
- drivers/net/ethernet/tile/tilegx.c        | 1112 +++++++++++++++++++----------
- drivers/net/ethernet/tile/tilepro.c       |  164 +----
- 10 files changed, 1069 insertions(+), 509 deletions(-)
-
+diff --git a/drivers/net/ethernet/tile/tilepro.c b/drivers/net/ethernet/tile/tilepro.c
+index 34b43b4..327ff7b 100644
+--- a/drivers/net/ethernet/tile/tilepro.c
++++ b/drivers/net/ethernet/tile/tilepro.c
+@@ -772,6 +772,7 @@ static bool tile_net_poll_aux(struct tile_net_cpu *info, int index)
+ 	netio_pkt_t *pkt = (netio_pkt_t *)((unsigned long) &qsp[1] + index);
+ 
+ 	netio_pkt_metadata_t *metadata = NETIO_PKT_METADATA(pkt);
++	netio_pkt_status_t pkt_status = NETIO_PKT_STATUS_M(metadata, pkt);
+ 
+ 	/* Extract the packet size.  FIXME: Shouldn't the second line */
+ 	/* get subtracted?  Mostly moot, since it should be "zero". */
+@@ -804,40 +805,25 @@ static bool tile_net_poll_aux(struct tile_net_cpu *info, int index)
+ #endif /* TILE_NET_DUMP_PACKETS */
+ 
+ #ifdef TILE_NET_VERIFY_INGRESS
+-	if (!NETIO_PKT_L4_CSUM_CORRECT_M(metadata, pkt) &&
+-	    NETIO_PKT_L4_CSUM_CALCULATED_M(metadata, pkt)) {
+-		/* Bug 6624: Includes UDP packets with a "zero" checksum. */
+-		pr_warning("Bad L4 checksum on %d byte packet.\n", len);
+-	}
+-	if (!NETIO_PKT_L3_CSUM_CORRECT_M(metadata, pkt) &&
+-	    NETIO_PKT_L3_CSUM_CALCULATED_M(metadata, pkt)) {
++	if (pkt_status == NETIO_PKT_STATUS_OVERSIZE && len >= 64) {
+ 		dump_packet(buf, len, "rx");
+-		panic("Bad L3 checksum.");
+-	}
+-	switch (NETIO_PKT_STATUS_M(metadata, pkt)) {
+-	case NETIO_PKT_STATUS_OVERSIZE:
+-		if (len >= 64) {
+-			dump_packet(buf, len, "rx");
+-			panic("Unexpected OVERSIZE.");
+-		}
+-		break;
+-	case NETIO_PKT_STATUS_BAD:
+-		pr_warning("Unexpected BAD %ld byte packet.\n", len);
++		panic("Unexpected OVERSIZE.");
+ 	}
+ #endif
+ 
+ 	filter = 0;
+ 
+-	/* ISSUE: Filter TCP packets with "bad" checksums? */
+-
+-	if (!(dev->flags & IFF_UP)) {
++	if (pkt_status == NETIO_PKT_STATUS_BAD) {
++		/* Handle CRC error and hardware truncation. */
++		filter = 2;
++	} else if (!(dev->flags & IFF_UP)) {
+ 		/* Filter packets received before we're up. */
+ 		filter = 1;
+-	} else if (NETIO_PKT_STATUS_M(metadata, pkt) == NETIO_PKT_STATUS_BAD) {
++	} else if (NETIO_PKT_ETHERTYPE_RECOGNIZED_M(metadata, pkt) &&
++		   pkt_status == NETIO_PKT_STATUS_UNDERSIZE) {
+ 		/* Filter "truncated" packets. */
+-		filter = 1;
++		filter = 2;
+ 	} else if (!(dev->flags & IFF_PROMISC)) {
+-		/* FIXME: Implement HW multicast filter. */
+ 		if (!is_multicast_ether_addr(buf)) {
+ 			/* Filter packets not for our address. */
+ 			const u8 *mine = dev->dev_addr;
+@@ -847,9 +833,12 @@ static bool tile_net_poll_aux(struct tile_net_cpu *info, int index)
+ 
+ 	u64_stats_update_begin(&stats->syncp);
+ 
+-	if (filter) {
++	if (filter != 0) {
+ 
+-		/* ISSUE: Update "drop" statistics? */
++		if (filter == 1)
++			stats->rx_dropped++;
++		else
++			stats->rx_errors++;
+ 
+ 		tile_net_provide_linux_buffer(info, va, small);
+ 
 -- 
 1.8.3.1
