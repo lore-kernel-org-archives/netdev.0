@@ -1,14 +1,14 @@
 From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 4/4] USBNET: ax88179_178a: enable tso if host supports
- sg dma
-Date: Thu, 01 Aug 2013 06:21:40 -0700
-Message-ID: <1375363300.10515.135.camel@edumazet-glaptop>
+Subject: [PATCH net-next] ax88179_178a: avoid copy of tx tcp packets
+Date: Thu, 01 Aug 2013 06:49:52 -0700
+Message-ID: <1375364992.10515.141.camel@edumazet-glaptop>
 References: <1375267909-30373-1-git-send-email-ming.lei@canonical.com>
 	 <1375267909-30373-5-git-send-email-ming.lei@canonical.com>
 	 <1375329066.10515.125.camel@edumazet-glaptop>
 	 <CACVXFVNSZJ+ojjBCwYDKsWWvs03aL8BugcX7u483MvBCQCH1sg@mail.gmail.com>
 	 <1375333461.10515.133.camel@edumazet-glaptop>
 	 <CACVXFVMt-TgRVU+iA3NVuUzJSeXUPGvV89OnDdHaLEB1Ua6aAw@mail.gmail.com>
+	 <1375363300.10515.135.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -21,43 +21,55 @@ Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
 	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CACVXFVMt-TgRVU+iA3NVuUzJSeXUPGvV89OnDdHaLEB1Ua6aAw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+In-Reply-To: <1375363300.10515.135.camel@edumazet-glaptop>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-08-01 at 16:10 +0800, Ming Lei wrote:
-> On Thu, Aug 1, 2013 at 1:04 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> > On Thu, 2013-08-01 at 12:41 +0800, Ming Lei wrote:
-> >
-> >> From my trace result, lots of linear SKBs are cloned or header-cloned, so
-> >> it needs skb copy too.
-> >>
-> >> Is it normal in xmit path to see cloned SKBs for driver? If not, I can add check
-> >> to avoid allocation of 8 bytes header for non-cloned skb.
-> >
-> > Existing code is not very friendly and very complex.
-> >
-> > Sure TCP stack does a clone for every skb from socket write queue,
-> > but header should be available for pushing 8 bytes.
-> >
-> > The !skb_cloned(skb) test should be removed if the memmove() is not
-> > needed.
-> >
-> > Could you try following patch ?
-> 
-> Tested-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> 
-> This patch does work, and it will make the patch 4/4 become very
-> simple, :-)
-> 
-> I will rewrite this one against your patch.
+From: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
 
-OK I'll post an official patch then. I presume you got performance
-increase, since we no longer do a copy of the TCP packets.
+ax88179_tx_fixup() has quite complex code trying to push 8 bytes
+of control data (len/mss), but fails to do it properly for TCP packets,
+incurring an extra copy and point of memory allocation failure.
 
+Lets use the simple and approved way.
 
+dev->needed_headroom being 8, all frames should have 8 bytes of
+headroom, so the extra copy should be unlikely anyway.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This patch should improve performance for TCP xmits.
+
+Reported-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Tested-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Signed-off-by: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+---
+ drivers/net/usb/ax88179_178a.c |   21 ++++-----------------
+ 1 file changed, 4 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
+index 2bc87e3..e2120d6 100644
+--- a/drivers/net/usb/ax88179_178a.c
++++ b/drivers/net/usb/ax88179_178a.c
+@@ -1166,31 +1166,18 @@ ax88179_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
+ 	int frame_size = dev->maxpacket;
+ 	int mss = skb_shinfo(skb)->gso_size;
+ 	int headroom;
+-	int tailroom;
+ 
+ 	tx_hdr1 = skb->len;
+ 	tx_hdr2 = mss;
+ 	if (((skb->len + 8) % frame_size) == 0)
+ 		tx_hdr2 |= 0x80008000;	/* Enable padding */
+ 
+-	headroom = skb_headroom(skb);
+-	tailroom = skb_tailroom(skb);
++	headroom = skb_headroom(skb) - 8;
+ 
+-	if (!skb_header_cloned(skb) &&
+-	    !skb_cloned(skb) &&
+-	    (headroom + tailroom) >= 8) {
+-		if (headroom < 8) {
+-			skb->data = memmove(skb->head + 8, skb->data, skb->len);
+-			skb_set_tail_pointer(skb, skb->len);
+-		}
+-	} else {
+-		struct sk_buff *skb2;
