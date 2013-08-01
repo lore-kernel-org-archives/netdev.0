@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 00/13] update tile network drivers
-Date: Thu, 01 Aug 2013 14:42:31 -0700 (PDT)
-Message-ID: <20130801.144231.1629813856606655018.davem@davemloft.net>
-References: <20130731.122534.774117327230299927.davem@redhat.com>
-	<201308011545.r71Fjbco017295@farm-0002.internal.tilera.com>
-	<cover.1375385119.git.cmetcalf@tilera.com>
+Subject: Re: [PATCH net 0/2] mlx4_core fixes
+Date: Thu, 01 Aug 2013 15:10:15 -0700 (PDT)
+Message-ID: <20130801.151015.2088233583213655382.davem@davemloft.net>
+References: <1375376101-20435-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	richardcochran@gmail.com, eric.dumazet@gmail.com
-To: cmetcalf@tilera.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1375385119.git.cmetcalf@tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, amirv@mellanox.com
+To: ogerlitz@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54970 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757565Ab3HAWKQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 18:10:16 -0400
+In-Reply-To: <1375376101-20435-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chris Metcalf <cmetcalf@tilera.com>
-Date: Thu, 1 Aug 2013 15:25:19 -0400
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Thu,  1 Aug 2013 19:54:59 +0300
 
-> This is v3 of the patch series to update the Tilera network drivers.
+> Patch #1 complements commit ef96f7d46ad "net/mlx4_en: Handle unassigned VF MAC
+> address correctly" which took care of the VM side of things. It follows the
+> approach taken by the ixgbevf (e1941a7 "ixgbevf: Adjust to handle unassigned
+> MAC address from PF") and bnx2x (e09b74d01 "bnx2x: Zero VFs starting MACs")
+> drivers too, so users will experience unified approach across vendors.
 > 
-> From the v1 00/13 cover letter: "This patch series contains changes made
-> to the Tilera on-chip network drivers for both the 64-bit tilegx and
-> 32-bit tilepro architectures.  The changes involve a number of bug fixes,
-> support for the multiple mPIPEs on the new Gx72 chip, support for jumbo
-> frames, TSO for IPv6, GRO, PTP support, and statistics improvements."
+> Would be happy to see both patches land in -stable for 3.10.y - do you 
+> want to handle that through the peridioc batches you send to Greg?
 > 
-> David has already applied the v2 patch for what was patch 01/13 in the
-> first series ("handle 64-bit statistics in tilepro network driver")
-> so it is not included in this v3 series.
+> The patches were done against the net tree, commit e44892c1b "igb: 
+> fix vlan filtering in promisc mode when not in VT mode"
 
-Series applied to net-next, thanks.
+Applied and queued up for -stable, thanks.
