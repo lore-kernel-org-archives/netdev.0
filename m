@@ -1,60 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3] bridge: disable snooping if there is no
-	querier
-Date: Wed, 31 Jul 2013 17:40:37 -0700 (PDT)
-Message-ID: <20130731.174037.1794753574143053874.davem@davemloft.net>
-References: <20130730.161035.1646022729333223847.davem@davemloft.net>
-	<1375311980-25575-1-git-send-email-linus.luessing@web.de>
+Subject: Re: [PATCH 0/8] include/net: next set of extern removals
+Date: Wed, 31 Jul 2013 17:50:36 -0700 (PDT)
+Message-ID: <20130731.175036.1962194560242893587.davem@davemloft.net>
+References: <cover.1375316912.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: amwang@redhat.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	linux@baker-net.org.uk, stephen@networkplumber.org,
-	herbert@gondor.apana.org.au
-To: linus.luessing@web.de
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1375311980-25575-1-git-send-email-linus.luessing@web.de>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-afs@lists.infradead.org, linux-hams@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <cover.1375316912.git.joe@perches.com>
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Linus L=FCssing <linus.luessing@web.de>
-Date: Thu,  1 Aug 2013 01:06:20 +0200
+From: Joe Perches <joe@perches.com>
+Date: Wed, 31 Jul 2013 17:31:31 -0700
 
-> If there is no querier on a link then we won't get periodic reports a=
-nd
-> therefore won't be able to learn about multicast listeners behind por=
-ts,
-> potentially leading to lost multicast packets, especially for multica=
-st
-> listeners that joined before the creation of the bridge.
-> =
+> Standardize on no extern use on function prototypes
+> 
+> Joe Perches (8):
+>   addrconf.h: Remove extern function prototypes
+>   af_unix.h: Remove extern from function prototypes
+>   af_rxrpc.h: Remove extern from function prototypes
+>   arp/neighbour.h: Remove extern from function prototypes
+>   ax25.h: Remove extern from function prototypes
+>   cfg80211.h/mac80211.h: Remove extern from function prototypes
+>   checksum: Remove extern from function prototypes
+>   cls_cgroup.h netprio_cgroup.h: Remove extern from function prototypes
 
-> These lost multicast packets can appear since c5c23260594
-> ("bridge: Add multicast_querier toggle and disable queries by default=
-")
-> in particular.
-> =
+I guess there is no time like the present to apply something like
+this, so I have.
 
-> With this patch we are flooding multicast packets if our querier is
-> disabled and if we didn't detect any other querier.
-> =
+Please hold off for a few days before the next batch so we can watch
+for any fallout from this one.
 
-> A grace period of the Maximum Response Delay of the querier is added =
-to
-> give multicast responses enough time to arrive and to be learned from=
-
-> before disabling the flooding behaviour again.
-> =
-
-> Signed-off-by: Linus L=FCssing <linus.luessing@web.de>
-
-Looks good, applied, thanks Linus.
+Thanks Joe.
