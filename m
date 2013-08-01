@@ -1,134 +1,28 @@
-From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
-Subject: [PATCH v2] add prefixlength option to "ip rule"
-Date: Thu, 1 Aug 2013 10:32:56 +0200
-Message-ID: <20130801083256.GQ10550@zirkel.wertarbyte.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net 0/2] ipv6: prevent race between address creation and removal
+Date: Thu,  1 Aug 2013 10:41:26 +0200
+Message-ID: <1375346488-1001-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, jbenc@redhat.com, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zirkel.wertarbyte.de ([188.40.44.137]:45117 "EHLO
-	zirkel.wertarbyte.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751979Ab3HAIc5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 04:32:57 -0400
-Received: from stefan by zirkel.wertarbyte.de with local (Exim 4.72)
-	(envelope-from <stefan.tomanek@wertarbyte.de>)
-	id 1V4oJc-0005hw-IO
-	for netdev@vger.kernel.org; Thu, 01 Aug 2013 10:32:56 +0200
-Content-Disposition: inline
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:44638 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752937Ab3HAIlc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 04:41:32 -0400
+Received: by mail-wi0-f177.google.com with SMTP id hq12so1545265wib.16
+        for <netdev@vger.kernel.org>; Thu, 01 Aug 2013 01:41:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When configuring a system with multiple network uplinks and default routes, it
-is often convenient to reference the main routing table multiple times - but
-omitting the default route. Using this modified "ip" utility and the
-corresponding kernel patch, this can be achieved by using the following command
-sequence:
+Jiri Benc (1):
+  ipv6: prevent race between address creation and removal
 
-$ ip route add table secuplink default via 10.42.23.1
+Jiri Pirko (1):
+  ipv6: move peer_addr init into ipv6_add_addr()
 
-$ ip rule add pref 100            table main prefixlength 1
-$ ip rule add pref 150 fwmark 0xA table secuplink
+ net/ipv6/addrconf.c | 43 ++++++++++++++++++++++---------------------
+ 1 file changed, 22 insertions(+), 21 deletions(-)
 
-With this setup, packets marked 0xA will be processed by the additional routing
-table "secuplink", but only if no suitable route in the main routing table can
-be found. By using a minimum prefixlength of 1, the default route (/0) of the
-table "main" is hidden to packets processed by rule 100; packets traveling to
-destinations via more specific routes are processed as usual.
-
-Signed-off-by: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
----
- include/linux/fib_rules.h |    2 +-
- ip/iprule.c               |   19 +++++++++++++++++--
- man/man8/ip-rule.8        |   12 ++++++++++++
- 3 files changed, 30 insertions(+), 3 deletions(-)
-
-diff --git a/include/linux/fib_rules.h b/include/linux/fib_rules.h
-index 51da65b..59cd31b 100644
---- a/include/linux/fib_rules.h
-+++ b/include/linux/fib_rules.h
-@@ -45,7 +45,7 @@ enum {
- 	FRA_FLOW,	/* flow/class id */
- 	FRA_UNUSED6,
- 	FRA_UNUSED7,
--	FRA_UNUSED8,
-+	FRA_TABLE_PREFIXLEN_MIN,
- 	FRA_TABLE,	/* Extended table id */
- 	FRA_FWMASK,	/* mask for netfilter mark */
- 	FRA_OIFNAME,
-diff --git a/ip/iprule.c b/ip/iprule.c
-index a5fcd43..a789863 100644
---- a/ip/iprule.c
-+++ b/ip/iprule.c
-@@ -39,6 +39,8 @@ static void usage(void)
- 	fprintf(stderr, "          [ prohibit | reject | unreachable ]\n");
- 	fprintf(stderr, "          [ realms [SRCREALM/]DSTREALM ]\n");
- 	fprintf(stderr, "          [ goto NUMBER ]\n");
-+	fprintf(stderr, "          SUPPRESSOR\n");
-+	fprintf(stderr, "SUPPRESSOR := [ prefixlength NUMBER ]\n");
- 	fprintf(stderr, "TABLE_ID := [ local | main | default | NUMBER ]\n");
- 	exit(-1);
- }
-@@ -153,9 +155,15 @@ int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 	}
- 
- 	table = rtm_get_table(r, tb);
--	if (table)
-+	if (table) {
- 		fprintf(fp, "lookup %s ", rtnl_rttable_n2a(table, b1, sizeof(b1)));
--
-+		if (tb[FRA_TABLE_PREFIXLEN_MIN]) {
-+			__u8 pl = rta_getattr_u8(tb[FRA_TABLE_PREFIXLEN_MIN]);
-+			if (pl) {
-+				fprintf(fp, "prefixlength %u ", pl);
-+			}
-+		}
-+	}
- 	if (tb[FRA_FLOW]) {
- 		__u32 to = rta_getattr_u32(tb[FRA_FLOW]);
- 		__u32 from = to>>16;
-@@ -310,6 +318,13 @@ static int iprule_modify(int cmd, int argc, char **argv)
- 				addattr32(&req.n, sizeof(req), FRA_TABLE, tid);
- 			}
- 			table_ok = 1;
-+		} else if (matches(*argv, "prefixlength") == 0 ||
-+			   strcmp(*argv, "pl") == 0) {
-+			__u8 pl;
-+			NEXT_ARG();
-+			if (get_u8(&pl, *argv, 0))
-+				invarg("prefixlength value is invalid\n", *argv);
-+			addattr8(&req.n, sizeof(req), FRA_TABLE_PREFIXLEN_MIN, pl);
- 		} else if (strcmp(*argv, "dev") == 0 ||
- 			   strcmp(*argv, "iif") == 0) {
- 			NEXT_ARG();
-diff --git a/man/man8/ip-rule.8 b/man/man8/ip-rule.8
-index 36e46f1..ad48f6e 100644
---- a/man/man8/ip-rule.8
-+++ b/man/man8/ip-rule.8
-@@ -43,6 +43,12 @@ ip-rule \- routing policy database management
- .IR ADDRESS " ] [ "
- .BR prohibit " | " reject " | " unreachable " ] [ " realms
- .RI "[" SRCREALM "/]" DSTREALM " ]"
-+.I  SUPPRESSOR
-+
-+.ti -8
-+.IR SUPPRESSOR " := [ "
-+.B  prefixlength
-+.IR NUMBER " ]"
- 
- .ti -8
- .IR TABLE_ID " := [ "
-@@ -217,6 +223,12 @@ the routing table identifier to lookup if the rule selector matches.
- It is also possible to use lookup instead of table.
- 
- .TP
-+.BI prefixlength " NUMBER"
-+only consider routes that have a minimum prefix length of NUMBER.
-+Entries inside the referenced table with a lower prefix length
-+will be ignored.
-+
-+.TP
- .BI realms " FROM/TO"
- Realms to select if the rule matched and the routing table lookup
- succeeded.  Realm
 -- 
-1.7.10.4
+1.7.11.7
