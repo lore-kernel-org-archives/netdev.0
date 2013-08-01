@@ -1,93 +1,91 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: [PATCH v2] sis900: Fix the tx queue timeout issue
-Date: Thu,  1 Aug 2013 11:01:10 +0400
-Message-ID: <1375340470-2126-1-git-send-email-kda@linux-powerpc.org>
-Cc: netdev@vger.kernel.org, Denis Kirjanov <kda@linux-powerpc.org>
-To: davem@davemloft.net, venza@brownhat.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: locating the 'tc actions' hook
+Date: Thu, 01 Aug 2013 07:40:44 -0400
+Message-ID: <51FA493C.8080207@mojatatu.com>
+References: <51F97F4E.5070102@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <therbert@google.com>,
+	netdev <netdev@vger.kernel.org>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:42167 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752204Ab3HAKzv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 06:55:51 -0400
-Received: by mail-lb0-f174.google.com with SMTP id w20so1418306lbh.33
-        for <netdev@vger.kernel.org>; Thu, 01 Aug 2013 03:55:49 -0700 (PDT)
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:36757 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751177Ab3HALk5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 07:40:57 -0400
+Received: by mail-pa0-f45.google.com with SMTP id bg4so2041300pad.32
+        for <netdev@vger.kernel.org>; Thu, 01 Aug 2013 04:40:56 -0700 (PDT)
+In-Reply-To: <51F97F4E.5070102@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[  198.720048] ------------[ cut here ]------------
-[  198.720108] WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:255 dev_watchdog+0x229/0x240()
-[  198.720118] NETDEV WATCHDOG: eth0 (sis900): transmit queue 0 timed out
-[  198.720125] Modules linked in: bridge stp llc dmfe sundance 3c59x sis900 mii
-[  198.720159] CPU: 0 PID: 0 Comm: swapper Not tainted 3.11.0-rc3+ #12
-[  198.720167] Hardware name: System Manufacturer System Name/TUSI-M, BIOS ASUS TUSI-M ACPI BIOS
-Revision 1013 Beta 001 12/14/2001
-[  198.720175]  000000ff c13fa6b9 c169ddcc c12208d6 c169ddf8 c1031e4d c1664a84 c169de24
-[  198.720197]  00000000 c165f5ea 000000ff c13fa6b9 00000001 000000ff c1664a84 c169de10
-[  198.720217]  c1031f13 00000009 c169de08 c1664a84 c169de24 c169de50 c13fa6b9 c165f5ea
-[  198.720240] Call Trace:
-[  198.720257]  [<c13fa6b9>] ? dev_watchdog+0x229/0x240
-[  198.720274]  [<c12208d6>] dump_stack+0x16/0x20
-[  198.720306]  [<c1031e4d>] warn_slowpath_common+0x7d/0xa0
-[  198.720318]  [<c13fa6b9>] ? dev_watchdog+0x229/0x240
-[  198.720330]  [<c1031f13>] warn_slowpath_fmt+0x33/0x40
-[  198.720342]  [<c13fa6b9>] dev_watchdog+0x229/0x240
-[  198.720357]  [<c103f158>] call_timer_fn+0x78/0x150
-[  198.720369]  [<c103f0e0>] ? internal_add_timer+0x40/0x40
-[  198.720381]  [<c13fa490>] ? dev_init_scheduler+0xa0/0xa0
-[  198.720392]  [<c103f33f>] run_timer_softirq+0x10f/0x200
-[  198.720412]  [<c103954f>] ? __do_softirq+0x6f/0x210
-[  198.720424]  [<c13fa490>] ? dev_init_scheduler+0xa0/0xa0
-[  198.720435]  [<c1039598>] __do_softirq+0xb8/0x210
-[  198.720467]  [<c14b54d2>] ? _raw_spin_unlock+0x22/0x30
-[  198.720484]  [<c1003245>] ? handle_irq+0x25/0xd0
-[  198.720496]  [<c1039c0c>] irq_exit+0x9c/0xb0
-[  198.720508]  [<c14bc9d7>] do_IRQ+0x47/0x94
-[  198.720534]  [<c1056078>] ? hrtimer_start+0x28/0x30
-[  198.720564]  [<c14bc8b1>] common_interrupt+0x31/0x38
-[  198.720589]  [<c1008692>] ? default_idle+0x22/0xa0
-[  198.720600]  [<c10083c7>] arch_cpu_idle+0x17/0x30
-[  198.720631]  [<c106d23d>] cpu_startup_entry+0xcd/0x180
-[  198.720643]  [<c14ae30a>] rest_init+0xaa/0xb0
-[  198.720654]  [<c14ae260>] ? reciprocal_value+0x50/0x50
-[  198.720668]  [<c17044e0>] ? repair_env_string+0x60/0x60
-[  198.720679]  [<c1704bda>] start_kernel+0x29a/0x350
-[  198.720690]  [<c17044e0>] ? repair_env_string+0x60/0x60
-[  198.720721]  [<c1704269>] i386_start_kernel+0x39/0xa0
-[  198.720729] ---[ end trace 81e0a6266f5c73a8 ]---
-[  198.720740] eth0: Transmit timeout, status 00000204 00000000
+On 13-07-31 05:19 PM, John Fastabend wrote:
+> Hi Jamal,
+>
+> I'm trying to sort out why I would use 'tc actions' and exactly
+> what it is doing.
+>
+> Its clear I think adding one or more actions to filters will be
+> used in the classifier via tcf_exts_exec() through the classify
+> hook called from a qdisc.
+>
+> This is your standard
+>
+>      # tc filter add ... {u32|fw|tcindex|route|...} ... action ...
+>
+> When these actions get configured the specific actions tc_action_ops
+> will be used to init the action create the hash 'tcf_hash_create' and
+> parse the options. All this I can follow in ./net/sched/
+>
+> But the actions netlink hook does this,
+>
+> tc_ctl_action()
+>      tcf_action_add()
+>          tcf_action_init() <- inserts action in the table
+>
+> So at this point we have the entry in the table but I must be missing
+> where the tc_action_ops act() is going to be called because its not via
+> tcf_exts_exec().
+>
 
-We are trying to initiate a frame transmission even
-if we are not ready to do so due auto negotiation progress:
 
-timer routine checks the link status and if it's up calls
-netif_carrier_on() allowing upper layer to start the tx queue
+There are two ways to add actions.
+a) you specify a filter followed by a graph of actions to be executed
+on a match (yes, in the kernel 10 years before Openflow and still
+expressively more powerful;->)
 
-Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
----
-v1->v2: use netdev_dbg() instead of printk()
----
- drivers/net/ethernet/sis/sis900.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+b) You can add actions first, then later specify the filter followed by
+a graph of actions. Actions in such a case are referenced by their
+table indices.
 
-diff --git a/drivers/net/ethernet/sis/sis900.c b/drivers/net/ethernet/sis/sis900.c
-index eb4aea3..f1fe02b 100644
---- a/drivers/net/ethernet/sis/sis900.c
-+++ b/drivers/net/ethernet/sis/sis900.c
-@@ -1613,9 +1613,12 @@ sis900_start_xmit(struct sk_buff *skb, struct net_device *net_dev)
- 	unsigned int  count_dirty_tx;
- 
- 	/* Don't transmit data before the complete of auto-negotiation */
--	if(!sis_priv->autong_complete){
--		netif_stop_queue(net_dev);
--		return NETDEV_TX_BUSY;
-+	if (unlikely(!sis_priv->autong_complete)) {
-+		if (netif_msg_tx_err(sis_priv) && net_ratelimit())
-+			netdev_dbg(net_dev, "Auto negotiation in progress\n");
-+		net_dev->stats.tx_dropped++;
-+		dev_kfree_skb(skb);
-+		return NETDEV_TX_OK;
- 	}
- 
- 	spin_lock_irqsave(&sis_priv->lock, flags);
--- 
-1.8.0.2
+#a tends to be more popular way of provisioning.
+
+> Am I missing something obvious here? Is there a way to link them to
+> filters? Sorry if it turns out to be a stupid question.
+>
+
+I think the second use case is what you are bumping into. I know from
+answering questions this is a very popular use case in some eastern
+European countries (where one policer with a specific rate is shared
+by many flows); i think they have a setup where you share your DSL
+connection with your neighbors. Its quiet a clever setup.
+
+
+> My motivation here is to use the filters/actions outside the qdisc lock
+> for mq, mqprio, and the ingress qdisc.
+>
+
+Are you trying to offload these actions into hardware?
+Is the classifier in hardware?
+Please let me know if you need further help. Example, I could send you
+a bunch of examples for either
+
+cheers,
+jamal
+
+
+> .John
+>
