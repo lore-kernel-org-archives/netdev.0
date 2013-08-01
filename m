@@ -1,137 +1,134 @@
-From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: [PATCH v2 13/12] tile: set hw_features and vlan_features in setup
-Date: Thu, 1 Aug 2013 11:36:42 -0400
-Message-ID: <201308011545.r71Fjbco017295@farm-0002.internal.tilera.com>
-References: <cover.1374609948.git.cmetcalf@tilera.com>
-  <cover.1375283104.git.cmetcalf@tilera.com>
-  <799eca39dc7f85ba12e1d8c5b072f8b6740fda1c.1375283106.git.cmetcalf@tilera.com>
-  <20130731.122534.774117327230299927.davem@redhat.com>
+From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
+Subject: [PATCH v2 1/2] add prefixlength option to "ip rule"
+Date: Thu, 1 Aug 2013 17:46:34 +0200
+Message-ID: <20130801154634.GD21970@zirkel.wertarbyte.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: David Miller <davem@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130731.122534.774117327230299927.davem@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zirkel.wertarbyte.de ([188.40.44.137]:39168 "EHLO
+	zirkel.wertarbyte.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756076Ab3HAPqf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 11:46:35 -0400
+Received: from stefan by zirkel.wertarbyte.de with local (Exim 4.72)
+	(envelope-from <stefan.tomanek@wertarbyte.de>)
+	id 1V4v5G-00034o-Md
+	for netdev@vger.kernel.org; Thu, 01 Aug 2013 17:46:34 +0200
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This change allows the user to configure various features of the tile
-networking drivers on and off.  There is no change to the default
-initialization state of either the tilegx or tilepro drivers.
+When configuring a system with multiple network uplinks and default routes, it
+is often convenient to reference the main routing table multiple times - but
+omitting the default route. Using this modified "ip" utility and the
+corresponding kernel patch, this can be achieved by using the following command
+sequence:
 
-Neither driver needs the ndo_fix_features or ndo_set_features callbacks,
-since the generic code already handles the dependencies for
-fix_features, and there is no hardware state to tweak in set_features.
+$ ip route add table secuplink default via 10.42.23.1
 
-Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
+$ ip rule add pref 100            table main prefixlength 1
+$ ip rule add pref 150 fwmark 0xA table secuplink
+
+With this setup, packets marked 0xA will be processed by the additional routing
+table "secuplink", but only if no suitable route in the main routing table can
+be found. By using a minimum prefixlength of 1, the default route (/0) of the
+table "main" is hidden to packets processed by rule 100; packets traveling to
+destinations via more specific routes are processed as usual.
+
+Signed-off-by: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
 ---
-David, I've fixed the drivers to use hw_features as a follow-on "13 of
-12" patch in the v2 series, rather than rebasing the previous patches,
-since they weren't actually buggy as-is, and this was simpler.  However,
-I am happy to provide a v3 of the patch series with the hw_features
-change rebased to the front if that feels better to you.
+ include/linux/fib_rules.h |    2 +-
+ ip/iprule.c               |   19 +++++++++++++++++--
+ man/man8/ip-rule.8        |   12 ++++++++++++
+ 3 files changed, 30 insertions(+), 3 deletions(-)
 
- drivers/net/ethernet/tile/tilegx.c  | 15 ++++++++++----
- drivers/net/ethernet/tile/tilepro.c | 39 +++++++++++++++----------------------
- 2 files changed, 27 insertions(+), 27 deletions(-)
-
-diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
-index cd9bfc7..3b1dc66 100644
---- a/drivers/net/ethernet/tile/tilegx.c
-+++ b/drivers/net/ethernet/tile/tilegx.c
-@@ -2169,14 +2169,21 @@ static const struct net_device_ops tile_net_ops = {
-  */
- static void tile_net_setup(struct net_device *dev)
- {
-+	netdev_features_t features = 0;
-+
- 	ether_setup(dev);
- 	dev->netdev_ops = &tile_net_ops;
- 	dev->watchdog_timeo = TILE_NET_TIMEOUT;
--	dev->features |= NETIF_F_HW_CSUM;
--	dev->features |= NETIF_F_SG;
--	dev->features |= NETIF_F_TSO;
--	dev->features |= NETIF_F_TSO6;
- 	dev->mtu = 1500;
-+
-+	features |= NETIF_F_HW_CSUM;
-+	features |= NETIF_F_SG;
-+	features |= NETIF_F_TSO;
-+	features |= NETIF_F_TSO6;
-+
-+	dev->hw_features   |= features;
-+	dev->vlan_features |= features;
-+	dev->features      |= features;
+diff --git a/include/linux/fib_rules.h b/include/linux/fib_rules.h
+index 51da65b..59cd31b 100644
+--- a/include/linux/fib_rules.h
++++ b/include/linux/fib_rules.h
+@@ -45,7 +45,7 @@ enum {
+ 	FRA_FLOW,	/* flow/class id */
+ 	FRA_UNUSED6,
+ 	FRA_UNUSED7,
+-	FRA_UNUSED8,
++	FRA_TABLE_PREFIXLEN_MIN,
+ 	FRA_TABLE,	/* Extended table id */
+ 	FRA_FWMASK,	/* mask for netfilter mark */
+ 	FRA_OIFNAME,
+diff --git a/ip/iprule.c b/ip/iprule.c
+index a5fcd43..a789863 100644
+--- a/ip/iprule.c
++++ b/ip/iprule.c
+@@ -39,6 +39,8 @@ static void usage(void)
+ 	fprintf(stderr, "          [ prohibit | reject | unreachable ]\n");
+ 	fprintf(stderr, "          [ realms [SRCREALM/]DSTREALM ]\n");
+ 	fprintf(stderr, "          [ goto NUMBER ]\n");
++	fprintf(stderr, "          SUPPRESSOR\n");
++	fprintf(stderr, "SUPPRESSOR := [ prefixlength NUMBER ]\n");
+ 	fprintf(stderr, "TABLE_ID := [ local | main | default | NUMBER ]\n");
+ 	exit(-1);
  }
+@@ -153,9 +155,15 @@ int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 	}
  
- /* Allocate the device structure, register the device, and obtain the
-diff --git a/drivers/net/ethernet/tile/tilepro.c b/drivers/net/ethernet/tile/tilepro.c
-index 874c7eb..2360b38 100644
---- a/drivers/net/ethernet/tile/tilepro.c
-+++ b/drivers/net/ethernet/tile/tilepro.c
-@@ -89,9 +89,9 @@
- /* ISSUE: This has not been thoroughly tested (except at 1500). */
- #define TILE_NET_MTU 1500
- 
--/* HACK: Define to support GSO. */
--/* ISSUE: This may actually hurt performance of the TCP blaster. */
--/* #define TILE_NET_GSO */
-+/* Define as 0 to enable all features by default. */
-+/* ISSUE: GSO appears to actually hurt performance of the TCP blaster. */
-+#define TILE_NETIF_F_DEFAULT_DISABLE NETIF_F_GSO
- 
- /* HACK: Define this to verify incoming packets. */
- /* #define TILE_NET_VERIFY_INGRESS */
-@@ -2249,37 +2249,30 @@ static const struct net_device_ops tile_net_ops = {
-  */
- static void tile_net_setup(struct net_device *dev)
- {
--	PDEBUG("tile_net_setup()\n");
-+	netdev_features_t features = 0;
- 
- 	ether_setup(dev);
+ 	table = rtm_get_table(r, tb);
+-	if (table)
++	if (table) {
+ 		fprintf(fp, "lookup %s ", rtnl_rttable_n2a(table, b1, sizeof(b1)));
 -
- 	dev->netdev_ops = &tile_net_ops;
--
- 	dev->watchdog_timeo = TILE_NET_TIMEOUT;
-+	dev->tx_queue_len = TILE_NET_TX_QUEUE_LEN;
-+	dev->mtu = TILE_NET_MTU;
++		if (tb[FRA_TABLE_PREFIXLEN_MIN]) {
++			__u8 pl = rta_getattr_u8(tb[FRA_TABLE_PREFIXLEN_MIN]);
++			if (pl) {
++				fprintf(fp, "prefixlength %u ", pl);
++			}
++		}
++	}
+ 	if (tb[FRA_FLOW]) {
+ 		__u32 to = rta_getattr_u32(tb[FRA_FLOW]);
+ 		__u32 from = to>>16;
+@@ -310,6 +318,13 @@ static int iprule_modify(int cmd, int argc, char **argv)
+ 				addattr32(&req.n, sizeof(req), FRA_TABLE, tid);
+ 			}
+ 			table_ok = 1;
++		} else if (matches(*argv, "prefixlength") == 0 ||
++			   strcmp(*argv, "pl") == 0) {
++			__u8 pl;
++			NEXT_ARG();
++			if (get_u8(&pl, *argv, 0))
++				invarg("prefixlength value is invalid\n", *argv);
++			addattr8(&req.n, sizeof(req), FRA_TABLE_PREFIXLEN_MIN, pl);
+ 		} else if (strcmp(*argv, "dev") == 0 ||
+ 			   strcmp(*argv, "iif") == 0) {
+ 			NEXT_ARG();
+diff --git a/man/man8/ip-rule.8 b/man/man8/ip-rule.8
+index 36e46f1..ad48f6e 100644
+--- a/man/man8/ip-rule.8
++++ b/man/man8/ip-rule.8
+@@ -43,6 +43,12 @@ ip-rule \- routing policy database management
+ .IR ADDRESS " ] [ "
+ .BR prohibit " | " reject " | " unreachable " ] [ " realms
+ .RI "[" SRCREALM "/]" DSTREALM " ]"
++.I  SUPPRESSOR
++
++.ti -8
++.IR SUPPRESSOR " := [ "
++.B  prefixlength
++.IR NUMBER " ]"
  
--	/* We support hardware tx checksums. */
--	dev->features |= NETIF_F_HW_CSUM;
--
--	/* We support scatter/gather. */
--	dev->features |= NETIF_F_SG;
-+	features |= NETIF_F_HW_CSUM;
-+	features |= NETIF_F_SG;
+ .ti -8
+ .IR TABLE_ID " := [ "
+@@ -217,6 +223,12 @@ the routing table identifier to lookup if the rule selector matches.
+ It is also possible to use lookup instead of table.
  
- 	/* We support TSO iff the HV supports sufficient frags. */
- 	if (LEPP_MAX_FRAGS >= 1 + MAX_SKB_FRAGS)
--		dev->features |= NETIF_F_TSO;
--
--#ifdef TILE_NET_GSO
--	/* We support GSO. */
--	dev->features |= NETIF_F_GSO;
--#endif
-+		features |= NETIF_F_TSO;
- 
-+	/* We can't support HIGHDMA without hash_default, since we need
-+	 * to be able to finv() with a VA if we don't have hash_default.
-+	 */
- 	if (hash_default)
--		dev->features |= NETIF_F_HIGHDMA;
--
--	/* ISSUE: We should support NETIF_F_UFO. */
-+		features |= NETIF_F_HIGHDMA;
- 
--	dev->tx_queue_len = TILE_NET_TX_QUEUE_LEN;
--
--	dev->mtu = TILE_NET_MTU;
-+	dev->hw_features   |= features;
-+	dev->vlan_features |= features;
-+	dev->features      |= features & ~TILE_NETIF_F_DEFAULT_DISABLE;
- }
- 
- 
+ .TP
++.BI prefixlength " NUMBER"
++only consider routes that have a minimum prefix length of NUMBER.
++Entries inside the referenced table with a lower prefix length
++will be ignored.
++
++.TP
+ .BI realms " FROM/TO"
+ Realms to select if the rule matched and the routing table lookup
+ succeeded.  Realm
 -- 
-1.8.3.1
+1.7.10.4
