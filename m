@@ -1,767 +1,801 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next] bnx2x: Revising locking scheme for MAC
- configuration
-Date: Thu, 1 Aug 2013 17:30:59 +0300
-Message-ID: <1375367459-11832-1-git-send-email-yuvalmin@broadcom.com>
+From: Sebastiano Spicuglia <spicuglia.sebastiano@gmail.com>
+Subject: PROBLEM: 3.11.0-rc2+ lost of connectivity
+Date: Thu, 1 Aug 2013 16:34:00 +0200
+Message-ID: <CAOSRKdTOcYOZ4fD5gXe_57dA028rGmR30T32FQ6MeruAq2p04g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Yuval Mintz" <yuvalmin@broadcom.com>,
-	"Ariel Elior" <ariele@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3489 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755719Ab3HAObR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Aug 2013 10:31:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+To: linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	gregory.v.rose@intel.com, peter.p.waskiewicz.jr@intel.com,
+	alexander.h.duyck@intel.com, john.ronciak@intel.com,
+	tushar.n.dave@intel.com, davem@davemloft.net,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On very rare occasions, repeated load/unload stress test in the presence of
-our storage driver (bnx2i/bnx2fc) causes a kernel panic in bnx2x code
-(NULL pointer dereference). Stack traces indicate the issue happens during MAC
-configuration; thorough code review showed that indeed several races exist
-in which one thread can iterate over the list of configured MACs while another
-deletes entries from the same list.
+[Summary]
 
-This patch adds a varient on the single-writer/Multiple-reader lock mechanism -
-It utilizes an already exsiting bottom-half lock, using it so that Whenever
-a writer is unable to continue due to the existence of another writer/reader,
-it pends its request for future deliverance.
-The writer / last readers will check for the existence of such requests and
-perform them instead of the original initiator.
-This prevents the writer from having to sleep while waiting for the lock
-to be accessible, which might cause deadlocks given the locks already
-held by the writer.
+the network layer stops to work without any message.
 
-Another result of this patch is that setting of Rx Mode is now made in
-sleepable context - Setting of Rx Mode is made under a bottom-half lock, which
-was always nontrivial for the bnx2x driver, as the HW/FW configuration requires
-wait for completions.
-Since sleep was impossible (due to the sleepless-context), various mechanisms
-were utilized to prevent the calling thread from sleep, but the truth was that
-when the caller thread (i.e, the one calling ndo_set_rx_mode()) returned, the
-Rx mode was still not set in HW/FW.
+[Description]
 
-bnx2x_set_rx_mode() will now overtly schedule for the Rx changes to be
-configured by the sp_rtnl_task which hold the RTNL lock and is sleepable
-context. 
+The machine suddenly stops to be connected to the network.
+Running "ifdown eth0" "ifup eth0" the network starts to work
+again for few minutes and then the failure happens again.
+It is not even possible to ping the machine.
+/var/log/messages does not report anything wrong.
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
-Dave, this is a relatively large fix for a relatively small (and rare) 
-bug - thus we're designating it to `net-next'.
+I instrumented the kernel with SystemTap to see what happens when the
+machine is in the failure state.
 
-Please consider applying the patch.
+the function ip_rcv is invoked.
+the function ip_rcv_finish is invoked.
+the function ip_local_deliver is invoked
+the function ip_local_deliver_finish is invoked
+the function tcp_v4_rcv is NOT invoked
 
-Thanks,
-Yuval
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |   2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c   |  16 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h   |   1 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |  56 ++--
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c    | 299 ++++++++++++++++++++--
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h    |  16 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c |  10 +-
- 7 files changed, 340 insertions(+), 60 deletions(-)
+When the network works the function tcp_v4_rcv is invoked.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index dedbd76..439387b 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1331,7 +1331,7 @@ enum {
- 	BNX2X_SP_RTNL_ENABLE_SRIOV,
- 	BNX2X_SP_RTNL_VFPF_MCAST,
- 	BNX2X_SP_RTNL_VFPF_CHANNEL_DOWN,
--	BNX2X_SP_RTNL_VFPF_STORM_RX_MODE,
-+	BNX2X_SP_RTNL_RX_MODE,
- 	BNX2X_SP_RTNL_HYPERVISOR_VLAN,
- };
- 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index ee350bd..11abdcc 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -2060,7 +2060,11 @@ void bnx2x_squeeze_objects(struct bnx2x *bp)
- 	rparam.mcast_obj = &bp->mcast_obj;
- 	__set_bit(RAMROD_DRV_CLR_ONLY, &rparam.ramrod_flags);
- 
--	/* Add a DEL command... */
-+	/* Add a DEL command... - Since we're doing a driver cleanup only,
-+	 * we take a lock surrounding both the initial send and the CONTs,
-+	 * as we don't want a true completion to disrupt us in the middle.
-+	 */
-+	netif_addr_lock_bh(bp->dev);
- 	rc = bnx2x_config_mcast(bp, &rparam, BNX2X_MCAST_CMD_DEL);
- 	if (rc < 0)
- 		BNX2X_ERR("Failed to add a new DEL command to a multi-cast object: %d\n",
-@@ -2072,11 +2076,13 @@ void bnx2x_squeeze_objects(struct bnx2x *bp)
- 		if (rc < 0) {
- 			BNX2X_ERR("Failed to clean multi-cast object: %d\n",
- 				  rc);
-+			netif_addr_unlock_bh(bp->dev);
- 			return;
- 		}
- 
- 		rc = bnx2x_config_mcast(bp, &rparam, BNX2X_MCAST_CMD_CONT);
- 	}
-+	netif_addr_unlock_bh(bp->dev);
- }
- 
- #ifndef BNX2X_STOP_ON_ERROR
-@@ -2432,9 +2438,7 @@ int bnx2x_load_cnic(struct bnx2x *bp)
- 	}
- 
- 	/* Initialize Rx filter. */
--	netif_addr_lock_bh(bp->dev);
--	bnx2x_set_rx_mode(bp->dev);
--	netif_addr_unlock_bh(bp->dev);
-+	bnx2x_set_rx_mode_inner(bp);
- 
- 	/* re-read iscsi info */
- 	bnx2x_get_iscsi_info(bp);
-@@ -2704,9 +2708,7 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
- 	/* Start fast path */
- 
- 	/* Initialize Rx filter. */
--	netif_addr_lock_bh(bp->dev);
--	bnx2x_set_rx_mode(bp->dev);
--	netif_addr_unlock_bh(bp->dev);
-+	bnx2x_set_rx_mode_inner(bp);
- 
- 	/* Start the Tx */
- 	switch (load_mode) {
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-index c07a6d0..38be494 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-@@ -418,6 +418,7 @@ int bnx2x_set_eth_mac(struct bnx2x *bp, bool set);
-  * netif_addr_lock_bh()
-  */
- void bnx2x_set_rx_mode(struct net_device *dev);
-+void bnx2x_set_rx_mode_inner(struct bnx2x *bp);
- 
- /**
-  * bnx2x_set_storm_rx_mode - configure MAC filtering rules in a FW.
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index e5da078..bd064c6 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -9628,11 +9628,9 @@ sp_rtnl_not_reset:
- 		}
- 	}
- 
--	if (test_and_clear_bit(BNX2X_SP_RTNL_VFPF_STORM_RX_MODE,
--			       &bp->sp_rtnl_state)) {
--		DP(BNX2X_MSG_SP,
--		   "sending set storm rx mode vf pf channel message from rtnl sp-task\n");
--		bnx2x_vfpf_storm_rx_mode(bp);
-+	if (test_and_clear_bit(BNX2X_SP_RTNL_RX_MODE, &bp->sp_rtnl_state)) {
-+		DP(BNX2X_MSG_SP, "Handling Rx Mode setting\n");
-+		bnx2x_set_rx_mode_inner(bp);
- 	}
- 
- 	if (test_and_clear_bit(BNX2X_SP_RTNL_HYPERVISOR_VLAN,
-@@ -11849,34 +11847,48 @@ static int bnx2x_set_mc_list(struct bnx2x *bp)
- void bnx2x_set_rx_mode(struct net_device *dev)
- {
- 	struct bnx2x *bp = netdev_priv(dev);
--	u32 rx_mode = BNX2X_RX_MODE_NORMAL;
- 
- 	if (bp->state != BNX2X_STATE_OPEN) {
- 		DP(NETIF_MSG_IFUP, "state is %x, returning\n", bp->state);
- 		return;
-+	} else {
-+		/* Schedule an SP task to handle rest of change */
-+		DP(NETIF_MSG_IFUP, "Scheduling an Rx mode change\n");
-+		smp_mb__before_clear_bit();
-+		set_bit(BNX2X_SP_RTNL_RX_MODE, &bp->sp_rtnl_state);
-+		smp_mb__after_clear_bit();
-+		schedule_delayed_work(&bp->sp_rtnl_task, 0);
- 	}
-+}
-+
-+void bnx2x_set_rx_mode_inner(struct bnx2x *bp)
-+{
-+	u32 rx_mode = BNX2X_RX_MODE_NORMAL;
- 
- 	DP(NETIF_MSG_IFUP, "dev->flags = %x\n", bp->dev->flags);
- 
--	if (dev->flags & IFF_PROMISC)
-+	netif_addr_lock_bh(bp->dev);
-+
-+	if (bp->dev->flags & IFF_PROMISC) {
- 		rx_mode = BNX2X_RX_MODE_PROMISC;
--	else if ((dev->flags & IFF_ALLMULTI) ||
--		 ((netdev_mc_count(dev) > BNX2X_MAX_MULTICAST) &&
--		  CHIP_IS_E1(bp)))
-+	} else if ((bp->dev->flags & IFF_ALLMULTI) ||
-+		   ((netdev_mc_count(bp->dev) > BNX2X_MAX_MULTICAST) &&
-+		    CHIP_IS_E1(bp))) {
- 		rx_mode = BNX2X_RX_MODE_ALLMULTI;
--	else {
-+	} else {
- 		if (IS_PF(bp)) {
- 			/* some multicasts */
- 			if (bnx2x_set_mc_list(bp) < 0)
- 				rx_mode = BNX2X_RX_MODE_ALLMULTI;
- 
-+			/* release bh lock, as bnx2x_set_uc_list might sleep */
-+			netif_addr_unlock_bh(bp->dev);
- 			if (bnx2x_set_uc_list(bp) < 0)
- 				rx_mode = BNX2X_RX_MODE_PROMISC;
-+			netif_addr_lock_bh(bp->dev);
- 		} else {
- 			/* configuring mcast to a vf involves sleeping (when we
--			 * wait for the pf's response). Since this function is
--			 * called from non sleepable context we must schedule
--			 * a work item for this purpose
-+			 * wait for the pf's response).
- 			 */
- 			smp_mb__before_clear_bit();
- 			set_bit(BNX2X_SP_RTNL_VFPF_MCAST,
-@@ -11894,22 +11906,20 @@ void bnx2x_set_rx_mode(struct net_device *dev)
- 	/* Schedule the rx_mode command */
- 	if (test_bit(BNX2X_FILTER_RX_MODE_PENDING, &bp->sp_state)) {
- 		set_bit(BNX2X_FILTER_RX_MODE_SCHED, &bp->sp_state);
-+		netif_addr_unlock_bh(bp->dev);
- 		return;
- 	}
- 
- 	if (IS_PF(bp)) {
- 		bnx2x_set_storm_rx_mode(bp);
-+		netif_addr_unlock_bh(bp->dev);
- 	} else {
--		/* configuring rx mode to storms in a vf involves sleeping (when
--		 * we wait for the pf's response). Since this function is
--		 * called from non sleepable context we must schedule
--		 * a work item for this purpose
-+		/* VF will need to request the PF to make this change, and so
-+		 * the VF needs to release the bottom-half lock prior to the
-+		 * request (as it will likely require sleep on the VF side)
- 		 */
--		smp_mb__before_clear_bit();
--		set_bit(BNX2X_SP_RTNL_VFPF_STORM_RX_MODE,
--			&bp->sp_rtnl_state);
--		smp_mb__after_clear_bit();
--		schedule_delayed_work(&bp->sp_rtnl_task, 0);
-+		netif_addr_unlock_bh(bp->dev);
-+		bnx2x_vfpf_storm_rx_mode(bp);
- 	}
- }
- 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-index 8f03c98..1d46b68 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-@@ -159,16 +159,6 @@ static inline void __bnx2x_exe_queue_reset_pending(
- 	}
- }
- 
--static inline void bnx2x_exe_queue_reset_pending(struct bnx2x *bp,
--						 struct bnx2x_exe_queue_obj *o)
--{
--	spin_lock_bh(&o->lock);
--
--	__bnx2x_exe_queue_reset_pending(bp, o);
--
--	spin_unlock_bh(&o->lock);
--}
--
- /**
-  * bnx2x_exe_queue_step - execute one execution chunk atomically
-  *
-@@ -176,7 +166,7 @@ static inline void bnx2x_exe_queue_reset_pending(struct bnx2x *bp,
-  * @o:			queue
-  * @ramrod_flags:	flags
-  *
-- * (Atomicity is ensured using the exe_queue->lock).
-+ * (Should be called while holding the exe_queue->lock).
-  */
- static inline int bnx2x_exe_queue_step(struct bnx2x *bp,
- 				       struct bnx2x_exe_queue_obj *o,
-@@ -187,8 +177,6 @@ static inline int bnx2x_exe_queue_step(struct bnx2x *bp,
- 
- 	memset(&spacer, 0, sizeof(spacer));
- 
--	spin_lock_bh(&o->lock);
--
- 	/* Next step should not be performed until the current is finished,
- 	 * unless a DRV_CLEAR_ONLY bit is set. In this case we just want to
- 	 * properly clear object internals without sending any command to the FW
-@@ -200,7 +188,6 @@ static inline int bnx2x_exe_queue_step(struct bnx2x *bp,
- 			DP(BNX2X_MSG_SP, "RAMROD_DRV_CLR_ONLY requested: resetting a pending_comp list\n");
- 			__bnx2x_exe_queue_reset_pending(bp, o);
- 		} else {
--			spin_unlock_bh(&o->lock);
- 			return 1;
- 		}
- 	}
-@@ -228,10 +215,8 @@ static inline int bnx2x_exe_queue_step(struct bnx2x *bp,
- 	}
- 
- 	/* Sanity check */
--	if (!cur_len) {
--		spin_unlock_bh(&o->lock);
-+	if (!cur_len)
- 		return 0;
--	}
- 
- 	rc = o->execute(bp, o->owner, &o->pending_comp, ramrod_flags);
- 	if (rc < 0)
-@@ -245,7 +230,6 @@ static inline int bnx2x_exe_queue_step(struct bnx2x *bp,
- 		 */
- 		__bnx2x_exe_queue_reset_pending(bp, o);
- 
--	spin_unlock_bh(&o->lock);
- 	return rc;
- }
- 
-@@ -432,12 +416,219 @@ static bool bnx2x_put_credit_vlan_mac(struct bnx2x_vlan_mac_obj *o)
- 	return true;
- }
- 
-+/**
-+ * __bnx2x_vlan_mac_h_write_trylock - try getting the vlan mac writer lock
-+ *
-+ * @bp:		device handle
-+ * @o:		vlan_mac object
-+ *
-+ * @details: Non-blocking implementation; should be called under execution
-+ *           queue lock.
-+ */
-+static int __bnx2x_vlan_mac_h_write_trylock(struct bnx2x *bp,
-+					    struct bnx2x_vlan_mac_obj *o)
-+{
-+	if (o->head_reader) {
-+		DP(BNX2X_MSG_SP, "vlan_mac_lock writer - There are readers; Busy\n");
-+		return -EBUSY;
-+	}
-+
-+	DP(BNX2X_MSG_SP, "vlan_mac_lock writer - Taken\n");
-+	return 0;
-+}
-+
-+/**
-+ * __bnx2x_vlan_mac_h_exec_pending - execute step instead of a previous step
-+ *
-+ * @bp:		device handle
-+ * @o:		vlan_mac object
-+ *
-+ * @details Should be called under execution queue lock; notice it might release
-+ *          and reclaim it during its run.
-+ */
-+static void __bnx2x_vlan_mac_h_exec_pending(struct bnx2x *bp,
-+					    struct bnx2x_vlan_mac_obj *o)
-+{
-+	int rc;
-+	unsigned long ramrod_flags = o->saved_ramrod_flags;
-+
-+	DP(BNX2X_MSG_SP, "vlan_mac_lock execute pending command with ramrod flags %lu\n",
-+	   ramrod_flags);
-+	o->head_exe_request = false;
-+	o->saved_ramrod_flags = 0;
-+	rc = bnx2x_exe_queue_step(bp, &o->exe_queue, &ramrod_flags);
-+	if (rc != 0) {
-+		BNX2X_ERR("execution of pending commands failed with rc %d\n",
-+			  rc);
-+#ifdef BNX2X_STOP_ON_ERROR
-+		bnx2x_panic();
-+#endif
-+	}
-+}
-+
-+/**
-+ * __bnx2x_vlan_mac_h_pend - Pend an execution step which couldn't run
-+ *
-+ * @bp:			device handle
-+ * @o:			vlan_mac object
-+ * @ramrod_flags:	ramrod flags of missed execution
-+ *
-+ * @details Should be called under execution queue lock.
-+ */
-+static void __bnx2x_vlan_mac_h_pend(struct bnx2x *bp,
-+				    struct bnx2x_vlan_mac_obj *o,
-+				    unsigned long ramrod_flags)
-+{
-+	o->head_exe_request = true;
-+	o->saved_ramrod_flags = ramrod_flags;
-+	DP(BNX2X_MSG_SP, "Placing pending execution with ramrod flags %lu\n",
-+	   ramrod_flags);
-+}
-+
-+/**
-+ * __bnx2x_vlan_mac_h_write_unlock - unlock the vlan mac head list writer lock
-+ *
-+ * @bp:			device handle
-+ * @o:			vlan_mac object
-+ *
-+ * @details Should be called under execution queue lock. Notice if a pending
-+ *          execution exists, it would perform it - possibly releasing and
-+ *          reclaiming the execution queue lock.
-+ */
-+static void __bnx2x_vlan_mac_h_write_unlock(struct bnx2x *bp,
-+					    struct bnx2x_vlan_mac_obj *o)
-+{
-+	/* It's possible a new pending execution was added since this writer
-+	 * executed. If so, execute again. [Ad infinitum]
-+	 */
-+	while (o->head_exe_request) {
-+		DP(BNX2X_MSG_SP, "vlan_mac_lock - writer release encountered a pending request\n");
-+		__bnx2x_vlan_mac_h_exec_pending(bp, o);
-+	}
-+}
-+
-+/**
-+ * bnx2x_vlan_mac_h_write_unlock - unlock the vlan mac head list writer lock
-+ *
-+ * @bp:			device handle
-+ * @o:			vlan_mac object
-+ *
-+ * @details Notice if a pending execution exists, it would perform it -
-+ *          possibly releasing and reclaiming the execution queue lock.
-+ */
-+void bnx2x_vlan_mac_h_write_unlock(struct bnx2x *bp,
-+				   struct bnx2x_vlan_mac_obj *o)
-+{
-+	spin_lock_bh(&o->exe_queue.lock);
-+	__bnx2x_vlan_mac_h_write_unlock(bp, o);
-+	spin_unlock_bh(&o->exe_queue.lock);
-+}
-+
-+/**
-+ * __bnx2x_vlan_mac_h_read_lock - lock the vlan mac head list reader lock
-+ *
-+ * @bp:			device handle
-+ * @o:			vlan_mac object
-+ *
-+ * @details Should be called under the execution queue lock. May sleep. May
-+ *          release and reclaim execution queue lock during its run.
-+ */
-+static int __bnx2x_vlan_mac_h_read_lock(struct bnx2x *bp,
-+					struct bnx2x_vlan_mac_obj *o)
-+{
-+	/* If we got here, we're holding lock --> no WRITER exists */
-+	o->head_reader++;
-+	DP(BNX2X_MSG_SP, "vlan_mac_lock - locked reader - number %d\n",
-+	   o->head_reader);
-+
-+	return 0;
-+}
-+
-+/**
-+ * bnx2x_vlan_mac_h_read_lock - lock the vlan mac head list reader lock
-+ *
-+ * @bp:			device handle
-+ * @o:			vlan_mac object
-+ *
-+ * @details May sleep. Claims and releases execution queue lock during its run.
-+ */
-+int bnx2x_vlan_mac_h_read_lock(struct bnx2x *bp,
-+			       struct bnx2x_vlan_mac_obj *o)
-+{
-+	int rc;
-+
-+	spin_lock_bh(&o->exe_queue.lock);
-+	rc = __bnx2x_vlan_mac_h_read_lock(bp, o);
-+	spin_unlock_bh(&o->exe_queue.lock);
-+
-+	return rc;
-+}
-+
-+/**
-+ * __bnx2x_vlan_mac_h_read_unlock - unlock the vlan mac head list reader lock
-+ *
-+ * @bp:			device handle
-+ * @o:			vlan_mac object
-+ *
-+ * @details Should be called under execution queue lock. Notice if a pending
-+ *          execution exists, it would be performed if this was the last
-+ *          reader. possibly releasing and reclaiming the execution queue lock.
-+ */
-+static void __bnx2x_vlan_mac_h_read_unlock(struct bnx2x *bp,
-+					  struct bnx2x_vlan_mac_obj *o)
-+{
-+	if (!o->head_reader) {
-+		BNX2X_ERR("Need to release vlan mac reader lock, but lock isn't taken\n");
-+#ifdef BNX2X_STOP_ON_ERROR
-+		bnx2x_panic();
-+#endif
-+	} else {
-+		o->head_reader--;
-+		DP(BNX2X_MSG_SP, "vlan_mac_lock - decreased readers to %d\n",
-+		   o->head_reader);
-+	}
-+
-+	/* It's possible a new pending execution was added, and that this reader
-+	 * was last - if so we need to execute the command.
-+	 */
-+	if (!o->head_reader && o->head_exe_request) {
-+		DP(BNX2X_MSG_SP, "vlan_mac_lock - reader release encountered a pending request\n");
-+
-+		/* Writer release will do the trick */
-+		__bnx2x_vlan_mac_h_write_unlock(bp, o);
-+	}
-+}
-+
-+/**
-+ * bnx2x_vlan_mac_h_read_unlock - unlock the vlan mac head list reader lock
-+ *
-+ * @bp:			device handle
-+ * @o:			vlan_mac object
-+ *
-+ * @details Notice if a pending execution exists, it would be performed if this
-+ *          was the last reader. Claims and releases the execution queue lock
-+ *          during its run.
-+ */
-+void bnx2x_vlan_mac_h_read_unlock(struct bnx2x *bp,
-+				  struct bnx2x_vlan_mac_obj *o)
-+{
-+	spin_lock_bh(&o->exe_queue.lock);
-+	__bnx2x_vlan_mac_h_read_unlock(bp, o);
-+	spin_unlock_bh(&o->exe_queue.lock);
-+}
-+
- static int bnx2x_get_n_elements(struct bnx2x *bp, struct bnx2x_vlan_mac_obj *o,
- 				int n, u8 *base, u8 stride, u8 size)
- {
- 	struct bnx2x_vlan_mac_registry_elem *pos;
- 	u8 *next = base;
- 	int counter = 0;
-+	int read_lock;
-+
-+	DP(BNX2X_MSG_SP, "get_n_elements - taking vlan_mac_lock (reader)\n");
-+	read_lock = bnx2x_vlan_mac_h_read_lock(bp, o);
-+	if (read_lock != 0)
-+		BNX2X_ERR("get_n_elements failed to get vlan mac reader lock; Access without lock\n");
- 
- 	/* traverse list */
- 	list_for_each_entry(pos, &o->head, link) {
-@@ -449,6 +640,12 @@ static int bnx2x_get_n_elements(struct bnx2x *bp, struct bnx2x_vlan_mac_obj *o,
- 			next += stride + size;
- 		}
- 	}
-+
-+	if (read_lock == 0) {
-+		DP(BNX2X_MSG_SP, "get_n_elements - releasing vlan_mac_lock (reader)\n");
-+		bnx2x_vlan_mac_h_read_unlock(bp, o);
-+	}
-+
- 	return counter * ETH_ALEN;
- }
- 
-@@ -1397,6 +1594,32 @@ static int bnx2x_wait_vlan_mac(struct bnx2x *bp,
- 	return -EBUSY;
- }
- 
-+static int __bnx2x_vlan_mac_execute_step(struct bnx2x *bp,
-+					 struct bnx2x_vlan_mac_obj *o,
-+					 unsigned long *ramrod_flags)
-+{
-+	int rc = 0;
-+
-+	spin_lock_bh(&o->exe_queue.lock);
-+
-+	DP(BNX2X_MSG_SP, "vlan_mac_execute_step - trying to take writer lock\n");
-+	rc = __bnx2x_vlan_mac_h_write_trylock(bp, o);
-+
-+	if (rc != 0) {
-+		__bnx2x_vlan_mac_h_pend(bp, o, *ramrod_flags);
-+
-+		/* Calling function should not diffrentiate between this case
-+		 * and the case in which there is already a pending ramrod
-+		 */
-+		rc = 1;
-+	} else {
-+		rc = bnx2x_exe_queue_step(bp, &o->exe_queue, ramrod_flags);
-+	}
-+	spin_unlock_bh(&o->exe_queue.lock);
-+
-+	return rc;
-+}
-+
- /**
-  * bnx2x_complete_vlan_mac - complete one VLAN-MAC ramrod
-  *
-@@ -1414,19 +1637,27 @@ static int bnx2x_complete_vlan_mac(struct bnx2x *bp,
- 	struct bnx2x_raw_obj *r = &o->raw;
- 	int rc;
- 
-+	/* Clearing the pending list & raw state should be made
-+	 * atomically (as execution flow assumes they represent the same).
-+	 */
-+	spin_lock_bh(&o->exe_queue.lock);
-+
- 	/* Reset pending list */
--	bnx2x_exe_queue_reset_pending(bp, &o->exe_queue);
-+	__bnx2x_exe_queue_reset_pending(bp, &o->exe_queue);
- 
- 	/* Clear pending */
- 	r->clear_pending(r);
- 
-+	spin_unlock_bh(&o->exe_queue.lock);
-+
- 	/* If ramrod failed this is most likely a SW bug */
- 	if (cqe->message.error)
- 		return -EINVAL;
- 
- 	/* Run the next bulk of pending commands if requested */
- 	if (test_bit(RAMROD_CONT, ramrod_flags)) {
--		rc = bnx2x_exe_queue_step(bp, &o->exe_queue, ramrod_flags);
-+		rc = __bnx2x_vlan_mac_execute_step(bp, o, ramrod_flags);
-+
- 		if (rc < 0)
- 			return rc;
- 	}
-@@ -1719,9 +1950,8 @@ static inline int bnx2x_vlan_mac_push_new_cmd(
-  * @p:
-  *
-  */
--int bnx2x_config_vlan_mac(
--	struct bnx2x *bp,
--	struct bnx2x_vlan_mac_ramrod_params *p)
-+int bnx2x_config_vlan_mac(struct bnx2x *bp,
-+			   struct bnx2x_vlan_mac_ramrod_params *p)
- {
- 	int rc = 0;
- 	struct bnx2x_vlan_mac_obj *o = p->vlan_mac_obj;
-@@ -1752,7 +1982,8 @@ int bnx2x_config_vlan_mac(
- 	/* Execute commands if required */
- 	if (cont || test_bit(RAMROD_EXEC, ramrod_flags) ||
- 	    test_bit(RAMROD_COMP_WAIT, ramrod_flags)) {
--		rc = bnx2x_exe_queue_step(bp, &o->exe_queue, ramrod_flags);
-+		rc = __bnx2x_vlan_mac_execute_step(bp, p->vlan_mac_obj,
-+						   &p->ramrod_flags);
- 		if (rc < 0)
- 			return rc;
- 	}
-@@ -1775,8 +2006,9 @@ int bnx2x_config_vlan_mac(
- 				return rc;
- 
- 			/* Make a next step */
--			rc = bnx2x_exe_queue_step(bp, &o->exe_queue,
--						  ramrod_flags);
-+			rc = __bnx2x_vlan_mac_execute_step(bp,
-+							   p->vlan_mac_obj,
-+							   &p->ramrod_flags);
- 			if (rc < 0)
- 				return rc;
- 		}
-@@ -1806,10 +2038,11 @@ static int bnx2x_vlan_mac_del_all(struct bnx2x *bp,
- 				  unsigned long *ramrod_flags)
- {
- 	struct bnx2x_vlan_mac_registry_elem *pos = NULL;
--	int rc = 0;
- 	struct bnx2x_vlan_mac_ramrod_params p;
- 	struct bnx2x_exe_queue_obj *exeq = &o->exe_queue;
- 	struct bnx2x_exeq_elem *exeq_pos, *exeq_pos_n;
-+	int read_lock;
-+	int rc = 0;
- 
- 	/* Clear pending commands first */
- 
-@@ -1844,6 +2077,11 @@ static int bnx2x_vlan_mac_del_all(struct bnx2x *bp,
- 	__clear_bit(RAMROD_EXEC, &p.ramrod_flags);
- 	__clear_bit(RAMROD_CONT, &p.ramrod_flags);
- 
-+	DP(BNX2X_MSG_SP, "vlan_mac_del_all -- taking vlan_mac_lock (reader)\n");
-+	read_lock = bnx2x_vlan_mac_h_read_lock(bp, o);
-+	if (read_lock != 0)
-+		return read_lock;
-+
- 	list_for_each_entry(pos, &o->head, link) {
- 		if (pos->vlan_mac_flags == *vlan_mac_flags) {
- 			p.user_req.vlan_mac_flags = pos->vlan_mac_flags;
-@@ -1851,11 +2089,15 @@ static int bnx2x_vlan_mac_del_all(struct bnx2x *bp,
- 			rc = bnx2x_config_vlan_mac(bp, &p);
- 			if (rc < 0) {
- 				BNX2X_ERR("Failed to add a new DEL command\n");
-+				bnx2x_vlan_mac_h_read_unlock(bp, o);
- 				return rc;
- 			}
- 		}
- 	}
- 
-+	DP(BNX2X_MSG_SP, "vlan_mac_del_all -- releasing vlan_mac_lock (reader)\n");
-+	bnx2x_vlan_mac_h_read_unlock(bp, o);
-+
- 	p.ramrod_flags = *ramrod_flags;
- 	__set_bit(RAMROD_CONT, &p.ramrod_flags);
- 
-@@ -1887,6 +2129,9 @@ static inline void bnx2x_init_vlan_mac_common(struct bnx2x_vlan_mac_obj *o,
- 	struct bnx2x_credit_pool_obj *vlans_pool)
- {
- 	INIT_LIST_HEAD(&o->head);
-+	o->head_reader = 0;
-+	o->head_exe_request = false;
-+	o->saved_ramrod_flags = 0;
- 
- 	o->macs_pool = macs_pool;
- 	o->vlans_pool = vlans_pool;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
-index 798dfe9..533a3ab 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
-@@ -285,6 +285,12 @@ struct bnx2x_vlan_mac_obj {
- 	 * entries.
- 	 */
- 	struct list_head		head;
-+	/* Implement a simple reader/writer lock on the head list.
-+	 * all these fields should only be accessed under the exe_queue lock
-+	 */
-+	u8		head_reader; /* Num. of readers accessing head list */
-+	bool		head_exe_request; /* Pending execution request. */
-+	unsigned long	saved_ramrod_flags; /* Ramrods of pending execution */
- 
- 	/* TODO: Add it's initialization in the init functions */
- 	struct bnx2x_exe_queue_obj	exe_queue;
-@@ -1302,8 +1308,16 @@ void bnx2x_init_vlan_mac_obj(struct bnx2x *bp,
- 			     struct bnx2x_credit_pool_obj *macs_pool,
- 			     struct bnx2x_credit_pool_obj *vlans_pool);
- 
-+int bnx2x_vlan_mac_h_read_lock(struct bnx2x *bp,
-+					struct bnx2x_vlan_mac_obj *o);
-+void bnx2x_vlan_mac_h_read_unlock(struct bnx2x *bp,
-+				  struct bnx2x_vlan_mac_obj *o);
-+int bnx2x_vlan_mac_h_write_lock(struct bnx2x *bp,
-+				struct bnx2x_vlan_mac_obj *o);
-+void bnx2x_vlan_mac_h_write_unlock(struct bnx2x *bp,
-+					  struct bnx2x_vlan_mac_obj *o);
- int bnx2x_config_vlan_mac(struct bnx2x *bp,
--			  struct bnx2x_vlan_mac_ramrod_params *p);
-+			   struct bnx2x_vlan_mac_ramrod_params *p);
- 
- int bnx2x_vlan_mac_move(struct bnx2x *bp,
- 			struct bnx2x_vlan_mac_ramrod_params *p,
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index 95861ef..6291324 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -491,12 +491,20 @@ static inline void bnx2x_vfop_credit(struct bnx2x *bp,
- 	 * and a valid credit counter
- 	 */
- 	if (!vfop->rc && args->credit) {
--		int cnt = 0;
- 		struct list_head *pos;
-+		int read_lock;
-+		int cnt = 0;
-+
-+		read_lock = bnx2x_vlan_mac_h_read_lock(bp, obj);
-+		if (read_lock)
-+			DP(BNX2X_MSG_SP, "Failed to take vlan mac read head; continuing anyway\n");
- 
- 		list_for_each(pos, &obj->head)
- 			cnt++;
- 
-+		if (!read_lock)
-+			bnx2x_vlan_mac_h_read_unlock(bp, obj);
-+
- 		atomic_set(args->credit, cnt);
- 	}
- }
--- 
-1.8.1.227.g44fe835
+Let me know if you need more information.
+Below all the detail about the machine.
+
+Thank you in advance
+Sebastiano
+
+[Kernel version from /proc/version ]
+
+Linux version 3.11.0-rc2+ (root@cache.pdbg) (gcc version 4.7.2 (Debian
+4.7.2-5) ) #5 SMP Thu Aug 1 14:20:35 CEST 2013
+
+[Processor information from /proc/cpuinfo]
+
+processor : 0
+vendor_id : GenuineIntel
+cpu family : 6
+model : 15
+model name : Intel(R) Core(TM)2 Duo CPU     E6550  @ 2.33GHz
+stepping : 11
+microcode : 0xb3
+cpu MHz : 1998.000
+cache size : 4096 KB
+physical id : 0
+siblings : 2
+core id : 0
+cpu cores : 2
+apicid : 0
+initial apicid : 0
+fpu : yes
+fpu_exception : yes
+cpuid level : 10
+wp : yes
+flags : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov
+pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx
+lm constant_tsc arch_perfmon pebs bts rep_good nopl aperfmperf pni
+dtes64 monitor ds_cpl vmx smx est tm2 ssse3 cx16 xtpr pdcm lahf_lm
+dtherm tpr_shadow vnmi flexpriority
+bogomips : 4654.65
+clflush size : 64
+cache_alignment : 64
+address sizes : 36 bits physical, 48 bits virtual
+power management:
+
+processor : 1
+vendor_id : GenuineIntel
+cpu family : 6
+model : 15
+model name : Intel(R) Core(TM)2 Duo CPU     E6550  @ 2.33GHz
+stepping : 11
+microcode : 0xb3
+cpu MHz : 1998.000
+cache size : 4096 KB
+physical id : 0
+siblings : 2
+core id : 1
+cpu cores : 2
+apicid : 1
+initial apicid : 1
+fpu : yes
+fpu_exception : yes
+cpuid level : 10
+wp : yes
+flags : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov
+pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx
+lm constant_tsc arch_perfmon pebs bts rep_good nopl aperfmperf pni
+dtes64 monitor ds_cpl vmx smx est tm2 ssse3 cx16 xtpr pdcm lahf_lm
+dtherm tpr_shadow vnmi flexpriority
+bogomips : 4654.65
+clflush size : 64
+cache_alignment : 64
+address sizes : 36 bits physical, 48 bits virtual
+power management:
+
+[Module information from /proc/modules]
+
+nfnetlink_log 17396 0 - Live 0xffffffffa0325000
+nfnetlink 12989 1 nfnetlink_log, Live 0xffffffffa01b5000
+nfsd 192144 2 - Live 0xffffffffa0360000
+auth_rpcgss 39122 1 nfsd, Live 0xffffffffa0355000
+oid_registry 12419 1 auth_rpcgss, Live 0xffffffffa0107000
+nfs_acl 12511 1 nfsd, Live 0xffffffffa00ba000
+nfs 105664 0 - Live 0xffffffffa033a000
+lockd 55654 2 nfsd,nfs, Live 0xffffffffa0316000
+fscache 38267 1 nfs, Live 0xffffffffa032f000
+sunrpc 160404 6 nfsd,auth_rpcgss,nfs_acl,nfs,lockd, Live 0xffffffffa02ed000
+loop 22869 0 - Live 0xffffffffa023d000
+snd_hda_codec_analog 78587 1 - Live 0xffffffffa0228000
+snd_hda_intel 31234 0 - Live 0xffffffffa0157000
+snd_hda_codec 122851 2 snd_hda_codec_analog,snd_hda_intel, Live
+0xffffffffa0209000
+snd_hwdep 13189 1 snd_hda_codec, Live 0xffffffffa00a5000
+snd_pcm 68479 2 snd_hda_intel,snd_hda_codec, Live 0xffffffffa01a3000
+snd_page_alloc 13018 2 snd_hda_intel,snd_pcm, Live 0xffffffffa00b5000
+snd_timer 22773 1 snd_pcm, Live 0xffffffffa0126000
+snd 53014 6 snd_hda_codec_analog,snd_hda_intel,snd_hda_codec,snd_hwdep,snd_pcm,snd_timer,
+Live 0xffffffffa00ce000
+i915 518452 1 - Live 0xffffffffa026d000
+tpm_infineon 12985 0 - Live 0xffffffffa0060000
+coretemp 12898 0 - Live 0xffffffffa00c9000
+hid_apple 12633 0 - Live 0xffffffffa00aa000
+drm_kms_helper 31837 1 i915, Live 0xffffffffa0057000
+drm 208643 2 i915,drm_kms_helper, Live 0xffffffffa016f000
+kvm_intel 123456 0 - Live 0xffffffffa024d000
+kvm 309880 1 kvm_intel, Live 0xffffffffa01bc000
+usbhid 40964 0 - Live 0xffffffffa0163000
+hid 81894 2 hid_apple,usbhid, Live 0xffffffffa0142000
+hp_wmi 13362 0 - Live 0xffffffffa0121000
+psmouse 74786 0 - Live 0xffffffffa012e000
+soundcore 13026 1 snd, Live 0xffffffffa011c000
+sparse_keymap 12760 1 hp_wmi, Live 0xffffffffa0117000
+iTCO_wdt 12831 0 - Live 0xffffffffa010d000
+iTCO_vendor_support 12704 1 iTCO_wdt, Live 0xffffffffa0112000
+rfkill 19242 1 hp_wmi, Live 0xffffffffa0101000
+parport_pc 22409 0 - Live 0xffffffffa00eb000
+parport 31855 1 parport_pc, Live 0xffffffffa00f8000
+lpc_ich 16764 0 - Live 0xffffffffa00df000
+mfd_core 12601 1 lpc_ich, Live 0xffffffffa00f3000
+evdev 17610 10 - Live 0xffffffffa00e5000
+acpi_cpufreq 13277 0 - Live 0xffffffffa00a0000
+tpm_tis 17320 0 - Live 0xffffffffa00bf000
+mperf 12411 1 acpi_cpufreq, Live 0xffffffffa007c000
+tpm 18071 2 tpm_infineon,tpm_tis, Live 0xffffffffa0092000
+tpm_bios 17540 1 tpm, Live 0xffffffffa0086000
+processor 28184 3 acpi_cpufreq, Live 0xffffffffa0098000
+video 17844 1 i915, Live 0xffffffffa008c000
+serio_raw 12940 0 - Live 0xffffffffa0081000
+i2c_algo_bit 12841 1 i915, Live 0xffffffffa0077000
+pcspkr 12595 0 - Live 0xffffffffa00b0000
+thermal_sys 23293 2 processor,video, Live 0xffffffffa0069000
+wmi 13243 1 hp_wmi, Live 0xffffffffa0072000
+microcode 26065 0 - Live 0xffffffffa0024000
+button 12944 1 i915, Live 0xffffffffa0039000
+floppy 53102 0 - Live 0xffffffffa0049000
+sr_mod 21988 0 - Live 0xffffffffa003e000
+cdrom 35173 1 sr_mod, Live 0xffffffffa002f000
+e1000e 139582 0 - Live 0xffffffffa0000000
+
+[Loaded driver and hardware information from /proc/ioports]
+
+0000-001f : dma1
+0020-0021 : pic1
+0040-0043 : timer0
+0050-0053 : timer1
+0060-0060 : keyboard
+0064-0064 : keyboard
+0070-0071 : rtc0
+0080-008f : dma page reg
+00a0-00a1 : pic2
+00c0-00df : dma2
+00f0-00ff : fpu
+0170-0177 : 0000:00:1f.2
+  0170-0177 : ata_piix
+01f0-01f7 : 0000:00:1f.2
+  01f0-01f7 : ata_piix
+0376-0376 : 0000:00:1f.2
+  0376-0376 : ata_piix
+0378-037a : parport0
+03c0-03df : vga+
+03f2-03f2 : floppy
+03f4-03f5 : floppy
+03f6-03f6 : 0000:00:1f.2
+  03f6-03f6 : ata_piix
+03f7-03f7 : floppy
+03f8-03ff : serial
+0400-041f : pnp 00:0d
+0420-043f : pnp 00:0d
+0440-045f : pnp 00:0d
+0460-047f : pnp 00:0d
+  0460-0461 : ACPI PM1b_CNT_BLK
+0480-048f : pnp 00:0d
+04d0-04d1 : pnp 00:0e
+0cf8-0cff : PCI conf1
+1100-111f : 0000:00:19.0
+1120-113f : 0000:00:1a.0
+  1120-113f : uhci_hcd
+1140-115f : 0000:00:1a.1
+  1140-115f : uhci_hcd
+1160-117f : 0000:00:1a.2
+  1160-117f : uhci_hcd
+1180-119f : 0000:00:1d.0
+  1180-119f : uhci_hcd
+11a0-11bf : 0000:00:1d.1
+  11a0-11bf : uhci_hcd
+11e0-11ef : 0000:00:03.2
+  11e0-11ef : ata_generic
+11f0-11ff : 0000:00:1f.2
+  11f0-11ff : ata_piix
+1200-120f : 0000:00:1f.2
+  1200-120f : ata_piix
+1210-121f : 0000:00:1f.5
+  1210-121f : ata_piix
+1220-122f : 0000:00:1f.5
+  1220-122f : ata_piix
+1230-1237 : 0000:00:02.0
+1238-123f : 0000:00:03.2
+  1238-123f : ata_generic
+1240-1247 : 0000:00:03.2
+  1240-1247 : ata_generic
+1248-124f : 0000:00:03.3
+  1248-124f : serial
+1260-1267 : 0000:00:1f.5
+  1260-1267 : ata_piix
+1268-126f : 0000:00:1f.5
+  1268-126f : ata_piix
+1270-1273 : 0000:00:03.2
+  1270-1273 : ata_generic
+1274-1277 : 0000:00:03.2
+  1274-1277 : ata_generic
+1280-1283 : 0000:00:1f.5
+  1280-1283 : ata_piix
+1284-1287 : 0000:00:1f.5
+  1284-1287 : ata_piix
+2000-2fff : PCI Bus 0000:20
+3000-3fff : PCI Bus 0000:30
+f800-f803 : ACPI PM1a_EVT_BLK
+f804-f805 : ACPI PM1a_CNT_BLK
+f808-f80b : ACPI PM_TMR
+f810-f815 : ACPI CPU throttle
+f820-f82f : ACPI GPE0_BLK
+  f828-f82f : gpio_ich
+f830-f833 : iTCO_wdt
+  f830-f833 : iTCO_wdt
+f860-f87f : iTCO_wdt
+  f860-f87f : iTCO_wdt
+fa00-fa3f : gpio_ich
+  fa00-fa3f : 0000:00:1f.0
+    fa00-fa3f : pnp 00:0d
+fc00-fc7f : pnp 00:0d
+fc80-fcff : pnp 00:0d
+fe00-fe7f : pnp 00:0d
+fe80-feff : pnp 00:0d
+
+[Loaded driver and hardware information from /proc/iomem]
+
+00000000-00000fff : reserved
+00001000-0009fbff : System RAM
+0009fc00-0009ffff : reserved
+000c0000-000c7fff : Video ROM
+000cd400-000e3fff : pnp 00:0f
+000e8000-000fffff : reserved
+  000f0000-000fffff : System ROM
+00100000-7d2afdff : System RAM
+  01000000-0169bda8 : Kernel code
+  0169bda9-01ccf6ff : Kernel data
+  01dc0000-01eb1fff : Kernel bss
+7d2afe00-7d2b1e9f : ACPI Non-volatile Storage
+7d2b1ea0-7dffffff : reserved
+7e000000-7fffffff : RAM buffer
+80000000-801fffff : PCI Bus 0000:20
+80200000-803fffff : PCI Bus 0000:20
+80400000-805fffff : PCI Bus 0000:30
+80600000-807fffff : PCI Bus 0000:30
+80800000-80800fff : Intel Flush Page
+80804000-80807fff : i915 MCHBAR
+e0000000-efffffff : 0000:00:02.0
+f0000000-f00fffff : 0000:00:02.0
+f0100000-f017ffff : 0000:00:02.0
+f0180000-f019ffff : 0000:00:19.0
+  f0180000-f019ffff : e1000e
+f01a0000-f01a3fff : 0000:00:1b.0
+  f01a0000-f01a3fff : ICH HD audio
+f01a4000-f01a4fff : 0000:00:03.3
+f01a5000-f01a5fff : 0000:00:19.0
+  f01a5000-f01a5fff : e1000e
+f01a6000-f01a63ff : 0000:00:1a.7
+  f01a6000-f01a63ff : ehci_hcd
+f01a6400-f01a67ff : 0000:00:1d.7
+  f01a6400-f01a67ff : ehci_hcd
+f01a6900-f01a690f : 0000:00:03.0
+f4000000-f7ffffff : PCI MMCONFIG 0000 [bus 00-3f]
+  f4000000-f7ffffff : reserved
+    f4000000-f7ffffff : pnp 00:0f
+fec00000-fed3ffff : reserved
+  fec00000-fec003ff : IOAPIC 0
+  fec01000-fecfffff : pnp 00:0f
+  fed00000-fed003ff : HPET 0
+  fed00400-fed3ffff : pnp 00:0f
+    fed1f410-fed1f414 : iTCO_wdt
+      fed1f410-fed1f414 : iTCO_wdt
+fed45000-ffffffff : reserved
+  fed90000-fed90fff : dmar0
+  fed91000-fed91fff : dmar1
+  fed92000-fed92fff : dmar2
+  fed93000-fed93fff : dmar3
+  fee00000-fee00fff : Local APIC
+
+[PCI information with 'lspci -vvv' as root]
+
+00:00.0 Host bridge: Intel Corporation 82Q35 Express DRAM Controller (rev 02)
+Subsystem: Hewlett-Packard Company Device 2818
+Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR+ FastB2B- DisINTx-
+Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort+ >SERR- <PERR- INTx-
+Latency: 0
+Capabilities: [e0] Vendor Specific Information: Len=0b <?>
+Kernel driver in use: agpgart-intel
+
+00:02.0 VGA compatible controller: Intel Corporation 82Q35 Express
+Integrated Graphics Controller (rev 02) (prog-if 00 [VGA controller])
+Subsystem: Hewlett-Packard Company Device 2818
+Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR- FastB2B- DisINTx+
+Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+Latency: 0
+Interrupt: pin A routed to IRQ 43
+Region 0: Memory at f0100000 (32-bit, non-prefetchable) [size=512K]
+Region 1: I/O ports at 1230 [size=8]
+Region 2: Memory at e0000000 (32-bit, prefetchable) [size=256M]
+Region 3: Memory at f0000000 (32-bit, non-prefetchable) [size=1M]
+Expansion ROM at <unassigned> [disabled]
+Capabilities: [90] MSI: Enable+ Count=1/1 Maskable- 64bit-
+Address: fee0300c  Data: 41e1
+Capabilities: [d0] Power Management version 2
+Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
+Kernel driver in use: i915
+
+00:03.0 Communication controller: Intel Corporation 82Q35 Express MEI
+Controller (rev 02)
+Subsystem: Hewlett-Packard Company Device 2818
+Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR- FastB2B- DisINTx-
+Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx+
+Latency: 0
+Interrupt: pin A routed to IRQ 5
+Region 0: Memory at f01a6900 (64-bit, non-prefetchable) [size=16]
+Capabilities: [50] Power Management version 3
+Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
+Status: D0 NoSoftRst+ PME-Enable- DSel=0 DScale=0 PME-
+Capabilities: [8c] MSI: Enable- Count=1/1 Maskable- 64bit+
+Address: 0000000000000000  Data: 0000
+
+00:03.2 IDE interface: Intel Corporation 82Q35 Express PT IDER
+Controller (rev 02) (prog-if 85 [Master SecO PriO])
+Subsystem: Hewlett-Packard Company Device 2818
+Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR- FastB2B- DisINTx-
+Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+Latency: 0
+Interrupt: pin C routed to IRQ 18
+Region 0: I/O ports at 1238 [size=8]
+Region 1: I/O ports at 1270 [size=4]
+Region 2: I/O ports at 1240 [size=8]
+Region 3: I/O ports at 1274 [size=4]
+Region 4: I/O ports at 11e0 [size=16]
+Capabilities: [c8] Power Management version 3
+Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+Status: D0 NoSoftRst+ PME-Enable- DSel=0 DScale=0 PME-
+Capabilities: [d0] MSI: Enable- Count=1/1 Maskable- 64bit+
+Address: 0000000000000000  Data: 0000
+Kernel driver in use: ata_generic
+
+00:03.3 Serial controller: Intel Corporation 82Q35 Express Serial KT
+Controller (rev 02) (prog-if 02 [16550])
+Subsystem: Hewlett-Packard Company Device 2818
+Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR- FastB2B- DisINTx-
+Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+Latency: 0
+Interrupt: pin B routed to IRQ 17
+Region 0: I/O ports at 1248 [size=8]
+Region 1: Memory at f01a4000 (32-bit, non-prefetchable) [size=4K]
+Capabilities: [c8] Power Management version 3
+Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+Status: D0 NoSoftRst+ PME-Enable- DSel=0 DScale=0 PME-
+Capabilities: [d0] MSI: Enable- Count=1/1 Maskable- 64bit+
+Address: 0000000000000000  Data: 0000
+Kernel driver in use: serial
+
+00:19.0 Ethernet controller: Intel Corporation 82566DM-2 Gigabit
+Network Connection (rev 02)
+Subsystem: Hewlett-Packard Company Device 2818
+Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR+ FastB2B- DisINTx+
+Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+Latency: 0
+Interrupt: pin B routed to IRQ 42
+Region 0: Memory at f0180000 (32-bit, non-prefetchable) [size=128K]
+Region 1: Memory at f01a5000 (32-bit, non-prefetchable) [size=4K]
+Region 2: I/O ports at 1100 [size=32]
+Capabilities: [c8] Power Management version 2
+Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
+Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=1 PME-
+Capabilities: [d0] MSI: Enable+ Count=1/1 Maskable- 64bit+
+Address: 00000000fee0300c  Data: 41d2
+Capabilities: [e0] PCI Advanced Features
+AFCap: TP+ FLR+
+AFCtrl: FLR-
+AFStatus: TP-
+Kernel driver in use: e1000e
+
+00:1a.0 USB controller: Intel Corporation 82801I (ICH9 Family) USB
+UHCI Controller #4 (rev 02) (prog-if 00 [UHCI])
+Subsystem: Hewlett-Packard Company Device 2818
+Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR- FastB2B- DisINTx-
+Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+Latency: 0
+Interrupt: pin A routed to IRQ 20
+Region 4: I/O ports at 1120 [size=32]
+Capabilities: [50] PCI Advanced Features
+AFCap: TP+ FLR+
+AFCtrl: FLR-
+AFStatus: TP-
+Kernel driver in use: uhci_hcd
+
+00:1a.1 USB controller: Intel Corporation 82801I (ICH9 Family) USB
+UHCI Controller #5 (rev 02) (prog-if 00 [UHCI])
+Subsystem: Hewlett-Packard Company Device 2818
+Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR- FastB2B- DisINTx-
+Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+Latency: 0
+Interrupt: pin B routed to IRQ 21
+Region 4: I/O ports at 1140 [size=32]
+Capabilities: [50] PCI Advanced Features
+AFCap: TP+ FLR+
+AFCtrl: FLR-
+AFStatus: TP-
+Kernel driver in use: uhci_hcd
+
+00:1a.2 USB controller: Intel Corporation 82801I (ICH9 Family) USB
+UHCI Controller #6 (rev 02) (prog-if 00 [UHCI])
+Subsystem: Hewlett-Packard Company Device 2818
+Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR- FastB2B- DisINTx-
+Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+Latency: 0
+Interrupt: pin C routed to IRQ 22
+Region 4: I/O ports at 1160 [size=32]
+Capabilities: [50] PCI Advanced Features
+AFCap: TP+ FLR+
+AFCtrl: FLR-
+AFStatus: TP-
+Kernel driver in use: uhci_hcd
+
+00:1a.7 USB controller: Intel Corporation 82801I (ICH9 Family) USB2
+EHCI Controller #2 (rev 02) (prog-if 20 [EHCI])
+Subsystem: Hewlett-Packard Company Device 2818
+Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR+ FastB2B- DisINTx-
+Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+Latency: 0
+Interrupt: pin C routed to IRQ 22
+Region 0: Memory at f01a6000 (32-bit, non-prefetchable) [size=1K]
+Capabilities: [50] Power Management version 2
+Flags: PMEClk- DSI- D1- D2- AuxCurrent=375mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
+Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
+Capabilities: [58] Debug port: BAR=1 offset=00a0
+Capabilities: [98] PCI Advanced Features
+AFCap: TP+ FLR+
+AFCtrl: FLR-
+AFStatus: TP-
+Kernel driver in use: ehci-pci
+
+00:1b.0 Audio device: Intel Corporation 82801I (ICH9 Family) HD Audio
+Controller (rev 02)
+Subsystem: Hewlett-Packard Company Device 2818
+Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR+ FastB2B- DisINTx+
+Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+Latency: 0, Cache Line Size: 64 bytes
+Interrupt: pin A routed to IRQ 44
+Region 0: Memory at f01a0000 (64-bit, non-prefetchable) [size=16K]
+Capabilities: [50] Power Management version 2
+Flags: PMEClk- DSI- D1- D2- AuxCurrent=55mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
+Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
+Capabilities: [60] MSI: Enable+ Count=1/1 Maskable- 64bit+
+Address: 00000000fee0300c  Data: 4122
+Capabilities: [70] Express (v1) Root Complex Integrated Endpoint, MSI 00
+DevCap: MaxPayload 128 bytes, PhantFunc 0, Latency L0s <64ns, L1 <1us
+ExtTag- RBE- FLReset+
+DevCtl: Report errors: Correctable- Non-Fatal- Fatal- Unsupported-
+RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop+
+MaxPayload 128 bytes, MaxReadReq 128 bytes
+DevSta: CorrErr- UncorrErr- FatalErr- UnsuppReq- AuxPwr+ TransPend-
+LnkCap: Port #0, Speed unknown, Width x0, ASPM unknown, Latency L0
+<64ns, L1 <1us
+ClockPM- Surprise- LLActRep- BwNot-
+LnkCtl: ASPM Disabled; Disabled- Retrain- CommClk-
+ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+LnkSta: Speed unknown, Width x0, TrErr- Train- SlotClk- DLActive-
+BWMgmt- ABWMgmt-
+Capabilities: [100 v1] Virtual Channel
+Caps: LPEVC=0 RefClk=100ns PATEntryBits=1
+Arb: Fixed- WRR32- WRR64- WRR128-
+Ctrl: ArbSelect=Fixed
+Status: InProgress-
+VC0: Caps: PATOffset=00 MaxTimeSlots=1 RejSnoopTrans-
+Arb: Fixed- WRR32- WRR64- WRR128- TWRR128- WRR256-
+Ctrl: Enable+ ID=0 ArbSelect=Fixed TC/VC=01
+Status: NegoPending- InProgress-
+VC1: Caps: PATOffset=00 MaxTimeSlots=1 RejSnoopTrans-
+Arb: Fixed- WRR32- WRR64- WRR128- TWRR128- WRR256-
+Ctrl: Enable+ ID=1 ArbSelect=Fixed TC/VC=80
+Status: NegoPending- InProgress-
+Capabilities: [130 v1] Root Complex Link
+Desc: PortNumber=0f ComponentID=02 EltType=Config
+Link0: Desc: TargetPort=00 TargetComponent=02 AssocRCRB-
+LinkType=MemMapped LinkValid+
+Addr: 00000000fed1c000
+Kernel driver in use: snd_hda_intel
+
+00:1c.0 PCI bridge: Intel Corporation 82801I (ICH9 Family) PCI Express
+Port 1 (rev 02) (prog-if 00 [Normal decode])
+Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR+ FastB2B- DisINTx+
+Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+Latency: 0, Cache Line Size: 64 bytes
+Bus: primary=00, secondary=20, subordinate=20, sec-latency=0
+I/O behind bridge: 00002000-00002fff
+Memory behind bridge: 80000000-801fffff
+Prefetchable memory behind bridge: 0000000080200000-00000000803fffff
+Secondary status: 66MHz- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- <SERR- <PERR-
+BridgeCtl: Parity- SERR+ NoISA- VGA- MAbort- >Reset- FastB2B-
+PriDiscTmr- SecDiscTmr- DiscTmrStat- DiscTmrSERREn-
+Capabilities: [40] Express (v1) Root Port (Slot+), MSI 00
+DevCap: MaxPayload 128 bytes, PhantFunc 0, Latency L0s <64ns, L1 <1us
+ExtTag- RBE+ FLReset-
+DevCtl: Report errors: Correctable- Non-Fatal- Fatal- Unsupported-
+RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
+MaxPayload 128 bytes, MaxReadReq 128 bytes
+DevSta: CorrErr- UncorrErr- FatalErr- UnsuppReq- AuxPwr+ TransPend-
+LnkCap: Port #1, Speed 2.5GT/s, Width x1, ASPM L0s L1, Latency L0 <1us, L1 <4us
+ClockPM- Surprise- LLActRep+ BwNot-
+LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain- CommClk-
+ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+LnkSta: Speed 2.5GT/s, Width x0, TrErr- Train- SlotClk+ DLActive-
+BWMgmt- ABWMgmt-
+SltCap: AttnBtn- PwrCtrl- MRL- AttnInd- PwrInd- HotPlug+ Surprise+
+Slot #2, PowerLimit 10.000W; Interlock- NoCompl-
+SltCtl: Enable: AttnBtn- PwrFlt- MRL- PresDet- CmdCplt- HPIrq- LinkChg-
+Control: AttnInd Unknown, PwrInd Unknown, Power- Interlock-
+SltSta: Status: AttnBtn- PowerFlt- MRL- CmdCplt- PresDet- Interlock-
+Changed: MRL- PresDet- LinkState-
+RootCtl: ErrCorrectable- ErrNon-Fatal- ErrFatal- PMEIntEna- CRSVisible-
+RootCap: CRSVisible-
+RootSta: PME ReqID 0000, PMEStatus- PMEPending-
+Capabilities: [80] MSI: Enable+ Count=1/1 Maskable- 64bit-
+Address: fee0300c  Data: 4171
+Capabilities: [90] Subsystem: Hewlett-Packard Company Device 2818
+Capabilities: [a0] Power Management version 2
+Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
+Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
+Capabilities: [100 v1] Virtual Channel
+Caps: LPEVC=0 RefClk=100ns PATEntryBits=1
+Arb: Fixed+ WRR32- WRR64- WRR128-
+Ctrl: ArbSelect=Fixed
+Status: InProgress-
+VC0: Caps: PATOffset=00 MaxTimeSlots=1 RejSnoopTrans-
+Arb: Fixed+ WRR32- WRR64- WRR128- TWRR128- WRR256-
+Ctrl: Enable+ ID=0 ArbSelect=Fixed TC/VC=ff
+Status: NegoPending- InProgress-
+Capabilities: [180 v1] Root Complex Link
+Desc: PortNumber=01 ComponentID=02 EltType=Config
+Link0: Desc: TargetPort=00 TargetComponent=02 AssocRCRB-
+LinkType=MemMapped LinkValid+
+Addr: 00000000fed1c000
+Kernel driver in use: pcieport
+
+00:1c.1 PCI bridge: Intel Corporation 82801I (ICH9 Family) PCI Express
+Port 2 (rev 02) (prog-if 00 [Normal decode])
+Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR+ FastB2B- DisINTx+
+Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+Latency: 0, Cache Line Size: 64 bytes
+Bus: primary=00, secondary=30, subordinate=30, sec-latency=0
+I/O behind bridge: 00003000-00003fff
+Memory behind bridge: 80400000-805fffff
+Prefetchable memory behind bridge: 0000000080600000-00000000807fffff
+Secondary status: 66MHz- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- <SERR- <PERR-
+BridgeCtl: Parity- SERR+ NoISA- VGA- MAbort- >Reset- FastB2B-
+PriDiscTmr- SecDiscTmr- DiscTmrStat- DiscTmrSERREn-
+Capabilities: [40] Express (v1) Root Port (Slot+), MSI 00
+DevCap: MaxPayload 128 bytes, PhantFunc 0, Latency L0s <64ns, L1 <1us
+ExtTag- RBE+ FLReset-
+DevCtl: Report errors: Correctable- Non-Fatal- Fatal- Unsupported-
+RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
+MaxPayload 128 bytes, MaxReadReq 128 bytes
+DevSta: CorrErr- UncorrErr- FatalErr- UnsuppReq- AuxPwr+ TransPend-
+LnkCap: Port #2, Speed 2.5GT/s, Width x1, ASPM L0s L1, Latency L0 <1us, L1 <4us
+ClockPM- Surprise- LLActRep+ BwNot-
+LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain- CommClk-
+ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+LnkSta: Speed 2.5GT/s, Width x0, TrErr- Train- SlotClk+ DLActive-
+BWMgmt- ABWMgmt-
+SltCap: AttnBtn- PwrCtrl- MRL- AttnInd- PwrInd- HotPlug+ Surprise+
+Slot #0, PowerLimit 0.000W; Interlock- NoCompl-
+SltCtl: Enable: AttnBtn- PwrFlt- MRL- PresDet- CmdCplt- HPIrq- LinkChg-
+Control: AttnInd Unknown, PwrInd Unknown, Power- Interlock-
+SltSta: Status: AttnBtn- PowerFlt- MRL- CmdCplt- PresDet- Interlock-
+Changed: MRL- PresDet- LinkState-
+RootCtl: ErrCorrectable- ErrNon-Fatal- ErrFatal- PMEIntEna- CRSVisible-
+RootCap: CRSVisible-
+RootSta: PME ReqID 0000, PMEStatus- PMEPending-
+Capabilities: [80] MSI: Enable+ Count=1/1 Maskable- 64bit-
+Address: fee0300c  Data: 4181
+Capabilities: [90] Subsystem: Hewlett-Packard Company Device 2818
+Capabilities: [a0] Power Management version 2
+Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
+Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
+Capabilities: [100 v1] Virtual Channel
+Caps: LPEVC=0 RefClk=100ns PATEntryBits=1
+Arb: Fixed+ WRR32- WRR64- WRR128-
+Ctrl: ArbSelect=Fixed
+Status: InProgress-
+VC0: Caps: PATOffset=00 MaxTimeSlots=1 RejSnoopTrans-
+Arb: Fixed+ WRR32- WRR64- WRR128- TWRR128- WRR256-
+Ctrl: Enable+ ID=0 ArbSelect=Fixed TC/VC=ff
+Status: NegoPending- InProgress-
+Capabilities: [180 v1] Root Complex Link
+Desc: PortNumber=02 ComponentID=02 EltType=Config
+Link0: Desc: TargetPort=00 TargetComponent=02 AssocRCRB-
+LinkType=MemMapped LinkValid+
+Addr: 00000000fed1c000
+Kernel driver in use: pcieport
+
+00:1d.0 USB controller: Intel Corporation 82801I (ICH9 Family) USB
+UHCI Controller #1 (rev 02) (prog-if 00 [UHCI])
+Subsystem: Hewlett-Packard Company Device 2818
+Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR- FastB2B- DisINTx-
+Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+Latency: 0
+Interrupt: pin A routed to IRQ 20
+Region 4: I/O ports at 1180 [size=32]
+Capabilities: [50] PCI Advanced Features
+AFCap: TP+ FLR+
+AFCtrl: FLR-
+AFStatus: TP-
+Kernel driver in use: uhci_hcd
+
+00:1d.1 USB controller: Intel Corporation 82801I (ICH9 Family) USB
+UHCI Controller #2 (rev 02) (prog-if 00 [UHCI])
+Subsystem: Hewlett-Packard Company Device 2818
+Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR- FastB2B- DisINTx-
+Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+Latency: 0
+Interrupt: pin B routed to IRQ 21
+Region 4: I/O ports at 11a0 [size=32]
+Capabilities: [50] PCI Advanced Features
+AFCap: TP+ FLR+
+AFCtrl: FLR-
+AFStatus: TP-
+Kernel driver in use: uhci_hcd
+
+00:1d.7 USB controller: Intel Corporation 82801I (ICH9 Family) USB2
+EHCI Controller #1 (rev 02) (prog-if 20 [EHCI])
+Subsystem: Hewlett-Packard Company Device 2818
+Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR+ FastB2B- DisINTx-
+Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+Latency: 0
+Interrupt: pin A routed to IRQ 20
+Region 0: Memory at f01a6400 (32-bit, non-prefetchable) [size=1K]
+Capabilities: [50] Power Management version 2
+Flags: PMEClk- DSI- D1- D2- AuxCurrent=375mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
+Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
+Capabilities: [58] Debug port: BAR=1 offset=00a0
+Capabilities: [98] PCI Advanced Features
+AFCap: TP+ FLR+
+AFCtrl: FLR-
+AFStatus: TP-
+Kernel driver in use: ehci-pci
+
+00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev 92)
+(prog-if 01 [Subtractive decode])
+Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR+ FastB2B- DisINTx-
+Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+Latency: 0
+Bus: primary=00, secondary=07, subordinate=07, sec-latency=32
+I/O behind bridge: 0000f000-00000fff
+Memory behind bridge: fff00000-000fffff
+Prefetchable memory behind bridge: 00000000fff00000-00000000000fffff
+Secondary status: 66MHz- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort+ <SERR- <PERR-
+BridgeCtl: Parity- SERR+ NoISA- VGA- MAbort- >Reset- FastB2B-
+PriDiscTmr- SecDiscTmr- DiscTmrStat- DiscTmrSERREn-
+Capabilities: [50] Subsystem: Hewlett-Packard Company Device 2818
+
+00:1f.0 ISA bridge: Intel Corporation 82801IO (ICH9DO) LPC Interface
+Controller (rev 02)
+Subsystem: Hewlett-Packard Company Device 2818
+Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR+ FastB2B- DisINTx-
+Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+Latency: 0
+Capabilities: [e0] Vendor Specific Information: Len=0c <?>
+Kernel driver in use: lpc_ich
+
+00:1f.2 IDE interface: Intel Corporation 82801IR/IO/IH (ICH9R/DO/DH) 4
+port SATA Controller [IDE mode] (rev 02) (prog-if 8a [Master SecP
+PriP])
+Subsystem: Hewlett-Packard Company Device 2818
+Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR- FastB2B- DisINTx-
+Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+Latency: 0
+Interrupt: pin B routed to IRQ 18
+Region 0: I/O ports at 01f0 [size=8]
+Region 1: I/O ports at 03f4 [size=1]
+Region 2: I/O ports at 0170 [size=8]
+Region 3: I/O ports at 0374 [size=1]
+Region 4: I/O ports at 11f0 [size=16]
+Region 5: I/O ports at 1200 [size=16]
+Capabilities: [70] Power Management version 3
+Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+Status: D0 NoSoftRst+ PME-Enable- DSel=0 DScale=0 PME-
+Capabilities: [b0] PCI Advanced Features
+AFCap: TP+ FLR+
+AFCtrl: FLR-
+AFStatus: TP-
+Kernel driver in use: ata_piix
+
+00:1f.5 IDE interface: Intel Corporation 82801I (ICH9 Family) 2 port
+SATA Controller [IDE mode] (rev 02) (prog-if 85 [Master SecO PriO])
+Subsystem: Hewlett-Packard Company Device 2818
+Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR- FastB2B- DisINTx-
+Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+Latency: 0
+Interrupt: pin B routed to IRQ 18
+Region 0: I/O ports at 1260 [size=8]
+Region 1: I/O ports at 1280 [size=4]
+Region 2: I/O ports at 1268 [size=8]
+Region 3: I/O ports at 1284 [size=4]
+Region 4: I/O ports at 1210 [size=16]
+Region 5: I/O ports at 1220 [size=16]
+Capabilities: [70] Power Management version 3
+Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+Status: D0 NoSoftRst+ PME-Enable- DSel=0 DScale=0 PME-
+Capabilities: [b0] PCI Advanced Features
+AFCap: TP+ FLR+
+AFCtrl: FLR-
+AFStatus: TP-
+Kernel driver in use: ata_piix
