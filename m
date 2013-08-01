@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 3/3] ethernet: Convert mac address uses of 6 to
- ETH_ALEN
-Date: Thu, 01 Aug 2013 14:31:37 -0700 (PDT)
-Message-ID: <20130801.143137.331385226409040561.davem@davemloft.net>
-References: <20130801210618.GK23006@n2100.arm.linux.org.uk>
-	<20130801.141016.1475274289112004539.davem@davemloft.net>
-	<CAOesGMhf-2KE1B8_4CGJADCG=ceDFRrDbhTnA56kXYPWoKTScg@mail.gmail.com>
+Subject: Re: [PATCH v3 00/13] update tile network drivers
+Date: Thu, 01 Aug 2013 14:42:31 -0700 (PDT)
+Message-ID: <20130801.144231.1629813856606655018.davem@davemloft.net>
+References: <20130731.122534.774117327230299927.davem@redhat.com>
+	<201308011545.r71Fjbco017295@farm-0002.internal.tilera.com>
+	<cover.1375385119.git.cmetcalf@tilera.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux@arm.linux.org.uk, joe@perches.com, sammy@sammy.net,
-	grundler@parisc-linux.org, mcuos.com@gmail.com,
-	rajesh.borundia@qlogic.com, netdev@vger.kernel.org,
-	sony.chacko@qlogic.com, linux-kernel@vger.kernel.org,
-	manish.chopra@qlogic.com, pcnet32@frontier.com,
-	ron.mercer@qlogic.com, gallatin@myri.com, linux-driver@qlogic.com,
-	jitendra.kalsaria@qlogic.com, linux-arm-kernel@lists.infradead.org,
-	shahed.shaikh@qlogic.com
-To: olof@lixom.net
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	richardcochran@gmail.com, eric.dumazet@gmail.com
+To: cmetcalf@tilera.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOesGMhf-2KE1B8_4CGJADCG=ceDFRrDbhTnA56kXYPWoKTScg@mail.gmail.com>
+In-Reply-To: <cover.1375385119.git.cmetcalf@tilera.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Olof Johansson <olof@lixom.net>
-Date: Thu, 1 Aug 2013 14:24:32 -0700
+From: Chris Metcalf <cmetcalf@tilera.com>
+Date: Thu, 1 Aug 2013 15:25:19 -0400
 
-> So, you might as well leave the code alone for now. It's not used on
-> fast path, and the system definitely handles unaligned accesses for
-> this -- it has for years already.
+> This is v3 of the patch series to update the Tilera network drivers.
+> 
+> From the v1 00/13 cover letter: "This patch series contains changes made
+> to the Tilera on-chip network drivers for both the 64-bit tilegx and
+> 32-bit tilepro architectures.  The changes involve a number of bug fixes,
+> support for the multiple mPIPEs on the new Gx72 chip, support for jumbo
+> frames, TSO for IPv6, GRO, PTP support, and statistics improvements."
+> 
+> David has already applied the v2 patch for what was patch 01/13 in the
+> first series ("handle 64-bit statistics in tilepro network driver")
+> so it is not included in this v3 series.
 
-Fair enough, Joe please respin.
+Series applied to net-next, thanks.
