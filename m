@@ -1,34 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: mlx5: fix sizeof usage in health_care's
- reg_handler
-Date: Fri, 02 Aug 2013 15:11:32 -0700 (PDT)
-Message-ID: <20130802.151132.539136654627638979.davem@davemloft.net>
-References: <1375438577-30933-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH net-next 2/2] icmpv6_filter: allow ICMPv6 messages with
+ bodies < 4 bytes
+Date: Fri, 02 Aug 2013 15:16:31 -0700 (PDT)
+Message-ID: <20130802.151631.410609670256107560.davem@davemloft.net>
+References: <cover.1375417279.git.werner@almesberger.net>
+	<9ad5a4d95d70d8f75127207d796a544aed1947cc.1375417279.git.werner@almesberger.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com
-To: dborkman@redhat.com
+Cc: netdev@vger.kernel.org
+To: werner@almesberger.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42397 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42443 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754155Ab3HBWLd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 18:11:33 -0400
-In-Reply-To: <1375438577-30933-1-git-send-email-dborkman@redhat.com>
+	with ESMTP id S1754318Ab3HBWQb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 18:16:31 -0400
+In-Reply-To: <9ad5a4d95d70d8f75127207d796a544aed1947cc.1375417279.git.werner@almesberger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Fri,  2 Aug 2013 12:16:17 +0200
+From: Werner Almesberger <werner@almesberger.net>
+Date: Fri, 2 Aug 2013 10:51:34 -0300
 
-> Therefore, I strongly assume sizeof(*health->health) is being meant
-> to be passed as an argument. Interestingly, there are actually no
-> in-tree users of mlx5_[un]register_health_report_handler(), but some
-> debugging modules might want to know the correct size instead.
+> By using sizeof(_hdr), net/ipv6/raw.c:icmpv6_filter implicitly assumes
+> that any valid ICMPv6 message is at least eight bytes long, i.e., that
+> the message body is at least four bytes.
+> 
+> The DIS message of RPL (RFC 6550 section 6.2, from the 6LoWPAN world),
+> has a minimum length of only six bytes, and is thus blocked by
+> icmpv6_filter.
+> 
+> RFC 4443 seems to allow even a zero-sized body, making the minimum
+> allowable message size four bytes.
+> 
+> Signed-off-by: Werner Almesberger <werner@almesberger.net>
 
-I want these hooks and infrastructure removed immediately.
-
-If there are no in-tree users there is no reason for them to
-exist at all.
-
-Thanks.
+Applied, thanks Werner.
