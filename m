@@ -1,41 +1,64 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: [PATCH] net: ethernet: cpsw: drop IRQF_DISABLED
-Date: Fri, 2 Aug 2013 10:44:10 +0300
-Message-ID: <1375429450-25454-1-git-send-email-balbi@ti.com>
+From: Sebastiano Spicuglia <spicuglia.sebastiano@gmail.com>
+Subject: Re: PROBLEM: 3.11.0-rc2+ lost of connectivity
+Date: Fri, 2 Aug 2013 09:44:33 +0200
+Message-ID: <CAOSRKdROnu=Nr=j4OqBWcoibjHtxWWCxgudM-cucEeu0wnOoTg@mail.gmail.com>
+References: <CAOSRKdTOcYOZ4fD5gXe_57dA028rGmR30T32FQ6MeruAq2p04g@mail.gmail.com>
+	<20130801143650.GB22250@order.stressinduktion.org>
+	<CAOSRKdRTrORuV0zibXZT=P-aL98QOkouZ=PreFs7wWSjjaAFLA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Linux OMAP Mailing List <linux-omap@vger.kernel.org>,
-	Felipe Balbi <balbi@ti.com>
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:60445 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757361Ab3HBHo1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Aug 2013 03:44:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+To: Sebastiano Spicuglia <spicuglia.sebastiano@gmail.com>,
+	linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	gregory.v.rose@intel.com, peter.p.waskiewicz.jr@intel.com,
+	alexander.h.duyck@intel.com, john.ronciak@intel.com,
+	tushar.n.dave@intel.com, davem@davemloft.net,
+	netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	Patrick McHardy <kaber@trash.net>, xiyou.wangcong@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAOSRKdRTrORuV0zibXZT=P-aL98QOkouZ=PreFs7wWSjjaAFLA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-IRQF_DISABLED is a no-op by now and should be
-removed.
+Hello everyone,
 
-Signed-off-by: Felipe Balbi <balbi@ti.com>
----
- drivers/net/ethernet/ti/cpsw.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I let the system running for almost 12 hours
+but the failure didn't show up.
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 05a1674..22a7a43 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1867,7 +1867,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 
- 	while ((res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k))) {
- 		for (i = res->start; i <= res->end; i++) {
--			if (request_irq(i, cpsw_interrupt, IRQF_DISABLED,
-+			if (request_irq(i, cpsw_interrupt, 0,
- 					dev_name(&pdev->dev), priv)) {
- 				dev_err(priv->dev, "error attaching irq\n");
- 				goto clean_ale_ret;
--- 
-1.8.3.4.840.g6a90778
+I'll provide you the dropwatch output once the
+failure happens again.
+
+- Sebastiano
+
+
+On Thu, Aug 1, 2013 at 4:40 PM, Sebastiano Spicuglia
+<spicuglia.sebastiano@gmail.com> wrote:
+> Hi Hannes,
+>
+> here the info about the commit:
+>
+> commit 6c504ecf506705a6575541b28824e13090bd223b
+> Merge: 2408c2e bf903e4
+> Author: Linus Torvalds <torvalds@linux-foundation.org>
+> Date:   Fri Jul 26 14:40:10 2013 -0700
+>
+> Regards
+> Sebastiano
+>
+>
+> On Thu, Aug 1, 2013 at 4:36 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+>> On Thu, Aug 01, 2013 at 04:34:00PM +0200, Sebastiano Spicuglia wrote:
+>>> [Kernel version from /proc/version ]
+>>>
+>>> Linux version 3.11.0-rc2+ (root@cache.pdbg) (gcc version 4.7.2 (Debian
+>>> 4.7.2-5) ) #5 SMP Thu Aug 1 14:20:35 CEST 2013
+>>
+>> Which commit exactly?
+>>
+>> Thanks,
+>>
+>>   Hannes
+>>
