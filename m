@@ -1,28 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: minimum ICMPv6 message size vs. RPL's DIS
-Date: Thu, 01 Aug 2013 18:10:22 -0700 (PDT)
-Message-ID: <20130801.181022.1784276332134390788.davem@davemloft.net>
-References: <20130725061731.GA12365@order.stressinduktion.org>
-	<20130725103048.GB29572@ws>
-	<20130801054844.GC3688@order.stressinduktion.org>
+Subject: Re: [PATCH 1/3] af_packet: when sending ethernet frames, parse
+ header for skb->protocol
+Date: Thu, 01 Aug 2013 18:12:08 -0700 (PDT)
+Message-ID: <20130801.181208.804928209108880255.davem@davemloft.net>
+References: <1375291667-9572-2-git-send-email-phil@nwl.cc>
+	<20130731.173017.624144247713296239.davem@davemloft.net>
+	<20130801103509.GB27563@orbit.nwl.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: werner@almesberger.net, netdev@vger.kernel.org
-To: hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org
+To: phil@nwl.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56568 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56587 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751022Ab3HBBKX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 21:10:23 -0400
-In-Reply-To: <20130801054844.GC3688@order.stressinduktion.org>
+	with ESMTP id S1753376Ab3HBBMJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Aug 2013 21:12:09 -0400
+In-Reply-To: <20130801103509.GB27563@orbit.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Thu, 1 Aug 2013 07:48:44 +0200
+From: Phil Sutter <phil@nwl.cc>
+Date: Thu, 1 Aug 2013 12:35:09 +0200
 
-> I would go ahead and post this as an offical patch submission now
-> and let David Miller have a look.
+> Is it OK to rely on eth_type_trans() setting skb->dev after all?
 
-FWIW I think this is a safe change.
+Yes, it is.
