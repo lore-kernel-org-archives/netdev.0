@@ -1,66 +1,36 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH ethtool] ethtool: Add string/define to display Port Type
- for Backplane Ethernet
-Date: Fri, 2 Aug 2013 14:40:55 +0200
-Message-ID: <1375447255.11783.9.camel@deadeye.wl.decadent.org.uk>
-References: <4f5874f0-845c-429e-8c14-fc948ed7a2e8@CMEXHTCAS1.ad.emulex.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: changing dev->needed_headroom/needed_tailroom?
+Date: Fri, 02 Aug 2013 06:11:22 -0700
+Message-ID: <1375449082.3927.5.camel@edumazet-glaptop>
+References: <1374850210.8248.59.camel@jlt4.sipsolutions.net>
+	 <1375433758.24371.20.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Somnath Kotur <somnath.kotur@emulex.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56716 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752476Ab3HBMk7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 08:40:59 -0400
-In-Reply-To: <4f5874f0-845c-429e-8c14-fc948ed7a2e8@CMEXHTCAS1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1375433758.24371.20.camel-nDn/Rdv9kqW9Jme8/bJn5UCKIB8iOfG2tUK59QYPAWc@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-08-02 at 10:36 +0530, Somnath Kotur wrote:
-> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
-> ---
->  ethtool-copy.h |    1 +
->  ethtool.c      |    3 +++
->  2 files changed, 4 insertions(+), 0 deletions(-)
-> 
-> diff --git a/ethtool-copy.h b/ethtool-copy.h
-> index b5515c2..33ff7d3 100644
-> --- a/ethtool-copy.h
-> +++ b/ethtool-copy.h
-> @@ -989,6 +989,7 @@ enum ethtool_sfeatures_retval_bits {
->  #define PORT_FIBRE		0x03
->  #define PORT_BNC		0x04
->  #define PORT_DA			0x05
-> +#define PORT_BACKPLANE		0x06
->  #define PORT_NONE		0xef
->  #define PORT_OTHER		0xff
->  
+On Fri, 2013-08-02 at 10:55 +0200, Ben Hutchings wrote:
 
-Needs to be updated in the kernel first.
+> I don't think this is safe when the interface is running (even if
+> carrier is off).  Some functions may read dev->needed_headroom twice and
+> rely on getting the same value each time.
 
-> diff --git a/ethtool.c b/ethtool.c
-> index b24b572..4db42b3 100644
-> --- a/ethtool.c
-> +++ b/ethtool.c
-> @@ -625,6 +625,9 @@ static int dump_ecmd(struct ethtool_cmd *ep)
->  	case PORT_DA:
->  		fprintf(stdout, "Direct Attach Copper\n");
->  		break;
-> +	case PORT_BACKPLANE:
-> +		fprintf(stdout, "BackPlane\n");
-> +		break;
+It should be no problem. Remaining unsafe places should be fixed.
 
-Why the capital P?  I don't think I've seen it written that way before.
+We already had this discussion in the past, and some patches were
+issued. Check commit ae641949df01b85117845bec45328eab6d6fada1
+("net: Remove all uses of LL_ALLOCATED_SPACE")
 
-Ben.
 
->  	case PORT_NONE:
->  		fprintf(stdout, "None\n");
->  		break;
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
