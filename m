@@ -1,43 +1,47 @@
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net-next v3 5/5] qlcnic: Update version to 5.2.45
-Date: Fri, 2 Aug 2013 00:57:43 -0400
-Message-ID: <3e41ed74f4ac1e25852c322a2dca0f269a83b320.1375438720.git.himanshu.madhani@qlogic.com>
-References: <cover.1375438720.git.himanshu.madhani@qlogic.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next] htb: fix sign extension bug
+Date: Thu, 1 Aug 2013 22:32:07 -0700
+Message-ID: <20130801223207.2a9c69e9@nehalam.linuxnetplumber.net>
+References: <20130801211231.1b25c3be@nehalam.linuxnetplumber.net>
+ <ktfdq8$882$1@ger.gmane.org>
+ <20130801221936.24d4b31e@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:25919 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754492Ab3HBFZ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 01:25:28 -0400
-In-Reply-To: <cover.1375438720.git.himanshu.madhani@qlogic.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:50967 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754694Ab3HBFcQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 01:32:16 -0400
+Received: by mail-pa0-f43.google.com with SMTP id hz10so272099pad.2
+        for <netdev@vger.kernel.org>; Thu, 01 Aug 2013 22:32:15 -0700 (PDT)
+In-Reply-To: <20130801221936.24d4b31e@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+When userspace passes a large priority value 
+the assignment of the unsigned value hopt->prio
+to  signed int cl->prio causes cl->prio to become negative and the
+comparison is with TC_HTB_NUMPRIO is always false.
 
-Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+The result is that HTB crashes by referencing outside
+the array when processing packets. With this patch the large value
+wraps around like other values outside the normal range.
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index cd95442..eae41bc 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -37,8 +37,8 @@
+See: https://bugzilla.kernel.org/show_bug.cgi?id=60669
+
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+
+--- a/net/sched/sch_htb.c	2013-06-20 09:22:46.489542435 -0700
++++ b/net/sched/sch_htb.c	2013-08-01 22:12:43.736307055 -0700
+@@ -100,7 +100,7 @@ struct htb_class {
+ 	struct psched_ratecfg	ceil;
+ 	s64			buffer, cbuffer;/* token bucket depth/rate */
+ 	s64			mbuffer;	/* max wait time */
+-	int			prio;		/* these two are used only by leaves... */
++	u32			prio;		/* these two are used only by leaves... */
+ 	int			quantum;	/* but stored for parent-to-leaf return */
  
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 2
--#define _QLCNIC_LINUX_SUBVERSION 44
--#define QLCNIC_LINUX_VERSIONID  "5.2.44"
-+#define _QLCNIC_LINUX_SUBVERSION 45
-+#define QLCNIC_LINUX_VERSIONID  "5.2.45"
- #define QLCNIC_DRV_IDC_VER  0x01
- #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
- 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
--- 
-1.8.1.4
+ 	struct tcf_proto	*filter_list;	/* class attached filters */
