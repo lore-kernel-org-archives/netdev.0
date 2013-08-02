@@ -1,33 +1,77 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v3] r8169: remove "PHY reset until link up" log spam
-Date: Fri, 2 Aug 2013 19:47:54 +0200
-Message-ID: <20130802174754.GA24369@electric-eye.fr.zoreil.com>
-References: <1375432615-7901-1-git-send-email-lekensteyn@gmail.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net-next] cnic, bnx2i: Fix bug on some bnx2x devices
+ that don't support iSCSI
+Date: Fri, 2 Aug 2013 11:28:23 -0700
+Message-ID: <1375468103-12341-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	nic_swsd@realtek.com
-To: Peter Wu <lekensteyn@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
+	"Eddie Wai" <eddie.wai@broadcom.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:50647 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752358Ab3HBRsK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 13:48:10 -0400
-Content-Disposition: inline
-In-Reply-To: <1375432615-7901-1-git-send-email-lekensteyn@gmail.com>
+Received: from mms2.broadcom.com ([216.31.210.18]:4409 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753990Ab3HBSG3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Aug 2013 14:06:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Peter Wu <lekensteyn@gmail.com> :
-> This message was added in commit a7154cb8 (June 2004, [PATCH] r8169:
-> link handling and phy reset rework) and is printed every ten seconds
-> when no cable is connected and runtime power management is disabled.
-> (Before that commit, "Reset RTL8169s PHY" would be printed instead.)
-> 
-> Signed-off-by: Peter Wu <lekensteyn@gmail.com>
+On some bnx2x devices, iSCSI is determined to be unsupported only after
+firmware is downloaded.  We need to check max_iscsi_conn again after
+NETDEV_UP and block iSCSI init operations.  Without this fix, iscsiadm
+can hang as the firmware will not respond to the iSCSI init message.
 
-Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/cnic.c |    7 +++++++
+ drivers/scsi/bnx2i/bnx2i_init.c      |   12 +++++-------
+ 2 files changed, 12 insertions(+), 7 deletions(-)
 
+diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
+index 6bd6d14..4f8a535 100644
+--- a/drivers/net/ethernet/broadcom/cnic.c
++++ b/drivers/net/ethernet/broadcom/cnic.c
+@@ -5276,6 +5276,13 @@ static int cnic_register_netdev(struct cnic_dev *dev)
+ 	if (err)
+ 		netdev_err(dev->netdev, "register_cnic failed\n");
+ 
++	/* Read iSCSI config again.  On some bnx2x device, iSCSI config
++	 * can change after firmware is downloaded.
++	 */
++	dev->max_iscsi_conn = ethdev->max_iscsi_conn;
++	if (ethdev->drv_state & CNIC_DRV_STATE_NO_ISCSI)
++		dev->max_iscsi_conn = 0;
++
+ 	return err;
+ }
+ 
+diff --git a/drivers/scsi/bnx2i/bnx2i_init.c b/drivers/scsi/bnx2i/bnx2i_init.c
+index 50fef69..3104202 100644
+--- a/drivers/scsi/bnx2i/bnx2i_init.c
++++ b/drivers/scsi/bnx2i/bnx2i_init.c
+@@ -172,16 +172,14 @@ void bnx2i_start(void *handle)
+ 	struct bnx2i_hba *hba = handle;
+ 	int i = HZ;
+ 
+-	/*
+-	 * We should never register devices that don't support iSCSI
+-	 * (see bnx2i_init_one), so something is wrong if we try to
+-	 * start a iSCSI adapter on hardware with 0 supported iSCSI
+-	 * connections
++	/* On some bnx2x devices, it is possible that iSCSI is no
++	 * longer supported after firmware is downloaded.  In that
++	 * case, the iscsi_init_msg will return failure.
+ 	 */
+-	BUG_ON(!hba->cnic->max_iscsi_conn);
+ 
+ 	bnx2i_send_fw_iscsi_init_msg(hba);
+-	while (!test_bit(ADAPTER_STATE_UP, &hba->adapter_state) && i--)
++	while (!test_bit(ADAPTER_STATE_UP, &hba->adapter_state) &&
++	       !test_bit(ADAPTER_STATE_INIT_FAILED, &hba->adapter_state) && i--)
+ 		msleep(BNX2I_INIT_POLL_TIME);
+ }
+ 
 -- 
-Ueimor
+1.7.1
