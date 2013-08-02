@@ -1,323 +1,444 @@
-From: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [Patch net-next v2 5/8] sunrpc: use generic union inet_addr
-Date: Fri,  2 Aug 2013 15:14:31 +0800
-Message-ID: <1375427674-21735-6-git-send-email-amwang@redhat.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next v2 6/8] fs: use generic union inet_addr and helper functions
+Date: Fri,  2 Aug 2013 15:14:32 +0800
+Message-ID: <1375427674-21735-7-git-send-email-amwang@redhat.com>
 References: <1375427674-21735-1-git-send-email-amwang@redhat.com>
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1375427674-21735-1-git-send-email-amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Steve French <sfrench@samba.org>,
+	Christine Caulfield <ccaulfie@redhat.com>,
+	David Teigland <teigland@redhat.com>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	linux-cifs@vger.kernel.org, linux-kernel@vger.kernel.org,
+	cluster-devel@redhat.com, linux-nfs@vger.kernel.org,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1375427674-21735-1-git-send-email-amwang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+From: Cong Wang <amwang@redhat.com>
 
-sunrpc defines some helper functions for sockaddr, actually they
-can re-use the generic functions for union inet_addr too.
+nfs and cifs define some helper functions for sockaddr,
+they can use the generic functions for union inet_addr too.
 
-Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Signed-off-by: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Since some dlm code needs to compare ->sin_port, introduce a
+generic function inet_addr_equal_strict() for it.
+
+Cc: Steve French <sfrench@samba.org>
+Cc: Christine Caulfield <ccaulfie@redhat.com>
+Cc: David Teigland <teigland@redhat.com>
+Cc: Trond Myklebust <Trond.Myklebust@netapp.com>
+Cc: linux-cifs@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: cluster-devel@redhat.com
+Cc: linux-nfs@vger.kernel.org
+Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- include/linux/sunrpc/addr.h |  118 +++----------------------------------------
- include/net/inet_addr.h     |   74 +++++++++++++++++++++------
- net/core/utils.c            |   25 +++++++++
- 3 files changed, 89 insertions(+), 128 deletions(-)
+ fs/cifs/connect.c          |   39 ++++--------------
+ fs/dlm/lowcomms.c          |   24 ++---------
+ fs/nfs/client.c            |   94 ++-----------------------------------------
+ fs/nfs/nfs4filelayoutdev.c |   37 ++---------------
+ fs/nfs/super.c             |   31 +-------------
+ include/net/inet_addr.h    |    1 +
+ net/core/utils.c           |   23 +++++++++++
+ 7 files changed, 50 insertions(+), 199 deletions(-)
 
-diff --git a/include/linux/sunrpc/addr.h b/include/linux/sunrpc/addr.h
-index 07d8e53..10d07f6 100644
---- a/include/linux/sunrpc/addr.h
-+++ b/include/linux/sunrpc/addr.h
-@@ -11,6 +11,7 @@
- #include <linux/in.h>
- #include <linux/in6.h>
+diff --git a/fs/cifs/connect.c b/fs/cifs/connect.c
+index fa68813..f5c310e 100644
+--- a/fs/cifs/connect.c
++++ b/fs/cifs/connect.c
+@@ -40,6 +40,7 @@
+ #include <linux/module.h>
+ #include <keys/user-type.h>
+ #include <net/ipv6.h>
++#include <net/inet_addr.h>
+ #include <linux/parser.h>
+ 
+ #include "cifspdu.h"
+@@ -1899,17 +1900,10 @@ srcip_matches(struct sockaddr *srcaddr, struct sockaddr *rhs)
+ {
+ 	switch (srcaddr->sa_family) {
+ 	case AF_UNSPEC:
+-		return (rhs->sa_family == AF_UNSPEC);
+-	case AF_INET: {
+-		struct sockaddr_in *saddr4 = (struct sockaddr_in *)srcaddr;
+-		struct sockaddr_in *vaddr4 = (struct sockaddr_in *)rhs;
+-		return (saddr4->sin_addr.s_addr == vaddr4->sin_addr.s_addr);
+-	}
+-	case AF_INET6: {
+-		struct sockaddr_in6 *saddr6 = (struct sockaddr_in6 *)srcaddr;
+-		struct sockaddr_in6 *vaddr6 = (struct sockaddr_in6 *)rhs;
+-		return ipv6_addr_equal(&saddr6->sin6_addr, &vaddr6->sin6_addr);
+-	}
++	case AF_INET:
++	case AF_INET6:
++		return inet_addr_equal((union inet_addr *)srcaddr,
++				       (union inet_addr *)rhs);
+ 	default:
+ 		WARN_ON(1);
+ 		return false; /* don't expect to be here */
+@@ -1956,27 +1950,12 @@ match_address(struct TCP_Server_Info *server, struct sockaddr *addr,
+ 	      struct sockaddr *srcaddr)
+ {
+ 	switch (addr->sa_family) {
+-	case AF_INET: {
+-		struct sockaddr_in *addr4 = (struct sockaddr_in *)addr;
+-		struct sockaddr_in *srv_addr4 =
+-					(struct sockaddr_in *)&server->dstaddr;
+-
+-		if (addr4->sin_addr.s_addr != srv_addr4->sin_addr.s_addr)
+-			return false;
+-		break;
+-	}
+-	case AF_INET6: {
+-		struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)addr;
+-		struct sockaddr_in6 *srv_addr6 =
+-					(struct sockaddr_in6 *)&server->dstaddr;
+-
+-		if (!ipv6_addr_equal(&addr6->sin6_addr,
+-				     &srv_addr6->sin6_addr))
+-			return false;
+-		if (addr6->sin6_scope_id != srv_addr6->sin6_scope_id)
++	case AF_INET:
++	case AF_INET6:
++		if (!inet_addr_equal((union inet_addr *)addr,
++				     (union inet_addr *)&server->dstaddr))
+ 			return false;
+ 		break;
+-	}
+ 	default:
+ 		WARN_ON(1);
+ 		return false; /* don't expect to be here */
+diff --git a/fs/dlm/lowcomms.c b/fs/dlm/lowcomms.c
+index d90909e..c051237 100644
+--- a/fs/dlm/lowcomms.c
++++ b/fs/dlm/lowcomms.c
+@@ -54,6 +54,7 @@
+ #include <linux/slab.h>
+ #include <net/sctp/sctp.h>
  #include <net/ipv6.h>
 +#include <net/inet_addr.h>
  
- size_t		rpc_ntop(const struct sockaddr *, char *, const size_t);
- size_t		rpc_pton(struct net *, const char *, const size_t,
-@@ -21,135 +22,30 @@ size_t		rpc_uaddr2sockaddr(struct net *, const char *, const size_t,
- 
- static inline unsigned short rpc_get_port(const struct sockaddr *sap)
+ #include "dlm_internal.h"
+ #include "lowcomms.h"
+@@ -286,28 +287,13 @@ static struct dlm_node_addr *find_node_addr(int nodeid)
+ static int addr_compare(struct sockaddr_storage *x, struct sockaddr_storage *y)
  {
--	switch (sap->sa_family) {
--	case AF_INET:
--		return ntohs(((struct sockaddr_in *)sap)->sin_port);
--	case AF_INET6:
--		return ntohs(((struct sockaddr_in6 *)sap)->sin6_port);
--	}
--	return 0;
-+	return inet_addr_get_port((const union inet_addr *)sap);
- }
- 
- static inline void rpc_set_port(struct sockaddr *sap,
- 				const unsigned short port)
- {
--	switch (sap->sa_family) {
--	case AF_INET:
--		((struct sockaddr_in *)sap)->sin_port = htons(port);
--		break;
--	case AF_INET6:
--		((struct sockaddr_in6 *)sap)->sin6_port = htons(port);
+ 	switch (x->ss_family) {
+-	case AF_INET: {
+-		struct sockaddr_in *sinx = (struct sockaddr_in *)x;
+-		struct sockaddr_in *siny = (struct sockaddr_in *)y;
+-		if (sinx->sin_addr.s_addr != siny->sin_addr.s_addr)
+-			return 0;
+-		if (sinx->sin_port != siny->sin_port)
+-			return 0;
 -		break;
 -	}
-+	inet_addr_set_port((union inet_addr *)sap, port);
+-	case AF_INET6: {
+-		struct sockaddr_in6 *sinx = (struct sockaddr_in6 *)x;
+-		struct sockaddr_in6 *siny = (struct sockaddr_in6 *)y;
+-		if (!ipv6_addr_equal(&sinx->sin6_addr, &siny->sin6_addr))
+-			return 0;
+-		if (sinx->sin6_port != siny->sin6_port)
+-			return 0;
+-		break;
+-	}
++	case AF_INET:
++	case AF_INET6:
++		return inet_addr_equal_strict((union inet_addr *)x,
++					      (union inet_addr *)y);
+ 	default:
+ 		return 0;
+ 	}
+-	return 1;
  }
  
- #define IPV6_SCOPE_DELIMITER		'%'
- #define IPV6_SCOPE_ID_LEN		sizeof("%nnnnnnnnnn")
+ static int nodeid_to_addr(int nodeid, struct sockaddr_storage *sas_out,
+diff --git a/fs/nfs/client.c b/fs/nfs/client.c
+index 340b1ef..a050be6 100644
+--- a/fs/nfs/client.c
++++ b/fs/nfs/client.c
+@@ -38,6 +38,7 @@
+ #include <linux/slab.h>
+ #include <linux/idr.h>
+ #include <net/ipv6.h>
++#include <net/inet_addr.h>
+ #include <linux/nfs_xdr.h>
+ #include <linux/sunrpc/bc_xprt.h>
+ #include <linux/nsproxy.h>
+@@ -283,75 +284,6 @@ void nfs_put_client(struct nfs_client *clp)
+ }
+ EXPORT_SYMBOL_GPL(nfs_put_client);
  
--static inline bool __rpc_cmp_addr4(const struct sockaddr *sap1,
--				   const struct sockaddr *sap2)
+-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+-/*
+- * Test if two ip6 socket addresses refer to the same socket by
+- * comparing relevant fields. The padding bytes specifically, are not
+- * compared. sin6_flowinfo is not compared because it only affects QoS
+- * and sin6_scope_id is only compared if the address is "link local"
+- * because "link local" addresses need only be unique to a specific
+- * link. Conversely, ordinary unicast addresses might have different
+- * sin6_scope_id.
+- *
+- * The caller should ensure both socket addresses are AF_INET6.
+- */
+-static int nfs_sockaddr_match_ipaddr6(const struct sockaddr *sa1,
+-				      const struct sockaddr *sa2)
 -{
--	const struct sockaddr_in *sin1 = (const struct sockaddr_in *)sap1;
--	const struct sockaddr_in *sin2 = (const struct sockaddr_in *)sap2;
+-	const struct sockaddr_in6 *sin1 = (const struct sockaddr_in6 *)sa1;
+-	const struct sockaddr_in6 *sin2 = (const struct sockaddr_in6 *)sa2;
+-
+-	if (!ipv6_addr_equal(&sin1->sin6_addr, &sin2->sin6_addr))
+-		return 0;
+-	else if (ipv6_addr_type(&sin1->sin6_addr) & IPV6_ADDR_LINKLOCAL)
+-		return sin1->sin6_scope_id == sin2->sin6_scope_id;
+-
+-	return 1;
+-}
+-#else	/* !defined(CONFIG_IPV6) && !defined(CONFIG_IPV6_MODULE) */
+-static int nfs_sockaddr_match_ipaddr6(const struct sockaddr *sa1,
+-				      const struct sockaddr *sa2)
+-{
+-	return 0;
+-}
+-#endif
+-
+-/*
+- * Test if two ip4 socket addresses refer to the same socket, by
+- * comparing relevant fields. The padding bytes specifically, are
+- * not compared.
+- *
+- * The caller should ensure both socket addresses are AF_INET.
+- */
+-static int nfs_sockaddr_match_ipaddr4(const struct sockaddr *sa1,
+-				      const struct sockaddr *sa2)
+-{
+-	const struct sockaddr_in *sin1 = (const struct sockaddr_in *)sa1;
+-	const struct sockaddr_in *sin2 = (const struct sockaddr_in *)sa2;
 -
 -	return sin1->sin_addr.s_addr == sin2->sin_addr.s_addr;
 -}
 -
--static inline bool __rpc_copy_addr4(struct sockaddr *dst,
--				    const struct sockaddr *src)
+-static int nfs_sockaddr_cmp_ip6(const struct sockaddr *sa1,
+-				const struct sockaddr *sa2)
 -{
--	const struct sockaddr_in *ssin = (struct sockaddr_in *) src;
--	struct sockaddr_in *dsin = (struct sockaddr_in *) dst;
+-	const struct sockaddr_in6 *sin1 = (const struct sockaddr_in6 *)sa1;
+-	const struct sockaddr_in6 *sin2 = (const struct sockaddr_in6 *)sa2;
 -
--	dsin->sin_family = ssin->sin_family;
--	dsin->sin_addr.s_addr = ssin->sin_addr.s_addr;
--	return true;
+-	return nfs_sockaddr_match_ipaddr6(sa1, sa2) &&
+-		(sin1->sin6_port == sin2->sin6_port);
 -}
 -
--#if IS_ENABLED(CONFIG_IPV6)
--static inline bool __rpc_cmp_addr6(const struct sockaddr *sap1,
--				   const struct sockaddr *sap2)
+-static int nfs_sockaddr_cmp_ip4(const struct sockaddr *sa1,
+-				const struct sockaddr *sa2)
 -{
--	const struct sockaddr_in6 *sin1 = (const struct sockaddr_in6 *)sap1;
--	const struct sockaddr_in6 *sin2 = (const struct sockaddr_in6 *)sap2;
+-	const struct sockaddr_in *sin1 = (const struct sockaddr_in *)sa1;
+-	const struct sockaddr_in *sin2 = (const struct sockaddr_in *)sa2;
 -
--	if (!ipv6_addr_equal(&sin1->sin6_addr, &sin2->sin6_addr))
--		return false;
--	else if (ipv6_addr_type(&sin1->sin6_addr) & IPV6_ADDR_LINKLOCAL)
--		return sin1->sin6_scope_id == sin2->sin6_scope_id;
--
--	return true;
+-	return nfs_sockaddr_match_ipaddr4(sa1, sa2) &&
+-		(sin1->sin_port == sin2->sin_port);
 -}
 -
--static inline bool __rpc_copy_addr6(struct sockaddr *dst,
--				    const struct sockaddr *src)
--{
--	const struct sockaddr_in6 *ssin6 = (const struct sockaddr_in6 *) src;
--	struct sockaddr_in6 *dsin6 = (struct sockaddr_in6 *) dst;
--
--	dsin6->sin6_family = ssin6->sin6_family;
--	dsin6->sin6_addr = ssin6->sin6_addr;
--	dsin6->sin6_scope_id = ssin6->sin6_scope_id;
--	return true;
--}
--#else	/* !(IS_ENABLED(CONFIG_IPV6) */
--static inline bool __rpc_cmp_addr6(const struct sockaddr *sap1,
--				   const struct sockaddr *sap2)
--{
--	return false;
--}
--
--static inline bool __rpc_copy_addr6(struct sockaddr *dst,
--				    const struct sockaddr *src)
--{
--	return false;
--}
--#endif	/* !(IS_ENABLED(CONFIG_IPV6) */
--
--/**
-- * rpc_cmp_addr - compare the address portion of two sockaddrs.
-- * @sap1: first sockaddr
-- * @sap2: second sockaddr
-- *
-- * Just compares the family and address portion. Ignores port, but
-- * compares the scope if it's a link-local address.
-- *
-- * Returns true if the addrs are equal, false if they aren't.
-- */
- static inline bool rpc_cmp_addr(const struct sockaddr *sap1,
- 				const struct sockaddr *sap2)
+ #if defined(CONFIG_NFS_V4_1)
+ /*
+  * Test if two socket addresses represent the same actual socket,
+@@ -360,16 +292,8 @@ static int nfs_sockaddr_cmp_ip4(const struct sockaddr *sa1,
+ int nfs_sockaddr_match_ipaddr(const struct sockaddr *sa1,
+ 			      const struct sockaddr *sa2)
  {
--	if (sap1->sa_family == sap2->sa_family) {
--		switch (sap1->sa_family) {
--		case AF_INET:
--			return __rpc_cmp_addr4(sap1, sap2);
--		case AF_INET6:
--			return __rpc_cmp_addr6(sap1, sap2);
--		}
--	}
--	return false;
-+	return inet_addr_equal((const union inet_addr *)sap1,
-+			       (const union inet_addr *)sap2);
- }
- 
--/**
-- * rpc_copy_addr - copy the address portion of one sockaddr to another
-- * @dst: destination sockaddr
-- * @src: source sockaddr
-- *
-- * Just copies the address portion and family. Ignores port, scope, etc.
-- * Caller is responsible for making certain that dst is large enough to hold
-- * the address in src. Returns true if address family is supported. Returns
-- * false otherwise.
-- */
- static inline bool rpc_copy_addr(struct sockaddr *dst,
- 				 const struct sockaddr *src)
- {
--	switch (src->sa_family) {
+-	if (sa1->sa_family != sa2->sa_family)
+-		return 0;
+-
+-	switch (sa1->sa_family) {
 -	case AF_INET:
--		return __rpc_copy_addr4(dst, src);
+-		return nfs_sockaddr_match_ipaddr4(sa1, sa2);
 -	case AF_INET6:
--		return __rpc_copy_addr6(dst, src);
+-		return nfs_sockaddr_match_ipaddr6(sa1, sa2);
 -	}
--	return false;
-+	return inet_addr_copy((union inet_addr *)dst,
-+			      (const union inet_addr *)src);
+-	return 0;
++	return inet_addr_equal((const union inet_addr *)sa1,
++			       (const union inet_addr *)sa2);
+ }
+ EXPORT_SYMBOL_GPL(nfs_sockaddr_match_ipaddr);
+ #endif /* CONFIG_NFS_V4_1 */
+@@ -381,16 +305,8 @@ EXPORT_SYMBOL_GPL(nfs_sockaddr_match_ipaddr);
+ static int nfs_sockaddr_cmp(const struct sockaddr *sa1,
+ 			    const struct sockaddr *sa2)
+ {
+-	if (sa1->sa_family != sa2->sa_family)
+-		return 0;
+-
+-	switch (sa1->sa_family) {
+-	case AF_INET:
+-		return nfs_sockaddr_cmp_ip4(sa1, sa2);
+-	case AF_INET6:
+-		return nfs_sockaddr_cmp_ip6(sa1, sa2);
+-	}
+-	return 0;
++	return inet_addr_equal_strict((union inet_addr *)sa1,
++				      (union inet_addr *)sa2);
  }
  
- /**
+ /*
+diff --git a/fs/nfs/nfs4filelayoutdev.c b/fs/nfs/nfs4filelayoutdev.c
+index 95604f6..955494cb 100644
+--- a/fs/nfs/nfs4filelayoutdev.c
++++ b/fs/nfs/nfs4filelayoutdev.c
+@@ -32,6 +32,7 @@
+ #include <linux/vmalloc.h>
+ #include <linux/module.h>
+ #include <linux/sunrpc/addr.h>
++#include <net/inet_addr.h>
+ 
+ #include "internal.h"
+ #include "nfs4session.h"
+@@ -74,44 +75,14 @@ print_ds(struct nfs4_pnfs_ds *ds)
+ static bool
+ same_sockaddr(struct sockaddr *addr1, struct sockaddr *addr2)
+ {
+-	struct sockaddr_in *a, *b;
+-	struct sockaddr_in6 *a6, *b6;
+-
+-	if (addr1->sa_family != addr2->sa_family)
+-		return false;
+-
+-	switch (addr1->sa_family) {
+-	case AF_INET:
+-		a = (struct sockaddr_in *)addr1;
+-		b = (struct sockaddr_in *)addr2;
+-
+-		if (a->sin_addr.s_addr == b->sin_addr.s_addr &&
+-		    a->sin_port == b->sin_port)
+-			return true;
+-		break;
+-
+-	case AF_INET6:
+-		a6 = (struct sockaddr_in6 *)addr1;
+-		b6 = (struct sockaddr_in6 *)addr2;
+-
+-		/* LINKLOCAL addresses must have matching scope_id */
+-		if (ipv6_addr_scope(&a6->sin6_addr) ==
+-		    IPV6_ADDR_SCOPE_LINKLOCAL &&
+-		    a6->sin6_scope_id != b6->sin6_scope_id)
+-			return false;
+-
+-		if (ipv6_addr_equal(&a6->sin6_addr, &b6->sin6_addr) &&
+-		    a6->sin6_port == b6->sin6_port)
+-			return true;
+-		break;
+-
+-	default:
++	if (addr1->sa_family != AF_INET && addr1->sa_family != AF_INET6) {
+ 		dprintk("%s: unhandled address family: %u\n",
+ 			__func__, addr1->sa_family);
+ 		return false;
+ 	}
+ 
+-	return false;
++	return inet_addr_equal_strict((union inet_addr *)addr1,
++				      (union inet_addr *)addr2);
+ }
+ 
+ static bool
+diff --git a/fs/nfs/super.c b/fs/nfs/super.c
+index 71fdc0d..f7d5914 100644
+--- a/fs/nfs/super.c
++++ b/fs/nfs/super.c
+@@ -49,6 +49,7 @@
+ #include <linux/in6.h>
+ #include <linux/slab.h>
+ #include <net/ipv6.h>
++#include <net/inet_addr.h>
+ #include <linux/netdevice.h>
+ #include <linux/nfs_xdr.h>
+ #include <linux/magic.h>
+@@ -2335,34 +2336,8 @@ static int nfs_compare_super_address(struct nfs_server *server1,
+ 
+ 	sap1 = (struct sockaddr *)&server1->nfs_client->cl_addr;
+ 	sap2 = (struct sockaddr *)&server2->nfs_client->cl_addr;
+-
+-	if (sap1->sa_family != sap2->sa_family)
+-		return 0;
+-
+-	switch (sap1->sa_family) {
+-	case AF_INET: {
+-		struct sockaddr_in *sin1 = (struct sockaddr_in *)sap1;
+-		struct sockaddr_in *sin2 = (struct sockaddr_in *)sap2;
+-		if (sin1->sin_addr.s_addr != sin2->sin_addr.s_addr)
+-			return 0;
+-		if (sin1->sin_port != sin2->sin_port)
+-			return 0;
+-		break;
+-	}
+-	case AF_INET6: {
+-		struct sockaddr_in6 *sin1 = (struct sockaddr_in6 *)sap1;
+-		struct sockaddr_in6 *sin2 = (struct sockaddr_in6 *)sap2;
+-		if (!ipv6_addr_equal(&sin1->sin6_addr, &sin2->sin6_addr))
+-			return 0;
+-		if (sin1->sin6_port != sin2->sin6_port)
+-			return 0;
+-		break;
+-	}
+-	default:
+-		return 0;
+-	}
+-
+-	return 1;
++	return inet_addr_equal_strict((union inet_addr *)sap1,
++				      (union inet_addr *)sap2);
+ }
+ 
+ static int nfs_compare_super(struct super_block *sb, void *data)
 diff --git a/include/net/inet_addr.h b/include/net/inet_addr.h
-index ee80df4..e846050 100644
+index e846050..2fab98c 100644
 --- a/include/net/inet_addr.h
 +++ b/include/net/inet_addr.h
-@@ -36,17 +36,6 @@ bool in_addr_gen_equal(const struct in_addr_gen *a, const struct in_addr_gen *b)
+@@ -122,6 +122,7 @@ void inet_addr_set_port(union inet_addr *sap,
  }
  
- #if IS_ENABLED(CONFIG_IPV6)
--static inline
--bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b)
--{
--	if (a->sa.sa_family != b->sa.sa_family)
--		return false;
--	if (a->sa.sa_family == AF_INET6)
--		return ipv6_addr_equal(&a->sin6.sin6_addr, &b->sin6.sin6_addr);
--	else
--		return a->sin.sin_addr.s_addr == b->sin.sin_addr.s_addr;
--}
--
- static inline bool inet_addr_any(const union inet_addr *ipa)
- {
- 	if (ipa->sa.sa_family == AF_INET6)
-@@ -65,12 +54,6 @@ static inline bool inet_addr_multicast(const union inet_addr *ipa)
- 
- #else /* !CONFIG_IPV6 */
- 
--static inline
--bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b)
--{
--	return a->sin.sin_addr.s_addr == b->sin.sin_addr.s_addr;
--}
--
- static inline bool inet_addr_any(const union inet_addr *ipa)
- {
- 	return ipa->sin.sin_addr.s_addr == htonl(INADDR_ANY);
-@@ -82,6 +65,63 @@ static inline bool inet_addr_multicast(const union inet_addr *ipa)
- }
- #endif
- 
-+/**
-+ * inet_addr_copy - copy the address portion of one inet_addr to another
-+ * @dst: destination sockaddr
-+ * @src: source sockaddr
-+ *
-+ * Just copies the address portion and family. Ignores port, scope, etc.
-+ * Caller is responsible for making certain that dst is large enough to hold
-+ * the address in src. Returns true if address family is supported. Returns
-+ * false otherwise.
-+ */
-+static inline bool inet_addr_copy(union inet_addr *dst,
-+				  const union inet_addr *src)
-+{
-+	dst->sa.sa_family = src->sa.sa_family;
-+
-+	switch (src->sa.sa_family) {
-+	case AF_INET:
-+		dst->sin.sin_addr.s_addr = src->sin.sin_addr.s_addr;
-+		return true;
-+#if IS_ENABLED(CONFIG_IPV6)
-+	case AF_INET6:
-+		dst->sin6.sin6_addr = src->sin6.sin6_addr;
-+		dst->sin6.sin6_scope_id = src->sin6.sin6_scope_id;
-+		return true;
-+#endif
-+	}
-+
-+	return false;
-+}
-+
-+static inline
-+unsigned short inet_addr_get_port(const union inet_addr *sap)
-+{
-+	switch (sap->sa.sa_family) {
-+	case AF_INET:
-+		return ntohs(sap->sin.sin_port);
-+	case AF_INET6:
-+		return ntohs(sap->sin6.sin6_port);
-+	}
-+	return 0;
-+}
-+
-+static inline
-+void inet_addr_set_port(union inet_addr *sap,
-+			const unsigned short port)
-+{
-+	switch (sap->sa.sa_family) {
-+	case AF_INET:
-+		sap->sin.sin_port = htons(port);
-+		break;
-+	case AF_INET6:
-+		sap->sin6.sin6_port = htons(port);
-+		break;
-+	}
-+}
-+
-+bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b);
+ bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b);
++bool inet_addr_equal_strict(const union inet_addr *a, const union inet_addr *b);
  int simple_inet_pton(const char *str, union inet_addr *addr);
  
  #endif
 diff --git a/net/core/utils.c b/net/core/utils.c
-index 22dd621..837bb18 100644
+index 837bb18..489bc8d 100644
 --- a/net/core/utils.c
 +++ b/net/core/utils.c
-@@ -374,3 +374,28 @@ int simple_inet_pton(const char *str, union inet_addr *addr)
- 	return -EINVAL;
- }
- EXPORT_SYMBOL(simple_inet_pton);
-+
-+#if IS_ENABLED(CONFIG_IPV6)
-+bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b)
-+{
-+	if (a->sa.sa_family != b->sa.sa_family)
-+		return false;
-+	else if (a->sa.sa_family == AF_INET6) {
-+		if (!ipv6_addr_equal(&a->sin6.sin6_addr, &b->sin6.sin6_addr))
-+			return false;
-+		else if (__ipv6_addr_needs_scope_id(__ipv6_addr_type(&a->sin6.sin6_addr)))
-+			return a->sin6.sin6_scope_id == b->sin6.sin6_scope_id;
-+		else
-+			return true;
-+	} else
-+		return a->sin.sin_addr.s_addr == b->sin.sin_addr.s_addr;
-+}
-+#else
-+bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b)
-+{
+@@ -380,6 +380,8 @@ bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b)
+ {
+ 	if (a->sa.sa_family != b->sa.sa_family)
+ 		return false;
 +	if (a->sa.sa_family == AF_UNSPEC)
-+		return a->sa.sa_family == b->sa.sa_family;
-+	return a->sin.sin_addr.s_addr == b->sin.sin_addr.s_addr;
-+}
++		return true;
+ 	else if (a->sa.sa_family == AF_INET6) {
+ 		if (!ipv6_addr_equal(&a->sin6.sin6_addr, &b->sin6.sin6_addr))
+ 			return false;
+@@ -399,3 +401,24 @@ bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b)
+ }
+ #endif
+ EXPORT_SYMBOL(inet_addr_equal);
++
++/*
++ * Unlike inet_addr_equal(), this function compares ->sin_port too.
++ */
++bool inet_addr_equal_strict(const union inet_addr *a, const union inet_addr *b)
++{
++	if (inet_addr_equal(a, b)) {
++		switch (a->sa.sa_family) {
++#if IS_ENABLED(CONFIG_IPV6)
++		case AF_INET6:
++			return a->sin6.sin6_port == b->sin6.sin6_port;
 +#endif
-+EXPORT_SYMBOL(inet_addr_equal);
++		case AF_INET:
++			return a->sin.sin_port == b->sin.sin_port;
++		default:
++			return true;
++		}
++	} else
++		return false;
++}
++EXPORT_SYMBOL(inet_addr_equal_strict);
 -- 
 1.7.7.6
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
