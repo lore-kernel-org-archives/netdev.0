@@ -1,909 +1,312 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v2 8/8] selinux: use generic union inet_addr
-Date: Fri,  2 Aug 2013 15:14:34 +0800
-Message-ID: <1375427674-21735-9-git-send-email-amwang@redhat.com>
+Subject: [Patch net-next v2 4/8] bridge: use generic struct in_addr_gen
+Date: Fri,  2 Aug 2013 15:14:30 +0800
+Message-ID: <1375427674-21735-5-git-send-email-amwang@redhat.com>
 References: <1375427674-21735-1-git-send-email-amwang@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	James Morris <james.l.morris@oracle.com>,
-	Stephen Smalley <sds@tycho.nsa.gov>,
-	Eric Paris <eparis@parisplace.org>,
-	Paul Moore <pmoore@redhat.com>, linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
 	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45007 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755100Ab3HBHPI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Aug 2013 03:15:08 -0400
 In-Reply-To: <1375427674-21735-1-git-send-email-amwang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Cong Wang <amwang@redhat.com>
 
-selinux has some similar definition like union inet_addr,
-it can re-use the generic union inet_addr too.
-
-Cc: James Morris <james.l.morris@oracle.com>
-Cc: Stephen Smalley <sds@tycho.nsa.gov>
-Cc: Eric Paris <eparis@parisplace.org>
-Cc: Paul Moore <pmoore@redhat.com>
-Cc: linux-kernel@vger.kernel.org
-Cc: linux-security-module@vger.kernel.org
+Cc: Stephen Hemminger <stephen@networkplumber.org>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- include/linux/lsm_audit.h          |   19 +-----
- security/lsm_audit.c               |   58 ++++++++--------
- security/selinux/hooks.c           |  130 +++++++++++++++++-------------------
- security/selinux/include/netnode.h |    4 +-
- security/selinux/include/objsec.h  |    7 +--
- security/selinux/netnode.c         |  102 ++++++++--------------------
- security/smack/smack_lsm.c         |   19 +++---
- 7 files changed, 138 insertions(+), 201 deletions(-)
+ net/bridge/br_mdb.c       |   53 ++++++++++++++++++------------------
+ net/bridge/br_multicast.c |   65 +++++++++++++++++++-------------------------
+ net/bridge/br_private.h   |    9 +-----
+ 3 files changed, 57 insertions(+), 70 deletions(-)
 
-diff --git a/include/linux/lsm_audit.h b/include/linux/lsm_audit.h
-index 1cc89e9..48cab1e 100644
---- a/include/linux/lsm_audit.h
-+++ b/include/linux/lsm_audit.h
-@@ -21,23 +21,13 @@
- #include <linux/path.h>
- #include <linux/key.h>
- #include <linux/skbuff.h>
-+#include <net/inet_addr.h>
+diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+index 0daae3e..3fad730 100644
+--- a/net/bridge/br_mdb.c
++++ b/net/bridge/br_mdb.c
+@@ -13,6 +13,29 @@
  
- struct lsm_network_audit {
- 	int netif;
- 	struct sock *sk;
--	u16 family;
--	__be16 dport;
--	__be16 sport;
--	union {
--		struct {
--			__be32 daddr;
--			__be32 saddr;
--		} v4;
--		struct {
--			struct in6_addr daddr;
--			struct in6_addr saddr;
--		} v6;
--	} fam;
-+	union inet_addr saddr;
-+	union inet_addr daddr;
- };
+ #include "br_private.h"
  
- /* Auxiliary data to use in generating the audit record. */
-@@ -83,9 +73,6 @@ struct common_audit_data {
- 	}; /* per LSM data pointer union */
- };
- 
--#define v4info fam.v4
--#define v6info fam.v6
--
- int ipv4_skb_to_auditdata(struct sk_buff *skb,
- 		struct common_audit_data *ad, u8 *proto);
- 
-diff --git a/security/lsm_audit.c b/security/lsm_audit.c
-index 8d8d97d..244c2a1 100644
---- a/security/lsm_audit.c
-+++ b/security/lsm_audit.c
-@@ -49,8 +49,8 @@ int ipv4_skb_to_auditdata(struct sk_buff *skb,
- 	if (ih == NULL)
- 		return -EINVAL;
- 
--	ad->u.net->v4info.saddr = ih->saddr;
--	ad->u.net->v4info.daddr = ih->daddr;
-+	ad->u.net->saddr.sin.sin_addr.s_addr = ih->saddr;
-+	ad->u.net->daddr.sin.sin_addr.s_addr = ih->daddr;
- 
- 	if (proto)
- 		*proto = ih->protocol;
-@@ -64,8 +64,8 @@ int ipv4_skb_to_auditdata(struct sk_buff *skb,
- 		if (th == NULL)
- 			break;
- 
--		ad->u.net->sport = th->source;
--		ad->u.net->dport = th->dest;
-+		inet_addr_set_port(&ad->u.net->saddr, ntohs(th->source));
-+		inet_addr_set_port(&ad->u.net->daddr, ntohs(th->dest));
- 		break;
- 	}
- 	case IPPROTO_UDP: {
-@@ -73,8 +73,8 @@ int ipv4_skb_to_auditdata(struct sk_buff *skb,
- 		if (uh == NULL)
- 			break;
- 
--		ad->u.net->sport = uh->source;
--		ad->u.net->dport = uh->dest;
-+		inet_addr_set_port(&ad->u.net->saddr, ntohs(uh->source));
-+		inet_addr_set_port(&ad->u.net->daddr, ntohs(uh->dest));
- 		break;
- 	}
- 	case IPPROTO_DCCP: {
-@@ -82,16 +82,16 @@ int ipv4_skb_to_auditdata(struct sk_buff *skb,
- 		if (dh == NULL)
- 			break;
- 
--		ad->u.net->sport = dh->dccph_sport;
--		ad->u.net->dport = dh->dccph_dport;
-+		inet_addr_set_port(&ad->u.net->saddr, ntohs(dh->dccph_sport));
-+		inet_addr_set_port(&ad->u.net->daddr, ntohs(dh->dccph_dport));
- 		break;
- 	}
- 	case IPPROTO_SCTP: {
- 		struct sctphdr *sh = sctp_hdr(skb);
- 		if (sh == NULL)
- 			break;
--		ad->u.net->sport = sh->source;
--		ad->u.net->dport = sh->dest;
-+		inet_addr_set_port(&ad->u.net->saddr, ntohs(sh->source));
-+		inet_addr_set_port(&ad->u.net->daddr, ntohs(sh->dest));
- 		break;
- 	}
- 	default:
-@@ -119,8 +119,8 @@ int ipv6_skb_to_auditdata(struct sk_buff *skb,
- 	ip6 = ipv6_hdr(skb);
- 	if (ip6 == NULL)
- 		return -EINVAL;
--	ad->u.net->v6info.saddr = ip6->saddr;
--	ad->u.net->v6info.daddr = ip6->daddr;
-+	ad->u.net->saddr.sin6.sin6_addr = ip6->saddr;
-+	ad->u.net->daddr.sin6.sin6_addr = ip6->daddr;
- 	ret = 0;
- 	/* IPv6 can have several extension header before the Transport header
- 	 * skip them */
-@@ -140,8 +140,8 @@ int ipv6_skb_to_auditdata(struct sk_buff *skb,
- 		if (th == NULL)
- 			break;
- 
--		ad->u.net->sport = th->source;
--		ad->u.net->dport = th->dest;
-+		inet_addr_set_port(&ad->u.net->saddr, ntohs(th->source));
-+		inet_addr_set_port(&ad->u.net->daddr, ntohs(th->dest));
- 		break;
- 	}
- 	case IPPROTO_UDP: {
-@@ -151,8 +151,8 @@ int ipv6_skb_to_auditdata(struct sk_buff *skb,
- 		if (uh == NULL)
- 			break;
- 
--		ad->u.net->sport = uh->source;
--		ad->u.net->dport = uh->dest;
-+		inet_addr_set_port(&ad->u.net->saddr, ntohs(uh->source));
-+		inet_addr_set_port(&ad->u.net->daddr, ntohs(uh->dest));
- 		break;
- 	}
- 	case IPPROTO_DCCP: {
-@@ -162,8 +162,8 @@ int ipv6_skb_to_auditdata(struct sk_buff *skb,
- 		if (dh == NULL)
- 			break;
- 
--		ad->u.net->sport = dh->dccph_sport;
--		ad->u.net->dport = dh->dccph_dport;
-+		inet_addr_set_port(&ad->u.net->saddr, ntohs(dh->dccph_sport));
-+		inet_addr_set_port(&ad->u.net->daddr, ntohs(dh->dccph_dport));
- 		break;
- 	}
- 	case IPPROTO_SCTP: {
-@@ -172,8 +172,8 @@ int ipv6_skb_to_auditdata(struct sk_buff *skb,
- 		sh = skb_header_pointer(skb, offset, sizeof(_sctph), &_sctph);
- 		if (sh == NULL)
- 			break;
--		ad->u.net->sport = sh->source;
--		ad->u.net->dport = sh->dest;
-+		inet_addr_set_port(&ad->u.net->saddr, ntohs(sh->source));
-+		inet_addr_set_port(&ad->u.net->daddr, ntohs(sh->dest));
- 		break;
- 	}
- 	default:
-@@ -333,21 +333,21 @@ static void dump_common_audit_data(struct audit_buffer *ab,
- 			}
- 		}
- 
--		switch (a->u.net->family) {
-+		switch (a->u.net->saddr.sa.sa_family) {
- 		case AF_INET:
--			print_ipv4_addr(ab, a->u.net->v4info.saddr,
--					a->u.net->sport,
-+			print_ipv4_addr(ab, a->u.net->saddr.sin.sin_addr.s_addr,
-+					a->u.net->saddr.sin.sin_port,
- 					"saddr", "src");
--			print_ipv4_addr(ab, a->u.net->v4info.daddr,
--					a->u.net->dport,
-+			print_ipv4_addr(ab, a->u.net->daddr.sin.sin_addr.s_addr,
-+					a->u.net->daddr.sin.sin_port,
- 					"daddr", "dest");
- 			break;
- 		case AF_INET6:
--			print_ipv6_addr(ab, &a->u.net->v6info.saddr,
--					a->u.net->sport,
-+			print_ipv6_addr(ab, &a->u.net->saddr.sin6.sin6_addr,
-+					a->u.net->saddr.sin.sin_port,
- 					"saddr", "src");
--			print_ipv6_addr(ab, &a->u.net->v6info.daddr,
--					a->u.net->dport,
-+			print_ipv6_addr(ab, &a->u.net->daddr.sin6.sin6_addr,
-+					a->u.net->daddr.sin.sin_port,
- 					"daddr", "dest");
- 			break;
- 		}
-diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index c956390..f9959c0 100644
---- a/security/selinux/hooks.c
-+++ b/security/selinux/hooks.c
-@@ -3595,8 +3595,8 @@ static int selinux_parse_skb_ipv4(struct sk_buff *skb,
- 	if (ihlen < sizeof(_iph))
- 		goto out;
- 
--	ad->u.net->v4info.saddr = ih->saddr;
--	ad->u.net->v4info.daddr = ih->daddr;
-+	ad->u.net->saddr.sin.sin_addr.s_addr = ih->saddr;
-+	ad->u.net->daddr.sin.sin_addr.s_addr = ih->daddr;
- 	ret = 0;
- 
- 	if (proto)
-@@ -3614,8 +3614,8 @@ static int selinux_parse_skb_ipv4(struct sk_buff *skb,
- 		if (th == NULL)
- 			break;
- 
--		ad->u.net->sport = th->source;
--		ad->u.net->dport = th->dest;
-+		inet_addr_set_port(&ad->u.net->saddr, ntohs(th->source));
-+		inet_addr_set_port(&ad->u.net->daddr, ntohs(th->dest));
- 		break;
- 	}
- 
-@@ -3630,8 +3630,8 @@ static int selinux_parse_skb_ipv4(struct sk_buff *skb,
- 		if (uh == NULL)
- 			break;
- 
--		ad->u.net->sport = uh->source;
--		ad->u.net->dport = uh->dest;
-+		inet_addr_set_port(&ad->u.net->saddr, ntohs(uh->source));
-+		inet_addr_set_port(&ad->u.net->daddr, ntohs(uh->dest));
- 		break;
- 	}
- 
-@@ -3646,8 +3646,8 @@ static int selinux_parse_skb_ipv4(struct sk_buff *skb,
- 		if (dh == NULL)
- 			break;
- 
--		ad->u.net->sport = dh->dccph_sport;
--		ad->u.net->dport = dh->dccph_dport;
-+		inet_addr_set_port(&ad->u.net->saddr, ntohs(dh->dccph_sport));
-+		inet_addr_set_port(&ad->u.net->daddr, ntohs(dh->dccph_dport));
- 		break;
- 	}
- 
-@@ -3674,8 +3674,8 @@ static int selinux_parse_skb_ipv6(struct sk_buff *skb,
- 	if (ip6 == NULL)
- 		goto out;
- 
--	ad->u.net->v6info.saddr = ip6->saddr;
--	ad->u.net->v6info.daddr = ip6->daddr;
-+	ad->u.net->saddr.sin6.sin6_addr = ip6->saddr;
-+	ad->u.net->daddr.sin6.sin6_addr = ip6->daddr;
- 	ret = 0;
- 
- 	nexthdr = ip6->nexthdr;
-@@ -3695,8 +3695,8 @@ static int selinux_parse_skb_ipv6(struct sk_buff *skb,
- 		if (th == NULL)
- 			break;
- 
--		ad->u.net->sport = th->source;
--		ad->u.net->dport = th->dest;
-+		inet_addr_set_port(&ad->u.net->saddr, ntohs(th->source));
-+		inet_addr_set_port(&ad->u.net->daddr, ntohs(th->dest));
- 		break;
- 	}
- 
-@@ -3707,8 +3707,8 @@ static int selinux_parse_skb_ipv6(struct sk_buff *skb,
- 		if (uh == NULL)
- 			break;
- 
--		ad->u.net->sport = uh->source;
--		ad->u.net->dport = uh->dest;
-+		inet_addr_set_port(&ad->u.net->saddr, ntohs(uh->source));
-+		inet_addr_set_port(&ad->u.net->daddr, ntohs(uh->dest));
- 		break;
- 	}
- 
-@@ -3719,8 +3719,8 @@ static int selinux_parse_skb_ipv6(struct sk_buff *skb,
- 		if (dh == NULL)
- 			break;
- 
--		ad->u.net->sport = dh->dccph_sport;
--		ad->u.net->dport = dh->dccph_dport;
-+		inet_addr_set_port(&ad->u.net->saddr, ntohs(dh->dccph_sport));
-+		inet_addr_set_port(&ad->u.net->daddr, ntohs(dh->dccph_dport));
- 		break;
- 	}
- 
-@@ -3735,18 +3735,17 @@ out:
- #endif /* IPV6 */
- 
- static int selinux_parse_skb(struct sk_buff *skb, struct common_audit_data *ad,
--			     char **_addrp, int src, u8 *proto)
-+			     union inet_addr **_addrp, int src, u8 *proto)
- {
--	char *addrp;
-+	union inet_addr *addrp;
- 	int ret;
-+	sa_family_t family = src ? ad->u.net->saddr.sa.sa_family : ad->u.net->daddr.sa.sa_family;
- 
--	switch (ad->u.net->family) {
-+	switch (family) {
- 	case PF_INET:
- 		ret = selinux_parse_skb_ipv4(skb, ad, proto);
- 		if (ret)
- 			goto parse_error;
--		addrp = (char *)(src ? &ad->u.net->v4info.saddr :
--				       &ad->u.net->v4info.daddr);
- 		goto okay;
- 
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-@@ -3754,13 +3753,11 @@ static int selinux_parse_skb(struct sk_buff *skb, struct common_audit_data *ad,
- 		ret = selinux_parse_skb_ipv6(skb, ad, proto);
- 		if (ret)
- 			goto parse_error;
--		addrp = (char *)(src ? &ad->u.net->v6info.saddr :
--				       &ad->u.net->v6info.daddr);
- 		goto okay;
- #endif	/* IPV6 */
- 	default:
- 		addrp = NULL;
--		goto okay;
-+		goto save;
- 	}
- 
- parse_error:
-@@ -3770,6 +3767,8 @@ parse_error:
- 	return ret;
- 
- okay:
-+	addrp = src ? &ad->u.net->saddr : &ad->u.net->daddr;
-+save:
- 	if (_addrp)
- 		*_addrp = addrp;
- 	return 0;
-@@ -3912,25 +3911,15 @@ static int selinux_socket_bind(struct socket *sock, struct sockaddr *address, in
- 	 */
- 	family = sk->sk_family;
- 	if (family == PF_INET || family == PF_INET6) {
--		char *addrp;
-+		union inet_addr *addrp = (union inet_addr *)address;
- 		struct sk_security_struct *sksec = sk->sk_security;
- 		struct common_audit_data ad;
- 		struct lsm_network_audit net = {0,};
--		struct sockaddr_in *addr4 = NULL;
--		struct sockaddr_in6 *addr6 = NULL;
- 		unsigned short snum;
- 		u32 sid, node_perm;
- 
--		if (family == PF_INET) {
--			addr4 = (struct sockaddr_in *)address;
--			snum = ntohs(addr4->sin_port);
--			addrp = (char *)&addr4->sin_addr.s_addr;
--		} else {
--			addr6 = (struct sockaddr_in6 *)address;
--			snum = ntohs(addr6->sin6_port);
--			addrp = (char *)&addr6->sin6_addr.s6_addr;
--		}
--
-+		addrp->sa.sa_family = family;
-+		snum = inet_addr_get_port(addrp);
- 		if (snum) {
- 			int low, high;
- 
-@@ -3943,8 +3932,9 @@ static int selinux_socket_bind(struct socket *sock, struct sockaddr *address, in
- 					goto out;
- 				ad.type = LSM_AUDIT_DATA_NET;
- 				ad.u.net = &net;
--				ad.u.net->sport = htons(snum);
--				ad.u.net->family = family;
-+				inet_addr_set_port(&ad.u.net->saddr, snum);
-+				ad.u.net->saddr.sa.sa_family = family;
-+				ad.u.net->daddr.sa.sa_family = family;
- 				err = avc_has_perm(sksec->sid, sid,
- 						   sksec->sclass,
- 						   SOCKET__NAME_BIND, &ad);
-@@ -3971,19 +3961,17 @@ static int selinux_socket_bind(struct socket *sock, struct sockaddr *address, in
- 			break;
- 		}
- 
--		err = sel_netnode_sid(addrp, family, &sid);
-+		err = sel_netnode_sid(addrp, &sid);
- 		if (err)
- 			goto out;
- 
- 		ad.type = LSM_AUDIT_DATA_NET;
- 		ad.u.net = &net;
--		ad.u.net->sport = htons(snum);
--		ad.u.net->family = family;
-+		inet_addr_set_port(&ad.u.net->saddr, snum);
-+		ad.u.net->saddr.sa.sa_family = family;
-+		ad.u.net->daddr.sa.sa_family = family;
- 
--		if (family == PF_INET)
--			ad.u.net->v4info.saddr = addr4->sin_addr.s_addr;
--		else
--			ad.u.net->v6info.saddr = addr6->sin6_addr;
-+		ad.u.net->saddr = *addrp;
- 
- 		err = avc_has_perm(sksec->sid, sid,
- 				   sksec->sclass, node_perm, &ad);
-@@ -4011,22 +3999,18 @@ static int selinux_socket_connect(struct socket *sock, struct sockaddr *address,
- 	    sksec->sclass == SECCLASS_DCCP_SOCKET) {
- 		struct common_audit_data ad;
- 		struct lsm_network_audit net = {0,};
--		struct sockaddr_in *addr4 = NULL;
--		struct sockaddr_in6 *addr6 = NULL;
-+		union inet_addr *addrp = (union inet_addr *)address;
- 		unsigned short snum;
- 		u32 sid, perm;
- 
- 		if (sk->sk_family == PF_INET) {
--			addr4 = (struct sockaddr_in *)address;
- 			if (addrlen < sizeof(struct sockaddr_in))
- 				return -EINVAL;
--			snum = ntohs(addr4->sin_port);
- 		} else {
--			addr6 = (struct sockaddr_in6 *)address;
- 			if (addrlen < SIN6_LEN_RFC2133)
- 				return -EINVAL;
--			snum = ntohs(addr6->sin6_port);
- 		}
-+		snum = inet_addr_get_port(addrp);
- 
- 		err = sel_netport_sid(sk->sk_protocol, snum, &sid);
- 		if (err)
-@@ -4037,8 +4021,9 @@ static int selinux_socket_connect(struct socket *sock, struct sockaddr *address,
- 
- 		ad.type = LSM_AUDIT_DATA_NET;
- 		ad.u.net = &net;
--		ad.u.net->dport = htons(snum);
--		ad.u.net->family = sk->sk_family;
-+		inet_addr_set_port(&ad.u.net->daddr, snum);
-+		ad.u.net->saddr.sa.sa_family = sk->sk_family;
-+		ad.u.net->daddr.sa.sa_family = sk->sk_family;
- 		err = avc_has_perm(sksec->sid, sid, sksec->sclass, perm, &ad);
- 		if (err)
- 			goto out;
-@@ -4169,7 +4154,7 @@ static int selinux_socket_unix_may_send(struct socket *sock,
- 			    &ad);
- }
- 
--static int selinux_inet_sys_rcv_skb(int ifindex, char *addrp, u16 family,
-+static int selinux_inet_sys_rcv_skb(int ifindex, union inet_addr *addrp,
- 				    u32 peer_sid,
- 				    struct common_audit_data *ad)
- {
-@@ -4185,7 +4170,7 @@ static int selinux_inet_sys_rcv_skb(int ifindex, char *addrp, u16 family,
- 	if (err)
- 		return err;
- 
--	err = sel_netnode_sid(addrp, family, &node_sid);
-+	err = sel_netnode_sid(addrp, &node_sid);
- 	if (err)
- 		return err;
- 	return avc_has_perm(peer_sid, node_sid,
-@@ -4200,12 +4185,13 @@ static int selinux_sock_rcv_skb_compat(struct sock *sk, struct sk_buff *skb,
- 	u32 sk_sid = sksec->sid;
- 	struct common_audit_data ad;
- 	struct lsm_network_audit net = {0,};
--	char *addrp;
-+	union inet_addr *addrp;
- 
- 	ad.type = LSM_AUDIT_DATA_NET;
- 	ad.u.net = &net;
- 	ad.u.net->netif = skb->skb_iif;
--	ad.u.net->family = family;
-+	ad.u.net->saddr.sa.sa_family = family;
-+	ad.u.net->daddr.sa.sa_family = family;
- 	err = selinux_parse_skb(skb, &ad, &addrp, 1, NULL);
- 	if (err)
- 		return err;
-@@ -4233,7 +4219,7 @@ static int selinux_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 	u32 sk_sid = sksec->sid;
- 	struct common_audit_data ad;
- 	struct lsm_network_audit net = {0,};
--	char *addrp;
-+	union inet_addr *addrp;
- 	u8 secmark_active;
- 	u8 peerlbl_active;
- 
-@@ -4259,7 +4245,8 @@ static int selinux_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 	ad.type = LSM_AUDIT_DATA_NET;
- 	ad.u.net = &net;
- 	ad.u.net->netif = skb->skb_iif;
--	ad.u.net->family = family;
-+	ad.u.net->saddr.sa.sa_family = family;
-+	ad.u.net->daddr.sa.sa_family = family;
- 	err = selinux_parse_skb(skb, &ad, &addrp, 1, NULL);
- 	if (err)
- 		return err;
-@@ -4270,7 +4257,8 @@ static int selinux_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 		err = selinux_skb_peerlbl_sid(skb, family, &peer_sid);
- 		if (err)
- 			return err;
--		err = selinux_inet_sys_rcv_skb(skb->skb_iif, addrp, family,
-+		addrp->sa.sa_family = family;
-+		err = selinux_inet_sys_rcv_skb(skb->skb_iif, addrp,
- 					       peer_sid, &ad);
- 		if (err) {
- 			selinux_netlbl_err(skb, err, 0);
-@@ -4621,7 +4609,7 @@ static unsigned int selinux_ip_forward(struct sk_buff *skb, int ifindex,
- 				       u16 family)
- {
- 	int err;
--	char *addrp;
-+	union inet_addr *addrp;
- 	u32 peer_sid;
- 	struct common_audit_data ad;
- 	struct lsm_network_audit net = {0,};
-@@ -4644,12 +4632,14 @@ static unsigned int selinux_ip_forward(struct sk_buff *skb, int ifindex,
- 	ad.type = LSM_AUDIT_DATA_NET;
- 	ad.u.net = &net;
- 	ad.u.net->netif = ifindex;
--	ad.u.net->family = family;
-+	ad.u.net->saddr.sa.sa_family = family;
-+	ad.u.net->daddr.sa.sa_family = family;
- 	if (selinux_parse_skb(skb, &ad, &addrp, 1, NULL) != 0)
- 		return NF_DROP;
- 
- 	if (peerlbl_active) {
--		err = selinux_inet_sys_rcv_skb(ifindex, addrp, family,
-+		addrp->sa.sa_family = family;
-+		err = selinux_inet_sys_rcv_skb(ifindex, addrp,
- 					       peer_sid, &ad);
- 		if (err) {
- 			selinux_netlbl_err(skb, err, 1);
-@@ -4732,7 +4722,7 @@ static unsigned int selinux_ip_postroute_compat(struct sk_buff *skb,
- 	struct sk_security_struct *sksec;
- 	struct common_audit_data ad;
- 	struct lsm_network_audit net = {0,};
--	char *addrp;
-+	union inet_addr *addrp;
- 	u8 proto;
- 
- 	if (sk == NULL)
-@@ -4742,7 +4732,8 @@ static unsigned int selinux_ip_postroute_compat(struct sk_buff *skb,
- 	ad.type = LSM_AUDIT_DATA_NET;
- 	ad.u.net = &net;
- 	ad.u.net->netif = ifindex;
--	ad.u.net->family = family;
-+	ad.u.net->saddr.sa.sa_family = family;
-+	ad.u.net->daddr.sa.sa_family = family;
- 	if (selinux_parse_skb(skb, &ad, &addrp, 0, &proto))
- 		return NF_DROP;
- 
-@@ -4765,7 +4756,7 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb, int ifindex,
- 	struct sock *sk;
- 	struct common_audit_data ad;
- 	struct lsm_network_audit net = {0,};
--	char *addrp;
-+	union inet_addr *addrp;
- 	u8 secmark_active;
- 	u8 peerlbl_active;
- 
-@@ -4813,7 +4804,8 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb, int ifindex,
- 	ad.type = LSM_AUDIT_DATA_NET;
- 	ad.u.net = &net;
- 	ad.u.net->netif = ifindex;
--	ad.u.net->family = family;
-+	ad.u.net->saddr.sa.sa_family = family;
-+	ad.u.net->daddr.sa.sa_family = family;
- 	if (selinux_parse_skb(skb, &ad, &addrp, 0, NULL))
- 		return NF_DROP;
- 
-@@ -4832,7 +4824,7 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb, int ifindex,
- 				 SECCLASS_NETIF, NETIF__EGRESS, &ad))
- 			return NF_DROP_ERR(-ECONNREFUSED);
- 
--		if (sel_netnode_sid(addrp, family, &node_sid))
-+		if (sel_netnode_sid(addrp, &node_sid))
- 			return NF_DROP;
- 		if (avc_has_perm(peer_sid, node_sid,
- 				 SECCLASS_NODE, NODE__SENDTO, &ad))
-diff --git a/security/selinux/include/netnode.h b/security/selinux/include/netnode.h
-index df7a5ed..f32c909 100644
---- a/security/selinux/include/netnode.h
-+++ b/security/selinux/include/netnode.h
-@@ -27,6 +27,8 @@
- #ifndef _SELINUX_NETNODE_H
- #define _SELINUX_NETNODE_H
- 
--int sel_netnode_sid(void *addr, u16 family, u32 *sid);
-+#include <net/inet_addr.h>
++static void br_ip_to_entry(struct br_mdb_entry *entry, struct br_ip *ip)
++{
++	if (ip->ip.family == AF_INET) {
++		entry->addr.proto = htons(ETH_P_IP);
++		entry->addr.u.ip4 = ip->ip.in_addr.s_addr;
++	} else {
++		entry->addr.proto = htons(ETH_P_IPV6);
++		entry->addr.u.ip6 = ip->ip.in6_addr;
++	}
++}
 +
-+int sel_netnode_sid(union inet_addr *addr, u32 *sid);
++static void br_entry_to_ip(struct br_ip *ip, struct br_mdb_entry *entry)
++{
++	__be16 proto = entry->addr.proto;
++	if (proto == htons(ETH_P_IP)) {
++		ip->ip.family = AF_INET;
++		ip->ip.in_addr.s_addr = entry->addr.u.ip4;
++	} else {
++		ip->ip.family = AF_INET6;
++		ip->ip.in6_addr = entry->addr.u.ip6;
++	}
++}
++
+ static int br_rports_fill_info(struct sk_buff *skb, struct netlink_callback *cb,
+ 			       struct net_device *dev)
+ {
+@@ -83,13 +106,7 @@ static int br_mdb_fill_info(struct sk_buff *skb, struct netlink_callback *cb,
+ 					memset(&e, 0, sizeof(e));
+ 					e.ifindex = port->dev->ifindex;
+ 					e.state = p->state;
+-					if (p->addr.proto == htons(ETH_P_IP))
+-						e.addr.u.ip4 = p->addr.u.ip4;
+-#if IS_ENABLED(CONFIG_IPV6)
+-					if (p->addr.proto == htons(ETH_P_IPV6))
+-						e.addr.u.ip6 = p->addr.u.ip6;
+-#endif
+-					e.addr.proto = p->addr.proto;
++					br_ip_to_entry(&e, &p->addr);
+ 					if (nla_put(skb, MDBA_MDB_ENTRY_INFO, sizeof(e), &e)) {
+ 						nla_nest_cancel(skb, nest2);
+ 						err = -EMSGSIZE;
+@@ -233,11 +250,7 @@ void br_mdb_notify(struct net_device *dev, struct net_bridge_port *port,
  
+ 	memset(&entry, 0, sizeof(entry));
+ 	entry.ifindex = port->dev->ifindex;
+-	entry.addr.proto = group->proto;
+-	entry.addr.u.ip4 = group->u.ip4;
+-#if IS_ENABLED(CONFIG_IPV6)
+-	entry.addr.u.ip6 = group->u.ip6;
+-#endif
++	br_ip_to_entry(&entry, group);
+ 	__br_mdb_notify(dev, &entry, type);
+ }
+ 
+@@ -368,13 +381,7 @@ static int __br_mdb_add(struct net *net, struct net_bridge *br,
+ 	if (!p || p->br != br || p->state == BR_STATE_DISABLED)
+ 		return -EINVAL;
+ 
+-	ip.proto = entry->addr.proto;
+-	if (ip.proto == htons(ETH_P_IP))
+-		ip.u.ip4 = entry->addr.u.ip4;
+-#if IS_ENABLED(CONFIG_IPV6)
+-	else
+-		ip.u.ip6 = entry->addr.u.ip6;
+-#endif
++	br_entry_to_ip(&ip, entry);
+ 
+ 	spin_lock_bh(&br->multicast_lock);
+ 	ret = br_mdb_add_group(br, p, &ip, entry->state);
+@@ -417,13 +424,7 @@ static int __br_mdb_del(struct net_bridge *br, struct br_mdb_entry *entry)
+ 	if (timer_pending(&br->multicast_querier_timer))
+ 		return -EBUSY;
+ 
+-	ip.proto = entry->addr.proto;
+-	if (ip.proto == htons(ETH_P_IP))
+-		ip.u.ip4 = entry->addr.u.ip4;
+-#if IS_ENABLED(CONFIG_IPV6)
+-	else
+-		ip.u.ip6 = entry->addr.u.ip6;
+-#endif
++	br_entry_to_ip(&ip, entry);
+ 
+ 	spin_lock_bh(&br->multicast_lock);
+ 	mdb = mlock_dereference(br->mdb, br);
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 69af490..2cbb135 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -38,19 +38,9 @@ unsigned int br_mdb_rehash_seq;
+ 
+ static inline int br_ip_equal(const struct br_ip *a, const struct br_ip *b)
+ {
+-	if (a->proto != b->proto)
+-		return 0;
+ 	if (a->vid != b->vid)
+ 		return 0;
+-	switch (a->proto) {
+-	case htons(ETH_P_IP):
+-		return a->u.ip4 == b->u.ip4;
+-#if IS_ENABLED(CONFIG_IPV6)
+-	case htons(ETH_P_IPV6):
+-		return ipv6_addr_equal(&a->u.ip6, &b->u.ip6);
+-#endif
+-	}
+-	return 0;
++	return in_addr_gen_equal(&a->ip, &b->ip);
+ }
+ 
+ static inline int __br_ip4_hash(struct net_bridge_mdb_htable *mdb, __be32 ip,
+@@ -72,12 +62,12 @@ static inline int __br_ip6_hash(struct net_bridge_mdb_htable *mdb,
+ static inline int br_ip_hash(struct net_bridge_mdb_htable *mdb,
+ 			     struct br_ip *ip)
+ {
+-	switch (ip->proto) {
++	switch (ip->ip.family) {
+ 	case htons(ETH_P_IP):
+-		return __br_ip4_hash(mdb, ip->u.ip4, ip->vid);
++		return __br_ip4_hash(mdb, ip->ip.in_addr.s_addr, ip->vid);
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	case htons(ETH_P_IPV6):
+-		return __br_ip6_hash(mdb, &ip->u.ip6, ip->vid);
++		return __br_ip6_hash(mdb, &ip->ip.in6_addr, ip->vid);
  #endif
-diff --git a/security/selinux/include/objsec.h b/security/selinux/include/objsec.h
-index aa47bca..a46caaf 100644
---- a/security/selinux/include/objsec.h
-+++ b/security/selinux/include/objsec.h
-@@ -24,6 +24,7 @@
- #include <linux/binfmts.h>
- #include <linux/in.h>
- #include <linux/spinlock.h>
-+#include <net/inet_addr.h>
- #include "flask.h"
- #include "avc.h"
- 
-@@ -80,12 +81,8 @@ struct netif_security_struct {
- };
- 
- struct netnode_security_struct {
--	union {
--		__be32 ipv4;		/* IPv4 node address */
--		struct in6_addr ipv6;	/* IPv6 node address */
--	} addr;
-+	union inet_addr addr;
- 	u32 sid;			/* SID for this node */
--	u16 family;			/* address family */
- };
- 
- struct netport_security_struct {
-diff --git a/security/selinux/netnode.c b/security/selinux/netnode.c
-index c5454c0..713f14e 100644
---- a/security/selinux/netnode.c
-+++ b/security/selinux/netnode.c
-@@ -68,79 +68,49 @@ static LIST_HEAD(sel_netnode_list);
- static DEFINE_SPINLOCK(sel_netnode_lock);
- static struct sel_netnode_bkt sel_netnode_hash[SEL_NETNODE_HASH_SIZE];
- 
--/**
-- * sel_netnode_hashfn_ipv4 - IPv4 hashing function for the node table
-- * @addr: IPv4 address
-- *
-- * Description:
-- * This is the IPv4 hashing function for the node interface table, it returns
-- * the bucket number for the given IP address.
-- *
-- */
--static unsigned int sel_netnode_hashfn_ipv4(__be32 addr)
--{
--	/* at some point we should determine if the mismatch in byte order
--	 * affects the hash function dramatically */
--	return (addr & (SEL_NETNODE_HASH_SIZE - 1));
--}
- 
- /**
-- * sel_netnode_hashfn_ipv6 - IPv6 hashing function for the node table
-- * @addr: IPv6 address
-+ * sel_netnode_hashfn - IPv4/IPv6 hashing function for the node table
-+ * @addr: generic IP address
-  *
-  * Description:
-- * This is the IPv6 hashing function for the node interface table, it returns
-+ * This is the IP hashing function for the node interface table, it returns
-  * the bucket number for the given IP address.
-  *
-  */
--static unsigned int sel_netnode_hashfn_ipv6(const struct in6_addr *addr)
-+static unsigned int sel_netnode_hashfn(const union inet_addr *addr)
- {
--	/* just hash the least significant 32 bits to keep things fast (they
--	 * are the most likely to be different anyway), we can revisit this
--	 * later if needed */
--	return (addr->s6_addr32[3] & (SEL_NETNODE_HASH_SIZE - 1));
-+	if (addr->sa.sa_family == PF_INET)
-+		/* at some point we should determine if the mismatch in byte order
-+		 * affects the hash function dramatically */
-+		return (addr->sin.sin_addr.s_addr & (SEL_NETNODE_HASH_SIZE - 1));
-+	else if (addr->sa.sa_family == PF_INET6)
-+		/* just hash the least significant 32 bits to keep things fast (they
-+		 * are the most likely to be different anyway), we can revisit this
-+		 * later if needed */
-+		return (addr->sin6.sin6_addr.s6_addr32[3] & (SEL_NETNODE_HASH_SIZE - 1));
-+	else
-+		BUG();
- }
- 
- /**
-  * sel_netnode_find - Search for a node record
-  * @addr: IP address
-- * @family: address family
-  *
-  * Description:
-  * Search the network node table and return the record matching @addr.  If an
-  * entry can not be found in the table return NULL.
-  *
-  */
--static struct sel_netnode *sel_netnode_find(const void *addr, u16 family)
-+static struct sel_netnode *sel_netnode_find(const union inet_addr *addr)
- {
- 	unsigned int idx;
- 	struct sel_netnode *node;
- 
--	switch (family) {
--	case PF_INET:
--		idx = sel_netnode_hashfn_ipv4(*(__be32 *)addr);
--		break;
--	case PF_INET6:
--		idx = sel_netnode_hashfn_ipv6(addr);
--		break;
--	default:
--		BUG();
--		return NULL;
--	}
--
-+	idx = sel_netnode_hashfn(addr);
- 	list_for_each_entry_rcu(node, &sel_netnode_hash[idx].list, list)
--		if (node->nsec.family == family)
--			switch (family) {
--			case PF_INET:
--				if (node->nsec.addr.ipv4 == *(__be32 *)addr)
--					return node;
--				break;
--			case PF_INET6:
--				if (ipv6_addr_equal(&node->nsec.addr.ipv6,
--						    addr))
--					return node;
--				break;
--			}
-+		if (inet_addr_equal(&node->nsec.addr, addr))
-+			return node;
- 
- 	return NULL;
- }
-@@ -156,18 +126,9 @@ static struct sel_netnode *sel_netnode_find(const void *addr, u16 family)
- static void sel_netnode_insert(struct sel_netnode *node)
- {
- 	unsigned int idx;
-+	union inet_addr *addr = &node->nsec.addr;
- 
--	switch (node->nsec.family) {
--	case PF_INET:
--		idx = sel_netnode_hashfn_ipv4(node->nsec.addr.ipv4);
--		break;
--	case PF_INET6:
--		idx = sel_netnode_hashfn_ipv6(&node->nsec.addr.ipv6);
--		break;
--	default:
--		BUG();
--	}
--
-+	idx = sel_netnode_hashfn(addr);
- 	/* we need to impose a limit on the growth of the hash table so check
- 	 * this bucket to make sure it is within the specified bounds */
- 	list_add_rcu(&node->list, &sel_netnode_hash[idx].list);
-@@ -186,7 +147,6 @@ static void sel_netnode_insert(struct sel_netnode *node)
- /**
-  * sel_netnode_sid_slow - Lookup the SID of a network address using the policy
-  * @addr: the IP address
-- * @family: the address family
-  * @sid: node SID
-  *
-  * Description:
-@@ -196,14 +156,14 @@ static void sel_netnode_insert(struct sel_netnode *node)
-  * failure.
-  *
-  */
--static int sel_netnode_sid_slow(void *addr, u16 family, u32 *sid)
-+static int sel_netnode_sid_slow(union inet_addr *addr, u32 *sid)
- {
- 	int ret = -ENOMEM;
- 	struct sel_netnode *node;
- 	struct sel_netnode *new = NULL;
- 
- 	spin_lock_bh(&sel_netnode_lock);
--	node = sel_netnode_find(addr, family);
-+	node = sel_netnode_find(addr);
- 	if (node != NULL) {
- 		*sid = node->nsec.sid;
- 		spin_unlock_bh(&sel_netnode_lock);
-@@ -212,16 +172,16 @@ static int sel_netnode_sid_slow(void *addr, u16 family, u32 *sid)
- 	new = kzalloc(sizeof(*new), GFP_ATOMIC);
- 	if (new == NULL)
- 		goto out;
--	switch (family) {
-+	switch (addr->sa.sa_family) {
- 	case PF_INET:
- 		ret = security_node_sid(PF_INET,
- 					addr, sizeof(struct in_addr), sid);
--		new->nsec.addr.ipv4 = *(__be32 *)addr;
-+		new->nsec.addr = *addr;
- 		break;
- 	case PF_INET6:
- 		ret = security_node_sid(PF_INET6,
- 					addr, sizeof(struct in6_addr), sid);
--		new->nsec.addr.ipv6 = *(struct in6_addr *)addr;
-+		new->nsec.addr = *addr;
- 		break;
- 	default:
- 		BUG();
-@@ -229,7 +189,6 @@ static int sel_netnode_sid_slow(void *addr, u16 family, u32 *sid)
- 	if (ret != 0)
- 		goto out;
- 
--	new->nsec.family = family;
- 	new->nsec.sid = *sid;
- 	sel_netnode_insert(new);
- 
-@@ -246,8 +205,7 @@ out:
- 
- /**
-  * sel_netnode_sid - Lookup the SID of a network address
-- * @addr: the IP address
-- * @family: the address family
-+ * @addr: the generic IP address
-  * @sid: node SID
-  *
-  * Description:
-@@ -258,12 +216,12 @@ out:
-  * on failure.
-  *
-  */
--int sel_netnode_sid(void *addr, u16 family, u32 *sid)
-+int sel_netnode_sid(union inet_addr *addr, u32 *sid)
- {
- 	struct sel_netnode *node;
- 
- 	rcu_read_lock();
--	node = sel_netnode_find(addr, family);
-+	node = sel_netnode_find(addr);
- 	if (node != NULL) {
- 		*sid = node->nsec.sid;
- 		rcu_read_unlock();
-@@ -271,7 +229,7 @@ int sel_netnode_sid(void *addr, u16 family, u32 *sid)
  	}
- 	rcu_read_unlock();
+ 	return 0;
+@@ -110,8 +100,8 @@ static struct net_bridge_mdb_entry *br_mdb_ip4_get(
+ {
+ 	struct br_ip br_dst;
  
--	return sel_netnode_sid_slow(addr, family, sid);
-+	return sel_netnode_sid_slow(addr, sid);
- }
+-	br_dst.u.ip4 = dst;
+-	br_dst.proto = htons(ETH_P_IP);
++	br_dst.ip.in_addr.s_addr = dst;
++	br_dst.ip.family = AF_INET;
+ 	br_dst.vid = vid;
  
- /**
-diff --git a/security/smack/smack_lsm.c b/security/smack/smack_lsm.c
-index 3f7682a..07a7184 100644
---- a/security/smack/smack_lsm.c
-+++ b/security/smack/smack_lsm.c
-@@ -1900,9 +1900,7 @@ static int smack_netlabel_send(struct sock *sk, struct sockaddr_in *sap)
- 		struct lsm_network_audit net;
+ 	return br_mdb_ip_get(mdb, &br_dst);
+@@ -124,8 +114,8 @@ static struct net_bridge_mdb_entry *br_mdb_ip6_get(
+ {
+ 	struct br_ip br_dst;
  
- 		smk_ad_init_net(&ad, __func__, LSM_AUDIT_DATA_NET, &net);
--		ad.a.u.net->family = sap->sin_family;
--		ad.a.u.net->dport = sap->sin_port;
--		ad.a.u.net->v4info.daddr = sap->sin_addr.s_addr;
-+		ad.a.u.net->daddr = (union inet_addr )*sap;
+-	br_dst.u.ip6 = *dst;
+-	br_dst.proto = htons(ETH_P_IPV6);
++	br_dst.ip.in6_addr = *dst;
++	br_dst.ip.family = AF_INET6;
+ 	br_dst.vid = vid;
+ 
+ 	return br_mdb_ip_get(mdb, &br_dst);
+@@ -144,16 +134,17 @@ struct net_bridge_mdb_entry *br_mdb_get(struct net_bridge *br,
+ 	if (BR_INPUT_SKB_CB(skb)->igmp)
+ 		return NULL;
+ 
+-	ip.proto = skb->protocol;
+ 	ip.vid = vid;
+ 
+ 	switch (skb->protocol) {
+ 	case htons(ETH_P_IP):
+-		ip.u.ip4 = ip_hdr(skb)->daddr;
++		ip.ip.family = AF_INET;
++		ip.ip.in_addr.s_addr = ip_hdr(skb)->daddr;
+ 		break;
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	case htons(ETH_P_IPV6):
+-		ip.u.ip6 = ipv6_hdr(skb)->daddr;
++		ip.ip.family = AF_INET6;
++		ip.ip.in6_addr = ipv6_hdr(skb)->daddr;
+ 		break;
  #endif
- 		sk_lbl = SMACK_UNLABELED_SOCKET;
- 		skp = ssp->smk_out;
-@@ -2057,12 +2055,13 @@ auditout:
- 
- #ifdef CONFIG_AUDIT
- 	smk_ad_init_net(&ad, __func__, LSM_AUDIT_DATA_NET, &net);
--	ad.a.u.net->family = sk->sk_family;
--	ad.a.u.net->dport = port;
-+	inet_addr_set_port(&ad.a.u.net->daddr, port);
-+	ad.a.u.net->saddr.sa.sa_family = sk->sk_family;
-+	ad.a.u.net->daddr.sa.sa_family = sk->sk_family;
- 	if (act == SMK_RECEIVING)
--		ad.a.u.net->v6info.saddr = addr6->sin6_addr;
-+		ad.a.u.net->saddr.sin6.sin6_addr = addr6->sin6_addr;
- 	else
--		ad.a.u.net->v6info.daddr = addr6->sin6_addr;
-+		ad.a.u.net->daddr.sin6.sin6_addr = addr6->sin6_addr;
+ 	default:
+@@ -495,12 +486,12 @@ out:
+ static struct sk_buff *br_multicast_alloc_query(struct net_bridge *br,
+ 						struct br_ip *addr)
+ {
+-	switch (addr->proto) {
+-	case htons(ETH_P_IP):
+-		return br_ip4_multicast_alloc_query(br, addr->u.ip4);
++	switch (addr->ip.family) {
++	case AF_INET:
++		return br_ip4_multicast_alloc_query(br, addr->ip.in_addr.s_addr);
+ #if IS_ENABLED(CONFIG_IPV6)
+-	case htons(ETH_P_IPV6):
+-		return br_ip6_multicast_alloc_query(br, &addr->u.ip6);
++	case AF_INET6:
++		return br_ip6_multicast_alloc_query(br, &addr->ip.in6_addr);
  #endif
- 	return smk_access(skp, object, MAY_WRITE, &ad);
- }
-@@ -3204,7 +3203,8 @@ static int smack_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 	}
+ 	return NULL;
+@@ -705,8 +696,8 @@ static int br_ip4_multicast_add_group(struct net_bridge *br,
+ 	if (ipv4_is_local_multicast(group))
+ 		return 0;
  
- #ifdef CONFIG_AUDIT
- 		smk_ad_init_net(&ad, __func__, LSM_AUDIT_DATA_NET, &net);
--		ad.a.u.net->family = sk->sk_family;
-+		ad.a.u.net->saddr.sa.sa_family = sk->sk_family;
-+		ad.a.u.net->daddr.sa.sa_family = sk->sk_family;
- 		ad.a.u.net->netif = skb->skb_iif;
- 		ipv4_skb_to_auditdata(skb, &ad.a, NULL);
- #endif
-@@ -3386,7 +3386,8 @@ static int smack_inet_conn_request(struct sock *sk, struct sk_buff *skb,
+-	br_group.u.ip4 = group;
+-	br_group.proto = htons(ETH_P_IP);
++	br_group.ip.in_addr.s_addr = group;
++	br_group.ip.family = AF_INET;
+ 	br_group.vid = vid;
  
- #ifdef CONFIG_AUDIT
- 	smk_ad_init_net(&ad, __func__, LSM_AUDIT_DATA_NET, &net);
--	ad.a.u.net->family = family;
-+	ad.a.u.net->saddr.sa.sa_family = family;
-+	ad.a.u.net->daddr.sa.sa_family = family;
- 	ad.a.u.net->netif = skb->skb_iif;
- 	ipv4_skb_to_auditdata(skb, &ad.a, NULL);
+ 	return br_multicast_add_group(br, port, &br_group);
+@@ -723,8 +714,8 @@ static int br_ip6_multicast_add_group(struct net_bridge *br,
+ 	if (!ipv6_is_transient_multicast(group))
+ 		return 0;
+ 
+-	br_group.u.ip6 = *group;
+-	br_group.proto = htons(ETH_P_IPV6);
++	br_group.ip.in6_addr = *group;
++	br_group.ip.family = AF_INET6;
+ 	br_group.vid = vid;
+ 
+ 	return br_multicast_add_group(br, port, &br_group);
+@@ -796,13 +787,13 @@ static void br_multicast_send_query(struct net_bridge *br,
+ 	    timer_pending(&br->multicast_querier_timer))
+ 		return;
+ 
+-	memset(&br_group.u, 0, sizeof(br_group.u));
++	memset(&br_group.ip, 0, sizeof(br_group.ip));
+ 
+-	br_group.proto = htons(ETH_P_IP);
++	br_group.ip.family = AF_INET;
+ 	__br_multicast_send_query(br, port, &br_group);
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+-	br_group.proto = htons(ETH_P_IPV6);
++	br_group.ip.family = AF_INET6;
+ 	__br_multicast_send_query(br, port, &br_group);
  #endif
+ 
+@@ -1326,8 +1317,8 @@ static void br_ip4_multicast_leave_group(struct net_bridge *br,
+ 	if (ipv4_is_local_multicast(group))
+ 		return;
+ 
+-	br_group.u.ip4 = group;
+-	br_group.proto = htons(ETH_P_IP);
++	br_group.ip.in_addr.s_addr = group;
++	br_group.ip.family = AF_INET;
+ 	br_group.vid = vid;
+ 
+ 	br_multicast_leave_group(br, port, &br_group);
+@@ -1344,8 +1335,8 @@ static void br_ip6_multicast_leave_group(struct net_bridge *br,
+ 	if (!ipv6_is_transient_multicast(group))
+ 		return;
+ 
+-	br_group.u.ip6 = *group;
+-	br_group.proto = htons(ETH_P_IPV6);
++	br_group.ip.in6_addr = *group;
++	br_group.ip.family = AF_INET6;
+ 	br_group.vid = vid;
+ 
+ 	br_multicast_leave_group(br, port, &br_group);
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 43347f1..72c822a 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -19,6 +19,7 @@
+ #include <linux/u64_stats_sync.h>
+ #include <net/route.h>
+ #include <linux/if_vlan.h>
++#include <net/inet_addr.h>
+ 
+ #define BR_HASH_BITS 8
+ #define BR_HASH_SIZE (1 << BR_HASH_BITS)
+@@ -56,13 +57,7 @@ struct mac_addr
+ 
+ struct br_ip
+ {
+-	union {
+-		__be32	ip4;
+-#if IS_ENABLED(CONFIG_IPV6)
+-		struct in6_addr ip6;
+-#endif
+-	} u;
+-	__be16		proto;
++	struct in_addr_gen ip;
+ 	__u16		vid;
+ };
+ 
 -- 
 1.7.7.6
