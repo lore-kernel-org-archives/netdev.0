@@ -1,33 +1,57 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [Cluster-devel] [Patch net-next v2 6/8] fs: use generic union
- inet_addr and helper functions
-Date: Fri, 2 Aug 2013 03:31:07 -0700
-Message-ID: <20130802103107.GA17244@infradead.org>
-References: <1375427674-21735-1-git-send-email-amwang@redhat.com>
- <1375427674-21735-7-git-send-email-amwang@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 2/2] igb: Expose RSS indirection table for ethtool
+Date: Fri, 2 Aug 2013 13:52:44 +0200
+Message-ID: <1375444364.24371.30.camel@deadeye.wl.decadent.org.uk>
+References: <1375260212-19351-1-git-send-email-laura.vasilescu@rosedu.org>
+	 <1375260212-19351-2-git-send-email-laura.vasilescu@rosedu.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-cifs@vger.kernel.org,
-	linux-nfs@vger.kernel.org, cluster-devel@redhat.com,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	linux-kernel@vger.kernel.org, Steve French <sfrench@samba.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1375427674-21735-7-git-send-email-amwang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <carolyn.wyborny@intel.com>,
+	<anjali.singhai@intel.com>, <jeffrey.t.kirsher@intel.com>,
+	<alexander.h.duyck@intel.com>
+To: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:24755 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751582Ab3HBLwt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 07:52:49 -0400
+In-Reply-To: <1375260212-19351-2-git-send-email-laura.vasilescu@rosedu.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 02, 2013 at 03:14:32PM +0800, Cong Wang wrote:
-> From: Cong Wang <amwang@redhat.com>
-> 
-> nfs and cifs define some helper functions for sockaddr,
-> they can use the generic functions for union inet_addr too.
-> 
-> Since some dlm code needs to compare ->sin_port, introduce a
-> generic function inet_addr_equal_strict() for it.
+On Wed, 2013-07-31 at 11:43 +0300, Laura Mihaela Vasilescu wrote:
+[...]
+> +static int igb_set_rxfh_indir(struct net_device *netdev, const u32 *indir)
+> +{
+> +	struct igb_adapter *adapter = netdev_priv(netdev);
+> +	struct e1000_hw *hw = &adapter->hw;
+> +	int i;
+> +	u32 num_queues;
+> +
+> +	num_queues = adapter->rss_queues;
+> +
+> +	switch (hw->mac.type) {
+> +	case e1000_82576:
+> +		/* 82576 supports 2 RSS queues for SR-IOV */
+> +		if (adapter->vfs_allocated_count)
+> +			num_queues = 2;
+> +		break;
+> +	default:
+> +		break;
+> +	}
+> +
+> +	/* Verify user input. */
+> +	for (i = 0; i < IGB_RETA_SIZE; i++)
+> +		if (indir[i] > num_queues)
+> +			return -EINVAL;
+[...]
 
-Would sound more useful to have a sockaddr_equal case that can be used
-on any sockaddr.  For cases that no current user handles just return
-false.
+Surely the comparison should be >= ?
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
