@@ -1,34 +1,41 @@
-From: Santiago Garcia Mantinan <manty@manty.net>
-Subject: Re: bonding + arp monitoring fails if interface is a vlan
-Date: Fri, 2 Aug 2013 09:30:29 +0200
-Message-ID: <CAJk_L2EfJuit=8tU_vdqOenkBfm4awRz+vspM0DY_q2sQAmdrg@mail.gmail.com>
-References: <20130801121142.GA444@www.manty.net>
-	<CAE3RKN=AoevKmRDewpmm8TjDasN8k=J4Sny8gCCv6dbOXwHADQ@mail.gmail.com>
+From: Felipe Balbi <balbi@ti.com>
+Subject: [PATCH] net: ethernet: cpsw: drop IRQF_DISABLED
+Date: Fri, 2 Aug 2013 10:44:10 +0300
+Message-ID: <1375429450-25454-1-git-send-email-balbi@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>
-To: Veaceslav Falico <darkmag@gmail.com>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Linux OMAP Mailing List <linux-omap@vger.kernel.org>,
+	Felipe Balbi <balbi@ti.com>
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:62119 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755403Ab3HBHaa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 03:30:30 -0400
-Received: by mail-qa0-f53.google.com with SMTP id hu14so158573qab.19
-        for <netdev@vger.kernel.org>; Fri, 02 Aug 2013 00:30:29 -0700 (PDT)
-In-Reply-To: <CAE3RKN=AoevKmRDewpmm8TjDasN8k=J4Sny8gCCv6dbOXwHADQ@mail.gmail.com>
+Received: from bear.ext.ti.com ([192.94.94.41]:60445 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757361Ab3HBHo1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Aug 2013 03:44:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/8/1 Veaceslav Falico <darkmag@gmail.com>:
->>         bond-slaves eth0.1002
->>         bond-mode active-backup
->>         bond-arp_validate 0
-> Could you please try with arp_validate=1?
+IRQF_DISABLED is a no-op by now and should be
+removed.
 
-arp_validate=1 was what I first tried, then I thought that making
-validations could be dropping packages so I went for the 0
-validations, both had the same problem.
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Regards.
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 05a1674..22a7a43 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1867,7 +1867,7 @@ static int cpsw_probe(struct platform_device *pdev)
+ 
+ 	while ((res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k))) {
+ 		for (i = res->start; i <= res->end; i++) {
+-			if (request_irq(i, cpsw_interrupt, IRQF_DISABLED,
++			if (request_irq(i, cpsw_interrupt, 0,
+ 					dev_name(&pdev->dev), priv)) {
+ 				dev_err(priv->dev, "error attaching irq\n");
+ 				goto clean_ale_ret;
 -- 
-Manty/BestiaTester -> http://manty.net
+1.8.3.4.840.g6a90778
