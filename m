@@ -1,46 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next v2 8/8] selinux: use generic union inet_addr
-Date: Fri, 02 Aug 2013 14:51:46 -0700 (PDT)
-Message-ID: <20130802.145146.215059840395396296.davem@davemloft.net>
-References: <1375427674-21735-1-git-send-email-amwang@redhat.com>
-	<1375427674-21735-9-git-send-email-amwang@redhat.com>
-	<4528870.px4VD3WrY3@sifl>
+Subject: Re: [PATCH net-next] htb: fix sign extension bug
+Date: Fri, 02 Aug 2013 14:52:59 -0700 (PDT)
+Message-ID: <20130802.145259.429033678992660208.davem@davemloft.net>
+References: <20130801221936.24d4b31e@nehalam.linuxnetplumber.net>
+	<20130801223207.2a9c69e9@nehalam.linuxnetplumber.net>
+	<1375450580.3927.12.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, netdev@vger.kernel.org,
-	james.l.morris@oracle.com, sds@tycho.nsa.gov,
-	eparis@parisplace.org, linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-To: pmoore@redhat.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <4528870.px4VD3WrY3@sifl>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: stephen@networkplumber.org, xiyou.wangcong@gmail.com,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42194 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752994Ab3HBVw7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 17:52:59 -0400
+In-Reply-To: <1375450580.3927.12.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <pmoore@redhat.com>
-Date: Fri, 02 Aug 2013 10:34:07 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 02 Aug 2013 06:36:20 -0700
 
-> On Friday, August 02, 2013 03:14:34 PM Cong Wang wrote:
->> From: Cong Wang <amwang@redhat.com>
+> On Thu, 2013-08-01 at 22:32 -0700, Stephen Hemminger wrote:
+>> When userspace passes a large priority value 
+>> the assignment of the unsigned value hopt->prio
+>> to  signed int cl->prio causes cl->prio to become negative and the
+>> comparison is with TC_HTB_NUMPRIO is always false.
 >> 
->> selinux has some similar definition like union inet_addr,
->> it can re-use the generic union inet_addr too.
+>> The result is that HTB crashes by referencing outside
+>> the array when processing packets. With this patch the large value
+>> wraps around like other values outside the normal range.
 >> 
->> Cc: James Morris <james.l.morris@oracle.com>
->> Cc: Stephen Smalley <sds@tycho.nsa.gov>
->> Cc: Eric Paris <eparis@parisplace.org>
->> Cc: Paul Moore <pmoore@redhat.com>
->> Cc: linux-kernel@vger.kernel.org
->> Cc: linux-security-module@vger.kernel.org
->> Signed-off-by: Cong Wang <amwang@redhat.com>
+>> See: https://bugzilla.kernel.org/show_bug.cgi?id=60669
+>> 
+>> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+>> 
+>> --- a/net/sched/sch_htb.c	2013-06-20 09:22:46.489542435 -0700
+>> +++ b/net/sched/sch_htb.c	2013-08-01 22:12:43.736307055 -0700
+>> @@ -100,7 +100,7 @@ struct htb_class {
+>>  	struct psched_ratecfg	ceil;
+>>  	s64			buffer, cbuffer;/* token bucket depth/rate */
+>>  	s64			mbuffer;	/* max wait time */
+>> -	int			prio;		/* these two are used only by leaves... */
+>> +	u32			prio;		/* these two are used only by leaves... */
+>>  	int			quantum;	/* but stored for parent-to-leaf return */
+>>  
+>>  	struct tcf_proto	*filter_list;	/* class attached filters */
+>> --
 > 
-> Perhaps I'm confusing this with another patch but I though DaveM said he 
-> wasn't going to merge these patches?
+> Thanks Stephen.
+> 
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> 
+> It seems appropriate for net tree (and stable)
 
-I didn't like how he added completely unused bloat to various
-datastructures because he unconditionally put a port field into
-there.
-
-He removed that problem this time, but there are still a lot of
-things I don't like about this patch series.
+Applied and queued up for -stable, thanks.
