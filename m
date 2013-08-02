@@ -1,342 +1,118 @@
-From: Jeff Layton <jlayton@redhat.com>
-Subject: Re: [Patch net-next v2 5/8] sunrpc: use generic union inet_addr
-Date: Fri, 2 Aug 2013 09:36:25 -0400
-Message-ID: <20130802093625.2c70a330@tlielax.poochiereds.net>
-References: <1375427674-21735-1-git-send-email-amwang@redhat.com>
-	<1375427674-21735-6-git-send-email-amwang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>, linux-nfs@vger.kernel.org
-To: Cong Wang <amwang@redhat.com>
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: [PATCH v3] sis900: Fix the tx queue timeout issue
+Date: Fri,  2 Aug 2013 13:50:54 +0400
+Message-ID: <1375437054-1995-1-git-send-email-kda@linux-powerpc.org>
+Cc: bhutchings@solarflare.com, B38611@freescale.com,
+	netdev@vger.kernel.org, Denis Kirjanov <kda@linux-powerpc.org>
+To: davem@davemloft.net, venza@brownhat.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33206 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751560Ab3HBNge (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Aug 2013 09:36:34 -0400
-In-Reply-To: <1375427674-21735-6-git-send-email-amwang@redhat.com>
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:63473 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751407Ab3HBNpg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 09:45:36 -0400
+Received: by mail-lb0-f182.google.com with SMTP id v20so453647lbc.41
+        for <netdev@vger.kernel.org>; Fri, 02 Aug 2013 06:45:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri,  2 Aug 2013 15:14:31 +0800
-Cong Wang <amwang@redhat.com> wrote:
+[  198.720048] ------------[ cut here ]------------
+[  198.720108] WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:255 dev_watchdog+0x229/0x240()
+[  198.720118] NETDEV WATCHDOG: eth0 (sis900): transmit queue 0 timed out
+[  198.720125] Modules linked in: bridge stp llc dmfe sundance 3c59x sis900 mii
+[  198.720159] CPU: 0 PID: 0 Comm: swapper Not tainted 3.11.0-rc3+ #12
+[  198.720167] Hardware name: System Manufacturer System Name/TUSI-M, BIOS ASUS TUSI-M ACPI BIOS
+Revision 1013 Beta 001 12/14/2001
+[  198.720175]  000000ff c13fa6b9 c169ddcc c12208d6 c169ddf8 c1031e4d c1664a84 c169de24
+[  198.720197]  00000000 c165f5ea 000000ff c13fa6b9 00000001 000000ff c1664a84 c169de10
+[  198.720217]  c1031f13 00000009 c169de08 c1664a84 c169de24 c169de50 c13fa6b9 c165f5ea
+[  198.720240] Call Trace:
+[  198.720257]  [<c13fa6b9>] ? dev_watchdog+0x229/0x240
+[  198.720274]  [<c12208d6>] dump_stack+0x16/0x20
+[  198.720306]  [<c1031e4d>] warn_slowpath_common+0x7d/0xa0
+[  198.720318]  [<c13fa6b9>] ? dev_watchdog+0x229/0x240
+[  198.720330]  [<c1031f13>] warn_slowpath_fmt+0x33/0x40
+[  198.720342]  [<c13fa6b9>] dev_watchdog+0x229/0x240
+[  198.720357]  [<c103f158>] call_timer_fn+0x78/0x150
+[  198.720369]  [<c103f0e0>] ? internal_add_timer+0x40/0x40
+[  198.720381]  [<c13fa490>] ? dev_init_scheduler+0xa0/0xa0
+[  198.720392]  [<c103f33f>] run_timer_softirq+0x10f/0x200
+[  198.720412]  [<c103954f>] ? __do_softirq+0x6f/0x210
+[  198.720424]  [<c13fa490>] ? dev_init_scheduler+0xa0/0xa0
+[  198.720435]  [<c1039598>] __do_softirq+0xb8/0x210
+[  198.720467]  [<c14b54d2>] ? _raw_spin_unlock+0x22/0x30
+[  198.720484]  [<c1003245>] ? handle_irq+0x25/0xd0
+[  198.720496]  [<c1039c0c>] irq_exit+0x9c/0xb0
+[  198.720508]  [<c14bc9d7>] do_IRQ+0x47/0x94
+[  198.720534]  [<c1056078>] ? hrtimer_start+0x28/0x30
+[  198.720564]  [<c14bc8b1>] common_interrupt+0x31/0x38
+[  198.720589]  [<c1008692>] ? default_idle+0x22/0xa0
+[  198.720600]  [<c10083c7>] arch_cpu_idle+0x17/0x30
+[  198.720631]  [<c106d23d>] cpu_startup_entry+0xcd/0x180
+[  198.720643]  [<c14ae30a>] rest_init+0xaa/0xb0
+[  198.720654]  [<c14ae260>] ? reciprocal_value+0x50/0x50
+[  198.720668]  [<c17044e0>] ? repair_env_string+0x60/0x60
+[  198.720679]  [<c1704bda>] start_kernel+0x29a/0x350
+[  198.720690]  [<c17044e0>] ? repair_env_string+0x60/0x60
+[  198.720721]  [<c1704269>] i386_start_kernel+0x39/0xa0
+[  198.720729] ---[ end trace 81e0a6266f5c73a8 ]---
+[  198.720740] eth0: Transmit timeout, status 00000204 00000000
 
-> From: Cong Wang <amwang@redhat.com>
-> 
-> sunrpc defines some helper functions for sockaddr, actually they
-> can re-use the generic functions for union inet_addr too.
+timer routine checks the link status and if it's up calls
+netif_carrier_on() allowing upper layer to start the tx queue
+even if the auto-negotiation process is not finished.
 
-Only some of these patches in this series have made it to lists to
-which I'm subscribed, so I may be missing some context here...
+Also remove ugly auto-negotiation check from the sis900_start_xmit()
 
-I'm not sure I really understand the value of "union inet_addr". Why
-not just use the conventional method of passing around "struct sockaddr"
-pointers, and then casting them to struct sockaddr_in/sockaddr_in6
-depending on what the sa_family is set to?
+CC: Duan Fugang <B38611@freescale.com>
+CC: Ben Hutchings <bhutchings@solarflare.com>
 
-With that you wouldn't need to leave the (now pointless) rpc_* wrappers
-in place and could just call your new helpers directly.
+Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+---
+v1->v2: use netdev_dbg() instead of printk()
+v2->v3:
+ handle link change from timer,
+ remove auto-negotiation check from xmit path
+---
+ drivers/net/ethernet/sis/sis900.c | 12 ++----------
+ 1 file changed, 2 insertions(+), 10 deletions(-)
 
-> 
-> Cc: Trond Myklebust <Trond.Myklebust@netapp.com>
-> Cc: "J. Bruce Fields" <bfields@fieldses.org>
-> Cc: linux-nfs@vger.kernel.org
-> Signed-off-by: Cong Wang <amwang@redhat.com>
-> ---
->  include/linux/sunrpc/addr.h |  118 +++----------------------------------------
->  include/net/inet_addr.h     |   74 +++++++++++++++++++++------
->  net/core/utils.c            |   25 +++++++++
->  3 files changed, 89 insertions(+), 128 deletions(-)
-> 
-> diff --git a/include/linux/sunrpc/addr.h b/include/linux/sunrpc/addr.h
-> index 07d8e53..10d07f6 100644
-> --- a/include/linux/sunrpc/addr.h
-> +++ b/include/linux/sunrpc/addr.h
-> @@ -11,6 +11,7 @@
->  #include <linux/in.h>
->  #include <linux/in6.h>
->  #include <net/ipv6.h>
-> +#include <net/inet_addr.h>
->  
->  size_t		rpc_ntop(const struct sockaddr *, char *, const size_t);
->  size_t		rpc_pton(struct net *, const char *, const size_t,
-> @@ -21,135 +22,30 @@ size_t		rpc_uaddr2sockaddr(struct net *, const char *, const size_t,
->  
->  static inline unsigned short rpc_get_port(const struct sockaddr *sap)
->  {
-> -	switch (sap->sa_family) {
-> -	case AF_INET:
-> -		return ntohs(((struct sockaddr_in *)sap)->sin_port);
-> -	case AF_INET6:
-> -		return ntohs(((struct sockaddr_in6 *)sap)->sin6_port);
-> -	}
-> -	return 0;
-> +	return inet_addr_get_port((const union inet_addr *)sap);
->  }
->  
->  static inline void rpc_set_port(struct sockaddr *sap,
->  				const unsigned short port)
->  {
-> -	switch (sap->sa_family) {
-> -	case AF_INET:
-> -		((struct sockaddr_in *)sap)->sin_port = htons(port);
-> -		break;
-> -	case AF_INET6:
-> -		((struct sockaddr_in6 *)sap)->sin6_port = htons(port);
-> -		break;
-> -	}
-> +	inet_addr_set_port((union inet_addr *)sap, port);
->  }
->  
->  #define IPV6_SCOPE_DELIMITER		'%'
->  #define IPV6_SCOPE_ID_LEN		sizeof("%nnnnnnnnnn")
->  
-> -static inline bool __rpc_cmp_addr4(const struct sockaddr *sap1,
-> -				   const struct sockaddr *sap2)
-> -{
-> -	const struct sockaddr_in *sin1 = (const struct sockaddr_in *)sap1;
-> -	const struct sockaddr_in *sin2 = (const struct sockaddr_in *)sap2;
-> -
-> -	return sin1->sin_addr.s_addr == sin2->sin_addr.s_addr;
-> -}
-> -
-> -static inline bool __rpc_copy_addr4(struct sockaddr *dst,
-> -				    const struct sockaddr *src)
-> -{
-> -	const struct sockaddr_in *ssin = (struct sockaddr_in *) src;
-> -	struct sockaddr_in *dsin = (struct sockaddr_in *) dst;
-> -
-> -	dsin->sin_family = ssin->sin_family;
-> -	dsin->sin_addr.s_addr = ssin->sin_addr.s_addr;
-> -	return true;
-> -}
-> -
-> -#if IS_ENABLED(CONFIG_IPV6)
-> -static inline bool __rpc_cmp_addr6(const struct sockaddr *sap1,
-> -				   const struct sockaddr *sap2)
-> -{
-> -	const struct sockaddr_in6 *sin1 = (const struct sockaddr_in6 *)sap1;
-> -	const struct sockaddr_in6 *sin2 = (const struct sockaddr_in6 *)sap2;
-> -
-> -	if (!ipv6_addr_equal(&sin1->sin6_addr, &sin2->sin6_addr))
-> -		return false;
-> -	else if (ipv6_addr_type(&sin1->sin6_addr) & IPV6_ADDR_LINKLOCAL)
-> -		return sin1->sin6_scope_id == sin2->sin6_scope_id;
-> -
-> -	return true;
-> -}
-> -
-> -static inline bool __rpc_copy_addr6(struct sockaddr *dst,
-> -				    const struct sockaddr *src)
-> -{
-> -	const struct sockaddr_in6 *ssin6 = (const struct sockaddr_in6 *) src;
-> -	struct sockaddr_in6 *dsin6 = (struct sockaddr_in6 *) dst;
-> -
-> -	dsin6->sin6_family = ssin6->sin6_family;
-> -	dsin6->sin6_addr = ssin6->sin6_addr;
-> -	dsin6->sin6_scope_id = ssin6->sin6_scope_id;
-> -	return true;
-> -}
-> -#else	/* !(IS_ENABLED(CONFIG_IPV6) */
-> -static inline bool __rpc_cmp_addr6(const struct sockaddr *sap1,
-> -				   const struct sockaddr *sap2)
-> -{
-> -	return false;
-> -}
-> -
-> -static inline bool __rpc_copy_addr6(struct sockaddr *dst,
-> -				    const struct sockaddr *src)
-> -{
-> -	return false;
-> -}
-> -#endif	/* !(IS_ENABLED(CONFIG_IPV6) */
-> -
-> -/**
-> - * rpc_cmp_addr - compare the address portion of two sockaddrs.
-> - * @sap1: first sockaddr
-> - * @sap2: second sockaddr
-> - *
-> - * Just compares the family and address portion. Ignores port, but
-> - * compares the scope if it's a link-local address.
-> - *
-> - * Returns true if the addrs are equal, false if they aren't.
-> - */
->  static inline bool rpc_cmp_addr(const struct sockaddr *sap1,
->  				const struct sockaddr *sap2)
->  {
-> -	if (sap1->sa_family == sap2->sa_family) {
-> -		switch (sap1->sa_family) {
-> -		case AF_INET:
-> -			return __rpc_cmp_addr4(sap1, sap2);
-> -		case AF_INET6:
-> -			return __rpc_cmp_addr6(sap1, sap2);
-> -		}
-> -	}
-> -	return false;
-> +	return inet_addr_equal((const union inet_addr *)sap1,
-> +			       (const union inet_addr *)sap2);
->  }
->  
-> -/**
-> - * rpc_copy_addr - copy the address portion of one sockaddr to another
-> - * @dst: destination sockaddr
-> - * @src: source sockaddr
-> - *
-> - * Just copies the address portion and family. Ignores port, scope, etc.
-> - * Caller is responsible for making certain that dst is large enough to hold
-> - * the address in src. Returns true if address family is supported. Returns
-> - * false otherwise.
-> - */
->  static inline bool rpc_copy_addr(struct sockaddr *dst,
->  				 const struct sockaddr *src)
->  {
-> -	switch (src->sa_family) {
-> -	case AF_INET:
-> -		return __rpc_copy_addr4(dst, src);
-> -	case AF_INET6:
-> -		return __rpc_copy_addr6(dst, src);
-> -	}
-> -	return false;
-> +	return inet_addr_copy((union inet_addr *)dst,
-> +			      (const union inet_addr *)src);
->  }
->  
->  /**
-> diff --git a/include/net/inet_addr.h b/include/net/inet_addr.h
-> index ee80df4..e846050 100644
-> --- a/include/net/inet_addr.h
-> +++ b/include/net/inet_addr.h
-> @@ -36,17 +36,6 @@ bool in_addr_gen_equal(const struct in_addr_gen *a, const struct in_addr_gen *b)
->  }
->  
->  #if IS_ENABLED(CONFIG_IPV6)
-> -static inline
-> -bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b)
-> -{
-> -	if (a->sa.sa_family != b->sa.sa_family)
-> -		return false;
-> -	if (a->sa.sa_family == AF_INET6)
-> -		return ipv6_addr_equal(&a->sin6.sin6_addr, &b->sin6.sin6_addr);
-> -	else
-> -		return a->sin.sin_addr.s_addr == b->sin.sin_addr.s_addr;
-> -}
-> -
->  static inline bool inet_addr_any(const union inet_addr *ipa)
->  {
->  	if (ipa->sa.sa_family == AF_INET6)
-> @@ -65,12 +54,6 @@ static inline bool inet_addr_multicast(const union inet_addr *ipa)
->  
->  #else /* !CONFIG_IPV6 */
->  
-> -static inline
-> -bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b)
-> -{
-> -	return a->sin.sin_addr.s_addr == b->sin.sin_addr.s_addr;
-> -}
-> -
->  static inline bool inet_addr_any(const union inet_addr *ipa)
->  {
->  	return ipa->sin.sin_addr.s_addr == htonl(INADDR_ANY);
-> @@ -82,6 +65,63 @@ static inline bool inet_addr_multicast(const union inet_addr *ipa)
->  }
->  #endif
->  
-> +/**
-> + * inet_addr_copy - copy the address portion of one inet_addr to another
-> + * @dst: destination sockaddr
-> + * @src: source sockaddr
-> + *
-> + * Just copies the address portion and family. Ignores port, scope, etc.
-> + * Caller is responsible for making certain that dst is large enough to hold
-> + * the address in src. Returns true if address family is supported. Returns
-> + * false otherwise.
-> + */
-> +static inline bool inet_addr_copy(union inet_addr *dst,
-> +				  const union inet_addr *src)
-> +{
-> +	dst->sa.sa_family = src->sa.sa_family;
-> +
-> +	switch (src->sa.sa_family) {
-> +	case AF_INET:
-> +		dst->sin.sin_addr.s_addr = src->sin.sin_addr.s_addr;
-> +		return true;
-> +#if IS_ENABLED(CONFIG_IPV6)
-> +	case AF_INET6:
-> +		dst->sin6.sin6_addr = src->sin6.sin6_addr;
-> +		dst->sin6.sin6_scope_id = src->sin6.sin6_scope_id;
-> +		return true;
-> +#endif
-> +	}
-> +
-> +	return false;
-> +}
-> +
-> +static inline
-> +unsigned short inet_addr_get_port(const union inet_addr *sap)
-> +{
-> +	switch (sap->sa.sa_family) {
-> +	case AF_INET:
-> +		return ntohs(sap->sin.sin_port);
-> +	case AF_INET6:
-> +		return ntohs(sap->sin6.sin6_port);
-> +	}
-> +	return 0;
-> +}
-> +
-> +static inline
-> +void inet_addr_set_port(union inet_addr *sap,
-> +			const unsigned short port)
-> +{
-> +	switch (sap->sa.sa_family) {
-> +	case AF_INET:
-> +		sap->sin.sin_port = htons(port);
-> +		break;
-> +	case AF_INET6:
-> +		sap->sin6.sin6_port = htons(port);
-> +		break;
-> +	}
-> +}
-> +
-> +bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b);
->  int simple_inet_pton(const char *str, union inet_addr *addr);
->  
->  #endif
-> diff --git a/net/core/utils.c b/net/core/utils.c
-> index 22dd621..837bb18 100644
-> --- a/net/core/utils.c
-> +++ b/net/core/utils.c
-> @@ -374,3 +374,28 @@ int simple_inet_pton(const char *str, union inet_addr *addr)
->  	return -EINVAL;
->  }
->  EXPORT_SYMBOL(simple_inet_pton);
-> +
-> +#if IS_ENABLED(CONFIG_IPV6)
-> +bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b)
-> +{
-> +	if (a->sa.sa_family != b->sa.sa_family)
-> +		return false;
-> +	else if (a->sa.sa_family == AF_INET6) {
-> +		if (!ipv6_addr_equal(&a->sin6.sin6_addr, &b->sin6.sin6_addr))
-> +			return false;
-> +		else if (__ipv6_addr_needs_scope_id(__ipv6_addr_type(&a->sin6.sin6_addr)))
-> +			return a->sin6.sin6_scope_id == b->sin6.sin6_scope_id;
-> +		else
-> +			return true;
-> +	} else
-> +		return a->sin.sin_addr.s_addr == b->sin.sin_addr.s_addr;
-> +}
-> +#else
-> +bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b)
-> +{
-> +	if (a->sa.sa_family == AF_UNSPEC)
-> +		return a->sa.sa_family == b->sa.sa_family;
-> +	return a->sin.sin_addr.s_addr == b->sin.sin_addr.s_addr;
-> +}
-> +#endif
-> +EXPORT_SYMBOL(inet_addr_equal);
-
-
+diff --git a/drivers/net/ethernet/sis/sis900.c b/drivers/net/ethernet/sis/sis900.c
+index eb4aea3..f5d7ad7 100644
+--- a/drivers/net/ethernet/sis/sis900.c
++++ b/drivers/net/ethernet/sis/sis900.c
+@@ -1318,7 +1318,7 @@ static void sis900_timer(unsigned long data)
+ 		if (duplex){
+ 			sis900_set_mode(sis_priv, speed, duplex);
+ 			sis630_set_eq(net_dev, sis_priv->chipset_rev);
+-			netif_start_queue(net_dev);
++			netif_carrier_on(net_dev);
+ 		}
+ 
+ 		sis_priv->timer.expires = jiffies + HZ;
+@@ -1336,10 +1336,8 @@ static void sis900_timer(unsigned long data)
+ 		status = sis900_default_phy(net_dev);
+ 		mii_phy = sis_priv->mii;
+ 
+-		if (status & MII_STAT_LINK){
++		if (status & MII_STAT_LINK)
+ 			sis900_check_mode(net_dev, mii_phy);
+-			netif_carrier_on(net_dev);
+-		}
+ 	} else {
+ 	/* Link ON -> OFF */
+                 if (!(status & MII_STAT_LINK)){
+@@ -1612,12 +1610,6 @@ sis900_start_xmit(struct sk_buff *skb, struct net_device *net_dev)
+ 	unsigned int  index_cur_tx, index_dirty_tx;
+ 	unsigned int  count_dirty_tx;
+ 
+-	/* Don't transmit data before the complete of auto-negotiation */
+-	if(!sis_priv->autong_complete){
+-		netif_stop_queue(net_dev);
+-		return NETDEV_TX_BUSY;
+-	}
+-
+ 	spin_lock_irqsave(&sis_priv->lock, flags);
+ 
+ 	/* Calculate the next Tx descriptor entry. */
 -- 
-Jeff Layton <jlayton@redhat.com>
+1.8.0.2
