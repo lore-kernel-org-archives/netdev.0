@@ -1,57 +1,157 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/2] igb: Expose RSS indirection table for ethtool
-Date: Fri, 2 Aug 2013 13:52:44 +0200
-Message-ID: <1375444364.24371.30.camel@deadeye.wl.decadent.org.uk>
-References: <1375260212-19351-1-git-send-email-laura.vasilescu@rosedu.org>
-	 <1375260212-19351-2-git-send-email-laura.vasilescu@rosedu.org>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: bonding + arp monitoring fails if interface is a vlan
+Date: Fri, 02 Aug 2013 13:58:29 +0200
+Message-ID: <51FB9EE5.3040907@redhat.com>
+References: <20130801121142.GA444@www.manty.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <carolyn.wyborny@intel.com>,
-	<anjali.singhai@intel.com>, <jeffrey.t.kirsher@intel.com>,
-	<alexander.h.duyck@intel.com>
-To: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
+Content-Type: multipart/mixed;
+ boundary="------------010805080402070307010204"
+Cc: netdev@vger.kernel.org
+To: Santiago Garcia Mantinan <manty@manty.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:24755 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751582Ab3HBLwt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 07:52:49 -0400
-In-Reply-To: <1375260212-19351-2-git-send-email-laura.vasilescu@rosedu.org>
+Received: from mx1.redhat.com ([209.132.183.28]:5997 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750740Ab3HBMCl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Aug 2013 08:02:41 -0400
+In-Reply-To: <20130801121142.GA444@www.manty.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-07-31 at 11:43 +0300, Laura Mihaela Vasilescu wrote:
-[...]
-> +static int igb_set_rxfh_indir(struct net_device *netdev, const u32 *indir)
-> +{
-> +	struct igb_adapter *adapter = netdev_priv(netdev);
-> +	struct e1000_hw *hw = &adapter->hw;
-> +	int i;
-> +	u32 num_queues;
-> +
-> +	num_queues = adapter->rss_queues;
-> +
-> +	switch (hw->mac.type) {
-> +	case e1000_82576:
-> +		/* 82576 supports 2 RSS queues for SR-IOV */
-> +		if (adapter->vfs_allocated_count)
-> +			num_queues = 2;
-> +		break;
-> +	default:
-> +		break;
-> +	}
-> +
-> +	/* Verify user input. */
-> +	for (i = 0; i < IGB_RETA_SIZE; i++)
-> +		if (indir[i] > num_queues)
-> +			return -EINVAL;
-[...]
+This is a multi-part message in MIME format.
+--------------010805080402070307010204
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-Surely the comparison should be >= ?
+On 08/01/2013 02:11 PM, Santiago Garcia Mantinan wrote:
+> Hi!
+> 
+> I'm trying to setup a bond of a couple of vlans, these vlans are different
+> paths to an upstream switch from a local switch.  I want to do arp
+> monitoring of the link in order for the bonding interface to know which path
+> is ok and wich one is broken.  If I set it up using arp monitoring and
+> without using vlans it works ok, it also works if I set it up using vlans
+> but without arp monitoring, so the broken setup seems to be with bonding +
+> arp monitoring + vlans. Here is a schema:
+> 
+>  -------------
+> |Remote Switch|
+>  -------------
+>    |      |
+>    P      P
+>    A      A
+>    T      T
+>    H      H
+>    1      2
+>    |      |
+>  ------------
+> |Local switch|
+>  ------------
+>       |
+>       | VLAN for PATH1
+>       | VLAN for PATH2
+>       |
+>  Linux machine
+> 
+> The broken setup seems to work but arp monitoring makes it loose the logical
+> link from time to time, thus changing to other slave if available.  What I
+> saw when monitoring this with tcpdump is that all the arp requests were
+> going out and that all the replies where coming in, so acording to the
+> traffic seen on tcpdump the link should have been stable, but
+> /proc/net/bonding/bond0 showed the link failures increasing and when testing
+> with just a vlan interface I was loosing ping when the link was going down.
+> 
+> I've tried this on Debian wheezy with its 3.2.46 kernel and also the 3.10.3
+> version in unstable, the tests where done on a couple of machines using a 32
+> bits kernel with different nics (r8169 and skge).
+> 
+> I created a small lab to replicate the problem, on this setup I avoided all
+> the switching and I directly connected the machine with bonding to another
+> Linux on which I just had eth0.1002 configured with ip 192.168.1.1, the
+> results where the same as in the full scenario, link on the bonding slave
+> was going down from time to time.
+> 
+> This is the setup on the bonding interface.
+> 
+> auto bond0
+> iface bond0 inet static
+>         address 192.168.1.2
+>         netmask 255.255.255.0
+>         bond-slaves eth0.1002
+>         bond-mode active-backup
+>         bond-arp_validate 0
+>         bond-arp_interval 5000
+>         bond-arp_ip_target 192.168.1.1
+>         pre-up ip link set eth0 up || true
+>         pre-up ip link add link eth0 name eth0.1002 type vlan id 1002 || true
+>         down ip link delete eth0.1002 || true
+> 
+I believe that it is because dev_trans_start() returns 0 for 8021q devices and
+so the calculations if the slave has transmitted are wrong, and the flip-flop
+happens.
+Please try the attached patch, it should resolve your issue (basically it gets
+the dev_trans_start of the vlan's underlying device if a vlan is found).
 
-Ben.
+The patch is against Linus' tree.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Cheers,
+ Nik
+
+
+
+--------------010805080402070307010204
+Content-Type: text/x-patch;
+ name="bond-trans-start.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="bond-trans-start.patch"
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 07f257d4..6aac0ae 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -665,6 +665,16 @@ static int bond_check_dev_link(struct bonding *bond,
+ 	return reporting ? -1 : BMSR_LSTATUS;
+ }
+ 
++static unsigned long bond_dev_trans_start(struct net_device *dev)
++{
++        struct net_device *real_dev = dev;
++
++        if (dev->priv_flags & IFF_802_1Q_VLAN)
++                real_dev = vlan_dev_real_dev(dev);
++
++        return dev_trans_start(real_dev);
++}
++
+ /*----------------------------- Multicast list ------------------------------*/
+ 
+ /*
+@@ -2750,7 +2760,7 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
+ 	 *       so it can wait
+ 	 */
+ 	bond_for_each_slave(bond, slave, i) {
+-		unsigned long trans_start = dev_trans_start(slave->dev);
++		unsigned long trans_start = bond_dev_trans_start(slave->dev);
+ 
+ 		if (slave->link != BOND_LINK_UP) {
+ 			if (time_in_range(jiffies,
+@@ -2912,7 +2922,7 @@ static int bond_ab_arp_inspect(struct bonding *bond, int delta_in_ticks)
+ 		 * - (more than 2*delta since receive AND
+ 		 *    the bond has an IP address)
+ 		 */
+-		trans_start = dev_trans_start(slave->dev);
++		trans_start = bond_dev_trans_start(slave->dev);
+ 		if (bond_is_active_slave(slave) &&
+ 		    (!time_in_range(jiffies,
+ 			trans_start - delta_in_ticks,
+@@ -2947,7 +2957,7 @@ static void bond_ab_arp_commit(struct bonding *bond, int delta_in_ticks)
+ 			continue;
+ 
+ 		case BOND_LINK_UP:
+-			trans_start = dev_trans_start(slave->dev);
++			trans_start = bond_dev_trans_start(slave->dev);
+ 			if ((!bond->curr_active_slave &&
+ 			     time_in_range(jiffies,
+ 					   trans_start - delta_in_ticks,
+
+--------------010805080402070307010204--
