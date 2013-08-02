@@ -1,108 +1,58 @@
-From: Teco Boot <teco@inf-net.nl>
-Subject: Linux IPV6_SUBTREES not functioning
-Date: Fri, 2 Aug 2013 12:15:03 +0200
-Message-ID: <8CBF8819-E1D9-445E-9E7C-793422934733@inf-net.nl>
-Mime-Version: 1.0 (Mac OS X Mail 6.5 \(1508\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: boutier@pps.univ-paris-diderot.fr
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] net: mlx5: fix sizeof usage in health_care's reg_handler
+Date: Fri,  2 Aug 2013 12:16:17 +0200
+Message-ID: <1375438577-30933-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:38538 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030594Ab3HBKPI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 06:15:08 -0400
-Received: by mail-pd0-f179.google.com with SMTP id v10so509029pde.10
-        for <netdev@vger.kernel.org>; Fri, 02 Aug 2013 03:15:07 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:4690 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750928Ab3HBKQW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Aug 2013 06:16:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For destination & source address routing, I prefer the single routing table approach with IPV6_SUBTREES over the multiple tables with ip rules approach.
-Can some take a look at my findings? It looks broken. It seems the source address check in route cache is missing.
+In mlx5's function health_care() the callback handler reg_handler() is
+being called that checks the devices registers like:
 
-Teco
+  reg_handler(dev->pdev, health->health, sizeof(health->health));
 
+health->health is a pointer to the member "struct health_buffer __iomem
+*health" of mlx5_core_health, where health buffer itself looks like:
 
-Output:
-==========
-this is my system:
-Linux ubuntu 3.8.0-25-generic #37-Ubuntu SMP Thu Jun 6 20:47:30 UTC 2013 i686 i686 i686 GNU/Linux
-CONFIG_IPV6_SUBTREES=y
-... clean up for our experiment
-... add a link-local
-... add default
-... add some source address specific defaults
-====> now I have this routing table
-default from 2001:db8:10::/48 via fe80::10 dev eth0  metric 1024 
-default from 2001:db8:11::/48 via fe80::11 dev eth0  metric 1024 
-default from 2001:db8:12::/48 via fe80::12 dev eth0  metric 1024 
-fe80::1 dev eth0  proto kernel  metric 256 
-default via fe80::ff dev eth0  metric 1024 
-====> show route to same destination
-2001:db8:babe::1 from 2001:db8:10::1 via fe80::10 dev eth0  metric 0 \    cache 
-2001:db8:babe::1 from 2001:db8:11::1 via fe80::ff dev eth0  metric 0 \    cache 
-2001:db8:babe::1 from 2001:db8:12::1 via fe80::ff dev eth0  metric 0 \    cache 
-2001:db8:babe::1 from 2001:db8:1::1 via fe80::ff dev eth0  metric 0 \    cache 
-2001:db8:babe::1 from :: via fe80::ff dev eth0  metric 0 \    cache 
-====> show route to different destinations
-2001:db8:cafe::10 from 2001:db8:10::1 via fe80::10 dev eth0  metric 0 \    cache 
-2001:db8:cafe::11 from 2001:db8:11::1 via fe80::11 dev eth0  metric 0 \    cache 
-2001:db8:cafe::12 from 2001:db8:12::1 via fe80::12 dev eth0  metric 0 \    cache 
-2001:db8:cafe::21 from 2001:db8:1::1 via fe80::ff dev eth0  metric 0 \    cache 
-2001:db8:cafe::22 from :: via fe80::ff dev eth0  metric 0 \    cache 
-====> now the route cache is
-2001:db8:babe::1 from 2001:db8:10::/48 via fe80::10 dev eth0  metric 0 \    cache 
-2001:db8:babe::1 via fe80::ff dev eth0  metric 0 \    cache 
-2001:db8:cafe::10 from 2001:db8:10::/48 via fe80::10 dev eth0  metric 0 \    cache 
-2001:db8:cafe::11 from 2001:db8:11::/48 via fe80::11 dev eth0  metric 0 \    cache 
-2001:db8:cafe::12 from 2001:db8:12::/48 via fe80::12 dev eth0  metric 0 \    cache 
-2001:db8:cafe::21 via fe80::ff dev eth0  metric 0 \    cache 
-2001:db8:cafe::22 via fe80::ff dev eth0  metric 0 \    cache 
+  struct health_buffer {
+        __be32          assert_var[5];
+        __be32          rsvd0[3];
+        __be32          assert_exit_ptr;
+        __be32          assert_callra;
+        __be32          rsvd1[2];
+        ...
+        __be16          ext_sync;
+  };
+
+Therefore, I strongly assume sizeof(*health->health) is being meant
+to be passed as an argument. Interestingly, there are actually no
+in-tree users of mlx5_[un]register_health_report_handler(), but some
+debugging modules might want to know the correct size instead.
+
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/health.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/health.c b/drivers/net/ethernet/mellanox/mlx5/core/health.c
+index 748f10a..3592e43 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/health.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/health.c
+@@ -101,7 +101,7 @@ static void health_care(struct work_struct *work)
+ 		spin_lock_irq(&health_lock);
+ 		if (reg_handler)
+ 			reg_handler(dev->pdev, health->health,
+-				    sizeof(health->health));
++				    sizeof(*health->health));
  
-
-
-My script:
-=======
-#!/bin/sh
-
-echo "this is my system:" 
-uname -a
-grep IPV6_SUBTREES /boot/config-3.8.0-25-generic
-
-echo ... clean up for our experiment
-ip -6 address flush dev eth0
-ip -6 route flush table all
-
-echo ... add a link-local
-ip address add fe80::1 dev eth0
-
-echo ... add default
-ip -6 route add default via fe80::ff dev eth0
-
-echo ... add some source address specific defaults
-ip -6 route add default from 2001:db8:10::/48 via fe80::10 dev eth0
-ip -6 route add default from 2001:db8:11::/48 via fe80::11 dev eth0
-ip -6 route add default from 2001:db8:12::/48 via fe80::12 dev eth0
-
-echo -n "====> "
-echo now I have this routing table
-ip -6 -o route show table main
-
-echo -n "====> "
-echo show route to same destination
-ip -6 -o route get 2001:db8:babe::1 from 2001:db8:10::1
-ip -6 -o route get 2001:db8:babe::1 from 2001:db8:11::1
-ip -6 -o route get 2001:db8:babe::1 from 2001:db8:12::1
-ip -6 -o route get 2001:db8:babe::1 from 2001:db8:1::1
-ip -6 -o route get 2001:db8:babe::1
-
-echo -n "====> "
-echo show route to different destinations
-ip -6 -o route get 2001:db8:cafe::10 from 2001:db8:10::1
-ip -6 -o route get 2001:db8:cafe::11 from 2001:db8:11::1
-ip -6 -o route get 2001:db8:cafe::12 from 2001:db8:12::1
-ip -6 -o route get 2001:db8:cafe::21 from 2001:db8:1::1
-ip -6 -o route get 2001:db8:cafe::22
-echo -n "====> "
-echo now the route cache is
-ip -6 -o route show cache
+ 		list_del_init(&health->list);
+ 		spin_unlock_irq(&health_lock);
+-- 
+1.7.11.7
