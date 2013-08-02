@@ -1,42 +1,40 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Fw: [Bug 60669] Kernel panic when using negative priority for
- HTB class
-Date: Fri, 2 Aug 2013 04:50:16 +0000 (UTC)
-Message-ID: <ktfdq8$882$1@ger.gmane.org>
-References: <20130801211231.1b25c3be@nehalam.linuxnetplumber.net>
+From: Werner Almesberger <werner@almesberger.net>
+Subject: Re: minimum ICMPv6 message size vs. RPL's DIS
+Date: Fri, 2 Aug 2013 01:51:27 -0300
+Message-ID: <20130802045127.GA5594@ws>
+References: <20130725061731.GA12365@order.stressinduktion.org>
+ <20130725103048.GB29572@ws>
+ <20130801054844.GC3688@order.stressinduktion.org>
+ <20130801.181022.1784276332134390788.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:40593 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753563Ab3HBEuf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Aug 2013 00:50:35 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1V57Jy-0005IJ-5c
-	for netdev@vger.kernel.org; Fri, 02 Aug 2013 06:50:34 +0200
-Received: from 60.160.69.36 ([60.160.69.36])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 02 Aug 2013 06:50:34 +0200
-Received: from xiyou.wangcong by 60.160.69.36 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 02 Aug 2013 06:50:34 +0200
+Received: from hydra.openmoko.org ([144.76.72.4]:51485 "EHLO
+	hydra.openmoko.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751613Ab3HBExX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 00:53:23 -0400
+Content-Disposition: inline
+In-Reply-To: <20130801.181022.1784276332134390788.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 02 Aug 2013 at 04:12 GMT, Stephen Hemminger <stephen@networkplumber.org> wrote:
->
-> --- Comment #2 from _Vi <vi0oss@gmail.com> ---
-> Reproducible on 3.11.0-rc3
->
-> Looks like negative priority value is essential for the kernel panic.
->
+David Miller wrote:
+> FWIW I think this is a safe change.
 
-There is a check for prio:
+Thanks !
 
-                if ((cl->prio = hopt->prio) >= TC_HTB_NUMPRIO)
-		                        cl->prio = TC_HTB_NUMPRIO - 1;
-					
+Regarding the change to icmpv6.h, I found that the introduction
+of the otherwise very nice and tidy "struct icmp6hdr_head" creates
+a conflict with net/bridge/br_multicast.c:br_multicast_ipv6_rcv
+which has a variable called "icmp6_type".
+
+While it would be easy enough to rename that variable, this makes
+me wonder if the change isn't too intrusive after all, I think
+I'd rather go with my original idea and just change the size to 4,
+with a comment why and what this is.
+
+I'll post the patches in a bit.
+
+- Werner
