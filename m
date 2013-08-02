@@ -1,47 +1,61 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] htb: fix sign extension bug
-Date: Thu, 1 Aug 2013 22:32:07 -0700
-Message-ID: <20130801223207.2a9c69e9@nehalam.linuxnetplumber.net>
+Subject: Re: [Bug 60669] Kernel panic when using negative priority for HTB
+ class
+Date: Thu, 1 Aug 2013 22:31:15 -0700
+Message-ID: <20130801223115.59a1ac76@nehalam.linuxnetplumber.net>
 References: <20130801211231.1b25c3be@nehalam.linuxnetplumber.net>
  <ktfdq8$882$1@ger.gmane.org>
- <20130801221936.24d4b31e@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:50967 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754694Ab3HBFcQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 01:32:16 -0400
-Received: by mail-pa0-f43.google.com with SMTP id hz10so272099pad.2
-        for <netdev@vger.kernel.org>; Thu, 01 Aug 2013 22:32:15 -0700 (PDT)
-In-Reply-To: <20130801221936.24d4b31e@nehalam.linuxnetplumber.net>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:42921 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754694Ab3HBFcT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 01:32:19 -0400
+Received: by mail-pa0-f68.google.com with SMTP id kl13so150150pab.3
+        for <netdev@vger.kernel.org>; Thu, 01 Aug 2013 22:32:18 -0700 (PDT)
+In-Reply-To: <ktfdq8$882$1@ger.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When userspace passes a large priority value 
-the assignment of the unsigned value hopt->prio
-to  signed int cl->prio causes cl->prio to become negative and the
-comparison is with TC_HTB_NUMPRIO is always false.
+On Fri, 2 Aug 2013 04:50:16 +0000 (UTC)
+Cong Wang <xiyou.wangcong@gmail.com> wrote:
 
-The result is that HTB crashes by referencing outside
-the array when processing packets. With this patch the large value
-wraps around like other values outside the normal range.
+> On Fri, 02 Aug 2013 at 04:12 GMT, Stephen Hemminger <stephen@networkplumber.org> wrote:
+> >
+> > --- Comment #2 from _Vi <vi0oss@gmail.com> ---
+> > Reproducible on 3.11.0-rc3
+> >
+> > Looks like negative priority value is essential for the kernel panic.
+> >
+> 
+> There is a check for prio:
+> 
+>                 if ((cl->prio = hopt->prio) >= TC_HTB_NUMPRIO)
+> 		                        cl->prio = TC_HTB_NUMPRIO - 1;
+> 					
 
-See: https://bugzilla.kernel.org/show_bug.cgi?id=60669
+This maybe related to or old bugs, 64 bit with current
+iproute2 the error is caught at the command level.
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+The issue is that hopt->prio is u32 but cl->prio is int.
 
---- a/net/sched/sch_htb.c	2013-06-20 09:22:46.489542435 -0700
-+++ b/net/sched/sch_htb.c	2013-08-01 22:12:43.736307055 -0700
-@@ -100,7 +100,7 @@ struct htb_class {
- 	struct psched_ratecfg	ceil;
- 	s64			buffer, cbuffer;/* token bucket depth/rate */
- 	s64			mbuffer;	/* max wait time */
--	int			prio;		/* these two are used only by leaves... */
-+	u32			prio;		/* these two are used only by leaves... */
- 	int			quantum;	/* but stored for parent-to-leaf return */
- 
- 	struct tcf_proto	*filter_list;	/* class attached filters */
+Example:
+int main()
+{
+	int x = -1;
+	uint32_t prio = x;
+	int cl;
+
+	if ((cl = prio) >= TC_HTB_NUMPRIO)
+		cl = TC_HTB_NUMPRIO - 1;
+
+	printf("%d %u %d\n", x, prio, cl);
+	return 0;
+}
+-1 4294967295 -1
+
+Signed/unsigned conversions can bite.
