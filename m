@@ -1,33 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] htb: fix sign extension bug
-Date: Fri, 02 Aug 2013 14:53:34 -0700 (PDT)
-Message-ID: <20130802.145334.325880684467169033.davem@davemloft.net>
-References: <20130801223207.2a9c69e9@nehalam.linuxnetplumber.net>
-	<1375450580.3927.12.camel@edumazet-glaptop>
-	<20130802082404.600bc55c@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH] net: ethernet: cpsw: drop IRQF_DISABLED
+Date: Fri, 02 Aug 2013 14:54:07 -0700 (PDT)
+Message-ID: <20130802.145407.1085542888053882863.davem@davemloft.net>
+References: <1375429450-25454-1-git-send-email-balbi@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, xiyou.wangcong@gmail.com,
-	netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42210 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752994Ab3HBVxf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 17:53:35 -0400
-In-Reply-To: <20130802082404.600bc55c@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mugunthanvnm@ti.com, netdev@vger.kernel.org,
+	linux-omap@vger.kernel.org
+To: balbi@ti.com
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1375429450-25454-1-git-send-email-balbi@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Fri, 2 Aug 2013 08:24:04 -0700
+From: Felipe Balbi <balbi@ti.com>
+Date: Fri, 2 Aug 2013 10:44:10 +0300
 
-> There are more signed/unsigned bugs lurking here, and opportunities to
-> shrink the structure. (for example prio could be u8). Overall this code
-> uses int where unsigned should be used.
+> IRQF_DISABLED is a no-op by now and should be
+> removed.
+> 
+> Signed-off-by: Felipe Balbi <balbi@ti.com>
 
-If any of them can cause an OOPS like this one could, let's get that
-fixed as soon as possible.
-
-Thanks.
+Applied.
