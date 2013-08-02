@@ -1,102 +1,175 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v2 0/8] net: introduce generic type and helpers for IP address
-Date: Fri,  2 Aug 2013 15:14:26 +0800
-Message-ID: <1375427674-21735-1-git-send-email-amwang@redhat.com>
+Subject: [Patch net-next v2 2/8] net: introduce generic simple_inet_pton()
+Date: Fri,  2 Aug 2013 15:14:28 +0800
+Message-ID: <1375427674-21735-3-git-send-email-amwang@redhat.com>
+References: <1375427674-21735-1-git-send-email-amwang@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
 	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34528 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:50206 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753923Ab3HBHOy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Aug 2013 03:14:54 -0400
+	id S1755105Ab3HBHPE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Aug 2013 03:15:04 -0400
+In-Reply-To: <1375427674-21735-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Cong Wang <amwang@redhat.com>
 
-As IPv6 becomes popular, more and more subsystems begin to support IPv6,
-therefore we need a generic IP address type, in case of duplicates.
-Also we will also need some helpers to compare, print, check the generic
-IP address.
+simple_inet_pton() is a simple implementation of inet_pton()
+in kernel, the original code is already in netpoll, so just move
+it to global.
 
-This patchset introduce a new type union inet_addr as a union of IPv4
-and IPv6 address, and struct in_addr_gen for inetpeer and bridge mdb,
-plus some helper functions that will be used by existing code and
-in the future VXLAN module.
-
-However, due to ABI limit, we still can't convert union nf_inet_addr
-to union inet_addr.
-
+Cc: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
 Signed-off-by: Cong Wang <amwang@redhat.com>
+---
+ include/net/inet_addr.h |    3 +++
+ net/core/netpoll.c      |   36 ++++++++----------------------------
+ net/core/utils.c        |   36 ++++++++++++++++++++++++++++++++++++
+ 3 files changed, 47 insertions(+), 28 deletions(-)
 
-v1 -> v2:
-* introduce another generic IP address type, struct in_addr_gen
-* convert bridge multicast code too
-* complete the smack part
-
-RFC -> v1:
-* rebase these patches on top of Daniel's
-* rename inet_pton() to simple_inet_pton()
-* fix the simple_inet_pton() API
-* make inet_addr_equal() non-inline
-* add two more patches
-
-Cong Wang (8):
-  net: introduce generic union inet_addr
-  net: introduce generic simple_inet_pton()
-  inetpeer: use generic struct in_addr_gen
-  bridge: use generic struct in_addr_gen
-  sunrpc: use generic union inet_addr
-  fs: use generic union inet_addr and help functions
-  sctp: use generic union inet_addr
-  selinux: use generic union inet_addr
-
- Documentation/printk-formats.txt   |   20 ++--
- drivers/net/netconsole.c           |   22 ++--
- fs/cifs/connect.c                  |   39 ++-----
- fs/dlm/lowcomms.c                  |   24 +---
- fs/nfs/client.c                    |   94 +-------------
- fs/nfs/nfs4filelayoutdev.c         |   37 +-----
- fs/nfs/super.c                     |   31 +----
- include/linux/lsm_audit.h          |   19 +---
- include/linux/netpoll.h            |    9 +--
- include/linux/sunrpc/addr.h        |  118 +-----------------
- include/net/inet_addr.h            |  128 +++++++++++++++++++
- include/net/inetpeer.h             |   25 +---
- include/net/sctp/sctp.h            |   22 ++--
- include/net/sctp/sm.h              |    4 +-
- include/net/sctp/structs.h         |  132 +++++++++-----------
- lib/vsprintf.c                     |   29 ++---
- net/bridge/br_mdb.c                |   53 ++++----
- net/bridge/br_multicast.c          |   65 ++++------
- net/bridge/br_private.h            |    9 +-
- net/core/netpoll.c                 |   86 +++++--------
- net/core/utils.c                   |   84 +++++++++++++
- net/ipv4/inetpeer.c                |   33 +++--
- net/ipv4/tcp_metrics.c             |   74 +++++-------
- net/sctp/associola.c               |   32 +++---
- net/sctp/bind_addr.c               |   61 +++------
- net/sctp/endpointola.c             |   12 +-
- net/sctp/input.c                   |   56 ++++----
- net/sctp/ipv6.c                    |  240 ++++++++++++++++--------------------
- net/sctp/outqueue.c                |    4 +-
- net/sctp/proc.c                    |   10 +-
- net/sctp/protocol.c                |  204 ++++++++++++-------------------
- net/sctp/sm_make_chunk.c           |   54 ++++----
- net/sctp/sm_sideeffect.c           |    2 +-
- net/sctp/sm_statefuns.c            |   23 +---
- net/sctp/socket.c                  |  130 +++++++++++---------
- net/sctp/transport.c               |   12 +-
- net/sctp/ulpevent.c                |    2 +-
- security/lsm_audit.c               |   58 +++++-----
- security/selinux/hooks.c           |  130 +++++++++----------
- security/selinux/include/netnode.h |    4 +-
- security/selinux/include/objsec.h  |    7 +-
- security/selinux/netnode.c         |  102 +++++-----------
- security/smack/smack_lsm.c         |   19 ++--
- 43 files changed, 1008 insertions(+), 1311 deletions(-)
- create mode 100644 include/net/inet_addr.h
-
+diff --git a/include/net/inet_addr.h b/include/net/inet_addr.h
+index 66a16fe..7289aed 100644
+--- a/include/net/inet_addr.h
++++ b/include/net/inet_addr.h
+@@ -4,6 +4,7 @@
+ #include <linux/in.h>
+ #include <linux/in6.h>
+ #include <linux/socket.h>
++#include <linux/inet.h>
+ #include <net/addrconf.h>
+ 
+ union inet_addr {
+@@ -59,4 +60,6 @@ static inline bool inet_addr_multicast(const union inet_addr *ipa)
+ }
+ #endif
+ 
++int simple_inet_pton(const char *str, union inet_addr *addr);
++
+ #endif
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index e7d4388..67174c4 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -908,30 +908,10 @@ void netpoll_print_options(struct netpoll *np)
+ }
+ EXPORT_SYMBOL(netpoll_print_options);
+ 
+-static int netpoll_parse_ip_addr(const char *str, union inet_addr *addr)
+-{
+-	const char *end;
+-
+-	if (!strchr(str, ':') &&
+-	    in4_pton(str, -1, (void *)addr, -1, &end) > 0) {
+-		if (!*end)
+-			return 0;
+-	}
+-	if (in6_pton(str, -1, addr->sin6.sin6_addr.s6_addr, -1, &end) > 0) {
+-#if IS_ENABLED(CONFIG_IPV6)
+-		if (!*end)
+-			return 1;
+-#else
+-		return -1;
+-#endif
+-	}
+-	return -1;
+-}
+-
+ int netpoll_parse_options(struct netpoll *np, char *opt)
+ {
+ 	char *cur=opt, *delim;
+-	int ipv6;
++	int ret;
+ 
+ 	if (*cur != '@') {
+ 		if ((delim = strchr(cur, '@')) == NULL)
+@@ -947,11 +927,11 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
+ 		if ((delim = strchr(cur, '/')) == NULL)
+ 			goto parse_failed;
+ 		*delim = 0;
+-		ipv6 = netpoll_parse_ip_addr(cur, &np->local_ip);
+-		if (ipv6 < 0)
++		ret = simple_inet_pton(cur, &np->local_ip);
++		if (ret < 0)
+ 			goto parse_failed;
+ 		else
+-			np->ipv6 = (bool)ipv6;
++			np->ipv6 = np->local_ip.sa.sa_family == AF_INET6;
+ 		cur = delim;
+ 	}
+ 	cur++;
+@@ -983,13 +963,13 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
+ 	if ((delim = strchr(cur, '/')) == NULL)
+ 		goto parse_failed;
+ 	*delim = 0;
+-	ipv6 = netpoll_parse_ip_addr(cur, &np->remote_ip);
+-	if (ipv6 < 0)
++	ret = simple_inet_pton(cur, &np->remote_ip);
++	if (ret < 0)
+ 		goto parse_failed;
+-	else if (np->ipv6 != (bool)ipv6)
++	else if (np->ipv6 != (np->local_ip.sa.sa_family == AF_INET6))
+ 		goto parse_failed;
+ 	else
+-		np->ipv6 = (bool)ipv6;
++		np->ipv6 = np->local_ip.sa.sa_family == AF_INET6;
+ 	cur = delim + 1;
+ 
+ 	if (*cur != 0) {
+diff --git a/net/core/utils.c b/net/core/utils.c
+index aa88e23..22dd621 100644
+--- a/net/core/utils.c
++++ b/net/core/utils.c
+@@ -29,6 +29,7 @@
+ 
+ #include <net/sock.h>
+ #include <net/net_ratelimit.h>
++#include <net/inet_addr.h>
+ 
+ #include <asm/byteorder.h>
+ #include <asm/uaccess.h>
+@@ -338,3 +339,38 @@ void inet_proto_csum_replace16(__sum16 *sum, struct sk_buff *skb,
+ 				  csum_unfold(*sum)));
+ }
+ EXPORT_SYMBOL(inet_proto_csum_replace16);
++
++/**
++ * simple_inet_pton - a simple implementation of inet_pton()
++ * @str: the start of the IPv4 or IPv6 address string
++ * @addr: a pointer to union inet_addr
++ *
++ * Return zero on success, callers should check addr->sa.sa_family
++ * to know if the address is IPv4 or IPv6; return negative when
++ * any error occurs.
++ *
++ */
++int simple_inet_pton(const char *str, union inet_addr *addr)
++{
++	const char *end;
++
++	if (!strchr(str, ':') &&
++	    in4_pton(str, -1, (void *)addr, -1, &end) > 0) {
++		if (!*end) {
++			addr->sa.sa_family = AF_INET;
++			return 0;
++		}
++	}
++	if (in6_pton(str, -1, addr->sin6.sin6_addr.s6_addr, -1, &end) > 0) {
++#if IS_ENABLED(CONFIG_IPV6)
++		if (!*end) {
++			addr->sa.sa_family = AF_INET6;
++			return 0;
++		}
++#else
++		return -EAFNOSUPPORT;
++#endif
++	}
++	return -EINVAL;
++}
++EXPORT_SYMBOL(simple_inet_pton);
 -- 
 1.7.7.6
