@@ -1,36 +1,38 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: PROBLEM: 3.11.0-rc2+ lost of connectivity
-Date: Fri, 2 Aug 2013 02:47:50 +0000 (UTC)
-Message-ID: <ktf6km$rsu$1@ger.gmane.org>
-References: <CAOSRKdTOcYOZ4fD5gXe_57dA028rGmR30T32FQ6MeruAq2p04g@mail.gmail.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [Patch net-next 1/2] net: fix a compile error when CONFIG_NET_LL_RX_POLL
+ is not set
+Date: Fri, 02 Aug 2013 06:04:11 +0300
+Message-ID: <51FB21AB.6090003@linux.intel.com>
+References: <1375326625-21427-1-git-send-email-amwang@redhat.com> <51FA060A.2060202@linux.intel.com> <1375344487.7780.14.camel@cr0> <20130801.130338.1147816900371465134.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: amwang@redhat.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:6043 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753829Ab3HBDEO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Aug 2013 23:04:14 -0400
+In-Reply-To: <20130801.130338.1147816900371465134.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 01 Aug 2013 at 14:34 GMT, Sebastiano Spicuglia <spicuglia.sebastiano@gmail.com> wrote:
->
-> The machine suddenly stops to be connected to the network.
-> Running "ifdown eth0" "ifup eth0" the network starts to work
-> again for few minutes and then the failure happens again.
-> It is not even possible to ping the machine.
-> /var/log/messages does not report anything wrong.
->
-> I instrumented the kernel with SystemTap to see what happens when the
-> machine is in the failure state.
->
-> the function ip_rcv is invoked.
-> the function ip_rcv_finish is invoked.
-> the function ip_local_deliver is invoked
-> the function ip_local_deliver_finish is invoked
-> the function tcp_v4_rcv is NOT invoked
->
-> When the network works the function tcp_v4_rcv is invoked.
->
+On 01/08/2013 23:03, David Miller wrote:
+> From: Cong Wang <amwang@redhat.com>
+> Date: Thu, 01 Aug 2013 16:08:07 +0800
+> 
+>> Thinking about it again, what is the point of your commit commit
+>> 89bf1b5a683df497c572c4d3bd3f9c9aa919d773 (net: remove NET_LL_RX_POLL
+>> config menue)? After that commit, CONFIG_NET_LL_RX_POLL is not visible
+>> by user and no other configs select it, also since it defaults to y, it
+>> will be _always_ enabled. If this is really what you want, we can simply
+>> remove all !CONFIG_NET_LL_RX_POLL code.
+> 
+> Yes we could do that, it has no dependencies which is the usual reason
+> to have a hidden Kconfig var like this.
 
-Please turn off your firewall and run dropwatch to see where the
-packets are dropped.
+I think we still need a config option that depends on net and the
+placeholder code.
+What happens then if someone does not configure networking?
+Won't this break select and poll?
