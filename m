@@ -1,37 +1,33 @@
 From: Santiago Garcia Mantinan <manty@manty.net>
 Subject: Re: bonding + arp monitoring fails if interface is a vlan
-Date: Fri, 2 Aug 2013 09:26:46 +0200
-Message-ID: <CAJk_L2H+Y4u=DtLXe_R9R79z6tUt8F3=16YwRvh12CxENm7Aaw@mail.gmail.com>
+Date: Fri, 2 Aug 2013 09:30:29 +0200
+Message-ID: <CAJk_L2EfJuit=8tU_vdqOenkBfm4awRz+vspM0DY_q2sQAmdrg@mail.gmail.com>
 References: <20130801121142.GA444@www.manty.net>
-	<20130801130058.GA13602@eerihug-hybrid.rnd.ki.sw.ericsson.se>
+	<CAE3RKN=AoevKmRDewpmm8TjDasN8k=J4Sny8gCCv6dbOXwHADQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Cc: netdev <netdev@vger.kernel.org>
-To: Erik Hugne <erik.hugne@ericsson.com>
+To: Veaceslav Falico <darkmag@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f172.google.com ([209.85.216.172]:47165 "EHLO
-	mail-qc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755390Ab3HBH0r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 03:26:47 -0400
-Received: by mail-qc0-f172.google.com with SMTP id a1so160949qcx.17
-        for <netdev@vger.kernel.org>; Fri, 02 Aug 2013 00:26:47 -0700 (PDT)
-In-Reply-To: <20130801130058.GA13602@eerihug-hybrid.rnd.ki.sw.ericsson.se>
+Received: from mail-qa0-f53.google.com ([209.85.216.53]:62119 "EHLO
+	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755403Ab3HBHaa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 03:30:30 -0400
+Received: by mail-qa0-f53.google.com with SMTP id hu14so158573qab.19
+        for <netdev@vger.kernel.org>; Fri, 02 Aug 2013 00:30:29 -0700 (PDT)
+In-Reply-To: <CAE3RKN=AoevKmRDewpmm8TjDasN8k=J4Sny8gCCv6dbOXwHADQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/8/1 Erik Hugne <erik.hugne@ericsson.com>
-> This have helped me troubleshoot various bonding problems in the past:
-> mount -t debugfs none /sys/kernel/debug/
-> ln -s /sys/kernel/debug /debug
-> echo -n 'module bonding +p' > /debug/dynamic_debug/control
+2013/8/1 Veaceslav Falico <darkmag@gmail.com>:
+>>         bond-slaves eth0.1002
+>>         bond-mode active-backup
+>>         bond-arp_validate 0
+> Could you please try with arp_validate=1?
 
-I'm compiling a 3.11-rc3 version with dynamic_debug enabled in order
-to be able to test this.
-
-> Did you sniff externally, on the native device, bond slaves or on bond0?
-
-The sniffing was done on both the bonding host (eth0 device) and the
-remote host, the one with just the vlan.
+arp_validate=1 was what I first tried, then I thought that making
+validations could be dropping packages so I went for the 0
+validations, both had the same problem.
 
 Regards.
 -- 
