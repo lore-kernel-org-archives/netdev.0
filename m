@@ -1,59 +1,33 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next] htb: fix sign extension bug
-Date: Fri, 02 Aug 2013 14:52:59 -0700 (PDT)
-Message-ID: <20130802.145259.429033678992660208.davem@davemloft.net>
-References: <20130801221936.24d4b31e@nehalam.linuxnetplumber.net>
-	<20130801223207.2a9c69e9@nehalam.linuxnetplumber.net>
+Date: Fri, 02 Aug 2013 14:53:34 -0700 (PDT)
+Message-ID: <20130802.145334.325880684467169033.davem@davemloft.net>
+References: <20130801223207.2a9c69e9@nehalam.linuxnetplumber.net>
 	<1375450580.3927.12.camel@edumazet-glaptop>
+	<20130802082404.600bc55c@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, xiyou.wangcong@gmail.com,
+Cc: eric.dumazet@gmail.com, xiyou.wangcong@gmail.com,
 	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42194 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42210 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752994Ab3HBVw7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 17:52:59 -0400
-In-Reply-To: <1375450580.3927.12.camel@edumazet-glaptop>
+	with ESMTP id S1752994Ab3HBVxf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 17:53:35 -0400
+In-Reply-To: <20130802082404.600bc55c@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 02 Aug 2013 06:36:20 -0700
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Fri, 2 Aug 2013 08:24:04 -0700
 
-> On Thu, 2013-08-01 at 22:32 -0700, Stephen Hemminger wrote:
->> When userspace passes a large priority value 
->> the assignment of the unsigned value hopt->prio
->> to  signed int cl->prio causes cl->prio to become negative and the
->> comparison is with TC_HTB_NUMPRIO is always false.
->> 
->> The result is that HTB crashes by referencing outside
->> the array when processing packets. With this patch the large value
->> wraps around like other values outside the normal range.
->> 
->> See: https://bugzilla.kernel.org/show_bug.cgi?id=60669
->> 
->> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
->> 
->> --- a/net/sched/sch_htb.c	2013-06-20 09:22:46.489542435 -0700
->> +++ b/net/sched/sch_htb.c	2013-08-01 22:12:43.736307055 -0700
->> @@ -100,7 +100,7 @@ struct htb_class {
->>  	struct psched_ratecfg	ceil;
->>  	s64			buffer, cbuffer;/* token bucket depth/rate */
->>  	s64			mbuffer;	/* max wait time */
->> -	int			prio;		/* these two are used only by leaves... */
->> +	u32			prio;		/* these two are used only by leaves... */
->>  	int			quantum;	/* but stored for parent-to-leaf return */
->>  
->>  	struct tcf_proto	*filter_list;	/* class attached filters */
->> --
-> 
-> Thanks Stephen.
-> 
-> Acked-by: Eric Dumazet <edumazet@google.com>
-> 
-> It seems appropriate for net tree (and stable)
+> There are more signed/unsigned bugs lurking here, and opportunities to
+> shrink the structure. (for example prio could be u8). Overall this code
+> uses int where unsigned should be used.
 
-Applied and queued up for -stable, thanks.
+If any of them can cause an OOPS like this one could, let's get that
+fixed as soon as possible.
+
+Thanks.
