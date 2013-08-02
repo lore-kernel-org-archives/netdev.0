@@ -1,103 +1,81 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [PATCH v2 2/3] af_packet: fix for sending VLAN frames via packet_mmap
-Date: Fri,  2 Aug 2013 11:37:40 +0200
-Message-ID: <1375436261-6746-2-git-send-email-phil@nwl.cc>
+Subject: [PATCH v2 1/3] af_packet: when sending ethernet frames, parse header for skb->protocol
+Date: Fri,  2 Aug 2013 11:37:39 +0200
+Message-ID: <1375436261-6746-1-git-send-email-phil@nwl.cc>
 References: <20130801.181208.804928209108880255.davem@davemloft.net>
- <1375436261-6746-1-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:46024 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([176.31.251.142]:40834 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758440Ab3HBJiI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1758520Ab3HBJiI (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 2 Aug 2013 05:38:08 -0400
-In-Reply-To: <1375436261-6746-1-git-send-email-phil@nwl.cc>
+In-Reply-To: <20130801.181208.804928209108880255.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since tpacket_fill_skb() parses the protocol field in ethernet frames'
-headers, it's easy to see if any passed frame is a VLAN one and account
-for the extended size.
+This may be necessary when the SKB is passed to other layers on the go,
+which check the protocol field on their own. An example is a VLAN packet
+sent out using AF_PACKET on a bridge interface. The bridging code checks
+the SKB size, accounting for any VLAN header only if the protocol field
+is set accordingly.
 
-But as the real protocol does not turn up before tpacket_fill_skb()
-runs which in turn also checks the frame length, move the max frame
-length calculation into the function.
+Note that eth_type_trans() sets skb->dev to the passed argument, so this
+can be skipped in packet_snd() for ethernet frames, as well.
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- net/packet/af_packet.c | 25 ++++++++++++++-----------
- 1 file changed, 14 insertions(+), 11 deletions(-)
+Changes since V1:
+- minor lingual review of the comment
+- added note about setting skb->dev for non-ethernet frames only
+---
+ net/packet/af_packet.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
 diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index e549e17..ce7b4f0 100644
+index 20a1bd0..e549e17 100644
 --- a/net/packet/af_packet.c
 +++ b/net/packet/af_packet.c
-@@ -1924,7 +1924,7 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 		__be16 proto, unsigned char *addr, int hlen)
- {
- 	union tpacket_uhdr ph;
--	int to_write, offset, len, tp_len, nr_frags, len_max;
-+	int to_write, offset, len, tp_len, nr_frags, len_max, max_frame_len;
- 	struct socket *sock = po->sk.sk_socket;
- 	struct page *page;
- 	void *data;
-@@ -1947,10 +1947,6 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 		tp_len = ph.h1->tp_len;
- 		break;
- 	}
--	if (unlikely(tp_len > size_max)) {
--		pr_err("packet size is too long (%d > %d)\n", tp_len, size_max);
--		return -EMSGSIZE;
--	}
+@@ -88,6 +88,7 @@
+ #include <linux/virtio_net.h>
+ #include <linux/errqueue.h>
+ #include <linux/net_tstamp.h>
++#include <linux/if_arp.h>
  
- 	skb_reserve(skb, hlen);
- 	skb_reset_network_header(skb);
-@@ -2013,6 +2009,18 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ #ifdef CONFIG_INET
+ #include <net/inet_common.h>
+@@ -2005,6 +2006,9 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ 		if (unlikely(err))
+ 			return err;
+ 
++		if (dev->type == ARPHRD_ETHER)
++			skb->protocol = eth_type_trans(skb, dev);
++
+ 		data += dev->hard_header_len;
  		to_write -= dev->hard_header_len;
  	}
+@@ -2324,6 +2328,13 @@ static int packet_snd(struct socket *sock,
  
-+	max_frame_len = dev->mtu + dev->hard_header_len;
-+	if (skb->protocol == htons(ETH_P_8021Q))
-+		max_frame_len += VLAN_HLEN;
-+
-+	if (size_max > max_frame_len)
-+		size_max = max_frame_len;
-+
-+	if (unlikely(tp_len > size_max)) {
-+		pr_err("packet size is too long (%d > %d)\n", tp_len, size_max);
-+		return -EMSGSIZE;
+ 	sock_tx_timestamp(sk, &skb_shinfo(skb)->tx_flags);
+ 
++	if (dev->type == ARPHRD_ETHER) {
++		skb->protocol = eth_type_trans(skb, dev);
++	} else {
++		skb->protocol = proto;
++		skb->dev = dev;
 +	}
 +
- 	offset = offset_in_page(data);
- 	len_max = PAGE_SIZE - offset;
- 	len = ((to_write > len_max) ? len_max : to_write);
-@@ -2051,7 +2059,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 	struct net_device *dev;
- 	__be16 proto;
- 	bool need_rls_dev = false;
--	int err, reserve = 0;
-+	int err;
- 	void *ph;
- 	struct sockaddr_ll *saddr = (struct sockaddr_ll *)msg->msg_name;
- 	int tp_len, size_max;
-@@ -2084,8 +2092,6 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 	if (unlikely(dev == NULL))
- 		goto out;
+ 	if (!gso_type && (len > dev->mtu + reserve + extra_len)) {
+ 		/* Earlier code assumed this would be a VLAN pkt,
+ 		 * double-check this now that we have the actual
+@@ -2338,8 +2349,6 @@ static int packet_snd(struct socket *sock,
+ 		}
+ 	}
  
--	reserve = dev->hard_header_len;
--
- 	err = -ENETDOWN;
- 	if (unlikely(!(dev->flags & IFF_UP)))
- 		goto out_put;
-@@ -2093,9 +2099,6 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 	size_max = po->tx_ring.frame_size
- 		- (po->tp_hdrlen - sizeof(struct sockaddr_ll));
+-	skb->protocol = proto;
+-	skb->dev = dev;
+ 	skb->priority = sk->sk_priority;
+ 	skb->mark = sk->sk_mark;
  
--	if (size_max > dev->mtu + reserve)
--		size_max = dev->mtu + reserve;
--
- 	do {
- 		ph = packet_current_frame(po, &po->tx_ring,
- 				TP_STATUS_SEND_REQUEST);
 -- 
 1.8.1.5
