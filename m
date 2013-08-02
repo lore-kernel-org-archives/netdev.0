@@ -1,118 +1,52 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: [PATCH v3] sis900: Fix the tx queue timeout issue
-Date: Fri,  2 Aug 2013 13:50:54 +0400
-Message-ID: <1375437054-1995-1-git-send-email-kda@linux-powerpc.org>
-Cc: bhutchings@solarflare.com, B38611@freescale.com,
-	netdev@vger.kernel.org, Denis Kirjanov <kda@linux-powerpc.org>
-To: davem@davemloft.net, venza@brownhat.org
+From: Werner Almesberger <werner@almesberger.net>
+Subject: [PATCH net-next 0/2] icmpv6_filter: correct minimum ICMPv6 message
+ size
+Date: Fri, 2 Aug 2013 10:50:52 -0300
+Message-ID: <cover.1375417279.git.werner@almesberger.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:63473 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751407Ab3HBNpg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 09:45:36 -0400
-Received: by mail-lb0-f182.google.com with SMTP id v20so453647lbc.41
-        for <netdev@vger.kernel.org>; Fri, 02 Aug 2013 06:45:34 -0700 (PDT)
+Received: from hydra.openmoko.org ([144.76.72.4]:60936 "EHLO
+	hydra.openmoko.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752845Ab3HBNwr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 09:52:47 -0400
+Received: from 201-160-231-201.fibertel.com.ar ([201.231.160.201] helo=ws)
+	by hydra.openmoko.org with esmtpsa (TLS1.0:RSA_AES_128_CBC_SHA1:128)
+	(Exim 4.80)
+	(envelope-from <werner@almesberger.net>)
+	id 1V5Fmc-0001ey-Ev
+	for netdev@vger.kernel.org; Fri, 02 Aug 2013 15:52:43 +0200
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[  198.720048] ------------[ cut here ]------------
-[  198.720108] WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:255 dev_watchdog+0x229/0x240()
-[  198.720118] NETDEV WATCHDOG: eth0 (sis900): transmit queue 0 timed out
-[  198.720125] Modules linked in: bridge stp llc dmfe sundance 3c59x sis900 mii
-[  198.720159] CPU: 0 PID: 0 Comm: swapper Not tainted 3.11.0-rc3+ #12
-[  198.720167] Hardware name: System Manufacturer System Name/TUSI-M, BIOS ASUS TUSI-M ACPI BIOS
-Revision 1013 Beta 001 12/14/2001
-[  198.720175]  000000ff c13fa6b9 c169ddcc c12208d6 c169ddf8 c1031e4d c1664a84 c169de24
-[  198.720197]  00000000 c165f5ea 000000ff c13fa6b9 00000001 000000ff c1664a84 c169de10
-[  198.720217]  c1031f13 00000009 c169de08 c1664a84 c169de24 c169de50 c13fa6b9 c165f5ea
-[  198.720240] Call Trace:
-[  198.720257]  [<c13fa6b9>] ? dev_watchdog+0x229/0x240
-[  198.720274]  [<c12208d6>] dump_stack+0x16/0x20
-[  198.720306]  [<c1031e4d>] warn_slowpath_common+0x7d/0xa0
-[  198.720318]  [<c13fa6b9>] ? dev_watchdog+0x229/0x240
-[  198.720330]  [<c1031f13>] warn_slowpath_fmt+0x33/0x40
-[  198.720342]  [<c13fa6b9>] dev_watchdog+0x229/0x240
-[  198.720357]  [<c103f158>] call_timer_fn+0x78/0x150
-[  198.720369]  [<c103f0e0>] ? internal_add_timer+0x40/0x40
-[  198.720381]  [<c13fa490>] ? dev_init_scheduler+0xa0/0xa0
-[  198.720392]  [<c103f33f>] run_timer_softirq+0x10f/0x200
-[  198.720412]  [<c103954f>] ? __do_softirq+0x6f/0x210
-[  198.720424]  [<c13fa490>] ? dev_init_scheduler+0xa0/0xa0
-[  198.720435]  [<c1039598>] __do_softirq+0xb8/0x210
-[  198.720467]  [<c14b54d2>] ? _raw_spin_unlock+0x22/0x30
-[  198.720484]  [<c1003245>] ? handle_irq+0x25/0xd0
-[  198.720496]  [<c1039c0c>] irq_exit+0x9c/0xb0
-[  198.720508]  [<c14bc9d7>] do_IRQ+0x47/0x94
-[  198.720534]  [<c1056078>] ? hrtimer_start+0x28/0x30
-[  198.720564]  [<c14bc8b1>] common_interrupt+0x31/0x38
-[  198.720589]  [<c1008692>] ? default_idle+0x22/0xa0
-[  198.720600]  [<c10083c7>] arch_cpu_idle+0x17/0x30
-[  198.720631]  [<c106d23d>] cpu_startup_entry+0xcd/0x180
-[  198.720643]  [<c14ae30a>] rest_init+0xaa/0xb0
-[  198.720654]  [<c14ae260>] ? reciprocal_value+0x50/0x50
-[  198.720668]  [<c17044e0>] ? repair_env_string+0x60/0x60
-[  198.720679]  [<c1704bda>] start_kernel+0x29a/0x350
-[  198.720690]  [<c17044e0>] ? repair_env_string+0x60/0x60
-[  198.720721]  [<c1704269>] i386_start_kernel+0x39/0xa0
-[  198.720729] ---[ end trace 81e0a6266f5c73a8 ]---
-[  198.720740] eth0: Transmit timeout, status 00000204 00000000
+These two patches correct the minimum ICMPv6 message size enforced
+by net/ipv6/raw.c:icmpv6_filter
 
-timer routine checks the link status and if it's up calls
-netif_carrier_on() allowing upper layer to start the tx queue
-even if the auto-negotiation process is not finished.
+The first patch corrects a type error. Because of the error, ICMPv6
+raw sockets on 32 bit systems accepted ICMPv6 messages as small as
+4 bytes, while 64 bit systems required at least 8 bytes.
 
-Also remove ugly auto-negotiation check from the sis900_start_xmit()
+The second patch reduces the amount of data we require from eight
+(i.e., the ICMPv6 header plus four bytes of message body) to four
+bytes. This is needed for protocols like RPL (RFC 6550) that use
+ICMPv6 messages with bodies smaller than four bytes.
 
-CC: Duan Fugang <B38611@freescale.com>
-CC: Ben Hutchings <bhutchings@solarflare.com>
+Note that applications that assume that the kernel will not pass
+such short ICMPv6 messages on raw sockets may misbehave on 64 bit
+systems after applying these patches. However, even if such
+applications exist, they would already have that vulnerability on
+32 bit systems.
 
-Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
----
-v1->v2: use netdev_dbg() instead of printk()
-v2->v3:
- handle link change from timer,
- remove auto-negotiation check from xmit path
----
- drivers/net/ethernet/sis/sis900.c | 12 ++----------
- 1 file changed, 2 insertions(+), 10 deletions(-)
+- Werner
 
-diff --git a/drivers/net/ethernet/sis/sis900.c b/drivers/net/ethernet/sis/sis900.c
-index eb4aea3..f5d7ad7 100644
---- a/drivers/net/ethernet/sis/sis900.c
-+++ b/drivers/net/ethernet/sis/sis900.c
-@@ -1318,7 +1318,7 @@ static void sis900_timer(unsigned long data)
- 		if (duplex){
- 			sis900_set_mode(sis_priv, speed, duplex);
- 			sis630_set_eq(net_dev, sis_priv->chipset_rev);
--			netif_start_queue(net_dev);
-+			netif_carrier_on(net_dev);
- 		}
- 
- 		sis_priv->timer.expires = jiffies + HZ;
-@@ -1336,10 +1336,8 @@ static void sis900_timer(unsigned long data)
- 		status = sis900_default_phy(net_dev);
- 		mii_phy = sis_priv->mii;
- 
--		if (status & MII_STAT_LINK){
-+		if (status & MII_STAT_LINK)
- 			sis900_check_mode(net_dev, mii_phy);
--			netif_carrier_on(net_dev);
--		}
- 	} else {
- 	/* Link ON -> OFF */
-                 if (!(status & MII_STAT_LINK)){
-@@ -1612,12 +1610,6 @@ sis900_start_xmit(struct sk_buff *skb, struct net_device *net_dev)
- 	unsigned int  index_cur_tx, index_dirty_tx;
- 	unsigned int  count_dirty_tx;
- 
--	/* Don't transmit data before the complete of auto-negotiation */
--	if(!sis_priv->autong_complete){
--		netif_stop_queue(net_dev);
--		return NETDEV_TX_BUSY;
--	}
--
- 	spin_lock_irqsave(&sis_priv->lock, flags);
- 
- 	/* Calculate the next Tx descriptor entry. */
+Werner Almesberger (2):
+  icmpv6_filter: fix "_hdr" incorrectly being a pointer
+  icmpv6_filter: allow ICMPv6 messages with bodies < 4 bytes
+
+ net/ipv6/raw.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
 -- 
-1.8.0.2
+1.8.1.2
