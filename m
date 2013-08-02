@@ -1,36 +1,59 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: changing dev->needed_headroom/needed_tailroom?
-Date: Fri, 02 Aug 2013 06:11:22 -0700
-Message-ID: <1375449082.3927.5.camel@edumazet-glaptop>
-References: <1374850210.8248.59.camel@jlt4.sipsolutions.net>
-	 <1375433758.24371.20.camel@deadeye.wl.decadent.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] htb: fix sign extension bug
+Date: Fri, 02 Aug 2013 06:36:20 -0700
+Message-ID: <1375450580.3927.12.camel@edumazet-glaptop>
+References: <20130801211231.1b25c3be@nehalam.linuxnetplumber.net>
+	 <ktfdq8$882$1@ger.gmane.org>
+	 <20130801221936.24d4b31e@nehalam.linuxnetplumber.net>
+	 <20130801223207.2a9c69e9@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1375433758.24371.20.camel-nDn/Rdv9kqW9Jme8/bJn5UCKIB8iOfG2tUK59QYPAWc@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:53866 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751560Ab3HBNgW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 09:36:22 -0400
+Received: by mail-pd0-f181.google.com with SMTP id g10so660192pdj.40
+        for <netdev@vger.kernel.org>; Fri, 02 Aug 2013 06:36:22 -0700 (PDT)
+In-Reply-To: <20130801223207.2a9c69e9@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-08-02 at 10:55 +0200, Ben Hutchings wrote:
+On Thu, 2013-08-01 at 22:32 -0700, Stephen Hemminger wrote:
+> When userspace passes a large priority value 
+> the assignment of the unsigned value hopt->prio
+> to  signed int cl->prio causes cl->prio to become negative and the
+> comparison is with TC_HTB_NUMPRIO is always false.
+> 
+> The result is that HTB crashes by referencing outside
+> the array when processing packets. With this patch the large value
+> wraps around like other values outside the normal range.
+> 
+> See: https://bugzilla.kernel.org/show_bug.cgi?id=60669
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> 
+> --- a/net/sched/sch_htb.c	2013-06-20 09:22:46.489542435 -0700
+> +++ b/net/sched/sch_htb.c	2013-08-01 22:12:43.736307055 -0700
+> @@ -100,7 +100,7 @@ struct htb_class {
+>  	struct psched_ratecfg	ceil;
+>  	s64			buffer, cbuffer;/* token bucket depth/rate */
+>  	s64			mbuffer;	/* max wait time */
+> -	int			prio;		/* these two are used only by leaves... */
+> +	u32			prio;		/* these two are used only by leaves... */
+>  	int			quantum;	/* but stored for parent-to-leaf return */
+>  
+>  	struct tcf_proto	*filter_list;	/* class attached filters */
+> --
 
-> I don't think this is safe when the interface is running (even if
-> carrier is off).  Some functions may read dev->needed_headroom twice and
-> rely on getting the same value each time.
+Thanks Stephen.
 
-It should be no problem. Remaining unsafe places should be fixed.
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-We already had this discussion in the past, and some patches were
-issued. Check commit ae641949df01b85117845bec45328eab6d6fada1
-("net: Remove all uses of LL_ALLOCATED_SPACE")
+It seems appropriate for net tree (and stable)
 
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+We probably should report an error from htb_change_class() ?
