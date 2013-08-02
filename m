@@ -1,39 +1,49 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net] net: mlx5: fix sizeof usage in health_care's reg_handler
-Date: Sat, 03 Aug 2013 00:43:44 +0200
-Message-ID: <51FC3620.3020401@redhat.com>
-References: <1375438577-30933-1-git-send-email-dborkman@redhat.com> <20130802.151132.539136654627638979.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] fix bonding neighbour setup handling
+Date: Fri, 02 Aug 2013 15:45:39 -0700 (PDT)
+Message-ID: <20130802.154539.237539535236462726.davem@davemloft.net>
+References: <1375463259-12033-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: ogerlitz@mellanox.com
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
+	ebiederm@xmission.com, joe@perches.com
+To: vfalico@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7218 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754583Ab3HBWnw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Aug 2013 18:43:52 -0400
-In-Reply-To: <20130802.151132.539136654627638979.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42691 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752353Ab3HBWpl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 18:45:41 -0400
+In-Reply-To: <1375463259-12033-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/03/2013 12:11 AM, David Miller wrote:
-> From: Daniel Borkmann <dborkman@redhat.com>
-> Date: Fri,  2 Aug 2013 12:16:17 +0200
->
->> Therefore, I strongly assume sizeof(*health->health) is being meant
->> to be passed as an argument. Interestingly, there are actually no
->> in-tree users of mlx5_[un]register_health_report_handler(), but some
->> debugging modules might want to know the correct size instead.
->
-> I want these hooks and infrastructure removed immediately.
->
-> If there are no in-tree users there is no reason for them to
-> exist at all.
+From: Veaceslav Falico <vfalico@redhat.com>
+Date: Fri,  2 Aug 2013 19:07:37 +0200
 
-Ok, I let Or handle that. Maybe he wants to add a user of it, instead.
+> Recent patches revealed an old bug, which was there for quite awhile. It's
+> related to vlan on top of bonding and ndo_neigh_setup(). When vlan device
+> is initiated, it calls its real_dev->ndo_neigh_setup(), and in case of
+> bonding - it will modify neigh_parms->neigh_setup to point to
+> bond_neigh_init, while neigh_parms are of vlan's dev.
+> 
+> This way, when neigh_parms->neigh_setup() of vlan's dev is called, the
+> bonding function will be called, which expects the dev to be struct
+> bonding, but will receive a vlan dev.
+> 
+> It was hidden before because of bond->first_slave usage. Now, with
+> Nikolay's conversion to list/RCU, first_slave is gone and we hit a null
+> pointer dereference when working with lists/slave.
+> 
+> First patch moves ndo_neigh_setup() in neigh_parms_alloc() to the bottom,
+> so that the ->dev will be available to the caller. It doesn't really change
+> anything, however is needed for the second patch.
+> 
+> Second patch makes bond_neigh_setup() (bond->ndo_neigh_setup()) check if
+> the neigh_parms are really from a bonding dev, and only modify the
+> neigh_setup in this case.
 
-I also noticed that coverty scanner found a couple of other issues,
-e.g. outlen_write() in mlx5/core/cmd.c does a kzalloc() without
-doing sanity checks on the user-passed allocation size, e.g. it
-could even be a negative value passed to it.
+Thanks for the detailed explanation of the situation, it made your patches
+trivial to review.
+
+Applied, thanks.
