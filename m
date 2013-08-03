@@ -1,34 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] fib_rules: reorder struct fib_rules fields
-Date: Sat, 03 Aug 2013 11:54:08 -0700 (PDT)
-Message-ID: <20130803.115408.389552762427955941.davem@davemloft.net>
-References: <1375555835.4457.26.camel@edumazet-glaptop>
+Subject: Re: [PATCH net 0/8] qlcnic: Bug fixes
+Date: Sat, 03 Aug 2013 12:03:17 -0700 (PDT)
+Message-ID: <20130803.120317.2224762299381503635.davem@davemloft.net>
+References: <1375499761-21141-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stefan.tomanek@wertarbyte.de
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
+To: shahed.shaikh@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52290 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52381 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752640Ab3HCSyJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 14:54:09 -0400
-In-Reply-To: <1375555835.4457.26.camel@edumazet-glaptop>
+	with ESMTP id S1752782Ab3HCTDS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 15:03:18 -0400
+In-Reply-To: <1375499761-21141-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 03 Aug 2013 11:50:35 -0700
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Date: Fri, 2 Aug 2013 23:15:53 -0400
 
-> From: Eric Dumazet <edumazet@google.com>
+> From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 > 
-> Move refcnt, pref, suppress_ifgroup, suppress_prefixlen out of first
-> cache line, as they are not used in fast path.
+> This patch series contains the following bug fixes :
 > 
-> Make sure ctarget & fr_net are in first cache line.
+> * Fix programming of MAC address filter.
+> * Fix MAC address learning of ingress packets.
+> * Free memory in error path.
+> * Remove adapter series name from warning messages.
+> * Fix external loopback diagnostic test.
+> * Fix improper link speed display.
+> * Fix flash update failure due to improper error handling of
+>   read register API.
 > 
-> (Assuming 64 bit arches and 64 bytes cache lines)
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Please apply this series to net.
 
-Applied, thanks Eric.
+Series applied, thanks.
