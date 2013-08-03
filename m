@@ -1,87 +1,175 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH v1 4/4] USBNET: ax88179_178a: enable tso if usb host supports sg dma
-Date: Sat,  3 Aug 2013 10:46:37 +0800
-Message-ID: <1375497998-7424-5-git-send-email-ming.lei@canonical.com>
-References: <1375497998-7424-1-git-send-email-ming.lei@canonical.com>
-Cc: Oliver Neukum <oneukum@suse.de>,
-	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Ming Lei <tom.leiming@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Grant Grundler <grundler@google.com>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Freddy Xin <freddy@asix.com.tw>,
-	Ming Lei <ming.lei@canonical.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: [PATCH net 2/8] qlcnic: Fix ingress MAC learning
+Date: Fri, 2 Aug 2013 23:15:55 -0400
+Message-ID: <1375499761-21141-3-git-send-email-shahed.shaikh@qlogic.com>
+References: <1375499761-21141-1-git-send-email-shahed.shaikh@qlogic.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:32961 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754980Ab3HCCsc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 22:48:32 -0400
-In-Reply-To: <1375497998-7424-1-git-send-email-ming.lei@canonical.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:59068 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754712Ab3HCDy3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 23:54:29 -0400
+In-Reply-To: <1375499761-21141-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ming Lei <tom.leiming@gmail.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-This patch enables 'can_dma_sg' flag for ax88179_178a device
-if the attached host controller supports building packet from
-discontinuous buffers(DMA SG is possible), so TSO can be enabled
-and skb fragment buffers can be passed to usb stack via urb->sg
-directly.
+o Delete MAC address from the adapter's filter table
+  if the source MAC address of ingress packet matches.
 
-With the patch, system CPU utilization decreased ~50% and throughput
-increased by ~10% when doing iperf client test on one ARM A15 dual
-core board.
-
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Ben Hutchings <bhutchings@solarflare.com>
-Cc: Grant Grundler <grundler@google.com>
-Cc: Oliver Neukum <oneukum@suse.de>
-Cc: Alan Stern <stern@rowland.harvard.edu>
-Cc: Freddy Xin <freddy@asix.com.tw>
-Signed-off-by: Ming Lei <ming.lei@canonical.com>
+Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 ---
- drivers/net/usb/ax88179_178a.c |   12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c |   99 ++++++++++++++++--------
+ 1 files changed, 66 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
-index fb0caa2..4f8162b 100644
---- a/drivers/net/usb/ax88179_178a.c
-+++ b/drivers/net/usb/ax88179_178a.c
-@@ -1031,12 +1031,20 @@ static int ax88179_bind(struct usbnet *dev, struct usb_interface *intf)
- 	dev->mii.phy_id = 0x03;
- 	dev->mii.supports_gmii = 1;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+index 82a03d3..6946d35 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+@@ -161,36 +161,68 @@ static inline int qlcnic_82xx_is_lb_pkt(u64 sts_data)
+ 	return (qlcnic_get_sts_status(sts_data) == STATUS_CKSUM_LOOP) ? 1 : 0;
+ }
  
-+	if (usb_device_no_sg_limit(dev->udev))
-+		dev->can_dma_sg = 1;
++static void qlcnic_delete_rx_list_mac(struct qlcnic_adapter *adapter,
++				      struct qlcnic_filter *fil,
++				      void *addr, u16 vlan_id)
++{
++	int ret;
++	u8 op;
 +
- 	dev->net->features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 			      NETIF_F_RXCSUM;
- 
- 	dev->net->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 				 NETIF_F_RXCSUM;
- 
-+	if (dev->can_dma_sg) {
-+		dev->net->features |= NETIF_F_SG | NETIF_F_TSO;
-+		dev->net->hw_features |= NETIF_F_SG | NETIF_F_TSO;
++	op = vlan_id ? QLCNIC_MAC_VLAN_ADD : QLCNIC_MAC_ADD;
++	ret = qlcnic_sre_macaddr_change(adapter, addr, vlan_id, op);
++	if (ret)
++		return;
++
++	op = vlan_id ? QLCNIC_MAC_VLAN_DEL : QLCNIC_MAC_DEL;
++	ret = qlcnic_sre_macaddr_change(adapter, addr, vlan_id, op);
++	if (!ret) {
++		hlist_del(&fil->fnode);
++		adapter->rx_fhash.fnum--;
++	}
++}
++
++static struct qlcnic_filter *qlcnic_find_mac_filter(struct hlist_head *head,
++						    void *addr, u16 vlan_id)
++{
++	struct qlcnic_filter *tmp_fil = NULL;
++	struct hlist_node *n;
++
++	hlist_for_each_entry_safe(tmp_fil, n, head, fnode) {
++		if (!memcmp(tmp_fil->faddr, addr, ETH_ALEN) &&
++		    tmp_fil->vlan_id == vlan_id)
++			return tmp_fil;
 +	}
 +
- 	/* Enable checksum offload */
- 	*tmp = AX_RXCOE_IP | AX_RXCOE_TCP | AX_RXCOE_UDP |
- 	       AX_RXCOE_TCPV6 | AX_RXCOE_UDPV6;
-@@ -1310,6 +1318,10 @@ static int ax88179_reset(struct usbnet *dev)
++	return NULL;
++}
++
+ void qlcnic_add_lb_filter(struct qlcnic_adapter *adapter, struct sk_buff *skb,
+ 			  int loopback_pkt, u16 vlan_id)
+ {
+ 	struct ethhdr *phdr = (struct ethhdr *)(skb->data);
+ 	struct qlcnic_filter *fil, *tmp_fil;
+-	struct hlist_node *n;
+ 	struct hlist_head *head;
+ 	unsigned long time;
+ 	u64 src_addr = 0;
+-	u8 hindex, found = 0, op;
++	u8 hindex, op;
+ 	int ret;
  
- 	dev->net->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 				 NETIF_F_RXCSUM;
-+	if (dev->can_dma_sg) {
-+		dev->net->features |= NETIF_F_SG | NETIF_F_TSO;
-+		dev->net->hw_features |= NETIF_F_SG | NETIF_F_TSO;
-+	}
+ 	memcpy(&src_addr, phdr->h_source, ETH_ALEN);
++	hindex = qlcnic_mac_hash(src_addr) &
++		 (adapter->fhash.fbucket_size - 1);
  
- 	/* Enable checksum offload */
- 	*tmp = AX_RXCOE_IP | AX_RXCOE_TCP | AX_RXCOE_UDP |
+ 	if (loopback_pkt) {
+ 		if (adapter->rx_fhash.fnum >= adapter->rx_fhash.fmax)
+ 			return;
+ 
+-		hindex = qlcnic_mac_hash(src_addr) &
+-			 (adapter->fhash.fbucket_size - 1);
+ 		head = &(adapter->rx_fhash.fhead[hindex]);
+ 
+-		hlist_for_each_entry_safe(tmp_fil, n, head, fnode) {
+-			if (!memcmp(tmp_fil->faddr, &src_addr, ETH_ALEN) &&
+-			    tmp_fil->vlan_id == vlan_id) {
+-				time = tmp_fil->ftime;
+-				if (jiffies > (QLCNIC_READD_AGE * HZ + time))
+-					tmp_fil->ftime = jiffies;
+-				return;
+-			}
++		tmp_fil = qlcnic_find_mac_filter(head, &src_addr, vlan_id);
++		if (tmp_fil) {
++			time = tmp_fil->ftime;
++			if (time_after(jiffies, QLCNIC_READD_AGE * HZ + time))
++				tmp_fil->ftime = jiffies;
++			return;
+ 		}
+ 
+ 		fil = kzalloc(sizeof(struct qlcnic_filter), GFP_ATOMIC);
+@@ -205,36 +237,37 @@ void qlcnic_add_lb_filter(struct qlcnic_adapter *adapter, struct sk_buff *skb,
+ 		adapter->rx_fhash.fnum++;
+ 		spin_unlock(&adapter->rx_mac_learn_lock);
+ 	} else {
+-		hindex = qlcnic_mac_hash(src_addr) &
+-			 (adapter->fhash.fbucket_size - 1);
+-		head = &(adapter->rx_fhash.fhead[hindex]);
+-		spin_lock(&adapter->rx_mac_learn_lock);
+-		hlist_for_each_entry_safe(tmp_fil, n, head, fnode) {
+-			if (!memcmp(tmp_fil->faddr, &src_addr, ETH_ALEN) &&
+-			    tmp_fil->vlan_id == vlan_id) {
+-				found = 1;
+-				break;
+-			}
+-		}
++		head = &adapter->fhash.fhead[hindex];
+ 
+-		if (!found) {
+-			spin_unlock(&adapter->rx_mac_learn_lock);
+-			return;
+-		}
++		spin_lock(&adapter->mac_learn_lock);
+ 
+-		op = vlan_id ? QLCNIC_MAC_VLAN_ADD : QLCNIC_MAC_ADD;
+-		ret = qlcnic_sre_macaddr_change(adapter, (u8 *)&src_addr,
+-						vlan_id, op);
+-		if (!ret) {
++		tmp_fil = qlcnic_find_mac_filter(head, &src_addr, vlan_id);
++		if (tmp_fil) {
+ 			op = vlan_id ? QLCNIC_MAC_VLAN_DEL : QLCNIC_MAC_DEL;
+ 			ret = qlcnic_sre_macaddr_change(adapter,
+ 							(u8 *)&src_addr,
+ 							vlan_id, op);
+ 			if (!ret) {
+-				hlist_del(&(tmp_fil->fnode));
+-				adapter->rx_fhash.fnum--;
++				hlist_del(&tmp_fil->fnode);
++				adapter->fhash.fnum--;
+ 			}
++
++			spin_unlock(&adapter->mac_learn_lock);
++
++			return;
+ 		}
++
++		spin_unlock(&adapter->mac_learn_lock);
++
++		head = &adapter->rx_fhash.fhead[hindex];
++
++		spin_lock(&adapter->rx_mac_learn_lock);
++
++		tmp_fil = qlcnic_find_mac_filter(head, &src_addr, vlan_id);
++		if (tmp_fil)
++			qlcnic_delete_rx_list_mac(adapter, tmp_fil, &src_addr,
++						  vlan_id);
++
+ 		spin_unlock(&adapter->rx_mac_learn_lock);
+ 	}
+ }
 -- 
-1.7.9.5
+1.5.6
