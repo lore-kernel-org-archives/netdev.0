@@ -1,23 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH 1/1] net: ethernet: davinci_emac: drop IRQF_DISABLED
-Date: Sat, 03 Aug 2013 11:53:35 -0700 (PDT)
-Message-ID: <20130803.115335.755727267007117131.davem@davemloft.net>
-References: <1375528185-24507-1-git-send-email-mugunthanvnm@ti.com>
+Subject: Re: [PATCH net-next] fib_rules: reorder struct fib_rules fields
+Date: Sat, 03 Aug 2013 11:54:08 -0700 (PDT)
+Message-ID: <20130803.115408.389552762427955941.davem@davemloft.net>
+References: <1375555835.4457.26.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org
-To: mugunthanvnm@ti.com
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1375528185-24507-1-git-send-email-mugunthanvnm@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, stefan.tomanek@wertarbyte.de
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52290 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752640Ab3HCSyJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 14:54:09 -0400
+In-Reply-To: <1375555835.4457.26.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Date: Sat, 3 Aug 2013 16:39:45 +0530
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 03 Aug 2013 11:50:35 -0700
 
-> IRQF_DISABLED is a no-op by now and should be removed.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> Move refcnt, pref, suppress_ifgroup, suppress_prefixlen out of first
+> cache line, as they are not used in fast path.
+> 
+> Make sure ctarget & fr_net are in first cache line.
+> 
+> (Assuming 64 bit arches and 64 bytes cache lines)
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks.
+Applied, thanks Eric.
