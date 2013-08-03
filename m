@@ -1,50 +1,62 @@
-From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: [PATCH v1 3/4] USBNET: support DMA SG
-Date: Sat, 03 Aug 2013 07:56:53 +0200
-Message-ID: <1375509413.2201.2.camel@linux-fkkt.site>
-References: <1375497998-7424-1-git-send-email-ming.lei@canonical.com>
-	 <1375497998-7424-4-git-send-email-ming.lei@canonical.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: RE: Question regarding failure utilizing bonding mode 5
+ (balance-tlb)
+Date: Sat, 3 Aug 2013 07:47:15 +0000
+Message-ID: <979A8436335E3744ADCD3A9F2A2B68A52ACF96BB@SJEXCHMB10.corp.ad.broadcom.com>
+References: <1375333968.21294.30.camel@lb-tlvb-yuvalmin.il.broadcom.com>
+ <7717.1375412975@death.nxdomain>
+ <979A8436335E3744ADCD3A9F2A2B68A52ACF959B@SJEXCHMB10.corp.ad.broadcom.com>
+ <12779.1375476808@death.nxdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-To: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1375497998-7424-4-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Ariel Elior" <ariele@broadcom.com>
+To: "Jay Vosburgh" <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:3530 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751257Ab3HCHrd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 03:47:33 -0400
+In-Reply-To: <12779.1375476808@death.nxdomain>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-08-03 at 10:46 +0800, Ming Lei wrote:
+> >Again, I think the permanent address is restored only when the bond
+> >releases the slave, which I don't think happens when the slave is unloaded.
+> 
+> 	Ah, ok, I was understanding "unloaded" to mean "remove from the
+> bond."  I think you actually mean "set administratively down," e.g., "ip
+> link set dev slave down" or the like.  I don't think mere loss of
+> carrier would trigger the sequence of events, because that won't go
+> through a dev_close / dev_open cycle.
+> 
+> 	Doing that (an admin down / up bounce) would, indeed, cause a
+> failover, but the bond will not reprogram the MAC on the slave (it
+> presumes that a fail / recovery will not disrupt the MAC address, which
+> is apparently not true in this instance).
+> 
+> 	I'll have to look at the code a bit, but for now can you confirm
+> that what you actually mean is, essentially:
+> 
+> 	Given a bond0 with two slaves, eth0 and eth1, in tlb mode, eth0
+> being the active,
+> 
+> 	1) "ip link set dev eth0 down" which will fail over to eth1
+> 		(swapping the contents of their dev_addr fields).
+> 
+> 	2) "ip link set dev eth0 up" eth0 comes back up, reprograms its
+> 		MAC to the wrong thing (what was in dev_addr).
+> 
+> 	3) repeat steps 1 and 2 for eth1
+> 
+> 	Is this correct?
+> 
 
-> @@ -1268,10 +1298,14 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
->  	entry = (struct skb_data *) skb->cb;
->  	entry->urb = urb;
->  	entry->dev = dev;
-> -	entry->length = length;
->  
->  	usb_fill_bulk_urb (urb, dev->udev, dev->out,
->  			skb->data, skb->len, tx_complete, skb);
-> +	if (dev->can_dma_sg) {
-> +		if (build_dma_sg(skb, urb) < 0)
-> +			goto drop;
-
-Where do you free urb->sg?
-
-	Regards
-		Oliver
-
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Yes, sorry for the earlier confusion.
+I think in the case described `alb_swap_mac_addr()' will be called, 
+replacing eth0 and eth1's dev_addr, causing eth0 to have dev_addr
+which defers from  the bond device's. Once eth0 reloads, it will use
+the different MAC address for configuring FW/HW.
