@@ -1,35 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vlan: cleanup the usage of vlan_dev_priv(dev)
-Date: Sat, 03 Aug 2013 10:33:54 -0700 (PDT)
-Message-ID: <20130803.103354.1511265539843796170.davem@davemloft.net>
-References: <51FCC55A.808@gmail.com>
+Subject: Re: [PATCH] fib_rules: fix suppressor names and default values
+Date: Sat, 03 Aug 2013 10:37:22 -0700 (PDT)
+Message-ID: <20130803.103722.780534029060943275.davem@davemloft.net>
+References: <20130803121443.GL21970@zirkel.wertarbyte.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: shhuiw@gmail.com
+Cc: netdev@vger.kernel.org
+To: stefan.tomanek@wertarbyte.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51420 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51459 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752630Ab3HCRd5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 13:33:57 -0400
-In-Reply-To: <51FCC55A.808@gmail.com>
+	with ESMTP id S1752677Ab3HCRhX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 13:37:23 -0400
+In-Reply-To: <20130803121443.GL21970@zirkel.wertarbyte.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wang Sheng-Hui <shhuiw@gmail.com>
-Date: Sat, 03 Aug 2013 16:54:50 +0800
+From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
+Date: Sat, 3 Aug 2013 14:14:43 +0200
 
+> This change brings the suppressor attribute names into line; it also changes
+> the data types to provide a more consistent interface.
 > 
-> This patch cleanup 2 points for the usage of vlan_dev_priv(dev):
-> * In vlan_dev.c/vlan_dev_hard_header, we should use the var *vlan directly
->   after grabing the pointer at the beginning with
->         *vlan = vlan_dev_priv(dev);
->   when we need to access the fields of *vlan.
-> * In vlan.c/register_vlan_device, add the var *vlan pointer
->         struct vlan_dev_priv *vlan;
-> to cleanup the code to access the fields of vlan_dev_priv(new_dev).
+> While -1 indicates that the suppressor is not enabled, values >= 0 for
+> suppress_prefixlen or suppress_ifgroup  reject routing decisions violating the
+> constraint.
 > 
-> Signed-off-by: Wang Sheng-Hui <shhuiw@gmail.com>
+> This changes the previously presented behaviour of suppress_prefixlen, where a
+> prefix length _less_ than the attribute value was rejected. After this change,
+> a prefix length less than *or* equal to the value is considered a violation of
+> the rule constraint.
+> 
+> It also changes the default values for default and newly added rules (disabling
+> any suppression for those).
+> 
+> Signed-off-by: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
 
-Applied.
+Applied, thanks.
