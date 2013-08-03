@@ -1,38 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/8] qlcnic: Bug fixes
-Date: Sat, 03 Aug 2013 12:03:17 -0700 (PDT)
-Message-ID: <20130803.120317.2224762299381503635.davem@davemloft.net>
-References: <1375499761-21141-1-git-send-email-shahed.shaikh@qlogic.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v1 3/4] USBNET: support DMA SG
+Date: Sat, 03 Aug 2013 12:07:31 -0700 (PDT)
+Message-ID: <20130803.120731.1813304058291781420.davem@davemloft.net>
+References: <1375497998-7424-1-git-send-email-ming.lei@canonical.com>
+	<1375497998-7424-4-git-send-email-ming.lei@canonical.com>
+	<1375509413.2201.2.camel@linux-fkkt.site>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: shahed.shaikh@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52381 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752782Ab3HCTDS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 15:03:18 -0400
-In-Reply-To: <1375499761-21141-1-git-send-email-shahed.shaikh@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
+	sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org, grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org,
+	stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org
+To: oneukum-l3A5Bk7waGM@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1375509413.2201.2.camel-B2T3B9s34ElbnMAlSieJcQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Date: Fri, 2 Aug 2013 23:15:53 -0400
+From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Date: Sat, 03 Aug 2013 07:56:53 +0200
 
-> From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+> On Sat, 2013-08-03 at 10:46 +0800, Ming Lei wrote:
 > 
-> This patch series contains the following bug fixes :
+>> @@ -1268,10 +1298,14 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
+>>  	entry = (struct skb_data *) skb->cb;
+>>  	entry->urb = urb;
+>>  	entry->dev = dev;
+>> -	entry->length = length;
+>>  
+>>  	usb_fill_bulk_urb (urb, dev->udev, dev->out,
+>>  			skb->data, skb->len, tx_complete, skb);
+>> +	if (dev->can_dma_sg) {
+>> +		if (build_dma_sg(skb, urb) < 0)
+>> +			goto drop;
 > 
-> * Fix programming of MAC address filter.
-> * Fix MAC address learning of ingress packets.
-> * Free memory in error path.
-> * Remove adapter series name from warning messages.
-> * Fix external loopback diagnostic test.
-> * Fix improper link speed display.
-> * Fix flash update failure due to improper error handling of
->   read register API.
-> 
-> Please apply this series to net.
+> Where do you free urb->sg?
 
-Series applied, thanks.
+Indeed, this appears to leak.
+
+The devio.c code in the USB layer takes care to manage freeing of
+the urb->sg, so this usbnet code will have to as well.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
