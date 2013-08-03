@@ -1,61 +1,64 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net 5/8] qlcnic: Fix external loopback test.
-Date: Fri, 2 Aug 2013 23:15:58 -0400
-Message-ID: <1375499761-21141-6-git-send-email-shahed.shaikh@qlogic.com>
-References: <1375499761-21141-1-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net 0/8] qlcnic: Bug fixes
+Date: Fri, 2 Aug 2013 23:15:53 -0400
+Message-ID: <1375499761-21141-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
 	Shahed Shaikh <shahed.shaikh@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:59317 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753915Ab3HCD43 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 23:56:29 -0400
-In-Reply-To: <1375499761-21141-1-git-send-email-shahed.shaikh@qlogic.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:19104 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755176Ab3HCD4d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 23:56:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-Driver was not handling external loopback diagnostic
-test request.
+This patch series contains the following bug fixes :
 
-Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
----
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |   12 ++++++++++--
- 1 files changed, 10 insertions(+), 2 deletions(-)
+* Fix programming of MAC address filter.
+* Fix MAC address learning of ingress packets.
+* Free memory in error path.
+* Remove adapter series name from warning messages.
+* Fix external loopback diagnostic test.
+* Fix improper link speed display.
+* Fix flash update failure due to improper error handling of
+  read register API.
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index 05a847e..7a58e39 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -150,6 +150,7 @@ static const char qlcnic_gstrings_test[][ETH_GSTRING_LEN] = {
- 	"Link_Test_on_offline",
- 	"Interrupt_Test_offline",
- 	"Internal_Loopback_offline",
-+	"External_Loopback_offline",
- 	"EEPROM_Test_offline"
- };
- 
-@@ -1026,8 +1027,15 @@ qlcnic_diag_test(struct net_device *dev, struct ethtool_test *eth_test,
- 		if (data[3])
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
--		data[4] = qlcnic_eeprom_test(dev);
--		if (data[4])
-+		if (eth_test->flags & ETH_TEST_FL_EXTERNAL_LB) {
-+			data[4] = qlcnic_loopback_test(dev, QLCNIC_ELB_MODE);
-+			if (data[4])
-+				eth_test->flags |= ETH_TEST_FL_FAILED;
-+			eth_test->flags |= ETH_TEST_FL_EXTERNAL_LB_DONE;
-+		}
-+
-+		data[5] = qlcnic_eeprom_test(dev);
-+		if (data[5])
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 	}
- }
--- 
-1.5.6
+Please apply this series to net.
+
+Thanks,
+Shahed
+
+Himanshu Madhani (2):
+  qlcnic: Free up memory in error path.
+  qlcnic: Fix for flash update failure on 83xx adapter
+
+Pratik Pujar (1):
+  qlcnic: Removed adapter series name from warning messages.
+
+Rajesh Borundia (2):
+  qlcnic: Fix link speed display for 82xx adapter
+  qlcnic: Fix link speed and duplex display for 83xx adapter
+
+Shahed Shaikh (3):
+  qlcnic: Fix MAC address filter issue on 82xx adapter
+  qlcnic: Fix ingress MAC learning
+  qlcnic: Fix external loopback test.
+
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |   12 +--
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |  126 ++++++++++++--------
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    2 +-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |   91 ++++++++++-----
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c    |   16 ++--
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |   83 ++++++++++----
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c     |   40 ++++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h     |    2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c   |   25 +++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     |  101 +++++++++++------
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |   19 ++--
+ .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |    2 +-
+ 12 files changed, 335 insertions(+), 184 deletions(-)
