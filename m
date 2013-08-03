@@ -1,48 +1,64 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [PATCH v1 1/4] USB: introduce usb_device_no_sg_limit() helper
-Date: Sat, 3 Aug 2013 11:53:18 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1308031149110.29946-100000@netrider.rowland.org>
-References: <1375497998-7424-2-git-send-email-ming.lei@canonical.com>
+From: GLANT LOAN FIRM <saintfront@ecoleperigueux.fr>
+Subject: =?utf-8?B?0J/RgNC+0L/QvtC30LjRhtGW0Y8g0LrRgNC1?=
+ =?utf-8?B?0LTQuNGC0YMg0L3QsCAzJSDRgNGW0Yc=?=
+ =?utf-8?B?0L3QuNGFIC4uLi4g0J/QvtC00LDRgg==?=
+ =?utf-8?B?0Lgg0LfQsNGP0LLQutGDINC30LDRgNCw0Lcu?=
+Date: Sat, 3 Aug 2013 18:38:43 +0200 (CEST)
+Message-ID: <2120067690.861403.1375547923509.JavaMail.root@VM-SVR18>
+Reply-To: GLANT LOAN FIRM <glantloanfirm@webadicta.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Oliver Neukum <oneukum@suse.de>,
-	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
-	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>
-To: Ming Lei <ming.lei@canonical.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netrider.rowland.org ([192.131.102.5]:39509 "HELO
-	netrider.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752090Ab3HCPxT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 11:53:19 -0400
-In-Reply-To: <1375497998-7424-2-git-send-email-ming.lei@canonical.com>
+Received: from monmail.perigueux.fr ([212.51.179.146]:29905 "EHLO
+	vm-svr18.mairie.local" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751417Ab3HCQrJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 12:47:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 3 Aug 2013, Ming Lei wrote:
-
-> Some host controllers(such as xHCI) can support building
-> packet from discontinuous buffers, so introduce one flag
-> and helper for this kind of host controllers, then the
-> feature can help some applications(such as, usbnet) by
-> supporting arbitrary length of sg buffers.
-
-> diff --git a/include/linux/usb.h b/include/linux/usb.h
-> index 84f14e2..5d03074 100644
-> --- a/include/linux/usb.h
-> +++ b/include/linux/usb.h
-> @@ -337,6 +337,7 @@ struct usb_bus {
->  					 * the ep queue on a short transfer
->  					 * with the URB_SHORT_NOT_OK flag set.
->  					 */
-> +	unsigned no_sg_limit:1;		/* no sg list limit */
-
-Why do you call this "no_sg_limit"?  It isn't a limit on the SG list; 
-the list can be arbitrarily long, provided all the entries except the 
-last are divisible by the maxpacket size.
-
-You could call it "no_sg_constraint" if you want.  Or 
-"allow_arbitrary_sg", to put a more positive spin on it.
-
-Alan Stern
+CgrQlNC+0LHRgNC40Lkg0LTQtdC90YwsCgogIEdMQU5UIExPQU4gRklSTSDQutGA0LXQtNC40YIg
+0L/RgNC40LfQvdCw0YfQtdC90LjQuSDQtNC70Y8g0LHRltC30L3QtdGB0YMg0LLQv9C70LjQstCw
+0Y7RgtGMINC90LAg0LbQuNGC0YLRjyDQu9GO0LTQtdC5INCyINGD0YHRjNC+0LzRgyDRgdCy0ZbR
+gtGWINC/0L7Qt9C40YLQuNCy0L3Qviwg0LzQuCDQv9GA0L7Qv9C+0L3Rg9GU0LzQviDQv9GA0LjQ
+stCw0YLQvdGWLCDQutC+0LzQtdGA0YbRltC50L3RliDRliDQv9C10YDRgdC+0L3QsNC70YzQvdGW
+INC60YDQtdC00LjRgtC4INC3INC00YPQttC1INC80ZbQvdGW0LzQsNC70YzQvdGWINCg0ZbRh9C9
+0ZYg0LLRltC00YHQvtGC0LrQvtCy0ZYg0YHRgtCw0LLQutC4INC30LAg0YbRltC90L7RjiDQstGW
+0LQgMyUg0LIg0LzQtdC20LDRhSDQstGW0LQgMSDQtNC+IDYg0YDQvtC60ZbQsiDRgtC10YDQvNGW
+0L0g0L/QvtCz0LDRiNC10L3QvdGPINC/0LXRgNGW0L7QtCDQsiDQsdGD0LTRjC3Rj9C60ZbQuSDR
+h9Cw0YHRgtC40L3RliDRgdCy0ZbRgtGDLiDQnNC4INCy0LjQtNCw0ZTQvNC+INC60YDQtdC00LjR
+gtGW0LIg0ZYg0L3QsNGIINC60YDQtdC00LjRgtC90LjQuSDQtNC+0LHRgNC1INC30LDRgdGC0YDQ
+sNGF0L7QstCw0L3RliDQvdCwINC80LDQutGB0LjQvNCw0LvRjNC90YMg0LHQtdC30L/QtdC60YMu
+CiAg0JLQuCDQstGC0YDQsNGC0LjQu9C4INGB0L7QvSDQvdC+0YfQsNC80Lgg0YLRg9GA0LHRg9GU
+LCDRj9C6INC+0YLRgNC40LzQsNGC0Lgg0LfQsNC60L7QvdC90LjQvCDQv9C+0LfQuNC60LgsINGJ
+0L7QsSDQv9C+0YfQsNGC0Lgg0YHQstGW0Lkg0LHRltC30L3QtdGBINCw0LHQviDRgNC+0LfRiNC4
+0YDQuNGC0Lgg0ZbRgdC90YPRjtGH0LjQuT8g0JLQuCDQutGD0YHQsNGC0Lgg0LLQsNGI0ZYg0L3R
+ltCz0YLRliwg0YnQvtCxINGI0LLQuNC00LrQvj8g0JfQsNC80ZbRgdGC0Ywg0YLQvtCz0L4sINGJ
+0L7QsSDQsdC40YLQuCDRgdC10LHQtSwg0YfQvtC80YMg0LEg0L3QtSDQt9CyJ9GP0LfQsNGC0LjR
+gdGPINC3INC90LDQvNC4INGB0YzQvtCz0L7QtNC90ZYg0LIgR0xBTlQg0KTQhtCg0JzQkCDQvNC4
+0YLRgtGU0LLQuNC5INC60YDQtdC00LjRgiDQvdCwINC90LDQtNCw0L3QvdGPINC60YDQtdC00LjR
+gtGDINC00L4g0LLQsNGBINC3INCy0YHRliDQttC40YLRgtGU0LLQviDQstCw0LbQu9C40LLRliDQ
+stC40LzQvtCz0LguINCc0Lgg0LTQvtC/0L7QvNC+0LPRgtC4INC30YPQv9C40L3QuNGC0Lgg0L/Q
+vtCz0LDQvdC+0Y4g0LrRgNC10LTQuNGC0L3QvtGOINGW0YHRgtC+0YDRltGU0Y4uINCS0ZbQtNC6
+0YDQuNCy0LDRjtGH0Lgg0LLQuNCz0YDQsNGI0L3QuNC8INGA0ZbRiNC10L3QvdGP0Lwg0L3QsNGI
+0LAg0LzRltGB0ZbRjy4g0K/QutGJ0L4g0LLQuCDQt9Cw0YbRltC60LDQstC70LXQvdGWINCyINCx
+0YPQtNGMLdGP0LrQvtC80YMg0LrRgNC10LTQuNGC0YMsINCx0YPQtNGMINC70LDRgdC60LAsINC3
+0LDQv9C+0LLQvdGW0YLRjCDRgtCwINC90LDQtNGW0YjQu9GW0YLRjCDRhtGOINGE0L7RgNC80YMg
+0LrRgNC10LTQuNGC0L3QvtGXINC30LDRj9Cy0LrQuCDQvdCw0LfQsNC0INC00L4g0L3QsNGBLgoK
+0IbQvCfRjzogLi4uLi4uLi4uLi4K0JDQtNGA0LXRgdCwOiAuLi4uLi4uLi4uLgrQlNCw0YLQsCDQ
+vdCw0YDQvtC00LbQtdC90L3RjzogLi4uLi4uLi4K0KHRgtCw0YLRjDogLi4uLi4uLi4uLi4uLi4u
+CtCi0LXQu9C10YTQvtC9OiAuLi4uLi4uLi4uLgrQoNGW0LQg0LfQsNC90Y/RgtGMOiAuLi4uLi4u
+Li4uLgrQnNGW0YHRj9GH0L3QuNC5INGA0ZbQstC10L3RjCDQtNC+0YXQvtC00ZbQsjogLi4uLi4u
+Li4K0KHRg9C80LAg0LrRgNC10LTQuNGC0YMg0J3QtdC+0LHRhdGW0LTQvdGWOiAuLi4uLi4uLgrQ
+otGA0LjQstCw0LvRltGB0YLRjDogLi4uLi4uLi4uLi4uLi4uCtCc0LXRgtCwOiAuLi4uLi4uLi4u
+CtCa0YDQsNGX0L3QsDogLi4uLi4uLi4uLi4uLi4uLi4uCtCa0YDQsNGX0L3QsDogLi4uLi4uLi4u
+LgrQn9C+0YjRgtC+0LLQuNC5INGW0L3QtNC10LrRgTogLi4uLi4uLi4uCgoK0J3QkNCo0IYg0JrQ
+ntCd0KLQkNCa0KLQndCGINCU0JDQndCGOgpFLU1BSUwg0JDQlNCg0JXQodCQOiBnbGFudGxvYW5m
+aXJtQHdlYmFkaWN0YS5vcmcK0JrQvtC90YLQsNC60YLQvdC40Lkg0YLQtdC70LXRhNC+0L06ICs0
+NDcwMzU5OTYzNDMKCgpHTEFOVCBMT0FOIEZJUk0g0L/RgNC40LfQvdCw0YfQtdC90LjQvCDQv9GA
+0LXQtNGB0YLQsNCy0L3QuNC60L7QvCBGSVNBICjRhNGW0L3QsNC90YHQuCDQk9Cw0LvRg9C30LXQ
+stGWINGB0YLQsNC90LTQsNGA0YLQuCDQsNGB0L7RhtGW0LDRhtGW0ZcpLCDRj9C60ZYg0LzQsNGO
+0YLRjCDQv9GA0LDQstC+INGWINGA0LXQs9GD0LvRjtGU0YLRjNGB0Y8g0KPQv9GA0LDQstC70ZbQ
+vdC90Y/QvCDQtyDRhNGW0L3QsNC90YHQvtCy0LjRhSDQv9C+0YHQu9GD0LMgKEZTQSkuCgoK0Jcg
+0YLQtdC/0LvQvtGC0L7RjiDQv9C+0LLQsNCz0L7RjiwK0JzRltGB0ZbRgSBCZWNreSBUb20u
