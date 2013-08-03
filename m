@@ -1,154 +1,108 @@
 From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
-Subject: [PATCH] fib_rules: fix suppressor names and default values
-Date: Sat, 3 Aug 2013 14:14:43 +0200
-Message-ID: <20130803121443.GL21970@zirkel.wertarbyte.de>
+Subject: [PATCH iproute2 v2 1/2] ip link: fix display of interface groups
+Date: Sat, 3 Aug 2013 14:20:53 +0200
+Message-ID: <20130803122053.GM21970@zirkel.wertarbyte.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zirkel.wertarbyte.de ([188.40.44.137]:52677 "EHLO
+Received: from zirkel.wertarbyte.de ([188.40.44.137]:35368 "EHLO
 	zirkel.wertarbyte.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751638Ab3HCMOq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 08:14:46 -0400
+	with ESMTP id S1751727Ab3HCMUy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 08:20:54 -0400
+Received: from stefan by zirkel.wertarbyte.de with local (Exim 4.72)
+	(envelope-from <stefan.tomanek@wertarbyte.de>)
+	id 1V5apJ-0001UG-Vm
+	for netdev@vger.kernel.org; Sat, 03 Aug 2013 14:20:53 +0200
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change brings the suppressor attribute names into line; it also changes
-the data types to provide a more consistent interface.
+This change adds the interface group to the output of "ip link show".
 
-While -1 indicates that the suppressor is not enabled, values >= 0 for
-suppress_prefixlen or suppress_ifgroup  reject routing decisions violating the
-constraint.
-
-This changes the previously presented behaviour of suppress_prefixlen, where a
-prefix length _less_ than the attribute value was rejected. After this change,
-a prefix length less than *or* equal to the value is considered a violation of
-the rule constraint.
-
-It also changes the default values for default and newly added rules (disabling
-any suppression for those).
+It also makes "ip link" print _all_ devices if no group filter is specified;
+previously, only interfaces of the default group (0) were shown.
 
 Signed-off-by: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
 ---
- include/net/fib_rules.h        |    4 ++--
- include/uapi/linux/fib_rules.h |    2 +-
- net/core/fib_rules.c           |   15 +++++++++++----
- net/ipv4/fib_rules.c           |    2 +-
- net/ipv6/fib6_rules.c          |    2 +-
- 5 files changed, 16 insertions(+), 9 deletions(-)
+ include/rt_names.h |    1 +
+ ip/ipaddress.c     |   10 ++++++++--
+ lib/rt_names.c     |   19 +++++++++++++++++++
+ 3 files changed, 28 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
-index d13c461..9d0fcbaa 100644
---- a/include/net/fib_rules.h
-+++ b/include/net/fib_rules.h
-@@ -19,7 +19,7 @@ struct fib_rule {
- 	u32			flags;
- 	u32			table;
- 	int			suppress_ifgroup;
--	u8			table_prefixlen_min;
-+	int			suppress_prefixlen;
- 	u8			action;
- 	u32			target;
- 	struct fib_rule __rcu	*ctarget;
-@@ -84,7 +84,7 @@ struct fib_rules_ops {
- 	[FRA_FWMARK]	= { .type = NLA_U32 }, \
- 	[FRA_FWMASK]	= { .type = NLA_U32 }, \
- 	[FRA_TABLE]     = { .type = NLA_U32 }, \
--	[FRA_TABLE_PREFIXLEN_MIN] = { .type = NLA_U8 }, \
-+	[FRA_SUPPRESS_PREFIXLEN] = { .type = NLA_U32 }, \
- 	[FRA_SUPPRESS_IFGROUP] = { .type = NLA_U32 }, \
- 	[FRA_GOTO]	= { .type = NLA_U32 }
+diff --git a/include/rt_names.h b/include/rt_names.h
+index 37adbd3..56b649a 100644
+--- a/include/rt_names.h
++++ b/include/rt_names.h
+@@ -8,6 +8,7 @@ const char *rtnl_rtscope_n2a(int id, char *buf, int len);
+ const char *rtnl_rttable_n2a(__u32 id, char *buf, int len);
+ const char *rtnl_rtrealm_n2a(int id, char *buf, int len);
+ const char *rtnl_dsfield_n2a(int id, char *buf, int len);
++const char *rtnl_group_n2a(int id, char *buf, int len);
  
-diff --git a/include/uapi/linux/fib_rules.h b/include/uapi/linux/fib_rules.h
-index 63e3116..2b82d7e 100644
---- a/include/uapi/linux/fib_rules.h
-+++ b/include/uapi/linux/fib_rules.h
-@@ -45,7 +45,7 @@ enum {
- 	FRA_FLOW,	/* flow/class id */
- 	FRA_UNUSED6,
- 	FRA_SUPPRESS_IFGROUP,
--	FRA_TABLE_PREFIXLEN_MIN,
-+	FRA_SUPPRESS_PREFIXLEN,
- 	FRA_TABLE,	/* Extended table id */
- 	FRA_FWMASK,	/* mask for netfilter mark */
- 	FRA_OIFNAME,
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index 5040a61..47916b0 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -33,6 +33,9 @@ int fib_default_rule_add(struct fib_rules_ops *ops,
- 	r->flags = flags;
- 	r->fr_net = hold_net(ops->fro_net);
+ int rtnl_rtprot_a2n(__u32 *id, const char *arg);
+ int rtnl_rtscope_a2n(__u32 *id, const char *arg);
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 013b4cb..1c3e4da 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -418,7 +418,7 @@ int print_linkinfo(const struct sockaddr_nl *who,
  
-+	r->suppress_prefixlen = -1;
-+	r->suppress_ifgroup = -1;
+ 	if (tb[IFLA_GROUP]) {
+ 		int group = *(int*)RTA_DATA(tb[IFLA_GROUP]);
+-		if (group != filter.group)
++		if (filter.group != -1 && group != filter.group)
+ 			return -1;
+ 	}
+ 
+@@ -458,6 +458,12 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 	if (do_link && tb[IFLA_LINKMODE])
+ 		print_linkmode(fp, tb[IFLA_LINKMODE]);
+ 
++	if (tb[IFLA_GROUP]) {
++		SPRINT_BUF(b1);
++		int group = *(int*)RTA_DATA(tb[IFLA_GROUP]);
++		fprintf(fp, "group %s ", rtnl_group_n2a(group, b1, sizeof(b1)));
++	}
 +
- 	/* The lock is not required here, the list in unreacheable
- 	 * at the moment this function is called */
- 	list_add_tail(&r->list, &ops->rules_list);
-@@ -340,11 +343,15 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
- 	rule->action = frh->action;
- 	rule->flags = frh->flags;
- 	rule->table = frh_get_table(frh, tb);
--	if (tb[FRA_TABLE_PREFIXLEN_MIN])
--		rule->table_prefixlen_min = nla_get_u8(tb[FRA_TABLE_PREFIXLEN_MIN]);
-+	if (tb[FRA_SUPPRESS_PREFIXLEN])
-+		rule->suppress_prefixlen = nla_get_u32(tb[FRA_SUPPRESS_PREFIXLEN]);
-+	else
-+		rule->suppress_prefixlen = -1;
+ 	if (filter.showqueue)
+ 		print_queuelen(fp, tb);
  
- 	if (tb[FRA_SUPPRESS_IFGROUP])
- 		rule->suppress_ifgroup = nla_get_u32(tb[FRA_SUPPRESS_IFGROUP]);
-+	else
-+		rule->suppress_ifgroup -1;
+@@ -1050,7 +1056,7 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
+ 	if (filter.family == AF_UNSPEC)
+ 		filter.family = preferred_family;
  
- 	if (!tb[FRA_PRIORITY] && ops->default_pref)
- 		rule->pref = ops->default_pref(ops);
-@@ -531,7 +538,7 @@ static inline size_t fib_rule_nlmsg_size(struct fib_rules_ops *ops,
- 			 + nla_total_size(IFNAMSIZ) /* FRA_OIFNAME */
- 			 + nla_total_size(4) /* FRA_PRIORITY */
- 			 + nla_total_size(4) /* FRA_TABLE */
--			 + nla_total_size(1) /* FRA_TABLE_PREFIXLEN_MIN */
-+			 + nla_total_size(4) /* FRA_SUPPRESS_PREFIXLEN */
- 			 + nla_total_size(4) /* FRA_SUPPRESS_IFGROUP */
- 			 + nla_total_size(4) /* FRA_FWMARK */
- 			 + nla_total_size(4); /* FRA_FWMASK */
-@@ -558,7 +565,7 @@ static int fib_nl_fill_rule(struct sk_buff *skb, struct fib_rule *rule,
- 	frh->table = rule->table;
- 	if (nla_put_u32(skb, FRA_TABLE, rule->table))
- 		goto nla_put_failure;
--	if (nla_put_u8(skb, FRA_TABLE_PREFIXLEN_MIN, rule->table_prefixlen_min))
-+	if (nla_put_u32(skb, FRA_SUPPRESS_PREFIXLEN, rule->suppress_prefixlen))
- 		goto nla_put_failure;
- 	frh->res1 = 0;
- 	frh->res2 = 0;
-diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-index b78fd28..523be38 100644
---- a/net/ipv4/fib_rules.c
-+++ b/net/ipv4/fib_rules.c
-@@ -109,7 +109,7 @@ static bool fib4_rule_suppress(struct fib_rule *rule, struct fib_lookup_arg *arg
- 	/* do not accept result if the route does
- 	 * not meet the required prefix length
- 	 */
--	if (result->prefixlen < rule->table_prefixlen_min)
-+	if (result->prefixlen <= rule->suppress_prefixlen)
- 		goto suppress_route;
+-	filter.group = INIT_NETDEV_GROUP;
++	filter.group = -1;
  
- 	/* do not accept result if the route uses a device
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index 3628326..a6c58ce 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -126,7 +126,7 @@ static bool fib6_rule_suppress(struct fib_rule *rule, struct fib_lookup_arg *arg
- 	/* do not accept result if the route does
- 	 * not meet the required prefix length
- 	 */
--	if (rt->rt6i_dst.plen < rule->table_prefixlen_min)
-+	if (rt->rt6i_dst.plen <= rule->suppress_prefixlen)
- 		goto suppress_route;
- 
- 	/* do not accept result if the route uses a device
+ 	if (action == IPADD_FLUSH) {
+ 		if (argc <= 0) {
+diff --git a/lib/rt_names.c b/lib/rt_names.c
+index 02f1417..67e4c49 100644
+--- a/lib/rt_names.c
++++ b/lib/rt_names.c
+@@ -500,3 +500,22 @@ int rtnl_group_a2n(int *id, const char *arg)
+ 	*id = i;
+ 	return 0;
+ }
++
++const char *rtnl_group_n2a(int id, char *buf, int len)
++{
++	struct rtnl_hash_entry *entry;
++	int i;
++
++	if (!rtnl_group_init)
++		rtnl_group_initialize();
++
++	for (i=0; i<256; i++) {
++		entry = rtnl_group_hash[i];
++		if (entry && entry->id == id) {
++			return entry->name;
++		}
++	}
++
++	snprintf(buf, len, "%d", id);
++	return buf;
++}
 -- 
 1.7.10.4
