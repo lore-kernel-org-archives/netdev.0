@@ -1,56 +1,92 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net] bonding: fix arp monitoring with vlan slaves
-Date: Sat, 03 Aug 2013 02:21:14 +0200
-Message-ID: <51FC4CFA.8010706@redhat.com>
-References: <1375461665-4186-1-git-send-email-nikolay@redhat.com>   <20130802.153212.1340051334413929810.davem@davemloft.net>  <1375485466.4457.4.camel@edumazet-glaptop> <51FC40E5.6050809@redhat.com> <1375488223.4457.16.camel@edumazet-glaptop>
+From: Wang Sheng-Hui <shhuiw@gmail.com>
+Subject: [PATCH] vlan: cleanup the usage of vlan_dev_priv(dev)
+Date: Sat, 03 Aug 2013 08:22:42 +0800
+Message-ID: <51FC4D52.7070607@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	andy@greyhouse.net, fubar@us.ibm.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28227 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752178Ab3HCAVW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Aug 2013 20:21:22 -0400
-In-Reply-To: <1375488223.4457.16.camel@edumazet-glaptop>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:40578 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752178Ab3HCAWw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 20:22:52 -0400
+Received: by mail-pa0-f54.google.com with SMTP id kx1so1221994pab.41
+        for <netdev@vger.kernel.org>; Fri, 02 Aug 2013 17:22:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/03/2013 02:03 AM, Eric Dumazet wrote:
-> On Sat, 2013-08-03 at 01:29 +0200, Nikolay Aleksandrov wrote:
-> 
->> I knew it was because of the LLTX, but I was wondering about the possible
->> reasons for the xmit_lock_owner check.
->> So basically the arp monitoring (or any dev_trans_start code) won't work
->> with LLTX devices because they don't get their trans_start updated (not the
->> txq trans_start nor the dev->trans_start), is this correct ?
-> 
-> Nope : LLTX devices are supposed to update their own dev->trans_start
-> I added for these case a special comment as in :
-> 
-> drivers/net/ethernet/atheros/atl1e/atl1e_main.c:1883:   netdev->trans_start = jiffies; /* NETIF_F_LLTX driver :( */
-> 
-Ah, didn't know about that, so there could be an LLTX device with proper
-trans_start if it updates it itself. Fair enough.
+This patch cleanup 2 points for the usage of vlan_dev_priv(dev):
+	* In vlan_dev.c/vlan_dev_hard_header, we should use the var *vlan directly
+	  after grabing the pointer at the beginning with
+	      *vlan = vlan_dev_priv(dev);
+       when we need to access the fields of *vlan.
+	* In vlan.c/register_vlan_device, add the var *vlan pointer
+	      struct vlan_dev_priv *vlan;
+	  to cleanup the code to access the fields of vlan_dev_priv(new_dev).
 
-> trans_start is a txq property, and vlan devices have a single txq.
-> 
-> Updating the vlandev->trans_start or the vlantxq->trans_start would be a
-> performance killer on MQ ethernet.
-> 
-Yeah, that part I got, that's why I said it explains a lot for me earlier :-)
+Signed-off-by: Wang Sheng-Hui <shhuiw@gmail.com>
+---
+  net/8021q/vlan.c     |   12 +++++++-----
+  net/8021q/vlan_dev.c |    6 +++---
+  2 files changed, 10 insertions(+), 8 deletions(-)
 
-> And frankly, as this trans_start is really seldom queried, it makes no
-> sense to set it on fast path on the vlan device, if its properly done on
-> the real device anyway.
-> 
->> But what if the txqs get bound to a particular CPU, then the txq
->> trans_start is okay to be updated I suppose.
-> 
-> Not sure what you are saying. vlan xmit can be called from any cpus.
-> 
-Never mind, I didn't notice that the 8021q dev has a single txq as you said.
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 2fb2d88..b9d3d7e 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -210,6 +210,7 @@ out_vid_del:
+  static int register_vlan_device(struct net_device *real_dev, u16 vlan_id)
+  {
+  	struct net_device *new_dev;
++	struct vlan_dev_priv *vlan;
+  	struct net *net = dev_net(real_dev);
+  	struct vlan_net *vn = net_generic(net, vlan_net_id);
+  	char name[IFNAMSIZ];
+@@ -260,11 +261,12 @@ static int register_vlan_device(struct net_device *real_dev, u16 vlan_id)
+  	new_dev->mtu = real_dev->mtu;
+  	new_dev->priv_flags |= (real_dev->priv_flags & IFF_UNICAST_FLT);
 
-Thanks for taking the time to explain all this.
+-	vlan_dev_priv(new_dev)->vlan_proto = htons(ETH_P_8021Q);
+-	vlan_dev_priv(new_dev)->vlan_id = vlan_id;
+-	vlan_dev_priv(new_dev)->real_dev = real_dev;
+-	vlan_dev_priv(new_dev)->dent = NULL;
+-	vlan_dev_priv(new_dev)->flags = VLAN_FLAG_REORDER_HDR;
++	vlan = vlan_dev_priv(new_dev);
++	vlan->vlan_proto = htons(ETH_P_8021Q);
++	vlan->vlan_id = vlan_id;
++	vlan->real_dev = real_dev;
++	vlan->dent = NULL;
++	vlan->flags = VLAN_FLAG_REORDER_HDR;
+
+  	new_dev->rtnl_link_ops = &vlan_link_ops;
+  	err = register_vlan_dev(new_dev);
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 1cd3d2a..9ab8a7e 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -107,10 +107,10 @@ static int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+  	u16 vlan_tci = 0;
+  	int rc;
+
+-	if (!(vlan_dev_priv(dev)->flags & VLAN_FLAG_REORDER_HDR)) {
++	if (!(vlan->flags & VLAN_FLAG_REORDER_HDR)) {
+  		vhdr = (struct vlan_hdr *) skb_push(skb, VLAN_HLEN);
+
+-		vlan_tci = vlan_dev_priv(dev)->vlan_id;
++		vlan_tci = vlan->vlan_id;
+  		vlan_tci |= vlan_dev_get_egress_qos_mask(dev, skb);
+  		vhdr->h_vlan_TCI = htons(vlan_tci);
+
+@@ -133,7 +133,7 @@ static int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+  		saddr = dev->dev_addr;
+
+  	/* Now make the underlying real hard header */
+-	dev = vlan_dev_priv(dev)->real_dev;
++	dev = vlan->real_dev;
+  	rc = dev_hard_header(skb, dev, type, daddr, saddr, len + vhdrlen);
+  	if (rc > 0)
+  		rc += vhdrlen;
+-- 
+1.7.10.4
