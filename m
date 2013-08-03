@@ -1,63 +1,48 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net] net_sched: make dev_trans_start return vlan's real dev trans_start
-Date: Sat,  3 Aug 2013 17:07:51 +0200
-Message-ID: <1375542471-22739-1-git-send-email-nikolay@redhat.com>
-Cc: davem@davemloft.net, fubar@us.ibm.com, jhs@mojatatu.com
-To: netdev@vger.kernel.org
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: [PATCH v1 1/4] USB: introduce usb_device_no_sg_limit() helper
+Date: Sat, 3 Aug 2013 11:53:18 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1308031149110.29946-100000@netrider.rowland.org>
+References: <1375497998-7424-2-git-send-email-ming.lei@canonical.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Oliver Neukum <oneukum@suse.de>,
+	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
+	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>
+To: Ming Lei <ming.lei@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21276 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751775Ab3HCPL1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Aug 2013 11:11:27 -0400
+Received: from netrider.rowland.org ([192.131.102.5]:39509 "HELO
+	netrider.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752090Ab3HCPxT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 11:53:19 -0400
+In-Reply-To: <1375497998-7424-2-git-send-email-ming.lei@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <Nikolay Aleksandrov nikolay@redhat.com>
+On Sat, 3 Aug 2013, Ming Lei wrote:
 
-Vlan devices are LLTX and don't update their own trans_start, so if
-dev_trans_start has to be called with a vlan device then 0 or a stale value
-will be returned. Currently the bonding is the only such user, and it's
-needed for proper arp monitoring when the slaves are vlans.
-Fix this by extracting the vlan's real device trans_start.
+> Some host controllers(such as xHCI) can support building
+> packet from discontinuous buffers, so introduce one flag
+> and helper for this kind of host controllers, then the
+> feature can help some applications(such as, usbnet) by
+> supporting arbitrary length of sg buffers.
 
-Suggested-by: David Miller <davem@davemloft.net>
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
----
- net/sched/sch_generic.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+> diff --git a/include/linux/usb.h b/include/linux/usb.h
+> index 84f14e2..5d03074 100644
+> --- a/include/linux/usb.h
+> +++ b/include/linux/usb.h
+> @@ -337,6 +337,7 @@ struct usb_bus {
+>  					 * the ep queue on a short transfer
+>  					 * with the URB_SHORT_NOT_OK flag set.
+>  					 */
+> +	unsigned no_sg_limit:1;		/* no sg list limit */
 
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 4626cef..da936f6 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -25,6 +25,7 @@
- #include <linux/rcupdate.h>
- #include <linux/list.h>
- #include <linux/slab.h>
-+#include <linux/if_vlan.h>
- #include <net/sch_generic.h>
- #include <net/pkt_sched.h>
- #include <net/dst.h>
-@@ -207,15 +208,19 @@ void __qdisc_run(struct Qdisc *q)
- 
- unsigned long dev_trans_start(struct net_device *dev)
- {
--	unsigned long val, res = dev->trans_start;
-+	unsigned long val, res;
- 	unsigned int i;
- 
-+	while (is_vlan_dev(dev))
-+		dev = vlan_dev_real_dev(dev);
-+	res = dev->trans_start;
- 	for (i = 0; i < dev->num_tx_queues; i++) {
- 		val = netdev_get_tx_queue(dev, i)->trans_start;
- 		if (val && time_after(val, res))
- 			res = val;
- 	}
- 	dev->trans_start = res;
-+
- 	return res;
- }
- EXPORT_SYMBOL(dev_trans_start);
--- 
-1.8.1.4
+Why do you call this "no_sg_limit"?  It isn't a limit on the SG list; 
+the list can be arbitrarily long, provided all the entries except the 
+last are divisible by the maxpacket size.
+
+You could call it "no_sg_constraint" if you want.  Or 
+"allow_arbitrary_sg", to put a more positive spin on it.
+
+Alan Stern
