@@ -1,40 +1,52 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] fib_rules: fix suppressor names and default values
-Date: Sat, 03 Aug 2013 10:37:22 -0700 (PDT)
-Message-ID: <20130803.103722.780534029060943275.davem@davemloft.net>
+Date: Sat, 03 Aug 2013 10:41:25 -0700 (PDT)
+Message-ID: <20130803.104125.609502695540219854.davem@davemloft.net>
 References: <20130803121443.GL21970@zirkel.wertarbyte.de>
+	<20130803.103722.780534029060943275.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org
 To: stefan.tomanek@wertarbyte.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51459 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51503 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752677Ab3HCRhX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 13:37:23 -0400
-In-Reply-To: <20130803121443.GL21970@zirkel.wertarbyte.de>
+	with ESMTP id S1752726Ab3HCRl0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 13:41:26 -0400
+In-Reply-To: <20130803.103722.780534029060943275.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
-Date: Sat, 3 Aug 2013 14:14:43 +0200
-
-> This change brings the suppressor attribute names into line; it also changes
-> the data types to provide a more consistent interface.
-> 
-> While -1 indicates that the suppressor is not enabled, values >= 0 for
-> suppress_prefixlen or suppress_ifgroup  reject routing decisions violating the
-> constraint.
-> 
-> This changes the previously presented behaviour of suppress_prefixlen, where a
-> prefix length _less_ than the attribute value was rejected. After this change,
-> a prefix length less than *or* equal to the value is considered a violation of
-> the rule constraint.
-> 
-> It also changes the default values for default and newly added rules (disabling
-> any suppression for those).
-> 
-> Signed-off-by: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
-
-Applied, thanks.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogU2F0LCAwMyBB
+dWcgMjAxMyAxMDozNzoyMiAtMDcwMCAoUERUKQ0KDQo+IEZyb206IFN0ZWZhbiBUb21hbmVrIDxz
+dGVmYW4udG9tYW5la0B3ZXJ0YXJieXRlLmRlPg0KPiBEYXRlOiBTYXQsIDMgQXVnIDIwMTMgMTQ6
+MTQ6NDMgKzAyMDANCj4gDQo+PiBUaGlzIGNoYW5nZSBicmluZ3MgdGhlIHN1cHByZXNzb3IgYXR0
+cmlidXRlIG5hbWVzIGludG8gbGluZTsgaXQgYWxzbyBjaGFuZ2VzDQo+PiB0aGUgZGF0YSB0eXBl
+cyB0byBwcm92aWRlIGEgbW9yZSBjb25zaXN0ZW50IGludGVyZmFjZS4NCj4+IA0KPj4gV2hpbGUg
+LTEgaW5kaWNhdGVzIHRoYXQgdGhlIHN1cHByZXNzb3IgaXMgbm90IGVuYWJsZWQsIHZhbHVlcyA+
+PSAwIGZvcg0KPj4gc3VwcHJlc3NfcHJlZml4bGVuIG9yIHN1cHByZXNzX2lmZ3JvdXAgIHJlamVj
+dCByb3V0aW5nIGRlY2lzaW9ucyB2aW9sYXRpbmcgdGhlDQo+PiBjb25zdHJhaW50Lg0KPj4gDQo+
+PiBUaGlzIGNoYW5nZXMgdGhlIHByZXZpb3VzbHkgcHJlc2VudGVkIGJlaGF2aW91ciBvZiBzdXBw
+cmVzc19wcmVmaXhsZW4sIHdoZXJlIGENCj4+IHByZWZpeCBsZW5ndGggX2xlc3NfIHRoYW4gdGhl
+IGF0dHJpYnV0ZSB2YWx1ZSB3YXMgcmVqZWN0ZWQuIEFmdGVyIHRoaXMgY2hhbmdlLA0KPj4gYSBw
+cmVmaXggbGVuZ3RoIGxlc3MgdGhhbiAqb3IqIGVxdWFsIHRvIHRoZSB2YWx1ZSBpcyBjb25zaWRl
+cmVkIGEgdmlvbGF0aW9uIG9mDQo+PiB0aGUgcnVsZSBjb25zdHJhaW50Lg0KPj4gDQo+PiBJdCBh
+bHNvIGNoYW5nZXMgdGhlIGRlZmF1bHQgdmFsdWVzIGZvciBkZWZhdWx0IGFuZCBuZXdseSBhZGRl
+ZCBydWxlcyAoZGlzYWJsaW5nDQo+PiBhbnkgc3VwcHJlc3Npb24gZm9yIHRob3NlKS4NCj4+IA0K
+Pj4gU2lnbmVkLW9mZi1ieTogU3RlZmFuIFRvbWFuZWsgPHN0ZWZhbi50b21hbmVrQHdlcnRhcmJ5
+dGUuZGU+DQo+IA0KPiBBcHBsaWVkLCB0aGFua3MuDQoNCkkgaGFkIHRvIGZpeCB0aGUgZm9sbG93
+aW5nIG9idmlvdXMgdHlwbzoNCg0KZGlmZiAtLWdpdCBhL25ldC9jb3JlL2ZpYl9ydWxlcy5jIGIv
+bmV0L2NvcmUvZmliX3J1bGVzLmMNCmluZGV4IDQ3OTE2YjAuLjJlNjU0MTMgMTAwNjQ0DQotLS0g
+YS9uZXQvY29yZS9maWJfcnVsZXMuYw0KKysrIGIvbmV0L2NvcmUvZmliX3J1bGVzLmMNCkBAIC0z
+NTEsNyArMzUxLDcgQEAgc3RhdGljIGludCBmaWJfbmxfbmV3cnVsZShzdHJ1Y3Qgc2tfYnVmZiAq
+c2tiLCBzdHJ1Y3Qgbmxtc2doZHIqIG5saCkNCiAJaWYgKHRiW0ZSQV9TVVBQUkVTU19JRkdST1VQ
+XSkNCiAJCXJ1bGUtPnN1cHByZXNzX2lmZ3JvdXAgPSBubGFfZ2V0X3UzMih0YltGUkFfU1VQUFJF
+U1NfSUZHUk9VUF0pOw0KIAllbHNlDQotCQlydWxlLT5zdXBwcmVzc19pZmdyb3VwIC0xOw0KKwkJ
+cnVsZS0+c3VwcHJlc3NfaWZncm91cCA9IC0xOw0KIA0KIAlpZiAoIXRiW0ZSQV9QUklPUklUWV0g
+JiYgb3BzLT5kZWZhdWx0X3ByZWYpDQogCQlydWxlLT5wcmVmID0gb3BzLT5kZWZhdWx0X3ByZWYo
+b3BzKTsNCg0KQXJlIHlvdSBldmVuIGxvb2tpbmcgYXQgdGhlIGJ1aWxkIG9mIHRoZSBjb2RlIHlv
+dSBhcmUgc3VibWl0dGluZz8NCkJlY2F1c2UgaGVyZSB0aGUgY29tcGlsZXIgdG9sZCBtZToNCg0K
+bmV0L2NvcmUvZmliX3J1bGVzLmM6IEluIGZ1bmN0aW9uIKFmaWJfbmxfbmV3cnVsZaI6DQpuZXQv
+Y29yZS9maWJfcnVsZXMuYzozNTQ6Mzogd2FybmluZzogc3RhdGVtZW50IHdpdGggbm8gZWZmZWN0
+IFstV3VudXNlZC12YWx1ZV0NCg==
