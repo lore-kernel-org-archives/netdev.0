@@ -1,69 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] fib_rules: reorder struct fib_rules fields
-Date: Sat, 03 Aug 2013 11:50:35 -0700
-Message-ID: <1375555835.4457.26.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net] net_sched: make dev_trans_start return vlan's real dev
+ trans_start
+Date: Sat, 03 Aug 2013 11:52:28 -0700 (PDT)
+Message-ID: <20130803.115228.1509916868029010372.davem@davemloft.net>
+References: <1375542471-22739-1-git-send-email-nikolay@redhat.com>
+	<20130803170733.GA10218@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Stefan Tomanek <stefan.tomanek@wertarbyte.de>
-To: David Miller <davem@davemloft.net>
+Cc: nikolay@redhat.com, netdev@vger.kernel.org, fubar@us.ibm.com,
+	jhs@mojatatu.com
+To: vfalico@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:56685 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752452Ab3HCSuh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 14:50:37 -0400
-Received: by mail-pb0-f50.google.com with SMTP id uo5so1840705pbc.23
-        for <netdev@vger.kernel.org>; Sat, 03 Aug 2013 11:50:37 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:52248 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752640Ab3HCSwb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 14:52:31 -0400
+In-Reply-To: <20130803170733.GA10218@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Date: Sat, 3 Aug 2013 19:07:33 +0200
 
-Move refcnt, pref, suppress_ifgroup, suppress_prefixlen out of first
-cache line, as they are not used in fast path.
+> On Sat, Aug 03, 2013 at 05:07:51PM +0200, nikolay@redhat.com wrote:
+> ...snip...
+>>+	while (is_vlan_dev(dev))
+>>+		dev = vlan_dev_real_dev(dev);
+> 
+> While at it - I've checked a few users (mainly network drivers) of
+> vlan_dev_real_dev(dev) and they all rely on that the return device
+> would be the *real* device, but not another vlan.
 
-Make sure ctarget & fr_net are in first cache line.
+Did you find any cases that want the device under the VLAN,
+whether it is a non-vlan device or not?
 
-(Assuming 64 bit arches and 64 bytes cache lines)
+> So maybe we should move this while loop to vlan_dev_real_dev()
+> instead?
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/net/fib_rules.h |   12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
-
-diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
-index 9d0fcbaa..4b2b557 100644
---- a/include/net/fib_rules.h
-+++ b/include/net/fib_rules.h
-@@ -10,23 +10,25 @@
- 
- struct fib_rule {
- 	struct list_head	list;
--	atomic_t		refcnt;
- 	int			iifindex;
- 	int			oifindex;
- 	u32			mark;
- 	u32			mark_mask;
--	u32			pref;
- 	u32			flags;
- 	u32			table;
--	int			suppress_ifgroup;
--	int			suppress_prefixlen;
- 	u8			action;
-+	/* 3 bytes hole, try to use */
- 	u32			target;
- 	struct fib_rule __rcu	*ctarget;
-+	struct net		*fr_net;
-+
-+	atomic_t		refcnt;
-+	u32			pref;
-+	int			suppress_ifgroup;
-+	int			suppress_prefixlen;
- 	char			iifname[IFNAMSIZ];
- 	char			oifname[IFNAMSIZ];
- 	struct rcu_head		rcu;
--	struct net *		fr_net;
- };
- 
- struct fib_lookup_arg {
+Perhaps.  As per above, we may also need the one-level demux
+helper too, something like "vlan_dev_slave(dev)".
