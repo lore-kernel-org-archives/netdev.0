@@ -1,161 +1,93 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: Re: [PATCH v3] sis900: Fix the tx queue timeout issue
-Date: Sat, 3 Aug 2013 12:00:29 +0400
-Message-ID: <CAOJe8K0YqyhdH45ziQrVo+W3HpH-jPDsVYn6uar1i=uPqDo6TQ@mail.gmail.com>
-References: <1375437054-1995-1-git-send-email-kda@linux-powerpc.org>
-	<1375471135.32254.15.camel@deadeye.wl.decadent.org.uk>
+From: Wang Sheng-Hui <shhuiw@gmail.com>
+Subject: [PATCH] vlan: cleanup the usage of vlan_dev_priv(dev)
+Date: Sat, 03 Aug 2013 16:54:50 +0800
+Message-ID: <51FCC55A.808@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net, venza@brownhat.org, B38611@freescale.com,
-	netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Transfer-Encoding: 7bit
+To: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:58598 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751274Ab3HCIAa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 04:00:30 -0400
-Received: by mail-ob0-f178.google.com with SMTP id ef5so2673892obb.37
-        for <netdev@vger.kernel.org>; Sat, 03 Aug 2013 01:00:29 -0700 (PDT)
-In-Reply-To: <1375471135.32254.15.camel@deadeye.wl.decadent.org.uk>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:44264 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750758Ab3HCIzE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 04:55:04 -0400
+Received: by mail-pa0-f41.google.com with SMTP id bj1so1501896pad.14
+        for <netdev@vger.kernel.org>; Sat, 03 Aug 2013 01:55:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/2/13, Ben Hutchings <bhutchings@solarflare.com> wrote:
-> On Fri, 2013-08-02 at 13:50 +0400, Denis Kirjanov wrote:
->> [  198.720048] ------------[ cut here ]------------
->> [  198.720108] WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:255
->> dev_watchdog+0x229/0x240()
->> [  198.720118] NETDEV WATCHDOG: eth0 (sis900): transmit queue 0 timed out
->> [  198.720125] Modules linked in: bridge stp llc dmfe sundance 3c59x
->> sis900 mii
->> [  198.720159] CPU: 0 PID: 0 Comm: swapper Not tainted 3.11.0-rc3+ #12
->> [  198.720167] Hardware name: System Manufacturer System Name/TUSI-M, BIOS
->> ASUS TUSI-M ACPI BIOS
->> Revision 1013 Beta 001 12/14/2001
->> [  198.720175]  000000ff c13fa6b9 c169ddcc c12208d6 c169ddf8 c1031e4d
->> c1664a84 c169de24
->> [  198.720197]  00000000 c165f5ea 000000ff c13fa6b9 00000001 000000ff
->> c1664a84 c169de10
->> [  198.720217]  c1031f13 00000009 c169de08 c1664a84 c169de24 c169de50
->> c13fa6b9 c165f5ea
->> [  198.720240] Call Trace:
->> [  198.720257]  [<c13fa6b9>] ? dev_watchdog+0x229/0x240
->> [  198.720274]  [<c12208d6>] dump_stack+0x16/0x20
->> [  198.720306]  [<c1031e4d>] warn_slowpath_common+0x7d/0xa0
->> [  198.720318]  [<c13fa6b9>] ? dev_watchdog+0x229/0x240
->> [  198.720330]  [<c1031f13>] warn_slowpath_fmt+0x33/0x40
->> [  198.720342]  [<c13fa6b9>] dev_watchdog+0x229/0x240
->> [  198.720357]  [<c103f158>] call_timer_fn+0x78/0x150
->> [  198.720369]  [<c103f0e0>] ? internal_add_timer+0x40/0x40
->> [  198.720381]  [<c13fa490>] ? dev_init_scheduler+0xa0/0xa0
->> [  198.720392]  [<c103f33f>] run_timer_softirq+0x10f/0x200
->> [  198.720412]  [<c103954f>] ? __do_softirq+0x6f/0x210
->> [  198.720424]  [<c13fa490>] ? dev_init_scheduler+0xa0/0xa0
->> [  198.720435]  [<c1039598>] __do_softirq+0xb8/0x210
->> [  198.720467]  [<c14b54d2>] ? _raw_spin_unlock+0x22/0x30
->> [  198.720484]  [<c1003245>] ? handle_irq+0x25/0xd0
->> [  198.720496]  [<c1039c0c>] irq_exit+0x9c/0xb0
->> [  198.720508]  [<c14bc9d7>] do_IRQ+0x47/0x94
->> [  198.720534]  [<c1056078>] ? hrtimer_start+0x28/0x30
->> [  198.720564]  [<c14bc8b1>] common_interrupt+0x31/0x38
->> [  198.720589]  [<c1008692>] ? default_idle+0x22/0xa0
->> [  198.720600]  [<c10083c7>] arch_cpu_idle+0x17/0x30
->> [  198.720631]  [<c106d23d>] cpu_startup_entry+0xcd/0x180
->> [  198.720643]  [<c14ae30a>] rest_init+0xaa/0xb0
->> [  198.720654]  [<c14ae260>] ? reciprocal_value+0x50/0x50
->> [  198.720668]  [<c17044e0>] ? repair_env_string+0x60/0x60
->> [  198.720679]  [<c1704bda>] start_kernel+0x29a/0x350
->> [  198.720690]  [<c17044e0>] ? repair_env_string+0x60/0x60
->> [  198.720721]  [<c1704269>] i386_start_kernel+0x39/0xa0
->> [  198.720729] ---[ end trace 81e0a6266f5c73a8 ]---
->> [  198.720740] eth0: Transmit timeout, status 00000204 00000000
->>
->> timer routine checks the link status and if it's up calls
->> netif_carrier_on() allowing upper layer to start the tx queue
->> even if the auto-negotiation process is not finished.
->>
->> Also remove ugly auto-negotiation check from the sis900_start_xmit()
->>
->> CC: Duan Fugang <B38611@freescale.com>
->> CC: Ben Hutchings <bhutchings@solarflare.com>
->>
->> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
->> ---
->> v1->v2: use netdev_dbg() instead of printk()
->> v2->v3:
->>  handle link change from timer,
->>  remove auto-negotiation check from xmit path
->
-> This looks reasonable.  It looks like link changes now work like this:
->
-> 1. When sis900_timer() detects link-down, it calls netif_carrier_off()
-> but does not clear autong_complete.
-> 2. When sis900_timer() detects link-up, it calls sis900_check_mode()
-> which restarts autonegotiation and clears autong_complete.
-> 3. sis900_timer() will now call sis900_read_mode().  When that detects
-> link-up, it sets autong_complete and calls netif_carrier_on().
->
-> This patch has moved the call to netif_carrier_on() from step 2 to step
-> 3.  However, I don't understand why autonegotiation is restarted in step
-> 2.  When autonegotiation is enabled, the PHY should not indicate link-up
-> until it has completed.  Perhaps this is a necessary workaround for a
-> hardware bug.  Otherwise it's a waste of time.
 
-Agreed, I'll take a look at this.
+This patch cleanup 2 points for the usage of vlan_dev_priv(dev):
+* In vlan_dev.c/vlan_dev_hard_header, we should use the var *vlan directly
+  after grabing the pointer at the beginning with
+        *vlan = vlan_dev_priv(dev);
+  when we need to access the fields of *vlan.
+* In vlan.c/register_vlan_device, add the var *vlan pointer
+        struct vlan_dev_priv *vlan;
+to cleanup the code to access the fields of vlan_dev_priv(new_dev).
 
-Thank you.
+Signed-off-by: Wang Sheng-Hui <shhuiw@gmail.com>
+---
+ net/8021q/vlan.c     |   12 +++++++-----
+ net/8021q/vlan_dev.c |    6 +++---
+ 2 files changed, 10 insertions(+), 8 deletions(-)
 
->
-> Ben.
->
->> ---
->>  drivers/net/ethernet/sis/sis900.c | 12 ++----------
->>  1 file changed, 2 insertions(+), 10 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/sis/sis900.c
->> b/drivers/net/ethernet/sis/sis900.c
->> index eb4aea3..f5d7ad7 100644
->> --- a/drivers/net/ethernet/sis/sis900.c
->> +++ b/drivers/net/ethernet/sis/sis900.c
->> @@ -1318,7 +1318,7 @@ static void sis900_timer(unsigned long data)
->>  		if (duplex){
->>  			sis900_set_mode(sis_priv, speed, duplex);
->>  			sis630_set_eq(net_dev, sis_priv->chipset_rev);
->> -			netif_start_queue(net_dev);
->> +			netif_carrier_on(net_dev);
->>  		}
->>
->>  		sis_priv->timer.expires = jiffies + HZ;
->> @@ -1336,10 +1336,8 @@ static void sis900_timer(unsigned long data)
->>  		status = sis900_default_phy(net_dev);
->>  		mii_phy = sis_priv->mii;
->>
->> -		if (status & MII_STAT_LINK){
->> +		if (status & MII_STAT_LINK)
->>  			sis900_check_mode(net_dev, mii_phy);
->> -			netif_carrier_on(net_dev);
->> -		}
->>  	} else {
->>  	/* Link ON -> OFF */
->>                  if (!(status & MII_STAT_LINK)){
->> @@ -1612,12 +1610,6 @@ sis900_start_xmit(struct sk_buff *skb, struct
->> net_device *net_dev)
->>  	unsigned int  index_cur_tx, index_dirty_tx;
->>  	unsigned int  count_dirty_tx;
->>
->> -	/* Don't transmit data before the complete of auto-negotiation */
->> -	if(!sis_priv->autong_complete){
->> -		netif_stop_queue(net_dev);
->> -		return NETDEV_TX_BUSY;
->> -	}
->> -
->>  	spin_lock_irqsave(&sis_priv->lock, flags);
->>
->>  	/* Calculate the next Tx descriptor entry. */
->
-> --
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
->
->
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 2fb2d88..b9d3d7e 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -210,6 +210,7 @@ out_vid_del:
+ static int register_vlan_device(struct net_device *real_dev, u16 vlan_id)
+ {
+ 	struct net_device *new_dev;
++	struct vlan_dev_priv *vlan;
+ 	struct net *net = dev_net(real_dev);
+ 	struct vlan_net *vn = net_generic(net, vlan_net_id);
+ 	char name[IFNAMSIZ];
+@@ -260,11 +261,12 @@ static int register_vlan_device(struct net_device *real_dev, u16 vlan_id)
+ 	new_dev->mtu = real_dev->mtu;
+ 	new_dev->priv_flags |= (real_dev->priv_flags & IFF_UNICAST_FLT);
+ 
+-	vlan_dev_priv(new_dev)->vlan_proto = htons(ETH_P_8021Q);
+-	vlan_dev_priv(new_dev)->vlan_id = vlan_id;
+-	vlan_dev_priv(new_dev)->real_dev = real_dev;
+-	vlan_dev_priv(new_dev)->dent = NULL;
+-	vlan_dev_priv(new_dev)->flags = VLAN_FLAG_REORDER_HDR;
++	vlan = vlan_dev_priv(new_dev);
++	vlan->vlan_proto = htons(ETH_P_8021Q);
++	vlan->vlan_id = vlan_id;
++	vlan->real_dev = real_dev;
++	vlan->dent = NULL;
++	vlan->flags = VLAN_FLAG_REORDER_HDR;
+ 
+ 	new_dev->rtnl_link_ops = &vlan_link_ops;
+ 	err = register_vlan_dev(new_dev);
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 1cd3d2a..9ab8a7e 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -107,10 +107,10 @@ static int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+ 	u16 vlan_tci = 0;
+ 	int rc;
+ 
+-	if (!(vlan_dev_priv(dev)->flags & VLAN_FLAG_REORDER_HDR)) {
++	if (!(vlan->flags & VLAN_FLAG_REORDER_HDR)) {
+ 		vhdr = (struct vlan_hdr *) skb_push(skb, VLAN_HLEN);
+ 
+-		vlan_tci = vlan_dev_priv(dev)->vlan_id;
++		vlan_tci = vlan->vlan_id;
+ 		vlan_tci |= vlan_dev_get_egress_qos_mask(dev, skb);
+ 		vhdr->h_vlan_TCI = htons(vlan_tci);
+ 
+@@ -133,7 +133,7 @@ static int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+ 		saddr = dev->dev_addr;
+ 
+ 	/* Now make the underlying real hard header */
+-	dev = vlan_dev_priv(dev)->real_dev;
++	dev = vlan->real_dev;
+ 	rc = dev_hard_header(skb, dev, type, daddr, saddr, len + vhdrlen);
+ 	if (rc > 0)
+ 		rc += vhdrlen;
+-- 
+1.7.10.4
