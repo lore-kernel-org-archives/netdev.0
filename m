@@ -1,62 +1,69 @@
-From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
-Subject: Re: [PATCH] fib_rules: fix suppressor names and default values
-Date: Sat, 3 Aug 2013 20:28:13 +0200
-Message-ID: <20130803182813.GP21970@zirkel.wertarbyte.de>
-References: <20130803121443.GL21970@zirkel.wertarbyte.de>
- <20130803.103722.780534029060943275.davem@davemloft.net>
- <20130803.104125.609502695540219854.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] fib_rules: reorder struct fib_rules fields
+Date: Sat, 03 Aug 2013 11:50:35 -0700
+Message-ID: <1375555835.4457.26.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Stefan Tomanek <stefan.tomanek@wertarbyte.de>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zirkel.wertarbyte.de ([188.40.44.137]:39731 "EHLO
-	zirkel.wertarbyte.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752208Ab3HCS2O convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 14:28:14 -0400
-Content-Disposition: inline
-In-Reply-To: <20130803.104125.609502695540219854.davem@davemloft.net>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:56685 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752452Ab3HCSuh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 14:50:37 -0400
+Received: by mail-pb0-f50.google.com with SMTP id uo5so1840705pbc.23
+        for <netdev@vger.kernel.org>; Sat, 03 Aug 2013 11:50:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dies schrieb David Miller (davem@davemloft.net):
+From: Eric Dumazet <edumazet@google.com>
 
-> I had to fix the following obvious typo:
->=20
-> diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-> index 47916b0..2e65413 100644
-> --- a/net/core/fib_rules.c
-> +++ b/net/core/fib_rules.c
-> @@ -351,7 +351,7 @@ static int fib_nl_newrule(struct sk_buff *skb, st=
-ruct nlmsghdr* nlh)
->  	if (tb[FRA_SUPPRESS_IFGROUP])
->  		rule->suppress_ifgroup =3D nla_get_u32(tb[FRA_SUPPRESS_IFGROUP]);
->  	else
-> -		rule->suppress_ifgroup -1;
-> +		rule->suppress_ifgroup =3D -1;
-> =20
->  	if (!tb[FRA_PRIORITY] && ops->default_pref)
->  		rule->pref =3D ops->default_pref(ops);
->=20
-> Are you even looking at the build of the code you are submitting?
-> Because here the compiler told me:
->=20
-> net/core/fib_rules.c: In function =E2=80=98fib_nl_newrule=E2=80=99:
-> net/core/fib_rules.c:354:3: warning: statement with no effect [-Wunus=
-ed-value]
+Move refcnt, pref, suppress_ifgroup, suppress_prefixlen out of first
+cache line, as they are not used in fast path.
 
-My apologies, I just checked my tinkering branch where the typo is not =
-present;
-it must have crept in while squashing together a number of smaller comm=
-its
-while compiling the patch, perhaps while fixing some whitespace issue (=
-empty
-line).
+Make sure ctarget & fr_net are in first cache line.
 
-The compiler message must have slipped by, I'll try to triple check nex=
-t time.
+(Assuming 64 bit arches and 64 bytes cache lines)
 
-Thank you for the quick fix.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/fib_rules.h |   12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
-Stefan Tomanek
+diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+index 9d0fcbaa..4b2b557 100644
+--- a/include/net/fib_rules.h
++++ b/include/net/fib_rules.h
+@@ -10,23 +10,25 @@
+ 
+ struct fib_rule {
+ 	struct list_head	list;
+-	atomic_t		refcnt;
+ 	int			iifindex;
+ 	int			oifindex;
+ 	u32			mark;
+ 	u32			mark_mask;
+-	u32			pref;
+ 	u32			flags;
+ 	u32			table;
+-	int			suppress_ifgroup;
+-	int			suppress_prefixlen;
+ 	u8			action;
++	/* 3 bytes hole, try to use */
+ 	u32			target;
+ 	struct fib_rule __rcu	*ctarget;
++	struct net		*fr_net;
++
++	atomic_t		refcnt;
++	u32			pref;
++	int			suppress_ifgroup;
++	int			suppress_prefixlen;
+ 	char			iifname[IFNAMSIZ];
+ 	char			oifname[IFNAMSIZ];
+ 	struct rcu_head		rcu;
+-	struct net *		fr_net;
+ };
+ 
+ struct fib_lookup_arg {
