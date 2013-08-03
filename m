@@ -1,92 +1,55 @@
-From: Wang Sheng-Hui <shhuiw@gmail.com>
-Subject: [PATCH][RESEND] vlan: cleanup the usage of vlan_dev_priv(dev)
-Date: Sat, 03 Aug 2013 10:01:54 +0800
-Message-ID: <51FC6492.9000001@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: Ming Lei <ming.lei@canonical.com>
+Subject: [PATCH v1 0/4] USB & USBNET: loose SG check and support usbnet DMA SG
+Date: Sat,  3 Aug 2013 10:46:33 +0800
+Message-ID: <1375497998-7424-1-git-send-email-ming.lei@canonical.com>
+Cc: Oliver Neukum <oneukum@suse.de>,
+	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:56559 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751127Ab3HCCB7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 22:01:59 -0400
-Received: by mail-pd0-f174.google.com with SMTP id 10so1256362pdc.33
-        for <netdev@vger.kernel.org>; Fri, 02 Aug 2013 19:01:59 -0700 (PDT)
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:36917 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753088Ab3HCCrF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Aug 2013 22:47:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch cleanup 2 points for the usage of vlan_dev_priv(dev):
-* In vlan_dev.c/vlan_dev_hard_header, we should use the var *vlan directly
-   after grabing the pointer at the beginning with
-        *vlan = vlan_dev_priv(dev);
-   when we need to access the fields of *vlan.
-* In vlan.c/register_vlan_device, add the var *vlan pointer
-        struct vlan_dev_priv *vlan;
-   to cleanup the code to access the fields of vlan_dev_priv(new_dev).
+Hi,
 
-Signed-off-by: Wang Sheng-Hui <shhuiw@gmail.com>
----
-  net/8021q/vlan.c     |   12 +++++++-----
-  net/8021q/vlan_dev.c |    6 +++---
-  2 files changed, 10 insertions(+), 8 deletions(-)
+This patchset allows drivers to pass sg buffers which size can't be divided
+by max packet size of endpoint if the host controllers(such ax xHCI) support
+this kind of sg buffers.
 
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 2fb2d88..b9d3d7e 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -210,6 +210,7 @@ out_vid_del:
-  static int register_vlan_device(struct net_device *real_dev, u16 vlan_id)
-  {
-  	struct net_device *new_dev;
-+	struct vlan_dev_priv *vlan;
-  	struct net *net = dev_net(real_dev);
-  	struct vlan_net *vn = net_generic(net, vlan_net_id);
-  	char name[IFNAMSIZ];
-@@ -260,11 +261,12 @@ static int register_vlan_device(struct net_device *real_dev, u16 vlan_id)
-  	new_dev->mtu = real_dev->mtu;
-  	new_dev->priv_flags |= (real_dev->priv_flags & IFF_UNICAST_FLT);
+Previously we added check[1] on the situation and don't allow these sg buffers
+passed to USB HCD, looks the check is too strict to make use of new feature of
+new hardware(xHCI) for some applications(such as network stack) which can't
+provide this kind of sg buffers to usbnet driver, so the patch looses the check
+in case that the host controller supports it.
 
--	vlan_dev_priv(new_dev)->vlan_proto = htons(ETH_P_8021Q);
--	vlan_dev_priv(new_dev)->vlan_id = vlan_id;
--	vlan_dev_priv(new_dev)->real_dev = real_dev;
--	vlan_dev_priv(new_dev)->dent = NULL;
--	vlan_dev_priv(new_dev)->flags = VLAN_FLAG_REORDER_HDR;
-+	vlan = vlan_dev_priv(new_dev);
-+	vlan->vlan_proto = htons(ETH_P_8021Q);
-+	vlan->vlan_id = vlan_id;
-+	vlan->real_dev = real_dev;
-+	vlan->dent = NULL;
-+	vlan->flags = VLAN_FLAG_REORDER_HDR;
+Patch 3/4 implements DMA SG on usbnet driver, and patch 4/4 uses it on ax88179_178a
+USB3 NIC for supporting TSO, so both CPU utilization and tx throughput can be
+improved with TSO and DMA SG in case of the USB NIC is attached to xHCI controller.
 
-  	new_dev->rtnl_link_ops = &vlan_link_ops;
-  	err = register_vlan_dev(new_dev);
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 1cd3d2a..9ab8a7e 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -107,10 +107,10 @@ static int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
-  	u16 vlan_tci = 0;
-  	int rc;
+This patchset is against Eric Dumazet's patch(ax88179_178a: avoid copy of tx
+tcp packets), so maybe it is better to merge via net-next tree.
 
--	if (!(vlan_dev_priv(dev)->flags & VLAN_FLAG_REORDER_HDR)) {
-+	if (!(vlan->flags & VLAN_FLAG_REORDER_HDR)) {
-  		vhdr = (struct vlan_hdr *) skb_push(skb, VLAN_HLEN);
+[1], http://git.kernel.org/cgit/linux/kernel/git/gregkh/usb.git/commit/?h=usb-next&id=10e232c597ac757e7f8600649f7e872e86de190f
 
--		vlan_tci = vlan_dev_priv(dev)->vlan_id;
-+		vlan_tci = vlan->vlan_id;
-  		vlan_tci |= vlan_dev_get_egress_qos_mask(dev, skb);
-  		vhdr->h_vlan_TCI = htons(vlan_tci);
+V1:
+	- introduce and apply usb_device_no_sg_limit() helper as suggested by Greg
+	- simplify patch 4/4 against Eric Dumazet's patch(ax88179_178a: avoid copy of tx tcp packets)
+	- don't pass usbnet header as sg buffer
 
-@@ -133,7 +133,7 @@ static int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
-  		saddr = dev->dev_addr;
+ drivers/net/usb/ax88179_178a.c |   12 ++++++++++++
+ drivers/net/usb/usbnet.c       |   38 ++++++++++++++++++++++++++++++++++++--
+ drivers/usb/core/urb.c         |    3 ++-
+ drivers/usb/host/xhci.c        |    4 ++++
+ include/linux/usb.h            |   11 ++++++++++-
+ include/linux/usb/usbnet.h     |    1 +
+ 6 files changed, 65 insertions(+), 4 deletions(-)
 
-  	/* Now make the underlying real hard header */
--	dev = vlan_dev_priv(dev)->real_dev;
-+	dev = vlan->real_dev;
-  	rc = dev_hard_header(skb, dev, type, daddr, saddr, len + vhdrlen);
-  	if (rc > 0)
-  		rc += vhdrlen;
--- 
-1.7.10.4
+
+Thanks,
+--
+Ming Lei
