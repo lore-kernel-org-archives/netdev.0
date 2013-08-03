@@ -1,48 +1,58 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v1 3/4] USBNET: support DMA SG
-Date: Sat, 03 Aug 2013 12:07:31 -0700 (PDT)
-Message-ID: <20130803.120731.1813304058291781420.davem@davemloft.net>
-References: <1375497998-7424-1-git-send-email-ming.lei@canonical.com>
-	<1375497998-7424-4-git-send-email-ming.lei@canonical.com>
-	<1375509413.2201.2.camel@linux-fkkt.site>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [net] net_sched: make dev_trans_start return vlan's real dev
+ trans_start
+Date: Sat, 3 Aug 2013 21:09:18 +0200
+Message-ID: <20130803190918.GA11976@redhat.com>
+References: <1375542471-22739-1-git-send-email-nikolay@redhat.com>
+ <20130803170733.GA10218@redhat.com>
+ <20130803.115228.1509916868029010372.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
-	sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org, grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org,
-	stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org
-To: oneukum-l3A5Bk7waGM@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1375509413.2201.2.camel-B2T3B9s34ElbnMAlSieJcQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: nikolay@redhat.com, netdev@vger.kernel.org, fubar@us.ibm.com,
+	jhs@mojatatu.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52254 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751970Ab3HCTdp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Aug 2013 15:33:45 -0400
+Content-Disposition: inline
+In-Reply-To: <20130803.115228.1509916868029010372.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Date: Sat, 03 Aug 2013 07:56:53 +0200
+On Sat, Aug 03, 2013 at 11:52:28AM -0700, David Miller wrote:
+>From: Veaceslav Falico <vfalico@redhat.com>
+>Date: Sat, 3 Aug 2013 19:07:33 +0200
+>
+>> On Sat, Aug 03, 2013 at 05:07:51PM +0200, nikolay@redhat.com wrote:
+>> ...snip...
+>>>+	while (is_vlan_dev(dev))
+>>>+		dev = vlan_dev_real_dev(dev);
+>>
+>> While at it - I've checked a few users (mainly network drivers) of
+>> vlan_dev_real_dev(dev) and they all rely on that the return device
+>> would be the *real* device, but not another vlan.
+>
+>Did you find any cases that want the device under the VLAN,
+>whether it is a non-vlan device or not?
 
-> On Sat, 2013-08-03 at 10:46 +0800, Ming Lei wrote:
-> 
->> @@ -1268,10 +1298,14 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
->>  	entry = (struct skb_data *) skb->cb;
->>  	entry->urb = urb;
->>  	entry->dev = dev;
->> -	entry->length = length;
->>  
->>  	usb_fill_bulk_urb (urb, dev->udev, dev->out,
->>  			skb->data, skb->len, tx_complete, skb);
->> +	if (dev->can_dma_sg) {
->> +		if (build_dma_sg(skb, urb) < 0)
->> +			goto drop;
-> 
-> Where do you free urb->sg?
+Not really. All of the cases seem to explicitly call it to get a non-vlan
+device, and not the purely 'underlying' one.
 
-Indeed, this appears to leak.
+Another point is that they won't work properly with QinQ... cause the
+majority of callers are searching for their own device. Or bonding, as in
+netxen that Nik mentioned. And they will find yet another vlan device.
 
-The devio.c code in the USB layer takes care to manage freeing of
-the urb->sg, so this usbnet code will have to as well.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+So either QinQ isn't really that used or I'm missing something...
+
+>
+>> So maybe we should move this while loop to vlan_dev_real_dev()
+>> instead?
+>
+>Perhaps.  As per above, we may also need the one-level demux
+>helper too, something like "vlan_dev_slave(dev)".
+
+I haven't found any usage for it, tbh. Only the vlan code itself might
+benefit from it, but it already uses the vlan_dev_priv(dev)->real_dev, and
+not the vlan_dev_real_dev(), which is used by drivers.
