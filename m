@@ -1,48 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][RESEND] vlan: cleanup the usage of vlan_dev_priv(dev)
-Date: Fri, 02 Aug 2013 22:03:10 -0700 (PDT)
-Message-ID: <20130802.220310.447316606630944097.davem@davemloft.net>
-References: <51FC6492.9000001@gmail.com>
+From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [PATCH v1 3/4] USBNET: support DMA SG
+Date: Sat, 03 Aug 2013 07:56:53 +0200
+Message-ID: <1375509413.2201.2.camel@linux-fkkt.site>
+References: <1375497998-7424-1-git-send-email-ming.lei@canonical.com>
+	 <1375497998-7424-4-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: shhuiw@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45386 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750870Ab3HCFDU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 01:03:20 -0400
-In-Reply-To: <51FC6492.9000001@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>,
+	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+To: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1375497998-7424-4-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Wang Sheng-Hui <shhuiw@gmail.com>
-Date: Sat, 03 Aug 2013 10:01:54 +0800
+On Sat, 2013-08-03 at 10:46 +0800, Ming Lei wrote:
 
-> This patch cleanup 2 points for the usage of vlan_dev_priv(dev):
-> * In vlan_dev.c/vlan_dev_hard_header, we should use the var *vlan
-> * directly
->   after grabing the pointer at the beginning with
->        *vlan = vlan_dev_priv(dev);
->   when we need to access the fields of *vlan.
-> * In vlan.c/register_vlan_device, add the var *vlan pointer
->        struct vlan_dev_priv *vlan;
->   to cleanup the code to access the fields of vlan_dev_priv(new_dev).
-> 
-> Signed-off-by: Wang Sheng-Hui <shhuiw@gmail.com>
-> ---
->  net/8021q/vlan.c     |   12 +++++++-----
->  net/8021q/vlan_dev.c |    6 +++---
->  2 files changed, 10 insertions(+), 8 deletions(-)
-> 
-> diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-> index 2fb2d88..b9d3d7e 100644
-> --- a/net/8021q/vlan.c
-> +++ b/net/8021q/vlan.c
-> @@ -210,6 +210,7 @@ out_vid_del:
->  static int register_vlan_device(struct net_device *real_dev, u16
->  vlan_id)
+> @@ -1268,10 +1298,14 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
+>  	entry = (struct skb_data *) skb->cb;
+>  	entry->urb = urb;
+>  	entry->dev = dev;
+> -	entry->length = length;
+>  
+>  	usb_fill_bulk_urb (urb, dev->udev, dev->out,
+>  			skb->data, skb->len, tx_complete, skb);
+> +	if (dev->can_dma_sg) {
+> +		if (build_dma_sg(skb, urb) < 0)
+> +			goto drop;
 
-This still doesn't apply, because your email client corrupted
-the patch.
+Where do you free urb->sg?
+
+	Regards
+		Oliver
+
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
