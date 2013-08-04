@@ -1,50 +1,37 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 v2 2/2] ip rule: add route suppression options
-Date: Sun, 4 Aug 2013 11:56:22 -0700
-Message-ID: <20130804115622.0f3d26c7@nehalam.linuxnetplumber.net>
-References: <20130803122316.GN21970@zirkel.wertarbyte.de>
+Subject: Re: [PATCH] iproute vxlan add support for fdb replace command
+Date: Sun, 4 Aug 2013 11:57:51 -0700
+Message-ID: <20130804115751.0bf8b584@nehalam.linuxnetplumber.net>
+References: <1375165001-6776-1-git-send-email-tmricht@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
+To: Thomas Richter <tmricht@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:37855 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753200Ab3HDS4Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Aug 2013 14:56:25 -0400
-Received: by mail-pd0-f176.google.com with SMTP id q10so2425125pdj.21
-        for <netdev@vger.kernel.org>; Sun, 04 Aug 2013 11:56:25 -0700 (PDT)
-In-Reply-To: <20130803122316.GN21970@zirkel.wertarbyte.de>
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:64953 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752773Ab3HDS5y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Aug 2013 14:57:54 -0400
+Received: by mail-pb0-f45.google.com with SMTP id mc17so2519192pbc.4
+        for <netdev@vger.kernel.org>; Sun, 04 Aug 2013 11:57:54 -0700 (PDT)
+In-Reply-To: <1375165001-6776-1-git-send-email-tmricht@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 3 Aug 2013 14:23:16 +0200
-Stefan Tomanek <stefan.tomanek@wertarbyte.de> wrote:
+On Tue, 30 Jul 2013 08:16:41 +0200
+Thomas Richter <tmricht@linux.vnet.ibm.com> wrote:
 
-> When configuring a system with multiple network uplinks and default routes, it
-> is often convenient to reference a routing table multiple times - but reject
-> its routing decision if certain constraints are not met by it.
+> Add support for the bridge fdb replace command to replace an
+> existing entry in the vxlan device driver forwarding data base.
+> The entry is identified with its unicast mac address and its
+> corresponding remote destination information is updated.
 > 
-> Consider this setup:
+> This is useful for virtual machine migration and replaces the
+> bridge fdb del and bridge fdb add commands.
 > 
-> $ ip route add table secuplink default via 10.42.23.1
+> It follows the same interface as ip neigh replace commands.
 > 
-> $ ip rule add pref 100            table main suppress_prefixlength 0
-> $ ip rule add pref 150 fwmark 0xA table secuplink
-> 
-> With this setup, packets marked 0xA will be processed by the additional routing
-> table "secuplink", but only if no suitable route in the main routing table can
-> be found. By suppressing entries with a prefixlength of 0 (or less), the
-> default route (/0) of the table "main" is hidden to packets processed by rule
-> 100; packets traveling to destinations via more specific routes are processed
-> as usual.
-> 
-> It is also possible to suppress a routing entry if a device belonging to
-> a specific interface group is to be used:
-> 
-> $ ip rule add pref 150 table main suppress_group 1
-> 
-> Signed-off-by: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
+> Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
 
-Applied to net-next-3.11 branch
+Applied to master for next release.
