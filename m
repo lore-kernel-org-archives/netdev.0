@@ -1,268 +1,57 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: Alcatel X220S HSDPA modem
-Date: Sun, 4 Aug 2013 01:59:51 +0200 (CEST)
-Message-ID: <alpine.LNX.2.02.1308040157360.1079@eeeadesso>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: [PATCH v1 3/4] USBNET: support DMA SG
+Date: Sun, 4 Aug 2013 08:19:40 +0800
+Message-ID: <CACVXFVPJ0MUaCCDV2ZGdB1_JYXM0iNq=_e7ejjA77dL_TMSigQ@mail.gmail.com>
+References: <1375497998-7424-1-git-send-email-ming.lei@canonical.com>
+	<1375497998-7424-4-git-send-email-ming.lei@canonical.com>
+	<1375509413.2201.2.camel@linux-fkkt.site>
+	<20130803.120731.1813304058291781420.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-To: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: oneukum@suse.de, gregkh@linuxfoundation.org,
+	sarah.a.sharp@linux.intel.com, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, eric.dumazet@gmail.com,
+	bhutchings@solarflare.com, grundler@google.com, freddy@asix.com.tw,
+	stern@rowland.harvard.edu
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f42.google.com ([74.125.83.42]:40853 "EHLO
-	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750886Ab3HCX7c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 19:59:32 -0400
+Received: from youngberry.canonical.com ([91.189.89.112]:55586 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750875Ab3HDATn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 20:19:43 -0400
+In-Reply-To: <20130803.120731.1813304058291781420.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello everybody!
-I'm going to investigate a little bit on an obscure Alcatel device - the 
-Alcatel X220s, manifactured by TCT Mobile Phones.
+On Sun, Aug 4, 2013 at 3:07 AM, David Miller <davem@davemloft.net> wrote:
+> From: Oliver Neukum <oneukum@suse.de>
+> Date: Sat, 03 Aug 2013 07:56:53 +0200
+>
+>> On Sat, 2013-08-03 at 10:46 +0800, Ming Lei wrote:
+>>
+>>> @@ -1268,10 +1298,14 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
+>>>      entry = (struct skb_data *) skb->cb;
+>>>      entry->urb = urb;
+>>>      entry->dev = dev;
+>>> -    entry->length = length;
+>>>
+>>>      usb_fill_bulk_urb (urb, dev->udev, dev->out,
+>>>                      skb->data, skb->len, tx_complete, skb);
+>>> +    if (dev->can_dma_sg) {
+>>> +            if (build_dma_sg(skb, urb) < 0)
+>>> +                    goto drop;
+>>
+>> Where do you free urb->sg?
+>
+> Indeed, this appears to leak.
+>
+> The devio.c code in the USB layer takes care to manage freeing of
+> the urb->sg, so this usbnet code will have to as well.
 
-It supports a NDIS network interface, as you will be able to discover looking 
-at the driver package, still: don't know what's the protocol used.
-At a first glance, I would just like to avoid option.ko binding to non-serial 
-interface as it happens now. So I would appreciate it a lot if you help me 
-distinguish non-serial interfaces from serial ones, looking at this lsusb 
-listing and the driver package (see link below).
+Hamm, kfree(urb->sg) is removed carelessly in v1, sorry for that.
 
-Another strange thing is - the device interface referred as the WAN one is "06"
-but here we ave from 0 to 5 interfaces!
-Looking at this msdn article, it seems Windows does no elaboration regarding 
-the InterfaceNumber field. So - am I missing an interface or does Windows start 
-numbering interfaces from 1?
+Will fix it in -v2.
 
-Driver package link:
-http://www.gstorm.eu/dgm/alcdrv.tar.xz
-(I simply decompressed the Innosetup installer to let you browse these files 
-with no major issues!)
-
-Any help and documentation would be greatly apreciated!!
-
-
-Bus 001 Device 002: ID 1bbb:0017 T & A Mobile Phones 
-Device Descriptor:
-   bLength                18
-   bDescriptorType         1
-   bcdUSB               2.00
-   bDeviceClass            0 (Defined at Interface level)
-   bDeviceSubClass         0
-   bDeviceProtocol         0
-   bMaxPacketSize0        64
-   idVendor           0x1bbb T & A Mobile Phones
-   idProduct          0x0017
-   bcdDevice            0.00
-   iManufacturer           3 USBModem
-   iProduct                2 HSPA Data Card
-   iSerial                 4 1234567890ABCDEF
-   bNumConfigurations      1
-   Configuration Descriptor:
-     bLength                 9
-     bDescriptorType         2
-     wTotalLength          154
-     bNumInterfaces          6
-     bConfigurationValue     1
-     iConfiguration          1 USBModem Configuration
-     bmAttributes         0xa0
-       (Bus Powered)
-       Remote Wakeup
-     MaxPower              500mA
-     Interface Descriptor:
-       bLength                 9
-       bDescriptorType         4
-       bInterfaceNumber        0
-       bAlternateSetting       0
-       bNumEndpoints           2
-       bInterfaceClass       255 Vendor Specific Class
-       bInterfaceSubClass    255 Vendor Specific Subclass
-       bInterfaceProtocol    255 Vendor Specific Protocol
-       iInterface              0
-       Endpoint Descriptor:
-         bLength                 7
-         bDescriptorType         5
-         bEndpointAddress     0x81  EP 1 IN
-         bmAttributes            2
-           Transfer Type            Bulk
-           Synch Type               None
-           Usage Type               Data
-         wMaxPacketSize     0x0200  1x 512 bytes
-         bInterval              32
-       Endpoint Descriptor:
-         bLength                 7
-         bDescriptorType         5
-         bEndpointAddress     0x01  EP 1 OUT
-         bmAttributes            2
-           Transfer Type            Bulk
-           Synch Type               None
-           Usage Type               Data
-         wMaxPacketSize     0x0200  1x 512 bytes
-         bInterval              32
-     Interface Descriptor:
-       bLength                 9
-       bDescriptorType         4
-       bInterfaceNumber        1
-       bAlternateSetting       0
-       bNumEndpoints           2
-       bInterfaceClass       255 Vendor Specific Class
-       bInterfaceSubClass    255 Vendor Specific Subclass
-       bInterfaceProtocol    255 Vendor Specific Protocol
-       iInterface              0
-       Endpoint Descriptor:
-         bLength                 7
-         bDescriptorType         5
-         bEndpointAddress     0x82  EP 2 IN
-         bmAttributes            2
-           Transfer Type            Bulk
-           Synch Type               None
-           Usage Type               Data
-         wMaxPacketSize     0x0200  1x 512 bytes
-         bInterval              32
-       Endpoint Descriptor:
-         bLength                 7
-         bDescriptorType         5
-         bEndpointAddress     0x02  EP 2 OUT
-         bmAttributes            2
-           Transfer Type            Bulk
-           Synch Type               None
-           Usage Type               Data
-         wMaxPacketSize     0x0200  1x 512 bytes
-         bInterval              32
-     Interface Descriptor:
-       bLength                 9
-       bDescriptorType         4
-       bInterfaceNumber        2
-       bAlternateSetting       0
-       bNumEndpoints           2
-       bInterfaceClass       255 Vendor Specific Class
-       bInterfaceSubClass    255 Vendor Specific Subclass
-       bInterfaceProtocol    255 Vendor Specific Protocol
-       iInterface              0
-       Endpoint Descriptor:
-         bLength                 7
-         bDescriptorType         5
-         bEndpointAddress     0x83  EP 3 IN
-         bmAttributes            2
-           Transfer Type            Bulk
-           Synch Type               None
-           Usage Type               Data
-         wMaxPacketSize     0x0200  1x 512 bytes
-         bInterval              32
-       Endpoint Descriptor:
-         bLength                 7
-         bDescriptorType         5
-         bEndpointAddress     0x03  EP 3 OUT
-         bmAttributes            2
-           Transfer Type            Bulk
-           Synch Type               None
-           Usage Type               Data
-         wMaxPacketSize     0x0200  1x 512 bytes
-         bInterval              32
-     Interface Descriptor:
-       bLength                 9
-       bDescriptorType         4
-       bInterfaceNumber        3
-       bAlternateSetting       0
-       bNumEndpoints           2
-       bInterfaceClass       255 Vendor Specific Class
-       bInterfaceSubClass    255 Vendor Specific Subclass
-       bInterfaceProtocol    255 Vendor Specific Protocol
-       iInterface              0
-       Endpoint Descriptor:
-         bLength                 7
-         bDescriptorType         5
-         bEndpointAddress     0x84  EP 4 IN
-         bmAttributes            2
-           Transfer Type            Bulk
-           Synch Type               None
-           Usage Type               Data
-         wMaxPacketSize     0x0200  1x 512 bytes
-         bInterval              32
-       Endpoint Descriptor:
-         bLength                 7
-         bDescriptorType         5
-         bEndpointAddress     0x04  EP 4 OUT
-         bmAttributes            2
-           Transfer Type            Bulk
-           Synch Type               None
-           Usage Type               Data
-         wMaxPacketSize     0x0200  1x 512 bytes
-         bInterval              32
-     Interface Descriptor:
-       bLength                 9
-       bDescriptorType         4
-       bInterfaceNumber        4
-       bAlternateSetting       0
-       bNumEndpoints           2
-       bInterfaceClass         8 Mass Storage
-       bInterfaceSubClass      6 SCSI
-       bInterfaceProtocol     80 Bulk-Only
-       iInterface              0
-       Endpoint Descriptor:
-         bLength                 7
-         bDescriptorType         5
-         bEndpointAddress     0x05  EP 5 OUT
-         bmAttributes            2
-           Transfer Type            Bulk
-           Synch Type               None
-           Usage Type               Data
-         wMaxPacketSize     0x0200  1x 512 bytes
-         bInterval               0
-       Endpoint Descriptor:
-         bLength                 7
-         bDescriptorType         5
-         bEndpointAddress     0x85  EP 5 IN
-         bmAttributes            2
-           Transfer Type            Bulk
-           Synch Type               None
-           Usage Type               Data
-         wMaxPacketSize     0x0200  1x 512 bytes
-         bInterval               0
-     Interface Descriptor:
-       bLength                 9
-       bDescriptorType         4
-       bInterfaceNumber        5
-       bAlternateSetting       0
-       bNumEndpoints           3
-       bInterfaceClass       255 Vendor Specific Class
-       bInterfaceSubClass    255 Vendor Specific Subclass
-       bInterfaceProtocol    255 Vendor Specific Protocol
-       iInterface              0
-       Endpoint Descriptor:
-         bLength                 7
-         bDescriptorType         5
-         bEndpointAddress     0x86  EP 6 IN
-         bmAttributes            3
-           Transfer Type            Interrupt
-           Synch Type               None
-           Usage Type               Data
-         wMaxPacketSize     0x0040  1x 64 bytes
-         bInterval               5
-       Endpoint Descriptor:
-         bLength                 7
-         bDescriptorType         5
-         bEndpointAddress     0x87  EP 7 IN
-         bmAttributes            2
-           Transfer Type            Bulk
-           Synch Type               None
-           Usage Type               Data
-         wMaxPacketSize     0x0200  1x 512 bytes
-         bInterval              32
-       Endpoint Descriptor:
-         bLength                 7
-         bDescriptorType         5
-         bEndpointAddress     0x06  EP 6 OUT
-         bmAttributes            2
-           Transfer Type            Bulk
-           Synch Type               None
-           Usage Type               Data
-         wMaxPacketSize     0x0200  1x 512 bytes
-         bInterval              32
-Device Qualifier (for other device speed):
-   bLength                10
-   bDescriptorType         6
-   bcdUSB               2.00
-   bDeviceClass            0 (Defined at Interface level)
-   bDeviceSubClass         0
-   bDeviceProtocol         0
-   bMaxPacketSize0        64
-   bNumConfigurations      1
-Device Status:     0x0001
-   Self Powered
+Thanks,
+--
+Ming Lei
