@@ -1,44 +1,36 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH net] busy_poll: cleanup do-nothing placeholders
-Date: Sun, 04 Aug 2013 12:55:48 +0300
-Message-ID: <20130804095548.30006.8133.stgit@ladj378.jer.intel.com>
+From: Santiago Garcia Mantinan <manty@manty.net>
+Subject: Re: bonding + arp monitoring fails if interface is a vlan
+Date: Sun, 4 Aug 2013 12:45:43 +0200
+Message-ID: <CAJk_L2FJyD2X7EPztiVWLBD4NDR_VOehdFEeV+nq7a+sO9+_wA@mail.gmail.com>
+References: <20130801121142.GA444@www.manty.net>
+	<51FB9EE5.3040907@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qe0-f48.google.com ([209.85.128.48]:52622 "EHLO
+	mail-qe0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751025Ab3HDKpo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Aug 2013 06:45:44 -0400
+Received: by mail-qe0-f48.google.com with SMTP id 9so1180991qea.7
+        for <netdev@vger.kernel.org>; Sun, 04 Aug 2013 03:45:44 -0700 (PDT)
+In-Reply-To: <51FB9EE5.3040907@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When renaming ll_poll to busy poll, I introduced a typo
-in the name of the do-nothing placeholder for sk_busy_loop
-and called it sk_busy_poll.
-This broke compile when busy poll was not configured.
-Cong Wang submitted a patch to fixed that.
-This patch removes the now redundant, misspelled placeholder.
+2013/8/2 Nikolay Aleksandrov <nikolay@redhat.com>:
+> I believe that it is because dev_trans_start() returns 0 for 8021q devices and
+> so the calculations if the slave has transmitted are wrong, and the flip-flop
+> happens.
+> Please try the attached patch, it should resolve your issue (basically it gets
+> the dev_trans_start of the vlan's underlying device if a vlan is found).
 
-Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
----
+Thanks, patched and compiling, I'll try today with my laptops and
+tomorrow at the lab I had setup and then at the original machine.
 
- include/net/busy_poll.h |    5 -----
- 1 files changed, 0 insertions(+), 5 deletions(-)
+I'll let you know how things go.
 
-diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
-index f18b919..8e2dfc1 100644
---- a/include/net/busy_poll.h
-+++ b/include/net/busy_poll.h
-@@ -162,11 +162,6 @@ static inline bool sk_can_busy_loop(struct sock *sk)
- 	return false;
- }
- 
--static inline bool sk_busy_poll(struct sock *sk, int nonblock)
--{
--	return false;
--}
--
- static inline void skb_mark_napi_id(struct sk_buff *skb,
- 				    struct napi_struct *napi)
- {
+Regards.
+-- 
+Manty/BestiaTester -> http://manty.net
