@@ -1,42 +1,51 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: ax25_recvmsg lockup
-Date: Sat, 3 Aug 2013 20:25:20 -0400
-Message-ID: <20130804002520.GA10206@redhat.com>
-References: <20130617142803.GB16732@redhat.com>
- <20130803.134604.508965748339486186.davem@davemloft.net>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: [PATCH v1 0/4] USB & USBNET: loose SG check and support usbnet
+ DMA SG
+Date: Sun, 4 Aug 2013 08:28:06 +0800
+Message-ID: <CACVXFVOoAX8dR8DfmQwJE=d9vyWD+io_jvfc6KmusQCdowA9wA@mail.gmail.com>
+References: <1375497998-7424-1-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Oliver Neukum <oneukum@suse.de>,
+	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:31813 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751192Ab3HDAZ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Aug 2013 20:25:29 -0400
-Content-Disposition: inline
-In-Reply-To: <20130803.134604.508965748339486186.davem@davemloft.net>
+Received: from youngberry.canonical.com ([91.189.89.112]:55628 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751192Ab3HDA2I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 20:28:08 -0400
+In-Reply-To: <1375497998-7424-1-git-send-email-ming.lei@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 03, 2013 at 01:46:04PM -0700, David Miller wrote:
- > From: Dave Jones <davej@redhat.com>
- > Date: Mon, 17 Jun 2013 10:28:03 -0400
- > 
- > > With the right arguments from userspace, reading from an ax25 socket
- > > can spend long enough in the kernel that it triggers the softlockup
- > > detector.  I hit a bunch of these traces in a trinity run that I
- > > left running over the weekend.
- > 
- > I looked at this a bunch of times and am still mystified how this
- > can happen.
- > 
- > It should be simple to diagnose since I doubt there is any real
- > AX25 traffic going to these sockets.
- > 
- > Any chance you can figure out what the arguments are that cause
- > this problem?  That'll probably help a lot, thanks!
+On Sat, Aug 3, 2013 at 10:46 AM, Ming Lei <ming.lei@canonical.com> wrote:
+> Hi,
+>
+> This patchset allows drivers to pass sg buffers which size can't be divided
+> by max packet size of endpoint if the host controllers(such ax xHCI) support
+> this kind of sg buffers.
+>
+> Previously we added check[1] on the situation and don't allow these sg buffers
+> passed to USB HCD, looks the check is too strict to make use of new feature of
+> new hardware(xHCI) for some applications(such as network stack) which can't
+> provide this kind of sg buffers to usbnet driver, so the patch looses the check
+> in case that the host controller supports it.
+>
+> Patch 3/4 implements DMA SG on usbnet driver, and patch 4/4 uses it on ax88179_178a
+> USB3 NIC for supporting TSO, so both CPU utilization and tx throughput can be
+> improved with TSO and DMA SG in case of the USB NIC is attached to xHCI controller.
+>
+> This patchset is against Eric Dumazet's patch(ax88179_178a: avoid copy of tx
+> tcp packets), so maybe it is better to merge via net-next tree.
 
-I've not seen it in a while, I'll have a think about what I can
-do to try and provoke it more reliably on Monday.
+Looks it is a bit complicated, so it can't work via net-next.
 
-	Dave
+- patch 1/4 depends on current usb-next tree
+- patch 2/4 depends on patch 1/4
+- patch 4/4 depends on both patch 1/4 and Eric's patch
+
+Thanks,
+--
+Ming Lei
