@@ -1,47 +1,29 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: ax25_recvmsg lockup
-Date: Sun, 4 Aug 2013 12:04:17 -0400
-Message-ID: <20130804160417.GA987@redhat.com>
-References: <20130617142803.GB16732@redhat.com>
- <20130803.134604.508965748339486186.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [patch iproute2] ip: show physical port id
+Date: Sun, 4 Aug 2013 11:48:58 -0700
+Message-ID: <20130804114858.40ed6c00@nehalam.linuxnetplumber.net>
+References: <1374242152-10325-1-git-send-email-jiri@resnulli.us>
+	<1374242152-10325-5-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, Narendra_K@Dell.com,
+	bhutchings@solarflare.com, john.r.fastabend@intel.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33659 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753432Ab3HDQEf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Aug 2013 12:04:35 -0400
-Content-Disposition: inline
-In-Reply-To: <20130803.134604.508965748339486186.davem@davemloft.net>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:64453 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752837Ab3HDStC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Aug 2013 14:49:02 -0400
+Received: by mail-pa0-f42.google.com with SMTP id lj1so2475613pab.29
+        for <netdev@vger.kernel.org>; Sun, 04 Aug 2013 11:49:01 -0700 (PDT)
+In-Reply-To: <1374242152-10325-5-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 03, 2013 at 01:46:04PM -0700, David Miller wrote:
- > From: Dave Jones <davej@redhat.com>
- > Date: Mon, 17 Jun 2013 10:28:03 -0400
- > 
- > > With the right arguments from userspace, reading from an ax25 socket
- > > can spend long enough in the kernel that it triggers the softlockup
- > > detector.  I hit a bunch of these traces in a trinity run that I
- > > left running over the weekend.
- > 
- > I looked at this a bunch of times and am still mystified how this
- > can happen.
- > 
- > It should be simple to diagnose since I doubt there is any real
- > AX25 traffic going to these sockets.
- > 
- > Any chance you can figure out what the arguments are that cause
- > this problem?  That'll probably help a lot, thanks!
+On Fri, 19 Jul 2013 15:55:52 +0200
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-thinking about this some more, I wonder if it was related to the problems
-I was seeing where a bunch of concurrent sync()'s would trip up the
-soft-lockup detector.  Perhaps the ax25 code got preempted and
-the syncs starved the cpu for a while, so when we eventually got back
-to the ax25 code, the detector decided it hadn't made progress..
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-I don't know, it sounds a bit far-fetched, but it's all I can think of.
-
-	Dave
+Applied to net-next-3.11 branch to go into the matching release
