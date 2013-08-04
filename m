@@ -1,54 +1,42 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [PATCH v1 1/4] USB: introduce usb_device_no_sg_limit() helper
-Date: Sun, 4 Aug 2013 08:22:18 +0800
-Message-ID: <CACVXFVMNEeF2cLqvqciKdDO8W_UdSbQ2UC5grpDenmQrX-5=XQ@mail.gmail.com>
-References: <1375497998-7424-2-git-send-email-ming.lei@canonical.com>
-	<Pine.LNX.4.44L0.1308031149110.29946-100000@netrider.rowland.org>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: ax25_recvmsg lockup
+Date: Sat, 3 Aug 2013 20:25:20 -0400
+Message-ID: <20130804002520.GA10206@redhat.com>
+References: <20130617142803.GB16732@redhat.com>
+ <20130803.134604.508965748339486186.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Oliver Neukum <oneukum@suse.de>,
-	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Alan Stern <stern@rowland.harvard.edu>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:55604 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751347Ab3HDAWU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Aug 2013 20:22:20 -0400
-In-Reply-To: <Pine.LNX.4.44L0.1308031149110.29946-100000@netrider.rowland.org>
+Received: from mx1.redhat.com ([209.132.183.28]:31813 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751192Ab3HDAZ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Aug 2013 20:25:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20130803.134604.508965748339486186.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 3, 2013 at 11:53 PM, Alan Stern <stern@rowland.harvard.edu> wrote:
-> On Sat, 3 Aug 2013, Ming Lei wrote:
->
->> Some host controllers(such as xHCI) can support building
->> packet from discontinuous buffers, so introduce one flag
->> and helper for this kind of host controllers, then the
->> feature can help some applications(such as, usbnet) by
->> supporting arbitrary length of sg buffers.
->
->> diff --git a/include/linux/usb.h b/include/linux/usb.h
->> index 84f14e2..5d03074 100644
->> --- a/include/linux/usb.h
->> +++ b/include/linux/usb.h
->> @@ -337,6 +337,7 @@ struct usb_bus {
->>                                        * the ep queue on a short transfer
->>                                        * with the URB_SHORT_NOT_OK flag set.
->>                                        */
->> +     unsigned no_sg_limit:1;         /* no sg list limit */
->
-> Why do you call this "no_sg_limit"?  It isn't a limit on the SG list;
-> the list can be arbitrarily long, provided all the entries except the
-> last are divisible by the maxpacket size.
->
-> You could call it "no_sg_constraint" if you want.  Or
-> "allow_arbitrary_sg", to put a more positive spin on it.
+On Sat, Aug 03, 2013 at 01:46:04PM -0700, David Miller wrote:
+ > From: Dave Jones <davej@redhat.com>
+ > Date: Mon, 17 Jun 2013 10:28:03 -0400
+ > 
+ > > With the right arguments from userspace, reading from an ax25 socket
+ > > can spend long enough in the kernel that it triggers the softlockup
+ > > detector.  I hit a bunch of these traces in a trinity run that I
+ > > left running over the weekend.
+ > 
+ > I looked at this a bunch of times and am still mystified how this
+ > can happen.
+ > 
+ > It should be simple to diagnose since I doubt there is any real
+ > AX25 traffic going to these sockets.
+ > 
+ > Any chance you can figure out what the arguments are that cause
+ > this problem?  That'll probably help a lot, thanks!
 
-OK, I prefer no_sg_constraint, and will do it in v2.
+I've not seen it in a while, I'll have a think about what I can
+do to try and provoke it more reliably on Monday.
 
-Thanks,
---
-Ming Lei
+	Dave
