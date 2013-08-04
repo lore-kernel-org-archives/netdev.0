@@ -1,39 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net/phy: micrel: Add OF configuration support for
- ksz9021
-Date: Sat, 03 Aug 2013 21:56:50 -0700 (PDT)
-Message-ID: <20130803.215650.2298074538708777766.davem@davemloft.net>
-References: <1375348757-12856-1-git-send-email-xobs@kosagi.com>
-	<1375348757-12856-2-git-send-email-xobs@kosagi.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: [PATCH net] busy_poll: cleanup do-nothing placeholders
+Date: Sun, 04 Aug 2013 12:55:48 +0300
+Message-ID: <20130804095548.30006.8133.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: s.hauer@pengutronix.de, B38611@freescale.com,
-	netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	stephen@networkplumber.org, rostedt@goodmis.org
-To: xobs@kosagi.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56374 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751124Ab3HDE4v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Aug 2013 00:56:51 -0400
-In-Reply-To: <1375348757-12856-2-git-send-email-xobs@kosagi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sean Cross <xobs@kosagi.com>
-Date: Thu,  1 Aug 2013 09:19:17 +0000
+When renaming ll_poll to busy poll, I introduced a typo
+in the name of the do-nothing placeholder for sk_busy_loop
+and called it sk_busy_poll.
+This broke compile when busy poll was not configured.
+Cong Wang submitted a patch to fixed that.
+This patch removes the now redundant, misspelled placeholder.
 
-> Some boards require custom PHY configuration, for example due to trace
-> length differences.  Add the ability to configure these registers in
-> order to get the PHY to function on boards that need it.
-> 
-> Because PHYs are auto-detected based on MDIO device IDs, allow PHY
-> configuration to be specified in the parent Ethernet device node if no
-> PHY device node is present.
-> 
-> Signed-off-by: Sean Cross <xobs@kosagi.com>
+Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+---
 
-Can someone knowledgable in this area please review this patch?
+ include/net/busy_poll.h |    5 -----
+ 1 files changed, 0 insertions(+), 5 deletions(-)
 
-Thanks.
+diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
+index f18b919..8e2dfc1 100644
+--- a/include/net/busy_poll.h
++++ b/include/net/busy_poll.h
+@@ -162,11 +162,6 @@ static inline bool sk_can_busy_loop(struct sock *sk)
+ 	return false;
+ }
+ 
+-static inline bool sk_busy_poll(struct sock *sk, int nonblock)
+-{
+-	return false;
+-}
+-
+ static inline void skb_mark_napi_id(struct sk_buff *skb,
+ 				    struct napi_struct *napi)
+ {
