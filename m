@@ -1,41 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] fix bonding neighbour setup handling
-Date: Mon, 05 Aug 2013 15:25:03 -0700 (PDT)
-Message-ID: <20130805.152503.1956742286847859646.davem@davemloft.net>
-References: <1375463259-12033-1-git-send-email-vfalico@redhat.com>
-	<20130802.154539.237539535236462726.davem@davemloft.net>
-	<51FFAD54.7090501@redhat.com>
+Subject: Re: [PATCH] fib_trie: remove potential out of bound access
+Date: Mon, 05 Aug 2013 15:27:01 -0700 (PDT)
+Message-ID: <20130805.152701.1330956846335649347.davem@davemloft.net>
+References: <1375726729.4457.45.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vfalico@redhat.com, netdev@vger.kernel.org, fubar@us.ibm.com,
-	andy@greyhouse.net, ebiederm@xmission.com, joe@perches.com
-To: nikolay@redhat.com
+Cc: netdev@vger.kernel.org, andreyknvl@google.com, dvyukov@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50322 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50347 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754821Ab3HEWZG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 18:25:06 -0400
-In-Reply-To: <51FFAD54.7090501@redhat.com>
+	with ESMTP id S1755334Ab3HEW1D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 18:27:03 -0400
+In-Reply-To: <1375726729.4457.45.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Date: Mon, 05 Aug 2013 15:49:08 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 05 Aug 2013 11:18:49 -0700
 
-> Since the cat is out of the bag about this bug, as Vaeceslav discovered it
-> independently and wasn't aware that there's a CVE number pending because it
-> poses a security threat since the dereferenced first_slave pointer is
-> taken from the struct vlan_dev_priv's ingress_priority map array which is
-> user-controllable and any memory address can be dereferenced in that way,
-> and taking after that first_slave->dev->netdev_ops and calling a function
-> from the ops is making it even easier. Of course for that to happen the
-> user must have CAP_NET_ADMIN.
-> I've tested these patches and they apply cleanly on -net as well, so please
-> queue them for -net and stable.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> AddressSanitizer [1] dynamic checker pointed a potential
+> out of bound access in leaf_walk_rcu()
+> 
+> We could allocate one more slot in tnode_new() to leave the prefetch()
+> in-place but it looks not worth the pain.
+> 
+> Bug added in commit 82cfbb008572b ("[IPV4] fib_trie: iterator recode")
+> 
+> [1] :
+> https://code.google.com/p/address-sanitizer/wiki/AddressSanitizerForKernel
+> 
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-This is why I absolutely detest closed work on bugs, and prefer
-everything be discussed and implemented openly here on this list,
-without exceptions, and regardless of perceived "severity" of the bug.
+I question the validity of the prefetch anyways, even without the
+out-of-bounds concerns.
 
-Applied to net and queued up for -stable, thanks.
+Applied and queued up for -stable, thanks Eric.
