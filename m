@@ -1,53 +1,79 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [PATCH v2 3/4] USBNET: support DMA SG
-Date: Mon, 5 Aug 2013 17:23:57 +0800
-Message-ID: <CACVXFVOmJvZT51xLhh12S4AtpPaomqv9XQL1NvAOg_uO0PtOrA@mail.gmail.com>
-References: <1375692423-9497-1-git-send-email-ming.lei@canonical.com>
-	<1375692423-9497-4-git-send-email-ming.lei@canonical.com>
-	<1375694068.4676.1.camel@linux-fkkt.site>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Grant Grundler <grundler@google.com>,
-	Freddy Xin <freddy@asix.com.tw>,
-	Alan Stern <stern@rowland.harvard.edu>
-To: Oliver Neukum <oneukum@suse.de>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH net-next] bonding: RCUify bond_set_rx_mode()
+Date: Mon,  5 Aug 2013 11:26:16 +0200
+Message-ID: <1375694776-3429-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:35053 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751432Ab3HEJYA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 05:24:00 -0400
-In-Reply-To: <1375694068.4676.1.camel@linux-fkkt.site>
+Received: from mx1.redhat.com ([209.132.183.28]:65268 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752546Ab3HEJZt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Aug 2013 05:25:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 5, 2013 at 5:14 PM, Oliver Neukum <oneukum@suse.de> wrote:
-> On Mon, 2013-08-05 at 16:47 +0800, Ming Lei wrote:
->
->> @@ -1268,10 +1298,14 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
->>       entry = (struct skb_data *) skb->cb;
->>       entry->urb = urb;
->>       entry->dev = dev;
->> -     entry->length = length;
->>
->>       usb_fill_bulk_urb (urb, dev->udev, dev->out,
->>                       skb->data, skb->len, tx_complete, skb);
->> +     if (dev->can_dma_sg) {
->> +             if (build_dma_sg(skb, urb) < 0)
->> +                     goto drop;
->
-> This is still missing a kfree() for urb->sg in the error case
-> of usbnet_start_xmit().
+Currently, we might easily deadlock with bond_set_rx_mode() and
+bond_hw_addr_swap(). bond_set_rx_mode() is called via dev_set_rx_mode(),
+which already holds the netif_addr_lock_bh(bond), and inside it takes the
+bond->curr_active_slave lock, while bond_hw_addr_swap() is called with
+bond->curr_active_slave lock held and then takes netif_addr_lock_bh(bond),
+which results in deadlock.
 
-Right, kfree(urb->sg) should be added before usb_free_urb (urb) in
-usbnet_start_xmit(), and will fix it in v3.
+CPU0                    CPU1
+----                    ----
+lock(&bonding_netdev_addr_lock_key);
+			lock(&bond->curr_slave_lock);
+			lock(&bonding_netdev_addr_lock_key);
+lock(&bond->curr_slave_lock);
 
+Fix this by using the RCU primites in bond_set_rx_mode(). We're safe wrt
+racing of dev_?c_(un)sync() because we hold
+lock(&bonding_netdev_addr_lock_key), and thus nobody will be able to modify
+these lists before we finish.
 
-Thanks,
---
-Ming Lei
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+CC: Nikolay Aleksandrov <nikolay@redhat.com>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+---
+ drivers/net/bonding/bond_main.c |   10 ++++------
+ 1 files changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 476df7d..fdc01c6 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3571,24 +3571,22 @@ static void bond_set_rx_mode(struct net_device *bond_dev)
+ 	struct bonding *bond = netdev_priv(bond_dev);
+ 	struct slave *slave;
+ 
+-	read_lock(&bond->lock);
++	rcu_read_lock();
+ 
+ 	if (USES_PRIMARY(bond->params.mode)) {
+-		read_lock(&bond->curr_slave_lock);
+-		slave = bond->curr_active_slave;
++		slave = rcu_dereference(bond->curr_active_slave);
+ 		if (slave) {
+ 			dev_uc_sync(slave->dev, bond_dev);
+ 			dev_mc_sync(slave->dev, bond_dev);
+ 		}
+-		read_unlock(&bond->curr_slave_lock);
+ 	} else {
+-		bond_for_each_slave(bond, slave) {
++		bond_for_each_slave_rcu(bond, slave) {
+ 			dev_uc_sync_multiple(slave->dev, bond_dev);
+ 			dev_mc_sync_multiple(slave->dev, bond_dev);
+ 		}
+ 	}
+ 
+-	read_unlock(&bond->lock);
++	rcu_read_unlock();
+ }
+ 
+ static int bond_neigh_init(struct neighbour *n)
+-- 
+1.7.1
