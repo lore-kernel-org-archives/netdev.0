@@ -1,33 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: mlx5: fix sizeof usage in health_care's
- reg_handler
-Date: Sun, 04 Aug 2013 23:39:14 -0700 (PDT)
-Message-ID: <20130804.233914.254272149071930357.davem@davemloft.net>
-References: <1375438577-30933-1-git-send-email-dborkman@redhat.com>
-	<20130802.151132.539136654627638979.davem@davemloft.net>
-	<20130805063334.GA22386@mtldesk30>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net 1/2] vlan: make vlan_dev_real_dev work over stacked
+ vlans
+Date: Mon, 5 Aug 2013 08:58:55 +0200
+Message-ID: <20130805065855.GF22756@redhat.com>
+References: <1375560467-1604-1-git-send-email-nikolay@redhat.com>
+ <51FDB9C7.4090703@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, netdev@vger.kernel.org, ogerlitz@mellanox.com
-To: eli@dev.mellanox.co.il
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, davem@davemloft.net, fubar@us.ibm.com,
+	jhs@mojatatu.com
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39622 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754725Ab3HEGjP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 02:39:15 -0400
-In-Reply-To: <20130805063334.GA22386@mtldesk30>
+Received: from mx1.redhat.com ([209.132.183.28]:8952 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754742Ab3HEHAt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Aug 2013 03:00:49 -0400
+Content-Disposition: inline
+In-Reply-To: <51FDB9C7.4090703@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eli Cohen <eli@dev.mellanox.co.il>
-Date: Mon, 5 Aug 2013 09:33:34 +0300
+On Sun, Aug 04, 2013 at 04:17:43AM +0200, Nikolay Aleksandrov wrote:
+>On 08/03/2013 10:07 PM, Nikolay Aleksandrov wrote:
+>> From: Nikolay Aleksandrov <Nikolay Aleksandrov nikolay@redhat.com>
+>>
+>> Sometimes we might have stacked vlans on top of each other, and we're
+>> interested in the first non-vlan real device on the path, so transform
+>> vlan_dev_real_dev to go over the stacked vlans and extract the first
+>> non-vlan device.
+>>
+>> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+>> ---
+>>  net/8021q/vlan_core.c | 7 ++++++-
+>>  1 file changed, 6 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+>> index 4a78c4d..6ee48aa 100644
+>> --- a/net/8021q/vlan_core.c
+>> +++ b/net/8021q/vlan_core.c
+>> @@ -91,7 +91,12 @@ EXPORT_SYMBOL(__vlan_find_dev_deep);
+>>
+>>  struct net_device *vlan_dev_real_dev(const struct net_device *dev)
+>>  {
+>> -	return vlan_dev_priv(dev)->real_dev;
+>> +	struct net_device *ret = vlan_dev_priv(dev)->real_dev;
+>> +
+>> +	while (is_vlan_dev(ret))
+>> +		ret = vlan_dev_priv(ret)->real_dev;
+>> +
+>> +	return ret;
+>>  }
+>>  EXPORT_SYMBOL(vlan_dev_real_dev);
+>>
+>>
+>I have one question - why not make it possible to call vlan_dev_real_dev()
+>with any device (vlan/non-vlan) and make it return a real device in all
+>cases (e.g. if it's a non-vlan device simply return it) ?
+>In the terms of the code above - simply change:
+>struct net_device *ret = vlan_dev_priv(dev)->real_dev;
+>with
+>struct net_device *ret = dev;
+>
+>This way we'll be able to simplify calls like if (is_vlan_dev(dev)) (or the
+>flag check alternative of this) to just vlan_dev_real_dev(). The old call
+>sites of this function will still work properly.
 
-> the intention here was to allow other module, if they so wish, to get
-> notified of any problems detected at the device. I understand that you
-> don't like this but is there another way to handle this requirement
-> which will be accepted?
+I think it'll be a bit harder to understand the callers' code. Now it
+always has the logic "wait, we might be having a vlan here, so lets verify
+if it's really a vlan and if yes - get the real device". However with this
+approach it might look like "we *really* have a vlan here - so lets get the
+real device" (because of the function name - vlan_dev_real_dev) - which is
+wrong. And it doesn't really provide any speed/size improvements - so it's
+kind of useless.
 
-Which modules?  I do not see them.
+So, unless a better function name can be found (which I can't come up with
+- dev_or_strip_vlan()? dev_devlanitize()? :) ) - I'd stay with the current
+  version. Though, again, I don't have a strong opinion on this.
 
-Please remove this unused facility, now.
+>
+>Nik
