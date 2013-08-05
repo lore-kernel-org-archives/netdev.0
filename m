@@ -1,62 +1,64 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next] bonding: fix send_peer_notif leekage on rtnl lock congestion
-Date: Mon,  5 Aug 2013 21:47:33 +0200
-Message-ID: <1375732053-829-1-git-send-email-vfalico@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: netdev@vger.kernel.org
+From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Subject: low latency/busy poll feedback and bugs
+Date: Mon, 5 Aug 2013 16:22:57 -0500
+Message-ID: <20130805212257.GB6904@sbohrermbp13-local.rgmadvisors.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: eliezer.tamir@linux.intel.com, netdev@vger.kernel.org
+To: Amir Vadai <amirv@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6037 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754651Ab3HETsj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Aug 2013 15:48:39 -0400
+Received: from na3sys009aog123.obsmtp.com ([74.125.149.149]:41761 "EHLO
+	na3sys009aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754212Ab3HEVXA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 17:23:00 -0400
+Received: by mail-oa0-f42.google.com with SMTP id i18so7589267oag.29
+        for <netdev@vger.kernel.org>; Mon, 05 Aug 2013 14:23:00 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In bond_mii_monitor()/bond_activebackup_arp_mon(), we verify if we have any
-notifications to be sent before trying to get the rtnl_trylock(), and if
-we have - we set should_notify_peers and withdraw a notification. However,
-if we fail the get the rtnl_trylock(), we don't send out any notification
-and don't put the notification back to bond->send_peer_notif.
+I did a little testing of the new low latency/busy poll sockets today
+and found a few things that surprised me and at least one bug.
 
-Fix it by putting back the notification to send_peer_notif in case of
-rtnl_trylock() failure.
+1) I'm testing with a Mellanox ConnectX-3 card.  Currently polling
+with mlx4_en is broken when GRO is enabled.  In
+mlx4_en_process_rx_cq() when GRO is enabled skb_mark_napi_id() is
+never called.  It appears like low latency sockets with GRO is
+supposed to work because the following code checks that we are not
+ll_polling:
 
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
- drivers/net/bonding/bond_main.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+ /* This packet is eligible for GRO if it is:
+   * - DIX Ethernet (type interpretation)
+   * - TCP/IP (v4)
+   * - without IP options
+   * - not an IP fragment
+   * - no LLS polling in progress
+   */
+  if (!mlx4_en_cq_ll_polling(cq) &&
+      (dev->features & NETIF_F_GRO)) {
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 5697043..fd92738 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2383,7 +2383,10 @@ void bond_mii_monitor(struct work_struct *work)
- 		if (!rtnl_trylock()) {
- 			read_lock(&bond->lock);
- 			delay = 1;
--			should_notify_peers = false;
-+			if (should_notify_peers) {
-+				bond->send_peer_notif++;
-+				should_notify_peers = false;
-+			}
- 			goto re_arm;
- 		}
- 
-@@ -2999,7 +3002,10 @@ void bond_activebackup_arp_mon(struct work_struct *work)
- 		if (!rtnl_trylock()) {
- 			read_lock(&bond->lock);
- 			delta_in_ticks = 1;
--			should_notify_peers = false;
-+			if (should_notify_peers) {
-+				bond->send_peer_notif++;
-+				should_notify_peers = false;
-+			}
- 			goto re_arm;
- 		}
- 
+However since we never call skb_mark_napi_id() mlx4_en_cq_ll_polling()
+will never be true.
+
+2) Why is LowLatencyRxPackets reported as a TcpExt stat?  Perhaps I've
+been confused and misguided but I've always assumed those are
+statistics related to TCP and this feature is protocol neutral.  I'm
+not entirely sure where it should be moved to perhaps IpExt?
+
+3) I don't know if this was intentional, an oversight, or simply a
+missing feature but UDP multicast currently is not supported.  In
+order to add support I believe you would need to call
+sk_mark_napi_id() in __udp4_lib_mcast_deliver().  Assuming there isn't
+some intentional reason this wasn't done I'd be happy to test this and
+send a patch.
+
+--
+Shawn
+
 -- 
-1.8.1.4
+
+---------------------------------------------------------------
+This email, along with any attachments, is confidential. If you 
+believe you received this message in error, please contact the 
+sender immediately and delete all copies of the message.  
+Thank you.
