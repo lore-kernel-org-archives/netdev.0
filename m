@@ -1,59 +1,52 @@
-From: Alexey Kardashevskiy <aik@ozlabs.ru>
-Subject: BUG cxgb3: Check and handle the dma mapping errors
-Date: Mon, 05 Aug 2013 12:59:04 +1000
-Message-ID: <51FF14F8.7000204@ozlabs.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R
-Content-Transfer-Encoding: 7bit
-Cc: Jay Fenlason <fenlason@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Santosh Rastapur <santosh@chelsio.com>,
-	Divy Le Ray <divy@chelsio.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] hostap: do not return positive number on failure path in prism2_open()
+Date: Mon,  5 Aug 2013 07:02:30 +0400
+Message-ID: <1375671750-2835-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org,
+	Alexey Khoroshilov <khoroshilorv@ispras.ru>
+To: Jouni Malinen <j@w1.fi>,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.ispras.ru ([83.149.199.45]:57241 "EHLO mail.ispras.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754296Ab3HEDCq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 Aug 2013 23:02:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
+prism2_open() as an .ndo_open handler should not return positive numbers
+in case of failure, but it does return 1 in a couple of places.
 
-Recently I started getting multiple errors like this:
+Found by Linux Driver Verification project (linuxtesting.org).
 
-cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
-c000001fbdaaa882 npages 1
-cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
-c000001fbdaaa882 npages 1
-cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
-c000001fbdaaa882 npages 1
-cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
-c000001fbdaaa882 npages 1
-cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
-c000001fbdaaa882 npages 1
-cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
-c000001fbdaaa882 npages 1
-cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
-c000001fbdaaa882 npages 1
-... and so on
+Signed-off-by: Alexey Khoroshilov <khoroshilorv@ispras.ru>
+---
+ drivers/net/wireless/hostap/hostap_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-This is all happening on a PPC64 "powernv" platform machine. To trigger the
-error state, it is enough to _flood_ ping CXGB3 card from another machine
-(which has Emulex 10Gb NIC + Cisco switch). Just do "ping -f 172.20.1.2"
-and wait 10-15 seconds.
-
-
-The messages are coming from arch/powerpc/kernel/iommu.c and basically
-mean that the driver requested more pages than the DMA window has which is
-normally 1GB (there could be another possible source of errors -
-ppc_md.tce_build callback - but on powernv platform it always succeeds).
-
-
-The patch after which it broke is:
-commit f83331bab149e29fa2c49cf102c0cd8c3f1ce9f9
-Author: Santosh Rastapur <santosh@chelsio.com>
-Date:   Tue May 21 04:21:29 2013 +0000
-cxgb3: Check and handle the dma mapping errors
-
-Any quick ideas? Thanks!
-
-
+diff --git a/drivers/net/wireless/hostap/hostap_main.c b/drivers/net/wireless/hostap/hostap_main.c
+index 15f0fad..e4f56ad 100644
+--- a/drivers/net/wireless/hostap/hostap_main.c
++++ b/drivers/net/wireless/hostap/hostap_main.c
+@@ -667,7 +667,7 @@ static int prism2_open(struct net_device *dev)
+ 	if (local->no_pri) {
+ 		printk(KERN_DEBUG "%s: could not set interface UP - no PRI "
+ 		       "f/w\n", dev->name);
+-		return 1;
++		return -ENODEV;
+ 	}
+ 
+ 	if ((local->func->card_present && !local->func->card_present(local)) ||
+@@ -682,7 +682,7 @@ static int prism2_open(struct net_device *dev)
+ 		printk(KERN_WARNING "%s: could not enable MAC port\n",
+ 		       dev->name);
+ 		prism2_close(dev);
+-		return 1;
++		return -ENODEV;
+ 	}
+ 	if (!local->dev_enabled)
+ 		prism2_callback(local, PRISM2_CALLBACK_ENABLE);
 -- 
-Alexey
+1.8.1.2
