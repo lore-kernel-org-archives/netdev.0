@@ -1,65 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] fib_trie: remove potential out of bound access
-Date: Mon, 05 Aug 2013 11:18:49 -0700
-Message-ID: <1375726729.4457.45.camel@edumazet-glaptop>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next v6 1/8] vxlan: Restructure vxlan socket apis.
+Date: Mon, 5 Aug 2013 11:24:23 -0700
+Message-ID: <CALnjE+pjh5eOG-A0jQkyqkTcx2exhme_xQonFg6V9EvxzCxgpQ@mail.gmail.com>
+References: <1375382680-3137-1-git-send-email-pshelar@nicira.com>
+	<20130804144215.640c9336@nehalam.linuxnetplumber.net>
+	<CALnjE+oZkX6FkVaaJeYz2C9SgY0hcRi6xKjxsSh+5Q=PoH7qFQ@mail.gmail.com>
+	<20130805111021.62430fc5@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Andrey Konovalov <andreyknvl@google.com>,
-	Dmitry Vyukov <dvyukov@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:57738 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754237Ab3HESSu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 14:18:50 -0400
-Received: by mail-pa0-f51.google.com with SMTP id lf11so3591791pab.38
-        for <netdev@vger.kernel.org>; Mon, 05 Aug 2013 11:18:50 -0700 (PDT)
+Received: from na3sys009aog103.obsmtp.com ([74.125.149.71]:57519 "HELO
+	na3sys009aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754362Ab3HESYY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 14:24:24 -0400
+Received: by mail-qe0-f50.google.com with SMTP id q19so1937128qeb.9
+        for <netdev@vger.kernel.org>; Mon, 05 Aug 2013 11:24:23 -0700 (PDT)
+In-Reply-To: <20130805111021.62430fc5@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-
-AddressSanitizer [1] dynamic checker pointed a potential
-out of bound access in leaf_walk_rcu()
-
-We could allocate one more slot in tnode_new() to leave the prefetch()
-in-place but it looks not worth the pain.
-
-Bug added in commit 82cfbb008572b ("[IPV4] fib_trie: iterator recode")
-
-[1] :
-https://code.google.com/p/address-sanitizer/wiki/AddressSanitizerForKernel
-
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Dmitry Vyukov <dvyukov@google.com>
----
- net/ipv4/fib_trie.c |    5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
-
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 108a1e9c..3df6d3e 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -71,7 +71,6 @@
- #include <linux/init.h>
- #include <linux/list.h>
- #include <linux/slab.h>
--#include <linux/prefetch.h>
- #include <linux/export.h>
- #include <net/net_namespace.h>
- #include <net/ip.h>
-@@ -1761,10 +1760,8 @@ static struct leaf *leaf_walk_rcu(struct tnode *p, struct rt_trie_node *c)
- 			if (!c)
- 				continue;
- 
--			if (IS_LEAF(c)) {
--				prefetch(rcu_dereference_rtnl(p->child[idx]));
-+			if (IS_LEAF(c))
- 				return (struct leaf *) c;
--			}
- 
- 			/* Rescan start scanning in new node */
- 			p = (struct tnode *) c;
+On Mon, Aug 5, 2013 at 11:10 AM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Mon, 5 Aug 2013 08:49:36 -0700
+> Pravin Shelar <pshelar@nicira.com> wrote:
+>
+>> On Sun, Aug 4, 2013 at 2:42 PM, Stephen Hemminger
+>> <stephen@networkplumber.org> wrote:
+>> > On Thu,  1 Aug 2013 11:44:40 -0700
+>> > Pravin B Shelar <pshelar@nicira.com> wrote:
+>> >
+>> >> @@ -1642,59 +1651,56 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port)
+>> >>                        &vxlan_addr.sin_addr, ntohs(vxlan_addr.sin_port), rc);
+>> >>               sk_release_kernel(sk);
+>> >>               kfree(vs);
+>> >> -             return ERR_PTR(rc);
+>> >> +             return;
+>> >>       }
+>> >> +     atomic_set(&vs->refcnt, 0);
+>> >>
+>> >>       /* Disable multicast loopback */
+>> >>       inet_sk(sk)->mc_loop = 0;
+>> >> +     spin_lock(&vn->sock_lock);
+>> >> +     hlist_add_head_rcu(&vs->hlist, vs_head(net, port));
+>> >> +     spin_unlock(&vn->sock_lock);
+>> >
+>> > Overall I am fine with this set, except for this.
+>> > The change causes a socket to be put into the hash list with a ref count
+>> > of 0 and then you increment the ref count. If some other thread
+>> > finds the socket and then decrements the ref count, it would go
+>> > below zero and might leak, crash or delete it prematurely.
+>> >
+>> > This concerns me.
+>>
+>> There is no code path which decrements ref-cnt after lookup. Therefore
+>> above case is not possible.
+>> But I agree this does not look good, so I will change it so not to
+>> have refcnt zero vs on hash-table.
+>
+> I was concerned about:
+>
+> CPU 0:
+>    vxlan_socket_create
+>      Make a vs structure with refcnt == 0
+>      Add it to hlist
+>
+>      <preempt or other long IRQ>
+>                                          CPU 1: Another vxlan being setup (batch script?)
+>                                                 vxlan_init
+>                                                      vxlan_find_port finds that vs
+>                                                      atomic_inc(refcnt) now 1
+>                                           <close or error>
+>                                                 vxlan_uninit
+>                                                   vxlan_sock_release
+>                                                      atomic_dec_and_test (now 0)
+>                                                        delete from hlist
+>                                                        queue work for deletion
+>
+>      now decides to continue with vs
+>      Either vs is already freed, or it exists
+>      in limbo
+>
+ok, I see problem. v7 version fixes this issue.
