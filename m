@@ -1,49 +1,85 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next v6 3/8] vxlan: Add vxlan recv demux.
-Date: Sun, 4 Aug 2013 14:45:26 -0700
-Message-ID: <20130804144526.4b2e189c@nehalam.linuxnetplumber.net>
-References: <1375382689-3218-1-git-send-email-pshelar@nicira.com>
+Subject: [PATCH net-next v3] vxlan: fix rcu related warning
+Date: Sun, 4 Aug 2013 17:17:39 -0700
+Message-ID: <20130804171739.63ee771e@nehalam.linuxnetplumber.net>
+References: <20130730131844.7d3f92de@nehalam.linuxnetplumber.net>
+	<CALnjE+qx1L5p6CzFcd4nMTvWbxm-7_bz10wjbuUJdt12Q4Kqpg@mail.gmail.com>
+	<20130730160245.4b7b84a1@nehalam.linuxnetplumber.net>
+	<1375225499.10515.31.camel@edumazet-glaptop>
+	<20130730173516.3d536077@nehalam.linuxnetplumber.net>
+	<CALnjE+obgWjqDhuyWUJ=kimMKQbbweenRdxbU1ZCBWBP_qe8Zg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Pravin B Shelar <pshelar@nicira.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Thomas Richter <tmricht@linux.vnet.ibm.com>,
+	Mike Rapoport <mike.rapoport@ravellosystems.com>,
+	netdev@vger.kernel.org
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:41244 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753939Ab3HDVp3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Aug 2013 17:45:29 -0400
-Received: by mail-pd0-f178.google.com with SMTP id w10so2521461pde.37
-        for <netdev@vger.kernel.org>; Sun, 04 Aug 2013 14:45:29 -0700 (PDT)
-In-Reply-To: <1375382689-3218-1-git-send-email-pshelar@nicira.com>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:44816 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753984Ab3HEARn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Aug 2013 20:17:43 -0400
+Received: by mail-pb0-f41.google.com with SMTP id rp2so2676168pbb.0
+        for <netdev@vger.kernel.org>; Sun, 04 Aug 2013 17:17:43 -0700 (PDT)
+In-Reply-To: <CALnjE+obgWjqDhuyWUJ=kimMKQbbweenRdxbU1ZCBWBP_qe8Zg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu,  1 Aug 2013 11:44:49 -0700
-Pravin B Shelar <pshelar@nicira.com> wrote:
+Vxlan remote list is protected by RCU and guaranteed to be non-empty.
+Split out the rcu and non-rcu access to the list to fix warning
 
-> +static struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
-> +					 vxlan_rcv_t *rcv)
->  {
->  	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
->  	struct vxlan_sock *vs;
->  
-> -	vxlan_socket_create(net, port);
-> +	vxlan_socket_create(net, port, rcv);
->  
->  	spin_lock(&vn->sock_lock);
->  	vs = vxlan_find_sock(net, port);
-> -	if (vs)
-> -		atomic_inc(&vs->refcnt);
-> -	else
-> +	if (vs) {
-> +		if (vs->rcv == rcv)
-> +			atomic_inc(&vs->refcnt);
-> +		else
-> +			vs = ERR_PTR(-EBUSY);
-> +	}
-> +	spin_unlock(&vn->sock_lock);
-> +
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-I think the ref counting needs to be the same for the
-kernel and OVS handling of a VXLAN. 
+---
+v3 - remove one __rcu
+
+--- a/drivers/net/vxlan.c	2013-08-04 11:04:01.922478082 -0700
++++ b/drivers/net/vxlan.c	2013-08-04 16:54:33.214598043 -0700
+@@ -177,9 +177,14 @@ static inline struct hlist_head *vs_head
+ /* First remote destination for a forwarding entry.
+  * Guaranteed to be non-NULL because remotes are never deleted.
+  */
+-static inline struct vxlan_rdst *first_remote(struct vxlan_fdb *fdb)
++static inline struct vxlan_rdst *first_remote_rcu(struct vxlan_fdb *fdb)
+ {
+-	return list_first_or_null_rcu(&fdb->remotes, struct vxlan_rdst, list);
++	return list_entry_rcu(fdb->remotes.next, struct vxlan_rdst, list);
++}
++
++static inline struct vxlan_rdst *first_remote_rtnl(struct vxlan_fdb *fdb)
++{
++	return list_first_entry(&fdb->remotes, struct vxlan_rdst, list);
+ }
+ 
+ /* Find VXLAN socket based on network namespace and UDP port */
+@@ -297,7 +302,8 @@ static void vxlan_fdb_notify(struct vxla
+ 	if (skb == NULL)
+ 		goto errout;
+ 
+-	err = vxlan_fdb_info(skb, vxlan, fdb, 0, 0, type, 0, first_remote(fdb));
++	err = vxlan_fdb_info(skb, vxlan, fdb, 0, 0, type, 0,
++			     first_remote_rtnl(fdb));
+ 	if (err < 0) {
+ 		/* -EMSGSIZE implies BUG in vxlan_nlmsg_size() */
+ 		WARN_ON(err == -EMSGSIZE);
+@@ -740,7 +746,7 @@ static bool vxlan_snoop(struct net_devic
+ 
+ 	f = vxlan_find_mac(vxlan, src_mac);
+ 	if (likely(f)) {
+-		struct vxlan_rdst *rdst = first_remote(f);
++		struct vxlan_rdst *rdst = first_remote_rcu(f);
+ 
+ 		if (likely(rdst->remote_ip == src_ip))
+ 			return false;
+@@ -1005,7 +1011,7 @@ static int arp_reduce(struct net_device
+ 		}
+ 
+ 		f = vxlan_find_mac(vxlan, n->ha);
+-		if (f && first_remote(f)->remote_ip == htonl(INADDR_ANY)) {
++		if (f && first_remote_rcu(f)->remote_ip == htonl(INADDR_ANY)) {
+ 			/* bridge-local neighbor */
+ 			neigh_release(n);
+ 			goto out;
