@@ -1,89 +1,76 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next] bonding: RCUify bond_set_rx_mode()
-Date: Mon, 5 Aug 2013 20:31:11 +0200
-Message-ID: <20130805183111.GA3383@redhat.com>
-References: <1375694776-3429-1-git-send-email-vfalico@redhat.com>
+From: Jay Fenlason <fenlason@redhat.com>
+Subject: Re: BUG cxgb3: Check and handle the dma mapping errors
+Date: Mon, 5 Aug 2013 14:41:08 -0400
+Message-ID: <20130805184107.GA2998@redhat.com>
+References: <51FF14F8.7000204@ozlabs.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48428 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754062Ab3HEScG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Aug 2013 14:32:06 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: Santosh Rastapur <santosh@chelsio.com>,
+	Divy Le Ray <divy@chelsio.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Alexey Kardashevskiy <aik@ozlabs.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1375694776-3429-1-git-send-email-vfalico@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <51FF14F8.7000204@ozlabs.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 05, 2013 at 11:26:16AM +0200, Veaceslav Falico wrote:
->Currently, we might easily deadlock with bond_set_rx_mode() and
->bond_hw_addr_swap(). bond_set_rx_mode() is called via dev_set_rx_mode(),
->which already holds the netif_addr_lock_bh(bond), and inside it takes the
->bond->curr_active_slave lock, while bond_hw_addr_swap() is called with
->bond->curr_active_slave lock held and then takes netif_addr_lock_bh(bond),
->which results in deadlock.
->
->CPU0                    CPU1
->----                    ----
->lock(&bonding_netdev_addr_lock_key);
->			lock(&bond->curr_slave_lock);
->			lock(&bonding_netdev_addr_lock_key);
->lock(&bond->curr_slave_lock);
->
->Fix this by using the RCU primites in bond_set_rx_mode(). We're safe wrt
->racing of dev_?c_(un)sync() because we hold
->lock(&bonding_netdev_addr_lock_key), and thus nobody will be able to modify
->these lists before we finish.
->
->CC: Jay Vosburgh <fubar@us.ibm.com>
->CC: Andy Gospodarek <andy@greyhouse.net>
->CC: Nikolay Aleksandrov <nikolay@redhat.com>
->Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+On Mon, Aug 05, 2013 at 12:59:04PM +1000, Alexey Kardashevskiy wrote:
+> Hi!
+> 
+> Recently I started getting multiple errors like this:
+> 
+> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+> c000001fbdaaa882 npages 1
+> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+> c000001fbdaaa882 npages 1
+> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+> c000001fbdaaa882 npages 1
+> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+> c000001fbdaaa882 npages 1
+> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+> c000001fbdaaa882 npages 1
+> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+> c000001fbdaaa882 npages 1
+> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+> c000001fbdaaa882 npages 1
+> ... and so on
+> 
+> This is all happening on a PPC64 "powernv" platform machine. To trigger the
+> error state, it is enough to _flood_ ping CXGB3 card from another machine
+> (which has Emulex 10Gb NIC + Cisco switch). Just do "ping -f 172.20.1.2"
+> and wait 10-15 seconds.
+> 
+> 
+> The messages are coming from arch/powerpc/kernel/iommu.c and basically
+> mean that the driver requested more pages than the DMA window has which is
+> normally 1GB (there could be another possible source of errors -
+> ppc_md.tce_build callback - but on powernv platform it always succeeds).
+> 
+> 
+> The patch after which it broke is:
+> commit f83331bab149e29fa2c49cf102c0cd8c3f1ce9f9
+> Author: Santosh Rastapur <santosh@chelsio.com>
+> Date:   Tue May 21 04:21:29 2013 +0000
+> cxgb3: Check and handle the dma mapping errors
+> 
+> Any quick ideas? Thanks!
 
-Self-NAK, for clarity. Posted a reworked patch - "[net-next] bonding: remove
-locking from bond_set_rx_mode()" for the same issue.
+That patch adds error checking to detect failed dma mapping requests.
+Before it, the code always assumed that dma mapping requests succeded,
+whether they actually do or not, so the fact that the older kernel
+does not log errors only means that the failures are being ignored,
+and any appearance of working is through pure luck.  The machine could
+have just crashed at that point.
 
->---
-> drivers/net/bonding/bond_main.c |   10 ++++------
-> 1 files changed, 4 insertions(+), 6 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 476df7d..fdc01c6 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -3571,24 +3571,22 @@ static void bond_set_rx_mode(struct net_device *bond_dev)
-> 	struct bonding *bond = netdev_priv(bond_dev);
-> 	struct slave *slave;
->
->-	read_lock(&bond->lock);
->+	rcu_read_lock();
->
-> 	if (USES_PRIMARY(bond->params.mode)) {
->-		read_lock(&bond->curr_slave_lock);
->-		slave = bond->curr_active_slave;
->+		slave = rcu_dereference(bond->curr_active_slave);
-> 		if (slave) {
-> 			dev_uc_sync(slave->dev, bond_dev);
-> 			dev_mc_sync(slave->dev, bond_dev);
-> 		}
->-		read_unlock(&bond->curr_slave_lock);
-> 	} else {
->-		bond_for_each_slave(bond, slave) {
->+		bond_for_each_slave_rcu(bond, slave) {
-> 			dev_uc_sync_multiple(slave->dev, bond_dev);
-> 			dev_mc_sync_multiple(slave->dev, bond_dev);
-> 		}
-> 	}
->
->-	read_unlock(&bond->lock);
->+	rcu_read_unlock();
-> }
->
-> static int bond_neigh_init(struct neighbour *n)
->-- 
->1.7.1
->
+What is the observed behavior of the system by the machine initiating
+the ping flood?  Do the older and newer kernels differ in the
+percentage of pings that do not receive replies?  O the newer kernel,
+when the mapping errors are detected, the packet that it is trying to
+transmit is dropped, but I'm not at all sure what happens on the older
+kernel after the dma mapping fails.  As I mentioned earlier, I'm
+surprised it does not crash.  Perhaps the folks from Chelsio have a
+better idea what happens after a dma mapping error is ignored?
+
+		-- JF
