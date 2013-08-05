@@ -1,68 +1,72 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: bonding + arp monitoring fails if interface is a vlan
-Date: Mon, 05 Aug 2013 12:26:14 +0200
-Message-ID: <51FF7DC6.7080602@redhat.com>
-References: <20130801121142.GA444@www.manty.net> <51FB9EE5.3040907@redhat.com> <CAJk_L2FJyD2X7EPztiVWLBD4NDR_VOehdFEeV+nq7a+sO9+_wA@mail.gmail.com> <CAJk_L2FU6GcHUoC+UdNJoULN9KewoUQAMhapC0k3RcTqNOymnw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Santiago Garcia Mantinan <manty@manty.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] net: esp{4,6}: fix potential MTU calculation overflows
+Date: Mon,  5 Aug 2013 12:49:35 +0200
+Message-ID: <1375699775-13769-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, Benjamin Poirier <bpoirier@suse.de>,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52893 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:20032 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752156Ab3HEKpw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Aug 2013 06:45:52 -0400
-In-Reply-To: <CAJk_L2FU6GcHUoC+UdNJoULN9KewoUQAMhapC0k3RcTqNOymnw@mail.gmail.com>
+	id S1752156Ab3HEKtx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Aug 2013 06:49:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/05/2013 12:26 PM, Santiago Garcia Mantinan wrote:
-> 2013/8/4 Santiago Garcia Mantinan <manty@manty.net>:
->> 2013/8/2 Nikolay Aleksandrov <nikolay@redhat.com>:
->>> I believe that it is because dev_trans_start() returns 0 for 8021q devices and
->>> so the calculations if the slave has transmitted are wrong, and the flip-flop
->>> happens.
->>> Please try the attached patch, it should resolve your issue (basically it gets
->>> the dev_trans_start of the vlan's underlying device if a vlan is found).
->>
->> Thanks, patched and compiling, I'll try today with my laptops and
->> tomorrow at the lab I had setup and then at the original machine.
->>
->> I'll let you know how things go.
-> 
-> Ok, initial tests seem to show that a bonding defined like I had on my
-> very basic setup that I sent to the list is now working.
-> 
-> What doesn't seem to be working is if I set it up using bonding under
-> the vlans and then doing a bond of those, I mean:
-> 
-> iface bond0 inet manual
->         bond-slaves eth0
->         bond-mode 802.3ad
->         bond-miimon 100
-> ...
-> iface bond2 inet static
->         address 192.168.1.2
->         netmask 255.255.255.0
->         bond-slaves bond0.1001 bond0.1002
->         bond-mode active-backup
->         bond-arp_validate 0
->         bond-arp_interval 2000
->         bond-arp_ip_target 192.168.1.1
-> ...
-> 
-> Should this bond of bonds work?
-> 
-No, because we take the first non-vlan's interface trans_start after the patch
-which in this case is a bonding interface which also doesn't update its
-trans_start, i.e. bond over bond (or over vlans over bond) with arp monitoring
-shouldn't work.
+Commit 91657eafb ("xfrm: take net hdr len into account for esp payload
+size calculation") introduced a possible interger overflow in
+esp{4,6}_get_mtu() handlers in case of x->props.mode equals
+XFRM_MODE_TUNNEL. Thus, the following expression will overflow
 
-> I'm doing more tests to make sure that the basic eth0.1001 and
-> eth0.1002 works 100% after finding that the bond of bonds wasn't
-> working ok, just in case the basic was also failing, but at least the
-> double bond is failing and basic bond seems to work ok.
-> 
-> Regards.
-> 
+  unsigned int net_adj;
+  ...
+  <case ipv{4,6} XFRM_MODE_TUNNEL>
+         net_adj = 0;
+  ...
+  return ((mtu - x->props.header_len - crypto_aead_authsize(esp->aead) -
+           net_adj) & ~(align - 1)) + (net_adj - 2);
+
+where (net_adj - 2) would be evaluated as <foo> + (0 - 2) in an unsigned
+context. Fix it by simply removing brackets as those operations here
+do not need to have special precedence.
+
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Benjamin Poirier <bpoirier@suse.de>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ Note: only compile tested, maybe Benjamin can comment on why he added
+       brackets around this expression. *If* this is valid (which I do
+       not think), then this needs at least a big comment explaining so.
+
+ net/ipv4/esp4.c | 2 +-
+ net/ipv6/esp6.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index ab3d814..109ee89 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -477,7 +477,7 @@ static u32 esp4_get_mtu(struct xfrm_state *x, int mtu)
+ 	}
+ 
+ 	return ((mtu - x->props.header_len - crypto_aead_authsize(esp->aead) -
+-		 net_adj) & ~(align - 1)) + (net_adj - 2);
++		 net_adj) & ~(align - 1)) + net_adj - 2;
+ }
+ 
+ static void esp4_err(struct sk_buff *skb, u32 info)
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index 40ffd72..aeac0dc 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -425,7 +425,7 @@ static u32 esp6_get_mtu(struct xfrm_state *x, int mtu)
+ 		net_adj = 0;
+ 
+ 	return ((mtu - x->props.header_len - crypto_aead_authsize(esp->aead) -
+-		 net_adj) & ~(align - 1)) + (net_adj - 2);
++		 net_adj) & ~(align - 1)) + net_adj - 2;
+ }
+ 
+ static void esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+-- 
+1.7.11.7
