@@ -1,50 +1,50 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next 3/3] bonding: unwind on bond_add_vlan add failure
-Date: Mon,  5 Aug 2013 15:28:24 +0200
-Message-ID: <1375709304-16778-4-git-send-email-nikolay@redhat.com>
-References: <1375709304-16778-1-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next 0/3] bonding: vlan handling changes
+Date: Mon,  5 Aug 2013 15:28:21 +0200
+Message-ID: <1375709304-16778-1-git-send-email-nikolay@redhat.com>
 Cc: fubar@us.ibm.com, andy@greyhouse.net, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42268 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:14492 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752156Ab3HENcP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Aug 2013 09:32:15 -0400
-In-Reply-To: <1375709304-16778-1-git-send-email-nikolay@redhat.com>
+	id S1752156Ab3HENce (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Aug 2013 09:32:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nikolay Aleksandrov <Nikolay Aleksandrov nikolay@redhat.com>
 
-In case of bond_add_vlan() failure currently we'll have the vlan's
-refcnt bumped up in all slaves, but it will never go down because it
-failed to get added to the bond, so properly unwind the added vlan if
-bond_add_vlan fails.
+Hi,
+I've queued all of these patches to net-next since they're tightly related
+and the bugs that get fixed are not critical, so it's better to soak the
+changes a bit. Also I'd much rather fix this with the slave list change in.
+If you decide that they need to be posted for -net, let me know.
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
----
- drivers/net/bonding/bond_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Patch 01 - fixes vlan 0 addition/removal since when we have 8021q module
+loaded it gets added to all network devices, this causes the bonding to
+output false warnings, output tagged learning packets (though with 0 tag)
+The fix is by denying the addition/removal of vlan 0 through the ndo_vlan
+functions and do it ourselves in the bond's netdev event handler when a
+vlan 0 is added/removed from a bonding device. Also a small comment fix
+which adds the missing proto parameter.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index ed1d261..0f9ca7e 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -456,13 +456,13 @@ static int __bond_vlan_rx_add_vid(struct net_device *bond_dev,
- 	if (res) {
- 		pr_err("%s: Error: Failed to add vlan id %d\n",
- 		       bond_dev->name, vid);
--		return res;
-+		goto unwind;
- 	}
- 
- 	return 0;
- 
- unwind:
--	/* unwind from head to the slave that failed */
-+	/* unwind from the slave that failed */
- 	bond_for_each_slave_continue_reverse(bond, slave)
- 		vlan_vid_del(slave->dev, proto, vid);
- 
+Patch 02 - switches the bonding to the now standard vlan syncing functions
+vlan_vids_add/del_by_dev() and removes the bonding specific ones.
+
+Patch 03 - reverts vlan addition in case of bond_add_vlan failure because
+otherwise we may get bad vlan refcounts in the slaves.
+
+Best regards,
+ Nikolay Aleksandrov
+
+Nikolay Aleksandrov (3):
+  bonding: fix vlan 0 addition and removal
+  bonding: change the bond's vlan syncing functions with the standard
+    ones
+  bonding: unwind on bond_add_vlan add failure
+
+ drivers/net/bonding/bond_main.c | 86 +++++++++++++++++++++++++----------------
+ 1 file changed, 52 insertions(+), 34 deletions(-)
+
 -- 
 1.8.1.4
