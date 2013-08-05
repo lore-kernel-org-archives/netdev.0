@@ -1,45 +1,44 @@
-From: Alexey Khoroshilov <khoroshilov-ufN2psIa012HXe+LvDLADg@public.gmane.org>
-Subject: Re: [PATCH] hostap: do not return positive number on failure path
- in prism2_open()
-Date: Mon, 05 Aug 2013 08:01:08 +0400
-Message-ID: <51FF2384.2070008@ispras.ru>
-References: <1375672708-3017-1-git-send-email-khoroshilov@ispras.ru> <1375673616.3133.23.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jouni Malinen <j@w1.fi>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ldv-project-tpLiQldItUH5n4uC9ZG1Ww@public.gmane.org
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1375673616.3133.23.camel@joe-AO722>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Sean Cross <xobs@kosagi.com>
+Subject: [PATCH v4] Add OF bindings to Micrel ksz9021 PHY
+Date: Mon,  5 Aug 2013 04:02:09 +0000
+Message-ID: <1375675330-14220-1-git-send-email-xobs@kosagi.com>
+Cc: David Miller <davem@davemloft.net>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Sean Cross <xobs@kosagi.com>
+To: Sascha Hauer <s.hauer@pengutronix.de>,
+	Duan Fugang-B38611 <B38611@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.g1.pair.com ([66.39.3.162]:31877 "EHLO mail1.g1.pair.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750757Ab3HEETD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Aug 2013 00:19:03 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/05/2013 07:33 AM, Joe Perches wrote:
-> On Mon, 2013-08-05 at 07:18 +0400, Alexey Khoroshilov wrote:
->> prism2_open() as an .ndo_open handler should not return positive numbers
->> in case of failure, but it does return 1 in a couple of places.
->>
->> Found by Linux Driver Verification project (linuxtesting.org).
-> How?
->
-> http://linuxtesting.org/project/ldv
-> http://linuxtesting.org/results/ldv
->
-> Shows defects and patches to fix them, but not any script
-> used to find it.
-There is a link to build instructions there:
-http://forge.ispras.ru/projects/ldv/wiki/Downloading_and_Building_LDV
+Some boards require custom parameters be passed to the Micrel PHY.
+Allow these boards to specify custom timing parameters in the device
+tree node.
 
-Currently it requires some efforts to install all the dependencies, the
-simplest way is to use puppet script for Ubuntu 12.04 that you can find
-in the repository.
+Changes since v3:
+ - Add an example of parameters on an mdio bus
+ - Specify values in picoseconds rather than as register values
 
---
-Alexey
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Changes since v2:
+ - limited the scope to just ksz9021 rather than all PHYs
+
+Changes since v1:
+ - removed redefinition of registers and addresses 
+
+Sean Cross (1):
+  net/phy: micrel: Add OF configuration support for ksz9021
+
+ .../devicetree/bindings/net/micrel-ksz9021.txt     |   19 ++++
+ drivers/net/phy/micrel.c                           |  101 +++++++++++++++++++-
+ 2 files changed, 119 insertions(+), 1 deletion(-)
+ create mode 100644 Documentation/devicetree/bindings/net/micrel-ksz9021.txt
+
+-- 
+1.7.9.5
