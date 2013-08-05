@@ -1,28 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sctp: Pack dst_cookie into 1st cacheline hole
- for 64bit host
-Date: Mon, 05 Aug 2013 12:21:06 -0700 (PDT)
-Message-ID: <20130805.122106.42978925856402117.davem@davemloft.net>
-References: <1375693983-22824-1-git-send-email-fan.du@windriver.com>
+Subject: Re: [net-next PATCH v2 1/1] drivers: net: cpsw: Add support for
+ new CPSW IP version
+Date: Mon, 05 Aug 2013 12:22:02 -0700 (PDT)
+Message-ID: <20130805.122202.126903931013785003.davem@davemloft.net>
+References: <1375704005-3856-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, nhorman@tuxdriver.com, netdev@vger.kernel.org
-To: fan.du@windriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48379 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754613Ab3HETVH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 15:21:07 -0400
-In-Reply-To: <1375693983-22824-1-git-send-email-fan.du@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org, balbi@ti.com
+To: mugunthanvnm@ti.com
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1375704005-3856-1-git-send-email-mugunthanvnm@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Fan Du <fan.du@windriver.com>
-Date: Mon, 5 Aug 2013 17:13:03 +0800
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Date: Mon, 5 Aug 2013 17:30:05 +0530
 
-> As dst_cookie is used in fast path sctp_transport_dst_check.
- ...
-> Signed-off-by: Fan Du <fan.du@windriver.com>
+> The new IP version has a minor changes and the offsets are same as the
+> previous version, so adding new IP version support in the driver.
+> 
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> Reviewed-by: Felipe Balbi <balbi@ti.com>
 
 Applied.
