@@ -1,47 +1,47 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] tile: fix missing unlock on error in tile_net_open()
-Date: Mon, 5 Aug 2013 12:42:00 +0800
-Message-ID: <CAPgLHd8k5yfO4G1Fvz86VSC-HbwgGEb8OwTShAa5e+owRvaMqg@mail.gmail.com>
+From: Eli Cohen <eli@dev.mellanox.co.il>
+Subject: Re: [PATCH net] net: mlx5: fix sizeof usage in health_care's
+ reg_handler
+Date: Mon, 5 Aug 2013 09:33:34 +0300
+Message-ID: <20130805063334.GA22386@mtldesk30>
+References: <1375438577-30933-1-git-send-email-dborkman@redhat.com>
+ <20130802.151132.539136654627638979.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: cmetcalf@tilera.com, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: dborkman@redhat.com, netdev@vger.kernel.org, ogerlitz@mellanox.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f54.google.com ([209.85.214.54]:64859 "EHLO
-	mail-bk0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750868Ab3HEEmC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 00:42:02 -0400
-Received: by mail-bk0-f54.google.com with SMTP id it19so794450bkc.27
-        for <netdev@vger.kernel.org>; Sun, 04 Aug 2013 21:42:00 -0700 (PDT)
+Received: from mail-we0-f170.google.com ([74.125.82.170]:43087 "EHLO
+	mail-we0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750817Ab3HEGdm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 02:33:42 -0400
+Received: by mail-we0-f170.google.com with SMTP id w60so2140467wes.29
+        for <netdev@vger.kernel.org>; Sun, 04 Aug 2013 23:33:41 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20130802.151132.539136654627638979.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On Fri, Aug 02, 2013 at 03:11:32PM -0700, David Miller wrote:
+> From: Daniel Borkmann <dborkman@redhat.com>
+> Date: Fri,  2 Aug 2013 12:16:17 +0200
+> 
+> > Therefore, I strongly assume sizeof(*health->health) is being meant
+> > to be passed as an argument. Interestingly, there are actually no
 
-Add the missing unlock before return from function tile_net_open()
-in the error handling case.
+Daniel, you're fix is correct. I meant to pass the size of the struct
+and not the size of the pointer.
 
-Introduced by commit f3286a3af89d6db7a488f3e8f02b98d67d50f00c.
-(tile: support multiple mPIPE shims in tilegx network driver)
+> > in-tree users of mlx5_[un]register_health_report_handler(), but some
+> > debugging modules might want to know the correct size instead.
+> 
+> I want these hooks and infrastructure removed immediately.
+> 
+> If there are no in-tree users there is no reason for them to
+> exist at all.
+> 
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/net/ethernet/tile/tilegx.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
-index 907b577..5d2a719 100644
---- a/drivers/net/ethernet/tile/tilegx.c
-+++ b/drivers/net/ethernet/tile/tilegx.c
-@@ -1510,8 +1510,10 @@ static int tile_net_open(struct net_device *dev)
- 
- 	/* Get the instance info. */
- 	rc = gxio_mpipe_link_instance(dev->name);
--	if (rc < 0 || rc >= NR_MPIPE_MAX)
-+	if (rc < 0 || rc >= NR_MPIPE_MAX) {
-+		mutex_unlock(&tile_net_devs_for_channel_mutex);
- 		return -EIO;
-+	}
- 
- 	priv->instance = rc;
- 	instance = rc;
+Hi Dave,
+the intention here was to allow other module, if they so wish, to get
+notified of any problems detected at the device. I understand that you
+don't like this but is there another way to handle this requirement
+which will be accepted?
