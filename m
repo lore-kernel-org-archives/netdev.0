@@ -1,81 +1,47 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: [PATCH net-next] sctp: Pack dst_cookie into 1st cacheline hole for 64bit host
-Date: Mon, 5 Aug 2013 17:13:03 +0800
-Message-ID: <1375693983-22824-1-git-send-email-fan.du@windriver.com>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH v2 3/4] USBNET: support DMA SG
+Date: Mon, 05 Aug 2013 11:14:28 +0200
+Message-ID: <1375694068.4676.1.camel@linux-fkkt.site>
+References: <1375692423-9497-1-git-send-email-ming.lei@canonical.com>
+	 <1375692423-9497-4-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Grant Grundler <grundler@google.com>,
+	Freddy Xin <freddy@asix.com.tw>,
+	Alan Stern <stern@rowland.harvard.edu>
+To: Ming Lei <ming.lei@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:61293 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754730Ab3HEJNE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 05:13:04 -0400
+Received: from cantor2.suse.de ([195.135.220.15]:44842 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754730Ab3HEJOd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Aug 2013 05:14:33 -0400
+In-Reply-To: <1375692423-9497-4-git-send-email-ming.lei@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As dst_cookie is used in fast path sctp_transport_dst_check.
+On Mon, 2013-08-05 at 16:47 +0800, Ming Lei wrote:
 
-Before:
-struct sctp_transport {
-	struct list_head           transports;           /*     0    16 */
-	atomic_t                   refcnt;               /*    16     4 */
-	__u32                      dead:1;               /*    20:31  4 */
-	__u32                      rto_pending:1;        /*    20:30  4 */
-	__u32                      hb_sent:1;            /*    20:29  4 */
-	__u32                      pmtu_pending:1;       /*    20:28  4 */
+> @@ -1268,10 +1298,14 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
+>  	entry = (struct skb_data *) skb->cb;
+>  	entry->urb = urb;
+>  	entry->dev = dev;
+> -	entry->length = length;
+>  
+>  	usb_fill_bulk_urb (urb, dev->udev, dev->out,
+>  			skb->data, skb->len, tx_complete, skb);
+> +	if (dev->can_dma_sg) {
+> +		if (build_dma_sg(skb, urb) < 0)
+> +			goto drop;
 
-	/* XXX 28 bits hole, try to pack */
+This is still missing a kfree() for urb->sg in the error case
+of usbnet_start_xmit().
 
-	__u32                      sack_generation;      /*    24     4 */
-
-	/* XXX 4 bytes hole, try to pack */
-
-	struct flowi               fl;                   /*    32    64 */
-	/* --- cacheline 1 boundary (64 bytes) was 32 bytes ago --- */
-	union sctp_addr            ipaddr;               /*    96    28 */
-
-After:
-struct sctp_transport {
-	struct list_head           transports;           /*     0    16 */
-	atomic_t                   refcnt;               /*    16     4 */
-	__u32                      dead:1;               /*    20:31  4 */
-	__u32                      rto_pending:1;        /*    20:30  4 */
-	__u32                      hb_sent:1;            /*    20:29  4 */
-	__u32                      pmtu_pending:1;       /*    20:28  4 */
-
-	/* XXX 28 bits hole, try to pack */
-
-	__u32                      sack_generation;      /*    24     4 */
-	u32                        dst_cookie;           /*    28     4 */
-	struct flowi               fl;                   /*    32    64 */
-	/* --- cacheline 1 boundary (64 bytes) was 32 bytes ago --- */
-	union sctp_addr            ipaddr;               /*    96    28 */
-
-Signed-off-by: Fan Du <fan.du@windriver.com>
----
- include/net/sctp/structs.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index c0f4e29..d9c93a7 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -782,6 +782,7 @@ struct sctp_transport {
- 
- 	/* Has this transport moved the ctsn since we last sacked */
- 	__u32 sack_generation;
-+	u32 dst_cookie;
- 
- 	struct flowi fl;
- 
-@@ -946,7 +947,6 @@ struct sctp_transport {
- 	__u64 hb_nonce;
- 
- 	struct rcu_head rcu;
--	u32 dst_cookie;
- };
- 
- struct sctp_transport *sctp_transport_new(struct net *, const union sctp_addr *,
--- 
-1.7.9.5
+	Regards
+		Oliver
