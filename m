@@ -1,110 +1,339 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v7 2/8] vxlan: Restructure vxlan receive.
-Date: Mon,  5 Aug 2013 10:47:15 -0700
-Message-ID: <1375724835-19385-1-git-send-email-pshelar@nicira.com>
-Cc: stephen@networkplumber.org, Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net-next v7 8/8] openvswitch: Add vxlan tunneling support.
+Date: Mon,  5 Aug 2013 10:47:44 -0700
+Message-ID: <1375724864-19642-1-git-send-email-pshelar@nicira.com>
+Cc: stephen@networkplumber.org, Pravin B Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog129.obsmtp.com ([74.125.149.142]:33079 "HELO
-	na3sys009aog129.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754281Ab3HERrq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 13:47:46 -0400
-Received: by mail-pb0-f44.google.com with SMTP id xa7so3651955pbc.17
-        for <netdev@vger.kernel.org>; Mon, 05 Aug 2013 10:47:17 -0700 (PDT)
+Received: from na3sys009aog116.obsmtp.com ([74.125.149.240]:46175 "HELO
+	na3sys009aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753933Ab3HERr6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 13:47:58 -0400
+Received: by mail-pa0-f49.google.com with SMTP id bi5so3595628pad.22
+        for <netdev@vger.kernel.org>; Mon, 05 Aug 2013 10:47:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use iptunnel_pull_header() for better code sharing.
+Following patch adds vxlan vport type for openvswitch using
+vxlan api. So now there is vxlan dependency for openvswitch.
 
+CC: Jesse Gross <jesse@nicira.com>
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
-v5-v6:
-split from second patch from v5 series.
+v2-v3:
+ - Moved CONFIG_OPENVSWITCH_VXLAN check to makefile.
+v1-v2:
+ - removed NULL check in vxlan-rcv.
+ - change vxlan-port create to look good.
+ - Added Cisco copyright.
 ---
- drivers/net/vxlan.c |   22 +++++++---------------
- 1 files changed, 7 insertions(+), 15 deletions(-)
+ include/uapi/linux/openvswitch.h |   11 ++
+ net/openvswitch/Kconfig          |   13 +++
+ net/openvswitch/Makefile         |    4 +
+ net/openvswitch/vport-vxlan.c    |  204 ++++++++++++++++++++++++++++++++++++++
+ net/openvswitch/vport.c          |    3 +
+ net/openvswitch/vport.h          |    1 +
+ 6 files changed, 236 insertions(+), 0 deletions(-)
+ create mode 100644 net/openvswitch/vport-vxlan.c
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 9c3d4f0..1cb55bf 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -57,6 +57,7 @@
- #define VXLAN_VID_MASK	(VXLAN_N_VID - 1)
- /* IP header + UDP + VXLAN + Ethernet header */
- #define VXLAN_HEADROOM (20 + 8 + 8 + 14)
-+#define VXLAN_HLEN (sizeof(struct udphdr) + sizeof(struct vxlanhdr))
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index c55efaa..52490b0 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -165,6 +165,7 @@ enum ovs_vport_type {
+ 	OVS_VPORT_TYPE_NETDEV,   /* network device */
+ 	OVS_VPORT_TYPE_INTERNAL, /* network device implemented by datapath */
+ 	OVS_VPORT_TYPE_GRE,      /* GRE tunnel. */
++	OVS_VPORT_TYPE_VXLAN,	 /* VXLAN tunnel. */
+ 	__OVS_VPORT_TYPE_MAX
+ };
  
- #define VXLAN_FLAGS 0x08000000	/* struct vxlanhdr.vx_flags required value. */
+@@ -211,6 +212,16 @@ enum ovs_vport_attr {
  
-@@ -868,15 +869,12 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 	__u32 vni;
- 	int err;
+ #define OVS_VPORT_ATTR_MAX (__OVS_VPORT_ATTR_MAX - 1)
  
--	/* pop off outer UDP header */
--	__skb_pull(skb, sizeof(struct udphdr));
--
- 	/* Need Vxlan and inner Ethernet header to be present */
--	if (!pskb_may_pull(skb, sizeof(struct vxlanhdr)))
-+	if (!pskb_may_pull(skb, VXLAN_HLEN))
- 		goto error;
++/* OVS_VPORT_ATTR_OPTIONS attributes for tunnels.
++ */
++enum {
++	OVS_TUNNEL_ATTR_UNSPEC,
++	OVS_TUNNEL_ATTR_DST_PORT, /* 16-bit UDP port, used by L4 tunnels. */
++	__OVS_TUNNEL_ATTR_MAX
++};
++
++#define OVS_TUNNEL_ATTR_MAX (__OVS_TUNNEL_ATTR_MAX - 1)
++
+ /* Flows. */
  
--	/* Drop packets with reserved bits set */
--	vxh = (struct vxlanhdr *) skb->data;
-+	/* Return packets with reserved bits set */
-+	vxh = (struct vxlanhdr *)(udp_hdr(skb) + 1);
- 	if (vxh->vx_flags != htonl(VXLAN_FLAGS) ||
- 	    (vxh->vx_vni & htonl(0xff))) {
- 		netdev_dbg(skb->dev, "invalid vxlan flags=%#x vni=%#x\n",
-@@ -884,8 +882,6 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 		goto error;
- 	}
+ #define OVS_FLOW_FAMILY  "ovs_flow"
+diff --git a/net/openvswitch/Kconfig b/net/openvswitch/Kconfig
+index 27ee56b..bed30e6 100644
+--- a/net/openvswitch/Kconfig
++++ b/net/openvswitch/Kconfig
+@@ -40,3 +40,16 @@ config OPENVSWITCH_GRE
+ 	  Say N to exclude this support and reduce the binary size.
  
--	__skb_pull(skb, sizeof(struct vxlanhdr));
--
- 	/* Is this VNI defined? */
- 	vni = ntohl(vxh->vx_vni) >> 8;
- 	port = inet_sk(sk)->inet_sport;
-@@ -896,7 +892,7 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 		goto drop;
- 	}
+ 	  If unsure, say Y.
++
++config OPENVSWITCH_VXLAN
++	bool "Open vSwitch VXLAN tunneling support"
++	depends on INET
++	depends on OPENVSWITCH
++	depends on VXLAN && !(OPENVSWITCH=y && VXLAN=m)
++	default y
++	---help---
++	  If you say Y here, then the Open vSwitch will be able create vxlan vport.
++
++	  Say N to exclude this support and reduce the binary size.
++
++	  If unsure, say Y.
+diff --git a/net/openvswitch/Makefile b/net/openvswitch/Makefile
+index 01bddb2..82e4ee5 100644
+--- a/net/openvswitch/Makefile
++++ b/net/openvswitch/Makefile
+@@ -13,3 +13,7 @@ openvswitch-y := \
+ 	vport-gre.o \
+ 	vport-internal_dev.o \
+ 	vport-netdev.o
++
++ifneq ($(CONFIG_OPENVSWITCH_VXLAN),)
++openvswitch-y += vport-vxlan.o
++endif
+diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
+new file mode 100644
+index 0000000..36848bd
+--- /dev/null
++++ b/net/openvswitch/vport-vxlan.c
+@@ -0,0 +1,204 @@
++/*
++ * Copyright (c) 2013 Nicira, Inc.
++ * Copyright (c) 2013 Cisco Systems, Inc.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA
++ */
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/in.h>
++#include <linux/ip.h>
++#include <linux/net.h>
++#include <linux/rculist.h>
++#include <linux/udp.h>
++
++#include <net/icmp.h>
++#include <net/ip.h>
++#include <net/udp.h>
++#include <net/ip_tunnels.h>
++#include <net/udp.h>
++#include <net/rtnetlink.h>
++#include <net/route.h>
++#include <net/dsfield.h>
++#include <net/inet_ecn.h>
++#include <net/net_namespace.h>
++#include <net/netns/generic.h>
++#include <net/vxlan.h>
++
++#include "datapath.h"
++#include "vport.h"
++
++/**
++ * struct vxlan_port - Keeps track of open UDP ports
++ * @vs: vxlan_sock created for the port.
++ * @name: vport name.
++ */
++struct vxlan_port {
++	struct vxlan_sock *vs;
++	char name[IFNAMSIZ];
++};
++
++static inline struct vxlan_port *vxlan_vport(const struct vport *vport)
++{
++	return vport_priv(vport);
++}
++
++/* Called with rcu_read_lock and BH disabled. */
++static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb, __be32 vx_vni)
++{
++	struct ovs_key_ipv4_tunnel tun_key;
++	struct vport *vport = vs->data;
++	struct iphdr *iph;
++	__be64 key;
++
++	/* Save outer tunnel values */
++	iph = ip_hdr(skb);
++	key = cpu_to_be64(ntohl(vx_vni) >> 8);
++	ovs_flow_tun_key_init(&tun_key, iph, key, TUNNEL_KEY);
++
++	ovs_vport_receive(vport, skb, &tun_key);
++}
++
++static int vxlan_get_options(const struct vport *vport, struct sk_buff *skb)
++{
++	struct vxlan_port *vxlan_port = vxlan_vport(vport);
++	__be16 dst_port = inet_sk(vxlan_port->vs->sock->sk)->inet_sport;
++
++	if (nla_put_u16(skb, OVS_TUNNEL_ATTR_DST_PORT, ntohs(dst_port)))
++		return -EMSGSIZE;
++	return 0;
++}
++
++static void vxlan_tnl_destroy(struct vport *vport)
++{
++	struct vxlan_port *vxlan_port = vxlan_vport(vport);
++
++	vxlan_sock_release(vxlan_port->vs);
++
++	ovs_vport_deferred_free(vport);
++}
++
++static struct vport *vxlan_tnl_create(const struct vport_parms *parms)
++{
++	struct net *net = ovs_dp_get_net(parms->dp);
++	struct nlattr *options = parms->options;
++	struct vxlan_port *vxlan_port;
++	struct vxlan_sock *vs;
++	struct vport *vport;
++	struct nlattr *a;
++	u16 dst_port;
++	int err;
++
++	if (!options) {
++		err = -EINVAL;
++		goto error;
++	}
++	a = nla_find_nested(options, OVS_TUNNEL_ATTR_DST_PORT);
++	if (a && nla_len(a) == sizeof(u16)) {
++		dst_port = nla_get_u16(a);
++	} else {
++		/* Require destination port from userspace. */
++		err = -EINVAL;
++		goto error;
++	}
++
++	vport = ovs_vport_alloc(sizeof(struct vxlan_port),
++				&ovs_vxlan_vport_ops, parms);
++	if (IS_ERR(vport))
++		return vport;
++
++	vxlan_port = vxlan_vport(vport);
++	strncpy(vxlan_port->name, parms->name, IFNAMSIZ);
++
++	vs = vxlan_sock_add(net, htons(dst_port), vxlan_rcv, vport, true);
++	if (IS_ERR(vs)) {
++		ovs_vport_free(vport);
++		return (void *)vs;
++	}
++	vxlan_port->vs = vs;
++
++	return vport;
++
++error:
++	return ERR_PTR(err);
++}
++
++static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
++{
++	struct net *net = ovs_dp_get_net(vport->dp);
++	struct vxlan_port *vxlan_port = vxlan_vport(vport);
++	__be16 dst_port = inet_sk(vxlan_port->vs->sock->sk)->inet_sport;
++	struct rtable *rt;
++	struct flowi4 fl;
++	__be16 src_port;
++	int port_min;
++	int port_max;
++	__be16 df;
++	int err;
++
++	if (unlikely(!OVS_CB(skb)->tun_key)) {
++		err = -EINVAL;
++		goto error;
++	}
++
++	/* Route lookup */
++	memset(&fl, 0, sizeof(fl));
++	fl.daddr = OVS_CB(skb)->tun_key->ipv4_dst;
++	fl.saddr = OVS_CB(skb)->tun_key->ipv4_src;
++	fl.flowi4_tos = RT_TOS(OVS_CB(skb)->tun_key->ipv4_tos);
++	fl.flowi4_mark = skb->mark;
++	fl.flowi4_proto = IPPROTO_UDP;
++
++	rt = ip_route_output_key(net, &fl);
++	if (IS_ERR(rt)) {
++		err = PTR_ERR(rt);
++		goto error;
++	}
++
++	df = OVS_CB(skb)->tun_key->tun_flags & TUNNEL_DONT_FRAGMENT ?
++		htons(IP_DF) : 0;
++
++	skb->local_df = 1;
++
++	inet_get_local_port_range(&port_min, &port_max);
++	src_port = vxlan_src_port(port_min, port_max, skb);
++
++	err = vxlan_xmit_skb(net, vxlan_port->vs, rt, skb,
++			     fl.saddr, OVS_CB(skb)->tun_key->ipv4_dst,
++			     OVS_CB(skb)->tun_key->ipv4_tos,
++			     OVS_CB(skb)->tun_key->ipv4_ttl, df,
++			     src_port, dst_port,
++			     htonl(be64_to_cpu(OVS_CB(skb)->tun_key->tun_id) << 8));
++	if (err < 0)
++		ip_rt_put(rt);
++error:
++	return err;
++}
++
++static const char *vxlan_get_name(const struct vport *vport)
++{
++	struct vxlan_port *vxlan_port = vxlan_vport(vport);
++	return vxlan_port->name;
++}
++
++const struct vport_ops ovs_vxlan_vport_ops = {
++	.type		= OVS_VPORT_TYPE_VXLAN,
++	.create		= vxlan_tnl_create,
++	.destroy	= vxlan_tnl_destroy,
++	.get_name	= vxlan_get_name,
++	.get_options	= vxlan_get_options,
++	.send		= vxlan_tnl_send,
++};
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index d4c7fa0..d69e0c0 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -42,6 +42,9 @@ static const struct vport_ops *vport_ops_list[] = {
+ #ifdef CONFIG_OPENVSWITCH_GRE
+ 	&ovs_gre_vport_ops,
+ #endif
++#ifdef CONFIG_OPENVSWITCH_VXLAN
++	&ovs_vxlan_vport_ops,
++#endif
+ };
  
--	if (!pskb_may_pull(skb, ETH_HLEN)) {
-+	if (iptunnel_pull_header(skb, VXLAN_HLEN, htons(ETH_P_TEB))) {
- 		vxlan->dev->stats.rx_length_errors++;
- 		vxlan->dev->stats.rx_errors++;
- 		goto drop;
-@@ -904,8 +900,6 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ /* Protected by RCU read lock for reading, ovs_mutex for writing. */
+diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
+index 376045c..1a9fbce 100644
+--- a/net/openvswitch/vport.h
++++ b/net/openvswitch/vport.h
+@@ -199,6 +199,7 @@ void ovs_vport_record_error(struct vport *, enum vport_err_type err_type);
+ extern const struct vport_ops ovs_netdev_vport_ops;
+ extern const struct vport_ops ovs_internal_vport_ops;
+ extern const struct vport_ops ovs_gre_vport_ops;
++extern const struct vport_ops ovs_vxlan_vport_ops;
  
- 	skb_reset_mac_header(skb);
- 
--	/* Re-examine inner Ethernet packet */
--	oip = ip_hdr(skb);
- 	skb->protocol = eth_type_trans(skb, vxlan->dev);
- 
- 	/* Ignore packet loops (and multicast echo) */
-@@ -913,11 +907,12 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 			       vxlan->dev->dev_addr) == 0)
- 		goto drop;
- 
-+	/* Re-examine inner Ethernet packet */
-+	oip = ip_hdr(skb);
- 	if ((vxlan->flags & VXLAN_F_LEARN) &&
- 	    vxlan_snoop(skb->dev, oip->saddr, eth_hdr(skb)->h_source))
- 		goto drop;
- 
--	__skb_tunnel_rx(skb, vxlan->dev);
- 	skb_reset_network_header(skb);
- 
- 	/* If the NIC driver gave us an encapsulated packet with
-@@ -953,9 +948,6 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 
- 	return 0;
- error:
--	/* Put UDP header back */
--	__skb_push(skb, sizeof(struct udphdr));
--
- 	return 1;
- drop:
- 	/* Consume bad packet */
+ static inline void ovs_skb_postpush_rcsum(struct sk_buff *skb,
+ 				      const void *start, unsigned int len)
 -- 
 1.7.1
