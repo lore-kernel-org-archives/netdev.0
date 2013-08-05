@@ -1,57 +1,66 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next] bonding: RCUify bond_set_rx_mode()
-Date: Mon, 05 Aug 2013 12:21:56 +0200
-Message-ID: <51FF7CC4.7010806@redhat.com>
-References: <1375694776-3429-1-git-send-email-vfalico@redhat.com>
+From: Santiago Garcia Mantinan <manty@manty.net>
+Subject: Re: bonding + arp monitoring fails if interface is a vlan
+Date: Mon, 5 Aug 2013 12:26:16 +0200
+Message-ID: <CAJk_L2FU6GcHUoC+UdNJoULN9KewoUQAMhapC0k3RcTqNOymnw@mail.gmail.com>
+References: <20130801121142.GA444@www.manty.net>
+	<51FB9EE5.3040907@redhat.com>
+	<CAJk_L2FJyD2X7EPztiVWLBD4NDR_VOehdFEeV+nq7a+sO9+_wA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Veaceslav Falico <vfalico@redhat.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33154 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752909Ab3HEKZb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Aug 2013 06:25:31 -0400
-In-Reply-To: <1375694776-3429-1-git-send-email-vfalico@redhat.com>
+Received: from mail-qa0-f49.google.com ([209.85.216.49]:53051 "EHLO
+	mail-qa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751810Ab3HEK0R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 06:26:17 -0400
+Received: by mail-qa0-f49.google.com with SMTP id cr7so862438qab.15
+        for <netdev@vger.kernel.org>; Mon, 05 Aug 2013 03:26:16 -0700 (PDT)
+In-Reply-To: <CAJk_L2FJyD2X7EPztiVWLBD4NDR_VOehdFEeV+nq7a+sO9+_wA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/05/2013 11:26 AM, Veaceslav Falico wrote:
-> Currently, we might easily deadlock with bond_set_rx_mode() and
-> bond_hw_addr_swap(). bond_set_rx_mode() is called via dev_set_rx_mode(),
-> which already holds the netif_addr_lock_bh(bond), and inside it takes the
-> bond->curr_active_slave lock, while bond_hw_addr_swap() is called with
-> bond->curr_active_slave lock held and then takes netif_addr_lock_bh(bond),
-> which results in deadlock.
-> 
-> CPU0                    CPU1
-> ----                    ----
-> lock(&bonding_netdev_addr_lock_key);
-> 			lock(&bond->curr_slave_lock);
-> 			lock(&bonding_netdev_addr_lock_key);
-> lock(&bond->curr_slave_lock);
-> 
-> Fix this by using the RCU primites in bond_set_rx_mode(). We're safe wrt
-> racing of dev_?c_(un)sync() because we hold
-> lock(&bonding_netdev_addr_lock_key), and thus nobody will be able to modify
-> these lists before we finish.
+2013/8/4 Santiago Garcia Mantinan <manty@manty.net>:
+> 2013/8/2 Nikolay Aleksandrov <nikolay@redhat.com>:
+>> I believe that it is because dev_trans_start() returns 0 for 8021q devices and
+>> so the calculations if the slave has transmitted are wrong, and the flip-flop
+>> happens.
+>> Please try the attached patch, it should resolve your issue (basically it gets
+>> the dev_trans_start of the vlan's underlying device if a vlan is found).
 >
-Hi,
-I don't think this deadlock can actually happen because bond_hw_addr_swap() is
-called from bond_change_active_slave() only in USES_PRIMARY mode, and in such
-mode it's always called with rtnl acquired before that, and since
-dev_set_rx_mode is called with rtnl, IMO such deadlock can't happen.
-Also I think bond_set_rx_mode() can work without RCU because of the held rtnl
-and converted to ASSERT_RTNL (this is optional) + rtnl_dereference for the
-curr_active_slave.
+> Thanks, patched and compiling, I'll try today with my laptops and
+> tomorrow at the lab I had setup and then at the original machine.
+>
+> I'll let you know how things go.
 
-Cheers,
- Nik
+Ok, initial tests seem to show that a bonding defined like I had on my
+very basic setup that I sent to the list is now working.
 
-> CC: Jay Vosburgh <fubar@us.ibm.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> CC: Nikolay Aleksandrov <nikolay@redhat.com>
-> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-> ---
+What doesn't seem to be working is if I set it up using bonding under
+the vlans and then doing a bond of those, I mean:
+
+iface bond0 inet manual
+        bond-slaves eth0
+        bond-mode 802.3ad
+        bond-miimon 100
+...
+iface bond2 inet static
+        address 192.168.1.2
+        netmask 255.255.255.0
+        bond-slaves bond0.1001 bond0.1002
+        bond-mode active-backup
+        bond-arp_validate 0
+        bond-arp_interval 2000
+        bond-arp_ip_target 192.168.1.1
+...
+
+Should this bond of bonds work?
+
+I'm doing more tests to make sure that the basic eth0.1001 and
+eth0.1002 works 100% after finding that the bond of bonds wasn't
+working ok, just in case the basic was also failing, but at least the
+double bond is failing and basic bond seems to work ok.
+
+Regards.
+-- 
+Manty/BestiaTester -> http://manty.net
