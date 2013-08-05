@@ -1,83 +1,59 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCHv3] bridge: disable snooping if there is no querier
-Date: Mon, 05 Aug 2013 10:41:06 +0200
-Message-ID: <1375692066.25148.14.camel@x61.thuisdomein>
-References: <20130730.161035.1646022729333223847.davem@davemloft.net>
-	 <1375311980-25575-1-git-send-email-linus.luessing@web.de>
-	 <20130731.174037.1794753574143053874.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linus.luessing@web.de, bridge@lists.linux-foundation.org,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au,
-	amwang@redhat.com, linux@baker-net.org.uk
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130731.174037.1794753574143053874.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ming Lei <ming.lei@canonical.com>
+Subject: [PATCH v2 0/4] USB & USBNET: loose SG check and support usbnet DMA SG
+Date: Mon,  5 Aug 2013 16:46:59 +0800
+Message-ID: <1375692423-9497-1-git-send-email-ming.lei@canonical.com>
+Cc: Oliver Neukum <oneukum@suse.de>,
+	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:63048 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754780Ab3HEIra (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 04:47:30 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-07-31 at 17:40 -0700, David Miller wrote:
-> > If there is no querier on a link then we won't get periodic reports=
- and
-> > therefore won't be able to learn about multicast listeners behind p=
-orts,
-> > potentially leading to lost multicast packets, especially for multi=
-cast
-> > listeners that joined before the creation of the bridge.
-> >=20
-> > These lost multicast packets can appear since c5c23260594
-> > ("bridge: Add multicast_querier toggle and disable queries by defau=
-lt")
-> > in particular.
-> >=20
-> > With this patch we are flooding multicast packets if our querier is
-> > disabled and if we didn't detect any other querier.
-> >=20
-> > A grace period of the Maximum Response Delay of the querier is adde=
-d to
-> > give multicast responses enough time to arrive and to be learned fr=
-om
-> > before disabling the flooding behaviour again.
-> >=20
-> > Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
->=20
-> Looks good, applied, thanks Linus.
+Hi,
 
-0) This patch is part of v3.11-rc4 as commit b00589af3b0. It introduced
-a GCC warning:
-    net/bridge/br_multicast.c: In function =E2=80=98br_multicast_rcv=E2=
-=80=99:
-    net/bridge/br_multicast.c:1081:36: warning: =E2=80=98max_delay=E2=80=
-=99 may be used uninitialized in this function [-Wmaybe-uninitialized]
-    net/bridge/br_multicast.c:1178:16: note: =E2=80=98max_delay=E2=80=99=
- was declared here
+This patchset allows drivers to pass sg buffers which size can't be divided
+by max packet size of endpoint if the host controllers(such ax xHCI) support
+this kind of sg buffers.
 
-1) Summarized, the code reads:
+Previously we added check[1] on the situation and don't allow these sg buffers
+passed to USB HCD, looks the check is too strict to make use of new feature of
+new hardware(xHCI) for some applications(such as network stack) which can't
+provide this kind of sg buffers to usbnet driver, so the patch looses the check
+in case that the host controller supports it.
 
-        unsigned long max_delay;
+Patch 3/4 implements DMA SG on usbnet driver, and patch 4/4 uses it on ax88179_178a
+USB3 NIC for supporting TSO, so both CPU utilization and tx throughput can be
+improved with TSO and DMA SG in case of the USB NIC is attached to xHCI controller.
 
-        if (skb->len =3D=3D sizeof(*mld))
-                max_delay =3D msecs_to_jiffies(ntohs(mld->mld_maxdelay)=
-);
-        else if (skb->len >=3D sizeof(*mld2q))
-                max_delay =3D mld2q->mld2q_mrc ? MLDV2_MRC(ntohs(mld2q-=
->mld2q_mrc)) : 1;
+This patchset depends on both net-next and usb-next tree, so hope David and Greg
+to figure out one elegent way to merge it.
 
-        br_multicast_query_received(br, port, !ipv6_addr_any(&ip6h->sad=
-dr),
-                                    max_delay);
-=20
-So GCC notices that max_delay is still uninitialized if skb->len is
-neither equal to sizeof(*mld) nor equal or bigger than sizeof(*mld2q).
-To me it looks GCC is right here. At least, it is not obvious that
-max_delay will actually not be used in br_multicast_query_received() if
-it still is uninitialized.
+[1], http://git.kernel.org/cgit/linux/kernel/git/gregkh/usb.git/commit/?h=usb-next&id=10e232c597ac757e7f8600649f7e872e86de190f
 
-2) I'm entirely unfamiliar to this code. So I can't say how this warnin=
-g
-might be silenced.
+V2:
+	- add missed kfree(urb->sg) in 3/4
+	- rename no_sg_limit as no_sg_constraint as suggested by Alan
+
+V1:
+        - introduce and apply usb_device_no_sg_limit() helper as suggested by Greg
+        - simplify patch 4/4 against Eric Dumazet's patch(ax88179_178a: avoid copy of tx tcp packets)
+        - don't pass usbnet header as sg buffer
+
+ drivers/net/usb/ax88179_178a.c |   12 ++++++++++++
+ drivers/net/usb/usbnet.c       |   39 +++++++++++++++++++++++++++++++++++++--
+ drivers/usb/core/urb.c         |    3 ++-
+ drivers/usb/host/xhci.c        |    4 ++++
+ include/linux/usb.h            |   11 ++++++++++-
+ include/linux/usb/usbnet.h     |    1 +
+ 6 files changed, 66 insertions(+), 4 deletions(-)
 
 
-Paul Bolle
+Thanks,
+--
+Ming Lei
