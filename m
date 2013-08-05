@@ -1,70 +1,77 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next] bonding: RCUify bond_set_rx_mode()
-Date: Mon, 5 Aug 2013 14:31:03 +0200
-Message-ID: <20130805123103.GH22756@redhat.com>
-References: <1375694776-3429-1-git-send-email-vfalico@redhat.com>
- <51FF7CC4.7010806@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net-next] bonding: remove locking from bond_set_rx_mode()
+Date: Mon,  5 Aug 2013 14:56:06 +0200
+Message-ID: <1375707366-6762-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2564 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:9101 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751456Ab3HEMb5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Aug 2013 08:31:57 -0400
-Content-Disposition: inline
-In-Reply-To: <51FF7CC4.7010806@redhat.com>
+	id S1752339Ab3HEM4C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Aug 2013 08:56:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 05, 2013 at 12:21:56PM +0200, Nikolay Aleksandrov wrote:
->On 08/05/2013 11:26 AM, Veaceslav Falico wrote:
->> Currently, we might easily deadlock with bond_set_rx_mode() and
->> bond_hw_addr_swap(). bond_set_rx_mode() is called via dev_set_rx_mode(),
->> which already holds the netif_addr_lock_bh(bond), and inside it takes the
->> bond->curr_active_slave lock, while bond_hw_addr_swap() is called with
->> bond->curr_active_slave lock held and then takes netif_addr_lock_bh(bond),
->> which results in deadlock.
->>
->> CPU0                    CPU1
->> ----                    ----
->> lock(&bonding_netdev_addr_lock_key);
->> 			lock(&bond->curr_slave_lock);
->> 			lock(&bonding_netdev_addr_lock_key);
->> lock(&bond->curr_slave_lock);
->>
->> Fix this by using the RCU primites in bond_set_rx_mode(). We're safe wrt
->> racing of dev_?c_(un)sync() because we hold
->> lock(&bonding_netdev_addr_lock_key), and thus nobody will be able to modify
->> these lists before we finish.
->>
->Hi,
->I don't think this deadlock can actually happen because bond_hw_addr_swap() is
->called from bond_change_active_slave() only in USES_PRIMARY mode, and in such
->mode it's always called with rtnl acquired before that, and since
->dev_set_rx_mode is called with rtnl, IMO such deadlock can't happen.
+We're already protected by RTNL lock, so nothing can happen to bond/its
+slaves, and thus the locking is useless here (both bond->lock and
+bond->curr_active_slave).
 
-Yep, indeed, missed the part with USES_PRIMARY(). So the lockdep had a
-false alarm.
+Also, add ASSERT_RTNL() both to bond_set_rx_mode() and bond_hw_addr_swap()
+to catch possible uses of it without RTNL locking.
 
->Also I think bond_set_rx_mode() can work without RCU because of the held rtnl
->and converted to ASSERT_RTNL (this is optional) + rtnl_dereference for the
->curr_active_slave.
+This patch also saves us from a lockdep false-positive in
+bond_set_rx_mode() vs bond_hw_addr_swap().
 
-Yes, we don't need the real rcu cause we're under rtnl and everybody else
-who touches it also is under rtnl. Awesome catch.
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+CC: Nikolay Aleksandrov <nikolay@redhat.com>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+---
+ drivers/net/bonding/bond_main.c |   10 ++++------
+ 1 files changed, 4 insertions(+), 6 deletions(-)
 
-Thanks, will resubmit another patch (hard to call it v2...).
-
->
->Cheers,
-> Nik
->
->> CC: Jay Vosburgh <fubar@us.ibm.com>
->> CC: Andy Gospodarek <andy@greyhouse.net>
->> CC: Nikolay Aleksandrov <nikolay@redhat.com>
->> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
->> ---
->
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 476df7d..77501d4 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -776,6 +776,8 @@ static void bond_hw_addr_flush(struct net_device *bond_dev,
+ static void bond_hw_addr_swap(struct bonding *bond, struct slave *new_active,
+ 			      struct slave *old_active)
+ {
++	ASSERT_RTNL();
++
+ 	if (old_active) {
+ 		if (bond->dev->flags & IFF_PROMISC)
+ 			dev_set_promiscuity(old_active->dev, -1);
+@@ -3571,24 +3573,20 @@ static void bond_set_rx_mode(struct net_device *bond_dev)
+ 	struct bonding *bond = netdev_priv(bond_dev);
+ 	struct slave *slave;
+ 
+-	read_lock(&bond->lock);
++	ASSERT_RTNL();
+ 
+ 	if (USES_PRIMARY(bond->params.mode)) {
+-		read_lock(&bond->curr_slave_lock);
+-		slave = bond->curr_active_slave;
++		slave = rtnl_dereference(bond->curr_active_slave);
+ 		if (slave) {
+ 			dev_uc_sync(slave->dev, bond_dev);
+ 			dev_mc_sync(slave->dev, bond_dev);
+ 		}
+-		read_unlock(&bond->curr_slave_lock);
+ 	} else {
+ 		bond_for_each_slave(bond, slave) {
+ 			dev_uc_sync_multiple(slave->dev, bond_dev);
+ 			dev_mc_sync_multiple(slave->dev, bond_dev);
+ 		}
+ 	}
+-
+-	read_unlock(&bond->lock);
+ }
+ 
+ static int bond_neigh_init(struct neighbour *n)
+-- 
+1.7.1
