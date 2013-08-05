@@ -1,35 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bonding: fix send_peer_notif leekage on rtnl
- lock congestion
-Date: Mon, 05 Aug 2013 16:12:12 -0700 (PDT)
-Message-ID: <20130805.161212.421332729798966037.davem@davemloft.net>
-References: <1375732053-829-1-git-send-email-vfalico@redhat.com>
+Subject: Re: [PATCH net v4 2/6] bnx2x: protect different statistics flows
+Date: Mon, 05 Aug 2013 16:26:18 -0700 (PDT)
+Message-ID: <20130805.162618.882986953709212779.davem@davemloft.net>
+References: <1375738544-8695-1-git-send-email-dmitry@broadcom.com>
+	<1375738544-8695-3-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net
-To: vfalico@redhat.com
+Cc: netdev@vger.kernel.org, eilong@broadcom.com, ariele@broadcom.com
+To: dmitry@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50789 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50874 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750888Ab3HEXMN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 19:12:13 -0400
-In-Reply-To: <1375732053-829-1-git-send-email-vfalico@redhat.com>
+	with ESMTP id S1755239Ab3HEX0T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 19:26:19 -0400
+In-Reply-To: <1375738544-8695-3-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Veaceslav Falico <vfalico@redhat.com>
-Date: Mon,  5 Aug 2013 21:47:33 +0200
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Date: Tue, 6 Aug 2013 00:35:40 +0300
 
-> @@ -2999,7 +3002,10 @@ void bond_activebackup_arp_mon(struct work_struct *work)
->  		if (!rtnl_trylock()) {
->  			read_lock(&bond->lock);
->  			delta_in_ticks = 1;
-> -			should_notify_peers = false;
-> +			if (should_notify_peers) {
-> +				bond->send_peer_notif++;
+> Add locking to protect different statistics flows from
+> running simultaneously.
+> This in order to serialize statistics requests sent to FW,
+> otherwise two outstanding queries may cause FW assert.
+> 
+> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+> Signed-off-by: Ariel Elior <ariele@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-I doubt this increment to a shared datastructure is safe with
-the locks you hold here.
+Please do not reinvent the wheel, use a standard semaphore
+and down_timeout().
 
-You don't hold RTNL and you only have bond->lock as a reader.
+Anytime you feel that you have to implement your own fancy locking
+primitives, you are doing it wrong.
