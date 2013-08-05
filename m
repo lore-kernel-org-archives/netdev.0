@@ -1,56 +1,65 @@
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: [patch] net: remove an unneeded check
-Date: Mon, 5 Aug 2013 18:18:01 +0000
-Message-ID: <F3E01662-FC33-4FB8-AF30-47DF44252296@intel.com>
-References: <20130729191519.GA11874@elgon.mountain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] fib_trie: remove potential out of bound access
+Date: Mon, 05 Aug 2013 11:18:49 -0700
+Message-ID: <1375726729.4457.45.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
-	"<kernel-janitors@vger.kernel.org>" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Andrey Konovalov <andreyknvl@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:30348 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753563Ab3HESSC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 14:18:02 -0400
-In-Reply-To: <20130729191519.GA11874@elgon.mountain>
-Content-Language: en-US
-Content-ID: <9118E931EEE58247B9E1459C3EA3D3A7@intel.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:57738 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754237Ab3HESSu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 14:18:50 -0400
+Received: by mail-pa0-f51.google.com with SMTP id lf11so3591791pab.38
+        for <netdev@vger.kernel.org>; Mon, 05 Aug 2013 11:18:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Jul 29, 2013, at 12:15 PM, Dan Carpenter <dan.carpenter@oracle.com> wrote:
+From: Eric Dumazet <edumazet@google.com>
 
-> "ifa->ifa_label" is an array inside the in_ifaddr struct.  It can never
-> be NULL so we can remove this check.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-> index 8d48c39..1b7f7ae 100644
-> --- a/net/ipv4/devinet.c
-> +++ b/net/ipv4/devinet.c
-> @@ -1124,10 +1124,7 @@ static int inet_gifconf(struct net_device *dev, char __user *buf, int len)
-> 		if (len < (int) sizeof(ifr))
-> 			break;
-> 		memset(&ifr, 0, sizeof(struct ifreq));
-> -		if (ifa->ifa_label)
+AddressSanitizer [1] dynamic checker pointed a potential
+out of bound access in leaf_walk_rcu()
 
-Is there any possibility that this was meant to check ifa->ifa_label[0]?
+We could allocate one more slot in tnode_new() to leave the prefetch()
+in-place but it looks not worth the pain.
 
-> -			strcpy(ifr.ifr_name, ifa->ifa_label);
-> -		else
-> -			strcpy(ifr.ifr_name, dev->name);
-> +		strcpy(ifr.ifr_name, ifa->ifa_label);
-> 
-> 		(*(struct sockaddr_in *)&ifr.ifr_addr).sin_family = AF_INET;
-> 		(*(struct sockaddr_in *)&ifr.ifr_addr).sin_addr.s_addr =
+Bug added in commit 82cfbb008572b ("[IPV4] fib_trie: iterator recode")
 
--- 
-Mark Rustad, Networking Division, Intel Corporation
+[1] :
+https://code.google.com/p/address-sanitizer/wiki/AddressSanitizerForKernel
+
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Dmitry Vyukov <dvyukov@google.com>
+---
+ net/ipv4/fib_trie.c |    5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 108a1e9c..3df6d3e 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -71,7 +71,6 @@
+ #include <linux/init.h>
+ #include <linux/list.h>
+ #include <linux/slab.h>
+-#include <linux/prefetch.h>
+ #include <linux/export.h>
+ #include <net/net_namespace.h>
+ #include <net/ip.h>
+@@ -1761,10 +1760,8 @@ static struct leaf *leaf_walk_rcu(struct tnode *p, struct rt_trie_node *c)
+ 			if (!c)
+ 				continue;
+ 
+-			if (IS_LEAF(c)) {
+-				prefetch(rcu_dereference_rtnl(p->child[idx]));
++			if (IS_LEAF(c))
+ 				return (struct leaf *) c;
+-			}
+ 
+ 			/* Rescan start scanning in new node */
+ 			p = (struct tnode *) c;
