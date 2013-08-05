@@ -1,54 +1,63 @@
-From: Duan Fugang-B38611 <B38611@freescale.com>
-Subject: RE: [PATCH v3] net/phy: micrel: Add OF configuration support for
- ksz9021
-Date: Mon, 5 Aug 2013 03:03:55 +0000
-Message-ID: <9848F2DB572E5649BA045B288BE08FBE015EE4A2@039-SN2MPN1-023.039d.mgd.msft.net>
-References: <1375348757-12856-1-git-send-email-xobs@kosagi.com>
- <1375348757-12856-2-git-send-email-xobs@kosagi.com>
- <9848F2DB572E5649BA045B288BE08FBE015ED2F7@039-SN2MPN1-023.039d.mgd.msft.net>
- <5CE77AC80B4242C98833109D6F1C9F85@kosagi.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next v2 1/8] net: introduce generic union inet_addr
+Date: Mon, 05 Aug 2013 11:09:52 +0800
+Message-ID: <1375672192.32485.6.camel@cr0>
+References: <1375427674-21735-1-git-send-email-amwang@redhat.com>
+	 <1375427674-21735-2-git-send-email-amwang@redhat.com>
+	 <20130802.145041.845804796107623114.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Sascha Hauer <s.hauer@pengutronix.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	Steven Rostedt <rostedt@goodmis.org>
-To: Sean Cross <xobs@kosagi.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dborkman@redhat.com, joe@perches.com,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db9lp0249.outbound.messaging.microsoft.com ([213.199.154.249]:19476
-	"EHLO db9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754296Ab3HEDEE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Aug 2013 23:04:04 -0400
-In-Reply-To: <5CE77AC80B4242C98833109D6F1C9F85@kosagi.com>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:13210 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754434Ab3HEDKU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 Aug 2013 23:10:20 -0400
+In-Reply-To: <20130802.145041.845804796107623114.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogU2VhbiBDcm9zcyBbbWFpbHRvOnhvYnNAa29zYWdpLmNvbV0NCkRhdGE6IE1vbmRheSwg
-QXVndXN0IDA1LCAyMDEzIDEwOjI0IEFNDQoNCj4gPiA+ICtFeGFtcGxlOg0KPiA+ID4gKyAmZW5l
-dCB7DQo+ID4gPiArIG1pY3JlbCxjbGstY29udHJvbC1wYWQtc2tldyA9IDwweGYwZjA+OyAgbWlj
-cmVsLHJ4LWRhdGEtcGFkLXNrZXcgPQ0KPiA+ID4gKzwweDAwMDA+OyAgbWljcmVsLHR4LWRhdGEt
-cGFkLXNrZXcgPSA8MHhmZmZmPjsgIHN0YXR1cyA9ICJva2F5IjsNCj4gPiA+ICt9Ow0KPiA+ID4g
-Kw0KPiA+DQo+ID4NCj4gPg0KPiA+IFRoZSBwaHkgYmluZGluZyBtdXN0IGJlIHRoZSBwaHkgbm9k
-ZSwgbm90IHRoZSBldGhlcm5ldCBub2RlLg0KPiA+IFBscyByZWZlciB0bzoNCj4gPiBEb2N1bWVu
-dGF0aW9uL2RldmljZXRyZWUvYm9vdGluZy13aXRob3V0LW9mLnR4dA0KPiA+IERvY3VtZW50YXRp
-b24vZGV2aWNldHJlZS9iaW5kaW5ncy9uZXQvcGh5LnR4dA0KPiANCj4gVGhpcyB3b24ndCBuZWNl
-c3NhcmlseSB3b3JrLiAgSW4gbXkgYm9hcmQsIEkgZG9uJ3QgdGhpbmsgaXQncyBwb3NzaWJsZSB0
-bw0KPiBtYW51YWxseSBzcGVjaWZ5IHRoZSBQSFksIGFzIG1vc3Qgb2YgdGhlIGZpZWxkcyByZXF1
-aXJlZCBieSB0aGUgT0YgUEhZDQo+IG5vZGUgZG9uJ3QgYXBwbHkgdG8gdGhpcyBkZXZpY2UgKGF0
-IGxlYXN0IGFjY29yZGluZyB0byBwaHkudHh0KS4gIFRoZXJlDQo+IGFyZSBubyBpbnRlcnJ1cHRz
-LCBubyBpbnRlcnJ1cHQgcGFyZW50LCBhbmQgaXQncyB1bmNsZWFyIHdoYXQgdGhlIHJlZyBvcg0K
-PiBsaW51eCxwaGFuZGxlIGZpZWxkcyBkby4gIEFsbCBvZiB0aGVzZSBhcmUgcmVxdWlyZWQgZmll
-bGRzLCBub25lIG9mIHdoaWNoDQo+IHNlZW0gdG8gYXBwbHkgdG8gdGhpcyBwYXJ0aWN1bGFyIGJv
-YXJkLiAgRnVydGhlcm1vcmUsIGl0IGRvZXNuJ3Qgc2VlbSB0bw0KPiBiZSBwb3NzaWJsZSB0byBz
-cGVjaWZ5IGEgcGFydGljdWxhciBQSFksIHN1Y2ggYXMgdGhlIGtzejkwMjEuDQo+IA0KPiBJIHNl
-ZSB0aGUgcGF0dGVybiBvZiBnZXR0aW5nIE9GIHNldHRpbmdzIGZyb20gYSBwYXJlbnQncyBub2Rl
-IHVzZWQNCj4gZWxzZXdoZXJlIGluIHRoZSBrZXJuZWwuICBGb3IgZXhhbXBsZSwgaW4gbW1jX29m
-X3BhcnNlKCksIG9yIG1vcmUNCj4gc2ltaWxhcmx5IGluIHRoZSBjaGlwaWRlYSBjaV9oZHJjX3By
-b2JlKCkgZHJpdmVyLg0KDQpZZXMsIHRoZSBwYXRjaCBpcyBvbmx5IHJlYXNvbmFibGUgZm9yIHlv
-dXIgcGxhdGZvcm0sIGJ1dCBpdCBpcyB0aGUgcGh5IGRyaXZlciBmb3IgZGlmZmVyZW50IHBsYXRm
-b3JtcyB0aGF0IHlvdSBtdXN0IGNvbnNpZGVyYXRlLg0KUGxlYXNlIGFkZCBtb3JlIGV4YW1wbGUg
-Y2FzZXMgaW4gYmluZGluZyBkb2MuDQoNCg==
+On Fri, 2013-08-02 at 14:50 -0700, David Miller wrote:
+> From: Cong Wang <amwang@redhat.com>
+> Date: Fri,  2 Aug 2013 15:14:27 +0800
+> 
+> > From: Cong Wang <amwang@redhat.com>
+> > 
+> > Introduce a generic IP address type, union inet_addr, so that
+> > subsystems don't have to use their own definitions. Because
+> > netpoll already defines union inet_addr, just move it to global.
+> > Some of the helper functions will be used by VXLAN IPv6 code too.
+> > 
+> > This patch also reuses the "%pIS" specifier, to make it accept
+> > union inet_addr instead of struct sockaddr.
+> > 
+> > Cc: Daniel Borkmann <dborkman@redhat.com>
+> > Cc: Joe Perches <joe@perches.com>
+> > Cc: linux-kernel@vger.kernel.org
+> > Signed-off-by: Cong Wang <amwang@redhat.com>
+> 
+> Changing %pIS to %pIA is pure churn, and of zero value that I can see.
+
+'S' in %pIS is for Sockaddr, since this patch makes it accept union
+inet_addr instead of struct sockaddr, I don't think 'S' is meaningful
+any more.
+
+> 
+> Every time I review this patch set I discover some new thing that I'm
+> very disappointed with.
+
+The "%pIS" change exists in v1, I don't know why you think it is new in
+v2. Also, if you can point all what you dislike at one time, it would
+save time for both of us, I prefer to fix them all in one update.
+
+> 
+> You're going to have to stop being so ambitious, and start very small.
+> 
+> Maybe one tiny patch at a time if needed.
+
+Ok, I will split the %pIS change from this patch.
+
+Thanks!
