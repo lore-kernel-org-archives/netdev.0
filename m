@@ -1,60 +1,73 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [net-next,3/3] bonding: unwind on bond_add_vlan add failure
-Date: Mon, 5 Aug 2013 23:59:21 +0200
-Message-ID: <20130805215921.GA14299@redhat.com>
-References: <1375709304-16778-4-git-send-email-nikolay@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	davem@davemloft.net
-To: nikolay@redhat.com
+From: Andi Kleen <andi@firstfloor.org>
+Subject: [PATCH] lto, wan/sbni: Make inline assembler symbols visible and assembler global
+Date: Mon,  5 Aug 2013 15:18:14 -0700
+Message-ID: <1375741094-8166-1-git-send-email-andi@firstfloor.org>
+Cc: Andi Kleen <ak@linux.intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46021 "EHLO mx1.redhat.com"
+Received: from mga03.intel.com ([143.182.124.21]:14089 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754967Ab3HEV7c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Aug 2013 17:59:32 -0400
-Content-Disposition: inline
-In-Reply-To: <1375709304-16778-4-git-send-email-nikolay@redhat.com>
+	id S1755357Ab3HEWSU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Aug 2013 18:18:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 05, 2013 at 03:28:24PM +0200, nikolay@redhat.com wrote:
->From: Nikolay Aleksandrov <Nikolay Aleksandrov nikolay@redhat.com>
->
->In case of bond_add_vlan() failure currently we'll have the vlan's
->refcnt bumped up in all slaves, but it will never go down because it
->failed to get added to the bond, so properly unwind the added vlan if
->bond_add_vlan fails.
->
->Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+From: Andi Kleen <ak@linux.intel.com>
 
-In case patch 1/3 from series goes in... Otherwise I think it will be
-needed to patch bond_vlan_rx_add_vid().
+- Inline assembler defining C callable code has to be global
+- The function has to be visible
 
-Acked-by: Veaceslav Falico <vfalico@redhat.com>
+Do this in wan/sbni
 
->
->---
->drivers/net/bonding/bond_main.c | 4 ++--
-> 1 file changed, 2 insertions(+), 2 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index ed1d261..0f9ca7e 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -456,13 +456,13 @@ static int __bond_vlan_rx_add_vid(struct net_device *bond_dev,
-> 	if (res) {
-> 		pr_err("%s: Error: Failed to add vlan id %d\n",
-> 		       bond_dev->name, vid);
->-		return res;
->+		goto unwind;
-> 	}
->
-> 	return 0;
->
-> unwind:
->-	/* unwind from head to the slave that failed */
->+	/* unwind from the slave that failed */
-> 	bond_for_each_slave_continue_reverse(bond, slave)
-> 		vlan_vid_del(slave->dev, proto, vid);
->
+Signed-off-by: Andi Kleen <ak@linux.intel.com>
+---
+ drivers/net/wan/sbni.c | 6 +++---
+ drivers/net/wan/sbni.h | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/wan/sbni.c b/drivers/net/wan/sbni.c
+index d43f4ef..b914ab3 100644
+--- a/drivers/net/wan/sbni.c
++++ b/drivers/net/wan/sbni.c
+@@ -160,7 +160,7 @@ static int  scandone	__initdata = 0;
+ static int  num		__initdata = 0;
+ 
+ static unsigned char  rxl_tab[];
+-static u32  crc32tab[];
++__visible u32  sbni_crc32tab[];
+ 
+ /* A list of all installed devices, for removing the driver module. */
+ static struct net_device  *sbni_cards[ SBNI_MAX_NUM_CARDS ];
+@@ -1563,7 +1563,7 @@ calc_crc32( u32  crc,  u8  *p,  u32  len )
+ 		"xorl	%%ebx, %%ebx\n"
+ 		"movl	%2, %%esi\n" 
+ 		"movl	%3, %%ecx\n" 
+-		"movl	$crc32tab, %%edi\n"
++		"movl	$sbni_crc32tab, %%edi\n"
+ 		"shrl	$2, %%ecx\n"
+ 		"jz	1f\n"
+ 
+@@ -1645,7 +1645,7 @@ calc_crc32( u32  crc,  u8  *p,  u32  len )
+ #endif	/* ASM_CRC */
+ 
+ 
+-static u32  crc32tab[] __attribute__ ((aligned(8))) = {
++__visible u32  sbni_crc32tab[] __attribute__ ((aligned(8))) = {
+ 	0xD202EF8D,  0xA505DF1B,  0x3C0C8EA1,  0x4B0BBE37,
+ 	0xD56F2B94,  0xA2681B02,  0x3B614AB8,  0x4C667A2E,
+ 	0xDCD967BF,  0xABDE5729,  0x32D70693,  0x45D03605,
+diff --git a/drivers/net/wan/sbni.h b/drivers/net/wan/sbni.h
+index 8426451..7e6d980 100644
+--- a/drivers/net/wan/sbni.h
++++ b/drivers/net/wan/sbni.h
+@@ -132,7 +132,7 @@ struct sbni_flags {
+ /*
+  * CRC-32 stuff
+  */
+-#define CRC32(c,crc) (crc32tab[((size_t)(crc) ^ (c)) & 0xff] ^ (((crc) >> 8) & 0x00FFFFFF))
++#define CRC32(c,crc) (sbni_crc32tab[((size_t)(crc) ^ (c)) & 0xff] ^ (((crc) >> 8) & 0x00FFFFFF))
+       /* CRC generator 0xEDB88320 */
+       /* CRC remainder 0x2144DF1C */
+       /* CRC initial value 0x00000000 */
+-- 
+1.8.3.1
