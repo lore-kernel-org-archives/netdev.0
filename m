@@ -1,38 +1,43 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next] bonding: remove locking from bond_set_rx_mode()
-Date: Mon, 05 Aug 2013 15:45:48 +0200
-Message-ID: <51FFAC8C.20205@redhat.com>
-References: <1375707366-6762-1-git-send-email-vfalico@redhat.com>
+Subject: Re: [PATCH net-next 0/2] fix bonding neighbour setup handling
+Date: Mon, 05 Aug 2013 15:49:08 +0200
+Message-ID: <51FFAD54.7090501@redhat.com>
+References: <1375463259-12033-1-git-send-email-vfalico@redhat.com> <20130802.154539.237539535236462726.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Veaceslav Falico <vfalico@redhat.com>
+Cc: vfalico@redhat.com, netdev@vger.kernel.org, fubar@us.ibm.com,
+	andy@greyhouse.net, ebiederm@xmission.com, joe@perches.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21068 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:57527 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752645Ab3HENtW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Aug 2013 09:49:22 -0400
-In-Reply-To: <1375707366-6762-1-git-send-email-vfalico@redhat.com>
+	id S1753255Ab3HENwr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Aug 2013 09:52:47 -0400
+In-Reply-To: <20130802.154539.237539535236462726.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/05/2013 02:56 PM, Veaceslav Falico wrote:
-> We're already protected by RTNL lock, so nothing can happen to bond/its
-> slaves, and thus the locking is useless here (both bond->lock and
-> bond->curr_active_slave).
+On 08/03/2013 12:45 AM, David Miller wrote:
 > 
-> Also, add ASSERT_RTNL() both to bond_set_rx_mode() and bond_hw_addr_swap()
-> to catch possible uses of it without RTNL locking.
+> Thanks for the detailed explanation of the situation, it made your patches
+> trivial to review.
 > 
-> This patch also saves us from a lockdep false-positive in
-> bond_set_rx_mode() vs bond_hw_addr_swap().
-> 
-> CC: Jay Vosburgh <fubar@us.ibm.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> CC: Nikolay Aleksandrov <nikolay@redhat.com>
-> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-> ---
+> Applied, thanks.
+Hi all,
+Vaeceslav thanks for fixing this.
+Since the cat is out of the bag about this bug, as Vaeceslav discovered it
+independently and wasn't aware that there's a CVE number pending because it
+poses a security threat since the dereferenced first_slave pointer is
+taken from the struct vlan_dev_priv's ingress_priority map array which is
+user-controllable and any memory address can be dereferenced in that way,
+and taking after that first_slave->dev->netdev_ops and calling a function
+from the ops is making it even easier. Of course for that to happen the
+user must have CAP_NET_ADMIN.
+I've tested these patches and they apply cleanly on -net as well, so please
+queue them for -net and stable.
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+Also apologies for the late reply but it wasn't up to me when to reveal this.
+
+Thank you,
+ Nik
