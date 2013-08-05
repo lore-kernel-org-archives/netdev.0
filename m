@@ -1,89 +1,40 @@
-From: Benjamin Poirier <bpoirier@suse.de>
-Subject: Re: [PATCH net] net: esp{4,6}: fix potential MTU calculation
- overflows
-Date: Mon, 5 Aug 2013 10:38:33 -0400
-Message-ID: <20130805143833.GA27692@d2.synalogic.ca>
-References: <1375699775-13769-1-git-send-email-dborkman@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:57215 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752972Ab3HEOil (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Aug 2013 10:38:41 -0400
-Content-Disposition: inline
-In-Reply-To: <1375699775-13769-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH] net/vmw_vsock/af_vsock.c: drop unneeded semicolon
+Date: Mon,  5 Aug 2013 16:47:38 +0200
+Message-ID: <1375714059-29567-4-git-send-email-Julia.Lawall@lip6.fr>
+References: <1375714059-29567-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <1375714059-29567-1-git-send-email-Julia.Lawall@lip6.fr>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2013/08/05 12:49, Daniel Borkmann wrote:
-> Commit 91657eafb ("xfrm: take net hdr len into account for esp payload
-> size calculation") introduced a possible interger overflow in
-> esp{4,6}_get_mtu() handlers in case of x->props.mode equals
-> XFRM_MODE_TUNNEL. Thus, the following expression will overflow
-> 
->   unsigned int net_adj;
->   ...
->   <case ipv{4,6} XFRM_MODE_TUNNEL>
->          net_adj = 0;
->   ...
->   return ((mtu - x->props.header_len - crypto_aead_authsize(esp->aead) -
->            net_adj) & ~(align - 1)) + (net_adj - 2);
-> 
-> where (net_adj - 2) would be evaluated as <foo> + (0 - 2) in an unsigned
-> context. Fix it by simply removing brackets as those operations here
+From: Julia Lawall <Julia.Lawall@lip6.fr>
 
-I can see this creating problems if there was comparison or type
-promotion, but I don't see an integer overflow.
+Drop the semicolon at the end of the list_for_each_entry loop header.
 
-In any case, it is right to remove the parentheses. They are dubious
-style at the expense of correctness. They have no effect in this case.
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Acked-by: Benjamin Poirier <bpoirier@suse.de>
+---
+Not tested, but I can't imagine how the current code could work, since vsk
+should end up pointing to a dummy value.
 
-> do not need to have special precedence.
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Benjamin Poirier <bpoirier@suse.de>
-> Cc: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
->  Note: only compile tested, maybe Benjamin can comment on why he added
->        brackets around this expression. *If* this is valid (which I do
->        not think), then this needs at least a big comment explaining so.
-> 
->  net/ipv4/esp4.c | 2 +-
->  net/ipv6/esp6.c | 2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-> index ab3d814..109ee89 100644
-> --- a/net/ipv4/esp4.c
-> +++ b/net/ipv4/esp4.c
-> @@ -477,7 +477,7 @@ static u32 esp4_get_mtu(struct xfrm_state *x, int mtu)
->  	}
->  
->  	return ((mtu - x->props.header_len - crypto_aead_authsize(esp->aead) -
-> -		 net_adj) & ~(align - 1)) + (net_adj - 2);
-> +		 net_adj) & ~(align - 1)) + net_adj - 2;
->  }
->  
->  static void esp4_err(struct sk_buff *skb, u32 info)
-> diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-> index 40ffd72..aeac0dc 100644
-> --- a/net/ipv6/esp6.c
-> +++ b/net/ipv6/esp6.c
-> @@ -425,7 +425,7 @@ static u32 esp6_get_mtu(struct xfrm_state *x, int mtu)
->  		net_adj = 0;
->  
->  	return ((mtu - x->props.header_len - crypto_aead_authsize(esp->aead) -
-> -		 net_adj) & ~(align - 1)) + (net_adj - 2);
-> +		 net_adj) & ~(align - 1)) + net_adj - 2;
->  }
->  
->  static void esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
-> -- 
-> 1.7.11.7
-> 
+ net/vmw_vsock/af_vsock.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+index 593071d..4d93346 100644
+--- a/net/vmw_vsock/af_vsock.c
++++ b/net/vmw_vsock/af_vsock.c
+@@ -347,7 +347,7 @@ void vsock_for_each_connected_socket(void (*fn)(struct sock *sk))
+ 	for (i = 0; i < ARRAY_SIZE(vsock_connected_table); i++) {
+ 		struct vsock_sock *vsk;
+ 		list_for_each_entry(vsk, &vsock_connected_table[i],
+-				    connected_table);
++				    connected_table)
+ 			fn(sk_vsock(vsk));
+ 	}
+ 
+
