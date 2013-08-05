@@ -1,84 +1,93 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH v2 4/4] USBNET: ax88179_178a: enable tso if usb host supports sg dma
-Date: Mon,  5 Aug 2013 16:47:03 +0800
-Message-ID: <1375692423-9497-5-git-send-email-ming.lei@canonical.com>
-References: <1375692423-9497-1-git-send-email-ming.lei@canonical.com>
-Cc: Oliver Neukum <oneukum@suse.de>,
-	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Ming Lei <ming.lei@canonical.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Grant Grundler <grundler@google.com>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Freddy Xin <freddy@asix.com.tw>
-To: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH 1/4] bna: Staticize local functions
+Date: Mon, 05 Aug 2013 18:00:04 +0900
+Message-ID: <002001ce91ba$2d4b7eb0$87e27c10$@samsung.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, 'Rasesh Mody' <rmody@brocade.com>,
+	Jingoo Han <jg1.han@samsung.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:36535 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755277Ab3HEIsO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 04:48:14 -0400
-In-Reply-To: <1375692423-9497-1-git-send-email-ming.lei@canonical.com>
+Received: from mailout3.samsung.com ([203.254.224.33]:11618 "EHLO
+	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754836Ab3HEJAH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 05:00:07 -0400
+Received: from epcpsbgr1.samsung.com
+ (u141.gpu120.samsung.co.kr [203.254.230.141])
+ by mailout3.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MR100BAEVMDKAL0@mailout3.samsung.com> for
+ netdev@vger.kernel.org; Mon, 05 Aug 2013 18:00:05 +0900 (KST)
+Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables 'can_dma_sg' flag for ax88179_178a device
-if the attached host controller supports building packet from
-discontinuous buffers(DMA SG is possible), so TSO can be enabled
-and skb fragment buffers can be passed to usb stack via urb->sg
-directly.
+bna_rx_sm_stop_wait_entry(), bna_rx_sm_rxf_stop_wait_entry(),
+bna_rx_sm_started_entry(), bna_rx_sm_cleanup_wait_entry(),
+and bna_rx_sm_cleanup_wait() are used only in this file.
+Fix the following sparse warnings:
 
-With the patch, system CPU utilization decreased ~50% and throughput
-increased by ~10% when doing iperf client test on one ARM A15 dual
-core board.
+drivers/net/ethernet/brocade/bna/bna_tx_rx.c:1423:1: warning: symbol 'bna_rx_sm_stop_wait_entry' was not declared. Should it be
+static?
+drivers/net/ethernet/brocade/bna/bna_tx_rx.c:1476:1: warning: symbol 'bna_rx_sm_rxf_stop_wait_entry' was not declared. Should it be
+static?
+drivers/net/ethernet/brocade/bna/bna_tx_rx.c:1532:1: warning: symbol 'bna_rx_sm_started_entry' was not declared. Should it be
+static?
+drivers/net/ethernet/brocade/bna/bna_tx_rx.c:1597:1: warning: symbol 'bna_rx_sm_cleanup_wait_entry' was not declared. Should it be
+static?
+drivers/net/ethernet/brocade/bna/bna_tx_rx.c:1602:1: warning: symbol 'bna_rx_sm_cleanup_wait' was not declared. Should it be static?
 
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Ben Hutchings <bhutchings@solarflare.com>
-Cc: Grant Grundler <grundler@google.com>
-Cc: Oliver Neukum <oneukum@suse.de>
-Cc: Alan Stern <stern@rowland.harvard.edu>
-Cc: Freddy Xin <freddy@asix.com.tw>
-Signed-off-by: Ming Lei <ming.lei@canonical.com>
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 ---
- drivers/net/usb/ax88179_178a.c |   12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ drivers/net/ethernet/brocade/bna/bna_tx_rx.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
-index fb0caa2..7a96326 100644
---- a/drivers/net/usb/ax88179_178a.c
-+++ b/drivers/net/usb/ax88179_178a.c
-@@ -1031,12 +1031,20 @@ static int ax88179_bind(struct usbnet *dev, struct usb_interface *intf)
- 	dev->mii.phy_id = 0x03;
- 	dev->mii.supports_gmii = 1;
+diff --git a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
+index 57cd1bf..3c07064 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
++++ b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
+@@ -1419,7 +1419,7 @@ static void bna_rx_sm_start_wait_entry(struct bna_rx *rx)
+ 	bna_bfi_rx_enet_start(rx);
+ }
  
-+	if (usb_device_no_sg_constraint(dev->udev))
-+		dev->can_dma_sg = 1;
-+
- 	dev->net->features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 			      NETIF_F_RXCSUM;
+-void
++static void
+ bna_rx_sm_stop_wait_entry(struct bna_rx *rx)
+ {
+ }
+@@ -1472,7 +1472,7 @@ static void bna_rx_sm_rxf_start_wait_entry(struct bna_rx *rx)
+ 	bna_rxf_start(&rx->rxf);
+ }
  
- 	dev->net->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 				 NETIF_F_RXCSUM;
+-void
++static void
+ bna_rx_sm_rxf_stop_wait_entry(struct bna_rx *rx)
+ {
+ }
+@@ -1528,7 +1528,7 @@ bna_rx_sm_start_stop_wait(struct bna_rx *rx, enum bna_rx_event event)
+ 	}
+ }
  
-+	if (dev->can_dma_sg) {
-+		dev->net->features |= NETIF_F_SG | NETIF_F_TSO;
-+		dev->net->hw_features |= NETIF_F_SG | NETIF_F_TSO;
-+	}
-+
- 	/* Enable checksum offload */
- 	*tmp = AX_RXCOE_IP | AX_RXCOE_TCP | AX_RXCOE_UDP |
- 	       AX_RXCOE_TCPV6 | AX_RXCOE_UDPV6;
-@@ -1310,6 +1318,10 @@ static int ax88179_reset(struct usbnet *dev)
+-void
++static void
+ bna_rx_sm_started_entry(struct bna_rx *rx)
+ {
+ 	struct bna_rxp *rxp;
+@@ -1593,12 +1593,12 @@ static void bna_rx_sm_rxf_start_wait(struct bna_rx *rx,
+ 	}
+ }
  
- 	dev->net->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 				 NETIF_F_RXCSUM;
-+	if (dev->can_dma_sg) {
-+		dev->net->features |= NETIF_F_SG | NETIF_F_TSO;
-+		dev->net->hw_features |= NETIF_F_SG | NETIF_F_TSO;
-+	}
+-void
++static void
+ bna_rx_sm_cleanup_wait_entry(struct bna_rx *rx)
+ {
+ }
  
- 	/* Enable checksum offload */
- 	*tmp = AX_RXCOE_IP | AX_RXCOE_TCP | AX_RXCOE_UDP |
+-void
++static void
+ bna_rx_sm_cleanup_wait(struct bna_rx *rx, enum bna_rx_event event)
+ {
+ 	switch (event) {
 -- 
-1.7.9.5
+1.7.10.4
