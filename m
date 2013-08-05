@@ -1,58 +1,70 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net-next PATCH v2 1/1] drivers: net: cpsw: Add support for new CPSW IP version
-Date: Mon, 5 Aug 2013 17:30:05 +0530
-Message-ID: <1375704005-3856-1-git-send-email-mugunthanvnm@ti.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next] bonding: RCUify bond_set_rx_mode()
+Date: Mon, 5 Aug 2013 14:31:03 +0200
+Message-ID: <20130805123103.GH22756@redhat.com>
+References: <1375694776-3429-1-git-send-email-vfalico@redhat.com>
+ <51FF7CC4.7010806@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <linux-omap@vger.kernel.org>,
-	<balbi@ti.com>, Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:2564 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751456Ab3HEMb5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Aug 2013 08:31:57 -0400
+Content-Disposition: inline
+In-Reply-To: <51FF7CC4.7010806@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The new IP version has a minor changes and the offsets are same as the
-previous version, so adding new IP version support in the driver.
+On Mon, Aug 05, 2013 at 12:21:56PM +0200, Nikolay Aleksandrov wrote:
+>On 08/05/2013 11:26 AM, Veaceslav Falico wrote:
+>> Currently, we might easily deadlock with bond_set_rx_mode() and
+>> bond_hw_addr_swap(). bond_set_rx_mode() is called via dev_set_rx_mode(),
+>> which already holds the netif_addr_lock_bh(bond), and inside it takes the
+>> bond->curr_active_slave lock, while bond_hw_addr_swap() is called with
+>> bond->curr_active_slave lock held and then takes netif_addr_lock_bh(bond),
+>> which results in deadlock.
+>>
+>> CPU0                    CPU1
+>> ----                    ----
+>> lock(&bonding_netdev_addr_lock_key);
+>> 			lock(&bond->curr_slave_lock);
+>> 			lock(&bonding_netdev_addr_lock_key);
+>> lock(&bond->curr_slave_lock);
+>>
+>> Fix this by using the RCU primites in bond_set_rx_mode(). We're safe wrt
+>> racing of dev_?c_(un)sync() because we hold
+>> lock(&bonding_netdev_addr_lock_key), and thus nobody will be able to modify
+>> these lists before we finish.
+>>
+>Hi,
+>I don't think this deadlock can actually happen because bond_hw_addr_swap() is
+>called from bond_change_active_slave() only in USES_PRIMARY mode, and in such
+>mode it's always called with rtnl acquired before that, and since
+>dev_set_rx_mode is called with rtnl, IMO such deadlock can't happen.
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-Reviewed-by: Felipe Balbi <balbi@ti.com>
----
-Changes from intial version
-* changed the implementation to introduce new version intead of falling to
-  latest version when it is unknown version.
+Yep, indeed, missed the part with USES_PRIMARY(). So the lockdep had a
+false alarm.
 
----
- drivers/net/ethernet/ti/cpsw.c | 3 +++
- 1 file changed, 3 insertions(+)
+>Also I think bond_set_rx_mode() can work without RCU because of the held rtnl
+>and converted to ASSERT_RTNL (this is optional) + rtnl_dereference for the
+>curr_active_slave.
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index db6933e..cd95671 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -82,6 +82,7 @@ do {								\
- 
- #define CPSW_VERSION_1		0x19010a
- #define CPSW_VERSION_2		0x19010c
-+#define CPSW_VERSION_3		0x19010f
- 
- #define HOST_PORT_NUM		0
- #define SLIVER_SIZE		0x40
-@@ -991,6 +992,7 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
- 		slave_write(slave, TX_PRIORITY_MAPPING, CPSW1_TX_PRI_MAP);
- 		break;
- 	case CPSW_VERSION_2:
-+	case CPSW_VERSION_3:
- 		slave_write(slave, TX_PRIORITY_MAPPING, CPSW2_TX_PRI_MAP);
- 		break;
- 	}
-@@ -2015,6 +2017,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 		dma_params.desc_mem_phys = 0;
- 		break;
- 	case CPSW_VERSION_2:
-+	case CPSW_VERSION_3:
- 		priv->host_port_regs = ss_regs + CPSW2_HOST_PORT_OFFSET;
- 		priv->cpts->reg      = ss_regs + CPSW2_CPTS_OFFSET;
- 		priv->hw_stats	     = ss_regs + CPSW2_HW_STATS;
--- 
-1.8.4.rc0.11.g35f5eaa
+Yes, we don't need the real rcu cause we're under rtnl and everybody else
+who touches it also is under rtnl. Awesome catch.
 
+Thanks, will resubmit another patch (hard to call it v2...).
+
+>
+>Cheers,
+> Nik
+>
+>> CC: Jay Vosburgh <fubar@us.ibm.com>
+>> CC: Andy Gospodarek <andy@greyhouse.net>
+>> CC: Nikolay Aleksandrov <nikolay@redhat.com>
+>> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+>> ---
+>
