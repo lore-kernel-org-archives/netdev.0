@@ -1,47 +1,37 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] hostap: do not return positive number on failure path in prism2_open()
-Date: Mon,  5 Aug 2013 07:18:28 +0400
-Message-ID: <1375672708-3017-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Jouni Malinen <j@w1.fi>,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH] hostap: do not return positive number on failure path
+ in prism2_open()
+Date: Sun, 04 Aug 2013 20:33:36 -0700
+Message-ID: <1375673616.3133.23.camel@joe-AO722>
+References: <1375672708-3017-1-git-send-email-khoroshilov@ispras.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jouni Malinen <j@w1.fi>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ldv-project-tpLiQldItUH5n4uC9ZG1Ww@public.gmane.org
+To: Alexey Khoroshilov <khoroshilov-ufN2psIa012HXe+LvDLADg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1375672708-3017-1-git-send-email-khoroshilov-ufN2psIa012HXe+LvDLADg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-prism2_open() as an .ndo_open handler should not return positive numbers
-in case of failure, but it does return 1 in a couple of places.
+On Mon, 2013-08-05 at 07:18 +0400, Alexey Khoroshilov wrote:
+> prism2_open() as an .ndo_open handler should not return positive numbers
+> in case of failure, but it does return 1 in a couple of places.
+> 
+> Found by Linux Driver Verification project (linuxtesting.org).
 
-Found by Linux Driver Verification project (linuxtesting.org).
+How?
 
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- drivers/net/wireless/hostap/hostap_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+http://linuxtesting.org/project/ldv
+http://linuxtesting.org/results/ldv
 
-diff --git a/drivers/net/wireless/hostap/hostap_main.c b/drivers/net/wireless/hostap/hostap_main.c
-index 15f0fad..e4f56ad 100644
---- a/drivers/net/wireless/hostap/hostap_main.c
-+++ b/drivers/net/wireless/hostap/hostap_main.c
-@@ -667,7 +667,7 @@ static int prism2_open(struct net_device *dev)
- 	if (local->no_pri) {
- 		printk(KERN_DEBUG "%s: could not set interface UP - no PRI "
- 		       "f/w\n", dev->name);
--		return 1;
-+		return -ENODEV;
- 	}
- 
- 	if ((local->func->card_present && !local->func->card_present(local)) ||
-@@ -682,7 +682,7 @@ static int prism2_open(struct net_device *dev)
- 		printk(KERN_WARNING "%s: could not enable MAC port\n",
- 		       dev->name);
- 		prism2_close(dev);
--		return 1;
-+		return -ENODEV;
- 	}
- 	if (!local->dev_enabled)
- 		prism2_callback(local, PRISM2_CALLBACK_ENABLE);
--- 
-1.8.1.2
+Shows defects and patches to fix them, but not any script
+used to find it.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
