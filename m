@@ -1,85 +1,89 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next v6 1/8] vxlan: Restructure vxlan socket apis.
-Date: Mon, 5 Aug 2013 11:24:23 -0700
-Message-ID: <CALnjE+pjh5eOG-A0jQkyqkTcx2exhme_xQonFg6V9EvxzCxgpQ@mail.gmail.com>
-References: <1375382680-3137-1-git-send-email-pshelar@nicira.com>
-	<20130804144215.640c9336@nehalam.linuxnetplumber.net>
-	<CALnjE+oZkX6FkVaaJeYz2C9SgY0hcRi6xKjxsSh+5Q=PoH7qFQ@mail.gmail.com>
-	<20130805111021.62430fc5@nehalam.linuxnetplumber.net>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next] bonding: RCUify bond_set_rx_mode()
+Date: Mon, 5 Aug 2013 20:31:11 +0200
+Message-ID: <20130805183111.GA3383@redhat.com>
+References: <1375694776-3429-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog103.obsmtp.com ([74.125.149.71]:57519 "HELO
-	na3sys009aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754362Ab3HESYY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 14:24:24 -0400
-Received: by mail-qe0-f50.google.com with SMTP id q19so1937128qeb.9
-        for <netdev@vger.kernel.org>; Mon, 05 Aug 2013 11:24:23 -0700 (PDT)
-In-Reply-To: <20130805111021.62430fc5@nehalam.linuxnetplumber.net>
+Received: from mx1.redhat.com ([209.132.183.28]:48428 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754062Ab3HEScG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Aug 2013 14:32:06 -0400
+Content-Disposition: inline
+In-Reply-To: <1375694776-3429-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 5, 2013 at 11:10 AM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Mon, 5 Aug 2013 08:49:36 -0700
-> Pravin Shelar <pshelar@nicira.com> wrote:
+On Mon, Aug 05, 2013 at 11:26:16AM +0200, Veaceslav Falico wrote:
+>Currently, we might easily deadlock with bond_set_rx_mode() and
+>bond_hw_addr_swap(). bond_set_rx_mode() is called via dev_set_rx_mode(),
+>which already holds the netif_addr_lock_bh(bond), and inside it takes the
+>bond->curr_active_slave lock, while bond_hw_addr_swap() is called with
+>bond->curr_active_slave lock held and then takes netif_addr_lock_bh(bond),
+>which results in deadlock.
 >
->> On Sun, Aug 4, 2013 at 2:42 PM, Stephen Hemminger
->> <stephen@networkplumber.org> wrote:
->> > On Thu,  1 Aug 2013 11:44:40 -0700
->> > Pravin B Shelar <pshelar@nicira.com> wrote:
->> >
->> >> @@ -1642,59 +1651,56 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port)
->> >>                        &vxlan_addr.sin_addr, ntohs(vxlan_addr.sin_port), rc);
->> >>               sk_release_kernel(sk);
->> >>               kfree(vs);
->> >> -             return ERR_PTR(rc);
->> >> +             return;
->> >>       }
->> >> +     atomic_set(&vs->refcnt, 0);
->> >>
->> >>       /* Disable multicast loopback */
->> >>       inet_sk(sk)->mc_loop = 0;
->> >> +     spin_lock(&vn->sock_lock);
->> >> +     hlist_add_head_rcu(&vs->hlist, vs_head(net, port));
->> >> +     spin_unlock(&vn->sock_lock);
->> >
->> > Overall I am fine with this set, except for this.
->> > The change causes a socket to be put into the hash list with a ref count
->> > of 0 and then you increment the ref count. If some other thread
->> > finds the socket and then decrements the ref count, it would go
->> > below zero and might leak, crash or delete it prematurely.
->> >
->> > This concerns me.
->>
->> There is no code path which decrements ref-cnt after lookup. Therefore
->> above case is not possible.
->> But I agree this does not look good, so I will change it so not to
->> have refcnt zero vs on hash-table.
+>CPU0                    CPU1
+>----                    ----
+>lock(&bonding_netdev_addr_lock_key);
+>			lock(&bond->curr_slave_lock);
+>			lock(&bonding_netdev_addr_lock_key);
+>lock(&bond->curr_slave_lock);
 >
-> I was concerned about:
+>Fix this by using the RCU primites in bond_set_rx_mode(). We're safe wrt
+>racing of dev_?c_(un)sync() because we hold
+>lock(&bonding_netdev_addr_lock_key), and thus nobody will be able to modify
+>these lists before we finish.
 >
-> CPU 0:
->    vxlan_socket_create
->      Make a vs structure with refcnt == 0
->      Add it to hlist
+>CC: Jay Vosburgh <fubar@us.ibm.com>
+>CC: Andy Gospodarek <andy@greyhouse.net>
+>CC: Nikolay Aleksandrov <nikolay@redhat.com>
+>Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+
+Self-NAK, for clarity. Posted a reworked patch - "[net-next] bonding: remove
+locking from bond_set_rx_mode()" for the same issue.
+
+>---
+> drivers/net/bonding/bond_main.c |   10 ++++------
+> 1 files changed, 4 insertions(+), 6 deletions(-)
 >
->      <preempt or other long IRQ>
->                                          CPU 1: Another vxlan being setup (batch script?)
->                                                 vxlan_init
->                                                      vxlan_find_port finds that vs
->                                                      atomic_inc(refcnt) now 1
->                                           <close or error>
->                                                 vxlan_uninit
->                                                   vxlan_sock_release
->                                                      atomic_dec_and_test (now 0)
->                                                        delete from hlist
->                                                        queue work for deletion
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index 476df7d..fdc01c6 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -3571,24 +3571,22 @@ static void bond_set_rx_mode(struct net_device *bond_dev)
+> 	struct bonding *bond = netdev_priv(bond_dev);
+> 	struct slave *slave;
 >
->      now decides to continue with vs
->      Either vs is already freed, or it exists
->      in limbo
+>-	read_lock(&bond->lock);
+>+	rcu_read_lock();
 >
-ok, I see problem. v7 version fixes this issue.
+> 	if (USES_PRIMARY(bond->params.mode)) {
+>-		read_lock(&bond->curr_slave_lock);
+>-		slave = bond->curr_active_slave;
+>+		slave = rcu_dereference(bond->curr_active_slave);
+> 		if (slave) {
+> 			dev_uc_sync(slave->dev, bond_dev);
+> 			dev_mc_sync(slave->dev, bond_dev);
+> 		}
+>-		read_unlock(&bond->curr_slave_lock);
+> 	} else {
+>-		bond_for_each_slave(bond, slave) {
+>+		bond_for_each_slave_rcu(bond, slave) {
+> 			dev_uc_sync_multiple(slave->dev, bond_dev);
+> 			dev_mc_sync_multiple(slave->dev, bond_dev);
+> 		}
+> 	}
+>
+>-	read_unlock(&bond->lock);
+>+	rcu_read_unlock();
+> }
+>
+> static int bond_neigh_init(struct neighbour *n)
+>-- 
+>1.7.1
+>
