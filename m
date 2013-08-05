@@ -1,23 +1,25 @@
 From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 3/4] net: micrel: Staticize local functions
-Date: Mon, 05 Aug 2013 18:03:00 +0900
-Message-ID: <002301ce91ba$9605cc30$c2116490$@samsung.com>
+Subject: [PATCH 4/4] net: mlx4: Staticize local functions
+Date: Mon, 05 Aug 2013 18:04:51 +0900
+Message-ID: <002401ce91ba$d8025860$88070920$@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jingoo Han <jg1.han@samsung.com>
+Cc: netdev@vger.kernel.org, 'Yevgeny Petrilin' <yevgenyp@mellanox.com>,
+	'Eugenia Emantayev' <eugenia@mellanox.com>,
+	Jingoo Han <jg1.han@samsung.com>
 To: "'David S. Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.samsung.com ([203.254.224.24]:37431 "EHLO
-	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754857Ab3HEJDG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 05:03:06 -0400
-Received: from epcpsbgr2.samsung.com
- (u142.gpu120.samsung.co.kr [203.254.230.142])
- by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+Received: from mailout4.samsung.com ([203.254.224.34]:14362 "EHLO
+	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752112Ab3HEJEw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 05:04:52 -0400
+Received: from epcpsbgr3.samsung.com
+ (u143.gpu120.samsung.co.kr [203.254.230.143])
+ by mailout4.samsung.com (Oracle Communications Messaging Server 7u4-24.01
  (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MR100K66VT17NK0@mailout1.samsung.com> for
- netdev@vger.kernel.org; Mon, 05 Aug 2013 18:03:01 +0900 (KST)
+ with ESMTP id <0MR10018YVW1TXK0@mailout4.samsung.com> for
+ netdev@vger.kernel.org; Mon, 05 Aug 2013 18:04:51 +0900 (KST)
 Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,72 +27,46 @@ List-ID: <netdev.vger.kernel.org>
 These local functions are used only in this file.
 Fix the following sparse warnings:
 
-drivers/net/ethernet/micrel/ks8842.c:708:6: warning: symbol 'ks8842_handle_rx' was not declared. Should it be static?
-drivers/net/ethernet/micrel/ks8842.c:718:6: warning: symbol 'ks8842_handle_tx' was not declared. Should it be static?
-drivers/net/ethernet/micrel/ks8842.c:727:6: warning: symbol 'ks8842_handle_rx_overrun' was not declared. Should it be static?
-drivers/net/ethernet/micrel/ks8842.c:735:6: warning: symbol 'ks8842_tasklet' was not declared. Should it be static?
-drivers/net/ethernet/micrel/ks8851_mll.c:691:6: warning: symbol 'ks_enable_qmu' was not declared. Should it be static?
+drivers/net/ethernet/mellanox/mlx4/cmd.c:803:5: warning: symbol 'MLX4_CMD_UPDATE_QP_wrapper' was not declared. Should it be static?
+drivers/net/ethernet/mellanox/mlx4/cmd.c:812:5: warning: symbol 'MLX4_CMD_GET_OP_REQ_wrapper' was not declared. Should it be static?
+drivers/net/ethernet/mellanox/mlx4/cmd.c:1547:5: warning: symbol 'mlx4_master_immediate_activate_vlan_qos' was not declared. Should
+it be static?
 
 Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 ---
- drivers/net/ethernet/micrel/ks8842.c     |   10 ++++++----
- drivers/net/ethernet/micrel/ks8851_mll.c |    2 +-
- 2 files changed, 7 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/cmd.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/micrel/ks8842.c b/drivers/net/ethernet/micrel/ks8842.c
-index e393d99..94b3bd6 100644
---- a/drivers/net/ethernet/micrel/ks8842.c
-+++ b/drivers/net/ethernet/micrel/ks8842.c
-@@ -705,7 +705,8 @@ static void ks8842_rx_frame(struct net_device *netdev,
- 	ks8842_enable_bits(adapter, 0, 1 << 12, REG_QRFCR);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index 141322c..ea20182 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -800,7 +800,7 @@ static int mlx4_MAD_IFC_wrapper(struct mlx4_dev *dev, int slave,
+ 				    vhcr->op, MLX4_CMD_TIME_CLASS_C, MLX4_CMD_NATIVE);
  }
  
--void ks8842_handle_rx(struct net_device *netdev, struct ks8842_adapter *adapter)
-+static void ks8842_handle_rx(struct net_device *netdev,
-+	struct ks8842_adapter *adapter)
- {
- 	u16 rx_data = ks8842_read16(adapter, 16, REG_RXMIR) & 0x1fff;
- 	netdev_dbg(netdev, "%s Entry - rx_data: %d\n", __func__, rx_data);
-@@ -715,7 +716,8 @@ void ks8842_handle_rx(struct net_device *netdev, struct ks8842_adapter *adapter)
- 	}
+-int MLX4_CMD_UPDATE_QP_wrapper(struct mlx4_dev *dev, int slave,
++static int MLX4_CMD_UPDATE_QP_wrapper(struct mlx4_dev *dev, int slave,
+ 		     struct mlx4_vhcr *vhcr,
+ 		     struct mlx4_cmd_mailbox *inbox,
+ 		     struct mlx4_cmd_mailbox *outbox,
+@@ -809,7 +809,7 @@ int MLX4_CMD_UPDATE_QP_wrapper(struct mlx4_dev *dev, int slave,
+ 	return -EPERM;
  }
  
--void ks8842_handle_tx(struct net_device *netdev, struct ks8842_adapter *adapter)
-+static void ks8842_handle_tx(struct net_device *netdev,
-+	struct ks8842_adapter *adapter)
- {
- 	u16 sr = ks8842_read16(adapter, 16, REG_TXSR);
- 	netdev_dbg(netdev, "%s - entry, sr: %x\n", __func__, sr);
-@@ -724,7 +726,7 @@ void ks8842_handle_tx(struct net_device *netdev, struct ks8842_adapter *adapter)
- 		netif_wake_queue(netdev);
+-int MLX4_CMD_GET_OP_REQ_wrapper(struct mlx4_dev *dev, int slave,
++static int MLX4_CMD_GET_OP_REQ_wrapper(struct mlx4_dev *dev, int slave,
+ 		     struct mlx4_vhcr *vhcr,
+ 		     struct mlx4_cmd_mailbox *inbox,
+ 		     struct mlx4_cmd_mailbox *outbox,
+@@ -1544,7 +1544,7 @@ static int calculate_transition(u16 oper_vlan, u16 admin_vlan)
+ 	return (2 * (oper_vlan == MLX4_VGT) + (admin_vlan == MLX4_VGT));
  }
  
--void ks8842_handle_rx_overrun(struct net_device *netdev,
-+static void ks8842_handle_rx_overrun(struct net_device *netdev,
- 	struct ks8842_adapter *adapter)
+-int mlx4_master_immediate_activate_vlan_qos(struct mlx4_priv *priv,
++static int mlx4_master_immediate_activate_vlan_qos(struct mlx4_priv *priv,
+ 					    int slave, int port)
  {
- 	netdev_dbg(netdev, "%s: entry\n", __func__);
-@@ -732,7 +734,7 @@ void ks8842_handle_rx_overrun(struct net_device *netdev,
- 	netdev->stats.rx_fifo_errors++;
- }
- 
--void ks8842_tasklet(unsigned long arg)
-+static void ks8842_tasklet(unsigned long arg)
- {
- 	struct net_device *netdev = (struct net_device *)arg;
- 	struct ks8842_adapter *adapter = netdev_priv(netdev);
-diff --git a/drivers/net/ethernet/micrel/ks8851_mll.c b/drivers/net/ethernet/micrel/ks8851_mll.c
-index ac20098..9f3f5db 100644
---- a/drivers/net/ethernet/micrel/ks8851_mll.c
-+++ b/drivers/net/ethernet/micrel/ks8851_mll.c
-@@ -688,7 +688,7 @@ static void ks_soft_reset(struct ks_net *ks, unsigned op)
- }
- 
- 
--void ks_enable_qmu(struct ks_net *ks)
-+static void ks_enable_qmu(struct ks_net *ks)
- {
- 	u16 w;
- 
+ 	struct mlx4_vport_oper_state *vp_oper;
 -- 
 1.7.10.4
