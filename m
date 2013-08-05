@@ -1,72 +1,81 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 4/4] net: mlx4: Staticize local functions
-Date: Mon, 05 Aug 2013 18:04:51 +0900
-Message-ID: <002401ce91ba$d8025860$88070920$@samsung.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: [PATCH net-next] sctp: Pack dst_cookie into 1st cacheline hole for 64bit host
+Date: Mon, 5 Aug 2013 17:13:03 +0800
+Message-ID: <1375693983-22824-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Yevgeny Petrilin' <yevgenyp@mellanox.com>,
-	'Eugenia Emantayev' <eugenia@mellanox.com>,
-	Jingoo Han <jg1.han@samsung.com>
-To: "'David S. Miller'" <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout4.samsung.com ([203.254.224.34]:14362 "EHLO
-	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752112Ab3HEJEw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 05:04:52 -0400
-Received: from epcpsbgr3.samsung.com
- (u143.gpu120.samsung.co.kr [203.254.230.143])
- by mailout4.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MR10018YVW1TXK0@mailout4.samsung.com> for
- netdev@vger.kernel.org; Mon, 05 Aug 2013 18:04:51 +0900 (KST)
-Content-language: ko
+Received: from mail.windriver.com ([147.11.1.11]:61293 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754730Ab3HEJNE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 05:13:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These local functions are used only in this file.
-Fix the following sparse warnings:
+As dst_cookie is used in fast path sctp_transport_dst_check.
 
-drivers/net/ethernet/mellanox/mlx4/cmd.c:803:5: warning: symbol 'MLX4_CMD_UPDATE_QP_wrapper' was not declared. Should it be static?
-drivers/net/ethernet/mellanox/mlx4/cmd.c:812:5: warning: symbol 'MLX4_CMD_GET_OP_REQ_wrapper' was not declared. Should it be static?
-drivers/net/ethernet/mellanox/mlx4/cmd.c:1547:5: warning: symbol 'mlx4_master_immediate_activate_vlan_qos' was not declared. Should
-it be static?
+Before:
+struct sctp_transport {
+	struct list_head           transports;           /*     0    16 */
+	atomic_t                   refcnt;               /*    16     4 */
+	__u32                      dead:1;               /*    20:31  4 */
+	__u32                      rto_pending:1;        /*    20:30  4 */
+	__u32                      hb_sent:1;            /*    20:29  4 */
+	__u32                      pmtu_pending:1;       /*    20:28  4 */
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+	/* XXX 28 bits hole, try to pack */
+
+	__u32                      sack_generation;      /*    24     4 */
+
+	/* XXX 4 bytes hole, try to pack */
+
+	struct flowi               fl;                   /*    32    64 */
+	/* --- cacheline 1 boundary (64 bytes) was 32 bytes ago --- */
+	union sctp_addr            ipaddr;               /*    96    28 */
+
+After:
+struct sctp_transport {
+	struct list_head           transports;           /*     0    16 */
+	atomic_t                   refcnt;               /*    16     4 */
+	__u32                      dead:1;               /*    20:31  4 */
+	__u32                      rto_pending:1;        /*    20:30  4 */
+	__u32                      hb_sent:1;            /*    20:29  4 */
+	__u32                      pmtu_pending:1;       /*    20:28  4 */
+
+	/* XXX 28 bits hole, try to pack */
+
+	__u32                      sack_generation;      /*    24     4 */
+	u32                        dst_cookie;           /*    28     4 */
+	struct flowi               fl;                   /*    32    64 */
+	/* --- cacheline 1 boundary (64 bytes) was 32 bytes ago --- */
+	union sctp_addr            ipaddr;               /*    96    28 */
+
+Signed-off-by: Fan Du <fan.du@windriver.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ include/net/sctp/structs.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 141322c..ea20182 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -800,7 +800,7 @@ static int mlx4_MAD_IFC_wrapper(struct mlx4_dev *dev, int slave,
- 				    vhcr->op, MLX4_CMD_TIME_CLASS_C, MLX4_CMD_NATIVE);
- }
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index c0f4e29..d9c93a7 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -782,6 +782,7 @@ struct sctp_transport {
  
--int MLX4_CMD_UPDATE_QP_wrapper(struct mlx4_dev *dev, int slave,
-+static int MLX4_CMD_UPDATE_QP_wrapper(struct mlx4_dev *dev, int slave,
- 		     struct mlx4_vhcr *vhcr,
- 		     struct mlx4_cmd_mailbox *inbox,
- 		     struct mlx4_cmd_mailbox *outbox,
-@@ -809,7 +809,7 @@ int MLX4_CMD_UPDATE_QP_wrapper(struct mlx4_dev *dev, int slave,
- 	return -EPERM;
- }
+ 	/* Has this transport moved the ctsn since we last sacked */
+ 	__u32 sack_generation;
++	u32 dst_cookie;
  
--int MLX4_CMD_GET_OP_REQ_wrapper(struct mlx4_dev *dev, int slave,
-+static int MLX4_CMD_GET_OP_REQ_wrapper(struct mlx4_dev *dev, int slave,
- 		     struct mlx4_vhcr *vhcr,
- 		     struct mlx4_cmd_mailbox *inbox,
- 		     struct mlx4_cmd_mailbox *outbox,
-@@ -1544,7 +1544,7 @@ static int calculate_transition(u16 oper_vlan, u16 admin_vlan)
- 	return (2 * (oper_vlan == MLX4_VGT) + (admin_vlan == MLX4_VGT));
- }
+ 	struct flowi fl;
  
--int mlx4_master_immediate_activate_vlan_qos(struct mlx4_priv *priv,
-+static int mlx4_master_immediate_activate_vlan_qos(struct mlx4_priv *priv,
- 					    int slave, int port)
- {
- 	struct mlx4_vport_oper_state *vp_oper;
+@@ -946,7 +947,6 @@ struct sctp_transport {
+ 	__u64 hb_nonce;
+ 
+ 	struct rcu_head rcu;
+-	u32 dst_cookie;
+ };
+ 
+ struct sctp_transport *sctp_transport_new(struct net *, const union sctp_addr *,
 -- 
-1.7.10.4
+1.7.9.5
