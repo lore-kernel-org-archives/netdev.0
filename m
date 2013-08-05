@@ -1,50 +1,48 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: changing dev->needed_headroom/needed_tailroom?
-Date: Mon, 05 Aug 2013 16:00:40 +0200
-Message-ID: <1375711240.8120.11.camel@jlt4.sipsolutions.net>
-References: <1374850210.8248.59.camel@jlt4.sipsolutions.net>
-	 <1375433758.24371.20.camel@deadeye.wl.decadent.org.uk>
-	 <1375449082.3927.5.camel@edumazet-glaptop>
-	 (sfid-20130802_151126_631897_9E569FA7)
+From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Subject: Re: [PATCH v2 1/4] USB: introduce usb_device_no_sg_constraint()
+ helper
+Date: Mon, 5 Aug 2013 10:07:34 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1308051005150.1239-100000@iolanthe.rowland.org>
+References: <1375692423-9497-2-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:51397 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752645Ab3HEOAp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 10:00:45 -0400
-In-Reply-To: <1375449082.3927.5.camel@edumazet-glaptop> (sfid-20130802_151126_631897_9E569FA7)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
+	Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1375692423-9497-2-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-08-02 at 06:11 -0700, Eric Dumazet wrote:
-> On Fri, 2013-08-02 at 10:55 +0200, Ben Hutchings wrote:
-> 
-> > I don't think this is safe when the interface is running (even if
-> > carrier is off).  Some functions may read dev->needed_headroom twice and
-> > rely on getting the same value each time.
-> 
-> It should be no problem. Remaining unsafe places should be fixed.
+On Mon, 5 Aug 2013, Ming Lei wrote:
 
-Most interesting would be stack devs, which I hadn't even considered. In
-any case, since I can't completely _rely_ on it, it's an optimisation,
-the only bugs would be around the double-access and then running
-over/under the SKB or so?
+> Some host controllers(such as xHCI) can support building
+> packet from discontinuous buffers, so introduce one flag
+> and helper for this kind of host controllers, then the
+> feature can help some applications(such as usbnet) by
+> supporting arbitrary length of sg buffers.
 
-> We already had this discussion in the past, and some patches were
-> issued. Check commit ae641949df01b85117845bec45328eab6d6fada1
-> ("net: Remove all uses of LL_ALLOCATED_SPACE")
+> +static inline bool usb_device_no_sg_constraint(struct usb_device *udev)
+> +{
+> +	if (udev && udev->bus && udev->bus->no_sg_constraint)
+> +		return true;
+> +	else
+> +		return false;
+> +}
 
-That would have addressed some of that, I guess.
+A more elegant implementation would be:
 
+	return udev && udev->bus && udev->bus->no_sg_constraint;
 
-I'm asking because some of the crypto stuff we do has fairly large
-head/tailroom requirements and it seems I may need to add more. But if
-you don't have crypto, it would be much smaller, so I figured we could
-switch it.
+I doubt it will make any difference to the object code, though.  Apart
+from that, this looks fine.
 
-johannes
+Acked-by: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
