@@ -1,50 +1,306 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next 0/3] bonding: vlan handling changes
-Date: Mon,  5 Aug 2013 15:28:21 +0200
-Message-ID: <1375709304-16778-1-git-send-email-nikolay@redhat.com>
-Cc: fubar@us.ibm.com, andy@greyhouse.net, davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: Re: Alcatel X220S HSDPA modem
+Date: Mon, 5 Aug 2013 15:34:33 +0200 (CEST)
+Message-ID: <alpine.LNX.2.02.1308051533310.15131@eeeadesso>
+References: <alpine.LNX.2.02.1308040157360.1079@eeeadesso> <1375709684.5454.2.camel@dcbw.foobar.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14492 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752156Ab3HENce (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Aug 2013 09:32:34 -0400
+Received: from mail-ea0-f176.google.com ([209.85.215.176]:50109 "EHLO
+	mail-ea0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751821Ab3HENeT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 09:34:19 -0400
+In-Reply-To: <1375709684.5454.2.camel@dcbw.foobar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <Nikolay Aleksandrov nikolay@redhat.com>
+Oh - something like it happens for the E173!
+I'm sorry - I do not have a Windows machine, nor sighted assistance needed to 
+install Windows somewhere.
+So I will have to wait... Or could someone help?
 
-Hi,
-I've queued all of these patches to net-next since they're tightly related
-and the bugs that get fixed are not critical, so it's better to soak the
-changes a bit. Also I'd much rather fix this with the slave list change in.
-If you decide that they need to be posted for -net, let me know.
+Thank you infinitely for your reply!!
 
-Patch 01 - fixes vlan 0 addition/removal since when we have 8021q module
-loaded it gets added to all network devices, this causes the bonding to
-output false warnings, output tagged learning packets (though with 0 tag)
-The fix is by denying the addition/removal of vlan 0 through the ndo_vlan
-functions and do it ourselves in the bond's netdev event handler when a
-vlan 0 is added/removed from a bonding device. Also a small comment fix
-which adds the missing proto parameter.
 
-Patch 02 - switches the bonding to the now standard vlan syncing functions
-vlan_vids_add/del_by_dev() and removes the bonding specific ones.
 
-Patch 03 - reverts vlan addition in case of bond_add_vlan failure because
-otherwise we may get bad vlan refcounts in the slaves.
+On Mon, 5 Aug 2013, Dan Williams wrote:
 
-Best regards,
- Nikolay Aleksandrov
-
-Nikolay Aleksandrov (3):
-  bonding: fix vlan 0 addition and removal
-  bonding: change the bond's vlan syncing functions with the standard
-    ones
-  bonding: unwind on bond_add_vlan add failure
-
- drivers/net/bonding/bond_main.c | 86 +++++++++++++++++++++++++----------------
- 1 file changed, 52 insertions(+), 34 deletions(-)
-
--- 
-1.8.1.4
+==Date: Mon, 05 Aug 2013 08:34:44 -0500
+==From: Dan Williams <dcbw@redhat.com>
+==To: Enrico Mioso <mrkiko.rs@gmail.com>
+==Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+==Subject: Re: Alcatel X220S HSDPA modem
+==
+==On Sun, 2013-08-04 at 01:59 +0200, Enrico Mioso wrote:
+==> Hello everybody!
+==> I'm going to investigate a little bit on an obscure Alcatel device - the 
+==> Alcatel X220s, manifactured by TCT Mobile Phones.
+==> 
+==> It supports a NDIS network interface, as you will be able to discover looking 
+==> at the driver package, still: don't know what's the protocol used.
+==> At a first glance, I would just like to avoid option.ko binding to non-serial 
+==> interface as it happens now. So I would appreciate it a lot if you help me 
+==> distinguish non-serial interfaces from serial ones, looking at this lsusb 
+==> listing and the driver package (see link below).
+==> 
+==> Another strange thing is - the device interface referred as the WAN one is "06"
+==> but here we ave from 0 to 5 interfaces!
+==> Looking at this msdn article, it seems Windows does no elaboration regarding 
+==> the InterfaceNumber field. So - am I missing an interface or does Windows start 
+==> numbering interfaces from 1?
+==
+==Some devices expose different USB layouts based on the command that's
+==sent to them to "switch" them from fake-driver-CD mode to modem mode.
+==If you're at all able to sniff the modeswitch command maybe we could see
+==if it's the same one as what usb_modeswitch sends on Linux?
+==
+==Dan
+==
+==> Driver package link:
+==> http://www.gstorm.eu/dgm/alcdrv.tar.xz
+==> (I simply decompressed the Innosetup installer to let you browse these files 
+==> with no major issues!)
+==> 
+==> Any help and documentation would be greatly apreciated!!
+==> 
+==> 
+==> Bus 001 Device 002: ID 1bbb:0017 T & A Mobile Phones 
+==> Device Descriptor:
+==>    bLength                18
+==>    bDescriptorType         1
+==>    bcdUSB               2.00
+==>    bDeviceClass            0 (Defined at Interface level)
+==>    bDeviceSubClass         0
+==>    bDeviceProtocol         0
+==>    bMaxPacketSize0        64
+==>    idVendor           0x1bbb T & A Mobile Phones
+==>    idProduct          0x0017
+==>    bcdDevice            0.00
+==>    iManufacturer           3 USBModem
+==>    iProduct                2 HSPA Data Card
+==>    iSerial                 4 1234567890ABCDEF
+==>    bNumConfigurations      1
+==>    Configuration Descriptor:
+==>      bLength                 9
+==>      bDescriptorType         2
+==>      wTotalLength          154
+==>      bNumInterfaces          6
+==>      bConfigurationValue     1
+==>      iConfiguration          1 USBModem Configuration
+==>      bmAttributes         0xa0
+==>        (Bus Powered)
+==>        Remote Wakeup
+==>      MaxPower              500mA
+==>      Interface Descriptor:
+==>        bLength                 9
+==>        bDescriptorType         4
+==>        bInterfaceNumber        0
+==>        bAlternateSetting       0
+==>        bNumEndpoints           2
+==>        bInterfaceClass       255 Vendor Specific Class
+==>        bInterfaceSubClass    255 Vendor Specific Subclass
+==>        bInterfaceProtocol    255 Vendor Specific Protocol
+==>        iInterface              0
+==>        Endpoint Descriptor:
+==>          bLength                 7
+==>          bDescriptorType         5
+==>          bEndpointAddress     0x81  EP 1 IN
+==>          bmAttributes            2
+==>            Transfer Type            Bulk
+==>            Synch Type               None
+==>            Usage Type               Data
+==>          wMaxPacketSize     0x0200  1x 512 bytes
+==>          bInterval              32
+==>        Endpoint Descriptor:
+==>          bLength                 7
+==>          bDescriptorType         5
+==>          bEndpointAddress     0x01  EP 1 OUT
+==>          bmAttributes            2
+==>            Transfer Type            Bulk
+==>            Synch Type               None
+==>            Usage Type               Data
+==>          wMaxPacketSize     0x0200  1x 512 bytes
+==>          bInterval              32
+==>      Interface Descriptor:
+==>        bLength                 9
+==>        bDescriptorType         4
+==>        bInterfaceNumber        1
+==>        bAlternateSetting       0
+==>        bNumEndpoints           2
+==>        bInterfaceClass       255 Vendor Specific Class
+==>        bInterfaceSubClass    255 Vendor Specific Subclass
+==>        bInterfaceProtocol    255 Vendor Specific Protocol
+==>        iInterface              0
+==>        Endpoint Descriptor:
+==>          bLength                 7
+==>          bDescriptorType         5
+==>          bEndpointAddress     0x82  EP 2 IN
+==>          bmAttributes            2
+==>            Transfer Type            Bulk
+==>            Synch Type               None
+==>            Usage Type               Data
+==>          wMaxPacketSize     0x0200  1x 512 bytes
+==>          bInterval              32
+==>        Endpoint Descriptor:
+==>          bLength                 7
+==>          bDescriptorType         5
+==>          bEndpointAddress     0x02  EP 2 OUT
+==>          bmAttributes            2
+==>            Transfer Type            Bulk
+==>            Synch Type               None
+==>            Usage Type               Data
+==>          wMaxPacketSize     0x0200  1x 512 bytes
+==>          bInterval              32
+==>      Interface Descriptor:
+==>        bLength                 9
+==>        bDescriptorType         4
+==>        bInterfaceNumber        2
+==>        bAlternateSetting       0
+==>        bNumEndpoints           2
+==>        bInterfaceClass       255 Vendor Specific Class
+==>        bInterfaceSubClass    255 Vendor Specific Subclass
+==>        bInterfaceProtocol    255 Vendor Specific Protocol
+==>        iInterface              0
+==>        Endpoint Descriptor:
+==>          bLength                 7
+==>          bDescriptorType         5
+==>          bEndpointAddress     0x83  EP 3 IN
+==>          bmAttributes            2
+==>            Transfer Type            Bulk
+==>            Synch Type               None
+==>            Usage Type               Data
+==>          wMaxPacketSize     0x0200  1x 512 bytes
+==>          bInterval              32
+==>        Endpoint Descriptor:
+==>          bLength                 7
+==>          bDescriptorType         5
+==>          bEndpointAddress     0x03  EP 3 OUT
+==>          bmAttributes            2
+==>            Transfer Type            Bulk
+==>            Synch Type               None
+==>            Usage Type               Data
+==>          wMaxPacketSize     0x0200  1x 512 bytes
+==>          bInterval              32
+==>      Interface Descriptor:
+==>        bLength                 9
+==>        bDescriptorType         4
+==>        bInterfaceNumber        3
+==>        bAlternateSetting       0
+==>        bNumEndpoints           2
+==>        bInterfaceClass       255 Vendor Specific Class
+==>        bInterfaceSubClass    255 Vendor Specific Subclass
+==>        bInterfaceProtocol    255 Vendor Specific Protocol
+==>        iInterface              0
+==>        Endpoint Descriptor:
+==>          bLength                 7
+==>          bDescriptorType         5
+==>          bEndpointAddress     0x84  EP 4 IN
+==>          bmAttributes            2
+==>            Transfer Type            Bulk
+==>            Synch Type               None
+==>            Usage Type               Data
+==>          wMaxPacketSize     0x0200  1x 512 bytes
+==>          bInterval              32
+==>        Endpoint Descriptor:
+==>          bLength                 7
+==>          bDescriptorType         5
+==>          bEndpointAddress     0x04  EP 4 OUT
+==>          bmAttributes            2
+==>            Transfer Type            Bulk
+==>            Synch Type               None
+==>            Usage Type               Data
+==>          wMaxPacketSize     0x0200  1x 512 bytes
+==>          bInterval              32
+==>      Interface Descriptor:
+==>        bLength                 9
+==>        bDescriptorType         4
+==>        bInterfaceNumber        4
+==>        bAlternateSetting       0
+==>        bNumEndpoints           2
+==>        bInterfaceClass         8 Mass Storage
+==>        bInterfaceSubClass      6 SCSI
+==>        bInterfaceProtocol     80 Bulk-Only
+==>        iInterface              0
+==>        Endpoint Descriptor:
+==>          bLength                 7
+==>          bDescriptorType         5
+==>          bEndpointAddress     0x05  EP 5 OUT
+==>          bmAttributes            2
+==>            Transfer Type            Bulk
+==>            Synch Type               None
+==>            Usage Type               Data
+==>          wMaxPacketSize     0x0200  1x 512 bytes
+==>          bInterval               0
+==>        Endpoint Descriptor:
+==>          bLength                 7
+==>          bDescriptorType         5
+==>          bEndpointAddress     0x85  EP 5 IN
+==>          bmAttributes            2
+==>            Transfer Type            Bulk
+==>            Synch Type               None
+==>            Usage Type               Data
+==>          wMaxPacketSize     0x0200  1x 512 bytes
+==>          bInterval               0
+==>      Interface Descriptor:
+==>        bLength                 9
+==>        bDescriptorType         4
+==>        bInterfaceNumber        5
+==>        bAlternateSetting       0
+==>        bNumEndpoints           3
+==>        bInterfaceClass       255 Vendor Specific Class
+==>        bInterfaceSubClass    255 Vendor Specific Subclass
+==>        bInterfaceProtocol    255 Vendor Specific Protocol
+==>        iInterface              0
+==>        Endpoint Descriptor:
+==>          bLength                 7
+==>          bDescriptorType         5
+==>          bEndpointAddress     0x86  EP 6 IN
+==>          bmAttributes            3
+==>            Transfer Type            Interrupt
+==>            Synch Type               None
+==>            Usage Type               Data
+==>          wMaxPacketSize     0x0040  1x 64 bytes
+==>          bInterval               5
+==>        Endpoint Descriptor:
+==>          bLength                 7
+==>          bDescriptorType         5
+==>          bEndpointAddress     0x87  EP 7 IN
+==>          bmAttributes            2
+==>            Transfer Type            Bulk
+==>            Synch Type               None
+==>            Usage Type               Data
+==>          wMaxPacketSize     0x0200  1x 512 bytes
+==>          bInterval              32
+==>        Endpoint Descriptor:
+==>          bLength                 7
+==>          bDescriptorType         5
+==>          bEndpointAddress     0x06  EP 6 OUT
+==>          bmAttributes            2
+==>            Transfer Type            Bulk
+==>            Synch Type               None
+==>            Usage Type               Data
+==>          wMaxPacketSize     0x0200  1x 512 bytes
+==>          bInterval              32
+==> Device Qualifier (for other device speed):
+==>    bLength                10
+==>    bDescriptorType         6
+==>    bcdUSB               2.00
+==>    bDeviceClass            0 (Defined at Interface level)
+==>    bDeviceSubClass         0
+==>    bDeviceProtocol         0
+==>    bMaxPacketSize0        64
+==>    bNumConfigurations      1
+==> Device Status:     0x0001
+==>    Self Powered
+==> 
+==> 
+==> 
+==> --
+==> To unsubscribe from this list: send the line "unsubscribe netdev" in
+==> the body of a message to majordomo@vger.kernel.org
+==> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+==
+==
+==
