@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] Documentation: add networking/netdev-FAQ.txt
-Date: Sun, 04 Aug 2013 19:36:55 -0700 (PDT)
-Message-ID: <20130804.193655.836598721727613299.davem@davemloft.net>
-References: <1375298180-17628-1-git-send-email-paul.gortmaker@windriver.com>
-	<1375670051.8422.6@driftwood>
+Subject: Re: [PATCH net] busy_poll: cleanup do-nothing placeholders
+Date: Sun, 04 Aug 2013 19:41:39 -0700 (PDT)
+Message-ID: <20130804.194139.1872286759580440582.davem@davemloft.net>
+References: <20130804095548.30006.8133.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paul.gortmaker@windriver.com, linux-doc@vger.kernel.org,
-	netdev@vger.kernel.org
-To: rob@landley.net
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1375670051.8422.6@driftwood>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	eliezer@tamir.org.il
+To: eliezer.tamir@linux.intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38117 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754442Ab3HEClk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Aug 2013 22:41:40 -0400
+In-Reply-To: <20130804095548.30006.8133.stgit@ladj378.jer.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rob Landley <rob@landley.net>
-Date: Sun, 04 Aug 2013 21:34:11 -0500
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Date: Sun, 04 Aug 2013 12:55:48 +0300
 
-> Putting it in linux/Documentation means you'll frequently tell newbies
-> "read the FAQ, except it's not on the web, we stuck it in a
-> subdirectory of a sudirectory of the kernel source because that's the
-> obvious place to stick the FAQ for a mailing list".
+> When renaming ll_poll to busy poll, I introduced a typo
+> in the name of the do-nothing placeholder for sk_busy_loop
+> and called it sk_busy_poll.
+> This broke compile when busy poll was not configured.
+> Cong Wang submitted a patch to fixed that.
+> This patch removes the now redundant, misspelled placeholder.
+> 
+> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 
-People who want to do kernel development grab a copy of the kernel
-sources, therefore it's appropriate to document operation aspects
-of kernel development there.
+Applied, thanks.
