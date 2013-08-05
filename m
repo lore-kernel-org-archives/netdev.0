@@ -1,53 +1,41 @@
-From: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Subject: [PATCH net-next] net: Add low-latency/polling support for UDP multicast
-Date: Mon,  5 Aug 2013 17:16:41 -0500
-Message-ID: <1375741001-20553-1-git-send-email-sbohrer@rgmadvisors.com>
-References: <20130805212257.GB6904@sbohrermbp13-local.rgmadvisors.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] fix bonding neighbour setup handling
+Date: Mon, 05 Aug 2013 15:25:03 -0700 (PDT)
+Message-ID: <20130805.152503.1956742286847859646.davem@davemloft.net>
+References: <1375463259-12033-1-git-send-email-vfalico@redhat.com>
+	<20130802.154539.237539535236462726.davem@davemloft.net>
+	<51FFAD54.7090501@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: eliezer.tamir@linux.intel.com, netdev@vger.kernel.org,
-	Amir Vadai <amirv@mellanox.com>, tomk@rgmadvisors.com,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>
-To: davem@davemloft.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vfalico@redhat.com, netdev@vger.kernel.org, fubar@us.ibm.com,
+	andy@greyhouse.net, ebiederm@xmission.com, joe@perches.com
+To: nikolay@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog110.obsmtp.com ([74.125.149.203]:59715 "EHLO
-	na3sys009aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755658Ab3HEWVm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 18:21:42 -0400
-Received: by mail-ob0-f170.google.com with SMTP id eh20so6874901obb.1
-        for <netdev@vger.kernel.org>; Mon, 05 Aug 2013 15:21:41 -0700 (PDT)
-In-Reply-To: <20130805212257.GB6904@sbohrermbp13-local.rgmadvisors.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50322 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754821Ab3HEWZG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 18:25:06 -0400
+In-Reply-To: <51FFAD54.7090501@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Set the napi id for each socket in the multicast path to enable
-low-latency/polling support.
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Date: Mon, 05 Aug 2013 15:49:08 +0200
 
-Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
----
- net/ipv4/udp.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+> Since the cat is out of the bag about this bug, as Vaeceslav discovered it
+> independently and wasn't aware that there's a CVE number pending because it
+> poses a security threat since the dereferenced first_slave pointer is
+> taken from the struct vlan_dev_priv's ingress_priority map array which is
+> user-controllable and any memory address can be dereferenced in that way,
+> and taking after that first_slave->dev->netdev_ops and calling a function
+> from the ops is making it even easier. Of course for that to happen the
+> user must have CAP_NET_ADMIN.
+> I've tested these patches and they apply cleanly on -net as well, so please
+> queue them for -net and stable.
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 766e6ba..0d0da17 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1596,6 +1596,7 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
- 	dif = skb->dev->ifindex;
- 	sk = udp_v4_mcast_next(net, sk, uh->dest, daddr, uh->source, saddr, dif);
- 	while (sk) {
-+		sk_mark_napi_id(sk, skb);
- 		stack[count++] = sk;
- 		sk = udp_v4_mcast_next(net, sk_nulls_next(sk), uh->dest,
- 				       daddr, uh->source, saddr, dif);
--- 
-1.7.7.6
+This is why I absolutely detest closed work on bugs, and prefer
+everything be discussed and implemented openly here on this list,
+without exceptions, and regardless of perceived "severity" of the bug.
 
-
--- 
-
----------------------------------------------------------------
-This email, along with any attachments, is confidential. If you 
-believe you received this message in error, please contact the 
-sender immediately and delete all copies of the message.  
-Thank you.
+Applied to net and queued up for -stable, thanks.
