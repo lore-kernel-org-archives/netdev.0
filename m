@@ -1,28 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mlx5: remove health handler plugin
-Date: Mon, 05 Aug 2013 11:04:30 -0700 (PDT)
-Message-ID: <20130805.110430.466360661828124112.davem@davemloft.net>
-References: <20130805130532.GA26634@mtldesk30>
+Subject: Re: [PATCH] net/vmw_vsock/af_vsock.c: drop unneeded semicolon
+Date: Mon, 05 Aug 2013 11:08:43 -0700 (PDT)
+Message-ID: <20130805.110843.938924468911400543.davem@davemloft.net>
+References: <1375714059-29567-1-git-send-email-Julia.Lawall@lip6.fr>
+	<1375714059-29567-4-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, netdev@vger.kernel.org, ogerlitz@mellanox.com
-To: eli@dev.mellanox.co.il
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47460 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753578Ab3HESEb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 14:04:31 -0400
-In-Reply-To: <20130805130532.GA26634@mtldesk30>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Julia.Lawall@lip6.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1375714059-29567-4-git-send-email-Julia.Lawall@lip6.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eli Cohen <eli@dev.mellanox.co.il>
-Date: Mon, 5 Aug 2013 16:05:32 +0300
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Date: Mon,  5 Aug 2013 16:47:38 +0200
 
-> Remove this code, per Dave Miller's request, since it is not being used
-> anywhere in the kernel.
+> From: Julia Lawall <Julia.Lawall@lip6.fr>
 > 
-> Signed-off-by: Eli Cohen <eli@mellanox.com>
+> Drop the semicolon at the end of the list_for_each_entry loop header.
+> 
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> 
+> ---
+> Not tested, but I can't imagine how the current code could work, since vsk
+> should end up pointing to a dummy value.
 
-Applied, thank you.
+This bug has been there since the code was first checked in, and indeed
+it's going to work on garbage since it's going to pass in the list
+head transformed into a vsock structure.
+
+Applied, thanks Julia.
