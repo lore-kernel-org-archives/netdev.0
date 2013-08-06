@@ -1,83 +1,93 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] tcp: cubic: fix overflow error in bictcp_update()
-Date: Mon, 05 Aug 2013 17:10:15 -0700
-Message-ID: <1375747815.4457.59.camel@edumazet-glaptop>
+From: Alexey Kardashevskiy <aik@ozlabs.ru>
+Subject: Re: BUG cxgb3: Check and handle the dma mapping errors
+Date: Tue, 06 Aug 2013 10:15:55 +1000
+Message-ID: <5200403B.3000206@ozlabs.ru>
+References: <51FF14F8.7000204@ozlabs.ru> <20130805184107.GA2998@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=KOI8-R
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Van Jacobson <vanj@google.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:46556 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751218Ab3HFAKS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 20:10:18 -0400
-Received: by mail-pb0-f54.google.com with SMTP id ro12so4008828pbb.27
-        for <netdev@vger.kernel.org>; Mon, 05 Aug 2013 17:10:18 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Santosh Rastapur <santosh@chelsio.com>,
+	Divy Le Ray <divy@chelsio.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Jay Fenlason <fenlason@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130805184107.GA2998@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On 08/06/2013 04:41 AM, Jay Fenlason wrote:
+> On Mon, Aug 05, 2013 at 12:59:04PM +1000, Alexey Kardashevskiy wrote:
+>> Hi!
+>>
+>> Recently I started getting multiple errors like this:
+>>
+>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+>> c000001fbdaaa882 npages 1
+>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+>> c000001fbdaaa882 npages 1
+>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+>> c000001fbdaaa882 npages 1
+>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+>> c000001fbdaaa882 npages 1
+>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+>> c000001fbdaaa882 npages 1
+>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+>> c000001fbdaaa882 npages 1
+>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+>> c000001fbdaaa882 npages 1
+>> ... and so on
+>>
+>> This is all happening on a PPC64 "powernv" platform machine. To trigger the
+>> error state, it is enough to _flood_ ping CXGB3 card from another machine
+>> (which has Emulex 10Gb NIC + Cisco switch). Just do "ping -f 172.20.1.2"
+>> and wait 10-15 seconds.
+>>
+>>
+>> The messages are coming from arch/powerpc/kernel/iommu.c and basically
+>> mean that the driver requested more pages than the DMA window has which is
+>> normally 1GB (there could be another possible source of errors -
+>> ppc_md.tce_build callback - but on powernv platform it always succeeds).
+>>
+>>
+>> The patch after which it broke is:
+>> commit f83331bab149e29fa2c49cf102c0cd8c3f1ce9f9
+>> Author: Santosh Rastapur <santosh@chelsio.com>
+>> Date:   Tue May 21 04:21:29 2013 +0000
+>> cxgb3: Check and handle the dma mapping errors
+>>
+>> Any quick ideas? Thanks!
+> 
+> That patch adds error checking to detect failed dma mapping requests.
+> Before it, the code always assumed that dma mapping requests succeded,
+> whether they actually do or not, so the fact that the older kernel
+> does not log errors only means that the failures are being ignored,
+> and any appearance of working is through pure luck.  The machine could
+> have just crashed at that point.
 
-commit 17a6e9f1aa9 ("tcp_cubic: fix clock dependency") added an
-overflow error in bictcp_update() in following code :
+>From what I see, the patch adds map_skb() function which is called in two
+new places, so the patch does not just mechanically replace
+skb_frag_dma_map() to map_skb() or something like that.
 
-/* change the unit from HZ to bictcp_HZ */
-t = ((tcp_time_stamp + msecs_to_jiffies(ca->delay_min>>3) -
-      ca->epoch_start) << BICTCP_HZ) / HZ;
+> What is the observed behavior of the system by the machine initiating
+> the ping flood?  Do the older and newer kernels differ in the
+> percentage of pings that do not receive replies? 
 
-Because msecs_to_jiffies() being unsigned long, compiler does
-implicit type promotion.
+The other machine stops receiving replies. It is using different adapter,
+not Chelsio and the kernel version does not really matter.
 
-We really want to constrain (tcp_time_stamp - ca->epoch_start)
-to a signed 32bit value, or else 't' has unexpected high values.
+> O the newer kernel,
+> when the mapping errors are detected, the packet that it is trying to
+> transmit is dropped, but I'm not at all sure what happens on the older
+> kernel after the dma mapping fails.  As I mentioned earlier, I'm
+> surprised it does not crash.  Perhaps the folks from Chelsio have a
+> better idea what happens after a dma mapping error is ignored?
 
-This bugs triggers an increase of retransmit rates ~24 days after
-boot [1], as the high order bit of tcp_time_stamp flips.
+Any kernel cannot avoid platform's iommu_alloc() on ppc64/powernv so if
+there was a problem, we would have seen messages (and yes, kernel would
+have crashed).
 
-[1] for hosts with HZ=1000
 
-Big thanks to Van Jacobson for spotting this problem.
 
-Diagnosed-by: Van Jacobson <vanj@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
----
- net/ipv4/tcp_cubic.c |   10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
-index a9077f4..b6b591f 100644
---- a/net/ipv4/tcp_cubic.c
-+++ b/net/ipv4/tcp_cubic.c
-@@ -206,8 +206,8 @@ static u32 cubic_root(u64 a)
-  */
- static inline void bictcp_update(struct bictcp *ca, u32 cwnd)
- {
--	u64 offs;
--	u32 delta, t, bic_target, max_cnt;
-+	u32 delta, bic_target, max_cnt;
-+	u64 offs, t;
- 
- 	ca->ack_cnt++;	/* count the number of ACKs */
- 
-@@ -250,9 +250,11 @@ static inline void bictcp_update(struct bictcp *ca, u32 cwnd)
- 	 * if the cwnd < 1 million packets !!!
- 	 */
- 
-+	t = (s32)(tcp_time_stamp - ca->epoch_start);
-+	t += msecs_to_jiffies(ca->delay_min >> 3);
- 	/* change the unit from HZ to bictcp_HZ */
--	t = ((tcp_time_stamp + msecs_to_jiffies(ca->delay_min>>3)
--	      - ca->epoch_start) << BICTCP_HZ) / HZ;
-+	t <<= BICTCP_HZ;
-+	do_div(t, HZ);
- 
- 	if (t < ca->bic_K)		/* t - K */
- 		offs = ca->bic_K - t;
+-- 
+Alexey
