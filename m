@@ -1,90 +1,138 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [net-next 6/6] net: use skb_copy_datagram_from_iovec() in zerocopy_sg_from_iovec()
-Date: Tue,  6 Aug 2013 17:45:08 +0800
-Message-ID: <1375782308-10565-7-git-send-email-jasowang@redhat.com>
+Subject: [net-next 1/6] net: move iov_pages() to net/core/iovec.c
+Date: Tue,  6 Aug 2013 17:45:03 +0800
+Message-ID: <1375782308-10565-2-git-send-email-jasowang@redhat.com>
 References: <1375782308-10565-1-git-send-email-jasowang@redhat.com>
 Cc: Jason Wang <jasowang@redhat.com>
 To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4730 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755901Ab3HFJ4h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Aug 2013 05:56:37 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1375782308-10565-1-git-send-email-jasowang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use skb_copy_datagram_from_iovec() to avoid code duplication and make it easy to
-be read. Also we can do the skipping inside the zero-copy loop.
+To let it be reused and reduce code duplication.
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- net/core/datagram.c |   37 ++++++++++---------------------------
- 1 files changed, 10 insertions(+), 27 deletions(-)
+ drivers/net/macvtap.c  |   23 -----------------------
+ drivers/net/tun.c      |   23 -----------------------
+ include/linux/socket.h |    2 ++
+ net/core/iovec.c       |   24 ++++++++++++++++++++++++
+ 4 files changed, 26 insertions(+), 46 deletions(-)
 
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index badcd93..af814e7 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -591,48 +591,31 @@ int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
- 				  int offset, size_t count)
- {
- 	int len = iov_length(from, count) - offset;
--	int copy = skb_headlen(skb);
--	int size, offset1 = 0;
-+	int copy = min_t(int, skb_headlen(skb), len);
-+	int size;
- 	int i = 0;
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index a98fb0e..dfec20d 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -698,29 +698,6 @@ static int macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
+ 	return 0;
+ }
  
--	/* Skip over from offset */
--	while (count && (offset >= from->iov_len)) {
--		offset -= from->iov_len;
--		++from;
--		--count;
+-static unsigned long iov_pages(const struct iovec *iv, int offset,
+-			       unsigned long nr_segs)
+-{
+-	unsigned long seg, base;
+-	int pages = 0, len, size;
+-
+-	while (nr_segs && (offset >= iv->iov_len)) {
+-		offset -= iv->iov_len;
+-		++iv;
+-		--nr_segs;
 -	}
 -
- 	/* copy up to skb headlen */
--	while (count && (copy > 0)) {
--		size = min_t(unsigned int, copy, from->iov_len - offset);
--		if (copy_from_user(skb->data + offset1, from->iov_base + offset,
--				   size))
--			return -EFAULT;
--		if (copy > size) {
--			++from;
--			--count;
--			offset = 0;
--		} else
--			offset += size;
--		copy -= size;
--		offset1 += size;
+-	for (seg = 0; seg < nr_segs; seg++) {
+-		base = (unsigned long)iv[seg].iov_base + offset;
+-		len = iv[seg].iov_len - offset;
+-		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
+-		pages += size;
+-		offset = 0;
 -	}
-+	if (skb_copy_datagram_from_iovec(skb, 0, from, offset, copy))
-+		return -EFAULT;
+-
+-	return pages;
+-}
+-
+ /* Get packet from user space buffer */
+ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+ 				const struct iovec *iv, unsigned long total_len,
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 5dce262..18527ef 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1041,29 +1041,6 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
+ 	return 0;
+ }
  
--	if (len == offset1)
-+	if (len == copy)
- 		return 0;
+-static unsigned long iov_pages(const struct iovec *iv, int offset,
+-			       unsigned long nr_segs)
+-{
+-	unsigned long seg, base;
+-	int pages = 0, len, size;
+-
+-	while (nr_segs && (offset >= iv->iov_len)) {
+-		offset -= iv->iov_len;
+-		++iv;
+-		--nr_segs;
+-	}
+-
+-	for (seg = 0; seg < nr_segs; seg++) {
+-		base = (unsigned long)iv[seg].iov_base + offset;
+-		len = iv[seg].iov_len - offset;
+-		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
+-		pages += size;
+-		offset = 0;
+-	}
+-
+-	return pages;
+-}
+-
+ /* Get packet from user space buffer */
+ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 			    void *msg_control, const struct iovec *iv,
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index 230c04b..445ef75 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -313,6 +313,8 @@ extern int csum_partial_copy_fromiovecend(unsigned char *kdata,
+ 					  struct iovec *iov, 
+ 					  int offset, 
+ 					  unsigned int len, __wsum *csump);
++extern unsigned long iov_pages(const struct iovec *iov, int offset,
++			       unsigned long nr_segs);
  
-+	offset += copy;
- 	while (count--) {
- 		struct page *page[MAX_SKB_FRAGS];
- 		int num_pages;
- 		unsigned long base;
- 		unsigned long truesize;
- 
--		len = from->iov_len - offset;
--		if (!len) {
--			offset = 0;
-+		/* Skip over from offset and copied */
-+		if (offset >= from->iov_len) {
-+			offset -= from->iov_len;
- 			++from;
- 			continue;
- 		}
-+		len = from->iov_len - offset;
- 		base = (unsigned long)from->iov_base + offset;
- 		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
- 		if (i + size > MAX_SKB_FRAGS)
+ extern int verify_iovec(struct msghdr *m, struct iovec *iov, struct sockaddr_storage *address, int mode);
+ extern int memcpy_toiovecend(const struct iovec *v, unsigned char *kdata,
+diff --git a/net/core/iovec.c b/net/core/iovec.c
+index de178e4..b77eeec 100644
+--- a/net/core/iovec.c
++++ b/net/core/iovec.c
+@@ -212,3 +212,27 @@ out_fault:
+ 	goto out;
+ }
+ EXPORT_SYMBOL(csum_partial_copy_fromiovecend);
++
++unsigned long iov_pages(const struct iovec *iov, int offset,
++			unsigned long nr_segs)
++{
++	unsigned long seg, base;
++	int pages = 0, len, size;
++
++	while (nr_segs && (offset >= iov->iov_len)) {
++		offset -= iov->iov_len;
++		++iov;
++		--nr_segs;
++	}
++
++	for (seg = 0; seg < nr_segs; seg++) {
++		base = (unsigned long)iov[seg].iov_base + offset;
++		len = iov[seg].iov_len - offset;
++		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
++		pages += size;
++		offset = 0;
++	}
++
++	return pages;
++}
++EXPORT_SYMBOL(iov_pages);
 -- 
 1.7.1
