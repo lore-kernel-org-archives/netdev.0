@@ -1,141 +1,67 @@
-From: William Manley <william.manley@youview.com>
-Subject: [PATCH v4 3/3] net: igmp: Allow user-space configuration of igmp unsolicited report interval
-Date: Tue,  6 Aug 2013 19:03:15 +0100
-Message-ID: <1375812195-6575-4-git-send-email-william.manley@youview.com>
-References: <20130731063442.GA10498@order.stressinduktion.org>
- <1375812195-6575-1-git-send-email-william.manley@youview.com>
-To: william.manley@youview.com, netdev@vger.kernel.org, bcrl@kvack.org,
-	luky-37@hotmail.com, sergei.shtylyov@cogentembedded.com,
-	bhutchings@solarflare.com, davem@davemloft.net,
-	hannes@stressinduktion.org
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH 2/2 net-next] ip_tunnel: operstate support and link state transfer
+Date: Tue, 6 Aug 2013 11:07:06 -0700
+Message-ID: <CALnjE+p_rSYZSgrT=P2B5XJebJ4_i6UKKo_8gyD1EoNG_1ve7w@mail.gmail.com>
+References: <20130805225137.6c934d7f@nehalam.linuxnetplumber.net>
+	<20130805225359.7ba89042@nehalam.linuxnetplumber.net>
+	<CALnjE+qQWampgB5OOR54XkbuBe+Hb6p9d15aPvSEAvjxgXqhwQ@mail.gmail.com>
+	<20130806104942.25bdcfa1@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:49883 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756396Ab3HFSEB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 14:04:01 -0400
-In-Reply-To: <1375812195-6575-1-git-send-email-william.manley@youview.com>
+Received: from na3sys009aog106.obsmtp.com ([74.125.149.77]:44140 "HELO
+	na3sys009aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756049Ab3HFSHH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 14:07:07 -0400
+Received: by mail-qe0-f48.google.com with SMTP id 9so410825qea.35
+        for <netdev@vger.kernel.org>; Tue, 06 Aug 2013 11:07:06 -0700 (PDT)
+In-Reply-To: <20130806104942.25bdcfa1@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds the new procfs knobs:
+On Tue, Aug 6, 2013 at 10:49 AM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Tue, 6 Aug 2013 10:42:53 -0700
+> Pravin Shelar <pshelar@nicira.com> wrote:
+>
+>> On Mon, Aug 5, 2013 at 10:53 PM, Stephen Hemminger
+>> <stephen@networkplumber.org> wrote:
+>> > Tunnel devices should reflect the carrier state of the lower device.
+>> > I.e if carrier goes down on the lower (ethernet) device, it should
+>> > change on the tunnel as well.
+>> >
+>> > This patch also adds full RFC2863 compatible state so that the
+>> > tunnel state can be controlled from user space as described in
+>> > Documentation/networking/operstats.txt
+>> >
+>> > Example of usage:
+>> > ip li add tnl1 mode dormant \
+>> >   type gretap remote 172.19.20.21 local 172.16.17.18 dev eth1
+>> > ip li set dev tnl1 up
+>> > ip li set dev tnl1 state UP
+>> >
+>> > In real life, this would be managed by tunnel broker, not
+>> > iproute2 shell commands.
+>> >
+>> >
+>> I sent out similar patch which try to add this feature at ip_tunnel
+>> generic layer rather than in tunnel implementation.  This way we can
+>> share single notifier for all tunneling protocols.
+>> Can you have something similar?
+>> http://marc.info/?l=linux-netdev&m=135761231222711&w=2
+>
+> How does that work well for case of GRE where gre and gretap
+> have different net namespace id's. If it can handle that, then
+> this is better.
+>
+ip_tunnel registers its own net namespace struct to keep track of all
+tunnels from different tunneling protocols.
 
-    /proc/sys/net/ipv4/conf/*/igmpv2_unsolicited_report_interval
-    /proc/sys/net/ipv4/conf/*/igmpv3_unsolicited_report_interval
+> Also link_map could be array (not allocated), and avoid
+> another layer of indirection
+>
+> Also, the rfc2863 policy needs to handle CHANGE (for carrier).
 
-Which will allow userspace configuration of the IGMP unsolicited report
-interval (see below) in milliseconds.  The defaults are 10000ms for IGMPv2
-and 1000ms for IGMPv3 in accordance with RFC2236 and RFC3376.
-
-Background:
-
-If an IGMP join packet is lost you will not receive data sent to the
-multicast group so if no data arrives from that multicast group in a
-period of time after the IGMP join a second IGMP join will be sent.  The
-delay between joins is the "IGMP Unsolicited Report Interval".
-
-Prior to this patch this value was hard coded in the kernel to 10s for
-IGMPv2 and 1s for IGMPv3.  10s is unsuitable for some use-cases, such as
-IPTV as it can cause channel change to be slow in the presence of packet
-loss.
-
-This patch allows the value to be overridden from userspace for both
-IGMPv2 and IGMPv3 such that it can be tuned accoding to the network.
-
-Tested with Wireshark and a simple program to join a (non-existent)
-multicast group.  The distribution of timings for the second join differ
-based upon setting the procfs knobs.
-
-igmpvX_unsolicited_report_interval is intended to follow the pattern
-established by force_igmp_version, and while a procfs entry has been added
-a corresponding sysctl knob has not as it is my understanding that sysctl
-is deprecated[1].
-
-[1]: http://lwn.net/Articles/247243/
-
-Signed-off-by: William Manley <william.manley@youview.com>
----
- include/linux/inetdevice.h |    2 ++
- net/ipv4/devinet.c         |    8 ++++++++
- net/ipv4/igmp.c            |   19 +++++++++++++++++--
- 3 files changed, 27 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index d4c56fc..43b3c72 100644
---- a/include/linux/inetdevice.h
-+++ b/include/linux/inetdevice.h
-@@ -28,6 +28,8 @@ enum
- 	IPV4_DEVCONF_ARPFILTER,
- 	IPV4_DEVCONF_MEDIUM_ID,
- 	IPV4_DEVCONF_FORCE_IGMP_VERSION,
-+	IPV4_DEVCONF_IGMPV2_UNSOLICITED_REPORT_INTERVAL,
-+	IPV4_DEVCONF_IGMPV3_UNSOLICITED_REPORT_INTERVAL,
- 	IPV4_DEVCONF_NOXFRM,
- 	IPV4_DEVCONF_NOPOLICY,
- 	IPV4_DEVCONF_ARP_ANNOUNCE,
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index a9561c4..56ecb1b 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -73,6 +73,8 @@ static struct ipv4_devconf ipv4_devconf = {
- 		[IPV4_DEVCONF_SEND_REDIRECTS - 1] = 1,
- 		[IPV4_DEVCONF_SECURE_REDIRECTS - 1] = 1,
- 		[IPV4_DEVCONF_SHARED_MEDIA - 1] = 1,
-+		[IPV4_DEVCONF_IGMPV2_UNSOLICITED_REPORT_INTERVAL - 1] = 10000 /*ms*/,
-+		[IPV4_DEVCONF_IGMPV3_UNSOLICITED_REPORT_INTERVAL - 1] =  1000 /*ms*/,
- 	},
- };
- 
-@@ -83,6 +85,8 @@ static struct ipv4_devconf ipv4_devconf_dflt = {
- 		[IPV4_DEVCONF_SECURE_REDIRECTS - 1] = 1,
- 		[IPV4_DEVCONF_SHARED_MEDIA - 1] = 1,
- 		[IPV4_DEVCONF_ACCEPT_SOURCE_ROUTE - 1] = 1,
-+		[IPV4_DEVCONF_IGMPV2_UNSOLICITED_REPORT_INTERVAL - 1] = 10000 /*ms*/,
-+		[IPV4_DEVCONF_IGMPV3_UNSOLICITED_REPORT_INTERVAL - 1] =  1000 /*ms*/,
- 	},
- };
- 
-@@ -2096,6 +2100,10 @@ static struct devinet_sysctl_table {
- 		DEVINET_SYSCTL_RW_ENTRY(PROXY_ARP_PVLAN, "proxy_arp_pvlan"),
- 		DEVINET_SYSCTL_RW_ENTRY(FORCE_IGMP_VERSION,
- 					"force_igmp_version"),
-+		DEVINET_SYSCTL_RW_ENTRY(IGMPV2_UNSOLICITED_REPORT_INTERVAL,
-+					"igmpv2_unsolicited_report_interval"),
-+		DEVINET_SYSCTL_RW_ENTRY(IGMPV3_UNSOLICITED_REPORT_INTERVAL,
-+					"igmpv3_unsolicited_report_interval"),
- 
- 		DEVINET_SYSCTL_FLUSHING_ENTRY(NOXFRM, "disable_xfrm"),
- 		DEVINET_SYSCTL_FLUSHING_ENTRY(NOPOLICY, "disable_policy"),
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 9f0aaea..c5541da 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -141,10 +141,25 @@
- 
- static int unsolicited_report_interval(struct in_device *in_dev)
- {
-+	int interval_ms, interval_jiffies;
-+
- 	if (IGMP_V1_SEEN(in_dev) || IGMP_V2_SEEN(in_dev))
--		return IGMP_V2_Unsolicited_Report_Interval;
-+		interval_ms = IN_DEV_CONF_GET(
-+			in_dev,
-+			IGMPV2_UNSOLICITED_REPORT_INTERVAL);
- 	else /* v3 */
--		return IGMP_V3_Unsolicited_Report_Interval;
-+		interval_ms = IN_DEV_CONF_GET(
-+			in_dev,
-+			IGMPV3_UNSOLICITED_REPORT_INTERVAL);
-+
-+	interval_jiffies = msecs_to_jiffies(interval_ms);
-+
-+	/* _timer functions can't handle a delay of 0 jiffies so ensure
-+	 *  we always return a positive value.
-+	 */
-+	if (interval_jiffies <= 0)
-+		interval_jiffies = 1;
-+	return interval_jiffies;
- }
- 
- static void igmpv3_add_delrec(struct in_device *in_dev, struct ip_mc_list *im);
--- 
-1.7.10.4
+that event is not handled in the patch.
