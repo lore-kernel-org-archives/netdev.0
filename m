@@ -1,250 +1,163 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [RFC PATCH net-next 6/6] bonding: remove unused bond->vlan_list
-Date: Tue,  6 Aug 2013 19:59:04 +0200
-Message-ID: <1375811944-31942-7-git-send-email-vfalico@redhat.com>
+Subject: [RFC PATCH net-next 1/6] bonding: add vlan_uses_dev_rcu() and make bond_vlan_used() use it
+Date: Tue,  6 Aug 2013 19:58:59 +0200
+Message-ID: <1375811944-31942-2-git-send-email-vfalico@redhat.com>
 References: <1375811944-31942-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+	Andy Gospodarek <andy@greyhouse.net>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26755 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:7867 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756469Ab3HFR6r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Aug 2013 13:58:47 -0400
+	id S1756139Ab3HFR6x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Aug 2013 13:58:53 -0400
 In-Reply-To: <1375811944-31942-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are currently no users of bond->vlan_list (other than the maintaining
-functions add/remove) - so remove it and every unneeded helper.
+Currently, bond_vlan_used() looks for any vlan, including the pseudo-vlan
+id 0, and always returns true if 8021q is loaded. This creates several bad
+situations - some warnings in __bond_release_one() because it thinks that
+we still have vlans while removing, sending LB packets with vlan id 0 and,
+possibly, other caused by vlan id 0.
 
-In this patch we remove:
-vlan_list from struct bonding
-bond_next_vlan - we don't need it anymore
-struct vlan_entry - it was a helper struct for bond->vlan_list
-some bits from bond_vlan_rx_add/kill_vid() - which were related to
-	bond->vlan_list
-(de)initialization of vlan_list from bond_setup/uninit
-bond_add_vlan - its only scope was to maintain bond->vlan_list
+Fix it by adding a new call, vlan_uses_dev_rcu(), which is the same as
+vlan_uses_dev(), but uses rcu_dereference() instead of rtnl, and thus we
+can use it in bond_vlan_used() wrapped in rcu_read_lock().
 
-We don't fully remove bond_del_vlan() - bond_alb_clear_vlan() still needs
-to be called when a vlan disappears. And we make bond_del_vlan() to not
-return anything cause it cannot fail already.
+By the time vlan_uses_dev_rcu() returns we cannot be sure if there were no
+vlans added/removed, so it's basicly an optimization function.
+
+Also, use the pure vlan_uses_dev() in __bond_release_one() cause the rtnl
+lock is held there.
+
+For this call to be visible in bonding.h, add include <linux/if_vlan.h>,
+and also remove it from any other bonding file, cause they all include
+bonding.h, and thus linux/if_vlan.h.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
+CC: Patrick McHardy <kaber@trash.net>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Nikolay Aleksandrov <nikolay@redhat.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_main.c |  117 +-------------------------------------
- drivers/net/bonding/bonding.h   |    6 --
- 2 files changed, 4 insertions(+), 119 deletions(-)
+ drivers/net/bonding/bond_alb.c  |    1 -
+ drivers/net/bonding/bond_main.c |    3 +--
+ drivers/net/bonding/bonding.h   |   10 +++++++++-
+ include/linux/if_vlan.h         |    6 ++++++
+ net/8021q/vlan_core.c           |   11 +++++++++++
+ 5 files changed, 27 insertions(+), 4 deletions(-)
 
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 3a5db7b..2684329 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -34,7 +34,6 @@
+ #include <linux/if_arp.h>
+ #include <linux/if_ether.h>
+ #include <linux/if_bonding.h>
+-#include <linux/if_vlan.h>
+ #include <linux/in.h>
+ #include <net/ipx.h>
+ #include <net/arp.h>
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index b85c96f..69067d4 100644
+index 4264a76..9d1045d 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -282,113 +282,24 @@ const char *bond_mode_name(int mode)
- /*---------------------------------- VLAN -----------------------------------*/
+@@ -69,7 +69,6 @@
+ #include <net/arp.h>
+ #include <linux/mii.h>
+ #include <linux/ethtool.h>
+-#include <linux/if_vlan.h>
+ #include <linux/if_bonding.h>
+ #include <linux/jiffies.h>
+ #include <linux/preempt.h>
+@@ -1953,7 +1952,7 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 		bond_set_carrier(bond);
+ 		eth_hw_addr_random(bond_dev);
  
- /**
-- * bond_add_vlan - add a new vlan id on bond
-- * @bond: bond that got the notification
-- * @vlan_id: the vlan id to add
-- *
-- * Returns -ENOMEM if allocation failed.
-- */
--static int bond_add_vlan(struct bonding *bond, unsigned short vlan_id)
--{
--	struct vlan_entry *vlan;
--
--	pr_debug("bond: %s, vlan id %d\n",
--		 (bond ? bond->dev->name : "None"), vlan_id);
--
--	vlan = kzalloc(sizeof(struct vlan_entry), GFP_KERNEL);
--	if (!vlan)
--		return -ENOMEM;
--
--	INIT_LIST_HEAD(&vlan->vlan_list);
--	vlan->vlan_id = vlan_id;
--
--	write_lock_bh(&bond->lock);
--
--	list_add_tail(&vlan->vlan_list, &bond->vlan_list);
--
--	write_unlock_bh(&bond->lock);
--
--	pr_debug("added VLAN ID %d on bond %s\n", vlan_id, bond->dev->name);
--
--	return 0;
--}
--
--/**
-  * bond_del_vlan - delete a vlan id from bond
-  * @bond: bond that got the notification
-  * @vlan_id: the vlan id to delete
-  *
-  * returns -ENODEV if @vlan_id was not found in @bond.
-  */
--static int bond_del_vlan(struct bonding *bond, unsigned short vlan_id)
-+static void bond_del_vlan(struct bonding *bond, unsigned short vlan_id)
- {
--	struct vlan_entry *vlan;
--	int res = -ENODEV;
--
- 	pr_debug("bond: %s, vlan id %d\n", bond->dev->name, vlan_id);
- 
- 	block_netpoll_tx();
- 	write_lock_bh(&bond->lock);
- 
--	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
--		if (vlan->vlan_id == vlan_id) {
--			list_del(&vlan->vlan_list);
--
--			if (bond_is_lb(bond))
--				bond_alb_clear_vlan(bond, vlan_id);
--
--			pr_debug("removed VLAN ID %d from bond %s\n",
--				 vlan_id, bond->dev->name);
-+	if (bond_is_lb(bond))
-+		bond_alb_clear_vlan(bond, vlan_id);
- 
--			kfree(vlan);
--
--			res = 0;
--			goto out;
--		}
--	}
--
--	pr_debug("couldn't find VLAN ID %d in bond %s\n",
--		 vlan_id, bond->dev->name);
--
--out:
- 	write_unlock_bh(&bond->lock);
- 	unblock_netpoll_tx();
--	return res;
--}
--
--/**
-- * bond_next_vlan - safely skip to the next item in the vlans list.
-- * @bond: the bond we're working on
-- * @curr: item we're advancing from
-- *
-- * Returns %NULL if list is empty, bond->next_vlan if @curr is %NULL,
-- * or @curr->next otherwise (even if it is @curr itself again).
-- *
-- * Caller must hold bond->lock
-- */
--struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr)
--{
--	struct vlan_entry *next, *last;
--
--	if (list_empty(&bond->vlan_list))
--		return NULL;
--
--	if (!curr) {
--		next = list_entry(bond->vlan_list.next,
--				  struct vlan_entry, vlan_list);
--	} else {
--		last = list_entry(bond->vlan_list.prev,
--				  struct vlan_entry, vlan_list);
--		if (last == curr) {
--			next = list_entry(bond->vlan_list.next,
--					  struct vlan_entry, vlan_list);
--		} else {
--			next = list_entry(curr->vlan_list.next,
--					  struct vlan_entry, vlan_list);
--		}
--	}
--
--	return next;
- }
- 
- /**
-@@ -450,13 +361,6 @@ static int bond_vlan_rx_add_vid(struct net_device *bond_dev,
- 			goto unwind;
- 	}
- 
--	res = bond_add_vlan(bond, vid);
--	if (res) {
--		pr_err("%s: Error: Failed to add vlan id %d\n",
--		       bond_dev->name, vid);
--		goto unwind;
--	}
--
- 	return 0;
- 
- unwind:
-@@ -477,17 +381,11 @@ static int bond_vlan_rx_kill_vid(struct net_device *bond_dev,
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *slave;
--	int res;
- 
- 	bond_for_each_slave(bond, slave)
- 		vlan_vid_del(slave->dev, proto, vid);
- 
--	res = bond_del_vlan(bond, vid);
--	if (res) {
--		pr_err("%s: Error: Failed to remove vlan id %d\n",
--		       bond_dev->name, vid);
--		return res;
--	}
-+	bond_del_vlan(bond, vid);
- 
- 	return 0;
- }
-@@ -4141,7 +4039,6 @@ static void bond_setup(struct net_device *bond_dev)
- 
- 	/* Initialize pointers */
- 	bond->dev = bond_dev;
--	INIT_LIST_HEAD(&bond->vlan_list);
- 
- 	/* Initialize the device entry points */
- 	ether_setup(bond_dev);
-@@ -4194,7 +4091,6 @@ static void bond_uninit(struct net_device *bond_dev)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *slave, *tmp_slave;
--	struct vlan_entry *vlan, *tmp;
- 
- 	bond_netpoll_cleanup(bond_dev);
- 
-@@ -4206,11 +4102,6 @@ static void bond_uninit(struct net_device *bond_dev)
- 	list_del(&bond->bond_list);
- 
- 	bond_debug_unregister(bond);
--
--	list_for_each_entry_safe(vlan, tmp, &bond->vlan_list, vlan_list) {
--		list_del(&vlan->vlan_list);
--		kfree(vlan);
--	}
- }
- 
- /*------------------------- Module initialization ---------------------------*/
+-		if (bond_vlan_used(bond)) {
++		if (vlan_uses_dev(bond_dev)) {
+ 			pr_warning("%s: Warning: clearing HW address of %s while it still has VLANs.\n",
+ 				   bond_dev->name, bond_dev->name);
+ 			pr_warning("%s: When re-adding slaves, make sure the bond's HW address matches its VLANs'.\n",
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index cb49313..da27e3d 100644
+index 4bf52d5..cb49313 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -186,11 +186,6 @@ struct bond_parm_tbl {
+@@ -23,6 +23,7 @@
+ #include <linux/netpoll.h>
+ #include <linux/inetdevice.h>
+ #include <linux/etherdevice.h>
++#include <linux/if_vlan.h>
+ #include "bond_3ad.h"
+ #include "bond_alb.h"
  
- #define BOND_MAX_MODENAME_LEN 20
+@@ -267,9 +268,16 @@ struct bonding {
+ #endif /* CONFIG_DEBUG_FS */
+ };
  
--struct vlan_entry {
--	struct list_head vlan_list;
--	unsigned short vlan_id;
--};
--
- struct slave {
- 	struct net_device *dev; /* first - useful for panic debug */
- 	struct list_head list;
-@@ -255,7 +250,6 @@ struct bonding {
- 	struct   ad_bond_info ad_info;
- 	struct   alb_bond_info alb_info;
- 	struct   bond_params params;
--	struct   list_head vlan_list;
- 	struct   workqueue_struct *wq;
- 	struct   delayed_work mii_work;
- 	struct   delayed_work arp_work;
++/* use vlan_uses_dev() if under rtnl */
+ static inline bool bond_vlan_used(struct bonding *bond)
+ {
+-	return !list_empty(&bond->vlan_list);
++	bool ret;
++
++	rcu_read_lock();
++	ret = vlan_uses_dev_rcu(bond->dev);
++	rcu_read_unlock();
++
++	return ret;
+ }
+ 
+ #define bond_slave_get_rcu(dev) \
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 715c343..1fcea36 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -101,6 +101,7 @@ extern void vlan_vids_del_by_dev(struct net_device *dev,
+ 				 const struct net_device *by_dev);
+ 
+ extern bool vlan_uses_dev(const struct net_device *dev);
++extern bool vlan_uses_dev_rcu(const struct net_device *dev);
+ #else
+ static inline struct net_device *
+ __vlan_find_dev_deep(struct net_device *real_dev,
+@@ -155,6 +156,11 @@ static inline bool vlan_uses_dev(const struct net_device *dev)
+ {
+ 	return false;
+ }
++
++static inline bool vlan_uses_dev_rcu(const struct net_device *dev)
++{
++	return false;
++}
+ #endif
+ 
+ static inline bool vlan_hw_offload_capable(netdev_features_t features,
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index 4a78c4d..52e3fb3 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -399,3 +399,14 @@ bool vlan_uses_dev(const struct net_device *dev)
+ 	return vlan_info->grp.nr_vlan_devs ? true : false;
+ }
+ EXPORT_SYMBOL(vlan_uses_dev);
++
++bool vlan_uses_dev_rcu(const struct net_device *dev)
++{
++	struct vlan_info *vlan_info;
++
++	vlan_info = rcu_dereference(dev->vlan_info);
++	if (!vlan_info)
++		return false;
++	return vlan_info->grp.nr_vlan_devs ? true : false;
++}
++EXPORT_SYMBOL(vlan_uses_dev_rcu);
 -- 
 1.7.1
