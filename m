@@ -1,135 +1,87 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH for 3.4 2/2] macvtap: do not zerocopy if iov needs more pages than MAX_SKB_FRAGS
-Date: Tue,  6 Aug 2013 17:29:19 +0800
-Message-ID: <1375781359-5764-2-git-send-email-jasowang@redhat.com>
-References: <1375781359-5764-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>
-To: mst@redhat.com, netdev@vger.kernel.org, davem@davemloft.net
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: [PATCH net] net: rename and move busy poll mib counter
+Date: Tue, 06 Aug 2013 12:52:07 +0300
+Message-ID: <20130806095207.5887.2196.stgit@ladj378.jer.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Shawn Bohrer <sbohrer@rgmadvisors.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41812 "EHLO mx1.redhat.com"
+Received: from mga11.intel.com ([192.55.52.93]:1683 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755385Ab3HFJkh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Aug 2013 05:40:37 -0400
-In-Reply-To: <1375781359-5764-1-git-send-email-jasowang@redhat.com>
+	id S1755559Ab3HFJwK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Aug 2013 05:52:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit ece793fcfc417b3925844be88a6a6dc82ae8f7c6 upstream.
+Move the low latency mib counter to the ip section.
+Rename it from low latency to busy poll.
 
-We try to linearize part of the skb when the number of iov is greater than
-MAX_SKB_FRAGS. This is not enough since each single vector may occupy more than
-one pages, so zerocopy_sg_fromiovec() may still fail and may break the guest
-network.
-
-Solve this problem by calculate the pages needed for iov before trying to do
-zerocopy and switch to use copy instead of zerocopy if it needs more than
-MAX_SKB_FRAGS.
-
-This is done through introducing a new helper to count the pages for iov, and
-call uarg->callback() manually when switching from zerocopy to copy to notify
-vhost.
-
-We can do further optimization on top.
-
-This bug were introduced from b92946e2919134ebe2a4083e4302236295ea2a73
-(macvtap: zerocopy: validate vectors before building skb).
-
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Reported-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 ---
- drivers/net/macvtap.c |   62 +++++++++++++++++++++++++++++-------------------
- 1 files changed, 37 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 5151f06..77ce8b2 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -642,6 +642,28 @@ static int macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
- 	return 0;
- }
+ include/net/busy_poll.h   |    4 ++--
+ include/uapi/linux/snmp.h |    2 +-
+ net/ipv4/proc.c           |    2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
+index 8e2dfc1..1b48741 100644
+--- a/include/net/busy_poll.h
++++ b/include/net/busy_poll.h
+@@ -121,8 +121,8 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
  
-+static unsigned long iov_pages(const struct iovec *iv, int offset,
-+			       unsigned long nr_segs)
-+{
-+	unsigned long seg, base;
-+	int pages = 0, len, size;
-+
-+	while (nr_segs && (offset >= iv->iov_len)) {
-+		offset -= iv->iov_len;
-+		++iv;
-+		--nr_segs;
-+	}
-+
-+	for (seg = 0; seg < nr_segs; seg++) {
-+		base = (unsigned long)iv[seg].iov_base + offset;
-+		len = iv[seg].iov_len - offset;
-+		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
-+		pages += size;
-+		offset = 0;
-+	}
-+
-+	return pages;
-+}
+ 		if (rc > 0)
+ 			/* local bh are disabled so it is ok to use _BH */
+-			NET_ADD_STATS_BH(sock_net(sk),
+-					 LINUX_MIB_LOWLATENCYRXPACKETS, rc);
++			IP_ADD_STATS_BH(dev_net(napi->dev),
++					IPSTATS_MIB_BUSYPOLLRXPACKETS, rc);
  
- /* Get packet from user space buffer */
- static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
-@@ -688,31 +710,15 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
- 	if (unlikely(count > UIO_MAXIOV))
- 		goto err;
+ 	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
+ 		 !need_resched() && !busy_loop_timeout(end_time));
+diff --git a/include/uapi/linux/snmp.h b/include/uapi/linux/snmp.h
+index af0a674..5575d9b 100644
+--- a/include/uapi/linux/snmp.h
++++ b/include/uapi/linux/snmp.h
+@@ -51,6 +51,7 @@ enum
+ 	IPSTATS_MIB_INBCASTOCTETS,		/* InBcastOctets */
+ 	IPSTATS_MIB_OUTBCASTOCTETS,		/* OutBcastOctets */
+ 	IPSTATS_MIB_CSUMERRORS,			/* InCsumErrors */
++	IPSTATS_MIB_BUSYPOLLRXPACKETS,		/* BusyPollRxPackets */
+ 	__IPSTATS_MIB_MAX
+ };
  
--	if (m && m->msg_control && sock_flag(&q->sk, SOCK_ZEROCOPY))
--		zerocopy = true;
--
--	if (zerocopy) {
--		/* Userspace may produce vectors with count greater than
--		 * MAX_SKB_FRAGS, so we need to linearize parts of the skb
--		 * to let the rest of data to be fit in the frags.
--		 */
--		if (count > MAX_SKB_FRAGS) {
--			copylen = iov_length(iv, count - MAX_SKB_FRAGS);
--			if (copylen < vnet_hdr_len)
--				copylen = 0;
--			else
--				copylen -= vnet_hdr_len;
--		}
--		/* There are 256 bytes to be copied in skb, so there is enough
--		 * room for skb expand head in case it is used.
--		 * The rest buffer is mapped from userspace.
--		 */
--		if (copylen < vnet_hdr.hdr_len)
--			copylen = vnet_hdr.hdr_len;
--		if (!copylen)
--			copylen = GOODCOPY_LEN;
-+	if (m && m->msg_control && sock_flag(&q->sk, SOCK_ZEROCOPY)) {
-+		copylen = vnet_hdr.hdr_len ? vnet_hdr.hdr_len : GOODCOPY_LEN;
- 		linear = copylen;
--	} else {
-+		if (iov_pages(iv, vnet_hdr_len + copylen, count)
-+		    <= MAX_SKB_FRAGS)
-+			zerocopy = true;
-+	}
-+
-+	if (!zerocopy) {
- 		copylen = len;
- 		linear = vnet_hdr.hdr_len;
- 	}
-@@ -724,9 +730,15 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+@@ -253,7 +254,6 @@ enum
+ 	LINUX_MIB_TCPFASTOPENLISTENOVERFLOW,	/* TCPFastOpenListenOverflow */
+ 	LINUX_MIB_TCPFASTOPENCOOKIEREQD,	/* TCPFastOpenCookieReqd */
+ 	LINUX_MIB_TCPSPURIOUS_RTX_HOSTQUEUES, /* TCPSpuriousRtxHostQueues */
+-	LINUX_MIB_LOWLATENCYRXPACKETS,		/* LowLatencyRxPackets */
+ 	__LINUX_MIB_MAX
+ };
  
- 	if (zerocopy)
- 		err = zerocopy_sg_from_iovec(skb, iv, vnet_hdr_len, count);
--	else
-+	else {
- 		err = skb_copy_datagram_from_iovec(skb, 0, iv, vnet_hdr_len,
- 						   len);
-+		if (!err && m && m->msg_control) {
-+			struct ubuf_info *uarg = m->msg_control;
-+			uarg->callback(uarg);
-+		}
-+	}
-+
- 	if (err)
- 		goto err_kfree;
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index 6577a11..3c54a63 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -108,6 +108,7 @@ static const struct snmp_mib snmp4_ipstats_list[] = {
+ 	SNMP_MIB_ITEM("FragOKs", IPSTATS_MIB_FRAGOKS),
+ 	SNMP_MIB_ITEM("FragFails", IPSTATS_MIB_FRAGFAILS),
+ 	SNMP_MIB_ITEM("FragCreates", IPSTATS_MIB_FRAGCREATES),
++	SNMP_MIB_ITEM("BusyPollRxPackets", IPSTATS_MIB_BUSYPOLLRXPACKETS),
+ 	SNMP_MIB_SENTINEL
+ };
  
--- 
-1.7.1
+@@ -273,7 +274,6 @@ static const struct snmp_mib snmp4_net_list[] = {
+ 	SNMP_MIB_ITEM("TCPFastOpenListenOverflow", LINUX_MIB_TCPFASTOPENLISTENOVERFLOW),
+ 	SNMP_MIB_ITEM("TCPFastOpenCookieReqd", LINUX_MIB_TCPFASTOPENCOOKIEREQD),
+ 	SNMP_MIB_ITEM("TCPSpuriousRtxHostQueues", LINUX_MIB_TCPSPURIOUS_RTX_HOSTQUEUES),
+-	SNMP_MIB_ITEM("LowLatencyRxPackets", LINUX_MIB_LOWLATENCYRXPACKETS),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
