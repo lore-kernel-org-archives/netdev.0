@@ -1,26 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: macvtap MAX_SKB_FRAGS fix...
-Date: Mon, 05 Aug 2013 20:51:04 -0700 (PDT)
-Message-ID: <20130805.205104.295403081094571911.davem@davemloft.net>
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH net-next 0/7] be2net patch set
+Date: Tue, 6 Aug 2013 09:27:14 +0530
+Message-ID: <1375761441-22343-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jasowang@redhat.com, mst@redhat.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52670 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753711Ab3HFDvH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 23:51:07 -0400
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:38606 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753711Ab3HFDxn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 23:53:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The following fix/cleanup patches are for the net-next tree. Pls apply.
 
-Jason, I want to get that into v3.4.x -stable but it needs a backport
-and I'd rather someone like you who knows the code does it rather
-than I.
+Thanks!
 
-The issue seems that be that the arguments to uarg->callback() were
-different back then.
+Sathya Perla (1):
+  be2net: update driver version
 
-Thanks.
+Vasundhara Volam (6):
+  be2net: Adding more speeds reported by get_settings
+  be2net: Do not call get_die_temperature cmd for VF
+  be2net: don't limit max MAC and VLAN counts
+  be2net: Fix displaying supported speeds for BE2
+  be2net: fixup log msgs for async events
+  be2net: Initialize "status" in be_cmd_get_die_temperature()
+
+ drivers/net/ethernet/emulex/benet/be.h      |    2 +-
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   20 +++++++++++++++++---
+ drivers/net/ethernet/emulex/benet/be_cmds.h |    5 ++++-
+ drivers/net/ethernet/emulex/benet/be_main.c |   10 ++--------
+ 4 files changed, 24 insertions(+), 13 deletions(-)
