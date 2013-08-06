@@ -1,102 +1,56 @@
 From: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Subject: Re: low latency/busy poll feedback and bugs
-Date: Tue, 6 Aug 2013 13:08:06 -0500
-Message-ID: <20130806180806.GA8993@sbohrermbp13-local.rgmadvisors.com>
-References: <20130805212257.GB6904@sbohrermbp13-local.rgmadvisors.com>
- <5200A8BC.4010402@linux.intel.com>
+Subject: Re: [PATCH net] net: rename and move busy poll mib counter
+Date: Tue, 6 Aug 2013 13:18:21 -0500
+Message-ID: <20130806181821.GB8993@sbohrermbp13-local.rgmadvisors.com>
+References: <20130806095207.5887.2196.stgit@ladj378.jer.intel.com>
+ <1375784088.4457.74.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Cc: Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Cc: Eliezer Tamir <eliezer.tamir@linux.intel.com>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog105.obsmtp.com ([74.125.149.75]:37611 "EHLO
-	na3sys009aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756270Ab3HFSIU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 14:08:20 -0400
-Received: by mail-oa0-f48.google.com with SMTP id o17so1417634oag.21
-        for <netdev@vger.kernel.org>; Tue, 06 Aug 2013 11:08:19 -0700 (PDT)
-In-Reply-To: <5200A8BC.4010402@linux.intel.com>
+Received: from na3sys009aog134.obsmtp.com ([74.125.149.83]:43972 "EHLO
+	na3sys009aog134.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756170Ab3HFSSZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 14:18:25 -0400
+Received: by mail-oa0-f42.google.com with SMTP id i18so1470528oag.29
+        for <netdev@vger.kernel.org>; Tue, 06 Aug 2013 11:18:24 -0700 (PDT)
+In-Reply-To: <1375784088.4457.74.camel@edumazet-glaptop>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 06, 2013 at 10:41:48AM +0300, Eliezer Tamir wrote:
-> On 06/08/2013 00:22, Shawn Bohrer wrote:
-> > 3) I don't know if this was intentional, an oversight, or simply a
-> > missing feature but UDP multicast currently is not supported.  In
-> > order to add support I believe you would need to call
-> > sk_mark_napi_id() in __udp4_lib_mcast_deliver().  Assuming there isn't
-> > some intentional reason this wasn't done I'd be happy to test this and
-> > send a patch.
+On Tue, Aug 06, 2013 at 03:14:48AM -0700, Eric Dumazet wrote:
+> On Tue, 2013-08-06 at 12:52 +0300, Eliezer Tamir wrote:
+> > Move the low latency mib counter to the ip section.
+> > Rename it from low latency to busy poll.
+> > 
+> > Reported-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
+> > Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+> > ---
 > 
-> This is still WIP, so our goal was to make it easy to extend for new
-> cases and protocols.
+> Well, it should not be part of IP mib, but a socket one (not existing so
+> far)
 > 
-> For multicast, it is possible that incoming packets to come from more
-> than one port (and therefore more than one queue).
-> I'm not sure how we could handle that, but what we have today won't do
-> well for that use-case.
- 
-It is unclear to me exactly what happens in this case.  With my simple
-patch I'm assuming it will spin on the receive queue that received the
-last packet for that socket.  What happens when a packet arrives on a
-different receive queue than the one we were spinning on? I assume it
-is still delivered but perhaps the spinning process won't get it until
-the spinning time expires?  I'm just guessing and haven't attempted to
-figure it out from looking through the code.
+> Linux MIB already contains few non TCP counters :
+> 
+> LINUX_MIB_ARPFILTER
+> LINUX_MIB_IPRPFILTER
 
-I put together a small test case with two senders and a single
-receiver, and visually (by watching /proc/interrups) verified that
-their traffic went to two different queues.  The receiver received all
-of the packets with busy_read enabled so it appears that it at least
-superficially works.  I did not verify the effect on latency.
+Doesn't mean they are in the correct place either, but perhaps it's too
+late for them.
 
-> What do you use for testing?
+> Its mostly populated by TCP counters, sure.
 
-In fio 2.1.2 [1] I added support for UDP multicast.  It's not quite as
-flexible as I would like but you can still test a number of scenarios
-like the one above or do a basic pingpong test.
-
-Here are my fio job files for a pingpong test:
-
-$ cat mcudp_rr_receive
-[global]
-ioengine=net
-protocol=udp
-bs=64
-size=100m
-# IP address of interface to receive packets
-#interface=10.8.16.21
-rw=read
-
-[pingpong]
-pingpong=1
-port=10000
-hostname=239.0.0.0
-
-$ cat mcudp_rr_send
-[global]
-ioengine=net
-protocol=udp
-bs=64
-size=100m
-# IP address of interface to send packets
-#interface=10.8.16.22
-rw=write
-
-[pingpong]
-pingpong=1
-port=10000
-hostname=239.0.0.0
-
-Just start the receiver on one host then start the sender on a second
-host:
-
-[host1] $ fio mcudp_rr_receive
-
-[host2] $ fio mcudp_rr_send
-
-[1] http://brick.kernel.dk/snaps/fio-2.1.2.tar.bz2
+See, on the kernel side these are called "LINUX_MIB*" which seems
+perfectly sane and I wouldn't even think the statistic is out of
+place.  On the user-mode side these are all reported in
+/proc/net/netstat as TcpExt statistics.  I can tell you that I don't
+look at TCP statistics when I'm debugging/testing UDP issues
+(apparently I should).
 
 --
 Shawn
