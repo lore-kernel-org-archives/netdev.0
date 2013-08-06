@@ -1,42 +1,65 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next] bonding: fix send_peer_notif leekage on rtnl
- lock congestion
-Date: Tue, 6 Aug 2013 14:17:01 +0200
-Message-ID: <20130806121701.GQ22756@redhat.com>
-References: <1375732053-829-1-git-send-email-vfalico@redhat.com>
- <20130805.161212.421332729798966037.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 4/4] USBNET: ax88179_178a: enable tso if usb host
+ supports sg dma
+Date: Tue, 06 Aug 2013 05:22:17 -0700
+Message-ID: <1375791737.4457.98.camel@edumazet-glaptop>
+References: <1375750370-18194-1-git-send-email-ming.lei@canonical.com>
+	 <1375750370-18194-5-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Oliver Neukum <oneukum@suse.de>,
+	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Grant Grundler <grundler@google.com>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	Freddy Xin <freddy@asix.com.tw>
+To: Ming Lei <ming.lei@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29059 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756048Ab3HFMRz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Aug 2013 08:17:55 -0400
-Content-Disposition: inline
-In-Reply-To: <20130805.161212.421332729798966037.davem@davemloft.net>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:53340 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755449Ab3HFMWT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 08:22:19 -0400
+In-Reply-To: <1375750370-18194-5-git-send-email-ming.lei@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 05, 2013 at 04:12:12PM -0700, David Miller wrote:
->From: Veaceslav Falico <vfalico@redhat.com>
->Date: Mon,  5 Aug 2013 21:47:33 +0200
->
->> @@ -2999,7 +3002,10 @@ void bond_activebackup_arp_mon(struct work_struct *work)
->>  		if (!rtnl_trylock()) {
->>  			read_lock(&bond->lock);
->>  			delta_in_ticks = 1;
->> -			should_notify_peers = false;
->> +			if (should_notify_peers) {
->> +				bond->send_peer_notif++;
->
->I doubt this increment to a shared datastructure is safe with
->the locks you hold here.
->
->You don't hold RTNL and you only have bond->lock as a reader.
+On Tue, 2013-08-06 at 08:52 +0800, Ming Lei wrote:
+> This patch enables 'can_dma_sg' flag for ax88179_178a device
+> if the attached host controller supports building packet from
+> discontinuous buffers(DMA SG is possible), so TSO can be enabled
+> and skb fragment buffers can be passed to usb stack via urb->sg
+> directly.
+> 
+> With the patch, system CPU utilization decreased ~50% and throughput
+> increased by ~10% when doing iperf client test on one ARM A15 dual
+> core board.
+> 
 
-You're right, we can race here. This whole locking juggling should be
-changed.
+Nice ;)
 
-Self-NAK for this, I'll rework it.
+>  	       AX_RXCOE_TCPV6 | AX_RXCOE_UDPV6;
+> @@ -1310,6 +1318,10 @@ static int ax88179_reset(struct usbnet *dev)
+>  
+>  	dev->net->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+>  				 NETIF_F_RXCSUM;
+> +	if (dev->can_dma_sg) {
+> +		dev->net->features |= NETIF_F_SG | NETIF_F_TSO;
+> +		dev->net->hw_features |= NETIF_F_SG | NETIF_F_TSO;
+> +	}
+>  
+
+My concern with setting TSO on reset() is the following :
+
+Admin can disable TSO with
+
+ethtool -K ethX tso off
+
+
+Then, one hour later, or one month later, a reset happens, and this code
+magically re-enables TSO
+
+So, I really think this part should be removed from your patch.
