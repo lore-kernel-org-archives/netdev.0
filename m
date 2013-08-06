@@ -1,65 +1,63 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 2/3] netdevice: remove useless else keyword
-Date: Tue, 06 Aug 2013 07:37:40 -0700
-Message-ID: <1375799860.2424.26.camel@joe-AO722>
-References: <1375774371-831-1-git-send-email-sakiwit@gmail.com>
-	 <1375774371-831-2-git-send-email-sakiwit@gmail.com>
-	 <5200B1DF.2000701@redhat.com>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: net/tg3: Fix kernel crash
+Date: Tue, 6 Aug 2013 10:46:10 -0400
+Message-ID: <20130806144610.GA2889@redhat.com>
+References: <20130731204019.059F66609B7@gitolite.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jean Sacren <sakiwit@gmail.com>, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Wei Yang <weiyang@linux.vnet.ibm.com>,
+	Gavin Shan <shangw@linux.vnet.ibm.com>,
+	Nithin Nayak Sujir <nsujir@broadcom.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:52066 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752653Ab3HFOhk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Aug 2013 10:37:40 -0400
-In-Reply-To: <5200B1DF.2000701@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:3379 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754962Ab3HFOq0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Aug 2013 10:46:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20130731204019.059F66609B7@gitolite.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-08-06 at 10:20 +0200, Daniel Borkmann wrote:
-> On 08/06/2013 09:32 AM, Jean Sacren wrote:
-> > Clean up multiple useless else keywords. Add empty lines for
-> > readability.
-> 
-> Hmm, don't really think this is actually needed or makes things better.
+On Wed, Jul 31, 2013 at 08:40:18PM +0000, Linux Kernel wrote:
+ > Gitweb:     http://git.kernel.org/linus/;a=commit;h=d8af4dfd84329015e18ea3d83a84c46e92f21020
+ > Commit:     d8af4dfd84329015e18ea3d83a84c46e92f21020
+ > Parent:     d738ce8fdc05ebf5b1475f8ae26d908c8c50970b
+ > Author:     Gavin Shan <shangw@linux.vnet.ibm.com>
+ > AuthorDate: Wed Jul 24 17:25:08 2013 +0800
+ > 
+ >     net/tg3: Fix kernel crash
+ >     
+ >     While EEH error happens, we might not have network device instance
+ >     (struct net_device) yet. So we can't access the instance safely and
+ >     check its link state, which causes kernel crash. The patch fixes it.
+ >     Reported-by: Wei Yang <weiyang@linux.vnet.ibm.com>
+ >     Signed-off-by: Gavin Shan <shangw@linux.vnet.ibm.com>
+ >     Acked-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+ >     Signed-off-by: David S. Miller <davem@davemloft.net>
+ > 
+ > diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+ > index d964f30..aee1b9a 100644
+ > --- a/drivers/net/ethernet/broadcom/tg3.c
+ > +++ b/drivers/net/ethernet/broadcom/tg3.c
+ > @@ -17773,7 +17773,8 @@ static pci_ers_result_t tg3_io_error_detected(struct pci_dev *pdev,
+ >  
+ >  	rtnl_lock();
+ >  
+ > -	if (!netif_running(netdev))
+ > +	/* We probably don't have netdev yet */
+ > +	if (!netdev || !netif_running(netdev))
+ >  		goto done;
+ 
+This looks incomplete.  'done' does this..
 
-Maybe that's true.
+done:
+  if (state == pci_channel_io_perm_failure) {
+          tg3_napi_enable(tp);
+          dev_close(netdev);
 
-Though this patch is pretty trivial and
-I would (probably) not submit it, I think
-it's a reasonable style rule to not use
-else after an if() that always returns.
 
-	if (foo)
-		return bar;
+If netdev is null, we'll deref it in dev_close.
 
-	next_statement;
-
-should be preferred over
-
-	if (foo)
-		return bar;
-	else
-		next_statement;
-
-The blank lines though are a style taste.
-Maybe removing the blank line before the
-first if in this patch might be better.
-
-{
-	BUG_ON(!net);
-
-	if (!dev_valid_name(name))
-		return -EINVAL;
-	if (strchr(name, '%'))
-		return dev_alloc_name_ns(net, dev, name);
-	if (__dev_get_by_name(net, name))
-		return -EEXIST;
-	if (dev->name != name)
-		strlcpy(dev->name, name, IFNAMSIZ);
-
-	return 0;
-}
+	Dave
