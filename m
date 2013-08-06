@@ -1,57 +1,167 @@
-From: Sedat Dilek <sedat.dilek@gmail.com>
-Subject: Re: linux-next: Tree for Aug 6 [ wireless | iwlwifi | mac80211 ? ]
-Date: Tue, 6 Aug 2013 21:14:39 +0200
-Message-ID: <CA+icZUXaTYVc_iv3hny6Je9mVdX8KCVpFSNBeukS+Fh-347Wvw@mail.gmail.com>
-References: <CA+icZUX8OcTSOABO6Nbz5R6_5-m39rsYOpDqYBA7hf8LFvJLLA@mail.gmail.com>
-	<1375797260.8219.21.camel@jlt4.sipsolutions.net>
-	<CA+icZUUAJ25QybqHvxz7eubSLH6YuNjcc5zyU2O5Xi9vevMGkw@mail.gmail.com>
-	<1375800617.8219.23.camel@jlt4.sipsolutions.net>
-	<CA+icZUVbKpyuke6PRg3-60gOggsTb=3cNRz3Sy0RmvcZSuPaNw@mail.gmail.com>
-	<1375801059.8219.24.camel@jlt4.sipsolutions.net>
-	<CA+icZUXrRsXfeW9hqxTMkKW4TdNSBH-zE8-zX2Rd7HTAx5MvqQ@mail.gmail.com>
-	<CA+icZUWijPJmNoqE22Msqcn7tRot3SB3e=KujMM7JNd-Om-oOw@mail.gmail.com>
-	<1375802297.8219.25.camel@jlt4.sipsolutions.net>
-	<CA+icZUVCFOS6SHonEqzaJyWCGCU4nqqGjBN0VbmV-=OoM+deZg@mail.gmail.com>
-	<CA+icZUVuOqdZUGy2ALAF1CehOqYdr7rtEsXhqNvDtYEns2BuRQ@mail.gmail.com>
-	<1375802993.8219.26.camel@jlt4.sipsolutions.net>
-	<CA+icZUW6P9Z_7z+o+z=qBWSFzyU8tgtY0ou+rmLcEzWbn94OXA@mail.gmail.com>
-	<CA+icZUW7LVzg7sM3O-w5oQpeaj=CT6MS6Q7cRZ1qK0h-Z4wZuw@mail.gmail.com>
-	<1375804998.8219.27.camel@jlt4.sipsolutions.net>
-	<CA+icZUVRgVfXUdJ1xoaN=nciqZDhV-f6EbH+6DS7HAh+My65oQ@mail.gmail.com>
-	<CA+icZUUmQbovkwXcdEp6eu=WJkiuiyO8nDVwCHFUuPDbJqU7Kg@mail.gmail.com>
-	<CA+icZUV++2+OG=P1SVbNrpHPLyzrfFX0eu8NHrd0nPjkPDUOtQ@mail.gmail.com>
-	<CA+icZUXpZaHu-FjR6FGnbkG0XEkiukEgYYbDmrSjdqNz4rWCNg@mail.gmail.com>
-	<1375816128.8219.28.camel@jlt4.sipsolutions.net>
-Reply-To: sedat.dilek@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	wireless <linux-wireless@vger.kernel.org>, netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 1/2] net: sctp: convert sctp_checksum_disable module param into sctp sysctl
+Date: Tue,  6 Aug 2013 21:18:12 +0200
+Message-ID: <1375816693-7697-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:40826 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753088Ab3HFTOl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 15:14:41 -0400
-In-Reply-To: <1375816128.8219.28.camel@jlt4.sipsolutions.net>
+Received: from mx1.redhat.com ([209.132.183.28]:57142 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752653Ab3HFTSQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Aug 2013 15:18:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 6, 2013 at 9:08 PM, Johannes Berg <johannes@sipsolutions.net> wrote:
-> On Tue, 2013-08-06 at 20:35 +0200, Sedat Dilek wrote:
->
->> Attached is a diff comparing all new commits in next-20130805.
->> If one of the commits smells bad to you, please let me know.
->
-> Out of that list, only the af_packet changes would seem to have any
-> impact on wireless at all.
->
+Get rid of the last module parameter for SCTP and make this
+configurable via sysctl for SCTP like all the rest of SCTP's
+configuration knobs.
 
-git-bisecting... 2 steps to go...
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ Documentation/networking/ip-sysctl.txt |  8 ++++++++
+ include/net/netns/sctp.h               |  3 +++
+ include/net/sctp/structs.h             |  5 -----
+ net/sctp/input.c                       |  4 ++--
+ net/sctp/output.c                      |  5 ++++-
+ net/sctp/protocol.c                    |  5 +++--
+ net/sctp/sysctl.c                      | 10 +++++++++-
+ 7 files changed, 29 insertions(+), 11 deletions(-)
 
-This one is bad... "af_packet: simplify VLAN frame check in packet_snd"
-
-http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=c483e02614551e44ced3fe6eedda8e36d3277ccc
-
-- Sedat -
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 36be26b..6f5b813 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1507,6 +1507,14 @@ sack_timeout - INTEGER
+ 
+ 	Default: 200
+ 
++checksum_disable - BOOLEAN
++	Disable SCTP checksum computing and verification for debugging purpose.
++
++	1: Disable checksumming
++	0: Enable checksumming
++
++	Default: 0
++
+ valid_cookie_life - INTEGER
+ 	The default lifetime of the SCTP cookie (in milliseconds).  The cookie
+ 	is used during association establishment.
+diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
+index 3573a81..ebfdf1e 100644
+--- a/include/net/netns/sctp.h
++++ b/include/net/netns/sctp.h
+@@ -129,6 +129,9 @@ struct netns_sctp {
+ 
+ 	/* Threshold for autoclose timeout, in seconds. */
+ 	unsigned long max_autoclose;
++
++	/* Flag to disable SCTP checksumming. */
++	int checksum_disable;
+ };
+ 
+ #endif /* __NETNS_SCTP_H__ */
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index d9c93a7..06ebeaa 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -141,10 +141,6 @@ extern struct sctp_globals {
+ 	/* This is the sctp port control hash.	*/
+ 	int port_hashsize;
+ 	struct sctp_bind_hashbucket *port_hashtable;
+-
+-	/* Flag to indicate whether computing and verifying checksum
+-	 * is disabled. */
+-        bool checksum_disable;
+ } sctp_globals;
+ 
+ #define sctp_max_instreams		(sctp_globals.max_instreams)
+@@ -156,7 +152,6 @@ extern struct sctp_globals {
+ #define sctp_assoc_hashtable		(sctp_globals.assoc_hashtable)
+ #define sctp_port_hashsize		(sctp_globals.port_hashsize)
+ #define sctp_port_hashtable		(sctp_globals.port_hashtable)
+-#define sctp_checksum_disable		(sctp_globals.checksum_disable)
+ 
+ /* SCTP Socket type: UDP or TCP style. */
+ typedef enum {
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index fa91aff..b9a25e1 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -140,8 +140,8 @@ int sctp_rcv(struct sk_buff *skb)
+ 	__skb_pull(skb, skb_transport_offset(skb));
+ 	if (skb->len < sizeof(struct sctphdr))
+ 		goto discard_it;
+-	if (!sctp_checksum_disable && !skb_csum_unnecessary(skb) &&
+-		  sctp_rcv_checksum(net, skb) < 0)
++	if (!net->sctp.checksum_disable && !skb_csum_unnecessary(skb) &&
++	    sctp_rcv_checksum(net, skb) < 0)
+ 		goto discard_it;
+ 
+ 	skb_pull(skb, sizeof(struct sctphdr));
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index 5a55c55d..cdb5f49 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -395,6 +395,7 @@ int sctp_packet_transmit(struct sctp_packet *packet)
+ 	int padding;		/* How much padding do we need?  */
+ 	__u8 has_data = 0;
+ 	struct dst_entry *dst = tp->dst;
++	struct net *net;
+ 	unsigned char *auth = NULL;	/* pointer to auth in skb data */
+ 	__u32 cksum_buf_len = sizeof(struct sctphdr);
+ 
+@@ -541,7 +542,9 @@ int sctp_packet_transmit(struct sctp_packet *packet)
+ 	 * Note: Adler-32 is no longer applicable, as has been replaced
+ 	 * by CRC32-C as described in <draft-ietf-tsvwg-sctpcsum-02.txt>.
+ 	 */
+-	if (!sctp_checksum_disable) {
++	net = dev_net(dst->dev);
++
++	if (!net->sctp.checksum_disable) {
+ 		if (!(dst->dev->features & NETIF_F_SCTP_CSUM)) {
+ 			__u32 crc32 = sctp_start_cksum((__u8 *)sh, cksum_buf_len);
+ 
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index b52ec25..a570a63 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -1193,6 +1193,9 @@ static int __net_init sctp_net_init(struct net *net)
+ 	/* Whether Cookie Preservative is enabled(1) or not(0) */
+ 	net->sctp.cookie_preserve_enable 	= 1;
+ 
++	/* Whether SCTP checksumming is disabled(1) or not(0) */
++	net->sctp.checksum_disable		= 0;
++
+ 	/* Default sctp sockets to use md5 as their hmac alg */
+ #if defined (CONFIG_SCTP_DEFAULT_COOKIE_HMAC_MD5)
+ 	net->sctp.sctp_hmac_alg			= "md5";
+@@ -1549,6 +1552,4 @@ MODULE_ALIAS("net-pf-" __stringify(PF_INET) "-proto-132");
+ MODULE_ALIAS("net-pf-" __stringify(PF_INET6) "-proto-132");
+ MODULE_AUTHOR("Linux Kernel SCTP developers <linux-sctp@vger.kernel.org>");
+ MODULE_DESCRIPTION("Support for the SCTP protocol (RFC2960)");
+-module_param_named(no_checksums, sctp_checksum_disable, bool, 0644);
+-MODULE_PARM_DESC(no_checksums, "Disable checksums computing and verification");
+ MODULE_LICENSE("GPL");
+diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
+index 1906747..754809a 100644
+--- a/net/sctp/sysctl.c
++++ b/net/sctp/sysctl.c
+@@ -296,7 +296,15 @@ static struct ctl_table sctp_net_table[] = {
+ 		.extra1		= &max_autoclose_min,
+ 		.extra2		= &max_autoclose_max,
+ 	},
+-
++	{
++		.procname	= "checksum_disable",
++		.data		= &init_net.sctp.checksum_disable,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
++		.extra2		= &one,
++	},
+ 	{ /* sentinel */ }
+ };
+ 
+-- 
+1.7.11.7
