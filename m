@@ -1,24 +1,23 @@
 From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH V2 1/4] pci: Add pci_wait_for_pending_transaction to wait for pending pci transaction
-Date: Tue,  6 Aug 2013 15:48:36 +0530
-Message-ID: <1375784319-25760-2-git-send-email-vipul@chelsio.com>
+Subject: [PATCH V2 2/4] pci: Enable bus master till the FLR completes
+Date: Tue,  6 Aug 2013 15:48:37 +0530
+Message-ID: <1375784319-25760-3-git-send-email-vipul@chelsio.com>
 References: <1375784319-25760-1-git-send-email-vipul@chelsio.com>
 Cc: bhelgaas@google.com, leedom@chelsio.com, tomreu@chelsio.com,
 	vipul@chelsio.com, divy@chelsio.com, dm@chelsio.com,
 	nirranjan@chelsio.com, eilong@broadcom.com, netdev@vger.kernel.org
 To: linux-pci@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:15340 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755674Ab3HFKZn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 06:25:43 -0400
+Return-path: <linux-pci-owner@vger.kernel.org>
 In-Reply-To: <1375784319-25760-1-git-send-email-vipul@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Casey Leedom <leedom@chelsio.com>
 
-New routine to avoid duplication of waiting for pending pci transaction code.
+T4 can wedge if there are DMAs in flight within the chip and Bus master has
+been disabled.  We need to have it on till the Function Level Reset completes.
+T4 can also suffer a Head Of Line blocking problem if MSI-X interrupts are
+disabled before the FLR has completed.
 
 Signed-off-by: Casey Leedom <leedom@chelsio.com>
 Signed-off-by: Vipul Pandya <vipul@chelsio.com>
@@ -28,84 +27,105 @@ places. Made the patch series for the same.
 V2: Used dev->msix_cap directly for capability offset
 V2: Removed use of 'rc' variable.
 
- drivers/pci/pci.c   | 38 +++++++++++++++++++++++++-------------
- include/linux/pci.h |  1 +
- 2 files changed, 26 insertions(+), 13 deletions(-)
+ drivers/pci/quirks.c | 79 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 79 insertions(+)
 
-diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-index a8d5fd0..7d6ce2e 100644
---- a/drivers/pci/pci.c
-+++ b/drivers/pci/pci.c
-@@ -3159,19 +3159,17 @@ int pci_set_dma_seg_boundary(struct pci_dev *dev, unsigned long mask)
+diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+index 2e2ea22..4a64fc4 100644
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -3208,6 +3208,83 @@ reset_complete:
+ 	return 0;
  }
- EXPORT_SYMBOL(pci_set_dma_seg_boundary);
  
--static int pcie_flr(struct pci_dev *dev, int probe)
-+/**
-+ * pci_wait_for_pending_transaction - waits for pending transaction
-+ * @dev: the PCI device to operate on
-+ *
-+ * Return 0 if transaction is pending 1 otherwise.
++/*
++ * Device-specific reset method for Chelsio T4-based adapters.
 + */
-+int pci_wait_for_pending_transaction(struct pci_dev *dev)
- {
- 	int i;
--	u32 cap;
- 	u16 status;
- 
--	pcie_capability_read_dword(dev, PCI_EXP_DEVCAP, &cap);
--	if (!(cap & PCI_EXP_DEVCAP_FLR))
--		return -ENOTTY;
--
--	if (probe)
--		return 0;
--
- 	/* Wait for Transaction Pending bit clean */
- 	for (i = 0; i < 4; i++) {
- 		if (i)
-@@ -3179,13 +3177,27 @@ static int pcie_flr(struct pci_dev *dev, int probe)
- 
- 		pcie_capability_read_word(dev, PCI_EXP_DEVSTA, &status);
- 		if (!(status & PCI_EXP_DEVSTA_TRPND))
--			goto clear;
-+			return 1;
- 	}
- 
--	dev_err(&dev->dev, "transaction is not cleared; "
--			"proceeding with reset anyway\n");
-+	return 0;
-+}
-+EXPORT_SYMBOL(pci_wait_for_pending_transaction);
-+
-+static int pcie_flr(struct pci_dev *dev, int probe)
++static int reset_chelsio_generic_dev(struct pci_dev *dev, int probe)
 +{
-+	u32 cap;
++	u16 old_command;
++	u16 msix_flags;
 +
-+	pcie_capability_read_dword(dev, PCI_EXP_DEVCAP, &cap);
-+	if (!(cap & PCI_EXP_DEVCAP_FLR))
++	/*
++	 * If this isn't a Chelsio T4-based device, return -ENOTTY indicating
++	 * that we have no device-specific reset method.
++	 */
++	if ((dev->device & 0xf000) != 0x4000)
 +		return -ENOTTY;
 +
++	/*
++	 * If this is the "probe" phase, return 0 indicating that we can
++	 * reset this device.
++	 */
 +	if (probe)
 +		return 0;
 +
++	/*
++	 * T4 can wedge if their are DMAs in flight within the chip and Bus
++	 * master has been disabled.  We need to have it on till the Function
++	 * Level Reset completes.  (BUS_MASTER is disabled in
++	 * pci_reset_function()).
++	 */
++	pci_read_config_word(dev, PCI_COMMAND, &old_command);
++	pci_write_config_word(dev, PCI_COMMAND,
++			      old_command | PCI_COMMAND_MASTER);
++
++	/*
++	 * Perform the actual device function reset, saving and restoring
++	 * configuration information around the reset.
++	 */
++	pci_save_state(dev);
++
++	/*
++	 * T4 also suffers a Head-Of-Line blocking problem if MSI-X interrupts
++	 * are disabled when an MSI-X interrupt message needs to be delivered.
++	 * So we briefly re-enable MSI-X interrupts for the duration of the
++	 * FLR.  The pci_restore_state() below will restore the original
++	 * MSI-X state.
++	 */
++	pci_read_config_word(dev, dev->msix_cap+PCI_MSIX_FLAGS, &msix_flags);
++	if ((msix_flags & PCI_MSIX_FLAGS_ENABLE) == 0)
++		pci_write_config_word(dev, dev->msix_cap+PCI_MSIX_FLAGS,
++				      msix_flags |
++				      PCI_MSIX_FLAGS_ENABLE |
++				      PCI_MSIX_FLAGS_MASKALL);
++
++	/*
++	 * Start of pcie_flr() code sequence.  This reset code is a copy of
++	 * the guts of pcie_flr() because that's not an exported function.
++	 */
++
 +	if (!pci_wait_for_pending_transaction(dev))
 +		dev_err(&dev->dev, "transaction is not cleared; proceeding with reset anyway\n");
++
++	pcie_capability_set_word(dev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_BCR_FLR);
++	msleep(100);
++
++	/*
++	 * End of pcie_flr() code sequence.
++	 */
++
++	/*
++	 * Restore the configuration information (BAR values, etc.) including
++	 * the original PCI Configuration Space Command word, and return
++	 * success.
++	 */
++	pci_restore_state(dev);
++	pci_write_config_word(dev, PCI_COMMAND, old_command);
++	return 0;
++}
++
+ #define PCI_DEVICE_ID_INTEL_82599_SFP_VF   0x10ed
+ #define PCI_DEVICE_ID_INTEL_IVB_M_VGA      0x0156
+ #define PCI_DEVICE_ID_INTEL_IVB_M2_VGA     0x0166
+@@ -3221,6 +3298,8 @@ static const struct pci_dev_reset_methods pci_dev_reset_methods[] = {
+ 		reset_ivb_igd },
+ 	{ PCI_VENDOR_ID_INTEL, PCI_ANY_ID,
+ 		reset_intel_generic_dev },
++	{ PCI_VENDOR_ID_CHELSIO, PCI_ANY_ID,
++		reset_chelsio_generic_dev },
+ 	{ 0 }
+ };
  
--clear:
- 	pcie_capability_set_word(dev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_BCR_FLR);
- 
- 	msleep(100);
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 0fd1f15..e647001 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -914,6 +914,7 @@ bool pci_check_and_unmask_intx(struct pci_dev *dev);
- void pci_msi_off(struct pci_dev *dev);
- int pci_set_dma_max_seg_size(struct pci_dev *dev, unsigned int size);
- int pci_set_dma_seg_boundary(struct pci_dev *dev, unsigned long mask);
-+int pci_wait_for_pending_transaction(struct pci_dev *dev);
- int pcix_get_max_mmrbc(struct pci_dev *dev);
- int pcix_get_mmrbc(struct pci_dev *dev);
- int pcix_set_mmrbc(struct pci_dev *dev, int mmrbc);
 -- 
 1.8.0
