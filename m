@@ -1,55 +1,51 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Linux IPV6_SUBTREES not functioning
-Date: Tue, 6 Aug 2013 13:43:27 +0200
-Message-ID: <20130806114327.GA11767@order.stressinduktion.org>
-References: <8CBF8819-E1D9-445E-9E7C-793422934733@inf-net.nl> <20130806083005.GC2941@order.stressinduktion.org> <013B2D02-AE77-4213-A929-3E35F9C9BF0F@inf-net.nl> <20130806085307.GD2941@order.stressinduktion.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [patch] net: remove an unneeded check
+Date: Tue, 6 Aug 2013 15:04:42 +0300
+Message-ID: <20130806120442.GR5051@mwanda>
+References: <20130729191519.GA11874@elgon.mountain>
+ <F3E01662-FC33-4FB8-AF30-47DF44252296@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Teco Boot <teco@inf-net.nl>, netdev@vger.kernel.org,
-	boutier@pps.univ-paris-diderot.fr
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
+	"<kernel-janitors@vger.kernel.org>" <kernel-janitors@vger.kernel.org>
+To: "Rustad, Mark D" <mark.d.rustad@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s15338416.onlinehome-server.info ([87.106.68.36]:34258 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755099Ab3HFLn2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 07:43:28 -0400
+Received: from userp1040.oracle.com ([156.151.31.81]:25312 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755449Ab3HFMFb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 08:05:31 -0400
 Content-Disposition: inline
-In-Reply-To: <20130806085307.GD2941@order.stressinduktion.org>
+In-Reply-To: <F3E01662-FC33-4FB8-AF30-47DF44252296@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 06, 2013 at 10:53:07AM +0200, Hannes Frederic Sowa wrote:
-> On Tue, Aug 06, 2013 at 10:46:43AM +0200, Teco Boot wrote:
-> > Hi Hannes,
-> > 
-> > Yes problems with real traffic, with CORE (open source mobile ad hoc network emulator currently maintained by NRL and Boeing).
-> > Mattieu had same problems and therefore stepped to the ip rule. Most, if not all, take this ip rule hack. But then, for each and every source prefix a complete routing table is needed. This is a bad thing and shall be avoided.
-> > 
-> > Do you think it should work? Have it working? If so, I want to reproduce.
+On Mon, Aug 05, 2013 at 06:18:01PM +0000, Rustad, Mark D wrote:
+> On Jul 29, 2013, at 12:15 PM, Dan Carpenter <dan.carpenter@oracle.com> wrote:
 > 
-> Definitely, that should work. I can reproduce the same output with your
-> script on net-next and am looking how to fix this. This could take a
-> bit because I have another patch in my pipeline for testing. But maybe
-> it is just a nit. ;)
+> > "ifa->ifa_label" is an array inside the in_ifaddr struct.  It can never
+> > be NULL so we can remove this check.
+> > 
+> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> > 
+> > diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+> > index 8d48c39..1b7f7ae 100644
+> > --- a/net/ipv4/devinet.c
+> > +++ b/net/ipv4/devinet.c
+> > @@ -1124,10 +1124,7 @@ static int inet_gifconf(struct net_device *dev, char __user *buf, int len)
+> > 		if (len < (int) sizeof(ifr))
+> > 			break;
+> > 		memset(&ifr, 0, sizeof(struct ifreq));
+> > -		if (ifa->ifa_label)
+> 
+> Is there any possibility that this was meant to check ifa->ifa_label[0]?
 
-Could you test if this patch fixes your problems? It does fix the output of
-your script at least. ;)
+It has been this way for almost 16 years and no one has complained.
+I should have put that into the changelog though, you are right.
 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index ed828d6..2eaf4a8 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -993,8 +993,12 @@ static struct fib6_node * fib6_lookup_1(struct fib6_node *root,
- 
- 			if (ipv6_prefix_equal(&key->addr, args->addr, key->plen)) {
- #ifdef CONFIG_IPV6_SUBTREES
--				if (fn->subtree)
--					fn = fib6_lookup_1(fn->subtree, args + 1);
-+				if (fn->subtree) {
-+					struct fib6_node *sfn;
-+					sfn = fib6_lookup_1(fn->subtree,
-+							    args + 1);
-+					fn = sfn ? : fn;
-+				}
- #endif
- 				if (!fn || fn->fn_flags & RTN_RTINFO)
- 					return fn;
+regards,
+dan carpenter
