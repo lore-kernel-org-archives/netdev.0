@@ -1,93 +1,78 @@
-From: Alexey Kardashevskiy <aik@ozlabs.ru>
-Subject: Re: BUG cxgb3: Check and handle the dma mapping errors
-Date: Tue, 06 Aug 2013 10:15:55 +1000
-Message-ID: <5200403B.3000206@ozlabs.ru>
-References: <51FF14F8.7000204@ozlabs.ru> <20130805184107.GA2998@redhat.com>
+From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@web.de>
+Subject: Re: [PATCH] bridge: don't try to update timers in case of
+ broken MLD queries
+Date: Tue, 6 Aug 2013 02:32:27 +0200
+Message-ID: <20130806003227.GH25436@Linus-Debian>
+References: <1375741925-22179-1-git-send-email-linus.luessing@web.de>
+	<20130805154222.58361734@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R
-Content-Transfer-Encoding: 7bit
-Cc: Santosh Rastapur <santosh@chelsio.com>,
-	Divy Le Ray <divy@chelsio.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Jay Fenlason <fenlason@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130805184107.GA2998@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Paul Bolle <pebolle@tiscali.nl>, Cong Wang <amwang@redhat.com>,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org,
+	Adam Baker <linux@baker-net.org.uk>, linus.luessing@web.de,
+	"David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20130805154222.58361734@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 08/06/2013 04:41 AM, Jay Fenlason wrote:
-> On Mon, Aug 05, 2013 at 12:59:04PM +1000, Alexey Kardashevskiy wrote:
->> Hi!
->>
->> Recently I started getting multiple errors like this:
->>
->> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
->> c000001fbdaaa882 npages 1
->> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
->> c000001fbdaaa882 npages 1
->> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
->> c000001fbdaaa882 npages 1
->> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
->> c000001fbdaaa882 npages 1
->> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
->> c000001fbdaaa882 npages 1
->> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
->> c000001fbdaaa882 npages 1
->> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
->> c000001fbdaaa882 npages 1
->> ... and so on
->>
->> This is all happening on a PPC64 "powernv" platform machine. To trigger the
->> error state, it is enough to _flood_ ping CXGB3 card from another machine
->> (which has Emulex 10Gb NIC + Cisco switch). Just do "ping -f 172.20.1.2"
->> and wait 10-15 seconds.
->>
->>
->> The messages are coming from arch/powerpc/kernel/iommu.c and basically
->> mean that the driver requested more pages than the DMA window has which is
->> normally 1GB (there could be another possible source of errors -
->> ppc_md.tce_build callback - but on powernv platform it always succeeds).
->>
->>
->> The patch after which it broke is:
->> commit f83331bab149e29fa2c49cf102c0cd8c3f1ce9f9
->> Author: Santosh Rastapur <santosh@chelsio.com>
->> Date:   Tue May 21 04:21:29 2013 +0000
->> cxgb3: Check and handle the dma mapping errors
->>
->> Any quick ideas? Thanks!
-> 
-> That patch adds error checking to detect failed dma mapping requests.
-> Before it, the code always assumed that dma mapping requests succeded,
-> whether they actually do or not, so the fact that the older kernel
-> does not log errors only means that the failures are being ignored,
-> and any appearance of working is through pure luck.  The machine could
-> have just crashed at that point.
+On Mon, Aug 05, 2013 at 03:42:22PM -0700, Stephen Hemminger wrote:
+> On Tue,  6 Aug 2013 00:32:05 +0200
+> Linus L=C3=BCssing <linus.luessing@web.de> wrote:
+>=20
+> > Currently we are reading an uninitialized value for the max_delay
+> > variable when snooping an MLD query message of invalid length and wou=
+ld
+> > update our timers with that.
+> >=20
+> > Fixing this by simply ignoring such broken MLD queries (just like we =
+do
+> > for IGMP already).
+> >=20
+> > This is a regression introduced by:
+> > "bridge: disable snooping if there is no querier" (b00589af3b04)
+> >=20
+> > Reported-by: Paul Bolle <pebolle@tiscali.nl>
+> > Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
+> > ---
+> >  net/bridge/br_multicast.c |    2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> >=20
+> > diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+> > index 61c5e81..08e576a 100644
+> > --- a/net/bridge/br_multicast.c
+> > +++ b/net/bridge/br_multicast.c
+> > @@ -1195,7 +1195,7 @@ static int br_ip6_multicast_query(struct net_br=
+idge *br,
+> >  		max_delay =3D msecs_to_jiffies(ntohs(mld->mld_maxdelay));
+> >  		if (max_delay)
+> >  			group =3D &mld->mld_mca;
+> > -	} else if (skb->len >=3D sizeof(*mld2q)) {
+> > +	} else {
+> >  		if (!pskb_may_pull(skb, sizeof(*mld2q))) {
+> >  			err =3D -EINVAL;
+> >  			goto out;
+>=20
+> Why not use else if here, other than that looks great.
 
->From what I see, the patch adds map_skb() function which is called in two
-new places, so the patch does not just mechanically replace
-skb_frag_dma_map() to map_skb() or something like that.
+Because it isn't really necessary, it is basically included
+in the pskb_may_pull() already, just like it is in the according IGMP
+code path.
 
-> What is the observed behavior of the system by the machine initiating
-> the ping flood?  Do the older and newer kernels differ in the
-> percentage of pings that do not receive replies? 
+And I thought it'd be nicer to handle it the same way as in the
+IGMP code path to avoid diverging too much.
 
-The other machine stops receiving replies. It is using different adapter,
-not Chelsio and the kernel version does not really matter.
-
-> O the newer kernel,
-> when the mapping errors are detected, the packet that it is trying to
-> transmit is dropped, but I'm not at all sure what happens on the older
-> kernel after the dma mapping fails.  As I mentioned earlier, I'm
-> surprised it does not crash.  Perhaps the folks from Chelsio have a
-> better idea what happens after a dma mapping error is ignored?
-
-Any kernel cannot avoid platform's iommu_alloc() on ppc64/powernv so if
-there was a problem, we would have seen messages (and yes, kernel would
-have crashed).
-
-
-
--- 
-Alexey
+Cheers, Linus
