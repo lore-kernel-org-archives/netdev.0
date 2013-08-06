@@ -1,49 +1,40 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 3/3] net: wireless: rt2x00: Staticize
- rt2x00queue_pause_queue_nocheck()
-Date: Tue, 06 Aug 2013 17:36:03 +0900
-Message-ID: <000801ce927f$fc7549d0$f55fdd70$@samsung.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [net-next,1/3] bonding: fix vlan 0 addition and removal
+Date: Tue, 06 Aug 2013 10:39:22 +0200
+Message-ID: <5200B63A.5070900@redhat.com>
+References: <1375709304-16778-2-git-send-email-nikolay@redhat.com> <20130805215126.GB3859@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	'Ivo van Doorn' <IvDoorn@gmail.com>,
-	'Gertjan van Wingerde' <gwingerde@gmail.com>,
-	'Helmut Schaa' <helmut.schaa@googlemail.com>,
-	Jingoo Han <jg1.han@samsung.com>
-To: "'David S. Miller'" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
+	davem@davemloft.net, kaber@trash.net
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.samsung.com ([203.254.224.24]:35321 "EHLO
-	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753591Ab3HFIgF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 04:36:05 -0400
-Content-language: ko
+Received: from mx1.redhat.com ([209.132.183.28]:32712 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753526Ab3HFIja (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Aug 2013 04:39:30 -0400
+In-Reply-To: <20130805215126.GB3859@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-rt2x00queue_pause_queue_nocheck()is used only in this file.
-Fix the following sparse warning:
-
-drivers/net/wireless/rt2x00/rt2x00queue.c:939:6: warning: symbol 'rt2x00queue_pause_queue_nocheck' was not declared. Should it be
-static?
-
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
----
- drivers/net/wireless/rt2x00/rt2x00queue.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/rt2x00/rt2x00queue.c b/drivers/net/wireless/rt2x00/rt2x00queue.c
-index aa95c6c..6c8a33b 100644
---- a/drivers/net/wireless/rt2x00/rt2x00queue.c
-+++ b/drivers/net/wireless/rt2x00/rt2x00queue.c
-@@ -936,7 +936,7 @@ void rt2x00queue_index_inc(struct queue_entry *entry, enum queue_index index)
- 	spin_unlock_irqrestore(&queue->index_lock, irqflags);
- }
- 
--void rt2x00queue_pause_queue_nocheck(struct data_queue *queue)
-+static void rt2x00queue_pause_queue_nocheck(struct data_queue *queue)
- {
- 	switch (queue->qid) {
- 	case QID_AC_VO:
--- 
-1.7.10.4
+> From 1c89abefebe90568ed52d2df59fcfdd650bc4696 Mon Sep 17 00:00:00 2001
+> From: Veaceslav Falico <vfalico@redhat.com>
+> Date: Mon, 5 Aug 2013 23:29:12 +0200
+> Subject: [PATCH] bonding: add vlan_uses_dev_rcu() and make bond_vlan_used()
+> use it
+> 
+> Currently, bond_vlan_used() looks for any vlan, including the pseudo-vlan
+> id 0, and always returns true if 8021q is loaded. This creates several bad
+> situations - some warnings in __bond_release_one() because it thinks that
+> we still have vlans while removing, sending LB packets with vlan id 0 and,
+> possibly, other caused by vlan id 0.
+> 
+> Fix it by adding a new call, vlan_uses_dev_rcu(), which is the same as
+> vlan_uses_dev(), but uses rcu_dereference() instead of rtnl, and thus we
+> can use it in bond_vlan_used() wrapped in rcu_read_lock().
+> 
+> Also, use the pure vlan_uses_dev() in __bond_release_one() cause the rtnl
+> lock is held there.
+> 
+Just 1 more note, you can't trust nr_vlan_devs under RCU.
