@@ -1,90 +1,74 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: bridge: disable snooping if there is no querier
-Date: Tue, 6 Aug 2013 11:18:57 -0400
-Message-ID: <20130806151857.GA25528@redhat.com>
-References: <20130804005227.D17B3660D03@gitolite.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [ANNOUNCE] libnetfilter_conntrack 1.0.4 release
+Date: Tue, 6 Aug 2013 17:45:21 +0200
+Message-ID: <20130806154521.GA14118@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linus =?iso-8859-1?Q?L=FCssing?= <linus.luessing@web.de>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary="O5XBE6gyVG5Rl6Rj"
+Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-announce@lists.netfilter.org, lwn@lwn.net
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27565 "EHLO mx1.redhat.com"
+Received: from mail.us.es ([193.147.175.20]:50304 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753010Ab3HFPTH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Aug 2013 11:19:07 -0400
+	id S1755712Ab3HFPpc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Aug 2013 11:45:32 -0400
 Content-Disposition: inline
-In-Reply-To: <20130804005227.D17B3660D03@gitolite.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 04, 2013 at 12:52:27AM +0000, Linux Kernel wrote:
- > Gitweb:     http://git.kernel.org/linus/;a=3Dcommit;h=3Db00589af3b04=
-736376f24625ab0b394642e89e29
- > Commit:     b00589af3b04736376f24625ab0b394642e89e29
- > Parent:     cf3c4c03060b688cbc389ebc5065ebcce5653e96
- > Author:     Linus L=FCssing <linus.luessing@web.de>
- > AuthorDate: Thu Aug 1 01:06:20 2013 +0200
- > Committer:  David S. Miller <davem@davemloft.net>
- > CommitDate: Wed Jul 31 17:40:21 2013 -0700
- >=20
- >     bridge: disable snooping if there is no querier
- >    =20
- >     Signed-off-by: Linus L=FCssing <linus.luessing@web.de>
- >     Signed-off-by: David S. Miller <davem@davemloft.net>
-=20
- > diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
- > @@ -1198,6 +1206,9 @@ static int br_ip6_multicast_query(struct net_b=
-ridge *br,
- >  		max_delay =3D mld2q->mld2q_mrc ? MLDV2_MRC(ntohs(mld2q->mld2q_mrc=
-)) : 1;
- >  	}
- > =20
- > +	br_multicast_query_received(br, port, !ipv6_addr_any(&ip6h->saddr)=
-,
- > +				    max_delay);
- > +
- >  	if (!group)
- >  		goto out;
 
-This addition looks suspect. max_delay looks like it could be uninitial=
-ised here.
+--O5XBE6gyVG5Rl6Rj
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-1178         unsigned long max_delay;
+Hi!
 
-=2E..
+The Netfilter project proudly presents:
 
-1189         if (skb->len =3D=3D sizeof(*mld)) {
-1190                 if (!pskb_may_pull(skb, sizeof(*mld))) {
-1191                         err =3D -EINVAL;
-1192                         goto out;
-1193                 }
-1194                 mld =3D (struct mld_msg *) icmp6_hdr(skb);
-1195                 max_delay =3D msecs_to_jiffies(ntohs(mld->mld_maxd=
-elay));
-1196                 if (max_delay)
-1197                         group =3D &mld->mld_mca;
-1198         } else if (skb->len >=3D sizeof(*mld2q)) {
-1199                 if (!pskb_may_pull(skb, sizeof(*mld2q))) {
-1200                         err =3D -EINVAL;
-1201                         goto out;
-1202                 }
-1203                 mld2q =3D (struct mld2_query *)icmp6_hdr(skb);
-1204                 if (!mld2q->mld2q_nsrcs)
-1205                         group =3D &mld2q->mld2q_mca;
-1206                 max_delay =3D mld2q->mld2q_mrc ? MLDV2_MRC(ntohs(m=
-ld2q->mld2q_mrc)) : 1;
-1207         }
-1208=20
-1209         br_multicast_query_received(br, port, !ipv6_addr_any(&ip6h=
-->saddr),
-1210                                     max_delay);
+        libnetfilter_conntrack 1.0.4
 
-If skb_len matches neither of those conditions, we don't set it.
+libnetfilter_conntrack is a userspace library providing a programming
+interface (API) to the in-kernel connection tracking state table. This
+library is currently used by conntrack-tools and iptables, among other
+applications.
 
-Explicitly set it to something on entry ? Or is there validation furthe=
-r up the
-callchain that skb_len will only ever be one of these two values ?
+This release includes connlabel support, one memleak fix and fixes in
+the comparison API. See ChangeLog that comes attached to this email
+for more details.
 
-	Dave
+You can download it from:
+
+http://www.netfilter.org/projects/libnetfilter_conntrack/downloads.html
+ftp://ftp.netfilter.org/pub/libnetfilter_conntrack/
+
+Have fun!
+
+--O5XBE6gyVG5Rl6Rj
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="changes-libnetfilter_conntrack-1.0.4.txt"
+
+Afschin Hormozdiary (1):
+      libnetfilter_conntrack: don't ignore ATTR_CONNLABELS
+
+Florian Westphal (18):
+      api: add nfct_bitmask object
+      api: add connlabel api and attribute
+      examples: add connlabel dump/set/clear demo programs
+      api: add CTA_LABEL_MASK attribute handling
+      qa: add api test for nfct_cmp and nfct_exp functions
+      conntrack, expect: fix _cmp api with STRICT checking
+      expect: consider all expect attributes when comparing
+      conntrack: nfct_cmp: also compare labels
+      qa: nfct_cmp: verify individual attr comparision
+      connlabel: fix NULL deref on malloc failure
+      conntrack: CONNLABELS are not a nested attribute
+      conntrack: connlabel: remove useless test
+      conntrack: labels: skip labels with non-alnum characters
+      src: callback: fix memory leak when ct has dynamically allocated attr
+      conntrack: api: add nfct_snprintf_labels
+      qa: test_connlabel: don't abort when system-wide config exists
+      conntrack: labels: labelmap_new: make sure errno is 0 when no labels are found
+      build: bump version to 1.0.4
+
+
+--O5XBE6gyVG5Rl6Rj--
