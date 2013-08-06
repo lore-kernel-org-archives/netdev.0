@@ -1,39 +1,48 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: [PATCH net-next] xfrm: Make xfrm_state timer monotonic
-Date: Tue, 6 Aug 2013 14:57:05 +0800
-Message-ID: <1375772225-19265-1-git-send-email-fan.du@windriver.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH net-next] net: Add low-latency/polling support for UDP
+ multicast
+Date: Tue, 06 Aug 2013 10:13:07 +0300
+Message-ID: <5200A203.2090306@linux.intel.com>
+References: <20130805212257.GB6904@sbohrermbp13-local.rgmadvisors.com> <1375741001-20553-1-git-send-email-sbohrer@rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Amir Vadai <amirv@mellanox.com>, tomk@rgmadvisors.com
+To: Shawn Bohrer <sbohrer@rgmadvisors.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:48461 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750925Ab3HFG45 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 02:56:57 -0400
+Received: from mga02.intel.com ([134.134.136.20]:26979 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754453Ab3HFHNL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Aug 2013 03:13:11 -0400
+In-Reply-To: <1375741001-20553-1-git-send-email-sbohrer@rgmadvisors.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-xfrm_state timer should be independent of system clock change,
-so switch to monotonic clock base.
+On 06/08/2013 01:16, Shawn Bohrer wrote:
+> Set the napi id for each socket in the multicast path to enable
+> low-latency/polling support.
+> 
+> Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
+> ---
+>  net/ipv4/udp.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> index 766e6ba..0d0da17 100644
+> --- a/net/ipv4/udp.c
+> +++ b/net/ipv4/udp.c
+> @@ -1596,6 +1596,7 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+>  	dif = skb->dev->ifindex;
+>  	sk = udp_v4_mcast_next(net, sk, uh->dest, daddr, uh->source, saddr, dif);
+>  	while (sk) {
+> +		sk_mark_napi_id(sk, skb);
+>  		stack[count++] = sk;
+>  		sk = udp_v4_mcast_next(net, sk_nulls_next(sk), uh->dest,
+>  				       daddr, uh->source, saddr, dif);
+> 
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
----
- net/xfrm/xfrm_state.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Looks OK.
+To be complete, you want to do the same for __udp6_lib_mcast_deliver().
 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 78f66fa..e57ab07 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -499,7 +499,7 @@ struct xfrm_state *xfrm_state_alloc(struct net *net)
- 		INIT_HLIST_NODE(&x->bydst);
- 		INIT_HLIST_NODE(&x->bysrc);
- 		INIT_HLIST_NODE(&x->byspi);
--		tasklet_hrtimer_init(&x->mtimer, xfrm_timer_handler, CLOCK_REALTIME, HRTIMER_MODE_ABS);
-+		tasklet_hrtimer_init(&x->mtimer, xfrm_timer_handler, CLOCK_MONOTONIC, HRTIMER_MODE_ABS);
- 		setup_timer(&x->rtimer, xfrm_replay_timer_handler,
- 				(unsigned long)x);
- 		x->curlft.add_time = get_seconds();
--- 
-1.7.9.5
+-Eliezer
