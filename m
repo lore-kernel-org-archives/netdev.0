@@ -1,74 +1,79 @@
-From: Kinley Dorji <kinleyd@gmail.com>
-Subject: Re: Bug: alx: Atheros AR8131/AR8151/AR8152/AR8161 Ethernet driver
-Date: Tue, 6 Aug 2013 12:05:30 +0600
-Message-ID: <CACtZaF+nTHiZ03uebya92b=UVLBXAk9jnM-=Pp3GQ6oSNv8ndA@mail.gmail.com>
-References: <CACtZaFJZCWigdT6_vsP9BTRSORzumu33xUtyPtpiDuNn3DQi+w@mail.gmail.com>
-	<20130805225752.14e843f7@nehalam.linuxnetplumber.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] ipvs: fixed spacing at for statements
+Date: Tue, 6 Aug 2013 15:12:17 +0900
+Message-ID: <20130806061217.GD18246@verge.net.au>
+References: <1373525142-9099-1-git-send-email-dragos.foianu@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f179.google.com ([74.125.82.179]:64508 "EHLO
-	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753985Ab3HFGFb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 02:05:31 -0400
-Received: by mail-we0-f179.google.com with SMTP id t57so3182346wes.38
-        for <netdev@vger.kernel.org>; Mon, 05 Aug 2013 23:05:30 -0700 (PDT)
-In-Reply-To: <20130805225752.14e843f7@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: wensong@linux-vs.org, linux-kernel@vger.kernel.org,
+	coreteam@netfilter.org, netfilter@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	kadlec@blackhole.kfki.hu, kaber@trash.net, pablo@netfilter.org,
+	ja@ssi.bg
+To: Dragos Foianu <dragos.foianu@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1373525142-9099-1-git-send-email-dragos.foianu@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-No sure what conky is using to read them. This is what I get
+On Thu, Jul 11, 2013 at 09:45:42AM +0300, Dragos Foianu wrote:
+> found using checkpatch.pl
 
-$ ip -s -d li show dev eth0
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-state UP mode DEFAULT qlen 1000
-    link/ether 90:2b:34:da:42:fd brd ff:ff:ff:ff:ff:ff promiscuity 0
-    RX: bytes  packets  errors  dropped overrun mcast
-    0          0        0       62      0       0
-    TX: bytes  packets  errors  dropped carrier collsns
-    0          0        0       0       0       0
+This seems reasonable to me. I will queue it up in the ipvs-next tree.
 
-$ ethtool -S eth0
-no stats available
-
-On Tue, Aug 6, 2013 at 11:57 AM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Tue, 6 Aug 2013 11:31:39 +0600
-> Kinley Dorji <kinleyd@gmail.com> wrote:
->
->> Hi,
->>
->> I'd like to report a bug that has been introduced since the mainlining
->> of the NIC drivers originally in the package AUR/dkms-alx pertaining
->> to the above mentioned network cards.
->>
->> Kernels affected: 3.10.1 - 3.10.5
->> All worked well for kernels <= 3.9.9
->>
->> Environment in which it occurs:
->>
->> kernel: >= 3.10
->> conky: any version (gui/cli)
->> NIC: Any one of the above family
->>
->> conky variables that probe the NIC all return nothing or 0: eg:
->> upspeed, upspeedgraph, downspeed, downspeedgraph
->>
->> A small discussion on the issue:
->> https://bbs.archlinux.org/viewtopic.php?id=166555
->>
->> Network connectivity itself is not a problem - connection works and is stable
->>
->> Conky isn't the problem because it works in kernels <= 3.9.9 with dkms-alx.
->>
->
-> What is conky using to read the variables. Perhaps looking at
-> CLI tools like:
->   ip -s -d li show dev eth0
-> or
->   ethtool -S eth0
->
-> would give some indication of which variables are not being incremented.
->
+> 
+> Signed-off-by: Dragos Foianu <dragos.foianu@gmail.com>
+> ---
+>  net/netfilter/ipvs/ip_vs_lblcr.c |    8 ++++----
+>  1 file changed, 4 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
+> index 3cd85b2..5199448 100644
+> --- a/net/netfilter/ipvs/ip_vs_lblcr.c
+> +++ b/net/netfilter/ipvs/ip_vs_lblcr.c
+> @@ -414,7 +414,7 @@ static void ip_vs_lblcr_flush(struct ip_vs_service *svc)
+>  
+>  	spin_lock_bh(&svc->sched_lock);
+>  	tbl->dead = 1;
+> -	for (i=0; i<IP_VS_LBLCR_TAB_SIZE; i++) {
+> +	for (i = 0; i < IP_VS_LBLCR_TAB_SIZE; i++) {
+>  		hlist_for_each_entry_safe(en, next, &tbl->bucket[i], list) {
+>  			ip_vs_lblcr_free(en);
+>  		}
+> @@ -440,7 +440,7 @@ static inline void ip_vs_lblcr_full_check(struct ip_vs_service *svc)
+>  	struct ip_vs_lblcr_entry *en;
+>  	struct hlist_node *next;
+>  
+> -	for (i=0, j=tbl->rover; i<IP_VS_LBLCR_TAB_SIZE; i++) {
+> +	for (i = 0, j = tbl->rover; i < IP_VS_LBLCR_TAB_SIZE; i++) {
+>  		j = (j + 1) & IP_VS_LBLCR_TAB_MASK;
+>  
+>  		spin_lock(&svc->sched_lock);
+> @@ -495,7 +495,7 @@ static void ip_vs_lblcr_check_expire(unsigned long data)
+>  	if (goal > tbl->max_size/2)
+>  		goal = tbl->max_size/2;
+>  
+> -	for (i=0, j=tbl->rover; i<IP_VS_LBLCR_TAB_SIZE; i++) {
+> +	for (i = 0, j = tbl->rover; i < IP_VS_LBLCR_TAB_SIZE; i++) {
+>  		j = (j + 1) & IP_VS_LBLCR_TAB_MASK;
+>  
+>  		spin_lock(&svc->sched_lock);
+> @@ -536,7 +536,7 @@ static int ip_vs_lblcr_init_svc(struct ip_vs_service *svc)
+>  	/*
+>  	 *    Initialize the hash buckets
+>  	 */
+> -	for (i=0; i<IP_VS_LBLCR_TAB_SIZE; i++) {
+> +	for (i = 0; i < IP_VS_LBLCR_TAB_SIZE; i++) {
+>  		INIT_HLIST_HEAD(&tbl->bucket[i]);
+>  	}
+>  	tbl->max_size = IP_VS_LBLCR_TAB_SIZE*16;
+> -- 
+> 1.7.10.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe lvs-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
