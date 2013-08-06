@@ -1,138 +1,50 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [net-next 1/6] net: move iov_pages() to net/core/iovec.c
-Date: Tue,  6 Aug 2013 17:45:03 +0800
-Message-ID: <1375782308-10565-2-git-send-email-jasowang@redhat.com>
-References: <1375782308-10565-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>
-To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1375782308-10565-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH for 3.4 1/2] vhost: zerocopy: poll vq in zerocopy callback
+Date: Tue, 6 Aug 2013 13:04:38 +0300
+Message-ID: <20130806100438.GF11051@redhat.com>
+References: <1375781359-5764-1-git-send-email-jasowang@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56902 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754631Ab3HFKDB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Aug 2013 06:03:01 -0400
+Content-Disposition: inline
+In-Reply-To: <1375781359-5764-1-git-send-email-jasowang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-To let it be reused and reduce code duplication.
+On Tue, Aug 06, 2013 at 05:29:18PM +0800, Jason Wang wrote:
+> commit c70aa540c7a9f67add11ad3161096fb95233aa2e upstream.
+> 
+> We add used and signal guest in worker thread but did not poll the virtqueue
+> during the zero copy callback. This may lead the missing of adding and
+> signalling during zerocopy. Solve this by polling the virtqueue and let it
+> wakeup the worker during callback.
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/macvtap.c  |   23 -----------------------
- drivers/net/tun.c      |   23 -----------------------
- include/linux/socket.h |    2 ++
- net/core/iovec.c       |   24 ++++++++++++++++++++++++
- 4 files changed, 26 insertions(+), 46 deletions(-)
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index a98fb0e..dfec20d 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -698,29 +698,6 @@ static int macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
- 	return 0;
- }
- 
--static unsigned long iov_pages(const struct iovec *iv, int offset,
--			       unsigned long nr_segs)
--{
--	unsigned long seg, base;
--	int pages = 0, len, size;
--
--	while (nr_segs && (offset >= iv->iov_len)) {
--		offset -= iv->iov_len;
--		++iv;
--		--nr_segs;
--	}
--
--	for (seg = 0; seg < nr_segs; seg++) {
--		base = (unsigned long)iv[seg].iov_base + offset;
--		len = iv[seg].iov_len - offset;
--		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
--		pages += size;
--		offset = 0;
--	}
--
--	return pages;
--}
--
- /* Get packet from user space buffer */
- static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
- 				const struct iovec *iv, unsigned long total_len,
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 5dce262..18527ef 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1041,29 +1041,6 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
- 	return 0;
- }
- 
--static unsigned long iov_pages(const struct iovec *iv, int offset,
--			       unsigned long nr_segs)
--{
--	unsigned long seg, base;
--	int pages = 0, len, size;
--
--	while (nr_segs && (offset >= iv->iov_len)) {
--		offset -= iv->iov_len;
--		++iv;
--		--nr_segs;
--	}
--
--	for (seg = 0; seg < nr_segs; seg++) {
--		base = (unsigned long)iv[seg].iov_base + offset;
--		len = iv[seg].iov_len - offset;
--		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
--		pages += size;
--		offset = 0;
--	}
--
--	return pages;
--}
--
- /* Get packet from user space buffer */
- static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 			    void *msg_control, const struct iovec *iv,
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index 230c04b..445ef75 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -313,6 +313,8 @@ extern int csum_partial_copy_fromiovecend(unsigned char *kdata,
- 					  struct iovec *iov, 
- 					  int offset, 
- 					  unsigned int len, __wsum *csump);
-+extern unsigned long iov_pages(const struct iovec *iov, int offset,
-+			       unsigned long nr_segs);
- 
- extern int verify_iovec(struct msghdr *m, struct iovec *iov, struct sockaddr_storage *address, int mode);
- extern int memcpy_toiovecend(const struct iovec *v, unsigned char *kdata,
-diff --git a/net/core/iovec.c b/net/core/iovec.c
-index de178e4..b77eeec 100644
---- a/net/core/iovec.c
-+++ b/net/core/iovec.c
-@@ -212,3 +212,27 @@ out_fault:
- 	goto out;
- }
- EXPORT_SYMBOL(csum_partial_copy_fromiovecend);
-+
-+unsigned long iov_pages(const struct iovec *iov, int offset,
-+			unsigned long nr_segs)
-+{
-+	unsigned long seg, base;
-+	int pages = 0, len, size;
-+
-+	while (nr_segs && (offset >= iov->iov_len)) {
-+		offset -= iov->iov_len;
-+		++iov;
-+		--nr_segs;
-+	}
-+
-+	for (seg = 0; seg < nr_segs; seg++) {
-+		base = (unsigned long)iov[seg].iov_base + offset;
-+		len = iov[seg].iov_len - offset;
-+		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
-+		pages += size;
-+		offset = 0;
-+	}
-+
-+	return pages;
-+}
-+EXPORT_SYMBOL(iov_pages);
--- 
-1.7.1
+> ---
+>  drivers/vhost/vhost.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index 1a9e2a9..a50cb9c 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -1603,6 +1603,7 @@ void vhost_zerocopy_callback(struct ubuf_info *ubuf)
+>  	struct vhost_ubuf_ref *ubufs = ubuf->ctx;
+>  	struct vhost_virtqueue *vq = ubufs->vq;
+>  
+> +	vhost_poll_queue(&vq->poll);
+>  	/* set len = 1 to mark this desc buffers done DMA */
+>  	vq->heads[ubuf->desc].len = VHOST_DMA_DONE_LEN;
+>  	kref_put(&ubufs->kref, vhost_zerocopy_done_signal);
+> -- 
+> 1.7.1
