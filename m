@@ -1,43 +1,48 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH net] net: rename and move busy poll mib counter
-Date: Tue, 06 Aug 2013 13:23:06 +0300
-Message-ID: <5200CE8A.1090707@linux.intel.com>
-References: <20130806095207.5887.2196.stgit@ladj378.jer.intel.com> <1375784088.4457.74.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:43186 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753414Ab3HFKXY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Aug 2013 06:23:24 -0400
-In-Reply-To: <1375784088.4457.74.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH V2 0/4] Enable bus master till the FLR completes for Chelsio T4
+Date: Tue,  6 Aug 2013 15:48:35 +0530
+Message-ID: <1375784319-25760-1-git-send-email-vipul@chelsio.com>
+Cc: bhelgaas@google.com, leedom@chelsio.com, tomreu@chelsio.com,
+	vipul@chelsio.com, divy@chelsio.com, dm@chelsio.com,
+	nirranjan@chelsio.com, eilong@broadcom.com, netdev@vger.kernel.org
+To: linux-pci@vger.kernel.org
+Return-path: <linux-pci-owner@vger.kernel.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/08/2013 13:14, Eric Dumazet wrote:
-> On Tue, 2013-08-06 at 12:52 +0300, Eliezer Tamir wrote:
->> Move the low latency mib counter to the ip section.
->> Rename it from low latency to busy poll.
->>
->> Reported-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
->> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
->> ---
-> 
-> Well, it should not be part of IP mib, but a socket one (not existing so
-> far)
-> 
-> Linux MIB already contains few non TCP counters :
-> 
-> LINUX_MIB_ARPFILTER
-> LINUX_MIB_IPRPFILTER
-> 
-> Its mostly populated by TCP counters, sure.
+This patch series adds device specific reset method for Chelsio T4 adapters.
 
-So, just rename it to busy poll?
-Or maybe just drop the whole patch?
+The series also adds new routine, pci_wait_for_pending_transaction, to wait for
+pending pci transaction. There are few places where waiting for pending pci
+transaction code was duplicated. This patch series also replaces occurances of
+duplicate code.
+
+This patch series is built against Bjorn Helgaas pci tree next branch. We would
+like to merge this series via the same.
+
+I have Cced respective maintainers of the modified drivers. Kindly review and
+let us know in case of any review comments.
+
+Thanks,
+Vipul Pandya
+
+V2: Added pci_wait_for_pending_transaction routine and replaced it at respective
+places. Made the patch series for the same.
+V2: Used dev->msix_cap directly for capability offset
+V2: Removed use of 'rc' variable.
+
+Casey Leedom (4):
+  pci: Add pci_wait_for_pending_transaction to wait for pending pci
+    transaction
+  pci: Enable bus master till the FLR completes
+  bnx2x: Use pci_wait_for_pending_transaction instead of for loop
+  pci: Use pci_wait_for_pending_transaction instead of for loop
+
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 18 +----
+ drivers/pci/pci.c                                | 38 ++++++----
+ drivers/pci/quirks.c                             | 97 ++++++++++++++++++++----
+ include/linux/pci.h                              |  1 +
+ 4 files changed, 109 insertions(+), 45 deletions(-)
+
+-- 
+1.8.0
