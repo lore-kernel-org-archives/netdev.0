@@ -1,64 +1,43 @@
-From: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Subject: Re: [PATCH net] net: rename and move busy poll mib counter
-Date: Tue, 6 Aug 2013 13:18:21 -0500
-Message-ID: <20130806181821.GB8993@sbohrermbp13-local.rgmadvisors.com>
-References: <20130806095207.5887.2196.stgit@ladj378.jer.intel.com>
- <1375784088.4457.74.camel@edumazet-glaptop>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: low latency/busy poll feedback and bugs
+Date: Tue, 06 Aug 2013 21:25:30 +0300
+Message-ID: <52013F9A.9020005@linux.intel.com>
+References: <20130805212257.GB6904@sbohrermbp13-local.rgmadvisors.com> <5200A8BC.4010402@linux.intel.com> <20130806180806.GA8993@sbohrermbp13-local.rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Eliezer Tamir <eliezer.tamir@linux.intel.com>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org
+To: Shawn Bohrer <sbohrer@rgmadvisors.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog134.obsmtp.com ([74.125.149.83]:43972 "EHLO
-	na3sys009aog134.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756170Ab3HFSSZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 14:18:25 -0400
-Received: by mail-oa0-f42.google.com with SMTP id i18so1470528oag.29
-        for <netdev@vger.kernel.org>; Tue, 06 Aug 2013 11:18:24 -0700 (PDT)
-In-Reply-To: <1375784088.4457.74.camel@edumazet-glaptop>
-Content-Disposition: inline
+Received: from mga14.intel.com ([143.182.124.37]:60901 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756371Ab3HFSZm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Aug 2013 14:25:42 -0400
+In-Reply-To: <20130806180806.GA8993@sbohrermbp13-local.rgmadvisors.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 06, 2013 at 03:14:48AM -0700, Eric Dumazet wrote:
-> On Tue, 2013-08-06 at 12:52 +0300, Eliezer Tamir wrote:
-> > Move the low latency mib counter to the ip section.
-> > Rename it from low latency to busy poll.
-> > 
-> > Reported-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
-> > Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-> > ---
-> 
-> Well, it should not be part of IP mib, but a socket one (not existing so
-> far)
-> 
-> Linux MIB already contains few non TCP counters :
-> 
-> LINUX_MIB_ARPFILTER
-> LINUX_MIB_IPRPFILTER
+On 06/08/2013 21:08, Shawn Bohrer wrote:
+> On Tue, Aug 06, 2013 at 10:41:48AM +0300, Eliezer Tamir wrote:
+>> For multicast, it is possible that incoming packets to come from more
+>> than one port (and therefore more than one queue).
+>> I'm not sure how we could handle that, but what we have today won't do
+>> well for that use-case.
+>  
+> It is unclear to me exactly what happens in this case.  With my simple
+> patch I'm assuming it will spin on the receive queue that received the
+> last packet for that socket.  What happens when a packet arrives on a
+> different receive queue than the one we were spinning on? I assume it
+> is still delivered but perhaps the spinning process won't get it until
+> the spinning time expires?  I'm just guessing and haven't attempted to
+> figure it out from looking through the code.
 
-Doesn't mean they are in the correct place either, but perhaps it's too
-late for them.
+What will happen is that the current code will only busy poll on one
+queue, sometimes on this one, sometimes on that one.
 
-> Its mostly populated by TCP counters, sure.
+packets arriving on the other queue will still be serviced but will
+suffer the latency of waiting for NAPI to schedule.
 
-See, on the kernel side these are called "LINUX_MIB*" which seems
-perfectly sane and I wouldn't even think the statistic is out of
-place.  On the user-mode side these are all reported in
-/proc/net/netstat as TcpExt statistics.  I can tell you that I don't
-look at TCP statistics when I'm debugging/testing UDP issues
-(apparently I should).
-
---
-Shawn
-
--- 
-
----------------------------------------------------------------
-This email, along with any attachments, is confidential. If you 
-believe you received this message in error, please contact the 
-sender immediately and delete all copies of the message.  
-Thank you.
+So your avg will be better, but your std. dev. much worse and it's
+probably not worth it if you really expect two devices to receive
+data at the same time.
