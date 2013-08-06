@@ -1,74 +1,62 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [ANNOUNCE] libnetfilter_conntrack 1.0.4 release
-Date: Tue, 6 Aug 2013 17:45:21 +0200
-Message-ID: <20130806154521.GA14118@localhost>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: bridge: disable snooping if there is no querier
+Date: Tue, 06 Aug 2013 08:47:22 -0700
+Message-ID: <1375804042.4004.2.camel@edumazet-glaptop>
+References: <20130804005227.D17B3660D03@gitolite.kernel.org>
+	 <20130806151857.GA25528@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="O5XBE6gyVG5Rl6Rj"
-Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
-	netfilter-announce@lists.netfilter.org, lwn@lwn.net
-To: netfilter-devel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Linus =?ISO-8859-1?Q?L=FCssing?= <linus.luessing@web.de>,
+	"David S. Miller" <davem@davemloft.net>
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:50304 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755712Ab3HFPpc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Aug 2013 11:45:32 -0400
-Content-Disposition: inline
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:51576 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754802Ab3HFPrZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 11:47:25 -0400
+Received: by mail-pa0-f53.google.com with SMTP id lb1so904425pab.26
+        for <netdev@vger.kernel.org>; Tue, 06 Aug 2013 08:47:25 -0700 (PDT)
+In-Reply-To: <20130806151857.GA25528@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2013-08-06 at 11:18 -0400, Dave Jones wrote:
+> On Sun, Aug 04, 2013 at 12:52:27AM +0000, Linux Kernel wrote:
+>  > Gitweb:     http://git.kernel.org/linus/;a=3Dcommit;h=3Db00589af3b=
+04736376f24625ab0b394642e89e29
+>  > Commit:     b00589af3b04736376f24625ab0b394642e89e29
+>  > Parent:     cf3c4c03060b688cbc389ebc5065ebcce5653e96
+>  > Author:     Linus L=C3=BCssing <linus.luessing@web.de>
+>  > AuthorDate: Thu Aug 1 01:06:20 2013 +0200
+>  > Committer:  David S. Miller <davem@davemloft.net>
+>  > CommitDate: Wed Jul 31 17:40:21 2013 -0700
+>  >=20
+>  >     bridge: disable snooping if there is no querier
+>  >    =20
+>  >     Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
+>  >     Signed-off-by: David S. Miller <davem@davemloft.net>
+> =20
+>  > diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+>  > @@ -1198,6 +1206,9 @@ static int br_ip6_multicast_query(struct net=
+_bridge *br,
+>  >  		max_delay =3D mld2q->mld2q_mrc ? MLDV2_MRC(ntohs(mld2q->mld2q_m=
+rc)) : 1;
+>  >  	}
+>  > =20
+>  > +	br_multicast_query_received(br, port, !ipv6_addr_any(&ip6h->sadd=
+r),
+>  > +				    max_delay);
+>  > +
+>  >  	if (!group)
+>  >  		goto out;
+>=20
+> This addition looks suspect. max_delay looks like it could be uniniti=
+alised here.
+>=20
+> 1178         unsigned long max_delay;
+>=20
+> ...
 
---O5XBE6gyVG5Rl6Rj
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-Hi!
-
-The Netfilter project proudly presents:
-
-        libnetfilter_conntrack 1.0.4
-
-libnetfilter_conntrack is a userspace library providing a programming
-interface (API) to the in-kernel connection tracking state table. This
-library is currently used by conntrack-tools and iptables, among other
-applications.
-
-This release includes connlabel support, one memleak fix and fixes in
-the comparison API. See ChangeLog that comes attached to this email
-for more details.
-
-You can download it from:
-
-http://www.netfilter.org/projects/libnetfilter_conntrack/downloads.html
-ftp://ftp.netfilter.org/pub/libnetfilter_conntrack/
-
-Have fun!
-
---O5XBE6gyVG5Rl6Rj
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="changes-libnetfilter_conntrack-1.0.4.txt"
-
-Afschin Hormozdiary (1):
-      libnetfilter_conntrack: don't ignore ATTR_CONNLABELS
-
-Florian Westphal (18):
-      api: add nfct_bitmask object
-      api: add connlabel api and attribute
-      examples: add connlabel dump/set/clear demo programs
-      api: add CTA_LABEL_MASK attribute handling
-      qa: add api test for nfct_cmp and nfct_exp functions
-      conntrack, expect: fix _cmp api with STRICT checking
-      expect: consider all expect attributes when comparing
-      conntrack: nfct_cmp: also compare labels
-      qa: nfct_cmp: verify individual attr comparision
-      connlabel: fix NULL deref on malloc failure
-      conntrack: CONNLABELS are not a nested attribute
-      conntrack: connlabel: remove useless test
-      conntrack: labels: skip labels with non-alnum characters
-      src: callback: fix memory leak when ct has dynamically allocated attr
-      conntrack: api: add nfct_snprintf_labels
-      qa: test_connlabel: don't abort when system-wide config exists
-      conntrack: labels: labelmap_new: make sure errno is 0 when no labels are found
-      build: bump version to 1.0.4
-
-
---O5XBE6gyVG5Rl6Rj--
+fixed in David net tree
