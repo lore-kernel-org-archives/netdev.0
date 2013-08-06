@@ -1,49 +1,42 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [net-next,1/3] bonding: fix vlan 0 addition and removal
-Date: Tue, 6 Aug 2013 02:37:35 +0200
-Message-ID: <20130806003735.GA14443@redhat.com>
-References: <1375709304-16778-2-git-send-email-nikolay@redhat.com>
- <20130805215126.GB3859@redhat.com>
- <20130805.160822.47868741818443064.davem@davemloft.net>
+From: Wang Sheng-Hui <shhuiw@gmail.com>
+Subject: [PATCH] bridge: correct the comment for file br_sysfs_br.c
+Date: Tue, 06 Aug 2013 08:44:46 +0800
+Message-ID: <520046FE.3010305@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: nikolay@redhat.com, netdev@vger.kernel.org, fubar@us.ibm.com,
-	andy@greyhouse.net, kaber@trash.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2474 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751055Ab3HFAid (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Aug 2013 20:38:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20130805.160822.47868741818443064.davem@davemloft.net>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:34143 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751296Ab3HFAo6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 20:44:58 -0400
+Received: by mail-pa0-f48.google.com with SMTP id kp13so39572pab.21
+        for <netdev@vger.kernel.org>; Mon, 05 Aug 2013 17:44:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 05, 2013 at 04:08:22PM -0700, David Miller wrote:
->From: Veaceslav Falico <vfalico@redhat.com>
->Date: Mon, 5 Aug 2013 23:51:26 +0200
->
->> @@ -69,7 +69,6 @@
->>  #include <net/arp.h>
->>  #include <linux/mii.h>
->>  #include <linux/ethtool.h>
->> -#include <linux/if_vlan.h>
->>  #include <linux/if_bonding.h>
->>  #include <linux/jiffies.h>
->>  #include <linux/preempt.h>
->> @@ -1976,7 +1975,7 @@ static int __bond_release_one(struct net_device
->> *bond_dev,
->>  		bond_set_carrier(bond);
->>  		eth_hw_addr_random(bond_dev);
->>  -		if (bond_vlan_used(bond)) {
->> +		if (vlan_uses_dev(bond_dev)) {
->
->If you're adding a use of vlan_uses_dev(), you should retain the
->if_vlan.h include, not remove it.
 
-I've added the usage of vlan_uses_dev_rcu() to bonding.h, so bonding.h
-already includes linux/if_vlan.h, and thus any other bonding file doesn't
-need it, cause it always includes bonding.h.
+br_sysfs_if.c is for sysfs attributes of bridge ports, while br_sysfs_br.c
+is for sysfs attributes of bridge itself. Correct the comment here.
 
-Sorry, my bad, should have added it to the commit message.
+Signed-off-by: Wang Sheng-Hui <shhuiw@gmail.com>
+---
+ net/bridge/br_sysfs_br.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
+index 394bb96..3b9637f 100644
+--- a/net/bridge/br_sysfs_br.c
++++ b/net/bridge/br_sysfs_br.c
+@@ -1,5 +1,5 @@
+ /*
+- *	Sysfs attributes of bridge ports
++ *	Sysfs attributes of bridge
+  *	Linux ethernet bridge
+  *
+  *	Authors:
+-- 
+1.7.10.4
