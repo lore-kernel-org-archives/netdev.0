@@ -1,48 +1,50 @@
-From: Jussi Kivilinna <jussi.kivilinna-X3B1VOXEql0@public.gmane.org>
-Subject: [PATCH] zd1201: do not use stack as URB transfer_buffer
-Date: Tue, 06 Aug 2013 14:28:42 +0300
-Message-ID: <20130806112842.14897.95337.stgit@localhost6.localdomain6>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Bug: alx: Atheros AR8131/AR8151/AR8152/AR8161 Ethernet driver
+Date: Tue, 06 Aug 2013 13:32:38 +0200
+Message-ID: <1375788758.8219.13.camel@jlt4.sipsolutions.net>
+References: <CACtZaFJZCWigdT6_vsP9BTRSORzumu33xUtyPtpiDuNn3DQi+w@mail.gmail.com>
+	 <20130805225752.14e843f7@nehalam.linuxnetplumber.net>
+	 <CACtZaF+nTHiZ03uebya92b=UVLBXAk9jnM-=Pp3GQ6oSNv8ndA@mail.gmail.com>
+	 <1375785799.4457.81.camel@edumazet-glaptop>
+	 (sfid-20130806_124324_003243_F85A36DB)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Kinley Dorji <kinleyd@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([144.76.43.152]:54897 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755922Ab3HFLcn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 07:32:43 -0400
+In-Reply-To: <1375785799.4457.81.camel@edumazet-glaptop> (sfid-20130806_124324_003243_F85A36DB)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Patch fixes zd1201 not to use stack as URB transfer_buffer. URB buffers need
-to be DMA-able, which stack is not.
+On Tue, 2013-08-06 at 03:43 -0700, Eric Dumazet wrote:
 
-Patch is only compile tested.
+> > $ ethtool -S eth0
+> > no stats available
+> 
+> It seems alx driver does not support stats.
+> 
+> (No ndo_get_stats() and no changes on netdev->stats embedded stats)
+> 
+> 
+> drivers/net/ethernet/atheros/atl1c/atl1c_main.c provides
+> atl1c_get_stats() gathering hardware counters
+> 
+> CC Johannes Berg, let see if he has plan to add them on alx
 
-Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Signed-off-by: Jussi Kivilinna <jussi.kivilinna-X3B1VOXEql0@public.gmane.org>
----
- drivers/net/wireless/zd1201.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+I don't. There are some stats in the original code at
+https://github.com/erikarn/alx, but I removed them because I didn't
+really understand what was going on and don't really care much for the
+stats in the system I'm using this device on - and based on the driver
+I'm not sure I'd use the chip for 'serious' work anyway :)
 
-diff --git a/drivers/net/wireless/zd1201.c b/drivers/net/wireless/zd1201.c
-index 4941f20..b8ba1f9 100644
---- a/drivers/net/wireless/zd1201.c
-+++ b/drivers/net/wireless/zd1201.c
-@@ -98,10 +98,12 @@ static int zd1201_fw_upload(struct usb_device *dev, int apfw)
- 		goto exit;
- 
- 	err = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0), 0x4,
--	    USB_DIR_IN | 0x40, 0,0, &ret, sizeof(ret), ZD1201_FW_TIMEOUT);
-+	    USB_DIR_IN | 0x40, 0, 0, buf, sizeof(ret), ZD1201_FW_TIMEOUT);
- 	if (err < 0)
- 		goto exit;
- 
-+	memcpy(&ret, buf, sizeof(ret));
-+
- 	if (ret & 0x80) {
- 		err = -EIO;
- 		goto exit;
+FWIW, it had ndo_get_stats() but was updating the netdev->stats from
+that handler and then returning them, which seemed a bit questionable.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+johannes
