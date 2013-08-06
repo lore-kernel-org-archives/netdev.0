@@ -1,59 +1,52 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [net-next,v2,2/2] bonding: unwind on bond_add_vlan failure
-Date: Tue, 6 Aug 2013 14:11:42 +0200
-Message-ID: <20130806121142.GP22756@redhat.com>
-References: <1375785616-5349-3-git-send-email-nikolay@redhat.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: low latency/busy poll feedback and bugs
+Date: Tue, 6 Aug 2013 15:15:05 +0300
+Message-ID: <5200E8C9.5070808@mellanox.com>
+References: <20130805212257.GB6904@sbohrermbp13-local.rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com,
-	davem@davemloft.net
-To: nikolay@redhat.com
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <eliezer.tamir@linux.intel.com>, <netdev@vger.kernel.org>
+To: Shawn Bohrer <sbohrer@rgmadvisors.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56481 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756287Ab3HFMM5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Aug 2013 08:12:57 -0400
-Content-Disposition: inline
-In-Reply-To: <1375785616-5349-3-git-send-email-nikolay@redhat.com>
+Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:49483 "EHLO
+	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756083Ab3HFMQ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 08:16:26 -0400
+In-Reply-To: <20130805212257.GB6904@sbohrermbp13-local.rgmadvisors.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 06, 2013 at 12:40:16PM +0200, nikolay@redhat.com wrote:
->From: Nikolay Aleksandrov <Nikolay Aleksandrov nikolay@redhat.com>
->
->In case of bond_add_vlan() failure currently we'll have the vlan's
->refcnt bumped up in all slaves, but it will never go down because it
->failed to get added to the bond, so properly unwind the added vlan if
->bond_add_vlan fails.
->
->Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+On 06/08/2013 00:22, Shawn Bohrer wrote:
+> I did a little testing of the new low latency/busy poll sockets today
+> and found a few things that surprised me and at least one bug.
+> 
+> 1) I'm testing with a Mellanox ConnectX-3 card.  
+Of course :)
 
-Acked-by: Veaceslav Falico <vfalico@redhat.com>
+> Currently polling
+> with mlx4_en is broken when GRO is enabled.  In
+> mlx4_en_process_rx_cq() when GRO is enabled skb_mark_napi_id() is
+> never called.  It appears like low latency sockets with GRO is
+> supposed to work because the following code checks that we are not
+> ll_polling:
+> 
+>  /* This packet is eligible for GRO if it is:
+>    * - DIX Ethernet (type interpretation)
+>    * - TCP/IP (v4)
+>    * - without IP options
+>    * - not an IP fragment
+>    * - no LLS polling in progress
+>    */
+>   if (!mlx4_en_cq_ll_polling(cq) &&
+>       (dev->features & NETIF_F_GRO)) {
+> 
+> However since we never call skb_mark_napi_id() mlx4_en_cq_ll_polling()
+> will never be true.
 
->
->---
->v2: no changes
->
-> drivers/net/bonding/bond_main.c | 4 ++--
-> 1 file changed, 2 insertions(+), 2 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 78b0aeb..4264a76 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -455,13 +455,13 @@ static int bond_vlan_rx_add_vid(struct net_device *bond_dev,
-> 	if (res) {
-> 		pr_err("%s: Error: Failed to add vlan id %d\n",
-> 		       bond_dev->name, vid);
->-		return res;
->+		goto unwind;
-> 	}
->
-> 	return 0;
->
-> unwind:
->-	/* unwind from head to the slave that failed */
->+	/* unwind from the slave that failed */
-> 	bond_for_each_slave_continue_reverse(bond, slave)
-> 		vlan_vid_del(slave->dev, proto, vid);
->
+Currently GRO and LLS are mutually exclusive, and shouldn't be used
+together.
+I will send a fix to make the code clearer soon.
+
+Thanks for reporting,
+Amir
