@@ -1,62 +1,54 @@
-From: Jean Sacren <sakiwit@gmail.com>
-Subject: [PATCH net-next 3/3] net: core: fix wrong linkage for ptype_base and ptype_all symbols
-Date: Tue,  6 Aug 2013 01:32:51 -0600
-Message-ID: <1375774371-831-3-git-send-email-sakiwit@gmail.com>
-References: <1375774371-831-1-git-send-email-sakiwit@gmail.com>
-To: netdev@vger.kernel.org
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: low latency/busy poll feedback and bugs
+Date: Tue, 06 Aug 2013 10:41:48 +0300
+Message-ID: <5200A8BC.4010402@linux.intel.com>
+References: <20130805212257.GB6904@sbohrermbp13-local.rgmadvisors.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org
+To: Shawn Bohrer <sbohrer@rgmadvisors.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:47444 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754953Ab3HFHfF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 03:35:05 -0400
-Received: by mail-pa0-f46.google.com with SMTP id fa1so368242pad.33
-        for <netdev@vger.kernel.org>; Tue, 06 Aug 2013 00:35:04 -0700 (PDT)
-In-Reply-To: <1375774371-831-1-git-send-email-sakiwit@gmail.com>
+Received: from mga03.intel.com ([143.182.124.21]:26469 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755211Ab3HFHlu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Aug 2013 03:41:50 -0400
+In-Reply-To: <20130805212257.GB6904@sbohrermbp13-local.rgmadvisors.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In commit 900ff8c6 ("net: move procfs code to net/core/net-procfs.c"),
-it changed the correct linkage of ptype_base and ptype_all symbols to
-the wrong one in net/core/dev.c, yet failed to change to the correct
-linkage of those two in net/core/net-procfs.c.
+On 06/08/2013 00:22, Shawn Bohrer wrote:
+> 1) I'm testing with a Mellanox ConnectX-3 card.
 
-Fix the wrong linkage by setting static specifier to both sets of the
-symbols so that they could have coherent internal linkage by themselves
-to avoid interference with each other.
+There's your problem ;)
 
-Signed-off-by: Jean Sacren <sakiwit@gmail.com>
----
- net/core/dev.c        | 4 ++--
- net/core/net-procfs.c | 4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+> 2) Why is LowLatencyRxPackets reported as a TcpExt stat?  Perhaps I've
+> been confused and misguided but I've always assumed those are
+> statistics related to TCP and this feature is protocol neutral.  I'm
+> not entirely sure where it should be moved to perhaps IpExt?
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index dfd9f5d..d85e5e1 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -142,8 +142,8 @@
- 
- static DEFINE_SPINLOCK(ptype_lock);
- static DEFINE_SPINLOCK(offload_lock);
--struct list_head ptype_base[PTYPE_HASH_SIZE] __read_mostly;
--struct list_head ptype_all __read_mostly;	/* Taps */
-+static struct list_head ptype_base[PTYPE_HASH_SIZE] __read_mostly;
-+static struct list_head ptype_all __read_mostly;	/* Taps */
- static struct list_head offload_base __read_mostly;
- 
- /*
-diff --git a/net/core/net-procfs.c b/net/core/net-procfs.c
-index 2bf8329..e57cd63 100644
---- a/net/core/net-procfs.c
-+++ b/net/core/net-procfs.c
-@@ -9,8 +9,8 @@
- #define get_offset(x) ((x) & ((1 << BUCKET_SPACE) - 1))
- #define set_bucket_offset(b, o) ((b) << BUCKET_SPACE | (o))
- 
--extern struct list_head ptype_all __read_mostly;
--extern struct list_head ptype_base[PTYPE_HASH_SIZE] __read_mostly;
-+static struct list_head ptype_all __read_mostly;
-+static struct list_head ptype_base[PTYPE_HASH_SIZE] __read_mostly;
- 
- static inline struct net_device *dev_from_same_bucket(struct seq_file *seq, loff_t *pos)
- {
+Actually, after all of the rewrite this has gone through,
+it's now at the Ethernet level, not even IP specific.
+
+So where should it go?
+
+Should we also rename this to BusyPollRxPackets?
+
+> 3) I don't know if this was intentional, an oversight, or simply a
+> missing feature but UDP multicast currently is not supported.  In
+> order to add support I believe you would need to call
+> sk_mark_napi_id() in __udp4_lib_mcast_deliver().  Assuming there isn't
+> some intentional reason this wasn't done I'd be happy to test this and
+> send a patch.
+
+This is still WIP, so our goal was to make it easy to extend for new
+cases and protocols.
+
+For multicast, it is possible that incoming packets to come from more
+than one port (and therefore more than one queue).
+I'm not sure how we could handle that, but what we have today won't do
+well for that use-case.
+
+What do you use for testing?
+
+-Eliezer
