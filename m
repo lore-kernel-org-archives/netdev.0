@@ -1,77 +1,57 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH v3 4/4] USBNET: ax88179_178a: enable tso if usb host
- supports sg dma
-Date: Tue, 6 Aug 2013 23:07:20 +0800
-Message-ID: <CACVXFVNFPRmhMN5oEU2pr8jKh+93CNswPtCOprG8ZJc4U6iz6g@mail.gmail.com>
-References: <1375750370-18194-1-git-send-email-ming.lei@canonical.com>
-	<1375750370-18194-5-git-send-email-ming.lei@canonical.com>
-	<1375791737.4457.98.camel@edumazet-glaptop>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH] tcp: cubic: fix overflow error in bictcp_update()
+Date: Tue, 6 Aug 2013 11:12:51 -0400
+Message-ID: <CADVnQykEFKDdPBsry_rVHvfufUEo-R0QfW0YkGOkBQVXHoqq0A@mail.gmail.com>
+References: <1375747815.4457.59.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
-	Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1375791737.4457.98.camel@edumazet-glaptop>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Van Jacobson <vanj@google.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f43.google.com ([74.125.83.43]:51006 "EHLO
+	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755148Ab3HFPMw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 11:12:52 -0400
+Received: by mail-ee0-f43.google.com with SMTP id e52so283837eek.2
+        for <netdev@vger.kernel.org>; Tue, 06 Aug 2013 08:12:51 -0700 (PDT)
+In-Reply-To: <1375747815.4457.59.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 6, 2013 at 8:22 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Tue, 2013-08-06 at 08:52 +0800, Ming Lei wrote:
->> This patch enables 'can_dma_sg' flag for ax88179_178a device
->> if the attached host controller supports building packet from
->> discontinuous buffers(DMA SG is possible), so TSO can be enabled
->> and skb fragment buffers can be passed to usb stack via urb->sg
->> directly.
->>
->> With the patch, system CPU utilization decreased ~50% and throughput
->> increased by ~10% when doing iperf client test on one ARM A15 dual
->> core board.
->>
+On Mon, Aug 5, 2013 at 8:10 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
 >
-> Nice ;)
+> commit 17a6e9f1aa9 ("tcp_cubic: fix clock dependency") added an
+> overflow error in bictcp_update() in following code :
 >
->>              AX_RXCOE_TCPV6 | AX_RXCOE_UDPV6;
->> @@ -1310,6 +1318,10 @@ static int ax88179_reset(struct usbnet *dev)
->>
->>       dev->net->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
->>                                NETIF_F_RXCSUM;
->> +     if (dev->can_dma_sg) {
->> +             dev->net->features |= NETIF_F_SG | NETIF_F_TSO;
->> +             dev->net->hw_features |= NETIF_F_SG | NETIF_F_TSO;
->> +     }
->>
+> /* change the unit from HZ to bictcp_HZ */
+> t = ((tcp_time_stamp + msecs_to_jiffies(ca->delay_min>>3) -
+>       ca->epoch_start) << BICTCP_HZ) / HZ;
 >
-> My concern with setting TSO on reset() is the following :
+> Because msecs_to_jiffies() being unsigned long, compiler does
+> implicit type promotion.
 >
-> Admin can disable TSO with
+> We really want to constrain (tcp_time_stamp - ca->epoch_start)
+> to a signed 32bit value, or else 't' has unexpected high values.
 >
-> ethtool -K ethX tso off
+> This bugs triggers an increase of retransmit rates ~24 days after
+> boot [1], as the high order bit of tcp_time_stamp flips.
 >
+> [1] for hosts with HZ=1000
 >
-> Then, one hour later, or one month later, a reset happens, and this code
-> magically re-enables TSO
+> Big thanks to Van Jacobson for spotting this problem.
+>
+> Diagnosed-by: Van Jacobson <vanj@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
 
-The reset only happens during open(), and TSO can't be re-enabled magically,
-unless the interface is re-opened by Admin.
+Acked-by: Neal Cardwell <ncardwell@google.com>
 
->
-> So, I really think this part should be removed from your patch.
+Also a nice catch!
 
-OK, will remove it.
-
-
-Thanks,
---
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+neal
