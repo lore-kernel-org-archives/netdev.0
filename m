@@ -1,38 +1,47 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 7/7] be2net: update driver version
-Date: Tue, 6 Aug 2013 09:27:21 +0530
-Message-ID: <1375761441-22343-8-git-send-email-sathya.perla@emulex.com>
-References: <1375761441-22343-1-git-send-email-sathya.perla@emulex.com>
+From: Kinley Dorji <kinleyd@gmail.com>
+Subject: Bug: alx: Atheros AR8131/AR8151/AR8152/AR8161 Ethernet driver
+Date: Tue, 6 Aug 2013 11:31:39 +0600
+Message-ID: <CACtZaFJZCWigdT6_vsP9BTRSORzumu33xUtyPtpiDuNn3DQi+w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:38644 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753940Ab3HFD4k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 23:56:40 -0400
-In-Reply-To: <1375761441-22343-1-git-send-email-sathya.perla@emulex.com>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:65154 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752399Ab3HFFbl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 01:31:41 -0400
+Received: by mail-wi0-f174.google.com with SMTP id j17so2239527wiw.7
+        for <netdev@vger.kernel.org>; Mon, 05 Aug 2013 22:31:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+I'd like to report a bug that has been introduced since the mainlining
+of the NIC drivers originally in the package AUR/dkms-alx pertaining
+to the above mentioned network cards.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index c827b1b..11c815d 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -34,7 +34,7 @@
- #include "be_hw.h"
- #include "be_roce.h"
- 
--#define DRV_VER			"4.6.62.0u"
-+#define DRV_VER			"4.9.134.0u"
- #define DRV_NAME		"be2net"
- #define BE_NAME			"Emulex BladeEngine2"
- #define BE3_NAME		"Emulex BladeEngine3"
--- 
-1.7.1
+Kernels affected: 3.10.1 - 3.10.5
+All worked well for kernels <= 3.9.9
+
+Environment in which it occurs:
+
+kernel: >= 3.10
+conky: any version (gui/cli)
+NIC: Any one of the above family
+
+conky variables that probe the NIC all return nothing or 0: eg:
+upspeed, upspeedgraph, downspeed, downspeedgraph
+
+A small discussion on the issue:
+https://bbs.archlinux.org/viewtopic.php?id=166555
+
+Network connectivity itself is not a problem - connection works and is stable
+
+Conky isn't the problem because it works in kernels <= 3.9.9 with dkms-alx.
+
+Hope it can be resolved, at your convenience.
+
+Thank you for the good work you do,
+
+Kinley
