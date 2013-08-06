@@ -1,42 +1,92 @@
 From: William Manley <william.manley@youview.com>
-Subject: IGMP Unsolicited report interval patches
-Date: Tue,  6 Aug 2013 19:03:12 +0100
-Message-ID: <1375812195-6575-1-git-send-email-william.manley@youview.com>
+Subject: [PATCH v4 1/3] net: igmp: Reduce Unsolicited report interval to 1s when using IGMPv3
+Date: Tue,  6 Aug 2013 19:03:13 +0100
+Message-ID: <1375812195-6575-2-git-send-email-william.manley@youview.com>
 References: <20130731063442.GA10498@order.stressinduktion.org>
+ <1375812195-6575-1-git-send-email-william.manley@youview.com>
 To: william.manley@youview.com, netdev@vger.kernel.org, bcrl@kvack.org,
 	luky-37@hotmail.com, sergei.shtylyov@cogentembedded.com,
 	bhutchings@solarflare.com, davem@davemloft.net,
 	hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:33863 "EHLO
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:47047 "EHLO
 	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756078Ab3HFSEA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 14:04:00 -0400
-In-Reply-To: <20130731063442.GA10498@order.stressinduktion.org>
+	by vger.kernel.org with ESMTP id S1756099Ab3HFSEB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 14:04:01 -0400
+In-Reply-To: <1375812195-6575-1-git-send-email-william.manley@youview.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-4th version of the patches.
+If an IGMP join packet is lost you will not receive data sent to the
+multicast group so if no data arrives from that multicast group in a
+period of time after the IGMP join a second IGMP join will be sent.  The
+delay between joins is the "IGMP Unsolicited Report Interval".
 
-The significant changes since last review are: 
+Previously this value was hard coded to be chosen randomly between 0-10s.
+This can be too long for some use-cases, such as IPTV as it can cause
+channel change to be slow in the presence of packet loss.
 
-1. there is a new patch (2/3) as requested by Hannes.
-2. the third patch now uses IN_DEV_CONF_GET in place of
-   IPV4_DEVCONF_ALL.  This means that the unsolicited report interval can
-   now be configured on an interface-by-interface basis as I'd originally
-   intended but messed up in the implementation.  One concern I have now
-   is that with this latest patch-set is that while
-   /proc/sys/net/ipv4/conf/eth0/igmp... will now have an effect 
-   /proc/sys/net/ipv4/conf/all/igmp... will not.  I'm not sure how to
-   resolve this.
+The value 10s has come from IGMPv2 RFC2236, which was reduced to 1s in
+IGMPv3 RFC3376.  This patch makes the kernel use the 1s value from the
+later RFC if we are operating in IGMPv3 mode.  IGMPv2 behaviour is
+unaffected.
 
-   One option would be to have a special value of -1 to mean use the
-   default so I could implement fall-back semantics.  A down-side of this
-   approach is that it makes the meaning of the knobs less clear for
-   someone browsing through the filesystem.  Another option would be to
-   remove the knob from all/ entirely, although I'm not sure how to do
-   this.  Suggestions are very much welcome :)
+Tested with Wireshark and a simple program to join a (non-existent)
+multicast group.  The distribution of timings for the second join differ
+based upon setting /proc/sys/net/ipv4/conf/eth0/force_igmp_version.
 
-Thanks 
+Signed-off-by: William Manley <william.manley@youview.com>
+---
+ net/ipv4/igmp.c |   16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
 
-Will
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index d8c2327..9f0aaea 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -113,7 +113,8 @@
+ 
+ #define IGMP_V1_Router_Present_Timeout		(400*HZ)
+ #define IGMP_V2_Router_Present_Timeout		(400*HZ)
+-#define IGMP_Unsolicited_Report_Interval	(10*HZ)
++#define IGMP_V2_Unsolicited_Report_Interval	(10*HZ)
++#define IGMP_V3_Unsolicited_Report_Interval	(1*HZ)
+ #define IGMP_Query_Response_Interval		(10*HZ)
+ #define IGMP_Unsolicited_Report_Count		2
+ 
+@@ -138,6 +139,14 @@
+ 	 ((in_dev)->mr_v2_seen && \
+ 	  time_before(jiffies, (in_dev)->mr_v2_seen)))
+ 
++static int unsolicited_report_interval(struct in_device *in_dev)
++{
++	if (IGMP_V1_SEEN(in_dev) || IGMP_V2_SEEN(in_dev))
++		return IGMP_V2_Unsolicited_Report_Interval;
++	else /* v3 */
++		return IGMP_V3_Unsolicited_Report_Interval;
++}
++
+ static void igmpv3_add_delrec(struct in_device *in_dev, struct ip_mc_list *im);
+ static void igmpv3_del_delrec(struct in_device *in_dev, __be32 multiaddr);
+ static void igmpv3_clear_delrec(struct in_device *in_dev);
+@@ -719,7 +728,8 @@ static void igmp_ifc_timer_expire(unsigned long data)
+ 	igmpv3_send_cr(in_dev);
+ 	if (in_dev->mr_ifc_count) {
+ 		in_dev->mr_ifc_count--;
+-		igmp_ifc_start_timer(in_dev, IGMP_Unsolicited_Report_Interval);
++		igmp_ifc_start_timer(in_dev,
++				     unsolicited_report_interval(in_dev));
+ 	}
+ 	__in_dev_put(in_dev);
+ }
+@@ -744,7 +754,7 @@ static void igmp_timer_expire(unsigned long data)
+ 
+ 	if (im->unsolicit_count) {
+ 		im->unsolicit_count--;
+-		igmp_start_timer(im, IGMP_Unsolicited_Report_Interval);
++		igmp_start_timer(im, unsolicited_report_interval(in_dev));
+ 	}
+ 	im->reporter = 1;
+ 	spin_unlock(&im->lock);
+-- 
+1.7.10.4
