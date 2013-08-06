@@ -1,42 +1,63 @@
-From: Wang Sheng-Hui <shhuiw@gmail.com>
-Subject: [PATCH] bridge: correct the comment for file br_sysfs_br.c
-Date: Tue, 06 Aug 2013 08:44:46 +0800
-Message-ID: <520046FE.3010305@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+From: Ming Lei <ming.lei@canonical.com>
+Subject: [PATCH v3 0/4] USB & USBNET: loose SG check and support usbnet DMA SG
+Date: Tue,  6 Aug 2013 08:52:45 +0800
+Message-ID: <1375750370-18194-1-git-send-email-ming.lei@canonical.com>
+Cc: Oliver Neukum <oneukum@suse.de>,
+	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:34143 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751296Ab3HFAo6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 20:44:58 -0400
-Received: by mail-pa0-f48.google.com with SMTP id kp13so39572pab.21
-        for <netdev@vger.kernel.org>; Mon, 05 Aug 2013 17:44:57 -0700 (PDT)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:60828 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751788Ab3HFAxF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 20:53:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
-br_sysfs_if.c is for sysfs attributes of bridge ports, while br_sysfs_br.c
-is for sysfs attributes of bridge itself. Correct the comment here.
+This patchset allows drivers to pass sg buffers which size can't be divided
+by max packet size of endpoint if the host controllers(such ax xHCI) support
+this kind of sg buffers.
 
-Signed-off-by: Wang Sheng-Hui <shhuiw@gmail.com>
----
- net/bridge/br_sysfs_br.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Previously we added check[1] on the situation and don't allow these sg buffers
+passed to USB HCD, looks the check is too strict to make use of new feature of
+new hardware(xHCI) for some applications(such as network stack) which can't
+provide this kind of sg buffers to usbnet driver, so the patch looses the check
+in case that the host controller supports it.
 
-diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index 394bb96..3b9637f 100644
---- a/net/bridge/br_sysfs_br.c
-+++ b/net/bridge/br_sysfs_br.c
-@@ -1,5 +1,5 @@
- /*
-- *	Sysfs attributes of bridge ports
-+ *	Sysfs attributes of bridge
-  *	Linux ethernet bridge
-  *
-  *	Authors:
--- 
-1.7.10.4
+Patch 3/4 implements DMA SG on usbnet driver, and patch 4/4 uses it on ax88179_178a
+USB3 NIC for supporting TSO, so both CPU utilization and tx throughput can be
+improved with TSO and DMA SG in case of the USB NIC is attached to xHCI controller.
+
+This patchset depends on both net-next and usb-next tree, so hope David and Greg
+to figure out one elegent way to merge it.
+
+[1], http://git.kernel.org/cgit/linux/kernel/git/gregkh/usb.git/commit/?h=usb-next&id=10e232c597ac757e7f8600649f7e872e86de190f
+
+V3:
+	- save 3 lines code for usb_device_no_sg_constraint() as suggested by Alan
+	- fix urb->sg leak in xmit failure path
+
+V2:
+        - add missed kfree(urb->sg) in 3/4
+        - rename no_sg_limit as no_sg_constraint as suggested by Alan
+
+V1:
+        - introduce and apply usb_device_no_sg_limit() helper as suggested by Greg
+        - simplify patch 4/4 against Eric Dumazet's patch(ax88179_178a: avoid copy of tx tcp packets)
+        - don't pass usbnet header as sg buffer
+
+ drivers/net/usb/ax88179_178a.c |   12 +++++++++++
+ drivers/net/usb/usbnet.c       |   45 +++++++++++++++++++++++++++++++++++++---
+ drivers/usb/core/urb.c         |    3 ++-
+ drivers/usb/host/xhci.c        |    4 ++++
+ include/linux/usb.h            |    8 ++++++-
+ include/linux/usb/usbnet.h     |    1 +
+ 6 files changed, 68 insertions(+), 5 deletions(-)
+
+
+Thanks,
+--
+Ming Lei
