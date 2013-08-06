@@ -1,48 +1,36 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH net-next] net: Add low-latency/polling support for UDP
- multicast
-Date: Tue, 06 Aug 2013 10:13:07 +0300
-Message-ID: <5200A203.2090306@linux.intel.com>
-References: <20130805212257.GB6904@sbohrermbp13-local.rgmadvisors.com> <1375741001-20553-1-git-send-email-sbohrer@rgmadvisors.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Amir Vadai <amirv@mellanox.com>, tomk@rgmadvisors.com
-To: Shawn Bohrer <sbohrer@rgmadvisors.com>
+From: Jean Sacren <sakiwit@gmail.com>
+Subject: [PATCH net-next 1/3] sock: fix a typo in the comment
+Date: Tue,  6 Aug 2013 01:32:49 -0600
+Message-ID: <1375774371-831-1-git-send-email-sakiwit@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:26979 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754453Ab3HFHNL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Aug 2013 03:13:11 -0400
-In-Reply-To: <1375741001-20553-1-git-send-email-sbohrer@rgmadvisors.com>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:36717 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754938Ab3HFHe7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 03:34:59 -0400
+Received: by mail-pa0-f47.google.com with SMTP id kl13so364755pab.20
+        for <netdev@vger.kernel.org>; Tue, 06 Aug 2013 00:34:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/08/2013 01:16, Shawn Bohrer wrote:
-> Set the napi id for each socket in the multicast path to enable
-> low-latency/polling support.
-> 
-> Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
-> ---
->  net/ipv4/udp.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index 766e6ba..0d0da17 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -1596,6 +1596,7 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
->  	dif = skb->dev->ifindex;
->  	sk = udp_v4_mcast_next(net, sk, uh->dest, daddr, uh->source, saddr, dif);
->  	while (sk) {
-> +		sk_mark_napi_id(sk, skb);
->  		stack[count++] = sk;
->  		sk = udp_v4_mcast_next(net, sk_nulls_next(sk), uh->dest,
->  				       daddr, uh->source, saddr, dif);
-> 
+Correct 'transfert' to 'transfer' to better deliver the original
+author's message.
 
-Looks OK.
-To be complete, you want to do the same for __udp6_lib_mcast_deliver().
+Signed-off-by: Jean Sacren <sakiwit@gmail.com>
+---
+ net/core/sock.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
--Eliezer
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 83667de..811de47 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1579,7 +1579,7 @@ EXPORT_SYMBOL(sock_wfree);
+ void skb_orphan_partial(struct sk_buff *skb)
+ {
+ 	/* TCP stack sets skb->ooo_okay based on sk_wmem_alloc,
+-	 * so we do not completely orphan skb, but transfert all
++	 * so we do not completely orphan skb, but transfer all
+ 	 * accounted bytes but one, to avoid unexpected reorders.
+ 	 */
+ 	if (skb->destructor == sock_wfree
