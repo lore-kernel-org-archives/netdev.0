@@ -1,84 +1,77 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH v3 4/4] USBNET: ax88179_178a: enable tso if usb host supports sg dma
-Date: Tue,  6 Aug 2013 08:52:49 +0800
-Message-ID: <1375750370-18194-5-git-send-email-ming.lei@canonical.com>
-References: <1375750370-18194-1-git-send-email-ming.lei@canonical.com>
-Cc: Oliver Neukum <oneukum@suse.de>,
-	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Ming Lei <ming.lei@canonical.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Grant Grundler <grundler@google.com>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Freddy Xin <freddy@asix.com.tw>
-To: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [net-next 07/15] ixgbe: fix SFF data dumps of SFP+ modules
+Date: Tue, 6 Aug 2013 00:56:10 +0000
+Message-ID: <87618083B2453E4A8714035B62D679924FDEDF40@FMSMSX105.amr.corp.intel.com>
+References: <1375102331-23905-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1375102331-23905-8-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1375434517.24371.24.camel@deadeye.wl.decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:34368 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751913Ab3HFAxv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Aug 2013 20:53:51 -0400
-In-Reply-To: <1375750370-18194-1-git-send-email-ming.lei@canonical.com>
+Received: from mga14.intel.com ([143.182.124.37]:17207 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751738Ab3HFA4M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Aug 2013 20:56:12 -0400
+In-Reply-To: <1375434517.24371.24.camel@deadeye.wl.decadent.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables 'can_dma_sg' flag for ax88179_178a device
-if the attached host controller supports building packet from
-discontinuous buffers(DMA SG is possible), so TSO can be enabled
-and skb fragment buffers can be passed to usb stack via urb->sg
-directly.
-
-With the patch, system CPU utilization decreased ~50% and throughput
-increased by ~10% when doing iperf client test on one ARM A15 dual
-core board.
-
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Ben Hutchings <bhutchings@solarflare.com>
-Cc: Grant Grundler <grundler@google.com>
-Cc: Oliver Neukum <oneukum@suse.de>
-Cc: Alan Stern <stern@rowland.harvard.edu>
-Cc: Freddy Xin <freddy@asix.com.tw>
-Signed-off-by: Ming Lei <ming.lei@canonical.com>
----
- drivers/net/usb/ax88179_178a.c |   12 ++++++++++++
- 1 file changed, 12 insertions(+)
-
-diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
-index fb0caa2..7a96326 100644
---- a/drivers/net/usb/ax88179_178a.c
-+++ b/drivers/net/usb/ax88179_178a.c
-@@ -1031,12 +1031,20 @@ static int ax88179_bind(struct usbnet *dev, struct usb_interface *intf)
- 	dev->mii.phy_id = 0x03;
- 	dev->mii.supports_gmii = 1;
- 
-+	if (usb_device_no_sg_constraint(dev->udev))
-+		dev->can_dma_sg = 1;
-+
- 	dev->net->features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 			      NETIF_F_RXCSUM;
- 
- 	dev->net->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 				 NETIF_F_RXCSUM;
- 
-+	if (dev->can_dma_sg) {
-+		dev->net->features |= NETIF_F_SG | NETIF_F_TSO;
-+		dev->net->hw_features |= NETIF_F_SG | NETIF_F_TSO;
-+	}
-+
- 	/* Enable checksum offload */
- 	*tmp = AX_RXCOE_IP | AX_RXCOE_TCP | AX_RXCOE_UDP |
- 	       AX_RXCOE_TCPV6 | AX_RXCOE_UDPV6;
-@@ -1310,6 +1318,10 @@ static int ax88179_reset(struct usbnet *dev)
- 
- 	dev->net->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 				 NETIF_F_RXCSUM;
-+	if (dev->can_dma_sg) {
-+		dev->net->features |= NETIF_F_SG | NETIF_F_TSO;
-+		dev->net->hw_features |= NETIF_F_SG | NETIF_F_TSO;
-+	}
- 
- 	/* Enable checksum offload */
- 	*tmp = AX_RXCOE_IP | AX_RXCOE_TCP | AX_RXCOE_UDP |
--- 
-1.7.9.5
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2Vy
+bmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj5vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJlaGFs
+ZiBPZiBCZW4gSHV0Y2hpbmdzDQo+U2VudDogRnJpZGF5LCBBdWd1c3QgMDIsIDIwMTMgMjowOSBB
+TQ0KPlRvOiBLaXJzaGVyLCBKZWZmcmV5IFQNCj5DYzogZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgVGFu
+dGlsb3YsIEVtaWwgUzsNCj5uZXRkZXZAdmdlci5rZXJuZWwub3JnOyBnb3Nwb0ByZWRoYXQuY29t
+Ow0KPnNhc3NtYW5uQHJlZGhhdC5jb20NCj5TdWJqZWN0OiBSZTogW25ldC1uZXh0IDA3LzE1XSBp
+eGdiZTogZml4IFNGRiBkYXRhIGR1bXBzIG9mDQo+U0ZQKyBtb2R1bGVzDQo+DQo+T24gTW9uLCAy
+MDEzLTA3LTI5IGF0IDA1OjUyIC0wNzAwLCBKZWZmIEtpcnNoZXIgd3JvdGU6DQo+PiBGcm9tOiBF
+bWlsIFRhbnRpbG92IDxlbWlsLnMudGFudGlsb3ZAaW50ZWwuY29tPg0KPj4NCj4+IFRoaXMgcGF0
+Y2ggZml4ZXMgc2V2ZXJhbCBpc3N1ZXMgd2l0aCB0aGUgcHJldmlvdXMNCj5pbXBsZW1lbnRhdGlv
+biBvZiB0aGUNCj4+IFNGRiBkYXRhIGR1bXAgb2YgU0ZQKyBtb2R1bGVzOg0KPj4NCj4+IC0gcmVt
+b3ZlZCB0aGUgX19JWEdCRV9SRUFEX0kyQyBmbGFnIC0gSTJDIGFjY2VzcyBsb2NraW5nDQo+aXMg
+aGFuZGxlZCBpbiB0aGUNCj4+ICAgSFcgc3BlY2lmaWMgcm91dGluZXMNCj4+DQo+PiAtIGZpeGVk
+IHRoZSByZWFkIGxvb3AgdG8gcmVhZCBkYXRhIGZyb20gZWUtPm9mZnNldCB0byBlZS0NCj4+bGVu
+DQo+Pg0KPj4gLSB0aGUgcmVhZHMgZmFpbCBpZiBfX0lYR0JFX0lOX1NGUF9JTklUIGlzIHNldCBp
+biB0aGUNCj5wcm9jZXNzIC0gdGhpcyBpcw0KPj4gICBuZWVkZWQgYmVjYXVzZSBvbiBzb21lIEhX
+IEkyQyBvcGVyYXRpb25zIGNhbiB0YWtlIGxvbmcNCj50aW1lIGFuZCBkaXNydXB0DQo+PiAgIHRo
+ZSBTRlAgYW5kIGxpbmsgZGV0ZWN0aW9uIHByb2Nlc3MNCj4+DQo+PiBTaWduZWQtb2ZmLWJ5OiBF
+bWlsIFRhbnRpbG92IDxlbWlsLnMudGFudGlsb3ZAaW50ZWwuY29tPg0KPj4gUmVwb3J0ZWQtYnk6
+IEJlbiBIdXRjaGluZ3MgPGJodXRjaGluZ3NAc29sYXJmbGFyZS5jb20+DQo+PiBUZXN0ZWQtYnk6
+IFBoaWwgU2NobWl0dCA8cGhpbGxpcC5qLnNjaG1pdHRAaW50ZWwuY29tPg0KPj4gU2lnbmVkLW9m
+Zi1ieTogSmVmZiBLaXJzaGVyIDxqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5jb20+DQo+Wy4uLl0N
+Cj4+IEBAIC0yOTY5LDQ4ICsyOTU1LDI1IEBAIHN0YXRpYyBpbnQNCj5peGdiZV9nZXRfbW9kdWxl
+X2VlcHJvbShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LA0KPj4gIAlpbnQgaSA9IDA7DQo+PiAgCWlu
+dCByZXRfdmFsID0gMDsNCj4+DQo+PiAtCS8qIGl4Z2JlX2dldF9tb2R1bGVfaW5mbyBpcyBjYWxs
+ZWQgYmVmb3JlIHRoaXMgZnVuY3Rpb24NCj5pbiBhbGwNCj4+IC0JICogY2FzZXMsIHNvIHdlIGRv
+IG5vdCBuZWVkIGFueSBjaGVja3Mgd2UgYWxyZWFkeSBkbw0KPmFib3ZlLA0KPj4gLQkgKiBhbmQg
+Y2FuIHRydXN0IGVlLT5sZW4gdG8gYmUgYSBrbm93biB2YWx1ZS4NCj4+IC0JICovDQo+PiArCWlm
+IChlZS0+bGVuID09IDApDQo+PiArCQlyZXR1cm4gLUVJTlZBTDsNCj4+DQo+PiAtCXdoaWxlICh0
+ZXN0X2JpdChfX0lYR0JFX0lOX1NGUF9JTklULCAmYWRhcHRlci0+c3RhdGUpKQ0KPj4gLQkJbXNs
+ZWVwKDEwMCk7DQo+PiAtCXNldF9iaXQoX19JWEdCRV9SRUFEX0kyQywgJmFkYXB0ZXItPnN0YXRl
+KTsNCj4+ICsJZm9yIChpID0gZWUtPm9mZnNldDsgaSA8IGVlLT5sZW47IGkrKykgew0KPg0KPiAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICBpIDwgZWUtPm9mZnNldCArIGVlLT5sZW4NCj4N
+Cj4+ICsJCS8qIEkyQyByZWFkcyBjYW4gdGFrZSBsb25nIHRpbWUgKi8NCj4+ICsJCWlmICh0ZXN0
+X2JpdChfX0lYR0JFX0lOX1NGUF9JTklULCAmYWRhcHRlci0NCj4+c3RhdGUpKQ0KPj4gKwkJCXJl
+dHVybiAtRUJVU1k7DQo+Pg0KPj4gLQkvKiBSZWFkIHRoZSBmaXJzdCBibG9jaywgU0ZGLTgwNzkg
+Ki8NCj4+IC0JZm9yIChpID0gMDsgaSA8IEVUSF9NT0RVTEVfU0ZGXzgwNzlfTEVOOyBpKyspIHsN
+Cj4+IC0JCXN0YXR1cyA9IGh3LT5waHkub3BzLnJlYWRfaTJjX2VlcHJvbShodywgaSwNCj4mZGF0
+YWJ5dGUpOw0KPj4gLQkJaWYgKHN0YXR1cyAhPSAwKSB7DQo+PiAtCQkJLyogRXJyb3Igb2NjdXJl
+ZCB3aGlsZSByZWFkaW5nIG1vZHVsZSAqLw0KPj4gKwkJaWYgKGkgPCBFVEhfTU9EVUxFX1NGRl84
+MDc5X0xFTikNCj4+ICsJCQlzdGF0dXMgID0gaHctPnBoeS5vcHMucmVhZF9pMmNfZWVwcm9tKGh3
+LCBpLA0KPiZkYXRhYnl0ZSk7DQo+PiArCQllbHNlDQo+PiArCQkJc3RhdHVzID0gaHctPnBoeS5v
+cHMucmVhZF9pMmNfc2ZmODQ3MihodywgaSwNCj4mZGF0YWJ5dGUpOw0KPlsuLi5dDQo+ICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBpIC0NCj5FVEhf
+TU9EVUxFX1NGRl84MDc5X0xFTiA/DQo+DQo+QnV0IHRoaXMgd29ya3MgYW55d2F5IGJlY2F1c2Ug
+dGhlIGFkZHJlc3MgaXMgdHJ1bmNhdGVkIHRvDQo+dTguDQoNCkFjdHVhbGx5IGFzIGlzIHRoZSBs
+b29wIHdpbGwgb25seSB3b3JrIHdoZW4gb2Zmc2V0IGlzIDAsIHNvIGl0IGxvb2tzIGxpa2UgaXQg
+c2hvdWxkIGJlOg0KDQpmb3IgKGkgPSBlZS0+b2Zmc2V0OyBpIDwgZWUtPm9mZnNldCArIGVlLT5s
+ZW47IGkrKykgew0KDQoNClVubGVzcyB5b3UgaGFkIHNvbWV0aGluZyBlbHNlIGluIG1pbmQuDQoN
+Ckkgd2lsbCBzdWJtaXQgYSBmaXggZm9yIHRoaXMuDQoNClRoYW5rcywNCkVtaWwNCg0KPg0KPkJl
+bi4NCg0K
