@@ -1,7 +1,7 @@
-From: Sedat Dilek <sedat.dilek@gmail.com>
+From: Sedat Dilek <sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: Re: linux-next: Tree for Aug 6 [ wireless | iwlwifi | mac80211 ? ]
-Date: Tue, 6 Aug 2013 20:26:53 +0200
-Message-ID: <CA+icZUV++2+OG=P1SVbNrpHPLyzrfFX0eu8NHrd0nPjkPDUOtQ@mail.gmail.com>
+Date: Tue, 6 Aug 2013 20:35:06 +0200
+Message-ID: <CA+icZUXpZaHu-FjR6FGnbkG0XEkiukEgYYbDmrSjdqNz4rWCNg@mail.gmail.com>
 References: <CA+icZUX8OcTSOABO6Nbz5R6_5-m39rsYOpDqYBA7hf8LFvJLLA@mail.gmail.com>
 	<1375797260.8219.21.camel@jlt4.sipsolutions.net>
 	<CA+icZUUAJ25QybqHvxz7eubSLH6YuNjcc5zyU2O5Xi9vevMGkw@mail.gmail.com>
@@ -19,281 +19,134 @@ References: <CA+icZUX8OcTSOABO6Nbz5R6_5-m39rsYOpDqYBA7hf8LFvJLLA@mail.gmail.com>
 	<1375804998.8219.27.camel@jlt4.sipsolutions.net>
 	<CA+icZUVRgVfXUdJ1xoaN=nciqZDhV-f6EbH+6DS7HAh+My65oQ@mail.gmail.com>
 	<CA+icZUUmQbovkwXcdEp6eu=WJkiuiyO8nDVwCHFUuPDbJqU7Kg@mail.gmail.com>
-Reply-To: sedat.dilek@gmail.com
+	<CA+icZUV++2+OG=P1SVbNrpHPLyzrfFX0eu8NHrd0nPjkPDUOtQ@mail.gmail.com>
+Reply-To: sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=047d7ba975e6b5240904e34b911a
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	wireless <linux-wireless@vger.kernel.org>, netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:60086 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756371Ab3HFS0z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 14:26:55 -0400
-In-Reply-To: <CA+icZUUmQbovkwXcdEp6eu=WJkiuiyO8nDVwCHFUuPDbJqU7Kg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary=e89a8f6427ce1c26e604e34baf6d
+Cc: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>,
+	wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+icZUV++2+OG=P1SVbNrpHPLyzrfFX0eu8NHrd0nPjkPDUOtQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
---047d7ba975e6b5240904e34b911a
+--e89a8f6427ce1c26e604e34baf6d
 Content-Type: text/plain; charset=UTF-8
 
-On Tue, Aug 6, 2013 at 6:51 PM, Sedat Dilek <sedat.dilek@gmail.com> wrote:
-> On Tue, Aug 6, 2013 at 6:07 PM, Sedat Dilek <sedat.dilek@gmail.com> wrote:
->> On Tue, Aug 6, 2013 at 6:03 PM, Johannes Berg <johannes@sipsolutions.net> wrote:
->>> [reducing mailing lists - Stephen if you want off let us know]
->>>
->>> On Tue, 2013-08-06 at 17:58 +0200, Sedat Dilek wrote:
->>>
->>>> $ cat /proc/version
->>>> Linux version 3.11.0-rc4-1-wl-20130805 (sedat.dilek@gmail.com@fambox)
->>>> (gcc version 4.6.3 (Ubuntu/Linaro 4.6.3-1ubuntu5) ) #1 SMP Tue Aug 6
->>>> 17:52:45 CEST 2013
+On Tue, Aug 6, 2013 at 8:26 PM, Sedat Dilek <sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On Tue, Aug 6, 2013 at 6:51 PM, Sedat Dilek <sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> On Tue, Aug 6, 2013 at 6:07 PM, Sedat Dilek <sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>>> On Tue, Aug 6, 2013 at 6:03 PM, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+>>>> [reducing mailing lists - Stephen if you want off let us know]
 >>>>
->>>> This kernel boots fine and has no WiFi problems.
+>>>> On Tue, 2013-08-06 at 17:58 +0200, Sedat Dilek wrote:
 >>>>
->>>> > You assume a breakage in a different area than wireless or network in general?
->>>> >
+>>>>> $ cat /proc/version
+>>>>> Linux version 3.11.0-rc4-1-wl-20130805 (sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org@fambox)
+>>>>> (gcc version 4.6.3 (Ubuntu/Linaro 4.6.3-1ubuntu5) ) #1 SMP Tue Aug 6
+>>>>> 17:52:45 CEST 2013
+>>>>>
+>>>>> This kernel boots fine and has no WiFi problems.
+>>>>>
+>>>>> > You assume a breakage in a different area than wireless or network in general?
+>>>>> >
+>>>>>
+>>>>> Any wild guess?
 >>>>
->>>> Any wild guess?
+>>>> Not really, but maybe you can pull the other trees on top again and see
+>>>> if those broke it? I don't really think/hope so but it's possible that
+>>>> one of my pending pull requests broke it, I guess?
+>>>>
 >>>
->>> Not really, but maybe you can pull the other trees on top again and see
->>> if those broke it? I don't really think/hope so but it's possible that
->>> one of my pending pull requests broke it, I guess?
+>>> Hmm, I pulled in latest for-john of mac80211(-next) and
+>>> iwlwifi-(fixes|next) which did not help.
+>>>
+>>> I am testing next-20130805 and next-20130802 to identify which
+>>> Linux-next release is BROKEN.
 >>>
 >>
->> Hmm, I pulled in latest for-john of mac80211(-next) and
->> iwlwifi-(fixes|next) which did not help.
+>> GOOD: next-20130801 and next-20130802
 >>
->> I am testing next-20130805 and next-20130802 to identify which
->> Linux-next release is BROKEN.
+>> BROKEN: next-20130805 and next-20130806
+>>
+>> Comparing diffs between next-20130802 and next-20130805.
 >>
 >
-> GOOD: next-20130801 and next-20130802
+> [ To Dave and CC netdev ]
 >
-> BROKEN: next-20130805 and next-20130806
+> [ Full thread see [1] ]
 >
-> Comparing diffs between next-20130802 and next-20130805.
+> The diff was not very helpful.
 >
+> $ cd linux-next-20130805
+>
+> $ git log --oneline v3.11-rc4.. | grep "Merge remote-tracking" | egrep
+> 'net-next|slave-dma|wireless'
+> 7f84622 Merge remote-tracking branch 'net-next/master' <--- BAD
+> (before slave-dma/next)
+> 3580d24 Merge remote-tracking branch 'slave-dma/next' <--- GOOD (after
+> net-next/master)
+> 88825c7 Merge remote-tracking branch 'wireless/master' <--- GOOD
+>
+> So, the culprit commit seems to be in the merge of 'net-next/master'.
+>
+> ( BTW, disabling IPv6 in NM/wifi-setup did not change behaviour -
+> still disconnected to AP. )
+>
+> - Sedat -
+>
+> [1] http://marc.info/?t=137579712800008&r=1&w=2
 
-[ To Dave and CC netdev ]
-
-[ Full thread see [1] ]
-
-The diff was not very helpful.
-
-$ cd linux-next-20130805
-
-$ git log --oneline v3.11-rc4.. | grep "Merge remote-tracking" | egrep
-'net-next|slave-dma|wireless'
-7f84622 Merge remote-tracking branch 'net-next/master' <--- BAD
-(before slave-dma/next)
-3580d24 Merge remote-tracking branch 'slave-dma/next' <--- GOOD (after
-net-next/master)
-88825c7 Merge remote-tracking branch 'wireless/master' <--- GOOD
-
-So, the culprit commit seems to be in the merge of 'net-next/master'.
-
-( BTW, disabling IPv6 in NM/wifi-setup did not change behaviour -
-still disconnected to AP. )
+Attached is a diff comparing all new commits in next-20130805.
+If one of the commits smells bad to you, please let me know.
 
 - Sedat -
 
-[1] http://marc.info/?t=137579712800008&r=1&w=2
-
---047d7ba975e6b5240904e34b911a
-Content-Type: text/plain; charset=US-ASCII;
-	name="list-of-commits-from-next-next-in-next-20130805.txt"
+--e89a8f6427ce1c26e604e34baf6d
+Content-Type: application/octet-stream;
+	name="list-of-commits-from-net-next_next-20130802-VS-next-20130805.diff"
 Content-Disposition: attachment;
-	filename="list-of-commits-from-next-next-in-next-20130805.txt"
+	filename="list-of-commits-from-net-next_next-20130802-VS-next-20130805.diff"
 Content-Transfer-Encoding: base64
-X-Attachment-Id: f_hk1fw9v10
+X-Attachment-Id: f_hk1g5ql01
 
-ZjI3MDcwMSBheDg4MTc5XzE3OGE6IGF2b2lkIGNvcHkgb2YgdHggdGNwIHBhY2tldHMKZmJhMzY3
-OSBmaWJfcnVsZXM6IHJlb3JkZXIgc3RydWN0IGZpYl9ydWxlcyBmaWVsZHMKNzNmNTY5OCBmaWJf
-cnVsZXM6IGZpeCBzdXBwcmVzc29yIG5hbWVzIGFuZCBkZWZhdWx0IHZhbHVlcwowYzA2NjdhIHZs
-YW46IGNsZWFudXAgdGhlIHVzYWdlIG9mIHZsYW5fZGV2X3ByaXYoZGV2KQo5ZTk0MDJlIGNuaWMs
-IGJueDJpOiBGaXggYnVnIG9uIHNvbWUgYm54MnggZGV2aWNlcyB0aGF0IGRvbid0IHN1cHBvcnQg
-aVNDU0kKOTkxOGQ1YiBib25kaW5nOiBtb2RpZnkgb25seSBuZWlnaF9wYXJtcyBvd25lZCBieSB1
-cwo2MzEzNDgwIG5laWdoYm91cjogcG9wdWxhdGUgbmVpZ2hfcGFybXMgb24gYWxsb2MgYmVmb3Jl
-IGNhbGxpbmcgbmRvX25laWdoX3NldHVwCjhhODQ5YmIgbmV0OiBuZXRsaW5rOiBtaW5vcjogcmVt
-b3ZlIHVudXNlZCBwb2ludGVyIGluIGFsbG9jX3BnX3ZlYwo2ZWY5NGNmIGZpYl9ydWxlczogYWRk
-IHJvdXRlIHN1cHByZXNzaW9uIGJhc2VkIG9uIGlmZ3JvdXAKZDFjNTNjOCBpY21wdjZfZmlsdGVy
-OiBhbGxvdyBJQ01QdjYgbWVzc2FnZXMgd2l0aCBib2RpZXMgPCA0IGJ5dGVzCjljYzA4YWYgaWNt
-cHY2X2ZpbHRlcjogZml4ICJfaGRyIiBpbmNvcnJlY3RseSBiZWluZyBhIHBvaW50ZXIKYzQ4M2Uw
-MiBhZl9wYWNrZXQ6IHNpbXBsaWZ5IFZMQU4gZnJhbWUgY2hlY2sgaW4gcGFja2V0X3NuZApjYmQ4
-OWFjIGFmX3BhY2tldDogZml4IGZvciBzZW5kaW5nIFZMQU4gZnJhbWVzIHZpYSBwYWNrZXRfbW1h
-cAowZjc1YjA5IGFmX3BhY2tldDogd2hlbiBzZW5kaW5nIGV0aGVybmV0IGZyYW1lcywgcGFyc2Ug
-aGVhZGVyIGZvciBza2ItPnByb3RvY29sCmQyN2ZjNzggc2N0cDogRG9uJ3QgbG9va3VwIGRzdCBp
-ZiB0cmFuc3BvcnQgZHN0IGlzIHN0aWxsIHZhbGlkCjE0MDlhOTMgZXRoZXJuZXQ6IENvbnZlcnQg
-bWFjIGFkZHJlc3MgdXNlcyBvZiA2IHRvIEVUSF9BTEVOCjU3NGUyYWYgaW5jbHVkZTogQ29udmVy
-dCBldGhlcm5ldCBtYWMgYWRkcmVzcyBkZWNsYXJhdGlvbnMgdG8gdXNlIEVUSF9BTEVOCmUyMTY5
-NzUgdWFwaTogQ29udmVydCBzb21lIHVzZXMgb2YgNiB0byBFVEhfQUxFTgozNzUzNDU2IHFsY25p
-YzogVXBkYXRlIHZlcnNpb24gdG8gNS4yLjQ1Cjc5ZGE0ZDAgcWxjbmljOiBFbmFibGUgbWFpbGJv
-eCBpbnRlcmZhY2UgaW4gcG9sbCBtb2RlIHdoZW4gaW50ZXJydXB0cyBhcmUgbm90IGF2YWlsYWJs
-ZQowNjhhOGQxIHFsY25pYzogUmVwbGFjZSBwb2xsIG1vZGUgbWFpbGJveCBpbnRlcmZhY2Ugd2l0
-aCBpbnRlcnJ1cHQgYmFzZWQgbWFpbGJveCBpbnRlcmZhY2UKZTVjNGU2YyBxbGNuaWM6IEludGVy
-cnVwdCBiYXNlZCBkcml2ZXIgZmlybXdhcmUgbWFpbGJveCBtZWNoYW5pc20KYjljMTE5OCBxbGNu
-aWM6IEVuaGFuY2UgZGlhZ25vc3RpYyBsb29wYmFjayBlcnJvciBjb2Rlcy4KMjc4YjIwOCBib25k
-aW5nOiBpbml0aWFsIFJDVSBjb252ZXJzaW9uCjE1MDc3MjIgYm9uZGluZzogZmFjdG9yIG91dCBz
-bGF2ZSBpZCB0eCBjb2RlIGFuZCBzaW1wbGlmeSB4bWl0IHBhdGhzCjc4YTY0NmMgYm9uZGluZzog
-c2ltcGxpZnkgYnJvYWRjYXN0X3htaXQgZnVuY3Rpb24KNzFiYzNiMiBib25kaW5nOiByZW1vdmUg
-dW5uZWNlc3NhcnkgcmVhZF9sb2NrcyBvZiBjdXJyX3NsYXZlX2xvY2sKZGVjMWU5MCBib25kaW5n
-OiBjb252ZXJ0IHRvIGxpc3QgQVBJIGFuZCByZXBsYWNlIGJvbmQncyBjdXN0b20gbGlzdAo0Mzk2
-NzdkIGlwdjY6IGJ1bXAgZ2VuaWQgd2hlbiBkZWxldGUvYWRkIGFkZHJlc3MKOGIwOWJlNSBibngy
-eDogUmV2aXNpbmcgbG9ja2luZyBzY2hlbWUgZm9yIE1BQyBjb25maWd1cmF0aW9uCjRiZWFjMDIg
-Ym9uZGluZzogZml4IHN5c3RlbSBoYW5nIGR1ZSB0byBmYXN0IGlnbXAgdGltZXIgcmVzY2hlZHVs
-aW5nCjlhYjVlYzUgdGlsZTogc3VwcG9ydCBQVFAgdXNpbmcgdGhlIHRpbGVneCBtUElQRSAoSUVF
-RSAxNTg4KQo4NGUxODFiIHRpbGU6IHJlbW92ZSBkZXByZWNhdGVkIE5FVElGX0ZfTExUWCBmbGFn
-IGZyb20gdGlsZSBkcml2ZXJzCjRhYTAyNjQgdGlsZTogbWFrZSAidGlsZV9uZXQuY3VzdG9tIiBh
-IHByb3BlciBib29sIG1vZHVsZSBwYXJhbWV0ZXIKMmM3ZDA0YSB0aWxlOiBzdXBwb3J0IFRTTyBm
-b3IgSVB2NiBpbiB0aWxlZ3ggbmV0d29yayBkcml2ZXIKZjMyODZhMyB0aWxlOiBzdXBwb3J0IG11
-bHRpcGxlIG1QSVBFIHNoaW1zIGluIHRpbGVneCBuZXR3b3JrIGRyaXZlcgo2YWI0YWU5IHRpbGU6
-IGVuYWJsZSBHUk8gaW4gdGhlIHRpbGVneCBuZXR3b3JrIGRyaXZlcgo1ZTdhNTRhIHRpbGU6IGZp
-eCBwYW5pYyBidWcgaW4gbmFwaSBzdXBwb3J0IGZvciB0aWxlZ3ggbmV0d29yayBkcml2ZXIKYWQw
-MTgxOCB0aWxlOiB1cGRhdGUgZGV2LT5zdGF0cyBkaXJlY3RseSBpbiB0aWxlZ3ggbmV0d29yayBk
-cml2ZXIKMjYyOGU4YSB0aWxlOiBzdXBwb3J0IGp1bWJvIGZyYW1lcyBpbiB0aGUgdGlsZWd4IG5l
-dHdvcmsgZHJpdmVyCjQ4ZjJhNGUgdGlsZTogcmVtb3ZlIGRlYWQgaXNfZHVwX2FjaygpIGZ1bmN0
-aW9uIGZyb20gdGlsZXBybyBuZXQgZHJpdmVyCjgxNWQzYmEgdGlsZTogYXZvaWQgYnVnIGluIHRp
-bGVwcm8gbmV0IGRyaXZlciBidWlsdCB3aXRoIG9sZCBoeXBlcnZpc29yCjQzOWE5M2EgdGlsZTog
-c3VwcG9ydCByeF9kcm9wcGVkL3J4X2Vycm9ycyBpbiB0aWxlcHJvIG5ldCBkcml2ZXIKYThlYWVk
-NSB0aWxlOiBzZXQgaHdfZmVhdHVyZXMgYW5kIHZsYW5fZmVhdHVyZXMgaW4gc2V0dXAKODQ5MTVj
-NiBnaWFuZmFyOiBSZW1vdmUgdW51c2VkIGZpZWxkIGdycF9pZCBmcm9tIGdmYXJfcHJpdl9ncnAK
-Mzc2YzczMSBuZXQ6IGFkZCBhIHRlbXBvcmFyeSBzYW5pdHkgY2hlY2sgaW4gc2tiX29ycGhhbigp
-CmFhMTAxODEgY2FuOiBmbGV4Y2FuOiBDaGVjayB0aGUgcmV0dXJuIHZhbHVlIGZyb20gY2xrX3By
-ZXBhcmVfZW5hYmxlKCkKOTMzZTRhZiBjYW46IGZsZXhjYW46IFVzZSBkZXZtX2lvcmVtYXBfcmVz
-b3VyY2UoKQo0NmIzYTQyIGlwdjY6IGZpYjZfcnVsZXMgc2hvdWxkIHJldHVybiBleGFjdCByZXR1
-cm4gdmFsdWUKMzc4MzA3MiBjbHNfY2dyb3VwLmggbmV0cHJpb19jZ3JvdXAuaDogUmVtb3ZlIGV4
-dGVybiBmcm9tIGZ1bmN0aW9uIHByb3RvdHlwZXMKNGZjNzA3NCBjaGVja3N1bTogUmVtb3ZlIGV4
-dGVybiBmcm9tIGZ1bmN0aW9uIHByb3RvdHlwZXMKMTBkZDliNyBjZmc4MDIxMS5oL21hYzgwMjEx
-Lmg6IFJlbW92ZSBleHRlcm4gZnJvbSBmdW5jdGlvbiBwcm90b3R5cGVzCmMxZDhmODAgYXgyNS5o
-OiBSZW1vdmUgZXh0ZXJuIGZyb20gZnVuY3Rpb24gcHJvdG90eXBlcwo5MDk3MmIyIGFycC9uZWln
-aGJvdXIuaDogUmVtb3ZlIGV4dGVybiBmcm9tIGZ1bmN0aW9uIHByb3RvdHlwZXMKY2QyY2Y2MyBh
-Zl9yeHJwYy5oOiBSZW1vdmUgZXh0ZXJuIGZyb20gZnVuY3Rpb24gcHJvdG90eXBlcwpiNjBhODI4
-IGFmX3VuaXguaDogUmVtb3ZlIGV4dGVybiBmcm9tIGZ1bmN0aW9uIHByb3RvdHlwZXMKZThlNTRk
-MyBhZGRyY29uZi5oOiBSZW1vdmUgZXh0ZXJuIGZ1bmN0aW9uIHByb3RvdHlwZXMKNDlkZmU3NiBE
-b2N1bWVudGF0aW9uOiBhZGQgbmV0d29ya2luZy9uZXRkZXYtRkFRLnR4dAo3NzY0YTQ1IGZpYl9y
-dWxlczogYWRkIC5zdXBwcmVzcyBvcGVyYXRpb24KNWMxNTI1NyBuZXQ6IFJlbW92ZSBleHRlcm4g
-ZnJvbSBpbmNsdWRlL25ldC8gc2NoZWR1bGluZyBwcm90b3R5cGVzCmMzNGE3NjEgbmV0OiBza2Jf
-b3JwaGFuKCkgY2hhbmdlcwpmMmY4NzJmIG5ldGVtOiBJbnRyb2R1Y2Ugc2tiX29ycGhhbl9wYXJ0
-aWFsKCkgaGVscGVyCmNhNGMzZmMgbmV0OiBzcGxpdCBydF9nZW5pZCBmb3IgaXB2NCBhbmQgaXB2
-NgpiYTM2MWNiIHNoX2V0aDogcjhhNzc5MDogSGFuZGxlIHRoZSBSRkUgKFJlY2VpdmUgRklGTyBv
-dmVyZmxvdyBFcnJvcikgaW50ZXJydXB0CmMwMTU1YjIgdGNwOiBSZW1vdmUgdW51c2VkIHRjcGN0
-IGRlY2xhcmF0aW9ucyBhbmQgY29tbWVudHMKOGY1ODMzMiBpeGdiZTogYWRkIHN1cHBvcnQgZm9y
-IHF1YWQtcG9ydCB4NTIwIGFkYXB0ZXIKNjc0YzE4YiBpeGdiZTogY2xlYXIgc2VtYXBob3JlIGJp
-dHMgb24gdGltZW91dHMKOWM0MzJhZCBpeGdiZTogcmVuYW1lIExMX0VYVEVOREVEX1NUQVRTIHRv
-IHVzZSBxdWV1ZSBpbnN0ZWFkIG9mIHEKOGZlY2Y2NyBpeGdiZTogZml4IGxvY2tkZXAgYW5ub3Rh
-dGlvbiBpc3N1ZSBmb3IgcHRwJ3Mgd29yayBpdGVtCmUwMjdkMWEgaXhnYmU6IGNhbGwgcGNpZV9n
-ZXRfbWltaW11bV9saW5rIHRvIGNoZWNrIGlmIGRldmljZSBoYXMgZW5vdWdoIGJhbmR3aWR0aAo4
-MTM3N2M4IFBDSTogQWRkIGZ1bmN0aW9uIHRvIG9idGFpbiBtaW5pbXVtIGxpbmsgd2lkdGggYW5k
-IHNwZWVkCjQyOTljOGEgbmV0OiByZW1vdmUgYW4gdW5uZWVkZWQgY2hlY2sKYjQzOGY5NCBmbG93
-X2Rpc3NlY3RvcjogYWRkIHN1cHBvcnQgZm9yIElQUFJPVE9fSVBWNgpmY2E0MTg5IGZsb3dfZGlz
-c2VjdG9yOiBjbGVhbiB1cCBJUElQIGNhc2UKNTlkYTM4MSBQQ0k6IG1vdmUgZW51bSBwY2llX2xp
-bmtfd2lkdGggaW50byBwY2kuaAozNDNlNTFhIFBDSTogZXhwb3NlIHBjaWVfbGlua19zcGVlZCBh
-bmQgcGNpeF9idXNfc3BlZWQgYXJyYXlzCmE0YjZmYzYgaXhnYmU6IGZpeCBTRkYgZGF0YSBkdW1w
-cyBvZiBTRlArIG1vZHVsZXMKM2RjYzJmNCBpeGdiZTogZml4IHNlbWFwaG9yZSBsb2NrIGZvciBJ
-MkMgcmVhZC93cml0ZXMgb24gODI1OTgKOTNhYzAzYiBpeGdiZTogYnVtcCB2ZXJzaW9uIG51bWJl
-cgo0ZThlMWJjIGl4Z2JlOiBhZGQgbmV3IG1lZGlhIHR5cGUuCmZmODBlNTEgbmV0OiBleHBvcnQg
-cGh5c2ljYWwgcG9ydCBpZCB2aWEgc3lzZnMKNjZjYWU5ZSBydG5sOiBleHBvcnQgcGh5c2ljYWwg
-cG9ydCBpZCB2aWEgUlQgbmV0bGluawo2NmI1MmIwIG5ldDogYWRkIG5kbyB0byBnZXQgaWQgb2Yg
-cGh5c2ljYWwgcG9ydCBvZiB0aGUgZGV2aWNlCjczZDgwOTUgaXhnYmU6IGZpeCBmYyBhdXRvbmVn
-IGV0aHRvb2wgcmVwb3J0aW5nLgplNTA3ZDBjIGl4Z2JlOiBVc2UgcGNpX3Zmc19hc3NpZ25lZCBp
-bnN0ZWFkIG9mIGl4Z2JlX3Zmc19hcmVfYXNzaWduZWQKNjcwMjI0ZiBpeGdiZTogUmV0YWluIFZM
-QU4gZmlsdGVyaW5nIGluIHByb21pc2N1b3VzICsgVlQgbW9kZQo5YWQ4ZmVmIG5ldDogbXZuZXRh
-OiBzdXBwb3J0IGJpZyBlbmRpYW4KNjA4M2VkNCBuZXQ6IG12bmV0YTogbW92ZSB0aGUgUlggYW5k
-IFRYIGRlc2MgbWFjcm9zIG91dHNpZGUgb2YgdGhlIHN0cnVjdHMKZmZkNzU2YiBwa3RnZW46IFJl
-cXVpcmUgQ09ORklHX0lORVQgZHVlIHRvIHVzZSBvZiBJUHY0IGNoZWNrc3VtIGZ1bmN0aW9uCjVh
-ZDM3ZDUgdGNwOiBhZGQgdGNwX3N5bmNvb2tpZXMgbW9kZSB0byBhbGxvdyB1bmNvbmRpdGlvbmFs
-bHkgZ2VuZXJhdGlvbiBvZiBzeW5jb29raWVzCmRjZmQ4ZDUgZHJpdmVyczogbmV0OiBjcHN3OiBB
-ZGQgc3VwcG9ydCBmb3Igc2V0IE1BQyBhZGRyZXNzCmQ2OGUyZDMgdGlsZTogaGFuZGxlIDY0LWJp
-dCBzdGF0aXN0aWNzIGluIHRpbGVwcm8gbmV0d29yayBkcml2ZXIKNjBmZjc3OSA5cDogY2xpZW50
-OiByZW1vdmUgdW51c2VkIGNvZGUgYW5kIGFueSByZWZlcmVuY2UgdG8gImNhbmNlbGxlZCIgZnVu
-Y3Rpb24KNGNlMWZkNiBiZTJuZXQ6IGRvbid0IHVzZSBkZXZfZXJyIHdoZW4gQUVSIGVuYWJsaW5n
-IGZhaWxzCmNkNzdiMmUgdGczOiBVcGRhdGUgdmVyc2lvbiB0byAzLjEzMwozNzhiNzJjIHRnMzog
-Rml4IFVEUCBmcmFnbWVudHMgdHJlYXRlZCBhcyBSTUNQCjkyZTY0NTcgdGczOiBFbmFibGUgc3Vw
-cG9ydCBmb3IgdGltZXN5bmMgZ3BpbyBvdXRwdXQKNGMzMDVmYSB0ZzM6IEltcGxlbWVudCB0aGUg
-c2h1dGRvd24gaGFuZGxlcgo1MTM3YTJlIHRnMzogQWxsb3cgTlZSQU0gcHJvZ3JhbW1pbmcgd2hl
-biBpbnRlcmZhY2UgaXMgZG93bgpjMTQ1OTM1IHRnMzogUmVtb3ZlIGluY29ycmVjdCBzd2l0Y2gg
-dG8gYXV4IHBvd2VyCmNhNjdhM2MgY25pYzogVXBkYXRlIHZlcnNpb24gdG8gMi41LjE3IGFuZCBj
-b3B5cmlnaHQgeWVhci4KMjhlM2E4ZiBjbmljOiBBZGQgbWlzc2luZyBlcnJvciBjaGVja2luZyBm
-b3IgUkFNUk9EX0NNRF9JRF9DTE9TRQpiM2JkMmQ2IGNuaWM6IFVwZGF0ZSBUQ1Agb3B0aW9ucyBz
-ZXR1cCBmb3IgaVNDU0kuCjZjZGNkYmIgY25pYzogUmVzZXQgdGNwX2ZsYWdzIGR1cmluZyBjbmlj
-X2NtX2NyZWF0ZSgpLgpiNTQzNDVlIGNuaWM6IFNpbXBsaWZ5IGNuaWNfcmVsZWFzZSgpLgo0MTVm
-Yjg3IGNuaWM6IFNpbXBsaWZ5IG5ldGRldiBldmVudHMgaGFuZGxpbmcuCmZlNmY3MDAgbmV0L21s
-eDRfY29yZTogUmVzcG9uZCB0byBvcGVyYXRpb24gcmVxdWVzdCBieSBmaXJtd2FyZQoyZDRiNjQ2
-IG5ldC9tbHg0X2VuOiBGaXggQmx1ZUZsYW1lIHJhY2UKNzNkOTRlOSBwa3RnZW46IGFkZCBuZWVk
-ZWQgaW5jbHVkZSBmaWxlCjlkNGEwMzEgaXB2NCwgaXB2Njogc2VuZCBpZ21wdjMvbWxkIHBhY2tl
-dHMgd2l0aCBUQ19QUklPX0NPTlRST0wKMTZiMDk1YSBlMTAwMGU6IGZpeCBJMjE3L0kyMTggUEhZ
-IGluaXRpYWxpemF0aW9uIGZsb3cKOTczOTBhYiBlMTAwMGU6IGRvIG5vdCByZXN1bWUgZGV2aWNl
-IGZyb20gUlBNIHN1c3BlbmQgdG8gcmVhZCBQSFkgc3RhdHVzIHJlZ2lzdGVycwo5MWEzZDgyIGUx
-MDAwZTogZW5hYmxlIHN1cHBvcnQgZm9yIG5ldyBkZXZpY2UgSURzCjNlZjY3MmEgZTEwMDBlOiBl
-dGh0b29sIHVubmVjZXNzYXJpbHkgdGFrZXMgZGV2aWNlIG91dCBvZiBSUE0gc3VzcGVuZAplMDIz
-NmFkIGUxMDAwZTogVHggaGFuZyBvbiBJMjE4IHdoZW4gbGlua2VkIGF0IDEwMEhhbGYgYW5kIHNs
-b3cgcmVzcG9uc2UgYXQgMTBNYnBzCmNlMzQ1ZTAgZTEwMDBlOiBsb3cgdGhyb3VnaHB1dCB1c2lu
-ZyA0SyBqdW1ib3Mgb24gSTIxOApkYTFlMjA0IGUxMDAwZTogaUFNVCBjb25uZWN0aW9ucyBkcm9w
-IG9uIGRyaXZlciB1bmxvYWQgd2hlbiBqdW1ibyBmcmFtZXMgZW5hYmxlZApiNDNlODY3IGUxMDAw
-ZTogZGlzYWJsZSBBU1BNIEwxIG9uIDgyNTgzCmM5NmRkYjAgZTEwMDBlOiBVc2UgbWFyY28gaW5z
-dGVhZCBvZiBkaWdpdCBmb3IgZGVmaW5pbmcgZTEwMDBfcnhfZGVzY19wYWNrZXRfc3BsaXQKMjU5
-Mjg4MSBlMTAwMGU6IFJlbW92ZSBkdXBsaWNhdGUgYXNzaWdubWVudCBvZiBkZWZhdWx0IHJ4L3R4
-IHJpbmcgc2l6ZQoyNGI0MWM5IGUxMDAwZTogcmVzdG9yZSBjYWxsIHRvIHBjaV9jbGVhcl9tYXN0
-ZXIoKQphYjkwNjk1IGUxMDA6IGR1bXAgc21hbGwgYnVmZmVycyB2aWEgJSpwaApkY2ZlODA0IGJv
-bmRpbmc6IHJlbW92ZSBib25kX3Jlc2VuZF9pZ21wX2pvaW5fcmVxdWVzdHMgcmVhZF91bmxvY2sg
-bGVmdG92ZXIKMDNjNjMzZSBwa3RnZW46IFVzZSBpcF9zZW5kX2NoZWNrKCkgdG8gY29tcHV0ZSBj
-aGVja3N1bQpjMjZiZjRhIHBrdGdlbjogQWRkIFVEUENTVU0gZmxhZyB0byBzdXBwb3J0IFVEUCBj
-aGVja3N1bXMKODJhNTRkMCBWU09DSzogTW92ZSBhZl92c29jay5oIGFuZCB2c29ja19hZGRyLmgg
-dG8gaW5jbHVkZS9uZXQKNDUyYzQ0NyBVU0JORVQ6IGluY3JlYXNlIG1heCByeC90eCBxbGVuIGZv
-ciBpbXByb3ZpbmcgVVNCMyB0aG91Z2h0cHV0CmE4OGMzMmEgVVNCTkVUOiBjZW50cmFsaXplIGNv
-bXB1dGluZyBvZiBtYXggcngvdHggcWxlbgo2NjgwZWM2IHR1bnRhcDogaGFyZHdhcmUgdmxhbiB0
-eCBzdXBwb3J0CjAyNGVjM2QgbmV0L3NjdHA6IFJlZmFjdG9yIFNDVFAgc2tiIGNoZWNrc3VtIGNv
-bXB1dGF0aW9uCmU3NDI4ZTkgdmlydGlvLW5ldDogcHV0IHZpcnRpbyBuZXQgaGVhZGVyIGlubGlu
-ZSB3aXRoIGRhdGEKMTBlY2NiNCBib25kOiBjbGVhbnVwIG5ldHBvbGwgY29kZQowZmI1MmEyIHRl
-YW06IGNsZWFudXAgbmV0cG9sbCBjbG9kZQo5M2Q4YmY5IGJyaWRnZTogY2xlYW51cCBuZXRwb2xs
-IGNvZGUKZjUyODA5NCBib25kaW5nOiB1c2UgcHJlLWRlZmluZWQgbWFjcm8gaW4gYm9uZF9tb2Rl
-X25hbWUgaW5zdGVhZCBvZiBtYWdpYyBudW1iZXIgMApmMWEyNmZkIHBjaF9nYmU6IEFkZCBNaW5u
-b3dCb2FyZCBzdXBwb3J0CjkwMjVjOGUgZHJpdmVycy9uZXQvZXRoZXJuZXQvc3RtaWNyby9zdG1t
-YWM6IGRvbid0IGNoZWNrIHJlc291cmNlIHdpdGggZGV2bV9pb3JlbWFwX3Jlc291cmNlCmIwNGQ2
-OGUgcGNoX2diZTogVXNlIFBDSF9HQkVfUEhZX1JFR1NfTEVOIGluc3RlYWQgb2YgMzIKMThhZmE0
-YiBuZXQ6IE1ha2UgZGV2bmV0X3JlbmFtZV9zZXEgc3RhdGljCmM5YmVlM2IgdGNwOiBUQ1BfTk9U
-U0VOVF9MT1dBVCBzb2NrZXQgb3B0aW9uCjY0ZGM2MTMgbmV0OiBhZGQgc2tfc3RyZWFtX2lzX3dy
-aXRlYWJsZSgpIGhlbHBlcgo0ZDU4YzAyIG5ldDogc2N0cDogdHJpdmlhbDogYWRkIHVhcGkvbGlu
-dXgvc2N0cC5oIGludG8gbWFpbnRhaW5lcnMKOTE3MDVjNiBuZXQ6IHNjdHA6IHRyaXZpYWw6IHVw
-ZGF0ZSBtYWlsaW5nIGxpc3QgYWRkcmVzcwpkOTcxODU0IGRyaXZlcnM6IG5ldDogY3BzdzogYWRk
-IHN1cHBvcnQgdG8gc2hvdyBodyBzdGF0cyB2aWEgZXRodG9vbApiMDdlYTA3IGJvbmRpbmc6IEZp
-eGVkIHVwIGEgZXJyb3IgImRvIG5vdCBpbml0aWFsaXNlIHN0YXRpY3MgdG8gMCBvciBOVUxMIiBp
-biBib25kX21haW4uYwo5NDAyYjc0IGJvbmRpbmc6IGFkZCBydG5sIHByb3RlY3Rpb24gZm9yIGJv
-bmRpbmdfc3RvcmVfZmFpbF9vdmVyX21hYwozOGM0OTE2IGJvbmRpbmc6IGJvbmRfc3lzZnMuYyBj
-aGVja3BhdGNoIGNsZWFudXAKYzRjZGVmOSBib25kaW5nOiBkb24ndCBjYWxsIHNsYXZlX3h4eF9u
-ZXRwb2xsIHVuZGVyIHNwaW5sb2NrcwpmMTNiYmMyIGRyaXZlcnMvbmV0OiBlbmljOiBNb3ZlIGV0
-aHRvb2wgY29kZSB0byBhIHNlcGFyYXRlIGZpbGUKNTllYTUyZCBuZXQ6IHRyYW5zX3JkbWE6IHJl
-bW92ZSB1bnVzZWQgZnVuY3Rpb24KMmQxN2Y0MCBiZTJuZXQ6IGRlbGV0ZSBwcmltYXJ5IE1BQyBh
-ZGRyZXNzIHdoaWxlIHVubG9hZGluZwozMTc1ZDhjIGJlMm5ldDogdXNlIFNFVC9HRVRfTUFDX0xJ
-U1QgZm9yIFNILVIKOTUwNDZiOSBiZTJuZXQ6IHJlZmFjdG9yIE1BQy1hZGRyIHNldHVwIGNvZGUK
-YjViYjk3NyBiZTJuZXQ6IGZpeCBwbWFjX2lkIGZvciBCRTMgVkZzCjA0YTA2MDIgYmUybmV0OiBh
-bGxvdyBWRnMgdG8gcHJvZ3JhbSBNQUMgYW5kIFZMQU4gZmlsdGVycwo1YTcxMmMxIGJlMm5ldDog
-Zml4IE1BQyBhZGRyZXNzIG1vZGlmaWNhdGlvbiBmb3IgVkYKZTE4ZGJmNyBzaF9ldGg6IEFkZCBz
-dXBwb3J0IGZvciByOGE3NzkwIFNvQwo1NTc1NGYxIHNoX2V0aDogYWRkIHN1cHBvcnQgZm9yIFJN
-SUlNT0RFIHJlZ2lzdGVyCjkyMjViMjMgbmV0OiBpcHY2IGVsaW1pbmF0ZSBwYXJhbWV0ZXIgImlu
-dCBhZGRybGVuIiBpbiBmdW5jdGlvbiBmaWI2X2FkZF8xCjg2YTM3ZGUgbmV0IGlwdjY6IFJlbW92
-ZSByZWJ1bmRhbnQgcnQ2aV9uc2libGluZ3MgaW5pdGlhbGl6YXRpb24KYjk5NTlmZCB2dGk6IHN3
-aXRjaCB0byBuZXcgaXAgdHVubmVsIGNvZGUKMmI1MmMzYSBpcDZtcjogY2hhbmdlIHRoZSBwcm90
-b3R5cGUgb2YgaXA2X21yX2ZvcndhcmQoKS4KYzQ4NTRlYyBpcG1yOiBjaGFuZ2UgdGhlIHByb3Rv
-dHlwZSBvZiBpcF9tcl9mb3J3YXJkKCkuCjQ5MmIyMDAgdGVhbTogYWRkIHN1cHBvcnQgZm9yIHNl
-bmRpbmcgbXVsdGljYXN0IHJlam9pbnMKNGFhNWRlZSBuZXQ6IGNvbnZlcnQgcmVzZW5kIElHTVAg
-dG8gbm90aWZpZXIgZXZlbnQKZmM0MjNmZiB0ZWFtOiBhZGQgcGVlciBub3RpZmljYXRpb24KYWIy
-Y2ZiYiBtYWN2bGFuIGZkYiByZXBsYWNlIHN1cHBvcnQKOTA2ZGMxOCB2eGxhbiBmZGIgcmVwbGFj
-ZSBhbiBleGlzdGluZyBlbnRyeQplZDA4NDk1IHRjcDogdXNlIFJUVCBmcm9tIFNBQ0sgZm9yIFJU
-Two1OWM5YWY0IHRjcDogbWVhc3VyZSBSVFQgZnJvbSBuZXcgU0FDSwo1YjA4ZTQ3IHRjcDogcHJl
-ZmVyIHBhY2tldCB0aW1pbmcgdG8gVFMtRUNSIGZvciBSVFQKMzc1ZmUwMiB0Y3A6IGNvbnNvbGlk
-YXRlIFNZTkFDSyBSVFQgc2FtcGxpbmcKMGQ5YjJhYiBmZWM6IFVzZSBkZXZtX3JlcXVlc3RfaXJx
-KCkKMzk5ZGI3NSBmZWM6IFJlbW92ZSB1bm5lZWRlZCBjaGVjayBpbiBwbGF0Zm9ybV9nZXRfcmVz
-b3VyY2UoKQoxM2EwOTdiIGZlYzogQ2hlY2sgdGhlIHJldHVybiB2YWx1ZSBmcm9tIGNsa19wcmVw
-YXJlX2VuYWJsZSgpCjc5ODIwZTcgZmVjOiBFbmFibGUvZGlzYWJsZSBjbGtfcHRwIGluIHN1c3Bl
-bmQvcmVzdW1lCmQyNjVjZjQgZmVjOiBGaXggdGhlIG9yZGVyIGZvciBlbmFibGluZy9kaXNhYmxp
-bmcgdGhlIGNsb2Nrcwo5NTE0ZmU3IGZlYzogRG8gbm90IGVuYWJsZS9kaXNhYmxlIG9wdGlvbmFs
-IGNsb2NrcyB1bmNvbmRpdGlvbmFsbHkKZWRhMjk3NyB0dW46IFN1cHBvcnQgc29mdHdhcmUgdHJh
-bnNtaXQgdGltZSBzdGFtcGluZy4KY2I4MjBmOCBuZXQ6IFByb3ZpZGUgYSBnZW5lcmljIHNvY2tl
-dCBlcnJvciBxdWV1ZSBkZWxpdmVyeSBtZXRob2QgZm9yIFR4IHRpbWUgc3RhbXBzLgowODg3YTU3
-IG5ldC92ZWxvY2l0eTogYWRkIHBvbGwgY29udHJvbGxlciBmdW5jdGlvbiBmb3IgdmVsb2NpdHkg
-bmljCjZlM2Q2NzcgbUlTRE46IHJlcGxhY2Ugc3VtIG9mIGJpdG1hc2tzIHdpdGggT1Igb3BlcmF0
-aW9uLgphYWZlZTMzIG5ldC9pcmRhOiBmaXhlZCBzdHlsZSBpc3N1ZXMgaW4gaXJ0dHAK
---047d7ba975e6b5240904e34b911a--
+LS0tIGxpc3Qtb2YtY29tbWl0cy1mcm9tLW5ldC1uZXh0LWluLW5leHQtMjAxMzA4MDIudHh0CTIw
+MTMtMDgtMDYgMjA6Mjk6NDUuMzEyMzk1MzU5ICswMjAwCisrKyBsaXN0LW9mLWNvbW1pdHMtZnJv
+bS1uZXh0LW5leHQtaW4tbmV4dC0yMDEzMDgwNS50eHQJMjAxMy0wOC0wNiAyMDoyNjowMy44Mjk3
+MDQwMTMgKzAyMDAKQEAgLTEsMyArMSwyNiBAQAorZjI3MDcwMSBheDg4MTc5XzE3OGE6IGF2b2lk
+IGNvcHkgb2YgdHggdGNwIHBhY2tldHMKK2ZiYTM2NzkgZmliX3J1bGVzOiByZW9yZGVyIHN0cnVj
+dCBmaWJfcnVsZXMgZmllbGRzCis3M2Y1Njk4IGZpYl9ydWxlczogZml4IHN1cHByZXNzb3IgbmFt
+ZXMgYW5kIGRlZmF1bHQgdmFsdWVzCiswYzA2NjdhIHZsYW46IGNsZWFudXAgdGhlIHVzYWdlIG9m
+IHZsYW5fZGV2X3ByaXYoZGV2KQorOWU5NDAyZSBjbmljLCBibngyaTogRml4IGJ1ZyBvbiBzb21l
+IGJueDJ4IGRldmljZXMgdGhhdCBkb24ndCBzdXBwb3J0IGlTQ1NJCis5OTE4ZDViIGJvbmRpbmc6
+IG1vZGlmeSBvbmx5IG5laWdoX3Bhcm1zIG93bmVkIGJ5IHVzCis2MzEzNDgwIG5laWdoYm91cjog
+cG9wdWxhdGUgbmVpZ2hfcGFybXMgb24gYWxsb2MgYmVmb3JlIGNhbGxpbmcgbmRvX25laWdoX3Nl
+dHVwCis4YTg0OWJiIG5ldDogbmV0bGluazogbWlub3I6IHJlbW92ZSB1bnVzZWQgcG9pbnRlciBp
+biBhbGxvY19wZ192ZWMKKzZlZjk0Y2YgZmliX3J1bGVzOiBhZGQgcm91dGUgc3VwcHJlc3Npb24g
+YmFzZWQgb24gaWZncm91cAorZDFjNTNjOCBpY21wdjZfZmlsdGVyOiBhbGxvdyBJQ01QdjYgbWVz
+c2FnZXMgd2l0aCBib2RpZXMgPCA0IGJ5dGVzCis5Y2MwOGFmIGljbXB2Nl9maWx0ZXI6IGZpeCAi
+X2hkciIgaW5jb3JyZWN0bHkgYmVpbmcgYSBwb2ludGVyCitjNDgzZTAyIGFmX3BhY2tldDogc2lt
+cGxpZnkgVkxBTiBmcmFtZSBjaGVjayBpbiBwYWNrZXRfc25kCitjYmQ4OWFjIGFmX3BhY2tldDog
+Zml4IGZvciBzZW5kaW5nIFZMQU4gZnJhbWVzIHZpYSBwYWNrZXRfbW1hcAorMGY3NWIwOSBhZl9w
+YWNrZXQ6IHdoZW4gc2VuZGluZyBldGhlcm5ldCBmcmFtZXMsIHBhcnNlIGhlYWRlciBmb3Igc2ti
+LT5wcm90b2NvbAorZDI3ZmM3OCBzY3RwOiBEb24ndCBsb29rdXAgZHN0IGlmIHRyYW5zcG9ydCBk
+c3QgaXMgc3RpbGwgdmFsaWQKKzE0MDlhOTMgZXRoZXJuZXQ6IENvbnZlcnQgbWFjIGFkZHJlc3Mg
+dXNlcyBvZiA2IHRvIEVUSF9BTEVOCis1NzRlMmFmIGluY2x1ZGU6IENvbnZlcnQgZXRoZXJuZXQg
+bWFjIGFkZHJlc3MgZGVjbGFyYXRpb25zIHRvIHVzZSBFVEhfQUxFTgorZTIxNjk3NSB1YXBpOiBD
+b252ZXJ0IHNvbWUgdXNlcyBvZiA2IHRvIEVUSF9BTEVOCiszNzUzNDU2IHFsY25pYzogVXBkYXRl
+IHZlcnNpb24gdG8gNS4yLjQ1Cis3OWRhNGQwIHFsY25pYzogRW5hYmxlIG1haWxib3ggaW50ZXJm
+YWNlIGluIHBvbGwgbW9kZSB3aGVuIGludGVycnVwdHMgYXJlIG5vdCBhdmFpbGFibGUKKzA2OGE4
+ZDEgcWxjbmljOiBSZXBsYWNlIHBvbGwgbW9kZSBtYWlsYm94IGludGVyZmFjZSB3aXRoIGludGVy
+cnVwdCBiYXNlZCBtYWlsYm94IGludGVyZmFjZQorZTVjNGU2YyBxbGNuaWM6IEludGVycnVwdCBi
+YXNlZCBkcml2ZXIgZmlybXdhcmUgbWFpbGJveCBtZWNoYW5pc20KK2I5YzExOTggcWxjbmljOiBF
+bmhhbmNlIGRpYWdub3N0aWMgbG9vcGJhY2sgZXJyb3IgY29kZXMuCiAyNzhiMjA4IGJvbmRpbmc6
+IGluaXRpYWwgUkNVIGNvbnZlcnNpb24KIDE1MDc3MjIgYm9uZGluZzogZmFjdG9yIG91dCBzbGF2
+ZSBpZCB0eCBjb2RlIGFuZCBzaW1wbGlmeSB4bWl0IHBhdGhzCiA3OGE2NDZjIGJvbmRpbmc6IHNp
+bXBsaWZ5IGJyb2FkY2FzdF94bWl0IGZ1bmN0aW9uCg==
+--e89a8f6427ce1c26e604e34baf6d--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
