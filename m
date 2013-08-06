@@ -1,57 +1,90 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH] tcp: cubic: fix overflow error in bictcp_update()
-Date: Tue, 6 Aug 2013 11:12:51 -0400
-Message-ID: <CADVnQykEFKDdPBsry_rVHvfufUEo-R0QfW0YkGOkBQVXHoqq0A@mail.gmail.com>
-References: <1375747815.4457.59.camel@edumazet-glaptop>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: bridge: disable snooping if there is no querier
+Date: Tue, 6 Aug 2013 11:18:57 -0400
+Message-ID: <20130806151857.GA25528@redhat.com>
+References: <20130804005227.D17B3660D03@gitolite.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Van Jacobson <vanj@google.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linus =?iso-8859-1?Q?L=FCssing?= <linus.luessing@web.de>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f43.google.com ([74.125.83.43]:51006 "EHLO
-	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755148Ab3HFPMw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 11:12:52 -0400
-Received: by mail-ee0-f43.google.com with SMTP id e52so283837eek.2
-        for <netdev@vger.kernel.org>; Tue, 06 Aug 2013 08:12:51 -0700 (PDT)
-In-Reply-To: <1375747815.4457.59.camel@edumazet-glaptop>
+Received: from mx1.redhat.com ([209.132.183.28]:27565 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753010Ab3HFPTH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Aug 2013 11:19:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20130804005227.D17B3660D03@gitolite.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 5, 2013 at 8:10 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> commit 17a6e9f1aa9 ("tcp_cubic: fix clock dependency") added an
-> overflow error in bictcp_update() in following code :
->
-> /* change the unit from HZ to bictcp_HZ */
-> t = ((tcp_time_stamp + msecs_to_jiffies(ca->delay_min>>3) -
->       ca->epoch_start) << BICTCP_HZ) / HZ;
->
-> Because msecs_to_jiffies() being unsigned long, compiler does
-> implicit type promotion.
->
-> We really want to constrain (tcp_time_stamp - ca->epoch_start)
-> to a signed 32bit value, or else 't' has unexpected high values.
->
-> This bugs triggers an increase of retransmit rates ~24 days after
-> boot [1], as the high order bit of tcp_time_stamp flips.
->
-> [1] for hosts with HZ=1000
->
-> Big thanks to Van Jacobson for spotting this problem.
->
-> Diagnosed-by: Van Jacobson <vanj@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
+On Sun, Aug 04, 2013 at 12:52:27AM +0000, Linux Kernel wrote:
+ > Gitweb:     http://git.kernel.org/linus/;a=3Dcommit;h=3Db00589af3b04=
+736376f24625ab0b394642e89e29
+ > Commit:     b00589af3b04736376f24625ab0b394642e89e29
+ > Parent:     cf3c4c03060b688cbc389ebc5065ebcce5653e96
+ > Author:     Linus L=FCssing <linus.luessing@web.de>
+ > AuthorDate: Thu Aug 1 01:06:20 2013 +0200
+ > Committer:  David S. Miller <davem@davemloft.net>
+ > CommitDate: Wed Jul 31 17:40:21 2013 -0700
+ >=20
+ >     bridge: disable snooping if there is no querier
+ >    =20
+ >     Signed-off-by: Linus L=FCssing <linus.luessing@web.de>
+ >     Signed-off-by: David S. Miller <davem@davemloft.net>
+=20
+ > diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+ > @@ -1198,6 +1206,9 @@ static int br_ip6_multicast_query(struct net_b=
+ridge *br,
+ >  		max_delay =3D mld2q->mld2q_mrc ? MLDV2_MRC(ntohs(mld2q->mld2q_mrc=
+)) : 1;
+ >  	}
+ > =20
+ > +	br_multicast_query_received(br, port, !ipv6_addr_any(&ip6h->saddr)=
+,
+ > +				    max_delay);
+ > +
+ >  	if (!group)
+ >  		goto out;
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+This addition looks suspect. max_delay looks like it could be uninitial=
+ised here.
 
-Also a nice catch!
+1178         unsigned long max_delay;
 
-neal
+=2E..
+
+1189         if (skb->len =3D=3D sizeof(*mld)) {
+1190                 if (!pskb_may_pull(skb, sizeof(*mld))) {
+1191                         err =3D -EINVAL;
+1192                         goto out;
+1193                 }
+1194                 mld =3D (struct mld_msg *) icmp6_hdr(skb);
+1195                 max_delay =3D msecs_to_jiffies(ntohs(mld->mld_maxd=
+elay));
+1196                 if (max_delay)
+1197                         group =3D &mld->mld_mca;
+1198         } else if (skb->len >=3D sizeof(*mld2q)) {
+1199                 if (!pskb_may_pull(skb, sizeof(*mld2q))) {
+1200                         err =3D -EINVAL;
+1201                         goto out;
+1202                 }
+1203                 mld2q =3D (struct mld2_query *)icmp6_hdr(skb);
+1204                 if (!mld2q->mld2q_nsrcs)
+1205                         group =3D &mld2q->mld2q_mca;
+1206                 max_delay =3D mld2q->mld2q_mrc ? MLDV2_MRC(ntohs(m=
+ld2q->mld2q_mrc)) : 1;
+1207         }
+1208=20
+1209         br_multicast_query_received(br, port, !ipv6_addr_any(&ip6h=
+->saddr),
+1210                                     max_delay);
+
+If skb_len matches neither of those conditions, we don't set it.
+
+Explicitly set it to something on entry ? Or is there validation furthe=
+r up the
+callchain that skb_len will only ever be one of these two values ?
+
+	Dave
