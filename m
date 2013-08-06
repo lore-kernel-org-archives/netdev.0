@@ -1,44 +1,114 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH v3 3/4] USBNET: support DMA SG
-Date: Tue, 06 Aug 2013 14:08:07 +0200
-Message-ID: <1375790887.1676.22.camel@linux-fkkt.site>
-References: <1375750370-18194-1-git-send-email-ming.lei@canonical.com>
-	 <1375750370-18194-4-git-send-email-ming.lei@canonical.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [net-next, v2, 1/2] bonding: change the bond's vlan syncing
+ functions with the standard ones
+Date: Tue, 6 Aug 2013 14:11:15 +0200
+Message-ID: <20130806121115.GO22756@redhat.com>
+References: <1375785616-5349-2-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Grant Grundler <grundler@google.com>,
-	Freddy Xin <freddy@asix.com.tw>,
-	Alan Stern <stern@rowland.harvard.edu>
-To: Ming Lei <ming.lei@canonical.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com,
+	davem@davemloft.net
+To: nikolay@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:40228 "EHLO mx2.suse.de"
+Received: from mx1.redhat.com ([209.132.183.28]:31508 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756083Ab3HFMIM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Aug 2013 08:08:12 -0400
-In-Reply-To: <1375750370-18194-4-git-send-email-ming.lei@canonical.com>
+	id S1756412Ab3HFMMK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Aug 2013 08:12:10 -0400
+Content-Disposition: inline
+In-Reply-To: <1375785616-5349-2-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-08-06 at 08:52 +0800, Ming Lei wrote:
-> This patch introduces support of DMA SG if the USB host controller
-> which usbnet device is attached to is capable of building packet from
-> discontinuous buffers.
-> 
-> The patch supports passing the skb fragment buffers to usb stack directly
-> via urb->sg.
-> 
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Ben Hutchings <bhutchings@solarflare.com>
-> Cc: Grant Grundler <grundler@google.com>
-> Cc: Freddy Xin <freddy@asix.com.tw>
-> Cc: Oliver Neukum <oneukum@suse.de>
-> Cc: Alan Stern <stern@rowland.harvard.edu>
-> Signed-off-by: Ming Lei <ming.lei@canonical.com>
-Acked-by: Oliver Neukum <oneukum@suse.de>
+On Tue, Aug 06, 2013 at 12:40:15PM +0200, nikolay@redhat.com wrote:
+>From: Nikolay Aleksandrov <Nikolay Aleksandrov nikolay@redhat.com>
+>
+>Now we have vlan_vids_add/del_by_dev() which serve the same purpose as
+>bond's bond_add/del_vlans_on_slave() with the good side effect of
+>reverting the changes if one of the additions fails.
+>There's only 1 change in the behaviour of enslave: if adding of the
+>vlans to the slave fails, we'll fail the enslaving because otherwise we
+>might delete some vlan that wasn't added by the bonding.
+>The only way this may happen is with ENOMEM currently, so we're in trouble
+>anyway.
+>
+>Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+
+Acked-by: Veaceslav Falico <vfalico@redhat.com>
+
+>
+>---
+>v2: Fail enslavement with an error message if syncing of vlans fails
+>because otherwise we might delete vlans that weren't added by us.
+>
+> drivers/net/bonding/bond_main.c | 37 +++++++------------------------------
+> 1 file changed, 7 insertions(+), 30 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index 5697043..78b0aeb 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -493,33 +493,6 @@ static int bond_vlan_rx_kill_vid(struct net_device *bond_dev,
+> 	return 0;
+> }
+>
+>-static void bond_add_vlans_on_slave(struct bonding *bond, struct net_device *slave_dev)
+>-{
+>-	struct vlan_entry *vlan;
+>-	int res;
+>-
+>-	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
+>-		res = vlan_vid_add(slave_dev, htons(ETH_P_8021Q),
+>-				   vlan->vlan_id);
+>-		if (res)
+>-			pr_warning("%s: Failed to add vlan id %d to device %s\n",
+>-				   bond->dev->name, vlan->vlan_id,
+>-				   slave_dev->name);
+>-	}
+>-}
+>-
+>-static void bond_del_vlans_from_slave(struct bonding *bond,
+>-				      struct net_device *slave_dev)
+>-{
+>-	struct vlan_entry *vlan;
+>-
+>-	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
+>-		if (!vlan->vlan_id)
+>-			continue;
+>-		vlan_vid_del(slave_dev, htons(ETH_P_8021Q), vlan->vlan_id);
+>-	}
+>-}
+>-
+> /*------------------------------- Link status -------------------------------*/
+>
+> /*
+>@@ -1630,7 +1603,11 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+> 		dev_mc_add(slave_dev, lacpdu_multicast);
+> 	}
+>
+>-	bond_add_vlans_on_slave(bond, slave_dev);
+>+	if (vlan_vids_add_by_dev(slave_dev, bond_dev)) {
+>+		pr_err("%s: Error: Couldn't add bond vlan ids to %s\n",
+>+		       bond_dev->name, slave_dev->name);
+>+		goto err_close;
+>+	}
+>
+> 	write_lock_bh(&bond->lock);
+>
+>@@ -1806,7 +1783,7 @@ err_detach:
+> 	if (!USES_PRIMARY(bond->params.mode))
+> 		bond_hw_addr_flush(bond_dev, slave_dev);
+>
+>-	bond_del_vlans_from_slave(bond, slave_dev);
+>+	vlan_vids_del_by_dev(slave_dev, bond_dev);
+> 	write_lock_bh(&bond->lock);
+> 	bond_detach_slave(bond, new_slave);
+> 	if (bond->primary_slave == new_slave)
+>@@ -2002,7 +1979,7 @@ static int __bond_release_one(struct net_device *bond_dev,
+> 	/* must do this from outside any spinlocks */
+> 	bond_destroy_slave_symlinks(bond_dev, slave_dev);
+>
+>-	bond_del_vlans_from_slave(bond, slave_dev);
+>+	vlan_vids_del_by_dev(slave_dev, bond_dev);
+>
+> 	/* If the mode USES_PRIMARY, then this cases was handled above by
+> 	 * bond_change_active_slave(..., NULL)
