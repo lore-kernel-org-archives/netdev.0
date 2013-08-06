@@ -1,83 +1,76 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net] xfrm: Delete hold_timer when destroy policy
-Date: Tue, 6 Aug 2013 10:05:06 +0200
-Message-ID: <20130806080506.GF25511@secunet.com>
-References: <1375351716-3265-1-git-send-email-fan.du@windriver.com>
- <20130801120146.GD25511@secunet.com>
- <51FB09C0.7090807@windriver.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 3/3] net: core: fix wrong linkage for ptype_base
+ and ptype_all symbols
+Date: Tue, 06 Aug 2013 10:13:15 +0200
+Message-ID: <5200B01B.9080705@redhat.com>
+References: <1375774371-831-1-git-send-email-sakiwit@gmail.com> <1375774371-831-3-git-send-email-sakiwit@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jean Sacren <sakiwit@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:39651 "EHLO a.mx.secunet.com"
+Received: from mx1.redhat.com ([209.132.183.28]:14996 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751608Ab3HFIFN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Aug 2013 04:05:13 -0400
-Content-Disposition: inline
-In-Reply-To: <51FB09C0.7090807@windriver.com>
+	id S1752265Ab3HFINT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Aug 2013 04:13:19 -0400
+In-Reply-To: <1375774371-831-3-git-send-email-sakiwit@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 02, 2013 at 09:22:08AM +0800, Fan Du wrote:
->=20
->=20
-> On 2013=E5=B9=B408=E6=9C=8801=E6=97=A5 20:01, Steffen Klassert wrote:
-> >On Thu, Aug 01, 2013 at 06:08:36PM +0800, Fan Du wrote:
-> >>Both policy timer and hold_timer need to be deleted when destroy po=
-licy
-> >>Bad mood today, maybe I'm wrong about this...
-> >>
-> >>Signed-off-by: Fan Du<fan.du@windriver.com>
-> >>---
-> >>  net/xfrm/xfrm_policy.c |    2 +-
-> >>  1 files changed, 1 insertions(+), 1 deletions(-)
-> >>
-> >>diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-> >>index d8da6b8..f7078eb 100644
-> >>--- a/net/xfrm/xfrm_policy.c
-> >>+++ b/net/xfrm/xfrm_policy.c
-> >>@@ -308,7 +308,7 @@ void xfrm_policy_destroy(struct xfrm_policy *po=
-licy)
-> >>  {
-> >>  	BUG_ON(!policy->walk.dead);
-> >>
-> >>-	if (del_timer(&policy->timer))
-> >>+	if (del_timer(&policy->timer) || del_timer(&policy->polq.hold_tim=
-er))
-> >>  		BUG();
-> >>
-> >
-> >The timers should be already deleted when xfrm_policy_destroy() is
-> >called. This is just to check if that really happened and to
-> >catch this bug if not. So it's not a bug fix, it just helps to
-> >catch a potential bug. I'll consider to take this into ipsec-next
-> >after some testing.
-> >
->=20
-> On the contrary, please take a look at callers of xfrm_policy_destroy=
-=2E
-> Code flow is as below:
->=20
->   xfrm_policy_alloc() /* setup timer/hold_timer here */ (1)
->=20
->   /* do something with this policy, insert or something else */
->=20
->   goto err; /* bail out if bad things happens */
->=20
->   return ok
->=20
-> err:
->   xfrm_policy_destroy() /*So both timers in (1) need to be deleted */
->=20
+On 08/06/2013 09:32 AM, Jean Sacren wrote:
+> In commit 900ff8c6 ("net: move procfs code to net/core/net-procfs.c"),
+> it changed the correct linkage of ptype_base and ptype_all symbols to
+> the wrong one in net/core/dev.c, yet failed to change to the correct
+> linkage of those two in net/core/net-procfs.c.
+>
+> Fix the wrong linkage by setting static specifier to both sets of the
+> symbols so that they could have coherent internal linkage by themselves
+> to avoid interference with each other.
 
-setup_timer() does not arm the timer, it just initializes the timer.
-So the timer is not pending when xfrm_policy_destroy() is called
-on error. The del_timer() in xfrm_policy_destroy() is really just
-to catch a bug. That's also the reason why we call BUG() if we
-delete a pending timer.
+Ho? I do not think this is correct, what makes you think so?
 
-Anyway, applied to ipsec-next.
+The net-procfs.c usage of ptype_* is there to show current pf_packet users
+via seq_files in procfs. Your patch will just break this.
 
-Thanks!
+> Signed-off-by: Jean Sacren <sakiwit@gmail.com>
+> ---
+>   net/core/dev.c        | 4 ++--
+>   net/core/net-procfs.c | 4 ++--
+>   2 files changed, 4 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index dfd9f5d..d85e5e1 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -142,8 +142,8 @@
+>
+>   static DEFINE_SPINLOCK(ptype_lock);
+>   static DEFINE_SPINLOCK(offload_lock);
+> -struct list_head ptype_base[PTYPE_HASH_SIZE] __read_mostly;
+> -struct list_head ptype_all __read_mostly;	/* Taps */
+> +static struct list_head ptype_base[PTYPE_HASH_SIZE] __read_mostly;
+> +static struct list_head ptype_all __read_mostly;	/* Taps */
+>   static struct list_head offload_base __read_mostly;
+>
+>   /*
+> diff --git a/net/core/net-procfs.c b/net/core/net-procfs.c
+> index 2bf8329..e57cd63 100644
+> --- a/net/core/net-procfs.c
+> +++ b/net/core/net-procfs.c
+> @@ -9,8 +9,8 @@
+>   #define get_offset(x) ((x) & ((1 << BUCKET_SPACE) - 1))
+>   #define set_bucket_offset(b, o) ((b) << BUCKET_SPACE | (o))
+>
+> -extern struct list_head ptype_all __read_mostly;
+> -extern struct list_head ptype_base[PTYPE_HASH_SIZE] __read_mostly;
+> +static struct list_head ptype_all __read_mostly;
+> +static struct list_head ptype_base[PTYPE_HASH_SIZE] __read_mostly;
+>
+>   static inline struct net_device *dev_from_same_bucket(struct seq_file *seq, loff_t *pos)
+>   {
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
