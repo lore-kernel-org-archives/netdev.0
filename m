@@ -1,73 +1,164 @@
-From: Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [Patch net-next v2 5/8] sunrpc: use generic union inet_addr
-Date: Tue, 6 Aug 2013 06:28:01 -0400
-Message-ID: <20130806062801.67714276@tlielax.poochiereds.net>
-References: <1375427674-21735-1-git-send-email-amwang@redhat.com>
-	<1375427674-21735-6-git-send-email-amwang@redhat.com>
-	<20130802093625.2c70a330@tlielax.poochiereds.net>
-	<1375672445.32485.8.camel@cr0>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v2 net-next] net: add SNMP counters tracking incoming ECN
+ bits
+Date: Tue, 06 Aug 2013 03:32:11 -0700
+Message-ID: <1375785131.4457.76.camel@edumazet-glaptop>
+References: <1375370791.10515.154.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1375672445.32485.8.camel@cr0>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:64833 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755856Ab3HFKcN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 06:32:13 -0400
+Received: by mail-pd0-f180.google.com with SMTP id 15so181929pdi.39
+        for <netdev@vger.kernel.org>; Tue, 06 Aug 2013 03:32:13 -0700 (PDT)
+In-Reply-To: <1375370791.10515.154.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 05 Aug 2013 11:14:05 +0800
-Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+From: Eric Dumazet <edumazet@google.com>
 
-> On Fri, 2013-08-02 at 09:36 -0400, Jeff Layton wrote:
-> > On Fri,  2 Aug 2013 15:14:31 +0800
-> > Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> > 
-> > > From: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> > > 
-> > > sunrpc defines some helper functions for sockaddr, actually they
-> > > can re-use the generic functions for union inet_addr too.
-> > 
-> > Only some of these patches in this series have made it to lists to
-> > which I'm subscribed, so I may be missing some context here...
-> > 
-> > I'm not sure I really understand the value of "union inet_addr". Why
-> > not just use the conventional method of passing around "struct sockaddr"
-> > pointers, and then casting them to struct sockaddr_in/sockaddr_in6
-> > depending on what the sa_family is set to?
-> 
-> Yes.
-> 
-> > 
-> > With that you wouldn't need to leave the (now pointless) rpc_* wrappers
-> > in place and could just call your new helpers directly.
-> > 
-> 
-> J. Bruce asked the same question, see:
-> http://marc.info/?l=linux-nfs&m=137475685903460&w=2
-> 
+With GRO/LRO processing, there is a problem because Ip[6]InReceives SNMP
+counters do not count the number of frames, but number of aggregated
+segments.
 
-Not exactly...
+Its probably too late to change this now.
 
-He asked why you were keeping the wrappers and you replied that it was
-because you didn't want to change all of the callers of rpc_get_port.
-That's a fair enough answer to his question.
+This patch adds four new counters, tracking number of frames, regardless
+of LRO/GRO, and on a per ECN status basis, for IPv4 and IPv6.
 
-My question is a bit more fundamental: Why are you using this new union
-in your patches instead of simply passing around "struct sockaddr"
-pointers? If you did that, then you could simply replace all of the
-rpc_* wrappers with your generic ones, since you wouldn't need to do
-the cast to this (seemingly unnecessary) union.
+Ip[6]NoECTPkts : Number of packets received with NOECT
+Ip[6]ECT1Pkts  : Number of packets received with ECT(1)
+Ip[6]ECT0Pkts  : Number of packets received with ECT(0)
+Ip[6]CEPkts    : Number of packets received with Congestion Experienced
 
-FWIW, I too am happy to see these routines moved to common code. I just
-wonder whether it might make more sense to use the existing convention
-instead of this new union.
+lph37:~# nstat | egrep "Pkts|InReceive"
+IpInReceives                    1634137            0.0
+Ip6InReceives                   3714107            0.0
+Ip6InNoECTPkts                  19205              0.0
+Ip6InECT0Pkts                   52651828           0.0
+IpExtInNoECTPkts                33630              0.0
+IpExtInECT0Pkts                 15581379           0.0
+IpExtInCEPkts                   6                  0.0
 
--- 
-Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+v2: fix a typo in changelog
+
+ include/uapi/linux/snmp.h |    4 ++++
+ net/ipv4/ip_input.c       |    8 ++++++++
+ net/ipv4/proc.c           |    7 ++++++-
+ net/ipv6/ip6_input.c      |    6 +++++-
+ net/ipv6/proc.c           |    4 ++++
+ 5 files changed, 27 insertions(+), 2 deletions(-)
+
+diff --git a/include/uapi/linux/snmp.h b/include/uapi/linux/snmp.h
+index af0a674..60601d2 100644
+--- a/include/uapi/linux/snmp.h
++++ b/include/uapi/linux/snmp.h
+@@ -51,6 +51,10 @@ enum
+ 	IPSTATS_MIB_INBCASTOCTETS,		/* InBcastOctets */
+ 	IPSTATS_MIB_OUTBCASTOCTETS,		/* OutBcastOctets */
+ 	IPSTATS_MIB_CSUMERRORS,			/* InCsumErrors */
++	IPSTATS_MIB_NOECTPKTS,			/* InNoECTPkts */
++	IPSTATS_MIB_ECT1PKTS,			/* InECT1Pkts */
++	IPSTATS_MIB_ECT0PKTS,			/* InECT0Pkts */
++	IPSTATS_MIB_CEPKTS,			/* InCEPkts */
+ 	__IPSTATS_MIB_MAX
+ };
+ 
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index 15e3e68..054a3e9 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -141,6 +141,7 @@
+ #include <net/icmp.h>
+ #include <net/raw.h>
+ #include <net/checksum.h>
++#include <net/inet_ecn.h>
+ #include <linux/netfilter_ipv4.h>
+ #include <net/xfrm.h>
+ #include <linux/mroute.h>
+@@ -410,6 +411,13 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
+ 	if (iph->ihl < 5 || iph->version != 4)
+ 		goto inhdr_error;
+ 
++	BUILD_BUG_ON(IPSTATS_MIB_ECT1PKTS != IPSTATS_MIB_NOECTPKTS + INET_ECN_ECT_1);
++	BUILD_BUG_ON(IPSTATS_MIB_ECT0PKTS != IPSTATS_MIB_NOECTPKTS + INET_ECN_ECT_0);
++	BUILD_BUG_ON(IPSTATS_MIB_CEPKTS != IPSTATS_MIB_NOECTPKTS + INET_ECN_CE);
++	IP_ADD_STATS_BH(dev_net(dev),
++			IPSTATS_MIB_NOECTPKTS + (iph->tos & INET_ECN_MASK),
++			max_t(unsigned short, 1, skb_shinfo(skb)->gso_segs));
++
+ 	if (!pskb_may_pull(skb, iph->ihl*4))
+ 		goto inhdr_error;
+ 
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index 6577a11..5f5fa61 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -111,7 +111,7 @@ static const struct snmp_mib snmp4_ipstats_list[] = {
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+-/* Following RFC4293 items are displayed in /proc/net/netstat */
++/* Following items are displayed in /proc/net/netstat */
+ static const struct snmp_mib snmp4_ipextstats_list[] = {
+ 	SNMP_MIB_ITEM("InNoRoutes", IPSTATS_MIB_INNOROUTES),
+ 	SNMP_MIB_ITEM("InTruncatedPkts", IPSTATS_MIB_INTRUNCATEDPKTS),
+@@ -125,7 +125,12 @@ static const struct snmp_mib snmp4_ipextstats_list[] = {
+ 	SNMP_MIB_ITEM("OutMcastOctets", IPSTATS_MIB_OUTMCASTOCTETS),
+ 	SNMP_MIB_ITEM("InBcastOctets", IPSTATS_MIB_INBCASTOCTETS),
+ 	SNMP_MIB_ITEM("OutBcastOctets", IPSTATS_MIB_OUTBCASTOCTETS),
++	/* Non RFC4293 fields */
+ 	SNMP_MIB_ITEM("InCsumErrors", IPSTATS_MIB_CSUMERRORS),
++	SNMP_MIB_ITEM("InNoECTPkts", IPSTATS_MIB_NOECTPKTS),
++	SNMP_MIB_ITEM("InECT1Pkts", IPSTATS_MIB_ECT1PKTS),
++	SNMP_MIB_ITEM("InECT0Pkts", IPSTATS_MIB_ECT0PKTS),
++	SNMP_MIB_ITEM("InCEPkts", IPSTATS_MIB_CEPKTS),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index 2bab2aa..302d6fb 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -44,7 +44,7 @@
+ #include <net/ip6_route.h>
+ #include <net/addrconf.h>
+ #include <net/xfrm.h>
+-
++#include <net/inet_ecn.h>
+ 
+ 
+ int ip6_rcv_finish(struct sk_buff *skb)
+@@ -109,6 +109,10 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
+ 	if (hdr->version != 6)
+ 		goto err;
+ 
++	IP6_ADD_STATS_BH(dev_net(dev), idev,
++			 IPSTATS_MIB_NOECTPKTS +
++				(ipv6_get_dsfield(hdr) & INET_ECN_MASK),
++			 max_t(unsigned short, 1, skb_shinfo(skb)->gso_segs));
+ 	/*
+ 	 * RFC4291 2.5.3
+ 	 * A packet received on an interface with a destination address
+diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
+index 51c3285..091d066 100644
+--- a/net/ipv6/proc.c
++++ b/net/ipv6/proc.c
+@@ -91,6 +91,10 @@ static const struct snmp_mib snmp6_ipstats_list[] = {
+ 	SNMP_MIB_ITEM("Ip6InBcastOctets", IPSTATS_MIB_INBCASTOCTETS),
+ 	SNMP_MIB_ITEM("Ip6OutBcastOctets", IPSTATS_MIB_OUTBCASTOCTETS),
+ 	/* IPSTATS_MIB_CSUMERRORS is not relevant in IPv6 (no checksum) */
++	SNMP_MIB_ITEM("Ip6InNoECTPkts", IPSTATS_MIB_NOECTPKTS),
++	SNMP_MIB_ITEM("Ip6InECT1Pkts", IPSTATS_MIB_ECT1PKTS),
++	SNMP_MIB_ITEM("Ip6InECT0Pkts", IPSTATS_MIB_ECT0PKTS),
++	SNMP_MIB_ITEM("Ip6InCEPkts", IPSTATS_MIB_CEPKTS),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
