@@ -1,54 +1,53 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: low latency/busy poll feedback and bugs
-Date: Tue, 06 Aug 2013 10:41:48 +0300
-Message-ID: <5200A8BC.4010402@linux.intel.com>
-References: <20130805212257.GB6904@sbohrermbp13-local.rgmadvisors.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: [PATCH net-next] xfrm: Remove rebundant address family checking
+Date: Tue, 6 Aug 2013 15:50:56 +0800
+Message-ID: <1375775456-22628-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org
-To: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:26469 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755211Ab3HFHlu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Aug 2013 03:41:50 -0400
-In-Reply-To: <20130805212257.GB6904@sbohrermbp13-local.rgmadvisors.com>
+Received: from mail1.windriver.com ([147.11.146.13]:41168 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751114Ab3HFHus (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 03:50:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/08/2013 00:22, Shawn Bohrer wrote:
-> 1) I'm testing with a Mellanox ConnectX-3 card.
+present_and_same_family has checked addresses family validness for both
+SADB_EXT_ADDRESS_SRC and SADB_EXT_ADDRESS_DST in the beginning.
+Thereafter pfkey_sadb_addr2xfrm_addr doesn't need to do the checking again.
 
-There's your problem ;)
+Signed-off-by: Fan Du <fan.du@windriver.com>
+---
+ net/key/af_key.c |    8 --------
+ 1 file changed, 8 deletions(-)
 
-> 2) Why is LowLatencyRxPackets reported as a TcpExt stat?  Perhaps I've
-> been confused and misguided but I've always assumed those are
-> statistics related to TCP and this feature is protocol neutral.  I'm
-> not entirely sure where it should be moved to perhaps IpExt?
-
-Actually, after all of the rewrite this has gone through,
-it's now at the Ethernet level, not even IP specific.
-
-So where should it go?
-
-Should we also rename this to BusyPollRxPackets?
-
-> 3) I don't know if this was intentional, an oversight, or simply a
-> missing feature but UDP multicast currently is not supported.  In
-> order to add support I believe you would need to call
-> sk_mark_napi_id() in __udp4_lib_mcast_deliver().  Assuming there isn't
-> some intentional reason this wasn't done I'd be happy to test this and
-> send a patch.
-
-This is still WIP, so our goal was to make it easy to extend for new
-cases and protocols.
-
-For multicast, it is possible that incoming packets to come from more
-than one port (and therefore more than one queue).
-I'm not sure how we could handle that, but what we have today won't do
-well for that use-case.
-
-What do you use for testing?
-
--Eliezer
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index ab8bd2c..dd40377 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -1196,10 +1196,6 @@ static struct xfrm_state * pfkey_msg2xfrm_state(struct net *net,
+ 
+ 	x->props.family = pfkey_sadb_addr2xfrm_addr((struct sadb_address *) ext_hdrs[SADB_EXT_ADDRESS_SRC-1],
+ 						    &x->props.saddr);
+-	if (!x->props.family) {
+-		err = -EAFNOSUPPORT;
+-		goto out;
+-	}
+ 	pfkey_sadb_addr2xfrm_addr((struct sadb_address *) ext_hdrs[SADB_EXT_ADDRESS_DST-1],
+ 				  &x->id.daddr);
+ 
+@@ -2205,10 +2201,6 @@ static int pfkey_spdadd(struct sock *sk, struct sk_buff *skb, const struct sadb_
+ 
+ 	sa = ext_hdrs[SADB_EXT_ADDRESS_SRC-1];
+ 	xp->family = pfkey_sadb_addr2xfrm_addr(sa, &xp->selector.saddr);
+-	if (!xp->family) {
+-		err = -EINVAL;
+-		goto out;
+-	}
+ 	xp->selector.family = xp->family;
+ 	xp->selector.prefixlen_s = sa->sadb_address_prefixlen;
+ 	xp->selector.proto = pfkey_proto_to_xfrm(sa->sadb_address_proto);
+-- 
+1.7.9.5
