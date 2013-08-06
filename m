@@ -1,37 +1,48 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH V2 3/4] bnx2x: Use pci_wait_for_pending_transaction
- instead of for loop
-Date: Tue, 6 Aug 2013 14:12:54 +0300
-Message-ID: <1375787574.31311.1.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1375784319-25760-1-git-send-email-vipul@chelsio.com>
- <1375784319-25760-4-git-send-email-vipul@chelsio.com>
-Reply-To: eilong@broadcom.com
+From: Jussi Kivilinna <jussi.kivilinna-X3B1VOXEql0@public.gmane.org>
+Subject: [PATCH] zd1201: do not use stack as URB transfer_buffer
+Date: Tue, 06 Aug 2013 14:28:42 +0300
+Message-ID: <20130806112842.14897.95337.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-pci@vger.kernel.org, bhelgaas@google.com, leedom@chelsio.com,
-	tomreu@chelsio.com, divy@chelsio.com, dm@chelsio.com,
-	nirranjan@chelsio.com, netdev@vger.kernel.org
-To: "Vipul Pandya" <vipul@chelsio.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2668 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755043Ab3HFLNG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Aug 2013 07:13:06 -0400
-In-Reply-To: <1375784319-25760-4-git-send-email-vipul@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-08-06 at 15:48 +0530, Vipul Pandya wrote:
-> From: Casey Leedom <leedom@chelsio.com>
-> 
-> New routine has been added to avoid duplication of waiting for pending pci
-> transaction code. This patch makes use of that routine.
-> 
-> Signed-off-by: Casey Leedom <leedom@chelsio.com>
-> Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+Patch fixes zd1201 not to use stack as URB transfer_buffer. URB buffers need
+to be DMA-able, which stack is not.
 
-Thanks Casey!
+Patch is only compile tested.
 
-Acked-by: Eilon Greenstein <eilong@broadcom.com>
+Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Signed-off-by: Jussi Kivilinna <jussi.kivilinna-X3B1VOXEql0@public.gmane.org>
+---
+ drivers/net/wireless/zd1201.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/zd1201.c b/drivers/net/wireless/zd1201.c
+index 4941f20..b8ba1f9 100644
+--- a/drivers/net/wireless/zd1201.c
++++ b/drivers/net/wireless/zd1201.c
+@@ -98,10 +98,12 @@ static int zd1201_fw_upload(struct usb_device *dev, int apfw)
+ 		goto exit;
+ 
+ 	err = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0), 0x4,
+-	    USB_DIR_IN | 0x40, 0,0, &ret, sizeof(ret), ZD1201_FW_TIMEOUT);
++	    USB_DIR_IN | 0x40, 0, 0, buf, sizeof(ret), ZD1201_FW_TIMEOUT);
+ 	if (err < 0)
+ 		goto exit;
+ 
++	memcpy(&ret, buf, sizeof(ret));
++
+ 	if (ret & 0x80) {
+ 		err = -EIO;
+ 		goto exit;
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
