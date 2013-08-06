@@ -1,68 +1,60 @@
-From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH V2 3/4] bnx2x: Use pci_wait_for_pending_transaction instead of for loop
-Date: Tue,  6 Aug 2013 15:48:38 +0530
-Message-ID: <1375784319-25760-4-git-send-email-vipul@chelsio.com>
-References: <1375784319-25760-1-git-send-email-vipul@chelsio.com>
-Cc: bhelgaas@google.com, leedom@chelsio.com, tomreu@chelsio.com,
-	vipul@chelsio.com, divy@chelsio.com, dm@chelsio.com,
-	nirranjan@chelsio.com, eilong@broadcom.com, netdev@vger.kernel.org
-To: linux-pci@vger.kernel.org
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1375784319-25760-1-git-send-email-vipul@chelsio.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gertjan van Wingerde <gwingerde@gmail.com>
+Subject: Re: [PATCH 3/3] net: wireless: rt2x00: Staticize rt2x00queue_pause_queue_nocheck()
+Date: Tue, 6 Aug 2013 12:27:31 +0200
+Message-ID: <CAL1gcdNVLRPRTwHMn5RZ4Mq=Mhq=omCN=8+wKiex3innhzCzDA@mail.gmail.com>
+References: <000801ce927f$fc7549d0$f55fdd70$@samsung.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	Ivo van Doorn <IvDoorn@gmail.com>,
+	Helmut Schaa <helmut.schaa@googlemail.com>
+To: Jingoo Han <jg1.han@samsung.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f45.google.com ([209.85.219.45]:60769 "EHLO
+	mail-oa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755772Ab3HFK1c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 06:27:32 -0400
+In-Reply-To: <000801ce927f$fc7549d0$f55fdd70$@samsung.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Casey Leedom <leedom@chelsio.com>
+On Tue, Aug 6, 2013 at 10:36 AM, Jingoo Han <jg1.han@samsung.com> wrote:
+> rt2x00queue_pause_queue_nocheck()is used only in this file.
+> Fix the following sparse warning:
+>
+> drivers/net/wireless/rt2x00/rt2x00queue.c:939:6: warning: symbol 'rt2x00queue_pause_queue_nocheck' was not declared. Should it be
+> static?
+>
+> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 
-New routine has been added to avoid duplication of waiting for pending pci
-transaction code. This patch makes use of that routine.
+Acked-by: Gertjan van Wingerde <gwingerde@gmail.com>
 
-Signed-off-by: Casey Leedom <leedom@chelsio.com>
-Signed-off-by: Vipul Pandya <vipul@chelsio.com>
----
-V2: Added pci_wait_for_pending_transaction routine and replaced it at respective
-places. Made the patch series for the same.
-V2: Used dev->msix_cap directly for capability offset
-V2: Removed use of 'rc' variable.
+> ---
+>  drivers/net/wireless/rt2x00/rt2x00queue.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/wireless/rt2x00/rt2x00queue.c b/drivers/net/wireless/rt2x00/rt2x00queue.c
+> index aa95c6c..6c8a33b 100644
+> --- a/drivers/net/wireless/rt2x00/rt2x00queue.c
+> +++ b/drivers/net/wireless/rt2x00/rt2x00queue.c
+> @@ -936,7 +936,7 @@ void rt2x00queue_index_inc(struct queue_entry *entry, enum queue_index index)
+>         spin_unlock_irqrestore(&queue->index_lock, irqflags);
+>  }
+>
+> -void rt2x00queue_pause_queue_nocheck(struct data_queue *queue)
+> +static void rt2x00queue_pause_queue_nocheck(struct data_queue *queue)
+>  {
+>         switch (queue->qid) {
+>         case QID_AC_VO:
+> --
+> 1.7.10.4
+>
+>
 
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 18 ++----------------
- 1 file changed, 2 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index e5da078..c51d2f8 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -9935,8 +9935,6 @@ static int bnx2x_prev_mark_path(struct bnx2x *bp, bool after_undi)
- 
- static int bnx2x_do_flr(struct bnx2x *bp)
- {
--	int i;
--	u16 status;
- 	struct pci_dev *dev = bp->pdev;
- 
- 	if (CHIP_IS_E1x(bp)) {
-@@ -9951,20 +9949,8 @@ static int bnx2x_do_flr(struct bnx2x *bp)
- 		return -EINVAL;
- 	}
- 
--	/* Wait for Transaction Pending bit clean */
--	for (i = 0; i < 4; i++) {
--		if (i)
--			msleep((1 << (i - 1)) * 100);
--
--		pcie_capability_read_word(dev, PCI_EXP_DEVSTA, &status);
--		if (!(status & PCI_EXP_DEVSTA_TRPND))
--			goto clear;
--	}
--
--	dev_err(&dev->dev,
--		"transaction is not cleared; proceeding with reset anyway\n");
--
--clear:
-+	if (!pci_wait_for_pending_transaction(dev))
-+		dev_err(&dev->dev, "transaction is not cleared; proceeding with reset anyway\n");
- 
- 	BNX2X_DEV_INFO("Initiating FLR\n");
- 	bnx2x_fw_command(bp, DRV_MSG_CODE_INITIATE_FLR, 0);
+
 -- 
-1.8.0
+---
+Gertjan
