@@ -1,98 +1,77 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: 8139cp: Add dma_mapping_error checking
-Date: Tue, 6 Aug 2013 11:01:14 -0400
-Message-ID: <20130806150114.GA29184@redhat.com>
-References: <20130804005227.CA1B0660D02@gitolite.kernel.org>
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH v3 4/4] USBNET: ax88179_178a: enable tso if usb host
+ supports sg dma
+Date: Tue, 6 Aug 2013 23:07:20 +0800
+Message-ID: <CACVXFVNFPRmhMN5oEU2pr8jKh+93CNswPtCOprG8ZJc4U6iz6g@mail.gmail.com>
+References: <1375750370-18194-1-git-send-email-ming.lei@canonical.com>
+	<1375750370-18194-5-git-send-email-ming.lei@canonical.com>
+	<1375791737.4457.98.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10533 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753954Ab3HFPEO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Aug 2013 11:04:14 -0400
-Content-Disposition: inline
-In-Reply-To: <20130804005227.CA1B0660D02@gitolite.kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
+	Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1375791737.4457.98.camel@edumazet-glaptop>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 04, 2013 at 12:52:27AM +0000, Linux Kernel wrote:
- > Gitweb:     http://git.kernel.org/linus/;a=commit;h=cf3c4c03060b688cbc389ebc5065ebcce5653e96
- > Commit:     cf3c4c03060b688cbc389ebc5065ebcce5653e96
- > Parent:     d9d10a30964504af834d8d250a0c76d4ae91eb1e
- > Author:     Neil Horman <nhorman@tuxdriver.com>
- > AuthorDate: Wed Jul 31 09:03:56 2013 -0400
- > Committer:  David S. Miller <davem@davemloft.net>
- > CommitDate: Wed Jul 31 17:01:43 2013 -0700
- > 
- >     8139cp: Add dma_mapping_error checking
- >     
- >     Self explanitory dma_mapping_error addition to the 8139 driver, based on this:
- >     https://bugzilla.redhat.com/show_bug.cgi?id=947250
- >     
- >     It showed several backtraces arising for dma_map_* usage without checking the
- >     return code on the mapping.  Add the check and abort the rx/tx operation if its
- >     failed.  Untested as I have no hardware and the reporter has wandered off, but
- >     seems pretty straightforward.
- >     
- >     Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
- >     CC: "David S. Miller" <davem@davemloft.net>
- >     CC: Francois Romieu <romieu@fr.zoreil.com>
- >     Signed-off-by: David S. Miller <davem@davemloft.net>
- > 
- > diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+On Tue, Aug 6, 2013 at 8:22 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On Tue, 2013-08-06 at 08:52 +0800, Ming Lei wrote:
+>> This patch enables 'can_dma_sg' flag for ax88179_178a device
+>> if the attached host controller supports building packet from
+>> discontinuous buffers(DMA SG is possible), so TSO can be enabled
+>> and skb fragment buffers can be passed to usb stack via urb->sg
+>> directly.
+>>
+>> With the patch, system CPU utilization decreased ~50% and throughput
+>> increased by ~10% when doing iperf client test on one ARM A15 dual
+>> core board.
+>>
+>
+> Nice ;)
+>
+>>              AX_RXCOE_TCPV6 | AX_RXCOE_UDPV6;
+>> @@ -1310,6 +1318,10 @@ static int ax88179_reset(struct usbnet *dev)
+>>
+>>       dev->net->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+>>                                NETIF_F_RXCSUM;
+>> +     if (dev->can_dma_sg) {
+>> +             dev->net->features |= NETIF_F_SG | NETIF_F_TSO;
+>> +             dev->net->hw_features |= NETIF_F_SG | NETIF_F_TSO;
+>> +     }
+>>
+>
+> My concern with setting TSO on reset() is the following :
+>
+> Admin can disable TSO with
+>
+> ethtool -K ethX tso off
+>
+>
+> Then, one hour later, or one month later, a reset happens, and this code
+> magically re-enables TSO
 
-.. (allocation of new_skb occurs)
- 
+The reset only happens during open(), and TSO can't be re-enabled magically,
+unless the interface is re-opened by Admin.
 
- > +		new_mapping = dma_map_single(&cp->pdev->dev, new_skb->data, buflen,
- > +					 PCI_DMA_FROMDEVICE);
- > +		if (dma_mapping_error(&cp->pdev->dev, new_mapping)) {
- > +			dev->stats.rx_dropped++;
- > +			goto rx_next;
- > +		}
- > +
+>
+> So, I really think this part should be removed from your patch.
 
-...
-
- 547 rx_next:
- 548                 cp->rx_ring[rx_tail].opts2 = 0;
- 549                 cp->rx_ring[rx_tail].addr = cpu_to_le64(mapping);
- 550                 if (rx_tail == (CP_RX_RING_SIZE - 1))
- 551                         desc->opts1 = cpu_to_le32(DescOwn | RingEnd |
- 552                                                   cp->rx_buf_sz);
- 553                 else
- 554                         desc->opts1 = cpu_to_le32(DescOwn | cp->rx_buf_sz);
- 555                 rx_tail = NEXT_RX(rx_tail);
- 556 
- 557                 if (rx >= budget)
- 558                         break;
- 559         }
-
-If we get to that 'break', we leak new_skb.
-
-This maybe.... ?
-
-	Dave
+OK, will remove it.
 
 
-8139cp: Fix skb leak in rx_status_loop failure path.
-Introduced in cf3c4c03060b688cbc389ebc5065ebcce5653e96
-
-Signed-off-by: Dave Jones <davej@redhat.com>
-
-diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
-index 6f35f84..d2e5919 100644
---- a/drivers/net/ethernet/realtek/8139cp.c
-+++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -524,6 +524,7 @@ rx_status_loop:
- 					 PCI_DMA_FROMDEVICE);
- 		if (dma_mapping_error(&cp->pdev->dev, new_mapping)) {
- 			dev->stats.rx_dropped++;
-+			kfree_skb(new_skb);
- 			goto rx_next;
- 		}
- 
+Thanks,
+--
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
