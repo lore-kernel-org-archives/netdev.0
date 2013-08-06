@@ -1,62 +1,101 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: bridge: disable snooping if there is no querier
-Date: Tue, 06 Aug 2013 08:47:22 -0700
-Message-ID: <1375804042.4004.2.camel@edumazet-glaptop>
-References: <20130804005227.D17B3660D03@gitolite.kernel.org>
-	 <20130806151857.GA25528@redhat.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [ANNOUNCE] iptables 1.4.20 release
+Date: Tue, 6 Aug 2013 18:17:08 +0200
+Message-ID: <20130806161708.GA27532@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Linus =?ISO-8859-1?Q?L=FCssing?= <linus.luessing@web.de>,
-	"David S. Miller" <davem@davemloft.net>
-To: Dave Jones <davej@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:51576 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754802Ab3HFPrZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 11:47:25 -0400
-Received: by mail-pa0-f53.google.com with SMTP id lb1so904425pab.26
-        for <netdev@vger.kernel.org>; Tue, 06 Aug 2013 08:47:25 -0700 (PDT)
-In-Reply-To: <20130806151857.GA25528@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="AhhlLboLdkugWU4S"
+Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-announce@lists.netfilter.org, lwn@lwn.net
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-08-06 at 11:18 -0400, Dave Jones wrote:
-> On Sun, Aug 04, 2013 at 12:52:27AM +0000, Linux Kernel wrote:
->  > Gitweb:     http://git.kernel.org/linus/;a=3Dcommit;h=3Db00589af3b=
-04736376f24625ab0b394642e89e29
->  > Commit:     b00589af3b04736376f24625ab0b394642e89e29
->  > Parent:     cf3c4c03060b688cbc389ebc5065ebcce5653e96
->  > Author:     Linus L=C3=BCssing <linus.luessing@web.de>
->  > AuthorDate: Thu Aug 1 01:06:20 2013 +0200
->  > Committer:  David S. Miller <davem@davemloft.net>
->  > CommitDate: Wed Jul 31 17:40:21 2013 -0700
->  >=20
->  >     bridge: disable snooping if there is no querier
->  >    =20
->  >     Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
->  >     Signed-off-by: David S. Miller <davem@davemloft.net>
-> =20
->  > diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
->  > @@ -1198,6 +1206,9 @@ static int br_ip6_multicast_query(struct net=
-_bridge *br,
->  >  		max_delay =3D mld2q->mld2q_mrc ? MLDV2_MRC(ntohs(mld2q->mld2q_m=
-rc)) : 1;
->  >  	}
->  > =20
->  > +	br_multicast_query_received(br, port, !ipv6_addr_any(&ip6h->sadd=
-r),
->  > +				    max_delay);
->  > +
->  >  	if (!group)
->  >  		goto out;
->=20
-> This addition looks suspect. max_delay looks like it could be uniniti=
-alised here.
->=20
-> 1178         unsigned long max_delay;
->=20
-> ...
 
-fixed in David net tree
+--AhhlLboLdkugWU4S
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Hi!
+
+The Netfilter project proudly presents:
+
+        iptables 1.4.20
+
+iptables is the userspace command line program used to configure the
+Linux kernel packet filtering software. It is targeted towards system
+administrators.
+
+See ChangeLog that comes attached to this email for more details.
+
+You can download it from:
+
+http://www.netfilter.org/projects/iptables/downloads.html
+ftp://ftp.netfilter.org/pub/iptables/
+
+Have fun!
+
+
+--AhhlLboLdkugWU4S
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="changes-iptables-1.4.20.txt"
+
+Alexey Perevalov (1):
+      doc: clarify DEBUG usage macro
+
+Andy Spencer (1):
+      iptables: use autoconf to process .in man pages
+
+Eric Leblond (1):
+      configure: display summary
+
+Florian Westphal (2):
+      extensions: libipt_ULOG: man page should mention NFLOG as replacement
+      extensions: libxt_connlabel: use libnetfilter_conntrack
+
+Jozsef Kadlecsik (2):
+      Introduce a new revision for the set match with the counters support
+      libxt_CT: Add the "NOTRACK" alias
+
+Mart Frauenlob (7):
+      libip6t_mh: Correct command to list named mh types in manpage
+      extensions: libxt_DNAT: rename IPv4 manpage and tell about IPv6 support
+      extensions: libxt_REDIRECT: rename IPv4 manpage and tell about IPv6 support
+      extensions: libxt_NETMAP: rename IPv4 manpage and tell about IPv6 support
+      extensions: libxt_SNAT: rename IPv4 manpage and tell about IPv6 support
+      extensions: libxt_MASQUERADE: rename IPv4 manpage and tell about IPv6 support
+      extensions: libxt_LOG: rename IPv4 manpage and tell about IPv6 support
+
+Pablo Neira Ayuso (7):
+      extensions: libxt_LED: fix parsing of delay
+      Merge branch 'stable'
+      Merge branch 'stable'
+      ip{6}tables-restore: fix breakage due to new locking approach
+      libxt_recent: restore minimum value for --seconds
+      iptables-xml: fix parameter parsing (similar to 2165f38)
+      iptables 1.4.20 release
+
+Patrick McHardy (1):
+      extensions: add copyright statements
+
+Phil Oester (7):
+      xtables: improve get_modprobe handling
+      ip[6]tables: Add locking to prevent concurrent instances
+      iptables: Fix connlabel.conf install location
+      ip6tables: don't print out /128
+      libip6t_LOG: target output is different to libipt_LOG
+      build: additional include path required after UAPI changes
+      iptables: iptables-xml: Fix various parsing bugs
+
+Russell Senior (1):
+      libxt_recent: restore reap functionality to recent module
+
+Willem de Bruijn (1):
+      build: fail in configure on missing dependency with --enable-bpf-compiler
+
+holger@eitzenberger.org (1):
+      extensions: libxt_NFQUEUE: add --queue-cpu-fanout parameter
+
+
+--AhhlLboLdkugWU4S--
