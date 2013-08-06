@@ -1,163 +1,65 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [RFC PATCH net-next 1/6] bonding: add vlan_uses_dev_rcu() and make bond_vlan_used() use it
-Date: Tue,  6 Aug 2013 19:58:59 +0200
-Message-ID: <1375811944-31942-2-git-send-email-vfalico@redhat.com>
+Subject: [RFC PATCH net-next 4/6] bonding: convert bond_has_this_ip to use bond->dev->vlan_info
+Date: Tue,  6 Aug 2013 19:59:02 +0200
+Message-ID: <1375811944-31942-5-git-send-email-vfalico@redhat.com>
 References: <1375811944-31942-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7867 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44360 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756139Ab3HFR6x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Aug 2013 13:58:53 -0400
+	id S1756325Ab3HFR6p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Aug 2013 13:58:45 -0400
 In-Reply-To: <1375811944-31942-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, bond_vlan_used() looks for any vlan, including the pseudo-vlan
-id 0, and always returns true if 8021q is loaded. This creates several bad
-situations - some warnings in __bond_release_one() because it thinks that
-we still have vlans while removing, sending LB packets with vlan id 0 and,
-possibly, other caused by vlan id 0.
-
-Fix it by adding a new call, vlan_uses_dev_rcu(), which is the same as
-vlan_uses_dev(), but uses rcu_dereference() instead of rtnl, and thus we
-can use it in bond_vlan_used() wrapped in rcu_read_lock().
-
-By the time vlan_uses_dev_rcu() returns we cannot be sure if there were no
-vlans added/removed, so it's basicly an optimization function.
-
-Also, use the pure vlan_uses_dev() in __bond_release_one() cause the rtnl
-lock is held there.
-
-For this call to be visible in bonding.h, add include <linux/if_vlan.h>,
-and also remove it from any other bonding file, cause they all include
-bonding.h, and thus linux/if_vlan.h.
+Use __vlan_find_dev_next_id() to loop through __vlan_find_dev_next_id() and
+__vlan_find_dev_deep() to dereference the actual vlan device and verify if
+it has the ip requested.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
-CC: Patrick McHardy <kaber@trash.net>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Nikolay Aleksandrov <nikolay@redhat.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_alb.c  |    1 -
- drivers/net/bonding/bond_main.c |    3 +--
- drivers/net/bonding/bonding.h   |   10 +++++++++-
- include/linux/if_vlan.h         |    6 ++++++
- net/8021q/vlan_core.c           |   11 +++++++++++
- 5 files changed, 27 insertions(+), 4 deletions(-)
+ drivers/net/bonding/bond_main.c |   15 +++++++++------
+ 1 files changed, 9 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 3a5db7b..2684329 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -34,7 +34,6 @@
- #include <linux/if_arp.h>
- #include <linux/if_ether.h>
- #include <linux/if_bonding.h>
--#include <linux/if_vlan.h>
- #include <linux/in.h>
- #include <net/ipx.h>
- #include <net/arp.h>
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 4264a76..9d1045d 100644
+index 9d1045d..00f6011 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -69,7 +69,6 @@
- #include <net/arp.h>
- #include <linux/mii.h>
- #include <linux/ethtool.h>
--#include <linux/if_vlan.h>
- #include <linux/if_bonding.h>
- #include <linux/jiffies.h>
- #include <linux/preempt.h>
-@@ -1953,7 +1952,7 @@ static int __bond_release_one(struct net_device *bond_dev,
- 		bond_set_carrier(bond);
- 		eth_hw_addr_random(bond_dev);
+@@ -2392,20 +2392,23 @@ re_arm:
  
--		if (bond_vlan_used(bond)) {
-+		if (vlan_uses_dev(bond_dev)) {
- 			pr_warning("%s: Warning: clearing HW address of %s while it still has VLANs.\n",
- 				   bond_dev->name, bond_dev->name);
- 			pr_warning("%s: When re-adding slaves, make sure the bond's HW address matches its VLANs'.\n",
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 4bf52d5..cb49313 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -23,6 +23,7 @@
- #include <linux/netpoll.h>
- #include <linux/inetdevice.h>
- #include <linux/etherdevice.h>
-+#include <linux/if_vlan.h>
- #include "bond_3ad.h"
- #include "bond_alb.h"
- 
-@@ -267,9 +268,16 @@ struct bonding {
- #endif /* CONFIG_DEBUG_FS */
- };
- 
-+/* use vlan_uses_dev() if under rtnl */
- static inline bool bond_vlan_used(struct bonding *bond)
+ static int bond_has_this_ip(struct bonding *bond, __be32 ip)
  {
--	return !list_empty(&bond->vlan_list);
-+	bool ret;
-+
+-	struct vlan_entry *vlan;
+ 	struct net_device *vlan_dev;
++	u16 vlan_id = 0;
+ 
+ 	if (ip == bond_confirm_addr(bond->dev, 0, ip))
+ 		return 1;
+ 
+-	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
+-		rcu_read_lock();
 +	rcu_read_lock();
-+	ret = vlan_uses_dev_rcu(bond->dev);
++	while ((vlan_id = __vlan_find_dev_next_id(bond->dev, vlan_id+1))) {
+ 		vlan_dev = __vlan_find_dev_deep(bond->dev, htons(ETH_P_8021Q),
+-						vlan->vlan_id);
+-		rcu_read_unlock();
+-		if (vlan_dev && ip == bond_confirm_addr(vlan_dev, 0, ip))
++						vlan_id);
++
++		if (vlan_dev && ip == bond_confirm_addr(vlan_dev, 0, ip)) {
++			rcu_read_unlock();
+ 			return 1;
++		}
+ 	}
 +	rcu_read_unlock();
-+
-+	return ret;
- }
  
- #define bond_slave_get_rcu(dev) \
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index 715c343..1fcea36 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -101,6 +101,7 @@ extern void vlan_vids_del_by_dev(struct net_device *dev,
- 				 const struct net_device *by_dev);
- 
- extern bool vlan_uses_dev(const struct net_device *dev);
-+extern bool vlan_uses_dev_rcu(const struct net_device *dev);
- #else
- static inline struct net_device *
- __vlan_find_dev_deep(struct net_device *real_dev,
-@@ -155,6 +156,11 @@ static inline bool vlan_uses_dev(const struct net_device *dev)
- {
- 	return false;
+ 	return 0;
  }
-+
-+static inline bool vlan_uses_dev_rcu(const struct net_device *dev)
-+{
-+	return false;
-+}
- #endif
- 
- static inline bool vlan_hw_offload_capable(netdev_features_t features,
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index 4a78c4d..52e3fb3 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -399,3 +399,14 @@ bool vlan_uses_dev(const struct net_device *dev)
- 	return vlan_info->grp.nr_vlan_devs ? true : false;
- }
- EXPORT_SYMBOL(vlan_uses_dev);
-+
-+bool vlan_uses_dev_rcu(const struct net_device *dev)
-+{
-+	struct vlan_info *vlan_info;
-+
-+	vlan_info = rcu_dereference(dev->vlan_info);
-+	if (!vlan_info)
-+		return false;
-+	return vlan_info->grp.nr_vlan_devs ? true : false;
-+}
-+EXPORT_SYMBOL(vlan_uses_dev_rcu);
 -- 
 1.7.1
