@@ -1,102 +1,51 @@
-From: Jussi Kivilinna <jussi.kivilinna-X3B1VOXEql0@public.gmane.org>
-Subject: [PATCH 2/2] net/usb: hso: allocate serial_state_notification as
- separate buffer
-Date: Wed, 07 Aug 2013 16:29:07 +0300
-Message-ID: <20130807132907.14451.2928.stgit@localhost6.localdomain6>
-References: <20130807132902.14451.37517.stgit@localhost6.localdomain6>
+From: Jim Rees <rees-63aXycvo3TyHXe+LvDLADg@public.gmane.org>
+Subject: Re: [Patch net-next v2 5/8] sunrpc: use generic union inet_addr
+Date: Wed, 7 Aug 2013 09:30:46 -0400
+Message-ID: <20130807133046.GA944@umich.edu>
+References: <1375427674-21735-1-git-send-email-amwang@redhat.com>
+ <1375427674-21735-6-git-send-email-amwang@redhat.com>
+ <20130802093625.2c70a330@tlielax.poochiereds.net>
+ <1375672445.32485.8.camel@cr0>
+ <20130806062801.67714276@tlielax.poochiereds.net>
+ <1375878446.11370.36.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20130807132902.14451.37517.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1375878446.11370.36.camel@cr0>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-URB transfer_buffers must not be allocated as part of larger structure because
-DMA coherence issues.
+Cong Wang wrote:
 
-Patch changes hso to allocate serial_state_notification member of
-'struct hso_tiocmget' as separate buffer.
+  On Tue, 2013-08-06 at 06:28 -0400, Jeff Layton wrote:
+  > 
+  > My question is a bit more fundamental: Why are you using this new union
+  > in your patches instead of simply passing around "struct sockaddr"
+  > pointers? If you did that, then you could simply replace all of the
+  > rpc_* wrappers with your generic ones, since you wouldn't need to do
+  > the cast to this (seemingly unnecessary) union.
+  
+  Because there are some places have to interpret the structure, without
+  this union, they need to cast to either sockaddr_in or sockaddr_in6
+  first, which is not as pretty as using a union.
+  
+  For example, the code in netpoll:
+  
+  ipv6_addr_equal(daddr, &np->local_ip.sin6.sin6_addr)
+  
+  without the union, it would be:
+  
+  struct sockaddr_in6 *addr = (struct sockaddr_in6 *) &np->local_ip;
+  ipv6_addr_equal(daddr, addr->sin6_addr);
 
-Patch is only compile tested.
-
-Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Signed-off-by: Jussi Kivilinna <jussi.kivilinna-X3B1VOXEql0@public.gmane.org>
----
- drivers/net/usb/hso.c |   18 ++++++++++++++----
- 1 file changed, 14 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index fc082c0..21ffa6f 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -211,7 +211,7 @@ struct hso_tiocmget {
- 	int    intr_completed;
- 	struct usb_endpoint_descriptor *endp;
- 	struct urb *urb;
--	struct hso_serial_state_notification serial_state_notification;
-+	struct hso_serial_state_notification *serial_state_notification;
- 	u16    prev_UART_state_bitmap;
- 	struct uart_icount icount;
- };
-@@ -1465,7 +1465,7 @@ static int tiocmget_submit_urb(struct hso_serial *serial,
- 			 usb_rcvintpipe(usb,
- 					tiocmget->endp->
- 					bEndpointAddress & 0x7F),
--			 &tiocmget->serial_state_notification,
-+			 tiocmget->serial_state_notification,
- 			 sizeof(struct hso_serial_state_notification),
- 			 tiocmget_intr_callback, serial,
- 			 tiocmget->endp->bInterval);
-@@ -1499,7 +1499,7 @@ static void tiocmget_intr_callback(struct urb *urb)
- 	if (!tiocmget)
- 		return;
- 	usb = serial->parent->usb;
--	serial_state_notification = &tiocmget->serial_state_notification;
-+	serial_state_notification = tiocmget->serial_state_notification;
- 	if (serial_state_notification->bmRequestType != BM_REQUEST_TYPE ||
- 	    serial_state_notification->bNotification != B_NOTIFICATION ||
- 	    le16_to_cpu(serial_state_notification->wValue) != W_VALUE ||
-@@ -2608,6 +2608,7 @@ static void hso_free_tiomget(struct hso_serial *serial)
- 		usb_free_urb(tiocmget->urb);
- 		tiocmget->urb = NULL;
- 		serial->tiocmget = NULL;
-+		kfree(tiocmget->serial_state_notification);
- 		kfree(tiocmget);
- 	}
- }
-@@ -2664,6 +2665,13 @@ static struct hso_device *hso_create_bulk_serial_device(
- 		 */
- 		if (serial->tiocmget) {
- 			tiocmget = serial->tiocmget;
-+
-+			tiocmget->serial_state_notification = kzalloc(
-+				sizeof(struct hso_serial_state_notification),
-+				GFP_KERNEL);
-+			if (!tiocmget->serial_state_notification)
-+				goto tiocmget_fail;
-+
- 			tiocmget->urb = usb_alloc_urb(0, GFP_KERNEL);
- 			if (tiocmget->urb) {
- 				mutex_init(&tiocmget->mutex);
-@@ -2672,8 +2680,10 @@ static struct hso_device *hso_create_bulk_serial_device(
- 					interface,
- 					USB_ENDPOINT_XFER_INT,
- 					USB_DIR_IN);
--			} else
-+			} else {
-+tiocmget_fail:
- 				hso_free_tiomget(serial);
-+			}
- 		}
- 	}
- 	else
-
+Too bad ipv6_addr_equal() doesn't take a (void *).
 --
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
