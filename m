@@ -1,44 +1,48 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [PATCH v3 00/11] Add namespace support for syslog
-Date: Wed, 07 Aug 2013 00:55:28 -0700
-Message-ID: <878v0evssv.fsf@xmission.com>
-References: <1375861035-24320-1-git-send-email-rui.xiang@huawei.com>
+From: Sedat Dilek <sedat.dilek@gmail.com>
+Subject: Re: linux-next: Tree for Aug 7
+Date: Wed, 7 Aug 2013 10:29:18 +0200
+Message-ID: <CA+icZUW+uxCsvPYcY2RRvMxRVzaBLuH9u8M4ziQNWXv=nk4b2w@mail.gmail.com>
+References: <20130807155443.a0355d0429f3e0b4ccbed261@canb.auug.org.au>
+Reply-To: sedat.dilek@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	libo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	guz.fnst-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
-To: Rui Xiang <rui.xiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1375861035-24320-1-git-send-email-rui.xiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org> (Rui
-	Xiang's message of "Wed, 7 Aug 2013 15:37:04 +0800")
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Phil Sutter <phil@nwl.cc>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	wireless <linux-wireless@vger.kernel.org>,
+	John Linville <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20130807155443.a0355d0429f3e0b4ccbed261@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Aug 7, 2013 at 7:54 AM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+> Hi all,
+>
+> Changes since 20130806:
+>
+> The ext4 tree lost its build failure.
+>
+> The mvebu tree gained a build failure so I used the version from
+> next-20130806.
+>
+> The akpm tree gained conflicts against the ext4 tree.
+>
+> ----------------------------------------------------------------------------
+>
 
-Since this still has not been addressed.  I am going to repeat Andrews
-objection again.
+[ CC some netdev and wireless folks ]
 
-Isn't there a better way to get iptables information out than to use
-syslog.  I did not have time to follow up on that but it did appear that
-someone did have a better way to get the information out.
+Yesterday, I discovered an issue with net-next.
+The patch in [1] fixed the problems in my network/wifi environment.
+Hannes confirmed that virtio_net are solved, too.
+Today's next-20130807 still needs it for affected people.
 
-Essentially the argument against this goes.  The kernel logging facility
-is really not a particularly good tool to be using for anything other
-than kernel debugging information, and there appear to be no substantial
-uses for a separate syslog that should not be done in other ways.
+- Sedat -
 
-That design objection must be addressed before merging this code can be
-given serious consideration.
-
-Eric
+[1] http://marc.info/?l=linux-netdev&m=137582524017840&w=2
+[2] http://marc.info/?l=linux-netdev&m=137583048219416&w=2
+[3] http://marc.info/?t=137579712800008&r=1&w=2
