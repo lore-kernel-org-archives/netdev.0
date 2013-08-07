@@ -1,52 +1,138 @@
-From: Rui Xiang <rui.xiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v3 06/11] syslog_ns: use init syslog_ns for console action
-Date: Wed, 7 Aug 2013 15:37:10 +0800
-Message-ID: <1375861035-24320-7-git-send-email-rui.xiang@huawei.com>
+From: Rui Xiang <rui.xiang@huawei.com>
+Subject: [PATCH v3 08/11] syslog_ns: implement ns_printk for specific syslog_ns
+Date: Wed, 7 Aug 2013 15:37:12 +0800
+Message-ID: <1375861035-24320-9-git-send-email-rui.xiang@huawei.com>
 References: <1375861035-24320-1-git-send-email-rui.xiang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org, libo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
-	guz.fnst-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
-To: <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1375861035-24320-1-git-send-email-rui.xiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>,
+	<serge.hallyn@ubuntu.com>, <ebiederm@xmission.com>,
+	<akpm@linux-foundation.org>, <gaofeng@cn.fujitsu.com>,
+	<guz.fnst@cn.fujitsu.com>, <libo.chen@huawei.com>,
+	Rui Xiang <rui.xiang@huawei.com>
+To: <containers@lists.linux-foundation.org>,
+	<linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1375861035-24320-1-git-send-email-rui.xiang@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-While flags SYSLOG_ACTION_CONSOLE_ON/OFF/LEVEL of
-console actin are used in syslog syscall, the related
-hanlding should be targeted at host by init_syslog_ns.
+Add a new interface named ns_printk, and assign an
+patamater ns. Log which belong to a container can
+be printed by ns_printk.
 
-Signed-off-by: Rui Xiang <rui.xiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Rui Xiang <rui.xiang@huawei.com>
 ---
- kernel/printk.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ include/linux/printk.h |  4 ++++
+ kernel/printk.c        | 53 ++++++++++++++++++++++++++++++++++++++++++++++----
+ 2 files changed, 53 insertions(+), 4 deletions(-)
 
+diff --git a/include/linux/printk.h b/include/linux/printk.h
+index 29e3f85..bf83ad9 100644
+--- a/include/linux/printk.h
++++ b/include/linux/printk.h
+@@ -6,6 +6,7 @@
+ #include <linux/kern_levels.h>
+ #include <linux/linkage.h>
+ 
++struct syslog_namespace;
+ extern const char linux_banner[];
+ extern const char linux_proc_banner[];
+ 
+@@ -123,6 +124,9 @@ asmlinkage int printk_emit(int facility, int level,
+ asmlinkage __printf(1, 2) __cold
+ int printk(const char *fmt, ...);
+ 
++asmlinkage __printf(2, 3) __cold
++int ns_printk(struct syslog_namespace *ns, const char *fmt, ...);
++
+ /*
+  * Special printk facility for scheduler use only, _DO_NOT_USE_ !
+  */
 diff --git a/kernel/printk.c b/kernel/printk.c
-index ca951e7..bdb7ed4 100644
+index a812a88..38e8869 100644
 --- a/kernel/printk.c
 +++ b/kernel/printk.c
-@@ -373,6 +373,11 @@ static int check_syslog_permissions(int type, bool from_file,
- 	if (from_file && type != SYSLOG_ACTION_OPEN)
- 		return 0;
+@@ -1548,9 +1548,10 @@ static size_t cont_print_text(char *text, size_t size)
+ 	return textlen;
+ }
  
-+	if (type == SYSLOG_ACTION_CONSOLE_OFF
-+		|| type == SYSLOG_ACTION_CONSOLE_ON
-+		|| type == SYSLOG_ACTION_CONSOLE_LEVEL)
-+		ns = &init_syslog_ns;
+-asmlinkage int vprintk_emit(int facility, int level,
+-			    const char *dict, size_t dictlen,
+-			    const char *fmt, va_list args)
++static int ns_vprintk_emit(int facility, int level,
++			const char *dict, size_t dictlen,
++			const char *fmt, va_list args,
++			struct syslog_namespace *ns)
+ {
+ 	static int recursion_bug;
+ 	static char textbuf[LOG_LINE_MAX];
+@@ -1560,7 +1561,6 @@ asmlinkage int vprintk_emit(int facility, int level,
+ 	unsigned long flags;
+ 	int this_cpu;
+ 	int printed_len = 0;
+-	struct syslog_namespace *ns = &init_syslog_ns;
+ 
+ 	boot_delay_msec(level);
+ 	printk_delay();
+@@ -1691,6 +1691,14 @@ out_restore_irqs:
+ 
+ 	return printed_len;
+ }
 +
- 	if (syslog_action_restricted(type, ns)) {
- 		if (ns_capable(ns->owner, CAP_SYSLOG))
- 			return 0;
++asmlinkage int vprintk_emit(int facility, int level,
++				const char *dict, size_t dictlen,
++				const char *fmt, va_list args)
++{
++	return ns_vprintk_emit(facility, level, dict, dictlen, fmt, args,
++				&init_syslog_ns);
++}
+ EXPORT_SYMBOL(vprintk_emit);
+ 
+ asmlinkage int vprintk(const char *fmt, va_list args)
+@@ -1756,6 +1764,43 @@ asmlinkage int printk(const char *fmt, ...)
+ }
+ EXPORT_SYMBOL(printk);
+ 
++/**
++ * ns_printk - print a kernel message in syslog_ns
++ * @ns: syslog namespace
++ * @fmt: format string
++ *
++ * This is ns_printk().
++ * It can be called from container context. We add a param
++ * ns to record current syslog namespace, because we need to
++ * print some log which are not generated by host, but contaner.
++ *
++ * See the vsnprintf() documentation for format string extensions over C99.
++ **/
++asmlinkage int ns_printk(struct syslog_namespace *ns,
++					const char *fmt, ...)
++{
++	va_list args;
++	int r;
++
++	if (!ns)
++		ns = current_user_ns()->syslog_ns;
++
++#ifdef CONFIG_KGDB_KDB
++	if (unlikely(kdb_trap_printk)) {
++		va_start(args, fmt);
++		r = vkdb_printf(fmt, args);
++		va_end(args);
++		return r;
++	}
++#endif
++	va_start(args, fmt);
++	r = ns_vprintk_emit(0, -1, NULL, 0, fmt, args, ns);
++	va_end(args);
++
++	return r;
++}
++EXPORT_SYMBOL(ns_printk);
++
+ #else /* CONFIG_PRINTK */
+ 
+ #define LOG_LINE_MAX		0
 -- 
 1.8.2.2
