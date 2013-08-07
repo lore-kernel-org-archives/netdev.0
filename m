@@ -1,124 +1,81 @@
-From: Jussi Kivilinna <jussi.kivilinna@iki.fi>
-Subject: [PATCH] net/usb: rtl8150: allocate URB transfer_buffer and
- setup_packet separately
-Date: Wed, 07 Aug 2013 16:36:53 +0300
-Message-ID: <20130807133653.15587.35442.stgit@localhost6.localdomain6>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: [PATCH v4 2/3] net: igmp: Don't flush routing cache when force_igmp_version is modified
+Date: Wed, 7 Aug 2013 09:43:08 -0400
+Message-ID: <20130807134308.GK8043@kvack.org>
+References: <20130731063442.GA10498@order.stressinduktion.org> <1375812195-6575-1-git-send-email-william.manley@youview.com> <1375812195-6575-3-git-send-email-william.manley@youview.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-usb@vger.kernel.org, Petko Manolov <petkan@nucleusys.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, luky-37@hotmail.com,
+	sergei.shtylyov@cogentembedded.com, bhutchings@solarflare.com,
+	davem@davemloft.net, hannes@stressinduktion.org
+To: William Manley <william.manley@youview.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from saarni.dnainternet.net ([83.102.40.136]:34941 "EHLO
-	saarni.dnainternet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933040Ab3HGNhA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 09:37:00 -0400
+Received: from kanga.kvack.org ([205.233.56.17]:36107 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933144Ab3HGNnJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Aug 2013 09:43:09 -0400
+Content-Disposition: inline
+In-Reply-To: <1375812195-6575-3-git-send-email-william.manley@youview.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-rtl8150 allocates URB transfer_buffer and setup_packet as part of same
-structure 'struct async_req'. This can cause same cacheline to be DMA-mapped
-twice with same URB. This can lead to memory corruption on some systems.
+On Tue, Aug 06, 2013 at 07:03:14PM +0100, William Manley wrote:
+> The procfs knob /proc/sys/net/ipv4/conf/*/force_igmp_version allows the
+> IGMP protocol version to use to be explicitly set.  As a side effect this
+> caused the routing cache to be flushed as it was declared as a
+> DEVINET_SYSCTL_FLUSHING_ENTRY.  Flushing is unnecessary and this patch
+> makes it so flushing does not occur.
+> 
+> Requested by Hannes Frederic Sowa as he was reviewing other patches
+> adding procfs entries.
+> 
+> Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: William Manley <william.manley@youview.com>
 
-Patch make allocation of these buffers separate.
+Acked-by: Benjamin LaHaise <bcrl@kvack.org>
 
-Use of 'struct async_req' was introduced by recent commit 4d12997a9b "drivers:
-net: usb: rtl8150: concurrent URB bugfix".
+Looks good.
 
-Patch is only compile tested.
+> ---
+>  include/linux/inetdevice.h |    2 +-
+>  net/ipv4/devinet.c         |    4 ++--
+>  2 files changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+> index ea1e3b8..d4c56fc 100644
+> --- a/include/linux/inetdevice.h
+> +++ b/include/linux/inetdevice.h
+> @@ -27,9 +27,9 @@ enum
+>  	IPV4_DEVCONF_TAG,
+>  	IPV4_DEVCONF_ARPFILTER,
+>  	IPV4_DEVCONF_MEDIUM_ID,
+> +	IPV4_DEVCONF_FORCE_IGMP_VERSION,
+>  	IPV4_DEVCONF_NOXFRM,
+>  	IPV4_DEVCONF_NOPOLICY,
+> -	IPV4_DEVCONF_FORCE_IGMP_VERSION,
+>  	IPV4_DEVCONF_ARP_ANNOUNCE,
+>  	IPV4_DEVCONF_ARP_IGNORE,
+>  	IPV4_DEVCONF_PROMOTE_SECONDARIES,
+> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+> index dfc39d4..a9561c4 100644
+> --- a/net/ipv4/devinet.c
+> +++ b/net/ipv4/devinet.c
+> @@ -2094,11 +2094,11 @@ static struct devinet_sysctl_table {
+>  		DEVINET_SYSCTL_RW_ENTRY(ARP_ACCEPT, "arp_accept"),
+>  		DEVINET_SYSCTL_RW_ENTRY(ARP_NOTIFY, "arp_notify"),
+>  		DEVINET_SYSCTL_RW_ENTRY(PROXY_ARP_PVLAN, "proxy_arp_pvlan"),
+> +		DEVINET_SYSCTL_RW_ENTRY(FORCE_IGMP_VERSION,
+> +					"force_igmp_version"),
+>  
+>  		DEVINET_SYSCTL_FLUSHING_ENTRY(NOXFRM, "disable_xfrm"),
+>  		DEVINET_SYSCTL_FLUSHING_ENTRY(NOPOLICY, "disable_policy"),
+> -		DEVINET_SYSCTL_FLUSHING_ENTRY(FORCE_IGMP_VERSION,
+> -					      "force_igmp_version"),
+>  		DEVINET_SYSCTL_FLUSHING_ENTRY(PROMOTE_SECONDARIES,
+>  					      "promote_secondaries"),
+>  		DEVINET_SYSCTL_FLUSHING_ENTRY(ROUTE_LOCALNET,
+> -- 
+> 1.7.10.4
 
-Cc: <stable@vger.kernel.org>
-Signed-off-by: Jussi Kivilinna <jussi.kivilinna@iki.fi>
----
- drivers/net/usb/rtl8150.c |   48 +++++++++++++++++++++++----------------------
- 1 file changed, 25 insertions(+), 23 deletions(-)
-
-diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
-index 6cbdac6..c353bfd 100644
---- a/drivers/net/usb/rtl8150.c
-+++ b/drivers/net/usb/rtl8150.c
-@@ -142,11 +142,6 @@ struct rtl8150 {
- 
- typedef struct rtl8150 rtl8150_t;
- 
--struct async_req {
--	struct usb_ctrlrequest dr;
--	u16 rx_creg;
--};
--
- static const char driver_name [] = "rtl8150";
- 
- /*
-@@ -170,12 +165,12 @@ static int set_registers(rtl8150_t * dev, u16 indx, u16 size, void *data)
- 
- static void async_set_reg_cb(struct urb *urb)
- {
--	struct async_req *req = (struct async_req *)urb->context;
- 	int status = urb->status;
- 
- 	if (status < 0)
- 		dev_dbg(&urb->dev->dev, "%s failed with %d", __func__, status);
--	kfree(req);
-+	kfree(urb->setup_packet); /* dr */
-+	kfree(urb->transfer_buffer); /* rx_creg */
- 	usb_free_urb(urb);
- }
- 
-@@ -183,25 +178,27 @@ static int async_set_registers(rtl8150_t *dev, u16 indx, u16 size, u16 reg)
- {
- 	int res = -ENOMEM;
- 	struct urb *async_urb;
--	struct async_req *req;
-+	struct usb_ctrlrequest *dr;
-+	u16 *rx_creg;
-+
-+	dr = kmalloc(sizeof(*dr), GFP_ATOMIC);
-+	rx_creg = kmalloc(sizeof(*rx_creg), GFP_ATOMIC);
-+	if (!dr || !rx_creg)
-+		goto err;
- 
--	req = kmalloc(sizeof(struct async_req), GFP_ATOMIC);
--	if (req == NULL)
--		return res;
- 	async_urb = usb_alloc_urb(0, GFP_ATOMIC);
--	if (async_urb == NULL) {
--		kfree(req);
--		return res;
--	}
--	req->rx_creg = cpu_to_le16(reg);
--	req->dr.bRequestType = RTL8150_REQT_WRITE;
--	req->dr.bRequest = RTL8150_REQ_SET_REGS;
--	req->dr.wIndex = 0;
--	req->dr.wValue = cpu_to_le16(indx);
--	req->dr.wLength = cpu_to_le16(size);
-+	if (async_urb == NULL)
-+		goto err;
-+
-+	*rx_creg = cpu_to_le16(reg);
-+	dr->bRequestType = RTL8150_REQT_WRITE;
-+	dr->bRequest = RTL8150_REQ_SET_REGS;
-+	dr->wIndex = 0;
-+	dr->wValue = cpu_to_le16(indx);
-+	dr->wLength = cpu_to_le16(size);
- 	usb_fill_control_urb(async_urb, dev->udev,
--	                     usb_sndctrlpipe(dev->udev, 0), (void *)&req->dr,
--			     &req->rx_creg, size, async_set_reg_cb, req);
-+			     usb_sndctrlpipe(dev->udev, 0), (void *)dr,
-+			     rx_creg, size, async_set_reg_cb, NULL);
- 	res = usb_submit_urb(async_urb, GFP_ATOMIC);
- 	if (res) {
- 		if (res == -ENODEV)
-@@ -209,6 +206,11 @@ static int async_set_registers(rtl8150_t *dev, u16 indx, u16 size, u16 reg)
- 		dev_err(&dev->udev->dev, "%s failed with %d\n", __func__, res);
- 	}
- 	return res;
-+
-+err:
-+	kfree(dr);
-+	kfree(rx_creg);
-+	return res;
- }
- 
- static int read_mii_word(rtl8150_t * dev, u8 phy, __u8 indx, u16 * reg)
+-- 
+"Thought is the essence of where you are now."
