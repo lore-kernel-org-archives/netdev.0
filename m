@@ -1,128 +1,99 @@
-From: Jussi Kivilinna <jussi.kivilinna-X3B1VOXEql0@public.gmane.org>
-Subject: [PATCH 1/2] net/usb: catc: allocate URB setup_packet as separate
- buffer
-Date: Wed, 07 Aug 2013 16:26:29 +0300
-Message-ID: <20130807132629.14001.2370.stgit@localhost6.localdomain6>
+From: Jussi Kivilinna <jussi.kivilinna@iki.fi>
+Subject: [PATCH 2/2] net/usb: catc: allocate URB transfer_buffers as
+ separate buffers
+Date: Wed, 07 Aug 2013 16:26:34 +0300
+Message-ID: <20130807132634.14001.85339.stgit@localhost6.localdomain6>
+References: <20130807132629.14001.2370.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-usb@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from saarni.dnainternet.net ([83.102.40.136]:48082 "EHLO
+	saarni.dnainternet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932921Ab3HGN0l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 09:26:41 -0400
+In-Reply-To: <20130807132629.14001.2370.stgit@localhost6.localdomain6>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-URB setup packet must not be allocated as part of larger structure
+URB transfer_buffer must not be allocated as part of larger structure
 because DMA coherence issues.
 
-Patch changes catc to allocate ctrl_dr member as separate buffer.
+Patch changes catc to allocate tx_buf, rx_buf, irq_buf and ctrl_buf members
+as separate buffers.
 
 Patch is only compile tested.
 
-Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Signed-off-by: Jussi Kivilinna <jussi.kivilinna-X3B1VOXEql0@public.gmane.org>
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Jussi Kivilinna <jussi.kivilinna@iki.fi>
 ---
- drivers/net/usb/catc.c |   40 +++++++++++++++++++++++++---------------
- 1 file changed, 25 insertions(+), 15 deletions(-)
+ drivers/net/usb/catc.c |   30 +++++++++++++++++++++++-------
+ 1 file changed, 23 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/usb/catc.c b/drivers/net/usb/catc.c
-index 8d5cac2..a7d3c1b 100644
+index a7d3c1b..26039d6 100644
 --- a/drivers/net/usb/catc.c
 +++ b/drivers/net/usb/catc.c
-@@ -173,7 +173,7 @@ struct catc {
- 	u8 rx_buf[RX_MAX_BURST * (PKT_SZ + 2)];
- 	u8 irq_buf[2];
- 	u8 ctrl_buf[64];
--	struct usb_ctrlrequest ctrl_dr;
-+	struct usb_ctrlrequest *ctrl_dr;
+@@ -169,10 +169,10 @@ struct catc {
+ 	unsigned int ctrl_head, ctrl_tail;
+ 	spinlock_t tx_lock, ctrl_lock;
+ 
+-	u8 tx_buf[2][TX_MAX_BURST * (PKT_SZ + 2)];
+-	u8 rx_buf[RX_MAX_BURST * (PKT_SZ + 2)];
+-	u8 irq_buf[2];
+-	u8 ctrl_buf[64];
++	u8 *tx_buf[2];
++	u8 *rx_buf;
++	u8 *irq_buf;
++	u8 *ctrl_buf;
+ 	struct usb_ctrlrequest *ctrl_dr;
  
  	struct timer_list timer;
- 	u8 stats_buf[8];
-@@ -485,7 +485,7 @@ static void catc_ctrl_run(struct catc *catc)
- 	struct ctrl_queue *q = catc->ctrl_queue + catc->ctrl_tail;
- 	struct usb_device *usbdev = catc->usbdev;
- 	struct urb *urb = catc->ctrl_urb;
--	struct usb_ctrlrequest *dr = &catc->ctrl_dr;
-+	struct usb_ctrlrequest *dr = catc->ctrl_dr;
- 	int status;
- 
- 	dr->bRequest = q->request;
-@@ -779,7 +779,7 @@ static int catc_probe(struct usb_interface *intf, const struct usb_device_id *id
- 	struct net_device *netdev;
- 	struct catc *catc;
- 	u8 broadcast[6];
--	int i, pktsz;
-+	int i, pktsz, err;
- 
- 	if (usb_set_interface(usbdev,
- 			intf->altsetting->desc.bInterfaceNumber, 1)) {
-@@ -793,6 +793,12 @@ static int catc_probe(struct usb_interface *intf, const struct usb_device_id *id
- 
+@@ -794,9 +794,15 @@ static int catc_probe(struct usb_interface *intf, const struct usb_device_id *id
  	catc = netdev_priv(netdev);
  
-+	catc->ctrl_dr = kzalloc(sizeof(*catc->ctrl_dr), GFP_KERNEL);
-+	if (!catc->ctrl_dr) {
-+		err = -ENOMEM;
-+		goto err_free_dev;
-+	}
-+
+ 	catc->ctrl_dr = kzalloc(sizeof(*catc->ctrl_dr), GFP_KERNEL);
+-	if (!catc->ctrl_dr) {
++	catc->tx_buf[0] = kzalloc(TX_MAX_BURST * (PKT_SZ + 2), GFP_KERNEL);
++	catc->tx_buf[1] = kzalloc(TX_MAX_BURST * (PKT_SZ + 2), GFP_KERNEL);
++	catc->rx_buf = kzalloc(RX_MAX_BURST * (PKT_SZ + 2), GFP_KERNEL);
++	catc->irq_buf = kzalloc(2, GFP_KERNEL);
++	catc->ctrl_buf = kzalloc(64, GFP_KERNEL);
++	if (!catc->ctrl_dr || !catc->ctrl_buf || !catc->tx_buf[0] ||
++	    !catc->tx_buf[1] || !catc->rx_buf || !catc->irq_buf) {
+ 		err = -ENOMEM;
+-		goto err_free_dev;
++		goto err_free_buf;
+ 	}
+ 
  	netdev->netdev_ops = &catc_netdev_ops;
- 	netdev->watchdog_timeo = TX_TIMEOUT;
- 	SET_ETHTOOL_OPS(netdev, &ops);
-@@ -814,12 +820,8 @@ static int catc_probe(struct usb_interface *intf, const struct usb_device_id *id
- 	if ((!catc->ctrl_urb) || (!catc->tx_urb) || 
- 	    (!catc->rx_urb) || (!catc->irq_urb)) {
- 		dev_err(&intf->dev, "No free urbs available.\n");
--		usb_free_urb(catc->ctrl_urb);
--		usb_free_urb(catc->tx_urb);
--		usb_free_urb(catc->rx_urb);
--		usb_free_urb(catc->irq_urb);
--		free_netdev(netdev);
--		return -ENOMEM;
-+		err = -ENOMEM;
-+		goto err_free;
- 	}
+@@ -930,8 +936,13 @@ err_free:
+ 	usb_free_urb(catc->tx_urb);
+ 	usb_free_urb(catc->rx_urb);
+ 	usb_free_urb(catc->irq_urb);
++err_free_buf:
++	kfree(catc->ctrl_buf);
++	kfree(catc->irq_buf);
++	kfree(catc->rx_buf);
++	kfree(catc->tx_buf[1]);
++	kfree(catc->tx_buf[0]);
+ 	kfree(catc->ctrl_dr);
+-err_free_dev:
+ 	free_netdev(netdev);
  
- 	/* The F5U011 has the same vendor/product as the netmate but a device version of 0x130 */
-@@ -918,14 +920,21 @@ static int catc_probe(struct usb_interface *intf, const struct usb_device_id *id
- 	SET_NETDEV_DEV(netdev, &intf->dev);
- 	if (register_netdev(netdev) != 0) {
- 		usb_set_intfdata(intf, NULL);
--		usb_free_urb(catc->ctrl_urb);
--		usb_free_urb(catc->tx_urb);
--		usb_free_urb(catc->rx_urb);
--		usb_free_urb(catc->irq_urb);
--		free_netdev(netdev);
--		return -EIO;
-+		err = -EIO;
-+		goto err_free;
- 	}
- 	return 0;
-+
-+err_free:
-+	usb_free_urb(catc->ctrl_urb);
-+	usb_free_urb(catc->tx_urb);
-+	usb_free_urb(catc->rx_urb);
-+	usb_free_urb(catc->irq_urb);
-+	kfree(catc->ctrl_dr);
-+err_free_dev:
-+	free_netdev(netdev);
-+
-+	return err;
- }
- 
- static void catc_disconnect(struct usb_interface *intf)
-@@ -939,6 +948,7 @@ static void catc_disconnect(struct usb_interface *intf)
+ 	return err;
+@@ -948,6 +959,11 @@ static void catc_disconnect(struct usb_interface *intf)
  		usb_free_urb(catc->tx_urb);
  		usb_free_urb(catc->rx_urb);
  		usb_free_urb(catc->irq_urb);
-+		kfree(catc->ctrl_dr);
++		kfree(catc->ctrl_buf);
++		kfree(catc->irq_buf);
++		kfree(catc->rx_buf);
++		kfree(catc->tx_buf[1]);
++		kfree(catc->tx_buf[0]);
+ 		kfree(catc->ctrl_dr);
  		free_netdev(catc->netdev);
  	}
- }
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
