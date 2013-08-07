@@ -1,111 +1,57 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH 2/2] net/usb: hso: allocate serial_state_notification as
- separate buffer
-Date: Wed, 07 Aug 2013 10:47:08 -0500
-Message-ID: <1375890428.9837.3.camel@dcbw.foobar.com>
-References: <20130807132902.14451.37517.stgit@localhost6.localdomain6>
-	 <20130807132907.14451.2928.stgit@localhost6.localdomain6>
+From: Erik Hugne <erik.hugne@ericsson.com>
+Subject: Re: skbs delivered to 'wrong' packet_type handler
+Date: Wed, 7 Aug 2013 17:57:46 +0200
+Message-ID: <20130807155746.GA16408@eerihug-hybrid.rnd.ki.sw.ericsson.se>
+References: <20130807130856.GI3165@eerihug-hybrid.rnd.ki.sw.ericsson.se>
+ <1375883743.4004.26.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-usb@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Jan Dumon <j.dumon@option.com>
-To: Jussi Kivilinna <jussi.kivilinna@iki.fi>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
+	<jon.maloy@ericsson.com>, <ying.xue@windriver.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60498 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756330Ab3HGPn5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Aug 2013 11:43:57 -0400
-In-Reply-To: <20130807132907.14451.2928.stgit@localhost6.localdomain6>
+Received: from mailgw2.ericsson.se ([193.180.251.37]:48906 "EHLO
+	mailgw2.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751739Ab3HGP5s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 11:57:48 -0400
+Content-Disposition: inline
+In-Reply-To: <1375883743.4004.26.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-08-07 at 16:29 +0300, Jussi Kivilinna wrote:
-> URB transfer_buffers must not be allocated as part of larger structure because
-> DMA coherence issues.
+On Wed, Aug 07, 2013 at 06:55:43AM -0700, Eric Dumazet wrote:
+> Its not ignored, quite the contrary if you look at the code :
 > 
-> Patch changes hso to allocate serial_state_notification member of
-> 'struct hso_tiocmget' as separate buffer.
+> vi +3595 net/core/dev.c
 > 
-> Patch is only compile tested.
+>         type = skb->protocol;
+>         list_for_each_entry_rcu(ptype,
+>                         &ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
+>                 if (ptype->type == type &&
+>                     (ptype->dev == null_or_dev || ptype->dev == skb->dev ||
+>                      ptype->dev == orig_dev)) {
+>                         if (pt_prev)
+>                                 ret = deliver_skb(skb, pt_prev, orig_dev);
+>                         pt_prev = ptype;
+>                 }
+>         }
+> 
+> 
+> pkt->dev being set is only meaningful for packet sockets.
+> 
+> Protocols themselves should not care. If they want to care, they must
+> add their own checks.
+> 
+> Socket API has SO_BINDTODEVICE for this purpose.
+> IP layer has RP filtering.
+> 
+> A protocol should register a single ptype with NULL dev.
+>
 
-Tested-by: Dan Williams <dcbw@redhat.com>
+Very well, we'll have to fix the protocol registration and add appropriate 
+checks in TIPC then.
+But i fail to understand why a handler registered on the native device needs 
+to get the packets destined to a child vlan device (the ptype->dev == orig_dev 
+check).
 
-> Cc: <stable@vger.kernel.org>
-> Signed-off-by: Jussi Kivilinna <jussi.kivilinna@iki.fi>
-> ---
->  drivers/net/usb/hso.c |   18 ++++++++++++++----
->  1 file changed, 14 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> index fc082c0..21ffa6f 100644
-> --- a/drivers/net/usb/hso.c
-> +++ b/drivers/net/usb/hso.c
-> @@ -211,7 +211,7 @@ struct hso_tiocmget {
->  	int    intr_completed;
->  	struct usb_endpoint_descriptor *endp;
->  	struct urb *urb;
-> -	struct hso_serial_state_notification serial_state_notification;
-> +	struct hso_serial_state_notification *serial_state_notification;
->  	u16    prev_UART_state_bitmap;
->  	struct uart_icount icount;
->  };
-> @@ -1465,7 +1465,7 @@ static int tiocmget_submit_urb(struct hso_serial *serial,
->  			 usb_rcvintpipe(usb,
->  					tiocmget->endp->
->  					bEndpointAddress & 0x7F),
-> -			 &tiocmget->serial_state_notification,
-> +			 tiocmget->serial_state_notification,
->  			 sizeof(struct hso_serial_state_notification),
->  			 tiocmget_intr_callback, serial,
->  			 tiocmget->endp->bInterval);
-> @@ -1499,7 +1499,7 @@ static void tiocmget_intr_callback(struct urb *urb)
->  	if (!tiocmget)
->  		return;
->  	usb = serial->parent->usb;
-> -	serial_state_notification = &tiocmget->serial_state_notification;
-> +	serial_state_notification = tiocmget->serial_state_notification;
->  	if (serial_state_notification->bmRequestType != BM_REQUEST_TYPE ||
->  	    serial_state_notification->bNotification != B_NOTIFICATION ||
->  	    le16_to_cpu(serial_state_notification->wValue) != W_VALUE ||
-> @@ -2608,6 +2608,7 @@ static void hso_free_tiomget(struct hso_serial *serial)
->  		usb_free_urb(tiocmget->urb);
->  		tiocmget->urb = NULL;
->  		serial->tiocmget = NULL;
-> +		kfree(tiocmget->serial_state_notification);
->  		kfree(tiocmget);
->  	}
->  }
-> @@ -2664,6 +2665,13 @@ static struct hso_device *hso_create_bulk_serial_device(
->  		 */
->  		if (serial->tiocmget) {
->  			tiocmget = serial->tiocmget;
-> +
-> +			tiocmget->serial_state_notification = kzalloc(
-> +				sizeof(struct hso_serial_state_notification),
-> +				GFP_KERNEL);
-> +			if (!tiocmget->serial_state_notification)
-> +				goto tiocmget_fail;
-> +
->  			tiocmget->urb = usb_alloc_urb(0, GFP_KERNEL);
->  			if (tiocmget->urb) {
->  				mutex_init(&tiocmget->mutex);
-> @@ -2672,8 +2680,10 @@ static struct hso_device *hso_create_bulk_serial_device(
->  					interface,
->  					USB_ENDPOINT_XFER_INT,
->  					USB_DIR_IN);
-> -			} else
-> +			} else {
-> +tiocmget_fail:
->  				hso_free_tiomget(serial);
-> +			}
->  		}
->  	}
->  	else
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+//E
