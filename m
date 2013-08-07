@@ -1,67 +1,120 @@
-From: Andrew Vagin <avagin@gmail.com>
-Subject: Re: af_packet: when sending ethernet frames, parse header for
- skb->protocol
-Date: Thu, 8 Aug 2013 02:03:03 +0400
-Message-ID: <20130807220303.GA3478@gmail.com>
-Reply-To: 1375436261-6746-1-git-send-email-phil@nwl.cc
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 3/5] netfilter: add SYNPROXY core/target
+Date: Wed, 07 Aug 2013 15:11:54 -0700
+Message-ID: <1375913514.4004.63.camel@edumazet-glaptop>
+References: <1375897371-18430-1-git-send-email-kaber@trash.net>
+	 <1375897371-18430-4-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:34118 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933147Ab3HGWFu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 18:05:50 -0400
-Received: by mail-lb0-f182.google.com with SMTP id v20so1893655lbc.41
-        for <netdev@vger.kernel.org>; Wed, 07 Aug 2013 15:05:49 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, mph@one.com, jesper.brouer@gmail.com,
+	as@one.com
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1375897371-18430-4-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, 2013-08-07 at 19:42 +0200, Patrick McHardy wrote:
+> Add a SYNPROXY for netfilter. The code is split into two parts, the synproxy
+> core with common functions and an address family specific target.
+> 
+> The SYNPROXY receives the connection request from the client, responds with
+> a SYN/ACK containing a SYN cookie and announcing a zero window and checks
+> whether the final ACK from the client contains a valid cookie.
+> 
+> It then establishes a connection to the original destination and, if
+> successful, sends a window update to the client with the window size
+> announced by the server.
+> 
+> Support for timestamps, SACK, window scaling and MSS options can be
+> statically configured as target parameters if the features of the server
+> are known. If timestamps are used, the timestamp value sent back to
+> the client in the SYN/ACK will be different from the real timestamp of
+> the server. In order to now break PAWS, the timestamps are translated in
+> the direction server->client.
+> 
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-I compiled the akpm branch of linux-next and found that my virtual
-machine didn't get an IP address by dhcp.
 
-git bisect said that the problem is in "af_packet: when sending ethernet
-frames, parse header for skb->protocol"
+> +static struct iphdr *
+> +synproxy_build_ip(struct sk_buff *skb, u32 saddr, u32 daddr)
+> +{
+> +	struct iphdr *iph;
+> +
+> +	skb_reset_network_header(skb);
+> +	iph = (struct iphdr *)skb_put(skb, sizeof(*iph));
+> +	iph->version	= 4;
+> +	iph->ihl	= sizeof(*iph) / 4;
+> +	iph->tos	= 0;
+> +	iph->id		= 0;
+> +	iph->frag_off	= htons(IP_DF);
+> +	iph->ttl	= 64;
 
-https://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/commit/?id=0f75b09c798ed00c30d7d5551b896be883bc2aeb
+sysctl_ip_default_ttl ?
 
-I have double checked, the VM gets an IP address w/o this patch and it
-does not get an address with this patch.
+> +	iph->protocol	= IPPROTO_TCP;
+> +	iph->check	= 0;
+> +	iph->saddr	= saddr;
+> +	iph->daddr	= daddr;
+> +
+> +	return iph;
+> +}
+> +
 
-Let me know if you need any information to investigate this issue.
 
-Thanks.
+> +static void
+> +synproxy_send_client_synack(const struct sk_buff *skb, const struct tcphdr *th,
+> +			    const struct synproxy_options *opts)
+> +{
+> +	struct sk_buff *nskb;
+> +	struct iphdr *iph, *niph;
+> +	struct tcphdr *nth;
+> +	unsigned int tcp_hdr_size;
+> +	u16 mss = opts->mss;
+> +
+> +	iph = ip_hdr(skb);
+> +
+> +	tcp_hdr_size = sizeof(*nth) + synproxy_options_size(opts);
+> +	nskb = alloc_skb(sizeof(*niph) + tcp_hdr_size + LL_MAX_HEADER,
+> +			 GFP_ATOMIC);
+> +	if (nskb == NULL)
+> +		return;
+> +	skb_reserve(nskb, LL_MAX_HEADER);
 
-[avagin@localhost linux-2.6]$ git bisect log
-# bad: [4a806113d2dfac9e936089859fdd073b5ff31d2e] debug
-# good: [c095ba7224d8edc71dcef0d655911399a8bd4a3f] Linux 3.11-rc4
-git bisect start 'akpm' 'HEAD'
-# bad: [54578244e06fd945bdab70c3d37b6c311b2b1bc2] Merge remote-tracking branch 'spi/for-next'
-git bisect bad 54578244e06fd945bdab70c3d37b6c311b2b1bc2
-# bad: [79581039eba18f63be7bc1ea2c43da030708b9a0] Merge remote-tracking branch 'wireless-next/master'
-git bisect bad 79581039eba18f63be7bc1ea2c43da030708b9a0
-# good: [37101b9e3432536727f699e916b3b430cd8ce9e4] Merge remote-tracking branch 'libata/for-next'
-git bisect good 37101b9e3432536727f699e916b3b430cd8ce9e4
-# bad: [0d0cffdcc6fc4f57080b9a443401e8dad5ca77f8] gianfar: Cleanup TxFCB insertion on xmit
-git bisect bad 0d0cffdcc6fc4f57080b9a443401e8dad5ca77f8
-# good: [66cae9ed6bc46b8cc57a9693f99f69926f3cc7ef] rtnl: export physical port id via RT netlink
-git bisect good 66cae9ed6bc46b8cc57a9693f99f69926f3cc7ef
-# good: [9ab5ec59c8a9cc0e4b94252b48200b6023c716aa] tile: support PTP using the tilegx mPIPE (IEEE 1588)
-git bisect good 9ab5ec59c8a9cc0e4b94252b48200b6023c716aa
-# bad: [c483e02614551e44ced3fe6eedda8e36d3277ccc] af_packet: simplify VLAN frame check in packet_snd
-git bisect bad c483e02614551e44ced3fe6eedda8e36d3277ccc
-# good: [b9c119844c42a46a6c6006d158ee33af81fe76ae] qlcnic: Enhance diagnostic loopback error codes.
-git bisect good b9c119844c42a46a6c6006d158ee33af81fe76ae
-# good: [e216975ad97cfcfc436789aa66d59a0e93f337f7] uapi: Convert some uses of 6 to ETH_ALEN
-git bisect good e216975ad97cfcfc436789aa66d59a0e93f337f7
-# good: [ba5082c71476891623757956ebfc36040ac317e2] Merge branch 'eth_alen'
-git bisect good ba5082c71476891623757956ebfc36040ac317e2
-# bad: [0f75b09c798ed00c30d7d5551b896be883bc2aeb] af_packet: when sending ethernet frames, parse header for skb->protocol
-git bisect bad 0f75b09c798ed00c30d7d5551b896be883bc2aeb
-# good: [d27fc78208b53ccdfd6a57d4ac44a459ca66806f] sctp: Don't lookup dst if transport dst is still valid
-git bisect good d27fc78208b53ccdfd6a57d4ac44a459ca66806f
-# first bad commit: [0f75b09c798ed00c30d7d5551b896be883bc2aeb] af_packet: when sending ethernet frames, parse header for skb->protocol
+s/LL_MAX_HEADER/MAX_TCP_HEADER ? 
+
+> +
+> +	niph = synproxy_build_ip(nskb, iph->daddr, iph->saddr);
+> +
+> +	skb_reset_transport_header(nskb);
+> +	nth = (struct tcphdr *)skb_put(nskb, tcp_hdr_size);
+> +	nth->source	= th->dest;
+> +	nth->dest	= th->source;
+> +	nth->seq	= htonl(__cookie_v4_init_sequence(iph, th, &mss));
+> +	nth->ack_seq	= htonl(ntohl(th->seq) + 1);
+> +	tcp_flag_word(nth) = TCP_FLAG_SYN | TCP_FLAG_ACK;
+> +	if (opts->options & XT_SYNPROXY_OPT_ECN)
+> +		tcp_flag_word(nth) |= TCP_FLAG_ECE;
+> +	nth->doff	= tcp_hdr_size / 4;
+> +	nth->window	= 0;
+> +	nth->check	= 0;
+> +	nth->urg_ptr	= 0;
+> +
+> +	synproxy_build_options(nth, opts);
+> +
+> +	synproxy_send_tcp(skb, nskb, skb->nfct, IP_CT_ESTABLISHED_REPLY,
+> +			  niph, nth, tcp_hdr_size);
+> +}
+
+Also please check your uses of kfree_skb() .
+
+Some of them would better be consume_skb() (for example in
+ipv4_synproxy_hook())
+
+I wonder if this code could be generic for IPv4/IPv6, instead of
+duplicating in IPv6
+
+
+
