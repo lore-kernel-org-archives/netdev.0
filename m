@@ -1,62 +1,128 @@
-From: Jeff Layton <jlayton@redhat.com>
-Subject: Re: [Patch net-next v2 5/8] sunrpc: use generic union inet_addr
-Date: Wed, 7 Aug 2013 09:21:23 -0400
-Message-ID: <20130807092123.451e93db@tlielax.poochiereds.net>
-References: <1375427674-21735-1-git-send-email-amwang@redhat.com>
-	<1375427674-21735-6-git-send-email-amwang@redhat.com>
-	<20130802093625.2c70a330@tlielax.poochiereds.net>
-	<1375672445.32485.8.camel@cr0>
-	<20130806062801.67714276@tlielax.poochiereds.net>
-	<1375878446.11370.36.camel@cr0>
+From: Jussi Kivilinna <jussi.kivilinna-X3B1VOXEql0@public.gmane.org>
+Subject: [PATCH 1/2] net/usb: catc: allocate URB setup_packet as separate
+ buffer
+Date: Wed, 07 Aug 2013 16:26:29 +0300
+Message-ID: <20130807132629.14001.2370.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>, linux-nfs@vger.kernel.org
-To: Cong Wang <amwang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47841 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932942Ab3HGNVc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Aug 2013 09:21:32 -0400
-In-Reply-To: <1375878446.11370.36.camel@cr0>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 07 Aug 2013 20:27:26 +0800
-Cong Wang <amwang@redhat.com> wrote:
+URB setup packet must not be allocated as part of larger structure
+because DMA coherence issues.
 
-> On Tue, 2013-08-06 at 06:28 -0400, Jeff Layton wrote:
-> > 
-> > My question is a bit more fundamental: Why are you using this new union
-> > in your patches instead of simply passing around "struct sockaddr"
-> > pointers? If you did that, then you could simply replace all of the
-> > rpc_* wrappers with your generic ones, since you wouldn't need to do
-> > the cast to this (seemingly unnecessary) union.
-> 
-> Because there are some places have to interpret the structure, without
-> this union, they need to cast to either sockaddr_in or sockaddr_in6
-> first, which is not as pretty as using a union.
-> 
-> For example, the code in netpoll:
-> 
-> ipv6_addr_equal(daddr, &np->local_ip.sin6.sin6_addr)
-> 
-> without the union, it would be:
-> 
-> struct sockaddr_in6 *addr = (struct sockaddr_in6 *) &np->local_ip;
-> ipv6_addr_equal(daddr, addr->sin6_addr);
-> 
-> > 
-> > FWIW, I too am happy to see these routines moved to common code. I just
-> > wonder whether it might make more sense to use the existing convention
-> > instead of this new union.
-> > 
-> 
+Patch changes catc to allocate ctrl_dr member as separate buffer.
 
-Ok, good point. That does look cleaner. I'd still like to see the rpc_*
-wrappers go away, but that can be done later.
+Patch is only compile tested.
 
--- 
-Jeff Layton <jlayton@redhat.com>
+Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Signed-off-by: Jussi Kivilinna <jussi.kivilinna-X3B1VOXEql0@public.gmane.org>
+---
+ drivers/net/usb/catc.c |   40 +++++++++++++++++++++++++---------------
+ 1 file changed, 25 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/usb/catc.c b/drivers/net/usb/catc.c
+index 8d5cac2..a7d3c1b 100644
+--- a/drivers/net/usb/catc.c
++++ b/drivers/net/usb/catc.c
+@@ -173,7 +173,7 @@ struct catc {
+ 	u8 rx_buf[RX_MAX_BURST * (PKT_SZ + 2)];
+ 	u8 irq_buf[2];
+ 	u8 ctrl_buf[64];
+-	struct usb_ctrlrequest ctrl_dr;
++	struct usb_ctrlrequest *ctrl_dr;
+ 
+ 	struct timer_list timer;
+ 	u8 stats_buf[8];
+@@ -485,7 +485,7 @@ static void catc_ctrl_run(struct catc *catc)
+ 	struct ctrl_queue *q = catc->ctrl_queue + catc->ctrl_tail;
+ 	struct usb_device *usbdev = catc->usbdev;
+ 	struct urb *urb = catc->ctrl_urb;
+-	struct usb_ctrlrequest *dr = &catc->ctrl_dr;
++	struct usb_ctrlrequest *dr = catc->ctrl_dr;
+ 	int status;
+ 
+ 	dr->bRequest = q->request;
+@@ -779,7 +779,7 @@ static int catc_probe(struct usb_interface *intf, const struct usb_device_id *id
+ 	struct net_device *netdev;
+ 	struct catc *catc;
+ 	u8 broadcast[6];
+-	int i, pktsz;
++	int i, pktsz, err;
+ 
+ 	if (usb_set_interface(usbdev,
+ 			intf->altsetting->desc.bInterfaceNumber, 1)) {
+@@ -793,6 +793,12 @@ static int catc_probe(struct usb_interface *intf, const struct usb_device_id *id
+ 
+ 	catc = netdev_priv(netdev);
+ 
++	catc->ctrl_dr = kzalloc(sizeof(*catc->ctrl_dr), GFP_KERNEL);
++	if (!catc->ctrl_dr) {
++		err = -ENOMEM;
++		goto err_free_dev;
++	}
++
+ 	netdev->netdev_ops = &catc_netdev_ops;
+ 	netdev->watchdog_timeo = TX_TIMEOUT;
+ 	SET_ETHTOOL_OPS(netdev, &ops);
+@@ -814,12 +820,8 @@ static int catc_probe(struct usb_interface *intf, const struct usb_device_id *id
+ 	if ((!catc->ctrl_urb) || (!catc->tx_urb) || 
+ 	    (!catc->rx_urb) || (!catc->irq_urb)) {
+ 		dev_err(&intf->dev, "No free urbs available.\n");
+-		usb_free_urb(catc->ctrl_urb);
+-		usb_free_urb(catc->tx_urb);
+-		usb_free_urb(catc->rx_urb);
+-		usb_free_urb(catc->irq_urb);
+-		free_netdev(netdev);
+-		return -ENOMEM;
++		err = -ENOMEM;
++		goto err_free;
+ 	}
+ 
+ 	/* The F5U011 has the same vendor/product as the netmate but a device version of 0x130 */
+@@ -918,14 +920,21 @@ static int catc_probe(struct usb_interface *intf, const struct usb_device_id *id
+ 	SET_NETDEV_DEV(netdev, &intf->dev);
+ 	if (register_netdev(netdev) != 0) {
+ 		usb_set_intfdata(intf, NULL);
+-		usb_free_urb(catc->ctrl_urb);
+-		usb_free_urb(catc->tx_urb);
+-		usb_free_urb(catc->rx_urb);
+-		usb_free_urb(catc->irq_urb);
+-		free_netdev(netdev);
+-		return -EIO;
++		err = -EIO;
++		goto err_free;
+ 	}
+ 	return 0;
++
++err_free:
++	usb_free_urb(catc->ctrl_urb);
++	usb_free_urb(catc->tx_urb);
++	usb_free_urb(catc->rx_urb);
++	usb_free_urb(catc->irq_urb);
++	kfree(catc->ctrl_dr);
++err_free_dev:
++	free_netdev(netdev);
++
++	return err;
+ }
+ 
+ static void catc_disconnect(struct usb_interface *intf)
+@@ -939,6 +948,7 @@ static void catc_disconnect(struct usb_interface *intf)
+ 		usb_free_urb(catc->tx_urb);
+ 		usb_free_urb(catc->rx_urb);
+ 		usb_free_urb(catc->irq_urb);
++		kfree(catc->ctrl_dr);
+ 		free_netdev(catc->netdev);
+ 	}
+ }
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
