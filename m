@@ -1,44 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: cubic: fix bug in bictcp_acked()
-Date: Wed, 07 Aug 2013 10:37:02 -0700 (PDT)
-Message-ID: <20130807.103702.2279717727976902224.davem@davemloft.net>
-References: <1375758312.4457.69.camel@edumazet-glaptop>
+Subject: Re: [PATCH net-next 0/7] be2net patch set
+Date: Wed, 07 Aug 2013 10:40:36 -0700 (PDT)
+Message-ID: <20130807.104036.1138594766355276506.davem@davemloft.net>
+References: <1375761441-22343-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ncardwell@google.com, netdev@vger.kernel.org, vanj@google.com,
-	ycheng@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47419 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47460 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757235Ab3HGRbr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 13:31:47 -0400
-In-Reply-To: <1375758312.4457.69.camel@edumazet-glaptop>
+	with ESMTP id S932284Ab3HGRfX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 13:35:23 -0400
+In-Reply-To: <1375761441-22343-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 05 Aug 2013 20:05:12 -0700
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Tue, 6 Aug 2013 09:27:14 +0530
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> While investigating about strange increase of retransmit rates
-> on hosts ~24 days after boot, Van found hystart was disabled
-> if ca->epoch_start was 0, as following condition is true
-> when tcp_time_stamp high order bit is set.
-> 
-> (s32)(tcp_time_stamp - ca->epoch_start) < HZ
-> 
-> Quoting Van :
-> 
->  At initialization & after every loss ca->epoch_start is set to zero so
->  I believe that the above line will turn off hystart as soon as the 2^31
->  bit is set in tcp_time_stamp & hystart will stay off for 24 days.
->  I think we've observed that cubic's restart is too aggressive without
->  hystart so this might account for the higher drop rate we observe.
-> 
-> Diagnosed-by: Van Jacobson <vanj@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> The following fix/cleanup patches are for the net-next tree. Pls apply.
 
-Applied and queued up for -stable, thanks.
+Series applied, thanks.
