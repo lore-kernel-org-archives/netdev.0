@@ -1,104 +1,93 @@
 From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH 1/2][net-next] gianfar: Fix pause frame handling for half duplex links
-Date: Wed, 7 Aug 2013 13:24:15 +0300
-Message-ID: <1375871056-10420-1-git-send-email-claudiu.manoil@freescale.com>
+Subject: [PATCH 2/2][net-next] gianfar: Add ethtool -A support for pause frame
+Date: Wed, 7 Aug 2013 13:24:16 +0300
+Message-ID: <1375871056-10420-2-git-send-email-claudiu.manoil@freescale.com>
+References: <1375871056-10420-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: "David S. Miller" <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe004.messaging.microsoft.com ([216.32.181.184]:35305
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932491Ab3HGKY6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 06:24:58 -0400
+Received: from co9ehsobe004.messaging.microsoft.com ([207.46.163.27]:57233
+	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932491Ab3HGKZD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 06:25:03 -0400
+In-Reply-To: <1375871056-10420-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MACCFG1 register bits to enable PAUSE frame handling are set by the
-driver unconditionally. Per 802.3 standard, PAUSE frame handling is a
-full duplex feature, and neither meaningful nor correct in half duplex.
+Allow Rx/Tx pause frame configuration via ethtool.
+The gfar devices feature link autonegotioation by default.
+The device is being configured with the new pause frame
+parameters if the link is up, depending on link duplex (no
+pause frames for half-duplex links), or during link autoneg
+(see adjust_link()).
 
 Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 ---
- drivers/net/ethernet/freescale/gianfar.c | 31 +++++++++++++++++++++++++++++--
- drivers/net/ethernet/freescale/gianfar.h |  2 ++
- 2 files changed, 31 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/freescale/gianfar.h         |  1 +
+ drivers/net/ethernet/freescale/gianfar_ethtool.c | 30 ++++++++++++++++++++++++
+ 2 files changed, 31 insertions(+)
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index edf06f1..54cf9be 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -764,6 +764,9 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
- 				     FSL_GIANFAR_DEV_HAS_EXTENDED_HASH |
- 				     FSL_GIANFAR_DEV_HAS_TIMER;
- 
-+	/* default pause frame settings */
-+	priv->rx_pause = priv->tx_pause = true;
-+
- 	ctype = of_get_property(np, "phy-connection-type", NULL);
- 
- 	/* We only care about rgmii-id.  The rest are autodetected */
-@@ -1016,8 +1019,10 @@ static int gfar_probe(struct platform_device *ofdev)
- 	/* We need to delay at least 3 TX clocks */
- 	udelay(2);
- 
--	tempval = (MACCFG1_TX_FLOW | MACCFG1_RX_FLOW);
--	gfar_write(&regs->maccfg1, tempval);
-+	/* the soft reset bit is not self-resetting, so we need to
-+	 * clear it before resuming normal operation
-+	 */
-+	gfar_write(&regs->maccfg1, 0);
- 
- 	/* Initialize MACCFG2. */
- 	tempval = MACCFG2_INIT_SETTINGS;
-@@ -3025,6 +3030,25 @@ static irqreturn_t gfar_interrupt(int irq, void *grp_id)
- 	return IRQ_HANDLED;
- }
- 
-+/* toggle pause frame settings */
-+void gfar_configure_pause(struct gfar_private *priv, bool en)
-+{
-+	struct gfar __iomem *regs = priv->gfargrp[0].regs;
-+	u32 tempval = gfar_read(&regs->maccfg1);
-+
-+	if (en && priv->rx_pause)
-+		tempval |= MACCFG1_RX_FLOW;
-+	else
-+		tempval &= ~MACCFG1_RX_FLOW;
-+
-+	if (en && priv->tx_pause)
-+		tempval |= MACCFG1_TX_FLOW;
-+	else
-+		tempval &= ~MACCFG1_TX_FLOW;
-+
-+	gfar_write(&regs->maccfg1, tempval);
-+}
-+
- /* Called every time the controller might need to be made
-  * aware of new link state.  The PHY code conveys this
-  * information through variables in the phydev structure, and this
-@@ -3056,6 +3080,9 @@ static void adjust_link(struct net_device *dev)
- 			else
- 				tempval |= MACCFG2_FULL_DUPLEX;
- 
-+			/* update pause frame settings */
-+			gfar_configure_pause(priv, !!phydev->duplex);
-+
- 			priv->oldduplex = phydev->duplex;
- 		}
- 
 diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
-index ee19f2c..e6a03f4 100644
+index e6a03f4..aaac843 100644
 --- a/drivers/net/ethernet/freescale/gianfar.h
 +++ b/drivers/net/ethernet/freescale/gianfar.h
-@@ -1084,6 +1084,8 @@ struct gfar_private {
- 	int oldspeed;
- 	int oldduplex;
- 	int oldlink;
-+	bool rx_pause;
-+	bool tx_pause;
+@@ -1186,6 +1186,7 @@ void gfar_init_sysfs(struct net_device *dev);
+ int gfar_set_features(struct net_device *dev, netdev_features_t features);
+ extern void gfar_check_rx_parser_mode(struct gfar_private *priv);
+ extern void gfar_vlan_mode(struct net_device *dev, netdev_features_t features);
++void gfar_configure_pause(struct gfar_private *priv, bool en);
  
- 	/* Bitfield update lock */
- 	spinlock_t bflock;
+ extern const struct ethtool_ops gfar_ethtool_ops;
+ 
+diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+index 21cd881..6cf89c1 100644
+--- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
++++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+@@ -535,6 +535,34 @@ static int gfar_sringparam(struct net_device *dev,
+ 	return err;
+ }
+ 
++static void gfar_gpauseparam(struct net_device *dev,
++			     struct ethtool_pauseparam *pause)
++{
++	struct gfar_private *priv = netdev_priv(dev);
++
++	pause->autoneg = AUTONEG_ENABLE;
++	if (priv->rx_pause)
++		pause->rx_pause = 1;
++	if (priv->tx_pause)
++		pause->tx_pause = 1;
++}
++
++static int gfar_spauseparam(struct net_device *dev,
++			    struct ethtool_pauseparam *pause)
++{
++	struct gfar_private *priv = netdev_priv(dev);
++	struct phy_device *phydev = priv->phydev;
++
++	priv->rx_pause = !!pause->rx_pause;
++	priv->tx_pause = !!pause->tx_pause;
++
++	/* update h/w settings, if link is up */
++	if (phydev && phydev->link)
++		gfar_configure_pause(priv, !!phydev->duplex);
++
++	return 0;
++}
++
+ int gfar_set_features(struct net_device *dev, netdev_features_t features)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+@@ -1806,6 +1834,8 @@ const struct ethtool_ops gfar_ethtool_ops = {
+ 	.set_coalesce = gfar_scoalesce,
+ 	.get_ringparam = gfar_gringparam,
+ 	.set_ringparam = gfar_sringparam,
++	.get_pauseparam = gfar_gpauseparam,
++	.set_pauseparam = gfar_spauseparam,
+ 	.get_strings = gfar_gstrings,
+ 	.get_sset_count = gfar_sset_count,
+ 	.get_ethtool_stats = gfar_fill_stats,
 -- 
 1.7.11.7
