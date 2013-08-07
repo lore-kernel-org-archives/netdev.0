@@ -1,35 +1,33 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: A soft lockup in vxlan module
-Date: Wed, 07 Aug 2013 10:34:44 +0800
-Message-ID: <1375842884.11370.23.camel@cr0>
-References: <1375838634.11370.13.camel@cr0>
-	 <CAOaVG14-vSR-gt+c8zMe+rk6MX4xO3dGxZHi--M6Nun+qTOSVQ@mail.gmail.com>
+From: wangweidong <wangweidong1@huawei.com>
+Subject: [request for stable inclusion] net: neighbour: prohibit negative
+ value for unres_qlen_bytes parameter
+Date: Wed, 7 Aug 2013 11:23:00 +0800
+Message-ID: <5201BD94.4060100@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58118 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756830Ab3HGCew (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Aug 2013 22:34:52 -0400
-In-Reply-To: <CAOaVG14-vSR-gt+c8zMe+rk6MX4xO3dGxZHi--M6Nun+qTOSVQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <stable@vger.kernel.org>,
+	<davidshan@tencent.com>, <dingtianhong@huawei.com>,
+	Li Zefan <lizefan@huawei.com>
+To: <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-08-06 at 19:18 -0700, Stephen Hemminger wrote:
-> Calling unlock in dellink is not safe.
+Hi Shan Wei or David,
 
-This is my feeling as well.
+ce46cc64d47a8afaf13c300b09a7f9c29f4979b6
+net: neighbour: prohibit negative value for unres_qlen_bytes parameter
 
-> can you reproduce with 3.10 or 3.11-rc?
-> 
+This looks applicable to stable-3.4, I can reproduce it on this 3.4 kernel.
+It fixes a type overflow when setting unres_qlen. I try to reproduce, and
+then this patch works well. But git am or patch -p1 failed, because a
+previous patch [commit 9a6308d74ed (neighbour: Stop using NLA_PUT*().)]
+change the NLA_PUT_U32 to nla_put_u32. With some modifies, it was built
+successful for me. What do you think?
 
-For net-next, I always compile modules as builtin, therefore can't test
-it. But clearly the code is same.
+stable-3.0 and stable-3.2 are free from this bug. And the bug was fixed in
+3.8; The commit got its way into mainline in 3.8 cycle.
 
-The steps to reproduce it are:
-
-1) ping over vxlan0
-2) modprobe -r vxlan
+Thanks!
+Wang Weidong
