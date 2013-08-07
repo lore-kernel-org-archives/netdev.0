@@ -1,85 +1,125 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/2][net-next] gianfar: Add ethtool -A support for pause
- frame
-Date: Wed, 7 Aug 2013 21:12:55 +0200
-Message-ID: <1375902775.2644.98.camel@deadeye.wl.decadent.org.uk>
-References: <1375871056-10420-1-git-send-email-claudiu.manoil@freescale.com>
-	 <1375871056-10420-2-git-send-email-claudiu.manoil@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
-To: Claudiu Manoil <claudiu.manoil@freescale.com>
+From: Teco Boot <teco@inf-net.nl>
+Subject: Re: [PATCH net] ipv6: don't stop backtracking in fib6_lookup_1 if subtree does not match
+Date: Wed, 7 Aug 2013 21:58:31 +0200
+Message-ID: <EF96A1CB-549E-474A-AF58-10F2D2F2BF4A@inf-net.nl>
+References: <20130807003431.GD16410@order.stressinduktion.org>
+Mime-Version: 1.0 (Mac OS X Mail 6.5 \(1508\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	equinox@diac24.net, boutier@pps.univ-paris-diderot.fr
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:59020 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757051Ab3HGTNA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 15:13:00 -0400
-In-Reply-To: <1375871056-10420-2-git-send-email-claudiu.manoil@freescale.com>
+Received: from mail-ea0-f181.google.com ([209.85.215.181]:54547 "EHLO
+	mail-ea0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752759Ab3HGT6h convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 15:58:37 -0400
+Received: by mail-ea0-f181.google.com with SMTP id d10so1050169eaj.40
+        for <netdev@vger.kernel.org>; Wed, 07 Aug 2013 12:58:35 -0700 (PDT)
+In-Reply-To: <20130807003431.GD16410@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-08-07 at 13:24 +0300, Claudiu Manoil wrote:
-> Allow Rx/Tx pause frame configuration via ethtool.
-> The gfar devices feature link autonegotioation by default.
+Seems to work!!
 
-So the MAC configuration bits are actually copied to the PHY autoneg
-basic page, and then the PHY autoneg result is automatically used by the
-MAC?
+babe has one entry less than cafe, this is correct.
+Tomorrow I'll test with real traffic.
 
-This is of course possible to do in hardware, but... since this MAC is
-not smart enough to ignore pause settings when running in half-duplex
-mode, I seriously doubt it is doing all this by itself.
+Teco
 
-> The device is being configured with the new pause frame
-> parameters if the link is up, depending on link duplex (no
-> pause frames for half-duplex links), or during link autoneg
-> (see adjust_link()).
-[...]
-> --- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
-> +++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-> @@ -535,6 +535,34 @@ static int gfar_sringparam(struct net_device *dev,
->  	return err;
->  }
->  
-> +static void gfar_gpauseparam(struct net_device *dev,
-> +			     struct ethtool_pauseparam *pause)
-> +{
-> +	struct gfar_private *priv = netdev_priv(dev);
-> +
-> +	pause->autoneg = AUTONEG_ENABLE;
-> +	if (priv->rx_pause)
-> +		pause->rx_pause = 1;
-> +	if (priv->tx_pause)
-> +		pause->tx_pause = 1;
-> +}
-> +
-> +static int gfar_spauseparam(struct net_device *dev,
-> +			    struct ethtool_pauseparam *pause)
-> +{
-> +	struct gfar_private *priv = netdev_priv(dev);
-> +	struct phy_device *phydev = priv->phydev;
 
-You need to reject an unsupported setting of pause->autoneg here.
+root@ubuntu:~# ./ipv6-sadr.sh 
+this is my system:
+Linux ubuntu 3.8.0-28-generic #41 SMP Wed Aug 7 11:36:10 PDT 2013 i686 i686 i686 GNU/Linux
+CONFIG_IPV6_SUBTREES=y
+... clean up for our experiment
+... add a link-local
+... add default
+... add some source address specific defaults
+====> now I have this routing table
+default from 2001:db8:10::/48 via fe80::10 dev eth0  metric 1024 
+default from 2001:db8:11::/48 via fe80::11 dev eth0  metric 1024 
+default from 2001:db8:12::/48 via fe80::12 dev eth0  metric 1024 
+fe80::1 dev eth0  proto kernel  metric 256 
+default via fe80::ff dev eth0  metric 1024 
+====> show route to same destination
+2001:db8:babe::1 from 2001:db8:10::1 via fe80::10 dev eth0  src ::1  metric 0 \    cache 
+2001:db8:babe::1 from 2001:db8:11::1 via fe80::11 dev eth0  src ::1  metric 0 \    cache 
+2001:db8:babe::1 from 2001:db8:12::1 via fe80::12 dev eth0  src ::1  metric 0 \    cache 
+2001:db8:babe::1 from 2001:db8:1::1 via fe80::ff dev eth0  src ::1  metric 0 \    cache 
+2001:db8:babe::1 from :: via fe80::ff dev eth0  src ::1  metric 0 \    cache 
+====> show route to different destinations
+2001:db8:cafe::10 from 2001:db8:10::1 via fe80::10 dev eth0  src ::1  metric 0 \    cache 
+2001:db8:cafe::11 from 2001:db8:11::1 via fe80::11 dev eth0  src ::1  metric 0 \    cache 
+2001:db8:cafe::12 from 2001:db8:12::1 via fe80::12 dev eth0  src ::1  metric 0 \    cache 
+2001:db8:cafe::21 from 2001:db8:1::1 via fe80::ff dev eth0  src ::1  metric 0 \    cache 
+2001:db8:cafe::22 from :: via fe80::ff dev eth0  src ::1  metric 0 \    cache 
+====> now the route cache is
+2001:db8:babe::1 from 2001:db8:10::/48 via fe80::10 dev eth0  metric 0 \    cache 
+2001:db8:babe::1 from 2001:db8:11::/48 via fe80::11 dev eth0  metric 0 \    cache 
+2001:db8:babe::1 from 2001:db8:12::/48 via fe80::12 dev eth0  metric 0 \    cache 
+2001:db8:babe::1 via fe80::ff dev eth0  metric 0 \    cache 
+2001:db8:cafe::10 from 2001:db8:10::/48 via fe80::10 dev eth0  metric 0 \    cache 
+2001:db8:cafe::11 from 2001:db8:11::/48 via fe80::11 dev eth0  metric 0 \    cache 
+2001:db8:cafe::12 from 2001:db8:12::/48 via fe80::12 dev eth0  metric 0 \    cache 
+2001:db8:cafe::21 via fe80::ff dev eth0  metric 0 \    cache 
+2001:db8:cafe::22 via fe80::ff dev eth0  metric 0 \    cache 
+root@ubuntu:~# 
 
-Ben.
 
-> +	priv->rx_pause = !!pause->rx_pause;
-> +	priv->tx_pause = !!pause->tx_pause;
-> +
-> +	/* update h/w settings, if link is up */
-> +	if (phydev && phydev->link)
-> +		gfar_configure_pause(priv, !!phydev->duplex);
-> +
-> +	return 0;
-> +}
-> +
->  int gfar_set_features(struct net_device *dev, netdev_features_t features)
->  {
->  	struct gfar_private *priv = netdev_priv(dev);
-[...]
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+
+Op 7 aug. 2013, om 02:34 heeft Hannes Frederic Sowa <hannes@stressinduktion.org> het volgende geschreven:
+
+> In case a subtree did not match we currently stop backtracking and return
+> NULL (root table from fib_lookup). This could yield in invalid routing
+> table lookups when using subtrees.
+> 
+> Instead continue to backtrack until a valid subtree or node is found
+> and return this match.
+> 
+> Also remove unneeded NULL check.
+> 
+> Reported-by: Teco Boot <teco@inf-net.nl>
+> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Cc: David Lamparter <equinox@diac24.net>
+> Cc: <boutier@pps.univ-paris-diderot.fr>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+> net/ipv6/ip6_fib.c | 16 ++++++++++++----
+> 1 file changed, 12 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+> index ed828d6..73db48e 100644
+> --- a/net/ipv6/ip6_fib.c
+> +++ b/net/ipv6/ip6_fib.c
+> @@ -993,14 +993,22 @@ static struct fib6_node * fib6_lookup_1(struct fib6_node *root,
+> 
+> 			if (ipv6_prefix_equal(&key->addr, args->addr, key->plen)) {
+> #ifdef CONFIG_IPV6_SUBTREES
+> -				if (fn->subtree)
+> -					fn = fib6_lookup_1(fn->subtree, args + 1);
+> +				if (fn->subtree) {
+> +					struct fib6_node *sfn;
+> +					sfn = fib6_lookup_1(fn->subtree,
+> +							    args + 1);
+> +					if (!sfn)
+> +						goto backtrack;
+> +					fn = sfn;
+> +				}
+> #endif
+> -				if (!fn || fn->fn_flags & RTN_RTINFO)
+> +				if (fn->fn_flags & RTN_RTINFO)
+> 					return fn;
+> 			}
+> 		}
+> -
+> +#ifdef CONFIG_IPV6_SUBTREES
+> +backtrack:
+> +#endif
+> 		if (fn->fn_flags & RTN_ROOT)
+> 			break;
+> 
+> -- 
+> 1.8.3.1
+> 
