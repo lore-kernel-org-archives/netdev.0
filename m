@@ -1,7 +1,7 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [RFC PATCHv2 2/3] xfrm: Update xfrm_state lifetime expire after clock_was_set
-Date: Wed, 7 Aug 2013 17:04:55 +0800
-Message-ID: <1375866296-15079-3-git-send-email-fan.du@windriver.com>
+Subject: [RFC PATCHv2 3/3] xfrm: Revert "Fix unexpected SA hard expiration after changing date"
+Date: Wed, 7 Aug 2013 17:04:56 +0800
+Message-ID: <1375866296-15079-4-git-send-email-fan.du@windriver.com>
 References: <1375866296-15079-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,80 +9,87 @@ Cc: <netdev@vger.kernel.org>
 To: <steffen.klassert@secunet.com>, <davem@davemloft.net>,
 	<herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:46631 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757276Ab3HGJDS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 05:03:18 -0400
+Received: from mail.windriver.com ([147.11.1.11]:45227 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757276Ab3HGJDV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 05:03:21 -0400
 In-Reply-To: <1375866296-15079-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After clock_was_set called to set new time or host resume from suspend
-state. Notify IKED with soft timeout for SAs which haven't reach its
-soft timeout limit. For those dying SAs, arrange them to hard expire.
+Since SAs lifetime timeout has been updated whenever clock_was_set is
+called. So commit: e3c0d04750751389d5116267f8cf4687444d9a50
+("Fix unexpected SA hard expiration after changing date") is not needed
+anymore.
 
 Signed-off-by: Fan Du <fan.du@windriver.com>
 ---
- net/xfrm/xfrm_state.c |   40 ++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 40 insertions(+)
+ include/net/xfrm.h    |    4 ----
+ net/xfrm/xfrm_state.c |   21 ++++-----------------
+ 2 files changed, 4 insertions(+), 21 deletions(-)
 
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 94ce082..b9df23f 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -214,9 +214,6 @@ struct xfrm_state {
+ 	struct xfrm_lifetime_cur curlft;
+ 	struct tasklet_hrtimer	mtimer;
+ 
+-	/* used to fix curlft->add_time when changing date */
+-	long		saved_tmo;
+-
+ 	/* Last used time */
+ 	unsigned long		lastused;
+ 
+@@ -242,7 +239,6 @@ static inline struct net *xs_net(struct xfrm_state *x)
+ 
+ /* xflags - make enum if more show up */
+ #define XFRM_TIME_DEFER	1
+-#define XFRM_SOFT_EXPIRE 2
+ 
+ enum {
+ 	XFRM_STATE_VOID,
 diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 78f66fa..25e808d 100644
+index 25e808d..310985d 100644
 --- a/net/xfrm/xfrm_state.c
 +++ b/net/xfrm/xfrm_state.c
-@@ -2002,6 +2002,44 @@ int xfrm_init_state(struct xfrm_state *x)
- 
- EXPORT_SYMBOL(xfrm_init_state);
- 
-+extern struct atomic_notifier_head clock_change_notifier_list;
-+static int clock_change_callback(struct notifier_block *nb,
-+                               unsigned long reason, void *arg)
-+{
-+	struct xfrm_state_walk *walk;
-+	struct xfrm_state *state;
-+	struct net *net;
-+	long next;
-+
-+	rtnl_lock();
-+	for_each_net(net) {
-+		spin_lock_bh(&xfrm_state_lock);
-+		list_for_each_entry(walk, &net->xfrm.state_all, all) {
-+			state = container_of(walk, struct xfrm_state, km);
-+			spin_lock(&state->lock);
-+			if(state->km.dying) {
-+				next = 0;
-+			} else {
-+				state->km.dying = 1;
-+				km_state_expired(state, 0, 0);
-+				next = state->lft.hard_add_expires_seconds -
-+					state->lft.soft_add_expires_seconds;
-+			}
-+			state->km.state = XFRM_STATE_EXPIRED;
-+			tasklet_hrtimer_start(&state->mtimer, ktime_set(next,0), HRTIMER_MODE_REL);
-+			spin_unlock(&state->lock);
-+		}
-+		spin_unlock_bh(&xfrm_state_lock);
-+	}
-+	rtnl_unlock();
-+
-+	return NOTIFY_DONE;
-+}
-+
-+static struct notifier_block clock_change_notifier = {
-+        .notifier_call = clock_change_callback,
-+};
-+
- int __net_init xfrm_state_init(struct net *net)
- {
- 	unsigned int sz;
-@@ -2026,6 +2064,8 @@ int __net_init xfrm_state_init(struct net *net)
- 	INIT_HLIST_HEAD(&net->xfrm.state_gc_list);
- 	INIT_WORK(&net->xfrm.state_gc_work, xfrm_state_gc_task);
- 	init_waitqueue_head(&net->xfrm.km_waitq);
-+	atomic_notifier_chain_register(&clock_change_notifier_list,
-+					&clock_change_notifier);
- 	return 0;
- 
- out_byspi:
+@@ -407,17 +407,8 @@ static enum hrtimer_restart xfrm_timer_handler(struct hrtimer * me)
+ 	if (x->lft.hard_add_expires_seconds) {
+ 		long tmo = x->lft.hard_add_expires_seconds +
+ 			x->curlft.add_time - now;
+-		if (tmo <= 0) {
+-			if (x->xflags & XFRM_SOFT_EXPIRE) {
+-				/* enter hard expire without soft expire first?!
+-				 * setting a new date could trigger this.
+-				 * workarbound: fix x->curflt.add_time by below:
+-				 */
+-				x->curlft.add_time = now - x->saved_tmo - 1;
+-				tmo = x->lft.hard_add_expires_seconds - x->saved_tmo;
+-			} else
+-				goto expired;
+-		}
++		if (tmo <= 0)
++			goto expired;
+ 		if (tmo < next)
+ 			next = tmo;
+ 	}
+@@ -434,14 +425,10 @@ static enum hrtimer_restart xfrm_timer_handler(struct hrtimer * me)
+ 	if (x->lft.soft_add_expires_seconds) {
+ 		long tmo = x->lft.soft_add_expires_seconds +
+ 			x->curlft.add_time - now;
+-		if (tmo <= 0) {
++		if (tmo <= 0)
+ 			warn = 1;
+-			x->xflags &= ~XFRM_SOFT_EXPIRE;
+-		} else if (tmo < next) {
++		else if (tmo < next)
+ 			next = tmo;
+-			x->xflags |= XFRM_SOFT_EXPIRE;
+-			x->saved_tmo = tmo;
+-		}
+ 	}
+ 	if (x->lft.soft_use_expires_seconds) {
+ 		long tmo = x->lft.soft_use_expires_seconds +
 -- 
 1.7.9.5
