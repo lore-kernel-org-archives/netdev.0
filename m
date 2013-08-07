@@ -1,44 +1,42 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 5/5] netfilter: add IPv6 SYNPROXY target
-Date: Wed, 7 Aug 2013 22:57:18 +0200
-Message-ID: <20130807205718.GB21463@macbook.localnet>
+Subject: Re: [PATCH RFC 0/5] netfilter: implement netfilter SYN proxy
+Date: Wed, 7 Aug 2013 22:59:59 +0200
+Message-ID: <20130807205959.GC21463@macbook.localnet>
 References: <1375897371-18430-1-git-send-email-kaber@trash.net>
- <1375897371-18430-6-git-send-email-kaber@trash.net>
- <20130807223440.0a40a7c1@redhat.com>
+ <1375898766.4004.37.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, mph@one.com, as@one.com
-To: Jesper Dangaard Brouer <jbrouer@redhat.com>
+	netdev@vger.kernel.org, mph@one.com, jesper.brouer@gmail.com,
+	as@one.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:48531 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:48555 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932387Ab3HGU5W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 16:57:22 -0400
+	with ESMTP id S932387Ab3HGVAE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 17:00:04 -0400
 Content-Disposition: inline
-In-Reply-To: <20130807223440.0a40a7c1@redhat.com>
+In-Reply-To: <1375898766.4004.37.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 07, 2013 at 10:34:40PM +0200, Jesper Dangaard Brouer wrote:
+On Wed, Aug 07, 2013 at 11:06:06AM -0700, Eric Dumazet wrote:
+> On Wed, 2013-08-07 at 19:42 +0200, Patrick McHardy wrote:
 > 
-> On Wed,  7 Aug 2013 19:42:51 +0200 Patrick McHardy <kaber@trash.net> wrote:
-> 
-> > Add an IPv6 version of the SYNPROXY target. The main differences to
-> > the IPv4 version is routing and IP header construction.
 > > 
-> > Signed-off-by: Patrick McHardy <kaber@trash.net>
+> > The SYNPROXY operates by marking the initial SYN from the client as UNTRACKED
+> > and directing it to the SYNPROXY target. The target responds with a SYN/ACK
+> > containing a cookie and encodes options such as window scaling factor, SACK
+> > perm etc. into the timestamp, if timestamps are used (similar to TCP). The
+> > window size is set to zero. The response is also sent as untracked packet.
 > 
-> > +static int synproxy_tg6_check(const struct xt_tgchk_param *par)
-> > +{
-> > +	/// XXX PROTO match TCP
+> TCP timestamps are not really used, for various reasons ...
 > 
-> Ups, this looks like an comment to your self ;-)
+> Have you taken a look at 
 > 
-> > +	return nf_ct_l3proto_try_module_get(par->family);
-> > +}
+> <http://lists.freebsd.org/pipermail/freebsd-net/2013-July/035999.html>
 
-Oops right, I intended to add a check for proto TCP match in the rule
-to make sure thoff is initialized by ip6tables.
-
-I'll wait for more comments before sending an updated series.
+No, not yet, will have a look. Not sure what you mean by "TCP timestamps
+are not really used" though. I might be biased by usually only looking at
+Linux traffic, but I was under that impression that everyone is using
+TCP timestamps nowadays?
