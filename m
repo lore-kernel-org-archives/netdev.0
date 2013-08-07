@@ -1,39 +1,29 @@
-From: Sachin Kamat <sachin.kamat@linaro.org>
-Subject: [PATCH 1/2] net: wan: sbni: Fix incorrect placement of __initdata
-Date: Wed,  7 Aug 2013 16:08:15 +0530
-Message-ID: <1375871896-25821-1-git-send-email-sachin.kamat@linaro.org>
-Cc: davem@davemloft.net, sachin.kamat@linaro.org, rl@hellgate.ch
-To: netdev@vger.kernel.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net-next] xfrm: Remove rebundant address family checking
+Date: Wed, 7 Aug 2013 12:57:56 +0200
+Message-ID: <20130807105756.GI25511@secunet.com>
+References: <1375775456-22628-1-git-send-email-fan.du@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:51111 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932675Ab3HGKzB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 06:55:01 -0400
-Received: by mail-pd0-f174.google.com with SMTP id 10so1260806pdc.33
-        for <netdev@vger.kernel.org>; Wed, 07 Aug 2013 03:55:01 -0700 (PDT)
+Received: from a.mx.secunet.com ([195.81.216.161]:32823 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932594Ab3HGK6B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Aug 2013 06:58:01 -0400
+Content-Disposition: inline
+In-Reply-To: <1375775456-22628-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-__initdata should be placed between the variable name and equal
-sign for the variable to be placed in the intended section.
+On Tue, Aug 06, 2013 at 03:50:56PM +0800, Fan Du wrote:
+> present_and_same_family has checked addresses family validness for both
+> SADB_EXT_ADDRESS_SRC and SADB_EXT_ADDRESS_DST in the beginning.
+> Thereafter pfkey_sadb_addr2xfrm_addr doesn't need to do the checking again.
+> 
+> Signed-off-by: Fan Du <fan.du@windriver.com>
 
-Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
----
- drivers/net/wan/sbni.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Applied to ipsec-next,
 
-diff --git a/drivers/net/wan/sbni.c b/drivers/net/wan/sbni.c
-index d43f4ef..5bbcb5e 100644
---- a/drivers/net/wan/sbni.c
-+++ b/drivers/net/wan/sbni.c
-@@ -176,7 +176,7 @@ static u32	mac[  SBNI_MAX_NUM_CARDS ] __initdata;
- 
- #ifndef MODULE
- typedef u32  iarr[];
--static iarr __initdata *dest[5] = { &io, &irq, &baud, &rxl, &mac };
-+static iarr *dest[5] __initdata = { &io, &irq, &baud, &rxl, &mac };
- #endif
- 
- /* A zero-terminated list of I/O addresses to be probed on ISA bus */
--- 
-1.7.9.5
+Thanks!
