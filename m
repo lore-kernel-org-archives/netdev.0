@@ -1,63 +1,58 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IGMP Unsolicited report interval patches
-Date: Wed, 7 Aug 2013 03:03:10 +0200
-Message-ID: <20130807010310.GH16410@order.stressinduktion.org>
-References: <20130731063442.GA10498@order.stressinduktion.org> <1375812195-6575-1-git-send-email-william.manley@youview.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: A soft lockup in vxlan module
+Date: Wed, 07 Aug 2013 09:23:54 +0800
+Message-ID: <1375838634.11370.13.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, bcrl@kvack.org, luky-37@hotmail.com,
-	sergei.shtylyov@cogentembedded.com, bhutchings@solarflare.com,
-	davem@davemloft.net
-To: William Manley <william.manley@youview.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:35888 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756402Ab3HGBDL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Aug 2013 21:03:11 -0400
-Content-Disposition: inline
-In-Reply-To: <1375812195-6575-1-git-send-email-william.manley@youview.com>
+Received: from mx1.redhat.com ([209.132.183.28]:30414 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756654Ab3HGBYH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Aug 2013 21:24:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 06, 2013 at 07:03:12PM +0100, William Manley wrote:
-> 4th version of the patches.
-> 
-> The significant changes since last review are: 
-> 
-> 1. there is a new patch (2/3) as requested by Hannes.
+Hi, Stephen
 
-Thanks!
+You introduced a soft lockup in vxlan module in
 
-> 2. the third patch now uses IN_DEV_CONF_GET in place of
->    IPV4_DEVCONF_ALL.  This means that the unsolicited report interval can
->    now be configured on an interface-by-interface basis as I'd originally
->    intended but messed up in the implementation.  One concern I have now
->    is that with this latest patch-set is that while
->    /proc/sys/net/ipv4/conf/eth0/igmp... will now have an effect 
->    /proc/sys/net/ipv4/conf/all/igmp... will not.  I'm not sure how to
->    resolve this.
+commit fe5c3561e6f0ac7c9546209f01351113c1b77ec8
+Author: stephen hemminger <stephen@networkplumber.org>
+Date:   Sat Jul 13 10:18:18 2013 -0700
 
-Hm, it seems to be come more difficult dealing with ranges.
+    vxlan: add necessary locking on device removal
 
-One way would be, to check the state bit for the devinet entry and chose the
-all value always but when the state bit for the interface for this entry is
-set. I'll have a look on how to do this.
+The problem is that vxlan_dellink(), which is called with RTNL lock
+held, tries to flush the workqueue synchronously, but apparently
+igmp_join and igmp_leave work need to hold RTNL lock too, therefore we
+have a soft lockup! This is 100% reproducible on my 2.6.32 backport
+while running `modprobe -r vxlan`.
 
+A quick but perhaps ugly fix is just releasing RTNL lock before calling
+flush_workqueue():
 
->    One option would be to have a special value of -1 to mean use the
->    default so I could implement fall-back semantics.  A down-side of this
->    approach is that it makes the meaning of the knobs less clear for
->    someone browsing through the filesystem.  Another option would be to
->    remove the knob from all/ entirely, although I'm not sure how to do
->    this.  Suggestions are very much welcome :)
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 8bf31d9..581d3d5 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1837,7 +1837,9 @@ static void vxlan_dellink(struct net_device *dev,
+struct list_head *head)
+        struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
+        struct vxlan_dev *vxlan = netdev_priv(dev);
+ 
++       rtnl_unlock();
+        flush_workqueue(vxlan_wq);
++       rtnl_lock();
+ 
+        spin_lock(&vn->sock_lock);
+        hlist_del_rcu(&vxlan->hlist);
 
-This seems to be confusing, at least or me. ;)
+However, I think a better way is still what I did, that is, removing
+RTNL lock from ip_mc_join_group() and ip_mc_leave_group().
 
-Thanks for the series! The patches are find IMHO.
+What do you think? Any other idea to fix it?
 
-Do you plan to make the corresponding changes for ipv6 or should I put that on
-my todo list?
-
-Thanks,
-
-  Hannes
+Thanks.
