@@ -1,38 +1,67 @@
-From: Santiago Garcia Mantinan <manty@manty.net>
-Subject: Re: bonding + arp monitoring fails if interface is a vlan
-Date: Wed, 7 Aug 2013 09:26:49 +0200
-Message-ID: <CAJk_L2FTs0bX_s+ChKY9ZvZqVTagE=LQZpwV48b1RFhgtMsd8w@mail.gmail.com>
-References: <20130801121142.GA444@www.manty.net>
-	<51FB9EE5.3040907@redhat.com>
-	<CAJk_L2FJyD2X7EPztiVWLBD4NDR_VOehdFEeV+nq7a+sO9+_wA@mail.gmail.com>
-	<CAJk_L2FU6GcHUoC+UdNJoULN9KewoUQAMhapC0k3RcTqNOymnw@mail.gmail.com>
-	<51FF7DC6.7080602@redhat.com>
+From: Rui Xiang <rui.xiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v3 02/11] syslog_ns: add syslog_ns into user_namespace
+Date: Wed, 7 Aug 2013 15:37:06 +0800
+Message-ID: <1375861035-24320-3-git-send-email-rui.xiang@huawei.com>
+References: <1375861035-24320-1-git-send-email-rui.xiang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f48.google.com ([209.85.128.48]:45589 "EHLO
-	mail-qe0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753077Ab3HGH0u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 03:26:50 -0400
-Received: by mail-qe0-f48.google.com with SMTP id 9so788428qea.7
-        for <netdev@vger.kernel.org>; Wed, 07 Aug 2013 00:26:50 -0700 (PDT)
-In-Reply-To: <51FF7DC6.7080602@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org, libo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+	guz.fnst-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
+To: <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1375861035-24320-1-git-send-email-rui.xiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-2013/8/5 Nikolay Aleksandrov <nikolay@redhat.com>:
->>         bond-arp_validate 0
-> No, because we take the first non-vlan's interface trans_start after the patch
-> which in this case is a bonding interface which also doesn't update its
-> trans_start, i.e. bond over bond (or over vlans over bond) with arp monitoring
-> shouldn't work.
+Add a syslog_ns pointer to user_namespace, and make
+syslog_ns per user_namespace, not global.
 
-Ok, after several days of testing it seems to work ok if I go with
-arp_validate 0, going for arp_validate 1 would cause the link failure
-count to be increased from time to time, is this ok?
+Since syslog_ns is assigned to user_ns, we can have
+full capabilities in new user_ns to create a new syslog_ns.
 
-Regards.
+Signed-off-by: Rui Xiang <rui.xiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+---
+ include/linux/syslog.h         | 5 +++++
+ include/linux/user_namespace.h | 1 +
+ 2 files changed, 6 insertions(+)
+
+diff --git a/include/linux/syslog.h b/include/linux/syslog.h
+index 425fafe..62ce47f 100644
+--- a/include/linux/syslog.h
++++ b/include/linux/syslog.h
+@@ -90,6 +90,11 @@ struct syslog_namespace {
+ 	size_t syslog_partial;
+ 
+ 	int dmesg_restrict;
++
++	/*
++	 * user namespace which owns this syslog ns.
++	 */
++	struct user_namespace *owner;
+ };
+ 
+ static inline struct syslog_namespace *get_syslog_ns(
+diff --git a/include/linux/user_namespace.h b/include/linux/user_namespace.h
+index b6b215f..ce2de5b 100644
+--- a/include/linux/user_namespace.h
++++ b/include/linux/user_namespace.h
+@@ -28,6 +28,7 @@ struct user_namespace {
+ 	unsigned int		proc_inum;
+ 	bool			may_mount_sysfs;
+ 	bool			may_mount_proc;
++	struct syslog_namespace *syslog_ns;
+ };
+ 
+ extern struct user_namespace init_user_ns;
 -- 
-Manty/BestiaTester -> http://manty.net
+1.8.2.2
