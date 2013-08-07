@@ -1,102 +1,104 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [RFC PATCHv2 1/3] hrtimer: Add notifer for clock_was_set
-Date: Wed, 07 Aug 2013 11:35:02 +0200
-Message-ID: <520214C6.6000307@redhat.com>
-References: <1375866296-15079-1-git-send-email-fan.du@windriver.com> <1375866296-15079-2-git-send-email-fan.du@windriver.com> <52021177.6020306@redhat.com> <520213F2.5090401@windriver.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: [PATCH 1/2][net-next] gianfar: Fix pause frame handling for half duplex links
+Date: Wed, 7 Aug 2013 13:24:15 +0300
+Message-ID: <1375871056-10420-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: steffen.klassert@secunet.com, davem@davemloft.net,
-	herbert@gondor.hengli.com.au, netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16222 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932296Ab3HGJfP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Aug 2013 05:35:15 -0400
-In-Reply-To: <520213F2.5090401@windriver.com>
+Received: from ch1ehsobe004.messaging.microsoft.com ([216.32.181.184]:35305
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932491Ab3HGKY6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 06:24:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/07/2013 11:31 AM, Fan Du wrote:
-> On 2013=E5=B9=B408=E6=9C=8807=E6=97=A5 17:20, Daniel Borkmann wrote:
->> On 08/07/2013 11:04 AM, Fan Du wrote:
->>> When clock_was_set is called in case of system wall time change
->>> or host resume from suspend state, use this notifier for places
->>> where interested in this action.
->>
->> (Only minor commenting on this one ...)
->>
->>> Signed-off-by: Fan Du <fan.du@windriver.com>
->>> ---
->>> kernel/hrtimer.c | 4 ++++
->>> 1 file changed, 4 insertions(+)
->>>
->>> diff --git a/kernel/hrtimer.c b/kernel/hrtimer.c
->>> index 383319b..b7c62a9 100644
->>> --- a/kernel/hrtimer.c
->>> +++ b/kernel/hrtimer.c
->>> @@ -755,6 +755,9 @@ static inline void retrigger_next_event(void *a=
-rg) { }
->>>
->>> #endif /* CONFIG_HIGH_RES_TIMERS */
->>>
->>> +ATOMIC_NOTIFIER_HEAD(clock_change_notifier_list);
->>> +EXPORT_SYMBOL(clock_change_notifier_list);
->>
->> This should be static and hidden from other modules, e.g. have a loo=
-k at
->> netevent_notif_chain (net/core/netevent.c).
->>
->> Instead, this should be accessed via registration/un-registration ha=
-ndlers
->> for notifier blocks, and those can then be exported as EXPORT_SYMBOL=
-_GPL
->> as this is core area.
->>
->>> +
->>> /*
->>> * Clock realtime was set
->>> *
->>> @@ -773,6 +776,7 @@ void clock_was_set(void)
->>> on_each_cpu(retrigger_next_event, NULL, 1);
->>> #endif
->>> timerfd_clock_was_set();
->>> + atomic_notifier_call_chain(&clock_change_notifier_list, 0, 0);
->>
->> Also here a small one-line handler call_clock_change_notifiers() wou=
-ld be
->> better.
->
-> Thanks for your attention.
-> After taking a look at netevent_notif_chain, you mean I should do it =
-in below style:
->
-> static ATOMIC_NOTIFIER_HEAD(clock_change_notifier_list);
->
-> int un/register_clock_change_notifier(struct notifier_block *nb)
-> {
->          int err;
->
->          err =3D atomic_notifier_chain_un/register(&clock_change_noti=
-fier_list, nb);
->          return err;
+MACCFG1 register bits to enable PAUSE frame handling are set by the
+driver unconditionally. Per 802.3 standard, PAUSE frame handling is a
+full duplex feature, and neither meaningful nor correct in half duplex.
 
-return atomic_notifier_chain_un/register(&clock_change_notifier_list, n=
-b);
+Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+---
+ drivers/net/ethernet/freescale/gianfar.c | 31 +++++++++++++++++++++++++++++--
+ drivers/net/ethernet/freescale/gianfar.h |  2 ++
+ 2 files changed, 31 insertions(+), 2 deletions(-)
 
-> }
-> EXPORT_SYMBOL_GPL(clock_change_notifier_list);
->
-> int call_clock_change_notifiers(unsigned long val, void *v)
-> {
->          return atomic_notifier_call_chain(&clock_change_notifier, va=
-l, v);
-> }
-> EXPORT_SYMBOL_GPL(call_clock_change_notifiers);
->
-> Will do it in next version after others comment rest of patches.
-
-Yes, sounds good to me (you might also want to cc Thomas Gleixner on th=
-is one).
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index edf06f1..54cf9be 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -764,6 +764,9 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
+ 				     FSL_GIANFAR_DEV_HAS_EXTENDED_HASH |
+ 				     FSL_GIANFAR_DEV_HAS_TIMER;
+ 
++	/* default pause frame settings */
++	priv->rx_pause = priv->tx_pause = true;
++
+ 	ctype = of_get_property(np, "phy-connection-type", NULL);
+ 
+ 	/* We only care about rgmii-id.  The rest are autodetected */
+@@ -1016,8 +1019,10 @@ static int gfar_probe(struct platform_device *ofdev)
+ 	/* We need to delay at least 3 TX clocks */
+ 	udelay(2);
+ 
+-	tempval = (MACCFG1_TX_FLOW | MACCFG1_RX_FLOW);
+-	gfar_write(&regs->maccfg1, tempval);
++	/* the soft reset bit is not self-resetting, so we need to
++	 * clear it before resuming normal operation
++	 */
++	gfar_write(&regs->maccfg1, 0);
+ 
+ 	/* Initialize MACCFG2. */
+ 	tempval = MACCFG2_INIT_SETTINGS;
+@@ -3025,6 +3030,25 @@ static irqreturn_t gfar_interrupt(int irq, void *grp_id)
+ 	return IRQ_HANDLED;
+ }
+ 
++/* toggle pause frame settings */
++void gfar_configure_pause(struct gfar_private *priv, bool en)
++{
++	struct gfar __iomem *regs = priv->gfargrp[0].regs;
++	u32 tempval = gfar_read(&regs->maccfg1);
++
++	if (en && priv->rx_pause)
++		tempval |= MACCFG1_RX_FLOW;
++	else
++		tempval &= ~MACCFG1_RX_FLOW;
++
++	if (en && priv->tx_pause)
++		tempval |= MACCFG1_TX_FLOW;
++	else
++		tempval &= ~MACCFG1_TX_FLOW;
++
++	gfar_write(&regs->maccfg1, tempval);
++}
++
+ /* Called every time the controller might need to be made
+  * aware of new link state.  The PHY code conveys this
+  * information through variables in the phydev structure, and this
+@@ -3056,6 +3080,9 @@ static void adjust_link(struct net_device *dev)
+ 			else
+ 				tempval |= MACCFG2_FULL_DUPLEX;
+ 
++			/* update pause frame settings */
++			gfar_configure_pause(priv, !!phydev->duplex);
++
+ 			priv->oldduplex = phydev->duplex;
+ 		}
+ 
+diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
+index ee19f2c..e6a03f4 100644
+--- a/drivers/net/ethernet/freescale/gianfar.h
++++ b/drivers/net/ethernet/freescale/gianfar.h
+@@ -1084,6 +1084,8 @@ struct gfar_private {
+ 	int oldspeed;
+ 	int oldduplex;
+ 	int oldlink;
++	bool rx_pause;
++	bool tx_pause;
+ 
+ 	/* Bitfield update lock */
+ 	spinlock_t bflock;
+-- 
+1.7.11.7
