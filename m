@@ -1,70 +1,54 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH net v2] net: rename  busy poll MIB counter
-Date: Wed, 07 Aug 2013 11:33:25 +0300
-Message-ID: <20130807083324.27322.99300.stgit@ladj378.jer.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Shawn Bohrer <sbohrer@rgmadvisors.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next] vxlan: fix a regression of igmp join
+Date: Wed,  7 Aug 2013 16:35:45 +0800
+Message-ID: <1375864545-5721-1-git-send-email-amwang@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59049 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756506Ab3HGIgE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Aug 2013 04:36:04 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rename mib counter from "low latency" to "busy poll"
+From: Cong Wang <amwang@redhat.com>
 
-v1 also moved the counter to the ip MIB (suggested by Shawn Bohrer)
-Eric Dumazet suggested that the current location is better.
+This is a regression introduced by:
 
-So v2 just renames the counter to fit the new naming convention.
+	commit 3fc2de2faba387218bdf9dbc6b13f513ac3b060a
+	Author: stephen hemminger <stephen@networkplumber.org>
+	Date:   Thu Jul 18 08:40:15 2013 -0700
 
-Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+	    vxlan: fix igmp races
+
+Before this commit, the old code was:
+
+       if (vxlan_group_used(vn, vxlan->default_dst.remote_ip))
+               ip_mc_join_group(sk, &mreq);
+       else
+               ip_mc_leave_group(sk, &mreq);
+
+therefore we shoud check vxlan_group_used(), not its opposite,
+for igmp_join.
+
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+
 ---
-
- include/net/busy_poll.h   |    2 +-
- include/uapi/linux/snmp.h |    2 +-
- net/ipv4/proc.c           |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
-index f18b919..7a7abe9 100644
---- a/include/net/busy_poll.h
-+++ b/include/net/busy_poll.h
-@@ -122,7 +122,7 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
- 		if (rc > 0)
- 			/* local bh are disabled so it is ok to use _BH */
- 			NET_ADD_STATS_BH(sock_net(sk),
--					 LINUX_MIB_LOWLATENCYRXPACKETS, rc);
-+					 LINUX_MIB_BUSYPOLLRXPACKETS, rc);
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 8bf31d9..f3ba986 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1430,7 +1430,7 @@ static int vxlan_open(struct net_device *dev)
+ 		return -ENOTCONN;
  
- 	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
- 		 !need_resched() && !busy_loop_timeout(end_time));
-diff --git a/include/uapi/linux/snmp.h b/include/uapi/linux/snmp.h
-index af0a674..a1356d3 100644
---- a/include/uapi/linux/snmp.h
-+++ b/include/uapi/linux/snmp.h
-@@ -253,7 +253,7 @@ enum
- 	LINUX_MIB_TCPFASTOPENLISTENOVERFLOW,	/* TCPFastOpenListenOverflow */
- 	LINUX_MIB_TCPFASTOPENCOOKIEREQD,	/* TCPFastOpenCookieReqd */
- 	LINUX_MIB_TCPSPURIOUS_RTX_HOSTQUEUES, /* TCPSpuriousRtxHostQueues */
--	LINUX_MIB_LOWLATENCYRXPACKETS,		/* LowLatencyRxPackets */
-+	LINUX_MIB_BUSYPOLLRXPACKETS,		/* BusyPollRxPackets */
- 	__LINUX_MIB_MAX
- };
- 
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index 6577a11..463bd12 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -273,7 +273,7 @@ static const struct snmp_mib snmp4_net_list[] = {
- 	SNMP_MIB_ITEM("TCPFastOpenListenOverflow", LINUX_MIB_TCPFASTOPENLISTENOVERFLOW),
- 	SNMP_MIB_ITEM("TCPFastOpenCookieReqd", LINUX_MIB_TCPFASTOPENCOOKIEREQD),
- 	SNMP_MIB_ITEM("TCPSpuriousRtxHostQueues", LINUX_MIB_TCPSPURIOUS_RTX_HOSTQUEUES),
--	SNMP_MIB_ITEM("LowLatencyRxPackets", LINUX_MIB_LOWLATENCYRXPACKETS),
-+	SNMP_MIB_ITEM("BusyPollRxPackets", LINUX_MIB_BUSYPOLLRXPACKETS),
- 	SNMP_MIB_SENTINEL
- };
- 
+ 	if (IN_MULTICAST(ntohl(vxlan->default_dst.remote_ip)) &&
+-	    ! vxlan_group_used(vn, vxlan->default_dst.remote_ip)) {
++	    vxlan_group_used(vn, vxlan->default_dst.remote_ip)) {
+ 		vxlan_sock_hold(vs);
+ 		dev_hold(dev);
+ 		queue_work(vxlan_wq, &vxlan->igmp_join);
