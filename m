@@ -1,120 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 3/5] netfilter: add SYNPROXY core/target
-Date: Wed, 07 Aug 2013 15:11:54 -0700
-Message-ID: <1375913514.4004.63.camel@edumazet-glaptop>
-References: <1375897371-18430-1-git-send-email-kaber@trash.net>
-	 <1375897371-18430-4-git-send-email-kaber@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: Tree for Aug 7
+Date: Wed, 07 Aug 2013 16:27:48 -0700 (PDT)
+Message-ID: <20130807.162748.779496444843938176.davem@davemloft.net>
+References: <1375893609.4004.33.camel@edumazet-glaptop>
+	<20130807.104713.1615549684239408926.davem@davemloft.net>
+	<20130807183758.GB16263@orbit.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, mph@one.com, jesper.brouer@gmail.com,
-	as@one.com
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1375897371-18430-4-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: eric.dumazet@gmail.com, johannes@sipsolutions.net,
+	sedat.dilek@gmail.com, sfr@canb.auug.org.au,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, hannes@stressinduktion.org,
+	linux-wireless@vger.kernel.org, linville@tuxdriver.com
+To: phil@nwl.cc
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20130807183758.GB16263@orbit.nwl.cc>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-08-07 at 19:42 +0200, Patrick McHardy wrote:
-> Add a SYNPROXY for netfilter. The code is split into two parts, the synproxy
-> core with common functions and an address family specific target.
-> 
-> The SYNPROXY receives the connection request from the client, responds with
-> a SYN/ACK containing a SYN cookie and announcing a zero window and checks
-> whether the final ACK from the client contains a valid cookie.
-> 
-> It then establishes a connection to the original destination and, if
-> successful, sends a window update to the client with the window size
-> announced by the server.
-> 
-> Support for timestamps, SACK, window scaling and MSS options can be
-> statically configured as target parameters if the features of the server
-> are known. If timestamps are used, the timestamp value sent back to
-> the client in the SYN/ACK will be different from the real timestamp of
-> the server. In order to now break PAWS, the timestamps are translated in
-> the direction server->client.
-> 
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
+From: Phil Sutter <phil@nwl.cc>
+Date: Wed, 7 Aug 2013 20:37:58 +0200
 
+> One could simply call skb_push(skb, ETH_HLEN) right after calling
+> eth_type_trans(skb, dev) in order to undo the 'data' and 'len'
+> adjustment. Not sure if this kind of hack is the right way to go here,
+> or if the whole af_packet parses ethernet header discussion should be
+> opened again instead.
 
-> +static struct iphdr *
-> +synproxy_build_ip(struct sk_buff *skb, u32 saddr, u32 daddr)
-> +{
-> +	struct iphdr *iph;
-> +
-> +	skb_reset_network_header(skb);
-> +	iph = (struct iphdr *)skb_put(skb, sizeof(*iph));
-> +	iph->version	= 4;
-> +	iph->ihl	= sizeof(*iph) / 4;
-> +	iph->tos	= 0;
-> +	iph->id		= 0;
-> +	iph->frag_off	= htons(IP_DF);
-> +	iph->ttl	= 64;
+That's completely pointless work.
 
-sysctl_ip_default_ttl ?
+Without that header pull, the only two things left that
+eth_type_trans() does is set the skb->protocol field and
+set skb->dev.
 
-> +	iph->protocol	= IPPROTO_TCP;
-> +	iph->check	= 0;
-> +	iph->saddr	= saddr;
-> +	iph->daddr	= daddr;
-> +
-> +	return iph;
-> +}
-> +
+And even the latter has to be done already in an else
+branch in the suspect AF_PACKET code.
 
+So this eth_type_trans() call is 2/3 duplicate or unnecessary work,
+it's the completely the wrong thing to do.
 
-> +static void
-> +synproxy_send_client_synack(const struct sk_buff *skb, const struct tcphdr *th,
-> +			    const struct synproxy_options *opts)
-> +{
-> +	struct sk_buff *nskb;
-> +	struct iphdr *iph, *niph;
-> +	struct tcphdr *nth;
-> +	unsigned int tcp_hdr_size;
-> +	u16 mss = opts->mss;
-> +
-> +	iph = ip_hdr(skb);
-> +
-> +	tcp_hdr_size = sizeof(*nth) + synproxy_options_size(opts);
-> +	nskb = alloc_skb(sizeof(*niph) + tcp_hdr_size + LL_MAX_HEADER,
-> +			 GFP_ATOMIC);
-> +	if (nskb == NULL)
-> +		return;
-> +	skb_reserve(nskb, LL_MAX_HEADER);
-
-s/LL_MAX_HEADER/MAX_TCP_HEADER ? 
-
-> +
-> +	niph = synproxy_build_ip(nskb, iph->daddr, iph->saddr);
-> +
-> +	skb_reset_transport_header(nskb);
-> +	nth = (struct tcphdr *)skb_put(nskb, tcp_hdr_size);
-> +	nth->source	= th->dest;
-> +	nth->dest	= th->source;
-> +	nth->seq	= htonl(__cookie_v4_init_sequence(iph, th, &mss));
-> +	nth->ack_seq	= htonl(ntohl(th->seq) + 1);
-> +	tcp_flag_word(nth) = TCP_FLAG_SYN | TCP_FLAG_ACK;
-> +	if (opts->options & XT_SYNPROXY_OPT_ECN)
-> +		tcp_flag_word(nth) |= TCP_FLAG_ECE;
-> +	nth->doff	= tcp_hdr_size / 4;
-> +	nth->window	= 0;
-> +	nth->check	= 0;
-> +	nth->urg_ptr	= 0;
-> +
-> +	synproxy_build_options(nth, opts);
-> +
-> +	synproxy_send_tcp(skb, nskb, skb->nfct, IP_CT_ESTABLISHED_REPLY,
-> +			  niph, nth, tcp_hdr_size);
-> +}
-
-Also please check your uses of kfree_skb() .
-
-Some of them would better be consume_skb() (for example in
-ipv4_synproxy_hook())
-
-I wonder if this code could be generic for IPv4/IPv6, instead of
-duplicating in IPv6
-
-
-
+Look, I'm going to fix this myself, because I'm pretty tired of
+waiting for the obvious fix.
