@@ -1,42 +1,38 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: A soft lockup in vxlan module
-Date: Wed, 07 Aug 2013 14:47:10 +0800
-Message-ID: <1375858030.11370.25.camel@cr0>
-References: <1375838634.11370.13.camel@cr0>
-	 <20130806211347.44c14755@nehalam.linuxnetplumber.net>
+From: Santiago Garcia Mantinan <manty@manty.net>
+Subject: Re: bonding + arp monitoring fails if interface is a vlan
+Date: Wed, 7 Aug 2013 09:26:49 +0200
+Message-ID: <CAJk_L2FTs0bX_s+ChKY9ZvZqVTagE=LQZpwV48b1RFhgtMsd8w@mail.gmail.com>
+References: <20130801121142.GA444@www.manty.net>
+	<51FB9EE5.3040907@redhat.com>
+	<CAJk_L2FJyD2X7EPztiVWLBD4NDR_VOehdFEeV+nq7a+sO9+_wA@mail.gmail.com>
+	<CAJk_L2FU6GcHUoC+UdNJoULN9KewoUQAMhapC0k3RcTqNOymnw@mail.gmail.com>
+	<51FF7DC6.7080602@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61251 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755214Ab3HGGrR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Aug 2013 02:47:17 -0400
-In-Reply-To: <20130806211347.44c14755@nehalam.linuxnetplumber.net>
+Received: from mail-qe0-f48.google.com ([209.85.128.48]:45589 "EHLO
+	mail-qe0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753077Ab3HGH0u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 03:26:50 -0400
+Received: by mail-qe0-f48.google.com with SMTP id 9so788428qea.7
+        for <netdev@vger.kernel.org>; Wed, 07 Aug 2013 00:26:50 -0700 (PDT)
+In-Reply-To: <51FF7DC6.7080602@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-08-06 at 21:13 -0700, Stephen Hemminger wrote:
-> 
-> Probably the flush_workqueue can just be removed and let the normal
-> refcounting work. The workqueue has a reference to device and socket,
-> therefore the cleanups should work correctly.
+2013/8/5 Nikolay Aleksandrov <nikolay@redhat.com>:
+>>         bond-arp_validate 0
+> No, because we take the first non-vlan's interface trans_start after the patch
+> which in this case is a bonding interface which also doesn't update its
+> trans_start, i.e. bond over bond (or over vlans over bond) with arp monitoring
+> shouldn't work.
 
-Sounds reasonable, I am testing the following patch:
+Ok, after several days of testing it seems to work ok if I go with
+arp_validate 0, going for arp_validate 1 would cause the link failure
+count to be increased from time to time, is this ok?
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 8bf31d9..c51ef9b 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1837,8 +1837,6 @@ static void vxlan_dellink(struct net_device *dev,
-struct list_head *head)
-        struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
-        struct vxlan_dev *vxlan = netdev_priv(dev);
- 
--       flush_workqueue(vxlan_wq);
--
-        spin_lock(&vn->sock_lock);
-        hlist_del_rcu(&vxlan->hlist);
-        spin_unlock(&vn->sock_lock);
+Regards.
+-- 
+Manty/BestiaTester -> http://manty.net
