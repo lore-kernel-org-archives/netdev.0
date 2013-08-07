@@ -1,154 +1,51 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: [PATCH v4 3/3] net: igmp: Allow user-space configuration of igmp unsolicited report interval
-Date: Wed, 7 Aug 2013 09:43:41 -0400
-Message-ID: <20130807134341.GM8043@kvack.org>
-References: <20130731063442.GA10498@order.stressinduktion.org> <1375812195-6575-1-git-send-email-william.manley@youview.com> <1375812195-6575-4-git-send-email-william.manley@youview.com>
+From: Serge Hallyn <serge.hallyn@ubuntu.com>
+Subject: Re: [PATCH v3 00/11] Add namespace support for syslog
+Date: Wed, 7 Aug 2013 08:48:23 -0500
+Message-ID: <20130807134823.GA3702@sergelap>
+References: <1375861035-24320-1-git-send-email-rui.xiang@huawei.com>
+ <878v0evssv.fsf@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, luky-37@hotmail.com,
-	sergei.shtylyov@cogentembedded.com, bhutchings@solarflare.com,
-	davem@davemloft.net, hannes@stressinduktion.org
-To: William Manley <william.manley@youview.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:36123 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933187Ab3HGNnm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Aug 2013 09:43:42 -0400
+Cc: Rui Xiang <rui.xiang@huawei.com>, netdev@vger.kernel.org,
+	containers@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, libo.chen@huawei.com,
+	netfilter-devel@vger.kernel.org, guz.fnst@cn.fujitsu.com,
+	akpm@linux-foundation.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1375812195-6575-4-git-send-email-william.manley@youview.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <878v0evssv.fsf@xmission.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 06, 2013 at 07:03:15PM +0100, William Manley wrote:
-> Adds the new procfs knobs:
+Quoting Eric W. Biederman (ebiederm@xmission.com):
 > 
->     /proc/sys/net/ipv4/conf/*/igmpv2_unsolicited_report_interval
->     /proc/sys/net/ipv4/conf/*/igmpv3_unsolicited_report_interval
+> Since this still has not been addressed.  I am going to repeat Andrews
+> objection again.
 > 
-> Which will allow userspace configuration of the IGMP unsolicited report
-> interval (see below) in milliseconds.  The defaults are 10000ms for IGMPv2
-> and 1000ms for IGMPv3 in accordance with RFC2236 and RFC3376.
-> 
-> Background:
-> 
-> If an IGMP join packet is lost you will not receive data sent to the
-> multicast group so if no data arrives from that multicast group in a
-> period of time after the IGMP join a second IGMP join will be sent.  The
-> delay between joins is the "IGMP Unsolicited Report Interval".
-> 
-> Prior to this patch this value was hard coded in the kernel to 10s for
-> IGMPv2 and 1s for IGMPv3.  10s is unsuitable for some use-cases, such as
-> IPTV as it can cause channel change to be slow in the presence of packet
-> loss.
-> 
-> This patch allows the value to be overridden from userspace for both
-> IGMPv2 and IGMPv3 such that it can be tuned accoding to the network.
-> 
-> Tested with Wireshark and a simple program to join a (non-existent)
-> multicast group.  The distribution of timings for the second join differ
-> based upon setting the procfs knobs.
-> 
-> igmpvX_unsolicited_report_interval is intended to follow the pattern
-> established by force_igmp_version, and while a procfs entry has been added
-> a corresponding sysctl knob has not as it is my understanding that sysctl
-> is deprecated[1].
-> 
-> [1]: http://lwn.net/Articles/247243/
-> 
-> Signed-off-by: William Manley <william.manley@youview.com>
+> Isn't there a better way to get iptables information out than to use
+> syslog.  I did not have time to follow up on that but it did appear that
 
-Acked-by: Benjamin LaHaise <bcrl@kvack.org>
+Bruno suggested NFLOG target + ulogd.  That's not ideal, but doable.  At
+least each container should be able to do that for itself.  What it
+won't do is let a host admin make sure that he doesn't get corrupted
+syslog entries when partial-lines get sent from several containers and
+the kernel and randomly spliced together.  It also would simply be
+better if the information was *always* sent to userspace instead of
+syslog.
 
-Also good.  Thanks!
-
-		-ben
-
-> ---
->  include/linux/inetdevice.h |    2 ++
->  net/ipv4/devinet.c         |    8 ++++++++
->  net/ipv4/igmp.c            |   19 +++++++++++++++++--
->  3 files changed, 27 insertions(+), 2 deletions(-)
+> someone did have a better way to get the information out.
 > 
-> diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-> index d4c56fc..43b3c72 100644
-> --- a/include/linux/inetdevice.h
-> +++ b/include/linux/inetdevice.h
-> @@ -28,6 +28,8 @@ enum
->  	IPV4_DEVCONF_ARPFILTER,
->  	IPV4_DEVCONF_MEDIUM_ID,
->  	IPV4_DEVCONF_FORCE_IGMP_VERSION,
-> +	IPV4_DEVCONF_IGMPV2_UNSOLICITED_REPORT_INTERVAL,
-> +	IPV4_DEVCONF_IGMPV3_UNSOLICITED_REPORT_INTERVAL,
->  	IPV4_DEVCONF_NOXFRM,
->  	IPV4_DEVCONF_NOPOLICY,
->  	IPV4_DEVCONF_ARP_ANNOUNCE,
-> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-> index a9561c4..56ecb1b 100644
-> --- a/net/ipv4/devinet.c
-> +++ b/net/ipv4/devinet.c
-> @@ -73,6 +73,8 @@ static struct ipv4_devconf ipv4_devconf = {
->  		[IPV4_DEVCONF_SEND_REDIRECTS - 1] = 1,
->  		[IPV4_DEVCONF_SECURE_REDIRECTS - 1] = 1,
->  		[IPV4_DEVCONF_SHARED_MEDIA - 1] = 1,
-> +		[IPV4_DEVCONF_IGMPV2_UNSOLICITED_REPORT_INTERVAL - 1] = 10000 /*ms*/,
-> +		[IPV4_DEVCONF_IGMPV3_UNSOLICITED_REPORT_INTERVAL - 1] =  1000 /*ms*/,
->  	},
->  };
->  
-> @@ -83,6 +85,8 @@ static struct ipv4_devconf ipv4_devconf_dflt = {
->  		[IPV4_DEVCONF_SECURE_REDIRECTS - 1] = 1,
->  		[IPV4_DEVCONF_SHARED_MEDIA - 1] = 1,
->  		[IPV4_DEVCONF_ACCEPT_SOURCE_ROUTE - 1] = 1,
-> +		[IPV4_DEVCONF_IGMPV2_UNSOLICITED_REPORT_INTERVAL - 1] = 10000 /*ms*/,
-> +		[IPV4_DEVCONF_IGMPV3_UNSOLICITED_REPORT_INTERVAL - 1] =  1000 /*ms*/,
->  	},
->  };
->  
-> @@ -2096,6 +2100,10 @@ static struct devinet_sysctl_table {
->  		DEVINET_SYSCTL_RW_ENTRY(PROXY_ARP_PVLAN, "proxy_arp_pvlan"),
->  		DEVINET_SYSCTL_RW_ENTRY(FORCE_IGMP_VERSION,
->  					"force_igmp_version"),
-> +		DEVINET_SYSCTL_RW_ENTRY(IGMPV2_UNSOLICITED_REPORT_INTERVAL,
-> +					"igmpv2_unsolicited_report_interval"),
-> +		DEVINET_SYSCTL_RW_ENTRY(IGMPV3_UNSOLICITED_REPORT_INTERVAL,
-> +					"igmpv3_unsolicited_report_interval"),
->  
->  		DEVINET_SYSCTL_FLUSHING_ENTRY(NOXFRM, "disable_xfrm"),
->  		DEVINET_SYSCTL_FLUSHING_ENTRY(NOPOLICY, "disable_policy"),
-> diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-> index 9f0aaea..c5541da 100644
-> --- a/net/ipv4/igmp.c
-> +++ b/net/ipv4/igmp.c
-> @@ -141,10 +141,25 @@
->  
->  static int unsolicited_report_interval(struct in_device *in_dev)
->  {
-> +	int interval_ms, interval_jiffies;
-> +
->  	if (IGMP_V1_SEEN(in_dev) || IGMP_V2_SEEN(in_dev))
-> -		return IGMP_V2_Unsolicited_Report_Interval;
-> +		interval_ms = IN_DEV_CONF_GET(
-> +			in_dev,
-> +			IGMPV2_UNSOLICITED_REPORT_INTERVAL);
->  	else /* v3 */
-> -		return IGMP_V3_Unsolicited_Report_Interval;
-> +		interval_ms = IN_DEV_CONF_GET(
-> +			in_dev,
-> +			IGMPV3_UNSOLICITED_REPORT_INTERVAL);
-> +
-> +	interval_jiffies = msecs_to_jiffies(interval_ms);
-> +
-> +	/* _timer functions can't handle a delay of 0 jiffies so ensure
-> +	 *  we always return a positive value.
-> +	 */
-> +	if (interval_jiffies <= 0)
-> +		interval_jiffies = 1;
-> +	return interval_jiffies;
->  }
->  
->  static void igmpv3_add_delrec(struct in_device *in_dev, struct ip_mc_list *im);
-> -- 
-> 1.7.10.4
-
--- 
-"Thought is the essence of where you are now."
+> Essentially the argument against this goes.  The kernel logging facility
+> is really not a particularly good tool to be using for anything other
+> than kernel debugging information, and there appear to be no substantial
+> uses for a separate syslog that should not be done in other ways.
+> 
+> That design objection must be addressed before merging this code can be
+> given serious consideration.
+> 
+> Eric
+> _______________________________________________
+> Containers mailing list
+> Containers@lists.linux-foundation.org
+> https://lists.linuxfoundation.org/mailman/listinfo/containers
