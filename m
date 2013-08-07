@@ -1,46 +1,85 @@
-From: "WilliT" <drug@centrum-group.com>
-Subject: Mail Back If Interested!
-Date: Wed, 7 Aug 2013 16:14:33 +0300 (EEST)
-Message-ID: <54021.89.7.18.101.1375881273.squirrel@mail1.centrum-group.com>
-Reply-To: willitenisch@hotmail.com
-Mime-Version: 1.0
-Content-Type: text/plain;charset=WINDOWS-1251
-Content-Transfer-Encoding: 8bit
-To: unlisted-recipients:; (no To-header on input)
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH 3.11] genetlink: fix family dump race
+Date: Wed,  7 Aug 2013 14:34:14 +0200
+Message-ID: <1375878854-29997-1-git-send-email-johannes@sipsolutions.net>
+Cc: Andrei Otcheretianski <andrei.otcheretianski@intel.com>,
+	Ilan Peer <ilan.peer@intel.com>,
+	Johannes Berg <johannes.berg@intel.com>
+To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.centrum-group.com ([194.12.254.133]:48166 "EHLO
-	mail1.centrum-group.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932699Ab3HGMbh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 08:31:37 -0400
+Received: from s3.sipsolutions.net ([144.76.43.152]:59249 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757407Ab3HGMeX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 08:34:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Good Day,
+From: Johannes Berg <johannes.berg@intel.com>
 
-RE:INVESTMENT / BUSINESS PARTNERSHIP PROPOSAL.
+When dumping generic netlink families, only the first dump call
+is locked with genl_lock(), which protects the list of families,
+and thus subsequent calls can access the data without locking,
+racing against family addition/removal. This can cause a crash.
+Fix it - the locking needs to be conditional because the first
+time around it's already locked.
 
-I represent a group of company based in the Gulf Region with access to
-over 270 Million Euros and we are seeking means of expanding and
-relocating our business interest abroad in the following sectors: oil/Gas,
-banking, real estate, stock speculation and mining, transportation, health
-sector and tobacco, Communication Services, Agriculture Forestry &
-Fishing, thus any sector.
+BUG: unable to handle kernel paging request at f8467360
+IP: [<c14c56bb>] ctrl_dumpfamily+0x6b/0xe0
+EIP: 0060:[<c14c56bb>] EFLAGS: 00210297 CPU: 2
+EIP is at ctrl_dumpfamily+0x6b/0xe0
+EAX: f8467378 EBX: f8467340 ECX: 00000000 EDX: ec1610c4
+ESI: 00000001 EDI: c2077cc0 EBP: c46c3c00 ESP: c46c3bd4
+ DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
+CR0: 80050033 CR2: f8467360 CR3: 26e54000 CR4: 001407d0
+DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 00000000
+DR6: ffff0ff0 DR7: 00000400
+Process wpa_supplicant (pid: 20081, ti=c46c2000 task=c44640b0 task.ti=c46c2000)
+Call Trace:
+ [<c14c20bc>] netlink_dump+0x5c/0x200
+ [<c14c3450>] __netlink_dump_start+0x140/0x160
+ [<c14c5172>] genl_rcv_msg+0x102/0x270
+ [<c14c4b5e>] netlink_rcv_skb+0x8e/0xb0
+ [<c14c505c>] genl_rcv+0x1c/0x30
+ [<c14c456b>] netlink_unicast+0x17b/0x1c0
+ [<c14c47d4>] netlink_sendmsg+0x224/0x370
+ [<c1485adf>] sock_sendmsg+0xff/0x120
+ [<c1486b0a>] __sys_sendmsg+0x24a/0x260
+ [<c1487fdb>] sys_sendmsg+0x3b/0x60
+ [<c1488683>] sys_socketcall+0x283/0x2e0
+ [<c15b7c1f>] sysenter_do_call+0x12/0x38
+Code: 8d 3c c5 c0 7c 07 c2 8b 04 c5 c0 7c 07 c2 39 c7 8d 58 c8 75 16 eb 71 90 81 7d ec 00 1f 86 c1 74 10 8b 43 38 39 c7 8d 58 c8 74 5d <80> 7b 20 00 74 e7 83 c6 01 3b 75 f0 7c e8 8b 55 e8 8b 42 04 8b
 
-If you have a solid background and idea of making good profit in any of
-the mentioned business sectors or any other business in your country,
-Please write me for possible business co-operation. More so, we are ready
-to facilitate and fund any business that is capable of generating 10%
-annual return on investment (AROI) Joint Venture partnership and Hard loan
-funding can also be considered.
+Cc: stable@vger.kernel.org
+Reported-by: Andrei Otcheretianski <andrei.otcheretianski@intel.com>
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ net/netlink/genetlink.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-I am confident that you will give your consideration to this proposal and
-respond positively within a short period of time. I am available to
-discuss this proposal with you and to answer any questions you may have in
-regard to this investment. As soon as you give your positive response  to
-this proposal, I will not hesitate in sending you the details information
-of this great investment partnership opportunity. Email contact:
-
-I look forward to discussing this opportunity further with you.
-
-Sincerely,
-Willi Tenisch
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 2fd6dbe..07a0b18 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -790,6 +790,9 @@ static int ctrl_dumpfamily(struct sk_buff *skb, struct netlink_callback *cb)
+ 	int chains_to_skip = cb->args[0];
+ 	int fams_to_skip = cb->args[1];
+ 
++	if (chains_to_skip)
++		genl_lock();
++
+ 	for (i = chains_to_skip; i < GENL_FAM_TAB_SIZE; i++) {
+ 		n = 0;
+ 		list_for_each_entry(rt, genl_family_chain(i), family_list) {
+@@ -810,6 +813,9 @@ errout:
+ 	cb->args[0] = i;
+ 	cb->args[1] = n;
+ 
++	if (chains_to_skip)
++		genl_unlock();
++
+ 	return skb->len;
+ }
+ 
+-- 
+1.8.0
