@@ -1,32 +1,67 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v3 11/11] netfilter: use ns_printk in iptable context
-Date: Wed, 7 Aug 2013 11:17:22 +0200
-Message-ID: <20130807091722.GA9470@localhost>
-References: <1375861035-24320-1-git-send-email-rui.xiang@huawei.com>
- <1375861035-24320-12-git-send-email-rui.xiang@huawei.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [RFC PATCHv2 1/3] hrtimer: Add notifer for clock_was_set
+Date: Wed, 07 Aug 2013 11:20:55 +0200
+Message-ID: <52021177.6020306@redhat.com>
+References: <1375866296-15079-1-git-send-email-fan.du@windriver.com> <1375866296-15079-2-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: containers@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, serge.hallyn@ubuntu.com,
-	ebiederm@xmission.com, akpm@linux-foundation.org,
-	gaofeng@cn.fujitsu.com, guz.fnst@cn.fujitsu.com,
-	libo.chen@huawei.com
-To: Rui Xiang <rui.xiang@huawei.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1375861035-24320-12-git-send-email-rui.xiang@huawei.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: steffen.klassert@secunet.com, davem@davemloft.net,
+	herbert@gondor.hengli.com.au, netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:47431 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756494Ab3HGJVR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Aug 2013 05:21:17 -0400
+In-Reply-To: <1375866296-15079-2-git-send-email-fan.du@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 08/07/2013 11:04 AM, Fan Du wrote:
+> When clock_was_set is called in case of system wall time change
+> or host resume from suspend state, use this notifier for places
+> where interested in this action.
 
-On Wed, Aug 07, 2013 at 03:37:15PM +0800, Rui Xiang wrote:
-> To containerise iptables log, use ns_printk
-> to report individual logs to container as
-> getting syslog_ns from net->user_ns.
+(Only minor commenting on this one ...)
 
-This patch is missing the removal of a couple of LOC at the very
-beginning of ipt_log_packet and ip6t_log_packet to get this working.
+> Signed-off-by: Fan Du <fan.du@windriver.com>
+> ---
+>   kernel/hrtimer.c |    4 ++++
+>   1 file changed, 4 insertions(+)
+>
+> diff --git a/kernel/hrtimer.c b/kernel/hrtimer.c
+> index 383319b..b7c62a9 100644
+> --- a/kernel/hrtimer.c
+> +++ b/kernel/hrtimer.c
+> @@ -755,6 +755,9 @@ static inline void retrigger_next_event(void *arg) { }
+>
+>   #endif /* CONFIG_HIGH_RES_TIMERS */
+>
+> +ATOMIC_NOTIFIER_HEAD(clock_change_notifier_list);
+> +EXPORT_SYMBOL(clock_change_notifier_list);
 
-Please, revamp it. Thanks.
+This should be static and hidden from other modules, e.g. have a look at
+netevent_notif_chain (net/core/netevent.c).
+
+Instead, this should be accessed via registration/un-registration handlers
+for notifier blocks, and those can then be exported as EXPORT_SYMBOL_GPL
+as this is core area.
+
+> +
+>   /*
+>    * Clock realtime was set
+>    *
+> @@ -773,6 +776,7 @@ void clock_was_set(void)
+>   	on_each_cpu(retrigger_next_event, NULL, 1);
+>   #endif
+>   	timerfd_clock_was_set();
+> +	atomic_notifier_call_chain(&clock_change_notifier_list, 0, 0);
+
+Also here a small one-line handler call_clock_change_notifiers() would be
+better.
+
+>   }
+>
+>   /*
+>
