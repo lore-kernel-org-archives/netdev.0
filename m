@@ -1,54 +1,56 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next] vxlan: fix a regression of igmp join
-Date: Wed,  7 Aug 2013 16:35:45 +0800
-Message-ID: <1375864545-5721-1-git-send-email-amwang@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT PULL 0/2] IPVS enhancement for v3.12
+Date: Wed,  7 Aug 2013 17:40:27 +0900
+Message-ID: <1375864829-19840-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59049 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756506Ab3HGIgE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Aug 2013 04:36:04 -0400
+Received: from kirsty.vergenet.net ([202.4.237.240]:48364 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757191Ab3HGIke (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 04:40:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+Hi Pablo,
 
-This is a regression introduced by:
+please consider the following IPVS enhancement for v3.12.
 
-	commit 3fc2de2faba387218bdf9dbc6b13f513ac3b060a
-	Author: stephen hemminger <stephen@networkplumber.org>
-	Date:   Thu Jul 18 08:40:15 2013 -0700
+It looks like v3.12 is going to be pretty quiet for IPVS
+as at this stage I'm not expecting anything more than a few more cleanup
+patches. And I'm not even sure if they will come through.
 
-	    vxlan: fix igmp races
 
-Before this commit, the old code was:
+The following changes since commit d8b3bfc253d8063fcce9c447ecc4cf3b1735b13a:
 
-       if (vxlan_group_used(vn, vxlan->default_dst.remote_ip))
-               ip_mc_join_group(sk, &mreq);
-       else
-               ip_mc_leave_group(sk, &mreq);
+  netfilter: tproxy: fix build with IP6_NF_IPTABLES=n (2013-08-05 12:57:38 +0200)
 
-therefore we shoud check vxlan_group_used(), not its opposite,
-for igmp_join.
+are available in the git repository at:
 
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
+  git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs-for-v3.12
 
----
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 8bf31d9..f3ba986 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1430,7 +1430,7 @@ static int vxlan_open(struct net_device *dev)
- 		return -ENOTCONN;
- 
- 	if (IN_MULTICAST(ntohl(vxlan->default_dst.remote_ip)) &&
--	    ! vxlan_group_used(vn, vxlan->default_dst.remote_ip)) {
-+	    vxlan_group_used(vn, vxlan->default_dst.remote_ip)) {
- 		vxlan_sock_hold(vs);
- 		dev_hold(dev);
- 		queue_work(vxlan_wq, &vxlan->igmp_join);
+for you to fetch changes up to 54e35cc52346149a7bce8a2f622e215ed17bb56d:
+
+  ipvs: ip_vs_sh: ip_vs_sh_get_port: check skb_header_pointer for NULL (2013-08-07 08:57:57 +0900)
+
+----------------------------------------------------------------
+IPVS enhancement for v3.12
+
+* NULL pointer check in ip_vs_sh_get_port()
+  - This sounds worse than it is, it seems to be only a theoretical problem
+
+* Whitepsace cleanup
+
+----------------------------------------------------------------
+Daniel Borkmann (1):
+      ipvs: ip_vs_sh: ip_vs_sh_get_port: check skb_header_pointer for NULL
+
+Dragos Foianu (1):
+      ipvs: fixed spacing at for statements
+
+ net/netfilter/ipvs/ip_vs_lblcr.c | 8 ++++----
+ net/netfilter/ipvs/ip_vs_sh.c    | 6 ++++++
+ 2 files changed, 10 insertions(+), 4 deletions(-)
