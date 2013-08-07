@@ -1,17 +1,17 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 3.11] genetlink: fix family dump race
-Date: Wed,  7 Aug 2013 14:34:14 +0200
-Message-ID: <1375878854-29997-1-git-send-email-johannes@sipsolutions.net>
+Subject: [PATCH v2 3.11] genetlink: fix family dump race
+Date: Wed,  7 Aug 2013 14:39:23 +0200
+Message-ID: <1375879163-2116-1-git-send-email-johannes@sipsolutions.net>
 Cc: Andrei Otcheretianski <andrei.otcheretianski@intel.com>,
 	Ilan Peer <ilan.peer@intel.com>,
 	Johannes Berg <johannes.berg@intel.com>
 To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:59249 "EHLO
+Received: from s3.sipsolutions.net ([144.76.43.152]:59259 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757407Ab3HGMeX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 08:34:23 -0400
+	with ESMTP id S1757433Ab3HGMj1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 08:39:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -54,28 +54,29 @@ Cc: stable@vger.kernel.org
 Reported-by: Andrei Otcheretianski <andrei.otcheretianski@intel.com>
 Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 ---
- net/netlink/genetlink.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ net/netlink/genetlink.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
 diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index 2fd6dbe..07a0b18 100644
+index 2fd6dbe..6b6a03a 100644
 --- a/net/netlink/genetlink.c
 +++ b/net/netlink/genetlink.c
-@@ -790,6 +790,9 @@ static int ctrl_dumpfamily(struct sk_buff *skb, struct netlink_callback *cb)
+@@ -789,6 +789,10 @@ static int ctrl_dumpfamily(struct sk_buff *skb, struct netlink_callback *cb)
+ 	struct net *net = sock_net(skb->sk);
  	int chains_to_skip = cb->args[0];
  	int fams_to_skip = cb->args[1];
- 
-+	if (chains_to_skip)
-+		genl_lock();
++	bool need_locking = chains_to_skip || fams_to_skip;
 +
++	if (need_locking)
++		genl_lock();
+ 
  	for (i = chains_to_skip; i < GENL_FAM_TAB_SIZE; i++) {
  		n = 0;
- 		list_for_each_entry(rt, genl_family_chain(i), family_list) {
-@@ -810,6 +813,9 @@ errout:
+@@ -810,6 +814,9 @@ errout:
  	cb->args[0] = i;
  	cb->args[1] = n;
  
-+	if (chains_to_skip)
++	if (need_locking)
 +		genl_unlock();
 +
  	return skb->len;
