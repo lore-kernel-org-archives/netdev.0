@@ -1,35 +1,41 @@
-From: wangweidong <wangweidong1@huawei.com>
-Subject: [request for stable inclusion] tipc: fix lockdep warning during bearer
- initialization
-Date: Wed, 7 Aug 2013 11:23:08 +0800
-Message-ID: <5201BD9C.4070407@huawei.com>
+From: Jean Sacren <sakiwit@gmail.com>
+Subject: Re: [PATCH net-next 3/3] net: core: fix wrong linkage for ptype_base
+ and ptype_all symbols
+Date: Tue, 6 Aug 2013 22:00:39 -0600
+Message-ID: <20130807040039.GB2274@mail.gmail.com>
+References: <1375774371-831-1-git-send-email-sakiwit@gmail.com>
+ <1375774371-831-3-git-send-email-sakiwit@gmail.com>
+ <5200B01B.9080705@redhat.com>
+ <20130806204508.GA2274@mail.gmail.com>
+ <1375823201.4004.13.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <stable@vger.kernel.org>,
-	<ying.xue@windriver.com>, <jon.maloy@ericsson.com>,
-	<paul.gortmaker@windriver.com>, <dingtianhong@huawei.com>,
-	Li Zefan <lizefan@huawei.com>
-To: <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:35308 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750952Ab3HGECu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 00:02:50 -0400
+Received: by mail-ob0-f178.google.com with SMTP id ef5so2739877obb.23
+        for <netdev@vger.kernel.org>; Tue, 06 Aug 2013 21:02:50 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1375823201.4004.13.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Ying Xue, Jon, Paul or David,
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 06 Aug 2013 14:06:41 -0700
+>
+> On Tue, 2013-08-06 at 14:45 -0600, Jean Sacren wrote:
+> 
+> > I'm sorry to tell you but the patch is correct. Both symbols of
+> > ptype_{base,all} were wrongly declared as extern in net-procfs.c in the
+> > first place.
+> 
+> You are mistaken.
 
-4225a398c1352a7a5c14dc07277cb5cc4473983b
-tipc: fix lockdep warning during bearer initialization
+Sorry for the big mistake.
 
-This looks applicable to stable-3.0/3.2/3.4, that fixed one deadlock. 
-With the tipc-config cmd, I can reproduce that. The deadlock possibly
-occur when the second TIPC bearer is registered, the deadlock can perhaps
-really happen. And this patch works well. But git am or patch -p1 failed,
-because a previous patch [commit 617d3c7a5 (tipc: compress out gratuitous
-extra carriage returns)] deletes some blank lines. With some modifies, it
-was built successful for me. What do you think?
-
-And the bug was fixed in 3.7; The commit got its way into mainline in 3.7
-cycle.
-
-Thanks!
-Wang Weidong
+-- 
+Jean Sacren
