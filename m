@@ -1,69 +1,102 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [Patch net-next] vxlan: fix a soft lockup in vxlan module
- removal
-Date: Wed, 7 Aug 2013 08:31:50 -0700
-Message-ID: <20130807083150.02a3d3c4@nehalam.linuxnetplumber.net>
-References: <1375865002-8732-1-git-send-email-amwang@redhat.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH 1/2] net/usb: hso: allocate URB setup_packets as
+ separate buffers
+Date: Wed, 07 Aug 2013 10:46:47 -0500
+Message-ID: <1375890407.9837.2.camel@dcbw.foobar.com>
+References: <20130807132902.14451.37517.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Cc: netdev@vger.kernel.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-usb@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Jan Dumon <j.dumon@option.com>
+To: Jussi Kivilinna <jussi.kivilinna@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:59108 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753666Ab3HGPbz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 11:31:55 -0400
-Received: by mail-pd0-f174.google.com with SMTP id 10so1513387pdc.5
-        for <netdev@vger.kernel.org>; Wed, 07 Aug 2013 08:31:55 -0700 (PDT)
-In-Reply-To: <1375865002-8732-1-git-send-email-amwang@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:18277 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755215Ab3HGPnk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Aug 2013 11:43:40 -0400
+In-Reply-To: <20130807132902.14451.37517.stgit@localhost6.localdomain6>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed,  7 Aug 2013 16:43:22 +0800
-Cong Wang <amwang@redhat.com> wrote:
+On Wed, 2013-08-07 at 16:29 +0300, Jussi Kivilinna wrote:
+> URB setup packets must not be allocated as part of larger structure because
+> DMA coherence issues.
+> 
+> Patch changes hso to allocate ctrl_req_[tr]x members of 'struct hso_serial'
+> as separate buffers.
+> 
+> Patch is only compile tested.
 
-> From: Cong Wang <amwang@redhat.com>
-> 
-> This is a regression introduced by:
-> 
-> 	commit fe5c3561e6f0ac7c9546209f01351113c1b77ec8
-> 	Author: stephen hemminger <stephen@networkplumber.org>
-> 	Date:   Sat Jul 13 10:18:18 2013 -0700
-> 
-> 	    vxlan: add necessary locking on device removal
-> 
-> The problem is that vxlan_dellink(), which is called with RTNL lock
-> held, tries to flush the workqueue synchronously, but apparently
-> igmp_join and igmp_leave work need to hold RTNL lock too, therefore we
-> have a soft lockup! 
-> 
-> As suggested by Stephen, probably the flush_workqueue can just be
-> removed and let the normal refcounting work. The workqueue has a
-> reference to device and socket, therefore the cleanups should work
-> correctly.
-> 
-> Suggested-by: Stephen Hemminger <stephen@networkplumber.org>
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Cc: David S. Miller <davem@davemloft.net>
-> Tested-by: Cong Wang <amwang@redhat.com>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
-> 
+Tested-by: Dan Williams <dcbw@redhat.com>
+
+> Cc: <stable@vger.kernel.org>
+> Signed-off-by: Jussi Kivilinna <jussi.kivilinna@iki.fi>
 > ---
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 8bf31d9..c51ef9b 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -1837,8 +1837,6 @@ static void vxlan_dellink(struct net_device *dev, struct list_head *head)
->  	struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
->  	struct vxlan_dev *vxlan = netdev_priv(dev);
+>  drivers/net/usb/hso.c |   18 ++++++++++++++----
+>  1 file changed, 14 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+> index cba1d46..fc082c0 100644
+> --- a/drivers/net/usb/hso.c
+> +++ b/drivers/net/usb/hso.c
+> @@ -237,8 +237,8 @@ struct hso_serial {
+>  	u16 tx_data_length;	/* should contain allocated length */
+>  	u16 tx_data_count;
+>  	u16 tx_buffer_count;
+> -	struct usb_ctrlrequest ctrl_req_tx;
+> -	struct usb_ctrlrequest ctrl_req_rx;
+> +	struct usb_ctrlrequest *ctrl_req_tx;
+> +	struct usb_ctrlrequest *ctrl_req_rx;
 >  
-> -	flush_workqueue(vxlan_wq);
-> -
->  	spin_lock(&vn->sock_lock);
->  	hlist_del_rcu(&vxlan->hlist);
->  	spin_unlock(&vn->sock_lock);
-
-Thanks for testing this.
-
-Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+>  	struct usb_endpoint_descriptor *in_endp;
+>  	struct usb_endpoint_descriptor *out_endp;
+> @@ -1847,7 +1847,7 @@ static int hso_mux_serial_read(struct hso_serial *serial)
+>  				  USB_CDC_GET_ENCAPSULATED_RESPONSE,
+>  				  serial->parent->port_spec & HSO_PORT_MASK,
+>  				  serial->rx_urb[0],
+> -				  &serial->ctrl_req_rx,
+> +				  serial->ctrl_req_rx,
+>  				  serial->rx_data[0], serial->rx_data_length);
+>  }
+>  
+> @@ -1916,7 +1916,7 @@ static int hso_mux_serial_write_data(struct hso_serial *serial)
+>  				  USB_CDC_SEND_ENCAPSULATED_COMMAND,
+>  				  serial->parent->port_spec & HSO_PORT_MASK,
+>  				  serial->tx_urb,
+> -				  &serial->ctrl_req_tx,
+> +				  serial->ctrl_req_tx,
+>  				  serial->tx_data, serial->tx_data_count);
+>  }
+>  
+> @@ -2264,6 +2264,10 @@ static void hso_serial_common_free(struct hso_serial *serial)
+>  	usb_free_urb(serial->tx_urb);
+>  	kfree(serial->tx_data);
+>  	tty_port_destroy(&serial->port);
+> +
+> +	/* free control URB setup packet buffers */
+> +	kfree(serial->ctrl_req_tx);
+> +	kfree(serial->ctrl_req_rx);
+>  }
+>  
+>  static int hso_serial_common_create(struct hso_serial *serial, int num_urbs,
+> @@ -2292,6 +2296,12 @@ static int hso_serial_common_create(struct hso_serial *serial, int num_urbs,
+>  	spin_lock_init(&serial->serial_lock);
+>  	serial->num_rx_urbs = num_urbs;
+>  
+> +	/* allocate control URB setup packet buffers */
+> +	serial->ctrl_req_tx = kzalloc(sizeof(*serial->ctrl_req_tx), GFP_KERNEL);
+> +	serial->ctrl_req_rx = kzalloc(sizeof(*serial->ctrl_req_rx), GFP_KERNEL);
+> +	if (!serial->ctrl_req_tx || !serial->ctrl_req_rx)
+> +		goto exit;
+> +
+>  	/* RX, allocate urb and initialize */
+>  
+>  	/* prepare our RX buffer */
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
