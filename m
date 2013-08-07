@@ -1,54 +1,46 @@
-From: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [Patch net-next v2 5/8] sunrpc: use generic union inet_addr
-Date: Wed, 07 Aug 2013 20:27:26 +0800
-Message-ID: <1375878446.11370.36.camel@cr0>
-References: <1375427674-21735-1-git-send-email-amwang@redhat.com>
-	 <1375427674-21735-6-git-send-email-amwang@redhat.com>
-	 <20130802093625.2c70a330@tlielax.poochiereds.net>
-	 <1375672445.32485.8.camel@cr0>
-	 <20130806062801.67714276@tlielax.poochiereds.net>
+From: "WilliT" <drug@centrum-group.com>
+Subject: Mail Back If Interested!
+Date: Wed, 7 Aug 2013 16:14:33 +0300 (EEST)
+Message-ID: <54021.89.7.18.101.1375881273.squirrel@mail1.centrum-group.com>
+Reply-To: willitenisch@hotmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20130806062801.67714276-9yPaYZwiELC+kQycOl6kW4xkIHaj4LzF@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;charset=WINDOWS-1251
+Content-Transfer-Encoding: 8bit
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.centrum-group.com ([194.12.254.133]:48166 "EHLO
+	mail1.centrum-group.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932699Ab3HGMbh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 08:31:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-08-06 at 06:28 -0400, Jeff Layton wrote:
-> 
-> My question is a bit more fundamental: Why are you using this new union
-> in your patches instead of simply passing around "struct sockaddr"
-> pointers? If you did that, then you could simply replace all of the
-> rpc_* wrappers with your generic ones, since you wouldn't need to do
-> the cast to this (seemingly unnecessary) union.
+Good Day,
 
-Because there are some places have to interpret the structure, without
-this union, they need to cast to either sockaddr_in or sockaddr_in6
-first, which is not as pretty as using a union.
+RE:INVESTMENT / BUSINESS PARTNERSHIP PROPOSAL.
 
-For example, the code in netpoll:
+I represent a group of company based in the Gulf Region with access to
+over 270 Million Euros and we are seeking means of expanding and
+relocating our business interest abroad in the following sectors: oil/Gas,
+banking, real estate, stock speculation and mining, transportation, health
+sector and tobacco, Communication Services, Agriculture Forestry &
+Fishing, thus any sector.
 
-ipv6_addr_equal(daddr, &np->local_ip.sin6.sin6_addr)
+If you have a solid background and idea of making good profit in any of
+the mentioned business sectors or any other business in your country,
+Please write me for possible business co-operation. More so, we are ready
+to facilitate and fund any business that is capable of generating 10%
+annual return on investment (AROI) Joint Venture partnership and Hard loan
+funding can also be considered.
 
-without the union, it would be:
+I am confident that you will give your consideration to this proposal and
+respond positively within a short period of time. I am available to
+discuss this proposal with you and to answer any questions you may have in
+regard to this investment. As soon as you give your positive response  to
+this proposal, I will not hesitate in sending you the details information
+of this great investment partnership opportunity. Email contact:
 
-struct sockaddr_in6 *addr = (struct sockaddr_in6 *) &np->local_ip;
-ipv6_addr_equal(daddr, addr->sin6_addr);
+I look forward to discussing this opportunity further with you.
 
-> 
-> FWIW, I too am happy to see these routines moved to common code. I just
-> wonder whether it might make more sense to use the existing convention
-> instead of this new union.
-> 
-
-Thanks.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Sincerely,
+Willi Tenisch
