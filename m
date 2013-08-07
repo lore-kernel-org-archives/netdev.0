@@ -1,28 +1,27 @@
 From: Jussi Kivilinna <jussi.kivilinna@iki.fi>
-Subject: [PATCH 2/2] net/usb: catc: allocate URB transfer_buffers as
- separate buffers
-Date: Wed, 07 Aug 2013 16:26:34 +0300
-Message-ID: <20130807132634.14001.85339.stgit@localhost6.localdomain6>
-References: <20130807132629.14001.2370.stgit@localhost6.localdomain6>
+Subject: [PATCH 1/2] net/usb: hso: allocate URB setup_packets as separate
+ buffers
+Date: Wed, 07 Aug 2013 16:29:02 +0300
+Message-ID: <20130807132902.14451.37517.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-usb@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+	linux-usb@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Jan Dumon <j.dumon@option.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from saarni.dnainternet.net ([83.102.40.136]:48082 "EHLO
-	saarni.dnainternet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932921Ab3HGN0l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 09:26:41 -0400
-In-Reply-To: <20130807132629.14001.2370.stgit@localhost6.localdomain6>
+Received: from sirokuusama.dnainternet.net ([83.102.40.133]:49573 "EHLO
+	sirokuusama.dnainternet.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933018Ab3HGN3M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 09:29:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-URB transfer_buffer must not be allocated as part of larger structure
-because DMA coherence issues.
+URB setup packets must not be allocated as part of larger structure because
+DMA coherence issues.
 
-Patch changes catc to allocate tx_buf, rx_buf, irq_buf and ctrl_buf members
+Patch changes hso to allocate ctrl_req_[tr]x members of 'struct hso_serial'
 as separate buffers.
 
 Patch is only compile tested.
@@ -30,70 +29,63 @@ Patch is only compile tested.
 Cc: <stable@vger.kernel.org>
 Signed-off-by: Jussi Kivilinna <jussi.kivilinna@iki.fi>
 ---
- drivers/net/usb/catc.c |   30 +++++++++++++++++++++++-------
- 1 file changed, 23 insertions(+), 7 deletions(-)
+ drivers/net/usb/hso.c |   18 ++++++++++++++----
+ 1 file changed, 14 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/usb/catc.c b/drivers/net/usb/catc.c
-index a7d3c1b..26039d6 100644
---- a/drivers/net/usb/catc.c
-+++ b/drivers/net/usb/catc.c
-@@ -169,10 +169,10 @@ struct catc {
- 	unsigned int ctrl_head, ctrl_tail;
- 	spinlock_t tx_lock, ctrl_lock;
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index cba1d46..fc082c0 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -237,8 +237,8 @@ struct hso_serial {
+ 	u16 tx_data_length;	/* should contain allocated length */
+ 	u16 tx_data_count;
+ 	u16 tx_buffer_count;
+-	struct usb_ctrlrequest ctrl_req_tx;
+-	struct usb_ctrlrequest ctrl_req_rx;
++	struct usb_ctrlrequest *ctrl_req_tx;
++	struct usb_ctrlrequest *ctrl_req_rx;
  
--	u8 tx_buf[2][TX_MAX_BURST * (PKT_SZ + 2)];
--	u8 rx_buf[RX_MAX_BURST * (PKT_SZ + 2)];
--	u8 irq_buf[2];
--	u8 ctrl_buf[64];
-+	u8 *tx_buf[2];
-+	u8 *rx_buf;
-+	u8 *irq_buf;
-+	u8 *ctrl_buf;
- 	struct usb_ctrlrequest *ctrl_dr;
+ 	struct usb_endpoint_descriptor *in_endp;
+ 	struct usb_endpoint_descriptor *out_endp;
+@@ -1847,7 +1847,7 @@ static int hso_mux_serial_read(struct hso_serial *serial)
+ 				  USB_CDC_GET_ENCAPSULATED_RESPONSE,
+ 				  serial->parent->port_spec & HSO_PORT_MASK,
+ 				  serial->rx_urb[0],
+-				  &serial->ctrl_req_rx,
++				  serial->ctrl_req_rx,
+ 				  serial->rx_data[0], serial->rx_data_length);
+ }
  
- 	struct timer_list timer;
-@@ -794,9 +794,15 @@ static int catc_probe(struct usb_interface *intf, const struct usb_device_id *id
- 	catc = netdev_priv(netdev);
+@@ -1916,7 +1916,7 @@ static int hso_mux_serial_write_data(struct hso_serial *serial)
+ 				  USB_CDC_SEND_ENCAPSULATED_COMMAND,
+ 				  serial->parent->port_spec & HSO_PORT_MASK,
+ 				  serial->tx_urb,
+-				  &serial->ctrl_req_tx,
++				  serial->ctrl_req_tx,
+ 				  serial->tx_data, serial->tx_data_count);
+ }
  
- 	catc->ctrl_dr = kzalloc(sizeof(*catc->ctrl_dr), GFP_KERNEL);
--	if (!catc->ctrl_dr) {
-+	catc->tx_buf[0] = kzalloc(TX_MAX_BURST * (PKT_SZ + 2), GFP_KERNEL);
-+	catc->tx_buf[1] = kzalloc(TX_MAX_BURST * (PKT_SZ + 2), GFP_KERNEL);
-+	catc->rx_buf = kzalloc(RX_MAX_BURST * (PKT_SZ + 2), GFP_KERNEL);
-+	catc->irq_buf = kzalloc(2, GFP_KERNEL);
-+	catc->ctrl_buf = kzalloc(64, GFP_KERNEL);
-+	if (!catc->ctrl_dr || !catc->ctrl_buf || !catc->tx_buf[0] ||
-+	    !catc->tx_buf[1] || !catc->rx_buf || !catc->irq_buf) {
- 		err = -ENOMEM;
--		goto err_free_dev;
-+		goto err_free_buf;
- 	}
+@@ -2264,6 +2264,10 @@ static void hso_serial_common_free(struct hso_serial *serial)
+ 	usb_free_urb(serial->tx_urb);
+ 	kfree(serial->tx_data);
+ 	tty_port_destroy(&serial->port);
++
++	/* free control URB setup packet buffers */
++	kfree(serial->ctrl_req_tx);
++	kfree(serial->ctrl_req_rx);
+ }
  
- 	netdev->netdev_ops = &catc_netdev_ops;
-@@ -930,8 +936,13 @@ err_free:
- 	usb_free_urb(catc->tx_urb);
- 	usb_free_urb(catc->rx_urb);
- 	usb_free_urb(catc->irq_urb);
-+err_free_buf:
-+	kfree(catc->ctrl_buf);
-+	kfree(catc->irq_buf);
-+	kfree(catc->rx_buf);
-+	kfree(catc->tx_buf[1]);
-+	kfree(catc->tx_buf[0]);
- 	kfree(catc->ctrl_dr);
--err_free_dev:
- 	free_netdev(netdev);
+ static int hso_serial_common_create(struct hso_serial *serial, int num_urbs,
+@@ -2292,6 +2296,12 @@ static int hso_serial_common_create(struct hso_serial *serial, int num_urbs,
+ 	spin_lock_init(&serial->serial_lock);
+ 	serial->num_rx_urbs = num_urbs;
  
- 	return err;
-@@ -948,6 +959,11 @@ static void catc_disconnect(struct usb_interface *intf)
- 		usb_free_urb(catc->tx_urb);
- 		usb_free_urb(catc->rx_urb);
- 		usb_free_urb(catc->irq_urb);
-+		kfree(catc->ctrl_buf);
-+		kfree(catc->irq_buf);
-+		kfree(catc->rx_buf);
-+		kfree(catc->tx_buf[1]);
-+		kfree(catc->tx_buf[0]);
- 		kfree(catc->ctrl_dr);
- 		free_netdev(catc->netdev);
- 	}
++	/* allocate control URB setup packet buffers */
++	serial->ctrl_req_tx = kzalloc(sizeof(*serial->ctrl_req_tx), GFP_KERNEL);
++	serial->ctrl_req_rx = kzalloc(sizeof(*serial->ctrl_req_rx), GFP_KERNEL);
++	if (!serial->ctrl_req_tx || !serial->ctrl_req_rx)
++		goto exit;
++
+ 	/* RX, allocate urb and initialize */
+ 
+ 	/* prepare our RX buffer */
