@@ -1,70 +1,56 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [GIT PULL 1/2] ipvs: fixed spacing at for statements
-Date: Wed,  7 Aug 2013 17:40:28 +0900
-Message-ID: <1375864829-19840-2-git-send-email-horms@verge.net.au>
-References: <1375864829-19840-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Dragos Foianu <dragos.foianu@gmail.com>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1375864829-19840-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next] vxlan: fix a soft lockup in vxlan module removal
+Date: Wed,  7 Aug 2013 16:43:22 +0800
+Message-ID: <1375865002-8732-1-git-send-email-amwang@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:26401 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756023Ab3HGInc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Aug 2013 04:43:32 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dragos Foianu <dragos.foianu@gmail.com>
+From: Cong Wang <amwang@redhat.com>
 
-found using checkpatch.pl
+This is a regression introduced by:
 
-Signed-off-by: Dragos Foianu <dragos.foianu@gmail.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+	commit fe5c3561e6f0ac7c9546209f01351113c1b77ec8
+	Author: stephen hemminger <stephen@networkplumber.org>
+	Date:   Sat Jul 13 10:18:18 2013 -0700
+
+	    vxlan: add necessary locking on device removal
+
+The problem is that vxlan_dellink(), which is called with RTNL lock
+held, tries to flush the workqueue synchronously, but apparently
+igmp_join and igmp_leave work need to hold RTNL lock too, therefore we
+have a soft lockup! 
+
+As suggested by Stephen, probably the flush_workqueue can just be
+removed and let the normal refcounting work. The workqueue has a
+reference to device and socket, therefore the cleanups should work
+correctly.
+
+Suggested-by: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: David S. Miller <davem@davemloft.net>
+Tested-by: Cong Wang <amwang@redhat.com>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+
 ---
- net/netfilter/ipvs/ip_vs_lblcr.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
-index 3cd85b2..5199448 100644
---- a/net/netfilter/ipvs/ip_vs_lblcr.c
-+++ b/net/netfilter/ipvs/ip_vs_lblcr.c
-@@ -414,7 +414,7 @@ static void ip_vs_lblcr_flush(struct ip_vs_service *svc)
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 8bf31d9..c51ef9b 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1837,8 +1837,6 @@ static void vxlan_dellink(struct net_device *dev, struct list_head *head)
+ 	struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
+ 	struct vxlan_dev *vxlan = netdev_priv(dev);
  
- 	spin_lock_bh(&svc->sched_lock);
- 	tbl->dead = 1;
--	for (i=0; i<IP_VS_LBLCR_TAB_SIZE; i++) {
-+	for (i = 0; i < IP_VS_LBLCR_TAB_SIZE; i++) {
- 		hlist_for_each_entry_safe(en, next, &tbl->bucket[i], list) {
- 			ip_vs_lblcr_free(en);
- 		}
-@@ -440,7 +440,7 @@ static inline void ip_vs_lblcr_full_check(struct ip_vs_service *svc)
- 	struct ip_vs_lblcr_entry *en;
- 	struct hlist_node *next;
- 
--	for (i=0, j=tbl->rover; i<IP_VS_LBLCR_TAB_SIZE; i++) {
-+	for (i = 0, j = tbl->rover; i < IP_VS_LBLCR_TAB_SIZE; i++) {
- 		j = (j + 1) & IP_VS_LBLCR_TAB_MASK;
- 
- 		spin_lock(&svc->sched_lock);
-@@ -495,7 +495,7 @@ static void ip_vs_lblcr_check_expire(unsigned long data)
- 	if (goal > tbl->max_size/2)
- 		goal = tbl->max_size/2;
- 
--	for (i=0, j=tbl->rover; i<IP_VS_LBLCR_TAB_SIZE; i++) {
-+	for (i = 0, j = tbl->rover; i < IP_VS_LBLCR_TAB_SIZE; i++) {
- 		j = (j + 1) & IP_VS_LBLCR_TAB_MASK;
- 
- 		spin_lock(&svc->sched_lock);
-@@ -536,7 +536,7 @@ static int ip_vs_lblcr_init_svc(struct ip_vs_service *svc)
- 	/*
- 	 *    Initialize the hash buckets
- 	 */
--	for (i=0; i<IP_VS_LBLCR_TAB_SIZE; i++) {
-+	for (i = 0; i < IP_VS_LBLCR_TAB_SIZE; i++) {
- 		INIT_HLIST_HEAD(&tbl->bucket[i]);
- 	}
- 	tbl->max_size = IP_VS_LBLCR_TAB_SIZE*16;
--- 
-1.8.3.2
-
+-	flush_workqueue(vxlan_wq);
+-
+ 	spin_lock(&vn->sock_lock);
+ 	hlist_del_rcu(&vxlan->hlist);
+ 	spin_unlock(&vn->sock_lock);
