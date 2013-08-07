@@ -1,41 +1,70 @@
-From: Jean Sacren <sakiwit@gmail.com>
-Subject: Re: [PATCH net-next 3/3] net: core: fix wrong linkage for ptype_base
- and ptype_all symbols
-Date: Tue, 6 Aug 2013 22:00:39 -0600
-Message-ID: <20130807040039.GB2274@mail.gmail.com>
-References: <1375774371-831-1-git-send-email-sakiwit@gmail.com>
- <1375774371-831-3-git-send-email-sakiwit@gmail.com>
- <5200B01B.9080705@redhat.com>
- <20130806204508.GA2274@mail.gmail.com>
- <1375823201.4004.13.camel@edumazet-glaptop>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: A soft lockup in vxlan module
+Date: Tue, 6 Aug 2013 21:13:47 -0700
+Message-ID: <20130806211347.44c14755@nehalam.linuxnetplumber.net>
+References: <1375838634.11370.13.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:35308 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750952Ab3HGECu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 00:02:50 -0400
-Received: by mail-ob0-f178.google.com with SMTP id ef5so2739877obb.23
-        for <netdev@vger.kernel.org>; Tue, 06 Aug 2013 21:02:50 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1375823201.4004.13.camel@edumazet-glaptop>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:48622 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753081Ab3HGENx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 00:13:53 -0400
+Received: by mail-pb0-f52.google.com with SMTP id wz12so1363568pbc.11
+        for <netdev@vger.kernel.org>; Tue, 06 Aug 2013 21:13:52 -0700 (PDT)
+In-Reply-To: <1375838634.11370.13.camel@cr0>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 06 Aug 2013 14:06:41 -0700
->
-> On Tue, 2013-08-06 at 14:45 -0600, Jean Sacren wrote:
-> 
-> > I'm sorry to tell you but the patch is correct. Both symbols of
-> > ptype_{base,all} were wrongly declared as extern in net-procfs.c in the
-> > first place.
-> 
-> You are mistaken.
+On Wed, 07 Aug 2013 09:23:54 +0800
+Cong Wang <amwang@redhat.com> wrote:
 
-Sorry for the big mistake.
+> Hi, Stephen
+> 
+> You introduced a soft lockup in vxlan module in
+> 
+> commit fe5c3561e6f0ac7c9546209f01351113c1b77ec8
+> Author: stephen hemminger <stephen@networkplumber.org>
+> Date:   Sat Jul 13 10:18:18 2013 -0700
+> 
+>     vxlan: add necessary locking on device removal
+> 
+> The problem is that vxlan_dellink(), which is called with RTNL lock
+> held, tries to flush the workqueue synchronously, but apparently
+> igmp_join and igmp_leave work need to hold RTNL lock too, therefore we
+> have a soft lockup! This is 100% reproducible on my 2.6.32 backport
+> while running `modprobe -r vxlan`.
+> 
+> A quick but perhaps ugly fix is just releasing RTNL lock before calling
+> flush_workqueue():
+> 
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index 8bf31d9..581d3d5 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -1837,7 +1837,9 @@ static void vxlan_dellink(struct net_device *dev,
+> struct list_head *head)
+>         struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
+>         struct vxlan_dev *vxlan = netdev_priv(dev);
+>  
+> +       rtnl_unlock();
+>         flush_workqueue(vxlan_wq);
+> +       rtnl_lock();
+>  
+>         spin_lock(&vn->sock_lock);
+>         hlist_del_rcu(&vxlan->hlist);
+> 
+> However, I think a better way is still what I did, that is, removing
+> RTNL lock from ip_mc_join_group() and ip_mc_leave_group().
+> 
+> What do you think? Any other idea to fix it?
+> 
+> Thanks.
+> 
 
--- 
-Jean Sacren
+Probably the flush_workqueue can just be removed and let the normal
+refcounting work. The workqueue has a reference to device and socket,
+therefore the cleanups should work correctly.
