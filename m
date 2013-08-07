@@ -1,1281 +1,602 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 1/5] netfilter: nf_conntrack: make sequence number adjustments usuable without NAT
-Date: Wed,  7 Aug 2013 19:42:47 +0200
-Message-ID: <1375897371-18430-2-git-send-email-kaber@trash.net>
-References: <1375897371-18430-1-git-send-email-kaber@trash.net>
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	mph@one.com, jesper.brouer@gmail.com, as@one.com
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1375897371-18430-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Kent Overstreet <kmo-PEzghdH756F8UrSeD/g0lQ@public.gmane.org>
+Subject: [PATCH 09/10] idr: Remove unneeded idr locking, idr_preload() usage
+Date: Wed,  7 Aug 2013 10:46:18 -0700
+Message-ID: <1375897579-8202-9-git-send-email-kmo@daterainc.com>
+References: <1375896905-6074-1-git-send-email-kmo@daterainc.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Airlie <airlied-cv59FeDIM0c@public.gmane.org>, Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	=?UTF-8?q?Kai=20M=C3=A4kisara?= <Kai.Makisara-9Aww8k/80nUxHbG02/KK1g@public.gmane.org>,
+	dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>, Alasdair Kergon <agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alon Levy <alevy-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Dave Airlie <airlied-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	osst-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, Chris Ball <cjb-2X9k7bc8m7Mdnm+yROfE0A@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Alex Dubov <oakad-/E1597aS9LQAvxtiuMwx3w@public.gmane.org>,
+	Kent Overstreet <kmo-PEzghdH756F8UrSeD/g0lQ@public.gmane.org>,
+	"Nicholas A. Bellinger" <nab-IzHhD5pYlfBP7FQvKIMDCQ@public.gmane.org>,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Greg K
+To: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1375896905-6074-1-git-send-email-kmo-PEzghdH756F8UrSeD/g0lQ@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Split out sequence number adjustments from NAT and move them to the conntrack
-core to make them usable for SYN proxying. The sequence number adjustment
-information is moved to a seperate extend. The extend is added to new
-conntracks when a NAT mapping is set up for a connection using a helper.
-
-As a side effect, this saves 24 bytes per connection with NAT in the common
-case that a connection does not have a helper assigned.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
----
- include/linux/netfilter.h                          |   9 +-
- include/net/netfilter/nf_conntrack_extend.h        |   2 +
- include/net/netfilter/nf_conntrack_seqadj.h        |  49 +++++
- include/net/netfilter/nf_nat.h                     |  10 -
- include/net/netfilter/nf_nat_helper.h              |  19 --
- include/uapi/linux/netfilter/nf_conntrack_common.h |   3 +-
- include/uapi/linux/netfilter/nfnetlink_conntrack.h |  15 +-
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c     |   7 +-
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c     |   7 +-
- net/netfilter/Makefile                             |   2 +-
- net/netfilter/nf_conntrack_core.c                  |  16 +-
- net/netfilter/nf_conntrack_netlink.c               | 115 +++++------
- net/netfilter/nf_conntrack_proto_tcp.c             |  18 +-
- net/netfilter/nf_conntrack_seqadj.c                | 218 ++++++++++++++++++++
- net/netfilter/nf_nat_core.c                        |  16 +-
- net/netfilter/nf_nat_helper.c                      | 228 +--------------------
- net/netfilter/nf_nat_sip.c                         |   3 +-
- net/netfilter/nfnetlink_queue_ct.c                 |   8 +-
- 18 files changed, 369 insertions(+), 376 deletions(-)
- create mode 100644 include/net/netfilter/nf_conntrack_seqadj.h
- create mode 100644 net/netfilter/nf_conntrack_seqadj.c
-
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index 655d5d1..c6cbbf1 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -319,20 +319,17 @@ extern void nf_ct_attach(struct sk_buff *, const struct sk_buff *);
- extern void (*nf_ct_destroy)(struct nf_conntrack *) __rcu;
- 
- struct nf_conn;
-+enum ip_conntrack_info;
- struct nlattr;
- 
- struct nfq_ct_hook {
- 	size_t (*build_size)(const struct nf_conn *ct);
- 	int (*build)(struct sk_buff *skb, struct nf_conn *ct);
- 	int (*parse)(const struct nlattr *attr, struct nf_conn *ct);
--};
--extern struct nfq_ct_hook __rcu *nfq_ct_hook;
--
--struct nfq_ct_nat_hook {
- 	void (*seq_adjust)(struct sk_buff *skb, struct nf_conn *ct,
--			   u32 ctinfo, s32 off);
-+			   enum ip_conntrack_info ctinfo, s32 off);
- };
--extern struct nfq_ct_nat_hook __rcu *nfq_ct_nat_hook;
-+extern struct nfq_ct_hook __rcu *nfq_ct_hook;
- #else
- static inline void nf_ct_attach(struct sk_buff *new, struct sk_buff *skb) {}
- #endif
-diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
-index 977bc8a..2a22bcb 100644
---- a/include/net/netfilter/nf_conntrack_extend.h
-+++ b/include/net/netfilter/nf_conntrack_extend.h
-@@ -9,6 +9,7 @@ enum nf_ct_ext_id {
- 	NF_CT_EXT_HELPER,
- #if defined(CONFIG_NF_NAT) || defined(CONFIG_NF_NAT_MODULE)
- 	NF_CT_EXT_NAT,
-+	NF_CT_EXT_SEQADJ,
- #endif
- 	NF_CT_EXT_ACCT,
- #ifdef CONFIG_NF_CONNTRACK_EVENTS
-@@ -31,6 +32,7 @@ enum nf_ct_ext_id {
- 
- #define NF_CT_EXT_HELPER_TYPE struct nf_conn_help
- #define NF_CT_EXT_NAT_TYPE struct nf_conn_nat
-+#define NF_CT_EXT_SEQADJ_TYPE struct nf_conn_seqadj
- #define NF_CT_EXT_ACCT_TYPE struct nf_conn_counter
- #define NF_CT_EXT_ECACHE_TYPE struct nf_conntrack_ecache
- #define NF_CT_EXT_ZONE_TYPE struct nf_conntrack_zone
-diff --git a/include/net/netfilter/nf_conntrack_seqadj.h b/include/net/netfilter/nf_conntrack_seqadj.h
-new file mode 100644
-index 0000000..30bfbbe
---- /dev/null
-+++ b/include/net/netfilter/nf_conntrack_seqadj.h
-@@ -0,0 +1,49 @@
-+#ifndef _NF_CONNTRACK_SEQADJ_H
-+#define _NF_CONNTRACK_SEQADJ_H
-+
-+#include <net/netfilter/nf_conntrack_extend.h>
-+
-+/**
-+ * struct nf_ct_seqadj - sequence number adjustment information
-+ *
-+ * @correction_pos: position of the last TCP sequence number modification
-+ * @offset_before: sequence number offset before last modification
-+ * @offset_after: sequence number offset after last modification
-+ */
-+struct nf_ct_seqadj {
-+	u32		correction_pos;
-+	s32		offset_before;
-+	s32		offset_after;
-+};
-+
-+struct nf_conn_seqadj {
-+	struct nf_ct_seqadj	seq[IP_CT_DIR_MAX];
-+};
-+
-+static inline struct nf_conn_seqadj *nfct_seqadj(const struct nf_conn *ct)
-+{
-+	return nf_ct_ext_find(ct, NF_CT_EXT_SEQADJ);
-+}
-+
-+static inline struct nf_conn_seqadj *nfct_seqadj_ext_add(struct nf_conn *ct)
-+{
-+	return nf_ct_ext_add(ct, NF_CT_EXT_SEQADJ, GFP_ATOMIC);
-+}
-+
-+extern int nf_ct_seqadj_set(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
-+			    __be32 seq, s32 off);
-+extern void nf_ct_tcp_seqadj_set(struct sk_buff *skb,
-+				 struct nf_conn *ct,
-+				 enum ip_conntrack_info ctinfo,
-+				 s32 off);
-+
-+extern int nf_ct_seq_adjust(struct sk_buff *skb,
-+			    struct nf_conn *ct, enum ip_conntrack_info ctinfo,
-+			    unsigned int protoff);
-+extern s32 nf_ct_seq_offset(const struct nf_conn *ct, enum ip_conntrack_dir,
-+			    u32 seq);
-+
-+extern int nf_conntrack_seqadj_init(void);
-+extern void nf_conntrack_seqadj_fini(void);
-+
-+#endif /* _NF_CONNTRACK_SEQADJ_H */
-diff --git a/include/net/netfilter/nf_nat.h b/include/net/netfilter/nf_nat.h
-index e244141..59a1924 100644
---- a/include/net/netfilter/nf_nat.h
-+++ b/include/net/netfilter/nf_nat.h
-@@ -13,15 +13,6 @@ enum nf_nat_manip_type {
- #define HOOK2MANIP(hooknum) ((hooknum) != NF_INET_POST_ROUTING && \
- 			     (hooknum) != NF_INET_LOCAL_IN)
- 
--/* NAT sequence number modifications */
--struct nf_nat_seq {
--	/* position of the last TCP sequence number modification (if any) */
--	u_int32_t correction_pos;
--
--	/* sequence number offset before and after last modification */
--	int32_t offset_before, offset_after;
--};
--
- #include <linux/list.h>
- #include <linux/netfilter/nf_conntrack_pptp.h>
- #include <net/netfilter/nf_conntrack_extend.h>
-@@ -39,7 +30,6 @@ struct nf_conn;
- /* The structure embedded in the conntrack structure. */
- struct nf_conn_nat {
- 	struct hlist_node bysource;
--	struct nf_nat_seq seq[IP_CT_DIR_MAX];
- 	struct nf_conn *ct;
- 	union nf_conntrack_nat_help help;
- #if defined(CONFIG_IP_NF_TARGET_MASQUERADE) || \
-diff --git a/include/net/netfilter/nf_nat_helper.h b/include/net/netfilter/nf_nat_helper.h
-index 194c347..404324d 100644
---- a/include/net/netfilter/nf_nat_helper.h
-+++ b/include/net/netfilter/nf_nat_helper.h
-@@ -39,28 +39,9 @@ extern int nf_nat_mangle_udp_packet(struct sk_buff *skb,
- 				    const char *rep_buffer,
- 				    unsigned int rep_len);
- 
--extern void nf_nat_set_seq_adjust(struct nf_conn *ct,
--				  enum ip_conntrack_info ctinfo,
--				  __be32 seq, s32 off);
--extern int nf_nat_seq_adjust(struct sk_buff *skb,
--			     struct nf_conn *ct,
--			     enum ip_conntrack_info ctinfo,
--			     unsigned int protoff);
--extern int (*nf_nat_seq_adjust_hook)(struct sk_buff *skb,
--				     struct nf_conn *ct,
--				     enum ip_conntrack_info ctinfo,
--				     unsigned int protoff);
--
- /* Setup NAT on this expected conntrack so it follows master, but goes
-  * to port ct->master->saved_proto. */
- extern void nf_nat_follow_master(struct nf_conn *ct,
- 				 struct nf_conntrack_expect *this);
- 
--extern s32 nf_nat_get_offset(const struct nf_conn *ct,
--			     enum ip_conntrack_dir dir,
--			     u32 seq);
--
--extern void nf_nat_tcp_seq_adjust(struct sk_buff *skb, struct nf_conn *ct,
--				  u32 dir, s32 off);
--
- #endif
-diff --git a/include/uapi/linux/netfilter/nf_conntrack_common.h b/include/uapi/linux/netfilter/nf_conntrack_common.h
-index d69483f..8dd8038 100644
---- a/include/uapi/linux/netfilter/nf_conntrack_common.h
-+++ b/include/uapi/linux/netfilter/nf_conntrack_common.h
-@@ -99,7 +99,8 @@ enum ip_conntrack_events {
- 	IPCT_PROTOINFO,		/* protocol information has changed */
- 	IPCT_HELPER,		/* new helper has been set */
- 	IPCT_MARK,		/* new mark has been set */
--	IPCT_NATSEQADJ,		/* NAT is doing sequence adjustment */
-+	IPCT_SEQADJ,		/* sequence adjustment has changed */
-+	IPCT_NATSEQADJ = IPCT_SEQADJ,
- 	IPCT_SECMARK,		/* new security mark has been set */
- 	IPCT_LABEL,		/* new connlabel has been set */
- };
-diff --git a/include/uapi/linux/netfilter/nfnetlink_conntrack.h b/include/uapi/linux/netfilter/nfnetlink_conntrack.h
-index 08fabc6..acad6c5 100644
---- a/include/uapi/linux/netfilter/nfnetlink_conntrack.h
-+++ b/include/uapi/linux/netfilter/nfnetlink_conntrack.h
-@@ -42,8 +42,10 @@ enum ctattr_type {
- 	CTA_ID,
- 	CTA_NAT_DST,
- 	CTA_TUPLE_MASTER,
--	CTA_NAT_SEQ_ADJ_ORIG,
--	CTA_NAT_SEQ_ADJ_REPLY,
-+	CTA_SEQ_ADJ_ORIG,
-+	CTA_NAT_SEQ_ADJ_ORIG	= CTA_SEQ_ADJ_ORIG,
-+	CTA_SEQ_ADJ_REPLY,
-+	CTA_NAT_SEQ_ADJ_REPLY	= CTA_SEQ_ADJ_REPLY,
- 	CTA_SECMARK,		/* obsolete */
- 	CTA_ZONE,
- 	CTA_SECCTX,
-@@ -165,6 +167,15 @@ enum ctattr_protonat {
- };
- #define CTA_PROTONAT_MAX (__CTA_PROTONAT_MAX - 1)
- 
-+enum ctattr_seqadj {
-+	CTA_SEQADJ_UNSPEC,
-+	CTA_SEQADJ_CORRECTION_POS,
-+	CTA_SEQADJ_OFFSET_BEFORE,
-+	CTA_SEQADJ_OFFSET_AFTER,
-+	__CTA_SEQADJ_MAX
-+};
-+#define CTA_SEQADJ_MAX (__CTA_SEQADJ_MAX - 1)
-+
- enum ctattr_natseq {
- 	CTA_NAT_SEQ_UNSPEC,
- 	CTA_NAT_SEQ_CORRECTION_POS,
-diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-index 0a2e0e3..86f5b34 100644
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-@@ -25,6 +25,7 @@
- #include <net/netfilter/nf_conntrack_l3proto.h>
- #include <net/netfilter/nf_conntrack_zones.h>
- #include <net/netfilter/nf_conntrack_core.h>
-+#include <net/netfilter/nf_conntrack_seqadj.h>
- #include <net/netfilter/ipv4/nf_conntrack_ipv4.h>
- #include <net/netfilter/nf_nat_helper.h>
- #include <net/netfilter/ipv4/nf_defrag_ipv4.h>
-@@ -136,11 +137,7 @@ static unsigned int ipv4_confirm(unsigned int hooknum,
- 	/* adjust seqs for loopback traffic only in outgoing direction */
- 	if (test_bit(IPS_SEQ_ADJUST_BIT, &ct->status) &&
- 	    !nf_is_loopback_packet(skb)) {
--		typeof(nf_nat_seq_adjust_hook) seq_adjust;
--
--		seq_adjust = rcu_dereference(nf_nat_seq_adjust_hook);
--		if (!seq_adjust ||
--		    !seq_adjust(skb, ct, ctinfo, ip_hdrlen(skb))) {
-+		if (!nf_ct_seq_adjust(skb, ct, ctinfo, ip_hdrlen(skb))) {
- 			NF_CT_STAT_INC_ATOMIC(nf_ct_net(ct), drop);
- 			return NF_DROP;
- 		}
-diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index c9b6a6e..d6e4dd8 100644
---- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -28,6 +28,7 @@
- #include <net/netfilter/nf_conntrack_l3proto.h>
- #include <net/netfilter/nf_conntrack_core.h>
- #include <net/netfilter/nf_conntrack_zones.h>
-+#include <net/netfilter/nf_conntrack_seqadj.h>
- #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>
- #include <net/netfilter/nf_nat_helper.h>
- #include <net/netfilter/ipv6/nf_defrag_ipv6.h>
-@@ -158,11 +159,7 @@ static unsigned int ipv6_confirm(unsigned int hooknum,
- 	/* adjust seqs for loopback traffic only in outgoing direction */
- 	if (test_bit(IPS_SEQ_ADJUST_BIT, &ct->status) &&
- 	    !nf_is_loopback_packet(skb)) {
--		typeof(nf_nat_seq_adjust_hook) seq_adjust;
--
--		seq_adjust = rcu_dereference(nf_nat_seq_adjust_hook);
--		if (!seq_adjust ||
--		    !seq_adjust(skb, ct, ctinfo, protoff)) {
-+		if (!nf_ct_seq_adjust(skb, ct, ctinfo, protoff)) {
- 			NF_CT_STAT_INC_ATOMIC(nf_ct_net(ct), drop);
- 			return NF_DROP;
- 		}
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index ebfa7dc..89a9c16 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -1,6 +1,6 @@
- netfilter-objs := core.o nf_log.o nf_queue.o nf_sockopt.o
- 
--nf_conntrack-y	:= nf_conntrack_core.o nf_conntrack_standalone.o nf_conntrack_expect.o nf_conntrack_helper.o nf_conntrack_proto.o nf_conntrack_l3proto_generic.o nf_conntrack_proto_generic.o nf_conntrack_proto_tcp.o nf_conntrack_proto_udp.o nf_conntrack_extend.o nf_conntrack_acct.o
-+nf_conntrack-y	:= nf_conntrack_core.o nf_conntrack_standalone.o nf_conntrack_expect.o nf_conntrack_helper.o nf_conntrack_proto.o nf_conntrack_l3proto_generic.o nf_conntrack_proto_generic.o nf_conntrack_proto_tcp.o nf_conntrack_proto_udp.o nf_conntrack_extend.o nf_conntrack_acct.o nf_conntrack_seqadj.o
- nf_conntrack-$(CONFIG_NF_CONNTRACK_TIMEOUT) += nf_conntrack_timeout.o
- nf_conntrack-$(CONFIG_NF_CONNTRACK_TIMESTAMP) += nf_conntrack_timestamp.o
- nf_conntrack-$(CONFIG_NF_CONNTRACK_EVENTS) += nf_conntrack_ecache.o
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 0934611..31683ca 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -39,6 +39,7 @@
- #include <net/netfilter/nf_conntrack_l4proto.h>
- #include <net/netfilter/nf_conntrack_expect.h>
- #include <net/netfilter/nf_conntrack_helper.h>
-+#include <net/netfilter/nf_conntrack_seqadj.h>
- #include <net/netfilter/nf_conntrack_core.h>
- #include <net/netfilter/nf_conntrack_extend.h>
- #include <net/netfilter/nf_conntrack_acct.h>
-@@ -1354,6 +1355,7 @@ void nf_conntrack_cleanup_end(void)
- 	nf_ct_extend_unregister(&nf_ct_zone_extend);
- #endif
- 	nf_conntrack_proto_fini();
-+	nf_conntrack_seqadj_fini();
- 	nf_conntrack_labels_fini();
- 	nf_conntrack_helper_fini();
- 	nf_conntrack_timeout_fini();
-@@ -1559,6 +1561,10 @@ int nf_conntrack_init_start(void)
- 	if (ret < 0)
- 		goto err_labels;
- 
-+	ret = nf_conntrack_seqadj_init();
-+	if (ret < 0)
-+		goto err_seqadj;
-+
- #ifdef CONFIG_NF_CONNTRACK_ZONES
- 	ret = nf_ct_extend_register(&nf_ct_zone_extend);
- 	if (ret < 0)
-@@ -1583,6 +1589,8 @@ err_proto:
- 	nf_ct_extend_unregister(&nf_ct_zone_extend);
- err_extend:
- #endif
-+	nf_conntrack_seqadj_fini();
-+err_seqadj:
- 	nf_conntrack_labels_fini();
- err_labels:
- 	nf_conntrack_helper_fini();
-@@ -1605,9 +1613,6 @@ void nf_conntrack_init_end(void)
- 	/* For use by REJECT target */
- 	RCU_INIT_POINTER(ip_ct_attach, nf_conntrack_attach);
- 	RCU_INIT_POINTER(nf_ct_destroy, destroy_conntrack);
--
--	/* Howto get NAT offsets */
--	RCU_INIT_POINTER(nf_ct_nat_offset, NULL);
- }
- 
- /*
-@@ -1694,8 +1699,3 @@ err_slabname:
- err_stat:
- 	return ret;
- }
--
--s32 (*nf_ct_nat_offset)(const struct nf_conn *ct,
--			enum ip_conntrack_dir dir,
--			u32 seq);
--EXPORT_SYMBOL_GPL(nf_ct_nat_offset);
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index e842c0d..3de5d3e 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -37,6 +37,7 @@
- #include <net/netfilter/nf_conntrack_core.h>
- #include <net/netfilter/nf_conntrack_expect.h>
- #include <net/netfilter/nf_conntrack_helper.h>
-+#include <net/netfilter/nf_conntrack_seqadj.h>
- #include <net/netfilter/nf_conntrack_l3proto.h>
- #include <net/netfilter/nf_conntrack_l4proto.h>
- #include <net/netfilter/nf_conntrack_tuple.h>
-@@ -381,9 +382,8 @@ nla_put_failure:
- 	return -1;
- }
- 
--#ifdef CONFIG_NF_NAT_NEEDED
- static int
--dump_nat_seq_adj(struct sk_buff *skb, const struct nf_nat_seq *natseq, int type)
-+dump_ct_seq_adj(struct sk_buff *skb, const struct nf_ct_seqadj *seq, int type)
- {
- 	struct nlattr *nest_parms;
- 
-@@ -391,12 +391,12 @@ dump_nat_seq_adj(struct sk_buff *skb, const struct nf_nat_seq *natseq, int type)
- 	if (!nest_parms)
- 		goto nla_put_failure;
- 
--	if (nla_put_be32(skb, CTA_NAT_SEQ_CORRECTION_POS,
--			 htonl(natseq->correction_pos)) ||
--	    nla_put_be32(skb, CTA_NAT_SEQ_OFFSET_BEFORE,
--			 htonl(natseq->offset_before)) ||
--	    nla_put_be32(skb, CTA_NAT_SEQ_OFFSET_AFTER,
--			 htonl(natseq->offset_after)))
-+	if (nla_put_be32(skb, CTA_SEQADJ_CORRECTION_POS,
-+			 htonl(seq->correction_pos)) ||
-+	    nla_put_be32(skb, CTA_SEQADJ_OFFSET_BEFORE,
-+			 htonl(seq->offset_before)) ||
-+	    nla_put_be32(skb, CTA_SEQADJ_OFFSET_AFTER,
-+			 htonl(seq->offset_after)))
- 		goto nla_put_failure;
- 
- 	nla_nest_end(skb, nest_parms);
-@@ -408,27 +408,24 @@ nla_put_failure:
- }
- 
- static inline int
--ctnetlink_dump_nat_seq_adj(struct sk_buff *skb, const struct nf_conn *ct)
-+ctnetlink_dump_ct_seq_adj(struct sk_buff *skb, const struct nf_conn *ct)
- {
--	struct nf_nat_seq *natseq;
--	struct nf_conn_nat *nat = nfct_nat(ct);
-+	struct nf_conn_seqadj *seqadj = nfct_seqadj(ct);
-+	struct nf_ct_seqadj *seq;
- 
--	if (!(ct->status & IPS_SEQ_ADJUST) || !nat)
-+	if (!(ct->status & IPS_SEQ_ADJUST) || !seqadj)
- 		return 0;
- 
--	natseq = &nat->seq[IP_CT_DIR_ORIGINAL];
--	if (dump_nat_seq_adj(skb, natseq, CTA_NAT_SEQ_ADJ_ORIG) == -1)
-+	seq = &seqadj->seq[IP_CT_DIR_ORIGINAL];
-+	if (dump_ct_seq_adj(skb, seq, CTA_SEQ_ADJ_ORIG) == -1)
- 		return -1;
- 
--	natseq = &nat->seq[IP_CT_DIR_REPLY];
--	if (dump_nat_seq_adj(skb, natseq, CTA_NAT_SEQ_ADJ_REPLY) == -1)
-+	seq = &seqadj->seq[IP_CT_DIR_REPLY];
-+	if (dump_ct_seq_adj(skb, seq, CTA_SEQ_ADJ_REPLY) == -1)
- 		return -1;
- 
- 	return 0;
- }
--#else
--#define ctnetlink_dump_nat_seq_adj(a, b) (0)
--#endif
- 
- static inline int
- ctnetlink_dump_id(struct sk_buff *skb, const struct nf_conn *ct)
-@@ -502,7 +499,7 @@ ctnetlink_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
- 	    ctnetlink_dump_id(skb, ct) < 0 ||
- 	    ctnetlink_dump_use(skb, ct) < 0 ||
- 	    ctnetlink_dump_master(skb, ct) < 0 ||
--	    ctnetlink_dump_nat_seq_adj(skb, ct) < 0)
-+	    ctnetlink_dump_ct_seq_adj(skb, ct) < 0)
- 		goto nla_put_failure;
- 
- 	nlmsg_end(skb, nlh);
-@@ -707,8 +704,8 @@ ctnetlink_conntrack_event(unsigned int events, struct nf_ct_event *item)
- 		    ctnetlink_dump_master(skb, ct) < 0)
- 			goto nla_put_failure;
- 
--		if (events & (1 << IPCT_NATSEQADJ) &&
--		    ctnetlink_dump_nat_seq_adj(skb, ct) < 0)
-+		if (events & (1 << IPCT_SEQADJ) &&
-+		    ctnetlink_dump_ct_seq_adj(skb, ct) < 0)
- 			goto nla_put_failure;
- 	}
- 
-@@ -1439,66 +1436,65 @@ ctnetlink_change_protoinfo(struct nf_conn *ct, const struct nlattr * const cda[]
- 	return err;
- }
- 
--#ifdef CONFIG_NF_NAT_NEEDED
--static const struct nla_policy nat_seq_policy[CTA_NAT_SEQ_MAX+1] = {
--	[CTA_NAT_SEQ_CORRECTION_POS]	= { .type = NLA_U32 },
--	[CTA_NAT_SEQ_OFFSET_BEFORE]	= { .type = NLA_U32 },
--	[CTA_NAT_SEQ_OFFSET_AFTER]	= { .type = NLA_U32 },
-+static const struct nla_policy seqadj_policy[CTA_SEQADJ_MAX+1] = {
-+	[CTA_SEQADJ_CORRECTION_POS]	= { .type = NLA_U32 },
-+	[CTA_SEQADJ_OFFSET_BEFORE]	= { .type = NLA_U32 },
-+	[CTA_SEQADJ_OFFSET_AFTER]	= { .type = NLA_U32 },
- };
- 
- static inline int
--change_nat_seq_adj(struct nf_nat_seq *natseq, const struct nlattr * const attr)
-+change_seq_adj(struct nf_ct_seqadj *seq, const struct nlattr * const attr)
- {
- 	int err;
--	struct nlattr *cda[CTA_NAT_SEQ_MAX+1];
-+	struct nlattr *cda[CTA_SEQADJ_MAX+1];
- 
--	err = nla_parse_nested(cda, CTA_NAT_SEQ_MAX, attr, nat_seq_policy);
-+	err = nla_parse_nested(cda, CTA_SEQADJ_MAX, attr, seqadj_policy);
- 	if (err < 0)
- 		return err;
- 
--	if (!cda[CTA_NAT_SEQ_CORRECTION_POS])
-+	if (!cda[CTA_SEQADJ_CORRECTION_POS])
- 		return -EINVAL;
- 
--	natseq->correction_pos =
--		ntohl(nla_get_be32(cda[CTA_NAT_SEQ_CORRECTION_POS]));
-+	seq->correction_pos =
-+		ntohl(nla_get_be32(cda[CTA_SEQADJ_CORRECTION_POS]));
- 
--	if (!cda[CTA_NAT_SEQ_OFFSET_BEFORE])
-+	if (!cda[CTA_SEQADJ_OFFSET_BEFORE])
- 		return -EINVAL;
- 
--	natseq->offset_before =
--		ntohl(nla_get_be32(cda[CTA_NAT_SEQ_OFFSET_BEFORE]));
-+	seq->offset_before =
-+		ntohl(nla_get_be32(cda[CTA_SEQADJ_OFFSET_BEFORE]));
- 
--	if (!cda[CTA_NAT_SEQ_OFFSET_AFTER])
-+	if (!cda[CTA_SEQADJ_OFFSET_AFTER])
- 		return -EINVAL;
- 
--	natseq->offset_after =
--		ntohl(nla_get_be32(cda[CTA_NAT_SEQ_OFFSET_AFTER]));
-+	seq->offset_after =
-+		ntohl(nla_get_be32(cda[CTA_SEQADJ_OFFSET_AFTER]));
- 
- 	return 0;
- }
- 
- static int
--ctnetlink_change_nat_seq_adj(struct nf_conn *ct,
--			     const struct nlattr * const cda[])
-+ctnetlink_change_seq_adj(struct nf_conn *ct,
-+			 const struct nlattr * const cda[])
- {
-+	struct nf_conn_seqadj *seqadj = nfct_seqadj(ct);
- 	int ret = 0;
--	struct nf_conn_nat *nat = nfct_nat(ct);
- 
--	if (!nat)
-+	if (!seqadj)
- 		return 0;
- 
--	if (cda[CTA_NAT_SEQ_ADJ_ORIG]) {
--		ret = change_nat_seq_adj(&nat->seq[IP_CT_DIR_ORIGINAL],
--					 cda[CTA_NAT_SEQ_ADJ_ORIG]);
-+	if (cda[CTA_SEQ_ADJ_ORIG]) {
-+		ret = change_seq_adj(&seqadj->seq[IP_CT_DIR_ORIGINAL],
-+				     cda[CTA_SEQ_ADJ_ORIG]);
- 		if (ret < 0)
- 			return ret;
- 
- 		ct->status |= IPS_SEQ_ADJUST;
- 	}
- 
--	if (cda[CTA_NAT_SEQ_ADJ_REPLY]) {
--		ret = change_nat_seq_adj(&nat->seq[IP_CT_DIR_REPLY],
--					 cda[CTA_NAT_SEQ_ADJ_REPLY]);
-+	if (cda[CTA_SEQ_ADJ_REPLY]) {
-+		ret = change_seq_adj(&seqadj->seq[IP_CT_DIR_REPLY],
-+				     cda[CTA_SEQ_ADJ_REPLY]);
- 		if (ret < 0)
- 			return ret;
- 
-@@ -1507,7 +1503,6 @@ ctnetlink_change_nat_seq_adj(struct nf_conn *ct,
- 
- 	return 0;
- }
--#endif
- 
- static int
- ctnetlink_attach_labels(struct nf_conn *ct, const struct nlattr * const cda[])
-@@ -1573,13 +1568,12 @@ ctnetlink_change_conntrack(struct nf_conn *ct,
- 		ct->mark = ntohl(nla_get_be32(cda[CTA_MARK]));
- #endif
- 
--#ifdef CONFIG_NF_NAT_NEEDED
--	if (cda[CTA_NAT_SEQ_ADJ_ORIG] || cda[CTA_NAT_SEQ_ADJ_REPLY]) {
--		err = ctnetlink_change_nat_seq_adj(ct, cda);
-+	if (cda[CTA_SEQ_ADJ_ORIG] || cda[CTA_SEQ_ADJ_REPLY]) {
-+		err = ctnetlink_change_seq_adj(ct, cda);
- 		if (err < 0)
- 			return err;
- 	}
--#endif
-+
- 	if (cda[CTA_LABELS]) {
- 		err = ctnetlink_attach_labels(ct, cda);
- 		if (err < 0)
-@@ -1684,13 +1678,11 @@ ctnetlink_create_conntrack(struct net *net, u16 zone,
- 			goto err2;
- 	}
- 
--#ifdef CONFIG_NF_NAT_NEEDED
--	if (cda[CTA_NAT_SEQ_ADJ_ORIG] || cda[CTA_NAT_SEQ_ADJ_REPLY]) {
--		err = ctnetlink_change_nat_seq_adj(ct, cda);
-+	if (cda[CTA_SEQ_ADJ_ORIG] || cda[CTA_SEQ_ADJ_REPLY]) {
-+		err = ctnetlink_change_seq_adj(ct, cda);
- 		if (err < 0)
- 			goto err2;
- 	}
--#endif
- 
- 	memset(&ct->proto, 0, sizeof(ct->proto));
- 	if (cda[CTA_PROTOINFO]) {
-@@ -1804,7 +1796,7 @@ ctnetlink_new_conntrack(struct sock *ctnl, struct sk_buff *skb,
- 						      (1 << IPCT_ASSURED) |
- 						      (1 << IPCT_HELPER) |
- 						      (1 << IPCT_PROTOINFO) |
--						      (1 << IPCT_NATSEQADJ) |
-+						      (1 << IPCT_SEQADJ) |
- 						      (1 << IPCT_MARK) | events,
- 						      ct, NETLINK_CB(skb).portid,
- 						      nlmsg_report(nlh));
-@@ -1827,7 +1819,7 @@ ctnetlink_new_conntrack(struct sock *ctnl, struct sk_buff *skb,
- 						      (1 << IPCT_HELPER) |
- 						      (1 << IPCT_LABEL) |
- 						      (1 << IPCT_PROTOINFO) |
--						      (1 << IPCT_NATSEQADJ) |
-+						      (1 << IPCT_SEQADJ) |
- 						      (1 << IPCT_MARK),
- 						      ct, NETLINK_CB(skb).portid,
- 						      nlmsg_report(nlh));
-@@ -2061,7 +2053,7 @@ ctnetlink_nfqueue_build(struct sk_buff *skb, struct nf_conn *ct)
- 		goto nla_put_failure;
- 
- 	if ((ct->status & IPS_SEQ_ADJUST) &&
--	    ctnetlink_dump_nat_seq_adj(skb, ct) < 0)
-+	    ctnetlink_dump_ct_seq_adj(skb, ct) < 0)
- 		goto nla_put_failure;
- 
- #ifdef CONFIG_NF_CONNTRACK_MARK
-@@ -2131,6 +2123,7 @@ static struct nfq_ct_hook ctnetlink_nfqueue_hook = {
- 	.build_size	= ctnetlink_nfqueue_build_size,
- 	.build		= ctnetlink_nfqueue_build,
- 	.parse		= ctnetlink_nfqueue_parse,
-+	.seq_adjust	= nf_ct_tcp_seqadj_set,
- };
- #endif /* CONFIG_NETFILTER_NETLINK_QUEUE_CT */
- 
-diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-index 8f308d8..3c3401e 100644
---- a/net/netfilter/nf_conntrack_proto_tcp.c
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c
-@@ -27,6 +27,7 @@
- #include <net/netfilter/nf_conntrack.h>
- #include <net/netfilter/nf_conntrack_l4proto.h>
- #include <net/netfilter/nf_conntrack_ecache.h>
-+#include <net/netfilter/nf_conntrack_seqadj.h>
- #include <net/netfilter/nf_log.h>
- #include <net/netfilter/ipv4/nf_conntrack_ipv4.h>
- #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>
-@@ -495,21 +496,6 @@ static void tcp_sack(const struct sk_buff *skb, unsigned int dataoff,
- 	}
- }
- 
--#ifdef CONFIG_NF_NAT_NEEDED
--static inline s32 nat_offset(const struct nf_conn *ct,
--			     enum ip_conntrack_dir dir,
--			     u32 seq)
--{
--	typeof(nf_ct_nat_offset) get_offset = rcu_dereference(nf_ct_nat_offset);
--
--	return get_offset != NULL ? get_offset(ct, dir, seq) : 0;
--}
--#define NAT_OFFSET(ct, dir, seq) \
--	(nat_offset(ct, dir, seq))
--#else
--#define NAT_OFFSET(ct, dir, seq)	0
--#endif
--
- static bool tcp_in_window(const struct nf_conn *ct,
- 			  struct ip_ct_tcp *state,
- 			  enum ip_conntrack_dir dir,
-@@ -540,7 +526,7 @@ static bool tcp_in_window(const struct nf_conn *ct,
- 		tcp_sack(skb, dataoff, tcph, &sack);
- 
- 	/* Take into account NAT sequence number mangling */
--	receiver_offset = NAT_OFFSET(ct, !dir, ack - 1);
-+	receiver_offset = nf_ct_seq_offset(ct, !dir, ack - 1);
- 	ack -= receiver_offset;
- 	sack -= receiver_offset;
- 
-diff --git a/net/netfilter/nf_conntrack_seqadj.c b/net/netfilter/nf_conntrack_seqadj.c
-new file mode 100644
-index 0000000..483eb9c
---- /dev/null
-+++ b/net/netfilter/nf_conntrack_seqadj.c
-@@ -0,0 +1,218 @@
-+#include <linux/types.h>
-+#include <linux/netfilter.h>
-+#include <net/tcp.h>
-+
-+#include <net/netfilter/nf_conntrack.h>
-+#include <net/netfilter/nf_conntrack_extend.h>
-+#include <net/netfilter/nf_conntrack_seqadj.h>
-+
-+int nf_ct_seqadj_set(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
-+		     __be32 seq, s32 off)
-+{
-+	struct nf_conn_seqadj *seqadj = nfct_seqadj(ct);
-+	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
-+	struct nf_ct_seqadj *this_way;
-+
-+	if (off == 0)
-+		return 0;
-+
-+	set_bit(IPS_SEQ_ADJUST_BIT, &ct->status);
-+
-+	spin_lock_bh(&ct->lock);
-+	this_way = &seqadj->seq[dir];
-+	if (this_way->offset_before == this_way->offset_after ||
-+	    before(this_way->correction_pos, seq)) {
-+		this_way->correction_pos = seq;
-+		this_way->offset_before	 = this_way->offset_after;
-+		this_way->offset_after	+= off;
-+	}
-+	spin_unlock_bh(&ct->lock);
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(nf_ct_seqadj_set);
-+
-+void nf_ct_tcp_seqadj_set(struct sk_buff *skb,
-+			  struct nf_conn *ct, enum ip_conntrack_info ctinfo,
-+			  s32 off)
-+{
-+	const struct tcphdr *th;
-+
-+	if (nf_ct_protonum(ct) != IPPROTO_TCP)
-+		return;
-+
-+	th = (struct tcphdr *)(skb_network_header(skb) + ip_hdrlen(skb));
-+	nf_ct_seqadj_set(ct, ctinfo, th->seq, off);
-+}
-+EXPORT_SYMBOL_GPL(nf_ct_tcp_seqadj_set);
-+
-+/* Adjust one found SACK option including checksum correction */
-+static void nf_ct_sack_block_adjust(struct sk_buff *skb,
-+				    struct tcphdr *tcph,
-+				    unsigned int sackoff,
-+				    unsigned int sackend,
-+				    struct nf_ct_seqadj *seq)
-+{
-+	while (sackoff < sackend) {
-+		struct tcp_sack_block_wire *sack;
-+		__be32 new_start_seq, new_end_seq;
-+
-+		sack = (void *)skb->data + sackoff;
-+		if (after(ntohl(sack->start_seq) - seq->offset_before,
-+			  seq->correction_pos))
-+			new_start_seq = htonl(ntohl(sack->start_seq) -
-+					seq->offset_after);
-+		else
-+			new_start_seq = htonl(ntohl(sack->start_seq) -
-+					seq->offset_before);
-+
-+		if (after(ntohl(sack->end_seq) - seq->offset_before,
-+			  seq->correction_pos))
-+			new_end_seq = htonl(ntohl(sack->end_seq) -
-+				      seq->offset_after);
-+		else
-+			new_end_seq = htonl(ntohl(sack->end_seq) -
-+				      seq->offset_before);
-+
-+		pr_debug("sack_adjust: start_seq: %d->%d, end_seq: %d->%d\n",
-+			 ntohl(sack->start_seq), new_start_seq,
-+			 ntohl(sack->end_seq), new_end_seq);
-+
-+		inet_proto_csum_replace4(&tcph->check, skb,
-+					 sack->start_seq, new_start_seq, 0);
-+		inet_proto_csum_replace4(&tcph->check, skb,
-+					 sack->end_seq, new_end_seq, 0);
-+		sack->start_seq = new_start_seq;
-+		sack->end_seq = new_end_seq;
-+		sackoff += sizeof(*sack);
-+	}
-+}
-+
-+/* TCP SACK sequence number adjustment */
-+static unsigned int nf_ct_sack_adjust(struct sk_buff *skb,
-+				      unsigned int protoff,
-+				      struct tcphdr *tcph,
-+				      struct nf_conn *ct,
-+				      enum ip_conntrack_info ctinfo)
-+{
-+	unsigned int dir, optoff, optend;
-+	struct nf_conn_seqadj *seqadj = nfct_seqadj(ct);
-+
-+	optoff = protoff + sizeof(struct tcphdr);
-+	optend = protoff + tcph->doff * 4;
-+
-+	if (!skb_make_writable(skb, optend))
-+		return 0;
-+
-+	dir = CTINFO2DIR(ctinfo);
-+
-+	while (optoff < optend) {
-+		/* Usually: option, length. */
-+		unsigned char *op = skb->data + optoff;
-+
-+		switch (op[0]) {
-+		case TCPOPT_EOL:
-+			return 1;
-+		case TCPOPT_NOP:
-+			optoff++;
-+			continue;
-+		default:
-+			/* no partial options */
-+			if (optoff + 1 == optend ||
-+			    optoff + op[1] > optend ||
-+			    op[1] < 2)
-+				return 0;
-+			if (op[0] == TCPOPT_SACK &&
-+			    op[1] >= 2+TCPOLEN_SACK_PERBLOCK &&
-+			    ((op[1] - 2) % TCPOLEN_SACK_PERBLOCK) == 0)
-+				nf_ct_sack_block_adjust(skb, tcph, optoff + 2,
-+							optoff+op[1],
-+							&seqadj->seq[!dir]);
-+			optoff += op[1];
-+		}
-+	}
-+	return 1;
-+}
-+
-+/* TCP sequence number adjustment.  Returns 1 on success, 0 on failure */
-+int nf_ct_seq_adjust(struct sk_buff *skb,
-+		     struct nf_conn *ct, enum ip_conntrack_info ctinfo,
-+		     unsigned int protoff)
-+{
-+	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
-+	struct tcphdr *tcph;
-+	__be32 newseq, newack;
-+	s32 seqoff, ackoff;
-+	struct nf_conn_seqadj *seqadj = nfct_seqadj(ct);
-+	struct nf_ct_seqadj *this_way, *other_way;
-+	int res;
-+
-+	this_way  = &seqadj->seq[dir];
-+	other_way = &seqadj->seq[!dir];
-+
-+	if (!skb_make_writable(skb, protoff + sizeof(*tcph)))
-+		return 0;
-+
-+	tcph = (void *)skb->data + protoff;
-+	spin_lock_bh(&ct->lock);
-+	if (after(ntohl(tcph->seq), this_way->correction_pos))
-+		seqoff = this_way->offset_after;
-+	else
-+		seqoff = this_way->offset_before;
-+
-+	if (after(ntohl(tcph->ack_seq) - other_way->offset_before,
-+		  other_way->correction_pos))
-+		ackoff = other_way->offset_after;
-+	else
-+		ackoff = other_way->offset_before;
-+
-+	newseq = htonl(ntohl(tcph->seq) + seqoff);
-+	newack = htonl(ntohl(tcph->ack_seq) - ackoff);
-+
-+	inet_proto_csum_replace4(&tcph->check, skb, tcph->seq, newseq, 0);
-+	inet_proto_csum_replace4(&tcph->check, skb, tcph->ack_seq, newack, 0);
-+
-+	pr_debug("Adjusting sequence number from %u->%u, ack from %u->%u\n",
-+		 ntohl(tcph->seq), ntohl(newseq), ntohl(tcph->ack_seq),
-+		 ntohl(newack));
-+
-+	tcph->seq = newseq;
-+	tcph->ack_seq = newack;
-+
-+	res = nf_ct_sack_adjust(skb, protoff, tcph, ct, ctinfo);
-+	spin_unlock_bh(&ct->lock);
-+
-+	return res;
-+}
-+EXPORT_SYMBOL_GPL(nf_ct_seq_adjust);
-+
-+s32 nf_ct_seq_offset(const struct nf_conn *ct,
-+		     enum ip_conntrack_dir dir,
-+		     u32 seq)
-+{
-+	struct nf_conn_seqadj *seqadj = nfct_seqadj(ct);
-+	struct nf_ct_seqadj *this_way;
-+
-+	if (!seqadj)
-+		return 0;
-+
-+	this_way = &seqadj->seq[dir];
-+	return after(seq, this_way->correction_pos) ?
-+		 this_way->offset_after : this_way->offset_before;
-+}
-+EXPORT_SYMBOL_GPL(nf_ct_seq_offset);
-+
-+static struct nf_ct_ext_type nf_ct_seqadj_extend __read_mostly = {
-+	.len	= sizeof(struct nf_conn_seqadj),
-+	.align	= __alignof__(struct nf_conn_seqadj),
-+	.id	= NF_CT_EXT_SEQADJ,
-+};
-+
-+int nf_conntrack_seqadj_init(void)
-+{
-+	return nf_ct_extend_register(&nf_ct_seqadj_extend);
-+}
-+
-+void nf_conntrack_seqadj_fini(void)
-+{
-+	nf_ct_extend_unregister(&nf_ct_seqadj_extend);
-+}
-diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
-index 038eee5..ffdd26d 100644
---- a/net/netfilter/nf_nat_core.c
-+++ b/net/netfilter/nf_nat_core.c
-@@ -25,6 +25,7 @@
- #include <net/netfilter/nf_nat_core.h>
- #include <net/netfilter/nf_nat_helper.h>
- #include <net/netfilter/nf_conntrack_helper.h>
-+#include <net/netfilter/nf_conntrack_seqadj.h>
- #include <net/netfilter/nf_conntrack_l3proto.h>
- #include <net/netfilter/nf_conntrack_zones.h>
- #include <linux/netfilter/nf_nat.h>
-@@ -402,6 +403,9 @@ nf_nat_setup_info(struct nf_conn *ct,
- 			ct->status |= IPS_SRC_NAT;
- 		else
- 			ct->status |= IPS_DST_NAT;
-+
-+		if (nfct_help(ct))
-+			nfct_seqadj_ext_add(ct);
- 	}
- 
- 	if (maniptype == NF_NAT_MANIP_SRC) {
-@@ -764,10 +768,6 @@ static struct nf_ct_helper_expectfn follow_master_nat = {
- 	.expectfn	= nf_nat_follow_master,
- };
- 
--static struct nfq_ct_nat_hook nfq_ct_nat = {
--	.seq_adjust	= nf_nat_tcp_seq_adjust,
--};
--
- static int __init nf_nat_init(void)
- {
- 	int ret;
-@@ -787,14 +787,9 @@ static int __init nf_nat_init(void)
- 	/* Initialize fake conntrack so that NAT will skip it */
- 	nf_ct_untracked_status_or(IPS_NAT_DONE_MASK);
- 
--	BUG_ON(nf_nat_seq_adjust_hook != NULL);
--	RCU_INIT_POINTER(nf_nat_seq_adjust_hook, nf_nat_seq_adjust);
- 	BUG_ON(nfnetlink_parse_nat_setup_hook != NULL);
- 	RCU_INIT_POINTER(nfnetlink_parse_nat_setup_hook,
- 			   nfnetlink_parse_nat_setup);
--	BUG_ON(nf_ct_nat_offset != NULL);
--	RCU_INIT_POINTER(nf_ct_nat_offset, nf_nat_get_offset);
--	RCU_INIT_POINTER(nfq_ct_nat_hook, &nfq_ct_nat);
- #ifdef CONFIG_XFRM
- 	BUG_ON(nf_nat_decode_session_hook != NULL);
- 	RCU_INIT_POINTER(nf_nat_decode_session_hook, __nf_nat_decode_session);
-@@ -813,10 +808,7 @@ static void __exit nf_nat_cleanup(void)
- 	unregister_pernet_subsys(&nf_nat_net_ops);
- 	nf_ct_extend_unregister(&nat_extend);
- 	nf_ct_helper_expectfn_unregister(&follow_master_nat);
--	RCU_INIT_POINTER(nf_nat_seq_adjust_hook, NULL);
- 	RCU_INIT_POINTER(nfnetlink_parse_nat_setup_hook, NULL);
--	RCU_INIT_POINTER(nf_ct_nat_offset, NULL);
--	RCU_INIT_POINTER(nfq_ct_nat_hook, NULL);
- #ifdef CONFIG_XFRM
- 	RCU_INIT_POINTER(nf_nat_decode_session_hook, NULL);
- #endif
-diff --git a/net/netfilter/nf_nat_helper.c b/net/netfilter/nf_nat_helper.c
-index 46b9baa..2840abb 100644
---- a/net/netfilter/nf_nat_helper.c
-+++ b/net/netfilter/nf_nat_helper.c
-@@ -20,67 +20,13 @@
- #include <net/netfilter/nf_conntrack_helper.h>
- #include <net/netfilter/nf_conntrack_ecache.h>
- #include <net/netfilter/nf_conntrack_expect.h>
-+#include <net/netfilter/nf_conntrack_seqadj.h>
- #include <net/netfilter/nf_nat.h>
- #include <net/netfilter/nf_nat_l3proto.h>
- #include <net/netfilter/nf_nat_l4proto.h>
- #include <net/netfilter/nf_nat_core.h>
- #include <net/netfilter/nf_nat_helper.h>
- 
--#define DUMP_OFFSET(x) \
--	pr_debug("offset_before=%d, offset_after=%d, correction_pos=%u\n", \
--		 x->offset_before, x->offset_after, x->correction_pos);
--
--/* Setup TCP sequence correction given this change at this sequence */
--static inline void
--adjust_tcp_sequence(u32 seq,
--		    int sizediff,
--		    struct nf_conn *ct,
--		    enum ip_conntrack_info ctinfo)
--{
--	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
--	struct nf_conn_nat *nat = nfct_nat(ct);
--	struct nf_nat_seq *this_way = &nat->seq[dir];
--
--	pr_debug("adjust_tcp_sequence: seq = %u, sizediff = %d\n",
--		 seq, sizediff);
--
--	pr_debug("adjust_tcp_sequence: Seq_offset before: ");
--	DUMP_OFFSET(this_way);
--
--	spin_lock_bh(&ct->lock);
--
--	/* SYN adjust. If it's uninitialized, or this is after last
--	 * correction, record it: we don't handle more than one
--	 * adjustment in the window, but do deal with common case of a
--	 * retransmit */
--	if (this_way->offset_before == this_way->offset_after ||
--	    before(this_way->correction_pos, seq)) {
--		this_way->correction_pos = seq;
--		this_way->offset_before = this_way->offset_after;
--		this_way->offset_after += sizediff;
--	}
--	spin_unlock_bh(&ct->lock);
--
--	pr_debug("adjust_tcp_sequence: Seq_offset after: ");
--	DUMP_OFFSET(this_way);
--}
--
--/* Get the offset value, for conntrack. Caller must have the conntrack locked */
--s32 nf_nat_get_offset(const struct nf_conn *ct,
--		      enum ip_conntrack_dir dir,
--		      u32 seq)
--{
--	struct nf_conn_nat *nat = nfct_nat(ct);
--	struct nf_nat_seq *this_way;
--
--	if (!nat)
--		return 0;
--
--	this_way = &nat->seq[dir];
--	return after(seq, this_way->correction_pos)
--		 ? this_way->offset_after : this_way->offset_before;
--}
--
- /* Frobs data inside this packet, which is linear. */
- static void mangle_contents(struct sk_buff *skb,
- 			    unsigned int dataoff,
-@@ -135,30 +81,6 @@ static int enlarge_skb(struct sk_buff *skb, unsigned int extra)
- 	return 1;
- }
- 
--void nf_nat_set_seq_adjust(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
--			   __be32 seq, s32 off)
--{
--	if (!off)
--		return;
--	set_bit(IPS_SEQ_ADJUST_BIT, &ct->status);
--	adjust_tcp_sequence(ntohl(seq), off, ct, ctinfo);
--	nf_conntrack_event_cache(IPCT_NATSEQADJ, ct);
--}
--EXPORT_SYMBOL_GPL(nf_nat_set_seq_adjust);
--
--void nf_nat_tcp_seq_adjust(struct sk_buff *skb, struct nf_conn *ct,
--			   u32 ctinfo, int off)
--{
--	const struct tcphdr *th;
--
--	if (nf_ct_protonum(ct) != IPPROTO_TCP)
--		return;
--
--	th = (struct tcphdr *)(skb_network_header(skb)+ ip_hdrlen(skb));
--	nf_nat_set_seq_adjust(ct, ctinfo, th->seq, off);
--}
--EXPORT_SYMBOL_GPL(nf_nat_tcp_seq_adjust);
--
- /* Generic function for mangling variable-length address changes inside
-  * NATed TCP connections (like the PORT XXX,XXX,XXX,XXX,XXX,XXX
-  * command in FTP).
-@@ -203,8 +125,8 @@ int __nf_nat_mangle_tcp_packet(struct sk_buff *skb,
- 			     datalen, oldlen);
- 
- 	if (adjust && rep_len != match_len)
--		nf_nat_set_seq_adjust(ct, ctinfo, tcph->seq,
--				      (int)rep_len - (int)match_len);
-+		nf_ct_seqadj_set(ct, ctinfo, tcph->seq,
-+				 (int)rep_len - (int)match_len);
- 
- 	return 1;
- }
-@@ -264,150 +186,6 @@ nf_nat_mangle_udp_packet(struct sk_buff *skb,
- }
- EXPORT_SYMBOL(nf_nat_mangle_udp_packet);
- 
--/* Adjust one found SACK option including checksum correction */
--static void
--sack_adjust(struct sk_buff *skb,
--	    struct tcphdr *tcph,
--	    unsigned int sackoff,
--	    unsigned int sackend,
--	    struct nf_nat_seq *natseq)
--{
--	while (sackoff < sackend) {
--		struct tcp_sack_block_wire *sack;
--		__be32 new_start_seq, new_end_seq;
--
--		sack = (void *)skb->data + sackoff;
--		if (after(ntohl(sack->start_seq) - natseq->offset_before,
--			  natseq->correction_pos))
--			new_start_seq = htonl(ntohl(sack->start_seq)
--					- natseq->offset_after);
--		else
--			new_start_seq = htonl(ntohl(sack->start_seq)
--					- natseq->offset_before);
--
--		if (after(ntohl(sack->end_seq) - natseq->offset_before,
--			  natseq->correction_pos))
--			new_end_seq = htonl(ntohl(sack->end_seq)
--				      - natseq->offset_after);
--		else
--			new_end_seq = htonl(ntohl(sack->end_seq)
--				      - natseq->offset_before);
--
--		pr_debug("sack_adjust: start_seq: %d->%d, end_seq: %d->%d\n",
--			 ntohl(sack->start_seq), new_start_seq,
--			 ntohl(sack->end_seq), new_end_seq);
--
--		inet_proto_csum_replace4(&tcph->check, skb,
--					 sack->start_seq, new_start_seq, 0);
--		inet_proto_csum_replace4(&tcph->check, skb,
--					 sack->end_seq, new_end_seq, 0);
--		sack->start_seq = new_start_seq;
--		sack->end_seq = new_end_seq;
--		sackoff += sizeof(*sack);
--	}
--}
--
--/* TCP SACK sequence number adjustment */
--static inline unsigned int
--nf_nat_sack_adjust(struct sk_buff *skb,
--		   unsigned int protoff,
--		   struct tcphdr *tcph,
--		   struct nf_conn *ct,
--		   enum ip_conntrack_info ctinfo)
--{
--	unsigned int dir, optoff, optend;
--	struct nf_conn_nat *nat = nfct_nat(ct);
--
--	optoff = protoff + sizeof(struct tcphdr);
--	optend = protoff + tcph->doff * 4;
--
--	if (!skb_make_writable(skb, optend))
--		return 0;
--
--	dir = CTINFO2DIR(ctinfo);
--
--	while (optoff < optend) {
--		/* Usually: option, length. */
--		unsigned char *op = skb->data + optoff;
--
--		switch (op[0]) {
--		case TCPOPT_EOL:
--			return 1;
--		case TCPOPT_NOP:
--			optoff++;
--			continue;
--		default:
--			/* no partial options */
--			if (optoff + 1 == optend ||
--			    optoff + op[1] > optend ||
--			    op[1] < 2)
--				return 0;
--			if (op[0] == TCPOPT_SACK &&
--			    op[1] >= 2+TCPOLEN_SACK_PERBLOCK &&
--			    ((op[1] - 2) % TCPOLEN_SACK_PERBLOCK) == 0)
--				sack_adjust(skb, tcph, optoff+2,
--					    optoff+op[1], &nat->seq[!dir]);
--			optoff += op[1];
--		}
--	}
--	return 1;
--}
--
--/* TCP sequence number adjustment.  Returns 1 on success, 0 on failure */
--int
--nf_nat_seq_adjust(struct sk_buff *skb,
--		  struct nf_conn *ct,
--		  enum ip_conntrack_info ctinfo,
--		  unsigned int protoff)
--{
--	struct tcphdr *tcph;
--	int dir;
--	__be32 newseq, newack;
--	s32 seqoff, ackoff;
--	struct nf_conn_nat *nat = nfct_nat(ct);
--	struct nf_nat_seq *this_way, *other_way;
--	int res;
--
--	dir = CTINFO2DIR(ctinfo);
--
--	this_way = &nat->seq[dir];
--	other_way = &nat->seq[!dir];
--
--	if (!skb_make_writable(skb, protoff + sizeof(*tcph)))
--		return 0;
--
--	tcph = (void *)skb->data + protoff;
--	spin_lock_bh(&ct->lock);
--	if (after(ntohl(tcph->seq), this_way->correction_pos))
--		seqoff = this_way->offset_after;
--	else
--		seqoff = this_way->offset_before;
--
--	if (after(ntohl(tcph->ack_seq) - other_way->offset_before,
--		  other_way->correction_pos))
--		ackoff = other_way->offset_after;
--	else
--		ackoff = other_way->offset_before;
--
--	newseq = htonl(ntohl(tcph->seq) + seqoff);
--	newack = htonl(ntohl(tcph->ack_seq) - ackoff);
--
--	inet_proto_csum_replace4(&tcph->check, skb, tcph->seq, newseq, 0);
--	inet_proto_csum_replace4(&tcph->check, skb, tcph->ack_seq, newack, 0);
--
--	pr_debug("Adjusting sequence number from %u->%u, ack from %u->%u\n",
--		 ntohl(tcph->seq), ntohl(newseq), ntohl(tcph->ack_seq),
--		 ntohl(newack));
--
--	tcph->seq = newseq;
--	tcph->ack_seq = newack;
--
--	res = nf_nat_sack_adjust(skb, protoff, tcph, ct, ctinfo);
--	spin_unlock_bh(&ct->lock);
--
--	return res;
--}
--
- /* Setup NAT on this expected conntrack so it follows master. */
- /* If we fail to get a free NAT slot, we'll get dropped on confirm */
- void nf_nat_follow_master(struct nf_conn *ct,
-diff --git a/net/netfilter/nf_nat_sip.c b/net/netfilter/nf_nat_sip.c
-index dac11f7..f979040 100644
---- a/net/netfilter/nf_nat_sip.c
-+++ b/net/netfilter/nf_nat_sip.c
-@@ -20,6 +20,7 @@
- #include <net/netfilter/nf_nat_helper.h>
- #include <net/netfilter/nf_conntrack_helper.h>
- #include <net/netfilter/nf_conntrack_expect.h>
-+#include <net/netfilter/nf_conntrack_seqadj.h>
- #include <linux/netfilter/nf_conntrack_sip.h>
- 
- MODULE_LICENSE("GPL");
-@@ -308,7 +309,7 @@ static void nf_nat_sip_seq_adjust(struct sk_buff *skb, unsigned int protoff,
- 		return;
- 
- 	th = (struct tcphdr *)(skb->data + protoff);
--	nf_nat_set_seq_adjust(ct, ctinfo, th->seq, off);
-+	nf_ct_seqadj_set(ct, ctinfo, th->seq, off);
- }
- 
- /* Handles expected signalling connections and media streams */
-diff --git a/net/netfilter/nfnetlink_queue_ct.c b/net/netfilter/nfnetlink_queue_ct.c
-index ab61d66..2cb9a28 100644
---- a/net/netfilter/nfnetlink_queue_ct.c
-+++ b/net/netfilter/nfnetlink_queue_ct.c
-@@ -87,12 +87,12 @@ nla_put_failure:
- void nfqnl_ct_seq_adjust(struct sk_buff *skb, struct nf_conn *ct,
- 			 enum ip_conntrack_info ctinfo, int diff)
- {
--	struct nfq_ct_nat_hook *nfq_nat_ct;
-+	struct nfq_ct_hook *nfq_ct;
- 
--	nfq_nat_ct = rcu_dereference(nfq_ct_nat_hook);
--	if (nfq_nat_ct == NULL)
-+	nfq_ct = rcu_dereference(nfq_ct_hook);
-+	if (nfq_ct == NULL)
- 		return;
- 
- 	if ((ct->status & IPS_NAT_MASK) && diff)
--		nfq_nat_ct->seq_adjust(skb, ct, ctinfo, diff);
-+		nfq_ct->seq_adjust(skb, ct, ctinfo, diff);
- }
--- 
-1.8.1.4
-
+T3VyIG5ldyBpZHIgaW1wbGVtZW50YXRpb24gZG9lcyBpdHMgb3duIGxvY2tpbmcsIGluc3RlYWQg
+b2YgZm9yY2luZyBpdApvbnRvIHRoZSBjYWxsZXJzIGxpa2UgdGhlIG9sZCBpbXBsZW1lbnRhdGlv
+bi4KCk1hbnkgb2YgdGhlIGV4aXN0aW5nIGlkciB1c2VycyBuZWVkIGxvY2tpbmcgZm9yIG1vcmUg
+dGhhbiBqdXN0Cmlkcl9hbGxvYygpL2lkcl9yZW1vdmUoKS9pZHJfZmluZCgpIC0gdGhleSdyZSB0
+YWtpbmcgcmVmY291bnRzIGFuZCBzdWNoCnVuZGVyIHRoZWlyIGxvY2tzIGFuZCB3ZSBjYW4ndCB0
+b3VjaCB0aG9zZS4KCkJ1dCBhIHNpZ25pZmljYW50IG51bWJlciBvZiB1c2VycyBoYWQgbG9ja3Mg
+dGhhdCBwcm90ZWN0ZWQgbm90aGluZyBtb3JlCnRoYW4gdGhlIGlkciBkYXRhIHN0cnVjdHVyZXMg
+aXRzZWxmIC0gdGhvc2Ugd2UgY2FuIGdldCByaWQgb2YuCgpOb3RlIHRoYXQgd2UgaGF2ZSB0byBi
+ZSBjYXJlZnVsIHdoZW4gcmVtb3ZpbmcgbG9ja3M7IGluIHNvbWUgcGxhY2VzLApsb2NrcyBhcHBl
+YXIgdG8gb25seSBiZSBwcm90ZWN0aW5nIGlkcl9hbGxvYygpL2lkcl9yZW1vdmUoKSBjYWxscyBi
+dXQKdGhleSdyZSBhbHNvIHVzZWQgYnkgb3RoZXIgY29kZSB0aGF0IG5lZWRzIHRvIGVuc3VyZSB0
+aGUgaWRyIGlzbid0Cm1vZGlmaWVkIHdoaWxlIGl0J3MgZG9pbmcgc29tZXRoaW5nIGVsc2UgLSBz
+byBpZGVhbGx5IHdlIHdhbnQgdG8gZGVsZXRlCnRoZSBsb2NrIHRoYXQgcHJvdGVjdGVkIHRoZSBp
+ZHIsIG9yIGVsc2Ugd2UgaGF2ZSB0byBjYXJlZnVsbHkgYXVkaXQgYWxsCnRoZSBvdGhlciBwbGFj
+ZXMgaXQncyB1c2VkLgoKVGhlcmUncyBhbHNvIGEgZmFpciBudW1iZXIgb2YgcGxhY2VzIHdoZXJl
+IHRoaW5ncyB3ZXJlIGJlaW5nIGRvbmUgdW5kZXIKdGhlIGlkciBsb2NrIHVubmVjZXNzYXJpbHk7
+IGRyaXZlcnMvZGNhL2RjYS1zeXNmcy5jIGlzIGEgZ29vZCBleGFtcGxlLgpkY2EtPmlkIGlzIHNl
+dCB0byB0aGUgaWQgaWRyX2FsbG9jKCkgcmV0dXJucyB1bmRlciB0aGUgbG9jayAtIGJ1dAp0aGVy
+ZSdzIG5vIGlkcl9maW5kKCkgY2FsbHMgdW5kZXIgdGhlIGxvY2ssIGFuZCBkY2EtPmlkIGlzbid0
+IHRvdWNoZWQgaW4KdGhlIGlkcl9yZW1vdmUoKSBwYXRocy4gU28gdGhlIGxvY2sgY2FuIGJlIHNh
+ZmVseSBkZWxldGVkLgoKVGhlIHJlYWxseSBuaWNlIHRoaW5nIGFib3V0IGRlbGV0aW5nIHRoaXMg
+dW5uZWNlc3NhcnkgbG9ja2luZyBpcyB0aGF0IGl0CmxldHMgdXMgdHJpdmlhbGx5IGRlbGV0ZSBh
+IGxvdCBvZiBub3cgdW5uZWNlc3NhcnkgaWRyX3ByZWxvYWQoKSAtIHdpdGgKaWRyIGRvaW5nIGl0
+cyBvd24gbG9ja2luZywgd2UgY2FuIHBhc3MgR0ZQX0tFUk5FTCB0byBpZHJfYWxsb2MoKSBqdXN0
+CmZpbmUuCgpTaWduZWQtb2ZmLWJ5OiBLZW50IE92ZXJzdHJlZXQgPGttb0BkYXRlcmFpbmMuY29t
+PgpDYzogQW5kcmV3IE1vcnRvbiA8YWtwbUBsaW51eC1mb3VuZGF0aW9uLm9yZz4KQ2M6IFRlanVu
+IEhlbyA8dGpAa2VybmVsLm9yZz4KQ2M6IERhdmlkIEFpcmxpZSA8YWlybGllZEBsaW51eC5pZT4K
+Q2M6IFRvbSBUdWNrZXIgPHRvbUBvcGVuZ3JpZGNvbXB1dGluZy5jb20+CkNjOiBTdGV2ZSBXaXNl
+IDxzd2lzZUBvcGVuZ3JpZGNvbXB1dGluZy5jb20+CkNjOiBSb2xhbmQgRHJlaWVyIDxyb2xhbmRA
+a2VybmVsLm9yZz4KQ2M6IFNlYW4gSGVmdHkgPHNlYW4uaGVmdHlAaW50ZWwuY29tPgpDYzogSGFs
+IFJvc2Vuc3RvY2sgPGhhbC5yb3NlbnN0b2NrQGdtYWlsLmNvbT4KQ2M6IEFsYXNkYWlyIEtlcmdv
+biA8YWdrQHJlZGhhdC5jb20+CkNjOiBkbS1kZXZlbEByZWRoYXQuY29tCkNjOiBTYW11ZWwgT3J0
+aXogPHNhbWVvQGxpbnV4LmludGVsLmNvbT4KQ2M6IEFsZXggRHVib3YgPG9ha2FkQHlhaG9vLmNv
+bT4KQ2M6IEFybmQgQmVyZ21hbm4gPGFybmRAYXJuZGIuZGU+CkNjOiBHcmVnIEtyb2FoLUhhcnRt
+YW4gPGdyZWdraEBsaW51eGZvdW5kYXRpb24ub3JnPgpDYzogQ2hyaXMgQmFsbCA8Y2piQGxhcHRv
+cC5vcmc+CkNjOiAiSmFtZXMgRS5KLiBCb3R0b21sZXkiIDxKQm90dG9tbGV5QHBhcmFsbGVscy5j
+b20+CkNjOiBXaWxsZW0gUmllZGUgPG9zc3RAcmllZGUub3JnPgpDYzogIkthaSBNw6RraXNhcmEi
+IDxLYWkuTWFraXNhcmFAa29sdW1idXMuZmk+CkNjOiAiTmljaG9sYXMgQS4gQmVsbGluZ2VyIiA8
+bmFiQGxpbnV4LWlzY3NpLm9yZz4KQ2M6IExpIFplZmFuIDxsaXplZmFuQGh1YXdlaS5jb20+CkNj
+OiBWbGFkIFlhc2V2aWNoIDx2eWFzZXZpY2hAZ21haWwuY29tPgpDYzogTmVpbCBIb3JtYW4gPG5o
+b3JtYW5AdHV4ZHJpdmVyLmNvbT4KQ2M6ICJEYXZpZCBTLiBNaWxsZXIiIDxkYXZlbUBkYXZlbWxv
+ZnQubmV0PgpDYzogRGF2ZSBBaXJsaWUgPGFpcmxpZWRAcmVkaGF0LmNvbT4KQ2M6IEFsb24gTGV2
+eSA8YWxldnlAcmVkaGF0LmNvbT4KQ2M6IEd1ZW5uYWRpIExpYWtob3ZldHNraSA8Zy5saWFraG92
+ZXRza2lAZ214LmRlPgpDYzogQ2hyaXN0b3BoIEhlbGx3aWcgPGhjaEBsc3QuZGU+CkNjOiBsaW51
+eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnCkNjOiBkcmktZGV2ZWxAbGlzdHMuZnJlZWRlc2t0b3Au
+b3JnCkNjOiBsaW51eC1yZG1hQHZnZXIua2VybmVsLm9yZwpDYzogbGludXgtbW1jQHZnZXIua2Vy
+bmVsLm9yZwpDYzogbGludXgtc2NzaUB2Z2VyLmtlcm5lbC5vcmcKQ2M6IG9zc3QtdXNlcnNAbGlz
+dHMuc291cmNlZm9yZ2UubmV0CkNjOiB0YXJnZXQtZGV2ZWxAdmdlci5rZXJuZWwub3JnCkNjOiBj
+b250YWluZXJzQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCkNjOiBjZ3JvdXBzQHZnZXIua2Vy
+bmVsLm9yZwpDYzogbGludXgtc2N0cEB2Z2VyLmtlcm5lbC5vcmcKQ2M6IG5ldGRldkB2Z2VyLmtl
+cm5lbC5vcmcKLS0tCiBkcml2ZXJzL2RjYS9kY2Etc3lzZnMuYyAgICAgICAgICAgICAgICAgICB8
+IDE4ICsrKy0tLS0tLS0tLS0tLS0tLQogZHJpdmVycy9ncHUvZHJtL3F4bC9xeGxfY21kLmMgICAg
+ICAgICAgICAgfCAgNCArLS0tCiBkcml2ZXJzL2dwdS9kcm0vcXhsL3F4bF9kcnYuaCAgICAgICAg
+ICAgICB8ICAxIC0KIGRyaXZlcnMvZ3B1L2RybS9xeGwvcXhsX2ttcy5jICAgICAgICAgICAgIHwg
+IDEgLQogZHJpdmVycy9ncHUvZHJtL3F4bC9xeGxfcmVsZWFzZS5jICAgICAgICAgfCAyMCArKysr
+Ky0tLS0tLS0tLS0tLS0tLQogZHJpdmVycy9pbmZpbmliYW5kL2h3L2Ftc28xMTAwL2MyLmggICAg
+ICAgfCAgMSAtCiBkcml2ZXJzL2luZmluaWJhbmQvaHcvYW1zbzExMDAvYzJfcXAuYyAgICB8IDIw
+ICsrLS0tLS0tLS0tLS0tLS0tLS0tCiBkcml2ZXJzL21kL2RtLmMgICAgICAgICAgICAgICAgICAg
+ICAgICAgICB8IDI0ICsrKystLS0tLS0tLS0tLS0tLS0tLS0tLQogZHJpdmVycy9tZW1zdGljay9j
+b3JlL21lbXN0aWNrLmMgICAgICAgICAgfCAxNyArKystLS0tLS0tLS0tLS0tLQogZHJpdmVycy9t
+ZmQvcnRzeF9wY3IuYyAgICAgICAgICAgICAgICAgICAgfCAxMyArKystLS0tLS0tLS0tCiBkcml2
+ZXJzL21pc2MvYzJwb3J0L2NvcmUuYyAgICAgICAgICAgICAgICB8IDExICstLS0tLS0tLS0tCiBk
+cml2ZXJzL21pc2MvdGlmbV9jb3JlLmMgICAgICAgICAgICAgICAgICB8IDE1ICsrKy0tLS0tLS0t
+LS0tLQogZHJpdmVycy9tbWMvY29yZS9ob3N0LmMgICAgICAgICAgICAgICAgICAgfCAxMyArKy0t
+LS0tLS0tLS0tCiBkcml2ZXJzL3Njc2kvY2guYyAgICAgICAgICAgICAgICAgICAgICAgICB8IDEz
+ICstLS0tLS0tLS0tLS0KIGRyaXZlcnMvc2NzaS9zdC5jICAgICAgICAgICAgICAgICAgICAgICAg
+IHwgMTMgKy0tLS0tLS0tLS0tLQogZHJpdmVycy90YXJnZXQvaXNjc2kvaXNjc2lfdGFyZ2V0LmMg
+ICAgICAgfCAxNyArKysrLS0tLS0tLS0tLS0tLQogZHJpdmVycy90YXJnZXQvaXNjc2kvaXNjc2lf
+dGFyZ2V0LmggICAgICAgfCAgMSAtCiBkcml2ZXJzL3RhcmdldC9pc2NzaS9pc2NzaV90YXJnZXRf
+bG9naW4uYyB8IDEyICsrLS0tLS0tLS0tLQogaW5jbHVkZS9saW51eC9jZ3JvdXAuaCAgICAgICAg
+ICAgICAgICAgICAgfCAgMSAtCiBpbmNsdWRlL25ldC9zY3RwL3NjdHAuaCAgICAgICAgICAgICAg
+ICAgICB8ICAxIC0KIGtlcm5lbC9jZ3JvdXAuYyAgICAgICAgICAgICAgICAgICAgICAgICAgIHwg
+IDkgKy0tLS0tLS0tCiBrZXJuZWwvd29ya3F1ZXVlLmMgICAgICAgICAgICAgICAgICAgICAgICB8
+IDE1ICsrLS0tLS0tLS0tLS0tLQogbmV0LzlwL3V0aWwuYyAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgfCAxNSArLS0tLS0tLS0tLS0tLS0KIG5ldC9zY3RwL2Fzc29jaW9sYS5jICAgICAgICAg
+ICAgICAgICAgICAgIHwgMTQgKystLS0tLS0tLS0tLS0KIG5ldC9zY3RwL3Byb3RvY29sLmMgICAg
+ICAgICAgICAgICAgICAgICAgIHwgIDEgLQogbmV0L3NjdHAvc29ja2V0LmMgICAgICAgICAgICAg
+ICAgICAgICAgICAgfCAgMiAtLQogMjYgZmlsZXMgY2hhbmdlZCwgNDEgaW5zZXJ0aW9ucygrKSwg
+MjMxIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvZGNhL2RjYS1zeXNmcy5jIGIv
+ZHJpdmVycy9kY2EvZGNhLXN5c2ZzLmMKaW5kZXggZWZmZGE2Ni4uNmJlNWZiZCAxMDA2NDQKLS0t
+IGEvZHJpdmVycy9kY2EvZGNhLXN5c2ZzLmMKKysrIGIvZHJpdmVycy9kY2EvZGNhLXN5c2ZzLmMK
+QEAgLTMxLDcgKzMxLDYgQEAKIAogc3RhdGljIHN0cnVjdCBjbGFzcyAqZGNhX2NsYXNzOwogc3Rh
+dGljIHN0cnVjdCBpZHIgZGNhX2lkcjsKLXN0YXRpYyBzcGlubG9ja190IGRjYV9pZHJfbG9jazsK
+IAogaW50IGRjYV9zeXNmc19hZGRfcmVxKHN0cnVjdCBkY2FfcHJvdmlkZXIgKmRjYSwgc3RydWN0
+IGRldmljZSAqZGV2LCBpbnQgc2xvdCkKIHsKQEAgLTU1LDIzICs1NCwxNSBAQCBpbnQgZGNhX3N5
+c2ZzX2FkZF9wcm92aWRlcihzdHJ1Y3QgZGNhX3Byb3ZpZGVyICpkY2EsIHN0cnVjdCBkZXZpY2Ug
+KmRldikKIAlzdHJ1Y3QgZGV2aWNlICpjZDsKIAlpbnQgcmV0OwogCi0JaWRyX3ByZWxvYWQoR0ZQ
+X0tFUk5FTCk7Ci0Jc3Bpbl9sb2NrKCZkY2FfaWRyX2xvY2spOwotCi0JcmV0ID0gaWRyX2FsbG9j
+KCZkY2FfaWRyLCBkY2EsIEdGUF9OT1dBSVQpOwotCWlmIChyZXQgPj0gMCkKLQkJZGNhLT5pZCA9
+IHJldDsKLQotCXNwaW5fdW5sb2NrKCZkY2FfaWRyX2xvY2spOwotCWlkcl9wcmVsb2FkX2VuZCgp
+OworCXJldCA9IGlkcl9hbGxvYygmZGNhX2lkciwgZGNhLCBHRlBfS0VSTkVMKTsKIAlpZiAocmV0
+IDwgMCkKIAkJcmV0dXJuIHJldDsKIAorCWRjYS0+aWQgPSByZXQ7CisKIAljZCA9IGRldmljZV9j
+cmVhdGUoZGNhX2NsYXNzLCBkZXYsIE1LREVWKDAsIDApLCBOVUxMLCAiZGNhJWQiLCBkY2EtPmlk
+KTsKIAlpZiAoSVNfRVJSKGNkKSkgewotCQlzcGluX2xvY2soJmRjYV9pZHJfbG9jayk7CiAJCWlk
+cl9yZW1vdmUoJmRjYV9pZHIsIGRjYS0+aWQpOwotCQlzcGluX3VubG9jaygmZGNhX2lkcl9sb2Nr
+KTsKIAkJcmV0dXJuIFBUUl9FUlIoY2QpOwogCX0KIAlkY2EtPmNkID0gY2Q7CkBAIC04MiwxNSAr
+NzMsMTIgQEAgdm9pZCBkY2Ffc3lzZnNfcmVtb3ZlX3Byb3ZpZGVyKHN0cnVjdCBkY2FfcHJvdmlk
+ZXIgKmRjYSkKIHsKIAlkZXZpY2VfdW5yZWdpc3RlcihkY2EtPmNkKTsKIAlkY2EtPmNkID0gTlVM
+TDsKLQlzcGluX2xvY2soJmRjYV9pZHJfbG9jayk7CiAJaWRyX3JlbW92ZSgmZGNhX2lkciwgZGNh
+LT5pZCk7Ci0Jc3Bpbl91bmxvY2soJmRjYV9pZHJfbG9jayk7CiB9CiAKIGludCBfX2luaXQgZGNh
+X3N5c2ZzX2luaXQodm9pZCkKIHsKIAlpZHJfaW5pdCgmZGNhX2lkcik7Ci0Jc3Bpbl9sb2NrX2lu
+aXQoJmRjYV9pZHJfbG9jayk7CiAKIAlkY2FfY2xhc3MgPSBjbGFzc19jcmVhdGUoVEhJU19NT0RV
+TEUsICJkY2EiKTsKIAlpZiAoSVNfRVJSKGRjYV9jbGFzcykpIHsKZGlmZiAtLWdpdCBhL2RyaXZl
+cnMvZ3B1L2RybS9xeGwvcXhsX2NtZC5jIGIvZHJpdmVycy9ncHUvZHJtL3F4bC9xeGxfY21kLmMK
+aW5kZXggNTU1YTY5OC4uZTAxZjdkNSAxMDA2NDQKLS0tIGEvZHJpdmVycy9ncHUvZHJtL3F4bC9x
+eGxfY21kLmMKKysrIGIvZHJpdmVycy9ncHUvZHJtL3F4bC9xeGxfY21kLmMKQEAgLTQ0OSwxMSAr
+NDQ5LDkgQEAgaW50IHF4bF9zdXJmYWNlX2lkX2FsbG9jKHN0cnVjdCBxeGxfZGV2aWNlICpxZGV2
+LAogCWludCBpZHJfcmV0OwogCWludCBjb3VudCA9IDA7CiBhZ2FpbjoKLQlpZHJfcHJlbG9hZChH
+RlBfQVRPTUlDKTsKIAlzcGluX2xvY2soJnFkZXYtPnN1cmZfaWRfaWRyX2xvY2spOwotCWlkcl9y
+ZXQgPSBpZHJfYWxsb2NfcmFuZ2UoJnFkZXYtPnN1cmZfaWRfaWRyLCBOVUxMLCAxLCAwLCBHRlBf
+Tk9XQUlUKTsKKwlpZHJfcmV0ID0gaWRyX2FsbG9jX3JhbmdlKCZxZGV2LT5zdXJmX2lkX2lkciwg
+TlVMTCwgMSwgMCwgR0ZQX0FUT01JQyk7CiAJc3Bpbl91bmxvY2soJnFkZXYtPnN1cmZfaWRfaWRy
+X2xvY2spOwotCWlkcl9wcmVsb2FkX2VuZCgpOwogCWlmIChpZHJfcmV0IDwgMCkKIAkJcmV0dXJu
+IGlkcl9yZXQ7CiAJaGFuZGxlID0gaWRyX3JldDsKZGlmZiAtLWdpdCBhL2RyaXZlcnMvZ3B1L2Ry
+bS9xeGwvcXhsX2Rydi5oIGIvZHJpdmVycy9ncHUvZHJtL3F4bC9xeGxfZHJ2LmgKaW5kZXggN2U5
+NmY0Zi4uZGYyNWFmNSAxMDA2NDQKLS0tIGEvZHJpdmVycy9ncHUvZHJtL3F4bC9xeGxfZHJ2LmgK
+KysrIGIvZHJpdmVycy9ncHUvZHJtL3F4bC9xeGxfZHJ2LmgKQEAgLTI4NSw3ICsyODUsNiBAQCBz
+dHJ1Y3QgcXhsX2RldmljZSB7CiAJdWludDY0X3QJdmFfc2xvdF9tYXNrOwogCiAJc3RydWN0IGlk
+cglyZWxlYXNlX2lkcjsKLQlzcGlubG9ja190IHJlbGVhc2VfaWRyX2xvY2s7CiAJc3RydWN0IG11
+dGV4CWFzeW5jX2lvX211dGV4OwogCXVuc2lnbmVkIGludCBsYXN0X3NlbnRfaW9fY21kOwogCmRp
+ZmYgLS1naXQgYS9kcml2ZXJzL2dwdS9kcm0vcXhsL3F4bF9rbXMuYyBiL2RyaXZlcnMvZ3B1L2Ry
+bS9xeGwvcXhsX2ttcy5jCmluZGV4IDllOGRhOWUuLjM5NmMxZWIgMTAwNjQ0Ci0tLSBhL2RyaXZl
+cnMvZ3B1L2RybS9xeGwvcXhsX2ttcy5jCisrKyBiL2RyaXZlcnMvZ3B1L2RybS9xeGwvcXhsX2tt
+cy5jCkBAIC0yMDQsNyArMjA0LDYgQEAgaW50IHF4bF9kZXZpY2VfaW5pdChzdHJ1Y3QgcXhsX2Rl
+dmljZSAqcWRldiwKIAkJCUdGUF9LRVJORUwpOwogCiAJaWRyX2luaXQoJnFkZXYtPnJlbGVhc2Vf
+aWRyKTsKLQlzcGluX2xvY2tfaW5pdCgmcWRldi0+cmVsZWFzZV9pZHJfbG9jayk7CiAKIAlpZHJf
+aW5pdCgmcWRldi0+c3VyZl9pZF9pZHIpOwogCXNwaW5fbG9ja19pbml0KCZxZGV2LT5zdXJmX2lk
+X2lkcl9sb2NrKTsKZGlmZiAtLWdpdCBhL2RyaXZlcnMvZ3B1L2RybS9xeGwvcXhsX3JlbGVhc2Uu
+YyBiL2RyaXZlcnMvZ3B1L2RybS9xeGwvcXhsX3JlbGVhc2UuYwppbmRleCA3Y2JlNjJhLi42Y2Iy
+YzgzIDEwMDY0NAotLS0gYS9kcml2ZXJzL2dwdS9kcm0vcXhsL3F4bF9yZWxlYXNlLmMKKysrIGIv
+ZHJpdmVycy9ncHUvZHJtL3F4bC9xeGxfcmVsZWFzZS5jCkBAIC00NCw3ICs0NCw2IEBAIHF4bF9y
+ZWxlYXNlX2FsbG9jKHN0cnVjdCBxeGxfZGV2aWNlICpxZGV2LCBpbnQgdHlwZSwKIAkJICBzdHJ1
+Y3QgcXhsX3JlbGVhc2UgKipyZXQpCiB7CiAJc3RydWN0IHF4bF9yZWxlYXNlICpyZWxlYXNlOwot
+CWludCBoYW5kbGU7CiAJc2l6ZV90IHNpemUgPSBzaXplb2YoKnJlbGVhc2UpOwogCWludCBpZHJf
+cmV0OwogCkBAIC01OCwyMSArNTcsMTYgQEAgcXhsX3JlbGVhc2VfYWxsb2Moc3RydWN0IHF4bF9k
+ZXZpY2UgKnFkZXYsIGludCB0eXBlLAogCXJlbGVhc2UtPnN1cmZhY2VfcmVsZWFzZV9pZCA9IDA7
+CiAJSU5JVF9MSVNUX0hFQUQoJnJlbGVhc2UtPmJvcyk7CiAKLQlpZHJfcHJlbG9hZChHRlBfS0VS
+TkVMKTsKLQlzcGluX2xvY2soJnFkZXYtPnJlbGVhc2VfaWRyX2xvY2spOwotCWlkcl9yZXQgPSBp
+ZHJfYWxsb2NfcmFuZ2UoJnFkZXYtPnJlbGVhc2VfaWRyLAotCQkJCSAgcmVsZWFzZSwgMSwgMCwg
+R0ZQX05PV0FJVCk7Ci0Jc3Bpbl91bmxvY2soJnFkZXYtPnJlbGVhc2VfaWRyX2xvY2spOwotCWlk
+cl9wcmVsb2FkX2VuZCgpOwotCWhhbmRsZSA9IGlkcl9yZXQ7CisJaWRyX3JldCA9IGlkcl9hbGxv
+Y19yYW5nZSgmcWRldi0+cmVsZWFzZV9pZHIsIHJlbGVhc2UsCisJCQkJICAxLCAwLCBHRlBfS0VS
+TkVMKTsKIAlpZiAoaWRyX3JldCA8IDApCiAJCWdvdG8gcmVsZWFzZV9mYWlsOwogCSpyZXQgPSBy
+ZWxlYXNlOwotCVFYTF9JTkZPKHFkZXYsICJhbGxvY2F0ZWQgcmVsZWFzZSAlbGxkXG4iLCBoYW5k
+bGUpOwotCXJlbGVhc2UtPmlkID0gaGFuZGxlOworCVFYTF9JTkZPKHFkZXYsICJhbGxvY2F0ZWQg
+cmVsZWFzZSAlbGxkXG4iLCBpZHJfcmV0KTsKKwlyZWxlYXNlLT5pZCA9IGlkcl9yZXQ7CiByZWxl
+YXNlX2ZhaWw6CiAKLQlyZXR1cm4gaGFuZGxlOworCXJldHVybiBpZHJfcmV0OwogfQogCiB2b2lk
+CkBAIC05NCw5ICs4OCw3IEBAIHF4bF9yZWxlYXNlX2ZyZWUoc3RydWN0IHF4bF9kZXZpY2UgKnFk
+ZXYsCiAJCXF4bF9mZW5jZV9yZW1vdmVfcmVsZWFzZSgmYm8tPmZlbmNlLCByZWxlYXNlLT5pZCk7
+CiAJCXF4bF9ib191bnJlZigmYm8pOwogCX0KLQlzcGluX2xvY2soJnFkZXYtPnJlbGVhc2VfaWRy
+X2xvY2spOwogCWlkcl9yZW1vdmUoJnFkZXYtPnJlbGVhc2VfaWRyLCByZWxlYXNlLT5pZCk7Ci0J
+c3Bpbl91bmxvY2soJnFkZXYtPnJlbGVhc2VfaWRyX2xvY2spOwogCWtmcmVlKHJlbGVhc2UpOwog
+fQogCkBAIC0yNzksOSArMjcxLDcgQEAgc3RydWN0IHF4bF9yZWxlYXNlICpxeGxfcmVsZWFzZV9m
+cm9tX2lkX2xvY2tlZChzdHJ1Y3QgcXhsX2RldmljZSAqcWRldiwKIHsKIAlzdHJ1Y3QgcXhsX3Jl
+bGVhc2UgKnJlbGVhc2U7CiAKLQlzcGluX2xvY2soJnFkZXYtPnJlbGVhc2VfaWRyX2xvY2spOwog
+CXJlbGVhc2UgPSBpZHJfZmluZCgmcWRldi0+cmVsZWFzZV9pZHIsIGlkKTsKLQlzcGluX3VubG9j
+aygmcWRldi0+cmVsZWFzZV9pZHJfbG9jayk7CiAJaWYgKCFyZWxlYXNlKSB7CiAJCURSTV9FUlJP
+UigiZmFpbGVkIHRvIGZpbmQgaWQgaW4gcmVsZWFzZV9pZHJcbiIpOwogCQlyZXR1cm4gTlVMTDsK
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvaW5maW5pYmFuZC9ody9hbXNvMTEwMC9jMi5oIGIvZHJpdmVy
+cy9pbmZpbmliYW5kL2h3L2Ftc28xMTAwL2MyLmgKaW5kZXggZDYxOWQ3My4uNzNmMmU5NiAxMDA2
+NDQKLS0tIGEvZHJpdmVycy9pbmZpbmliYW5kL2h3L2Ftc28xMTAwL2MyLmgKKysrIGIvZHJpdmVy
+cy9pbmZpbmliYW5kL2h3L2Ftc28xMTAwL2MyLmgKQEAgLTI2NCw3ICsyNjQsNiBAQCBzdHJ1Y3Qg
+YzJfcGRfdGFibGUgewogCiBzdHJ1Y3QgYzJfcXBfdGFibGUgewogCXN0cnVjdCBpZHIgaWRyOwot
+CXNwaW5sb2NrX3QgbG9jazsKIH07CiAKIHN0cnVjdCBjMl9lbGVtZW50IHsKZGlmZiAtLWdpdCBh
+L2RyaXZlcnMvaW5maW5pYmFuZC9ody9hbXNvMTEwMC9jMl9xcC5jIGIvZHJpdmVycy9pbmZpbmli
+YW5kL2h3L2Ftc28xMTAwL2MyX3FwLmMKaW5kZXggODY3MDhkZS4uY2I4MGFhOSAxMDA2NDQKLS0t
+IGEvZHJpdmVycy9pbmZpbmliYW5kL2h3L2Ftc28xMTAwL2MyX3FwLmMKKysrIGIvZHJpdmVycy9p
+bmZpbmliYW5kL2h3L2Ftc28xMTAwL2MyX3FwLmMKQEAgLTM4MCwzNiArMzgwLDIxIEBAIHN0YXRp
+YyBpbnQgZGVzdHJveV9xcChzdHJ1Y3QgYzJfZGV2ICpjMmRldiwgc3RydWN0IGMyX3FwICpxcCkK
+IAogc3RhdGljIGludCBjMl9hbGxvY19xcG4oc3RydWN0IGMyX2RldiAqYzJkZXYsIHN0cnVjdCBj
+Ml9xcCAqcXApCiB7Ci0JaW50IHJldDsKLQotCWlkcl9wcmVsb2FkKEdGUF9LRVJORUwpOwotCXNw
+aW5fbG9ja19pcnEoJmMyZGV2LT5xcF90YWJsZS5sb2NrKTsKLQotCXJldCA9IGlkcl9hbGxvY19j
+eWNsaWMoJmMyZGV2LT5xcF90YWJsZS5pZHIsIHFwLCAwLCAwLCBHRlBfTk9XQUlUKTsKKwlpbnQg
+cmV0ID0gaWRyX2FsbG9jX2N5Y2xpYygmYzJkZXYtPnFwX3RhYmxlLmlkciwgcXAsIDAsIDAsIEdG
+UF9LRVJORUwpOwogCWlmIChyZXQgPj0gMCkKIAkJcXAtPnFwbiA9IHJldDsKIAotCXNwaW5fdW5s
+b2NrX2lycSgmYzJkZXYtPnFwX3RhYmxlLmxvY2spOwotCWlkcl9wcmVsb2FkX2VuZCgpOwogCXJl
+dHVybiByZXQgPCAwID8gcmV0IDogMDsKIH0KIAogc3RhdGljIHZvaWQgYzJfZnJlZV9xcG4oc3Ry
+dWN0IGMyX2RldiAqYzJkZXYsIGludCBxcG4pCiB7Ci0Jc3Bpbl9sb2NrX2lycSgmYzJkZXYtPnFw
+X3RhYmxlLmxvY2spOwogCWlkcl9yZW1vdmUoJmMyZGV2LT5xcF90YWJsZS5pZHIsIHFwbik7Ci0J
+c3Bpbl91bmxvY2tfaXJxKCZjMmRldi0+cXBfdGFibGUubG9jayk7CiB9CiAKIHN0cnVjdCBjMl9x
+cCAqYzJfZmluZF9xcG4oc3RydWN0IGMyX2RldiAqYzJkZXYsIGludCBxcG4pCiB7Ci0JdW5zaWdu
+ZWQgbG9uZyBmbGFnczsKLQlzdHJ1Y3QgYzJfcXAgKnFwOwotCi0Jc3Bpbl9sb2NrX2lycXNhdmUo
+JmMyZGV2LT5xcF90YWJsZS5sb2NrLCBmbGFncyk7Ci0JcXAgPSBpZHJfZmluZCgmYzJkZXYtPnFw
+X3RhYmxlLmlkciwgcXBuKTsKLQlzcGluX3VubG9ja19pcnFyZXN0b3JlKCZjMmRldi0+cXBfdGFi
+bGUubG9jaywgZmxhZ3MpOwotCXJldHVybiBxcDsKKwlyZXR1cm4gaWRyX2ZpbmQoJmMyZGV2LT5x
+cF90YWJsZS5pZHIsIHFwbik7CiB9CiAKIGludCBjMl9hbGxvY19xcChzdHJ1Y3QgYzJfZGV2ICpj
+MmRldiwKQEAgLTEwMTQsNyArOTk5LDYgQEAgb3V0OgogCiB2b2lkIGMyX2luaXRfcXBfdGFibGUo
+c3RydWN0IGMyX2RldiAqYzJkZXYpCiB7Ci0Jc3Bpbl9sb2NrX2luaXQoJmMyZGV2LT5xcF90YWJs
+ZS5sb2NrKTsKIAlpZHJfaW5pdCgmYzJkZXYtPnFwX3RhYmxlLmlkcik7CiB9CiAKZGlmZiAtLWdp
+dCBhL2RyaXZlcnMvbWQvZG0uYyBiL2RyaXZlcnMvbWQvZG0uYwppbmRleCBjNjNkMzVhLi4zMjFl
+ODkxIDEwMDY0NAotLS0gYS9kcml2ZXJzL21kL2RtLmMKKysrIGIvZHJpdmVycy9tZC9kbS5jCkBA
+IC0xODEyLDkgKzE4MTIsNyBAQCBzdGF0aWMgaW50IGRtX2FueV9jb25nZXN0ZWQodm9pZCAqY29u
+Z2VzdGVkX2RhdGEsIGludCBiZGlfYml0cykKICAqLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tKi8KIHN0YXRpYyB2b2lkIGZyZWVf
+bWlub3IoaW50IG1pbm9yKQogewotCXNwaW5fbG9jaygmX21pbm9yX2xvY2spOwogCWlkcl9yZW1v
+dmUoJl9taW5vcl9pZHIsIG1pbm9yKTsKLQlzcGluX3VubG9jaygmX21pbm9yX2xvY2spOwogfQog
+CiAvKgpAQCAtMTgyNywxNCArMTgyNSw4IEBAIHN0YXRpYyBpbnQgc3BlY2lmaWNfbWlub3IoaW50
+IG1pbm9yKQogCWlmIChtaW5vciA+PSAoMSA8PCBNSU5PUkJJVFMpKQogCQlyZXR1cm4gLUVJTlZB
+TDsKIAotCWlkcl9wcmVsb2FkKEdGUF9LRVJORUwpOwotCXNwaW5fbG9jaygmX21pbm9yX2xvY2sp
+OwotCi0JciA9IGlkcl9hbGxvY19yYW5nZSgmbWlub3JfaWRyLCBNSU5PUl9BTExPQ0VELAotCQkJ
+ICAgIG1pbm9yLCBtaW5vciArIDEsIEdGUF9OT1dBSVQpOwotCi0Jc3Bpbl91bmxvY2soJl9taW5v
+cl9sb2NrKTsKLQlpZHJfcHJlbG9hZF9lbmQoKTsKKwlyID0gaWRyX2FsbG9jX3JhbmdlKCZfbWlu
+b3JfaWRyLCBNSU5PUl9BTExPQ0VELCBtaW5vciwKKwkJCSAgICBtaW5vciArIDEsIEdGUF9LRVJO
+RUwpOwogCWlmIChyIDwgMCkKIAkJcmV0dXJuIHIgPT0gLUVOT1NQQyA/IC1FQlVTWSA6IHI7CiAJ
+cmV0dXJuIDA7CkBAIC0xODQ0LDE0ICsxODM2LDggQEAgc3RhdGljIGludCBuZXh0X2ZyZWVfbWlu
+b3IoaW50ICptaW5vcikKIHsKIAlpbnQgcjsKIAotCWlkcl9wcmVsb2FkKEdGUF9LRVJORUwpOwot
+CXNwaW5fbG9jaygmX21pbm9yX2xvY2spOwotCi0JciA9IGlkcl9hbGxvY19yYW5nZSgmbWlub3Jf
+aWRyLCBNSU5PUl9BTExPQ0VELCAwLAotCQkJICAgIDEgPDwgTUlOT1JCSVRTLCBHRlBfTk9XQUlU
+KTsKLQotCXNwaW5fdW5sb2NrKCZfbWlub3JfbG9jayk7Ci0JaWRyX3ByZWxvYWRfZW5kKCk7CisJ
+ciA9IGlkcl9hbGxvY19yYW5nZSgmX21pbm9yX2lkciwgTUlOT1JfQUxMT0NFRCwKKwkJCSAgICAw
+LCAxIDw8IE1JTk9SQklUUywgR0ZQX0tFUk5FTCk7CiAJaWYgKHIgPCAwKQogCQlyZXR1cm4gcjsK
+IAkqbWlub3IgPSByOwpAQCAtMTk2Miw5ICsxOTQ4LDcgQEAgc3RhdGljIHN0cnVjdCBtYXBwZWRf
+ZGV2aWNlICphbGxvY19kZXYoaW50IG1pbm9yKQogCW1kLT5mbHVzaF9iaW8uYmlfcncgPSBXUklU
+RV9GTFVTSDsKIAogCS8qIFBvcHVsYXRlIHRoZSBtYXBwaW5nLCBub2JvZHkga25vd3Mgd2UgZXhp
+c3QgeWV0ICovCi0Jc3Bpbl9sb2NrKCZfbWlub3JfbG9jayk7CiAJb2xkX21kID0gaWRyX3JlcGxh
+Y2UoJl9taW5vcl9pZHIsIG1kLCBtaW5vcik7Ci0Jc3Bpbl91bmxvY2soJl9taW5vcl9sb2NrKTsK
+IAogCUJVR19PTihvbGRfbWQgIT0gTUlOT1JfQUxMT0NFRCk7CiAKZGlmZiAtLWdpdCBhL2RyaXZl
+cnMvbWVtc3RpY2svY29yZS9tZW1zdGljay5jIGIvZHJpdmVycy9tZW1zdGljay9jb3JlL21lbXN0
+aWNrLmMKaW5kZXggNzBmYjA3Yy4uYjc1NDRhMyAxMDA2NDQKLS0tIGEvZHJpdmVycy9tZW1zdGlj
+ay9jb3JlL21lbXN0aWNrLmMKKysrIGIvZHJpdmVycy9tZW1zdGljay9jb3JlL21lbXN0aWNrLmMK
+QEAgLTI2LDcgKzI2LDYgQEAgbW9kdWxlX3BhcmFtKGNtZF9yZXRyaWVzLCB1aW50LCAwNjQ0KTsK
+IAogc3RhdGljIHN0cnVjdCB3b3JrcXVldWVfc3RydWN0ICp3b3JrcXVldWU7CiBzdGF0aWMgREVG
+SU5FX0lEUihtZW1zdGlja19ob3N0X2lkcik7Ci1zdGF0aWMgREVGSU5FX1NQSU5MT0NLKG1lbXN0
+aWNrX2hvc3RfbG9jayk7CiAKIHN0YXRpYyBpbnQgbWVtc3RpY2tfZGV2X21hdGNoKHN0cnVjdCBt
+ZW1zdGlja19kZXYgKmNhcmQsCiAJCQkgICAgICBzdHJ1Y3QgbWVtc3RpY2tfZGV2aWNlX2lkICpp
+ZCkKQEAgLTUxMiwyNSArNTExLDE3IEBAIGludCBtZW1zdGlja19hZGRfaG9zdChzdHJ1Y3QgbWVt
+c3RpY2tfaG9zdCAqaG9zdCkKIHsKIAlpbnQgcmM7CiAKLQlpZHJfcHJlbG9hZChHRlBfS0VSTkVM
+KTsKLQlzcGluX2xvY2soJm1lbXN0aWNrX2hvc3RfbG9jayk7Ci0KLQlyYyA9IGlkcl9hbGxvYygm
+bWVtc3RpY2tfaG9zdF9pZHIsIGhvc3QsIEdGUF9OT1dBSVQpOwotCWlmIChyYyA+PSAwKQotCQlo
+b3N0LT5pZCA9IHJjOwotCi0Jc3Bpbl91bmxvY2soJm1lbXN0aWNrX2hvc3RfbG9jayk7Ci0JaWRy
+X3ByZWxvYWRfZW5kKCk7CisJcmMgPSBpZHJfYWxsb2MoJm1lbXN0aWNrX2hvc3RfaWRyLCBob3N0
+LCBHRlBfS0VSTkVMKTsKIAlpZiAocmMgPCAwKQogCQlyZXR1cm4gcmM7CiAKKwlob3N0LT5pZCA9
+IHJjOworCiAJZGV2X3NldF9uYW1lKCZob3N0LT5kZXYsICJtZW1zdGljayV1IiwgaG9zdC0+aWQp
+OwogCiAJcmMgPSBkZXZpY2VfYWRkKCZob3N0LT5kZXYpOwogCWlmIChyYykgewotCQlzcGluX2xv
+Y2soJm1lbXN0aWNrX2hvc3RfbG9jayk7CiAJCWlkcl9yZW1vdmUoJm1lbXN0aWNrX2hvc3RfaWRy
+LCBob3N0LT5pZCk7Ci0JCXNwaW5fdW5sb2NrKCZtZW1zdGlja19ob3N0X2xvY2spOwogCQlyZXR1
+cm4gcmM7CiAJfQogCkBAIC01NTQsOSArNTQ1LDcgQEAgdm9pZCBtZW1zdGlja19yZW1vdmVfaG9z
+dChzdHJ1Y3QgbWVtc3RpY2tfaG9zdCAqaG9zdCkKIAlob3N0LT5zZXRfcGFyYW0oaG9zdCwgTUVN
+U1RJQ0tfUE9XRVIsIE1FTVNUSUNLX1BPV0VSX09GRik7CiAJbXV0ZXhfdW5sb2NrKCZob3N0LT5s
+b2NrKTsKIAotCXNwaW5fbG9jaygmbWVtc3RpY2tfaG9zdF9sb2NrKTsKIAlpZHJfcmVtb3ZlKCZt
+ZW1zdGlja19ob3N0X2lkciwgaG9zdC0+aWQpOwotCXNwaW5fdW5sb2NrKCZtZW1zdGlja19ob3N0
+X2xvY2spOwogCWRldmljZV9kZWwoJmhvc3QtPmRldik7CiB9CiBFWFBPUlRfU1lNQk9MKG1lbXN0
+aWNrX3JlbW92ZV9ob3N0KTsKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbWZkL3J0c3hfcGNyLmMgYi9k
+cml2ZXJzL21mZC9ydHN4X3Bjci5jCmluZGV4IDg2MmRlZWQuLmJlNTkxM2EgMTAwNjQ0Ci0tLSBh
+L2RyaXZlcnMvbWZkL3J0c3hfcGNyLmMKKysrIGIvZHJpdmVycy9tZmQvcnRzeF9wY3IuYwpAQCAt
+NDAsNyArNDAsNiBAQCBtb2R1bGVfcGFyYW0obXNpX2VuLCBib29sLCBTX0lSVUdPIHwgU19JV1VT
+Uik7CiBNT0RVTEVfUEFSTV9ERVNDKG1zaV9lbiwgIkVuYWJsZSBNU0kiKTsKIAogc3RhdGljIERF
+RklORV9JRFIocnRzeF9wY2lfaWRyKTsKLXN0YXRpYyBERUZJTkVfU1BJTkxPQ0socnRzeF9wY2lf
+bG9jayk7CiAKIHN0YXRpYyBzdHJ1Y3QgbWZkX2NlbGwgcnRzeF9wY3JfY2VsbHNbXSA9IHsKIAlb
+UlRTWF9TRF9DQVJEXSA9IHsKQEAgLTExMDEsMTYgKzExMDAsMTIgQEAgc3RhdGljIGludCBydHN4
+X3BjaV9wcm9iZShzdHJ1Y3QgcGNpX2RldiAqcGNpZGV2LAogCX0KIAloYW5kbGUtPnBjciA9IHBj
+cjsKIAotCWlkcl9wcmVsb2FkKEdGUF9LRVJORUwpOwotCXNwaW5fbG9jaygmcnRzeF9wY2lfbG9j
+ayk7Ci0JcmV0ID0gaWRyX2FsbG9jKCZydHN4X3BjaV9pZHIsIHBjciwgR0ZQX05PV0FJVCk7Ci0J
+aWYgKHJldCA+PSAwKQotCQlwY3ItPmlkID0gcmV0OwotCXNwaW5fdW5sb2NrKCZydHN4X3BjaV9s
+b2NrKTsKLQlpZHJfcHJlbG9hZF9lbmQoKTsKKwlyZXQgPSBpZHJfYWxsb2MoJnJ0c3hfcGNpX2lk
+ciwgcGNyLCBHRlBfS0VSTkVMKTsKIAlpZiAocmV0IDwgMCkKIAkJZ290byBmcmVlX2hhbmRsZTsK
+IAorCXBjci0+aWQgPSByZXQ7CisKIAlwY3ItPnBjaSA9IHBjaWRldjsKIAlkZXZfc2V0X2RydmRh
+dGEoJnBjaWRldi0+ZGV2LCBoYW5kbGUpOwogCkBAIC0xMjE2LDkgKzEyMTEsNyBAQCBzdGF0aWMg
+dm9pZCBydHN4X3BjaV9yZW1vdmUoc3RydWN0IHBjaV9kZXYgKnBjaWRldikKIAlwY2lfcmVsZWFz
+ZV9yZWdpb25zKHBjaWRldik7CiAJcGNpX2Rpc2FibGVfZGV2aWNlKHBjaWRldik7CiAKLQlzcGlu
+X2xvY2soJnJ0c3hfcGNpX2xvY2spOwogCWlkcl9yZW1vdmUoJnJ0c3hfcGNpX2lkciwgcGNyLT5p
+ZCk7Ci0Jc3Bpbl91bmxvY2soJnJ0c3hfcGNpX2xvY2spOwogCiAJa2ZyZWUocGNyLT5zbG90cyk7
+CiAJa2ZyZWUocGNyKTsKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbWlzYy9jMnBvcnQvY29yZS5jIGIv
+ZHJpdmVycy9taXNjL2MycG9ydC9jb3JlLmMKaW5kZXggOGExYWIxMC4uNWNkOGM5OSAxMDA2NDQK
+LS0tIGEvZHJpdmVycy9taXNjL2MycG9ydC9jb3JlLmMKKysrIGIvZHJpdmVycy9taXNjL2MycG9y
+dC9jb3JlLmMKQEAgLTI3LDcgKzI3LDYgQEAKICNkZWZpbmUgRFJJVkVSX05BTUUgICAgICAgICAg
+ICAgImMycG9ydCIKICNkZWZpbmUgRFJJVkVSX1ZFUlNJT04gICAgICAgICAgIjAuNTEuMCIKIAot
+c3RhdGljIERFRklORV9TUElOTE9DSyhjMnBvcnRfaWRyX2xvY2spOwogc3RhdGljIERFRklORV9J
+RFIoYzJwb3J0X2lkcik7CiAKIC8qCkBAIC04OTcsMTEgKzg5Niw3IEBAIHN0cnVjdCBjMnBvcnRf
+ZGV2aWNlICpjMnBvcnRfZGV2aWNlX3JlZ2lzdGVyKGNoYXIgKm5hbWUsCiAJaWYgKHVubGlrZWx5
+KCFjMmRldikpCiAJCXJldHVybiBFUlJfUFRSKC1FTk9NRU0pOwogCi0JaWRyX3ByZWxvYWQoR0ZQ
+X0tFUk5FTCk7Ci0Jc3Bpbl9sb2NrX2lycSgmYzJwb3J0X2lkcl9sb2NrKTsKLQlyZXQgPSBpZHJf
+YWxsb2MoJmMycG9ydF9pZHIsIGMyZGV2LCBHRlBfTk9XQUlUKTsKLQlzcGluX3VubG9ja19pcnEo
+JmMycG9ydF9pZHJfbG9jayk7Ci0JaWRyX3ByZWxvYWRfZW5kKCk7CisJcmV0ID0gaWRyX2FsbG9j
+KCZjMnBvcnRfaWRyLCBjMmRldiwgR0ZQX0tFUk5FTCk7CiAKIAlpZiAocmV0IDwgMCkKIAkJZ290
+byBlcnJvcl9pZHJfYWxsb2M7CkBAIC05NDEsOSArOTM2LDcgQEAgZXJyb3JfZGV2aWNlX2NyZWF0
+ZV9iaW5fZmlsZToKIAlkZXZpY2VfZGVzdHJveShjMnBvcnRfY2xhc3MsIDApOwogCiBlcnJvcl9k
+ZXZpY2VfY3JlYXRlOgotCXNwaW5fbG9ja19pcnEoJmMycG9ydF9pZHJfbG9jayk7CiAJaWRyX3Jl
+bW92ZSgmYzJwb3J0X2lkciwgYzJkZXYtPmlkKTsKLQlzcGluX3VubG9ja19pcnEoJmMycG9ydF9p
+ZHJfbG9jayk7CiAKIGVycm9yX2lkcl9hbGxvYzoKIAlrZnJlZShjMmRldik7CkBAIC05NjAsOSAr
+OTUzLDcgQEAgdm9pZCBjMnBvcnRfZGV2aWNlX3VucmVnaXN0ZXIoc3RydWN0IGMycG9ydF9kZXZp
+Y2UgKmMyZGV2KQogCWRldl9pbmZvKGMyZGV2LT5kZXYsICJDMiBwb3J0ICVzIHJlbW92ZWRcbiIs
+IGMyZGV2LT5uYW1lKTsKIAogCWRldmljZV9yZW1vdmVfYmluX2ZpbGUoYzJkZXYtPmRldiwgJmMy
+cG9ydF9iaW5fYXR0cnMpOwotCXNwaW5fbG9ja19pcnEoJmMycG9ydF9pZHJfbG9jayk7CiAJaWRy
+X3JlbW92ZSgmYzJwb3J0X2lkciwgYzJkZXYtPmlkKTsKLQlzcGluX3VubG9ja19pcnEoJmMycG9y
+dF9pZHJfbG9jayk7CiAKIAlkZXZpY2VfZGVzdHJveShjMnBvcnRfY2xhc3MsIGMyZGV2LT5pZCk7
+CiAKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbWlzYy90aWZtX2NvcmUuYyBiL2RyaXZlcnMvbWlzYy90
+aWZtX2NvcmUuYwppbmRleCBjODI4YzI3Li5lZTdiMTgxIDEwMDY0NAotLS0gYS9kcml2ZXJzL21p
+c2MvdGlmbV9jb3JlLmMKKysrIGIvZHJpdmVycy9taXNjL3RpZm1fY29yZS5jCkBAIC0yMCw3ICsy
+MCw2IEBACiAKIHN0YXRpYyBzdHJ1Y3Qgd29ya3F1ZXVlX3N0cnVjdCAqd29ya3F1ZXVlOwogc3Rh
+dGljIERFRklORV9JRFIodGlmbV9hZGFwdGVyX2lkcik7Ci1zdGF0aWMgREVGSU5FX1NQSU5MT0NL
+KHRpZm1fYWRhcHRlcl9sb2NrKTsKIAogc3RhdGljIGNvbnN0IGNoYXIgKnRpZm1fbWVkaWFfdHlw
+ZV9uYW1lKHVuc2lnbmVkIGNoYXIgdHlwZSwgdW5zaWduZWQgY2hhciBudCkKIHsKQEAgLTE5Niwy
+MiArMTk1LDE2IEBAIGludCB0aWZtX2FkZF9hZGFwdGVyKHN0cnVjdCB0aWZtX2FkYXB0ZXIgKmZt
+KQogewogCWludCByYzsKIAotCWlkcl9wcmVsb2FkKEdGUF9LRVJORUwpOwotCXNwaW5fbG9jaygm
+dGlmbV9hZGFwdGVyX2xvY2spOwotCXJjID0gaWRyX2FsbG9jKCZ0aWZtX2FkYXB0ZXJfaWRyLCBm
+bSwgR0ZQX05PV0FJVCk7Ci0JaWYgKHJjID49IDApCi0JCWZtLT5pZCA9IHJjOwotCXNwaW5fdW5s
+b2NrKCZ0aWZtX2FkYXB0ZXJfbG9jayk7Ci0JaWRyX3ByZWxvYWRfZW5kKCk7CisJcmMgPSBpZHJf
+YWxsb2MoJnRpZm1fYWRhcHRlcl9pZHIsIGZtLCBHRlBfS0VSTkVMKTsKIAlpZiAocmMgPCAwKQog
+CQlyZXR1cm4gcmM7CiAKKwlmbS0+aWQgPSByYzsKKwogCWRldl9zZXRfbmFtZSgmZm0tPmRldiwg
+InRpZm0ldSIsIGZtLT5pZCk7CiAJcmMgPSBkZXZpY2VfYWRkKCZmbS0+ZGV2KTsKIAlpZiAocmMp
+IHsKLQkJc3Bpbl9sb2NrKCZ0aWZtX2FkYXB0ZXJfbG9jayk7CiAJCWlkcl9yZW1vdmUoJnRpZm1f
+YWRhcHRlcl9pZHIsIGZtLT5pZCk7Ci0JCXNwaW5fdW5sb2NrKCZ0aWZtX2FkYXB0ZXJfbG9jayk7
+CiAJfQogCiAJcmV0dXJuIHJjOwpAQCAtMjI4LDkgKzIyMSw3IEBAIHZvaWQgdGlmbV9yZW1vdmVf
+YWRhcHRlcihzdHJ1Y3QgdGlmbV9hZGFwdGVyICpmbSkKIAkJCWRldmljZV91bnJlZ2lzdGVyKCZm
+bS0+c29ja2V0c1tjbnRdLT5kZXYpOwogCX0KIAotCXNwaW5fbG9jaygmdGlmbV9hZGFwdGVyX2xv
+Y2spOwogCWlkcl9yZW1vdmUoJnRpZm1fYWRhcHRlcl9pZHIsIGZtLT5pZCk7Ci0Jc3Bpbl91bmxv
+Y2soJnRpZm1fYWRhcHRlcl9sb2NrKTsKIAlkZXZpY2VfZGVsKCZmbS0+ZGV2KTsKIH0KIEVYUE9S
+VF9TWU1CT0wodGlmbV9yZW1vdmVfYWRhcHRlcik7CmRpZmYgLS1naXQgYS9kcml2ZXJzL21tYy9j
+b3JlL2hvc3QuYyBiL2RyaXZlcnMvbW1jL2NvcmUvaG9zdC5jCmluZGV4IGRkMjIzZmEuLmQxODRi
+ZDQgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbW1jL2NvcmUvaG9zdC5jCisrKyBiL2RyaXZlcnMvbW1j
+L2NvcmUvaG9zdC5jCkBAIC01NSw3ICs1NSw2IEBAIHZvaWQgbW1jX3VucmVnaXN0ZXJfaG9zdF9j
+bGFzcyh2b2lkKQogfQogCiBzdGF0aWMgREVGSU5FX0lEUihtbWNfaG9zdF9pZHIpOwotc3RhdGlj
+IERFRklORV9TUElOTE9DSyhtbWNfaG9zdF9sb2NrKTsKIAogI2lmZGVmIENPTkZJR19NTUNfQ0xL
+R0FURQogc3RhdGljIHNzaXplX3QgY2xrZ2F0ZV9kZWxheV9zaG93KHN0cnVjdCBkZXZpY2UgKmRl
+diwKQEAgLTQ1NywxNiArNDU2LDExIEBAIHN0cnVjdCBtbWNfaG9zdCAqbW1jX2FsbG9jX2hvc3Qo
+aW50IGV4dHJhLCBzdHJ1Y3QgZGV2aWNlICpkZXYpCiAKIAkvKiBzY2FubmluZyB3aWxsIGJlIGVu
+YWJsZWQgd2hlbiB3ZSdyZSByZWFkeSAqLwogCWhvc3QtPnJlc2Nhbl9kaXNhYmxlID0gMTsKLQlp
+ZHJfcHJlbG9hZChHRlBfS0VSTkVMKTsKLQlzcGluX2xvY2soJm1tY19ob3N0X2xvY2spOwotCWVy
+ciA9IGlkcl9hbGxvYygmbW1jX2hvc3RfaWRyLCBob3N0LCBHRlBfTk9XQUlUKTsKLQlpZiAoZXJy
+ID49IDApCi0JCWhvc3QtPmluZGV4ID0gZXJyOwotCXNwaW5fdW5sb2NrKCZtbWNfaG9zdF9sb2Nr
+KTsKLQlpZHJfcHJlbG9hZF9lbmQoKTsKKwllcnIgPSBpZHJfYWxsb2MoJm1tY19ob3N0X2lkciwg
+aG9zdCwgR0ZQX0tFUk5FTCk7CiAJaWYgKGVyciA8IDApCiAJCWdvdG8gZnJlZTsKIAorCWhvc3Qt
+PmluZGV4ID0gZXJyOwogCWRldl9zZXRfbmFtZSgmaG9zdC0+Y2xhc3NfZGV2LCAibW1jJWQiLCBo
+b3N0LT5pbmRleCk7CiAKIAlob3N0LT5wYXJlbnQgPSBkZXY7CkBAIC01NzQsMTAgKzU2OCw3IEBA
+IEVYUE9SVF9TWU1CT0wobW1jX3JlbW92ZV9ob3N0KTsKICAqLwogdm9pZCBtbWNfZnJlZV9ob3N0
+KHN0cnVjdCBtbWNfaG9zdCAqaG9zdCkKIHsKLQlzcGluX2xvY2soJm1tY19ob3N0X2xvY2spOwog
+CWlkcl9yZW1vdmUoJm1tY19ob3N0X2lkciwgaG9zdC0+aW5kZXgpOwotCXNwaW5fdW5sb2NrKCZt
+bWNfaG9zdF9sb2NrKTsKLQogCXB1dF9kZXZpY2UoJmhvc3QtPmNsYXNzX2Rldik7CiB9CiAKZGlm
+ZiAtLWdpdCBhL2RyaXZlcnMvc2NzaS9jaC5jIGIvZHJpdmVycy9zY3NpL2NoLmMKaW5kZXggNGUw
+ZmZkYy4uMDY5Mzg3OSAxMDA2NDQKLS0tIGEvZHJpdmVycy9zY3NpL2NoLmMKKysrIGIvZHJpdmVy
+cy9zY3NpL2NoLmMKQEAgLTExNSw3ICsxMTUsNiBAQCB0eXBlZGVmIHN0cnVjdCB7CiB9IHNjc2lf
+Y2hhbmdlcjsKIAogc3RhdGljIERFRklORV9JRFIoY2hfaW5kZXhfaWRyKTsKLXN0YXRpYyBERUZJ
+TkVfU1BJTkxPQ0soY2hfaW5kZXhfbG9jayk7CiAKIHN0YXRpYyBjb25zdCBzdHJ1Y3QgewogCXVu
+c2lnbmVkIGNoYXIgIHNlbnNlOwpAQCAtNTgyLDE1ICs1ODEsMTIgQEAgY2hfb3BlbihzdHJ1Y3Qg
+aW5vZGUgKmlub2RlLCBzdHJ1Y3QgZmlsZSAqZmlsZSkKIAlpbnQgbWlub3IgPSBpbWlub3IoaW5v
+ZGUpOwogCiAJbXV0ZXhfbG9jaygmY2hfbXV0ZXgpOwotCXNwaW5fbG9jaygmY2hfaW5kZXhfbG9j
+ayk7CiAJY2ggPSBpZHJfZmluZCgmY2hfaW5kZXhfaWRyLCBtaW5vcik7CiAKIAlpZiAoTlVMTCA9
+PSBjaCB8fCBzY3NpX2RldmljZV9nZXQoY2gtPmRldmljZSkpIHsKLQkJc3Bpbl91bmxvY2soJmNo
+X2luZGV4X2xvY2spOwogCQltdXRleF91bmxvY2soJmNoX211dGV4KTsKIAkJcmV0dXJuIC1FTlhJ
+TzsKIAl9Ci0Jc3Bpbl91bmxvY2soJmNoX2luZGV4X2xvY2spOwogCiAJZmlsZS0+cHJpdmF0ZV9k
+YXRhID0gY2g7CiAJbXV0ZXhfdW5sb2NrKCZjaF9tdXRleCk7CkBAIC05MDUsMTMgKzkwMSw4IEBA
+IHN0YXRpYyBpbnQgY2hfcHJvYmUoc3RydWN0IGRldmljZSAqZGV2KQogCWlmIChOVUxMID09IGNo
+KQogCQlyZXR1cm4gLUVOT01FTTsKIAotCWlkcl9wcmVsb2FkKEdGUF9LRVJORUwpOwotCXNwaW5f
+bG9jaygmY2hfaW5kZXhfbG9jayk7CiAJcmV0ID0gaWRyX2FsbG9jX3JhbmdlKCZjaF9pbmRleF9p
+ZHIsIGNoLCAwLAotCQkJICAgICAgQ0hfTUFYX0RFVlMgKyAxLCBHRlBfTk9XQUlUKTsKLQlzcGlu
+X3VubG9jaygmY2hfaW5kZXhfbG9jayk7Ci0JaWRyX3ByZWxvYWRfZW5kKCk7Ci0KKwkJCSAgICAg
+IENIX01BWF9ERVZTICsgMSwgR0ZQX0tFUk5FTCk7CiAJaWYgKHJldCA8IDApIHsKIAkJaWYgKHJl
+dCA9PSAtRU5PU1BDKQogCQkJcmV0ID0gLUVOT0RFVjsKQEAgLTk1Miw5ICs5NDMsNyBAQCBzdGF0
+aWMgaW50IGNoX3JlbW92ZShzdHJ1Y3QgZGV2aWNlICpkZXYpCiB7CiAJc2NzaV9jaGFuZ2VyICpj
+aCA9IGRldl9nZXRfZHJ2ZGF0YShkZXYpOwogCi0Jc3Bpbl9sb2NrKCZjaF9pbmRleF9sb2NrKTsK
+IAlpZHJfcmVtb3ZlKCZjaF9pbmRleF9pZHIsIGNoLT5taW5vcik7Ci0Jc3Bpbl91bmxvY2soJmNo
+X2luZGV4X2xvY2spOwogCiAJZGV2aWNlX2Rlc3Ryb3koY2hfc3lzZnNfY2xhc3MsIE1LREVWKFND
+U0lfQ0hBTkdFUl9NQUpPUixjaC0+bWlub3IpKTsKIAlrZnJlZShjaC0+ZHQpOwpkaWZmIC0tZ2l0
+IGEvZHJpdmVycy9zY3NpL3N0LmMgYi9kcml2ZXJzL3Njc2kvc3QuYwppbmRleCA2MmFjMDE5Li5k
+MjU2NDEwIDEwMDY0NAotLS0gYS9kcml2ZXJzL3Njc2kvc3QuYworKysgYi9kcml2ZXJzL3Njc2kv
+c3QuYwpAQCAtMjE0LDcgKzIxNCw2IEBAIHN0YXRpYyB2b2lkIHNjc2lfdGFwZV9yZWxlYXNlKHN0
+cnVjdCBrcmVmICopOwogI2RlZmluZSB0b19zY3NpX3RhcGUob2JqKSBjb250YWluZXJfb2Yob2Jq
+LCBzdHJ1Y3Qgc2NzaV90YXBlLCBrcmVmKQogCiBzdGF0aWMgREVGSU5FX01VVEVYKHN0X3JlZl9t
+dXRleCk7Ci1zdGF0aWMgREVGSU5FX1NQSU5MT0NLKHN0X2luZGV4X2xvY2spOwogc3RhdGljIERF
+RklORV9TUElOTE9DSyhzdF91c2VfbG9jayk7CiBzdGF0aWMgREVGSU5FX0lEUihzdF9pbmRleF9p
+ZHIpOwogCkBAIC0yMzUsNyArMjM0LDYgQEAgc3RhdGljIHN0cnVjdCBzY3NpX3RhcGUgKnNjc2lf
+dGFwZV9nZXQoaW50IGRldikKIAlzdHJ1Y3Qgc2NzaV90YXBlICpTVHAgPSBOVUxMOwogCiAJbXV0
+ZXhfbG9jaygmc3RfcmVmX211dGV4KTsKLQlzcGluX2xvY2soJnN0X2luZGV4X2xvY2spOwogCiAJ
+U1RwID0gaWRyX2ZpbmQoJnN0X2luZGV4X2lkciwgZGV2KTsKIAlpZiAoIVNUcCkgZ290byBvdXQ7
+CkBAIC0yNTQsNyArMjUyLDYgQEAgb3V0X3B1dDoKIAlrcmVmX3B1dCgmU1RwLT5rcmVmLCBzY3Np
+X3RhcGVfcmVsZWFzZSk7CiAJU1RwID0gTlVMTDsKIG91dDoKLQlzcGluX3VubG9jaygmc3RfaW5k
+ZXhfbG9jayk7CiAJbXV0ZXhfdW5sb2NrKCZzdF9yZWZfbXV0ZXgpOwogCXJldHVybiBTVHA7CiB9
+CkBAIC00MTgyLDEyICs0MTc5LDggQEAgc3RhdGljIGludCBzdF9wcm9iZShzdHJ1Y3QgZGV2aWNl
+ICpkZXYpCiAJICAgIHRwbnQtPmJsa3NpemVfY2hhbmdlZCA9IDA7CiAJbXV0ZXhfaW5pdCgmdHBu
+dC0+bG9jayk7CiAKLQlpZHJfcHJlbG9hZChHRlBfS0VSTkVMKTsKLQlzcGluX2xvY2soJnN0X2lu
+ZGV4X2xvY2spOwogCWVycm9yID0gaWRyX2FsbG9jX3JhbmdlKCZzdF9pbmRleF9pZHIsIHRwbnQs
+IDAsCi0JCQkJU1RfTUFYX1RBUEVTICsgMSwgR0ZQX05PV0FJVCk7Ci0Jc3Bpbl91bmxvY2soJnN0
+X2luZGV4X2xvY2spOwotCWlkcl9wcmVsb2FkX2VuZCgpOworCQkJCVNUX01BWF9UQVBFUyArIDEs
+IEdGUF9LRVJORUwpOwogCWlmIChlcnJvciA8IDApIHsKIAkJcHJfd2Fybigic3Q6IGlkciBhbGxv
+Y2F0aW9uIGZhaWxlZDogJWRcbiIsIGVycm9yKTsKIAkJZ290byBvdXRfcHV0X3F1ZXVlOwpAQCAt
+NDIxMyw5ICs0MjA2LDcgQEAgc3RhdGljIGludCBzdF9wcm9iZShzdHJ1Y3QgZGV2aWNlICpkZXYp
+CiAKIG91dF9yZW1vdmVfZGV2czoKIAlyZW1vdmVfY2RldnModHBudCk7Ci0Jc3Bpbl9sb2NrKCZz
+dF9pbmRleF9sb2NrKTsKIAlpZHJfcmVtb3ZlKCZzdF9pbmRleF9pZHIsIHRwbnQtPmluZGV4KTsK
+LQlzcGluX3VubG9jaygmc3RfaW5kZXhfbG9jayk7CiBvdXRfcHV0X3F1ZXVlOgogCWJsa19wdXRf
+cXVldWUoZGlzay0+cXVldWUpOwogb3V0X3B1dF9kaXNrOgpAQCAtNDIzOSw5ICs0MjMwLDcgQEAg
+c3RhdGljIGludCBzdF9yZW1vdmUoc3RydWN0IGRldmljZSAqZGV2KQogCW11dGV4X2xvY2soJnN0
+X3JlZl9tdXRleCk7CiAJa3JlZl9wdXQoJnRwbnQtPmtyZWYsIHNjc2lfdGFwZV9yZWxlYXNlKTsK
+IAltdXRleF91bmxvY2soJnN0X3JlZl9tdXRleCk7Ci0Jc3Bpbl9sb2NrKCZzdF9pbmRleF9sb2Nr
+KTsKIAlpZHJfcmVtb3ZlKCZzdF9pbmRleF9pZHIsIGluZGV4KTsKLQlzcGluX3VubG9jaygmc3Rf
+aW5kZXhfbG9jayk7CiAJcmV0dXJuIDA7CiB9CiAKZGlmZiAtLWdpdCBhL2RyaXZlcnMvdGFyZ2V0
+L2lzY3NpL2lzY3NpX3RhcmdldC5jIGIvZHJpdmVycy90YXJnZXQvaXNjc2kvaXNjc2lfdGFyZ2V0
+LmMKaW5kZXggMWUwNTM5Yy4uYWYzYTlkNSAxMDA2NDQKLS0tIGEvZHJpdmVycy90YXJnZXQvaXNj
+c2kvaXNjc2lfdGFyZ2V0LmMKKysrIGIvZHJpdmVycy90YXJnZXQvaXNjc2kvaXNjc2lfdGFyZ2V0
+LmMKQEAgLTU5LDcgKzU5LDYgQEAgc3RhdGljIERFRklORV9TUElOTE9DSyhucF9sb2NrKTsKIHN0
+YXRpYyBzdHJ1Y3QgaWRyIHRpcW5faWRyOwogc3RydWN0IGlkciBzZXNzX2lkcjsKIHN0cnVjdCBt
+dXRleCBhdXRoX2lkX2xvY2s7Ci1zcGlubG9ja190IHNlc3NfaWRyX2xvY2s7CiAKIHN0cnVjdCBp
+c2NzaXRfZ2xvYmFsICppc2NzaXRfZ2xvYmFsOwogCkBAIC0xNDcsMjIgKzE0NiwxNyBAQCBzdHJ1
+Y3QgaXNjc2lfdGlxbiAqaXNjc2l0X2FkZF90aXFuKHVuc2lnbmVkIGNoYXIgKmJ1ZikKIAogCXRp
+cW4tPnRpcW5fc3RhdGUgPSBUSVFOX1NUQVRFX0FDVElWRTsKIAotCWlkcl9wcmVsb2FkKEdGUF9L
+RVJORUwpOwotCXNwaW5fbG9jaygmdGlxbl9sb2NrKTsKLQotCXJldCA9IGlkcl9hbGxvYygmdGlx
+bl9pZHIsIE5VTEwsIEdGUF9OT1dBSVQpOworCXJldCA9IGlkcl9hbGxvYygmdGlxbl9pZHIsIE5V
+TEwsIEdGUF9LRVJORUwpOwogCWlmIChyZXQgPCAwKSB7CiAJCXByX2VycigiaWRyX2FsbG9jKCkg
+ZmFpbGVkIGZvciB0aXFuLT50aXFuX2luZGV4XG4iKTsKLQkJc3Bpbl91bmxvY2soJnRpcW5fbG9j
+ayk7Ci0JCWlkcl9wcmVsb2FkX2VuZCgpOwogCQlrZnJlZSh0aXFuKTsKIAkJcmV0dXJuIEVSUl9Q
+VFIocmV0KTsKIAl9CiAJdGlxbi0+dGlxbl9pbmRleCA9IHJldDsKLQlsaXN0X2FkZF90YWlsKCZ0
+aXFuLT50aXFuX2xpc3QsICZnX3RpcW5fbGlzdCk7CiAKKwlzcGluX2xvY2soJnRpcW5fbG9jayk7
+CisJbGlzdF9hZGRfdGFpbCgmdGlxbi0+dGlxbl9saXN0LCAmZ190aXFuX2xpc3QpOwogCXNwaW5f
+dW5sb2NrKCZ0aXFuX2xvY2spOwotCWlkcl9wcmVsb2FkX2VuZCgpOwogCiAJcHJfZGVidWcoIkNP
+UkVbMF0gLSBBZGRlZCBpU0NTSSBUYXJnZXQgSVFOOiAlc1xuIiwgdGlxbi0+dGlxbik7CiAKQEAg
+LTIwMSw4ICsxOTUsOCBAQCB2b2lkIGlzY3NpdF9kZWxfdGlxbihzdHJ1Y3QgaXNjc2lfdGlxbiAq
+dGlxbikKIAogCXNwaW5fbG9jaygmdGlxbl9sb2NrKTsKIAlsaXN0X2RlbCgmdGlxbi0+dGlxbl9s
+aXN0KTsKLQlpZHJfcmVtb3ZlKCZ0aXFuX2lkciwgdGlxbi0+dGlxbl9pbmRleCk7CiAJc3Bpbl91
+bmxvY2soJnRpcW5fbG9jayk7CisJaWRyX3JlbW92ZSgmdGlxbl9pZHIsIHRpcW4tPnRpcW5faW5k
+ZXgpOwogCiAJcHJfZGVidWcoIkNPUkVbMF0gLSBEZWxldGVkIGlTQ1NJIFRhcmdldCBJUU46ICVz
+XG4iLAogCQkJdGlxbi0+dGlxbik7CkBAIC01MTksNyArNTEzLDYgQEAgc3RhdGljIGludCBfX2lu
+aXQgaXNjc2lfdGFyZ2V0X2luaXRfbW9kdWxlKHZvaWQpCiAJCXJldHVybiAtMTsKIAl9CiAJbXV0
+ZXhfaW5pdCgmYXV0aF9pZF9sb2NrKTsKLQlzcGluX2xvY2tfaW5pdCgmc2Vzc19pZHJfbG9jayk7
+CiAJaWRyX2luaXQoJnRpcW5faWRyKTsKIAlpZHJfaW5pdCgmc2Vzc19pZHIpOwogCkBAIC00NDQ5
+LDkgKzQ0NDIsNyBAQCBpbnQgaXNjc2l0X2Nsb3NlX3Nlc3Npb24oc3RydWN0IGlzY3NpX3Nlc3Np
+b24gKnNlc3MpCiAJcHJfZGVidWcoIkRlY3JlbWVudGVkIG51bWJlciBvZiBhY3RpdmUgaVNDU0kg
+U2Vzc2lvbnMgb24iCiAJCSIgaVNDU0kgVFBHOiAlaHUgdG8gJXVcbiIsIHRwZy0+dHBndCwgdHBn
+LT5uc2Vzc2lvbnMpOwogCi0Jc3Bpbl9sb2NrKCZzZXNzX2lkcl9sb2NrKTsKIAlpZHJfcmVtb3Zl
+KCZzZXNzX2lkciwgc2Vzcy0+c2Vzc2lvbl9pbmRleCk7Ci0Jc3Bpbl91bmxvY2soJnNlc3NfaWRy
+X2xvY2spOwogCiAJa2ZyZWUoc2Vzcy0+c2Vzc19vcHMpOwogCXNlc3MtPnNlc3Nfb3BzID0gTlVM
+TDsKZGlmZiAtLWdpdCBhL2RyaXZlcnMvdGFyZ2V0L2lzY3NpL2lzY3NpX3RhcmdldC5oIGIvZHJp
+dmVycy90YXJnZXQvaXNjc2kvaXNjc2lfdGFyZ2V0LmgKaW5kZXggMmM0MzdjYi4uZGI1MmRkZCAx
+MDA2NDQKLS0tIGEvZHJpdmVycy90YXJnZXQvaXNjc2kvaXNjc2lfdGFyZ2V0LmgKKysrIGIvZHJp
+dmVycy90YXJnZXQvaXNjc2kvaXNjc2lfdGFyZ2V0LmgKQEAgLTQzLDcgKzQzLDYgQEAgZXh0ZXJu
+IHN0cnVjdCBrbWVtX2NhY2hlICpsaW9fcjJ0X2NhY2hlOwogCiBleHRlcm4gc3RydWN0IGlkciBz
+ZXNzX2lkcjsKIGV4dGVybiBzdHJ1Y3QgbXV0ZXggYXV0aF9pZF9sb2NrOwotZXh0ZXJuIHNwaW5s
+b2NrX3Qgc2Vzc19pZHJfbG9jazsKIAogCiAjZW5kaWYgICAvKioqIElTQ1NJX1RBUkdFVF9IICoq
+Ki8KZGlmZiAtLWdpdCBhL2RyaXZlcnMvdGFyZ2V0L2lzY3NpL2lzY3NpX3RhcmdldF9sb2dpbi5j
+IGIvZHJpdmVycy90YXJnZXQvaXNjc2kvaXNjc2lfdGFyZ2V0X2xvZ2luLmMKaW5kZXggNGRhNDJi
+MC4uMTc2Y2Q1NiAxMDA2NDQKLS0tIGEvZHJpdmVycy90YXJnZXQvaXNjc2kvaXNjc2lfdGFyZ2V0
+X2xvZ2luLmMKKysrIGIvZHJpdmVycy90YXJnZXQvaXNjc2kvaXNjc2lfdGFyZ2V0X2xvZ2luLmMK
+QEAgLTI4OSwxNCArMjg5LDcgQEAgc3RhdGljIGludCBpc2NzaV9sb2dpbl96ZXJvX3RzaWhfczEo
+CiAJc3Bpbl9sb2NrX2luaXQoJnNlc3MtPnNlc3Npb25fdXNhZ2VfbG9jayk7CiAJc3Bpbl9sb2Nr
+X2luaXQoJnNlc3MtPnR0dF9sb2NrKTsKIAotCWlkcl9wcmVsb2FkKEdGUF9LRVJORUwpOwotCXNw
+aW5fbG9ja19iaCgmc2Vzc19pZHJfbG9jayk7Ci0JcmV0ID0gaWRyX2FsbG9jKCZzZXNzX2lkciwg
+TlVMTCwgR0ZQX05PV0FJVCk7Ci0JaWYgKHJldCA+PSAwKQotCQlzZXNzLT5zZXNzaW9uX2luZGV4
+ID0gcmV0OwotCXNwaW5fdW5sb2NrX2JoKCZzZXNzX2lkcl9sb2NrKTsKLQlpZHJfcHJlbG9hZF9l
+bmQoKTsKLQorCXJldCA9IGlkcl9hbGxvYygmc2Vzc19pZHIsIE5VTEwsIEdGUF9LRVJORUwpOwog
+CWlmIChyZXQgPCAwKSB7CiAJCXByX2VycigiaWRyX2FsbG9jKCkgZm9yIHNlc3NfaWRyIGZhaWxl
+ZFxuIik7CiAJCWlzY3NpdF90eF9sb2dpbl9yc3AoY29ubiwgSVNDU0lfU1RBVFVTX0NMU19UQVJH
+RVRfRVJSLApAQCAtMzA1LDYgKzI5OCw3IEBAIHN0YXRpYyBpbnQgaXNjc2lfbG9naW5femVyb190
+c2loX3MxKAogCQlyZXR1cm4gLUVOT01FTTsKIAl9CiAKKwlzZXNzLT5zZXNzaW9uX2luZGV4ID0g
+cmV0OwogCXNlc3MtPmNyZWF0aW9uX3RpbWUgPSBnZXRfamlmZmllc182NCgpOwogCXNwaW5fbG9j
+a19pbml0KCZzZXNzLT5zZXNzaW9uX3N0YXRzX2xvY2spOwogCS8qCkBAIC0xMzEyLDkgKzEzMDYs
+NyBAQCBuZXdfc2Vzc19vdXQ6CiAJaWYgKGNvbm4tPnNlc3MtPnNlX3Nlc3MpCiAJCXRyYW5zcG9y
+dF9mcmVlX3Nlc3Npb24oY29ubi0+c2Vzcy0+c2Vfc2Vzcyk7CiAJaWYgKGNvbm4tPnNlc3MtPnNl
+c3Npb25faW5kZXggIT0gMCkgewotCQlzcGluX2xvY2tfYmgoJnNlc3NfaWRyX2xvY2spOwogCQlp
+ZHJfcmVtb3ZlKCZzZXNzX2lkciwgY29ubi0+c2Vzcy0+c2Vzc2lvbl9pbmRleCk7Ci0JCXNwaW5f
+dW5sb2NrX2JoKCZzZXNzX2lkcl9sb2NrKTsKIAl9CiAJa2ZyZWUoY29ubi0+c2Vzcy0+c2Vzc19v
+cHMpOwogCWtmcmVlKGNvbm4tPnNlc3MpOwpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9jZ3Jv
+dXAuaCBiL2luY2x1ZGUvbGludXgvY2dyb3VwLmgKaW5kZXggZTlhYzg4Mi4uOTY0Nzc5YSAxMDA2
+NDQKLS0tIGEvaW5jbHVkZS9saW51eC9jZ3JvdXAuaAorKysgYi9pbmNsdWRlL2xpbnV4L2Nncm91
+cC5oCkBAIC02MjIsNyArNjIyLDYgQEAgc3RydWN0IGNncm91cF9zdWJzeXMgewogCXN0cnVjdCBs
+aXN0X2hlYWQgc2libGluZzsKIAkvKiB1c2VkIHdoZW4gdXNlX2lkID09IHRydWUgKi8KIAlzdHJ1
+Y3QgaWRyIGlkcjsKLQlzcGlubG9ja190IGlkX2xvY2s7CiAKIAkvKiBsaXN0IG9mIGNmdHlwZV9z
+ZXRzICovCiAJc3RydWN0IGxpc3RfaGVhZCBjZnRzZXRzOwpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9u
+ZXQvc2N0cC9zY3RwLmggYi9pbmNsdWRlL25ldC9zY3RwL3NjdHAuaAppbmRleCBkOGUzN2VjLi41
+YTFhZDNkIDEwMDY0NAotLS0gYS9pbmNsdWRlL25ldC9zY3RwL3NjdHAuaAorKysgYi9pbmNsdWRl
+L25ldC9zY3RwL3NjdHAuaApAQCAtNTAyLDcgKzUwMiw2IEBAIGV4dGVybiBzdHJ1Y3QgcHJvdG8g
+c2N0cHY2X3Byb3Q7CiB2b2lkIHNjdHBfcHV0X3BvcnQoc3RydWN0IHNvY2sgKnNrKTsKIAogZXh0
+ZXJuIHN0cnVjdCBpZHIgc2N0cF9hc3NvY3NfaWQ7Ci1leHRlcm4gc3BpbmxvY2tfdCBzY3RwX2Fz
+c29jc19pZF9sb2NrOwogCiAvKiBTdGF0aWMgaW5saW5lIGZ1bmN0aW9ucy4gKi8KIApkaWZmIC0t
+Z2l0IGEva2VybmVsL2Nncm91cC5jIGIva2VybmVsL2Nncm91cC5jCmluZGV4IDViZjRmOTcuLmI3
+ZDBiZTEgMTAwNjQ0Ci0tLSBhL2tlcm5lbC9jZ3JvdXAuYworKysgYi9rZXJuZWwvY2dyb3VwLmMK
+QEAgLTUzOTMsOSArNTM5Myw3IEBAIHZvaWQgZnJlZV9jc3NfaWQoc3RydWN0IGNncm91cF9zdWJz
+eXMgKnNzLCBzdHJ1Y3QgY2dyb3VwX3N1YnN5c19zdGF0ZSAqY3NzKQogCiAJcmN1X2Fzc2lnbl9w
+b2ludGVyKGlkLT5jc3MsIE5VTEwpOwogCXJjdV9hc3NpZ25fcG9pbnRlcihjc3MtPmlkLCBOVUxM
+KTsKLQlzcGluX2xvY2soJnNzLT5pZF9sb2NrKTsKIAlpZHJfcmVtb3ZlKCZzcy0+aWRyLCBpZC0+
+aWQpOwotCXNwaW5fdW5sb2NrKCZzcy0+aWRfbG9jayk7CiAJa2ZyZWVfcmN1KGlkLCByY3VfaGVh
+ZCk7CiB9CiBFWFBPUlRfU1lNQk9MX0dQTChmcmVlX2Nzc19pZCk7CkBAIC01NDE3LDEyICs1NDE1
+LDggQEAgc3RhdGljIHN0cnVjdCBjc3NfaWQgKmdldF9uZXdfY3NzaWQoc3RydWN0IGNncm91cF9z
+dWJzeXMgKnNzLCBpbnQgZGVwdGgpCiAJaWYgKCFuZXdpZCkKIAkJcmV0dXJuIEVSUl9QVFIoLUVO
+T01FTSk7CiAKLQlpZHJfcHJlbG9hZChHRlBfS0VSTkVMKTsKLQlzcGluX2xvY2soJnNzLT5pZF9s
+b2NrKTsKIAkvKiBEb24ndCB1c2UgMC4gYWxsb2NhdGVzIGFuIElEIG9mIDEtNjU1MzUgKi8KLQly
+ZXQgPSBpZHJfYWxsb2NfcmFuZ2UoJnNzLT5pZHIsIG5ld2lkLCAxLCBDU1NfSURfTUFYICsgMSwg
+R0ZQX05PV0FJVCk7Ci0Jc3Bpbl91bmxvY2soJnNzLT5pZF9sb2NrKTsKLQlpZHJfcHJlbG9hZF9l
+bmQoKTsKKwlyZXQgPSBpZHJfYWxsb2NfcmFuZ2UoJnNzLT5pZHIsIG5ld2lkLCAxLCBDU1NfSURf
+TUFYICsgMSwgR0ZQX0tFUk5FTCk7CiAKIAkvKiBSZXR1cm5zIGVycm9yIHdoZW4gdGhlcmUgYXJl
+IG5vIGZyZWUgc3BhY2VzIGZvciBuZXcgSUQuKi8KIAlpZiAocmV0IDwgMCkKQEAgLTU0NDIsNyAr
+NTQzNiw2IEBAIHN0YXRpYyBpbnQgX19pbml0X29yX21vZHVsZSBjZ3JvdXBfaW5pdF9pZHIoc3Ry
+dWN0IGNncm91cF9zdWJzeXMgKnNzLAogewogCXN0cnVjdCBjc3NfaWQgKm5ld2lkOwogCi0Jc3Bp
+bl9sb2NrX2luaXQoJnNzLT5pZF9sb2NrKTsKIAlpZHJfaW5pdCgmc3MtPmlkcik7CiAKIAluZXdp
+ZCA9IGdldF9uZXdfY3NzaWQoc3MsIDApOwpkaWZmIC0tZ2l0IGEva2VybmVsL3dvcmtxdWV1ZS5j
+IGIva2VybmVsL3dvcmtxdWV1ZS5jCmluZGV4IGFlYjQxYmYuLmI5NzMwM2EgMTAwNjQ0Ci0tLSBh
+L2tlcm5lbC93b3JrcXVldWUuYworKysgYi9rZXJuZWwvd29ya3F1ZXVlLmMKQEAgLTE3MDMsMTMg
+KzE3MDMsNyBAQCBzdGF0aWMgc3RydWN0IHdvcmtlciAqY3JlYXRlX3dvcmtlcihzdHJ1Y3Qgd29y
+a2VyX3Bvb2wgKnBvb2wpCiAJICogSUQgaXMgbmVlZGVkIHRvIGRldGVybWluZSBrdGhyZWFkIG5h
+bWUuICBBbGxvY2F0ZSBJRCBmaXJzdAogCSAqIHdpdGhvdXQgaW5zdGFsbGluZyB0aGUgcG9pbnRl
+ci4KIAkgKi8KLQlpZHJfcHJlbG9hZChHRlBfS0VSTkVMKTsKLQlzcGluX2xvY2tfaXJxKCZwb29s
+LT5sb2NrKTsKLQotCWlkID0gaWRyX2FsbG9jKCZwb29sLT53b3JrZXJfaWRyLCBOVUxMLCBHRlBf
+Tk9XQUlUKTsKLQotCXNwaW5fdW5sb2NrX2lycSgmcG9vbC0+bG9jayk7Ci0JaWRyX3ByZWxvYWRf
+ZW5kKCk7CisJaWQgPSBpZHJfYWxsb2MoJnBvb2wtPndvcmtlcl9pZHIsIE5VTEwsIEdGUF9LRVJO
+RUwpOwogCWlmIChpZCA8IDApCiAJCWdvdG8gZmFpbDsKIApAQCAtMTc1MCwxOCArMTc0NCwxMyBA
+QCBzdGF0aWMgc3RydWN0IHdvcmtlciAqY3JlYXRlX3dvcmtlcihzdHJ1Y3Qgd29ya2VyX3Bvb2wg
+KnBvb2wpCiAJCXdvcmtlci0+ZmxhZ3MgfD0gV09SS0VSX1VOQk9VTkQ7CiAKIAkvKiBzdWNjZXNz
+ZnVsLCBjb21taXQgdGhlIHBvaW50ZXIgdG8gaWRyICovCi0Jc3Bpbl9sb2NrX2lycSgmcG9vbC0+
+bG9jayk7CiAJaWRyX3JlcGxhY2UoJnBvb2wtPndvcmtlcl9pZHIsIHdvcmtlciwgd29ya2VyLT5p
+ZCk7Ci0Jc3Bpbl91bmxvY2tfaXJxKCZwb29sLT5sb2NrKTsKIAogCXJldHVybiB3b3JrZXI7CiAK
+IGZhaWw6Ci0JaWYgKGlkID49IDApIHsKLQkJc3Bpbl9sb2NrX2lycSgmcG9vbC0+bG9jayk7CisJ
+aWYgKGlkID49IDApCiAJCWlkcl9yZW1vdmUoJnBvb2wtPndvcmtlcl9pZHIsIGlkKTsKLQkJc3Bp
+bl91bmxvY2tfaXJxKCZwb29sLT5sb2NrKTsKLQl9CiAJa2ZyZWUod29ya2VyKTsKIAlyZXR1cm4g
+TlVMTDsKIH0KZGlmZiAtLWdpdCBhL25ldC85cC91dGlsLmMgYi9uZXQvOXAvdXRpbC5jCmluZGV4
+IGNjMzFjNjIuLjIzNjkzZDYgMTAwNjQ0Ci0tLSBhL25ldC85cC91dGlsLmMKKysrIGIvbmV0Lzlw
+L3V0aWwuYwpAQCAtNDEsNyArNDEsNiBAQAogICovCiAKIHN0cnVjdCBwOV9pZHBvb2wgewotCXNw
+aW5sb2NrX3QgbG9jazsKIAlzdHJ1Y3QgaWRyIHBvb2w7CiB9OwogCkBAIC01OCw3ICs1Nyw2IEBA
+IHN0cnVjdCBwOV9pZHBvb2wgKnA5X2lkcG9vbF9jcmVhdGUodm9pZCkKIAlpZiAoIXApCiAJCXJl
+dHVybiBFUlJfUFRSKC1FTk9NRU0pOwogCi0Jc3Bpbl9sb2NrX2luaXQoJnAtPmxvY2spOwogCWlk
+cl9pbml0KCZwLT5wb29sKTsKIAogCXJldHVybiBwOwpAQCAtODgsMTYgKzg2LDkgQEAgRVhQT1JU
+X1NZTUJPTChwOV9pZHBvb2xfZGVzdHJveSk7CiBpbnQgcDlfaWRwb29sX2dldChzdHJ1Y3QgcDlf
+aWRwb29sICpwKQogewogCWludCBpOwotCXVuc2lnbmVkIGxvbmcgZmxhZ3M7Ci0KLQlpZHJfcHJl
+bG9hZChHRlBfTk9GUyk7Ci0Jc3Bpbl9sb2NrX2lycXNhdmUoJnAtPmxvY2ssIGZsYWdzKTsKIAog
+CS8qIG5vIG5lZWQgdG8gc3RvcmUgZXhhY3RseSBwLCB3ZSBqdXN0IG5lZWQgc29tZXRoaW5nIG5v
+bi1udWxsICovCi0JaSA9IGlkcl9hbGxvYygmcC0+cG9vbCwgcCwgR0ZQX05PV0FJVCk7Ci0KLQlz
+cGluX3VubG9ja19pcnFyZXN0b3JlKCZwLT5sb2NrLCBmbGFncyk7Ci0JaWRyX3ByZWxvYWRfZW5k
+KCk7CisJaSA9IGlkcl9hbGxvYygmcC0+cG9vbCwgcCwgR0ZQX05PRlMpOwogCWlmIChpIDwgMCkK
+IAkJcmV0dXJuIC0xOwogCkBAIC0xMTcsMTMgKzEwOCw5IEBAIEVYUE9SVF9TWU1CT0wocDlfaWRw
+b29sX2dldCk7CiAKIHZvaWQgcDlfaWRwb29sX3B1dChpbnQgaWQsIHN0cnVjdCBwOV9pZHBvb2wg
+KnApCiB7Ci0JdW5zaWduZWQgbG9uZyBmbGFnczsKLQogCXA5X2RlYnVnKFA5X0RFQlVHX01VWCwg
+IiBpZCAlZCBwb29sICVwXG4iLCBpZCwgcCk7CiAKLQlzcGluX2xvY2tfaXJxc2F2ZSgmcC0+bG9j
+aywgZmxhZ3MpOwogCWlkcl9yZW1vdmUoJnAtPnBvb2wsIGlkKTsKLQlzcGluX3VubG9ja19pcnFy
+ZXN0b3JlKCZwLT5sb2NrLCBmbGFncyk7CiB9CiBFWFBPUlRfU1lNQk9MKHA5X2lkcG9vbF9wdXQp
+OwogCmRpZmYgLS1naXQgYS9uZXQvc2N0cC9hc3NvY2lvbGEuYyBiL25ldC9zY3RwL2Fzc29jaW9s
+YS5jCmluZGV4IGJjZTViNzkuLmQ4OGZjNmQgMTAwNjQ0Ci0tLSBhL25ldC9zY3RwL2Fzc29jaW9s
+YS5jCisrKyBiL25ldC9zY3RwL2Fzc29jaW9sYS5jCkBAIC00NjQsMTEgKzQ2NCw4IEBAIHN0YXRp
+YyB2b2lkIHNjdHBfYXNzb2NpYXRpb25fZGVzdHJveShzdHJ1Y3Qgc2N0cF9hc3NvY2lhdGlvbiAq
+YXNvYykKIAlzY3RwX2VuZHBvaW50X3B1dChhc29jLT5lcCk7CiAJc29ja19wdXQoYXNvYy0+YmFz
+ZS5zayk7CiAKLQlpZiAoYXNvYy0+YXNzb2NfaWQgIT0gMCkgewotCQlzcGluX2xvY2tfYmgoJnNj
+dHBfYXNzb2NzX2lkX2xvY2spOworCWlmIChhc29jLT5hc3NvY19pZCAhPSAwKQogCQlpZHJfcmVt
+b3ZlKCZzY3RwX2Fzc29jc19pZCwgYXNvYy0+YXNzb2NfaWQpOwotCQlzcGluX3VubG9ja19iaCgm
+c2N0cF9hc3NvY3NfaWRfbG9jayk7Ci0JfQogCiAJV0FSTl9PTihhdG9taWNfcmVhZCgmYXNvYy0+
+cm1lbV9hbGxvYykpOwogCkBAIC0xNTcyLDIxICsxNTY5LDE0IEBAIGludCBzY3RwX2Fzc29jX2xv
+b2t1cF9sYWRkcihzdHJ1Y3Qgc2N0cF9hc3NvY2lhdGlvbiAqYXNvYywKIC8qIFNldCBhbiBhc3Nv
+Y2lhdGlvbiBpZCBmb3IgYSBnaXZlbiBhc3NvY2lhdGlvbiAqLwogaW50IHNjdHBfYXNzb2Nfc2V0
+X2lkKHN0cnVjdCBzY3RwX2Fzc29jaWF0aW9uICphc29jLCBnZnBfdCBnZnApCiB7Ci0JYm9vbCBw
+cmVsb2FkID0gZ2ZwICYgX19HRlBfV0FJVDsKIAlpbnQgcmV0OwogCiAJLyogSWYgdGhlIGlkIGlz
+IGFscmVhZHkgYXNzaWduZWQsIGtlZXAgaXQuICovCiAJaWYgKGFzb2MtPmFzc29jX2lkKQogCQly
+ZXR1cm4gMDsKIAotCWlmIChwcmVsb2FkKQotCQlpZHJfcHJlbG9hZChnZnApOwotCXNwaW5fbG9j
+a19iaCgmc2N0cF9hc3NvY3NfaWRfbG9jayk7CiAJLyogMCBpcyBub3QgYSB2YWxpZCBhc3NvY19p
+ZCwgbXVzdCBiZSA+PSAxICovCi0JcmV0ID0gaWRyX2FsbG9jX2N5Y2xpYygmc2N0cF9hc3NvY3Nf
+aWQsIGFzb2MsIDEsIDAsIEdGUF9OT1dBSVQpOwotCXNwaW5fdW5sb2NrX2JoKCZzY3RwX2Fzc29j
+c19pZF9sb2NrKTsKLQlpZiAocHJlbG9hZCkKLQkJaWRyX3ByZWxvYWRfZW5kKCk7CisJcmV0ID0g
+aWRyX2FsbG9jX2N5Y2xpYygmc2N0cF9hc3NvY3NfaWQsIGFzb2MsIDEsIDAsIGdmcCk7CiAJaWYg
+KHJldCA8IDApCiAJCXJldHVybiByZXQ7CiAKZGlmZiAtLWdpdCBhL25ldC9zY3RwL3Byb3RvY29s
+LmMgYi9uZXQvc2N0cC9wcm90b2NvbC5jCmluZGV4IDRhMTc0OTRkLi43ZGM0NjhhIDEwMDY0NAot
+LS0gYS9uZXQvc2N0cC9wcm90b2NvbC5jCisrKyBiL25ldC9zY3RwL3Byb3RvY29sLmMKQEAgLTcx
+LDcgKzcxLDYgQEAKIHN0cnVjdCBzY3RwX2dsb2JhbHMgc2N0cF9nbG9iYWxzIF9fcmVhZF9tb3N0
+bHk7CiAKIHN0cnVjdCBpZHIgc2N0cF9hc3NvY3NfaWQ7Ci1ERUZJTkVfU1BJTkxPQ0soc2N0cF9h
+c3NvY3NfaWRfbG9jayk7CiAKIHN0YXRpYyBzdHJ1Y3Qgc2N0cF9wZiAqc2N0cF9wZl9pbmV0Nl9z
+cGVjaWZpYzsKIHN0YXRpYyBzdHJ1Y3Qgc2N0cF9wZiAqc2N0cF9wZl9pbmV0X3NwZWNpZmljOwpk
+aWZmIC0tZ2l0IGEvbmV0L3NjdHAvc29ja2V0LmMgYi9uZXQvc2N0cC9zb2NrZXQuYwppbmRleCBj
+NjY3MGQyLi5lYjY4MTkyIDEwMDY0NAotLS0gYS9uZXQvc2N0cC9zb2NrZXQuYworKysgYi9uZXQv
+c2N0cC9zb2NrZXQuYwpAQCAtMjI2LDkgKzIyNiw3IEBAIHN0cnVjdCBzY3RwX2Fzc29jaWF0aW9u
+ICpzY3RwX2lkMmFzc29jKHN0cnVjdCBzb2NrICpzaywgc2N0cF9hc3NvY190IGlkKQogCWlmICgh
+aWQgfHwgKGlkID09IChzY3RwX2Fzc29jX3QpLTEpKQogCQlyZXR1cm4gTlVMTDsKIAotCXNwaW5f
+bG9ja19iaCgmc2N0cF9hc3NvY3NfaWRfbG9jayk7CiAJYXNvYyA9IChzdHJ1Y3Qgc2N0cF9hc3Nv
+Y2lhdGlvbiAqKWlkcl9maW5kKCZzY3RwX2Fzc29jc19pZCwgKGludClpZCk7Ci0Jc3Bpbl91bmxv
+Y2tfYmgoJnNjdHBfYXNzb2NzX2lkX2xvY2spOwogCiAJaWYgKCFhc29jIHx8IChhc29jLT5iYXNl
+LnNrICE9IHNrKSB8fCBhc29jLT5iYXNlLmRlYWQpCiAJCXJldHVybiBOVUxMOwotLSAKMS44LjQu
+cmMxCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpDb250
+YWluZXJzIG1haWxpbmcgbGlzdApDb250YWluZXJzQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3Jn
+Cmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2NvbnRh
+aW5lcnM=
