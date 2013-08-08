@@ -1,112 +1,45 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: [patch net] ipv6: do not create neighbor entries for local delivery
-Date: Thu, 08 Aug 2013 16:23:52 -0300
-Message-ID: <5203F048.6030508@redhat.com>
-References: <20130130082608.GA1604@minipsycho.orion> <CAATkVEzJgb+J-TAkTZCUbxLPj=b=wbOmsKbgNNimEfNaC8d0Aw@mail.gmail.com> <20130808190136.GE14001@order.stressinduktion.org> <5203EB4C.5020905@redhat.com> <20130808190624.GF14001@order.stressinduktion.org> <5203ED60.30108@redhat.com> <20130808191653.GG14001@order.stressinduktion.org>
-Reply-To: mleitner@redhat.com
+From: Jussi Kivilinna <jussi.kivilinna-X3B1VOXEql0@public.gmane.org>
+Subject: Re: [PATCH] net/usb: rtl8150: allocate URB transfer_buffer and setup_packet
+ separately
+Date: Thu, 08 Aug 2013 22:43:16 +0300
+Message-ID: <5203F4D4.8090609@iki.fi>
+References: <20130807133653.15587.35442.stgit@localhost6.localdomain6> <alpine.DEB.2.10.1308081809120.4258@fry.nucleusys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Debabrata Banerjee <dbavatar@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"Banerjee, Debabrata" <dbanerje@akamai.com>,
-	Joshua Hunt <johunt@akamai.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:23203 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966205Ab3HHTYd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Aug 2013 15:24:33 -0400
-In-Reply-To: <20130808191653.GG14001@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Petko Manolov <petkan-nPnTwAqkgEqakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.DEB.2.10.1308081809120.4258-WOI+tvYbpdBn9MRfDTB0XAC/G2K4zDHf@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Em 08-08-2013 16:16, Hannes Frederic Sowa escreveu:
-> On Thu, Aug 08, 2013 at 04:11:28PM -0300, Marcelo Ricardo Leitner wrote:
->> Em 08-08-2013 16:06, Hannes Frederic Sowa escreveu:
->>> On Thu, Aug 08, 2013 at 04:02:36PM -0300, Marcelo Ricardo Leitner wrote:
->>>> Em 08-08-2013 16:01, Hannes Frederic Sowa escreveu:
->>>>> On Thu, Aug 08, 2013 at 02:45:40PM -0400, Debabrata Banerjee wrote:
->>>>>> On Wed, Jan 30, 2013 at 3:26 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>>>>> From: Marcelo Ricardo Leitner <mleitner@redhat.com>
->>>>>> I'm not sure this patch is doing the right thing. It seems to break
->>>>>> IPv6 loopback functionality, it is no longer equivalent to IPv4, as
->>>>>> stated above. It doesn't just stop neighbor creation but it stops
->>>>>> cached route creation. Seems like a scary change for a stable tree.
->>>>>> See below:
->>>>>>
->>>>>> $ ip -4 route show local
->>>>>> local 127.0.0.0/8 dev lo  proto kernel  scope host  src 127.0.0.1
->>>>>>
->>>>>> This local route enables us to use the whole loopback network, any
->>>>>> address inside 127.0.0.0/8 will work.
->>>>>>
->>>>>> $ ping -c1 127.0.0.9
->>>>>> PING 127.0.0.9 (127.0.0.9) 56(84) bytes of data.
->>>>>> 64 bytes from 127.0.0.9: icmp_seq=1 ttl=64 time=0.012 ms
->>>>>>
->>>>>> --- 127.0.0.9 ping statistics ---
->>>>>> 1 packets transmitted, 1 received, 0% packet loss, time 0ms
->>>>>> rtt min/avg/max/mdev = 0.012/0.012/0.012/0.000 ms
->>>>>>
->>>>>> This also used to work equivalently for IPv6 local loopback routes:
->>>>>>
->>>>>> $ ip -6 route add local 2001:::/64 dev lo
->>>>>> $ ping6 -c1 2001::9
->>>>>> PING 2001::9(2001::9) 56 data bytes
->>>>>> 64 bytes from 2001::9: icmp_seq=1 ttl=64 time=0.010 ms
->>>>>>
->>>>>> --- 2001::9 ping statistics ---
->>>>>> 1 packets transmitted, 1 received, 0% packet loss, time 0ms
->>>>>> rtt min/avg/max/mdev = 0.010/0.010/0.010/0.000 ms
->>>>>>
->>>>>> However with this patch, this is very broken:
->>>>>>
->>>>>> $ ip -6 route add local 2001::/64 dev lo
->>>>>> $ ping6 -c1 2001::9
->>>>>> PING 2001::9(2001::9) 56 data bytes
->>>>>> ping: sendmsg: Invalid argument
->>>>>>
->>>>>> --- 2001::9 ping statistics ---
->>>>>> 1 packets transmitted, 0 received, 100% packet loss, time 0ms
->>>>>
->>>>> Which kernel version are you using? Perhaps you miss another fix? It
->>>>> works
->>>>> for
->>>>> me. Also I cannot find this patch in net-next?
->>>>
->>>> It wasn't needed/applied as the route cache was removed.
->>>
->>> Do you mean the rt->n(eighbour) removal? There was no removal of a route
->>> cache
->>> in IPv6 land. The cache is merely in the routing table itself.
->>
->> Yes, my bad, sorry. s/route/neighour/. It was discussed on this thread:
->> http://article.gmane.org/gmane.linux.network/255318
->>
->> "Note also that YOSHIFUJI Hideaki's patches to remove the cached neighbour
->> entirely from ipv6 routes will have the same effect, so your patch won't
->> be needed."
->
-> Ok, thanks!
->
-> But it somehow managed to get into stable kernels, nor? Kernels after rt->n
-> removal should not be affected. At least the example above works on my
-> net-next kernel correctly.
+On 08.08.2013 18:14, Petko Manolov wrote:
+> On Wed, 7 Aug 2013, Jussi Kivilinna wrote:
+> 
+>> rtl8150 allocates URB transfer_buffer and setup_packet as part of same 
+>> structure 'struct async_req'. This can cause same cacheline to be 
+>> DMA-mapped twice with same URB. This can lead to memory corruption on 
+>> some systems.
+> 
+> I can see performance impact due to the double mapping.  However, memory 
+> corruption seems a bit too much for sane cache and DMA controllers.  Out 
+> of interest - which is the architecture that will potentially corrupt the 
+> memory.
 
-Yes, it did, as a intermediate fix, let's say. As we wouldn't remove the cache 
-for -stable tree, this patch seems reasonable to avoid creating a flood of 
-non-wanted entries. Without it, when using TPROXY, it was creating neighbor 
-entries for IP addresses that were behind a gateway.
+rtlwifi driver had similar structure to allocate both setup_packet and transfer_buffer in single go (overlapping dma-mapping cachelines) and this caused problems on ARM/sunxi. Problems means: memory corruptions at random locations, device freezes and lock-ups.
 
-In case it helps:
-http://thread.gmane.org/gmane.linux.network/255234/focus=257293
-http://article.gmane.org/gmane.linux.network/257433 (this thread, actually)
+-Jussi
 
-Thanks,
-Marcelo
+> 
+> 
+> cheers,
+> Petko
+> 
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
