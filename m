@@ -1,37 +1,30 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v4 1/4] USB: introduce usb_device_no_sg_constraint()
- helper
-Date: Thu, 08 Aug 2013 09:28:32 -0700
-Message-ID: <1375979312.4004.111.camel@edumazet-glaptop>
-References: <1375969705-24877-1-git-send-email-ming.lei@canonical.com>
-	 <1375969705-24877-2-git-send-email-ming.lei@canonical.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next v1 0/6] bonding: remove bond->vlan_list
+Date: Thu, 8 Aug 2013 18:49:49 +0200
+Message-ID: <20130808164949.GU22756@redhat.com>
+References: <1375957269-13100-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Oliver Neukum <oneukum@suse.de>,
-	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Ming Lei <ming.lei@canonical.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f50.google.com ([209.85.219.50]:57492 "EHLO
-	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757956Ab3HHQ2f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 12:28:35 -0400
-In-Reply-To: <1375969705-24877-2-git-send-email-ming.lei@canonical.com>
+Received: from mx1.redhat.com ([209.132.183.28]:26028 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757988Ab3HHQut (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Aug 2013 12:50:49 -0400
+Content-Disposition: inline
+In-Reply-To: <1375957269-13100-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-08-08 at 21:48 +0800, Ming Lei wrote:
-> Some host controllers(such as xHCI) can support building
-> packet from discontinuous buffers, so introduce one flag
-> and helper for this kind of host controllers, then the
-> feature can help some applications(such as usbnet) by
-> supporting arbitrary length of sg buffers.
-> 
-> Acked-by: Alan Stern <stern@rowland.harvard.edu>
-> Signed-off-by: Ming Lei <ming.lei@canonical.com>
-> ---
+On Thu, Aug 08, 2013 at 12:21:03PM +0200, Veaceslav Falico wrote:
+>RFC -> v1: Got some feedback from Nikolay Aleksandrov (privately), tried to
+>	   address it, also fixed some bugs that I've found on the way. I
+>	   think it's ready to be considered a patchset for
+>	   review/inclusion in net-next.
 
-Reviewed-by: Eric Dumazet <edumazet@google.com>
+Got some more feedback and spotted some bugs, will send a full v2 shortly.
