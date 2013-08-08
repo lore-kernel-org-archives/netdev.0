@@ -1,92 +1,86 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v2 net-next 5/6] bonding: convert bond_arp_send_all to use bond->dev->vlan_info
-Date: Thu,  8 Aug 2013 18:57:58 +0200
-Message-ID: <1375981079-2936-6-git-send-email-vfalico@redhat.com>
-References: <1375981079-2936-1-git-send-email-vfalico@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH net-next v2 0/6] bonding: remove bond->vlan_list
+Date: Thu,  8 Aug 2013 18:57:53 +0200
+Message-ID: <1375981079-2936-1-git-send-email-vfalico@redhat.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Veaceslav Falico <vfalico@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34856 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:32242 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965362Ab3HHQ54 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Aug 2013 12:57:56 -0400
-In-Reply-To: <1375981079-2936-1-git-send-email-vfalico@redhat.com>
+	id S965419Ab3HHQ57 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Aug 2013 12:57:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RFC -> v1: use the new __vlan_find_dev_next(), also release rcu_read_lock()
-	   only after we stop using the vlan_dev.
-v1  -> v2: no change.
+RFC -> v1: Got some feedback from Nikolay Aleksandrov (privately), tried to
+	   address it, also fixed some bugs that I've found on the way. I
+	   think it's ready to be considered a patchset for
+	   review/inclusion in net-next.
 
-Instead of looping through bond->vlan_list, loop through
-bond->dev->vlan_info via __vlan_find_dev_next() under rcu_read_lock().
+v1  -> v2: Remove ASSERT_RTNL() from vlan_uses_dev(), cause it can be
+	   already called under rcu, without rtnl. Don't check for master
+	   device in __vlan_find_dev_next(), otherwise we won't be able to
+	   work in situations when a device has both vlans and master
+	   device. Properly init vlan_dev in bond_has_this_ip() before
+	   using (sigh). There was a proposal of making a macro
+	   "dev_for_each_vlan_from(dev, vlan_dev, i, from)", which would
+	   use __vlan_find_dev_deep() inside, with its strong and weak
+	   parts, but I've decided to stick to the "while (dev = next())"
+	   scheme currently - it might be added anytime, and now the only
+	   user (bonding) doesn't really need it.
+
+The aim of this patchset is to remove bond->vlan_list completely, and use
+8021q's standard functions instead of it.
+
+The patchset is on top of Nik's latest two patches:
+[net-next,v2,1/2] bonding: change the bond's vlan syncing functions with
+			   the standard ones
+[net-next,v2,2/2] bonding: unwind on bond_add_vlan failure
+
+
+First two patches add two helper functions to vlan code:
+
+bonding: add rcu to vlan_uses_dev() and make bond_vlan_used() use it
+
+	Here we change vlan_uses_dev() to be able to work under both rtnl
+	and rcu, and use it under rcu_read_lock() in bond_vlan_used().
+
+vlan: add __vlan_find_dev_next()
+
+	This function takes dev and vlan_dev and returns the next vlan dev
+	that uses this dev. It can be used to cycle through the vlan list,
+	and not only by bonding - but by any network driver that uses its
+	private vlan list.
+
+Next four patches actually convert bonding to use the new
+functions/approach and remove the vlan_list completely.
+
+This patchset solves several issues with bonding, simplify it overall,
+RCUify further and add infrastructure to anyone else who'd like to use
+8021q standard functions instead of their own vlan_list, which is quite
+common amongst network drivers currently.
+
+I'm testing it continuously currently, no issues found, will update on
+anything.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
+CC: Patrick McHardy <kaber@trash.net>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Nikolay Aleksandrov <nikolay@redhat.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
- drivers/net/bonding/bond_main.c |   29 +++++++++++++----------------
- 1 files changed, 13 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index e52e2d5..f536d05 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2440,11 +2440,10 @@ static void bond_arp_send(struct net_device *slave_dev, int arp_op, __be32 dest_
- 
- static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- {
--	int i, vlan_id;
--	__be32 *targets = bond->params.arp_targets;
--	struct vlan_entry *vlan;
--	struct net_device *vlan_dev = NULL;
-+	struct net_device *vlan_dev;
- 	struct rtable *rt;
-+	__be32 *targets = bond->params.arp_targets;
-+	int i;
- 
- 	for (i = 0; (i < BOND_MAX_ARP_TARGETS); i++) {
- 		__be32 addr;
-@@ -2486,28 +2485,26 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 			continue;
- 		}
- 
--		vlan_id = 0;
--		list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
--			rcu_read_lock();
--			vlan_dev = __vlan_find_dev_deep(bond->dev,
--							htons(ETH_P_8021Q),
--							vlan->vlan_id);
--			rcu_read_unlock();
-+		vlan_dev = NULL;
-+
-+		rcu_read_lock();
-+		while ((vlan_dev = __vlan_find_dev_next(bond->dev, vlan_dev)))
- 			if (vlan_dev == rt->dst.dev) {
--				vlan_id = vlan->vlan_id;
- 				pr_debug("basa: vlan match on %s %d\n",
--				       vlan_dev->name, vlan_id);
-+					 vlan_dev->name,
-+					 vlan_dev_vlan_id(vlan_dev));
- 				break;
- 			}
--		}
- 
--		if (vlan_id && vlan_dev) {
-+		if (vlan_dev) {
- 			ip_rt_put(rt);
- 			addr = bond_confirm_addr(vlan_dev, targets[i], 0);
- 			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
--				      addr, vlan_id);
-+				      addr, vlan_dev_vlan_id(vlan_dev));
-+			rcu_read_unlock();
- 			continue;
- 		}
-+		rcu_read_unlock();
- 
- 		if (net_ratelimit()) {
- 			pr_warning("%s: no path to arp_ip_target %pI4 via rt.dev %s\n",
--- 
-1.7.1
+---
+ drivers/net/bonding/bond_alb.c  |   48 ++++++++----
+ drivers/net/bonding/bond_alb.h  |    2 +-
+ drivers/net/bonding/bond_main.c |  163 ++++++---------------------------------
+ drivers/net/bonding/bonding.h   |   16 ++--
+ include/linux/if_vlan.h         |    8 ++
+ net/8021q/vlan.h                |    6 +-
+ net/8021q/vlan_core.c           |   36 ++++++++-
+ 7 files changed, 115 insertions(+), 164 deletions(-)
