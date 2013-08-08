@@ -1,40 +1,64 @@
-From: Debabrata Banerjee <dbavatar@gmail.com>
-Subject: Re: [patch net] ipv6: do not create neighbor entries for local delivery
-Date: Thu, 8 Aug 2013 15:19:25 -0400
-Message-ID: <CAATkVEwRym1DGTD_oTNViAyDg+j2VXJZweGBfSbA3ny9sYM--A@mail.gmail.com>
-References: <20130130082608.GA1604@minipsycho.orion>
-	<CAATkVEzJgb+J-TAkTZCUbxLPj=b=wbOmsKbgNNimEfNaC8d0Aw@mail.gmail.com>
-	<20130808190136.GE14001@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Debabrata Banerjee <dbavatar@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>, mleitner@redhat.com,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"Banerjee, Debabrata" <dbanerje@akamai.com>,
-	Joshua Hunt <johunt@akamai.com>
+From: Kumar Gaurav <kumargauravgupta3@gmail.com>
+Subject: [PATCH] net:ethernet:korina.c Removed IRQF_DISABLED
+Date: Fri,  9 Aug 2013 00:50:49 +0530
+Message-ID: <1375989649-7252-1-git-send-email-kumargauravgupta3@gmail.com>
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Kumar Gaurav <kumargauravgupta3@gmail.com>
+To: davem@davemloft.net, emilio@elopez.com.ar, mugunthanvnm@ti.com,
+	jg1.han@samsung.com, hsweeten@visionengravers.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:37873 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966162Ab3HHTTZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 15:19:25 -0400
-Received: by mail-qc0-f174.google.com with SMTP id c1so1766367qcz.19
-        for <netdev@vger.kernel.org>; Thu, 08 Aug 2013 12:19:25 -0700 (PDT)
-In-Reply-To: <20130808190136.GE14001@order.stressinduktion.org>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:35430 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966189Ab3HHTVH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 15:21:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 8, 2013 at 3:01 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
->
-> Which kernel version are you using? Perhaps you miss another fix? It works for
-> me. Also I cannot find this patch in net-next?
->
+Removed IRQF_DISABLED as it's no-op and should be removed
 
-Just pulled and tried longterm 3.2.50, behavior is the same, broken.
+Signed-off-by: Kumar Gaurav <kumargauravgupta3@gmail.com>
+---
+ drivers/net/ethernet/korina.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
--Debabrata
+diff --git a/drivers/net/ethernet/korina.c b/drivers/net/ethernet/korina.c
+index 270e65f..a36fa80 100644
+--- a/drivers/net/ethernet/korina.c
++++ b/drivers/net/ethernet/korina.c
+@@ -996,14 +996,14 @@ static int korina_open(struct net_device *dev)
+ 	 * that handles the Done Finished
+ 	 * Ovr and Und Events */
+ 	ret = request_irq(lp->rx_irq, korina_rx_dma_interrupt,
+-			IRQF_DISABLED, "Korina ethernet Rx", dev);
++			0, "Korina ethernet Rx", dev);
+ 	if (ret < 0) {
+ 		printk(KERN_ERR "%s: unable to get Rx DMA IRQ %d\n",
+ 		    dev->name, lp->rx_irq);
+ 		goto err_release;
+ 	}
+ 	ret = request_irq(lp->tx_irq, korina_tx_dma_interrupt,
+-			IRQF_DISABLED, "Korina ethernet Tx", dev);
++			0, "Korina ethernet Tx", dev);
+ 	if (ret < 0) {
+ 		printk(KERN_ERR "%s: unable to get Tx DMA IRQ %d\n",
+ 		    dev->name, lp->tx_irq);
+@@ -1012,7 +1012,7 @@ static int korina_open(struct net_device *dev)
+ 
+ 	/* Install handler for overrun error. */
+ 	ret = request_irq(lp->ovr_irq, korina_ovr_interrupt,
+-			IRQF_DISABLED, "Ethernet Overflow", dev);
++			0, "Ethernet Overflow", dev);
+ 	if (ret < 0) {
+ 		printk(KERN_ERR "%s: unable to get OVR IRQ %d\n",
+ 		    dev->name, lp->ovr_irq);
+@@ -1021,7 +1021,7 @@ static int korina_open(struct net_device *dev)
+ 
+ 	/* Install handler for underflow error. */
+ 	ret = request_irq(lp->und_irq, korina_und_interrupt,
+-			IRQF_DISABLED, "Ethernet Underflow", dev);
++			0, "Ethernet Underflow", dev);
+ 	if (ret < 0) {
+ 		printk(KERN_ERR "%s: unable to get UND IRQ %d\n",
+ 		    dev->name, lp->und_irq);
+-- 
+1.7.9.5
