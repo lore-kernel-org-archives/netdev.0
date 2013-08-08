@@ -1,64 +1,112 @@
-From: Kumar Gaurav <kumargauravgupta3@gmail.com>
-Subject: [PATCH] net:ethernet:korina.c Removed IRQF_DISABLED
-Date: Fri,  9 Aug 2013 00:50:49 +0530
-Message-ID: <1375989649-7252-1-git-send-email-kumargauravgupta3@gmail.com>
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Kumar Gaurav <kumargauravgupta3@gmail.com>
-To: davem@davemloft.net, emilio@elopez.com.ar, mugunthanvnm@ti.com,
-	jg1.han@samsung.com, hsweeten@visionengravers.com
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: [patch net] ipv6: do not create neighbor entries for local delivery
+Date: Thu, 08 Aug 2013 16:23:52 -0300
+Message-ID: <5203F048.6030508@redhat.com>
+References: <20130130082608.GA1604@minipsycho.orion> <CAATkVEzJgb+J-TAkTZCUbxLPj=b=wbOmsKbgNNimEfNaC8d0Aw@mail.gmail.com> <20130808190136.GE14001@order.stressinduktion.org> <5203EB4C.5020905@redhat.com> <20130808190624.GF14001@order.stressinduktion.org> <5203ED60.30108@redhat.com> <20130808191653.GG14001@order.stressinduktion.org>
+Reply-To: mleitner@redhat.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Debabrata Banerjee <dbavatar@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"jmorris@namei.org" <jmorris@namei.org>,
+	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"Banerjee, Debabrata" <dbanerje@akamai.com>,
+	Joshua Hunt <johunt@akamai.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:35430 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966189Ab3HHTVH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 15:21:07 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:23203 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S966205Ab3HHTYd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Aug 2013 15:24:33 -0400
+In-Reply-To: <20130808191653.GG14001@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Removed IRQF_DISABLED as it's no-op and should be removed
+Em 08-08-2013 16:16, Hannes Frederic Sowa escreveu:
+> On Thu, Aug 08, 2013 at 04:11:28PM -0300, Marcelo Ricardo Leitner wrote:
+>> Em 08-08-2013 16:06, Hannes Frederic Sowa escreveu:
+>>> On Thu, Aug 08, 2013 at 04:02:36PM -0300, Marcelo Ricardo Leitner wrote:
+>>>> Em 08-08-2013 16:01, Hannes Frederic Sowa escreveu:
+>>>>> On Thu, Aug 08, 2013 at 02:45:40PM -0400, Debabrata Banerjee wrote:
+>>>>>> On Wed, Jan 30, 2013 at 3:26 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>>>>> From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+>>>>>> I'm not sure this patch is doing the right thing. It seems to break
+>>>>>> IPv6 loopback functionality, it is no longer equivalent to IPv4, as
+>>>>>> stated above. It doesn't just stop neighbor creation but it stops
+>>>>>> cached route creation. Seems like a scary change for a stable tree.
+>>>>>> See below:
+>>>>>>
+>>>>>> $ ip -4 route show local
+>>>>>> local 127.0.0.0/8 dev lo  proto kernel  scope host  src 127.0.0.1
+>>>>>>
+>>>>>> This local route enables us to use the whole loopback network, any
+>>>>>> address inside 127.0.0.0/8 will work.
+>>>>>>
+>>>>>> $ ping -c1 127.0.0.9
+>>>>>> PING 127.0.0.9 (127.0.0.9) 56(84) bytes of data.
+>>>>>> 64 bytes from 127.0.0.9: icmp_seq=1 ttl=64 time=0.012 ms
+>>>>>>
+>>>>>> --- 127.0.0.9 ping statistics ---
+>>>>>> 1 packets transmitted, 1 received, 0% packet loss, time 0ms
+>>>>>> rtt min/avg/max/mdev = 0.012/0.012/0.012/0.000 ms
+>>>>>>
+>>>>>> This also used to work equivalently for IPv6 local loopback routes:
+>>>>>>
+>>>>>> $ ip -6 route add local 2001:::/64 dev lo
+>>>>>> $ ping6 -c1 2001::9
+>>>>>> PING 2001::9(2001::9) 56 data bytes
+>>>>>> 64 bytes from 2001::9: icmp_seq=1 ttl=64 time=0.010 ms
+>>>>>>
+>>>>>> --- 2001::9 ping statistics ---
+>>>>>> 1 packets transmitted, 1 received, 0% packet loss, time 0ms
+>>>>>> rtt min/avg/max/mdev = 0.010/0.010/0.010/0.000 ms
+>>>>>>
+>>>>>> However with this patch, this is very broken:
+>>>>>>
+>>>>>> $ ip -6 route add local 2001::/64 dev lo
+>>>>>> $ ping6 -c1 2001::9
+>>>>>> PING 2001::9(2001::9) 56 data bytes
+>>>>>> ping: sendmsg: Invalid argument
+>>>>>>
+>>>>>> --- 2001::9 ping statistics ---
+>>>>>> 1 packets transmitted, 0 received, 100% packet loss, time 0ms
+>>>>>
+>>>>> Which kernel version are you using? Perhaps you miss another fix? It
+>>>>> works
+>>>>> for
+>>>>> me. Also I cannot find this patch in net-next?
+>>>>
+>>>> It wasn't needed/applied as the route cache was removed.
+>>>
+>>> Do you mean the rt->n(eighbour) removal? There was no removal of a route
+>>> cache
+>>> in IPv6 land. The cache is merely in the routing table itself.
+>>
+>> Yes, my bad, sorry. s/route/neighour/. It was discussed on this thread:
+>> http://article.gmane.org/gmane.linux.network/255318
+>>
+>> "Note also that YOSHIFUJI Hideaki's patches to remove the cached neighbour
+>> entirely from ipv6 routes will have the same effect, so your patch won't
+>> be needed."
+>
+> Ok, thanks!
+>
+> But it somehow managed to get into stable kernels, nor? Kernels after rt->n
+> removal should not be affected. At least the example above works on my
+> net-next kernel correctly.
 
-Signed-off-by: Kumar Gaurav <kumargauravgupta3@gmail.com>
----
- drivers/net/ethernet/korina.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+Yes, it did, as a intermediate fix, let's say. As we wouldn't remove the cache 
+for -stable tree, this patch seems reasonable to avoid creating a flood of 
+non-wanted entries. Without it, when using TPROXY, it was creating neighbor 
+entries for IP addresses that were behind a gateway.
 
-diff --git a/drivers/net/ethernet/korina.c b/drivers/net/ethernet/korina.c
-index 270e65f..a36fa80 100644
---- a/drivers/net/ethernet/korina.c
-+++ b/drivers/net/ethernet/korina.c
-@@ -996,14 +996,14 @@ static int korina_open(struct net_device *dev)
- 	 * that handles the Done Finished
- 	 * Ovr and Und Events */
- 	ret = request_irq(lp->rx_irq, korina_rx_dma_interrupt,
--			IRQF_DISABLED, "Korina ethernet Rx", dev);
-+			0, "Korina ethernet Rx", dev);
- 	if (ret < 0) {
- 		printk(KERN_ERR "%s: unable to get Rx DMA IRQ %d\n",
- 		    dev->name, lp->rx_irq);
- 		goto err_release;
- 	}
- 	ret = request_irq(lp->tx_irq, korina_tx_dma_interrupt,
--			IRQF_DISABLED, "Korina ethernet Tx", dev);
-+			0, "Korina ethernet Tx", dev);
- 	if (ret < 0) {
- 		printk(KERN_ERR "%s: unable to get Tx DMA IRQ %d\n",
- 		    dev->name, lp->tx_irq);
-@@ -1012,7 +1012,7 @@ static int korina_open(struct net_device *dev)
- 
- 	/* Install handler for overrun error. */
- 	ret = request_irq(lp->ovr_irq, korina_ovr_interrupt,
--			IRQF_DISABLED, "Ethernet Overflow", dev);
-+			0, "Ethernet Overflow", dev);
- 	if (ret < 0) {
- 		printk(KERN_ERR "%s: unable to get OVR IRQ %d\n",
- 		    dev->name, lp->ovr_irq);
-@@ -1021,7 +1021,7 @@ static int korina_open(struct net_device *dev)
- 
- 	/* Install handler for underflow error. */
- 	ret = request_irq(lp->und_irq, korina_und_interrupt,
--			IRQF_DISABLED, "Ethernet Underflow", dev);
-+			0, "Ethernet Underflow", dev);
- 	if (ret < 0) {
- 		printk(KERN_ERR "%s: unable to get UND IRQ %d\n",
- 		    dev->name, lp->und_irq);
--- 
-1.7.9.5
+In case it helps:
+http://thread.gmane.org/gmane.linux.network/255234/focus=257293
+http://article.gmane.org/gmane.linux.network/257433 (this thread, actually)
+
+Thanks,
+Marcelo
