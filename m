@@ -1,69 +1,66 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [PATCH v3 4/4] USBNET: ax88179_178a: enable tso if usb host
- supports sg dma
-Date: Fri, 9 Aug 2013 07:48:39 +0800
-Message-ID: <CACVXFVMWWcf5duqU9_NB6QMzN1mxE6HfHJ6Aco1u3+4+x7u8JA@mail.gmail.com>
-References: <1375750370-18194-1-git-send-email-ming.lei@canonical.com>
-	<1375750370-18194-5-git-send-email-ming.lei@canonical.com>
-	<1375791737.4457.98.camel@edumazet-glaptop>
-	<CANEJEGvbS=o-942tFJTDzpNvgaB=KUZcBwzJCU-7OHaAF-aQFQ@mail.gmail.com>
-	<CACVXFVOOQZ8mtDXtCE669vEo=jA56g-ADzTZkGLLupZ5D4Z==A@mail.gmail.com>
-	<CANEJEGvvxi83=b+NGTzsVpJw5fE5nb-R0BRWRJ2gz7bF5-H5AA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: Add low-latency/polling support for
+ UDP multicast
+Date: Thu, 08 Aug 2013 16:55:14 -0700
+Message-ID: <1376006114.4004.141.camel@edumazet-glaptop>
+References: <5200A203.2090306@linux.intel.com>
+	  <1375818663-12318-1-git-send-email-sbohrer@rgmadvisors.com>
+	 <1375906946.4004.45.camel@edumazet-glaptop>
+	 <52035AD9.30703@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Oliver Neukum <oneukum@suse.de>,
-	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
-	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Freddy Xin <freddy@asix.com.tw>
-To: Grant Grundler <grundler@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Shawn Bohrer <sbohrer@rgmadvisors.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	tomk@rgmadvisors.com
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:58817 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758215Ab3HHXsm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 19:48:42 -0400
-In-Reply-To: <CANEJEGvvxi83=b+NGTzsVpJw5fE5nb-R0BRWRJ2gz7bF5-H5AA@mail.gmail.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:59648 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966520Ab3HHXzX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 19:55:23 -0400
+Received: by mail-pa0-f45.google.com with SMTP id bg4so4252698pad.4
+        for <netdev@vger.kernel.org>; Thu, 08 Aug 2013 16:55:22 -0700 (PDT)
+In-Reply-To: <52035AD9.30703@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 9, 2013 at 1:25 AM, Grant Grundler <grundler@google.com> wrote:
-> On Tue, Aug 6, 2013 at 5:41 PM, Ming Lei <ming.lei@canonical.com> wrote:
->> On Wed, Aug 7, 2013 at 1:09 AM, Grant Grundler <grundler@google.com> wrote:
-> ...
->>> Following that logic, shouldn't all the features/hw_features settings
->>> be removed from reset code path?
->>
->> This patch won't touch other settings because that isn't related with
->> this patch.
->
-> Sorry - I didn't mean to imply your patch should do this. I was hoping
-> for a yes/no answer from you, Eric, or Dave.
->
-> ...
->>> I'll note that any "hiccup" in the USB side that causes the device to
->>> get dropped and re-probed will cause the same symptom. There is
->>
->> I am afraid that PCI network devices' setting still won't survive unbound&
->> re-probed, will they?
->
-> Correct - but PCI isn't as prone to "dropping off the bus" like USB
+On Thu, 2013-08-08 at 11:46 +0300, Eliezer Tamir wrote:
+> On 07/08/2013 23:22, Eric Dumazet wrote:
+> > On Tue, 2013-08-06 at 14:51 -0500, Shawn Bohrer wrote:
+> >> Set the napi id for each socket in the multicast path to enable
+> >> low-latency/polling support.
+> >>
+> >> Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
+> >> ---
+> >> v2 include ipv6 support
+> > 
+> > This might help your workload, but I doubt it is generic enough.
+> > 
+> > One UDP socket is supposed to receive traffic from many endpoints,
+> > so we have no guarantee all the received traffic will end on a single RX
+> > queue on the NIC.
+> > 
+> > That's the same logic than RFS here.
+> > 
+> > sk_mark_napi_id() in UDP are wrong IMHO.
+> > 
+> > It should be guarded by the following test in  
+> > __udp_queue_rcv_skb()
+> > 
+> > if (inet_sk(sk)->inet_daddr) {
+> >     sock_rps_save_rxhash(sk, skb);
+> >     sk_mark_napi_id(sk, skb);
+> > }
+> > 
+> > (To occur only for connected UDP sockets, where we are 100% sure all
+> > packets will use this same rxhash/rx queue)
+> 
+> This would also be safe if there is only one NIC and said NIC was
+> programmed to always place this socket's data on the same queue.
+> 
+> I don't have a good suggestion on how to detect this.
 
-As far as I know, USB device still won't be disconnected easily, and
-reset is possible, but we can make setting survive reset by implementing
-.pre_reset() and .post_reset() callback. Or do you have other situation
-of USB 'dropping off the bus'?
+Well, this stuff relies on flows being correctly steered.
 
-> is. Master aborts on some PCI systems is a "Fatal Exception" and AFAIK
-> that's never been true for any USB device.
-
-I mean rmmod & modprobe still can reset setting of one PCI network
-device after powering on the device, can't it?
-
-
-Thanks,
---
-Ming Lei
+TCP stack performs much better if we avoid reorders ;)
