@@ -1,81 +1,62 @@
-From: Gavin Shan <shangw@linux.vnet.ibm.com>
-Subject: [PATCH] net/tg3: Support shutdown on PCI device
-Date: Thu,  8 Aug 2013 15:26:09 +0800
-Message-ID: <1375946769-22814-1-git-send-email-shangw@linux.vnet.ibm.com>
-Cc: nsujir@broadcom.com, davem@davemloft.net,
-	Gavin Shan <shangw@linux.vnet.ibm.com>
+From: Dong Fang <yp.fangdong@gmail.com>
+Subject: some questions of tcp congestion window
+Date: Thu, 08 Aug 2013 15:26:21 -0400
+Message-ID: <5203F0DD.1090007@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:35470 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751215Ab3HHH0Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Aug 2013 03:26:24 -0400
-Received: from /spool/local
-	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <shangw@linux.vnet.ibm.com>;
-	Thu, 8 Aug 2013 03:26:23 -0400
-Received: from d01relay06.pok.ibm.com (d01relay06.pok.ibm.com [9.56.227.116])
-	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id A1F816E803C
-	for <netdev@vger.kernel.org>; Thu,  8 Aug 2013 03:26:14 -0400 (EDT)
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay06.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r787QJLZ38993920
-	for <netdev@vger.kernel.org>; Thu, 8 Aug 2013 03:26:19 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r787QIOW030617
-	for <netdev@vger.kernel.org>; Thu, 8 Aug 2013 03:26:19 -0400
+Received: from mail-pb0-f42.google.com ([209.85.160.42]:64281 "EHLO
+	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757655Ab3HHH0t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 03:26:49 -0400
+Received: by mail-pb0-f42.google.com with SMTP id un15so2834708pbc.29
+        for <netdev@vger.kernel.org>; Thu, 08 Aug 2013 00:26:49 -0700 (PDT)
+Received: from [192.168.1.108] ([111.194.92.93])
+        by mx.google.com with ESMTPSA id qp10sm14821266pab.13.2013.08.08.00.26.43
+        for <netdev@vger.kernel.org>
+        (version=TLSv1 cipher=RC4-SHA bits=128/128);
+        Thu, 08 Aug 2013 00:26:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Before we tries to load new kernel with "kexec", we cound't bring
-the tg3 NICs down manually because dhcp daemon keeps them up. So
-there're still lots of traffic (DMA operations) on the tg3 card
-from the old kernel while running the new kernel. It leads to
-unnecessary EEH errors on Power platform because the network traffic
-(from old kernel) breaks what we have in the IOMMU, which is built
-by the new kernel.
+hi, all
 
-	ifconfig eth0 down
-	kexec -l vmlinux -c "root=/dev/sda5 debug" && kexec -f -e
+I'am reading the tcp/ip network source code(kernel 3.10), i was
+fogged by the congestion window. so, i want to confirm something
+about it:
 
-The patch adds the shutdown interface for the PCI device to make
-things more robust. The PCI device can be put to silent state before
-loading the new kernel and to avoid unnecessary EEH errors.
+Note: sack is disable. and A is sender, B is receiver.
 
-Reported-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Signed-off-by: Gavin Shan <shangw@linux.vnet.ibm.com>
----
- drivers/net/ethernet/broadcom/tg3.c |   12 ++++++++++++
- 1 files changed, 12 insertions(+), 0 deletions(-)
+1. at time t, the number of packets in flight is 100. like this=EF=BC=9A
+    u, u+1, u+2, ..., u+99
+    and suppose u is lost and all other packets are not. so bwtween
+    t:t+RTT we would have retransmitted u and received 99 dupack.
+    all of this dupack's ack =3D=3D u, right?
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index ddebc7a..dc6178b 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -17663,6 +17663,17 @@ static void tg3_remove_one(struct pci_dev *pdev)
- 	}
- }
- 
-+static void tg3_shutdown_one(struct pci_dev *pdev)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+
-+	if (!dev)
-+		return;
-+
-+	netif_device_detach(dev);
-+	tg3_remove_one(pdev);
-+}
-+
- #ifdef CONFIG_PM_SLEEP
- static int tg3_suspend(struct device *device)
- {
-@@ -17909,6 +17920,7 @@ static struct pci_driver tg3_driver = {
- 	.id_table	= tg3_pci_tbl,
- 	.probe		= tg3_init_one,
- 	.remove		= tg3_remove_one,
-+	.shutdown	= tg3_shutdown_one,
- 	.err_handler	= &tg3_err_handler,
- 	.driver.pm	= &tg3_pm_ops,
- };
--- 
-1.7.5.4
+    when A recieved 3 dupack, it changed to TCP_CA_Recovery state.
+    in this state, the congestion window won't grow any more.
+    then, A retransmit U packet. after that, if A receive a new ack,
+    acked all the packets in flight, so the sock state is changed
+    to TCP_CA_Open. right?
+
+2. at time t, the number of packets in flight is 100, like this:
+    u, u+1, u+2, ..., u+99
+    and suppose u and u+5 is lost and all other packets are not.
+    between t:t+RTT, we should have retransmitted u and received 99
+    dupack, all of this dupack's ack =3D=3D u, right?
+
+    when A recieved 3 dupack, it changed to Recovery state, then
+    retransmit U packet, after that, if A receive a new ack,
+    this ack is only acked for u+5, at this time, current sshresh =3D
+    cwnd/2 + 5(the first 5 packets was acked), but cwnd > sshresh.
+    so A won't send any packets to B, and B won't send any ack to
+    A too, because B have beed send 99 dupack and 1 new ack, it
+    have done its work, right? the only way to let B send ack to
+    A is, the retransmit timeout of u+5 packet.
+
+    when A was retransmit u+5 packet to B, then B send packet ack
+    for u+100 to A, this time, the A's cwnd =3D=3D sshresh << 1, enter
+    CA progress, right?
