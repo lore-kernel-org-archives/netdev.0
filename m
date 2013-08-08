@@ -1,130 +1,114 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: [patch net] ipv6: do not create neighbor entries for local delivery
-Date: Thu, 08 Aug 2013 17:46:41 -0300
-Message-ID: <520403B1.9010000@redhat.com>
-References: <20130130082608.GA1604@minipsycho.orion> <CAATkVEzJgb+J-TAkTZCUbxLPj=b=wbOmsKbgNNimEfNaC8d0Aw@mail.gmail.com> <20130808194702.GH14001@order.stressinduktion.org> <20130808201627.GI14001@order.stressinduktion.org> <52040361.5020200@redhat.com>
-Reply-To: mleitner@redhat.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"Banerjee, Debabrata" <dbanerje@akamai.com>,
-	Joshua Hunt <johunt@akamai.com>
-To: Debabrata Banerjee <dbavatar@gmail.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH] tcp: add server ip to encrypt cookie in fast open
+Date: Thu,  8 Aug 2013 14:06:22 -0700
+Message-ID: <1375995982-17862-1-git-send-email-ycheng@google.com>
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net, ncardwell@google.com, edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28044 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966479Ab3HHUrV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Aug 2013 16:47:21 -0400
-In-Reply-To: <52040361.5020200@redhat.com>
+Received: from mail-vb0-f74.google.com ([209.85.212.74]:34627 "EHLO
+	mail-vb0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966588Ab3HHVGs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 17:06:48 -0400
+Received: by mail-vb0-f74.google.com with SMTP id w16so381058vbf.3
+        for <netdev@vger.kernel.org>; Thu, 08 Aug 2013 14:06:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em 08-08-2013 17:45, Marcelo Ricardo Leitner escreveu:
-> Em 08-08-2013 17:16, Hannes Frederic Sowa escreveu:
->> On Thu, Aug 08, 2013 at 09:47:02PM +0200, Hannes Frederic Sowa wrote:
->>> On Thu, Aug 08, 2013 at 02:45:40PM -0400, Debabrata Banerjee wrote:
->>>> On Wed, Jan 30, 2013 at 3:26 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>>> From: Marcelo Ricardo Leitner <mleitner@redhat.com>
->>>>>
->>>>> They will be created at output, if ever needed. This avoids creating
->>>>> empty neighbor entries when TPROXYing/Forwarding packets for addresses
->>>>> that are not even directly reachable.
->>>>>
->>>>> Note that IPv4 already handles it this way. No neighbor entries are
->>>>> created for local input.
->>>>>
->>>>> Tested by myself and customer.
->>>>>
->>>>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->>>>> Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
->>>>> ---
->>>>>   net/ipv6/route.c | 2 +-
->>>>>   1 file changed, 1 insertion(+), 1 deletion(-)
->>>>>
->>>>> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
->>>>> index e229a3b..363d8b7 100644
->>>>> --- a/net/ipv6/route.c
->>>>> +++ b/net/ipv6/route.c
->>>>> @@ -928,7 +928,7 @@ restart:
->>>>>          dst_hold(&rt->dst);
->>>>>          read_unlock_bh(&table->tb6_lock);
->>>>>
->>>>> -       if (!rt->n && !(rt->rt6i_flags & RTF_NONEXTHOP))
->>>>> +       if (!rt->n && !(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_LOCAL)))
->>>>>                  nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
->>>>>          else if (!(rt->dst.flags & DST_HOST))
->>>>>                  nrt = rt6_alloc_clone(rt, &fl6->daddr);
->>>>
->>>>
->>>>
->>>> I'm not sure this patch is doing the right thing. It seems to break
->>>> IPv6 loopback functionality, it is no longer equivalent to IPv4, as
->>>> stated above. It doesn't just stop neighbor creation but it stops
->>>> cached route creation. Seems like a scary change for a stable tree.
->>>> See below:
->>>>
->>>> $ ip -4 route show local
->>>> local 127.0.0.0/8 dev lo  proto kernel  scope host  src 127.0.0.1
->>>>
->>>> This local route enables us to use the whole loopback network, any
->>>> address inside 127.0.0.0/8 will work.
->>>>
->>>> $ ping -c1 127.0.0.9
->>>> PING 127.0.0.9 (127.0.0.9) 56(84) bytes of data.
->>>> 64 bytes from 127.0.0.9: icmp_seq=1 ttl=64 time=0.012 ms
->>>>
->>>> --- 127.0.0.9 ping statistics ---
->>>> 1 packets transmitted, 1 received, 0% packet loss, time 0ms
->>>> rtt min/avg/max/mdev = 0.012/0.012/0.012/0.000 ms
->>>>
->>>> This also used to work equivalently for IPv6 local loopback routes:
->>>>
->>>> $ ip -6 route add local 2001:::/64 dev lo
->>>> $ ping6 -c1 2001::9
->>>> PING 2001::9(2001::9) 56 data bytes
->>>> 64 bytes from 2001::9: icmp_seq=1 ttl=64 time=0.010 ms
->>>>
->>>> --- 2001::9 ping statistics ---
->>>> 1 packets transmitted, 1 received, 0% packet loss, time 0ms
->>>> rtt min/avg/max/mdev = 0.010/0.010/0.010/0.000 ms
->>>>
->>>> However with this patch, this is very broken:
->>>>
->>>> $ ip -6 route add local 2001::/64 dev lo
->>>> $ ping6 -c1 2001::9
->>>> PING 2001::9(2001::9) 56 data bytes
->>>> ping: sendmsg: Invalid argument
->>>
->>> I do think that the patch above is fine. I wonder why you get a blackhole
->>> route back here. Maybe backtracking in ip6_pol_route or in fib6_lookup_1 was
->>> way too aggressive?
->>
->> Ah sorry, before rt->n removal everything worked a bit
->> different. rt6_alloc_cow did fill rt->n back then. To fix both things
->> we would have to bind a neighbour towards the loopback interface into
->> the non-cloned rt6_info if it feeds packets towards lo. Pretty big change for
->> old stable kernels, I guess. :/
->>
->> Marcelo, any idea how to deal with this? My guess would be a revert, but I
->> don't know the impact on the tproxy issue.
->
-> Good question :) Nothing so far, sorry.
->
-> The impact would be returning to the previous state, that a tproxy server is
-> limited to neighbor cache size. And just making it larger is not a good option
-> as it will introduce big latency spikes during cleanup.
->
-> I'll have to rebuild the tproxy environment I had to test this out again, it
-> will take a while. Keep you posted.
+Encrypt the cookie with both server and client IPv4 addresses,
+such that multi-homed server will grant different cookies
+based on both the source and destination IPs. No client change
+is needed since cookie is opaque to the client.
 
-Aye, and thanks for assisting on this, Hannes, appreciated.
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+---
+ include/net/tcp.h       |  3 ++-
+ net/ipv4/tcp_fastopen.c | 13 ++++++-------
+ net/ipv4/tcp_ipv4.c     | 10 +++++++---
+ 3 files changed, 15 insertions(+), 11 deletions(-)
 
-Cheers,
-Marcelo
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 27b652f..09cb5c1 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1300,7 +1300,8 @@ void tcp_free_fastopen_req(struct tcp_sock *tp);
+ 
+ extern struct tcp_fastopen_context __rcu *tcp_fastopen_ctx;
+ int tcp_fastopen_reset_cipher(void *key, unsigned int len);
+-void tcp_fastopen_cookie_gen(__be32 addr, struct tcp_fastopen_cookie *foc);
++extern void tcp_fastopen_cookie_gen(__be32 src, __be32 dst,
++				    struct tcp_fastopen_cookie *foc);
+ 
+ #define TCP_FASTOPEN_KEY_LENGTH 16
+ 
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index 8f7ef0a..ab7bd35 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -58,23 +58,22 @@ error:		kfree(ctx);
+ 	return err;
+ }
+ 
+-/* Computes the fastopen cookie for the peer.
+- * The peer address is a 128 bits long (pad with zeros for IPv4).
++/* Computes the fastopen cookie for the IP path.
++ * The path is a 128 bits long (pad with zeros for IPv4).
+  *
+  * The caller must check foc->len to determine if a valid cookie
+  * has been generated successfully.
+ */
+-void tcp_fastopen_cookie_gen(__be32 addr, struct tcp_fastopen_cookie *foc)
++void tcp_fastopen_cookie_gen(__be32 src, __be32 dst,
++			     struct tcp_fastopen_cookie *foc)
+ {
+-	__be32 peer_addr[4] = { addr, 0, 0, 0 };
++	__be32 path[4] = { src, dst, 0, 0 };
+ 	struct tcp_fastopen_context *ctx;
+ 
+ 	rcu_read_lock();
+ 	ctx = rcu_dereference(tcp_fastopen_ctx);
+ 	if (ctx) {
+-		crypto_cipher_encrypt_one(ctx->tfm,
+-					  foc->val,
+-					  (__u8 *)peer_addr);
++		crypto_cipher_encrypt_one(ctx->tfm, foc->val, (__u8 *)path);
+ 		foc->len = TCP_FASTOPEN_COOKIE_SIZE;
+ 	}
+ 	rcu_read_unlock();
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 280efe5..ec27028 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1316,9 +1316,11 @@ static bool tcp_fastopen_check(struct sock *sk, struct sk_buff *skb,
+ 		tcp_rsk(req)->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
+ 		return true;
+ 	}
++
+ 	if (foc->len == TCP_FASTOPEN_COOKIE_SIZE) {
+ 		if ((sysctl_tcp_fastopen & TFO_SERVER_COOKIE_NOT_CHKED) == 0) {
+-			tcp_fastopen_cookie_gen(ip_hdr(skb)->saddr, valid_foc);
++			tcp_fastopen_cookie_gen(ip_hdr(skb)->saddr,
++						ip_hdr(skb)->daddr, valid_foc);
+ 			if ((valid_foc->len != TCP_FASTOPEN_COOKIE_SIZE) ||
+ 			    memcmp(&foc->val[0], &valid_foc->val[0],
+ 			    TCP_FASTOPEN_COOKIE_SIZE) != 0)
+@@ -1329,14 +1331,16 @@ static bool tcp_fastopen_check(struct sock *sk, struct sk_buff *skb,
+ 		tcp_rsk(req)->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
+ 		return true;
+ 	} else if (foc->len == 0) { /* Client requesting a cookie */
+-		tcp_fastopen_cookie_gen(ip_hdr(skb)->saddr, valid_foc);
++		tcp_fastopen_cookie_gen(ip_hdr(skb)->saddr,
++					ip_hdr(skb)->daddr, valid_foc);
+ 		NET_INC_STATS_BH(sock_net(sk),
+ 		    LINUX_MIB_TCPFASTOPENCOOKIEREQD);
+ 	} else {
+ 		/* Client sent a cookie with wrong size. Treat it
+ 		 * the same as invalid and return a valid one.
+ 		 */
+-		tcp_fastopen_cookie_gen(ip_hdr(skb)->saddr, valid_foc);
++		tcp_fastopen_cookie_gen(ip_hdr(skb)->saddr,
++					ip_hdr(skb)->daddr, valid_foc);
+ 	}
+ 	return false;
+ }
+-- 
+1.8.3
