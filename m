@@ -1,94 +1,118 @@
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Subject: [RFC net-next] ipip: Add room for custom tunnel header
-Date: Thu,  8 Aug 2013 15:52:07 +0200
-Message-ID: <1375969927-22235-1-git-send-email-kristian.evensen@gmail.com>
-Cc: Kristian Evensen <kristian.evensen@gmail.com>
-To: netdev@vger.kernel.org
+From: Thomas Huth <thuth@linux.vnet.ibm.com>
+Subject: Re: macvtap bug: using smp_processor_id() in preemptible code
+Date: Thu, 8 Aug 2013 15:56:34 +0200
+Message-ID: <20130808155634.239dbc2d@thhw500>
+References: <20130807164319.20aa2333@thhw500>
+	<1375889211.4004.28.camel@edumazet-glaptop>
+	<20130808102551.6aa47852@thhw500>
+	<1375968072.4004.92.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Vlad Yasevich <vyasevic@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:34171 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965685Ab3HHNwa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 09:52:30 -0400
-Received: by mail-wi0-f172.google.com with SMTP id hj13so596005wib.11
-        for <netdev@vger.kernel.org>; Thu, 08 Aug 2013 06:52:29 -0700 (PDT)
+Received: from e06smtp18.uk.ibm.com ([195.75.94.114]:35234 "EHLO
+	e06smtp18.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933145Ab3HHN4m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 09:56:42 -0400
+Received: from /spool/local
+	by e06smtp18.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <thuth@linux.vnet.ibm.com>;
+	Thu, 8 Aug 2013 14:50:10 +0100
+Received: from b06cxnps4074.portsmouth.uk.ibm.com (d06relay11.portsmouth.uk.ibm.com [9.149.109.196])
+	by d06dlp03.portsmouth.uk.ibm.com (Postfix) with ESMTP id 164B61B08066
+	for <netdev@vger.kernel.org>; Thu,  8 Aug 2013 14:56:38 +0100 (BST)
+Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
+	by b06cxnps4074.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r78DuPuJ40501266
+	for <netdev@vger.kernel.org>; Thu, 8 Aug 2013 13:56:25 GMT
+Received: from d06av03.portsmouth.uk.ibm.com (localhost [127.0.0.1])
+	by d06av03.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id r78DuZbR003919
+	for <netdev@vger.kernel.org>; Thu, 8 Aug 2013 07:56:36 -0600
+In-Reply-To: <1375968072.4004.92.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Am Thu, 08 Aug 2013 06:21:12 -0700
+schrieb Eric Dumazet <eric.dumazet@gmail.com>:
 
-A project I recently worked on required me to tunnel traffic between devices
-placed in different locations. The aggregated, average traffic from each
-location is ~150Mb/s, which saturated the router CPU when using a TUN-interface
-for tunneling (IP in UDP). Actually, the router was not able to tunnel more than
-~60Mbit/s. 
+> On Thu, 2013-08-08 at 10:25 +0200, Thomas Huth wrote:
+> 
+> > Thank you very much for your fast reply and the fix, it indeed fixes
+> > the messages about macvtap_do_read!
+> > However, I now noticed that there are more messages, which I just did
+> > not see before because my dmesg output was already flooded with the
+> > messages about macvtap_do_read. The other messages are all about
+> > macvlan_start_xmit:
+> > 
+> > BUG: using smp_processor_id() in preemptible [00000000] code: vhost-45897/45898
+> > caller is macvlan_start_xmit+0x10a/0x1b4 [macvlan]
+> > CPU: 1 PID: 45898 Comm: vhost-45897 Not tainted 3.11.0-bisecttest #16
+> >        00000001189b3960 00000001189b3970 0000000000000002 0000000000000000 
+> >        00000001189b3a00 00000001189b3978 00000001189b3978 00000000001127b4 
+> >        0000000000000000 0000000000000001 0000000000000000 000000000000000b 
+> >        0000000000000060 000003fe00000008 0000000000000000 00000001189b39d0 
+> >        00000000006ea2f0 00000000001127b4 00000001189b3960 00000001189b39b0 
+> > Call Trace:
+> > ([<00000000001126ee>] show_trace+0x126/0x144)
+> >  [<00000000001127d2>] show_stack+0xc6/0xd4
+> >  [<000000000068bdb8>] dump_stack+0x74/0xd4
+> >  [<0000000000481132>] debug_smp_processor_id+0xf6/0x114
+> >  [<000003ff802b72ca>] macvlan_start_xmit+0x10a/0x1b4 [macvlan]
+> >  [<000003ff802ea69a>] macvtap_get_user+0x982/0xbc4 [macvtap]
+> >  [<000003ff802ea92a>] macvtap_sendmsg+0x4e/0x60 [macvtap]
+> >  [<000003ff8031947c>] handle_tx+0x494/0x5ec [vhost_net]
+> >  [<000003ff8028f77c>] vhost_worker+0x15c/0x1c4 [vhost]
+> >  [<000000000015f3ac>] kthread+0xd8/0xe4
+> >  [<000000000069356e>] kernel_thread_starter+0x6/0xc
+> >  [<0000000000693568>] kernel_thread_starter+0x0/0xc
+> > 2 locks held by vhost-45897/45898:
+> >  #0:  (&vq->mutex){+.+.+.}, at: [<000003ff8031903c>] handle_tx+0x54/0x5ec [vhost_net]
+> >  #1:  (rcu_read_lock){.+.+..}, at: [<000003ff802ea53c>] macvtap_get_user+0x824/0xbc4 [macvtap]
+> > 
+> > Do you also have got an idea how to silence these messages?
+> 
+> Sure, please try following cumulative patch, thanks !
+> 
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index a98fb0e..b51db2a 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -818,10 +818,13 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+>  		skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
+>  		skb_shinfo(skb)->tx_flags |= SKBTX_SHARED_FRAG;
+>  	}
+> -	if (vlan)
+> +	if (vlan) {
+> +		local_bh_disable();
+>  		macvlan_start_xmit(skb, vlan->dev);
+> -	else
+> +		local_bh_enable();
+> +	} else {
+>  		kfree_skb(skb);
+> +	}
+>  	rcu_read_unlock();
+> 
+>  	return total_len;
+> @@ -912,8 +915,11 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+>  done:
+>  	rcu_read_lock();
+>  	vlan = rcu_dereference(q->vlan);
+> -	if (vlan)
+> +	if (vlan) {
+> +		preempt_disable();
+>  		macvlan_count_rx(vlan, copied - vnet_hdr_len, ret == 0, 0);
+> +		preempt_enable();
+> +	}
+>  	rcu_read_unlock();
+> 
+>  	return ret ? ret : copied;
 
-I therefore decided to look into the different in-kernel tunneling options. As
-the traffic is encrypted by the devices, ip-in-ip tunneling would be sufficient.
-However, each site is connected using a public internet connection and placed
-behind a NAT, so pure ip-in-ip tunneling would not work.
+This patch now silences all error messages! Great, thank you very much!
+If you submit this patch, you can add my
+ Tested-by: Thomas Huth <thuth@linux.vnet.ibm.com>
+if you like.
 
-This patch enables users to specify the size of a header that will be added
-between the two IP-headers. The header can then be filled in by for example an
-xtables-module (avoiding a memmove). In addition to solving my problem (I
-inserted a UDP header to fool the NAT-boxes), this patch can be used to ease
-development and deployment of new tunneling protocols. Instead of integrating
-them in the kernel, protocols can be built on top of the existing IP-in-IP
-tunnels and get the advantages of the ip_tunnels-framework.
-
-The patch works as expected and provided me with a nice performance boost
-(roughly x4). However, it currently has a problem. As I extend the ip_tunnel_parm
-struct, applications like ip needs to be recompiled in order to work properly.
-Is there a better way to pass the hlen-value to the kernel (user rtnl-ops and
-add as parameter?), or to detect number of bytes waiting to be copied from user
-space?
-
-Also, is this something that would be considered useful and potentially added to
-the kernel, or will it be viewed as a protocol hack? One other way I thought of
-doing this, was to clone ipip.c and add a new tunneling type. However, that
-seems a bit overkill for a five line change.
-
--Kristian
-
-Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
----
- include/uapi/linux/if_tunnel.h |    1 +
- net/ipv4/ipip.c                |    5 ++++-
- 2 files changed, 5 insertions(+), 1 deletion(-)
-
-diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
-index aee73d0..039bbc3 100644
---- a/include/uapi/linux/if_tunnel.h
-+++ b/include/uapi/linux/if_tunnel.h
-@@ -35,6 +35,7 @@ struct ip_tunnel_parm {
- 	__be32			i_key;
- 	__be32			o_key;
- 	struct iphdr		iph;
-+	int                     hlen;
- };
- 
- enum {
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index 51fc2a1..9705aa1 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -226,6 +226,9 @@ static netdev_tx_t ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 		skb->encapsulation = 1;
- 	}
- 
-+	if (tunnel->hlen > 0)
-+		skb_push(skb, tunnel->hlen);
-+
- 	ip_tunnel_xmit(skb, dev, tiph, tiph->protocol);
- 	return NETDEV_TX_OK;
- 
-@@ -302,7 +305,7 @@ static int ipip_tunnel_init(struct net_device *dev)
- 	memcpy(dev->dev_addr, &tunnel->parms.iph.saddr, 4);
- 	memcpy(dev->broadcast, &tunnel->parms.iph.daddr, 4);
- 
--	tunnel->hlen = 0;
-+	tunnel->hlen = tunnel->parms.hlen;
- 	tunnel->parms.iph.protocol = IPPROTO_IPIP;
- 	return ip_tunnel_init(dev);
- }
--- 
-1.7.9.5
+ Thomas
