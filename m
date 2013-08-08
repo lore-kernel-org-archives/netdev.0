@@ -1,47 +1,56 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: Preferred method for configuration
-Date: Thu, 8 Aug 2013 09:01:11 -0700
-Message-ID: <20130808090111.241a2043@nehalam.linuxnetplumber.net>
-References: <52032D5E.6070307@hhi.fraunhofer.de>
-	<1375940480.2424.135.camel@joe-AO722>
-	<520332F4.5020206@hhi.fraunhofer.de>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v4 4/4] USBNET: ax88179_178a: enable tso if usb host
+ supports sg dma
+Date: Thu, 08 Aug 2013 09:01:42 -0700
+Message-ID: <1375977702.4004.107.camel@edumazet-glaptop>
+References: <1375969705-24877-1-git-send-email-ming.lei@canonical.com>
+	 <1375969705-24877-5-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Thomas Martitz <thomas.martitz@hhi.fraunhofer.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:50057 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757733Ab3HHQBQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 12:01:16 -0400
-Received: by mail-pb0-f47.google.com with SMTP id rr4so3404881pbb.20
-        for <netdev@vger.kernel.org>; Thu, 08 Aug 2013 09:01:16 -0700 (PDT)
-In-Reply-To: <520332F4.5020206@hhi.fraunhofer.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
+	Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+To: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1375969705-24877-5-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 08 Aug 2013 07:56:04 +0200
-Thomas Martitz <thomas.martitz@hhi.fraunhofer.de> wrote:
-
-> Resent with list in CC.
+On Thu, 2013-08-08 at 21:48 +0800, Ming Lei wrote:
+> This patch enables 'can_dma_sg' flag for ax88179_178a device
+> if the attached host controller supports building packet from
+> discontinuous buffers(DMA SG is possible), so TSO can be enabled
+> and skb fragment buffers can be passed to usb stack via urb->sg
+> directly.
 > 
-> Am 08.08.2013 07:41, schrieb Joe Perches:
-> > On Thu, 2013-08-08 at 07:32 +0200, Thomas Martitz wrote:
-> >> Hello,
-> >>
-> >> I'm developing a NIC driver and currently export some custom
-> >> configuration settings and actions (e.g. enabling a loopback mode) via
-> >> sysfs.
-> >
-> > Is there some reason you don't want to use ethtool?
-> >
-> >
+> With the patch, system CPU utilization decreased ~50% and throughput
+> increased by ~10% when doing iperf client test on one ARM A15 dual
+> core board.
 > 
-> It doesn't allow for custom settings does it? For standards stuff I'm 
-> sure going to use ethtool.
+> Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Cc: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+> Cc: Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+> Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+> Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+> Cc: Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+> Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> ---
+>  drivers/net/usb/ax88179_178a.c |    8 ++++++++
+>  1 file changed, 8 insertions(+)
 
-Any feature "special to my driver" is sure to meet stiff resistance
-from the kernel developers. Special features make it impossible for generic
-configuration in distributions and by management layers.
+Acked-by: Eric Dumazet <edumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+
+Thanks for doing this !
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
