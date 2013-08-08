@@ -1,60 +1,51 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IGMP Unsolicited report interval patches
-Date: Thu, 8 Aug 2013 11:01:05 +0200
-Message-ID: <20130808090105.GA14001@order.stressinduktion.org>
-References: <20130731063442.GA10498@order.stressinduktion.org> <1375812195-6575-1-git-send-email-william.manley@youview.com> <20130807010310.GH16410@order.stressinduktion.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Preferred method for configuration
+Date: Thu, 8 Aug 2013 11:44:39 +0200
+Message-ID: <1375955079.2853.1.camel@deadeye.wl.decadent.org.uk>
+References: <52032D5E.6070307@hhi.fraunhofer.de>
+	 <1375940480.2424.135.camel@joe-AO722> <520332F4.5020206@hhi.fraunhofer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: William Manley <william.manley@youview.com>,
-	netdev@vger.kernel.org, bcrl@kvack.org, luky-37@hotmail.com,
-	sergei.shtylyov@cogentembedded.com, bhutchings@solarflare.com,
-	davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Joe Perches <joe@perches.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Thomas Martitz <thomas.martitz@hhi.fraunhofer.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:38834 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934040Ab3HHJBI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 05:01:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20130807010310.GH16410@order.stressinduktion.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:54103 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934097Ab3HHJor (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 05:44:47 -0400
+In-Reply-To: <520332F4.5020206@hhi.fraunhofer.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 07, 2013 at 03:03:10AM +0200, Hannes Frederic Sowa wrote:
-> On Tue, Aug 06, 2013 at 07:03:12PM +0100, William Manley wrote:
-> > 4th version of the patches.
-> > 
-> > The significant changes since last review are: 
-> > 
-> > 1. there is a new patch (2/3) as requested by Hannes.
+On Thu, 2013-08-08 at 07:56 +0200, Thomas Martitz wrote:
+> Resent with list in CC.
 > 
-> Thanks!
+> Am 08.08.2013 07:41, schrieb Joe Perches:
+> > On Thu, 2013-08-08 at 07:32 +0200, Thomas Martitz wrote:
+> >> Hello,
+> >>
+> >> I'm developing a NIC driver and currently export some custom
+> >> configuration settings and actions (e.g. enabling a loopback mode) via
+> >> sysfs.
+> >
+> > Is there some reason you don't want to use ethtool?
+> >
+> >
 > 
-> > 2. the third patch now uses IN_DEV_CONF_GET in place of
-> >    IPV4_DEVCONF_ALL.  This means that the unsolicited report interval can
-> >    now be configured on an interface-by-interface basis as I'd originally
-> >    intended but messed up in the implementation.  One concern I have now
-> >    is that with this latest patch-set is that while
-> >    /proc/sys/net/ipv4/conf/eth0/igmp... will now have an effect 
-> >    /proc/sys/net/ipv4/conf/all/igmp... will not.  I'm not sure how to
-> >    resolve this.
-> 
-> Hm, it seems to be come more difficult dealing with ranges.
-> 
-> One way would be, to check the state bit for the devinet entry and chose the
-> all value always but when the state bit for the interface for this entry is
-> set. I'll have a look on how to do this.
+> It doesn't allow for custom settings does it? For standards stuff I'm 
+> sure going to use ethtool.
 
-We copy ipv4_devconf_dftl over to the per-interface ipv4_devconf as long no
-address is assigned to the interface.
+You can always propose extensions to ethtool.
 
-The copy-over is guarded by by the cnf.state bitmap. It is set to all ones in
-ipv4_devconf_setall which gets called at the relevant places. Instead of
-setting all bits we could just apply a bitmask which would still allow a
-propagation of the default/*igmp* parameters.
+Note that the ethtool 'features' API already allows setting loopback and
+there is a 'private flags' API through which you can expose up to 32
+arbitrary named flags if they're really not at all generic.
 
-The all namespace has special semantics and decision what to apply are done
-per knob. I wouldn't fiddle with that.
+Ben.
 
-Greetings,
-
-  Hannes
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
