@@ -1,35 +1,74 @@
-From: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [Patch net-next v2 5/8] sunrpc: use generic union inet_addr
-Date: Thu, 08 Aug 2013 09:37:30 +0800
-Message-ID: <1375925850.19907.5.camel@cr0>
-References: <1375427674-21735-1-git-send-email-amwang@redhat.com>
-	 <1375427674-21735-6-git-send-email-amwang@redhat.com>
-	 <20130802093625.2c70a330@tlielax.poochiereds.net>
-	 <1375672445.32485.8.camel@cr0>
-	 <20130806062801.67714276@tlielax.poochiereds.net>
-	 <1375878446.11370.36.camel@cr0>
-	 <20130807092123.451e93db@tlielax.poochiereds.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] veth: remove hardware checksum feature
+Date: Wed, 07 Aug 2013 18:54:25 -0700
+Message-ID: <5202FA51.4040906@candelatech.com>
+References: <51F15E50.8080208@guap.ru> <5202E153.4060202@candelatech.com>  <1375920752.4004.71.camel@edumazet-glaptop>  <5202E510.9060309@candelatech.com> <1375924125.4004.83.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20130807092123.451e93db-9yPaYZwiELC+kQycOl6kW4xkIHaj4LzF@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "Vitaly E. Lavrov" <lve@guap.ru>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:57309 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757239Ab3HHByl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 21:54:41 -0400
+In-Reply-To: <1375924125.4004.83.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-08-07 at 09:21 -0400, Jeff Layton wrote:
-> Ok, good point. That does look cleaner. I'd still like to see the rpc_*
-> wrappers go away, but that can be done later.
-> 
+On 08/07/2013 06:08 PM, Eric Dumazet wrote:
+> On Wed, 2013-08-07 at 17:23 -0700, Ben Greear wrote:
+>
+>> I am receiving the packet into user space by reading veth2
+>> using a packet socket, and then writing that packet out to eth6
+>> (e100e).  As far as I can tell, it reads from veth2 with bad checksum
+>> and then goes onto the wire with bad checksum.
+>>
+>
+> Then, when you read the packet socket, you probably have an indication
+> that checksum is to be computed or ignored.
 
-I will move the wrappers to generic since several people asked.
+My user-space bridge code doesn't know or care about the checksum, it
+is just reading a packet from one interface and writing onto another.
+
+>
+> Your application breaks because of this.
+
+>> Is it ever valid to *read* a packet with bad checksum though?  I thought
+>> the bogus bad hw-checksum issue was only on the tx-side as far as sniffing goes?
+>
+> We have same flags on loopback interface.
+>
+> So using your application on loopback should break the same ?
+
+I suppose, I have never tried to bridge loopback, and probably won't
+try anytime soon.
+
+> I am not saying your application is buggy, maybe we need a helper in
+> net/packet/af_packet.c. Please check TP_STATUS_CSUMNOTREADY
+>
+> This was added 6 years ago in commit 8dc4194474159660
+> ("[PACKET]: Add optional checksum computation for recvmsg")
+
+Hmm, I'm using recmmsg, in case that matters.  I'm not sure I really
+understand that patch well.  It looks like it requires user-space changes?
+
+I'd rather not have to deal with calculating checksums just to bridge
+two interfaces...if it comes to that, I'd rather just force a disable
+of the HW checksum feature using ethtool when my app is configured in
+this manner.
+
+Maybe we should just do the csum calc in the kernel if packet is
+about to be sent up to user-space via af_packet?  I think that
+would keep the expected behaviour, and hopefully not loose any of the performance
+benefits for cases where the packet never leaves the kernel?
+
+Thanks,
+Ben
 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
