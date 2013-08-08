@@ -1,211 +1,296 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH 1/2 net-next] af_unix: improve STREAM behavior with
- fragmented memory
-Date: Thu, 08 Aug 2013 14:37:32 -0700
-Message-ID: <1375997852.4004.130.camel@edumazet-glaptop>
+Subject: [PATCH 2/2 net-next] net: attempt high order allocations in
+ sock_alloc_send_pskb()
+Date: Thu, 08 Aug 2013 14:38:47 -0700
+Message-ID: <1375997927.4004.131.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Rientjes <rientjes@google.com>,
-	netdev <netdev@vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	David Rientjes <rientjes@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f52.google.com ([209.85.219.52]:39407 "EHLO
-	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966702Ab3HHVhf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 17:37:35 -0400
-Received: by mail-oa0-f52.google.com with SMTP id n12so1427210oag.11
-        for <netdev@vger.kernel.org>; Thu, 08 Aug 2013 14:37:34 -0700 (PDT)
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:33274 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966702Ab3HHViu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 17:38:50 -0400
+Received: by mail-pb0-f52.google.com with SMTP id wz12so567951pbc.11
+        for <netdev@vger.kernel.org>; Thu, 08 Aug 2013 14:38:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <edumazet@google.com>
 
-unix_stream_sendmsg() currently uses order-2 allocations,
-and we had numerous reports this can fail.
+Adding paged frags skbs to af_unix sockets introduced a performance
+regression on large sends because of additional page allocations, even
+if each skb could carry at least 100% more payload than before.
 
-The __GFP_REPEAT flag present in sock_alloc_send_pskb() is
-not helping.
+We can instruct sock_alloc_send_pskb() to attempt high order
+allocations.
 
-This patch extends the work done in commit eb6a24816b247c
-("af_unix: reduce high order page allocations) for
-datagram sockets.
+Most of the time, it does a single page allocation instead of 8.
 
-This opens the possibility of zero copy IO (splice() and
-friends)
+I added an additional parameter to sock_alloc_send_pskb() to
+let other users to opt-in for this new feature on followup patches.
 
-The trick is to not use skb_pull() anymore in recvmsg() path,
-and instead add a @consumed field in UNIXCB() to track amount
-of already read payload in the skb.
+Tested:
 
-There is a performance regression for large sends
-because of extra page allocations that will be addressed
-in a follow-up patch, allowing sock_alloc_send_pskb()
-to attempt high order page allocations.
+Before patch :
+
+$ netperf -t STREAM_STREAM 
+STREAM STREAM TEST
+Recv   Send    Send                          
+Socket Socket  Message  Elapsed              
+Size   Size    Size     Time     Throughput  
+bytes  bytes   bytes    secs.    10^6bits/sec  
+
+ 2304  212992  212992    10.00    46861.15   
+
+After patch :
+
+$ netperf -t STREAM_STREAM 
+STREAM STREAM TEST
+Recv   Send    Send                          
+Socket Socket  Message  Elapsed              
+Size   Size    Size     Time     Throughput  
+bytes  bytes   bytes    secs.    10^6bits/sec  
+
+ 2304  212992  212992    10.00    57981.11   
+
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Cc: David Rientjes <rientjes@google.com>
 ---
 Google-Bug-Id: 9198684
 
- include/net/af_unix.h |    1 
- net/unix/af_unix.c    |   65 ++++++++++++++++++----------------------
- 2 files changed, 31 insertions(+), 35 deletions(-)
+ drivers/net/macvtap.c  |    2 
+ drivers/net/tun.c      |    2 
+ include/net/sock.h     |    3 -
+ net/core/sock.c        |  100 +++++++++++++++++++--------------------
+ net/packet/af_packet.c |    2 
+ net/unix/af_unix.c     |    6 +-
+ 6 files changed, 60 insertions(+), 55 deletions(-)
 
-diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index 05442df..a175ba4 100644
---- a/include/net/af_unix.h
-+++ b/include/net/af_unix.h
-@@ -35,6 +35,7 @@ struct unix_skb_parms {
- #ifdef CONFIG_SECURITY_NETWORK
- 	u32			secid;		/* Security ID		*/
- #endif
-+	u32			consumed;
- };
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 182364a..8f6056d 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -524,7 +524,7 @@ static inline struct sk_buff *macvtap_alloc_skb(struct sock *sk, size_t prepad,
+ 		linear = len;
  
- #define UNIXCB(skb) 	(*(struct unix_skb_parms *)&((skb)->cb))
+ 	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
+-				   err);
++				   err, 0);
+ 	if (!skb)
+ 		return NULL;
+ 
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index b163047..978d865 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -949,7 +949,7 @@ static struct sk_buff *tun_alloc_skb(struct tun_file *tfile,
+ 		linear = len;
+ 
+ 	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
+-				   &err);
++				   &err, 0);
+ 	if (!skb)
+ 		return ERR_PTR(err);
+ 
+diff --git a/include/net/sock.h b/include/net/sock.h
+index ab6a8b7..e4bbcbf 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1539,7 +1539,8 @@ extern struct sk_buff		*sock_alloc_send_pskb(struct sock *sk,
+ 						      unsigned long header_len,
+ 						      unsigned long data_len,
+ 						      int noblock,
+-						      int *errcode);
++						      int *errcode,
++						      int max_page_order);
+ extern void *sock_kmalloc(struct sock *sk, int size,
+ 			  gfp_t priority);
+ extern void sock_kfree_s(struct sock *sk, void *mem, int size);
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 83667de..c7cc8f1 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1741,24 +1741,23 @@ static long sock_wait_for_wmem(struct sock *sk, long timeo)
+ 
+ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+ 				     unsigned long data_len, int noblock,
+-				     int *errcode)
++				     int *errcode, int max_page_order)
+ {
+-	struct sk_buff *skb;
++	struct sk_buff *skb = NULL;
++	unsigned long chunk;
+ 	gfp_t gfp_mask;
+ 	long timeo;
+ 	int err;
+ 	int npages = (data_len + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
++	struct page *page;
++	int i;
+ 
+ 	err = -EMSGSIZE;
+ 	if (npages > MAX_SKB_FRAGS)
+ 		goto failure;
+ 
+-	gfp_mask = sk->sk_allocation;
+-	if (gfp_mask & __GFP_WAIT)
+-		gfp_mask |= __GFP_REPEAT;
+-
+ 	timeo = sock_sndtimeo(sk, noblock);
+-	while (1) {
++	while (!skb) {
+ 		err = sock_error(sk);
+ 		if (err != 0)
+ 			goto failure;
+@@ -1767,50 +1766,52 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+ 		if (sk->sk_shutdown & SEND_SHUTDOWN)
+ 			goto failure;
+ 
+-		if (atomic_read(&sk->sk_wmem_alloc) < sk->sk_sndbuf) {
+-			skb = alloc_skb(header_len, gfp_mask);
+-			if (skb) {
+-				int i;
+-
+-				/* No pages, we're done... */
+-				if (!data_len)
+-					break;
+-
+-				skb->truesize += data_len;
+-				skb_shinfo(skb)->nr_frags = npages;
+-				for (i = 0; i < npages; i++) {
+-					struct page *page;
+-
+-					page = alloc_pages(sk->sk_allocation, 0);
+-					if (!page) {
+-						err = -ENOBUFS;
+-						skb_shinfo(skb)->nr_frags = i;
+-						kfree_skb(skb);
+-						goto failure;
+-					}
+-
+-					__skb_fill_page_desc(skb, i,
+-							page, 0,
+-							(data_len >= PAGE_SIZE ?
+-							 PAGE_SIZE :
+-							 data_len));
+-					data_len -= PAGE_SIZE;
+-				}
++		if (atomic_read(&sk->sk_wmem_alloc) >= sk->sk_sndbuf) {
++			set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
++			set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
++			err = -EAGAIN;
++			if (!timeo)
++				goto failure;
++			if (signal_pending(current))
++				goto interrupted;
++			timeo = sock_wait_for_wmem(sk, timeo);
++			continue;
++		}
+ 
+-				/* Full success... */
+-				break;
+-			}
+-			err = -ENOBUFS;
++		err = -ENOBUFS;
++		gfp_mask = sk->sk_allocation;
++		if (gfp_mask & __GFP_WAIT)
++			gfp_mask |= __GFP_REPEAT;
++
++		skb = alloc_skb(header_len, gfp_mask);
++		if (!skb)
+ 			goto failure;
++
++		skb->truesize += data_len;
++
++		for (i = 0; npages > 0; i++) {
++			int order = max_page_order;
++
++			while (order) {
++				if (npages >= 1 << order) {
++					page = alloc_pages(sk->sk_allocation |
++							   __GFP_COMP | __GFP_NOWARN,
++							   order);
++					if (page)
++						goto fill_page;
++				}
++				order--;
++			}
++			page = alloc_page(sk->sk_allocation);
++			if (!page)
++				goto failure;
++fill_page:
++			chunk = min_t(unsigned long, data_len,
++				      PAGE_SIZE << order);
++			skb_fill_page_desc(skb, i, page, 0, chunk);
++			data_len -= chunk;
++			npages -= 1 << order;
+ 		}
+-		set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
+-		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
+-		err = -EAGAIN;
+-		if (!timeo)
+-			goto failure;
+-		if (signal_pending(current))
+-			goto interrupted;
+-		timeo = sock_wait_for_wmem(sk, timeo);
+ 	}
+ 
+ 	skb_set_owner_w(skb, sk);
+@@ -1819,6 +1820,7 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+ interrupted:
+ 	err = sock_intr_errno(timeo);
+ failure:
++	kfree_skb(skb);
+ 	*errcode = err;
+ 	return NULL;
+ }
+@@ -1827,7 +1829,7 @@ EXPORT_SYMBOL(sock_alloc_send_pskb);
+ struct sk_buff *sock_alloc_send_skb(struct sock *sk, unsigned long size,
+ 				    int noblock, int *errcode)
+ {
+-	return sock_alloc_send_pskb(sk, size, 0, noblock, errcode);
++	return sock_alloc_send_pskb(sk, size, 0, noblock, errcode, 0);
+ }
+ EXPORT_SYMBOL(sock_alloc_send_skb);
+ 
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 4cb28a7..6c53dd9 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2181,7 +2181,7 @@ static struct sk_buff *packet_alloc_skb(struct sock *sk, size_t prepad,
+ 		linear = len;
+ 
+ 	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
+-				   err);
++				   err, 0);
+ 	if (!skb)
+ 		return NULL;
+ 
 diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index c4ce243..99dc760 100644
+index 99dc760..fee9e33 100644
 --- a/net/unix/af_unix.c
 +++ b/net/unix/af_unix.c
-@@ -1596,6 +1596,10 @@ out:
- 	return err;
- }
+@@ -1479,7 +1479,8 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 				 MAX_SKB_FRAGS * PAGE_SIZE);
  
-+/* We use paged skbs for stream sockets, and limit occupancy to 32768
-+ * bytes, and a minimun of a full page.
-+ */
-+#define UNIX_SKB_FRAGS_SZ (PAGE_SIZE << get_order(32768))
+ 	skb = sock_alloc_send_pskb(sk, len - data_len, data_len,
+-				   msg->msg_flags & MSG_DONTWAIT, &err);
++				   msg->msg_flags & MSG_DONTWAIT, &err,
++				   PAGE_ALLOC_COSTLY_ORDER);
+ 	if (skb == NULL)
+ 		goto out;
  
- static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 			       struct msghdr *msg, size_t len)
-@@ -1609,6 +1613,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 	struct scm_cookie tmp_scm;
- 	bool fds_sent = false;
- 	int max_level;
-+	int data_len;
+@@ -1651,7 +1652,8 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 		data_len = max_t(int, 0, size - SKB_MAX_HEAD(0));
  
- 	if (NULL == siocb->scm)
- 		siocb->scm = &tmp_scm;
-@@ -1635,40 +1640,21 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 		goto pipe_err;
- 
- 	while (sent < len) {
--		/*
--		 *	Optimisation for the fact that under 0.01% of X
--		 *	messages typically need breaking up.
--		 */
--
--		size = len-sent;
-+		size = len - sent;
- 
- 		/* Keep two messages in the pipe so it schedules better */
--		if (size > ((sk->sk_sndbuf >> 1) - 64))
--			size = (sk->sk_sndbuf >> 1) - 64;
-+		size = min_t(int, size, (sk->sk_sndbuf >> 1) - 64);
- 
--		if (size > SKB_MAX_ALLOC)
--			size = SKB_MAX_ALLOC;
--
--		/*
--		 *	Grab a buffer
--		 */
-+		/* allow fallback to order-0 allocations */
-+		size = min_t(int, size, SKB_MAX_HEAD(0) + UNIX_SKB_FRAGS_SZ);
- 
--		skb = sock_alloc_send_skb(sk, size, msg->msg_flags&MSG_DONTWAIT,
--					  &err);
-+		data_len = max_t(int, 0, size - SKB_MAX_HEAD(0));
- 
--		if (skb == NULL)
-+		skb = sock_alloc_send_pskb(sk, size - data_len, data_len,
-+					   msg->msg_flags & MSG_DONTWAIT, &err);
-+		if (!skb)
+ 		skb = sock_alloc_send_pskb(sk, size - data_len, data_len,
+-					   msg->msg_flags & MSG_DONTWAIT, &err);
++					   msg->msg_flags & MSG_DONTWAIT, &err,
++					   get_order(UNIX_SKB_FRAGS_SZ));
+ 		if (!skb)
  			goto out_err;
  
--		/*
--		 *	If you pass two values to the sock_alloc_send_skb
--		 *	it tries to grab the large buffer with GFP_NOFS
--		 *	(which can fail easily), and if it fails grab the
--		 *	fallback size buffer which is under a page and will
--		 *	succeed. [Alan]
--		 */
--		size = min_t(int, size, skb_tailroom(skb));
--
--
- 		/* Only send the fds in the first buffer */
- 		err = unix_scm_to_skb(siocb->scm, skb, !fds_sent);
- 		if (err < 0) {
-@@ -1678,7 +1664,10 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 		max_level = err + 1;
- 		fds_sent = true;
- 
--		err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
-+		skb_put(skb, size - data_len);
-+		skb->data_len = data_len;
-+		skb->len = size;
-+		err = skb_copy_datagram_from_iovec(skb, 0, msg->msg_iov, 0, size);
- 		if (err) {
- 			kfree_skb(skb);
- 			goto out_err;
-@@ -1890,6 +1879,11 @@ static long unix_stream_data_wait(struct sock *sk, long timeo,
- 	return timeo;
- }
- 
-+static unsigned int unix_skb_len(const struct sk_buff *skb)
-+{
-+	return skb->len - UNIXCB(skb).consumed;
-+}
-+
- static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
- 			       struct msghdr *msg, size_t size,
- 			       int flags)
-@@ -1977,8 +1971,8 @@ again:
- 		}
- 
- 		skip = sk_peek_offset(sk, flags);
--		while (skip >= skb->len) {
--			skip -= skb->len;
-+		while (skip >= unix_skb_len(skb)) {
-+			skip -= unix_skb_len(skb);
- 			last = skb;
- 			skb = skb_peek_next(skb, &sk->sk_receive_queue);
- 			if (!skb)
-@@ -2005,8 +1999,9 @@ again:
- 			sunaddr = NULL;
- 		}
- 
--		chunk = min_t(unsigned int, skb->len - skip, size);
--		if (memcpy_toiovec(msg->msg_iov, skb->data + skip, chunk)) {
-+		chunk = min_t(unsigned int, unix_skb_len(skb) - skip, size);
-+		if (skb_copy_datagram_iovec(skb, UNIXCB(skb).consumed + skip,
-+					    msg->msg_iov, chunk)) {
- 			if (copied == 0)
- 				copied = -EFAULT;
- 			break;
-@@ -2016,14 +2011,14 @@ again:
- 
- 		/* Mark read part of skb as used */
- 		if (!(flags & MSG_PEEK)) {
--			skb_pull(skb, chunk);
-+			UNIXCB(skb).consumed += chunk;
- 
- 			sk_peek_offset_bwd(sk, chunk);
- 
- 			if (UNIXCB(skb).fp)
- 				unix_detach_fds(siocb->scm, skb);
- 
--			if (skb->len)
-+			if (unix_skb_len(skb))
- 				break;
- 
- 			skb_unlink(skb, &sk->sk_receive_queue);
-@@ -2107,7 +2102,7 @@ long unix_inq_len(struct sock *sk)
- 	if (sk->sk_type == SOCK_STREAM ||
- 	    sk->sk_type == SOCK_SEQPACKET) {
- 		skb_queue_walk(&sk->sk_receive_queue, skb)
--			amount += skb->len;
-+			amount += unix_skb_len(skb);
- 	} else {
- 		skb = skb_peek(&sk->sk_receive_queue);
- 		if (skb)
