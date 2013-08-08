@@ -1,94 +1,118 @@
-From: "Nithin Sujir" <nsujir@broadcom.com>
-Subject: RE: [PATCH] net/tg3: Support shutdown on PCI device
-Date: Thu, 8 Aug 2013 14:44:32 +0000
-Message-ID: <DAAFBCC105999F468732FA900576CB451048E8E0@IRVEXCHMB08.corp.ad.broadcom.com>
-References: <1375946769-22814-1-git-send-email-shangw@linux.vnet.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] macvtap: fix two races
+Date: Thu, 08 Aug 2013 08:06:14 -0700
+Message-ID: <1375974374.4004.103.camel@edumazet-glaptop>
+References: <20130807164319.20aa2333@thhw500>
+	 <1375889211.4004.28.camel@edumazet-glaptop>
+	 <20130808102551.6aa47852@thhw500>
+	 <1375968072.4004.92.camel@edumazet-glaptop>
+	 <20130808155634.239dbc2d@thhw500>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>
-To: "Gavin Shan" <shangw@linux.vnet.ibm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Vlad Yasevich <vyasevic@redhat.com>
+To: Thomas Huth <thuth@linux.vnet.ibm.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1518 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752006Ab3HHOoi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 10:44:38 -0400
-In-Reply-To: <1375946769-22814-1-git-send-email-shangw@linux.vnet.ibm.com>
-Content-Language: en-US
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:47200 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965702Ab3HHPGR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 11:06:17 -0400
+Received: by mail-pb0-f47.google.com with SMTP id rr4so3360742pbb.6
+        for <netdev@vger.kernel.org>; Thu, 08 Aug 2013 08:06:16 -0700 (PDT)
+In-Reply-To: <20130808155634.239dbc2d@thhw500>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
-> 
-> The patch adds the shutdown interface for the PCI device to make
-> things more robust. The PCI device can be put to silent state before
-> loading the new kernel and to avoid unnecessary EEH errors.
-> 
-[Nithin Sujir] 
-Hi Gavin,
-The shutdown handler implementation was recently merged into net-next.
+Since commit ac4e4af1e59e1 ("macvtap: Consistently use rcu functions"),
+Thomas gets two different warnings :
 
-Can you try these 2 patches from net-next? 
+BUG: using smp_processor_id() in preemptible [00000000] code: vhost-45891/45892
+caller is macvtap_do_read+0x45c/0x600 [macvtap]
+CPU: 1 PID: 45892 Comm: vhost-45891 Not tainted 3.11.0-bisecttest #13
+Call Trace:
+([<00000000001126ee>] show_trace+0x126/0x144)
+ [<00000000001127d2>] show_stack+0xc6/0xd4
+ [<000000000068bcec>] dump_stack+0x74/0xd8
+ [<0000000000481066>] debug_smp_processor_id+0xf6/0x114
+ [<000003ff802e9a18>] macvtap_do_read+0x45c/0x600 [macvtap]
+ [<000003ff802e9c1c>] macvtap_recvmsg+0x60/0x88 [macvtap]
+ [<000003ff80318c5e>] handle_rx+0x5b2/0x800 [vhost_net]
+ [<000003ff8028f77c>] vhost_worker+0x15c/0x1c4 [vhost]
+ [<000000000015f3ac>] kthread+0xd8/0xe4
+ [<00000000006934a6>] kernel_thread_starter+0x6/0xc
+ [<00000000006934a0>] kernel_thread_starter+0x0/0xc
 
-commit 4c305fa2cbe2a85c34899763fcefb843c87b591d
-Author: Nithin Sujir <nsujir@broadcom.com>
-Date:   Mon Jul 29 13:58:37 2013 -0700
+And
 
-    tg3: Implement the shutdown handler
+BUG: using smp_processor_id() in preemptible [00000000] code: vhost-45897/45898
+caller is macvlan_start_xmit+0x10a/0x1b4 [macvlan]
+CPU: 1 PID: 45898 Comm: vhost-45897 Not tainted 3.11.0-bisecttest #16
+Call Trace:
+([<00000000001126ee>] show_trace+0x126/0x144)
+ [<00000000001127d2>] show_stack+0xc6/0xd4
+ [<000000000068bdb8>] dump_stack+0x74/0xd4
+ [<0000000000481132>] debug_smp_processor_id+0xf6/0x114
+ [<000003ff802b72ca>] macvlan_start_xmit+0x10a/0x1b4 [macvlan]
+ [<000003ff802ea69a>] macvtap_get_user+0x982/0xbc4 [macvtap]
+ [<000003ff802ea92a>] macvtap_sendmsg+0x4e/0x60 [macvtap]
+ [<000003ff8031947c>] handle_tx+0x494/0x5ec [vhost_net]
+ [<000003ff8028f77c>] vhost_worker+0x15c/0x1c4 [vhost]
+ [<000000000015f3ac>] kthread+0xd8/0xe4
+ [<000000000069356e>] kernel_thread_starter+0x6/0xc
+ [<0000000000693568>] kernel_thread_starter+0x0/0xc
+2 locks held by vhost-45897/45898:
+ #0:  (&vq->mutex){+.+.+.}, at: [<000003ff8031903c>] handle_tx+0x54/0x5ec [vhost_net]
+ #1:  (rcu_read_lock){.+.+..}, at: [<000003ff802ea53c>] macvtap_get_user+0x824/0xbc4 [macvtap]
 
-    Also remove the call to tg3_power_down_prepare() in tg3_power_down()
-    since tg3_close() calls it.
 
-commit 5137a2ee2007d9cbbbeebd14abe08357a079b607
-Author: Nithin Sujir <nsujir@broadcom.com>
-Date:   Mon Jul 29 13:58:36 2013 -0700
+In the first case, macvtap_put_user() calls macvlan_count_rx()
+in a preempt-able context, and this is not allowed.
 
-    tg3: Allow NVRAM programming when interface is down
+In the second case, macvtap_get_user() calls
+macvlan_start_xmit() with BH enabled, and this is not allowed.
+ 
+Reported-by: Thomas Huth <thuth@linux.vnet.ibm.com>
+Bisected-by: Thomas Huth <thuth@linux.vnet.ibm.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Tested-by: Thomas Huth <thuth@linux.vnet.ibm.com>
+Cc: Vlad Yasevich <vyasevic@redhat.com>
+---
+ drivers/net/macvtap.c |   12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
 
-
-Thanks,
-Nithin.
-
-
-> Reported-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> Signed-off-by: Gavin Shan <shangw@linux.vnet.ibm.com>
-> ---
->  drivers/net/ethernet/broadcom/tg3.c |   12 ++++++++++++
->  1 files changed, 12 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/tg3.c
-> b/drivers/net/ethernet/broadcom/tg3.c
-> index ddebc7a..dc6178b 100644
-> --- a/drivers/net/ethernet/broadcom/tg3.c
-> +++ b/drivers/net/ethernet/broadcom/tg3.c
-> @@ -17663,6 +17663,17 @@ static void tg3_remove_one(struct pci_dev *pdev)
->  	}
->  }
-> 
-> +static void tg3_shutdown_one(struct pci_dev *pdev)
-> +{
-> +	struct net_device *dev = pci_get_drvdata(pdev);
-> +
-> +	if (!dev)
-> +		return;
-> +
-> +	netif_device_detach(dev);
-> +	tg3_remove_one(pdev);
-> +}
-> +
->  #ifdef CONFIG_PM_SLEEP
->  static int tg3_suspend(struct device *device)
->  {
-> @@ -17909,6 +17920,7 @@ static struct pci_driver tg3_driver = {
->  	.id_table	= tg3_pci_tbl,
->  	.probe		= tg3_init_one,
->  	.remove		= tg3_remove_one,
-> +	.shutdown	= tg3_shutdown_one,
->  	.err_handler	= &tg3_err_handler,
->  	.driver.pm	= &tg3_pm_ops,
->  };
-> --
-> 1.7.5.4
-> 
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index a98fb0e..b51db2a 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -818,10 +818,13 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+ 		skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
+ 		skb_shinfo(skb)->tx_flags |= SKBTX_SHARED_FRAG;
+ 	}
+-	if (vlan)
++	if (vlan) {
++		local_bh_disable();
+ 		macvlan_start_xmit(skb, vlan->dev);
+-	else
++		local_bh_enable();
++	} else {
+ 		kfree_skb(skb);
++	}
+ 	rcu_read_unlock();
+ 
+ 	return total_len;
+@@ -912,8 +915,11 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+ done:
+ 	rcu_read_lock();
+ 	vlan = rcu_dereference(q->vlan);
+-	if (vlan)
++	if (vlan) {
++		preempt_disable();
+ 		macvlan_count_rx(vlan, copied - vnet_hdr_len, ret == 0, 0);
++		preempt_enable();
++	}
+ 	rcu_read_unlock();
+ 
+ 	return ret ? ret : copied;
