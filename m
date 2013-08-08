@@ -1,41 +1,41 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: af_packet: when sending ethernet frames, parse header for
- skb->protocol
-Date: Thu, 8 Aug 2013 23:19:38 +0200
-Message-ID: <20130808211943.EA1E8226BB@mail.nwl.cc>
-References: <20130807220303.GA3478@gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH] net:ethernet:korina.c Removed IRQF_DISABLED
+Date: Fri, 9 Aug 2013 00:23:20 +0300
+Message-ID: <20130808212320.GF5502@mwanda>
+References: <1375989649-7252-1-git-send-email-kumargauravgupta3@gmail.com>
+ <20130808210918.GE5502@mwanda>
+ <20130808.142054.1541424422807503741.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Andrew Vagin <avagin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:47867 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966555Ab3HHVUL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Aug 2013 17:20:11 -0400
+Cc: kumargauravgupta3@gmail.com, emilio@elopez.com.ar,
+	mugunthanvnm@ti.com, jg1.han@samsung.com,
+	hsweeten@visionengravers.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20130807220303.GA3478@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20130808.142054.1541424422807503741.davem@davemloft.net>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, Aug 08, 2013 at 02:20:54PM -0700, David Miller wrote:
+> From: Dan Carpenter <dan.carpenter@oracle.com>
+> Date: Fri, 9 Aug 2013 00:09:18 +0300
+> 
+> > On Fri, Aug 09, 2013 at 12:50:49AM +0530, Kumar Gaurav wrote:
+> >> Removed IRQF_DISABLED as it's no-op and should be removed
+> >> 
+> > 
+> > What?  No, that doesn't sound right.
+> 
+> The IRQ layer completely ignores the flag for several releases
+> now, it's a complete no-op as his commit message so adequately
+> states.
+> 
+> So what's the problem again? :-)
 
-On Thu, Aug 08, 2013 at 02:03:03AM +0400, Andrew Vagin wrote:
-> I compiled the akpm branch of linux-next and found that my virtual
-> machine didn't get an IP address by dhcp.
-> 
-> git bisect said that the problem is in "af_packet: when sending ethernet
-> frames, parse header for skb->protocol"
-> 
-> https://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/commit/?id=0f75b09c798ed00c30d7d5551b896be883bc2aeb
-> 
-> I have double checked, the VM gets an IP address w/o this patch and it
-> does not get an address with this patch.
-> 
-> Let me know if you need any information to investigate this issue.
+Ah...  Thanks for the explanation.
 
-Thanks for your investigation. I could reproduce your problem, the
-culprit was the skb->data pointer changed as a side effect in
-eth_type_trans().
+regards,
+dan carpenter
 
-Best wishes, Phil
