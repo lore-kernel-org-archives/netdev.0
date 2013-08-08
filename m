@@ -1,141 +1,72 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v1 net-next 1/6] bonding: add rcu to vlan_uses_dev() and make bond_vlan_used() use it
-Date: Thu,  8 Aug 2013 12:21:04 +0200
-Message-ID: <1375957269-13100-2-git-send-email-vfalico@redhat.com>
-References: <1375957269-13100-1-git-send-email-vfalico@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28738 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964995Ab3HHKUs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Aug 2013 06:20:48 -0400
-In-Reply-To: <1375957269-13100-1-git-send-email-vfalico@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Prabhakar Lad <prabhakar.csengg@gmail.com>
+Subject: Re: [PATCH v3 6/6] ARM: davinci: da850: configure system
+ configuration chip(CFGCHIP3) for emac
+Date: Thu, 8 Aug 2013 16:02:30 +0530
+Message-ID: <CA+V-a8smEd_75Ab-_vxjBATr8Q9Sefs0tpxc+kgQJRtuLJad=w@mail.gmail.com>
+References: <1371999607-6483-1-git-send-email-prabhakar.csengg@gmail.com>
+ <1371999607-6483-7-git-send-email-prabhakar.csengg@gmail.com> <51F8A4FF.8020803@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: DLOS <davinci-linux-open-source@linux.davincidsp.com>,
+	LAK <linux-arm-kernel@lists.infradead.org>,
+	devicetree-discuss@lists.ozlabs.org,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Heiko Schocher <hs@denx.de>
+To: Sekhar Nori <nsekhar@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51F8A4FF.8020803@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RFC -> v1: don't add vlan_uses_dev_rcu() and change vlan_uses_dev() instead
+Hi Sekhar,
 
-Currently, bond_vlan_used() looks for any vlan, including the pseudo-vlan
-id 0, and always returns true if 8021q is loaded. This creates several bad
-situations - some warnings in __bond_release_one() because it thinks that
-we still have vlans while removing, sending LB packets with vlan id 0 and,
-possibly, other caused by vlan id 0.
+Sorry for the  delayed response I was on leave and now back again up
+and running.
 
-Fix it by changing vlan_uses_dev() to use rcu_dereference_rtnl() instead of
-rtnl_dereference(), and thus it can already be used in bond_vlan_used()
-under rcu_read_lock().
+On Wed, Jul 31, 2013 at 11:17 AM, Sekhar Nori <nsekhar@ti.com> wrote:
+> On Sunday 23 June 2013 08:30 PM, Prabhakar Lad wrote:
+>> From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+>>
+>> This patch makes a common function for to configure emac and calls
+>> it appropriately in DT and non DT boot mode. The system configuration
+>> chip CFGCHIP3, controls the emac module. This patch appropriately
+>> configures this register for emac and sets DA850_MII_MDIO_CLKEN_PIN
+>> GPIO pin appropriately.
+>>
+[Snip]
 
-By the time vlan_uses_dev() returns we cannot be sure if there were no
-vlans added/removed, so it's basicly an optimization function.
+>> +     if (rmii_enabled)
+>> +             val |= BIT(8);
+>> +     else
+>> +             val &= ~BIT(8);
+>> +
+>> +     /* configure the CFGCHIP3 register for RMII or MII */
+>> +     writel(val, cfg_chip3_base);
+>> +
+>> +     ret = davinci_cfg_reg(DA850_GPIO2_6);
+>> +     if (ret)
+>> +             pr_warn("%s:GPIO(2,6) mux setup failed\n", __func__);
+>> +
+>> +     ret = gpio_request(DA850_MII_MDIO_CLKEN_PIN, "mdio_clk_en");
+>> +     if (ret) {
+>> +             pr_warn("Cannot open GPIO %d\n", DA850_MII_MDIO_CLKEN_PIN);
+>> +             return;
+>> +     }
+>
+> You cannot do this in SoC specific code. All boards wont use a GPIO to
+> choose between MII/RMII. You need to do this in a EVM specific manner.
+> This just means you retain the GPIO part of code in board-da850-evm.c
 
-Also, use the vlan_uses_dev() in __bond_release_one() cause the rtnl lock
-is held there.
+OK
 
-For this call to be visible in bonding.h, add include <linux/if_vlan.h>,
-and also remove it from any other bonding file, cause they all include
-bonding.h, and thus linux/if_vlan.h.
+> and for the DT case use a board specific GPIO node. See a similar
+> example in arch/arm/boot/dts/ste-nomadik-s8815.dts and how the code uses
+Alrite something similar to usb-s8815 node.
 
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: Patrick McHardy <kaber@trash.net>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Nikolay Aleksandrov <nikolay@redhat.com>
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
- drivers/net/bonding/bond_alb.c  |    1 -
- drivers/net/bonding/bond_main.c |    3 +--
- drivers/net/bonding/bonding.h   |   10 +++++++++-
- net/8021q/vlan_core.c           |    3 ++-
- 4 files changed, 12 insertions(+), 5 deletions(-)
+> it in arch/arm/mach-nomadik/cpu-8815.c.
+>
+But I don't see any code to access this node in this file, can
+you point me to right direction ?
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 3a5db7b..2684329 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -34,7 +34,6 @@
- #include <linux/if_arp.h>
- #include <linux/if_ether.h>
- #include <linux/if_bonding.h>
--#include <linux/if_vlan.h>
- #include <linux/in.h>
- #include <net/ipx.h>
- #include <net/arp.h>
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 4264a76..9d1045d 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -69,7 +69,6 @@
- #include <net/arp.h>
- #include <linux/mii.h>
- #include <linux/ethtool.h>
--#include <linux/if_vlan.h>
- #include <linux/if_bonding.h>
- #include <linux/jiffies.h>
- #include <linux/preempt.h>
-@@ -1953,7 +1952,7 @@ static int __bond_release_one(struct net_device *bond_dev,
- 		bond_set_carrier(bond);
- 		eth_hw_addr_random(bond_dev);
- 
--		if (bond_vlan_used(bond)) {
-+		if (vlan_uses_dev(bond_dev)) {
- 			pr_warning("%s: Warning: clearing HW address of %s while it still has VLANs.\n",
- 				   bond_dev->name, bond_dev->name);
- 			pr_warning("%s: When re-adding slaves, make sure the bond's HW address matches its VLANs'.\n",
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 4bf52d5..9c4539e 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -23,6 +23,7 @@
- #include <linux/netpoll.h>
- #include <linux/inetdevice.h>
- #include <linux/etherdevice.h>
-+#include <linux/if_vlan.h>
- #include "bond_3ad.h"
- #include "bond_alb.h"
- 
-@@ -267,9 +268,16 @@ struct bonding {
- #endif /* CONFIG_DEBUG_FS */
- };
- 
-+/* use vlan_uses_dev() if under rtnl */
- static inline bool bond_vlan_used(struct bonding *bond)
- {
--	return !list_empty(&bond->vlan_list);
-+	bool ret;
-+
-+	rcu_read_lock();
-+	ret = vlan_uses_dev(bond->dev);
-+	rcu_read_unlock();
-+
-+	return ret;
- }
- 
- #define bond_slave_get_rcu(dev) \
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index 4a78c4d..12e1606 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -387,13 +387,14 @@ void vlan_vids_del_by_dev(struct net_device *dev,
- }
- EXPORT_SYMBOL(vlan_vids_del_by_dev);
- 
-+/* Must hold either rtnl or rcu_read_lock */
- bool vlan_uses_dev(const struct net_device *dev)
- {
- 	struct vlan_info *vlan_info;
- 
- 	ASSERT_RTNL();
- 
--	vlan_info = rtnl_dereference(dev->vlan_info);
-+	vlan_info = rcu_dereference_rtnl(dev->vlan_info);
- 	if (!vlan_info)
- 		return false;
- 	return vlan_info->grp.nr_vlan_devs ? true : false;
--- 
-1.7.1
+Regards,
+--Prabhakar Lad
