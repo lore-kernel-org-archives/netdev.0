@@ -1,73 +1,33 @@
-From: Byungho An <bh74.an@samsung.com>
-Subject: [PATCH] net: stmmac: Fixed the condition of extend_desc for jumbo frame
-Date: Thu, 08 Aug 2013 15:30:26 +0900
-Message-ID: <004701ce9400$c4ba2f10$4e2e8d30$%an@samsung.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 3/5] netfilter: add SYNPROXY core/target
+Date: Thu, 8 Aug 2013 08:34:26 +0200
+Message-ID: <20130808063425.GC24450@macbook.localnet>
+References: <1375897371-18430-1-git-send-email-kaber@trash.net>
+ <1375897371-18430-4-git-send-email-kaber@trash.net>
+ <1375913514.4004.63.camel@edumazet-glaptop>
+ <20130807233707.GA23937@macbook.localnet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ks_c_5601-1987
-Content-Transfer-Encoding: 7bit
-Cc: 'Giuseppe CAVALLARO' <peppe.cavallaro@st.com>,
-	=?ks_c_5601-1987?B?J7HosbnB+Cc=?= <kgene.kim@samsung.com>,
-	davem@davemloft.net, cpgs@samsung.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout4.samsung.com ([203.254.224.34]:12125 "EHLO
-	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754771Ab3HHGa3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 02:30:29 -0400
-Received: from epcpsbgr4.samsung.com
- (u144.gpu120.samsung.co.kr [203.254.230.144])
- by mailout4.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MR700LO08QP9D50@mailout4.samsung.com> for
- netdev@vger.kernel.org; Thu, 08 Aug 2013 15:30:27 +0900 (KST)
-Content-language: ko
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, mph@one.com, jesper.brouer@gmail.com,
+	as@one.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130807233707.GA23937@macbook.localnet>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, Aug 08, 2013 at 01:37:11AM +0200, Patrick McHardy wrote:
+> On Wed, Aug 07, 2013 at 03:11:54PM -0700, Eric Dumazet wrote:
+> > On Wed, 2013-08-07 at 19:42 +0200, Patrick McHardy wrote:
+> > 
+> > Also please check your uses of kfree_skb() .
+> > 
+> > Some of them would better be consume_skb() (for example in
+> > ipv4_synproxy_hook())
+> 
+> I'll look into that.
 
-This patch fixed the condition of extend_desc for jumbo frame. 
-There is no check routine for extend_desc in the stmmac_jumbo_frm function.
-Even though extend_desc is set if dma_tx is used instead of dma_etx.
-It causes kernel panic.
-
-Signed-off-by: Byungho An <bh74.an@samsung.com>
----
- drivers/net/ethernet/stmicro/stmmac/ring_mode.c |   13 +++++++++++--
- 1 file changed, 11 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
-index c9d942a..1ef9d8a 100644
---- a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
-@@ -33,10 +33,15 @@ static unsigned int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- 	struct stmmac_priv *priv = (struct stmmac_priv *)p;
- 	unsigned int txsize = priv->dma_tx_size;
- 	unsigned int entry = priv->cur_tx % txsize;
--	struct dma_desc *desc = priv->dma_tx + entry;
-+	struct dma_desc *desc;
- 	unsigned int nopaged_len = skb_headlen(skb);
- 	unsigned int bmax, len;
- 
-+	if (priv->extend_desc)
-+		desc = (struct dma_desc *)(priv->dma_etx + entry);
-+	else
-+		desc = priv->dma_tx + entry;
-+
- 	if (priv->plat->enh_desc)
- 		bmax = BUF_SIZE_8KiB;
- 	else
-@@ -54,7 +59,11 @@ static unsigned int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- 						STMMAC_RING_MODE);
- 		wmb();
- 		entry = (++priv->cur_tx) % txsize;
--		desc = priv->dma_tx + entry;
-+
-+		if (priv->extend_desc)
-+			desc = (struct dma_desc *)(priv->dma_etx + entry);
-+		else
-+			desc = priv->dma_tx + entry;
- 
- 		desc->des2 = dma_map_single(priv->device, skb->data + bmax,
- 					    len, DMA_TO_DEVICE);
--- 
-1.7.10.4
+Agreed for this case. The only other two kfree_skb()s are actually
+error paths.
