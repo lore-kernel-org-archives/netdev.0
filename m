@@ -1,49 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] veth: remove hardware checksum feature
-Date: Thu, 08 Aug 2013 15:22:11 -0700
-Message-ID: <1376000531.4004.136.camel@edumazet-glaptop>
-References: <51F15E50.8080208@guap.ru> <5202E153.4060202@candelatech.com>
-	    <1375920752.4004.71.camel@edumazet-glaptop>
-	    <5202E510.9060309@candelatech.com>
-	   <1375924125.4004.83.camel@edumazet-glaptop>
-	   <5202FA51.4040906@candelatech.com>
-	  <1375930325.4004.88.camel@edumazet-glaptop>
-	  <5203F4E6.1010701@candelatech.com>
-	 <1375993014.4004.112.camel@edumazet-glaptop>
-	 <52041802.9040304@candelatech.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH] tcp: add server ip to encrypt cookie in fast open
+Date: Thu, 8 Aug 2013 15:30:45 -0700
+Message-ID: <CAK6E8=dvRNc2VhzQYyPmfZvrLA4K34HM1yCKQd+_WGyCTrYqjg@mail.gmail.com>
+References: <1375995982-17862-1-git-send-email-ycheng@google.com> <1375998763.4004.132.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f54.google.com ([209.85.219.54]:58457 "EHLO
-	mail-oa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965419Ab3HHWWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 18:22:14 -0400
-Received: by mail-oa0-f54.google.com with SMTP id o6so6214760oag.27
-        for <netdev@vger.kernel.org>; Thu, 08 Aug 2013 15:22:14 -0700 (PDT)
-In-Reply-To: <52041802.9040304@candelatech.com>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:58603 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966832Ab3HHWbH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 18:31:07 -0400
+Received: by mail-ie0-f175.google.com with SMTP id s9so2922822iec.20
+        for <netdev@vger.kernel.org>; Thu, 08 Aug 2013 15:31:06 -0700 (PDT)
+In-Reply-To: <1375998763.4004.132.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-08-08 at 15:13 -0700, Ben Greear wrote:
-
-> Looks like it should work nicely, except it would be really
-> nice if I could short-circuit the xmit_nit() part for my
-> protocol handler.
-> 
-> Think there would be any interest in allowing the ptype_all
-> handlers to optionally register a direction (ie tx-only, rx-only, both)
-> and have dev_queue_xmit_nit() pay attention to that?
-
-Sure, it would also make sense to apply the BPF filter _before_ doing
-the skb_clone()
-
-Right now, we :
-
-clone packets
--> deliver the clone to the sniffer.
- sniffer eventuall drops the packet after BPF filtering.
-
-Its trivial to test the tx/rx thing in BPF, and it's JIT code.
+On Thu, Aug 8, 2013 at 2:52 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2013-08-08 at 14:06 -0700, Yuchung Cheng wrote:
+>> Encrypt the cookie with both server and client IPv4 addresses,
+>> such that multi-homed server will grant different cookies
+>> based on both the source and destination IPs. No client change
+>> is needed since cookie is opaque to the client.
+>>
+>> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+>> ---
+>>  include/net/tcp.h       |  3 ++-
+>>  net/ipv4/tcp_fastopen.c | 13 ++++++-------
+>>  net/ipv4/tcp_ipv4.c     | 10 +++++++---
+>>  3 files changed, 15 insertions(+), 11 deletions(-)
+>
+> Reviewed-by: Eric Dumazet <edumazet@google.com>
+>
+> I presume this is net-next material ?
+yes net-next is what I test on. thanks for pointing that out.
+>
+>
