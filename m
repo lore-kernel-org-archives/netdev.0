@@ -1,73 +1,69 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH RFC] xfrm{4,6}: only report errors back to local sockets if we don't cross address family
-Date: Fri, 9 Aug 2013 01:06:20 +0200
-Message-ID: <20130808230620.GK14001@order.stressinduktion.org>
-References: <20130729145017.GD2490@order.stressinduktion.org> <20130730082118.GA25511@secunet.com> <20130730083017.GA7068@order.stressinduktion.org> <20130730102611.GB25511@secunet.com> <20130801081150.GF3688@order.stressinduktion.org> <20130801100522.GC25511@secunet.com> <20130808224440.GJ14001@order.stressinduktion.org> <1376002677.4004.139.camel@edumazet-glaptop>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: [PATCH v3 4/4] USBNET: ax88179_178a: enable tso if usb host
+ supports sg dma
+Date: Fri, 9 Aug 2013 07:48:39 +0800
+Message-ID: <CACVXFVMWWcf5duqU9_NB6QMzN1mxE6HfHJ6Aco1u3+4+x7u8JA@mail.gmail.com>
+References: <1375750370-18194-1-git-send-email-ming.lei@canonical.com>
+	<1375750370-18194-5-git-send-email-ming.lei@canonical.com>
+	<1375791737.4457.98.camel@edumazet-glaptop>
+	<CANEJEGvbS=o-942tFJTDzpNvgaB=KUZcBwzJCU-7OHaAF-aQFQ@mail.gmail.com>
+	<CACVXFVOOQZ8mtDXtCE669vEo=jA56g-ADzTZkGLLupZ5D4Z==A@mail.gmail.com>
+	<CANEJEGvvxi83=b+NGTzsVpJw5fE5nb-R0BRWRJ2gz7bF5-H5AA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org, vi0oss@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Oliver Neukum <oneukum@suse.de>,
+	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
+	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	Freddy Xin <freddy@asix.com.tw>
+To: Grant Grundler <grundler@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:40435 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966339Ab3HHXGV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 19:06:21 -0400
-Content-Disposition: inline
-In-Reply-To: <1376002677.4004.139.camel@edumazet-glaptop>
+Received: from youngberry.canonical.com ([91.189.89.112]:58817 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758215Ab3HHXsm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 19:48:42 -0400
+In-Reply-To: <CANEJEGvvxi83=b+NGTzsVpJw5fE5nb-R0BRWRJ2gz7bF5-H5AA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 08, 2013 at 03:57:57PM -0700, Eric Dumazet wrote:
-> On Fri, 2013-08-09 at 00:44 +0200, Hannes Frederic Sowa wrote:
-> > On Thu, Aug 01, 2013 at 12:05:22PM +0200, Steffen Klassert wrote:
-> > > On Thu, Aug 01, 2013 at 10:11:50AM +0200, Hannes Frederic Sowa wrote:
-> > > > 
-> > > > If you have not yet done so, I would try to find a solution over the weekend.
-> > > > 
-> > > 
-> > > I have not yet done so, please go ahead.
-> > 
-> > Ok, this patch should do the trick. In xfrm6 error path we now generate
-> > a plain icmpv6 packet back to us in this specific case vi0oss reported. I
-> > wonder if we should suppress these.
-> > 
-> > Btw. is the memset(IPCB, 0) actually needed in the ipv4 output path?
-> > 
-> > [PATCH RFC] net: orphan socket when skb traverses tunnel interface
-> > 
-> > When a local generated packet traverses a tunnel the socket has to be
-> > orphaned from the skb. Otherwise lower layer, like xfrm, try to report
-> > errors directly to this socket. If, because of a transitioning tunnel,
-> > the address family changes we deliver an invalid error or panic in the
-> > error reporting functions.
-> > 
-> > Also add a call to secpath_reset() in the ipv6 tunnel xmit path. It
-> > seems like it was just forgotten.
-> > 
-> > Reported-by: <vi0oss@gmail.com>
-> > Cc: Steffen Klassert <steffen.klassert@secunet.com>
-> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > ---
-> 
-> Doing so breaks flow control.
-> 
-> A single socket can flood and fill the Qdisc, even a friendly one like a
-> local TCP flow (see TCP Small Queues)
-> 
-> Can't we make the error reporting more robust instead ?
+On Fri, Aug 9, 2013 at 1:25 AM, Grant Grundler <grundler@google.com> wrote:
+> On Tue, Aug 6, 2013 at 5:41 PM, Ming Lei <ming.lei@canonical.com> wrote:
+>> On Wed, Aug 7, 2013 at 1:09 AM, Grant Grundler <grundler@google.com> wrote:
+> ...
+>>> Following that logic, shouldn't all the features/hw_features settings
+>>> be removed from reset code path?
+>>
+>> This patch won't touch other settings because that isn't related with
+>> this patch.
+>
+> Sorry - I didn't mean to imply your patch should do this. I was hoping
+> for a yes/no answer from you, Eric, or Dave.
+>
+> ...
+>>> I'll note that any "hiccup" in the USB side that causes the device to
+>>> get dropped and re-probed will cause the same symptom. There is
+>>
+>> I am afraid that PCI network devices' setting still won't survive unbound&
+>> re-probed, will they?
+>
+> Correct - but PCI isn't as prone to "dropping off the bus" like USB
 
-Hm, I thought so. My other patch (some mails above in this thread) checks for
-a switch in address family and does prohibit the panic, but generates wrong
-error reports back to the socket if the address family does not switch (which
-maybe get ignored).
+As far as I know, USB device still won't be disconnected easily, and
+reset is possible, but we can make setting survive reset by implementing
+.pre_reset() and .post_reset() callback. Or do you have other situation
+of USB 'dropping off the bus'?
 
-I will check if the skb->encapsulated bit could help. Actually I don't
-know what the correct behaviour for error reporting should be in the end,
-maybe: dispatch packet back to tunnel interface, let tunnel interface
-decapsulate the inner packet and use this inner header to inform the
-original socket about the error.
+> is. Master aborts on some PCI systems is a "Fatal Exception" and AFAIK
+> that's never been true for any USB device.
+
+I mean rmmod & modprobe still can reset setting of one PCI network
+device after powering on the device, can't it?
+
 
 Thanks,
-
-  Hannes
+--
+Ming Lei
