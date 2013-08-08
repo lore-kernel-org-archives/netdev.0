@@ -1,37 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: Tree for Aug 7
-Date: Wed, 07 Aug 2013 17:09:26 -0700 (PDT)
-Message-ID: <20130807.170926.319558320779361738.davem@davemloft.net>
-References: <20130807.162748.779496444843938176.davem@davemloft.net>
-	<20130807.163621.84433966934449459.davem@davemloft.net>
-	<CA+icZUUm2nbmVj_WRznPTjXL0y6pcr1GzLjsL7UMhSGQWSm==g@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RFC 0/5] netfilter: implement netfilter SYN proxy
+Date: Thu, 8 Aug 2013 02:04:12 +0200
+Message-ID: <20130808000412.GF32257@order.stressinduktion.org>
+References: <1375898766.4004.37.camel@edumazet-glaptop> <20130807205959.GC21463@macbook.localnet> <20130807210540.GE32257@order.stressinduktion.org> <20130807.164056.2110811182336568861.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: phil@nwl.cc, eric.dumazet@gmail.com, johannes@sipsolutions.net,
-	sfr@canb.auug.org.au, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	hannes@stressinduktion.org, linux-wireless@vger.kernel.org,
-	linville@tuxdriver.com
-To: sedat.dilek@gmail.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <CA+icZUUm2nbmVj_WRznPTjXL0y6pcr1GzLjsL7UMhSGQWSm==g@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: kaber@trash.net, eric.dumazet@gmail.com, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	mph@one.com, jesper.brouer@gmail.com, as@one.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:38244 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933310Ab3HHAEO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 20:04:14 -0400
+Content-Disposition: inline
+In-Reply-To: <20130807.164056.2110811182336568861.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sedat Dilek <sedat.dilek@gmail.com>
-Date: Thu, 8 Aug 2013 02:02:48 +0200
-
-> On Thu, Aug 8, 2013 at 1:36 AM, David Miller <davem@davemloft.net> wrote:
->> From: David Miller <davem@davemloft.net>
->> Date: Wed, 07 Aug 2013 16:27:48 -0700 (PDT)
->>
->>> Look, I'm going to fix this myself, because I'm pretty tired of
->>> waiting for the obvious fix.
->>
->> Someone please test this:
+On Wed, Aug 07, 2013 at 04:40:56PM -0700, David Miller wrote:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Wed, 7 Aug 2013 23:05:40 +0200
 > 
-> Your patch on top of next-20130807 does not fix the issue in my wifi/network.
-> No working Internet connection (ping etc.).
+> > It seems, Windows stopped using tcp timestamps at least in windows 8 by
+> > default.
+> 
+> Thankfully, Android device outnumber Windows 8 installs
+> by... something like 1,000 to 1, right?
 
-Ok, I'm going to simply revert all of these changes, thanks for testing.
+Heh, at minimum. :)
+
+> I throw a huge "doesn't matter" to whatever Windows's TCP stack
+> decides to do.  It absolutely should not dictate whether we decide to
+> make use of this or that feature of TCP.  It's a bit player at best.
+> 
+> So if Windows 8 is the reason you're saying we shouldn't use
+> timestamps for anything, you're wrong.
+
+Actually, I don't care at all, because I don't do anything with windows
+and don't get paid by anyone who wants me to care. ;)
+
+But if we switch to a similar scheme as freebsd we can even care
+less because even if some other operating systems or a major provider
+decides to disable timestamps on their devices, we would still have
+window scaling, sack (and ecn?) under syn dos. So, I do think it is an
+improvement and don't see any disadvantages.
+
+So, I don't care as long as the change (and siphash or maybe another
+hashing scheme) is secure enough...
+
+Greetings,
+
+  Hannes
