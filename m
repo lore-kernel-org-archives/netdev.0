@@ -1,39 +1,73 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 3/5] netfilter: add SYNPROXY core/target
-Date: Thu, 8 Aug 2013 08:22:55 +0200
-Message-ID: <20130808062255.GB24450@macbook.localnet>
-References: <1375897371-18430-1-git-send-email-kaber@trash.net>
- <1375897371-18430-4-git-send-email-kaber@trash.net>
- <20130807222600.51eeca09@redhat.com>
- <20130807205602.GA21463@macbook.localnet>
+From: Byungho An <bh74.an@samsung.com>
+Subject: [PATCH] net: stmmac: Fixed the condition of extend_desc for jumbo frame
+Date: Thu, 08 Aug 2013 15:30:26 +0900
+Message-ID: <004701ce9400$c4ba2f10$4e2e8d30$%an@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, mph@one.com, as@one.com
-To: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130807205602.GA21463@macbook.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ks_c_5601-1987
+Content-Transfer-Encoding: 7bit
+Cc: 'Giuseppe CAVALLARO' <peppe.cavallaro@st.com>,
+	=?ks_c_5601-1987?B?J7HosbnB+Cc=?= <kgene.kim@samsung.com>,
+	davem@davemloft.net, cpgs@samsung.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout4.samsung.com ([203.254.224.34]:12125 "EHLO
+	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754771Ab3HHGa3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 02:30:29 -0400
+Received: from epcpsbgr4.samsung.com
+ (u144.gpu120.samsung.co.kr [203.254.230.144])
+ by mailout4.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MR700LO08QP9D50@mailout4.samsung.com> for
+ netdev@vger.kernel.org; Thu, 08 Aug 2013 15:30:27 +0900 (KST)
+Content-language: ko
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 07, 2013 at 10:56:03PM +0200, Patrick McHardy wrote:
-> On Wed, Aug 07, 2013 at 10:26:00PM +0200, Jesper Dangaard Brouer wrote:
-> > On Wed,  7 Aug 2013 19:42:49 +0200
-> > Patrick McHardy <kaber@trash.net> wrote:
-> > 
-> > Besides when using net->proc_net_stat, then the first entry is usually
-> > "entries" which is not percpu, this will likely confusing the tool:
-> >   lnstat -f synproxy -c 42
-> 
-> I'll look into that.
 
-Ok right, the first field must contains something that is not per-CPU.
-Unfortunately I don't have anything to put there and I really don't want
-to keep any global state. The two possibilities I see are:
+This patch fixed the condition of extend_desc for jumbo frame. 
+There is no check routine for extend_desc in the stmmac_jumbo_frm function.
+Even though extend_desc is set if dma_tx is used instead of dma_etx.
+It causes kernel panic.
 
-- a dummy field
-- the number of proxied connections, but not using a global counter but
-  gathered by iterating over the entire conntrack hash.
+Signed-off-by: Byungho An <bh74.an@samsung.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/ring_mode.c |   13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
-Any opinions?
+diff --git a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
+index c9d942a..1ef9d8a 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
++++ b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
+@@ -33,10 +33,15 @@ static unsigned int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 	struct stmmac_priv *priv = (struct stmmac_priv *)p;
+ 	unsigned int txsize = priv->dma_tx_size;
+ 	unsigned int entry = priv->cur_tx % txsize;
+-	struct dma_desc *desc = priv->dma_tx + entry;
++	struct dma_desc *desc;
+ 	unsigned int nopaged_len = skb_headlen(skb);
+ 	unsigned int bmax, len;
+ 
++	if (priv->extend_desc)
++		desc = (struct dma_desc *)(priv->dma_etx + entry);
++	else
++		desc = priv->dma_tx + entry;
++
+ 	if (priv->plat->enh_desc)
+ 		bmax = BUF_SIZE_8KiB;
+ 	else
+@@ -54,7 +59,11 @@ static unsigned int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 						STMMAC_RING_MODE);
+ 		wmb();
+ 		entry = (++priv->cur_tx) % txsize;
+-		desc = priv->dma_tx + entry;
++
++		if (priv->extend_desc)
++			desc = (struct dma_desc *)(priv->dma_etx + entry);
++		else
++			desc = priv->dma_tx + entry;
+ 
+ 		desc->des2 = dma_map_single(priv->device, skb->data + bmax,
+ 					    len, DMA_TO_DEVICE);
+-- 
+1.7.10.4
