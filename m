@@ -1,252 +1,149 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v1 net-next 6/6] bonding: remove unused bond->vlan_list
-Date: Thu,  8 Aug 2013 12:21:09 +0200
-Message-ID: <1375957269-13100-7-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v1 net-next 2/6] vlan: add __vlan_find_dev_next()
+Date: Thu,  8 Aug 2013 12:21:05 +0200
+Message-ID: <1375957269-13100-3-git-send-email-vfalico@redhat.com>
 References: <1375957269-13100-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43630 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:22754 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964939Ab3HHKUx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Aug 2013 06:20:53 -0400
+	id S964873Ab3HHKUr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Aug 2013 06:20:47 -0400
 In-Reply-To: <1375957269-13100-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RFC -> v1: No changes.
+RFC -> v1: make the function accept/return vlan's net_device, this way we
+	   won't have troubles with VLAN 0, and the user code will be
+	   cleaner and faster.
 
-There are currently no users of bond->vlan_list (other than the maintaining
-functions add/remove) - so remove it and every unneeded helper.
+Add a new exported function __vlan_find_dev_next(dev, vlan_dev), which
+returns the a vlan's net_device that is used by the dev and is its id is
+greater or equal to vlan_dev's vlan id. If vlan_dev is NULL, return first
+vlan, if nothing is found return NULL.
 
-In this patch we remove:
-vlan_list from struct bonding
-bond_next_vlan - we don't need it anymore
-struct vlan_entry - it was a helper struct for bond->vlan_list
-some bits from bond_vlan_rx_add/kill_vid() - which were related to
-	bond->vlan_list
-(de)initialization of vlan_list from bond_setup/uninit
-bond_add_vlan - its only scope was to maintain bond->vlan_list
+This function must be under rcu_read_lock(), is aware of master devices and
+doesn't guarantee that, once it returns, the vlan dev will still be used by
+dev as its vlan.
 
-We don't fully remove bond_del_vlan() - bond_alb_clear_vlan() still needs
-to be called when a vlan disappears. And we make bond_del_vlan() to not
-return anything cause it cannot fail already.
+It's basically a helper for "for_each_vlan_in_dev(dev, vlan_dev)" logic,
+and is supposed to be used like this:
 
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
+vlan_dev = NULL;
+
+while ((vlan_dev = __vlan_find_dev_next(dev, vlan_dev))) {
+	if (!vlan_dev)
+		continue;
+
+	do_work(vlan_dev);
+}
+
+In that case we're sure that vlan_dev at least was used as a vlan, and won't
+go away while we're holding rcu_read_lock().
+
+However, if we don't hold rtnl_lock(), we can't be sure that that vlan_dev
+is still in dev's vlan_list.
+
+CC: Patrick McHardy <kaber@trash.net>
+CC: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_main.c |  117 +-------------------------------------
- drivers/net/bonding/bonding.h   |    6 --
- 2 files changed, 4 insertions(+), 119 deletions(-)
+ include/linux/if_vlan.h |    8 ++++++++
+ net/8021q/vlan.h        |    6 ++++--
+ net/8021q/vlan_core.c   |   33 +++++++++++++++++++++++++++++++++
+ 3 files changed, 45 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 215c497..49bdda2 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -282,113 +282,24 @@ const char *bond_mode_name(int mode)
- /*---------------------------------- VLAN -----------------------------------*/
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 715c343..1cfc201 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -86,6 +86,8 @@ static inline int is_vlan_dev(struct net_device *dev)
  
- /**
-- * bond_add_vlan - add a new vlan id on bond
-- * @bond: bond that got the notification
-- * @vlan_id: the vlan id to add
-- *
-- * Returns -ENOMEM if allocation failed.
-- */
--static int bond_add_vlan(struct bonding *bond, unsigned short vlan_id)
--{
--	struct vlan_entry *vlan;
--
--	pr_debug("bond: %s, vlan id %d\n",
--		 (bond ? bond->dev->name : "None"), vlan_id);
--
--	vlan = kzalloc(sizeof(struct vlan_entry), GFP_KERNEL);
--	if (!vlan)
--		return -ENOMEM;
--
--	INIT_LIST_HEAD(&vlan->vlan_list);
--	vlan->vlan_id = vlan_id;
--
--	write_lock_bh(&bond->lock);
--
--	list_add_tail(&vlan->vlan_list, &bond->vlan_list);
--
--	write_unlock_bh(&bond->lock);
--
--	pr_debug("added VLAN ID %d on bond %s\n", vlan_id, bond->dev->name);
--
--	return 0;
--}
--
--/**
-  * bond_del_vlan - delete a vlan id from bond
-  * @bond: bond that got the notification
-  * @vlan_id: the vlan id to delete
-  *
-  * returns -ENODEV if @vlan_id was not found in @bond.
-  */
--static int bond_del_vlan(struct bonding *bond, unsigned short vlan_id)
-+static void bond_del_vlan(struct bonding *bond, unsigned short vlan_id)
- {
--	struct vlan_entry *vlan;
--	int res = -ENODEV;
--
- 	pr_debug("bond: %s, vlan id %d\n", bond->dev->name, vlan_id);
+ extern struct net_device *__vlan_find_dev_deep(struct net_device *real_dev,
+ 					       __be16 vlan_proto, u16 vlan_id);
++extern struct net_device *__vlan_find_dev_next(struct net_device *dev,
++					       struct net_device *vlan_dev);
+ extern struct net_device *vlan_dev_real_dev(const struct net_device *dev);
+ extern u16 vlan_dev_vlan_id(const struct net_device *dev);
  
- 	block_netpoll_tx();
- 	write_lock_bh(&bond->lock);
- 
--	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
--		if (vlan->vlan_id == vlan_id) {
--			list_del(&vlan->vlan_list);
--
--			if (bond_is_lb(bond))
--				bond_alb_clear_vlan(bond, vlan_id);
--
--			pr_debug("removed VLAN ID %d from bond %s\n",
--				 vlan_id, bond->dev->name);
-+	if (bond_is_lb(bond))
-+		bond_alb_clear_vlan(bond, vlan_id);
- 
--			kfree(vlan);
--
--			res = 0;
--			goto out;
--		}
--	}
--
--	pr_debug("couldn't find VLAN ID %d in bond %s\n",
--		 vlan_id, bond->dev->name);
--
--out:
- 	write_unlock_bh(&bond->lock);
- 	unblock_netpoll_tx();
--	return res;
--}
--
--/**
-- * bond_next_vlan - safely skip to the next item in the vlans list.
-- * @bond: the bond we're working on
-- * @curr: item we're advancing from
-- *
-- * Returns %NULL if list is empty, bond->next_vlan if @curr is %NULL,
-- * or @curr->next otherwise (even if it is @curr itself again).
-- *
-- * Caller must hold bond->lock
-- */
--struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr)
--{
--	struct vlan_entry *next, *last;
--
--	if (list_empty(&bond->vlan_list))
--		return NULL;
--
--	if (!curr) {
--		next = list_entry(bond->vlan_list.next,
--				  struct vlan_entry, vlan_list);
--	} else {
--		last = list_entry(bond->vlan_list.prev,
--				  struct vlan_entry, vlan_list);
--		if (last == curr) {
--			next = list_entry(bond->vlan_list.next,
--					  struct vlan_entry, vlan_list);
--		} else {
--			next = list_entry(curr->vlan_list.next,
--					  struct vlan_entry, vlan_list);
--		}
--	}
--
--	return next;
+@@ -109,6 +111,12 @@ __vlan_find_dev_deep(struct net_device *real_dev,
+ 	return NULL;
  }
  
- /**
-@@ -450,13 +361,6 @@ static int bond_vlan_rx_add_vid(struct net_device *bond_dev,
- 			goto unwind;
- 	}
- 
--	res = bond_add_vlan(bond, vid);
--	if (res) {
--		pr_err("%s: Error: Failed to add vlan id %d\n",
--		       bond_dev->name, vid);
--		goto unwind;
--	}
--
- 	return 0;
- 
- unwind:
-@@ -477,17 +381,11 @@ static int bond_vlan_rx_kill_vid(struct net_device *bond_dev,
++static struct net_device *__vlan_find_dev_next(struct net_device *dev,
++					       struct net_device *vlan_dev)
++{
++	return NULL;
++}
++
+ static inline struct net_device *vlan_dev_real_dev(const struct net_device *dev)
  {
- 	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *slave;
--	int res;
- 
- 	bond_for_each_slave(bond, slave)
- 		vlan_vid_del(slave->dev, proto, vid);
- 
--	res = bond_del_vlan(bond, vid);
--	if (res) {
--		pr_err("%s: Error: Failed to remove vlan id %d\n",
--		       bond_dev->name, vid);
--		return res;
--	}
-+	bond_del_vlan(bond, vid);
- 
- 	return 0;
- }
-@@ -4135,7 +4033,6 @@ static void bond_setup(struct net_device *bond_dev)
- 
- 	/* Initialize pointers */
- 	bond->dev = bond_dev;
--	INIT_LIST_HEAD(&bond->vlan_list);
- 
- 	/* Initialize the device entry points */
- 	ether_setup(bond_dev);
-@@ -4188,7 +4085,6 @@ static void bond_uninit(struct net_device *bond_dev)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *slave, *tmp_slave;
--	struct vlan_entry *vlan, *tmp;
- 
- 	bond_netpoll_cleanup(bond_dev);
- 
-@@ -4200,11 +4096,6 @@ static void bond_uninit(struct net_device *bond_dev)
- 	list_del(&bond->bond_list);
- 
- 	bond_debug_unregister(bond);
--
--	list_for_each_entry_safe(vlan, tmp, &bond->vlan_list, vlan_list) {
--		list_del(&vlan->vlan_list);
--		kfree(vlan);
--	}
+ 	BUG();
+diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
+index ba5983f..e13aeac 100644
+--- a/net/8021q/vlan.h
++++ b/net/8021q/vlan.h
+@@ -168,10 +168,12 @@ static inline struct net_device *vlan_find_dev(struct net_device *real_dev,
+ 	return NULL;
  }
  
- /*------------------------- Module initialization ---------------------------*/
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 9c4539e..bfa33c4 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -186,11 +186,6 @@ struct bond_parm_tbl {
+-#define vlan_group_for_each_dev(grp, i, dev) \
+-	for ((i) = 0; i < VLAN_PROTO_NUM * VLAN_N_VID; i++) \
++#define vlan_group_for_each_dev_from(grp, i, dev, from) \
++	for ((i) = from; i < VLAN_PROTO_NUM * VLAN_N_VID; i++) \
+ 		if (((dev) = __vlan_group_get_device((grp), (i) / VLAN_N_VID, \
+ 							    (i) % VLAN_N_VID)))
++#define vlan_group_for_each_dev(grp, i, dev) \
++	vlan_group_for_each_dev_from(grp, i, dev, 0)
  
- #define BOND_MAX_MODENAME_LEN 20
+ /* found in vlan_dev.c */
+ void vlan_dev_set_ingress_priority(const struct net_device *dev,
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index 12e1606..20e1f92 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -89,6 +89,39 @@ struct net_device *__vlan_find_dev_deep(struct net_device *dev,
+ }
+ EXPORT_SYMBOL(__vlan_find_dev_deep);
  
--struct vlan_entry {
--	struct list_head vlan_list;
--	unsigned short vlan_id;
--};
--
- struct slave {
- 	struct net_device *dev; /* first - useful for panic debug */
- 	struct list_head list;
-@@ -255,7 +250,6 @@ struct bonding {
- 	struct   ad_bond_info ad_info;
- 	struct   alb_bond_info alb_info;
- 	struct   bond_params params;
--	struct   list_head vlan_list;
- 	struct   workqueue_struct *wq;
- 	struct   delayed_work mii_work;
- 	struct   delayed_work arp_work;
++/* Must be called under rcu_read_lock(), returns next vlan_id used by a
++ * vlan device on dev, starting with vlan_id, or 0 if no vlan_id found.
++ */
++struct net_device *__vlan_find_dev_next(struct net_device *dev,
++					struct net_device *vlan_dev)
++{
++	struct net_device *real_dev = dev, *master_dev, *ret;
++	struct vlan_info *vlan_info;
++	struct vlan_group *grp;
++	u16 vlan_id = 0, i;
++
++	if (vlan_dev)
++		vlan_id = vlan_dev_priv(vlan_dev)->vlan_id + 1;
++
++	master_dev = netdev_master_upper_dev_get_rcu(real_dev);
++
++	if (master_dev)
++		real_dev = master_dev;
++
++	vlan_info = rcu_dereference(real_dev->vlan_info);
++
++	if (!vlan_info)
++		return NULL;
++
++	grp = &vlan_info->grp;
++
++	vlan_group_for_each_dev_from(grp, i, ret, vlan_id)
++		return ret;
++
++	return NULL;
++}
++EXPORT_SYMBOL(__vlan_find_dev_next);
++
+ struct net_device *vlan_dev_real_dev(const struct net_device *dev)
+ {
+ 	return vlan_dev_priv(dev)->real_dev;
 -- 
 1.7.1
