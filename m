@@ -1,94 +1,83 @@
-From: Prabhakar Lad <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v3 6/6] ARM: davinci: da850: configure system
-	configuration chip(CFGCHIP3) for emac
-Date: Thu, 8 Aug 2013 16:09:50 +0530
-Message-ID: <CA+V-a8vHxB0Yy46LLEtVM7-VfPwC=UNux_cpQE=Xmon6Uvxbsg@mail.gmail.com>
-References: <1371999607-6483-1-git-send-email-prabhakar.csengg@gmail.com>
-	<1371999607-6483-7-git-send-email-prabhakar.csengg@gmail.com>
-	<51F8A4FF.8020803@ti.com>
-	<CA+V-a8smEd_75Ab-_vxjBATr8Q9Sefs0tpxc+kgQJRtuLJad=w@mail.gmail.com>
-	<5203C1D1.8020707@ti.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next v1 0/6] bonding: remove bond->vlan_list
+Date: Thu, 8 Aug 2013 12:39:09 +0200
+Message-ID: <20130808103909.GS22756@redhat.com>
+References: <1375957269-13100-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: DLOS <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
-        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-        LKML
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>,
-        LAK
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
-Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-In-Reply-To: <5203C1D1.8020707-l0cyMroinI0@public.gmane.org>
-List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
-List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
-List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
-Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:23492 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965156Ab3HHKkQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Aug 2013 06:40:16 -0400
+Content-Disposition: inline
+In-Reply-To: <1375957269-13100-1-git-send-email-vfalico@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 8, 2013 at 9:35 PM, Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org> wrote:
-> On Thursday 08 August 2013 04:02 PM, Prabhakar Lad wrote:
->> Hi Sekhar,
->>
->> Sorry for the  delayed response I was on leave and now back again up
->> and running.
->>
->> On Wed, Jul 31, 2013 at 11:17 AM, Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org> wrote:
->>> On Sunday 23 June 2013 08:30 PM, Prabhakar Lad wrote:
->>>> From: "Lad, Prabhakar" <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>>>
->>>> This patch makes a common function for to configure emac and calls
->>>> it appropriately in DT and non DT boot mode. The system configuration
->>>> chip CFGCHIP3, controls the emac module. This patch appropriately
->>>> configures this register for emac and sets DA850_MII_MDIO_CLKEN_PIN
->>>> GPIO pin appropriately.
->>>>
->> [Snip]
->>
->>>> +     if (rmii_enabled)
->>>> +             val |= BIT(8);
->>>> +     else
->>>> +             val &= ~BIT(8);
->>>> +
->>>> +     /* configure the CFGCHIP3 register for RMII or MII */
->>>> +     writel(val, cfg_chip3_base);
->>>> +
->>>> +     ret = davinci_cfg_reg(DA850_GPIO2_6);
->>>> +     if (ret)
->>>> +             pr_warn("%s:GPIO(2,6) mux setup failed\n", __func__);
->>>> +
->>>> +     ret = gpio_request(DA850_MII_MDIO_CLKEN_PIN, "mdio_clk_en");
->>>> +     if (ret) {
->>>> +             pr_warn("Cannot open GPIO %d\n", DA850_MII_MDIO_CLKEN_PIN);
->>>> +             return;
->>>> +     }
->>>
->>> You cannot do this in SoC specific code. All boards wont use a GPIO to
->>> choose between MII/RMII. You need to do this in a EVM specific manner.
->>> This just means you retain the GPIO part of code in board-da850-evm.c
->>
->> OK
->>
->>> and for the DT case use a board specific GPIO node. See a similar
->>> example in arch/arm/boot/dts/ste-nomadik-s8815.dts and how the code uses
->> Alrite something similar to usb-s8815 node.
->>
->>> it in arch/arm/mach-nomadik/cpu-8815.c.
->>>
->> But I don't see any code to access this node in this file, can
->> you point me to right direction ?
+On Thu, Aug 08, 2013 at 12:21:03PM +0200, Veaceslav Falico wrote:
+>RFC -> v1: Got some feedback from Nikolay Aleksandrov (privately), tried to
+>	   address it, also fixed some bugs that I've found on the way. I
+>	   think it's ready to be considered a patchset for
+>	   review/inclusion in net-next.
+
+I've re-sent the 1/6 (with v2), got the old version from the wrong git
+branch.
+
 >
-> Look at cpu8815_eth_init() function in this file.
+>The aim of this patchset is to remove bond->vlan_list completely, and use
+>8021q's standard functions instead of it.
 >
-Thanks, I was looking at some earlier version of code here [1],
-where this was missing.
-
-[1] https://github.com/AndrewDB/rk3066-kernel/blob/master/arch/arm/mach-nomadik/cpu-8815.c
-
-Regards,
---Prabhakar Lad
+>The patchset is on top of Nik's latest two patches:
+>[net-next,v2,1/2] bonding: change the bond's vlan syncing functions with
+>			   the standard ones
+>[net-next,v2,2/2] bonding: unwind on bond_add_vlan failure
+>
+>
+>First two patches add two helper functions to vlan code:
+>
+>bonding: add rcu to vlan_uses_dev() and make bond_vlan_used() use it
+>
+>	Here we change vlan_uses_dev() to be able to work under both rtnl
+>	and rcu, and use it under rcu_read_lock() in bond_vlan_used().
+>
+>vlan: add __vlan_find_dev_next()
+>
+>	This function takes dev and vlan_dev and returns the next vlan dev
+>	that uses this dev. It can be used to cycle through the vlan list,
+>	and not only by bonding - but by any network driver that uses its
+>	private vlan list.
+>
+>Next four patches actually convert bonding to use the new
+>functions/approach and remove the vlan_list completely.
+>
+>This patchset solves several issues with bonding, simplify it overall,
+>RCUify further and add infrastructure to anyone else who'd like to use
+>8021q standard functions instead of their own vlan_list, which is quite
+>common amongst network drivers currently.
+>
+>I'm testing it continuously currently, no issues found, will update on
+>anything.
+>
+>CC: Jay Vosburgh <fubar@us.ibm.com>
+>CC: Andy Gospodarek <andy@greyhouse.net>
+>CC: Patrick McHardy <kaber@trash.net>
+>CC: "David S. Miller" <davem@davemloft.net>
+>CC: Nikolay Aleksandrov <nikolay@redhat.com>
+>Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+>
+>---
+> drivers/net/bonding/bond_alb.c  |   48 ++++++++----
+> drivers/net/bonding/bond_alb.h  |    2 +-
+> drivers/net/bonding/bond_main.c |  163 ++++++---------------------------------
+> drivers/net/bonding/bonding.h   |   16 ++--
+> include/linux/if_vlan.h         |    8 ++
+> net/8021q/vlan.h                |    6 +-
+> net/8021q/vlan_core.c           |   36 ++++++++-
+> 7 files changed, 115 insertions(+), 164 deletions(-)
