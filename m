@@ -1,41 +1,163 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] net: phy: mdio: add missing __iomem annotation
-Date: Wed, 07 Aug 2013 16:59:57 -0700 (PDT)
-Message-ID: <20130807.165957.698344024245042714.davem@davemloft.net>
-References: <000201ce927f$8e339490$aa9abdb0$@samsung.com>
+From: Sedat Dilek <sedat.dilek@gmail.com>
+Subject: Re: linux-next: Tree for Aug 7
+Date: Thu, 8 Aug 2013 02:02:48 +0200
+Message-ID: <CA+icZUUm2nbmVj_WRznPTjXL0y6pcr1GzLjsL7UMhSGQWSm==g@mail.gmail.com>
+References: <20130807.104713.1615549684239408926.davem@davemloft.net>
+	<20130807183758.GB16263@orbit.nwl.cc>
+	<20130807.162748.779496444843938176.davem@davemloft.net>
+	<20130807.163621.84433966934449459.davem@davemloft.net>
+Reply-To: sedat.dilek@gmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, timur@freescale.com
-To: jg1.han@samsung.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51611 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933256Ab3HGXym (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 19:54:42 -0400
-In-Reply-To: <000201ce927f$8e339490$aa9abdb0$@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: phil@nwl.cc, eric.dumazet@gmail.com, johannes@sipsolutions.net,
+	sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	hannes@stressinduktion.org, linux-wireless@vger.kernel.org,
+	linville@tuxdriver.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20130807.163621.84433966934449459.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jingoo Han <jg1.han@samsung.com>
-Date: Tue, 06 Aug 2013 17:32:58 +0900
+On Thu, Aug 8, 2013 at 1:36 AM, David Miller <davem@davemloft.net> wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Wed, 07 Aug 2013 16:27:48 -0700 (PDT)
+>
+>> Look, I'm going to fix this myself, because I'm pretty tired of
+>> waiting for the obvious fix.
+>
+> Someone please test this:
+>
 
-> Added missing __iomem annotation in order to fix the following
-> sparse warnings:
-> 
-> drivers/net/phy/mdio-mux-mmioreg.c:51:27: warning: incorrect type in initializer (different address spaces)
-> drivers/net/phy/mdio-mux-mmioreg.c:51:27:    expected void *p
-> drivers/net/phy/mdio-mux-mmioreg.c:51:27:    got void [noderef] <asn:2>*
-> drivers/net/phy/mdio-mux-mmioreg.c:57:21: warning: incorrect type in argument 1 (different address spaces)
-> drivers/net/phy/mdio-mux-mmioreg.c:57:21:    expected void const volatile [noderef] <asn:2>*addr
-> drivers/net/phy/mdio-mux-mmioreg.c:57:21:    got void *p
-> drivers/net/phy/mdio-mux-mmioreg.c:60:25: warning: incorrect type in argument 2 (different address spaces)
-> drivers/net/phy/mdio-mux-mmioreg.c:60:25:    expected void volatile [noderef] <asn:2>*addr
-> drivers/net/phy/mdio-mux-mmioreg.c:60:25:    got void *p
-> drivers/net/phy/mdio-mux-mmioreg.c:64:25: warning: incorrect type in argument 1 (different address spaces)
-> drivers/net/phy/mdio-mux-mmioreg.c:64:25:    expected void volatile [noderef] <asn:2>*addr
-> drivers/net/phy/mdio-mux-mmioreg.c:64:25:    got void *p
-> 
-> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+Your patch on top of next-20130807 does not fix the issue in my wifi/network.
+No working Internet connection (ping etc.).
 
-Applied.
+- Sedat -
+
+> diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
+> index c623861..afc02a6 100644
+> --- a/include/linux/etherdevice.h
+> +++ b/include/linux/etherdevice.h
+> @@ -29,6 +29,7 @@
+>
+>  #ifdef __KERNEL__
+>  extern __be16          eth_type_trans(struct sk_buff *skb, struct net_device *dev);
+> +extern __be16          __eth_type_trans(struct sk_buff *skb, struct net_device *dev);
+>  extern const struct header_ops eth_header_ops;
+>
+>  extern int eth_header(struct sk_buff *skb, struct net_device *dev,
+> diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+> index be1f64d..35dc1be 100644
+> --- a/net/ethernet/eth.c
+> +++ b/net/ethernet/eth.c
+> @@ -146,6 +146,45 @@ int eth_rebuild_header(struct sk_buff *skb)
+>  EXPORT_SYMBOL(eth_rebuild_header);
+>
+>  /**
+> + * __eth_type_trans - only determine the packet's protocol ID.
+> + * @skb: packet
+> + * @dev: device
+> + */
+> +__be16 __eth_type_trans(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +       struct ethhdr *eth = (struct ethhdr *) skb->data;
+> +
+> +       /*
+> +        * Some variants of DSA tagging don't have an ethertype field
+> +        * at all, so we check here whether one of those tagging
+> +        * variants has been configured on the receiving interface,
+> +        * and if so, set skb->protocol without looking at the packet.
+> +        */
+> +       if (netdev_uses_dsa_tags(dev))
+> +               return htons(ETH_P_DSA);
+> +       if (netdev_uses_trailer_tags(dev))
+> +               return htons(ETH_P_TRAILER);
+> +
+> +       if (ntohs(eth->h_proto) >= ETH_P_802_3_MIN)
+> +               return eth->h_proto;
+> +
+> +       /*
+> +        *      This is a magic hack to spot IPX packets. Older Novell breaks
+> +        *      the protocol design and runs IPX over 802.3 without an 802.2 LLC
+> +        *      layer. We look for FFFF which isn't a used 802.2 SSAP/DSAP. This
+> +        *      won't work for fault tolerant netware but does for the rest.
+> +        */
+> +       if (skb->len >= 2 && *(unsigned short *)(skb->data) == 0xFFFF)
+> +               return htons(ETH_P_802_3);
+> +
+> +       /*
+> +        *      Real 802.2 LLC
+> +        */
+> +       return htons(ETH_P_802_2);
+> +}
+> +EXPORT_SYMBOL(__eth_type_trans);
+> +
+> +/**
+>   * eth_type_trans - determine the packet's protocol ID.
+>   * @skb: received socket data
+>   * @dev: receiving network device
+> @@ -184,33 +223,7 @@ __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
+>                         skb->pkt_type = PACKET_OTHERHOST;
+>         }
+>
+> -       /*
+> -        * Some variants of DSA tagging don't have an ethertype field
+> -        * at all, so we check here whether one of those tagging
+> -        * variants has been configured on the receiving interface,
+> -        * and if so, set skb->protocol without looking at the packet.
+> -        */
+> -       if (netdev_uses_dsa_tags(dev))
+> -               return htons(ETH_P_DSA);
+> -       if (netdev_uses_trailer_tags(dev))
+> -               return htons(ETH_P_TRAILER);
+> -
+> -       if (ntohs(eth->h_proto) >= ETH_P_802_3_MIN)
+> -               return eth->h_proto;
+> -
+> -       /*
+> -        *      This is a magic hack to spot IPX packets. Older Novell breaks
+> -        *      the protocol design and runs IPX over 802.3 without an 802.2 LLC
+> -        *      layer. We look for FFFF which isn't a used 802.2 SSAP/DSAP. This
+> -        *      won't work for fault tolerant netware but does for the rest.
+> -        */
+> -       if (skb->len >= 2 && *(unsigned short *)(skb->data) == 0xFFFF)
+> -               return htons(ETH_P_802_3);
+> -
+> -       /*
+> -        *      Real 802.2 LLC
+> -        */
+> -       return htons(ETH_P_802_2);
+> +       return __eth_type_trans(skb, dev);
+>  }
+>  EXPORT_SYMBOL(eth_type_trans);
+>
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index 0c0f6c9..ec8e1c3 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -2003,7 +2003,7 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+>                         return err;
+>
+>                 if (dev->type == ARPHRD_ETHER)
+> -                       skb->protocol = eth_type_trans(skb, dev);
+> +                       skb->protocol = __eth_type_trans(skb, dev);
+>
+>                 data += dev->hard_header_len;
+>                 to_write -= dev->hard_header_len;
+> @@ -2332,13 +2332,13 @@ static int packet_snd(struct socket *sock,
+>         sock_tx_timestamp(sk, &skb_shinfo(skb)->tx_flags);
+>
+>         if (dev->type == ARPHRD_ETHER) {
+> -               skb->protocol = eth_type_trans(skb, dev);
+> +               skb->protocol = __eth_type_trans(skb, dev);
+>                 if (skb->protocol == htons(ETH_P_8021Q))
+>                         reserve += VLAN_HLEN;
+>         } else {
+>                 skb->protocol = proto;
+> -               skb->dev = dev;
+>         }
+> +       skb->dev = dev;
+>
+>         if (!gso_type && (len > dev->mtu + reserve + extra_len)) {
+>                 err = -EMSGSIZE;
