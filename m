@@ -1,97 +1,92 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] veth: remove hardware checksum feature
-Date: Wed, 07 Aug 2013 17:23:44 -0700
-Message-ID: <5202E510.9060309@candelatech.com>
-References: <51F15E50.8080208@guap.ru> <5202E153.4060202@candelatech.com> <1375920752.4004.71.camel@edumazet-glaptop>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH v2.35 6/6] datapath: Add basic MPLS support to kernel
+Date: Wed, 7 Aug 2013 17:39:55 -0700
+Message-ID: <CAEP_g=-4gvJEbQ68=gBUpa-j2Kz_DX_zkV4KKvtewa=rbsSZiw@mail.gmail.com>
+References: <1374289623-17056-1-git-send-email-horms@verge.net.au> <1374289623-17056-7-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Vitaly E. Lavrov" <lve@guap.ru>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
+	Isaku Yamahata <yamahata@valinux.co.jp>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Jarno Rajahalme <jarno.rajahalme@nsn.com>,
+	Joe Stringer <joe@wand.net.nz>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:41488 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933288Ab3HHAXw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 20:23:52 -0400
-In-Reply-To: <1375920752.4004.71.camel@edumazet-glaptop>
+Received: from na3sys009aog119.obsmtp.com ([74.125.149.246]:49785 "HELO
+	na3sys009aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S933367Ab3HHAkS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Aug 2013 20:40:18 -0400
+Received: by mail-lb0-f179.google.com with SMTP id v1so1982283lbd.38
+        for <netdev@vger.kernel.org>; Wed, 07 Aug 2013 17:40:15 -0700 (PDT)
+In-Reply-To: <1374289623-17056-7-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/07/2013 05:12 PM, Eric Dumazet wrote:
-> On Wed, 2013-08-07 at 17:07 -0700, Ben Greear wrote:
->> On 07/25/2013 10:20 AM, Vitaly E. Lavrov wrote:
->>> The network device VETH can't support the feature NETIF_F_HW_CSUM.
->>> All locally generated packets have invalid checksum.
->>> Wrong commit http://git.kernel.org/cgit/linux/kernel/git/torvalds/l=
-inux.git/commit/?id=3D8093315a91340bca52549044975d8c7f673b28a1 ( kernel=
- 3.9.0 )
->>>
->>> Workaround "ethtool -K vethX tx off"
->>>
->>> Possible patch:
->>>
->>> diff --git a/drivers/net/veth.c b/drivers/net/veth.c
->>> index 177f911..3db97da 100644
->>> --- a/drivers/net/veth.c
->>> +++ b/drivers/net/veth.c
->>> @@ -254,7 +254,7 @@ static const struct net_device_ops veth_netdev_=
-ops =3D {
->>>    };
->>>
->>>    #define VETH_FEATURES (NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_A=
-LL_TSO |    \
->>> -                      NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_H=
-IGHDMA | \
->>> +                      NETIF_F_RXCSUM | NETIF_F_HIGHDMA | \
->>>                          NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_=
-CTAG_RX | \
->>>                          NETIF_F_HW_VLAN_STAG_TX | NETIF_F_HW_VLAN_=
-STAG_RX )
->>
->> I see the same problem.
->>
->> My test case is a bit complicated, but the gist is that I have a VET=
-H
->> pair, one with IP (veth1), one connected to a bridge-like-thing (vet=
-h2).
->>
->> The UDP frames sent on veth1 appear on veth2, and when I sniff veth2=
-,
->> the packets show broken checksum.  The work-around mentioned in Vita=
-ly's
->> email above fixes the problem for me (I did not try the patch yet).
->>
->> Eric:  You responded originally that you needed more info.  If
->> my explanation above is not sufficient, please let me know what
->> you need...
->>
->
-> tcpdump is known to display wrong checksums, its not a reason to disa=
-ble
-> tx checksums on our interfaces and kill performance.
+On Fri, Jul 19, 2013 at 8:07 PM, Simon Horman <horms@verge.net.au> wrote:
+> diff --git a/datapath/actions.c b/datapath/actions.c
+> index 0a2def6..99e02cf 100644
+> --- a/datapath/actions.c
+> +++ b/datapath/actions.c
+> +/* The end of the mac header.
+> + *
+> + * For non-MPLS skbs this will correspond to the network header.
+> + * For MPLS skbs it will be berfore the network_header as the MPLS
+> + * label stack lies between the end of the mac header and the network
+> + * header. That is, for MPLS skbs the end of the mac header
+> + * is the top of the MPLS label stack.
+> + */
+> +static unsigned char *mac_header_end(const struct sk_buff *skb)
+> +{
+> +       return skb_mac_header(skb) + skb->mac_len;
+> +}
+> +
+> +static void set_ethertype(struct sk_buff *skb, __be16 ethertype, bool inner)
+> +{
+> +       struct ethhdr *hdr;
+> +       if (inner)
+> +               /* mac_header_end() is used to locate the ethertype
+> +                * field correctly in the presence of VLAN tags. */
+> +               hdr = (struct ethhdr *)(mac_header_end(skb) - ETH_HLEN);
+> +       else
+> +               hdr = (struct ethhdr *)(skb_mac_header(skb));
+> +       hdr->h_proto = ethertype;
+> +}
+> +
+> +/* Push MPLS after the ethernet header. We blindly ignore any other tags,
+> + * assuming that actions are ordered correctly. */
+> +static int push_mpls(struct sk_buff *skb,
+> +                    const struct ovs_action_push_mpls *mpls)
+> +{
+> +       __be32 *new_mpls_lse;
+> +       int err;
+> +
+> +       if (skb_cow_head(skb, MPLS_HLEN) < 0)
+> +               return -ENOMEM;
+> +
+> +       err = make_writable(skb, skb->mac_len);
+> +       if (unlikely(err))
+> +               return err;
+> +
+> +       skb_push(skb, MPLS_HLEN);
+> +       memmove(skb_mac_header(skb) - MPLS_HLEN, skb_mac_header(skb),
+> +               ETH_HLEN);
+> +       skb_reset_mac_header(skb);
+> +
+> +       new_mpls_lse = (__be32 *)(skb_mac_header(skb) + ETH_HLEN);
+> +       *new_mpls_lse = mpls->mpls_lse;
+> +
+> +       if (get_ip_summed(skb) == OVS_CSUM_COMPLETE)
+> +               skb->csum = csum_add(skb->csum, csum_partial(new_mpls_lse,
+> +                                                            MPLS_HLEN, 0));
+> +
+> +       set_ethertype(skb, mpls->mpls_ethertype, false);
+> +       if (skb->protocol != htons(ETH_P_8021Q))
+> +               skb->protocol = mpls->mpls_ethertype;
 
-I am receiving the packet into user space by reading veth2
-using a packet socket, and then writing that packet out to eth6
-(e100e).  As far as I can tell, it reads from veth2 with bad checksum
-and then goes onto the wire with bad checksum.
-
->         -K     Don't  attempt to verify IP, TCP, or UDP checksums.  T=
-his
-> is useful for interfaces that perform some or all of those checksum
-> calculation in hardware; other=E2=80=90
->                wise, all outgoing TCP checksums will be flagged as ba=
-d.
-
-Is it ever valid to *read* a packet with bad checksum though?  I though=
-t
-the bogus bad hw-checksum issue was only on the tx-side as far as sniff=
-ing goes?
-
-Thanks,
-Ben
-
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+It seems to me that there is a fair amount of stuff left over from
+before the tag ordering conversion. For example, shouldn't we set the
+EtherType unconditionally now if we are pushing tags onto the front?
+Do we still need to dig into the packet to find the last EtherType if
+we are now working on the outer tag? How does this interact with vlan
+offloading, etc.?
