@@ -1,38 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: add server ip to encrypt cookie in fast open
-Date: Thu, 08 Aug 2013 14:52:43 -0700
-Message-ID: <1375998763.4004.132.camel@edumazet-glaptop>
-References: <1375995982-17862-1-git-send-email-ycheng@google.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] veth: remove hardware checksum feature
+Date: Thu, 08 Aug 2013 15:13:22 -0700
+Message-ID: <52041802.9040304@candelatech.com>
+References: <51F15E50.8080208@guap.ru> <5202E153.4060202@candelatech.com>    <1375920752.4004.71.camel@edumazet-glaptop>    <5202E510.9060309@candelatech.com>   <1375924125.4004.83.camel@edumazet-glaptop>   <5202FA51.4040906@candelatech.com>  <1375930325.4004.88.camel@edumazet-glaptop>  <5203F4E6.1010701@candelatech.com> <1375993014.4004.112.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, ncardwell@google.com, edumazet@google.com,
-	netdev@vger.kernel.org
-To: Yuchung Cheng <ycheng@google.com>
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:43361 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758094Ab3HHVwp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 17:52:45 -0400
-Received: by mail-pb0-f48.google.com with SMTP id ma3so3895445pbc.21
-        for <netdev@vger.kernel.org>; Thu, 08 Aug 2013 14:52:44 -0700 (PDT)
-In-Reply-To: <1375995982-17862-1-git-send-email-ycheng@google.com>
+Received: from mail.candelatech.com ([208.74.158.172]:58692 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758182Ab3HHWNY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 18:13:24 -0400
+In-Reply-To: <1375993014.4004.112.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-08-08 at 14:06 -0700, Yuchung Cheng wrote:
-> Encrypt the cookie with both server and client IPv4 addresses,
-> such that multi-homed server will grant different cookies
-> based on both the source and destination IPs. No client change
-> is needed since cookie is opaque to the client.
-> 
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> ---
->  include/net/tcp.h       |  3 ++-
->  net/ipv4/tcp_fastopen.c | 13 ++++++-------
->  net/ipv4/tcp_ipv4.c     | 10 +++++++---
->  3 files changed, 15 insertions(+), 11 deletions(-)
+On 08/08/2013 01:16 PM, Eric Dumazet wrote:
+> On Thu, 2013-08-08 at 12:43 -0700, Ben Greear wrote:
+>
+>> So, the question is:  Is there any time that I *should* be mucking with
+>> skb->ip_summed when bridging pkts from one device to another on modern
+>> kernels?  I'm using the ptype_all hook to grab packets, and ndo_start_xmit
+>> to send them, in case that matters.
+>
+>
+> ndo_start_xmit() is likely bypassing the core network fallbacks.
+>
+> You might try dev_hard_start_xmit() instead
 
-Reviewed-by: Eric Dumazet <edumazet@google.com>
+Looks like it should work nicely, except it would be really
+nice if I could short-circuit the xmit_nit() part for my
+protocol handler.
 
-I presume this is net-next material ?
+Think there would be any interest in allowing the ptype_all
+handlers to optionally register a direction (ie tx-only, rx-only, both)
+and have dev_queue_xmit_nit() pay attention to that?
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
