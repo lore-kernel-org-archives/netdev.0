@@ -1,51 +1,74 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Preferred method for configuration
-Date: Thu, 8 Aug 2013 11:44:39 +0200
-Message-ID: <1375955079.2853.1.camel@deadeye.wl.decadent.org.uk>
-References: <52032D5E.6070307@hhi.fraunhofer.de>
-	 <1375940480.2424.135.camel@joe-AO722> <520332F4.5020206@hhi.fraunhofer.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Thomas Martitz <thomas.martitz@hhi.fraunhofer.de>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH net-next v1 0/6] bonding: remove bond->vlan_list
+Date: Thu,  8 Aug 2013 12:21:03 +0200
+Message-ID: <1375957269-13100-1-git-send-email-vfalico@redhat.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Veaceslav Falico <vfalico@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:54103 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934097Ab3HHJor (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 05:44:47 -0400
-In-Reply-To: <520332F4.5020206@hhi.fraunhofer.de>
+Received: from mx1.redhat.com ([209.132.183.28]:21034 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964939Ab3HHKUr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Aug 2013 06:20:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-08-08 at 07:56 +0200, Thomas Martitz wrote:
-> Resent with list in CC.
-> 
-> Am 08.08.2013 07:41, schrieb Joe Perches:
-> > On Thu, 2013-08-08 at 07:32 +0200, Thomas Martitz wrote:
-> >> Hello,
-> >>
-> >> I'm developing a NIC driver and currently export some custom
-> >> configuration settings and actions (e.g. enabling a loopback mode) via
-> >> sysfs.
-> >
-> > Is there some reason you don't want to use ethtool?
-> >
-> >
-> 
-> It doesn't allow for custom settings does it? For standards stuff I'm 
-> sure going to use ethtool.
+RFC -> v1: Got some feedback from Nikolay Aleksandrov (privately), tried to
+	   address it, also fixed some bugs that I've found on the way. I
+	   think it's ready to be considered a patchset for
+	   review/inclusion in net-next.
 
-You can always propose extensions to ethtool.
+The aim of this patchset is to remove bond->vlan_list completely, and use
+8021q's standard functions instead of it.
 
-Note that the ethtool 'features' API already allows setting loopback and
-there is a 'private flags' API through which you can expose up to 32
-arbitrary named flags if they're really not at all generic.
+The patchset is on top of Nik's latest two patches:
+[net-next,v2,1/2] bonding: change the bond's vlan syncing functions with
+			   the standard ones
+[net-next,v2,2/2] bonding: unwind on bond_add_vlan failure
 
-Ben.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+First two patches add two helper functions to vlan code:
+
+bonding: add rcu to vlan_uses_dev() and make bond_vlan_used() use it
+
+	Here we change vlan_uses_dev() to be able to work under both rtnl
+	and rcu, and use it under rcu_read_lock() in bond_vlan_used().
+
+vlan: add __vlan_find_dev_next()
+
+	This function takes dev and vlan_dev and returns the next vlan dev
+	that uses this dev. It can be used to cycle through the vlan list,
+	and not only by bonding - but by any network driver that uses its
+	private vlan list.
+
+Next four patches actually convert bonding to use the new
+functions/approach and remove the vlan_list completely.
+
+This patchset solves several issues with bonding, simplify it overall,
+RCUify further and add infrastructure to anyone else who'd like to use
+8021q standard functions instead of their own vlan_list, which is quite
+common amongst network drivers currently.
+
+I'm testing it continuously currently, no issues found, will update on
+anything.
+
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+CC: Patrick McHardy <kaber@trash.net>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Nikolay Aleksandrov <nikolay@redhat.com>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+
+---
+ drivers/net/bonding/bond_alb.c  |   48 ++++++++----
+ drivers/net/bonding/bond_alb.h  |    2 +-
+ drivers/net/bonding/bond_main.c |  163 ++++++---------------------------------
+ drivers/net/bonding/bonding.h   |   16 ++--
+ include/linux/if_vlan.h         |    8 ++
+ net/8021q/vlan.h                |    6 +-
+ net/8021q/vlan_core.c           |   36 ++++++++-
+ 7 files changed, 115 insertions(+), 164 deletions(-)
