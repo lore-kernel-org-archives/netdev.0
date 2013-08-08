@@ -1,57 +1,60 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH v2 net-next] net: Add low-latency/polling support for
- UDP multicast
-Date: Thu, 08 Aug 2013 11:46:17 +0300
-Message-ID: <52035AD9.30703@linux.intel.com>
-References: <5200A203.2090306@linux.intel.com>  <1375818663-12318-1-git-send-email-sbohrer@rgmadvisors.com> <1375906946.4004.45.camel@edumazet-glaptop>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: IGMP Unsolicited report interval patches
+Date: Thu, 8 Aug 2013 11:01:05 +0200
+Message-ID: <20130808090105.GA14001@order.stressinduktion.org>
+References: <20130731063442.GA10498@order.stressinduktion.org> <1375812195-6575-1-git-send-email-william.manley@youview.com> <20130807010310.GH16410@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Shawn Bohrer <sbohrer@rgmadvisors.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	tomk@rgmadvisors.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+To: William Manley <william.manley@youview.com>,
+	netdev@vger.kernel.org, bcrl@kvack.org, luky-37@hotmail.com,
+	sergei.shtylyov@cogentembedded.com, bhutchings@solarflare.com,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:52074 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933813Ab3HHIqV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Aug 2013 04:46:21 -0400
-In-Reply-To: <1375906946.4004.45.camel@edumazet-glaptop>
+Received: from order.stressinduktion.org ([87.106.68.36]:38834 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934040Ab3HHJBI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 05:01:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20130807010310.GH16410@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Aug 07, 2013 at 03:03:10AM +0200, Hannes Frederic Sowa wrote:
+> On Tue, Aug 06, 2013 at 07:03:12PM +0100, William Manley wrote:
+> > 4th version of the patches.
+> > 
+> > The significant changes since last review are: 
+> > 
+> > 1. there is a new patch (2/3) as requested by Hannes.
+> 
+> Thanks!
+> 
+> > 2. the third patch now uses IN_DEV_CONF_GET in place of
+> >    IPV4_DEVCONF_ALL.  This means that the unsolicited report interval can
+> >    now be configured on an interface-by-interface basis as I'd originally
+> >    intended but messed up in the implementation.  One concern I have now
+> >    is that with this latest patch-set is that while
+> >    /proc/sys/net/ipv4/conf/eth0/igmp... will now have an effect 
+> >    /proc/sys/net/ipv4/conf/all/igmp... will not.  I'm not sure how to
+> >    resolve this.
+> 
+> Hm, it seems to be come more difficult dealing with ranges.
+> 
+> One way would be, to check the state bit for the devinet entry and chose the
+> all value always but when the state bit for the interface for this entry is
+> set. I'll have a look on how to do this.
 
-On 07/08/2013 23:22, Eric Dumazet wrote:
-> On Tue, 2013-08-06 at 14:51 -0500, Shawn Bohrer wrote:
->> Set the napi id for each socket in the multicast path to enable
->> low-latency/polling support.
->>
->> Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
->> ---
->> v2 include ipv6 support
-> 
-> This might help your workload, but I doubt it is generic enough.
-> 
-> One UDP socket is supposed to receive traffic from many endpoints,
-> so we have no guarantee all the received traffic will end on a single RX
-> queue on the NIC.
-> 
-> That's the same logic than RFS here.
-> 
-> sk_mark_napi_id() in UDP are wrong IMHO.
-> 
-> It should be guarded by the following test in  
-> __udp_queue_rcv_skb()
-> 
-> if (inet_sk(sk)->inet_daddr) {
->     sock_rps_save_rxhash(sk, skb);
->     sk_mark_napi_id(sk, skb);
-> }
-> 
-> (To occur only for connected UDP sockets, where we are 100% sure all
-> packets will use this same rxhash/rx queue)
+We copy ipv4_devconf_dftl over to the per-interface ipv4_devconf as long no
+address is assigned to the interface.
 
-This would also be safe if there is only one NIC and said NIC was
-programmed to always place this socket's data on the same queue.
+The copy-over is guarded by by the cnf.state bitmap. It is set to all ones in
+ipv4_devconf_setall which gets called at the relevant places. Instead of
+setting all bits we could just apply a bitmask which would still allow a
+propagation of the default/*igmp* parameters.
 
-I don't have a good suggestion on how to detect this.
+The all namespace has special semantics and decision what to apply are done
+per knob. I wouldn't fiddle with that.
+
+Greetings,
+
+  Hannes
