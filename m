@@ -1,18 +1,21 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Subject: [PATCH 08/16] myri10ge: clean up unnecessary MSI/MSI-X capability find
-Date: Thu, 8 Aug 2013 21:02:44 +0800
-Message-ID: <1375966964-24156-1-git-send-email-wangyijing@huawei.com>
+Subject: [PATCH 09/16] netxen: clean up unnecessary MSI/MSI-X capability find
+Date: Thu, 8 Aug 2013 21:02:56 +0800
+Message-ID: <1375966976-33428-1-git-send-email-wangyijing@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Hanjun Guo <guohanjun@huawei.com>, <jiang.liu@huawei.com>,
 	Yijing Wang <wangyijing@huawei.com>,
-	Andrew Gallatin <gallatin@myri.com>, <netdev@vger.kernel.org>
+	Manish Chopra <manish.chopra@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	<netdev@vger.kernel.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:41420 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964851Ab3HHNC7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 09:02:59 -0400
+Received: from szxga01-in.huawei.com ([119.145.14.64]:57690 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757824Ab3HHNDX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 09:03:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -24,31 +27,37 @@ pci_find_capability(pci_dev, PCI_CAP_ID_MSI/MSIX).
 Access to PCIe device config space again will consume more time.
 
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-Cc: Andrew Gallatin <gallatin@myri.com>
+Cc: Manish Chopra <manish.chopra@qlogic.com>
+Cc: Sony Chacko <sony.chacko@qlogic.com>
+Cc: Rajesh Borundia <rajesh.borundia@qlogic.com>
 Cc: netdev@vger.kernel.org
 ---
- drivers/net/ethernet/myricom/myri10ge/myri10ge.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+ .../net/ethernet/qlogic/netxen/netxen_nic_main.c   |    8 +++-----
+ 1 files changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-index 967bae8..8772bb5 100644
---- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-+++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-@@ -3625,13 +3625,12 @@ static void myri10ge_probe_slices(struct myri10ge_priv *mgp)
- 	struct pci_dev *pdev = mgp->pdev;
- 	char *old_fw;
- 	bool old_allocated;
--	int i, status, ncpus, msix_cap;
-+	int i, status, ncpus;
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+index c401b0b..1046e94 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+@@ -459,16 +459,14 @@ static void netxen_pcie_strap_init(struct netxen_adapter *adapter)
+ static void netxen_set_msix_bit(struct pci_dev *pdev, int enable)
+ {
+ 	u32 control;
+-	int pos;
  
- 	mgp->num_slices = 1;
--	msix_cap = pci_find_capability(pdev, PCI_CAP_ID_MSIX);
- 	ncpus = netif_get_num_default_rss_queues();
- 
--	if (myri10ge_max_slices == 1 || msix_cap == 0 ||
-+	if (myri10ge_max_slices == 1 || !pdev->msix_cap ||
- 	    (myri10ge_max_slices == -1 && ncpus < 2))
- 		return;
+-	pos = pci_find_capability(pdev, PCI_CAP_ID_MSIX);
+-	if (pos) {
+-		pci_read_config_dword(pdev, pos, &control);
++	if (pdev->msix_cap) {
++		pci_read_config_dword(pdev, pdev->msix_cap, &control);
+ 		if (enable)
+ 			control |= PCI_MSIX_FLAGS_ENABLE;
+ 		else
+ 			control = 0;
+-		pci_write_config_dword(pdev, pos, control);
++		pci_write_config_dword(pdev, pdev->msix_cap, control);
+ 	}
+ }
  
 -- 
 1.7.1
