@@ -1,45 +1,61 @@
-From: Jussi Kivilinna <jussi.kivilinna-X3B1VOXEql0@public.gmane.org>
-Subject: Re: [PATCH] net/usb: rtl8150: allocate URB transfer_buffer and setup_packet
- separately
-Date: Thu, 08 Aug 2013 22:43:16 +0300
-Message-ID: <5203F4D4.8090609@iki.fi>
-References: <20130807133653.15587.35442.stgit@localhost6.localdomain6> <alpine.DEB.2.10.1308081809120.4258@fry.nucleusys.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] veth: remove hardware checksum feature
+Date: Thu, 08 Aug 2013 12:43:34 -0700
+Message-ID: <5203F4E6.1010701@candelatech.com>
+References: <51F15E50.8080208@guap.ru> <5202E153.4060202@candelatech.com>   <1375920752.4004.71.camel@edumazet-glaptop>   <5202E510.9060309@candelatech.com>  <1375924125.4004.83.camel@edumazet-glaptop>  <5202FA51.4040906@candelatech.com> <1375930325.4004.88.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Petko Manolov <petkan-nPnTwAqkgEqakBO8gow8eQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.DEB.2.10.1308081809120.4258-WOI+tvYbpdBn9MRfDTB0XAC/G2K4zDHf@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:39648 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965983Ab3HHTnf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 15:43:35 -0400
+In-Reply-To: <1375930325.4004.88.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08.08.2013 18:14, Petko Manolov wrote:
-> On Wed, 7 Aug 2013, Jussi Kivilinna wrote:
-> 
->> rtl8150 allocates URB transfer_buffer and setup_packet as part of same 
->> structure 'struct async_req'. This can cause same cacheline to be 
->> DMA-mapped twice with same URB. This can lead to memory corruption on 
->> some systems.
-> 
-> I can see performance impact due to the double mapping.  However, memory 
-> corruption seems a bit too much for sane cache and DMA controllers.  Out 
-> of interest - which is the architecture that will potentially corrupt the 
-> memory.
+On 08/07/2013 07:52 PM, Eric Dumazet wrote:
+> On Wed, 2013-08-07 at 18:54 -0700, Ben Greear wrote:
+>
+>> Maybe we should just do the csum calc in the kernel if packet is
+>> about to be sent up to user-space via af_packet?  I think that
+>> would keep the expected behaviour, and hopefully not loose any of the performance
+>> benefits for cases where the packet never leaves the kernel?
+>
+> I think you are rephrasing what I suggested ;)
+>
+> I'll send a patch asap, unless someone beats me.
 
-rtlwifi driver had similar structure to allocate both setup_packet and transfer_buffer in single go (overlapping dma-mapping cachelines) and this caused problems on ARM/sunxi. Problems means: memory corruptions at random locations, device freezes and lock-ups.
 
--Jussi
+I'll be happy to test.
 
-> 
-> 
-> cheers,
-> Petko
-> 
+And a slightly related question if you have the time:
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+My kernel-mode bridge was breaking as well, but this appears to
+be a bug in my code.  I had this code (since 2009, at least):
+
+// Evidently this fixes issues with sending between NICs
+// that support and do not support hw-csum.
+skb->ip_summed = CHECKSUM_NONE;
+
+
+It seems that at some point, this fixed some problem I saw, but it was long
+ago.  If I remove this, then the 3.9 kernel bridges just fine between
+the VETH and a physical interface.
+
+I do not see any modification of the ip_summed in the bridge code.
+
+So, the question is:  Is there any time that I *should* be mucking with
+skb->ip_summed when bridging pkts from one device to another on modern
+kernels?  I'm using the ptype_all hook to grab packets, and ndo_start_xmit
+to send them, in case that matters.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
