@@ -1,136 +1,125 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH v2 net-next 3/6] bonding: make bond_alb use 8021q's
- dev->vlan_info instead of vlan_list
-Date: Fri, 9 Aug 2013 13:24:14 +0200
-Message-ID: <20130809112414.GC17510@redhat.com>
-References: <1375981079-2936-1-git-send-email-vfalico@redhat.com>
- <1375981079-2936-4-git-send-email-vfalico@redhat.com>
- <5204CEF6.1030200@redhat.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH v2 net-next 5/6] bonding: convert bond_arp_send_all to
+ use bond->dev->vlan_info
+Date: Fri, 09 Aug 2013 13:42:39 +0200
+Message-ID: <5204D5AF.9080702@redhat.com>
+References: <1375981079-2936-1-git-send-email-vfalico@redhat.com> <1375981079-2936-6-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25903 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:61211 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754499Ab3HILZL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Aug 2013 07:25:11 -0400
-Content-Disposition: inline
-In-Reply-To: <5204CEF6.1030200@redhat.com>
+	id S967079Ab3HILq0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Aug 2013 07:46:26 -0400
+In-Reply-To: <1375981079-2936-6-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 09, 2013 at 01:13:58PM +0200, Nikolay Aleksandrov wrote:
->On 08/08/2013 06:57 PM, Veaceslav Falico wrote:
->> RFC -> v1: use the changed __vlan_find_dev_next, which now works with
->> 	   vlan's net_device instead of vlan's id. Also, fix a subtle race
->> 	   condition if we remove the only vlan while looping through
->> 	   MAX_LP_BURST - we end up with using the old vlan_id, so set it
->> 	   to 0 if we don't have vlans.
->> v1  -> v2: no change.
->>
->> In alb mode, we only need each vlan's id (that is on top of bond) to tag
->> learning packets, so get them via __vlan_find_dev_next(bond->dev, last_dev).
->>
->> We must also find *any* vlan (including last id stored in current_alb_vlan)
->> if we can't find anything >= current_alb_vlan id.
->>
->> For that, we verify if bond has any vlans at all, and if yes - find the
->> next vlan id after current_alb_vlan id. So, if vlan id is not 0, we tag the
->> skb.
->>
->> CC: Jay Vosburgh <fubar@us.ibm.com>
->> CC: Andy Gospodarek <andy@greyhouse.net>
->> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
->> ---
->>  drivers/net/bonding/bond_alb.c |   47 ++++++++++++++++++++++++++++-----------
->>  drivers/net/bonding/bond_alb.h |    2 +-
->>  2 files changed, 35 insertions(+), 14 deletions(-)
->>
->> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
->> index 2684329..ced5753 100644
->> --- a/drivers/net/bonding/bond_alb.c
->> +++ b/drivers/net/bonding/bond_alb.c
->> @@ -974,8 +974,9 @@ static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
->>  {
->>  	struct bonding *bond = bond_get_bond_by_slave(slave);
->>  	struct learning_pkt pkt;
->> +	struct net_device *vlan_dev;
->>  	int size = sizeof(struct learning_pkt);
->> -	int i;
->> +	int i, vlan_id;
->Styling nitpick: maybe re-arrange them longest -> shortest ?
+On 08/08/2013 06:57 PM, Veaceslav Falico wrote:
+> RFC -> v1: use the new __vlan_find_dev_next(), also release rcu_read_lock()
+> 	   only after we stop using the vlan_dev.
+> v1  -> v2: no change.
+> 
+> Instead of looping through bond->vlan_list, loop through
+> bond->dev->vlan_info via __vlan_find_dev_next() under rcu_read_lock().
+> 
+> CC: Jay Vosburgh <fubar@us.ibm.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> ---
+>  drivers/net/bonding/bond_main.c |   29 +++++++++++++----------------
+>  1 files changed, 13 insertions(+), 16 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index e52e2d5..f536d05 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -2440,11 +2440,10 @@ static void bond_arp_send(struct net_device *slave_dev, int arp_op, __be32 dest_
+>  
+>  static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+>  {
+> -	int i, vlan_id;
+> -	__be32 *targets = bond->params.arp_targets;
+> -	struct vlan_entry *vlan;
+> -	struct net_device *vlan_dev = NULL;
+> +	struct net_device *vlan_dev;
+>  	struct rtable *rt;
+> +	__be32 *targets = bond->params.arp_targets;
+> +	int i;
+>  
+Style nitpick: maybe move them longest -> shortest.
 
-Yep, sure, thank you.
-
+>  	for (i = 0; (i < BOND_MAX_ARP_TARGETS); i++) {
+>  		__be32 addr;
+> @@ -2486,28 +2485,26 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+>  			continue;
+>  		}
+>  
+> -		vlan_id = 0;
+> -		list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
+> -			rcu_read_lock();
+> -			vlan_dev = __vlan_find_dev_deep(bond->dev,
+> -							htons(ETH_P_8021Q),
+> -							vlan->vlan_id);
+> -			rcu_read_unlock();
+> +		vlan_dev = NULL;
+> +
+> +		rcu_read_lock();
+> +		while ((vlan_dev = __vlan_find_dev_next(bond->dev, vlan_dev)))
+>  			if (vlan_dev == rt->dst.dev) {
+> -				vlan_id = vlan->vlan_id;
+>  				pr_debug("basa: vlan match on %s %d\n",
+> -				       vlan_dev->name, vlan_id);
+> +					 vlan_dev->name,
+> +					 vlan_dev_vlan_id(vlan_dev));
+>  				break;
+>  			}
+> -		}
+>  
+> -		if (vlan_id && vlan_dev) {
+> +		if (vlan_dev) {
+>  			ip_rt_put(rt);
+>  			addr = bond_confirm_addr(vlan_dev, targets[i], 0);
+>  			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
+> -				      addr, vlan_id);
+> +				      addr, vlan_dev_vlan_id(vlan_dev));
+> +			rcu_read_unlock();
+>  			continue;
+>  		}
+> +		rcu_read_unlock();
 >
->>
->>  	memset(&pkt, 0, size);
->>  	memcpy(pkt.mac_dst, mac_addr, ETH_ALEN);
->> @@ -1000,22 +1001,42 @@ static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
->>  		skb->priority = TC_PRIO_CONTROL;
->>  		skb->dev = slave->dev;
->>
->> +		rcu_read_lock();
->Would've saved a couple of lines if we could move the rcu_read_lock inside the
->if {} block but I know that you're keeping the bond_vlan_used() result here, but
->I think that with the new functions we're covered i.e. if the vlan has
->disappeared between the call to bond_vlan_used and the afterwards we'll get NULL
->and just drop the packet, but this can be reworked to continue with the packet
->without a vlan if one is not found that is to send it without tag :-)
+I think these lines can be re-arranged to something shorter like:
 
-Yeah, not a lot of sense to hold it, however I don't see right now how it
-might save us lines - we need to hold vlan_dev if it's found, and need to
-release the lock if it's NULL (before continue).
+                rcu_read_lock();
+                vlan_dev = NULL;
+                while ((vlan_dev = __vlan_find_dev_next(bond->dev, vlan_dev)))
+                        if (vlan_dev == rt->dst.dev) {
+                                pr_debug("basa: vlan match on %s %d\n",
+                                         vlan_dev->name,
+                                         vlan_dev_vlan_id(vlan_dev));
+                                break;
+                        }
 
->>  		if (bond_vlan_used(bond)) {
->> -			struct vlan_entry *vlan;
->> -
->> -			vlan = bond_next_vlan(bond,
->> -					      bond->alb_info.current_alb_vlan);
->> -
->> -			bond->alb_info.current_alb_vlan = vlan;
->> -			if (!vlan) {
->> +			/* first try to find the previously used vlan by
->> +			 * id, which might have gone away already
->> +			 */
->> +			vlan_id = bond->alb_info.current_alb_vlan;
->> +			vlan_dev = __vlan_find_dev_deep(bond->dev,
->> +							htons(ETH_P_8021Q),
->> +							vlan_id);
->> +
->> +			/* search for the next one, if not found - for any */
->> +			if (vlan_dev)
->> +				vlan_dev = __vlan_find_dev_next(bond->dev,
->> +								vlan_dev);
->> +			if (!vlan_dev)
->> +				vlan_dev = __vlan_find_dev_next(bond->dev,
->> +								NULL);
->> +
->This part really looks ambiguous, I've left a comment that concerns it in my
->reply to patch 02.
+                if (vlan_dev) {
+                        ip_rt_put(rt);
+                        addr = bond_confirm_addr(vlan_dev, targets[i], 0);
+                        bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
+                                      addr, vlan_dev_vlan_id(vlan_dev));
+                } else {
+			if (net_ratelimit())
+                        	pr_warning("%s: no path to arp_ip_target %pI4 via
+rt.dev %s\n",
+                                	   bond->dev->name, &targets[i],
+                                   	rt->dst.dev ? rt->dst.dev->name : "NULL");
+	               ip_rt_put(rt);	
+                }
+                rcu_read_unlock();
 
-Yep, seen that, it indeed is not quite clear (though working when you think
-a bit about it :) ). I'll address your comment about 02/06 in several days,
-I'm travelling now.
+But either way is fine, I just think this one is more readable.
 
->
->> +			if (vlan_dev) {
->> +				vlan_id = vlan_dev_vlan_id(vlan_dev);
->> +				bond->alb_info.current_alb_vlan = vlan_id;
->> +			} else {
->> +				bond->alb_info.current_alb_vlan = 0;
->> +				rcu_read_unlock();
->>  				kfree_skb(skb);
->>  				continue;
->>  			}
->> +		} else
->> +			vlan_id = 0;
->Styling nitpick: if {} else {}
-
-Yep, thanks.
-
->
->Cheers,
-> Nik
+Cheers,
+ Nik
