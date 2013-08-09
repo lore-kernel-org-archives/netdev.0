@@ -1,76 +1,73 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [PATCH v3 4/4] USBNET: ax88179_178a: enable tso if usb host
- supports sg dma
-Date: Fri, 9 Aug 2013 09:44:29 +0800
-Message-ID: <CACVXFVM8C359b8ZBMU4JKP_DvG4+Qyu1-hNHc_8f3GTvUfz50g@mail.gmail.com>
-References: <1375750370-18194-1-git-send-email-ming.lei@canonical.com>
-	<1375750370-18194-5-git-send-email-ming.lei@canonical.com>
-	<1375791737.4457.98.camel@edumazet-glaptop>
-	<CANEJEGvbS=o-942tFJTDzpNvgaB=KUZcBwzJCU-7OHaAF-aQFQ@mail.gmail.com>
-	<CACVXFVOOQZ8mtDXtCE669vEo=jA56g-ADzTZkGLLupZ5D4Z==A@mail.gmail.com>
-	<CANEJEGvvxi83=b+NGTzsVpJw5fE5nb-R0BRWRJ2gz7bF5-H5AA@mail.gmail.com>
-	<CACVXFVMWWcf5duqU9_NB6QMzN1mxE6HfHJ6Aco1u3+4+x7u8JA@mail.gmail.com>
-	<CANEJEGsqGFCLXBUT_3SEd4Ej9g8XFOYZwm9omscNvJgz7MXUHg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Oliver Neukum <oneukum@suse.de>,
-	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
-	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Freddy Xin <freddy@asix.com.tw>
-To: Grant Grundler <grundler@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:59268 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966927Ab3HIBoc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 21:44:32 -0400
-In-Reply-To: <CANEJEGsqGFCLXBUT_3SEd4Ej9g8XFOYZwm9omscNvJgz7MXUHg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: [ 17/22] sctp: fully initialize sctp_outq in sctp_outq_init
+Date: Thu,  8 Aug 2013 18:41:33 -0700
+Message-ID: <20130809013953.009006186@linuxfoundation.org>
+References: <20130809013949.226228694@linuxfoundation.org>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	stable@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+	"West, Steve (NSN - US/Fort Worth)" <steve.west@nsn.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130809013949.226228694@linuxfoundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 9, 2013 at 8:18 AM, Grant Grundler <grundler@google.com> wrote:
-> Ming,
-> We are splitting hairs now. :) I want to be clear I think your changes
-> are good and the rest of this conversation is just to learn something
-> new.
->
-> On Thu, Aug 8, 2013 at 4:48 PM, Ming Lei <ming.lei@canonical.com> wrote:
->> On Fri, Aug 9, 2013 at 1:25 AM, Grant Grundler <grundler@google.com> wrote:
-> ...
->>>> I am afraid that PCI network devices' setting still won't survive unbound&
->>>> re-probed, will they?
->>>
->>> Correct - but PCI isn't as prone to "dropping off the bus" like USB
->>
->> As far as I know, USB device still won't be disconnected easily, and
->> reset is possible, but we can make setting survive reset by implementing
->> .pre_reset() and .post_reset() callback. Or do you have other situation
->> of USB 'dropping off the bus'?
->
-> So far only older USB core bugs like this one:
->     https://codereview.chromium.org/4687002/show
+3.0-stable review patch.  If anyone has any objections, please let me know.
 
-This happens in configuration change situation, which is seldom
-triggered, and also not "randomly" happen per your standpoint,
-just like rmmod/modprobe , :-)
+------------------
 
+From: Neil Horman <nhorman@tuxdriver.com>
 
-> I agree USB won't be disconnected easily.
->
->>> is. Master aborts on some PCI systems is a "Fatal Exception" and AFAIK
->>> that's never been true for any USB device.
->>
->> I mean rmmod & modprobe still can reset setting of one PCI network
->> device after powering on the device, can't it?
->
-> Definitely. But this isn't something that will "randomly" happen and
-> will leave tracks all over the place of it happening. So I'm not
-> worried about trying to debug this scenario.
+[ Upstream commit c5c7774d7eb4397891edca9ebdf750ba90977a69 ]
 
-Thanks,
---
-Ming Lei
+In commit 2f94aabd9f6c925d77aecb3ff020f1cc12ed8f86
+(refactor sctp_outq_teardown to insure proper re-initalization)
+we modified sctp_outq_teardown to use sctp_outq_init to fully re-initalize the
+outq structure.  Steve West recently asked me why I removed the q->error = 0
+initalization from sctp_outq_teardown.  I did so because I was operating under
+the impression that sctp_outq_init would properly initalize that value for us,
+but it doesn't.  sctp_outq_init operates under the assumption that the outq
+struct is all 0's (as it is when called from sctp_association_init), but using
+it in __sctp_outq_teardown violates that assumption. We should do a memset in
+sctp_outq_init to ensure that the entire structure is in a known state there
+instead.
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Reported-by: "West, Steve (NSN - US/Fort Worth)" <steve.west@nsn.com>
+CC: Vlad Yasevich <vyasevich@gmail.com>
+CC: netdev@vger.kernel.org
+CC: davem@davemloft.net
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+---
+ net/sctp/outqueue.c |    8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
+
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -205,6 +205,8 @@ static inline int sctp_cacc_skip(struct
+  */
+ void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
+ {
++	memset(q, 0, sizeof(struct sctp_outq));
++
+ 	q->asoc = asoc;
+ 	INIT_LIST_HEAD(&q->out_chunk_list);
+ 	INIT_LIST_HEAD(&q->control_chunk_list);
+@@ -212,13 +214,7 @@ void sctp_outq_init(struct sctp_associat
+ 	INIT_LIST_HEAD(&q->sacked);
+ 	INIT_LIST_HEAD(&q->abandoned);
+ 
+-	q->fast_rtx = 0;
+-	q->outstanding_bytes = 0;
+ 	q->empty = 1;
+-	q->cork  = 0;
+-
+-	q->malloced = 0;
+-	q->out_qlen = 0;
+ }
+ 
+ /* Free the outqueue structure and any related pending chunks.
