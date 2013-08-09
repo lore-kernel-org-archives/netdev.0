@@ -1,51 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp:elapsed variable calculated twice while
- keepalive working
-Date: Fri, 09 Aug 2013 11:12:29 -0700 (PDT)
-Message-ID: <20130809.111229.1955078847385749897.davem@davemloft.net>
-References: <1375792738-19099-1-git-send-email-tingw.liu@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	eric.dumazet@gmail.com
-To: tingw.liu@gmail.com
+From: Neel Patel <neepatel@cisco.com>
+Subject: [PATCH 4/4] drivers/net: enic: Generate notification of hardware crash
+Date: Fri,  9 Aug 2013 11:12:21 -0700
+Message-ID: <1376071941-17001-5-git-send-email-neepatel@cisco.com>
+References: <1376071941-17001-1-git-send-email-neepatel@cisco.com>
+Cc: Neel Patel <neepatel@cisco.com>,
+	Nishank Trivedi <nistrive@cisco.com>,
+	Christian Benvenuti <benve@cisco.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49580 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758588Ab3HISMa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 14:12:30 -0400
-In-Reply-To: <1375792738-19099-1-git-send-email-tingw.liu@gmail.com>
+Received: from mtv-iport-1.cisco.com ([173.36.130.12]:42241 "EHLO
+	mtv-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758606Ab3HISM0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 14:12:26 -0400
+In-Reply-To: <1376071941-17001-1-git-send-email-neepatel@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tingwei Liu <tingw.liu@gmail.com>
-Date: Tue,  6 Aug 2013 20:38:58 +0800
+This patch generates a hardware crash notification (NETDEV_REBOOT)
+during reset. After a hardware crash, ENIC resets all its resources
+including queue pair filters programmed by USNIC. USNIC registers for
+this notification, and on receiving it, reprograms the queue pair filters.
 
-> When tcp keepalive working elapsed calculated twice while the first time is not needed!
-> 
-> CC: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> Signed-off-by: Tingwei Liu <tingw.liu@gmail.com>
+Signed-off-by: Neel Patel <neepatel@cisco.com>
+Signed-off-by: Nishank Trivedi <nistrive@cisco.com>
+Signed-off-by: Christian Benvenuti <benve@cisco.com>
+---
+ drivers/net/ethernet/cisco/enic/enic.h      | 2 +-
+ drivers/net/ethernet/cisco/enic/enic_main.c | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
-
-Please put a space after "tcp:" in your Subject line prefixes, it looks
-awful the way you've done it here.
-
-> @@ -591,11 +591,11 @@ static void tcp_keepalive_timer (unsigned long data)
->  	if (!sock_flag(sk, SOCK_KEEPOPEN) || sk->sk_state == TCP_CLOSE)
->  		goto out;
->  
-> -	elapsed = keepalive_time_when(tp);
-> -
->  	/* It is alive without keepalive 8) */
-> -	if (tp->packets_out || tcp_send_head(sk))
-> +	if (tp->packets_out || tcp_send_head(sk)) {
-> +		elapsed = keepalive_time_when(tp);
->  		goto resched;
-> +	}
->  
->  	elapsed = keepalive_time_elapsed(tp);
-
-This is overkill, just delete the second assignment.  Your version makes
-the code look less elegant and also makes it harder to audit.
+diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
+index cacca29..be16731 100644
+--- a/drivers/net/ethernet/cisco/enic/enic.h
++++ b/drivers/net/ethernet/cisco/enic/enic.h
+@@ -32,7 +32,7 @@
+ 
+ #define DRV_NAME		"enic"
+ #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
+-#define DRV_VERSION		"2.1.1.39"
++#define DRV_VERSION		"2.1.1.43"
+ #define DRV_COPYRIGHT		"Copyright 2008-2013 Cisco Systems, Inc"
+ 
+ #define ENIC_BARS_MAX		6
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index 7f8891b..bcf15b1 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -1743,6 +1743,7 @@ static void enic_reset(struct work_struct *work)
+ 	enic_dev_set_ig_vlan_rewrite_mode(enic);
+ 	enic_open(enic->netdev);
+ 	spin_unlock(&enic->enic_api_lock);
++	call_netdevice_notifiers(NETDEV_REBOOT, enic->netdev);
+ 
+ 	rtnl_unlock();
+ }
+-- 
+1.8.4-rc0
