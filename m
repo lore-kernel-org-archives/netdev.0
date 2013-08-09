@@ -1,8 +1,8 @@
 From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [ 17/22] sctp: fully initialize sctp_outq in sctp_outq_init
-Date: Thu,  8 Aug 2013 18:41:33 -0700
-Message-ID: <20130809013953.009006186@linuxfoundation.org>
-References: <20130809013949.226228694@linuxfoundation.org>
+Subject: [ 19/25] sctp: fully initialize sctp_outq in sctp_outq_init
+Date: Thu,  8 Aug 2013 18:41:55 -0700
+Message-ID: <20130809013653.348009784@linuxfoundation.org>
+References: <20130809013649.057678051@linuxfoundation.org>
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	stable@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
 	"West, Steve (NSN - US/Fort Worth)" <steve.west@nsn.com>,
@@ -10,11 +10,11 @@ Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130809013949.226228694@linuxfoundation.org>
+In-Reply-To: <20130809013649.057678051@linuxfoundation.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-3.0-stable review patch.  If anyone has any objections, please let me know.
+3.4-stable review patch.  If anyone has any objections, please let me know.
 
 ------------------
 
