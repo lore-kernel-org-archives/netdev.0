@@ -1,36 +1,42 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/4] drivers/net: enic: Adding support for Cisco Low
- Latency NIC
-Date: Fri, 09 Aug 2013 11:45:39 -0700
-Message-ID: <1376073939.2087.146.camel@joe-AO722>
-References: <1376073535-17154-1-git-send-email-neepatel@cisco.com>
-	 <1376073535-17154-2-git-send-email-neepatel@cisco.com>
+From: Petko Manolov <petkan@nucleusys.com>
+Subject: Re: [PATCH] net/usb: rtl8150: allocate URB transfer_buffer and
+ setup_packet separately
+Date: Fri, 9 Aug 2013 21:50:09 +0300 (EEST)
+Message-ID: <alpine.DEB.2.10.1308092149270.3114@fry.nucleusys.com>
+References: <20130807133653.15587.35442.stgit@localhost6.localdomain6> <alpine.DEB.2.10.1308081809120.4258@fry.nucleusys.com> <5203F4D4.8090609@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Neel Patel <neepatel@cisco.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-usb@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Jussi Kivilinna <jussi.kivilinna@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:49850 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S968272Ab3HISpk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Aug 2013 14:45:40 -0400
-In-Reply-To: <1376073535-17154-2-git-send-email-neepatel@cisco.com>
+Received: from lan.nucleusys.com ([92.247.61.126]:40212 "EHLO
+	zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1030353Ab3HISuY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 14:50:24 -0400
+In-Reply-To: <5203F4D4.8090609@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-08-09 at 11:38 -0700, Neel Patel wrote:
-> diff --git a/drivers/net/ethernet/cisco/enic/vnic_rq.c b/drivers/net/ethernet/cisco/enic/vnic_rq.c
+On Thu, 8 Aug 2013, Jussi Kivilinna wrote:
 
-> @@ -30,16 +30,15 @@
->  static int vnic_rq_alloc_bufs(struct vnic_rq *rq)
-[]
->  		rq->bufs[i] = kzalloc(VNIC_RQ_BUF_BLK_SZ(count), GFP_ATOMIC);
-> -		if (!rq->bufs[i])
-> +		if (!rq->bufs[i]) {
-> +			pr_err("Failed to alloc rq_bufs\n");
+> On 08.08.2013 18:14, Petko Manolov wrote:
+> > On Wed, 7 Aug 2013, Jussi Kivilinna wrote:
+> > 
+> >> rtl8150 allocates URB transfer_buffer and setup_packet as part of same 
+> >> structure 'struct async_req'. This can cause same cacheline to be 
+> >> DMA-mapped twice with same URB. This can lead to memory corruption on 
+> >> some systems.
+> > 
+> > I can see performance impact due to the double mapping.  However, memory 
+> > corruption seems a bit too much for sane cache and DMA controllers.  Out 
+> > of interest - which is the architecture that will potentially corrupt the 
+> > memory.
+> 
+> rtlwifi driver had similar structure to allocate both setup_packet and 
+> transfer_buffer in single go (overlapping dma-mapping cachelines) and 
+> this caused problems on ARM/sunxi. Problems means: memory corruptions at 
+> random locations, device freezes and lock-ups.
 
-Please don't add OOM messages.
-
-A generic dump_stack() showing the location is
-already done by the mm subsystem.
+Broken controllers?..
