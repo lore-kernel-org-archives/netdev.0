@@ -1,138 +1,126 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH v2 net-next 2/6] vlan: add __vlan_find_dev_next()
-Date: Fri, 09 Aug 2013 13:07:31 +0200
-Message-ID: <5204CD73.9010309@redhat.com>
-References: <1375981079-2936-1-git-send-email-vfalico@redhat.com> <1375981079-2936-3-git-send-email-vfalico@redhat.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH v2 net-next 1/6] bonding: add rcu to vlan_uses_dev() and
+ make bond_vlan_used() use it
+Date: Fri, 9 Aug 2013 13:11:21 +0200
+Message-ID: <20130809111121.GB17510@redhat.com>
+References: <1375981079-2936-1-git-send-email-vfalico@redhat.com>
+ <1375981079-2936-2-git-send-email-vfalico@redhat.com>
+ <5204CD4B.5080401@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Patrick McHardy <kaber@trash.net>,
 	"David S. Miller" <davem@davemloft.net>
-To: Veaceslav Falico <vfalico@redhat.com>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19688 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:33661 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S967445Ab3HILLR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Aug 2013 07:11:17 -0400
-In-Reply-To: <1375981079-2936-3-git-send-email-vfalico@redhat.com>
+	id S967570Ab3HILMy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Aug 2013 07:12:54 -0400
+Content-Disposition: inline
+In-Reply-To: <5204CD4B.5080401@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/08/2013 06:57 PM, Veaceslav Falico wrote:
-> RFC -> v1: make the function accept/return vlan's net_device, this way we
-> 	   won't have troubles with VLAN 0, and the user code will be
-> 	   cleaner and faster.
-> v1  -> v2: don't check for the master device - if we'll want in the future
-> 	   to convert a slave device - it will fail, but now we don't
-> 	   actually care.
-> 
-> Add a new exported function __vlan_find_dev_next(dev, vlan_dev), which
-> returns the a vlan's net_device that is used by the dev and is its id is
-> greater or equal to vlan_dev's vlan id. If vlan_dev is NULL, return first
-> vlan, if nothing is found return NULL.
-> 
-> This function must be under rcu_read_lock(), is aware of master devices and
-> doesn't guarantee that, once it returns, the vlan dev will still be used by
-> dev as its vlan.
-> 
-> It's basically a helper for "for_each_vlan_in_dev(dev, vlan_dev)" logic,
-> and is supposed to be used like this:
-> 
-> vlan_dev = NULL;
-> 
-> while ((vlan_dev = __vlan_find_dev_next(dev, vlan_dev))) {
-> 	if (!vlan_dev)
-> 		continue;
-> 
-> 	do_work(vlan_dev);
-> }
-> 
-> In that case we're sure that vlan_dev at least was used as a vlan, and won't
-> go away while we're holding rcu_read_lock().
-> 
-> However, if we don't hold rtnl_lock(), we can't be sure that that vlan_dev
-> is still in dev's vlan_list.
-> 
-> CC: Patrick McHardy <kaber@trash.net>
-> CC: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-> ---
+On Fri, Aug 09, 2013 at 01:06:51PM +0200, Nikolay Aleksandrov wrote:
+>On 08/08/2013 06:57 PM, Veaceslav Falico wrote:
+>> RFC -> v1: don't add vlan_uses_dev_rcu() and change vlan_uses_dev() instead
+>> v1  -> v2: remove the ASSERT_RTNL(), cause we can now be called under rcu.
+>>
+>> Currently, bond_vlan_used() looks for any vlan, including the pseudo-vlan
+>> id 0, and always returns true if 8021q is loaded. This creates several bad
+>> situations - some warnings in __bond_release_one() because it thinks that
+>> we still have vlans while removing, sending LB packets with vlan id 0 and,
+>> possibly, other caused by vlan id 0.
+>>
+>> Fix it by changing vlan_uses_dev() to use rcu_dereference_rtnl() instead of
+>> rtnl_dereference(), and thus it can already be used in bond_vlan_used()
+>> under rcu_read_lock().
+>>
+>> By the time vlan_uses_dev() returns we cannot be sure if there were no
+>> vlans added/removed, so it's basicly an optimization function.
+>>
+>> Also, use the vlan_uses_dev() in __bond_release_one() cause the rtnl lock
+>> is held there.
+>>
+>> For this call to be visible in bonding.h, add include <linux/if_vlan.h>,
+>> and also remove it from any other bonding file, cause they all include
+>> bonding.h, and thus linux/if_vlan.h.
+>>
+>> CC: Jay Vosburgh <fubar@us.ibm.com>
+>> CC: Andy Gospodarek <andy@greyhouse.net>
+>> CC: Patrick McHardy <kaber@trash.net>
+>> CC: "David S. Miller" <davem@davemloft.net>
+>> CC: Nikolay Aleksandrov <nikolay@redhat.com>
+>> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+>> ---
+>>  drivers/net/bonding/bond_alb.c  |    1 -
+>>  drivers/net/bonding/bond_main.c |    3 +--
+>>  drivers/net/bonding/bonding.h   |   10 +++++++++-
+>>  net/8021q/vlan_core.c           |    5 ++---
+>>  4 files changed, 12 insertions(+), 7 deletions(-)
+>>
+>> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+>> index 3a5db7b..2684329 100644
+>> --- a/drivers/net/bonding/bond_alb.c
+>> +++ b/drivers/net/bonding/bond_alb.c
+>> @@ -34,7 +34,6 @@
+>>  #include <linux/if_arp.h>
+>>  #include <linux/if_ether.h>
+>>  #include <linux/if_bonding.h>
+>> -#include <linux/if_vlan.h>
+>>  #include <linux/in.h>
+>>  #include <net/ipx.h>
+>>  #include <net/arp.h>
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index 4264a76..9d1045d 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -69,7 +69,6 @@
+>>  #include <net/arp.h>
+>>  #include <linux/mii.h>
+>>  #include <linux/ethtool.h>
+>> -#include <linux/if_vlan.h>
+>>  #include <linux/if_bonding.h>
+>>  #include <linux/jiffies.h>
+>>  #include <linux/preempt.h>
+>> @@ -1953,7 +1952,7 @@ static int __bond_release_one(struct net_device *bond_dev,
+>>  		bond_set_carrier(bond);
+>>  		eth_hw_addr_random(bond_dev);
+>>
+>> -		if (bond_vlan_used(bond)) {
+>> +		if (vlan_uses_dev(bond_dev)) {
+>>  			pr_warning("%s: Warning: clearing HW address of %s while it still has VLANs.\n",
+>>  				   bond_dev->name, bond_dev->name);
+>>  			pr_warning("%s: When re-adding slaves, make sure the bond's HW address matches its VLANs'.\n",
+>> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+>> index 4bf52d5..9c4539e 100644
+>> --- a/drivers/net/bonding/bonding.h
+>> +++ b/drivers/net/bonding/bonding.h
+>> @@ -23,6 +23,7 @@
+>>  #include <linux/netpoll.h>
+>>  #include <linux/inetdevice.h>
+>>  #include <linux/etherdevice.h>
+>> +#include <linux/if_vlan.h>
+>>  #include "bond_3ad.h"
+>>  #include "bond_alb.h"
+>>
+>> @@ -267,9 +268,16 @@ struct bonding {
+>>  #endif /* CONFIG_DEBUG_FS */
+>>  };
+>>
+>> +/* use vlan_uses_dev() if under rtnl */
+>Small nitpick - I don't think this comment is necessary as both calls now reduce
+>to vlan_uses_dev() and can be used interchangeably, maybe it's better to stick
+>to bond_vlan_used() just for consistency everywhere.
+>Anyway, I'm okay with this version as well:
 
-We already discussed privately my comments about this new function, I'll leave
-them here just for the sake of having them documented:
-My proposition is to drop these changes altogether (the new function, and the
-vlan.h macro change) and instead add something like the following (I haven't
-tested it, it's only to illustrate the idea) in if_vlan.h so it'll be accessible
-to everyone:
+Good catch, leftover from previous version.
 
-Version 1 (circular so you can simplify the bonding ALB code, I haven't left
-spaces because of auto-wrapping):
+>
+>Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 
-#define dev_for_each_vlan_from(dev, vlandev, proto, from, i)
-	for (i=from+1, vlandev=__vlan_find_dev_deep(dev, proto, from); \
-	     i!=from; \
-	     i=(i+1)%VLAN_N_VID, vlandev=__vlan_find_dev_deep(dev, proto, i)) \
-		if (vlandev)
+Thank you.
 
-#define dev_for_each_vlan(dev, vlandev, proto, i)
-	dev_for_each_vlan_from(dev, vlandev, proto, 0, i)
-
-Version 2 is the same but a little shorter, without the circular part.
-This way you reuse the already provided function __vlan_find_dev_deep and the
-churn is smaller, also __vlan_find_dev_deep takes care of the master issue (that
-is if dev doesn't have a vlan_info, then its master's vlan_info will be used).
-Also the code will look much nicer IMO changing this:
-while ((vlan_dev = __vlan_find_dev_next))
-
-to
-
-dev_for_each_vlan(dev, vlan_dev, proto, i)
-
-There're also 2 nice side-effects, first you'll only walk over 4096 entries (for
-the specified vlan proto only) and the bonding ALB code will simplify from the
-ambiguous looking:
-			vlan_id = bond->alb_info.current_alb_vlan;
-			vlan_dev = __vlan_find_dev_deep(bond->dev,
-							htons(ETH_P_8021Q),
-							vlan_id);
-
-			/* search for the next one, if not found - for any */
-			if (vlan_dev)
-				vlan_dev = __vlan_find_dev_next(bond->dev,
-								vlan_dev);
-			if (!vlan_dev)
-				vlan_dev = __vlan_find_dev_next(bond->dev,
-								NULL);
-
-			if (vlan_dev) {
-				vlan_id = vlan_dev_vlan_id(vlan_dev);
-				bond->alb_info.current_alb_vlan = vlan_id;
-			} else {
-				bond->alb_info.current_alb_vlan = 0;
-				rcu_read_unlock();
-				kfree_skb(skb);
- 				continue;
- 			}
-
-to something like (again untested, sorry for the style - line wrapping):
-
-			vlan_id = bond->alb_info.current_alb_vlan+1;
-			/* since from here is current+1, if there aren't any
-			 * vlans up to current, it'll get current again if it's
-			 * available
-			 */
-			dev_for_each_vlan_from(bond->dev, vlan_dev, htons(ETH_P_8021Q), vlan_id, i)
-			break;
-
-			if (vlan_dev) {
-				vlan_id = vlan_dev_vlan_id(vlan_dev);
-				bond->alb_info.current_alb_vlan = vlan_id;
-			} else {
-				bond->alb_info.current_alb_vlan = 0;
-				rcu_read_unlock();
-				kfree_skb(skb);
- 				continue;
- 			}
-
-Cheers,
- Nik
+>
