@@ -1,63 +1,56 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net v3] net: sctp: sctp_transport_destroy{,_rcu}: fix
- potential pointer corruption
-Date: Fri, 09 Aug 2013 10:42:37 -0400
-Message-ID: <5204FFDD.5060703@gmail.com>
-References: <1376058321-2461-1-git-send-email-dborkman@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] ipv6: don't stop backtracking in fib6_lookup_1 if subtree does not match
+Date: Fri, 9 Aug 2013 16:57:43 +0200
+Message-ID: <20130809145743.GM14001@order.stressinduktion.org>
+References: <20130807003431.GD16410@order.stressinduktion.org> <EF96A1CB-549E-474A-AF58-10F2D2F2BF4A@inf-net.nl> <20130807200637.GD32257@order.stressinduktion.org> <26D8997F-7CDF-425A-B0DC-4D57996871E5@inf-net.nl> <20130809141939.GL14001@order.stressinduktion.org> <CF3AE072-7B80-4C35-9236-4523EE11629F@inf-net.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Teco Boot <teco@inf-net.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f42.google.com ([209.85.212.42]:33978 "EHLO
-	mail-vb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030282Ab3HIOmk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 10:42:40 -0400
-In-Reply-To: <1376058321-2461-1-git-send-email-dborkman@redhat.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:41747 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933883Ab3HIO5p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 10:57:45 -0400
+Content-Disposition: inline
+In-Reply-To: <CF3AE072-7B80-4C35-9236-4523EE11629F@inf-net.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/09/2013 10:25 AM, Daniel Borkmann wrote:
-> Probably this one is quite unlikely to be triggered, but it's more safe
-> to do the call_rcu() at the end after we have dropped the reference on
-> the asoc and freed sctp packet chunks. The reason why is because in
-> sctp_transport_destroy_rcu() the transport is being kfree()'d, and if
-> we're unlucky enough we could run into corrupted pointers. Probably
-> that's more of theoretical nature, but it's safer to have this simple fix.
->
-> Introduced by commit 8c98653f ("sctp: sctp_close: fix release of bindings
-> for deferred call_rcu's"). I also did the 8c98653f regression test and
-> it's fine that way.
->
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+On Fri, Aug 09, 2013 at 04:40:03PM +0200, Teco Boot wrote:
+> 
+> Op 9 aug. 2013, om 16:19 heeft Hannes Frederic Sowa <hannes@stressinduktion.org> het volgende geschreven:
+> 
+> > On Fri, Aug 09, 2013 at 04:12:20PM +0200, Teco Boot wrote:
+> >> Double checked, it works. Tested with Common Open Research Emulator (CORE, from NRL).
+> >> 
+> >> === But ===
+> >> 
+> >> I had some problems with CORE. Could be me, new kernel version, the patch, CORE using network namespaces, or combination of that. sudo hangs, reboot hangs, ip address show hangs.
+> >> With ps -ef, I see some suspected items:
+> >> root      4858  4161  0 15:57 ?        00:00:00 /sbin/ip -6 addr flush dev eth0
+> >> root      4859     2  0 15:57 ?        00:00:00 [kworker/0:3]
+> >> In the emulation I use, there was no IPv6.
+> >> 
+> >> I'll try to figure out if it is CORE & netns in combination with patch. Or just the patch. Or just the new kernel.
+> >> Just to speed up, any idea where to look for?
+> > 
+> > echo t > /proc/sysrq-trigger and check dmesg while the system hangs. Maybe you
+> > have to use a serial console and send the sysrq over keyboard/break.
+> 
+> System was still running.
+> Cleared dmesg, silence.
+> Then performed echo t > /proc/sysrq-trigger.
+> Quite large dump.
+> Afterwards, silence again.
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+I think you are experience high fib6_gc_lock contention (and while the lock is
+held you also hold rtnl_lock, which let's all the other processes hang).
+Please test if these patches make things more smooth for you:
 
--vlad
+https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=2ac3ac8f86f2fe065d746d9a9abaca867adec577
+https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=49a18d86f66d33a20144ecb5a34bba0d1856b260
 
-> ---
->   net/sctp/transport.c | 4 ++--
->   1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-> index bdbbc3f..8fdd160 100644
-> --- a/net/sctp/transport.c
-> +++ b/net/sctp/transport.c
-> @@ -181,12 +181,12 @@ static void sctp_transport_destroy(struct sctp_transport *transport)
->   		return;
->   	}
->
-> -	call_rcu(&transport->rcu, sctp_transport_destroy_rcu);
-> -
->   	sctp_packet_free(&transport->packet);
->
->   	if (transport->asoc)
->   		sctp_association_put(transport->asoc);
-> +
-> +	call_rcu(&transport->rcu, sctp_transport_destroy_rcu);
->   }
->
->   /* Start T3_rtx timer if it is not already running and update the heartbeat
->
+Thanks,
+
+  Hannes
