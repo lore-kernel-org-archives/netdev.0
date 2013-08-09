@@ -1,139 +1,215 @@
-From: Peter Wu <lekensteyn@gmail.com>
-Subject: Re: [PATCH v3 1/2] realtek: convert to per-chip mask
-Date: Fri, 09 Aug 2013 10:51:11 +0200
-Message-ID: <6171378.LP1RDUmkgD@al>
-References: <1374759391-16916-1-git-send-email-lekensteyn@gmail.com> <1374759391-16916-2-git-send-email-lekensteyn@gmail.com> <1375986341.2853.52.camel@deadeye.wl.decadent.org.uk>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH RESEND] tipc: avoid possible deadlock while enable and
+ disable bearer
+Date: Fri, 9 Aug 2013 17:03:46 +0800
+Message-ID: <5204B072.1060105@huawei.com>
+References: <52048CB9.1030203@huawei.com> <52048EBF.7070709@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jon Maloy <jon.maloy@ericsson.com>,
+	Allan Stephens <allan.stephens@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	<tipc-discussion@lists.sourceforge.net>, <wangweidong1@huawei.com>
+To: Ying Xue <ying.xue@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:40705 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752263Ab3HIIvR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 04:51:17 -0400
-Received: by mail-wg0-f41.google.com with SMTP id l18so1309007wgh.4
-        for <netdev@vger.kernel.org>; Fri, 09 Aug 2013 01:51:15 -0700 (PDT)
-In-Reply-To: <1375986341.2853.52.camel@deadeye.wl.decadent.org.uk>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:28913 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965245Ab3HIJEa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 05:04:30 -0400
+In-Reply-To: <52048EBF.7070709@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 08 August 2013 20:25:41 Ben Hutchings wrote:
-> On Thu, 2013-07-25 at 15:36 +0200, Peter Wu wrote:
-> [...]
+On 2013/8/9 14:39, Ying Xue wrote:
+> On 08/09/2013 02:31 PM, Ding Tianhong wrote:
+>> We met lockdep warning when enable and disable the bearer for commands such as:
+>>
+>> tipc-config -netid=1234 -addr=1.1.3 -be=eth:eth0
+>> tipc-config -netid=1234 -addr=1.1.3 -bd=eth:eth0
+>>
+>> ---------------------------------------------------
+>>
+>> [  327.693595] ======================================================
+>> [  327.693994] [ INFO: possible circular locking dependency detected ]
+>> [  327.694519] 3.11.0-rc3-wwd-default #4 Tainted: G           O
+>> [  327.694882] -------------------------------------------------------
+>> [  327.695385] tipc-config/5825 is trying to acquire lock:
+>> [  327.695754]  (((timer))#2){+.-...}, at: [<ffffffff8105be80>] del_timer_sync+0x0/0xd0
+>> [  327.696018]
+>> [  327.696018] but task is already holding lock:
+>> [  327.696018]  (&(&b_ptr->lock)->rlock){+.-...}, at: [<ffffffffa02be58d>] bearer_disable+  0xdd/0x120 [tipc]
+>> [  327.696018]
+>> [  327.696018] which lock already depends on the new lock.
+>> [  327.696018]
+>> [  327.696018]
+>> [  327.696018] the existing dependency chain (in reverse order) is:
+>> [  327.696018]
+>> [  327.696018] -> #1 (&(&b_ptr->lock)->rlock){+.-...}:
+>> [  327.696018]        [<ffffffff810b3b4d>] validate_chain+0x6dd/0x870
+>> [  327.696018]        [<ffffffff810b40bb>] __lock_acquire+0x3db/0x670
+>> [  327.696018]        [<ffffffff810b4453>] lock_acquire+0x103/0x130
+>> [  327.696018]        [<ffffffff814d65b1>] _raw_spin_lock_bh+0x41/0x80
+>> [  327.696018]        [<ffffffffa02c5d48>] disc_timeout+0x18/0xd0 [tipc]
+>> [  327.696018]        [<ffffffff8105b92a>] call_timer_fn+0xda/0x1e0
+>> [  327.696018]        [<ffffffff8105bcd7>] run_timer_softirq+0x2a7/0x2d0
+>> [  327.696018]        [<ffffffff8105379a>] __do_softirq+0x16a/0x2e0
+>> [  327.696018]        [<ffffffff81053a35>] irq_exit+0xd5/0xe0
+>> [  327.696018]        [<ffffffff81033005>] smp_apic_timer_interrupt+0x45/0x60
+>> [  327.696018]        [<ffffffff814df4af>] apic_timer_interrupt+0x6f/0x80
+>> [  327.696018]        [<ffffffff8100b70e>] arch_cpu_idle+0x1e/0x30
+>> [  327.696018]        [<ffffffff810a039d>] cpu_idle_loop+0x1fd/0x280
+>> [  327.696018]        [<ffffffff810a043e>] cpu_startup_entry+0x1e/0x20
+>> [  327.696018]        [<ffffffff81031589>] start_secondary+0x89/0x90
+>> [  327.696018]
+>> [  327.696018] -> #0 (((timer))#2){+.-...}:
+>> [  327.696018]        [<ffffffff810b33fe>] check_prev_add+0x43e/0x4b0
+>> [  327.696018]        [<ffffffff810b3b4d>] validate_chain+0x6dd/0x870
+>> [  327.696018]        [<ffffffff810b40bb>] __lock_acquire+0x3db/0x670
+>> [  327.696018]        [<ffffffff810b4453>] lock_acquire+0x103/0x130
+>> [  327.696018]        [<ffffffff8105bebd>] del_timer_sync+0x3d/0xd0
+>> [  327.696018]        [<ffffffffa02c5855>] tipc_disc_delete+0x15/0x30 [tipc]
+>> [  327.696018]        [<ffffffffa02be59f>] bearer_disable+0xef/0x120 [tipc]
+>> [  327.696018]        [<ffffffffa02be74f>] tipc_disable_bearer+0x2f/0x60 [tipc]
+>> [  327.696018]        [<ffffffffa02bfb32>] tipc_cfg_do_cmd+0x2e2/0x550 [tipc]
+>> [  327.696018]        [<ffffffffa02c8c79>] handle_cmd+0x49/0xe0 [tipc]
+>> [  327.696018]        [<ffffffff8143e898>] genl_family_rcv_msg+0x268/0x340
+>> [  327.696018]        [<ffffffff8143ed30>] genl_rcv_msg+0x70/0xd0
+>> [  327.696018]        [<ffffffff8143d4c9>] netlink_rcv_skb+0x89/0xb0
+>> [  327.696018]        [<ffffffff8143e617>] genl_rcv+0x27/0x40
+>> [  327.696018]        [<ffffffff8143d21e>] netlink_unicast+0x15e/0x1b0
+>> [  327.696018]        [<ffffffff8143ddcf>] netlink_sendmsg+0x22f/0x400
+>> [  327.696018]        [<ffffffff813f7836>] __sock_sendmsg+0x66/0x80
+>> [  327.696018]        [<ffffffff813f7957>] sock_aio_write+0x107/0x120
+>> [  327.696018]        [<ffffffff8117f76d>] do_sync_write+0x7d/0xc0
+>> [  327.696018]        [<ffffffff8117fc56>] vfs_write+0x186/0x190
+>> [  327.696018]        [<ffffffff811803e0>] SyS_write+0x60/0xb0
+>> [  327.696018]        [<ffffffff814de852>] system_call_fastpath+0x16/0x1b
+>> [  327.696018]
+>> [  327.696018] other info that might help us debug this:
+>> [  327.696018]
+>> [  327.696018]  Possible unsafe locking scenario:
+>> [  327.696018]
+>> [  327.696018]        CPU0                    CPU1
+>> [  327.696018]        ----                    ----
+>> [  327.696018]   lock(&(&b_ptr->lock)->rlock);
+>> [  327.696018]                                lock(((timer))#2);
+>> [  327.696018]                                lock(&(&b_ptr->lock)->rlock);
+>> [  327.696018]   lock(((timer))#2);
+>> [  327.696018]
+>> [  327.696018]  *** DEADLOCK ***
+>> [  327.696018]
+>> [  327.696018] 5 locks held by tipc-config/5825:
+>> [  327.696018]  #0:  (cb_lock){++++++}, at: [<ffffffff8143e608>] genl_rcv+0x18/0x40
+>> [  327.696018]  #1:  (genl_mutex){+.+.+.}, at: [<ffffffff8143ed66>] genl_rcv_msg+0xa6/0xd0
+>> [  327.696018]  #2:  (config_mutex){+.+.+.}, at: [<ffffffffa02bf889>] tipc_cfg_do_cmd+0x39/ 0x550 [tipc]
+>> [  327.696018]  #3:  (tipc_net_lock){++.-..}, at: [<ffffffffa02be738>] tipc_disable_bearer+ 0x18/0x60 [tipc]
+>> [  327.696018]  #4:  (&(&b_ptr->lock)->rlock){+.-...}, at: [<ffffffffa02be58d>]             bearer_disable+0xdd/0x120 [tipc]
+>> [  327.696018]
+>> [  327.696018] stack backtrace:
+>> [  327.696018] CPU: 2 PID: 5825 Comm: tipc-config Tainted: G           O 3.11.0-rc3-wwd-    default #4
+>> [  327.696018] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
+>> [  327.696018]  00000000ffffffff ffff880037fa77a8 ffffffff814d03dd 0000000000000000
+>> [  327.696018]  ffff880037fa7808 ffff880037fa77e8 ffffffff810b1c4f 0000000037fa77e8
+>> [  327.696018]  ffff880037fa7808 ffff880037e4db40 0000000000000000 ffff880037e4e318
+>> [  327.696018] Call Trace:
+>> [  327.696018]  [<ffffffff814d03dd>] dump_stack+0x4d/0xa0
+>> [  327.696018]  [<ffffffff810b1c4f>] print_circular_bug+0x10f/0x120
+>> [  327.696018]  [<ffffffff810b33fe>] check_prev_add+0x43e/0x4b0
+>> [  327.696018]  [<ffffffff810b3b4d>] validate_chain+0x6dd/0x870
+>> [  327.696018]  [<ffffffff81087a28>] ? sched_clock_cpu+0xd8/0x110
+>> [  327.696018]  [<ffffffff810b40bb>] __lock_acquire+0x3db/0x670
+>> [  327.696018]  [<ffffffff810b4453>] lock_acquire+0x103/0x130
+>> [  327.696018]  [<ffffffff8105be80>] ? try_to_del_timer_sync+0x70/0x70
+>> [  327.696018]  [<ffffffff8105bebd>] del_timer_sync+0x3d/0xd0
+>> [  327.696018]  [<ffffffff8105be80>] ? try_to_del_timer_sync+0x70/0x70
+>> [  327.696018]  [<ffffffffa02c5855>] tipc_disc_delete+0x15/0x30 [tipc]
+>> [  327.696018]  [<ffffffffa02be59f>] bearer_disable+0xef/0x120 [tipc]
+>> [  327.696018]  [<ffffffffa02be74f>] tipc_disable_bearer+0x2f/0x60 [tipc]
+>> [  327.696018]  [<ffffffffa02bfb32>] tipc_cfg_do_cmd+0x2e2/0x550 [tipc]
+>> [  327.696018]  [<ffffffff81218783>] ? security_capable+0x13/0x20
+>> [  327.696018]  [<ffffffffa02c8c79>] handle_cmd+0x49/0xe0 [tipc]
+>> [  327.696018]  [<ffffffff8143e898>] genl_family_rcv_msg+0x268/0x340
+>> [  327.696018]  [<ffffffff8143ed30>] genl_rcv_msg+0x70/0xd0
+>> [  327.696018]  [<ffffffff8143ecc0>] ? genl_lock+0x20/0x20
+>> [  327.696018]  [<ffffffff8143d4c9>] netlink_rcv_skb+0x89/0xb0
+>> [  327.696018]  [<ffffffff8143e608>] ? genl_rcv+0x18/0x40
+>> [  327.696018]  [<ffffffff8143e617>] genl_rcv+0x27/0x40
+>> [  327.696018]  [<ffffffff8143d21e>] netlink_unicast+0x15e/0x1b0
+>> [  327.696018]  [<ffffffff81289d7c>] ? memcpy_fromiovec+0x6c/0x90
+>> [  327.696018]  [<ffffffff8143ddcf>] netlink_sendmsg+0x22f/0x400
+>> [  327.696018]  [<ffffffff813f7836>] __sock_sendmsg+0x66/0x80
+>> [  327.696018]  [<ffffffff813f7957>] sock_aio_write+0x107/0x120
+>> [  327.696018]  [<ffffffff813fe29c>] ? release_sock+0x8c/0xa0
+>> [  327.696018]  [<ffffffff8117f76d>] do_sync_write+0x7d/0xc0
+>> [  327.696018]  [<ffffffff8117fa24>] ? rw_verify_area+0x54/0x100
+>> [  327.696018]  [<ffffffff8117fc56>] vfs_write+0x186/0x190
+>> [  327.696018]  [<ffffffff811803e0>] SyS_write+0x60/0xb0
+>> [  327.696018]  [<ffffffff814de852>] system_call_fastpath+0x16/0x1b
+>>
+>> -----------------------------------------------------------------------
+>>
+>> The problem is that the tipc_link_delete() will cancel the timer disc_timeout() when
+>> the b_ptr->lock is hold, but the disc_timeout() still call b_ptr->lock to finish the
+>> work, so the dead lock occurs.
+>>
+>> We should unlock the b_ptr->lock when del the disc_timeout().
+>>
+>> Remove link_timeout() still met the same problem, the patch:
+>>
+>> http://article.gmane.org/gmane.network.tipc.general/4380
+>>
+>> fix the problem, so no need to send patch for fix link_timeout() deadlock warming.
+>>
+>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>> ---
+>>  net/tipc/bearer.c | 8 ++++++--
+>>  1 file changed, 6 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+>> index cb29ef7..41cad5f 100644
+>> --- a/net/tipc/bearer.c
+>> +++ b/net/tipc/bearer.c
+>> @@ -460,6 +460,7 @@ static void bearer_disable(struct tipc_bearer *b_ptr)
+>>  {
+>>  	struct tipc_link *l_ptr;
+>>  	struct tipc_link *temp_l_ptr;
+>> +	struct tipc_link_req *temp_req;
+>>  
+>>  	pr_info("Disabling bearer <%s>\n", b_ptr->name);
+>>  	spin_lock_bh(&b_ptr->lock);
+>> @@ -468,9 +469,12 @@ static void bearer_disable(struct tipc_bearer *b_ptr)
+>>  	list_for_each_entry_safe(l_ptr, temp_l_ptr, &b_ptr->links, link_list) {
+>>  		tipc_link_delete(l_ptr);
+>>  	}
+>> -	if (b_ptr->link_req)
+>> -		tipc_disc_delete(b_ptr->link_req);
+>> +	temp_req = b_ptr->link_req;
 > 
-> > @@ -35,36 +32,62 @@ enum chip_type {
-> > 
-> >  	RTL8100E2,
-> >  
-> >  };
-> > 
-> > -enum {
-> > -	chip_type_mask = HW_REVID(1, 1, 1, 1, 1, 1, 1, 1)
-> > +static const char * const chip_names[] = {
-> > +	[RTL8139] =		"8139",
-> > +	[RTL8139_K] =		"8139-K",
-> > +	[RTL8139A] =		"8139A",
-> > +	[RTL8139A_G] =		"8139A-G",
-> > +	[RTL8139B] =		"8139B",
-> > +	[RTL8130] =		"8130",
-> > +	[RTL8139C] =		"8139C",
-> > +	[RTL8100] =		"8100",
-> > +	[RTL8100B_8139D] =	"8100B/8139D",
-> > +	[RTL8139C] =		"8139C+",
+> No, here is unsafe for us. Below line should be added:
 > 
-> Shouldn't the index here be RTL8139Cp?
-
-The specifications mention "RTL8139C+", I took pre-8169 names from the previous 
-rtl_info_tbl contents:
-
--       { "RTL-8139C+",         HW_REVID(0, 1, 1, 1, 0, 1, 1, 0) },
-
-
-> [...]
+> 	b_ptr->link_req = NULL;
 > 
-> >  static struct chip_info {
-> > 
-> > -	const char *name;
-> > 
-> >  	u32 id_mask;
-> > 
-> > +	u32 id_val;
-> > +	int mac_version;
-> > 
-> >  } rtl_info_tbl[] = {
+> Otherwise, another oops will be involved!
 > 
-> [...]
+> Regards,
+> Ying
 > 
-> > -	{ "RTL-8169/8110SCe",	HW_REVID(1, 0, 0, 1, 1, 0, 0, 0) },
 > 
-> [...]
+>>  	spin_unlock_bh(&b_ptr->lock);
+>> +
+>> +	if (temp_req)
+>> +		tipc_disc_delete(temp_req);
+>> +
+>>  	memset(b_ptr, 0, sizeof(struct tipc_bearer));
+>>  }
+>>  
+>>
 > 
-> > +	{ 0xfcc00000, 0x68000000,	RTL8169_8110SCe },
 > 
-> [...]
+> .
 > 
-> The old value would be converted to 0x98000000; is this a fix or a
-> mistake?
 
-I made a mistake here, I pre-processed it to some Javascript code, but 
-apparantly (1 << 31) overflows to -0x80000000 which is what you are seeing 
-here. I'll fix it up in a next revision.
-
-In the following patch (2/2), I inserted automatically extracted values from 
-the r8169 driver using an AWK script (see bottom of this message). At that 
-point, "8169sc/8110sc" is restored again:
-
-    [RTL_GIGA_MAC_VER_06] = "8169sc/8110sc",
-    ...
-    { 0xfc800000, 0x98000000,       RTL_GIGA_MAC_VER_06 },
-
-Thanks for reviewing.
-
-Regards,
-Peter
-
---
-
-#!/usr/bin/awk -f
-# Usage: $0 drivers/net/ethernet/realtek/r8169.c
-BEGIN {
-	# stage 0: copy enum for chip version
-	# stage 1: grab names
-	# stage 2: grab masks and mappings to name
-	stage = -1;
-	ver = "";
-}
-/enum mac_version/ {
-	stage = 0;
-}
-/struct rtl_mac_info/ {
-	stage = 2;
-	print "};\n"
-}
-{
-	if (stage == 0) {
-		print
-	}
-	if (stage == 1 && ver) {
-		split($1, a, "\"");
-		name = a[2];
-		print "\t" ver " = \"" name "\","
-		ver = "";
-	}
-	if (stage == 2) {
-		sub("\t", "");
-		print
-	}
-}
-/};/ {
-	if (stage == 0) {
-		stage = 1;
-		print "\nstatic const char *chip_names[] = {"
-	}
-	if (stage == 2) exit
-}
-/\[RTL_GIGA_MAC_VER_/ {
-	ver = $1
-}
+thanks for your advise, I will resend soon.
