@@ -1,31 +1,21 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 16/16] tg3: clean up unnecessary MSI/MSI-X capability
- find
-Date: Fri, 09 Aug 2013 13:51:01 -0700 (PDT)
-Message-ID: <20130809.135101.2061941695616790943.davem@davemloft.net>
-References: <1375966992-33236-1-git-send-email-wangyijing@huawei.com>
+From: JOEL SULLINS <jdsgb@knology.net>
+Subject: :
+Date: Fri, 9 Aug 2013 16:55:08 -0400 (EDT)
+Message-ID: <1158469768.65005370.1376081708496.JavaMail.root@md05.knology.synacor.com>
+Reply-To: jrr.2@netzero.net
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: guohanjun@huawei.com, jiang.liu@huawei.com, nsujir@broadcom.com,
-	mchan@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: wangyijing@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1375966992-33236-1-git-send-email-wangyijing@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-fo.knology.synacor.com ([64.8.71.118]:37238 "EHLO
+	smtp.knology.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1031125Ab3HIVCl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 17:02:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Thu, 8 Aug 2013 21:03:12 +0800
 
-> PCI core will initialize device MSI/MSI-X capability in
-> pci_msi_init_pci_dev(). So device driver should use
-> pci_dev->msi_cap/msix_cap to determine whether the device
-> support MSI/MSI-X instead of using
-> pci_find_capability(pci_dev, PCI_CAP_ID_MSI/MSIX).
-> Access to PCIe device config space again will consume more time.
-> 
-> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 
-Applied.
+-- 
+Avaliable: 3% interest rate Loan Offer + you having the chance to choose your duration. Are you interested?
