@@ -1,58 +1,31 @@
-From: Kumar Gaurav <kumargauravgupta3@gmail.com>
-Subject: Re: [PATCH 17/17] net:ethernet:lantiq_etop.c: Removed deprecated
- IRQF_DISABLED
-Date: Sat, 10 Aug 2013 01:30:09 +0530
-Message-ID: <52054A49.6000008@gmail.com>
-References: <1376072759-11814-1-git-send-email-kumargauravgupta3@gmail.com> <52054527.8080907@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/2] net: sctp: convert sctp_checksum_disable
+ module param into sctp sysctl
+Date: Fri, 09 Aug 2013 13:10:08 -0700 (PDT)
+Message-ID: <20130809.131008.773918164482459670.davem@davemloft.net>
+References: <1375816693-7697-1-git-send-email-dborkman@redhat.com>
+	<20130809.113320.681399334989952629.davem@davemloft.net>
+	<52053A00.80808@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jiri@resnulli.us, gregkh@linuxfoundation.org,
-	yongjun_wei@trendmicro.com.cn, konszert@marvell.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52054527.8080907@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dborkman@redhat.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: vyasevich@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51054 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030920Ab3HIUKL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 16:10:11 -0400
+In-Reply-To: <52053A00.80808@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday 10 August 2013 01:08 AM, Sergei Shtylyov wrote:
-> Hello.
->
-> On 08/09/2013 10:25 PM, Kumar Gaurav wrote:
->
->> Removed IRQF_DISABLED as it is deprecated and fixed a coding style issue
->> of more than 80 chars on single line by sliting the line in two.
->
->    That's clearly a material for 2 separate patches.
->
->> Signed-off-by: Kumar Gaurav <kumargauravgupta3@gmail.com>
->> ---
->>   drivers/net/ethernet/lantiq_etop.c |    8 +++++---
->>   1 file changed, 5 insertions(+), 3 deletions(-)
->
->> diff --git a/drivers/net/ethernet/lantiq_etop.c 
->> b/drivers/net/ethernet/lantiq_etop.c
->> index bfdb0686..04c3a82 100644
->> --- a/drivers/net/ethernet/lantiq_etop.c
->> +++ b/drivers/net/ethernet/lantiq_etop.c
-> [...]
->> @@ -653,7 +653,9 @@ ltq_etop_init(struct net_device *dev)
->>       if (err)
->>           goto err_netdev;
->>
->> -    /* Set addr_assign_type here, ltq_etop_set_mac_address would 
->> reset it. */
->> +    /* Set addr_assign_type here,
->> +     *ltq_etop_set_mac_address would reset it.
->
->    You forgot space after * here.
->
-> WBR, Sergei
->
-Okay i'll be sending them in separate and correcting a space issue as told.
-thanks
+From: Vlad Yasevich <vyasevich@gmail.com>
+Date: Fri, 09 Aug 2013 14:50:40 -0400
 
-Regards
-Kumar Gaurav
+> Please revert this.  This isn't a knob that that should be
+> so freely exposed.  I thought my response to Daniel made
+> that clear.
+
+Done, sorry about that.
