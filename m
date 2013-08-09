@@ -1,47 +1,62 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH] can: pcan_usb: fix wrong memcpy() bytes length
-Date: Fri,  9 Aug 2013 11:44:06 +0200
-Message-ID: <1376041446-24058-2-git-send-email-mkl@pengutronix.de>
-References: <1376041446-24058-1-git-send-email-mkl@pengutronix.de>
-Cc: kernel@pengutronix.de, linux-can@vger.kernel.org,
-	davem@davemloft.net,
-	Stephane Grosjean <s.grosjean@peak-system.com>,
-	linux-stable <stable@vger.kernel.org>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1376041446-24058-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v3 1/2] realtek: convert to per-chip mask
+Date: Fri, 9 Aug 2013 11:44:50 +0200
+Message-ID: <1376041490.14810.5.camel@deadeye.wl.decadent.org.uk>
+References: <1374759391-16916-1-git-send-email-lekensteyn@gmail.com>
+	 <1374759391-16916-2-git-send-email-lekensteyn@gmail.com>
+	 <1375986341.2853.52.camel@deadeye.wl.decadent.org.uk>
+	 <6171378.LP1RDUmkgD@al>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, Francois Romieu <romieu@fr.zoreil.com>
+To: Peter Wu <lekensteyn@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:18942 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965382Ab3HIJo5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 05:44:57 -0400
+In-Reply-To: <6171378.LP1RDUmkgD@al>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephane Grosjean <s.grosjean@peak-system.com>
+On Fri, 2013-08-09 at 10:51 +0200, Peter Wu wrote:
+> On Thursday 08 August 2013 20:25:41 Ben Hutchings wrote:
+> > On Thu, 2013-07-25 at 15:36 +0200, Peter Wu wrote:
+> > [...]
+> > 
+> > > @@ -35,36 +32,62 @@ enum chip_type {
+> > > 
+> > >  	RTL8100E2,
+> > >  
+> > >  };
+> > > 
+> > > -enum {
+> > > -	chip_type_mask = HW_REVID(1, 1, 1, 1, 1, 1, 1, 1)
+> > > +static const char * const chip_names[] = {
+> > > +	[RTL8139] =		"8139",
+> > > +	[RTL8139_K] =		"8139-K",
+> > > +	[RTL8139A] =		"8139A",
+> > > +	[RTL8139A_G] =		"8139A-G",
+> > > +	[RTL8139B] =		"8139B",
+> > > +	[RTL8130] =		"8130",
+> > > +	[RTL8139C] =		"8139C",
+> > > +	[RTL8100] =		"8100",
+> > > +	[RTL8100B_8139D] =	"8100B/8139D",
+> > > +	[RTL8139C] =		"8139C+",
+> > 
+> > Shouldn't the index here be RTL8139Cp?
+> 
+> The specifications mention "RTL8139C+", I took pre-8169 names from the previous 
+> rtl_info_tbl contents:
+[...]
 
-Fix possibly wrong memcpy() bytes length since some CAN records received from
-PCAN-USB could define a DLC field in range [9..15].
-In that case, the real DLC value MUST be used to move forward the record pointer
-but, only 8 bytes max. MUST be copied into the data field of the struct
-can_frame object of the skb given to the network core.
+I'm talking about the index, not the name.  This has an index of
+RTL8139C which is also used 3 lines up.
 
-Cc: linux-stable <stable@vger.kernel.org>
-Signed-off-by: Stephane Grosjean <s.grosjean@peak-system.com>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
----
- drivers/net/can/usb/peak_usb/pcan_usb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Ben.
 
-diff --git a/drivers/net/can/usb/peak_usb/pcan_usb.c b/drivers/net/can/usb/peak_usb/pcan_usb.c
-index 25723d8..925ab8e 100644
---- a/drivers/net/can/usb/peak_usb/pcan_usb.c
-+++ b/drivers/net/can/usb/peak_usb/pcan_usb.c
-@@ -649,7 +649,7 @@ static int pcan_usb_decode_data(struct pcan_usb_msg_context *mc, u8 status_len)
- 		if ((mc->ptr + rec_len) > mc->end)
- 			goto decode_failed;
- 
--		memcpy(cf->data, mc->ptr, rec_len);
-+		memcpy(cf->data, mc->ptr, cf->can_dlc);
- 		mc->ptr += rec_len;
- 	}
- 
 -- 
-1.8.3.1
-
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
