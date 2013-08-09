@@ -1,108 +1,38 @@
-From: Neel Patel <neepatel@cisco.com>
-Subject: [PATCH 3/4] drivers/net: enic: Make ASIC information available to USNIC
-Date: Fri,  9 Aug 2013 11:12:20 -0700
-Message-ID: <1376071941-17001-4-git-send-email-neepatel@cisco.com>
-References: <1376071941-17001-1-git-send-email-neepatel@cisco.com>
-Cc: Neel Patel <neepatel@cisco.com>,
-	Nishank Trivedi <nistrive@cisco.com>,
-	Christian Benvenuti <benve@cisco.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: 8139cp: Add dma_mapping_error checking
+Date: Fri, 09 Aug 2013 11:18:32 -0700 (PDT)
+Message-ID: <20130809.111832.658646847887126827.davem@davemloft.net>
+References: <20130804005227.CA1B0660D02@gitolite.kernel.org>
+	<20130806150114.GA29184@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com, romieu@fr.zoreil.com
+To: davej@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtv-iport-1.cisco.com ([173.36.130.12]:6714 "EHLO
-	mtv-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758604Ab3HISMZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 14:12:25 -0400
-In-Reply-To: <1376071941-17001-1-git-send-email-neepatel@cisco.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49670 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965075Ab3HISSd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 14:18:33 -0400
+In-Reply-To: <20130806150114.GA29184@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch provides asic information via ethtool.
+From: Dave Jones <davej@redhat.com>
+Date: Tue, 6 Aug 2013 11:01:14 -0400
 
-Signed-off-by: Neel Patel <neepatel@cisco.com>
-Signed-off-by: Nishank Trivedi <nistrive@cisco.com>
-Signed-off-by: Christian Benvenuti <benve@cisco.com>
----
- drivers/net/ethernet/cisco/enic/driver_utils.h | 49 ++++++++++++++++++++++++++
- drivers/net/ethernet/cisco/enic/enic_ethtool.c |  4 +++
- 2 files changed, 53 insertions(+)
- create mode 100644 drivers/net/ethernet/cisco/enic/driver_utils.h
+> 8139cp: Fix skb leak in rx_status_loop failure path.
+> Introduced in cf3c4c03060b688cbc389ebc5065ebcce5653e96
+> 
+> Signed-off-by: Dave Jones <davej@redhat.com>
 
-diff --git a/drivers/net/ethernet/cisco/enic/driver_utils.h b/drivers/net/ethernet/cisco/enic/driver_utils.h
-new file mode 100644
-index 0000000..e654b4d
---- /dev/null
-+++ b/drivers/net/ethernet/cisco/enic/driver_utils.h
-@@ -0,0 +1,49 @@
-+/**
-+ * Copyright 2013 Cisco Systems, Inc.  All rights reserved.
-+ *
-+ * This program is free software; you may redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; version 2 of the License.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ */
-+
-+#ifndef __DRIVER_UTILS_H__
-+#define __DRIVER_UTILS_H__
-+
-+#include <linux/string.h>
-+
-+static inline int driver_encode_asic_info(char *str, int strlen, u16 asic_type,
-+				u16 asic_rev)
-+{
-+	if (strlen < sizeof(asic_type) + sizeof(asic_rev))
-+		return -EINVAL;
-+
-+	memcpy(str, &asic_type, sizeof(asic_type));
-+	memcpy(str + sizeof(asic_type), &asic_rev, sizeof(asic_rev));
-+
-+	return 0;
-+}
-+
-+static inline int driver_decode_asic_info(char *str, int strlen, u16 *asic_type,
-+						u16 *asic_rev)
-+{
-+	if (strlen < sizeof(*asic_type) + sizeof(*asic_rev))
-+		return -EINVAL;
-+
-+	if (asic_type)
-+		memcpy(asic_type, str, sizeof(*asic_type));
-+	if (asic_rev)
-+		memcpy(asic_rev, str + sizeof(*asic_type), sizeof(*asic_rev));
-+	return 0;
-+}
-+
-+#endif /*!__DRIVER_UTILS_H__*/
-diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-index 47e3562..c5d938a 100644
---- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-@@ -19,6 +19,7 @@
- #include <linux/netdevice.h>
- #include <linux/ethtool.h>
- 
-+#include "driver_utils.h"
- #include "enic_res.h"
- #include "enic.h"
- #include "enic_dev.h"
-@@ -116,6 +117,9 @@ static void enic_get_drvinfo(struct net_device *netdev,
- 		sizeof(drvinfo->fw_version));
- 	strlcpy(drvinfo->bus_info, pci_name(enic->pdev),
- 		sizeof(drvinfo->bus_info));
-+	memset(drvinfo->reserved1, 0, sizeof(drvinfo->reserved1));
-+	driver_encode_asic_info(drvinfo->reserved1, sizeof(drvinfo->reserved1),
-+		fw_info->asic_type, fw_info->asic_rev);
- }
- 
- static void enic_get_strings(struct net_device *netdev, u32 stringset,
--- 
-1.8.4-rc0
+Applied, but Dave please take care of all of the usual formalities that
+I took care for you here next time.
+
+Reference commits by SHA1 ID _and_ in parenthesis and double quotes, show
+the commit message header line as well.
+
+Post patches as self contained patch postings, so that I don't have to
+edit the commit message and attend to the other details like that.
+
+Thanks.
