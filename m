@@ -1,38 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 8139cp: Add dma_mapping_error checking
-Date: Fri, 09 Aug 2013 11:18:32 -0700 (PDT)
-Message-ID: <20130809.111832.658646847887126827.davem@davemloft.net>
-References: <20130804005227.CA1B0660D02@gitolite.kernel.org>
-	<20130806150114.GA29184@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com, romieu@fr.zoreil.com
-To: davej@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49670 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965075Ab3HISSd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 14:18:33 -0400
-In-Reply-To: <20130806150114.GA29184@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kumar Gaurav <kumargauravgupta3@gmail.com>
+Subject: [PATCH 17/17] net:ethernet:lantiq_etop.c: Removed deprecated IRQF_DISABLED
+Date: Fri,  9 Aug 2013 23:55:59 +0530
+Message-ID: <1376072759-11814-1-git-send-email-kumargauravgupta3@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org,
+	Kumar Gaurav <kumargauravgupta3@gmail.com>
+To: davem@davemloft.net, jiri@resnulli.us, gregkh@linuxfoundation.org,
+	yongjun_wei@trendmicro.com.cn, konszert@marvell.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dave Jones <davej@redhat.com>
-Date: Tue, 6 Aug 2013 11:01:14 -0400
+Removed IRQF_DISABLED as it is deprecated and fixed a coding style issue
+of more than 80 chars on single line by sliting the line in two.
 
-> 8139cp: Fix skb leak in rx_status_loop failure path.
-> Introduced in cf3c4c03060b688cbc389ebc5065ebcce5653e96
-> 
-> Signed-off-by: Dave Jones <davej@redhat.com>
+Signed-off-by: Kumar Gaurav <kumargauravgupta3@gmail.com>
+---
+ drivers/net/ethernet/lantiq_etop.c |    8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-Applied, but Dave please take care of all of the usual formalities that
-I took care for you here next time.
+diff --git a/drivers/net/ethernet/lantiq_etop.c b/drivers/net/ethernet/lantiq_etop.c
+index bfdb0686..04c3a82 100644
+--- a/drivers/net/ethernet/lantiq_etop.c
++++ b/drivers/net/ethernet/lantiq_etop.c
+@@ -282,7 +282,7 @@ ltq_etop_hw_init(struct net_device *dev)
+ 
+ 		if (IS_TX(i)) {
+ 			ltq_dma_alloc_tx(&ch->dma);
+-			request_irq(irq, ltq_etop_dma_irq, IRQF_DISABLED,
++			request_irq(irq, ltq_etop_dma_irq, 0,
+ 				"etop_tx", priv);
+ 		} else if (IS_RX(i)) {
+ 			ltq_dma_alloc_rx(&ch->dma);
+@@ -291,7 +291,7 @@ ltq_etop_hw_init(struct net_device *dev)
+ 				if (ltq_etop_alloc_skb(ch))
+ 					return -ENOMEM;
+ 			ch->dma.desc = 0;
+-			request_irq(irq, ltq_etop_dma_irq, IRQF_DISABLED,
++			request_irq(irq, ltq_etop_dma_irq, 0,
+ 				"etop_rx", priv);
+ 		}
+ 		ch->dma.irq = irq;
+@@ -653,7 +653,9 @@ ltq_etop_init(struct net_device *dev)
+ 	if (err)
+ 		goto err_netdev;
+ 
+-	/* Set addr_assign_type here, ltq_etop_set_mac_address would reset it. */
++	/* Set addr_assign_type here,
++	 *ltq_etop_set_mac_address would reset it.
++	 */
+ 	if (random_mac)
+ 		dev->addr_assign_type = NET_ADDR_RANDOM;
+ 
+-- 
+1.7.9.5
 
-Reference commits by SHA1 ID _and_ in parenthesis and double quotes, show
-the commit message header line as well.
-
-Post patches as self contained patch postings, so that I don't have to
-edit the commit message and attend to the other details like that.
-
-Thanks.
