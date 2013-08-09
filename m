@@ -1,52 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net: add SNMP counters tracking incoming
- ECN bits
-Date: Thu, 08 Aug 2013 22:25:19 -0700 (PDT)
-Message-ID: <20130808.222519.1955301555484469421.davem@davemloft.net>
-References: <1375370791.10515.154.camel@edumazet-glaptop>
-	<1375785131.4457.76.camel@edumazet-glaptop>
+From: Ethan Tuttle <ethan@ethantuttle.com>
+Subject: [BUG] mvneta: mirabox ethernet only works if initialized by uboot
+Date: Thu, 8 Aug 2013 22:31:37 -0700
+Message-ID: <CACzLR4vv4kNVVkFx46jwcmB=hk_aT_XRrvU-Mpc0ZKdEQ-c_Fg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40570 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932676Ab3HIFZW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 01:25:22 -0400
-In-Reply-To: <1375785131.4457.76.camel@edumazet-glaptop>
+Received: from mail-oa0-f43.google.com ([209.85.219.43]:45815 "EHLO
+	mail-oa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933169Ab3HIFbi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 01:31:38 -0400
+Received: by mail-oa0-f43.google.com with SMTP id i10so6479643oag.16
+        for <netdev@vger.kernel.org>; Thu, 08 Aug 2013 22:31:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 06 Aug 2013 03:32:11 -0700
+I ran into this issue after upgrading my mirabox from the old marvell
+kernel to 3.11-rc4.  Although ethernet interfaces are present, and
+'link up' is reported, it isn't possible to send or receive packets.
+I'm using a vanilla kernel with .config from ArchLinuxARM[1].
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> With GRO/LRO processing, there is a problem because Ip[6]InReceives SNMP
-> counters do not count the number of frames, but number of aggregated
-> segments.
-> 
-> Its probably too late to change this now.
-> 
-> This patch adds four new counters, tracking number of frames, regardless
-> of LRO/GRO, and on a per ECN status basis, for IPv4 and IPv6.
-> 
-> Ip[6]NoECTPkts : Number of packets received with NOECT
-> Ip[6]ECT1Pkts  : Number of packets received with ECT(1)
-> Ip[6]ECT0Pkts  : Number of packets received with ECT(0)
-> Ip[6]CEPkts    : Number of packets received with Congestion Experienced
-> 
-> lph37:~# nstat | egrep "Pkts|InReceive"
-> IpInReceives                    1634137            0.0
-> Ip6InReceives                   3714107            0.0
-> Ip6InNoECTPkts                  19205              0.0
-> Ip6InECT0Pkts                   52651828           0.0
-> IpExtInNoECTPkts                33630              0.0
-> IpExtInECT0Pkts                 15581379           0.0
-> IpExtInCEPkts                   6                  0.0
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Jochen De Smet posted a more detailed report[2] and a work-around on
+the Fedora ARM list: if an interface is started using the dhcp command
+in uboot, ethernet works in linux.
 
-Applied, thanks.
+I reproduced the issue on -rc3 and -rc1 as well, so it isn't a recent
+regression.
+
+It should be easy to reproduce on a mirabox, even when tftping a
+kernel: just try to use the other interface :).
+
+Reporting here because I don't see any other reports to the
+maintainers.  I'm happy to provide more debug output or test patches
+if it will help.
+
+Thanks,
+Ethan
+
+[1] https://github.com/archlinuxarm/PKGBUILDs/blob/master/core/linux-mvebu/config
+[2] http://www.mail-archive.com/arm@lists.fedoraproject.org/msg05244.html
