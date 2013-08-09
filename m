@@ -1,59 +1,42 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 2/2] net: asix: Move declaration of ax88172a_info to
- shared header
-Date: Fri, 9 Aug 2013 10:40:16 -0700
-Message-ID: <20130809104016.236fcd9d@nehalam.linuxnetplumber.net>
-References: <1376069482-16951-1-git-send-email-broonie@kernel.org>
-	<1376069482-16951-2-git-send-email-broonie@kernel.org>
-	<CAOMZO5AHVcmb8DiqM_H12e9cD3zAt0ZGz8yrLDyq5FwwO+cSMA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] macvtap: fix two races
+Date: Fri, 09 Aug 2013 10:41:07 -0700
+Message-ID: <1376070067.20509.1.camel@edumazet-glaptop>
+References: <20130807164319.20aa2333@thhw500>
+	  <1375889211.4004.28.camel@edumazet-glaptop>
+	  <20130808102551.6aa47852@thhw500>
+	  <1375968072.4004.92.camel@edumazet-glaptop>
+	  <20130808155634.239dbc2d@thhw500>
+	 <1375974374.4004.103.camel@edumazet-glaptop> <520523DA.1000400@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Mark Brown <broonie@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linaro-kernel@lists.linaro.org,
-	Mark Brown <broonie@linaro.org>
-To: Fabio Estevam <festevam@gmail.com>
+Cc: Thomas Huth <thuth@linux.vnet.ibm.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:61756 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758451Ab3HIRkV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 13:40:21 -0400
-Received: by mail-pa0-f45.google.com with SMTP id bg4so5167374pad.18
-        for <netdev@vger.kernel.org>; Fri, 09 Aug 2013 10:40:20 -0700 (PDT)
-In-Reply-To: <CAOMZO5AHVcmb8DiqM_H12e9cD3zAt0ZGz8yrLDyq5FwwO+cSMA@mail.gmail.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35643 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758369Ab3HIRlJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 13:41:09 -0400
+Received: by mail-pa0-f53.google.com with SMTP id lb1so5194062pab.26
+        for <netdev@vger.kernel.org>; Fri, 09 Aug 2013 10:41:09 -0700 (PDT)
+In-Reply-To: <520523DA.1000400@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 9 Aug 2013 14:39:06 -0300
-Fabio Estevam <festevam@gmail.com> wrote:
+On Fri, 2013-08-09 at 13:16 -0400, Vlad Yasevich wrote:
 
-> On Fri, Aug 9, 2013 at 2:31 PM, Mark Brown <broonie@kernel.org> wrote:
-> > From: Mark Brown <broonie@linaro.org>
-> >
-> > Ensure that the definition of ax88172a_info matches the declaration seen
-> > by users and silence sparse warnings about symbols without declarations
-> > in the global namespace by moving the declaration into the shared header
-> > asix.h.
-> >
-> > Signed-off-by: Mark Brown <broonie@linaro.org>
-> > ---
-> >  drivers/net/usb/asix.h         | 2 ++
-> >  drivers/net/usb/asix_devices.c | 2 --
-> >  2 files changed, 2 insertions(+), 2 deletions(-)
-> >
-> > diff --git a/drivers/net/usb/asix.h b/drivers/net/usb/asix.h
-> > index 346c032..bdaa12d 100644
-> > --- a/drivers/net/usb/asix.h
-> > +++ b/drivers/net/usb/asix.h
-> > @@ -178,6 +178,8 @@ struct asix_common_private {
-> >         struct asix_rx_fixup_info rx_fixup_info;
-> >  };
-> >
-> > +extern const struct driver_info ax88172a_info;
+> I was looking at this a bit more and I think this call to 
+> macvlan_count_rx() is double counting the packets.
 > 
-> You could drop the 'extern' here.
+> In macvlan_handle_frame(), we call macvlan_count_rx() after we call
+> vlan->receive().  For macvtap, receive() function is essentially 
+> macvtap_forward() which just tacks the data onto the queue.
 > 
-> All other function prototypes in this header file do not use 'extern'.
+> Then, the above code counts the data again as we pull it off the queue
+> socket queue to give to the user.
 
-That is data, not function prototype, so yes extern is needed.
+Hmm, it seems a different issue, and probably needs a patch on its own.
+
+When was this problem added ?
