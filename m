@@ -1,40 +1,51 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] ipv6: don't stop backtracking in fib6_lookup_1 if subtree does not match
-Date: Fri, 9 Aug 2013 16:19:39 +0200
-Message-ID: <20130809141939.GL14001@order.stressinduktion.org>
-References: <20130807003431.GD16410@order.stressinduktion.org> <EF96A1CB-549E-474A-AF58-10F2D2F2BF4A@inf-net.nl> <20130807200637.GD32257@order.stressinduktion.org> <26D8997F-7CDF-425A-B0DC-4D57996871E5@inf-net.nl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	equinox@diac24.net, boutier@pps.univ-paris-diderot.fr
-To: Teco Boot <teco@inf-net.nl>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net v3] net: sctp: sctp_transport_destroy{,_rcu}: fix potential pointer corruption
+Date: Fri,  9 Aug 2013 16:25:21 +0200
+Message-ID: <1376058321-2461-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:41685 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030569Ab3HIOTl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 10:19:41 -0400
-Content-Disposition: inline
-In-Reply-To: <26D8997F-7CDF-425A-B0DC-4D57996871E5@inf-net.nl>
+Received: from mx1.redhat.com ([209.132.183.28]:55906 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S967879Ab3HIOZZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Aug 2013 10:25:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 09, 2013 at 04:12:20PM +0200, Teco Boot wrote:
-> Double checked, it works. Tested with Common Open Research Emulator (CORE, from NRL).
-> 
-> === But ===
-> 
-> I had some problems with CORE. Could be me, new kernel version, the patch, CORE using network namespaces, or combination of that. sudo hangs, reboot hangs, ip address show hangs.
-> With ps -ef, I see some suspected items:
-> root      4858  4161  0 15:57 ?        00:00:00 /sbin/ip -6 addr flush dev eth0
-> root      4859     2  0 15:57 ?        00:00:00 [kworker/0:3]
-> In the emulation I use, there was no IPv6.
-> 
-> I'll try to figure out if it is CORE & netns in combination with patch. Or just the patch. Or just the new kernel.
-> Just to speed up, any idea where to look for?
+Probably this one is quite unlikely to be triggered, but it's more safe
+to do the call_rcu() at the end after we have dropped the reference on
+the asoc and freed sctp packet chunks. The reason why is because in
+sctp_transport_destroy_rcu() the transport is being kfree()'d, and if
+we're unlucky enough we could run into corrupted pointers. Probably
+that's more of theoretical nature, but it's safer to have this simple fix.
 
-echo t > /proc/sysrq-trigger and check dmesg while the system hangs. Maybe you
-have to use a serial console and send the sysrq over keyboard/break.
+Introduced by commit 8c98653f ("sctp: sctp_close: fix release of bindings
+for deferred call_rcu's"). I also did the 8c98653f regression test and
+it's fine that way.
 
-Greetings,
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/sctp/transport.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-  Hannes
+diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+index bdbbc3f..8fdd160 100644
+--- a/net/sctp/transport.c
++++ b/net/sctp/transport.c
+@@ -181,12 +181,12 @@ static void sctp_transport_destroy(struct sctp_transport *transport)
+ 		return;
+ 	}
+ 
+-	call_rcu(&transport->rcu, sctp_transport_destroy_rcu);
+-
+ 	sctp_packet_free(&transport->packet);
+ 
+ 	if (transport->asoc)
+ 		sctp_association_put(transport->asoc);
++
++	call_rcu(&transport->rcu, sctp_transport_destroy_rcu);
+ }
+ 
+ /* Start T3_rtx timer if it is not already running and update the heartbeat
+-- 
+1.7.11.7
