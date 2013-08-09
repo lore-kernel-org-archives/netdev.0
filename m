@@ -1,59 +1,58 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net v2] net: sctp: sctp_transport_destroy{,_rcu}: fix potential pointer corruption
-Date: Fri,  9 Aug 2013 15:27:22 +0200
-Message-ID: <1376054842-376-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: davem@davemloft.net
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net] net: sctp: sctp_assoc_control_transport: fix MTU
+ size in SCTP_PF state
+Date: Fri, 09 Aug 2013 09:39:45 -0400
+Message-ID: <5204F121.7080609@gmail.com>
+References: <1376053748-31783-1-git-send-email-dborkman@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, kheiss@gmail.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:23329 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966041Ab3HIN1Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Aug 2013 09:27:24 -0400
+Received: from mail-vc0-f181.google.com ([209.85.220.181]:64475 "EHLO
+	mail-vc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966786Ab3HINjt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 09:39:49 -0400
+In-Reply-To: <1376053748-31783-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Probably this one is quite unlikely to be triggered, but it's more safe
-to hold a pointer to asoc (instead of dereferencing), free the packet
-chunks first, and access asoc though the pointer after we have called
-sctp_transport_destroy_rcu() where the transport is being kfree()'d.
-Introduced by commit 8c98653f ("sctp: sctp_close: fix release of bindings
-for deferred call_rcu's"). I also did the 8c98653f regression test and
-it's fine that way.
+On 08/09/2013 09:09 AM, Daniel Borkmann wrote:
+> The SCTP Quick failover draft [1] section 5.1, point 5 says that the cwnd
+> should be 1 MTU. So, instead of 1, set it to 1 MTU.
+>
+>    [1] https://tools.ietf.org/html/draft-nishida-tsvwg-sctp-failover-05
+>
+> Reported-by: Karl Heiss <kheiss@gmail.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> ---
+>   net/sctp/associola.c | 4 ++--
+>   1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> index bce5b79..ab67efc 100644
+> --- a/net/sctp/associola.c
+> +++ b/net/sctp/associola.c
+> @@ -846,12 +846,12 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
+>   		else
+>   			spc_state = SCTP_ADDR_AVAILABLE;
+>   		/* Don't inform ULP about transition from PF to
+> -		 * active state and set cwnd to 1, see SCTP
+> +		 * active state and set cwnd to 1 MTU, see SCTP
+>   		 * Quick failover draft section 5.1, point 5
+>   		 */
+>   		if (transport->state == SCTP_PF) {
+>   			ulp_notify = false;
+> -			transport->cwnd = 1;
+> +			transport->cwnd = asoc->pathmtu;
+>   		}
+>   		transport->state = SCTP_ACTIVE;
+>   		break;
+>
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- v1->v2: do sctp_packet_free before call_rcu
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
- net/sctp/transport.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
-
-diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-index bdbbc3f..c691455 100644
---- a/net/sctp/transport.c
-+++ b/net/sctp/transport.c
-@@ -176,17 +176,19 @@ static void sctp_transport_destroy_rcu(struct rcu_head *head)
-  */
- static void sctp_transport_destroy(struct sctp_transport *transport)
- {
-+	struct sctp_association *asoc = transport->asoc;
-+
- 	if (unlikely(!transport->dead)) {
- 		WARN(1, "Attempt to destroy undead transport %p!\n", transport);
- 		return;
- 	}
- 
--	call_rcu(&transport->rcu, sctp_transport_destroy_rcu);
--
- 	sctp_packet_free(&transport->packet);
- 
--	if (transport->asoc)
--		sctp_association_put(transport->asoc);
-+	call_rcu(&transport->rcu, sctp_transport_destroy_rcu);
-+
-+	if (asoc != NULL)
-+		sctp_association_put(asoc);
- }
- 
- /* Start T3_rtx timer if it is not already running and update the heartbeat
--- 
-1.7.11.7
+-vlad
