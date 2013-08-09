@@ -1,30 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: flow_dissector: add 802.1ad support
-Date: Fri, 09 Aug 2013 11:06:45 -0700 (PDT)
-Message-ID: <20130809.110645.539000252503299854.davem@davemloft.net>
-References: <1375788906.4457.86.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+From: Neel Patel <neepatel@cisco.com>
+Subject: [PATCH 0/4] enic: This patchset adds support for Cisco Low Latency NIC
+Date: Fri,  9 Aug 2013 11:12:17 -0700
+Message-ID: <1376071941-17001-1-git-send-email-neepatel@cisco.com>
+Cc: Neel Patel <neepatel@cisco.com>,
+	Nishank Trivedi <nistrive@cisco.com>,
+	Christian Benvenuti <benve@cisco.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49530 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965075Ab3HISGq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 14:06:46 -0400
-In-Reply-To: <1375788906.4457.86.camel@edumazet-glaptop>
+Received: from mtv-iport-1.cisco.com ([173.36.130.12]:6714 "EHLO
+	mtv-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758595Ab3HISMX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 14:12:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 06 Aug 2013 04:35:06 -0700
+Signed-off-by: Neel Patel <neepatel@cisco.com>
+Signed-off-by: Nishank Trivedi <nistrive@cisco.com>
+Signed-off-by: Christian Benvenuti <benve@cisco.com>
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Same behavior than 802.1q : finds the encapsulated protocol and
-> skip 32bit header.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Neel Patel (4):
+  drivers/net: enic: Adding support for Cisco Low Latency NIC
+  drivers/net: enic: Add an interface for USNIC to interact with
+    firmware
+  drivers/net: enic: Make ASIC information available to USNIC
+  drivers/net: enic: Generate notification of hardware crash
 
-Applied, thanks Eric.
+ drivers/net/ethernet/cisco/enic/Makefile       |   2 +-
+ drivers/net/ethernet/cisco/enic/driver_utils.h |  49 +++++++
+ drivers/net/ethernet/cisco/enic/enic.h         |   5 +-
+ drivers/net/ethernet/cisco/enic/enic_api.c     |  48 +++++++
+ drivers/net/ethernet/cisco/enic/enic_api.h     |  30 +++++
+ drivers/net/ethernet/cisco/enic/enic_ethtool.c |   4 +
+ drivers/net/ethernet/cisco/enic/enic_main.c    |   4 +
+ drivers/net/ethernet/cisco/enic/enic_res.h     |   9 +-
+ drivers/net/ethernet/cisco/enic/vnic_dev.c     |   5 +
+ drivers/net/ethernet/cisco/enic/vnic_dev.h     |   1 +
+ drivers/net/ethernet/cisco/enic/vnic_devcmd.h  | 176 ++++++++++++++++++++++++-
+ drivers/net/ethernet/cisco/enic/vnic_rq.c      |   9 +-
+ drivers/net/ethernet/cisco/enic/vnic_rq.h      |   5 +-
+ drivers/net/ethernet/cisco/enic/vnic_wq.c      |   7 +-
+ drivers/net/ethernet/cisco/enic/vnic_wq.h      |  86 +++++++++++-
+ 15 files changed, 419 insertions(+), 21 deletions(-)
+ create mode 100644 drivers/net/ethernet/cisco/enic/driver_utils.h
+ create mode 100644 drivers/net/ethernet/cisco/enic/enic_api.c
+ create mode 100644 drivers/net/ethernet/cisco/enic/enic_api.h
+
+-- 
+1.8.4-rc0
