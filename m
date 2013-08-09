@@ -1,208 +1,75 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH RESEND] tipc: avoid possible deadlock while enable and
- disable bearer
-Date: Fri, 9 Aug 2013 14:39:59 +0800
-Message-ID: <52048EBF.7070709@windriver.com>
-References: <52048CB9.1030203@huawei.com>
+From: Stefan Assmann <sassmann@kpanic.de>
+Subject: Re: [PATCH net-next] igbvf: do not force carrier off in igbvf_msix_other()
+Date: Fri, 09 Aug 2013 09:02:46 +0200
+Message-ID: <52049416.2030201@kpanic.de>
+References: <1375963002-1624-1-git-send-email-sassmann@kpanic.de> <5203C2C3.3030205@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>,
-	Allan Stephens <allan.stephens@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	<tipc-discussion@lists.sourceforge.net>, <wangweidong1@huawei.com>
-To: Ding Tianhong <dingtianhong@huawei.com>
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	davem@davemloft.net, carolyn.wyborny@intel.com,
+	jeffrey.t.kirsher@intel.com, gregory.v.rose@intel.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:38927 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967432Ab3HIGkh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 02:40:37 -0400
-In-Reply-To: <52048CB9.1030203@huawei.com>
+Received: from mail.xlhost.de ([213.202.242.118]:36097 "EHLO app1b.xlhost.de"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S967344Ab3HIHK4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Aug 2013 03:10:56 -0400
+In-Reply-To: <5203C2C3.3030205@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/09/2013 02:31 PM, Ding Tianhong wrote:
-> We met lockdep warning when enable and disable the bearer for commands such as:
+On 08.08.2013 18:09, Alexander Duyck wrote:
+> On 08/08/2013 04:56 AM, Stefan Assmann wrote:
+>> Currently carrier is forced off in igbvf_msix_other(). This seems
+>> unnecessary and causes multiple calls to igbvf_watchdog_task(), resulting
+>> in multiple link up messages when calling dhclient for example.
+>> [  111.818106] igbvf 0000:00:04.0: Link is Up 1000 Mbps Full Duplex
+>> [  111.819347] IPv6: ADDRCONF(NETDEV_UP): eth5: link is not ready
+>> [  111.820509] IPv6: ADDRCONF(NETDEV_CHANGE): eth5: link becomes ready
+>> [  111.822983] igbvf 0000:00:04.0: Link is Up 1000 Mbps Full Duplex
+>> [  115.152421] igbvf 0000:00:04.0: Link is Up 1000 Mbps Full Duplex
+>> compared to
+>> [ 1040.422161] igbvf 0000:00:04.0: Link is Up 1000 Mbps Full Duplex
+>> [ 1040.423447] IPv6: ADDRCONF(NETDEV_UP): eth5: link is not ready
+>> [ 1040.424622] IPv6: ADDRCONF(NETDEV_CHANGE): eth5: link becomes ready
+>> when this patch is applied.
+>>
+>> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+>> ---
+>>  drivers/net/ethernet/intel/igbvf/netdev.c | 2 --
+>>  1 file changed, 2 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+>> index 93eb7ee..f041586 100644
+>> --- a/drivers/net/ethernet/intel/igbvf/netdev.c
+>> +++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+>> @@ -876,8 +876,6 @@ static irqreturn_t igbvf_msix_other(int irq, void *data)
+>>  
+>>  	adapter->int_counter1++;
+>>  
+>> -	netif_carrier_off(netdev);
+>> -	hw->mac.get_link_status = 1;
+>>  	if (!test_bit(__IGBVF_DOWN, &adapter->state))
+>>  		mod_timer(&adapter->watchdog_timer, jiffies + 1);
+>>  
 > 
-> tipc-config -netid=1234 -addr=1.1.3 -be=eth:eth0
-> tipc-config -netid=1234 -addr=1.1.3 -bd=eth:eth0
-> 
-> ---------------------------------------------------
-> 
-> [  327.693595] ======================================================
-> [  327.693994] [ INFO: possible circular locking dependency detected ]
-> [  327.694519] 3.11.0-rc3-wwd-default #4 Tainted: G           O
-> [  327.694882] -------------------------------------------------------
-> [  327.695385] tipc-config/5825 is trying to acquire lock:
-> [  327.695754]  (((timer))#2){+.-...}, at: [<ffffffff8105be80>] del_timer_sync+0x0/0xd0
-> [  327.696018]
-> [  327.696018] but task is already holding lock:
-> [  327.696018]  (&(&b_ptr->lock)->rlock){+.-...}, at: [<ffffffffa02be58d>] bearer_disable+  0xdd/0x120 [tipc]
-> [  327.696018]
-> [  327.696018] which lock already depends on the new lock.
-> [  327.696018]
-> [  327.696018]
-> [  327.696018] the existing dependency chain (in reverse order) is:
-> [  327.696018]
-> [  327.696018] -> #1 (&(&b_ptr->lock)->rlock){+.-...}:
-> [  327.696018]        [<ffffffff810b3b4d>] validate_chain+0x6dd/0x870
-> [  327.696018]        [<ffffffff810b40bb>] __lock_acquire+0x3db/0x670
-> [  327.696018]        [<ffffffff810b4453>] lock_acquire+0x103/0x130
-> [  327.696018]        [<ffffffff814d65b1>] _raw_spin_lock_bh+0x41/0x80
-> [  327.696018]        [<ffffffffa02c5d48>] disc_timeout+0x18/0xd0 [tipc]
-> [  327.696018]        [<ffffffff8105b92a>] call_timer_fn+0xda/0x1e0
-> [  327.696018]        [<ffffffff8105bcd7>] run_timer_softirq+0x2a7/0x2d0
-> [  327.696018]        [<ffffffff8105379a>] __do_softirq+0x16a/0x2e0
-> [  327.696018]        [<ffffffff81053a35>] irq_exit+0xd5/0xe0
-> [  327.696018]        [<ffffffff81033005>] smp_apic_timer_interrupt+0x45/0x60
-> [  327.696018]        [<ffffffff814df4af>] apic_timer_interrupt+0x6f/0x80
-> [  327.696018]        [<ffffffff8100b70e>] arch_cpu_idle+0x1e/0x30
-> [  327.696018]        [<ffffffff810a039d>] cpu_idle_loop+0x1fd/0x280
-> [  327.696018]        [<ffffffff810a043e>] cpu_startup_entry+0x1e/0x20
-> [  327.696018]        [<ffffffff81031589>] start_secondary+0x89/0x90
-> [  327.696018]
-> [  327.696018] -> #0 (((timer))#2){+.-...}:
-> [  327.696018]        [<ffffffff810b33fe>] check_prev_add+0x43e/0x4b0
-> [  327.696018]        [<ffffffff810b3b4d>] validate_chain+0x6dd/0x870
-> [  327.696018]        [<ffffffff810b40bb>] __lock_acquire+0x3db/0x670
-> [  327.696018]        [<ffffffff810b4453>] lock_acquire+0x103/0x130
-> [  327.696018]        [<ffffffff8105bebd>] del_timer_sync+0x3d/0xd0
-> [  327.696018]        [<ffffffffa02c5855>] tipc_disc_delete+0x15/0x30 [tipc]
-> [  327.696018]        [<ffffffffa02be59f>] bearer_disable+0xef/0x120 [tipc]
-> [  327.696018]        [<ffffffffa02be74f>] tipc_disable_bearer+0x2f/0x60 [tipc]
-> [  327.696018]        [<ffffffffa02bfb32>] tipc_cfg_do_cmd+0x2e2/0x550 [tipc]
-> [  327.696018]        [<ffffffffa02c8c79>] handle_cmd+0x49/0xe0 [tipc]
-> [  327.696018]        [<ffffffff8143e898>] genl_family_rcv_msg+0x268/0x340
-> [  327.696018]        [<ffffffff8143ed30>] genl_rcv_msg+0x70/0xd0
-> [  327.696018]        [<ffffffff8143d4c9>] netlink_rcv_skb+0x89/0xb0
-> [  327.696018]        [<ffffffff8143e617>] genl_rcv+0x27/0x40
-> [  327.696018]        [<ffffffff8143d21e>] netlink_unicast+0x15e/0x1b0
-> [  327.696018]        [<ffffffff8143ddcf>] netlink_sendmsg+0x22f/0x400
-> [  327.696018]        [<ffffffff813f7836>] __sock_sendmsg+0x66/0x80
-> [  327.696018]        [<ffffffff813f7957>] sock_aio_write+0x107/0x120
-> [  327.696018]        [<ffffffff8117f76d>] do_sync_write+0x7d/0xc0
-> [  327.696018]        [<ffffffff8117fc56>] vfs_write+0x186/0x190
-> [  327.696018]        [<ffffffff811803e0>] SyS_write+0x60/0xb0
-> [  327.696018]        [<ffffffff814de852>] system_call_fastpath+0x16/0x1b
-> [  327.696018]
-> [  327.696018] other info that might help us debug this:
-> [  327.696018]
-> [  327.696018]  Possible unsafe locking scenario:
-> [  327.696018]
-> [  327.696018]        CPU0                    CPU1
-> [  327.696018]        ----                    ----
-> [  327.696018]   lock(&(&b_ptr->lock)->rlock);
-> [  327.696018]                                lock(((timer))#2);
-> [  327.696018]                                lock(&(&b_ptr->lock)->rlock);
-> [  327.696018]   lock(((timer))#2);
-> [  327.696018]
-> [  327.696018]  *** DEADLOCK ***
-> [  327.696018]
-> [  327.696018] 5 locks held by tipc-config/5825:
-> [  327.696018]  #0:  (cb_lock){++++++}, at: [<ffffffff8143e608>] genl_rcv+0x18/0x40
-> [  327.696018]  #1:  (genl_mutex){+.+.+.}, at: [<ffffffff8143ed66>] genl_rcv_msg+0xa6/0xd0
-> [  327.696018]  #2:  (config_mutex){+.+.+.}, at: [<ffffffffa02bf889>] tipc_cfg_do_cmd+0x39/ 0x550 [tipc]
-> [  327.696018]  #3:  (tipc_net_lock){++.-..}, at: [<ffffffffa02be738>] tipc_disable_bearer+ 0x18/0x60 [tipc]
-> [  327.696018]  #4:  (&(&b_ptr->lock)->rlock){+.-...}, at: [<ffffffffa02be58d>]             bearer_disable+0xdd/0x120 [tipc]
-> [  327.696018]
-> [  327.696018] stack backtrace:
-> [  327.696018] CPU: 2 PID: 5825 Comm: tipc-config Tainted: G           O 3.11.0-rc3-wwd-    default #4
-> [  327.696018] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
-> [  327.696018]  00000000ffffffff ffff880037fa77a8 ffffffff814d03dd 0000000000000000
-> [  327.696018]  ffff880037fa7808 ffff880037fa77e8 ffffffff810b1c4f 0000000037fa77e8
-> [  327.696018]  ffff880037fa7808 ffff880037e4db40 0000000000000000 ffff880037e4e318
-> [  327.696018] Call Trace:
-> [  327.696018]  [<ffffffff814d03dd>] dump_stack+0x4d/0xa0
-> [  327.696018]  [<ffffffff810b1c4f>] print_circular_bug+0x10f/0x120
-> [  327.696018]  [<ffffffff810b33fe>] check_prev_add+0x43e/0x4b0
-> [  327.696018]  [<ffffffff810b3b4d>] validate_chain+0x6dd/0x870
-> [  327.696018]  [<ffffffff81087a28>] ? sched_clock_cpu+0xd8/0x110
-> [  327.696018]  [<ffffffff810b40bb>] __lock_acquire+0x3db/0x670
-> [  327.696018]  [<ffffffff810b4453>] lock_acquire+0x103/0x130
-> [  327.696018]  [<ffffffff8105be80>] ? try_to_del_timer_sync+0x70/0x70
-> [  327.696018]  [<ffffffff8105bebd>] del_timer_sync+0x3d/0xd0
-> [  327.696018]  [<ffffffff8105be80>] ? try_to_del_timer_sync+0x70/0x70
-> [  327.696018]  [<ffffffffa02c5855>] tipc_disc_delete+0x15/0x30 [tipc]
-> [  327.696018]  [<ffffffffa02be59f>] bearer_disable+0xef/0x120 [tipc]
-> [  327.696018]  [<ffffffffa02be74f>] tipc_disable_bearer+0x2f/0x60 [tipc]
-> [  327.696018]  [<ffffffffa02bfb32>] tipc_cfg_do_cmd+0x2e2/0x550 [tipc]
-> [  327.696018]  [<ffffffff81218783>] ? security_capable+0x13/0x20
-> [  327.696018]  [<ffffffffa02c8c79>] handle_cmd+0x49/0xe0 [tipc]
-> [  327.696018]  [<ffffffff8143e898>] genl_family_rcv_msg+0x268/0x340
-> [  327.696018]  [<ffffffff8143ed30>] genl_rcv_msg+0x70/0xd0
-> [  327.696018]  [<ffffffff8143ecc0>] ? genl_lock+0x20/0x20
-> [  327.696018]  [<ffffffff8143d4c9>] netlink_rcv_skb+0x89/0xb0
-> [  327.696018]  [<ffffffff8143e608>] ? genl_rcv+0x18/0x40
-> [  327.696018]  [<ffffffff8143e617>] genl_rcv+0x27/0x40
-> [  327.696018]  [<ffffffff8143d21e>] netlink_unicast+0x15e/0x1b0
-> [  327.696018]  [<ffffffff81289d7c>] ? memcpy_fromiovec+0x6c/0x90
-> [  327.696018]  [<ffffffff8143ddcf>] netlink_sendmsg+0x22f/0x400
-> [  327.696018]  [<ffffffff813f7836>] __sock_sendmsg+0x66/0x80
-> [  327.696018]  [<ffffffff813f7957>] sock_aio_write+0x107/0x120
-> [  327.696018]  [<ffffffff813fe29c>] ? release_sock+0x8c/0xa0
-> [  327.696018]  [<ffffffff8117f76d>] do_sync_write+0x7d/0xc0
-> [  327.696018]  [<ffffffff8117fa24>] ? rw_verify_area+0x54/0x100
-> [  327.696018]  [<ffffffff8117fc56>] vfs_write+0x186/0x190
-> [  327.696018]  [<ffffffff811803e0>] SyS_write+0x60/0xb0
-> [  327.696018]  [<ffffffff814de852>] system_call_fastpath+0x16/0x1b
-> 
-> -----------------------------------------------------------------------
-> 
-> The problem is that the tipc_link_delete() will cancel the timer disc_timeout() when
-> the b_ptr->lock is hold, but the disc_timeout() still call b_ptr->lock to finish the
-> work, so the dead lock occurs.
-> 
-> We should unlock the b_ptr->lock when del the disc_timeout().
-> 
-> Remove link_timeout() still met the same problem, the patch:
-> 
-> http://article.gmane.org/gmane.network.tipc.general/4380
-> 
-> fix the problem, so no need to send patch for fix link_timeout() deadlock warming.
-> 
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> ---
->  net/tipc/bearer.c | 8 ++++++--
->  1 file changed, 6 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-> index cb29ef7..41cad5f 100644
-> --- a/net/tipc/bearer.c
-> +++ b/net/tipc/bearer.c
-> @@ -460,6 +460,7 @@ static void bearer_disable(struct tipc_bearer *b_ptr)
->  {
->  	struct tipc_link *l_ptr;
->  	struct tipc_link *temp_l_ptr;
-> +	struct tipc_link_req *temp_req;
->  
->  	pr_info("Disabling bearer <%s>\n", b_ptr->name);
->  	spin_lock_bh(&b_ptr->lock);
-> @@ -468,9 +469,12 @@ static void bearer_disable(struct tipc_bearer *b_ptr)
->  	list_for_each_entry_safe(l_ptr, temp_l_ptr, &b_ptr->links, link_list) {
->  		tipc_link_delete(l_ptr);
->  	}
-> -	if (b_ptr->link_req)
-> -		tipc_disc_delete(b_ptr->link_req);
-> +	temp_req = b_ptr->link_req;
+> While this patch helps to squelch the messages, did you test to see what
+> happens if for example you bring the PF interface down while the VFs are
+> trying to function?  The reason for switching the carrier off is because
+> most interrupts on the mailbox indicate that something has been changed
+> in the underlying interface.  If for example the PF is about to disable
+> the interfaces it should be triggering this interrupt.  Otherwise you
+> are just setting up the VF to dump out a number of Tx hang and watchdog
+> messages.
 
-No, here is unsafe for us. Below line should be added:
+Yes, I downed the PF while the VF is up, also tried unloading/reloading
+igb. I didn't see any unwanted behaviour while doing this but I'd sure
+appreciate it if you could run this through Intel testing.
 
-	b_ptr->link_req = NULL;
+The reason why this shouldn't be an issue is that on PF down link
+will be lost and the igbvf watchdog calls netif_carrier_off().
 
-Otherwise, another oops will be involved!
+Thanks!
 
-Regards,
-Ying
-
-
->  	spin_unlock_bh(&b_ptr->lock);
-> +
-> +	if (temp_req)
-> +		tipc_disc_delete(temp_req);
-> +
->  	memset(b_ptr, 0, sizeof(struct tipc_bearer));
->  }
->  
-> 
+  Stefan
