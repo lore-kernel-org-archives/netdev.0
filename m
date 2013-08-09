@@ -1,73 +1,164 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net v2] net: sctp: sctp_transport_destroy{,_rcu}: fix
- potential pointer corruption
-Date: Fri, 09 Aug 2013 09:57:47 -0400
-Message-ID: <5204F55B.2040704@gmail.com>
-References: <1376054842-376-1-git-send-email-dborkman@redhat.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: linux-next: Tree for Aug 7
+Date: Fri, 9 Aug 2013 15:58:49 +0200
+Message-ID: <20130809135849.GA8870@orbit.nwl.cc>
+References: <20130807.104713.1615549684239408926.davem@davemloft.net>
+ <20130807183758.GB16263@orbit.nwl.cc>
+ <20130807.162748.779496444843938176.davem@davemloft.net>
+ <20130807.163621.84433966934449459.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:63930 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757403Ab3HIN5v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 09:57:51 -0400
-In-Reply-To: <1376054842-376-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, johannes@sipsolutions.net,
+	sedat.dilek@gmail.com, sfr@canb.auug.org.au,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, hannes@stressinduktion.org,
+	linux-wireless@vger.kernel.org, linville@tuxdriver.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130807.163621.84433966934449459.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/09/2013 09:27 AM, Daniel Borkmann wrote:
-> Probably this one is quite unlikely to be triggered, but it's more safe
-> to hold a pointer to asoc (instead of dereferencing), free the packet
-> chunks first, and access asoc though the pointer after we have called
-> sctp_transport_destroy_rcu() where the transport is being kfree()'d.
-> Introduced by commit 8c98653f ("sctp: sctp_close: fix release of bindings
-> for deferred call_rcu's"). I also did the 8c98653f regression test and
-> it's fine that way.
->
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->   v1->v2: do sctp_packet_free before call_rcu
->
->   net/sctp/transport.c | 10 ++++++----
->   1 file changed, 6 insertions(+), 4 deletions(-)
->
-> diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-> index bdbbc3f..c691455 100644
-> --- a/net/sctp/transport.c
-> +++ b/net/sctp/transport.c
-> @@ -176,17 +176,19 @@ static void sctp_transport_destroy_rcu(struct rcu_head *head)
->    */
->   static void sctp_transport_destroy(struct sctp_transport *transport)
->   {
-> +	struct sctp_association *asoc = transport->asoc;
+On Wed, Aug 07, 2013 at 04:36:21PM -0700, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Wed, 07 Aug 2013 16:27:48 -0700 (PDT)
+> 
+> > Look, I'm going to fix this myself, because I'm pretty tired of
+> > waiting for the obvious fix.
+> 
+> Someone please test this:
+> 
+> diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
+> index c623861..afc02a6 100644
+> --- a/include/linux/etherdevice.h
+> +++ b/include/linux/etherdevice.h
+> @@ -29,6 +29,7 @@
+>  
+>  #ifdef __KERNEL__
+>  extern __be16		eth_type_trans(struct sk_buff *skb, struct net_device *dev);
+> +extern __be16		__eth_type_trans(struct sk_buff *skb, struct net_device *dev);
+>  extern const struct header_ops eth_header_ops;
+>  
+>  extern int eth_header(struct sk_buff *skb, struct net_device *dev,
+> diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+> index be1f64d..35dc1be 100644
+> --- a/net/ethernet/eth.c
+> +++ b/net/ethernet/eth.c
+> @@ -146,6 +146,45 @@ int eth_rebuild_header(struct sk_buff *skb)
+>  EXPORT_SYMBOL(eth_rebuild_header);
+>  
+>  /**
+> + * __eth_type_trans - only determine the packet's protocol ID.
+> + * @skb: packet
+> + * @dev: device
+> + */
+> +__be16 __eth_type_trans(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +	struct ethhdr *eth = (struct ethhdr *) skb->data;
 > +
->   	if (unlikely(!transport->dead)) {
->   		WARN(1, "Attempt to destroy undead transport %p!\n", transport);
->   		return;
->   	}
->
-> -	call_rcu(&transport->rcu, sctp_transport_destroy_rcu);
+> +	/*
+> +	 * Some variants of DSA tagging don't have an ethertype field
+> +	 * at all, so we check here whether one of those tagging
+> +	 * variants has been configured on the receiving interface,
+> +	 * and if so, set skb->protocol without looking at the packet.
+> +	 */
+> +	if (netdev_uses_dsa_tags(dev))
+> +		return htons(ETH_P_DSA);
+> +	if (netdev_uses_trailer_tags(dev))
+> +		return htons(ETH_P_TRAILER);
+> +
+> +	if (ntohs(eth->h_proto) >= ETH_P_802_3_MIN)
+> +		return eth->h_proto;
+> +
+> +	/*
+> +	 *      This is a magic hack to spot IPX packets. Older Novell breaks
+> +	 *      the protocol design and runs IPX over 802.3 without an 802.2 LLC
+> +	 *      layer. We look for FFFF which isn't a used 802.2 SSAP/DSAP. This
+> +	 *      won't work for fault tolerant netware but does for the rest.
+> +	 */
+> +	if (skb->len >= 2 && *(unsigned short *)(skb->data) == 0xFFFF)
+> +		return htons(ETH_P_802_3);
+> +
+> +	/*
+> +	 *      Real 802.2 LLC
+> +	 */
+> +	return htons(ETH_P_802_2);
+> +}
+> +EXPORT_SYMBOL(__eth_type_trans);
+> +
+> +/**
+>   * eth_type_trans - determine the packet's protocol ID.
+>   * @skb: received socket data
+>   * @dev: receiving network device
+> @@ -184,33 +223,7 @@ __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
+>  			skb->pkt_type = PACKET_OTHERHOST;
+>  	}
+>  
+> -	/*
+> -	 * Some variants of DSA tagging don't have an ethertype field
+> -	 * at all, so we check here whether one of those tagging
+> -	 * variants has been configured on the receiving interface,
+> -	 * and if so, set skb->protocol without looking at the packet.
+> -	 */
+> -	if (netdev_uses_dsa_tags(dev))
+> -		return htons(ETH_P_DSA);
+> -	if (netdev_uses_trailer_tags(dev))
+> -		return htons(ETH_P_TRAILER);
 > -
->   	sctp_packet_free(&transport->packet);
->
-> -	if (transport->asoc)
-> -		sctp_association_put(transport->asoc);
-> +	call_rcu(&transport->rcu, sctp_transport_destroy_rcu);
-> +
-> +	if (asoc != NULL)
-> +		sctp_association_put(asoc);
+> -	if (ntohs(eth->h_proto) >= ETH_P_802_3_MIN)
+> -		return eth->h_proto;
+> -
+> -	/*
+> -	 *      This is a magic hack to spot IPX packets. Older Novell breaks
+> -	 *      the protocol design and runs IPX over 802.3 without an 802.2 LLC
+> -	 *      layer. We look for FFFF which isn't a used 802.2 SSAP/DSAP. This
+> -	 *      won't work for fault tolerant netware but does for the rest.
+> -	 */
+> -	if (skb->len >= 2 && *(unsigned short *)(skb->data) == 0xFFFF)
+> -		return htons(ETH_P_802_3);
+> -
+> -	/*
+> -	 *      Real 802.2 LLC
+> -	 */
+> -	return htons(ETH_P_802_2);
+> +	return __eth_type_trans(skb, dev);
+>  }
+>  EXPORT_SYMBOL(eth_type_trans);
+>  
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index 0c0f6c9..ec8e1c3 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -2003,7 +2003,7 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+>  			return err;
+>  
+>  		if (dev->type == ARPHRD_ETHER)
+> -			skb->protocol = eth_type_trans(skb, dev);
+> +			skb->protocol = __eth_type_trans(skb, dev);
+>  
+>  		data += dev->hard_header_len;
+>  		to_write -= dev->hard_header_len;
+> @@ -2332,13 +2332,13 @@ static int packet_snd(struct socket *sock,
+>  	sock_tx_timestamp(sk, &skb_shinfo(skb)->tx_flags);
+>  
+>  	if (dev->type == ARPHRD_ETHER) {
+> -		skb->protocol = eth_type_trans(skb, dev);
+> +		skb->protocol = __eth_type_trans(skb, dev);
+>  		if (skb->protocol == htons(ETH_P_8021Q))
+>  			reserve += VLAN_HLEN;
+>  	} else {
+>  		skb->protocol = proto;
+> -		skb->dev = dev;
+>  	}
+> +	skb->dev = dev;
+>  
+>  	if (!gso_type && (len > dev->mtu + reserve + extra_len)) {
+>  		err = -EMSGSIZE;
 
-I think it is safe to move call_rcu to be the last call in this 
-function. This should never be a last ref on the association.  If
-by some chance it is, we'll get the same warning.
+The problem with this patch is __eth_type_trans() assuming the MAC
+header at skb->data which might be correct in the most cases, but not
+when called from eth_type_trans() as the later sets skb->data to after
+the ethernet header (which was the problem from the beginning).
 
-And if you move call_rcu(), this becomes an ever smaller patch :)
--vlad
->   }
->
->   /* Start T3_rtx timer if it is not already running and update the heartbeat
->
+Best wishes, Phil
