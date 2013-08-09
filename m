@@ -1,56 +1,52 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH 1/2] tipc: avoid possible deadlock while remove link_timeout()
-Date: Fri, 9 Aug 2013 12:36:15 +0800
-Message-ID: <520471BF.8010504@windriver.com>
-References: <520376BA.5040509@huawei.com> <5204567E.2050805@windriver.com> <5204641F.60009@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] net: add SNMP counters tracking incoming
+ ECN bits
+Date: Thu, 08 Aug 2013 22:25:19 -0700 (PDT)
+Message-ID: <20130808.222519.1955301555484469421.davem@davemloft.net>
+References: <1375370791.10515.154.camel@edumazet-glaptop>
+	<1375785131.4457.76.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>,
-	Allan Stephens <allan.stephens@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	<tipc-discussion@lists.sourceforge.net>
-To: Ding Tianhong <dingtianhong@huawei.com>
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail7.windriver.com ([128.224.252.3]:43483 "EHLO
-	mail7.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753955Ab3HIEgn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 00:36:43 -0400
-In-Reply-To: <5204641F.60009@huawei.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40570 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932676Ab3HIFZW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 01:25:22 -0400
+In-Reply-To: <1375785131.4457.76.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/09/2013 11:38 AM, Ding Tianhong wrote:
-> On 2013/8/9 10:39, Ying Xue wrote:
->> On 08/08/2013 06:45 PM, Ding Tianhong wrote:
-> 
->>>
->>> The problem is that the tipc_link_delete() will cancel the timer l_ptr->timer when
->>> the b_ptr->lock is hold, but the l_ptr->timer still call b_ptr->lock to finish the
->>> work, so the dead lock occurs.
->>>
->>
->> I guess the issue would disappear if you apply below patch:
->>
->> http://article.gmane.org/gmane.network.tipc.general/4380
->>
->> And the patch will be submitted into net-next tree soon.
->>
->> Regards,
->> Ying
->>
-> 
-> yes, I test the patch and fix the 1/2 problem, but the 2/2 problem still occurs, if 
-> the http://article.gmane.org/gmane.network.tipc.general/4380 and queue for stable, I will resend
-> 2/2 patch again and cancel the 1/2 patch.
-> 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 06 Aug 2013 03:32:11 -0700
 
-Yes, I know. Just send patch #2.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> With GRO/LRO processing, there is a problem because Ip[6]InReceives SNMP
+> counters do not count the number of frames, but number of aggregated
+> segments.
+> 
+> Its probably too late to change this now.
+> 
+> This patch adds four new counters, tracking number of frames, regardless
+> of LRO/GRO, and on a per ECN status basis, for IPv4 and IPv6.
+> 
+> Ip[6]NoECTPkts : Number of packets received with NOECT
+> Ip[6]ECT1Pkts  : Number of packets received with ECT(1)
+> Ip[6]ECT0Pkts  : Number of packets received with ECT(0)
+> Ip[6]CEPkts    : Number of packets received with Congestion Experienced
+> 
+> lph37:~# nstat | egrep "Pkts|InReceive"
+> IpInReceives                    1634137            0.0
+> Ip6InReceives                   3714107            0.0
+> Ip6InNoECTPkts                  19205              0.0
+> Ip6InECT0Pkts                   52651828           0.0
+> IpExtInNoECTPkts                33630              0.0
+> IpExtInECT0Pkts                 15581379           0.0
+> IpExtInCEPkts                   6                  0.0
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Regards,
-Ying
-
-> 
-> 
-> 
+Applied, thanks.
