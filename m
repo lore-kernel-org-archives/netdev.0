@@ -1,7 +1,7 @@
 From: Lutz Jaenicke <ljaenicke@innominate.com>
-Subject: [PATCH] gianfar: implement flow control handling
-Date: Fri,  9 Aug 2013 10:26:29 +0200
-Message-ID: <1376036790-18238-2-git-send-email-ljaenicke@innominate.com>
+Subject: [PATCH] gianfar: add support for LFC (Lossless Flow Control)
+Date: Fri,  9 Aug 2013 10:26:30 +0200
+Message-ID: <1376036790-18238-3-git-send-email-ljaenicke@innominate.com>
 References: <1375987549.2853.67.camel@deadeye.wl.decadent.org.uk>
  <1376036790-18238-1-git-send-email-ljaenicke@innominate.com>
 Cc: Claudiu Manoil <claudiu.manoil@freescale.com>,
@@ -10,188 +10,207 @@ Cc: Claudiu Manoil <claudiu.manoil@freescale.com>,
 	Lutz Jaenicke <ljaenicke@innominate.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from home.innominate.com ([77.245.32.75]:51857 "EHLO
+Received: from host2.bln.innominate.com ([77.245.32.75]:51863 "EHLO
 	home.innominate.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030559Ab3HII0k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 04:26:40 -0400
+	with ESMTP id S1030575Ab3HII0l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 04:26:41 -0400
 In-Reply-To: <1376036790-18238-1-git-send-email-ljaenicke@innominate.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This implementation is inspired by the tg3 driver!
+Implement Lossless Flow Control (let the MAC automatically generate
+PAUSE frames in case of too much incoming traffic.
+Selection of this feature is performed via device tree parameter.
+The board (and processor) specific device tree is authoritative wrt this
+information.
 ---
- drivers/net/ethernet/freescale/gianfar.c         |   31 +++++++++-
- drivers/net/ethernet/freescale/gianfar.h         |    7 ++-
- drivers/net/ethernet/freescale/gianfar_ethtool.c |   71 ++++++++++++++++++++++
- 3 files changed, 107 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/freescale/gianfar.c |   40 +++++++++++++++++++++++++++++-
+ drivers/net/ethernet/freescale/gianfar.h |   34 ++++++++++++++++++++++++-
+ 2 files changed, 72 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 91bd6da..0da003c 100644
+index 8436f00..5273492 100644
 --- a/drivers/net/ethernet/freescale/gianfar.c
 +++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -1065,7 +1065,11 @@ static int gfar_probe(struct platform_device *ofdev)
- 	/* We need to delay at least 3 TX clocks */
- 	udelay(2);
+@@ -169,10 +169,12 @@ static void gfar_init_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
+ static int gfar_init_bds(struct net_device *ndev)
+ {
+ 	struct gfar_private *priv = netdev_priv(ndev);
++	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+ 	struct gfar_priv_tx_q *tx_queue = NULL;
+ 	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	struct txbd8 *txbdp;
+ 	struct rxbd8 *rxbdp;
++	u32 *rfbptr;
+ 	int i, j;
  
--	tempval = (MACCFG1_TX_FLOW | MACCFG1_RX_FLOW);
-+	tempval = 0;
-+	if (!priv->pause_aneg_en && priv->tx_pause_en)
-+		tempval |= MACCFG1_TX_FLOW;
-+	if (!priv->pause_aneg_en && priv->rx_pause_en)
-+		tempval |= MACCFG1_RX_FLOW;
- 	gfar_write(&regs->maccfg1, tempval);
+ 	for (i = 0; i < priv->num_tx_queues; i++) {
+@@ -197,6 +199,7 @@ static int gfar_init_bds(struct net_device *ndev)
+ 		txbdp->status |= TXBD_WRAP;
+ 	}
  
- 	/* Initialize MACCFG2. */
-@@ -3042,6 +3046,7 @@ static void adjust_link(struct net_device *dev)
- 	lock_tx_qs(priv);
++	rfbptr = &regs->rfbptr0;
+ 	for (i = 0; i < priv->num_rx_queues; i++) {
+ 		rx_queue = priv->rx_queue[i];
+ 		rx_queue->cur_rx = rx_queue->rx_bd_base;
+@@ -222,6 +225,11 @@ static int gfar_init_bds(struct net_device *ndev)
  
- 	if (phydev->link) {
-+		u32 tempval1 = gfar_read(&regs->maccfg1);
- 		u32 tempval = gfar_read(&regs->maccfg2);
- 		u32 ecntrl = gfar_read(&regs->ecntrl);
- 
-@@ -3088,6 +3093,30 @@ static void adjust_link(struct net_device *dev)
- 			priv->oldspeed = phydev->speed;
+ 			rxbdp++;
  		}
++		if (priv->device_flags & FSL_GIANFAR_DEV_HAS_LFC)
++			rx_queue->rfbptr = rfbptr;
++		else
++			rx_queue->rfbptr = 0;
++		rfbptr += 2;
  
-+		tempval1 &= ~(MACCFG1_TX_FLOW | MACCFG1_RX_FLOW);
-+		if (phydev->duplex) {
-+			if (!priv->pause_aneg_en) {
-+				if (priv->tx_pause_en)
-+					tempval1 |= MACCFG1_TX_FLOW;
-+				if (priv->rx_pause_en)
-+					tempval1 |= MACCFG1_RX_FLOW;
-+			} else {
-+				u8 flowctrl;
-+				u32 lcl_adv = mii_advertise_flowctrl(phydev->advertising);
-+				u32 rmt_adv = 0;
-+				if (phydev->pause)
-+					rmt_adv = LPA_PAUSE_CAP;
-+				if (phydev->asym_pause)
-+					rmt_adv |= LPA_PAUSE_ASYM;
-+				flowctrl = mii_resolve_flowctrl_fdx(lcl_adv, rmt_adv);
-+				if (flowctrl & FLOW_CTRL_TX)
-+					tempval1 |= MACCFG1_TX_FLOW;
-+				if (flowctrl & FLOW_CTRL_RX)
-+					tempval1 |= MACCFG1_RX_FLOW;
-+			}
-+		}
-+
-+		gfar_write(&regs->maccfg1, tempval1);
- 		gfar_write(&regs->maccfg2, tempval);
- 		gfar_write(&regs->ecntrl, ecntrl);
+ 	}
  
-diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
-index aedfcc4..41740e2 100644
---- a/drivers/net/ethernet/freescale/gianfar.h
-+++ b/drivers/net/ethernet/freescale/gianfar.h
-@@ -148,6 +148,8 @@ extern const char gfar_driver_version[];
- 		| SUPPORTED_100baseT_Half \
- 		| SUPPORTED_100baseT_Full \
- 		| SUPPORTED_Autoneg \
-+		| SUPPORTED_Pause \
-+		| SUPPORTED_Asym_Pause \
- 		| SUPPORTED_MII)
- 
- /* TBI register addresses */
-@@ -1105,7 +1107,10 @@ struct gfar_private {
- 		extended_hash:1,
- 		bd_stash_en:1,
- 		rx_filer_enable:1,
--		wol_en:1; /* Wake-on-LAN enabled */
-+		wol_en:1, /* Wake-on-LAN enabled */
-+		pause_aneg_en:1,
-+		tx_pause_en:1,
-+		rx_pause_en:1;
- 	unsigned short padding;
- 
- 	/* PHY stuff */
-diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-index 01748d1..0fc1c65d 100644
---- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
-+++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-@@ -1836,6 +1836,75 @@ static int gfar_nway_reset(struct net_device *dev)
- 	return phy_start_aneg(priv->phydev);
+@@ -340,6 +348,19 @@ static void gfar_init_tx_rx_base(struct gfar_private *priv)
+ 	}
  }
  
-+static void gfar_get_pauseparam(struct net_device *dev, struct ethtool_pauseparam *epause)
++static void gfar_init_rqprm(struct gfar_private *priv)
 +{
-+	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar __iomem *regs = priv->gfargrp[0].regs;
++	u32 __iomem *baddr;
++	int i;
 +
-+	epause->autoneg = !!priv->pause_aneg_en;
-+	epause->rx_pause = !!priv->rx_pause_en;
-+	epause->tx_pause = !!priv->tx_pause_en;
-+
++	baddr = &regs->rqprm0;
++	for(i = 0; i < priv->num_rx_queues; i++) {
++		gfar_write(baddr, priv->rx_queue[i]->rx_ring_size | (DEFAULT_RX_LFC_THR << FBTHR_SHIFT));
++		baddr++;
++	}
 +}
 +
-+
-+static int gfar_set_pauseparam(struct net_device *dev, struct ethtool_pauseparam *epause)
-+{
-+	struct gfar_private *priv = netdev_priv(dev);
-+	struct phy_device *phydev = priv->phydev;
-+	struct gfar __iomem *regs = priv->gfargrp[0].regs;
-+	u32 oldadv, newadv;
-+	int err = 0;
-+
-+	if (!(phydev->supported & SUPPORTED_Pause) ||
-+	    (!(phydev->supported & SUPPORTED_Asym_Pause) &&
-+	     (epause->rx_pause != epause->tx_pause)))
-+		return -EINVAL;
-+
-+	priv->rx_pause_en = priv->tx_pause_en = 0;
-+	if (epause->rx_pause) {
-+		priv->rx_pause_en = 1;
-+
-+		if (epause->tx_pause) {
-+			priv->tx_pause_en = 1;
-+			newadv = ADVERTISED_Pause;
-+		} else
-+			newadv = ADVERTISED_Pause | ADVERTISED_Asym_Pause;
-+	} else if (epause->tx_pause) {
-+		priv->tx_pause_en = 1;
-+		newadv = ADVERTISED_Asym_Pause;
-+	} else
-+		newadv = 0;
-+
-+	if (epause->autoneg)
-+		priv->pause_aneg_en = 1;
-+	else
-+		priv->pause_aneg_en = 0;
-+
-+	oldadv = phydev->advertising &
-+		(ADVERTISED_Pause | ADVERTISED_Asym_Pause);
-+	if (oldadv != newadv) {
-+		phydev->advertising &= 
-+			~(ADVERTISED_Pause | ADVERTISED_Asym_Pause);
-+		phydev->advertising |= newadv;
-+		if (phydev->autoneg) {
-+			return phy_start_aneg(phydev);
-+		}
-+
-+		if (!epause->autoneg) {
-+			u32 tempval;
-+			tempval = gfar_read(&regs->maccfg1);
-+			tempval &= ~(MACCFG1_TX_FLOW | MACCFG1_RX_FLOW);
-+			if (priv->tx_pause_en)
-+				tempval |= MACCFG1_TX_FLOW;
-+			if (priv->rx_pause_en)
-+				tempval |= MACCFG1_RX_FLOW;
-+			gfar_write(&regs->maccfg1, tempval);
-+		}
+ static void gfar_init_mac(struct net_device *ndev)
+ {
+ 	struct gfar_private *priv = netdev_priv(ndev);
+@@ -348,6 +369,15 @@ static void gfar_init_mac(struct net_device *ndev)
+ 	u32 tctrl = 0;
+ 	u32 attrs = 0;
+ 
++	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_LFC) {
++		/* Clear the LFC bit */
++		gfar_write(&regs->rctrl, rctrl);
++		/* Init flow control threshold values */
++		gfar_init_rqprm(priv);
++		gfar_write(&regs->ptv, DEFAULT_LFC_PTVVAL);
++		rctrl |= RCTRL_LFC;
 +	}
 +
-+	return err;
-+}
+ 	/* write the tx/rx base registers */
+ 	gfar_init_tx_rx_base(priv);
+ 
+@@ -443,7 +473,6 @@ static struct net_device_stats *gfar_get_stats(struct net_device *dev)
+ 
+ 	dev->stats.tx_bytes = tx_bytes;
+ 	dev->stats.tx_packets = tx_packets;
+-
+ 	return &dev->stats;
+ }
+ 
+@@ -672,6 +701,7 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
+ 	const u32 *stash;
+ 	const u32 *stash_len;
+ 	const u32 *stash_idx;
++	const int *lfc_flag;
+ 	unsigned int num_tx_qs, num_rx_qs;
+ 	u32 *tx_queues, *rx_queues;
+ 
+@@ -824,6 +854,10 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
+ 	if (of_get_property(np, "fsl,magic-packet", NULL))
+ 		priv->device_flags |= FSL_GIANFAR_DEV_HAS_MAGIC_PACKET;
+ 
++	lfc_flag = of_get_property(np, "fsl,lossless-flow-ctrl", NULL);
++	if (lfc_flag && (*lfc_flag == 1))
++		priv->device_flags |= FSL_GIANFAR_DEV_HAS_LFC;
 +
- const struct ethtool_ops gfar_ethtool_ops = {
- 	.get_settings = gfar_gsettings,
- 	.set_settings = gfar_ssettings,
-@@ -1861,4 +1930,6 @@ const struct ethtool_ops gfar_ethtool_ops = {
- 	.get_priv_flags = gfar_get_priv_flags,
- 	.set_priv_flags = gfar_set_priv_flags,
- 	.nway_reset = gfar_nway_reset,
-+	.get_pauseparam = gfar_get_pauseparam,
-+	.set_pauseparam = gfar_set_pauseparam,
+ 	priv->phy_node = of_parse_phandle(np, "phy-handle", 0);
+ 
+ 	/* Find the TBI PHY.  If it's not there, we don't support SGMII */
+@@ -2900,6 +2934,10 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
+ 		/* Setup the new bdp */
+ 		gfar_new_rxbdp(rx_queue, bdp, newskb);
+ 
++		/* Update Last Free RxBD pointer for LFC */
++		if (rx_queue->rfbptr)
++			gfar_write(rx_queue->rfbptr, (u32)bdp);
++
+ 		/* Update to the next pointer */
+ 		bdp = next_bd(bdp, base, rx_queue->rx_ring_size);
+ 
+diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
+index 41740e2..0a6ae93 100644
+--- a/drivers/net/ethernet/freescale/gianfar.h
++++ b/drivers/net/ethernet/freescale/gianfar.h
+@@ -104,6 +104,10 @@ extern const char gfar_driver_version[];
+ #define GFAR_MAX_FIFO_STARVE	511
+ #define GFAR_MAX_FIFO_STARVE_OFF 511
+ 
++#define FBTHR_SHIFT		24
++#define DEFAULT_RX_LFC_THR	16
++#define DEFAULT_LFC_PTVVAL	4
++
+ #define DEFAULT_RX_BUFFER_SIZE  1536
+ #define TX_RING_MOD_MASK(size) (size-1)
+ #define RX_RING_MOD_MASK(size) (size-1)
+@@ -278,6 +282,7 @@ extern const char gfar_driver_version[];
+ 
+ #define RCTRL_TS_ENABLE 	0x01000000
+ #define RCTRL_PAL_MASK		0x001f0000
++#define RCTRL_LFC		0x00004000
+ #define RCTRL_VLEX		0x00002000
+ #define RCTRL_FILREN		0x00001000
+ #define RCTRL_GHTX		0x00000400
+@@ -850,7 +855,32 @@ struct gfar {
+ 	u8	res23c[248];
+ 	u32	attr;		/* 0x.bf8 - Attributes Register */
+ 	u32	attreli;	/* 0x.bfc - Attributes Extract Length and Extract Index Register */
+-	u8	res24[688];
++	u32	rqprm0;		/* 0x.c00 - Receive queue parameters register 0 */
++	u32	rqprm1;		/* 0x.c04 - Receive queue parameters register 1 */
++	u32	rqprm2;		/* 0x.c08 - Receive queue parameters register 2 */
++	u32	rqprm3;		/* 0x.c0c - Receive queue parameters register 3 */
++	u32	rqprm4;		/* 0x.c10 - Receive queue parameters register 4 */
++	u32	rqprm5;		/* 0x.c14 - Receive queue parameters register 5 */
++	u32	rqprm6;		/* 0x.c18 - Receive queue parameters register 6 */
++	u32	rqprm7;		/* 0x.c1c - Receive queue parameters register 7 */
++	u8	res24[36];
++	u32	rfbptr0;	/* 0x.c44 - Last free RxBD pointer for ring 0 */
++	u8	res24a[4];
++	u32	rfbptr1;	/* 0x.c4c - Last free RxBD pointer for ring 1 */
++	u8	res24b[4];
++	u32	rfbptr2;	/* 0x.c54 - Last free RxBD pointer for ring 2 */
++	u8	res24c[4];
++	u32	rfbptr3;	/* 0x.c5c - Last free RxBD pointer for ring 3 */
++	u8	res24d[4];
++	u32	rfbptr4;	/* 0x.c64 - Last free RxBD pointer for ring 4 */
++	u8	res24e[4];
++	u32	rfbptr5;	/* 0x.c6c - Last free RxBD pointer for ring 5 */
++	u8	res24f[4];
++	u32	rfbptr6;	/* 0x.c74 - Last free RxBD pointer for ring 6 */
++	u8	res24g[4];
++	u32	rfbptr7;	/* 0x.c7c - Last free RxBD pointer for ring 7 */
++	u8	res24h[4];
++	u8	res24x[556];
+ 	u32	isrg0;		/* 0x.eb0 - Interrupt steering group 0 register */
+ 	u32	isrg1;		/* 0x.eb4 - Interrupt steering group 1 register */
+ 	u32	isrg2;		/* 0x.eb8 - Interrupt steering group 2 register */
+@@ -889,6 +919,7 @@ struct gfar {
+ #define FSL_GIANFAR_DEV_HAS_BD_STASHING		0x00000200
+ #define FSL_GIANFAR_DEV_HAS_BUF_STASHING	0x00000400
+ #define FSL_GIANFAR_DEV_HAS_TIMER		0x00000800
++#define FSL_GIANFAR_DEV_HAS_LFC			0x80000000
+ 
+ #if (MAXGROUPS == 2)
+ #define DEFAULT_MAPPING 	0xAA
+@@ -998,6 +1029,7 @@ struct gfar_priv_rx_q {
+ 	/* RX Coalescing values */
+ 	unsigned char rxcoalescing;
+ 	unsigned long rxic;
++	u32	*rfbptr;
  };
+ 
+ /**
 -- 
 1.7.10.4
