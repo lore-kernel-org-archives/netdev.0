@@ -1,58 +1,34 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net] net: sctp: sctp_assoc_control_transport: fix MTU
- size in SCTP_PF state
-Date: Fri, 09 Aug 2013 09:39:45 -0400
-Message-ID: <5204F121.7080609@gmail.com>
-References: <1376053748-31783-1-git-send-email-dborkman@redhat.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH RFC 0/5] netfilter: implement netfilter SYN proxy
+Date: Fri, 9 Aug 2013 09:55:28 -0400
+Message-ID: <CADVnQy=WAiEAcVkB6c3NPATVnd+uAjE87QEWnomWUr4+Dy-fdg@mail.gmail.com>
+References: <1375898766.4004.37.camel@edumazet-glaptop>
+	<20130807205959.GC21463@macbook.localnet>
+	<20130807210540.GE32257@order.stressinduktion.org>
+	<20130807.164056.2110811182336568861.davem@davemloft.net>
+	<20130808000412.GF32257@order.stressinduktion.org>
+	<20130808001344.GA24450@macbook.localnet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kheiss@gmail.com, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f181.google.com ([209.85.220.181]:64475 "EHLO
-	mail-vc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966786Ab3HINjt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 09:39:49 -0400
-In-Reply-To: <1376053748-31783-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
+	mph@one.com, jesper.brouer@gmail.com, as@one.com
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20130808001344.GA24450@macbook.localnet>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/09/2013 09:09 AM, Daniel Borkmann wrote:
-> The SCTP Quick failover draft [1] section 5.1, point 5 says that the cwnd
-> should be 1 MTU. So, instead of 1, set it to 1 MTU.
->
->    [1] https://tools.ietf.org/html/draft-nishida-tsvwg-sctp-failover-05
->
-> Reported-by: Karl Heiss <kheiss@gmail.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> ---
->   net/sctp/associola.c | 4 ++--
->   1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> index bce5b79..ab67efc 100644
-> --- a/net/sctp/associola.c
-> +++ b/net/sctp/associola.c
-> @@ -846,12 +846,12 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
->   		else
->   			spc_state = SCTP_ADDR_AVAILABLE;
->   		/* Don't inform ULP about transition from PF to
-> -		 * active state and set cwnd to 1, see SCTP
-> +		 * active state and set cwnd to 1 MTU, see SCTP
->   		 * Quick failover draft section 5.1, point 5
->   		 */
->   		if (transport->state == SCTP_PF) {
->   			ulp_notify = false;
-> -			transport->cwnd = 1;
-> +			transport->cwnd = asoc->pathmtu;
->   		}
->   		transport->state = SCTP_ACTIVE;
->   		break;
->
+> It seems, Windows stopped using tcp timestamps at least in windows 8 by
+> default.
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+I agree we should not let the Windows TCP stack behavior dictate the
+approach, but just wanted to point out that it's not just Windows 8
+that lacks timestamps. It's more that Windows 7 is about the only
+sizable Windows deployment that does use timestamps. Windows NT,
+Windows 2000, Windows XP, Windows Vista, and Windows 8 all do not use
+timestamps by default, and that adds up to about 30-40% of Internet
+clients, depending on who's measuring. Something to keep in mind.
 
--vlad
+neal
