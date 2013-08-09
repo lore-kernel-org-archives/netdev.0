@@ -1,69 +1,55 @@
-From: Peter Wu <lekensteyn@gmail.com>
-Subject: Re: [PATCH v3 1/2] realtek: convert to per-chip mask
-Date: Fri, 09 Aug 2013 11:58:24 +0200
-Message-ID: <2677928.0eNgS5TqmA@al>
-References: <1374759391-16916-1-git-send-email-lekensteyn@gmail.com> <6171378.LP1RDUmkgD@al> <1376041490.14810.5.camel@deadeye.wl.decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] net: sctp: sctp_transport_destroy{,_rcu}: fix potential pointer corruption
+Date: Fri,  9 Aug 2013 12:07:29 +0200
+Message-ID: <1376042849-19732-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:44056 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965280Ab3HIJ62 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 05:58:28 -0400
-Received: by mail-wi0-f174.google.com with SMTP id j17so1460347wiw.7
-        for <netdev@vger.kernel.org>; Fri, 09 Aug 2013 02:58:27 -0700 (PDT)
-In-Reply-To: <1376041490.14810.5.camel@deadeye.wl.decadent.org.uk>
+Received: from mx1.redhat.com ([209.132.183.28]:40194 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934248Ab3HIKHf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Aug 2013 06:07:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 09 August 2013 11:44:50 Ben Hutchings wrote:
-> On Fri, 2013-08-09 at 10:51 +0200, Peter Wu wrote:
-> > On Thursday 08 August 2013 20:25:41 Ben Hutchings wrote:
-> > > On Thu, 2013-07-25 at 15:36 +0200, Peter Wu wrote:
-> > > [...]
-> > >
-> > > 
-> > >
-> > > > @@ -35,36 +32,62 @@ enum chip_type {
-> > > >
-> > > > 
-> > > >   RTL8100E2,
-> > > >  
-> > > >  };
-> > > > 
-> > > >
-> > > > -enum {
-> > > > - chip_type_mask = HW_REVID(1, 1, 1, 1, 1, 1, 1, 1)
-> > > > +static const char * const chip_names[] = {
-> > > > + [RTL8139] =             "8139",
-> > > > + [RTL8139_K] =           "8139-K",
-> > > > + [RTL8139A] =            "8139A",
-> > > > + [RTL8139A_G] =          "8139A-G",
-> > > > + [RTL8139B] =            "8139B",
-> > > > + [RTL8130] =             "8130",
-> > > > + [RTL8139C] =            "8139C",
-> > > > + [RTL8100] =             "8100",
-> > > > + [RTL8100B_8139D] =      "8100B/8139D",
-> > > > + [RTL8139C] =            "8139C+",
-> > >
-> > > 
-> > >
-> > > Shouldn't the index here be RTL8139Cp?
-> >
-> > 
-> >
-> > The specifications mention "RTL8139C+", I took pre-8169 names from the
-> > previous 
-> > rtl_info_tbl contents:
-> [...]
-> 
-> I'm talking about the index, not the name.  This has an index of
-> RTL8139C which is also used 3 lines up.
+Probably this one is quite unlikely to be triggered, but it's more safe
+to hold a pointer to asoc and packet (instead of dereferencing) and access
+both though this after we have called sctp_transport_destroy_rcu() where
+the transport is being kfree()'d. Introduced by commit 8c98653f ("sctp:
+sctp_close: fix release of bindings for deferred call_rcu's").
 
-Oh oops, my sed expression missed this one. I'll fix this in the next version.
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/sctp/transport.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-Regards,
-Peter
+diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+index bdbbc3f..7142756 100644
+--- a/net/sctp/transport.c
++++ b/net/sctp/transport.c
+@@ -176,6 +176,9 @@ static void sctp_transport_destroy_rcu(struct rcu_head *head)
+  */
+ static void sctp_transport_destroy(struct sctp_transport *transport)
+ {
++	struct sctp_association *asoc = transport->asoc;
++	struct sctp_packet *packet = &transport->packet;
++
+ 	if (unlikely(!transport->dead)) {
+ 		WARN(1, "Attempt to destroy undead transport %p!\n", transport);
+ 		return;
+@@ -183,10 +186,10 @@ static void sctp_transport_destroy(struct sctp_transport *transport)
+ 
+ 	call_rcu(&transport->rcu, sctp_transport_destroy_rcu);
+ 
+-	sctp_packet_free(&transport->packet);
++	sctp_packet_free(packet);
+ 
+-	if (transport->asoc)
+-		sctp_association_put(transport->asoc);
++	if (asoc != NULL)
++		sctp_association_put(asoc);
+ }
+ 
+ /* Start T3_rtx timer if it is not already running and update the heartbeat
+-- 
+1.7.11.7
