@@ -1,66 +1,38 @@
 From: Neel Patel <neepatel@cisco.com>
-Subject: [PATCH 2/4] drivers/net: enic: Add an interface for USNIC to interact with firmware
-Date: Fri,  9 Aug 2013 11:12:19 -0700
-Message-ID: <1376071941-17001-3-git-send-email-neepatel@cisco.com>
+Subject: [PATCH 3/4] drivers/net: enic: Make ASIC information available to USNIC
+Date: Fri,  9 Aug 2013 11:12:20 -0700
+Message-ID: <1376071941-17001-4-git-send-email-neepatel@cisco.com>
 References: <1376071941-17001-1-git-send-email-neepatel@cisco.com>
 Cc: Neel Patel <neepatel@cisco.com>,
 	Nishank Trivedi <nistrive@cisco.com>,
 	Christian Benvenuti <benve@cisco.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtv-iport-4.cisco.com ([173.36.130.15]:2820 "EHLO
-	mtv-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758603Ab3HISMZ (ORCPT
+Received: from mtv-iport-1.cisco.com ([173.36.130.12]:6714 "EHLO
+	mtv-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758604Ab3HISMZ (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 14:12:25 -0400
 In-Reply-To: <1376071941-17001-1-git-send-email-neepatel@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds an interface for USNIC to proxy firmware commands through
-ENIC.
+This patch provides asic information via ethtool.
 
 Signed-off-by: Neel Patel <neepatel@cisco.com>
 Signed-off-by: Nishank Trivedi <nistrive@cisco.com>
 Signed-off-by: Christian Benvenuti <benve@cisco.com>
 ---
- drivers/net/ethernet/cisco/enic/Makefile    |  2 +-
- drivers/net/ethernet/cisco/enic/enic.h      |  1 +
- drivers/net/ethernet/cisco/enic/enic_api.c  | 48 +++++++++++++++++++++++++++++
- drivers/net/ethernet/cisco/enic/enic_api.h  | 30 ++++++++++++++++++
- drivers/net/ethernet/cisco/enic/enic_main.c |  3 ++
- 5 files changed, 83 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/cisco/enic/enic_api.c
- create mode 100644 drivers/net/ethernet/cisco/enic/enic_api.h
+ drivers/net/ethernet/cisco/enic/driver_utils.h | 49 ++++++++++++++++++++++++++
+ drivers/net/ethernet/cisco/enic/enic_ethtool.c |  4 +++
+ 2 files changed, 53 insertions(+)
+ create mode 100644 drivers/net/ethernet/cisco/enic/driver_utils.h
 
-diff --git a/drivers/net/ethernet/cisco/enic/Makefile b/drivers/net/ethernet/cisco/enic/Makefile
-index e52296d..239e1e4 100644
---- a/drivers/net/ethernet/cisco/enic/Makefile
-+++ b/drivers/net/ethernet/cisco/enic/Makefile
-@@ -2,5 +2,5 @@ obj-$(CONFIG_ENIC) := enic.o
- 
- enic-y := enic_main.o vnic_cq.o vnic_intr.o vnic_wq.o \
- 	enic_res.o enic_dev.o enic_pp.o vnic_dev.o vnic_rq.o vnic_vic.o \
--	enic_ethtool.o
-+	enic_ethtool.o enic_api.o
- 
-diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
-index 75e842d..cacca29 100644
---- a/drivers/net/ethernet/cisco/enic/enic.h
-+++ b/drivers/net/ethernet/cisco/enic/enic.h
-@@ -96,6 +96,7 @@ struct enic {
- #ifdef CONFIG_PCI_IOV
- 	u16 num_vfs;
- #endif
-+	spinlock_t enic_api_lock;
- 	struct enic_port_profile *pp;
- 
- 	/* work queue cache line section */
-diff --git a/drivers/net/ethernet/cisco/enic/enic_api.c b/drivers/net/ethernet/cisco/enic/enic_api.c
+diff --git a/drivers/net/ethernet/cisco/enic/driver_utils.h b/drivers/net/ethernet/cisco/enic/driver_utils.h
 new file mode 100644
-index 0000000..e13efbd
+index 0000000..e654b4d
 --- /dev/null
-+++ b/drivers/net/ethernet/cisco/enic/enic_api.c
-@@ -0,0 +1,48 @@
++++ b/drivers/net/ethernet/cisco/enic/driver_utils.h
+@@ -0,0 +1,49 @@
 +/**
 + * Copyright 2013 Cisco Systems, Inc.  All rights reserved.
 + *
@@ -79,99 +51,58 @@ index 0000000..e13efbd
 + *
 + */
 +
-+#include <linux/netdevice.h>
-+#include <linux/spinlock.h>
++#ifndef __DRIVER_UTILS_H__
++#define __DRIVER_UTILS_H__
 +
-+#include "vnic_dev.h"
-+#include "vnic_devcmd.h"
++#include <linux/string.h>
 +
-+#include "enic_res.h"
-+#include "enic.h"
-+#include "enic_api.h"
-+
-+int enic_api_devcmd_proxy_by_index(struct net_device *netdev, int vf,
-+	enum vnic_devcmd_cmd cmd, u64 *a0, u64 *a1, int wait)
++static inline int driver_encode_asic_info(char *str, int strlen, u16 asic_type,
++				u16 asic_rev)
 +{
-+	int err;
-+	struct enic *enic = netdev_priv(netdev);
-+	struct vnic_dev *vdev = enic->vdev;
++	if (strlen < sizeof(asic_type) + sizeof(asic_rev))
++		return -EINVAL;
 +
-+	spin_lock(&enic->enic_api_lock);
-+	spin_lock(&enic->devcmd_lock);
++	memcpy(str, &asic_type, sizeof(asic_type));
++	memcpy(str + sizeof(asic_type), &asic_rev, sizeof(asic_rev));
 +
-+	vnic_dev_cmd_proxy_by_index_start(vdev, vf);
-+	err = vnic_dev_cmd(vdev, cmd, a0, a1, wait);
-+	vnic_dev_cmd_proxy_end(vdev);
-+
-+	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock(&enic->enic_api_lock);
-+
-+	return err;
++	return 0;
 +}
-+EXPORT_SYMBOL(enic_api_devcmd_proxy_by_index);
-diff --git a/drivers/net/ethernet/cisco/enic/enic_api.h b/drivers/net/ethernet/cisco/enic/enic_api.h
-new file mode 100644
-index 0000000..6b9f925
---- /dev/null
-+++ b/drivers/net/ethernet/cisco/enic/enic_api.h
-@@ -0,0 +1,30 @@
-+/**
-+ * Copyright 2013 Cisco Systems, Inc.  All rights reserved.
-+ *
-+ * This program is free software; you may redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; version 2 of the License.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ */
 +
-+#ifndef __ENIC_API_H__
-+#define __ENIC_API_H__
++static inline int driver_decode_asic_info(char *str, int strlen, u16 *asic_type,
++						u16 *asic_rev)
++{
++	if (strlen < sizeof(*asic_type) + sizeof(*asic_rev))
++		return -EINVAL;
 +
-+#include <linux/netdevice.h>
++	if (asic_type)
++		memcpy(asic_type, str, sizeof(*asic_type));
++	if (asic_rev)
++		memcpy(asic_rev, str + sizeof(*asic_type), sizeof(*asic_rev));
++	return 0;
++}
 +
-+#include "vnic_dev.h"
-+#include "vnic_devcmd.h"
-+
-+int enic_api_devcmd_proxy_by_index(struct net_device *netdev, int vf,
-+	enum vnic_devcmd_cmd cmd, u64 *a0, u64 *a1, int wait);
-+
-+#endif
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index b12b32b..7f8891b 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -1733,6 +1733,7 @@ static void enic_reset(struct work_struct *work)
++#endif /*!__DRIVER_UTILS_H__*/
+diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+index 47e3562..c5d938a 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
++++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+@@ -19,6 +19,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/ethtool.h>
  
- 	rtnl_lock();
- 
-+	spin_lock(&enic->enic_api_lock);
- 	enic_dev_hang_notify(enic);
- 	enic_stop(enic->netdev);
- 	enic_dev_hang_reset(enic);
-@@ -1741,6 +1742,7 @@ static void enic_reset(struct work_struct *work)
- 	enic_set_rss_nic_cfg(enic);
- 	enic_dev_set_ig_vlan_rewrite_mode(enic);
- 	enic_open(enic->netdev);
-+	spin_unlock(&enic->enic_api_lock);
- 
- 	rtnl_unlock();
++#include "driver_utils.h"
+ #include "enic_res.h"
+ #include "enic.h"
+ #include "enic_dev.h"
+@@ -116,6 +117,9 @@ static void enic_get_drvinfo(struct net_device *netdev,
+ 		sizeof(drvinfo->fw_version));
+ 	strlcpy(drvinfo->bus_info, pci_name(enic->pdev),
+ 		sizeof(drvinfo->bus_info));
++	memset(drvinfo->reserved1, 0, sizeof(drvinfo->reserved1));
++	driver_encode_asic_info(drvinfo->reserved1, sizeof(drvinfo->reserved1),
++		fw_info->asic_type, fw_info->asic_rev);
  }
-@@ -2153,6 +2155,7 @@ static int enic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	 */
  
- 	spin_lock_init(&enic->devcmd_lock);
-+	spin_lock_init(&enic->enic_api_lock);
- 
- 	/*
- 	 * Set ingress vlan rewrite mode before vnic initialization
+ static void enic_get_strings(struct net_device *netdev, u32 stringset,
 -- 
 1.8.4-rc0
