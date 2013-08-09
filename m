@@ -1,56 +1,76 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] ipv6: don't stop backtracking in fib6_lookup_1 if subtree does not match
-Date: Fri, 9 Aug 2013 16:57:43 +0200
-Message-ID: <20130809145743.GM14001@order.stressinduktion.org>
-References: <20130807003431.GD16410@order.stressinduktion.org> <EF96A1CB-549E-474A-AF58-10F2D2F2BF4A@inf-net.nl> <20130807200637.GD32257@order.stressinduktion.org> <26D8997F-7CDF-425A-B0DC-4D57996871E5@inf-net.nl> <20130809141939.GL14001@order.stressinduktion.org> <CF3AE072-7B80-4C35-9236-4523EE11629F@inf-net.nl>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net:ethernet:korina.c Removed IRQF_DISABLED
+Date: Fri, 09 Aug 2013 08:14:27 -0700
+Message-ID: <1376061267.2087.91.camel@joe-AO722>
+References: <1375989649-7252-1-git-send-email-kumargauravgupta3@gmail.com>
+	 <20130808210918.GE5502@mwanda>
+	 <20130808.142054.1541424422807503741.davem@davemloft.net>
+	 <1375997625.2087.14.camel@joe-AO722> <520452F4.2070804@gmail.com>
+	 <1376015984.2087.31.camel@joe-AO722> <520457AD.9060508@gmail.com>
+	 <1376016864.2087.34.camel@joe-AO722> <52045B31.9000002@gmail.com>
+	 <1376018881.2087.48.camel@joe-AO722> <5204641C.3090905@gmail.com>
+	 <CA+MoWDrsHf4NFE_iszymh6SaBfXsMybC194ZQaKgURmCFwiJRQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Teco Boot <teco@inf-net.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:41747 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933883Ab3HIO5p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 10:57:45 -0400
-Content-Disposition: inline
-In-Reply-To: <CF3AE072-7B80-4C35-9236-4523EE11629F@inf-net.nl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Kumar Gaurav <kumargauravgupta3@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Dan Carpenter <dan.carpenter@oracle.com>, emilio@elopez.com.ar,
+	mugunthanvnm@ti.com, jg1.han@samsung.com,
+	hsweeten@visionengravers.com, netdev <netdev@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org
+To: Peter Senna Tschudin <peter.senna@gmail.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <CA+MoWDrsHf4NFE_iszymh6SaBfXsMybC194ZQaKgURmCFwiJRQ@mail.gmail.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 09, 2013 at 04:40:03PM +0200, Teco Boot wrote:
-> 
-> Op 9 aug. 2013, om 16:19 heeft Hannes Frederic Sowa <hannes@stressinduktion.org> het volgende geschreven:
-> 
-> > On Fri, Aug 09, 2013 at 04:12:20PM +0200, Teco Boot wrote:
-> >> Double checked, it works. Tested with Common Open Research Emulator (CORE, from NRL).
-> >> 
-> >> === But ===
-> >> 
-> >> I had some problems with CORE. Could be me, new kernel version, the patch, CORE using network namespaces, or combination of that. sudo hangs, reboot hangs, ip address show hangs.
-> >> With ps -ef, I see some suspected items:
-> >> root      4858  4161  0 15:57 ?        00:00:00 /sbin/ip -6 addr flush dev eth0
-> >> root      4859     2  0 15:57 ?        00:00:00 [kworker/0:3]
-> >> In the emulation I use, there was no IPv6.
-> >> 
-> >> I'll try to figure out if it is CORE & netns in combination with patch. Or just the patch. Or just the new kernel.
-> >> Just to speed up, any idea where to look for?
-> > 
-> > echo t > /proc/sysrq-trigger and check dmesg while the system hangs. Maybe you
-> > have to use a serial console and send the sysrq over keyboard/break.
-> 
-> System was still running.
-> Cleared dmesg, silence.
-> Then performed echo t > /proc/sysrq-trigger.
-> Quite large dump.
-> Afterwards, silence again.
+On Fri, 2013-08-09 at 15:15 +0200, Peter Senna Tschudin wrote:
+> Coccinelle (http://coccinelle.lip6.fr/) can help you in this task. The
+> semantic patch below takes care of both cases for you:
 
-I think you are experience high fib6_gc_lock contention (and while the lock is
-held you also hold rtnl_lock, which let's all the other processes hang).
-Please test if these patches make things more smooth for you:
+Hi Peter & Kumar
 
-https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=2ac3ac8f86f2fe065d746d9a9abaca867adec577
-https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=49a18d86f66d33a20144ecb5a34bba0d1856b260
+Coccinelle (aka: spatch) is a good/great way to do this.
 
-Thanks,
+(btw Peter, your email was whitespace damaged)
 
-  Hannes
+Peter's useful conversion won't find/convert cases where
+IRQF_DISABLED is used in a #define like:
+
+> diff --git a/drivers/net/ethernet/micrel/ks8851_mll.c b/drivers/net/ethernet/micrel/ks8851_mll.c
+> []
+> @@ -915,7 +915,7 @@ static int ks_net_open(struct net_device *netdev)
+> []
+> -#define        KS_INT_FLAGS    (IRQF_DISABLED|IRQF_TRIGGER_LOW)
+> +#define        KS_INT_FLAGS    (IRQF_TRIGGER_LOW)
+
+You'd still have to do those by hand.
+
+Also, it's good to just do the direct conversions/renames
+so that it's easy to verify just a single attribute has
+been changed by the patches.
+
+There are tools like Dan Carpenter's rename_review.pl
+https://lkml.org/lkml/2011/7/19/196
+that can help you verify the patches.
+
+These patches will generate different objects than the
+original codes.  Otherwise, it's good to make sure that for
+whitespace only/style patches, the objects are unchanged.
+
+Make the patch that removes the IRQF_DISABLED #define
+last in the series and maybe do not even submit it until a
+few weeks after all the other patches are accepted.
+
+Lastly, it might also be good to reflow the modified code
+to maximally fill to 80 columns where reasonable.  This can
+both make the code a bit more human readable and reduce the
+overall line count.
+
+Just remember it's generally better to do any code reflow
+in a separate patch.  To me the criteria for combining
+is how large the rename patch is.  Smallish, ok to reflow,
+largish, not ok.  Use your taste as appropriate.
+
+
