@@ -1,46 +1,76 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: Re: [PATCH] net:ethernet:korina.c Removed IRQF_DISABLED
-Date: Fri, 09 Aug 2013 09:59:54 +0900
-Message-ID: <001401ce949b$c2937b10$47ba7130$@samsung.com>
-References: <1375989649-7252-1-git-send-email-kumargauravgupta3@gmail.com>
- <20130808210918.GE5502@mwanda>
- <20130808.142054.1541424422807503741.davem@davemloft.net>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: [PATCH v3 4/4] USBNET: ax88179_178a: enable tso if usb host
+ supports sg dma
+Date: Fri, 9 Aug 2013 09:44:29 +0800
+Message-ID: <CACVXFVM8C359b8ZBMU4JKP_DvG4+Qyu1-hNHc_8f3GTvUfz50g@mail.gmail.com>
+References: <1375750370-18194-1-git-send-email-ming.lei@canonical.com>
+	<1375750370-18194-5-git-send-email-ming.lei@canonical.com>
+	<1375791737.4457.98.camel@edumazet-glaptop>
+	<CANEJEGvbS=o-942tFJTDzpNvgaB=KUZcBwzJCU-7OHaAF-aQFQ@mail.gmail.com>
+	<CACVXFVOOQZ8mtDXtCE669vEo=jA56g-ADzTZkGLLupZ5D4Z==A@mail.gmail.com>
+	<CANEJEGvvxi83=b+NGTzsVpJw5fE5nb-R0BRWRJ2gz7bF5-H5AA@mail.gmail.com>
+	<CACVXFVMWWcf5duqU9_NB6QMzN1mxE6HfHJ6Aco1u3+4+x7u8JA@mail.gmail.com>
+	<CANEJEGsqGFCLXBUT_3SEd4Ej9g8XFOYZwm9omscNvJgz7MXUHg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: dan.carpenter@oracle.com, kumargauravgupta3@gmail.com,
-	emilio@elopez.com.ar, mugunthanvnm@ti.com,
-	hsweeten@visionengravers.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, Jingoo Han <jg1.han@samsung.com>
-To: 'David Miller' <davem@davemloft.net>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-reply-to: <20130808.142054.1541424422807503741.davem@davemloft.net>
-Content-language: ko
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Oliver Neukum <oneukum@suse.de>,
+	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
+	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	Freddy Xin <freddy@asix.com.tw>
+To: Grant Grundler <grundler@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:59268 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966927Ab3HIBoc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Aug 2013 21:44:32 -0400
+In-Reply-To: <CANEJEGsqGFCLXBUT_3SEd4Ej9g8XFOYZwm9omscNvJgz7MXUHg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday, August 09, 2013 6:21 AM, David Miller wrote:
-> On Fri, 9 Aug 2013 00:09:18 +0300, Dan Carpenter wrote:
-> > On Fri, Aug 09, 2013 at 12:50:49AM +0530, Kumar Gaurav wrote:
-> >> Removed IRQF_DISABLED as it's no-op and should be removed
-> >>
-> >
-> > What?  No, that doesn't sound right.
-> 
-> The IRQ layer completely ignores the flag for several releases
-> now, it's a complete no-op as his commit message so adequately
-> states.
+On Fri, Aug 9, 2013 at 8:18 AM, Grant Grundler <grundler@google.com> wrote:
+> Ming,
+> We are splitting hairs now. :) I want to be clear I think your changes
+> are good and the rest of this conversation is just to learn something
+> new.
+>
+> On Thu, Aug 8, 2013 at 4:48 PM, Ming Lei <ming.lei@canonical.com> wrote:
+>> On Fri, Aug 9, 2013 at 1:25 AM, Grant Grundler <grundler@google.com> wrote:
+> ...
+>>>> I am afraid that PCI network devices' setting still won't survive unbound&
+>>>> re-probed, will they?
+>>>
+>>> Correct - but PCI isn't as prone to "dropping off the bus" like USB
+>>
+>> As far as I know, USB device still won't be disconnected easily, and
+>> reset is possible, but we can make setting survive reset by implementing
+>> .pre_reset() and .post_reset() callback. Or do you have other situation
+>> of USB 'dropping off the bus'?
+>
+> So far only older USB core bugs like this one:
+>     https://codereview.chromium.org/4687002/show
 
-Yes, you're right. :-)
+This happens in configuration change situation, which is seldom
+triggered, and also not "randomly" happen per your standpoint,
+just like rmmod/modprobe , :-)
 
-Currently, 'IRQF_DISABLED' is deprecated as below.
-(include/linux/interrupt.h)
-* IRQF_DISABLED - keep irqs disabled when calling the action handler.
-*                 DEPRECATED. This flag is a NOOP and scheduled to be removed
 
-Best regards,
-Jingoo Han
+> I agree USB won't be disconnected easily.
+>
+>>> is. Master aborts on some PCI systems is a "Fatal Exception" and AFAIK
+>>> that's never been true for any USB device.
+>>
+>> I mean rmmod & modprobe still can reset setting of one PCI network
+>> device after powering on the device, can't it?
+>
+> Definitely. But this isn't something that will "randomly" happen and
+> will leave tracks all over the place of it happening. So I'm not
+> worried about trying to debug this scenario.
 
-> 
-> So what's the problem again? :-)
-
+Thanks,
+--
+Ming Lei
