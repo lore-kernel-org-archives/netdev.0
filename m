@@ -1,131 +1,238 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH] macvtap: fix two races
-Date: Fri, 09 Aug 2013 13:16:10 -0400
-Message-ID: <520523DA.1000400@redhat.com>
-References: <20130807164319.20aa2333@thhw500>  <1375889211.4004.28.camel@edumazet-glaptop>  <20130808102551.6aa47852@thhw500>  <1375968072.4004.92.camel@edumazet-glaptop>  <20130808155634.239dbc2d@thhw500> <1375974374.4004.103.camel@edumazet-glaptop>
-Reply-To: vyasevic@redhat.com
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: [PATCH][net-next v1] gianfar: Add flow control support
+Date: Fri, 9 Aug 2013 20:19:46 +0300
+Message-ID: <1376068786-29868-1-git-send-email-claudiu.manoil@freescale.com>
+References: <1376036790-18238-2-git-send-email-ljaenicke@innominate.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Huth <thuth@linux.vnet.ibm.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Lutz Jaenicke <ljaenicke@innominate.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11954 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754038Ab3HIRQP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Aug 2013 13:16:15 -0400
-In-Reply-To: <1375974374.4004.103.camel@edumazet-glaptop>
+Received: from co9ehsobe001.messaging.microsoft.com ([207.46.163.24]:7696 "EHLO
+	co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752392Ab3HIRUc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Aug 2013 13:20:32 -0400
+In-Reply-To: <1376036790-18238-2-git-send-email-ljaenicke@innominate.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/08/2013 11:06 AM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Since commit ac4e4af1e59e1 ("macvtap: Consistently use rcu functions"),
-> Thomas gets two different warnings :
->
-> BUG: using smp_processor_id() in preemptible [00000000] code: vhost-45891/45892
-> caller is macvtap_do_read+0x45c/0x600 [macvtap]
-> CPU: 1 PID: 45892 Comm: vhost-45891 Not tainted 3.11.0-bisecttest #13
-> Call Trace:
-> ([<00000000001126ee>] show_trace+0x126/0x144)
->   [<00000000001127d2>] show_stack+0xc6/0xd4
->   [<000000000068bcec>] dump_stack+0x74/0xd8
->   [<0000000000481066>] debug_smp_processor_id+0xf6/0x114
->   [<000003ff802e9a18>] macvtap_do_read+0x45c/0x600 [macvtap]
->   [<000003ff802e9c1c>] macvtap_recvmsg+0x60/0x88 [macvtap]
->   [<000003ff80318c5e>] handle_rx+0x5b2/0x800 [vhost_net]
->   [<000003ff8028f77c>] vhost_worker+0x15c/0x1c4 [vhost]
->   [<000000000015f3ac>] kthread+0xd8/0xe4
->   [<00000000006934a6>] kernel_thread_starter+0x6/0xc
->   [<00000000006934a0>] kernel_thread_starter+0x0/0xc
->
-> And
->
-> BUG: using smp_processor_id() in preemptible [00000000] code: vhost-45897/45898
-> caller is macvlan_start_xmit+0x10a/0x1b4 [macvlan]
-> CPU: 1 PID: 45898 Comm: vhost-45897 Not tainted 3.11.0-bisecttest #16
-> Call Trace:
-> ([<00000000001126ee>] show_trace+0x126/0x144)
->   [<00000000001127d2>] show_stack+0xc6/0xd4
->   [<000000000068bdb8>] dump_stack+0x74/0xd4
->   [<0000000000481132>] debug_smp_processor_id+0xf6/0x114
->   [<000003ff802b72ca>] macvlan_start_xmit+0x10a/0x1b4 [macvlan]
->   [<000003ff802ea69a>] macvtap_get_user+0x982/0xbc4 [macvtap]
->   [<000003ff802ea92a>] macvtap_sendmsg+0x4e/0x60 [macvtap]
->   [<000003ff8031947c>] handle_tx+0x494/0x5ec [vhost_net]
->   [<000003ff8028f77c>] vhost_worker+0x15c/0x1c4 [vhost]
->   [<000000000015f3ac>] kthread+0xd8/0xe4
->   [<000000000069356e>] kernel_thread_starter+0x6/0xc
->   [<0000000000693568>] kernel_thread_starter+0x0/0xc
-> 2 locks held by vhost-45897/45898:
->   #0:  (&vq->mutex){+.+.+.}, at: [<000003ff8031903c>] handle_tx+0x54/0x5ec [vhost_net]
->   #1:  (rcu_read_lock){.+.+..}, at: [<000003ff802ea53c>] macvtap_get_user+0x824/0xbc4 [macvtap]
->
->
-> In the first case, macvtap_put_user() calls macvlan_count_rx()
-> in a preempt-able context, and this is not allowed.
->
-> In the second case, macvtap_get_user() calls
-> macvlan_start_xmit() with BH enabled, and this is not allowed.
->
-> Reported-by: Thomas Huth <thuth@linux.vnet.ibm.com>
-> Bisected-by: Thomas Huth <thuth@linux.vnet.ibm.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Tested-by: Thomas Huth <thuth@linux.vnet.ibm.com>
-> Cc: Vlad Yasevich <vyasevic@redhat.com>
-> ---
->   drivers/net/macvtap.c |   12 +++++++++---
->   1 file changed, 9 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index a98fb0e..b51db2a 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -818,10 +818,13 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
->   		skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
->   		skb_shinfo(skb)->tx_flags |= SKBTX_SHARED_FRAG;
->   	}
-> -	if (vlan)
-> +	if (vlan) {
-> +		local_bh_disable();
->   		macvlan_start_xmit(skb, vlan->dev);
-> -	else
-> +		local_bh_enable();
-> +	} else {
->   		kfree_skb(skb);
-> +	}
->   	rcu_read_unlock();
->
->   	return total_len;
-> @@ -912,8 +915,11 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
->   done:
->   	rcu_read_lock();
->   	vlan = rcu_dereference(q->vlan);
-> -	if (vlan)
-> +	if (vlan) {
-> +		preempt_disable();
->   		macvlan_count_rx(vlan, copied - vnet_hdr_len, ret == 0, 0);
-> +		preempt_enable();
-> +	}
+eTSEC has Rx and Tx flow control capabilities that may be enabled
+through MACCFG1[Rx_Flow, Tx_Flow] bits.  These bits must not be set
+however when eTSEC is operated in Half-Duplex mode.  Unfortunately,
+the driver currently sets these bits unconditionally.
+This patch adds the proper handling of the PAUSE frame capability
+register bits by implementing the ethtool -A interface.  When pause
+autoneg is enabled, the controller uses the phy's capability to
+negotiate PAUSE frame settings with the link partner and reconfigures
+its Rx_Flow and Tx_Flow settings to match the capabilities of the
+link partner.  If pause autoneg is off, the PAUSE frame generation
+may be forced manually (ethtool -A).  Flow control is disabled by
+default now.
+This implementation is inspired by the tg3 driver.
 
-I was looking at this a bit more and I think this call to 
-macvlan_count_rx() is double counting the packets.
+Signed-off-by: Lutz Jaenicke <ljaenicke@innominate.com>
+Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+---
+v1 - Cleaned-up version of:
+http://patchwork.ozlabs.org/patch/265940/
 
-In macvlan_handle_frame(), we call macvlan_count_rx() after we call
-vlan->receive().  For macvtap, receive() function is essentially 
-macvtap_forward() which just tacks the data onto the queue.
+ drivers/net/ethernet/freescale/gianfar.c         | 38 +++++++++++-
+ drivers/net/ethernet/freescale/gianfar.h         | 10 +++-
+ drivers/net/ethernet/freescale/gianfar_ethtool.c | 75 ++++++++++++++++++++++++
+ 3 files changed, 120 insertions(+), 3 deletions(-)
 
-Then, the above code counts the data again as we pull it off the queue
-socket queue to give to the user.
-
--vlad
-
-
-
->   	rcu_read_unlock();
->
->   	return ret ? ret : copied;
->
->
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index edf06f1..56d729e 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -1016,7 +1016,14 @@ static int gfar_probe(struct platform_device *ofdev)
+ 	/* We need to delay at least 3 TX clocks */
+ 	udelay(2);
+ 
+-	tempval = (MACCFG1_TX_FLOW | MACCFG1_RX_FLOW);
++	tempval = 0;
++	if (!priv->pause_aneg_en && priv->tx_pause_en)
++		tempval |= MACCFG1_TX_FLOW;
++	if (!priv->pause_aneg_en && priv->rx_pause_en)
++		tempval |= MACCFG1_RX_FLOW;
++	/* the soft reset bit is not self-resetting, so we need to
++	 * clear it before resuming normal operation
++	 */
+ 	gfar_write(&regs->maccfg1, tempval);
+ 
+ 	/* Initialize MACCFG2. */
+@@ -1462,7 +1469,7 @@ static int init_phy(struct net_device *dev)
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 	uint gigabit_support =
+ 		priv->device_flags & FSL_GIANFAR_DEV_HAS_GIGABIT ?
+-		SUPPORTED_1000baseT_Full : 0;
++		GFAR_SUPPORTED_GBIT : 0;
+ 	phy_interface_t interface;
+ 
+ 	priv->oldlink = 0;
+@@ -3043,6 +3050,7 @@ static void adjust_link(struct net_device *dev)
+ 	lock_tx_qs(priv);
+ 
+ 	if (phydev->link) {
++		u32 tempval1 = gfar_read(&regs->maccfg1);
+ 		u32 tempval = gfar_read(&regs->maccfg2);
+ 		u32 ecntrl = gfar_read(&regs->ecntrl);
+ 
+@@ -3091,6 +3099,32 @@ static void adjust_link(struct net_device *dev)
+ 			priv->oldspeed = phydev->speed;
+ 		}
+ 
++		tempval1 &= ~(MACCFG1_TX_FLOW | MACCFG1_RX_FLOW);
++		if (phydev->duplex) {
++			if (!priv->pause_aneg_en) {
++				if (priv->tx_pause_en)
++					tempval1 |= MACCFG1_TX_FLOW;
++				if (priv->rx_pause_en)
++					tempval1 |= MACCFG1_RX_FLOW;
++			} else {
++				u8 flowctrl;
++				u16 lcl_adv = mii_advertise_flowctrl(
++						phydev->advertising);
++				u16 rmt_adv = 0;
++				if (phydev->pause)
++					rmt_adv = LPA_PAUSE_CAP;
++				if (phydev->asym_pause)
++					rmt_adv |= LPA_PAUSE_ASYM;
++				flowctrl = mii_resolve_flowctrl_fdx(
++						lcl_adv, rmt_adv);
++				if (flowctrl & FLOW_CTRL_TX)
++					tempval1 |= MACCFG1_TX_FLOW;
++				if (flowctrl & FLOW_CTRL_RX)
++					tempval1 |= MACCFG1_RX_FLOW;
++			}
++		}
++
++		gfar_write(&regs->maccfg1, tempval1);
+ 		gfar_write(&regs->maccfg2, tempval);
+ 		gfar_write(&regs->ecntrl, ecntrl);
+ 
+diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
+index ee19f2c..46f56f3 100644
+--- a/drivers/net/ethernet/freescale/gianfar.h
++++ b/drivers/net/ethernet/freescale/gianfar.h
+@@ -146,6 +146,10 @@ extern const char gfar_driver_version[];
+ 		| SUPPORTED_Autoneg \
+ 		| SUPPORTED_MII)
+ 
++#define GFAR_SUPPORTED_GBIT (SUPPORTED_1000baseT_Full \
++		| SUPPORTED_Pause \
++		| SUPPORTED_Asym_Pause)
++
+ /* TBI register addresses */
+ #define MII_TBICON		0x11
+ 
+@@ -1100,7 +1104,11 @@ struct gfar_private {
+ 		/* Wake-on-LAN enabled */
+ 		wol_en:1,
+ 		/* Enable priorty based Tx scheduling in Hw */
+-		prio_sched_en:1;
++		prio_sched_en:1,
++		/* Flow control flags */
++		pause_aneg_en:1,
++		tx_pause_en:1,
++		rx_pause_en:1;
+ 
+ 	/* The total tx and rx ring size for the enabled queues */
+ 	unsigned int total_tx_ring_size;
+diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+index 21cd881..b245068 100644
+--- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
++++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+@@ -535,6 +535,79 @@ static int gfar_sringparam(struct net_device *dev,
+ 	return err;
+ }
+ 
++static void gfar_gpauseparam(struct net_device *dev,
++			     struct ethtool_pauseparam *epause)
++{
++	struct gfar_private *priv = netdev_priv(dev);
++
++	epause->autoneg = !!priv->pause_aneg_en;
++	epause->rx_pause = !!priv->rx_pause_en;
++	epause->tx_pause = !!priv->tx_pause_en;
++
++}
++
++static int gfar_spauseparam(struct net_device *dev,
++			    struct ethtool_pauseparam *epause)
++{
++	struct gfar_private *priv = netdev_priv(dev);
++	struct phy_device *phydev = priv->phydev;
++	struct gfar __iomem *regs = priv->gfargrp[0].regs;
++	u32 oldadv, newadv;
++	int err = 0;
++
++	if (!(phydev->supported & SUPPORTED_Pause) ||
++	    (!(phydev->supported & SUPPORTED_Asym_Pause) &&
++	     (epause->rx_pause != epause->tx_pause)))
++		return -EINVAL;
++
++	priv->rx_pause_en = priv->tx_pause_en = 0;
++	if (epause->rx_pause) {
++		priv->rx_pause_en = 1;
++
++		if (epause->tx_pause) {
++			priv->tx_pause_en = 1;
++			/* FLOW_CTRL_RX & TX */
++			newadv = ADVERTISED_Pause;
++		} else  /* FLOW_CTLR_RX */
++			newadv = ADVERTISED_Pause | ADVERTISED_Asym_Pause;
++	} else if (epause->tx_pause) {
++		priv->tx_pause_en = 1;
++		newadv = ADVERTISED_Asym_Pause; /* FLOW_CTLR_TX */
++	} else
++		newadv = 0;
++
++	if (epause->autoneg)
++		priv->pause_aneg_en = 1;
++	else
++		priv->pause_aneg_en = 0;
++
++	oldadv = phydev->advertising &
++		(ADVERTISED_Pause | ADVERTISED_Asym_Pause);
++	if (oldadv != newadv) {
++		phydev->advertising &=
++			~(ADVERTISED_Pause | ADVERTISED_Asym_Pause);
++		phydev->advertising |= newadv;
++		if (phydev->autoneg)
++			/* inform link partner of our
++			 * new flow ctrl settings
++			 */
++			return phy_start_aneg(phydev);
++
++		if (!epause->autoneg) {
++			u32 tempval;
++			tempval = gfar_read(&regs->maccfg1);
++			tempval &= ~(MACCFG1_TX_FLOW | MACCFG1_RX_FLOW);
++			if (priv->tx_pause_en)
++				tempval |= MACCFG1_TX_FLOW;
++			if (priv->rx_pause_en)
++				tempval |= MACCFG1_RX_FLOW;
++			gfar_write(&regs->maccfg1, tempval);
++		}
++	}
++
++	return err;
++}
++
+ int gfar_set_features(struct net_device *dev, netdev_features_t features)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+@@ -1806,6 +1879,8 @@ const struct ethtool_ops gfar_ethtool_ops = {
+ 	.set_coalesce = gfar_scoalesce,
+ 	.get_ringparam = gfar_gringparam,
+ 	.set_ringparam = gfar_sringparam,
++	.get_pauseparam = gfar_gpauseparam,
++	.set_pauseparam = gfar_spauseparam,
+ 	.get_strings = gfar_gstrings,
+ 	.get_sset_count = gfar_sset_count,
+ 	.get_ethtool_stats = gfar_fill_stats,
+-- 
+1.7.11.7
