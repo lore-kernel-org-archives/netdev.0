@@ -1,93 +1,67 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH] drivers:net:hamradio: Removing Depricated
- IRQF_DISABLED
-Date: Sat, 10 Aug 2013 18:47:47 +0200 (CEST)
-Message-ID: <alpine.DEB.2.02.1308101847260.2076@localhost6.localdomain6>
-References: <1376152738-14944-1-git-send-email-kumargauravgupta3@gmail.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: t.sailer@alumni.ethz.ch, jreuter@yaina.de, jpr@f6fbb.org,
-	linux-hams@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Kumar Gaurav <kumargauravgupta3@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1376152738-14944-1-git-send-email-kumargauravgupta3@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 0/4] netfilter fixes for 3.11-rc4
+Date: Sat, 10 Aug 2013 18:58:49 +0200
+Message-ID: <1376153933-5747-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:44405 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756677Ab3HJQ7V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Aug 2013 12:59:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If it is in a | with something else, I think you can just remove it.
+Hi David,
 
-julia
+The following patchset contains four netfilter fixes, they are:
 
-On Sat, 10 Aug 2013, Kumar Gaurav wrote:
+* Fix possible invalid access and mangling of the TCPMSS option in
+  xt_TCPMSS. This was spotted by Julian Anastasov.
 
-> Removed IRQF_DISABLED as it's deprecated and should be removed
-> 
-> Signed-off-by: Kumar Gaurav <kumargauravgupta3@gmail.com>
-> ---
->  drivers/net/hamradio/baycom_ser_fdx.c |    2 +-
->  drivers/net/hamradio/baycom_ser_hdx.c |    2 +-
->  drivers/net/hamradio/scc.c            |    2 +-
->  drivers/net/hamradio/yam.c            |    2 +-
->  4 files changed, 4 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/hamradio/baycom_ser_fdx.c b/drivers/net/hamradio/baycom_ser_fdx.c
-> index a974727..c114009 100644
-> --- a/drivers/net/hamradio/baycom_ser_fdx.c
-> +++ b/drivers/net/hamradio/baycom_ser_fdx.c
-> @@ -445,7 +445,7 @@ static int ser12_open(struct net_device *dev)
->  	outb(0, FCR(dev->base_addr));  /* disable FIFOs */
->  	outb(0x0d, MCR(dev->base_addr));
->  	outb(0, IER(dev->base_addr));
-> -	if (request_irq(dev->irq, ser12_interrupt, IRQF_DISABLED | IRQF_SHARED,
-> +	if (request_irq(dev->irq, ser12_interrupt, IRQF_TRIGGER_NONE | IRQF_SHARED,
->  			"baycom_ser_fdx", dev)) {
->  		release_region(dev->base_addr, SER12_EXTENT);
->  		return -EBUSY;
-> diff --git a/drivers/net/hamradio/baycom_ser_hdx.c b/drivers/net/hamradio/baycom_ser_hdx.c
-> index e349d86..d91c1fd 100644
-> --- a/drivers/net/hamradio/baycom_ser_hdx.c
-> +++ b/drivers/net/hamradio/baycom_ser_hdx.c
-> @@ -490,7 +490,7 @@ static int ser12_open(struct net_device *dev)
->  	outb(0, FCR(dev->base_addr));  /* disable FIFOs */
->  	outb(0x0d, MCR(dev->base_addr));
->  	outb(0, IER(dev->base_addr));
-> -	if (request_irq(dev->irq, ser12_interrupt, IRQF_DISABLED | IRQF_SHARED,
-> +	if (request_irq(dev->irq, ser12_interrupt, IRQF_TRIGGER_NONE | IRQF_SHARED,
->  			"baycom_ser12", dev)) {
->  		release_region(dev->base_addr, SER12_EXTENT);       
->  		return -EBUSY;
-> diff --git a/drivers/net/hamradio/scc.c b/drivers/net/hamradio/scc.c
-> index bc1d521..4bc6ee8 100644
-> --- a/drivers/net/hamradio/scc.c
-> +++ b/drivers/net/hamradio/scc.c
-> @@ -1734,7 +1734,7 @@ static int scc_net_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
->  			if (!Ivec[hwcfg.irq].used && hwcfg.irq)
->  			{
->  				if (request_irq(hwcfg.irq, scc_isr,
-> -						IRQF_DISABLED, "AX.25 SCC",
-> +						0, "AX.25 SCC",
->  						(void *)(long) hwcfg.irq))
->  					printk(KERN_WARNING "z8530drv: warning, cannot get IRQ %d\n", hwcfg.irq);
->  				else
-> diff --git a/drivers/net/hamradio/yam.c b/drivers/net/hamradio/yam.c
-> index 0721e72..f947887 100644
-> --- a/drivers/net/hamradio/yam.c
-> +++ b/drivers/net/hamradio/yam.c
-> @@ -888,7 +888,7 @@ static int yam_open(struct net_device *dev)
->  		goto out_release_base;
->  	}
->  	outb(0, IER(dev->base_addr));
-> -	if (request_irq(dev->irq, yam_interrupt, IRQF_DISABLED | IRQF_SHARED, dev->name, dev)) {
-> +	if (request_irq(dev->irq, yam_interrupt, IRQF_TRIGGER_NONE | IRQF_SHARED, dev->name, dev)) {
->  		printk(KERN_ERR "%s: irq %d busy\n", dev->name, dev->irq);
->  		ret = -EBUSY;
->  		goto out_release_base;
-> -- 
-> 1.7.9.5
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+* Fix possible off by one access and mangling of the TCP packet in
+  xt_TCPOPTSTRIP, also spotted by Julian Anastasov.
+
+* Fix possible information leak due to missing initialization of one
+  padding field of several structures that are included in nfqueue and
+  nflog netlink messages, from Dan Carpenter.
+
+* Fix TCP window tracking with Fast Open, from Yuchung Cheng.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit a661b43fd047ef501da43a19975415f861c7c3db:
+
+  mlx5: fix error return code in mlx5_alloc_uuars() (2013-07-30 19:33:45 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+
+for you to fetch changes up to 356d7d88e088687b6578ca64601b0a2c9d145296:
+
+  netfilter: nf_conntrack: fix tcp_in_window for Fast Open (2013-08-10 18:36:22 +0200)
+
+----------------------------------------------------------------
+Dan Carpenter (1):
+      netfilter: nfnetlink_{log,queue}: fix information leaks in netlink message
+
+Pablo Neira Ayuso (2):
+      netfilter: xt_TCPMSS: fix handling of malformed TCP header and options
+      netfilter: xt_TCPOPTSTRIP: fix possible off by one access
+
+Yuchung Cheng (1):
+      netfilter: nf_conntrack: fix tcp_in_window for Fast Open
+
+ net/netfilter/nf_conntrack_proto_tcp.c |   12 ++++++++----
+ net/netfilter/nfnetlink_log.c          |    6 +++++-
+ net/netfilter/nfnetlink_queue_core.c   |    5 ++++-
+ net/netfilter/xt_TCPMSS.c              |   28 ++++++++++++++++------------
+ net/netfilter/xt_TCPOPTSTRIP.c         |   10 ++++++----
+ 5 files changed, 39 insertions(+), 22 deletions(-)
