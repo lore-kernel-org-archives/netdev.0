@@ -1,101 +1,65 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [PATCH] netfilter: nf_conntrack: fix tcp_in_window for Fast
- Open
-Date: Sat, 10 Aug 2013 15:01:36 +0200 (CEST)
-Message-ID: <alpine.DEB.2.00.1308101501070.5256@blackhole.kfki.hu>
-References: <1376094087-17700-1-git-send-email-ycheng@google.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 3/4] drivers/net: enic: Make ASIC information available
+ to USNIC
+Date: Sat, 10 Aug 2013 18:13:25 +0200
+Message-ID: <1376151205.32005.2.camel@deadeye.wl.decadent.org.uk>
+References: <1376071941-17001-1-git-send-email-neepatel@cisco.com>
+	 <1376071941-17001-4-git-send-email-neepatel@cisco.com>
+	 <20130809152135.11c19869@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, edumazet@google.com
-To: Yuchung Cheng <ycheng@google.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1376094087-17700-1-git-send-email-ycheng@google.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Neel Patel <neepatel@cisco.com>, <netdev@vger.kernel.org>,
+	Nishank Trivedi <nistrive@cisco.com>,
+	Christian Benvenuti <benve@cisco.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:6253 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934403Ab3HJQNd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Aug 2013 12:13:33 -0400
+In-Reply-To: <20130809152135.11c19869@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 9 Aug 2013, Yuchung Cheng wrote:
+On Fri, 2013-08-09 at 15:21 -0700, Stephen Hemminger wrote:
+> On Fri,  9 Aug 2013 11:12:20 -0700
+> Neel Patel <neepatel@cisco.com> wrote:
+> 
+> > This patch provides asic information via ethtool.
+[...]
+> > --- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+> > +++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+> > @@ -19,6 +19,7 @@
+> >  #include <linux/netdevice.h>
+> >  #include <linux/ethtool.h>
+> >  
+> > +#include "driver_utils.h"
+> >  #include "enic_res.h"
+> >  #include "enic.h"
+> >  #include "enic_dev.h"
+> > @@ -116,6 +117,9 @@ static void enic_get_drvinfo(struct net_device *netdev,
+> >  		sizeof(drvinfo->fw_version));
+> >  	strlcpy(drvinfo->bus_info, pci_name(enic->pdev),
+> >  		sizeof(drvinfo->bus_info));
+> > +	memset(drvinfo->reserved1, 0, sizeof(drvinfo->reserved1));
+> > +	driver_encode_asic_info(drvinfo->reserved1, sizeof(drvinfo->reserved1),
+> > +		fw_info->asic_type, fw_info->asic_rev);
+> >  }
+> 
+> If you want to use a reserved field, then make it a first class citizen.
+> Rename it to asic_info, make sure the result is okay for other drivers
+> and add send patch so Ben can make it part of normal ethtool support.
+> 
+> Otherwise, this code is likely to break when someone else actually unreserves
+> that field.
 
-> Currently the conntrack checks if the ending sequence of a packet
-> falls within the observed receive window. However it does so even
-> if it has not observe any packet from the remote yet and uses an
-> uninitialized receive window (td_maxwin).
-> 
-> If a connection uses Fast Open to send a SYN-data packet which is
-> dropped afterward in the network. The subsequent SYNs retransmits
-> will all fail this check and be discarded, leading to a connection
-> timeout. This is because the SYN retransmit does not contain data
-> payload so
-> 
-> end == initial sequence number (isn) + 1
-> sender->td_end == isn + syn_data_len
-> receiver->td_maxwin == 0
-> 
-> The fix is to only apply this check after td_maxwin is initialized.
-> 
-> Reported-by: Michael Chan <mcfchan@stanford.edu>
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Right.  I bet this is redundant with the IDs that lspci can show,
+anyway.
 
-Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Ben.
 
-> ---
->  net/netfilter/nf_conntrack_proto_tcp.c | 12 ++++++++----
->  1 file changed, 8 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-> index 4d4d8f1..e0f9a32 100644
-> --- a/net/netfilter/nf_conntrack_proto_tcp.c
-> +++ b/net/netfilter/nf_conntrack_proto_tcp.c
-> @@ -526,7 +526,7 @@ static bool tcp_in_window(const struct nf_conn *ct,
->  	const struct nf_conntrack_tuple *tuple = &ct->tuplehash[dir].tuple;
->  	__u32 seq, ack, sack, end, win, swin;
->  	s16 receiver_offset;
-> -	bool res;
-> +	bool res, in_recv_win;
->  
->  	/*
->  	 * Get the required data from the packet.
-> @@ -649,14 +649,18 @@ static bool tcp_in_window(const struct nf_conn *ct,
->  		 receiver->td_end, receiver->td_maxend, receiver->td_maxwin,
->  		 receiver->td_scale);
->  
-> +	/* Is the ending sequence in the receive window (if available)? */
-> +	in_recv_win = !receiver->td_maxwin ||
-> +		      after(end, sender->td_end - receiver->td_maxwin - 1);
-> +
->  	pr_debug("tcp_in_window: I=%i II=%i III=%i IV=%i\n",
->  		 before(seq, sender->td_maxend + 1),
-> -		 after(end, sender->td_end - receiver->td_maxwin - 1),
-> +		 (in_recv_win ? 1 : 0),
->  		 before(sack, receiver->td_end + 1),
->  		 after(sack, receiver->td_end - MAXACKWINDOW(sender) - 1));
->  
->  	if (before(seq, sender->td_maxend + 1) &&
-> -	    after(end, sender->td_end - receiver->td_maxwin - 1) &&
-> +	    in_recv_win &&
->  	    before(sack, receiver->td_end + 1) &&
->  	    after(sack, receiver->td_end - MAXACKWINDOW(sender) - 1)) {
->  		/*
-> @@ -725,7 +729,7 @@ static bool tcp_in_window(const struct nf_conn *ct,
->  			nf_log_packet(net, pf, 0, skb, NULL, NULL, NULL,
->  			"nf_ct_tcp: %s ",
->  			before(seq, sender->td_maxend + 1) ?
-> -			after(end, sender->td_end - receiver->td_maxwin - 1) ?
-> +			in_recv_win ?
->  			before(sack, receiver->td_end + 1) ?
->  			after(sack, receiver->td_end - MAXACKWINDOW(sender) - 1) ? "BUG"
->  			: "ACK is under the lower bound (possible overly delayed ACK)"
-> -- 
-> 1.8.3
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
