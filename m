@@ -1,32 +1,101 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] ipv6: don't stop backtracking in fib6_lookup_1 if subtree does not match
-Date: Sat, 10 Aug 2013 14:15:30 +0200
-Message-ID: <20130810121530.GQ14001@order.stressinduktion.org>
-References: <20130807003431.GD16410@order.stressinduktion.org> <EF96A1CB-549E-474A-AF58-10F2D2F2BF4A@inf-net.nl> <20130807200637.GD32257@order.stressinduktion.org> <26D8997F-7CDF-425A-B0DC-4D57996871E5@inf-net.nl> <20130809141939.GL14001@order.stressinduktion.org> <CF3AE072-7B80-4C35-9236-4523EE11629F@inf-net.nl> <20130809145743.GM14001@order.stressinduktion.org> <2A0809D4-EBF1-4646-9564-2B7F54956B41@inf-net.nl>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [PATCH] netfilter: nf_conntrack: fix tcp_in_window for Fast
+ Open
+Date: Sat, 10 Aug 2013 15:01:36 +0200 (CEST)
+Message-ID: <alpine.DEB.2.00.1308101501070.5256@blackhole.kfki.hu>
+References: <1376094087-17700-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Teco Boot <teco@inf-net.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:43303 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758248Ab3HJMPc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Aug 2013 08:15:32 -0400
-Content-Disposition: inline
-In-Reply-To: <2A0809D4-EBF1-4646-9564-2B7F54956B41@inf-net.nl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, edumazet@google.com
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1376094087-17700-1-git-send-email-ycheng@google.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 10, 2013 at 01:39:12PM +0200, Teco Boot wrote:
-> The hang problem in 3.8.0-28 has lower priority for me. Maybe I'll check current -net-next later. Don't hold your breath.
+On Fri, 9 Aug 2013, Yuchung Cheng wrote:
 
-Ah, one more thing: Please don't test net-next but net
-<https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/>.
+> Currently the conntrack checks if the ending sequence of a packet
+> falls within the observed receive window. However it does so even
+> if it has not observe any packet from the remote yet and uses an
+> uninitialized receive window (td_maxwin).
+> 
+> If a connection uses Fast Open to send a SYN-data packet which is
+> dropped afterward in the network. The subsequent SYNs retransmits
+> will all fail this check and be discarded, leading to a connection
+> timeout. This is because the SYN retransmit does not contain data
+> payload so
+> 
+> end == initial sequence number (isn) + 1
+> sender->td_end == isn + syn_data_len
+> receiver->td_maxwin == 0
+> 
+> The fix is to only apply this check after td_maxwin is initialized.
+> 
+> Reported-by: Michael Chan <mcfchan@stanford.edu>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
 
-All relevant patches are in there. They will first show up in net-next when
-David merges net back to net-next. That's because the other patches are also
-queued up for 3.11 inclusion.
+Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-Greetings,
+> ---
+>  net/netfilter/nf_conntrack_proto_tcp.c | 12 ++++++++----
+>  1 file changed, 8 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+> index 4d4d8f1..e0f9a32 100644
+> --- a/net/netfilter/nf_conntrack_proto_tcp.c
+> +++ b/net/netfilter/nf_conntrack_proto_tcp.c
+> @@ -526,7 +526,7 @@ static bool tcp_in_window(const struct nf_conn *ct,
+>  	const struct nf_conntrack_tuple *tuple = &ct->tuplehash[dir].tuple;
+>  	__u32 seq, ack, sack, end, win, swin;
+>  	s16 receiver_offset;
+> -	bool res;
+> +	bool res, in_recv_win;
+>  
+>  	/*
+>  	 * Get the required data from the packet.
+> @@ -649,14 +649,18 @@ static bool tcp_in_window(const struct nf_conn *ct,
+>  		 receiver->td_end, receiver->td_maxend, receiver->td_maxwin,
+>  		 receiver->td_scale);
+>  
+> +	/* Is the ending sequence in the receive window (if available)? */
+> +	in_recv_win = !receiver->td_maxwin ||
+> +		      after(end, sender->td_end - receiver->td_maxwin - 1);
+> +
+>  	pr_debug("tcp_in_window: I=%i II=%i III=%i IV=%i\n",
+>  		 before(seq, sender->td_maxend + 1),
+> -		 after(end, sender->td_end - receiver->td_maxwin - 1),
+> +		 (in_recv_win ? 1 : 0),
+>  		 before(sack, receiver->td_end + 1),
+>  		 after(sack, receiver->td_end - MAXACKWINDOW(sender) - 1));
+>  
+>  	if (before(seq, sender->td_maxend + 1) &&
+> -	    after(end, sender->td_end - receiver->td_maxwin - 1) &&
+> +	    in_recv_win &&
+>  	    before(sack, receiver->td_end + 1) &&
+>  	    after(sack, receiver->td_end - MAXACKWINDOW(sender) - 1)) {
+>  		/*
+> @@ -725,7 +729,7 @@ static bool tcp_in_window(const struct nf_conn *ct,
+>  			nf_log_packet(net, pf, 0, skb, NULL, NULL, NULL,
+>  			"nf_ct_tcp: %s ",
+>  			before(seq, sender->td_maxend + 1) ?
+> -			after(end, sender->td_end - receiver->td_maxwin - 1) ?
+> +			in_recv_win ?
+>  			before(sack, receiver->td_end + 1) ?
+>  			after(sack, receiver->td_end - MAXACKWINDOW(sender) - 1) ? "BUG"
+>  			: "ACK is under the lower bound (possible overly delayed ACK)"
+> -- 
+> 1.8.3
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-  Hannes
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
