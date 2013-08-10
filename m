@@ -1,50 +1,65 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2 net-next] af_unix: improve STREAM behavior with
- fragmented memory
-Date: Sat, 10 Aug 2013 01:16:56 -0700 (PDT)
-Message-ID: <20130810.011656.2120932434328303202.davem@davemloft.net>
-References: <1375997852.4004.130.camel@edumazet-glaptop>
+Subject: Re: [PATCH 2/2 net-next] net: attempt high order allocations in
+ sock_alloc_send_pskb()
+Date: Sat, 10 Aug 2013 01:17:20 -0700 (PDT)
+Message-ID: <20130810.011720.981603328762637226.davem@davemloft.net>
+References: <1375997927.4004.131.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rientjes@google.com, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, rientjes@google.com
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55960 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55966 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S968371Ab3HJIRA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Aug 2013 04:17:00 -0400
-In-Reply-To: <1375997852.4004.130.camel@edumazet-glaptop>
+	with ESMTP id S968373Ab3HJIRV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Aug 2013 04:17:21 -0400
+In-Reply-To: <1375997927.4004.131.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 08 Aug 2013 14:37:32 -0700
+Date: Thu, 08 Aug 2013 14:38:47 -0700
 
 > From: Eric Dumazet <edumazet@google.com>
 > 
-> unix_stream_sendmsg() currently uses order-2 allocations,
-> and we had numerous reports this can fail.
+> Adding paged frags skbs to af_unix sockets introduced a performance
+> regression on large sends because of additional page allocations, even
+> if each skb could carry at least 100% more payload than before.
 > 
-> The __GFP_REPEAT flag present in sock_alloc_send_pskb() is
-> not helping.
+> We can instruct sock_alloc_send_pskb() to attempt high order
+> allocations.
 > 
-> This patch extends the work done in commit eb6a24816b247c
-> ("af_unix: reduce high order page allocations) for
-> datagram sockets.
+> Most of the time, it does a single page allocation instead of 8.
 > 
-> This opens the possibility of zero copy IO (splice() and
-> friends)
+> I added an additional parameter to sock_alloc_send_pskb() to
+> let other users to opt-in for this new feature on followup patches.
 > 
-> The trick is to not use skb_pull() anymore in recvmsg() path,
-> and instead add a @consumed field in UNIXCB() to track amount
-> of already read payload in the skb.
+> Tested:
 > 
-> There is a performance regression for large sends
-> because of extra page allocations that will be addressed
-> in a follow-up patch, allowing sock_alloc_send_pskb()
-> to attempt high order page allocations.
+> Before patch :
+> 
+> $ netperf -t STREAM_STREAM 
+> STREAM STREAM TEST
+> Recv   Send    Send                          
+> Socket Socket  Message  Elapsed              
+> Size   Size    Size     Time     Throughput  
+> bytes  bytes   bytes    secs.    10^6bits/sec  
+> 
+>  2304  212992  212992    10.00    46861.15   
+> 
+> After patch :
+> 
+> $ netperf -t STREAM_STREAM 
+> STREAM STREAM TEST
+> Recv   Send    Send                          
+> Socket Socket  Message  Elapsed              
+> Size   Size    Size     Time     Throughput  
+> bytes  bytes   bytes    secs.    10^6bits/sec  
+> 
+>  2304  212992  212992    10.00    57981.11   
+> 
 > 
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied.
+Great work, applied, thanks Eric.
