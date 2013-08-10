@@ -1,66 +1,47 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: pull request for net: batman-adv 2013-08-10
-Date: Sat, 10 Aug 2013 23:08:00 +0200
-Message-ID: <1376168881-4079-1-git-send-email-ordex@autistici.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net] skge: dma_sync the whole receive buffer
+Date: Sat, 10 Aug 2013 15:02:07 -0700
+Message-ID: <20130810150207.37432299@nehalam.linuxnetplumber.net>
+References: <20130804.183553.514470399074672614.davem@davemloft.net>
+	<52062955.90102@gmail.com>
+	<20130810104100.0ae20aa6@nehalam.linuxnetplumber.net>
+	<20130810.132935.1257046025460198490.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: pomidorabelisima@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from diserzione.investici.org ([82.221.99.153]:44241 "EHLO
-	diserzione.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757704Ab3HJVfR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Aug 2013 17:35:17 -0400
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:33824 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758860Ab3HJWCN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Aug 2013 18:02:13 -0400
+Received: by mail-pa0-f47.google.com with SMTP id kl13so6190446pab.34
+        for <netdev@vger.kernel.org>; Sat, 10 Aug 2013 15:02:12 -0700 (PDT)
+In-Reply-To: <20130810.132935.1257046025460198490.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+The DMA sync should sync the whole receive buffer, not just
+part of it. Fixes log messages dma_sync_check.
 
-here you have one fix intended for net/linux-3.11.
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-To avoid kernel paging errors, this patch takes care of re-assigning th=
-e value
-of skb->data to the related pointers after that the skb has been re-all=
-ocated.
-
-
-Please pull or let me know of any problem!
-
-Thank you,
-	Antonio
-
-
-
-The following changes since commit 645359930231d5e78fd3296a38b98c1a658a=
-7ade:
-
-  rtnetlink: Fix inverted check in ndo_dflt_fdb_del() (2013-08-10 01:24=
-:12 -0700)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
-
-for you to fetch changes up to 9d2c9488cedb666bc8206fbdcdc1575e0fbc5929=
-:
-
-  batman-adv: fix potential kernel paging errors for unicast transmissi=
-ons (2013-08-10 22:55:42 +0200)
-
-----------------------------------------------------------------
-Included change:
-- reassign pointers to data after skb reallocation to avoid kernel pagi=
-ng errors
-
-----------------------------------------------------------------
-Linus L=C3=BCssing (1):
-      batman-adv: fix potential kernel paging errors for unicast transm=
-issions
-
- net/batman-adv/bridge_loop_avoidance.c |  2 ++
- net/batman-adv/gateway_client.c        | 13 ++++++++++++-
- net/batman-adv/gateway_client.h        |  3 +--
- net/batman-adv/soft-interface.c        |  9 ++++++++-
- net/batman-adv/unicast.c               | 13 ++++++++++---
- 5 files changed, 33 insertions(+), 7 deletions(-)
+--- a/drivers/net/ethernet/marvell/skge.c	2013-08-10 14:54:13.184737163 -0700
++++ b/drivers/net/ethernet/marvell/skge.c	2013-08-10 14:54:54.908099676 -0700
+@@ -3077,11 +3077,13 @@ static struct sk_buff *skge_rx_get(struc
+ 
+ 		pci_dma_sync_single_for_cpu(skge->hw->pdev,
+ 					    dma_unmap_addr(e, mapaddr),
+-					    len, PCI_DMA_FROMDEVICE);
++					    dma_unmap_len(e, maplen),
++					    PCI_DMA_FROMDEVICE);
+ 		skb_copy_from_linear_data(e->skb, skb->data, len);
+ 		pci_dma_sync_single_for_device(skge->hw->pdev,
+ 					       dma_unmap_addr(e, mapaddr),
+-					       len, PCI_DMA_FROMDEVICE);
++					       dma_unmap_len(e, maplen),
++					       PCI_DMA_FROMDEVICE);
+ 		skge_rx_reuse(e, skge->rx_buf_size);
+ 	} else {
+ 		struct sk_buff *nskb;
