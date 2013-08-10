@@ -1,101 +1,67 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/4] netfilter: xt_TCPMSS: fix handling of malformed TCP header and options
-Date: Sat, 10 Aug 2013 18:58:50 +0200
-Message-ID: <1376153933-5747-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/4] netfilter: xt_TCPOPTSTRIP: fix possible off by one access
+Date: Sat, 10 Aug 2013 18:58:51 +0200
+Message-ID: <1376153933-5747-3-git-send-email-pablo@netfilter.org>
 References: <1376153933-5747-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:44420 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757949Ab3HJQ7c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Aug 2013 12:59:32 -0400
 In-Reply-To: <1376153933-5747-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make sure the packet has enough room for the TCP header and
-that it is not malformed.
+Fix a possible off by one access since optlen()
+touches opt[offset+1] unsafely when i == tcp_hdrlen(skb) - 1.
 
-While at it, store tcph->doff*4 in a variable, as it is used
-several times.
-
-This patch also fixes a possible off by one in case of malformed
-TCP options.
+This patch replaces tcp_hdrlen() by the local variable tcp_hdrlen
+that stores the TCP header length, to save some cycles.
 
 Reported-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/xt_TCPMSS.c |   28 ++++++++++++++++------------
- 1 file changed, 16 insertions(+), 12 deletions(-)
+ net/netfilter/xt_TCPOPTSTRIP.c |   10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
-index 7011c71..6113cc7 100644
---- a/net/netfilter/xt_TCPMSS.c
-+++ b/net/netfilter/xt_TCPMSS.c
-@@ -52,7 +52,8 @@ tcpmss_mangle_packet(struct sk_buff *skb,
- {
- 	const struct xt_tcpmss_info *info = par->targinfo;
+diff --git a/net/netfilter/xt_TCPOPTSTRIP.c b/net/netfilter/xt_TCPOPTSTRIP.c
+index b68fa19..625fa1d 100644
+--- a/net/netfilter/xt_TCPOPTSTRIP.c
++++ b/net/netfilter/xt_TCPOPTSTRIP.c
+@@ -38,7 +38,7 @@ tcpoptstrip_mangle_packet(struct sk_buff *skb,
  	struct tcphdr *tcph;
--	unsigned int tcplen, i;
+ 	u_int16_t n, o;
+ 	u_int8_t *opt;
+-	int len;
 +	int len, tcp_hdrlen;
-+	unsigned int i;
- 	__be16 oldval;
- 	u16 newmss;
- 	u8 *opt;
-@@ -64,11 +65,14 @@ tcpmss_mangle_packet(struct sk_buff *skb,
- 	if (!skb_make_writable(skb, skb->len))
- 		return -1;
  
--	tcplen = skb->len - tcphoff;
-+	len = skb->len - tcphoff;
-+	if (len < (int)sizeof(struct tcphdr))
-+		return -1;
-+
+ 	/* This is a fragment, no TCP header is available */
+ 	if (par->fragoff != 0)
+@@ -52,7 +52,9 @@ tcpoptstrip_mangle_packet(struct sk_buff *skb,
+ 		return NF_DROP;
+ 
  	tcph = (struct tcphdr *)(skb_network_header(skb) + tcphoff);
+-	if (tcph->doff * 4 > len)
 +	tcp_hdrlen = tcph->doff * 4;
- 
--	/* Header cannot be larger than the packet */
--	if (tcplen < tcph->doff*4)
++
 +	if (len < tcp_hdrlen)
- 		return -1;
+ 		return NF_DROP;
  
- 	if (info->mss == XT_TCPMSS_CLAMP_PMTU) {
-@@ -87,9 +91,8 @@ tcpmss_mangle_packet(struct sk_buff *skb,
- 		newmss = info->mss;
+ 	opt  = (u_int8_t *)tcph;
+@@ -61,10 +63,10 @@ tcpoptstrip_mangle_packet(struct sk_buff *skb,
+ 	 * Walk through all TCP options - if we find some option to remove,
+ 	 * set all octets to %TCPOPT_NOP and adjust checksum.
+ 	 */
+-	for (i = sizeof(struct tcphdr); i < tcp_hdrlen(skb); i += optl) {
++	for (i = sizeof(struct tcphdr); i < tcp_hdrlen - 1; i += optl) {
+ 		optl = optlen(opt, i);
  
- 	opt = (u_int8_t *)tcph;
--	for (i = sizeof(struct tcphdr); i < tcph->doff*4; i += optlen(opt, i)) {
--		if (opt[i] == TCPOPT_MSS && tcph->doff*4 - i >= TCPOLEN_MSS &&
--		    opt[i+1] == TCPOLEN_MSS) {
-+	for (i = sizeof(struct tcphdr); i <= tcp_hdrlen - TCPOLEN_MSS; i += optlen(opt, i)) {
-+		if (opt[i] == TCPOPT_MSS && opt[i+1] == TCPOLEN_MSS) {
- 			u_int16_t oldmss;
+-		if (i + optl > tcp_hdrlen(skb))
++		if (i + optl > tcp_hdrlen)
+ 			break;
  
- 			oldmss = (opt[i+2] << 8) | opt[i+3];
-@@ -112,9 +115,10 @@ tcpmss_mangle_packet(struct sk_buff *skb,
- 	}
- 
- 	/* There is data after the header so the option can't be added
--	   without moving it, and doing so may make the SYN packet
--	   itself too large. Accept the packet unmodified instead. */
--	if (tcplen > tcph->doff*4)
-+	 * without moving it, and doing so may make the SYN packet
-+	 * itself too large. Accept the packet unmodified instead.
-+	 */
-+	if (len > tcp_hdrlen)
- 		return 0;
- 
- 	/*
-@@ -143,10 +147,10 @@ tcpmss_mangle_packet(struct sk_buff *skb,
- 		newmss = min(newmss, (u16)1220);
- 
- 	opt = (u_int8_t *)tcph + sizeof(struct tcphdr);
--	memmove(opt + TCPOLEN_MSS, opt, tcplen - sizeof(struct tcphdr));
-+	memmove(opt + TCPOLEN_MSS, opt, len - sizeof(struct tcphdr));
- 
- 	inet_proto_csum_replace2(&tcph->check, skb,
--				 htons(tcplen), htons(tcplen + TCPOLEN_MSS), 1);
-+				 htons(len), htons(len + TCPOLEN_MSS), 1);
- 	opt[0] = TCPOPT_MSS;
- 	opt[1] = TCPOLEN_MSS;
- 	opt[2] = (newmss & 0xff00) >> 8;
+ 		if (!tcpoptstrip_test_bit(info->strip_bmap, opt[i]))
 -- 
 1.7.10.4
-
