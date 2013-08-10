@@ -1,71 +1,89 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 3/4] netfilter: nfnetlink_{log,queue}: fix information leaks in netlink message
-Date: Sat, 10 Aug 2013 18:58:52 +0200
-Message-ID: <1376153933-5747-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 4/4] netfilter: nf_conntrack: fix tcp_in_window for Fast Open
+Date: Sat, 10 Aug 2013 18:58:53 +0200
+Message-ID: <1376153933-5747-5-git-send-email-pablo@netfilter.org>
 References: <1376153933-5747-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:44425 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:44436 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756677Ab3HJQ7g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 Aug 2013 12:59:36 -0400
+	id S1030340Ab3HJQ7l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Aug 2013 12:59:41 -0400
 In-Reply-To: <1376153933-5747-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
+From: Yuchung Cheng <ycheng@google.com>
 
-These structs have a "_pad" member.  Also the "phw" structs have an 8
-byte "hw_addr[]" array but sometimes only the first 6 bytes are
-initialized.
+Currently the conntrack checks if the ending sequence of a packet
+falls within the observed receive window. However it does so even
+if it has not observe any packet from the remote yet and uses an
+uninitialized receive window (td_maxwin).
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+If a connection uses Fast Open to send a SYN-data packet which is
+dropped afterward in the network. The subsequent SYNs retransmits
+will all fail this check and be discarded, leading to a connection
+timeout. This is because the SYN retransmit does not contain data
+payload so
+
+end == initial sequence number (isn) + 1
+sender->td_end == isn + syn_data_len
+receiver->td_maxwin == 0
+
+The fix is to only apply this check after td_maxwin is initialized.
+
+Reported-by: Michael Chan <mcfchan@stanford.edu>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nfnetlink_log.c        |    6 +++++-
- net/netfilter/nfnetlink_queue_core.c |    5 ++++-
- 2 files changed, 9 insertions(+), 2 deletions(-)
+ net/netfilter/nf_conntrack_proto_tcp.c |   12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 962e979..d92cc31 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -419,6 +419,7 @@ __build_packet_message(struct nfnl_log_net *log,
- 	nfmsg->version = NFNETLINK_V0;
- 	nfmsg->res_id = htons(inst->group_num);
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index 7dcc376..2f80107 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -526,7 +526,7 @@ static bool tcp_in_window(const struct nf_conn *ct,
+ 	const struct nf_conntrack_tuple *tuple = &ct->tuplehash[dir].tuple;
+ 	__u32 seq, ack, sack, end, win, swin;
+ 	s16 receiver_offset;
+-	bool res;
++	bool res, in_recv_win;
  
-+	memset(&pmsg, 0, sizeof(pmsg));
- 	pmsg.hw_protocol	= skb->protocol;
- 	pmsg.hook		= hooknum;
+ 	/*
+ 	 * Get the required data from the packet.
+@@ -649,14 +649,18 @@ static bool tcp_in_window(const struct nf_conn *ct,
+ 		 receiver->td_end, receiver->td_maxend, receiver->td_maxwin,
+ 		 receiver->td_scale);
  
-@@ -498,7 +499,10 @@ __build_packet_message(struct nfnl_log_net *log,
- 	if (indev && skb->dev &&
- 	    skb->mac_header != skb->network_header) {
- 		struct nfulnl_msg_packet_hw phw;
--		int len = dev_parse_header(skb, phw.hw_addr);
-+		int len;
++	/* Is the ending sequence in the receive window (if available)? */
++	in_recv_win = !receiver->td_maxwin ||
++		      after(end, sender->td_end - receiver->td_maxwin - 1);
 +
-+		memset(&phw, 0, sizeof(phw));
-+		len = dev_parse_header(skb, phw.hw_addr);
- 		if (len > 0) {
- 			phw.hw_addrlen = htons(len);
- 			if (nla_put(inst->skb, NFULA_HWADDR, sizeof(phw), &phw))
-diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
-index 971ea14..8a703c3 100644
---- a/net/netfilter/nfnetlink_queue_core.c
-+++ b/net/netfilter/nfnetlink_queue_core.c
-@@ -463,7 +463,10 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
- 	if (indev && entskb->dev &&
- 	    entskb->mac_header != entskb->network_header) {
- 		struct nfqnl_msg_packet_hw phw;
--		int len = dev_parse_header(entskb, phw.hw_addr);
-+		int len;
-+
-+		memset(&phw, 0, sizeof(phw));
-+		len = dev_parse_header(entskb, phw.hw_addr);
- 		if (len) {
- 			phw.hw_addrlen = htons(len);
- 			if (nla_put(skb, NFQA_HWADDR, sizeof(phw), &phw))
+ 	pr_debug("tcp_in_window: I=%i II=%i III=%i IV=%i\n",
+ 		 before(seq, sender->td_maxend + 1),
+-		 after(end, sender->td_end - receiver->td_maxwin - 1),
++		 (in_recv_win ? 1 : 0),
+ 		 before(sack, receiver->td_end + 1),
+ 		 after(sack, receiver->td_end - MAXACKWINDOW(sender) - 1));
+ 
+ 	if (before(seq, sender->td_maxend + 1) &&
+-	    after(end, sender->td_end - receiver->td_maxwin - 1) &&
++	    in_recv_win &&
+ 	    before(sack, receiver->td_end + 1) &&
+ 	    after(sack, receiver->td_end - MAXACKWINDOW(sender) - 1)) {
+ 		/*
+@@ -725,7 +729,7 @@ static bool tcp_in_window(const struct nf_conn *ct,
+ 			nf_log_packet(net, pf, 0, skb, NULL, NULL, NULL,
+ 			"nf_ct_tcp: %s ",
+ 			before(seq, sender->td_maxend + 1) ?
+-			after(end, sender->td_end - receiver->td_maxwin - 1) ?
++			in_recv_win ?
+ 			before(sack, receiver->td_end + 1) ?
+ 			after(sack, receiver->td_end - MAXACKWINDOW(sender) - 1) ? "BUG"
+ 			: "ACK is under the lower bound (possible overly delayed ACK)"
 -- 
 1.7.10.4
