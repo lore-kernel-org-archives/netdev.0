@@ -1,32 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] skge: add dma_mapping check
-Date: Sat, 10 Aug 2013 13:29:35 -0700 (PDT)
-Message-ID: <20130810.132935.1257046025460198490.davem@davemloft.net>
-References: <20130804.183553.514470399074672614.davem@davemloft.net>
-	<52062955.90102@gmail.com>
-	<20130810104100.0ae20aa6@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH 0/4] netfilter fixes for 3.11-rc4
+Date: Sat, 10 Aug 2013 13:44:50 -0700 (PDT)
+Message-ID: <20130810.134450.2199692509367745432.davem@davemloft.net>
+References: <1376153933-5747-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pomidorabelisima@gmail.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33452 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758808Ab3HJU3g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Aug 2013 16:29:36 -0400
-In-Reply-To: <20130810104100.0ae20aa6@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1376153933-5747-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Sat, 10 Aug 2013 10:41:00 -0700
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Sat, 10 Aug 2013 18:58:49 +0200
 
-> The DMA debug check insists that the call to sync_single has
-> to be the same length as the mapping. The driver is only bothering
-> to sync the bytes that matter (got received) rather than the whole
-> map.
+> The following patchset contains four netfilter fixes, they are:
 > 
-> In reality that is not required, but I will make a patch anyway.
+> * Fix possible invalid access and mangling of the TCPMSS option in
+>   xt_TCPMSS. This was spotted by Julian Anastasov.
+> 
+> * Fix possible off by one access and mangling of the TCP packet in
+>   xt_TCPOPTSTRIP, also spotted by Julian Anastasov.
+> 
+> * Fix possible information leak due to missing initialization of one
+>   padding field of several structures that are included in nfqueue and
+>   nflog netlink messages, from Dan Carpenter.
+> 
+> * Fix TCP window tracking with Fast Open, from Yuchung Cheng.
+> 
+> You can pull these changes from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
 
-PCI and other system controllers will prefetch, I think it can matter.
+Pulled, thanks Pablo!
