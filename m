@@ -1,173 +1,32 @@
-From: Kumar Gaurav <kumargauravgupta3@gmail.com>
-Subject: Re: [PATCH] drivers:net:hamradio: Removing Depricated IRQF_DISABLED
-Date: Sun, 11 Aug 2013 00:23:07 +0530
-Message-ID: <52068C13.4020707@gmail.com>
-References: <1376152738-14944-1-git-send-email-kumargauravgupta3@gmail.com> <alpine.DEB.2.02.1308101847260.2076@localhost6.localdomain6> <5206720C.4060405@gmail.com> <alpine.DEB.2.02.1308101923130.2076@localhost6.localdomain6> <52068329.4010400@gmail.com> <52068B3C.4030707@bfs.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] skge: add dma_mapping check
+Date: Sat, 10 Aug 2013 13:29:35 -0700 (PDT)
+Message-ID: <20130810.132935.1257046025460198490.davem@davemloft.net>
+References: <20130804.183553.514470399074672614.davem@davemloft.net>
+	<52062955.90102@gmail.com>
+	<20130810104100.0ae20aa6@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Julia Lawall <julia.lawall@lip6.fr>, t.sailer@alumni.ethz.ch,
-	jreuter@yaina.de, jpr@f6fbb.org, linux-hams@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: wharms@bfs.de
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <52068B3C.4030707@bfs.de>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: pomidorabelisima@gmail.com, netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33452 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758808Ab3HJU3g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Aug 2013 16:29:36 -0400
+In-Reply-To: <20130810104100.0ae20aa6@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sunday 11 August 2013 12:19 AM, walter harms wrote:
-> Hello Kumar,
-> i will try to resolve the riddle ...
->
-> doing something like fn(a,b,c,0) is a bad habit.
-> 0 is called a "magic number" because noone reading the code has an idea
-> why it is there. Using the name IRQF_TRIGGER_NONE good.
->
-> Having a named bit like IRQ_TRIGGER|IRQ_NMI is most times also a good idea
-> because it correspond (most times) to the naming of the bits in the data sheet.
->
-> The problems starts when this hits reality since nothing is clearly black or white.
-> In this case when you remove IRQF_DISABLED disables "bit" something should be left.
->
-> a|b|IRQF_DISABLED -> a|b  (that is the easy part)
-> but
-> IRQF_DISABLED -> IRQF_TRIGGER_NONE
->
-> Otherwise you would be left with "0". That is a magic number (see above).
-> So this is to be replaced by a placeholder called IRQF_TRIGGER_NONE.
->
-> hope that really helps and that i have understood the discussion.
->
-> re,
->   wh
-Thanks for the clarification. I'll be following this.
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Sat, 10 Aug 2013 10:41:00 -0700
 
-Regards
-Kumar Gaurav
->
-> Am 10.08.2013 20:15, schrieb Kumar Gaurav:
->> On Saturday 10 August 2013 10:54 PM, Julia Lawall wrote:
->>> On Sat, 10 Aug 2013, Kumar Gaurav wrote:
->>>
->>>> On Saturday 10 August 2013 10:17 PM, Julia Lawall wrote:
->>>>> If it is in a | with something else, I think you can just remove it.
->>>>>
->>>>> julia
->>>>>
->>>>> On Sat, 10 Aug 2013, Kumar Gaurav wrote:
->>>>>
->>>>>> Removed IRQF_DISABLED as it's deprecated and should be removed
->>>>>>
->>>>>> Signed-off-by: Kumar Gaurav <kumargauravgupta3@gmail.com>
->>>>>> ---
->>>>>>     drivers/net/hamradio/baycom_ser_fdx.c |    2 +-
->>>>>>     drivers/net/hamradio/baycom_ser_hdx.c |    2 +-
->>>>>>     drivers/net/hamradio/scc.c            |    2 +-
->>>>>>     drivers/net/hamradio/yam.c            |    2 +-
->>>>>>     4 files changed, 4 insertions(+), 4 deletions(-)
->>>>>>
->>>>>> diff --git a/drivers/net/hamradio/baycom_ser_fdx.c
->>>>>> b/drivers/net/hamradio/baycom_ser_fdx.c
->>>>>> index a974727..c114009 100644
->>>>>> --- a/drivers/net/hamradio/baycom_ser_fdx.c
->>>>>> +++ b/drivers/net/hamradio/baycom_ser_fdx.c
->>>>>> @@ -445,7 +445,7 @@ static int ser12_open(struct net_device *dev)
->>>>>>         outb(0, FCR(dev->base_addr));  /* disable FIFOs */
->>>>>>         outb(0x0d, MCR(dev->base_addr));
->>>>>>         outb(0, IER(dev->base_addr));
->>>>>> -    if (request_irq(dev->irq, ser12_interrupt, IRQF_DISABLED |
->>>>>> IRQF_SHARED,
->>>>>> +    if (request_irq(dev->irq, ser12_interrupt, IRQF_TRIGGER_NONE |
->>>>>> IRQF_SHARED,
->>>>>>                 "baycom_ser_fdx", dev)) {
->>>>>>             release_region(dev->base_addr, SER12_EXTENT);
->>>>>>             return -EBUSY;
->>>>>> diff --git a/drivers/net/hamradio/baycom_ser_hdx.c
->>>>>> b/drivers/net/hamradio/baycom_ser_hdx.c
->>>>>> index e349d86..d91c1fd 100644
->>>>>> --- a/drivers/net/hamradio/baycom_ser_hdx.c
->>>>>> +++ b/drivers/net/hamradio/baycom_ser_hdx.c
->>>>>> @@ -490,7 +490,7 @@ static int ser12_open(struct net_device *dev)
->>>>>>         outb(0, FCR(dev->base_addr));  /* disable FIFOs */
->>>>>>         outb(0x0d, MCR(dev->base_addr));
->>>>>>         outb(0, IER(dev->base_addr));
->>>>>> -    if (request_irq(dev->irq, ser12_interrupt, IRQF_DISABLED |
->>>>>> IRQF_SHARED,
->>>>>> +    if (request_irq(dev->irq, ser12_interrupt, IRQF_TRIGGER_NONE |
->>>>>> IRQF_SHARED,
->>>>>>                 "baycom_ser12", dev)) {
->>>>>>             release_region(dev->base_addr, SER12_EXTENT);
->>>>>>             return -EBUSY;
->>>>>> diff --git a/drivers/net/hamradio/scc.c b/drivers/net/hamradio/scc.c
->>>>>> index bc1d521..4bc6ee8 100644
->>>>>> --- a/drivers/net/hamradio/scc.c
->>>>>> +++ b/drivers/net/hamradio/scc.c
->>>>>> @@ -1734,7 +1734,7 @@ static int scc_net_ioctl(struct net_device *dev,
->>>>>> struct ifreq *ifr, int cmd)
->>>>>>                 if (!Ivec[hwcfg.irq].used && hwcfg.irq)
->>>>>>                 {
->>>>>>                     if (request_irq(hwcfg.irq, scc_isr,
->>>>>> -                        IRQF_DISABLED, "AX.25 SCC",
->>>>>> +                        0, "AX.25 SCC",
->>>>>>                             (void *)(long) hwcfg.irq))
->>>>>>                         printk(KERN_WARNING "z8530drv:
->>>>>> warning, cannot get IRQ %d\n", hwcfg.irq);
->>>>>>                     else
->>>>>> diff --git a/drivers/net/hamradio/yam.c b/drivers/net/hamradio/yam.c
->>>>>> index 0721e72..f947887 100644
->>>>>> --- a/drivers/net/hamradio/yam.c
->>>>>> +++ b/drivers/net/hamradio/yam.c
->>>>>> @@ -888,7 +888,7 @@ static int yam_open(struct net_device *dev)
->>>>>>             goto out_release_base;
->>>>>>         }
->>>>>>         outb(0, IER(dev->base_addr));
->>>>>> -    if (request_irq(dev->irq, yam_interrupt, IRQF_DISABLED |
->>>>>> IRQF_SHARED,
->>>>>> dev->name, dev)) {
->>>>>> +    if (request_irq(dev->irq, yam_interrupt, IRQF_TRIGGER_NONE |
->>>>>> IRQF_SHARED, dev->name, dev)) {
->>>>>>             printk(KERN_ERR "%s: irq %d busy\n", dev->name, dev->irq);
->>>>>>             ret = -EBUSY;
->>>>>>             goto out_release_base;
->>>>>> -- 
->>>>>> 1.7.9.5
->>>>>>
->>>>>> -- 
->>>>>> To unsubscribe from this list: send the line "unsubscribe
->>>>>> kernel-janitors"
->>>>>> in
->>>>>> the body of a message to majordomo@vger.kernel.org
->>>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>>>>
->>>> Yes i was suggested for using IRQF_TRIGGER_NONE too so used this.
->>>> Please tell
->>>> me if this makes any difference or issue?
->>> I think that the suggestion was to use IRQF_TRIGGER_NONE only when
->>> removing IRQF_DISABLED would leave nothing left.
->>>
->>> - IRQF_DISABLED | e
->>> + e
->>>
->>> otherwise,
->>>
->>> - IRQF_DISABLED
->>> + 0
->>>
->>> julia
->> Sorry to prompt back but i'm confused. if removing IRQF_DISABLED leaves
->> nothing then should i use 0 or IRQF_TRIGGER_NONE?
->> I'm convinced with
->>
->>      - IRQF_DISABLED | e
->>      + e
->>
->> Regards
->>
->> Kumar Gaurav
->>
->> -- 
->> To unsubscribe from this list: send the line "unsubscribe linux-hams" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> The DMA debug check insists that the call to sync_single has
+> to be the same length as the mapping. The driver is only bothering
+> to sync the bytes that matter (got received) rather than the whole
+> map.
+> 
+> In reality that is not required, but I will make a patch anyway.
 
+PCI and other system controllers will prefetch, I think it can matter.
