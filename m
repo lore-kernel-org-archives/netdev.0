@@ -1,43 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2 net-next] af_unix: improve STREAM behavior with
- fragmented memory
-Date: Sun, 11 Aug 2013 07:42:16 -0700
-Message-ID: <1376232136.3291.1.camel@edumazet-glaptop>
-References: <1375997852.4004.130.camel@edumazet-glaptop>
-	 <20130811140605.GA5666@order.stressinduktion.org>
-	 <1376231553.3291.0.camel@edumazet-glaptop>
-	 <20130811143715.GA3699@order.stressinduktion.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: question about netif_rx
+Date: Sun, 11 Aug 2013 17:56:40 +0200
+Message-ID: <20130811155640.GA10070@electric-eye.fr.zoreil.com>
+References: <alpine.DEB.2.02.1308111151210.2072@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	David Rientjes <rientjes@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:40508 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753721Ab3HKOma (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Aug 2013 10:42:30 -0400
-Received: by mail-pd0-f177.google.com with SMTP id y10so2367228pdj.8
-        for <netdev@vger.kernel.org>; Sun, 11 Aug 2013 07:42:29 -0700 (PDT)
-In-Reply-To: <20130811143715.GA3699@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: grant.likely@linaro.org, rob.herring@calxeda.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.02.1308111151210.2072@localhost6.localdomain6>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2013-08-11 at 16:37 +0200, Hannes Frederic Sowa wrote:
-> On Sun, Aug 11, 2013 at 07:32:33AM -0700, Eric Dumazet wrote:
-> > On Sun, 2013-08-11 at 16:06 +0200, Hannes Frederic Sowa wrote:
-> > 
-> > > I am sorry to report that I had to revert both these patches to have a working
-> > > systemd again.
-> > 
-> > Hi Hannes
-> > 
-> > If you revert only the second patch, the problem is still there, right ?
-> 
-> Exactly, only reverting 2/2 did not help.
+Julia Lawall <julia.lawall@lip6.fr> :
+> To my limited understanding, in a NAPI polling function, one should use 
+> netif_receive_skb, rather than netif_rx.
 
-I wonder if the consumed field (part of skb->cb{}) would not be zero ?
+Nit: or napi_gro_receive (+ napi_gro_flush with __napi_complete) when the
+device offers some checksum offloading features.
 
-I assumed it was. I have to check.
+> However, the via-velocity driver defines the NAPI polling function
+> velocity_poll, which is the only caller of velocity_rx_srv, which
+> is the only caller of velocity_receive_frame, which calls netif_rx.
+> The call to netif_rx seems to predate the introduction of NAPI in
+> this driver.  Is this correct?
+
+You are right. It's a leftover of the NAPI changes in this driver.
+
+Can you send a netif_receive_skb replacement patch for it ?
+
+-- 
+Ueimor
