@@ -1,47 +1,58 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: question about netif_rx
-Date: Sun, 11 Aug 2013 18:12:50 +0200 (CEST)
-Message-ID: <alpine.DEB.2.02.1308111811440.2072@localhost6.localdomain6>
-References: <alpine.DEB.2.02.1308111151210.2072@localhost6.localdomain6> <20130811155640.GA10070@electric-eye.fr.zoreil.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net] net: sctp: sctp_assoc_control_transport: fix MTU
+ size in SCTP_PF state
+Date: Sun, 11 Aug 2013 12:16:45 -0400
+Message-ID: <20130811161645.GA29543@neilslaptop.think-freely.org>
+References: <1376053748-31783-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Julia Lawall <julia.lawall@lip6.fr>, grant.likely@linaro.org,
-	rob.herring@calxeda.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kheiss@gmail.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:12044
-	"EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754129Ab3HKQMy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Aug 2013 12:12:54 -0400
-In-Reply-To: <20130811155640.GA10070@electric-eye.fr.zoreil.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:47148 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754132Ab3HKQRM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Aug 2013 12:17:12 -0400
+Content-Disposition: inline
+In-Reply-To: <1376053748-31783-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 11 Aug 2013, Francois Romieu wrote:
-
-> Julia Lawall <julia.lawall@lip6.fr> :
-> > To my limited understanding, in a NAPI polling function, one should use 
-> > netif_receive_skb, rather than netif_rx.
+On Fri, Aug 09, 2013 at 03:09:08PM +0200, Daniel Borkmann wrote:
+> The SCTP Quick failover draft [1] section 5.1, point 5 says that the cwnd
+> should be 1 MTU. So, instead of 1, set it to 1 MTU.
 > 
-> Nit: or napi_gro_receive (+ napi_gro_flush with __napi_complete) when the
-> device offers some checksum offloading features.
-
-OK, thanks for the information.  I am just trying to understand these 
-functions...
-
-> > However, the via-velocity driver defines the NAPI polling function
-> > velocity_poll, which is the only caller of velocity_rx_srv, which
-> > is the only caller of velocity_receive_frame, which calls netif_rx.
-> > The call to netif_rx seems to predate the introduction of NAPI in
-> > this driver.  Is this correct?
+>   [1] https://tools.ietf.org/html/draft-nishida-tsvwg-sctp-failover-05
 > 
-> You are right. It's a leftover of the NAPI changes in this driver.
+> Reported-by: Karl Heiss <kheiss@gmail.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> ---
+>  net/sctp/associola.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 > 
-> Can you send a netif_receive_skb replacement patch for it ?
-
-Just to be sure, I just replace netif_rx by netif_receive_skb, nothing
-else?
-
-thanks,
-julia
+> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> index bce5b79..ab67efc 100644
+> --- a/net/sctp/associola.c
+> +++ b/net/sctp/associola.c
+> @@ -846,12 +846,12 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
+>  		else
+>  			spc_state = SCTP_ADDR_AVAILABLE;
+>  		/* Don't inform ULP about transition from PF to
+> -		 * active state and set cwnd to 1, see SCTP
+> +		 * active state and set cwnd to 1 MTU, see SCTP
+>  		 * Quick failover draft section 5.1, point 5
+>  		 */
+>  		if (transport->state == SCTP_PF) {
+>  			ulp_notify = false;
+> -			transport->cwnd = 1;
+> +			transport->cwnd = asoc->pathmtu;
+>  		}
+>  		transport->state = SCTP_ACTIVE;
+>  		break;
+> -- 
+> 1.7.11.7
+> 
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
