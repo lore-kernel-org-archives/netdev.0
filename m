@@ -1,77 +1,47 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the cgroup tree with the net-next tree
-Date: Mon, 12 Aug 2013 12:21:49 +1000
-Message-ID: <20130812122149.c5f7d4497a135b9500b61b27@canb.auug.org.au>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: make unsolicited report intervals
+ configurable for mld
+Date: Mon, 12 Aug 2013 02:23:45 +0000 (UTC)
+Message-ID: <ku9gvg$27t$1@ger.gmane.org>
+References: <20130812014859.GA13886@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Mon__12_Aug_2013_12_21_49_+1000_=7FoCNWZDdfSbhxe"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Joe Perches <joe@perches.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:37678 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755342Ab3HLCYH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 11 Aug 2013 22:24:07 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1V8hnf-000279-LC
+	for netdev@vger.kernel.org; Mon, 12 Aug 2013 04:24:03 +0200
+Received: from 182.246.108.196 ([182.246.108.196])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 12 Aug 2013 04:24:03 +0200
+Received: from xiyou.wangcong by 182.246.108.196 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 12 Aug 2013 04:24:03 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Mon__12_Aug_2013_12_21_49_+1000_=7FoCNWZDdfSbhxe
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Mon, 12 Aug 2013 at 01:48 GMT, Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> Commit cab70040dfd95ee32144f02fade64f0cb94f31a0 ("net: igmp:
+> Reduce Unsolicited report interval to 1s when using IGMPv3") and
+> 2690048c01f32bf45d1c1e1ab3079bc10ad2aea7 ("net: igmp: Allow user-space
+> configuration of igmp unsolicited report interval") by William Manley made
+> igmp unsolicited report intervals configurable per interface and corrected
+> the interval of unsolicited igmpv3 report messages resendings to 1s.
+>
+> Same needs to be done for IPv6:
+>
+> MLDv1 (RFC2710 7.10.): 10 seconds
+> MLDv2 (RFC3810 9.11.): 1 second
+>
+> Both intervals are configurable via new procfs knobs
+> mldv1_unsolicited_report_interval and mldv2_unsolicited_report_interval.
+>
 
-Hi Tejun,
-
-Today's linux-next merge of the cgroup tree got a conflict in
-include/net/netprio_cgroup.h between commit 378307217ed9 ("cls_cgroup.h
-netprio_cgroup.h: Remove extern from function prototypes") from the
-net-next tree and commit 6d37b97428d2 ("netprio_cgroup: pass around @css
-instead of @cgroup and kill struct cgroup_netprio_state") from the cgroup
-tree.
-
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc include/net/netprio_cgroup.h
-index 379dd5d,a24f8bb..0000000
---- a/include/net/netprio_cgroup.h
-+++ b/include/net/netprio_cgroup.h
-@@@ -25,11 -25,7 +25,7 @@@ struct netprio_map=20
-  	u32 priomap[];
-  };
- =20
-- struct cgroup_netprio_state {
-- 	struct cgroup_subsys_state css;
-- };
--=20
- -extern void sock_update_netprioidx(struct sock *sk);
- +void sock_update_netprioidx(struct sock *sk);
- =20
-  #if IS_BUILTIN(CONFIG_NETPRIO_CGROUP)
- =20
-
---Signature=_Mon__12_Aug_2013_12_21_49_+1000_=7FoCNWZDdfSbhxe
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.20 (GNU/Linux)
-
-iQIcBAEBCAAGBQJSCEbBAAoJEECxmPOUX5FEmFwP/1mDWdFH/I1e572GkdJiBzj4
-lYp11XPDdJwT8FMNRn6qSO3M0/Rk4NZ8TVTD+1Tmw4qZfn73rMcm27meyU1QbaZo
-dY7p2C2ckAdl8i0n88Qi06acUiqSRDc4kqUx31tOWNLhB0bvxuw07yROICSTrXvt
-TsUxsNZDjCsTtj982sLdbbfFoKbPlqfic8fJuL1Js/jdJuC10AgMhx5QlvwJ0oL/
-J35IcF4xA7OmHMTof1kmsnJyP9UnS0iuTA7+XUaSycBn6FP+0ZOsLJJFhMIkR4E0
-43cQlfCtPighkS0UJiMfinNuRUisqFdAuw+Pfr+702BgQgOU9b6KlYBUCc+YoPTR
-VFPIKqenuQt/PFGnQRx/xr3r5e8nmgjZfW1n6hvt40SmgiZi4of4/Iurky7l1j5a
-m2rm/AtjeogwXjloGED7MZscocyVw2y0QChj0WnqwFShVjpIRGhINaST10moWPUb
-YO2U2s8+LlnP2qpwL6+j/uAsC4gHZLLqSTkZ6Wj0P2pUt2QjxAapK5tI11IvdP3y
-cjs0XwVmI2p2XtfFbgCseAy5rdCXSYV92tKfFgbcwTJq+m3h1eKQhcmRq693zBQ2
-ARdm5uV6/QSVjEJlG5uAbdhSU+E9R1z0q78NIzOZjSXBqJXfKdH2IX4/dACmVygg
-qIf/J3p4qp49+0k87T/Z
-=JTKZ
------END PGP SIGNATURE-----
-
---Signature=_Mon__12_Aug_2013_12_21_49_+1000_=7FoCNWZDdfSbhxe--
+Please update the doc as well.
