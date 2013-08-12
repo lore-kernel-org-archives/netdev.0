@@ -1,100 +1,288 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v2 3.11] genetlink: fix family dump race
-Date: Mon, 12 Aug 2013 10:54:57 +0200
-Message-ID: <1376297697.11514.8.camel@jlt4.sipsolutions.net>
-References: <1375879163-2116-1-git-send-email-johannes@sipsolutions.net>
-	 <20130811.212942.413012801159758438.davem@davemloft.net>
+From: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+Subject: Re: [PATCH] stmmac: fix init_dma_desc_rings() to handle errors
+Date: Mon, 12 Aug 2013 11:36:55 +0200
+Message-ID: <5200219.68Ai310MOF@amdc1032>
+References: <1392383.ZcinuGX9SF@amdc1032>
+ <CAOJe8K0JasYtXZ7JaMGEYyzp8t=Gwj=p7EZT7=EwLVeERQLZGw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	tgraf@suug.ch, andrei.otcheretianski@intel.com,
-	ilan.peer@intel.com, stable@vger.kernel.org,
-	Pravin B Shelar <pshelar@nicira.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7Bit
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>, netdev@vger.kernel.org
+To: Denis Kirjanov <kda@linux-powerpc.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:50368 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754527Ab3HLIzP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 04:55:15 -0400
-In-Reply-To: <20130811.212942.413012801159758438.davem@davemloft.net>
+Received: from mailout2.samsung.com ([203.254.224.25]:43022 "EHLO
+	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753274Ab3HLJhn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 05:37:43 -0400
+Received: from epcpsbgm1.samsung.com (epcpsbgm1 [203.254.230.26])
+ by mailout2.samsung.com
+ (Oracle Communications Messaging Server 7u4-24.01(7.0.4.24.0) 64bit (built Nov
+ 17 2011)) with ESMTP id <0MRE00FUXW2E9ZX0@mailout2.samsung.com> for
+ netdev@vger.kernel.org; Mon, 12 Aug 2013 18:37:42 +0900 (KST)
+In-reply-to: <CAOJe8K0JasYtXZ7JaMGEYyzp8t=Gwj=p7EZT7=EwLVeERQLZGw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-08-11 at 21:29 -0700, David Miller wrote:
-
-> > BUG: unable to handle kernel paging request at f8467360
-> > IP: [<c14c56bb>] ctrl_dumpfamily+0x6b/0xe0
-> > EIP: 0060:[<c14c56bb>] EFLAGS: 00210297 CPU: 2
-> > EIP is at ctrl_dumpfamily+0x6b/0xe0
-> > EAX: f8467378 EBX: f8467340 ECX: 00000000 EDX: ec1610c4
-> > ESI: 00000001 EDI: c2077cc0 EBP: c46c3c00 ESP: c46c3bd4
-> >  DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
-> > CR0: 80050033 CR2: f8467360 CR3: 26e54000 CR4: 001407d0
-> > DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 00000000
-> > DR6: ffff0ff0 DR7: 00000400
-> > Process wpa_supplicant (pid: 20081, ti=c46c2000 task=c44640b0 task.ti=c46c2000)
-> > Call Trace:
-> >  [<c14c20bc>] netlink_dump+0x5c/0x200
-> >  [<c14c3450>] __netlink_dump_start+0x140/0x160
-> >  [<c14c5172>] genl_rcv_msg+0x102/0x270
-> >  [<c14c4b5e>] netlink_rcv_skb+0x8e/0xb0
-> >  [<c14c505c>] genl_rcv+0x1c/0x30
-> >  [<c14c456b>] netlink_unicast+0x17b/0x1c0
-> >  [<c14c47d4>] netlink_sendmsg+0x224/0x370
-> >  [<c1485adf>] sock_sendmsg+0xff/0x120
+On Friday, August 09, 2013 11:51:19 PM Denis Kirjanov wrote:
+> On 8/9/13, Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com> wrote:
+> > In stmmac_init_rx_buffers():
+> > * add missing handling of dma_map_single() error
+> > * remove superfluous unlikely() optimization while at it
+> >
+> > Add stmmac_free_rx_buffers() helper and use it in dma_free_rx_skbufs().
+> >
+> > In init_dma_desc_rings():
+> > * add missing handling of kmalloc_array() errors
+> > * fix handling of dma_alloc_coherent() and stmmac_init_rx_buffers() errors
+> > * make function return an error value on error and 0 on success
+> >
+> > In stmmac_open():
+> > * add handling of init_dma_desc_rings() return value
+> >
+> > Signed-off-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+> > Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+> > ---
+> >  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |  111
+> > ++++++++++++++++++----
+> >  1 file changed, 92 insertions(+), 19 deletions(-)
+> >
+> > Index: b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> > ===================================================================
+> > --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c	2013-08-08
+> > 14:36:44.000000000 +0200
+> > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c	2013-08-08
+> > 15:31:27.015438117 +0200
+> > @@ -939,15 +939,20 @@ static int stmmac_init_rx_buffers(struct
+> >
+> >  	skb = __netdev_alloc_skb(priv->dev, priv->dma_buf_sz + NET_IP_ALIGN,
+> >  				 GFP_KERNEL);
+> > -	if (unlikely(skb == NULL)) {
+> > +	if (!skb) {
+> >  		pr_err("%s: Rx init fails; skb is NULL\n", __func__);
+> > -		return 1;
+> > +		return -ENOMEM;
+> >  	}
+> >  	skb_reserve(skb, NET_IP_ALIGN);
+> >  	priv->rx_skbuff[i] = skb;
+> >  	priv->rx_skbuff_dma[i] = dma_map_single(priv->device, skb->data,
+> >  						priv->dma_buf_sz,
+> >  						DMA_FROM_DEVICE);
+> > +	if (dma_mapping_error(priv->device, priv->rx_skbuff_dma[i])) {
+> > +		pr_err("%s: DMA mapping error\n", __func__);
+> > +		dev_kfree_skb_any(skb);
+> > +		return -EINVAL;
+> > +	}
 > 
-> I completely agree with your analysis that we need locking here, but
-> the crash OOPS backtrace doesn't make any sense to me.
-> 
-> The bug should trigger when we enter the dump continuation path, which
-> would look like:
-> 
->         ctrl_dumpfamily()
->         netlink_dump()
->         netlink_recvmsg()
->         ...
-> 
-> Since this is the only way we get into ctrl_dumpfamily() without
-> holding genl_lock().
-> 
-> But in your trace we're going through genl_rcv() which means this is
-> the first call of the dump, and genl_rcv() takes the necessary locks.
+> If dma fail here then you can crash in stmmac_free_rx_buffers()
+> while touching priv->rx_skbuff[i]
 
-Huh, yes, I only looked at the crash info as far as I needed to see that
-it was crashing at accessing "rt->netnsok" with a not totally invalid
-pointer "rt" (it's in EBX) and then went from the code ...
+Are you sure?
 
-Ok, I see what's going on here. The bug was reported to me against an
-old kernel (3.4.47!) and that actually did an unlock in genl_rcv_msg()
-before calling netlink_dump_start():
+stmmac_free_rx_buffers() is not called for the current "i" but only
+for the (fully initialized) past ones (please note "--i" in while loop
+under err_init_rx_buffers label).
 
-        if (nlh->nlmsg_flags & NLM_F_DUMP) {
-                if (ops->dumpit == NULL)
-                        return -EOPNOTSUPP;
+Best regards,
+--
+Bartlomiej Zolnierkiewicz
+Samsung R&D Institute Poland
+Samsung Electronics
 
-                genl_unlock();
-                {
-                        struct netlink_dump_control c = {
-                                .dump = ops->dumpit,
-                                .done = ops->done,
-                        };
-                        err = netlink_dump_start(net->genl_sock, skb,
-nlh, &c);
-                }
-                genl_lock();
-                return err;
-        }
-
-That was changed in Pravin's commit
-def3117493eafd9dfa1f809d861e0031b2cc8a07
-"genl: Allow concurrent genl callbacks." very recently - I'm not sure if
-that was intentional, it's not described in the commit log.
-
-
-I think for the current code the fix would still be correct, I can
-change the commit message if you like. For backporting, we'll have to
-check which tree has Pravin's change and which doesn't and change this
-accordingly, I suppose.
-
-johannes
+> >  	p->des2 = priv->rx_skbuff_dma[i];
+> >
+> > @@ -958,6 +963,16 @@ static int stmmac_init_rx_buffers(struct
+> >  	return 0;
+> >  }
+> >
+> > +static void stmmac_free_rx_buffers(struct stmmac_priv *priv, int i)
+> > +{
+> > +	if (priv->rx_skbuff[i]) {
+> > +		dma_unmap_single(priv->device, priv->rx_skbuff_dma[i],
+> > +				 priv->dma_buf_sz, DMA_FROM_DEVICE);
+> > +		dev_kfree_skb_any(priv->rx_skbuff[i]);
+> > +	}
+> > +	priv->rx_skbuff[i] = NULL;
+> > +}
+> > +
+> >  /**
+> >   * init_dma_desc_rings - init the RX/TX descriptor rings
+> >   * @dev: net device structure
+> > @@ -965,13 +980,14 @@ static int stmmac_init_rx_buffers(struct
+> >   * and allocates the socket buffers. It suppors the chained and ring
+> >   * modes.
+> >   */
+> > -static void init_dma_desc_rings(struct net_device *dev)
+> > +static int init_dma_desc_rings(struct net_device *dev)
+> >  {
+> >  	int i;
+> >  	struct stmmac_priv *priv = netdev_priv(dev);
+> >  	unsigned int txsize = priv->dma_tx_size;
+> >  	unsigned int rxsize = priv->dma_rx_size;
+> >  	unsigned int bfsize = 0;
+> > +	int ret = -ENOMEM;
+> >
+> >  	/* Set the max buffer size according to the DESC mode
+> >  	 * and the MTU. Note that RING mode allows 16KiB bsize.
+> > @@ -992,34 +1008,60 @@ static void init_dma_desc_rings(struct n
+> >  							  dma_extended_desc),
+> >  						   &priv->dma_rx_phy,
+> >  						   GFP_KERNEL);
+> > +		if (!priv->dma_erx)
+> > +			goto err_dma;
+> > +
+> >  		priv->dma_etx = dma_alloc_coherent(priv->device, txsize *
+> >  						   sizeof(struct
+> >  							  dma_extended_desc),
+> >  						   &priv->dma_tx_phy,
+> >  						   GFP_KERNEL);
+> > -		if ((!priv->dma_erx) || (!priv->dma_etx))
+> > -			return;
+> > +		if (!priv->dma_etx) {
+> > +			dma_free_coherent(priv->device, priv->dma_rx_size *
+> > +					sizeof(struct dma_extended_desc),
+> > +					priv->dma_erx, priv->dma_rx_phy);
+> > +			goto err_dma;
+> > +		}
+> >  	} else {
+> >  		priv->dma_rx = dma_alloc_coherent(priv->device, rxsize *
+> >  						  sizeof(struct dma_desc),
+> >  						  &priv->dma_rx_phy,
+> >  						  GFP_KERNEL);
+> > +		if (!priv->dma_rx)
+> > +			goto err_dma;
+> > +
+> >  		priv->dma_tx = dma_alloc_coherent(priv->device, txsize *
+> >  						  sizeof(struct dma_desc),
+> >  						  &priv->dma_tx_phy,
+> >  						  GFP_KERNEL);
+> > -		if ((!priv->dma_rx) || (!priv->dma_tx))
+> > -			return;
+> > +		if (!priv->dma_tx) {
+> > +			dma_free_coherent(priv->device, priv->dma_rx_size *
+> > +					sizeof(struct dma_desc),
+> > +					priv->dma_rx, priv->dma_rx_phy);
+> > +			goto err_dma;
+> > +		}
+> >  	}
+> >
+> >  	priv->rx_skbuff_dma = kmalloc_array(rxsize, sizeof(dma_addr_t),
+> >  					    GFP_KERNEL);
+> > +	if (!priv->rx_skbuff_dma)
+> > +		goto err_rx_skbuff_dma;
+> > +
+> >  	priv->rx_skbuff = kmalloc_array(rxsize, sizeof(struct sk_buff *),
+> >  					GFP_KERNEL);
+> > +	if (!priv->rx_skbuff)
+> > +		goto err_rx_skbuff;
+> > +
+> >  	priv->tx_skbuff_dma = kmalloc_array(txsize, sizeof(dma_addr_t),
+> >  					    GFP_KERNEL);
+> > +	if (!priv->tx_skbuff_dma)
+> > +		goto err_tx_skbuff_dma;
+> > +
+> >  	priv->tx_skbuff = kmalloc_array(txsize, sizeof(struct sk_buff *),
+> >  					GFP_KERNEL);
+> > +	if (!priv->tx_skbuff)
+> > +		goto err_tx_skbuff;
+> > +
+> >  	if (netif_msg_probe(priv)) {
+> >  		pr_debug("(%s) dma_rx_phy=0x%08x dma_tx_phy=0x%08x\n", __func__,
+> >  			 (u32) priv->dma_rx_phy, (u32) priv->dma_tx_phy);
+> > @@ -1034,8 +1076,9 @@ static void init_dma_desc_rings(struct n
+> >  		else
+> >  			p = priv->dma_rx + i;
+> >
+> > -		if (stmmac_init_rx_buffers(priv, p, i))
+> > -			break;
+> > +		ret = stmmac_init_rx_buffers(priv, p, i);
+> > +		if (ret)
+> > +			goto err_init_rx_buffers;
+> >
+> >  		if (netif_msg_probe(priv))
+> >  			pr_debug("[%p]\t[%p]\t[%x]\n", priv->rx_skbuff[i],
+> > @@ -1081,20 +1124,44 @@ static void init_dma_desc_rings(struct n
+> >
+> >  	if (netif_msg_hw(priv))
+> >  		stmmac_display_rings(priv);
+> > +
+> > +	return 0;
+> > +err_init_rx_buffers:
+> > +	while (--i >= 0)
+> > +		stmmac_free_rx_buffers(priv, i);
+> > +	kfree(priv->tx_skbuff);
+> > +err_tx_skbuff:
+> > +	kfree(priv->tx_skbuff_dma);
+> > +err_tx_skbuff_dma:
+> > +	kfree(priv->rx_skbuff);
+> > +err_rx_skbuff:
+> > +	kfree(priv->rx_skbuff_dma);
+> > +err_rx_skbuff_dma:
+> > +	if (priv->extend_desc) {
+> > +		dma_free_coherent(priv->device, priv->dma_tx_size *
+> > +				  sizeof(struct dma_extended_desc),
+> > +				  priv->dma_etx, priv->dma_tx_phy);
+> > +		dma_free_coherent(priv->device, priv->dma_rx_size *
+> > +				  sizeof(struct dma_extended_desc),
+> > +				  priv->dma_erx, priv->dma_rx_phy);
+> > +	} else {
+> > +		dma_free_coherent(priv->device,
+> > +				priv->dma_tx_size * sizeof(struct dma_desc),
+> > +				priv->dma_tx, priv->dma_tx_phy);
+> > +		dma_free_coherent(priv->device,
+> > +				priv->dma_rx_size * sizeof(struct dma_desc),
+> > +				priv->dma_rx, priv->dma_rx_phy);
+> > +	}
+> > +err_dma:
+> > +	return ret;
+> >  }
+> >
+> >  static void dma_free_rx_skbufs(struct stmmac_priv *priv)
+> >  {
+> >  	int i;
+> >
+> > -	for (i = 0; i < priv->dma_rx_size; i++) {
+> > -		if (priv->rx_skbuff[i]) {
+> > -			dma_unmap_single(priv->device, priv->rx_skbuff_dma[i],
+> > -					 priv->dma_buf_sz, DMA_FROM_DEVICE);
+> > -			dev_kfree_skb_any(priv->rx_skbuff[i]);
+> > -		}
+> > -		priv->rx_skbuff[i] = NULL;
+> > -	}
+> > +	for (i = 0; i < priv->dma_rx_size; i++)
+> > +		stmmac_free_rx_buffers(priv, i);
+> >  }
+> >
+> >  static void dma_free_tx_skbufs(struct stmmac_priv *priv)
+> > @@ -1560,12 +1627,17 @@ static int stmmac_open(struct net_device
+> >  	priv->dma_tx_size = STMMAC_ALIGN(dma_txsize);
+> >  	priv->dma_rx_size = STMMAC_ALIGN(dma_rxsize);
+> >  	priv->dma_buf_sz = STMMAC_ALIGN(buf_sz);
+> > -	init_dma_desc_rings(dev);
+> > +
+> > +	ret = init_dma_desc_rings(dev);
+> > +	if (ret < 0) {
+> > +		pr_err("%s: DMA descriptors initialization failed\n", __func__);
+> > +		goto dma_desc_error;
+> > +	}
+> >
+> >  	/* DMA initialization and SW reset */
+> >  	ret = stmmac_init_dma_engine(priv);
+> >  	if (ret < 0) {
+> > -		pr_err("%s: DMA initialization failed\n", __func__);
+> > +		pr_err("%s: DMA engine initialization failed\n", __func__);
+> >  		goto init_error;
+> >  	}
+> >
+> > @@ -1672,6 +1744,7 @@ wolirq_error:
+> >
+> >  init_error:
+> >  	free_dma_desc_resources(priv);
+> > +dma_desc_error:
+> >  	if (priv->phydev)
+> >  		phy_disconnect(priv->phydev);
+> >  phy_error:
+> >
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
