@@ -1,17 +1,20 @@
 From: Libo Chen <clbchenlibo.chen@huawei.com>
-Subject: [PATCH 6/8] net: sunhme: use platform_{get,set}_drvdata()
-Date: Mon, 12 Aug 2013 21:24:57 +0800
-Message-ID: <5208E229.9070300@huawei.com>
+Subject: [PATCH 1/8] net: fsl_pq_mdio: use platform_{get,set}_drvdata()
+Date: Mon, 12 Aug 2013 21:24:37 +0800
+Message-ID: <5208E215.6030007@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <gregkh@linuxfoundation.org>, <jg1.han@samsung.com>,
-	Bill Pemberton <wfp5p@virginia.edu>, <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+	Li Zefan <lizefan@huawei.com>, <timur@freescale.com>
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:36957 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756190Ab3HLNYs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 09:24:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
 Use the wrapper functions for getting and setting the driver data using
@@ -20,55 +23,29 @@ so we can directly pass a struct platform_device.
 
 Signed-off-by: Libo Chen <libo.chen@huawei.com>
 ---
- drivers/net/ethernet/sun/sunhme.c |    8 +++-----
- 1 files changed, 3 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/freescale/fsl_pq_mdio.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/sunhme.c b/drivers/net/ethernet/sun/sunhme.c
-index 171f5b0..a111f29 100644
---- a/drivers/net/ethernet/sun/sunhme.c
-+++ b/drivers/net/ethernet/sun/sunhme.c
-@@ -3111,7 +3111,7 @@ static int happy_meal_pci_probe(struct pci_dev *pdev,
- 		goto err_out_iounmap;
- 	}
+diff --git a/drivers/net/ethernet/freescale/fsl_pq_mdio.c b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
+index c93a056..995a3ab 100644
+--- a/drivers/net/ethernet/freescale/fsl_pq_mdio.c
++++ b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
+@@ -409,7 +409,7 @@ static int fsl_pq_mdio_probe(struct platform_device *pdev)
+ 	priv->regs = priv->map + data->mii_offset;
 
--	dev_set_drvdata(&pdev->dev, hp);
-+	platform_set_drvdata(pdev, hp);
+ 	new_bus->parent = &pdev->dev;
+-	dev_set_drvdata(&pdev->dev, new_bus);
++	platform_set_drvdata(pdev, new_bus);
 
- 	if (!qfe_slot) {
- 		struct pci_dev *qpdev = qp->quattro_dev;
-@@ -3159,7 +3159,7 @@ err_out:
+ 	if (data->get_tbipa) {
+ 		for_each_child_of_node(np, tbi) {
+@@ -468,7 +468,6 @@ static int fsl_pq_mdio_remove(struct platform_device *pdev)
 
- static void happy_meal_pci_remove(struct pci_dev *pdev)
- {
--	struct happy_meal *hp = dev_get_drvdata(&pdev->dev);
-+	struct happy_meal *hp = platform_get_drvdata(pdev);
- 	struct net_device *net_dev = hp->dev;
+ 	mdiobus_unregister(bus);
 
- 	unregister_netdev(net_dev);
-@@ -3171,7 +3171,6 @@ static void happy_meal_pci_remove(struct pci_dev *pdev)
+-	dev_set_drvdata(device, NULL);
 
- 	free_netdev(net_dev);
-
--	dev_set_drvdata(&pdev->dev, NULL);
- }
-
- static DEFINE_PCI_DEVICE_TABLE(happymeal_pci_ids) = {
-@@ -3231,7 +3230,7 @@ static int hme_sbus_probe(struct platform_device *op)
-
- static int hme_sbus_remove(struct platform_device *op)
- {
--	struct happy_meal *hp = dev_get_drvdata(&op->dev);
-+	struct happy_meal *hp = platform_get_drvdata(op);
- 	struct net_device *net_dev = hp->dev;
-
- 	unregister_netdev(net_dev);
-@@ -3250,7 +3249,6 @@ static int hme_sbus_remove(struct platform_device *op)
-
- 	free_netdev(net_dev);
-
--	dev_set_drvdata(&op->dev, NULL);
-
- 	return 0;
- }
+ 	iounmap(priv->map);
+ 	mdiobus_free(bus);
 -- 
 1.7.1
