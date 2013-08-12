@@ -1,32 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5] net: Add MOXA ART SoCs ethernet driver
-Date: Sun, 11 Aug 2013 21:38:46 -0700 (PDT)
-Message-ID: <20130811.213846.2022624715665927428.davem@davemloft.net>
-References: <1375349968-16059-1-git-send-email-jonas.jensen@gmail.com>
-	<1375961694-5375-1-git-send-email-jonas.jensen@gmail.com>
+Subject: Re: [PATCH] macvtap: fix two races
+Date: Sun, 11 Aug 2013 21:50:49 -0700 (PDT)
+Message-ID: <20130811.215049.2058314780489790321.davem@davemloft.net>
+References: <1375968072.4004.92.camel@edumazet-glaptop>
+	<20130808155634.239dbc2d@thhw500>
+	<1375974374.4004.103.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-doc@vger.kernel.org,
-	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, arm@kernel.org, florian@openwrt.org,
-	joe@perches.com, mark.rutland@arm.com
-To: jonas.jensen@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1375961694-5375-1-git-send-email-jonas.jensen@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: thuth@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	vyasevic@redhat.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47619 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752854Ab3HLEp1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 00:45:27 -0400
+In-Reply-To: <1375974374.4004.103.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jonas Jensen <jonas.jensen@gmail.com>
-Date: Thu,  8 Aug 2013 13:34:54 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 08 Aug 2013 08:06:14 -0700
 
-> The MOXA UC-711X hardware(s) has an ethernet controller that seem
-> to be developed internally. The IC used is "RTL8201CP".
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Since there is no public documentation, this driver is mostly the
-> one published by MOXA that has been heavily cleaned up / ported
-> from linux 2.6.9.
+> Since commit ac4e4af1e59e1 ("macvtap: Consistently use rcu functions"),
+> Thomas gets two different warnings :
+ ...
+> And
+ ...
+> In the first case, macvtap_put_user() calls macvlan_count_rx()
+> in a preempt-able context, and this is not allowed.
 > 
-> Signed-off-by: Jonas Jensen <jonas.jensen@gmail.com>
+> In the second case, macvtap_get_user() calls
+> macvlan_start_xmit() with BH enabled, and this is not allowed.
+>  
+> Reported-by: Thomas Huth <thuth@linux.vnet.ibm.com>
+> Bisected-by: Thomas Huth <thuth@linux.vnet.ibm.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Tested-by: Thomas Huth <thuth@linux.vnet.ibm.com>
+> Cc: Vlad Yasevich <vyasevic@redhat.com>
 
-Applied to net-next, thanks.
+Applied and queued up for -stable, thanks.
