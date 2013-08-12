@@ -1,39 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] af_unix: fix bug on large send()
-Date: Sun, 11 Aug 2013 22:02:49 -0700 (PDT)
-Message-ID: <20130811.220249.559351679802720229.davem@davemloft.net>
-References: <1376231553.3291.0.camel@edumazet-glaptop>
-	<20130811143715.GA3699@order.stressinduktion.org>
-	<1376283288.3338.7.camel@edumazet-glaptop>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH v2] tipc: avoid possible deadlock while enable and disable
+ bearer
+Date: Mon, 12 Aug 2013 13:03:46 +0800
+Message-ID: <52086CB2.3050006@windriver.com>
+References: <5204B29A.80809@huawei.com> <5204B78D.4090509@windriver.com> <20130811.215939.1897644088555839854.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, rientjes@google.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: <dingtianhong@huawei.com>, <jon.maloy@ericsson.com>,
+	<allan.stephens@windriver.com>,
+	<tipc-discussion@lists.sourceforge.net>, <netdev@vger.kernel.org>,
+	<wangweidong1@huawei.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47702 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752981Ab3HLE51 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 00:57:27 -0400
-In-Reply-To: <1376283288.3338.7.camel@edumazet-glaptop>
+Received: from mail7.windriver.com ([128.224.252.3]:45513 "EHLO
+	mail7.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753171Ab3HLFEL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 01:04:11 -0400
+In-Reply-To: <20130811.215939.1897644088555839854.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 11 Aug 2013 21:54:48 -0700
+On 08/12/2013 12:59 PM, David Miller wrote:
+> From: Ying Xue <ying.xue@windriver.com>
+> Date: Fri, 9 Aug 2013 17:34:05 +0800
+> 
+>>
+>>> The problem is that the tipc_link_delete() will cancel the timer disc_timeout() when
+>>> the b_ptr->lock is hold, but the disc_timeout() still call b_ptr->lock to finish the
+>>> work, so the dead lock occurs.
+>>>
+>>> We should unlock the b_ptr->lock when del the disc_timeout().
+>>>
+>>> Remove link_timeout() still met the same problem, the patch:
+>>>
+>>> http://article.gmane.org/gmane.network.tipc.general/4380
+>>>
+>>> fix the problem, so no need to send patch for fix link_timeout() deadlock warming.
+>>>
+>>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>>> Cc: Ying Xue <ying.xue@windriver.com>
+>>
+>> Ack-by: Ying Xue <ying.xue@windriver.com>
+> 
+> The proper syntax is "Acked-by: " not "Ack-by: "
+> 
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> commit e370a723632 ("af_unix: improve STREAM behavior with fragmented
-> memory") added a bug on large send() because the
-> skb_copy_datagram_from_iovec() call always start from the beginning
-> of iovec.
-> 
-> We must instead use the @sent variable to properly skip the
-> already processed part.
-> 
-> Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Thanks, I knew :)
 
-Applied, thanks Eric.
+Regards,
+Ying
+
+> Applied.
+> 
+> 
