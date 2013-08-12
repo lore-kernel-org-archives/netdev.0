@@ -1,57 +1,85 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH v2] tipc: avoid possible deadlock while enable and disable
- bearer
-Date: Mon, 12 Aug 2013 13:03:46 +0800
-Message-ID: <52086CB2.3050006@windriver.com>
-References: <5204B29A.80809@huawei.com> <5204B78D.4090509@windriver.com> <20130811.215939.1897644088555839854.davem@davemloft.net>
+From: Fan Du <fan.du@windriver.com>
+Subject: [PATCHv2 net-next] xfrm: Make xfrm_state timer monotonic
+Date: Mon, 12 Aug 2013 13:40:07 +0800
+Message-ID: <52087537.6060200@windriver.com>
+References: <1375772225-19265-1-git-send-email-fan.du@windriver.com> <20130806092220.GH25511@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <dingtianhong@huawei.com>, <jon.maloy@ericsson.com>,
-	<allan.stephens@windriver.com>,
-	<tipc-discussion@lists.sourceforge.net>, <netdev@vger.kernel.org>,
-	<wangweidong1@huawei.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail7.windriver.com ([128.224.252.3]:45513 "EHLO
-	mail7.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753171Ab3HLFEL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 01:04:11 -0400
-In-Reply-To: <20130811.215939.1897644088555839854.davem@davemloft.net>
+Received: from mail1.windriver.com ([147.11.146.13]:43543 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750790Ab3HLFhY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 01:37:24 -0400
+In-Reply-To: <20130806092220.GH25511@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/12/2013 12:59 PM, David Miller wrote:
-> From: Ying Xue <ying.xue@windriver.com>
-> Date: Fri, 9 Aug 2013 17:34:05 +0800
-> 
+
+
+On 2013=E5=B9=B408=E6=9C=8806=E6=97=A5 17:22, Steffen Klassert wrote:
+> On Tue, Aug 06, 2013 at 02:57:05PM +0800, Fan Du wrote:
+>> xfrm_state timer should be independent of system clock change,
+>> so switch to monotonic clock base.
 >>
->>> The problem is that the tipc_link_delete() will cancel the timer disc_timeout() when
->>> the b_ptr->lock is hold, but the disc_timeout() still call b_ptr->lock to finish the
->>> work, so the dead lock occurs.
->>>
->>> We should unlock the b_ptr->lock when del the disc_timeout().
->>>
->>> Remove link_timeout() still met the same problem, the patch:
->>>
->>> http://article.gmane.org/gmane.network.tipc.general/4380
->>>
->>> fix the problem, so no need to send patch for fix link_timeout() deadlock warming.
->>>
->>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
->>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->>> Cc: Ying Xue <ying.xue@windriver.com>
->>
->> Ack-by: Ying Xue <ying.xue@windriver.com>
-> 
-> The proper syntax is "Acked-by: " not "Ack-by: "
-> 
+>
+> I think a monotonic timer will reintroduce a bug on suspend/resume
+> that was fixed by commit 9e0d57fd6
+> (xfrm: SAD entries do not expire correctly after suspend-resume)
+>
+> Please make sure that this does not happen.
 
-Thanks, I knew :)
+What about using CLOCK_BOOTTIME? it's monotonic, but includes suspend t=
+ime as well.
 
-Regards,
-Ying
 
-> Applied.
-> 
-> 
+ From 1dae5a22c203224ee46e2a2f95b569a04b74117b Mon Sep 17 00:00:00 2001
+=46rom: Fan Du <fan.du@windriver.com>
+Date: Mon, 12 Aug 2013 13:33:45 +0800
+Subject: [PATCHv2 net-next] xfrm: Make xfrm_state timer monotonic
+
+xfrm_state timer should be independent of system clock change,
+so switch to CLOCK_BOOTTIME base which is not only monotonic but
+also counting suspend time.
+
+Signed-off-by: Fan Du <fan.du@windriver.com>
+---
+  net/xfrm/xfrm_state.c |    2 +-
+  1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 78f66fa..1df4436 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -499,7 +499,7 @@ struct xfrm_state *xfrm_state_alloc(struct net *net=
+)
+  		INIT_HLIST_NODE(&x->bydst);
+  		INIT_HLIST_NODE(&x->bysrc);
+  		INIT_HLIST_NODE(&x->byspi);
+-		tasklet_hrtimer_init(&x->mtimer, xfrm_timer_handler, CLOCK_REALTIME,=
+ HRTIMER_MODE_ABS);
++		tasklet_hrtimer_init(&x->mtimer, xfrm_timer_handler, CLOCK_BOOTTIME,=
+ HRTIMER_MODE_ABS);
+  		setup_timer(&x->rtimer, xfrm_replay_timer_handler,
+  				(unsigned long)x);
+  		x->curlft.add_time =3D get_seconds();
+--=20
+1.7.9.5
+
+
+
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+
+--=20
+=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
+=E7=AC=91
+
+--fan
