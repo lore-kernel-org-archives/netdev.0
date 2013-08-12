@@ -1,74 +1,177 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: locating the 'tc actions' hook
-Date: Sun, 11 Aug 2013 20:55:09 -0400
-Message-ID: <5208326D.5030903@mojatatu.com>
-References: <51F97F4E.5070102@gmail.com> <51FA493C.8080207@mojatatu.com> <51FAECBF.3030704@intel.com> <51FCEDCF.8010107@mojatatu.com> <51FFCEB3.3010404@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next] ipv6: make unsolicited report intervals configurable for mld
+Date: Mon, 12 Aug 2013 03:48:59 +0200
+Message-ID: <20130812014859.GA13886@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: william.manley@youview.com, bcrl@kvack.org, yoshfuji@linux-ipv6.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:50065 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755189Ab3HLAzN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Aug 2013 20:55:13 -0400
-Received: by mail-ie0-f181.google.com with SMTP id x14so7265200ief.40
-        for <netdev@vger.kernel.org>; Sun, 11 Aug 2013 17:55:13 -0700 (PDT)
-In-Reply-To: <51FFCEB3.3010404@gmail.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:45264 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755286Ab3HLBtB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Aug 2013 21:49:01 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13-08-05 12:11 PM, John Fastabend wrote:
+Commit cab70040dfd95ee32144f02fade64f0cb94f31a0 ("net: igmp:
+Reduce Unsolicited report interval to 1s when using IGMPv3") and
+2690048c01f32bf45d1c1e1ab3079bc10ad2aea7 ("net: igmp: Allow user-space
+configuration of igmp unsolicited report interval") by William Manley made
+igmp unsolicited report intervals configurable per interface and corrected
+the interval of unsolicited igmpv3 report messages resendings to 1s.
 
-> Actually in the first case here I was considering egress traffic.
->
+Same needs to be done for IPv6:
 
+MLDv1 (RFC2710 7.10.): 10 seconds
+MLDv2 (RFC3810 9.11.): 1 second
 
-[..]
-> Separating the classifier chain from the qdisc allows using the
-> classifiers to pick a qdisc via queue_mapping because qdisc's are
-> attached to queues when using sch_mq.
->
+Both intervals are configurable via new procfs knobs
+mldv1_unsolicited_report_interval and mldv2_unsolicited_report_interval.
 
-[..]
-> Sorry I mucked two examples one egress and one ingress together without
-> clearly stating it. The second case here was ingress the first egress.
->
+Cc: William Manley <william.manley@youview.com>
+Cc: Benjamin LaHaise <bcrl@kvack.org>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ include/linux/ipv6.h      |  2 ++
+ include/uapi/linux/ipv6.h |  2 ++
+ net/ipv6/addrconf.c       | 25 +++++++++++++++++++++++++
+ net/ipv6/mcast.c          | 17 ++++++++++++++---
+ 4 files changed, 43 insertions(+), 3 deletions(-)
 
-Ok. Still fine; if a tag of some form exists, the driver should be
-able to inherit it and pass it down to the hardware.
-There's akready precedence on such offloading, this should just
-follow in the same spirit.
-
-> But currently we have a situation on egress where multiqueue devices
-> use mq or mqprio which aligns qdisc's with queues. This fixes the
-> performance penalties but you lose the ability to have state across
-> multiple queues and the ability to bind flows to queues.
->
-
-If the goal is to share resources, there's no way to avoid locks.
-You have to update resource usage state which is a write operation.
-Dont even bother with rcu.
-
-> For example a SW rate limiter that applies to a set of queues or a set
-> of tuned low latency queues. To fix this we can attach a qdisc (htb,
-> whatever) to the netdev but this has performance penalties. So we are
-> left with a trade off between functionality and performance.
->
-> On the ingress side we may have many queues but as soon as we add a
-> qdisc/classifier/action we have a single lock.
->
-
-[..]
-> Thanks. I'll see if I can draw up what I'm thinking here a bit more
-> clearly and send it your way.
-
-I think that would help me. Maybe we should take it offline and sync up.
-
-cheers,
-jamal
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 850e95b..77a4784 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -19,6 +19,8 @@ struct ipv6_devconf {
+ 	__s32		rtr_solicit_interval;
+ 	__s32		rtr_solicit_delay;
+ 	__s32		force_mld_version;
++	__s32		mldv1_unsolicited_report_interval;
++	__s32		mldv2_unsolicited_report_interval;
+ #ifdef CONFIG_IPV6_PRIVACY
+ 	__s32		use_tempaddr;
+ 	__s32		temp_valid_lft;
+diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index 4bda4cf..315f133 100644
+--- a/include/uapi/linux/ipv6.h
++++ b/include/uapi/linux/ipv6.h
+@@ -147,6 +147,8 @@ enum {
+ 	DEVCONF_MAX_DESYNC_FACTOR,
+ 	DEVCONF_MAX_ADDRESSES,
+ 	DEVCONF_FORCE_MLD_VERSION,
++	DEVCONF_MLDV1_UNSOLICITED_REPORT_INTERVAL,
++	DEVCONF_MLDV2_UNSOLICITED_REPORT_INTERVAL,
+ 	DEVCONF_ACCEPT_RA_DEFRTR,
+ 	DEVCONF_ACCEPT_RA_PINFO,
+ 	DEVCONF_ACCEPT_RA_RTR_PREF,
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 7fd8572..158c5e1 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -177,6 +177,8 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+ 	.accept_redirects	= 1,
+ 	.autoconf		= 1,
+ 	.force_mld_version	= 0,
++	.mldv1_unsolicited_report_interval = 10*HZ,
++	.mldv2_unsolicited_report_interval = HZ,
+ 	.dad_transmits		= 1,
+ 	.rtr_solicits		= MAX_RTR_SOLICITATIONS,
+ 	.rtr_solicit_interval	= RTR_SOLICITATION_INTERVAL,
+@@ -211,6 +213,9 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+ 	.accept_ra		= 1,
+ 	.accept_redirects	= 1,
+ 	.autoconf		= 1,
++	.force_mld_version	= 0,
++	.mldv1_unsolicited_report_interval = 10*HZ,
++	.mldv2_unsolicited_report_interval = HZ,
+ 	.dad_transmits		= 1,
+ 	.rtr_solicits		= MAX_RTR_SOLICITATIONS,
+ 	.rtr_solicit_interval	= RTR_SOLICITATION_INTERVAL,
+@@ -4179,6 +4184,10 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ 	array[DEVCONF_RTR_SOLICIT_DELAY] =
+ 		jiffies_to_msecs(cnf->rtr_solicit_delay);
+ 	array[DEVCONF_FORCE_MLD_VERSION] = cnf->force_mld_version;
++	array[DEVCONF_MLDV1_UNSOLICITED_REPORT_INTERVAL] =
++		jiffies_to_msecs(cnf->mldv1_unsolicited_report_interval);
++	array[DEVCONF_MLDV2_UNSOLICITED_REPORT_INTERVAL] =
++		jiffies_to_msecs(cnf->mldv2_unsolicited_report_interval);
+ #ifdef CONFIG_IPV6_PRIVACY
+ 	array[DEVCONF_USE_TEMPADDR] = cnf->use_tempaddr;
+ 	array[DEVCONF_TEMP_VALID_LFT] = cnf->temp_valid_lft;
+@@ -4862,6 +4871,22 @@ static struct addrconf_sysctl_table
+ 			.mode		= 0644,
+ 			.proc_handler	= proc_dointvec,
+ 		},
++		{
++			.procname	= "mldv1_unsolicited_report_interval",
++			.data		=
++				&ipv6_devconf.mldv1_unsolicited_report_interval,
++			.maxlen		= sizeof(int),
++			.mode		= 0644,
++			.proc_handler	= proc_dointvec_ms_jiffies,
++		},
++		{
++			.procname	= "mldv2_unsolicited_report_interval",
++			.data		=
++				&ipv6_devconf.mldv2_unsolicited_report_interval,
++			.maxlen		= sizeof(int),
++			.mode		= 0644,
++			.proc_handler	= proc_dointvec_ms_jiffies,
++		},
+ #ifdef CONFIG_IPV6_PRIVACY
+ 		{
+ 			.procname	= "use_tempaddr",
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index db25b8e..6c76df9 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -108,7 +108,6 @@ static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
+ 			    struct inet6_dev *idev);
+ 
+ 
+-#define IGMP6_UNSOLICITED_IVAL	(10*HZ)
+ #define MLD_QRV_DEFAULT		2
+ 
+ #define MLD_V1_SEEN(idev) (dev_net((idev)->dev)->ipv6.devconf_all->force_mld_version == 1 || \
+@@ -129,6 +128,18 @@ int sysctl_mld_max_msf __read_mostly = IPV6_MLD_MAX_MSF;
+ 	     pmc != NULL;					\
+ 	     pmc = rcu_dereference(pmc->next))
+ 
++static int unsolicited_report_interval(struct inet6_dev *idev)
++{
++	int iv;
++
++	if (MLD_V1_SEEN(idev))
++		iv = idev->cnf.mldv1_unsolicited_report_interval;
++	else
++		iv = idev->cnf.mldv2_unsolicited_report_interval;
++
++	return iv > 0 ? iv : 1;
++}
++
+ int ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ {
+ 	struct net_device *dev = NULL;
+@@ -2158,7 +2169,7 @@ static void igmp6_join_group(struct ifmcaddr6 *ma)
+ 
+ 	igmp6_send(&ma->mca_addr, ma->idev->dev, ICMPV6_MGM_REPORT);
+ 
+-	delay = net_random() % IGMP6_UNSOLICITED_IVAL;
++	delay = net_random() % unsolicited_report_interval(ma->idev);
+ 
+ 	spin_lock_bh(&ma->mca_lock);
+ 	if (del_timer(&ma->mca_timer)) {
+@@ -2325,7 +2336,7 @@ void ipv6_mc_init_dev(struct inet6_dev *idev)
+ 	setup_timer(&idev->mc_dad_timer, mld_dad_timer_expire,
+ 		    (unsigned long)idev);
+ 	idev->mc_qrv = MLD_QRV_DEFAULT;
+-	idev->mc_maxdelay = IGMP6_UNSOLICITED_IVAL;
++	idev->mc_maxdelay = unsolicited_report_interval(idev);
+ 	idev->mc_v1_seen = 0;
+ 	write_unlock_bh(&idev->lock);
+ }
+-- 
+1.8.3.1
