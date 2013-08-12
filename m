@@ -1,128 +1,100 @@
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Subject: [PATCH net-next] ipip: Add room for user-specified custom header
-Date: Mon, 12 Aug 2013 10:39:38 +0200
-Message-ID: <1376296778-1983-1-git-send-email-kristian.evensen@gmail.com>
-Cc: Kristian Evensen <kristian.evensen@gmail.com>
-To: netdev@vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH v2 3.11] genetlink: fix family dump race
+Date: Mon, 12 Aug 2013 10:54:57 +0200
+Message-ID: <1376297697.11514.8.camel@jlt4.sipsolutions.net>
+References: <1375879163-2116-1-git-send-email-johannes@sipsolutions.net>
+	 <20130811.212942.413012801159758438.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	tgraf@suug.ch, andrei.otcheretianski@intel.com,
+	ilan.peer@intel.com, stable@vger.kernel.org,
+	Pravin B Shelar <pshelar@nicira.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f173.google.com ([74.125.82.173]:59135 "EHLO
-	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755196Ab3HLIju (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 04:39:50 -0400
-Received: by mail-we0-f173.google.com with SMTP id x55so5279150wes.32
-        for <netdev@vger.kernel.org>; Mon, 12 Aug 2013 01:39:49 -0700 (PDT)
+Received: from s3.sipsolutions.net ([144.76.43.152]:50368 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754527Ab3HLIzP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 04:55:15 -0400
+In-Reply-To: <20130811.212942.413012801159758438.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for specifying the size of a custom header to be
-inserted between the two IP headers. The actual content will be inserted later,
-for example by a module that is attached to a hook.
+On Sun, 2013-08-11 at 21:29 -0700, David Miller wrote:
 
-A use-case for the feature provided by this patch is to ease the implementation
-of custom tunneling protocols. Instead of implementing them directly in the
-kernel and having to look out for changes in the kernel behavior/APIs, a
-tunneling protocol can be implemented as an independent module.
+> > BUG: unable to handle kernel paging request at f8467360
+> > IP: [<c14c56bb>] ctrl_dumpfamily+0x6b/0xe0
+> > EIP: 0060:[<c14c56bb>] EFLAGS: 00210297 CPU: 2
+> > EIP is at ctrl_dumpfamily+0x6b/0xe0
+> > EAX: f8467378 EBX: f8467340 ECX: 00000000 EDX: ec1610c4
+> > ESI: 00000001 EDI: c2077cc0 EBP: c46c3c00 ESP: c46c3bd4
+> >  DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
+> > CR0: 80050033 CR2: f8467360 CR3: 26e54000 CR4: 001407d0
+> > DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 00000000
+> > DR6: ffff0ff0 DR7: 00000400
+> > Process wpa_supplicant (pid: 20081, ti=c46c2000 task=c44640b0 task.ti=c46c2000)
+> > Call Trace:
+> >  [<c14c20bc>] netlink_dump+0x5c/0x200
+> >  [<c14c3450>] __netlink_dump_start+0x140/0x160
+> >  [<c14c5172>] genl_rcv_msg+0x102/0x270
+> >  [<c14c4b5e>] netlink_rcv_skb+0x8e/0xb0
+> >  [<c14c505c>] genl_rcv+0x1c/0x30
+> >  [<c14c456b>] netlink_unicast+0x17b/0x1c0
+> >  [<c14c47d4>] netlink_sendmsg+0x224/0x370
+> >  [<c1485adf>] sock_sendmsg+0xff/0x120
+> 
+> I completely agree with your analysis that we need locking here, but
+> the crash OOPS backtrace doesn't make any sense to me.
+> 
+> The bug should trigger when we enter the dump continuation path, which
+> would look like:
+> 
+>         ctrl_dumpfamily()
+>         netlink_dump()
+>         netlink_recvmsg()
+>         ...
+> 
+> Since this is the only way we get into ctrl_dumpfamily() without
+> holding genl_lock().
+> 
+> But in your trace we're going through genl_rcv() which means this is
+> the first call of the dump, and genl_rcv() takes the necessary locks.
 
-To avoid breaking user space (by updating ip_tunnel_params), it is only possible
-to specify the custom header length when an IPIP-tunnel is created using
-netlink-messages.
+Huh, yes, I only looked at the crash info as far as I needed to see that
+it was crashing at accessing "rt->netnsok" with a not totally invalid
+pointer "rt" (it's in EBX) and then went from the code ...
 
-Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
----
- include/uapi/linux/if_tunnel.h |  1 +
- net/ipv4/ipip.c                | 20 ++++++++++++++++----
- 2 files changed, 17 insertions(+), 4 deletions(-)
+Ok, I see what's going on here. The bug was reported to me against an
+old kernel (3.4.47!) and that actually did an unlock in genl_rcv_msg()
+before calling netlink_dump_start():
 
-diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
-index aee73d0..a8ef1d3 100644
---- a/include/uapi/linux/if_tunnel.h
-+++ b/include/uapi/linux/if_tunnel.h
-@@ -44,6 +44,7 @@ enum {
- 	IFLA_IPTUN_REMOTE,
- 	IFLA_IPTUN_TTL,
- 	IFLA_IPTUN_TOS,
-+	IFLA_IPTUN_HLEN,
- 	IFLA_IPTUN_ENCAP_LIMIT,
- 	IFLA_IPTUN_FLOWINFO,
- 	IFLA_IPTUN_FLAGS,
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index 51fc2a1..1e5bd85 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -190,13 +190,14 @@ static int ipip_rcv(struct sk_buff *skb)
- 	struct ip_tunnel *tunnel;
- 	const struct iphdr *iph;
- 
--	if (iptunnel_pull_header(skb, 0, tpi.proto))
--		goto drop;
--
- 	iph = ip_hdr(skb);
- 	tunnel = ip_tunnel_lookup(itn, skb->dev->ifindex, TUNNEL_NO_KEY,
- 			iph->saddr, iph->daddr, 0);
-+
- 	if (tunnel) {
-+		if (iptunnel_pull_header(skb, tunnel->hlen, tpi.proto))
-+			goto drop;
-+
- 		if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
- 			goto drop;
- 		return ip_tunnel_rcv(tunnel, skb, &tpi, log_ecn_error);
-@@ -226,6 +227,9 @@ static netdev_tx_t ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 		skb->encapsulation = 1;
- 	}
- 
-+	if (tunnel->hlen > 0)
-+		skb_push(skb, tunnel->hlen);
-+
- 	ip_tunnel_xmit(skb, dev, tiph, tiph->protocol);
- 	return NETDEV_TX_OK;
- 
-@@ -302,7 +306,6 @@ static int ipip_tunnel_init(struct net_device *dev)
- 	memcpy(dev->dev_addr, &tunnel->parms.iph.saddr, 4);
- 	memcpy(dev->broadcast, &tunnel->parms.iph.daddr, 4);
- 
--	tunnel->hlen = 0;
- 	tunnel->parms.iph.protocol = IPPROTO_IPIP;
- 	return ip_tunnel_init(dev);
- }
-@@ -345,8 +348,13 @@ static int ipip_newlink(struct net *src_net, struct net_device *dev,
- 			struct nlattr *tb[], struct nlattr *data[])
- {
- 	struct ip_tunnel_parm p;
-+	struct ip_tunnel *tunnel = netdev_priv(dev);
- 
- 	ipip_netlink_parms(data, &p);
-+
-+	if (data[IFLA_IPTUN_HLEN])
-+		tunnel->hlen = nla_get_u32(data[IFLA_IPTUN_HLEN]);
-+
- 	return ip_tunnel_newlink(dev, tb, &p);
- }
- 
-@@ -373,6 +381,8 @@ static size_t ipip_get_size(const struct net_device *dev)
- 		nla_total_size(4) +
- 		/* IFLA_IPTUN_REMOTE */
- 		nla_total_size(4) +
-+		/* IFLA_IPTUN_HLEN */
-+		nla_total_size(4) +
- 		/* IFLA_IPTUN_TTL */
- 		nla_total_size(1) +
- 		/* IFLA_IPTUN_TOS */
-@@ -390,6 +400,7 @@ static int ipip_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	if (nla_put_u32(skb, IFLA_IPTUN_LINK, parm->link) ||
- 	    nla_put_be32(skb, IFLA_IPTUN_LOCAL, parm->iph.saddr) ||
- 	    nla_put_be32(skb, IFLA_IPTUN_REMOTE, parm->iph.daddr) ||
-+	    nla_put_u32(skb, IFLA_IPTUN_HLEN, tunnel->hlen) ||
- 	    nla_put_u8(skb, IFLA_IPTUN_TTL, parm->iph.ttl) ||
- 	    nla_put_u8(skb, IFLA_IPTUN_TOS, parm->iph.tos) ||
- 	    nla_put_u8(skb, IFLA_IPTUN_PMTUDISC,
-@@ -405,6 +416,7 @@ static const struct nla_policy ipip_policy[IFLA_IPTUN_MAX + 1] = {
- 	[IFLA_IPTUN_LINK]		= { .type = NLA_U32 },
- 	[IFLA_IPTUN_LOCAL]		= { .type = NLA_U32 },
- 	[IFLA_IPTUN_REMOTE]		= { .type = NLA_U32 },
-+	[IFLA_IPTUN_HLEN]		= { .type = NLA_U32 },
- 	[IFLA_IPTUN_TTL]		= { .type = NLA_U8 },
- 	[IFLA_IPTUN_TOS]		= { .type = NLA_U8 },
- 	[IFLA_IPTUN_PMTUDISC]		= { .type = NLA_U8 },
--- 
-1.8.1.2
+        if (nlh->nlmsg_flags & NLM_F_DUMP) {
+                if (ops->dumpit == NULL)
+                        return -EOPNOTSUPP;
+
+                genl_unlock();
+                {
+                        struct netlink_dump_control c = {
+                                .dump = ops->dumpit,
+                                .done = ops->done,
+                        };
+                        err = netlink_dump_start(net->genl_sock, skb,
+nlh, &c);
+                }
+                genl_lock();
+                return err;
+        }
+
+That was changed in Pravin's commit
+def3117493eafd9dfa1f809d861e0031b2cc8a07
+"genl: Allow concurrent genl callbacks." very recently - I'm not sure if
+that was intentional, it's not described in the commit log.
+
+
+I think for the current code the fix would still be correct, I can
+change the commit message if you like. For backporting, we'll have to
+check which tree has Pravin's change and which doesn't and change this
+accordingly, I suppose.
+
+johannes
