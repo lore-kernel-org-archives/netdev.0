@@ -1,85 +1,61 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv2 net-next] xfrm: Make xfrm_state timer monotonic
-Date: Mon, 12 Aug 2013 13:40:07 +0800
-Message-ID: <52087537.6060200@windriver.com>
-References: <1375772225-19265-1-git-send-email-fan.du@windriver.com> <20130806092220.GH25511@secunet.com>
+From: <sarveshwar.bandi@emulex.com>
+Subject: [PATCH net] be2net: Clear any capability flags that driver is not interested in.
+Date: Mon, 12 Aug 2013 11:21:09 +0530
+Message-ID: <208f9dff-8e74-4a44-bd94-6c79342e6a73@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:43543 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750790Ab3HLFhY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 01:37:24 -0400
-In-Reply-To: <20130806092220.GH25511@secunet.com>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:26098 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755803Ab3HLFuO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 01:50:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
 
+It is possible for some versions of firmware to advertise capabilities that driver
+is not ready to handle. This may lead to controller stall. Clear all flags that driver
+is not interested in.
 
-On 2013=E5=B9=B408=E6=9C=8806=E6=97=A5 17:22, Steffen Klassert wrote:
-> On Tue, Aug 06, 2013 at 02:57:05PM +0800, Fan Du wrote:
->> xfrm_state timer should be independent of system clock change,
->> so switch to monotonic clock base.
->>
->
-> I think a monotonic timer will reintroduce a bug on suspend/resume
-> that was fixed by commit 9e0d57fd6
-> (xfrm: SAD entries do not expire correctly after suspend-resume)
->
-> Please make sure that this does not happen.
-
-What about using CLOCK_BOOTTIME? it's monotonic, but includes suspend t=
-ime as well.
-
-
- From 1dae5a22c203224ee46e2a2f95b569a04b74117b Mon Sep 17 00:00:00 2001
-=46rom: Fan Du <fan.du@windriver.com>
-Date: Mon, 12 Aug 2013 13:33:45 +0800
-Subject: [PATCHv2 net-next] xfrm: Make xfrm_state timer monotonic
-
-xfrm_state timer should be independent of system clock change,
-so switch to CLOCK_BOOTTIME base which is not only monotonic but
-also counting suspend time.
-
-Signed-off-by: Fan Du <fan.du@windriver.com>
+Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
 ---
-  net/xfrm/xfrm_state.c |    2 +-
-  1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.h |    6 ++++++
+ drivers/net/ethernet/emulex/benet/be_main.c |    2 ++
+ 2 files changed, 8 insertions(+)
 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 78f66fa..1df4436 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -499,7 +499,7 @@ struct xfrm_state *xfrm_state_alloc(struct net *net=
-)
-  		INIT_HLIST_NODE(&x->bydst);
-  		INIT_HLIST_NODE(&x->bysrc);
-  		INIT_HLIST_NODE(&x->byspi);
--		tasklet_hrtimer_init(&x->mtimer, xfrm_timer_handler, CLOCK_REALTIME,=
- HRTIMER_MODE_ABS);
-+		tasklet_hrtimer_init(&x->mtimer, xfrm_timer_handler, CLOCK_BOOTTIME,=
- HRTIMER_MODE_ABS);
-  		setup_timer(&x->rtimer, xfrm_replay_timer_handler,
-  				(unsigned long)x);
-  		x->curlft.add_time =3D get_seconds();
---=20
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index 5228d88..8fba7dd 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -563,6 +563,12 @@ enum be_if_flags {
+ 	BE_IF_FLAGS_MULTICAST = 0x1000
+ };
+ 
++#define BE_IF_CAP_FLAGS (BE_IF_FLAGS_RSS | BE_IF_FLAGS_PROMISCUOUS |\
++			 BE_IF_FLAGS_BROADCAST | BE_IF_FLAGS_VLAN_PROMISCUOUS |\
++			 BE_IF_FLAGS_VLAN | BE_IF_FLAGS_MCAST_PROMISCUOUS |\
++			 BE_IF_FLAGS_PASS_L3L4_ERRORS | BE_IF_FLAGS_MULTICAST |\
++			 BE_IF_FLAGS_UNTAGGED)
++
+ /* An RX interface is an object with one or more MAC addresses and
+  * filtering capabilities. */
+ struct be_cmd_req_if_create {
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 181edb5..8d7ee2e 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -3044,6 +3044,8 @@ static void be_get_resources(struct be_adapter *adapter)
+ 		if (adapter->max_event_queues < adapter->max_rss_queues)
+ 			adapter->max_rss_queues = adapter->max_event_queues;
+ 
++		/* Clear flags that driver is not interested in */
++		adapter->if_cap_flags &=  BE_IF_CAP_FLAGS;
+ 	} else {
+ 		if (be_physfn(adapter))
+ 			adapter->max_pmac_cnt = BE_UC_PMAC_COUNT;
+-- 
 1.7.9.5
-
-
-
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
-
---fan
