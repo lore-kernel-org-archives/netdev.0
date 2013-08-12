@@ -1,123 +1,78 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch net] ipv6: do not create neighbor entries for local delivery
-Date: Tue, 13 Aug 2013 00:26:42 +0200
-Message-ID: <20130812222642.GA27385@order.stressinduktion.org>
-References: <20130130082608.GA1604@minipsycho.orion> <CAATkVEzJgb+J-TAkTZCUbxLPj=b=wbOmsKbgNNimEfNaC8d0Aw@mail.gmail.com> <20130808194702.GH14001@order.stressinduktion.org> <20130808201627.GI14001@order.stressinduktion.org> <520924CF.6000805@redhat.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: [PATCH net v4 1/6] bnx2x: properly initialize statistic
+ counters
+Date: Mon, 12 Aug 2013 22:48:33 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F20D704C1@SJEXCHMB06.corp.ad.broadcom.com>
+References: <1375738544-8695-1-git-send-email-dmitry@broadcom.com>
+ <1375738544-8695-2-git-send-email-dmitry@broadcom.com>
+ <20130812200818.GA20031@d2.synalogic.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Debabrata Banerjee <dbavatar@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	"davem@davemloft.net" <davem@davemloft.net>,
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"Banerjee, Debabrata" <dbanerje@akamai.com>,
-	Joshua Hunt <johunt@akamai.com>
-To: Marcelo Ricardo Leitner <mleitner@redhat.com>
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"Ariel Elior" <ariele@broadcom.com>
+To: "Benjamin Poirier" <benjamin.poirier@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:47406 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752290Ab3HLW0p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 18:26:45 -0400
-Content-Disposition: inline
-In-Reply-To: <520924CF.6000805@redhat.com>
+Received: from mms2.broadcom.com ([216.31.210.18]:3929 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752317Ab3HLWsq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 18:48:46 -0400
+In-Reply-To: <20130812200818.GA20031@d2.synalogic.ca>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Marcelo!
-
-On Mon, Aug 12, 2013 at 03:09:19PM -0300, Marcelo Ricardo Leitner wrote:
-> Hannes, would something like this be acceptable? I'm hoping it's not too 
-> ugly/hacky... as far as I could track back, input and output routines were 
-> merged mainly due code similarity.
-
-Your idea seems sound and I don't think it is very ugly or hacky. It's
-as minimal as a stable-only patch should be. But we could simplify the
-logic a bit. ;) See below.
-
-> TPROXY scenario needs to not create this neighbor entries on INPUT path, 
-> while Debabrata ping test needs it on OUTPUT path. This patch limits my 
-> previous patch to INPUT only then.
-
-Yes, agreed. I don't see anything which could break because of this patch.
-So I would go with it.
-
-> Initial testing here seems good, TPROXY seems to be working as expected and 
-> also the ping6 test.
+> -----Original Message-----
+> From: Benjamin Poirier [mailto:benjamin.poirier@gmail.com]
+> Sent: Monday, August 12, 2013 11:08 PM
+> To: Dmitry Kravkov
+> Cc: davem@davemloft.net; netdev@vger.kernel.org; Eilon Greenstein;
+> Ariel Elior
+> Subject: Re: [PATCH net v4 1/6] bnx2x: properly initialize statistic counters
 > 
-> What do you think?
+> On 2013/08/06 00:35, Dmitry Kravkov wrote:
+> > This prevent second statistics query be sent before first one is complete.
+> > This is required since two outstanding queries may cause FW assert.
+> >
+> > Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+> > Signed-off-by: Ariel Elior <ariele@broadcom.com>
+> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> > ---
+> >  drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c | 7 ++++++-
+> >  1 file changed, 6 insertions(+), 1 deletion(-)
+> >
+> > diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+> > b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+> > index 98366ab..a22ad61 100644
+> > --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+> > +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+> > @@ -1589,12 +1589,17 @@ void bnx2x_memset_stats(struct bnx2x *bp)
+> >
+> >  void bnx2x_stats_init(struct bnx2x *bp)  {
+> > -	int /*abs*/port = BP_PORT(bp);
+> > +	struct stats_counter *counters = &bp->fw_stats_data-
+> >storm_counters;
+> >  	int mb_idx = BP_FW_MB_IDX(bp);
+> > +	int port = BP_PORT(bp);
+> >
+> >  	bp->stats_pending = 0;
+> >  	bp->executer_idx = 0;
+> >  	bp->stats_counter = 0;
+> > +	counters->xstats_counter = cpu_to_le16(0xFFFF);
+> > +	counters->tstats_counter = cpu_to_le16(0xFFFF);
+> > +	counters->ustats_counter = cpu_to_le16(0xFFFF);
+> > +	counters->cstats_counter = cpu_to_le16(0xFFFF);
+> 
+> I think the following code executed a little later becomes redundant:
+> 
+> static void bnx2x_prep_fw_stats_req(struct bnx2x *bp) { [...]
+> 	/* prepare to the first stats ramrod (will be completed with
+> 	 * the counters equal to zero) - init counters to somethig different.
+> 	 */
+> 	memset(&bp->fw_stats_data->storm_counters, 0xff,
+> 	       sizeof(struct stats_counter));
 
-
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 18ea73c..603f9d9 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -791,7 +791,7 @@ static struct rt6_info *rt6_alloc_clone(struct rt6_info *ort,
->  }
->  
->  static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table, int oif,
-> -				      struct flowi6 *fl6, int flags)
-> +				      struct flowi6 *fl6, int flags, int output)
-
-								     bool input
-
->  {
->  	struct fib6_node *fn;
->  	struct rt6_info *rt, *nrt;
-> @@ -799,8 +799,11 @@ static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
->  	int attempts = 3;
->  	int err;
->  	int reachable = net->ipv6.devconf_all->forwarding ? 0 : RT6_LOOKUP_F_REACHABLE;
-> +	int local = RTF_NONEXTHOP;
->  
->  	strict |= flags & RT6_LOOKUP_F_IFACE;
-> +	if (!output)
-> +			local |= RTF_LOCAL;
-
-
-	if (input)
-			local |= RTF_LOCAL;
-
->  
->  relookup:
->  	read_lock_bh(&table->tb6_lock);
-> @@ -820,7 +823,7 @@ restart:
->  	read_unlock_bh(&table->tb6_lock);
->  
->  	if (!dst_get_neighbour_raw(&rt->dst)
-> -	    && !(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_LOCAL)))
-> +	    && !(rt->rt6i_flags & local))
->  		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
->  	else if (!(rt->dst.flags & DST_HOST))
->  		nrt = rt6_alloc_clone(rt, &fl6->daddr);
-> @@ -864,7 +867,7 @@ out2:
->  static struct rt6_info *ip6_pol_route_input(struct net *net, struct fib6_table *table,
->  					    struct flowi6 *fl6, int flags)
->  {
-> -	return ip6_pol_route(net, table, fl6->flowi6_iif, fl6, flags);
-> +	return ip6_pol_route(net, table, fl6->flowi6_iif, fl6, flags, 0);
-
-								      true);
-
-
->  }
->  
->  void ip6_route_input(struct sk_buff *skb)
-> @@ -890,7 +893,7 @@ void ip6_route_input(struct sk_buff *skb)
->  static struct rt6_info *ip6_pol_route_output(struct net *net, struct fib6_table *table,
->  					     struct flowi6 *fl6, int flags)
->  {
-> -	return ip6_pol_route(net, table, fl6->flowi6_oif, fl6, flags);
-> +	return ip6_pol_route(net, table, fl6->flowi6_oif, fl6, flags, 1);
-
-								      false);
-
->  }
->  
->  struct dst_entry * ip6_route_output(struct net *net, const struct sock *sk,
-
-Thanks,
-
-  Hannes
+You absolutely right. Thanks!
