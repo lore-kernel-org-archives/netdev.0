@@ -1,56 +1,52 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: Re: [PATCH V2 0/4] Enable bus master till the FLR completes for
- Chelsio T4
-Date: Mon, 12 Aug 2013 15:17:04 -0600
-Message-ID: <CAErSpo7=oBG3tJBpwscnL-4D-9kLhHUrQSZFrRRC4sBsT2_U2Q@mail.gmail.com>
-References: <1375784319-25760-1-git-send-email-vipul@chelsio.com>
+From: Andrew Collins <bsderandrew@gmail.com>
+Subject: Re: ipsec smp scalability and cpu use fairness (softirqs)
+Date: Mon, 12 Aug 2013 15:58:41 -0600
+Message-ID: <CAKTPYJTVhvF=215eS0xriEdUyyCLaC+zzja4zPrG668ALzERyw@mail.gmail.com>
+References: <20130812160142.71737a95@vostro>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	Casey Leedom <leedom@chelsio.com>, tomreu@chelsio.com,
-	divy@chelsio.com, dm@chelsio.com, nirranjan@chelsio.com,
-	eilong@broadcom.com, netdev <netdev@vger.kernel.org>
-To: Vipul Pandya <vipul@chelsio.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1375784319-25760-1-git-send-email-vipul@chelsio.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Timo Teras <timo.teras@iki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vb0-f44.google.com ([209.85.212.44]:33442 "EHLO
+	mail-vb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755332Ab3HLV6m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 17:58:42 -0400
+Received: by mail-vb0-f44.google.com with SMTP id e13so6146829vbg.31
+        for <netdev@vger.kernel.org>; Mon, 12 Aug 2013 14:58:41 -0700 (PDT)
+In-Reply-To: <20130812160142.71737a95@vostro>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 6, 2013 at 4:18 AM, Vipul Pandya <vipul@chelsio.com> wrote:
-> This patch series adds device specific reset method for Chelsio T4 adapters.
->
-> The series also adds new routine, pci_wait_for_pending_transaction, to wait for
-> pending pci transaction. There are few places where waiting for pending pci
-> transaction code was duplicated. This patch series also replaces occurances of
-> duplicate code.
->
-> This patch series is built against Bjorn Helgaas pci tree next branch. We would
-> like to merge this series via the same.
->
-> I have Cced respective maintainers of the modified drivers. Kindly review and
-> let us know in case of any review comments.
->
-> Thanks,
-> Vipul Pandya
->
-> V2: Added pci_wait_for_pending_transaction routine and replaced it at respective
-> places. Made the patch series for the same.
-> V2: Used dev->msix_cap directly for capability offset
-> V2: Removed use of 'rc' variable.
->
-> Casey Leedom (4):
->   pci: Add pci_wait_for_pending_transaction to wait for pending pci
->     transaction
->   pci: Enable bus master till the FLR completes
->   bnx2x: Use pci_wait_for_pending_transaction instead of for loop
->   pci: Use pci_wait_for_pending_transaction instead of for loop
->
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 18 +----
->  drivers/pci/pci.c                                | 38 ++++++----
->  drivers/pci/quirks.c                             | 97 ++++++++++++++++++++----
->  include/linux/pci.h                              |  1 +
->  4 files changed, 109 insertions(+), 45 deletions(-)
+On Mon, Aug 12, 2013 at 7:01 AM, Timo Teras <timo.teras@iki.fi> wrote:
+> 1. Single core systems that are going out of cpu power, are
+> overwhelmed in uncontrollable manner. As softirq is doing the heavy
+> lifting, the user land processes are starved first. This can cause
+> userland IKE daemon to starve and lose tunnels when it is unable to
+> answer liveliness checks. The quick workaround is to setup traffic
+> shaping for the encrypted traffic.
 
-Applied to my "next" branch for v3.12, thanks!
+Which kernel version are you on?  I've found I've had better behavior since:
 
-Bjorn
+commit c10d73671ad30f54692f7f69f0e09e75d3a8926a
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Thu Jan 10 15:26:34 2013 -0800
+
+    softirq: reduce latencies
+
+as it bails from lengthy softirq processing much earlier, along with
+tuning "netdev_budget" to avoid cycling for too long in the NAPI poll.
+
+> 2. On multicore (6-12 cores) systems, it would appear that it is not
+> easy to distribute the ipsec to multiple cores. as softirq is sticky to
+> the cpu where it was raised. The ipsec decryption/encryption is done
+> synchronously in the napi poll loop, and the throughput is limited by
+> one cpu. If the NIC supports multiple queues and balancing with ESP
+> SPI, we can use that to get some parallelism.
+
+Although it's highly usecase dependent, I've had good luck using
+RPS.  I'm testing as an ipsec router however, not with an endpoint
+on the host itself, so it processes nearly all ipsec traffic in receive
+context.
+
+Andrew Collins
