@@ -1,38 +1,38 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: Where are OVS VXLAN patches?
-Date: Mon, 12 Aug 2013 09:59:29 -0700
-Message-ID: <CAEP_g=-JQUZaLUhkMWQ6p8iYn8jqb_0tZOq=x+kv0Xip3dUA7A@mail.gmail.com>
-References: <1376291275.17589.18.camel@cr0>
+From: Ben Greear <greearb@candelatech.com>
+Subject: SCTP and IP_TOS
+Date: Mon, 12 Aug 2013 10:00:02 -0700
+Message-ID: <52091492.9060904@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog114.obsmtp.com ([74.125.149.211]:47848 "HELO
-	na3sys009aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756865Ab3HLQ7w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 12:59:52 -0400
-Received: by mail-la0-f42.google.com with SMTP id mf11so4971320lab.1
-        for <netdev@vger.kernel.org>; Mon, 12 Aug 2013 09:59:51 -0700 (PDT)
-In-Reply-To: <1376291275.17589.18.camel@cr0>
+Received: from mail.candelatech.com ([208.74.158.172]:50487 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756725Ab3HLRAD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 13:00:03 -0400
+Received: from [192.168.100.226] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id r7CH02w1023959
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 12 Aug 2013 10:00:02 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 12, 2013 at 12:07 AM, Cong Wang <amwang@redhat.com> wrote:
-> Hello, David
->
-> I am wondering where are the patches for OVS VXLAN support from Pravin?
-> v7 were posted one week ago:
-> http://marc.info/?l=linux-netdev&m=137572485116601&w=2
->
-> and no one complains about them, so I think they are ready for merge?
->
-> But they still do not appear in net-next, nor I can find them in vxlan
-> tree of Stephen or openvswitch tree of Jesse. What's more, I even can't
-> find them in netdev patchwork [1].
+Hello!
 
-I believe that Stephen is planning on taking the first part of the
-series through his VXLAN tree.
+I notice that I read 0x2 as IP_TOS getsockopt on an SCTP socket configured
+for streaming mode.
+
+Looks to me like the reason is that SCTP uses a socket type of SCTP_SOCKET_TCP
+and the ipv4/ip_sockglue.c code is only masking out ECN for SOCK_STREAM types.
+
+Is this per design, or should the ip_sockglue.c mask out ECN for SCTP_SOCKET_TCP
+types as well?
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
