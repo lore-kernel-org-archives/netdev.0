@@ -1,27 +1,21 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/8] net: fsl_pq_mdio: use platform_{get,set}_drvdata()
-Date: Mon, 12 Aug 2013 22:10:37 +0400
-Message-ID: <5209251D.80902@cogentembedded.com>
-References: <5208E215.6030007@huawei.com>
+Subject: Re: [PATCH 4/8] net: fs_enet: use platform_{get,set}_drvdata()
+Date: Mon, 12 Aug 2013 22:16:02 +0400
+Message-ID: <52092662.6040507@cogentembedded.com>
+References: <5208E222.60300@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+Cc: pantelis.antoniou@gmail.com, vbordug@ru.mvista.com,
+	David Miller <davem@davemloft.net>,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
 	LKML <linux-kernel@vger.kernel.org>,
-	Li Zefan <lizefan@huawei.com>, timur@freescale.com
+	Li Zefan <lizefan@huawei.com>
 To: Libo Chen <clbchenlibo.chen@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:56395 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752545Ab3HLSKj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 14:10:39 -0400
-Received: by mail-lb0-f175.google.com with SMTP id 13so4981284lba.6
-        for <netdev@vger.kernel.org>; Mon, 12 Aug 2013 11:10:37 -0700 (PDT)
-In-Reply-To: <5208E215.6030007@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Hello.
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5208E222.60300@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 On 08/12/2013 05:24 PM, Libo Chen wrote:
 
@@ -31,20 +25,22 @@ On 08/12/2013 05:24 PM, Libo Chen wrote:
 
 > Signed-off-by: Libo Chen <libo.chen@huawei.com>
 > ---
->   drivers/net/ethernet/freescale/fsl_pq_mdio.c |    3 +--
->   1 files changed, 1 insertions(+), 2 deletions(-)
+>   .../net/ethernet/freescale/fs_enet/fs_enet-main.c  |    1 -
+>   1 files changed, 0 insertions(+), 1 deletions(-)
 
-> diff --git a/drivers/net/ethernet/freescale/fsl_pq_mdio.c b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
-> index c93a056..995a3ab 100644
-> --- a/drivers/net/ethernet/freescale/fsl_pq_mdio.c
-> +++ b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
-[...]
-> @@ -468,7 +468,6 @@ static int fsl_pq_mdio_remove(struct platform_device *pdev)
+> diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+> index 8de53a1..7e3de10 100644
+> --- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+> +++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+> @@ -1122,7 +1122,6 @@ static int fs_enet_remove(struct platform_device *ofdev)
 >
->   	mdiobus_unregister(bus);
->
-> -	dev_set_drvdata(device, NULL);
+>   	fep->ops->free_bd(ndev);
+>   	fep->ops->cleanup_data(ndev);
+> -	dev_set_drvdata(fep->dev, NULL);
+>   	of_node_put(fep->fpi->phy_node);
+>   	free_netdev(ndev);
+>   	return 0;
 
-    You don't mention this in the changelog.
+    Changelog simply doesn't match the patch.
 
 WBR, Sergei
