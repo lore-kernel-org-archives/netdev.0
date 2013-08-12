@@ -1,22 +1,17 @@
 From: Libo Chen <clbchenlibo.chen@huawei.com>
-Subject: [PATCH 7/8] net: xilinx_emaclite: use platform_{get,set}_drvdata()
-Date: Mon, 12 Aug 2013 21:25:00 +0800
-Message-ID: <5208E22C.4090101@huawei.com>
+Subject: [PATCH 6/8] net: sunhme: use platform_{get,set}_drvdata()
+Date: Mon, 12 Aug 2013 21:24:57 +0800
+Message-ID: <5208E229.9070300@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <michal.simek@xilinx.com>, <renner@efe-gmbh.de>,
-	Greg KH <gregkh@linuxfoundation.org>, <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Li Zefan <lizefan@huawei.com>
+Cc: Greg KH <gregkh@linuxfoundation.org>, <jg1.han@samsung.com>,
+	Bill Pemberton <wfp5p@virginia.edu>, <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:43379 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756680Ab3HLNZ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 09:25:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
 Use the wrapper functions for getting and setting the driver data using
@@ -25,28 +20,53 @@ so we can directly pass a struct platform_device.
 
 Signed-off-by: Libo Chen <libo.chen@huawei.com>
 ---
- drivers/net/ethernet/xilinx/xilinx_emaclite.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/sun/sunhme.c |    8 +++-----
+ 1 files changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-index fd4dbda..4c619ea 100644
---- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-@@ -1230,8 +1230,7 @@ error:
-  */
- static int xemaclite_of_remove(struct platform_device *of_dev)
+diff --git a/drivers/net/ethernet/sun/sunhme.c b/drivers/net/ethernet/sun/sunhme.c
+index 171f5b0..a111f29 100644
+--- a/drivers/net/ethernet/sun/sunhme.c
++++ b/drivers/net/ethernet/sun/sunhme.c
+@@ -3111,7 +3111,7 @@ static int happy_meal_pci_probe(struct pci_dev *pdev,
+ 		goto err_out_iounmap;
+ 	}
+
+-	dev_set_drvdata(&pdev->dev, hp);
++	platform_set_drvdata(pdev, hp);
+
+ 	if (!qfe_slot) {
+ 		struct pci_dev *qpdev = qp->quattro_dev;
+@@ -3159,7 +3159,7 @@ err_out:
+
+ static void happy_meal_pci_remove(struct pci_dev *pdev)
  {
--	struct device *dev = &of_dev->dev;
--	struct net_device *ndev = dev_get_drvdata(dev);
-+	struct net_device *ndev = platform_get_drvdata(of_dev);
+-	struct happy_meal *hp = dev_get_drvdata(&pdev->dev);
++	struct happy_meal *hp = platform_get_drvdata(pdev);
+ 	struct net_device *net_dev = hp->dev;
 
- 	struct net_local *lp = netdev_priv(ndev);
+ 	unregister_netdev(net_dev);
+@@ -3171,7 +3171,6 @@ static void happy_meal_pci_remove(struct pci_dev *pdev)
 
-@@ -1250,7 +1249,6 @@ static int xemaclite_of_remove(struct platform_device *of_dev)
- 	lp->phy_node = NULL;
+ 	free_netdev(net_dev);
 
- 	xemaclite_remove_ndev(ndev, of_dev);
--	dev_set_drvdata(dev, NULL);
+-	dev_set_drvdata(&pdev->dev, NULL);
+ }
+
+ static DEFINE_PCI_DEVICE_TABLE(happymeal_pci_ids) = {
+@@ -3231,7 +3230,7 @@ static int hme_sbus_probe(struct platform_device *op)
+
+ static int hme_sbus_remove(struct platform_device *op)
+ {
+-	struct happy_meal *hp = dev_get_drvdata(&op->dev);
++	struct happy_meal *hp = platform_get_drvdata(op);
+ 	struct net_device *net_dev = hp->dev;
+
+ 	unregister_netdev(net_dev);
+@@ -3250,7 +3249,6 @@ static int hme_sbus_remove(struct platform_device *op)
+
+ 	free_netdev(net_dev);
+
+-	dev_set_drvdata(&op->dev, NULL);
 
  	return 0;
  }
