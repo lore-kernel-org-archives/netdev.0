@@ -1,63 +1,39 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: [PATCH net-next 1/3] net/usb/r8152: support aggregation
-Date: Tue, 13 Aug 2013 20:32:26 +0800
-Message-ID: <9E410853D1BD483E9479C175D5E72EB6@realtek.com.tw>
-References: <1376378913-879-1-git-send-email-hayeswang@realtek.com> <1376383742.1681.1.camel@linux-fkkt.site>
+From: "Ariel Elior" <ariele@broadcom.com>
+Subject: RE: [PATCH net v5 0/5] bnx2x: fixes
+Date: Tue, 13 Aug 2013 12:38:31 +0000
+Message-ID: <6AE768456CEC4B4A9B2248CB6B87EB3E1BEB957E@SJEXCHMB05.corp.ad.broadcom.com>
+References: <1376349903-3461-1-git-send-email-dmitry@broadcom.com>
+ <20130813123043.GA30192@d2.synalogic.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>
-To: 'Oliver Neukum' <oneukum@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1376383742.1681.1.camel@linux-fkkt.site>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Benjamin Poirier" <benjamin.poirier@gmail.com>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:3431 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756770Ab3HMMio convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 08:38:44 -0400
+In-Reply-To: <20130813123043.GA30192@d2.synalogic.ca>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- Oliver Neukum [mailto:oneukum@suse.de] 
-> Sent: Tuesday, August 13, 2013 4:49 PM
-> To: Hayeswang
-> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; 
-> linux-usb@vger.kernel.org
-> Subject: Re: [PATCH net-next 1/3] net/usb/r8152: support aggregation
-> 
-[...]
-> > +               len_used = 0;
-> > +               rx_desc = agg->head;
-> > +               rx_data = agg->head;
-> > +               smp_wmb();
-> > +               pkt_len = le32_to_cpu(rx_desc->opts1) & RX_LEN_MASK;
-> > +               len_used += sizeof(struct rx_desc) + pkt_len;
-> > +
-> > +               while (urb->actual_length >= len_used) {
-> > +                       if (pkt_len < ETH_ZLEN)
-> > +                               break;
-> > +
-> > +                       pkt_len -= 4; /* CRC */
-> > +                       rx_data += sizeof(struct rx_desc);
-> > +
-> > +                       skb = netdev_alloc_skb_ip_align(netdev,
-> > pkt_len);
-> > +                       if (!skb) {
-> > +                               stats->rx_dropped++;
-> > +                               break;
-> > +                       }
-> > +                       memcpy(skb->data, rx_data, pkt_len);
-> > +                       skb_put(skb, pkt_len);
-> > +                       skb->protocol = eth_type_trans(skb, netdev);
-> > +                       netif_rx(skb);
-> > +                       stats->rx_packets++;
-> > +                       stats->rx_bytes += pkt_len;
-> > +
-> > +                       rx_data = rx_agg_align(rx_data + 
-> pkt_len + 4);
-> > +                       rx_desc = (struct rx_desc *)rx_data;
-> > +                       smp_wmb();
-> 
-> Against what is the memory barrier?
+> I'm confused. Wasn't "[PATCH net v4 1/6] bnx2x: properly initialize
+> statistic counters" supposed to fix a race condition? According to
+> earlier communication with Ariel:
+> 	In this issue a race condition at driver startup causes a second
+> 	statistics query to be sent before the first one completes,
+> 	resulting in a firmware assert and a stuck chip. A patch was
+> 	sent upstream fixing this:
+> 	http://patchwork.ozlabs.org/patch/264810/
 
-Excuse me. I don't understand your question. Do you mean the function should not
-be used here?
-
-Best Regards,
-Hayes
+As I explicitly mentioned in the communique which you quoted above, the patch was sent but not yet accepted.
+This is precisely the upstream process - patches are being sent, reviewed and sometimes rejected and revised.
+If you have further questions please address them to me - the technical forum is no place for this kind of discussion.
+Thanks,
+Ariel
