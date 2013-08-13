@@ -1,78 +1,114 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net] ip_tunnel: Do not use inner ip-header-id for tunnel ip-header-id.
-Date: Tue, 13 Aug 2013 01:41:06 -0700
-Message-ID: <1376383266-6623-1-git-send-email-pshelar@nicira.com>
-Cc: Pravin B Shelar <pshelar@nicira.com>,
-	Jarno Rajahalme <jrajahalme@nicira.com>,
-	Ansis Atteka <aatteka@nicira.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog112.obsmtp.com ([74.125.149.207]:49587 "HELO
-	na3sys009aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754264Ab3HMIlQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 04:41:16 -0400
-Received: by mail-pd0-f172.google.com with SMTP id z10so4573420pdj.31
-        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 01:41:15 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [PATCH net-next 1/3] net/usb/r8152: support aggregation
+Date: Tue, 13 Aug 2013 10:49:02 +0200
+Message-ID: <1376383742.1681.1.camel@linux-fkkt.site>
+References: <1376378913-879-1-git-send-email-hayeswang@realtek.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1376378913-879-1-git-send-email-hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Using inner-id for tunnel id is not safe in some rare cases.
-E.g. packets coming from multiple sources entering same tunnel
-can have same id. Therefore on tunnel packet receive we
-could have packets from two different stream but with same
-source and dst IP with same ip-id which could confuse ip packet
-reassembly.
+On Tue, 2013-08-13 at 15:28 +0800, Hayes Wang wrote:
+> +
+> +static void rx_bottom(struct r8152 *tp)
+> +{
+> +       struct net_device_stats *stats;
+> +       struct net_device *netdev;
+> +       struct rx_agg *agg;
+> +       struct rx_desc *rx_desc;
+> +       unsigned long lockflags;
+> +       struct list_head *cursor, *next;
+> +       struct sk_buff *skb;
+> +       struct urb *urb;
+> +       unsigned pkt_len;
+> +       int len_used;
+> +       u8 *rx_data;
+> +       int ret;
+> +
+> +       netdev = tp->netdev;
+> +
+> +       if (!netif_running(netdev))
+>                 return;
+> -       dev_kfree_skb_irq(tp->tx_skb);
+> -       if (!netif_device_present(tp->netdev))
+> +
+> +       stats = rtl8152_get_stats(netdev);
+> +
+> +       spin_lock_irqsave(&tp->rx_lock, lockflags);
+> +       list_for_each_safe(cursor, next, &tp->rx_done) {
+> +               list_del_init(cursor);
+> +               spin_unlock_irqrestore(&tp->rx_lock, lockflags);
+> +
+> +               agg = list_entry(cursor, struct rx_agg, list);
+> +               urb = agg->urb;
+> +               if (urb->actual_length < ETH_ZLEN) {
+> +                       ret = r8152_submit_rx(tp, agg, GFP_ATOMIC);
+> +                       spin_lock_irqsave(&tp->rx_lock, lockflags);
+> +                       if (ret && ret != -ENODEV) {
+> +                               list_add_tail(&agg->list, next);
+> +                               tasklet_schedule(&tp->tl);
+> +                       }
+> +                       continue;
+> +               }
+> +
+> +               len_used = 0;
+> +               rx_desc = agg->head;
+> +               rx_data = agg->head;
+> +               smp_wmb();
+> +               pkt_len = le32_to_cpu(rx_desc->opts1) & RX_LEN_MASK;
+> +               len_used += sizeof(struct rx_desc) + pkt_len;
+> +
+> +               while (urb->actual_length >= len_used) {
+> +                       if (pkt_len < ETH_ZLEN)
+> +                               break;
+> +
+> +                       pkt_len -= 4; /* CRC */
+> +                       rx_data += sizeof(struct rx_desc);
+> +
+> +                       skb = netdev_alloc_skb_ip_align(netdev,
+> pkt_len);
+> +                       if (!skb) {
+> +                               stats->rx_dropped++;
+> +                               break;
+> +                       }
+> +                       memcpy(skb->data, rx_data, pkt_len);
+> +                       skb_put(skb, pkt_len);
+> +                       skb->protocol = eth_type_trans(skb, netdev);
+> +                       netif_rx(skb);
+> +                       stats->rx_packets++;
+> +                       stats->rx_bytes += pkt_len;
+> +
+> +                       rx_data = rx_agg_align(rx_data + pkt_len + 4);
+> +                       rx_desc = (struct rx_desc *)rx_data;
+> +                       smp_wmb();
 
-Following patch reverts optimization from commit
-490ab08127 (IP_GRE: Fix IP-Identification.)
+Against what is the memory barrier?
 
-CC: Jarno Rajahalme <jrajahalme@nicira.com>
-CC: Ansis Atteka <aatteka@nicira.com>
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
----
- include/net/ip_tunnels.h  |   14 --------------
- net/ipv4/ip_tunnel_core.c |    4 +---
- 2 files changed, 1 insertions(+), 17 deletions(-)
+> +                       pkt_len = le32_to_cpu(rx_desc->opts1) &
+> RX_LEN_MASK;
+> +                       len_used = (int)(rx_data - (u8 *)agg->head);
+> +                       len_used += sizeof(struct rx_desc) + pkt_len;
+> +               }
+> +
+> +               ret = r8152_submit_rx(tp, agg, GFP_ATOMIC);
+> +               spin_lock_irqsave(&tp->rx_lock, lockflags);
+> +               if (ret && ret != -ENODEV) {
+> +                       list_add_tail(&agg->list, next);
+> +                       tasklet_schedule(&tp->tl);
+> +               }
+> +       }
+> +       spin_unlock_irqrestore(&tp->rx_lock, lockflags);
+> +}
 
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 781b3cf..a354db5 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -145,20 +145,6 @@ static inline u8 ip_tunnel_ecn_encap(u8 tos, const struct iphdr *iph,
- 	return INET_ECN_encapsulate(tos, inner);
- }
- 
--static inline void tunnel_ip_select_ident(struct sk_buff *skb,
--					  const struct iphdr  *old_iph,
--					  struct dst_entry *dst)
--{
--	struct iphdr *iph = ip_hdr(skb);
--
--	/* Use inner packet iph-id if possible. */
--	if (skb->protocol == htons(ETH_P_IP) && old_iph->id)
--		iph->id	= old_iph->id;
--	else
--		__ip_select_ident(iph, dst,
--				  (skb_shinfo(skb)->gso_segs ?: 1) - 1);
--}
--
- int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto);
- int iptunnel_xmit(struct net *net, struct rtable *rt,
- 		  struct sk_buff *skb,
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 7167b08..850525b 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -76,9 +76,7 @@ int iptunnel_xmit(struct net *net, struct rtable *rt,
- 	iph->daddr	=	dst;
- 	iph->saddr	=	src;
- 	iph->ttl	=	ttl;
--	tunnel_ip_select_ident(skb,
--			       (const struct iphdr *)skb_inner_network_header(skb),
--			       &rt->dst);
-+	__ip_select_ident(iph, &rt->dst, (skb_shinfo(skb)->gso_segs ?: 1) - 1);
- 
- 	err = ip_local_out(skb);
- 	if (unlikely(net_xmit_eval(err)))
--- 
-1.7.1
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
