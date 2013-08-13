@@ -1,65 +1,59 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: ipsec smp scalability and cpu use fairness (softirqs)
-Date: Tue, 13 Aug 2013 13:56:52 +0200
-Message-ID: <20130813115652.GE26773@secunet.com>
-References: <20130812160142.71737a95@vostro>
- <CAKTPYJTVhvF=215eS0xriEdUyyCLaC+zzja4zPrG668ALzERyw@mail.gmail.com>
- <20130813092312.2493354e@vostro>
- <20130813074614.GM25511@secunet.com>
- <20130813105757.39fb0ab8@vostro>
- <20130813104548.GB26773@secunet.com>
- <20130813143325.364b4bab@vostro>
+From: Dong Fang <yp.fangdong@gmail.com>
+Subject: the congestion window rfc2001
+Date: Tue, 13 Aug 2013 19:58:34 -0400
+Message-ID: <520AC82A.5040303@gmail.com>
+References: <520AC2AD.1030306@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Collins <bsderandrew@gmail.com>, netdev@vger.kernel.org
-To: Timo Teras <timo.teras@iki.fi>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, Dong Fang <yp.fangdong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:49971 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757368Ab3HML4y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Aug 2013 07:56:54 -0400
-Content-Disposition: inline
-In-Reply-To: <20130813143325.364b4bab@vostro>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:46522 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757512Ab3HML6y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 07:58:54 -0400
+Received: by mail-pa0-f51.google.com with SMTP id lf1so5989555pab.10
+        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 04:58:53 -0700 (PDT)
+In-Reply-To: <520AC2AD.1030306@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 13, 2013 at 02:33:25PM +0300, Timo Teras wrote:
-> 
-> I've been now playing with pcrypt. It seems to not give significant
-> boost in throughput. I've setup the cpumaps properly, and top says the
-> work is distributed to appropriate kworkers, but for some reason
-> throughput does not get any better. I've tested with iperf in both udp
-> and tcp modes, with various amounts of threads.
-> 
-> Is there any more synchronization points for single SA that might limit
-> throughput? I've been testing with auth hmac(sha1), enc cbc(aes) -
-> according to metric the CPUs are still largely idle instead of
-> processing more data for better throughput. aes-gcm (without pcrypt)
-> achieves better throughput even saturating my test box links.
-> 
-> Any pointers what to test, or to pinpoint the bottleneck?
-> 
 
-The only pitfall that comes to my mind is that pcrypt must be
-instantiated before inserting the states. Your /proc/crypto
-should show something like:
 
-name         : authenc(hmac(sha1),cbc(aes))
-driver       : pcrypt(authenc(hmac(sha1-generic),cbc(aes-asm)))
-module       : pcrypt
-priority     : 2100
-refcnt       : 1
-selftest     : passed
-type         : aead
-async        : yes
-blocksize    : 16
-ivsize       : 16
-maxauthsize  : 20
-geniv        : <built-in>
 
-pcrypt is now instantiated, e.g. all new IPsec states (that do
-hmac-sha1, cbc-aes) will use it, adding new states increase the
-refcount.
+-------- Original Message --------
+Subject: the congestion window rfc2001
+Date: Tue, 13 Aug 2013 19:35:09 -0400
+From: Dong Fang <yp.fangdong@gmail.com>
+To: netdev@vger.kernel.org
 
-I'll do some tests with current net-next on my own tomorrow and let
-you know about the results.
+hi, all
+
+
+http://tools.ietf.org/html/rfc2001
+
+
+    1.  When the third duplicate ACK in a row is received, set ssthresh
+        to one-half the current congestion window, cwnd, but no less
+        than two segments.  Retransmit the missing segment.  Set cwnd =
+        ssthresh + 3 times the segment size.  This inflates the
+-- what is the meaning of '3'
+
+        congestion window by the number of segments that have left the
+        network and which the other end has cached (3).
+
+    2.  Each time another duplicate ACK arrives, increment cwnd by the
+        segment size.  This inflates the congestion window for the
+        additional segment that has left the network.
+-- why do this
+
+        Transmit a packet, if allowed by the new value of cwnd.
+
+    3.  When the next ACK arrives that acknowledges new data, set cwnd
+        to ssthresh (the value set in step 1).  This ACK should be the
+        acknowledgment of the retransmission from step 1, one round-trip
+        time after the retransmission.  Additionally, this ACK should
+        acknowledge all the intermediate segments sent between the lost
+        packet and the receipt of the first duplicate ACK.  This step is
+        congestion avoidance, since TCP is down to one-half the rate it
+        was at when the packet was lost.
