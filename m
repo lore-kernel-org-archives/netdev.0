@@ -1,79 +1,132 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: Re: ipsec smp scalability and cpu use fairness (softirqs)
-Date: Tue, 13 Aug 2013 15:41:02 +0300
-Message-ID: <20130813154102.35739102@vostro>
-References: <20130812160142.71737a95@vostro>
-	<CAKTPYJTVhvF=215eS0xriEdUyyCLaC+zzja4zPrG668ALzERyw@mail.gmail.com>
-	<20130813092312.2493354e@vostro>
-	<20130813074614.GM25511@secunet.com>
-	<20130813105757.39fb0ab8@vostro>
-	<20130813104548.GB26773@secunet.com>
-	<20130813143325.364b4bab@vostro>
-	<20130813115652.GE26773@secunet.com>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: [patch net] ipv6: do not create neighbor entries for local delivery
+Date: Tue, 13 Aug 2013 09:48:44 -0300
+Message-ID: <520A2B2C.8010009@redhat.com>
+References: <20130130082608.GA1604@minipsycho.orion> <CAATkVEzJgb+J-TAkTZCUbxLPj=b=wbOmsKbgNNimEfNaC8d0Aw@mail.gmail.com> <20130808194702.GH14001@order.stressinduktion.org> <20130808201627.GI14001@order.stressinduktion.org> <520924CF.6000805@redhat.com> <20130812222642.GA27385@order.stressinduktion.org>
+Reply-To: mleitner@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Collins <bsderandrew@gmail.com>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Debabrata Banerjee <dbavatar@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"jmorris@namei.org" <jmorris@namei.org>,
+	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"Banerjee, Debabrata" <dbanerje@akamai.com>,
+	Joshua Hunt <johunt@akamai.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:34864 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756770Ab3HMMlH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 08:41:07 -0400
-Received: by mail-ee0-f46.google.com with SMTP id c13so4137372eek.5
-        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 05:41:05 -0700 (PDT)
-In-Reply-To: <20130813115652.GE26773@secunet.com>
+Received: from mx1.redhat.com ([209.132.183.28]:26475 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757776Ab3HMMtc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Aug 2013 08:49:32 -0400
+In-Reply-To: <20130812222642.GA27385@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 13 Aug 2013 13:56:52 +0200
-Steffen Klassert <steffen.klassert@secunet.com> wrote:
+Em 12-08-2013 19:26, Hannes Frederic Sowa escreveu:
+> Hi Marcelo!
+>
+> On Mon, Aug 12, 2013 at 03:09:19PM -0300, Marcelo Ricardo Leitner wrote:
+>> Hannes, would something like this be acceptable? I'm hoping it's not too
+>> ugly/hacky... as far as I could track back, input and output routines were
+>> merged mainly due code similarity.
+>
+> Your idea seems sound and I don't think it is very ugly or hacky. It's
+> as minimal as a stable-only patch should be. But we could simplify the
+> logic a bit. ;) See below.
+>
+>> TPROXY scenario needs to not create this neighbor entries on INPUT path,
+>> while Debabrata ping test needs it on OUTPUT path. This patch limits my
+>> previous patch to INPUT only then.
+>
+> Yes, agreed. I don't see anything which could break because of this patch.
+> So I would go with it.
+>
+>> Initial testing here seems good, TPROXY seems to be working as expected and
+>> also the ping6 test.
+>>
+>> What do you think?
 
-> On Tue, Aug 13, 2013 at 02:33:25PM +0300, Timo Teras wrote:
-> > 
-> > I've been now playing with pcrypt. It seems to not give significant
-> > boost in throughput. I've setup the cpumaps properly, and top says
-> > the work is distributed to appropriate kworkers, but for some reason
-> > throughput does not get any better. I've tested with iperf in both
-> > udp and tcp modes, with various amounts of threads.
-> > 
-> > Is there any more synchronization points for single SA that might
-> > limit throughput? I've been testing with auth hmac(sha1), enc
-> > cbc(aes) - according to metric the CPUs are still largely idle
-> > instead of processing more data for better throughput. aes-gcm
-> > (without pcrypt) achieves better throughput even saturating my test
-> > box links.
-> > 
-> > Any pointers what to test, or to pinpoint the bottleneck?
-> > 
-> 
-> The only pitfall that comes to my mind is that pcrypt must be
-> instantiated before inserting the states. Your /proc/crypto
-> should show something like:
-> 
-> name         : authenc(hmac(sha1),cbc(aes))
-> driver       : pcrypt(authenc(hmac(sha1-generic),cbc(aes-asm)))
-> module       : pcrypt
-> priority     : 2100
-> refcnt       : 1
-> selftest     : passed
-> type         : aead
-> async        : yes
-> blocksize    : 16
-> ivsize       : 16
-> maxauthsize  : 20
-> geniv        : <built-in>
-> 
-> pcrypt is now instantiated, e.g. all new IPsec states (that do
-> hmac-sha1, cbc-aes) will use it, adding new states increase the
-> refcount.
-> 
-> I'll do some tests with current net-next on my own tomorrow and let
-> you know about the results.
+Aye Hannes, thanks! I'll rework the patch based on your points, do some more 
+testings in here and post it probably only by tomorrow.
 
-Yes, I've got pcrypt there. Apparently I had some of the cpu bindings
-not right, so now it's looking a lot better. But it seems that
-ksoftirqd on one of the CPUs becomes first bottleneck. I'll try to
-figure out why.
+Thanks!
+Marcelo
 
-Thanks on all the info so far, will continue experimenting here too.
+>> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+>> index 18ea73c..603f9d9 100644
+>> --- a/net/ipv6/route.c
+>> +++ b/net/ipv6/route.c
+>> @@ -791,7 +791,7 @@ static struct rt6_info *rt6_alloc_clone(struct rt6_info *ort,
+>>   }
+>>
+>>   static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table, int oif,
+>> -				      struct flowi6 *fl6, int flags)
+>> +				      struct flowi6 *fl6, int flags, int output)
+>
+> 								     bool input
+>
+>>   {
+>>   	struct fib6_node *fn;
+>>   	struct rt6_info *rt, *nrt;
+>> @@ -799,8 +799,11 @@ static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
+>>   	int attempts = 3;
+>>   	int err;
+>>   	int reachable = net->ipv6.devconf_all->forwarding ? 0 : RT6_LOOKUP_F_REACHABLE;
+>> +	int local = RTF_NONEXTHOP;
+>>
+>>   	strict |= flags & RT6_LOOKUP_F_IFACE;
+>> +	if (!output)
+>> +			local |= RTF_LOCAL;
+>
+>
+> 	if (input)
+> 			local |= RTF_LOCAL;
+>
+>>
+>>   relookup:
+>>   	read_lock_bh(&table->tb6_lock);
+>> @@ -820,7 +823,7 @@ restart:
+>>   	read_unlock_bh(&table->tb6_lock);
+>>
+>>   	if (!dst_get_neighbour_raw(&rt->dst)
+>> -	    && !(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_LOCAL)))
+>> +	    && !(rt->rt6i_flags & local))
+>>   		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
+>>   	else if (!(rt->dst.flags & DST_HOST))
+>>   		nrt = rt6_alloc_clone(rt, &fl6->daddr);
+>> @@ -864,7 +867,7 @@ out2:
+>>   static struct rt6_info *ip6_pol_route_input(struct net *net, struct fib6_table *table,
+>>   					    struct flowi6 *fl6, int flags)
+>>   {
+>> -	return ip6_pol_route(net, table, fl6->flowi6_iif, fl6, flags);
+>> +	return ip6_pol_route(net, table, fl6->flowi6_iif, fl6, flags, 0);
+>
+> 								      true);
+>
+>
+>>   }
+>>
+>>   void ip6_route_input(struct sk_buff *skb)
+>> @@ -890,7 +893,7 @@ void ip6_route_input(struct sk_buff *skb)
+>>   static struct rt6_info *ip6_pol_route_output(struct net *net, struct fib6_table *table,
+>>   					     struct flowi6 *fl6, int flags)
+>>   {
+>> -	return ip6_pol_route(net, table, fl6->flowi6_oif, fl6, flags);
+>> +	return ip6_pol_route(net, table, fl6->flowi6_oif, fl6, flags, 1);
+>
+> 								      false);
+>
+>>   }
+>>
+>>   struct dst_entry * ip6_route_output(struct net *net, const struct sock *sk,
+>
+> Thanks,
+>
+>    Hannes
+>
+>
