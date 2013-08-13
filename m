@@ -1,88 +1,42 @@
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: [PATCH net] net: tg3: fix NULL pointer dereference in
- tg3_io_error_detected and tg3_io_slot_reset
-Date: Tue, 13 Aug 2013 11:45:13 -0700
-Message-ID: <1376419513-31924-1-git-send-email-nsujir@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Daniel Borkmann" <dborkman@redhat.com>,
-	"Gavin Shan" <shangw@linux.vnet.ibm.com>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"Nithin Nayak Sujir" <nsujir@broadcom.com>
-To: davem@davemloft.net
+From: Peter Wu <lekensteyn@gmail.com>
+Subject: [PATCH] r8169: remember WOL preferences on driver load
+Date: Tue, 13 Aug 2013 22:19:05 +0200
+Message-ID: <1376425145-30142-1-git-send-email-lekensteyn@gmail.com>
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com, lekensteyn@gmail.com
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4238 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756803Ab3HMSpd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Aug 2013 14:45:33 -0400
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:59745 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758679Ab3HMUTM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 16:19:12 -0400
+Received: by mail-wi0-f182.google.com with SMTP id hi8so1126301wib.9
+        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 13:19:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
+Do not clear Broadcast/Multicast/Unicast Wake Flag or LanWake in
+Config5. This is necessary to preserve WOL state when the driver is
+loaded. The r8168 vendor driver used to write to both Config1 and
+Config5, but in recent versions, this is commented out. Here we keep
+writing PMEnable to Config1 because there may be older chips where
+PMEnable is not sticky.
 
-Commit d8af4dfd8 ("net/tg3: Fix kernel crash") introduced a possible
-NULL pointer dereference in tg3 driver when !netdev || !netif_running(netdev)
-condition is met and netdev is NULL. Then, the jump to the 'done' label
-calls dev_close() with a netdevice that is NULL. Therefore, only call
-dev_close() when we have a netdevice, but one that is not running.
-
-[ Add the same checks in tg3_io_slot_reset() per Gavin Shan - by Nithin
-Nayak Sujir ]
-
-Reported-by: Dave Jones <davej@redhat.com>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Gavin Shan <shangw@linux.vnet.ibm.com>
-Cc: Michael Chan <mchan@broadcom.com>
-Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+Signed-off-by: Peter Wu <lekensteyn@gmail.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c | 13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index ddebc7a..0da2214 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -17796,8 +17796,10 @@ static pci_ers_result_t tg3_io_error_detected(struct pci_dev *pdev,
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 28af01c..7bdf322 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -7093,7 +7093,6 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  
- done:
- 	if (state == pci_channel_io_perm_failure) {
--		tg3_napi_enable(tp);
--		dev_close(netdev);
-+		if (netdev) {
-+			tg3_napi_enable(tp);
-+			dev_close(netdev);
-+		}
- 		err = PCI_ERS_RESULT_DISCONNECT;
- 	} else {
- 		pci_disable_device(pdev);
-@@ -17827,7 +17829,8 @@ static pci_ers_result_t tg3_io_slot_reset(struct pci_dev *pdev)
- 	rtnl_lock();
- 
- 	if (pci_enable_device(pdev)) {
--		netdev_err(netdev, "Cannot re-enable PCI device after reset.\n");
-+		dev_err(&pdev->dev,
-+			"Cannot re-enable PCI device after reset.\n");
- 		goto done;
- 	}
- 
-@@ -17835,7 +17838,7 @@ static pci_ers_result_t tg3_io_slot_reset(struct pci_dev *pdev)
- 	pci_restore_state(pdev);
- 	pci_save_state(pdev);
- 
--	if (!netif_running(netdev)) {
-+	if (!netdev || !netif_running(netdev)) {
- 		rc = PCI_ERS_RESULT_RECOVERED;
- 		goto done;
- 	}
-@@ -17847,7 +17850,7 @@ static pci_ers_result_t tg3_io_slot_reset(struct pci_dev *pdev)
- 	rc = PCI_ERS_RESULT_RECOVERED;
- 
- done:
--	if (rc != PCI_ERS_RESULT_RECOVERED && netif_running(netdev)) {
-+	if (rc != PCI_ERS_RESULT_RECOVERED && netdev && netif_running(netdev)) {
- 		tg3_napi_enable(tp);
- 		dev_close(netdev);
- 	}
+ 	RTL_W8(Cfg9346, Cfg9346_Unlock);
+ 	RTL_W8(Config1, RTL_R8(Config1) | PMEnable);
+-	RTL_W8(Config5, RTL_R8(Config5) & PMEStatus);
+ 	if ((RTL_R8(Config3) & (LinkUp | MagicPacket)) != 0)
+ 		tp->features |= RTL_FEATURE_WOL;
+ 	if ((RTL_R8(Config5) & (UWF | BWF | MWF)) != 0)
 -- 
-1.8.1.4
+1.8.3.4
