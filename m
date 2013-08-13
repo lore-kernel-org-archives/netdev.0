@@ -1,99 +1,56 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH 1/2] netfilter: export xt_rpfilter.h to userland
-Date: Tue, 13 Aug 2013 15:05:38 +0200
-Message-ID: <1376399139-4181-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: pablo@netfilter.org, netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:35729 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756195Ab3HMNGY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 09:06:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Subject: [PATCH] ethernet/arc/arc_emac - fix NAPI "work > weight" warning
+Date: Tue, 13 Aug 2013 17:04:36 +0400
+Message-ID: <1376399076-9320-1-git-send-email-abrodkin@synopsys.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
+	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
+	Mischa Jonker <Mischa.Jonker@synopsys.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	<linux-kernel@vger.kernel.org>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This file contains the API for the match "rpfilter", hence it should be exported
-to userland.
+Initially I improperly set a boundary for maximum number of input
+packets to process on NAPI poll ("work") so it might be more than
+expected amount ("weight").
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+This was really harmless but seeing WARN_ON_ONCE on every device boot is
+not nice. So trivial fix ("<" instead of "<=") is here.
+
+Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
+
+Cc: Vineet Gupta <vgupta@synopsys.com>
+Cc: Mischa Jonker <mjonker@synopsys.com>
+Cc: Arnd Bergmann <arnd@arndb.de>
+Cc: Grant Likely <grant.likely@linaro.org>
+Cc: Rob Herring <rob.herring@calxeda.com>
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org
 ---
- include/linux/netfilter/xt_rpfilter.h      | 23 -----------------------
- include/uapi/linux/netfilter/Kbuild        |  1 +
- include/uapi/linux/netfilter/xt_rpfilter.h | 23 +++++++++++++++++++++++
- 3 files changed, 24 insertions(+), 23 deletions(-)
- delete mode 100644 include/linux/netfilter/xt_rpfilter.h
- create mode 100644 include/uapi/linux/netfilter/xt_rpfilter.h
+ drivers/net/ethernet/arc/emac_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/linux/netfilter/xt_rpfilter.h b/include/linux/netfilter/xt_rpfilter.h
-deleted file mode 100644
-index 8358d4f71952..000000000000
---- a/include/linux/netfilter/xt_rpfilter.h
-+++ /dev/null
-@@ -1,23 +0,0 @@
--#ifndef _XT_RPATH_H
--#define _XT_RPATH_H
--
--#include <linux/types.h>
--
--enum {
--	XT_RPFILTER_LOOSE = 1 << 0,
--	XT_RPFILTER_VALID_MARK = 1 << 1,
--	XT_RPFILTER_ACCEPT_LOCAL = 1 << 2,
--	XT_RPFILTER_INVERT = 1 << 3,
--#ifdef __KERNEL__
--	XT_RPFILTER_OPTION_MASK = XT_RPFILTER_LOOSE |
--				  XT_RPFILTER_VALID_MARK |
--				  XT_RPFILTER_ACCEPT_LOCAL |
--				  XT_RPFILTER_INVERT,
--#endif
--};
--
--struct xt_rpfilter_info {
--	__u8 flags;
--};
--
--#endif
-diff --git a/include/uapi/linux/netfilter/Kbuild b/include/uapi/linux/netfilter/Kbuild
-index 41115776d76f..dc00927ffd62 100644
---- a/include/uapi/linux/netfilter/Kbuild
-+++ b/include/uapi/linux/netfilter/Kbuild
-@@ -68,6 +68,7 @@ header-y += xt_quota.h
- header-y += xt_rateest.h
- header-y += xt_realm.h
- header-y += xt_recent.h
-+header-y += xt_rpfilter.h
- header-y += xt_sctp.h
- header-y += xt_set.h
- header-y += xt_socket.h
-diff --git a/include/uapi/linux/netfilter/xt_rpfilter.h b/include/uapi/linux/netfilter/xt_rpfilter.h
-new file mode 100644
-index 000000000000..8358d4f71952
---- /dev/null
-+++ b/include/uapi/linux/netfilter/xt_rpfilter.h
-@@ -0,0 +1,23 @@
-+#ifndef _XT_RPATH_H
-+#define _XT_RPATH_H
-+
-+#include <linux/types.h>
-+
-+enum {
-+	XT_RPFILTER_LOOSE = 1 << 0,
-+	XT_RPFILTER_VALID_MARK = 1 << 1,
-+	XT_RPFILTER_ACCEPT_LOCAL = 1 << 2,
-+	XT_RPFILTER_INVERT = 1 << 3,
-+#ifdef __KERNEL__
-+	XT_RPFILTER_OPTION_MASK = XT_RPFILTER_LOOSE |
-+				  XT_RPFILTER_VALID_MARK |
-+				  XT_RPFILTER_ACCEPT_LOCAL |
-+				  XT_RPFILTER_INVERT,
-+#endif
-+};
-+
-+struct xt_rpfilter_info {
-+	__u8 flags;
-+};
-+
-+#endif
+diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
+index f1b121e..55d79cb 100644
+--- a/drivers/net/ethernet/arc/emac_main.c
++++ b/drivers/net/ethernet/arc/emac_main.c
+@@ -199,7 +199,7 @@ static int arc_emac_rx(struct net_device *ndev, int budget)
+ 	struct arc_emac_priv *priv = netdev_priv(ndev);
+ 	unsigned int work_done;
+ 
+-	for (work_done = 0; work_done <= budget; work_done++) {
++	for (work_done = 0; work_done < budget; work_done++) {
+ 		unsigned int *last_rx_bd = &priv->last_rx_bd;
+ 		struct net_device_stats *stats = &priv->stats;
+ 		struct buffer_state *rx_buff = &priv->rx_buff[*last_rx_bd];
 -- 
-1.8.2.1
+1.8.1.2
