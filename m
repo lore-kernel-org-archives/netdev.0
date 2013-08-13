@@ -1,92 +1,73 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 3/4] drivers/net: enic: Make ASIC information available
- to USNIC
-Date: Tue, 13 Aug 2013 10:31:36 +0200
-Message-ID: <1376382696.14079.90.camel@deadeye.wl.decadent.org.uk>
-References: <1376071941-17001-1-git-send-email-neepatel@cisco.com>
-	  <1376071941-17001-4-git-send-email-neepatel@cisco.com>
-	  <20130809152135.11c19869@nehalam.linuxnetplumber.net>
-	 <1376151205.32005.2.camel@deadeye.wl.decadent.org.uk>
-	 <5209BFB2.2090003@cisco.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: Re: [PATCHv2 net-next] xfrm: Make xfrm_state timer monotonic
+Date: Tue, 13 Aug 2013 16:37:04 +0800
+Message-ID: <5209F030.3050303@windriver.com>
+References: <1375772225-19265-1-git-send-email-fan.du@windriver.com> <20130806092220.GH25511@secunet.com> <52087537.6060200@windriver.com> <20130813075519.GN25511@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Neel Patel <neepatel@cisco.com>, <netdev@vger.kernel.org>,
-	Christian Benvenuti <benve@cisco.com>,
-	"Upinder Malhi (umalhi)" <umalhi@cisco.com>
-To: Nishank Trivedi <nistrive@cisco.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:34183 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751122Ab3HMIbm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 04:31:42 -0400
-In-Reply-To: <5209BFB2.2090003@cisco.com>
+Received: from mail.windriver.com ([147.11.1.11]:60153 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751921Ab3HMIeD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 04:34:03 -0400
+In-Reply-To: <20130813075519.GN25511@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-08-12 at 22:10 -0700, Nishank Trivedi wrote:
-> On 8/10/13 9:13 AM, Ben Hutchings wrote:
-> > On Fri, 2013-08-09 at 15:21 -0700, Stephen Hemminger wrote:
-> >> On Fri,  9 Aug 2013 11:12:20 -0700
-> >> Neel Patel <neepatel@cisco.com> wrote:
-> >>
-> >>> This patch provides asic information via ethtool.
-> > [...]
-> >>> --- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-> >>> +++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-> >>> @@ -19,6 +19,7 @@
-> >>>   #include <linux/netdevice.h>
-> >>>   #include <linux/ethtool.h>
-> >>>
-> >>> +#include "driver_utils.h"
-> >>>   #include "enic_res.h"
-> >>>   #include "enic.h"
-> >>>   #include "enic_dev.h"
-> >>> @@ -116,6 +117,9 @@ static void enic_get_drvinfo(struct net_device *netdev,
-> >>>   		sizeof(drvinfo->fw_version));
-> >>>   	strlcpy(drvinfo->bus_info, pci_name(enic->pdev),
-> >>>   		sizeof(drvinfo->bus_info));
-> >>> +	memset(drvinfo->reserved1, 0, sizeof(drvinfo->reserved1));
-> >>> +	driver_encode_asic_info(drvinfo->reserved1, sizeof(drvinfo->reserved1),
-> >>> +		fw_info->asic_type, fw_info->asic_rev);
-> >>>   }
-> >>
-> >> If you want to use a reserved field, then make it a first class citizen.
-> >> Rename it to asic_info, make sure the result is okay for other drivers
-> >> and add send patch so Ben can make it part of normal ethtool support.
-> >>
-> >> Otherwise, this code is likely to break when someone else actually unreserves
-> >> that field.
-> >
-> > Right.  I bet this is redundant with the IDs that lspci can show,
-> > anyway.
-> 
-> Thanks Stephen, Ben for your input, they are valid points. Neel would 
-> send a new patch series minus 3/4 for now.
-> 
-> While you are right that lspci or sysfs can be used to get same info, we 
-> were trying to use asic info (encoded with type and version) within 
-> drvinfo so as to use one string to achieve same effect as reading PCI 
-> subsystem id and revision explicitly. Instead of going to different tool 
-> (lspci), ethtool would be enough to unqiuely identify the device. Asic 
-> version along with already existing firmware version, driver version, 
-> etc seems natural.
 
-Well we've managed without this for the last 15 years, so it seems like
-it's not that much of a problem to run lspci too.
 
-Sure, it's an extra command for users to run, but if you're trying to
-get diagnostic information from them there's a *lot* more you'll want to
-gather.
+On 2013=E5=B9=B408=E6=9C=8813=E6=97=A5 15:55, Steffen Klassert wrote:
+> On Mon, Aug 12, 2013 at 01:40:07PM +0800, Fan Du wrote:
+>>
+>>
+>> On 2013=E5=B9=B408=E6=9C=8806=E6=97=A5 17:22, Steffen Klassert wrote=
+:
+>>> On Tue, Aug 06, 2013 at 02:57:05PM +0800, Fan Du wrote:
+>>>> xfrm_state timer should be independent of system clock change,
+>>>> so switch to monotonic clock base.
+>>>>
+>>>
+>>> I think a monotonic timer will reintroduce a bug on suspend/resume
+>>> that was fixed by commit 9e0d57fd6
+>>> (xfrm: SAD entries do not expire correctly after suspend-resume)
+>>>
+>>> Please make sure that this does not happen.
+>>
+>> What about using CLOCK_BOOTTIME? it's monotonic, but includes suspen=
+d time as well.
+>
+> As I said, I'm open to everything that fixes your problem and does no=
+t
+> introduce a regression. I'll consider applying after some testing
+> if noone else has objections.
 
-We could do something in the ethtool *command* to report what the device
-is (if bus_info matches PCI address format), which would then work for
-every PCI network driver.
+Hi, Steffen
 
-Ben.
+Thanks for your understanding! :)
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I happened to bump into CLOCK_BOOTTIME several days ago, so apologize f=
+or
+eating my words earlier. Changing xfrm_state timer to monotonic does no=
+t
+solve the problem I've described earlier in:
+
+http://www.spinics.net/lists/netdev/msg245019.html (*1*)
+
+So is there any light of hope for the proposal in (*1*) by using CLOCK_=
+BOOTTIME
+instead?
+
+
+> Thanks!
+>
+>
+
+--=20
+=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
+=E7=AC=91
+
+--fan
