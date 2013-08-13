@@ -1,89 +1,53 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: Re: ipsec smp scalability and cpu use fairness (softirqs)
-Date: Tue, 13 Aug 2013 14:33:25 +0300
-Message-ID: <20130813143325.364b4bab@vostro>
-References: <20130812160142.71737a95@vostro>
-	<CAKTPYJTVhvF=215eS0xriEdUyyCLaC+zzja4zPrG668ALzERyw@mail.gmail.com>
-	<20130813092312.2493354e@vostro>
-	<20130813074614.GM25511@secunet.com>
-	<20130813105757.39fb0ab8@vostro>
-	<20130813104548.GB26773@secunet.com>
+From: Dong Fang <yp.fangdong@gmail.com>
+Subject: the congestion window rfc2001
+Date: Tue, 13 Aug 2013 19:35:09 -0400
+Message-ID: <520AC2AD.1030306@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Collins <bsderandrew@gmail.com>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f172.google.com ([209.85.215.172]:35803 "EHLO
-	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751487Ab3HMLd3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 07:33:29 -0400
-Received: by mail-ea0-f172.google.com with SMTP id r16so4031279ead.17
-        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 04:33:28 -0700 (PDT)
-In-Reply-To: <20130813104548.GB26773@secunet.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:38406 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755325Ab3HMLfb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 07:35:31 -0400
+Received: by mail-pa0-f46.google.com with SMTP id fa1so6828706pad.5
+        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 04:35:31 -0700 (PDT)
+Received: from [192.168.1.108] ([114.249.17.58])
+        by mx.google.com with ESMTPSA id eq5sm43370921pbc.15.2013.08.13.04.35.28
+        for <netdev@vger.kernel.org>
+        (version=TLSv1 cipher=RC4-SHA bits=128/128);
+        Tue, 13 Aug 2013 04:35:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 13 Aug 2013 12:45:48 +0200
-Steffen Klassert <steffen.klassert@secunet.com> wrote:
+hi, all
 
-> On Tue, Aug 13, 2013 at 10:57:57AM +0300, Timo Teras wrote:
-> > On Tue, 13 Aug 2013 09:46:14 +0200
-> > Steffen Klassert <steffen.klassert@secunet.com> wrote:
-> > 
-> > > Also, if you want parallelism, you could use the pcrypt algorithm.
-> > > It sends the crypto requests asynchronously round robin to a
-> > > configurable set of cpus. Finaly it takes care to bring the
-> > > served crypto requests back into the order they were submitted
-> > > to avoid packet reordering.
-> > 
-> > Right. Looks like this helps a lot.
-> > 
-> > Perhaps it would be worth to experiment also with RPS type hash
-> > based cpu selection?
-> 
-> Actually, this was the reason why I started to write the below
-> mentioned patches. The idea behind that was to use a combination of
-> flow based and inner flow parallelization.
-> 
-> On bigger NUMA machines it does not make much sense to use all
-> cores for parallelization. The performance depends too much on the
-> actual topology. Moving crypto requests to another NUMA node can
-> even reduce performance. So I wanted to use RPS type hash based
-> cpu selection to choose the node for a given flow and then use
-> pcrypt to parallelize this flow on the chosen node.
 
-Excellent.
+http://tools.ietf.org/html/rfc2001
 
-I've been now playing with pcrypt. It seems to not give significant
-boost in throughput. I've setup the cpumaps properly, and top says the
-work is distributed to appropriate kworkers, but for some reason
-throughput does not get any better. I've tested with iperf in both udp
-and tcp modes, with various amounts of threads.
 
-Is there any more synchronization points for single SA that might limit
-throughput? I've been testing with auth hmac(sha1), enc cbc(aes) -
-according to metric the CPUs are still largely idle instead of
-processing more data for better throughput. aes-gcm (without pcrypt)
-achieves better throughput even saturating my test box links.
+    1.  When the third duplicate ACK in a row is received, set ssthresh
+        to one-half the current congestion window, cwnd, but no less
+        than two segments.  Retransmit the missing segment.  Set cwnd =
+        ssthresh + 3 times the segment size.  This inflates the
+-- what is the meaning of '3'
 
-Any pointers what to test, or to pinpoint the bottleneck?
+        congestion window by the number of segments that have left the
+        network and which the other end has cached (3).
 
-I also tried enabling RPS on the gre device, but it did not seem to
-make any significant difference either.
+    2.  Each time another duplicate ACK arrives, increment cwnd by the
+        segment size.  This inflates the congestion window for the
+        additional segment that has left the network.
+-- why do this
 
-> > > Currently we have only one systemwide workqueue for encryption
-> > > and one decryption. So all IPsec packets are send to the same
-> > > workqueue, regardless which state they use.
-> > > 
-> > > I have patches that make it possible to configure a separate
-> > > workqueue for each state or to group some states to a specific
-> > > workqueue. These patches are still unpublished because they
-> > > have not much testing yet, but I could send them after some
-> > > polishing for review or testing if you are interested.
-> > 
-> > Yes, I'd be interested.
-> 
-> Ok, I'll send them. May take some days to rebase and polish.
+        Transmit a packet, if allowed by the new value of cwnd.
 
-Thanks.
+    3.  When the next ACK arrives that acknowledges new data, set cwnd
+        to ssthresh (the value set in step 1).  This ACK should be the
+        acknowledgment of the retransmission from step 1, one round-trip
+        time after the retransmission.  Additionally, this ACK should
+        acknowledge all the intermediate segments sent between the lost
+        packet and the receipt of the first duplicate ACK.  This step is
+        congestion avoidance, since TCP is down to one-half the rate it
+        was at when the packet was lost.
