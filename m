@@ -1,64 +1,129 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 2/3] net/usb/r8152: enable tx checksum
-Date: Tue, 13 Aug 2013 18:39:36 +0400
-Message-ID: <520A4528.6020609@cogentembedded.com>
-References: <1376378913-879-1-git-send-email-hayeswang@realtek.com> <1376378913-879-2-git-send-email-hayeswang@realtek.com>
+From: <dinguyen@altera.com>
+Subject: [PATCH] phy: micrel: Add definitions for common Micrel PHY registers
+Date: Tue, 13 Aug 2013 09:59:00 -0500
+Message-ID: <1376405940-17141-2-git-send-email-dinguyen@altera.com>
+References: <1376405940-17141-1-git-send-email-dinguyen@altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
+Content-Type: text/plain
+Cc: Dinh Nguyen <dinguyen@altera.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Victor <linux@maxim.org.za>,
+	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	<netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>
+To: <dinh.linux@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:56599 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754506Ab3HMOjd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 10:39:33 -0400
-Received: by mail-lb0-f182.google.com with SMTP id v20so5952654lbc.27
-        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 07:39:32 -0700 (PDT)
-In-Reply-To: <1376378913-879-2-git-send-email-hayeswang@realtek.com>
+Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:18631 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758089Ab3HMO6c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 10:58:32 -0400
+In-Reply-To: <1376405940-17141-1-git-send-email-dinguyen@altera.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Dinh Nguyen <dinguyen@altera.com>
 
-On 08/13/2013 11:28 AM, Hayes Wang wrote:
+Add defines for common Micrel PHY setups so that other platforms
+can use them. Update imx61 and sama5 hardware to use the micrel_phy.h
+PHY defines.
 
-> Enable tx checksum.
+Also add support for the KSZ9021RLRN PHY.
 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-> ---
->   drivers/net/usb/r8152.c | 63 +++++++++++++++++++++++++++++++++++++++++++++----
->   1 file changed, 58 insertions(+), 5 deletions(-)
+Signed-off-by: Dinh Nguyen <dinguyen@altera.com>
+Acked-by: Shawn Guo <shawn.guo@linaro.org>
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+Cc: David S. Miller <davem@davemloft.net>
+CC: Andrew Victor <linux@maxim.org.za>
+CC: Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>
+Cc: Shawn Guo <shawn.guo@linaro.org>
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
+Cc: netdev@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org
+---
+ arch/arm/mach-at91/board-dt-sama5.c |   17 ++++++-----------
+ arch/arm/mach-imx/mach-imx6q.c      |   13 ++++++++-----
+ include/linux/micrel_phy.h          |    6 ++++++
+ 3 files changed, 20 insertions(+), 16 deletions(-)
 
-> diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-> index c6c5aa2..5d9d949 100644
-> --- a/drivers/net/usb/r8152.c
-> +++ b/drivers/net/usb/r8152.c
-[...]
-> @@ -964,6 +971,51 @@ err1:
->   	return -ENOMEM;
->   }
->
-> +static void
-> +r8152_tx_csum(struct r8152 *tp, struct tx_desc *desc, struct sk_buff *skb)
-> +{
-[...]
-> +		if (ip_protocol == IPPROTO_TCP) {
-> +			opts2 |= TCP_CS;
-> +			opts2 |= (skb_transport_offset(skb) & 0x7fff) << 17;
-> +		} else if (ip_protocol == IPPROTO_UDP) {
-> +			opts2 |= UDP_CS;
-> +		} else
-> +			WARN_ON_ONCE(1);
-
-    Stange, why *else if* branch has {} and *else* don't. It should, according 
-to Documentation/CodingStyle.
-
-> +
-> +		desc->opts2 = cpu_to_le32(opts2);
-> +	}
-> +}
-> +
-
-WBR, Sergei
+diff --git a/arch/arm/mach-at91/board-dt-sama5.c b/arch/arm/mach-at91/board-dt-sama5.c
+index ad95f6a..bf00d15 100644
+--- a/arch/arm/mach-at91/board-dt-sama5.c
++++ b/arch/arm/mach-at91/board-dt-sama5.c
+@@ -42,20 +42,15 @@ static int ksz9021rn_phy_fixup(struct phy_device *phy)
+ {
+ 	int value;
+ 
+-#define GMII_RCCPSR	260
+-#define GMII_RRDPSR	261
+-#define GMII_ERCR	11
+-#define GMII_ERDWR	12
+-
+ 	/* Set delay values */
+-	value = GMII_RCCPSR | 0x8000;
+-	phy_write(phy, GMII_ERCR, value);
++	value = MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SCEW | 0x8000;
++	phy_write(phy, MICREL_KSZ9021_EXTREG_CTRL, value);
+ 	value = 0xF2F4;
+-	phy_write(phy, GMII_ERDWR, value);
+-	value = GMII_RRDPSR | 0x8000;
+-	phy_write(phy, GMII_ERCR, value);
++	phy_write(phy, MICREL_KSZ9021_EXTREG_DATA_WRITE, value);
++	value = MICREL_KSZ9021_RGMII_RX_DATA_PAD_SCEW | 0x8000;
++	phy_write(phy, MICREL_KSZ9021_EXTREG_CTRL, value);
+ 	value = 0x2222;
+-	phy_write(phy, GMII_ERDWR, value);
++	phy_write(phy, MICREL_KSZ9021_EXTREG_DATA_WRITE, value);
+ 
+ 	return 0;
+ }
+diff --git a/arch/arm/mach-imx/mach-imx6q.c b/arch/arm/mach-imx/mach-imx6q.c
+index 7be13f8..c8d7814 100644
+--- a/arch/arm/mach-imx/mach-imx6q.c
++++ b/arch/arm/mach-imx/mach-imx6q.c
+@@ -103,13 +103,16 @@ static int ksz9021rn_phy_fixup(struct phy_device *phydev)
+ {
+ 	if (IS_BUILTIN(CONFIG_PHYLIB)) {
+ 		/* min rx data delay */
+-		phy_write(phydev, 0x0b, 0x8105);
+-		phy_write(phydev, 0x0c, 0x0000);
++		phy_write(phydev, MICREL_KSZ9021_EXTREG_CTRL,
++			0x8000 | MICREL_KSZ9021_RGMII_RX_DATA_PAD_SCEW);
++		phy_write(phydev, MICREL_KSZ9021_EXTREG_DATA_WRITE, 0x0000);
+ 
+ 		/* max rx/tx clock delay, min rx/tx control delay */
+-		phy_write(phydev, 0x0b, 0x8104);
+-		phy_write(phydev, 0x0c, 0xf0f0);
+-		phy_write(phydev, 0x0b, 0x104);
++		phy_write(phydev, MICREL_KSZ9021_EXTREG_CTRL,
++			0x8000 | MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SCEW);
++		phy_write(phydev, MICREL_KSZ9021_EXTREG_DATA_WRITE, 0xf0f0);
++		phy_write(phydev, MICREL_KSZ9021_EXTREG_CTRL,
++			MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SCEW);
+ 	}
+ 
+ 	return 0;
+diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
+index 8752dbb..ad05ce6 100644
+--- a/include/linux/micrel_phy.h
++++ b/include/linux/micrel_phy.h
+@@ -17,6 +17,7 @@
+ 
+ #define PHY_ID_KSZ8873MLL	0x000e7237
+ #define PHY_ID_KSZ9021		0x00221610
++#define PHY_ID_KSZ9021RLRN	0x00221611
+ #define PHY_ID_KS8737		0x00221720
+ #define PHY_ID_KSZ8021		0x00221555
+ #define PHY_ID_KSZ8031		0x00221556
+@@ -35,4 +36,9 @@
+ /* struct phy_device dev_flags definitions */
+ #define MICREL_PHY_50MHZ_CLK	0x00000001
+ 
++#define MICREL_KSZ9021_EXTREG_CTRL	0xB
++#define MICREL_KSZ9021_EXTREG_DATA_WRITE	0xC
++#define MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SCEW	0x104
++#define MICREL_KSZ9021_RGMII_RX_DATA_PAD_SCEW	0x105
++
+ #endif /* _MICREL_PHY_H */
+-- 
+1.7.9.5
