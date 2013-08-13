@@ -1,56 +1,53 @@
-From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Subject: [PATCH] ethernet/arc/arc_emac - fix NAPI "work > weight" warning
-Date: Tue, 13 Aug 2013 17:04:36 +0400
-Message-ID: <1376399076-9320-1-git-send-email-abrodkin@synopsys.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
-	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
-	Mischa Jonker <Mischa.Jonker@synopsys.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Weiping Pan <wpan@redhat.com>
+Subject: [PATCH net] tun: compare with 0 instead of total_len
+Date: Tue, 13 Aug 2013 21:46:56 +0800
+Message-ID: <732ec15a7682b3ab87858de0b19a0848f0ad8944.1376399185.git.wpan@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60869 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753619Ab3HMNrW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Aug 2013 09:47:22 -0400
+Received: from int-mx12.intmail.prod.int.phx2.redhat.com (int-mx12.intmail.prod.int.phx2.redhat.com [10.5.11.25])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r7DDlMCa001332
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 09:47:22 -0400
+Received: from localhost.localdomain.com (dhcp-17-97.nay.redhat.com [10.66.17.97])
+	by int-mx12.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id r7DDlKNS020674
+	for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 09:47:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Initially I improperly set a boundary for maximum number of input
-packets to process on NAPI poll ("work") so it might be more than
-expected amount ("weight").
+Since we set "len = total_len" in the beginning of tun_get_user(),
+so we should compare the new len with 0, instead of total_len,
+or the if statement always returns false.
 
-This was really harmless but seeing WARN_ON_ONCE on every device boot is
-not nice. So trivial fix ("<" instead of "<=") is here.
-
-Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
-
-Cc: Vineet Gupta <vgupta@synopsys.com>
-Cc: Mischa Jonker <mjonker@synopsys.com>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Grant Likely <grant.likely@linaro.org>
-Cc: Rob Herring <rob.herring@calxeda.com>
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Weiping Pan <wpan@redhat.com>
 ---
- drivers/net/ethernet/arc/emac_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/tun.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
-index f1b121e..55d79cb 100644
---- a/drivers/net/ethernet/arc/emac_main.c
-+++ b/drivers/net/ethernet/arc/emac_main.c
-@@ -199,7 +199,7 @@ static int arc_emac_rx(struct net_device *ndev, int budget)
- 	struct arc_emac_priv *priv = netdev_priv(ndev);
- 	unsigned int work_done;
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index db690a3..5a8ee1c 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1074,7 +1074,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	u32 rxhash;
  
--	for (work_done = 0; work_done <= budget; work_done++) {
-+	for (work_done = 0; work_done < budget; work_done++) {
- 		unsigned int *last_rx_bd = &priv->last_rx_bd;
- 		struct net_device_stats *stats = &priv->stats;
- 		struct buffer_state *rx_buff = &priv->rx_buff[*last_rx_bd];
+ 	if (!(tun->flags & TUN_NO_PI)) {
+-		if ((len -= sizeof(pi)) > total_len)
++		if ((len -= sizeof(pi)) < 0)
+ 			return -EINVAL;
+ 
+ 		if (memcpy_fromiovecend((void *)&pi, iv, 0, sizeof(pi)))
+@@ -1083,7 +1083,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	}
+ 
+ 	if (tun->flags & TUN_VNET_HDR) {
+-		if ((len -= tun->vnet_hdr_sz) > total_len)
++		if ((len -= tun->vnet_hdr_sz) < 0)
+ 			return -EINVAL;
+ 
+ 		if (memcpy_fromiovecend((void *)&gso, iv, offset, sizeof(gso)))
 -- 
-1.8.1.2
+1.7.4
