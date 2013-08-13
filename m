@@ -1,53 +1,78 @@
-From: Dong Fang <yp.fangdong@gmail.com>
-Subject: the congestion window rfc2001
-Date: Tue, 13 Aug 2013 19:35:09 -0400
-Message-ID: <520AC2AD.1030306@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH 2/3 v2] ipv6: rename ADBG() to pr_xxx()
+Date: Tue, 13 Aug 2013 13:37:19 +0200
+Message-ID: <20130813113719.GF27385@order.stressinduktion.org>
+References: <5209E6E8.1030702@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Joe Perches <joe@perches.com>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:38406 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755325Ab3HMLfb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 07:35:31 -0400
-Received: by mail-pa0-f46.google.com with SMTP id fa1so6828706pad.5
-        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 04:35:31 -0700 (PDT)
-Received: from [192.168.1.108] ([114.249.17.58])
-        by mx.google.com with ESMTPSA id eq5sm43370921pbc.15.2013.08.13.04.35.28
-        for <netdev@vger.kernel.org>
-        (version=TLSv1 cipher=RC4-SHA bits=128/128);
-        Tue, 13 Aug 2013 04:35:30 -0700 (PDT)
+Received: from order.stressinduktion.org ([87.106.68.36]:48523 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755822Ab3HMLhU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 07:37:20 -0400
+Content-Disposition: inline
+In-Reply-To: <5209E6E8.1030702@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hi, all
+On Tue, Aug 13, 2013 at 03:57:28PM +0800, Ding Tianhong wrote:
+> According to Joe Perches opinions, the ADBG() was tedious and it is
+> better to remove the KERN_<LEVEL>s and use the pr_xxx() instead of ADBG().
+> 
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> Cc: Joe Perches <joe@perches.com>
+> ---
+>  net/ipv6/addrconf.c | 29 +++++++++--------------------
+>  1 file changed, 9 insertions(+), 20 deletions(-)
+> 
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 72911fd..2333fa7 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -95,15 +95,6 @@
+>  #include <linux/seq_file.h>
+>  #include <linux/export.h>
+>  
+> -/* Set to 3 to get tracing... */
+> -#define ACONF_DEBUG 2
+> -
+> -#if ACONF_DEBUG >= 3
+> -#define ADBG(x) printk x
 
+Please either change this to pr_warning, pr_err.
 
-http://tools.ietf.org/html/rfc2001
+> -#else
+> -#define ADBG(x)
+> -#endif
+> -
+>  #define	INFINITY_LIFE_TIME	0xFFFFFFFF
+>  
+>  static inline u32 cstamp_delta(unsigned long cstamp)
+> @@ -369,9 +360,8 @@ static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
+>  	dev_hold(dev);
+>  
+>  	if (snmp6_alloc_dev(ndev) < 0) {
+> -		ADBG((KERN_WARNING
+> -			"%s: cannot allocate memory for statistics; dev=%s.\n",
+> -			__func__, dev->name));
+> +		pr_warning("%s: cannot allocate memory for statistics; dev=%s.\n",
+> +			__func__, dev->name);
 
+Or these to pr_debug/pr_dbg (for use with dynamic_debug).
 
-    1.  When the third duplicate ACK in a row is received, set ssthresh
-        to one-half the current congestion window, cwnd, but no less
-        than two segments.  Retransmit the missing segment.  Set cwnd =
-        ssthresh + 3 times the segment size.  This inflates the
--- what is the meaning of '3'
+I don't think it gives an advantage to emit debug messages which were designed
+solely for debugging purposes before.
 
-        congestion window by the number of segments that have left the
-        network and which the other end has cached (3).
+I would actually favour the dynamic_debug method.
 
-    2.  Each time another duplicate ACK arrives, increment cwnd by the
-        segment size.  This inflates the congestion window for the
-        additional segment that has left the network.
--- why do this
+Greetings,
 
-        Transmit a packet, if allowed by the new value of cwnd.
-
-    3.  When the next ACK arrives that acknowledges new data, set cwnd
-        to ssthresh (the value set in step 1).  This ACK should be the
-        acknowledgment of the retransmission from step 1, one round-trip
-        time after the retransmission.  Additionally, this ACK should
-        acknowledge all the intermediate segments sent between the lost
-        packet and the receipt of the first duplicate ACK.  This step is
-        congestion avoidance, since TCP is down to one-half the rate it
-        was at when the packet was lost.
+  Hannes
