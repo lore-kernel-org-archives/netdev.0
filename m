@@ -1,75 +1,46 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: Re: ipsec smp scalability and cpu use fairness (softirqs)
-Date: Tue, 13 Aug 2013 10:57:57 +0300
-Message-ID: <20130813105757.39fb0ab8@vostro>
-References: <20130812160142.71737a95@vostro>
-	<CAKTPYJTVhvF=215eS0xriEdUyyCLaC+zzja4zPrG668ALzERyw@mail.gmail.com>
-	<20130813092312.2493354e@vostro>
-	<20130813074614.GM25511@secunet.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Collins <bsderandrew@gmail.com>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+From: Teco Boot <teco@inf-net.nl>
+Subject: Re: [PATCH net] ipv6: don't stop backtracking in fib6_lookup_1 if subtree does not match
+Date: Tue, 13 Aug 2013 10:02:08 +0200
+Message-ID: <190D21D2-F86E-46D2-93E8-3050F57FE622@inf-net.nl>
+References: <20130807003431.GD16410@order.stressinduktion.org> <EF96A1CB-549E-474A-AF58-10F2D2F2BF4A@inf-net.nl> <20130807200637.GD32257@order.stressinduktion.org> <26D8997F-7CDF-425A-B0DC-4D57996871E5@inf-net.nl> <20130809141939.GL14001@order.stressinduktion.org> <CF3AE072-7B80-4C35-9236-4523EE11629F@inf-net.nl> <20130809145743.GM14001@order.stressinduktion.org> <2A0809D4-EBF1-4646-9564-2B7F54956B41@inf-net.nl> <20130810120348.GP14001@order.stressinduktion.org>
+Mime-Version: 1.0 (Mac OS X Mail 6.5 \(1508\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f47.google.com ([74.125.83.47]:47452 "EHLO
-	mail-ee0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750929Ab3HMH6B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 03:58:01 -0400
-Received: by mail-ee0-f47.google.com with SMTP id d49so3950735eek.20
-        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 00:57:59 -0700 (PDT)
-In-Reply-To: <20130813074614.GM25511@secunet.com>
+Received: from mail-wg0-f41.google.com ([74.125.82.41]:55576 "EHLO
+	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750929Ab3HMICM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 04:02:12 -0400
+Received: by mail-wg0-f41.google.com with SMTP id l18so2359180wgh.2
+        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 01:02:10 -0700 (PDT)
+In-Reply-To: <20130810120348.GP14001@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 13 Aug 2013 09:46:14 +0200
-Steffen Klassert <steffen.klassert@secunet.com> wrote:
+Was it to later to include in 3.11-rc5?
+For me, this fix is important. I would like to so this patch in [all|recent] stable kernels quite soon. It is  an important element in my work for v6 multi-homed networks (IETF Homenet WG).
+Thanks, Teco
 
-> On Tue, Aug 13, 2013 at 09:23:12AM +0300, Timo Teras wrote:
-> > 
-> > For my scenario it will be usually even same SPI. So even if flow
-> > dissector learns ESP and uses SPI in hash, I'd need a way to balance
-> > traffic to multiple SAs.
-> > 
-> > I guess the place where I'd want to see the distribution to cores is
-> > crypto_aead_*() calls. In fact, it seems there's code infracture
-> > already for it: crypto/cryptd.c. Seems it needs to be manually
-> > configured and only few places e.g. aesni gcm parts use it.
-> > 
-> > I'm wondering if it'd make sense to patch net/xfrm/xfrm_algo.c to
-> > use cryptd? Or at least have a Kconfig or sysctl option make it do
-> > so.
+Op 10 aug. 2013, om 14:03 heeft Hannes Frederic Sowa <hannes@stressinduktion.org> het volgende geschreven:
+
+> On Sat, Aug 10, 2013 at 01:39:12PM +0200, Teco Boot wrote:
+>> OK, I went back to kernel where I had the ipv6 sadr lookup in cache problem.
+>> There I patched the ip6_fib.c.
+>> Patch works !!
+>> 
+>> The hang problem in 3.8.0-28 has lower priority for me. Maybe I'll check current -net-next later. Don't hold your breath.
+>> 
+>> Now this patch should go mainline and older kernels, I think.
+>> What is the next step?
 > 
-> It is possible to configure the used crypto algorithm from userspace
-> with the crypto user configuration API, see crypto/crypto_user.c.
+> That already happend. Patch is queued up for inclusion in 3.11 and is sitting
+> in the stable queue:
+> <http://patchwork.ozlabs.org/bundle/davem/stable/?state=*>
 > 
-> I wrote to tool that usses this API some time ago, it is still
-> a bit rudimentary but it does the job. You can find it at:
-> https://sourceforge.net/projects/crconf/
-
-Exactly what I was looking for! Thanks!
-
-> Also, if you want parallelism, you could use the pcrypt algorithm.
-> It sends the crypto requests asynchronously round robin to a
-> configurable set of cpus. Finaly it takes care to bring the
-> served crypto requests back into the order they were submitted
-> to avoid packet reordering.
-
-Right. Looks like this helps a lot.
-
-Perhaps it would be worth to experiment also with RPS type hash based
-cpu selection?
-
-> Currently we have only one systemwide workqueue for encryption
-> and one decryption. So all IPsec packets are send to the same
-> workqueue, regardless which state they use.
+> Thanks for testing,
 > 
-> I have patches that make it possible to configure a separate
-> workqueue for each state or to group some states to a specific
-> workqueue. These patches are still unpublished because they
-> have not much testing yet, but I could send them after some
-> polishing for review or testing if you are interested.
-
-Yes, I'd be interested.
-
-Thanks!
+>  Hannes
+> 
