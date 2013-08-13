@@ -1,132 +1,155 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: [patch net] ipv6: do not create neighbor entries for local delivery
-Date: Tue, 13 Aug 2013 09:48:44 -0300
-Message-ID: <520A2B2C.8010009@redhat.com>
-References: <20130130082608.GA1604@minipsycho.orion> <CAATkVEzJgb+J-TAkTZCUbxLPj=b=wbOmsKbgNNimEfNaC8d0Aw@mail.gmail.com> <20130808194702.GH14001@order.stressinduktion.org> <20130808201627.GI14001@order.stressinduktion.org> <520924CF.6000805@redhat.com> <20130812222642.GA27385@order.stressinduktion.org>
-Reply-To: mleitner@redhat.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Debabrata Banerjee <dbavatar@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"Banerjee, Debabrata" <dbanerje@akamai.com>,
-	Joshua Hunt <johunt@akamai.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH 2/2] netfilter: export xt_HMARK.h to userland
+Date: Tue, 13 Aug 2013 15:05:39 +0200
+Message-ID: <1376399139-4181-2-git-send-email-nicolas.dichtel@6wind.com>
+References: <1376399139-4181-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: pablo@netfilter.org, netdev@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26475 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757776Ab3HMMtc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Aug 2013 08:49:32 -0400
-In-Reply-To: <20130812222642.GA27385@order.stressinduktion.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:35730 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756929Ab3HMNGY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 09:06:24 -0400
+In-Reply-To: <1376399139-4181-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em 12-08-2013 19:26, Hannes Frederic Sowa escreveu:
-> Hi Marcelo!
->
-> On Mon, Aug 12, 2013 at 03:09:19PM -0300, Marcelo Ricardo Leitner wrote:
->> Hannes, would something like this be acceptable? I'm hoping it's not too
->> ugly/hacky... as far as I could track back, input and output routines were
->> merged mainly due code similarity.
->
-> Your idea seems sound and I don't think it is very ugly or hacky. It's
-> as minimal as a stable-only patch should be. But we could simplify the
-> logic a bit. ;) See below.
->
->> TPROXY scenario needs to not create this neighbor entries on INPUT path,
->> while Debabrata ping test needs it on OUTPUT path. This patch limits my
->> previous patch to INPUT only then.
->
-> Yes, agreed. I don't see anything which could break because of this patch.
-> So I would go with it.
->
->> Initial testing here seems good, TPROXY seems to be working as expected and
->> also the ping6 test.
->>
->> What do you think?
+This file contains the API for the target "HMARK", hence it should be exported
+to userland.
 
-Aye Hannes, thanks! I'll rework the patch based on your points, do some more 
-testings in here and post it probably only by tomorrow.
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ include/linux/netfilter/xt_HMARK.h      | 50 ---------------------------------
+ include/uapi/linux/netfilter/Kbuild     |  1 +
+ include/uapi/linux/netfilter/xt_HMARK.h | 50 +++++++++++++++++++++++++++++++++
+ 3 files changed, 51 insertions(+), 50 deletions(-)
+ delete mode 100644 include/linux/netfilter/xt_HMARK.h
+ create mode 100644 include/uapi/linux/netfilter/xt_HMARK.h
 
-Thanks!
-Marcelo
-
->> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
->> index 18ea73c..603f9d9 100644
->> --- a/net/ipv6/route.c
->> +++ b/net/ipv6/route.c
->> @@ -791,7 +791,7 @@ static struct rt6_info *rt6_alloc_clone(struct rt6_info *ort,
->>   }
->>
->>   static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table, int oif,
->> -				      struct flowi6 *fl6, int flags)
->> +				      struct flowi6 *fl6, int flags, int output)
->
-> 								     bool input
->
->>   {
->>   	struct fib6_node *fn;
->>   	struct rt6_info *rt, *nrt;
->> @@ -799,8 +799,11 @@ static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
->>   	int attempts = 3;
->>   	int err;
->>   	int reachable = net->ipv6.devconf_all->forwarding ? 0 : RT6_LOOKUP_F_REACHABLE;
->> +	int local = RTF_NONEXTHOP;
->>
->>   	strict |= flags & RT6_LOOKUP_F_IFACE;
->> +	if (!output)
->> +			local |= RTF_LOCAL;
->
->
-> 	if (input)
-> 			local |= RTF_LOCAL;
->
->>
->>   relookup:
->>   	read_lock_bh(&table->tb6_lock);
->> @@ -820,7 +823,7 @@ restart:
->>   	read_unlock_bh(&table->tb6_lock);
->>
->>   	if (!dst_get_neighbour_raw(&rt->dst)
->> -	    && !(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_LOCAL)))
->> +	    && !(rt->rt6i_flags & local))
->>   		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
->>   	else if (!(rt->dst.flags & DST_HOST))
->>   		nrt = rt6_alloc_clone(rt, &fl6->daddr);
->> @@ -864,7 +867,7 @@ out2:
->>   static struct rt6_info *ip6_pol_route_input(struct net *net, struct fib6_table *table,
->>   					    struct flowi6 *fl6, int flags)
->>   {
->> -	return ip6_pol_route(net, table, fl6->flowi6_iif, fl6, flags);
->> +	return ip6_pol_route(net, table, fl6->flowi6_iif, fl6, flags, 0);
->
-> 								      true);
->
->
->>   }
->>
->>   void ip6_route_input(struct sk_buff *skb)
->> @@ -890,7 +893,7 @@ void ip6_route_input(struct sk_buff *skb)
->>   static struct rt6_info *ip6_pol_route_output(struct net *net, struct fib6_table *table,
->>   					     struct flowi6 *fl6, int flags)
->>   {
->> -	return ip6_pol_route(net, table, fl6->flowi6_oif, fl6, flags);
->> +	return ip6_pol_route(net, table, fl6->flowi6_oif, fl6, flags, 1);
->
-> 								      false);
->
->>   }
->>
->>   struct dst_entry * ip6_route_output(struct net *net, const struct sock *sk,
->
-> Thanks,
->
->    Hannes
->
->
+diff --git a/include/linux/netfilter/xt_HMARK.h b/include/linux/netfilter/xt_HMARK.h
+deleted file mode 100644
+index 826fc5807577..000000000000
+--- a/include/linux/netfilter/xt_HMARK.h
++++ /dev/null
+@@ -1,50 +0,0 @@
+-#ifndef XT_HMARK_H_
+-#define XT_HMARK_H_
+-
+-#include <linux/types.h>
+-
+-enum {
+-	XT_HMARK_SADDR_MASK,
+-	XT_HMARK_DADDR_MASK,
+-	XT_HMARK_SPI,
+-	XT_HMARK_SPI_MASK,
+-	XT_HMARK_SPORT,
+-	XT_HMARK_DPORT,
+-	XT_HMARK_SPORT_MASK,
+-	XT_HMARK_DPORT_MASK,
+-	XT_HMARK_PROTO_MASK,
+-	XT_HMARK_RND,
+-	XT_HMARK_MODULUS,
+-	XT_HMARK_OFFSET,
+-	XT_HMARK_CT,
+-	XT_HMARK_METHOD_L3,
+-	XT_HMARK_METHOD_L3_4,
+-};
+-#define XT_HMARK_FLAG(flag)	(1 << flag)
+-
+-union hmark_ports {
+-	struct {
+-		__u16	src;
+-		__u16	dst;
+-	} p16;
+-	struct {
+-		__be16	src;
+-		__be16	dst;
+-	} b16;
+-	__u32	v32;
+-	__be32	b32;
+-};
+-
+-struct xt_hmark_info {
+-	union nf_inet_addr	src_mask;
+-	union nf_inet_addr	dst_mask;
+-	union hmark_ports	port_mask;
+-	union hmark_ports	port_set;
+-	__u32			flags;
+-	__u16			proto_mask;
+-	__u32			hashrnd;
+-	__u32			hmodulus;
+-	__u32			hoffset;	/* Mark offset to start from */
+-};
+-
+-#endif /* XT_HMARK_H_ */
+diff --git a/include/uapi/linux/netfilter/Kbuild b/include/uapi/linux/netfilter/Kbuild
+index dc00927ffd62..174915420d3f 100644
+--- a/include/uapi/linux/netfilter/Kbuild
++++ b/include/uapi/linux/netfilter/Kbuild
+@@ -22,6 +22,7 @@ header-y += xt_CONNMARK.h
+ header-y += xt_CONNSECMARK.h
+ header-y += xt_CT.h
+ header-y += xt_DSCP.h
++header-y += xt_HMARK.h
+ header-y += xt_IDLETIMER.h
+ header-y += xt_LED.h
+ header-y += xt_LOG.h
+diff --git a/include/uapi/linux/netfilter/xt_HMARK.h b/include/uapi/linux/netfilter/xt_HMARK.h
+new file mode 100644
+index 000000000000..826fc5807577
+--- /dev/null
++++ b/include/uapi/linux/netfilter/xt_HMARK.h
+@@ -0,0 +1,50 @@
++#ifndef XT_HMARK_H_
++#define XT_HMARK_H_
++
++#include <linux/types.h>
++
++enum {
++	XT_HMARK_SADDR_MASK,
++	XT_HMARK_DADDR_MASK,
++	XT_HMARK_SPI,
++	XT_HMARK_SPI_MASK,
++	XT_HMARK_SPORT,
++	XT_HMARK_DPORT,
++	XT_HMARK_SPORT_MASK,
++	XT_HMARK_DPORT_MASK,
++	XT_HMARK_PROTO_MASK,
++	XT_HMARK_RND,
++	XT_HMARK_MODULUS,
++	XT_HMARK_OFFSET,
++	XT_HMARK_CT,
++	XT_HMARK_METHOD_L3,
++	XT_HMARK_METHOD_L3_4,
++};
++#define XT_HMARK_FLAG(flag)	(1 << flag)
++
++union hmark_ports {
++	struct {
++		__u16	src;
++		__u16	dst;
++	} p16;
++	struct {
++		__be16	src;
++		__be16	dst;
++	} b16;
++	__u32	v32;
++	__be32	b32;
++};
++
++struct xt_hmark_info {
++	union nf_inet_addr	src_mask;
++	union nf_inet_addr	dst_mask;
++	union hmark_ports	port_mask;
++	union hmark_ports	port_set;
++	__u32			flags;
++	__u16			proto_mask;
++	__u32			hashrnd;
++	__u32			hmodulus;
++	__u32			hoffset;	/* Mark offset to start from */
++};
++
++#endif /* XT_HMARK_H_ */
+-- 
+1.8.2.1
