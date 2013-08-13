@@ -1,30 +1,31 @@
-From: Amador Pahim <amador@pahim.org>
-Subject: Find vlanid with non-root user
-Date: Tue, 13 Aug 2013 17:46:45 -0300
-Message-ID: <CAEFY+qzCQqEpLjjM1iBjtHmDh70ktpx+GCHgTuCceu1A53-1Tw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] net: asix: Staticise non-exported symbols
+Date: Tue, 13 Aug 2013 14:14:19 -0700 (PDT)
+Message-ID: <20130813.141419.1602310190735729196.davem@davemloft.net>
+References: <1376069482-16951-1-git-send-email-broonie@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linaro-kernel@lists.linaro.org, broonie@linaro.org
+To: broonie@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:43265 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759160Ab3HMUrI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 16:47:08 -0400
-Received: by mail-lb0-f169.google.com with SMTP id u10so6242119lbi.14
-        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 13:47:05 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:44208 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932141Ab3HMVOX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 17:14:23 -0400
+In-Reply-To: <1376069482-16951-1-git-send-email-broonie@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Mark Brown <broonie@kernel.org>
+Date: Fri,  9 Aug 2013 18:31:21 +0100
 
-Is there a way to get vlanid from a vlan interface as a regular user?
-Default permissions to /proc/net/vlan/ is 600.
--rw-------. 1 root root 0 Aug 13 17:23 /proc/net/vlan/eth1.10-fcoe
+> From: Mark Brown <broonie@linaro.org>
+> 
+> Make functions that are only referenced from ops structures static, they
+> do not need to be in the global namespace and sparse complains about this.
+> 
+> Signed-off-by: Mark Brown <broonie@linaro.org>
 
-Not sure if deducting vlanid from vlan name is a reasonable way to do so.
-
-Thank you in advance,.
-
-Best Regards,
--- 
-Pahim
+Applied.
