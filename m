@@ -1,266 +1,138 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v2] xfrm: make local error reporting more robust
-Date: Tue, 13 Aug 2013 03:56:44 +0200
-Message-ID: <20130813015644.GC27385@order.stressinduktion.org>
-References: <20130730082118.GA25511@secunet.com> <20130730083017.GA7068@order.stressinduktion.org> <20130730102611.GB25511@secunet.com> <20130801081150.GF3688@order.stressinduktion.org> <20130801100522.GC25511@secunet.com> <20130808224440.GJ14001@order.stressinduktion.org> <1376002677.4004.139.camel@edumazet-glaptop> <20130808230620.GK14001@order.stressinduktion.org> <20130810161629.GR14001@order.stressinduktion.org> <20130812055414.GK25511@secunet.com>
+Subject: [PATCH net] xfrm: introduce helper for safe determination of mtu
+Date: Tue, 13 Aug 2013 04:35:58 +0200
+Message-ID: <20130813023558.GD27385@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	vi0oss@gmail.com
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: steffen.klassert@secunet.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:47651 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:47688 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756550Ab3HMB4p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 21:56:45 -0400
+	with ESMTP id S1756764Ab3HMCgA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 22:36:00 -0400
 Content-Disposition: inline
-In-Reply-To: <20130812055414.GK25511@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 12, 2013 at 07:54:14AM +0200, Steffen Klassert wrote:
-> On Sat, Aug 10, 2013 at 06:16:29PM +0200, Hannes Frederic Sowa wrote:
-> > 
-> > Seems skb->encapsulated helps, but I still have to wire it up for the ipv6
-> > tunnels.
-> > 
-> > I just prototyped this patch, but I fear I now introduced a dependency
-> > from core xfrm to ipv6, which I would like to have prevented (this would
-> > even happen if I put xfrm_local_error in a header file). Is this actually
-> > a problem? I fear so. The other way would be to put the local_error
-> > handler as function pointers somewhere reachable from struct sock.
-> > 
-> 
-> Maybe we should put a local_error() function pointer to struct
-> xfrm_state_afinfo and call it via inner_mode->afinfo->local_error().
-> 
-> This should always call the right local_error function and we
-> would not need to touch generic networking code to fix it.
+skb->sk socket can be of AF_INET or AF_INET6 address family. Thus we
+always have to make sure we a referring to the correct interpretation
+of skb->sk.
 
-Sorry, had to do a v2, because I missed two more unsafe skb->sk dereferences.
-I will post a further one (unsafe determination of mtu) as a seperate patch
-(needs its own commit message).
+We only depend on header defines to query the mtu, so we don't introduce
+a new dependency to ipv6 by this change.
 
-[PATCH net-next v2] xfrm: make local error reporting more robust
-
-In xfrm4 and xfrm6 we need to take care about sockets of the other
-address family. This could happen because a 6in4 or 4in6 tunnel could
-get protected by ipsec.
-
-Because we don't want to have a run-time dependency on ipv6 when only
-using ipv4 xfrm we have to embed a pointer to the correct local_error
-function in xfrm_state_afinet and look it up when returning an error
-depending on the socket address family.
-
-Thanks to vi0ss for the great bug report:
-<https://bugzilla.kernel.org/show_bug.cgi?id=58691>
-
-v2:
-a) fix two more unsafe interpretations of skb->sk as ipv6 socket
-   (xfrm6_local_dontfrag and __xfrm6_output)
-
-Reported-by: <vi0oss@gmail.com>
 Cc: Steffen Klassert <steffen.klassert@secunet.com>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/net/xfrm.h      |  6 ++++++
- net/ipv4/xfrm4_output.c | 12 ++++++++++--
- net/ipv4/xfrm4_state.c  |  1 +
- net/ipv6/xfrm6_output.c | 10 ++++++----
- net/ipv6/xfrm6_state.c  |  1 +
- net/xfrm/xfrm_output.c  | 12 ++++++++++++
- net/xfrm/xfrm_state.c   |  7 ++-----
- 7 files changed, 38 insertions(+), 11 deletions(-)
+ include/net/route.h     |  8 ++++++++
+ include/net/xfrm.h      | 12 ++++++++++++
+ net/ipv4/ip_output.c    |  8 --------
+ net/ipv4/xfrm4_output.c |  4 +---
+ net/ipv6/xfrm6_output.c |  5 ++++-
+ 5 files changed, 25 insertions(+), 12 deletions(-)
 
+diff --git a/include/net/route.h b/include/net/route.h
+index 2ea40c1..afdeeb5 100644
+--- a/include/net/route.h
++++ b/include/net/route.h
+@@ -317,4 +317,12 @@ static inline int ip4_dst_hoplimit(const struct dst_entry *dst)
+ 	return hoplimit;
+ }
+ 
++static inline int ip_skb_dst_mtu(struct sk_buff *skb)
++{
++	struct inet_sock *inet = skb->sk ? inet_sk(skb->sk) : NULL;
++
++	return (inet && inet->pmtudisc == IP_PMTUDISC_PROBE) ?
++	       skb_dst(skb)->dev->mtu : dst_mtu(skb_dst(skb));
++}
++
+ #endif	/* _ROUTE_H */
 diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 94ce082..e823786 100644
+index e823786..b41d2d1 100644
 --- a/include/net/xfrm.h
 +++ b/include/net/xfrm.h
-@@ -341,10 +341,13 @@ struct xfrm_state_afinfo {
- 						  struct sk_buff *skb);
- 	int			(*transport_finish)(struct sk_buff *skb,
- 						    int async);
-+	void			(*local_error)(struct sk_buff *skb, u32 mtu);
- };
+@@ -20,6 +20,7 @@
+ #include <net/route.h>
+ #include <net/ipv6.h>
+ #include <net/ip6_fib.h>
++#include <net/ip6_route.h>
+ #include <net/flow.h>
  
- extern int xfrm_state_register_afinfo(struct xfrm_state_afinfo *afinfo);
- extern int xfrm_state_unregister_afinfo(struct xfrm_state_afinfo *afinfo);
-+extern struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned int family);
-+extern void xfrm_state_put_afinfo(struct xfrm_state_afinfo *afinfo);
+ #include <linux/interrupt.h>
+@@ -1723,4 +1724,15 @@ static inline int xfrm_mark_put(struct sk_buff *skb, const struct xfrm_mark *m)
+ 	return ret;
+ }
  
- extern void xfrm_state_delete_tunnel(struct xfrm_state *x);
++static inline int xfrm_skb_dst_mtu(struct sk_buff *skb)
++{
++	struct sock *sk = skb->sk;
++
++	if (sk && sk->sk_family == AF_INET6)
++		return ip6_skb_dst_mtu(skb);
++	else if (sk && sk->sk_family == AF_INET)
++		return ip_skb_dst_mtu(skb);
++	return dst_mtu(skb_dst(skb));
++}
++
+ #endif	/* _NET_XFRM_H */
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 4bcabf3..9ee17e3 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -211,14 +211,6 @@ static inline int ip_finish_output2(struct sk_buff *skb)
+ 	return -EINVAL;
+ }
  
-@@ -1477,6 +1480,7 @@ extern int xfrm_input_resume(struct sk_buff *skb, int nexthdr);
- extern int xfrm_output_resume(struct sk_buff *skb, int err);
- extern int xfrm_output(struct sk_buff *skb);
- extern int xfrm_inner_extract_output(struct xfrm_state *x, struct sk_buff *skb);
-+extern void xfrm_local_error(struct sk_buff *skb, int mtu);
- extern int xfrm4_extract_header(struct sk_buff *skb);
- extern int xfrm4_extract_input(struct xfrm_state *x, struct sk_buff *skb);
- extern int xfrm4_rcv_encap(struct sk_buff *skb, int nexthdr, __be32 spi,
-@@ -1497,6 +1501,7 @@ extern int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short fam
- extern int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family);
- extern int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel *handler);
- extern int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel *handler);
-+extern void xfrm4_local_error(struct sk_buff *skb, u32 mtu);
- extern int xfrm6_extract_header(struct sk_buff *skb);
- extern int xfrm6_extract_input(struct xfrm_state *x, struct sk_buff *skb);
- extern int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi);
-@@ -1514,6 +1519,7 @@ extern int xfrm6_output(struct sk_buff *skb);
- extern int xfrm6_output_finish(struct sk_buff *skb);
- extern int xfrm6_find_1stfragopt(struct xfrm_state *x, struct sk_buff *skb,
- 				 u8 **prevhdr);
-+extern void xfrm6_local_error(struct sk_buff *skb, u32 mtu);
- 
- #ifdef CONFIG_XFRM
- extern int xfrm4_udp_encap_rcv(struct sock *sk, struct sk_buff *skb);
+-static inline int ip_skb_dst_mtu(struct sk_buff *skb)
+-{
+-	struct inet_sock *inet = skb->sk ? inet_sk(skb->sk) : NULL;
+-
+-	return (inet && inet->pmtudisc == IP_PMTUDISC_PROBE) ?
+-	       skb_dst(skb)->dev->mtu : dst_mtu(skb_dst(skb));
+-}
+-
+ static int ip_finish_output(struct sk_buff *skb)
+ {
+ #if defined(CONFIG_NETFILTER) && defined(CONFIG_XFRM)
 diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
-index 327a617..7a5491f 100644
+index 7a5491f..80baf4a 100644
 --- a/net/ipv4/xfrm4_output.c
 +++ b/net/ipv4/xfrm4_output.c
-@@ -33,8 +33,7 @@ static int xfrm4_tunnel_check_size(struct sk_buff *skb)
- 	mtu = dst_mtu(dst);
+@@ -21,7 +21,6 @@
+ static int xfrm4_tunnel_check_size(struct sk_buff *skb)
+ {
+ 	int mtu, ret = 0;
+-	struct dst_entry *dst;
+ 
+ 	if (IPCB(skb)->flags & IPSKB_XFRM_TUNNEL_SIZE)
+ 		goto out;
+@@ -29,8 +28,7 @@ static int xfrm4_tunnel_check_size(struct sk_buff *skb)
+ 	if (!(ip_hdr(skb)->frag_off & htons(IP_DF)) || skb->local_df)
+ 		goto out;
+ 
+-	dst = skb_dst(skb);
+-	mtu = dst_mtu(dst);
++	mtu = xfrm_skb_dst_mtu(skb);
  	if (skb->len > mtu) {
  		if (skb->sk)
--			ip_local_error(skb->sk, EMSGSIZE, ip_hdr(skb)->daddr,
--				       inet_sk(skb->sk)->inet_dport, mtu);
-+			xfrm_local_error(skb, mtu);
- 		else
- 			icmp_send(skb, ICMP_DEST_UNREACH,
- 				  ICMP_FRAG_NEEDED, htonl(mtu));
-@@ -99,3 +98,12 @@ int xfrm4_output(struct sk_buff *skb)
- 			    x->outer_mode->afinfo->output_finish,
- 			    !(IPCB(skb)->flags & IPSKB_REROUTED));
- }
-+
-+void xfrm4_local_error(struct sk_buff *skb, u32 mtu)
-+{
-+	struct iphdr *hdr;
-+
-+	hdr = skb->encapsulation ? inner_ip_hdr(skb) : ip_hdr(skb);
-+	ip_local_error(skb->sk, EMSGSIZE, hdr->daddr,
-+		       inet_sk(skb->sk)->inet_dport, mtu);
-+}
-diff --git a/net/ipv4/xfrm4_state.c b/net/ipv4/xfrm4_state.c
-index 9258e75..0b2a064 100644
---- a/net/ipv4/xfrm4_state.c
-+++ b/net/ipv4/xfrm4_state.c
-@@ -83,6 +83,7 @@ static struct xfrm_state_afinfo xfrm4_state_afinfo = {
- 	.extract_input		= xfrm4_extract_input,
- 	.extract_output		= xfrm4_extract_output,
- 	.transport_finish	= xfrm4_transport_finish,
-+	.local_error		= xfrm4_local_error,
- };
- 
- void __init xfrm4_state_init(void)
+ 			xfrm_local_error(skb, mtu);
 diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
-index 8755a30..b64fff3 100644
+index b64fff3..3ac5ab2 100644
 --- a/net/ipv6/xfrm6_output.c
 +++ b/net/ipv6/xfrm6_output.c
-@@ -34,8 +34,10 @@ static int xfrm6_local_dontfrag(struct sk_buff *skb)
- 	struct sock *sk = skb->sk;
- 
- 	if (sk) {
--		proto = sk->sk_protocol;
-+		if (sk->sk_family != AF_INET6)
-+			return 0;
- 
-+		proto = sk->sk_protocol;
- 		if (proto == IPPROTO_UDP || proto == IPPROTO_RAW)
- 			return inet6_sk(sk)->dontfrag;
- 	}
-@@ -54,7 +56,7 @@ static void xfrm6_local_rxpmtu(struct sk_buff *skb, u32 mtu)
- 	ipv6_local_rxpmtu(sk, &fl6, mtu);
- }
- 
--static void xfrm6_local_error(struct sk_buff *skb, u32 mtu)
-+void xfrm6_local_error(struct sk_buff *skb, u32 mtu)
+@@ -138,7 +138,10 @@ static int __xfrm6_output(struct sk_buff *skb)
  {
- 	struct flowi6 fl6;
- 	struct sock *sk = skb->sk;
-@@ -80,7 +82,7 @@ static int xfrm6_tunnel_check_size(struct sk_buff *skb)
- 		if (xfrm6_local_dontfrag(skb))
- 			xfrm6_local_rxpmtu(skb, mtu);
- 		else if (skb->sk)
--			xfrm6_local_error(skb, mtu);
-+			xfrm_local_error(skb, mtu);
- 		else
- 			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
- 		ret = -EMSGSIZE;
-@@ -142,7 +144,7 @@ static int __xfrm6_output(struct sk_buff *skb)
+ 	struct dst_entry *dst = skb_dst(skb);
+ 	struct xfrm_state *x = dst->xfrm;
+-	int mtu = ip6_skb_dst_mtu(skb);
++	int mtu = xfrm_skb_dst_mtu(skb);
++
++	if (mtu < IPV6_MIN_MTU)
++		mtu = IPV6_MIN_MTU;
+ 
+ 	if (skb->len > mtu && xfrm6_local_dontfrag(skb)) {
  		xfrm6_local_rxpmtu(skb, mtu);
- 		return -EMSGSIZE;
- 	} else if (!skb->local_df && skb->len > mtu && skb->sk) {
--		xfrm6_local_error(skb, mtu);
-+		xfrm_local_error(skb, mtu);
- 		return -EMSGSIZE;
- 	}
- 
-diff --git a/net/ipv6/xfrm6_state.c b/net/ipv6/xfrm6_state.c
-index d8c70b8..3fc9701 100644
---- a/net/ipv6/xfrm6_state.c
-+++ b/net/ipv6/xfrm6_state.c
-@@ -183,6 +183,7 @@ static struct xfrm_state_afinfo xfrm6_state_afinfo = {
- 	.extract_input		= xfrm6_extract_input,
- 	.extract_output		= xfrm6_extract_output,
- 	.transport_finish	= xfrm6_transport_finish,
-+	.local_error		= xfrm6_local_error,
- };
- 
- int __init xfrm6_state_init(void)
-diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-index eb4a842..c445a2f 100644
---- a/net/xfrm/xfrm_output.c
-+++ b/net/xfrm/xfrm_output.c
-@@ -214,5 +214,17 @@ int xfrm_inner_extract_output(struct xfrm_state *x, struct sk_buff *skb)
- 	return inner_mode->afinfo->extract_output(x, skb);
- }
- 
-+void xfrm_local_error(struct sk_buff *skb, int mtu)
-+{
-+	struct xfrm_state_afinfo *afinfo;
-+
-+	afinfo = xfrm_state_get_afinfo(skb->sk->sk_family);
-+	if (!afinfo)
-+		return;
-+
-+	afinfo->local_error(skb, mtu);
-+	xfrm_state_put_afinfo(afinfo);
-+}
-+
- EXPORT_SYMBOL_GPL(xfrm_output);
- EXPORT_SYMBOL_GPL(xfrm_inner_extract_output);
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 78f66fa..54c0acd 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -39,9 +39,6 @@ static DEFINE_SPINLOCK(xfrm_state_lock);
- 
- static unsigned int xfrm_state_hashmax __read_mostly = 1 * 1024 * 1024;
- 
--static struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned int family);
--static void xfrm_state_put_afinfo(struct xfrm_state_afinfo *afinfo);
--
- static inline unsigned int xfrm_dst_hash(struct net *net,
- 					 const xfrm_address_t *daddr,
- 					 const xfrm_address_t *saddr,
-@@ -1860,7 +1857,7 @@ int xfrm_state_unregister_afinfo(struct xfrm_state_afinfo *afinfo)
- }
- EXPORT_SYMBOL(xfrm_state_unregister_afinfo);
- 
--static struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned int family)
-+struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned int family)
- {
- 	struct xfrm_state_afinfo *afinfo;
- 	if (unlikely(family >= NPROTO))
-@@ -1872,7 +1869,7 @@ static struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned int family)
- 	return afinfo;
- }
- 
--static void xfrm_state_put_afinfo(struct xfrm_state_afinfo *afinfo)
-+void xfrm_state_put_afinfo(struct xfrm_state_afinfo *afinfo)
- {
- 	rcu_read_unlock();
- }
 -- 
 1.8.3.1
