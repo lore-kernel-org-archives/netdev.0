@@ -1,104 +1,103 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 2/7] uio: Allow to create custom UIO attributes
-Date: Tue, 13 Aug 2013 10:54:36 -0700
-Message-ID: <20130813175436.GF4098@kroah.com>
-References: <1376384922-8519-1-git-send-email-b.spranger@linutronix.de>
- <1376384922-8519-4-git-send-email-b.spranger@linutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Alexander Frank <Alexander.Frank@eberspaecher.com>,
-	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
-	"Hans J. Koch" <hjk@hansjkoch.de>,
-	Holger Dengler <dengler@linutronix.de>
-To: Benedikt Spranger <b.spranger@linutronix.de>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH] macvtap: Correctly set tap features when IFF_VNET_HDR is disabled.
+Date: Tue, 13 Aug 2013 13:55:58 -0400
+Message-ID: <1376416558-25015-1-git-send-email-vyasevic@redhat.com>
+Cc: mst@redhat.com, Vlad Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:38808 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757355Ab3HMRyh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 13:54:37 -0400
-Content-Disposition: inline
-In-Reply-To: <1376384922-8519-4-git-send-email-b.spranger@linutronix.de>
+Received: from mx1.redhat.com ([209.132.183.28]:13995 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756935Ab3HMR4G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Aug 2013 13:56:06 -0400
+Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r7DHu4et023474
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 13:56:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 13, 2013 at 11:08:37AM +0200, Benedikt Spranger wrote:
-> This patch the struct uio_attribute which represents a custom UIO
-> attribute. The non-standard attributes are stored in a "attr" directory.
-> This will be used by the flexcard driver which creates a UIO device that
-> is using the "uio_pdrv" and requires one additional value to be read /
-> written by the user.
-> 
-> Cc: "Hans J. Koch" <hjk@hansjkoch.de>
-> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> Signed-off-by: Benedikt Spranger <b.spranger@linutronix.de>
-> Signed-off-by: Holger Dengler <dengler@linutronix.de>
-> ---
->  drivers/uio/uio.c          | 106 ++++++++++++++++++++++++++++++++++++++++++++-
->  include/linux/uio_driver.h |  36 +++++++++++----
->  2 files changed, 133 insertions(+), 9 deletions(-)
-> 
-> diff --git a/drivers/uio/uio.c b/drivers/uio/uio.c
-> index 9a95220..d66784a 100644
-> --- a/drivers/uio/uio.c
-> +++ b/drivers/uio/uio.c
-> @@ -39,6 +39,7 @@ struct uio_device {
->  	struct uio_info		*info;
->  	struct kobject		*map_dir;
->  	struct kobject		*portio_dir;
-> +	struct kobject		attr_dir;
+When the user turns off IFF_VNET_HDR flag, attempts to change
+offload features via TUNSETOFFLOAD do not work.  This could cause
+GSO packets to be delivered to the user when the user is
+not prepared to handle them.
 
-If you embed a kobject into a structure, it is now in charge of the
-memory reference counting for that object.
+To solve, allow processing of TUNSETOFFLOAD when IFF_VNET_HDR is
+disabled and make sure to turn off all offloads in this case.
+Also, when IFF_VNET_HDR is disabled, run throught the offload change
+as well to make sure that the functionality is not dependent on
+the order of the ioclt() calls.
 
-Which you did not do correctly:
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ drivers/net/macvtap.c | 27 +++++++++++++++++++--------
+ 1 file changed, 19 insertions(+), 8 deletions(-)
 
-> +static struct kobj_type uio_attr_type = {
-> +	.sysfs_ops	= &uio_sysfs_ops,
-> +};
-
-As per the documentation in the kernel, I now get to make fun of the
-fact that you obviously didn't test this code (hint, the kernel would
-have told you bad things happened if you did...)
-
-But I don't understand your main goal of a new kobject for attributes,
-why?  What problem are you trying to solve here that a new kobject, and
-new sysfs files attached to the UIO object are going to solve?
-
->  /**
-> + * uio_add_user_attributes - add an extra UIO attribute
-> + * @info: UIO device capabilities
-> + */
-> +static int uio_add_user_attributes(struct uio_info *info)
-> +{
-> +	struct uio_device *idev = info->uio_dev;
-> +	const struct uio_attribute **uio_attr;
-> +	int i;
-> +	int ret = 0;
-> +
-> +	uio_attr = info->attributes;
-> +	if (!uio_attr)
-> +		return 0;
-> +
-> +	for (i = 0; uio_attr[i]; i++) {
-> +
-> +		ret = sysfs_create_file(&idev->attr_dir, &uio_attr[i]->attr);
-> +		if (ret)
-> +			break;
-> +	}
-> +	if (ret) {
-> +		while (--i >= 0)
-> +			sysfs_remove_file(&idev->attr_dir, &uio_attr[i]->attr);
-> +	}
-> +	return ret;
-> +}
-
-Ick, you just raced with userspace and blew up any tool that was wanting
-to watch for your new kobject to be created with the attributes attached
-to it :(
-
-Sending code that doesn't work is fine, for review if you have questions
-about things, but please, mark it with a big "I HAVEN'T TESTED THIS"
-statement somewhere.
-
-greg k-h
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index a98fb0e..076b9e7 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -1019,6 +1019,7 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
+ 	struct macvlan_dev *vlan;
+ 	netdev_features_t features;
+ 	netdev_features_t feature_mask = 0;
++	netdev_features_t tap_mask = TUN_OFFLOADS;
+ 
+ 	vlan = rtnl_dereference(q->vlan);
+ 	if (!vlan)
+@@ -1026,7 +1027,12 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
+ 
+ 	features = vlan->dev->features;
+ 
+-	if (arg & TUN_F_CSUM) {
++	if (!(q->flags & IFF_VNET_HDR)) {
++		/* Turn off all checsum offloading also if user does
++		 * not user vnet_hdr.
++		 */
++		tap_mask |= NETIF_F_ALL_CSUM;
++	} else if (arg & TUN_F_CSUM) {
+ 		feature_mask = NETIF_F_HW_CSUM;
+ 
+ 		if (arg & (TUN_F_TSO4 | TUN_F_TSO6)) {
+@@ -1058,8 +1064,7 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
+ 	/* tap_features are the same as features on tun/tap and
+ 	 * reflect user expectations.
+ 	 */
+-	vlan->tap_features = vlan->dev->features &
+-			    (feature_mask | ~TUN_OFFLOADS);
++	vlan->tap_features = vlan->dev->features & (feature_mask | ~tap_mask);
+ 	vlan->set_features = features;
+ 	netdev_update_features(vlan->dev);
+ 
+@@ -1092,8 +1097,18 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 		if ((u & ~(IFF_VNET_HDR | IFF_MULTI_QUEUE)) !=
+ 		    (IFF_NO_PI | IFF_TAP))
+ 			ret = -EINVAL;
+-		else
++		else {
++			if ((q->flags ^ u) & IFF_VNET_HDR) {
++				/* vnet_hdr support impacts the offloads,
++				 * so we need to run throught the offload
++				 * change.
++				 */
++				rtnl_lock();
++				ret = set_offload(q, 0);
++				rtnl_unlock();
++			}
+ 			q->flags = u;
++		}
+ 
+ 		return ret;
+ 
+@@ -1155,10 +1170,6 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 			    TUN_F_TSO_ECN | TUN_F_UFO))
+ 			return -EINVAL;
+ 
+-		/* TODO: only accept frames with the features that
+-			 got enabled for forwarded frames */
+-		if (!(q->flags & IFF_VNET_HDR))
+-			return  -EINVAL;
+ 		rtnl_lock();
+ 		ret = set_offload(q, arg);
+ 		rtnl_unlock();
+-- 
+1.8.1.4
