@@ -1,46 +1,64 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH 2/2] ipv6: fix checkpatch errors in net/ipv6/addrconf.c
-Date: Tue, 13 Aug 2013 14:54:21 +0800
-Message-ID: <5209D81D.1070702@huawei.com>
-References: <5209CEEC.2050505@huawei.com> <1376375456.1949.22.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH 3.11 v3] genetlink: fix family dump race
+Date: Tue, 13 Aug 2013 09:04:05 +0200
+Message-ID: <1376377445-8937-1-git-send-email-johannes@sipsolutions.net>
+Cc: linux-wireless@vger.kernel.org,
+	Johannes Berg <johannes.berg@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:1589 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756322Ab3HMGzE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 02:55:04 -0400
-In-Reply-To: <1376375456.1949.22.camel@joe-AO722>
+Received: from s3.sipsolutions.net ([144.76.43.152]:53972 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752691Ab3HMHEN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 03:04:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/8/13 14:30, Joe Perches wrote:
-> On Tue, 2013-08-13 at 14:15 +0800, Ding Tianhong wrote:
->> ERROR: Macros with complex values should be enclosed in parenthesis
->> +#define ADBG(x) printk x
-> []
->> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> []
->> @@ -99,7 +99,7 @@
-> []
->> -#define ADBG(x) printk x
->> +#define ADBG(x) (printk x)
-> 
-> A better way to fix this would be
-> to convert the uses of ADBG and remove
-> the superfluous parentheses.
-> 
-> Something like the below but it might
-> even better to remove the KERN_<LEVEL>s and
-> just use pr_debug instead of ADBG...
-> ---
+From: Johannes Berg <johannes.berg@intel.com>
 
-thanks for your opinion. I think it's time to remove the tedious code and replace with pr_debug and pr_warning, I will send v2 to fix it.
+When dumping generic netlink families, only the first dump call
+is locked with genl_lock(), which protects the list of families,
+and thus subsequent calls can access the data without locking,
+racing against family addition/removal. This can cause a crash.
+Fix it - the locking needs to be conditional because the first
+time around it's already locked.
+
+A similar bug was reported to me on an old kernel (3.4.47) but
+the exact scenario that happened there is no longer possible,
+on those kernels the first round wasn't locked either. Looking
+at the current code I found the race described above, which had
+also existed on the old kernel.
+
+Cc: stable@vger.kernel.org
+Reported-by: Andrei Otcheretianski <andrei.otcheretianski@intel.com>
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ net/netlink/genetlink.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 2fd6dbe..6b6a03a 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -789,6 +789,10 @@ static int ctrl_dumpfamily(struct sk_buff *skb, struct netlink_callback *cb)
+ 	struct net *net = sock_net(skb->sk);
+ 	int chains_to_skip = cb->args[0];
+ 	int fams_to_skip = cb->args[1];
++	bool need_locking = chains_to_skip || fams_to_skip;
++
++	if (need_locking)
++		genl_lock();
+ 
+ 	for (i = chains_to_skip; i < GENL_FAM_TAB_SIZE; i++) {
+ 		n = 0;
+@@ -810,6 +814,9 @@ errout:
+ 	cb->args[0] = i;
+ 	cb->args[1] = n;
+ 
++	if (need_locking)
++		genl_unlock();
++
+ 	return skb->len;
+ }
+ 
+-- 
+1.8.0
