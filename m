@@ -1,61 +1,29 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next] bonding: lacp_port_id setting for 802.3ad
-Date: Tue, 13 Aug 2013 09:07:40 +0800
-Message-ID: <520986DC.4030805@huawei.com>
-References: <5208C4BA.9020605@ivancso.net>
+From: Libo Chen <clbchenlibo.chen@huawei.com>
+Subject: Re: [PATCH 8/8] net: davinci_mdio: use platform_{get,set}_drvdata()
+Date: Tue, 13 Aug 2013 09:22:07 +0800
+Message-ID: <52098A3F.2060309@huawei.com>
+References: <5208E231.60104@huawei.com> <520926CB.4020500@cogentembedded.com> <20130812.130413.1869715009441960165.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Krisztian Ivancso <github-ivan@ivancso.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:51850 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756249Ab3HMBIQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 21:08:16 -0400
-In-Reply-To: <5208C4BA.9020605@ivancso.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <sergei.shtylyov@cogentembedded.com>, <mugunthanvnm@ti.com>,
+	<bigeasy@linutronix.de>, <prabhakar.csengg@gmail.com>,
+	<b-liu@ti.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <lizefan@huawei.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130812.130413.1869715009441960165.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2013/8/12 19:19, Krisztian Ivancso wrote:
-> The patch adds port id setting feature by lacp_port_id module
-> parameter for 802.3ad ports.
+On 2013/8/13 4:04, David Miller wrote:
+> From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Date: Mon, 12 Aug 2013 22:17:47 +0400
 > 
-> Adding more linux boxes to a link aggregation makes possible to do
-> load-balancing by using port channel load balancing of switch
-> (eg. by source-dest-ip or src-ip).
+>>    Doesn't get described as well. I think you're mixing two types of
+>>    changes in one patchset.
 > 
-> It's essential to set the same MAC address to bonding interface and
-> to set different port ids on different linux boxes for a
-> working solution.
-> 
-> Possible use cases:
-> 1. Redundant DNS servers with same IP address
-> 2. Reverse proxies with same IP address
-> 3. "multi-master" LVS
-> 
-> Beside redundancy it provides scalability, scalability depends on
-> hardware capability.
-> E.g. a LAG port with 4 members - linux LVS servers - using a Cisco
-> switch/router splits traffic to ports equally by src IP (2-2-2-2).
-> If a link fails, switch forwards traffic to 3 switch ports (3-3-3).
-> It means you can utilize overall bandwith as much as 66% with full
-> redundancy. It's better with 16% than using 2 master-slave LVS and
-> you use just 1 IP and can handle 100% more peak traffic.
-> 
-> Using this feature with vPC (virtual portchannel) or similar solution
-> it provides a physically redundant service from network devices
-> to servers using the same IP address.
-> 
-> 
->>From 472fffa5a8f170daed9e4cc677af8e2560b86be2 Mon Sep 17 00:00:00 2001
-> From: Krisztian Ivancso <github-ivan@ivancso.net>
-> Date: Sun, 11 Aug 2013 20:30:44 +0200
-> Subject: [PATCH net-next] bonding: lacp_port_id setting for 802.3ad ports
-> 
-> By setting this parameter to different values on different hosts
-> it's possible to add more Linux boxes to the same Link Aggregation.
+> Agreed, you're going to have to redo this entire patch set.
 > 
 
-I think the port id was made by negotiation,  if the negotiation failed, the bonding slave
-could not get the port id you gave, which lie on the hardware message.
+okay, I will redo!
