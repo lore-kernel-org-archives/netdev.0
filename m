@@ -1,40 +1,42 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH V2 0/4] Enable bus master till the FLR completes for Chelsio
- T4
-Date: Tue, 13 Aug 2013 14:53:35 -0700
-Message-ID: <520AAADF.7080801@chelsio.com>
-References: <1375784319-25760-1-git-send-email-vipul@chelsio.com> <CAErSpo7=oBG3tJBpwscnL-4D-9kLhHUrQSZFrRRC4sBsT2_U2Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: sctp: Add rudimentary infrastructure to
+ account for control chunks
+Date: Tue, 13 Aug 2013 15:04:39 -0700 (PDT)
+Message-ID: <20130813.150439.445852624627246263.davem@davemloft.net>
+References: <52058BB2.4010606@gmail.com>
+	<1376100336-21481-1-git-send-email-vyasevich@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Vipul Pandya <vipul@chelsio.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	tomreu@chelsio.com, divy@chelsio.com, dm@chelsio.com,
-	nirranjan@chelsio.com, eilong@broadcom.com,
-	netdev <netdev@vger.kernel.org>
-To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	dborkman@redhat.com, eric.dumazet@gmail.com
+To: vyasevich@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:36319
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1758226Ab3HMVyL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 17:54:11 -0400
-In-Reply-To: <CAErSpo7=oBG3tJBpwscnL-4D-9kLhHUrQSZFrRRC4sBsT2_U2Q@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44650 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754551Ab3HMWEn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 18:04:43 -0400
+In-Reply-To: <1376100336-21481-1-git-send-email-vyasevich@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Vlad Yasevich <vyasevich@gmail.com>
+Date: Fri,  9 Aug 2013 22:05:36 -0400
 
-On 08/12/13 14:17, Bjorn Helgaas wrote:
-> On Tue, Aug 6, 2013 at 4:18 AM, Vipul Pandya <vipul@chelsio.com> wrote:
->> This patch series adds device specific reset method for Chelsio T4 adapters.
->>
->> ...
-> Applied to my "next" branch for v3.12, thanks!
->
+> This patch adds a base infrastructure that allows SCTP to do
+> memory accounting for control chunks.  Real accounting code will
+> follow.
+> 
+> This patch alos fixes the following triggered bug ...
+ ...
+> The approach taken here is to split data and control chunks
+> creation a  bit.  Data chunks already have memory accounting
+> so noting needs to happen.  For control chunks, add stubs handlers.
+> 
+> Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
 
-   Thanks Bjorn!  Do you have an idea when these commits will hit Linus' 
-repository and what their git commit IDs will be?  We have a customer 
-using SLES11sp2 who needs this and once the commits hit Linus' 
-repository we'll need to send a request to Novell to pull the change 
-sets into SLES11sp2.  Thanks!
+Applied, but:
 
-Casey
+> +	/* TODO: properly account for control chunks. 
+
+I had to delete the trailing whitespace on that line.
