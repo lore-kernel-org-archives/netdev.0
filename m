@@ -1,45 +1,197 @@
 From: Peter Wu <lekensteyn@gmail.com>
-Subject: [PATCH v4 ethtool 0/2] Add new Realtek devices
-Date: Tue, 13 Aug 2013 23:25:17 +0200
-Message-ID: <1376429119-31380-1-git-send-email-lekensteyn@gmail.com>
+Subject: [PATCH 1/2] realtek: convert to per-chip mask
+Date: Tue, 13 Aug 2013 23:25:18 +0200
+Message-ID: <1376429119-31380-2-git-send-email-lekensteyn@gmail.com>
+References: <1376429119-31380-1-git-send-email-lekensteyn@gmail.com>
 Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>,
 	lekensteyn@gmail.com
 To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:39805 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758938Ab3HMVZZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 17:25:25 -0400
-Received: by mail-wi0-f170.google.com with SMTP id hi8so3480230wib.1
-        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 14:25:24 -0700 (PDT)
+Received: from mail-wg0-f53.google.com ([74.125.82.53]:43914 "EHLO
+	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758938Ab3HMVZ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 17:25:27 -0400
+Received: by mail-wg0-f53.google.com with SMTP id c11so7171855wgh.32
+        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 14:25:26 -0700 (PDT)
+In-Reply-To: <1376429119-31380-1-git-send-email-lekensteyn@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+The previous HW_REVID macro did not make identifiers more readable
+(compared to hex values like 0x12345678) and only allowed for one static
+mask. To make it easier to update the chips list, let's use similar
+structures as r8169 and remove HW_REVID.
 
-The list of devices supported by `ethtool -d eth0` was quite outdated
-and did not support my onboard NIC. With the following two patches, the
-supported devices list will be in sync with the r8169 kernel driver
-(r8169 as of 3.11). Note that no new registers have been added, I am
-sure that some registers are incorrect (like the Power Management wakeup
-frames), but important information such as MAC address is still correct.
+Names are removed and separated from the table and separated because the
+mac_version does not have to be unique.
 
-This fourth revision corrects the name RTL8169C ("RTL8169C+") to
-RTL8169Cp and corrects a wrongly changed identifier for the
-RTL8169_8110SCe. (noticed by Ben Hutchings). The last mistake would not
-affect the final result because it is changed in the second patch
-("realtek: update devices to 3.11").
+While at it, change "RTL-xxxx" to "RTLxxxx" to match the names of
+Realtek and r8169 driver. Besides that, the only output change is when
+a chip is not recognized in which case "TxConfig" is now mentioned
+instead of "mask". Since the mask can be anything, the displayed word is
+not masked either.
 
-Regards,
-Peter
---
+Signed-off-by: Peter Wu <lekensteyn@gmail.com>
+---
+ realtek.c | 108 ++++++++++++++++++++++++++++++++++++--------------------------
+ 1 file changed, 63 insertions(+), 45 deletions(-)
 
-Peter Wu (2):
-  realtek: convert to per-chip mask
-  realtek: update devices to 3.11
-
- realtek.c | 285 +++++++++++++++++++++++++++++++++++++++++++++++---------------
- 1 file changed, 218 insertions(+), 67 deletions(-)
-
+diff --git a/realtek.c b/realtek.c
+index c3d7ae5..17b0b7e 100644
+--- a/realtek.c
++++ b/realtek.c
+@@ -5,13 +5,8 @@
+ 
+ #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+ 
+-#define HW_REVID(b31, b30, b29, b28, b27, b26, b23, b22) \
+-	(b31<<31 | b30<<30 | b29<<29 | b28<<28 | \
+-	 b27<<27 | b26<<26 | b23<<23 | b22<<22)
+-
+ enum chip_type {
+-	RTLNONE,
+-	RTL8139,
++	RTL8139 = 1,
+ 	RTL8139_K,
+ 	RTL8139A,
+ 	RTL8139A_G,
+@@ -22,6 +17,8 @@ enum chip_type {
+ 	RTL8100B_8139D,
+ 	RTL8139Cp,
+ 	RTL8101,
++
++	/* chips not handled by 8139too/8139cp module */
+ 	RTL8169,
+ 	RTL8169S,
+ 	RTL8110S,
+@@ -35,36 +32,62 @@ enum chip_type {
+ 	RTL8100E2,
+ };
+ 
+-enum {
+-	chip_type_mask = HW_REVID(1, 1, 1, 1, 1, 1, 1, 1)
++static const char * const chip_names[] = {
++	[RTL8139] =		"8139",
++	[RTL8139_K] =		"8139-K",
++	[RTL8139A] =		"8139A",
++	[RTL8139A_G] =		"8139A-G",
++	[RTL8139B] =		"8139B",
++	[RTL8130] =		"8130",
++	[RTL8139C] =		"8139C",
++	[RTL8100] =		"8100",
++	[RTL8100B_8139D] =	"8100B/8139D",
++	[RTL8139Cp] =		"8139C+",
++	[RTL8101] =		"8101",
++
++	/* chips not handled by 8139too/8139cp module */
++	[RTL8169] =		"8169",
++	[RTL8169S] =		"8169S",
++	[RTL8110S] =		"8110S",
++	[RTL8169_8110SB] =	"8169/8110SB",
++	[RTL8169_8110SCd] =	"8169/8110SCd",
++	[RTL8169_8110SCe] =	"8169/8110SCe",
++	[RTL8168_8111Bb] =	"8168/8111Bb",
++	[RTL8168_8111Bef] =	"8168/8111Bef",
++	[RTL8101Ebc] =		"8101Ebc",
++	[RTL8100E1] =		"8100E(1)",
++	[RTL8100E2] =		"8100E(2)",
+ };
+ 
+ static struct chip_info {
+-	const char *name;
+ 	u32 id_mask;
++	u32 id_val;
++	int mac_version;
+ } rtl_info_tbl[] = {
+-	{ "RTL-8139",		HW_REVID(0, 1, 0, 0, 0, 0, 0, 0) },
+-	{ "RTL-8139-K",		HW_REVID(0, 1, 1, 0, 0, 0, 0, 0) },
+-	{ "RTL-8139A",		HW_REVID(0, 1, 1, 1, 0, 0, 0, 0) },
+-	{ "RTL-8139A-G",	HW_REVID(0, 1, 1, 1, 0, 0, 1, 0) },
+-	{ "RTL-8139B",		HW_REVID(0, 1, 1, 1, 1, 0, 0, 0) },
+-	{ "RTL-8130",		HW_REVID(0, 1, 1, 1, 1, 1, 0, 0) },
+-	{ "RTL-8139C",		HW_REVID(0, 1, 1, 1, 0, 1, 0, 0) },
+-	{ "RTL-8100",		HW_REVID(0, 1, 1, 1, 1, 0, 1, 0) },
+-	{ "RTL-8100B/8139D",	HW_REVID(0, 1, 1, 1, 0, 1, 0, 1) },
+-	{ "RTL-8139C+",		HW_REVID(0, 1, 1, 1, 0, 1, 1, 0) },
+-	{ "RTL-8101",		HW_REVID(0, 1, 1, 1, 0, 1, 1, 1) },
+-	{ "RTL-8169",		HW_REVID(0, 0, 0, 0, 0, 0, 0, 0) },
+-	{ "RTL-8169S",		HW_REVID(0, 0, 0, 0, 0, 0, 1, 0) },
+-	{ "RTL-8110S",		HW_REVID(0, 0, 0, 0, 0, 1, 0, 0) },
+-	{ "RTL-8169/8110SB",	HW_REVID(0, 0, 0, 1, 0, 0, 0, 0) },
+-	{ "RTL-8169/8110SCd",	HW_REVID(0, 0, 0, 1, 1, 0, 0, 0) },
+-	{ "RTL-8169/8110SCe",	HW_REVID(1, 0, 0, 1, 1, 0, 0, 0) },
+-	{ "RTL-8168/8111Bb",	HW_REVID(0, 0, 1, 1, 0, 0, 0, 0) },
+-	{ "RTL-8168/8111Bef",	HW_REVID(0, 0, 1, 1, 1, 0, 0, 0) },
+-	{ "RTL-8101Ebc",	HW_REVID(0, 0, 1, 1, 0, 1, 0, 0) },
+-	{ "RTL-8100E(1)",	HW_REVID(0, 0, 1, 1, 0, 0, 1, 0) },
+-	{ "RTL-8100E(2)",	HW_REVID(0, 0, 1, 1, 1, 0, 1, 0) },
++	{ 0xfcc00000, 0x40000000,	RTL8139 },
++	{ 0xfcc00000, 0x60000000,	RTL8139_K },
++	{ 0xfcc00000, 0x70000000,	RTL8139A },
++	{ 0xfcc00000, 0x70800000,	RTL8139A_G },
++	{ 0xfcc00000, 0x78000000,	RTL8139B },
++	{ 0xfcc00000, 0x7c000000,	RTL8130 },
++	{ 0xfcc00000, 0x74000000,	RTL8139C },
++	{ 0xfcc00000, 0x78800000,	RTL8100 },
++	{ 0xfcc00000, 0x74400000,	RTL8100B_8139D },
++	{ 0xfcc00000, 0x74800000,	RTL8139Cp },
++	{ 0xfcc00000, 0x74c00000,	RTL8101 },
++
++	/* chips not handled by 8139too/8139cp module */
++	{ 0xfcc00000, 0x00000000,	RTL8169 },
++	{ 0xfcc00000, 0x00800000,	RTL8169S },
++	{ 0xfcc00000, 0x04000000,	RTL8110S },
++	{ 0xfcc00000, 0x10000000,	RTL8169_8110SB },
++	{ 0xfcc00000, 0x18000000,	RTL8169_8110SCd },
++	{ 0xfcc00000, 0x98000000,	RTL8169_8110SCe },
++	{ 0xfcc00000, 0x30000000,	RTL8168_8111Bb },
++	{ 0xfcc00000, 0x38000000,	RTL8168_8111Bef },
++	{ 0xfcc00000, 0x34000000,	RTL8101Ebc },
++	{ 0xfcc00000, 0x30800000,	RTL8100E1 },
++	{ 0xfcc00000, 0x38800000,	RTL8100E2 },
+ 	{ }
+ };
+ 
+@@ -93,31 +116,26 @@ realtek_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+ 	u8 *data8 = (u8 *) regs->data;
+ 	u32 v;
+ 	struct chip_info *ci;
+-	unsigned int board_type = RTLNONE, i;
++	unsigned int board_type;
+ 
+-	v = data[0x40 >> 2] & chip_type_mask;
++	v = data[0x40 >> 2]; /* TxConfig */
+ 
+ 	ci = &rtl_info_tbl[0];
+-	while (ci->name) {
+-		if (v == ci->id_mask)
++	while (ci->mac_version) {
++		if ((v & ci->id_mask) == ci->id_val)
+ 			break;
+ 		ci++;
+ 	}
+-	if (v != ci->id_mask) {
+-		fprintf(stderr, "Unknown RealTek chip (mask: 0x%08x)\n", v);
++	board_type = ci->mac_version;
++	if (!board_type) {
++		fprintf(stderr, "Unknown RealTek chip (TxConfig: 0x%08x)\n", v);
+ 		return 91;
+ 	}
+-	for (i = 0; i < ARRAY_SIZE(rtl_info_tbl); i++) {
+-		if (ci == &rtl_info_tbl[i])
+-			board_type = i + 1;
+-	}
+-	if (board_type == RTLNONE)
+-		abort();
+ 
+ 	fprintf(stdout,
+-		"RealTek %s registers:\n"
++		"RealTek RTL%s registers:\n"
+ 		"--------------------------------------------------------\n",
+-		ci->name);
++		chip_names[board_type]);
+ 
+ 	fprintf(stdout,
+ 		"0x00: MAC Address                      %02x:%02x:%02x:%02x:%02x:%02x\n",
 -- 
 1.8.3.4
