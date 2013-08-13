@@ -1,48 +1,49 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: Find vlanid with non-root user
-Date: Tue, 13 Aug 2013 14:46:57 -0700
-Message-ID: <20130813144657.361b31b5@nehalam.linuxnetplumber.net>
-References: <CAEFY+qzCQqEpLjjM1iBjtHmDh70ktpx+GCHgTuCceu1A53-1Tw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Amador Pahim <amador@pahim.org>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: [PATCH] 6lowpan: handle only real link-local addresses
+Date: Tue, 13 Aug 2013 23:53:26 +0200
+Message-ID: <1376430813-30982-1-git-send-email-alex.aring@gmail.com>
+Cc: dbaryshkov@gmail.com, davem@davemloft.net,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Alexander Aring <alex.aring@gmail.com>
+To: alex.bluesman.smirnov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:33309 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751265Ab3HMVrB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 17:47:01 -0400
-Received: by mail-pb0-f44.google.com with SMTP id xa7so8396379pbc.31
-        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 14:47:00 -0700 (PDT)
-In-Reply-To: <CAEFY+qzCQqEpLjjM1iBjtHmDh70ktpx+GCHgTuCceu1A53-1Tw@mail.gmail.com>
+Received: from mail-ea0-f178.google.com ([209.85.215.178]:51432 "EHLO
+	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758094Ab3HMVtt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 17:49:49 -0400
+Received: by mail-ea0-f178.google.com with SMTP id a15so4327792eae.23
+        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 14:49:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 13 Aug 2013 17:46:45 -0300
-Amador Pahim <amador@pahim.org> wrote:
+A link-local address isn't fe80::/10 it's fe80::/64
+see http://tools.ietf.org/html/rfc4291#section-2.5.6
+for more details.
 
-> Hello,
-> 
-> Is there a way to get vlanid from a vlan interface as a regular user?
-> Default permissions to /proc/net/vlan/ is 600.
-> -rw-------. 1 root root 0 Aug 13 17:23 /proc/net/vlan/eth1.10-fcoe
+Also fix a comment issue "local link" -> "link-local"
 
-ip command will work as non-root user and show vlan (with -d)
+Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+---
+ net/ieee802154/6lowpan.h | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-$ ip -d li show dev eth0vlan
-13: eth0vlan@eth0: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN mode DEFAULT 
-    link/ether 10:bf:48:84:6f:5a brd ff:ff:ff:ff:ff:ff
-    vlan id 10 <REORDER_HDR>
-
-
-
-> Not sure if deducting vlanid from vlan name is a reasonable way to do so.
-
-No. Vlan can be made with any name.
-
-# ip li add link eth0 name eth0vlan type vlan id 10
-
-> Thank you in advance,.
-> 
-> Best Regards,
+diff --git a/net/ieee802154/6lowpan.h b/net/ieee802154/6lowpan.h
+index 4b8f917..61f0ce9 100644
+--- a/net/ieee802154/6lowpan.h
++++ b/net/ieee802154/6lowpan.h
+@@ -83,8 +83,11 @@
+ #define ipaddr_prefixcmp(addr1, addr2, length) \
+ 	(memcmp(addr1, addr2, length >> 3) == 0)
+ 
+-/* local link, i.e. FE80::/10 */
+-#define is_addr_link_local(a) (((a)->s6_addr16[0]) == htons(0xFE80))
++/* link-local, i.e. FE80::/64 */
++#define is_addr_link_local(a) (((a)->s6_addr16[0]) == htons(0xFE80) &&	\
++		(((a)->s6_addr16[1]) == 0) &&	\
++		(((a)->s6_addr16[2]) == 0) &&	\
++		(((a)->s6_addr16[3]) == 0))
+ 
+ /*
+  * check whether we can compress the IID to 16 bits,
+-- 
+1.8.3.3
