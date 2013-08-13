@@ -1,36 +1,40 @@
 From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 2/3 v2] ipv6: rename ADBG() to pr_xxx()
-Date: Tue, 13 Aug 2013 09:48:54 -0700
-Message-ID: <1376412534.1949.33.camel@joe-AO722>
-References: <5209E6E8.1030702@huawei.com>
+Subject: Re: question about drivers/net/ethernet/jme.{c,h}
+Date: Tue, 13 Aug 2013 10:26:24 -0700
+Message-ID: <1376414784.1949.39.camel@joe-AO722>
+References: <alpine.DEB.2.02.1308131831250.2263@hadrien>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Ding Tianhong <dingtianhong@huawei.com>
+Cc: cooldavid@cooldavid.org, netdev@vger.kernel.org
+To: Julia Lawall <julia.lawall@lip6.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:58383 "EHLO
+Received: from perches-mx.perches.com ([206.117.179.246]:46721 "EHLO
 	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757387Ab3HMQsz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Aug 2013 12:48:55 -0400
-In-Reply-To: <5209E6E8.1030702@huawei.com>
+	id S1758921Ab3HMR0Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Aug 2013 13:26:25 -0400
+In-Reply-To: <alpine.DEB.2.02.1308131831250.2263@hadrien>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-08-13 at 15:57 +0800, Ding Tianhong wrote:
-> According to Joe Perches opinions, the ADBG() was tedious and it is
-> better to remove the KERN_<LEVEL>s and use the pr_xxx() instead of ADBG().
+On Tue, 2013-08-13 at 18:33 +0200, Julia Lawall wrote:
+> I wonder what is the point of the macro NETIF_NAPI_SET?
 
-No, that's not really what I wrote.
+Today it seems pretty clear it's useless indirection.
 
-I suggested it might be better to remove the KERN_<LEVELS>
-from these ADBG uses and use pr_debug.
+It might have been useful sometime before the jme.c
+file was first submitted, but now it should be removed.
 
-As is, you've changed logging messages which today
-always compile away to nothing to now emit what I
-think are pretty unnecessary messages.
+In the jme.h file on JMicron's website, the driver
+still supports linux versions less than 2.6.23 and
+uses a form like this:
+
+ftp://driver.jmicron.com.tw/Ethernet/Linux/jmebp-1.0.8.5.tar.bz
+
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,23)
+#define NETIF_NAPI_SET(dev, napis, pollfn, q) \
+	dev->poll = pollfn; \
+	dev->weight = q;
+#else
+#define NETIF_NAPI_SET(dev, napis, pollfn, q) \
+	netif_napi_add(dev, napis, pollfn, q);
