@@ -1,103 +1,47 @@
-From: Alexey Kardashevskiy <aik@ozlabs.ru>
-Subject: Re: BUG cxgb3: Check and handle the dma mapping errors
-Date: Tue, 13 Aug 2013 12:42:26 +1000
-Message-ID: <52099D12.1020605@ozlabs.ru>
-References: <51FF14F8.7000204@ozlabs.ru> <20130805184107.GA2998@redhat.com> <52027BEF.5040602@chelsio.com> <52032ED4.2030202@ozlabs.ru>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next] tcp: reset reordering est. selectively on timeout
+Date: Tue, 13 Aug 2013 00:16:57 -0400
+Message-ID: <CADVnQykaYF5xQJbv-m6d3xKMHSYZQVjmua2CqXkGdwdo_iqSwA@mail.gmail.com>
+References: <1376350885-32407-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R
-Content-Transfer-Encoding: 7bit
-Cc: Jay Fenlason <fenlason@redhat.com>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Divy Le ray <divy@chelsio.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52032ED4.2030202@ozlabs.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Matt Mathis <mattmathis@google.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f50.google.com ([74.125.83.50]:52482 "EHLO
+	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751080Ab3HMEQ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 00:16:58 -0400
+Received: by mail-ee0-f50.google.com with SMTP id d51so3960088eek.9
+        for <netdev@vger.kernel.org>; Mon, 12 Aug 2013 21:16:57 -0700 (PDT)
+In-Reply-To: <1376350885-32407-1-git-send-email-ycheng@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ping, anyone?
+On Mon, Aug 12, 2013 at 7:41 PM, Yuchung Cheng <ycheng@google.com> wrote:
+> On timeout the TCP sender unconditionally reset the estimated
+> degree of network reordering (tp->reordering). This idea behind
+> is that the estimate is too large to trigger fast recovery
+> (e.g., due to a IP path change).
+>
+> But for example if the sender only had 2 packets outstanding,
+> then a timeout doesn't tell much about reordering. A sender that
+> learns about reordering on big writes and lose packets on small
+> writes will end up falsely retransmit again and again, especially
+> when reordering is more likely on big writes.
+>
+> Therefore the sender should only suspects tp->reordering is too
+> high if it could have gone into fast recovery with the (lower)
+> default estimate.
+>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> ---
+>  net/ipv4/tcp_input.c | 9 +++++++--
+>  1 file changed, 7 insertions(+), 2 deletions(-)
 
+Acked-by: Neal Cardwell <ncardwell@google.com>
 
-On 08/08/2013 03:38 PM, Alexey Kardashevskiy wrote:
-> On 08/08/2013 02:55 AM, Divy Le ray wrote:
->> On 08/05/2013 11:41 AM, Jay Fenlason wrote:
->>> On Mon, Aug 05, 2013 at 12:59:04PM +1000, Alexey Kardashevskiy wrote:
->>>> Hi!
->>>>
->>>> Recently I started getting multiple errors like this:
->>>>
->>>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
->>>> c000001fbdaaa882 npages 1
->>>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
->>>> c000001fbdaaa882 npages 1
->>>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
->>>> c000001fbdaaa882 npages 1
->>>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
->>>> c000001fbdaaa882 npages 1
->>>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
->>>> c000001fbdaaa882 npages 1
->>>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
->>>> c000001fbdaaa882 npages 1
->>>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
->>>> c000001fbdaaa882 npages 1
->>>> ... and so on
->>>>
->>>> This is all happening on a PPC64 "powernv" platform machine. To trigger the
->>>> error state, it is enough to _flood_ ping CXGB3 card from another machine
->>>> (which has Emulex 10Gb NIC + Cisco switch). Just do "ping -f 172.20.1.2"
->>>> and wait 10-15 seconds.
->>>>
->>>>
->>>> The messages are coming from arch/powerpc/kernel/iommu.c and basically
->>>> mean that the driver requested more pages than the DMA window has which is
->>>> normally 1GB (there could be another possible source of errors -
->>>> ppc_md.tce_build callback - but on powernv platform it always succeeds).
->>>>
->>>>
->>>> The patch after which it broke is:
->>>> commit f83331bab149e29fa2c49cf102c0cd8c3f1ce9f9
->>>> Author: Santosh Rastapur <santosh@chelsio.com>
->>>> Date:   Tue May 21 04:21:29 2013 +0000
->>>> cxgb3: Check and handle the dma mapping errors
->>>>
->>>> Any quick ideas? Thanks!
->>> That patch adds error checking to detect failed dma mapping requests.
->>> Before it, the code always assumed that dma mapping requests succeded,
->>> whether they actually do or not, so the fact that the older kernel
->>> does not log errors only means that the failures are being ignored,
->>> and any appearance of working is through pure luck.  The machine could
->>> have just crashed at that point.
->>>
->>> What is the observed behavior of the system by the machine initiating
->>> the ping flood?  Do the older and newer kernels differ in the
->>> percentage of pings that do not receive replies?  O the newer kernel,
->>> when the mapping errors are detected, the packet that it is trying to
->>> transmit is dropped, but I'm not at all sure what happens on the older
->>> kernel after the dma mapping fails.  As I mentioned earlier, I'm
->>> surprised it does not crash.  Perhaps the folks from Chelsio have a
->>> better idea what happens after a dma mapping error is ignored?
->>
->> Hi,
->>
->> It should definitely not be ignored. It should not happen this reliably
->> either.
->> I wonder if we are not hitting a leak of iommu entries.
-> 
-> Yes we do. I did some more tests with socklib from here
-> http://junkcode.samba.org/ftp/unpacked/junkcode/socklib/
-> 
-> The test is basically sock_source sending packets to sock_sink. If block
-> size is >=512 bytes, there is no leak, if I set packet size to <=256 bytes,
-> it starts leaking, smaller block size means faster leak. The type of the
-> other adapter does not really matter, can be the same Emulex adapter.
-> 
-> I am attaching a small patch which I made in order to detect the leak.
-> Without the patch, no leak happens, I double checked.
-> 
-> 
-
-
--- 
-Alexey
+neal
