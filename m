@@ -1,48 +1,61 @@
-From: David Shwatrz <dshwatrz@gmail.com>
-Subject: Re: question about netif_rx
-Date: Tue, 13 Aug 2013 08:45:21 +0300
-Message-ID: <CAJJAcoe+GpRYqHyu1xctRaUnPXf4CP8=PTt=svJzJFtBjfqxrg@mail.gmail.com>
-References: <alpine.DEB.2.02.1308111151210.2072@localhost6.localdomain6>
-	<20130811155640.GA10070@electric-eye.fr.zoreil.com>
-	<alpine.DEB.2.02.1308111811440.2072@localhost6.localdomain6>
-	<20130813052036.GA11640@electric-eye.fr.zoreil.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH 2/2] ipv6: fix checkpatch errors in net/ipv6/addrconf.c
+Date: Tue, 13 Aug 2013 14:15:08 +0800
+Message-ID: <5209CEEC.2050505@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Julia Lawall <julia.lawall@lip6.fr>, grant.likely@linaro.org,
-	rob.herring@calxeda.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130813052036.GA11640@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:21223 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753187Ab3HMGPg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 02:15:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
-what is the current state of checksum offloading support has to do
-with it ? maybe you meant current state of NAPI support ?
+ERROR: Macros with complex values should be enclosed in parenthesis
++#define ADBG(x) printk x
 
-regards,
-DS
+ERROR: code indent should use tabs where possible
++^I                idev->cnf.dad_transmits *$
 
-On Tue, Aug 13, 2013 at 8:20 AM, Francois Romieu <romieu@fr.zoreil.com>=
- wrote:
-> Julia Lawall <julia.lawall@lip6.fr> :
->> Fran=E7ois Romieu <romieu@fr.zoreil.com> :
-> [...]
->> > Can you send a netif_receive_skb replacement patch for it ?
->>
->> Just to be sure, I just replace netif_rx by netif_receive_skb, nothi=
-ng
->> else?
->
-> Yes. It should imho be fine with a comment incluing your analysis and=
- a
-> few words about the current state of checksum offloading support.
->
-> --
-> Ueimor
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ERROR: code indent should use tabs where possible
++^I                idev->nd_parms->retrans_time / HZ;$
+
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ net/ipv6/addrconf.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 99f9fd5..5aaf931 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -99,7 +99,7 @@
+ #define ACONF_DEBUG 2
+ 
+ #if ACONF_DEBUG >= 3
+-#define ADBG(x) printk x
++#define ADBG(x) (printk x)
+ #else
+ #define ADBG(x)
+ #endif
+@@ -1105,8 +1105,8 @@ retry:
+ 	spin_unlock_bh(&ifp->lock);
+ 
+ 	regen_advance = idev->cnf.regen_max_retry *
+-	                idev->cnf.dad_transmits *
+-	                idev->nd_parms->retrans_time / HZ;
++			idev->cnf.dad_transmits *
++			idev->nd_parms->retrans_time / HZ;
+ 	write_unlock(&idev->lock);
+ 
+ 	/* A temporary address is created only if this calculated Preferred
+-- 
+1.8.2.1
