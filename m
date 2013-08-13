@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] skge: dma_sync the whole receive buffer
-Date: Tue, 13 Aug 2013 15:09:55 -0700 (PDT)
-Message-ID: <20130813.150955.1471100759610399160.davem@davemloft.net>
-References: <20130810104100.0ae20aa6@nehalam.linuxnetplumber.net>
-	<20130810.132935.1257046025460198490.davem@davemloft.net>
-	<20130810150207.37432299@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH net-next] pptp: fix byte order warnings
+Date: Tue, 13 Aug 2013 15:11:15 -0700 (PDT)
+Message-ID: <20130813.151115.147152336246462450.davem@davemloft.net>
+References: <20130810152258.1cef6d89@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pomidorabelisima@gmail.com, netdev@vger.kernel.org
+Cc: xeb@mail.ru, netdev@vger.kernel.org
 To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44713 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44737 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759033Ab3HMWJ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 18:09:56 -0400
-In-Reply-To: <20130810150207.37432299@nehalam.linuxnetplumber.net>
+	with ESMTP id S1758830Ab3HMWLQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 18:11:16 -0400
+In-Reply-To: <20130810152258.1cef6d89@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Sat, 10 Aug 2013 15:02:07 -0700
+Date: Sat, 10 Aug 2013 15:22:58 -0700
 
-> The DMA sync should sync the whole receive buffer, not just
-> part of it. Fixes log messages dma_sync_check.
+> Pptp driver has lots of byte order warnings from sparse.
+> This was because the on-the-wire header is in network byte order (obviously)
+> but the definition did not reflect that.
+> 
+> Also, the address structure to user space actually put the call id
+> in host order. Rather than break ABI compatibility, just acknowledge
+> the existing design.
 > 
 > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Applied, but I really suspect that your "check DMA mapping errors"
-patch has added a serious regression.  A regression much worse than
-the bug you were trying to fix with that change.
+Applied, thanks.
