@@ -1,59 +1,48 @@
-From: Dong Fang <yp.fangdong@gmail.com>
-Subject: the congestion window rfc2001
-Date: Tue, 13 Aug 2013 19:58:34 -0400
-Message-ID: <520AC82A.5040303@gmail.com>
-References: <520AC2AD.1030306@gmail.com>
+From: Thomas Martitz <thomas.martitz@hhi.fraunhofer.de>
+Subject: Re: Preferred method for configuration
+Date: Tue, 13 Aug 2013 14:13:34 +0200
+Message-ID: <520A22EE.8040006@hhi.fraunhofer.de>
+References: <52032D5E.6070307@hhi.fraunhofer.de> <1375940480.2424.135.camel@joe-AO722> <520332F4.5020206@hhi.fraunhofer.de> <20130808090111.241a2043@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, Dong Fang <yp.fangdong@gmail.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:46522 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757512Ab3HML6y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 07:58:54 -0400
-Received: by mail-pa0-f51.google.com with SMTP id lf1so5989555pab.10
-        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 04:58:53 -0700 (PDT)
-In-Reply-To: <520AC2AD.1030306@gmail.com>
+Received: from mail.HHI.FRAUNHOFER.DE ([193.174.67.45]:37512 "EHLO
+	mailgw.hhi.fraunhofer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757730Ab3HMMNF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 08:13:05 -0400
+In-Reply-To: <20130808090111.241a2043@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Am 08.08.2013 18:01, schrieb Stephen Hemminger:
+> On Thu, 08 Aug 2013 07:56:04 +0200
+> Thomas Martitz <thomas.martitz@hhi.fraunhofer.de> wrote:
+>
+>> Resent with list in CC.
+>>
+>> Am 08.08.2013 07:41, schrieb Joe Perches:
+>>> On Thu, 2013-08-08 at 07:32 +0200, Thomas Martitz wrote:
+>>>> Hello,
+>>>>
+>>>> I'm developing a NIC driver and currently export some custom
+>>>> configuration settings and actions (e.g. enabling a loopback mode) via
+>>>> sysfs.
+>>>
+>>> Is there some reason you don't want to use ethtool?
+>>>
+>>>
+>>
+>> It doesn't allow for custom settings does it? For standards stuff I'm
+>> sure going to use ethtool.
+>
+> Any feature "special to my driver" is sure to meet stiff resistance
+> from the kernel developers. Special features make it impossible for generic
+> configuration in distributions and by management layers.
+>
 
+What about features that are really unique to the device?
 
-
--------- Original Message --------
-Subject: the congestion window rfc2001
-Date: Tue, 13 Aug 2013 19:35:09 -0400
-From: Dong Fang <yp.fangdong@gmail.com>
-To: netdev@vger.kernel.org
-
-hi, all
-
-
-http://tools.ietf.org/html/rfc2001
-
-
-    1.  When the third duplicate ACK in a row is received, set ssthresh
-        to one-half the current congestion window, cwnd, but no less
-        than two segments.  Retransmit the missing segment.  Set cwnd =
-        ssthresh + 3 times the segment size.  This inflates the
--- what is the meaning of '3'
-
-        congestion window by the number of segments that have left the
-        network and which the other end has cached (3).
-
-    2.  Each time another duplicate ACK arrives, increment cwnd by the
-        segment size.  This inflates the congestion window for the
-        additional segment that has left the network.
--- why do this
-
-        Transmit a packet, if allowed by the new value of cwnd.
-
-    3.  When the next ACK arrives that acknowledges new data, set cwnd
-        to ssthresh (the value set in step 1).  This ACK should be the
-        acknowledgment of the retransmission from step 1, one round-trip
-        time after the retransmission.  Additionally, this ACK should
-        acknowledge all the intermediate segments sent between the lost
-        packet and the receipt of the first duplicate ACK.  This step is
-        congestion avoidance, since TCP is down to one-half the rate it
-        was at when the packet was lost.
+Best regards.
