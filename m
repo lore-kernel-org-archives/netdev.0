@@ -1,51 +1,63 @@
-From: Benjamin Poirier <benjamin.poirier@gmail.com>
-Subject: Re: [PATCH net v5 0/5] bnx2x: fixes
-Date: Tue, 13 Aug 2013 08:30:43 -0400
-Message-ID: <20130813123043.GA30192@d2.synalogic.ca>
-References: <1376349903-3461-1-git-send-email-dmitry@broadcom.com>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [PATCH net-next 1/3] net/usb/r8152: support aggregation
+Date: Tue, 13 Aug 2013 20:32:26 +0800
+Message-ID: <9E410853D1BD483E9479C175D5E72EB6@realtek.com.tw>
+References: <1376378913-879-1-git-send-email-hayeswang@realtek.com> <1376383742.1681.1.camel@linux-fkkt.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, eilong@broadcom.com
-To: Dmitry Kravkov <dmitry@broadcom.com>, ariele@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f43.google.com ([209.85.216.43]:60033 "EHLO
-	mail-qa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753389Ab3HMMa5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 08:30:57 -0400
-Received: by mail-qa0-f43.google.com with SMTP id cl20so265850qab.16
-        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 05:30:56 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1376349903-3461-1-git-send-email-dmitry@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>
+To: 'Oliver Neukum' <oneukum@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1376383742.1681.1.camel@linux-fkkt.site>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2013/08/13 02:24, Dmitry Kravkov wrote:
-> Hello Dave
+ Oliver Neukum [mailto:oneukum@suse.de] 
+> Sent: Tuesday, August 13, 2013 4:49 PM
+> To: Hayeswang
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; 
+> linux-usb@vger.kernel.org
+> Subject: Re: [PATCH net-next 1/3] net/usb/r8152: support aggregation
 > 
-> Please consider applying the series of bnx2x fixes to net:
-> 	* statistics may cause FW assert
-> 	* missing fairness configuration in DCB flow
-> 	* memory leak in sriov related part
-> 	* Illegal PTE access
-> 	* Pagefault crash in shutdown flow with cnic
-> v1->v2
-> 	* fixed sparse error pointed by Joe Perches
-> 	* added missing signed-off from Sergei Shtylyov
-> v2->v3
-> 	* added missing signed-off from Sergei Shtylyov
-> 	* fixed formatting from Sergei Shtylyov
-> v3->v4
-> 	* patch 1/6: fixed declaration order
-> 	* patch 2/6 replaced with: protect flows using set_bit constraints
-> v4->v5
-> 	* patch 2/6: replace proprietary locking with semaphore
-> 	* droped 1/6: since adds redundant code from Benjamin Poirier
+[...]
+> > +               len_used = 0;
+> > +               rx_desc = agg->head;
+> > +               rx_data = agg->head;
+> > +               smp_wmb();
+> > +               pkt_len = le32_to_cpu(rx_desc->opts1) & RX_LEN_MASK;
+> > +               len_used += sizeof(struct rx_desc) + pkt_len;
+> > +
+> > +               while (urb->actual_length >= len_used) {
+> > +                       if (pkt_len < ETH_ZLEN)
+> > +                               break;
+> > +
+> > +                       pkt_len -= 4; /* CRC */
+> > +                       rx_data += sizeof(struct rx_desc);
+> > +
+> > +                       skb = netdev_alloc_skb_ip_align(netdev,
+> > pkt_len);
+> > +                       if (!skb) {
+> > +                               stats->rx_dropped++;
+> > +                               break;
+> > +                       }
+> > +                       memcpy(skb->data, rx_data, pkt_len);
+> > +                       skb_put(skb, pkt_len);
+> > +                       skb->protocol = eth_type_trans(skb, netdev);
+> > +                       netif_rx(skb);
+> > +                       stats->rx_packets++;
+> > +                       stats->rx_bytes += pkt_len;
+> > +
+> > +                       rx_data = rx_agg_align(rx_data + 
+> pkt_len + 4);
+> > +                       rx_desc = (struct rx_desc *)rx_data;
+> > +                       smp_wmb();
+> 
+> Against what is the memory barrier?
 
-I'm confused. Wasn't "[PATCH net v4 1/6] bnx2x: properly initialize
-statistic counters" supposed to fix a race condition? According to
-earlier communication with Ariel:
-	In this issue a race condition at driver startup causes a second
-	statistics query to be sent before the first one completes,
-	resulting in a firmware assert and a stuck chip. A patch was
-	sent upstream fixing this:
-	http://patchwork.ozlabs.org/patch/264810/
+Excuse me. I don't understand your question. Do you mean the function should not
+be used here?
+
+Best Regards,
+Hayes
