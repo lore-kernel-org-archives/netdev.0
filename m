@@ -1,69 +1,78 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next v2 0/4] ipip/ip6tnl: allow to switch netns during encap/decap
-Date: Tue, 13 Aug 2013 17:51:08 +0200
-Message-ID: <1376409072-6414-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next v2 1/4] dev: move skb_scrub_packet() after eth_type_trans()
+Date: Tue, 13 Aug 2013 17:51:09 +0200
+Message-ID: <1376409072-6414-2-git-send-email-nicolas.dichtel@6wind.com>
 References: <20130704.145621.2060744817757546493.davem@davemloft.net>
+ <1376409072-6414-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: davem@davemloft.net, ebiederm@xmission.com, bcrl@kvack.org,
 	ravi.mlists@gmail.com, bhutchings@solarflare.com,
-	eric.dumazet@gmail.com
+	eric.dumazet@gmail.com, Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:35959 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:35960 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758373Ab3HMPvi (ORCPT
+	with ESMTP id S1758352Ab3HMPvi (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 11:51:38 -0400
-In-Reply-To: <20130704.145621.2060744817757546493.davem@davemloft.net>
+In-Reply-To: <1376409072-6414-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+skb_scrub_packet() was called before eth_type_trans() to let eth_type_trans()
+set pkt_type.
 
-This serie is a follow up of the previous serie witch adds this functionality
-for sit tunnels.
+In fact, we should force pkt_type to PACKET_HOST, so move the call after
+eth_type_trans().
 
-The goal is to add x-netns support for the module ipip and ip6_tunnel, ie the
-encapsulation addresses and the network device are not owned by the same
-namespace.
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/core/dev.c       | 6 +++---
+ net/ipv4/ip_tunnel.c | 7 ++++---
+ 2 files changed, 7 insertions(+), 6 deletions(-)
 
-Note that the two first patches are cleanup.
-
-Example to configure an ipip tunnel:
-
-modprobe ipip
-ip netns add netns1
-ip link add ipip1 type ipip remote 10.16.0.121 local 10.16.0.249
-ip l s ipip1 netns netns1
-ip netns exec netns1 ip l s lo up
-ip netns exec netns1 ip l s ipip1 up
-ip netns exec netns1 ip a a dev ipip1 192.168.2.123 remote 192.168.2.121
-
-or an ip6_tunnel:
-
-modprobe ip6_tunnel
-ip netns add netns1
-ip link add ip6tnl1 type ip6tnl remote 2001:660:3008:c1c3::121 local 2001:660:3008:c1c3::123
-ip l s ip6tnl1 netns netns1
-ip netns exec netns1 ip l s lo up
-ip netns exec netns1 ip l s ip6tnl1 up
-ip netns exec netns1 ip a a dev ip6tnl1 192.168.1.123 remote 192.168.1.121
-ip netns exec netns1 ip -6 a a dev ip6tnl1 2001:1235::123 remote 2001:1235::121
-
-v2: remove the patch 1/3 of the v1 serie (already included)
-    use net_eq()
-    add patch 1/4 and 2/4
-
- include/net/ip6_tunnel.h |  1 +
- include/net/ip_tunnels.h |  2 +-
- net/core/dev.c           |  6 +++---
- net/ipv4/ip_gre.c        |  4 ++--
- net/ipv4/ip_tunnel.c     | 52 ++++++++++++++++++++++++++++++------------------
- net/ipv4/ip_vti.c        |  2 +-
- net/ipv4/ipip.c          |  3 +--
- net/ipv6/ip6_gre.c       |  5 +++++
- net/ipv6/ip6_tunnel.c    | 41 ++++++++++++++++++++++++++++----------
- net/ipv6/sit.c           |  6 +++---
- 10 files changed, 81 insertions(+), 41 deletions(-)
-
-Comments are welcome.
-
-Regards,
-Nicolas
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 58eb802584b9..1ed2b66a10a6 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1691,13 +1691,13 @@ int dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
+ 		kfree_skb(skb);
+ 		return NET_RX_DROP;
+ 	}
+-	skb_scrub_packet(skb);
+ 	skb->protocol = eth_type_trans(skb, dev);
+ 
+ 	/* eth_type_trans() can set pkt_type.
+-	 * clear pkt_type _after_ calling eth_type_trans()
++	 * call skb_scrub_packet() after it to clear pkt_type _after_ calling
++	 * eth_type_trans().
+ 	 */
+-	skb->pkt_type = PACKET_HOST;
++	skb_scrub_packet(skb);
+ 
+ 	return netif_rx(skb);
+ }
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index 9fdf8a6d95f3..fbc1094964bf 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -454,15 +454,16 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
+ 	tstats->rx_bytes += skb->len;
+ 	u64_stats_update_end(&tstats->syncp);
+ 
+-	if (tunnel->net != dev_net(tunnel->dev))
+-		skb_scrub_packet(skb);
+-
+ 	if (tunnel->dev->type == ARPHRD_ETHER) {
+ 		skb->protocol = eth_type_trans(skb, tunnel->dev);
+ 		skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
+ 	} else {
+ 		skb->dev = tunnel->dev;
+ 	}
++
++	if (tunnel->net != dev_net(tunnel->dev))
++		skb_scrub_packet(skb);
++
+ 	gro_cells_receive(&tunnel->gro_cells, skb);
+ 	return 0;
+ 
+-- 
+1.8.2.1
