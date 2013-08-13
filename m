@@ -1,138 +1,103 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net] xfrm: introduce helper for safe determination of mtu
-Date: Tue, 13 Aug 2013 04:35:58 +0200
-Message-ID: <20130813023558.GD27385@order.stressinduktion.org>
+From: Alexey Kardashevskiy <aik@ozlabs.ru>
+Subject: Re: BUG cxgb3: Check and handle the dma mapping errors
+Date: Tue, 13 Aug 2013 12:42:26 +1000
+Message-ID: <52099D12.1020605@ozlabs.ru>
+References: <51FF14F8.7000204@ozlabs.ru> <20130805184107.GA2998@redhat.com> <52027BEF.5040602@chelsio.com> <52032ED4.2030202@ozlabs.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: steffen.klassert@secunet.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:47688 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756764Ab3HMCgA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Aug 2013 22:36:00 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=KOI8-R
+Content-Transfer-Encoding: 7bit
+Cc: Jay Fenlason <fenlason@redhat.com>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Divy Le ray <divy@chelsio.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52032ED4.2030202@ozlabs.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-skb->sk socket can be of AF_INET or AF_INET6 address family. Thus we
-always have to make sure we a referring to the correct interpretation
-of skb->sk.
+Ping, anyone?
 
-We only depend on header defines to query the mtu, so we don't introduce
-a new dependency to ipv6 by this change.
 
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- include/net/route.h     |  8 ++++++++
- include/net/xfrm.h      | 12 ++++++++++++
- net/ipv4/ip_output.c    |  8 --------
- net/ipv4/xfrm4_output.c |  4 +---
- net/ipv6/xfrm6_output.c |  5 ++++-
- 5 files changed, 25 insertions(+), 12 deletions(-)
+On 08/08/2013 03:38 PM, Alexey Kardashevskiy wrote:
+> On 08/08/2013 02:55 AM, Divy Le ray wrote:
+>> On 08/05/2013 11:41 AM, Jay Fenlason wrote:
+>>> On Mon, Aug 05, 2013 at 12:59:04PM +1000, Alexey Kardashevskiy wrote:
+>>>> Hi!
+>>>>
+>>>> Recently I started getting multiple errors like this:
+>>>>
+>>>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+>>>> c000001fbdaaa882 npages 1
+>>>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+>>>> c000001fbdaaa882 npages 1
+>>>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+>>>> c000001fbdaaa882 npages 1
+>>>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+>>>> c000001fbdaaa882 npages 1
+>>>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+>>>> c000001fbdaaa882 npages 1
+>>>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+>>>> c000001fbdaaa882 npages 1
+>>>> cxgb3 0006:01:00.0: iommu_alloc failed, tbl c000000003067980 vaddr
+>>>> c000001fbdaaa882 npages 1
+>>>> ... and so on
+>>>>
+>>>> This is all happening on a PPC64 "powernv" platform machine. To trigger the
+>>>> error state, it is enough to _flood_ ping CXGB3 card from another machine
+>>>> (which has Emulex 10Gb NIC + Cisco switch). Just do "ping -f 172.20.1.2"
+>>>> and wait 10-15 seconds.
+>>>>
+>>>>
+>>>> The messages are coming from arch/powerpc/kernel/iommu.c and basically
+>>>> mean that the driver requested more pages than the DMA window has which is
+>>>> normally 1GB (there could be another possible source of errors -
+>>>> ppc_md.tce_build callback - but on powernv platform it always succeeds).
+>>>>
+>>>>
+>>>> The patch after which it broke is:
+>>>> commit f83331bab149e29fa2c49cf102c0cd8c3f1ce9f9
+>>>> Author: Santosh Rastapur <santosh@chelsio.com>
+>>>> Date:   Tue May 21 04:21:29 2013 +0000
+>>>> cxgb3: Check and handle the dma mapping errors
+>>>>
+>>>> Any quick ideas? Thanks!
+>>> That patch adds error checking to detect failed dma mapping requests.
+>>> Before it, the code always assumed that dma mapping requests succeded,
+>>> whether they actually do or not, so the fact that the older kernel
+>>> does not log errors only means that the failures are being ignored,
+>>> and any appearance of working is through pure luck.  The machine could
+>>> have just crashed at that point.
+>>>
+>>> What is the observed behavior of the system by the machine initiating
+>>> the ping flood?  Do the older and newer kernels differ in the
+>>> percentage of pings that do not receive replies?  O the newer kernel,
+>>> when the mapping errors are detected, the packet that it is trying to
+>>> transmit is dropped, but I'm not at all sure what happens on the older
+>>> kernel after the dma mapping fails.  As I mentioned earlier, I'm
+>>> surprised it does not crash.  Perhaps the folks from Chelsio have a
+>>> better idea what happens after a dma mapping error is ignored?
+>>
+>> Hi,
+>>
+>> It should definitely not be ignored. It should not happen this reliably
+>> either.
+>> I wonder if we are not hitting a leak of iommu entries.
+> 
+> Yes we do. I did some more tests with socklib from here
+> http://junkcode.samba.org/ftp/unpacked/junkcode/socklib/
+> 
+> The test is basically sock_source sending packets to sock_sink. If block
+> size is >=512 bytes, there is no leak, if I set packet size to <=256 bytes,
+> it starts leaking, smaller block size means faster leak. The type of the
+> other adapter does not really matter, can be the same Emulex adapter.
+> 
+> I am attaching a small patch which I made in order to detect the leak.
+> Without the patch, no leak happens, I double checked.
+> 
+> 
 
-diff --git a/include/net/route.h b/include/net/route.h
-index 2ea40c1..afdeeb5 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -317,4 +317,12 @@ static inline int ip4_dst_hoplimit(const struct dst_entry *dst)
- 	return hoplimit;
- }
- 
-+static inline int ip_skb_dst_mtu(struct sk_buff *skb)
-+{
-+	struct inet_sock *inet = skb->sk ? inet_sk(skb->sk) : NULL;
-+
-+	return (inet && inet->pmtudisc == IP_PMTUDISC_PROBE) ?
-+	       skb_dst(skb)->dev->mtu : dst_mtu(skb_dst(skb));
-+}
-+
- #endif	/* _ROUTE_H */
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index e823786..b41d2d1 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -20,6 +20,7 @@
- #include <net/route.h>
- #include <net/ipv6.h>
- #include <net/ip6_fib.h>
-+#include <net/ip6_route.h>
- #include <net/flow.h>
- 
- #include <linux/interrupt.h>
-@@ -1723,4 +1724,15 @@ static inline int xfrm_mark_put(struct sk_buff *skb, const struct xfrm_mark *m)
- 	return ret;
- }
- 
-+static inline int xfrm_skb_dst_mtu(struct sk_buff *skb)
-+{
-+	struct sock *sk = skb->sk;
-+
-+	if (sk && sk->sk_family == AF_INET6)
-+		return ip6_skb_dst_mtu(skb);
-+	else if (sk && sk->sk_family == AF_INET)
-+		return ip_skb_dst_mtu(skb);
-+	return dst_mtu(skb_dst(skb));
-+}
-+
- #endif	/* _NET_XFRM_H */
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 4bcabf3..9ee17e3 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -211,14 +211,6 @@ static inline int ip_finish_output2(struct sk_buff *skb)
- 	return -EINVAL;
- }
- 
--static inline int ip_skb_dst_mtu(struct sk_buff *skb)
--{
--	struct inet_sock *inet = skb->sk ? inet_sk(skb->sk) : NULL;
--
--	return (inet && inet->pmtudisc == IP_PMTUDISC_PROBE) ?
--	       skb_dst(skb)->dev->mtu : dst_mtu(skb_dst(skb));
--}
--
- static int ip_finish_output(struct sk_buff *skb)
- {
- #if defined(CONFIG_NETFILTER) && defined(CONFIG_XFRM)
-diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
-index 7a5491f..80baf4a 100644
---- a/net/ipv4/xfrm4_output.c
-+++ b/net/ipv4/xfrm4_output.c
-@@ -21,7 +21,6 @@
- static int xfrm4_tunnel_check_size(struct sk_buff *skb)
- {
- 	int mtu, ret = 0;
--	struct dst_entry *dst;
- 
- 	if (IPCB(skb)->flags & IPSKB_XFRM_TUNNEL_SIZE)
- 		goto out;
-@@ -29,8 +28,7 @@ static int xfrm4_tunnel_check_size(struct sk_buff *skb)
- 	if (!(ip_hdr(skb)->frag_off & htons(IP_DF)) || skb->local_df)
- 		goto out;
- 
--	dst = skb_dst(skb);
--	mtu = dst_mtu(dst);
-+	mtu = xfrm_skb_dst_mtu(skb);
- 	if (skb->len > mtu) {
- 		if (skb->sk)
- 			xfrm_local_error(skb, mtu);
-diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
-index b64fff3..3ac5ab2 100644
---- a/net/ipv6/xfrm6_output.c
-+++ b/net/ipv6/xfrm6_output.c
-@@ -138,7 +138,10 @@ static int __xfrm6_output(struct sk_buff *skb)
- {
- 	struct dst_entry *dst = skb_dst(skb);
- 	struct xfrm_state *x = dst->xfrm;
--	int mtu = ip6_skb_dst_mtu(skb);
-+	int mtu = xfrm_skb_dst_mtu(skb);
-+
-+	if (mtu < IPV6_MIN_MTU)
-+		mtu = IPV6_MIN_MTU;
- 
- 	if (skb->len > mtu && xfrm6_local_dontfrag(skb)) {
- 		xfrm6_local_rxpmtu(skb, mtu);
+
 -- 
-1.8.3.1
+Alexey
