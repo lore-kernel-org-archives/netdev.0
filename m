@@ -1,74 +1,57 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCHv2 net-next] xfrm: Make xfrm_state timer monotonic
-Date: Tue, 13 Aug 2013 12:59:16 +0200
-Message-ID: <20130813105916.GC26773@secunet.com>
-References: <1375772225-19265-1-git-send-email-fan.du@windriver.com>
- <20130806092220.GH25511@secunet.com>
- <52087537.6060200@windriver.com>
- <20130813075519.GN25511@secunet.com>
- <5209F030.3050303@windriver.com>
+From: Krisztian Ivancso <github-ivan@ivancso.net>
+Subject: Re: [PATCH net-next] bonding: lacp_port_id setting for 802.3ad
+Date: Tue, 13 Aug 2013 13:00:29 +0200
+Message-ID: <520A11CD.8060400@ivancso.net>
+References: <5208C4BA.9020605@ivancso.net> <520986DC.4030805@huawei.com> <5209FA49.6030800@ivancso.net> <5209FEBC.4050305@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:48530 "EHLO a.mx.secunet.com"
+Received: from mailhandler.info ([217.116.47.195]:33500 "EHLO mailhandler.info"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756214Ab3HMK7T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Aug 2013 06:59:19 -0400
-Content-Disposition: inline
-In-Reply-To: <5209F030.3050303@windriver.com>
+	id S1757352Ab3HMLAb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Aug 2013 07:00:31 -0400
+In-Reply-To: <5209FEBC.4050305@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 13, 2013 at 04:37:04PM +0800, Fan Du wrote:
->=20
->=20
-> On 2013=E5=B9=B408=E6=9C=8813=E6=97=A5 15:55, Steffen Klassert wrote:
-> >On Mon, Aug 12, 2013 at 01:40:07PM +0800, Fan Du wrote:
-> >>
-> >>
-> >>On 2013=E5=B9=B408=E6=9C=8806=E6=97=A5 17:22, Steffen Klassert wrot=
-e:
-> >>>On Tue, Aug 06, 2013 at 02:57:05PM +0800, Fan Du wrote:
-> >>>>xfrm_state timer should be independent of system clock change,
-> >>>>so switch to monotonic clock base.
-> >>>>
-> >>>
-> >>>I think a monotonic timer will reintroduce a bug on suspend/resume
-> >>>that was fixed by commit 9e0d57fd6
-> >>>(xfrm: SAD entries do not expire correctly after suspend-resume)
-> >>>
-> >>>Please make sure that this does not happen.
-> >>
-> >>What about using CLOCK_BOOTTIME? it's monotonic, but includes suspe=
-nd time as well.
-> >
-> >As I said, I'm open to everything that fixes your problem and does n=
-ot
-> >introduce a regression. I'll consider applying after some testing
-> >if noone else has objections.
->=20
-> Hi, Steffen
->=20
-> Thanks for your understanding! :)
->=20
-> I happened to bump into CLOCK_BOOTTIME several days ago, so apologize=
- for
-> eating my words earlier. Changing xfrm_state timer to monotonic does =
-not
-> solve the problem I've described earlier in:
->=20
-> http://www.spinics.net/lists/netdev/msg245019.html (*1*)
->=20
-> So is there any light of hope for the proposal in (*1*) by using CLOC=
-K_BOOTTIME
-> instead?
->=20
+On 08/13/2013 11:39 AM, Ding Tianhong wrote:
+> On 2013/8/13 17:20, Krisztian Ivancso wrote:
+>> On 08/13/2013 03:07 AM, Ding Tianhong wrote:
+>>> On 2013/8/12 19:19, Krisztian Ivancso wrote:
+>>>> >From 472fffa5a8f170daed9e4cc677af8e2560b86be2 Mon Sep 17 00:00:00 2001
+>>>> From: Krisztian Ivancso <github-ivan@ivancso.net>
+>>>> Date: Sun, 11 Aug 2013 20:30:44 +0200
+>>>> Subject: [PATCH net-next] bonding: lacp_port_id setting for 802.3ad ports
+> 
+> ok, for example: the bonding has four slave, slave1 and slave2 aggregation to 1 group,
+> and slave3 and slave4 aggregtion to 2 group, how you distinguish the 1 and 2 group by initialize id.
 
-Well, you have to convince David in the first place, as he is sitting
-upstream from me ;)
+this is not possible, because all slave have to be a member of the same
+aggregation group.
 
-Also, I think he is right with his complaint. Why not following the
-clock_was_set approach you started with?
+i think we misunderstood each other.
+
+here is a new example:
+- switch1 is a switch with a configured lag with two members ports
+  (member1 and member2)
+- two linux (linux1 and linux2) box with a configured bonding device
+  (bond0) with the same MAC set in both box and one
+  slave on each
+- lacp_port_id is set to 10 in linux1 and 20 in linux2
+
+you can attach the slave from both linux boxes to the same
+lag on switch1. (slave from linux1 to port member1 and
+slave from linux2 to port member2 on switch1)
+
+port id must be unique within a system.
+bonding implementation set a unique system id for every bonding device
+which is derived from MAC of one of the slave interfaces.
+
+if we use the current bonding implementation second linux box can't be
+a member on switch1 because port id is 1 in both linux bonding device.
+
+if we can set different starting port id for bonding in different boxes
+the second box can be a member also.
