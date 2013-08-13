@@ -1,14 +1,14 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 2/6] 6lowpan: Fix fragmentation with
-	link-local compressed addresses
-Date: Tue, 13 Aug 2013 23:53:29 +0200
-Message-ID: <1376430813-30982-4-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH 3/6] 6lowpan: introduce
+	lowpan_fetch_skb function
+Date: Tue, 13 Aug 2013 23:53:30 +0200
+Message-ID: <1376430813-30982-5-git-send-email-alex.aring@gmail.com>
 References: <1376430813-30982-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	David Hauweele <david-1EggE+PRa6vk1uMJSBkQmQ@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 In-Reply-To: <1376430813-30982-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
@@ -22,43 +22,39 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: David Hauweele <david-1EggE+PRa6vk1uMJSBkQmQ@public.gmane.org>
+This patch adds a helper function to parse the ipv6 header to a
+6lowpan header in stream.
 
-When a new 6lowpan fragment is received, a skbuff is allocated for
-the reassembled packet. However when a 6lowpan packet compresses
-link-local addresses based on link-layer addresses, the processing
-function relies on the skb mac control block to find the related
-link-layer address.
+This function checks first if we can pull data with a specific
+length from a skb. If this seems to be okay, we copy skb data to
+a destination pointer and run skb_pull.
 
-This patch copies the control block from the first fragment into
-the newly allocated skb to keep a trace of the link-layer addresses
-in case of a link-local compressed address.
-
-Edit: small changes on comment issue
-
-Signed-off-by: David Hauweele <david-1EggE+PRa6vk1uMJSBkQmQ@public.gmane.org>
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- net/ieee802154/6lowpan.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ net/ieee802154/6lowpan.h | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 92429db..632b3fd 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -698,6 +698,12 @@ lowpan_alloc_new_frame(struct sk_buff *skb, u16 len, u16 tag)
- 	skb_reserve(frame->skb, sizeof(struct ipv6hdr));
- 	skb_put(frame->skb, frame->length);
+diff --git a/net/ieee802154/6lowpan.h b/net/ieee802154/6lowpan.h
+index 61f0ce9..e3348ec 100644
+--- a/net/ieee802154/6lowpan.h
++++ b/net/ieee802154/6lowpan.h
+@@ -233,4 +233,16 @@
+ 					dest = 16 bit inline */
+ #define LOWPAN_NHC_UDP_CS_P_11	0xF3 /* source & dest = 0xF0B + 4bit inline */
  
-+	/* copy the first control block to keep a
-+	 * trace of the link-layer addresses in case
-+	 * of a link-local compressed address
-+	 */
-+	memcpy(frame->skb->cb, skb->cb, sizeof(skb->cb));
++static inline bool lowpan_fetch_skb(struct sk_buff *skb,
++		void *data, const unsigned int len)
++{
++	if (unlikely(!pskb_may_pull(skb, len)))
++		return true;
 +
- 	init_timer(&frame->timer);
- 	/* time out is the same as for ipv6 - 60 sec */
- 	frame->timer.expires = jiffies + LOWPAN_FRAG_TIMEOUT;
++	skb_copy_from_linear_data(skb, data, len);
++	skb_pull(skb, len);
++
++	return false;
++}
++
+ #endif /* __6LOWPAN_H__ */
 -- 
 1.8.3.3
 
