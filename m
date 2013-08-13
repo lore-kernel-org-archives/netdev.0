@@ -1,30 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v5 0/5] bnx2x: fixes
-Date: Tue, 13 Aug 2013 16:04:55 -0700 (PDT)
-Message-ID: <20130813.160455.2147057320397972451.davem@davemloft.net>
-References: <1376349903-3461-1-git-send-email-dmitry@broadcom.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH] rtnetlink: rtnl_bridge_getlink: Call
+ nlmsg_find_attr() with ifinfomsg header
+Date: Tue, 13 Aug 2013 19:06:37 -0400
+Message-ID: <520ABBFD.7080004@redhat.com>
+References: <52090C26.4090001@fiberby.net>
+	<1376325009-8399-1-git-send-email-ast@fiberby.net>
+	<52093E29.5010604@redhat.com>
+	<20130813.155443.1789890841731289313.davem@davemloft.net>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com
-To: dmitry@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45245 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754838Ab3HMXE4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 19:04:56 -0400
-In-Reply-To: <1376349903-3461-1-git-send-email-dmitry@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, ast@fiberby.net,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130813.155443.1789890841731289313.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Date: Tue, 13 Aug 2013 02:24:58 +0300
+On 08/13/2013 06:54 PM, David Miller wrote:
+> From: Vlad Yasevich <vyasevic@redhat.com>
+> Date: Mon, 12 Aug 2013 15:57:29 -0400
+>
+>> On 08/12/2013 12:30 PM, Asbjoern Sloth Toennesen wrote:
+>>> Fix the iproute2 command `bridge vlan show`, after switching from
+>>> rtgenmsg to ifinfomsg.
+>>>
+>>> Signed-off-by: Asbjoern Sloth Toennesen <ast@fiberby.net>
+>>
+>>
+>> Thanks..  I've still been using an older iproute version and didn't
+>> see this.
+>>
+>>
+>> Reviewed-by: Vlad Yasevich <vyasevich@gmail.com>
+>
+> What introduced this regression?
+>
 
-> Please consider applying the series of bnx2x fixes to net:
-> 	* statistics may cause FW assert
-> 	* missing fairness configuration in DCB flow
-> 	* memory leak in sriov related part
-> 	* Illegal PTE access
-> 	* Pagefault crash in shutdown flow with cnic
+ast explained it in his header message (Bridge VLAN kernel/iproute2 
+incompatibility)
 
-Series applied, thanks.
+-vlad
