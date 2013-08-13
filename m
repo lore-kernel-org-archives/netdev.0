@@ -1,21 +1,71 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: question about drivers/net/ethernet/nxp/lpc_eth.c
-Date: Tue, 13 Aug 2013 17:01:28 +0200 (CEST)
-Message-ID: <alpine.DEB.2.02.1308131658460.2263@hadrien>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH net-next 1/3] net/usb/r8152: support aggregation
+Date: Tue, 13 Aug 2013 17:17:10 +0200
+Message-ID: <1376407030.3033.13.camel@linux-fkkt.site>
+References: <1376378913-879-1-git-send-email-hayeswang@realtek.com>
+	 <1376383742.1681.1.camel@linux-fkkt.site>
+	 <9E410853D1BD483E9479C175D5E72EB6@realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: grant.likely@linaro.org, rob.herring@calxeda.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	devicetree@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: hayeswang <hayeswang@realtek.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <9E410853D1BD483E9479C175D5E72EB6@realtek.com.tw>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I wonder why drivers/net/ethernet/nxp/lpc_eth.c uses dev_alloc_skb in the
-function __lpc_handle_recv, rather than netdev_alloc_skb?  The difference
-seems to be only that with dev_alloc_skb, the dev field of the skb is
-initialized to NULL, rather than to a net_device, but this function seems
-to have a net_device value available, so I wonder why it is not used?
+On Tue, 2013-08-13 at 20:32 +0800, hayeswang wrote:
+>  Oliver Neukum [mailto:oneukum@suse.de] 
+> > Sent: Tuesday, August 13, 2013 4:49 PM
+> > To: Hayeswang
+> > Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; 
+> > linux-usb@vger.kernel.org
+> > Subject: Re: [PATCH net-next 1/3] net/usb/r8152: support aggregation
+> > 
+> [...]
+> > > +               len_used = 0;
+> > > +               rx_desc = agg->head;
+> > > +               rx_data = agg->head;
+> > > +               smp_wmb();
+> > > +               pkt_len = le32_to_cpu(rx_desc->opts1) & RX_LEN_MASK;
+> > > +               len_used += sizeof(struct rx_desc) + pkt_len;
+> > > +
+> > > +               while (urb->actual_length >= len_used) {
+> > > +                       if (pkt_len < ETH_ZLEN)
+> > > +                               break;
+> > > +
+> > > +                       pkt_len -= 4; /* CRC */
+> > > +                       rx_data += sizeof(struct rx_desc);
+> > > +
+> > > +                       skb = netdev_alloc_skb_ip_align(netdev,
+> > > pkt_len);
+> > > +                       if (!skb) {
+> > > +                               stats->rx_dropped++;
+> > > +                               break;
+> > > +                       }
+> > > +                       memcpy(skb->data, rx_data, pkt_len);
+> > > +                       skb_put(skb, pkt_len);
+> > > +                       skb->protocol = eth_type_trans(skb, netdev);
+> > > +                       netif_rx(skb);
+> > > +                       stats->rx_packets++;
+> > > +                       stats->rx_bytes += pkt_len;
+> > > +
+> > > +                       rx_data = rx_agg_align(rx_data + 
+> > pkt_len + 4);
+> > > +                       rx_desc = (struct rx_desc *)rx_data;
+> > > +                       smp_wmb();
+> > 
+> > Against what is the memory barrier?
+> 
+> Excuse me. I don't understand your question. Do you mean the function should not
+> be used here?
 
-thanks,
-julia
+I don't understand what problem the function is supposed to fix. As long
+as I don't understand it I cannot say for sure whether it is correct.
+There seems no obvious reason for a memory barrier, but there may be a
+hidden reason I don't see.
+
+	Regards
+		Oliver
