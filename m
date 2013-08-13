@@ -1,7 +1,8 @@
 From: Benedikt Spranger <b.spranger@linutronix.de>
 Subject: [PATCH 0/7] add FlexRay support
-Date: Tue, 13 Aug 2013 11:08:34 +0200
-Message-ID: <1376384922-8519-1-git-send-email-b.spranger@linutronix.de>
+Date: Tue, 13 Aug 2013 11:08:35 +0200
+Message-ID: <1376384922-8519-2-git-send-email-b.spranger@linutronix.de>
+References: <1376384922-8519-1-git-send-email-b.spranger@linutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -10,10 +11,11 @@ Cc: Alexander Frank <Alexander.Frank@eberspaecher.com>,
 	Benedikt Spranger <b.spranger@linutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:48265 "EHLO
+Received: from www.linutronix.de ([62.245.132.108]:48268 "EHLO
 	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752756Ab3HMJIu (ORCPT
+	with ESMTP id S1753818Ab3HMJIu (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 05:08:50 -0400
+In-Reply-To: <1376384922-8519-1-git-send-email-b.spranger@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -25,7 +27,7 @@ http://en.wikipedia.org/wiki/FlexRay
 
 The driver implementation adds support for the Eberspaecher Electronics
 FlexCard. The FlexCard is a PCI Mezzanine Card with piggybacks for automotive
-buses like CAN, LIN and FlexRay. An implementation based on multifunctional
+buses like CAN, LIN and FlexRay. A implementation based on multifunctional
 devices (MFD) was choosen. The independant IP cores (FlexRay, CAN, etc) can be
 supported by separate drivers. In addition to the automotive busses the
 FlexCard provides some generic functions coverd by the clocksoure and the UIO
