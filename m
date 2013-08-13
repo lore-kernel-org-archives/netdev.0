@@ -1,83 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/3] net/usb/r8152: support aggregation
-Date: Tue, 13 Aug 2013 16:41:18 -0700 (PDT)
-Message-ID: <20130813.164118.1992860501009385037.davem@davemloft.net>
-References: <1376383742.1681.1.camel@linux-fkkt.site>
-	<9E410853D1BD483E9479C175D5E72EB6@realtek.com.tw>
-	<1376407030.3033.13.camel@linux-fkkt.site>
+Subject: Re: [PATCH net] ip_tunnel: Do not use inner ip-header-id for
+ tunnel ip-header-id.
+Date: Tue, 13 Aug 2013 16:53:23 -0700 (PDT)
+Message-ID: <20130813.165323.387925674219585747.davem@davemloft.net>
+References: <1376383266-6623-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hayeswang@realtek.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: oneukum@suse.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1376407030.3033.13.camel@linux-fkkt.site>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jrajahalme@nicira.com, aatteka@nicira.com
+To: pshelar@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45564 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754221Ab3HMXxY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 19:53:24 -0400
+In-Reply-To: <1376383266-6623-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Neukum <oneukum@suse.de>
-Date: Tue, 13 Aug 2013 17:17:10 +0200
+From: Pravin B Shelar <pshelar@nicira.com>
+Date: Tue, 13 Aug 2013 01:41:06 -0700
 
-> On Tue, 2013-08-13 at 20:32 +0800, hayeswang wrote:
->>  Oliver Neukum [mailto:oneukum@suse.de] 
->> > Sent: Tuesday, August 13, 2013 4:49 PM
->> > To: Hayeswang
->> > Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; 
->> > linux-usb@vger.kernel.org
->> > Subject: Re: [PATCH net-next 1/3] net/usb/r8152: support aggregation
->> > 
->> [...]
->> > > +               len_used = 0;
->> > > +               rx_desc = agg->head;
->> > > +               rx_data = agg->head;
->> > > +               smp_wmb();
->> > > +               pkt_len = le32_to_cpu(rx_desc->opts1) & RX_LEN_MASK;
->> > > +               len_used += sizeof(struct rx_desc) + pkt_len;
->> > > +
->> > > +               while (urb->actual_length >= len_used) {
->> > > +                       if (pkt_len < ETH_ZLEN)
->> > > +                               break;
->> > > +
->> > > +                       pkt_len -= 4; /* CRC */
->> > > +                       rx_data += sizeof(struct rx_desc);
->> > > +
->> > > +                       skb = netdev_alloc_skb_ip_align(netdev,
->> > > pkt_len);
->> > > +                       if (!skb) {
->> > > +                               stats->rx_dropped++;
->> > > +                               break;
->> > > +                       }
->> > > +                       memcpy(skb->data, rx_data, pkt_len);
->> > > +                       skb_put(skb, pkt_len);
->> > > +                       skb->protocol = eth_type_trans(skb, netdev);
->> > > +                       netif_rx(skb);
->> > > +                       stats->rx_packets++;
->> > > +                       stats->rx_bytes += pkt_len;
->> > > +
->> > > +                       rx_data = rx_agg_align(rx_data + 
->> > pkt_len + 4);
->> > > +                       rx_desc = (struct rx_desc *)rx_data;
->> > > +                       smp_wmb();
->> > 
->> > Against what is the memory barrier?
->> 
->> Excuse me. I don't understand your question. Do you mean the function should not
->> be used here?
+> Using inner-id for tunnel id is not safe in some rare cases.
+> E.g. packets coming from multiple sources entering same tunnel
+> can have same id. Therefore on tunnel packet receive we
+> could have packets from two different stream but with same
+> source and dst IP with same ip-id which could confuse ip packet
+> reassembly.
 > 
-> I don't understand what problem the function is supposed to fix. As long
-> as I don't understand it I cannot say for sure whether it is correct.
-> There seems no obvious reason for a memory barrier, but there may be a
-> hidden reason I don't see.
+> Following patch reverts optimization from commit
+> 490ab08127 (IP_GRE: Fix IP-Identification.)
+> 
+> CC: Jarno Rajahalme <jrajahalme@nicira.com>
+> CC: Ansis Atteka <aatteka@nicira.com>
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 
-Hayes, when Oliver asks you "Against what is the memory barrier?" he is asking
-you which memory operations you are trying to order.
-
-You do not explain this in your commit message, nor do you explain it with a
-suitable comment.  This is not acceptable.
-
-It is absolutely critical, that any time you add a memory barrier, you add a
-comment above the new memory barrier explaining exactly what the barrier is
-trying to achieve.
-
-In fact, this is required by our coding standards.
+Applied, thanks.
