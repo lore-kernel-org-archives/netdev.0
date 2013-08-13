@@ -1,36 +1,46 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 1/7] uio: add module owner to prevent inappropriate
- module unloading
-Date: Tue, 13 Aug 2013 10:48:14 -0700
-Message-ID: <20130813174814.GE4098@kroah.com>
-References: <1376384922-8519-1-git-send-email-b.spranger@linutronix.de>
- <1376384922-8519-3-git-send-email-b.spranger@linutronix.de>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net v5 1/5] bnx2x: protect different statistics flows
+Date: Tue, 13 Aug 2013 13:54:15 -0400
+Message-ID: <CADVnQy=0-fjoRDp_u2RzO7dkUmg84V2Q+tNXW0ir=M23V8hALw@mail.gmail.com>
+References: <1376349903-3461-1-git-send-email-dmitry@broadcom.com>
+	<1376349903-3461-2-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Alexander Frank <Alexander.Frank@eberspaecher.com>,
-	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
-	"Hans J. Koch" <hjk@hansjkoch.de>,
-	Holger Dengler <dengler@linutronix.de>
-To: Benedikt Spranger <b.spranger@linutronix.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, eilong@broadcom.com,
+	Ariel Elior <ariele@broadcom.com>
+To: Dmitry Kravkov <dmitry@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:38783 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757276Ab3HMRsQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 13:48:16 -0400
-Content-Disposition: inline
-In-Reply-To: <1376384922-8519-3-git-send-email-b.spranger@linutronix.de>
+Received: from mail-ee0-f43.google.com ([74.125.83.43]:50393 "EHLO
+	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756886Ab3HMRyQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 13:54:16 -0400
+Received: by mail-ee0-f43.google.com with SMTP id e52so4346376eek.2
+        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 10:54:15 -0700 (PDT)
+In-Reply-To: <1376349903-3461-2-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 13, 2013 at 11:08:36AM +0200, Benedikt Spranger wrote:
-> If an UIO device is created by another driver (MFD for instance) it has to be
-> ensured that the MFD driver isn't removed while the UIO is still in use.
+On Mon, Aug 12, 2013 at 7:24 PM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
+> Add locking to protect different statistics flows from
+> running simultaneously.
+> This in order to serialize statistics requests sent to FW,
+> otherwise two outstanding queries may cause FW assert.
+>
+> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+> Signed-off-by: Ariel Elior <ariele@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |  2 +
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |  1 +
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c | 66 ++++++++++++++++++-----
+>  3 files changed, 57 insertions(+), 12 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+> index d80e34b..98be67f 100644
 
-Shouldn't if the MFD driver is removed, the UIO device will be cleaned
-up and also removed?  You shouldn't need a module reference for this
-type of thing.
+Acked-by: Neal Cardwell <ncardwell@google.com>
 
-And why did I only get 2 of the 7 patches here?
+Thanks!
 
-greg k-h
+neal
