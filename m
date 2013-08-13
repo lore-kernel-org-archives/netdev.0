@@ -1,63 +1,66 @@
-From: Lee Jones <lee.jones@linaro.org>
-Subject: Re: [PATCH 3/7] mfd: core: copy DMA mask and params from parent
-Date: Tue, 13 Aug 2013 11:03:40 +0100
-Message-ID: <20130813100340.GB5109@lee--X1>
-References: <1376384922-8519-1-git-send-email-b.spranger@linutronix.de>
- <1376384922-8519-5-git-send-email-b.spranger@linutronix.de>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 1/1] net/e1000e: Avoid kernel crash during shutdown
+Date: Tue, 13 Aug 2013 03:29:01 -0700
+Message-ID: <1376389741.27277.0.camel@jtkirshe-mobl>
+References: <1376375227-24274-1-git-send-email-zhlcindy@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Alexander Frank <Alexander.Frank@eberspaecher.com>,
-	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	Holger Dengler <dengler@linutronix.de>
-To: Benedikt Spranger <b.spranger@linutronix.de>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-qQ8bFvbHOMiBf9zOd7O+"
+Cc: jesse.brandeburg@intel.com, davem@davemloft.net,
+	netdev@vger.kernel.org, shangw@linux.vnet.ibm.com
+To: Li Zhang <zhlcindy@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f176.google.com ([209.85.215.176]:55676 "EHLO
-	mail-ea0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754064Ab3HMKDr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 06:03:47 -0400
-Received: by mail-ea0-f176.google.com with SMTP id q16so3932278ead.21
-        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 03:03:45 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1376384922-8519-5-git-send-email-b.spranger@linutronix.de>
+Received: from mga02.intel.com ([134.134.136.20]:16794 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753155Ab3HMK3d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Aug 2013 06:29:33 -0400
+In-Reply-To: <1376375227-24274-1-git-send-email-zhlcindy@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 13 Aug 2013, Benedikt Spranger wrote:
 
-> The child device intends to perform DMA operations then it needs a dm=
-a
-> mask and params set. This patches copies them from the parent device.
+--=-qQ8bFvbHOMiBf9zOd7O+
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, 2013-08-13 at 14:27 +0800, Li Zhang wrote:
+> While doing shutdown on the PCI device, the corresponding callback
+> function e1000e_shutdown() is trying to clear those correctable
+> errors on the upstream P2P bridge. Unfortunately, we don't have
+> the upstream P2P bridge under some cases (e.g. PCI-passthrou for
+> KVM on Power). That leads to kernel crash eventually.
 >=20
-> Cc: Samuel Ortiz <sameo@linux.intel.com>
-> Cc: Lee Jones <lee.jones@linaro.org>
-> Signed-off-by: Benedikt Spranger <b.spranger@linutronix.de>
-> Signed-off-by: Holger Dengler <dengler@linutronix.de>
+> The patch adds one more check on that to avoid kernel crash.
+>=20
+> Signed-off-by: Li Zhang <zhlcindy@gmail.com>
 > ---
->  drivers/mfd/mfd-core.c | 2 ++
->  1 file changed, 2 insertions(+)
->=20
-> diff --git a/drivers/mfd/mfd-core.c b/drivers/mfd/mfd-core.c
-> index 7604f4e..f421586 100644
-> --- a/drivers/mfd/mfd-core.c
-> +++ b/drivers/mfd/mfd-core.c
-> @@ -96,6 +96,8 @@ static int mfd_add_device(struct device *parent, in=
-t id,
-> =20
->  	pdev->dev.parent =3D parent;
->  	pdev->dev.type =3D &mfd_dev_type;
-> +	pdev->dev.dma_mask =3D parent->dma_mask;
-> +	pdev->dev.dma_parms =3D parent->dma_parms;
-> =20
->  	if (parent->of_node && cell->of_compatible) {
->  		for_each_child_of_node(parent->of_node, np) {
+>  drivers/net/ethernet/intel/e1000e/netdev.c | 7 +++++++
+>  1 file changed, 7 insertions(+)
 
-Patch applied, thanks.
+Thanks Li, I will add this to my queue of patches.
 
---=20
-Lee Jones
-Linaro ST-Ericsson Landing Team Lead
-Linaro.org =E2=94=82 Open source software for ARM SoCs
-=46ollow Linaro: Facebook | Twitter | Blog
+
+--=-qQ8bFvbHOMiBf9zOd7O+
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+
+iQIcBAABCgAGBQJSCgptAAoJEOVv75VaS+3OcaUP/3SVCFeNsIMuFrQVsP/+bt20
+GZTx2qbjMg3NjLGUjbTbeI9erik6+teVumz+jP7LenSek0zovdl4p9PV0lNTwy01
+1A1WSKQTWw0MoufwGO3Nb076ctZZes43z9u9ZGtIzhaG0pcb3EmPL1EPMm003L/b
+p2rIoo75giQZ5xbiYVdOzihwbJJ/Abp8m7pXEpstXD7emNh4Gwid7gW5JxiBBhQm
+1I6l7TbXswnT4jh35rrMcwoM7Jb0Z/gdCZSoHO1jfplZcCv2VVhH0+USqa/oBWlu
+OZMPTYu7IU+nTMbxYb+bax7V7ZS+WSuVilUS36HpoKY5WpGnknLzyyv4+DF41LUF
+m+WEeYnjm2WnSrKyz4ijNBLR7L1pLRrfjHdLGqWorjRbmdp8YqUiZpVx+tAFYb9a
+fbixWnR0xXXxEW5DZ+AUTnZh8fM0fKiE+bsmGzQEM8cnpOB5CgvTCiIY7RzdQFWY
+V+kkd1aky14UqvBmtgLA3JlcghqkLts/t9i4G69nrYpyXb+OCi14c1X33b3Q0EbX
+NDTGqC4zXuPwsb+fIVlqPr75mUV6XIwreJJ/dOh+h8WtBqFvY2+rhVJjyulj2joh
+ggXBxLz9HU8+CJCDc9yXCC87b+B/NNCDJWpHDgKs81gfk+318Fu841KCq+fJiJFd
+Y1FowOpUqPJzw//+qZWq
+=/zlx
+-----END PGP SIGNATURE-----
+
+--=-qQ8bFvbHOMiBf9zOd7O+--
