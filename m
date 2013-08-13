@@ -1,35 +1,48 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] SolutionEngine SH771x: remove Ether support
-Date: Wed, 14 Aug 2013 01:32:21 +0400
-Message-ID: <520AA5E5.5000803@cogentembedded.com>
-References: <201308130217.03133.sergei.shtylyov@cogentembedded.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: Find vlanid with non-root user
+Date: Tue, 13 Aug 2013 14:46:57 -0700
+Message-ID: <20130813144657.361b31b5@nehalam.linuxnetplumber.net>
+References: <CAEFY+qzCQqEpLjjM1iBjtHmDh70ktpx+GCHgTuCceu1A53-1Tw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-To: linux-sh@vger.kernel.org, lethal@linux-sh.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <201308130217.03133.sergei.shtylyov@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Amador Pahim <amador@pahim.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:33309 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751265Ab3HMVrB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 17:47:01 -0400
+Received: by mail-pb0-f44.google.com with SMTP id xa7so8396379pbc.31
+        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 14:47:00 -0700 (PDT)
+In-Reply-To: <CAEFY+qzCQqEpLjjM1iBjtHmDh70ktpx+GCHgTuCceu1A53-1Tw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Tue, 13 Aug 2013 17:46:45 -0300
+Amador Pahim <amador@pahim.org> wrote:
 
-On 08/13/2013 02:17 AM, I wrote:
+> Hello,
+> 
+> Is there a way to get vlanid from a vlan interface as a regular user?
+> Default permissions to /proc/net/vlan/ is 600.
+> -rw-------. 1 root root 0 Aug 13 17:23 /proc/net/vlan/eth1.10-fcoe
 
-> The 'sh_eth' driver's probe will crash as the platform code is hopelessly behind
-> the platform data -- it passes PHY ID instead of 'struct sh_eth_plat_data *'.
-> Even if it's fixed, the driver probe will fail as the 'struct sh_eth_cpu_data'
-> indicates presence of TSU but the platform device resource  for it is absent.
-> Since I have no data to fix it, I think it's best to remove the erratic code.
+ip command will work as non-root user and show vlan (with -d)
 
-    After looking at the original driver, it seems I've got the necessary 
-data... but both Ether controllers seems to have shared TSU which is not yet 
-supported by the driver (there was a patch from Iwamatsu-san to implement it 
-but it hasn't been merged).
+$ ip -d li show dev eth0vlan
+13: eth0vlan@eth0: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN mode DEFAULT 
+    link/ether 10:bf:48:84:6f:5a brd ff:ff:ff:ff:ff:ff
+    vlan id 10 <REORDER_HDR>
 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-WBR, Sergei
 
+> Not sure if deducting vlanid from vlan name is a reasonable way to do so.
+
+No. Vlan can be made with any name.
+
+# ip li add link eth0 name eth0vlan type vlan id 10
+
+> Thank you in advance,.
+> 
+> Best Regards,
