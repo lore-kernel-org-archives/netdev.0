@@ -1,66 +1,64 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 1/1] net/e1000e: Avoid kernel crash during shutdown
-Date: Tue, 13 Aug 2013 03:29:01 -0700
-Message-ID: <1376389741.27277.0.camel@jtkirshe-mobl>
-References: <1376375227-24274-1-git-send-email-zhlcindy@gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: ipsec smp scalability and cpu use fairness (softirqs)
+Date: Tue, 13 Aug 2013 12:45:48 +0200
+Message-ID: <20130813104548.GB26773@secunet.com>
+References: <20130812160142.71737a95@vostro>
+ <CAKTPYJTVhvF=215eS0xriEdUyyCLaC+zzja4zPrG668ALzERyw@mail.gmail.com>
+ <20130813092312.2493354e@vostro>
+ <20130813074614.GM25511@secunet.com>
+ <20130813105757.39fb0ab8@vostro>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-qQ8bFvbHOMiBf9zOd7O+"
-Cc: jesse.brandeburg@intel.com, davem@davemloft.net,
-	netdev@vger.kernel.org, shangw@linux.vnet.ibm.com
-To: Li Zhang <zhlcindy@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Collins <bsderandrew@gmail.com>, netdev@vger.kernel.org
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:16794 "EHLO mga02.intel.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:48350 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753155Ab3HMK3d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Aug 2013 06:29:33 -0400
-In-Reply-To: <1376375227-24274-1-git-send-email-zhlcindy@gmail.com>
+	id S1757383Ab3HMKpv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Aug 2013 06:45:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20130813105757.39fb0ab8@vostro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Aug 13, 2013 at 10:57:57AM +0300, Timo Teras wrote:
+> On Tue, 13 Aug 2013 09:46:14 +0200
+> Steffen Klassert <steffen.klassert@secunet.com> wrote:
+> 
+> > Also, if you want parallelism, you could use the pcrypt algorithm.
+> > It sends the crypto requests asynchronously round robin to a
+> > configurable set of cpus. Finaly it takes care to bring the
+> > served crypto requests back into the order they were submitted
+> > to avoid packet reordering.
+> 
+> Right. Looks like this helps a lot.
+> 
+> Perhaps it would be worth to experiment also with RPS type hash based
+> cpu selection?
+> 
 
---=-qQ8bFvbHOMiBf9zOd7O+
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Actually, this was the reason why I started to write the below mentioned
+patches. The idea behind that was to use a combination of flow based
+and inner flow parallelization.
 
-On Tue, 2013-08-13 at 14:27 +0800, Li Zhang wrote:
-> While doing shutdown on the PCI device, the corresponding callback
-> function e1000e_shutdown() is trying to clear those correctable
-> errors on the upstream P2P bridge. Unfortunately, we don't have
-> the upstream P2P bridge under some cases (e.g. PCI-passthrou for
-> KVM on Power). That leads to kernel crash eventually.
->=20
-> The patch adds one more check on that to avoid kernel crash.
->=20
-> Signed-off-by: Li Zhang <zhlcindy@gmail.com>
-> ---
->  drivers/net/ethernet/intel/e1000e/netdev.c | 7 +++++++
->  1 file changed, 7 insertions(+)
+On bigger NUMA machines it does not make much sense to use all
+cores for parallelization. The performance depends too much on the
+actual topology. Moving crypto requests to another NUMA node can
+even reduce performance. So I wanted to use RPS type hash based
+cpu selection to choose the node for a given flow and then use
+pcrypt to parallelize this flow on the chosen node.
 
-Thanks Li, I will add this to my queue of patches.
+> > Currently we have only one systemwide workqueue for encryption
+> > and one decryption. So all IPsec packets are send to the same
+> > workqueue, regardless which state they use.
+> > 
+> > I have patches that make it possible to configure a separate
+> > workqueue for each state or to group some states to a specific
+> > workqueue. These patches are still unpublished because they
+> > have not much testing yet, but I could send them after some
+> > polishing for review or testing if you are interested.
+> 
+> Yes, I'd be interested.
+> 
 
-
---=-qQ8bFvbHOMiBf9zOd7O+
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-
-iQIcBAABCgAGBQJSCgptAAoJEOVv75VaS+3OcaUP/3SVCFeNsIMuFrQVsP/+bt20
-GZTx2qbjMg3NjLGUjbTbeI9erik6+teVumz+jP7LenSek0zovdl4p9PV0lNTwy01
-1A1WSKQTWw0MoufwGO3Nb076ctZZes43z9u9ZGtIzhaG0pcb3EmPL1EPMm003L/b
-p2rIoo75giQZ5xbiYVdOzihwbJJ/Abp8m7pXEpstXD7emNh4Gwid7gW5JxiBBhQm
-1I6l7TbXswnT4jh35rrMcwoM7Jb0Z/gdCZSoHO1jfplZcCv2VVhH0+USqa/oBWlu
-OZMPTYu7IU+nTMbxYb+bax7V7ZS+WSuVilUS36HpoKY5WpGnknLzyyv4+DF41LUF
-m+WEeYnjm2WnSrKyz4ijNBLR7L1pLRrfjHdLGqWorjRbmdp8YqUiZpVx+tAFYb9a
-fbixWnR0xXXxEW5DZ+AUTnZh8fM0fKiE+bsmGzQEM8cnpOB5CgvTCiIY7RzdQFWY
-V+kkd1aky14UqvBmtgLA3JlcghqkLts/t9i4G69nrYpyXb+OCi14c1X33b3Q0EbX
-NDTGqC4zXuPwsb+fIVlqPr75mUV6XIwreJJ/dOh+h8WtBqFvY2+rhVJjyulj2joh
-ggXBxLz9HU8+CJCDc9yXCC87b+B/NNCDJWpHDgKs81gfk+318Fu841KCq+fJiJFd
-Y1FowOpUqPJzw//+qZWq
-=/zlx
------END PGP SIGNATURE-----
-
---=-qQ8bFvbHOMiBf9zOd7O+--
+Ok, I'll send them. May take some days to rebase and polish.
