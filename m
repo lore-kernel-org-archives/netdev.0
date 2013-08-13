@@ -1,77 +1,89 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net-next] net/mlx4_en: Advertise HIGH DMA support only
- if dma mask is 64 bit
-Date: Tue, 13 Aug 2013 14:19:28 +0300
-Message-ID: <520A1640.2060803@mellanox.com>
-References: <1376296230-12276-1-git-send-email-amirv@mellanox.com> <1376325160.14079.59.camel@deadeye.wl.decadent.org.uk>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: Re: ipsec smp scalability and cpu use fairness (softirqs)
+Date: Tue, 13 Aug 2013 14:33:25 +0300
+Message-ID: <20130813143325.364b4bab@vostro>
+References: <20130812160142.71737a95@vostro>
+	<CAKTPYJTVhvF=215eS0xriEdUyyCLaC+zzja4zPrG668ALzERyw@mail.gmail.com>
+	<20130813092312.2493354e@vostro>
+	<20130813074614.GM25511@secunet.com>
+	<20130813105757.39fb0ab8@vostro>
+	<20130813104548.GB26773@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Or Gerlitz <ogerlitz@mellanox.com>,
-	Alexander Guller <alexg@mellanox.com>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: Andrew Collins <bsderandrew@gmail.com>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:35932 "EHLO
-	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757287Ab3HMLTf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 07:19:35 -0400
-In-Reply-To: <1376325160.14079.59.camel@deadeye.wl.decadent.org.uk>
+Received: from mail-ea0-f172.google.com ([209.85.215.172]:35803 "EHLO
+	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751487Ab3HMLd3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 07:33:29 -0400
+Received: by mail-ea0-f172.google.com with SMTP id r16so4031279ead.17
+        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 04:33:28 -0700 (PDT)
+In-Reply-To: <20130813104548.GB26773@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/08/2013 19:32, Ben Hutchings wrote:
-> On Mon, 2013-08-12 at 11:30 +0300, Amir Vadai wrote:
->> Need to check that the pci device DMA mask was set to 64 bit support
->> (done by mlx4_core) before advertising HIGH DMA support in higher drivers.
->> Otherwise, may run into an issue that skb/frag/data is in high memory
->> and can't dma map it, thus packets are dropped.
-> 
-> NETIF_F_HIGHDMA means that the driver can transmit skbs with page
-> fragments in high memory, i.e. it doesn't require them to have an
-> existing virtual mapping for the kernel.  If I'm not mistaken, this
-> should be cleared only for drivers that don't use DMA or kmap functions.
-> 
-> On a 64-bit machine there is no highmem and without NETIF_F_HIGHDMA you
-> can still be given pages at any physical address.
-> 
-> On a 32-bit machine highmem usually starts at 1GB and I doubt you have
-> any chips that are that limited in DMA range. :-)
-> 
-> I really doubt this is the fix you're looking for.
-> 
-You are right. We were mixing highmem with addresses greater than 2^32.
-Thanks for reviewing :)
+On Tue, 13 Aug 2013 12:45:48 +0200
+Steffen Klassert <steffen.klassert@secunet.com> wrote:
 
-Dave, please abandon this patch.
-
-Amir.
-
-> Ben.
+> On Tue, Aug 13, 2013 at 10:57:57AM +0300, Timo Teras wrote:
+> > On Tue, 13 Aug 2013 09:46:14 +0200
+> > Steffen Klassert <steffen.klassert@secunet.com> wrote:
+> > 
+> > > Also, if you want parallelism, you could use the pcrypt algorithm.
+> > > It sends the crypto requests asynchronously round robin to a
+> > > configurable set of cpus. Finaly it takes care to bring the
+> > > served crypto requests back into the order they were submitted
+> > > to avoid packet reordering.
+> > 
+> > Right. Looks like this helps a lot.
+> > 
+> > Perhaps it would be worth to experiment also with RPS type hash
+> > based cpu selection?
 > 
->> Signed-off-by: Alexander Guller <alexg@mellanox.com>
->> Signed-off-by: Amir Vadai <amirv@mellanox.com>
->> ---
->>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 6 +++++-
->>  1 file changed, 5 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->> index fa37b7a..9568b77 100644
->> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->> @@ -2317,9 +2317,13 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
->>  	dev->vlan_features = dev->hw_features;
->>  
->>  	dev->hw_features |= NETIF_F_RXCSUM | NETIF_F_RXHASH;
->> -	dev->features = dev->hw_features | NETIF_F_HIGHDMA |
->> +	dev->features = dev->hw_features |
->>  			NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX |
->>  			NETIF_F_HW_VLAN_CTAG_FILTER;
->> +
->> +	if (mdev->dev->pdev->dma_mask == DMA_BIT_MASK(64))
->> +		dev->features |= NETIF_F_HIGHDMA;
->> +
->>  	dev->hw_features |= NETIF_F_LOOPBACK;
->>  
->>  	if (mdev->dev->caps.steering_mode ==
+> Actually, this was the reason why I started to write the below
+> mentioned patches. The idea behind that was to use a combination of
+> flow based and inner flow parallelization.
 > 
+> On bigger NUMA machines it does not make much sense to use all
+> cores for parallelization. The performance depends too much on the
+> actual topology. Moving crypto requests to another NUMA node can
+> even reduce performance. So I wanted to use RPS type hash based
+> cpu selection to choose the node for a given flow and then use
+> pcrypt to parallelize this flow on the chosen node.
+
+Excellent.
+
+I've been now playing with pcrypt. It seems to not give significant
+boost in throughput. I've setup the cpumaps properly, and top says the
+work is distributed to appropriate kworkers, but for some reason
+throughput does not get any better. I've tested with iperf in both udp
+and tcp modes, with various amounts of threads.
+
+Is there any more synchronization points for single SA that might limit
+throughput? I've been testing with auth hmac(sha1), enc cbc(aes) -
+according to metric the CPUs are still largely idle instead of
+processing more data for better throughput. aes-gcm (without pcrypt)
+achieves better throughput even saturating my test box links.
+
+Any pointers what to test, or to pinpoint the bottleneck?
+
+I also tried enabling RPS on the gre device, but it did not seem to
+make any significant difference either.
+
+> > > Currently we have only one systemwide workqueue for encryption
+> > > and one decryption. So all IPsec packets are send to the same
+> > > workqueue, regardless which state they use.
+> > > 
+> > > I have patches that make it possible to configure a separate
+> > > workqueue for each state or to group some states to a specific
+> > > workqueue. These patches are still unpublished because they
+> > > have not much testing yet, but I could send them after some
+> > > polishing for review or testing if you are interested.
+> > 
+> > Yes, I'd be interested.
+> 
+> Ok, I'll send them. May take some days to rebase and polish.
+
+Thanks.
