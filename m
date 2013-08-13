@@ -1,46 +1,34 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: Where are OVS VXLAN patches?
-Date: Tue, 13 Aug 2013 13:16:28 +0800
-Message-ID: <1376370988.13583.6.camel@cr0>
-References: <1376291275.17589.18.camel@cr0>
-	 <CAEP_g=-JQUZaLUhkMWQ6p8iYn8jqb_0tZOq=x+kv0Xip3dUA7A@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: question about netif_rx
+Date: Tue, 13 Aug 2013 07:20:36 +0200
+Message-ID: <20130813052036.GA11640@electric-eye.fr.zoreil.com>
+References: <alpine.DEB.2.02.1308111151210.2072@localhost6.localdomain6>
+ <20130811155640.GA10070@electric-eye.fr.zoreil.com>
+ <alpine.DEB.2.02.1308111811440.2072@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51066 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753610Ab3HMFQj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Aug 2013 01:16:39 -0400
-In-Reply-To: <CAEP_g=-JQUZaLUhkMWQ6p8iYn8jqb_0tZOq=x+kv0Xip3dUA7A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: grant.likely@linaro.org, rob.herring@calxeda.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.02.1308111811440.2072@localhost6.localdomain6>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-08-12 at 09:59 -0700, Jesse Gross wrote:
-> On Mon, Aug 12, 2013 at 12:07 AM, Cong Wang <amwang@redhat.com> wrote:
-> > Hello, David
-> >
-> > I am wondering where are the patches for OVS VXLAN support from Pravin?
-> > v7 were posted one week ago:
-> > http://marc.info/?l=linux-netdev&m=137572485116601&w=2
-> >
-> > and no one complains about them, so I think they are ready for merge?
-> >
-> > But they still do not appear in net-next, nor I can find them in vxlan
-> > tree of Stephen or openvswitch tree of Jesse. What's more, I even can't
-> > find them in netdev patchwork [1].
-> 
-> I believe that Stephen is planning on taking the first part of the
-> series through his VXLAN tree.
+Julia Lawall <julia.lawall@lip6.fr> :
+> Fran=C3=A7ois Romieu <romieu@fr.zoreil.com> :
+[...]
+> > Can you send a netif_receive_skb replacement patch for it ?
+>=20
+> Just to be sure, I just replace netif_rx by netif_receive_skb, nothin=
+g
+> else?
 
-I can't find them here:
-https://git.kernel.org/cgit/linux/kernel/git/shemminger/vxlan-next.git
+Yes. It should imho be fine with a comment incluing your analysis and a
+few words about the current state of checksum offloading support.
 
-Maybe Stephen hasn't pushed them.
-
-Thanks.
+--=20
+Ueimor
