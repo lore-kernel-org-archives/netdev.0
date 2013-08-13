@@ -1,34 +1,83 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] xfrm: introduce helper for safe determination of
- mtu
-Date: Tue, 13 Aug 2013 16:39:08 -0700 (PDT)
-Message-ID: <20130813.163908.1554594022630686619.davem@davemloft.net>
-References: <20130813023558.GD27385@order.stressinduktion.org>
+Subject: Re: [PATCH net-next 1/3] net/usb/r8152: support aggregation
+Date: Tue, 13 Aug 2013 16:41:18 -0700 (PDT)
+Message-ID: <20130813.164118.1992860501009385037.davem@davemloft.net>
+References: <1376383742.1681.1.camel@linux-fkkt.site>
+	<9E410853D1BD483E9479C175D5E72EB6@realtek.com.tw>
+	<1376407030.3033.13.camel@linux-fkkt.site>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45462 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755311Ab3HMXjJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 19:39:09 -0400
-In-Reply-To: <20130813023558.GD27385@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hayeswang@realtek.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: oneukum@suse.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1376407030.3033.13.camel@linux-fkkt.site>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue, 13 Aug 2013 04:35:58 +0200
+From: Oliver Neukum <oneukum@suse.de>
+Date: Tue, 13 Aug 2013 17:17:10 +0200
 
-> skb->sk socket can be of AF_INET or AF_INET6 address family. Thus we
-> always have to make sure we a referring to the correct interpretation
-> of skb->sk.
+> On Tue, 2013-08-13 at 20:32 +0800, hayeswang wrote:
+>>  Oliver Neukum [mailto:oneukum@suse.de] 
+>> > Sent: Tuesday, August 13, 2013 4:49 PM
+>> > To: Hayeswang
+>> > Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; 
+>> > linux-usb@vger.kernel.org
+>> > Subject: Re: [PATCH net-next 1/3] net/usb/r8152: support aggregation
+>> > 
+>> [...]
+>> > > +               len_used = 0;
+>> > > +               rx_desc = agg->head;
+>> > > +               rx_data = agg->head;
+>> > > +               smp_wmb();
+>> > > +               pkt_len = le32_to_cpu(rx_desc->opts1) & RX_LEN_MASK;
+>> > > +               len_used += sizeof(struct rx_desc) + pkt_len;
+>> > > +
+>> > > +               while (urb->actual_length >= len_used) {
+>> > > +                       if (pkt_len < ETH_ZLEN)
+>> > > +                               break;
+>> > > +
+>> > > +                       pkt_len -= 4; /* CRC */
+>> > > +                       rx_data += sizeof(struct rx_desc);
+>> > > +
+>> > > +                       skb = netdev_alloc_skb_ip_align(netdev,
+>> > > pkt_len);
+>> > > +                       if (!skb) {
+>> > > +                               stats->rx_dropped++;
+>> > > +                               break;
+>> > > +                       }
+>> > > +                       memcpy(skb->data, rx_data, pkt_len);
+>> > > +                       skb_put(skb, pkt_len);
+>> > > +                       skb->protocol = eth_type_trans(skb, netdev);
+>> > > +                       netif_rx(skb);
+>> > > +                       stats->rx_packets++;
+>> > > +                       stats->rx_bytes += pkt_len;
+>> > > +
+>> > > +                       rx_data = rx_agg_align(rx_data + 
+>> > pkt_len + 4);
+>> > > +                       rx_desc = (struct rx_desc *)rx_data;
+>> > > +                       smp_wmb();
+>> > 
+>> > Against what is the memory barrier?
+>> 
+>> Excuse me. I don't understand your question. Do you mean the function should not
+>> be used here?
 > 
-> We only depend on header defines to query the mtu, so we don't introduce
-> a new dependency to ipv6 by this change.
-> 
-> Cc: Steffen Klassert <steffen.klassert@secunet.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> I don't understand what problem the function is supposed to fix. As long
+> as I don't understand it I cannot say for sure whether it is correct.
+> There seems no obvious reason for a memory barrier, but there may be a
+> hidden reason I don't see.
 
-This also looks fine to me, Steffen please review and pick it up.
+Hayes, when Oliver asks you "Against what is the memory barrier?" he is asking
+you which memory operations you are trying to order.
+
+You do not explain this in your commit message, nor do you explain it with a
+suitable comment.  This is not acceptable.
+
+It is absolutely critical, that any time you add a memory barrier, you add a
+comment above the new memory barrier explaining exactly what the barrier is
+trying to achieve.
+
+In fact, this is required by our coding standards.
