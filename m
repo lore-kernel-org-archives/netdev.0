@@ -1,72 +1,75 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: r8169 OOPSen in rtl_rx
-Date: Tue, 13 Aug 2013 11:43:14 +0200
-Message-ID: <20130813094314.GW3008@twins.programming.kicks-ass.net>
+From: Lee Jones <lee.jones@linaro.org>
+Subject: Re: [PATCH 4/7] mfd: add MFD based flexcard driver
+Date: Tue, 13 Aug 2013 10:55:08 +0100
+Message-ID: <20130813095508.GA5109@lee--X1>
+References: <1376384922-8519-1-git-send-email-b.spranger@linutronix.de>
+ <1376384922-8519-6-git-send-email-b.spranger@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: nic_swsd@realtek.com, romieu@fr.zoreil.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Alexander Frank <Alexander.Frank@eberspaecher.com>,
+	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	Samuel Ortiz <sameo@linux.intel.com>,
+	Holger Dengler <dengler@linutronix.de>
+To: Benedikt Spranger <b.spranger@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:49321 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753619Ab3HMJnX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 05:43:23 -0400
+Received: from mail-ee0-f53.google.com ([74.125.83.53]:50560 "EHLO
+	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756594Ab3HMJzR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 05:55:17 -0400
+Received: by mail-ee0-f53.google.com with SMTP id b15so4103416eek.40
+        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 02:55:14 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <1376384922-8519-6-git-send-email-b.spranger@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi r8169 people,
+On Tue, 13 Aug 2013, Benedikt Spranger wrote:
 
-I've got an AMD x86_64 machine with two realtek NICs:
+> This patch provides support for Eberp=C3=A4cher Flexcard. The Flexcar=
+d comes
+> with two PCI bars, one for the glue layer and one for the "IPs". The
+> second bar may have multiple other devices like flexray or d_can
+> devices. The driver utilites the MFD framework and creates various
+> subdevices. Not only for the additional "IPs" but also for the clock
+> source and clockevent provided by the card.
+>=20
+> Cc: Samuel Ortiz <sameo@linux.intel.com>
+> Cc: Lee Jones <lee.jones@linaro.org>
+> Signed-off-by: Benedikt Spranger <b.spranger@linutronix.de>
+> Signed-off-by: Holger Dengler <dengler@linutronix.de>
+> ---
+>  drivers/mfd/Kconfig           |   40 ++
+>  drivers/mfd/Makefile          |    2 +
+>  drivers/mfd/flexcard-core.c   | 1059 +++++++++++++++++++++++++++++++=
+++++++++++
+>  drivers/mfd/flexcard-dma.c    |  561 ++++++++++++++++++++++
+>  drivers/mfd/flexcard-irq.c    |  333 +++++++++++++
+>  drivers/mfd/flexcard.h        |    8 +
+>  include/linux/eray.h          |  650 +++++++++++++++++++++++++
+>  include/linux/flexcard.h      |   95 ++++
+>  include/uapi/linux/Kbuild     |    2 +
+>  include/uapi/linux/eray.h     |   34 ++
+>  include/uapi/linux/flexcard.h |  429 +++++++++++++++++
+>  11 files changed, 3213 insertions(+)
+>  create mode 100644 drivers/mfd/flexcard-core.c
+>  create mode 100644 drivers/mfd/flexcard-dma.c
+>  create mode 100644 drivers/mfd/flexcard-irq.c
+>  create mode 100644 drivers/mfd/flexcard.h
+>  create mode 100644 include/linux/eray.h
+>  create mode 100644 include/linux/flexcard.h
+>  create mode 100644 include/uapi/linux/eray.h
+>  create mode 100644 include/uapi/linux/flexcard.h
 
-01:08.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8169 Gigabit Ethernet (rev 10)
-03:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI Express Gigabit Ethernet controller (rev 06)
+Wow, this is a huge patch which is going to be an insanely long,
+laborious and complex task to review it all.
 
-I currently run a 3.10.0.6 based kernel on the machine and frequently
-(several times a week) get OOPSen in the rtl_rx path. Now the horribly
-sad part is that this machine doesn't (currently) have a working serial
-line -- its got pins on the board but I need to go hunt for an expansion
-bracket for it :/
+Can you split this up into many patches? Adding functionality
+incrementally instead of rolling it up into this ball of wax?
 
-I recently added the RTL8111 (rev 6) card so that this machine could
-do firewall duties (it was a general server using the RTL-8169 for a
-long time before that and always ran without problems).
-
-I have tried netconsole, but that's not working, which leads me to
-believe its the inward-facing NIC that's buggered -- which would be the
-RTL-8169 (rev 10) -- pure speculation though, it could just crash hard
-enough for nothing to really work anymore.
-
-The video-card also doesn't support 80x50/60 text modes and
-KMS/framebuffer also didn't work (as in, I get graphics based text at
-high res but OOPSen don't actually make it to the screen).
-
-So all I've got to offer currently is a partial backtrace -- see
-attached image. Partial transcribe:
-
-  ? rtl8169_try_rx_copy.isra.77
-  rtl_rx
-  rtl8169_poll
-  net_rx_action
-  ? get_vtime_delta
-  __do_softirq
-  irq_exit
-  do_IRQ
-  common_interrupt
-  ? native_safe_halt
-  ? rcu_eqs_enter_common.isra.48
-  default_idle
-  amd_e400_idle
-  arch_cpu_idle
-  cpu_idle_loop
-  ...
-
-I did look at the r8169 log between 3.10 and current head and there
-wasn't anything obviously related to RX crashes so I haven't upgraded to
-3.11-rc; if you think I should try please say so.
-
-I'm also willing to try patches -- although as said, reproduction can
-take a few days -- although sometimes I'm 'lucky' and it crashes
-multiple times a day :/
-
-~ Peter
+--=20
+Lee Jones
+Linaro ST-Ericsson Landing Team Lead
+Linaro.org =E2=94=82 Open source software for ARM SoCs
+=46ollow Linaro: Facebook | Twitter | Blog
