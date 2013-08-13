@@ -1,155 +1,99 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH 2/2] netfilter: export xt_HMARK.h to userland
-Date: Tue, 13 Aug 2013 15:05:39 +0200
-Message-ID: <1376399139-4181-2-git-send-email-nicolas.dichtel@6wind.com>
-References: <1376399139-4181-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH 1/2] netfilter: export xt_rpfilter.h to userland
+Date: Tue, 13 Aug 2013 15:05:38 +0200
+Message-ID: <1376399139-4181-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: pablo@netfilter.org, netdev@vger.kernel.org,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:35730 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:35729 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756929Ab3HMNGY (ORCPT
+	with ESMTP id S1756195Ab3HMNGY (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 09:06:24 -0400
-In-Reply-To: <1376399139-4181-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This file contains the API for the target "HMARK", hence it should be exported
+This file contains the API for the match "rpfilter", hence it should be exported
 to userland.
 
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- include/linux/netfilter/xt_HMARK.h      | 50 ---------------------------------
- include/uapi/linux/netfilter/Kbuild     |  1 +
- include/uapi/linux/netfilter/xt_HMARK.h | 50 +++++++++++++++++++++++++++++++++
- 3 files changed, 51 insertions(+), 50 deletions(-)
- delete mode 100644 include/linux/netfilter/xt_HMARK.h
- create mode 100644 include/uapi/linux/netfilter/xt_HMARK.h
+ include/linux/netfilter/xt_rpfilter.h      | 23 -----------------------
+ include/uapi/linux/netfilter/Kbuild        |  1 +
+ include/uapi/linux/netfilter/xt_rpfilter.h | 23 +++++++++++++++++++++++
+ 3 files changed, 24 insertions(+), 23 deletions(-)
+ delete mode 100644 include/linux/netfilter/xt_rpfilter.h
+ create mode 100644 include/uapi/linux/netfilter/xt_rpfilter.h
 
-diff --git a/include/linux/netfilter/xt_HMARK.h b/include/linux/netfilter/xt_HMARK.h
+diff --git a/include/linux/netfilter/xt_rpfilter.h b/include/linux/netfilter/xt_rpfilter.h
 deleted file mode 100644
-index 826fc5807577..000000000000
---- a/include/linux/netfilter/xt_HMARK.h
+index 8358d4f71952..000000000000
+--- a/include/linux/netfilter/xt_rpfilter.h
 +++ /dev/null
-@@ -1,50 +0,0 @@
--#ifndef XT_HMARK_H_
--#define XT_HMARK_H_
+@@ -1,23 +0,0 @@
+-#ifndef _XT_RPATH_H
+-#define _XT_RPATH_H
 -
 -#include <linux/types.h>
 -
 -enum {
--	XT_HMARK_SADDR_MASK,
--	XT_HMARK_DADDR_MASK,
--	XT_HMARK_SPI,
--	XT_HMARK_SPI_MASK,
--	XT_HMARK_SPORT,
--	XT_HMARK_DPORT,
--	XT_HMARK_SPORT_MASK,
--	XT_HMARK_DPORT_MASK,
--	XT_HMARK_PROTO_MASK,
--	XT_HMARK_RND,
--	XT_HMARK_MODULUS,
--	XT_HMARK_OFFSET,
--	XT_HMARK_CT,
--	XT_HMARK_METHOD_L3,
--	XT_HMARK_METHOD_L3_4,
--};
--#define XT_HMARK_FLAG(flag)	(1 << flag)
--
--union hmark_ports {
--	struct {
--		__u16	src;
--		__u16	dst;
--	} p16;
--	struct {
--		__be16	src;
--		__be16	dst;
--	} b16;
--	__u32	v32;
--	__be32	b32;
+-	XT_RPFILTER_LOOSE = 1 << 0,
+-	XT_RPFILTER_VALID_MARK = 1 << 1,
+-	XT_RPFILTER_ACCEPT_LOCAL = 1 << 2,
+-	XT_RPFILTER_INVERT = 1 << 3,
+-#ifdef __KERNEL__
+-	XT_RPFILTER_OPTION_MASK = XT_RPFILTER_LOOSE |
+-				  XT_RPFILTER_VALID_MARK |
+-				  XT_RPFILTER_ACCEPT_LOCAL |
+-				  XT_RPFILTER_INVERT,
+-#endif
 -};
 -
--struct xt_hmark_info {
--	union nf_inet_addr	src_mask;
--	union nf_inet_addr	dst_mask;
--	union hmark_ports	port_mask;
--	union hmark_ports	port_set;
--	__u32			flags;
--	__u16			proto_mask;
--	__u32			hashrnd;
--	__u32			hmodulus;
--	__u32			hoffset;	/* Mark offset to start from */
+-struct xt_rpfilter_info {
+-	__u8 flags;
 -};
 -
--#endif /* XT_HMARK_H_ */
+-#endif
 diff --git a/include/uapi/linux/netfilter/Kbuild b/include/uapi/linux/netfilter/Kbuild
-index dc00927ffd62..174915420d3f 100644
+index 41115776d76f..dc00927ffd62 100644
 --- a/include/uapi/linux/netfilter/Kbuild
 +++ b/include/uapi/linux/netfilter/Kbuild
-@@ -22,6 +22,7 @@ header-y += xt_CONNMARK.h
- header-y += xt_CONNSECMARK.h
- header-y += xt_CT.h
- header-y += xt_DSCP.h
-+header-y += xt_HMARK.h
- header-y += xt_IDLETIMER.h
- header-y += xt_LED.h
- header-y += xt_LOG.h
-diff --git a/include/uapi/linux/netfilter/xt_HMARK.h b/include/uapi/linux/netfilter/xt_HMARK.h
+@@ -68,6 +68,7 @@ header-y += xt_quota.h
+ header-y += xt_rateest.h
+ header-y += xt_realm.h
+ header-y += xt_recent.h
++header-y += xt_rpfilter.h
+ header-y += xt_sctp.h
+ header-y += xt_set.h
+ header-y += xt_socket.h
+diff --git a/include/uapi/linux/netfilter/xt_rpfilter.h b/include/uapi/linux/netfilter/xt_rpfilter.h
 new file mode 100644
-index 000000000000..826fc5807577
+index 000000000000..8358d4f71952
 --- /dev/null
-+++ b/include/uapi/linux/netfilter/xt_HMARK.h
-@@ -0,0 +1,50 @@
-+#ifndef XT_HMARK_H_
-+#define XT_HMARK_H_
++++ b/include/uapi/linux/netfilter/xt_rpfilter.h
+@@ -0,0 +1,23 @@
++#ifndef _XT_RPATH_H
++#define _XT_RPATH_H
 +
 +#include <linux/types.h>
 +
 +enum {
-+	XT_HMARK_SADDR_MASK,
-+	XT_HMARK_DADDR_MASK,
-+	XT_HMARK_SPI,
-+	XT_HMARK_SPI_MASK,
-+	XT_HMARK_SPORT,
-+	XT_HMARK_DPORT,
-+	XT_HMARK_SPORT_MASK,
-+	XT_HMARK_DPORT_MASK,
-+	XT_HMARK_PROTO_MASK,
-+	XT_HMARK_RND,
-+	XT_HMARK_MODULUS,
-+	XT_HMARK_OFFSET,
-+	XT_HMARK_CT,
-+	XT_HMARK_METHOD_L3,
-+	XT_HMARK_METHOD_L3_4,
-+};
-+#define XT_HMARK_FLAG(flag)	(1 << flag)
-+
-+union hmark_ports {
-+	struct {
-+		__u16	src;
-+		__u16	dst;
-+	} p16;
-+	struct {
-+		__be16	src;
-+		__be16	dst;
-+	} b16;
-+	__u32	v32;
-+	__be32	b32;
++	XT_RPFILTER_LOOSE = 1 << 0,
++	XT_RPFILTER_VALID_MARK = 1 << 1,
++	XT_RPFILTER_ACCEPT_LOCAL = 1 << 2,
++	XT_RPFILTER_INVERT = 1 << 3,
++#ifdef __KERNEL__
++	XT_RPFILTER_OPTION_MASK = XT_RPFILTER_LOOSE |
++				  XT_RPFILTER_VALID_MARK |
++				  XT_RPFILTER_ACCEPT_LOCAL |
++				  XT_RPFILTER_INVERT,
++#endif
 +};
 +
-+struct xt_hmark_info {
-+	union nf_inet_addr	src_mask;
-+	union nf_inet_addr	dst_mask;
-+	union hmark_ports	port_mask;
-+	union hmark_ports	port_set;
-+	__u32			flags;
-+	__u16			proto_mask;
-+	__u32			hashrnd;
-+	__u32			hmodulus;
-+	__u32			hoffset;	/* Mark offset to start from */
++struct xt_rpfilter_info {
++	__u8 flags;
 +};
 +
-+#endif /* XT_HMARK_H_ */
++#endif
 -- 
 1.8.2.1
