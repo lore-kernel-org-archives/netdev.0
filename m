@@ -1,161 +1,73 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH] macvtap: Correctly set tap features when IFF_VNET_HDR
- is disabled.
-Date: Wed, 14 Aug 2013 12:04:22 -0400
-Message-ID: <520BAA86.1060204@redhat.com>
-References: <1376416558-25015-1-git-send-email-vyasevic@redhat.com> <20130814121043.GH5430@redhat.com> <520B8F05.6060402@redhat.com>
-Reply-To: vyasevic@redhat.com
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net] skge: dma_sync the whole receive buffer
+Date: Wed, 14 Aug 2013 09:20:22 -0700
+Message-ID: <20130814092022.494caf2b@nehalam.linuxnetplumber.net>
+References: <20130810104100.0ae20aa6@nehalam.linuxnetplumber.net>
+	<20130810.132935.1257046025460198490.davem@davemloft.net>
+	<20130810150207.37432299@nehalam.linuxnetplumber.net>
+	<20130813.150955.1471100759610399160.davem@davemloft.net>
+	<20130813180036.3e639789@nehalam.linuxnetplumber.net>
+	<520B59D3.4020103@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: poma <pomidorabelisima@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12058 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750894Ab3HNQEY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Aug 2013 12:04:24 -0400
-Received: from int-mx10.intmail.prod.int.phx2.redhat.com (int-mx10.intmail.prod.int.phx2.redhat.com [10.5.11.23])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r7EG4N3D006963
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 12:04:24 -0400
-In-Reply-To: <520B8F05.6060402@redhat.com>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:39971 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760023Ab3HNQU1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 12:20:27 -0400
+Received: by mail-pd0-f176.google.com with SMTP id q10so6592809pdj.35
+        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 09:20:26 -0700 (PDT)
+In-Reply-To: <520B59D3.4020103@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/14/2013 10:07 AM, Vlad Yasevich wrote:
-> On 08/14/2013 08:10 AM, Michael S. Tsirkin wrote:
->> On Tue, Aug 13, 2013 at 01:55:58PM -0400, Vlad Yasevich wrote:
->>> When the user turns off IFF_VNET_HDR flag, attempts to change
->>> offload features via TUNSETOFFLOAD do not work.  This could cause
->>> GSO packets to be delivered to the user when the user is
->>> not prepared to handle them.
->>>
->>> To solve, allow processing of TUNSETOFFLOAD when IFF_VNET_HDR is
->>> disabled and make sure to turn off all offloads in this case.
->>> Also, when IFF_VNET_HDR is disabled, run throught the offload change
->>> as well to make sure that the functionality is not dependent on
->>> the order of the ioclt() calls.
->>>
->>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->>
->> Hmm, this seems to make it even messier.
->> So
->>     set TUNSETOFFLOAD
->>     clear IFF_VNET_HDR
->>     set IFF_VNET_HDR
->>
->> offloads are now clear?
->>
->> I'm also not sure userspace that sets offloads but clears
->> vnet hdr knows what it's doing.
->>
->> How about we fail attempts to clear vnet hdr
->> unless offloads are disabled?
->>
->
-> OK.  That makes it simpler...
+On Wed, 14 Aug 2013 12:20:03 +0200
+poma <pomidorabelisima@gmail.com> wrote:
 
-Spoke too soon.
+> On 14.08.2013 03:00, Stephen Hemminger wrote:
+> > On Tue, 13 Aug 2013 15:09:55 -0700 (PDT)
+> > David Miller <davem@davemloft.net> wrote:
+> > 
+> >> From: Stephen Hemminger <stephen@networkplumber.org>
+> >> Date: Sat, 10 Aug 2013 15:02:07 -0700
+> >>
+> >>> The DMA sync should sync the whole receive buffer, not just
+> >>> part of it. Fixes log messages dma_sync_check.
+> >>>
+> >>> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> >>
+> >> Applied, but I really suspect that your "check DMA mapping errors"
+> >> patch has added a serious regression.  A regression much worse than
+> >> the bug you were trying to fix with that change.
+> > 
+> > Argh. The problem is deeper than that. Device got broken somewhere between
+> > 3.2 and 3.4. My old Dlink card works on 3.2 but gets DMA errors on 3.4.
+> > The config's are different though so checking that as well.
+> > 
+> 
+> Can I help you with debugging?
+> DGE-530T is rather solid device.
 
-What happens is that libvirt is typically the one that turns off
-IFF_VNET_HDR, and qemu controls the offloads.
+Don't think it is a hardware problem.
+The failure is when the board access the Receive ring PCI memory area.
+This region is allocated with pci_alloc_consistent and therefore should
+be available. Two possible issues are driver math issues, or hardware
+problems with where the region is located. Some of these cards don't
+really have full 64 bit PCI support.
 
-So, if we forbid turning off vnet_hdr while offloads are set, that
-will break libvirt (this is because macvtap defaults to tap offloads 
-being enabled).
+My board is:
+05:01.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adapter (rev 11)
+	Subsystem: D-Link System Inc DGE-530T Gigabit Ethernet Adapter
+	Flags: bus master, 66MHz, medium devsel, latency 32, IRQ 18
+	Memory at f7d20000 (32-bit, non-prefetchable) [size=16K]
+	I/O ports at c000 [size=256]
+	Expansion ROM at f7d00000 [disabled] [size=128K]
+	Capabilities: [48] Power Management version 2
+	Capabilities: [50] Vital Product Data
+	Kernel driver in use: skge
 
--vlad
 
->
-> -vlad
->
->>
->>
->>
->>> ---
->>>   drivers/net/macvtap.c | 27 +++++++++++++++++++--------
->>>   1 file changed, 19 insertions(+), 8 deletions(-)
->>>
->>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
->>> index a98fb0e..076b9e7 100644
->>> --- a/drivers/net/macvtap.c
->>> +++ b/drivers/net/macvtap.c
->>> @@ -1019,6 +1019,7 @@ static int set_offload(struct macvtap_queue *q,
->>> unsigned long arg)
->>>       struct macvlan_dev *vlan;
->>>       netdev_features_t features;
->>>       netdev_features_t feature_mask = 0;
->>> +    netdev_features_t tap_mask = TUN_OFFLOADS;
->>>
->>>       vlan = rtnl_dereference(q->vlan);
->>>       if (!vlan)
->>> @@ -1026,7 +1027,12 @@ static int set_offload(struct macvtap_queue
->>> *q, unsigned long arg)
->>>
->>>       features = vlan->dev->features;
->>>
->>> -    if (arg & TUN_F_CSUM) {
->>> +    if (!(q->flags & IFF_VNET_HDR)) {
->>> +        /* Turn off all checsum offloading also if user does
->>> +         * not user vnet_hdr.
->>
->> Does not set?
->>
->>> +         */
->>> +        tap_mask |= NETIF_F_ALL_CSUM;
->>> +    } else if (arg & TUN_F_CSUM) {
->>>           feature_mask = NETIF_F_HW_CSUM;
->>>
->>>           if (arg & (TUN_F_TSO4 | TUN_F_TSO6)) {
->>> @@ -1058,8 +1064,7 @@ static int set_offload(struct macvtap_queue *q,
->>> unsigned long arg)
->>>       /* tap_features are the same as features on tun/tap and
->>>        * reflect user expectations.
->>>        */
->>> -    vlan->tap_features = vlan->dev->features &
->>> -                (feature_mask | ~TUN_OFFLOADS);
->>> +    vlan->tap_features = vlan->dev->features & (feature_mask |
->>> ~tap_mask);
->>>       vlan->set_features = features;
->>>       netdev_update_features(vlan->dev);
->>>
->>> @@ -1092,8 +1097,18 @@ static long macvtap_ioctl(struct file *file,
->>> unsigned int cmd,
->>>           if ((u & ~(IFF_VNET_HDR | IFF_MULTI_QUEUE)) !=
->>>               (IFF_NO_PI | IFF_TAP))
->>>               ret = -EINVAL;
->>> -        else
->>> +        else {
->>> +            if ((q->flags ^ u) & IFF_VNET_HDR) {
->>> +                /* vnet_hdr support impacts the offloads,
->>> +                 * so we need to run throught the offload
->>
->> throught ?
->>
->>> +                 * change.
->>> +                 */
->>> +                rtnl_lock();
->>> +                ret = set_offload(q, 0);
->>> +                rtnl_unlock();
->>> +            }
->>>               q->flags = u;
->>> +        }
->>>
->>>           return ret;
->>>
->>> @@ -1155,10 +1170,6 @@ static long macvtap_ioctl(struct file *file,
->>> unsigned int cmd,
->>>                   TUN_F_TSO_ECN | TUN_F_UFO))
->>>               return -EINVAL;
->>>
->>> -        /* TODO: only accept frames with the features that
->>> -             got enabled for forwarded frames */
->>> -        if (!(q->flags & IFF_VNET_HDR))
->>> -            return  -EINVAL;
->>>           rtnl_lock();
->>>           ret = set_offload(q, arg);
->>>           rtnl_unlock();
->>> --
->>> 1.8.1.4
->
+What is your config?
