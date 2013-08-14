@@ -1,49 +1,48 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH net 2/3] openvswitch: Use correct type while allocating flex array.
-Date: Wed, 14 Aug 2013 16:19:06 -0700
-Message-ID: <1376522347-39531-3-git-send-email-jesse@nicira.com>
-References: <1376522347-39531-1-git-send-email-jesse@nicira.com>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Jesse Gross <jesse@nicira.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog103.obsmtp.com ([74.125.149.71]:58294 "HELO
-	na3sys009aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1760033Ab3HNXTV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 19:19:21 -0400
-Received: by mail-pa0-f52.google.com with SMTP id kq13so186420pab.39
-        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 16:19:21 -0700 (PDT)
-In-Reply-To: <1376522347-39531-1-git-send-email-jesse@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [GIT net] Open vSwitch
+Date: Wed, 14 Aug 2013 16:19:04 -0700
+Message-ID: <1376522347-39531-1-git-send-email-jesse@nicira.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Pravin B Shelar <pshelar@nicira.com>
+Three bug fixes that are fairly small either way but resolve obviously
+incorrect code. For net/3.11.
 
-Flex array is used to allocate hash buckets which is type struct
-hlist_head, but we use `struct hlist_head *` to calculate
-array size.  Since hlist_head is of size pointer it works fine.
+The following changes since commit ad81f0545ef01ea651886dddac4bef6cec930092:
 
-Following patch use correct type.
+  Linux 3.11-rc1 (2013-07-14 15:18:27 -0700)
 
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-Signed-off-by: Jesse Gross <jesse@nicira.com>
----
- net/openvswitch/flow.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+are available in the git repository at:
 
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 5c519b1..1aa84dc 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -240,7 +240,7 @@ static struct flex_array *alloc_buckets(unsigned int n_buckets)
- 	struct flex_array *buckets;
- 	int i, err;
- 
--	buckets = flex_array_alloc(sizeof(struct hlist_head *),
-+	buckets = flex_array_alloc(sizeof(struct hlist_head),
- 				   n_buckets, GFP_KERNEL);
- 	if (!buckets)
- 		return NULL;
--- 
-1.8.1.2
+  git://git.kernel.org/pub/scm/linux/kernel/git/jesse/openvswitch.git fixes
+
+for you to fetch changes up to 36bf5cc66d60868bcc10aff209defed5a7b71c1d:
+
+  openvswitch: Reset tunnel key between input and output. (2013-08-14 15:50:36 -0700)
+
+----------------------------------------------------------------
+Jesse Gross (2):
+      openvswitch: Fix bad merge resolution.
+      openvswitch: Reset tunnel key between input and output.
+
+Pravin B Shelar (1):
+      openvswitch: Use correct type while allocating flex array.
+
+ net/openvswitch/actions.c  | 1 +
+ net/openvswitch/datapath.c | 3 ---
+ net/openvswitch/flow.c     | 2 +-
+ 3 files changed, 2 insertions(+), 4 deletions(-)
