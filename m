@@ -1,131 +1,82 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2] macvtap: Correctly set tap features when IFF_VNET_HDR
- is disabled.
-Date: Wed, 14 Aug 2013 22:23:06 +0300
-Message-ID: <20130814192306.GA20155@redhat.com>
-References: <1376499820-27764-1-git-send-email-vyasevic@redhat.com>
- <20130814175014.GB17580@redhat.com>
- <520BD719.6010601@redhat.com>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [PATCH v3 00/11] Add namespace support for syslog
+Date: Wed, 14 Aug 2013 12:21:47 -0700
+Message-ID: <87a9kkcc38.fsf@xmission.com>
+References: <1375861035-24320-1-git-send-email-rui.xiang@huawei.com>
+	<878v0evssv.fsf@xmission.com> <5202F65F.40002@cn.fujitsu.com>
+	<52037D50.2050109@huawei.com> <20130814153017.GA18403@mail.hallyn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52846 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932641Ab3HNTVb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Aug 2013 15:21:31 -0400
-Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r7EJLUwu028476
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 15:21:31 -0400
-Content-Disposition: inline
-In-Reply-To: <520BD719.6010601@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	libo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	guz.fnst-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
+To: "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20130814153017.GA18403-7LNsyQBKDXoIagZqoN9o3w@public.gmane.org> (Serge E. Hallyn's
+	message of "Wed, 14 Aug 2013 15:30:17 +0000")
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 14, 2013 at 03:14:33PM -0400, Vlad Yasevich wrote:
-> On 08/14/2013 01:50 PM, Michael S. Tsirkin wrote:
-> >On Wed, Aug 14, 2013 at 01:03:40PM -0400, Vlad Yasevich wrote:
-> >>When the user turns off IFF_VNET_HDR flag, attempts to change
-> >>offload features via TUNSETOFFLOAD do not work.  This could cause
-> >>GSO packets to be delivered to the user when the user is
-> >>not prepared to handle them.
-> >>
-> >>To solve, allow processing of TUNSETOFFLOAD when IFF_VNET_HDR is
-> >>disabled.  Treat any attempt to enable offloads as an error in
-> >>this case.
-> >>We also need to update the TUN_FEATURES mask to include all checksum
-> >>options as the underlying device may have something other then
-> >>HW_CSUM set.
-> >
-> >This last looks like a completely unrelated change,
-> >does it not?
-> >Would be nice to have it in a separate patchset with some
-> >examples of broken configurations.
-> 
-> sure.  can do.
-> 
-> >
-> >>
-> >>Change since v1:
-> >>   - Removed the call to update offloads when IFF_VNET_HDR is turned off.
-> >>   - Changed the macvtap version of TUN_OFFLOADS to include all checksum
-> >>     offloads since the physical nic may have them set.
-> >>   - Treat enabling of offloads without vnet_hdr support as error.
-> >>
-> >>Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> >>---
-> >>  drivers/net/macvtap.c | 12 +++++++-----
-> >>  1 file changed, 7 insertions(+), 5 deletions(-)
-> >>
-> >>diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> >>index a98fb0e..3acfc37 100644
-> >>--- a/drivers/net/macvtap.c
-> >>+++ b/drivers/net/macvtap.c
-> >>@@ -65,7 +65,7 @@ static struct cdev macvtap_cdev;
-> >>
-> >>  static const struct proto_ops macvtap_socket_ops;
-> >>
-> >>-#define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
-> >>+#define TUN_OFFLOADS (NETIF_F_ALL_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
-> >>  		      NETIF_F_TSO6 | NETIF_F_UFO)
-> >>  #define RX_OFFLOADS (NETIF_F_GRO | NETIF_F_LRO)
-> >>  /*
-> >>@@ -1024,6 +1024,12 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
-> >>  	if (!vlan)
-> >>  		return -ENOLINK;
-> >>
-> >>+	/* If the user is trying to set offloads while IFF_VNET_HDR is
-> >>+	 * off, report it as an error.
-> >>+	 */
-> >>+	if (!(q->flags & IFF_VNET_HDR) && arg)
-> >>+		return -EINVAL;
-> >>+
-> >
-> >This function has a single caller so it should matter,
-> >but I'm just curious why are you moving the test here from
-> >macvtap_ioctl?
-> >
-> 
-> I thought the same thing.  I can certainly move it back.  Will make
-> the patch smaller.
-> 
-> >>  	features = vlan->dev->features;
-> >>
-> >>  	if (arg & TUN_F_CSUM) {
-> >>@@ -1155,10 +1161,6 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
-> >>  			    TUN_F_TSO_ECN | TUN_F_UFO))
-> >>  			return -EINVAL;
-> >>
-> >>-		/* TODO: only accept frames with the features that
-> >>-			 got enabled for forwarded frames */
-> >
-> >Why do you drop this btw? you disagree we should do this
-> >eventually? Maybe a separate patch too.
-> 
-> I thought that this comment related to the check for VNET_HDR.
-> I am having a hard time understanding the meaning behind this comment.
-> Is the meaning that if GSO is disabled, we shouldn't accept GSO?  This
-> kind the reverse of what we've been doing.
+"Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org> writes:
 
-I see, you mean 3e4f8b787370978733ca6cae452720a4f0c296b8
-actually addressed this comment?
-I think you are right, and we can drop it, though maybe cleaner
-to do it by a separate patch.
+> Quoting Rui Xiang (rui.xiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org):
+>> On 2013/8/8 9:37, Gao feng wrote:
+>> > On 08/07/2013 03:55 PM, Eric W. Biederman wrote:
+>> >>
+>> >> Since this still has not been addressed.  I am going to repeat Andrews
+>> >> objection again.
+>> >>
+>> >> Isn't there a better way to get iptables information out than to use
+>> >> syslog.  I did not have time to follow up on that but it did appear that
+>> >> someone did have a better way to get the information out.
+>> >>
+>> >> Essentially the argument against this goes.  The kernel logging facility
+>> >> is really not a particularly good tool to be using for anything other
+>> >> than kernel debugging information, and there appear to be no substantial
+>> >> uses for a separate syslog that should not be done in other ways.
+>> > 
+>> > containerizing syslog is not only for iptables, it also isolates the /dev/kmsg,
+>> > /proc/kmsg, syslog(2)... user space tools in container may use this interface
+>> > to read/generate syslog.
+>> > 
+>> > But I don't know how important/urgent this containerizing syslog work is,
+>> > Rui Xiang, can you find an important/popular user space tool which uses this
+>> > interfaces to generate kernel syslog?
+>> > 
+>> 
+>> There are some other cases. Some warnings (bad mount options for tmpfs,
+>> bad uid owner for many of them, etc) emerged in the container should
+>> be exported to the container. Some belong on the host - if they show 
+>> a corrupt superblock which may indicate an attempt by the container 
+>> to crash the kernel. Like these, Kernel will print out warnings when 
+>> userspace in container uses a deprecated something or other, and these
+>> logs should be invisible and specific for current container.
+>> 
+>> I can't say this work is terribly compelling and important, but the 
+>> impact may be obvious, IMO.
+>
+> Aug  9 21:49:13 sergeh1 kernel: [4644829.672768] init: Failed to spawn network-interface (veth8Ehlvj) post-stop process: unable to change root directory: No such file ricr:aeohgrticr  cfe rty444984 n:aetswnw-ta(ht -rrsultheoit: hlrro<4865i:i sntkta(ht ttpe btheoit: hlrrob r6ezt)nrgoadgte644915 c0pt(tyg ti wd a
+> Aug  9 21:49:13 sergeh1 kernel: X3f d-6:uigitra ora
+> Aug  9 22:19:54 sergeh1 kernel: 6[642.175 X3f d-6:mutdflsse ihodrddt oe==99 rfl=lccnanrdfutwt-etn"nm=/a/ah/x/lu-ui/m.AExdu"pi=91 om=mut sye"x3name="/devlo0" lg=r"ol pmc r=3an19pfel-nireu-tntgne/rc/cldudmHEqu d97o=otfy=x"ra=d/o/fg""8b:o vhc)nrgibdte646013 veeMzWe oso d<[4715]xr r1eMc egset
+> Aug
 
-> Or is more along the lines of dropping dropping GSO_GRE for now since
-> we don't support that offload function yet?
-> 
-> -vlad
+That is certainly a mess.  Now I don't believe we allow processes in a
+user namespace to write to the kernels log (certainly we shouldn't be)
+so part of that is not a problem.
 
-Confused. What don't we support?
+What is interleaving messages into syslog?
 
-> >
-> >>-		if (!(q->flags & IFF_VNET_HDR))
-> >>-			return  -EINVAL;
-> >>  		rtnl_lock();
-> >>  		ret = set_offload(q, arg);
-> >>  		rtnl_unlock();
-> >>--
-> >>1.8.1.4
+And to be clear my only perspective is that we need to make certain we
+have this thought out.
+
+Eric
