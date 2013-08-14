@@ -1,7 +1,8 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH 3/3 v3] ipv6: fix checkpatch errors in net/ipv6/addrconf.c
-Date: Wed, 14 Aug 2013 11:36:05 +0800
-Message-ID: <520AFB25.4090006@huawei.com>
+Subject: [PATCH 2/3 v3] ipv6: convert the uses of ADBG and remove the superfluous
+ parentheses
+Date: Wed, 14 Aug 2013 11:36:00 +0800
+Message-ID: <520AFB20.2000109@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -10,93 +11,101 @@ To: "David S. Miller" <davem@davemloft.net>,
 	James Morris <jmorris@namei.org>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>,
-	Netdev <netdev@vger.kernel.org>
+	Joe Perches <joe@perches.com>, Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:20712 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932105Ab3HNDgb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 23:36:31 -0400
+Received: from szxga03-in.huawei.com ([119.145.14.66]:12436 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759305Ab3HNDgn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 23:36:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ERROR: code indent should use tabs where possible: fix 2.
-ERROR: do not use assignment in if condition: fix 5.
+Just follow the Joe Perches's opinion, it is a better way to fix the
+style errors.
 
+Signed-off-by: Joe Perches <joe@perches.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- net/ipv6/addrconf.c | 24 ++++++++++++++----------
- 1 file changed, 14 insertions(+), 10 deletions(-)
+ net/ipv6/addrconf.c | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
 
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 734724c..00e3fdc 100644
+index 7b55464..734724c 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -1105,8 +1105,8 @@ retry:
- 	spin_unlock_bh(&ifp->lock);
+@@ -99,9 +99,9 @@
+ #define ACONF_DEBUG 2
  
- 	regen_advance = idev->cnf.regen_max_retry *
--	                idev->cnf.dad_transmits *
--	                idev->nd_parms->retrans_time / HZ;
-+			idev->cnf.dad_transmits *
-+			idev->nd_parms->retrans_time / HZ;
- 	write_unlock(&idev->lock);
+ #if ACONF_DEBUG >= 3
+-#define ADBG(x) printk x
++#define ADBG(fmt, ...) printk(fmt, ##__VA_ARGS__)
+ #else
+-#define ADBG(x)
++#define ADBG(fmt, ...) do {} while (0)
+ #endif
  
- 	/* A temporary address is created only if this calculated Preferred
-@@ -2514,7 +2514,8 @@ static int inet6_addr_del(struct net *net, int ifindex, const struct in6_addr *p
- 	if (!dev)
- 		return -ENODEV;
+ #define	INFINITY_LIFE_TIME	0xFFFFFFFF
+@@ -369,9 +369,9 @@ static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
+ 	dev_hold(dev);
  
--	if ((idev = __in6_dev_get(dev)) == NULL)
-+	idev = __in6_dev_get(dev);
-+	if (!idev)
- 		return -ENXIO;
+ 	if (snmp6_alloc_dev(ndev) < 0) {
+-		ADBG((KERN_WARNING
++		ADBG(KERN_WARNING
+ 			"%s: cannot allocate memory for statistics; dev=%s.\n",
+-			__func__, dev->name));
++			__func__, dev->name);
+ 		neigh_parms_release(&nd_tbl, ndev->nd_parms);
+ 		dev_put(dev);
+ 		kfree(ndev);
+@@ -379,9 +379,9 @@ static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
+ 	}
  
- 	read_lock_bh(&idev->lock);
-@@ -2653,7 +2654,8 @@ static void init_loopback(struct net_device *dev)
+ 	if (snmp6_register_dev(ndev) < 0) {
+-		ADBG((KERN_WARNING
++		ADBG(KERN_WARNING
+ 			"%s: cannot create /proc/net/dev_snmp6/%s\n",
+-			__func__, dev->name));
++			__func__, dev->name);
+ 		neigh_parms_release(&nd_tbl, ndev->nd_parms);
+ 		ndev->dead = 1;
+ 		in6_dev_finish_destroy(ndev);
+@@ -844,7 +844,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
  
- 	ASSERT_RTNL();
+ 	/* Ignore adding duplicate addresses on an interface */
+ 	if (ipv6_chk_same_addr(dev_net(idev->dev), addr, idev->dev)) {
+-		ADBG(("ipv6_add_addr: already assigned\n"));
++		ADBG("ipv6_add_addr: already assigned\n");
+ 		err = -EEXIST;
+ 		goto out;
+ 	}
+@@ -852,7 +852,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 	ifa = kzalloc(sizeof(struct inet6_ifaddr), GFP_ATOMIC);
  
--	if ((idev = ipv6_find_idev(dev)) == NULL) {
-+	idev = ipv6_find_idev(dev);
-+	if (!idev) {
- 		pr_debug("%s: add_dev failed\n", __func__);
+ 	if (ifa == NULL) {
+-		ADBG(("ipv6_add_addr: malloc failed\n"));
++		ADBG("ipv6_add_addr: malloc failed\n");
+ 		err = -ENOBUFS;
+ 		goto out;
+ 	}
+@@ -2070,7 +2070,7 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len, bool sllao)
+ 	pinfo = (struct prefix_info *) opt;
+ 
+ 	if (len < sizeof(struct prefix_info)) {
+-		ADBG(("addrconf: prefix option too short\n"));
++		ADBG("addrconf: prefix option too short\n");
  		return;
  	}
-@@ -2751,7 +2753,8 @@ static void addrconf_sit_config(struct net_device *dev)
- 	 * our v4 addrs in the tunnel
- 	 */
  
--	if ((idev = ipv6_find_idev(dev)) == NULL) {
-+	idev = ipv6_find_idev(dev);
-+	if (!idev) {
- 		pr_debug("%s: add_dev failed\n", __func__);
- 		return;
- 	}
-@@ -2783,7 +2786,8 @@ static void addrconf_gre_config(struct net_device *dev)
+@@ -3650,8 +3650,8 @@ restart:
+ 	if (time_before(next_sched, jiffies + ADDRCONF_TIMER_FUZZ_MAX))
+ 		next_sched = jiffies + ADDRCONF_TIMER_FUZZ_MAX;
  
- 	ASSERT_RTNL();
+-	ADBG((KERN_DEBUG "now = %lu, schedule = %lu, rounded schedule = %lu => %lu\n",
+-	      now, next, next_sec, next_sched));
++	ADBG(KERN_DEBUG "now = %lu, schedule = %lu, rounded schedule = %lu => %lu\n",
++	      now, next, next_sec, next_sched);
  
--	if ((idev = ipv6_find_idev(dev)) == NULL) {
-+	idev = ipv6_find_idev(dev);
-+	if (!idev) {
- 		pr_debug("%s: add_dev failed\n", __func__);
- 		return;
- 	}
-@@ -2814,11 +2818,11 @@ static void ip6_tnl_add_linklocal(struct inet6_dev *idev)
- 	struct net *net = dev_net(idev->dev);
- 
- 	/* first try to inherit the link-local address from the link device */
--	if (idev->dev->iflink &&
--	    (link_dev = __dev_get_by_index(net, idev->dev->iflink))) {
--		if (!ipv6_inherit_linklocal(idev, link_dev))
-+	if (idev->dev->iflink)
-+		link_dev = __dev_get_by_index(net, idev->dev->iflink);
-+		if (link_dev && !ipv6_inherit_linklocal(idev, link_dev))
- 			return;
--	}
-+
- 	/* then try to inherit it from any device */
- 	for_each_netdev(net, link_dev) {
- 		if (!ipv6_inherit_linklocal(idev, link_dev))
+ 	addr_chk_timer.expires = next_sched;
+ 	add_timer(&addr_chk_timer);
 -- 
 1.8.2.1
