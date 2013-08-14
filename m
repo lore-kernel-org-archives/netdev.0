@@ -1,117 +1,44 @@
-From: Fernando Gont <fernando@gont.com.ar>
-Subject: Fwd: RFC 6980 on Security Implications of IPv6 Fragmentation with
- IPv6 Neighbor Discovery
-Date: Wed, 14 Aug 2013 05:19:13 -0300
-Message-ID: <520B3D81.9070506@gont.com.ar>
-References: <20130813221321.AEA1AB1E003@rfc-editor.org>
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: Re: [PATCH] phy: micrel: Add definitions for common Micrel PHY
+ registers
+Date: Wed, 14 Aug 2013 16:45:10 +0800
+Message-ID: <20130814084508.GD31141@S2101-09.ap.freescale.net>
+References: <1376405940-17141-1-git-send-email-dinguyen@altera.com>
+ <20130814051743.GG16915@S2101-09.ap.freescale.net>
+ <20130814.005154.348348186882819546.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <dinguyen@altera.com>, <dinh.linux@gmail.com>,
+	<nicolas.ferre@atmel.com>, <linux@maxim.org.za>,
+	<plagnioj@jcrosoft.com>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web01.jbserver.net ([93.186.182.34]:37728 "EHLO
-	web01.jbserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759410Ab3HNIoZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 04:44:25 -0400
-In-Reply-To: <20130813221321.AEA1AB1E003@rfc-editor.org>
+Received: from tx2ehsobe005.messaging.microsoft.com ([65.55.88.15]:42494 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759505Ab3HNIow (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 04:44:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20130814.005154.348348186882819546.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Folks,
+On Wed, Aug 14, 2013 at 12:51:54AM -0700, David Miller wrote:
+> From: Shawn Guo <shawn.guo@linaro.org>
+> Date: Wed, 14 Aug 2013 13:17:46 +0800
+> 
+> > On Tue, Aug 13, 2013 at 09:58:59AM -0500, dinguyen@altera.com wrote:
+> >> From: Dinh Nguyen <dinguyen@altera.com>
+> >> 
+> >> Hi Shawn,
+> >> 
+> >> Can you apply this patch to your tree for 3.12?
+> >> 
+> > 
+> > I need David's Ack to send the patch through IMX tree.
+> 
+> Acked-by: David S. Miller <davem@davemloft.net>
 
-FYI. -- this is an important piece when it comes to First Hop (i.e.,
-"local link") Security.
+Okay, applied with David's ACK.
 
-Cheers,
-Fernando
-
-
-
-
--------- Original Message --------
-Subject: RFC 6980 on Security Implications of IPv6 Fragmentation with
-IPv6 Neighbor Discovery
-Date: Tue, 13 Aug 2013 15:13:21 -0700 (PDT)
-From: rfc-editor@rfc-editor.org
-To: ietf-announce@ietf.org, rfc-dist@rfc-editor.org
-CC: drafts-update-ref@iana.org, ipv6@ietf.org, rfc-editor@rfc-editor.org
-
-A new Request for Comments is now available in online RFC libraries.
-
-
-        RFC 6980
-
-        Title:      Security Implications of IPv6 Fragmentation
-                    with IPv6 Neighbor Discovery
-        Author:     F. Gont
-        Status:     Standards Track
-        Stream:     IETF
-        Date:       August 2013
-        Mailbox:    fgont@si6networks.com
-        Pages:      10
-        Characters: 20850
-        Updates:    RFC 3971, RFC 4861
-
-        I-D Tag:    draft-ietf-6man-nd-extension-headers-05.txt
-
-        URL:        http://www.rfc-editor.org/rfc/rfc6980.txt
-
-This document analyzes the security implications of employing IPv6
-fragmentation with Neighbor Discovery (ND) messages.  It updates RFC
-4861 such that use of the IPv6 Fragmentation Header is forbidden in
-all Neighbor Discovery messages, thus allowing for simple and
-effective countermeasures for Neighbor Discovery attacks.  Finally,
-it discusses the security implications of using IPv6 fragmentation
-with SEcure Neighbor Discovery (SEND) and formally updates RFC 3971
-to provide advice regarding how the aforementioned security
-implications can be mitigated.
-
-This document is a product of the IPv6 Maintenance Working Group of the
-IETF.
-
-This is now a Proposed Standard.
-
-STANDARDS TRACK: This document specifies an Internet standards track
-protocol for the Internet community,and requests discussion and suggestions
-for improvements.  Please refer to the current edition of the Internet
-Official Protocol Standards (STD 1) for the standardization state and
-status of this protocol.  Distribution of this memo is unlimited.
-
-This announcement is sent to the IETF-Announce and rfc-dist lists.
-To subscribe or unsubscribe, see
-  http://www.ietf.org/mailman/listinfo/ietf-announce
-  http://mailman.rfc-editor.org/mailman/listinfo/rfc-dist
-
-For searching the RFC series, see
-http://www.rfc-editor.org/search/rfc_search.php
-For downloading RFCs, see http://www.rfc-editor.org/rfc.html
-
-Requests for special distribution should be addressed to either the
-author of the RFC in question, or to rfc-editor@rfc-editor.org.  Unless
-specifically noted otherwise on the RFC itself, all RFCs are for
-unlimited distribution.
-
-
-The RFC Editor Team
-Association Management Solutions, LLC
---------------------------------------------------------------------
-IETF IPv6 working group mailing list
-ipv6@ietf.org
-Administrative Requests: https://www.ietf.org/mailman/listinfo/ipv6
---------------------------------------------------------------------
-
-
--- 
-Fernando Gont
-e-mail: fernando@gont.com.ar || fgont@si6networks.com
-PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
-
-
-
-
-
-
--- 
-Fernando Gont
-e-mail: fernando@gont.com.ar || fgont@si6networks.com
-PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
+Shawn
