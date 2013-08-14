@@ -1,70 +1,36 @@
-From: "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v3 00/11] Add namespace support for syslog
-Date: Wed, 14 Aug 2013 15:30:17 +0000
-Message-ID: <20130814153017.GA18403@mail.hallyn.com>
-References: <1375861035-24320-1-git-send-email-rui.xiang@huawei.com>
-	<878v0evssv.fsf@xmission.com> <5202F65F.40002@cn.fujitsu.com>
-	<52037D50.2050109@huawei.com>
+From: Ale Lampro <lampro.listas@gmail.com>
+Subject: Re: Configuring and using RIPngd
+Date: Wed, 14 Aug 2013 17:34:07 +0200
+Message-ID: <CAABrkZk1QBTTM80rWWod=uL_FaJ2hZ_0pXhj-K3OgL2Fvu8Nhw@mail.gmail.com>
+References: <CAABrkZnM90XTS1jZt-ZMDZTAG5mFeu2T0_++K+3Xxx8USQa6jQ@mail.gmail.com>
+	<20130814152424.GA10099@linuxace.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	libo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	guz.fnst-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-To: Rui Xiang <rui.xiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <52037D50.2050109-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Phil Oester <kernel@linuxace.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f65.google.com ([209.85.215.65]:60923 "EHLO
+	mail-la0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751014Ab3HNPeJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 11:34:09 -0400
+Received: by mail-la0-f65.google.com with SMTP id ep20so233769lab.0
+        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 08:34:07 -0700 (PDT)
+In-Reply-To: <20130814152424.GA10099@linuxace.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Rui Xiang (rui.xiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org):
-> On 2013/8/8 9:37, Gao feng wrote:
-> > On 08/07/2013 03:55 PM, Eric W. Biederman wrote:
-> >>
-> >> Since this still has not been addressed.  I am going to repeat Andrews
-> >> objection again.
-> >>
-> >> Isn't there a better way to get iptables information out than to use
-> >> syslog.  I did not have time to follow up on that but it did appear that
-> >> someone did have a better way to get the information out.
-> >>
-> >> Essentially the argument against this goes.  The kernel logging facility
-> >> is really not a particularly good tool to be using for anything other
-> >> than kernel debugging information, and there appear to be no substantial
-> >> uses for a separate syslog that should not be done in other ways.
-> > 
-> > containerizing syslog is not only for iptables, it also isolates the /dev/kmsg,
-> > /proc/kmsg, syslog(2)... user space tools in container may use this interface
-> > to read/generate syslog.
-> > 
-> > But I don't know how important/urgent this containerizing syslog work is,
-> > Rui Xiang, can you find an important/popular user space tool which uses this
-> > interfaces to generate kernel syslog?
-> > 
-> 
-> There are some other cases. Some warnings (bad mount options for tmpfs,
-> bad uid owner for many of them, etc) emerged in the container should
-> be exported to the container. Some belong on the host - if they show 
-> a corrupt superblock which may indicate an attempt by the container 
-> to crash the kernel. Like these, Kernel will print out warnings when 
-> userspace in container uses a deprecated something or other, and these
-> logs should be invisible and specific for current container.
-> 
-> I can't say this work is terribly compelling and important, but the 
-> impact may be obvious, IMO.
+Hi Phil,
 
-Aug  9 21:49:13 sergeh1 kernel: [4644829.672768] init: Failed to spawn network-interface (veth8Ehlvj) post-stop process: unable to change root directory: No such file ricr:aeohgrticr  cfe rty444984 n:aetswnw-ta(ht -rrsultheoit: hlrro<4865i:i sntkta(ht ttpe btheoit: hlrrob r6ezt)nrgoadgte644915 c0pt(tyg ti wd a
-Aug  9 21:49:13 sergeh1 kernel: X3f d-6:uigitra ora
-Aug  9 22:19:54 sergeh1 kernel: 6[642.175 X3f d-6:mutdflsse ihodrddt oe==99 rfl=lccnanrdfutwt-etn"nm=/a/ah/x/lu-ui/m.AExdu"pi=91 om=mut sye"x3name="/devlo0" lg=r"ol pmc r=3an19pfel-nireu-tntgne/rc/cldudmHEqu d97o=otfy=x"ra=d/o/fg""8b:o vhc)nrgibdte646013 veeMzWe oso d<[4715]xr r1eMc egset
-Aug
+Thanks, you are totally right.
+
+On Wed, Aug 14, 2013 at 5:24 PM, Phil Oester <kernel@linuxace.com> wrote:
+> On Wed, Aug 14, 2013 at 12:02:35PM +0200, Ale Lampro wrote:
+>> Hi,
+>>
+>> I am new to the list and I am trying to achieve something that I think
+>> should be relatively easy with RIPngd and Quagga, but I am new to all
+>> this so I have some issues.
+>
+> Best to ask this question on the Quagga mailing list.
+>
+> Phil
