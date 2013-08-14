@@ -1,17 +1,18 @@
 From: Libo Chen <clbchenlibo.chen@huawei.com>
-Subject: [PATCH RESEND 6/8] net: sunhme: use platform_{get,set}_drvdata()
-Date: Wed, 14 Aug 2013 11:40:01 +0800
-Message-ID: <520AFC11.2000208@huawei.com>
-References: <5208E229.9070300@huawei.com>
+Subject: [PATCH RESEND 8/8] net: davinci_mdio: use platform_{get,set}_drvdata()
+Date: Wed, 14 Aug 2013 11:40:22 +0800
+Message-ID: <520AFC26.9070508@huawei.com>
+References: <5208E231.60104@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <jg1.han@samsung.com>,
-	Bill Pemberton <wfp5p@virginia.edu>, <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
+Cc: <mugunthanvnm@ti.com>, <bigeasy@linutronix.de>,
+	<prabhakar.csengg@gmail.com>, <b-liu@ti.com>,
+	<netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+	Li Zefan <lizefan@huawei.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5208E229.9070300@huawei.com>
+In-Reply-To: <5208E231.60104@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -22,57 +23,33 @@ dev_{get,set}_drvdata() with &pdev->dev, it is convenient for user.
 Also, unnecessary dev_set_drvdata() is removed, because the driver core
 clears the driver data to NULL after device_release or on probe failure.
 
+
 Signed-off-by: Libo Chen <libo.chen@huawei.com>
 ---
- drivers/net/ethernet/sun/sunhme.c |    8 +++-----
- 1 files changed, 3 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/ti/davinci_mdio.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/sunhme.c b/drivers/net/ethernet/sun/sunhme.c
-index 171f5b0..a111f29 100644
---- a/drivers/net/ethernet/sun/sunhme.c
-+++ b/drivers/net/ethernet/sun/sunhme.c
-@@ -3111,7 +3111,7 @@ static int happy_meal_pci_probe(struct pci_dev *pdev,
- 		goto err_out_iounmap;
- 	}
+diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+index 16ddfc3..2249b2c 100644
+--- a/drivers/net/ethernet/ti/davinci_mdio.c
++++ b/drivers/net/ethernet/ti/davinci_mdio.c
+@@ -421,8 +421,7 @@ bail_out:
 
--	dev_set_drvdata(&pdev->dev, hp);
-+	platform_set_drvdata(pdev, hp);
-
- 	if (!qfe_slot) {
- 		struct pci_dev *qpdev = qp->quattro_dev;
-@@ -3159,7 +3159,7 @@ err_out:
-
- static void happy_meal_pci_remove(struct pci_dev *pdev)
+ static int davinci_mdio_remove(struct platform_device *pdev)
  {
--	struct happy_meal *hp = dev_get_drvdata(&pdev->dev);
-+	struct happy_meal *hp = platform_get_drvdata(pdev);
- 	struct net_device *net_dev = hp->dev;
+-	struct device *dev = &pdev->dev;
+-	struct davinci_mdio_data *data = dev_get_drvdata(dev);
++	struct davinci_mdio_data *data = platform_get_drvdata(pdev);
 
- 	unregister_netdev(net_dev);
-@@ -3171,7 +3171,6 @@ static void happy_meal_pci_remove(struct pci_dev *pdev)
+ 	if (data->bus) {
+ 		mdiobus_unregister(data->bus);
+@@ -434,7 +433,6 @@ static int davinci_mdio_remove(struct platform_device *pdev)
+ 	pm_runtime_put_sync(&pdev->dev);
+ 	pm_runtime_disable(&pdev->dev);
 
- 	free_netdev(net_dev);
+-	dev_set_drvdata(dev, NULL);
 
--	dev_set_drvdata(&pdev->dev, NULL);
- }
+ 	kfree(data);
 
- static DEFINE_PCI_DEVICE_TABLE(happymeal_pci_ids) = {
-@@ -3231,7 +3230,7 @@ static int hme_sbus_probe(struct platform_device *op)
-
- static int hme_sbus_remove(struct platform_device *op)
- {
--	struct happy_meal *hp = dev_get_drvdata(&op->dev);
-+	struct happy_meal *hp = platform_get_drvdata(op);
- 	struct net_device *net_dev = hp->dev;
-
- 	unregister_netdev(net_dev);
-@@ -3250,7 +3249,6 @@ static int hme_sbus_remove(struct platform_device *op)
-
- 	free_netdev(net_dev);
-
--	dev_set_drvdata(&op->dev, NULL);
-
- 	return 0;
- }
 -- 
 1.7.1
