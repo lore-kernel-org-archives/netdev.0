@@ -1,81 +1,38 @@
-From: Francesco Fusco <ffusco@redhat.com>
-Subject: [PATCH net-next 1/2] ipv4: IP_TOS and IP_TTL can be specified as ancillary data
-Date: Wed, 14 Aug 2013 17:48:38 +0200
-Message-ID: <92ffe52615a79259cd7cc120e504a9cf41dd546e.1376494031.git.ffusco@redhat.com>
-References: <cover.1376494030.git.ffusco@redhat.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Naeem Khademi <naeem.khademi@gmail.com>
+Subject: [PATCH] fixing adaptive-red average queuing in man/man8/tc-red.8
+Date: Wed, 14 Aug 2013 17:51:36 +0200
+Message-ID: <CAEjQQ5WLe4ZOML9D0rnuSNcjSazBFW4JhKp+iMqZVxO_Ckhj-g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41600 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759105Ab3HNPso (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Aug 2013 11:48:44 -0400
-In-Reply-To: <cover.1376494030.git.ffusco@redhat.com>
-In-Reply-To: <cover.1376494030.git.ffusco@redhat.com>
-References: <cover.1376494030.git.ffusco@redhat.com>
+Received: from mail-vb0-f47.google.com ([209.85.212.47]:47754 "EHLO
+	mail-vb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759697Ab3HNPvh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 11:51:37 -0400
+Received: by mail-vb0-f47.google.com with SMTP id h10so7645902vbh.20
+        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 08:51:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables the IP_TTL and IP_TOS values passed from userspace to
-be stored in the ipcm_cookie struct.
+This patch fixes a mistake in documenting adaptive-RED's formula of
+average queuing in man. The ARED's target average queuing is
+(max+min)/2.
 
-Signed-off-by: Francesco Fusco <ffusco@redhat.com>
----
- include/net/ip.h       |  3 +++
- net/ipv4/ip_sockglue.c | 20 +++++++++++++++++++-
- 2 files changed, 22 insertions(+), 1 deletion(-)
+Regards,
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index a68f838..bf63936 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -54,6 +54,9 @@ static inline unsigned int ip_hdrlen(const struct sk_buff *skb)
- struct ipcm_cookie {
- 	__be32			addr;
- 	int			oif;
-+	__s16			ttl;
-+	__s16			tos;
-+	__u32			priority;
- 	struct ip_options_rcu	*opt;
- 	__u8			tx_flags;
- };
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index d9c4f11..56e3445 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -189,7 +189,7 @@ EXPORT_SYMBOL(ip_cmsg_recv);
- 
- int ip_cmsg_send(struct net *net, struct msghdr *msg, struct ipcm_cookie *ipc)
- {
--	int err;
-+	int err, val;
- 	struct cmsghdr *cmsg;
- 
- 	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
-@@ -215,6 +215,24 @@ int ip_cmsg_send(struct net *net, struct msghdr *msg, struct ipcm_cookie *ipc)
- 			ipc->addr = info->ipi_spec_dst.s_addr;
- 			break;
- 		}
-+		case IP_TTL:
-+			if (cmsg->cmsg_len != CMSG_LEN(sizeof(int)))
-+				return -EINVAL;
-+			val = *(int *)CMSG_DATA(cmsg);
-+			if (val < 1 || val > 255)
-+				return -EINVAL;
-+			ipc->ttl = val;
-+			break;
-+		case IP_TOS:
-+			if (cmsg->cmsg_len != CMSG_LEN(sizeof(int)))
-+				return -EINVAL;
-+			val = *(int *)CMSG_DATA(cmsg);
-+			if (val < 0 || val > 255)
-+				return -EINVAL;
-+			ipc->tos = val;
-+			ipc->priority = rt_tos2priority(ipc->tos);
-+			break;
-+
- 		default:
- 			return -EINVAL;
- 		}
--- 
-1.8.3.1
+diff --git a/man/man8/tc-red.8 b/man/man8/tc-red.8
+index f410d15..466000d 100644
+--- a/man/man8/tc-red.8
++++ b/man/man8/tc-red.8
+@@ -127,7 +127,7 @@ adaptive
+ (Added in linux-3.3) Sets RED in adaptive mode as described in
+http://icir.org/floyd/papers/adaptiveRed.pdf
+ .nf
+ Goal of Adaptive RED is to make 'probability' dynamic value between
+1% and 50% to reach the target average queue :
+-.B (max - min) / 2
++.B (max + min) / 2
+ .fi
+
+ .SH EXAMPLE
