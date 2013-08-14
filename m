@@ -1,86 +1,104 @@
-From: Sharma Bhupesh-B45370 <B45370@freescale.com>
-Subject: RE: Query: Regarding 8211E Phy module support in drivers/net/phy
-Date: Wed, 14 Aug 2013 20:18:03 +0000
-Message-ID: <A1A6EA40F8503D48BB002B42BD65974E0A111CDD@039-SN2MPN1-013.039d.mgd.msft.net>
-References: <A1A6EA40F8503D48BB002B42BD65974E0A0E6C8C@039-SN2MPN1-012.039d.mgd.msft.net>
- <520B8F2C.5090308@st.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH v2] macvtap: Correctly set tap features when IFF_VNET_HDR
+ is disabled.
+Date: Wed, 14 Aug 2013 16:22:24 -0400
+Message-ID: <520BE700.7020302@redhat.com>
+References: <1376499820-27764-1-git-send-email-vyasevic@redhat.com> <20130814192437.GA20226@redhat.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>
-To: 'Giuseppe CAVALLARO' <peppe.cavallaro@st.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe001.messaging.microsoft.com ([216.32.180.11]:11123
-	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932768Ab3HNUSI convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Aug 2013 16:18:08 -0400
-In-Reply-To: <520B8F2C.5090308@st.com>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:64070 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932768Ab3HNUW0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Aug 2013 16:22:26 -0400
+Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r7EKMQH7020742
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 16:22:26 -0400
+In-Reply-To: <20130814192437.GA20226@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-> -----Original Message-----
-> From: Giuseppe CAVALLARO [mailto:peppe.cavallaro@st.com]
-> Sent: Wednesday, August 14, 2013 7:38 PM
-> To: Sharma Bhupesh-B45370
-> Cc: 'netdev@vger.kernel.org'
-> Subject: Re: Query: Regarding 8211E Phy module support in drivers/net/phy
-> 
-> On 8/2/2013 8:50 PM, Sharma Bhupesh-B45370 wrote:
-> > Hi Peppe,
-> >
-> > This regarding the patch prepared by you for adding RTL8211E support
-> > in drivers/net/phy/realtek.c
-> >
-> > commit ef3d90491a15f0d5cf1ec39a38a45dac6968fb2a
-> > Author: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-> > Date:   Wed Jan 23 00:30:03 2013 +0000
-> >
-> >      net: phy: realtek: add rtl8211e driver
-> >
-> >      This patch adds the minimal driver to manage the
-> >      Realtek RTL8211E 10/100/1000 Transceivers.
-> >
-> > I see a macro specific to 8211E:
-> > +#define        RTL8211E_INER_LINK_STAT 0x10
-> >
-> > I was having a look at the RTL8211E(G) datasheet and could see the
-> > following bit positions for INER register (Address 0x12):
-> >
-> > [7:1] as Reserved
-> > [0] as Jabber Interrupt
-> >
-> > If I am not wrong a value 0x10 written to the INER register tries to
-> > set bit [4] which seems Reserved.
-> 
-> Hello Sharma
-> you are right RTL8211E_INER_LINK_STAT should be 0x400 I will test it
-> again (just to find the hw) and prepare/send a new patch.
+On 08/14/2013 03:24 PM, Michael S. Tsirkin wrote:
+> On Wed, Aug 14, 2013 at 01:03:40PM -0400, Vlad Yasevich wrote:
+>> When the user turns off IFF_VNET_HDR flag, attempts to change
+>> offload features via TUNSETOFFLOAD do not work.  This could cause
+>> GSO packets to be delivered to the user when the user is
+>> not prepared to handle them.
 >
+> Just to clarify - is there some userspace that actually
+> triggers this?
 
-Hi Peppe,
+Yes.  The configuration that triggers is running windows guest
+which uses non-virtio driver over macvtap.
 
-Glad to hear from you. Please test with the h/w and send the relevant patch
-as I plan to send a patch supporting a new RTL phy module rebased on top of your patch.
+The issue is that in non-virtio configuration, libvirt turns off
+IFF_VNET_HDR support in macvtap.  Later, windows guest end up trying
+to change offload capabilities.  Win7 (and others that don't support
+GSO) will try to turn off offloads and that operation will fail.  Thus
+GSO packets will get queued to the socket without vnet hdr support.
 
-Thanks for your help.
-Regards,
-Bhupesh
-
- 
-> Many thanks
-> 
-> peppe
-> 
-> >
-> > Or am I missing something here.
-> > Please let me know your views on the same.
-> >
-> > Thanks,
-> > Bhupesh
-> >
-> >
-> >
-> 
+-vlad
+>
+>
+>> To solve, allow processing of TUNSETOFFLOAD when IFF_VNET_HDR is
+>> disabled.  Treat any attempt to enable offloads as an error in
+>> this case.
+>> We also need to update the TUN_FEATURES mask to include all checksum
+>> options as the underlying device may have something other then
+>> HW_CSUM set.
+>>
+>> Change since v1:
+>>    - Removed the call to update offloads when IFF_VNET_HDR is turned off.
+>>    - Changed the macvtap version of TUN_OFFLOADS to include all checksum
+>>      offloads since the physical nic may have them set.
+>>    - Treat enabling of offloads without vnet_hdr support as error.
+>>
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>> ---
+>>   drivers/net/macvtap.c | 12 +++++++-----
+>>   1 file changed, 7 insertions(+), 5 deletions(-)
+>>
+>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+>> index a98fb0e..3acfc37 100644
+>> --- a/drivers/net/macvtap.c
+>> +++ b/drivers/net/macvtap.c
+>> @@ -65,7 +65,7 @@ static struct cdev macvtap_cdev;
+>>
+>>   static const struct proto_ops macvtap_socket_ops;
+>>
+>> -#define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
+>> +#define TUN_OFFLOADS (NETIF_F_ALL_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
+>>   		      NETIF_F_TSO6 | NETIF_F_UFO)
+>>   #define RX_OFFLOADS (NETIF_F_GRO | NETIF_F_LRO)
+>>   /*
+>> @@ -1024,6 +1024,12 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
+>>   	if (!vlan)
+>>   		return -ENOLINK;
+>>
+>> +	/* If the user is trying to set offloads while IFF_VNET_HDR is
+>> +	 * off, report it as an error.
+>> +	 */
+>> +	if (!(q->flags & IFF_VNET_HDR) && arg)
+>> +		return -EINVAL;
+>> +
+>>   	features = vlan->dev->features;
+>>
+>>   	if (arg & TUN_F_CSUM) {
+>> @@ -1155,10 +1161,6 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+>>   			    TUN_F_TSO_ECN | TUN_F_UFO))
+>>   			return -EINVAL;
+>>
+>> -		/* TODO: only accept frames with the features that
+>> -			 got enabled for forwarded frames */
+>> -		if (!(q->flags & IFF_VNET_HDR))
+>> -			return  -EINVAL;
+>>   		rtnl_lock();
+>>   		ret = set_offload(q, arg);
+>>   		rtnl_unlock();
+>> --
+>> 1.8.1.4
