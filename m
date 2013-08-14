@@ -1,55 +1,47 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: r8169 OOPSen in rtl_rx
-Date: Wed, 14 Aug 2013 11:52:33 +0200
-Message-ID: <20130814095233.GH24092@twins.programming.kicks-ass.net>
-References: <20130813094314.GW3008@twins.programming.kicks-ass.net>
- <20130813211534.GA5635@electric-eye.fr.zoreil.com>
- <20130814092915.GF24092@twins.programming.kicks-ass.net>
+From: Ale Lampro <lampro.listas@gmail.com>
+Subject: Configuring and using RIPngd
+Date: Wed, 14 Aug 2013 12:02:35 +0200
+Message-ID: <CAABrkZnM90XTS1jZt-ZMDZTAG5mFeu2T0_++K+3Xxx8USQa6jQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nic_swsd@realtek.com, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:49615 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759621Ab3HNJwl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 05:52:41 -0400
-Content-Disposition: inline
-In-Reply-To: <20130814092915.GF24092@twins.programming.kicks-ass.net>
+Received: from mail-vc0-f195.google.com ([209.85.220.195]:33858 "EHLO
+	mail-vc0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752411Ab3HNKCg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 06:02:36 -0400
+Received: by mail-vc0-f195.google.com with SMTP id gd11so1609231vcb.2
+        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 03:02:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 14, 2013 at 11:29:15AM +0200, Peter Zijlstra wrote:
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index 393f961..76d1c18 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -6185,6 +6185,8 @@ static int rtl_rx(struct net_device *dev, struct rtl8169_private *tp, u32 budget
->  			else
->  				pkt_size = status & 0x00003fff;
->  
-> +			WARN_ON(!(pkt_size > 0 && pkt_size <= ETH_FRAME_LEN));
-> +
->  			/*
->  			 * The driver does not support incoming fragmented
->  			 * frames. They are seen as a symptom of over-mtu
+Hi,
 
-OK, I changed that to:
+I am new to the list and I am trying to achieve something that I think
+should be relatively easy with RIPngd and Quagga, but I am new to all
+this so I have some issues.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 393f961..81e0bf4 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -6185,6 +6185,12 @@ static int rtl_rx(struct net_device *dev, struct rtl8169_private *tp, u32 budget
- 			else
- 				pkt_size = status & 0x00003fff;
- 
-+			if (!(pkt_size > 0 && pkt_size <= ETH_FRAME_LEN)) {
-+				dev->stats.rx_dropped++;
-+				printk("%s Funny sized packet: %d\n", dev->name, pkt_size);
-+				goto release_descriptor;
-+			}
-+
- 			/*
- 			 * The driver does not support incoming fragmented
- 			 * frames. They are seen as a symptom of over-mtu
+I have two computers connected by a Serial link. I use "tunslip" which
+creates a slip connection between them and mounts a tap0 interface in
+my ubuntu linux computer.
+The other computer generates a Response RIPng message advertising
+ADDR1 (ipv6 address) in a given moment, which arrives to the linux
+computer by the tap0 interface.
+What I would like to do is to run ripng in this computer so that it
+adds ADDR1 to its routing table but I am not able to do it.
+
+The configuration for zebra and ripngd are the following.
+ripngd: http://pastebin.com/Y8GHkcDB (link to the conf file)
+zebra: http://pastebin.com/ZEVRfLx0 (link to the conf file)
+
+As I was not sure at all of how I should configure them I just reused
+a few things that I found on the internet but I guess it may not be
+enough.
+
+I would really appreciate if someone could give me a hint with this.
+
+Thanks a lot.
+
+Best regards,
+
+Alejandro
