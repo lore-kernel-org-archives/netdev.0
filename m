@@ -1,55 +1,71 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: fix invalid register dump
-Date: Wed, 14 Aug 2013 21:58:29 +0200
-Message-ID: <20130814195829.GA1613@electric-eye.fr.zoreil.com>
-References: <1376426265-30353-1-git-send-email-lekensteyn@gmail.com>
- <20130813222038.GC5635@electric-eye.fr.zoreil.com>
- <3465288.NFVErF5E7l@al>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: TCP Connection teardown seems to violate TCP specification
+Date: Wed, 14 Aug 2013 13:14:23 -0700
+Message-ID: <520BE51F.40208@hp.com>
+References: <1376508095.4596.12.camel@nexus> <CAK6E8=fWOe3eEvw6sC=Da415qGp+wXsm2bpe9Vbbukit9yU8sQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com
-To: Peter Wu <lekensteyn@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Damian Lukowski <damian@tvk.rwth-aachen.de>,
+	netdev <netdev@vger.kernel.org>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:52217 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932956Ab3HNT6j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 15:58:39 -0400
-Content-Disposition: inline
-In-Reply-To: <3465288.NFVErF5E7l@al>
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:8442 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933081Ab3HNUOZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 16:14:25 -0400
+In-Reply-To: <CAK6E8=fWOe3eEvw6sC=Da415qGp+wXsm2bpe9Vbbukit9yU8sQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Peter Wu <lekensteyn@gmail.com> :
-[...]
-> Heh, I forgot about that case. Fixed it in the below patch. By the way,
-> have you observed similar behavior on other hardware?
+On 08/14/2013 12:50 PM, Yuchung Cheng wrote:
+> On Wed, Aug 14, 2013 at 12:21 PM, Damian Lukowski
+> <damian@tvk.rwth-aachen.de> wrote:
+>> Hi,
+>>
+>> the TCP specification states that an endpoint has to accept
+>> packets from the other side even after it has half-closed the
+>> connection locally. This does not seem to be the case
+>> under Linux?
+>>
+>> For example, when I wget -O /dev/null https://www.verisign.com/
+>> --max-redir 0, the local TCP stack sends an FIN,ACK close to the end.
+>> However, the webserver has more data to send (Encrypted Alert).
+>> Instead of ACKing the packet, the local side sends a RST.
+>> This seems wrong to me.
+>
+> Which wget are you using? it's not doing half-close (i.e.,
+> shutdown(SHUT_WR)) on my wget version 1.13.4
 
-Notwithstanding really old PCI adapters - sometimes - none that I remember of.
+I suspect that when Damian system call traces his wget he will find it 
+is doing either:
 
-[...]
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index b5eb419..d367763 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -1897,12 +1897,19 @@ static void rtl8169_get_regs(struct net_device *dev, struct ethtool_regs *regs,
->  			     void *p)
->  {
->  	struct rtl8169_private *tp = netdev_priv(dev);
-> +	char *bytes = p;
-> +	int i;
->  
->  	if (regs->len > R8169_REGS_SIZE)
->  		regs->len = R8169_REGS_SIZE;
->  
->  	rtl_lock_work(tp);
-> -	memcpy_fromio(p, tp->mmio_addr, regs->len);
-> +	if (regs->len >= 4) {
-> +		for (i = 0; i < regs->len - 4; i += 4)
-> +			memcpy_fromio(bytes + i, tp->mmio_addr + i, 4);
-> +	}
-> +	if (i < regs->len)
+close()
 
-Comparison with random stack stuff when regs->len < 4. :o/
+or
+shutdown(SHUT_WR)
+close()
+without waiting for the read return of zero from the remote.
 
--- 
-Ueimor
+it may even be just exiting after getting the last bytes of the URL, 
+which would be an implicit close()
+
+Over the years I've seen examples of all three behaviours.
+
+rick jones
+
+>
+>
+>>
+>> Regards
+>>   Damian
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
