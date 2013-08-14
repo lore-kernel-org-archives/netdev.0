@@ -1,111 +1,48 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH 2/3 v3] ipv6: convert the uses of ADBG and remove the superfluous
- parentheses
-Date: Wed, 14 Aug 2013 11:36:00 +0800
-Message-ID: <520AFB20.2000109@huawei.com>
+From: Libo Chen <clbchenlibo.chen@huawei.com>
+Subject: [PATCH RESEND 0/8] use platform_{get,set}_drvdata()
+Date: Wed, 14 Aug 2013 11:36:31 +0800
+Message-ID: <520AFB3F.2090006@huawei.com>
+References: <5208E20A.4010306@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Joe Perches <joe@perches.com>, Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:12436 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759305Ab3HNDgn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 23:36:43 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+	Li Zefan <lizefan@huawei.com>, <leoli@freescale.com>,
+	<linuxppc-dev@lists.ozlabs.org>, <pantelis.antoniou@gmail.com>,
+	<vbordug@ru.mvista.com>, Greg KH <gregkh@linuxfoundation.org>,
+	<jg1.han@samsung.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5208E20A.4010306@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Just follow the Joe Perches's opinion, it is a better way to fix the
-style errors.
 
-Signed-off-by: Joe Perches <joe@perches.com>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- net/ipv6/addrconf.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
+We can use the wrapper functions platform_{get,set}_drvdata() instead of
+dev_{get,set}_drvdata() with &pdev->dev, it is convenient for user.
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 7b55464..734724c 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -99,9 +99,9 @@
- #define ACONF_DEBUG 2
- 
- #if ACONF_DEBUG >= 3
--#define ADBG(x) printk x
-+#define ADBG(fmt, ...) printk(fmt, ##__VA_ARGS__)
- #else
--#define ADBG(x)
-+#define ADBG(fmt, ...) do {} while (0)
- #endif
- 
- #define	INFINITY_LIFE_TIME	0xFFFFFFFF
-@@ -369,9 +369,9 @@ static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
- 	dev_hold(dev);
- 
- 	if (snmp6_alloc_dev(ndev) < 0) {
--		ADBG((KERN_WARNING
-+		ADBG(KERN_WARNING
- 			"%s: cannot allocate memory for statistics; dev=%s.\n",
--			__func__, dev->name));
-+			__func__, dev->name);
- 		neigh_parms_release(&nd_tbl, ndev->nd_parms);
- 		dev_put(dev);
- 		kfree(ndev);
-@@ -379,9 +379,9 @@ static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
- 	}
- 
- 	if (snmp6_register_dev(ndev) < 0) {
--		ADBG((KERN_WARNING
-+		ADBG(KERN_WARNING
- 			"%s: cannot create /proc/net/dev_snmp6/%s\n",
--			__func__, dev->name));
-+			__func__, dev->name);
- 		neigh_parms_release(&nd_tbl, ndev->nd_parms);
- 		ndev->dead = 1;
- 		in6_dev_finish_destroy(ndev);
-@@ -844,7 +844,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
- 
- 	/* Ignore adding duplicate addresses on an interface */
- 	if (ipv6_chk_same_addr(dev_net(idev->dev), addr, idev->dev)) {
--		ADBG(("ipv6_add_addr: already assigned\n"));
-+		ADBG("ipv6_add_addr: already assigned\n");
- 		err = -EEXIST;
- 		goto out;
- 	}
-@@ -852,7 +852,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
- 	ifa = kzalloc(sizeof(struct inet6_ifaddr), GFP_ATOMIC);
- 
- 	if (ifa == NULL) {
--		ADBG(("ipv6_add_addr: malloc failed\n"));
-+		ADBG("ipv6_add_addr: malloc failed\n");
- 		err = -ENOBUFS;
- 		goto out;
- 	}
-@@ -2070,7 +2070,7 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len, bool sllao)
- 	pinfo = (struct prefix_info *) opt;
- 
- 	if (len < sizeof(struct prefix_info)) {
--		ADBG(("addrconf: prefix option too short\n"));
-+		ADBG("addrconf: prefix option too short\n");
- 		return;
- 	}
- 
-@@ -3650,8 +3650,8 @@ restart:
- 	if (time_before(next_sched, jiffies + ADDRCONF_TIMER_FUZZ_MAX))
- 		next_sched = jiffies + ADDRCONF_TIMER_FUZZ_MAX;
- 
--	ADBG((KERN_DEBUG "now = %lu, schedule = %lu, rounded schedule = %lu => %lu\n",
--	      now, next, next_sec, next_sched));
-+	ADBG(KERN_DEBUG "now = %lu, schedule = %lu, rounded schedule = %lu => %lu\n",
-+	      now, next, next_sec, next_sched);
- 
- 	addr_chk_timer.expires = next_sched;
- 	add_timer(&addr_chk_timer);
--- 
-1.8.2.1
+Also, unnecessary dev_set_drvdata() is removed, because the driver core
+clears the driver data to NULL after device_release or on probe failure.
+
+changelog:
+	this version add modify record about dev_set_drvdata().
+
+Libo Chen (8):
+  net: fsl_pq_mdio: use platform_{get,set}_drvdata()
+  net: ucc_geth: use platform_{get,set}_drvdata()
+  net: fec_mpc52xx_phy: use platform_{get,set}_drvdata()
+  net: fs_enet: remove unnecessary dev_set_drvdata()
+  net: sunbmac: use platform_{get,set}_drvdata()
+  net: sunhme: use platform_{get,set}_drvdata()
+  net: xilinx_emaclite: use platform_{get,set}_drvdata()
+  net: davinci_mdio: use platform_{get,set}_drvdata()
+
+ drivers/net/ethernet/freescale/fec_mpc52xx_phy.c   |    4 +---
+ drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c  |    1 -
+ drivers/net/ethernet/freescale/fsl_pq_mdio.c       |    3 +--
+ drivers/net/ethernet/freescale/ucc_geth.c          |    4 +---
+ drivers/net/ethernet/sun/sunbmac.c                 |    3 +--
+ drivers/net/ethernet/sun/sunhme.c                  |    8 +++-----
+ drivers/net/ethernet/ti/davinci_mdio.c             |    4 +---
+ drivers/net/ethernet/xilinx/xilinx_emaclite.c      |    4 +---
+ 8 files changed, 9 insertions(+), 22 deletions(-)
