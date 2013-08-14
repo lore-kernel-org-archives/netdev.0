@@ -1,52 +1,47 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [patch] rtnetlink: remove an unneeded test
-Date: Wed, 14 Aug 2013 12:35:24 -0700
-Message-ID: <8761v8aww3.fsf@xmission.com>
-References: <20130814093542.GC521@elgon.mountain>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: TCP Connection teardown seems to violate TCP specification
+Date: Wed, 14 Aug 2013 12:50:05 -0700
+Message-ID: <CAK6E8=fWOe3eEvw6sC=Da415qGp+wXsm2bpe9Vbbukit9yU8sQ@mail.gmail.com>
+References: <1376508095.4596.12.camel@nexus>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>
+To: Damian Lukowski <damian@tvk.rwth-aachen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:45128 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932993Ab3HNTfs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 15:35:48 -0400
-In-Reply-To: <20130814093542.GC521@elgon.mountain> (Dan Carpenter's message of
-	"Wed, 14 Aug 2013 12:35:42 +0300")
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:50223 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758601Ab3HNTuZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 15:50:25 -0400
+Received: by mail-ob0-f174.google.com with SMTP id wd6so12556226obb.33
+        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 12:50:25 -0700 (PDT)
+In-Reply-To: <1376508095.4596.12.camel@nexus>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dan Carpenter <dan.carpenter@oracle.com> writes:
+On Wed, Aug 14, 2013 at 12:21 PM, Damian Lukowski
+<damian@tvk.rwth-aachen.de> wrote:
+> Hi,
+>
+> the TCP specification states that an endpoint has to accept
+> packets from the other side even after it has half-closed the
+> connection locally. This does not seem to be the case
+> under Linux?
+>
+> For example, when I wget -O /dev/null https://www.verisign.com/
+> --max-redir 0, the local TCP stack sends an FIN,ACK close to the end.
+> However, the webserver has more data to send (Encrypted Alert).
+> Instead of ACKing the packet, the local side sends a RST.
+> This seems wrong to me.
 
-> We know that "dev" is a valid pointer at this point, so we can remove
-> the test and clean up a little.
+Which wget are you using? it's not doing half-close (i.e.,
+shutdown(SHUT_WR)) on my wget version 1.13.4
 
-Quite right.
-
-Reviewed-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
 >
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Regards
+>  Damian
 >
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index 618dbe4..e7e058e 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -1867,10 +1867,10 @@ replay:
->  		else
->  			err = register_netdevice(dev);
->  
-> -		if (err < 0 && !IS_ERR(dev))
-> +		if (err < 0) {
->  			free_netdev(dev);
-> -		if (err < 0)
->  			goto out;
-> +		}
->  
->  		err = rtnl_configure_link(dev, ifm);
->  		if (err < 0)
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
