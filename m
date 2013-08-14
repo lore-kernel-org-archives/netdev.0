@@ -1,69 +1,84 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: cpsw fails to come up once in a while
-Date: Wed, 14 Aug 2013 19:54:39 +0200
-Message-ID: <20130814175439.GA13483@linutronix.de>
+From: poma <pomidorabelisima@gmail.com>
+Subject: Re: [PATCH net] skge: dma_sync the whole receive buffer
+Date: Wed, 14 Aug 2013 20:29:06 +0200
+Message-ID: <520BCC72.8040002@gmail.com>
+References: <20130810104100.0ae20aa6@nehalam.linuxnetplumber.net> <20130810.132935.1257046025460198490.davem@davemloft.net> <20130810150207.37432299@nehalam.linuxnetplumber.net> <20130813.150955.1471100759610399160.davem@davemloft.net> <20130813180036.3e639789@nehalam.linuxnetplumber.net> <520B59D3.4020103@gmail.com> <20130814092022.494caf2b@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Mugunthan V N <mugunthanvnm@ti.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:57638 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753584Ab3HNRyk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 13:54:40 -0400
-Content-Disposition: inline
+Received: from mail-ee0-f41.google.com ([74.125.83.41]:35277 "EHLO
+	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760281Ab3HNS3K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 14:29:10 -0400
+Received: by mail-ee0-f41.google.com with SMTP id d17so5080465eek.0
+        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 11:29:08 -0700 (PDT)
+In-Reply-To: <20130814092022.494caf2b@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 14.08.2013 18:20, Stephen Hemminger wrote:
+> On Wed, 14 Aug 2013 12:20:03 +0200
+> poma <pomidorabelisima@gmail.com> wrote:
+> 
+>> On 14.08.2013 03:00, Stephen Hemminger wrote:
+>>> On Tue, 13 Aug 2013 15:09:55 -0700 (PDT)
+>>> David Miller <davem@davemloft.net> wrote:
+>>>
+>>>> From: Stephen Hemminger <stephen@networkplumber.org>
+>>>> Date: Sat, 10 Aug 2013 15:02:07 -0700
+>>>>
+>>>>> The DMA sync should sync the whole receive buffer, not just
+>>>>> part of it. Fixes log messages dma_sync_check.
+>>>>>
+>>>>> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+>>>>
+>>>> Applied, but I really suspect that your "check DMA mapping errors"
+>>>> patch has added a serious regression.  A regression much worse than
+>>>> the bug you were trying to fix with that change.
+>>>
+>>> Argh. The problem is deeper than that. Device got broken somewhere between
+>>> 3.2 and 3.4. My old Dlink card works on 3.2 but gets DMA errors on 3.4.
+>>> The config's are different though so checking that as well.
+>>>
+>>
+>> Can I help you with debugging?
+>> DGE-530T is rather solid device.
+> 
+> Don't think it is a hardware problem.
+> The failure is when the board access the Receive ring PCI memory area.
+> This region is allocated with pci_alloc_consistent and therefore should
+> be available. Two possible issues are driver math issues, or hardware
+> problems with where the region is located. Some of these cards don't
+> really have full 64 bit PCI support.
+> 
+> My board is:
+> 05:01.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adapter (rev 11)
+> 	Subsystem: D-Link System Inc DGE-530T Gigabit Ethernet Adapter
+> 	Flags: bus master, 66MHz, medium devsel, latency 32, IRQ 18
+> 	Memory at f7d20000 (32-bit, non-prefetchable) [size=16K]
+> 	I/O ports at c000 [size=256]
+> 	Expansion ROM at f7d00000 [disabled] [size=128K]
+> 	Capabilities: [48] Power Management version 2
+> 	Capabilities: [50] Vital Product Data
+> 	Kernel driver in use: skge
+> 
+> 
+> What is your config?
+> 
 
-So I have this test where my am335x-evm boots over NFS and once it=20
-completes it does it again. It works most of the time :) However once i=
-t
-like 100 attempts it does not. After the reset u-boot complains about
-ethernet timeout and linux has also no luck:
+01:09.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adapter
+(rev 11)
+	Subsystem: D-Link System Inc DGE-530T Gigabit Ethernet Adapter
+	Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 19
+	Memory at fbffc000 (32-bit, non-prefetchable) [size=16K]
+	I/O ports at b400 [size=256]
+	[virtual] Expansion ROM at ec000000 [disabled] [size=128K]
+	Capabilities: [48] Power Management version 2
+	Capabilities: [50] Vital Product Data
+	Kernel driver in use: skge
 
-| U-Boot 2013.04-00274-ga71d45d (May 27 2013 - 12:41:57)
-|=20
-|=E2=80=A6
-| Net:   Phy not found
-| PHY reset timed out
-| cpsw, usb_ether
-| Hit any key to stop autoboot:  1 ^H^H^H 0=20
-| link up on port 0, speed 1000, full duplex
-| Using cpsw device
-| TFTP from server 172.123.10.10; our IP address is 172.123.10.3
-| Filename 'am335x/zImage'.
-| Load address: 0x80200000
-| Loading: *^H#########################################################=
-########
-|          ############################################################=
-#####
-|          #######################################
-|          509.8 KiB/s
 
-So the PHY was not found but somehow it managed to fetch the kernel ove=
-r
-network and boot it. The linux driver did not want to continue:
-
-| omap_i2c 4802a000.i2c: bus 1 rev0.11 at 100 kHz
-| davinci_mdio 4a101000.mdio: davinci mdio revision 1.6
-| davinci_mdio 4a101000.mdio: no live phy, scanning all
-| davinci_mdio: probe of 4a101000.mdio failed with error -5
-| Random MACID =3D 16:74:44:51:f1:0f
-| gpio-keys volume_keys.6: Unable to claim irq 0; error -22
-| gpio-keys: probe of volume_keys.6 failed with error -22
-| omap_rtc 44e3e000.rtc: setting system clock to 2000-01-01 03:22:52 UT=
-C (946696972)
-| net eth0: initializing cpsw version 1.12 (0)
-| libphy: PHY 4a101000.mdio:00 not found
-| net eth0: phy 4a101000.mdio:00 not found on slave 0
-| libphy: PHY 4a101000.mdio:01 not found
-| net eth0: phy 4a101000.mdio:01 not found on slave 1
-| Waiting up to 110 more seconds for network.
-
-so the driver also failed to find a PHY and gave up.
-Is this something known?
-
-Sebastian
+poma
