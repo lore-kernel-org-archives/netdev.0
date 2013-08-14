@@ -1,49 +1,62 @@
-From: Benedikt Spranger <b.spranger@linutronix.de>
-Subject: Re: [PATCH 1/7] uio: add module owner to prevent inappropriate
- module unloading
-Date: Wed, 14 Aug 2013 09:19:46 +0200
-Message-ID: <20130814091946.2643a124@mitra.spranger.biz>
-References: <1376384922-8519-1-git-send-email-b.spranger@linutronix.de>
-	<1376384922-8519-3-git-send-email-b.spranger@linutronix.de>
-	<20130813174814.GE4098@kroah.com>
+From: <sarveshwar.bandi@emulex.com>
+Subject: [PATCH net v2] be2net: Clear any capability flags that driver is not interested in.
+Date: Wed, 14 Aug 2013 13:21:47 +0530
+Message-ID: <07165eb6-9b8f-45b4-bec6-bb53f0e1aa52@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Alexander Frank <Alexander.Frank@eberspaecher.com>,
-	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
-	"Hans J. Koch" <hjk@hansjkoch.de>,
-	Holger Dengler <dengler@linutronix.de>
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:53305 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759113Ab3HNHTu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 03:19:50 -0400
-In-Reply-To: <20130813174814.GE4098@kroah.com>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:5151 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757923Ab3HNHus (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 03:50:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Tue, 13 Aug 2013 10:48:14 -0700
-schrieb Greg Kroah-Hartman <gregkh@linuxfoundation.org>:
+From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
 
-> On Tue, Aug 13, 2013 at 11:08:36AM +0200, Benedikt Spranger wrote:
-> > If an UIO device is created by another driver (MFD for instance) it has to be
-> > ensured that the MFD driver isn't removed while the UIO is still in use.
-> 
-> Shouldn't if the MFD driver is removed, the UIO device will be cleaned
-> up and also removed?
-That is part of the problem:
+It is possible for some versions of firmware to advertise capabilities that driver
+is not ready to handle. This may lead to controller stall. Since the driver is
+interested only in subset of flags, clearing the rest.
 
-1) MFD driver creates platform device "uio_pdrv"
-2) uio_pdrv creates "UIOX"
-3) userspace opens "UIOX"
-4) MFD driver unload (remove platform device "uio_pdrv")
-5) userspace reads from "UIOX" --> crash
+Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_cmds.c |    3 +++
+ drivers/net/ethernet/emulex/benet/be_cmds.h |    6 ++++++
+ 2 files changed, 9 insertions(+)
 
-> You shouldn't need a module reference for this type of thing.
-The driver uio_pdrv has no chance to recognize that the underlaying platform
-device has gone.
-
-Regards
-    Benedikt Spranger
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 6e6e0a1..8ec5d74 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -3048,6 +3048,9 @@ int be_cmd_get_func_config(struct be_adapter *adapter)
+ 
+ 		adapter->max_event_queues = le16_to_cpu(desc->eq_count);
+ 		adapter->if_cap_flags = le32_to_cpu(desc->cap_flags);
++
++		/* Clear flags that driver is not interested in */
++		adapter->if_cap_flags &=  BE_IF_CAP_FLAGS_WANT;
+ 	}
+ err:
+ 	mutex_unlock(&adapter->mbox_lock);
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index 5228d88..1b3b9e8 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -563,6 +563,12 @@ enum be_if_flags {
+ 	BE_IF_FLAGS_MULTICAST = 0x1000
+ };
+ 
++#define BE_IF_CAP_FLAGS_WANT (BE_IF_FLAGS_RSS | BE_IF_FLAGS_PROMISCUOUS |\
++			 BE_IF_FLAGS_BROADCAST | BE_IF_FLAGS_VLAN_PROMISCUOUS |\
++			 BE_IF_FLAGS_VLAN | BE_IF_FLAGS_MCAST_PROMISCUOUS |\
++			 BE_IF_FLAGS_PASS_L3L4_ERRORS | BE_IF_FLAGS_MULTICAST |\
++			 BE_IF_FLAGS_UNTAGGED)
++
+ /* An RX interface is an object with one or more MAC addresses and
+  * filtering capabilities. */
+ struct be_cmd_req_if_create {
+-- 
+1.7.9.5
