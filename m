@@ -1,113 +1,47 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 1/3 v4] ipv6: do not disable temp_address when reaching max_address
-Date: Wed, 14 Aug 2013 12:15:11 +0200
-Message-ID: <20130814101511.GC16264@order.stressinduktion.org>
-References: <520B48AE.8050103@huawei.com>
+From: poma <pomidorabelisima@gmail.com>
+Subject: Re: [PATCH net] skge: dma_sync the whole receive buffer
+Date: Wed, 14 Aug 2013 12:20:03 +0200
+Message-ID: <520B59D3.4020103@gmail.com>
+References: <20130810104100.0ae20aa6@nehalam.linuxnetplumber.net> <20130810.132935.1257046025460198490.davem@davemloft.net> <20130810150207.37432299@nehalam.linuxnetplumber.net> <20130813.150955.1471100759610399160.davem@davemloft.net> <20130813180036.3e639789@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jon Maloy <jon.maloy@ericsson.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:50762 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759570Ab3HNKPM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 06:15:12 -0400
-Content-Disposition: inline
-In-Reply-To: <520B48AE.8050103@huawei.com>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:35361 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752162Ab3HNKUH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 06:20:07 -0400
+Received: by mail-wi0-f180.google.com with SMTP id f14so1735499wiw.13
+        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 03:20:06 -0700 (PDT)
+In-Reply-To: <20130813180036.3e639789@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 14, 2013 at 05:06:54PM +0800, Ding Tianhong wrote:
-> A LAN user can remotely disable temporary address which may lead
-> to privacy violatins and information disclosure.
+On 14.08.2013 03:00, Stephen Hemminger wrote:
+> On Tue, 13 Aug 2013 15:09:55 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> The reason is that the linux kernel uses the 'ipv6.max_addresses'
-> option to specify how many ipv6 addresses and interface may have.
-> The 'ipv6.regen_max_retry' (default value 3) option specifies
-> how many times the kernel will try to create a new address.
+>> From: Stephen Hemminger <stephen@networkplumber.org>
+>> Date: Sat, 10 Aug 2013 15:02:07 -0700
+>>
+>>> The DMA sync should sync the whole receive buffer, not just
+>>> part of it. Fixes log messages dma_sync_check.
+>>>
+>>> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+>>
+>> Applied, but I really suspect that your "check DMA mapping errors"
+>> patch has added a serious regression.  A regression much worse than
+>> the bug you were trying to fix with that change.
 > 
-> But the kernel is not distinguish between the event of reaching
-> max_addresses for an interface and failing to generate a new address.
-> the kernel disable the temporary address after regenerate a new
-> address 'regen_max_retry' times.
+> Argh. The problem is deeper than that. Device got broken somewhere between
+> 3.2 and 3.4. My old Dlink card works on 3.2 but gets DMA errors on 3.4.
+> The config's are different though so checking that as well.
 > 
-> According RFC4941 3.3.7:
-> 
-> ---------------------------------------
-> 
-> If DAD indicates the address is already in use,
-> the node must generate a new randomized interface
-> identifier as described in section 3.2 above, and
-> repeat the previous steps as appropriate up to
-> TEMP_IDGEN_RETRIES times.
-> 
-> If after TEMP_IDGEN_RETRIES consecutive attempts no
-> non-unique address was generated, the node must log
-> a system error and must not attempt to generate
-> temporary address for that interface.
-> 
-> ------------------------------------------
-> 
-> RFC4941 3.3.7 specifies that disabling the temp_address must happen
-> upon the address is already in use, not reach the max_address,
-> So we have to check the return err and distinguish the correct retry path.
-> 
-> This fixes CVE-2013-0343
 
-I don't think this patch fixes CVE-2013-0343.
+Can I help you with debugging?
+DGE-530T is rather solid device.
 
-> 
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> Tested-by: Wang Weidong <wangweidong1@huawei.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> ---
->  net/ipv6/addrconf.c | 26 ++++++++++++++++++++++----
->  1 file changed, 22 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index da4241c..7b55464 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -1134,10 +1134,28 @@ retry:
->  	if (IS_ERR_OR_NULL(ift)) {
->  		in6_ifa_put(ifp);
->  		in6_dev_put(idev);
-> -		pr_info("%s: retry temporary address regeneration\n", __func__);
-> -		tmpaddr = &addr;
-> -		write_lock(&idev->lock);
-> -		goto retry;
-> +
-> +		/* According RFC4941 3.3.7:
-> +		 * If DAD indicates the address is already in use,
-> +		 * the node must generate a new randomized interface
-> +		 * identifier as described in section 3.2 above, and
-> +		 * repeat the previous steps as appropriate up to
-> +		 * TEMP_IDGEN_RETRIES times.
-> +		 * If after TEMP_IDGEN_RETRIES consecutive attempts no
-> +		 * non-unique address was generated, the node must log
-> +		 * a system error and must not attempt to generate
-> +		 * temporary address for that interface.
-> +		 * So we have to check the return err and distinguish
-> +		 * the correct retry path.
-> +		 */
-> +		if (PTR_ERR(ift) == -EEXIST) {
 
--EEXIST is not the same as "ipv6 address is is already used on the
-subnet". I really don't see the point here. IMHO this breaks the intended
-regeneration logic.
-
-I fear a fix of CVE-2013-0343 will be a bit more complicated. ;) I give it a
-thought.
-
-Greetings,
-
-  Hannes
+poma
