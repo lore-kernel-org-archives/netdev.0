@@ -1,55 +1,107 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: [PATCH net-next 1/3] net/usb/r8152: support aggregation
-Date: Wed, 14 Aug 2013 11:02:56 +0800
-Message-ID: <20698A1C08B24B92B3CD1D84AC85A175@realtek.com.tw>
-References: <1376383742.1681.1.camel@linux-fkkt.site><9E410853D1BD483E9479C175D5E72EB6@realtek.com.tw><1376407030.3033.13.camel@linux-fkkt.site> <20130813.164118.1992860501009385037.davem@davemloft.net>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH 1/3 v3] ipv6: do not disable temp_address when reaching max_address
+Date: Wed, 14 Aug 2013 11:35:57 +0800
+Message-ID: <520AFB1D.6010404@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>
-To: 'David Miller' <davem@davemloft.net>, <oneukum@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130813.164118.1992860501009385037.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jon Maloy <jon.maloy@ericsson.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:12340 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759305Ab3HNDgY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 23:36:24 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- David Miller [mailto:davem@davemloft.net] 
-> Sent: Wednesday, August 14, 2013 7:41 AM
-> To: oneukum@suse.de
-> Cc: Hayeswang; netdev@vger.kernel.org; 
-> linux-kernel@vger.kernel.org; linux-usb@vger.kernel.org
-> Subject: Re: [PATCH net-next 1/3] net/usb/r8152: support aggregation
-> 
-[...]
-> > I don't understand what problem the function is supposed to 
-> fix. As long
-> > as I don't understand it I cannot say for sure whether it 
-> is correct.
-> > There seems no obvious reason for a memory barrier, but 
-> there may be a
-> > hidden reason I don't see.
-> 
-> Hayes, when Oliver asks you "Against what is the memory 
-> barrier?" he is asking
-> you which memory operations you are trying to order.
-> 
-> You do not explain this in your commit message, nor do you 
-> explain it with a
-> suitable comment.  This is not acceptable.
-> 
-> It is absolutely critical, that any time you add a memory 
-> barrier, you add a
-> comment above the new memory barrier explaining exactly what 
-> the barrier is
-> trying to achieve.
-> 
-> In fact, this is required by our coding standards.
+A LAN user can remotely disable temporary address which may lead
+to privacy violatins and information disclosure.
 
-I just want to make sure the rx_desc and rx_data are set correctly before
-they are used. However, I study some examples and information from internet,
-and I think that the memory barries is not necessary here. Therefore, I would
-remove them later.
+The reason is that the linux kernel uses the 'ipv6.max_addresses'
+option to specify how many ipv6 addresses and interface may have.
+The 'ipv6.regen_max_retry' (default value 3) option specifies
+how many times the kernel will try to create a new address.
+
+But the kernel is not distinguish between the event of reaching
+max_addresses for an interface and failing to generate a new address.
+the kernel disable the temporary address after regenerate a new
+address 'regen_max_retry' times.
+
+According RFC4941 3.3.7:
+
+---------------------------------------
+
+If DAD indicates the address is already in use,
+the node must generate a new randomized interface
+identifier as described in section 3.2 above, and
+repeat the previous steps as appropriate up to
+TEMP_IDGEN_RETRIES times.
+
+If after TEMP_IDGEN_RETRIES consecutive attempts no
+non-unique address was generated, the node must log
+a system error and must not attempt to generate
+temporary address for that interface.
+
+------------------------------------------
+
+RFC4941 3.3.7 specifies that disabling the temp_address must happen
+upon the address is already in use, not reach the max_address,
+So we have to check the return err and distinguish the correct retry path.
+
+This fixes CVE-2013-0343
+
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Tested-by: Wang Weidong <wangweidong1@huawei.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Cc: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv6/addrconf.c | 26 ++++++++++++++++++++++----
+ 1 file changed, 22 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index da4241c..7b55464 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1134,10 +1134,28 @@ retry:
+ 	if (IS_ERR_OR_NULL(ift)) {
+ 		in6_ifa_put(ifp);
+ 		in6_dev_put(idev);
+-		pr_info("%s: retry temporary address regeneration\n", __func__);
+-		tmpaddr = &addr;
+-		write_lock(&idev->lock);
+-		goto retry;
++
++		/* According RFC4941 3.3.7:
++		 * If DAD indicates the address is already in use,
++		 * the node must generate a new randomized interface
++		 * identifier as described in section 3.2 above, and
++		 * repeat the previous steps as appropriate up to
++		 * TEMP_IDGEN_RETRIES times.
++		 * If after TEMP_IDGEN_RETRIES consecutive attempts no
++		 * non-unique address was generated, the node must log
++		 * a system error and must not attempt to generate
++		 * temporary address for that interface.
++		 * So we have to check the return err and distinguish
++		 * the correct retry path.
++		 */
++		if (PTR_ERR(ift) == -EEXIST) {
++			pr_info("%s: retry temporary address regeneration\n", __func__);
++			tmpaddr = &addr;
++			write_lock(&idev->lock);
++			goto retry;
++		}
++		/* do not retry if the err code is not -EEXIST */
++		goto out;
+ 	}
  
-Best Regards,
-Hayes
+ 	spin_lock_bh(&ift->lock);
+-- 
+1.8.2.1
