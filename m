@@ -1,32 +1,96 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH RESEND 0/8] use platform_{get,set}_drvdata()
-Date: Wed, 14 Aug 2013 22:56:35 +0400
-Message-ID: <520BD2E3.9080606@cogentembedded.com>
-References: <5208E20A.4010306@huawei.com> <520AFB3F.2090006@huawei.com>
+Subject: Re: [PATCHv3 linux-next] hrtimer: Add notifier when clock_was_set
+ was called
+Date: Wed, 14 Aug 2013 23:04:29 +0400
+Message-ID: <520BD4BD.3010300@cogentembedded.com>
+References: <1375866296-15079-1-git-send-email-fan.du@windriver.com> <1375866296-15079-2-git-send-email-fan.du@windriver.com> <52021177.6020306@redhat.com> <520213F2.5090401@windriver.com> <520214C6.6000307@redhat.com> <520B4552.2000607@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+Cc: tglx@linutronix.de,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	Daniel Borkmann <dborkman@redhat.com>,
 	LKML <linux-kernel@vger.kernel.org>,
-	Li Zefan <lizefan@huawei.com>, leoli@freescale.com,
-	linuxppc-dev@lists.ozlabs.org, pantelis.antoniou@gmail.com,
-	vbordug@ru.mvista.com, Greg KH <gregkh@linuxfoundation.org>,
-	jg1.han@samsung.com
-To: Libo Chen <clbchenlibo.chen@huawei.com>
+	netdev <netdev@vger.kernel.org>
+To: Fan Du <fan.du@windriver.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <520AFB3F.2090006@huawei.com>
+In-Reply-To: <520B4552.2000607@windriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/14/2013 07:36 AM, Libo Chen wrote:
+Hello.
 
-> We can use the wrapper functions platform_{get,set}_drvdata() instead of
-> dev_{get,set}_drvdata() with &pdev->dev, it is convenient for user.
+On 08/14/2013 12:52 PM, Fan Du wrote:
+
+>  From e3929d4fdfad5b40fd8cad0e217597670d1aef54 Mon Sep 17 00:00:00 2001
+> From: Fan Du <fan.du@windriver.com>
+> Date: Wed, 14 Aug 2013 16:39:23 +0800
+> Subject: [PATCHv3 linux-next] hrtimer: Add notifier when clock_was_set was called
+
+    This header is not needed.
+
+> When clock_was_set is called in case of system wall time change
+> or host resume from suspend state, use this notifier for places
+> where interested in this action, e.g Ipsec SA lifetime management.
+
+> Signed-off-by: Fan Du <fan.du@windriver.com>
+
+> v3:
+>    -Beautify notifier with register/unregister API exported for other subsystem.
+
+[...]
+
+> diff --git a/include/linux/hrtimer.h b/include/linux/hrtimer.h
+> index d19a5c2..f0404e4 100644
+> --- a/include/linux/hrtimer.h
+> +++ b/include/linux/hrtimer.h
+> @@ -461,4 +461,7 @@ extern u64 ktime_divns(const ktime_t kt, s64 div);
+>   /* Show pending timers: */
+>   extern void sysrq_timer_list_show(void);
 >
-> Also, unnecessary dev_set_drvdata() is removed, because the driver core
-> clears the driver data to NULL after device_release or on probe failure.
+> +extern int register_clock_change_notifier(struct notifier_block *nb);
+> +extern int unregister_clock_change_notifier(struct notifier_block *nb);
+> +
+>   #endif
+> diff --git a/kernel/hrtimer.c b/kernel/hrtimer.c
+> index 383319b..c6e6405 100644
+> --- a/kernel/hrtimer.c
+> +++ b/kernel/hrtimer.c
+> @@ -755,6 +755,24 @@ static inline void retrigger_next_event(void *arg) { }
+>
+>   #endif /* CONFIG_HIGH_RES_TIMERS */
+>
+> +static ATOMIC_NOTIFIER_HEAD(clock_change_notifier_list);
+> +static int call_clock_change_notifiers(void)
+> +{
+> +    return atomic_notifier_call_chain(&clock_change_notifier_list, 0, 0);
+> +}
+> +
+> +int register_clock_change_notifier(struct notifier_block *nb)
+> +{
+> +    return atomic_notifier_chain_register(&clock_change_notifier_list, nb);
+> +}
+> +EXPORT_SYMBOL_GPL(register_clock_change_notifier);
+> +
+> +int unregister_clock_change_notifier(struct notifier_block *nb)
+> +{
+> +    return atomic_notifier_chain_unregister(&clock_change_notifier_list, nb);
+> +}
+> +EXPORT_SYMBOL_GPL(unregister_clock_change_notifier);
+> +
+>   /*
+>    * Clock realtime was set
+>    *
+> @@ -773,6 +791,7 @@ void clock_was_set(void)
+>       on_each_cpu(retrigger_next_event, NULL, 1);
+>   #endif
+>       timerfd_clock_was_set();
+> +    call_clock_change_notifiers();
+>   }
 
-    Saying "also" in the changelog is usually a good sign that the patch 
-should be split.
+    Your patch seems whitepsace damaged, i.e. a space is added before each 
+line starting with space.
 
 WBR, Sergei
