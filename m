@@ -1,134 +1,44 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] macvtap: Correctly set tap features when IFF_VNET_HDR is
- disabled.
-Date: Wed, 14 Aug 2013 15:10:43 +0300
-Message-ID: <20130814121043.GH5430@redhat.com>
-References: <1376416558-25015-1-git-send-email-vyasevic@redhat.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net v3] xfrm: make local error reporting more robust
+Date: Wed, 14 Aug 2013 14:22:13 +0200
+Message-ID: <20130814122213.GK26773@secunet.com>
+References: <20130814110523.GG16264@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevic@redhat.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22979 "EHLO mx1.redhat.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:37040 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751468Ab3HNMJG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Aug 2013 08:09:06 -0400
-Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r7EC96Im031725
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 08:09:06 -0400
+	id S1759697Ab3HNMWQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Aug 2013 08:22:16 -0400
 Content-Disposition: inline
-In-Reply-To: <1376416558-25015-1-git-send-email-vyasevic@redhat.com>
+In-Reply-To: <20130814110523.GG16264@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 13, 2013 at 01:55:58PM -0400, Vlad Yasevich wrote:
-> When the user turns off IFF_VNET_HDR flag, attempts to change
-> offload features via TUNSETOFFLOAD do not work.  This could cause
-> GSO packets to be delivered to the user when the user is
-> not prepared to handle them.
+On Wed, Aug 14, 2013 at 01:05:23PM +0200, Hannes Frederic Sowa wrote:
+> In xfrm4 and xfrm6 we need to take care about sockets of the other
+> address family. This could happen because a 6in4 or 4in6 tunnel could
+> get protected by ipsec.
 > 
-> To solve, allow processing of TUNSETOFFLOAD when IFF_VNET_HDR is
-> disabled and make sure to turn off all offloads in this case.
-> Also, when IFF_VNET_HDR is disabled, run throught the offload change
-> as well to make sure that the functionality is not dependent on
-> the order of the ioclt() calls.
+> Because we don't want to have a run-time dependency on ipv6 when only
+> using ipv4 xfrm we have to embed a pointer to the correct local_error
+> function in xfrm_state_afinet and look it up when returning an error
+> depending on the socket address family.
 > 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-
-Hmm, this seems to make it even messier.
-So
-	set TUNSETOFFLOAD
-	clear IFF_VNET_HDR
-	set IFF_VNET_HDR
-
-offloads are now clear?
-
-I'm also not sure userspace that sets offloads but clears
-vnet hdr knows what it's doing.
-
-How about we fail attempts to clear vnet hdr
-unless offloads are disabled?
-
-
-
-
-> ---
->  drivers/net/macvtap.c | 27 +++++++++++++++++++--------
->  1 file changed, 19 insertions(+), 8 deletions(-)
+> Thanks to vi0ss for the great bug report:
+> <https://bugzilla.kernel.org/show_bug.cgi?id=58691>
 > 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index a98fb0e..076b9e7 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -1019,6 +1019,7 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
->  	struct macvlan_dev *vlan;
->  	netdev_features_t features;
->  	netdev_features_t feature_mask = 0;
-> +	netdev_features_t tap_mask = TUN_OFFLOADS;
->  
->  	vlan = rtnl_dereference(q->vlan);
->  	if (!vlan)
-> @@ -1026,7 +1027,12 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
->  
->  	features = vlan->dev->features;
->  
-> -	if (arg & TUN_F_CSUM) {
-> +	if (!(q->flags & IFF_VNET_HDR)) {
-> +		/* Turn off all checsum offloading also if user does
-> +		 * not user vnet_hdr.
+> v2:
+> a) fix two more unsafe interpretations of skb->sk as ipv6 socket
+>    (xfrm6_local_dontfrag and __xfrm6_output)
+> v3:
+> a) add an EXPORT_SYMBOL_GPL(xfrm_local_error) to fix a link error when
+>    building ipv6 as a module (thanks to Steffen Klassert)
+> 
+> Reported-by: <vi0oss@gmail.com>
+> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Does not set?
-
-> +		 */
-> +		tap_mask |= NETIF_F_ALL_CSUM;
-> +	} else if (arg & TUN_F_CSUM) {
->  		feature_mask = NETIF_F_HW_CSUM;
->  
->  		if (arg & (TUN_F_TSO4 | TUN_F_TSO6)) {
-> @@ -1058,8 +1064,7 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
->  	/* tap_features are the same as features on tun/tap and
->  	 * reflect user expectations.
->  	 */
-> -	vlan->tap_features = vlan->dev->features &
-> -			    (feature_mask | ~TUN_OFFLOADS);
-> +	vlan->tap_features = vlan->dev->features & (feature_mask | ~tap_mask);
->  	vlan->set_features = features;
->  	netdev_update_features(vlan->dev);
->  
-> @@ -1092,8 +1097,18 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
->  		if ((u & ~(IFF_VNET_HDR | IFF_MULTI_QUEUE)) !=
->  		    (IFF_NO_PI | IFF_TAP))
->  			ret = -EINVAL;
-> -		else
-> +		else {
-> +			if ((q->flags ^ u) & IFF_VNET_HDR) {
-> +				/* vnet_hdr support impacts the offloads,
-> +				 * so we need to run throught the offload
-
-throught ?
-
-> +				 * change.
-> +				 */
-> +				rtnl_lock();
-> +				ret = set_offload(q, 0);
-> +				rtnl_unlock();
-> +			}
->  			q->flags = u;
-> +		}
->  
->  		return ret;
->  
-> @@ -1155,10 +1170,6 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
->  			    TUN_F_TSO_ECN | TUN_F_UFO))
->  			return -EINVAL;
->  
-> -		/* TODO: only accept frames with the features that
-> -			 got enabled for forwarded frames */
-> -		if (!(q->flags & IFF_VNET_HDR))
-> -			return  -EINVAL;
->  		rtnl_lock();
->  		ret = set_offload(q, arg);
->  		rtnl_unlock();
-> -- 
-> 1.8.1.4
+Applied to ipsec, thanks a lot Hannes!
