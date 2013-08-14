@@ -1,47 +1,43 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: TCP Connection teardown seems to violate TCP specification
-Date: Wed, 14 Aug 2013 12:50:05 -0700
-Message-ID: <CAK6E8=fWOe3eEvw6sC=Da415qGp+wXsm2bpe9Vbbukit9yU8sQ@mail.gmail.com>
-References: <1376508095.4596.12.camel@nexus>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 net-next] 6lowpan: handle only real link-local
+ addresses
+Date: Wed, 14 Aug 2013 12:53:46 -0700 (PDT)
+Message-ID: <20130814.125346.585011183381258117.davem@davemloft.net>
+References: <1376478067-3371-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>
-To: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: alex.aring@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:50223 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758601Ab3HNTuZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 15:50:25 -0400
-Received: by mail-ob0-f174.google.com with SMTP id wd6so12556226obb.33
-        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 12:50:25 -0700 (PDT)
-In-Reply-To: <1376508095.4596.12.camel@nexus>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59075 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758543Ab3HNTxt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 15:53:49 -0400
+In-Reply-To: <1376478067-3371-1-git-send-email-alex.aring@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 14, 2013 at 12:21 PM, Damian Lukowski
-<damian@tvk.rwth-aachen.de> wrote:
-> Hi,
->
-> the TCP specification states that an endpoint has to accept
-> packets from the other side even after it has half-closed the
-> connection locally. This does not seem to be the case
-> under Linux?
->
-> For example, when I wget -O /dev/null https://www.verisign.com/
-> --max-redir 0, the local TCP stack sends an FIN,ACK close to the end.
-> However, the webserver has more data to send (Encrypted Alert).
-> Instead of ACKing the packet, the local side sends a RST.
-> This seems wrong to me.
+From: Alexander Aring <alex.aring@gmail.com>
+Date: Wed, 14 Aug 2013 13:01:07 +0200
 
-Which wget are you using? it's not doing half-close (i.e.,
-shutdown(SHUT_WR)) on my wget version 1.13.4
+> A link-local address isn't fe80::/10 it's fe80::/64
+> see http://tools.ietf.org/html/rfc4291#section-2.5.6
+> for more details.
+> 
+> Also fix a comment issue "local link" -> "link-local"
+> 
+> Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+> Reviewed-by: Werner Almesberger <werner@almesberger.net>
 
+You still haven't addressed my biggest concern.
 
->
-> Regards
->  Damian
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+What order do I apply this patch relative to the other 6?
+
+Don't make me guess, instead place this patch into the necessary
+place within the series of 6 patches.
+
+I'm not applying any of this until you can submit it properly.
+
+Thanks.
