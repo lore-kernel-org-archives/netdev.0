@@ -1,102 +1,69 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2] macvtap: Correctly set tap features when IFF_VNET_HDR
- is disabled.
-Date: Wed, 14 Aug 2013 20:50:14 +0300
-Message-ID: <20130814175014.GB17580@redhat.com>
-References: <1376499820-27764-1-git-send-email-vyasevic@redhat.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: cpsw fails to come up once in a while
+Date: Wed, 14 Aug 2013 19:54:39 +0200
+Message-ID: <20130814175439.GA13483@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevic@redhat.com>
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33829 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758415Ab3HNRsi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Aug 2013 13:48:38 -0400
-Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r7EHmbrI012610
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 13:48:38 -0400
+Received: from www.linutronix.de ([62.245.132.108]:57638 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753584Ab3HNRyk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 13:54:40 -0400
 Content-Disposition: inline
-In-Reply-To: <1376499820-27764-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 14, 2013 at 01:03:40PM -0400, Vlad Yasevich wrote:
-> When the user turns off IFF_VNET_HDR flag, attempts to change
-> offload features via TUNSETOFFLOAD do not work.  This could cause
-> GSO packets to be delivered to the user when the user is
-> not prepared to handle them.
-> 
-> To solve, allow processing of TUNSETOFFLOAD when IFF_VNET_HDR is
-> disabled.  Treat any attempt to enable offloads as an error in
-> this case.
-> We also need to update the TUN_FEATURES mask to include all checksum
-> options as the underlying device may have something other then
-> HW_CSUM set.
+Hi,
 
-This last looks like a completely unrelated change,
-does it not?
-Would be nice to have it in a separate patchset with some
-examples of broken configurations.
+So I have this test where my am335x-evm boots over NFS and once it=20
+completes it does it again. It works most of the time :) However once i=
+t
+like 100 attempts it does not. After the reset u-boot complains about
+ethernet timeout and linux has also no luck:
 
-> 
-> Change since v1:
->   - Removed the call to update offloads when IFF_VNET_HDR is turned off.
->   - Changed the macvtap version of TUN_OFFLOADS to include all checksum
->     offloads since the physical nic may have them set.
->   - Treat enabling of offloads without vnet_hdr support as error.
-> 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> ---
->  drivers/net/macvtap.c | 12 +++++++-----
->  1 file changed, 7 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index a98fb0e..3acfc37 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -65,7 +65,7 @@ static struct cdev macvtap_cdev;
->  
->  static const struct proto_ops macvtap_socket_ops;
->  
-> -#define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
-> +#define TUN_OFFLOADS (NETIF_F_ALL_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
->  		      NETIF_F_TSO6 | NETIF_F_UFO)
->  #define RX_OFFLOADS (NETIF_F_GRO | NETIF_F_LRO)
->  /*
-> @@ -1024,6 +1024,12 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
->  	if (!vlan)
->  		return -ENOLINK;
->  
-> +	/* If the user is trying to set offloads while IFF_VNET_HDR is
-> +	 * off, report it as an error.
-> +	 */
-> +	if (!(q->flags & IFF_VNET_HDR) && arg)
-> +		return -EINVAL;
-> +
+| U-Boot 2013.04-00274-ga71d45d (May 27 2013 - 12:41:57)
+|=20
+|=E2=80=A6
+| Net:   Phy not found
+| PHY reset timed out
+| cpsw, usb_ether
+| Hit any key to stop autoboot:  1 ^H^H^H 0=20
+| link up on port 0, speed 1000, full duplex
+| Using cpsw device
+| TFTP from server 172.123.10.10; our IP address is 172.123.10.3
+| Filename 'am335x/zImage'.
+| Load address: 0x80200000
+| Loading: *^H#########################################################=
+########
+|          ############################################################=
+#####
+|          #######################################
+|          509.8 KiB/s
 
-This function has a single caller so it should matter,
-but I'm just curious why are you moving the test here from
-macvtap_ioctl?
+So the PHY was not found but somehow it managed to fetch the kernel ove=
+r
+network and boot it. The linux driver did not want to continue:
 
->  	features = vlan->dev->features;
->  
->  	if (arg & TUN_F_CSUM) {
-> @@ -1155,10 +1161,6 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
->  			    TUN_F_TSO_ECN | TUN_F_UFO))
->  			return -EINVAL;
->  
-> -		/* TODO: only accept frames with the features that
-> -			 got enabled for forwarded frames */
+| omap_i2c 4802a000.i2c: bus 1 rev0.11 at 100 kHz
+| davinci_mdio 4a101000.mdio: davinci mdio revision 1.6
+| davinci_mdio 4a101000.mdio: no live phy, scanning all
+| davinci_mdio: probe of 4a101000.mdio failed with error -5
+| Random MACID =3D 16:74:44:51:f1:0f
+| gpio-keys volume_keys.6: Unable to claim irq 0; error -22
+| gpio-keys: probe of volume_keys.6 failed with error -22
+| omap_rtc 44e3e000.rtc: setting system clock to 2000-01-01 03:22:52 UT=
+C (946696972)
+| net eth0: initializing cpsw version 1.12 (0)
+| libphy: PHY 4a101000.mdio:00 not found
+| net eth0: phy 4a101000.mdio:00 not found on slave 0
+| libphy: PHY 4a101000.mdio:01 not found
+| net eth0: phy 4a101000.mdio:01 not found on slave 1
+| Waiting up to 110 more seconds for network.
 
-Why do you drop this btw? you disagree we should do this
-eventually? Maybe a separate patch too.
+so the driver also failed to find a PHY and gave up.
+Is this something known?
 
-> -		if (!(q->flags & IFF_VNET_HDR))
-> -			return  -EINVAL;
->  		rtnl_lock();
->  		ret = set_offload(q, arg);
->  		rtnl_unlock();
-> -- 
-> 1.8.1.4
+Sebastian
