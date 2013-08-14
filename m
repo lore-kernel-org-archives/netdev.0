@@ -1,42 +1,60 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipip: Add room for user-specified custom
- header
-Date: Wed, 14 Aug 2013 13:39:29 -0700 (PDT)
-Message-ID: <20130814.133929.975837205960955245.davem@davemloft.net>
-References: <1376296778-1983-1-git-send-email-kristian.evensen@gmail.com>
+Subject: Re: [Patch net-next] net: sync some IP headers with glibc
+Date: Wed, 14 Aug 2013 13:42:46 -0700 (PDT)
+Message-ID: <20130814.134246.1152657041177088716.davem@davemloft.net>
+References: <1376383054-9184-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kristian.evensen@gmail.com
+Cc: netdev@vger.kernel.org, tmb@mageia.org, libc-alpha@sourceware.org,
+	yoshfuji@linux-ipv6.org, carlos@redhat.com
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59684 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59756 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760255Ab3HNUjb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 16:39:31 -0400
-In-Reply-To: <1376296778-1983-1-git-send-email-kristian.evensen@gmail.com>
+	with ESMTP id S932912Ab3HNUms (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 16:42:48 -0400
+In-Reply-To: <1376383054-9184-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Date: Mon, 12 Aug 2013 10:39:38 +0200
+From: Cong Wang <amwang@redhat.com>
+Date: Tue, 13 Aug 2013 16:37:33 +0800
 
-> This patch adds support for specifying the size of a custom header to be
-> inserted between the two IP headers. The actual content will be inserted later,
-> for example by a module that is attached to a hook.
-> 
-> A use-case for the feature provided by this patch is to ease the implementation
-> of custom tunneling protocols. Instead of implementing them directly in the
-> kernel and having to look out for changes in the kernel behavior/APIs, a
-> tunneling protocol can be implemented as an independent module.
-> 
-> To avoid breaking user space (by updating ip_tunnel_params), it is only possible
-> to specify the custom header length when an IPIP-tunnel is created using
-> netlink-messages.
-> 
-> Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
+> @@ -23,31 +23,54 @@
+>  
+>  /* Standard well-defined IP protocols.  */
+>  enum {
+> -  IPPROTO_IP = 0,		/* Dummy protocol for TCP		*/
+> -  IPPROTO_ICMP = 1,		/* Internet Control Message Protocol	*/
 
-Sorry I'm not even going to consider applying this until you post
-use-cases for this feature, because right now it just looks like a
-random way to facilitate some third party proprietary kernel module
-or similar.
+> +  IPPROTO_IP = 0,		/* Dummy protocol for TCP. */
+
+Please don't do unrelated things like reformat comments, it makes the
+path much harder to audit.
+
+> -
+> +#if __UAPI_DEF_IN6_ADDR
+>  struct in6_addr {
+>  	union {
+>  		__u8		u6_addr8[16];
+> +#if __UAPI_DEF_IN6_ADDR
+>  		__be16		u6_addr16[8];
+
+The same CPP test twice inside of itself, the second test seems
+superfluous.  I bet this second one was supposed to be
+__UAPI_DEF_IN6_ADDR_ALT instead of __UAPI_DEF_IN6_ADDR.
+
+> -#define IPPROTO_HOPOPTS		0	/* IPv6 hop-by-hop options	*/
+> -#define IPPROTO_ROUTING		43	/* IPv6 routing header		*/
+> -#define IPPROTO_FRAGMENT	44	/* IPv6 fragmentation header	*/
+> -#define IPPROTO_ICMPV6		58	/* ICMPv6			*/
+> -#define IPPROTO_NONE		59	/* IPv6 no next header		*/
+> -#define IPPROTO_DSTOPTS		60	/* IPv6 destination options	*/
+> -#define IPPROTO_MH		135	/* IPv6 mobility header		*/
+> +#if __UAPI_DEF_IPPROTO_V6
+> +enum {
+> +  IPPROTO_HOPOPTS = 0,		/* IPv6 hop-by-hop options      */
+
+Again, do not reformat things, it's an unrelated change and makes
+this patch harder to review.
