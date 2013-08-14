@@ -1,305 +1,51 @@
-From: Moshe Lazer <moshel@mellanox.com>
-Subject: [PATCH] net/mlx5_core: Support MANAGE_PAGES and QUERY_PAGES firmware command changes
-Date: Wed, 14 Aug 2013 17:46:48 +0300
-Message-ID: <1376491608-3759-1-git-send-email-moshel@mellanox.com>
-Cc: netdev@vger.kernel.org, roland@kernel.org, ogerlitz@mellanox.com,
-	Moshe Lazer <moshel@mellanox.com>, Eli Cohen <eli@mellanox.com>
-To: davem@davemloft.net
+From: Dinh Nguyen <dinguyen@altera.com>
+Subject: Re: [PATCH] phy: micrel: Add definitions for common Micrel PHY
+ registers
+Date: Wed, 14 Aug 2013 09:58:19 -0500
+Message-ID: <1376492299.8715.3.camel@linux-builds1>
+References: <1376405940-17141-1-git-send-email-dinguyen@altera.com>
+	 <20130814051743.GG16915@S2101-09.ap.freescale.net>
+	 <20130814.005154.348348186882819546.davem@davemloft.net>
+	 <20130814084508.GD31141@S2101-09.ap.freescale.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <dinh.linux@gmail.com>,
+	<nicolas.ferre@atmel.com>, <linux@maxim.org.za>,
+	<plagnioj@jcrosoft.com>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Shawn Guo <shawn.guo@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:41255 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932499Ab3HNOrf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Aug 2013 10:47:35 -0400
+Received: from tx2ehsobe005.messaging.microsoft.com ([65.55.88.15]:5945 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932435Ab3HNO60 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 10:58:26 -0400
+In-Reply-To: <20130814084508.GD31141@S2101-09.ap.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the previous QUERY_PAGES command version we used one command to get the
-required amount of boot, init and post init pages.  The new version uses the
-op_mod field to specify whether the query is for the required amount of boot,
-init or post init pages. In addition the output field size for the required
-amount of pages increased from 16 to 32 bits.
+On Wed, 2013-08-14 at 16:45 +0800, Shawn Guo wrote:
+> On Wed, Aug 14, 2013 at 12:51:54AM -0700, David Miller wrote:
+> > From: Shawn Guo <shawn.guo@linaro.org>
+> > Date: Wed, 14 Aug 2013 13:17:46 +0800
+> > 
+> > > On Tue, Aug 13, 2013 at 09:58:59AM -0500, dinguyen@altera.com wrote:
+> > >> From: Dinh Nguyen <dinguyen@altera.com>
+> > >> 
+> > >> Hi Shawn,
+> > >> 
+> > >> Can you apply this patch to your tree for 3.12?
+> > >> 
+> > > 
+> > > I need David's Ack to send the patch through IMX tree.
+> > 
+> > Acked-by: David S. Miller <davem@davemloft.net>
+> 
+> Okay, applied with David's ACK.
 
-In MANAGE_PAGES command the input_num_entries and output_num_entries fields
-sizes changed from 16 to 32 bits and the PAS tables offset changed to 0x10.
+Thanks,
 
-In the pages request event the num_pages field also changed to 32 bits.
-
-In the HCA-capabilities-layout the size and location of max_qp_mcg field has
-been changed to support 24 bits.
-
-This patch isn't compatible with firmware versions < 5; however, it  turns out that the
-first GA firmware we will publish will not support previous versions so this should be OK.
-
-Signed-off-by: Moshe Lazer <moshel@mellanox.com>
-Signed-off-by: Eli Cohen <eli@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |    2 +-
- drivers/net/ethernet/mellanox/mlx5/core/eq.c       |    2 +-
- drivers/net/ethernet/mellanox/mlx5/core/fw.c       |    2 +-
- .../net/ethernet/mellanox/mlx5/core/pagealloc.c    |   58 +++++++++-----------
- include/linux/mlx5/device.h                        |   22 ++++----
- include/linux/mlx5/driver.h                        |    4 +-
- 6 files changed, 41 insertions(+), 49 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-index c571de8..5472cbd 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-@@ -46,7 +46,7 @@
- #include "mlx5_core.h"
- 
- enum {
--	CMD_IF_REV = 4,
-+	CMD_IF_REV = 5,
- };
- 
- enum {
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-index c02cbcf..443cc4d 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-@@ -268,7 +268,7 @@ static int mlx5_eq_int(struct mlx5_core_dev *dev, struct mlx5_eq *eq)
- 		case MLX5_EVENT_TYPE_PAGE_REQUEST:
- 			{
- 				u16 func_id = be16_to_cpu(eqe->data.req_pages.func_id);
--				s16 npages = be16_to_cpu(eqe->data.req_pages.num_pages);
-+				s32 npages = be32_to_cpu(eqe->data.req_pages.num_pages);
- 
- 				mlx5_core_dbg(dev, "page request for func 0x%x, napges %d\n", func_id, npages);
- 				mlx5_core_req_pages_handler(dev, func_id, npages);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fw.c b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-index 72a5222..f012658 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-@@ -113,7 +113,7 @@ int mlx5_cmd_query_hca_cap(struct mlx5_core_dev *dev,
- 	caps->log_max_srq = out->hca_cap.log_max_srqs & 0x1f;
- 	caps->local_ca_ack_delay = out->hca_cap.local_ca_ack_delay & 0x1f;
- 	caps->log_max_mcg = out->hca_cap.log_max_mcg;
--	caps->max_qp_mcg = be16_to_cpu(out->hca_cap.max_qp_mcg);
-+	caps->max_qp_mcg = be32_to_cpu(out->hca_cap.max_qp_mcg) & 0xffffff;
- 	caps->max_ra_res_qp = 1 << (out->hca_cap.log_max_ra_res_qp & 0x3f);
- 	caps->max_ra_req_qp = 1 << (out->hca_cap.log_max_ra_req_qp & 0x3f);
- 	caps->max_srq_wqes = 1 << out->hca_cap.log_max_srq_sz;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-index 4a3e137..3a2408d 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-@@ -43,10 +43,16 @@ enum {
- 	MLX5_PAGES_TAKE		= 2
- };
- 
-+enum {
-+	MLX5_BOOT_PAGES		= 1,
-+	MLX5_INIT_PAGES		= 2,
-+	MLX5_POST_INIT_PAGES	= 3
-+};
-+
- struct mlx5_pages_req {
- 	struct mlx5_core_dev *dev;
- 	u32	func_id;
--	s16	npages;
-+	s32	npages;
- 	struct work_struct work;
- };
- 
-@@ -64,27 +70,23 @@ struct mlx5_query_pages_inbox {
- 
- struct mlx5_query_pages_outbox {
- 	struct mlx5_outbox_hdr	hdr;
--	__be16			num_boot_pages;
-+	__be16			rsvd;
- 	__be16			func_id;
--	__be16			init_pages;
--	__be16			num_pages;
-+	__be32			num_pages;
- };
- 
- struct mlx5_manage_pages_inbox {
- 	struct mlx5_inbox_hdr	hdr;
--	__be16			rsvd0;
-+	__be16			rsvd;
- 	__be16			func_id;
--	__be16			rsvd1;
--	__be16			num_entries;
--	u8			rsvd2[16];
-+	__be32			num_entries;
- 	__be64			pas[0];
- };
- 
- struct mlx5_manage_pages_outbox {
- 	struct mlx5_outbox_hdr	hdr;
--	u8			rsvd0[2];
--	__be16			num_entries;
--	u8			rsvd1[20];
-+	__be32			num_entries;
-+	u8			rsvd[4];
- 	__be64			pas[0];
- };
- 
-@@ -146,7 +148,7 @@ static struct page *remove_page(struct mlx5_core_dev *dev, u64 addr)
- }
- 
- static int mlx5_cmd_query_pages(struct mlx5_core_dev *dev, u16 *func_id,
--				s16 *pages, s16 *init_pages, u16 *boot_pages)
-+				s32 *npages, int boot)
- {
- 	struct mlx5_query_pages_inbox	in;
- 	struct mlx5_query_pages_outbox	out;
-@@ -155,6 +157,8 @@ static int mlx5_cmd_query_pages(struct mlx5_core_dev *dev, u16 *func_id,
- 	memset(&in, 0, sizeof(in));
- 	memset(&out, 0, sizeof(out));
- 	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_QUERY_PAGES);
-+	in.hdr.opmod = boot ? cpu_to_be16(MLX5_BOOT_PAGES) : cpu_to_be16(MLX5_INIT_PAGES);
-+
- 	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
- 	if (err)
- 		return err;
-@@ -162,15 +166,7 @@ static int mlx5_cmd_query_pages(struct mlx5_core_dev *dev, u16 *func_id,
- 	if (out.hdr.status)
- 		return mlx5_cmd_status_to_err(&out.hdr);
- 
--	if (pages)
--		*pages = be16_to_cpu(out.num_pages);
--
--	if (init_pages)
--		*init_pages = be16_to_cpu(out.init_pages);
--
--	if (boot_pages)
--		*boot_pages = be16_to_cpu(out.num_boot_pages);
--
-+	*npages = be32_to_cpu(out.num_pages);
- 	*func_id = be16_to_cpu(out.func_id);
- 
- 	return err;
-@@ -224,7 +220,7 @@ static int give_pages(struct mlx5_core_dev *dev, u16 func_id, int npages,
- 	in->hdr.opcode = cpu_to_be16(MLX5_CMD_OP_MANAGE_PAGES);
- 	in->hdr.opmod = cpu_to_be16(MLX5_PAGES_GIVE);
- 	in->func_id = cpu_to_be16(func_id);
--	in->num_entries = cpu_to_be16(npages);
-+	in->num_entries = cpu_to_be32(npages);
- 	err = mlx5_cmd_exec(dev, in, inlen, &out, sizeof(out));
- 	mlx5_core_dbg(dev, "err %d\n", err);
- 	if (err) {
-@@ -292,7 +288,7 @@ static int reclaim_pages(struct mlx5_core_dev *dev, u32 func_id, int npages,
- 	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_MANAGE_PAGES);
- 	in.hdr.opmod = cpu_to_be16(MLX5_PAGES_TAKE);
- 	in.func_id = cpu_to_be16(func_id);
--	in.num_entries = cpu_to_be16(npages);
-+	in.num_entries = cpu_to_be32(npages);
- 	mlx5_core_dbg(dev, "npages %d, outlen %d\n", npages, outlen);
- 	err = mlx5_cmd_exec(dev, &in, sizeof(in), out, outlen);
- 	if (err) {
-@@ -306,7 +302,7 @@ static int reclaim_pages(struct mlx5_core_dev *dev, u32 func_id, int npages,
- 		goto out_free;
- 	}
- 
--	num_claimed = be16_to_cpu(out->num_entries);
-+	num_claimed = be32_to_cpu(out->num_entries);
- 	if (nclaimed)
- 		*nclaimed = num_claimed;
- 
-@@ -345,7 +341,7 @@ static void pages_work_handler(struct work_struct *work)
- }
- 
- void mlx5_core_req_pages_handler(struct mlx5_core_dev *dev, u16 func_id,
--				 s16 npages)
-+				 s32 npages)
- {
- 	struct mlx5_pages_req *req;
- 
-@@ -364,20 +360,18 @@ void mlx5_core_req_pages_handler(struct mlx5_core_dev *dev, u16 func_id,
- 
- int mlx5_satisfy_startup_pages(struct mlx5_core_dev *dev, int boot)
- {
--	u16 uninitialized_var(boot_pages);
--	s16 uninitialized_var(init_pages);
- 	u16 uninitialized_var(func_id);
-+	s32 uninitialized_var(npages);
- 	int err;
- 
--	err = mlx5_cmd_query_pages(dev, &func_id, NULL, &init_pages,
--				   &boot_pages);
-+	err = mlx5_cmd_query_pages(dev, &func_id, &npages, boot);
- 	if (err)
- 		return err;
- 
-+	mlx5_core_dbg(dev, "requested %d %s pages for func_id 0x%x\n",
-+		      npages, boot ? "boot" : "init", func_id);
- 
--	mlx5_core_dbg(dev, "requested %d init pages and %d boot pages for func_id 0x%x\n",
--		      init_pages, boot_pages, func_id);
--	return give_pages(dev, func_id, boot ? boot_pages : init_pages, 0);
-+	return give_pages(dev, func_id, npages, 0);
- }
- 
- static int optimal_reclaimed_pages(void)
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index 737685e..68029b3 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -309,21 +309,20 @@ struct mlx5_hca_cap {
- 	__be16	max_desc_sz_rq;
- 	u8	rsvd21[2];
- 	__be16	max_desc_sz_sq_dc;
--	u8	rsvd22[4];
--	__be16	max_qp_mcg;
--	u8	rsvd23;
-+	__be32	max_qp_mcg;
-+	u8	rsvd22[3];
- 	u8	log_max_mcg;
--	u8	rsvd24;
-+	u8	rsvd23;
- 	u8	log_max_pd;
--	u8	rsvd25;
-+	u8	rsvd24;
- 	u8	log_max_xrcd;
--	u8	rsvd26[42];
-+	u8	rsvd25[42];
- 	__be16  log_uar_page_sz;
--	u8	rsvd27[28];
-+	u8	rsvd26[28];
- 	u8	log_msx_atomic_size_qp;
--	u8	rsvd28[2];
-+	u8	rsvd27[2];
- 	u8	log_msx_atomic_size_dc;
--	u8	rsvd29[76];
-+	u8	rsvd28[76];
- };
- 
- 
-@@ -472,9 +471,8 @@ struct mlx5_eqe_cmd {
- struct mlx5_eqe_page_req {
- 	u8		rsvd0[2];
- 	__be16		func_id;
--	u8		rsvd1[2];
--	__be16		num_pages;
--	__be32		rsvd2[5];
-+	__be32		num_pages;
-+	__be32		rsvd1[5];
- };
- 
- union ev_data {
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 2aa258b..e7f552c 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -358,7 +358,7 @@ struct mlx5_caps {
- 	u32	reserved_lkey;
- 	u8	local_ca_ack_delay;
- 	u8	log_max_mcg;
--	u16	max_qp_mcg;
-+	u32	max_qp_mcg;
- 	int	min_page_sz;
- };
- 
-@@ -691,7 +691,7 @@ void mlx5_pagealloc_cleanup(struct mlx5_core_dev *dev);
- int mlx5_pagealloc_start(struct mlx5_core_dev *dev);
- void mlx5_pagealloc_stop(struct mlx5_core_dev *dev);
- void mlx5_core_req_pages_handler(struct mlx5_core_dev *dev, u16 func_id,
--				 s16 npages);
-+				 s32 npages);
- int mlx5_satisfy_startup_pages(struct mlx5_core_dev *dev, int boot);
- int mlx5_reclaim_startup_pages(struct mlx5_core_dev *dev);
- void mlx5_register_debugfs(void);
--- 
-1.7.1
+Dinh
+> 
+> Shawn
+> 
