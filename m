@@ -1,85 +1,213 @@
-From: Peter Wu <lekensteyn@gmail.com>
-Subject: Re: [PATCH] r8169: fix invalid register dump
-Date: Wed, 14 Aug 2013 23:31:25 +0200
-Message-ID: <2045708.ru9COLib4d@al>
-References: <1376426265-30353-1-git-send-email-lekensteyn@gmail.com> <3465288.NFVErF5E7l@al> <20130814195829.GA1613@electric-eye.fr.zoreil.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [PATCH] net_sched: restore "linklayer atm" handling
+Date: Wed, 14 Aug 2013 23:47:11 +0200
+Message-ID: <20130814214711.23885.76734.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Dave Taht <dave.taht@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:54005 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933097Ab3HNVb3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 17:31:29 -0400
-Received: by mail-wi0-f179.google.com with SMTP id hr7so2497813wib.12
-        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 14:31:28 -0700 (PDT)
-In-Reply-To: <20130814195829.GA1613@electric-eye.fr.zoreil.com>
+Received: from mx1.redhat.com ([209.132.183.28]:53149 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760243Ab3HNVhD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Aug 2013 17:37:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 14 August 2013 21:58:29 Francois Romieu wrote:
-> > -     memcpy_fromio(p, tp->mmio_addr, regs->len);
-> > +     if (regs->len >= 4) {
-> > +             for (i = 0; i < regs->len - 4; i += 4)
-> > +                     memcpy_fromio(bytes + i, tp->mmio_addr + i, 4);
-> > +     }
-> > +     if (i < regs->len)
-> 
-> Comparison with random stack stuff when regs->len < 4. :o/
+commit 56b765b79 ("htb: improved accuracy at high rates")
+broke the "linklayer atm" handling.
 
-Right, let's rm $OLD_PATCH and consider this one.
+ tc class add ... htb rate X ceil Y linklayer atm
 
-Checklist:
-1. super large regs->len: won't be greater than R8169_REGS_SIZE (256)
-2. regs->len == 0: 0 < 0 is false, nothing is copied
-3. regs->len is 1, 2 or 3: i = 0, at most 3 bytes will be copied
-4. regs->len is 4, i < 4 - 4, skip loop, 0 < regs->len, copy 4
-5. regs->len is 5, i < 5 - 4, copy; 4 < regs->len, copy 1
+The linklayer setting is implemented by modifying the rate table
+which is send to the kernel.  No direct parameter were
+transferred to the kernel indicating the linklayer setting.
 
-With this I can now say with confidence that I haven't overlooked something
-related to integer overflow. You have a very sharp eye, thanks for
-catching my mistakes.
+The commit 56b765b79 ("htb: improved accuracy at high rates")
+removed the use of the rate table system.
 
-Regards,
-Peter
+To keep compatible with older iproute2 utils, this patch detects
+the linklayer by parsing the rate table.  It also supports future
+versions of iproute2 to send this linklayer parameter to the
+kernel directly. This is done by using the __reserved field in
+struct tc_ratespec, to convey the choosen linklayer option, but
+only using the lower 4 bits of this field.
+
+Linklayer detection is limited to speeds below 100Mbit/s, because
+at high rates the rtab is gets too inaccurate, so bad that
+several fields contain the same values, this resembling the ATM
+detect.  Fields even start to contain "0" time to send, e.g. at
+1000Mbit/s sending a 96 bytes packet cost "0", thus the rtab have
+been more broken than we first realized.
+
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
-From: Peter Wu <lekensteyn@gmail.com>
 
-For some reason, my PCIe RTL8111E onboard NIC on a GA-Z68X-UD3H-B3
-motherboard reads as FFs when reading from MMIO with a block size
-larger than 7. Therefore change to reading blocks of four bytes.
+ include/net/sch_generic.h      |    9 ++++++++-
+ include/uapi/linux/pkt_sched.h |   10 +++++++++-
+ net/sched/sch_api.c            |   41 ++++++++++++++++++++++++++++++++++++++++
+ net/sched/sch_generic.c        |    1 +
+ net/sched/sch_htb.c            |   13 +++++++++++++
+ 5 files changed, 72 insertions(+), 2 deletions(-)
 
-Signed-off-by: Peter Wu <lekensteyn@gmail.com>
----
- drivers/net/ethernet/realtek/r8169.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index b5eb419..19524c0 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -1897,12 +1897,19 @@ static void rtl8169_get_regs(struct net_device *dev, struct ethtool_regs *regs,
- 			     void *p)
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 6eab633..e5ae0c5 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -683,13 +683,19 @@ struct psched_ratecfg {
+ 	u64	rate_bytes_ps; /* bytes per second */
+ 	u32	mult;
+ 	u16	overhead;
++	u8	linklayer;
+ 	u8	shift;
+ };
+ 
+ static inline u64 psched_l2t_ns(const struct psched_ratecfg *r,
+ 				unsigned int len)
  {
- 	struct rtl8169_private *tp = netdev_priv(dev);
-+	char *bytes = p;
-+	int i = 0;
- 
- 	if (regs->len > R8169_REGS_SIZE)
- 		regs->len = R8169_REGS_SIZE;
- 
- 	rtl_lock_work(tp);
--	memcpy_fromio(p, tp->mmio_addr, regs->len);
-+	if (regs->len >= 4) {
-+		for (; i < regs->len - 4; i += 4)
-+			memcpy_fromio(bytes + i, tp->mmio_addr + i, 4);
-+	}
-+	if (i < regs->len)
-+		memcpy_fromio(bytes + i, tp->mmio_addr + i, regs->len - i);
- 	rtl_unlock_work(tp);
+-	return ((u64)(len + r->overhead) * r->mult) >> r->shift;
++	len += r->overhead;
++
++	if (unlikely(r->linklayer == TC_LINKLAYER_ATM))
++		return ((u64)(DIV_ROUND_UP(len,48)*53) * r->mult) >> r->shift;
++
++	return ((u64)len * r->mult) >> r->shift;
  }
  
--- 
-1.8.3.4
+ extern void psched_ratecfg_precompute(struct psched_ratecfg *r, const struct tc_ratespec *conf);
+@@ -700,6 +706,7 @@ static inline void psched_ratecfg_getrate(struct tc_ratespec *res,
+ 	memset(res, 0, sizeof(*res));
+ 	res->rate = r->rate_bytes_ps;
+ 	res->overhead = r->overhead;
++	res->linklayer = (r->linklayer & TC_LINKLAYER_MASK);
+ }
+ 
+ #endif
+diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
+index dbd71b0..09d62b9 100644
+--- a/include/uapi/linux/pkt_sched.h
++++ b/include/uapi/linux/pkt_sched.h
+@@ -73,9 +73,17 @@ struct tc_estimator {
+ #define TC_H_ROOT	(0xFFFFFFFFU)
+ #define TC_H_INGRESS    (0xFFFFFFF1U)
+ 
++/* Need to corrospond to iproute2 tc/tc_core.h "enum link_layer" */
++enum tc_link_layer {
++	TC_LINKLAYER_UNAWARE, /* Indicate unaware old iproute2 util */
++	TC_LINKLAYER_ETHERNET,
++	TC_LINKLAYER_ATM,
++};
++#define TC_LINKLAYER_MASK 0x0F /* limit use to lower 4 bits */
++
+ struct tc_ratespec {
+ 	unsigned char	cell_log;
+-	unsigned char	__reserved;
++	__u8		linklayer; /* lower 4 bits */
+ 	unsigned short	overhead;
+ 	short		cell_align;
+ 	unsigned short	mpu;
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 281c1bd..51b968d 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -285,6 +285,45 @@ static struct Qdisc_ops *qdisc_lookup_ops(struct nlattr *kind)
+ 	return q;
+ }
+ 
++/* The linklayer setting were not transferred from iproute2, in older
++ * versions, and the rate tables lookup systems have been dropped in
++ * the kernel. To keep backward compatible with older iproute2 tc
++ * utils, we detect the linklayer setting by detecting if the rate
++ * table were modified.
++ *
++ * For linklayer ATM table entries, the rate table will be aligned to
++ * 48 bytes, thus some table entries will contain the same value.  The
++ * mpu (min packet unit) is also encoded into the old rate table, thus
++ * starting from the mpu, we find low and high table entries for
++ * mapping this cell.  If these entries contain the same value, when
++ * the rate tables have been modified for linklayer ATM.
++ *
++ * This is done by rounding mpu to the nearest 48 bytes cell/entry,
++ * and then roundup to the next cell, calc the table entry one below,
++ * and compare.
++ */
++static __u8 __detect_linklayer(struct tc_ratespec *r, __u32 *rtab)
++{
++	int low       = roundup(r->mpu, 48);
++	int high      = roundup(low+1, 48);
++	int cell_low  = low >> r->cell_log;
++	int cell_high = (high >> r->cell_log) - 1;
++
++	/* rtab is too inaccurate at rates > 100Mbit/s */
++	if ((r->rate > (100000000/8)) || (rtab[0] == 0)) {
++		pr_debug("TC linklayer: Giving up ATM detection\n");
++		return TC_LINKLAYER_ETHERNET;
++	}
++
++	if ((cell_high > cell_low) && (cell_high < 256)
++	    && (rtab[cell_low] == rtab[cell_high])) {
++		pr_debug("TC linklayer: Detected ATM, low(%d)=high(%d)=%u\n",
++			 cell_low, cell_high, rtab[cell_high]);
++		return TC_LINKLAYER_ATM;
++	}
++	return TC_LINKLAYER_ETHERNET;
++}
++
+ static struct qdisc_rate_table *qdisc_rtab_list;
+ 
+ struct qdisc_rate_table *qdisc_get_rtab(struct tc_ratespec *r, struct nlattr *tab)
+@@ -308,6 +347,8 @@ struct qdisc_rate_table *qdisc_get_rtab(struct tc_ratespec *r, struct nlattr *ta
+ 		rtab->rate = *r;
+ 		rtab->refcnt = 1;
+ 		memcpy(rtab->data, nla_data(tab), 1024);
++		if (r->linklayer == TC_LINKLAYER_UNAWARE)
++			r->linklayer = __detect_linklayer(r, rtab->data);
+ 		rtab->next = qdisc_rtab_list;
+ 		qdisc_rtab_list = rtab;
+ 	}
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index eeb8276..48be3d5 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -909,6 +909,7 @@ void psched_ratecfg_precompute(struct psched_ratecfg *r,
+ 	memset(r, 0, sizeof(*r));
+ 	r->overhead = conf->overhead;
+ 	r->rate_bytes_ps = conf->rate;
++	r->linklayer = (conf->linklayer & TC_LINKLAYER_MASK);
+ 	r->mult = 1;
+ 	/*
+ 	 * The deal here is to replace a divide by a reciprocal one
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 45e7515..c2178b1 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1329,6 +1329,7 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 	struct htb_sched *q = qdisc_priv(sch);
+ 	struct htb_class *cl = (struct htb_class *)*arg, *parent;
+ 	struct nlattr *opt = tca[TCA_OPTIONS];
++	struct qdisc_rate_table *rtab = NULL, *ctab = NULL;
+ 	struct nlattr *tb[TCA_HTB_MAX + 1];
+ 	struct tc_htb_opt *hopt;
+ 
+@@ -1350,6 +1351,18 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 	if (!hopt->rate.rate || !hopt->ceil.rate)
+ 		goto failure;
+ 
++	/* Keeping backward compatible with rate_table based iproute2 tc */
++	if (hopt->rate.linklayer == TC_LINKLAYER_UNAWARE) {
++		rtab = qdisc_get_rtab(&hopt->rate, tb[TCA_HTB_RTAB]);
++		if (rtab)
++			qdisc_put_rtab(rtab);
++	}
++	if (hopt->ceil.linklayer == TC_LINKLAYER_UNAWARE) {
++		ctab = qdisc_get_rtab(&hopt->ceil, tb[TCA_HTB_CTAB]);
++		if (ctab)
++			qdisc_put_rtab(ctab);
++	}
++
+ 	if (!cl) {		/* new class */
+ 		struct Qdisc *new_q;
+ 		int prio;
