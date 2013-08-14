@@ -1,91 +1,36 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2] macvtap: Correctly set tap features when IFF_VNET_HDR
- is disabled.
-Date: Wed, 14 Aug 2013 22:24:37 +0300
-Message-ID: <20130814192437.GA20226@redhat.com>
-References: <1376499820-27764-1-git-send-email-vyasevic@redhat.com>
+From: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Subject: TCP Connection teardown seems to violate TCP specification
+Date: Wed, 14 Aug 2013 21:21:35 +0200
+Message-ID: <1376508095.4596.12.camel@nexus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevic@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7BIT
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63990 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933079Ab3HNTXB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Aug 2013 15:23:01 -0400
-Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r7EJN1Yw022719
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 15:23:01 -0400
-Content-Disposition: inline
-In-Reply-To: <1376499820-27764-1-git-send-email-vyasevic@redhat.com>
+Received: from mx-out-1.rwth-aachen.de ([134.130.5.186]:8035 "EHLO
+	mx-out-1.rwth-aachen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932928Ab3HNTb1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 15:31:27 -0400
+Received: from [192.168.0.131] ([unknown] [178.201.100.77])
+ by relay-auth-1.ms.rz.rwth-aachen.de
+ (Sun Java(tm) System Messaging Server 7.0-3.01 64bit (built Dec  9 2008))
+ with ESMTPA id <0MRJ00FWOCFYP510@relay-auth-1.ms.rz.rwth-aachen.de> for
+ netdev@vger.kernel.org; Wed, 14 Aug 2013 21:21:34 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 14, 2013 at 01:03:40PM -0400, Vlad Yasevich wrote:
-> When the user turns off IFF_VNET_HDR flag, attempts to change
-> offload features via TUNSETOFFLOAD do not work.  This could cause
-> GSO packets to be delivered to the user when the user is
-> not prepared to handle them.
+Hi,
 
-Just to clarify - is there some userspace that actually
-triggers this?
+the TCP specification states that an endpoint has to accept
+packets from the other side even after it has half-closed the
+connection locally. This does not seem to be the case
+under Linux?
 
+For example, when I wget -O /dev/null https://www.verisign.com/
+--max-redir 0, the local TCP stack sends an FIN,ACK close to the end.
+However, the webserver has more data to send (Encrypted Alert).
+Instead of ACKing the packet, the local side sends a RST.
+This seems wrong to me.
 
-> To solve, allow processing of TUNSETOFFLOAD when IFF_VNET_HDR is
-> disabled.  Treat any attempt to enable offloads as an error in
-> this case.
-> We also need to update the TUN_FEATURES mask to include all checksum
-> options as the underlying device may have something other then
-> HW_CSUM set.
-> 
-> Change since v1:
->   - Removed the call to update offloads when IFF_VNET_HDR is turned off.
->   - Changed the macvtap version of TUN_OFFLOADS to include all checksum
->     offloads since the physical nic may have them set.
->   - Treat enabling of offloads without vnet_hdr support as error.
-> 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> ---
->  drivers/net/macvtap.c | 12 +++++++-----
->  1 file changed, 7 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index a98fb0e..3acfc37 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -65,7 +65,7 @@ static struct cdev macvtap_cdev;
->  
->  static const struct proto_ops macvtap_socket_ops;
->  
-> -#define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
-> +#define TUN_OFFLOADS (NETIF_F_ALL_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
->  		      NETIF_F_TSO6 | NETIF_F_UFO)
->  #define RX_OFFLOADS (NETIF_F_GRO | NETIF_F_LRO)
->  /*
-> @@ -1024,6 +1024,12 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
->  	if (!vlan)
->  		return -ENOLINK;
->  
-> +	/* If the user is trying to set offloads while IFF_VNET_HDR is
-> +	 * off, report it as an error.
-> +	 */
-> +	if (!(q->flags & IFF_VNET_HDR) && arg)
-> +		return -EINVAL;
-> +
->  	features = vlan->dev->features;
->  
->  	if (arg & TUN_F_CSUM) {
-> @@ -1155,10 +1161,6 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
->  			    TUN_F_TSO_ECN | TUN_F_UFO))
->  			return -EINVAL;
->  
-> -		/* TODO: only accept frames with the features that
-> -			 got enabled for forwarded frames */
-> -		if (!(q->flags & IFF_VNET_HDR))
-> -			return  -EINVAL;
->  		rtnl_lock();
->  		ret = set_offload(q, arg);
->  		rtnl_unlock();
-> -- 
-> 1.8.1.4
+Regards
+ Damian
