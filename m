@@ -1,76 +1,84 @@
 From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [PATCHv2 net-next 0/6] 6lowpan: uncompress of addresses fix
-Date: Wed, 14 Aug 2013 14:41:19 +0200
-Message-ID: <20130814124117.GA4303@x61s.8.8.8.8>
+Subject: Re: [PATCH net-next 3/6] 6lowpan: introduce lowpan_fetch_skb function
+Date: Wed, 14 Aug 2013 14:45:47 +0200
+Message-ID: <20130814124545.GB4303@x61s.8.8.8.8>
 References: <1376478108-3539-1-git-send-email-alex.aring@gmail.com>
- <520B68C4.7030602@gmail.com>
+ <1376478108-3539-4-git-send-email-alex.aring@gmail.com>
+ <20130814114921.GC2010@order.stressinduktion.org>
+ <520B7029.3070903@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Cc: dbaryshkov@gmail.com, davem@davemloft.net,
 	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
 To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f176.google.com ([209.85.215.176]:36429 "EHLO
-	mail-ea0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932188Ab3HNMhb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 08:37:31 -0400
-Received: by mail-ea0-f176.google.com with SMTP id q16so4713253ead.21
-        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 05:37:29 -0700 (PDT)
+Received: from mail-ee0-f42.google.com ([74.125.83.42]:46418 "EHLO
+	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932202Ab3HNMlz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 08:41:55 -0400
+Received: by mail-ee0-f42.google.com with SMTP id b45so4849757eek.29
+        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 05:41:54 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <520B68C4.7030602@gmail.com>
+In-Reply-To: <520B7029.3070903@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hi Alex,
 
-On Wed, Aug 14, 2013 at 03:23:48PM +0400, Alexander Smirnov wrote:
-> On 08/14/2013 03:01 PM, Alexander Aring wrote:
-> >The current implementation to uncompress addresses in a 6lowpan header
-> >is completely broken.
+On Wed, Aug 14, 2013 at 03:55:21PM +0400, Alexander Smirnov wrote:
+> On 08/14/2013 03:49 PM, Hannes Frederic Sowa wrote:
+> >On Wed, Aug 14, 2013 at 01:01:45PM +0200, Alexander Aring wrote:
+> >>This patch adds a helper function to parse the ipv6 header to a
+> >>6lowpan header in stream.
+> >>
+> >>This function checks first if we can pull data with a specific
+> >>length from a skb. If this seems to be okay, we copy skb data to
+> >>a destination pointer and run skb_pull.
+> >>
+> >>Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+> >>Reviewed-by: Werner Almesberger <werner@almesberger.net>
+> >>---
+> >>  net/ieee802154/6lowpan.h | 12 ++++++++++++
+> >>  1 file changed, 12 insertions(+)
+> >>
+> >>diff --git a/net/ieee802154/6lowpan.h b/net/ieee802154/6lowpan.h
+> >>index 61f0ce9..e3348ec 100644
+> >>--- a/net/ieee802154/6lowpan.h
+> >>+++ b/net/ieee802154/6lowpan.h
+> >>@@ -233,4 +233,16 @@
+> >>  					dest = 16 bit inline */
+> >>  #define LOWPAN_NHC_UDP_CS_P_11	0xF3 /* source & dest = 0xF0B + 4bit inline */
+> >>
+> >>+static inline bool lowpan_fetch_skb(struct sk_buff *skb,
+> >>+		void *data, const unsigned int len)
+> >>+{
+> >>+	if (unlikely(!pskb_may_pull(skb, len)))
+> >>+		return true;
+> >>+
+> >>+	skb_copy_from_linear_data(skb, data, len);
+> >>+	skb_pull(skb, len);
+> >>+
+> >>+	return false;
+> >>+}
 > >
-> >This patch series fixes the parsing of addresses in a 6lowpan header.
-> >It contains a major rewrite of the uncompress address function to parse
-> >the address in a correct way.
-> >
+> >Isn't the return value inverted here?
 > 
-> Could you please describe in a few words how have you tested the changes?
+> Nope, everything is right here, but I spent several minutes to get it...
+> Probably using of standard intergers will be better here: return
+> -EINVAL and return 0;
 > 
 
-I test this with a ravenusbstick and the jackdaw firmware.
-This is a usb stick with a contiki stack which offers a ipv6 interface
-under linux. It still uses the 6LoWPAN contiki stack.
+This was the old behaviour, we decide it to make it like this:
 
-On the other side I have a beaglebone device with the current net-next
-6LoWPAN stack.
+fail = ...
+fail |= ....
 
-I add several addresses to this linux device to catch all cases (except
-short address) in the uncompression function.
-With a ping6 $ADDRESS and wireshark on the usb stick I see the
-outcomming 6lowpan packets. If I get a correct reply with the used
-address it seems that the uncompression works.
+if (fail)
+	...
 
-I am thinking to implement some test cases to test all uncompression of
-all address-cases. This patch series was tested manually.
-
-
-
-A wireshark on the beaglebone doesn't work at the moment. I get a
-nullpointer dereference in the 6LoWPAN stack. I suppose this is why the
-6LoWPAN Stack copies sk_buffs and free the old one. This is a wrong
-behaviour because the caller of a function has the old sk_buff which is
-freed.
-
-I need some time to drop the skb_clone functions.... and then I will
-check wireshark.
-
-If wireshark works I don't see the 6LoWPAN Header anyway, but I can see
-if the ipv6 header is reconstructed correctly.
-
-> Small cosmetic hint: lowpan_raw_dump_inline() already has an
-> argument to print debug message, so there is no need to add extra
-> pr_debug calls before it to print static text.
-> 
-ok, I will change it.
+We discussed that already at the linux-zigbee-devel mailinglist.
+I don't know what I should do now, on linux-zigbee-devel we decide it to
+this way, now we decide it in a other way...
 
 Regards
 Alex
