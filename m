@@ -1,7 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH 3/3 v4] ipv6: fix checkpatch errors in net/ipv6/addrconf.c
-Date: Wed, 14 Aug 2013 17:07:07 +0800
-Message-ID: <520B48BB.1010902@huawei.com>
+Subject: [PATCH 1/3 v4] ipv6: do not disable temp_address when reaching max_address
+Date: Wed, 14 Aug 2013 17:06:54 +0800
+Message-ID: <520B48AE.8050103@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -10,93 +10,98 @@ To: "David S. Miller" <davem@davemloft.net>,
 	James Morris <jmorris@namei.org>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>,
+	Jon Maloy <jon.maloy@ericsson.com>,
+	Eric Dumazet <edumazet@google.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:35805 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:35838 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759537Ab3HNJHh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 05:07:37 -0400
+	with ESMTP id S1759501Ab3HNJHi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 05:07:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ERROR: code indent should use tabs where possible: fix 2.
-ERROR: do not use assignment in if condition: fix 5.
+A LAN user can remotely disable temporary address which may lead
+to privacy violatins and information disclosure.
+
+The reason is that the linux kernel uses the 'ipv6.max_addresses'
+option to specify how many ipv6 addresses and interface may have.
+The 'ipv6.regen_max_retry' (default value 3) option specifies
+how many times the kernel will try to create a new address.
+
+But the kernel is not distinguish between the event of reaching
+max_addresses for an interface and failing to generate a new address.
+the kernel disable the temporary address after regenerate a new
+address 'regen_max_retry' times.
+
+According RFC4941 3.3.7:
+
+---------------------------------------
+
+If DAD indicates the address is already in use,
+the node must generate a new randomized interface
+identifier as described in section 3.2 above, and
+repeat the previous steps as appropriate up to
+TEMP_IDGEN_RETRIES times.
+
+If after TEMP_IDGEN_RETRIES consecutive attempts no
+non-unique address was generated, the node must log
+a system error and must not attempt to generate
+temporary address for that interface.
+
+------------------------------------------
+
+RFC4941 3.3.7 specifies that disabling the temp_address must happen
+upon the address is already in use, not reach the max_address,
+So we have to check the return err and distinguish the correct retry path.
+
+This fixes CVE-2013-0343
 
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Tested-by: Wang Weidong <wangweidong1@huawei.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Cc: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv6/addrconf.c | 24 ++++++++++++++----------
- 1 file changed, 14 insertions(+), 10 deletions(-)
+ net/ipv6/addrconf.c | 26 ++++++++++++++++++++++----
+ 1 file changed, 22 insertions(+), 4 deletions(-)
 
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 734724c..00e3fdc 100644
+index da4241c..7b55464 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -1105,8 +1105,8 @@ retry:
- 	spin_unlock_bh(&ifp->lock);
- 
- 	regen_advance = idev->cnf.regen_max_retry *
--	                idev->cnf.dad_transmits *
--	                idev->nd_parms->retrans_time / HZ;
-+			idev->cnf.dad_transmits *
-+			idev->nd_parms->retrans_time / HZ;
- 	write_unlock(&idev->lock);
- 
- 	/* A temporary address is created only if this calculated Preferred
-@@ -2514,7 +2514,8 @@ static int inet6_addr_del(struct net *net, int ifindex, const struct in6_addr *p
- 	if (!dev)
- 		return -ENODEV;
- 
--	if ((idev = __in6_dev_get(dev)) == NULL)
-+	idev = __in6_dev_get(dev);
-+	if (!idev)
- 		return -ENXIO;
- 
- 	read_lock_bh(&idev->lock);
-@@ -2653,7 +2654,8 @@ static void init_loopback(struct net_device *dev)
- 
- 	ASSERT_RTNL();
- 
--	if ((idev = ipv6_find_idev(dev)) == NULL) {
-+	idev = ipv6_find_idev(dev);
-+	if (!idev) {
- 		pr_debug("%s: add_dev failed\n", __func__);
- 		return;
- 	}
-@@ -2751,7 +2753,8 @@ static void addrconf_sit_config(struct net_device *dev)
- 	 * our v4 addrs in the tunnel
- 	 */
- 
--	if ((idev = ipv6_find_idev(dev)) == NULL) {
-+	idev = ipv6_find_idev(dev);
-+	if (!idev) {
- 		pr_debug("%s: add_dev failed\n", __func__);
- 		return;
- 	}
-@@ -2783,7 +2786,8 @@ static void addrconf_gre_config(struct net_device *dev)
- 
- 	ASSERT_RTNL();
- 
--	if ((idev = ipv6_find_idev(dev)) == NULL) {
-+	idev = ipv6_find_idev(dev);
-+	if (!idev) {
- 		pr_debug("%s: add_dev failed\n", __func__);
- 		return;
- 	}
-@@ -2814,11 +2818,11 @@ static void ip6_tnl_add_linklocal(struct inet6_dev *idev)
- 	struct net *net = dev_net(idev->dev);
- 
- 	/* first try to inherit the link-local address from the link device */
--	if (idev->dev->iflink &&
--	    (link_dev = __dev_get_by_index(net, idev->dev->iflink))) {
--		if (!ipv6_inherit_linklocal(idev, link_dev))
-+	if (idev->dev->iflink)
-+		link_dev = __dev_get_by_index(net, idev->dev->iflink);
-+		if (link_dev && !ipv6_inherit_linklocal(idev, link_dev))
- 			return;
--	}
+@@ -1134,10 +1134,28 @@ retry:
+ 	if (IS_ERR_OR_NULL(ift)) {
+ 		in6_ifa_put(ifp);
+ 		in6_dev_put(idev);
+-		pr_info("%s: retry temporary address regeneration\n", __func__);
+-		tmpaddr = &addr;
+-		write_lock(&idev->lock);
+-		goto retry;
 +
- 	/* then try to inherit it from any device */
- 	for_each_netdev(net, link_dev) {
- 		if (!ipv6_inherit_linklocal(idev, link_dev))
++		/* According RFC4941 3.3.7:
++		 * If DAD indicates the address is already in use,
++		 * the node must generate a new randomized interface
++		 * identifier as described in section 3.2 above, and
++		 * repeat the previous steps as appropriate up to
++		 * TEMP_IDGEN_RETRIES times.
++		 * If after TEMP_IDGEN_RETRIES consecutive attempts no
++		 * non-unique address was generated, the node must log
++		 * a system error and must not attempt to generate
++		 * temporary address for that interface.
++		 * So we have to check the return err and distinguish
++		 * the correct retry path.
++		 */
++		if (PTR_ERR(ift) == -EEXIST) {
++			pr_info("%s: retry temporary address regeneration\n", __func__);
++			tmpaddr = &addr;
++			write_lock(&idev->lock);
++			goto retry;
++		}
++		/* do not retry if the err code is not -EEXIST */
++		goto out;
+ 	}
+ 
+ 	spin_lock_bh(&ift->lock);
 -- 
 1.8.2.1
