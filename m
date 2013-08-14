@@ -1,61 +1,52 @@
-From: Luis Henriques <luis.henriques@canonical.com>
-Subject: [PATCH] net: rfkill: Do not ignore errors from regulator_enable()
-Date: Wed, 14 Aug 2013 23:10:06 +0100
-Message-ID: <1376518206-10710-1-git-send-email-luis.henriques@canonical.com>
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: fix invalid register dump
+Date: Thu, 15 Aug 2013 00:47:36 +0200
+Message-ID: <20130814224736.GA5193@electric-eye.fr.zoreil.com>
+References: <1376426265-30353-1-git-send-email-lekensteyn@gmail.com>
+ <3465288.NFVErF5E7l@al>
+ <20130814195829.GA1613@electric-eye.fr.zoreil.com>
+ <2045708.ru9COLib4d@al>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com
+To: Peter Wu <lekensteyn@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:52639 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933149Ab3HNWrq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 18:47:46 -0400
+Content-Disposition: inline
+In-Reply-To: <2045708.ru9COLib4d@al>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Function regulator_enable() may return an error that has to be checked.
-This patch changes function rfkill_regulator_set_block() so that it checks
-for the return code.  Also, rfkill_data->reg_enabled is set to 'true' only
-if there is no error.
+Peter Wu <lekensteyn@gmail.com> :
+[...]
+> Checklist:
+> 1. super large regs->len: won't be greater than R8169_REGS_SIZE (256)
+> 2. regs->len == 0: 0 < 0 is false, nothing is copied
+> 3. regs->len is 1, 2 or 3: i = 0, at most 3 bytes will be copied
+> 4. regs->len is 4, i < 4 - 4, skip loop, 0 < regs->len, copy 4
+> 5. regs->len is 5, i < 5 - 4, copy; 4 < regs->len, copy 1
 
-This fixes the following compilation warning:
+Spartan implementation:
 
-net/rfkill/rfkill-regulator.c:43:20: warning: ignoring return value of 'regulator_enable', declared with attribute warn_unused_result [-Wunused-result]
+	u32 __iomem *ioaddr = tp->mmio_addr;
+	u32 *dw = p;
+	int i;
 
-Signed-off-by: Luis Henriques <luis.henriques@canonical.com>
----
- net/rfkill/rfkill-regulator.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+	...
 
-diff --git a/net/rfkill/rfkill-regulator.c b/net/rfkill/rfkill-regulator.c
-index d11ac79..cf5b145 100644
---- a/net/rfkill/rfkill-regulator.c
-+++ b/net/rfkill/rfkill-regulator.c
-@@ -30,6 +30,7 @@ struct rfkill_regulator_data {
- static int rfkill_regulator_set_block(void *data, bool blocked)
- {
- 	struct rfkill_regulator_data *rfkill_data = data;
-+	int ret = 0;
- 
- 	pr_debug("%s: blocked: %d\n", __func__, blocked);
- 
-@@ -40,15 +41,16 @@ static int rfkill_regulator_set_block(void *data, bool blocked)
- 		}
- 	} else {
- 		if (!rfkill_data->reg_enabled) {
--			regulator_enable(rfkill_data->vcc);
--			rfkill_data->reg_enabled = true;
-+			ret = regulator_enable(rfkill_data->vcc);
-+			if (!ret)
-+				rfkill_data->reg_enabled = true;
- 		}
- 	}
- 
- 	pr_debug("%s: regulator_is_enabled after set_block: %d\n", __func__,
- 		regulator_is_enabled(rfkill_data->vcc));
- 
--	return 0;
-+	return ret;
- }
- 
- static struct rfkill_ops rfkill_regulator_ops = {
+	for (i = regs->len; i > 0; i -= 4)
+		memcpy_fromio(dw++, ioaddr++, min(i, 4));
+
+or (min() verges on gluttony):
+
+	for (i = regs->len; i >= 4; i -= 4)
+		memcpy_fromio(dw++, ioaddr++, 4);
+
+	if (i > 0)
+		memcpy_fromio(dw, ioaddr, i);
+
 -- 
-1.8.3.2
+Ueimor
