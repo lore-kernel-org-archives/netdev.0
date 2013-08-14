@@ -1,42 +1,87 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] skge: dma_sync the whole receive buffer
-Date: Tue, 13 Aug 2013 18:00:36 -0700
-Message-ID: <20130813180036.3e639789@nehalam.linuxnetplumber.net>
-References: <20130810104100.0ae20aa6@nehalam.linuxnetplumber.net>
-	<20130810.132935.1257046025460198490.davem@davemloft.net>
-	<20130810150207.37432299@nehalam.linuxnetplumber.net>
-	<20130813.150955.1471100759610399160.davem@davemloft.net>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH 1/3 v2] ipv6: do not disable temp_address when reaching
+ max_address
+Date: Wed, 14 Aug 2013 09:34:22 +0800
+Message-ID: <520ADE9E.8070700@huawei.com>
+References: <5209E6DA.9060805@huawei.com> <20130813110521.GE27385@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: pomidorabelisima@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:57697 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757856Ab3HNBAk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 21:00:40 -0400
-Received: by mail-pb0-f48.google.com with SMTP id ma3so8549854pbc.21
-        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 18:00:40 -0700 (PDT)
-In-Reply-To: <20130813.150955.1471100759610399160.davem@davemloft.net>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:38379 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758688Ab3HNBfb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 21:35:31 -0400
+In-Reply-To: <20130813110521.GE27385@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 13 Aug 2013 15:09:55 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Sat, 10 Aug 2013 15:02:07 -0700
+On 2013/8/13 19:05, Hannes Frederic Sowa wrote:
+> On Tue, Aug 13, 2013 at 03:57:14PM +0800, Ding Tianhong wrote:
+>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+>> index da4241c..72911fd 100644
+>> --- a/net/ipv6/addrconf.c
+>> +++ b/net/ipv6/addrconf.c
+>> @@ -1134,10 +1134,27 @@ retry:
+>>  	if (IS_ERR_OR_NULL(ift)) {
+>>  		in6_ifa_put(ifp);
+>>  		in6_dev_put(idev);
+>> -		pr_info("%s: retry temporary address regeneration\n", __func__);
+>> -		tmpaddr = &addr;
+>> -		write_lock(&idev->lock);
+>> -		goto retry;
+>> +
+>> +		/* According RFC4941 3.3.7:
+>> +		 * If DAD indicates the address is already in use,
+>> +		 * the node must generate a new randomized interface
+>> +		 * identifier as described in section 3.2 above, and
+>> +		 * repeat the previous steps as appropriate up to
+>> +		 * TEMP_IDGEN_RETRIES times.
+>> +		 * If after TEMP_IDGEN_RETRIES consecutive attempts no
+>> +		 * non-unique address was generated, the node must log
+>> +		 * a system error and must not attempt to generate
+>> +		 * temporary address for that interface.
+>> +		 * So we have to check the return err and distinguish
+>> +		 * the correct retry path.
+>> +		 */
+>> +		if (PTR_ERR(ift) == -EEXIST) {
+>> +			pr_info("%s: retry temporary address regeneration\n", __func__);
+>> +			tmpaddr = &addr;
+>> +			write_lock(&idev->lock);
+>> +			goto retry;
+>> +		} else
+>> +			goto out;
 > 
-> > The DMA sync should sync the whole receive buffer, not just
-> > part of it. Fixes log messages dma_sync_check.
-> > 
-> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> Correct me if I am wrong, but the RFC referes by mentioning "in use" to
+> allocated on the subnet and not in use by this host. I don't see how this
+> fixes the CVE then. dad is triggered by ipv6_add_addr.
 > 
-> Applied, but I really suspect that your "check DMA mapping errors"
-> patch has added a serious regression.  A regression much worse than
-> the bug you were trying to fix with that change.
+> Greetings,
+> 
+>   Hannes
+> 
+Reference:
+  -> http://seclists.org/oss-sec/2012/q4/292
+  -> http://seclists.org/oss-sec/2013/q1/92
 
-Argh. The problem is deeper than that. Device got broken somewhere between
-3.2 and 3.4. My old Dlink card works on 3.2 but gets DMA errors on 3.4.
-The config's are different though so checking that as well.
+I think the point is after the ./flood_route26 attack, 
+the proc/sys/net/ipv6/conf/iface/use_tempaddr will change from 2 to -1,
+whether is correct? :)
+
+regards
+Ding Tianhong
+
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> .
+> 
