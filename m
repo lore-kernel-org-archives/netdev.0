@@ -1,94 +1,85 @@
-From: Damian Lukowski <damian@tvk.rwth-aachen.de>
-Subject: Re: TCP Connection teardown seems to violate TCP specification
-Date: Wed, 14 Aug 2013 23:18:17 +0200
-Message-ID: <1376515097.9293.6.camel@nexus>
-References: <1376508095.4596.12.camel@nexus>
- <CAK6E8=fWOe3eEvw6sC=Da415qGp+wXsm2bpe9Vbbukit9yU8sQ@mail.gmail.com>
- <520BE51F.40208@hp.com>
+From: Peter Wu <lekensteyn@gmail.com>
+Subject: Re: [PATCH] r8169: fix invalid register dump
+Date: Wed, 14 Aug 2013 23:31:25 +0200
+Message-ID: <2045708.ru9COLib4d@al>
+References: <1376426265-30353-1-git-send-email-lekensteyn@gmail.com> <3465288.NFVErF5E7l@al> <20130814195829.GA1613@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7BIT
-Cc: Yuchung Cheng <ycheng@google.com>, netdev <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx-out-1.rwth-aachen.de ([134.130.5.186]:46254 "EHLO
-	mx-out-1.rwth-aachen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932914Ab3HNVSS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 17:18:18 -0400
-Received: from [192.168.0.131] ([unknown] [178.201.100.77])
- by relay-auth-1.ms.rz.rwth-aachen.de
- (Sun Java(tm) System Messaging Server 7.0-3.01 64bit (built Dec  9 2008))
- with ESMTPA id <0MRJ00F4VHUGP540@relay-auth-1.ms.rz.rwth-aachen.de> for
- netdev@vger.kernel.org; Wed, 14 Aug 2013 23:18:17 +0200 (CEST)
-In-reply-to: <520BE51F.40208@hp.com>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:54005 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933097Ab3HNVb3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 17:31:29 -0400
+Received: by mail-wi0-f179.google.com with SMTP id hr7so2497813wib.12
+        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 14:31:28 -0700 (PDT)
+In-Reply-To: <20130814195829.GA1613@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-At least in curl, the close() seems to be implicit as it occurs 
-at the very end of the trace:
+On Wednesday 14 August 2013 21:58:29 Francois Romieu wrote:
+> > -     memcpy_fromio(p, tp->mmio_addr, regs->len);
+> > +     if (regs->len >= 4) {
+> > +             for (i = 0; i < regs->len - 4; i += 4)
+> > +                     memcpy_fromio(bytes + i, tp->mmio_addr + i, 4);
+> > +     }
+> > +     if (i < regs->len)
+> 
+> Comparison with random stack stuff when regs->len < 4. :o/
 
-close(3)                                = 0
-exit_group(0)                           = ?
-+++ exited with 0 +++
+Right, let's rm $OLD_PATCH and consider this one.
 
-Nevertheless, shouldn't the stack keep on reading the input
-even if the local application is not interested in it?
-The other side might rely on it, and I've seen webserver logs
-which indicate SSL read errors likely because of this.
+Checklist:
+1. super large regs->len: won't be greater than R8169_REGS_SIZE (256)
+2. regs->len == 0: 0 < 0 is false, nothing is copied
+3. regs->len is 1, 2 or 3: i = 0, at most 3 bytes will be copied
+4. regs->len is 4, i < 4 - 4, skip loop, 0 < regs->len, copy 4
+5. regs->len is 5, i < 5 - 4, copy; 4 < regs->len, copy 1
 
-Kind regards
- Damian
+With this I can now say with confidence that I haven't overlooked something
+related to integer overflow. You have a very sharp eye, thanks for
+catching my mistakes.
 
-Am Mittwoch, den 14.08.2013, 13:14 -0700 schrieb Rick Jones:
-> On 08/14/2013 12:50 PM, Yuchung Cheng wrote:
-> > On Wed, Aug 14, 2013 at 12:21 PM, Damian Lukowski
-> > <damian@tvk.rwth-aachen.de> wrote:
-> >> Hi,
-> >>
-> >> the TCP specification states that an endpoint has to accept
-> >> packets from the other side even after it has half-closed the
-> >> connection locally. This does not seem to be the case
-> >> under Linux?
-> >>
-> >> For example, when I wget -O /dev/null https://www.verisign.com/
-> >> --max-redir 0, the local TCP stack sends an FIN,ACK close to the end.
-> >> However, the webserver has more data to send (Encrypted Alert).
-> >> Instead of ACKing the packet, the local side sends a RST.
-> >> This seems wrong to me.
-> >
-> > Which wget are you using? it's not doing half-close (i.e.,
-> > shutdown(SHUT_WR)) on my wget version 1.13.4
-> 
-> I suspect that when Damian system call traces his wget he will find it 
-> is doing either:
-> 
-> close()
-> 
-> or
-> shutdown(SHUT_WR)
-> close()
-> without waiting for the read return of zero from the remote.
-> 
-> it may even be just exiting after getting the last bytes of the URL, 
-> which would be an implicit close()
-> 
-> Over the years I've seen examples of all three behaviours.
-> 
-> rick jones
-> 
-> >
-> >
-> >>
-> >> Regards
-> >>   Damian
-> >>
-> >> --
-> >> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> >> the body of a message to majordomo@vger.kernel.org
-> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >
-> 
+Regards,
+Peter
+---
+From: Peter Wu <lekensteyn@gmail.com>
+
+For some reason, my PCIe RTL8111E onboard NIC on a GA-Z68X-UD3H-B3
+motherboard reads as FFs when reading from MMIO with a block size
+larger than 7. Therefore change to reading blocks of four bytes.
+
+Signed-off-by: Peter Wu <lekensteyn@gmail.com>
+---
+ drivers/net/ethernet/realtek/r8169.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index b5eb419..19524c0 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -1897,12 +1897,19 @@ static void rtl8169_get_regs(struct net_device *dev, struct ethtool_regs *regs,
+ 			     void *p)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
++	char *bytes = p;
++	int i = 0;
+ 
+ 	if (regs->len > R8169_REGS_SIZE)
+ 		regs->len = R8169_REGS_SIZE;
+ 
+ 	rtl_lock_work(tp);
+-	memcpy_fromio(p, tp->mmio_addr, regs->len);
++	if (regs->len >= 4) {
++		for (; i < regs->len - 4; i += 4)
++			memcpy_fromio(bytes + i, tp->mmio_addr + i, 4);
++	}
++	if (i < regs->len)
++		memcpy_fromio(bytes + i, tp->mmio_addr + i, regs->len - i);
+ 	rtl_unlock_work(tp);
+ }
+ 
+-- 
+1.8.3.4
