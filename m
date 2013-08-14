@@ -1,45 +1,61 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] drivers/net/ethernet/via/via-velocity.c: update napi
- implementation
-Date: Thu, 15 Aug 2013 01:42:08 +0400
-Message-ID: <520BF9B0.80104@cogentembedded.com>
-References: <1376490413-12067-1-git-send-email-Julia.Lawall@lip6.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, roszenrami@gmail.com,
-	dshwatrz@gmail.com, kernel-janitors@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	grant.likely@linaro.org, rob.herring@calxeda.com
-To: Julia Lawall <Julia.Lawall@lip6.fr>
+From: Luis Henriques <luis.henriques@canonical.com>
+Subject: [PATCH] net: rfkill: Do not ignore errors from regulator_enable()
+Date: Wed, 14 Aug 2013 23:10:06 +0100
+Message-ID: <1376518206-10710-1-git-send-email-luis.henriques@canonical.com>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1376490413-12067-1-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Function regulator_enable() may return an error that has to be checked.
+This patch changes function rfkill_regulator_set_block() so that it checks
+for the return code.  Also, rfkill_data->reg_enabled is set to 'true' only
+if there is no error.
 
-On 08/14/2013 06:26 PM, Julia Lawall wrote:
+This fixes the following compilation warning:
 
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
+net/rfkill/rfkill-regulator.c:43:20: warning: ignoring return value of 'regulator_enable', declared with attribute warn_unused_result [-Wunused-result]
 
-> Drivers supporting NAPI should use a NAPI-specific function for receiving
-> packets.  Hence netif_rx is changed to netif_receive_skb.
+Signed-off-by: Luis Henriques <luis.henriques@canonical.com>
+---
+ net/rfkill/rfkill-regulator.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-> Furthermore netif_napi_del should be used in the probe and remove function
-> to clean up the NAPI resource information.
-
-> Thanks to Francois Romieu, David Shwatrz and Rami Rosen for their help on
-> this patch.
-
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
-> ---
-> I still don't understand the reason for choosing netif_receive_skb,
-> specifically.  This patch is not tested.
-
-    This driver is not the only one with the netif_rx() used with NAPI issue. 
-I also overlooked this when converting drivers/net/ethernet/renesas/sh_eth.c 
-to NAPI. I'll try to change the call and see if netperf would behave better...
-
-WBR, Sergei
+diff --git a/net/rfkill/rfkill-regulator.c b/net/rfkill/rfkill-regulator.c
+index d11ac79..cf5b145 100644
+--- a/net/rfkill/rfkill-regulator.c
++++ b/net/rfkill/rfkill-regulator.c
+@@ -30,6 +30,7 @@ struct rfkill_regulator_data {
+ static int rfkill_regulator_set_block(void *data, bool blocked)
+ {
+ 	struct rfkill_regulator_data *rfkill_data = data;
++	int ret = 0;
+ 
+ 	pr_debug("%s: blocked: %d\n", __func__, blocked);
+ 
+@@ -40,15 +41,16 @@ static int rfkill_regulator_set_block(void *data, bool blocked)
+ 		}
+ 	} else {
+ 		if (!rfkill_data->reg_enabled) {
+-			regulator_enable(rfkill_data->vcc);
+-			rfkill_data->reg_enabled = true;
++			ret = regulator_enable(rfkill_data->vcc);
++			if (!ret)
++				rfkill_data->reg_enabled = true;
+ 		}
+ 	}
+ 
+ 	pr_debug("%s: regulator_is_enabled after set_block: %d\n", __func__,
+ 		regulator_is_enabled(rfkill_data->vcc));
+ 
+-	return 0;
++	return ret;
+ }
+ 
+ static struct rfkill_ops rfkill_regulator_ops = {
+-- 
+1.8.3.2
