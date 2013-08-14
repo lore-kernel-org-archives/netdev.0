@@ -1,72 +1,94 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [PATCHv2 net-next] 6lowpan: handle only real link-local addresses
-Date: Wed, 14 Aug 2013 23:17:01 +0200
-Message-ID: <20130814211658.GA2075@x61s.8.8.8.8>
-References: <1376478067-3371-1-git-send-email-alex.aring@gmail.com>
- <20130814.125346.585011183381258117.davem@davemloft.net>
+From: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Subject: Re: TCP Connection teardown seems to violate TCP specification
+Date: Wed, 14 Aug 2013 23:18:17 +0200
+Message-ID: <1376515097.9293.6.camel@nexus>
+References: <1376508095.4596.12.camel@nexus>
+ <CAK6E8=fWOe3eEvw6sC=Da415qGp+wXsm2bpe9Vbbukit9yU8sQ@mail.gmail.com>
+ <520BE51F.40208@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7BIT
+Cc: Yuchung Cheng <ycheng@google.com>, netdev <netdev@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f170.google.com ([209.85.215.170]:34352 "EHLO
-	mail-ea0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760012Ab3HNVNO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 17:13:14 -0400
-Received: by mail-ea0-f170.google.com with SMTP id h14so5101532eak.29
-        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 14:13:13 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20130814.125346.585011183381258117.davem@davemloft.net>
+Received: from mx-out-1.rwth-aachen.de ([134.130.5.186]:46254 "EHLO
+	mx-out-1.rwth-aachen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932914Ab3HNVSS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 17:18:18 -0400
+Received: from [192.168.0.131] ([unknown] [178.201.100.77])
+ by relay-auth-1.ms.rz.rwth-aachen.de
+ (Sun Java(tm) System Messaging Server 7.0-3.01 64bit (built Dec  9 2008))
+ with ESMTPA id <0MRJ00F4VHUGP540@relay-auth-1.ms.rz.rwth-aachen.de> for
+ netdev@vger.kernel.org; Wed, 14 Aug 2013 23:18:17 +0200 (CEST)
+In-reply-to: <520BE51F.40208@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+At least in curl, the close() seems to be implicit as it occurs 
+at the very end of the trace:
 
-On Wed, Aug 14, 2013 at 12:53:46PM -0700, David Miller wrote:
-> From: Alexander Aring <alex.aring@gmail.com>
-> Date: Wed, 14 Aug 2013 13:01:07 +0200
+close(3)                                = 0
+exit_group(0)                           = ?
++++ exited with 0 +++
+
+Nevertheless, shouldn't the stack keep on reading the input
+even if the local application is not interested in it?
+The other side might rely on it, and I've seen webserver logs
+which indicate SSL read errors likely because of this.
+
+Kind regards
+ Damian
+
+Am Mittwoch, den 14.08.2013, 13:14 -0700 schrieb Rick Jones:
+> On 08/14/2013 12:50 PM, Yuchung Cheng wrote:
+> > On Wed, Aug 14, 2013 at 12:21 PM, Damian Lukowski
+> > <damian@tvk.rwth-aachen.de> wrote:
+> >> Hi,
+> >>
+> >> the TCP specification states that an endpoint has to accept
+> >> packets from the other side even after it has half-closed the
+> >> connection locally. This does not seem to be the case
+> >> under Linux?
+> >>
+> >> For example, when I wget -O /dev/null https://www.verisign.com/
+> >> --max-redir 0, the local TCP stack sends an FIN,ACK close to the end.
+> >> However, the webserver has more data to send (Encrypted Alert).
+> >> Instead of ACKing the packet, the local side sends a RST.
+> >> This seems wrong to me.
+> >
+> > Which wget are you using? it's not doing half-close (i.e.,
+> > shutdown(SHUT_WR)) on my wget version 1.13.4
 > 
-> > A link-local address isn't fe80::/10 it's fe80::/64
-> > see http://tools.ietf.org/html/rfc4291#section-2.5.6
-> > for more details.
-> > 
-> > Also fix a comment issue "local link" -> "link-local"
-> > 
-> > Signed-off-by: Alexander Aring <alex.aring@gmail.com>
-> > Reviewed-by: Werner Almesberger <werner@almesberger.net>
+> I suspect that when Damian system call traces his wget he will find it 
+> is doing either:
 > 
-> You still haven't addressed my biggest concern.
+> close()
 > 
-Sorry, I thought that was the missing "net-next" tag in the subject.
-
-> What order do I apply this patch relative to the other 6?
+> or
+> shutdown(SHUT_WR)
+> close()
+> without waiting for the read return of zero from the remote.
 > 
-This patch is a fix for the compression of an address. To make the right
-compression on a link-local address.
-
-So this patch has nothing to do for the address uncompression fix
-(the patch serie should fix the uncompression of addresses). This is a
-bigger patch serie because we make a major rewrite of this function.
-
-The order doesn't matter for this patch. Necessary is that the patch
-series will apply in the order 1 to 6. So you can apply this patch
-before or afterwards the patch-series.
-
-> Don't make me guess, instead place this patch into the necessary
-> place within the series of 6 patches.
+> it may even be just exiting after getting the last bytes of the URL, 
+> which would be an implicit close()
 > 
-I can understand that. This patches only fixes some address behaviour
-which is in the current implementation wrong. But there are several
-other problems with the current 6LoWPAN implementation.
-I don't know which is the right place for these patches, because it is
-a big change and the 6LoWPAN implementation is broken anyway.
-
-> I'm not applying any of this until you can submit it properly.
+> Over the years I've seen examples of all three behaviours.
 > 
-Ok, please let me know what should I do to submit it properly.
-
-Thanks
-
-Regards
-Alex
+> rick jones
+> 
+> >
+> >
+> >>
+> >> Regards
+> >>   Damian
+> >>
+> >> --
+> >> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> >> the body of a message to majordomo@vger.kernel.org
+> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >
+> 
