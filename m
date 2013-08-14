@@ -1,69 +1,75 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [PATCHv2 net-next] 6lowpan: handle only real link-local addresses
-Date: Wed, 14 Aug 2013 13:29:04 +0200
-Message-ID: <20130814112903.GB1704@x61s.8.8.8.8>
-References: <1376478067-3371-1-git-send-email-alex.aring@gmail.com>
- <20130814110821.GH16264@order.stressinduktion.org>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCHv2 net-next] xfrm: Make xfrm_state timer monotonic
+Date: Wed, 14 Aug 2013 13:34:36 +0200
+Message-ID: <20130814113436.GI26773@secunet.com>
+References: <1375772225-19265-1-git-send-email-fan.du@windriver.com>
+ <20130806092220.GH25511@secunet.com>
+ <52087537.6060200@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-To: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	davem@davemloft.net, linux-zigbee-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f51.google.com ([74.125.83.51]:42890 "EHLO
-	mail-ee0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752157Ab3HNLZM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 07:25:12 -0400
-Received: by mail-ee0-f51.google.com with SMTP id c1so4761896eek.24
-        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 04:25:11 -0700 (PDT)
+Received: from a.mx.secunet.com ([195.81.216.161]:60373 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759817Ab3HNLej (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Aug 2013 07:34:39 -0400
 Content-Disposition: inline
-In-Reply-To: <20130814110821.GH16264@order.stressinduktion.org>
+In-Reply-To: <52087537.6060200@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Hannes,
+On Mon, Aug 12, 2013 at 01:40:07PM +0800, Fan Du wrote:
+>=20
+>=20
+> On 2013=E5=B9=B408=E6=9C=8806=E6=97=A5 17:22, Steffen Klassert wrote:
+> >On Tue, Aug 06, 2013 at 02:57:05PM +0800, Fan Du wrote:
+> >>xfrm_state timer should be independent of system clock change,
+> >>so switch to monotonic clock base.
+> >>
+> >
+> >I think a monotonic timer will reintroduce a bug on suspend/resume
+> >that was fixed by commit 9e0d57fd6
+> >(xfrm: SAD entries do not expire correctly after suspend-resume)
+> >
+> >Please make sure that this does not happen.
+>=20
+> What about using CLOCK_BOOTTIME? it's monotonic, but includes suspend=
+ time as well.
+>=20
+>=20
+> From 1dae5a22c203224ee46e2a2f95b569a04b74117b Mon Sep 17 00:00:00 200=
+1
+> From: Fan Du <fan.du@windriver.com>
+> Date: Mon, 12 Aug 2013 13:33:45 +0800
+> Subject: [PATCHv2 net-next] xfrm: Make xfrm_state timer monotonic
+>=20
+> xfrm_state timer should be independent of system clock change,
+> so switch to CLOCK_BOOTTIME base which is not only monotonic but
+> also counting suspend time.
+>=20
+> Signed-off-by: Fan Du <fan.du@windriver.com>
+> ---
+>  net/xfrm/xfrm_state.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>=20
+> diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+> index 78f66fa..1df4436 100644
+> --- a/net/xfrm/xfrm_state.c
+> +++ b/net/xfrm/xfrm_state.c
+> @@ -499,7 +499,7 @@ struct xfrm_state *xfrm_state_alloc(struct net *n=
+et)
+>  		INIT_HLIST_NODE(&x->bydst);
+>  		INIT_HLIST_NODE(&x->bysrc);
+>  		INIT_HLIST_NODE(&x->byspi);
+> -		tasklet_hrtimer_init(&x->mtimer, xfrm_timer_handler, CLOCK_REALTIM=
+E, HRTIMER_MODE_ABS);
+> +		tasklet_hrtimer_init(&x->mtimer, xfrm_timer_handler, CLOCK_BOOTTIM=
+E, HRTIMER_MODE_ABS);
+>  		setup_timer(&x->rtimer, xfrm_replay_timer_handler,
+>  				(unsigned long)x);
+>  		x->curlft.add_time =3D get_seconds();
 
-On Wed, Aug 14, 2013 at 01:08:21PM +0200, Hannes Frederic Sowa wrote:
-> On Wed, Aug 14, 2013 at 01:01:07PM +0200, Alexander Aring wrote:
-> > diff --git a/net/ieee802154/6lowpan.h b/net/ieee802154/6lowpan.h
-> > index 4b8f917..61f0ce9 100644
-> > --- a/net/ieee802154/6lowpan.h
-> > +++ b/net/ieee802154/6lowpan.h
-> > @@ -83,8 +83,11 @@
-> >  #define ipaddr_prefixcmp(addr1, addr2, length) \
-> >  	(memcmp(addr1, addr2, length >> 3) == 0)
-> >  
-> > -/* local link, i.e. FE80::/10 */
-> > -#define is_addr_link_local(a) (((a)->s6_addr16[0]) == htons(0xFE80))
-> > +/* link-local, i.e. FE80::/64 */
-> > +#define is_addr_link_local(a) (((a)->s6_addr16[0]) == htons(0xFE80) &&	\
-> > +		(((a)->s6_addr16[1]) == 0) &&	\
-> > +		(((a)->s6_addr16[2]) == 0) &&	\
-> > +		(((a)->s6_addr16[3]) == 0))
-> >  
-> 
-> Can't you use ipv6_addr_type(a)&IPV6_ADDR_LINKLOCAL?
->
-Of course, thanks for this hint I will take this on the list to change
-it for checking for a multicast address, too.
-
-
-I looked in the implementation of ipv6_addr_type and some little thing
-confusing me.
-A local-link address is FE80::/64, but the __ipv6_addr_type function
-checks for FE80::/32.
-
--- snip
-...
-__be32 st;
-st = addr->s6_addr32[0];
-...
-if ((st & htonl(0xFFC00000)) == htonl(0xFE800000))
-	return ...
--- end snip
-
-
-Is there some (addr->s6_addr32[1] == 0) check which I don't see?
-
-Regards
-Alex
+This does not apply to my tree, looks like your patch is whitespace dam=
+aged.
