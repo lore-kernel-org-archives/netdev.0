@@ -1,34 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Bridge VLAN kernel/iproute2 incompatibility
-Date: Tue, 13 Aug 2013 19:10:07 -0700 (PDT)
-Message-ID: <20130813.191007.1554363427677331939.davem@davemloft.net>
-References: <52090C26.4090001@fiberby.net>
+Subject: Re: [PATCH net] tun: compare with 0 instead of total_len
+Date: Tue, 13 Aug 2013 19:29:43 -0700 (PDT)
+Message-ID: <20130813.192943.865924891130626725.davem@davemloft.net>
+References: <732ec15a7682b3ab87858de0b19a0848f0ad8944.1376399185.git.wpan@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: vyasevic@redhat.com, stephen@networkplumber.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: ast@fiberby.net
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <52090C26.4090001@fiberby.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: wpan@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46476 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759125Ab3HNC3o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 22:29:44 -0400
+In-Reply-To: <732ec15a7682b3ab87858de0b19a0848f0ad8944.1376399185.git.wpan@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Asbj=F8rn Sloth T=F8nnesen <ast@fiberby.net>
-Date: Mon, 12 Aug 2013 16:24:06 +0000
+From: Weiping Pan <wpan@redhat.com>
+Date: Tue, 13 Aug 2013 21:46:56 +0800
 
-> Let's start with a little history:
+> Since we set "len = total_len" in the beginning of tun_get_user(),
+> so we should compare the new len with 0, instead of total_len,
+> or the if statement always returns false.
+> 
+> Signed-off-by: Weiping Pan <wpan@redhat.com>
 
-I've applied your kernel patch, but the detailed analysis you put
-here, belongs in the commit message.
-
-Thanks.
+Definitely looks correct to me, applied, thanks.
