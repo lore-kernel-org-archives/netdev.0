@@ -1,58 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3] ipv6: make unsolicited report intervals
- configurable for mld
-Date: Tue, 13 Aug 2013 17:09:51 -0700 (PDT)
-Message-ID: <20130813.170951.2251390672805363491.davem@davemloft.net>
-References: <20130813230346.GA16264@order.stressinduktion.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net] skge: dma_sync the whole receive buffer
+Date: Tue, 13 Aug 2013 18:00:36 -0700
+Message-ID: <20130813180036.3e639789@nehalam.linuxnetplumber.net>
+References: <20130810104100.0ae20aa6@nehalam.linuxnetplumber.net>
+	<20130810.132935.1257046025460198490.davem@davemloft.net>
+	<20130810150207.37432299@nehalam.linuxnetplumber.net>
+	<20130813.150955.1471100759610399160.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-	william.manley@youview.com, bcrl@kvack.org, yoshfuji@linux-ipv6.org
-To: hannes@stressinduktion.org
+Cc: pomidorabelisima@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45703 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757974Ab3HNAJx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 20:09:53 -0400
-In-Reply-To: <20130813230346.GA16264@order.stressinduktion.org>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:57697 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757856Ab3HNBAk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Aug 2013 21:00:40 -0400
+Received: by mail-pb0-f48.google.com with SMTP id ma3so8549854pbc.21
+        for <netdev@vger.kernel.org>; Tue, 13 Aug 2013 18:00:40 -0700 (PDT)
+In-Reply-To: <20130813.150955.1471100759610399160.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Wed, 14 Aug 2013 01:03:46 +0200
+On Tue, 13 Aug 2013 15:09:55 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> Commit cab70040dfd95ee32144f02fade64f0cb94f31a0 ("net: igmp:
-> Reduce Unsolicited report interval to 1s when using IGMPv3") and
-> 2690048c01f32bf45d1c1e1ab3079bc10ad2aea7 ("net: igmp: Allow user-space
-> configuration of igmp unsolicited report interval") by William Manley made
-> igmp unsolicited report intervals configurable per interface and corrected
-> the interval of unsolicited igmpv3 report messages resendings to 1s.
+> From: Stephen Hemminger <stephen@networkplumber.org>
+> Date: Sat, 10 Aug 2013 15:02:07 -0700
 > 
-> Same needs to be done for IPv6:
+> > The DMA sync should sync the whole receive buffer, not just
+> > part of it. Fixes log messages dma_sync_check.
+> > 
+> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 > 
-> MLDv1 (RFC2710 7.10.): 10 seconds
-> MLDv2 (RFC3810 9.11.): 1 second
-> 
-> Both intervals are configurable via new procfs knobs
-> mldv1_unsolicited_report_interval and mldv2_unsolicited_report_interval.
-> 
-> (also added .force_mld_version to ipv6_devconf_dflt to bring structs in
-> line without semantic changes)
-> 
-> v2:
-> a) Joined documentation update for IPv4 and IPv6 MLD/IGMP
->    unsolicited_report_interval procfs knobs.
-> b) incorporate stylistic feedback from William Manley
-> 
-> v3:
-> a) add new DEVCONF_* values to the end of the enum (thanks to David
->    Miller)
-> 
-> Cc: Cong Wang <xiyou.wangcong@gmail.com>
-> Cc: William Manley <william.manley@youview.com>
-> Cc: Benjamin LaHaise <bcrl@kvack.org>
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Applied, but I really suspect that your "check DMA mapping errors"
+> patch has added a serious regression.  A regression much worse than
+> the bug you were trying to fix with that change.
 
-Applied, thanks.
+Argh. The problem is deeper than that. Device got broken somewhere between
+3.2 and 3.4. My old Dlink card works on 3.2 but gets DMA errors on 3.4.
+The config's are different though so checking that as well.
