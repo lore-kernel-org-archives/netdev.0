@@ -1,8 +1,9 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCHv2 net-next] 6lowpan: handle only real
-	link-local addresses
-Date: Wed, 14 Aug 2013 13:01:07 +0200
-Message-ID: <1376478067-3371-1-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH 1/6] 6lowpan: init ipv6hdr buffer to
+	zero
+Date: Wed, 14 Aug 2013 13:01:43 +0200
+Message-ID: <1376478108-3539-2-git-send-email-alex.aring@gmail.com>
+References: <1376478108-3539-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,6 +11,7 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q
 	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1376478108-3539-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
 	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
@@ -20,39 +22,63 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-A link-local address isn't fe80::/10 it's fe80::/64
-see http://tools.ietf.org/html/rfc4291#section-2.5.6
-for more details.
+This patch simplify the handling to set fields inside of struct ipv6hdr
+to zero. Instead of setting some memory regions with memset to zero we
+initialize the whole ipv6hdr to zero.
 
-Also fix a comment issue "local link" -> "link-local"
+This is a simplification for parsing the 6lowpan header for the upcomming
+patches.
 
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Reviewed-by: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
 ---
-v2:
- - Add "net-next" tag
+ net/ieee802154/6lowpan.c | 12 +-----------
+ 1 file changed, 1 insertion(+), 11 deletions(-)
 
- net/ieee802154/6lowpan.h | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/net/ieee802154/6lowpan.h b/net/ieee802154/6lowpan.h
-index 4b8f917..61f0ce9 100644
---- a/net/ieee802154/6lowpan.h
-+++ b/net/ieee802154/6lowpan.h
-@@ -83,8 +83,11 @@
- #define ipaddr_prefixcmp(addr1, addr2, length) \
- 	(memcmp(addr1, addr2, length >> 3) == 0)
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index 3b9d5f2..92429db 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -223,10 +223,6 @@ lowpan_uncompress_addr(struct sk_buff *skb, struct in6_addr *ipaddr,
+ 	if (prefcount > 0)
+ 		memcpy(ipaddr, prefix, prefcount);
  
--/* local link, i.e. FE80::/10 */
--#define is_addr_link_local(a) (((a)->s6_addr16[0]) == htons(0xFE80))
-+/* link-local, i.e. FE80::/64 */
-+#define is_addr_link_local(a) (((a)->s6_addr16[0]) == htons(0xFE80) &&	\
-+		(((a)->s6_addr16[1]) == 0) &&	\
-+		(((a)->s6_addr16[2]) == 0) &&	\
-+		(((a)->s6_addr16[3]) == 0))
+-	if (prefcount + postcount < 16)
+-		memset(&ipaddr->s6_addr[prefcount], 0,
+-					16 - (prefcount + postcount));
+-
+ 	if (postcount > 0) {
+ 		memcpy(&ipaddr->s6_addr[16 - postcount], skb->data, postcount);
+ 		skb_pull(skb, postcount);
+@@ -723,7 +719,7 @@ frame_err:
+ static int
+ lowpan_process_data(struct sk_buff *skb)
+ {
+-	struct ipv6hdr hdr;
++	struct ipv6hdr hdr = {};
+ 	u8 tmp, iphc0, iphc1, num_context = 0;
+ 	u8 *_saddr, *_daddr;
+ 	int err;
+@@ -868,8 +864,6 @@ lowpan_process_data(struct sk_buff *skb)
  
- /*
-  * check whether we can compress the IID to 16 bits,
+ 		hdr.priority = ((tmp >> 2) & 0x0f);
+ 		hdr.flow_lbl[0] = ((tmp << 6) & 0xC0) | ((tmp >> 2) & 0x30);
+-		hdr.flow_lbl[1] = 0;
+-		hdr.flow_lbl[2] = 0;
+ 		break;
+ 	/*
+ 	 * Flow Label carried in-line
+@@ -885,10 +879,6 @@ lowpan_process_data(struct sk_buff *skb)
+ 		break;
+ 	/* Traffic Class and Flow Label are elided */
+ 	case 3: /* 11b */
+-		hdr.priority = 0;
+-		hdr.flow_lbl[0] = 0;
+-		hdr.flow_lbl[1] = 0;
+-		hdr.flow_lbl[2] = 0;
+ 		break;
+ 	default:
+ 		break;
 -- 
 1.8.3.3
 
