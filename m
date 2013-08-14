@@ -1,51 +1,141 @@
-From: Jesper Dangaard Brouer <hawk@diku.dk>
-Subject: Re: How to debug a driver which hangs (niu)?
-Date: Wed, 14 Aug 2013 15:30:35 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1308141525110.25045@ask.diku.dk>
-References: <CAHOfOo0kYpa3OtJ2w5xzdi=V6ccm9PKNJ8Pzj+7avNPmZDr9Gg@mail.gmail.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH] macvtap: Correctly set tap features when IFF_VNET_HDR
+ is disabled.
+Date: Wed, 14 Aug 2013 10:07:01 -0400
+Message-ID: <520B8F05.6060402@redhat.com>
+References: <1376416558-25015-1-git-send-email-vyasevic@redhat.com> <20130814121043.GH5430@redhat.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Linux Net-Dev Mailing List <netdev@vger.kernel.org>,
-	Jesper Brouer <brouer@redhat.com>
-To: Andrew Brooks <arb@sat.dundee.ac.uk>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:40792 "EHLO mgw2.diku.dk"
+Received: from mx1.redhat.com ([209.132.183.28]:36630 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752803Ab3HNOCY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Aug 2013 10:02:24 -0400
-In-Reply-To: <CAHOfOo0kYpa3OtJ2w5xzdi=V6ccm9PKNJ8Pzj+7avNPmZDr9Gg@mail.gmail.com>
+	id S1755934Ab3HNOHC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Aug 2013 10:07:02 -0400
+Received: from int-mx12.intmail.prod.int.phx2.redhat.com (int-mx12.intmail.prod.int.phx2.redhat.com [10.5.11.25])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r7EE72Ud025890
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 10:07:02 -0400
+In-Reply-To: <20130814121043.GH5430@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 08/14/2013 08:10 AM, Michael S. Tsirkin wrote:
+> On Tue, Aug 13, 2013 at 01:55:58PM -0400, Vlad Yasevich wrote:
+>> When the user turns off IFF_VNET_HDR flag, attempts to change
+>> offload features via TUNSETOFFLOAD do not work.  This could cause
+>> GSO packets to be delivered to the user when the user is
+>> not prepared to handle them.
+>>
+>> To solve, allow processing of TUNSETOFFLOAD when IFF_VNET_HDR is
+>> disabled and make sure to turn off all offloads in this case.
+>> Also, when IFF_VNET_HDR is disabled, run throught the offload change
+>> as well to make sure that the functionality is not dependent on
+>> the order of the ioclt() calls.
+>>
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>
+> Hmm, this seems to make it even messier.
+> So
+> 	set TUNSETOFFLOAD
+> 	clear IFF_VNET_HDR
+> 	set IFF_VNET_HDR
+>
+> offloads are now clear?
+>
+> I'm also not sure userspace that sets offloads but clears
+> vnet hdr knows what it's doing.
+>
+> How about we fail attempts to clear vnet hdr
+> unless offloads are disabled?
+>
 
-On Mon, 12 Aug 2013, Andrew Brooks wrote:
+OK.  That makes it simpler...
 
-> I'm using a network driver (niu) which regularly locks-up after
-> printing the message "transmit timed out"
-> (i.e. nothing else can be sent/received over that interface after the event).
+-vlad
 
-What kernel version are you using?
-I seem to remember to have fixed an issue with NIU driver, long time ago.
-
-
-> Does anyone have any tips for helping me to debug this?
-
-First thing you could do is to increase the message level in the driver (I 
-remeber NIU uses these msglvl settings).
-
-By command:
-  ethtool -s eth0 msglvl $((0x7fff))
-
-View the message level by command:
-  ethtool eth0
-
-
-Cheers,
-   Jesper Brouer
-
---
--------------------------------------------------------------------
-MSc. Master of Computer Science
-Dept. of Computer Science, University of Copenhagen
-Author of http://www.adsl-optimizer.dk
--------------------------------------------------------------------
+>
+>
+>
+>> ---
+>>   drivers/net/macvtap.c | 27 +++++++++++++++++++--------
+>>   1 file changed, 19 insertions(+), 8 deletions(-)
+>>
+>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+>> index a98fb0e..076b9e7 100644
+>> --- a/drivers/net/macvtap.c
+>> +++ b/drivers/net/macvtap.c
+>> @@ -1019,6 +1019,7 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
+>>   	struct macvlan_dev *vlan;
+>>   	netdev_features_t features;
+>>   	netdev_features_t feature_mask = 0;
+>> +	netdev_features_t tap_mask = TUN_OFFLOADS;
+>>
+>>   	vlan = rtnl_dereference(q->vlan);
+>>   	if (!vlan)
+>> @@ -1026,7 +1027,12 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
+>>
+>>   	features = vlan->dev->features;
+>>
+>> -	if (arg & TUN_F_CSUM) {
+>> +	if (!(q->flags & IFF_VNET_HDR)) {
+>> +		/* Turn off all checsum offloading also if user does
+>> +		 * not user vnet_hdr.
+>
+> Does not set?
+>
+>> +		 */
+>> +		tap_mask |= NETIF_F_ALL_CSUM;
+>> +	} else if (arg & TUN_F_CSUM) {
+>>   		feature_mask = NETIF_F_HW_CSUM;
+>>
+>>   		if (arg & (TUN_F_TSO4 | TUN_F_TSO6)) {
+>> @@ -1058,8 +1064,7 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
+>>   	/* tap_features are the same as features on tun/tap and
+>>   	 * reflect user expectations.
+>>   	 */
+>> -	vlan->tap_features = vlan->dev->features &
+>> -			    (feature_mask | ~TUN_OFFLOADS);
+>> +	vlan->tap_features = vlan->dev->features & (feature_mask | ~tap_mask);
+>>   	vlan->set_features = features;
+>>   	netdev_update_features(vlan->dev);
+>>
+>> @@ -1092,8 +1097,18 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+>>   		if ((u & ~(IFF_VNET_HDR | IFF_MULTI_QUEUE)) !=
+>>   		    (IFF_NO_PI | IFF_TAP))
+>>   			ret = -EINVAL;
+>> -		else
+>> +		else {
+>> +			if ((q->flags ^ u) & IFF_VNET_HDR) {
+>> +				/* vnet_hdr support impacts the offloads,
+>> +				 * so we need to run throught the offload
+>
+> throught ?
+>
+>> +				 * change.
+>> +				 */
+>> +				rtnl_lock();
+>> +				ret = set_offload(q, 0);
+>> +				rtnl_unlock();
+>> +			}
+>>   			q->flags = u;
+>> +		}
+>>
+>>   		return ret;
+>>
+>> @@ -1155,10 +1170,6 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+>>   			    TUN_F_TSO_ECN | TUN_F_UFO))
+>>   			return -EINVAL;
+>>
+>> -		/* TODO: only accept frames with the features that
+>> -			 got enabled for forwarded frames */
+>> -		if (!(q->flags & IFF_VNET_HDR))
+>> -			return  -EINVAL;
+>>   		rtnl_lock();
+>>   		ret = set_offload(q, arg);
+>>   		rtnl_unlock();
+>> --
+>> 1.8.1.4
