@@ -1,52 +1,136 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [PATCH net-next 3/6] 6lowpan: introduce lowpan_fetch_skb function
-Date: Wed, 14 Aug 2013 14:54:18 +0200
-Message-ID: <20130814125417.GA6815@x61s.8.8.8.8>
-References: <1376478108-3539-1-git-send-email-alex.aring@gmail.com>
- <1376478108-3539-4-git-send-email-alex.aring@gmail.com>
- <20130814114921.GC2010@order.stressinduktion.org>
- <520B7029.3070903@gmail.com>
- <20130814124545.GB4303@x61s.8.8.8.8>
- <20130814124754.GA2723@order.stressinduktion.org>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next v2 2/3] net/usb/r8152: enable tx checksum
+Date: Wed, 14 Aug 2013 20:54:39 +0800
+Message-ID: <1376484880-741-2-git-send-email-hayeswang@realtek.com>
+References: <1376378913-879-1-git-send-email-hayeswang@realtek.com>
+ <1376484880-741-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	dbaryshkov@gmail.com, davem@davemloft.net,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f172.google.com ([209.85.215.172]:46688 "EHLO
-	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932315Ab3HNMub (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 08:50:31 -0400
-Received: by mail-ea0-f172.google.com with SMTP id r16so4780241ead.17
-        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 05:50:29 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20130814124754.GA2723@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1376484880-741-1-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Hannes,
+Enable tx checksum.
 
-On Wed, Aug 14, 2013 at 02:47:54PM +0200, Hannes Frederic Sowa wrote:
-> On Wed, Aug 14, 2013 at 02:45:47PM +0200, Alexander Aring wrote:
-> > This was the old behaviour, we decide it to make it like this:
-> > 
-> > fail = ...
-> > fail |= ....
-> > 
-> > if (fail)
-> > 	...
-> > 
-> > We discussed that already at the linux-zigbee-devel mailinglist.
-> > I don't know what I should do now, on linux-zigbee-devel we decide it to
-> > this way, now we decide it in a other way...
-> 
-> Oh, I didn't know. Please just take my mail as a suggestion. If there
-> already was a discussion and you had a consensus about that please just
-> ignore my mails. :)
->
-This discussion was only with two persons.
-So I am happy to hear some other opinions. :-)
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 64 +++++++++++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 59 insertions(+), 5 deletions(-)
 
-Regards
-Alex
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index abb0b9f..4d938a7 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -20,6 +20,8 @@
+ #include <linux/if_vlan.h>
+ #include <linux/uaccess.h>
+ #include <linux/list.h>
++#include <linux/ip.h>
++#include <linux/ipv6.h>
+ 
+ /* Version Information */
+ #define DRIVER_VERSION "v1.01.0 (2013/08/12)"
+@@ -314,8 +316,13 @@ struct tx_desc {
+ 	u32 opts1;
+ #define TX_FS			(1 << 31) /* First segment of a packet */
+ #define TX_LS			(1 << 30) /* Final segment of a packet */
+-#define TX_LEN_MASK		0xffff
++#define TX_LEN_MASK		0x3ffff
++
+ 	u32 opts2;
++#define UDP_CS			(1 << 31) /* Calculate UDP/IP checksum */
++#define TCP_CS			(1 << 30) /* Calculate TCP/IP checksum */
++#define IPV4_CS			(1 << 29) /* Calculate IPv4 checksum */
++#define IPV6_CS			(1 << 28) /* Calculate IPv6 checksum */
+ };
+ 
+ struct rx_agg {
+@@ -968,6 +975,52 @@ err1:
+ 	return -ENOMEM;
+ }
+ 
++static void
++r8152_tx_csum(struct r8152 *tp, struct tx_desc *desc, struct sk_buff *skb)
++{
++	memset(desc, 0, sizeof(*desc));
++
++	desc->opts1 = cpu_to_le32((skb->len & TX_LEN_MASK) | TX_FS | TX_LS);
++
++	if (skb->ip_summed == CHECKSUM_PARTIAL) {
++		__be16 protocol;
++		u8 ip_protocol;
++		u32 opts2 = 0;
++
++		if (skb->protocol == htons(ETH_P_8021Q))
++			protocol = vlan_eth_hdr(skb)->h_vlan_encapsulated_proto;
++		else
++			protocol = skb->protocol;
++
++		switch (protocol) {
++		case htons(ETH_P_IP):
++			opts2 |= IPV4_CS;
++			ip_protocol = ip_hdr(skb)->protocol;
++			break;
++
++		case htons(ETH_P_IPV6):
++			opts2 |= IPV6_CS;
++			ip_protocol = ipv6_hdr(skb)->nexthdr;
++			break;
++
++		default:
++			ip_protocol = IPPROTO_RAW;
++			break;
++		}
++
++		if (ip_protocol == IPPROTO_TCP) {
++			opts2 |= TCP_CS;
++			opts2 |= (skb_transport_offset(skb) & 0x7fff) << 17;
++		} else if (ip_protocol == IPPROTO_UDP) {
++			opts2 |= UDP_CS;
++		} else {
++			WARN_ON_ONCE(1);
++		}
++
++		desc->opts2 = cpu_to_le32(opts2);
++	}
++}
++
+ static void rx_bottom(struct r8152 *tp)
+ {
+ 	struct net_device_stats *stats;
+@@ -1097,8 +1150,7 @@ next_agg:
+ 		tx_desc = (struct tx_desc *)tx_data;
+ 		tx_data += sizeof(*tx_desc);
+ 
+-		tx_desc->opts1 = cpu_to_le32((skb->len & TX_LEN_MASK) | TX_FS |
+-					     TX_LS);
++		r8152_tx_csum(tp, tx_desc, skb);
+ 		memcpy(tx_data, skb->data, len);
+ 		agg->skb_num++;
+ 		agg->skb_len += len;
+@@ -1256,7 +1308,7 @@ static netdev_tx_t rtl8152_start_xmit(struct sk_buff *skb,
+ 	agg->skb_num = agg->skb_len = 0;
+ 
+ 	len = skb->len;
+-	tx_desc->opts1 = cpu_to_le32((skb->len & TX_LEN_MASK) | TX_FS | TX_LS);
++	r8152_tx_csum(tp, tx_desc, skb);
+ 	memcpy(tx_data, skb->data, len);
+ 	dev_kfree_skb_any(skb);
+ 	agg->skb_num++;
+@@ -1977,7 +2029,9 @@ static int rtl8152_probe(struct usb_interface *intf,
+ 	tp->netdev = netdev;
+ 	netdev->netdev_ops = &rtl8152_netdev_ops;
+ 	netdev->watchdog_timeo = RTL8152_TX_TIMEOUT;
+-	netdev->features &= ~NETIF_F_IP_CSUM;
++
++	netdev->features |= NETIF_F_IP_CSUM;
++	netdev->hw_features = NETIF_F_IP_CSUM;
+ 	SET_ETHTOOL_OPS(netdev, &ops);
+ 	tp->speed = 0;
+ 
+-- 
+1.8.3.1
