@@ -1,29 +1,113 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] ipv6: don't stop backtracking in fib6_lookup_1 if subtree does not match
-Date: Wed, 14 Aug 2013 12:06:57 +0200
-Message-ID: <20130814100657.GB16264@order.stressinduktion.org>
-References: <190D21D2-F86E-46D2-93E8-3050F57FE622@inf-net.nl> <20130813.011550.791636011692333018.davem@davemloft.net> <AFA62E3B-313C-4ECD-BA28-3543635136EE@inf-net.nl> <20130814.005506.502334877600106930.davem@davemloft.net> <F11B8118-B74D-4AA5-B899-0F2C8D33AA29@inf-net.nl> <64621FDB-9618-40A7-82EE-6056156580F6@inf-net.nl>
+Subject: Re: [PATCH 1/3 v4] ipv6: do not disable temp_address when reaching max_address
+Date: Wed, 14 Aug 2013 12:15:11 +0200
+Message-ID: <20130814101511.GC16264@order.stressinduktion.org>
+References: <520B48AE.8050103@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Teco Boot <teco@inf-net.nl>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jon Maloy <jon.maloy@ericsson.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:50745 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:50762 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752850Ab3HNKG7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 06:06:59 -0400
+	with ESMTP id S1759570Ab3HNKPM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 06:15:12 -0400
 Content-Disposition: inline
-In-Reply-To: <64621FDB-9618-40A7-82EE-6056156580F6@inf-net.nl>
+In-Reply-To: <520B48AE.8050103@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 14, 2013 at 10:06:23AM +0200, Teco Boot wrote:
-> Many excuses to send before adding text. Hitted wrong button.
+On Wed, Aug 14, 2013 at 05:06:54PM +0800, Ding Tianhong wrote:
+> A LAN user can remotely disable temporary address which may lead
+> to privacy violatins and information disclosure.
 > 
-> I don't want to enforce something. Nor I want to spam. Nor I want to bypass. I just spend some cycles to get IPv6 with multi-homing work as designed. Subtrees was broken, maybe from day one. I'm glad there is progress.
+> The reason is that the linux kernel uses the 'ipv6.max_addresses'
+> option to specify how many ipv6 addresses and interface may have.
+> The 'ipv6.regen_max_retry' (default value 3) option specifies
+> how many times the kernel will try to create a new address.
 > 
-> I also do not want broken fixes in stable. I know what it is. As I posed, I had to deal with broken fixes when testing the subtree fix. I double checked the fix Hannes made, because Hannes asked me to do so. I'm in for doing more work here.
+> But the kernel is not distinguish between the event of reaching
+> max_addresses for an interface and failing to generate a new address.
+> the kernel disable the temporary address after regenerate a new
+> address 'regen_max_retry' times.
+> 
+> According RFC4941 3.3.7:
+> 
+> ---------------------------------------
+> 
+> If DAD indicates the address is already in use,
+> the node must generate a new randomized interface
+> identifier as described in section 3.2 above, and
+> repeat the previous steps as appropriate up to
+> TEMP_IDGEN_RETRIES times.
+> 
+> If after TEMP_IDGEN_RETRIES consecutive attempts no
+> non-unique address was generated, the node must log
+> a system error and must not attempt to generate
+> temporary address for that interface.
+> 
+> ------------------------------------------
+> 
+> RFC4941 3.3.7 specifies that disabling the temp_address must happen
+> upon the address is already in use, not reach the max_address,
+> So we have to check the return err and distinguish the correct retry path.
+> 
+> This fixes CVE-2013-0343
 
-Teco, I don't see the problem. The patch is on its way. It is in stable and
-will be included in the next kernel, 3.11. That is all the luxus a patch can
-possibly have.
+I don't think this patch fixes CVE-2013-0343.
+
+> 
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> Tested-by: Wang Weidong <wangweidong1@huawei.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> ---
+>  net/ipv6/addrconf.c | 26 ++++++++++++++++++++++----
+>  1 file changed, 22 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index da4241c..7b55464 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -1134,10 +1134,28 @@ retry:
+>  	if (IS_ERR_OR_NULL(ift)) {
+>  		in6_ifa_put(ifp);
+>  		in6_dev_put(idev);
+> -		pr_info("%s: retry temporary address regeneration\n", __func__);
+> -		tmpaddr = &addr;
+> -		write_lock(&idev->lock);
+> -		goto retry;
+> +
+> +		/* According RFC4941 3.3.7:
+> +		 * If DAD indicates the address is already in use,
+> +		 * the node must generate a new randomized interface
+> +		 * identifier as described in section 3.2 above, and
+> +		 * repeat the previous steps as appropriate up to
+> +		 * TEMP_IDGEN_RETRIES times.
+> +		 * If after TEMP_IDGEN_RETRIES consecutive attempts no
+> +		 * non-unique address was generated, the node must log
+> +		 * a system error and must not attempt to generate
+> +		 * temporary address for that interface.
+> +		 * So we have to check the return err and distinguish
+> +		 * the correct retry path.
+> +		 */
+> +		if (PTR_ERR(ift) == -EEXIST) {
+
+-EEXIST is not the same as "ipv6 address is is already used on the
+subnet". I really don't see the point here. IMHO this breaks the intended
+regeneration logic.
+
+I fear a fix of CVE-2013-0343 will be a bit more complicated. ;) I give it a
+thought.
+
+Greetings,
+
+  Hannes
