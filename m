@@ -1,50 +1,73 @@
 From: Peter Wu <lekensteyn@gmail.com>
-Subject: Re: [PATCH] r8169: remember WOL preferences on driver load
-Date: Wed, 14 Aug 2013 14:56:53 +0200
-Message-ID: <5823402.G5n4G2k0Uv@al>
-References: <1376425145-30142-1-git-send-email-lekensteyn@gmail.com> <20130813212843.GB5635@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH] r8169: fix invalid register dump
+Date: Wed, 14 Aug 2013 15:12:50 +0200
+Message-ID: <3465288.NFVErF5E7l@al>
+References: <1376426265-30353-1-git-send-email-lekensteyn@gmail.com> <20130813222038.GC5635@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	Hayes Wang <hayeswang@realtek.com>
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com
 To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:33074 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932369Ab3HNM46 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 08:56:58 -0400
-Received: by mail-wi0-f172.google.com with SMTP id hj13so1905114wib.11
-        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 05:56:57 -0700 (PDT)
-In-Reply-To: <20130813212843.GB5635@electric-eye.fr.zoreil.com>
+Received: from mail-wg0-f48.google.com ([74.125.82.48]:61473 "EHLO
+	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932282Ab3HNNM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 09:12:56 -0400
+Received: by mail-wg0-f48.google.com with SMTP id f12so7436064wgh.3
+        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 06:12:55 -0700 (PDT)
+In-Reply-To: <20130813222038.GC5635@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 13 August 2013 23:28:43 Francois Romieu wrote:
-> > The r8168 vendor driver used to write to both Config1 and Config5, but
-> > in recent versions, this is commented out. Here we keep writing PMEnable
-> > to Config1 because there may be older chips where PMEnable is not sticky.
+On Wednesday 14 August 2013 00:20:38 Francois Romieu wrote:
+> > -     memcpy_fromio(p, tp->mmio_addr, regs->len);
+> > +     for (i = 0; i < regs->len - 4; i += 4)
+> > +             memcpy_fromio(bytes + i, tp->mmio_addr + i, 4);
 > 
-> <sneak regression paranoia>
-> Please include the bits you want to keep in the "&" mask.
-> </sneak regression paranoia>
+> regs->len is u32. regs->len - 4 should not underflow on normal situation but
+> it's a bit sloppy.
 
-I previously tried:
+Heh, I forgot about that case. Fixed it in the below patch. By the way,
+have you observed similar behavior on other hardware?
 
-    RTL_W8(Config5, RTL_R8(Config5) & (BWF | MWF | UWF | LanWake | PMEStatus));
-
-but then I realized that the Realtek r8168 vendor driver does not touch this 
-register on load. The bits not included in the above mask are 2, 3 and 7. On 
-most datasheets for recent hardware, these are marked reserved.
-
-For RTL8100C(L) (datasheet 1.3 from 2007), RTL8139D(L) (datasheet 1.3 from 
-2005) and RTL8101L (1.6 from 2008)
-- bit 2 is Link Down Power Saving mode (1=disable, 0=enable; loaded from 
-EEPROM on RTL8139D(L))
-- bit 3 is FIFOAddrPtr (internal use for testing FIFO SRAM, default 0)
-- bit 7 is reserved
-
-I'll let Hayes judge which approach is more appropriate.
-
-Regards,
+Thanks,
 Peter
+--
+From: Peter Wu <lekensteyn@gmail.com>
+
+For some reason, my PCIe RTL8111E onboard NIC on a GA-Z68X-UD3H-B3
+motherboard reads as FFs when reading from MMIO with a block size
+larger than 7. Therefore change to reading blocks of four bytes.
+
+Signed-off-by: Peter Wu <lekensteyn@gmail.com>
+---
+ drivers/net/ethernet/realtek/r8169.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index b5eb419..d367763 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -1897,12 +1897,19 @@ static void rtl8169_get_regs(struct net_device *dev, struct ethtool_regs *regs,
+ 			     void *p)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
++	char *bytes = p;
++	int i;
+ 
+ 	if (regs->len > R8169_REGS_SIZE)
+ 		regs->len = R8169_REGS_SIZE;
+ 
+ 	rtl_lock_work(tp);
+-	memcpy_fromio(p, tp->mmio_addr, regs->len);
++	if (regs->len >= 4) {
++		for (i = 0; i < regs->len - 4; i += 4)
++			memcpy_fromio(bytes + i, tp->mmio_addr + i, 4);
++	}
++	if (i < regs->len)
++		memcpy_fromio(bytes + i, tp->mmio_addr + i, regs->len - i);
+ 	rtl_unlock_work(tp);
+ }
+ 
+-- 
+1.8.3.4
