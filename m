@@ -1,43 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next] 6lowpan: handle only real link-local
- addresses
-Date: Wed, 14 Aug 2013 12:53:46 -0700 (PDT)
-Message-ID: <20130814.125346.585011183381258117.davem@davemloft.net>
-References: <1376478067-3371-1-git-send-email-alex.aring@gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: fix invalid register dump
+Date: Wed, 14 Aug 2013 21:58:29 +0200
+Message-ID: <20130814195829.GA1613@electric-eye.fr.zoreil.com>
+References: <1376426265-30353-1-git-send-email-lekensteyn@gmail.com>
+ <20130813222038.GC5635@electric-eye.fr.zoreil.com>
+ <3465288.NFVErF5E7l@al>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: alex.aring@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com
+To: Peter Wu <lekensteyn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59075 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758543Ab3HNTxt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 15:53:49 -0400
-In-Reply-To: <1376478067-3371-1-git-send-email-alex.aring@gmail.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:52217 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932956Ab3HNT6j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 15:58:39 -0400
+Content-Disposition: inline
+In-Reply-To: <3465288.NFVErF5E7l@al>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Aring <alex.aring@gmail.com>
-Date: Wed, 14 Aug 2013 13:01:07 +0200
+Peter Wu <lekensteyn@gmail.com> :
+[...]
+> Heh, I forgot about that case. Fixed it in the below patch. By the way,
+> have you observed similar behavior on other hardware?
 
-> A link-local address isn't fe80::/10 it's fe80::/64
-> see http://tools.ietf.org/html/rfc4291#section-2.5.6
-> for more details.
-> 
-> Also fix a comment issue "local link" -> "link-local"
-> 
-> Signed-off-by: Alexander Aring <alex.aring@gmail.com>
-> Reviewed-by: Werner Almesberger <werner@almesberger.net>
+Notwithstanding really old PCI adapters - sometimes - none that I remember of.
 
-You still haven't addressed my biggest concern.
+[...]
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+> index b5eb419..d367763 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+> @@ -1897,12 +1897,19 @@ static void rtl8169_get_regs(struct net_device *dev, struct ethtool_regs *regs,
+>  			     void *p)
+>  {
+>  	struct rtl8169_private *tp = netdev_priv(dev);
+> +	char *bytes = p;
+> +	int i;
+>  
+>  	if (regs->len > R8169_REGS_SIZE)
+>  		regs->len = R8169_REGS_SIZE;
+>  
+>  	rtl_lock_work(tp);
+> -	memcpy_fromio(p, tp->mmio_addr, regs->len);
+> +	if (regs->len >= 4) {
+> +		for (i = 0; i < regs->len - 4; i += 4)
+> +			memcpy_fromio(bytes + i, tp->mmio_addr + i, 4);
+> +	}
+> +	if (i < regs->len)
 
-What order do I apply this patch relative to the other 6?
+Comparison with random stack stuff when regs->len < 4. :o/
 
-Don't make me guess, instead place this patch into the necessary
-place within the series of 6 patches.
-
-I'm not applying any of this until you can submit it properly.
-
-Thanks.
+-- 
+Ueimor
