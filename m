@@ -1,71 +1,86 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: TCP Connection teardown seems to violate TCP specification
-Date: Wed, 14 Aug 2013 13:14:23 -0700
-Message-ID: <520BE51F.40208@hp.com>
-References: <1376508095.4596.12.camel@nexus> <CAK6E8=fWOe3eEvw6sC=Da415qGp+wXsm2bpe9Vbbukit9yU8sQ@mail.gmail.com>
+From: Sharma Bhupesh-B45370 <B45370@freescale.com>
+Subject: RE: Query: Regarding 8211E Phy module support in drivers/net/phy
+Date: Wed, 14 Aug 2013 20:18:03 +0000
+Message-ID: <A1A6EA40F8503D48BB002B42BD65974E0A111CDD@039-SN2MPN1-013.039d.mgd.msft.net>
+References: <A1A6EA40F8503D48BB002B42BD65974E0A0E6C8C@039-SN2MPN1-012.039d.mgd.msft.net>
+ <520B8F2C.5090308@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Damian Lukowski <damian@tvk.rwth-aachen.de>,
-	netdev <netdev@vger.kernel.org>
-To: Yuchung Cheng <ycheng@google.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>
+To: 'Giuseppe CAVALLARO' <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:8442 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933081Ab3HNUOZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 16:14:25 -0400
-In-Reply-To: <CAK6E8=fWOe3eEvw6sC=Da415qGp+wXsm2bpe9Vbbukit9yU8sQ@mail.gmail.com>
+Received: from va3ehsobe001.messaging.microsoft.com ([216.32.180.11]:11123
+	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932768Ab3HNUSI convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Aug 2013 16:18:08 -0400
+In-Reply-To: <520B8F2C.5090308@st.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/14/2013 12:50 PM, Yuchung Cheng wrote:
-> On Wed, Aug 14, 2013 at 12:21 PM, Damian Lukowski
-> <damian@tvk.rwth-aachen.de> wrote:
->> Hi,
->>
->> the TCP specification states that an endpoint has to accept
->> packets from the other side even after it has half-closed the
->> connection locally. This does not seem to be the case
->> under Linux?
->>
->> For example, when I wget -O /dev/null https://www.verisign.com/
->> --max-redir 0, the local TCP stack sends an FIN,ACK close to the end.
->> However, the webserver has more data to send (Encrypted Alert).
->> Instead of ACKing the packet, the local side sends a RST.
->> This seems wrong to me.
+
+> -----Original Message-----
+> From: Giuseppe CAVALLARO [mailto:peppe.cavallaro@st.com]
+> Sent: Wednesday, August 14, 2013 7:38 PM
+> To: Sharma Bhupesh-B45370
+> Cc: 'netdev@vger.kernel.org'
+> Subject: Re: Query: Regarding 8211E Phy module support in drivers/net/phy
+> 
+> On 8/2/2013 8:50 PM, Sharma Bhupesh-B45370 wrote:
+> > Hi Peppe,
+> >
+> > This regarding the patch prepared by you for adding RTL8211E support
+> > in drivers/net/phy/realtek.c
+> >
+> > commit ef3d90491a15f0d5cf1ec39a38a45dac6968fb2a
+> > Author: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+> > Date:   Wed Jan 23 00:30:03 2013 +0000
+> >
+> >      net: phy: realtek: add rtl8211e driver
+> >
+> >      This patch adds the minimal driver to manage the
+> >      Realtek RTL8211E 10/100/1000 Transceivers.
+> >
+> > I see a macro specific to 8211E:
+> > +#define        RTL8211E_INER_LINK_STAT 0x10
+> >
+> > I was having a look at the RTL8211E(G) datasheet and could see the
+> > following bit positions for INER register (Address 0x12):
+> >
+> > [7:1] as Reserved
+> > [0] as Jabber Interrupt
+> >
+> > If I am not wrong a value 0x10 written to the INER register tries to
+> > set bit [4] which seems Reserved.
+> 
+> Hello Sharma
+> you are right RTL8211E_INER_LINK_STAT should be 0x400 I will test it
+> again (just to find the hw) and prepare/send a new patch.
 >
-> Which wget are you using? it's not doing half-close (i.e.,
-> shutdown(SHUT_WR)) on my wget version 1.13.4
 
-I suspect that when Damian system call traces his wget he will find it 
-is doing either:
+Hi Peppe,
 
-close()
+Glad to hear from you. Please test with the h/w and send the relevant patch
+as I plan to send a patch supporting a new RTL phy module rebased on top of your patch.
 
-or
-shutdown(SHUT_WR)
-close()
-without waiting for the read return of zero from the remote.
+Thanks for your help.
+Regards,
+Bhupesh
 
-it may even be just exiting after getting the last bytes of the URL, 
-which would be an implicit close()
-
-Over the years I've seen examples of all three behaviours.
-
-rick jones
-
->
->
->>
->> Regards
->>   Damian
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+ 
+> Many thanks
+> 
+> peppe
+> 
+> >
+> > Or am I missing something here.
+> > Please let me know your views on the same.
+> >
+> > Thanks,
+> > Bhupesh
+> >
+> >
+> >
+> 
