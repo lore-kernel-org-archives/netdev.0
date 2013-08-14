@@ -1,70 +1,134 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 3/6] 6lowpan: introduce lowpan_fetch_skb function
-Date: Wed, 14 Aug 2013 14:06:34 +0200
-Message-ID: <20130814120634.GD2010@order.stressinduktion.org>
-References: <1376478108-3539-1-git-send-email-alex.aring@gmail.com> <1376478108-3539-4-git-send-email-alex.aring@gmail.com> <20130814114921.GC2010@order.stressinduktion.org> <520B7029.3070903@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] macvtap: Correctly set tap features when IFF_VNET_HDR is
+ disabled.
+Date: Wed, 14 Aug 2013 15:10:43 +0300
+Message-ID: <20130814121043.GH5430@redhat.com>
+References: <1376416558-25015-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Alexander Aring <alex.aring@gmail.com>, dbaryshkov@gmail.com,
-	davem@davemloft.net, linux-zigbee-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:51078 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751686Ab3HNMGf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 08:06:35 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:22979 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751468Ab3HNMJG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Aug 2013 08:09:06 -0400
+Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r7EC96Im031725
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 08:09:06 -0400
 Content-Disposition: inline
-In-Reply-To: <520B7029.3070903@gmail.com>
+In-Reply-To: <1376416558-25015-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 14, 2013 at 03:55:21PM +0400, Alexander Smirnov wrote:
-> On 08/14/2013 03:49 PM, Hannes Frederic Sowa wrote:
-> >On Wed, Aug 14, 2013 at 01:01:45PM +0200, Alexander Aring wrote:
-> >>This patch adds a helper function to parse the ipv6 header to a
-> >>6lowpan header in stream.
-> >>
-> >>This function checks first if we can pull data with a specific
-> >>length from a skb. If this seems to be okay, we copy skb data to
-> >>a destination pointer and run skb_pull.
-> >>
-> >>Signed-off-by: Alexander Aring <alex.aring@gmail.com>
-> >>Reviewed-by: Werner Almesberger <werner@almesberger.net>
-> >>---
-> >>  net/ieee802154/6lowpan.h | 12 ++++++++++++
-> >>  1 file changed, 12 insertions(+)
-> >>
-> >>diff --git a/net/ieee802154/6lowpan.h b/net/ieee802154/6lowpan.h
-> >>index 61f0ce9..e3348ec 100644
-> >>--- a/net/ieee802154/6lowpan.h
-> >>+++ b/net/ieee802154/6lowpan.h
-> >>@@ -233,4 +233,16 @@
-> >>  					dest = 16 bit inline */
-> >>  #define LOWPAN_NHC_UDP_CS_P_11	0xF3 /* source & dest = 0xF0B + 4bit 
-> >>  inline */
-> >>
-> >>+static inline bool lowpan_fetch_skb(struct sk_buff *skb,
-> >>+		void *data, const unsigned int len)
-> >>+{
-> >>+	if (unlikely(!pskb_may_pull(skb, len)))
-> >>+		return true;
-> >>+
-> >>+	skb_copy_from_linear_data(skb, data, len);
-> >>+	skb_pull(skb, len);
-> >>+
-> >>+	return false;
-> >>+}
-> >
-> >Isn't the return value inverted here?
+On Tue, Aug 13, 2013 at 01:55:58PM -0400, Vlad Yasevich wrote:
+> When the user turns off IFF_VNET_HDR flag, attempts to change
+> offload features via TUNSETOFFLOAD do not work.  This could cause
+> GSO packets to be delivered to the user when the user is
+> not prepared to handle them.
 > 
-> Nope, everything is right here, but I spent several minutes to get it...
-> Probably using of standard intergers will be better here: return -EINVAL 
-> and return 0;
+> To solve, allow processing of TUNSETOFFLOAD when IFF_VNET_HDR is
+> disabled and make sure to turn off all offloads in this case.
+> Also, when IFF_VNET_HDR is disabled, run throught the offload change
+> as well to make sure that the functionality is not dependent on
+> the order of the ioclt() calls.
+> 
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 
-Ah, yes, I saw it in your next patch. You could also use false for failure and
-true for success. Either way, this seemd a bit unnatural for me.
+Hmm, this seems to make it even messier.
+So
+	set TUNSETOFFLOAD
+	clear IFF_VNET_HDR
+	set IFF_VNET_HDR
 
-Thanks,
+offloads are now clear?
 
-  Hannes
+I'm also not sure userspace that sets offloads but clears
+vnet hdr knows what it's doing.
+
+How about we fail attempts to clear vnet hdr
+unless offloads are disabled?
+
+
+
+
+> ---
+>  drivers/net/macvtap.c | 27 +++++++++++++++++++--------
+>  1 file changed, 19 insertions(+), 8 deletions(-)
+> 
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index a98fb0e..076b9e7 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -1019,6 +1019,7 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
+>  	struct macvlan_dev *vlan;
+>  	netdev_features_t features;
+>  	netdev_features_t feature_mask = 0;
+> +	netdev_features_t tap_mask = TUN_OFFLOADS;
+>  
+>  	vlan = rtnl_dereference(q->vlan);
+>  	if (!vlan)
+> @@ -1026,7 +1027,12 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
+>  
+>  	features = vlan->dev->features;
+>  
+> -	if (arg & TUN_F_CSUM) {
+> +	if (!(q->flags & IFF_VNET_HDR)) {
+> +		/* Turn off all checsum offloading also if user does
+> +		 * not user vnet_hdr.
+
+Does not set?
+
+> +		 */
+> +		tap_mask |= NETIF_F_ALL_CSUM;
+> +	} else if (arg & TUN_F_CSUM) {
+>  		feature_mask = NETIF_F_HW_CSUM;
+>  
+>  		if (arg & (TUN_F_TSO4 | TUN_F_TSO6)) {
+> @@ -1058,8 +1064,7 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
+>  	/* tap_features are the same as features on tun/tap and
+>  	 * reflect user expectations.
+>  	 */
+> -	vlan->tap_features = vlan->dev->features &
+> -			    (feature_mask | ~TUN_OFFLOADS);
+> +	vlan->tap_features = vlan->dev->features & (feature_mask | ~tap_mask);
+>  	vlan->set_features = features;
+>  	netdev_update_features(vlan->dev);
+>  
+> @@ -1092,8 +1097,18 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+>  		if ((u & ~(IFF_VNET_HDR | IFF_MULTI_QUEUE)) !=
+>  		    (IFF_NO_PI | IFF_TAP))
+>  			ret = -EINVAL;
+> -		else
+> +		else {
+> +			if ((q->flags ^ u) & IFF_VNET_HDR) {
+> +				/* vnet_hdr support impacts the offloads,
+> +				 * so we need to run throught the offload
+
+throught ?
+
+> +				 * change.
+> +				 */
+> +				rtnl_lock();
+> +				ret = set_offload(q, 0);
+> +				rtnl_unlock();
+> +			}
+>  			q->flags = u;
+> +		}
+>  
+>  		return ret;
+>  
+> @@ -1155,10 +1170,6 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+>  			    TUN_F_TSO_ECN | TUN_F_UFO))
+>  			return -EINVAL;
+>  
+> -		/* TODO: only accept frames with the features that
+> -			 got enabled for forwarded frames */
+> -		if (!(q->flags & IFF_VNET_HDR))
+> -			return  -EINVAL;
+>  		rtnl_lock();
+>  		ret = set_offload(q, arg);
+>  		rtnl_unlock();
+> -- 
+> 1.8.1.4
