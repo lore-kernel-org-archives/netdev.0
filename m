@@ -1,37 +1,31 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: question about netif_rx
-Date: Wed, 14 Aug 2013 17:18:51 +0200 (CEST)
-Message-ID: <alpine.DEB.2.02.1308141713290.2257@hadrien>
-References: <alpine.DEB.2.02.1308111151210.2072@localhost6.localdomain6> <20130811155640.GA10070@electric-eye.fr.zoreil.com> <alpine.DEB.2.02.1308111811440.2072@localhost6.localdomain6> <20130813052036.GA11640@electric-eye.fr.zoreil.com>
- <alpine.DEB.2.02.1308130828550.1997@localhost6.localdomain6> <CAJJAcocQ59Kc9a1b=jrNSc1akLLN_74yKANMEmLVmvxoRjX4hw@mail.gmail.com> <20130813204131.GA4696@electric-eye.fr.zoreil.com> <CAKoUAr==Ex=XAJe4=4R+BY5QaNXKMjM4EsHYbppbXOyROi2NAw@mail.gmail.com>
+From: Phil Oester <kernel@linuxace.com>
+Subject: Re: Configuring and using RIPngd
+Date: Wed, 14 Aug 2013 08:24:24 -0700
+Message-ID: <20130814152424.GA10099@linuxace.com>
+References: <CAABrkZnM90XTS1jZt-ZMDZTAG5mFeu2T0_++K+3Xxx8USQa6jQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	David Shwatrz <dshwatrz@gmail.com>,
-	Julia Lawall <julia.lawall@lip6.fr>, grant.likely@linaro.org,
-	rob.herring@calxeda.com, Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	devicetree@vger.kernel.org
-To: Rami Rosen <roszenrami@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKoUAr==Ex=XAJe4=4R+BY5QaNXKMjM4EsHYbppbXOyROi2NAw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Ale Lampro <lampro.listas@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:64324 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757992Ab3HNPYV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 11:24:21 -0400
+Received: by mail-pb0-f47.google.com with SMTP id rr4so8500526pbb.34
+        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 08:24:21 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAABrkZnM90XTS1jZt-ZMDZTAG5mFeu2T0_++K+3Xxx8USQa6jQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 14 Aug 2013, Rami Rosen wrote:
-
+On Wed, Aug 14, 2013 at 12:02:35PM +0200, Ale Lampro wrote:
 > Hi,
-> BTW, this is not the only NAPI issue here. When looking into cleanup
-> of resources in this driver, a call to netif_napi_del() is missing
-> (though there is a call to  napi_disable(), which is not enough for
-> proper cleanup).
+> 
+> I am new to the list and I am trying to achieve something that I think
+> should be relatively easy with RIPngd and Quagga, but I am new to all
+> this so I have some issues.
 
-Actually, netif_napi_del seems to be quite underused.  At least
-approximately, I would assume that every file that uses netif_napi_add
-should use netif_napi_del at least once, and possible more times.  But I
-find 118 .c files that use netif_napi_add, and only 35 that use
-netif_napi_del.
+Best to ask this question on the Quagga mailing list.
 
-Are there some cases where it might not be needed?
-
-julia
+Phil
