@@ -1,51 +1,55 @@
-From: Libo Chen <clbchenlibo.chen@huawei.com>
-Subject: [PATCH RESEND 1/8] net: fsl_pq_mdio: use platform_{get,set}_drvdata()
-Date: Wed, 14 Aug 2013 11:39:26 +0800
-Message-ID: <520AFBEE.7030903@huawei.com>
-References: <5208E215.6030007@huawei.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 2/3 v3] ipv6: convert the uses of ADBG and remove the
+ superfluous parentheses
+Date: Tue, 13 Aug 2013 20:44:07 -0700
+Message-ID: <1376451847.1949.60.camel@joe-AO722>
+References: <520AFB20.2000109@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-	Li Zefan <lizefan@huawei.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5208E215.6030007@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:39029 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1758442Ab3HNDoJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Aug 2013 23:44:09 -0400
+In-Reply-To: <520AFB20.2000109@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2013-08-14 at 11:36 +0800, Ding Tianhong wrote:
+> Just follow the Joe Perches's opinion, it is a better way to fix the
+> style errors.
 
-We can use the wrapper functions platform_{get,set}_drvdata() instead of
-dev_{get,set}_drvdata() with &pdev->dev, it is convenient for user.
+[]
 
-Also, unnecessary dev_set_drvdata() is removed, because the driver core
-clears the driver data to NULL after device_release or on probe failure.
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Signed-off-by: Libo Chen <libo.chen@huawei.com>
----
- drivers/net/ethernet/freescale/fsl_pq_mdio.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+Nope, not signed by me.  I sent you a suggestion.
+Please don't add Signed-off-by: signatures for others.
+Maybe you might use Suggested-by:
 
-diff --git a/drivers/net/ethernet/freescale/fsl_pq_mdio.c b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
-index c93a056..995a3ab 100644
---- a/drivers/net/ethernet/freescale/fsl_pq_mdio.c
-+++ b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
-@@ -409,7 +409,7 @@ static int fsl_pq_mdio_probe(struct platform_device *pdev)
- 	priv->regs = priv->map + data->mii_offset;
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 
- 	new_bus->parent = &pdev->dev;
--	dev_set_drvdata(&pdev->dev, new_bus);
-+	platform_set_drvdata(pdev, new_bus);
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
 
- 	if (data->get_tbipa) {
- 		for_each_child_of_node(np, tbi) {
-@@ -468,7 +468,6 @@ static int fsl_pq_mdio_remove(struct platform_device *pdev)
+> @@ -99,9 +99,9 @@
+>  #define ACONF_DEBUG 2
+>  
+>  #if ACONF_DEBUG >= 3
+> -#define ADBG(x) printk x
+> +#define ADBG(fmt, ...) printk(fmt, ##__VA_ARGS__)
+>  #else
+> -#define ADBG(x)
+> +#define ADBG(fmt, ...) do {} while (0)
 
- 	mdiobus_unregister(bus);
+btw:  The macro I suggested will always verify format
+and arguments.  This will not.
 
--	dev_set_drvdata(device, NULL);
-
- 	iounmap(priv->map);
- 	mdiobus_free(bus);
--- 
-1.7.1
+#define ADBG(fmt, ...) do { if (0) printk(fmt, ##__VA_ARGS__); } while (0)
