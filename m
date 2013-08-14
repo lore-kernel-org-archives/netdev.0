@@ -1,73 +1,96 @@
-From: Peter Wu <lekensteyn@gmail.com>
-Subject: Re: [PATCH] r8169: fix invalid register dump
-Date: Wed, 14 Aug 2013 15:12:50 +0200
-Message-ID: <3465288.NFVErF5E7l@al>
-References: <1376426265-30353-1-git-send-email-lekensteyn@gmail.com> <20130813222038.GC5635@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com
-To: Francois Romieu <romieu@fr.zoreil.com>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: [PATCH stable] ipv6: restrict neighbor entry creation to output flow
+Date: Wed, 14 Aug 2013 10:53:27 -0300
+Message-ID: <abab9dc5af4b61da70672b99ad80175b94b4ec68.1376488215.git.mleitner@redhat.com>
+Cc: hannes@stressinduktion.org, jiri@resnulli.us, dbanerje@akamai.com,
+	yoshfuji@linux-ipv6.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:61473 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932282Ab3HNNM4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 09:12:56 -0400
-Received: by mail-wg0-f48.google.com with SMTP id f12so7436064wgh.3
-        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 06:12:55 -0700 (PDT)
-In-Reply-To: <20130813222038.GC5635@electric-eye.fr.zoreil.com>
+Received: from mx1.redhat.com ([209.132.183.28]:20554 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932317Ab3HNNyD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Aug 2013 09:54:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 14 August 2013 00:20:38 Francois Romieu wrote:
-> > -     memcpy_fromio(p, tp->mmio_addr, regs->len);
-> > +     for (i = 0; i < regs->len - 4; i += 4)
-> > +             memcpy_fromio(bytes + i, tp->mmio_addr + i, 4);
-> 
-> regs->len is u32. regs->len - 4 should not underflow on normal situation but
-> it's a bit sloppy.
+This patch is based on 3.2.y branch, the one used by reported. Please let me
+know if it should be different. Thanks.
 
-Heh, I forgot about that case. Fixed it in the below patch. By the way,
-have you observed similar behavior on other hardware?
+---8<---
 
-Thanks,
-Peter
---
-From: Peter Wu <lekensteyn@gmail.com>
+Commit 0d6a77079c475033cb622c07c5a880b392ef664e introduced a regression on
+which routes to local delivery would not work anymore. Like this:
 
-For some reason, my PCIe RTL8111E onboard NIC on a GA-Z68X-UD3H-B3
-motherboard reads as FFs when reading from MMIO with a block size
-larger than 7. Therefore change to reading blocks of four bytes.
+    $ ip -6 route add local 2001::/64 dev lo
+    $ ping6 -c1 2001::9
+    PING 2001::9(2001::9) 56 data bytes
+    ping: sendmsg: Invalid argument
 
-Signed-off-by: Peter Wu <lekensteyn@gmail.com>
+As this is a local delivery, that commit would not allow the creation of a
+neighbor entry and thus the packet cannot be sent.
+
+But as TPROXY scenario actually needs to avoid the neighbor entry creation only
+for input flow, this patch now limits previous patch to input flow, keeping
+output as before that patch.
+
+Reported-by: Debabrata Banerjee <dbavatar@gmail.com>
+Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- drivers/net/ethernet/realtek/r8169.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+ net/ipv6/route.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index b5eb419..d367763 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -1897,12 +1897,19 @@ static void rtl8169_get_regs(struct net_device *dev, struct ethtool_regs *regs,
- 			     void *p)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
-+	char *bytes = p;
-+	int i;
- 
- 	if (regs->len > R8169_REGS_SIZE)
- 		regs->len = R8169_REGS_SIZE;
- 
- 	rtl_lock_work(tp);
--	memcpy_fromio(p, tp->mmio_addr, regs->len);
-+	if (regs->len >= 4) {
-+		for (i = 0; i < regs->len - 4; i += 4)
-+			memcpy_fromio(bytes + i, tp->mmio_addr + i, 4);
-+	}
-+	if (i < regs->len)
-+		memcpy_fromio(bytes + i, tp->mmio_addr + i, regs->len - i);
- 	rtl_unlock_work(tp);
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 18ea73c..bc9103d 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -791,7 +791,7 @@ static struct rt6_info *rt6_alloc_clone(struct rt6_info *ort,
  }
  
+ static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table, int oif,
+-				      struct flowi6 *fl6, int flags)
++				      struct flowi6 *fl6, int flags, bool input)
+ {
+ 	struct fib6_node *fn;
+ 	struct rt6_info *rt, *nrt;
+@@ -799,8 +799,11 @@ static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
+ 	int attempts = 3;
+ 	int err;
+ 	int reachable = net->ipv6.devconf_all->forwarding ? 0 : RT6_LOOKUP_F_REACHABLE;
++	int local = RTF_NONEXTHOP;
+ 
+ 	strict |= flags & RT6_LOOKUP_F_IFACE;
++	if (input)
++		local |= RTF_LOCAL;
+ 
+ relookup:
+ 	read_lock_bh(&table->tb6_lock);
+@@ -820,7 +823,7 @@ restart:
+ 	read_unlock_bh(&table->tb6_lock);
+ 
+ 	if (!dst_get_neighbour_raw(&rt->dst)
+-	    && !(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_LOCAL)))
++	    && !(rt->rt6i_flags & local))
+ 		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
+ 	else if (!(rt->dst.flags & DST_HOST))
+ 		nrt = rt6_alloc_clone(rt, &fl6->daddr);
+@@ -864,7 +867,7 @@ out2:
+ static struct rt6_info *ip6_pol_route_input(struct net *net, struct fib6_table *table,
+ 					    struct flowi6 *fl6, int flags)
+ {
+-	return ip6_pol_route(net, table, fl6->flowi6_iif, fl6, flags);
++	return ip6_pol_route(net, table, fl6->flowi6_iif, fl6, flags, true);
+ }
+ 
+ void ip6_route_input(struct sk_buff *skb)
+@@ -890,7 +893,7 @@ void ip6_route_input(struct sk_buff *skb)
+ static struct rt6_info *ip6_pol_route_output(struct net *net, struct fib6_table *table,
+ 					     struct flowi6 *fl6, int flags)
+ {
+-	return ip6_pol_route(net, table, fl6->flowi6_oif, fl6, flags);
++	return ip6_pol_route(net, table, fl6->flowi6_oif, fl6, flags, false);
+ }
+ 
+ struct dst_entry * ip6_route_output(struct net *net, const struct sock *sk,
 -- 
-1.8.3.4
+1.8.3.1
