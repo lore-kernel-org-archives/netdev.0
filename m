@@ -1,60 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH stable] ipv6: restrict neighbor entry creation to
- output flow
-Date: Thu, 15 Aug 2013 15:54:54 -0700 (PDT)
-Message-ID: <20130815.155454.417440388188230172.davem@davemloft.net>
-References: <abab9dc5af4b61da70672b99ad80175b94b4ec68.1376488215.git.mleitner@redhat.com>
-	<20130814150054.GB2723@order.stressinduktion.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v3 0/7] net: use platform_{get,set}_drvdata()
+Date: Fri, 16 Aug 2013 03:04:44 +0400
+Message-ID: <520D5E8C.4020600@cogentembedded.com>
+References: <520CD11D.8010202@huawei.com> <20130815.152359.920302339053249583.davem@davemloft.net> <20130815.153903.859166500375208182.davem@davemloft.net> <520D5B88.7080304@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mleitner@redhat.com, netdev@vger.kernel.org, jiri@resnulli.us,
-	dbanerje@akamai.com, yoshfuji@linux-ipv6.org
-To: hannes@stressinduktion.org
+Content-Type: text/plain; charset=ISO-8859-7;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, lizefan@huawei.com, leoli@freescale.com,
+	linuxppc-dev@lists.ozlabs.org, pantelis.antoniou@gmail.com,
+	vbordug@ru.mvista.com, gregkh@linuxfoundation.org,
+	jg1.han@samsung.com
+To: David Miller <davem@davemloft.net>, clbchenlibo.chen@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46982 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751737Ab3HOWyz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 18:54:55 -0400
-In-Reply-To: <20130814150054.GB2723@order.stressinduktion.org>
+Received: from mail-la0-f50.google.com ([209.85.215.50]:44196 "EHLO
+	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751767Ab3HOXEi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 19:04:38 -0400
+Received: by mail-la0-f50.google.com with SMTP id ek20so960734lab.23
+        for <netdev@vger.kernel.org>; Thu, 15 Aug 2013 16:04:36 -0700 (PDT)
+In-Reply-To: <520D5B88.7080304@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Wed, 14 Aug 2013 17:00:54 +0200
+On 08/16/2013 02:51 AM, Sergei Shtylyov wrote:
 
-> On Wed, Aug 14, 2013 at 10:53:27AM -0300, Marcelo Ricardo Leitner wrote:
->> This patch is based on 3.2.y branch, the one used by reported. Please let me
->> know if it should be different. Thanks.
->> 
->> ---8<---
->> 
->> Commit 0d6a77079c475033cb622c07c5a880b392ef664e introduced a regression on
->> which routes to local delivery would not work anymore. Like this:
->> 
->>     $ ip -6 route add local 2001::/64 dev lo
->>     $ ping6 -c1 2001::9
->>     PING 2001::9(2001::9) 56 data bytes
->>     ping: sendmsg: Invalid argument
->> 
->> As this is a local delivery, that commit would not allow the creation of a
->> neighbor entry and thus the packet cannot be sent.
->> 
->> But as TPROXY scenario actually needs to avoid the neighbor entry creation only
->> for input flow, this patch now limits previous patch to input flow, keeping
->> output as before that patch.
->> 
->> Reported-by: Debabrata Banerjee <dbavatar@gmail.com>
->> Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
->> CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> 
-> Looks good, thanks Marcelo!
-> 
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> 
-> David, this patch is for all stable kernels except the 3.10 series.
-> It does not apply cleanly throughout the whole longterm kernels but the
-> changes should not be too difficult to adapt. Do you take care of this
-> or can we do something to ease this process?
+>>> From: Libo Chen <clbchenlibo.chen@huawei.com>
+>>> Date: Thu, 15 Aug 2013 21:01:17 +0800
 
-I've queued it up for -stable, thanks.
+>>>> Use the wrapper functions for getting and setting the driver data =
+using
+>>>> platform_device instead of using dev_{get,set}_drvdata() with &pde=
+v->dev,
+>>>> so we can directly pass a struct platform_device.
+
+>>>> changelog v3:
+>>>>     remove modify about dev_set_drvdata()
+>>>> changelog v2:
+>>>>     this version add modify record about dev_set_drvdata().
+
+>>> Series applied.
+
+>> Actually, I had to revert, these patches break the build.
+
+>> drivers/net/ethernet/sun/sunhme.c: In function =A1happy_meal_pci_pro=
+be=A2:
+>> drivers/net/ethernet/sun/sunhme.c:3114:2: error: implicit declaratio=
+n of
+>> function =A1platform_set_drvdata=A2 [-Werror=3Dimplicit-function-dec=
+laration]
+>> drivers/net/ethernet/sun/sunhme.c: In function =A1happy_meal_pci_rem=
+ove=A2:
+>> drivers/net/ethernet/sun/sunhme.c:3162:9: error: implicit declaratio=
+n of
+>> function =A1platform_get_drvdata=A2 [-Werror=3Dimplicit-function-dec=
+laration]
+>> drivers/net/ethernet/sun/sunhme.c:3162:26: warning: initialization m=
+akes
+>> pointer from integer without a cast [enabled by default]
+
+>     Hm, patch #5 was clearly defective as it tried to call
+> platform_{get|set}_drvdata() on PCI devices -- I've read the patch bu=
+t
+> overlooked that. And the driver lacks #include <linux/platform_device=
+=2Eh>, so
+> I'm not sure it always compiled flawlessly.
+
+    Ah, the platform code is protected by #ifdef CONFIG_SBUS... probabl=
+y some=20
+header #include's <linux/platform_device.h>?
+
+WBR, Sergei
