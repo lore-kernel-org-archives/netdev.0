@@ -1,49 +1,37 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Fwd: RFC 6980 on Security Implications of IPv6 Fragmentation with IPv6 Neighbor Discovery
-Date: Thu, 15 Aug 2013 12:25:07 +0200
-Message-ID: <20130815102507.GA24122@order.stressinduktion.org>
-References: <20130813221321.AEA1AB1E003@rfc-editor.org> <520B3D81.9070506@gont.com.ar> <20130814230617.GA13066@order.stressinduktion.org> <520C7519.1010000@gont.com.ar> <20130815100407.GA18564@order.stressinduktion.org> <CAOp4FwRx3c3deHXupWg3S0aWe4ZJnCT9ORKCWRvUUuxxt1gneQ@mail.gmail.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH] bond: Don't set skb->queue_mapping in netpoll.
+Date: Thu, 15 Aug 2013 18:35:30 +0800
+Message-ID: <1376562930.2626.16.camel@cr0>
+References: <1376555808-6531-1-git-send-email-tm@tao.ma>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Fernando Gont <fernando@gont.com.ar>,
-	netdev <netdev@vger.kernel.org>
-To: Loganaden Velvindron <loganaden@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:53315 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752579Ab3HOKZJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 06:25:09 -0400
-Content-Disposition: inline
-In-Reply-To: <CAOp4FwRx3c3deHXupWg3S0aWe4ZJnCT9ORKCWRvUUuxxt1gneQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Tao Ma <tm@tao.ma>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1376555808-6531-1-git-send-email-tm@tao.ma>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 15, 2013 at 02:14:46PM +0400, Loganaden Velvindron wrote:
-> I'm not sure if you got my previous mails, but I'd like to know a
-> couple of things:
+On Thu, 2013-08-15 at 16:36 +0800, Tao Ma wrote:
+> From: Tao Ma <boyu.mt@taobao.com>
+> 
+> When we are using netpoll, we don't go through the normal
+> transmit process. In this case, bond_select_queue is not called
+> and qdisc_skb_cb(skb)->slave_dev_queue_mapping isn't set.
+> 
 
-Ah, you asked me off-list. So, for a wider audience, I copy & paste my answers
-from the just answered mail. ;)
+Yes?
 
-> 1) How can I test this diff ?
+In netpoll_send_skb_on_dev() we have:
 
-Actually, nothing should change at all.
+        if (skb_queue_len(&npinfo->txq) == 0 && !
+netpoll_owner_active(dev)) {
+                struct netdev_queue *txq;
 
-Myself, I used scapy to construct some packets and send it to a system
-with the patched kernel and had some printks sprinkeled in the source
-while watching tcpdump.
+                txq = netdev_pick_tx(dev, skb);
+                ...
 
-> 2) It's developed against which git brach ? linux-next ?
-
-Yes, I targeted linux-next. But it should apply to older kernels
-without too much fuzz as well.
-
-> 3) What will/could break with this diff in a production environment ?
-
-RA messages could get fragmented if a speaker puts lots of options in it. I
-hope all RA speakers already spread the options over multiple RAs, but I don't
-know. In case the RA is fragmented it will now be dropped silently.
-
-Thanks,
-
-  Hannes
+where netdev_pick_tx() will call ->ndo_select_queue().
