@@ -1,101 +1,40 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] skge: dma_sync the whole receive buffer
-Date: Thu, 15 Aug 2013 08:41:17 -0700
-Message-ID: <20130815084117.2f48fc58@nehalam.linuxnetplumber.net>
-References: <20130810104100.0ae20aa6@nehalam.linuxnetplumber.net>
-	<20130810.132935.1257046025460198490.davem@davemloft.net>
-	<20130810150207.37432299@nehalam.linuxnetplumber.net>
-	<20130813.150955.1471100759610399160.davem@davemloft.net>
-	<20130813180036.3e639789@nehalam.linuxnetplumber.net>
-	<520B59D3.4020103@gmail.com>
-	<20130814092022.494caf2b@nehalam.linuxnetplumber.net>
-	<520BCC72.8040002@gmail.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Specifying netdev name on kernel boot?
+Date: Thu, 15 Aug 2013 08:50:19 -0700
+Message-ID: <520CF8BB.2080702@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: poma <pomidorabelisima@gmail.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:56992 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757806Ab3HOPlZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 11:41:25 -0400
-Received: by mail-pb0-f49.google.com with SMTP id xb4so861280pbc.8
-        for <netdev@vger.kernel.org>; Thu, 15 Aug 2013 08:41:25 -0700 (PDT)
-In-Reply-To: <520BCC72.8040002@gmail.com>
+Received: from mail.candelatech.com ([208.74.158.172]:49117 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755331Ab3HOPuV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 11:50:21 -0400
+Received: from [192.168.100.226] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id r7FFoJnO028585
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 15 Aug 2013 08:50:20 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 14 Aug 2013 20:29:06 +0200
-poma <pomidorabelisima@gmail.com> wrote:
+It seems they finally broke udev in Fedora 19...it can no longer
+rename ethX to ethY, for whatever reason.
 
-> On 14.08.2013 18:20, Stephen Hemminger wrote:
-> > On Wed, 14 Aug 2013 12:20:03 +0200
-> > poma <pomidorabelisima@gmail.com> wrote:
-> > 
-> >> On 14.08.2013 03:00, Stephen Hemminger wrote:
-> >>> On Tue, 13 Aug 2013 15:09:55 -0700 (PDT)
-> >>> David Miller <davem@davemloft.net> wrote:
-> >>>
-> >>>> From: Stephen Hemminger <stephen@networkplumber.org>
-> >>>> Date: Sat, 10 Aug 2013 15:02:07 -0700
-> >>>>
-> >>>>> The DMA sync should sync the whole receive buffer, not just
-> >>>>> part of it. Fixes log messages dma_sync_check.
-> >>>>>
-> >>>>> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> >>>>
-> >>>> Applied, but I really suspect that your "check DMA mapping errors"
-> >>>> patch has added a serious regression.  A regression much worse than
-> >>>> the bug you were trying to fix with that change.
-> >>>
-> >>> Argh. The problem is deeper than that. Device got broken somewhere between
-> >>> 3.2 and 3.4. My old Dlink card works on 3.2 but gets DMA errors on 3.4.
-> >>> The config's are different though so checking that as well.
-> >>>
-> >>
-> >> Can I help you with debugging?
-> >> DGE-530T is rather solid device.
-> > 
-> > Don't think it is a hardware problem.
-> > The failure is when the board access the Receive ring PCI memory area.
-> > This region is allocated with pci_alloc_consistent and therefore should
-> > be available. Two possible issues are driver math issues, or hardware
-> > problems with where the region is located. Some of these cards don't
-> > really have full 64 bit PCI support.
-> > 
-> > My board is:
-> > 05:01.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adapter (rev 11)
-> > 	Subsystem: D-Link System Inc DGE-530T Gigabit Ethernet Adapter
-> > 	Flags: bus master, 66MHz, medium devsel, latency 32, IRQ 18
-> > 	Memory at f7d20000 (32-bit, non-prefetchable) [size=16K]
-> > 	I/O ports at c000 [size=256]
-> > 	Expansion ROM at f7d00000 [disabled] [size=128K]
-> > 	Capabilities: [48] Power Management version 2
-> > 	Capabilities: [50] Vital Product Data
-> > 	Kernel driver in use: skge
-> > 
-> > 
-> > What is your config?
-> > 
-> 
-> 01:09.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adapter
-> (rev 11)
-> 	Subsystem: D-Link System Inc DGE-530T Gigabit Ethernet Adapter
-> 	Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 19
-> 	Memory at fbffc000 (32-bit, non-prefetchable) [size=16K]
-> 	I/O ports at b400 [size=256]
-> 	[virtual] Expansion ROM at ec000000 [disabled] [size=128K]
-> 	Capabilities: [48] Power Management version 2
-> 	Capabilities: [50] Vital Product Data
-> 	Kernel driver in use: skge
-> 
-> 
-> poma
-> 
+Is there a way to specify the naming on the kernel command line?
 
-In the course of debugging this, I moved the card to another slot
-and all the problems went away. I suspect either card insertion or more likely
-the crap consumer motherboards don't have full PCI support on some slots.
+I found something in google that made me think this might work:
 
-There doesn't seem to be anyway to address this in software.
+ifname=eth0:00:30:48:fc:17:a2 ifname=eth1:00:30:48:fc:17:a3 ifname=eth2:00:e0:ed:1c:ec:e4 ifname=eth3:00:e0:ed:1c:ec:e5
+
+but it doesn't seem to have any affect.
+
+I'm using ixgbe and e1000e drivers, loaded as modules, in case that matters.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
