@@ -1,36 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net/ethernet/via/via-velocity.c: update napi
- implementation
-Date: Thu, 15 Aug 2013 01:39:07 -0700 (PDT)
-Message-ID: <20130815.013907.319502653692029822.davem@davemloft.net>
-References: <1376490413-12067-1-git-send-email-Julia.Lawall@lip6.fr>
+Subject: Re: [GIT net] Open vSwitch
+Date: Thu, 15 Aug 2013 01:41:43 -0700 (PDT)
+Message-ID: <20130815.014143.596294410546069834.davem@davemloft.net>
+References: <1376522347-39531-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, roszenrami@gmail.com, dshwatrz@gmail.com,
-	kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, grant.likely@linaro.org,
-	rob.herring@calxeda.com
-To: Julia.Lawall@lip6.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1376490413-12067-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: jesse@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37890 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751437Ab3HOIls (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 04:41:48 -0400
+In-Reply-To: <1376522347-39531-1-git-send-email-jesse@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Wed, 14 Aug 2013 16:26:53 +0200
+From: Jesse Gross <jesse@nicira.com>
+Date: Wed, 14 Aug 2013 16:19:04 -0700
 
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
-> 
-> Drivers supporting NAPI should use a NAPI-specific function for receiving
-> packets.  Hence netif_rx is changed to netif_receive_skb.
-> 
-> Furthermore netif_napi_del should be used in the probe and remove function
-> to clean up the NAPI resource information.
-> 
-> Thanks to Francois Romieu, David Shwatrz and Rami Rosen for their help on
-> this patch.
-> 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> Three bug fixes that are fairly small either way but resolve obviously
+> incorrect code. For net/3.11.
 
-Applied, thanks.
+Pulled, thanks Jesse.
