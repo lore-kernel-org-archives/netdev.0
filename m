@@ -1,47 +1,57 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch 3/2] libceph: create_singlethread_workqueue() doesn't return
- ERR_PTRs
-Date: Thu, 15 Aug 2013 08:58:59 +0300
-Message-ID: <20130815055859.GF23580@elgon.mountain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	ceph-devel@vger.kernel.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Sage Weil <sage@inktank.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:40592 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753392Ab3HOF7M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 01:59:12 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+Subject: [PATCH v4 0/5] ARM: davinci: da850: add ethernet driver DT support
+Date: Thu, 15 Aug 2013 11:31:32 +0530
+Message-ID: <1376546497-26931-1-git-send-email-prabhakar.csengg@gmail.com>
+Cc: DLOS <davinci-linux-open-source@linux.davincidsp.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	devicetree-discuss@lists.ozlabs.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	"Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+To: Sekhar Nori <nsekhar@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-create_singlethread_workqueue() returns NULL on error, and it doesn't
-return ERR_PTRs.
+From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
 
-I tweaked the error handling a little to be consistent with earlier in
-the function.
+This patch set enables Ethernet support through device tree model.
+This patch set enables mii interface only and is being tested to boot via
+rootfs. The rmii phy is present on the i2c gpio expander chip (UI board)
+for which yet support needs to be added, once the DT support for the chip
+is enabled, enabling rmii will be subsequnet patch.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Changes for v2:
+1: Enabled mdio device.
+2: Fixed clock lookup.
 
-diff --git a/net/ceph/osd_client.c b/net/ceph/osd_client.c
-index dbc0a73..02c5246 100644
---- a/net/ceph/osd_client.c
-+++ b/net/ceph/osd_client.c
-@@ -2257,12 +2257,10 @@ int ceph_osdc_init(struct ceph_osd_client *osdc, struct ceph_client *client)
- 	if (err < 0)
- 		goto out_msgpool;
- 
-+	err = -ENOMEM;
- 	osdc->notify_wq = create_singlethread_workqueue("ceph-watch-notify");
--	if (IS_ERR(osdc->notify_wq)) {
--		err = PTR_ERR(osdc->notify_wq);
--		osdc->notify_wq = NULL;
-+	if (!osdc->notify_wq)
- 		goto out_msgpool;
--	}
- 	return 0;
- 
- out_msgpool:
+Changes for v3:
+1: Fixed review comments pointed out by Sekhar.
+
+Changes for v4:
+1: Fixed review comments pointed out by Sekhar.
+2: Dropped patch v3 6/6 (https://patchwork.kernel.org/patch/2768361/)
+   Which depends on adding GPIO DT node, will address it once GPIO support is added.
+3: Rebased the patches on [1]
+
+[1] https://git.kernel.org/cgit/linux/kernel/git/nsekhar/linux-davinci.git/log/?h=v3.12/soc
+
+Lad, Prabhakar (5):
+  ARM: davinci: fix clock lookup for mdio device
+  ARM: davinci: da850: add DT node for mdio device
+  ARM: davinci: da850: add OF_DEV_AUXDATA entry for mdio.
+  ARM: davinci: da850: add DT node for eth0.
+  ARM: davinci: da850: add OF_DEV_AUXDATA entry for eth0.
+
+ arch/arm/boot/dts/da850-evm.dts       |   11 +++++++++
+ arch/arm/boot/dts/da850.dtsi          |   43 +++++++++++++++++++++++++++++++++
+ arch/arm/mach-davinci/da830.c         |    1 +
+ arch/arm/mach-davinci/da850.c         |    1 +
+ arch/arm/mach-davinci/da8xx-dt.c      |    4 +++
+ arch/arm/mach-davinci/devices-da8xx.c |    8 ++----
+ arch/arm/mach-davinci/dm365.c         |    3 +--
+ arch/arm/mach-davinci/dm644x.c        |    3 +--
+ arch/arm/mach-davinci/dm646x.c        |    3 +--
+ 9 files changed, 65 insertions(+), 12 deletions(-)
+
+-- 
+1.7.9.5
