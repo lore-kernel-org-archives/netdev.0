@@ -1,37 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next] 6lowpan: handle only real link-local
- addresses
-Date: Wed, 14 Aug 2013 17:18:25 -0700 (PDT)
-Message-ID: <20130814.171825.944941726261089646.davem@davemloft.net>
-References: <1376478067-3371-1-git-send-email-alex.aring@gmail.com>
-	<20130814.125346.585011183381258117.davem@davemloft.net>
-	<20130814211658.GA2075@x61s.8.8.8.8>
+Subject: Re: TCP Connection teardown seems to violate TCP specification
+Date: Wed, 14 Aug 2013 17:19:16 -0700 (PDT)
+Message-ID: <20130814.171916.338807326839447447.davem@davemloft.net>
+References: <CAK6E8=fWOe3eEvw6sC=Da415qGp+wXsm2bpe9Vbbukit9yU8sQ@mail.gmail.com>
+	<520BE51F.40208@hp.com>
+	<1376515097.9293.6.camel@nexus>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: alex.aring@gmail.com
+Cc: rick.jones2@hp.com, ycheng@google.com, netdev@vger.kernel.org
+To: damian@tvk.rwth-aachen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33937 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33943 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751014Ab3HOAS2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 20:18:28 -0400
-In-Reply-To: <20130814211658.GA2075@x61s.8.8.8.8>
+	with ESMTP id S1754319Ab3HOATR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 20:19:17 -0400
+In-Reply-To: <1376515097.9293.6.camel@nexus>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Aring <alex.aring@gmail.com>
-Date: Wed, 14 Aug 2013 23:17:01 +0200
+From: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Date: Wed, 14 Aug 2013 23:18:17 +0200
 
-> Ok, please let me know what should I do to submit it properly.
+> Nevertheless, shouldn't the stack keep on reading the input
+> even if the local application is not interested in it?
 
-What you don't understand is that just because patches aren't
-related doesn't mean that their order of application doesn't
-matter.
+Absolutely, positively, not.
 
-So you put all the patches into a full series so that there is no
-ambiguity as to what order the patches are to be applied.
-
-Do not ever seperate patches when you are submitting changes to the
-same exact files at one time.
+It is a loss of data, and therefore TCP responds with a reset when
+pending read data is not consumed by the application.
