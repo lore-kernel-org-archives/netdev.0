@@ -1,53 +1,47 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] tun: signedness bug in tun_get_user()
-Date: Thu, 15 Aug 2013 15:52:57 +0300
-Message-ID: <20130815125257.GA16932@elgon.mountain>
+From: Libo Chen <clbchenlibo.chen@huawei.com>
+Subject: [PATCH v3 0/7] net: use platform_{get,set}_drvdata()
+Date: Thu, 15 Aug 2013 21:01:17 +0800
+Message-ID: <520CD11D.8010202@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, Li Zefan <lizefan@huawei.com>,
+	<leoli@freescale.com>, <linuxppc-dev@lists.ozlabs.org>,
+	<pantelis.antoniou@gmail.com>, <vbordug@ru.mvista.com>,
+	Greg KH <gregkh@linuxfoundation.org>, <jg1.han@samsung.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:19539 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755378Ab3HOMxW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 08:53:22 -0400
-Content-Disposition: inline
+Received: from szxga02-in.huawei.com ([119.145.14.65]:61056 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752860Ab3HONBg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 09:01:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The recent fix d9bf5f1309 "tun: compare with 0 instead of total_len" is
-not totally correct.  Because "len" and "sizeof()" are size_t type, that
-means they are never less than zero.
+Use the wrapper functions for getting and setting the driver data using
+platform_device instead of using dev_{get,set}_drvdata() with &pdev->dev,
+so we can directly pass a struct platform_device.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+changelog v3:
+	remove modify about dev_set_drvdata()
+changelog v2:
+	this version add modify record about dev_set_drvdata().
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index af987f0..7ed13cc 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -977,8 +977,9 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	u32 rxhash;
- 
- 	if (!(tun->flags & TUN_NO_PI)) {
--		if ((len -= sizeof(pi)) < 0)
-+		if (len < sizeof(pi))
- 			return -EINVAL;
-+		len -= sizeof(pi);
- 
- 		if (memcpy_fromiovecend((void *)&pi, iv, 0, sizeof(pi)))
- 			return -EFAULT;
-@@ -986,8 +987,9 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	}
- 
- 	if (tun->flags & TUN_VNET_HDR) {
--		if ((len -= tun->vnet_hdr_sz) < 0)
-+		if (len < tun->vnet_hdr_sz)
- 			return -EINVAL;
-+		len -= tun->vnet_hdr_sz;
- 
- 		if (memcpy_fromiovecend((void *)&gso, iv, offset, sizeof(gso)))
- 			return -EFAULT;
+Libo Chen (7):
+  net: fsl_pq_mdio: use platform_{get,set}_drvdata()
+  net: ucc_geth: use platform_{get,set}_drvdata()
+  net: fec_mpc52xx_phy: use platform_{get,set}_drvdata()
+  net: sunbmac: use platform_{get,set}_drvdata()
+  net: sunhme: use platform_{get,set}_drvdata()
+  net: xilinx_emaclite: use platform_{get,set}_drvdata()
+  net: davinci_mdio: use platform_{get,set}_drvdata()
+
+ drivers/net/ethernet/freescale/fec_mpc52xx_phy.c |    3 +--
+ drivers/net/ethernet/freescale/fsl_pq_mdio.c     |    2 +-
+ drivers/net/ethernet/freescale/ucc_geth.c        |    3 +--
+ drivers/net/ethernet/sun/sunbmac.c               |    2 +-
+ drivers/net/ethernet/sun/sunhme.c                |    6 +++---
+ drivers/net/ethernet/ti/davinci_mdio.c           |    3 +--
+ drivers/net/ethernet/xilinx/xilinx_emaclite.c    |    3 +--
+ 7 files changed, 9 insertions(+), 13 deletions(-)
