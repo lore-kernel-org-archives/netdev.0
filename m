@@ -1,66 +1,37 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv3 net-next 0/3] xfrm: Refactor xfrm_state timer management
-Date: Thu, 15 Aug 2013 15:50:40 +0800
-Message-ID: <1376553043-19007-1-git-send-email-fan.du@windriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/4] ipip/ip6tnl: allow to switch netns
+ during encap/decap
+Date: Thu, 15 Aug 2013 01:01:49 -0700 (PDT)
+Message-ID: <20130815.010149.1288338225161487771.davem@davemloft.net>
+References: <20130704.145621.2060744817757546493.davem@davemloft.net>
+	<1376409072-6414-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <herbert@gondor.hengli.com.au>, <dborkman@redhat.com>,
-	<netdev@vger.kernel.org>
-To: <tglx@linutronix.de>, <davem@davemloft.net>,
-	<steffen.klassert@secunet.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com, bcrl@kvack.org,
+	ravi.mlists@gmail.com, bhutchings@solarflare.com,
+	eric.dumazet@gmail.com
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:40372 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751382Ab3HOHvL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 03:51:11 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:37508 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754170Ab3HOIBv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 04:01:51 -0400
+In-Reply-To: <1376409072-6414-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The first version of "refactor xfrm_state timer management" has been
-flushed into toilet since nobody but only me like it.
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Tue, 13 Aug 2013 17:51:08 +0200
 
-Anyway new approach here is updating SAs lifetime timeout whenever
-clock_was_set is called, iow, system clock changed or host resume from
-suspend state. Rule is simple, force soft expire for any SAs which has
-not reach their soft expire limit and hard expire for those has experienced
-soft expire timeout but wait for hard expire timeout to come.
+> 
+> This serie is a follow up of the previous serie witch adds this functionality
+> for sit tunnels.
+> 
+> The goal is to add x-netns support for the module ipip and ip6_tunnel, ie the
+> encapsulation addresses and the network device are not owned by the same
+> namespace.
+> 
+> Note that the two first patches are cleanup.
 
-Locking issue:
- - holding rtnl_lock when iterate on all net namespace.
- - holding xfrm_state_lock when iterate all xfrm_state in this net.
- - holding state->lock when changing xfrm_state.
-
-Any comments would be wellcome! harsh or gentle :)
-
-Thanks!
-
-v3:
-  - Fixing locking issue clock_change_callback reported by LOCKDEP.
-  - Beautify notifier in clock_was_set as suggested by Daniel Borkmann.
-
-v2: 
-  - Instead of getting rid of original xfrm_state timer code almost completely,
-    new approach is updating SA lifetime when clock_was_set is called.
-
-v1:
-  - The initiative of v1 is making xfrm_state timer independent of wall clock
-    changing which could result in sudden SA termination or extremely long SA
-    lifetime. So no need to read wall clock in timer handler and also
-    unnecessary to turn on the timer for just 1 second as the original
-    implementation. Simply start the timer right after SA is create for soft
-    timeout, and after soft timeout happened, reload timer for hard timeout.
-
-
-Fan Du (3):
-  hrtimer: Add notifer when clock_was_set was called
-  xfrm: Update xfrm_state lifetime expire after clock_was_set
-  xfrm: Revert "Fix unexpected SA hard expiration after changing date"
-
- include/linux/hrtimer.h |    3 +++
- include/net/xfrm.h      |    4 ---
- kernel/hrtimer.c        |   19 ++++++++++++++
- net/xfrm/xfrm_state.c   |   65 ++++++++++++++++++++++++++++++++++-------------
- 4 files changed, 70 insertions(+), 21 deletions(-)
-
--- 
-1.7.9.5
+Looks good, series applied, thanks.
