@@ -1,37 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/4] ipip/ip6tnl: allow to switch netns
- during encap/decap
-Date: Thu, 15 Aug 2013 01:01:49 -0700 (PDT)
-Message-ID: <20130815.010149.1288338225161487771.davem@davemloft.net>
-References: <20130704.145621.2060744817757546493.davem@davemloft.net>
-	<1376409072-6414-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net] net: tg3: fix NULL pointer dereference in
+ tg3_io_error_detected and tg3_io_slot_reset
+Date: Thu, 15 Aug 2013 01:07:26 -0700 (PDT)
+Message-ID: <20130815.010726.719593168454341579.davem@davemloft.net>
+References: <1376419513-31924-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com, bcrl@kvack.org,
-	ravi.mlists@gmail.com, bhutchings@solarflare.com,
-	eric.dumazet@gmail.com
-To: nicolas.dichtel@6wind.com
+Cc: netdev@vger.kernel.org, dborkman@redhat.com,
+	shangw@linux.vnet.ibm.com, mchan@broadcom.com
+To: nsujir@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37508 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37560 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754170Ab3HOIBv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 04:01:51 -0400
-In-Reply-To: <1376409072-6414-1-git-send-email-nicolas.dichtel@6wind.com>
+	with ESMTP id S1753516Ab3HOIH1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 04:07:27 -0400
+In-Reply-To: <1376419513-31924-1-git-send-email-nsujir@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Tue, 13 Aug 2013 17:51:08 +0200
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Date: Tue, 13 Aug 2013 11:45:13 -0700
 
+> From: Daniel Borkmann <dborkman@redhat.com>
 > 
-> This serie is a follow up of the previous serie witch adds this functionality
-> for sit tunnels.
+> Commit d8af4dfd8 ("net/tg3: Fix kernel crash") introduced a possible
+> NULL pointer dereference in tg3 driver when !netdev || !netif_running(netdev)
+> condition is met and netdev is NULL. Then, the jump to the 'done' label
+> calls dev_close() with a netdevice that is NULL. Therefore, only call
+> dev_close() when we have a netdevice, but one that is not running.
 > 
-> The goal is to add x-netns support for the module ipip and ip6_tunnel, ie the
-> encapsulation addresses and the network device are not owned by the same
-> namespace.
+> [ Add the same checks in tg3_io_slot_reset() per Gavin Shan - by Nithin
+> Nayak Sujir ]
 > 
-> Note that the two first patches are cleanup.
+> Reported-by: Dave Jones <davej@redhat.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Gavin Shan <shangw@linux.vnet.ibm.com>
+> Cc: Michael Chan <mchan@broadcom.com>
+> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
 
-Looks good, series applied, thanks.
+Can I get some reviews from the Broadcom folks?
+
+Thanks.
