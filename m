@@ -1,53 +1,52 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] r8169: fix invalid register dump
-Date: Thu, 15 Aug 2013 22:33:15 +0200
-Message-ID: <1376598795.11042.1.camel@deadeye.wl.decadent.org.uk>
-References: <1376426265-30353-1-git-send-email-lekensteyn@gmail.com>
-	 <3465288.NFVErF5E7l@al> <20130814195829.GA1613@electric-eye.fr.zoreil.com>
-	 <2045708.ru9COLib4d@al>
+From: Amos Kong <kongjianjun@gmail.com>
+Subject: Re: [PATCH] macvtap: fix up direction in comment on offloading
+Date: Fri, 16 Aug 2013 04:41:26 +0800
+Message-ID: <CAFeW=paTeaNsvK7ai-PPs6+MVW3LbaPaW9et_eu3XuGPpMqnuw@mail.gmail.com>
+References: <20130815174626.GA10874@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, <netdev@vger.kernel.org>,
-	<nic_swsd@realtek.com>
-To: Peter Wu <lekensteyn@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:8891 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753674Ab3HOUdW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 16:33:22 -0400
-In-Reply-To: <2045708.ru9COLib4d@al>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Jason Wang <jasowang@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130815174626.GA10874@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-08-14 at 23:31 +0200, Peter Wu wrote:
-> On Wednesday 14 August 2013 21:58:29 Francois Romieu wrote:
-> > > -     memcpy_fromio(p, tp->mmio_addr, regs->len);
-> > > +     if (regs->len >= 4) {
-> > > +             for (i = 0; i < regs->len - 4; i += 4)
-> > > +                     memcpy_fromio(bytes + i, tp->mmio_addr + i, 4);
-> > > +     }
-> > > +     if (i < regs->len)
-> > 
-> > Comparison with random stack stuff when regs->len < 4. :o/
-> 
-> Right, let's rm $OLD_PATCH and consider this one.
-> 
-> Checklist:
-> 1. super large regs->len: won't be greater than R8169_REGS_SIZE (256)
-> 2. regs->len == 0: 0 < 0 is false, nothing is copied
-> 3. regs->len is 1, 2 or 3: i = 0, at most 3 bytes will be copied
-> 4. regs->len is 4, i < 4 - 4, skip loop, 0 < regs->len, copy 4
-> 5. regs->len is 5, i < 5 - 4, copy; 4 < regs->len, copy 1
-[...]
+On Fri, Aug 16, 2013 at 1:46 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> It speaks about receiving frames, so while
+> it says GSO, it really means GRO.
+>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>  drivers/net/macvtap.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index a98fb0e..a98ed9f 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -1047,7 +1047,7 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
+>          * accept TSO frames and turning it off means that user space
+>          * does not support TSO.
+>          * For macvtap, we have to invert it to mean the same thing.
+> -        * When user space turns off TSO, we turn off GSO/LRO so that
+> +        * When user space turns off TSO, we turn off GRO/LRO so that
 
-The kernel buffer size is max(regs->len,
-dev->ethtool_ops->get_regs_len()).  So you can safely ignore regs->len
-and always read all your registers.
+Right fix.
 
-Ben.
+Reviewed-by: Amos Kong <kongjianjun@gmail.com>
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+>          * user-space will not receive TSO frames.
+>          */
+>         if (feature_mask & (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO))
+> --
+> MST
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
