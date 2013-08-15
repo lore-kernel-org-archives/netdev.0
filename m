@@ -1,53 +1,36 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: Re: ethernet: ti: cpsw/mdio: suspend/resume
-Date: Thu, 15 Aug 2013 12:04:19 +0200
-Message-ID: <520CA7A3.60305@gmail.com>
-References: <520BECA2.90800@gmail.com> <520CA61F.3050802@ti.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: Re: cpsw fails to come up once in a while
+Date: Thu, 15 Aug 2013 12:12:49 +0200
+Message-ID: <520CA9A1.4050205@linutronix.de>
+References: <20130814175439.GA13483@linutronix.de> <520CA67F.4000902@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Vaibhav Bedia <vaibhav.bedia@ti.com>, netdev@vger.kernel.org,
-	Sebastian Siewior <bigeasy@linutronix.de>
+Cc: netdev@vger.kernel.org
 To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f42.google.com ([74.125.83.42]:59812 "EHLO
-	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753393Ab3HOKEW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 06:04:22 -0400
-Received: by mail-ee0-f42.google.com with SMTP id b45so262473eek.29
-        for <netdev@vger.kernel.org>; Thu, 15 Aug 2013 03:04:21 -0700 (PDT)
-In-Reply-To: <520CA61F.3050802@ti.com>
+Received: from www.linutronix.de ([62.245.132.108]:33563 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752434Ab3HOKMv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 06:12:51 -0400
+In-Reply-To: <520CA67F.4000902@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15.08.2013 11:57, Mugunthan V N wrote:
-> On Thursday 15 August 2013 02:16 AM, Daniel Mack wrote:
->> Vaibhav told me that you are working on a patch to add suspend/resume
->> functions to the cpsw and davinci_mdio driver, but searching my archives
->> didn't bring up anything.
->>
->> May I ask whether you have a link to your work, or can I help here in
->> any way?
->>
->>
->> Thanks,
->> Daniel
-> Sorry for re-posting the same mail as my previous mail was in html format
+On 08/15/2013 11:59 AM, Mugunthan V N wrote:
+> This is a unknown issue. Will arrange a setup to test this scenario and
+> fix the issue.
+
+Ah, cool. Once in this state I tried various things but nothing helped.
+I tried to reset the HW phy and see if this helped but it ended while I
+looking for schematics and I though maybe it is easier to ask first.
+
+One think I noticed in __davinci_mdio_reset() is that
+data->access_time is set via usecs_to_jiffies() and then used by
+msleep(). Since msleep() expects ms and not jiffies, this is wrong.
+
 > 
-> Thanks for your helping hand. All my patches for CPSW suspend/resume had
-> already applied
+> Regards
+> Mugunthan V N
 
-You're talking about the pinctrl related patches, right?
-
-> and with Dave Gerlach AM335x suspend/resume patches CPSW
-> suspend/resume works fine. Dave Gerlach has his branch published at
-> below link which I had already tested suspend.resume with CPSW ping traffic.
-> https://github.com/dgerlach/linux-pm/tree/am335x-3.11rc4-suspend-resume
-
-Hmm, I'm testing with this tree as well, and at least when mounting the
-rootfs via NFS, ethernet is dead after resume. But I'll do more tests
-soon and let you know. I just thought I'm missing some patch.
-
-
-Thanks for the update,
-Daniel
+Sebastian
