@@ -1,29 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 2/2] macvtap: Allow tap features change when
- IFF_VNET_HDR is disabled.
-Date: Thu, 15 Aug 2013 15:39:49 -0700 (PDT)
-Message-ID: <20130815.153949.1899943553778101815.davem@davemloft.net>
-References: <20130815173347.GA10265@redhat.com>
-	<20130815.131645.1042317207899492632.davem@davemloft.net>
-	<20130815205245.GB12743@redhat.com>
+Subject: Re: [PATCH] macvtap: fix up direction in comment on offloading
+Date: Thu, 15 Aug 2013 15:39:56 -0700 (PDT)
+Message-ID: <20130815.153956.753981075193965537.davem@davemloft.net>
+References: <20130815174626.GA10874@redhat.com>
+	<CAFeW=paTeaNsvK7ai-PPs6+MVW3LbaPaW9et_eu3XuGPpMqnuw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vyasevic@redhat.com, netdev@vger.kernel.org
-To: mst@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46840 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751795Ab3HOWjt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 18:39:49 -0400
-In-Reply-To: <20130815205245.GB12743@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mst@redhat.com, linux-kernel@vger.kernel.org, jasowang@redhat.com,
+	edumazet@google.com, vyasevic@redhat.com, netdev@vger.kernel.org
+To: kongjianjun@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFeW=paTeaNsvK7ai-PPs6+MVW3LbaPaW9et_eu3XuGPpMqnuw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Thu, 15 Aug 2013 23:52:45 +0300
+From: Amos Kong <kongjianjun@gmail.com>
+Date: Fri, 16 Aug 2013 04:41:26 +0800
 
-> OK in that case let's fix the rest of macvtap so I can stop getting
-> confused?
+> On Fri, Aug 16, 2013 at 1:46 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+>> It speaks about receiving frames, so while
+>> it says GSO, it really means GRO.
+>>
+>> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+>> ---
+>>  drivers/net/macvtap.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+>> index a98fb0e..a98ed9f 100644
+>> --- a/drivers/net/macvtap.c
+>> +++ b/drivers/net/macvtap.c
+>> @@ -1047,7 +1047,7 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
+>>          * accept TSO frames and turning it off means that user space
+>>          * does not support TSO.
+>>          * For macvtap, we have to invert it to mean the same thing.
+>> -        * When user space turns off TSO, we turn off GSO/LRO so that
+>> +        * When user space turns off TSO, we turn off GRO/LRO so that
+> 
+> Right fix.
+> 
+> Reviewed-by: Amos Kong <kongjianjun@gmail.com>
 
-Sure, but after you guys sort out these bug fixes.
+Applied, thanks.
