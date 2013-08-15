@@ -1,87 +1,67 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v3 1/2] macvtap: include all checksum offloads in
- TUN_OFFLOAD mask
-Date: Thu, 15 Aug 2013 21:24:31 +0300
-Message-ID: <20130815182430.GB10265@redhat.com>
-References: <1376586173-4242-1-git-send-email-vyasevic@redhat.com>
- <1376586173-4242-2-git-send-email-vyasevic@redhat.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Specifying netdev name on kernel boot?
+Date: Thu, 15 Aug 2013 11:26:06 -0700
+Message-ID: <520D1D3E.1010702@candelatech.com>
+References: <520CF8BB.2080702@candelatech.com> <1376590143.2180.11.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevic@redhat.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41587 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751903Ab3HOSWp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Aug 2013 14:22:45 -0400
-Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r7FIMjrw015806
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 15 Aug 2013 14:22:45 -0400
-Content-Disposition: inline
-In-Reply-To: <1376586173-4242-2-git-send-email-vyasevic@redhat.com>
+Received: from mail.candelatech.com ([208.74.158.172]:44848 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751903Ab3HOS0K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 14:26:10 -0400
+In-Reply-To: <1376590143.2180.11.camel@dcbw.foobar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 15, 2013 at 01:02:52PM -0400, Vlad Yasevich wrote:
-> The features of the macvlan are based on the features of lower
-> device and thus can have checksum featurs other then IFF_F_HW_CSUM
+On 08/15/2013 11:09 AM, Dan Williams wrote:
+> On Thu, 2013-08-15 at 08:50 -0700, Ben Greear wrote:
+>> It seems they finally broke udev in Fedora 19...it can no longer
+>> rename ethX to ethY, for whatever reason.
+>
+> It's intentional AFAIK, it won't rename devices into the kernel
+> namespace (eth, wlan, usb, wwan) because it's inherently race-prone and
+> there's no way to know that the kernel didn't just detect a new eth2
+> while you're about to rename your eth0 to eth2.  There actually have
+> been a lot of problems with that in past, because bus enumeration order
+> is not guaranteed.
+>
+> I'm pretty sure you drop a rule in /etc/udev/rules.d  to what you want:
+>
+> SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", ATTR{address}=="00:xx:xx:xx:xx:xx", ATTR{dev_id}=="0x0", ATTR{type}=="1", KERNEL=="eth*", NAME="eth0"
 
-s/featurs/features/
+This used to work, but no longer does in Fedora 19.  If you do NAME="eth0r" then
+it does work.
 
-:set spell spelllang=en_us
+It shouldn't actually race (or at least shouldn't cause problems) at
+the kernel level, and user-space should be able to detect a conflict
+and take evasive action.  Even if the rename itself fails due to a
+race, user-space can just try again and it should work after a few tries.
 
-or whatever's the equivalent in your editor of choice.
+I opened a bug against Fedora udev, for what that is worth.
 
-> set.  However, TUN_OFFLOAD mask only includes IFF_F_HW_CSUM.  Thus
-> when performing gso segmentation during macvtap_forward(),
-> it is possbile to end up with skbs that have ip_summed set
-> to CHECKSUM_PARTIAL.  This is incorrect when the user
-> turns off checksum offloading.
-> 
-> Include all possible checksum offload values so that
-> we'll properly mask them off when performing GSO.
-> 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> ---
->  drivers/net/macvtap.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index b51db2a..8121358 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -65,7 +65,7 @@ static struct cdev macvtap_cdev;
->  
->  static const struct proto_ops macvtap_socket_ops;
->  
-> -#define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
-> +#define TUN_OFFLOADS (NETIF_F_ALL_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
->  		      NETIF_F_TSO6 | NETIF_F_UFO)
->  #define RX_OFFLOADS (NETIF_F_GRO | NETIF_F_LRO)
->  /*
+> Or if you install biosdevname, you'll get the nice BIOS names for the
+> interfaces which is usually something like "slot1nic0" or "builtin0" or
+> something like that.
+>
+> (and yeah, one of my devices is "enp0s29f7u4" which is just f-king ugly.
+> *I* know what that means and why udev is doing it, but I also sympathize
+> with those who don't...)
 
-Okay so you are talking about hardware that sets some other
-checksum bit besides HW_CSUM, e.g. IP_CSUM, so
+Yeah, I really want to avoid those types of names.
 
-        vlan->tap_features = vlan->dev->features &
-                            (feature_mask | ~TUN_OFFLOADS);
+I hacked up a perl script that does the rename, but it can cause
+some churn because I can't find any useful way to make systemd
+put the rename logic between udev and network bringup.  I am
+mostly clueless on systemd, so perhaps it's easier than it looked.
 
-will not clear IP_CSUM even if feature_mask is 0.
-
-Maybe mention this in the changelog, in case user
-will wonder whether his hardware is affected.
-
-So I agree, that's a bug, but if you make this change the reverse will hold
-(on this hardware):
-if user sets TUN_F_CSUM, we won't set NETIF_F_IP_CSUM
-so checksum offloading won't work.
-
-So I think you want s/NETIF_F_HW_CSUM/NETIF_F_ALL_CSUM/ everywhere
-and not just in this place.
-
-Also - Cc stable?
+Thanks,
+Ben
 
 
-> -- 
-> 1.8.1.4
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
