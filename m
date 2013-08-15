@@ -1,52 +1,56 @@
-From: Amos Kong <kongjianjun@gmail.com>
-Subject: Re: [PATCH] macvtap: fix up direction in comment on offloading
-Date: Fri, 16 Aug 2013 04:41:26 +0800
-Message-ID: <CAFeW=paTeaNsvK7ai-PPs6+MVW3LbaPaW9et_eu3XuGPpMqnuw@mail.gmail.com>
-References: <20130815174626.GA10874@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: tg3: fix NULL pointer dereference in
+ tg3_io_error_detected and tg3_io_slot_reset
+Date: Thu, 15 Aug 2013 13:41:54 -0700 (PDT)
+Message-ID: <20130815.134154.150400473673493400.davem@davemloft.net>
+References: <1376419513-31924-1-git-send-email-nsujir@broadcom.com>
+	<20130815.010726.719593168454341579.davem@davemloft.net>
+	<1376579720.9648.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Jason Wang <jasowang@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130815174626.GA10874@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nsujir@broadcom.com, netdev@vger.kernel.org, dborkman@redhat.com,
+	shangw@linux.vnet.ibm.com
+To: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45809 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750866Ab3HOUlz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 16:41:55 -0400
+In-Reply-To: <1376579720.9648.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 16, 2013 at 1:46 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> It speaks about receiving frames, so while
-> it says GSO, it really means GRO.
->
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
->  drivers/net/macvtap.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index a98fb0e..a98ed9f 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -1047,7 +1047,7 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
->          * accept TSO frames and turning it off means that user space
->          * does not support TSO.
->          * For macvtap, we have to invert it to mean the same thing.
-> -        * When user space turns off TSO, we turn off GSO/LRO so that
-> +        * When user space turns off TSO, we turn off GRO/LRO so that
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Thu, 15 Aug 2013 08:15:20 -0700
 
-Right fix.
+> On Thu, 2013-08-15 at 01:07 -0700, David Miller wrote: 
+>> From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+>> Date: Tue, 13 Aug 2013 11:45:13 -0700
+>> 
+>> > From: Daniel Borkmann <dborkman@redhat.com>
+>> > 
+>> > Commit d8af4dfd8 ("net/tg3: Fix kernel crash") introduced a possible
+>> > NULL pointer dereference in tg3 driver when !netdev || !netif_running(netdev)
+>> > condition is met and netdev is NULL. Then, the jump to the 'done' label
+>> > calls dev_close() with a netdevice that is NULL. Therefore, only call
+>> > dev_close() when we have a netdevice, but one that is not running.
+>> > 
+>> > [ Add the same checks in tg3_io_slot_reset() per Gavin Shan - by Nithin
+>> > Nayak Sujir ]
+>> > 
+>> > Reported-by: Dave Jones <davej@redhat.com>
+>> > Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>> > Cc: Gavin Shan <shangw@linux.vnet.ibm.com>
+>> > Cc: Michael Chan <mchan@broadcom.com>
+>> > Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+>> 
+>> Can I get some reviews from the Broadcom folks?
+>> 
+> 
+> We worked with Daniel at Red Hat and Gavin at IBM on this patch.
+> Thanks.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Reviewed-by: Amos Kong <kongjianjun@gmail.com>
-
->          * user-space will not receive TSO frames.
->          */
->         if (feature_mask & (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO))
-> --
-> MST
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Thanks for the info, applied.
