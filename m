@@ -1,44 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/7] net: use platform_{get,set}_drvdata()
-Date: Thu, 15 Aug 2013 15:39:03 -0700 (PDT)
-Message-ID: <20130815.153903.859166500375208182.davem@davemloft.net>
-References: <520CD11D.8010202@huawei.com>
-	<20130815.152359.920302339053249583.davem@davemloft.net>
+Subject: Re: [PATCH v3 2/2] macvtap: Allow tap features change when
+ IFF_VNET_HDR is disabled.
+Date: Thu, 15 Aug 2013 15:39:49 -0700 (PDT)
+Message-ID: <20130815.153949.1899943553778101815.davem@davemloft.net>
+References: <20130815173347.GA10265@redhat.com>
+	<20130815.131645.1042317207899492632.davem@davemloft.net>
+	<20130815205245.GB12743@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, lizefan@huawei.com, leoli@freescale.com,
-	linuxppc-dev@lists.ozlabs.org, pantelis.antoniou@gmail.com,
-	vbordug@ru.mvista.com, gregkh@linuxfoundation.org,
-	jg1.han@samsung.com, sergei.shtylyov@cogentembedded.com
-To: clbchenlibo.chen@huawei.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vyasevic@redhat.com, netdev@vger.kernel.org
+To: mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46823 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46840 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752578Ab3HOWjE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 18:39:04 -0400
-In-Reply-To: <20130815.152359.920302339053249583.davem@davemloft.net>
+	with ESMTP id S1751795Ab3HOWjt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 18:39:49 -0400
+In-Reply-To: <20130815205245.GB12743@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVGh1LCAxNSBB
-dWcgMjAxMyAxNToyMzo1OSAtMDcwMCAoUERUKQ0KDQo+IEZyb206IExpYm8gQ2hlbiA8Y2xiY2hl
-bmxpYm8uY2hlbkBodWF3ZWkuY29tPg0KPiBEYXRlOiBUaHUsIDE1IEF1ZyAyMDEzIDIxOjAxOjE3
-ICswODAwDQo+IA0KPj4gVXNlIHRoZSB3cmFwcGVyIGZ1bmN0aW9ucyBmb3IgZ2V0dGluZyBhbmQg
-c2V0dGluZyB0aGUgZHJpdmVyIGRhdGEgdXNpbmcNCj4+IHBsYXRmb3JtX2RldmljZSBpbnN0ZWFk
-IG9mIHVzaW5nIGRldl97Z2V0LHNldH1fZHJ2ZGF0YSgpIHdpdGggJnBkZXYtPmRldiwNCj4+IHNv
-IHdlIGNhbiBkaXJlY3RseSBwYXNzIGEgc3RydWN0IHBsYXRmb3JtX2RldmljZS4NCj4+IA0KPj4g
-Y2hhbmdlbG9nIHYzOg0KPj4gCXJlbW92ZSBtb2RpZnkgYWJvdXQgZGV2X3NldF9kcnZkYXRhKCkN
-Cj4+IGNoYW5nZWxvZyB2MjoNCj4+IAl0aGlzIHZlcnNpb24gYWRkIG1vZGlmeSByZWNvcmQgYWJv
-dXQgZGV2X3NldF9kcnZkYXRhKCkuDQo+IA0KPiBTZXJpZXMgYXBwbGllZC4NCg0KQWN0dWFsbHks
-IEkgaGFkIHRvIHJldmVydCwgdGhlc2UgcGF0Y2hlcyBicmVhayB0aGUgYnVpbGQuDQoNCmRyaXZl
-cnMvbmV0L2V0aGVybmV0L3N1bi9zdW5obWUuYzogSW4gZnVuY3Rpb24goWhhcHB5X21lYWxfcGNp
-X3Byb2JlojoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L3N1bi9zdW5obWUuYzozMTE0OjI6IGVycm9y
-OiBpbXBsaWNpdCBkZWNsYXJhdGlvbiBvZiBmdW5jdGlvbiChcGxhdGZvcm1fc2V0X2RydmRhdGGi
-IFstV2Vycm9yPWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQ0KZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvc3VuL3N1bmhtZS5jOiBJbiBmdW5jdGlvbiChaGFwcHlfbWVhbF9wY2lfcmVtb3ZlojoN
-CmRyaXZlcnMvbmV0L2V0aGVybmV0L3N1bi9zdW5obWUuYzozMTYyOjk6IGVycm9yOiBpbXBsaWNp
-dCBkZWNsYXJhdGlvbiBvZiBmdW5jdGlvbiChcGxhdGZvcm1fZ2V0X2RydmRhdGGiIFstV2Vycm9y
-PWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQ0KZHJpdmVycy9uZXQvZXRoZXJuZXQvc3Vu
-L3N1bmhtZS5jOjMxNjI6MjY6IHdhcm5pbmc6IGluaXRpYWxpemF0aW9uIG1ha2VzIHBvaW50ZXIg
-ZnJvbSBpbnRlZ2VyIHdpdGhvdXQgYSBjYXN0IFtlbmFibGVkIGJ5IGRlZmF1bHRdDQo=
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 15 Aug 2013 23:52:45 +0300
+
+> OK in that case let's fix the rest of macvtap so I can stop getting
+> confused?
+
+Sure, but after you guys sort out these bug fixes.
