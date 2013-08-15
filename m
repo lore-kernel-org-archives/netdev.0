@@ -1,70 +1,60 @@
-From: Sage Weil <sage@inktank.com>
-Subject: Re: [patch 1/2] libceph: fix error handling in handle_reply()
-Date: Wed, 14 Aug 2013 23:05:21 -0700 (PDT)
-Message-ID: <alpine.DEB.2.00.1308142303020.1479@cobra.newdream.net>
-References: <20130815055158.GA23580@elgon.mountain>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [PATCH] r8169: remember WOL preferences on driver load
+Date: Thu, 15 Aug 2013 14:09:31 +0800
+Message-ID: <07AFF12D81984B438F6986A677F18C32@realtek.com.tw>
+References: <1376425145-30142-1-git-send-email-lekensteyn@gmail.com> <20130813212843.GB5635@electric-eye.fr.zoreil.com> <5823402.G5n4G2k0Uv@al>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>,
-	ceph-devel@vger.kernel.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, 'nic_swsd' <nic_swsd@realtek.com>
+To: 'Peter Wu' <lekensteyn@gmail.com>,
+	'Francois Romieu' <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cobra.newdream.net ([66.33.216.30]:58350 "EHLO
-	cobra.newdream.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751851Ab3HOGFW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 02:05:22 -0400
-In-Reply-To: <20130815055158.GA23580@elgon.mountain>
+Received: from rtits2.realtek.com ([60.250.210.242]:58476 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753327Ab3HOGJo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 02:09:44 -0400
+In-Reply-To: <5823402.G5n4G2k0Uv@al>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Applied all 3 of these.
+Peter Wu [mailto:lekensteyn@gmail.com] 
+> Sent: Wednesday, August 14, 2013 8:57 PM
+> To: Francois Romieu
+> Cc: netdev@vger.kernel.org; nic_swsd; Hayeswang
+> Subject: Re: [PATCH] r8169: remember WOL preferences on driver load
+> 
+> On Tuesday 13 August 2013 23:28:43 Francois Romieu wrote:
+> > > The r8168 vendor driver used to write to both Config1 and 
+> Config5, but
+> > > in recent versions, this is commented out. Here we keep 
+> writing PMEnable
+> > > to Config1 because there may be older chips where 
+> PMEnable is not sticky.
+> > 
+> > <sneak regression paranoia>
+> > Please include the bits you want to keep in the "&" mask.
+> > </sneak regression paranoia>
+> 
+> I previously tried:
+> 
+>     RTL_W8(Config5, RTL_R8(Config5) & (BWF | MWF | UWF | 
+> LanWake | PMEStatus));
 
-Thanks, Dan!
-sage
+I think this way is better and safe.
 
-On Thu, 15 Aug 2013, Dan Carpenter wrote:
+> but then I realized that the Realtek r8168 vendor driver does 
+> not touch this 
+> register on load. The bits not included in the above mask are 
+> 2, 3 and 7. On 
+> most datasheets for recent hardware, these are marked reserved.
 
-> We've tried to fix the error paths in this function before, but there
-> is still a hidden goto in the ceph_decode_need() macro which goes to the
-> wrong place.  We need to release the "req" and unlock a mutex before
-> returning.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> diff --git a/net/ceph/osd_client.c b/net/ceph/osd_client.c
-> index dbc0a73..559a832 100644
-> --- a/net/ceph/osd_client.c
-> +++ b/net/ceph/osd_client.c
-> @@ -1488,14 +1488,14 @@ static void handle_reply(struct ceph_osd_client *osdc, struct ceph_msg *msg,
->  	dout("handle_reply %p tid %llu req %p result %d\n", msg, tid,
->  	     req, result);
->  
-> -	ceph_decode_need(&p, end, 4, bad);
-> +	ceph_decode_need(&p, end, 4, bad_put);
->  	numops = ceph_decode_32(&p);
->  	if (numops > CEPH_OSD_MAX_OP)
->  		goto bad_put;
->  	if (numops != req->r_num_ops)
->  		goto bad_put;
->  	payload_len = 0;
-> -	ceph_decode_need(&p, end, numops * sizeof(struct ceph_osd_op), bad);
-> +	ceph_decode_need(&p, end, numops * sizeof(struct ceph_osd_op), bad_put);
->  	for (i = 0; i < numops; i++) {
->  		struct ceph_osd_op *op = p;
->  		int len;
-> @@ -1513,7 +1513,7 @@ static void handle_reply(struct ceph_osd_client *osdc, struct ceph_msg *msg,
->  		goto bad_put;
->  	}
->  
-> -	ceph_decode_need(&p, end, 4 + numops * 4, bad);
-> +	ceph_decode_need(&p, end, 4 + numops * 4, bad_put);
->  	retry_attempt = ceph_decode_32(&p);
->  	for (i = 0; i < numops; i++)
->  		req->r_reply_op_result[i] = ceph_decode_32(&p);
-> --
-> To unsubscribe from this list: send the line "unsubscribe ceph-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+Some settings would be in rtl8168_hw_start() for different chips.
+We sure only correct bit would be enabled.
+
+The simple way is to clear bit 2, 3 and 7 for all chips. Or set desired
+bit which you want.
+
+ 
+Best Regards,
+Hayes
