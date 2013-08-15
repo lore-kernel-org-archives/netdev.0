@@ -1,8 +1,7 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCH 3/3] xfrm: Revert "Fix unexpected SA hard expiration after changing date"
-Date: Thu, 15 Aug 2013 15:50:43 +0800
-Message-ID: <1376553043-19007-4-git-send-email-fan.du@windriver.com>
-References: <1376553043-19007-1-git-send-email-fan.du@windriver.com>
+Subject: [PATCHv3 net-next 0/3] xfrm: Refactor xfrm_state timer management
+Date: Thu, 15 Aug 2013 15:50:40 +0800
+Message-ID: <1376553043-19007-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <herbert@gondor.hengli.com.au>, <dborkman@redhat.com>,
@@ -10,87 +9,58 @@ Cc: <herbert@gondor.hengli.com.au>, <dborkman@redhat.com>,
 To: <tglx@linutronix.de>, <davem@davemloft.net>,
 	<steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:40374 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:40372 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760455Ab3HOHvN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 03:51:13 -0400
-In-Reply-To: <1376553043-19007-1-git-send-email-fan.du@windriver.com>
+	with ESMTP id S1751382Ab3HOHvL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 03:51:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since SAs lifetime timeout has been updated whenever clock_was_set is
-called. So commit: e3c0d04750751389d5116267f8cf4687444d9a50
-("Fix unexpected SA hard expiration after changing date") is not needed
-anymore.
+The first version of "refactor xfrm_state timer management" has been
+flushed into toilet since nobody but only me like it.
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
----
- include/net/xfrm.h    |    4 ----
- net/xfrm/xfrm_state.c |   21 ++++-----------------
- 2 files changed, 4 insertions(+), 21 deletions(-)
+Anyway new approach here is updating SAs lifetime timeout whenever
+clock_was_set is called, iow, system clock changed or host resume from
+suspend state. Rule is simple, force soft expire for any SAs which has
+not reach their soft expire limit and hard expire for those has experienced
+soft expire timeout but wait for hard expire timeout to come.
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 94ce082..b9df23f 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -214,9 +214,6 @@ struct xfrm_state {
- 	struct xfrm_lifetime_cur curlft;
- 	struct tasklet_hrtimer	mtimer;
- 
--	/* used to fix curlft->add_time when changing date */
--	long		saved_tmo;
--
- 	/* Last used time */
- 	unsigned long		lastused;
- 
-@@ -242,7 +239,6 @@ static inline struct net *xs_net(struct xfrm_state *x)
- 
- /* xflags - make enum if more show up */
- #define XFRM_TIME_DEFER	1
--#define XFRM_SOFT_EXPIRE 2
- 
- enum {
- 	XFRM_STATE_VOID,
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index dcfcd98..79bf9a0 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -407,17 +407,8 @@ static enum hrtimer_restart xfrm_timer_handler(struct hrtimer * me)
- 	if (x->lft.hard_add_expires_seconds) {
- 		long tmo = x->lft.hard_add_expires_seconds +
- 			x->curlft.add_time - now;
--		if (tmo <= 0) {
--			if (x->xflags & XFRM_SOFT_EXPIRE) {
--				/* enter hard expire without soft expire first?!
--				 * setting a new date could trigger this.
--				 * workarbound: fix x->curflt.add_time by below:
--				 */
--				x->curlft.add_time = now - x->saved_tmo - 1;
--				tmo = x->lft.hard_add_expires_seconds - x->saved_tmo;
--			} else
--				goto expired;
--		}
-+		if (tmo <= 0)
-+			goto expired;
- 		if (tmo < next)
- 			next = tmo;
- 	}
-@@ -434,14 +425,10 @@ static enum hrtimer_restart xfrm_timer_handler(struct hrtimer * me)
- 	if (x->lft.soft_add_expires_seconds) {
- 		long tmo = x->lft.soft_add_expires_seconds +
- 			x->curlft.add_time - now;
--		if (tmo <= 0) {
-+		if (tmo <= 0)
- 			warn = 1;
--			x->xflags &= ~XFRM_SOFT_EXPIRE;
--		} else if (tmo < next) {
-+		else if (tmo < next)
- 			next = tmo;
--			x->xflags |= XFRM_SOFT_EXPIRE;
--			x->saved_tmo = tmo;
--		}
- 	}
- 	if (x->lft.soft_use_expires_seconds) {
- 		long tmo = x->lft.soft_use_expires_seconds +
+Locking issue:
+ - holding rtnl_lock when iterate on all net namespace.
+ - holding xfrm_state_lock when iterate all xfrm_state in this net.
+ - holding state->lock when changing xfrm_state.
+
+Any comments would be wellcome! harsh or gentle :)
+
+Thanks!
+
+v3:
+  - Fixing locking issue clock_change_callback reported by LOCKDEP.
+  - Beautify notifier in clock_was_set as suggested by Daniel Borkmann.
+
+v2: 
+  - Instead of getting rid of original xfrm_state timer code almost completely,
+    new approach is updating SA lifetime when clock_was_set is called.
+
+v1:
+  - The initiative of v1 is making xfrm_state timer independent of wall clock
+    changing which could result in sudden SA termination or extremely long SA
+    lifetime. So no need to read wall clock in timer handler and also
+    unnecessary to turn on the timer for just 1 second as the original
+    implementation. Simply start the timer right after SA is create for soft
+    timeout, and after soft timeout happened, reload timer for hard timeout.
+
+
+Fan Du (3):
+  hrtimer: Add notifer when clock_was_set was called
+  xfrm: Update xfrm_state lifetime expire after clock_was_set
+  xfrm: Revert "Fix unexpected SA hard expiration after changing date"
+
+ include/linux/hrtimer.h |    3 +++
+ include/net/xfrm.h      |    4 ---
+ kernel/hrtimer.c        |   19 ++++++++++++++
+ net/xfrm/xfrm_state.c   |   65 ++++++++++++++++++++++++++++++++++-------------
+ 4 files changed, 70 insertions(+), 21 deletions(-)
+
 -- 
 1.7.9.5
