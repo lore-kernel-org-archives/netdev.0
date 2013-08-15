@@ -1,72 +1,53 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Fwd: RFC 6980 on Security Implications of IPv6 Fragmentation with IPv6 Neighbor Discovery
-Date: Thu, 15 Aug 2013 12:04:07 +0200
-Message-ID: <20130815100407.GA18564@order.stressinduktion.org>
-References: <20130813221321.AEA1AB1E003@rfc-editor.org> <520B3D81.9070506@gont.com.ar> <20130814230617.GA13066@order.stressinduktion.org> <520C7519.1010000@gont.com.ar>
+From: Daniel Mack <zonque@gmail.com>
+Subject: Re: ethernet: ti: cpsw/mdio: suspend/resume
+Date: Thu, 15 Aug 2013 12:04:19 +0200
+Message-ID: <520CA7A3.60305@gmail.com>
+References: <520BECA2.90800@gmail.com> <520CA61F.3050802@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Fernando Gont <fernando@gont.com.ar>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Vaibhav Bedia <vaibhav.bedia@ti.com>, netdev@vger.kernel.org,
+	Sebastian Siewior <bigeasy@linutronix.de>
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:53288 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751976Ab3HOKEI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 06:04:08 -0400
-Content-Disposition: inline
-In-Reply-To: <520C7519.1010000@gont.com.ar>
+Received: from mail-ee0-f42.google.com ([74.125.83.42]:59812 "EHLO
+	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753393Ab3HOKEW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 06:04:22 -0400
+Received: by mail-ee0-f42.google.com with SMTP id b45so262473eek.29
+        for <netdev@vger.kernel.org>; Thu, 15 Aug 2013 03:04:21 -0700 (PDT)
+In-Reply-To: <520CA61F.3050802@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 15, 2013 at 03:28:41AM -0300, Fernando Gont wrote:
-> Thanks so much for your timely response! -- Please find my comments
-> in-line...
+On 15.08.2013 11:57, Mugunthan V N wrote:
+> On Thursday 15 August 2013 02:16 AM, Daniel Mack wrote:
+>> Vaibhav told me that you are working on a patch to add suspend/resume
+>> functions to the cpsw and davinci_mdio driver, but searching my archives
+>> didn't bring up anything.
+>>
+>> May I ask whether you have a link to your work, or can I help here in
+>> any way?
+>>
+>>
+>> Thanks,
+>> Daniel
+> Sorry for re-posting the same mail as my previous mail was in html format
 > 
-> On 08/14/2013 08:06 PM, Hannes Frederic Sowa wrote:
-> > On Wed, Aug 14, 2013 at 05:19:13AM -0300, Fernando Gont wrote:
-> >> Folks,
-> >>
-> >> FYI. -- this is an important piece when it comes to First Hop (i.e.,
-> >> "local link") Security.
-> > 
-> > Thanks for the heads-up, Fernando!
-> > 
-> > I sketched up a patch to protect the receiving side. I still don't know if I
-> > should make this behaviour default or configurable via a sysctl knob. I really
-> > don't want to break existing installations.
-> 
-> Make it the default behavior. If anything, provide a sysctl knob to
-> override it.
-> 
-> Note: In the specific case of NS/NA messages, it's impossible nowadays
-> to find them fragmented in a real network (we don't even have options
-> (other than padding) to make NS/NAs grow so large!).
+> Thanks for your helping hand. All my patches for CPSW suspend/resume had
+> already applied
 
-Yes, I also do favour making this the default behavior.
+You're talking about the pinctrl related patches, right?
 
-> > As an extra plus, we now discard packets with nested fragment headers at once.
-> > Those packets should never have been accepted.
-> 
-> Is that the "goto fail_hdr" part in your patch?
+> and with Dave Gerlach AM335x suspend/resume patches CPSW
+> suspend/resume works fine. Dave Gerlach has his branch published at
+> below link which I had already tested suspend.resume with CPSW ping traffic.
+> https://github.com/dgerlach/linux-pm/tree/am335x-3.11rc4-suspend-resume
 
-Yes, still have to check if I should silently ignore them or generate a
-parameter problem (that is the current behavior).
-
-> 
-> P.S.: What about RS/RA messages?
+Hmm, I'm testing with this tree as well, and at least when mounting the
+rootfs via NFS, ethernet is dead after resume. But I'll do more tests
+soon and let you know. I just thought I'm missing some patch.
 
 
-ndisc_rcv, which does now silently discard fragmented packets, is called
-for the following types:
-
-        case NDISC_ROUTER_SOLICITATION:
-        case NDISC_ROUTER_ADVERTISEMENT:
-        case NDISC_NEIGHBOUR_SOLICITATION:
-        case NDISC_NEIGHBOUR_ADVERTISEMENT:
-        case NDISC_REDIRECT:
-
-So all packet types from RFC6980 should be covered (we do not support SEND,
-yet).
-
-Thanks,
-
-  Hannes
+Thanks for the update,
+Daniel
