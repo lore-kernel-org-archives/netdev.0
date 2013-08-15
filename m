@@ -1,31 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: tg3: fix NULL pointer dereference in
- tg3_io_error_detected and tg3_io_slot_reset
-Date: Thu, 15 Aug 2013 13:17:10 -0700 (PDT)
-Message-ID: <20130815.131710.1964952430529709863.davem@davemloft.net>
-References: <1376419513-31924-1-git-send-email-nsujir@broadcom.com>
-	<20130815.010726.719593168454341579.davem@davemloft.net>
-	<520D10CA.7040600@broadcom.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [RFC][PATCH 2/2] bgmac: pass received packet to
+ the netif instead of copying it
+Date: Thu, 15 Aug 2013 22:21:56 +0200
+Message-ID: <CACna6rwi1+2ghyyKonaw=6xVDwipb3=1zUzOJ7dVoNoVyRx9fw@mail.gmail.com>
+References: <1376243355-5740-1-git-send-email-zajec5@gmail.com>
+ <1376243355-5740-2-git-send-email-zajec5@gmail.com>
+ <CACna6rwtLw-Aiz3amMvTBwWsi0OWo5f2yMCF9e8DeCjKLOGDEA@mail.gmail.com>
+ <520CBFD6.6030600@openwrt.org>
+Reply-To: OpenWrt Development List <openwrt-devel@lists.openwrt.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dborkman@redhat.com,
-	shangw@linux.vnet.ibm.com, mchan@broadcom.com
-To: nsujir@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45462 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759308Ab3HOURK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 16:17:10 -0400
-In-Reply-To: <520D10CA.7040600@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Network Development <netdev@vger.kernel.org>,
+ Jonas Gorski <jogo@openwrt.org>, Hauke Mehrtens <hauke@hauke-m.de>,
+ OpenWrt Development List <openwrt-devel@lists.openwrt.org>
+To: Felix Fietkau <nbd@openwrt.org>
+Return-path: <openwrt-devel-bounces@lists.openwrt.org>
+In-Reply-To: <520CBFD6.6030600@openwrt.org>
+List-Unsubscribe: <https://lists.openwrt.org/cgi-bin/mailman/options/openwrt-devel>,
+ <mailto:openwrt-devel-request@lists.openwrt.org?subject=unsubscribe>
+List-Archive: <http://lists.openwrt.org/pipermail/openwrt-devel/>
+List-Post: <mailto:openwrt-devel@lists.openwrt.org>
+List-Help: <mailto:openwrt-devel-request@lists.openwrt.org?subject=help>
+List-Subscribe: <https://lists.openwrt.org/cgi-bin/mailman/listinfo/openwrt-devel>,
+ <mailto:openwrt-devel-request@lists.openwrt.org?subject=subscribe>
+Errors-To: openwrt-devel-bounces@lists.openwrt.org
+Sender: "openwrt-devel" <openwrt-devel-bounces@lists.openwrt.org>
+List-Id: netdev.vger.kernel.org
 
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Date: Thu, 15 Aug 2013 10:32:58 -0700
-
-> Sorry, I forgot to add Michael's Signed-off-by. Do you want me to
-> resend it with his Signed-off-by added?
-
-That's not necessary, it gets added automatically by patchwork
-since he replied and added it.
+MjAxMy84LzE1IEZlbGl4IEZpZXRrYXUgPG5iZEBvcGVud3J0Lm9yZz46Cj4gT24gMjAxMy0wOC0x
+NSAxOjM2IFBNLCBSYWZhxYIgTWnFgmVja2kgd3JvdGU6Cj4+IDIwMTMvOC8xMSBSYWZhxYIgTWnF
+gmVja2kgPHphamVjNUBnbWFpbC5jb20+Ogo+Pj4gSXQgbWFrZXMgbW9yZSBzZW5zZSB0byBhbGxv
+Y2F0ZSBuZXcgKGVtcHR5KSBza2IgYW5kIHBhc3MgaXQgdG8gdGhlCj4+PiBoYXJkd2FyZS4gVGhh
+dCB3YXkgd2UgYXZvaWQgY29weWluZyB3aG9sZSBwYWNrZXQgaW50byBuZXcgc2tiIHdoaWNoCj4+
+PiBzaG91bGQgcmVzdWx0IGluIGJldHRlciBwZXJmb3JtYW5jZS4KPj4KPj4gSSBkaWQgc29tZSB0
+ZXN0aW5nIG9mIHRoaXMgcGF0Y2ggdXNpbmcgInBlcmYiIHRvb2wgYW5kIGlwZXJmIC1zCj4+IHJ1
+bm5pbmcgb24gdGhlIE9wZW5XcnQgbWFjaGluZSAod2l0aCBiZ21hYyBzdXBwb3J0ZWQgaGFyZHdh
+cmUpLgo+Pgo+PiBTbyB5b3UgY2FuIHNlZSB0aGF0IF9fY29weV91c2VyX2NvbW1vbiB1c2FnZSBo
+YXMgcmVhbGx5IGRlY3JlYXNlZCB3aXRoCj4+IHRoaXMgcGF0Y2ghCj4+Cj4+IFVuZm9ydHVuYXRl
+bHkgaXQgZGlkbid0IHJlc3VsdCBpbiBiZXR0ZXIgcGVyZm9ybWFuY2UuLi4gbm8gaWRlYSB3aHkg
+OigKPiBSdW5uaW5nIGlwZXJmIG9uIHRoZSByb3V0ZXIgaXMgbm90IHVzZWZ1bCBhcyBhbiBpbmRp
+Y2F0b3Igb2Ygcm91dGluZwo+IHBlcmZvcm1hbmNlLiBQbGVhc2UgZm9jdXMgb24gdGVzdHMgd2hl
+cmUgeW91IG9ubHkgcHVzaCB0cmFmZmljIHRocm91Z2gKPiB0aGUgcm91dGVyLCBub3QgZGlyZWN0
+bHkgdG8gaXQuCgpPSywgc28gSSBzdGFydGVkICJpcGVyZiAtcyIgb24gbm90ZWJvb2sgcGx1Z2dl
+ZCBpbnRvIFdBTiBwb3J0LCBhbmQKdGhlbiBwbGF5ZWQgd2l0aCAiaXBlcmYgLWMiIG9uIG5vdGVi
+b29rIGNvbm5lY3RlZCB0byBMQU4jMi4KCldpdGggc29tZSBvbGQgMy42LjExIGJhc2VkIE9wZW5X
+cnQgYnVpbGQgSSBnb3Q6ClsgNF0gMC4wLTYwLjAgc2VjIDY5MCBNQnl0ZXMgOTYuNCBNYml0cy9z
+ZWMKCldpdGggdmVyeSByZWNlbnQgMy4xMC40IGJhc2VkIE9wZW5XcnQgYnVpbGQ6ClsgNF0gMC4w
+LTYwLjAgc2VjIDY2NyBNQnl0ZXMgOTMuMiBNYml0cy9zZWMKCkFmdGVyIGFwcGx5aW5nIG15IHBh
+dGNoIG9uIHRvcCBvZiB0aGF0IDMuMTAuNDoKWyA1XSAwLjAtNjAuMCBzZWMgNzU5IE1CeXRlcyAx
+MDYgTWJpdHMvc2VjCgpBbmQgc29tZSBkdW1wcyBmcm9tICJwZXJmIHRvcCI6CgozLjEwLjQKNi43
+NSUgW2tlcm5lbF0gW2tdIF9fY29weV91c2VyX2NvbW1vbgo2LjczJSBbaXBfdGFibGVzXSBba10g
+aXB0X2RvX3RhYmxlCjQuMzMlIFtrZXJuZWxdIFtrXSBhcmNoX2NwdV9pZGxlCjMuOTYlIFtrZXJu
+ZWxdIFtrXSBhcmNoX2xvY2FsX2lycV9yZXN0b3JlCjMuNDIlIFtiZ21hY10gW2tdIDB4MDAwMDA3
+ZTAKMy4zNSUgW25mX2Nvbm50cmFja10gW2tdIG5mX2Nvbm50cmFja19wcm90b19maW5pCjIuNzIl
+IFtuZl9jb25udHJhY2tdIFtrXSBuZl9jb25udHJhY2tfaW4KMi41MCUgW2tlcm5lbF0gW2tdIF9f
+bmV0aWZfcmVjZWl2ZV9za2JfY29yZQoyLjQyJSBba2VybmVsXSBba10gcjRrX2RtYV9jYWNoZV9p
+bnYKMi4zOCUgW2tlcm5lbF0gW2tdIGZpYl90YWJsZV9sb29rdXAKMi4yMCUgW2tlcm5lbF0gW2td
+IGRldl9xdWV1ZV94bWl0CjIuMTElIFt4dF9jb25udHJhY2tdIFtrXSAweDAwMDAwMzYwCjIuMTAl
+IFtrZXJuZWxdIFtrXSBpcF9yb3V0ZV9pbnB1dF9ub3JlZgoyLjA2JSBbbmZfY29ubnRyYWNrX2lw
+djRdIFtrXSBuZWVkX2lwdjRfY29ubnRyYWNrCgozLjEwLjQgKyAwMDAyLWJnbWFjLXBhc3MtcmVj
+ZWl2ZWQtcGFja2V0LXRvLXRoZS1uZXRpZi1pbnN0ZWFkLW9mLWMucGF0Y2gKNi4wOSUgW2lwX3Rh
+Ymxlc10gW2tdIGlwdF9kb190YWJsZQo0LjcxJSBba2VybmVsXSBba10gYXJjaF9jcHVfaWRsZQo0
+LjQ4JSBbYmdtYWNdIFtrXSAweDAwMDAwZDdjCjMuNTAlIFtuZl9jb25udHJhY2tdIFtrXSBuZl9j
+b25udHJhY2tfaW4KMy4yMiUgW2tlcm5lbF0gW2tdIGFyY2hfbG9jYWxfaXJxX3Jlc3RvcmUKMy4x
+NiUgW25mX2Nvbm50cmFja10gW2tdIG5mX2Nvbm50cmFja19wcm90b19maW5pCjIuODglIFtrZXJu
+ZWxdIFtrXSBfX25ldGlmX3JlY2VpdmVfc2tiX2NvcmUKMi43OCUgW3h0X2Nvbm50cmFja10gW2td
+IDB4MDAwMDAxMWMKMi42OSUgW2tlcm5lbF0gW2tdIHI0a19kbWFfY2FjaGVfaW52CjIuNjclIFtp
+cHRhYmxlX25hdF0gW2tdIDB4MDAwMDAyYTAKMi4zNiUgW2tlcm5lbF0gW2tdIGlwX3JvdXRlX2lu
+cHV0X25vcmVmCjIuMjclIFtrZXJuZWxdIFtrXSBpcF9yY3YKMi4yNSUgW25mX2Nvbm50cmFja19p
+cHY0XSBba10gbmVlZF9pcHY0X2Nvbm50cmFjawoyLjIzJSBba2VybmVsXSBba10gbmZfaXRlcmF0
+ZQoKSSd2ZSBjb21waWxlZCBiZ21hYyBpbnRvIHRoZSBrZXJuZWwgYW5kIGl0IHNlZW1zIHRoYXQg
+dGhlIG1hZ2ljIDB4ZDdjCndhcyBiZ21hY19wb2xsLgoKSSdtIGFmcmFpZCB0aGlzICJwZXJmIHRv
+cCIgb3V0cHV0IGRvZXNuJ3QgcmVhbGx5IHRlbGwgdXMgd2hlcmUgdG8gbG9vawpmb3Igb3B0aW1p
+emF0aW9ucyA6fCBJJ2xsIHN0aWxsIHRyeSBGZWxpeCBpZGVhcyB0b21vcnJvdywgYnV0IEknbSBu
+b3QKc3VyZSBpZiB0aGV5IGhlbHAsIHNpbmNlIHRoZXJlIGlzbid0IF9fY29weV91c2VyX2NvbW1v
+biBhbnltb3JlIGluIHRoZQoicGVyZiB0b3AiIG91dHB1dC4uLgoKLS0gClJhZmHFggpfX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpvcGVud3J0LWRldmVsIG1h
+aWxpbmcgbGlzdApvcGVud3J0LWRldmVsQGxpc3RzLm9wZW53cnQub3JnCmh0dHBzOi8vbGlzdHMu
+b3BlbndydC5vcmcvY2dpLWJpbi9tYWlsbWFuL2xpc3RpbmZvL29wZW53cnQtZGV2ZWwK
