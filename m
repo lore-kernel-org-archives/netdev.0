@@ -1,247 +1,43 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [GLIBC Patch v2] inet: avoid redefinition of some structs in kernel
-Date: Thu, 15 Aug 2013 17:28:11 +0800
-Message-ID: <1376558891-26221-2-git-send-email-amwang@redhat.com>
-References: <1376558891-26221-1-git-send-email-amwang@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Thomas Backlund <tmb@mageia.org>, libc-alpha@sourceware.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	"Carlos O'Donell" <carlos@redhat.com>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: ethernet: ti: cpsw/mdio: suspend/resume
+Date: Thu, 15 Aug 2013 15:27:51 +0530
+Message-ID: <520CA61F.3050802@ti.com>
+References: <520BECA2.90800@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Vaibhav Bedia <vaibhav.bedia@ti.com>, <netdev@vger.kernel.org>,
+	Sebastian Siewior <bigeasy@linutronix.de>
+To: Daniel Mack <zonque@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:23930 "EHLO mx1.redhat.com"
+Received: from comal.ext.ti.com ([198.47.26.152]:33231 "EHLO comal.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753053Ab3HOJ2h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Aug 2013 05:28:37 -0400
-In-Reply-To: <1376558891-26221-1-git-send-email-amwang@redhat.com>
+	id S1750986Ab3HOJ6B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Aug 2013 05:58:01 -0400
+In-Reply-To: <520BECA2.90800@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carlos O'Donell <carlos@redhat.com>
+On Thursday 15 August 2013 02:16 AM, Daniel Mack wrote:
+> Hi Mugunthan,
+>
+> Vaibhav told me that you are working on a patch to add suspend/resume
+> functions to the cpsw and davinci_mdio driver, but searching my archives
+> didn't bring up anything.
+>
+> May I ask whether you have a link to your work, or can I help here in
+> any way?
+>
+>
+> Thanks,
+> Daniel
+Sorry for re-posting the same mail as my previous mail was in html format
 
-- Synchronize linux's `include/uapi/linux/in6.h' 
-  with glibc's `inet/netinet/in.h'.
-- Synchronize glibc's `inet/netinet/in.h with linux's
-  `include/uapi/linux/in6.h'.
-- Allow including the headers in either other.
-- First header included defines the structures and macros.
+Thanks for your helping hand. All my patches for CPSW suspend/resume had
+already applied and with Dave Gerlach AM335x suspend/resume patches CPSW
+suspend/resume works fine. Dave Gerlach has his branch published at
+below link which I had already tested suspend.resume with CPSW ping traffic.
+https://github.com/dgerlach/linux-pm/tree/am335x-3.11rc4-suspend-resume
 
-Notes:
-- You want netinet/in.h to include bits/in.h as early as possible,
-  but it needs in_addr so define in_addr early.
-- You want bits/in.h included as early as possible so you can use
-  the linux specific code to define __USE_KERNEL_DEFS based on
-  the _UAPI_* macro definition and use those to cull in.h.
-- glibc was missing IPPROTO_MH, added here.
-
-Reported-by: Thomas Backlund <tmb@mageia.org>
-Cc: Thomas Backlund <tmb@mageia.org>
-Cc: libc-alpha@sourceware.org
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Carlos O'Donell <carlos@redhat.com>
-Tested-by: Cong Wang <amwang@redhat.com>
-Signed-off-by: Cong Wang <amwang@redhat.com>
-
-2013-08-13  Carlos O'Donell  <carlos@redhat.com>
-	    Cong Wang <amwang@redhat.com>
-
-	* sysdeps/unix/sysv/linux/bits/in.h
-	[_UAPI_LINUX_IN6_H]: Define __USE_KERNEL_IPV6_DEFS.
-	* inet/netinet/in.h: Move in_addr definition and bits/in.h inclusion
-	before __USE_KERNEL_IPV6_DEFS uses.
-	* inet/netinet/in.h [!__USE_KERNEL_IPV6_DEFS]: Define IPPROTO_MH, and
-	IPPROTO_BEETPH.
-	[__USE_KERNEL_IPV6_DEFS]: Don't define any of IPPROTO_*, in6_addr,
-	sockaddr_in6, or ipv6_mreq.
-
----
-
-diff --git a/inet/netinet/in.h b/inet/netinet/in.h
-index 89e3813..05c77e2 100644
---- a/inet/netinet/in.h
-+++ b/inet/netinet/in.h
-@@ -26,13 +26,21 @@
- 
- __BEGIN_DECLS
- 
-+/* Internet address.  */
-+typedef uint32_t in_addr_t;
-+struct in_addr
-+  {
-+    in_addr_t s_addr;
-+  };
-+
-+/* Get system-specific definitions.  */
-+#include <bits/in.h>
-+
- /* Standard well-defined IP protocols.  */
- enum
-   {
-     IPPROTO_IP = 0,	   /* Dummy protocol for TCP.  */
- #define IPPROTO_IP		IPPROTO_IP
--    IPPROTO_HOPOPTS = 0,   /* IPv6 Hop-by-Hop options.  */
--#define IPPROTO_HOPOPTS		IPPROTO_HOPOPTS
-     IPPROTO_ICMP = 1,	   /* Internet Control Message Protocol.  */
- #define IPPROTO_ICMP		IPPROTO_ICMP
-     IPPROTO_IGMP = 2,	   /* Internet Group Management Protocol. */
-@@ -55,10 +63,6 @@ enum
- #define IPPROTO_DCCP		IPPROTO_DCCP
-     IPPROTO_IPV6 = 41,     /* IPv6 header.  */
- #define IPPROTO_IPV6		IPPROTO_IPV6
--    IPPROTO_ROUTING = 43,  /* IPv6 routing header.  */
--#define IPPROTO_ROUTING		IPPROTO_ROUTING
--    IPPROTO_FRAGMENT = 44, /* IPv6 fragmentation header.  */
--#define IPPROTO_FRAGMENT	IPPROTO_FRAGMENT
-     IPPROTO_RSVP = 46,	   /* Reservation Protocol.  */
- #define IPPROTO_RSVP		IPPROTO_RSVP
-     IPPROTO_GRE = 47,	   /* General Routing Encapsulation.  */
-@@ -67,14 +71,10 @@ enum
- #define IPPROTO_ESP		IPPROTO_ESP
-     IPPROTO_AH = 51,       /* authentication header.  */
- #define IPPROTO_AH		IPPROTO_AH
--    IPPROTO_ICMPV6 = 58,   /* ICMPv6.  */
--#define IPPROTO_ICMPV6		IPPROTO_ICMPV6
--    IPPROTO_NONE = 59,     /* IPv6 no next header.  */
--#define IPPROTO_NONE		IPPROTO_NONE
--    IPPROTO_DSTOPTS = 60,  /* IPv6 destination options.  */
--#define IPPROTO_DSTOPTS		IPPROTO_DSTOPTS
-     IPPROTO_MTP = 92,	   /* Multicast Transport Protocol.  */
- #define IPPROTO_MTP		IPPROTO_MTP
-+    IPPROTO_BEETPH = 94,   /* IP option pseudo header for BEET.  */
-+#define IPPROTO_BEETPH		IPPROTO_BEETPH
-     IPPROTO_ENCAP = 98,	   /* Encapsulation Header.  */
- #define IPPROTO_ENCAP		IPPROTO_ENCAP
-     IPPROTO_PIM = 103,	   /* Protocol Independent Multicast.  */
-@@ -90,6 +90,28 @@ enum
-     IPPROTO_MAX
-   };
- 
-+/* If __USER_KERNEL_IPV6_DEFS is defined then the user has included the kernel
-+   network headers first and we should use those ABI-identical definitions
-+   instead of our own.  */
-+#ifndef __USE_KERNEL_IPV6_DEFS
-+enum
-+  {
-+    IPPROTO_HOPOPTS = 0,   /* IPv6 Hop-by-Hop options.  */
-+#define IPPROTO_HOPOPTS		IPPROTO_HOPOPTS
-+    IPPROTO_ROUTING = 43,  /* IPv6 routing header.  */
-+#define IPPROTO_ROUTING		IPPROTO_ROUTING
-+    IPPROTO_FRAGMENT = 44, /* IPv6 fragmentation header.  */
-+#define IPPROTO_FRAGMENT	IPPROTO_FRAGMENT
-+    IPPROTO_ICMPV6 = 58,   /* ICMPv6.  */
-+#define IPPROTO_ICMPV6		IPPROTO_ICMPV6
-+    IPPROTO_NONE = 59,     /* IPv6 no next header.  */
-+#define IPPROTO_NONE		IPPROTO_NONE
-+    IPPROTO_DSTOPTS = 60,  /* IPv6 destination options.  */
-+#define IPPROTO_DSTOPTS		IPPROTO_DSTOPTS
-+    IPPROTO_MH = 135,      /* IPv6 mobility header.  */
-+#define IPPROTO_MH		IPPROTO_MH
-+  };
-+#endif /* !__USE_KERNEL_IPV6_DEFS */
- 
- /* Type to represent a port.  */
- typedef uint16_t in_port_t;
-@@ -134,15 +156,6 @@ enum
-     IPPORT_USERRESERVED = 5000
-   };
- 
--
--/* Internet address.  */
--typedef uint32_t in_addr_t;
--struct in_addr
--  {
--    in_addr_t s_addr;
--  };
--
--
- /* Definitions of the bits in an Internet address integer.
- 
-    On subnets, host and network parts are found according to
-@@ -191,7 +204,7 @@ struct in_addr
- #define INADDR_ALLRTRS_GROUP    ((in_addr_t) 0xe0000002) /* 224.0.0.2 */
- #define INADDR_MAX_LOCAL_GROUP  ((in_addr_t) 0xe00000ff) /* 224.0.0.255 */
- 
--
-+#ifndef __USE_KERNEL_IPV6_DEFS
- /* IPv6 address */
- struct in6_addr
-   {
-@@ -209,6 +222,7 @@ struct in6_addr
- # define s6_addr32		__in6_u.__u6_addr32
- #endif
-   };
-+#endif /* !__USE_KERNEL_IPV6_DEFS */
- 
- extern const struct in6_addr in6addr_any;        /* :: */
- extern const struct in6_addr in6addr_loopback;   /* ::1 */
-@@ -233,6 +247,7 @@ struct sockaddr_in
- 			   sizeof (struct in_addr)];
-   };
- 
-+#ifndef __USE_KERNEL_IPV6_DEFS
- /* Ditto, for IPv6.  */
- struct sockaddr_in6
-   {
-@@ -242,7 +257,7 @@ struct sockaddr_in6
-     struct in6_addr sin6_addr;	/* IPv6 address */
-     uint32_t sin6_scope_id;	/* IPv6 scope-id */
-   };
--
-+#endif /* !__USE_KERNEL_IPV6_DEFS */
- 
- #if defined __USE_MISC || defined __USE_GNU
- /* IPv4 multicast request.  */
-@@ -268,7 +283,7 @@ struct ip_mreq_source
-   };
- #endif
- 
--
-+#ifndef __USE_KERNEL_IPV6_DEFS
- /* Likewise, for IPv6.  */
- struct ipv6_mreq
-   {
-@@ -278,7 +293,7 @@ struct ipv6_mreq
-     /* local interface */
-     unsigned int ipv6mr_interface;
-   };
--
-+#endif /* !__USE_KERNEL_IPV6_DEFS */
- 
- #if defined __USE_MISC || defined __USE_GNU
- /* Multicast group request.  */
-@@ -349,10 +364,6 @@ struct group_filter
- 				      * sizeof (struct sockaddr_storage)))
- #endif
- 
--
--/* Get system-specific definitions.  */
--#include <bits/in.h>
--
- /* Functions to convert between host and network byte order.
- 
-    Please note that these functions normally take `unsigned long int' or
-diff --git a/sysdeps/unix/sysv/linux/bits/in.h b/sysdeps/unix/sysv/linux/bits/in.h
-index e959b33..d763ce9 100644
---- a/sysdeps/unix/sysv/linux/bits/in.h
-+++ b/sysdeps/unix/sysv/linux/bits/in.h
-@@ -21,6 +21,18 @@
- # error "Never use <bits/in.h> directly; include <netinet/in.h> instead."
- #endif
- 
-+/* If the application has already included linux/in6.h from a linux-based
-+   kernel then we will not define the IPv6 IPPROTO_* defines, in6_addr (nor the
-+   defines), sockaddr_in6, or ipv6_mreq.  The ABI used by the linux-kernel and
-+   glibc match exactly.  Neither the linux kernel nor glibc should break this
-+   ABI without coordination.  */
-+#ifdef _UAPI_LINUX_IN6_H
-+/* This is not quite the same API since the kernel always defines s6_addr16 and
-+   s6_addr32. This is not a violation of POSIX since POSIX says "at least the
-+   following member" and that holds true.  */
-+# define __USE_KERNEL_IPV6_DEFS
-+#endif
-+
- /* Options for use with `getsockopt' and `setsockopt' at the IP level.
-    The first word in the comment at the right is the data type used;
-    "bool" means a boolean value stored in an `int'.  */
+Regards
+Mugunthan V N
