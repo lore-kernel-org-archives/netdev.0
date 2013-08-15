@@ -1,103 +1,53 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v3 2/2] macvtap: Allow tap features change when IFF_VNET_HDR is disabled.
-Date: Thu, 15 Aug 2013 13:02:53 -0400
-Message-ID: <1376586173-4242-3-git-send-email-vyasevic@redhat.com>
-References: <1376586173-4242-1-git-send-email-vyasevic@redhat.com>
-Cc: mst@redhat.com, Vlad Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 1/7] uio: add module owner to prevent inappropriate
+ module unloading
+Date: Thu, 15 Aug 2013 10:13:14 -0700
+Message-ID: <20130815171314.GB30547@kroah.com>
+References: <20130814163311.GB7208@kroah.com>
+ <20130815084221.3339142f@mitra.spranger.biz>
+ <20130815065936.GA13320@kroah.com>
+ <20130815092753.5a23810b@mitra.spranger.biz>
+ <20130815080901.GC7080@kroah.com>
+ <520C8EC9.6040603@linutronix.de>
+ <20130815155508.GA14792@kroah.com>
+ <520CFBE0.5070006@linutronix.de>
+ <20130815164227.GC15688@kroah.com>
+ <520D07D6.70407@linutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Benedikt Spranger <b.spranger@linutronix.de>,
+	netdev@vger.kernel.org,
+	Alexander Frank <Alexander.Frank@eberspaecher.com>,
+	"Hans J. Koch" <hjk@hansjkoch.de>,
+	Holger Dengler <dengler@linutronix.de>
+To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62800 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758008Ab3HORC7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Aug 2013 13:02:59 -0400
-Received: from int-mx10.intmail.prod.int.phx2.redhat.com (int-mx10.intmail.prod.int.phx2.redhat.com [10.5.11.23])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r7FH2xoC032317
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 15 Aug 2013 13:02:59 -0400
-In-Reply-To: <1376586173-4242-1-git-send-email-vyasevic@redhat.com>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:39314 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758246Ab3HORLj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 13:11:39 -0400
+Content-Disposition: inline
+In-Reply-To: <520D07D6.70407@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the user turns off IFF_VNET_HDR flag, attempts to change
-offload features via TUNSETOFFLOAD do not work.  This could cause
-GSO packets to be delivered to the user when the user is
-not prepared to handle them.
+On Thu, Aug 15, 2013 at 06:54:46PM +0200, Sebastian Andrzej Siewior wrote:
+> On 08/15/2013 06:42 PM, Greg Kroah-Hartman wrote:
+> >> For this to happen you would need a refcount in uio-core which learns
+> >> that the device is gone and does not invoke any callbacks because the
+> >> device is gone. Something like you have in USB where you return 0 on
+> >> reads from ttyUSB after someone pulled the cable.
+> > 
+> > That happens because we invalidate the filehandle in the tty layer by
+> > tearing everything down in the usb serial driver.  And yes, uio also
+> > needs to do the same thing, if it doesn't already.
+> 
+> Ah. Do you have a handy pointer where / how you do this?
 
-To solve, allow processing of TUNSETOFFLOAD when IFF_VNET_HDR is
-disabled.  Also, take the setting of IFF_VNET_HDR into consideration
-when determining the feature set to apply to incommig traffic.
-If IFF_VNET_HDR is set, we use user-specfied feature set.  if the
-IFF_VNET_HDR is clear, we mask off all tun-specific offload features,
-since user can not be notified of the possbile offloads.
+The tty layer isn't exactly "handy" :)
 
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- drivers/net/macvtap.c | 30 ++++++++++++++++++++++++------
- 1 file changed, 24 insertions(+), 6 deletions(-)
+Somewhere we send a HANGUP signal to userspace, and I think we
+invalidate the file handle somehow, it's been years since I last looked
+at that code, sorry.
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 8121358..df45a59 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -269,6 +269,28 @@ static void macvtap_del_queues(struct net_device *dev)
- 		sock_put(&qlist[j]->sk);
- }
- 
-+/* Determine features to be applied to the packet as it
-+ * gets sent to the tap.  The features depend on the offloads
-+ * set by user and by whether or not IFF_VNET_HDR is enabled.
-+ */
-+static netdev_features_t macvtap_skb_features(struct sk_buff *skb,
-+					      struct macvtap_queue *q)
-+{
-+	struct macvlan_dev *vlan = netdev_priv(skb->dev);
-+	netdev_features_t features = netif_skb_features(skb);
-+
-+	/* If VNET_HDR is enabled, user can receive offload info so
-+	 * use user-specified tap_features.
-+	 * Otherwise, mask off all tap offload features.
-+	 */
-+	if (q->flags & IFF_VNET_HDR)
-+		features &= vlan->tap_features;
-+	else
-+		features &= ~TUN_OFFLOADS;
-+
-+	return features;
-+}
-+
- /*
-  * Forward happens for data that gets sent from one macvlan
-  * endpoint to another one in bridge mode. We just take
-@@ -276,9 +298,9 @@ static void macvtap_del_queues(struct net_device *dev)
-  */
- static int macvtap_forward(struct net_device *dev, struct sk_buff *skb)
- {
--	struct macvlan_dev *vlan = netdev_priv(dev);
- 	struct macvtap_queue *q = macvtap_get_queue(dev, skb);
- 	netdev_features_t features;
-+
- 	if (!q)
- 		goto drop;
- 
-@@ -289,7 +311,7 @@ static int macvtap_forward(struct net_device *dev, struct sk_buff *skb)
- 	/* Apply the forward feature mask so that we perform segmentation
- 	 * according to users wishes.
- 	 */
--	features = netif_skb_features(skb) & vlan->tap_features;
-+	features = macvtap_skb_features(skb, q);
- 	if (netif_needs_gso(skb, features)) {
- 		struct sk_buff *segs = __skb_gso_segment(skb, features, false);
- 
-@@ -1161,10 +1183,6 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
- 			    TUN_F_TSO_ECN | TUN_F_UFO))
- 			return -EINVAL;
- 
--		/* TODO: only accept frames with the features that
--			 got enabled for forwarded frames */
--		if (!(q->flags & IFF_VNET_HDR))
--			return  -EINVAL;
- 		rtnl_lock();
- 		ret = set_offload(q, arg);
- 		rtnl_unlock();
--- 
-1.8.1.4
+greg k-h
