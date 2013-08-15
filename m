@@ -1,45 +1,59 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: Re: [RFC] phy: micrel: Convert micrel PHY driver to use OF
-Date: Thu, 15 Aug 2013 21:55:48 +0200
-Message-ID: <CACRpkdZkyeA5ExvHQPExNBq5qB1hDHON32TO63BmtVrRxDxhXw@mail.gmail.com>
-References: <1376412156-3899-1-git-send-email-dinguyen@altera.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [patch] tun: signedness bug in tun_get_user()
+Date: Thu, 15 Aug 2013 16:08:35 -0400
+Message-ID: <20130815200834.GE20294@hmsreliant.think-freely.org>
+References: <20130815125257.GA16932@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Dinh Nguyen <dinh.linux@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Felipe Balbi <balbi@ti.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Olof Johansson <olof@lixom.net>,
-	Rob Herring <rob.herring@calxeda.com>
-To: Dinh Nguyen <dinguyen@altera.com>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jason Wang <jasowang@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:53095 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757631Ab3HOTzt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 15:55:49 -0400
-Received: by mail-ob0-f180.google.com with SMTP id up14so1269095obb.39
-        for <netdev@vger.kernel.org>; Thu, 15 Aug 2013 12:55:48 -0700 (PDT)
-In-Reply-To: <1376412156-3899-1-git-send-email-dinguyen@altera.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:49387 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759156Ab3HOUIs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 16:08:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20130815125257.GA16932@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 13, 2013 at 6:42 PM,  <dinguyen@altera.com> wrote:
+On Thu, Aug 15, 2013 at 03:52:57PM +0300, Dan Carpenter wrote:
+> The recent fix d9bf5f1309 "tun: compare with 0 instead of total_len" is
+> not totally correct.  Because "len" and "sizeof()" are size_t type, that
+> means they are never less than zero.
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index af987f0..7ed13cc 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -977,8 +977,9 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+>  	u32 rxhash;
+>  
+>  	if (!(tun->flags & TUN_NO_PI)) {
+> -		if ((len -= sizeof(pi)) < 0)
+> +		if (len < sizeof(pi))
+>  			return -EINVAL;
+> +		len -= sizeof(pi);
+>  
+>  		if (memcpy_fromiovecend((void *)&pi, iv, 0, sizeof(pi)))
+>  			return -EFAULT;
+> @@ -986,8 +987,9 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+>  	}
+>  
+>  	if (tun->flags & TUN_VNET_HDR) {
+> -		if ((len -= tun->vnet_hdr_sz) < 0)
+> +		if (len < tun->vnet_hdr_sz)
+>  			return -EINVAL;
+> +		len -= tun->vnet_hdr_sz;
+>  
+>  		if (memcpy_fromiovecend((void *)&gso, iv, offset, sizeof(gso)))
+>  			return -EFAULT;
+> 
 
-> From: Dinh Nguyen <dinguyen@altera.com>
->
-> Convert the Micrel PHY driver to use OF. This initial patch is only
-> the beginning of an idea to convert the PHY driver to device tree.
->
-> Signed-of-by: Dinh Nguyen <dinguyen@altera.com>
-
-This is full of device tree stuff so please copy it to
-devicetree@vger.kernel.org.
-
-It seems to add quite a few compatible strings so these should
-be added to the bindings doc, or is it already?
-
-Yours,
-Linus Walleij
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
