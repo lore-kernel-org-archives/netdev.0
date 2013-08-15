@@ -1,40 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Revert "cxgb3: Check and handle the dma mapping errors"
-Date: Thu, 15 Aug 2013 01:24:04 -0700 (PDT)
-Message-ID: <20130815.012404.1180223951215075384.davem@davemloft.net>
-References: <1376471941-2914-1-git-send-email-aik@ozlabs.ru>
-	<520BA8E4.3010406@chelsio.com>
+Subject: Re: [patch] rtnetlink: remove an unneeded test
+Date: Thu, 15 Aug 2013 01:29:17 -0700 (PDT)
+Message-ID: <20130815.012917.1487592493292532518.davem@davemloft.net>
+References: <20130814093542.GC521@elgon.mountain>
+	<8761v8aww3.fsf@xmission.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: aik@ozlabs.ru, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	torvalds@linux-foundation.org, santosh@chelsio.com,
-	fenlason@redhat.com
-To: divy@chelsio.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <520BA8E4.3010406@chelsio.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: dan.carpenter@oracle.com, john.r.fastabend@intel.com,
+	jiri@resnulli.us, vyasevic@redhat.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: ebiederm@xmission.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <8761v8aww3.fsf@xmission.com>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Divy Le ray <divy@chelsio.com>
-Date: Wed, 14 Aug 2013 08:57:24 -0700
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Wed, 14 Aug 2013 12:35:24 -0700
 
-> On 08/14/2013 02:19 AM, Alexey Kardashevskiy wrote:
->> This reverts commit f83331bab149e29fa2c49cf102c0cd8c3f1ce9f9.
->>
->> As the tests PPC64 (powernv platform) show, IOMMU pages are leaking
->> when transferring big amount of small packets (<=64 bytes),
->> "ping -f" and waiting for 15 seconds is the simplest way to confirm
->> the bug.
->>
->> Cc: Linus Torvalds<torvalds@linux-foundation.org>
->> Cc: Santosh Rastapur<santosh@chelsio.com>
->> Cc: Jay Fenlason<fenlason@redhat.com>
->> Cc: David S. Miller<davem@davemloft.net>
->> Cc: Divy Le ray<divy@chelsio.com>
->> Signed-off-by: Alexey Kardashevskiy<aik@ozlabs.ru>
+> Dan Carpenter <dan.carpenter@oracle.com> writes:
 > 
-> Acked-by: Divy Le Ray <divy@chelsio.com>
+>> We know that "dev" is a valid pointer at this point, so we can remove
+>> the test and clean up a little.
+> 
+> Quite right.
+> 
+> Reviewed-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> 
+>>
+>> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Applied, thanks.
+Applied to net-next, thanks.
