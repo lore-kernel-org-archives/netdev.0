@@ -1,63 +1,57 @@
-From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-Subject: [PATCH net-next 3/5] qlcnic: Fix driver initialization for 83xx adapters
-Date: Thu, 15 Aug 2013 08:27:27 -0400
-Message-ID: <1376569649-565-4-git-send-email-sucheta.chakraborty@qlogic.com>
-References: <1376569649-565-1-git-send-email-sucheta.chakraborty@qlogic.com>
+From: Libo Chen <clbchenlibo.chen@huawei.com>
+Subject: [PATCH v3 5/7] net: sunhme: use platform_{get,set}_drvdata()
+Date: Thu, 15 Aug 2013 21:01:44 +0800
+Message-ID: <520CD138.8030204@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
-	Manish Chopra <manish.chopra@qlogic.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:40588 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756276Ab3HONCI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 09:02:08 -0400
-In-Reply-To: <1376569649-565-1-git-send-email-sucheta.chakraborty@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <jg1.han@samsung.com>, Bill Pemberton <wfp5p@virginia.edu>,
+	<netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Manish Chopra <manish.chopra@qlogic.com>
+Use the wrapper functions for getting and setting the driver data using
+platform_device instead of using dev_{get,set}_drvdata() with &pdev->dev,
+so we can directly pass a struct platform_device.
 
-o Load firmware from file before setting up interrupts.
-
-Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
-Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Signed-off-by: Libo Chen <libo.chen@huawei.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/sun/sunhme.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-index cc1e32a..17c26a1 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-@@ -2169,6 +2169,13 @@ int qlcnic_83xx_init(struct qlcnic_adapter *adapter, int pci_using_dac)
- 	if (err)
- 		goto detach_mbx;
- 
-+	if (!qlcnic_83xx_read_flash_descriptor_table(adapter))
-+		qlcnic_83xx_read_flash_mfg_id(adapter);
-+
-+	err = qlcnic_83xx_idc_init(adapter);
-+	if (err)
-+		goto detach_mbx;
-+
- 	err = qlcnic_setup_intr(adapter, 0);
- 	if (err) {
- 		dev_err(&adapter->pdev->dev, "Failed to setup interrupt\n");
-@@ -2186,13 +2193,6 @@ int qlcnic_83xx_init(struct qlcnic_adapter *adapter, int pci_using_dac)
- 	/* register for NIC IDC AEN Events */
- 	qlcnic_83xx_register_nic_idc_func(adapter, 1);
- 
--	if (!qlcnic_83xx_read_flash_descriptor_table(adapter))
--		qlcnic_83xx_read_flash_mfg_id(adapter);
--
--	err = qlcnic_83xx_idc_init(adapter);
--	if (err)
--		goto disable_mbx_intr;
--
- 	/* Configure default, SR-IOV or Virtual NIC mode of operation */
- 	err = qlcnic_83xx_configure_opmode(adapter);
- 	if (err)
+diff --git a/drivers/net/ethernet/sun/sunhme.c b/drivers/net/ethernet/sun/sunhme.c
+index 171f5b0..4900ea8 100644
+--- a/drivers/net/ethernet/sun/sunhme.c
++++ b/drivers/net/ethernet/sun/sunhme.c
+@@ -3111,7 +3111,7 @@ static int happy_meal_pci_probe(struct pci_dev *pdev,
+ 		goto err_out_iounmap;
+ 	}
+
+-	dev_set_drvdata(&pdev->dev, hp);
++	platform_set_drvdata(pdev, hp);
+
+ 	if (!qfe_slot) {
+ 		struct pci_dev *qpdev = qp->quattro_dev;
+@@ -3159,7 +3159,7 @@ err_out:
+
+ static void happy_meal_pci_remove(struct pci_dev *pdev)
+ {
+-	struct happy_meal *hp = dev_get_drvdata(&pdev->dev);
++	struct happy_meal *hp = platform_get_drvdata(pdev);
+ 	struct net_device *net_dev = hp->dev;
+
+ 	unregister_netdev(net_dev);
+@@ -3231,7 +3231,7 @@ static int hme_sbus_probe(struct platform_device *op)
+
+ static int hme_sbus_remove(struct platform_device *op)
+ {
+-	struct happy_meal *hp = dev_get_drvdata(&op->dev);
++	struct happy_meal *hp = platform_get_drvdata(op);
+ 	struct net_device *net_dev = hp->dev;
+
+ 	unregister_netdev(net_dev);
 -- 
-1.8.1.4
+1.7.1
