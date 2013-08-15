@@ -1,52 +1,41 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch 1/2] libceph: fix error handling in handle_reply()
-Date: Thu, 15 Aug 2013 08:51:58 +0300
-Message-ID: <20130815055158.GA23580@elgon.mountain>
+Subject: [patch 2/2] libceph: potential NULL dereference in
+ ceph_osdc_handle_map()
+Date: Thu, 15 Aug 2013 08:52:48 +0300
+Message-ID: <20130815055248.GB23580@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>,
 	ceph-devel@vger.kernel.org, netdev@vger.kernel.org,
 	kernel-janitors@vger.kernel.org
 To: Sage Weil <sage@inktank.com>
-Return-path: <ceph-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:39151 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753138Ab3HOFxG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 01:53:06 -0400
 Content-Disposition: inline
-Sender: ceph-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We've tried to fix the error paths in this function before, but there
-is still a hidden goto in the ceph_decode_need() macro which goes to the
-wrong place.  We need to release the "req" and unlock a mutex before
-returning.
+There are two places where we read "nr_maps" if both of them are set to
+zero then we would hit a NULL dereference here.
 
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+I think this is a real bug, but please review my fix for it because I'm
+not very familiar with this code.
 
 diff --git a/net/ceph/osd_client.c b/net/ceph/osd_client.c
-index dbc0a73..559a832 100644
+index 559a832..56f1fe5 100644
 --- a/net/ceph/osd_client.c
 +++ b/net/ceph/osd_client.c
-@@ -1488,14 +1488,14 @@ static void handle_reply(struct ceph_osd_client *osdc, struct ceph_msg *msg,
- 	dout("handle_reply %p tid %llu req %p result %d\n", msg, tid,
- 	     req, result);
- 
--	ceph_decode_need(&p, end, 4, bad);
-+	ceph_decode_need(&p, end, 4, bad_put);
- 	numops = ceph_decode_32(&p);
- 	if (numops > CEPH_OSD_MAX_OP)
- 		goto bad_put;
- 	if (numops != req->r_num_ops)
- 		goto bad_put;
- 	payload_len = 0;
--	ceph_decode_need(&p, end, numops * sizeof(struct ceph_osd_op), bad);
-+	ceph_decode_need(&p, end, numops * sizeof(struct ceph_osd_op), bad_put);
- 	for (i = 0; i < numops; i++) {
- 		struct ceph_osd_op *op = p;
- 		int len;
-@@ -1513,7 +1513,7 @@ static void handle_reply(struct ceph_osd_client *osdc, struct ceph_msg *msg,
- 		goto bad_put;
+@@ -1786,6 +1786,8 @@ void ceph_osdc_handle_map(struct ceph_osd_client *osdc, struct ceph_msg *msg)
+ 		nr_maps--;
  	}
  
--	ceph_decode_need(&p, end, 4 + numops * 4, bad);
-+	ceph_decode_need(&p, end, 4 + numops * 4, bad_put);
- 	retry_attempt = ceph_decode_32(&p);
- 	for (i = 0; i < numops; i++)
- 		req->r_reply_op_result[i] = ceph_decode_32(&p);
++	if (!osdc->osdmap)
++		goto bad;
+ done:
+ 	downgrade_write(&osdc->map_sem);
+ 	ceph_monc_got_osdmap(&osdc->client->monc, osdc->osdmap->epoch);
