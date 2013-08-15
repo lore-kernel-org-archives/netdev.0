@@ -1,51 +1,101 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH net] net: tg3: fix NULL pointer dereference in
- tg3_io_error_detected and tg3_io_slot_reset
-Date: Thu, 15 Aug 2013 08:15:20 -0700
-Message-ID: <1376579720.9648.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <1376419513-31924-1-git-send-email-nsujir@broadcom.com>
- <20130815.010726.719593168454341579.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net] skge: dma_sync the whole receive buffer
+Date: Thu, 15 Aug 2013 08:41:17 -0700
+Message-ID: <20130815084117.2f48fc58@nehalam.linuxnetplumber.net>
+References: <20130810104100.0ae20aa6@nehalam.linuxnetplumber.net>
+	<20130810.132935.1257046025460198490.davem@davemloft.net>
+	<20130810150207.37432299@nehalam.linuxnetplumber.net>
+	<20130813.150955.1471100759610399160.davem@davemloft.net>
+	<20130813180036.3e639789@nehalam.linuxnetplumber.net>
+	<520B59D3.4020103@gmail.com>
+	<20130814092022.494caf2b@nehalam.linuxnetplumber.net>
+	<520BCC72.8040002@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=cp1252
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: nsujir@broadcom.com, netdev@vger.kernel.org, dborkman@redhat.com,
-	shangw@linux.vnet.ibm.com
-To: "David Miller" <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: poma <pomidorabelisima@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4616 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755151Ab3HOPP1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Aug 2013 11:15:27 -0400
-In-Reply-To: <20130815.010726.719593168454341579.davem@davemloft.net>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:56992 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757806Ab3HOPlZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 11:41:25 -0400
+Received: by mail-pb0-f49.google.com with SMTP id xb4so861280pbc.8
+        for <netdev@vger.kernel.org>; Thu, 15 Aug 2013 08:41:25 -0700 (PDT)
+In-Reply-To: <520BCC72.8040002@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-08-15 at 01:07 -0700, David Miller wrote: 
-> From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-> Date: Tue, 13 Aug 2013 11:45:13 -0700
+On Wed, 14 Aug 2013 20:29:06 +0200
+poma <pomidorabelisima@gmail.com> wrote:
+
+> On 14.08.2013 18:20, Stephen Hemminger wrote:
+> > On Wed, 14 Aug 2013 12:20:03 +0200
+> > poma <pomidorabelisima@gmail.com> wrote:
+> > 
+> >> On 14.08.2013 03:00, Stephen Hemminger wrote:
+> >>> On Tue, 13 Aug 2013 15:09:55 -0700 (PDT)
+> >>> David Miller <davem@davemloft.net> wrote:
+> >>>
+> >>>> From: Stephen Hemminger <stephen@networkplumber.org>
+> >>>> Date: Sat, 10 Aug 2013 15:02:07 -0700
+> >>>>
+> >>>>> The DMA sync should sync the whole receive buffer, not just
+> >>>>> part of it. Fixes log messages dma_sync_check.
+> >>>>>
+> >>>>> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> >>>>
+> >>>> Applied, but I really suspect that your "check DMA mapping errors"
+> >>>> patch has added a serious regression.  A regression much worse than
+> >>>> the bug you were trying to fix with that change.
+> >>>
+> >>> Argh. The problem is deeper than that. Device got broken somewhere between
+> >>> 3.2 and 3.4. My old Dlink card works on 3.2 but gets DMA errors on 3.4.
+> >>> The config's are different though so checking that as well.
+> >>>
+> >>
+> >> Can I help you with debugging?
+> >> DGE-530T is rather solid device.
+> > 
+> > Don't think it is a hardware problem.
+> > The failure is when the board access the Receive ring PCI memory area.
+> > This region is allocated with pci_alloc_consistent and therefore should
+> > be available. Two possible issues are driver math issues, or hardware
+> > problems with where the region is located. Some of these cards don't
+> > really have full 64 bit PCI support.
+> > 
+> > My board is:
+> > 05:01.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adapter (rev 11)
+> > 	Subsystem: D-Link System Inc DGE-530T Gigabit Ethernet Adapter
+> > 	Flags: bus master, 66MHz, medium devsel, latency 32, IRQ 18
+> > 	Memory at f7d20000 (32-bit, non-prefetchable) [size=16K]
+> > 	I/O ports at c000 [size=256]
+> > 	Expansion ROM at f7d00000 [disabled] [size=128K]
+> > 	Capabilities: [48] Power Management version 2
+> > 	Capabilities: [50] Vital Product Data
+> > 	Kernel driver in use: skge
+> > 
+> > 
+> > What is your config?
+> > 
 > 
-> > From: Daniel Borkmann <dborkman@redhat.com>
-> > 
-> > Commit d8af4dfd8 ("net/tg3: Fix kernel crash") introduced a possible
-> > NULL pointer dereference in tg3 driver when !netdev || !netif_running(netdev)
-> > condition is met and netdev is NULL. Then, the jump to the 'done' label
-> > calls dev_close() with a netdevice that is NULL. Therefore, only call
-> > dev_close() when we have a netdevice, but one that is not running.
-> > 
-> > [ Add the same checks in tg3_io_slot_reset() per Gavin Shan - by Nithin
-> > Nayak Sujir ]
-> > 
-> > Reported-by: Dave Jones <davej@redhat.com>
-> > Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> > Cc: Gavin Shan <shangw@linux.vnet.ibm.com>
-> > Cc: Michael Chan <mchan@broadcom.com>
-> > Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+> 01:09.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adapter
+> (rev 11)
+> 	Subsystem: D-Link System Inc DGE-530T Gigabit Ethernet Adapter
+> 	Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 19
+> 	Memory at fbffc000 (32-bit, non-prefetchable) [size=16K]
+> 	I/O ports at b400 [size=256]
+> 	[virtual] Expansion ROM at ec000000 [disabled] [size=128K]
+> 	Capabilities: [48] Power Management version 2
+> 	Capabilities: [50] Vital Product Data
+> 	Kernel driver in use: skge
 > 
-> Can I get some reviews from the Broadcom folks?
+> 
+> poma
 > 
 
-We worked with Daniel at Red Hat and Gavin at IBM on this patch.
-Thanks.
+In the course of debugging this, I moved the card to another slot
+and all the problems went away. I suspect either card insertion or more likely
+the crap consumer motherboards don't have full PCI support on some slots.
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+There doesn't seem to be anyway to address this in software.
