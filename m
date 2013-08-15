@@ -1,76 +1,72 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: cpsw fails to come up once in a while
-Date: Thu, 15 Aug 2013 15:29:27 +0530
-Message-ID: <520CA67F.4000902@ti.com>
-References: <20130814175439.GA13483@linutronix.de>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Fwd: RFC 6980 on Security Implications of IPv6 Fragmentation with IPv6 Neighbor Discovery
+Date: Thu, 15 Aug 2013 12:04:07 +0200
+Message-ID: <20130815100407.GA18564@order.stressinduktion.org>
+References: <20130813221321.AEA1AB1E003@rfc-editor.org> <520B3D81.9070506@gont.com.ar> <20130814230617.GA13066@order.stressinduktion.org> <520C7519.1010000@gont.com.ar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Fernando Gont <fernando@gont.com.ar>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:38562 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753605Ab3HOJ7i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 05:59:38 -0400
-In-Reply-To: <20130814175439.GA13483@linutronix.de>
+Received: from order.stressinduktion.org ([87.106.68.36]:53288 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751976Ab3HOKEI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 06:04:08 -0400
+Content-Disposition: inline
+In-Reply-To: <520C7519.1010000@gont.com.ar>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 14 August 2013 11:24 PM, Sebastian Andrzej Siewior wrote:
-> Hi,
->
-> So I have this test where my am335x-evm boots over NFS and once it=20
-> completes it does it again. It works most of the time :) However once=
- it
-> like 100 attempts it does not. After the reset u-boot complains about
-> ethernet timeout and linux has also no luck:
->
-> | U-Boot 2013.04-00274-ga71d45d (May 27 2013 - 12:41:57)
-> |=20
-> |=E2=80=A6
-> | Net:   Phy not found
-> | PHY reset timed out
-> | cpsw, usb_ether
-> | Hit any key to stop autoboot:  1 ^H^H^H 0=20
-> | link up on port 0, speed 1000, full duplex
-> | Using cpsw device
-> | TFTP from server 172.123.10.10; our IP address is 172.123.10.3
-> | Filename 'am335x/zImage'.
-> | Load address: 0x80200000
-> | Loading: *^H#######################################################=
-##########
-> |          ##########################################################=
-#######
-> |          #######################################
-> |          509.8 KiB/s
->
-> So the PHY was not found but somehow it managed to fetch the kernel o=
-ver
-> network and boot it. The linux driver did not want to continue:
->
-> | omap_i2c 4802a000.i2c: bus 1 rev0.11 at 100 kHz
-> | davinci_mdio 4a101000.mdio: davinci mdio revision 1.6
-> | davinci_mdio 4a101000.mdio: no live phy, scanning all
-> | davinci_mdio: probe of 4a101000.mdio failed with error -5
-> | Random MACID =3D 16:74:44:51:f1:0f
-> | gpio-keys volume_keys.6: Unable to claim irq 0; error -22
-> | gpio-keys: probe of volume_keys.6 failed with error -22
-> | omap_rtc 44e3e000.rtc: setting system clock to 2000-01-01 03:22:52 =
-UTC (946696972)
-> | net eth0: initializing cpsw version 1.12 (0)
-> | libphy: PHY 4a101000.mdio:00 not found
-> | net eth0: phy 4a101000.mdio:00 not found on slave 0
-> | libphy: PHY 4a101000.mdio:01 not found
-> | net eth0: phy 4a101000.mdio:01 not found on slave 1
-> | Waiting up to 110 more seconds for network.
->
-> so the driver also failed to find a PHY and gave up.
-> Is this something known?
->
-> Sebastian
-This is a unknown issue. Will arrange a setup to test this scenario and
-fix the issue.
+On Thu, Aug 15, 2013 at 03:28:41AM -0300, Fernando Gont wrote:
+> Thanks so much for your timely response! -- Please find my comments
+> in-line...
+> 
+> On 08/14/2013 08:06 PM, Hannes Frederic Sowa wrote:
+> > On Wed, Aug 14, 2013 at 05:19:13AM -0300, Fernando Gont wrote:
+> >> Folks,
+> >>
+> >> FYI. -- this is an important piece when it comes to First Hop (i.e.,
+> >> "local link") Security.
+> > 
+> > Thanks for the heads-up, Fernando!
+> > 
+> > I sketched up a patch to protect the receiving side. I still don't know if I
+> > should make this behaviour default or configurable via a sysctl knob. I really
+> > don't want to break existing installations.
+> 
+> Make it the default behavior. If anything, provide a sysctl knob to
+> override it.
+> 
+> Note: In the specific case of NS/NA messages, it's impossible nowadays
+> to find them fragmented in a real network (we don't even have options
+> (other than padding) to make NS/NAs grow so large!).
 
-Regards
-Mugunthan V N
+Yes, I also do favour making this the default behavior.
+
+> > As an extra plus, we now discard packets with nested fragment headers at once.
+> > Those packets should never have been accepted.
+> 
+> Is that the "goto fail_hdr" part in your patch?
+
+Yes, still have to check if I should silently ignore them or generate a
+parameter problem (that is the current behavior).
+
+> 
+> P.S.: What about RS/RA messages?
+
+
+ndisc_rcv, which does now silently discard fragmented packets, is called
+for the following types:
+
+        case NDISC_ROUTER_SOLICITATION:
+        case NDISC_ROUTER_ADVERTISEMENT:
+        case NDISC_NEIGHBOUR_SOLICITATION:
+        case NDISC_NEIGHBOUR_ADVERTISEMENT:
+        case NDISC_REDIRECT:
+
+So all packet types from RFC6980 should be covered (we do not support SEND,
+yet).
+
+Thanks,
+
+  Hannes
