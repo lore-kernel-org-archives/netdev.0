@@ -1,57 +1,87 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: Specifying netdev name on kernel boot?
-Date: Thu, 15 Aug 2013 13:09:03 -0500
-Message-ID: <1376590143.2180.11.camel@dcbw.foobar.com>
-References: <520CF8BB.2080702@candelatech.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v3 1/2] macvtap: include all checksum offloads in
+ TUN_OFFLOAD mask
+Date: Thu, 15 Aug 2013 21:24:31 +0300
+Message-ID: <20130815182430.GB10265@redhat.com>
+References: <1376586173-4242-1-git-send-email-vyasevic@redhat.com>
+ <1376586173-4242-2-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24440 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:41587 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753334Ab3HOSF1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Aug 2013 14:05:27 -0400
-In-Reply-To: <520CF8BB.2080702@candelatech.com>
+	id S1751903Ab3HOSWp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Aug 2013 14:22:45 -0400
+Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r7FIMjrw015806
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Thu, 15 Aug 2013 14:22:45 -0400
+Content-Disposition: inline
+In-Reply-To: <1376586173-4242-2-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-08-15 at 08:50 -0700, Ben Greear wrote:
-> It seems they finally broke udev in Fedora 19...it can no longer
-> rename ethX to ethY, for whatever reason.
+On Thu, Aug 15, 2013 at 01:02:52PM -0400, Vlad Yasevich wrote:
+> The features of the macvlan are based on the features of lower
+> device and thus can have checksum featurs other then IFF_F_HW_CSUM
 
-It's intentional AFAIK, it won't rename devices into the kernel
-namespace (eth, wlan, usb, wwan) because it's inherently race-prone and
-there's no way to know that the kernel didn't just detect a new eth2
-while you're about to rename your eth0 to eth2.  There actually have
-been a lot of problems with that in past, because bus enumeration order
-is not guaranteed.
+s/featurs/features/
 
-I'm pretty sure you drop a rule in /etc/udev/rules.d  to what you want:
+:set spell spelllang=en_us
 
-SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", ATTR{address}=="00:xx:xx:xx:xx:xx", ATTR{dev_id}=="0x0", ATTR{type}=="1", KERNEL=="eth*", NAME="eth0"
+or whatever's the equivalent in your editor of choice.
 
-Or if you install biosdevname, you'll get the nice BIOS names for the
-interfaces which is usually something like "slot1nic0" or "builtin0" or
-something like that.
-
-(and yeah, one of my devices is "enp0s29f7u4" which is just f-king ugly.
-*I* know what that means and why udev is doing it, but I also sympathize
-with those who don't...)
-
-Dan
-
-> Is there a way to specify the naming on the kernel command line?
+> set.  However, TUN_OFFLOAD mask only includes IFF_F_HW_CSUM.  Thus
+> when performing gso segmentation during macvtap_forward(),
+> it is possbile to end up with skbs that have ip_summed set
+> to CHECKSUM_PARTIAL.  This is incorrect when the user
+> turns off checksum offloading.
 > 
-> I found something in google that made me think this might work:
+> Include all possible checksum offload values so that
+> we'll properly mask them off when performing GSO.
 > 
-> ifname=eth0:00:30:48:fc:17:a2 ifname=eth1:00:30:48:fc:17:a3 ifname=eth2:00:e0:ed:1c:ec:e4 ifname=eth3:00:e0:ed:1c:ec:e5
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> ---
+>  drivers/net/macvtap.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> but it doesn't seem to have any affect.
-> 
-> I'm using ixgbe and e1000e drivers, loaded as modules, in case that matters.
-> 
-> Thanks,
-> Ben
-> 
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index b51db2a..8121358 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -65,7 +65,7 @@ static struct cdev macvtap_cdev;
+>  
+>  static const struct proto_ops macvtap_socket_ops;
+>  
+> -#define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
+> +#define TUN_OFFLOADS (NETIF_F_ALL_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
+>  		      NETIF_F_TSO6 | NETIF_F_UFO)
+>  #define RX_OFFLOADS (NETIF_F_GRO | NETIF_F_LRO)
+>  /*
+
+Okay so you are talking about hardware that sets some other
+checksum bit besides HW_CSUM, e.g. IP_CSUM, so
+
+        vlan->tap_features = vlan->dev->features &
+                            (feature_mask | ~TUN_OFFLOADS);
+
+will not clear IP_CSUM even if feature_mask is 0.
+
+Maybe mention this in the changelog, in case user
+will wonder whether his hardware is affected.
+
+So I agree, that's a bug, but if you make this change the reverse will hold
+(on this hardware):
+if user sets TUN_F_CSUM, we won't set NETIF_F_IP_CSUM
+so checksum offloading won't work.
+
+So I think you want s/NETIF_F_HW_CSUM/NETIF_F_ALL_CSUM/ everywhere
+and not just in this place.
+
+Also - Cc stable?
+
+
+> -- 
+> 1.8.1.4
