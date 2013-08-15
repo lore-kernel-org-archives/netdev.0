@@ -1,149 +1,75 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH 1/3 v4] ipv6: do not disable temp_address when reaching
- max_address
-Date: Thu, 15 Aug 2013 10:16:51 +0800
-Message-ID: <520C3A13.3060106@huawei.com>
-References: <520B48AE.8050103@huawei.com> <20130814101511.GC16264@order.stressinduktion.org> <520C241A.2030708@huawei.com> <20130815012457.GD13066@order.stressinduktion.org>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next] net: sync some IP headers with glibc
+Date: Thu, 15 Aug 2013 10:48:57 +0800
+Message-ID: <1376534937.2626.6.camel@cr0>
+References: <1376383054-9184-1-git-send-email-amwang@redhat.com>
+	 <20130814.134246.1152657041177088716.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jon Maloy <jon.maloy@ericsson.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Netdev <netdev@vger.kernel.org>, <kargig@void.gr>,
-	<ppandit@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:11228 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758380Ab3HOCRV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Aug 2013 22:17:21 -0400
-In-Reply-To: <20130815012457.GD13066@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, tmb@mageia.org, libc-alpha@sourceware.org,
+        yoshfuji@linux-ipv6.org, carlos@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <libc-alpha-return-41950-glibc-alpha=m.gmane.org@sourceware.org>
+List-Unsubscribe: <mailto:libc-alpha-unsubscribe-##L=##H@sourceware.org>
+List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
+List-Archive: <http://sourceware.org/ml/libc-alpha/>
+List-Post: <mailto:libc-alpha@sourceware.org>
+List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
+Sender: libc-alpha-owner@sourceware.org
+In-Reply-To: <20130814.134246.1152657041177088716.davem@davemloft.net>
+List-Id: netdev.vger.kernel.org
 
-On 2013/8/15 9:24, Hannes Frederic Sowa wrote:
-> On Thu, Aug 15, 2013 at 08:43:06AM +0800, Ding Tianhong wrote:
->> On 2013/8/14 18:15, Hannes Frederic Sowa wrote:
->>> On Wed, Aug 14, 2013 at 05:06:54PM +0800, Ding Tianhong wrote:
->>>> A LAN user can remotely disable temporary address which may lead
->>>> to privacy violatins and information disclosure.
->>>>
->>>> The reason is that the linux kernel uses the 'ipv6.max_addresses'
->>>> option to specify how many ipv6 addresses and interface may have.
->>>> The 'ipv6.regen_max_retry' (default value 3) option specifies
->>>> how many times the kernel will try to create a new address.
->>>>
->>>> But the kernel is not distinguish between the event of reaching
->>>> max_addresses for an interface and failing to generate a new address.
->>>> the kernel disable the temporary address after regenerate a new
->>>> address 'regen_max_retry' times.
->>>>
->>>> According RFC4941 3.3.7:
->>>>
->>>> ---------------------------------------
->>>>
->>>> If DAD indicates the address is already in use,
->>>> the node must generate a new randomized interface
->>>> identifier as described in section 3.2 above, and
->>>> repeat the previous steps as appropriate up to
->>>> TEMP_IDGEN_RETRIES times.
->>>>
->>>> If after TEMP_IDGEN_RETRIES consecutive attempts no
->>>> non-unique address was generated, the node must log
->>>> a system error and must not attempt to generate
->>>> temporary address for that interface.
->>>>
->>>> ------------------------------------------
->>>>
->>>> RFC4941 3.3.7 specifies that disabling the temp_address must happen
->>>> upon the address is already in use, not reach the max_address,
->>>> So we have to check the return err and distinguish the correct retry path.
->>>>
->>>> This fixes CVE-2013-0343
->>>
->>> I don't think this patch fixes CVE-2013-0343.
->>>
->>>>
->>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->>>> Tested-by: Wang Weidong <wangweidong1@huawei.com>
->>>> Cc: David S. Miller <davem@davemloft.net>
->>>> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->>>> Cc: Eric Dumazet <edumazet@google.com>
->>>> ---
->>>>  net/ipv6/addrconf.c | 26 ++++++++++++++++++++++----
->>>>  1 file changed, 22 insertions(+), 4 deletions(-)
->>>>
->>>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
->>>> index da4241c..7b55464 100644
->>>> --- a/net/ipv6/addrconf.c
->>>> +++ b/net/ipv6/addrconf.c
->>>> @@ -1134,10 +1134,28 @@ retry:
->>>>  	if (IS_ERR_OR_NULL(ift)) {
->>>>  		in6_ifa_put(ifp);
->>>>  		in6_dev_put(idev);
->>>> -		pr_info("%s: retry temporary address regeneration\n", __func__);
->>>> -		tmpaddr = &addr;
->>>> -		write_lock(&idev->lock);
->>>> -		goto retry;
->>>> +
->>>> +		/* According RFC4941 3.3.7:
->>>> +		 * If DAD indicates the address is already in use,
->>>> +		 * the node must generate a new randomized interface
->>>> +		 * identifier as described in section 3.2 above, and
->>>> +		 * repeat the previous steps as appropriate up to
->>>> +		 * TEMP_IDGEN_RETRIES times.
->>>> +		 * If after TEMP_IDGEN_RETRIES consecutive attempts no
->>>> +		 * non-unique address was generated, the node must log
->>>> +		 * a system error and must not attempt to generate
->>>> +		 * temporary address for that interface.
->>>> +		 * So we have to check the return err and distinguish
->>>> +		 * the correct retry path.
->>>> +		 */
->>>> +		if (PTR_ERR(ift) == -EEXIST) {
->>>
->>> -EEXIST is not the same as "ipv6 address is is already used on the
->>> subnet". I really don't see the point here. IMHO this breaks the intended
->>> regeneration logic.
->>>
->>> I fear a fix of CVE-2013-0343 will be a bit more complicated. ;) I give it a
->>> thought.
->>>
->>> Greetings,
->>>
->>>   Hannes
->>>
->>>
->> ok, thanks for your feedback, I'll waiting you for more information to fix the problem.:)
+On Wed, 2013-08-14 at 13:42 -0700, David Miller wrote:
+> From: Cong Wang <amwang@redhat.com>
+> Date: Tue, 13 Aug 2013 16:37:33 +0800
 > 
-> [added George Kargiotakis and P J P to Cc and full quote]
+> > @@ -23,31 +23,54 @@
+> >  
+> >  /* Standard well-defined IP protocols.  */
+> >  enum {
+> > -  IPPROTO_IP = 0,		/* Dummy protocol for TCP		*/
+> > -  IPPROTO_ICMP = 1,		/* Internet Control Message Protocol	*/
 > 
-> I wonder if the easiest solution would be to just drop the max_addresses
-> limit from ipv6_create_tempaddr. max_addresses protects the kernel from
-> installing an unlimited amount of addresses on an interface which gets flooded
-> by RAs. Because we have a direct relation between interface address to temp
-> address, I don't see that we would create the possiblity of DoS.
+> > +  IPPROTO_IP = 0,		/* Dummy protocol for TCP. */
 > 
-> Sure, an audit and testing is needed.
-> 
-> Greetings,
-> 
->   Hannes
-> 
+> Please don't do unrelated things like reformat comments, it makes the
+> path much harder to audit.
 
-I am afraid that if remove the max limit from the ipv6_create_tempaddr, the tool flood_route26 attack will create huge address to the temp_list, it will be a huge list,
-may it destroy something or not?
+OK.
 
-Best regards
-Ding Tianhong
+> 
+> > -
+> > +#if __UAPI_DEF_IN6_ADDR
+> >  struct in6_addr {
+> >  	union {
+> >  		__u8		u6_addr8[16];
+> > +#if __UAPI_DEF_IN6_ADDR
+> >  		__be16		u6_addr16[8];
+> 
+> The same CPP test twice inside of itself, the second test seems
+> superfluous.  I bet this second one was supposed to be
+> __UAPI_DEF_IN6_ADDR_ALT instead of __UAPI_DEF_IN6_ADDR.
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Indeed.
+
 > 
-> .
+> > -#define IPPROTO_HOPOPTS		0	/* IPv6 hop-by-hop options	*/
+> > -#define IPPROTO_ROUTING		43	/* IPv6 routing header		*/
+> > -#define IPPROTO_FRAGMENT	44	/* IPv6 fragmentation header	*/
+> > -#define IPPROTO_ICMPV6		58	/* ICMPv6			*/
+> > -#define IPPROTO_NONE		59	/* IPv6 no next header		*/
+> > -#define IPPROTO_DSTOPTS		60	/* IPv6 destination options	*/
+> > -#define IPPROTO_MH		135	/* IPv6 mobility header		*/
+> > +#if __UAPI_DEF_IPPROTO_V6
+> > +enum {
+> > +  IPPROTO_HOPOPTS = 0,		/* IPv6 hop-by-hop options      */
 > 
+> Again, do not reformat things, it's an unrelated change and makes
+> this patch harder to review.
+
+Ok.
+
+I will update the patch.
+
+Thanks!
