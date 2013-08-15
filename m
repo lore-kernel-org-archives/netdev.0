@@ -1,119 +1,45 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v3 2/2] macvtap: Allow tap features change when
- IFF_VNET_HDR is disabled.
-Date: Thu, 15 Aug 2013 20:33:47 +0300
-Message-ID: <20130815173347.GA10265@redhat.com>
-References: <1376586173-4242-1-git-send-email-vyasevic@redhat.com>
- <1376586173-4242-3-git-send-email-vyasevic@redhat.com>
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Subject: Re: [PATCH net] net: tg3: fix NULL pointer dereference in
+ tg3_io_error_detected and tg3_io_slot_reset
+Date: Thu, 15 Aug 2013 10:32:58 -0700
+Message-ID: <520D10CA.7040600@broadcom.com>
+References: <1376419513-31924-1-git-send-email-nsujir@broadcom.com>
+ <20130815.010726.719593168454341579.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevic@redhat.com>
+Content-Type: text/plain;
+ charset=iso-8859-1;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dborkman@redhat.com,
+	shangw@linux.vnet.ibm.com, mchan@broadcom.com
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22290 "EHLO mx1.redhat.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3395 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757969Ab3HORcC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Aug 2013 13:32:02 -0400
-Received: from int-mx10.intmail.prod.int.phx2.redhat.com (int-mx10.intmail.prod.int.phx2.redhat.com [10.5.11.23])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r7FHW1gr015688
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 15 Aug 2013 13:32:01 -0400
-Content-Disposition: inline
-In-Reply-To: <1376586173-4242-3-git-send-email-vyasevic@redhat.com>
+	id S1757666Ab3HORdK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Aug 2013 13:33:10 -0400
+In-Reply-To: <20130815.010726.719593168454341579.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 15, 2013 at 01:02:53PM -0400, Vlad Yasevich wrote:
-> When the user turns off IFF_VNET_HDR flag, attempts to change
-> offload features via TUNSETOFFLOAD do not work.  This could cause
-> GSO packets to be delivered to the user when the user is
-> not prepared to handle them.
-> 
-> To solve, allow processing of TUNSETOFFLOAD when IFF_VNET_HDR is
-> disabled.  Also, take the setting of IFF_VNET_HDR into consideration
-> when determining the feature set to apply to incommig traffic.
-> If IFF_VNET_HDR is set, we use user-specfied feature set.  if the
-> IFF_VNET_HDR is clear, we mask off all tun-specific offload features,
-> since user can not be notified of the possbile offloads.
-> 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> ---
->  drivers/net/macvtap.c | 30 ++++++++++++++++++++++++------
->  1 file changed, 24 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index 8121358..df45a59 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -269,6 +269,28 @@ static void macvtap_del_queues(struct net_device *dev)
->  		sock_put(&qlist[j]->sk);
->  }
->  
-> +/* Determine features to be applied to the packet as it
 
-/*
- * Please use comments
- * like this
- */
+>> Cc: Gavin Shan <shangw@linux.vnet.ibm.com>
+>> Cc: Michael Chan <mchan@broadcom.com>
+>> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+>
+> Can I get some reviews from the Broadcom folks?
+>
 
-> + * gets sent to the tap.  The features depend on the offloads
-> + * set by user and by whether or not IFF_VNET_HDR is enabled.
-> + */
-> +static netdev_features_t macvtap_skb_features(struct sk_buff *skb,
-> +					      struct macvtap_queue *q)
-> +{
-> +	struct macvlan_dev *vlan = netdev_priv(skb->dev);
-> +	netdev_features_t features = netif_skb_features(skb);
-> +
-> +	/* If VNET_HDR is enabled, user can receive offload info so
-> +	 * use user-specified tap_features.
-> +	 * Otherwise, mask off all tap offload features.
-> +	 */
-> +	if (q->flags & IFF_VNET_HDR)
-> +		features &= vlan->tap_features;
-> +	else
-> +		features &= ~TUN_OFFLOADS;
-> +
-> +	return features;
-> +}
-> +
+David,
+I made the additional changes to Daniel's patch and Michael Chan reviewed it 
+before I submitted.
 
-Okay, but this means we need to do netdev_update_features
-on SETIFF since it changes q->flags.
+Sorry, I forgot to add Michael's Signed-off-by. Do you want me to resend it with 
+his Signed-off-by added?
 
->  /*
->   * Forward happens for data that gets sent from one macvlan
->   * endpoint to another one in bridge mode. We just take
-> @@ -276,9 +298,9 @@ static void macvtap_del_queues(struct net_device *dev)
->   */
->  static int macvtap_forward(struct net_device *dev, struct sk_buff *skb)
->  {
-> -	struct macvlan_dev *vlan = netdev_priv(dev);
->  	struct macvtap_queue *q = macvtap_get_queue(dev, skb);
->  	netdev_features_t features;
-> +
->  	if (!q)
->  		goto drop;
->  
-> @@ -289,7 +311,7 @@ static int macvtap_forward(struct net_device *dev, struct sk_buff *skb)
->  	/* Apply the forward feature mask so that we perform segmentation
->  	 * according to users wishes.
->  	 */
-> -	features = netif_skb_features(skb) & vlan->tap_features;
-> +	features = macvtap_skb_features(skb, q);
->  	if (netif_needs_gso(skb, features)) {
->  		struct sk_buff *segs = __skb_gso_segment(skb, features, false);
->  
-> @@ -1161,10 +1183,6 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
->  			    TUN_F_TSO_ECN | TUN_F_UFO))
->  			return -EINVAL;
->  
-> -		/* TODO: only accept frames with the features that
-> -			 got enabled for forwarded frames */
-> -		if (!(q->flags & IFF_VNET_HDR))
-> -			return  -EINVAL;
->  		rtnl_lock();
->  		ret = set_offload(q, arg);
->  		rtnl_unlock();
-> -- 
-> 1.8.1.4
+Thanks,
+Nithin.
+
+
+> Thanks.
+>
