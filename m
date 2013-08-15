@@ -1,57 +1,47 @@
-From: Libo Chen <clbchenlibo.chen@huawei.com>
-Subject: [PATCH v3 5/7] net: sunhme: use platform_{get,set}_drvdata()
-Date: Thu, 15 Aug 2013 21:01:44 +0800
-Message-ID: <520CD138.8030204@huawei.com>
+From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Subject: [PATCH net 2/3] qlcnic: Fix beacon state return status handling
+Date: Thu, 15 Aug 2013 08:29:28 -0400
+Message-ID: <1376569769-625-3-git-send-email-sucheta.chakraborty@qlogic.com>
+References: <1376569769-625-1-git-send-email-sucheta.chakraborty@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <jg1.han@samsung.com>, Bill Pemberton <wfp5p@virginia.edu>,
-	<netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:40836 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755403Ab3HONEH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 09:04:07 -0400
+In-Reply-To: <1376569769-625-1-git-send-email-sucheta.chakraborty@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use the wrapper functions for getting and setting the driver data using
-platform_device instead of using dev_{get,set}_drvdata() with &pdev->dev,
-so we can directly pass a struct platform_device.
+o Driver was misinterpreting the return status for beacon
+  state query leading to incorrect interpretation of beacon
+  state and logging an error message for successful status.
+  Fixed the driver to properly interpret the return status.
 
-Signed-off-by: Libo Chen <libo.chen@huawei.com>
+Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 ---
- drivers/net/ethernet/sun/sunhme.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/sunhme.c b/drivers/net/ethernet/sun/sunhme.c
-index 171f5b0..4900ea8 100644
---- a/drivers/net/ethernet/sun/sunhme.c
-+++ b/drivers/net/ethernet/sun/sunhme.c
-@@ -3111,7 +3111,7 @@ static int happy_meal_pci_probe(struct pci_dev *pdev,
- 		goto err_out_iounmap;
- 	}
-
--	dev_set_drvdata(&pdev->dev, hp);
-+	platform_set_drvdata(pdev, hp);
-
- 	if (!qfe_slot) {
- 		struct pci_dev *qpdev = qp->quattro_dev;
-@@ -3159,7 +3159,7 @@ err_out:
-
- static void happy_meal_pci_remove(struct pci_dev *pdev)
- {
--	struct happy_meal *hp = dev_get_drvdata(&pdev->dev);
-+	struct happy_meal *hp = platform_get_drvdata(pdev);
- 	struct net_device *net_dev = hp->dev;
-
- 	unregister_netdev(net_dev);
-@@ -3231,7 +3231,7 @@ static int hme_sbus_probe(struct platform_device *op)
-
- static int hme_sbus_remove(struct platform_device *op)
- {
--	struct happy_meal *hp = dev_get_drvdata(&op->dev);
-+	struct happy_meal *hp = platform_get_drvdata(op);
- 	struct net_device *net_dev = hp->dev;
-
- 	unregister_netdev(net_dev);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+index 10ed82b..660c3f5 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+@@ -170,9 +170,9 @@ static int qlcnic_82xx_store_beacon(struct qlcnic_adapter *adapter,
+ 
+ 	if (ahw->extra_capability[0] & QLCNIC_FW_CAPABILITY_2_BEACON) {
+ 		err = qlcnic_get_beacon_state(adapter, &h_beacon_state);
+-		if (!err) {
+-			dev_info(&adapter->pdev->dev,
+-				 "Failed to get current beacon state\n");
++		if (err) {
++			netdev_err(adapter->netdev,
++				   "Failed to get current beacon state\n");
+ 		} else {
+ 			if (h_beacon_state == QLCNIC_BEACON_DISABLE)
+ 				ahw->beacon_state = 0;
 -- 
-1.7.1
+1.8.1.4
