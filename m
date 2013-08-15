@@ -1,69 +1,59 @@
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Subject: Re: [PATCH net-next] ipip: Add room for user-specified custom header
-Date: Thu, 15 Aug 2013 08:11:25 +0200
-Message-ID: <CAKfDRXggENSekGMKhr1bZfdhOagM6P0BuCYBX0euHccMUHohpQ@mail.gmail.com>
-References: <1376296778-1983-1-git-send-email-kristian.evensen@gmail.com>
-	<20130814.133929.975837205960955245.davem@davemloft.net>
+From: Fernando Gont <fernando@gont.com.ar>
+Subject: Re: Fwd: RFC 6980 on Security Implications of IPv6 Fragmentation
+ with IPv6 Neighbor Discovery
+Date: Thu, 15 Aug 2013 03:28:41 -0300
+Message-ID: <520C7519.1010000@gont.com.ar>
+References: <20130813221321.AEA1AB1E003@rfc-editor.org> <520B3D81.9070506@gont.com.ar> <20130814230617.GA13066@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:38009 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753345Ab3HOGL0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 02:11:26 -0400
-Received: by mail-pd0-f173.google.com with SMTP id p10so434386pdj.32
-        for <netdev@vger.kernel.org>; Wed, 14 Aug 2013 23:11:26 -0700 (PDT)
-In-Reply-To: <20130814.133929.975837205960955245.davem@davemloft.net>
+Received: from web01.jbserver.net ([93.186.182.34]:40981 "EHLO
+	web01.jbserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753442Ab3HOG3N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 02:29:13 -0400
+In-Reply-To: <20130814230617.GA13066@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 14, 2013 at 10:39 PM, David Miller <davem@davemloft.net> wrote:
->
-> Sorry I'm not even going to consider applying this until you post
-> use-cases for this feature, because right now it just looks like a
-> random way to facilitate some third party proprietary kernel module
-> or similar.
+Hi, Hannes,
 
-Thank you for your feedback and I agree, one challenge with this patch
-is that it easy facilitates proprietary code.
+Thanks so much for your timely response! -- Please find my comments
+in-line...
 
-My use-case when creating this patch was to simplify the
-implementation of IP-in-UDP tunneling. I initially started out by
-cloning IP-in-IP and managing a set of UDP-sockets (for the incoming
-packets), but it seemed like overkill for something so simple.
-Especially since UDP source ports are used on something that does not
-need to be UDP sockets. So instead I made space between the IP headers
-for the UDP header, and the UDP header was inserted using an xtables
-extension. I was planning to post the xtables-module at the same time,
-but some other things came in the way. There are only a few features
-missing, so it will be out soon. I am aware that all of this could be
-implemented in the xtables-module directly, but the additional
-memmove() required has an impact on performance on the devices I am
-working with.
+On 08/14/2013 08:06 PM, Hannes Frederic Sowa wrote:
+> On Wed, Aug 14, 2013 at 05:19:13AM -0300, Fernando Gont wrote:
+>> Folks,
+>>
+>> FYI. -- this is an important piece when it comes to First Hop (i.e.,
+>> "local link") Security.
+> 
+> Thanks for the heads-up, Fernando!
+> 
+> I sketched up a patch to protect the receiving side. I still don't know if I
+> should make this behaviour default or configurable via a sysctl knob. I really
+> don't want to break existing installations.
 
-Another, and perhaps more interesting, use-case is to ease development
-and prototyping of new transport protocols on slower devices (for
-example typical consumer routers). In the research lab I belong to, we
-are currently looking into new protocols designed for mobile broadband
-networks. In order to have the largest possible selection of test
-applications and to avoid modifying client devices, we use existing
-applications (or applications using existing protocols) and tunnel the
-traffic through tunnels using our protocol. The devices we have are
-too slow for user-space tunneling and the links are all connected to
-the public internet. The protocol logic and header insertion is kept
-in a separate xtables-module. Using this approach has improved the
-speed at which we are able to prototype for example new flow or
-congestion control algorithms, and given us sufficient networking
-performance.
+Make it the default behavior. If anything, provide a sysctl knob to
+override it.
 
-What is the recommended way forward for getting this patch considered?
-Shall I focus on finishing the xtables example-module, or abandon this
-patch and implement IP in UDP as a new tunneling protocol in the
-kernel?
+Note: In the specific case of NS/NA messages, it's impossible nowadays
+to find them fragmented in a real network (we don't even have options
+(other than padding) to make NS/NAs grow so large!).
 
-(Sorry about sending two emails, it was too early in the morning and I
-forgot to enable plain-text)
 
--Kristian
+
+> As an extra plus, we now discard packets with nested fragment headers at once.
+> Those packets should never have been accepted.
+
+Is that the "goto fail_hdr" part in your patch?
+
+P.S.: What about RS/RA messages?
+
+Cheers,
+-- 
+Fernando Gont
+e-mail: fernando@gont.com.ar || fgont@si6networks.com
+PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
