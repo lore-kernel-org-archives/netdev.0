@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] tun: signedness bug in tun_get_user()
-Date: Thu, 15 Aug 2013 14:51:49 -0700 (PDT)
-Message-ID: <20130815.145149.39135968046365706.davem@davemloft.net>
-References: <20130815125257.GA16932@elgon.mountain>
-	<20130815200834.GE20294@hmsreliant.think-freely.org>
+Subject: Re: [PATCH v3 0/7] net: use platform_{get,set}_drvdata()
+Date: Thu, 15 Aug 2013 15:23:59 -0700 (PDT)
+Message-ID: <20130815.152359.920302339053249583.davem@davemloft.net>
+References: <520CD11D.8010202@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dan.carpenter@oracle.com, jasowang@redhat.com, mst@redhat.com,
-	edumazet@google.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: nhorman@tuxdriver.com
+Cc: netdev@vger.kernel.org, lizefan@huawei.com, leoli@freescale.com,
+	linuxppc-dev@lists.ozlabs.org, pantelis.antoniou@gmail.com,
+	vbordug@ru.mvista.com, gregkh@linuxfoundation.org,
+	jg1.han@samsung.com, sergei.shtylyov@cogentembedded.com
+To: clbchenlibo.chen@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46486 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46701 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751486Ab3HOVvu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 17:51:50 -0400
-In-Reply-To: <20130815200834.GE20294@hmsreliant.think-freely.org>
+	with ESMTP id S1751915Ab3HOWYA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 18:24:00 -0400
+In-Reply-To: <520CD11D.8010202@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Thu, 15 Aug 2013 16:08:35 -0400
+From: Libo Chen <clbchenlibo.chen@huawei.com>
+Date: Thu, 15 Aug 2013 21:01:17 +0800
 
-> On Thu, Aug 15, 2013 at 03:52:57PM +0300, Dan Carpenter wrote:
->> The recent fix d9bf5f1309 "tun: compare with 0 instead of total_len" is
->> not totally correct.  Because "len" and "sizeof()" are size_t type, that
->> means they are never less than zero.
->> 
->> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
- ...
-> Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> Use the wrapper functions for getting and setting the driver data using
+> platform_device instead of using dev_{get,set}_drvdata() with &pdev->dev,
+> so we can directly pass a struct platform_device.
+> 
+> changelog v3:
+> 	remove modify about dev_set_drvdata()
+> changelog v2:
+> 	this version add modify record about dev_set_drvdata().
 
-Applied, thanks everyone.
+Series applied.
