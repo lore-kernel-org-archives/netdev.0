@@ -1,40 +1,40 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 1/3 v4] ipv6: do not disable temp_address when reaching max_address
-Date: Thu, 15 Aug 2013 19:36:03 +0200
-Message-ID: <20130815173603.GA30746@order.stressinduktion.org>
-References: <520B48AE.8050103@huawei.com> <20130814101511.GC16264@order.stressinduktion.org> <520C241A.2030708@huawei.com> <20130815012457.GD13066@order.stressinduktion.org> <520C3A13.3060106@huawei.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH] macvtap: fix up direction in comment on offloading
+Date: Thu, 15 Aug 2013 20:46:26 +0300
+Message-ID: <20130815174626.GA10874@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jon Maloy <jon.maloy@ericsson.com>,
+	Jason Wang <jasowang@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
 	Eric Dumazet <edumazet@google.com>,
-	Netdev <netdev@vger.kernel.org>, kargig@void.gr,
-	ppandit@redhat.com
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:54251 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751264Ab3HORgG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 13:36:06 -0400
+	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <520C3A13.3060106@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 15, 2013 at 10:16:51AM +0800, Ding Tianhong wrote:
-> I am afraid that if remove the max limit from the ipv6_create_tempaddr, the tool flood_route26 attack will create huge address to the temp_list, it will be a huge list,
-> may it destroy something or not?
+It speaks about receiving frames, so while
+it says GSO, it really means GRO.
 
-I just tested, no it does not. Because it will only create a temporary address
-for each prefix received, which still is limited by max_addresses. But of
-course, more review is needed here. Maybe there is still a possibility to DoS?
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/net/macvtap.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Now we have to check why these addresses don't go out of tentative state.
-
-Greetings,
-
-  Hannes
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index a98fb0e..a98ed9f 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -1047,7 +1047,7 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
+ 	 * accept TSO frames and turning it off means that user space
+ 	 * does not support TSO.
+ 	 * For macvtap, we have to invert it to mean the same thing.
+-	 * When user space turns off TSO, we turn off GSO/LRO so that
++	 * When user space turns off TSO, we turn off GRO/LRO so that
+ 	 * user-space will not receive TSO frames.
+ 	 */
+ 	if (feature_mask & (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO))
+-- 
+MST
