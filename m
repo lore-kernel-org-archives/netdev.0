@@ -1,52 +1,111 @@
-From: Sonic Zhang <sonic.adi@gmail.com>
-Subject: Re: [PATCH] driver:net:stmmac: Disable DMA store and forward mode if
- platform data force_sf_dma_mode is negative.
-Date: Fri, 16 Aug 2013 17:37:42 +0800
-Message-ID: <CAJxxZ0Pya_K-VJcAZ6yv00_F66uAd481vWgV-nWmPBWKOV760A@mail.gmail.com>
-References: <1376552256-7421-1-git-send-email-sonic.adi@gmail.com>
-	<20130815.142005.816948927496553829.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] vhost: Drop linux/socket.h
+Date: Fri, 16 Aug 2013 12:50:12 +0300
+Message-ID: <20130816095012.GA21547@redhat.com>
+References: <1376536816-10951-1-git-send-email-asias@redhat.com>
+	<20130815.140740.1781732332793977170.davem@davemloft.net>
+	<20130816012743.GA5944@hj.localdomain>
+	<20130816.003159.2033932881805410431.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: peppe.cavallaro@st.com, netdev <netdev@vger.kernel.org>,
-	adi-buildroot-devel@lists.sourceforge.net,
-	"Zhang, Sonic" <sonic.zhang@analog.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f49.google.com ([209.85.219.49]:57693 "EHLO
-	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754946Ab3HPJhn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 05:37:43 -0400
-Received: by mail-oa0-f49.google.com with SMTP id n10so1997245oag.36
-        for <netdev@vger.kernel.org>; Fri, 16 Aug 2013 02:37:42 -0700 (PDT)
-In-Reply-To: <20130815.142005.816948927496553829.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20130816.003159.2033932881805410431.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
+On Fri, Aug 16, 2013 at 12:31:59AM -0700, David Miller wrote:
+> From: Asias He <asias@redhat.com>
+> Date: Fri, 16 Aug 2013 09:27:43 +0800
+> 
+> > On Thu, Aug 15, 2013 at 02:07:40PM -0700, David Miller wrote:
+> >> From: Asias He <asias@redhat.com>
+> >> Date: Thu, 15 Aug 2013 11:20:16 +0800
+> >> 
+> >> > memcpy_fromiovec is moved to lib/iovec.c. No need to include
+> >> > linux/socket.h for it.
+> >> > 
+> >> > Signed-off-by: Asias He <asias@redhat.com>
+> >> 
+> >> You can't do this.
+> >> 
+> >> Because this file doesn't include the header file that
+> >> provides the declaration, which is linux/uio.h
+> > 
+> > vhost.c includes drivers/vhost/vhost.h. In drivers/vhost/vhost.h, we
+> > have linux/uio.h included.
+> 
+> Nothing in vhost.h needs linux/uio.h right?  That's very poor style,
+> include the header where the dependency exists which is vhost.c
 
-On Fri, Aug 16, 2013 at 5:20 AM, David Miller <davem@davemloft.net> wrote:
-> From: Sonic Zhang <sonic.adi@gmail.com>
-> Date: Thu, 15 Aug 2013 15:37:36 +0800
->
->> @@ -1157,7 +1157,9 @@ static void free_dma_desc_resources(struct stmmac_priv *priv)
->>   */
->>  static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
->>  {
->> -     if (likely(priv->plat->force_sf_dma_mode ||
->> +     if (priv->plat->force_sf_dma_mode < 0)
->> +             priv->hw->dma->dma_mode(priv->ioaddr, tc, tc);
->> +     else if (likely(priv->plat->force_sf_dma_mode > 0 ||
->>                  ((priv->plat->tx_coe) && (!priv->no_csum_insertion)))) {
->
-> You need to properly re-indent the last line here so that
-> the openning parenthesis lines up with the first column
-> after the openning parenthesis on the "else if" line.
+It needs struct iovec, which is in include/uapi/linux/uio.h.
+Do you think it's better to include uapi/linux/uio.h directly?
+In that case maybe we should update linux/socket.h
+to pull in uapi/linux/uio.h directly too.
 
-The last line is the original source code in master branch of the
-Linus's kernel git tree. Do you mean I should fix the ident issue in
-this patch as well?
+Or even just forward-declare struct iovec.
+I tried this last option and the only fall-out seems to be in security/
+- though I didn't do an allyes config build yet.  Good idea? If yes let
+me know and I'll do that.
+
+-->
+
+socket: forward-declare struct iovec
+
+We can simplify header dependencies by using a forward declaration
+of struct iovec in socket.h - it's always used through a pointer there.
+Do this and fix up users that rely on socket.h including uio.h.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+---
+
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index 230c04b..3ad6f52 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -4,7 +4,6 @@
+ 
+ #include <asm/socket.h>			/* arch-dependent defines	*/
+ #include <linux/sockios.h>		/* the SIOCxxx I/O controls	*/
+-#include <linux/uio.h>			/* iovec support		*/
+ #include <linux/types.h>		/* pid_t			*/
+ #include <linux/compiler.h>		/* __user			*/
+ #include <uapi/linux/socket.h>
+@@ -44,6 +43,8 @@ struct linger {
+  *	belong in an obscure libc emulation or the bin.
+  */
+  
++struct iovec;
++
+ struct msghdr {
+ 	void	*	msg_name;	/* Socket name			*/
+ 	int		msg_namelen;	/* Length of name		*/
+diff --git a/security/keys/compat.c b/security/keys/compat.c
+index d65fa7f..9c2723f 100644
+--- a/security/keys/compat.c
++++ b/security/keys/compat.c
+@@ -13,6 +13,7 @@
+ #include <linux/keyctl.h>
+ #include <linux/compat.h>
+ #include <linux/slab.h>
++#include <uapi/linux/uio.h>
+ #include "internal.h"
+ 
+ /*
 
 
-Regards,
-
-Sonic
+-- 
+MST
