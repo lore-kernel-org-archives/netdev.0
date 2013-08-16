@@ -1,61 +1,181 @@
 From: Jiri Bohac <jbohac@suse.cz>
-Subject: Re: Quick Blind TCP Connection Spoofing with SYN Cookies
-Date: Fri, 16 Aug 2013 01:57:43 +0200
-Message-ID: <20130815235743.GA25665@midget.suse.cz>
+Subject: [PATCH 1/3] [RFC] TCP syncookies: slow down timer to mitigate
+ spoofing attacks
+Date: Fri, 16 Aug 2013 02:00:43 +0200
+Message-ID: <20130816000043.GA11950@midget.suse.cz>
 References: <520A3B4A.1050704@jakoblell.com>
+ <20130815235743.GA25665@midget.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Jakob Lell <jakob@jakoblell.com>
+Cc: Jakob Lell <jakob@jakoblell.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Jiri Bohac <jbohac@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:46139 "EHLO mx2.suse.de"
+Received: from cantor2.suse.de ([195.135.220.15]:46239 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752540Ab3HOX5s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Aug 2013 19:57:48 -0400
+	id S1751637Ab3HPAAs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Aug 2013 20:00:48 -0400
 Content-Disposition: inline
-In-Reply-To: <520A3B4A.1050704@jakoblell.com>
+In-Reply-To: <20130815235743.GA25665@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 13, 2013 at 03:57:30PM +0200, Jakob Lell wrote:
-> VIII. Possible mitigation options
-> 
-> The simplification of TCP Connection Spoofing described here is an
-> inherent problem of TCP SYN Cookies and so there won't be a simple
-> patch which just solves the issue and makes the Spoofing Attack as
-> hard as it is without SYN Cookies. It is only possible to gradually
-> increase the required effort for successfully spoofing a connection
-> e.g. by only accepting the last two instead of four counter values
-> (which will lead to a 60-120s 
+(compile-tested only)
 
-If the counter is slowed down 4 times, accepting only two
-values should result in similar behaviour as we have today.
+Jakob Lell discovered that the sequence number that needs to be guessed to
+successfully spoof a TCP connection with syncookies only has 27 bits of
+entropy. Of the 32 bits, 2 bits are wasted by the four differrent timestamps
+accepted and 3 are wasted by the 8 differrent RSS values. [1]
 
-Can anyone think of a reason this should not be done?
+This patch slows down the timer used in syncookies from 1/60 Hz to 1/60/4 Hz
+so that at any moment only two differrent timer values can be accepted.
+As a result, 1 bit of sequence number entropy is gained.
 
+This changes the maximum cookie age limit from 4 - 5 minutes to 4 - 8 minutes.
 
-Additionally, I believe we should reduce the number of possible MSS
-values. I think 3 values should be enough - not supporting jumbo
-frames and wasting a few bytes on sub-optimal MSS around 1400
-bytes should be acceptable when a system is under a DoS attack.
+[1]: http://www.jakoblell.com/blog/2013/08/13/quick-blind-tcp-connection-spoofing-with-syn-cookies/
 
-I have 3 patches doing just that:
+Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+---
+ net/ipv4/syncookies.c | 30 ++++++++++++++++--------------
+ net/ipv6/syncookies.c | 15 ++++++++-------
+ 2 files changed, 24 insertions(+), 21 deletions(-)
 
-1 - slow down the timer and improve the situation by a factor of 2
-2 - since not everyone will be happy with exactly 3 MSS values,
-    let's make this configurable via sysctl
-3 - decrease the default number of MSS values to 3 and improve
-    the situation by a factor of 8/3
-
-These patches combined make the attack 5.3 times harder. By
-using the sysctl to only set two possible MSSs, one can make
-the attack 8 times harder - and only 4 times easier than
-previously believed.
-
-The patches are compile-tested only.
-
-Thoughts?
-
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index b05c96e..cf1b720 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -114,13 +114,13 @@ static __u32 secure_tcp_syn_cookie(__be32 saddr, __be32 daddr, __be16 sport,
+  * If the syncookie is bad, the data returned will be out of
+  * range.  This must be checked by the caller.
+  *
+- * The count value used to generate the cookie must be within
+- * "maxdiff" if the current (passed-in) "count".  The return value
++ * The count value used to generate the cookie must be the same or
++ * one less than the current (passed-in) "count".  The return value
+  * is (__u32)-1 if this test fails.
+  */
+ static __u32 check_tcp_syn_cookie(__u32 cookie, __be32 saddr, __be32 daddr,
+ 				  __be16 sport, __be16 dport, __u32 sseq,
+-				  __u32 count, __u32 maxdiff)
++				  __u32 count)
+ {
+ 	__u32 diff;
+ 
+@@ -129,7 +129,7 @@ static __u32 check_tcp_syn_cookie(__u32 cookie, __be32 saddr, __be32 daddr,
+ 
+ 	/* Cookie is now reduced to (count * 2^24) ^ (hash % 2^24) */
+ 	diff = (count - (cookie >> COOKIEBITS)) & ((__u32) - 1 >> COOKIEBITS);
+-	if (diff >= maxdiff)
++	if (diff >= 2)
+ 		return (__u32)-1;
+ 
+ 	return (cookie -
+@@ -157,6 +157,16 @@ static __u16 const msstab[] = {
+ };
+ 
+ /*
++ * This value is the age (in seconds) of syncookies which will always be
++ * permitted. Cookies aged up to twice this value may be permitted as
++ * a result of rounding errors.
++ * Its ideal value should be dependent on TCP_TIMEOUT_INIT and
++ * sysctl_tcp_retries1. It's a rather complicated formula (exponential
++ * backoff) to compute at runtime so it's currently hardcoded here.
++ */
++#define COOKIE_LIFETIME 4	/* 4 to 8 seconds */
++
++/*
+  * Generate a syncookie.  mssp points to the mss, which is returned
+  * rounded down to the value encoded in the cookie.
+  */
+@@ -178,17 +188,10 @@ __u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, __u16 *mssp)
+ 
+ 	return secure_tcp_syn_cookie(iph->saddr, iph->daddr,
+ 				     th->source, th->dest, ntohl(th->seq),
+-				     jiffies / (HZ * 60), mssind);
++				     jiffies / (HZ * 60 * COOKIE_LIFETIME), mssind);
+ }
+ 
+ /*
+- * This (misnamed) value is the age of syncookie which is permitted.
+- * Its ideal value should be dependent on TCP_TIMEOUT_INIT and
+- * sysctl_tcp_retries1. It's a rather complicated formula (exponential
+- * backoff) to compute at runtime so it's currently hardcoded here.
+- */
+-#define COUNTER_TRIES 4
+-/*
+  * Check if a ack sequence number is a valid syncookie.
+  * Return the decoded mss if it is, or 0 if not.
+  */
+@@ -199,8 +202,7 @@ static inline int cookie_check(struct sk_buff *skb, __u32 cookie)
+ 	__u32 seq = ntohl(th->seq) - 1;
+ 	__u32 mssind = check_tcp_syn_cookie(cookie, iph->saddr, iph->daddr,
+ 					    th->source, th->dest, seq,
+-					    jiffies / (HZ * 60),
+-					    COUNTER_TRIES);
++					    jiffies / (HZ * 60 * COOKIE_LIFETIME));
+ 
+ 	return mssind < ARRAY_SIZE(msstab) ? msstab[mssind] : 0;
+ }
+diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+index d5dda20..46e8b27 100644
+--- a/net/ipv6/syncookies.c
++++ b/net/ipv6/syncookies.c
+@@ -37,12 +37,14 @@ static __u16 const msstab[] = {
+ };
+ 
+ /*
+- * This (misnamed) value is the age of syncookie which is permitted.
++ * This value is the age (in seconds) of syncookies which will always be
++ * permitted. Cookies aged up to twice this value may be permitted as
++ * a result of rounding errors.
+  * Its ideal value should be dependent on TCP_TIMEOUT_INIT and
+  * sysctl_tcp_retries1. It's a rather complicated formula (exponential
+  * backoff) to compute at runtime so it's currently hardcoded here.
+  */
+-#define COUNTER_TRIES 4
++#define COOKIE_LIFETIME 4	/* 4 to 8 seconds */
+ 
+ static inline struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
+ 					   struct request_sock *req,
+@@ -96,15 +98,14 @@ static __u32 secure_tcp_syn_cookie(const struct in6_addr *saddr,
+ 
+ static __u32 check_tcp_syn_cookie(__u32 cookie, const struct in6_addr *saddr,
+ 				  const struct in6_addr *daddr, __be16 sport,
+-				  __be16 dport, __u32 sseq, __u32 count,
+-				  __u32 maxdiff)
++				  __be16 dport, __u32 sseq, __u32 count)
+ {
+ 	__u32 diff;
+ 
+ 	cookie -= cookie_hash(saddr, daddr, sport, dport, 0, 0) + sseq;
+ 
+ 	diff = (count - (cookie >> COOKIEBITS)) & ((__u32) -1 >> COOKIEBITS);
+-	if (diff >= maxdiff)
++	if (diff >= 2)
+ 		return (__u32)-1;
+ 
+ 	return (cookie -
+@@ -131,7 +132,7 @@ __u32 cookie_v6_init_sequence(struct sock *sk, const struct sk_buff *skb, __u16
+ 
+ 	return secure_tcp_syn_cookie(&iph->saddr, &iph->daddr, th->source,
+ 				     th->dest, ntohl(th->seq),
+-				     jiffies / (HZ * 60), mssind);
++				     jiffies / (HZ * 60 * COOKIE_LIFETIME), mssind);
+ }
+ 
+ static inline int cookie_check(const struct sk_buff *skb, __u32 cookie)
+@@ -141,7 +142,7 @@ static inline int cookie_check(const struct sk_buff *skb, __u32 cookie)
+ 	__u32 seq = ntohl(th->seq) - 1;
+ 	__u32 mssind = check_tcp_syn_cookie(cookie, &iph->saddr, &iph->daddr,
+ 					    th->source, th->dest, seq,
+-					    jiffies / (HZ * 60), COUNTER_TRIES);
++					    jiffies / (HZ * 60 * COOKIE_LIFETIME));
+ 
+ 	return mssind < ARRAY_SIZE(msstab) ? msstab[mssind] : 0;
+ }
+-- 
+1.8.3.1
 
 -- 
 Jiri Bohac <jbohac@suse.cz>
