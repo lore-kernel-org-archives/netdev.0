@@ -1,50 +1,38 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v4 2/3] macvtap: Correctly set tap features when IFF_VNET_HDR is disabled.
-Date: Fri, 16 Aug 2013 15:25:01 -0400
-Message-ID: <1376681102-19753-3-git-send-email-vyasevic@redhat.com>
-References: <1376681102-19753-1-git-send-email-vyasevic@redhat.com>
-Cc: mst@redhat.com, Vlad Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH 3/3] [RFC] TCP syncookies: only allow 3 MSS values by
+ default to mitigate spoofing attacks
+Date: Fri, 16 Aug 2013 23:31:01 +0200
+Message-ID: <20130816213101.GD5154@breakpoint.cc>
+References: <520A3B4A.1050704@jakoblell.com>
+ <20130815235743.GA25665@midget.suse.cz>
+ <20130816000523.GC11950@midget.suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jakob Lell <jakob@jakoblell.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Jiri Bohac <jbohac@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16489 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753621Ab3HPW0u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Aug 2013 18:26:50 -0400
-Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r7GJP8cS018579
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 16 Aug 2013 15:25:08 -0400
-In-Reply-To: <1376681102-19753-1-git-send-email-vyasevic@redhat.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:34382 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751771Ab3HPWbq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 18:31:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20130816000523.GC11950@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the user turns off IFF_VNET_HDR flag, attempts to change
-offload features via TUNSETOFFLOAD do not work.  This could cause
-GSO packets to be delivered to the user when the user is
-not prepared to handle them.
+Jiri Bohac <jbohac@suse.cz> wrote:
+> Rationale for the new values
+> - most packets are (1500 - headers); (1450 - headers) is not a huge waste and
+>   prevents fallback to much lower values
 
-To solve, allow processing of TUNSETOFFLOAD when IFF_VNET_HDR is
-disabled.
+Still, 1410 seems weird.
 
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- drivers/net/macvtap.c | 4 ----
- 1 file changed, 4 deletions(-)
+> - clients will rarely send MSS below 536, so that's a safe fallback
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 448f8a5..4acfbce 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -1163,10 +1163,6 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
- 			    TUN_F_TSO_ECN | TUN_F_UFO))
- 			return -EINVAL;
- 
--		/* TODO: only accept frames with the features that
--			 got enabled for forwarded frames */
--		if (!(q->flags & IFF_VNET_HDR))
--			return  -EINVAL;
- 		rtnl_lock();
- 		ret = set_offload(q, arg);
- 		rtnl_unlock();
--- 
-1.8.1.4
+Can you elaborate?
+You say 'is a safe fallback', yet it is removed in the patch?
+
+> - we need to keep the minimum (64)
+
+Why?
