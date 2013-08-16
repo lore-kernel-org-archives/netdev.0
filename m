@@ -1,9 +1,9 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 3/6] vhost: switch to use vhost_add_used_n()
-Date: Fri, 16 Aug 2013 12:56:55 +0300
-Message-ID: <20130816095655.GB21821@redhat.com>
+Subject: Re: [PATCH 5/6] vhost_net: poll vhost queue after marking DMA is done
+Date: Fri, 16 Aug 2013 13:00:55 +0300
+Message-ID: <20130816100055.GC21821@redhat.com>
 References: <1376630190-5912-1-git-send-email-jasowang@redhat.com>
-	<1376630190-5912-4-git-send-email-jasowang@redhat.com>
+	<1376630190-5912-6-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -12,7 +12,7 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
 To: Jason Wang <jasowang@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1376630190-5912-4-git-send-email-jasowang@redhat.com>
+In-Reply-To: <1376630190-5912-6-git-send-email-jasowang@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -24,75 +24,47 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 16, 2013 at 01:16:27PM +0800, Jason Wang wrote:
-> Let vhost_add_used() to use vhost_add_used_n() to reduce the code duplication.
+On Fri, Aug 16, 2013 at 01:16:29PM +0800, Jason Wang wrote:
+> We used to poll vhost queue before making DMA is done, this is racy if vhost
+> thread were waked up before marking DMA is done which can result the signal to
+> be missed. Fix this by always poll the vhost thread before DMA is done.
 > 
 > Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Does compiler inline it then?
-Reason I ask, last time I checked put_user inside vhost_add_used
-was much cheaper than copy_to_user inside vhost_add_used_n,
-so I wouldn't be surprised if this hurt performance.
-Did you check?
+Indeed, but vhost_net_ubuf_put should be the last thing we do:
+it can cause the device to go away and we'll get
+a user after free.
 
 > ---
->  drivers/vhost/vhost.c |   43 ++-----------------------------------------
->  1 files changed, 2 insertions(+), 41 deletions(-)
+>  drivers/vhost/net.c |    9 +++++----
+>  1 files changed, 5 insertions(+), 4 deletions(-)
 > 
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index e58cf00..c479452 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -1332,48 +1332,9 @@ EXPORT_SYMBOL_GPL(vhost_discard_vq_desc);
->   * want to notify the guest, using eventfd. */
->  int vhost_add_used(struct vhost_virtqueue *vq, unsigned int head, int len)
->  {
-> -	struct vring_used_elem __user *used;
-> +	struct vring_used_elem heads = { head, len };
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 70cab75..a035a89 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -308,6 +308,11 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
+>  	struct vhost_virtqueue *vq = ubufs->vq;
+>  	int cnt = atomic_read(&ubufs->kref.refcount);
 >  
-> -	/* The virtqueue contains a ring of used buffers.  Get a pointer to the
-> -	 * next entry in that used ring. */
-> -	used = &vq->used->ring[vq->last_used_idx % vq->num];
-> -	if (__put_user(head, &used->id)) {
-> -		vq_err(vq, "Failed to write used id");
-> -		return -EFAULT;
-> -	}
-> -	if (__put_user(len, &used->len)) {
-> -		vq_err(vq, "Failed to write used len");
-> -		return -EFAULT;
-> -	}
-> -	/* Make sure buffer is written before we update index. */
-> -	smp_wmb();
-> -	if (__put_user(vq->last_used_idx + 1, &vq->used->idx)) {
-> -		vq_err(vq, "Failed to increment used idx");
-> -		return -EFAULT;
-> -	}
-> -	if (unlikely(vq->log_used)) {
-> -		/* Make sure data is seen before log. */
-> -		smp_wmb();
-> -		/* Log used ring entry write. */
-> -		log_write(vq->log_base,
-> -			  vq->log_addr +
-> -			   ((void __user *)used - (void __user *)vq->used),
-> -			  sizeof *used);
-> -		/* Log used index update. */
-> -		log_write(vq->log_base,
-> -			  vq->log_addr + offsetof(struct vring_used, idx),
-> -			  sizeof vq->used->idx);
-> -		if (vq->log_ctx)
-> -			eventfd_signal(vq->log_ctx, 1);
-> -	}
-> -	vq->last_used_idx++;
-> -	/* If the driver never bothers to signal in a very long while,
-> -	 * used index might wrap around. If that happens, invalidate
-> -	 * signalled_used index we stored. TODO: make sure driver
-> -	 * signals at least once in 2^16 and remove this. */
-> -	if (unlikely(vq->last_used_idx == vq->signalled_used))
-> -		vq->signalled_used_valid = false;
-> -	return 0;
-> +	return vhost_add_used_n(vq, &heads, 1);
+> +	/* set len to mark this desc buffers done DMA */
+> +	vq->heads[ubuf->desc].len = success ?
+> +		VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
+> +	vhost_net_ubuf_put(ubufs);
+> +
+>  	/*
+>  	 * Trigger polling thread if guest stopped submitting new buffers:
+>  	 * in this case, the refcount after decrement will eventually reach 1
+> @@ -318,10 +323,6 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
+>  	 */
+>  	if (cnt <= 2 || !(cnt % 16))
+>  		vhost_poll_queue(&vq->poll);
+> -	/* set len to mark this desc buffers done DMA */
+> -	vq->heads[ubuf->desc].len = success ?
+> -		VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
+> -	vhost_net_ubuf_put(ubufs);
 >  }
->  EXPORT_SYMBOL_GPL(vhost_add_used);
 >  
+>  /* Expects to be always run from workqueue - which acts as
 > -- 
 > 1.7.1
