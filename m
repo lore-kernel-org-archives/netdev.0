@@ -1,65 +1,63 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH -next] vxlan: using kfree_rcu() to simplify the code
-Date: Fri, 16 Aug 2013 16:45:44 -0700
-Message-ID: <20130816164544.628ae1df@nehalam.linuxnetplumber.net>
-References: <CAPgLHd8gtuhjrPP-t0dHGj_BDY5WqqX-QQbHpNK+0gPpuSN9LQ@mail.gmail.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Provide ability to change default netdev name?
+Date: Fri, 16 Aug 2013 16:48:38 -0700
+Message-ID: <520EBA56.4050301@candelatech.com>
+References: <520EA43F.2010304@candelatech.com> <1376696468.11042.74.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, pshelar@nicira.com,
-	mike.rapoport@ravellosystems.com, amwang@redhat.com,
-	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: Wei Yongjun <weiyj.lk@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:57309 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751239Ab3HQAON (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 20:14:13 -0400
-Received: by mail-pa0-f41.google.com with SMTP id bj1so2466462pad.28
-        for <netdev@vger.kernel.org>; Fri, 16 Aug 2013 17:14:13 -0700 (PDT)
-In-Reply-To: <CAPgLHd8gtuhjrPP-t0dHGj_BDY5WqqX-QQbHpNK+0gPpuSN9LQ@mail.gmail.com>
+Received: from mail.candelatech.com ([208.74.158.172]:51641 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753665Ab3HQAPB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 20:15:01 -0400
+In-Reply-To: <1376696468.11042.74.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 17 Aug 2013 07:32:09 +0800
-Wei Yongjun <weiyj.lk@gmail.com> wrote:
+On 08/16/2013 04:41 PM, Ben Hutchings wrote:
+> On Fri, 2013-08-16 at 15:14 -0700, Ben Greear wrote:
+>> The latest udev in Fedora 19 (and perhaps elsewhere) will no longer
+>> implement rules that rename an interface from ethX to ethY.  Nor
+>> wlanX or other 'kernel namespaces'.  The Fedora udev developers do not seem
+>> interested in changing this back to the old behaviour, evidently they
+>> had a hard time implementing it properly.
+>
+> There is an inherent problem that a new device can appear at any time
+> under the exact name udev is trying to rename to.  I expect it is
+> possible to do this properly but may be quite difficult to eliminate the
+> possibility of deadlock.
+>
+> Still, if udev actively refuses to use the 'kernel namespaces' (rather
+> than just being configured not to), that would be a bug.
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> 
-> The callback function of call_rcu() just calls a kfree(), so we
-> can use kfree_rcu() instead of call_rcu() + callback function.
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> ---
->  drivers/net/vxlan.c | 8 +-------
->  1 file changed, 1 insertion(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 227b54a..d6fc046 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -498,12 +498,6 @@ static int vxlan_fdb_create(struct vxlan_dev *vxlan,
->  	return 0;
->  }
->  
-> -static void vxlan_fdb_free_rdst(struct rcu_head *head)
-> -{
-> -	struct vxlan_rdst *rd = container_of(head, struct vxlan_rdst, rcu);
-> -	kfree(rd);
-> -}
-> -
->  static void vxlan_fdb_free(struct rcu_head *head)
->  {
->  	struct vxlan_fdb *f = container_of(head, struct vxlan_fdb, rcu);
-> @@ -643,7 +637,7 @@ static int vxlan_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
->  	 */
->  	if (rd && !list_is_singular(&f->remotes)) {
->  		list_del_rcu(&rd->list);
-> -		call_rcu(&rd->rcu, vxlan_fdb_free_rdst);
-> +		kfree_rcu(rd, rcu);
->  		goto out;
->  	}
->  
-> 
+I agree, but the Fedora udev developers do not.  I'm not sure
+if other distros will follow or not.
 
-Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+>> This effectively makes it impossible to have network device names of ethX
+>> consistent across reboots in systems with multiple NICs and/or drivers.
+>>
+>> One way to work around this would be allow the kernel to use a different
+>> default netdev name (for instance, keth%d).  I'm thinking this would be
+>> configured as a kernel command line argument.  Then, a small change to udev/systemd to
+>> make the 'kernel namespaces' configurable by letting it understand this new kernel
+>> command line argument should resolve the problem.
+>>
+>> Does this sound like something that could be accepted upstream?
+>
+> This sounds completely ridiculous.
+
+Yeah, seems lame to hack around funky user-space, but
+if udev folks will truly not fix this, then life is
+going to suck for users wanting to use 'ethX' naming
+schemes for their network devices.
+
+Thanks,
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
