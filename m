@@ -1,45 +1,35 @@
-From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
-Subject: [PATCH v5 2/2] ARM: davinci: da850: add OF_DEV_AUXDATA entry for davinci_emac
-Date: Fri, 16 Aug 2013 19:41:02 +0530
-Message-ID: <1376662262-21795-3-git-send-email-prabhakar.csengg@gmail.com>
-References: <1376662262-21795-1-git-send-email-prabhakar.csengg@gmail.com>
-Cc: DLOS <davinci-linux-open-source@linux.davincidsp.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	devicetree-discuss@lists.ozlabs.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	"Lad, Prabhakar" <prabhakar.csengg@gmail.com>
-To: Sekhar Nori <nsekhar@ti.com>
+From: poma <pomidorabelisima@gmail.com>
+Subject: Re: [PATCH net] skge: dma_sync the whole receive buffer
+Date: Fri, 16 Aug 2013 16:36:39 +0200
+Message-ID: <520E38F7.1080407@gmail.com>
+References: <20130810104100.0ae20aa6@nehalam.linuxnetplumber.net> <20130810.132935.1257046025460198490.davem@davemloft.net> <20130810150207.37432299@nehalam.linuxnetplumber.net> <20130813.150955.1471100759610399160.davem@davemloft.net> <20130813180036.3e639789@nehalam.linuxnetplumber.net> <520B59D3.4020103@gmail.com> <20130814092022.494caf2b@nehalam.linuxnetplumber.net> <520BCC72.8040002@gmail.com> <20130815084117.2f48fc58@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:44589 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753901Ab3HPOMr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 10:12:47 -0400
-In-Reply-To: <1376662262-21795-1-git-send-email-prabhakar.csengg@gmail.com>
+Received: from mail-ea0-f181.google.com ([209.85.215.181]:62590 "EHLO
+	mail-ea0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755008Ab3HPOgm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 10:36:42 -0400
+Received: by mail-ea0-f181.google.com with SMTP id d10so1032322eaj.26
+        for <netdev@vger.kernel.org>; Fri, 16 Aug 2013 07:36:41 -0700 (PDT)
+In-Reply-To: <20130815084117.2f48fc58@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+On 15.08.2013 17:41, Stephen Hemminger wrote:
 
-Add OF_DEV_AUXDATA for ethernet davinci_emac driver in da850 board dt
-file to use emac clock.
+> In the course of debugging this, I moved the card to another slot
+> and all the problems went away. I suspect either card insertion or more likely
+> the crap consumer motherboards don't have full PCI support on some slots.
+> 
+> There doesn't seem to be anyway to address this in software.
+> 
 
-Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
----
- arch/arm/mach-davinci/da8xx-dt.c |    2 ++
- 1 file changed, 2 insertions(+)
+Noted, thanks.
+Follows overhaul.
 
-diff --git a/arch/arm/mach-davinci/da8xx-dt.c b/arch/arm/mach-davinci/da8xx-dt.c
-index d172563..d2bc574 100644
---- a/arch/arm/mach-davinci/da8xx-dt.c
-+++ b/arch/arm/mach-davinci/da8xx-dt.c
-@@ -44,6 +44,8 @@ static struct of_dev_auxdata da850_auxdata_lookup[] __initdata = {
- 	OF_DEV_AUXDATA("ns16550a", 0x01d0c000, "serial8250.1", NULL),
- 	OF_DEV_AUXDATA("ns16550a", 0x01d0d000, "serial8250.2", NULL),
- 	OF_DEV_AUXDATA("ti,davinci_mdio", 0x01e24000, "davinci_mdio.0", NULL),
-+	OF_DEV_AUXDATA("ti,davinci-dm6467-emac", 0x01e20000, "davinci_emac.1",
-+		       NULL),
- 	{}
- };
- 
--- 
-1.7.9.5
+
+poma
