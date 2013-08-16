@@ -1,41 +1,58 @@
-From: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH v4 2/5] ARM: davinci: da850: add DT node for mdio device
-Date: Fri, 16 Aug 2013 18:11:06 +0530
-Message-ID: <520E1DE2.3090401@ti.com>
-References: <1376546497-26931-1-git-send-email-prabhakar.csengg@gmail.com>
-	<1376546497-26931-3-git-send-email-prabhakar.csengg@gmail.com>
+From: Kristian Evensen <kristian.evensen@gmail.com>
+Subject: Re: [RFC net-next] ipip: Add room for custom tunnel header
+Date: Fri, 16 Aug 2013 15:11:51 +0200
+Message-ID: <CAKfDRXiGaELeKBYgYBqHcwqBW_m8SSHok_9SDoCN2AN+BtVNzw@mail.gmail.com>
+References: <1375969927-22235-1-git-send-email-kristian.evensen@gmail.com>
+	<1375977658.4004.106.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        DLOS
-	<davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
-        LKML
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Lad, Prabhakar" <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-In-Reply-To: <1376546497-26931-3-git-send-email-prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
-List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
-List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
-Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:39761 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754594Ab3HPNLv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 09:11:51 -0400
+Received: by mail-pd0-f177.google.com with SMTP id y10so2221668pdj.8
+        for <netdev@vger.kernel.org>; Fri, 16 Aug 2013 06:11:51 -0700 (PDT)
+In-Reply-To: <1375977658.4004.106.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 15 August 2013 11:31 AM, Lad, Prabhakar wrote:
-> From: "Lad, Prabhakar" <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> 
-> Add mdio device tree node information to da850 by
-> providing register details and bus frequency of mdio.
-> 
-> Signed-off-by: Lad, Prabhakar <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Hi,
 
-Queuing for v3.12
+Thank you very much for your feedback and sorry for not replying
+earlier. I modified the patch and implemented setting a custom header
+length as a netlink message attribute instead
+(http://patchwork.ozlabs.org/patch/266456/). It was initially rejected
+on the basis that I needed to provide some use-cases, which I did, so
+lets see what happens. However, your comments apply to both patches,
+so it would be interesting to discuss this.
 
-Thanks,
-Sekhar
+> What happens if hlen is bigger than available headroom ?
+>
+> hlen comes from userspace and there is no safety check, right ?
+
+Based on my understanding of the code, hlen will not be bigger than
+available headroom. dev->needed_headroom is set to the tunnel header
+length in ip_tunnel_bind_dev(). hlen is only read when adding a new
+link, so this assignment cannot be skipped. However, I see that a
+check along the lines of "hlen > 0 && hlen < (ETH_DATA_LEN -
+LL_MAX_HDR - sizeof(iphdr)" should be added.
+
+One potential side-effect is that one can overflow the mtu by
+providing a large hlen. Will that be considered a security risk or
+misconfiguration? Since you have to have the same rights to create a
+tunnel as to create a link, a similar behavior can be accomplished by
+creating a new link with a large mtu.
+
+> What guarantee do we have _something_ will fill the bytes ?
+> (We do not want to leak prior content of those bytes to the wire)
+
+In the current patch, none. I assumed this was ok as inserting the
+custom header does not make sense without another module filling in
+the content. I do agree though, a memset should be added to zero out
+the custom header.
+
+Thanks again,
+Kristian
