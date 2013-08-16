@@ -1,51 +1,50 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v4 3/3] macvtap: Ignore tap features when VNET_HDR is off
-Date: Fri, 16 Aug 2013 15:25:02 -0400
-Message-ID: <1376681102-19753-4-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH v4 2/3] macvtap: Correctly set tap features when IFF_VNET_HDR is disabled.
+Date: Fri, 16 Aug 2013 15:25:01 -0400
+Message-ID: <1376681102-19753-3-git-send-email-vyasevic@redhat.com>
 References: <1376681102-19753-1-git-send-email-vyasevic@redhat.com>
 Cc: mst@redhat.com, Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mx1.redhat.com ([209.132.183.28]:16489 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754156Ab3HPW0v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Aug 2013 18:26:51 -0400
+	id S1753621Ab3HPW0u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Aug 2013 18:26:50 -0400
 Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r7GJP8HT018583
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r7GJP8cS018579
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
 	for <netdev@vger.kernel.org>; Fri, 16 Aug 2013 15:25:08 -0400
 In-Reply-To: <1376681102-19753-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the user turns off VNET_HDR support on the
-macvtap device, there is no way to provide any
-offload information to the user.  So, it's safer
-to ignore offload setting then depend on the user
-setting them correctly.
+When the user turns off IFF_VNET_HDR flag, attempts to change
+offload features via TUNSETOFFLOAD do not work.  This could cause
+GSO packets to be delivered to the user when the user is
+not prepared to handle them.
+
+To solve, allow processing of TUNSETOFFLOAD when IFF_VNET_HDR is
+disabled.
 
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- drivers/net/macvtap.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/macvtap.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
 diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 4acfbce..ea53abb 100644
+index 448f8a5..4acfbce 100644
 --- a/drivers/net/macvtap.c
 +++ b/drivers/net/macvtap.c
-@@ -290,9 +290,11 @@ static int macvtap_forward(struct net_device *dev, struct sk_buff *skb)
+@@ -1163,10 +1163,6 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 			    TUN_F_TSO_ECN | TUN_F_UFO))
+ 			return -EINVAL;
  
- 	skb->dev = dev;
- 	/* Apply the forward feature mask so that we perform segmentation
--	 * according to users wishes.
-+	 * according to users wishes.  This only works if VNET_HDR is
-+	 * enabled.
- 	 */
--	features |= vlan->tap_features;
-+	if (q->flags & IFF_VNET_HDR)
-+		features |= vlan->tap_features;
- 	if (netif_needs_gso(skb, features)) {
- 		struct sk_buff *segs = __skb_gso_segment(skb, features, false);
- 
+-		/* TODO: only accept frames with the features that
+-			 got enabled for forwarded frames */
+-		if (!(q->flags & IFF_VNET_HDR))
+-			return  -EINVAL;
+ 		rtnl_lock();
+ 		ret = set_offload(q, arg);
+ 		rtnl_unlock();
 -- 
 1.8.1.4
