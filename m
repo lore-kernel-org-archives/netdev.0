@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 3/6] 6lowpan: introduce
-	lowpan_fetch_skb function
-Date: Fri, 16 Aug 2013 21:59:56 +0200
-Message-ID: <1376683199-10370-4-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH net-next 1/6] 6lowpan: init ipv6hdr
+	buffer to zero
+Date: Fri, 16 Aug 2013 21:59:54 +0200
+Message-ID: <1376683199-10370-2-git-send-email-alex.aring@gmail.com>
 References: <1376683199-10370-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,40 +22,63 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds a helper function to parse the ipv6 header to a
-6lowpan header in stream.
+This patch simplify the handling to set fields inside of struct ipv6hdr
+to zero. Instead of setting some memory regions with memset to zero we
+initialize the whole ipv6hdr to zero.
 
-This function checks first if we can pull data with a specific
-length from a skb. If this seems to be okay, we copy skb data to
-a destination pointer and run skb_pull.
+This is a simplification for parsing the 6lowpan header for the upcomming
+patches.
 
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Reviewed-by: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
 ---
- net/ieee802154/6lowpan.h | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ net/ieee802154/6lowpan.c | 12 +-----------
+ 1 file changed, 1 insertion(+), 11 deletions(-)
 
-diff --git a/net/ieee802154/6lowpan.h b/net/ieee802154/6lowpan.h
-index 4b8f917..a636545 100644
---- a/net/ieee802154/6lowpan.h
-+++ b/net/ieee802154/6lowpan.h
-@@ -230,4 +230,16 @@
- 					dest = 16 bit inline */
- #define LOWPAN_NHC_UDP_CS_P_11	0xF3 /* source & dest = 0xF0B + 4bit inline */
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index 3b9d5f2..92429db 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -223,10 +223,6 @@ lowpan_uncompress_addr(struct sk_buff *skb, struct in6_addr *ipaddr,
+ 	if (prefcount > 0)
+ 		memcpy(ipaddr, prefix, prefcount);
  
-+static inline bool lowpan_fetch_skb(struct sk_buff *skb,
-+		void *data, const unsigned int len)
-+{
-+	if (unlikely(!pskb_may_pull(skb, len)))
-+		return true;
-+
-+	skb_copy_from_linear_data(skb, data, len);
-+	skb_pull(skb, len);
-+
-+	return false;
-+}
-+
- #endif /* __6LOWPAN_H__ */
+-	if (prefcount + postcount < 16)
+-		memset(&ipaddr->s6_addr[prefcount], 0,
+-					16 - (prefcount + postcount));
+-
+ 	if (postcount > 0) {
+ 		memcpy(&ipaddr->s6_addr[16 - postcount], skb->data, postcount);
+ 		skb_pull(skb, postcount);
+@@ -723,7 +719,7 @@ frame_err:
+ static int
+ lowpan_process_data(struct sk_buff *skb)
+ {
+-	struct ipv6hdr hdr;
++	struct ipv6hdr hdr = {};
+ 	u8 tmp, iphc0, iphc1, num_context = 0;
+ 	u8 *_saddr, *_daddr;
+ 	int err;
+@@ -868,8 +864,6 @@ lowpan_process_data(struct sk_buff *skb)
+ 
+ 		hdr.priority = ((tmp >> 2) & 0x0f);
+ 		hdr.flow_lbl[0] = ((tmp << 6) & 0xC0) | ((tmp >> 2) & 0x30);
+-		hdr.flow_lbl[1] = 0;
+-		hdr.flow_lbl[2] = 0;
+ 		break;
+ 	/*
+ 	 * Flow Label carried in-line
+@@ -885,10 +879,6 @@ lowpan_process_data(struct sk_buff *skb)
+ 		break;
+ 	/* Traffic Class and Flow Label are elided */
+ 	case 3: /* 11b */
+-		hdr.priority = 0;
+-		hdr.flow_lbl[0] = 0;
+-		hdr.flow_lbl[1] = 0;
+-		hdr.flow_lbl[2] = 0;
+ 		break;
+ 	default:
+ 		break;
 -- 
 1.8.3.3
 
