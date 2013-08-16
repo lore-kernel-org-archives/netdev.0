@@ -1,7 +1,8 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH 1/6] vhost_net: make vhost_zerocopy_signal_used() returns void
-Date: Fri, 16 Aug 2013 13:16:25 +0800
-Message-ID: <1376630190-5912-2-git-send-email-jasowang@redhat.com>
+Subject: [PATCH 2/6] vhost_net: use vhost_add_used_and_signal_n() in
+	vhost_zerocopy_signal_used()
+Date: Fri, 16 Aug 2013 13:16:26 +0800
+Message-ID: <1376630190-5912-3-git-send-email-jasowang@redhat.com>
 References: <1376630190-5912-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,33 +23,47 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-None of its caller use its return value, so let it return void.
+Switch to use vhost_add_used_and_signal_n() to avoid multiple calls to
+vhost_add_used_and_signal(). With the patch we will call at most 2 times
+(consider done_idx warp around) compared to N times w/o this patch.
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/vhost/net.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+ drivers/vhost/net.c |   13 ++++++++-----
+ 1 files changed, 8 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 969a859..280ee66 100644
+index 280ee66..8a6dd0d 100644
 --- a/drivers/vhost/net.c
 +++ b/drivers/vhost/net.c
-@@ -276,8 +276,8 @@ static void copy_iovec_hdr(const struct iovec *from, struct iovec *to,
-  * of used idx. Once lower device DMA done contiguously, we will signal KVM
-  * guest used idx.
-  */
--static int vhost_zerocopy_signal_used(struct vhost_net *net,
--				      struct vhost_virtqueue *vq)
-+static void vhost_zerocopy_signal_used(struct vhost_net *net,
-+				       struct vhost_virtqueue *vq)
+@@ -281,7 +281,7 @@ static void vhost_zerocopy_signal_used(struct vhost_net *net,
  {
  	struct vhost_net_virtqueue *nvq =
  		container_of(vq, struct vhost_net_virtqueue, vq);
-@@ -297,7 +297,6 @@ static int vhost_zerocopy_signal_used(struct vhost_net *net,
+-	int i;
++	int i, add;
+ 	int j = 0;
+ 
+ 	for (i = nvq->done_idx; i != nvq->upend_idx; i = (i + 1) % UIO_MAXIOV) {
+@@ -289,14 +289,17 @@ static void vhost_zerocopy_signal_used(struct vhost_net *net,
+ 			vhost_net_tx_err(net);
+ 		if (VHOST_DMA_IS_DONE(vq->heads[i].len)) {
+ 			vq->heads[i].len = VHOST_DMA_CLEAR_LEN;
+-			vhost_add_used_and_signal(vq->dev, vq,
+-						  vq->heads[i].id, 0);
+ 			++j;
+ 		} else
+ 			break;
  	}
- 	if (j)
- 		nvq->done_idx = i;
--	return j;
+-	if (j)
+-		nvq->done_idx = i;
++	while (j) {
++		add = min(UIO_MAXIOV - nvq->done_idx, j);
++		vhost_add_used_and_signal_n(vq->dev, vq,
++					    &vq->heads[nvq->done_idx], add);
++		nvq->done_idx = (nvq->done_idx + add) % UIO_MAXIOV;
++		j -= add;
++	}
  }
  
  static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
