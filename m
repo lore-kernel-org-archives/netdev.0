@@ -1,43 +1,42 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: Where are OVS VXLAN patches?
-Date: Fri, 16 Aug 2013 08:58:15 -0700
-Message-ID: <CAEP_g=9+aLyfY_3TaLkdHeKJGRUHtNFcjk=0w-DEUQ7Q_iHjGw@mail.gmail.com>
-References: <1376291275.17589.18.camel@cr0> <CAEP_g=-JQUZaLUhkMWQ6p8iYn8jqb_0tZOq=x+kv0Xip3dUA7A@mail.gmail.com>
- <1376370988.13583.6.camel@cr0> <1376615540.2934.3.camel@cr0>
- <CAOaVG16Vx11DV4gxfSf2f0BceOk1y+aP6rtz-_h9b0Ckp0r2Jw@mail.gmail.com> <1376628625.2934.57.camel@cr0>
+From: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH v4 3/5] ARM: davinci: da850: add OF_DEV_AUXDATA entry
+	for mdio.
+Date: Fri, 16 Aug 2013 21:28:49 +0530
+Message-ID: <520E4C39.9080301@ti.com>
+References: <1376546497-26931-1-git-send-email-prabhakar.csengg@gmail.com>
+	<1376546497-26931-4-git-send-email-prabhakar.csengg@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: Cong Wang <amwang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog119.obsmtp.com ([74.125.149.246]:53363 "HELO
-	na3sys009aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751820Ab3HPP6g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 11:58:36 -0400
-Received: by mail-la0-f45.google.com with SMTP id eh20so1611122lab.18
-        for <netdev@vger.kernel.org>; Fri, 16 Aug 2013 08:58:35 -0700 (PDT)
-In-Reply-To: <1376628625.2934.57.camel@cr0>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        DLOS
+	<davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
+        LKML
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Lad, Prabhakar" <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+In-Reply-To: <1376546497-26931-4-git-send-email-prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
+List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
+List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
+Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 15, 2013 at 9:50 PM, Cong Wang <amwang@redhat.com> wrote:
-> (Re-adding netdev and davem...)
->
-> On Thu, 2013-08-15 at 21:33 -0700, Stephen Hemminger wrote:
->> Send them to netdev. The vxlan-next tree was temporary when there were
->> 3 people working on VXLAN at
->> same time (Pravin, ong, and me). I see no point in keeping a separate
->> tree over the long term.
->>
->
-> I agree. There is some misunderstanding between you and David on taking
-> these patches. :)
+On 8/15/2013 11:31 AM, Lad, Prabhakar wrote:
+> From: "Lad, Prabhakar" <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> 
+> Add OF_DEV_AUXDATA for mdio driver in da850 board dt
+> file to use mdio clock.
+> 
+> Signed-off-by: Lad, Prabhakar <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Thanks for following up Cong.
+Queued for v3.12
 
-David, if you just want to take the whole series at this point, there
-shouldn't be any conflicts on my end and that way we can finally get
-this in.
+Thanks,
+Sekhar
