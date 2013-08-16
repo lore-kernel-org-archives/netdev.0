@@ -1,42 +1,52 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCHv2 net-next] xfrm: Make xfrm_state timer monotonic
-Date: Fri, 16 Aug 2013 11:30:18 +0200
-Message-ID: <20130816093018.GM26773@secunet.com>
-References: <1376552946-18967-1-git-send-email-fan.du@windriver.com>
- <20130815.142334.1736006937556027032.davem@davemloft.net>
+From: Sonic Zhang <sonic.adi@gmail.com>
+Subject: Re: [PATCH] driver:net:stmmac: Disable DMA store and forward mode if
+ platform data force_sf_dma_mode is negative.
+Date: Fri, 16 Aug 2013 17:37:42 +0800
+Message-ID: <CAJxxZ0Pya_K-VJcAZ6yv00_F66uAd481vWgV-nWmPBWKOV760A@mail.gmail.com>
+References: <1376552256-7421-1-git-send-email-sonic.adi@gmail.com>
+	<20130815.142005.816948927496553829.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: fan.du@windriver.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: peppe.cavallaro@st.com, netdev <netdev@vger.kernel.org>,
+	adi-buildroot-devel@lists.sourceforge.net,
+	"Zhang, Sonic" <sonic.zhang@analog.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:55624 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754638Ab3HPJaW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 05:30:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20130815.142334.1736006937556027032.davem@davemloft.net>
+Received: from mail-oa0-f49.google.com ([209.85.219.49]:57693 "EHLO
+	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754946Ab3HPJhn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 05:37:43 -0400
+Received: by mail-oa0-f49.google.com with SMTP id n10so1997245oag.36
+        for <netdev@vger.kernel.org>; Fri, 16 Aug 2013 02:37:42 -0700 (PDT)
+In-Reply-To: <20130815.142005.816948927496553829.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 15, 2013 at 02:23:34PM -0700, David Miller wrote:
-> From: Fan Du <fan.du@windriver.com>
-> Date: Thu, 15 Aug 2013 15:49:06 +0800
-> 
-> > xfrm_state timer should be independent of system clock change,
-> > so switch to CLOCK_BOOTTIME base which is not only monotonic but
-> > also counting suspend time.
-> > 
-> > Thus issue reported in commit: 9e0d57fd6dad37d72a3ca6db00ca8c76f2215454
-> > ("xfrm: SAD entries do not expire correctly after suspend-resume")
-> > could ALSO be avoided.
-> > 
-> > Signed-off-by: Fan Du <fan.du@windriver.com>
-> > 
-> > v2: Use CLOCK_BOOTTIME to count suspend time, but still monotonic.
-> 
-> This seems like a good fix:
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
+Hi David,
 
-Applied to ipsec-next, thanks!
+On Fri, Aug 16, 2013 at 5:20 AM, David Miller <davem@davemloft.net> wrote:
+> From: Sonic Zhang <sonic.adi@gmail.com>
+> Date: Thu, 15 Aug 2013 15:37:36 +0800
+>
+>> @@ -1157,7 +1157,9 @@ static void free_dma_desc_resources(struct stmmac_priv *priv)
+>>   */
+>>  static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
+>>  {
+>> -     if (likely(priv->plat->force_sf_dma_mode ||
+>> +     if (priv->plat->force_sf_dma_mode < 0)
+>> +             priv->hw->dma->dma_mode(priv->ioaddr, tc, tc);
+>> +     else if (likely(priv->plat->force_sf_dma_mode > 0 ||
+>>                  ((priv->plat->tx_coe) && (!priv->no_csum_insertion)))) {
+>
+> You need to properly re-indent the last line here so that
+> the openning parenthesis lines up with the first column
+> after the openning parenthesis on the "else if" line.
+
+The last line is the original source code in master branch of the
+Linus's kernel git tree. Do you mean I should fix the ident issue in
+this patch as well?
+
+
+Regards,
+
+Sonic
