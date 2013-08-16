@@ -1,9 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 1/6] 6lowpan: init ipv6hdr
-	buffer to zero
-Date: Fri, 16 Aug 2013 21:59:54 +0200
-Message-ID: <1376683199-10370-2-git-send-email-alex.aring@gmail.com>
-References: <1376683199-10370-1-git-send-email-alex.aring@gmail.com>
+Subject: [PATCHv3 net-next 0/6] 6lowpan: address
+	uncompression fixes
+Date: Fri, 16 Aug 2013 21:59:53 +0200
+Message-ID: <1376683199-10370-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,7 +10,6 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q
 	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1376683199-10370-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
 	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
@@ -22,63 +20,44 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch simplify the handling to set fields inside of struct ipv6hdr
-to zero. Instead of setting some memory regions with memset to zero we
-initialize the whole ipv6hdr to zero.
+The current implementation to uncompress addresses in a 6lowpan header
+is completely broken.
 
-This is a simplification for parsing the 6lowpan header for the upcomming
-patches.
+This patch series fixes the parsing of addresses in a 6lowpan header.
+It contains a major rewrite of the uncompress address function to parse
+the address in a correct way.
 
-Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Reviewed-by: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
----
- net/ieee802154/6lowpan.c | 12 +-----------
- 1 file changed, 1 insertion(+), 11 deletions(-)
+Tested with the ravenusbstick(contiki 6LoWPAN stack) and beaglebone
+(linux 6LoWPAN Stack) on the other side. The linux side contains all
+possible addresses for the uncompression cases. Then I type a ping6 for
+each case and lookup in wireshark and dmesg the correct reconstruction.
 
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 3b9d5f2..92429db 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -223,10 +223,6 @@ lowpan_uncompress_addr(struct sk_buff *skb, struct in6_addr *ipaddr,
- 	if (prefcount > 0)
- 		memcpy(ipaddr, prefix, prefcount);
- 
--	if (prefcount + postcount < 16)
--		memset(&ipaddr->s6_addr[prefcount], 0,
--					16 - (prefcount + postcount));
--
- 	if (postcount > 0) {
- 		memcpy(&ipaddr->s6_addr[16 - postcount], skb->data, postcount);
- 		skb_pull(skb, postcount);
-@@ -723,7 +719,7 @@ frame_err:
- static int
- lowpan_process_data(struct sk_buff *skb)
- {
--	struct ipv6hdr hdr;
-+	struct ipv6hdr hdr = {};
- 	u8 tmp, iphc0, iphc1, num_context = 0;
- 	u8 *_saddr, *_daddr;
- 	int err;
-@@ -868,8 +864,6 @@ lowpan_process_data(struct sk_buff *skb)
- 
- 		hdr.priority = ((tmp >> 2) & 0x0f);
- 		hdr.flow_lbl[0] = ((tmp << 6) & 0xC0) | ((tmp >> 2) & 0x30);
--		hdr.flow_lbl[1] = 0;
--		hdr.flow_lbl[2] = 0;
- 		break;
- 	/*
- 	 * Flow Label carried in-line
-@@ -885,10 +879,6 @@ lowpan_process_data(struct sk_buff *skb)
- 		break;
- 	/* Traffic Class and Flow Label are elided */
- 	case 3: /* 11b */
--		hdr.priority = 0;
--		hdr.flow_lbl[0] = 0;
--		hdr.flow_lbl[1] = 0;
--		hdr.flow_lbl[2] = 0;
- 		break;
- 	default:
- 		break;
+Please apply this patch series on net-next in order 1/7 to 7/7.
+
+Changes since v3:
+ - Fix byte ordering problem in uncompression of short-address.
+   Thanks for this hint.
+ - drop pr_debug before lowpan_raw_dump_inline
+
+Changes since v2:
+ - Add tags for net-next
+ - Change commit msg in Patch 1/6 that this patch depends for the following
+   patches
+
+Alexander Aring (5):
+  6lowpan: init ipv6hdr buffer to zero
+  6lowpan: introduce lowpan_fetch_skb function
+  6lowpan: add function to uncompress multicast addr
+  6lowpan: lowpan_uncompress_addr with address_mode
+  6lowpan: handle context based source address
+
+David Hauweele (1):
+  6lowpan: Fix fragmentation with link-local compressed addresses
+
+ net/ieee802154/6lowpan.c | 286 +++++++++++++++++++++++++++++++----------------
+ net/ieee802154/6lowpan.h |  20 +++-
+ 2 files changed, 204 insertions(+), 102 deletions(-)
+
 -- 
 1.8.3.3
 
