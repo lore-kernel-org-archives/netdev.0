@@ -1,135 +1,70 @@
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net-next 1/5] qlcnic: Enable support for 844X adapter
-Date: Fri, 16 Aug 2013 19:07:13 -0400
-Message-ID: <2d10a21452c272645498b29d1b0aa9659f933c25.1376720973.git.himanshu.madhani@qlogic.com>
-References: <cover.1376720973.git.himanshu.madhani@qlogic.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Manish Chopra <manish.chopra@qlogic.com>,
-	<himanshu.madhani@qlogic.com>
-To: <davem@davemloft.net>
+From: Peter Wu <lekensteyn@gmail.com>
+Subject: [PATCH] r8169,sis190: remove unnecessary length check
+Date: Sat, 17 Aug 2013 01:07:53 +0200
+Message-ID: <1376694473-8517-1-git-send-email-lekensteyn@gmail.com>
+Cc: lekensteyn@gmail.com, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:56430 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754069Ab3HQAAO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 20:00:14 -0400
-In-Reply-To: <cover.1376720973.git.himanshu.madhani@qlogic.com>
+Received: from mail-ee0-f48.google.com ([74.125.83.48]:48600 "EHLO
+	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754204Ab3HQAAa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 20:00:30 -0400
+Received: by mail-ee0-f48.google.com with SMTP id l10so1165754eei.35
+        for <netdev@vger.kernel.org>; Fri, 16 Aug 2013 17:00:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Manish Chopra <manish.chopra@qlogic.com>
+The ethtool core will lower the requested length to the one returned by
+get_regs_len, therefore no additional check is needed in the get_regs
+function.
 
-Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
-Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Reported-by: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: Peter Wu <lekensteyn@gmail.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h      | 14 +++++++++++---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c   |  5 +----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 11 +++++++++++
- 3 files changed, 23 insertions(+), 7 deletions(-)
+Hi,
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 7387354..9ae5d2e 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -1972,9 +1972,11 @@ extern const struct ethtool_ops qlcnic_ethtool_failed_ops;
- 			__func__, ##_args);		\
- 	} while (0)
- 
--#define PCI_DEVICE_ID_QLOGIC_QLE834X    0x8030
-+#define PCI_DEVICE_ID_QLOGIC_QLE824X		0x8020
-+#define PCI_DEVICE_ID_QLOGIC_QLE834X		0x8030
- #define PCI_DEVICE_ID_QLOGIC_VF_QLE834X	0x8430
--#define PCI_DEVICE_ID_QLOGIC_QLE824X	0x8020
-+#define PCI_DEVICE_ID_QLOGIC_QLE844X		0x8040
-+#define PCI_DEVICE_ID_QLOGIC_VF_QLE844X	0x8440
- 
- static inline bool qlcnic_82xx_check(struct qlcnic_adapter *adapter)
+This was observed by Ben[1] while reviewing my other r8169 register dump
+patch. I have combined the r8169 and sis190 patches since they were
+trivial and both maintained by Francois. Let me know if you prefer to
+split this trivial patch up.
+
+Regards,
+Peter
+
+ [1]: http://www.spinics.net/lists/netdev/msg246690.html
+---
+ drivers/net/ethernet/realtek/r8169.c | 3 ---
+ drivers/net/ethernet/sis/sis190.c    | 3 ---
+ 2 files changed, 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index b5eb419..93ee49d 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -1898,9 +1898,6 @@ static void rtl8169_get_regs(struct net_device *dev, struct ethtool_regs *regs,
  {
-@@ -1988,6 +1990,8 @@ static inline bool qlcnic_83xx_check(struct qlcnic_adapter *adapter)
- 	bool status;
+ 	struct rtl8169_private *tp = netdev_priv(dev);
  
- 	status = ((device == PCI_DEVICE_ID_QLOGIC_QLE834X) ||
-+		  (device == PCI_DEVICE_ID_QLOGIC_QLE844X) ||
-+		  (device == PCI_DEVICE_ID_QLOGIC_VF_QLE844X) ||
- 		  (device == PCI_DEVICE_ID_QLOGIC_VF_QLE834X)) ? true : false;
- 
- 	return status;
-@@ -2001,7 +2005,11 @@ static inline bool qlcnic_sriov_pf_check(struct qlcnic_adapter *adapter)
- static inline bool qlcnic_sriov_vf_check(struct qlcnic_adapter *adapter)
- {
- 	unsigned short device = adapter->pdev->device;
-+	bool status;
-+
-+	status = ((device == PCI_DEVICE_ID_QLOGIC_VF_QLE834X) ||
-+		  (device == PCI_DEVICE_ID_QLOGIC_VF_QLE844X)) ? true : false;
- 
--	return (device == PCI_DEVICE_ID_QLOGIC_VF_QLE834X) ? true : false;
-+	return status;
- }
- #endif				/* __QLCNIC_H_ */
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-index f807f3b..cec0908 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-@@ -147,10 +147,7 @@ static inline u8 qlcnic_mac_hash(u64 mac)
- static inline u32 qlcnic_get_ref_handle(struct qlcnic_adapter *adapter,
- 					u16 handle, u8 ring_id)
- {
--	unsigned short device = adapter->pdev->device;
+-	if (regs->len > R8169_REGS_SIZE)
+-		regs->len = R8169_REGS_SIZE;
 -
--	if ((device == PCI_DEVICE_ID_QLOGIC_QLE834X) ||
--	    (device == PCI_DEVICE_ID_QLOGIC_VF_QLE834X))
-+	if (qlcnic_83xx_check(adapter))
- 		return handle | (ring_id << 15);
- 	else
- 		return handle;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index b8242bc..499c777 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -100,6 +100,8 @@ static DEFINE_PCI_DEVICE_TABLE(qlcnic_pci_tbl) = {
- 	ENTRY(PCI_DEVICE_ID_QLOGIC_QLE824X),
- 	ENTRY(PCI_DEVICE_ID_QLOGIC_QLE834X),
- 	ENTRY(PCI_DEVICE_ID_QLOGIC_VF_QLE834X),
-+	ENTRY(PCI_DEVICE_ID_QLOGIC_QLE844X),
-+	ENTRY(PCI_DEVICE_ID_QLOGIC_VF_QLE844X),
- 	{0,}
- };
+ 	rtl_lock_work(tp);
+ 	memcpy_fromio(p, tp->mmio_addr, regs->len);
+ 	rtl_unlock_work(tp);
+diff --git a/drivers/net/ethernet/sis/sis190.c b/drivers/net/ethernet/sis/sis190.c
+index 02df089..ee18e6f 100644
+--- a/drivers/net/ethernet/sis/sis190.c
++++ b/drivers/net/ethernet/sis/sis190.c
+@@ -1770,9 +1770,6 @@ static void sis190_get_regs(struct net_device *dev, struct ethtool_regs *regs,
+ 	struct sis190_private *tp = netdev_priv(dev);
+ 	unsigned long flags;
  
-@@ -146,6 +148,11 @@ static const u32 qlcnic_reg_tbl[] = {
- 
- static const struct qlcnic_board_info qlcnic_boards[] = {
- 	{ PCI_VENDOR_ID_QLOGIC,
-+	  PCI_DEVICE_ID_QLOGIC_QLE844X,
-+	  0x0,
-+	  0x0,
-+	  "8400 series 10GbE Converged Network Adapter (TCP/IP Networking)" },
-+	{ PCI_VENDOR_ID_QLOGIC,
- 	  PCI_DEVICE_ID_QLOGIC_QLE834X,
- 	  PCI_VENDOR_ID_QLOGIC,
- 	  0x24e,
-@@ -829,7 +836,9 @@ static void qlcnic_get_bar_length(u32 dev_id, ulong *bar)
- 		*bar = QLCNIC_82XX_BAR0_LENGTH;
- 		break;
- 	case PCI_DEVICE_ID_QLOGIC_QLE834X:
-+	case PCI_DEVICE_ID_QLOGIC_QLE844X:
- 	case PCI_DEVICE_ID_QLOGIC_VF_QLE834X:
-+	case PCI_DEVICE_ID_QLOGIC_VF_QLE844X:
- 		*bar = QLCNIC_83XX_BAR0_LENGTH;
- 		break;
- 	default:
-@@ -2048,9 +2057,11 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		ahw->reg_tbl = (u32 *) qlcnic_reg_tbl;
- 		break;
- 	case PCI_DEVICE_ID_QLOGIC_QLE834X:
-+	case PCI_DEVICE_ID_QLOGIC_QLE844X:
- 		qlcnic_83xx_register_map(ahw);
- 		break;
- 	case PCI_DEVICE_ID_QLOGIC_VF_QLE834X:
-+	case PCI_DEVICE_ID_QLOGIC_VF_QLE844X:
- 		qlcnic_sriov_vf_register_map(ahw);
- 		break;
- 	default:
+-	if (regs->len > SIS190_REGS_SIZE)
+-		regs->len = SIS190_REGS_SIZE;
+-
+ 	spin_lock_irqsave(&tp->lock, flags);
+ 	memcpy_fromio(p, tp->mmio_addr, regs->len);
+ 	spin_unlock_irqrestore(&tp->lock, flags);
 -- 
-1.8.1.4
+1.8.3.4
