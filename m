@@ -1,58 +1,42 @@
-From: Asias He <asias@redhat.com>
-Subject: Re: [PATCH] vhost: Drop linux/socket.h
-Date: Fri, 16 Aug 2013 17:27:43 +0800
-Message-ID: <20130816092743.GA9918@hj.localdomain>
-References: <1376536816-10951-1-git-send-email-asias@redhat.com>
-	<20130815.140740.1781732332793977170.davem@davemloft.net>
-	<20130816012743.GA5944@hj.localdomain>
-	<20130816.003159.2033932881805410431.davem@davemloft.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCHv2 net-next] xfrm: Make xfrm_state timer monotonic
+Date: Fri, 16 Aug 2013 11:30:18 +0200
+Message-ID: <20130816093018.GM26773@secunet.com>
+References: <1376552946-18967-1-git-send-email-fan.du@windriver.com>
+ <20130815.142334.1736006937556027032.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	kvm@vger.kernel.org, mst@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: fan.du@windriver.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:55624 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754638Ab3HPJaW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 05:30:22 -0400
 Content-Disposition: inline
-In-Reply-To: <20130816.003159.2033932881805410431.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20130815.142334.1736006937556027032.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 16, 2013 at 12:31:59AM -0700, David Miller wrote:
-> From: Asias He <asias@redhat.com>
-> Date: Fri, 16 Aug 2013 09:27:43 +0800
+On Thu, Aug 15, 2013 at 02:23:34PM -0700, David Miller wrote:
+> From: Fan Du <fan.du@windriver.com>
+> Date: Thu, 15 Aug 2013 15:49:06 +0800
 > 
-> > On Thu, Aug 15, 2013 at 02:07:40PM -0700, David Miller wrote:
-> >> From: Asias He <asias@redhat.com>
-> >> Date: Thu, 15 Aug 2013 11:20:16 +0800
-> >> 
-> >> > memcpy_fromiovec is moved to lib/iovec.c. No need to include
-> >> > linux/socket.h for it.
-> >> > 
-> >> > Signed-off-by: Asias He <asias@redhat.com>
-> >> 
-> >> You can't do this.
-> >> 
-> >> Because this file doesn't include the header file that
-> >> provides the declaration, which is linux/uio.h
+> > xfrm_state timer should be independent of system clock change,
+> > so switch to CLOCK_BOOTTIME base which is not only monotonic but
+> > also counting suspend time.
 > > 
-> > vhost.c includes drivers/vhost/vhost.h. In drivers/vhost/vhost.h, we
-> > have linux/uio.h included.
+> > Thus issue reported in commit: 9e0d57fd6dad37d72a3ca6db00ca8c76f2215454
+> > ("xfrm: SAD entries do not expire correctly after suspend-resume")
+> > could ALSO be avoided.
+> > 
+> > Signed-off-by: Fan Du <fan.du@windriver.com>
+> > 
+> > v2: Use CLOCK_BOOTTIME to count suspend time, but still monotonic.
 > 
-> Nothing in vhost.h needs linux/uio.h right?  That's very poor style,
-> include the header where the dependency exists which is vhost.c
+> This seems like a good fix:
+> 
+> Acked-by: David S. Miller <davem@davemloft.net>
 
-We use 'struct iovec' in vhost.h which needs linux/uio.h, no?
-
-So, how about including linux/uio.h in both vhost.c and vhost.h.
-
--- 
-Asias
+Applied to ipsec-next, thanks!
