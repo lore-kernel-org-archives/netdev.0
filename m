@@ -1,51 +1,50 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH 1/3] [RFC] TCP syncookies: slow down timer to mitigate
- spoofing attacks
-Date: Thu, 15 Aug 2013 20:34:09 -0400
-Message-ID: <CADVnQykQLHBgDLwMd63b5dwnFUbikeQ_-Jp9mjDTNQObS0Z7=Q@mail.gmail.com>
-References: <520A3B4A.1050704@jakoblell.com>
-	<20130815235743.GA25665@midget.suse.cz>
-	<20130816000043.GA11950@midget.suse.cz>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH 1/3 v4] ipv6: do not disable temp_address when reaching
+ max_address
+Date: Fri, 16 Aug 2013 08:48:44 +0800
+Message-ID: <520D76EC.6000205@huawei.com>
+References: <520B48AE.8050103@huawei.com> <20130814101511.GC16264@order.stressinduktion.org> <520C241A.2030708@huawei.com> <20130815012457.GD13066@order.stressinduktion.org> <520C3A13.3060106@huawei.com> <20130815173603.GA30746@order.stressinduktion.org> <20130815190754.GB30746@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Jakob Lell <jakob@jakoblell.com>, Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Jiri Bohac <jbohac@suse.cz>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jon Maloy <jon.maloy@ericsson.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Netdev <netdev@vger.kernel.org>, <kargig@void.gr>,
+	<ppandit@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f179.google.com ([209.85.215.179]:64781 "EHLO
-	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752811Ab3HPAeL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 20:34:11 -0400
-Received: by mail-ea0-f179.google.com with SMTP id b10so675687eae.24
-        for <netdev@vger.kernel.org>; Thu, 15 Aug 2013 17:34:10 -0700 (PDT)
-In-Reply-To: <20130816000043.GA11950@midget.suse.cz>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:6580 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751637Ab3HPAtf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 20:49:35 -0400
+In-Reply-To: <20130815190754.GB30746@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 15, 2013 at 8:00 PM, Jiri Bohac <jbohac@suse.cz> wrote:
-> (compile-tested only)
->
-> Jakob Lell discovered that the sequence number that needs to be guessed to
-> successfully spoof a TCP connection with syncookies only has 27 bits of
-> entropy. Of the 32 bits, 2 bits are wasted by the four differrent timestamps
-> accepted and 3 are wasted by the 8 differrent RSS values. [1]
->
-> This patch slows down the timer used in syncookies from 1/60 Hz to 1/60/4 Hz
-> so that at any moment only two differrent timer values can be accepted.
-> As a result, 1 bit of sequence number entropy is gained.
->
-> This changes the maximum cookie age limit from 4 - 5 minutes to 4 - 8 minutes.
->
-> [1]: http://www.jakoblell.com/blog/2013/08/13/quick-blind-tcp-connection-spoofing-with-syn-cookies/
->
-> Signed-off-by: Jiri Bohac <jbohac@suse.cz>
-...
+On 2013/8/16 3:07, Hannes Frederic Sowa wrote:
+> On Thu, Aug 15, 2013 at 07:36:03PM +0200, Hannes Frederic Sowa wrote:
+>> Now we have to check why these addresses don't go out of tentative state.
+> 
+> Just looked at it. flood_router26 just emits pretty high values for
+> RetransTime:
+> 
+> 21:05:52.050159 IP6 (hlim 255, next-header ICMPv6 (58) payload length: 192) fe80::c:2a47:1360:1101 > ff02::1: [icmp6 sum ok] ICMP6, router advertisement, length 192
+>         hop limit 255, Flags [none], pref high, router lifetime 65535s, reachable time 16384000ms, retrans time 1966080ms
+>           mtu option (5), length 8 (1):  1500
+>             0x0000:  0000 0000 05dc
+> 
+> We are completly in spec here. Just DAD needs a lot of time to finish.
+> 
+> Greetings,
+> 
+>   Hannes
+> 
+> 
+Great job, more and more close to the truth, let's find a better way to finish it. 
 
->  /*
-> - * This (misnamed) value is the age of syncookie which is permitted.
-> + * This value is the age (in seconds) of syncookies which will always be
-
-I believe (hope?) you mean minutes here, rather than seconds. :-) Same
-typo occurs in 2 spots each for IPv4 and IPv6.
-
-neal
+> .
+> 
