@@ -1,52 +1,51 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCHv3 net-next 0/6] 6lowpan: address
-	uncompression fixes
-Date: Fri, 16 Aug 2013 22:34:28 +0200
-Message-ID: <20130816203426.GA2051@x61s.8.8.8.8>
-References: <1376683199-10370-1-git-send-email-alex.aring@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1376683199-10370-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] via-ircc: don't return zero if via_ircc_open() failed
+Date: Fri, 16 Aug 2013 23:48:14 +0300
+Message-ID: <1376686094-28780-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Samuel Ortiz <samuel@sortiz.org>,
+	"David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+If via_ircc_open() fails, data structures of the driver left uninitialized,
+but probe (via_init_one()) returns zero. That can lead to null pointer dereference
+in via_remove_one(), since it does not check drvdata for NULL.
 
-On Fri, Aug 16, 2013 at 09:59:53PM +0200, Alexander Aring wrote:
-> The current implementation to uncompress addresses in a 6lowpan header
-> is completely broken.
-> 
-> This patch series fixes the parsing of addresses in a 6lowpan header.
-> It contains a major rewrite of the uncompress address function to parse
-> the address in a correct way.
-> 
-> Tested with the ravenusbstick(contiki 6LoWPAN stack) and beaglebone
-> (linux 6LoWPAN Stack) on the other side. The linux side contains all
-> possible addresses for the uncompression cases. Then I type a ping6 for
-> each case and lookup in wireshark and dmesg the correct reconstruction.
-> 
-> Please apply this patch series on net-next in order 1/7 to 7/7.
-> 
-Sry, I meant 1/6 to 6/6. :-)
+The patch implements proper error code propagation.
 
-- Alex
+Found by Linux Driver Verification project (linuxtesting.org).
 
-------------------------------------------------------------------------------
-Get 100% visibility into Java/.NET code with AppDynamics Lite!
-It's a free troubleshooting tool designed for production.
-Get down to code-level detail for bottlenecks, with <2% overhead. 
-Download for free and get started troubleshooting in minutes. 
-http://pubads.g.doubleclick.net/gampad/clk?id=48897031&iu=/4140/ostg.clktrk
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+---
+ drivers/net/irda/via-ircc.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/irda/via-ircc.c b/drivers/net/irda/via-ircc.c
+index 51f2bc3..2dcc60f 100644
+--- a/drivers/net/irda/via-ircc.c
++++ b/drivers/net/irda/via-ircc.c
+@@ -210,8 +210,7 @@ static int via_init_one(struct pci_dev *pcidev, const struct pci_device_id *id)
+ 			pci_write_config_byte(pcidev,0x42,(bTmp | 0xf0));
+ 			pci_write_config_byte(pcidev,0x5a,0xc0);
+ 			WriteLPCReg(0x28, 0x70 );
+-			if (via_ircc_open(pcidev, &info, 0x3076) == 0)
+-				rc=0;
++			rc = via_ircc_open(pcidev, &info, 0x3076);
+ 		} else
+ 			rc = -ENODEV; //IR not turn on	 
+ 	} else { //Not VT1211
+@@ -249,8 +248,7 @@ static int via_init_one(struct pci_dev *pcidev, const struct pci_device_id *id)
+ 			info.irq=FirIRQ;
+ 			info.dma=FirDRQ1;
+ 			info.dma2=FirDRQ0;
+-			if (via_ircc_open(pcidev, &info, 0x3096) == 0)
+-				rc=0;
++			rc = via_ircc_open(pcidev, &info, 0x3096);
+ 		} else
+ 			rc = -ENODEV; //IR not turn on !!!!!
+ 	}//Not VT1211
+-- 
+1.8.1.2
