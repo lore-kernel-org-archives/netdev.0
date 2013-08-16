@@ -1,15 +1,17 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCHv3 net-next 0/6] 6lowpan: address
-	uncompression fixes
-Date: Fri, 16 Aug 2013 21:59:53 +0200
-Message-ID: <1376683199-10370-1-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH net-next 2/6] 6lowpan: Fix
+	fragmentation with link-local compressed addresses
+Date: Fri, 16 Aug 2013 21:59:55 +0200
+Message-ID: <1376683199-10370-3-git-send-email-alex.aring@gmail.com>
+References: <1376683199-10370-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	David Hauweele <david-1EggE+PRa6vk1uMJSBkQmQ@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1376683199-10370-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
 	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
@@ -20,44 +22,44 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The current implementation to uncompress addresses in a 6lowpan header
-is completely broken.
+From: David Hauweele <david-1EggE+PRa6vk1uMJSBkQmQ@public.gmane.org>
 
-This patch series fixes the parsing of addresses in a 6lowpan header.
-It contains a major rewrite of the uncompress address function to parse
-the address in a correct way.
+When a new 6lowpan fragment is received, a skbuff is allocated for
+the reassembled packet. However when a 6lowpan packet compresses
+link-local addresses based on link-layer addresses, the processing
+function relies on the skb mac control block to find the related
+link-layer address.
 
-Tested with the ravenusbstick(contiki 6LoWPAN stack) and beaglebone
-(linux 6LoWPAN Stack) on the other side. The linux side contains all
-possible addresses for the uncompression cases. Then I type a ping6 for
-each case and lookup in wireshark and dmesg the correct reconstruction.
+This patch copies the control block from the first fragment into
+the newly allocated skb to keep a trace of the link-layer addresses
+in case of a link-local compressed address.
 
-Please apply this patch series on net-next in order 1/7 to 7/7.
+Edit: small changes on comment issue
 
-Changes since v3:
- - Fix byte ordering problem in uncompression of short-address.
-   Thanks for this hint.
- - drop pr_debug before lowpan_raw_dump_inline
+Signed-off-by: David Hauweele <david-1EggE+PRa6vk1uMJSBkQmQ@public.gmane.org>
+Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Reviewed-by: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
+---
+ net/ieee802154/6lowpan.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-Changes since v2:
- - Add tags for net-next
- - Change commit msg in Patch 1/6 that this patch depends for the following
-   patches
-
-Alexander Aring (5):
-  6lowpan: init ipv6hdr buffer to zero
-  6lowpan: introduce lowpan_fetch_skb function
-  6lowpan: add function to uncompress multicast addr
-  6lowpan: lowpan_uncompress_addr with address_mode
-  6lowpan: handle context based source address
-
-David Hauweele (1):
-  6lowpan: Fix fragmentation with link-local compressed addresses
-
- net/ieee802154/6lowpan.c | 286 +++++++++++++++++++++++++++++++----------------
- net/ieee802154/6lowpan.h |  20 +++-
- 2 files changed, 204 insertions(+), 102 deletions(-)
-
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index 92429db..632b3fd 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -698,6 +698,12 @@ lowpan_alloc_new_frame(struct sk_buff *skb, u16 len, u16 tag)
+ 	skb_reserve(frame->skb, sizeof(struct ipv6hdr));
+ 	skb_put(frame->skb, frame->length);
+ 
++	/* copy the first control block to keep a
++	 * trace of the link-layer addresses in case
++	 * of a link-local compressed address
++	 */
++	memcpy(frame->skb->cb, skb->cb, sizeof(skb->cb));
++
+ 	init_timer(&frame->timer);
+ 	/* time out is the same as for ipv6 - 60 sec */
+ 	frame->timer.expires = jiffies + LOWPAN_FRAG_TIMEOUT;
 -- 
 1.8.3.3
 
