@@ -1,48 +1,56 @@
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net-next 0/5] qlcnic: Enable support for 84xx Series adapter
-Date: Fri, 16 Aug 2013 19:07:12 -0400
-Message-ID: <cover.1376720973.git.himanshu.madhani@qlogic.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] vxlan: using kfree_rcu() to simplify the code
+Date: Sat, 17 Aug 2013 07:32:09 +0800
+Message-ID: <CAPgLHd8gtuhjrPP-t0dHGj_BDY5WqqX-QQbHpNK+0gPpuSN9LQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: davem@davemloft.net, stephen@networkplumber.org,
+	pshelar@nicira.com, mike.rapoport@ravellosystems.com,
+	amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:51217 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753380Ab3HQAAY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 20:00:24 -0400
+Received: from mail-bk0-f44.google.com ([209.85.214.44]:38976 "EHLO
+	mail-bk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754645Ab3HQABc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 20:01:32 -0400
+Received: by mail-bk0-f44.google.com with SMTP id mz10so828061bkb.17
+        for <netdev@vger.kernel.org>; Fri, 16 Aug 2013 17:01:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-This patch series enables support for 84xx series adapters.
+The callback function of call_rcu() just calls a kfree(), so we
+can use kfree_rcu() instead of call_rcu() + callback function.
 
-Please apply to net-next
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/vxlan.c | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
 
-Thanks,
-Himanshu
-
-Himanshu Madhani (1):
-  qlcnic: Update version to 5.3.47
-
-Manish Chopra (3):
-  qlcnic: Enable support for 844X adapter
-  qlcnic: Add PVID support for 84xx adapters
-  qlcnic: Loopback Inter Driver Communication AEN handler
-
-Pratik Pujar (1):
-  qlcnic: Add support for 84xx adapters to load firmware from file
-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        | 21 +++++++---
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    | 45 +++++++++++++++++-----
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |  3 ++
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  | 28 +++++++++++++-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     |  5 +--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   | 11 ++++++
- .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   | 20 ++++++----
- 7 files changed, 105 insertions(+), 28 deletions(-)
-
--- 
-1.8.1.4
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 227b54a..d6fc046 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -498,12 +498,6 @@ static int vxlan_fdb_create(struct vxlan_dev *vxlan,
+ 	return 0;
+ }
+ 
+-static void vxlan_fdb_free_rdst(struct rcu_head *head)
+-{
+-	struct vxlan_rdst *rd = container_of(head, struct vxlan_rdst, rcu);
+-	kfree(rd);
+-}
+-
+ static void vxlan_fdb_free(struct rcu_head *head)
+ {
+ 	struct vxlan_fdb *f = container_of(head, struct vxlan_fdb, rcu);
+@@ -643,7 +637,7 @@ static int vxlan_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
+ 	 */
+ 	if (rd && !list_is_singular(&f->remotes)) {
+ 		list_del_rcu(&rd->list);
+-		call_rcu(&rd->rcu, vxlan_fdb_free_rdst);
++		kfree_rcu(rd, rcu);
+ 		goto out;
+ 	}
+ 
