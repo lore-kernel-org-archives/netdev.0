@@ -1,77 +1,58 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: Quick Blind TCP Connection Spoofing with SYN Cookies
-Date: Fri, 16 Aug 2013 11:21:47 +0200
-Message-ID: <20130816092147.GA5154@breakpoint.cc>
-References: <520A3B4A.1050704@jakoblell.com>
- <20130815235743.GA25665@midget.suse.cz>
+From: Asias He <asias@redhat.com>
+Subject: Re: [PATCH] vhost: Drop linux/socket.h
+Date: Fri, 16 Aug 2013 17:27:43 +0800
+Message-ID: <20130816092743.GA9918@hj.localdomain>
+References: <1376536816-10951-1-git-send-email-asias@redhat.com>
+	<20130815.140740.1781732332793977170.davem@davemloft.net>
+	<20130816012743.GA5944@hj.localdomain>
+	<20130816.003159.2033932881805410431.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jakob Lell <jakob@jakoblell.com>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Jiri Bohac <jbohac@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:60788 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754444Ab3HPJWW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 05:22:22 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	kvm@vger.kernel.org, mst@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <20130815235743.GA25665@midget.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20130816.003159.2033932881805410431.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Jiri Bohac <jbohac@suse.cz> wrote:
-> > The simplification of TCP Connection Spoofing described here is an
-> > inherent problem of TCP SYN Cookies and so there won't be a simple
-> > patch which just solves the issue and makes the Spoofing Attack as
-> > hard as it is without SYN Cookies. It is only possible to gradually
-> > increase the required effort for successfully spoofing a connection
-> > e.g. by only accepting the last two instead of four counter values
-> > (which will lead to a 60-120s 
+On Fri, Aug 16, 2013 at 12:31:59AM -0700, David Miller wrote:
+> From: Asias He <asias@redhat.com>
+> Date: Fri, 16 Aug 2013 09:27:43 +0800
 > 
-> If the counter is slowed down 4 times, accepting only two
-> values should result in similar behaviour as we have today.
+> > On Thu, Aug 15, 2013 at 02:07:40PM -0700, David Miller wrote:
+> >> From: Asias He <asias@redhat.com>
+> >> Date: Thu, 15 Aug 2013 11:20:16 +0800
+> >> 
+> >> > memcpy_fromiovec is moved to lib/iovec.c. No need to include
+> >> > linux/socket.h for it.
+> >> > 
+> >> > Signed-off-by: Asias He <asias@redhat.com>
+> >> 
+> >> You can't do this.
+> >> 
+> >> Because this file doesn't include the header file that
+> >> provides the declaration, which is linux/uio.h
+> > 
+> > vhost.c includes drivers/vhost/vhost.h. In drivers/vhost/vhost.h, we
+> > have linux/uio.h included.
 > 
-> Can anyone think of a reason this should not be done?
+> Nothing in vhost.h needs linux/uio.h right?  That's very poor style,
+> include the header where the dependency exists which is vhost.c
 
-I was also working on patches that mitigate this (not ready yet),
-lets compare notes.
+We use 'struct iovec' in vhost.h which needs linux/uio.h, no?
 
-There are two problems.
+So, how about including linux/uio.h in both vhost.c and vhost.h.
 
-1) current scheme is dangerous with HZ=1000 on 32
-   bit platforms due to jiffies overflow, it needs to be fixed.
-
-Else, cookies can be re-used exactly after 49 day period.
-
-I did straighforward replacement first to not change current timer:
-
-Use getnstimeofday(), take "second" value, shift result by 6 (64-second
-granular timer).
-
-If you have time to work on it, I would appreciate if you could take
-care of this.
-
-> Additionally, I believe we should reduce the number of possible MSS
-> values. I think 3 values should be enough - not supporting jumbo
-> frames and wasting a few bytes on sub-optimal MSS around 1400
-> bytes should be acceptable when a system is under a DoS attack.
-
-Agreed.  I had a (untested patch) that just kicks out the unlikely
-values.  I used 536, 1200, 1440, 1460 for ipv4, and 536, 1220, 1460,
-8940 for ipv6.  I think this would be sufficient to keep decent
-connectivity for legitimate clients.
-
-We could add an alternate fallback table with more exotic values
-and use a bit in the tcp timestamp to indicate use of fallback table
-however since that only workswhen ts are used I would not do this unless
-there is evidence that this is useful.
-
-As for the cookie lifetime: I agree it should be reduced, allowing
-delta for more than one minute seems way too long given that we never
-retransmit lost syn/ack.
-
-A conservative change would be to reject delta <= 2, with 64 second
-timer.
-
-Cheers,
-Florian
+-- 
+Asias
