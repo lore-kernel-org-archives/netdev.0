@@ -1,22 +1,54 @@
-From: =?utf-8?B?wqkgV2VzdGVybu+7vw==?= Union <sersecretaria@tjmg.jus.br>
-Subject: Money available for pick up
-Date: Fri, 16 Aug 2013 12:02:36 -0300 (BRT)
-Message-ID: <224003e9-d838-4b59-983a-dd22617a7b3e@zimmbox-1.tjmg.jus.br>
-Reply-To: Agent Rick James <rickjamesharts@admin.in.th>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw.tjmg.jus.br ([201.48.156.181]:50075 "EHLO tjmg.jus.br"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751149Ab3HPPEM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Aug 2013 11:04:12 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrey Vagin <avagin@openvz.org>
+Subject: [PATCH] tcp: set timestamps for restored skb-s
+Date: Fri, 16 Aug 2013 19:04:36 +0400
+Message-ID: <1376665476-9683-1-git-send-email-avagin@openvz.org>
+Cc: linux-kernel@vger.kernel.org, Andrey Vagin <avagin@openvz.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is to re-notify you of the US$500,000.00(Dollars)
-which was deposited in western union office in your name and favor, it is
-still available for pickup. Contact the person of Agent Rick James
-Email: rickjamesharts002@admin.in.th for your M.T.C.N Numbers,
-Mobile:+44-7035-916-544
+When the repair mode is turned off, the write queue seqs are
+updated so that the whole queue is considered to be 'already sent.
+
+The "when" field must be set for such skb. It's used in tcp_rearm_rto
+for example. If the "when" field isn't set, the retransmit timeout can
+be calculated incorrectly and a tcp connected can stop for two minutes
+(TCP_RTO_MAX).
+
+Acked-by: Pavel Emelyanov <xemul@parallels.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Andrey Vagin <avagin@openvz.org>
+---
+ net/ipv4/tcp.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 5423223..b2f6c74 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1121,6 +1121,13 @@ new_segment:
+ 					goto wait_for_memory;
+ 
+ 				/*
++				 * All packets are restored as if they have
++				 * already been sent.
++				 */
++				if (tp->repair)
++					TCP_SKB_CB(skb)->when = tcp_time_stamp;
++
++				/*
+ 				 * Check whether we can use HW checksum.
+ 				 */
+ 				if (sk->sk_route_caps & NETIF_F_ALL_CSUM)
+-- 
+1.8.3.1
