@@ -1,36 +1,42 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: Where are OVS VXLAN patches?
-Date: Fri, 16 Aug 2013 12:50:25 +0800
-Message-ID: <1376628625.2934.57.camel@cr0>
-References: <1376291275.17589.18.camel@cr0>
-	 <CAEP_g=-JQUZaLUhkMWQ6p8iYn8jqb_0tZOq=x+kv0Xip3dUA7A@mail.gmail.com>
-	 <1376370988.13583.6.camel@cr0> <1376615540.2934.3.camel@cr0>
-	 <CAOaVG16Vx11DV4gxfSf2f0BceOk1y+aP6rtz-_h9b0Ckp0r2Jw@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH 0/6] vhost code cleanup and minor enhancement
+Date: Fri, 16 Aug 2013 13:16:24 +0800
+Message-ID: <1376630190-5912-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jesse Gross <jesse@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21166 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750994Ab3HPEuh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Aug 2013 00:50:37 -0400
-In-Reply-To: <CAOaVG16Vx11DV4gxfSf2f0BceOk1y+aP6rtz-_h9b0Ckp0r2Jw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: mst@redhat.com, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-(Re-adding netdev and davem...)
+Hi all:
 
-On Thu, 2013-08-15 at 21:33 -0700, Stephen Hemminger wrote:
-> Send them to netdev. The vxlan-next tree was temporary when there were
-> 3 people working on VXLAN at
-> same time (Pravin, ong, and me). I see no point in keeping a separate
-> tree over the long term.
-> 
+This series tries to unify and simplify vhost codes especially for zerocopy.
 
-I agree. There is some misunderstanding between you and David on taking
-these patches. :)
+Plase review.
+
+Thanks
+
+Jason Wang (6):
+  vhost_net: make vhost_zerocopy_signal_used() returns void
+  vhost_net: use vhost_add_used_and_signal_n() in
+    vhost_zerocopy_signal_used()
+  vhost: switch to use vhost_add_used_n()
+  vhost_net: determine whether or not to use zerocopy at one time
+  vhost_net: poll vhost queue after marking DMA is done
+  vhost_net: remove the max pending check
+
+ drivers/vhost/net.c   |   86 +++++++++++++++++++-----------------------------
+ drivers/vhost/vhost.c |   43 +-----------------------
+ 2 files changed, 36 insertions(+), 93 deletions(-)
