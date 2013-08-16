@@ -1,105 +1,53 @@
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net-next 2/5] qlcnic: Add PVID support for 84xx adapters
-Date: Fri, 16 Aug 2013 19:07:14 -0400
-Message-ID: <da12fa388cd93b90458daa17363dffaf6417f535.1376720973.git.himanshu.madhani@qlogic.com>
-References: <cover.1376720973.git.himanshu.madhani@qlogic.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Provide ability to change default netdev name?
+Date: Sat, 17 Aug 2013 01:41:08 +0200
+Message-ID: <1376696468.11042.74.camel@deadeye.wl.decadent.org.uk>
+References: <520EA43F.2010304@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Manish Chopra <manish.chopra@qlogic.com>,
-	<himanshu.madhani@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:34629 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752657Ab3HPX6O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 19:58:14 -0400
-In-Reply-To: <cover.1376720973.git.himanshu.madhani@qlogic.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:44897 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753706Ab3HPX7c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 19:59:32 -0400
+In-Reply-To: <520EA43F.2010304@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Manish Chopra <manish.chopra@qlogic.com>
+On Fri, 2013-08-16 at 15:14 -0700, Ben Greear wrote:
+> The latest udev in Fedora 19 (and perhaps elsewhere) will no longer
+> implement rules that rename an interface from ethX to ethY.  Nor
+> wlanX or other 'kernel namespaces'.  The Fedora udev developers do not seem
+> interested in changing this back to the old behaviour, evidently they
+> had a hard time implementing it properly.
 
-o 84xx adapters support VLAN stripping for PVID. Packets don't have
-  VLAN tag inserted in case of PVID. So packet should follow non vlan path.
+There is an inherent problem that a new device can appear at any time
+under the exact name udev is trying to rename to.  I expect it is
+possible to do this properly but may be quite difficult to eliminate the
+possibility of deadlock.
 
-o Use capability bit to set PVID mode.
+Still, if udev actively refuses to use the 'kernel namespaces' (rather
+than just being configured not to), that would be a bug.
 
-Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
-Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h  |  1 +
- .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c | 20 +++++++++++++-------
- 2 files changed, 14 insertions(+), 7 deletions(-)
+> This effectively makes it impossible to have network device names of ethX
+> consistent across reboots in systems with multiple NICs and/or drivers.
+> 
+> One way to work around this would be allow the kernel to use a different
+> default netdev name (for instance, keth%d).  I'm thinking this would be
+> configured as a kernel command line argument.  Then, a small change to udev/systemd to
+> make the 'kernel namespaces' configurable by letting it understand this new kernel
+> command line argument should resolve the problem.
+> 
+> Does this sound like something that could be accepted upstream?
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-index dd22ef3..b89b074 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-@@ -404,6 +404,7 @@ enum qlcnic_83xx_states {
- #define QLC_83XX_MAX_MC_COUNT			38
- #define QLC_83XX_MAX_UC_COUNT			4096
- 
-+#define QLC_83XX_PVID_STRIP_CAPABILITY		BIT_22
- #define QLC_83XX_GET_FUNC_MODE_FROM_NPAR_INFO(val)	(val & 0x80000000)
- #define QLC_83XX_GET_LRO_CAPABILITY(val)		(val & 0x20)
- #define QLC_83XX_GET_LSO_CAPABILITY(val)		(val & 0x40)
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-index dc24979..b2fbefc 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-@@ -398,10 +398,14 @@ int qlcnic_sriov_get_vf_vport_info(struct qlcnic_adapter *adapter,
- }
- 
- static int qlcnic_sriov_set_pvid_mode(struct qlcnic_adapter *adapter,
--				      struct qlcnic_cmd_args *cmd)
-+				      struct qlcnic_cmd_args *cmd, u32 cap)
- {
--	adapter->rx_pvid = (cmd->rsp.arg[1] >> 16) & 0xffff;
--	adapter->flags &= ~QLCNIC_TAGGING_ENABLED;
-+	if (cap & QLC_83XX_PVID_STRIP_CAPABILITY) {
-+		adapter->rx_pvid = 0;
-+	} else {
-+		adapter->rx_pvid = (cmd->rsp.arg[1] >> 16) & 0xffff;
-+		adapter->flags &= ~QLCNIC_TAGGING_ENABLED;
-+	}
- 	return 0;
- }
- 
-@@ -432,12 +436,14 @@ static int qlcnic_sriov_set_guest_vlan_mode(struct qlcnic_adapter *adapter,
- 	return 0;
- }
- 
--static int qlcnic_sriov_get_vf_acl(struct qlcnic_adapter *adapter)
-+static int qlcnic_sriov_get_vf_acl(struct qlcnic_adapter *adapter,
-+				   struct qlcnic_info *info)
- {
- 	struct qlcnic_sriov *sriov = adapter->ahw->sriov;
- 	struct qlcnic_cmd_args cmd;
--	int ret;
-+	int ret, cap;
- 
-+	cap = info->capabilities;
- 	ret = qlcnic_sriov_alloc_bc_mbx_args(&cmd, QLCNIC_BC_CMD_GET_ACL);
- 	if (ret)
- 		return ret;
-@@ -453,7 +459,7 @@ static int qlcnic_sriov_get_vf_acl(struct qlcnic_adapter *adapter)
- 			ret = qlcnic_sriov_set_guest_vlan_mode(adapter, &cmd);
- 			break;
- 		case QLC_PVID_MODE:
--			ret = qlcnic_sriov_set_pvid_mode(adapter, &cmd);
-+			ret = qlcnic_sriov_set_pvid_mode(adapter, &cmd, cap);
- 			break;
- 		}
- 	}
-@@ -476,7 +482,7 @@ static int qlcnic_sriov_vf_init_driver(struct qlcnic_adapter *adapter)
- 	if (err)
- 		return -EIO;
- 
--	err = qlcnic_sriov_get_vf_acl(adapter);
-+	err = qlcnic_sriov_get_vf_acl(adapter, &nic_info);
- 	if (err)
- 		return err;
- 
+This sounds completely ridiculous.
+
+Ben.
+
 -- 
-1.8.1.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
