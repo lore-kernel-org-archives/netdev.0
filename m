@@ -1,20 +1,19 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] vhost: Drop linux/socket.h
-Date: Fri, 16 Aug 2013 12:50:12 +0300
-Message-ID: <20130816095012.GA21547@redhat.com>
-References: <1376536816-10951-1-git-send-email-asias@redhat.com>
-	<20130815.140740.1781732332793977170.davem@davemloft.net>
-	<20130816012743.GA5944@hj.localdomain>
-	<20130816.003159.2033932881805410431.davem@davemloft.net>
+Subject: Re: [PATCH 2/6] vhost_net: use vhost_add_used_and_signal_n() in
+	vhost_zerocopy_signal_used()
+Date: Fri, 16 Aug 2013 12:54:26 +0300
+Message-ID: <20130816095426.GA21821@redhat.com>
+References: <1376630190-5912-1-git-send-email-jasowang@redhat.com>
+	<1376630190-5912-3-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
 	virtualization@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <20130816.003159.2033932881805410431.davem@davemloft.net>
+In-Reply-To: <1376630190-5912-3-git-send-email-jasowang@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -26,86 +25,53 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 16, 2013 at 12:31:59AM -0700, David Miller wrote:
-> From: Asias He <asias@redhat.com>
-> Date: Fri, 16 Aug 2013 09:27:43 +0800
+On Fri, Aug 16, 2013 at 01:16:26PM +0800, Jason Wang wrote:
+> Switch to use vhost_add_used_and_signal_n() to avoid multiple calls to
+> vhost_add_used_and_signal(). With the patch we will call at most 2 times
+> (consider done_idx warp around) compared to N times w/o this patch.
 > 
-> > On Thu, Aug 15, 2013 at 02:07:40PM -0700, David Miller wrote:
-> >> From: Asias He <asias@redhat.com>
-> >> Date: Thu, 15 Aug 2013 11:20:16 +0800
-> >> 
-> >> > memcpy_fromiovec is moved to lib/iovec.c. No need to include
-> >> > linux/socket.h for it.
-> >> > 
-> >> > Signed-off-by: Asias He <asias@redhat.com>
-> >> 
-> >> You can't do this.
-> >> 
-> >> Because this file doesn't include the header file that
-> >> provides the declaration, which is linux/uio.h
-> > 
-> > vhost.c includes drivers/vhost/vhost.h. In drivers/vhost/vhost.h, we
-> > have linux/uio.h included.
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+
+So? Does this help performance then?
+
+> ---
+>  drivers/vhost/net.c |   13 ++++++++-----
+>  1 files changed, 8 insertions(+), 5 deletions(-)
 > 
-> Nothing in vhost.h needs linux/uio.h right?  That's very poor style,
-> include the header where the dependency exists which is vhost.c
-
-It needs struct iovec, which is in include/uapi/linux/uio.h.
-Do you think it's better to include uapi/linux/uio.h directly?
-In that case maybe we should update linux/socket.h
-to pull in uapi/linux/uio.h directly too.
-
-Or even just forward-declare struct iovec.
-I tried this last option and the only fall-out seems to be in security/
-- though I didn't do an allyes config build yet.  Good idea? If yes let
-me know and I'll do that.
-
--->
-
-socket: forward-declare struct iovec
-
-We can simplify header dependencies by using a forward declaration
-of struct iovec in socket.h - it's always used through a pointer there.
-Do this and fix up users that rely on socket.h including uio.h.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
----
-
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index 230c04b..3ad6f52 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -4,7 +4,6 @@
- 
- #include <asm/socket.h>			/* arch-dependent defines	*/
- #include <linux/sockios.h>		/* the SIOCxxx I/O controls	*/
--#include <linux/uio.h>			/* iovec support		*/
- #include <linux/types.h>		/* pid_t			*/
- #include <linux/compiler.h>		/* __user			*/
- #include <uapi/linux/socket.h>
-@@ -44,6 +43,8 @@ struct linger {
-  *	belong in an obscure libc emulation or the bin.
-  */
-  
-+struct iovec;
-+
- struct msghdr {
- 	void	*	msg_name;	/* Socket name			*/
- 	int		msg_namelen;	/* Length of name		*/
-diff --git a/security/keys/compat.c b/security/keys/compat.c
-index d65fa7f..9c2723f 100644
---- a/security/keys/compat.c
-+++ b/security/keys/compat.c
-@@ -13,6 +13,7 @@
- #include <linux/keyctl.h>
- #include <linux/compat.h>
- #include <linux/slab.h>
-+#include <uapi/linux/uio.h>
- #include "internal.h"
- 
- /*
-
-
--- 
-MST
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 280ee66..8a6dd0d 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -281,7 +281,7 @@ static void vhost_zerocopy_signal_used(struct vhost_net *net,
+>  {
+>  	struct vhost_net_virtqueue *nvq =
+>  		container_of(vq, struct vhost_net_virtqueue, vq);
+> -	int i;
+> +	int i, add;
+>  	int j = 0;
+>  
+>  	for (i = nvq->done_idx; i != nvq->upend_idx; i = (i + 1) % UIO_MAXIOV) {
+> @@ -289,14 +289,17 @@ static void vhost_zerocopy_signal_used(struct vhost_net *net,
+>  			vhost_net_tx_err(net);
+>  		if (VHOST_DMA_IS_DONE(vq->heads[i].len)) {
+>  			vq->heads[i].len = VHOST_DMA_CLEAR_LEN;
+> -			vhost_add_used_and_signal(vq->dev, vq,
+> -						  vq->heads[i].id, 0);
+>  			++j;
+>  		} else
+>  			break;
+>  	}
+> -	if (j)
+> -		nvq->done_idx = i;
+> +	while (j) {
+> +		add = min(UIO_MAXIOV - nvq->done_idx, j);
+> +		vhost_add_used_and_signal_n(vq->dev, vq,
+> +					    &vq->heads[nvq->done_idx], add);
+> +		nvq->done_idx = (nvq->done_idx + add) % UIO_MAXIOV;
+> +		j -= add;
+> +	}
+>  }
+>  
+>  static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
+> -- 
+> 1.7.1
