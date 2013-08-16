@@ -1,55 +1,38 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next v2 1/3] net/usb/r8152: support aggregation
-Date: Fri, 16 Aug 2013 07:54:40 +0200
-Message-ID: <20130816055440.GA2458@electric-eye.fr.zoreil.com>
-References: <1376378913-879-1-git-send-email-hayeswang@realtek.com>
- <1376484880-741-1-git-send-email-hayeswang@realtek.com>
- <20130815122617.GA18057@electric-eye.fr.zoreil.com>
- <4C3BE5B36641404DBF9ED8943729871B@realtek.com.tw>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] ip monitor: Enable prefix labels when monitoring more
+ than 1 object
+Date: Thu, 15 Aug 2013 23:40:47 -0700
+Message-ID: <20130815234047.0018f3dd@nehalam.linuxnetplumber.net>
+References: <20130815070527.1df23bea@martins.ozlabs.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "'nic_swsd'" <nic_swsd@realtek.com>,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-	"'David Miller'" <davem@davemloft.net>
-To: hayeswang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4C3BE5B36641404DBF9ED8943729871B@realtek.com.tw>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Martin Schwenke <martin@meltin.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:60811 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751845Ab3HPGkv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 02:40:51 -0400
+Received: by mail-pd0-f181.google.com with SMTP id g10so1834354pdj.40
+        for <netdev@vger.kernel.org>; Thu, 15 Aug 2013 23:40:50 -0700 (PDT)
+In-Reply-To: <20130815070527.1df23bea@martins.ozlabs.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-hayeswang <hayeswang@realtek.com> :
-> Francois Romieu [mailto:romieu@fr.zoreil.com] 
-[...]
-> > The forward declaration is not needed.
+On Thu, 15 Aug 2013 07:05:27 +1000
+Martin Schwenke <martin@meltin.net> wrote:
+
+> Prefix labelling is currently only activated when monitoring "all"
+> objects.  However, the output can still be confusing when monitoring
+> more than 1 object, so enable prefix labels in this case.
 > 
-> The r8152_submit_rx() need the declaration of read_bulk_callback(), and the
-> read_bulk_callback() need the declaration of r8152_submit_rx(), too. It likes
-> a dead lock, so I have no idea how to do it without another declaration.
+> Signed-off-by: Martin Schwenke <martin@meltin.net>
 
-Ok, send me a brain for Xmas.
+I understand where you are coming from, but changing the output format
+might break people with scripts doing parsing the current format.
 
-[...]
-> > How is it related to the subject of the patch ?
-> 
-> When link down, the driver would cancel all bulks. This avoid the re-submitting
-> bulk.
+Since there is already a flag to ip monitor to put on prefix labels,
+why not just use that if you need to?
 
-It's quite orthogonal to aggregation and could thus had been done in its own
-patch for readability sake.
-
-[...]
-> > It should be possible to retrieve more items in the spinlocked section
-> > so as to have a chance to batch more work. I have not thought 
-> > too deeply
-> > about it.
-> 
-> I only lock when I want to remove or inser the agg list, and unlock as soon as
-> possible. I don't think I keep locking for a long time.
-
-Sure. It doesn't make a difference if tp->rx_done doesn't grow much.
-
-Thanks.
-
--- 
-Ueimor
+This seems like a change likely to upset more people than it pleases.
