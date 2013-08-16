@@ -1,59 +1,41 @@
-From: Neel Patel <neepatel@cisco.com>
-Subject: [PATCH v3 3/3] drivers/net: enic: Generate notification of hardware crash
-Date: Fri, 16 Aug 2013 15:47:41 -0700
-Message-ID: <1376693261-1949-4-git-send-email-neepatel@cisco.com>
-References: <1376693261-1949-1-git-send-email-neepatel@cisco.com>
-Cc: umalhi@cisco.com, Neel Patel <neepatel@cisco.com>,
-	Nishank Trivedi <nistrive@cisco.com>,
-	Christian Benvenuti <benve@cisco.com>
-To: netdev@vger.kernel.org
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: [PATCH net-next 2/2] net-next: sundance: Add myself as an maintainer Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+Date: Fri, 16 Aug 2013 21:00:17 +0400
+Message-ID: <1376672417-2798-2-git-send-email-kda@linux-powerpc.org>
+References: <1376672417-2798-1-git-send-email-kda@linux-powerpc.org>
+Cc: Denis Kirjanov <kda@linux-powerpc.org>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtv-iport-1.cisco.com ([173.36.130.12]:39998 "EHLO
-	mtv-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757854Ab3HPWrr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 18:47:47 -0400
-In-Reply-To: <1376693261-1949-1-git-send-email-neepatel@cisco.com>
+Received: from mail-la0-f43.google.com ([209.85.215.43]:40755 "EHLO
+	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754314Ab3HPWsL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 18:48:11 -0400
+Received: by mail-la0-f43.google.com with SMTP id ep20so1984204lab.30
+        for <netdev@vger.kernel.org>; Fri, 16 Aug 2013 15:48:09 -0700 (PDT)
+In-Reply-To: <1376672417-2798-1-git-send-email-kda@linux-powerpc.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch generates a hardware crash notification (NETDEV_REBOOT)
-during reset. After a hardware crash, ENIC resets all its resources
-including queue pair filters programmed by USNIC. USNIC registers for
-this notification, and on receiving it, reprograms the queue pair
-filters.
-
-Signed-off-by: Neel Patel <neepatel@cisco.com>
-Signed-off-by: Nishank Trivedi <nistrive@cisco.com>
-Signed-off-by: Christian Benvenuti <benve@cisco.com>
 ---
- drivers/net/ethernet/cisco/enic/enic.h      | 2 +-
- drivers/net/ethernet/cisco/enic/enic_main.c | 1 +
- 2 files changed, 2 insertions(+), 1 deletion(-)
+ MAINTAINERS | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
-index cacca29..be16731 100644
---- a/drivers/net/ethernet/cisco/enic/enic.h
-+++ b/drivers/net/ethernet/cisco/enic/enic.h
-@@ -32,7 +32,7 @@
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 9ee0a8f..1b3fb7c 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -7968,6 +7968,12 @@ F:	arch/m68k/sun3*/
+ F:	arch/m68k/include/asm/sun3*
+ F:	drivers/net/ethernet/i825xx/sun3*
  
- #define DRV_NAME		"enic"
- #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
--#define DRV_VERSION		"2.1.1.39"
-+#define DRV_VERSION		"2.1.1.43"
- #define DRV_COPYRIGHT		"Copyright 2008-2013 Cisco Systems, Inc"
- 
- #define ENIC_BARS_MAX		6
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index 7f8891b..bcf15b1 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -1743,6 +1743,7 @@ static void enic_reset(struct work_struct *work)
- 	enic_dev_set_ig_vlan_rewrite_mode(enic);
- 	enic_open(enic->netdev);
- 	spin_unlock(&enic->enic_api_lock);
-+	call_netdevice_notifiers(NETDEV_REBOOT, enic->netdev);
- 
- 	rtnl_unlock();
- }
++SUNDANCE NETWORK DRIVER
++M:	Denis Kirjanov <kda@linux-powerpc.org>
++L:	netdev@vger.kernel.org
++S:	Maintained
++F:	drivers/net/ethernet/dlink/sundance.c
++
+ SUPERH
+ M:	Paul Mundt <lethal@linux-sh.org>
+ L:	linux-sh@vger.kernel.org
 -- 
-1.8.4-rc0
+1.8.0.2
