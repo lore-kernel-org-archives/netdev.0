@@ -1,91 +1,44 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: [PATCH 3/3] [RFC] TCP syncookies: only allow 3 MSS values by default
- to mitigate spoofing attacks
-Date: Fri, 16 Aug 2013 02:05:23 +0200
-Message-ID: <20130816000523.GC11950@midget.suse.cz>
-References: <520A3B4A.1050704@jakoblell.com>
- <20130815235743.GA25665@midget.suse.cz>
+From: "Mr Bill J. Moore" <info@live.com>
+Subject: Re: Hello..
+Date: Fri, 16 Aug 2013 02:04:59 +0200
+Message-ID: <201308160005.ARN72416@fss3.bezeqint.net>
+Reply-To: dispatch_james01@qq.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jakob Lell <jakob@jakoblell.com>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Jiri Bohac <jbohac@suse.cz>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <info@live.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:46367 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752047Ab3HPAF1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Aug 2013 20:05:27 -0400
-Content-Disposition: inline
-In-Reply-To: <20130815235743.GA25665@midget.suse.cz>
+Received: from oms4.bezeqint.net ([192.115.20.39]:39888 "EHLO
+	oms4.bezeqint.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752662Ab3HPAUc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 20:20:32 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jakob Lell discovered that the sequence number that needs to be guessed to
-successfully spoof a TCP connection with syncookies only has 27 bits of
-entropy. Of the 32 bits, 3 are wasted by the 8 differrent RSS values. [1]
+Greetings!
 
-This patch decreases the number of possible MSS values from 8 to 3,
-making the spoofing attack 8/3 times more difficult.
+I have been waiting for you to contact me for your Confirm-able Bank Draft of $800, 000,00 United States Dollars, but I did not hear from you.
 
-Rationale for the new values
-- most packets are (1500 - headers); (1450 - headers) is not a huge waste and
-  prevents fallback to much lower values
-- clients will rarely send MSS below 536, so that's a safe fallback
-- we need to keep the minimum (64)
+Then I went and deposited the Draft with FedEx COURIER SERVICE, West Africa, I traveled out of the country for a 3 Months Course and I will not come back till end of December.
 
-[1]: http://www.jakoblell.com/blog/2013/08/13/quick-blind-tcp-connection-spoofing-with-syn-cookies/
+The only money you will send to the FedEx COURIER SERVICE to deliver your Draft direct to your postal Address in your country is($175.00 USD) only bring Security Keeping Fee of the Courier C mpany so far.
 
-Signed-off-by: Jiri Bohac <jbohac@suse.cz>
----
- net/ipv4/syncookies.c | 9 ++-------
- net/ipv6/syncookies.c | 9 ++-------
- 2 files changed, 4 insertions(+), 14 deletions(-)
+Contact Person: Mr. James Moore
+Dispatch Director. Mr. James Moore
+Email Address: dispatch_james01@qq.com
+Telephone: :+(234) 705 528 7142
 
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index af0692f..0504bbe 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -148,15 +148,10 @@ static __u32 check_tcp_syn_cookie(__u32 cookie, __be32 saddr, __be32 daddr,
- int sysctl_tcp4_syncookies_mss[TCP_SYNCOOKIES_MSS_COUNT_MAX] = {
- 	64,
- 	512,
--	536,
--	1024,
--	1440,
--	1460,
--	4312,
--	8960,
-+	1450 - 40,
- 	/* update sysctl_tcp4_syncookies_mss_count accordingly */
- };
--int sysctl_tcp4_syncookies_mss_count = 8;
-+int sysctl_tcp4_syncookies_mss_count = 3;
- 
- /*
-  * This value is the age (in seconds) of syncookies which will always be
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index 4268448..ccdb880 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -28,15 +28,10 @@
- int sysctl_tcp6_syncookies_mss[TCP_SYNCOOKIES_MSS_COUNT_MAX] = {
- 	64,
- 	512,
--	536,
--	1280 - 60,
--	1480 - 60,
--	1500 - 60,
--	4460 - 60,
--	9000 - 60,
-+	1450 - 60,
- 	/* update sysctl_tcp6_syncookies_mss_count accordingly */
- };
--int sysctl_tcp6_syncookies_mss_count = 8;
-+int sysctl_tcp6_syncookies_mss_count = 3;
- 
- /*
-  * This value is the age (in seconds) of syncookies which will always be
+DO CONFIRM YOUR INFORMATION BELOW
 
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+FullName
+Home Address
+Occupation
+Country
+
+Let me repeat again, try and contact then us soon as you receive this mail to avoid any further delay and remember to pay them their Security Keeping fee  of $175.00 US Dollars for their immediate action.I know this e-mail may come to
+you as a surprise.
+
+Yours Faithfully,
+
+Mr Bill J. Moore
