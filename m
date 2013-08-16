@@ -1,50 +1,53 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH 1/3 v4] ipv6: do not disable temp_address when reaching
- max_address
-Date: Fri, 16 Aug 2013 08:48:44 +0800
-Message-ID: <520D76EC.6000205@huawei.com>
-References: <520B48AE.8050103@huawei.com> <20130814101511.GC16264@order.stressinduktion.org> <520C241A.2030708@huawei.com> <20130815012457.GD13066@order.stressinduktion.org> <520C3A13.3060106@huawei.com> <20130815173603.GA30746@order.stressinduktion.org> <20130815190754.GB30746@order.stressinduktion.org>
+From: Asias He <asias@redhat.com>
+Subject: Re: [PATCH] vhost: Drop linux/socket.h
+Date: Fri, 16 Aug 2013 09:27:43 +0800
+Message-ID: <20130816012743.GA5944@hj.localdomain>
+References: <1376536816-10951-1-git-send-email-asias@redhat.com>
+	<20130815.140740.1781732332793977170.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jon Maloy <jon.maloy@ericsson.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Netdev <netdev@vger.kernel.org>, <kargig@void.gr>,
-	<ppandit@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:6580 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751637Ab3HPAtf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Aug 2013 20:49:35 -0400
-In-Reply-To: <20130815190754.GB30746@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	kvm@vger.kernel.org, mst@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20130815.140740.1781732332793977170.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 2013/8/16 3:07, Hannes Frederic Sowa wrote:
-> On Thu, Aug 15, 2013 at 07:36:03PM +0200, Hannes Frederic Sowa wrote:
->> Now we have to check why these addresses don't go out of tentative state.
+On Thu, Aug 15, 2013 at 02:07:40PM -0700, David Miller wrote:
+> From: Asias He <asias@redhat.com>
+> Date: Thu, 15 Aug 2013 11:20:16 +0800
 > 
-> Just looked at it. flood_router26 just emits pretty high values for
-> RetransTime:
+> > memcpy_fromiovec is moved to lib/iovec.c. No need to include
+> > linux/socket.h for it.
+> > 
+> > Signed-off-by: Asias He <asias@redhat.com>
 > 
-> 21:05:52.050159 IP6 (hlim 255, next-header ICMPv6 (58) payload length: 192) fe80::c:2a47:1360:1101 > ff02::1: [icmp6 sum ok] ICMP6, router advertisement, length 192
->         hop limit 255, Flags [none], pref high, router lifetime 65535s, reachable time 16384000ms, retrans time 1966080ms
->           mtu option (5), length 8 (1):  1500
->             0x0000:  0000 0000 05dc
+> You can't do this.
 > 
-> We are completly in spec here. Just DAD needs a lot of time to finish.
-> 
-> Greetings,
-> 
->   Hannes
-> 
-> 
-Great job, more and more close to the truth, let's find a better way to finish it. 
+> Because this file doesn't include the header file that
+> provides the declaration, which is linux/uio.h
 
-> .
-> 
+vhost.c includes drivers/vhost/vhost.h. In drivers/vhost/vhost.h, we
+have linux/uio.h included.
+
+> linux/socket.h includes linux/uio.h, so honestly leaving
+> things the way they are is a 1000 times better than your
+> patch.
+
+Vhost is a separate module and a generic infrastructure which is not
+bound to network anymore. I guess it's better to include the real one
+instead of the socket one.
+
+-- 
+Asias
