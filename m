@@ -1,51 +1,44 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] via-ircc: don't return zero if via_ircc_open() failed
-Date: Fri, 16 Aug 2013 23:48:14 +0300
-Message-ID: <1376686094-28780-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Samuel Ortiz <samuel@sortiz.org>,
-	"David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Greear <greearb@candelatech.com>
+Subject: Provide ability to change default netdev name?
+Date: Fri, 16 Aug 2013 15:14:23 -0700
+Message-ID: <520EA43F.2010304@candelatech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:49928 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753021Ab3HPWOY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 18:14:24 -0400
+Received: from [192.168.100.226] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id r7GMENeL021647
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Fri, 16 Aug 2013 15:14:24 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If via_ircc_open() fails, data structures of the driver left uninitialized,
-but probe (via_init_one()) returns zero. That can lead to null pointer dereference
-in via_remove_one(), since it does not check drvdata for NULL.
+The latest udev in Fedora 19 (and perhaps elsewhere) will no longer
+implement rules that rename an interface from ethX to ethY.  Nor
+wlanX or other 'kernel namespaces'.  The Fedora udev developers do not seem
+interested in changing this back to the old behaviour, evidently they
+had a hard time implementing it properly.
 
-The patch implements proper error code propagation.
+This effectively makes it impossible to have network device names of ethX
+consistent across reboots in systems with multiple NICs and/or drivers.
 
-Found by Linux Driver Verification project (linuxtesting.org).
+One way to work around this would be allow the kernel to use a different
+default netdev name (for instance, keth%d).  I'm thinking this would be
+configured as a kernel command line argument.  Then, a small change to udev/systemd to
+make the 'kernel namespaces' configurable by letting it understand this new kernel
+command line argument should resolve the problem.
 
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- drivers/net/irda/via-ircc.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+Does this sound like something that could be accepted upstream?
 
-diff --git a/drivers/net/irda/via-ircc.c b/drivers/net/irda/via-ircc.c
-index 51f2bc3..2dcc60f 100644
---- a/drivers/net/irda/via-ircc.c
-+++ b/drivers/net/irda/via-ircc.c
-@@ -210,8 +210,7 @@ static int via_init_one(struct pci_dev *pcidev, const struct pci_device_id *id)
- 			pci_write_config_byte(pcidev,0x42,(bTmp | 0xf0));
- 			pci_write_config_byte(pcidev,0x5a,0xc0);
- 			WriteLPCReg(0x28, 0x70 );
--			if (via_ircc_open(pcidev, &info, 0x3076) == 0)
--				rc=0;
-+			rc = via_ircc_open(pcidev, &info, 0x3076);
- 		} else
- 			rc = -ENODEV; //IR not turn on	 
- 	} else { //Not VT1211
-@@ -249,8 +248,7 @@ static int via_init_one(struct pci_dev *pcidev, const struct pci_device_id *id)
- 			info.irq=FirIRQ;
- 			info.dma=FirDRQ1;
- 			info.dma2=FirDRQ0;
--			if (via_ircc_open(pcidev, &info, 0x3096) == 0)
--				rc=0;
-+			rc = via_ircc_open(pcidev, &info, 0x3096);
- 		} else
- 			rc = -ENODEV; //IR not turn on !!!!!
- 	}//Not VT1211
+Thanks,
+Ben
+
 -- 
-1.8.1.2
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
