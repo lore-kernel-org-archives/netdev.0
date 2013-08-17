@@ -1,8 +1,8 @@
 From: Haojian Zhuang <haojian.zhuang@gmail.com>
 Subject: Re: [PATCH RESEND] can: mcp251x: Replace power callbacks with regulator
  API
-Date: Sat, 17 Aug 2013 10:03:31 +0800
-Message-ID: <520ED9F3.1090906@gmail.com>
+Date: Sat, 17 Aug 2013 10:19:20 +0800
+Message-ID: <520EDDA8.6050309@gmail.com>
 References: <1375963227-6468-1-git-send-email-shc_work@mail.ru> <52049C44.6030902@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
@@ -13,10 +13,14 @@ Cc: Alexander Shiyan <shc_work@mail.ru>, linux-can@vger.kernel.org,
 	Eric Miao <eric.y.miao@gmail.com>,
 	Russell King <linux@arm.linux.org.uk>
 To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:59088 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751586Ab3HQCT2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Aug 2013 22:19:28 -0400
 In-Reply-To: <52049C44.6030902@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On 08/09/2013 03:37 PM, Marc Kleine-Budde wrote:
 > On 08/08/2013 02:00 PM, Alexander Shiyan wrote:
