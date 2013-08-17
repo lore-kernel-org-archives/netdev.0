@@ -1,58 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vhost: Drop linux/socket.h
-Date: Fri, 16 Aug 2013 22:29:46 -0700 (PDT)
-Message-ID: <20130816.222946.421410239742571372.davem@davemloft.net>
-References: <20130816012743.GA5944@hj.localdomain>
-	<20130816.003159.2033932881805410431.davem@davemloft.net>
-	<20130816092743.GA9918@hj.localdomain>
+Subject: Re: [PATCH] driver:net:stmmac: Disable DMA store and forward mode
+ if platform data force_sf_dma_mode is negative.
+Date: Fri, 16 Aug 2013 22:30:51 -0700 (PDT)
+Message-ID: <20130816.223051.1755449989011656134.davem@davemloft.net>
+References: <1376552256-7421-1-git-send-email-sonic.adi@gmail.com>
+	<20130815.142005.816948927496553829.davem@davemloft.net>
+	<CAJxxZ0Pya_K-VJcAZ6yv00_F66uAd481vWgV-nWmPBWKOV760A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	kvm@vger.kernel.org, mst@redhat.com
-To: asias@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130816092743.GA9918@hj.localdomain>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	adi-buildroot-devel@lists.sourceforge.net, sonic.zhang@analog.com
+To: sonic.adi@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39073 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750972Ab3HQFaw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Aug 2013 01:30:52 -0400
+In-Reply-To: <CAJxxZ0Pya_K-VJcAZ6yv00_F66uAd481vWgV-nWmPBWKOV760A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Asias He <asias@redhat.com>
-Date: Fri, 16 Aug 2013 17:27:43 +0800
+From: Sonic Zhang <sonic.adi@gmail.com>
+Date: Fri, 16 Aug 2013 17:37:42 +0800
 
-> On Fri, Aug 16, 2013 at 12:31:59AM -0700, David Miller wrote:
->> From: Asias He <asias@redhat.com>
->> Date: Fri, 16 Aug 2013 09:27:43 +0800
->> 
->> > On Thu, Aug 15, 2013 at 02:07:40PM -0700, David Miller wrote:
->> >> From: Asias He <asias@redhat.com>
->> >> Date: Thu, 15 Aug 2013 11:20:16 +0800
->> >> 
->> >> > memcpy_fromiovec is moved to lib/iovec.c. No need to include
->> >> > linux/socket.h for it.
->> >> > 
->> >> > Signed-off-by: Asias He <asias@redhat.com>
->> >> 
->> >> You can't do this.
->> >> 
->> >> Because this file doesn't include the header file that
->> >> provides the declaration, which is linux/uio.h
->> > 
->> > vhost.c includes drivers/vhost/vhost.h. In drivers/vhost/vhost.h, we
->> > have linux/uio.h included.
->> 
->> Nothing in vhost.h needs linux/uio.h right?  That's very poor style,
->> include the header where the dependency exists which is vhost.c
+> Hi David,
 > 
-> We use 'struct iovec' in vhost.h which needs linux/uio.h, no?
+> On Fri, Aug 16, 2013 at 5:20 AM, David Miller <davem@davemloft.net> wrote:
+>> From: Sonic Zhang <sonic.adi@gmail.com>
+>> Date: Thu, 15 Aug 2013 15:37:36 +0800
+>>
+>>> @@ -1157,7 +1157,9 @@ static void free_dma_desc_resources(struct stmmac_priv *priv)
+>>>   */
+>>>  static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
+>>>  {
+>>> -     if (likely(priv->plat->force_sf_dma_mode ||
+>>> +     if (priv->plat->force_sf_dma_mode < 0)
+>>> +             priv->hw->dma->dma_mode(priv->ioaddr, tc, tc);
+>>> +     else if (likely(priv->plat->force_sf_dma_mode > 0 ||
+>>>                  ((priv->plat->tx_coe) && (!priv->no_csum_insertion)))) {
+>>
+>> You need to properly re-indent the last line here so that
+>> the openning parenthesis lines up with the first column
+>> after the openning parenthesis on the "else if" line.
 > 
-> So, how about including linux/uio.h in both vhost.c and vhost.h.
+> The last line is the original source code in master branch of the
+> Linus's kernel git tree. Do you mean I should fix the ident issue in
+> this patch as well?
 
-That sounds good.
+I'm saying that, in your patch, the second line in
+
++     else if (likely(priv->plat->force_sf_dma_mode > 0 ||
+                 ((priv->plat->tx_coe) && (!priv->no_csum_insertion)))) {
+
+need to be reindented because you're moving the openning parenthesis
+to the left by several columns, therefore the second line needs to move
+the same amount.
