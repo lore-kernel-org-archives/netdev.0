@@ -1,60 +1,34 @@
-From: =?UTF-8?B?QWxleGFuZGVyIFNoaXlhbg==?= <shc_work@mail.ru>
-Subject: =?UTF-8?B?UmU6IFtQQVRDSCBSRVNFTkRdIGNhbjogbWNwMjUxeDogUmVwbGFjZSBwb3dl?=
- =?UTF-8?B?ciBjYWxsYmFja3Mgd2l0aCByZWd1bGF0b3IgQVBJ?=
-Date: Sun, 18 Aug 2013 01:10:05 +0400
-Message-ID: <1376773805.878998573@f169.i.mail.ru>
-References: <1375963227-6468-1-git-send-email-shc_work@mail.ru>
- <20130817083014.a01144051b158c34ec7dd9d9@mail.ru>
- <520FD60E.4040709@pengutronix.de>
-Reply-To: =?UTF-8?B?QWxleGFuZGVyIFNoaXlhbg==?= <shc_work@mail.ru>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH v2] r8169: fix invalid register dump
+Date: Sat, 17 Aug 2013 23:14:07 +0200
+Message-ID: <20130817211407.GA30676@electric-eye.fr.zoreil.com>
+References: <1376730263-9352-1-git-send-email-lekensteyn@gmail.com>
+ <1376735258.11042.102.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: =?UTF-8?B?UnVzc2VsbCBLaW5n?= <linux@arm.linux.org.uk>,
-	netdev@vger.kernel.org,
-	=?UTF-8?B?SGFvamlhbiBaaHVhbmc=?= <haojian.zhuang@gmail.com>,
-	linux-can@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	=?UTF-8?B?RXJpYyBNaWFv?= <eric.y.miao@gmail.com>,
-	=?UTF-8?B?V29sZmdhbmcgR3JhbmRlZ2dlcg==?= <wg@grandegger.com>
-To: =?UTF-8?B?TWFyYyBLbGVpbmUtQnVkZGU=?= <mkl@pengutronix.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Peter Wu <lekensteyn@gmail.com>, netdev@vger.kernel.org,
+	nic_swsd <nic_swsd@realtek.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback2.mail.ru ([94.100.176.87]:37758 "EHLO
-	fallback2.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754659Ab3HQVKr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Aug 2013 17:10:47 -0400
-In-Reply-To: <520FD60E.4040709@pengutronix.de>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:59089 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754415Ab3HQVOV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Aug 2013 17:14:21 -0400
+Content-Disposition: inline
+In-Reply-To: <1376735258.11042.102.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBPbiAwOC8xNy8yMDEzIDA2OjMwIEFNLCBBbGV4YW5kZXIgU2hpeWFuIHdyb3RlOgo+IFsuLi5d
-Cj4gPj4gU2luY2UgRFQgY29udmVyc2lvbiBpc24ndCBmaW5pc2hlZCwgSSBzdGlsbCBhY2NlcHQg
-dGhlIGJvYXJkIGZpbGVzLgo+ID4+IEJ1dCB0aGlzIHBhdGNoIHNob3VsZCBiZSBzcGxpdCBpbnRv
-IHR3byBwYXJ0cy4gT25lIGlzIGZvciBweGEsIGFuZCB0aGUKPiA+PiBvdGhlciBvbmUgaXMgZm9y
-IG5ldC4KPiA+IAo+ID4gUGF0Y2ggY2Fubm90IGJlIHNwbGl0dGVkIGJlY2F1c2UgdGhpcyBjYW4g
-Y3JlYXRlIGhvbGUgd2hpY2ggYnJlYWsgZ2l0LWJpc2VjdC4KPiA+IAo+ID4gSW4gYW55IGNhc2Us
-IEkgd2FudCB0byBjcmVhdGUgYSB2MiB3aXRoIGEgbW9yZSBkZXRhaWxlZCBkZXNjcmlwdGlvbiwg
-YW5kIEkKPiA+IGhhdmUgYSBzdXBwbGVtZW50YXJ5IHF1ZXN0aW9uIGZvciB0aGUgQ0FOIHN1YnN5
-c3RlbSBtYWludGFpbmVycy4KPiA+ICJUcmFuc2NpZXZlciBwb3dlciIgaXMgbm90IHVzZWQgYnkg
-YW55IG9mIHRoZSBib2FyZHMsIGNhbiB3ZSByZW1vdmUgaXQKPiA+IGNvbXBsZXRlbHk/IFRoaXMg
-d2lsbCBncmVhdGx5IHNpbXBsaWZ5IGRyaXZlci4KPiAKPiBEbyB5b3UgbWVhbiB0aGUgZm9ybWVy
-IHRyYW5zY2VpdmVyX2VuYWJsZSgpIGNhbGxiYWNrPwoKWWVzLgoKPiA+ICBzdHJ1Y3QgbWNwMjUx
-eF9wbGF0Zm9ybV9kYXRhIHsKPiA+ICAJdW5zaWduZWQgbG9uZyBvc2NpbGxhdG9yX2ZyZXF1ZW5j
-eTsKPiA+ICAJdW5zaWduZWQgbG9uZyBpcnFfZmxhZ3M7Cj4gPiAtCWludCAoKmJvYXJkX3NwZWNp
-ZmljX3NldHVwKShzdHJ1Y3Qgc3BpX2RldmljZSAqc3BpKTsKPiA+IC0JaW50ICgqdHJhbnNjZWl2
-ZXJfZW5hYmxlKShpbnQgZW5hYmxlKTsKPiA+IC0JaW50ICgqcG93ZXJfZW5hYmxlKSAoaW50IGVu
-YWJsZSk7Cj4gPiAgfTsKPiAKPiBIYXZpbmcgYSBzd2l0Y2hhYmxlIHRyYW5zY2VpdmVyIGlzIGEg
-cXVpdGUgY29tbW9uIHRoaW5nLiBTbyBJJ2QgbGlrZQo+IHRoYXQgeW91IGtlZXAgaXQuIFRoZSBm
-bGV4Y2FuIGRyaXZlciB3YXMganVzdCBjb252ZXJ0ZWQgZnJvbSBhIGNhbGxiYWNrCj4gdG8gYSBy
-ZWd1bGF0b3IgdG9vLiBJdCBhbHJlYWR5IGhhcyBkZXZpY2UgdHJlZSBiaW5kaW5ncyBhbmQgSSdk
-IGxpa2UgdG8KPiB1c2UgdGhlc2UgYmluZGluZ3MgYXMgYSBzdGFuZGFyZCBmb3IgbmV3IGRyaXZl
-cnMuIEZyb20gZmxleGNhbidzIGR0Cj4gYmluZGluZ3M6Cj4gCj4gPiAtIHhjZWl2ZXItc3VwcGx5
-OiBSZWd1bGF0b3IgdGhhdCBwb3dlcnMgdGhlIENBTiB0cmFuc2NlaXZlcgo+IAo+IHdoaWNoIHRy
-YW5zbGF0ZXMgaW50bzoKPiAKPiA+IHByaXYtPnJlZ194Y2VpdmVyID0gZGV2bV9yZWd1bGF0b3Jf
-Z2V0KCZwZGV2LT5kZXYsICJ4Y2VpdmVyIik7Cj4gCj4gQ2FuIHlvdSBwbGVhc2UgdXNlICJ4Y2Vp
-dmVyIiBpbnN0ZWFkIG9mICJ0cmFuc2NlaXZlciIsIHNvIHRoYXQgZnV0dXJlIERUCj4gYmluZGlu
-ZyB3aWxsIGZpdCB0aGUgc2NoZW1lLgoKT0suIEkgYW0gbm90IHJlYWR5IHRvIGFkZCBEVCBzdXBw
-b3J0IHlldCwgYnV0IGl0IGNhbiBiZSBhZGRlZCBsYXRlciwKc28gdjIgd2lsbCBjb250YWluIDMg
-cGFydHM6CjEgLSBSZXBsYWNlIHBvd2VyIGNhbGxiYWNrcyB3aXRoIHJlZ3VsYXRvciBBUEkKMiAt
-IEVsaW1pbmF0ZSBtY3AyNTF4X3BsYXRmb3JtX2RhdGEtPmlycV9mbGFncwozIC0gUmVwbGFjZSBv
-c2NpbGxhdG9yX2ZyZXF1ZW5jeSB3aXRoIENMSyBBUEkgKGFuZCByZW1vdmUgbWNwMjUxeC5oIGhl
-YWRlcikKCkFyZSB5b3UgT0sgd2l0aCBzdWNoIGNoYW5nZXM/CgotLS0K
+Ben Hutchings <bhutchings@solarflare.com> :
+[...]
+> I would be very wary of accessing registers with any width other than
+> the usual (32 bits).
+
+You are right. Most registers do not seem to care - some are 8 bits
+wide - but the 8168c datasheet states that it's out of spec for the
+descriptor ring address registers.
+
+Peter, please use Ben's suggestion as is.
+
+-- 
+Ueimor
