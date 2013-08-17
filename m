@@ -1,76 +1,89 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH ipsec 3/3] xfrm: choose protocol family by skb protocol
-Date: Sat, 17 Aug 2013 19:51:37 +0200
-Message-ID: <20130817175137.GA7088@order.stressinduktion.org>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH net-next 2/2] bnx2x: add RSS capability for GRE traffic
+Date: Sat, 17 Aug 2013 10:53:00 -0700
+Message-ID: <CAPshTCgpE3MoR3D8=EZa_CFVDBwN+fYDZZQrTchhtq-OM_rKzQ@mail.gmail.com>
+References: <1363625464-21633-1-git-send-email-dmitry@broadcom.com>
+	<1363625464-21633-2-git-send-email-dmitry@broadcom.com>
+	<1363651672.21184.17.camel@edumazet-glaptop>
+	<504C9EFCA2D0054393414C9CB605C37F20BE935B@SJEXCHMB06.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: steffen.klassert@secunet.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Tom Herbert <therbert@google.com>,
+	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>
+To: Dmitry Kravkov <dmitry@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:57923 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753992Ab3HQRvi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Aug 2013 13:51:38 -0400
-Content-Disposition: inline
+Received: from mail-ve0-f169.google.com ([209.85.128.169]:36935 "EHLO
+	mail-ve0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754107Ab3HQRxB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Aug 2013 13:53:01 -0400
+Received: by mail-ve0-f169.google.com with SMTP id db10so2186670veb.0
+        for <netdev@vger.kernel.org>; Sat, 17 Aug 2013 10:53:00 -0700 (PDT)
+In-Reply-To: <504C9EFCA2D0054393414C9CB605C37F20BE935B@SJEXCHMB06.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need to choose the protocol family by skb->protocol. Otherwise we
-call the wrong xfrm{4,6}_local_error handler in case an ipv6 sockets is
-used in ipv4 mode, in which case we should call down to xfrm4_local_error
-(ip6 sockets are a superset of ip4 ones).
+Dmitry,
 
-We are called before before ip_output functions, so skb->protocol is
-not reset.
+On Mon, Mar 18, 2013 at 11:30 PM, Dmitry Kravkov <dmitry@broadcom.com> =
+wrote:
+>> -----Original Message-----
+>> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.=
+org] On Behalf Of Eric Dumazet
+>> Sent: Tuesday, March 19, 2013 2:08 AM
+>> To: Dmitry Kravkov
+>> Cc: davem@davemloft.net; netdev@vger.kernel.org; Eilon Greenstein; T=
+om Herbert; Maciej =AFenczykowski
+>> Subject: Re: [PATCH net-next 2/2] bnx2x: add RSS capability for GRE =
+traffic
+>>
+>> On Mon, 2013-03-18 at 18:51 +0200, Dmitry Kravkov wrote:
+>> > The patch drives FW to perform RSS for GRE traffic,
+>> > based on inner headers.
+>> >
+>> > Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+>> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+>> > ---
+>> >  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h |    3 +++
+>> >  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c  |   23 ++++++++++=
+++-----------
+>> >  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h  |    9 +++++++++
+>> >  3 files changed, 24 insertions(+), 11 deletions(-)
+>>
+>> This works very well.
+>>
+>> Problem is we skb_set_queue_mapping(skb, 0); in __skb_tunnel_rx()
+>>
+>> (this was a patch from Tom Herbert, commit
+>> 693019e90ca45d881109d32c0c6d29adf03f6447 (net: reset skb queue mappi=
+ng
+>> when rx'ing over tunnel )
+>>
+>> Meaning we hit a single cpu for the GRO stuff in ip_gre.
+>>
+>> I have to think about it.
+>>
+>>
+>> Another question is :
+>>
+>> Can bnx2x check the tcp checksum if GRE encapsulated ?
+>>
+> Current HW can't provide this. Probably, it's possible to separate CS=
+UM from GRO/TPA then stack will have to handle CSUM validation for huge=
+ packets. Is it worth?
 
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
+Could you elaborate on what you meant above? (I'm looking for any form
+of h/w assist for
+csum validation for GRO/TPA pkts since csum computation can be expensiv=
+e and  as
+you said below CHECKSUM_COMPLETE is out of the question.)
 
-This patch is based on Steffen Klassert's ipsec tree. 
+Thanks,
 
- include/net/xfrm.h     |  4 ++--
- net/xfrm/xfrm_output.c | 10 +++++++++-
- 2 files changed, 11 insertions(+), 3 deletions(-)
+Jerry
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index b41d2d1..ac5b025 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1728,9 +1728,9 @@ static inline int xfrm_skb_dst_mtu(struct sk_buff *skb)
- {
- 	struct sock *sk = skb->sk;
- 
--	if (sk && sk->sk_family == AF_INET6)
-+	if (sk && skb->protocol == htons(ETH_P_IPV6))
- 		return ip6_skb_dst_mtu(skb);
--	else if (sk && sk->sk_family == AF_INET)
-+	else if (sk && skb->protocol == htons(ETH_P_IP))
- 		return ip_skb_dst_mtu(skb);
- 	return dst_mtu(skb_dst(skb));
- }
-diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-index 6f5fc61..3bb2cdc 100644
---- a/net/xfrm/xfrm_output.c
-+++ b/net/xfrm/xfrm_output.c
-@@ -216,9 +216,17 @@ int xfrm_inner_extract_output(struct xfrm_state *x, struct sk_buff *skb)
- 
- void xfrm_local_error(struct sk_buff *skb, int mtu)
- {
-+	unsigned int proto;
- 	struct xfrm_state_afinfo *afinfo;
- 
--	afinfo = xfrm_state_get_afinfo(skb->sk->sk_family);
-+	if (skb->protocol == htons(ETH_P_IP))
-+		proto = AF_INET;
-+	else if (skb->protocol == htons(ETH_P_IPV6))
-+		proto = AF_INET6;
-+	else
-+		return;
-+
-+	afinfo = xfrm_state_get_afinfo(proto);
- 	if (!afinfo)
- 		return;
- 
--- 
-1.8.3.1
+>
