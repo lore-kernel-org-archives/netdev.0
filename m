@@ -1,46 +1,42 @@
-From: Peter Wu <lekensteyn@gmail.com>
-Subject: [PATCH] r8169: remember WOL preferences on driver load
-Date: Sat, 17 Aug 2013 11:00:02 +0200
-Message-ID: <1376730002-9235-1-git-send-email-lekensteyn@gmail.com>
-Cc: nic_swsd <nic_swsd@realtek.com>,
-	Hayes Wang <hayeswang@realtek.com>,
-	Francois Romieu <romieu@fr.zoreil.com>, lekensteyn@gmail.com
-To: netdev@vger.kernel.org
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: [PATCH v2 net-next 2/2] sundance: Add myself as a maintainer
+Date: Sat, 17 Aug 2013 09:08:49 +0400
+Message-ID: <1376716129-2533-2-git-send-email-kda@linux-powerpc.org>
+References: <1376716129-2533-1-git-send-email-kda@linux-powerpc.org>
+Cc: Denis Kirjanov <kda@linux-powerpc.org>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f54.google.com ([74.125.83.54]:36552 "EHLO
-	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752177Ab3HQJAI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Aug 2013 05:00:08 -0400
-Received: by mail-ee0-f54.google.com with SMTP id e53so1271781eek.41
-        for <netdev@vger.kernel.org>; Sat, 17 Aug 2013 02:00:07 -0700 (PDT)
+Received: from mail-la0-f49.google.com ([209.85.215.49]:61938 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752489Ab3HQJDO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Aug 2013 05:03:14 -0400
+Received: by mail-la0-f49.google.com with SMTP id ev20so2110889lab.8
+        for <netdev@vger.kernel.org>; Sat, 17 Aug 2013 02:03:13 -0700 (PDT)
+In-Reply-To: <1376716129-2533-1-git-send-email-kda@linux-powerpc.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Wu <lekensteyn@gmail.com>
-
-Do not clear Broadcast/Multicast/Unicast Wake Flag or LanWake in
-Config5. This is necessary to preserve WOL state when the driver is
-loaded. Although the r8168 vendor driver does not write Config5 (it has
-been commented out), Hayes Wang from Realtek said that masking bits like
-this is more sensible.
-
-Signed-off-by: Peter Wu <lekensteyn@gmail.com>
+Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
 ---
- drivers/net/ethernet/realtek/r8169.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ MAINTAINERS | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 2943916..104eaef 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -7092,7 +7092,7 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 1c6f9db..a83dd4f 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -7973,6 +7973,12 @@ F:	arch/m68k/sun3*/
+ F:	arch/m68k/include/asm/sun3*
+ F:	drivers/net/ethernet/i825xx/sun3*
  
- 	RTL_W8(Cfg9346, Cfg9346_Unlock);
- 	RTL_W8(Config1, RTL_R8(Config1) | PMEnable);
--	RTL_W8(Config5, RTL_R8(Config5) & PMEStatus);
-+	RTL_W8(Config5, RTL_R8(Config5) & (BWF | MWF | UWF | LanWake | PMEStatus));
- 	if ((RTL_R8(Config3) & (LinkUp | MagicPacket)) != 0)
- 		tp->features |= RTL_FEATURE_WOL;
- 	if ((RTL_R8(Config5) & (UWF | BWF | MWF)) != 0)
++SUNDANCE NETWORK DRIVER
++M:	Denis Kirjanov <kda@linux-powerpc.org>
++L:	netdev@vger.kernel.org
++S:	Maintained
++F:	drivers/net/ethernet/dlink/sundance.c
++
+ SUPERH
+ M:	Paul Mundt <lethal@linux-sh.org>
+ L:	linux-sh@vger.kernel.org
 -- 
-1.8.3.4
+1.8.0.2
