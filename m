@@ -1,108 +1,39 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 0/3] ixgbe: request_firmware for configuration parameters
-Date: Fri, 16 Aug 2013 15:39:32 -0700
-Message-ID: <20130816223932.GB31247@kroah.com>
-References: <20130111020046.15463.72333.stgit@starfish.jf.intel.com>
- <20130111182547.GA22231@kroah.com>
- <CAP-MU4MzG_P9fz3_eix=zgzyjijZ5qo1mpKE=r_K7y3xcJqc5Q@mail.gmail.com>
- <20130111194134.GA4817@kroah.com>
- <520EA447.6090309@dev.mellanox.co.il>
+From: Haojian Zhuang <haojian.zhuang@gmail.com>
+Subject: Re: [PATCH RESEND] can: mcp251x: Replace power callbacks with regulator
+ API
+Date: Sat, 17 Aug 2013 10:03:31 +0800
+Message-ID: <520ED9F3.1090906@gmail.com>
+References: <1375963227-6468-1-git-send-email-shc_work@mail.ru> <52049C44.6030902@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, dwmw2@infradead.org,
-	jeffrey.t.kirsher@intel.com, linux-kernel@vger.kernel.org
-To: Ali Ayoub <ali@dev.mellanox.co.il>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <520EA447.6090309@dev.mellanox.co.il>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Shiyan <shc_work@mail.ru>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, Wolfgang Grandegger <wg@grandegger.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Eric Miao <eric.y.miao@gmail.com>,
+	Russell King <linux@arm.linux.org.uk>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <52049C44.6030902@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 16, 2013 at 03:14:31PM -0700, Ali Ayoub wrote:
-> On 1/11/2013 11:41 AM, Greg KH wrote:
+On 08/09/2013 03:37 PM, Marc Kleine-Budde wrote:
+> On 08/08/2013 02:00 PM, Alexander Shiyan wrote:
+>> Signed-off-by: Alexander Shiyan <shc_work@mail.ru>
+>> ---
+>>   arch/arm/mach-pxa/icontrol.c         |  3 --
+>>   arch/arm/mach-pxa/zeus.c             | 46 ++++++++++----------
+>
+> What's pxa's status of DT conversion? Do you (still) accept patches to
+> board files?
+>
+> Marc
+>
 
-Seriously?  Restarting a thread from over 6 months ago?  Why?
+Since DT conversion isn't finished, I still accept the board files.
+But this patch should be split into two parts. One is for pxa, and the
+other one is for net.
 
-> > On Fri, Jan 11, 2013 at 11:30:54AM -0800, Shannon Nelson wrote:
-> >> On Fri, Jan 11, 2013 at 10:25 AM, Greg KH <gregkh@linuxfoundation.org> wrote:
-> >>> On Thu, Jan 10, 2013 at 06:02:20PM -0800, Shannon Nelson wrote:
-> >>>> Most networking dials and knobs can be set using ethtool, ifconfig, ip link
-> >>>> commands, or sysfs entries, all of which can be driven by startup scripts
-> >>>> and other configuration tools.  However, they all depend on having a netdev
-> >>>> already set up, and we have some low-level device functionality that needs
-> >>>> to be sorted out before we start setting up MSI-x and memory allocations.
-> >>
-> >>> Ick, please don't abuse request_firmware() for this type of thing.
-> >>
-> >> Yeah, it seemed ugly to me at first as well, but it grew on me as I
-> >> realized that it does solve a problem in a rather elegant way.  While
-> >> working this up I discussed this with Mr. Woodhouse thinking that as a
-> >> firmware tree maintainer he'd have a similar reaction, but he actually
-> >> wasn't opposed to it (David, please speak up if I'm misrepresenting
-> >> your comments).
-> > 
-> > David maintains the external firmware tree repo, not the in-kernel
-> > firmware core code (which I used to maintain.)
-> > 
-> >>> What's wrong with configfs?  It sounds like it will fit your need, and
-> >>> that is what is created for.
-> >>
-> >> configfs has similar problems as sysfs - the driver needs to create
-> >> the hooks before it has all the info it might need for some hooks,
-> >> there is no persistence across reboots, and I don't think it will help
-> >> for initrd images.  Additionally, there would need to be some userland
-> >> mechanism to notice that the hooks were there and to feed it the
-> >> startup info.  Using a file in the firmware path gives us persistence
-> >> and a way for the driver to get info before having to set up
-> >> filesystem hooks.  It also gives us a way to get special config info
-> >> into the boot image.  And the whole mechanism already exists,
-> >> including UDEV hooks that can do more fancy stuff if needed.
-> > 
-> > Yes, but you are now starting to use "configuration files" for kernel
-> > drivers, which we have resisted for 20+ years for a variety of good
-> > reasons. You can't just ignore all of the arguments to not do this all
-> > of a sudden because you feel your driver is somehow "special" here.
-> 
-> Other device drivers of other vendors (not only netdevs) need such a
-> mechanism as well,
-
-Specifics please.
-
-> I think it's a general requirement for many drivers that normally need
-> low level configurations for device initialization in the very first
-> stage of the driver load.
-
-I do not, but feel free to prove me otherwise.
-
-> > All of the above issues you seem to have with sysfs and configfs can be
-> > resolved with userspace code, and having your driver not do anything to
-> > the hardware until it is told to by userspace.
-> 
-> To tell the driver not to do anything until it's configured by a
-> userspace code will require a module param for non-default-configs
-> (which brings us back to the original argument of avoiding module params).
-
-No, never use a module paramater for configuring a driver or a device.
-That's not what they are there for.
-
-> By having userspace code to feed configfs/sysfs nodes, and making it
-> available in initrd; we will end up having similar mechanism to
-> request_firmware().
-
-Close, but not the same.  That's why we created configfs, please use it.
-
-> I think this kind of "low level init configuration" can be seen as a
-> firmware configuration, we can put some limitation on fetching the
-> config file, or propose a new function such as request_firmware_config()
-> that uses the same uevent hooks, and leverages the available userspace
-> tools that already supported in initrd and meant to serve the same
-> purpose - of feeding the driver the suitable firmware and configuration
-> to get started.
-
-Nope, I do not, please don't abuse the interface like this, it's not
-going to be allowed at this point in time.
-
-Wait, what "point in time", this was a 6 month old conversation...
-
-greg "what month is this?" k-h
+Regards
+Haojian
