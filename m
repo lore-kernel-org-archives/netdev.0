@@ -1,124 +1,176 @@
 From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH v1 00/49] USB: prepare for enabling irq in complete()
-Date: Sun, 18 Aug 2013 00:24:25 +0800
-Message-ID: <1376756714-25479-1-git-send-email-ming.lei@canonical.com>
+Subject: [PATCH v1 27/49] ISDN: hfcsusb: prepare for enabling irq in complete()
+Date: Sun, 18 Aug 2013 00:24:52 +0800
+Message-ID: <1376756714-25479-28-git-send-email-ming.lei@canonical.com>
+References: <1376756714-25479-1-git-send-email-ming.lei@canonical.com>
 Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
 	Alan Stern <stern@rowland.harvard.edu>,
-	linux-input@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-media@vger.kernel.org, alsa-devel@alsa-project.org
+	Ming Lei <ming.lei@canonical.com>,
+	Karsten Keil <isdn@linux-pingi.de>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-input-owner@vger.kernel.org>
-Sender: linux-input-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:57372 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753571Ab3HQQ3n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Aug 2013 12:29:43 -0400
+In-Reply-To: <1376756714-25479-1-git-send-email-ming.lei@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Complete() will be run with interrupt enabled, so change to
+spin_lock_irqsave().
 
-As we are going to run URB->complete() in tasklet context[1][2], and
-hard interrupt may be enabled when running URB completion handler[3],
-so we might need to disable interrupt when acquiring one lock in
-the completion handler for the below reasons:
-
-- URB->complete() holds a subsystem wide lock which may be acquired
-in another hard irq context, and the subsystem wide lock is acquired
-by spin_lock()/read_lock()/write_lock() in complete()
-
-- URB->complete() holds a private lock with spin_lock()/read_lock()/write_lock()
-but driver may export APIs to make other drivers acquire the same private
-lock in its interrupt handler.
-
-For the sake of safety and making the change simple, this patch set
-converts all spin_lock()/read_lock()/write_lock() in completion handler
-path into their irqsave version mechanically.
-
-But if you are sure the above two cases do not happen in your driver,
-please let me know and I can drop the unnecessary change.
-
-Also if you find some conversions are missed, also please let me know so
-that I can add it in the next round.
-
-
-[1], USB: URB documentation: claim complete() will be run with IRQs enabled
-https://git.kernel.org/cgit/linux/kernel/git/gregkh/usb.git/commit/?h=usb-next&id=85721d45261c4be684730c7509a59daa6cda30d8
-
-[2], USB: HCD: support giveback of URB in tasklet context
-https://git.kernel.org/cgit/linux/kernel/git/gregkh/usb.git/commit/?h=usb-next&id=94dfd7edfd5c9b605caf7b562de7a813d216e011
-
-[3], http://marc.info/?l=linux-usb&m=137286330626363&w=2
-
-V1:
-	- rename patchset title
-	- add missed changes on 'usb_skeleon and usb sg lib'
-	- remove several sound usb drivers which have been done via sound tree
-	- some patch style fix
-	- replace snd_pcm_stream_lock with snd_pcm_stream_lock_irqsave for related
-	a/v drivers
-
-Cc: linux-input@vger.kernel.org
-Cc: linux-bluetooth@vger.kernel.org
+Cc: Karsten Keil <isdn@linux-pingi.de>
+Cc: "David S. Miller" <davem@davemloft.net>
 Cc: netdev@vger.kernel.org
-Cc: linux-wireless@vger.kernel.org
-Cc: linux-media@vger.kernel.org
-Cc: alsa-devel@alsa-project.org
+Signed-off-by: Ming Lei <ming.lei@canonical.com>
+---
+ drivers/isdn/hardware/mISDN/hfcsusb.c |   36 ++++++++++++++++++---------------
+ 1 file changed, 20 insertions(+), 16 deletions(-)
 
- drivers/bluetooth/bfusb.c                     |   12 ++++----
- drivers/bluetooth/btusb.c                     |    5 ++--
- drivers/hid/usbhid/hid-core.c                 |    5 ++--
- drivers/input/misc/cm109.c                    |   10 ++++---
- drivers/isdn/hardware/mISDN/hfcsusb.c         |   36 ++++++++++++-----------
- drivers/media/dvb-core/dvb_demux.c            |   17 +++++++----
- drivers/media/usb/cx231xx/cx231xx-audio.c     |   10 ++++---
- drivers/media/usb/cx231xx/cx231xx-core.c      |   10 ++++---
- drivers/media/usb/cx231xx/cx231xx-vbi.c       |    5 ++--
- drivers/media/usb/em28xx/em28xx-audio.c       |    5 ++--
- drivers/media/usb/em28xx/em28xx-core.c        |    5 ++--
- drivers/media/usb/sn9c102/sn9c102_core.c      |    7 +++--
- drivers/media/usb/tlg2300/pd-alsa.c           |    5 ++--
- drivers/media/usb/tlg2300/pd-video.c          |    5 ++--
- drivers/media/usb/tm6000/tm6000-video.c       |    5 ++--
- drivers/net/usb/cdc-phonet.c                  |    5 ++--
- drivers/net/usb/hso.c                         |   38 ++++++++++++++-----------
- drivers/net/usb/kaweth.c                      |    7 +++--
- drivers/net/usb/rtl8150.c                     |    5 ++--
- drivers/net/wireless/ath/ath9k/hif_usb.c      |   29 ++++++++++---------
- drivers/net/wireless/ath/ath9k/htc_drv_txrx.c |    9 +++---
- drivers/net/wireless/ath/ath9k/wmi.c          |   11 +++----
- drivers/net/wireless/ath/carl9170/rx.c        |    5 ++--
- drivers/net/wireless/libertas/if_usb.c        |    5 ++--
- drivers/net/wireless/libertas_tf/if_usb.c     |    6 ++--
- drivers/net/wireless/zd1211rw/zd_usb.c        |   21 ++++++++------
- drivers/staging/bcm/InterfaceRx.c             |    5 ++--
- drivers/staging/btmtk_usb/btmtk_usb.c         |    5 ++--
- drivers/staging/ced1401/usb1401.c             |   35 ++++++++++++-----------
- drivers/staging/vt6656/usbpipe.c              |    9 +++---
- drivers/usb/class/cdc-wdm.c                   |   16 +++++++----
- drivers/usb/class/usblp.c                     |   10 ++++---
- drivers/usb/core/devio.c                      |    5 ++--
- drivers/usb/core/message.c                    |    5 ++--
- drivers/usb/misc/adutux.c                     |   10 ++++---
- drivers/usb/misc/iowarrior.c                  |    5 ++--
- drivers/usb/misc/ldusb.c                      |    7 +++--
- drivers/usb/misc/legousbtower.c               |    6 ++--
- drivers/usb/misc/usbtest.c                    |   10 ++++---
- drivers/usb/misc/uss720.c                     |    7 ++++-
- drivers/usb/serial/cyberjack.c                |   15 ++++++----
- drivers/usb/serial/digi_acceleport.c          |   23 ++++++++-------
- drivers/usb/serial/io_edgeport.c              |   14 +++++----
- drivers/usb/serial/io_ti.c                    |    5 ++--
- drivers/usb/serial/mos7720.c                  |    5 ++--
- drivers/usb/serial/mos7840.c                  |    5 ++--
- drivers/usb/serial/quatech2.c                 |    5 ++--
- drivers/usb/serial/sierra.c                   |    9 +++---
- drivers/usb/serial/symbolserial.c             |    5 ++--
- drivers/usb/serial/ti_usb_3410_5052.c         |    9 +++---
- drivers/usb/serial/usb_wwan.c                 |    5 ++--
- drivers/usb/usb-skeleton.c                    |   11 ++++---
- sound/usb/caiaq/audio.c                       |    5 ++--
- sound/usb/midi.c                              |    5 ++--
- 54 files changed, 318 insertions(+), 221 deletions(-)
-
-
-Thanks,
---
-Ming Lei
-
+diff --git a/drivers/isdn/hardware/mISDN/hfcsusb.c b/drivers/isdn/hardware/mISDN/hfcsusb.c
+index 114f3bc..082f9e0 100644
+--- a/drivers/isdn/hardware/mISDN/hfcsusb.c
++++ b/drivers/isdn/hardware/mISDN/hfcsusb.c
+@@ -819,6 +819,7 @@ hfcsusb_rx_frame(struct usb_fifo *fifo, __u8 *data, unsigned int len,
+ 	int		fifon = fifo->fifonum;
+ 	int		i;
+ 	int		hdlc = 0;
++	unsigned long	flags;
+ 
+ 	if (debug & DBG_HFC_CALL_TRACE)
+ 		printk(KERN_DEBUG "%s: %s: fifo(%i) len(%i) "
+@@ -835,7 +836,7 @@ hfcsusb_rx_frame(struct usb_fifo *fifo, __u8 *data, unsigned int len,
+ 		return;
+ 	}
+ 
+-	spin_lock(&hw->lock);
++	spin_lock_irqsave(&hw->lock, flags);
+ 	if (fifo->dch) {
+ 		rx_skb = fifo->dch->rx_skb;
+ 		maxlen = fifo->dch->maxlen;
+@@ -844,7 +845,7 @@ hfcsusb_rx_frame(struct usb_fifo *fifo, __u8 *data, unsigned int len,
+ 	if (fifo->bch) {
+ 		if (test_bit(FLG_RX_OFF, &fifo->bch->Flags)) {
+ 			fifo->bch->dropcnt += len;
+-			spin_unlock(&hw->lock);
++			spin_unlock_irqrestore(&hw->lock, flags);
+ 			return;
+ 		}
+ 		maxlen = bchannel_get_rxbuf(fifo->bch, len);
+@@ -854,7 +855,7 @@ hfcsusb_rx_frame(struct usb_fifo *fifo, __u8 *data, unsigned int len,
+ 				skb_trim(rx_skb, 0);
+ 			pr_warning("%s.B%d: No bufferspace for %d bytes\n",
+ 				   hw->name, fifo->bch->nr, len);
+-			spin_unlock(&hw->lock);
++			spin_unlock_irqrestore(&hw->lock, flags);
+ 			return;
+ 		}
+ 		maxlen = fifo->bch->maxlen;
+@@ -878,7 +879,7 @@ hfcsusb_rx_frame(struct usb_fifo *fifo, __u8 *data, unsigned int len,
+ 			} else {
+ 				printk(KERN_DEBUG "%s: %s: No mem for rx_skb\n",
+ 				       hw->name, __func__);
+-				spin_unlock(&hw->lock);
++				spin_unlock_irqrestore(&hw->lock, flags);
+ 				return;
+ 			}
+ 		}
+@@ -888,7 +889,7 @@ hfcsusb_rx_frame(struct usb_fifo *fifo, __u8 *data, unsigned int len,
+ 			       "for fifo(%d) HFCUSB_D_RX\n",
+ 			       hw->name, __func__, fifon);
+ 			skb_trim(rx_skb, 0);
+-			spin_unlock(&hw->lock);
++			spin_unlock_irqrestore(&hw->lock, flags);
+ 			return;
+ 		}
+ 	}
+@@ -942,7 +943,7 @@ hfcsusb_rx_frame(struct usb_fifo *fifo, __u8 *data, unsigned int len,
+ 		/* deliver transparent data to layer2 */
+ 		recv_Bchannel(fifo->bch, MISDN_ID_ANY, false);
+ 	}
+-	spin_unlock(&hw->lock);
++	spin_unlock_irqrestore(&hw->lock, flags);
+ }
+ 
+ static void
+@@ -979,18 +980,19 @@ rx_iso_complete(struct urb *urb)
+ 	__u8 *buf;
+ 	static __u8 eof[8];
+ 	__u8 s0_state;
++	unsigned long flags;
+ 
+ 	fifon = fifo->fifonum;
+ 	status = urb->status;
+ 
+-	spin_lock(&hw->lock);
++	spin_lock_irqsave(&hw->lock, flags);
+ 	if (fifo->stop_gracefull) {
+ 		fifo->stop_gracefull = 0;
+ 		fifo->active = 0;
+-		spin_unlock(&hw->lock);
++		spin_unlock_irqrestore(&hw->lock, flags);
+ 		return;
+ 	}
+-	spin_unlock(&hw->lock);
++	spin_unlock_irqrestore(&hw->lock, flags);
+ 
+ 	/*
+ 	 * ISO transfer only partially completed,
+@@ -1096,15 +1098,16 @@ rx_int_complete(struct urb *urb)
+ 	struct usb_fifo *fifo = (struct usb_fifo *) urb->context;
+ 	struct hfcsusb *hw = fifo->hw;
+ 	static __u8 eof[8];
++	unsigned long flags;
+ 
+-	spin_lock(&hw->lock);
++	spin_lock_irqsave(&hw->lock, flags);
+ 	if (fifo->stop_gracefull) {
+ 		fifo->stop_gracefull = 0;
+ 		fifo->active = 0;
+-		spin_unlock(&hw->lock);
++		spin_unlock_irqrestore(&hw->lock, flags);
+ 		return;
+ 	}
+-	spin_unlock(&hw->lock);
++	spin_unlock_irqrestore(&hw->lock, flags);
+ 
+ 	fifon = fifo->fifonum;
+ 	if ((!fifo->active) || (urb->status)) {
+@@ -1172,12 +1175,13 @@ tx_iso_complete(struct urb *urb)
+ 	int *tx_idx;
+ 	int frame_complete, fifon, status, fillempty = 0;
+ 	__u8 threshbit, *p;
++	unsigned long flags;
+ 
+-	spin_lock(&hw->lock);
++	spin_lock_irqsave(&hw->lock, flags);
+ 	if (fifo->stop_gracefull) {
+ 		fifo->stop_gracefull = 0;
+ 		fifo->active = 0;
+-		spin_unlock(&hw->lock);
++		spin_unlock_irqrestore(&hw->lock, flags);
+ 		return;
+ 	}
+ 
+@@ -1195,7 +1199,7 @@ tx_iso_complete(struct urb *urb)
+ 	} else {
+ 		printk(KERN_DEBUG "%s: %s: neither BCH nor DCH\n",
+ 		       hw->name, __func__);
+-		spin_unlock(&hw->lock);
++		spin_unlock_irqrestore(&hw->lock, flags);
+ 		return;
+ 	}
+ 
+@@ -1375,7 +1379,7 @@ tx_iso_complete(struct urb *urb)
+ 			       hw->name, __func__,
+ 			       symbolic(urb_errlist, status), status, fifon);
+ 	}
+-	spin_unlock(&hw->lock);
++	spin_unlock_irqrestore(&hw->lock, flags);
+ }
+ 
+ /*
+-- 
+1.7.9.5
