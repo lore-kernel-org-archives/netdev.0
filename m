@@ -1,7 +1,7 @@
 From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH v1 30/49] USBNET: kaweth: prepare for enabling irq in complete()
-Date: Sun, 18 Aug 2013 00:24:55 +0800
-Message-ID: <1376756714-25479-31-git-send-email-ming.lei@canonical.com>
+Subject: [PATCH v1 31/49] USBNET: rtl8150: prepare for enabling irq in complete()
+Date: Sun, 18 Aug 2013 00:24:56 +0800
+Message-ID: <1376756714-25479-32-git-send-email-ming.lei@canonical.com>
 References: <1376756714-25479-1-git-send-email-ming.lei@canonical.com>
 Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
 	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
@@ -18,37 +18,33 @@ spin_lock_irqsave().
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 ---
- drivers/net/usb/kaweth.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ drivers/net/usb/rtl8150.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/usb/kaweth.c b/drivers/net/usb/kaweth.c
-index afb117c..4addbbf 100644
---- a/drivers/net/usb/kaweth.c
-+++ b/drivers/net/usb/kaweth.c
-@@ -598,6 +598,7 @@ static void kaweth_usb_receive(struct urb *urb)
- 	struct kaweth_device *kaweth = urb->context;
- 	struct net_device *net = kaweth->net;
+diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
+index 6cbdac6..199e0fb 100644
+--- a/drivers/net/usb/rtl8150.c
++++ b/drivers/net/usb/rtl8150.c
+@@ -372,6 +372,7 @@ static void read_bulk_callback(struct urb *urb)
+ 	u16 rx_stat;
  	int status = urb->status;
+ 	int result;
 +	unsigned long flags;
  
- 	int count = urb->actual_length;
- 	int count2 = urb->transfer_buffer_length;
-@@ -630,12 +631,12 @@ static void kaweth_usb_receive(struct urb *urb)
- 		kaweth->stats.rx_errors++;
- 		dev_dbg(dev, "Status was -EOVERFLOW.\n");
- 	}
--	spin_lock(&kaweth->device_lock);
-+	spin_lock_irqsave(&kaweth->device_lock, flags);
- 	if (IS_BLOCKED(kaweth->status)) {
--		spin_unlock(&kaweth->device_lock);
-+		spin_unlock_irqrestore(&kaweth->device_lock, flags);
- 		return;
- 	}
--	spin_unlock(&kaweth->device_lock);
-+	spin_unlock_irqrestore(&kaweth->device_lock, flags);
+ 	dev = urb->context;
+ 	if (!dev)
+@@ -413,9 +414,9 @@ static void read_bulk_callback(struct urb *urb)
+ 	netdev->stats.rx_packets++;
+ 	netdev->stats.rx_bytes += pkt_len;
  
- 	if(status && status != -EREMOTEIO && count != 1) {
- 		dev_err(&kaweth->intf->dev,
+-	spin_lock(&dev->rx_pool_lock);
++	spin_lock_irqsave(&dev->rx_pool_lock, flags);
+ 	skb = pull_skb(dev);
+-	spin_unlock(&dev->rx_pool_lock);
++	spin_unlock_irqrestore(&dev->rx_pool_lock, flags);
+ 	if (!skb)
+ 		goto resched;
+ 
 -- 
 1.7.9.5
 
