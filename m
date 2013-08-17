@@ -1,48 +1,35 @@
-From: Dmitry Kravkov <dkravkov@gmail.com>
-Subject: Re: [PATCH net-next 2/2] bnx2x: add RSS capability for GRE traffic
-Date: Sat, 17 Aug 2013 22:04:26 +0300
-Message-ID: <CAM8tLiNTZogOa7Cg_A8brjGn06xhSUHFZ=YoBSLCFHDiKVT8NA@mail.gmail.com>
-References: <1363625464-21633-1-git-send-email-dmitry@broadcom.com>
-	<1363625464-21633-2-git-send-email-dmitry@broadcom.com>
-	<1363651672.21184.17.camel@edumazet-glaptop>
-	<504C9EFCA2D0054393414C9CB605C37F20BE935B@SJEXCHMB06.corp.ad.broadcom.com>
-	<CAPshTCgpE3MoR3D8=EZa_CFVDBwN+fYDZZQrTchhtq-OM_rKzQ@mail.gmail.com>
-	<CAM8tLiNRi7mOb9wwSHuY4867ANUvzd_XxfZLV0gDPO2jKMtWsQ@mail.gmail.com>
-	<1376766116.21329.9.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH ipsec 3/3] xfrm: choose protocol family by skb protocol
+Date: Sat, 17 Aug 2013 12:04:46 -0700
+Message-ID: <1376766286.21329.12.camel@edumazet-glaptop>
+References: <20130817175137.GA7088@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Jerry Chu <hkchu@google.com>, Dmitry Kravkov <dmitry@broadcom.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Tom Herbert <therbert@google.com>,
-	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f177.google.com ([209.85.128.177]:57475 "EHLO
-	mail-ve0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754157Ab3HQTE0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Aug 2013 15:04:26 -0400
-Received: by mail-ve0-f177.google.com with SMTP id cz11so2097603veb.36
-        for <netdev@vger.kernel.org>; Sat, 17 Aug 2013 12:04:26 -0700 (PDT)
-In-Reply-To: <1376766116.21329.9.camel@edumazet-glaptop>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:41637 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754170Ab3HQTEr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Aug 2013 15:04:47 -0400
+Received: by mail-pb0-f52.google.com with SMTP id wz12so3280747pbc.39
+        for <netdev@vger.kernel.org>; Sat, 17 Aug 2013 12:04:46 -0700 (PDT)
+In-Reply-To: <20130817175137.GA7088@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 17, 2013 at 10:01 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sat, 2013-08-17 at 21:52 +0300, Dmitry Kravkov wrote:
->
->>
->> Current bnx2x HW is not able to perform CSUM validation for
->> encapsulated packets, so in any case host needs to do that.
->> Today GRO/TPA feature depends on CSUM, but theoretically (i did not
->> investigate it) and probably HW can provide aggregated packets w/o
->> csum validation - this will save headers processing for host.
->
-> I am not sure I understand this.
->
-> Aggregation cannot be done if csums are not validated.
->
->
+On Sat, 2013-08-17 at 19:51 +0200, Hannes Frederic Sowa wrote:
+> We need to choose the protocol family by skb->protocol. Otherwise we
+> call the wrong xfrm{4,6}_local_error handler in case an ipv6 sockets is
+> used in ipv4 mode, in which case we should call down to xfrm4_local_error
+> (ip6 sockets are a superset of ip4 ones).
+> 
+> We are called before before ip_output functions, so skb->protocol is
+> not reset.
+> 
+> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
 
-Thanks. Eric. So we can't do with current bnx2x HW.
+Acked-by: Eric Dumazet <edumazet@google.com>
