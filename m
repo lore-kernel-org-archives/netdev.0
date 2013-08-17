@@ -1,76 +1,63 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: Re: pull request net: 2013-08-17
-Date: Sat, 17 Aug 2013 12:53:49 +0200
-Message-ID: <20130817105348.GA849@ritirata.org>
-References: <1376735694-676-1-git-send-email-ordex@autistici.org>
+Subject: [PATCH 2/2] batman-adv: check return type of unicast packet preparations
+Date: Sat, 17 Aug 2013 13:04:46 +0200
+Message-ID: <1376737486-1863-3-git-send-email-ordex@autistici.org>
+References: <1376737486-1863-1-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="6qFdnjy6dKaiDX/E"
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>,
+	Marek Lindner <lindner_marek@yahoo.de>,
+	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from contumacia.investici.org ([178.255.144.35]:64036 "EHLO
-	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752633Ab3HQL0M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Aug 2013 07:26:12 -0400
-Content-Disposition: inline
-In-Reply-To: <1376735694-676-1-git-send-email-ordex@autistici.org>
+Received: from latitanza.investici.org ([82.94.249.234]:25714 "EHLO
+	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752697Ab3HQLb2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Aug 2013 07:31:28 -0400
+In-Reply-To: <1376737486-1863-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom: Linus L=C3=BCssing <linus.luessing@web.de>
 
---6qFdnjy6dKaiDX/E
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+batadv_unicast(_4addr)_prepare_skb  might reallocate the skb's data.
+And if it tries to do so then this can potentially fail.
 
-On Sat, Aug 17, 2013 at 12:34:53PM +0200, Antonio Quartulli wrote:
-> Hello David,
->=20
-> here you have another very small fix intended for net/linux-3.11.
-> Tha patch properly closes a seq_read session by adding an invocation to
-> skb_abort_seq_read().
->=20
-> Please pull or let me know if there is any problem.
->=20
-> Also, when do you plan to merge net into net-next? I have a couple of cha=
-nges
-> for net-next which is better to apply after the merge.
+We shouldn't continue working on this skb in such a case.
 
-Hi David,
+Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
+Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
+Acked-by: Antonio Quartulli <ordex@autistici.org>
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+---
+ net/batman-adv/unicast.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
-sorry but I just realised there was another small patch to add here.
-I'll re-send this pull request in a while.
-
-
-Regards,
-
+diff --git a/net/batman-adv/unicast.c b/net/batman-adv/unicast.c
+index 688a041..857e1b8 100644
+--- a/net/batman-adv/unicast.c
++++ b/net/batman-adv/unicast.c
+@@ -432,12 +432,16 @@ find_router:
+=20
+ 	switch (packet_type) {
+ 	case BATADV_UNICAST:
+-		batadv_unicast_prepare_skb(skb, orig_node);
++		if (!batadv_unicast_prepare_skb(skb, orig_node))
++			goto out;
++
+ 		header_len =3D sizeof(struct batadv_unicast_packet);
+ 		break;
+ 	case BATADV_UNICAST_4ADDR:
+-		batadv_unicast_4addr_prepare_skb(bat_priv, skb, orig_node,
+-						 packet_subtype);
++		if (!batadv_unicast_4addr_prepare_skb(bat_priv, skb, orig_node,
++						      packet_subtype))
++			goto out;
++
+ 		header_len =3D sizeof(struct batadv_unicast_4addr_packet);
+ 		break;
+ 	default:
 --=20
-Antonio Quartulli
-
-=2E.each of us alone is worth nothing..
-Ernesto "Che" Guevara
-
---6qFdnjy6dKaiDX/E
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.20 (GNU/Linux)
-
-iQIcBAEBCAAGBQJSD1Y8AAoJEADl0hg6qKeOIJwP+QGRPMkSC0C1vTiiJa7EJLte
-qOb7Qcfi213+c2DuEunyksjjWHNq7RAtbLMZ+43bhFKK/fFDVsEcO14zyXHbzaRR
-FlPOC3u4xIVPyKl90msF5YvYOiHsOK971ZQL10Pf0dbXq45/d9Wkm9Y8EMuVyk1y
-kcTg0VZp0XR4O/8WGpbv2o2e4NaYixVYLQoZwWTlLhPp+22rCHp0LsyfFB10thS3
-Dh9l2b+obYUzx7N9+7IWx0cnhRPVv9OmZFxsAEe8L/UM0EYcY3qtf3ynmOGP8mXS
-19+l+xbkTIa9zFoc6xoPaFmBOLNlj+IjjJ79DA3X/LrOK3XyGa/gk2h6Tw/orUfu
-cx9HIlTyucsATRyVsTsB1Hpa0dfeCUhFat0nH4NUuMBXJWagGihkw/iTK0Qa7n6v
-3x5uBDRo8iF4+S+BAPoH+TM/1iMD46LCYfwjy61Nc/M50PB54VlyMHgB01A+knVR
-9fFPCOWpA1hjfBn/CWxjeK68IpRSTZpBTstbA3tM8VMjHizh/8mxTroqMTpw4Y1T
-YoQOWzxCKLtlVVKhSfeVR/8YjA8s1+SGff9N2Puqf5mhZHbAcCutUjHPMIiorRxl
-UiY9PfTJc727zqMMWhkVoZRWOQt0YRuHoOfKnpqg9asuKrGZ0ew1cRkFODDmn/yQ
-O7YHk2L9jzsNm87Zvce/
-=DGRl
------END PGP SIGNATURE-----
-
---6qFdnjy6dKaiDX/E--
+1.8.1.5
