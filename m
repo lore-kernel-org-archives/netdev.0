@@ -1,56 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH ipsec 2/3] ipv6: xfrm: dereference inner ipv6 header if
- encapsulated
-Date: Sat, 17 Aug 2013 12:03:54 -0700
-Message-ID: <1376766234.21329.11.camel@edumazet-glaptop>
-References: <20130817175130.GA7039@order.stressinduktion.org>
+From: Dmitry Kravkov <dkravkov@gmail.com>
+Subject: Re: [PATCH net-next 2/2] bnx2x: add RSS capability for GRE traffic
+Date: Sat, 17 Aug 2013 22:04:26 +0300
+Message-ID: <CAM8tLiNTZogOa7Cg_A8brjGn06xhSUHFZ=YoBSLCFHDiKVT8NA@mail.gmail.com>
+References: <1363625464-21633-1-git-send-email-dmitry@broadcom.com>
+	<1363625464-21633-2-git-send-email-dmitry@broadcom.com>
+	<1363651672.21184.17.camel@edumazet-glaptop>
+	<504C9EFCA2D0054393414C9CB605C37F20BE935B@SJEXCHMB06.corp.ad.broadcom.com>
+	<CAPshTCgpE3MoR3D8=EZa_CFVDBwN+fYDZZQrTchhtq-OM_rKzQ@mail.gmail.com>
+	<CAM8tLiNRi7mOb9wwSHuY4867ANUvzd_XxfZLV0gDPO2jKMtWsQ@mail.gmail.com>
+	<1376766116.21329.9.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Jerry Chu <hkchu@google.com>, Dmitry Kravkov <dmitry@broadcom.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Tom Herbert <therbert@google.com>,
+	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:38169 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754125Ab3HQTD4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Aug 2013 15:03:56 -0400
-Received: by mail-pd0-f182.google.com with SMTP id r10so2443436pdi.27
-        for <netdev@vger.kernel.org>; Sat, 17 Aug 2013 12:03:55 -0700 (PDT)
-In-Reply-To: <20130817175130.GA7039@order.stressinduktion.org>
+Received: from mail-ve0-f177.google.com ([209.85.128.177]:57475 "EHLO
+	mail-ve0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754157Ab3HQTE0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Aug 2013 15:04:26 -0400
+Received: by mail-ve0-f177.google.com with SMTP id cz11so2097603veb.36
+        for <netdev@vger.kernel.org>; Sat, 17 Aug 2013 12:04:26 -0700 (PDT)
+In-Reply-To: <1376766116.21329.9.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-08-17 at 19:51 +0200, Hannes Frederic Sowa wrote:
-> In xfrm6_local_error use inner_header if the packet was encapsulated.
-> 
-> Cc: Steffen Klassert <steffen.klassert@secunet.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
-> 
-> This patch is based on Steffen Klassert's ipsec tree. 
-> 
->  net/ipv6/xfrm6_output.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
-> index 3ac5ab2..45effcc 100644
-> --- a/net/ipv6/xfrm6_output.c
-> +++ b/net/ipv6/xfrm6_output.c
-> @@ -59,10 +59,12 @@ static void xfrm6_local_rxpmtu(struct sk_buff *skb, u32 mtu)
->  void xfrm6_local_error(struct sk_buff *skb, u32 mtu)
->  {
->  	struct flowi6 fl6;
-> +	struct ipv6hdr *hdr;
->  	struct sock *sk = skb->sk;
->  
-> +	hdr = skb->encapsulation ? inner_ipv6_hdr(skb) : ipv6_hdr(skb);
->  	fl6.fl6_dport = inet_sk(sk)->inet_dport;
-> -	fl6.daddr = ipv6_hdr(skb)->daddr;
-> +	fl6.daddr = hdr->daddr;
->  
->  	ipv6_local_error(sk, EMSGSIZE, &fl6, mtu);
->  }
+On Sat, Aug 17, 2013 at 10:01 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Sat, 2013-08-17 at 21:52 +0300, Dmitry Kravkov wrote:
+>
+>>
+>> Current bnx2x HW is not able to perform CSUM validation for
+>> encapsulated packets, so in any case host needs to do that.
+>> Today GRO/TPA feature depends on CSUM, but theoretically (i did not
+>> investigate it) and probably HW can provide aggregated packets w/o
+>> csum validation - this will save headers processing for host.
+>
+> I am not sure I understand this.
+>
+> Aggregation cannot be done if csums are not validated.
+>
+>
 
-You could have use "const struct ipv6hdr *hdr;", but otherwise :
-
-Acked-by: Eric Dumazet <edumazet@google.com>
+Thanks. Eric. So we can't do with current bnx2x HW.
