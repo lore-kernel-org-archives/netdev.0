@@ -1,78 +1,92 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: Re: [B.A.T.M.A.N.] pull request net: 2013-08-17b
-Date: Sat, 17 Aug 2013 19:31:15 +0200
-Message-ID: <20130817173115.GB849@ritirata.org>
-References: <1376737486-1863-1-git-send-email-ordex@autistici.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH ipsec 1/3] ipv6: wire up skb->encapsulation
+Date: Sat, 17 Aug 2013 19:51:16 +0200
+Message-ID: <20130817175116.GA7001@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="qndya+I13rh6QJ0p"
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=utf-8
+Cc: steffen.klassert@secunet.com, yoshfuji@linux-ipv6.org,
+	nicolas.dichtel@6wind.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from contumacia.investici.org ([178.255.144.35]:21356 "EHLO
-	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753937Ab3HQRdx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Aug 2013 13:33:53 -0400
+Received: from order.stressinduktion.org ([87.106.68.36]:57915 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753992Ab3HQRvS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Aug 2013 13:51:18 -0400
 Content-Disposition: inline
-In-Reply-To: <1376737486-1863-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+When pushing a new header before current one call skb_reset_inner_headers
+to record the position of the inner headers in the various ipv6 tunnel
+protocols.
 
---qndya+I13rh6QJ0p
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+We later need this to correctly identify the addresses needed to send
+back an error in the xfrm layer.
 
-On Sat, Aug 17, 2013 at 01:04:44PM +0200, Antonio Quartulli wrote:
-> Hello David,
->=20
-> here is the correct pull request for net/linux-3.11.
->=20
-> As described earlier this patchset contains a change which properly ends a
-> seq_read cycle and another change that takes care of aborting TX operatio=
-ns if
-> the skb preparation should faile.
+This change is safe, because skb->protocol is always checked before
+dereferencing data from the inner protocol.
 
-Hi David,
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
 
-sorry for the noise but after analysing the code once more we realised that
-skb_abort_seq_read() is not needed anymore for >=3Dlinux-3.11.
+This patch is based on Steffen Klassert's ipsec tree.
 
-Therefore one of the patches in this pull request is not needed.
+ net/ipv6/ip6_gre.c    | 5 +++++
+ net/ipv6/ip6_tunnel.c | 6 ++++++
+ net/ipv6/sit.c        | 5 +++++
+ 3 files changed, 16 insertions(+)
 
-I will send a third pull request with the correct patch only.
-
-
-Thanks,
-	Antonio
-
---=20
-Antonio Quartulli
-
-=2E.each of us alone is worth nothing..
-Ernesto "Che" Guevara
-
---qndya+I13rh6QJ0p
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.20 (GNU/Linux)
-
-iQIcBAEBCAAGBQJSD7NjAAoJEADl0hg6qKeOt8QP/j0jV9xmjDoS9zwCUYXjX7mL
-WkAFZ6+/Zo2rEvLMrzxoUR8Z9m8vIh2ufErJqOr5tVzTR1egLLfXXlVUwhiS3waN
-So/lddD6aqrcyR5jEf98G1e8Kfqco9KDxR/sNJf6HGRV5wEdQGVxsTgCG9wRdqeZ
-Y0lPVGwPEXXfo+zk/6nO/6DZ/Mo2odWK2AFvm/uVyTsttSHyNmQ4DUyFTuYUjKWP
-jDer6aXt1GiQ2isL3HzC6eS3BbhDDYsXTsPpNeKEwKf4M9AO0aQcb7UUbjEqpkMS
-f1vlOCQosUir4Q0acFcYVXEYQQt6CkC2xTJNZsGbGQcv9eX7NaYWp5oyw41txi7i
-l5hXlpX3QnrzvFwgwoSALmP/IyK3XJ6XcUeRWja6hw4N2rMMDr+UyfPOM2JoQnyw
-bJCL7qFh4EZWLfq6oTTjJf4I5GWVAiVU83VLZbJSS6NEydydI70z+v9of1qj9u19
-9RFIhieHc7/PLKSU1aFLQ3fbhjNZ0PiszZnhm66ogYQ760sWVqnq4n/kDSSDd77A
-7vukX8Dk+6zooGwht9pKrRgWzHDP/n39efHqAyKdPMkL6hdB9TelrEpPOuwVjYs3
-JyVMpxchS2TZsIYZR9HnGzPrVx0dVXoxXzCEU22kAHQNZu4AYYf5hqAWR2XVW04J
-wOyVtK+jHdF0C1gid5uO
-=7zLR
------END PGP SIGNATURE-----
-
---qndya+I13rh6QJ0p--
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index ecd6073..90747f1 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -724,6 +724,11 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
+ 		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL);
+ 	}
+ 
++	if (likely(!skb->encapsulation)) {
++		skb_reset_inner_headers(skb);
++		skb->encapsulation = 1;
++	}
++
+ 	skb_push(skb, gre_hlen);
+ 	skb_reset_network_header(skb);
+ 	skb_set_transport_header(skb, sizeof(*ipv6h));
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 1e55866..46ba243 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1027,6 +1027,12 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 		init_tel_txopt(&opt, encap_limit);
+ 		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL);
+ 	}
++
++	if (likely(!skb->encapsulation)) {
++		skb_reset_inner_headers(skb);
++		skb->encapsulation = 1;
++	}
++
+ 	skb_push(skb, sizeof(struct ipv6hdr));
+ 	skb_reset_network_header(skb);
+ 	ipv6h = ipv6_hdr(skb);
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index a3437a4..fbfc5a8 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -888,6 +888,11 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
+ 		ttl = iph6->hop_limit;
+ 	tos = INET_ECN_encapsulate(tos, ipv6_get_dsfield(iph6));
+ 
++	if (likely(!skb->encapsulation)) {
++		skb_reset_inner_headers(skb);
++		skb->encapsulation = 1;
++	}
++
+ 	err = iptunnel_xmit(dev_net(dev), rt, skb, fl4.saddr, fl4.daddr,
+ 			    IPPROTO_IPV6, tos, ttl, df);
+ 	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
+-- 
+1.8.3.1
