@@ -1,91 +1,60 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH RESEND] can: mcp251x: Replace power callbacks with regulator
- API
-Date: Sat, 17 Aug 2013 21:59:10 +0200
-Message-ID: <520FD60E.4040709@pengutronix.de>
-References: <1375963227-6468-1-git-send-email-shc_work@mail.ru> <52049C44.6030902@pengutronix.de> <520EDDA8.6050309@gmail.com> <20130817083014.a01144051b158c34ec7dd9d9@mail.ru>
+From: =?UTF-8?B?QWxleGFuZGVyIFNoaXlhbg==?= <shc_work@mail.ru>
+Subject: =?UTF-8?B?UmU6IFtQQVRDSCBSRVNFTkRdIGNhbjogbWNwMjUxeDogUmVwbGFjZSBwb3dl?=
+ =?UTF-8?B?ciBjYWxsYmFja3Mgd2l0aCByZWd1bGF0b3IgQVBJ?=
+Date: Sun, 18 Aug 2013 01:10:05 +0400
+Message-ID: <1376773805.878998573@f169.i.mail.ru>
+References: <1375963227-6468-1-git-send-email-shc_work@mail.ru>
+ <20130817083014.a01144051b158c34ec7dd9d9@mail.ru>
+ <520FD60E.4040709@pengutronix.de>
+Reply-To: =?UTF-8?B?QWxleGFuZGVyIFNoaXlhbg==?= <shc_work@mail.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="iJRqkJtL8jged6X3GQQRLl8lAT9mFrD4x"
-Cc: Haojian Zhuang <haojian.zhuang@gmail.com>,
-	Eric Miao <eric.y.miao@gmail.com>, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, Wolfgang Grandegger <wg@grandegger.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	linux-arm-kernel@lists.infradead.org
-To: Alexander Shiyan <shc_work@mail.ru>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20130817083014.a01144051b158c34ec7dd9d9@mail.ru>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: =?UTF-8?B?UnVzc2VsbCBLaW5n?= <linux@arm.linux.org.uk>,
+	netdev@vger.kernel.org,
+	=?UTF-8?B?SGFvamlhbiBaaHVhbmc=?= <haojian.zhuang@gmail.com>,
+	linux-can@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	=?UTF-8?B?RXJpYyBNaWFv?= <eric.y.miao@gmail.com>,
+	=?UTF-8?B?V29sZmdhbmcgR3JhbmRlZ2dlcg==?= <wg@grandegger.com>
+To: =?UTF-8?B?TWFyYyBLbGVpbmUtQnVkZGU=?= <mkl@pengutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fallback2.mail.ru ([94.100.176.87]:37758 "EHLO
+	fallback2.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754659Ab3HQVKr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Aug 2013 17:10:47 -0400
+In-Reply-To: <520FD60E.4040709@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---iJRqkJtL8jged6X3GQQRLl8lAT9mFrD4x
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On 08/17/2013 06:30 AM, Alexander Shiyan wrote:
-[...]
->> Since DT conversion isn't finished, I still accept the board files.
->> But this patch should be split into two parts. One is for pxa, and the=
-
->> other one is for net.
->=20
-> Patch cannot be splitted because this can create hole which break git-b=
-isect.
->=20
-> In any case, I want to create a v2 with a more detailed description, an=
-d I
-> have a supplementary question for the CAN subsystem maintainers.
-> "Transciever power" is not used by any of the boards, can we remove it
-> completely? This will greatly simplify driver.
-
-Do you mean the former transceiver_enable() callback?
-
->  struct mcp251x_platform_data {
->  	unsigned long oscillator_frequency;
->  	unsigned long irq_flags;
-> -	int (*board_specific_setup)(struct spi_device *spi);
-> -	int (*transceiver_enable)(int enable);
-> -	int (*power_enable) (int enable);
->  };
-
-Having a switchable transceiver is a quite common thing. So I'd like
-that you keep it. The flexcan driver was just converted from a callback
-to a regulator too. It already has device tree bindings and I'd like to
-use these bindings as a standard for new drivers. From flexcan's dt
-bindings:
-
-> - xceiver-supply: Regulator that powers the CAN transceiver
-
-which translates into:
-
-> priv->reg_xceiver =3D devm_regulator_get(&pdev->dev, "xceiver");
-
-Can you please use "xceiver" instead of "transceiver", so that future DT
-binding will fit the scheme.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---iJRqkJtL8jged6X3GQQRLl8lAT9mFrD4x
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlIP1g4ACgkQjTAFq1RaXHM1LwCeN3aRjAvOPOjt80BuESpAQOpn
-QXYAniHBYknFe4bDxet9jD6bLhe4yXxq
-=fJbh
------END PGP SIGNATURE-----
-
---iJRqkJtL8jged6X3GQQRLl8lAT9mFrD4x--
+PiBPbiAwOC8xNy8yMDEzIDA2OjMwIEFNLCBBbGV4YW5kZXIgU2hpeWFuIHdyb3RlOgo+IFsuLi5d
+Cj4gPj4gU2luY2UgRFQgY29udmVyc2lvbiBpc24ndCBmaW5pc2hlZCwgSSBzdGlsbCBhY2NlcHQg
+dGhlIGJvYXJkIGZpbGVzLgo+ID4+IEJ1dCB0aGlzIHBhdGNoIHNob3VsZCBiZSBzcGxpdCBpbnRv
+IHR3byBwYXJ0cy4gT25lIGlzIGZvciBweGEsIGFuZCB0aGUKPiA+PiBvdGhlciBvbmUgaXMgZm9y
+IG5ldC4KPiA+IAo+ID4gUGF0Y2ggY2Fubm90IGJlIHNwbGl0dGVkIGJlY2F1c2UgdGhpcyBjYW4g
+Y3JlYXRlIGhvbGUgd2hpY2ggYnJlYWsgZ2l0LWJpc2VjdC4KPiA+IAo+ID4gSW4gYW55IGNhc2Us
+IEkgd2FudCB0byBjcmVhdGUgYSB2MiB3aXRoIGEgbW9yZSBkZXRhaWxlZCBkZXNjcmlwdGlvbiwg
+YW5kIEkKPiA+IGhhdmUgYSBzdXBwbGVtZW50YXJ5IHF1ZXN0aW9uIGZvciB0aGUgQ0FOIHN1YnN5
+c3RlbSBtYWludGFpbmVycy4KPiA+ICJUcmFuc2NpZXZlciBwb3dlciIgaXMgbm90IHVzZWQgYnkg
+YW55IG9mIHRoZSBib2FyZHMsIGNhbiB3ZSByZW1vdmUgaXQKPiA+IGNvbXBsZXRlbHk/IFRoaXMg
+d2lsbCBncmVhdGx5IHNpbXBsaWZ5IGRyaXZlci4KPiAKPiBEbyB5b3UgbWVhbiB0aGUgZm9ybWVy
+IHRyYW5zY2VpdmVyX2VuYWJsZSgpIGNhbGxiYWNrPwoKWWVzLgoKPiA+ICBzdHJ1Y3QgbWNwMjUx
+eF9wbGF0Zm9ybV9kYXRhIHsKPiA+ICAJdW5zaWduZWQgbG9uZyBvc2NpbGxhdG9yX2ZyZXF1ZW5j
+eTsKPiA+ICAJdW5zaWduZWQgbG9uZyBpcnFfZmxhZ3M7Cj4gPiAtCWludCAoKmJvYXJkX3NwZWNp
+ZmljX3NldHVwKShzdHJ1Y3Qgc3BpX2RldmljZSAqc3BpKTsKPiA+IC0JaW50ICgqdHJhbnNjZWl2
+ZXJfZW5hYmxlKShpbnQgZW5hYmxlKTsKPiA+IC0JaW50ICgqcG93ZXJfZW5hYmxlKSAoaW50IGVu
+YWJsZSk7Cj4gPiAgfTsKPiAKPiBIYXZpbmcgYSBzd2l0Y2hhYmxlIHRyYW5zY2VpdmVyIGlzIGEg
+cXVpdGUgY29tbW9uIHRoaW5nLiBTbyBJJ2QgbGlrZQo+IHRoYXQgeW91IGtlZXAgaXQuIFRoZSBm
+bGV4Y2FuIGRyaXZlciB3YXMganVzdCBjb252ZXJ0ZWQgZnJvbSBhIGNhbGxiYWNrCj4gdG8gYSBy
+ZWd1bGF0b3IgdG9vLiBJdCBhbHJlYWR5IGhhcyBkZXZpY2UgdHJlZSBiaW5kaW5ncyBhbmQgSSdk
+IGxpa2UgdG8KPiB1c2UgdGhlc2UgYmluZGluZ3MgYXMgYSBzdGFuZGFyZCBmb3IgbmV3IGRyaXZl
+cnMuIEZyb20gZmxleGNhbidzIGR0Cj4gYmluZGluZ3M6Cj4gCj4gPiAtIHhjZWl2ZXItc3VwcGx5
+OiBSZWd1bGF0b3IgdGhhdCBwb3dlcnMgdGhlIENBTiB0cmFuc2NlaXZlcgo+IAo+IHdoaWNoIHRy
+YW5zbGF0ZXMgaW50bzoKPiAKPiA+IHByaXYtPnJlZ194Y2VpdmVyID0gZGV2bV9yZWd1bGF0b3Jf
+Z2V0KCZwZGV2LT5kZXYsICJ4Y2VpdmVyIik7Cj4gCj4gQ2FuIHlvdSBwbGVhc2UgdXNlICJ4Y2Vp
+dmVyIiBpbnN0ZWFkIG9mICJ0cmFuc2NlaXZlciIsIHNvIHRoYXQgZnV0dXJlIERUCj4gYmluZGlu
+ZyB3aWxsIGZpdCB0aGUgc2NoZW1lLgoKT0suIEkgYW0gbm90IHJlYWR5IHRvIGFkZCBEVCBzdXBw
+b3J0IHlldCwgYnV0IGl0IGNhbiBiZSBhZGRlZCBsYXRlciwKc28gdjIgd2lsbCBjb250YWluIDMg
+cGFydHM6CjEgLSBSZXBsYWNlIHBvd2VyIGNhbGxiYWNrcyB3aXRoIHJlZ3VsYXRvciBBUEkKMiAt
+IEVsaW1pbmF0ZSBtY3AyNTF4X3BsYXRmb3JtX2RhdGEtPmlycV9mbGFncwozIC0gUmVwbGFjZSBv
+c2NpbGxhdG9yX2ZyZXF1ZW5jeSB3aXRoIENMSyBBUEkgKGFuZCByZW1vdmUgbWNwMjUxeC5oIGhl
+YWRlcikKCkFyZSB5b3UgT0sgd2l0aCBzdWNoIGNoYW5nZXM/CgotLS0K
