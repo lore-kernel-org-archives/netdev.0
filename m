@@ -1,43 +1,87 @@
-From: Anders Larsen <al@alarsen.net>
-Subject: [PATCH] pch_gbe: ethtool cannot change parameters when link is down
-Date: Sun, 18 Aug 2013 11:54:40 +0200
-Message-ID: <1376819680-15359-1-git-send-email-al@alarsen.net>
-Cc: Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH ipsec 1/3] ipv6: wire up skb->encapsulation
+Date: Sun, 18 Aug 2013 13:00:38 +0200
+Message-ID: <20130818110038.GC7371@order.stressinduktion.org>
+References: <20130817175116.GA7001@order.stressinduktion.org> <20130817180738.GA24518@order.stressinduktion.org> <20130818042416.GK30709@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com,
+	yoshfuji@linux-ipv6.org, nicolas.dichtel@6wind.com
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:58852 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754069Ab3HRLAo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Aug 2013 07:00:44 -0400
+Content-Disposition: inline
+In-Reply-To: <20130818042416.GK30709@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When attempting to change e.g. the advertising mask when the link is down
-ecmd->speed is -1 causing mii_ethtool_sset() to bail out.
+On Sun, Aug 18, 2013 at 02:24:16PM +1000, Simon Horman wrote:
+> On Sat, Aug 17, 2013 at 08:07:38PM +0200, Hannes Frederic Sowa wrote:
+> > Hi Simon!
+> > 
+> > On Sat, Aug 17, 2013 at 07:51:16PM +0200, Hannes Frederic Sowa wrote:
+> > > When pushing a new header before current one call skb_reset_inner_headers
+> > > to record the position of the inner headers in the various ipv6 tunnel
+> > > protocols.
+> > > 
+> > > We later need this to correctly identify the addresses needed to send
+> > > back an error in the xfrm layer.
+> > > 
+> > > This change is safe, because skb->protocol is always checked before
+> > > dereferencing data from the inner protocol.
+> > > 
+> > > Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> > > Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> > > Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> > > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> > > ---
+> > > 
+> > > This patch is based on Steffen Klassert's ipsec tree.
+> > > 
+> > >  net/ipv6/ip6_gre.c    | 5 +++++
+> > >  net/ipv6/ip6_tunnel.c | 6 ++++++
+> > >  net/ipv6/sit.c        | 5 +++++
+> > >  3 files changed, 16 insertions(+)
+> > > 
+> > > diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+> > > index ecd6073..90747f1 100644
+> > > --- a/net/ipv6/ip6_gre.c
+> > > +++ b/net/ipv6/ip6_gre.c
+> > > @@ -724,6 +724,11 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
+> > >  		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL);
+> > >  	}
+> > >  
+> > > +	if (likely(!skb->encapsulation)) {
+> > > +		skb_reset_inner_headers(skb);
+> > > +		skb->encapsulation = 1;
+> > > +	}
+> > > +
+> > 
+> > While doing these patches, I wondered how skb->inner_protocol will be
+> > used in future (you added it in 0d89d2035fe063461a5ddb609b2c12e7fb006e44
+> > ("MPLS: Add limited GSO support")). Current use by tunnels seems safe to
+> > me, but I wondered how you would extend its use?
+> 
+> Hi,
+> 
+> I must confess that I'm not entirely sure that I understand the question.
 
-This bug bit when connecting to a gigabit switch through a 4-pin (industrial)
-cable, since link negotiation would not complete (both endpoints claimed to
-be gigabit-capable, but this is not possible with only 4 pins).
-Any attempt to fix this by setting autonegation to not offer 1000Mbps
-failed as the setting would not be accepted while the link was still down...
+Sorry to be not clear enough. I try to present my envisioned use case for
+inner_protocol:
 
-Set ecmd->speed to SPEED_1000 to satisfy mii_ethtool_sset()
-(the actual value of ecmd->speed doesn't matter as long as it is valid,
-since a re-negotation is forced afterwards).
+I do think there may be some other corner cases when reporting back
+errors to a local socket when multiple tunnels+ipsecs are stacked into
+each other. The first encapsulation sets skb->inner_network_header, so
+that we can later extract the needed information for the error generation
+via inner_ip{v6,}_hdr. It would be handy here to use inner_protocol to
+mark the type of inner_network_header in advance (all this is because,
+even if we still have a reference to the local socket and know its af,
+it could also have emitted an IPv4 frame, so we have to jump to the ipv4
+error handling path).
 
-Signed-off-by: Anders Larsen <al@alarsen.net>
----
- .../ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c    |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+Thanks,
 
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
-index 1129db0..f0ceb89 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
-@@ -118,6 +118,7 @@ static int pch_gbe_set_settings(struct net_device *netdev,
- 	 * filled by get_settings() on a down link, speed is -1: */
- 	if (speed == UINT_MAX) {
- 		speed = SPEED_1000;
-+		ethtool_cmd_speed_set(ecmd, speed);
- 		ecmd->duplex = DUPLEX_FULL;
- 	}
- 	ret = mii_ethtool_sset(&adapter->mii, ecmd);
--- 
-1.7.0.4
+  Hannes
