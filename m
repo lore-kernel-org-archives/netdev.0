@@ -1,65 +1,60 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH ipsec v2 3/3] xfrm: choose protocol family by skb protocol
-Date: Sun, 18 Aug 2013 18:05:26 +0200
-Message-ID: <20130818160526.GA9414@order.stressinduktion.org>
-References: <20130818114701.GA10270@order.stressinduktion.org> <1376840901.21329.47.camel@edumazet-glaptop>
+From: Sekhar Nori <nsekhar@ti.com>
+Subject: Re: [PATCH v5 1/2] ARM: davinci: da850: add DT node for ethernet
+Date: Sun, 18 Aug 2013 22:25:13 +0530
+Message-ID: <5210FC71.3010600@ti.com>
+References: <1376662262-21795-1-git-send-email-prabhakar.csengg@gmail.com> <1376662262-21795-2-git-send-email-prabhakar.csengg@gmail.com> <520E7377.1080808@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com,
-	edumazet@google.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:59134 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751431Ab3HRQF2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Aug 2013 12:05:28 -0400
-Content-Disposition: inline
-In-Reply-To: <1376840901.21329.47.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>,
+	DLOS <davinci-linux-open-source@linux.davincidsp.com>,
+	<netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <520E7377.1080808@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 18, 2013 at 08:48:21AM -0700, Eric Dumazet wrote:
-> On Sun, 2013-08-18 at 13:47 +0200, Hannes Frederic Sowa wrote:
-> > We need to choose the protocol family by skb->protocol. Otherwise we
-> > call the wrong xfrm{4,6}_local_error handler in case an ipv6 sockets is
-> > used in ipv4 mode, in which case we should call down to xfrm4_local_error
-> > (ip6 sockets are a superset of ip4 ones).
-> > 
-> > We are called before before ip_output functions, so skb->protocol is
-> > not reset.
-> > 
-> > v2:
-> > a) unchanged
-> > 
-> > Cc: Steffen Klassert <steffen.klassert@secunet.com>
-> > Acked-by: Eric Dumazet <edumazet@google.com>
-> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > ---
+On 8/17/2013 12:16 AM, Sergei Shtylyov wrote:
+> Hello.
 > 
-> Hi Hannes
+> On 08/16/2013 06:11 PM, Lad, Prabhakar wrote:
 > 
-> For your next patches, please add the v1/v2/v3 stuff _after_ the ---
-> separator as in :
+>> From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
 > 
-> Normal changelog (will be included in git history)
+>> Add ethernet device tree node information and pinmux for mii to da850 by
+>> providing interrupt details and local mac address.
 > 
-> Signed-off-by: ....
-> Cc: ...
-> ---
-> v2: Fix (you can omit this line if there was no change between v2 and
-> v1)
->  diffstat
->  diff
+>> Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+>> ---
+>>   arch/arm/boot/dts/da850-evm.dts |    5 +++++
+>>   arch/arm/boot/dts/da850.dtsi    |   30 ++++++++++++++++++++++++++++++
+>>   2 files changed, 35 insertions(+)
 > 
+>> diff --git a/arch/arm/boot/dts/da850-evm.dts
+>> b/arch/arm/boot/dts/da850-evm.dts
+>> index 1f8cfdd..44f3fbc 100644
+>> --- a/arch/arm/boot/dts/da850-evm.dts
+>> +++ b/arch/arm/boot/dts/da850-evm.dts
+>> @@ -96,6 +96,11 @@
+>>               pinctrl-0 = <&mdio_pins>;
+>>               bus_freq = <2200000>;
+>>           };
+>> +        ethernet: emac@1e20000 {
 > 
-> This is to have clean changelogs, with high S/N ratio ;)
+>    Why label the node in the board file too?
 
-Of course, I can do so.
+May be not required, but all other entries in da850-evm.dts have labels
+too. Other .dts files like am335x-bone.dts use labels too (even though
+they are never used in references). So I am inclined to let this be like
+this and if needed have all the labels removed through a separate patch
+- at least we remain consistent within the file that way.
 
-Actually, I thought having the changelog in the commit msg is an extra
-plus (even it is mostly inexpressive) because one knows there could be
-more than one thread on the mailing list regarding the commit.
+Prabhakar,
+
+Please mind the new e-mail address of the devicetree list.
 
 Thanks,
-
-  Hannes
+Sekhar
