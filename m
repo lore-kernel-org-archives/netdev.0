@@ -1,84 +1,98 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH ipsec 1/3] ipv6: wire up skb->encapsulation
-Date: Sun, 18 Aug 2013 14:24:16 +1000
-Message-ID: <20130818042416.GK30709@verge.net.au>
-References: <20130817175116.GA7001@order.stressinduktion.org>
- <20130817180738.GA24518@order.stressinduktion.org>
+From: Corey Hickey <bugfood-ml@fatooh.org>
+Subject: NAT stops forwarding ACKs after PMTU discovery
+Date: Sat, 17 Aug 2013 22:55:00 -0700
+Message-ID: <521061B4.1030508@fatooh.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, steffen.klassert@secunet.com,
-	yoshfuji@linux-ipv6.org, nicolas.dichtel@6wind.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:44492 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750771Ab3HREWf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Aug 2013 00:22:35 -0400
-Content-Disposition: inline
-In-Reply-To: <20130817180738.GA24518@order.stressinduktion.org>
+Received: from juniper.fatooh.org ([173.255.221.30]:44643 "EHLO
+	juniper.fatooh.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751160Ab3HRGDl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Aug 2013 02:03:41 -0400
+Received: from juniper.fatooh.org (juniper.fatooh.org [127.0.0.1])
+	(using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by juniper.fatooh.org (Postfix) with ESMTPS id F3566131
+	for <netdev@vger.kernel.org>; Sat, 17 Aug 2013 22:55:00 -0700 (PDT)
+Received: from juniper.fatooh.org (juniper.fatooh.org [127.0.0.1])
+	by juniper.fatooh.org (Postfix) with ESMTP id D569114A
+	for <netdev@vger.kernel.org>; Sat, 17 Aug 2013 22:55:00 -0700 (PDT)
+Received: from [198.18.0.3] (173-164-227-83-SFBA.hfc.comcastbusiness.net [173.164.227.83])
+	(using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by juniper.fatooh.org (Postfix) with ESMTPSA id C25C2131
+	for <netdev@vger.kernel.org>; Sat, 17 Aug 2013 22:55:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 17, 2013 at 08:07:38PM +0200, Hannes Frederic Sowa wrote:
-> Hi Simon!
-> 
-> On Sat, Aug 17, 2013 at 07:51:16PM +0200, Hannes Frederic Sowa wrote:
-> > When pushing a new header before current one call skb_reset_inner_headers
-> > to record the position of the inner headers in the various ipv6 tunnel
-> > protocols.
-> > 
-> > We later need this to correctly identify the addresses needed to send
-> > back an error in the xfrm layer.
-> > 
-> > This change is safe, because skb->protocol is always checked before
-> > dereferencing data from the inner protocol.
-> > 
-> > Cc: Steffen Klassert <steffen.klassert@secunet.com>
-> > Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> > Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > ---
-> > 
-> > This patch is based on Steffen Klassert's ipsec tree.
-> > 
-> >  net/ipv6/ip6_gre.c    | 5 +++++
-> >  net/ipv6/ip6_tunnel.c | 6 ++++++
-> >  net/ipv6/sit.c        | 5 +++++
-> >  3 files changed, 16 insertions(+)
-> > 
-> > diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-> > index ecd6073..90747f1 100644
-> > --- a/net/ipv6/ip6_gre.c
-> > +++ b/net/ipv6/ip6_gre.c
-> > @@ -724,6 +724,11 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
-> >  		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL);
-> >  	}
-> >  
-> > +	if (likely(!skb->encapsulation)) {
-> > +		skb_reset_inner_headers(skb);
-> > +		skb->encapsulation = 1;
-> > +	}
-> > +
-> 
-> While doing these patches, I wondered how skb->inner_protocol will be
-> used in future (you added it in 0d89d2035fe063461a5ddb609b2c12e7fb006e44
-> ("MPLS: Add limited GSO support")). Current use by tunnels seems safe to
-> me, but I wondered how you would extend its use?
-
 Hi,
 
-I must confess that I'm not entirely sure that I understand the question.
+If there is a better user-oriented list I should ask this question on,
+please tell me; I've asked a couple similar questions on netdev before
+and gotten some great help.
 
-The purpose of adding inner_protocol was to allow GSO of MPLS as MPLS is
-rather special and does not include the inner protocol anywhere in the
-packet. So this allows it to be known when GSO occurs if it was previously
-known - I believe the sole use-case here is if a packet wasn't MPLS when
-received but then turned into MPLS by Open vSwtich.
 
-I'm not aware of any other encapsulation/tunnelling protocols which share
-MPLS's unusual property of not including the inner-protocol in the packet,
-but if they exist then skb->inner_protocol may be useful when adding GSO
-support for them.
+I'm having a problem wherein some NATted connections stop forwarding
+packets. I've troubleshot the problem far enough to tell that it happens
+when path MTU discovery happens--the ACK to the retransmitted packet
+never gets forwarded back to my local client (and neither do the
+retransmitted ACKs).
 
-Beyond that I do not envisage any extension of the use of
-skb->inner_protocol at this point. But I feel that somehow I am missing
-the point of your question.
+This is my setup:
+----------------------------------------------------------------------
+       MTU 9100                  MTU 1355  MTU 1500
+client      --> linux router          -->  vpn  --> work host
+198.18.0.3      198.18.0.1    (eth0)                10.15.24.13
+                192.168.61.54 (tun0)
+----------------------------------------------------------------------
+
+I'm running openconnect on a Linux router to connect to a cisco VPN at
+work. The Linux router does SNAT (MASQUERADE) over the virtual tun0
+interface created by openconnect.
+
+This is the best test I have so far:
+
+$ sudo ip route flush cache ; ssh workhost.example.com exit
+Read from socket failed: Connection reset by peer
+
+Most of the time, this hangs for a few minutes before giving up;
+sometimes it just works fine. tcpdumps indicate that when it works, all
+packets transmitted are below the VPN's MTU; when it fails, MTU
+discovery has happened:
+
+1. client sends large packet, for example 1832 bytes
+2. router sends ICMP fragmentation needed
+3. client retransmits with a smaller packet, for example 1303 bytes
+4. router forwards packet over VPN
+5. work host ACKs packet
+6. router receives ACK but does not forward it
+7. both endpoints retransmit, but ACKs never get forwarded
+
+The NAT table maintains an entry throughout (and continues to SNAT
+retransmits from the client), but the ACKs from the server never get
+forwarded.
+
+fire:~# netstat-nat -n -d 10.15.24.13
+Proto NATed Address           Destination Address            State
+tcp   198.18.0.3:51076        10.15.24.13:22                 ESTABLISHED
+
+
+I put a LOG target on the INPUT chain, though, and apparently these
+packets are bypassing the NAT; the kernel does not think they should be
+forwarded (else they would be on the FORWARD chain).
+
+[23335.509084] IN=tun0 OUT= MAC= SRC=10.15.24.13 DST=192.168.61.54
+LEN=64 TOS=0x00 PREC=0x00 TTL=62 ID=28270 DF PROTO=TCP SPT=22 DPT=51076
+WINDOW=134 RES=0x00 ACK FIN URGP=0
+
+
+The kernel on the router is 3.10-2-amd64 (from Debian testing). I had
+the same problem with 3.2.0-4-amd64 (from Debian stable), before I tried
+to see if I could upgrade the problem away.
+
+Any help would be much appreciated. I can send full tcpdumps if needed.
+
+Thanks,
+Corey
