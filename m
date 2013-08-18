@@ -1,68 +1,92 @@
-From: Peter Wu <lekensteyn@gmail.com>
-Subject: [PATCH v3] r8169: fix invalid register dump
-Date: Sun, 18 Aug 2013 15:41:38 +0200
-Message-ID: <1376833298-7321-1-git-send-email-lekensteyn@gmail.com>
-Cc: lekensteyn@gmail.com, netdev@vger.kernel.org,
-	nic_swsd <nic_swsd@realtek.com>
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f169.google.com ([209.85.215.169]:50078 "EHLO
-	mail-ea0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755370Ab3HRNln (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Aug 2013 09:41:43 -0400
-Received: by mail-ea0-f169.google.com with SMTP id k11so379299eaj.14
-        for <netdev@vger.kernel.org>; Sun, 18 Aug 2013 06:41:42 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: NAT stops forwarding ACKs after PMTU discovery
+Date: Sun, 18 Aug 2013 08:24:27 -0700
+Message-ID: <1376839467.21329.36.camel@edumazet-glaptop>
+References: <521061B4.1030508@fatooh.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org
+To: Corey Hickey <bugfood-ml@fatooh.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <521061B4.1030508@fatooh.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-For some reason, my PCIe RTL8111E onboard NIC on a GA-Z68X-UD3H-B3
-motherboard reads as FFs when reading from MMIO with a block size
-larger than 7. Therefore change to reading blocks of four bytes.
+On Sat, 2013-08-17 at 22:55 -0700, Corey Hickey wrote:
+> Hi,
+> 
+> If there is a better user-oriented list I should ask this question on,
+> please tell me; I've asked a couple similar questions on netdev before
+> and gotten some great help.
+> 
+> 
+> I'm having a problem wherein some NATted connections stop forwarding
+> packets. I've troubleshot the problem far enough to tell that it happens
+> when path MTU discovery happens--the ACK to the retransmitted packet
+> never gets forwarded back to my local client (and neither do the
+> retransmitted ACKs).
+> 
+> This is my setup:
+> ----------------------------------------------------------------------
+>        MTU 9100                  MTU 1355  MTU 1500
+> client      --> linux router          -->  vpn  --> work host
+> 198.18.0.3      198.18.0.1    (eth0)                10.15.24.13
+>                 192.168.61.54 (tun0)
+> ----------------------------------------------------------------------
+> 
+> I'm running openconnect on a Linux router to connect to a cisco VPN at
+> work. The Linux router does SNAT (MASQUERADE) over the virtual tun0
+> interface created by openconnect.
+> 
+> This is the best test I have so far:
+> 
+> $ sudo ip route flush cache ; ssh workhost.example.com exit
+> Read from socket failed: Connection reset by peer
+> 
+> Most of the time, this hangs for a few minutes before giving up;
+> sometimes it just works fine. tcpdumps indicate that when it works, all
+> packets transmitted are below the VPN's MTU; when it fails, MTU
+> discovery has happened:
+> 
+> 1. client sends large packet, for example 1832 bytes
+> 2. router sends ICMP fragmentation needed
+> 3. client retransmits with a smaller packet, for example 1303 bytes
+> 4. router forwards packet over VPN
+> 5. work host ACKs packet
+> 6. router receives ACK but does not forward it
+> 7. both endpoints retransmit, but ACKs never get forwarded
+> 
+> The NAT table maintains an entry throughout (and continues to SNAT
+> retransmits from the client), but the ACKs from the server never get
+> forwarded.
+> 
+> fire:~# netstat-nat -n -d 10.15.24.13
+> Proto NATed Address           Destination Address            State
+> tcp   198.18.0.3:51076        10.15.24.13:22                 ESTABLISHED
+> 
+> 
+> I put a LOG target on the INPUT chain, though, and apparently these
+> packets are bypassing the NAT; the kernel does not think they should be
+> forwarded (else they would be on the FORWARD chain).
+> 
+> [23335.509084] IN=tun0 OUT= MAC= SRC=10.15.24.13 DST=192.168.61.54
+> LEN=64 TOS=0x00 PREC=0x00 TTL=62 ID=28270 DF PROTO=TCP SPT=22 DPT=51076
+> WINDOW=134 RES=0x00 ACK FIN URGP=0
+> 
+> 
+> The kernel on the router is 3.10-2-amd64 (from Debian testing). I had
+> the same problem with 3.2.0-4-amd64 (from Debian stable), before I tried
+> to see if I could upgrade the problem away.
+> 
+> Any help would be much appreciated. I can send full tcpdumps if needed.
 
-Ben Hutchings noted that the buffer is large enough to hold all
-registers, so now all registers are read. Since regs->len is not used
-anymore, drop the superfluous range check as well. (ethtool would
-already ensure that regs->len <= R8169_REGS_SIZE).
+This looks like the bug we had to fix recently : 
 
-Signed-off-by: Peter Wu <lekensteyn@gmail.com>
----
-Hi,
+http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=356d7d88e088687b6578ca64601b0a2c9d145296
 
-This partly obsoletes "r8169,sis190: remove unnecessary length
-check"[1]. I do not have sis190 hardware, but since that is based on
-this r8169 driver, would it make sense to apply this patch to sis190
-too?
+Could you try latest net tree ?
 
-Regards,
-Peter
 
- [1]: http://www.spinics.net/lists/netdev/msg246824.html
----
- drivers/net/ethernet/realtek/r8169.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index b5eb419..c0c9e14 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -1897,12 +1897,13 @@ static void rtl8169_get_regs(struct net_device *dev, struct ethtool_regs *regs,
- 			     void *p)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
--
--	if (regs->len > R8169_REGS_SIZE)
--		regs->len = R8169_REGS_SIZE;
-+	u32 __iomem *data = tp->mmio_addr;
-+	u32 *dw = p;
-+	int i;
- 
- 	rtl_lock_work(tp);
--	memcpy_fromio(p, tp->mmio_addr, regs->len);
-+	for (i = 0; i < R8169_REGS_SIZE; i += 4)
-+		memcpy_fromio(dw++, data++, 4);
- 	rtl_unlock_work(tp);
- }
- 
--- 
-1.8.3.4
