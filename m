@@ -1,72 +1,42 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] moxa: fix missing unlock on error in moxart_mac_start_xmit()
-Date: Sun, 18 Aug 2013 16:09:30 +0800
-Message-ID: <CAPgLHd_pVD1wsDmL+bON35fif14xE5A6WsJjf+b1mywgrme-+g@mail.gmail.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCHv3 linux-next] hrtimer: Add notifier when clock_was_set
+ was called
+Date: Sun, 18 Aug 2013 11:05:03 +0200 (CEST)
+Message-ID: <alpine.DEB.2.02.1308181102230.4089@ionos.tec.linutronix.de>
+References: <1375866296-15079-1-git-send-email-fan.du@windriver.com> <1375866296-15079-2-git-send-email-fan.du@windriver.com> <52021177.6020306@redhat.com> <520213F2.5090401@windriver.com> <520214C6.6000307@redhat.com> <520B4552.2000607@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-To: grant.likely@linaro.org, rob.herring@calxeda.com,
-	davem@davemloft.net, jonas.jensen@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f53.google.com ([209.85.214.53]:46439 "EHLO
-	mail-bk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752192Ab3HRIJb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Aug 2013 04:09:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Fan Du <fan.du@windriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <520B4552.2000607@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On Wed, 14 Aug 2013, Fan Du wrote:
 
-Add the missing unlock before return from function moxart_mac_start_xmit()
-in the error handling case.
+> From e3929d4fdfad5b40fd8cad0e217597670d1aef54 Mon Sep 17 00:00:00 2001
+> From: Fan Du <fan.du@windriver.com>
+> Date: Wed, 14 Aug 2013 16:39:23 +0800
+> Subject: [PATCHv3 linux-next] hrtimer: Add notifier when clock_was_set was
+> called
+> 
+> When clock_was_set is called in case of system wall time change
+> or host resume from suspend state, use this notifier for places
+> where interested in this action, e.g Ipsec SA lifetime management.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/net/ethernet/moxa/moxart_ether.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+Sigh. These notifiers have been proposed in the past and we always
+rejected them. Why do you need this? There should be nothing except
+the core timekeeping code which needs to know about clock_was_set.
 
-diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
-index abd2c54..6eee686 100644
---- a/drivers/net/ethernet/moxa/moxart_ether.c
-+++ b/drivers/net/ethernet/moxa/moxart_ether.c
-@@ -314,6 +314,7 @@ static int moxart_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	unsigned int len;
- 	unsigned int tx_head = priv->tx_head;
- 	u32 txdes1;
-+	int ret = NETDEV_TX_BUSY;
- 
- 	desc = priv->tx_desc_base + (TX_REG_DESC_SIZE * tx_head);
- 
-@@ -321,7 +322,7 @@ static int moxart_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	if (readl(desc + TX_REG_OFFSET_DESC0) & TX_DESC0_DMA_OWN) {
- 		net_dbg_ratelimited("no TX space for packet\n");
- 		priv->stats.tx_dropped++;
--		return NETDEV_TX_BUSY;
-+		goto out_unlock;
- 	}
- 
- 	len = skb->len > TX_BUF_SIZE ? TX_BUF_SIZE : skb->len;
-@@ -330,7 +331,7 @@ static int moxart_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 						   len, DMA_TO_DEVICE);
- 	if (dma_mapping_error(&ndev->dev, priv->tx_mapping[tx_head])) {
- 		netdev_err(ndev, "DMA mapping error\n");
--		return NETDEV_TX_BUSY;
-+		goto out_unlock;
- 	}
- 
- 	priv->tx_len[tx_head] = len;
-@@ -360,10 +361,11 @@ static int moxart_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	priv->tx_head = TX_NEXT(tx_head);
- 
- 	ndev->trans_start = jiffies;
--
-+	ret = NETDEV_TX_OK;
-+out_unlock:
- 	spin_unlock_irq(&priv->txlock);
- 
--	return NETDEV_TX_OK;
-+	return ret;
- }
- 
- static struct net_device_stats *moxart_mac_get_stats(struct net_device *ndev)
+Can you please explain what kind of users you have in mind and WHY
+they need to know about it.
+
+Thanks,
+
+	tglx
