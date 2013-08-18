@@ -1,47 +1,76 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net] net-packet: restore packet statistics tp_packets to include drops
-Date: Sun, 18 Aug 2013 15:58:36 -0400
-Message-ID: <1376855916-21824-1-git-send-email-willemb@google.com>
-Cc: Willem de Bruijn <willemb@google.com>
-To: davem@davemloft.net, dborkman@redhat.com, netdev@vger.kernel.org
+From: Loganaden Velvindron <loganaden@gmail.com>
+Subject: Re: Fwd: RFC 6980 on Security Implications of IPv6 Fragmentation with
+ IPv6 Neighbor Discovery
+Date: Mon, 19 Aug 2013 00:52:57 +0400
+Message-ID: <CAOp4FwTPuY9H=w_A7vdwiJv3RqKLWnf+Nk=q8xaa9sN6+g4j1g@mail.gmail.com>
+References: <20130813221321.AEA1AB1E003@rfc-editor.org>
+	<520B3D81.9070506@gont.com.ar>
+	<20130814230617.GA13066@order.stressinduktion.org>
+	<520C7519.1010000@gont.com.ar>
+	<20130815100407.GA18564@order.stressinduktion.org>
+	<CAOp4FwRx3c3deHXupWg3S0aWe4ZJnCT9ORKCWRvUUuxxt1gneQ@mail.gmail.com>
+	<20130815102507.GA24122@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+To: Loganaden Velvindron <loganaden@gmail.com>,
+	Fernando Gont <fernando@gont.com.ar>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f201.google.com ([209.85.128.201]:44410 "EHLO
-	mail-ve0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752495Ab3HRT6j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Aug 2013 15:58:39 -0400
-Received: by mail-ve0-f201.google.com with SMTP id m1so335833ves.4
-        for <netdev@vger.kernel.org>; Sun, 18 Aug 2013 12:58:38 -0700 (PDT)
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:41362 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755549Ab3HRUw7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Aug 2013 16:52:59 -0400
+Received: by mail-wi0-f176.google.com with SMTP id f14so2431599wiw.9
+        for <netdev@vger.kernel.org>; Sun, 18 Aug 2013 13:52:57 -0700 (PDT)
+In-Reply-To: <20130815102507.GA24122@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-getsockopt PACKET_STATISTICS returns tp_packets + tp_drops.
-Commit ee80fbf301 cleaned up the getsockopt PACKET_STATISTICS code.
-This also changed semantics. Historically, tp_packets included
-tp_drops on return. The commit removed the line that adds tp_drops
-into tp_packets.
+On Thu, Aug 15, 2013 at 2:25 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+>
+> On Thu, Aug 15, 2013 at 02:14:46PM +0400, Loganaden Velvindron wrote:
+> > I'm not sure if you got my previous mails, but I'd like to know a
+> > couple of things:
+>
+> Ah, you asked me off-list. So, for a wider audience, I copy & paste my answers
+> from the just answered mail. ;)
+>
+> > 1) How can I test this diff ?
+>
+> Actually, nothing should change at all.
+>
+> Myself, I used scapy to construct some packets and send it to a system
+> with the patched kernel and had some printks sprinkeled in the source
+> while watching tcpdump.
+>
+> > 2) It's developed against which git brach ? linux-next ?
+>
+> Yes, I targeted linux-next. But it should apply to older kernels
+> without too much fuzz as well.
+>
 
-This patch reinstates the old semantics.
+I've tested with linux-next.
 
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- net/packet/af_packet.c | 2 ++
- 1 file changed, 2 insertions(+)
+> > 3) What will/could break with this diff in a production environment ?
+>
+> RA messages could get fragmented if a speaker puts lots of options in it. I
+> hope all RA speakers already spread the options over multiple RAs, but I don't
+> know. In case the RA is fragmented it will now be dropped silently.
+>
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 4b66c75..75c8bbf 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -3259,9 +3259,11 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
- 
- 		if (po->tp_version == TPACKET_V3) {
- 			lv = sizeof(struct tpacket_stats_v3);
-+			st.stats3.tp_packets += st.stats3.tp_drops;
- 			data = &st.stats3;
- 		} else {
- 			lv = sizeof(struct tpacket_stats);
-+			st.stats1.tp_packets += st.stats1.tp_drops;
- 			data = &st.stats1;
- 		}
- 
+My IPv6 gateway machine runs OpenBSD, and so far, no issues with it.
+I'm going to test
+it at work in a couple of hours and report back.
+
+
+> Thanks,
+>
+>   Hannes
+>
+
+
+
 -- 
-1.8.3
+This message is strictly personal and the opinions expressed do not
+represent those of my employers, either past or present.
