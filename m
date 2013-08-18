@@ -1,82 +1,72 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH RESEND] can: mcp251x: Replace power callbacks with regulator
- API
-Date: Sun, 18 Aug 2013 10:00:34 +0200
-Message-ID: <52107F22.80002@pengutronix.de>
-References: <1375963227-6468-1-git-send-email-shc_work@mail.ru> <20130817083014.a01144051b158c34ec7dd9d9@mail.ru> <520FD60E.4040709@pengutronix.de> <1376773805.878998573@f169.i.mail.ru>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] moxa: fix missing unlock on error in moxart_mac_start_xmit()
+Date: Sun, 18 Aug 2013 16:09:30 +0800
+Message-ID: <CAPgLHd_pVD1wsDmL+bON35fif14xE5A6WsJjf+b1mywgrme-+g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="uvu50eHw3xR5l8WRVkQwRidfuI41wte0L"
-Cc: Russell King <linux@arm.linux.org.uk>, netdev@vger.kernel.org,
-	Haojian Zhuang <haojian.zhuang@gmail.com>,
-	linux-can@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Eric Miao <eric.y.miao@gmail.com>,
-	Wolfgang Grandegger <wg@grandegger.com>
-To: Alexander Shiyan <shc_work@mail.ru>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1376773805.878998573@f169.i.mail.ru>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: grant.likely@linaro.org, rob.herring@calxeda.com,
+	davem@davemloft.net, jonas.jensen@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f53.google.com ([209.85.214.53]:46439 "EHLO
+	mail-bk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752192Ab3HRIJb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Aug 2013 04:09:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---uvu50eHw3xR5l8WRVkQwRidfuI41wte0L
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-On 08/17/2013 11:10 PM, Alexander Shiyan wrote:
-[...]
+Add the missing unlock before return from function moxart_mac_start_xmit()
+in the error handling case.
 
->>> - xceiver-supply: Regulator that powers the CAN transceiver
->>
->> which translates into:
->>
->>> priv->reg_xceiver =3D devm_regulator_get(&pdev->dev, "xceiver");
->>
->> Can you please use "xceiver" instead of "transceiver", so that future =
-DT
->> binding will fit the scheme.
->=20
-> OK. I am not ready to add DT support yet, but it can be added later,
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/ethernet/moxa/moxart_ether.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-DT support can be added later, I just want to make sure that you use
-"xceiver" for the regulator, so that you don't need to change any code
-if DT is added.
-
-> so v2 will contain 3 parts:
-
-If you mean series v3 consists of three patches....
-
-> 1 - Replace power callbacks with regulator API
-> 2 - Eliminate mcp251x_platform_data->irq_flags
-> 3 - Replace oscillator_frequency with CLK API (and remove mcp251x.h hea=
-der)
->=20
-> Are you OK with such changes?
-
-=2E..them I'm okay :)
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---uvu50eHw3xR5l8WRVkQwRidfuI41wte0L
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlIQfyIACgkQjTAFq1RaXHMpEgCffD4vMzXBf3axUw7j7z0egHnI
-zQcAn17jb+IoenVagyc+IXphEbQ3ixZq
-=09BH
------END PGP SIGNATURE-----
-
---uvu50eHw3xR5l8WRVkQwRidfuI41wte0L--
+diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
+index abd2c54..6eee686 100644
+--- a/drivers/net/ethernet/moxa/moxart_ether.c
++++ b/drivers/net/ethernet/moxa/moxart_ether.c
+@@ -314,6 +314,7 @@ static int moxart_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	unsigned int len;
+ 	unsigned int tx_head = priv->tx_head;
+ 	u32 txdes1;
++	int ret = NETDEV_TX_BUSY;
+ 
+ 	desc = priv->tx_desc_base + (TX_REG_DESC_SIZE * tx_head);
+ 
+@@ -321,7 +322,7 @@ static int moxart_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	if (readl(desc + TX_REG_OFFSET_DESC0) & TX_DESC0_DMA_OWN) {
+ 		net_dbg_ratelimited("no TX space for packet\n");
+ 		priv->stats.tx_dropped++;
+-		return NETDEV_TX_BUSY;
++		goto out_unlock;
+ 	}
+ 
+ 	len = skb->len > TX_BUF_SIZE ? TX_BUF_SIZE : skb->len;
+@@ -330,7 +331,7 @@ static int moxart_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 						   len, DMA_TO_DEVICE);
+ 	if (dma_mapping_error(&ndev->dev, priv->tx_mapping[tx_head])) {
+ 		netdev_err(ndev, "DMA mapping error\n");
+-		return NETDEV_TX_BUSY;
++		goto out_unlock;
+ 	}
+ 
+ 	priv->tx_len[tx_head] = len;
+@@ -360,10 +361,11 @@ static int moxart_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	priv->tx_head = TX_NEXT(tx_head);
+ 
+ 	ndev->trans_start = jiffies;
+-
++	ret = NETDEV_TX_OK;
++out_unlock:
+ 	spin_unlock_irq(&priv->txlock);
+ 
+-	return NETDEV_TX_OK;
++	return ret;
+ }
+ 
+ static struct net_device_stats *moxart_mac_get_stats(struct net_device *ndev)
