@@ -1,92 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: NAT stops forwarding ACKs after PMTU discovery
-Date: Sun, 18 Aug 2013 08:24:27 -0700
-Message-ID: <1376839467.21329.36.camel@edumazet-glaptop>
-References: <521061B4.1030508@fatooh.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org
-To: Corey Hickey <bugfood-ml@fatooh.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <521061B4.1030508@fatooh.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: [PATCH net-next] tcp: trivial: Remove nocache argument from tcp_v4_send_synack
+Date: Sun, 18 Aug 2013 17:34:38 +0200
+Message-ID: <1376840078-6556-1-git-send-email-christoph.paasch@uclouvain.be>
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:59053 "EHLO
+	smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751155Ab3HRPfC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Aug 2013 11:35:02 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-08-17 at 22:55 -0700, Corey Hickey wrote:
-> Hi,
-> 
-> If there is a better user-oriented list I should ask this question on,
-> please tell me; I've asked a couple similar questions on netdev before
-> and gotten some great help.
-> 
-> 
-> I'm having a problem wherein some NATted connections stop forwarding
-> packets. I've troubleshot the problem far enough to tell that it happens
-> when path MTU discovery happens--the ACK to the retransmitted packet
-> never gets forwarded back to my local client (and neither do the
-> retransmitted ACKs).
-> 
-> This is my setup:
-> ----------------------------------------------------------------------
->        MTU 9100                  MTU 1355  MTU 1500
-> client      --> linux router          -->  vpn  --> work host
-> 198.18.0.3      198.18.0.1    (eth0)                10.15.24.13
->                 192.168.61.54 (tun0)
-> ----------------------------------------------------------------------
-> 
-> I'm running openconnect on a Linux router to connect to a cisco VPN at
-> work. The Linux router does SNAT (MASQUERADE) over the virtual tun0
-> interface created by openconnect.
-> 
-> This is the best test I have so far:
-> 
-> $ sudo ip route flush cache ; ssh workhost.example.com exit
-> Read from socket failed: Connection reset by peer
-> 
-> Most of the time, this hangs for a few minutes before giving up;
-> sometimes it just works fine. tcpdumps indicate that when it works, all
-> packets transmitted are below the VPN's MTU; when it fails, MTU
-> discovery has happened:
-> 
-> 1. client sends large packet, for example 1832 bytes
-> 2. router sends ICMP fragmentation needed
-> 3. client retransmits with a smaller packet, for example 1303 bytes
-> 4. router forwards packet over VPN
-> 5. work host ACKs packet
-> 6. router receives ACK but does not forward it
-> 7. both endpoints retransmit, but ACKs never get forwarded
-> 
-> The NAT table maintains an entry throughout (and continues to SNAT
-> retransmits from the client), but the ACKs from the server never get
-> forwarded.
-> 
-> fire:~# netstat-nat -n -d 10.15.24.13
-> Proto NATed Address           Destination Address            State
-> tcp   198.18.0.3:51076        10.15.24.13:22                 ESTABLISHED
-> 
-> 
-> I put a LOG target on the INPUT chain, though, and apparently these
-> packets are bypassing the NAT; the kernel does not think they should be
-> forwarded (else they would be on the FORWARD chain).
-> 
-> [23335.509084] IN=tun0 OUT= MAC= SRC=10.15.24.13 DST=192.168.61.54
-> LEN=64 TOS=0x00 PREC=0x00 TTL=62 ID=28270 DF PROTO=TCP SPT=22 DPT=51076
-> WINDOW=134 RES=0x00 ACK FIN URGP=0
-> 
-> 
-> The kernel on the router is 3.10-2-amd64 (from Debian testing). I had
-> the same problem with 3.2.0-4-amd64 (from Debian stable), before I tried
-> to see if I could upgrade the problem away.
-> 
-> Any help would be much appreciated. I can send full tcpdumps if needed.
+The nocache-argument was used in tcp_v4_send_synack as an argument to
+inet_csk_route_req. However, since ba3f7f04ef2b (ipv4: Kill
+FLOWI_FLAG_RT_NOCACHE and associated code.) this is no more used.
 
-This looks like the bug we had to fix recently : 
+This patch removes the unsued argument from tcp_v4_send_synack.
 
-http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=356d7d88e088687b6578ca64601b0a2c9d145296
+Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+---
+ net/ipv4/tcp_ipv4.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-Could you try latest net tree ?
-
-
-
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 05a3d45..09d45d7 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -821,8 +821,7 @@ static void tcp_v4_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
+  */
+ static int tcp_v4_send_synack(struct sock *sk, struct dst_entry *dst,
+ 			      struct request_sock *req,
+-			      u16 queue_mapping,
+-			      bool nocache)
++			      u16 queue_mapping)
+ {
+ 	const struct inet_request_sock *ireq = inet_rsk(req);
+ 	struct flowi4 fl4;
+@@ -852,7 +851,7 @@ static int tcp_v4_send_synack(struct sock *sk, struct dst_entry *dst,
+ 
+ static int tcp_v4_rtx_synack(struct sock *sk, struct request_sock *req)
+ {
+-	int res = tcp_v4_send_synack(sk, NULL, req, 0, false);
++	int res = tcp_v4_send_synack(sk, NULL, req, 0);
+ 
+ 	if (!res)
+ 		TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_RETRANSSEGS);
+-- 
+1.8.1.2
