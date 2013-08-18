@@ -1,44 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: About  tcp: set timestamps for restored skb-s
-Date: Sat, 17 Aug 2013 17:39:36 -0700
-Message-ID: <1376786376.21329.20.camel@edumazet-glaptop>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH ipsec 1/3] ipv6: wire up skb->encapsulation
+Date: Sun, 18 Aug 2013 14:24:16 +1000
+Message-ID: <20130818042416.GK30709@verge.net.au>
+References: <20130817175116.GA7001@order.stressinduktion.org>
+ <20130817180738.GA24518@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Andrey Vagin <avagin@openvz.org>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, steffen.klassert@secunet.com,
+	yoshfuji@linux-ipv6.org, nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:55642 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751918Ab3HRAji (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Aug 2013 20:39:38 -0400
-Received: by mail-pa0-f43.google.com with SMTP id hz10so3298413pad.30
-        for <netdev@vger.kernel.org>; Sat, 17 Aug 2013 17:39:38 -0700 (PDT)
+Received: from kirsty.vergenet.net ([202.4.237.240]:44492 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750771Ab3HREWf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Aug 2013 00:22:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20130817180738.GA24518@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Because of gmail.com problems, I missed lot of netdev traffic
+On Sat, Aug 17, 2013 at 08:07:38PM +0200, Hannes Frederic Sowa wrote:
+> Hi Simon!
+> 
+> On Sat, Aug 17, 2013 at 07:51:16PM +0200, Hannes Frederic Sowa wrote:
+> > When pushing a new header before current one call skb_reset_inner_headers
+> > to record the position of the inner headers in the various ipv6 tunnel
+> > protocols.
+> > 
+> > We later need this to correctly identify the addresses needed to send
+> > back an error in the xfrm layer.
+> > 
+> > This change is safe, because skb->protocol is always checked before
+> > dereferencing data from the inner protocol.
+> > 
+> > Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> > Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> > Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> > ---
+> > 
+> > This patch is based on Steffen Klassert's ipsec tree.
+> > 
+> >  net/ipv6/ip6_gre.c    | 5 +++++
+> >  net/ipv6/ip6_tunnel.c | 6 ++++++
+> >  net/ipv6/sit.c        | 5 +++++
+> >  3 files changed, 16 insertions(+)
+> > 
+> > diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+> > index ecd6073..90747f1 100644
+> > --- a/net/ipv6/ip6_gre.c
+> > +++ b/net/ipv6/ip6_gre.c
+> > @@ -724,6 +724,11 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
+> >  		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL);
+> >  	}
+> >  
+> > +	if (likely(!skb->encapsulation)) {
+> > +		skb_reset_inner_headers(skb);
+> > +		skb->encapsulation = 1;
+> > +	}
+> > +
+> 
+> While doing these patches, I wondered how skb->inner_protocol will be
+> used in future (you added it in 0d89d2035fe063461a5ddb609b2c12e7fb006e44
+> ("MPLS: Add limited GSO support")). Current use by tunnels seems safe to
+> me, but I wondered how you would extend its use?
 
-Related to :
+Hi,
 
-http://patchwork.ozlabs.org/patch/267678/
+I must confess that I'm not entirely sure that I understand the question.
 
+The purpose of adding inner_protocol was to allow GSO of MPLS as MPLS is
+rather special and does not include the inner protocol anywhere in the
+packet. So this allows it to be known when GSO occurs if it was previously
+known - I believe the sole use-case here is if a packet wasn't MPLS when
+received but then turned into MPLS by Open vSwtich.
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 5423223..b2f6c74 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1121,6 +1121,13 @@  new_segment:
- 					goto wait_for_memory;
- 
- 				/*
-+				 * All packets are restored as if they have
-+				 * already been sent.
-+				 */
-+				if (tp->repair)
-+					TCP_SKB_CB(skb)->when = tcp_time_stamp;
-+
+I'm not aware of any other encapsulation/tunnelling protocols which share
+MPLS's unusual property of not including the inner-protocol in the packet,
+but if they exist then skb->inner_protocol may be useful when adding GSO
+support for them.
 
-The test could be removed.
-
-Setting @when for regular sends seems harmless
+Beyond that I do not envisage any extension of the use of
+skb->inner_protocol at this point. But I feel that somehow I am missing
+the point of your question.
