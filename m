@@ -1,55 +1,68 @@
-From: Jerry Chu <hkchu@google.com>
-Subject: Re: [PATCH net-next 2/2] bnx2x: add RSS capability for GRE traffic
-Date: Sun, 18 Aug 2013 04:55:15 -0700
-Message-ID: <CAPshTCh3CqrgasEvFG_Yy8NRHMp_rrQDqn7eRMD9NycmpxaWkQ@mail.gmail.com>
-References: <1363625464-21633-1-git-send-email-dmitry@broadcom.com>
-	<1363625464-21633-2-git-send-email-dmitry@broadcom.com>
-	<1363651672.21184.17.camel@edumazet-glaptop>
-	<504C9EFCA2D0054393414C9CB605C37F20BE935B@SJEXCHMB06.corp.ad.broadcom.com>
-	<CAPshTCgpE3MoR3D8=EZa_CFVDBwN+fYDZZQrTchhtq-OM_rKzQ@mail.gmail.com>
-	<CAM8tLiNRi7mOb9wwSHuY4867ANUvzd_XxfZLV0gDPO2jKMtWsQ@mail.gmail.com>
-	<1376766116.21329.9.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Dmitry Kravkov <dkravkov@gmail.com>,
-	Dmitry Kravkov <dmitry@broadcom.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Tom Herbert <therbert@google.com>,
-	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Peter Wu <lekensteyn@gmail.com>
+Subject: [PATCH v3] r8169: fix invalid register dump
+Date: Sun, 18 Aug 2013 15:41:38 +0200
+Message-ID: <1376833298-7321-1-git-send-email-lekensteyn@gmail.com>
+Cc: lekensteyn@gmail.com, netdev@vger.kernel.org,
+	nic_swsd <nic_swsd@realtek.com>
+To: Francois Romieu <romieu@fr.zoreil.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f171.google.com ([209.85.128.171]:34320 "EHLO
-	mail-ve0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754376Ab3HRLzQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Aug 2013 07:55:16 -0400
-Received: by mail-ve0-f171.google.com with SMTP id pa12so2374936veb.16
-        for <netdev@vger.kernel.org>; Sun, 18 Aug 2013 04:55:15 -0700 (PDT)
-In-Reply-To: <1376766116.21329.9.camel@edumazet-glaptop>
+Received: from mail-ea0-f169.google.com ([209.85.215.169]:50078 "EHLO
+	mail-ea0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755370Ab3HRNln (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Aug 2013 09:41:43 -0400
+Received: by mail-ea0-f169.google.com with SMTP id k11so379299eaj.14
+        for <netdev@vger.kernel.org>; Sun, 18 Aug 2013 06:41:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 17, 2013 at 12:01 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sat, 2013-08-17 at 21:52 +0300, Dmitry Kravkov wrote:
->
->>
->> Current bnx2x HW is not able to perform CSUM validation for
->> encapsulated packets, so in any case host needs to do that.
->> Today GRO/TPA feature depends on CSUM, but theoretically (i did not
->> investigate it) and probably HW can provide aggregated packets w/o
->> csum validation - this will save headers processing for host.
->
-> I am not sure I understand this.
->
-> Aggregation cannot be done if csums are not validated.
+For some reason, my PCIe RTL8111E onboard NIC on a GA-Z68X-UD3H-B3
+motherboard reads as FFs when reading from MMIO with a block size
+larger than 7. Therefore change to reading blocks of four bytes.
 
-Unless all the csums from aggregated pkts are also aggregated into one
-(so that the host computes s/w csum on the large pkt and validates against
-the aggregated csum...) There may be some performance benefit for doing
-this but it may arguably weaken already weak 1's complement csum.
+Ben Hutchings noted that the buffer is large enough to hold all
+registers, so now all registers are read. Since regs->len is not used
+anymore, drop the superfluous range check as well. (ethtool would
+already ensure that regs->len <= R8169_REGS_SIZE).
 
-Jerry
+Signed-off-by: Peter Wu <lekensteyn@gmail.com>
+---
+Hi,
 
->
->
+This partly obsoletes "r8169,sis190: remove unnecessary length
+check"[1]. I do not have sis190 hardware, but since that is based on
+this r8169 driver, would it make sense to apply this patch to sis190
+too?
+
+Regards,
+Peter
+
+ [1]: http://www.spinics.net/lists/netdev/msg246824.html
+---
+ drivers/net/ethernet/realtek/r8169.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index b5eb419..c0c9e14 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -1897,12 +1897,13 @@ static void rtl8169_get_regs(struct net_device *dev, struct ethtool_regs *regs,
+ 			     void *p)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+-
+-	if (regs->len > R8169_REGS_SIZE)
+-		regs->len = R8169_REGS_SIZE;
++	u32 __iomem *data = tp->mmio_addr;
++	u32 *dw = p;
++	int i;
+ 
+ 	rtl_lock_work(tp);
+-	memcpy_fromio(p, tp->mmio_addr, regs->len);
++	for (i = 0; i < R8169_REGS_SIZE; i += 4)
++		memcpy_fromio(dw++, data++, 4);
+ 	rtl_unlock_work(tp);
+ }
+ 
+-- 
+1.8.3.4
