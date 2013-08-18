@@ -1,42 +1,43 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCHv3 linux-next] hrtimer: Add notifier when clock_was_set
- was called
-Date: Sun, 18 Aug 2013 11:05:03 +0200 (CEST)
-Message-ID: <alpine.DEB.2.02.1308181102230.4089@ionos.tec.linutronix.de>
-References: <1375866296-15079-1-git-send-email-fan.du@windriver.com> <1375866296-15079-2-git-send-email-fan.du@windriver.com> <52021177.6020306@redhat.com> <520213F2.5090401@windriver.com> <520214C6.6000307@redhat.com> <520B4552.2000607@windriver.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Fan Du <fan.du@windriver.com>
+From: Anders Larsen <al@alarsen.net>
+Subject: [PATCH] pch_gbe: ethtool cannot change parameters when link is down
+Date: Sun, 18 Aug 2013 11:54:40 +0200
+Message-ID: <1376819680-15359-1-git-send-email-al@alarsen.net>
+Cc: Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <520B4552.2000607@windriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 14 Aug 2013, Fan Du wrote:
+When attempting to change e.g. the advertising mask when the link is down
+ecmd->speed is -1 causing mii_ethtool_sset() to bail out.
 
-> From e3929d4fdfad5b40fd8cad0e217597670d1aef54 Mon Sep 17 00:00:00 2001
-> From: Fan Du <fan.du@windriver.com>
-> Date: Wed, 14 Aug 2013 16:39:23 +0800
-> Subject: [PATCHv3 linux-next] hrtimer: Add notifier when clock_was_set was
-> called
-> 
-> When clock_was_set is called in case of system wall time change
-> or host resume from suspend state, use this notifier for places
-> where interested in this action, e.g Ipsec SA lifetime management.
+This bug bit when connecting to a gigabit switch through a 4-pin (industrial)
+cable, since link negotiation would not complete (both endpoints claimed to
+be gigabit-capable, but this is not possible with only 4 pins).
+Any attempt to fix this by setting autonegation to not offer 1000Mbps
+failed as the setting would not be accepted while the link was still down...
 
-Sigh. These notifiers have been proposed in the past and we always
-rejected them. Why do you need this? There should be nothing except
-the core timekeeping code which needs to know about clock_was_set.
+Set ecmd->speed to SPEED_1000 to satisfy mii_ethtool_sset()
+(the actual value of ecmd->speed doesn't matter as long as it is valid,
+since a re-negotation is forced afterwards).
 
-Can you please explain what kind of users you have in mind and WHY
-they need to know about it.
+Signed-off-by: Anders Larsen <al@alarsen.net>
+---
+ .../ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c    |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Thanks,
-
-	tglx
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
+index 1129db0..f0ceb89 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
+@@ -118,6 +118,7 @@ static int pch_gbe_set_settings(struct net_device *netdev,
+ 	 * filled by get_settings() on a down link, speed is -1: */
+ 	if (speed == UINT_MAX) {
+ 		speed = SPEED_1000;
++		ethtool_cmd_speed_set(ecmd, speed);
+ 		ecmd->duplex = DUPLEX_FULL;
+ 	}
+ 	ret = mii_ethtool_sset(&adapter->mii, ecmd);
+-- 
+1.7.0.4
