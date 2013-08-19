@@ -1,49 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: NAT stops forwarding ACKs after PMTU discovery
-Date: Mon, 19 Aug 2013 09:00:31 -0700
-Message-ID: <1376928031.4226.66.camel@edumazet-glaptop>
-References: <1376839467.21329.36.camel@edumazet-glaptop>
-	 <alpine.DEB.2.00.1308182314050.25515@blackhole.kfki.hu>
-	 <1376870425.4226.25.camel@edumazet-glaptop>
-	 <1376870592.4226.27.camel@edumazet-glaptop> <5211DAA6.1070302@fatooh.org>
-	 <20130819123314.GC3583@cpaasch-mac>
-	 <1376918657.4226.59.camel@edumazet-glaptop>
-	 <20130819134919.GF3583@cpaasch-mac>
-	 <1376920685.4226.61.camel@edumazet-glaptop>
-	 <20130819143509.GA31320@linuxace.com> <20130819153328.GH3583@cpaasch-mac>
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: pull request net: 2013-08-19
+Date: Mon, 19 Aug 2013 18:59:54 +0200
+Message-ID: <1376931595-2070-1-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Phil Oester <kernel@linuxace.com>,
-	Corey Hickey <bugfood-ml@fatooh.org>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org
-To: Christoph Paasch <christoph.paasch@uclouvain.be>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:64540 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751073Ab3HSQAk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 12:00:40 -0400
-In-Reply-To: <20130819153328.GH3583@cpaasch-mac>
+Received: from diserzione.investici.org ([82.221.99.153]:50491 "EHLO
+	diserzione.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750780Ab3HSRCi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 13:02:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-08-19 at 17:33 +0200, Christoph Paasch wrote:
+Hi David,
 
-> 
-> Unfortunately, they will hardly go away in the near futur. Rather the
-> opposite is the case.
-> 
-> 
-> If you have a public server running, I would be interested in the count of
-> invalid SACK-blocks received (netstat -s | grep TCPSACKDiscard). This is an
-> indication for such kind of middlebox between your server and the client,
-> implying that these connections cannot benefit from TCP-FastRetransmission
-> and each packet-loss will require an RTO to recover.
-> 
+after a not so quiet weekend, here is my small pull request intended fo=
+r
+net/linux-3.11.
 
-If the (random) sequence offset is small rather than completely out of
-window, it's going to be hard to detect all problems.
+This is a fix that aims to block TX operations in case of skb preparati=
+on
+failure.
 
-Show us your patch ;)
+
+Please pull or let me know of any problem.
+
+Thanks,
+	Antonio
+
+p.s. is net going to be merged into net-next one of these days? I need =
+it in
+order to send a couple of changes to net-next.
+
+
+The following changes since commit 0f7dd1aa8f959216f1faa71513b9d3c1a906=
+5e5a:
+
+  Merge tag 'clk-fixes-for-linus' of git://git.linaro.org/people/mturqu=
+ette/linux (2013-08-16 10:00:18 -0700)
+
+are available in the git repository at:
+
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
+
+for you to fetch changes up to 50fa3b31f4700deb1a860fa1a04016b889765323=
+:
+
+  batman-adv: check return type of unicast packet preparations (2013-08=
+-17 20:02:32 +0200)
+
+----------------------------------------------------------------
+Included change:
+- Check if the skb has been correctly prepared before going on
+
+----------------------------------------------------------------
+Linus L=C3=BCssing (1):
+      batman-adv: check return type of unicast packet preparations
+
+ net/batman-adv/unicast.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
