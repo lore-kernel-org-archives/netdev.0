@@ -1,63 +1,68 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net 6/6] bnx2x: set VF DMAE when first function has 0
- supported VFs
-Date: Mon, 19 Aug 2013 09:12:01 +0300
-Message-ID: <1376892721-10410-7-git-send-email-yuvalmin@broadcom.com>
-References: <1376892721-10410-1-git-send-email-yuvalmin@broadcom.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] driver:net:stmmac: Disable DMA store and forward mode
+ if platform data force_sf_dma_mode is negative.
+Date: Mon, 19 Aug 2013 08:03:16 +0200
+Message-ID: <5211B524.4030609@st.com>
+References: <1376552256-7421-1-git-send-email-sonic.adi@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ariele@broadcom.com, eilong@broadcom.com,
-	"Yuval Mintz" <yuvalmin@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, adi-buildroot-devel@lists.sourceforge.net,
+	Sonic Zhang <sonic.zhang@analog.com>
+To: Sonic Zhang <sonic.adi@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1732 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750989Ab3HSGMX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Aug 2013 02:12:23 -0400
-In-Reply-To: <1376892721-10410-1-git-send-email-yuvalmin@broadcom.com>
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:36439 "EHLO
+	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750806Ab3HSGVG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 02:21:06 -0400
+In-Reply-To: <1376552256-7421-1-git-send-email-sonic.adi@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ariel Elior <ariele@broadcom.com>
+Hello Sonic
 
-There are possible HW configurations in which PFs will have SR-IOV capability
-but will have Max VFs set to 0 - this happens when there are Multi-Function
-devices where the VFs are allocated to only some of the PFs.
+On 8/15/2013 9:37 AM, Sonic Zhang wrote:
+> From: Sonic Zhang <sonic.zhang@analog.com>
+>
+> Some synopsys ip implementation doesn't support DMA store and forward mode,
+> such as BF60x. So, define force_sf_dma_mode negative to use DMA thresholds only.
 
-DMAE is configured to support VFs only if the configuring PF has supported VFs.
-In case the first PF to be loaded will be one without supported VFs, it will
-not configure DMAE to the VF-supporting mode. When VFs of other PFs will be
-loaded later on, they will not be able to communicate with their PF.
+I think that you should not pass the force_sf_dma_mode platform field
+at all (and it doesn't make sense to force it as negative).
+To use the threshold you should reset tx_coe. In fact, your HW cannot
+perform the Hw csum if SF is not available.
+Note that, the HW cap register (if available) can override (set/reset)
+  tx_coe.
 
-This changes the requirement for configuring DMAE for VF-supporting mode;
-If the device has SR-IOV capabilities there must be some PF that has
-max supported VFs > 0, thus it will configure the DMAE for supporting VFs.
+I tested, long time ago, this scenario on old mac w/o HW cap register
+and w/o SF.
 
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+let me know if it is ok
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index d414b49..ad83f4b 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -1747,11 +1747,8 @@ void bnx2x_iov_init_dq(struct bnx2x *bp)
- 
- void bnx2x_iov_init_dmae(struct bnx2x *bp)
- {
--	DP(BNX2X_MSG_IOV, "SRIOV is %s\n", IS_SRIOV(bp) ? "ON" : "OFF");
--	if (!IS_SRIOV(bp))
--		return;
--
--	REG_WR(bp, DMAE_REG_BACKWARD_COMP_EN, 0);
-+	if (pci_find_ext_capability(bp->pdev, PCI_EXT_CAP_ID_SRIOV))
-+		REG_WR(bp, DMAE_REG_BACKWARD_COMP_EN, 0);
- }
- 
- static int bnx2x_vf_bus(struct bnx2x *bp, int vfid)
--- 
-1.8.1.227.g44fe835
+I have just noticed that the no_csum_insertion could be removed and I'll
+provide a patch for it.
+
+peppe
+
+>
+> Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+> ---
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 +++-
+>   1 file changed, 3 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index f2ccb36..b0e003a 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -1157,7 +1157,9 @@ static void free_dma_desc_resources(struct stmmac_priv *priv)
+>    */
+>   static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
+>   {
+> -	if (likely(priv->plat->force_sf_dma_mode ||
+> +	if (priv->plat->force_sf_dma_mode < 0)
+> +		priv->hw->dma->dma_mode(priv->ioaddr, tc, tc);
+> +	else if (likely(priv->plat->force_sf_dma_mode > 0 ||
+>   		   ((priv->plat->tx_coe) && (!priv->no_csum_insertion)))) {
+>   		/*
+>   		 * In case of GMAC, SF mode can be enabled
+>
