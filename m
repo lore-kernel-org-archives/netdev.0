@@ -1,35 +1,71 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: Where are OVS VXLAN patches?
-Date: Mon, 19 Aug 2013 09:23:58 +0800
-Message-ID: <1376875438.2742.4.camel@cr0>
-References: <1376291275.17589.18.camel@cr0>
-	 <CAEP_g=-JQUZaLUhkMWQ6p8iYn8jqb_0tZOq=x+kv0Xip3dUA7A@mail.gmail.com>
-	 <1376370988.13583.6.camel@cr0> <1376615540.2934.3.camel@cr0>
-	 <CAOaVG16Vx11DV4gxfSf2f0BceOk1y+aP6rtz-_h9b0Ckp0r2Jw@mail.gmail.com>
-	 <1376628625.2934.57.camel@cr0>
-	 <CAEP_g=9+aLyfY_3TaLkdHeKJGRUHtNFcjk=0w-DEUQ7Q_iHjGw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] ipv4: raise IP_MAX_MTU to theoretical limit
+Date: Sun, 18 Aug 2013 19:08:07 -0700
+Message-ID: <1376878087.4226.41.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: Jesse Gross <jesse@nicira.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Willem de Bruijn <willemb@google.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48102 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752759Ab3HSBYL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 Aug 2013 21:24:11 -0400
-In-Reply-To: <CAEP_g=9+aLyfY_3TaLkdHeKJGRUHtNFcjk=0w-DEUQ7Q_iHjGw@mail.gmail.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:33818 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754281Ab3HSCIL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Aug 2013 22:08:11 -0400
+Received: by mail-pa0-f41.google.com with SMTP id bj1so4036492pad.28
+        for <netdev@vger.kernel.org>; Sun, 18 Aug 2013 19:08:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-08-16 at 08:58 -0700, Jesse Gross wrote:
-> David, if you just want to take the whole series at this point, there
-> shouldn't be any conflicts on my end and that way we can finally get
-> this in.
-> 
+From: Eric Dumazet <edumazet@google.com>
 
-_I think_ Pravin needs to repost them since they are not in patchwork
-any more.
+As discussed last year [1], there is no compelling reason
+to limit IPv4 MTU to 0xFFF0, while real limit is 0xFFFF
+
+[1] : http://marc.info/?l=linux-netdev&m=135607247609434&w=2
+
+Willem raised this issue again because some of our internal
+regression tests broke after lo mtu being set to 65536.
+
+IP_MTU reports 0xFFF0, and the test attempts to send a RAW datagram of
+mtu + 1 bytes, expecting the send() to fail, but it does not.
+
+Alexey raised interesting points about TCP MSS, that should be addressed
+in follow-up patches in TCP stack if needed, as someone could also set
+an odd mtu anyway.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: Willem de Bruijn <willemb@google.com>
+---
+ net/ipv4/route.c |    8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index e805481..727f436 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -112,7 +112,8 @@
+ #define RT_FL_TOS(oldflp4) \
+ 	((oldflp4)->flowi4_tos & (IPTOS_RT_MASK | RTO_ONLINK))
+ 
+-#define IP_MAX_MTU	0xFFF0
++/* IPv4 datagram length is stored into 16bit field (tot_len) */
++#define IP_MAX_MTU	0xFFFF
+ 
+ #define RT_GC_TIMEOUT (300*HZ)
+ 
+@@ -1227,10 +1228,7 @@ static unsigned int ipv4_mtu(const struct dst_entry *dst)
+ 			mtu = 576;
+ 	}
+ 
+-	if (mtu > IP_MAX_MTU)
+-		mtu = IP_MAX_MTU;
+-
+-	return mtu;
++	return min_t(unsigned int, mtu, IP_MAX_MTU);
+ }
+ 
+ static struct fib_nh_exception *find_exception(struct fib_nh *nh, __be32 daddr)
