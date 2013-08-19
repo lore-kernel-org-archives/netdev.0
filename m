@@ -1,208 +1,110 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v7 1/8] vxlan: Restructure vxlan socket apis.
-Date: Mon, 19 Aug 2013 11:22:48 -0700
-Message-ID: <1376936568-25476-1-git-send-email-pshelar@nicira.com>
+Subject: [PATCH net-next v7 2/8] vxlan: Restructure vxlan receive.
+Date: Mon, 19 Aug 2013 11:22:54 -0700
+Message-ID: <1376936574-25517-1-git-send-email-pshelar@nicira.com>
 Cc: stephen@networkplumber.org, Pravin B Shelar <pshelar@nicira.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog102.obsmtp.com ([74.125.149.69]:36254 "HELO
-	na3sys009aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751099Ab3HSSWw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 14:22:52 -0400
-Received: by mail-pb0-f47.google.com with SMTP id rr4so5240355pbb.20
-        for <netdev@vger.kernel.org>; Mon, 19 Aug 2013 11:22:51 -0700 (PDT)
+Received: from na3sys009aog127.obsmtp.com ([74.125.149.107]:34738 "HELO
+	na3sys009aog127.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751099Ab3HSSXA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 14:23:00 -0400
+Received: by mail-pa0-f51.google.com with SMTP id lf1so4878140pab.24
+        for <netdev@vger.kernel.org>; Mon, 19 Aug 2013 11:23:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Restructure vxlan-socket management APIs so that it can be
-shared between vxlan and ovs modules.
-This patch does not change any functionality.
+Use iptunnel_pull_header() for better code sharing.
 
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-v6-v7:
- - get rid of zero refcnt vs from hashtable.
 ---
- drivers/net/vxlan.c |   92 ++++++++++++++++++++++++++++----------------------
- 1 files changed, 51 insertions(+), 41 deletions(-)
+v5-v6:
+split from second patch from v5 series.
+---
+ drivers/net/vxlan.c |   22 +++++++---------------
+ 1 files changed, 7 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 570ad7a..b784ee6 100644
+index b784ee6..1afb979 100644
 --- a/drivers/net/vxlan.c
 +++ b/drivers/net/vxlan.c
-@@ -188,7 +188,7 @@ static inline struct vxlan_rdst *first_remote_rtnl(struct vxlan_fdb *fdb)
- }
+@@ -57,6 +57,7 @@
+ #define VXLAN_VID_MASK	(VXLAN_N_VID - 1)
+ /* IP header + UDP + VXLAN + Ethernet header */
+ #define VXLAN_HEADROOM (20 + 8 + 8 + 14)
++#define VXLAN_HLEN (sizeof(struct udphdr) + sizeof(struct vxlanhdr))
  
- /* Find VXLAN socket based on network namespace and UDP port */
--static struct vxlan_sock *vxlan_find_port(struct net *net, __be16 port)
-+static struct vxlan_sock *vxlan_find_sock(struct net *net, __be16 port)
- {
- 	struct vxlan_sock *vs;
+ #define VXLAN_FLAGS 0x08000000	/* struct vxlanhdr.vx_flags required value. */
  
-@@ -205,7 +205,7 @@ static struct vxlan_dev *vxlan_find_vni(struct net *net, u32 id, __be16 port)
- 	struct vxlan_sock *vs;
- 	struct vxlan_dev *vxlan;
+@@ -868,15 +869,12 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ 	__u32 vni;
+ 	int err;
  
--	vs = vxlan_find_port(net, port);
-+	vs = vxlan_find_sock(net, port);
- 	if (!vs)
- 		return NULL;
+-	/* pop off outer UDP header */
+-	__skb_pull(skb, sizeof(struct udphdr));
+-
+ 	/* Need Vxlan and inner Ethernet header to be present */
+-	if (!pskb_may_pull(skb, sizeof(struct vxlanhdr)))
++	if (!pskb_may_pull(skb, VXLAN_HLEN))
+ 		goto error;
  
-@@ -1365,25 +1365,31 @@ static void vxlan_cleanup(unsigned long arg)
- 	mod_timer(&vxlan->age_timer, next_timer);
- }
- 
-+static void vxlan_vs_add_dev(struct vxlan_sock *vs, struct vxlan_dev *vxlan)
-+{
-+	__u32 vni = vxlan->default_dst.remote_vni;
-+
-+	vxlan->vn_sock = vs;
-+	hlist_add_head_rcu(&vxlan->hlist, vni_head(vs, vni));
-+}
-+
- /* Setup stats when device is created */
- static int vxlan_init(struct net_device *dev)
- {
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
- 	struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
- 	struct vxlan_sock *vs;
--	__u32 vni = vxlan->default_dst.remote_vni;
- 
- 	dev->tstats = alloc_percpu(struct pcpu_tstats);
- 	if (!dev->tstats)
- 		return -ENOMEM;
- 
- 	spin_lock(&vn->sock_lock);
--	vs = vxlan_find_port(dev_net(dev), vxlan->dst_port);
-+	vs = vxlan_find_sock(dev_net(dev), vxlan->dst_port);
- 	if (vs) {
- 		/* If we have a socket with same port already, reuse it */
- 		atomic_inc(&vs->refcnt);
--		vxlan->vn_sock = vs;
--		hlist_add_head_rcu(&vxlan->hlist, vni_head(vs, vni));
-+		vxlan_vs_add_dev(vs, vxlan);
- 	} else {
- 		/* otherwise make new socket outside of RTNL */
- 		dev_hold(dev);
-@@ -1633,6 +1639,7 @@ static void vxlan_del_work(struct work_struct *work)
- 
- static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port)
- {
-+	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
- 	struct vxlan_sock *vs;
- 	struct sock *sk;
- 	struct sockaddr_in vxlan_addr = {
-@@ -1644,8 +1651,10 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port)
- 	unsigned int h;
- 
- 	vs = kmalloc(sizeof(*vs), GFP_KERNEL);
--	if (!vs)
-+	if (!vs) {
-+		pr_debug("memory alocation failure\n");
- 		return ERR_PTR(-ENOMEM);
-+	}
- 
- 	for (h = 0; h < VNI_HASH_SIZE; ++h)
- 		INIT_HLIST_HEAD(&vs->vni_list[h]);
-@@ -1673,57 +1682,57 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port)
- 		kfree(vs);
- 		return ERR_PTR(rc);
+-	/* Drop packets with reserved bits set */
+-	vxh = (struct vxlanhdr *) skb->data;
++	/* Return packets with reserved bits set */
++	vxh = (struct vxlanhdr *)(udp_hdr(skb) + 1);
+ 	if (vxh->vx_flags != htonl(VXLAN_FLAGS) ||
+ 	    (vxh->vx_vni & htonl(0xff))) {
+ 		netdev_dbg(skb->dev, "invalid vxlan flags=%#x vni=%#x\n",
+@@ -884,8 +882,6 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ 		goto error;
  	}
-+	atomic_set(&vs->refcnt, 1);
  
- 	/* Disable multicast loopback */
- 	inet_sk(sk)->mc_loop = 0;
-+	spin_lock(&vn->sock_lock);
-+	hlist_add_head_rcu(&vs->hlist, vs_head(net, port));
-+	spin_unlock(&vn->sock_lock);
- 
- 	/* Mark socket as an encapsulation socket. */
- 	udp_sk(sk)->encap_type = 1;
- 	udp_sk(sk)->encap_rcv = vxlan_udp_encap_recv;
- 	udp_encap_enable();
--	atomic_set(&vs->refcnt, 1);
-+	return vs;
-+}
-+
-+static struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port)
-+{
-+	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
-+	struct vxlan_sock *vs;
-+
-+	vs = vxlan_socket_create(net, port);
-+	if (!IS_ERR(vs))
-+		return vs;
- 
-+	spin_lock(&vn->sock_lock);
-+	vs = vxlan_find_sock(net, port);
-+	if (vs)
-+		atomic_inc(&vs->refcnt);
-+	else
-+		vs = ERR_PTR(-EINVAL);
-+
-+	spin_unlock(&vn->sock_lock);
- 	return vs;
- }
- 
- /* Scheduled at device creation to bind to a socket */
- static void vxlan_sock_work(struct work_struct *work)
- {
--	struct vxlan_dev *vxlan
--		= container_of(work, struct vxlan_dev, sock_work);
--	struct net_device *dev = vxlan->dev;
--	struct net *net = dev_net(dev);
--	__u32 vni = vxlan->default_dst.remote_vni;
--	__be16 port = vxlan->dst_port;
-+	struct vxlan_dev *vxlan = container_of(work, struct vxlan_dev, sock_work);
-+	struct net *net = dev_net(vxlan->dev);
- 	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
--	struct vxlan_sock *nvs, *ovs;
+-	__skb_pull(skb, sizeof(struct vxlanhdr));
 -
--	nvs = vxlan_socket_create(net, port);
--	if (IS_ERR(nvs)) {
--		netdev_err(vxlan->dev, "Can not create UDP socket, %ld\n",
--			   PTR_ERR(nvs));
--		goto out;
--	}
-+	__be16 port = vxlan->dst_port;
-+	struct vxlan_sock *nvs;
+ 	/* Is this VNI defined? */
+ 	vni = ntohl(vxh->vx_vni) >> 8;
+ 	port = inet_sk(sk)->inet_sport;
+@@ -896,7 +892,7 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ 		goto drop;
+ 	}
  
-+	nvs = vxlan_sock_add(net, port);
- 	spin_lock(&vn->sock_lock);
--	/* Look again to see if can reuse socket */
--	ovs = vxlan_find_port(net, port);
--	if (ovs) {
--		atomic_inc(&ovs->refcnt);
--		vxlan->vn_sock = ovs;
--		hlist_add_head_rcu(&vxlan->hlist, vni_head(ovs, vni));
--		spin_unlock(&vn->sock_lock);
+-	if (!pskb_may_pull(skb, ETH_HLEN)) {
++	if (iptunnel_pull_header(skb, VXLAN_HLEN, htons(ETH_P_TEB))) {
+ 		vxlan->dev->stats.rx_length_errors++;
+ 		vxlan->dev->stats.rx_errors++;
+ 		goto drop;
+@@ -904,8 +900,6 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ 
+ 	skb_reset_mac_header(skb);
+ 
+-	/* Re-examine inner Ethernet packet */
+-	oip = ip_hdr(skb);
+ 	skb->protocol = eth_type_trans(skb, vxlan->dev);
+ 
+ 	/* Ignore packet loops (and multicast echo) */
+@@ -913,11 +907,12 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ 			       vxlan->dev->dev_addr) == 0)
+ 		goto drop;
+ 
++	/* Re-examine inner Ethernet packet */
++	oip = ip_hdr(skb);
+ 	if ((vxlan->flags & VXLAN_F_LEARN) &&
+ 	    vxlan_snoop(skb->dev, oip->saddr, eth_hdr(skb)->h_source))
+ 		goto drop;
+ 
+-	__skb_tunnel_rx(skb, vxlan->dev);
+ 	skb_reset_network_header(skb);
+ 
+ 	/* If the NIC driver gave us an encapsulated packet with
+@@ -953,9 +948,6 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ 
+ 	return 0;
+ error:
+-	/* Put UDP header back */
+-	__skb_push(skb, sizeof(struct udphdr));
 -
--		sk_release_kernel(nvs->sock->sk);
--		kfree(nvs);
--	} else {
--		vxlan->vn_sock = nvs;
--		hlist_add_head_rcu(&nvs->hlist, vs_head(net, port));
--		hlist_add_head_rcu(&vxlan->hlist, vni_head(nvs, vni));
--		spin_unlock(&vn->sock_lock);
--	}
--out:
--	dev_put(dev);
-+	if (!IS_ERR(nvs))
-+		vxlan_vs_add_dev(nvs, vxlan);
-+	spin_unlock(&vn->sock_lock);
-+
-+	dev_put(vxlan->dev);
- }
- 
- static int vxlan_newlink(struct net *net, struct net_device *dev,
-@@ -1838,7 +1847,8 @@ static void vxlan_dellink(struct net_device *dev, struct list_head *head)
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
- 
- 	spin_lock(&vn->sock_lock);
--	hlist_del_rcu(&vxlan->hlist);
-+	if (!hlist_unhashed(&vxlan->hlist))
-+		hlist_del_rcu(&vxlan->hlist);
- 	spin_unlock(&vn->sock_lock);
- 
- 	list_del(&vxlan->next);
+ 	return 1;
+ drop:
+ 	/* Consume bad packet */
 -- 
 1.7.1
