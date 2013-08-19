@@ -1,32 +1,36 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCHv2] net: cpsw: Add support for wake-on-lan for cpsw
-Date: Mon, 19 Aug 2013 17:09:19 +0530
-Message-ID: <521203E7.8000502@ti.com>
-References: <1376910358-19882-1-git-send-email-ujhelyi.m@gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH ipsec v2 3/3] xfrm: choose protocol family by skb protocol
+Date: Mon, 19 Aug 2013 13:46:25 +0200
+Message-ID: <20130819114625.GX26773@secunet.com>
+References: <20130818114701.GA10270@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: <ujhelyi.m@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1376910358-19882-1-git-send-email-ujhelyi.m@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org, edumazet@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:44077 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751368Ab3HSLq2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Aug 2013 07:46:28 -0400
+Content-Disposition: inline
+In-Reply-To: <20130818114701.GA10270@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 19 August 2013 04:35 PM, ujhelyi.m@gmail.com wrote:
-> From: Matus Ujhelyi <ujhelyi.m@gmail.com>
->
-> Some phy's can be configured to enable wake on lan (e.g. at803x or marvell 88E1318S).
-> There is no way how to enable wol on CPSW with such connected phys. This patch
-> adds this support. It is provided by calling the phy's related code.
->
-> Tested on board with at8030x connected phy. Wol interrupt line is
-> connected to GPIO0 on am335x.
->
-> Signed-off-by: Matus Ujhelyi <ujhelyi.m@gmail.com>
-Looks good to me.
-Acked-by: Mugunthan V N <mugunthanvnm@gmail.com>
+On Sun, Aug 18, 2013 at 01:47:01PM +0200, Hannes Frederic Sowa wrote:
+> We need to choose the protocol family by skb->protocol. Otherwise we
+> call the wrong xfrm{4,6}_local_error handler in case an ipv6 sockets is
+> used in ipv4 mode, in which case we should call down to xfrm4_local_error
+> (ip6 sockets are a superset of ip4 ones).
+> 
+> We are called before before ip_output functions, so skb->protocol is
+> not reset.
+> 
+> v2:
+> a) unchanged
+> 
+> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Regards
-Mugunthan V N
+All applied to the ipsec tree, thanks a lot!
