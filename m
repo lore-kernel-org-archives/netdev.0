@@ -1,63 +1,55 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH] batman-adv: check return type of unicast packet preparations
-Date: Mon, 19 Aug 2013 18:59:55 +0200
-Message-ID: <1376931595-2070-2-git-send-email-ordex@autistici.org>
-References: <1376931595-2070-1-git-send-email-ordex@autistici.org>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Re: NAT stops forwarding ACKs after PMTU discovery
+Date: Mon, 19 Aug 2013 19:15:19 +0200
+Message-ID: <20130819171519.GA4008@cpaasch-mac>
+References: <1376870425.4226.25.camel@edumazet-glaptop>
+ <1376870592.4226.27.camel@edumazet-glaptop>
+ <5211DAA6.1070302@fatooh.org>
+ <20130819123314.GC3583@cpaasch-mac>
+ <1376918657.4226.59.camel@edumazet-glaptop>
+ <20130819134919.GF3583@cpaasch-mac>
+ <1376920685.4226.61.camel@edumazet-glaptop>
+ <20130819143509.GA31320@linuxace.com>
+ <20130819153328.GH3583@cpaasch-mac>
+ <1376928031.4226.66.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>,
-	Marek Lindner <lindner_marek@yahoo.de>,
-	Antonio Quartulli <ordex@autistici.org>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from diserzione.investici.org ([82.221.99.153]:50502 "EHLO
-	diserzione.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750840Ab3HSRCj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 13:02:39 -0400
-In-Reply-To: <1376931595-2070-1-git-send-email-ordex@autistici.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Phil Oester <kernel@linuxace.com>,
+	Corey Hickey <bugfood-ml@fatooh.org>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1376928031.4226.66.camel@edumazet-glaptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Linus L=C3=BCssing <linus.luessing@web.de>
+On 19/08/13 - 09:00:31, Eric Dumazet wrote:
+> On Mon, 2013-08-19 at 17:33 +0200, Christoph Paasch wrote:
+> > Unfortunately, they will hardly go away in the near futur. Rather the
+> > opposite is the case.
+> > 
+> > 
+> > If you have a public server running, I would be interested in the count of
+> > invalid SACK-blocks received (netstat -s | grep TCPSACKDiscard). This is an
+> > indication for such kind of middlebox between your server and the client,
+> > implying that these connections cannot benefit from TCP-FastRetransmission
+> > and each packet-loss will require an RTO to recover.
+> > 
+> 
+> If the (random) sequence offset is small rather than completely out of
+> window, it's going to be hard to detect all problems.
 
-batadv_unicast(_4addr)_prepare_skb  might reallocate the skb's data.
-And if it tries to do so then this can potentially fail.
+Yes, it is not possible to make it 100% perfect. But considering the size of
+the seq-space, the probability is rather low that the SACK-block falls
+in-window.
 
-We shouldn't continue working on this skb in such a case.
+> Show us your patch ;)
 
-Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
-Acked-by: Antonio Quartulli <ordex@autistici.org>
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
----
- net/batman-adv/unicast.c | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
+Will send it soon. Have to rebase on net-next,... :)
+(it's several months ago that I did this)
 
-diff --git a/net/batman-adv/unicast.c b/net/batman-adv/unicast.c
-index 688a041..857e1b8 100644
---- a/net/batman-adv/unicast.c
-+++ b/net/batman-adv/unicast.c
-@@ -432,12 +432,16 @@ find_router:
-=20
- 	switch (packet_type) {
- 	case BATADV_UNICAST:
--		batadv_unicast_prepare_skb(skb, orig_node);
-+		if (!batadv_unicast_prepare_skb(skb, orig_node))
-+			goto out;
-+
- 		header_len =3D sizeof(struct batadv_unicast_packet);
- 		break;
- 	case BATADV_UNICAST_4ADDR:
--		batadv_unicast_4addr_prepare_skb(bat_priv, skb, orig_node,
--						 packet_subtype);
-+		if (!batadv_unicast_4addr_prepare_skb(bat_priv, skb, orig_node,
-+						      packet_subtype))
-+			goto out;
-+
- 		header_len =3D sizeof(struct batadv_unicast_4addr_packet);
- 		break;
- 	default:
---=20
-1.8.1.5
+
+Christoph
