@@ -1,56 +1,46 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] ipv6: handle Redirect ICMP Message with no Redirected
- Header option
-Date: Mon, 19 Aug 2013 23:00:36 +0400
-Message-ID: <52126B54.4080603@cogentembedded.com>
-References: <5211F97B.4090209@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: [RFC 0/2] Account for duplicate ACKs with invalid SACK-blocks
+Date: Mon, 19 Aug 2013 21:29:26 +0200
+Message-ID: <1376940568-16512-1-git-send-email-christoph.paasch@uclouvain.be>
+References: <1376935800.4226.71.camel@edumazet-glaptop>
+Cc: netdev@vger.kernel.org, Phil Oester <kernel@linuxace.com>,
+	Corey Hickey <bugfood-ml@fatooh.org>,
+	Benjamin Hesmans <benjamin.hesmans@uclouvain.be>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:57296 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751133Ab3HSTAf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 15:00:35 -0400
-Received: by mail-la0-f44.google.com with SMTP id eo20so3659673lab.31
-        for <netdev@vger.kernel.org>; Mon, 19 Aug 2013 12:00:34 -0700 (PDT)
-In-Reply-To: <5211F97B.4090209@cn.fujitsu.com>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:59657 "EHLO
+	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750908Ab3HST3r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 15:29:47 -0400
+In-Reply-To: <1376935800.4226.71.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+There exist sequence-number rewriting middleboxes, who do not modify the 
+sequence-number in the SACK-blocks.
+Duplicate acknowledgments with these (invalid) SACK-blocks will not be
+accounted in sacked_out, and thus no fast-retransmit will trigger.
+So, the only way to recover from a packet-loss is through an RTO,
+effectively killing the performance of TCP in this case.
 
-On 08/19/2013 02:54 PM, Duan Jiong wrote:
+Performance-results can be seen here:
+http://tools.ietf.org/agenda/87/slides/slides-87-tcpm-11.pdf
 
-> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Another solution might be to simply disable SACK, as soon as an invalid
+SACK-block has been received (as suggested by Phil Oester). This however
+might be too aggressive.
 
-> rfc 4861 says the Redirected Header option is optional, so
-> the kernel should not drop the Redirect Message that has no
-> Redirected Header option. In this patch, the function
-> ip6_redirect_no_header() is introduced to deal with that
-> condition.
+Christoph Paasch (2):
+  Use acked_out for reno-style ack acounting instead of sacked_out
+  Account acked_out in sack, if the sack is invalid
 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-[...]
+ include/linux/tcp.h      |   1 +
+ include/net/tcp.h        |  17 +++++---
+ net/ipv4/tcp_input.c     | 103 ++++++++++++++++++++++++++++++++---------------
+ net/ipv4/tcp_minisocks.c |   1 +
+ net/ipv4/tcp_output.c    |   6 +--
+ net/ipv4/tcp_timer.c     |   2 +-
+ 6 files changed, 89 insertions(+), 41 deletions(-)
 
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index b70f897..9934b87 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -1178,6 +1178,27 @@ void ip6_redirect(struct sk_buff *skb, struct net *net, int oif, u32 mark)
->   }
->   EXPORT_SYMBOL_GPL(ip6_redirect);
->   
-> +void ip6_redirect_no_header(struct sk_buff *skb, struct net *net, int oif, u32 mark)
-> +{
-> +	const struct ipv6hdr *iph = (struct ipv6hdr *) skb_network_header(skb);
-> +	struct rd_msg *msg = (struct rd_msg *)skb_transport_header(skb);
-
-   Be consistent please: either put space after a typecast or not.
-
-> +	struct dst_entry *dst;
-> +	struct flowi6 fl6;
-
-WBR, Sergei
+-- 
+1.8.1.2
