@@ -1,15 +1,14 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v3 7/9] fs: use generic union inet_addr and helper functions
-Date: Mon, 19 Aug 2013 18:14:36 +0800
-Message-ID: <1376907278-26377-8-git-send-email-amwang@redhat.com>
+Subject: [Patch net-next v3 9/9] selinux: use generic union inet_addr
+Date: Mon, 19 Aug 2013 18:14:38 +0800
+Message-ID: <1376907278-26377-10-git-send-email-amwang@redhat.com>
 References: <1376907278-26377-1-git-send-email-amwang@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Steve French <sfrench@samba.org>,
-	Christine Caulfield <ccaulfie@redhat.com>,
-	David Teigland <teigland@redhat.com>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	linux-cifs@vger.kernel.org, linux-kernel@vger.kernel.org,
-	cluster-devel@redhat.com, linux-nfs@vger.kernel.org,
+	James Morris <james.l.morris@oracle.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Eric Paris <eparis@parisplace.org>,
+	Paul Moore <pmoore@redhat.com>, linux-kernel@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
 	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -19,504 +18,892 @@ List-Id: netdev.vger.kernel.org
 
 From: Cong Wang <amwang@redhat.com>
 
-nfs and cifs define some helper functions for sockaddr,
-they can use the generic functions for union inet_addr/struct sockaddr
-too.
+selinux has some similar definition like union inet_addr,
+it can re-use the generic union inet_addr too.
 
-Since some dlm code needs to compare ->sin_port, introduce a
-generic function inet_addr_equal_strict() for it.
-
-Cc: Steve French <sfrench@samba.org>
-Cc: Christine Caulfield <ccaulfie@redhat.com>
-Cc: David Teigland <teigland@redhat.com>
-Cc: Trond Myklebust <Trond.Myklebust@netapp.com>
-Cc: linux-cifs@vger.kernel.org
+Cc: James Morris <james.l.morris@oracle.com>
+Cc: Stephen Smalley <sds@tycho.nsa.gov>
+Cc: Eric Paris <eparis@parisplace.org>
+Cc: Paul Moore <pmoore@redhat.com>
 Cc: linux-kernel@vger.kernel.org
-Cc: cluster-devel@redhat.com
-Cc: linux-nfs@vger.kernel.org
+Cc: linux-security-module@vger.kernel.org
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- fs/cifs/connect.c          |   54 +++++---------------
- fs/dlm/lowcomms.c          |   24 ++-------
- fs/nfs/client.c            |  113 +-------------------------------------------
- fs/nfs/nfs4client.c        |    2 +-
- fs/nfs/nfs4filelayoutdev.c |   37 ++-------------
- fs/nfs/super.c             |   31 +-----------
- include/net/inet_addr.h    |    8 +++
- net/core/utils.c           |   23 +++++++++
- 8 files changed, 60 insertions(+), 232 deletions(-)
+ include/linux/lsm_audit.h          |   19 +-----
+ security/lsm_audit.c               |   58 ++++++++--------
+ security/selinux/hooks.c           |  130 +++++++++++++++++-------------------
+ security/selinux/include/netnode.h |    4 +-
+ security/selinux/include/objsec.h  |    7 +--
+ security/selinux/netnode.c         |  102 ++++++++--------------------
+ security/smack/smack_lsm.c         |   19 +++---
+ 7 files changed, 138 insertions(+), 201 deletions(-)
 
-diff --git a/fs/cifs/connect.c b/fs/cifs/connect.c
-index d67c550..081cb6c 100644
---- a/fs/cifs/connect.c
-+++ b/fs/cifs/connect.c
-@@ -40,6 +40,7 @@
- #include <linux/module.h>
- #include <keys/user-type.h>
- #include <net/ipv6.h>
+diff --git a/include/linux/lsm_audit.h b/include/linux/lsm_audit.h
+index 1cc89e9..48cab1e 100644
+--- a/include/linux/lsm_audit.h
++++ b/include/linux/lsm_audit.h
+@@ -21,23 +21,13 @@
+ #include <linux/path.h>
+ #include <linux/key.h>
+ #include <linux/skbuff.h>
 +#include <net/inet_addr.h>
- #include <linux/parser.h>
  
- #include "cifspdu.h"
-@@ -1900,17 +1901,9 @@ srcip_matches(struct sockaddr *srcaddr, struct sockaddr *rhs)
- {
- 	switch (srcaddr->sa_family) {
- 	case AF_UNSPEC:
--		return (rhs->sa_family == AF_UNSPEC);
--	case AF_INET: {
--		struct sockaddr_in *saddr4 = (struct sockaddr_in *)srcaddr;
--		struct sockaddr_in *vaddr4 = (struct sockaddr_in *)rhs;
--		return (saddr4->sin_addr.s_addr == vaddr4->sin_addr.s_addr);
--	}
--	case AF_INET6: {
--		struct sockaddr_in6 *saddr6 = (struct sockaddr_in6 *)srcaddr;
--		struct sockaddr_in6 *vaddr6 = (struct sockaddr_in6 *)rhs;
--		return ipv6_addr_equal(&saddr6->sin6_addr, &vaddr6->sin6_addr);
--	}
-+	case AF_INET:
-+	case AF_INET6:
-+		return sockaddr_equal(srcaddr, rhs);
- 	default:
- 		WARN_ON(1);
- 		return false; /* don't expect to be here */
-@@ -1925,16 +1918,13 @@ srcip_matches(struct sockaddr *srcaddr, struct sockaddr *rhs)
- static bool
- match_port(struct TCP_Server_Info *server, struct sockaddr *addr)
- {
--	__be16 port, *sport;
-+	unsigned short port, sport;
+ struct lsm_network_audit {
+ 	int netif;
+ 	struct sock *sk;
+-	u16 family;
+-	__be16 dport;
+-	__be16 sport;
+-	union {
+-		struct {
+-			__be32 daddr;
+-			__be32 saddr;
+-		} v4;
+-		struct {
+-			struct in6_addr daddr;
+-			struct in6_addr saddr;
+-		} v6;
+-	} fam;
++	union inet_addr saddr;
++	union inet_addr daddr;
+ };
  
- 	switch (addr->sa_family) {
- 	case AF_INET:
--		sport = &((struct sockaddr_in *) &server->dstaddr)->sin_port;
--		port = ((struct sockaddr_in *) addr)->sin_port;
--		break;
- 	case AF_INET6:
--		sport = &((struct sockaddr_in6 *) &server->dstaddr)->sin6_port;
--		port = ((struct sockaddr_in6 *) addr)->sin6_port;
-+		sport = sockaddr_get_port((struct sockaddr *)&server->dstaddr);
-+		port = sockaddr_get_port(addr);
+ /* Auxiliary data to use in generating the audit record. */
+@@ -83,9 +73,6 @@ struct common_audit_data {
+ 	}; /* per LSM data pointer union */
+ };
+ 
+-#define v4info fam.v4
+-#define v6info fam.v6
+-
+ int ipv4_skb_to_auditdata(struct sk_buff *skb,
+ 		struct common_audit_data *ad, u8 *proto);
+ 
+diff --git a/security/lsm_audit.c b/security/lsm_audit.c
+index 8d8d97d..244c2a1 100644
+--- a/security/lsm_audit.c
++++ b/security/lsm_audit.c
+@@ -49,8 +49,8 @@ int ipv4_skb_to_auditdata(struct sk_buff *skb,
+ 	if (ih == NULL)
+ 		return -EINVAL;
+ 
+-	ad->u.net->v4info.saddr = ih->saddr;
+-	ad->u.net->v4info.daddr = ih->daddr;
++	ad->u.net->saddr.sin.sin_addr.s_addr = ih->saddr;
++	ad->u.net->daddr.sin.sin_addr.s_addr = ih->daddr;
+ 
+ 	if (proto)
+ 		*proto = ih->protocol;
+@@ -64,8 +64,8 @@ int ipv4_skb_to_auditdata(struct sk_buff *skb,
+ 		if (th == NULL)
+ 			break;
+ 
+-		ad->u.net->sport = th->source;
+-		ad->u.net->dport = th->dest;
++		inet_addr_set_port(&ad->u.net->saddr, ntohs(th->source));
++		inet_addr_set_port(&ad->u.net->daddr, ntohs(th->dest));
  		break;
- 	default:
- 		WARN_ON(1);
-@@ -1942,14 +1932,14 @@ match_port(struct TCP_Server_Info *server, struct sockaddr *addr)
  	}
+ 	case IPPROTO_UDP: {
+@@ -73,8 +73,8 @@ int ipv4_skb_to_auditdata(struct sk_buff *skb,
+ 		if (uh == NULL)
+ 			break;
  
- 	if (!port) {
--		port = htons(CIFS_PORT);
--		if (port == *sport)
-+		port = CIFS_PORT;
-+		if (port == sport)
- 			return true;
- 
--		port = htons(RFC1001_PORT);
-+		port = RFC1001_PORT;
- 	}
- 
--	return port == *sport;
-+	return port == sport;
- }
- 
- static bool
-@@ -1957,27 +1947,11 @@ match_address(struct TCP_Server_Info *server, struct sockaddr *addr,
- 	      struct sockaddr *srcaddr)
- {
- 	switch (addr->sa_family) {
--	case AF_INET: {
--		struct sockaddr_in *addr4 = (struct sockaddr_in *)addr;
--		struct sockaddr_in *srv_addr4 =
--					(struct sockaddr_in *)&server->dstaddr;
--
--		if (addr4->sin_addr.s_addr != srv_addr4->sin_addr.s_addr)
--			return false;
--		break;
--	}
--	case AF_INET6: {
--		struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)addr;
--		struct sockaddr_in6 *srv_addr6 =
--					(struct sockaddr_in6 *)&server->dstaddr;
--
--		if (!ipv6_addr_equal(&addr6->sin6_addr,
--				     &srv_addr6->sin6_addr))
--			return false;
--		if (addr6->sin6_scope_id != srv_addr6->sin6_scope_id)
-+	case AF_INET:
-+	case AF_INET6:
-+		if (!sockaddr_equal(addr, (struct sockaddr *)&server->dstaddr))
- 			return false;
+-		ad->u.net->sport = uh->source;
+-		ad->u.net->dport = uh->dest;
++		inet_addr_set_port(&ad->u.net->saddr, ntohs(uh->source));
++		inet_addr_set_port(&ad->u.net->daddr, ntohs(uh->dest));
  		break;
--	}
- 	default:
- 		WARN_ON(1);
- 		return false; /* don't expect to be here */
-diff --git a/fs/dlm/lowcomms.c b/fs/dlm/lowcomms.c
-index d90909e..c051237 100644
---- a/fs/dlm/lowcomms.c
-+++ b/fs/dlm/lowcomms.c
-@@ -54,6 +54,7 @@
- #include <linux/slab.h>
- #include <net/sctp/sctp.h>
- #include <net/ipv6.h>
-+#include <net/inet_addr.h>
- 
- #include "dlm_internal.h"
- #include "lowcomms.h"
-@@ -286,28 +287,13 @@ static struct dlm_node_addr *find_node_addr(int nodeid)
- static int addr_compare(struct sockaddr_storage *x, struct sockaddr_storage *y)
- {
- 	switch (x->ss_family) {
--	case AF_INET: {
--		struct sockaddr_in *sinx = (struct sockaddr_in *)x;
--		struct sockaddr_in *siny = (struct sockaddr_in *)y;
--		if (sinx->sin_addr.s_addr != siny->sin_addr.s_addr)
--			return 0;
--		if (sinx->sin_port != siny->sin_port)
--			return 0;
--		break;
--	}
--	case AF_INET6: {
--		struct sockaddr_in6 *sinx = (struct sockaddr_in6 *)x;
--		struct sockaddr_in6 *siny = (struct sockaddr_in6 *)y;
--		if (!ipv6_addr_equal(&sinx->sin6_addr, &siny->sin6_addr))
--			return 0;
--		if (sinx->sin6_port != siny->sin6_port)
--			return 0;
--		break;
--	}
-+	case AF_INET:
-+	case AF_INET6:
-+		return inet_addr_equal_strict((union inet_addr *)x,
-+					      (union inet_addr *)y);
- 	default:
- 		return 0;
  	}
--	return 1;
- }
+ 	case IPPROTO_DCCP: {
+@@ -82,16 +82,16 @@ int ipv4_skb_to_auditdata(struct sk_buff *skb,
+ 		if (dh == NULL)
+ 			break;
  
- static int nodeid_to_addr(int nodeid, struct sockaddr_storage *sas_out,
-diff --git a/fs/nfs/client.c b/fs/nfs/client.c
-index 340b1ef..708dc96 100644
---- a/fs/nfs/client.c
-+++ b/fs/nfs/client.c
-@@ -38,6 +38,7 @@
- #include <linux/slab.h>
- #include <linux/idr.h>
- #include <net/ipv6.h>
-+#include <net/inet_addr.h>
- #include <linux/nfs_xdr.h>
- #include <linux/sunrpc/bc_xprt.h>
- #include <linux/nsproxy.h>
-@@ -283,116 +284,6 @@ void nfs_put_client(struct nfs_client *clp)
- }
- EXPORT_SYMBOL_GPL(nfs_put_client);
+-		ad->u.net->sport = dh->dccph_sport;
+-		ad->u.net->dport = dh->dccph_dport;
++		inet_addr_set_port(&ad->u.net->saddr, ntohs(dh->dccph_sport));
++		inet_addr_set_port(&ad->u.net->daddr, ntohs(dh->dccph_dport));
+ 		break;
+ 	}
+ 	case IPPROTO_SCTP: {
+ 		struct sctphdr *sh = sctp_hdr(skb);
+ 		if (sh == NULL)
+ 			break;
+-		ad->u.net->sport = sh->source;
+-		ad->u.net->dport = sh->dest;
++		inet_addr_set_port(&ad->u.net->saddr, ntohs(sh->source));
++		inet_addr_set_port(&ad->u.net->daddr, ntohs(sh->dest));
+ 		break;
+ 	}
+ 	default:
+@@ -119,8 +119,8 @@ int ipv6_skb_to_auditdata(struct sk_buff *skb,
+ 	ip6 = ipv6_hdr(skb);
+ 	if (ip6 == NULL)
+ 		return -EINVAL;
+-	ad->u.net->v6info.saddr = ip6->saddr;
+-	ad->u.net->v6info.daddr = ip6->daddr;
++	ad->u.net->saddr.sin6.sin6_addr = ip6->saddr;
++	ad->u.net->daddr.sin6.sin6_addr = ip6->daddr;
+ 	ret = 0;
+ 	/* IPv6 can have several extension header before the Transport header
+ 	 * skip them */
+@@ -140,8 +140,8 @@ int ipv6_skb_to_auditdata(struct sk_buff *skb,
+ 		if (th == NULL)
+ 			break;
  
--#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
--/*
-- * Test if two ip6 socket addresses refer to the same socket by
-- * comparing relevant fields. The padding bytes specifically, are not
-- * compared. sin6_flowinfo is not compared because it only affects QoS
-- * and sin6_scope_id is only compared if the address is "link local"
-- * because "link local" addresses need only be unique to a specific
-- * link. Conversely, ordinary unicast addresses might have different
-- * sin6_scope_id.
-- *
-- * The caller should ensure both socket addresses are AF_INET6.
-- */
--static int nfs_sockaddr_match_ipaddr6(const struct sockaddr *sa1,
--				      const struct sockaddr *sa2)
--{
--	const struct sockaddr_in6 *sin1 = (const struct sockaddr_in6 *)sa1;
--	const struct sockaddr_in6 *sin2 = (const struct sockaddr_in6 *)sa2;
--
--	if (!ipv6_addr_equal(&sin1->sin6_addr, &sin2->sin6_addr))
--		return 0;
--	else if (ipv6_addr_type(&sin1->sin6_addr) & IPV6_ADDR_LINKLOCAL)
--		return sin1->sin6_scope_id == sin2->sin6_scope_id;
--
--	return 1;
--}
--#else	/* !defined(CONFIG_IPV6) && !defined(CONFIG_IPV6_MODULE) */
--static int nfs_sockaddr_match_ipaddr6(const struct sockaddr *sa1,
--				      const struct sockaddr *sa2)
--{
--	return 0;
--}
--#endif
--
--/*
-- * Test if two ip4 socket addresses refer to the same socket, by
-- * comparing relevant fields. The padding bytes specifically, are
-- * not compared.
-- *
-- * The caller should ensure both socket addresses are AF_INET.
-- */
--static int nfs_sockaddr_match_ipaddr4(const struct sockaddr *sa1,
--				      const struct sockaddr *sa2)
--{
--	const struct sockaddr_in *sin1 = (const struct sockaddr_in *)sa1;
--	const struct sockaddr_in *sin2 = (const struct sockaddr_in *)sa2;
--
--	return sin1->sin_addr.s_addr == sin2->sin_addr.s_addr;
--}
--
--static int nfs_sockaddr_cmp_ip6(const struct sockaddr *sa1,
--				const struct sockaddr *sa2)
--{
--	const struct sockaddr_in6 *sin1 = (const struct sockaddr_in6 *)sa1;
--	const struct sockaddr_in6 *sin2 = (const struct sockaddr_in6 *)sa2;
--
--	return nfs_sockaddr_match_ipaddr6(sa1, sa2) &&
--		(sin1->sin6_port == sin2->sin6_port);
--}
--
--static int nfs_sockaddr_cmp_ip4(const struct sockaddr *sa1,
--				const struct sockaddr *sa2)
--{
--	const struct sockaddr_in *sin1 = (const struct sockaddr_in *)sa1;
--	const struct sockaddr_in *sin2 = (const struct sockaddr_in *)sa2;
--
--	return nfs_sockaddr_match_ipaddr4(sa1, sa2) &&
--		(sin1->sin_port == sin2->sin_port);
--}
--
--#if defined(CONFIG_NFS_V4_1)
--/*
-- * Test if two socket addresses represent the same actual socket,
-- * by comparing (only) relevant fields, excluding the port number.
-- */
--int nfs_sockaddr_match_ipaddr(const struct sockaddr *sa1,
--			      const struct sockaddr *sa2)
--{
--	if (sa1->sa_family != sa2->sa_family)
--		return 0;
--
--	switch (sa1->sa_family) {
--	case AF_INET:
--		return nfs_sockaddr_match_ipaddr4(sa1, sa2);
--	case AF_INET6:
--		return nfs_sockaddr_match_ipaddr6(sa1, sa2);
--	}
--	return 0;
--}
--EXPORT_SYMBOL_GPL(nfs_sockaddr_match_ipaddr);
--#endif /* CONFIG_NFS_V4_1 */
--
--/*
-- * Test if two socket addresses represent the same actual socket,
-- * by comparing (only) relevant fields, including the port number.
-- */
--static int nfs_sockaddr_cmp(const struct sockaddr *sa1,
--			    const struct sockaddr *sa2)
--{
--	if (sa1->sa_family != sa2->sa_family)
--		return 0;
--
--	switch (sa1->sa_family) {
--	case AF_INET:
--		return nfs_sockaddr_cmp_ip4(sa1, sa2);
--	case AF_INET6:
--		return nfs_sockaddr_cmp_ip6(sa1, sa2);
--	}
--	return 0;
--}
--
- /*
-  * Find an nfs_client on the list that matches the initialisation data
-  * that is supplied.
-@@ -419,7 +310,7 @@ static struct nfs_client *nfs_match_client(const struct nfs_client_initdata *dat
- 		if (clp->cl_minorversion != data->minorversion)
- 			continue;
- 		/* Match the full socket address */
--		if (!nfs_sockaddr_cmp(sap, clap))
-+		if (!sockaddr_equal_strict(sap, clap))
- 			continue;
+-		ad->u.net->sport = th->source;
+-		ad->u.net->dport = th->dest;
++		inet_addr_set_port(&ad->u.net->saddr, ntohs(th->source));
++		inet_addr_set_port(&ad->u.net->daddr, ntohs(th->dest));
+ 		break;
+ 	}
+ 	case IPPROTO_UDP: {
+@@ -151,8 +151,8 @@ int ipv6_skb_to_auditdata(struct sk_buff *skb,
+ 		if (uh == NULL)
+ 			break;
  
- 		atomic_inc(&clp->cl_count);
-diff --git a/fs/nfs/nfs4client.c b/fs/nfs/nfs4client.c
-index 90dce91..383b97a 100644
---- a/fs/nfs/nfs4client.c
-+++ b/fs/nfs/nfs4client.c
-@@ -552,7 +552,7 @@ static bool nfs4_cb_match_client(const struct sockaddr *addr,
- 		return false;
+-		ad->u.net->sport = uh->source;
+-		ad->u.net->dport = uh->dest;
++		inet_addr_set_port(&ad->u.net->saddr, ntohs(uh->source));
++		inet_addr_set_port(&ad->u.net->daddr, ntohs(uh->dest));
+ 		break;
+ 	}
+ 	case IPPROTO_DCCP: {
+@@ -162,8 +162,8 @@ int ipv6_skb_to_auditdata(struct sk_buff *skb,
+ 		if (dh == NULL)
+ 			break;
  
- 	/* Match only the IP address, not the port number */
--	if (!nfs_sockaddr_match_ipaddr(addr, clap))
-+	if (!sockaddr_equal(addr, clap))
- 		return false;
+-		ad->u.net->sport = dh->dccph_sport;
+-		ad->u.net->dport = dh->dccph_dport;
++		inet_addr_set_port(&ad->u.net->saddr, ntohs(dh->dccph_sport));
++		inet_addr_set_port(&ad->u.net->daddr, ntohs(dh->dccph_dport));
+ 		break;
+ 	}
+ 	case IPPROTO_SCTP: {
+@@ -172,8 +172,8 @@ int ipv6_skb_to_auditdata(struct sk_buff *skb,
+ 		sh = skb_header_pointer(skb, offset, sizeof(_sctph), &_sctph);
+ 		if (sh == NULL)
+ 			break;
+-		ad->u.net->sport = sh->source;
+-		ad->u.net->dport = sh->dest;
++		inet_addr_set_port(&ad->u.net->saddr, ntohs(sh->source));
++		inet_addr_set_port(&ad->u.net->daddr, ntohs(sh->dest));
+ 		break;
+ 	}
+ 	default:
+@@ -333,21 +333,21 @@ static void dump_common_audit_data(struct audit_buffer *ab,
+ 			}
+ 		}
  
- 	return true;
-diff --git a/fs/nfs/nfs4filelayoutdev.c b/fs/nfs/nfs4filelayoutdev.c
-index 95604f6..955494cb 100644
---- a/fs/nfs/nfs4filelayoutdev.c
-+++ b/fs/nfs/nfs4filelayoutdev.c
-@@ -32,6 +32,7 @@
- #include <linux/vmalloc.h>
- #include <linux/module.h>
- #include <linux/sunrpc/addr.h>
-+#include <net/inet_addr.h>
+-		switch (a->u.net->family) {
++		switch (a->u.net->saddr.sa.sa_family) {
+ 		case AF_INET:
+-			print_ipv4_addr(ab, a->u.net->v4info.saddr,
+-					a->u.net->sport,
++			print_ipv4_addr(ab, a->u.net->saddr.sin.sin_addr.s_addr,
++					a->u.net->saddr.sin.sin_port,
+ 					"saddr", "src");
+-			print_ipv4_addr(ab, a->u.net->v4info.daddr,
+-					a->u.net->dport,
++			print_ipv4_addr(ab, a->u.net->daddr.sin.sin_addr.s_addr,
++					a->u.net->daddr.sin.sin_port,
+ 					"daddr", "dest");
+ 			break;
+ 		case AF_INET6:
+-			print_ipv6_addr(ab, &a->u.net->v6info.saddr,
+-					a->u.net->sport,
++			print_ipv6_addr(ab, &a->u.net->saddr.sin6.sin6_addr,
++					a->u.net->saddr.sin.sin_port,
+ 					"saddr", "src");
+-			print_ipv6_addr(ab, &a->u.net->v6info.daddr,
+-					a->u.net->dport,
++			print_ipv6_addr(ab, &a->u.net->daddr.sin6.sin6_addr,
++					a->u.net->daddr.sin.sin_port,
+ 					"daddr", "dest");
+ 			break;
+ 		}
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index c956390..f9959c0 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -3595,8 +3595,8 @@ static int selinux_parse_skb_ipv4(struct sk_buff *skb,
+ 	if (ihlen < sizeof(_iph))
+ 		goto out;
  
- #include "internal.h"
- #include "nfs4session.h"
-@@ -74,44 +75,14 @@ print_ds(struct nfs4_pnfs_ds *ds)
- static bool
- same_sockaddr(struct sockaddr *addr1, struct sockaddr *addr2)
- {
--	struct sockaddr_in *a, *b;
--	struct sockaddr_in6 *a6, *b6;
--
--	if (addr1->sa_family != addr2->sa_family)
--		return false;
--
--	switch (addr1->sa_family) {
--	case AF_INET:
--		a = (struct sockaddr_in *)addr1;
--		b = (struct sockaddr_in *)addr2;
--
--		if (a->sin_addr.s_addr == b->sin_addr.s_addr &&
--		    a->sin_port == b->sin_port)
--			return true;
--		break;
--
--	case AF_INET6:
--		a6 = (struct sockaddr_in6 *)addr1;
--		b6 = (struct sockaddr_in6 *)addr2;
--
--		/* LINKLOCAL addresses must have matching scope_id */
--		if (ipv6_addr_scope(&a6->sin6_addr) ==
--		    IPV6_ADDR_SCOPE_LINKLOCAL &&
--		    a6->sin6_scope_id != b6->sin6_scope_id)
--			return false;
--
--		if (ipv6_addr_equal(&a6->sin6_addr, &b6->sin6_addr) &&
--		    a6->sin6_port == b6->sin6_port)
--			return true;
--		break;
--
--	default:
-+	if (addr1->sa_family != AF_INET && addr1->sa_family != AF_INET6) {
- 		dprintk("%s: unhandled address family: %u\n",
- 			__func__, addr1->sa_family);
- 		return false;
+-	ad->u.net->v4info.saddr = ih->saddr;
+-	ad->u.net->v4info.daddr = ih->daddr;
++	ad->u.net->saddr.sin.sin_addr.s_addr = ih->saddr;
++	ad->u.net->daddr.sin.sin_addr.s_addr = ih->daddr;
+ 	ret = 0;
+ 
+ 	if (proto)
+@@ -3614,8 +3614,8 @@ static int selinux_parse_skb_ipv4(struct sk_buff *skb,
+ 		if (th == NULL)
+ 			break;
+ 
+-		ad->u.net->sport = th->source;
+-		ad->u.net->dport = th->dest;
++		inet_addr_set_port(&ad->u.net->saddr, ntohs(th->source));
++		inet_addr_set_port(&ad->u.net->daddr, ntohs(th->dest));
+ 		break;
  	}
  
--	return false;
-+	return inet_addr_equal_strict((union inet_addr *)addr1,
-+				      (union inet_addr *)addr2);
+@@ -3630,8 +3630,8 @@ static int selinux_parse_skb_ipv4(struct sk_buff *skb,
+ 		if (uh == NULL)
+ 			break;
+ 
+-		ad->u.net->sport = uh->source;
+-		ad->u.net->dport = uh->dest;
++		inet_addr_set_port(&ad->u.net->saddr, ntohs(uh->source));
++		inet_addr_set_port(&ad->u.net->daddr, ntohs(uh->dest));
+ 		break;
+ 	}
+ 
+@@ -3646,8 +3646,8 @@ static int selinux_parse_skb_ipv4(struct sk_buff *skb,
+ 		if (dh == NULL)
+ 			break;
+ 
+-		ad->u.net->sport = dh->dccph_sport;
+-		ad->u.net->dport = dh->dccph_dport;
++		inet_addr_set_port(&ad->u.net->saddr, ntohs(dh->dccph_sport));
++		inet_addr_set_port(&ad->u.net->daddr, ntohs(dh->dccph_dport));
+ 		break;
+ 	}
+ 
+@@ -3674,8 +3674,8 @@ static int selinux_parse_skb_ipv6(struct sk_buff *skb,
+ 	if (ip6 == NULL)
+ 		goto out;
+ 
+-	ad->u.net->v6info.saddr = ip6->saddr;
+-	ad->u.net->v6info.daddr = ip6->daddr;
++	ad->u.net->saddr.sin6.sin6_addr = ip6->saddr;
++	ad->u.net->daddr.sin6.sin6_addr = ip6->daddr;
+ 	ret = 0;
+ 
+ 	nexthdr = ip6->nexthdr;
+@@ -3695,8 +3695,8 @@ static int selinux_parse_skb_ipv6(struct sk_buff *skb,
+ 		if (th == NULL)
+ 			break;
+ 
+-		ad->u.net->sport = th->source;
+-		ad->u.net->dport = th->dest;
++		inet_addr_set_port(&ad->u.net->saddr, ntohs(th->source));
++		inet_addr_set_port(&ad->u.net->daddr, ntohs(th->dest));
+ 		break;
+ 	}
+ 
+@@ -3707,8 +3707,8 @@ static int selinux_parse_skb_ipv6(struct sk_buff *skb,
+ 		if (uh == NULL)
+ 			break;
+ 
+-		ad->u.net->sport = uh->source;
+-		ad->u.net->dport = uh->dest;
++		inet_addr_set_port(&ad->u.net->saddr, ntohs(uh->source));
++		inet_addr_set_port(&ad->u.net->daddr, ntohs(uh->dest));
+ 		break;
+ 	}
+ 
+@@ -3719,8 +3719,8 @@ static int selinux_parse_skb_ipv6(struct sk_buff *skb,
+ 		if (dh == NULL)
+ 			break;
+ 
+-		ad->u.net->sport = dh->dccph_sport;
+-		ad->u.net->dport = dh->dccph_dport;
++		inet_addr_set_port(&ad->u.net->saddr, ntohs(dh->dccph_sport));
++		inet_addr_set_port(&ad->u.net->daddr, ntohs(dh->dccph_dport));
+ 		break;
+ 	}
+ 
+@@ -3735,18 +3735,17 @@ out:
+ #endif /* IPV6 */
+ 
+ static int selinux_parse_skb(struct sk_buff *skb, struct common_audit_data *ad,
+-			     char **_addrp, int src, u8 *proto)
++			     union inet_addr **_addrp, int src, u8 *proto)
+ {
+-	char *addrp;
++	union inet_addr *addrp;
+ 	int ret;
++	sa_family_t family = src ? ad->u.net->saddr.sa.sa_family : ad->u.net->daddr.sa.sa_family;
+ 
+-	switch (ad->u.net->family) {
++	switch (family) {
+ 	case PF_INET:
+ 		ret = selinux_parse_skb_ipv4(skb, ad, proto);
+ 		if (ret)
+ 			goto parse_error;
+-		addrp = (char *)(src ? &ad->u.net->v4info.saddr :
+-				       &ad->u.net->v4info.daddr);
+ 		goto okay;
+ 
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+@@ -3754,13 +3753,11 @@ static int selinux_parse_skb(struct sk_buff *skb, struct common_audit_data *ad,
+ 		ret = selinux_parse_skb_ipv6(skb, ad, proto);
+ 		if (ret)
+ 			goto parse_error;
+-		addrp = (char *)(src ? &ad->u.net->v6info.saddr :
+-				       &ad->u.net->v6info.daddr);
+ 		goto okay;
+ #endif	/* IPV6 */
+ 	default:
+ 		addrp = NULL;
+-		goto okay;
++		goto save;
+ 	}
+ 
+ parse_error:
+@@ -3770,6 +3767,8 @@ parse_error:
+ 	return ret;
+ 
+ okay:
++	addrp = src ? &ad->u.net->saddr : &ad->u.net->daddr;
++save:
+ 	if (_addrp)
+ 		*_addrp = addrp;
+ 	return 0;
+@@ -3912,25 +3911,15 @@ static int selinux_socket_bind(struct socket *sock, struct sockaddr *address, in
+ 	 */
+ 	family = sk->sk_family;
+ 	if (family == PF_INET || family == PF_INET6) {
+-		char *addrp;
++		union inet_addr *addrp = (union inet_addr *)address;
+ 		struct sk_security_struct *sksec = sk->sk_security;
+ 		struct common_audit_data ad;
+ 		struct lsm_network_audit net = {0,};
+-		struct sockaddr_in *addr4 = NULL;
+-		struct sockaddr_in6 *addr6 = NULL;
+ 		unsigned short snum;
+ 		u32 sid, node_perm;
+ 
+-		if (family == PF_INET) {
+-			addr4 = (struct sockaddr_in *)address;
+-			snum = ntohs(addr4->sin_port);
+-			addrp = (char *)&addr4->sin_addr.s_addr;
+-		} else {
+-			addr6 = (struct sockaddr_in6 *)address;
+-			snum = ntohs(addr6->sin6_port);
+-			addrp = (char *)&addr6->sin6_addr.s6_addr;
+-		}
+-
++		addrp->sa.sa_family = family;
++		snum = inet_addr_get_port(addrp);
+ 		if (snum) {
+ 			int low, high;
+ 
+@@ -3943,8 +3932,9 @@ static int selinux_socket_bind(struct socket *sock, struct sockaddr *address, in
+ 					goto out;
+ 				ad.type = LSM_AUDIT_DATA_NET;
+ 				ad.u.net = &net;
+-				ad.u.net->sport = htons(snum);
+-				ad.u.net->family = family;
++				inet_addr_set_port(&ad.u.net->saddr, snum);
++				ad.u.net->saddr.sa.sa_family = family;
++				ad.u.net->daddr.sa.sa_family = family;
+ 				err = avc_has_perm(sksec->sid, sid,
+ 						   sksec->sclass,
+ 						   SOCKET__NAME_BIND, &ad);
+@@ -3971,19 +3961,17 @@ static int selinux_socket_bind(struct socket *sock, struct sockaddr *address, in
+ 			break;
+ 		}
+ 
+-		err = sel_netnode_sid(addrp, family, &sid);
++		err = sel_netnode_sid(addrp, &sid);
+ 		if (err)
+ 			goto out;
+ 
+ 		ad.type = LSM_AUDIT_DATA_NET;
+ 		ad.u.net = &net;
+-		ad.u.net->sport = htons(snum);
+-		ad.u.net->family = family;
++		inet_addr_set_port(&ad.u.net->saddr, snum);
++		ad.u.net->saddr.sa.sa_family = family;
++		ad.u.net->daddr.sa.sa_family = family;
+ 
+-		if (family == PF_INET)
+-			ad.u.net->v4info.saddr = addr4->sin_addr.s_addr;
+-		else
+-			ad.u.net->v6info.saddr = addr6->sin6_addr;
++		ad.u.net->saddr = *addrp;
+ 
+ 		err = avc_has_perm(sksec->sid, sid,
+ 				   sksec->sclass, node_perm, &ad);
+@@ -4011,22 +3999,18 @@ static int selinux_socket_connect(struct socket *sock, struct sockaddr *address,
+ 	    sksec->sclass == SECCLASS_DCCP_SOCKET) {
+ 		struct common_audit_data ad;
+ 		struct lsm_network_audit net = {0,};
+-		struct sockaddr_in *addr4 = NULL;
+-		struct sockaddr_in6 *addr6 = NULL;
++		union inet_addr *addrp = (union inet_addr *)address;
+ 		unsigned short snum;
+ 		u32 sid, perm;
+ 
+ 		if (sk->sk_family == PF_INET) {
+-			addr4 = (struct sockaddr_in *)address;
+ 			if (addrlen < sizeof(struct sockaddr_in))
+ 				return -EINVAL;
+-			snum = ntohs(addr4->sin_port);
+ 		} else {
+-			addr6 = (struct sockaddr_in6 *)address;
+ 			if (addrlen < SIN6_LEN_RFC2133)
+ 				return -EINVAL;
+-			snum = ntohs(addr6->sin6_port);
+ 		}
++		snum = inet_addr_get_port(addrp);
+ 
+ 		err = sel_netport_sid(sk->sk_protocol, snum, &sid);
+ 		if (err)
+@@ -4037,8 +4021,9 @@ static int selinux_socket_connect(struct socket *sock, struct sockaddr *address,
+ 
+ 		ad.type = LSM_AUDIT_DATA_NET;
+ 		ad.u.net = &net;
+-		ad.u.net->dport = htons(snum);
+-		ad.u.net->family = sk->sk_family;
++		inet_addr_set_port(&ad.u.net->daddr, snum);
++		ad.u.net->saddr.sa.sa_family = sk->sk_family;
++		ad.u.net->daddr.sa.sa_family = sk->sk_family;
+ 		err = avc_has_perm(sksec->sid, sid, sksec->sclass, perm, &ad);
+ 		if (err)
+ 			goto out;
+@@ -4169,7 +4154,7 @@ static int selinux_socket_unix_may_send(struct socket *sock,
+ 			    &ad);
  }
  
- static bool
-diff --git a/fs/nfs/super.c b/fs/nfs/super.c
-index ac7c359..0744abb 100644
---- a/fs/nfs/super.c
-+++ b/fs/nfs/super.c
-@@ -49,6 +49,7 @@
- #include <linux/in6.h>
- #include <linux/slab.h>
- #include <net/ipv6.h>
+-static int selinux_inet_sys_rcv_skb(int ifindex, char *addrp, u16 family,
++static int selinux_inet_sys_rcv_skb(int ifindex, union inet_addr *addrp,
+ 				    u32 peer_sid,
+ 				    struct common_audit_data *ad)
+ {
+@@ -4185,7 +4170,7 @@ static int selinux_inet_sys_rcv_skb(int ifindex, char *addrp, u16 family,
+ 	if (err)
+ 		return err;
+ 
+-	err = sel_netnode_sid(addrp, family, &node_sid);
++	err = sel_netnode_sid(addrp, &node_sid);
+ 	if (err)
+ 		return err;
+ 	return avc_has_perm(peer_sid, node_sid,
+@@ -4200,12 +4185,13 @@ static int selinux_sock_rcv_skb_compat(struct sock *sk, struct sk_buff *skb,
+ 	u32 sk_sid = sksec->sid;
+ 	struct common_audit_data ad;
+ 	struct lsm_network_audit net = {0,};
+-	char *addrp;
++	union inet_addr *addrp;
+ 
+ 	ad.type = LSM_AUDIT_DATA_NET;
+ 	ad.u.net = &net;
+ 	ad.u.net->netif = skb->skb_iif;
+-	ad.u.net->family = family;
++	ad.u.net->saddr.sa.sa_family = family;
++	ad.u.net->daddr.sa.sa_family = family;
+ 	err = selinux_parse_skb(skb, &ad, &addrp, 1, NULL);
+ 	if (err)
+ 		return err;
+@@ -4233,7 +4219,7 @@ static int selinux_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 	u32 sk_sid = sksec->sid;
+ 	struct common_audit_data ad;
+ 	struct lsm_network_audit net = {0,};
+-	char *addrp;
++	union inet_addr *addrp;
+ 	u8 secmark_active;
+ 	u8 peerlbl_active;
+ 
+@@ -4259,7 +4245,8 @@ static int selinux_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 	ad.type = LSM_AUDIT_DATA_NET;
+ 	ad.u.net = &net;
+ 	ad.u.net->netif = skb->skb_iif;
+-	ad.u.net->family = family;
++	ad.u.net->saddr.sa.sa_family = family;
++	ad.u.net->daddr.sa.sa_family = family;
+ 	err = selinux_parse_skb(skb, &ad, &addrp, 1, NULL);
+ 	if (err)
+ 		return err;
+@@ -4270,7 +4257,8 @@ static int selinux_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 		err = selinux_skb_peerlbl_sid(skb, family, &peer_sid);
+ 		if (err)
+ 			return err;
+-		err = selinux_inet_sys_rcv_skb(skb->skb_iif, addrp, family,
++		addrp->sa.sa_family = family;
++		err = selinux_inet_sys_rcv_skb(skb->skb_iif, addrp,
+ 					       peer_sid, &ad);
+ 		if (err) {
+ 			selinux_netlbl_err(skb, err, 0);
+@@ -4621,7 +4609,7 @@ static unsigned int selinux_ip_forward(struct sk_buff *skb, int ifindex,
+ 				       u16 family)
+ {
+ 	int err;
+-	char *addrp;
++	union inet_addr *addrp;
+ 	u32 peer_sid;
+ 	struct common_audit_data ad;
+ 	struct lsm_network_audit net = {0,};
+@@ -4644,12 +4632,14 @@ static unsigned int selinux_ip_forward(struct sk_buff *skb, int ifindex,
+ 	ad.type = LSM_AUDIT_DATA_NET;
+ 	ad.u.net = &net;
+ 	ad.u.net->netif = ifindex;
+-	ad.u.net->family = family;
++	ad.u.net->saddr.sa.sa_family = family;
++	ad.u.net->daddr.sa.sa_family = family;
+ 	if (selinux_parse_skb(skb, &ad, &addrp, 1, NULL) != 0)
+ 		return NF_DROP;
+ 
+ 	if (peerlbl_active) {
+-		err = selinux_inet_sys_rcv_skb(ifindex, addrp, family,
++		addrp->sa.sa_family = family;
++		err = selinux_inet_sys_rcv_skb(ifindex, addrp,
+ 					       peer_sid, &ad);
+ 		if (err) {
+ 			selinux_netlbl_err(skb, err, 1);
+@@ -4732,7 +4722,7 @@ static unsigned int selinux_ip_postroute_compat(struct sk_buff *skb,
+ 	struct sk_security_struct *sksec;
+ 	struct common_audit_data ad;
+ 	struct lsm_network_audit net = {0,};
+-	char *addrp;
++	union inet_addr *addrp;
+ 	u8 proto;
+ 
+ 	if (sk == NULL)
+@@ -4742,7 +4732,8 @@ static unsigned int selinux_ip_postroute_compat(struct sk_buff *skb,
+ 	ad.type = LSM_AUDIT_DATA_NET;
+ 	ad.u.net = &net;
+ 	ad.u.net->netif = ifindex;
+-	ad.u.net->family = family;
++	ad.u.net->saddr.sa.sa_family = family;
++	ad.u.net->daddr.sa.sa_family = family;
+ 	if (selinux_parse_skb(skb, &ad, &addrp, 0, &proto))
+ 		return NF_DROP;
+ 
+@@ -4765,7 +4756,7 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb, int ifindex,
+ 	struct sock *sk;
+ 	struct common_audit_data ad;
+ 	struct lsm_network_audit net = {0,};
+-	char *addrp;
++	union inet_addr *addrp;
+ 	u8 secmark_active;
+ 	u8 peerlbl_active;
+ 
+@@ -4813,7 +4804,8 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb, int ifindex,
+ 	ad.type = LSM_AUDIT_DATA_NET;
+ 	ad.u.net = &net;
+ 	ad.u.net->netif = ifindex;
+-	ad.u.net->family = family;
++	ad.u.net->saddr.sa.sa_family = family;
++	ad.u.net->daddr.sa.sa_family = family;
+ 	if (selinux_parse_skb(skb, &ad, &addrp, 0, NULL))
+ 		return NF_DROP;
+ 
+@@ -4832,7 +4824,7 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb, int ifindex,
+ 				 SECCLASS_NETIF, NETIF__EGRESS, &ad))
+ 			return NF_DROP_ERR(-ECONNREFUSED);
+ 
+-		if (sel_netnode_sid(addrp, family, &node_sid))
++		if (sel_netnode_sid(addrp, &node_sid))
+ 			return NF_DROP;
+ 		if (avc_has_perm(peer_sid, node_sid,
+ 				 SECCLASS_NODE, NODE__SENDTO, &ad))
+diff --git a/security/selinux/include/netnode.h b/security/selinux/include/netnode.h
+index df7a5ed..f32c909 100644
+--- a/security/selinux/include/netnode.h
++++ b/security/selinux/include/netnode.h
+@@ -27,6 +27,8 @@
+ #ifndef _SELINUX_NETNODE_H
+ #define _SELINUX_NETNODE_H
+ 
+-int sel_netnode_sid(void *addr, u16 family, u32 *sid);
 +#include <net/inet_addr.h>
- #include <linux/netdevice.h>
- #include <linux/nfs_xdr.h>
- #include <linux/magic.h>
-@@ -2335,34 +2336,8 @@ static int nfs_compare_super_address(struct nfs_server *server1,
- 
- 	sap1 = (struct sockaddr *)&server1->nfs_client->cl_addr;
- 	sap2 = (struct sockaddr *)&server2->nfs_client->cl_addr;
--
--	if (sap1->sa_family != sap2->sa_family)
--		return 0;
--
--	switch (sap1->sa_family) {
--	case AF_INET: {
--		struct sockaddr_in *sin1 = (struct sockaddr_in *)sap1;
--		struct sockaddr_in *sin2 = (struct sockaddr_in *)sap2;
--		if (sin1->sin_addr.s_addr != sin2->sin_addr.s_addr)
--			return 0;
--		if (sin1->sin_port != sin2->sin_port)
--			return 0;
--		break;
--	}
--	case AF_INET6: {
--		struct sockaddr_in6 *sin1 = (struct sockaddr_in6 *)sap1;
--		struct sockaddr_in6 *sin2 = (struct sockaddr_in6 *)sap2;
--		if (!ipv6_addr_equal(&sin1->sin6_addr, &sin2->sin6_addr))
--			return 0;
--		if (sin1->sin6_port != sin2->sin6_port)
--			return 0;
--		break;
--	}
--	default:
--		return 0;
--	}
--
--	return 1;
-+	return inet_addr_equal_strict((union inet_addr *)sap1,
-+				      (union inet_addr *)sap2);
- }
- 
- static int nfs_compare_super(struct super_block *sb, void *data)
-diff --git a/include/net/inet_addr.h b/include/net/inet_addr.h
-index 44179c8..f317f0f 100644
---- a/include/net/inet_addr.h
-+++ b/include/net/inet_addr.h
-@@ -122,6 +122,7 @@ void inet_addr_set_port(union inet_addr *sap,
- }
- 
- bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b);
-+bool inet_addr_equal_strict(const union inet_addr *a, const union inet_addr *b);
- int simple_inet_pton(const char *str, union inet_addr *addr);
- 
- static inline bool sockaddr_equal(const struct sockaddr *sap1,
-@@ -131,6 +132,13 @@ static inline bool sockaddr_equal(const struct sockaddr *sap1,
- 			       (const union inet_addr *)sap2);
- }
- 
-+static inline int sockaddr_equal_strict(const struct sockaddr *sa1,
-+					const struct sockaddr *sa2)
-+{
-+	return inet_addr_equal_strict((union inet_addr *)sa1,
-+				      (union inet_addr *)sa2);
-+}
 +
- static inline bool sockaddr_copy(struct sockaddr *dst,
- 				 const struct sockaddr *src)
- {
-diff --git a/net/core/utils.c b/net/core/utils.c
-index 837bb18..489bc8d 100644
---- a/net/core/utils.c
-+++ b/net/core/utils.c
-@@ -380,6 +380,8 @@ bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b)
- {
- 	if (a->sa.sa_family != b->sa.sa_family)
- 		return false;
-+	if (a->sa.sa_family == AF_UNSPEC)
-+		return true;
- 	else if (a->sa.sa_family == AF_INET6) {
- 		if (!ipv6_addr_equal(&a->sin6.sin6_addr, &b->sin6.sin6_addr))
- 			return false;
-@@ -399,3 +401,24 @@ bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b)
- }
++int sel_netnode_sid(union inet_addr *addr, u32 *sid);
+ 
  #endif
- EXPORT_SYMBOL(inet_addr_equal);
-+
-+/*
-+ * Unlike inet_addr_equal(), this function compares ->sin_port too.
-+ */
-+bool inet_addr_equal_strict(const union inet_addr *a, const union inet_addr *b)
-+{
-+	if (inet_addr_equal(a, b)) {
-+		switch (a->sa.sa_family) {
-+#if IS_ENABLED(CONFIG_IPV6)
-+		case AF_INET6:
-+			return a->sin6.sin6_port == b->sin6.sin6_port;
-+#endif
-+		case AF_INET:
-+			return a->sin.sin_port == b->sin.sin_port;
-+		default:
-+			return true;
-+		}
-+	} else
-+		return false;
-+}
-+EXPORT_SYMBOL(inet_addr_equal_strict);
+diff --git a/security/selinux/include/objsec.h b/security/selinux/include/objsec.h
+index aa47bca..a46caaf 100644
+--- a/security/selinux/include/objsec.h
++++ b/security/selinux/include/objsec.h
+@@ -24,6 +24,7 @@
+ #include <linux/binfmts.h>
+ #include <linux/in.h>
+ #include <linux/spinlock.h>
++#include <net/inet_addr.h>
+ #include "flask.h"
+ #include "avc.h"
+ 
+@@ -80,12 +81,8 @@ struct netif_security_struct {
+ };
+ 
+ struct netnode_security_struct {
+-	union {
+-		__be32 ipv4;		/* IPv4 node address */
+-		struct in6_addr ipv6;	/* IPv6 node address */
+-	} addr;
++	union inet_addr addr;
+ 	u32 sid;			/* SID for this node */
+-	u16 family;			/* address family */
+ };
+ 
+ struct netport_security_struct {
+diff --git a/security/selinux/netnode.c b/security/selinux/netnode.c
+index c5454c0..713f14e 100644
+--- a/security/selinux/netnode.c
++++ b/security/selinux/netnode.c
+@@ -68,79 +68,49 @@ static LIST_HEAD(sel_netnode_list);
+ static DEFINE_SPINLOCK(sel_netnode_lock);
+ static struct sel_netnode_bkt sel_netnode_hash[SEL_NETNODE_HASH_SIZE];
+ 
+-/**
+- * sel_netnode_hashfn_ipv4 - IPv4 hashing function for the node table
+- * @addr: IPv4 address
+- *
+- * Description:
+- * This is the IPv4 hashing function for the node interface table, it returns
+- * the bucket number for the given IP address.
+- *
+- */
+-static unsigned int sel_netnode_hashfn_ipv4(__be32 addr)
+-{
+-	/* at some point we should determine if the mismatch in byte order
+-	 * affects the hash function dramatically */
+-	return (addr & (SEL_NETNODE_HASH_SIZE - 1));
+-}
+ 
+ /**
+- * sel_netnode_hashfn_ipv6 - IPv6 hashing function for the node table
+- * @addr: IPv6 address
++ * sel_netnode_hashfn - IPv4/IPv6 hashing function for the node table
++ * @addr: generic IP address
+  *
+  * Description:
+- * This is the IPv6 hashing function for the node interface table, it returns
++ * This is the IP hashing function for the node interface table, it returns
+  * the bucket number for the given IP address.
+  *
+  */
+-static unsigned int sel_netnode_hashfn_ipv6(const struct in6_addr *addr)
++static unsigned int sel_netnode_hashfn(const union inet_addr *addr)
+ {
+-	/* just hash the least significant 32 bits to keep things fast (they
+-	 * are the most likely to be different anyway), we can revisit this
+-	 * later if needed */
+-	return (addr->s6_addr32[3] & (SEL_NETNODE_HASH_SIZE - 1));
++	if (addr->sa.sa_family == PF_INET)
++		/* at some point we should determine if the mismatch in byte order
++		 * affects the hash function dramatically */
++		return (addr->sin.sin_addr.s_addr & (SEL_NETNODE_HASH_SIZE - 1));
++	else if (addr->sa.sa_family == PF_INET6)
++		/* just hash the least significant 32 bits to keep things fast (they
++		 * are the most likely to be different anyway), we can revisit this
++		 * later if needed */
++		return (addr->sin6.sin6_addr.s6_addr32[3] & (SEL_NETNODE_HASH_SIZE - 1));
++	else
++		BUG();
+ }
+ 
+ /**
+  * sel_netnode_find - Search for a node record
+  * @addr: IP address
+- * @family: address family
+  *
+  * Description:
+  * Search the network node table and return the record matching @addr.  If an
+  * entry can not be found in the table return NULL.
+  *
+  */
+-static struct sel_netnode *sel_netnode_find(const void *addr, u16 family)
++static struct sel_netnode *sel_netnode_find(const union inet_addr *addr)
+ {
+ 	unsigned int idx;
+ 	struct sel_netnode *node;
+ 
+-	switch (family) {
+-	case PF_INET:
+-		idx = sel_netnode_hashfn_ipv4(*(__be32 *)addr);
+-		break;
+-	case PF_INET6:
+-		idx = sel_netnode_hashfn_ipv6(addr);
+-		break;
+-	default:
+-		BUG();
+-		return NULL;
+-	}
+-
++	idx = sel_netnode_hashfn(addr);
+ 	list_for_each_entry_rcu(node, &sel_netnode_hash[idx].list, list)
+-		if (node->nsec.family == family)
+-			switch (family) {
+-			case PF_INET:
+-				if (node->nsec.addr.ipv4 == *(__be32 *)addr)
+-					return node;
+-				break;
+-			case PF_INET6:
+-				if (ipv6_addr_equal(&node->nsec.addr.ipv6,
+-						    addr))
+-					return node;
+-				break;
+-			}
++		if (inet_addr_equal(&node->nsec.addr, addr))
++			return node;
+ 
+ 	return NULL;
+ }
+@@ -156,18 +126,9 @@ static struct sel_netnode *sel_netnode_find(const void *addr, u16 family)
+ static void sel_netnode_insert(struct sel_netnode *node)
+ {
+ 	unsigned int idx;
++	union inet_addr *addr = &node->nsec.addr;
+ 
+-	switch (node->nsec.family) {
+-	case PF_INET:
+-		idx = sel_netnode_hashfn_ipv4(node->nsec.addr.ipv4);
+-		break;
+-	case PF_INET6:
+-		idx = sel_netnode_hashfn_ipv6(&node->nsec.addr.ipv6);
+-		break;
+-	default:
+-		BUG();
+-	}
+-
++	idx = sel_netnode_hashfn(addr);
+ 	/* we need to impose a limit on the growth of the hash table so check
+ 	 * this bucket to make sure it is within the specified bounds */
+ 	list_add_rcu(&node->list, &sel_netnode_hash[idx].list);
+@@ -186,7 +147,6 @@ static void sel_netnode_insert(struct sel_netnode *node)
+ /**
+  * sel_netnode_sid_slow - Lookup the SID of a network address using the policy
+  * @addr: the IP address
+- * @family: the address family
+  * @sid: node SID
+  *
+  * Description:
+@@ -196,14 +156,14 @@ static void sel_netnode_insert(struct sel_netnode *node)
+  * failure.
+  *
+  */
+-static int sel_netnode_sid_slow(void *addr, u16 family, u32 *sid)
++static int sel_netnode_sid_slow(union inet_addr *addr, u32 *sid)
+ {
+ 	int ret = -ENOMEM;
+ 	struct sel_netnode *node;
+ 	struct sel_netnode *new = NULL;
+ 
+ 	spin_lock_bh(&sel_netnode_lock);
+-	node = sel_netnode_find(addr, family);
++	node = sel_netnode_find(addr);
+ 	if (node != NULL) {
+ 		*sid = node->nsec.sid;
+ 		spin_unlock_bh(&sel_netnode_lock);
+@@ -212,16 +172,16 @@ static int sel_netnode_sid_slow(void *addr, u16 family, u32 *sid)
+ 	new = kzalloc(sizeof(*new), GFP_ATOMIC);
+ 	if (new == NULL)
+ 		goto out;
+-	switch (family) {
++	switch (addr->sa.sa_family) {
+ 	case PF_INET:
+ 		ret = security_node_sid(PF_INET,
+ 					addr, sizeof(struct in_addr), sid);
+-		new->nsec.addr.ipv4 = *(__be32 *)addr;
++		new->nsec.addr = *addr;
+ 		break;
+ 	case PF_INET6:
+ 		ret = security_node_sid(PF_INET6,
+ 					addr, sizeof(struct in6_addr), sid);
+-		new->nsec.addr.ipv6 = *(struct in6_addr *)addr;
++		new->nsec.addr = *addr;
+ 		break;
+ 	default:
+ 		BUG();
+@@ -229,7 +189,6 @@ static int sel_netnode_sid_slow(void *addr, u16 family, u32 *sid)
+ 	if (ret != 0)
+ 		goto out;
+ 
+-	new->nsec.family = family;
+ 	new->nsec.sid = *sid;
+ 	sel_netnode_insert(new);
+ 
+@@ -246,8 +205,7 @@ out:
+ 
+ /**
+  * sel_netnode_sid - Lookup the SID of a network address
+- * @addr: the IP address
+- * @family: the address family
++ * @addr: the generic IP address
+  * @sid: node SID
+  *
+  * Description:
+@@ -258,12 +216,12 @@ out:
+  * on failure.
+  *
+  */
+-int sel_netnode_sid(void *addr, u16 family, u32 *sid)
++int sel_netnode_sid(union inet_addr *addr, u32 *sid)
+ {
+ 	struct sel_netnode *node;
+ 
+ 	rcu_read_lock();
+-	node = sel_netnode_find(addr, family);
++	node = sel_netnode_find(addr);
+ 	if (node != NULL) {
+ 		*sid = node->nsec.sid;
+ 		rcu_read_unlock();
+@@ -271,7 +229,7 @@ int sel_netnode_sid(void *addr, u16 family, u32 *sid)
+ 	}
+ 	rcu_read_unlock();
+ 
+-	return sel_netnode_sid_slow(addr, family, sid);
++	return sel_netnode_sid_slow(addr, sid);
+ }
+ 
+ /**
+diff --git a/security/smack/smack_lsm.c b/security/smack/smack_lsm.c
+index eefbd10..9a80923 100644
+--- a/security/smack/smack_lsm.c
++++ b/security/smack/smack_lsm.c
+@@ -1900,9 +1900,7 @@ static int smack_netlabel_send(struct sock *sk, struct sockaddr_in *sap)
+ 		struct lsm_network_audit net;
+ 
+ 		smk_ad_init_net(&ad, __func__, LSM_AUDIT_DATA_NET, &net);
+-		ad.a.u.net->family = sap->sin_family;
+-		ad.a.u.net->dport = sap->sin_port;
+-		ad.a.u.net->v4info.daddr = sap->sin_addr.s_addr;
++		ad.a.u.net->daddr = (union inet_addr )*sap;
+ #endif
+ 		sk_lbl = SMACK_UNLABELED_SOCKET;
+ 		skp = ssp->smk_out;
+@@ -2055,12 +2053,13 @@ auditout:
+ 
+ #ifdef CONFIG_AUDIT
+ 	smk_ad_init_net(&ad, __func__, LSM_AUDIT_DATA_NET, &net);
+-	ad.a.u.net->family = sk->sk_family;
+-	ad.a.u.net->dport = port;
++	inet_addr_set_port(&ad.a.u.net->daddr, port);
++	ad.a.u.net->saddr.sa.sa_family = sk->sk_family;
++	ad.a.u.net->daddr.sa.sa_family = sk->sk_family;
+ 	if (act == SMK_RECEIVING)
+-		ad.a.u.net->v6info.saddr = address->sin6_addr;
++		ad.a.u.net->saddr.sin6.sin6_addr = address->sin6_addr;
+ 	else
+-		ad.a.u.net->v6info.daddr = address->sin6_addr;
++		ad.a.u.net->daddr.sin6.sin6_addr = address->sin6_addr;
+ #endif
+ 	return smk_access(skp, object, MAY_WRITE, &ad);
+ }
+@@ -3202,7 +3201,8 @@ static int smack_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 
+ #ifdef CONFIG_AUDIT
+ 		smk_ad_init_net(&ad, __func__, LSM_AUDIT_DATA_NET, &net);
+-		ad.a.u.net->family = sk->sk_family;
++		ad.a.u.net->saddr.sa.sa_family = sk->sk_family;
++		ad.a.u.net->daddr.sa.sa_family = sk->sk_family;
+ 		ad.a.u.net->netif = skb->skb_iif;
+ 		ipv4_skb_to_auditdata(skb, &ad.a, NULL);
+ #endif
+@@ -3384,7 +3384,8 @@ static int smack_inet_conn_request(struct sock *sk, struct sk_buff *skb,
+ 
+ #ifdef CONFIG_AUDIT
+ 	smk_ad_init_net(&ad, __func__, LSM_AUDIT_DATA_NET, &net);
+-	ad.a.u.net->family = family;
++	ad.a.u.net->saddr.sa.sa_family = family;
++	ad.a.u.net->daddr.sa.sa_family = family;
+ 	ad.a.u.net->netif = skb->skb_iif;
+ 	ipv4_skb_to_auditdata(skb, &ad.a, NULL);
+ #endif
 -- 
 1.7.7.6
