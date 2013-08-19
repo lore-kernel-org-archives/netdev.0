@@ -1,40 +1,69 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net] net-packet: restore packet statistics tp_packets
- to include drops
-Date: Mon, 19 Aug 2013 22:22:18 +0400
-Message-ID: <5212625A.1090704@cogentembedded.com>
-References: <1376855916-21824-1-git-send-email-willemb@google.com>
+From: Corey Hickey <bugfood-ml@fatooh.org>
+Subject: Re: NAT stops forwarding ACKs after PMTU discovery
+Date: Mon, 19 Aug 2013 11:22:30 -0700
+Message-ID: <52126266.70007@fatooh.org>
+References: <521061B4.1030508@fatooh.org> <1376839467.21329.36.camel@edumazet-glaptop> <alpine.DEB.2.00.1308182314050.25515@blackhole.kfki.hu> <1376870425.4226.25.camel@edumazet-glaptop> <1376870592.4226.27.camel@edumazet-glaptop> <5211DAA6.1070302@fatooh.org> <20130819123314.GC3583@cpaasch-mac>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, dborkman@redhat.com, netdev@vger.kernel.org
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:40070 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750908Ab3HSSWT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 14:22:19 -0400
-Received: by mail-la0-f53.google.com with SMTP id el20so3523358lab.26
-        for <netdev@vger.kernel.org>; Mon, 19 Aug 2013 11:22:16 -0700 (PDT)
-In-Reply-To: <1376855916-21824-1-git-send-email-willemb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org
+To: Christoph Paasch <christoph.paasch@uclouvain.be>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20130819123314.GC3583@cpaasch-mac>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On 2013-08-19 05:33, Christoph Paasch wrote:
+> Hello,
+> 
+> I would say, the problem is due to a sequence-number rewriting
+> middlebox, who does not correctly handle the SACK-blocks.
+> 
+> In remote.pcap, you see:
+> Packet#10: A Dup-ACK: ACK 1005503816, SACK: 1005505184-1005505648
+> The SACK actually covers Packet#9
+> 
+> In tun0.pcap, you have:
+> Packet#9: The one that is SACK'ed: SEQ: 3514869772
+> Packet#11: The Dup-ACK: ACK: 3514868404, SACK: 3570452498-3570452962
+> 
+> You can see that the SACK-block is not really aligned with the ACK-numbers.
+> 
+> Netfilter is probably dropping the Dup-ACK, because the SACK-block is
+> acknowledging unseen data.
+> 
+> 
+> There are middleboxes out there that randomize the sequence numbers, due to
+> an old bug in Windows, where the initial sequence number was not
+> sufficiently randomized. There are some of these middleboxes, who simply do
+> not support SACK, thus modify only the sequence numbers of the TCP-header
+> (https://supportforums.cisco.com/docs/DOC-12668#TCP_Sequence_Number_Randomization_and_SACK).
+> 
+> This results in a TCP retransmission timeout on the sender, because of
+> the invalid SACK-blocks, the duplicate ACKs are not accounted. This
+> completly kills the performance, as you can see in our presentation given at
+> IETF87: http://tools.ietf.org/agenda/87/slides/slides-87-tcpm-11.pdf
 
-On 08/18/2013 11:58 PM, Willem de Bruijn wrote:
+This makes good sense. I normally look at these in wireshark with
+relative sequence numbers turned on, and I see in bad/tun0.pcap that the
+SACK values are very high, but are normal in bad/remote.pcap.
 
-> getsockopt PACKET_STATISTICS returns tp_packets + tp_drops.
-> Commit ee80fbf301 cleaned up the getsockopt PACKET_STATISTICS code.
+I see the same thing in good/tun0.pcap, though, so I don't fully
+understand what is making it work sometimes and not others.
 
-    Please also specify that commit's summary in parens.
+I will show this thread and the Cisco docs to the network engineer at
+work, and maybe we can get the SEQ randomization turned off (or at least
+test it).
 
-> This also changed semantics. Historically, tp_packets included
-> tp_drops on return. The commit removed the line that adds tp_drops
-> into tp_packets.
+> We have a patch that accounts DUP-ACKs with invalid SACK-blocks effectively
+> as duplicate acknowledgments. I can send the patches, if the
+> netdev-community is interested in accepting these upstream.
 
-> This patch reinstates the old semantics.
+I'll keep my eye out and test them if they come up.
 
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
 
-WBR, Sergei
+Thanks,
+Corey
