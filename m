@@ -1,55 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: NAT stops forwarding ACKs after PMTU discovery
-Date: Mon, 19 Aug 2013 11:10:00 -0700
-Message-ID: <1376935800.4226.71.camel@edumazet-glaptop>
-References: <1376870425.4226.25.camel@edumazet-glaptop>
-	 <1376870592.4226.27.camel@edumazet-glaptop> <5211DAA6.1070302@fatooh.org>
-	 <20130819123314.GC3583@cpaasch-mac>
-	 <1376918657.4226.59.camel@edumazet-glaptop>
-	 <20130819134919.GF3583@cpaasch-mac>
-	 <1376920685.4226.61.camel@edumazet-glaptop>
-	 <20130819143509.GA31320@linuxace.com> <20130819153328.GH3583@cpaasch-mac>
-	 <1376928031.4226.66.camel@edumazet-glaptop>
-	 <20130819171519.GA4008@cpaasch-mac>
+From: "Carlos O'Donell" <carlos@redhat.com>
+Subject: Re: [GLIBC Patch v2] inet: avoid redefinition of some structs in
+ kernel
+Date: Mon, 19 Aug 2013 14:11:09 -0400
+Message-ID: <52125FBD.7020905@redhat.com>
+References: <1376558891-26221-1-git-send-email-amwang@redhat.com>  <1376558891-26221-2-git-send-email-amwang@redhat.com>  <520E4995.5090101@redhat.com> <1376875250.2742.2.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Phil Oester <kernel@linuxace.com>,
-	Corey Hickey <bugfood-ml@fatooh.org>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org
-To: Christoph Paasch <christoph.paasch@uclouvain.be>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:53467 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750860Ab3HSSKD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 14:10:03 -0400
-In-Reply-To: <20130819171519.GA4008@cpaasch-mac>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Thomas Backlund <tmb@mageia.org>, libc-alpha@sourceware.org,
+        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Cong Wang <amwang@redhat.com>
+Return-path: <libc-alpha-return-42043-glibc-alpha=m.gmane.org@sourceware.org>
+List-Unsubscribe: <mailto:libc-alpha-unsubscribe-##L=##H@sourceware.org>
+List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
+List-Archive: <http://sourceware.org/ml/libc-alpha/>
+List-Post: <mailto:libc-alpha@sourceware.org>
+List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
+Sender: libc-alpha-owner@sourceware.org
+In-Reply-To: <1376875250.2742.2.camel@cr0>
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-08-19 at 19:15 +0200, Christoph Paasch wrote:
-
+On 08/18/2013 09:20 PM, Cong Wang wrote:
+> On Fri, 2013-08-16 at 11:47 -0400, Carlos O'Donell wrote:
+>> On 08/15/2013 05:28 AM, Cong Wang wrote:
+>>> 2013-08-13  Carlos O'Donell  <carlos@redhat.com>
+>>> 	    Cong Wang <amwang@redhat.com>
+>>>
+>>> 	* sysdeps/unix/sysv/linux/bits/in.h
+>>> 	[_UAPI_LINUX_IN6_H]: Define __USE_KERNEL_IPV6_DEFS.
+>>> 	* inet/netinet/in.h: Move in_addr definition and bits/in.h inclusion
+>>> 	before __USE_KERNEL_IPV6_DEFS uses.
+>>> 	* inet/netinet/in.h [!__USE_KERNEL_IPV6_DEFS]: Define IPPROTO_MH, and
+>>> 	IPPROTO_BEETPH.
+>>> 	[__USE_KERNEL_IPV6_DEFS]: Don't define any of IPPROTO_*, in6_addr,
+>>> 	sockaddr_in6, or ipv6_mreq.
+>>
+>> Cong,
+>>
+>> Given that this is a user visible change could you please file
+>> a glibc bugzilla bug in sourceware[1] so we can track the commit and so
+>> that future users can reopen the bug to discuss any defects?
 > 
-> Will send it soon. Have to rebase on net-next,... :)
-> (it's several months ago that I did this)
+> Done, http://sourceware.org/bugzilla/show_bug.cgi?id=15850
+ 
+Perfect.
+ 
+>>
+>> Then you need to add the BZ# to the ChangeLog, and whomever
+>> commits this for you will mark it fixed in the NEWS. We should
+>> also write up a NEWS blurb for this since it's the first explicit
+>> header coordination of it's kind and we should highlight that
+>> so developers take note and help us coordinate more headers.
+>>
+> 
+> Should I resend this patch with BZ# included?
 
-No hurry.
+No need. But the final ChangeLog should have the BZ# in it, and the
+committer will add it to the NEWS list of bugs fixed in 2.19.
 
-This is a very unlikely problem anyway.
-
-Trace taken on a random Google server :
-
-TcpExtTCPSACKDiscard 44666
-TcpExtTCPSACKReneging 173593
-TcpExtTCPSACKReorder 1331306
-TcpExtTCPSackFailures 791292
-TcpExtTCPSackMerged 261702691
-TcpExtTCPSackRecovery 57267494
-TcpExtTCPSackRecoveryFail 2008511
-TcpExtTCPSackShiftFallback 841017416
-TcpExtTCPSackShifted 619337144
-...
-TcpOutSegs 42215528084
-TcpRetransSegs 441868477
+Cheers,
+Carlos.
