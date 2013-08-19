@@ -1,31 +1,55 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH] Fix stack corruption on some architectures
-Date: Mon, 19 Aug 2013 15:23:38 -0700
-Message-ID: <20130819222338.GA3041@kroah.com>
-References: <1376944647.5082.12.camel@chimera>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch -next v2] ipip: dereferencing an ERR_PTR in
+ ip_tunnel_init_net()
+Date: Tue, 20 Aug 2013 01:23:07 +0300
+Message-ID: <20130819222307.GA3622@elgon.mountain>
+References: <1376917088.4226.50.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jan Dumon <j.dumon@option.com>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:23391 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751224Ab3HSWYB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 18:24:01 -0400
 Content-Disposition: inline
-In-Reply-To: <1376944647.5082.12.camel@chimera>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1376917088.4226.50.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 19, 2013 at 01:37:27PM -0700, Daniel Gimpelevich wrote:
-> There is no need to get an interface specification if we know it's the
-> wrong one; trivial change. The big thing, though, was explained in the
-> #mipslinux IRC channel: 
-> [Mon 2013-08-19 12:28:21 PM PDT] <headless> guys, are you sure it's not "DMA off stack" case?
-> [Mon 2013-08-19 12:28:35 PM PDT] <headless> it's a known stack corruptor on non-coherent arches
-> [Mon 2013-08-19 12:31:48 PM PDT] <DonkeyHotei> headless: for usb/ehci?
-> [Mon 2013-08-19 12:34:11 PM PDT] <DonkeyHotei> headless: explain
-> [Mon 2013-08-19 12:35:38 PM PDT] <headless> usb_control_msg() (or other such func) should not use buffer on stack. DMA from/to stack is prohibited
-> [Mon 2013-08-19 12:35:58 PM PDT] <headless> and EHCI uses DMA on control xfers (as well as all the others)
-> 
-> Signed-off-by: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
+The __ip_tunnel_create() function returns an ERR_PTR on error so we need
+to check for that before dereferencing.  This bug was added in commit
+6c742e714d8c2 ("ipip: add x-netns support").
 
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+v2: Eric Dumazet said v1 patch looked racy and suggested the v2 fix.
 
-Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index a4d9126..830de3f 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -857,13 +857,11 @@ int ip_tunnel_init_net(struct net *net, int ip_tnl_net_id,
+ 	/* FB netdevice is special: we have one, and only one per netns.
+ 	 * Allowing to move it to another netns is clearly unsafe.
+ 	 */
+-	itn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
++	if (!IS_ERR(itn->fb_tunnel_dev))
++		itn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
+ 	rtnl_unlock();
+ 
+-	if (IS_ERR(itn->fb_tunnel_dev))
+-		return PTR_ERR(itn->fb_tunnel_dev);
+-
+-	return 0;
++	return PTR_RET(itn->fb_tunnel_dev);
+ }
+ EXPORT_SYMBOL_GPL(ip_tunnel_init_net);
+ 
