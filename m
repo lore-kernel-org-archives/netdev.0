@@ -1,71 +1,89 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ipv4: raise IP_MAX_MTU to theoretical limit
-Date: Sun, 18 Aug 2013 19:08:07 -0700
-Message-ID: <1376878087.4226.41.camel@edumazet-glaptop>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH ipsec 1/3] ipv6: wire up skb->encapsulation
+Date: Mon, 19 Aug 2013 10:56:52 +1000
+Message-ID: <20130819005649.GA2931@verge.net.au>
+References: <20130817175116.GA7001@order.stressinduktion.org>
+ <20130817180738.GA24518@order.stressinduktion.org>
+ <20130818042416.GK30709@verge.net.au>
+ <20130818110038.GC7371@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Willem de Bruijn <willemb@google.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, steffen.klassert@secunet.com,
+	yoshfuji@linux-ipv6.org, nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:33818 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754281Ab3HSCIL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Aug 2013 22:08:11 -0400
-Received: by mail-pa0-f41.google.com with SMTP id bj1so4036492pad.28
-        for <netdev@vger.kernel.org>; Sun, 18 Aug 2013 19:08:11 -0700 (PDT)
+Received: from kirsty.vergenet.net ([202.4.237.240]:56117 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750765Ab3HSEdm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 00:33:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20130818110038.GC7371@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Sun, Aug 18, 2013 at 01:00:38PM +0200, Hannes Frederic Sowa wrote:
+> On Sun, Aug 18, 2013 at 02:24:16PM +1000, Simon Horman wrote:
+> > On Sat, Aug 17, 2013 at 08:07:38PM +0200, Hannes Frederic Sowa wrote:
+> > > Hi Simon!
+> > > 
+> > > On Sat, Aug 17, 2013 at 07:51:16PM +0200, Hannes Frederic Sowa wrote:
+> > > > When pushing a new header before current one call skb_reset_inner_headers
+> > > > to record the position of the inner headers in the various ipv6 tunnel
+> > > > protocols.
+> > > > 
+> > > > We later need this to correctly identify the addresses needed to send
+> > > > back an error in the xfrm layer.
+> > > > 
+> > > > This change is safe, because skb->protocol is always checked before
+> > > > dereferencing data from the inner protocol.
+> > > > 
+> > > > Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> > > > Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> > > > Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> > > > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> > > > ---
+> > > > 
+> > > > This patch is based on Steffen Klassert's ipsec tree.
+> > > > 
+> > > >  net/ipv6/ip6_gre.c    | 5 +++++
+> > > >  net/ipv6/ip6_tunnel.c | 6 ++++++
+> > > >  net/ipv6/sit.c        | 5 +++++
+> > > >  3 files changed, 16 insertions(+)
+> > > > 
+> > > > diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+> > > > index ecd6073..90747f1 100644
+> > > > --- a/net/ipv6/ip6_gre.c
+> > > > +++ b/net/ipv6/ip6_gre.c
+> > > > @@ -724,6 +724,11 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
+> > > >  		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL);
+> > > >  	}
+> > > >  
+> > > > +	if (likely(!skb->encapsulation)) {
+> > > > +		skb_reset_inner_headers(skb);
+> > > > +		skb->encapsulation = 1;
+> > > > +	}
+> > > > +
+> > > 
+> > > While doing these patches, I wondered how skb->inner_protocol will be
+> > > used in future (you added it in 0d89d2035fe063461a5ddb609b2c12e7fb006e44
+> > > ("MPLS: Add limited GSO support")). Current use by tunnels seems safe to
+> > > me, but I wondered how you would extend its use?
+> > 
+> > Hi,
+> > 
+> > I must confess that I'm not entirely sure that I understand the question.
+> 
+> Sorry to be not clear enough. I try to present my envisioned use case for
+> inner_protocol:
+> 
+> I do think there may be some other corner cases when reporting back
+> errors to a local socket when multiple tunnels+ipsecs are stacked into
+> each other. The first encapsulation sets skb->inner_network_header, so
+> that we can later extract the needed information for the error generation
+> via inner_ip{v6,}_hdr. It would be handy here to use inner_protocol to
+> mark the type of inner_network_header in advance (all this is because,
+> even if we still have a reference to the local socket and know its af,
+> it could also have emitted an IPv4 frame, so we have to jump to the ipv4
+> error handling path).
 
-As discussed last year [1], there is no compelling reason
-to limit IPv4 MTU to 0xFFF0, while real limit is 0xFFFF
-
-[1] : http://marc.info/?l=linux-netdev&m=135607247609434&w=2
-
-Willem raised this issue again because some of our internal
-regression tests broke after lo mtu being set to 65536.
-
-IP_MTU reports 0xFFF0, and the test attempts to send a RAW datagram of
-mtu + 1 bytes, expecting the send() to fail, but it does not.
-
-Alexey raised interesting points about TCP MSS, that should be addressed
-in follow-up patches in TCP stack if needed, as someone could also set
-an odd mtu anyway.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: Willem de Bruijn <willemb@google.com>
----
- net/ipv4/route.c |    8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index e805481..727f436 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -112,7 +112,8 @@
- #define RT_FL_TOS(oldflp4) \
- 	((oldflp4)->flowi4_tos & (IPTOS_RT_MASK | RTO_ONLINK))
- 
--#define IP_MAX_MTU	0xFFF0
-+/* IPv4 datagram length is stored into 16bit field (tot_len) */
-+#define IP_MAX_MTU	0xFFFF
- 
- #define RT_GC_TIMEOUT (300*HZ)
- 
-@@ -1227,10 +1228,7 @@ static unsigned int ipv4_mtu(const struct dst_entry *dst)
- 			mtu = 576;
- 	}
- 
--	if (mtu > IP_MAX_MTU)
--		mtu = IP_MAX_MTU;
--
--	return mtu;
-+	return min_t(unsigned int, mtu, IP_MAX_MTU);
- }
- 
- static struct fib_nh_exception *find_exception(struct fib_nh *nh, __be32 daddr)
+That sounds reasonable to me and I don't think it would interfere
+with the current usage or vice versa.
