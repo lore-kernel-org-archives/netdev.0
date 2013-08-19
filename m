@@ -1,59 +1,55 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 5/7] bcm63xx_enet: replace devm_request_and_ioremap by devm_ioremap_resource
-Date: Mon, 19 Aug 2013 13:20:39 +0200
-Message-ID: <1376911241-27720-6-git-send-email-Julia.Lawall@lip6.fr>
-References: <1376911241-27720-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: 3.11-rc6 genetlink locking fix offends lockdep
+Date: Mon, 19 Aug 2013 13:22:42 +0200
+Message-ID: <1376911362.14734.11.camel@jlt4.sipsolutions.net>
+References: <alpine.LNX.2.00.1308182143370.906@eggly.anvils>
+	 <1376899214.14734.6.camel@jlt4.sipsolutions.net>
+	 <5211FAB3.7080400@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hugh Dickins <hughd@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Greg KH <gregkh@linuxfoundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Otcheretianski, Andrei" <andrei.otcheretianski@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Thomas Graf <tgraf@suug.ch>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1376911241-27720-1-git-send-email-Julia.Lawall@lip6.fr>
+In-Reply-To: <5211FAB3.7080400@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
+On Mon, 2013-08-19 at 19:00 +0800, Ding Tianhong wrote:
+> On 2013/8/19 16:00, Johannes Berg wrote:
+> > 
+> >> 3.11-rc6's commit 58ad436fcf49 ("genetlink: fix family dump race")
+> >> gives me the lockdep trace below at startup.
+> > 
+> > Hmm. Yes, I see now how this happens, not sure why I didn't run into it.
+> > 
+> > The problem is that genl_family_rcv_msg() is called with the genl_lock
+> > held, and then calls netlink_dump_start() with it held, creating a
+> > genl_lock->cb_mutex dependency, but obviously the dump continuation is
+> > the other way around.
+> > 
+> > We could use the semaphore instead, I believe, but I don't really
+> > understand the mutex vs. semaphore well enough to be sure that's
+> > correct.
+> > 
+> > johannes
+> > 
+> it is useless, the logic need to modify or otherwise it will still call lockdep trace.
 
-Use devm_ioremap_resource instead of devm_request_and_ioremap.
+I don't believe so, the semaphore and cb_mutex don't have a dependency
+yet, afaict.
 
-This was done using the semantic patch
-scripts/coccinelle/api/devm_ioremap_resource.cocci
+> maybe i could send a patch for it, if you wish.
 
-The relevant call to platform_get_resource was manually moved down to the
-call to devm_ioremap_resource.
+What do you mean?
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
----
- drivers/net/ethernet/broadcom/bcm63xx_enet.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-index b1bcd4b..89ff09e 100644
---- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-+++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-@@ -1747,11 +1747,10 @@ static int bcm_enet_probe(struct platform_device *pdev)
- 	if (!bcm_enet_shared_base[0])
- 		return -ENODEV;
- 
--	res_mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	res_irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
- 	res_irq_rx = platform_get_resource(pdev, IORESOURCE_IRQ, 1);
- 	res_irq_tx = platform_get_resource(pdev, IORESOURCE_IRQ, 2);
--	if (!res_mem || !res_irq || !res_irq_rx || !res_irq_tx)
-+	if (!res_irq || !res_irq_rx || !res_irq_tx)
- 		return -ENODEV;
- 
- 	ret = 0;
-@@ -1767,9 +1766,10 @@ static int bcm_enet_probe(struct platform_device *pdev)
- 	if (ret)
- 		goto out;
- 
--	priv->base = devm_request_and_ioremap(&pdev->dev, res_mem);
--	if (priv->base == NULL) {
--		ret = -ENOMEM;
-+	res_mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	priv->base = devm_ioremap_resource(&pdev->dev, res_mem);
-+	if (IS_ERR(priv->base)) {
-+		ret = PTR_ERR(priv->base);
- 		goto out;
- 	}
- 
+johannes
