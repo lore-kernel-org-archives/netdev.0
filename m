@@ -1,28 +1,25 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next v3 9/9] selinux: use generic union inet_addr
-Date: Mon, 19 Aug 2013 12:50:26 -0700 (PDT)
-Message-ID: <20130819.125026.636442915180863272.davem@davemloft.net>
-References: <1376907278-26377-1-git-send-email-amwang@redhat.com>
-	<1376907278-26377-10-git-send-email-amwang@redhat.com>
-	<52127336.3080209@schaufler-ca.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: heavily backlogged...
+Date: Mon, 19 Aug 2013 12:52:01 -0700 (PDT)
+Message-ID: <20130819.125201.48904834847854024.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, netdev@vger.kernel.org,
-	james.l.morris@oracle.com, sds@tycho.nsa.gov,
-	eparis@parisplace.org, pmoore@redhat.com,
-	linux-kernel@vger.kernel.org, linux-security-module@vger.kernel.org
-To: casey@schaufler-ca.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <52127336.3080209@schaufler-ca.com>
-Sender: linux-security-module-owner@vger.kernel.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
-It's so that you can pass a generic ipv4/ipv6 address blob into
-things like printf formatting, and since there is an address family
-member present, it knows what's in there and therefore one printf
-format specifier can handle both ipv4 and ipv6 addresses.
+Due to the weekend vger.kernel.org mail issues I haven't been able
+to read my own email until just now.
 
-Like you, I think these changes a complete waste of time too, I'm just
-relaying what I was told.
+So I've got a 9000+ email backlog to sift through because I can
+do anything useful.
+
+Thanks for your patience in advance.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
