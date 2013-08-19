@@ -1,140 +1,85 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: NAT stops forwarding ACKs after PMTU discovery
-Date: Mon, 19 Aug 2013 14:33:14 +0200
-Message-ID: <20130819123314.GC3583@cpaasch-mac>
-References: <521061B4.1030508@fatooh.org>
- <1376839467.21329.36.camel@edumazet-glaptop>
- <alpine.DEB.2.00.1308182314050.25515@blackhole.kfki.hu>
- <1376870425.4226.25.camel@edumazet-glaptop>
- <1376870592.4226.27.camel@edumazet-glaptop>
- <5211DAA6.1070302@fatooh.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch -next] ipip: dereferencing an ERR_PTR in
+ ip_tunnel_init_net()
+Date: Mon, 19 Aug 2013 05:58:08 -0700
+Message-ID: <1376917088.4226.50.camel@edumazet-glaptop>
+References: <20130819070510.GE28591@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org
-To: Corey Hickey <bugfood-ml@fatooh.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:47711 "EHLO
-	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751336Ab3HSMdW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 08:33:22 -0400
-Content-Disposition: inline
-In-Reply-To: <5211DAA6.1070302@fatooh.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20130819070510.GE28591@elgon.mountain>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
-
-I would say, the problem is due to a sequence-number rewriting
-middlebox, who does not correctly handle the SACK-blocks.
-
-In remote.pcap, you see:
-Packet#10: A Dup-ACK: ACK 1005503816, SACK: 1005505184-1005505648
-The SACK actually covers Packet#9
-
-In tun0.pcap, you have:
-Packet#9: The one that is SACK'ed: SEQ: 3514869772
-Packet#11: The Dup-ACK: ACK: 3514868404, SACK: 3570452498-3570452962
-
-You can see that the SACK-block is not really aligned with the ACK-numbers.
-
-Netfilter is probably dropping the Dup-ACK, because the SACK-block is
-acknowledging unseen data.
-
-
-There are middleboxes out there that randomize the sequence numbers, due to
-an old bug in Windows, where the initial sequence number was not
-sufficiently randomized. There are some of these middleboxes, who simply do
-not support SACK, thus modify only the sequence numbers of the TCP-header
-(https://supportforums.cisco.com/docs/DOC-12668#TCP_Sequence_Number_Randomization_and_SACK).
-
-This results in a TCP retransmission timeout on the sender, because of
-the invalid SACK-blocks, the duplicate ACKs are not accounted. This
-completly kills the performance, as you can see in our presentation given at
-IETF87: http://tools.ietf.org/agenda/87/slides/slides-87-tcpm-11.pdf
-
-We have a patch that accounts DUP-ACKs with invalid SACK-blocks effectively
-as duplicate acknowledgments. I can send the patches, if the
-netdev-community is interested in accepting these upstream.
-
-
-Cheers,
-Christoph
-
-
-
-On 19/08/13 - 01:43:18, Corey Hickey wrote:
-> On 2013-08-18 17:03, Eric Dumazet wrote:
-> > On Sun, 2013-08-18 at 17:00 -0700, Eric Dumazet wrote:
-> > 
-> >> Code like this seems very suspect to me :
-> >>
-> >> before(sack, receiver->td_end + 1)
-> >>
-> > 
-> > My suggestion would be to try :
-> > 
-> > diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+On Mon, 2013-08-19 at 10:05 +0300, Dan Carpenter wrote:
+> We need to move the derefernce after the IS_ERR() check.
 > 
-> [...]
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 > 
-> Thanks for all your suggestions--I really wasn't expecting so much on a
-> weekend. Here's all the data I have for tonight.
-> 
-> 
-> I tried the linux-next kernel, then linux-next with your patch applied.
-> Neither of them fix the problem, unfortunately. I have taken tcpdumps
-> for a working SSH and a failing SSH.
-> 
-> http://fatooh.org/files/tmp/linux-next-patch1.tar.bz2
-> 
-> [localhost]
-> sudo tcpdump -ni br0 -s 0 -w /tmp/local.pcap 'host 10.15.24.13 or icmp'
-> 
-> [router eth0]
-> tcpdump -ni eth0 -s 0 -w /tmp/eth0.pcap \
->     'host 10.15.24.13 or (icmp and host not 69.78.33.132)'
-> * the exclusion here is just to remove some unrelated clutter
-> 
-> [router tun0]
-> tcpdump -ni tun0 -s 0 -w /tmp/tun0.pcap -s 0 'host 10.15.24.13 or icmp'
-> 
-> [remote]
-> tcpdump -ni eth0 -s 0 -w remote.pcap 'host 192.168.61.56'
-> 
-> 
-> Some notes:
-> 
-> 1. I tested the new kernels only on the Linux router, assuming that is
-> where it was intended.
-> 
-> 2. I take back what I wrote earlier about every connection that involves
-> PMTU discovery failed; I may have been observing this wrong. For now,
-> the situation is that some connections stop forwarding packets from the
-> remote host immediately after the retransmit, while other work fine.
-> 
-> 3. From local.pcap, you can see that my localhost doesn't actually
-> transmit a large packet, yet the router's eth0 sees a large packet come
-> in. I think this is due to TSO, but I'm not completely sure.
-> 
-> 4. For some reason, I cannot reproduce this when SSHing to a host at
-> work that is running Debian sid with 3.10-1-amd64, but I can reproduce
-> it when SSHing to hosts running Centos 6.4 with
-> 2.6.32-358.6.1.el6.x86_64 (which surely has a ton of patches applied,
-> for whatever that's worth).
-> 
-> 5. I have only a vague understanding of SACK; I will be reading up on
-> this soon. I will also look into packetdrill for reproducing the
-> problem, if the SSH results aren't good enough.
-> 
-> 6. If I reduce the MTU on localhost to match the path MTU, the problem
-> does go away.
-> 
-> Thanks again for all the help,
-> Corey
+> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+> index a4d9126..24549b4 100644
+> --- a/net/ipv4/ip_tunnel.c
+> +++ b/net/ipv4/ip_tunnel.c
+> @@ -854,14 +854,14 @@ int ip_tunnel_init_net(struct net *net, int ip_tnl_net_id,
+>  
+>  	rtnl_lock();
+>  	itn->fb_tunnel_dev = __ip_tunnel_create(net, ops, &parms);
+> -	/* FB netdevice is special: we have one, and only one per netns.
+> -	 * Allowing to move it to another netns is clearly unsafe.
+> -	 */
+> -	itn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
+>  	rtnl_unlock();
+>  
+>  	if (IS_ERR(itn->fb_tunnel_dev))
+>  		return PTR_ERR(itn->fb_tunnel_dev);
+> +	/* FB netdevice is special: we have one, and only one per netns.
+> +	 * Allowing to move it to another netns is clearly unsafe.
+> +	 */
+> +	itn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
+>  
+>  	return 0;
+>  }
 > --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+Please add to the changelog :
+
+Bug was added in commit 6c742e714d8c2 ("ipip: add x-netns support")
+
+I do not think this fix is safe.
+
+"dev->features |= some_flag;" should be protected by rtnl
+
+So I suggest using instead :
+
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index a4d9126..830de3f 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -857,13 +857,11 @@ int ip_tunnel_init_net(struct net *net, int ip_tnl_net_id,
+ 	/* FB netdevice is special: we have one, and only one per netns.
+ 	 * Allowing to move it to another netns is clearly unsafe.
+ 	 */
+-	itn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
++	if (!IS_ERR(itn->fb_tunnel_dev))
++		itn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
+ 	rtnl_unlock();
+ 
+-	if (IS_ERR(itn->fb_tunnel_dev))
+-		return PTR_ERR(itn->fb_tunnel_dev);
+-
+-	return 0;
++	return PTR_RET(itn->fb_tunnel_dev);
+ }
+ EXPORT_SYMBOL_GPL(ip_tunnel_init_net);
+ 
+
+
