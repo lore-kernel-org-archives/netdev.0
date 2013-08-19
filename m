@@ -1,33 +1,34 @@
-From: Brad Johnson <bjohnson@ecessa.com>
-Subject: IFB network driver problems and questions
-Date: Mon, 19 Aug 2013 09:35:40 -0500
-Message-ID: <52122D3C.2060805@ecessa.com>
+From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Subject: Re: [Patch net-next v3 7/9] fs: use generic union inet_addr and
+ helper functions
+Date: Mon, 19 Aug 2013 07:37:52 -0700
+Message-ID: <20130819143752.GA12266@infradead.org>
+References: <1376907278-26377-1-git-send-email-amwang@redhat.com>
+ <1376907278-26377-8-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f54.google.com ([209.85.219.54]:50521 "EHLO
-	mail-oa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750801Ab3HSOfw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 10:35:52 -0400
-Received: by mail-oa0-f54.google.com with SMTP id o6so6154281oag.27
-        for <netdev@vger.kernel.org>; Mon, 19 Aug 2013 07:35:51 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Steve French <sfrench-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
+	Christine Caulfield <ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	David Teigland <teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	cluster-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1376907278-26377-8-git-send-email-amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-We are trying to use the IFB driver for ingress QoS and are having some 
-problems getting it to work for us. Even though I have seen it described 
-as a replacement for IMQ, it appears that it hooks the packets before 
-netfilter and so marks set with iptables are not seen by tc filters on 
-the ifb device. This makes it difficult, and in some cases impossible, 
-to do any kind of complex filtering, such as port ranges and many other 
-matches that are easy to do with iptables. So my questions are:
-1. Is there any way to set marks with iptables and have them seen in the 
-IFB device?
-2. Is there any way to use IFB as an iptables target the same way you 
-can do a "-j IMQ" target?
-3. If the previous answers are 'no', then are there any plans to 
-implement those features?
+> @@ -1900,17 +1901,9 @@ srcip_matches(struct sockaddr *srcaddr, struct sockaddr *rhs)
+>  {
 
-Thanks
+I think your new sockaddr_equal should be equivalent to to this
+srcip_matches, that is it should warn about and return false for unknown
+address families.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
