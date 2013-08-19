@@ -1,85 +1,64 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch -next] ipip: dereferencing an ERR_PTR in
- ip_tunnel_init_net()
-Date: Mon, 19 Aug 2013 05:58:08 -0700
-Message-ID: <1376917088.4226.50.camel@edumazet-glaptop>
-References: <20130819070510.GE28591@elgon.mountain>
+Subject: Re: NAT stops forwarding ACKs after PMTU discovery
+Date: Mon, 19 Aug 2013 06:24:17 -0700
+Message-ID: <1376918657.4226.59.camel@edumazet-glaptop>
+References: <521061B4.1030508@fatooh.org>
+	 <1376839467.21329.36.camel@edumazet-glaptop>
+	 <alpine.DEB.2.00.1308182314050.25515@blackhole.kfki.hu>
+	 <1376870425.4226.25.camel@edumazet-glaptop>
+	 <1376870592.4226.27.camel@edumazet-glaptop> <5211DAA6.1070302@fatooh.org>
+	 <20130819123314.GC3583@cpaasch-mac>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20130819070510.GE28591@elgon.mountain>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Corey Hickey <bugfood-ml@fatooh.org>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org
+To: Christoph Paasch <christoph.paasch@uclouvain.be>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:63238 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750705Ab3HSNYW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 09:24:22 -0400
+In-Reply-To: <20130819123314.GC3583@cpaasch-mac>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-08-19 at 10:05 +0300, Dan Carpenter wrote:
-> We need to move the derefernce after the IS_ERR() check.
+On Mon, 2013-08-19 at 14:33 +0200, Christoph Paasch wrote:
+> Hello,
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> I would say, the problem is due to a sequence-number rewriting
+> middlebox, who does not correctly handle the SACK-blocks.
 > 
-> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-> index a4d9126..24549b4 100644
-> --- a/net/ipv4/ip_tunnel.c
-> +++ b/net/ipv4/ip_tunnel.c
-> @@ -854,14 +854,14 @@ int ip_tunnel_init_net(struct net *net, int ip_tnl_net_id,
->  
->  	rtnl_lock();
->  	itn->fb_tunnel_dev = __ip_tunnel_create(net, ops, &parms);
-> -	/* FB netdevice is special: we have one, and only one per netns.
-> -	 * Allowing to move it to another netns is clearly unsafe.
-> -	 */
-> -	itn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
->  	rtnl_unlock();
->  
->  	if (IS_ERR(itn->fb_tunnel_dev))
->  		return PTR_ERR(itn->fb_tunnel_dev);
-> +	/* FB netdevice is special: we have one, and only one per netns.
-> +	 * Allowing to move it to another netns is clearly unsafe.
-> +	 */
-> +	itn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
->  
->  	return 0;
->  }
-> --
+> In remote.pcap, you see:
+> Packet#10: A Dup-ACK: ACK 1005503816, SACK: 1005505184-1005505648
+> The SACK actually covers Packet#9
+> 
+> In tun0.pcap, you have:
+> Packet#9: The one that is SACK'ed: SEQ: 3514869772
+> Packet#11: The Dup-ACK: ACK: 3514868404, SACK: 3570452498-3570452962
+> 
+> You can see that the SACK-block is not really aligned with the ACK-numbers.
+> 
+> Netfilter is probably dropping the Dup-ACK, because the SACK-block is
+> acknowledging unseen data.
+> 
+> 
+> There are middleboxes out there that randomize the sequence numbers, due to
+> an old bug in Windows, where the initial sequence number was not
+> sufficiently randomized. There are some of these middleboxes, who simply do
+> not support SACK, thus modify only the sequence numbers of the TCP-header
+> (https://supportforums.cisco.com/docs/DOC-12668#TCP_Sequence_Number_Randomization_and_SACK).
+> 
+> This results in a TCP retransmission timeout on the sender, because of
+> the invalid SACK-blocks, the duplicate ACKs are not accounted. This
+> completly kills the performance, as you can see in our presentation given at
+> IETF87: http://tools.ietf.org/agenda/87/slides/slides-87-tcpm-11.pdf
+> 
+> We have a patch that accounts DUP-ACKs with invalid SACK-blocks effectively
+> as duplicate acknowledgments. I can send the patches, if the
+> netdev-community is interested in accepting these upstream.
+> 
 
-Please add to the changelog :
-
-Bug was added in commit 6c742e714d8c2 ("ipip: add x-netns support")
-
-I do not think this fix is safe.
-
-"dev->features |= some_flag;" should be protected by rtnl
-
-So I suggest using instead :
-
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index a4d9126..830de3f 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -857,13 +857,11 @@ int ip_tunnel_init_net(struct net *net, int ip_tnl_net_id,
- 	/* FB netdevice is special: we have one, and only one per netns.
- 	 * Allowing to move it to another netns is clearly unsafe.
- 	 */
--	itn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
-+	if (!IS_ERR(itn->fb_tunnel_dev))
-+		itn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
- 	rtnl_unlock();
- 
--	if (IS_ERR(itn->fb_tunnel_dev))
--		return PTR_ERR(itn->fb_tunnel_dev);
--
--	return 0;
-+	return PTR_RET(itn->fb_tunnel_dev);
- }
- EXPORT_SYMBOL_GPL(ip_tunnel_init_net);
- 
-
-
+You mean a netfilter patch, a tcp patch, or both ?
