@@ -1,31 +1,42 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [patch -next] ipip: dereferencing an ERR_PTR in
- ip_tunnel_init_net()
-Date: Mon, 19 Aug 2013 16:49:01 +0300
-Message-ID: <20130819134901.GH22811@mwanda>
-References: <20130819070510.GE28591@elgon.mountain>
- <1376917088.4226.50.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: NAT stops forwarding ACKs after PMTU discovery
+Date: Mon, 19 Aug 2013 06:58:05 -0700
+Message-ID: <1376920685.4226.61.camel@edumazet-glaptop>
+References: <521061B4.1030508@fatooh.org>
+	 <1376839467.21329.36.camel@edumazet-glaptop>
+	 <alpine.DEB.2.00.1308182314050.25515@blackhole.kfki.hu>
+	 <1376870425.4226.25.camel@edumazet-glaptop>
+	 <1376870592.4226.27.camel@edumazet-glaptop> <5211DAA6.1070302@fatooh.org>
+	 <20130819123314.GC3583@cpaasch-mac>
+	 <1376918657.4226.59.camel@edumazet-glaptop>
+	 <20130819134919.GF3583@cpaasch-mac>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:31168 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750796Ab3HSNts (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 09:49:48 -0400
-Content-Disposition: inline
-In-Reply-To: <1376917088.4226.50.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Corey Hickey <bugfood-ml@fatooh.org>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org
+To: Christoph Paasch <christoph.paasch@uclouvain.be>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20130819134919.GF3583@cpaasch-mac>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thanks for the review.  I will send a v2 patch shortly.
+On Mon, 2013-08-19 at 15:49 +0200, Christoph Paasch wrote:
 
-regards,
-dan carpenter
+> 
+> It's a TCP-patch, that interprets duplicate-acks with invalid SACK-blocks as
+> duplicate acks in tcp_sock->sacked_out.
+
+Yeah, but here, this is conntrack who is blocking the thing.
+
+TCP receiver has no chance to 'fix' it.
+
+See conntrack is one of those buggy middle box as well.
+
+So if you want to properly handle this mess, you'll also have to fix
+conntrack.
+
+
+
