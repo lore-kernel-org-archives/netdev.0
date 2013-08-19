@@ -1,435 +1,615 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v3 4/9] inetpeer: use generic struct in_addr_gen
-Date: Mon, 19 Aug 2013 18:14:33 +0800
-Message-ID: <1376907278-26377-5-git-send-email-amwang@redhat.com>
+Subject: [Patch net-next v3 6/9] sunrpc: use generic union inet_addr
+Date: Mon, 19 Aug 2013 18:14:35 +0800
+Message-ID: <1376907278-26377-7-git-send-email-amwang@redhat.com>
 References: <1376907278-26377-1-git-send-email-amwang@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Cong Wang <amwang@redhat.com>
+	Jeff Layton <jlayton@redhat.com>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	linux-nfs@vger.kernel.org, Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16598 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:31623 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751176Ab3HSKPH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Aug 2013 06:15:07 -0400
+	id S1751341Ab3HSKPR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Aug 2013 06:15:17 -0400
 In-Reply-To: <1376907278-26377-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Cong Wang <amwang@redhat.com>
 
-Similar definition of struct inetpeer_addr is used by bridge multciast
-code too, therefore it makes sense to introduce a generic struct
-in_addr_gen, so that code can be shared.
+sunrpc defines some helper functions for sockaddr, actually they
+can re-use the generic functions for union inet_addr too.
 
-There is no more overhead for inet_peer structs now.
-
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Jeff Layton <jlayton@redhat.com>
+Cc: Trond Myklebust <Trond.Myklebust@netapp.com>
+Cc: "J. Bruce Fields" <bfields@fieldses.org>
+Cc: linux-nfs@vger.kernel.org
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- include/net/inet_addr.h |   22 ++++++++++++++
- include/net/inetpeer.h  |   25 ++++-----------
- net/ipv4/inetpeer.c     |   33 +++++++++++++-------
- net/ipv4/tcp_metrics.c  |   74 ++++++++++++++++++----------------------------
- 4 files changed, 79 insertions(+), 75 deletions(-)
+ fs/lockd/clntlock.c             |    2 +-
+ fs/lockd/host.c                 |    8 +-
+ fs/lockd/mon.c                  |    2 +-
+ fs/lockd/svcsubs.c              |    2 +-
+ fs/nfs/nfs4namespace.c          |    2 +-
+ fs/nfs/super.c                  |    6 +-
+ fs/nfsd/nfs4state.c             |    6 +-
+ fs/nfsd/nfscache.c              |    8 +-
+ include/linux/sunrpc/addr.h     |  131 +--------------------------------------
+ include/net/inet_addr.h         |   99 ++++++++++++++++++++++++-----
+ net/core/utils.c                |   25 ++++++++
+ net/sunrpc/clnt.c               |    2 +-
+ net/sunrpc/rpcb_clnt.c          |    2 +-
+ net/sunrpc/xprtrdma/transport.c |    4 +-
+ net/sunrpc/xprtsock.c           |    8 +-
+ 15 files changed, 134 insertions(+), 173 deletions(-)
 
-diff --git a/include/net/inet_addr.h b/include/net/inet_addr.h
-index 7289aed..ee80df4 100644
---- a/include/net/inet_addr.h
-+++ b/include/net/inet_addr.h
-@@ -13,6 +13,28 @@ union inet_addr {
- 	struct sockaddr sa;
- };
+diff --git a/fs/lockd/clntlock.c b/fs/lockd/clntlock.c
+index 41e491b..289444e 100644
+--- a/fs/lockd/clntlock.c
++++ b/fs/lockd/clntlock.c
+@@ -184,7 +184,7 @@ __be32 nlmclnt_grant(const struct sockaddr *addr, const struct nlm_lock *lock)
+ 		 */
+ 		if (fl_blocked->fl_u.nfs_fl.owner->pid != lock->svid)
+ 			continue;
+-		if (!rpc_cmp_addr(nlm_addr(block->b_host), addr))
++		if (!sockaddr_equal(nlm_addr(block->b_host), addr))
+ 			continue;
+ 		if (nfs_compare_fh(NFS_FH(file_inode(fl_blocked->fl_file)) ,fh) != 0)
+ 			continue;
+diff --git a/fs/lockd/host.c b/fs/lockd/host.c
+index 969d589..155c720 100644
+--- a/fs/lockd/host.c
++++ b/fs/lockd/host.c
+@@ -134,7 +134,7 @@ static struct nlm_host *nlm_alloc_host(struct nlm_lookup_host_info *ni,
  
-+/* a simpler definition of generic inet addr, without additional
-+ * information for IPv6 address.
-+ */
-+struct in_addr_gen {
-+	union {
-+		struct in_addr	in_addr;
-+		struct in6_addr	in6_addr;
-+	};
-+	unsigned short int	family;
-+};
-+
-+static inline
-+bool in_addr_gen_equal(const struct in_addr_gen *a, const struct in_addr_gen *b)
-+{
-+	if (a->family != b->family)
-+		return false;
-+	if (a->family == AF_INET6)
-+		return ipv6_addr_equal(&a->in6_addr, &b->in6_addr);
-+	else
-+		return a->in_addr.s_addr == b->in_addr.s_addr;
-+}
-+
- #if IS_ENABLED(CONFIG_IPV6)
- static inline
- bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b)
-diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
-index 53f464d..9574843 100644
---- a/include/net/inetpeer.h
-+++ b/include/net/inetpeer.h
-@@ -13,24 +13,13 @@
- #include <linux/spinlock.h>
- #include <linux/rtnetlink.h>
- #include <net/ipv6.h>
-+#include <net/inet_addr.h>
- #include <linux/atomic.h>
+ 	memcpy(nlm_addr(host), ni->sap, ni->salen);
+ 	host->h_addrlen    = ni->salen;
+-	rpc_set_port(nlm_addr(host), 0);
++	sockaddr_set_port(nlm_addr(host), 0);
+ 	host->h_srcaddrlen = 0;
  
--struct inetpeer_addr_base {
--	union {
--		__be32			a4;
--		__be32			a6[4];
--	};
--};
--
--struct inetpeer_addr {
--	struct inetpeer_addr_base	addr;
--	__u16				family;
--};
--
- struct inet_peer {
- 	/* group together avl_left,avl_right,v4daddr to speedup lookups */
- 	struct inet_peer __rcu	*avl_left, *avl_right;
--	struct inetpeer_addr	daddr;
-+	struct in_addr_gen	daddr;
- 	__u32			avl_height;
+ 	host->h_rpcclnt    = NULL;
+@@ -240,7 +240,7 @@ struct nlm_host *nlmclnt_lookup_host(const struct sockaddr *sap,
+ 	hlist_for_each_entry(host, chain, h_hash) {
+ 		if (host->net != net)
+ 			continue;
+-		if (!rpc_cmp_addr(nlm_addr(host), sap))
++		if (!sockaddr_equal(nlm_addr(host), sap))
+ 			continue;
  
- 	u32			metrics[RTAX_MAX];
-@@ -133,16 +122,16 @@ static inline bool inet_metrics_new(const struct inet_peer *p)
+ 		/* Same address. Share an NSM handle if we already have one */
+@@ -352,7 +352,7 @@ struct nlm_host *nlmsvc_lookup_host(const struct svc_rqst *rqstp,
+ 	hlist_for_each_entry(host, chain, h_hash) {
+ 		if (host->net != net)
+ 			continue;
+-		if (!rpc_cmp_addr(nlm_addr(host), ni.sap))
++		if (!sockaddr_equal(nlm_addr(host), ni.sap))
+ 			continue;
  
- /* can be called with or without local BH being disabled */
- struct inet_peer *inet_getpeer(struct inet_peer_base *base,
--			       const struct inetpeer_addr *daddr,
-+			       const struct in_addr_gen *daddr,
- 			       int create);
+ 		/* Same address. Share an NSM handle if we already have one */
+@@ -363,7 +363,7 @@ struct nlm_host *nlmsvc_lookup_host(const struct svc_rqst *rqstp,
+ 			continue;
+ 		if (host->h_version != ni.version)
+ 			continue;
+-		if (!rpc_cmp_addr(nlm_srcaddr(host), src_sap))
++		if (!sockaddr_equal(nlm_srcaddr(host), src_sap))
+ 			continue;
  
- static inline struct inet_peer *inet_getpeer_v4(struct inet_peer_base *base,
- 						__be32 v4daddr,
- 						int create)
- {
--	struct inetpeer_addr daddr;
-+	struct in_addr_gen daddr;
+ 		/* Move to head of hash chain. */
+diff --git a/fs/lockd/mon.c b/fs/lockd/mon.c
+index 1812f02..d36d65a 100644
+--- a/fs/lockd/mon.c
++++ b/fs/lockd/mon.c
+@@ -270,7 +270,7 @@ static struct nsm_handle *nsm_lookup_addr(const struct sockaddr *sap)
+ 	struct nsm_handle *nsm;
  
--	daddr.addr.a4 = v4daddr;
-+	daddr.in_addr.s_addr = v4daddr;
- 	daddr.family = AF_INET;
- 	return inet_getpeer(base, &daddr, create);
- }
-@@ -151,9 +140,9 @@ static inline struct inet_peer *inet_getpeer_v6(struct inet_peer_base *base,
- 						const struct in6_addr *v6daddr,
- 						int create)
- {
--	struct inetpeer_addr daddr;
-+	struct in_addr_gen daddr;
- 
--	*(struct in6_addr *)daddr.addr.a6 = *v6daddr;
-+	daddr.in6_addr = *v6daddr;
- 	daddr.family = AF_INET6;
- 	return inet_getpeer(base, &daddr, create);
- }
-diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-index 000e3d2..70ffc9e 100644
---- a/net/ipv4/inetpeer.c
-+++ b/net/ipv4/inetpeer.c
-@@ -197,17 +197,26 @@ void __init inet_initpeers(void)
- 	INIT_DEFERRABLE_WORK(&gc_work, inetpeer_gc_worker);
- }
- 
--static int addr_compare(const struct inetpeer_addr *a,
--			const struct inetpeer_addr *b)
-+static int addr_compare(const struct in_addr_gen *a,
-+			const struct in_addr_gen *b)
- {
--	int i, n = (a->family == AF_INET ? 1 : 4);
-+	int i;
- 
--	for (i = 0; i < n; i++) {
--		if (a->addr.a6[i] == b->addr.a6[i])
--			continue;
--		if ((__force u32)a->addr.a6[i] < (__force u32)b->addr.a6[i])
-+	if (a->family == AF_INET) {
-+		if (a->in_addr.s_addr == b->in_addr.s_addr)
-+			return 0;
-+		if ((__force u32)a->in_addr.s_addr <
-+		    (__force u32)b->in_addr.s_addr)
- 			return -1;
--		return 1;
-+	} else {
-+		for (i = 0; i < 4; i++) {
-+			if (a->in6_addr.s6_addr32[i] == b->in6_addr.s6_addr32[i])
-+				continue;
-+			if ((__force u32)a->in6_addr.s6_addr32[i] <
-+			    (__force u32)b->in6_addr.s6_addr32[i])
-+				return -1;
-+			return 1;
-+		}
- 	}
- 
- 	return 0;
-@@ -248,7 +257,7 @@ static int addr_compare(const struct inetpeer_addr *a,
-  * But every pointer we follow is guaranteed to be valid thanks to RCU.
-  * We exit from this function if number of links exceeds PEER_MAXDEPTH
-  */
--static struct inet_peer *lookup_rcu(const struct inetpeer_addr *daddr,
-+static struct inet_peer *lookup_rcu(const struct in_addr_gen *daddr,
- 				    struct inet_peer_base *base)
- {
- 	struct inet_peer *u = rcu_dereference(base->root);
-@@ -457,7 +466,7 @@ static int inet_peer_gc(struct inet_peer_base *base,
- }
- 
- struct inet_peer *inet_getpeer(struct inet_peer_base *base,
--			       const struct inetpeer_addr *daddr,
-+			       const struct in_addr_gen *daddr,
- 			       int create)
- {
- 	struct inet_peer __rcu **stack[PEER_MAXDEPTH], ***stackptr;
-@@ -506,8 +515,8 @@ relookup:
- 		atomic_set(&p->rid, 0);
- 		atomic_set(&p->ip_id_count,
- 				(daddr->family == AF_INET) ?
--					secure_ip_id(daddr->addr.a4) :
--					secure_ipv6_id(daddr->addr.a6));
-+					secure_ip_id(daddr->in_addr.s_addr) :
-+					secure_ipv6_id(daddr->in6_addr.s6_addr32));
- 		p->metrics[RTAX_LOCK-1] = INETPEER_METRICS_NEW;
- 		p->rate_tokens = 0;
- 		/* 60*HZ is arbitrary, but chosen enough high so that the first
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index f6a005c..3bb3789 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -31,7 +31,7 @@ struct tcp_fastopen_metrics {
- 
- struct tcp_metrics_block {
- 	struct tcp_metrics_block __rcu	*tcpm_next;
--	struct inetpeer_addr		tcpm_addr;
-+	struct in_addr_gen		tcpm_addr;
- 	unsigned long			tcpm_stamp;
- 	u32				tcpm_ts;
- 	u32				tcpm_ts_stamp;
-@@ -74,22 +74,6 @@ static void tcp_metric_set_msecs(struct tcp_metrics_block *tm,
- 	tm->tcpm_vals[idx] = jiffies_to_msecs(val);
- }
- 
--static bool addr_same(const struct inetpeer_addr *a,
--		      const struct inetpeer_addr *b)
--{
--	const struct in6_addr *a6, *b6;
--
--	if (a->family != b->family)
--		return false;
--	if (a->family == AF_INET)
--		return a->addr.a4 == b->addr.a4;
--
--	a6 = (const struct in6_addr *) &a->addr.a6[0];
--	b6 = (const struct in6_addr *) &b->addr.a6[0];
--
--	return ipv6_addr_equal(a6, b6);
--}
--
- struct tcpm_hash_bucket {
- 	struct tcp_metrics_block __rcu	*chain;
- };
-@@ -131,7 +115,7 @@ static void tcpm_suck_dst(struct tcp_metrics_block *tm, struct dst_entry *dst,
- }
- 
- static struct tcp_metrics_block *tcpm_new(struct dst_entry *dst,
--					  struct inetpeer_addr *addr,
-+					  struct in_addr_gen *addr,
- 					  unsigned int hash,
- 					  bool reclaim)
- {
-@@ -189,7 +173,7 @@ static struct tcp_metrics_block *tcp_get_encode(struct tcp_metrics_block *tm, in
+ 	list_for_each_entry(nsm, &nsm_handles, sm_link)
+-		if (rpc_cmp_addr(nsm_addr(nsm), sap))
++		if (sockaddr_equal(nsm_addr(nsm), sap))
+ 			return nsm;
  	return NULL;
  }
- 
--static struct tcp_metrics_block *__tcp_get_metrics(const struct inetpeer_addr *addr,
-+static struct tcp_metrics_block *__tcp_get_metrics(const struct in_addr_gen *addr,
- 						   struct net *net, unsigned int hash)
+diff --git a/fs/lockd/svcsubs.c b/fs/lockd/svcsubs.c
+index dc5c759..a9f4a6f 100644
+--- a/fs/lockd/svcsubs.c
++++ b/fs/lockd/svcsubs.c
+@@ -431,7 +431,7 @@ EXPORT_SYMBOL_GPL(nlmsvc_unlock_all_by_sb);
+ static int
+ nlmsvc_match_ip(void *datap, struct nlm_host *host)
  {
- 	struct tcp_metrics_block *tm;
-@@ -197,7 +181,7 @@ static struct tcp_metrics_block *__tcp_get_metrics(const struct inetpeer_addr *a
- 
- 	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
- 	     tm = rcu_dereference(tm->tcpm_next)) {
--		if (addr_same(&tm->tcpm_addr, addr))
-+		if (in_addr_gen_equal(&tm->tcpm_addr, addr))
- 			break;
- 		depth++;
- 	}
-@@ -208,18 +192,18 @@ static struct tcp_metrics_block *__tcp_get_metrics_req(struct request_sock *req,
- 						       struct dst_entry *dst)
- {
- 	struct tcp_metrics_block *tm;
--	struct inetpeer_addr addr;
-+	struct in_addr_gen addr;
- 	unsigned int hash;
- 	struct net *net;
- 
- 	addr.family = req->rsk_ops->family;
- 	switch (addr.family) {
- 	case AF_INET:
--		addr.addr.a4 = inet_rsk(req)->rmt_addr;
--		hash = (__force unsigned int) addr.addr.a4;
-+		addr.in_addr.s_addr = inet_rsk(req)->rmt_addr;
-+		hash = (__force unsigned int) addr.in_addr.s_addr;
- 		break;
- 	case AF_INET6:
--		*(struct in6_addr *)addr.addr.a6 = inet6_rsk(req)->rmt_addr;
-+		addr.in6_addr = inet6_rsk(req)->rmt_addr;
- 		hash = ipv6_addr_hash(&inet6_rsk(req)->rmt_addr);
- 		break;
- 	default:
-@@ -231,7 +215,7 @@ static struct tcp_metrics_block *__tcp_get_metrics_req(struct request_sock *req,
- 
- 	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
- 	     tm = rcu_dereference(tm->tcpm_next)) {
--		if (addr_same(&tm->tcpm_addr, &addr))
-+		if (in_addr_gen_equal(&tm->tcpm_addr, &addr))
- 			break;
- 	}
- 	tcpm_check_stamp(tm, dst);
-@@ -242,19 +226,19 @@ static struct tcp_metrics_block *__tcp_get_metrics_tw(struct inet_timewait_sock
- {
- 	struct inet6_timewait_sock *tw6;
- 	struct tcp_metrics_block *tm;
--	struct inetpeer_addr addr;
-+	struct in_addr_gen addr;
- 	unsigned int hash;
- 	struct net *net;
- 
- 	addr.family = tw->tw_family;
- 	switch (addr.family) {
- 	case AF_INET:
--		addr.addr.a4 = tw->tw_daddr;
--		hash = (__force unsigned int) addr.addr.a4;
-+		addr.in_addr.s_addr = tw->tw_daddr;
-+		hash = (__force unsigned int) addr.in_addr.s_addr;
- 		break;
- 	case AF_INET6:
- 		tw6 = inet6_twsk((struct sock *)tw);
--		*(struct in6_addr *)addr.addr.a6 = tw6->tw_v6_daddr;
-+		addr.in6_addr = tw6->tw_v6_daddr;
- 		hash = ipv6_addr_hash(&tw6->tw_v6_daddr);
- 		break;
- 	default:
-@@ -266,7 +250,7 @@ static struct tcp_metrics_block *__tcp_get_metrics_tw(struct inet_timewait_sock
- 
- 	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
- 	     tm = rcu_dereference(tm->tcpm_next)) {
--		if (addr_same(&tm->tcpm_addr, &addr))
-+		if (in_addr_gen_equal(&tm->tcpm_addr, &addr))
- 			break;
- 	}
- 	return tm;
-@@ -277,7 +261,7 @@ static struct tcp_metrics_block *tcp_get_metrics(struct sock *sk,
- 						 bool create)
- {
- 	struct tcp_metrics_block *tm;
--	struct inetpeer_addr addr;
-+	struct in_addr_gen addr;
- 	unsigned int hash;
- 	struct net *net;
- 	bool reclaim;
-@@ -285,11 +269,11 @@ static struct tcp_metrics_block *tcp_get_metrics(struct sock *sk,
- 	addr.family = sk->sk_family;
- 	switch (addr.family) {
- 	case AF_INET:
--		addr.addr.a4 = inet_sk(sk)->inet_daddr;
--		hash = (__force unsigned int) addr.addr.a4;
-+		addr.in_addr.s_addr = inet_sk(sk)->inet_daddr;
-+		hash = (__force unsigned int) addr.in_addr.s_addr;
- 		break;
- 	case AF_INET6:
--		*(struct in6_addr *)addr.addr.a6 = inet6_sk(sk)->daddr;
-+		addr.in6_addr = inet6_sk(sk)->daddr;
- 		hash = ipv6_addr_hash(&inet6_sk(sk)->daddr);
- 		break;
- 	default:
-@@ -725,12 +709,12 @@ static int tcp_metrics_fill_info(struct sk_buff *msg,
- 	switch (tm->tcpm_addr.family) {
- 	case AF_INET:
- 		if (nla_put_be32(msg, TCP_METRICS_ATTR_ADDR_IPV4,
--				tm->tcpm_addr.addr.a4) < 0)
-+				tm->tcpm_addr.in_addr.s_addr) < 0)
- 			goto nla_put_failure;
- 		break;
- 	case AF_INET6:
- 		if (nla_put(msg, TCP_METRICS_ATTR_ADDR_IPV6, 16,
--			    tm->tcpm_addr.addr.a6) < 0)
-+			    tm->tcpm_addr.in6_addr.s6_addr32) < 0)
- 			goto nla_put_failure;
- 		break;
- 	default:
-@@ -853,7 +837,7 @@ done:
- 	return skb->len;
+-	return rpc_cmp_addr(nlm_srcaddr(host), datap);
++	return sockaddr_equal(nlm_srcaddr(host), datap);
  }
  
--static int parse_nl_addr(struct genl_info *info, struct inetpeer_addr *addr,
-+static int parse_nl_addr(struct genl_info *info, struct in_addr_gen *addr,
- 			 unsigned int *hash, int optional)
- {
- 	struct nlattr *a;
-@@ -861,8 +845,8 @@ static int parse_nl_addr(struct genl_info *info, struct inetpeer_addr *addr,
- 	a = info->attrs[TCP_METRICS_ATTR_ADDR_IPV4];
- 	if (a) {
- 		addr->family = AF_INET;
--		addr->addr.a4 = nla_get_be32(a);
--		*hash = (__force unsigned int) addr->addr.a4;
-+		addr->in_addr.s_addr = nla_get_be32(a);
-+		*hash = (__force unsigned int) addr->in_addr.s_addr;
- 		return 0;
+ /**
+diff --git a/fs/nfs/nfs4namespace.c b/fs/nfs/nfs4namespace.c
+index cdb0b41..79767fc 100644
+--- a/fs/nfs/nfs4namespace.c
++++ b/fs/nfs/nfs4namespace.c
+@@ -243,7 +243,7 @@ static struct vfsmount *try_location(struct nfs_clone_mount *mountdata,
+ 		if (mountdata->addrlen == 0)
+ 			continue;
+ 
+-		rpc_set_port(mountdata->addr, NFS_PORT);
++		sockaddr_set_port(mountdata->addr, NFS_PORT);
+ 
+ 		memcpy(page2, buf->data, buf->len);
+ 		page2[buf->len] = '\0';
+diff --git a/fs/nfs/super.c b/fs/nfs/super.c
+index f6db66d..ac7c359 100644
+--- a/fs/nfs/super.c
++++ b/fs/nfs/super.c
+@@ -978,7 +978,7 @@ static void nfs_set_port(struct sockaddr *sap, int *port,
+ 	if (*port == NFS_UNSPEC_PORT)
+ 		*port = default_port;
+ 
+-	rpc_set_port(sap, *port);
++	sockaddr_set_port(sap, *port);
+ }
+ 
+ /*
+@@ -2133,8 +2133,8 @@ nfs_compare_remount_data(struct nfs_server *nfss,
+ 	    data->timeo != (10U * nfss->client->cl_timeout->to_initval / HZ) ||
+ 	    data->nfs_server.port != nfss->port ||
+ 	    data->nfs_server.addrlen != nfss->nfs_client->cl_addrlen ||
+-	    !rpc_cmp_addr((struct sockaddr *)&data->nfs_server.address,
+-			  (struct sockaddr *)&nfss->nfs_client->cl_addr))
++	    !sockaddr_equal((struct sockaddr *)&data->nfs_server.address,
++			    (struct sockaddr *)&nfss->nfs_client->cl_addr))
+ 		return -EINVAL;
+ 
+ 	return 0;
+diff --git a/fs/nfsd/nfs4state.c b/fs/nfsd/nfs4state.c
+index 43f4229..92689bf 100644
+--- a/fs/nfsd/nfs4state.c
++++ b/fs/nfsd/nfs4state.c
+@@ -1009,7 +1009,7 @@ static void init_session(struct svc_rqst *rqstp, struct nfsd4_session *new, stru
+ 		 * the rpc client not to require an address in the
+ 		 * future:
+ 		 */
+-		rpc_copy_addr((struct sockaddr *)&clp->cl_cb_conn.cb_addr, sa);
++		sockaddr_copy((struct sockaddr *)&clp->cl_cb_conn.cb_addr, sa);
+ 		clp->cl_cb_conn.cb_addrlen = svc_addr_len(sa);
  	}
- 	a = info->attrs[TCP_METRICS_ATTR_ADDR_IPV6];
-@@ -870,8 +854,8 @@ static int parse_nl_addr(struct genl_info *info, struct inetpeer_addr *addr,
- 		if (nla_len(a) != sizeof(struct in6_addr))
- 			return -EINVAL;
- 		addr->family = AF_INET6;
--		memcpy(addr->addr.a6, nla_data(a), sizeof(addr->addr.a6));
--		*hash = ipv6_addr_hash((struct in6_addr *) addr->addr.a6);
-+		memcpy(&addr->in6_addr, nla_data(a), sizeof(addr->in6_addr));
-+		*hash = ipv6_addr_hash(&addr->in6_addr);
- 		return 0;
- 	}
- 	return optional ? 1 : -EAFNOSUPPORT;
-@@ -880,7 +864,7 @@ static int parse_nl_addr(struct genl_info *info, struct inetpeer_addr *addr,
- static int tcp_metrics_nl_cmd_get(struct sk_buff *skb, struct genl_info *info)
+ }
+@@ -1362,7 +1362,7 @@ static struct nfs4_client *create_client(struct xdr_netobj name,
+ 	clear_bit(0, &clp->cl_cb_slot_busy);
+ 	rpc_init_wait_queue(&clp->cl_cb_waitq, "Backchannel slot table");
+ 	copy_verf(clp, verf);
+-	rpc_copy_addr((struct sockaddr *) &clp->cl_addr, sa);
++	sockaddr_copy((struct sockaddr *) &clp->cl_addr, sa);
+ 	gen_confirm(clp);
+ 	clp->cl_cb_session = NULL;
+ 	clp->net = net;
+@@ -1939,7 +1939,7 @@ nfsd4_create_session(struct svc_rqst *rqstp,
+ 	} else if (unconf) {
+ 		struct nfs4_client *old;
+ 		if (!same_creds(&unconf->cl_cred, &rqstp->rq_cred) ||
+-		    !rpc_cmp_addr(sa, (struct sockaddr *) &unconf->cl_addr)) {
++		    !sockaddr_equal(sa, (struct sockaddr *) &unconf->cl_addr)) {
+ 			status = nfserr_clid_inuse;
+ 			goto out_free_conn;
+ 		}
+diff --git a/fs/nfsd/nfscache.c b/fs/nfsd/nfscache.c
+index e76244e..e2561d6 100644
+--- a/fs/nfsd/nfscache.c
++++ b/fs/nfsd/nfscache.c
+@@ -318,8 +318,8 @@ nfsd_cache_match(struct svc_rqst *rqstp, __wsum csum, struct svc_cacherep *rp)
+ 	if (rqstp->rq_xid != rp->c_xid || rqstp->rq_proc != rp->c_proc ||
+ 	    rqstp->rq_prot != rp->c_prot || rqstp->rq_vers != rp->c_vers ||
+ 	    rqstp->rq_arg.len != rp->c_len ||
+-	    !rpc_cmp_addr(svc_addr(rqstp), (struct sockaddr *)&rp->c_addr) ||
+-	    rpc_get_port(svc_addr(rqstp)) != rpc_get_port((struct sockaddr *)&rp->c_addr))
++	    !sockaddr_equal(svc_addr(rqstp), (struct sockaddr *)&rp->c_addr) ||
++	    sockaddr_get_port(svc_addr(rqstp)) != sockaddr_get_port((struct sockaddr *)&rp->c_addr))
+ 		return false;
+ 
+ 	/* compare checksum of NFS data */
+@@ -446,8 +446,8 @@ search_cache:
+ 	rp->c_state = RC_INPROG;
+ 	rp->c_xid = xid;
+ 	rp->c_proc = proc;
+-	rpc_copy_addr((struct sockaddr *)&rp->c_addr, svc_addr(rqstp));
+-	rpc_set_port((struct sockaddr *)&rp->c_addr, rpc_get_port(svc_addr(rqstp)));
++	sockaddr_equal((struct sockaddr *)&rp->c_addr, svc_addr(rqstp));
++	sockaddr_set_port((struct sockaddr *)&rp->c_addr, sockaddr_get_port(svc_addr(rqstp)));
+ 	rp->c_prot = proto;
+ 	rp->c_vers = vers;
+ 	rp->c_len = rqstp->rq_arg.len;
+diff --git a/include/linux/sunrpc/addr.h b/include/linux/sunrpc/addr.h
+index 07d8e53..002be97 100644
+--- a/include/linux/sunrpc/addr.h
++++ b/include/linux/sunrpc/addr.h
+@@ -11,6 +11,7 @@
+ #include <linux/in.h>
+ #include <linux/in6.h>
+ #include <net/ipv6.h>
++#include <net/inet_addr.h>
+ 
+ size_t		rpc_ntop(const struct sockaddr *, char *, const size_t);
+ size_t		rpc_pton(struct net *, const char *, const size_t,
+@@ -19,139 +20,9 @@ char *		rpc_sockaddr2uaddr(const struct sockaddr *, gfp_t);
+ size_t		rpc_uaddr2sockaddr(struct net *, const char *, const size_t,
+ 				   struct sockaddr *, const size_t);
+ 
+-static inline unsigned short rpc_get_port(const struct sockaddr *sap)
+-{
+-	switch (sap->sa_family) {
+-	case AF_INET:
+-		return ntohs(((struct sockaddr_in *)sap)->sin_port);
+-	case AF_INET6:
+-		return ntohs(((struct sockaddr_in6 *)sap)->sin6_port);
+-	}
+-	return 0;
+-}
+-
+-static inline void rpc_set_port(struct sockaddr *sap,
+-				const unsigned short port)
+-{
+-	switch (sap->sa_family) {
+-	case AF_INET:
+-		((struct sockaddr_in *)sap)->sin_port = htons(port);
+-		break;
+-	case AF_INET6:
+-		((struct sockaddr_in6 *)sap)->sin6_port = htons(port);
+-		break;
+-	}
+-}
+-
+ #define IPV6_SCOPE_DELIMITER		'%'
+ #define IPV6_SCOPE_ID_LEN		sizeof("%nnnnnnnnnn")
+ 
+-static inline bool __rpc_cmp_addr4(const struct sockaddr *sap1,
+-				   const struct sockaddr *sap2)
+-{
+-	const struct sockaddr_in *sin1 = (const struct sockaddr_in *)sap1;
+-	const struct sockaddr_in *sin2 = (const struct sockaddr_in *)sap2;
+-
+-	return sin1->sin_addr.s_addr == sin2->sin_addr.s_addr;
+-}
+-
+-static inline bool __rpc_copy_addr4(struct sockaddr *dst,
+-				    const struct sockaddr *src)
+-{
+-	const struct sockaddr_in *ssin = (struct sockaddr_in *) src;
+-	struct sockaddr_in *dsin = (struct sockaddr_in *) dst;
+-
+-	dsin->sin_family = ssin->sin_family;
+-	dsin->sin_addr.s_addr = ssin->sin_addr.s_addr;
+-	return true;
+-}
+-
+-#if IS_ENABLED(CONFIG_IPV6)
+-static inline bool __rpc_cmp_addr6(const struct sockaddr *sap1,
+-				   const struct sockaddr *sap2)
+-{
+-	const struct sockaddr_in6 *sin1 = (const struct sockaddr_in6 *)sap1;
+-	const struct sockaddr_in6 *sin2 = (const struct sockaddr_in6 *)sap2;
+-
+-	if (!ipv6_addr_equal(&sin1->sin6_addr, &sin2->sin6_addr))
+-		return false;
+-	else if (ipv6_addr_type(&sin1->sin6_addr) & IPV6_ADDR_LINKLOCAL)
+-		return sin1->sin6_scope_id == sin2->sin6_scope_id;
+-
+-	return true;
+-}
+-
+-static inline bool __rpc_copy_addr6(struct sockaddr *dst,
+-				    const struct sockaddr *src)
+-{
+-	const struct sockaddr_in6 *ssin6 = (const struct sockaddr_in6 *) src;
+-	struct sockaddr_in6 *dsin6 = (struct sockaddr_in6 *) dst;
+-
+-	dsin6->sin6_family = ssin6->sin6_family;
+-	dsin6->sin6_addr = ssin6->sin6_addr;
+-	dsin6->sin6_scope_id = ssin6->sin6_scope_id;
+-	return true;
+-}
+-#else	/* !(IS_ENABLED(CONFIG_IPV6) */
+-static inline bool __rpc_cmp_addr6(const struct sockaddr *sap1,
+-				   const struct sockaddr *sap2)
+-{
+-	return false;
+-}
+-
+-static inline bool __rpc_copy_addr6(struct sockaddr *dst,
+-				    const struct sockaddr *src)
+-{
+-	return false;
+-}
+-#endif	/* !(IS_ENABLED(CONFIG_IPV6) */
+-
+-/**
+- * rpc_cmp_addr - compare the address portion of two sockaddrs.
+- * @sap1: first sockaddr
+- * @sap2: second sockaddr
+- *
+- * Just compares the family and address portion. Ignores port, but
+- * compares the scope if it's a link-local address.
+- *
+- * Returns true if the addrs are equal, false if they aren't.
+- */
+-static inline bool rpc_cmp_addr(const struct sockaddr *sap1,
+-				const struct sockaddr *sap2)
+-{
+-	if (sap1->sa_family == sap2->sa_family) {
+-		switch (sap1->sa_family) {
+-		case AF_INET:
+-			return __rpc_cmp_addr4(sap1, sap2);
+-		case AF_INET6:
+-			return __rpc_cmp_addr6(sap1, sap2);
+-		}
+-	}
+-	return false;
+-}
+-
+-/**
+- * rpc_copy_addr - copy the address portion of one sockaddr to another
+- * @dst: destination sockaddr
+- * @src: source sockaddr
+- *
+- * Just copies the address portion and family. Ignores port, scope, etc.
+- * Caller is responsible for making certain that dst is large enough to hold
+- * the address in src. Returns true if address family is supported. Returns
+- * false otherwise.
+- */
+-static inline bool rpc_copy_addr(struct sockaddr *dst,
+-				 const struct sockaddr *src)
+-{
+-	switch (src->sa_family) {
+-	case AF_INET:
+-		return __rpc_copy_addr4(dst, src);
+-	case AF_INET6:
+-		return __rpc_copy_addr6(dst, src);
+-	}
+-	return false;
+-}
+-
+ /**
+  * rpc_get_scope_id - return scopeid for a given sockaddr
+  * @sa: sockaddr to get scopeid from
+diff --git a/include/net/inet_addr.h b/include/net/inet_addr.h
+index ee80df4..44179c8 100644
+--- a/include/net/inet_addr.h
++++ b/include/net/inet_addr.h
+@@ -36,17 +36,6 @@ bool in_addr_gen_equal(const struct in_addr_gen *a, const struct in_addr_gen *b)
+ }
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+-static inline
+-bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b)
+-{
+-	if (a->sa.sa_family != b->sa.sa_family)
+-		return false;
+-	if (a->sa.sa_family == AF_INET6)
+-		return ipv6_addr_equal(&a->sin6.sin6_addr, &b->sin6.sin6_addr);
+-	else
+-		return a->sin.sin_addr.s_addr == b->sin.sin_addr.s_addr;
+-}
+-
+ static inline bool inet_addr_any(const union inet_addr *ipa)
  {
- 	struct tcp_metrics_block *tm;
--	struct inetpeer_addr addr;
-+	struct in_addr_gen addr;
- 	unsigned int hash;
- 	struct sk_buff *msg;
- 	struct net *net = genl_info_net(info);
-@@ -905,7 +889,7 @@ static int tcp_metrics_nl_cmd_get(struct sk_buff *skb, struct genl_info *info)
- 	rcu_read_lock();
- 	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
- 	     tm = rcu_dereference(tm->tcpm_next)) {
--		if (addr_same(&tm->tcpm_addr, &addr)) {
-+		if (in_addr_gen_equal(&tm->tcpm_addr, &addr)) {
- 			ret = tcp_metrics_fill_info(msg, tm);
- 			break;
- 		}
-@@ -960,7 +944,7 @@ static int tcp_metrics_nl_cmd_del(struct sk_buff *skb, struct genl_info *info)
- 	struct tcpm_hash_bucket *hb;
- 	struct tcp_metrics_block *tm;
- 	struct tcp_metrics_block __rcu **pp;
--	struct inetpeer_addr addr;
-+	struct in_addr_gen addr;
- 	unsigned int hash;
- 	struct net *net = genl_info_net(info);
- 	int ret;
-@@ -977,7 +961,7 @@ static int tcp_metrics_nl_cmd_del(struct sk_buff *skb, struct genl_info *info)
- 	spin_lock_bh(&tcp_metrics_lock);
- 	for (tm = deref_locked_genl(*pp); tm;
- 	     pp = &tm->tcpm_next, tm = deref_locked_genl(*pp)) {
--		if (addr_same(&tm->tcpm_addr, &addr)) {
-+		if (in_addr_gen_equal(&tm->tcpm_addr, &addr)) {
- 			*pp = tm->tcpm_next;
- 			break;
- 		}
+ 	if (ipa->sa.sa_family == AF_INET6)
+@@ -65,12 +54,6 @@ static inline bool inet_addr_multicast(const union inet_addr *ipa)
+ 
+ #else /* !CONFIG_IPV6 */
+ 
+-static inline
+-bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b)
+-{
+-	return a->sin.sin_addr.s_addr == b->sin.sin_addr.s_addr;
+-}
+-
+ static inline bool inet_addr_any(const union inet_addr *ipa)
+ {
+ 	return ipa->sin.sin_addr.s_addr == htonl(INADDR_ANY);
+@@ -82,6 +65,88 @@ static inline bool inet_addr_multicast(const union inet_addr *ipa)
+ }
+ #endif
+ 
++/**
++ * inet_addr_copy - copy the address portion of one inet_addr to another
++ * @dst: destination sockaddr
++ * @src: source sockaddr
++ *
++ * Just copies the address portion and family. Ignores port, scope, etc.
++ * Caller is responsible for making certain that dst is large enough to hold
++ * the address in src. Returns true if address family is supported. Returns
++ * false otherwise.
++ */
++static inline bool inet_addr_copy(union inet_addr *dst,
++				  const union inet_addr *src)
++{
++	dst->sa.sa_family = src->sa.sa_family;
++
++	switch (src->sa.sa_family) {
++	case AF_INET:
++		dst->sin.sin_addr.s_addr = src->sin.sin_addr.s_addr;
++		return true;
++#if IS_ENABLED(CONFIG_IPV6)
++	case AF_INET6:
++		dst->sin6.sin6_addr = src->sin6.sin6_addr;
++		dst->sin6.sin6_scope_id = src->sin6.sin6_scope_id;
++		return true;
++#endif
++	}
++
++	return false;
++}
++
++static inline
++unsigned short inet_addr_get_port(const union inet_addr *sap)
++{
++	switch (sap->sa.sa_family) {
++	case AF_INET:
++		return ntohs(sap->sin.sin_port);
++	case AF_INET6:
++		return ntohs(sap->sin6.sin6_port);
++	}
++	return 0;
++}
++
++static inline
++void inet_addr_set_port(union inet_addr *sap,
++			const unsigned short port)
++{
++	switch (sap->sa.sa_family) {
++	case AF_INET:
++		sap->sin.sin_port = htons(port);
++		break;
++	case AF_INET6:
++		sap->sin6.sin6_port = htons(port);
++		break;
++	}
++}
++
++bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b);
+ int simple_inet_pton(const char *str, union inet_addr *addr);
+ 
++static inline bool sockaddr_equal(const struct sockaddr *sap1,
++				  const struct sockaddr *sap2)
++{
++	return inet_addr_equal((const union inet_addr *)sap1,
++			       (const union inet_addr *)sap2);
++}
++
++static inline bool sockaddr_copy(struct sockaddr *dst,
++				 const struct sockaddr *src)
++{
++	return inet_addr_copy((union inet_addr *)dst,
++			      (const union inet_addr *)src);
++}
++
++static inline unsigned short sockaddr_get_port(const struct sockaddr *sap)
++{
++	return inet_addr_get_port((const union inet_addr *)sap);
++}
++
++static inline void sockaddr_set_port(struct sockaddr *sap,
++				const unsigned short port)
++{
++	inet_addr_set_port((union inet_addr *)sap, port);
++}
++
+ #endif
+diff --git a/net/core/utils.c b/net/core/utils.c
+index 22dd621..837bb18 100644
+--- a/net/core/utils.c
++++ b/net/core/utils.c
+@@ -374,3 +374,28 @@ int simple_inet_pton(const char *str, union inet_addr *addr)
+ 	return -EINVAL;
+ }
+ EXPORT_SYMBOL(simple_inet_pton);
++
++#if IS_ENABLED(CONFIG_IPV6)
++bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b)
++{
++	if (a->sa.sa_family != b->sa.sa_family)
++		return false;
++	else if (a->sa.sa_family == AF_INET6) {
++		if (!ipv6_addr_equal(&a->sin6.sin6_addr, &b->sin6.sin6_addr))
++			return false;
++		else if (__ipv6_addr_needs_scope_id(__ipv6_addr_type(&a->sin6.sin6_addr)))
++			return a->sin6.sin6_scope_id == b->sin6.sin6_scope_id;
++		else
++			return true;
++	} else
++		return a->sin.sin_addr.s_addr == b->sin.sin_addr.s_addr;
++}
++#else
++bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b)
++{
++	if (a->sa.sa_family == AF_UNSPEC)
++		return a->sa.sa_family == b->sa.sa_family;
++	return a->sin.sin_addr.s_addr == b->sin.sin_addr.s_addr;
++}
++#endif
++EXPORT_SYMBOL(inet_addr_equal);
+diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
+index ecbc4e3..49fe013 100644
+--- a/net/sunrpc/clnt.c
++++ b/net/sunrpc/clnt.c
+@@ -1137,7 +1137,7 @@ int rpc_localaddr(struct rpc_clnt *clnt, struct sockaddr *buf, size_t buflen)
+ 	net = get_net(xprt->xprt_net);
+ 	rcu_read_unlock();
+ 
+-	rpc_set_port(sap, 0);
++	sockaddr_set_port(sap, 0);
+ 	err = rpc_sockname(net, sap, salen, buf, buflen);
+ 	put_net(net);
+ 	if (err != 0)
+diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
+index 1891a10..8078161 100644
+--- a/net/sunrpc/rpcb_clnt.c
++++ b/net/sunrpc/rpcb_clnt.c
+@@ -971,7 +971,7 @@ static int rpcb_dec_getaddr(struct rpc_rqst *req, struct xdr_stream *xdr,
+ 	if (rpc_uaddr2sockaddr(req->rq_xprt->xprt_net, (char *)p, len,
+ 				sap, sizeof(address)) == 0)
+ 		goto out_fail;
+-	rpcb->r_port = rpc_get_port(sap);
++	rpcb->r_port = sockaddr_get_port(sap);
+ 
+ 	return 0;
+ 
+diff --git a/net/sunrpc/xprtrdma/transport.c b/net/sunrpc/xprtrdma/transport.c
+index 285dc08..aa09a36 100644
+--- a/net/sunrpc/xprtrdma/transport.c
++++ b/net/sunrpc/xprtrdma/transport.c
+@@ -162,7 +162,7 @@ xprt_rdma_format_addresses(struct rpc_xprt *xprt)
+ 	(void)rpc_ntop(sap, buf, sizeof(buf));
+ 	xprt->address_strings[RPC_DISPLAY_ADDR] = kstrdup(buf, GFP_KERNEL);
+ 
+-	snprintf(buf, sizeof(buf), "%u", rpc_get_port(sap));
++	snprintf(buf, sizeof(buf), "%u", sockaddr_get_port(sap));
+ 	xprt->address_strings[RPC_DISPLAY_PORT] = kstrdup(buf, GFP_KERNEL);
+ 
+ 	xprt->address_strings[RPC_DISPLAY_PROTO] = "rdma";
+@@ -170,7 +170,7 @@ xprt_rdma_format_addresses(struct rpc_xprt *xprt)
+ 	snprintf(buf, sizeof(buf), "%08x", ntohl(sin->sin_addr.s_addr));
+ 	xprt->address_strings[RPC_DISPLAY_HEX_ADDR] = kstrdup(buf, GFP_KERNEL);
+ 
+-	snprintf(buf, sizeof(buf), "%4hx", rpc_get_port(sap));
++	snprintf(buf, sizeof(buf), "%4hx", sockaddr_get_port(sap));
+ 	xprt->address_strings[RPC_DISPLAY_HEX_PORT] = kstrdup(buf, GFP_KERNEL);
+ 
+ 	/* netid */
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index d6656d7..5922c8b 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -333,10 +333,10 @@ static void xs_format_common_peer_ports(struct rpc_xprt *xprt)
+ 	struct sockaddr *sap = xs_addr(xprt);
+ 	char buf[128];
+ 
+-	snprintf(buf, sizeof(buf), "%u", rpc_get_port(sap));
++	snprintf(buf, sizeof(buf), "%u", sockaddr_get_port(sap));
+ 	xprt->address_strings[RPC_DISPLAY_PORT] = kstrdup(buf, GFP_KERNEL);
+ 
+-	snprintf(buf, sizeof(buf), "%4hx", rpc_get_port(sap));
++	snprintf(buf, sizeof(buf), "%4hx", sockaddr_get_port(sap));
+ 	xprt->address_strings[RPC_DISPLAY_HEX_PORT] = kstrdup(buf, GFP_KERNEL);
+ }
+ 
+@@ -1674,7 +1674,7 @@ static void xs_set_port(struct rpc_xprt *xprt, unsigned short port)
+ {
+ 	dprintk("RPC:       setting port for xprt %p to %u\n", xprt, port);
+ 
+-	rpc_set_port(xs_addr(xprt), port);
++	sockaddr_set_port(xs_addr(xprt), port);
+ 	xs_update_peer_port(xprt);
+ }
+ 
+@@ -1706,7 +1706,7 @@ static int xs_bind(struct sock_xprt *transport, struct socket *sock)
+ 
+ 	memcpy(&myaddr, &transport->srcaddr, transport->xprt.addrlen);
+ 	do {
+-		rpc_set_port((struct sockaddr *)&myaddr, port);
++		sockaddr_set_port((struct sockaddr *)&myaddr, port);
+ 		err = kernel_bind(sock, (struct sockaddr *)&myaddr,
+ 				transport->xprt.addrlen);
+ 		if (port == 0)
 -- 
 1.7.7.6
