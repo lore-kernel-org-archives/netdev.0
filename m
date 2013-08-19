@@ -1,112 +1,139 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net 1/6] bnx2x: dropless flow control not always
- functional
-Date: Mon, 19 Aug 2013 09:11:56 +0300
-Message-ID: <1376892721-10410-2-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net 5/6] bnx2x: Protect against VFs' ndos when SR-IOV is
+ disabled
+Date: Mon, 19 Aug 2013 09:12:00 +0300
+Message-ID: <1376892721-10410-6-git-send-email-yuvalmin@broadcom.com>
 References: <1376892721-10410-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: ariele@broadcom.com, eilong@broadcom.com,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
 	"Yuval Mintz" <yuvalmin@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2733 "EHLO mms3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:1728 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750892Ab3HSGMR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Aug 2013 02:12:17 -0400
+	id S1750988Ab3HSGMX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Aug 2013 02:12:23 -0400
 In-Reply-To: <1376892721-10410-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Kravkov <dmitry@broadcom.com>
+From: Ariel Elior <ariele@broadcom.com>
 
-Since commit 3deb816 "bnx2x: Add a periodic task for link PHY events"
-link state changes can be detected not only via the attention flow but also
-from the periodic task.
-If the link state will change in such a manner (i.e., via the periodic task),
-dropless flow-control will not be configured.
+Since SR-IOV can be activated dynamically and iproute2 can be called
+asynchronously, the various callbacks need a robust sanity check before
+attempting to access the SR-IOV database and members since there are numerous
+states in which it can find the driver (e.g., PF is down, sriov was not enabled
+yet, VF is down, etc.). 
 
-This patch remedies the issue, adding the missing configuration to all required
-flows.
+In many of the states the callback result will be null pointer dereference.
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 36 +++++++++++++++---------
- 1 file changed, 23 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 49 ++++++++++++++---------
+ 1 file changed, 31 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 955d6cf..c009f19 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -2261,6 +2261,23 @@ static void bnx2x_set_requested_fc(struct bnx2x *bp)
- 		bp->link_params.req_fc_auto_adv = BNX2X_FLOW_CTRL_BOTH;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+index 44104fb..d414b49 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+@@ -3084,8 +3084,9 @@ void bnx2x_disable_sriov(struct bnx2x *bp)
+ 	pci_disable_sriov(bp->pdev);
  }
  
-+static void bnx2x_init_dropless_fc(struct bnx2x *bp)
-+{
-+	u32 pause_enabled = 0;
+-static int bnx2x_vf_ndo_sanity(struct bnx2x *bp, int vfidx,
+-			       struct bnx2x_virtf *vf)
++static int bnx2x_vf_ndo_prep(struct bnx2x *bp, int vfidx,
++			     struct bnx2x_virtf **vf,
++			     struct pf_vf_bulletin_content **bulletin)
+ {
+ 	if (bp->state != BNX2X_STATE_OPEN) {
+ 		BNX2X_ERR("vf ndo called though PF is down\n");
+@@ -3103,12 +3104,22 @@ static int bnx2x_vf_ndo_sanity(struct bnx2x *bp, int vfidx,
+ 		return -EINVAL;
+ 	}
+ 
+-	if (!vf) {
++	/* init members */
++	*vf = BP_VF(bp, vfidx);
++	*bulletin = BP_VF_BULLETIN(bp, vfidx);
 +
-+	if (!CHIP_IS_E1(bp) && bp->dropless_fc && bp->link_vars.link_up) {
-+		if (bp->link_vars.flow_ctrl & BNX2X_FLOW_CTRL_TX)
-+			pause_enabled = 1;
-+
-+		REG_WR(bp, BAR_USTRORM_INTMEM +
-+			   USTORM_ETH_PAUSE_ENABLED_OFFSET(BP_PORT(bp)),
-+		       pause_enabled);
++	if (!*vf) {
+ 		BNX2X_ERR("vf ndo called but vf was null. vfidx was %d\n",
+ 			  vfidx);
+ 		return -EINVAL;
+ 	}
+ 
++	if (!*bulletin) {
++		BNX2X_ERR("vf ndo called but Bulletin Board struct is null. vfidx was %d\n",
++			  vfidx);
++		return -EINVAL;
 +	}
 +
-+	DP(NETIF_MSG_IFUP | NETIF_MSG_LINK, "dropless_fc is %s\n",
-+	   pause_enabled ? "enabled" : "disabled");
-+}
-+
- int bnx2x_initial_phy_init(struct bnx2x *bp, int load_mode)
+ 	return 0;
+ }
+ 
+@@ -3116,17 +3127,19 @@ int bnx2x_get_vf_config(struct net_device *dev, int vfidx,
+ 			struct ifla_vf_info *ivi)
  {
- 	int rc, cfx_idx = bnx2x_get_link_cfg_idx(bp);
-@@ -2294,6 +2311,8 @@ int bnx2x_initial_phy_init(struct bnx2x *bp, int load_mode)
+ 	struct bnx2x *bp = netdev_priv(dev);
+-	struct bnx2x_virtf *vf = BP_VF(bp, vfidx);
+-	struct bnx2x_vlan_mac_obj *mac_obj = &bnx2x_vfq(vf, 0, mac_obj);
+-	struct bnx2x_vlan_mac_obj *vlan_obj = &bnx2x_vfq(vf, 0, vlan_obj);
+-	struct pf_vf_bulletin_content *bulletin = BP_VF_BULLETIN(bp, vfidx);
++	struct bnx2x_virtf *vf = NULL;
++	struct pf_vf_bulletin_content *bulletin = NULL;
++	struct bnx2x_vlan_mac_obj *mac_obj;
++	struct bnx2x_vlan_mac_obj *vlan_obj;
+ 	int rc;
  
- 		bnx2x_release_phy_lock(bp);
+-	/* sanity */
+-	rc = bnx2x_vf_ndo_sanity(bp, vfidx, vf);
++	/* sanity and init */
++	rc = bnx2x_vf_ndo_prep(bp, vfidx, &vf, &bulletin);
+ 	if (rc)
+ 		return rc;
+-	if (!mac_obj || !vlan_obj || !bulletin) {
++	mac_obj = &bnx2x_vfq(vf, 0, mac_obj);
++	vlan_obj = &bnx2x_vfq(vf, 0, vlan_obj);
++	if (!mac_obj || !vlan_obj) {
+ 		BNX2X_ERR("VF partially initialized\n");
+ 		return -EINVAL;
+ 	}
+@@ -3183,11 +3196,11 @@ int bnx2x_set_vf_mac(struct net_device *dev, int vfidx, u8 *mac)
+ {
+ 	struct bnx2x *bp = netdev_priv(dev);
+ 	int rc, q_logical_state;
+-	struct bnx2x_virtf *vf = BP_VF(bp, vfidx);
+-	struct pf_vf_bulletin_content *bulletin = BP_VF_BULLETIN(bp, vfidx);
++	struct bnx2x_virtf *vf = NULL;
++	struct pf_vf_bulletin_content *bulletin = NULL;
  
-+		bnx2x_init_dropless_fc(bp);
-+
- 		bnx2x_calc_fc_adv(bp);
+-	/* sanity */
+-	rc = bnx2x_vf_ndo_sanity(bp, vfidx, vf);
++	/* sanity and init */
++	rc = bnx2x_vf_ndo_prep(bp, vfidx, &vf, &bulletin);
+ 	if (rc)
+ 		return rc;
+ 	if (!is_valid_ether_addr(mac)) {
+@@ -3249,11 +3262,11 @@ int bnx2x_set_vf_vlan(struct net_device *dev, int vfidx, u16 vlan, u8 qos)
+ {
+ 	struct bnx2x *bp = netdev_priv(dev);
+ 	int rc, q_logical_state;
+-	struct bnx2x_virtf *vf = BP_VF(bp, vfidx);
+-	struct pf_vf_bulletin_content *bulletin = BP_VF_BULLETIN(bp, vfidx);
++	struct bnx2x_virtf *vf = NULL;
++	struct pf_vf_bulletin_content *bulletin = NULL;
  
- 		if (bp->link_vars.link_up) {
-@@ -2315,6 +2334,8 @@ void bnx2x_link_set(struct bnx2x *bp)
- 		bnx2x_phy_init(&bp->link_params, &bp->link_vars);
- 		bnx2x_release_phy_lock(bp);
+-	/* sanity */
+-	rc = bnx2x_vf_ndo_sanity(bp, vfidx, vf);
++	/* sanity and init */
++	rc = bnx2x_vf_ndo_prep(bp, vfidx, &vf, &bulletin);
+ 	if (rc)
+ 		return rc;
  
-+		bnx2x_init_dropless_fc(bp);
-+
- 		bnx2x_calc_fc_adv(bp);
- 	} else
- 		BNX2X_ERR("Bootcode is missing - can not set link\n");
-@@ -2556,20 +2577,9 @@ static void bnx2x_link_attn(struct bnx2x *bp)
- 
- 	bnx2x_link_update(&bp->link_params, &bp->link_vars);
- 
--	if (bp->link_vars.link_up) {
--
--		/* dropless flow control */
--		if (!CHIP_IS_E1(bp) && bp->dropless_fc) {
--			int port = BP_PORT(bp);
--			u32 pause_enabled = 0;
--
--			if (bp->link_vars.flow_ctrl & BNX2X_FLOW_CTRL_TX)
--				pause_enabled = 1;
-+	bnx2x_init_dropless_fc(bp);
- 
--			REG_WR(bp, BAR_USTRORM_INTMEM +
--			       USTORM_ETH_PAUSE_ENABLED_OFFSET(port),
--			       pause_enabled);
--		}
-+	if (bp->link_vars.link_up) {
- 
- 		if (bp->link_vars.mac_type != MAC_TYPE_EMAC) {
- 			struct host_port_stats *pstats;
 -- 
 1.8.1.227.g44fe835
