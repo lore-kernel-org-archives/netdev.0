@@ -1,58 +1,36 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: NAT stops forwarding ACKs after PMTU discovery
-Date: Mon, 19 Aug 2013 22:43:07 +0200
-Message-ID: <20130819204307.GC4008@cpaasch-mac>
-References: <1376839467.21329.36.camel@edumazet-glaptop>
- <alpine.DEB.2.00.1308182314050.25515@blackhole.kfki.hu>
- <1376870425.4226.25.camel@edumazet-glaptop>
- <1376870592.4226.27.camel@edumazet-glaptop>
- <5211DAA6.1070302@fatooh.org>
- <20130819123314.GC3583@cpaasch-mac>
- <1376918657.4226.59.camel@edumazet-glaptop>
- <20130819134919.GF3583@cpaasch-mac>
- <1376920685.4226.61.camel@edumazet-glaptop>
- <alpine.DEB.2.00.1308192207130.27869@blackhole.kfki.hu>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: [PATCH] Passing sk_buff metadata information to user space in
+ TUNTAP driver.
+Date: Mon, 19 Aug 2013 13:49:08 -0700
+Message-ID: <CAHo-Ooy4S8tzOBqZQJEEvkAqMJdYCf2XTYZpkFHk=PZJP7z-Ng@mail.gmail.com>
+References: <1376944177-20031-1-git-send-email-vytautas.valancius@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Corey Hickey <bugfood-ml@fatooh.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.1308192207130.27869@blackhole.kfki.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Valas Valancius <valas@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Linux NetDev <netdev@vger.kernel.org>
+To: Valas Valancius <vytautas.valancius@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vc0-f172.google.com ([209.85.220.172]:33265 "EHLO
+	mail-vc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750996Ab3HSUtK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 16:49:10 -0400
+Received: by mail-vc0-f172.google.com with SMTP id m17so3474039vca.31
+        for <netdev@vger.kernel.org>; Mon, 19 Aug 2013 13:49:09 -0700 (PDT)
+In-Reply-To: <1376944177-20031-1-git-send-email-vytautas.valancius@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 19/08/13 - 22:13:59, Jozsef Kadlecsik wrote:
-> On Mon, 19 Aug 2013, Eric Dumazet wrote:
-> 
-> > On Mon, 2013-08-19 at 15:49 +0200, Christoph Paasch wrote:
-> >
-> > > It's a TCP-patch, that interprets duplicate-acks with invalid SACK-blocks as
-> > > duplicate acks in tcp_sock->sacked_out.
-> > 
-> > Yeah, but here, this is conntrack who is blocking the thing.
-> > 
-> > TCP receiver has no chance to 'fix' it.
-> > 
-> > See conntrack is one of those buggy middle box as well.
-> > 
-> > So if you want to properly handle this mess, you'll also have to fix
-> > conntrack.
-> 
-> I beg you pardon: why conntrack should be relaxed, when it is expected
-> to do more strict TCP checkings (RFC5961, Section 5.).
+Acked-by: Maciej =C5=BBenczykowski <maze@google.com>
 
-There is no mention of SACK in this RFC.
-The duplicate ACKs with invalid SACK-blocks are valid with respect to
-RFC5961, Section 5.
+I've already reviewed / commented on previous versions of this patch
+and am hoping for comments from a wider audience.
 
-Actually, no RFC says that dup-ACKs with invalid SACK-blocks should
-be discarded.
+I'm hoping this relatively generic and easily extensible way of
+exposing additional per-packet metadata to userspace catches on.
+Something similar would also be useful for tcpdump (ie. raw packet sock=
+ets).
 
-
-Cheers,
-Christoph
-
+- Maciej
