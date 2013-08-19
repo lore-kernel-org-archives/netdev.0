@@ -1,50 +1,35 @@
-From: Asias He <asias@redhat.com>
-Subject: [PATCH v2] vhost: Include linux/uio.h instead of linux/socket.h
-Date: Mon, 19 Aug 2013 09:23:19 +0800
-Message-ID: <1376875399-21945-1-git-send-email-asias@redhat.com>
-References: <20130816.222946.421410239742571372.davem@davemloft.net>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: Where are OVS VXLAN patches?
+Date: Mon, 19 Aug 2013 09:23:58 +0800
+Message-ID: <1376875438.2742.4.camel@cr0>
+References: <1376291275.17589.18.camel@cr0>
+	 <CAEP_g=-JQUZaLUhkMWQ6p8iYn8jqb_0tZOq=x+kv0Xip3dUA7A@mail.gmail.com>
+	 <1376370988.13583.6.camel@cr0> <1376615540.2934.3.camel@cr0>
+	 <CAOaVG16Vx11DV4gxfSf2f0BceOk1y+aP6rtz-_h9b0Ckp0r2Jw@mail.gmail.com>
+	 <1376628625.2934.57.camel@cr0>
+	 <CAEP_g=9+aLyfY_3TaLkdHeKJGRUHtNFcjk=0w-DEUQ7Q_iHjGw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	virtualization@lists.linux-foundation.org,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130816.222946.421410239742571372.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Pravin B Shelar <pshelar@nicira.com>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48102 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752759Ab3HSBYL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Aug 2013 21:24:11 -0400
+In-Reply-To: <CAEP_g=9+aLyfY_3TaLkdHeKJGRUHtNFcjk=0w-DEUQ7Q_iHjGw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-memcpy_fromiovec is moved from net/core/iovec.c to lib/iovec.c.
-linux/uio.h provides the declaration for memcpy_fromiovec.
+On Fri, 2013-08-16 at 08:58 -0700, Jesse Gross wrote:
+> David, if you just want to take the whole series at this point, there
+> shouldn't be any conflicts on my end and that way we can finally get
+> this in.
+> 
 
-Include linux/uio.h instead of inux/socket.h for it.
-
-Signed-off-by: Asias He <asias@redhat.com>
----
- drivers/vhost/vhost.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index e58cf00..448efe0 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -13,7 +13,7 @@
- 
- #include <linux/eventfd.h>
- #include <linux/vhost.h>
--#include <linux/socket.h> /* memcpy_fromiovec */
-+#include <linux/uio.h>
- #include <linux/mm.h>
- #include <linux/mmu_context.h>
- #include <linux/miscdevice.h>
--- 
-1.8.3.1
+_I think_ Pravin needs to repost them since they are not in patchwork
+any more.
