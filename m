@@ -1,73 +1,66 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [RFC][PATCH 2/2] bgmac: pass received packet to
- the netif instead of copying it
-Date: Mon, 19 Aug 2013 19:20:48 +0200
-Message-ID: <CACna6ryV5hkTdJApdOT8rihHoxf_2-cdT4-1F3Muc2HVjiDwow@mail.gmail.com>
-References: <1376243355-5740-1-git-send-email-zajec5@gmail.com>
- <1376243355-5740-2-git-send-email-zajec5@gmail.com>
- <CACna6rwtLw-Aiz3amMvTBwWsi0OWo5f2yMCF9e8DeCjKLOGDEA@mail.gmail.com>
- <520CBFD6.6030600@openwrt.org>
- <CACna6rwi1+2ghyyKonaw=6xVDwipb3=1zUzOJ7dVoNoVyRx9fw@mail.gmail.com>
- <5211A0CB.70003@openwrt.org>
-Reply-To: OpenWrt Development List <openwrt-devel@lists.openwrt.org>
+From: Phil Oester <kernel@linuxace.com>
+Subject: Re: NAT stops forwarding ACKs after PMTU discovery
+Date: Mon, 19 Aug 2013 11:00:43 -0700
+Message-ID: <20130819180043.GA31511@linuxace.com>
+References: <1376870592.4226.27.camel@edumazet-glaptop>
+ <5211DAA6.1070302@fatooh.org>
+ <20130819123314.GC3583@cpaasch-mac>
+ <1376918657.4226.59.camel@edumazet-glaptop>
+ <20130819134919.GF3583@cpaasch-mac>
+ <1376920685.4226.61.camel@edumazet-glaptop>
+ <20130819143509.GA31320@linuxace.com>
+ <20130819153328.GH3583@cpaasch-mac>
+ <1376928031.4226.66.camel@edumazet-glaptop>
+ <20130819171519.GA4008@cpaasch-mac>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Network Development <netdev@vger.kernel.org>,
- Jonas Gorski <jogo@openwrt.org>, Hauke Mehrtens <hauke@hauke-m.de>,
- OpenWrt Development List <openwrt-devel@lists.openwrt.org>
-To: Felix Fietkau <nbd@openwrt.org>
-Return-path: <openwrt-devel-bounces@lists.openwrt.org>
-In-Reply-To: <5211A0CB.70003@openwrt.org>
-List-Unsubscribe: <https://lists.openwrt.org/cgi-bin/mailman/options/openwrt-devel>,
- <mailto:openwrt-devel-request@lists.openwrt.org?subject=unsubscribe>
-List-Archive: <http://lists.openwrt.org/pipermail/openwrt-devel/>
-List-Post: <mailto:openwrt-devel@lists.openwrt.org>
-List-Help: <mailto:openwrt-devel-request@lists.openwrt.org?subject=help>
-List-Subscribe: <https://lists.openwrt.org/cgi-bin/mailman/listinfo/openwrt-devel>,
- <mailto:openwrt-devel-request@lists.openwrt.org?subject=subscribe>
-Errors-To: openwrt-devel-bounces@lists.openwrt.org
-Sender: "openwrt-devel" <openwrt-devel-bounces@lists.openwrt.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Corey Hickey <bugfood-ml@fatooh.org>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org
+To: Christoph Paasch <christoph.paasch@uclouvain.be>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:62861 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751198Ab3HSSAe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 14:00:34 -0400
+Received: by mail-pb0-f52.google.com with SMTP id wz12so5194670pbc.25
+        for <netdev@vger.kernel.org>; Mon, 19 Aug 2013 11:00:34 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20130819171519.GA4008@cpaasch-mac>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-MjAxMy84LzE5IEZlbGl4IEZpZXRrYXUgPG5iZEBvcGVud3J0Lm9yZz46Cj4gT24gMjAxMy0wOC0x
-NSAxMDoyMSBQTSwgUmFmYcWCIE1pxYJlY2tpIHdyb3RlOgo+PiBJJ20gYWZyYWlkIHRoaXMgInBl
-cmYgdG9wIiBvdXRwdXQgZG9lc24ndCByZWFsbHkgdGVsbCB1cyB3aGVyZSB0byBsb29rCj4+IGZv
-ciBvcHRpbWl6YXRpb25zIDp8IEknbGwgc3RpbGwgdHJ5IEZlbGl4IGlkZWFzIHRvbW9ycm93LCBi
-dXQgSSdtIG5vdAo+PiBzdXJlIGlmIHRoZXkgaGVscCwgc2luY2UgdGhlcmUgaXNuJ3QgX19jb3B5
-X3VzZXJfY29tbW9uIGFueW1vcmUgaW4gdGhlCj4+ICJwZXJmIHRvcCIgb3V0cHV0Li4uCj4gV2hh
-dCdzIHRoZSBDUFUgbG9hZCB3aGlsZSBwYXNzaW5nIHRyYWZmaWMgd2l0aG91dCBydW5uaW5nIHBl
-cmY/CgpEdXJpbmcgInBpbmcgMTkyLjE2OC41LjEiCgojIHRvcApNZW06IDE5NTY0SyB1c2VkLCAx
-MDcwNzZLIGZyZWUsIDBLIHNocmQsIDBLIGJ1ZmYsIDEyOTE2SyBjYWNoZWQKQ1BVOiAwJSB1c3Ig
-MCUgc3lzIDAlIG5pYyA5OSUgaWRsZSAwJSBpbyAwJSBpcnEgMCUgc2lycQpMb2FkIGF2ZXJhZ2U6
-IDAuMTcgMC4xMCAwLjA0IDEvMjQgODEwCgojIHBlcmYgdG9wClBlcmZUb3A6IDI2MSBpcnFzL3Nl
-YyBrZXJuZWw6MTAwLjAlIGV4YWN0OiAwLjAlIFs0MDAwSHogY3ljbGVzXSwgKGFsbCwgMSBDUFUp
-Ci0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KCjY0LjIxJSBba2VybmVsXSBba10gYXJjaF9jcHVfaWRs
-ZQoxNi4zOCUgW2tlcm5lbF0gW2tdIGFyY2hfbG9jYWxfaXJxX3Jlc3RvcmUKMTIuMDElIFtrZXJu
-ZWxdIFtrXSBjcHVfc3RhcnR1cF9lbnRyeQoyLjE2JSBba2VybmVsXSBba10gcmN1X2lkbGVfZXhp
-dAoKRHVyaW5nICJpcGVyZiAtYyAxOTIuMTY4LjUuMSIKCiMgdG9wCk1lbTogMTk1NzJLIHVzZWQs
-IDEwNzA2OEsgZnJlZSwgMEsgc2hyZCwgMEsgYnVmZiwgMTI5MTZLIGNhY2hlZApDUFU6IDAlIHVz
-ciAwJSBzeXMgMCUgbmljIDMlIGlkbGUgMCUgaW8gMCUgaXJxIDk2JSBzaXJxCkxvYWQgYXZlcmFn
-ZTogMC4yOSAwLjExIDAuMDQgMS8yNCA4MDkKUElEIFBQSUQgVVNFUiBTVEFUIFZTWiAlVlNaICVD
-UFUgQ09NTUFORAozIDIgcm9vdCBSVyAwIDAlIDklIFtrc29mdGlycWQvMF0KODA5IDM3NiByb290
-IFIgMTQ5NiAxJSAyJSB0b3AKNzE2IDEgbm9ib2R5IFMgOTY0IDElIDElIC91c3Ivc2Jpbi9kbnNt
-YXNxIC1DIC92YXIvZXRjL2Ruc21hc3EKCiMgcGVyZiB0b3AKUGVyZlRvcDogMjY1IGlycXMvc2Vj
-IGtlcm5lbDoxMDAuMCUgZXhhY3Q6IDAuMCUgWzQwMDBIeiBjeWNsZXNdLCAoYWxsLCAxIENQVSkK
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLQoKNi40MSUgW2lwX3RhYmxlc10gW2tdIGlwdF9kb190YWJs
-ZQo0LjAxJSBbYmdtYWNdIFtrXSAweDAwMDAwNmVjCjMuNDMlIFtrZXJuZWxdIFtrXSBhcmNoX2Nw
-dV9pZGxlCjMuMzAlIFtrZXJuZWxdIFtrXSBhcmNoX2xvY2FsX2lycV9yZXN0b3JlCjMuMjUlIFtr
-ZXJuZWxdIFtrXSBpcF9yY3YKMy4xMSUgW25mX2Nvbm50cmFja10gW2tdIG5mX2Nvbm50cmFja19w
-cm90b19maW5pCjMuMTElIFtuZl9jb25udHJhY2tdIFtrXSBuZl9jb25udHJhY2tfaW4KCgo+IEhh
-dmUgeW91IHRlc3RlZCBicmlkZ2luZyBwZXJmb3JtYW5jZT8KCkRvIHlvdSBtZWFuIGNvbm5lY3Rp
-bmcgYm90aCBtYWNoaW5lcyB0byB0aGUgc2FtZSBWTEFOPyBMaWtlIDIgTEFOCnBvcnRzIGluIHRo
-ZSBzdGFuZGFyZCBjb25maWd1cmF0aW9uPyBJdCBnaXZlcyBtZSB+NjAwTWIvcyB1c2luZwpPcGVu
-V3J0LiBJdCdzIHByZXR0eSBtdWNoIHRoZSBzYW1lIHBlcmZvcm1hbmNlIEkgZ290IHdpdGggdGhl
-IG9yaWdpbmFsCmZpcm13YXJlIGZvciB0cmFuc2ZlciBiZXR3ZWVuIDIgVkxBTnMuCgpbIDVdIGxv
-Y2FsIDE5Mi4xNjguMS4yMTggcG9ydCA1MDAxIGNvbm5lY3RlZCB3aXRoIDE5Mi4xNjguMS4xMzEg
-cG9ydCA1OTQ2MwpbIDVdIDAuMC02MC4wIHNlYyA0LjE2IEdCeXRlcyA1OTYgTWJpdHMvc2VjCgot
-LSAKUmFmYcWCCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-Cm9wZW53cnQtZGV2ZWwgbWFpbGluZyBsaXN0Cm9wZW53cnQtZGV2ZWxAbGlzdHMub3BlbndydC5v
-cmcKaHR0cHM6Ly9saXN0cy5vcGVud3J0Lm9yZy9jZ2ktYmluL21haWxtYW4vbGlzdGluZm8vb3Bl
-bndydC1kZXZlbAo=
+On Mon, Aug 19, 2013 at 07:15:19PM +0200, Christoph Paasch wrote:
+> On 19/08/13 - 09:00:31, Eric Dumazet wrote:
+> > On Mon, 2013-08-19 at 17:33 +0200, Christoph Paasch wrote:
+> > > Unfortunately, they will hardly go away in the near futur. Rather the
+> > > opposite is the case.
+> > > 
+> > > 
+> > > If you have a public server running, I would be interested in the count of
+> > > invalid SACK-blocks received (netstat -s | grep TCPSACKDiscard). This is an
+> > > indication for such kind of middlebox between your server and the client,
+> > > implying that these connections cannot benefit from TCP-FastRetransmission
+> > > and each packet-loss will require an RTO to recover.
+> > > 
+> > 
+> > If the (random) sequence offset is small rather than completely out of
+> > window, it's going to be hard to detect all problems.
+
+It is not small unfortunately.  The bug is that with ISN randomization enabled
+the PIX leaves the SACK sequence numbers untouched.  For reference, the cisco
+bug is CSCse14419.
+
+> Yes, it is not possible to make it 100% perfect. But considering the size of
+> the seq-space, the probability is rather low that the SACK-block falls
+> in-window.
+
+s/rather low/nil/
+
+> > Show us your patch ;)
+
+Or just disable SACK on the box behind the problematic PIX.
+
+Phil
