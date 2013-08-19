@@ -1,91 +1,55 @@
-From: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
-Subject: [PATCH] Fix stack corruption on some architectures
-Date: Mon, 19 Aug 2013 13:37:27 -0700
-Message-ID: <1376944647.5082.12.camel@chimera>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Jan Dumon <j.dumon@option.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH net] packet: restore packet statistics tp_packets to include drops
+Date: Mon, 19 Aug 2013 16:40:22 -0400
+Message-ID: <1376944822-30454-1-git-send-email-willemb@google.com>
+References: <5212625A.1090704@cogentembedded.com>
+Cc: Willem de Bruijn <willemb@google.com>
+To: davem@davemloft.net, dborkman@redhat.com, netdev@vger.kernel.org,
+	sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:59426 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751131Ab3HSUhb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 16:37:31 -0400
-Received: by mail-pd0-f182.google.com with SMTP id r10so4737786pdi.27
-        for <netdev@vger.kernel.org>; Mon, 19 Aug 2013 13:37:31 -0700 (PDT)
+Received: from mail-gh0-f202.google.com ([209.85.160.202]:51381 "EHLO
+	mail-gh0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750827Ab3HSUkb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 16:40:31 -0400
+Received: by mail-gh0-f202.google.com with SMTP id g24so468222ghb.1
+        for <netdev@vger.kernel.org>; Mon, 19 Aug 2013 13:40:30 -0700 (PDT)
+In-Reply-To: <5212625A.1090704@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no need to get an interface specification if we know it's the
-wrong one; trivial change. The big thing, though, was explained in the
-#mipslinux IRC channel: 
-[Mon 2013-08-19 12:28:21 PM PDT] <headless> guys, are you sure it's not "DMA off stack" case?
-[Mon 2013-08-19 12:28:35 PM PDT] <headless> it's a known stack corruptor on non-coherent arches
-[Mon 2013-08-19 12:31:48 PM PDT] <DonkeyHotei> headless: for usb/ehci?
-[Mon 2013-08-19 12:34:11 PM PDT] <DonkeyHotei> headless: explain
-[Mon 2013-08-19 12:35:38 PM PDT] <headless> usb_control_msg() (or other such func) should not use buffer on stack. DMA from/to stack is prohibited
-[Mon 2013-08-19 12:35:58 PM PDT] <headless> and EHCI uses DMA on control xfers (as well as all the others)
+getsockopt PACKET_STATISTICS returns tp_packets + tp_drops. Commit
+ee80fbf301 ("packet: account statistics only in tpacket_stats_u")
+cleaned up the getsockopt PACKET_STATISTICS code.
+This also changed semantics. Historically, tp_packets included
+tp_drops on return. The commit removed the line that adds tp_drops
+into tp_packets.
 
-Signed-off-by: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
+This patch reinstates the old semantics.
+
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+
 ---
- drivers/net/usb/hso.c |   15 ++++++++++-----
- 1 file changed, 10 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index cba1d46..86292e6 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -2816,13 +2816,16 @@ exit:
- static int hso_get_config_data(struct usb_interface *interface)
- {
- 	struct usb_device *usbdev = interface_to_usbdev(interface);
--	u8 config_data[17];
-+	u8 *config_data = kmalloc(17, GFP_KERNEL);
- 	u32 if_num = interface->altsetting->desc.bInterfaceNumber;
- 	s32 result;
+v2: incorporated commit summary by request. no code changes
+---
+ net/packet/af_packet.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 6c53dd9..1fdf9ab 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -3215,9 +3215,11 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
  
-+	if (!config_data)
-+		return -ENOMEM;
- 	if (usb_control_msg(usbdev, usb_rcvctrlpipe(usbdev, 0),
- 			    0x86, 0xC0, 0, 0, config_data, 17,
- 			    USB_CTRL_SET_TIMEOUT) != 0x11) {
-+		kfree(config_data);
- 		return -EIO;
- 	}
+ 		if (po->tp_version == TPACKET_V3) {
+ 			lv = sizeof(struct tpacket_stats_v3);
++			st.stats3.tp_packets += st.stats3.tp_drops;
+ 			data = &st.stats3;
+ 		} else {
+ 			lv = sizeof(struct tpacket_stats);
++			st.stats1.tp_packets += st.stats1.tp_drops;
+ 			data = &st.stats1;
+ 		}
  
-@@ -2873,6 +2876,7 @@ static int hso_get_config_data(struct usb_interface *interface)
- 	if (config_data[16] & 0x1)
- 		result |= HSO_INFO_CRC_BUG;
- 
-+	kfree(config_data);
- 	return result;
- }
- 
-@@ -2886,6 +2890,11 @@ static int hso_probe(struct usb_interface *interface,
- 	struct hso_shared_int *shared_int;
- 	struct hso_device *tmp_dev = NULL;
- 
-+	if (interface->cur_altsetting->desc.bInterfaceClass != 0xFF) {
-+		dev_err(&interface->dev, "Not our interface\n");
-+		return -ENODEV;
-+	}
-+
- 	if_num = interface->altsetting->desc.bInterfaceNumber;
- 
- 	/* Get the interface/port specification from either driver_info or from
-@@ -2895,10 +2904,6 @@ static int hso_probe(struct usb_interface *interface,
- 	else
- 		port_spec = hso_get_config_data(interface);
- 
--	if (interface->cur_altsetting->desc.bInterfaceClass != 0xFF) {
--		dev_err(&interface->dev, "Not our interface\n");
--		return -ENODEV;
--	}
- 	/* Check if we need to switch to alt interfaces prior to port
- 	 * configuration */
- 	if (interface->num_altsetting > 1)
 -- 
-1.7.9.5
+1.8.3
