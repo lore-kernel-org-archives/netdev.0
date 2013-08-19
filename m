@@ -1,290 +1,918 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: [RFC 1/2] Use acked_out for reno-style ack acounting instead of sacked_out
-Date: Mon, 19 Aug 2013 21:29:27 +0200
-Message-ID: <1376940568-16512-2-git-send-email-christoph.paasch@uclouvain.be>
-References: <1376935800.4226.71.camel@edumazet-glaptop>
- <1376940568-16512-1-git-send-email-christoph.paasch@uclouvain.be>
-Cc: netdev@vger.kernel.org, Phil Oester <kernel@linuxace.com>,
-	Corey Hickey <bugfood-ml@fatooh.org>,
-	Benjamin Hesmans <benjamin.hesmans@uclouvain.be>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:59656 "EHLO
-	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750833Ab3HST3r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 15:29:47 -0400
-In-Reply-To: <1376940568-16512-1-git-send-email-christoph.paasch@uclouvain.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: Re: [Patch net-next v3 9/9] selinux: use generic union inet_addr
+Date: Mon, 19 Aug 2013 12:34:14 -0700
+Message-ID: <52127336.3080209@schaufler-ca.com>
+References: <1376907278-26377-1-git-send-email-amwang@redhat.com> <1376907278-26377-10-git-send-email-amwang@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	James Morris <james.l.morris@oracle.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Eric Paris <eparis@parisplace.org>,
+	Paul Moore <pmoore@redhat.com>, linux-kernel@vger.kernel.org,
+	linux-security-module@vger.kernel.org
+To: Cong Wang <amwang@redhat.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1376907278-26377-10-git-send-email-amwang@redhat.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds acked_out to tcp_sock, so that all acounting of acked
-packets in case of non-sack connections is done within this field.
+On 8/19/2013 3:14 AM, Cong Wang wrote:
+> From: Cong Wang <amwang@redhat.com>
+>
+> selinux has some similar definition like union inet_addr,
+> it can re-use the generic union inet_addr too.
 
-tcp_acked_out() sums up sacked_out and acked_out.
+I'm trying to understand what value this change adds.
+All it appears to do is swap one set of inconvenient
+structure members for a different set of inconvenient
+structure members. Does it improve performance?
 
-Tested-by: Benjamin Hesmans <benjamin.hesmans@uclouvain.be>
-Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
----
- include/linux/tcp.h      |  1 +
- include/net/tcp.h        | 17 ++++++++++++-----
- net/ipv4/tcp_input.c     | 44 +++++++++++++++++++++++++++-----------------
- net/ipv4/tcp_minisocks.c |  1 +
- net/ipv4/tcp_output.c    |  2 +-
- net/ipv4/tcp_timer.c     |  2 +-
- 6 files changed, 43 insertions(+), 24 deletions(-)
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index d686334..6622595 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -241,6 +241,7 @@ struct tcp_sock {
- 	u32	pushed_seq;	/* Last pushed seq, required to talk to windows */
- 	u32	lost_out;	/* Lost packets			*/
- 	u32	sacked_out;	/* SACK'd packets			*/
-+	u32	acked_out;	/* DupACK'd packets			*/
- 	u32	fackets_out;	/* FACK'd packets			*/
- 	u32	tso_deferred;
- 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 09cb5c1..8210057 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -871,9 +871,14 @@ static inline void tcp_disable_early_retrans(struct tcp_sock *tp)
- 	tp->do_early_retrans = 0;
- }
- 
-+static inline unsigned int tcp_acked_out(const struct tcp_sock *tp)
-+{
-+	return tp->sacked_out + tp->acked_out;
-+}
-+
- static inline unsigned int tcp_left_out(const struct tcp_sock *tp)
- {
--	return tp->sacked_out + tp->lost_out;
-+	return tcp_acked_out(tp) + tp->lost_out;
- }
- 
- /* This determines how many packets are "in the network" to the best
-@@ -1446,12 +1451,12 @@ static inline void tcp_push_pending_frames(struct sock *sk)
- }
- 
- /* Start sequence of the skb just after the highest skb with SACKed
-- * bit, valid only if sacked_out > 0 or when the caller has ensured
-+ * bit, valid only if sacked_out or acked_out > 0 or when the caller has ensured
-  * validity by itself.
-  */
- static inline u32 tcp_highest_sack_seq(struct tcp_sock *tp)
- {
--	if (!tp->sacked_out)
-+	if (!tp->sacked_out && !tp->acked_out)
- 		return tp->snd_una;
- 
- 	if (tp->highest_sack == NULL)
-@@ -1481,8 +1486,10 @@ static inline void tcp_highest_sack_combine(struct sock *sk,
- 					    struct sk_buff *old,
- 					    struct sk_buff *new)
- {
--	if (tcp_sk(sk)->sacked_out && (old == tcp_sk(sk)->highest_sack))
--		tcp_sk(sk)->highest_sack = new;
-+	struct tcp_sock *tp = tcp_sk(sk);
-+
-+	if ((tp->sacked_out || tp->acked_out) && (old == tp->highest_sack))
-+		tp->highest_sack = new;
- }
- 
- /* Determines whether this is a thin stream (which may suffer from
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index e965cc7..af764d0 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1748,8 +1748,8 @@ out:
- 	return state.flag;
- }
- 
--/* Limits sacked_out so that sum with lost_out isn't ever larger than
-- * packets_out. Returns false if sacked_out adjustement wasn't necessary.
-+/* Limits acked_out so that sum with lost_out isn't ever larger than
-+ * packets_out. Returns false if acked_out adjustement wasn't necessary.
-  */
- static bool tcp_limit_reno_sacked(struct tcp_sock *tp)
- {
-@@ -1758,8 +1758,8 @@ static bool tcp_limit_reno_sacked(struct tcp_sock *tp)
- 	holes = max(tp->lost_out, 1U);
- 	holes = min(holes, tp->packets_out);
- 
--	if ((tp->sacked_out + holes) > tp->packets_out) {
--		tp->sacked_out = tp->packets_out - holes;
-+	if ((tp->acked_out + holes) > tp->packets_out) {
-+		tp->acked_out = tp->packets_out - holes;
- 		return true;
- 	}
- 	return false;
-@@ -1781,7 +1781,7 @@ static void tcp_check_reno_reordering(struct sock *sk, const int addend)
- static void tcp_add_reno_sack(struct sock *sk)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
--	tp->sacked_out++;
-+	tp->acked_out++;
- 	tcp_check_reno_reordering(sk, 0);
- 	tcp_verify_left_out(tp);
- }
-@@ -1794,10 +1794,10 @@ static void tcp_remove_reno_sacks(struct sock *sk, int acked)
- 
- 	if (acked > 0) {
- 		/* One ACK acked hole. The rest eat duplicate ACKs. */
--		if (acked - 1 >= tp->sacked_out)
--			tp->sacked_out = 0;
-+		if (acked - 1 >= tp->acked_out)
-+			tp->acked_out = 0;
- 		else
--			tp->sacked_out -= acked - 1;
-+			tp->acked_out -= acked - 1;
- 	}
- 	tcp_check_reno_reordering(sk, acked);
- 	tcp_verify_left_out(tp);
-@@ -1805,7 +1805,7 @@ static void tcp_remove_reno_sacks(struct sock *sk, int acked)
- 
- static inline void tcp_reset_reno_sack(struct tcp_sock *tp)
- {
--	tp->sacked_out = 0;
-+	tp->acked_out = 0;
- }
- 
- static void tcp_clear_retrans_partial(struct tcp_sock *tp)
-@@ -1823,6 +1823,7 @@ void tcp_clear_retrans(struct tcp_sock *tp)
- 
- 	tp->fackets_out = 0;
- 	tp->sacked_out = 0;
-+	tp->acked_out = 0;
- }
- 
- /* Enter Loss state. If "how" is not zero, forget all SACK information
-@@ -1857,6 +1858,7 @@ void tcp_enter_loss(struct sock *sk, int how)
- 	tp->undo_marker = tp->snd_una;
- 	if (how) {
- 		tp->sacked_out = 0;
-+		tp->acked_out = 0;
- 		tp->fackets_out = 0;
- 	}
- 	tcp_clear_all_retrans_hints(tp);
-@@ -1921,7 +1923,7 @@ static bool tcp_check_sack_reneging(struct sock *sk, int flag)
- 
- static inline int tcp_fackets_out(const struct tcp_sock *tp)
- {
--	return tcp_is_reno(tp) ? tp->sacked_out + 1 : tp->fackets_out;
-+	return tcp_is_reno(tp) ? tp->acked_out + 1 : tp->fackets_out;
- }
- 
- /* Heurestics to calculate number of duplicate ACKs. There's no dupACKs
-@@ -1941,7 +1943,7 @@ static inline int tcp_fackets_out(const struct tcp_sock *tp)
-  */
- static inline int tcp_dupack_heuristics(const struct tcp_sock *tp)
- {
--	return tcp_is_fack(tp) ? tp->fackets_out : tp->sacked_out + 1;
-+	return tcp_is_fack(tp) ? tp->fackets_out : tcp_acked_out(tp) + 1;
- }
- 
- static bool tcp_pause_early_retransmit(struct sock *sk, int flag)
-@@ -2077,7 +2079,7 @@ static bool tcp_time_to_recover(struct sock *sk, int flag)
- 	 */
- 	packets_out = tp->packets_out;
- 	if (packets_out <= tp->reordering &&
--	    tp->sacked_out >= max_t(__u32, packets_out/2, sysctl_tcp_reordering) &&
-+	    tcp_acked_out(tp) >= max_t(__u32, packets_out/2, sysctl_tcp_reordering) &&
- 	    !tcp_may_send_now(sk)) {
- 		/* We have nothing to send. This connection is limited
- 		 * either by receiver window or by application.
-@@ -2100,8 +2102,8 @@ static bool tcp_time_to_recover(struct sock *sk, int flag)
- 	 * Mitigation A.3 in the RFC and delay the retransmission for a short
- 	 * interval if appropriate.
- 	 */
--	if (tp->do_early_retrans && !tp->retrans_out && tp->sacked_out &&
--	    (tp->packets_out >= (tp->sacked_out + 1) && tp->packets_out < 4) &&
-+	if (tp->do_early_retrans && !tp->retrans_out && (tp->sacked_out || tp->acked_out) &&
-+	    (tp->packets_out >= (tcp_acked_out(tp) + 1) && tp->packets_out < 4) &&
- 	    !tcp_may_send_now(sk))
- 		return !tcp_pause_early_retransmit(sk, flag);
- 
-@@ -2701,9 +2703,11 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
- 				    (tcp_fackets_out(tp) > tp->reordering));
- 	int fast_rexmit = 0;
- 
--	if (WARN_ON(!tp->packets_out && tp->sacked_out))
-+	if (WARN_ON(!tp->packets_out && (tp->sacked_out || tp->acked_out))) {
- 		tp->sacked_out = 0;
--	if (WARN_ON(!tp->sacked_out && tp->fackets_out))
-+		tp->acked_out = 0;
-+	}
-+	if (WARN_ON(!tp->sacked_out && !tp->acked_out && tp->fackets_out))
- 		tp->fackets_out = 0;
- 
- 	/* Now state machine starts.
-@@ -3078,6 +3082,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- 
- #if FASTRETRANS_DEBUG > 0
- 	WARN_ON((int)tp->sacked_out < 0);
-+	WARN_ON((int)tp->acked_out < 0);
- 	WARN_ON((int)tp->lost_out < 0);
- 	WARN_ON((int)tp->retrans_out < 0);
- 	if (!tp->packets_out && tcp_is_sack(tp)) {
-@@ -3092,6 +3097,11 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- 				 tp->sacked_out, icsk->icsk_ca_state);
- 			tp->sacked_out = 0;
- 		}
-+		if (tp->acked_out) {
-+			pr_debug("Leak a=%u %d\n",
-+				 tp->acked_out, icsk->icsk_ca_state);
-+			tp->acked_out = 0;
-+		}
- 		if (tp->retrans_out) {
- 			pr_debug("Leak r=%u %d\n",
- 				 tp->retrans_out, icsk->icsk_ca_state);
-@@ -3270,7 +3280,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 	u32 prior_in_flight;
- 	u32 prior_fackets;
- 	int prior_packets = tp->packets_out;
--	const int prior_unsacked = tp->packets_out - tp->sacked_out;
-+	const int prior_unsacked = tp->packets_out - tcp_acked_out(tp);
- 	int acked = 0; /* Number of packets newly acked */
- 	s32 sack_rtt = -1;
- 
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 58a3e69..a2f5279 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -407,6 +407,7 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
- 		newtp->packets_out = 0;
- 		newtp->retrans_out = 0;
- 		newtp->sacked_out = 0;
-+		newtp->acked_out = 0;
- 		newtp->fackets_out = 0;
- 		newtp->snd_ssthresh = TCP_INFINITE_SSTHRESH;
- 		tcp_enable_early_retrans(newtp);
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 884efff..17ebbff 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1033,7 +1033,7 @@ static void tcp_adjust_pcount(struct sock *sk, const struct sk_buff *skb, int de
- 
- 	/* Reno case is special. Sigh... */
- 	if (tcp_is_reno(tp) && decr > 0)
--		tp->sacked_out -= min_t(u32, tp->sacked_out, decr);
-+		tp->acked_out -= min_t(u32, tp->acked_out, decr);
- 
- 	tcp_adjust_fackets_out(sk, skb, decr);
- 
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index 4b85e6f..82acaea 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -405,7 +405,7 @@ void tcp_retransmit_timer(struct sock *sk)
- 		} else if (icsk->icsk_ca_state == TCP_CA_Loss) {
- 			mib_idx = LINUX_MIB_TCPLOSSFAILURES;
- 		} else if ((icsk->icsk_ca_state == TCP_CA_Disorder) ||
--			   tp->sacked_out) {
-+			   tp->sacked_out || tp->acked_out) {
- 			if (tcp_is_sack(tp))
- 				mib_idx = LINUX_MIB_TCPSACKFAILURES;
- 			else
--- 
-1.8.1.2
+>
+> Cc: James Morris <james.l.morris@oracle.com>
+> Cc: Stephen Smalley <sds@tycho.nsa.gov>
+> Cc: Eric Paris <eparis@parisplace.org>
+> Cc: Paul Moore <pmoore@redhat.com>
+> Cc: linux-kernel@vger.kernel.org
+> Cc: linux-security-module@vger.kernel.org
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+> ---
+>  include/linux/lsm_audit.h          |   19 +-----
+>  security/lsm_audit.c               |   58 ++++++++--------
+>  security/selinux/hooks.c           |  130 +++++++++++++++++-------------------
+>  security/selinux/include/netnode.h |    4 +-
+>  security/selinux/include/objsec.h  |    7 +--
+>  security/selinux/netnode.c         |  102 ++++++++--------------------
+>  security/smack/smack_lsm.c         |   19 +++---
+>  7 files changed, 138 insertions(+), 201 deletions(-)
+>
+> diff --git a/include/linux/lsm_audit.h b/include/linux/lsm_audit.h
+> index 1cc89e9..48cab1e 100644
+> --- a/include/linux/lsm_audit.h
+> +++ b/include/linux/lsm_audit.h
+> @@ -21,23 +21,13 @@
+>  #include <linux/path.h>
+>  #include <linux/key.h>
+>  #include <linux/skbuff.h>
+> +#include <net/inet_addr.h>
+>  
+>  struct lsm_network_audit {
+>  	int netif;
+>  	struct sock *sk;
+> -	u16 family;
+> -	__be16 dport;
+> -	__be16 sport;
+> -	union {
+> -		struct {
+> -			__be32 daddr;
+> -			__be32 saddr;
+> -		} v4;
+> -		struct {
+> -			struct in6_addr daddr;
+> -			struct in6_addr saddr;
+> -		} v6;
+> -	} fam;
+> +	union inet_addr saddr;
+> +	union inet_addr daddr;
+>  };
+>  
+>  /* Auxiliary data to use in generating the audit record. */
+> @@ -83,9 +73,6 @@ struct common_audit_data {
+>  	}; /* per LSM data pointer union */
+>  };
+>  
+> -#define v4info fam.v4
+> -#define v6info fam.v6
+> -
+>  int ipv4_skb_to_auditdata(struct sk_buff *skb,
+>  		struct common_audit_data *ad, u8 *proto);
+>  
+> diff --git a/security/lsm_audit.c b/security/lsm_audit.c
+> index 8d8d97d..244c2a1 100644
+> --- a/security/lsm_audit.c
+> +++ b/security/lsm_audit.c
+> @@ -49,8 +49,8 @@ int ipv4_skb_to_auditdata(struct sk_buff *skb,
+>  	if (ih == NULL)
+>  		return -EINVAL;
+>  
+> -	ad->u.net->v4info.saddr = ih->saddr;
+> -	ad->u.net->v4info.daddr = ih->daddr;
+> +	ad->u.net->saddr.sin.sin_addr.s_addr = ih->saddr;
+> +	ad->u.net->daddr.sin.sin_addr.s_addr = ih->daddr;
+>  
+>  	if (proto)
+>  		*proto = ih->protocol;
+> @@ -64,8 +64,8 @@ int ipv4_skb_to_auditdata(struct sk_buff *skb,
+>  		if (th == NULL)
+>  			break;
+>  
+> -		ad->u.net->sport = th->source;
+> -		ad->u.net->dport = th->dest;
+> +		inet_addr_set_port(&ad->u.net->saddr, ntohs(th->source));
+> +		inet_addr_set_port(&ad->u.net->daddr, ntohs(th->dest));
+>  		break;
+>  	}
+>  	case IPPROTO_UDP: {
+> @@ -73,8 +73,8 @@ int ipv4_skb_to_auditdata(struct sk_buff *skb,
+>  		if (uh == NULL)
+>  			break;
+>  
+> -		ad->u.net->sport = uh->source;
+> -		ad->u.net->dport = uh->dest;
+> +		inet_addr_set_port(&ad->u.net->saddr, ntohs(uh->source));
+> +		inet_addr_set_port(&ad->u.net->daddr, ntohs(uh->dest));
+>  		break;
+>  	}
+>  	case IPPROTO_DCCP: {
+> @@ -82,16 +82,16 @@ int ipv4_skb_to_auditdata(struct sk_buff *skb,
+>  		if (dh == NULL)
+>  			break;
+>  
+> -		ad->u.net->sport = dh->dccph_sport;
+> -		ad->u.net->dport = dh->dccph_dport;
+> +		inet_addr_set_port(&ad->u.net->saddr, ntohs(dh->dccph_sport));
+> +		inet_addr_set_port(&ad->u.net->daddr, ntohs(dh->dccph_dport));
+>  		break;
+>  	}
+>  	case IPPROTO_SCTP: {
+>  		struct sctphdr *sh = sctp_hdr(skb);
+>  		if (sh == NULL)
+>  			break;
+> -		ad->u.net->sport = sh->source;
+> -		ad->u.net->dport = sh->dest;
+> +		inet_addr_set_port(&ad->u.net->saddr, ntohs(sh->source));
+> +		inet_addr_set_port(&ad->u.net->daddr, ntohs(sh->dest));
+>  		break;
+>  	}
+>  	default:
+> @@ -119,8 +119,8 @@ int ipv6_skb_to_auditdata(struct sk_buff *skb,
+>  	ip6 = ipv6_hdr(skb);
+>  	if (ip6 == NULL)
+>  		return -EINVAL;
+> -	ad->u.net->v6info.saddr = ip6->saddr;
+> -	ad->u.net->v6info.daddr = ip6->daddr;
+> +	ad->u.net->saddr.sin6.sin6_addr = ip6->saddr;
+> +	ad->u.net->daddr.sin6.sin6_addr = ip6->daddr;
+>  	ret = 0;
+>  	/* IPv6 can have several extension header before the Transport header
+>  	 * skip them */
+> @@ -140,8 +140,8 @@ int ipv6_skb_to_auditdata(struct sk_buff *skb,
+>  		if (th == NULL)
+>  			break;
+>  
+> -		ad->u.net->sport = th->source;
+> -		ad->u.net->dport = th->dest;
+> +		inet_addr_set_port(&ad->u.net->saddr, ntohs(th->source));
+> +		inet_addr_set_port(&ad->u.net->daddr, ntohs(th->dest));
+>  		break;
+>  	}
+>  	case IPPROTO_UDP: {
+> @@ -151,8 +151,8 @@ int ipv6_skb_to_auditdata(struct sk_buff *skb,
+>  		if (uh == NULL)
+>  			break;
+>  
+> -		ad->u.net->sport = uh->source;
+> -		ad->u.net->dport = uh->dest;
+> +		inet_addr_set_port(&ad->u.net->saddr, ntohs(uh->source));
+> +		inet_addr_set_port(&ad->u.net->daddr, ntohs(uh->dest));
+>  		break;
+>  	}
+>  	case IPPROTO_DCCP: {
+> @@ -162,8 +162,8 @@ int ipv6_skb_to_auditdata(struct sk_buff *skb,
+>  		if (dh == NULL)
+>  			break;
+>  
+> -		ad->u.net->sport = dh->dccph_sport;
+> -		ad->u.net->dport = dh->dccph_dport;
+> +		inet_addr_set_port(&ad->u.net->saddr, ntohs(dh->dccph_sport));
+> +		inet_addr_set_port(&ad->u.net->daddr, ntohs(dh->dccph_dport));
+>  		break;
+>  	}
+>  	case IPPROTO_SCTP: {
+> @@ -172,8 +172,8 @@ int ipv6_skb_to_auditdata(struct sk_buff *skb,
+>  		sh = skb_header_pointer(skb, offset, sizeof(_sctph), &_sctph);
+>  		if (sh == NULL)
+>  			break;
+> -		ad->u.net->sport = sh->source;
+> -		ad->u.net->dport = sh->dest;
+> +		inet_addr_set_port(&ad->u.net->saddr, ntohs(sh->source));
+> +		inet_addr_set_port(&ad->u.net->daddr, ntohs(sh->dest));
+>  		break;
+>  	}
+>  	default:
+> @@ -333,21 +333,21 @@ static void dump_common_audit_data(struct audit_buffer *ab,
+>  			}
+>  		}
+>  
+> -		switch (a->u.net->family) {
+> +		switch (a->u.net->saddr.sa.sa_family) {
+>  		case AF_INET:
+> -			print_ipv4_addr(ab, a->u.net->v4info.saddr,
+> -					a->u.net->sport,
+> +			print_ipv4_addr(ab, a->u.net->saddr.sin.sin_addr.s_addr,
+> +					a->u.net->saddr.sin.sin_port,
+>  					"saddr", "src");
+> -			print_ipv4_addr(ab, a->u.net->v4info.daddr,
+> -					a->u.net->dport,
+> +			print_ipv4_addr(ab, a->u.net->daddr.sin.sin_addr.s_addr,
+> +					a->u.net->daddr.sin.sin_port,
+>  					"daddr", "dest");
+>  			break;
+>  		case AF_INET6:
+> -			print_ipv6_addr(ab, &a->u.net->v6info.saddr,
+> -					a->u.net->sport,
+> +			print_ipv6_addr(ab, &a->u.net->saddr.sin6.sin6_addr,
+> +					a->u.net->saddr.sin.sin_port,
+>  					"saddr", "src");
+> -			print_ipv6_addr(ab, &a->u.net->v6info.daddr,
+> -					a->u.net->dport,
+> +			print_ipv6_addr(ab, &a->u.net->daddr.sin6.sin6_addr,
+> +					a->u.net->daddr.sin.sin_port,
+>  					"daddr", "dest");
+>  			break;
+>  		}
+> diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+> index c956390..f9959c0 100644
+> --- a/security/selinux/hooks.c
+> +++ b/security/selinux/hooks.c
+> @@ -3595,8 +3595,8 @@ static int selinux_parse_skb_ipv4(struct sk_buff *skb,
+>  	if (ihlen < sizeof(_iph))
+>  		goto out;
+>  
+> -	ad->u.net->v4info.saddr = ih->saddr;
+> -	ad->u.net->v4info.daddr = ih->daddr;
+> +	ad->u.net->saddr.sin.sin_addr.s_addr = ih->saddr;
+> +	ad->u.net->daddr.sin.sin_addr.s_addr = ih->daddr;
+>  	ret = 0;
+>  
+>  	if (proto)
+> @@ -3614,8 +3614,8 @@ static int selinux_parse_skb_ipv4(struct sk_buff *skb,
+>  		if (th == NULL)
+>  			break;
+>  
+> -		ad->u.net->sport = th->source;
+> -		ad->u.net->dport = th->dest;
+> +		inet_addr_set_port(&ad->u.net->saddr, ntohs(th->source));
+> +		inet_addr_set_port(&ad->u.net->daddr, ntohs(th->dest));
+>  		break;
+>  	}
+>  
+> @@ -3630,8 +3630,8 @@ static int selinux_parse_skb_ipv4(struct sk_buff *skb,
+>  		if (uh == NULL)
+>  			break;
+>  
+> -		ad->u.net->sport = uh->source;
+> -		ad->u.net->dport = uh->dest;
+> +		inet_addr_set_port(&ad->u.net->saddr, ntohs(uh->source));
+> +		inet_addr_set_port(&ad->u.net->daddr, ntohs(uh->dest));
+>  		break;
+>  	}
+>  
+> @@ -3646,8 +3646,8 @@ static int selinux_parse_skb_ipv4(struct sk_buff *skb,
+>  		if (dh == NULL)
+>  			break;
+>  
+> -		ad->u.net->sport = dh->dccph_sport;
+> -		ad->u.net->dport = dh->dccph_dport;
+> +		inet_addr_set_port(&ad->u.net->saddr, ntohs(dh->dccph_sport));
+> +		inet_addr_set_port(&ad->u.net->daddr, ntohs(dh->dccph_dport));
+>  		break;
+>  	}
+>  
+> @@ -3674,8 +3674,8 @@ static int selinux_parse_skb_ipv6(struct sk_buff *skb,
+>  	if (ip6 == NULL)
+>  		goto out;
+>  
+> -	ad->u.net->v6info.saddr = ip6->saddr;
+> -	ad->u.net->v6info.daddr = ip6->daddr;
+> +	ad->u.net->saddr.sin6.sin6_addr = ip6->saddr;
+> +	ad->u.net->daddr.sin6.sin6_addr = ip6->daddr;
+>  	ret = 0;
+>  
+>  	nexthdr = ip6->nexthdr;
+> @@ -3695,8 +3695,8 @@ static int selinux_parse_skb_ipv6(struct sk_buff *skb,
+>  		if (th == NULL)
+>  			break;
+>  
+> -		ad->u.net->sport = th->source;
+> -		ad->u.net->dport = th->dest;
+> +		inet_addr_set_port(&ad->u.net->saddr, ntohs(th->source));
+> +		inet_addr_set_port(&ad->u.net->daddr, ntohs(th->dest));
+>  		break;
+>  	}
+>  
+> @@ -3707,8 +3707,8 @@ static int selinux_parse_skb_ipv6(struct sk_buff *skb,
+>  		if (uh == NULL)
+>  			break;
+>  
+> -		ad->u.net->sport = uh->source;
+> -		ad->u.net->dport = uh->dest;
+> +		inet_addr_set_port(&ad->u.net->saddr, ntohs(uh->source));
+> +		inet_addr_set_port(&ad->u.net->daddr, ntohs(uh->dest));
+>  		break;
+>  	}
+>  
+> @@ -3719,8 +3719,8 @@ static int selinux_parse_skb_ipv6(struct sk_buff *skb,
+>  		if (dh == NULL)
+>  			break;
+>  
+> -		ad->u.net->sport = dh->dccph_sport;
+> -		ad->u.net->dport = dh->dccph_dport;
+> +		inet_addr_set_port(&ad->u.net->saddr, ntohs(dh->dccph_sport));
+> +		inet_addr_set_port(&ad->u.net->daddr, ntohs(dh->dccph_dport));
+>  		break;
+>  	}
+>  
+> @@ -3735,18 +3735,17 @@ out:
+>  #endif /* IPV6 */
+>  
+>  static int selinux_parse_skb(struct sk_buff *skb, struct common_audit_data *ad,
+> -			     char **_addrp, int src, u8 *proto)
+> +			     union inet_addr **_addrp, int src, u8 *proto)
+>  {
+> -	char *addrp;
+> +	union inet_addr *addrp;
+>  	int ret;
+> +	sa_family_t family = src ? ad->u.net->saddr.sa.sa_family : ad->u.net->daddr.sa.sa_family;
+>  
+> -	switch (ad->u.net->family) {
+> +	switch (family) {
+>  	case PF_INET:
+>  		ret = selinux_parse_skb_ipv4(skb, ad, proto);
+>  		if (ret)
+>  			goto parse_error;
+> -		addrp = (char *)(src ? &ad->u.net->v4info.saddr :
+> -				       &ad->u.net->v4info.daddr);
+>  		goto okay;
+>  
+>  #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+> @@ -3754,13 +3753,11 @@ static int selinux_parse_skb(struct sk_buff *skb, struct common_audit_data *ad,
+>  		ret = selinux_parse_skb_ipv6(skb, ad, proto);
+>  		if (ret)
+>  			goto parse_error;
+> -		addrp = (char *)(src ? &ad->u.net->v6info.saddr :
+> -				       &ad->u.net->v6info.daddr);
+>  		goto okay;
+>  #endif	/* IPV6 */
+>  	default:
+>  		addrp = NULL;
+> -		goto okay;
+> +		goto save;
+>  	}
+>  
+>  parse_error:
+> @@ -3770,6 +3767,8 @@ parse_error:
+>  	return ret;
+>  
+>  okay:
+> +	addrp = src ? &ad->u.net->saddr : &ad->u.net->daddr;
+> +save:
+>  	if (_addrp)
+>  		*_addrp = addrp;
+>  	return 0;
+> @@ -3912,25 +3911,15 @@ static int selinux_socket_bind(struct socket *sock, struct sockaddr *address, in
+>  	 */
+>  	family = sk->sk_family;
+>  	if (family == PF_INET || family == PF_INET6) {
+> -		char *addrp;
+> +		union inet_addr *addrp = (union inet_addr *)address;
+>  		struct sk_security_struct *sksec = sk->sk_security;
+>  		struct common_audit_data ad;
+>  		struct lsm_network_audit net = {0,};
+> -		struct sockaddr_in *addr4 = NULL;
+> -		struct sockaddr_in6 *addr6 = NULL;
+>  		unsigned short snum;
+>  		u32 sid, node_perm;
+>  
+> -		if (family == PF_INET) {
+> -			addr4 = (struct sockaddr_in *)address;
+> -			snum = ntohs(addr4->sin_port);
+> -			addrp = (char *)&addr4->sin_addr.s_addr;
+> -		} else {
+> -			addr6 = (struct sockaddr_in6 *)address;
+> -			snum = ntohs(addr6->sin6_port);
+> -			addrp = (char *)&addr6->sin6_addr.s6_addr;
+> -		}
+> -
+> +		addrp->sa.sa_family = family;
+> +		snum = inet_addr_get_port(addrp);
+>  		if (snum) {
+>  			int low, high;
+>  
+> @@ -3943,8 +3932,9 @@ static int selinux_socket_bind(struct socket *sock, struct sockaddr *address, in
+>  					goto out;
+>  				ad.type = LSM_AUDIT_DATA_NET;
+>  				ad.u.net = &net;
+> -				ad.u.net->sport = htons(snum);
+> -				ad.u.net->family = family;
+> +				inet_addr_set_port(&ad.u.net->saddr, snum);
+> +				ad.u.net->saddr.sa.sa_family = family;
+> +				ad.u.net->daddr.sa.sa_family = family;
+>  				err = avc_has_perm(sksec->sid, sid,
+>  						   sksec->sclass,
+>  						   SOCKET__NAME_BIND, &ad);
+> @@ -3971,19 +3961,17 @@ static int selinux_socket_bind(struct socket *sock, struct sockaddr *address, in
+>  			break;
+>  		}
+>  
+> -		err = sel_netnode_sid(addrp, family, &sid);
+> +		err = sel_netnode_sid(addrp, &sid);
+>  		if (err)
+>  			goto out;
+>  
+>  		ad.type = LSM_AUDIT_DATA_NET;
+>  		ad.u.net = &net;
+> -		ad.u.net->sport = htons(snum);
+> -		ad.u.net->family = family;
+> +		inet_addr_set_port(&ad.u.net->saddr, snum);
+> +		ad.u.net->saddr.sa.sa_family = family;
+> +		ad.u.net->daddr.sa.sa_family = family;
+>  
+> -		if (family == PF_INET)
+> -			ad.u.net->v4info.saddr = addr4->sin_addr.s_addr;
+> -		else
+> -			ad.u.net->v6info.saddr = addr6->sin6_addr;
+> +		ad.u.net->saddr = *addrp;
+>  
+>  		err = avc_has_perm(sksec->sid, sid,
+>  				   sksec->sclass, node_perm, &ad);
+> @@ -4011,22 +3999,18 @@ static int selinux_socket_connect(struct socket *sock, struct sockaddr *address,
+>  	    sksec->sclass == SECCLASS_DCCP_SOCKET) {
+>  		struct common_audit_data ad;
+>  		struct lsm_network_audit net = {0,};
+> -		struct sockaddr_in *addr4 = NULL;
+> -		struct sockaddr_in6 *addr6 = NULL;
+> +		union inet_addr *addrp = (union inet_addr *)address;
+>  		unsigned short snum;
+>  		u32 sid, perm;
+>  
+>  		if (sk->sk_family == PF_INET) {
+> -			addr4 = (struct sockaddr_in *)address;
+>  			if (addrlen < sizeof(struct sockaddr_in))
+>  				return -EINVAL;
+> -			snum = ntohs(addr4->sin_port);
+>  		} else {
+> -			addr6 = (struct sockaddr_in6 *)address;
+>  			if (addrlen < SIN6_LEN_RFC2133)
+>  				return -EINVAL;
+> -			snum = ntohs(addr6->sin6_port);
+>  		}
+> +		snum = inet_addr_get_port(addrp);
+>  
+>  		err = sel_netport_sid(sk->sk_protocol, snum, &sid);
+>  		if (err)
+> @@ -4037,8 +4021,9 @@ static int selinux_socket_connect(struct socket *sock, struct sockaddr *address,
+>  
+>  		ad.type = LSM_AUDIT_DATA_NET;
+>  		ad.u.net = &net;
+> -		ad.u.net->dport = htons(snum);
+> -		ad.u.net->family = sk->sk_family;
+> +		inet_addr_set_port(&ad.u.net->daddr, snum);
+> +		ad.u.net->saddr.sa.sa_family = sk->sk_family;
+> +		ad.u.net->daddr.sa.sa_family = sk->sk_family;
+>  		err = avc_has_perm(sksec->sid, sid, sksec->sclass, perm, &ad);
+>  		if (err)
+>  			goto out;
+> @@ -4169,7 +4154,7 @@ static int selinux_socket_unix_may_send(struct socket *sock,
+>  			    &ad);
+>  }
+>  
+> -static int selinux_inet_sys_rcv_skb(int ifindex, char *addrp, u16 family,
+> +static int selinux_inet_sys_rcv_skb(int ifindex, union inet_addr *addrp,
+>  				    u32 peer_sid,
+>  				    struct common_audit_data *ad)
+>  {
+> @@ -4185,7 +4170,7 @@ static int selinux_inet_sys_rcv_skb(int ifindex, char *addrp, u16 family,
+>  	if (err)
+>  		return err;
+>  
+> -	err = sel_netnode_sid(addrp, family, &node_sid);
+> +	err = sel_netnode_sid(addrp, &node_sid);
+>  	if (err)
+>  		return err;
+>  	return avc_has_perm(peer_sid, node_sid,
+> @@ -4200,12 +4185,13 @@ static int selinux_sock_rcv_skb_compat(struct sock *sk, struct sk_buff *skb,
+>  	u32 sk_sid = sksec->sid;
+>  	struct common_audit_data ad;
+>  	struct lsm_network_audit net = {0,};
+> -	char *addrp;
+> +	union inet_addr *addrp;
+>  
+>  	ad.type = LSM_AUDIT_DATA_NET;
+>  	ad.u.net = &net;
+>  	ad.u.net->netif = skb->skb_iif;
+> -	ad.u.net->family = family;
+> +	ad.u.net->saddr.sa.sa_family = family;
+> +	ad.u.net->daddr.sa.sa_family = family;
+>  	err = selinux_parse_skb(skb, &ad, &addrp, 1, NULL);
+>  	if (err)
+>  		return err;
+> @@ -4233,7 +4219,7 @@ static int selinux_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
+>  	u32 sk_sid = sksec->sid;
+>  	struct common_audit_data ad;
+>  	struct lsm_network_audit net = {0,};
+> -	char *addrp;
+> +	union inet_addr *addrp;
+>  	u8 secmark_active;
+>  	u8 peerlbl_active;
+>  
+> @@ -4259,7 +4245,8 @@ static int selinux_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
+>  	ad.type = LSM_AUDIT_DATA_NET;
+>  	ad.u.net = &net;
+>  	ad.u.net->netif = skb->skb_iif;
+> -	ad.u.net->family = family;
+> +	ad.u.net->saddr.sa.sa_family = family;
+> +	ad.u.net->daddr.sa.sa_family = family;
+>  	err = selinux_parse_skb(skb, &ad, &addrp, 1, NULL);
+>  	if (err)
+>  		return err;
+> @@ -4270,7 +4257,8 @@ static int selinux_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
+>  		err = selinux_skb_peerlbl_sid(skb, family, &peer_sid);
+>  		if (err)
+>  			return err;
+> -		err = selinux_inet_sys_rcv_skb(skb->skb_iif, addrp, family,
+> +		addrp->sa.sa_family = family;
+> +		err = selinux_inet_sys_rcv_skb(skb->skb_iif, addrp,
+>  					       peer_sid, &ad);
+>  		if (err) {
+>  			selinux_netlbl_err(skb, err, 0);
+> @@ -4621,7 +4609,7 @@ static unsigned int selinux_ip_forward(struct sk_buff *skb, int ifindex,
+>  				       u16 family)
+>  {
+>  	int err;
+> -	char *addrp;
+> +	union inet_addr *addrp;
+>  	u32 peer_sid;
+>  	struct common_audit_data ad;
+>  	struct lsm_network_audit net = {0,};
+> @@ -4644,12 +4632,14 @@ static unsigned int selinux_ip_forward(struct sk_buff *skb, int ifindex,
+>  	ad.type = LSM_AUDIT_DATA_NET;
+>  	ad.u.net = &net;
+>  	ad.u.net->netif = ifindex;
+> -	ad.u.net->family = family;
+> +	ad.u.net->saddr.sa.sa_family = family;
+> +	ad.u.net->daddr.sa.sa_family = family;
+>  	if (selinux_parse_skb(skb, &ad, &addrp, 1, NULL) != 0)
+>  		return NF_DROP;
+>  
+>  	if (peerlbl_active) {
+> -		err = selinux_inet_sys_rcv_skb(ifindex, addrp, family,
+> +		addrp->sa.sa_family = family;
+> +		err = selinux_inet_sys_rcv_skb(ifindex, addrp,
+>  					       peer_sid, &ad);
+>  		if (err) {
+>  			selinux_netlbl_err(skb, err, 1);
+> @@ -4732,7 +4722,7 @@ static unsigned int selinux_ip_postroute_compat(struct sk_buff *skb,
+>  	struct sk_security_struct *sksec;
+>  	struct common_audit_data ad;
+>  	struct lsm_network_audit net = {0,};
+> -	char *addrp;
+> +	union inet_addr *addrp;
+>  	u8 proto;
+>  
+>  	if (sk == NULL)
+> @@ -4742,7 +4732,8 @@ static unsigned int selinux_ip_postroute_compat(struct sk_buff *skb,
+>  	ad.type = LSM_AUDIT_DATA_NET;
+>  	ad.u.net = &net;
+>  	ad.u.net->netif = ifindex;
+> -	ad.u.net->family = family;
+> +	ad.u.net->saddr.sa.sa_family = family;
+> +	ad.u.net->daddr.sa.sa_family = family;
+>  	if (selinux_parse_skb(skb, &ad, &addrp, 0, &proto))
+>  		return NF_DROP;
+>  
+> @@ -4765,7 +4756,7 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb, int ifindex,
+>  	struct sock *sk;
+>  	struct common_audit_data ad;
+>  	struct lsm_network_audit net = {0,};
+> -	char *addrp;
+> +	union inet_addr *addrp;
+>  	u8 secmark_active;
+>  	u8 peerlbl_active;
+>  
+> @@ -4813,7 +4804,8 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb, int ifindex,
+>  	ad.type = LSM_AUDIT_DATA_NET;
+>  	ad.u.net = &net;
+>  	ad.u.net->netif = ifindex;
+> -	ad.u.net->family = family;
+> +	ad.u.net->saddr.sa.sa_family = family;
+> +	ad.u.net->daddr.sa.sa_family = family;
+>  	if (selinux_parse_skb(skb, &ad, &addrp, 0, NULL))
+>  		return NF_DROP;
+>  
+> @@ -4832,7 +4824,7 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb, int ifindex,
+>  				 SECCLASS_NETIF, NETIF__EGRESS, &ad))
+>  			return NF_DROP_ERR(-ECONNREFUSED);
+>  
+> -		if (sel_netnode_sid(addrp, family, &node_sid))
+> +		if (sel_netnode_sid(addrp, &node_sid))
+>  			return NF_DROP;
+>  		if (avc_has_perm(peer_sid, node_sid,
+>  				 SECCLASS_NODE, NODE__SENDTO, &ad))
+> diff --git a/security/selinux/include/netnode.h b/security/selinux/include/netnode.h
+> index df7a5ed..f32c909 100644
+> --- a/security/selinux/include/netnode.h
+> +++ b/security/selinux/include/netnode.h
+> @@ -27,6 +27,8 @@
+>  #ifndef _SELINUX_NETNODE_H
+>  #define _SELINUX_NETNODE_H
+>  
+> -int sel_netnode_sid(void *addr, u16 family, u32 *sid);
+> +#include <net/inet_addr.h>
+> +
+> +int sel_netnode_sid(union inet_addr *addr, u32 *sid);
+>  
+>  #endif
+> diff --git a/security/selinux/include/objsec.h b/security/selinux/include/objsec.h
+> index aa47bca..a46caaf 100644
+> --- a/security/selinux/include/objsec.h
+> +++ b/security/selinux/include/objsec.h
+> @@ -24,6 +24,7 @@
+>  #include <linux/binfmts.h>
+>  #include <linux/in.h>
+>  #include <linux/spinlock.h>
+> +#include <net/inet_addr.h>
+>  #include "flask.h"
+>  #include "avc.h"
+>  
+> @@ -80,12 +81,8 @@ struct netif_security_struct {
+>  };
+>  
+>  struct netnode_security_struct {
+> -	union {
+> -		__be32 ipv4;		/* IPv4 node address */
+> -		struct in6_addr ipv6;	/* IPv6 node address */
+> -	} addr;
+> +	union inet_addr addr;
+>  	u32 sid;			/* SID for this node */
+> -	u16 family;			/* address family */
+>  };
+>  
+>  struct netport_security_struct {
+> diff --git a/security/selinux/netnode.c b/security/selinux/netnode.c
+> index c5454c0..713f14e 100644
+> --- a/security/selinux/netnode.c
+> +++ b/security/selinux/netnode.c
+> @@ -68,79 +68,49 @@ static LIST_HEAD(sel_netnode_list);
+>  static DEFINE_SPINLOCK(sel_netnode_lock);
+>  static struct sel_netnode_bkt sel_netnode_hash[SEL_NETNODE_HASH_SIZE];
+>  
+> -/**
+> - * sel_netnode_hashfn_ipv4 - IPv4 hashing function for the node table
+> - * @addr: IPv4 address
+> - *
+> - * Description:
+> - * This is the IPv4 hashing function for the node interface table, it returns
+> - * the bucket number for the given IP address.
+> - *
+> - */
+> -static unsigned int sel_netnode_hashfn_ipv4(__be32 addr)
+> -{
+> -	/* at some point we should determine if the mismatch in byte order
+> -	 * affects the hash function dramatically */
+> -	return (addr & (SEL_NETNODE_HASH_SIZE - 1));
+> -}
+>  
+>  /**
+> - * sel_netnode_hashfn_ipv6 - IPv6 hashing function for the node table
+> - * @addr: IPv6 address
+> + * sel_netnode_hashfn - IPv4/IPv6 hashing function for the node table
+> + * @addr: generic IP address
+>   *
+>   * Description:
+> - * This is the IPv6 hashing function for the node interface table, it returns
+> + * This is the IP hashing function for the node interface table, it returns
+>   * the bucket number for the given IP address.
+>   *
+>   */
+> -static unsigned int sel_netnode_hashfn_ipv6(const struct in6_addr *addr)
+> +static unsigned int sel_netnode_hashfn(const union inet_addr *addr)
+>  {
+> -	/* just hash the least significant 32 bits to keep things fast (they
+> -	 * are the most likely to be different anyway), we can revisit this
+> -	 * later if needed */
+> -	return (addr->s6_addr32[3] & (SEL_NETNODE_HASH_SIZE - 1));
+> +	if (addr->sa.sa_family == PF_INET)
+> +		/* at some point we should determine if the mismatch in byte order
+> +		 * affects the hash function dramatically */
+> +		return (addr->sin.sin_addr.s_addr & (SEL_NETNODE_HASH_SIZE - 1));
+> +	else if (addr->sa.sa_family == PF_INET6)
+> +		/* just hash the least significant 32 bits to keep things fast (they
+> +		 * are the most likely to be different anyway), we can revisit this
+> +		 * later if needed */
+> +		return (addr->sin6.sin6_addr.s6_addr32[3] & (SEL_NETNODE_HASH_SIZE - 1));
+> +	else
+> +		BUG();
+>  }
+>  
+>  /**
+>   * sel_netnode_find - Search for a node record
+>   * @addr: IP address
+> - * @family: address family
+>   *
+>   * Description:
+>   * Search the network node table and return the record matching @addr.  If an
+>   * entry can not be found in the table return NULL.
+>   *
+>   */
+> -static struct sel_netnode *sel_netnode_find(const void *addr, u16 family)
+> +static struct sel_netnode *sel_netnode_find(const union inet_addr *addr)
+>  {
+>  	unsigned int idx;
+>  	struct sel_netnode *node;
+>  
+> -	switch (family) {
+> -	case PF_INET:
+> -		idx = sel_netnode_hashfn_ipv4(*(__be32 *)addr);
+> -		break;
+> -	case PF_INET6:
+> -		idx = sel_netnode_hashfn_ipv6(addr);
+> -		break;
+> -	default:
+> -		BUG();
+> -		return NULL;
+> -	}
+> -
+> +	idx = sel_netnode_hashfn(addr);
+>  	list_for_each_entry_rcu(node, &sel_netnode_hash[idx].list, list)
+> -		if (node->nsec.family == family)
+> -			switch (family) {
+> -			case PF_INET:
+> -				if (node->nsec.addr.ipv4 == *(__be32 *)addr)
+> -					return node;
+> -				break;
+> -			case PF_INET6:
+> -				if (ipv6_addr_equal(&node->nsec.addr.ipv6,
+> -						    addr))
+> -					return node;
+> -				break;
+> -			}
+> +		if (inet_addr_equal(&node->nsec.addr, addr))
+> +			return node;
+>  
+>  	return NULL;
+>  }
+> @@ -156,18 +126,9 @@ static struct sel_netnode *sel_netnode_find(const void *addr, u16 family)
+>  static void sel_netnode_insert(struct sel_netnode *node)
+>  {
+>  	unsigned int idx;
+> +	union inet_addr *addr = &node->nsec.addr;
+>  
+> -	switch (node->nsec.family) {
+> -	case PF_INET:
+> -		idx = sel_netnode_hashfn_ipv4(node->nsec.addr.ipv4);
+> -		break;
+> -	case PF_INET6:
+> -		idx = sel_netnode_hashfn_ipv6(&node->nsec.addr.ipv6);
+> -		break;
+> -	default:
+> -		BUG();
+> -	}
+> -
+> +	idx = sel_netnode_hashfn(addr);
+>  	/* we need to impose a limit on the growth of the hash table so check
+>  	 * this bucket to make sure it is within the specified bounds */
+>  	list_add_rcu(&node->list, &sel_netnode_hash[idx].list);
+> @@ -186,7 +147,6 @@ static void sel_netnode_insert(struct sel_netnode *node)
+>  /**
+>   * sel_netnode_sid_slow - Lookup the SID of a network address using the policy
+>   * @addr: the IP address
+> - * @family: the address family
+>   * @sid: node SID
+>   *
+>   * Description:
+> @@ -196,14 +156,14 @@ static void sel_netnode_insert(struct sel_netnode *node)
+>   * failure.
+>   *
+>   */
+> -static int sel_netnode_sid_slow(void *addr, u16 family, u32 *sid)
+> +static int sel_netnode_sid_slow(union inet_addr *addr, u32 *sid)
+>  {
+>  	int ret = -ENOMEM;
+>  	struct sel_netnode *node;
+>  	struct sel_netnode *new = NULL;
+>  
+>  	spin_lock_bh(&sel_netnode_lock);
+> -	node = sel_netnode_find(addr, family);
+> +	node = sel_netnode_find(addr);
+>  	if (node != NULL) {
+>  		*sid = node->nsec.sid;
+>  		spin_unlock_bh(&sel_netnode_lock);
+> @@ -212,16 +172,16 @@ static int sel_netnode_sid_slow(void *addr, u16 family, u32 *sid)
+>  	new = kzalloc(sizeof(*new), GFP_ATOMIC);
+>  	if (new == NULL)
+>  		goto out;
+> -	switch (family) {
+> +	switch (addr->sa.sa_family) {
+>  	case PF_INET:
+>  		ret = security_node_sid(PF_INET,
+>  					addr, sizeof(struct in_addr), sid);
+> -		new->nsec.addr.ipv4 = *(__be32 *)addr;
+> +		new->nsec.addr = *addr;
+>  		break;
+>  	case PF_INET6:
+>  		ret = security_node_sid(PF_INET6,
+>  					addr, sizeof(struct in6_addr), sid);
+> -		new->nsec.addr.ipv6 = *(struct in6_addr *)addr;
+> +		new->nsec.addr = *addr;
+>  		break;
+>  	default:
+>  		BUG();
+> @@ -229,7 +189,6 @@ static int sel_netnode_sid_slow(void *addr, u16 family, u32 *sid)
+>  	if (ret != 0)
+>  		goto out;
+>  
+> -	new->nsec.family = family;
+>  	new->nsec.sid = *sid;
+>  	sel_netnode_insert(new);
+>  
+> @@ -246,8 +205,7 @@ out:
+>  
+>  /**
+>   * sel_netnode_sid - Lookup the SID of a network address
+> - * @addr: the IP address
+> - * @family: the address family
+> + * @addr: the generic IP address
+>   * @sid: node SID
+>   *
+>   * Description:
+> @@ -258,12 +216,12 @@ out:
+>   * on failure.
+>   *
+>   */
+> -int sel_netnode_sid(void *addr, u16 family, u32 *sid)
+> +int sel_netnode_sid(union inet_addr *addr, u32 *sid)
+>  {
+>  	struct sel_netnode *node;
+>  
+>  	rcu_read_lock();
+> -	node = sel_netnode_find(addr, family);
+> +	node = sel_netnode_find(addr);
+>  	if (node != NULL) {
+>  		*sid = node->nsec.sid;
+>  		rcu_read_unlock();
+> @@ -271,7 +229,7 @@ int sel_netnode_sid(void *addr, u16 family, u32 *sid)
+>  	}
+>  	rcu_read_unlock();
+>  
+> -	return sel_netnode_sid_slow(addr, family, sid);
+> +	return sel_netnode_sid_slow(addr, sid);
+>  }
+>  
+>  /**
+> diff --git a/security/smack/smack_lsm.c b/security/smack/smack_lsm.c
+> index eefbd10..9a80923 100644
+> --- a/security/smack/smack_lsm.c
+> +++ b/security/smack/smack_lsm.c
+> @@ -1900,9 +1900,7 @@ static int smack_netlabel_send(struct sock *sk, struct sockaddr_in *sap)
+>  		struct lsm_network_audit net;
+>  
+>  		smk_ad_init_net(&ad, __func__, LSM_AUDIT_DATA_NET, &net);
+> -		ad.a.u.net->family = sap->sin_family;
+> -		ad.a.u.net->dport = sap->sin_port;
+> -		ad.a.u.net->v4info.daddr = sap->sin_addr.s_addr;
+> +		ad.a.u.net->daddr = (union inet_addr )*sap;
+>  #endif
+>  		sk_lbl = SMACK_UNLABELED_SOCKET;
+>  		skp = ssp->smk_out;
+> @@ -2055,12 +2053,13 @@ auditout:
+>  
+>  #ifdef CONFIG_AUDIT
+>  	smk_ad_init_net(&ad, __func__, LSM_AUDIT_DATA_NET, &net);
+> -	ad.a.u.net->family = sk->sk_family;
+> -	ad.a.u.net->dport = port;
+> +	inet_addr_set_port(&ad.a.u.net->daddr, port);
+> +	ad.a.u.net->saddr.sa.sa_family = sk->sk_family;
+> +	ad.a.u.net->daddr.sa.sa_family = sk->sk_family;
+>  	if (act == SMK_RECEIVING)
+> -		ad.a.u.net->v6info.saddr = address->sin6_addr;
+> +		ad.a.u.net->saddr.sin6.sin6_addr = address->sin6_addr;
+>  	else
+> -		ad.a.u.net->v6info.daddr = address->sin6_addr;
+> +		ad.a.u.net->daddr.sin6.sin6_addr = address->sin6_addr;
+>  #endif
+>  	return smk_access(skp, object, MAY_WRITE, &ad);
+>  }
+> @@ -3202,7 +3201,8 @@ static int smack_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
+>  
+>  #ifdef CONFIG_AUDIT
+>  		smk_ad_init_net(&ad, __func__, LSM_AUDIT_DATA_NET, &net);
+> -		ad.a.u.net->family = sk->sk_family;
+> +		ad.a.u.net->saddr.sa.sa_family = sk->sk_family;
+> +		ad.a.u.net->daddr.sa.sa_family = sk->sk_family;
+>  		ad.a.u.net->netif = skb->skb_iif;
+>  		ipv4_skb_to_auditdata(skb, &ad.a, NULL);
+>  #endif
+> @@ -3384,7 +3384,8 @@ static int smack_inet_conn_request(struct sock *sk, struct sk_buff *skb,
+>  
+>  #ifdef CONFIG_AUDIT
+>  	smk_ad_init_net(&ad, __func__, LSM_AUDIT_DATA_NET, &net);
+> -	ad.a.u.net->family = family;
+> +	ad.a.u.net->saddr.sa.sa_family = family;
+> +	ad.a.u.net->daddr.sa.sa_family = family;
+>  	ad.a.u.net->netif = skb->skb_iif;
+>  	ipv4_skb_to_auditdata(skb, &ad.a, NULL);
+>  #endif
+
