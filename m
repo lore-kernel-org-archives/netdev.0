@@ -1,38 +1,44 @@
-From: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
-Subject: Re: [PATCH] Fix stack corruption on some architectures
-Date: Mon, 19 Aug 2013 15:39:43 -0700
-Message-ID: <1376951983.5082.18.camel@chimera>
-References: <1376944647.5082.12.camel@chimera>
-	 <52129CD4.1060200@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jan Dumon <j.dumon@option.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f41.google.com ([209.85.160.41]:43921 "EHLO
-	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751330Ab3HSWjr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 18:39:47 -0400
-Received: by mail-pb0-f41.google.com with SMTP id rp2so5536448pbb.14
-        for <netdev@vger.kernel.org>; Mon, 19 Aug 2013 15:39:47 -0700 (PDT)
-In-Reply-To: <52129CD4.1060200@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sanil Kumar D <skd.linux@gmail.com>
+Subject: [PATCH] drivers:net:ifb: Fixed coding style error:assignment in if statement
+Date: Tue, 20 Aug 2013 05:09:37 +0530
+Message-ID: <1376955577-26518-1-git-send-email-skd.linux@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sanil Kumar D <skd.linux@gmail.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-08-20 at 02:31 +0400, Sergei Shtylyov wrote: 
-> Hello.
-> 
-> On 08/20/2013 12:37 AM, Daniel Gimpelevich wrote:
-> 
-> > There is no need to get an interface specification if we know it's the
-> > wrong one; trivial change.
-> 
->     Is it related to stack corruption? If not, it's asking to be in a separate 
-> patch.
+Fixed coding style error (assignment within if statement at 2 places in drivers/net/ifb.c)
 
-Perhaps, but I'll leave that up to the maintainer(s). You should be
-credited as co-author of the patch.
+Signed-off-by: Sanil Kumar D <skd.linux@gmail.com>
+---
+ drivers/net/ifb.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
+index a3bed28..f3fa85a 100644
+--- a/drivers/net/ifb.c
++++ b/drivers/net/ifb.c
+@@ -68,7 +68,8 @@ static void ri_tasklet(unsigned long dev)
+ 	struct sk_buff *skb;
+ 
+ 	txq = netdev_get_tx_queue(_dev, 0);
+-	if ((skb = skb_peek(&dp->tq)) == NULL) {
++	skb = skb_peek(&dp->tq);
++	if (skb == NULL) {
+ 		if (__netif_tx_trylock(txq)) {
+ 			skb_queue_splice_tail_init(&dp->rq, &dp->tq);
+ 			__netif_tx_unlock(txq);
+@@ -112,7 +113,8 @@ static void ri_tasklet(unsigned long dev)
+ 	}
+ 
+ 	if (__netif_tx_trylock(txq)) {
+-		if ((skb = skb_peek(&dp->rq)) == NULL) {
++		skb = skb_peek(&dp->rq);
++		if (skb == NULL) {
+ 			dp->tasklet_pending = 0;
+ 			if (netif_queue_stopped(_dev))
+ 				netif_wake_queue(_dev);
+-- 
+1.7.9.5
