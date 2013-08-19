@@ -1,89 +1,87 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH ipsec 1/3] ipv6: wire up skb->encapsulation
-Date: Mon, 19 Aug 2013 10:56:52 +1000
-Message-ID: <20130819005649.GA2931@verge.net.au>
-References: <20130817175116.GA7001@order.stressinduktion.org>
- <20130817180738.GA24518@order.stressinduktion.org>
- <20130818042416.GK30709@verge.net.au>
- <20130818110038.GC7371@order.stressinduktion.org>
+From: Felix Fietkau <nbd@openwrt.org>
+Subject: Re: [RFC][PATCH 2/2] bgmac: pass received packet to
+ the netif instead of copying it
+Date: Mon, 19 Aug 2013 06:36:27 +0200
+Message-ID: <5211A0CB.70003@openwrt.org>
+References: <1376243355-5740-1-git-send-email-zajec5@gmail.com>
+ <1376243355-5740-2-git-send-email-zajec5@gmail.com>
+ <CACna6rwtLw-Aiz3amMvTBwWsi0OWo5f2yMCF9e8DeCjKLOGDEA@mail.gmail.com>
+ <520CBFD6.6030600@openwrt.org>
+ <CACna6rwi1+2ghyyKonaw=6xVDwipb3=1zUzOJ7dVoNoVyRx9fw@mail.gmail.com>
+Reply-To: OpenWrt Development List <openwrt-devel@lists.openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, steffen.klassert@secunet.com,
-	yoshfuji@linux-ipv6.org, nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:56117 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750765Ab3HSEdm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 00:33:42 -0400
-Content-Disposition: inline
-In-Reply-To: <20130818110038.GC7371@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Network Development <netdev@vger.kernel.org>,
+ Jonas Gorski <jogo@openwrt.org>, Hauke Mehrtens <hauke@hauke-m.de>,
+ OpenWrt Development List <openwrt-devel@lists.openwrt.org>
+To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Return-path: <openwrt-devel-bounces@lists.openwrt.org>
+In-Reply-To: <CACna6rwi1+2ghyyKonaw=6xVDwipb3=1zUzOJ7dVoNoVyRx9fw@mail.gmail.com>
+List-Unsubscribe: <https://lists.openwrt.org/cgi-bin/mailman/options/openwrt-devel>,
+ <mailto:openwrt-devel-request@lists.openwrt.org?subject=unsubscribe>
+List-Archive: <http://lists.openwrt.org/pipermail/openwrt-devel/>
+List-Post: <mailto:openwrt-devel@lists.openwrt.org>
+List-Help: <mailto:openwrt-devel-request@lists.openwrt.org?subject=help>
+List-Subscribe: <https://lists.openwrt.org/cgi-bin/mailman/listinfo/openwrt-devel>,
+ <mailto:openwrt-devel-request@lists.openwrt.org?subject=subscribe>
+Errors-To: openwrt-devel-bounces@lists.openwrt.org
+Sender: "openwrt-devel" <openwrt-devel-bounces@lists.openwrt.org>
+List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 18, 2013 at 01:00:38PM +0200, Hannes Frederic Sowa wrote:
-> On Sun, Aug 18, 2013 at 02:24:16PM +1000, Simon Horman wrote:
-> > On Sat, Aug 17, 2013 at 08:07:38PM +0200, Hannes Frederic Sowa wrote:
-> > > Hi Simon!
-> > > 
-> > > On Sat, Aug 17, 2013 at 07:51:16PM +0200, Hannes Frederic Sowa wrote:
-> > > > When pushing a new header before current one call skb_reset_inner_headers
-> > > > to record the position of the inner headers in the various ipv6 tunnel
-> > > > protocols.
-> > > > 
-> > > > We later need this to correctly identify the addresses needed to send
-> > > > back an error in the xfrm layer.
-> > > > 
-> > > > This change is safe, because skb->protocol is always checked before
-> > > > dereferencing data from the inner protocol.
-> > > > 
-> > > > Cc: Steffen Klassert <steffen.klassert@secunet.com>
-> > > > Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> > > > Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> > > > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > > > ---
-> > > > 
-> > > > This patch is based on Steffen Klassert's ipsec tree.
-> > > > 
-> > > >  net/ipv6/ip6_gre.c    | 5 +++++
-> > > >  net/ipv6/ip6_tunnel.c | 6 ++++++
-> > > >  net/ipv6/sit.c        | 5 +++++
-> > > >  3 files changed, 16 insertions(+)
-> > > > 
-> > > > diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-> > > > index ecd6073..90747f1 100644
-> > > > --- a/net/ipv6/ip6_gre.c
-> > > > +++ b/net/ipv6/ip6_gre.c
-> > > > @@ -724,6 +724,11 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
-> > > >  		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL);
-> > > >  	}
-> > > >  
-> > > > +	if (likely(!skb->encapsulation)) {
-> > > > +		skb_reset_inner_headers(skb);
-> > > > +		skb->encapsulation = 1;
-> > > > +	}
-> > > > +
-> > > 
-> > > While doing these patches, I wondered how skb->inner_protocol will be
-> > > used in future (you added it in 0d89d2035fe063461a5ddb609b2c12e7fb006e44
-> > > ("MPLS: Add limited GSO support")). Current use by tunnels seems safe to
-> > > me, but I wondered how you would extend its use?
-> > 
-> > Hi,
-> > 
-> > I must confess that I'm not entirely sure that I understand the question.
-> 
-> Sorry to be not clear enough. I try to present my envisioned use case for
-> inner_protocol:
-> 
-> I do think there may be some other corner cases when reporting back
-> errors to a local socket when multiple tunnels+ipsecs are stacked into
-> each other. The first encapsulation sets skb->inner_network_header, so
-> that we can later extract the needed information for the error generation
-> via inner_ip{v6,}_hdr. It would be handy here to use inner_protocol to
-> mark the type of inner_network_header in advance (all this is because,
-> even if we still have a reference to the local socket and know its af,
-> it could also have emitted an IPv4 frame, so we have to jump to the ipv4
-> error handling path).
-
-That sounds reasonable to me and I don't think it would interfere
-with the current usage or vice versa.
+T24gMjAxMy0wOC0xNSAxMDoyMSBQTSwgUmFmYcWCIE1pxYJlY2tpIHdyb3RlOgo+IDIwMTMvOC8x
+NSBGZWxpeCBGaWV0a2F1IDxuYmRAb3BlbndydC5vcmc+Ogo+PiBPbiAyMDEzLTA4LTE1IDE6MzYg
+UE0sIFJhZmHFgiBNacWCZWNraSB3cm90ZToKPj4+IDIwMTMvOC8xMSBSYWZhxYIgTWnFgmVja2kg
+PHphamVjNUBnbWFpbC5jb20+Ogo+Pj4+IEl0IG1ha2VzIG1vcmUgc2Vuc2UgdG8gYWxsb2NhdGUg
+bmV3IChlbXB0eSkgc2tiIGFuZCBwYXNzIGl0IHRvIHRoZQo+Pj4+IGhhcmR3YXJlLiBUaGF0IHdh
+eSB3ZSBhdm9pZCBjb3B5aW5nIHdob2xlIHBhY2tldCBpbnRvIG5ldyBza2Igd2hpY2gKPj4+PiBz
+aG91bGQgcmVzdWx0IGluIGJldHRlciBwZXJmb3JtYW5jZS4KPj4+Cj4+PiBJIGRpZCBzb21lIHRl
+c3Rpbmcgb2YgdGhpcyBwYXRjaCB1c2luZyAicGVyZiIgdG9vbCBhbmQgaXBlcmYgLXMKPj4+IHJ1
+bm5pbmcgb24gdGhlIE9wZW5XcnQgbWFjaGluZSAod2l0aCBiZ21hYyBzdXBwb3J0ZWQgaGFyZHdh
+cmUpLgo+Pj4KPj4+IFNvIHlvdSBjYW4gc2VlIHRoYXQgX19jb3B5X3VzZXJfY29tbW9uIHVzYWdl
+IGhhcyByZWFsbHkgZGVjcmVhc2VkIHdpdGgKPj4+IHRoaXMgcGF0Y2ghCj4+Pgo+Pj4gVW5mb3J0
+dW5hdGVseSBpdCBkaWRuJ3QgcmVzdWx0IGluIGJldHRlciBwZXJmb3JtYW5jZS4uLiBubyBpZGVh
+IHdoeSA6KAo+PiBSdW5uaW5nIGlwZXJmIG9uIHRoZSByb3V0ZXIgaXMgbm90IHVzZWZ1bCBhcyBh
+biBpbmRpY2F0b3Igb2Ygcm91dGluZwo+PiBwZXJmb3JtYW5jZS4gUGxlYXNlIGZvY3VzIG9uIHRl
+c3RzIHdoZXJlIHlvdSBvbmx5IHB1c2ggdHJhZmZpYyB0aHJvdWdoCj4+IHRoZSByb3V0ZXIsIG5v
+dCBkaXJlY3RseSB0byBpdC4KPiAKPiBPSywgc28gSSBzdGFydGVkICJpcGVyZiAtcyIgb24gbm90
+ZWJvb2sgcGx1Z2dlZCBpbnRvIFdBTiBwb3J0LCBhbmQKPiB0aGVuIHBsYXllZCB3aXRoICJpcGVy
+ZiAtYyIgb24gbm90ZWJvb2sgY29ubmVjdGVkIHRvIExBTiMyLgo+IAo+IFdpdGggc29tZSBvbGQg
+My42LjExIGJhc2VkIE9wZW5XcnQgYnVpbGQgSSBnb3Q6Cj4gWyA0XSAwLjAtNjAuMCBzZWMgNjkw
+IE1CeXRlcyA5Ni40IE1iaXRzL3NlYwo+IAo+IFdpdGggdmVyeSByZWNlbnQgMy4xMC40IGJhc2Vk
+IE9wZW5XcnQgYnVpbGQ6Cj4gWyA0XSAwLjAtNjAuMCBzZWMgNjY3IE1CeXRlcyA5My4yIE1iaXRz
+L3NlYwo+IAo+IEFmdGVyIGFwcGx5aW5nIG15IHBhdGNoIG9uIHRvcCBvZiB0aGF0IDMuMTAuNDoK
+PiBbIDVdIDAuMC02MC4wIHNlYyA3NTkgTUJ5dGVzIDEwNiBNYml0cy9zZWMKPiAKPiBBbmQgc29t
+ZSBkdW1wcyBmcm9tICJwZXJmIHRvcCI6Cj4gCj4gMy4xMC40Cj4gNi43NSUgW2tlcm5lbF0gW2td
+IF9fY29weV91c2VyX2NvbW1vbgo+IDYuNzMlIFtpcF90YWJsZXNdIFtrXSBpcHRfZG9fdGFibGUK
+PiA0LjMzJSBba2VybmVsXSBba10gYXJjaF9jcHVfaWRsZQo+IDMuOTYlIFtrZXJuZWxdIFtrXSBh
+cmNoX2xvY2FsX2lycV9yZXN0b3JlCj4gMy40MiUgW2JnbWFjXSBba10gMHgwMDAwMDdlMAo+IDMu
+MzUlIFtuZl9jb25udHJhY2tdIFtrXSBuZl9jb25udHJhY2tfcHJvdG9fZmluaQo+IDIuNzIlIFtu
+Zl9jb25udHJhY2tdIFtrXSBuZl9jb25udHJhY2tfaW4KPiAyLjUwJSBba2VybmVsXSBba10gX19u
+ZXRpZl9yZWNlaXZlX3NrYl9jb3JlCj4gMi40MiUgW2tlcm5lbF0gW2tdIHI0a19kbWFfY2FjaGVf
+aW52Cj4gMi4zOCUgW2tlcm5lbF0gW2tdIGZpYl90YWJsZV9sb29rdXAKPiAyLjIwJSBba2VybmVs
+XSBba10gZGV2X3F1ZXVlX3htaXQKPiAyLjExJSBbeHRfY29ubnRyYWNrXSBba10gMHgwMDAwMDM2
+MAo+IDIuMTAlIFtrZXJuZWxdIFtrXSBpcF9yb3V0ZV9pbnB1dF9ub3JlZgo+IDIuMDYlIFtuZl9j
+b25udHJhY2tfaXB2NF0gW2tdIG5lZWRfaXB2NF9jb25udHJhY2sKPiAKPiAzLjEwLjQgKyAwMDAy
+LWJnbWFjLXBhc3MtcmVjZWl2ZWQtcGFja2V0LXRvLXRoZS1uZXRpZi1pbnN0ZWFkLW9mLWMucGF0
+Y2gKPiA2LjA5JSBbaXBfdGFibGVzXSBba10gaXB0X2RvX3RhYmxlCj4gNC43MSUgW2tlcm5lbF0g
+W2tdIGFyY2hfY3B1X2lkbGUKPiA0LjQ4JSBbYmdtYWNdIFtrXSAweDAwMDAwZDdjCj4gMy41MCUg
+W25mX2Nvbm50cmFja10gW2tdIG5mX2Nvbm50cmFja19pbgo+IDMuMjIlIFtrZXJuZWxdIFtrXSBh
+cmNoX2xvY2FsX2lycV9yZXN0b3JlCj4gMy4xNiUgW25mX2Nvbm50cmFja10gW2tdIG5mX2Nvbm50
+cmFja19wcm90b19maW5pCj4gMi44OCUgW2tlcm5lbF0gW2tdIF9fbmV0aWZfcmVjZWl2ZV9za2Jf
+Y29yZQo+IDIuNzglIFt4dF9jb25udHJhY2tdIFtrXSAweDAwMDAwMTFjCj4gMi42OSUgW2tlcm5l
+bF0gW2tdIHI0a19kbWFfY2FjaGVfaW52Cj4gMi42NyUgW2lwdGFibGVfbmF0XSBba10gMHgwMDAw
+MDJhMAo+IDIuMzYlIFtrZXJuZWxdIFtrXSBpcF9yb3V0ZV9pbnB1dF9ub3JlZgo+IDIuMjclIFtr
+ZXJuZWxdIFtrXSBpcF9yY3YKPiAyLjI1JSBbbmZfY29ubnRyYWNrX2lwdjRdIFtrXSBuZWVkX2lw
+djRfY29ubnRyYWNrCj4gMi4yMyUgW2tlcm5lbF0gW2tdIG5mX2l0ZXJhdGUKPiAKPiBJJ3ZlIGNv
+bXBpbGVkIGJnbWFjIGludG8gdGhlIGtlcm5lbCBhbmQgaXQgc2VlbXMgdGhhdCB0aGUgbWFnaWMg
+MHhkN2MKPiB3YXMgYmdtYWNfcG9sbC4KPiAKPiBJJ20gYWZyYWlkIHRoaXMgInBlcmYgdG9wIiBv
+dXRwdXQgZG9lc24ndCByZWFsbHkgdGVsbCB1cyB3aGVyZSB0byBsb29rCj4gZm9yIG9wdGltaXph
+dGlvbnMgOnwgSSdsbCBzdGlsbCB0cnkgRmVsaXggaWRlYXMgdG9tb3Jyb3csIGJ1dCBJJ20gbm90
+Cj4gc3VyZSBpZiB0aGV5IGhlbHAsIHNpbmNlIHRoZXJlIGlzbid0IF9fY29weV91c2VyX2NvbW1v
+biBhbnltb3JlIGluIHRoZQo+ICJwZXJmIHRvcCIgb3V0cHV0Li4uCldoYXQncyB0aGUgQ1BVIGxv
+YWQgd2hpbGUgcGFzc2luZyB0cmFmZmljIHdpdGhvdXQgcnVubmluZyBwZXJmPwpIYXZlIHlvdSB0
+ZXN0ZWQgYnJpZGdpbmcgcGVyZm9ybWFuY2U/CgotIEZlbGl4Cl9fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fCm9wZW53cnQtZGV2ZWwgbWFpbGluZyBsaXN0Cm9w
+ZW53cnQtZGV2ZWxAbGlzdHMub3BlbndydC5vcmcKaHR0cHM6Ly9saXN0cy5vcGVud3J0Lm9yZy9j
+Z2ktYmluL21haWxtYW4vbGlzdGluZm8vb3BlbndydC1kZXZlbAo=
