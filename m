@@ -1,55 +1,93 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net] packet: restore packet statistics tp_packets to include drops
-Date: Mon, 19 Aug 2013 16:40:22 -0400
-Message-ID: <1376944822-30454-1-git-send-email-willemb@google.com>
-References: <5212625A.1090704@cogentembedded.com>
-Cc: Willem de Bruijn <willemb@google.com>
-To: davem@davemloft.net, dborkman@redhat.com, netdev@vger.kernel.org,
-	sergei.shtylyov@cogentembedded.com
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next 3/3] net/mlx4_en: Fix handling of dma_map failure
+Date: Mon, 19 Aug 2013 22:42:00 +0200
+Message-ID: <20130819204200.GA30818@electric-eye.fr.zoreil.com>
+References: <1376894542-27854-1-git-send-email-amirv@mellanox.com>
+ <1376894542-27854-4-git-send-email-amirv@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Amir Vadai <amirv@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gh0-f202.google.com ([209.85.160.202]:51381 "EHLO
-	mail-gh0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750827Ab3HSUkb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 16:40:31 -0400
-Received: by mail-gh0-f202.google.com with SMTP id g24so468222ghb.1
-        for <netdev@vger.kernel.org>; Mon, 19 Aug 2013 13:40:30 -0700 (PDT)
-In-Reply-To: <5212625A.1090704@cogentembedded.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:34346 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751137Ab3HSUmH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 16:42:07 -0400
+Content-Disposition: inline
+In-Reply-To: <1376894542-27854-4-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-getsockopt PACKET_STATISTICS returns tp_packets + tp_drops. Commit
-ee80fbf301 ("packet: account statistics only in tpacket_stats_u")
-cleaned up the getsockopt PACKET_STATISTICS code.
-This also changed semantics. Historically, tp_packets included
-tp_drops on return. The commit removed the line that adds tp_drops
-into tp_packets.
+Amir Vadai <amirv@mellanox.com> :
+[...]
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> index 157bcd1..92d7097 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> @@ -673,6 +673,64 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	tx_info->skb = skb;
+>  	tx_info->nr_txbb = nr_txbb;
+>  
+> +	if (lso_header_size)
+> +		data = ((void *)&tx_desc->lso + ALIGN(lso_header_size + 4,
+> +						      DS_SIZE));
+> +	else
+> +		data = &tx_desc->data;
+> +
+> +	/* valid only for none inline segments */
+> +	tx_info->data_offset = (void *)data - (void *)tx_desc;
+> +
+> +	tx_info->linear = (lso_header_size < skb_headlen(skb) &&
+> +			   !is_inline(skb, NULL)) ? 1 : 0;
+> +
+> +	data += skb_shinfo(skb)->nr_frags + tx_info->linear - 1;
+> +
+> +	if (is_inline(skb, &fragptr)) {
+> +		tx_info->inl = 1;
+> +	} else {
+> +		/* Map fragments */
+> +		for (i = skb_shinfo(skb)->nr_frags - 1; i >= 0; i--) {
+> +			frag = &skb_shinfo(skb)->frags[i];
+> +			dma = skb_frag_dma_map(priv->ddev, frag,
+> +					       0, skb_frag_size(frag),
+> +					       DMA_TO_DEVICE);
+> +			if (dma_mapping_error(priv->ddev, dma)) {
 
-This patch reinstates the old semantics.
+				goto err_unmap_frags;
 
-Signed-off-by: Willem de Bruijn <willemb@google.com>
+You have a lot of huge scope variables. At least use these to hide
+the 80 cols problems.
 
----
+> +				for (i++; i < skb_shinfo(skb)->nr_frags; i++) {
+> +					frag = &skb_shinfo(skb)->frags[i];
+> +					en_err(priv, "DMA mapping error\n");
+> +					dma_unmap_page(priv->ddev,
+> +						       (dma_addr_t) be64_to_cpu(data[i].addr),
+> +						       skb_frag_size(frag), PCI_DMA_TODEVICE);
+> +				}
+> +				goto tx_drop;
+> +			}
+> +
+> +			data->addr = cpu_to_be64(dma);
+> +			data->lkey = cpu_to_be32(mdev->mr.key);
+> +			wmb();
+> +			data->byte_count = cpu_to_be32(skb_frag_size(frag));
+> +			--data;
+> +		}
+> +
+> +		/* Map linear part */
+> +		if (tx_info->linear) {
+> +			u32 byte_count = skb_headlen(skb) - lso_header_size;
+> +			dma = dma_map_single(priv->ddev, skb->data +
+> +					     lso_header_size, byte_count,
+> +					     PCI_DMA_TODEVICE);
+> +			if (dma_mapping_error(priv->ddev, dma))
+> +				goto tx_drop;
 
-v2: incorporated commit summary by request. no code changes
----
- net/packet/af_packet.c | 2 ++
- 1 file changed, 2 insertions(+)
+(frags dma leak)
+				goto err_unmap_frags;
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 6c53dd9..1fdf9ab 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -3215,9 +3215,11 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
- 
- 		if (po->tp_version == TPACKET_V3) {
- 			lv = sizeof(struct tpacket_stats_v3);
-+			st.stats3.tp_packets += st.stats3.tp_drops;
- 			data = &st.stats3;
- 		} else {
- 			lv = sizeof(struct tpacket_stats);
-+			st.stats1.tp_packets += st.stats1.tp_drops;
- 			data = &st.stats1;
- 		}
- 
+You may consider a local variable for 'priv->ddev' btw.
+
 -- 
-1.8.3
+Ueimor
