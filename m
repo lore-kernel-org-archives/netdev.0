@@ -1,55 +1,71 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2] vhost: Include linux/uio.h instead of linux/socket.h
-Date: Mon, 19 Aug 2013 10:24:08 +0300
-Message-ID: <20130819072408.GC17937@redhat.com>
-References: <20130816.222946.421410239742571372.davem@davemloft.net>
-	<1376875399-21945-1-git-send-email-asias@redhat.com>
+From: Sonic Zhang <sonic.adi@gmail.com>
+Subject: Re: [PATCH] driver:net:stmmac: Disable DMA store and forward mode if
+ platform data force_sf_dma_mode is negative.
+Date: Mon, 19 Aug 2013 15:31:13 +0800
+Message-ID: <CAJxxZ0PZUYeFnfnHVNaVi=wx_YDiTmsUNCfNyR27=jSuBH+tzg@mail.gmail.com>
+References: <1376552256-7421-1-git-send-email-sonic.adi@gmail.com>
+	<5211B524.4030609@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Asias He <asias@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1376875399-21945-1-git-send-email-asias@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>,
+	adi-buildroot-devel@lists.sourceforge.net,
+	Sonic Zhang <sonic.zhang@analog.com>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:43198 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750879Ab3HSHbO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 03:31:14 -0400
+Received: by mail-ob0-f172.google.com with SMTP id er7so4838792obc.17
+        for <netdev@vger.kernel.org>; Mon, 19 Aug 2013 00:31:13 -0700 (PDT)
+In-Reply-To: <5211B524.4030609@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 19, 2013 at 09:23:19AM +0800, Asias He wrote:
-> memcpy_fromiovec is moved from net/core/iovec.c to lib/iovec.c.
-> linux/uio.h provides the declaration for memcpy_fromiovec.
-> 
-> Include linux/uio.h instead of inux/socket.h for it.
-> 
-> Signed-off-by: Asias He <asias@redhat.com>
+Hi Giuseppe,
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+On Mon, Aug 19, 2013 at 2:03 PM, Giuseppe CAVALLARO
+<peppe.cavallaro@st.com> wrote:
+> Hello Sonic
+>
+>
+> On 8/15/2013 9:37 AM, Sonic Zhang wrote:
+>>
+>> From: Sonic Zhang <sonic.zhang@analog.com>
+>>
+>> Some synopsys ip implementation doesn't support DMA store and forward
+>> mode,
+>> such as BF60x. So, define force_sf_dma_mode negative to use DMA thresholds
+>> only.
+>
+>
+> I think that you should not pass the force_sf_dma_mode platform field
+> at all (and it doesn't make sense to force it as negative).
+> To use the threshold you should reset tx_coe. In fact, your HW cannot
+> perform the Hw csum if SF is not available.
+> Note that, the HW cap register (if available) can override (set/reset)
+>  tx_coe.
 
-> ---
->  drivers/vhost/vhost.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index e58cf00..448efe0 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -13,7 +13,7 @@
->  
->  #include <linux/eventfd.h>
->  #include <linux/vhost.h>
-> -#include <linux/socket.h> /* memcpy_fromiovec */
-> +#include <linux/uio.h>
->  #include <linux/mm.h>
->  #include <linux/mmu_context.h>
->  #include <linux/miscdevice.h>
-> -- 
-> 1.8.3.1
+Even if I reset tx_coe, the SF mode is still set to RX DMA in current
+stmmac_dma_operation_mode(). SF mode is not supported in both RX DMA
+and TX DMA in Blackfin MAC.
+
+
+>
+> I tested, long time ago, this scenario on old mac w/o HW cap register
+> and w/o SF.
+
+Blackfin synopsys MAC IP has the HW cap register with tx_coe set to 1,
+but the HW tx_coe doesn't really work. I have the other patch to
+disable HW tx_coe in board file and override the HW cap register.
+
+Regards,
+
+Sonic
+
+>
+> let me know if it is ok
+>
+> I have just noticed that the no_csum_insertion could be removed and I'll
+> provide a patch for it.
+>
