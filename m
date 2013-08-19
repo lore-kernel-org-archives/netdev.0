@@ -1,46 +1,90 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: NAT stops forwarding ACKs after PMTU discovery
-Date: Mon, 19 Aug 2013 22:13:59 +0200 (CEST)
-Message-ID: <alpine.DEB.2.00.1308192207130.27869@blackhole.kfki.hu>
-References: <521061B4.1030508@fatooh.org>  <1376839467.21329.36.camel@edumazet-glaptop>  <alpine.DEB.2.00.1308182314050.25515@blackhole.kfki.hu>  <1376870425.4226.25.camel@edumazet-glaptop>  <1376870592.4226.27.camel@edumazet-glaptop> <5211DAA6.1070302@fatooh.org>
-  <20130819123314.GC3583@cpaasch-mac>  <1376918657.4226.59.camel@edumazet-glaptop>  <20130819134919.GF3583@cpaasch-mac> <1376920685.4226.61.camel@edumazet-glaptop>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCHv2] net: cpsw: Add support for wake-on-lan for cpsw
+Date: Mon, 19 Aug 2013 22:15:16 +0200
+Message-ID: <20130819201516.GA30230@electric-eye.fr.zoreil.com>
+References: <1376910358-19882-1-git-send-email-ujhelyi.m@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Christoph Paasch <christoph.paasch@uclouvain.be>,
-	Corey Hickey <bugfood-ml@fatooh.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1376920685.4226.61.camel@edumazet-glaptop>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, mugunthanvnm@ti.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: ujhelyi.m@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1376910358-19882-1-git-send-email-ujhelyi.m@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 19 Aug 2013, Eric Dumazet wrote:
-
-> On Mon, 2013-08-19 at 15:49 +0200, Christoph Paasch wrote:
->
-> > It's a TCP-patch, that interprets duplicate-acks with invalid SACK-blocks as
-> > duplicate acks in tcp_sock->sacked_out.
+ujhelyi.m@gmail.com <ujhelyi.m@gmail.com> :
+[...]
+> Some phy's can be configured to enable wake on lan (e.g. at803x or marvell 88E1318S).
+> There is no way how to enable wol on CPSW with such connected phys. This patch
+> adds this support. It is provided by calling the phy's related code.
 > 
-> Yeah, but here, this is conntrack who is blocking the thing.
-> 
-> TCP receiver has no chance to 'fix' it.
-> 
-> See conntrack is one of those buggy middle box as well.
-> 
-> So if you want to properly handle this mess, you'll also have to fix
-> conntrack.
+> Tested on board with at8030x connected phy. Wol interrupt line is
+> connected to GPIO0 on am335x.
 
-I beg you pardon: why conntrack should be relaxed, when it is expected
-to do more strict TCP checkings (RFC5961, Section 5.).
+This patch adds a feature. It isn't a bugfix. It should thus target
+'net-next', not 'net' (it does not apply to net-next as of 2ff1cf12c9 btw).
 
-Also, it's clearly a broken middle box. Don't shoot the messenger.
+> 
+> Signed-off-by: Matus Ujhelyi <ujhelyi.m@gmail.com>
+> ---
+>  drivers/net/ethernet/ti/cpsw.c |   23 +++++++++++++++++++++++
+>  1 file changed, 23 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> index 22a7a43..fe8d973 100644
+> --- a/drivers/net/ethernet/ti/cpsw.c
+> +++ b/drivers/net/ethernet/ti/cpsw.c
+> @@ -1416,6 +1416,27 @@ static int cpsw_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
+>  		return -EOPNOTSUPP;
+>  }
+>  
+> +static void cpsw_get_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
+> +{
+> +	struct cpsw_priv *priv = netdev_priv(ndev);
+> +	int slave_no = cpsw_slave_index(priv);
+> +	wol->supported = 0;
 
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+Variable declarations and code should be separated: please add an empty
+line.
+
+> +	wol->wolopts = 0;
+> +	if (priv->slaves[slave_no].phy)
+> +		phy_ethtool_get_wol(priv->slaves[slave_no].phy, wol);
+> +
+> +}
+
+Useless empty line.
+
+> +
+> +static int cpsw_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
+> +{
+> +	struct cpsw_priv *priv = netdev_priv(ndev);
+> +	int slave_no = cpsw_slave_index(priv);
+> +	if (priv->slaves[slave_no].phy)
+
+Variable declarations and code should be separated: please add an empty
+line.
+
+> +		return phy_ethtool_set_wol(priv->slaves[slave_no].phy, wol);
+> +	else
+> +		return -EOPNOTSUPP;
+> +}
+> +
+>  static const struct ethtool_ops cpsw_ethtool_ops = {
+>  	.get_drvinfo	= cpsw_get_drvinfo,
+>  	.get_msglevel	= cpsw_get_msglevel,
+> @@ -1426,6 +1447,8 @@ static const struct ethtool_ops cpsw_ethtool_ops = {
+>  	.set_settings	= cpsw_set_settings,
+>  	.get_coalesce	= cpsw_get_coalesce,
+                     ^^^ tab
+>  	.set_coalesce	= cpsw_set_coalesce,
+                     ^^^ tab
+> +	.get_wol        = cpsw_get_wol,
+                ^^^^^^^^  spaces, please use tabs.
+> +	.set_wol        = cpsw_set_wol,
+                ^^^^^^^^  spaces, please use tabs.
+
+-- 
+Ueimor
