@@ -1,77 +1,67 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: 3.11-rc6 genetlink locking fix offends lockdep
-Date: Mon, 19 Aug 2013 19:00:03 +0800
-Message-ID: <5211FAB3.7080400@huawei.com>
-References: <alpine.LNX.2.00.1308182143370.906@eggly.anvils> <1376899214.14734.6.camel@jlt4.sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Hugh Dickins <hughd@google.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Greg KH <gregkh@linuxfoundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Otcheretianski, Andrei" <andrei.otcheretianski@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Thomas Graf <tgraf@suug.ch>
-To: Johannes Berg <johannes@sipsolutions.net>
+From: ujhelyi.m@gmail.com
+Subject: [PATCHv2] net: cpsw: Add support for wake-on-lan for cpsw
+Date: Mon, 19 Aug 2013 13:05:58 +0200
+Message-ID: <1376910358-19882-1-git-send-email-ujhelyi.m@gmail.com>
+Cc: linux-kernel@vger.kernel.org, Matus Ujhelyi <ujhelyi.m@gmail.com>
+To: davem@davemloft.net, mugunthanvnm@ti.com, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1376899214.14734.6.camel@jlt4.sipsolutions.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2013/8/19 16:00, Johannes Berg wrote:
-> 
->> 3.11-rc6's commit 58ad436fcf49 ("genetlink: fix family dump race")
->> gives me the lockdep trace below at startup.
-> 
-> Hmm. Yes, I see now how this happens, not sure why I didn't run into it.
-> 
-> The problem is that genl_family_rcv_msg() is called with the genl_lock
-> held, and then calls netlink_dump_start() with it held, creating a
-> genl_lock->cb_mutex dependency, but obviously the dump continuation is
-> the other way around.
-> 
-> We could use the semaphore instead, I believe, but I don't really
-> understand the mutex vs. semaphore well enough to be sure that's
-> correct.
-> 
-> johannes
-> 
-it is useless, the logic need to modify or otherwise it will still call lockdep trace.
-maybe i could send a patch for it, if you wish.
+From: Matus Ujhelyi <ujhelyi.m@gmail.com>
 
-> 
-> diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-> index f85f8a2..6cfa646 100644
-> --- a/net/netlink/genetlink.c
-> +++ b/net/netlink/genetlink.c
-> @@ -792,7 +792,7 @@ static int ctrl_dumpfamily(struct sk_buff *skb, struct netlink_callback *cb)
->  	bool need_locking = chains_to_skip || fams_to_skip;
->  
->  	if (need_locking)
-> -		genl_lock();
-> +		down_read(&cb_lock);
->  
->  	for (i = chains_to_skip; i < GENL_FAM_TAB_SIZE; i++) {
->  		n = 0;
-> @@ -815,7 +815,7 @@ errout:
->  	cb->args[1] = n;
->  
->  	if (need_locking)
-> -		genl_unlock();
-> +		up_read(&cb_lock);
->  
->  	return skb->len;
->  }
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> .
-> 
+Some phy's can be configured to enable wake on lan (e.g. at803x or marvell 88E1318S).
+There is no way how to enable wol on CPSW with such connected phys. This patch
+adds this support. It is provided by calling the phy's related code.
+
+Tested on board with at8030x connected phy. Wol interrupt line is
+connected to GPIO0 on am335x.
+
+Signed-off-by: Matus Ujhelyi <ujhelyi.m@gmail.com>
+---
+ drivers/net/ethernet/ti/cpsw.c |   23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 22a7a43..fe8d973 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1416,6 +1416,27 @@ static int cpsw_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
+ 		return -EOPNOTSUPP;
+ }
+ 
++static void cpsw_get_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
++{
++	struct cpsw_priv *priv = netdev_priv(ndev);
++	int slave_no = cpsw_slave_index(priv);
++	wol->supported = 0;
++	wol->wolopts = 0;
++	if (priv->slaves[slave_no].phy)
++		phy_ethtool_get_wol(priv->slaves[slave_no].phy, wol);
++
++}
++
++static int cpsw_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
++{
++	struct cpsw_priv *priv = netdev_priv(ndev);
++	int slave_no = cpsw_slave_index(priv);
++	if (priv->slaves[slave_no].phy)
++		return phy_ethtool_set_wol(priv->slaves[slave_no].phy, wol);
++	else
++		return -EOPNOTSUPP;
++}
++
+ static const struct ethtool_ops cpsw_ethtool_ops = {
+ 	.get_drvinfo	= cpsw_get_drvinfo,
+ 	.get_msglevel	= cpsw_get_msglevel,
+@@ -1426,6 +1447,8 @@ static const struct ethtool_ops cpsw_ethtool_ops = {
+ 	.set_settings	= cpsw_set_settings,
+ 	.get_coalesce	= cpsw_get_coalesce,
+ 	.set_coalesce	= cpsw_set_coalesce,
++	.get_wol        = cpsw_get_wol,
++	.set_wol        = cpsw_set_wol,
+ };
+ 
+ static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv,
+-- 
+1.7.9.5
