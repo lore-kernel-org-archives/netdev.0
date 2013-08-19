@@ -1,69 +1,47 @@
-From: Corey Hickey <bugfood-ml@fatooh.org>
-Subject: Re: NAT stops forwarding ACKs after PMTU discovery
-Date: Mon, 19 Aug 2013 11:22:30 -0700
-Message-ID: <52126266.70007@fatooh.org>
-References: <521061B4.1030508@fatooh.org> <1376839467.21329.36.camel@edumazet-glaptop> <alpine.DEB.2.00.1308182314050.25515@blackhole.kfki.hu> <1376870425.4226.25.camel@edumazet-glaptop> <1376870592.4226.27.camel@edumazet-glaptop> <5211DAA6.1070302@fatooh.org> <20130819123314.GC3583@cpaasch-mac>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org
-To: Christoph Paasch <christoph.paasch@uclouvain.be>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20130819123314.GC3583@cpaasch-mac>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net-next v7 0/8] openvswitch: VXLAN tunneling.
+Date: Mon, 19 Aug 2013 11:22:39 -0700
+Message-ID: <1376936559-25427-1-git-send-email-pshelar@nicira.com>
+Cc: stephen@networkplumber.org, Pravin B Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog125.obsmtp.com ([74.125.149.153]:33971 "HELO
+	na3sys009aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751099Ab3HSSWq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 14:22:46 -0400
+Received: by mail-pa0-f46.google.com with SMTP id fa1so4927525pad.33
+        for <netdev@vger.kernel.org>; Mon, 19 Aug 2013 11:22:46 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2013-08-19 05:33, Christoph Paasch wrote:
-> Hello,
-> 
-> I would say, the problem is due to a sequence-number rewriting
-> middlebox, who does not correctly handle the SACK-blocks.
-> 
-> In remote.pcap, you see:
-> Packet#10: A Dup-ACK: ACK 1005503816, SACK: 1005505184-1005505648
-> The SACK actually covers Packet#9
-> 
-> In tun0.pcap, you have:
-> Packet#9: The one that is SACK'ed: SEQ: 3514869772
-> Packet#11: The Dup-ACK: ACK: 3514868404, SACK: 3570452498-3570452962
-> 
-> You can see that the SACK-block is not really aligned with the ACK-numbers.
-> 
-> Netfilter is probably dropping the Dup-ACK, because the SACK-block is
-> acknowledging unseen data.
-> 
-> 
-> There are middleboxes out there that randomize the sequence numbers, due to
-> an old bug in Windows, where the initial sequence number was not
-> sufficiently randomized. There are some of these middleboxes, who simply do
-> not support SACK, thus modify only the sequence numbers of the TCP-header
-> (https://supportforums.cisco.com/docs/DOC-12668#TCP_Sequence_Number_Randomization_and_SACK).
-> 
-> This results in a TCP retransmission timeout on the sender, because of
-> the invalid SACK-blocks, the duplicate ACKs are not accounted. This
-> completly kills the performance, as you can see in our presentation given at
-> IETF87: http://tools.ietf.org/agenda/87/slides/slides-87-tcpm-11.pdf
+First four vxlan patches extends vxlan so that openvswitch
+can share vxlan recv code. Rest of patches refactors vxlan
+data plane so that ovs can share that code with vxlan module.
+Last patch adds vxlan-vport to openvswitch.
 
-This makes good sense. I normally look at these in wireshark with
-relative sequence numbers turned on, and I see in bad/tun0.pcap that the
-SACK values are very high, but are normal in bad/remote.pcap.
+v7 fixed first patch as suggested by Stephen Hemminger.
+v6 series splits second patch into two and has few style fixes.
+v5 series disallow any udp port sharing between
+kernel-vxlan and ovs-vxlan as suggested by Stephen Hemminger.
 
-I see the same thing in good/tun0.pcap, though, so I don't fully
-understand what is making it work sometimes and not others.
+Pravin B Shelar (8):
+  vxlan: Restructure vxlan socket apis.
+  vxlan: Restructure vxlan receive.
+  vxlan: Add vxlan recv demux.
+  vxlan: Extend vxlan handlers for openvswitch.
+  vxlan: Factor out vxlan send api.
+  vxlan: Improve vxlan headroom calculation.
+  vxlan: Add tx-vlan offload support.
+  openvswitch: Add vxlan tunneling support.
 
-I will show this thread and the Cisco docs to the network engineer at
-work, and maybe we can get the SEQ randomization turned off (or at least
-test it).
-
-> We have a patch that accounts DUP-ACKs with invalid SACK-blocks effectively
-> as duplicate acknowledgments. I can send the patches, if the
-> netdev-community is interested in accepting these upstream.
-
-I'll keep my eye out and test them if they come up.
-
-
-Thanks,
-Corey
+ drivers/net/vxlan.c              |  342 ++++++++++++++++++++++----------------
+ include/net/vxlan.h              |   39 +++++
+ include/uapi/linux/openvswitch.h |   11 ++
+ net/openvswitch/Kconfig          |   13 ++
+ net/openvswitch/Makefile         |    4 +
+ net/openvswitch/vport-vxlan.c    |  204 +++++++++++++++++++++++
+ net/openvswitch/vport.c          |    3 +
+ net/openvswitch/vport.h          |    1 +
+ 8 files changed, 477 insertions(+), 140 deletions(-)
+ create mode 100644 include/net/vxlan.h
+ create mode 100644 net/openvswitch/vport-vxlan.c
