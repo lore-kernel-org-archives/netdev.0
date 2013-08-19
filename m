@@ -1,46 +1,91 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: NAT stops forwarding ACKs after PMTU discovery
-Date: Mon, 19 Aug 2013 16:43:33 +0200
-Message-ID: <20130819144333.GG3583@cpaasch-mac>
-References: <521061B4.1030508@fatooh.org>
- <1376839467.21329.36.camel@edumazet-glaptop>
- <alpine.DEB.2.00.1308182314050.25515@blackhole.kfki.hu>
- <1376870425.4226.25.camel@edumazet-glaptop>
- <1376870592.4226.27.camel@edumazet-glaptop>
- <5211DAA6.1070302@fatooh.org>
- <20130819123314.GC3583@cpaasch-mac>
- <1376918657.4226.59.camel@edumazet-glaptop>
- <20130819134919.GF3583@cpaasch-mac>
- <1376920685.4226.61.camel@edumazet-glaptop>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH net-next 2/2] bnx2x: add RSS capability for GRE traffic
+Date: Mon, 19 Aug 2013 07:57:15 -0700
+Message-ID: <CAPshTCjpe99WobuiiR7QY0bRj86C2Tc9U8OkXpiKKFY1RrsG6g@mail.gmail.com>
+References: <1363625464-21633-1-git-send-email-dmitry@broadcom.com>
+	<1363625464-21633-2-git-send-email-dmitry@broadcom.com>
+	<1363651672.21184.17.camel@edumazet-glaptop>
+	<504C9EFCA2D0054393414C9CB605C37F20BE935B@SJEXCHMB06.corp.ad.broadcom.com>
+	<CAPshTCgpE3MoR3D8=EZa_CFVDBwN+fYDZZQrTchhtq-OM_rKzQ@mail.gmail.com>
+	<CAM8tLiNRi7mOb9wwSHuY4867ANUvzd_XxfZLV0gDPO2jKMtWsQ@mail.gmail.com>
+	<1376766116.21329.9.camel@edumazet-glaptop>
+	<CAPshTCh3CqrgasEvFG_Yy8NRHMp_rrQDqn7eRMD9NycmpxaWkQ@mail.gmail.com>
+	<1376840262.21329.40.camel@edumazet-glaptop>
+	<CAPshTCjB9S-Xc4MTs5XXLm6N=0-v_9gxC2SDwCzieTc4Py43fg@mail.gmail.com>
+	<1376869493.4226.13.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Corey Hickey <bugfood-ml@fatooh.org>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Dmitry Kravkov <dkravkov@gmail.com>,
+	Dmitry Kravkov <dmitry@broadcom.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Tom Herbert <therbert@google.com>,
+	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
+	Uday Naik <uday@google.com>,
+	Michael Dalton <mwdalton@google.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1376920685.4226.61.camel@edumazet-glaptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vc0-f176.google.com ([209.85.220.176]:64896 "EHLO
+	mail-vc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750821Ab3HSO5Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 10:57:16 -0400
+Received: by mail-vc0-f176.google.com with SMTP id ha11so3021257vcb.21
+        for <netdev@vger.kernel.org>; Mon, 19 Aug 2013 07:57:15 -0700 (PDT)
+In-Reply-To: <1376869493.4226.13.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 19/08/13 - 06:58:05, Eric Dumazet wrote:
-> On Mon, 2013-08-19 at 15:49 +0200, Christoph Paasch wrote:
-> > It's a TCP-patch, that interprets duplicate-acks with invalid SACK-blocks as
-> > duplicate acks in tcp_sock->sacked_out.
-> 
-> Yeah, but here, this is conntrack who is blocking the thing.
+On Sun, Aug 18, 2013 at 4:44 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Sun, 2013-08-18 at 14:11 -0700, Jerry Chu wrote:
+>
+>> It can if the csum validation is deferred. But this requires the stack code to
+>> aggregate csum from individual pkt header, which can get ugly as one needs
+>> to remove the header part from the individual csum first.
+>
+> You can _not_ aggregate packets _before_ validating their checksum, or
+> else you could end up with a correct final checksum while two or more
+> segments had buggy checksums. Checksum are already quite weak, please
+> do not make them even weaker ;)
 
-Yes, of course. I know that here conntrack is blocking the dup-ACKs.
+Yes I know how weak the 16bit 1's complement inet csum (see my previous email).
+I've had the pleasure to debug a number of bugs in the past where 16bit words
+were flipped by the buggy h/w hence went undetected by the weak TCP csum.
 
-Sorry for having added TCP-stack specific things in a conntrack-thread.
-I just wanted to highlight that the TCP-stack has also problems with
-sequence-number rewriting middleboxes.
+But I also think it's a tradeoff call. For WAN it's probably a bad
+idea but for data
+center traffic, pkt corruption is usually rare. If the performance
+gain is large enough,
+perhaps it justifies this hack (?)
 
-> TCP receiver has no chance to 'fix' it.
-> 
-> See conntrack is one of those buggy middle box as well.
-> 
-> So if you want to properly handle this mess, you'll also have to fix
-> conntrack.
+>
+> GRO should not throw out any segments, it is not its role.
+
+I did not suggest GRO to throw away any pkt. GRO would just fix the csum
+field in the header of the aggregated pkt and passes it on.
+
+>
+> If a router receives a bunch of packets, it should forward them
+> regardless of the (TCP) checksum being good or not.
+
+It won't affect the forwarding path (i think).
+
+>
+> The final receiver has full responsibility for ultimately validate the
+> checksums and update various SNMP counters.
+
+When the GRO pkt with the csum field fixed (aggregated) get to
+the receiving TCP endpoint, it will be csum validated by the TCP stack
+because skb->ip_summed == CHECKSUM_NONE, and the pkt will be
+tossed if the csum check fails like non-GRO pkts.
+
+To be clear, this hack is not something I'd be proud of and I doubt the
+performance gain will be enough to justify it. This idea grew more out of
+desperation for not having csum offload for encap'ed pkts, which I think
+is a P0 bug!
+
+Jerry
+
+>
+>
+>
