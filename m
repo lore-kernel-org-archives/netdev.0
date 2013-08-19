@@ -1,56 +1,68 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] bnx2x: add RSS capability for GRE traffic
-Date: Sun, 18 Aug 2013 16:44:53 -0700
-Message-ID: <1376869493.4226.13.camel@edumazet-glaptop>
-References: <1363625464-21633-1-git-send-email-dmitry@broadcom.com>
-	 <1363625464-21633-2-git-send-email-dmitry@broadcom.com>
-	 <1363651672.21184.17.camel@edumazet-glaptop>
-	 <504C9EFCA2D0054393414C9CB605C37F20BE935B@SJEXCHMB06.corp.ad.broadcom.com>
-	 <CAPshTCgpE3MoR3D8=EZa_CFVDBwN+fYDZZQrTchhtq-OM_rKzQ@mail.gmail.com>
-	 <CAM8tLiNRi7mOb9wwSHuY4867ANUvzd_XxfZLV0gDPO2jKMtWsQ@mail.gmail.com>
-	 <1376766116.21329.9.camel@edumazet-glaptop>
-	 <CAPshTCh3CqrgasEvFG_Yy8NRHMp_rrQDqn7eRMD9NycmpxaWkQ@mail.gmail.com>
-	 <1376840262.21329.40.camel@edumazet-glaptop>
-	 <CAPshTCjB9S-Xc4MTs5XXLm6N=0-v_9gxC2SDwCzieTc4Py43fg@mail.gmail.com>
+Subject: Re: NAT stops forwarding ACKs after PMTU discovery
+Date: Sun, 18 Aug 2013 17:00:25 -0700
+Message-ID: <1376870425.4226.25.camel@edumazet-glaptop>
+References: <521061B4.1030508@fatooh.org>
+	 <1376839467.21329.36.camel@edumazet-glaptop>
+	 <alpine.DEB.2.00.1308182314050.25515@blackhole.kfki.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Dmitry Kravkov <dkravkov@gmail.com>,
-	Dmitry Kravkov <dmitry@broadcom.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Tom Herbert <therbert@google.com>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
-	Uday Naik <uday@google.com>,
-	Michael Dalton <mwdalton@google.com>
-To: Jerry Chu <hkchu@google.com>
+Cc: Corey Hickey <bugfood-ml@fatooh.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:45761 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755713Ab3HRXoz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Aug 2013 19:44:55 -0400
-Received: by mail-pd0-f170.google.com with SMTP id x10so4354948pdj.15
-        for <netdev@vger.kernel.org>; Sun, 18 Aug 2013 16:44:55 -0700 (PDT)
-In-Reply-To: <CAPshTCjB9S-Xc4MTs5XXLm6N=0-v_9gxC2SDwCzieTc4Py43fg@mail.gmail.com>
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:53655 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755377Ab3HSAA1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Aug 2013 20:00:27 -0400
+In-Reply-To: <alpine.DEB.2.00.1308182314050.25515@blackhole.kfki.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-08-18 at 14:11 -0700, Jerry Chu wrote:
+On Sun, 2013-08-18 at 23:23 +0200, Jozsef Kadlecsik wrote:
 
-> It can if the csum validation is deferred. But this requires the stack code to
-> aggregate csum from individual pkt header, which can get ugly as one needs
-> to remove the header part from the individual csum first.
+> It's a PMTU related problem, so I'd suggest to check first the next ones:
+> 
+> Aren't the ICMP error messages (i.e. fragmentation-needed) filtered out?
+> If not, does adding an explicit TCPMSS rule to the mangle table help?
 
-You can _not_ aggregate packets _before_ validating their checksum, or
-else you could end up with a correct final checksum while two or more
-segments had buggy checksums. Checksum are already quite weak, please
-do not make them even weaker ;)
+Thats totally irrelevant. tcp conntrack should not care of ICMP messages
+anyway.
 
-GRO should not throw out any segments, it is not its role.
+> Isn't there SACK options involved? Maybe there's a "smart" sequence 
+> number "anonymizer" device in the path which forgets about the SEQ numbers 
+> in the SACK options and thus such packets are marked as INVALID.
+> 
 
-If a router receives a bunch of packets, it should forward them
-regardless of the (TCP) checksum being good or not.
+As I understood the report, they were no SACK at all, but plain ACK
+messages, and conntrack believes these ACK are outside the window
+because it remembers the @end sequence of the probe, and the @maxwin of
+receiver.
 
-The final receiver has full responsibility for ultimately validate the
-checksums and update various SNMP counters.
+Lets say the probe is 2000 bytes, seq 1:2001
+
+conntrack records end = 2001
+
+Of course this packet is lost.
+
+The retransmit sends a 1000 bytes packet, seq 1:1001
+
+conntrack pass the packet.
+
+Receiver acks it using ack 1001
+
+conntrack drops this ack because of some confusion about the prior 2001
+end, and the window (might be as small as 1000)
+
+Code like this seems very suspect to me :
+
+before(sack, receiver->td_end + 1)
+
+It basically says that conntrack doesn't deal with reorders on the
+network.
+
+> So tcpdumps captured at both sides could really help to tell what goes wrong.
+
+We probably can reproduce this bug using packetdrill.
