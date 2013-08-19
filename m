@@ -1,65 +1,50 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH 4/4] tun: Get skfilter layout
-Date: Mon, 19 Aug 2013 19:10:44 +0400
-Message-ID: <52123574.3020501@parallels.com>
-References: <52123515.3060507@parallels.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: NAT stops forwarding ACKs after PMTU discovery
+Date: Mon, 19 Aug 2013 08:32:05 -0700
+Message-ID: <1376926325.4226.64.camel@edumazet-glaptop>
+References: <521061B4.1030508@fatooh.org>
+	 <1376839467.21329.36.camel@edumazet-glaptop>
+	 <alpine.DEB.2.00.1308182314050.25515@blackhole.kfki.hu>
+	 <1376870425.4226.25.camel@edumazet-glaptop>
+	 <1376870592.4226.27.camel@edumazet-glaptop> <5211DAA6.1070302@fatooh.org>
+	 <20130819123314.GC3583@cpaasch-mac>
+	 <1376918657.4226.59.camel@edumazet-glaptop>
+	 <20130819134919.GF3583@cpaasch-mac>
+	 <1376920685.4226.61.camel@edumazet-glaptop>
+	 <20130819143509.GA31320@linuxace.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
+Cc: Christoph Paasch <christoph.paasch@uclouvain.be>,
+	Corey Hickey <bugfood-ml@fatooh.org>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org
+To: Phil Oester <kernel@linuxace.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.parallels.com ([195.214.232.42]:53516 "EHLO
-	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750740Ab3HSPKq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 11:10:46 -0400
-In-Reply-To: <52123515.3060507@parallels.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:33454 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750807Ab3HSPcQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 11:32:16 -0400
+In-Reply-To: <20130819143509.GA31320@linuxace.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The only thing we may have from tun device is the fprog, whic contains
-the number of filter elements and a pointer to (user-space) memory
-where the elements are. The program itself may not be available if the
-device is persistent and detached.
+On Mon, 2013-08-19 at 07:35 -0700, Phil Oester wrote:
+> On Mon, Aug 19, 2013 at 06:58:05AM -0700, Eric Dumazet wrote:
+> > Yeah, but here, this is conntrack who is blocking the thing.
+> > 
+> > TCP receiver has no chance to 'fix' it.
+> > 
+> > See conntrack is one of those buggy middle box as well.
+> > 
+> > So if you want to properly handle this mess, you'll also have to fix
+> > conntrack.
+> 
+> Better to fix the box which is randomizing the acks and ignoring
+> the SACKs.  Usually these are older Cisco PIX/ASA devices which just
+> need a code upgrade.  
 
-Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
----
- drivers/net/tun.c           |   10 ++++++++++
- include/uapi/linux/if_tun.h |    1 +
- 2 files changed, 11 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 8bfc1ce..eb48157 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -2042,6 +2042,16 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 		tun_detach_filter(tun, tun->numqueues);
- 		break;
- 
-+	case TUNGETFILTER:
-+		ret = -EINVAL;
-+		if ((tun->flags & TUN_TYPE_MASK) != TUN_TAP_DEV)
-+			break;
-+		ret = -EFAULT;
-+		if (copy_to_user(argp, &tun->fprog, sizeof(tun->fprog)))
-+			break;
-+		ret = 0;
-+		break;
-+
- 	default:
- 		ret = -EINVAL;
- 		break;
-diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
-index cc127b2..e9502dd 100644
---- a/include/uapi/linux/if_tun.h
-+++ b/include/uapi/linux/if_tun.h
-@@ -57,6 +57,7 @@
- #define TUNSETVNETHDRSZ _IOW('T', 216, int)
- #define TUNSETQUEUE  _IOW('T', 217, int)
- #define TUNSETIFINDEX	_IOW('T', 218, unsigned int)
-+#define TUNGETFILTER _IOR('T', 219, struct sock_fprog)
- 
- /* TUNSETIFF ifr flags */
- #define IFF_TUN		0x0001
--- 
-1.7.6.5
+Having a patch to relax things could be evaluated, if not adding new
+problems ( http://en.wikipedia.org/wiki/Robustness_principle ) 
