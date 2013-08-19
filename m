@@ -1,56 +1,35 @@
-From: Corey Hickey <bugfood-ml@fatooh.org>
-Subject: Re: [RFC 0/2] Account for duplicate ACKs with invalid SACK-blocks
-Date: Mon, 19 Aug 2013 14:22:46 -0700
-Message-ID: <52128CA6.6090001@fatooh.org>
-References: <1376935800.4226.71.camel@edumazet-glaptop> <1376940568-16512-1-git-send-email-christoph.paasch@uclouvain.be>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: Re: [Patch net-next v3 9/9] selinux: use generic union inet_addr
+Date: Mon, 19 Aug 2013 14:42:55 -0700
+Message-ID: <5212915F.20905@schaufler-ca.com>
+References: <1376907278-26377-1-git-send-email-amwang@redhat.com> <1376907278-26377-10-git-send-email-amwang@redhat.com> <52127336.3080209@schaufler-ca.com> <20130819.125026.636442915180863272.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	Phil Oester <kernel@linuxace.com>,
-	Benjamin Hesmans <benjamin.hesmans@uclouvain.be>
-To: Christoph Paasch <christoph.paasch@uclouvain.be>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from juniper.fatooh.org ([173.255.221.30]:47924 "EHLO
-	juniper.fatooh.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750826Ab3HSVWs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 17:22:48 -0400
-In-Reply-To: <1376940568-16512-1-git-send-email-christoph.paasch@uclouvain.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: amwang@redhat.com, netdev@vger.kernel.org,
+	james.l.morris@oracle.com, sds@tycho.nsa.gov,
+	eparis@parisplace.org, pmoore@redhat.com,
+	linux-kernel@vger.kernel.org, linux-security-module@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20130819.125026.636442915180863272.davem@davemloft.net>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2013-08-19 12:29, Christoph Paasch wrote:
-> There exist sequence-number rewriting middleboxes, who do not modify the 
-> sequence-number in the SACK-blocks.
-> Duplicate acknowledgments with these (invalid) SACK-blocks will not be
-> accounted in sacked_out, and thus no fast-retransmit will trigger.
-> So, the only way to recover from a packet-loss is through an RTO,
-> effectively killing the performance of TCP in this case.
-> 
-> Performance-results can be seen here:
-> http://tools.ietf.org/agenda/87/slides/slides-87-tcpm-11.pdf
-> 
-> Another solution might be to simply disable SACK, as soon as an invalid
-> SACK-block has been received (as suggested by Phil Oester). This however
-> might be too aggressive.
-> 
-> Christoph Paasch (2):
->   Use acked_out for reno-style ack acounting instead of sacked_out
->   Account acked_out in sack, if the sack is invalid
-> 
->  include/linux/tcp.h      |   1 +
->  include/net/tcp.h        |  17 +++++---
->  net/ipv4/tcp_input.c     | 103 ++++++++++++++++++++++++++++++++---------------
->  net/ipv4/tcp_minisocks.c |   1 +
->  net/ipv4/tcp_output.c    |   6 +--
->  net/ipv4/tcp_timer.c     |   2 +-
->  6 files changed, 89 insertions(+), 41 deletions(-)
+On 8/19/2013 12:50 PM, David Miller wrote:
+> It's so that you can pass a generic ipv4/ipv6 address blob into
+> things like printf formatting, and since there is an address family
+> member present, it knows what's in there and therefore one printf
+> format specifier can handle both ipv4 and ipv6 addresses.
 
-I tested this patchset, and, unfortunately, the behavior seems to be the
-same.
+The patch message needs to say that, then.
 
-I'm still planning on working with the Cisco device, when I can get some
-of the network admin's time, but that won't happen immediately.
+> Like you, I think these changes a complete waste of time too, I'm just
+> relaying what I was told.
 
-Thanks,
-Corey
+Well, they certainly don't appear to add any value on their own.
+I also generally oppose doing clever things with data structures.
+I recently got bitten by the "obvious" relationships between
+sockaddr, sockaddr_in and sockaddr_in6, and I've been doing this
+stuff since before ioctl was invented.
+
