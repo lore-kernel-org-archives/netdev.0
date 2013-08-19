@@ -1,312 +1,522 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v3 5/9] bridge: use generic struct in_addr_gen
-Date: Mon, 19 Aug 2013 18:14:34 +0800
-Message-ID: <1376907278-26377-6-git-send-email-amwang@redhat.com>
+Subject: [Patch net-next v3 7/9] fs: use generic union inet_addr and helper functions
+Date: Mon, 19 Aug 2013 18:14:36 +0800
+Message-ID: <1376907278-26377-8-git-send-email-amwang@redhat.com>
 References: <1376907278-26377-1-git-send-email-amwang@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
+	Steve French <sfrench@samba.org>,
+	Christine Caulfield <ccaulfie@redhat.com>,
+	David Teigland <teigland@redhat.com>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	linux-cifs@vger.kernel.org, linux-kernel@vger.kernel.org,
+	cluster-devel@redhat.com, linux-nfs@vger.kernel.org,
 	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13690 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751276Ab3HSKPJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Aug 2013 06:15:09 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1376907278-26377-1-git-send-email-amwang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Cong Wang <amwang@redhat.com>
 
-Cc: Stephen Hemminger <stephen@networkplumber.org>
+nfs and cifs define some helper functions for sockaddr,
+they can use the generic functions for union inet_addr/struct sockaddr
+too.
+
+Since some dlm code needs to compare ->sin_port, introduce a
+generic function inet_addr_equal_strict() for it.
+
+Cc: Steve French <sfrench@samba.org>
+Cc: Christine Caulfield <ccaulfie@redhat.com>
+Cc: David Teigland <teigland@redhat.com>
+Cc: Trond Myklebust <Trond.Myklebust@netapp.com>
+Cc: linux-cifs@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: cluster-devel@redhat.com
+Cc: linux-nfs@vger.kernel.org
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- net/bridge/br_mdb.c       |   53 ++++++++++++++++++------------------
- net/bridge/br_multicast.c |   65 +++++++++++++++++++-------------------------
- net/bridge/br_private.h   |    9 +-----
- 3 files changed, 57 insertions(+), 70 deletions(-)
+ fs/cifs/connect.c          |   54 +++++---------------
+ fs/dlm/lowcomms.c          |   24 ++-------
+ fs/nfs/client.c            |  113 +-------------------------------------------
+ fs/nfs/nfs4client.c        |    2 +-
+ fs/nfs/nfs4filelayoutdev.c |   37 ++-------------
+ fs/nfs/super.c             |   31 +-----------
+ include/net/inet_addr.h    |    8 +++
+ net/core/utils.c           |   23 +++++++++
+ 8 files changed, 60 insertions(+), 232 deletions(-)
 
-diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
-index e4d5cd4..55d6b59 100644
---- a/net/bridge/br_mdb.c
-+++ b/net/bridge/br_mdb.c
-@@ -13,6 +13,29 @@
+diff --git a/fs/cifs/connect.c b/fs/cifs/connect.c
+index d67c550..081cb6c 100644
+--- a/fs/cifs/connect.c
++++ b/fs/cifs/connect.c
+@@ -40,6 +40,7 @@
+ #include <linux/module.h>
+ #include <keys/user-type.h>
+ #include <net/ipv6.h>
++#include <net/inet_addr.h>
+ #include <linux/parser.h>
  
- #include "br_private.h"
- 
-+static void br_ip_to_entry(struct br_mdb_entry *entry, struct br_ip *ip)
-+{
-+	if (ip->ip.family == AF_INET) {
-+		entry->addr.proto = htons(ETH_P_IP);
-+		entry->addr.u.ip4 = ip->ip.in_addr.s_addr;
-+	} else {
-+		entry->addr.proto = htons(ETH_P_IPV6);
-+		entry->addr.u.ip6 = ip->ip.in6_addr;
-+	}
-+}
-+
-+static void br_entry_to_ip(struct br_ip *ip, struct br_mdb_entry *entry)
-+{
-+	__be16 proto = entry->addr.proto;
-+	if (proto == htons(ETH_P_IP)) {
-+		ip->ip.family = AF_INET;
-+		ip->ip.in_addr.s_addr = entry->addr.u.ip4;
-+	} else {
-+		ip->ip.family = AF_INET6;
-+		ip->ip.in6_addr = entry->addr.u.ip6;
-+	}
-+}
-+
- static int br_rports_fill_info(struct sk_buff *skb, struct netlink_callback *cb,
- 			       struct net_device *dev)
+ #include "cifspdu.h"
+@@ -1900,17 +1901,9 @@ srcip_matches(struct sockaddr *srcaddr, struct sockaddr *rhs)
  {
-@@ -84,13 +107,7 @@ static int br_mdb_fill_info(struct sk_buff *skb, struct netlink_callback *cb,
- 					memset(&e, 0, sizeof(e));
- 					e.ifindex = port->dev->ifindex;
- 					e.state = p->state;
--					if (p->addr.proto == htons(ETH_P_IP))
--						e.addr.u.ip4 = p->addr.u.ip4;
--#if IS_ENABLED(CONFIG_IPV6)
--					if (p->addr.proto == htons(ETH_P_IPV6))
--						e.addr.u.ip6 = p->addr.u.ip6;
--#endif
--					e.addr.proto = p->addr.proto;
-+					br_ip_to_entry(&e, &p->addr);
- 					if (nla_put(skb, MDBA_MDB_ENTRY_INFO, sizeof(e), &e)) {
- 						nla_nest_cancel(skb, nest2);
- 						err = -EMSGSIZE;
-@@ -234,11 +251,7 @@ void br_mdb_notify(struct net_device *dev, struct net_bridge_port *port,
- 
- 	memset(&entry, 0, sizeof(entry));
- 	entry.ifindex = port->dev->ifindex;
--	entry.addr.proto = group->proto;
--	entry.addr.u.ip4 = group->u.ip4;
--#if IS_ENABLED(CONFIG_IPV6)
--	entry.addr.u.ip6 = group->u.ip6;
--#endif
-+	br_ip_to_entry(&entry, group);
- 	__br_mdb_notify(dev, &entry, type);
- }
- 
-@@ -369,13 +382,7 @@ static int __br_mdb_add(struct net *net, struct net_bridge *br,
- 	if (!p || p->br != br || p->state == BR_STATE_DISABLED)
- 		return -EINVAL;
- 
--	ip.proto = entry->addr.proto;
--	if (ip.proto == htons(ETH_P_IP))
--		ip.u.ip4 = entry->addr.u.ip4;
--#if IS_ENABLED(CONFIG_IPV6)
--	else
--		ip.u.ip6 = entry->addr.u.ip6;
--#endif
-+	br_entry_to_ip(&ip, entry);
- 
- 	spin_lock_bh(&br->multicast_lock);
- 	ret = br_mdb_add_group(br, p, &ip, entry->state);
-@@ -418,13 +425,7 @@ static int __br_mdb_del(struct net_bridge *br, struct br_mdb_entry *entry)
- 	if (timer_pending(&br->multicast_querier_timer))
- 		return -EBUSY;
- 
--	ip.proto = entry->addr.proto;
--	if (ip.proto == htons(ETH_P_IP))
--		ip.u.ip4 = entry->addr.u.ip4;
--#if IS_ENABLED(CONFIG_IPV6)
--	else
--		ip.u.ip6 = entry->addr.u.ip6;
--#endif
-+	br_entry_to_ip(&ip, entry);
- 
- 	spin_lock_bh(&br->multicast_lock);
- 	mdb = mlock_dereference(br->mdb, br);
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 08e576a..6d7c407 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -38,19 +38,9 @@ unsigned int br_mdb_rehash_seq;
- 
- static inline int br_ip_equal(const struct br_ip *a, const struct br_ip *b)
- {
--	if (a->proto != b->proto)
--		return 0;
- 	if (a->vid != b->vid)
- 		return 0;
--	switch (a->proto) {
--	case htons(ETH_P_IP):
--		return a->u.ip4 == b->u.ip4;
--#if IS_ENABLED(CONFIG_IPV6)
--	case htons(ETH_P_IPV6):
--		return ipv6_addr_equal(&a->u.ip6, &b->u.ip6);
--#endif
+ 	switch (srcaddr->sa_family) {
+ 	case AF_UNSPEC:
+-		return (rhs->sa_family == AF_UNSPEC);
+-	case AF_INET: {
+-		struct sockaddr_in *saddr4 = (struct sockaddr_in *)srcaddr;
+-		struct sockaddr_in *vaddr4 = (struct sockaddr_in *)rhs;
+-		return (saddr4->sin_addr.s_addr == vaddr4->sin_addr.s_addr);
 -	}
--	return 0;
-+	return in_addr_gen_equal(&a->ip, &b->ip);
+-	case AF_INET6: {
+-		struct sockaddr_in6 *saddr6 = (struct sockaddr_in6 *)srcaddr;
+-		struct sockaddr_in6 *vaddr6 = (struct sockaddr_in6 *)rhs;
+-		return ipv6_addr_equal(&saddr6->sin6_addr, &vaddr6->sin6_addr);
+-	}
++	case AF_INET:
++	case AF_INET6:
++		return sockaddr_equal(srcaddr, rhs);
+ 	default:
+ 		WARN_ON(1);
+ 		return false; /* don't expect to be here */
+@@ -1925,16 +1918,13 @@ srcip_matches(struct sockaddr *srcaddr, struct sockaddr *rhs)
+ static bool
+ match_port(struct TCP_Server_Info *server, struct sockaddr *addr)
+ {
+-	__be16 port, *sport;
++	unsigned short port, sport;
+ 
+ 	switch (addr->sa_family) {
+ 	case AF_INET:
+-		sport = &((struct sockaddr_in *) &server->dstaddr)->sin_port;
+-		port = ((struct sockaddr_in *) addr)->sin_port;
+-		break;
+ 	case AF_INET6:
+-		sport = &((struct sockaddr_in6 *) &server->dstaddr)->sin6_port;
+-		port = ((struct sockaddr_in6 *) addr)->sin6_port;
++		sport = sockaddr_get_port((struct sockaddr *)&server->dstaddr);
++		port = sockaddr_get_port(addr);
+ 		break;
+ 	default:
+ 		WARN_ON(1);
+@@ -1942,14 +1932,14 @@ match_port(struct TCP_Server_Info *server, struct sockaddr *addr)
+ 	}
+ 
+ 	if (!port) {
+-		port = htons(CIFS_PORT);
+-		if (port == *sport)
++		port = CIFS_PORT;
++		if (port == sport)
+ 			return true;
+ 
+-		port = htons(RFC1001_PORT);
++		port = RFC1001_PORT;
+ 	}
+ 
+-	return port == *sport;
++	return port == sport;
  }
  
- static inline int __br_ip4_hash(struct net_bridge_mdb_htable *mdb, __be32 ip,
-@@ -72,12 +62,12 @@ static inline int __br_ip6_hash(struct net_bridge_mdb_htable *mdb,
- static inline int br_ip_hash(struct net_bridge_mdb_htable *mdb,
- 			     struct br_ip *ip)
+ static bool
+@@ -1957,27 +1947,11 @@ match_address(struct TCP_Server_Info *server, struct sockaddr *addr,
+ 	      struct sockaddr *srcaddr)
  {
--	switch (ip->proto) {
-+	switch (ip->ip.family) {
- 	case htons(ETH_P_IP):
--		return __br_ip4_hash(mdb, ip->u.ip4, ip->vid);
-+		return __br_ip4_hash(mdb, ip->ip.in_addr.s_addr, ip->vid);
- #if IS_ENABLED(CONFIG_IPV6)
- 	case htons(ETH_P_IPV6):
--		return __br_ip6_hash(mdb, &ip->u.ip6, ip->vid);
-+		return __br_ip6_hash(mdb, &ip->ip.in6_addr, ip->vid);
- #endif
- 	}
- 	return 0;
-@@ -110,8 +100,8 @@ static struct net_bridge_mdb_entry *br_mdb_ip4_get(
- {
- 	struct br_ip br_dst;
- 
--	br_dst.u.ip4 = dst;
--	br_dst.proto = htons(ETH_P_IP);
-+	br_dst.ip.in_addr.s_addr = dst;
-+	br_dst.ip.family = AF_INET;
- 	br_dst.vid = vid;
- 
- 	return br_mdb_ip_get(mdb, &br_dst);
-@@ -124,8 +114,8 @@ static struct net_bridge_mdb_entry *br_mdb_ip6_get(
- {
- 	struct br_ip br_dst;
- 
--	br_dst.u.ip6 = *dst;
--	br_dst.proto = htons(ETH_P_IPV6);
-+	br_dst.ip.in6_addr = *dst;
-+	br_dst.ip.family = AF_INET6;
- 	br_dst.vid = vid;
- 
- 	return br_mdb_ip_get(mdb, &br_dst);
-@@ -144,16 +134,17 @@ struct net_bridge_mdb_entry *br_mdb_get(struct net_bridge *br,
- 	if (BR_INPUT_SKB_CB(skb)->igmp)
- 		return NULL;
- 
--	ip.proto = skb->protocol;
- 	ip.vid = vid;
- 
- 	switch (skb->protocol) {
- 	case htons(ETH_P_IP):
--		ip.u.ip4 = ip_hdr(skb)->daddr;
-+		ip.ip.family = AF_INET;
-+		ip.ip.in_addr.s_addr = ip_hdr(skb)->daddr;
- 		break;
- #if IS_ENABLED(CONFIG_IPV6)
- 	case htons(ETH_P_IPV6):
--		ip.u.ip6 = ipv6_hdr(skb)->daddr;
-+		ip.ip.family = AF_INET6;
-+		ip.ip.in6_addr = ipv6_hdr(skb)->daddr;
- 		break;
- #endif
- 	default:
-@@ -495,12 +486,12 @@ out:
- static struct sk_buff *br_multicast_alloc_query(struct net_bridge *br,
- 						struct br_ip *addr)
- {
--	switch (addr->proto) {
--	case htons(ETH_P_IP):
--		return br_ip4_multicast_alloc_query(br, addr->u.ip4);
-+	switch (addr->ip.family) {
+ 	switch (addr->sa_family) {
+-	case AF_INET: {
+-		struct sockaddr_in *addr4 = (struct sockaddr_in *)addr;
+-		struct sockaddr_in *srv_addr4 =
+-					(struct sockaddr_in *)&server->dstaddr;
+-
+-		if (addr4->sin_addr.s_addr != srv_addr4->sin_addr.s_addr)
+-			return false;
+-		break;
+-	}
+-	case AF_INET6: {
+-		struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)addr;
+-		struct sockaddr_in6 *srv_addr6 =
+-					(struct sockaddr_in6 *)&server->dstaddr;
+-
+-		if (!ipv6_addr_equal(&addr6->sin6_addr,
+-				     &srv_addr6->sin6_addr))
+-			return false;
+-		if (addr6->sin6_scope_id != srv_addr6->sin6_scope_id)
 +	case AF_INET:
-+		return br_ip4_multicast_alloc_query(br, addr->ip.in_addr.s_addr);
- #if IS_ENABLED(CONFIG_IPV6)
--	case htons(ETH_P_IPV6):
--		return br_ip6_multicast_alloc_query(br, &addr->u.ip6);
 +	case AF_INET6:
-+		return br_ip6_multicast_alloc_query(br, &addr->ip.in6_addr);
- #endif
- 	}
- 	return NULL;
-@@ -708,8 +699,8 @@ static int br_ip4_multicast_add_group(struct net_bridge *br,
- 	if (ipv4_is_local_multicast(group))
- 		return 0;
- 
--	br_group.u.ip4 = group;
--	br_group.proto = htons(ETH_P_IP);
-+	br_group.ip.in_addr.s_addr = group;
-+	br_group.ip.family = AF_INET;
- 	br_group.vid = vid;
- 
- 	return br_multicast_add_group(br, port, &br_group);
-@@ -726,8 +717,8 @@ static int br_ip6_multicast_add_group(struct net_bridge *br,
- 	if (!ipv6_is_transient_multicast(group))
- 		return 0;
- 
--	br_group.u.ip6 = *group;
--	br_group.proto = htons(ETH_P_IPV6);
-+	br_group.ip.in6_addr = *group;
-+	br_group.ip.family = AF_INET6;
- 	br_group.vid = vid;
- 
- 	return br_multicast_add_group(br, port, &br_group);
-@@ -799,13 +790,13 @@ static void br_multicast_send_query(struct net_bridge *br,
- 	    timer_pending(&br->multicast_querier_timer))
- 		return;
- 
--	memset(&br_group.u, 0, sizeof(br_group.u));
-+	memset(&br_group.ip, 0, sizeof(br_group.ip));
- 
--	br_group.proto = htons(ETH_P_IP);
-+	br_group.ip.family = AF_INET;
- 	__br_multicast_send_query(br, port, &br_group);
- 
- #if IS_ENABLED(CONFIG_IPV6)
--	br_group.proto = htons(ETH_P_IPV6);
-+	br_group.ip.family = AF_INET6;
- 	__br_multicast_send_query(br, port, &br_group);
- #endif
- 
-@@ -1338,8 +1329,8 @@ static void br_ip4_multicast_leave_group(struct net_bridge *br,
- 	if (ipv4_is_local_multicast(group))
- 		return;
- 
--	br_group.u.ip4 = group;
--	br_group.proto = htons(ETH_P_IP);
-+	br_group.ip.in_addr.s_addr = group;
-+	br_group.ip.family = AF_INET;
- 	br_group.vid = vid;
- 
- 	br_multicast_leave_group(br, port, &br_group);
-@@ -1356,8 +1347,8 @@ static void br_ip6_multicast_leave_group(struct net_bridge *br,
- 	if (!ipv6_is_transient_multicast(group))
- 		return;
- 
--	br_group.u.ip6 = *group;
--	br_group.proto = htons(ETH_P_IPV6);
-+	br_group.ip.in6_addr = *group;
-+	br_group.ip.family = AF_INET6;
- 	br_group.vid = vid;
- 
- 	br_multicast_leave_group(br, port, &br_group);
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index d41283c..4a5a52a 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -19,6 +19,7 @@
- #include <linux/u64_stats_sync.h>
- #include <net/route.h>
- #include <linux/if_vlan.h>
++		if (!sockaddr_equal(addr, (struct sockaddr *)&server->dstaddr))
+ 			return false;
+ 		break;
+-	}
+ 	default:
+ 		WARN_ON(1);
+ 		return false; /* don't expect to be here */
+diff --git a/fs/dlm/lowcomms.c b/fs/dlm/lowcomms.c
+index d90909e..c051237 100644
+--- a/fs/dlm/lowcomms.c
++++ b/fs/dlm/lowcomms.c
+@@ -54,6 +54,7 @@
+ #include <linux/slab.h>
+ #include <net/sctp/sctp.h>
+ #include <net/ipv6.h>
 +#include <net/inet_addr.h>
  
- #define BR_HASH_BITS 8
- #define BR_HASH_SIZE (1 << BR_HASH_BITS)
-@@ -56,13 +57,7 @@ struct mac_addr
- 
- struct br_ip
+ #include "dlm_internal.h"
+ #include "lowcomms.h"
+@@ -286,28 +287,13 @@ static struct dlm_node_addr *find_node_addr(int nodeid)
+ static int addr_compare(struct sockaddr_storage *x, struct sockaddr_storage *y)
  {
--	union {
--		__be32	ip4;
--#if IS_ENABLED(CONFIG_IPV6)
--		struct in6_addr ip6;
--#endif
--	} u;
--	__be16		proto;
-+	struct in_addr_gen ip;
- 	__u16		vid;
- };
+ 	switch (x->ss_family) {
+-	case AF_INET: {
+-		struct sockaddr_in *sinx = (struct sockaddr_in *)x;
+-		struct sockaddr_in *siny = (struct sockaddr_in *)y;
+-		if (sinx->sin_addr.s_addr != siny->sin_addr.s_addr)
+-			return 0;
+-		if (sinx->sin_port != siny->sin_port)
+-			return 0;
+-		break;
+-	}
+-	case AF_INET6: {
+-		struct sockaddr_in6 *sinx = (struct sockaddr_in6 *)x;
+-		struct sockaddr_in6 *siny = (struct sockaddr_in6 *)y;
+-		if (!ipv6_addr_equal(&sinx->sin6_addr, &siny->sin6_addr))
+-			return 0;
+-		if (sinx->sin6_port != siny->sin6_port)
+-			return 0;
+-		break;
+-	}
++	case AF_INET:
++	case AF_INET6:
++		return inet_addr_equal_strict((union inet_addr *)x,
++					      (union inet_addr *)y);
+ 	default:
+ 		return 0;
+ 	}
+-	return 1;
+ }
  
+ static int nodeid_to_addr(int nodeid, struct sockaddr_storage *sas_out,
+diff --git a/fs/nfs/client.c b/fs/nfs/client.c
+index 340b1ef..708dc96 100644
+--- a/fs/nfs/client.c
++++ b/fs/nfs/client.c
+@@ -38,6 +38,7 @@
+ #include <linux/slab.h>
+ #include <linux/idr.h>
+ #include <net/ipv6.h>
++#include <net/inet_addr.h>
+ #include <linux/nfs_xdr.h>
+ #include <linux/sunrpc/bc_xprt.h>
+ #include <linux/nsproxy.h>
+@@ -283,116 +284,6 @@ void nfs_put_client(struct nfs_client *clp)
+ }
+ EXPORT_SYMBOL_GPL(nfs_put_client);
+ 
+-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+-/*
+- * Test if two ip6 socket addresses refer to the same socket by
+- * comparing relevant fields. The padding bytes specifically, are not
+- * compared. sin6_flowinfo is not compared because it only affects QoS
+- * and sin6_scope_id is only compared if the address is "link local"
+- * because "link local" addresses need only be unique to a specific
+- * link. Conversely, ordinary unicast addresses might have different
+- * sin6_scope_id.
+- *
+- * The caller should ensure both socket addresses are AF_INET6.
+- */
+-static int nfs_sockaddr_match_ipaddr6(const struct sockaddr *sa1,
+-				      const struct sockaddr *sa2)
+-{
+-	const struct sockaddr_in6 *sin1 = (const struct sockaddr_in6 *)sa1;
+-	const struct sockaddr_in6 *sin2 = (const struct sockaddr_in6 *)sa2;
+-
+-	if (!ipv6_addr_equal(&sin1->sin6_addr, &sin2->sin6_addr))
+-		return 0;
+-	else if (ipv6_addr_type(&sin1->sin6_addr) & IPV6_ADDR_LINKLOCAL)
+-		return sin1->sin6_scope_id == sin2->sin6_scope_id;
+-
+-	return 1;
+-}
+-#else	/* !defined(CONFIG_IPV6) && !defined(CONFIG_IPV6_MODULE) */
+-static int nfs_sockaddr_match_ipaddr6(const struct sockaddr *sa1,
+-				      const struct sockaddr *sa2)
+-{
+-	return 0;
+-}
+-#endif
+-
+-/*
+- * Test if two ip4 socket addresses refer to the same socket, by
+- * comparing relevant fields. The padding bytes specifically, are
+- * not compared.
+- *
+- * The caller should ensure both socket addresses are AF_INET.
+- */
+-static int nfs_sockaddr_match_ipaddr4(const struct sockaddr *sa1,
+-				      const struct sockaddr *sa2)
+-{
+-	const struct sockaddr_in *sin1 = (const struct sockaddr_in *)sa1;
+-	const struct sockaddr_in *sin2 = (const struct sockaddr_in *)sa2;
+-
+-	return sin1->sin_addr.s_addr == sin2->sin_addr.s_addr;
+-}
+-
+-static int nfs_sockaddr_cmp_ip6(const struct sockaddr *sa1,
+-				const struct sockaddr *sa2)
+-{
+-	const struct sockaddr_in6 *sin1 = (const struct sockaddr_in6 *)sa1;
+-	const struct sockaddr_in6 *sin2 = (const struct sockaddr_in6 *)sa2;
+-
+-	return nfs_sockaddr_match_ipaddr6(sa1, sa2) &&
+-		(sin1->sin6_port == sin2->sin6_port);
+-}
+-
+-static int nfs_sockaddr_cmp_ip4(const struct sockaddr *sa1,
+-				const struct sockaddr *sa2)
+-{
+-	const struct sockaddr_in *sin1 = (const struct sockaddr_in *)sa1;
+-	const struct sockaddr_in *sin2 = (const struct sockaddr_in *)sa2;
+-
+-	return nfs_sockaddr_match_ipaddr4(sa1, sa2) &&
+-		(sin1->sin_port == sin2->sin_port);
+-}
+-
+-#if defined(CONFIG_NFS_V4_1)
+-/*
+- * Test if two socket addresses represent the same actual socket,
+- * by comparing (only) relevant fields, excluding the port number.
+- */
+-int nfs_sockaddr_match_ipaddr(const struct sockaddr *sa1,
+-			      const struct sockaddr *sa2)
+-{
+-	if (sa1->sa_family != sa2->sa_family)
+-		return 0;
+-
+-	switch (sa1->sa_family) {
+-	case AF_INET:
+-		return nfs_sockaddr_match_ipaddr4(sa1, sa2);
+-	case AF_INET6:
+-		return nfs_sockaddr_match_ipaddr6(sa1, sa2);
+-	}
+-	return 0;
+-}
+-EXPORT_SYMBOL_GPL(nfs_sockaddr_match_ipaddr);
+-#endif /* CONFIG_NFS_V4_1 */
+-
+-/*
+- * Test if two socket addresses represent the same actual socket,
+- * by comparing (only) relevant fields, including the port number.
+- */
+-static int nfs_sockaddr_cmp(const struct sockaddr *sa1,
+-			    const struct sockaddr *sa2)
+-{
+-	if (sa1->sa_family != sa2->sa_family)
+-		return 0;
+-
+-	switch (sa1->sa_family) {
+-	case AF_INET:
+-		return nfs_sockaddr_cmp_ip4(sa1, sa2);
+-	case AF_INET6:
+-		return nfs_sockaddr_cmp_ip6(sa1, sa2);
+-	}
+-	return 0;
+-}
+-
+ /*
+  * Find an nfs_client on the list that matches the initialisation data
+  * that is supplied.
+@@ -419,7 +310,7 @@ static struct nfs_client *nfs_match_client(const struct nfs_client_initdata *dat
+ 		if (clp->cl_minorversion != data->minorversion)
+ 			continue;
+ 		/* Match the full socket address */
+-		if (!nfs_sockaddr_cmp(sap, clap))
++		if (!sockaddr_equal_strict(sap, clap))
+ 			continue;
+ 
+ 		atomic_inc(&clp->cl_count);
+diff --git a/fs/nfs/nfs4client.c b/fs/nfs/nfs4client.c
+index 90dce91..383b97a 100644
+--- a/fs/nfs/nfs4client.c
++++ b/fs/nfs/nfs4client.c
+@@ -552,7 +552,7 @@ static bool nfs4_cb_match_client(const struct sockaddr *addr,
+ 		return false;
+ 
+ 	/* Match only the IP address, not the port number */
+-	if (!nfs_sockaddr_match_ipaddr(addr, clap))
++	if (!sockaddr_equal(addr, clap))
+ 		return false;
+ 
+ 	return true;
+diff --git a/fs/nfs/nfs4filelayoutdev.c b/fs/nfs/nfs4filelayoutdev.c
+index 95604f6..955494cb 100644
+--- a/fs/nfs/nfs4filelayoutdev.c
++++ b/fs/nfs/nfs4filelayoutdev.c
+@@ -32,6 +32,7 @@
+ #include <linux/vmalloc.h>
+ #include <linux/module.h>
+ #include <linux/sunrpc/addr.h>
++#include <net/inet_addr.h>
+ 
+ #include "internal.h"
+ #include "nfs4session.h"
+@@ -74,44 +75,14 @@ print_ds(struct nfs4_pnfs_ds *ds)
+ static bool
+ same_sockaddr(struct sockaddr *addr1, struct sockaddr *addr2)
+ {
+-	struct sockaddr_in *a, *b;
+-	struct sockaddr_in6 *a6, *b6;
+-
+-	if (addr1->sa_family != addr2->sa_family)
+-		return false;
+-
+-	switch (addr1->sa_family) {
+-	case AF_INET:
+-		a = (struct sockaddr_in *)addr1;
+-		b = (struct sockaddr_in *)addr2;
+-
+-		if (a->sin_addr.s_addr == b->sin_addr.s_addr &&
+-		    a->sin_port == b->sin_port)
+-			return true;
+-		break;
+-
+-	case AF_INET6:
+-		a6 = (struct sockaddr_in6 *)addr1;
+-		b6 = (struct sockaddr_in6 *)addr2;
+-
+-		/* LINKLOCAL addresses must have matching scope_id */
+-		if (ipv6_addr_scope(&a6->sin6_addr) ==
+-		    IPV6_ADDR_SCOPE_LINKLOCAL &&
+-		    a6->sin6_scope_id != b6->sin6_scope_id)
+-			return false;
+-
+-		if (ipv6_addr_equal(&a6->sin6_addr, &b6->sin6_addr) &&
+-		    a6->sin6_port == b6->sin6_port)
+-			return true;
+-		break;
+-
+-	default:
++	if (addr1->sa_family != AF_INET && addr1->sa_family != AF_INET6) {
+ 		dprintk("%s: unhandled address family: %u\n",
+ 			__func__, addr1->sa_family);
+ 		return false;
+ 	}
+ 
+-	return false;
++	return inet_addr_equal_strict((union inet_addr *)addr1,
++				      (union inet_addr *)addr2);
+ }
+ 
+ static bool
+diff --git a/fs/nfs/super.c b/fs/nfs/super.c
+index ac7c359..0744abb 100644
+--- a/fs/nfs/super.c
++++ b/fs/nfs/super.c
+@@ -49,6 +49,7 @@
+ #include <linux/in6.h>
+ #include <linux/slab.h>
+ #include <net/ipv6.h>
++#include <net/inet_addr.h>
+ #include <linux/netdevice.h>
+ #include <linux/nfs_xdr.h>
+ #include <linux/magic.h>
+@@ -2335,34 +2336,8 @@ static int nfs_compare_super_address(struct nfs_server *server1,
+ 
+ 	sap1 = (struct sockaddr *)&server1->nfs_client->cl_addr;
+ 	sap2 = (struct sockaddr *)&server2->nfs_client->cl_addr;
+-
+-	if (sap1->sa_family != sap2->sa_family)
+-		return 0;
+-
+-	switch (sap1->sa_family) {
+-	case AF_INET: {
+-		struct sockaddr_in *sin1 = (struct sockaddr_in *)sap1;
+-		struct sockaddr_in *sin2 = (struct sockaddr_in *)sap2;
+-		if (sin1->sin_addr.s_addr != sin2->sin_addr.s_addr)
+-			return 0;
+-		if (sin1->sin_port != sin2->sin_port)
+-			return 0;
+-		break;
+-	}
+-	case AF_INET6: {
+-		struct sockaddr_in6 *sin1 = (struct sockaddr_in6 *)sap1;
+-		struct sockaddr_in6 *sin2 = (struct sockaddr_in6 *)sap2;
+-		if (!ipv6_addr_equal(&sin1->sin6_addr, &sin2->sin6_addr))
+-			return 0;
+-		if (sin1->sin6_port != sin2->sin6_port)
+-			return 0;
+-		break;
+-	}
+-	default:
+-		return 0;
+-	}
+-
+-	return 1;
++	return inet_addr_equal_strict((union inet_addr *)sap1,
++				      (union inet_addr *)sap2);
+ }
+ 
+ static int nfs_compare_super(struct super_block *sb, void *data)
+diff --git a/include/net/inet_addr.h b/include/net/inet_addr.h
+index 44179c8..f317f0f 100644
+--- a/include/net/inet_addr.h
++++ b/include/net/inet_addr.h
+@@ -122,6 +122,7 @@ void inet_addr_set_port(union inet_addr *sap,
+ }
+ 
+ bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b);
++bool inet_addr_equal_strict(const union inet_addr *a, const union inet_addr *b);
+ int simple_inet_pton(const char *str, union inet_addr *addr);
+ 
+ static inline bool sockaddr_equal(const struct sockaddr *sap1,
+@@ -131,6 +132,13 @@ static inline bool sockaddr_equal(const struct sockaddr *sap1,
+ 			       (const union inet_addr *)sap2);
+ }
+ 
++static inline int sockaddr_equal_strict(const struct sockaddr *sa1,
++					const struct sockaddr *sa2)
++{
++	return inet_addr_equal_strict((union inet_addr *)sa1,
++				      (union inet_addr *)sa2);
++}
++
+ static inline bool sockaddr_copy(struct sockaddr *dst,
+ 				 const struct sockaddr *src)
+ {
+diff --git a/net/core/utils.c b/net/core/utils.c
+index 837bb18..489bc8d 100644
+--- a/net/core/utils.c
++++ b/net/core/utils.c
+@@ -380,6 +380,8 @@ bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b)
+ {
+ 	if (a->sa.sa_family != b->sa.sa_family)
+ 		return false;
++	if (a->sa.sa_family == AF_UNSPEC)
++		return true;
+ 	else if (a->sa.sa_family == AF_INET6) {
+ 		if (!ipv6_addr_equal(&a->sin6.sin6_addr, &b->sin6.sin6_addr))
+ 			return false;
+@@ -399,3 +401,24 @@ bool inet_addr_equal(const union inet_addr *a, const union inet_addr *b)
+ }
+ #endif
+ EXPORT_SYMBOL(inet_addr_equal);
++
++/*
++ * Unlike inet_addr_equal(), this function compares ->sin_port too.
++ */
++bool inet_addr_equal_strict(const union inet_addr *a, const union inet_addr *b)
++{
++	if (inet_addr_equal(a, b)) {
++		switch (a->sa.sa_family) {
++#if IS_ENABLED(CONFIG_IPV6)
++		case AF_INET6:
++			return a->sin6.sin6_port == b->sin6.sin6_port;
++#endif
++		case AF_INET:
++			return a->sin.sin_port == b->sin.sin_port;
++		default:
++			return true;
++		}
++	} else
++		return false;
++}
++EXPORT_SYMBOL(inet_addr_equal_strict);
 -- 
 1.7.7.6
