@@ -1,189 +1,91 @@
-From: Valas Valancius <vytautas.valancius@gmail.com>
-Subject: [PATCH] Passing sk_buff metadata information to user space in TUNTAP driver.
-Date: Mon, 19 Aug 2013 13:29:37 -0700
-Message-ID: <1376944177-20031-1-git-send-email-vytautas.valancius@gmail.com>
-Cc: Eric Dumazet <edumazet@google.com>,
-	=?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
-	netdev@vger.kernel.org
-To: Valas Valancius <valas@google.com>,
-	"David S. Miller" <davem@davemloft.net>
+From: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
+Subject: [PATCH] Fix stack corruption on some architectures
+Date: Mon, 19 Aug 2013 13:37:27 -0700
+Message-ID: <1376944647.5082.12.camel@chimera>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Jan Dumon <j.dumon@option.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:39343 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751121Ab3HSUag (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 16:30:36 -0400
-Received: by mail-pa0-f53.google.com with SMTP id lb1so2629428pab.26
-        for <netdev@vger.kernel.org>; Mon, 19 Aug 2013 13:30:36 -0700 (PDT)
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:59426 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751131Ab3HSUhb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 16:37:31 -0400
+Received: by mail-pd0-f182.google.com with SMTP id r10so4737786pdi.27
+        for <netdev@vger.kernel.org>; Mon, 19 Aug 2013 13:37:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Valas Valancius <valas@google.com>
+There is no need to get an interface specification if we know it's the
+wrong one; trivial change. The big thing, though, was explained in the
+#mipslinux IRC channel: 
+[Mon 2013-08-19 12:28:21 PM PDT] <headless> guys, are you sure it's not "DMA off stack" case?
+[Mon 2013-08-19 12:28:35 PM PDT] <headless> it's a known stack corruptor on non-coherent arches
+[Mon 2013-08-19 12:31:48 PM PDT] <DonkeyHotei> headless: for usb/ehci?
+[Mon 2013-08-19 12:34:11 PM PDT] <DonkeyHotei> headless: explain
+[Mon 2013-08-19 12:35:38 PM PDT] <headless> usb_control_msg() (or other such func) should not use buffer on stack. DMA from/to stack is prohibited
+[Mon 2013-08-19 12:35:58 PM PDT] <headless> and EHCI uses DMA on control xfers (as well as all the others)
 
-This patch introduces an optional metadata header to TUNTAP driver to pass
-sk_buff information to user space. The patch currently enables passing
-of skb->mark field and allows for easy expansion to add more sk_buff
-fields later.
-
-Tested: Compiled, booted. Process 1: openend TAP interface, enabled metadata
-header on that interface. Process 2: opened a socket, set fwmark with SO_MARK
-sock option, send packets, observed mark to propagate in Process 1.
-
-Change-Id: I5d00522e9c4d9c1b57b4f4ac55c419a85de35dae
+Signed-off-by: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
 ---
- drivers/net/tun.c           | 64 ++++++++++++++++++++++++++++++++++++++++++++-
- include/uapi/linux/if_tun.h |  7 +++++
- 2 files changed, 70 insertions(+), 1 deletion(-)
+ drivers/net/usb/hso.c |   15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 978d865..f997d59 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -103,6 +103,15 @@ do {								\
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index cba1d46..86292e6 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -2816,13 +2816,16 @@ exit:
+ static int hso_get_config_data(struct usb_interface *interface)
+ {
+ 	struct usb_device *usbdev = interface_to_usbdev(interface);
+-	u8 config_data[17];
++	u8 *config_data = kmalloc(17, GFP_KERNEL);
+ 	u32 if_num = interface->altsetting->desc.bInterfaceNumber;
+ 	s32 result;
  
- #define GOODCOPY_LEN 128
- 
-+/* Metadata header structure. */
-+struct tun_meta_header {
-+	/* struct sk_buff.mark */
-+	int mark;
-+};
-+
-+#define TUN_META_HDR_SZ sizeof(struct tun_meta_header)
-+#define TUN_META_MARK_OFFSET offsetof(struct tun_meta_header, mark)
-+
- #define FLT_EXACT_COUNT 8
- struct tap_filter {
- 	unsigned int    count;    /* Number of addrs. Zero means disabled */
-@@ -1227,6 +1236,20 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 		total += tun->vnet_hdr_sz;
++	if (!config_data)
++		return -ENOMEM;
+ 	if (usb_control_msg(usbdev, usb_rcvctrlpipe(usbdev, 0),
+ 			    0x86, 0xC0, 0, 0, config_data, 17,
+ 			    USB_CTRL_SET_TIMEOUT) != 0x11) {
++		kfree(config_data);
+ 		return -EIO;
  	}
  
-+	if (tun->flags & TUN_META_HDR) {
-+		struct tun_meta_header meta = { 0 };
-+		len -= TUN_META_HDR_SZ;
-+		if (len < 0)
-+			return -EINVAL;
-+
-+		meta.mark = skb->mark;
-+
-+		if (unlikely(memcpy_toiovecend(iv, (void *)&meta, total,
-+					       sizeof(meta))))
-+			return -EFAULT;
-+		total += TUN_META_HDR_SZ;
-+	}
-+
- 	if (!vlan_tx_tag_present(skb)) {
- 		len = min_t(int, skb->len, len);
- 	} else {
-@@ -1487,6 +1510,9 @@ static int tun_flags(struct tun_struct *tun)
- 	if (tun->flags & TUN_PERSIST)
- 		flags |= IFF_PERSIST;
+@@ -2873,6 +2876,7 @@ static int hso_get_config_data(struct usb_interface *interface)
+ 	if (config_data[16] & 0x1)
+ 		result |= HSO_INFO_CRC_BUG;
  
-+	if (tun->flags & TUN_META_HDR)
-+		flags |= IFF_META_HDR;
-+
- 	return flags;
++	kfree(config_data);
+ 	return result;
  }
  
-@@ -1666,6 +1692,11 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+@@ -2886,6 +2890,11 @@ static int hso_probe(struct usb_interface *interface,
+ 	struct hso_shared_int *shared_int;
+ 	struct hso_device *tmp_dev = NULL;
+ 
++	if (interface->cur_altsetting->desc.bInterfaceClass != 0xFF) {
++		dev_err(&interface->dev, "Not our interface\n");
++		return -ENODEV;
++	}
++
+ 	if_num = interface->altsetting->desc.bInterfaceNumber;
+ 
+ 	/* Get the interface/port specification from either driver_info or from
+@@ -2895,10 +2904,6 @@ static int hso_probe(struct usb_interface *interface,
  	else
- 		tun->flags &= ~TUN_TAP_MQ;
+ 		port_spec = hso_get_config_data(interface);
  
-+	if (ifr->ifr_flags & IFF_META_HDR)
-+		tun->flags |= TUN_META_HDR;
-+	else
-+		tun->flags &= ~TUN_META_HDR;
-+
- 	/* Make sure persistent devices do not get stuck in
- 	 * xoff state.
- 	 */
-@@ -1815,6 +1846,8 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	kgid_t group;
- 	int sndbuf;
- 	int vnet_hdr_sz;
-+	int tun_meta_param;
-+	int tun_meta_value;
- 	int ret;
- 
- 	if (cmd == TUNSETIFF || cmd == TUNSETQUEUE || _IOC_TYPE(cmd) == 0x89) {
-@@ -1828,7 +1861,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 		 * This is needed because we never checked for invalid flags on
- 		 * TUNSETIFF. */
- 		return put_user(IFF_TUN | IFF_TAP | IFF_NO_PI | IFF_ONE_QUEUE |
--				IFF_VNET_HDR | IFF_MULTI_QUEUE,
-+				IFF_VNET_HDR | IFF_MULTI_QUEUE | IFF_META_HDR,
- 				(unsigned int __user*)argp);
- 	} else if (cmd == TUNSETQUEUE)
- 		return tun_set_queue(file, &ifr);
-@@ -1996,6 +2029,35 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 		tun->vnet_hdr_sz = vnet_hdr_sz;
- 		break;
- 
-+	case TUNGETMETAPARAM:
-+		if (copy_from_user(&tun_meta_param, argp,
-+				   sizeof(tun_meta_param))) {
-+			ret = -EFAULT;
-+			break;
-+		}
-+
-+		ret = 0;
-+		switch (tun_meta_param) {
-+		case TUN_GET_META_HDR_SZ:
-+			tun_meta_value = TUN_META_HDR_SZ;
-+			break;
-+
-+		case TUN_GET_META_MARK_OFFSET:
-+			tun_meta_value = TUN_META_MARK_OFFSET;
-+			break;
-+
-+		default:
-+			ret = -EINVAL;
-+			break;
-+		}
-+
-+		if (!ret)
-+			if (copy_to_user(argp, &tun_meta_value,
-+					 sizeof(tun_meta_value)))
-+				ret = -EFAULT;
-+		break;
-+
-+
- 	case TUNATTACHFILTER:
- 		/* Can be set only for TAPs */
- 		ret = -EINVAL;
-diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
-index 1870ee2..26e6c9e 100644
---- a/include/uapi/linux/if_tun.h
-+++ b/include/uapi/linux/if_tun.h
-@@ -36,6 +36,7 @@
- #define TUN_PERSIST 	0x0100	
- #define TUN_VNET_HDR 	0x0200
- #define TUN_TAP_MQ      0x0400
-+#define TUN_META_HDR	0x0800
- 
- /* Ioctl defines */
- #define TUNSETNOCSUM  _IOW('T', 200, int) 
-@@ -56,10 +57,12 @@
- #define TUNGETVNETHDRSZ _IOR('T', 215, int)
- #define TUNSETVNETHDRSZ _IOW('T', 216, int)
- #define TUNSETQUEUE  _IOW('T', 217, int)
-+#define TUNGETMETAPARAM _IOR('T', 218, int)
- 
- /* TUNSETIFF ifr flags */
- #define IFF_TUN		0x0001
- #define IFF_TAP		0x0002
-+#define IFF_META_HDR	0x0004
- #define IFF_NO_PI	0x1000
- /* This flag has no real effect */
- #define IFF_ONE_QUEUE	0x2000
-@@ -103,4 +106,8 @@ struct tun_filter {
- 	__u8   addr[0][ETH_ALEN];
- };
- 
-+/* TUNGETMETAPARAM metadata header request types. */
-+#define TUN_GET_META_HDR_SZ 0
-+#define TUN_GET_META_MARK_OFFSET 1
-+
- #endif /* _UAPI__IF_TUN_H */
+-	if (interface->cur_altsetting->desc.bInterfaceClass != 0xFF) {
+-		dev_err(&interface->dev, "Not our interface\n");
+-		return -ENODEV;
+-	}
+ 	/* Check if we need to switch to alt interfaces prior to port
+ 	 * configuration */
+ 	if (interface->num_altsetting > 1)
 -- 
-1.8.3
+1.7.9.5
