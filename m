@@ -1,100 +1,95 @@
-From: Sonic Zhang <sonic.adi@gmail.com>
-Subject: Re: [PATCH] driver:net:stmmac: Disable DMA store and forward mode if
- platform data force_sf_dma_mode is negative.
-Date: Mon, 19 Aug 2013 18:51:03 +0800
-Message-ID: <CAJxxZ0NFhMMKp2eB+b168=c6+JsmJE6-yva7ZOGKciK3e4b8Yg@mail.gmail.com>
-References: <1376552256-7421-1-git-send-email-sonic.adi@gmail.com>
-	<5211B524.4030609@st.com>
-	<CAJxxZ0PZUYeFnfnHVNaVi=wx_YDiTmsUNCfNyR27=jSuBH+tzg@mail.gmail.com>
-	<5211CD14.3080808@st.com>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: [PATCH] ipv6: handle Redirect ICMP Message with no Redirected Header
+ option
+Date: Mon, 19 Aug 2013 18:54:51 +0800
+Message-ID: <5211F97B.4090209@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>,
-	adi-buildroot-devel@lists.sourceforge.net,
-	Sonic Zhang <sonic.zhang@analog.com>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f173.google.com ([209.85.214.173]:54972 "EHLO
-	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751087Ab3HSKvE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 06:51:04 -0400
-Received: by mail-ob0-f173.google.com with SMTP id ta17so5108978obb.32
-        for <netdev@vger.kernel.org>; Mon, 19 Aug 2013 03:51:03 -0700 (PDT)
-In-Reply-To: <5211CD14.3080808@st.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:50573 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751087Ab3HSKzQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Aug 2013 06:55:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Giuseppe,
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
-On Mon, Aug 19, 2013 at 3:45 PM, Giuseppe CAVALLARO
-<peppe.cavallaro@st.com> wrote:
-> On 8/19/2013 9:31 AM, Sonic Zhang wrote:
->>
->> Hi Giuseppe,
->>
->> On Mon, Aug 19, 2013 at 2:03 PM, Giuseppe CAVALLARO
->> <peppe.cavallaro@st.com> wrote:
->>>
->>> Hello Sonic
->>>
->>>
->>> On 8/15/2013 9:37 AM, Sonic Zhang wrote:
->>>>
->>>>
->>>> From: Sonic Zhang <sonic.zhang@analog.com>
->>>>
->>>> Some synopsys ip implementation doesn't support DMA store and forward
->>>> mode,
->>>> such as BF60x. So, define force_sf_dma_mode negative to use DMA
->>>> thresholds
->>>> only.
->>>
->>>
->>>
->>> I think that you should not pass the force_sf_dma_mode platform field
->>> at all (and it doesn't make sense to force it as negative).
->>> To use the threshold you should reset tx_coe. In fact, your HW cannot
->>> perform the Hw csum if SF is not available.
->>> Note that, the HW cap register (if available) can override (set/reset)
->>>   tx_coe.
->>
->>
->> Even if I reset tx_coe, the SF mode is still set to RX DMA in current
->> stmmac_dma_operation_mode(). SF mode is not supported in both RX DMA
->> and TX DMA in Blackfin MAC.
->
->
-> yes this is true. the SF is always set for the RX path because I have
-> never had and known HW w/o RX csum (since the 209).
->
-> So I think the code could be improved to disable/enable the SF also for
-> the RX path.
->
->
->>>
->>> I tested, long time ago, this scenario on old mac w/o HW cap register
->>> and w/o SF.
->>
->>
->> Blackfin synopsys MAC IP has the HW cap register with tx_coe set to 1,
->> but the HW tx_coe doesn't really work. I have the other patch to
->> disable HW tx_coe in board file and override the HW cap register.
->
->
-> AFAIK the HW shouldn't be able to perform the csum in HW w/o SF.
->
-> Maybe, an easy way could be to use a new field to force the threshold
-> mode. This should also remove the csum in HW (IMO) and program the
-> DMA operation register.
->
+rfc 4861 says the Redirected Header option is optional, so
+the kernel should not drop the Redirect Message that has no
+Redirected Header option. In this patch, the function
+ip6_redirect_no_header() is introduced to deal with that
+condition.
 
-The problem is that HW RX csum works perfectly on Blackfin MAC
-although the SF mode is not supported in RX DMA. I may need 2 platform
-fields to force RX DMA threshold and disable HW tx_coe. One field
-doesn't cover both cases well.
+Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+---
+ include/net/ip6_route.h |    1 +
+ net/ipv6/ndisc.c        |    4 +++-
+ net/ipv6/route.c        |   21 +++++++++++++++++++++
+ 3 files changed, 25 insertions(+), 1 deletions(-)
 
-Which 2 fields do you prefer?
-
-Thanks
-
-Sonic
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index 260f83f..7966f54 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -135,6 +135,7 @@ extern void ip6_update_pmtu(struct sk_buff *skb, struct net *net, __be32 mtu,
+ extern void ip6_sk_update_pmtu(struct sk_buff *skb, struct sock *sk,
+ 			       __be32 mtu);
+ extern void ip6_redirect(struct sk_buff *skb, struct net *net, int oif, u32 mark);
++extern void ip6_redirect_no_header(struct sk_buff *skb, struct net *net, int oif, u32 mark);
+ extern void ip6_sk_redirect(struct sk_buff *skb, struct sock *sk);
+ 
+ struct netlink_callback;
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 79aa965..04d31c2 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1369,8 +1369,10 @@ static void ndisc_redirect_rcv(struct sk_buff *skb)
+ 	if (!ndisc_parse_options(msg->opt, ndoptlen, &ndopts))
+ 		return;
+ 
+-	if (!ndopts.nd_opts_rh)
++	if (!ndopts.nd_opts_rh) {
++		ip6_redirect_no_header(skb, dev_net(skb->dev), 0, 0);
+ 		return;
++	}
+ 
+ 	hdr = (u8 *)ndopts.nd_opts_rh;
+ 	hdr += 8;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index b70f897..9934b87 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1178,6 +1178,27 @@ void ip6_redirect(struct sk_buff *skb, struct net *net, int oif, u32 mark)
+ }
+ EXPORT_SYMBOL_GPL(ip6_redirect);
+ 
++void ip6_redirect_no_header(struct sk_buff *skb, struct net *net, int oif, u32 mark)
++{
++	const struct ipv6hdr *iph = (struct ipv6hdr *) skb_network_header(skb);
++	struct rd_msg *msg = (struct rd_msg *)skb_transport_header(skb);
++	struct dst_entry *dst;
++	struct flowi6 fl6;
++
++	memset(&fl6, 0, sizeof(fl6));
++	fl6.flowi6_oif = oif;
++	fl6.flowi6_mark = mark;
++	fl6.flowi6_flags = 0;
++	fl6.daddr = msg->dest;
++	fl6.saddr = iph->daddr;
++
++	dst = ip6_route_output(net, NULL, &fl6);
++	if (!dst->error)
++		rt6_do_redirect(dst, NULL, skb);
++	dst_release(dst);
++}
++EXPORT_SYMBOL_GPL(ip6_redirect_no_header);
++
+ void ip6_sk_redirect(struct sk_buff *skb, struct sock *sk)
+ {
+ 	ip6_redirect(skb, sock_net(sk), sk->sk_bound_dev_if, sk->sk_mark);
+-- 
+1.7.3.1
