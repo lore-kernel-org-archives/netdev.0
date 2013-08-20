@@ -1,32 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: trivial: Remove nocache argument from
- tcp_v4_send_synack
-Date: Tue, 20 Aug 2013 15:07:48 -0700 (PDT)
-Message-ID: <20130820.150748.951759374492185487.davem@davemloft.net>
-References: <1376840078-6556-1-git-send-email-christoph.paasch@uclouvain.be>
+Subject: Re: [PATCH v2] vhost: Include linux/uio.h instead of linux/socket.h
+Date: Tue, 20 Aug 2013 15:08:10 -0700 (PDT)
+Message-ID: <20130820.150810.2276780972263433709.davem@davemloft.net>
+References: <20130816.222946.421410239742571372.davem@davemloft.net>
+	<1376875399-21945-1-git-send-email-asias@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: christoph.paasch@uclouvain.be
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47937 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751701Ab3HTWHs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 18:07:48 -0400
-In-Reply-To: <1376840078-6556-1-git-send-email-christoph.paasch@uclouvain.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	kvm@vger.kernel.org, mst@redhat.com
+To: asias@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1376875399-21945-1-git-send-email-asias@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Date: Sun, 18 Aug 2013 17:34:38 +0200
+From: Asias He <asias@redhat.com>
+Date: Mon, 19 Aug 2013 09:23:19 +0800
 
-> The nocache-argument was used in tcp_v4_send_synack as an argument to
-> inet_csk_route_req. However, since ba3f7f04ef2b (ipv4: Kill
-> FLOWI_FLAG_RT_NOCACHE and associated code.) this is no more used.
+> memcpy_fromiovec is moved from net/core/iovec.c to lib/iovec.c.
+> linux/uio.h provides the declaration for memcpy_fromiovec.
 > 
-> This patch removes the unsued argument from tcp_v4_send_synack.
+> Include linux/uio.h instead of inux/socket.h for it.
 > 
-> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+> Signed-off-by: Asias He <asias@redhat.com>
 
 Applied.
