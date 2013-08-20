@@ -1,10 +1,10 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 5/6] vhost_net: poll vhost queue after marking DMA is done
-Date: Tue, 20 Aug 2013 10:44:40 +0800
-Message-ID: <5212D818.4090201@redhat.com>
+Subject: Re: [PATCH 6/6] vhost_net: remove the max pending check
+Date: Tue, 20 Aug 2013 10:48:18 +0800
+Message-ID: <5212D8F2.10307@redhat.com>
 References: <1376630190-5912-1-git-send-email-jasowang@redhat.com>
-	<1376630190-5912-6-git-send-email-jasowang@redhat.com>
-	<20130816100055.GC21821@redhat.com>
+	<1376630190-5912-7-git-send-email-jasowang@redhat.com>
+	<20130816100225.GD21821@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -12,7 +12,7 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
 	virtualization@lists.linux-foundation.org
 To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130816100055.GC21821@redhat.com>
+In-Reply-To: <20130816100225.GD21821@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -24,51 +24,62 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 08/16/2013 06:00 PM, Michael S. Tsirkin wrote:
-> On Fri, Aug 16, 2013 at 01:16:29PM +0800, Jason Wang wrote:
->> We used to poll vhost queue before making DMA is done, this is racy if vhost
->> thread were waked up before marking DMA is done which can result the signal to
->> be missed. Fix this by always poll the vhost thread before DMA is done.
+On 08/16/2013 06:02 PM, Michael S. Tsirkin wrote:
+> On Fri, Aug 16, 2013 at 01:16:30PM +0800, Jason Wang wrote:
+>> We used to limit the max pending DMAs to prevent guest from pinning too many
+>> pages. But this could be removed since:
+>>
+>> - We have the sk_wmem_alloc check in both tun/macvtap to do the same work
+>> - This max pending check were almost useless since it was one done when there's
+>>   no new buffers coming from guest. Guest can easily exceeds the limitation.
+>> - We've already check upend_idx != done_idx and switch to non zerocopy then. So
+>>   even if all vq->heads were used, we can still does the packet transmission.
+> We can but performance will suffer.
+
+The check were in fact only done when no new buffers submitted from
+guest. So if guest keep sending, the check won't be done.
+
+If we really want to do this, we should do it unconditionally. Anyway, I
+will do test to see the result.
+>
+>> So remove this check completely.
 >>
 >> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> Indeed, but vhost_net_ubuf_put should be the last thing we do:
-> it can cause the device to go away and we'll get
-> a user after free.
-
-Didn't get this. We didn't use ubuf in vhost_zerocopy_signal_used(),
-looks safe here?
->
 >> ---
->>  drivers/vhost/net.c |    9 +++++----
->>  1 files changed, 5 insertions(+), 4 deletions(-)
+>>  drivers/vhost/net.c |   13 -------------
+>>  1 files changed, 0 insertions(+), 13 deletions(-)
 >>
 >> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
->> index 70cab75..a035a89 100644
+>> index a035a89..ed3f165 100644
 >> --- a/drivers/vhost/net.c
 >> +++ b/drivers/vhost/net.c
->> @@ -308,6 +308,11 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
->>  	struct vhost_virtqueue *vq = ubufs->vq;
->>  	int cnt = atomic_read(&ubufs->kref.refcount);
+>> @@ -38,8 +38,6 @@ MODULE_PARM_DESC(experimental_zcopytx, "Enable Zero Copy TX;"
+>>   * Using this limit prevents one virtqueue from starving others. */
+>>  #define VHOST_NET_WEIGHT 0x80000
 >>  
->> +	/* set len to mark this desc buffers done DMA */
->> +	vq->heads[ubuf->desc].len = success ?
->> +		VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
->> +	vhost_net_ubuf_put(ubufs);
->> +
->>  	/*
->>  	 * Trigger polling thread if guest stopped submitting new buffers:
->>  	 * in this case, the refcount after decrement will eventually reach 1
->> @@ -318,10 +323,6 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
->>  	 */
->>  	if (cnt <= 2 || !(cnt % 16))
->>  		vhost_poll_queue(&vq->poll);
->> -	/* set len to mark this desc buffers done DMA */
->> -	vq->heads[ubuf->desc].len = success ?
->> -		VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
->> -	vhost_net_ubuf_put(ubufs);
->>  }
+>> -/* MAX number of TX used buffers for outstanding zerocopy */
+>> -#define VHOST_MAX_PEND 128
+>>  #define VHOST_GOODCOPY_LEN 256
 >>  
->>  /* Expects to be always run from workqueue - which acts as
+>>  /*
+>> @@ -372,17 +370,6 @@ static void handle_tx(struct vhost_net *net)
+>>  			break;
+>>  		/* Nothing new?  Wait for eventfd to tell us they refilled. */
+>>  		if (head == vq->num) {
+>> -			int num_pends;
+>> -
+>> -			/* If more outstanding DMAs, queue the work.
+>> -			 * Handle upend_idx wrap around
+>> -			 */
+>> -			num_pends = likely(nvq->upend_idx >= nvq->done_idx) ?
+>> -				    (nvq->upend_idx - nvq->done_idx) :
+>> -				    (nvq->upend_idx + UIO_MAXIOV -
+>> -				     nvq->done_idx);
+>> -			if (unlikely(num_pends > VHOST_MAX_PEND))
+>> -				break;
+>>  			if (unlikely(vhost_enable_notify(&net->dev, vq))) {
+>>  				vhost_disable_notify(&net->dev, vq);
+>>  				continue;
 >> -- 
 >> 1.7.1
 > --
