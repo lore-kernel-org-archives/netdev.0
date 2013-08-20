@@ -1,38 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] vxlan: using kfree_rcu() to simplify the code
-Date: Tue, 20 Aug 2013 15:06:02 -0700 (PDT)
-Message-ID: <20130820.150602.458021346277301822.davem@davemloft.net>
-References: <CAPgLHd8gtuhjrPP-t0dHGj_BDY5WqqX-QQbHpNK+0gPpuSN9LQ@mail.gmail.com>
-	<20130816164544.628ae1df@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH net-next 1/2 ] ipv6: convert the uses of ADBG and
+ remove the superfluous parentheses
+Date: Tue, 20 Aug 2013 15:06:35 -0700 (PDT)
+Message-ID: <20130820.150635.863249554553492589.davem@davemloft.net>
+References: <520EDF78.3010106@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: weiyj.lk@gmail.com, pshelar@nicira.com,
-	mike.rapoport@ravellosystems.com, amwang@redhat.com,
-	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, joe@perches.com, netdev@vger.kernel.org
+To: dingtianhong@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47900 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47913 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751168Ab3HTWGD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 18:06:03 -0400
-In-Reply-To: <20130816164544.628ae1df@nehalam.linuxnetplumber.net>
+	with ESMTP id S1751168Ab3HTWGg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 18:06:36 -0400
+In-Reply-To: <520EDF78.3010106@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Fri, 16 Aug 2013 16:45:44 -0700
+From: Ding Tianhong <dingtianhong@huawei.com>
+Date: Sat, 17 Aug 2013 10:27:04 +0800
 
-> On Sat, 17 Aug 2013 07:32:09 +0800
-> Wei Yongjun <weiyj.lk@gmail.com> wrote:
+> Just follow the Joe Perches's opinion, it is a better way to fix the
+> style errors.
 > 
->> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->> 
->> The callback function of call_rcu() just calls a kfree(), so we
->> can use kfree_rcu() instead of call_rcu() + callback function.
->> 
->> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
- ...
-> Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+> Suggested-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 
 Applied.
