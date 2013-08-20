@@ -1,40 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: remember WOL preferences on driver load
-Date: Tue, 20 Aug 2013 16:48:51 -0700 (PDT)
-Message-ID: <20130820.164851.504886965054952877.davem@davemloft.net>
-References: <1376730002-9235-1-git-send-email-lekensteyn@gmail.com>
-	<20130820.151036.1067735437451172978.davem@davemloft.net>
-	<20130820231201.GA31154@electric-eye.fr.zoreil.com>
+Subject: Re: pull request net: 2013-08-17
+Date: Tue, 20 Aug 2013 16:55:12 -0700 (PDT)
+Message-ID: <20130820.165512.254703237118139261.davem@davemloft.net>
+References: <1376735694-676-1-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lekensteyn@gmail.com, netdev@vger.kernel.org, nic_swsd@realtek.com,
-	hayeswang@realtek.com
-To: romieu@fr.zoreil.com
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: ordex@autistici.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48926 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48969 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751342Ab3HTXsy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 19:48:54 -0400
-In-Reply-To: <20130820231201.GA31154@electric-eye.fr.zoreil.com>
+	with ESMTP id S1751404Ab3HTXzN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 19:55:13 -0400
+In-Reply-To: <1376735694-676-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Wed, 21 Aug 2013 01:12:01 +0200
+From: Antonio Quartulli <ordex@autistici.org>
+Date: Sat, 17 Aug 2013 12:34:53 +0200
 
-> David Miller <davem@davemloft.net> :
-> [...]
->> > Signed-off-by: Peter Wu <lekensteyn@gmail.com>
->> 
->> Can I get some reviews and Ack's for this?
+> here you have another very small fix intended for net/linux-3.11.
+> Tha patch properly closes a seq_read session by adding an invocation to
+> skb_abort_seq_read().
 > 
-> It's more consistent with the {get / set}_wol parts of the driver and
-> it's done in a way both Hayes and myself agreed on during the previous
-> messages.
-> 
-> So you can consider it:
-> 
-> Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+> Please pull or let me know if there is any problem.
 
-Thanks, applied.
+Pulled thanks.
+
+> Also, when do you plan to merge net into net-next? I have a couple of changes
+> for net-next which is better to apply after the merge.
+
+I did one the other day.  I'll probably do one the next time I merge
+changes to Linus, say Thursday some time.
