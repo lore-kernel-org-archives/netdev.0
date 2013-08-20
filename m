@@ -1,40 +1,68 @@
-From: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH v6] ARM: davinci: da850: add DT node for ethernet
-Date: Tue, 20 Aug 2013 10:46:54 +0530
-Message-ID: <5212FBC6.4060308@ti.com>
-References: <1376672829-4220-1-git-send-email-prabhakar.csengg@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        DLOS
-	<davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
-        LKML
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Lad, Prabhakar" <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-In-Reply-To: <1376672829-4220-1-git-send-email-prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
-List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
-List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
-Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+From: ujhelyi.m@gmail.com
+Subject: [PATCH net-next v3] net: cpsw: Add support for wake-on-lan for cpsw
+Date: Tue, 20 Aug 2013 07:38:17 +0200
+Message-ID: <1376977097-25296-1-git-send-email-ujhelyi.m@gmail.com>
+Cc: linux-kernel@vger.kernel.org, Matus Ujhelyi <ujhelyi.m@gmail.com>
+To: davem@davemloft.net, mugunthanvnm@ti.com, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 16 August 2013 10:37 PM, Lad, Prabhakar wrote:
-> From: "Lad, Prabhakar" <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> 
-> Add ethernet device tree node information and pinmux for mii to da850 by
-> providing interrupt details and local mac address.
-> 
-> Signed-off-by: Lad, Prabhakar <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Matus Ujhelyi <ujhelyi.m@gmail.com>
 
-Queuing this for v3.12
+Some phy's can be configured to enable wake on lan (e.g. at803x or marvell 88E1318S).
+There is no way how to enable wol on CPSW with such connected phys. This patch
+adds this support. It is provided by calling the phy's related code.
 
-Thanks,
-Sekhar
+Tested on board with at8030x connected phy. Wol interrupt line is
+connected to GPIO0 on am335x.
+
+Signed-off-by: Matus Ujhelyi <ujhelyi.m@gmail.com>
+---
+ drivers/net/ethernet/ti/cpsw.c |   24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 0fcf212..5d673bf 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1640,6 +1640,28 @@ static int cpsw_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
+ 		return -EOPNOTSUPP;
+ }
+ 
++static void cpsw_get_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
++{
++	struct cpsw_priv *priv = netdev_priv(ndev);
++	int slave_no = cpsw_slave_index(priv);
++	wol->supported = 0;
++	wol->wolopts = 0;
++
++	if (priv->slaves[slave_no].phy)
++		phy_ethtool_get_wol(priv->slaves[slave_no].phy, wol);
++}
++
++static int cpsw_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
++{
++	struct cpsw_priv *priv = netdev_priv(ndev);
++	int slave_no = cpsw_slave_index(priv);
++
++	if (priv->slaves[slave_no].phy)
++		return phy_ethtool_set_wol(priv->slaves[slave_no].phy, wol);
++	else
++		return -EOPNOTSUPP;
++}
++
+ static const struct ethtool_ops cpsw_ethtool_ops = {
+ 	.get_drvinfo	= cpsw_get_drvinfo,
+ 	.get_msglevel	= cpsw_get_msglevel,
+@@ -1653,6 +1675,8 @@ static const struct ethtool_ops cpsw_ethtool_ops = {
+ 	.get_sset_count		= cpsw_get_sset_count,
+ 	.get_strings		= cpsw_get_strings,
+ 	.get_ethtool_stats	= cpsw_get_ethtool_stats,
++	.get_wol	= cpsw_get_wol,
++	.set_wol	= cpsw_set_wol,
+ };
+ 
+ static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv,
+-- 
+1.7.9.5
