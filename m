@@ -1,71 +1,71 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: [RFC 0/2] Account for duplicate ACKs with invalid SACK-blocks
-Date: Tue, 20 Aug 2013 09:36:21 +0200
-Message-ID: <20130820073621.GB4185@cpaasch-mac>
-References: <1376935800.4226.71.camel@edumazet-glaptop>
- <1376940568-16512-1-git-send-email-christoph.paasch@uclouvain.be>
- <52128CA6.6090001@fatooh.org>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net-next 2/3] net/mlx4_en: Notify user when TX ring in
+ error state
+Date: Tue, 20 Aug 2013 10:55:20 +0300
+Message-ID: <521320E8.9020109@mellanox.com>
+References: <1376894542-27854-1-git-send-email-amirv@mellanox.com> <1376894542-27854-3-git-send-email-amirv@mellanox.com> <521268CE.7040508@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	Phil Oester <kernel@linuxace.com>,
-	Benjamin Hesmans <benjamin.hesmans@uclouvain.be>
-To: Corey Hickey <bugfood-ml@fatooh.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:55207 "EHLO
-	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751475Ab3HTHga (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 03:36:30 -0400
-Content-Disposition: inline
-In-Reply-To: <52128CA6.6090001@fatooh.org>
+Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:57783 "EHLO
+	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751304Ab3HTHz1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 03:55:27 -0400
+In-Reply-To: <521268CE.7040508@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 19/08/13 - 14:22:46, Corey Hickey wrote:
-> On 2013-08-19 12:29, Christoph Paasch wrote:
-> > There exist sequence-number rewriting middleboxes, who do not modify the 
-> > sequence-number in the SACK-blocks.
-> > Duplicate acknowledgments with these (invalid) SACK-blocks will not be
-> > accounted in sacked_out, and thus no fast-retransmit will trigger.
-> > So, the only way to recover from a packet-loss is through an RTO,
-> > effectively killing the performance of TCP in this case.
-> > 
-> > Performance-results can be seen here:
-> > http://tools.ietf.org/agenda/87/slides/slides-87-tcpm-11.pdf
-> > 
-> > Another solution might be to simply disable SACK, as soon as an invalid
-> > SACK-block has been received (as suggested by Phil Oester). This however
-> > might be too aggressive.
-> > 
-> > Christoph Paasch (2):
-> >   Use acked_out for reno-style ack acounting instead of sacked_out
-> >   Account acked_out in sack, if the sack is invalid
-> > 
-> >  include/linux/tcp.h      |   1 +
-> >  include/net/tcp.h        |  17 +++++---
-> >  net/ipv4/tcp_input.c     | 103 ++++++++++++++++++++++++++++++++---------------
-> >  net/ipv4/tcp_minisocks.c |   1 +
-> >  net/ipv4/tcp_output.c    |   6 +--
-> >  net/ipv4/tcp_timer.c     |   2 +-
-> >  6 files changed, 89 insertions(+), 41 deletions(-)
+On 19/08/2013 21:49, Sergei Shtylyov wrote:
+> Hello.
 > 
-> I tested this patchset, and, unfortunately, the behavior seems to be the
-> same.
-
-Yes, because the problem is still on conntrack's side too.
-
-As soon as conntrack will let pass the invalid SACK-blocks, you will
-experience bad performance because every packet-loss can only be recovered
-by an RTO.
-My patchset tries to fix this last issue.
-
-
-Cheers,
-Christoph
-
+> On 08/19/2013 10:42 AM, Amir Vadai wrote:
 > 
-> I'm still planning on working with the Cisco device, when I can get some
-> of the network admin's time, but that won't happen immediately.
+>> When hardware gets into error state, must notify user about it.
+>> When QP in error state no traffic will be tx'ed from the attached
+>> tx_ring.
 > 
-> Thanks,
-> Corey
+>> Driver should know how to recover from this unexpected state. I will
+>> send later
+>> on the recovery flow, but having the print shouldn't be delayed.
+> 
+>> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+>> ---
+>>   drivers/net/ethernet/mellanox/mlx4/en_tx.c | 8 ++++++++
+>>   1 file changed, 8 insertions(+)
+> 
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+>> b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+>> index 6dcca98..157bcd1 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+>> @@ -362,6 +362,14 @@ static void mlx4_en_process_tx_cq(struct
+>> net_device *dev, struct mlx4_en_cq *cq)
+>>            */
+>>           rmb();
+>>
+>> +        if (unlikely((cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK) ==
+>> +                 MLX4_CQE_OPCODE_ERROR)) {
+>> +            struct mlx4_err_cqe *cqe_err = (struct mlx4_err_cqe *)cqe;
+> 
+>    Empty line wouldn't hurt here, after declaration.
+> 
+>> +            en_err(priv, "CQE error - vendor syndrom: 0x%x syndrom:
+>> 0x%x\n",
+> 
+>    s/syndrom/syndrome/ as below?
+> 
+>> +                   cqe_err->vendor_err_syndrome,
+>> +                   cqe_err->syndrome);
+>> +        }
+>> +
+> 
+> WBR, Sergei
+> 
+> 
+
+Thanks - will be fixed for V1
+
+Amir
