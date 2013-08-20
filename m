@@ -1,51 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: About tcp: set timestamps for restored skb-s
-Date: Tue, 20 Aug 2013 13:08:06 -0700 (PDT)
-Message-ID: <20130820.130806.2180396135396793576.davem@davemloft.net>
-References: <1376786376.21329.20.camel@edumazet-glaptop>
+Subject: Re: [PATCH] tcp: set timestamps for restored skb-s
+Date: Tue, 20 Aug 2013 13:08:18 -0700 (PDT)
+Message-ID: <20130820.130818.1803264305462032520.davem@davemloft.net>
+References: <1376665476-9683-1-git-send-email-avagin@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: avagin@openvz.org, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46399 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751611Ab3HTUIH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 16:08:07 -0400
-In-Reply-To: <1376786376.21329.20.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net
+To: avagin@openvz.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1376665476-9683-1-git-send-email-avagin@openvz.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 17 Aug 2013 17:39:36 -0700
+From: Andrey Vagin <avagin@openvz.org>
+Date: Fri, 16 Aug 2013 19:04:36 +0400
 
-> Because of gmail.com problems, I missed lot of netdev traffic
+> When the repair mode is turned off, the write queue seqs are
+> updated so that the whole queue is considered to be 'already sent.
 > 
-> Related to :
+> The "when" field must be set for such skb. It's used in tcp_rearm_rto
+> for example. If the "when" field isn't set, the retransmit timeout can
+> be calculated incorrectly and a tcp connected can stop for two minutes
+> (TCP_RTO_MAX).
 > 
-> http://patchwork.ozlabs.org/patch/267678/
-> 
-> 
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 5423223..b2f6c74 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -1121,6 +1121,13 @@  new_segment:
->  					goto wait_for_memory;
->  
->  				/*
-> +				 * All packets are restored as if they have
-> +				 * already been sent.
-> +				 */
-> +				if (tp->repair)
-> +					TCP_SKB_CB(skb)->when = tcp_time_stamp;
-> +
-> 
-> The test could be removed.
-> 
-> Setting @when for regular sends seems harmless
+> Acked-by: Pavel Emelyanov <xemul@parallels.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> Cc: James Morris <jmorris@namei.org>
+> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Signed-off-by: Andrey Vagin <avagin@openvz.org>
 
-I applied this before reading this, sorry.
-
-It can be cleaned up in net-next eventually.
+Applied and queued up for -stable, thanks.
