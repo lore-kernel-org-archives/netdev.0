@@ -1,44 +1,95 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH ipsec v2 1/3] ipv6: wire up skb->encapsulation
-Date: Tue, 20 Aug 2013 11:49:36 +1000
-Message-ID: <20130820014936.GC14038@verge.net.au>
-References: <20130818114652.GA10192@order.stressinduktion.org>
- <20130820003546.GA14038@verge.net.au>
- <20130820003651.GA3938@order.stressinduktion.org>
+From: Fan Du <fan.du@windriver.com>
+Subject: Re: [PATCHv3 linux-next] hrtimer: Add notifier when clock_was_set
+ was called
+Date: Tue, 20 Aug 2013 09:56:26 +0800
+Message-ID: <5212CCCA.4090907@windriver.com>
+References: <1375866296-15079-1-git-send-email-fan.du@windriver.com> <1375866296-15079-2-git-send-email-fan.du@windriver.com> <52021177.6020306@redhat.com> <520213F2.5090401@windriver.com> <520214C6.6000307@redhat.com> <520B4552.2000607@windriver.com> <alpine.DEB.2.02.1308181102230.4089@ionos.tec.linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, steffen.klassert@secunet.com,
-	yoshfuji@linux-ipv6.org, nicolas.dichtel@6wind.com,
-	edumazet@google.com
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:33119 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751239Ab3HTBrd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 21:47:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20130820003651.GA3938@order.stressinduktion.org>
+Received: from mail.windriver.com ([147.11.1.11]:62700 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751254Ab3HTB4m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 21:56:42 -0400
+In-Reply-To: <alpine.DEB.2.02.1308181102230.4089@ionos.tec.linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 20, 2013 at 02:36:51AM +0200, Hannes Frederic Sowa wrote:
-> On Tue, Aug 20, 2013 at 10:35:46AM +1000, Simon Horman wrote:
-> > On Sun, Aug 18, 2013 at 01:46:52PM +0200, Hannes Frederic Sowa wrote:
-> > > When pushing a new header before current one call skb_reset_inner_headers
-> > > to record the position of the inner headers in the various ipv6 tunnel
-> > > protocols.
-> > > 
-> > > We later need this to correctly identify the addresses needed to send
-> > > back an error in the xfrm layer.
-> > > 
-> > > This change is safe, because skb->protocol is always checked before
-> > > dereferencing data from the inner protocol.
-> > 
-> > It seems that the intention is to only track the inner-most header
-> > due to the presence of if (likely(!skb->encapsulation)). Is this the
-> > intention?
-> 
-> Ack. Do you see problems with this?
 
-Not if it is intended.
 
-Reviewed-by: Simon Horman <horms@verge.net.au>
+On 2013=E5=B9=B408=E6=9C=8818=E6=97=A5 17:05, Thomas Gleixner wrote:
+> On Wed, 14 Aug 2013, Fan Du wrote:
+>
+>>  From e3929d4fdfad5b40fd8cad0e217597670d1aef54 Mon Sep 17 00:00:00 2=
+001
+>> From: Fan Du<fan.du@windriver.com>
+>> Date: Wed, 14 Aug 2013 16:39:23 +0800
+>> Subject: [PATCHv3 linux-next] hrtimer: Add notifier when clock_was_s=
+et was
+>> called
+>>
+>> When clock_was_set is called in case of system wall time change
+>> or host resume from suspend state, use this notifier for places
+>> where interested in this action, e.g Ipsec SA lifetime management.
+>
+> Sigh. These notifiers have been proposed in the past and we always
+> rejected them. Why do you need this? There should be nothing except
+> the core timekeeping code which needs to know about clock_was_set.
+>
+> Can you please explain what kind of users you have in mind and WHY
+> they need to know about it.
+
+Hi, Thomas
+
+
+Thanks for your patience. Please let me take a few seconds try to
+explain this.
+
+Current xfrm layers has *one* hrtimer to guard Ipsec keys timeout,
+The timeout could be measured in either of below two ways:
+
+  (1) The timer is started once the keys is created, but this
+      key is not necessary actually used right now. In detail,
+      record the get_seconds() when this key is created.
+
+  (2) Starting the timer when this key is actually used, e.g when
+      an IP packet need to be encrypted. In details, recored the
+      get_seconds() when this key is first used.
+
+So in the hrtimer handler, the code get current get_seconds, and
+check against with what saved in (1)or(2), and notify the timeout
+up to user land.
+
+So the pitfall is using one hrtimer for two timeout events,
+most importantly using get_seconds to check timeout, once system
+clock is changed by user intentionally, the key timeout could
+misbehave wildly.
+
+A refractor has been proposed to get rid of depending on system wall
+clock by cleaning up the hrtimer handler. Unfortunately David frowned
+on it in (3), and suggest once system clock is changed, adjust the
+timeout of the key.
+
+
+(3): http://www.spinics.net/lists/netdev/msg245169.html
+
+
+> Thanks,
+>
+> 	tglx
+>
+
+--=20
+=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
+=E7=AC=91
+
+--fan
