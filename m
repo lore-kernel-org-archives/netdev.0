@@ -1,50 +1,58 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 12/19] netfilter: tproxy: fix build with IP6_NF_IPTABLES=n
-Date: Tue, 20 Aug 2013 12:54:44 +0200
-Message-ID: <1376996091-3964-13-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 09/19] netfilter: nf_nat: fix locking in nf_nat_seq_adjust()
+Date: Tue, 20 Aug 2013 12:54:41 +0200
+Message-ID: <1376996091-3964-10-git-send-email-pablo@netfilter.org>
 References: <1376996091-3964-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:60101 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751213Ab3HTKzN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Aug 2013 06:55:13 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1376996091-3964-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+From: Patrick McHardy <kaber@trash.net>
 
-after commit 93742cf (netfilter: tproxy: remove nf_tproxy_core.h)
+nf_nat_seq_adjust() needs to grab nf_nat_seqofs_lock to protect against
+concurrent changes to the sequence adjustment data.
 
-CONFIG_IPV6=y
-CONFIG_IP6_NF_IPTABLES=n
-
-gives us:
-
-net/netfilter/xt_TPROXY.c: In function 'nf_tproxy_get_sock_v6':
-net/netfilter/xt_TPROXY.c:178:4: error: implicit declaration of function 'inet6_lookup_listener'
-
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/xt_TPROXY.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/nf_nat_helper.c |    7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
-index 851383a..5d8a3a3 100644
---- a/net/netfilter/xt_TPROXY.c
-+++ b/net/netfilter/xt_TPROXY.c
-@@ -161,7 +161,7 @@ nf_tproxy_get_sock_v4(struct net *net, const u8 protocol,
- 	return sk;
+diff --git a/net/netfilter/nf_nat_helper.c b/net/netfilter/nf_nat_helper.c
+index 85e20a9..a7262ed 100644
+--- a/net/netfilter/nf_nat_helper.c
++++ b/net/netfilter/nf_nat_helper.c
+@@ -373,6 +373,7 @@ nf_nat_seq_adjust(struct sk_buff *skb,
+ 	s16 seqoff, ackoff;
+ 	struct nf_conn_nat *nat = nfct_nat(ct);
+ 	struct nf_nat_seq *this_way, *other_way;
++	int res;
+ 
+ 	dir = CTINFO2DIR(ctinfo);
+ 
+@@ -383,6 +384,7 @@ nf_nat_seq_adjust(struct sk_buff *skb,
+ 		return 0;
+ 
+ 	tcph = (void *)skb->data + protoff;
++	spin_lock_bh(&nf_nat_seqofs_lock);
+ 	if (after(ntohl(tcph->seq), this_way->correction_pos))
+ 		seqoff = this_way->offset_after;
+ 	else
+@@ -407,7 +409,10 @@ nf_nat_seq_adjust(struct sk_buff *skb,
+ 	tcph->seq = newseq;
+ 	tcph->ack_seq = newack;
+ 
+-	return nf_nat_sack_adjust(skb, protoff, tcph, ct, ctinfo);
++	res = nf_nat_sack_adjust(skb, protoff, tcph, ct, ctinfo);
++	spin_unlock_bh(&nf_nat_seqofs_lock);
++
++	return res;
  }
  
--#if IS_ENABLED(CONFIG_IPV6)
-+#ifdef XT_TPROXY_HAVE_IPV6
- static inline struct sock *
- nf_tproxy_get_sock_v6(struct net *net, const u8 protocol,
- 		      const struct in6_addr *saddr, const struct in6_addr *daddr,
+ /* Setup NAT on this expected conntrack so it follows master. */
 -- 
 1.7.10.4
+
