@@ -1,52 +1,39 @@
-From: "Florian Fainelli" <f.fainelli@gmail.com>
-Subject: [PATCH 2/3] net: vlan: handle NETDEV_CHANGEROOM events
-Date: Tue, 20 Aug 2013 13:45:51 +0100
-Message-ID: <1377002752-4622-3-git-send-email-f.fainelli@gmail.com>
-References: <1377002752-4622-1-git-send-email-f.fainelli@gmail.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next v3 9/9] selinux: use generic union inet_addr
+Date: Tue, 20 Aug 2013 21:01:17 +0800
+Message-ID: <1377003677.13412.5.camel@cr0>
+References: <1376907278-26377-1-git-send-email-amwang@redhat.com>
+	 <1376907278-26377-10-git-send-email-amwang@redhat.com>
+	 <52127336.3080209@schaufler-ca.com>
+	 <20130819.125026.636442915180863272.davem@davemloft.net>
+	 <5212915F.20905@schaufler-ca.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, jiri@resnulli.us, stephen@networkplumber.org,
-	kaber@trash.net, davem@davemloft.net, vyasevic@redhat.com,
-	johannes@sipsolutions.net, eric.dumazet@gmail.com,
-	"Florian Fainelli" <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4027 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751284Ab3HTMqS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Aug 2013 08:46:18 -0400
-In-Reply-To: <1377002752-4622-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	james.l.morris@oracle.com, sds@tycho.nsa.gov,
+	eparis@parisplace.org, pmoore@redhat.com,
+	linux-kernel@vger.kernel.org, linux-security-module@vger.kernel.org
+To: Casey Schaufler <casey@schaufler-ca.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <5212915F.20905@schaufler-ca.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Whenever the parent device has needed_headroom/needed_tailroom
-requirement changes, the VLAN devices should also be updated to the new
-value. Handle the NETDEV_CHANGEROOM events and just set the new headroom
-and tailroom requirements to the values of the parent device.
+On Mon, 2013-08-19 at 14:42 -0700, Casey Schaufler wrote:
+> 
+> Well, they certainly don't appear to add any value on their own.
+> I also generally oppose doing clever things with data structures. 
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- net/8021q/vlan.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+If you want to implement same thing for 5+ times, yes, it has no value
+for you. Enjoy the following code in current tree:
 
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 61fc573..11a1faa 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -466,6 +466,13 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 		vlan_group_for_each_dev(grp, i, vlandev)
- 			call_netdevice_notifiers(event, vlandev);
- 		break;
-+
-+	case NETDEV_CHANGEROOM:
-+		vlan_group_for_each_dev(grp, i, vlandev) {
-+			dev_set_headroom(vlandev, dev->needed_headroom);
-+			dev_set_tailroom(vlandev, dev->needed_tailroom);
-+		}
-+		break;
- 	}
- 
- out:
--- 
-1.8.1.2
+union nf_inet_addr;
+union sctp_addr;
+union vxlan_addr; (in my VXLAN IPv6 patches, search email archives)
+struct br_mdb_entry::addr;
+union inet_addr; (in netpoll.h)
+
+And may I tell you the last three are all from me? ;-)
+
+
