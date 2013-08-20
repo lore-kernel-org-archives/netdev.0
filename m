@@ -1,33 +1,53 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [Patch net-next] openvswitch: check
-	CONFIG_OPENVSWITCH_GRE in makefile
-Date: Tue, 20 Aug 2013 10:52:09 -0700
-Message-ID: <CAEP_g=8SnRxyfxeQ72MsxNFXVgOq48SZ6jrdhD-vXVQJheTOrA@mail.gmail.com>
-References: <1376990410-21778-1-git-send-email-amwang@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/2] net: netem: always adjust now/delay when not reordering
+Date: Tue, 20 Aug 2013 22:31:56 +0400
+Message-ID: <5213B61C.1060004@cogentembedded.com>
+References: <1377011469-26151-1-git-send-email-mailings@hupie.com> <1377011469-26151-2-git-send-email-mailings@hupie.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1376990410-21778-1-git-send-email-amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Ferry Huberts <mailings@hupie.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:50552 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751184Ab3HTSbv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 14:31:51 -0400
+Received: by mail-lb0-f180.google.com with SMTP id a16so736360lbj.25
+        for <netdev@vger.kernel.org>; Tue, 20 Aug 2013 11:31:50 -0700 (PDT)
+In-Reply-To: <1377011469-26151-2-git-send-email-mailings@hupie.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 20, 2013 at 2:20 AM, Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> From: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Hello.
+
+On 08/20/2013 07:11 PM, Ferry Huberts wrote:
+
+> From: Ferry Huberts <ferry.huberts@pelagic.nl>
+
+> Not doing this (current behaviour) introduces reordering.
+
+> The packet_len_2_sched_time call is the only thing that logically
+> depends on q->rate, so move the now/delay adjustment out of the if.
+
+> Signed-off-by: Ferry Huberts <ferry.huberts@pelagic.nl>
+> ---
+>   net/sched/sch_netem.c | 34 +++++++++++++++++-----------------
+>   1 file changed, 17 insertions(+), 17 deletions(-)
+
+> diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+> index abe5fa6..86c73d2 100644
+> --- a/net/sched/sch_netem.c
+> +++ b/net/sched/sch_netem.c
+[...]
+> @@ -465,24 +467,22 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+[...]
 >
-> Cc: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-> Cc: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> +		if (q->rate) {
+>   			delay += packet_len_2_sched_time(skb->len, q);
+>   		}
 
-Applied, thanks Cong.
+    Single statements shouldn't be enclosed in {} (and scripts/checkpatch.pl 
+should complain about it).
+
+WBR, Sergei
