@@ -1,30 +1,40 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: About tcp: set timestamps for restored skb-s
-Date: Tue, 20 Aug 2013 13:30:47 -0700
-Message-ID: <1377030647.4226.87.camel@edumazet-glaptop>
-References: <1376786376.21329.20.camel@edumazet-glaptop>
-	 <20130820.130806.2180396135396793576.davem@davemloft.net>
+Subject: Re: [PATCH 2/2] net: netem: always adjust now/delay when not
+ reordering
+Date: Tue, 20 Aug 2013 13:33:20 -0700
+Message-ID: <1377030800.4226.89.camel@edumazet-glaptop>
+References: <1377011469-26151-1-git-send-email-mailings@hupie.com>
+	 <1377011469-26151-2-git-send-email-mailings@hupie.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: avagin@openvz.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Ferry Huberts <mailings@hupie.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:42456 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750938Ab3HTUat (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 16:30:49 -0400
-Received: by mail-pa0-f53.google.com with SMTP id lb1so1161242pab.12
-        for <netdev@vger.kernel.org>; Tue, 20 Aug 2013 13:30:49 -0700 (PDT)
-In-Reply-To: <20130820.130806.2180396135396793576.davem@davemloft.net>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:40561 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751157Ab3HTUdW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 16:33:22 -0400
+Received: by mail-pa0-f47.google.com with SMTP id kl13so1151945pab.20
+        for <netdev@vger.kernel.org>; Tue, 20 Aug 2013 13:33:21 -0700 (PDT)
+In-Reply-To: <1377011469-26151-2-git-send-email-mailings@hupie.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-08-20 at 13:08 -0700, David Miller wrote:
-
+On Tue, 2013-08-20 at 17:11 +0200, Ferry Huberts wrote:
+> From: Ferry Huberts <ferry.huberts@pelagic.nl>
 > 
-> I applied this before reading this, sorry.
+> Not doing this (current behaviour) introduces reordering.
 > 
-> It can be cleaned up in net-next eventually.
+> The packet_len_2_sched_time call is the only thing that logically
+> depends on q->rate, so move the now/delay adjustment out of the if.
+> 
+> Signed-off-by: Ferry Huberts <ferry.huberts@pelagic.nl>
+> ---
+>  net/sched/sch_netem.c | 34 +++++++++++++++++-----------------
+>  1 file changed, 17 insertions(+), 17 deletions(-)
 
-No worries, this was a minor comment, thanks ;)
+I would like you to show how this was tested, for example if we have a
+rate + delay + reorders.
+
+Thanks
