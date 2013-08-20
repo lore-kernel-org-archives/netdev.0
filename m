@@ -1,59 +1,69 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: changing dev->needed_headroom/needed_tailroom?
-Date: Tue, 20 Aug 2013 09:29:39 -0700
-Message-ID: <20130820092939.7d4cad35@nehalam.linuxnetplumber.net>
-References: <1374850210.8248.59.camel@jlt4.sipsolutions.net>
-	<1375433758.24371.20.camel@deadeye.wl.decadent.org.uk>
-	<1375449082.3927.5.camel@edumazet-glaptop>
-	<1375711240.8120.11.camel@jlt4.sipsolutions.net>
-	<CAGVrzcaGV6AqLTAxpM6zMv7_C-LNxp-WNg+J47d7a9S+Ca1bDw@mail.gmail.com>
-	<20130820092013.6ca909e2@nehalam.linuxnetplumber.net>
-	<1377015897.13829.16.camel@jlt4.sipsolutions.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 1/3] net: add a new NETDEV_CHANGEROOM event type
+Date: Tue, 20 Aug 2013 18:35:16 +0200
+Message-ID: <1377016516.13829.17.camel@jlt4.sipsolutions.net>
+References: <1377002752-4622-1-git-send-email-f.fainelli@gmail.com>
+	 <1377002752-4622-2-git-send-email-f.fainelli@gmail.com>
+	 <1377011818.13829.9.camel@jlt4.sipsolutions.net>
+	 <CAGVrzcahRhYJM-1KcNDOoekKCetSZCN67hHQ0fgjndehZ=9EUw@mail.gmail.com>
+	 (sfid-20130820_173131_746711_47EADE45)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev <netdev@vger.kernel.org>, linux-wireless@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: netdev <netdev@vger.kernel.org>, amwang <amwang@redhat.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	kaber <kaber@trash.net>, David Miller <davem@davemloft.net>,
+	vyasevic <vyasevic@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:52657 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751129Ab3HTQ3m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 12:29:42 -0400
-Received: by mail-pd0-f169.google.com with SMTP id r10so599808pdi.14
-        for <netdev@vger.kernel.org>; Tue, 20 Aug 2013 09:29:42 -0700 (PDT)
-In-Reply-To: <1377015897.13829.16.camel@jlt4.sipsolutions.net>
+Received: from s3.sipsolutions.net ([144.76.43.152]:55712 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751226Ab3HTQf1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 12:35:27 -0400
+In-Reply-To: <CAGVrzcahRhYJM-1KcNDOoekKCetSZCN67hHQ0fgjndehZ=9EUw@mail.gmail.com> (sfid-20130820_173131_746711_47EADE45)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 20 Aug 2013 18:24:57 +0200
-Johannes Berg <johannes@sipsolutions.net> wrote:
+On Tue, 2013-08-20 at 16:30 +0100, Florian Fainelli wrote:
 
-> On Tue, 2013-08-20 at 09:20 -0700, Stephen Hemminger wrote:
+> > Also, maybe it would be worth doing it in one call? If you need to
+> > change both, then you'd end up calling the notifier twice, which is less
+> > efficient?
 > 
-> > All code must check for needed headroom first, and copy packet
-> > if space is not available. Since excess headroom is always safe,
-> > most devices just always use the same worst case headroom.
-> > 
-> > Even with your changes this will still be necessary since packets will
-> > be still in flight while features change.
-> 
-> I agree, it will always be necessary. I guess the question boils down to
-> whether/what N bytes headroom more or less actually make a difference.
-> 
-> The wireless stack currently sets needed_headroom to 34 or so I think,
-> but I will need to increase by 8 which was why I had this question to
-> start with. However, those 34 are an absolute worst case - in most cases
-> it's much less...
-> 
-> So I suppose the other question we should ask is will increasing from
-> ~34 to ~42 make a significant different that it's worth thinking about
-> avoiding it in the common cases at all?
-> 
-> johannes
-> 
+> I have mixed feelings about this. I do not expect changing the
+> headroom/tailroom to be in a hot-path, and we would need to have a
+> name such as dev_set_head_and_tailroom() or something that clearly
+> states that it operates on both quantities. Looking at the subsystems
+> and drivers, there are quite a lot of users which only set one or the
+> other, occasionaly both before registration.
 
-The only thing that might matter is alignment. but +/- 8 bytes isn't going
-to change that.
+No, it shouldn't be on a path that has any performance impact at all,
+that's true.
+
+> > I suppose you could make them 'int' arguments and reserve -1
+> > for no changes, or just require both new values to be given (if doing
+> > this at all.)
+> 
+> What I like about keeping them separate is that we can use the
+> "native" storage type that is used in struct net_device, and have
+> compile-time checking of this.
+
+Makes sense.
+
+I was really more thinking about the notifier complexity.
+
+Right now, you can potentially blow up your iterations - for example if
+you have a vlan on a bridge:
+ * driver sets headroom (or tailroom)
+ * this iterates all netdevs, including the bridge
+ * bridge calls the function again, and while iterating iterates again,
+then
+   going into the vlan
+   (is it even valid to iterate while iterating?)
+ * vlan calls it again and it iterates again, doing nothing this time
+
+So now you've iterated the netdevs many times...
+
+johannes
