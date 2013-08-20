@@ -1,26 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch -next] ipip: dereferencing an ERR_PTR in
- ip_tunnel_init_net()
-Date: Tue, 20 Aug 2013 15:08:42 -0700 (PDT)
-Message-ID: <20130820.150842.1107029275114571386.davem@davemloft.net>
-References: <20130819070510.GE28591@elgon.mountain>
+Subject: Re: [PATCH net-next] myri10ge: Add support for ndo_busy_poll
+Date: Tue, 20 Aug 2013 15:09:05 -0700 (PDT)
+Message-ID: <20130820.150905.44199510198057625.davem@davemloft.net>
+References: <1376902939-21968-1-git-send-email-hykim@myri.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20130819070510.GE28591@elgon.mountain>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: hykim@myri.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48025 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751175Ab3HTWJG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 18:09:06 -0400
+In-Reply-To: <1376902939-21968-1-git-send-email-hykim@myri.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Mon, 19 Aug 2013 10:05:10 +0300
+From: Hyong-Youb Kim <hykim@myri.com>
+Date: Mon, 19 Aug 2013 02:02:19 -0700
 
-> We need to move the derefernce after the IS_ERR() check.
+> Add the ndo_busy_poll handler. Use skb_mark_napi_id to mark receive
+> packets with the napi id. For each slice, use per-slice spinlock and
+> state variable to ensure that only one handler processes receive
+> pacekts.
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Locking, statistics counters, and the ndo_busy_poll handler follow
+> those in the ixgbe driver. So, credit goes to that driver's authors.
+> 
+> Signed-off-by: Hyong-Youb Kim <hykim@myri.com>
 
-Applied.
+Applied, but this patch had a ton of trailing whitespace which I had
+to fix up.
