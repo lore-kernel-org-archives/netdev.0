@@ -1,41 +1,54 @@
-From: "Berg, Johannes" <johannes.berg@intel.com>
-Subject: RE: [PATCH next] netlink: prevent deadlock in ctrl_dumpfamily()
-Date: Tue, 20 Aug 2013 14:03:25 +0000
-Message-ID: <1DC40B07CD6EC041A66726C271A73AE61AA6F1BC@IRSMSX102.ger.corp.intel.com>
-References: <20130820135033.GA2315@swordfish.minsk.epam.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 0/3] net: propagate dynamic needed_headroom/tailroom changes
+Date: Tue, 20 Aug 2013 15:24:37 +0100
+Message-ID: <CAGVrzcZQ79rVcezAM7rk6dMBnHySCn3b5wL98npOx=LM=Tb6Mw@mail.gmail.com>
+References: <1377002752-4622-1-git-send-email-f.fainelli@gmail.com> <20130820132950.GA1593@minipsycho.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Patrick McHardy <kaber@trash.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Gao feng <gaofeng@cn.fujitsu.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130820135033.GA2315@swordfish.minsk.epam.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, amwang@redhat.com,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	kaber@trash.net, David Miller <davem@davemloft.net>,
+	vyasevic@redhat.com, Johannes Berg <johannes@sipsolutions.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:51654 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751146Ab3HTOZS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 10:25:18 -0400
+Received: by mail-pd0-f175.google.com with SMTP id q10so444789pdj.34
+        for <netdev@vger.kernel.org>; Tue, 20 Aug 2013 07:25:17 -0700 (PDT)
+In-Reply-To: <20130820132950.GA1593@minipsycho.brq.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- 
-> +	if (need_locking) {
-> +		/* genl_mutex could be already locked in genl_rcv_msg() */
-> +		rt = genl_family_find_byid(cb->nlh->nlmsg_type);
-> +		need_locking = need_locking && rt->parallel_ops;
-> +	}
+2013/8/20 Jiri Pirko <jiri@resnulli.us>:
+> Tue, Aug 20, 2013 at 02:45:49PM CEST, f.fainelli@gmail.com wrote:
+>>Hi all,
+>>
+>>This patchset aims at allowing dynamically changing a given device
+>>needed_headroom/tailroom space and propagating such events to stacked
+>>devices such as bridges and vlans.
+>
+> You should also add support for other stacked devices, like bonding,
+> team, macvlan, ovs-datapath, etc.
 
-This is equivalent to reverting the patch because parallel_ops will be false for the genl family. :-)
+Ok, will take a look at these.
 
-johannes
--- 
+>
+>>
+>>Unless callers use the new helpers (dev_set_headroom/dev_set_tailroom)
+>>there is no functional change introduced.
+>>
+>>I tested this with an out of tree Ethernet driver with both VLANs and
+>>bridges and the need for a 64-byte headroom to insert a transmit
+>>status descriptor in front of a SKB.
+>
+> Would be nice to add at least one driver which would use your new api.
 
-Intel GmbH
-Dornacher Strasse 1
-85622 Feldkirchen/Muenchen, Deutschland
-Sitz der Gesellschaft: Feldkirchen bei Muenchen
-Geschaeftsfuehrer: Christian Lamprechter, Hannes Schwaderer, Douglas Lusk
-Registergericht: Muenchen HRB 47456
-Ust.-IdNr./VAT Registration No.: DE129385895
-Citibank Frankfurt a.M. (BLZ 502 109 00) 600119052
+cxgb, niu, ps3_gelic_net and gianfar could probably directly benefit
+from this change.
+
+Thanks for your feedback!
+--
+Florian
