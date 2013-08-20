@@ -1,51 +1,67 @@
 From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: [PATCH RESEND net-next 3/3] net: cdc_ncm: remove non-standard NCM device IDs
-Date: Tue, 20 Aug 2013 16:50:55 +0200
-Message-ID: <1377010256-19063-4-git-send-email-mrkiko.rs@gmail.com>
+Subject: [PATCH RESEND net-next 2/3] net: huawei_cdc_ncm: Introduce the
+Date: Tue, 20 Aug 2013 16:50:54 +0200
+Message-ID: <1377010256-19063-3-git-send-email-mrkiko.rs@gmail.com>
 References: <mrkiko.rs@gmail.com>
  <1377010256-19063-1-git-send-email-mrkiko.rs@gmail.com>
 Cc: Enrico Mioso <mrkiko.rs@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f54.google.com ([74.125.82.54]:65109 "EHLO
-	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751487Ab3HTOvs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 10:51:48 -0400
-Received: by mail-wg0-f54.google.com with SMTP id e12so458712wgh.21
-        for <netdev@vger.kernel.org>; Tue, 20 Aug 2013 07:51:47 -0700 (PDT)
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:47045 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751320Ab3HTOvp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 10:51:45 -0400
+Received: by mail-wg0-f46.google.com with SMTP id k13so464908wgh.25
+        for <netdev@vger.kernel.org>; Tue, 20 Aug 2013 07:51:44 -0700 (PDT)
 In-Reply-To: <1377010256-19063-1-git-send-email-mrkiko.rs@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove device IDs of NCM-like (but not NCM-conformant) devices, that are
-handled by the huawwei_cdc_ncm driver now.
+huawei_cdc_ncm driver
 
+This driver supports devices using the NCM protocol as an encapsulation layer
+for other protocols, like the E3131 Huawei 3G modem. This driver was heavily inspired by the qmi_wwan approach & code model.
+
+Suggested-by: Bjorn Mork <bjorn@mork.no>
 Signed-off-by: Enrico Mioso <mrkiko.rs@gmail.com>
 ---
- drivers/net/usb/cdc_ncm.c |   11 -----------
- 1 file changed, 11 deletions(-)
+ drivers/net/usb/Kconfig  |   11 +++++++++++
+ drivers/net/usb/Makefile |    1 +
+ 2 files changed, 12 insertions(+)
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 62686be..31f43f7 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -1236,17 +1236,6 @@ static const struct usb_device_id cdc_devs[] = {
- 	  .driver_info = (unsigned long)&wwan_info,
- 	},
+diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
+index d84bfd4..6e56751 100644
+--- a/drivers/net/usb/Kconfig
++++ b/drivers/net/usb/Kconfig
+@@ -242,6 +242,17 @@ config USB_NET_CDC_NCM
+ 	    * ST-Ericsson M343 HSPA Mobile Broadband Modem (reference design)
+ 	    * Ericsson F5521gw Mobile Broadband Module
  
--	/* Huawei NCM devices disguised as vendor specific */
--	{ USB_VENDOR_AND_INTERFACE_INFO(0x12d1, 0xff, 0x02, 0x16),
--	  .driver_info = (unsigned long)&wwan_info,
--	},
--	{ USB_VENDOR_AND_INTERFACE_INFO(0x12d1, 0xff, 0x02, 0x46),
--	  .driver_info = (unsigned long)&wwan_info,
--	},
--	{ USB_VENDOR_AND_INTERFACE_INFO(0x12d1, 0xff, 0x02, 0x76),
--	  .driver_info = (unsigned long)&wwan_info,
--	},
--
- 	/* Infineon(now Intel) HSPA Modem platform */
- 	{ USB_DEVICE_AND_INTERFACE_INFO(0x1519, 0x0443,
- 		USB_CLASS_COMM,
++config USB_NET_HUAWEI_CDC_NCM
++	tristate "Huawei-style CDC NCM support"
++	depends on USB_USBNET
++	select USB_WDM
++	select USB_NET_CDC_NCM
++	help
++		This driver aims to support huawei-style NCM devices, that use ncm as a
++		transport for other protocols.
++		To compile this driver as a module, choose M here: the module will be
++		called huawei_cdc_ncm.
++
+ config USB_NET_CDC_MBIM
+ 	tristate "CDC MBIM support"
+ 	depends on USB_USBNET
+diff --git a/drivers/net/usb/Makefile b/drivers/net/usb/Makefile
+index e817178..fd0e6a7 100644
+--- a/drivers/net/usb/Makefile
++++ b/drivers/net/usb/Makefile
+@@ -31,6 +31,7 @@ obj-$(CONFIG_USB_IPHETH)	+= ipheth.o
+ obj-$(CONFIG_USB_SIERRA_NET)	+= sierra_net.o
+ obj-$(CONFIG_USB_NET_CX82310_ETH)	+= cx82310_eth.o
+ obj-$(CONFIG_USB_NET_CDC_NCM)	+= cdc_ncm.o
++obj-$(CONFIG_USB_NET_HUAWEI_CDC_NCM)	+= huawei_cdc_ncm.o
+ obj-$(CONFIG_USB_VL600)		+= lg-vl600.o
+ obj-$(CONFIG_USB_NET_QMI_WWAN)	+= qmi_wwan.o
+ obj-$(CONFIG_USB_NET_CDC_MBIM)	+= cdc_mbim.o
 -- 
 1.7.10.4
