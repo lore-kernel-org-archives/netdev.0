@@ -1,24 +1,26 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 0/3] Minor ipv6 mcast cleanups
-Date: Tue, 20 Aug 2013 12:21:59 +0200
-Message-ID: <1376994122-3022-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: davem@davemloft.net
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: question about ethernet/tundra/tsi108_eth.c
+Date: Tue, 20 Aug 2013 12:35:20 +0200 (CEST)
+Message-ID: <alpine.DEB.2.02.1308201230150.2269@hadrien>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47870 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750858Ab3HTKWH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Aug 2013 06:22:07 -0400
+Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:50381 "EHLO
+	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750986Ab3HTKfm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 06:35:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel Borkmann (3):
-  net: ipv6: igmp6_event_query: use msecs_to_jiffies
-  net: ipv6: minor: *_start_timer: rather use unsigned long
-  net: ipv6: mcast: minor: use defines for rfc3810/8.1 lengths
+The driver ethernet/tundra/tsi108_eth.c seems to be inconsistent about how
+it shares buffers with the device.  In the open function (tsi108_open), it
+uses virt_to_phys.  In the refill function (tsi108_refill_rx), it uses
+dma_map_single.  However, there doesn't seem to be any dma_unmap_single
+anywhere.
 
- net/ipv6/mcast.c | 30 ++++++++++++++++--------------
- 1 file changed, 16 insertions(+), 14 deletions(-)
+I see that this is not a very actively maintained driver, but I am
+interested in the general question of how this works.
 
--- 
-1.7.11.7
+thanks,
+julia
