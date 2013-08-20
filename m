@@ -1,18 +1,40 @@
-From: 2013 Heritage Board <wintrade@myanmar.com.mm>
-Subject: Re: Cash Alert!!!
-Date: Tue, 20 Aug 2013 11:00:33 +0630 (MMT)
-Message-ID: <1217554304.217794.1376973033058.JavaMail.root@YTP-PMX1>
-Reply-To: "Mrs. Hillary Florence" <westerntransfer@rogers.com>
+From: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH v6] ARM: davinci: da850: add DT node for ethernet
+Date: Tue, 20 Aug 2013 10:46:54 +0530
+Message-ID: <5212FBC6.4060308@ti.com>
+References: <1376672829-4220-1-git-send-email-prabhakar.csengg@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relayp.teleport.net.mm ([203.81.162.50]:6389 "EHLO
-	mxo.teleport.net.mm" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751862Ab3HTEhV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 00:37:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        DLOS
+	<davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
+        LKML
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Lad, Prabhakar" <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+In-Reply-To: <1376672829-4220-1-git-send-email-prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
+List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
+List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
+Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Congrats:You have won 500,000.00 Contact Mrs. Hillary Florence: westerntransfer@rogers.com. Mobile:+447035927183.
+On Friday 16 August 2013 10:37 PM, Lad, Prabhakar wrote:
+> From: "Lad, Prabhakar" <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> 
+> Add ethernet device tree node information and pinmux for mii to da850 by
+> providing interrupt details and local mac address.
+> 
+> Signed-off-by: Lad, Prabhakar <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+
+Queuing this for v3.12
+
+Thanks,
+Sekhar
