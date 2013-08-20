@@ -1,60 +1,41 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: ipsec smp scalability and cpu use fairness (softirqs)
-Date: Tue, 20 Aug 2013 08:19:14 +0200
-Message-ID: <20130820061914.GA26773@secunet.com>
-References: <20130812160142.71737a95@vostro>
- <CAKTPYJTVhvF=215eS0xriEdUyyCLaC+zzja4zPrG668ALzERyw@mail.gmail.com>
- <20130813092312.2493354e@vostro>
- <20130813074614.GM25511@secunet.com>
- <20130813105757.39fb0ab8@vostro>
- <20130813104548.GB26773@secunet.com>
- <20130813143325.364b4bab@vostro>
- <20130813115652.GE26773@secunet.com>
- <20130813154102.35739102@vostro>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH net-next v4] net: cpsw: Add support for wake-on-lan for
+ cpsw
+Date: Tue, 20 Aug 2013 11:49:47 +0530
+Message-ID: <52130A83.80707@ti.com>
+References: <1376978378-26096-1-git-send-email-ujhelyi.m@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Collins <bsderandrew@gmail.com>, netdev@vger.kernel.org
-To: Timo Teras <timo.teras@iki.fi>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: <ujhelyi.m@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:45250 "EHLO a.mx.secunet.com"
+Received: from comal.ext.ti.com ([198.47.26.152]:39398 "EHLO comal.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752262Ab3HTGTQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Aug 2013 02:19:16 -0400
-Content-Disposition: inline
-In-Reply-To: <20130813154102.35739102@vostro>
+	id S1752316Ab3HTGTv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Aug 2013 02:19:51 -0400
+In-Reply-To: <1376978378-26096-1-git-send-email-ujhelyi.m@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 13, 2013 at 03:41:02PM +0300, Timo Teras wrote:
-> On Tue, 13 Aug 2013 13:56:52 +0200
-> Steffen Klassert <steffen.klassert@secunet.com> wrote:
-> 
-> > 
-> > I'll do some tests with current net-next on my own tomorrow and let
-> > you know about the results.
-> 
-> Yes, I've got pcrypt there. Apparently I had some of the cpu bindings
-> not right, so now it's looking a lot better. But it seems that
-> ksoftirqd on one of the CPUs becomes first bottleneck. I'll try to
-> figure out why.
-> 
-> Thanks on all the info so far, will continue experimenting here too.
+On Tuesday 20 August 2013 11:29 AM, ujhelyi.m@gmail.com wrote:
+> From: Matus Ujhelyi <ujhelyi.m@gmail.com>
+>
+> Some phy's can be configured to enable wake on lan (e.g. at803x or marvell 88E1318S).
+> There is no way how to enable wol on CPSW with such connected phys. This patch
+> adds this support. It is provided by calling the phy's related code.
+>
+> Tested on board with at8030x connected phy. Wol interrupt line is
+> connected to GPIO0 on am335x.
+>
+> Signed-off-by: Matus Ujhelyi <ujhelyi.m@gmail.com>
+> ---
+Looks good to me.
 
-Here are the promised test results:
+Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-I used my test boxes with two nodes (Intel Xeon X5550  @ 2.67GHz) and all
-cores utilized (16 logical cores). I did iperf box to box IPsec tunnel
-tests with the crypto algorithm:
+Also feel free to add my ack in case if you are submitting one more version.
 
-pcrypt(authenc(hmac(sha1-ssse3),cbc(aes-asm)))
-
-Throughput is at 1.70 Gbits/sec.
-
-Same test without pcrypt, i.e. crypto algorithm:
-
-authenc(hmac(sha1-ssse3),cbc(aes-asm))
-
-Throughput is at 560 Mbits/sec.
-
-Unfortunately I can't do forwarding tests, I have only two 10 Gbit NICs.
-Would be nice if I could get forwarding test results from somewhere.
+Regards
+Mugunthan V N
