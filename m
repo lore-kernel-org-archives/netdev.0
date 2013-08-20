@@ -1,85 +1,149 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH v2.37 1/6] odp: Only pass vlan_tci to commit_vlan_action()
-Date: Tue, 20 Aug 2013 12:15:59 +1000
-Message-ID: <1376964964-18151-2-git-send-email-horms@verge.net.au>
-References: <1376964964-18151-1-git-send-email-horms@verge.net.au>
+Subject: [PATCH v2.37 0/6] MPLS actions and matches
+Date: Tue, 20 Aug 2013 12:15:58 +1000
+Message-ID: <1376964964-18151-1-git-send-email-horms@verge.net.au>
 Cc: Ravi K <rkerur@gmail.com>, Isaku Yamahata <yamahata@valinux.co.jp>,
 	Jesse Gross <jesse@nicira.com>,
 	Pravin B Shelar <pshelar@nicira.com>,
 	Joe Stringer <joe@wand.net.nz>
 To: dev@openvswitch.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:54712 "EHLO
+Received: from kirsty.vergenet.net ([202.4.237.240]:54722 "EHLO
 	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751309Ab3HTCOb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 22:14:31 -0400
-In-Reply-To: <1376964964-18151-1-git-send-email-horms@verge.net.au>
+	with ESMTP id S1751777Ab3HTCOf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 22:14:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Stringer <joe@wand.net.nz>
+Hi,
 
-This allows for future patches to pass different tci values to
-commit_vlan_action() without passing an entire flow structure.
+This series implements MPLS actions and matches based on work by
+Ravi K, Leo Alterman, Yamahata-san and Joe Stringer.
 
-Signed-off-by: Joe Stringer <joe@wand.net.nz>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+This series provides two changes
 
----
+* Provide user-space support for the VLAN/MPLS tag insertion order
+  up to and including OpenFlow 1.2, and the different ordering
+  specified from OpenFlow 1.3. In a nutshell the datapath always
+  uses the OpenFlow 1.3 ordering, which is to always insert tags
+  immediately after the L2 header, regardless of the presence of other
+  tags. And ovs-vswtichd provides compatibility for the behaviour up
+  to OpenFlow 1.2, which is that MPLS tags should follow VLAN tags
+  if present.
 
-v2.36 - v2.37
-* No change
+* Adding basic MPLS action and match support to the kernel datapath
 
-v2.35
-* First post
----
- lib/odp-util.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+Differences between v2.37 and v2.36:
 
-diff --git a/lib/odp-util.c b/lib/odp-util.c
-index a09042e..d0c9bbe 100644
---- a/lib/odp-util.c
-+++ b/lib/odp-util.c
-@@ -3097,10 +3097,10 @@ commit_set_ether_addr_action(const struct flow *flow, struct flow *base,
- }
- 
- static void
--commit_vlan_action(const struct flow *flow, struct flow *base,
-+commit_vlan_action(ovs_be16 vlan_tci, struct flow *base,
-                    struct ofpbuf *odp_actions, struct flow_wildcards *wc)
- {
--    if (base->vlan_tci == flow->vlan_tci) {
-+    if (base->vlan_tci == vlan_tci) {
-         return;
-     }
- 
-@@ -3110,15 +3110,15 @@ commit_vlan_action(const struct flow *flow, struct flow *base,
-         nl_msg_put_flag(odp_actions, OVS_ACTION_ATTR_POP_VLAN);
-     }
- 
--    if (flow->vlan_tci & htons(VLAN_CFI)) {
-+    if (vlan_tci & htons(VLAN_CFI)) {
-         struct ovs_action_push_vlan vlan;
- 
-         vlan.vlan_tpid = htons(ETH_TYPE_VLAN);
--        vlan.vlan_tci = flow->vlan_tci;
-+        vlan.vlan_tci = vlan_tci;
-         nl_msg_put_unspec(odp_actions, OVS_ACTION_ATTR_PUSH_VLAN,
-                           &vlan, sizeof vlan);
-     }
--    base->vlan_tci = flow->vlan_tci;
-+    base->vlan_tci = vlan_tci;
- }
- 
- static void
-@@ -3330,7 +3330,7 @@ commit_odp_actions(const struct flow *flow, struct flow *base,
-                    struct ofpbuf *odp_actions, struct flow_wildcards *wc)
- {
-     commit_set_ether_addr_action(flow, base, odp_actions, wc);
--    commit_vlan_action(flow, base, odp_actions, wc);
-+    commit_vlan_action(flow->vlan_tci, base, odp_actions, wc);
-     commit_set_nw_action(flow, base, odp_actions, wc);
-     commit_set_port_action(flow, base, odp_actions, wc);
-     /* Committing MPLS actions should occur after committing nw and port
+* Rebase
+
+Differences between v2.36 and v2.35:
+
+* Rebase
+
+* Do not add set_ethertype() to datapath/actions.c.
+  As this patch has evolved this function had devolved into
+  to sets of functionality wrapped into a single function with
+  only one line of common code. Refactor things to simply
+  open-code setting the ether type in the two locations where
+  set_ethertype() was previously used. The aim here is to improve
+  readability.
+
+* Update setting skb->ethertype after mpls push and pop.
+  - In the case of push_mpls it should be set unconditionally
+    as in v2.35 the behaviour of this function to always push
+    an MPLS LSE before any VLAN tags.
+  - In the case of mpls_pop eth_p_mpls(skb->protocol) is a better
+    test than skb->protocol != htons(ETH_P_8021Q) as it will give the
+    correct behaviour in the presence of other VLAN ethernet types,
+    for example 0x88a8 which is used by 802.1ad. Moreover, it seems
+    correct to update the ethernet type if it was previously set
+    according to the top-most MPLS LSE.
+
+* Deaccelerate VLANs when pushing MPLS tags the
+  - Since v2.35 MPLS push will insert an MPLS LSE before any VLAN tags.
+    This means that if an accelerated tag is present it should be
+    deaccelerated to ensure it ends up in the correct position.
+
+* Update skb->mac_len in push_mpls() so that it will be correct
+  when used by a subsequent call to pop_mpls().
+
+  As things stand I do not believe this is strictly necessary as
+  ovs-vswitchd will not send a pop MPLS action after a push MPLS action.
+  However, I have added this in order to code more defensively as I believe
+  that if such a sequence did occur it would be rather unobvious why
+  it didn't work.
+
+* Do not add skb_cow_head() call in push_mpls().
+  It is unnecessary as there is a make_writable() call.
+  This change was also made in v2.30 but some how the
+  code regressed between then and v2.35.
+
+
+Differences between v2.35 and v2.34:
+
+* Add support for the tag ordering specified up until OpenFlow 1.2 and
+  the ordering specified from OpenFlow 1.3.
+
+* Correct error in datapath patch's handling of GSO in the presence
+  of MPLS and absence of VLANs.
+
+
+Patch overview:
+
+* The first 5 patches of this series are new,
+  adding support for different tag ordering.
+* The last patch is a revised version of the patch to add MPLS support
+  to the datapath. It has been updated to use OpenFlow 1.3 tag ordering
+  and resolve a GSO handling bug: both mentioned above. Its change log
+  includes a history of changes.
+
+
+To aid review this series is available in git at:
+
+git://github.com/horms/openvswitch.git devel/mpls-v2.37
+
+
+Patch list and overall diffstat:
+
+Joe Stringer (5):
+  odp: Only pass vlan_tci to commit_vlan_action()
+  odp: Allow VLAN actions after MPLS actions
+  ofp-actions: Add OFPUTIL_OFPAT13_PUSH_MPLS
+  ofp-actions: Add separate OpenFlow 1.3 action parser
+  lib: Push MPLS tags in the OpenFlow 1.3 ordering
+
+Simon Horman (1):
+  datapath: Add basic MPLS support to kernel
+
+ datapath/Modules.mk                             |    1 +
+ datapath/actions.c                              |  122 ++++++-
+ datapath/datapath.c                             |  254 +++++++++++--
+ datapath/datapath.h                             |    9 +
+ datapath/flow.c                                 |   58 ++-
+ datapath/flow.h                                 |   17 +-
+ datapath/linux/compat/gso.c                     |   50 ++-
+ datapath/linux/compat/gso.h                     |   39 ++
+ datapath/linux/compat/include/linux/netdevice.h |   12 -
+ datapath/linux/compat/netdevice.c               |   28 --
+ datapath/mpls.h                                 |   15 +
+ datapath/vport-lisp.c                           |    1 +
+ datapath/vport-netdev.c                         |   44 ++-
+ include/linux/openvswitch.h                     |    7 +-
+ lib/flow.c                                      |    2 +-
+ lib/odp-util.c                                  |   22 +-
+ lib/odp-util.h                                  |    4 +-
+ lib/ofp-actions.c                               |   68 +++-
+ lib/ofp-parse.c                                 |    1 +
+ lib/ofp-util.c                                  |    3 +
+ lib/ofp-util.h                                  |    1 +
+ lib/packets.c                                   |   10 +-
+ lib/packets.h                                   |    2 +-
+ ofproto/ofproto-dpif-xlate.c                    |  103 ++++--
+ ofproto/ofproto-dpif-xlate.h                    |    5 +
+ tests/ofproto-dpif.at                           |  446 +++++++++++++++++++++++
+ 26 files changed, 1193 insertions(+), 131 deletions(-)
+ create mode 100644 datapath/mpls.h
+
 -- 
 1.7.10.4
