@@ -1,56 +1,37 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: [Patch net-next v3 9/9] selinux: use generic union inet_addr
-Date: Tue, 20 Aug 2013 07:28:15 -0700
-Message-ID: <52137CFF.70601@schaufler-ca.com>
-References: <1376907278-26377-1-git-send-email-amwang@redhat.com>  <1376907278-26377-10-git-send-email-amwang@redhat.com>  <52127336.3080209@schaufler-ca.com>  <20130819.125026.636442915180863272.davem@davemloft.net>  <5212915F.20905@schaufler-ca.com> <1377003677.13412.5.camel@cr0>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	james.l.morris@oracle.com, sds@tycho.nsa.gov,
-	eparis@parisplace.org, pmoore@redhat.com,
-	linux-kernel@vger.kernel.org, linux-security-module@vger.kernel.org
-To: Cong Wang <amwang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1377003677.13412.5.camel@cr0>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: [PATCH RESEND net-next 0/3] huawei_cdc_ncm introduction
+Date: Tue, 20 Aug 2013 16:50:52 +0200
+Message-ID: <1377010256-19063-1-git-send-email-mrkiko.rs@gmail.com>
+References: <mrkiko.rs@gmail.com>
+Cc: Enrico Mioso <mrkiko.rs@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:46193 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751320Ab3HTOvf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 10:51:35 -0400
+Received: by mail-wi0-f169.google.com with SMTP id f14so580704wiw.2
+        for <netdev@vger.kernel.org>; Tue, 20 Aug 2013 07:51:34 -0700 (PDT)
+In-Reply-To: <mrkiko.rs@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 8/20/2013 6:01 AM, Cong Wang wrote:
-> On Mon, 2013-08-19 at 14:42 -0700, Casey Schaufler wrote:
->> Well, they certainly don't appear to add any value on their own.
->> I also generally oppose doing clever things with data structures. 
-> If you want to implement same thing for 5+ times,
 
-Those 5+ implementations are already there, and already work.
-A 6th implementation to replace known working code is just churn
-unless it provides some additional value. Making the code "better"
-does not itself add value. 
+These patches are all related to the new huawei_cdc_ncm driver, supporting 
+devices that use the NCM protocol as a transport layer for other protocols. 
+this is the case of the Huawei E3131 3G modem.
+Thanks should go to bjorn and others who helped me with patience.
 
->  yes, it has no value
-> for you. Enjoy the following code in current tree:
->
-> union nf_inet_addr;
-> union sctp_addr;
-> union vxlan_addr; (in my VXLAN IPv6 patches, search email archives)
-> struct br_mdb_entry::addr;
-> union inet_addr; (in netpoll.h)
->
-> And may I tell you the last three are all from me? ;-)
+Enrico Mioso (3):
+  net: cdc_ncm: Export cdc_ncm_{tx,rx}_fixup functions for re-use
+  net: huawei_cdc_ncm: Introduce the
+  net: cdc_ncm: remove non-standard NCM device IDs
 
-I do use and enjoy all of these implementations! Thank you
-for the fine implementations. In the end, if you're maintaining
-the code it's your call. I question change that does not have
-an obvious purpose because statistically every 10th change has
-a bug.
+ drivers/net/usb/Kconfig     |   11 +++++++++++
+ drivers/net/usb/Makefile    |    1 +
+ drivers/net/usb/cdc_ncm.c   |   17 ++++-------------
+ include/linux/usb/cdc_ncm.h |    3 +++
+ 4 files changed, 19 insertions(+), 13 deletions(-)
 
-Now that I know what the change is for I am fine with it. I
-like seeing reasons up front.
-
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+-- 
+1.7.10.4
