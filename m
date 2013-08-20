@@ -1,55 +1,47 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 14/19] ipvs: ip_vs_sh: ip_vs_sh_get_port: check skb_header_pointer for NULL
-Date: Tue, 20 Aug 2013 12:54:46 +0200
-Message-ID: <1376996091-3964-15-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 18/19] netfilter: export xt_rpfilter.h to userland
+Date: Tue, 20 Aug 2013 12:54:50 +0200
+Message-ID: <1376996091-3964-19-git-send-email-pablo@netfilter.org>
 References: <1376996091-3964-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:60118 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:60140 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751261Ab3HTKzP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Aug 2013 06:55:15 -0400
+	id S1751378Ab3HTKzS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Aug 2013 06:55:18 -0400
 In-Reply-To: <1376996091-3964-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-skb_header_pointer could return NULL, so check for it as we do it
-everywhere else in ipvs code. This fixes a coverity warning.
+This file contains the API for the match "rpfilter", hence it should be exported
+to userland.
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_sh.c |    6 ++++++
- 1 file changed, 6 insertions(+)
+ include/uapi/linux/netfilter/Kbuild              |    1 +
+ include/{ => uapi}/linux/netfilter/xt_rpfilter.h |    0
+ 2 files changed, 1 insertion(+)
+ rename include/{ => uapi}/linux/netfilter/xt_rpfilter.h (100%)
 
-diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
-index f16c027..3588fae 100644
---- a/net/netfilter/ipvs/ip_vs_sh.c
-+++ b/net/netfilter/ipvs/ip_vs_sh.c
-@@ -269,14 +269,20 @@ ip_vs_sh_get_port(const struct sk_buff *skb, struct ip_vs_iphdr *iph)
- 	switch (iph->protocol) {
- 	case IPPROTO_TCP:
- 		th = skb_header_pointer(skb, iph->len, sizeof(_tcph), &_tcph);
-+		if (unlikely(th == NULL))
-+			return 0;
- 		port = th->source;
- 		break;
- 	case IPPROTO_UDP:
- 		uh = skb_header_pointer(skb, iph->len, sizeof(_udph), &_udph);
-+		if (unlikely(uh == NULL))
-+			return 0;
- 		port = uh->source;
- 		break;
- 	case IPPROTO_SCTP:
- 		sh = skb_header_pointer(skb, iph->len, sizeof(_sctph), &_sctph);
-+		if (unlikely(sh == NULL))
-+			return 0;
- 		port = sh->source;
- 		break;
- 	default:
+diff --git a/include/uapi/linux/netfilter/Kbuild b/include/uapi/linux/netfilter/Kbuild
+index 4111577..dc00927 100644
+--- a/include/uapi/linux/netfilter/Kbuild
++++ b/include/uapi/linux/netfilter/Kbuild
+@@ -68,6 +68,7 @@ header-y += xt_quota.h
+ header-y += xt_rateest.h
+ header-y += xt_realm.h
+ header-y += xt_recent.h
++header-y += xt_rpfilter.h
+ header-y += xt_sctp.h
+ header-y += xt_set.h
+ header-y += xt_socket.h
+diff --git a/include/linux/netfilter/xt_rpfilter.h b/include/uapi/linux/netfilter/xt_rpfilter.h
+similarity index 100%
+rename from include/linux/netfilter/xt_rpfilter.h
+rename to include/uapi/linux/netfilter/xt_rpfilter.h
 -- 
 1.7.10.4
