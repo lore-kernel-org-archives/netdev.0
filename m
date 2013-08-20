@@ -1,36 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3 net-next 0/6] 6lowpan: address uncompression fixes
-Date: Tue, 20 Aug 2013 13:24:22 -0700 (PDT)
-Message-ID: <20130820.132422.1578029760023546117.davem@davemloft.net>
-References: <1376683199-10370-1-git-send-email-alex.aring@gmail.com>
+Subject: Re: [PATCH] via-ircc: don't return zero if via_ircc_open() failed
+Date: Tue, 20 Aug 2013 13:27:48 -0700 (PDT)
+Message-ID: <20130820.132748.2038341239691937544.davem@davemloft.net>
+References: <1376686094-28780-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: alex.aring@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46656 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751157Ab3HTUYY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 16:24:24 -0400
-In-Reply-To: <1376683199-10370-1-git-send-email-alex.aring@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: samuel@sortiz.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: khoroshilov@ispras.ru
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1376686094-28780-1-git-send-email-khoroshilov@ispras.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Aring <alex.aring@gmail.com>
-Date: Fri, 16 Aug 2013 21:59:53 +0200
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Date: Fri, 16 Aug 2013 23:48:14 +0300
 
-> The current implementation to uncompress addresses in a 6lowpan header
-> is completely broken.
+> If via_ircc_open() fails, data structures of the driver left uninitialized,
+> but probe (via_init_one()) returns zero. That can lead to null pointer dereference
+> in via_remove_one(), since it does not check drvdata for NULL.
 > 
-> This patch series fixes the parsing of addresses in a 6lowpan header.
-> It contains a major rewrite of the uncompress address function to parse
-> the address in a correct way.
+> The patch implements proper error code propagation.
 > 
-> Tested with the ravenusbstick(contiki 6LoWPAN stack) and beaglebone
-> (linux 6LoWPAN Stack) on the other side. The linux side contains all
-> possible addresses for the uncompression cases. Then I type a ping6 for
-> each case and lookup in wireshark and dmesg the correct reconstruction.
+> Found by Linux Driver Verification project (linuxtesting.org).
+> 
+> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
 
-Series applied to net-next, thanks.
+Applied, thanks.
