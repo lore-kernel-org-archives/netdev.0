@@ -1,149 +1,144 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH v2.37 0/6] MPLS actions and matches
-Date: Tue, 20 Aug 2013 12:15:58 +1000
-Message-ID: <1376964964-18151-1-git-send-email-horms@verge.net.au>
+Subject: [PATCH v2.37 4/6] ofp-actions: Add separate OpenFlow 1.3 action parser
+Date: Tue, 20 Aug 2013 12:16:02 +1000
+Message-ID: <1376964964-18151-5-git-send-email-horms@verge.net.au>
+References: <1376964964-18151-1-git-send-email-horms@verge.net.au>
 Cc: Ravi K <rkerur@gmail.com>, Isaku Yamahata <yamahata@valinux.co.jp>,
 	Jesse Gross <jesse@nicira.com>,
 	Pravin B Shelar <pshelar@nicira.com>,
 	Joe Stringer <joe@wand.net.nz>
 To: dev@openvswitch.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:54722 "EHLO
+Received: from kirsty.vergenet.net ([202.4.237.240]:54741 "EHLO
 	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751777Ab3HTCOf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 22:14:35 -0400
+	with ESMTP id S1751688Ab3HTCOj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 22:14:39 -0400
+In-Reply-To: <1376964964-18151-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Joe Stringer <joe@wand.net.nz>
 
-This series implements MPLS actions and matches based on work by
-Ravi K, Leo Alterman, Yamahata-san and Joe Stringer.
+This patch adds new ofpact_from_openflow13() and
+ofpacts_from_openflow13() functions parallel to the existing ofpact
+handling code. In the OpenFlow 1.3 version, push_mpls is handled
+differently, but all other actions are handled by the existing code.
 
-This series provides two changes
+For push_mpls, ofpact_push_mpls.ofpact.compat is set to
+OFPUTIL_OFPAT13_PUSH_MPLS, which allows correct VLAN+MPLS datapath
+behaviour to be determined at odp translation time.
 
-* Provide user-space support for the VLAN/MPLS tag insertion order
-  up to and including OpenFlow 1.2, and the different ordering
-  specified from OpenFlow 1.3. In a nutshell the datapath always
-  uses the OpenFlow 1.3 ordering, which is to always insert tags
-  immediately after the L2 header, regardless of the presence of other
-  tags. And ovs-vswtichd provides compatibility for the behaviour up
-  to OpenFlow 1.2, which is that MPLS tags should follow VLAN tags
-  if present.
+Signed-off-by: Joe Stringer <joe@wand.net.nz>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
-* Adding basic MPLS action and match support to the kernel datapath
+---
 
-Differences between v2.37 and v2.36:
+v2.36 - v2.37
+* No change
 
-* Rebase
+v2.35
+* First post
+---
+ lib/ofp-actions.c |   63 ++++++++++++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 60 insertions(+), 3 deletions(-)
 
-Differences between v2.36 and v2.35:
-
-* Rebase
-
-* Do not add set_ethertype() to datapath/actions.c.
-  As this patch has evolved this function had devolved into
-  to sets of functionality wrapped into a single function with
-  only one line of common code. Refactor things to simply
-  open-code setting the ether type in the two locations where
-  set_ethertype() was previously used. The aim here is to improve
-  readability.
-
-* Update setting skb->ethertype after mpls push and pop.
-  - In the case of push_mpls it should be set unconditionally
-    as in v2.35 the behaviour of this function to always push
-    an MPLS LSE before any VLAN tags.
-  - In the case of mpls_pop eth_p_mpls(skb->protocol) is a better
-    test than skb->protocol != htons(ETH_P_8021Q) as it will give the
-    correct behaviour in the presence of other VLAN ethernet types,
-    for example 0x88a8 which is used by 802.1ad. Moreover, it seems
-    correct to update the ethernet type if it was previously set
-    according to the top-most MPLS LSE.
-
-* Deaccelerate VLANs when pushing MPLS tags the
-  - Since v2.35 MPLS push will insert an MPLS LSE before any VLAN tags.
-    This means that if an accelerated tag is present it should be
-    deaccelerated to ensure it ends up in the correct position.
-
-* Update skb->mac_len in push_mpls() so that it will be correct
-  when used by a subsequent call to pop_mpls().
-
-  As things stand I do not believe this is strictly necessary as
-  ovs-vswitchd will not send a pop MPLS action after a push MPLS action.
-  However, I have added this in order to code more defensively as I believe
-  that if such a sequence did occur it would be rather unobvious why
-  it didn't work.
-
-* Do not add skb_cow_head() call in push_mpls().
-  It is unnecessary as there is a make_writable() call.
-  This change was also made in v2.30 but some how the
-  code regressed between then and v2.35.
-
-
-Differences between v2.35 and v2.34:
-
-* Add support for the tag ordering specified up until OpenFlow 1.2 and
-  the ordering specified from OpenFlow 1.3.
-
-* Correct error in datapath patch's handling of GSO in the presence
-  of MPLS and absence of VLANs.
-
-
-Patch overview:
-
-* The first 5 patches of this series are new,
-  adding support for different tag ordering.
-* The last patch is a revised version of the patch to add MPLS support
-  to the datapath. It has been updated to use OpenFlow 1.3 tag ordering
-  and resolve a GSO handling bug: both mentioned above. Its change log
-  includes a history of changes.
-
-
-To aid review this series is available in git at:
-
-git://github.com/horms/openvswitch.git devel/mpls-v2.37
-
-
-Patch list and overall diffstat:
-
-Joe Stringer (5):
-  odp: Only pass vlan_tci to commit_vlan_action()
-  odp: Allow VLAN actions after MPLS actions
-  ofp-actions: Add OFPUTIL_OFPAT13_PUSH_MPLS
-  ofp-actions: Add separate OpenFlow 1.3 action parser
-  lib: Push MPLS tags in the OpenFlow 1.3 ordering
-
-Simon Horman (1):
-  datapath: Add basic MPLS support to kernel
-
- datapath/Modules.mk                             |    1 +
- datapath/actions.c                              |  122 ++++++-
- datapath/datapath.c                             |  254 +++++++++++--
- datapath/datapath.h                             |    9 +
- datapath/flow.c                                 |   58 ++-
- datapath/flow.h                                 |   17 +-
- datapath/linux/compat/gso.c                     |   50 ++-
- datapath/linux/compat/gso.h                     |   39 ++
- datapath/linux/compat/include/linux/netdevice.h |   12 -
- datapath/linux/compat/netdevice.c               |   28 --
- datapath/mpls.h                                 |   15 +
- datapath/vport-lisp.c                           |    1 +
- datapath/vport-netdev.c                         |   44 ++-
- include/linux/openvswitch.h                     |    7 +-
- lib/flow.c                                      |    2 +-
- lib/odp-util.c                                  |   22 +-
- lib/odp-util.h                                  |    4 +-
- lib/ofp-actions.c                               |   68 +++-
- lib/ofp-parse.c                                 |    1 +
- lib/ofp-util.c                                  |    3 +
- lib/ofp-util.h                                  |    1 +
- lib/packets.c                                   |   10 +-
- lib/packets.h                                   |    2 +-
- ofproto/ofproto-dpif-xlate.c                    |  103 ++++--
- ofproto/ofproto-dpif-xlate.h                    |    5 +
- tests/ofproto-dpif.at                           |  446 +++++++++++++++++++++++
- 26 files changed, 1193 insertions(+), 131 deletions(-)
- create mode 100644 datapath/mpls.h
-
+diff --git a/lib/ofp-actions.c b/lib/ofp-actions.c
+index 921aa27..454b9a1 100644
+--- a/lib/ofp-actions.c
++++ b/lib/ofp-actions.c
+@@ -878,6 +878,40 @@ ofpacts_from_openflow11(const union ofp_action *in, size_t n_in,
+     return ofpacts_from_openflow(in, n_in, out, ofpact_from_openflow11);
+ }
+ 
++static enum ofperr
++ofpact_from_openflow13(const union ofp_action *a, struct ofpbuf *out)
++{
++    enum ofputil_action_code code;
++    enum ofperr error;
++
++    error = decode_openflow11_action(a, &code);
++    if (error) {
++        return error;
++    }
++
++    if (code == OFPUTIL_OFPAT11_PUSH_MPLS) {
++        struct ofpact_push_mpls *oam;
++        struct ofp11_action_push *oap = (struct ofp11_action_push *)a;
++        if (!eth_type_mpls(oap->ethertype)) {
++            return OFPERR_OFPBAC_BAD_ARGUMENT;
++        }
++        oam = ofpact_put_PUSH_MPLS(out);
++        oam->ethertype = oap->ethertype;
++        oam->ofpact.compat = OFPUTIL_OFPAT13_PUSH_MPLS;
++    } else {
++        return ofpact_from_openflow11(a, out);
++    }
++
++    return error;
++}
++
++static enum ofperr
++ofpacts_from_openflow13(const union ofp_action *in, size_t n_in,
++                        struct ofpbuf *out)
++{
++    return ofpacts_from_openflow(in, n_in, out, ofpact_from_openflow13);
++}
++
+ /* OpenFlow 1.1 instructions. */
+ 
+ #define DEFINE_INST(ENUM, STRUCT, EXTENSIBLE, NAME)             \
+@@ -1081,6 +1115,17 @@ get_actions_from_instruction(const struct ofp11_instruction *inst,
+     *n_actions = (ntohs(inst->len) - sizeof *inst) / OFP11_INSTRUCTION_ALIGN;
+ }
+ 
++static uint8_t
++get_version_from_ofpbuf(const struct ofpbuf *openflow)
++{
++    if (openflow && openflow->l2) {
++        struct ofp_header *oh = openflow->l2;
++        return oh->version;
++    }
++
++    return OFP10_VERSION;
++}
++
+ /* Attempts to convert 'actions_len' bytes of OpenFlow 1.1 actions from the
+  * front of 'openflow' into ofpacts.  On success, replaces any existing content
+  * in 'ofpacts' by the converted ofpacts; on failure, clears 'ofpacts'.
+@@ -1100,8 +1145,15 @@ ofpacts_pull_openflow11_actions(struct ofpbuf *openflow,
+                                 unsigned int actions_len,
+                                 struct ofpbuf *ofpacts)
+ {
+-    return ofpacts_pull_actions(openflow, actions_len, ofpacts,
+-                                ofpacts_from_openflow11);
++    uint8_t version = get_version_from_ofpbuf(openflow);
++
++    if (version < OFP13_VERSION) {
++        return ofpacts_pull_actions(openflow, actions_len, ofpacts,
++                                    ofpacts_from_openflow11);
++    } else {
++        return ofpacts_pull_actions(openflow, actions_len, ofpacts,
++                                    ofpacts_from_openflow13);
++    }
+ }
+ 
+ enum ofperr
+@@ -1153,10 +1205,15 @@ ofpacts_pull_openflow11_instructions(struct ofpbuf *openflow,
+     if (insts[OVSINST_OFPIT11_APPLY_ACTIONS]) {
+         const union ofp_action *actions;
+         size_t n_actions;
++        uint8_t version = get_version_from_ofpbuf(openflow);
+ 
+         get_actions_from_instruction(insts[OVSINST_OFPIT11_APPLY_ACTIONS],
+                                      &actions, &n_actions);
+-        error = ofpacts_from_openflow11(actions, n_actions, ofpacts);
++        if (version < OFP13_VERSION) {
++            error = ofpacts_from_openflow11(actions, n_actions, ofpacts);
++        } else {
++            error = ofpacts_from_openflow13(actions, n_actions, ofpacts);
++        }
+         if (error) {
+             goto exit;
+         }
 -- 
 1.7.10.4
