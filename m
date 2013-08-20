@@ -1,33 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v7 0/8] openvswitch: VXLAN tunneling.
-Date: Tue, 20 Aug 2013 00:17:12 -0700 (PDT)
-Message-ID: <20130820.001712.1951982778222810447.davem@davemloft.net>
-References: <1376936559-25427-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [PATCH net 0/6] bnx2x: Bug fixes patch series
+Date: Tue, 20 Aug 2013 00:22:08 -0700 (PDT)
+Message-ID: <20130820.002208.981882704151111958.davem@davemloft.net>
+References: <1376892721-10410-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: pshelar@nicira.com
+Cc: netdev@vger.kernel.org, ariele@broadcom.com, eilong@broadcom.com
+To: yuvalmin@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36678 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36721 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751238Ab3HTHRN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 03:17:13 -0400
-In-Reply-To: <1376936559-25427-1-git-send-email-pshelar@nicira.com>
+	with ESMTP id S1751244Ab3HTHWJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 03:22:09 -0400
+In-Reply-To: <1376892721-10410-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Mon, 19 Aug 2013 11:22:39 -0700
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Date: Mon, 19 Aug 2013 09:11:55 +0300
 
-> First four vxlan patches extends vxlan so that openvswitch
-> can share vxlan recv code. Rest of patches refactors vxlan
-> data plane so that ovs can share that code with vxlan module.
-> Last patch adds vxlan-vport to openvswitch.
+> This patch series contains bug fixes, mostly for either DCBX
+> or VF configuration.
 > 
-> v7 fixed first patch as suggested by Stephen Hemminger.
-> v6 series splits second patch into two and has few style fixes.
-> v5 series disallow any udp port sharing between
-> kernel-vxlan and ovs-vxlan as suggested by Stephen Hemminger.
+> Please consider applying these patches to `net'.
 
 Series applied, thanks.
