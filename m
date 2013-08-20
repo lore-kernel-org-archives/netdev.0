@@ -1,63 +1,56 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH 0/3] net: propagate dynamic needed_headroom/tailroom
- changes
-Date: Tue, 20 Aug 2013 16:27:56 +0200
-Message-ID: <20130820142756.GB1593@minipsycho.brq.redhat.com>
-References: <1377002752-4622-1-git-send-email-f.fainelli@gmail.com>
- <20130820132950.GA1593@minipsycho.brq.redhat.com>
- <CAGVrzcZQ79rVcezAM7rk6dMBnHySCn3b5wL98npOx=LM=Tb6Mw@mail.gmail.com>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: Re: [Patch net-next v3 9/9] selinux: use generic union inet_addr
+Date: Tue, 20 Aug 2013 07:28:15 -0700
+Message-ID: <52137CFF.70601@schaufler-ca.com>
+References: <1376907278-26377-1-git-send-email-amwang@redhat.com>  <1376907278-26377-10-git-send-email-amwang@redhat.com>  <52127336.3080209@schaufler-ca.com>  <20130819.125026.636442915180863272.davem@davemloft.net>  <5212915F.20905@schaufler-ca.com> <1377003677.13412.5.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, amwang@redhat.com,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	kaber@trash.net, David Miller <davem@davemloft.net>,
-	vyasevic@redhat.com, Johannes Berg <johannes@sipsolutions.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:41349 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751039Ab3HTO2A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 10:28:00 -0400
-Received: by mail-wi0-f174.google.com with SMTP id j17so4410422wiw.1
-        for <netdev@vger.kernel.org>; Tue, 20 Aug 2013 07:28:00 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAGVrzcZQ79rVcezAM7rk6dMBnHySCn3b5wL98npOx=LM=Tb6Mw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	james.l.morris@oracle.com, sds@tycho.nsa.gov,
+	eparis@parisplace.org, pmoore@redhat.com,
+	linux-kernel@vger.kernel.org, linux-security-module@vger.kernel.org
+To: Cong Wang <amwang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1377003677.13412.5.camel@cr0>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Aug 20, 2013 at 04:24:37PM CEST, f.fainelli@gmail.com wrote:
->2013/8/20 Jiri Pirko <jiri@resnulli.us>:
->> Tue, Aug 20, 2013 at 02:45:49PM CEST, f.fainelli@gmail.com wrote:
->>>Hi all,
->>>
->>>This patchset aims at allowing dynamically changing a given device
->>>needed_headroom/tailroom space and propagating such events to stacked
->>>devices such as bridges and vlans.
->>
->> You should also add support for other stacked devices, like bonding,
->> team, macvlan, ovs-datapath, etc.
->
->Ok, will take a look at these.
->
->>
->>>
->>>Unless callers use the new helpers (dev_set_headroom/dev_set_tailroom)
->>>there is no functional change introduced.
->>>
->>>I tested this with an out of tree Ethernet driver with both VLANs and
->>>bridges and the need for a 64-byte headroom to insert a transmit
->>>status descriptor in front of a SKB.
->>
->> Would be nice to add at least one driver which would use your new api.
->
->cxgb, niu, ps3_gelic_net and gianfar could probably directly benefit
->from this change.
+On 8/20/2013 6:01 AM, Cong Wang wrote:
+> On Mon, 2013-08-19 at 14:42 -0700, Casey Schaufler wrote:
+>> Well, they certainly don't appear to add any value on their own.
+>> I also generally oppose doing clever things with data structures. 
+> If you want to implement same thing for 5+ times,
 
-Great, please add use of your new api to one of these and add that patch
-to your set. Thanks!
+Those 5+ implementations are already there, and already work.
+A 6th implementation to replace known working code is just churn
+unless it provides some additional value. Making the code "better"
+does not itself add value. 
+
+>  yes, it has no value
+> for you. Enjoy the following code in current tree:
+>
+> union nf_inet_addr;
+> union sctp_addr;
+> union vxlan_addr; (in my VXLAN IPv6 patches, search email archives)
+> struct br_mdb_entry::addr;
+> union inet_addr; (in netpoll.h)
+>
+> And may I tell you the last three are all from me? ;-)
+
+I do use and enjoy all of these implementations! Thank you
+for the fine implementations. In the end, if you're maintaining
+the code it's your call. I question change that does not have
+an obvious purpose because statistically every 10th change has
+a bug.
+
+Now that I know what the change is for I am fine with it. I
+like seeing reasons up front.
 
 >
->Thanks for your feedback!
->--
->Florian
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
