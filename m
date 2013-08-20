@@ -1,782 +1,140 @@
-From: "liujunliang_ljl" <liujunliang_ljl@163.com>
-Subject: [PATCH-SR9700] Merge USB 1.1 Ethernet Adapter SR9700 Device Driver into the Linux Kernel
-Date: Tue, 20 Aug 2013 18:50:09 +0800
-Message-ID: <201308201850095789331@163.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "linux-usb" <linux-usb@vger.kernel.org>,
-	"netdev" <netdev@vger.kernel.org>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"sunhecheng" <sunhecheng@vip.126.com>
-To: "gregkh" <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 00/19] Netfilter/IPVS updates for net-next
+Date: Tue, 20 Aug 2013 12:54:32 +0200
+Message-ID: <1376996091-3964-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear Gregkh & all :
+Hi David,
 
-		I am the software engineer Liu Junliang from ShenZhen CoreChips high technology company, on the market of SR9700 chip is designed and owned by us. 
-        SR9700 is a type of USB to Ethernet Converter and is compatible with USB 1.1 protocol, We want to merge SR9700 device driver into the Linux Kernel. The following is the Linux 3.10.7 version patch for SR9700, Please give us the assessment and support.
-        Thanks a lot.
+The following batch contains Netfilter/IPVS updates for your net-next tree.
+More specifically, they are:
 
-[PATCH] :                             
-diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
-index 287cc62..a94b196 100644
---- a/drivers/net/usb/Kconfig
-+++ b/drivers/net/usb/Kconfig
-@@ -272,6 +272,14 @@ config USB_NET_DM9601
- 	  This option adds support for Davicom DM9601 based USB 1.1
- 	  10/100 Ethernet adapters.
- 
-+config USB_NET_SR9700
-+	tristate "CoreChip-sz SR9700 based USB 1.1 10/100 ethernet devices"
-+	depends on USB_USBNET
-+	select CRC32
-+	help
-+	  This option adds support for CoreChip-sz SR9700 based USB 1.1
-+	  10/100 Ethernet adapters.
-+
- config USB_NET_SMSC75XX
- 	tristate "SMSC LAN75XX based USB 2.0 gigabit ethernet devices"
- 	depends on USB_USBNET
-diff --git a/drivers/net/usb/Makefile b/drivers/net/usb/Makefile
-index 9ab5c9d..bba87a2 100644
---- a/drivers/net/usb/Makefile
-+++ b/drivers/net/usb/Makefile
-@@ -14,6 +14,7 @@ obj-$(CONFIG_USB_NET_AX88179_178A)      += ax88179_178a.o
- obj-$(CONFIG_USB_NET_CDCETHER)	+= cdc_ether.o
- obj-$(CONFIG_USB_NET_CDC_EEM)	+= cdc_eem.o
- obj-$(CONFIG_USB_NET_DM9601)	+= dm9601.o
-+obj-$(CONFIG_USB_NET_SR9700)	+= sr9700.o
- obj-$(CONFIG_USB_NET_SMSC75XX)	+= smsc75xx.o
- obj-$(CONFIG_USB_NET_SMSC95XX)	+= smsc95xx.o
- obj-$(CONFIG_USB_NET_GL620A)	+= gl620a.o
-diff --git a/drivers/net/usb/sr9700.c b/drivers/net/usb/sr9700.c
-new file mode 100644
-index 0000000..6a6429a
---- /dev/null
-+++ b/drivers/net/usb/sr9700.c
-@@ -0,0 +1,557 @@
-+/*
-+ * CoreChip-sz SR9700 one chip USB 1.1 Ethernet Devices
-+ *
-+ * Author : liujl <liujunliang_ljl@163.com>
-+ *
-+ * Based on dm9601.c
-+ *
-+ * This file is licensed under the terms of the GNU General Public License
-+ * version 2.  This program is licensed "as is" without any warranty of any
-+ * kind, whether express or implied.
-+ */
-+
-+//#define DEBUG
-+
-+#include <linux/module.h>
-+#include <linux/sched.h>
-+#include <linux/stddef.h>
-+#include <linux/init.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/ethtool.h>
-+#include <linux/mii.h>
-+#include <linux/usb.h>
-+#include <linux/crc32.h>
-+#include <linux/usb/usbnet.h>
-+
-+#include "sr9700.h"
-+
-+static int sr_read(struct usbnet *dev, u8 reg, u16 length, void *data)
-+{
-+	int err;
-+
-+	err = usbnet_read_cmd(dev, SR_RD_REGS, SR_REQ_RD_REG,
-+					0, reg, data, length);
-+	if(err != length && err >= 0)
-+		err = -EINVAL;
-+	return err;
-+}
-+
-+static int sr_write(struct usbnet *dev, u8 reg, u16 length, void *data)
-+{
-+	int err;
-+
-+	err = usbnet_write_cmd(dev, SR_WR_REGS, SR_REQ_WR_REG,
-+					0, reg, data, length);
-+	if (err >= 0 && err < length)
-+		err = -EINVAL;
-+	
-+	return err;
-+}
-+
-+static int sr_read_reg(struct usbnet *dev, u8 reg, u8 *value)
-+{
-+	return sr_read(dev, reg, 1, value);
-+}
-+
-+static int sr_write_reg(struct usbnet *dev, u8 reg, u8 value)
-+{
-+	return usbnet_write_cmd(dev, SR_WR_REGS, SR_REQ_WR_REG,
-+			       value, reg, NULL, 0);
-+}
-+
-+static void sr_write_async(struct usbnet *dev, u8 reg, u16 length, void *data)
-+{
-+	usbnet_write_cmd_async(dev, SR_WR_REGS, SR_REQ_WR_REG,
-+					0, reg, data, length);
-+}
-+
-+static void sr_write_reg_async(struct usbnet *dev, u8 reg, u8 value)
-+{
-+	usbnet_write_cmd_async(dev, SR_WR_REGS, SR_REQ_WR_REG,
-+					value, reg, NULL, 0);
-+}
-+
-+static int sr_share_read_word(struct usbnet *dev, int phy, u8 reg, __le16 *value)
-+{
-+	int ret, i;
-+
-+	mutex_lock(&dev->phy_mutex);
-+
-+	sr_write_reg(dev, EPAR, phy ? (reg | 0x40) : reg);
-+	sr_write_reg(dev, EPCR, phy ? 0xc : 0x4);
-+
-+	for (i = 0; i < SR_SHARE_TIMEOUT; i++) {
-+		u8 tmp = 0;
-+
-+		udelay(1);
-+		ret = sr_read_reg(dev, EPCR, &tmp);
-+		if (ret < 0)
-+			goto out;
-+
-+		/* ready */
-+		if ((tmp & 1) == 0)
-+			break;
-+	}
-+
-+	if (i >= SR_SHARE_TIMEOUT) {
-+		netdev_err(dev->net, "%s read timed out!", phy ? "phy" : "eeprom");
-+		ret = -EIO;
-+		goto out;
-+	}
-+
-+	sr_write_reg(dev, EPCR, 0x0);
-+	ret = sr_read(dev, EPDR, 2, value);
-+
-+	netdev_dbg(dev->net, "read shared %d 0x%02x returned 0x%04x, %d",
-+	       phy, reg, *value, ret);
-+
-+ out:
-+	mutex_unlock(&dev->phy_mutex);
-+	return ret;
-+}
-+
-+static int sr_share_write_word(struct usbnet *dev, int phy, u8 reg, __le16 value)
-+{
-+	int ret, i;
-+
-+	mutex_lock(&dev->phy_mutex);
-+
-+	ret = sr_write(dev, EPDR, 2, &value);
-+	if (ret < 0)
-+		goto out;
-+
-+	sr_write_reg(dev, EPAR, phy ? (reg | 0x40) : reg);
-+	sr_write_reg(dev, EPCR, phy ? 0x1a : 0x12);
-+
-+	for (i = 0; i < SR_SHARE_TIMEOUT; i++) {
-+		u8 tmp = 0;
-+
-+		udelay(1);
-+		ret = sr_read_reg(dev, EPCR, &tmp);
-+		if (ret < 0)
-+			goto out;
-+
-+		/* ready */
-+		if ((tmp & 1) == 0)
-+			break;
-+	}
-+
-+	if (i >= SR_SHARE_TIMEOUT) {
-+		netdev_err(dev->net, "%s write timed out!", phy ? "phy" : "eeprom");
-+		ret = -EIO;
-+		goto out;
-+	}
-+
-+	sr_write_reg(dev, EPCR, 0x0);
-+
-+out:
-+	mutex_unlock(&dev->phy_mutex);
-+	return ret;
-+}
-+
-+static int sr_read_eeprom_word(struct usbnet *dev, u8 offset, void *value)
-+{
-+	return sr_share_read_word(dev, 0, offset, value);
-+}
-+
-+
-+static int sr9700_get_eeprom_len(struct net_device *dev)
-+{
-+	return SR_EEPROM_LEN;
-+}
-+
-+static int sr9700_get_eeprom(struct net_device *net, struct ethtool_eeprom *eeprom, u8 * data)
-+{
-+	struct usbnet *dev = netdev_priv(net);
-+	__le16 *ebuf = (__le16 *) data;
-+	int i;
-+
-+	/* access is 16bit */
-+	if ((eeprom->offset % 2) || (eeprom->len % 2))
-+		return -EINVAL;
-+
-+	for (i = 0; i < eeprom->len / 2; i++) {
-+		if (sr_read_eeprom_word(dev, eeprom->offset / 2 + i, &ebuf[i]) < 0)
-+			return -EINVAL;
-+	}
-+	return 0;
-+}
-+
-+static int sr_mdio_read(struct net_device *netdev, int phy_id, int loc)
-+{
-+	struct usbnet *dev = netdev_priv(netdev);
-+
-+	__le16 res;
-+	int rc = 0;
-+
-+	if (phy_id) {
-+		netdev_dbg(dev->net, "Only internal phy supported");
-+		return 0;
-+	}
-+
-+	/* Access NSR_LINKST bit for link status instead of MII_BMSR */
-+	if(loc == MII_BMSR){
-+			u8 value;
-+			sr_read_reg(dev, NSR, &value);
-+			if(value & NSR_LINKST) {
-+				rc = 1;
-+			}
-+	}
-+	sr_share_read_word(dev, 1, loc, &res);
-+	if(rc == 1)
-+			return (le16_to_cpu(res) | BMSR_LSTATUS);
-+	else
-+			return (le16_to_cpu(res) & ~BMSR_LSTATUS);
-+
-+	netdev_dbg(dev->net,
-+	       "sr_mdio_read() phy_id=0x%02x, loc=0x%02x, returns=0x%04x",
-+	       phy_id, loc, le16_to_cpu(res));
-+
-+	return le16_to_cpu(res);
-+}
-+
-+static void sr_mdio_write(struct net_device *netdev, int phy_id, int loc, int val)
-+{
-+	struct usbnet *dev = netdev_priv(netdev);
-+	__le16 res = cpu_to_le16(val);
-+
-+	if (phy_id) {
-+		netdev_dbg(dev->net, "Only internal phy supported");
-+		return;
-+	}
-+
-+	netdev_dbg(dev->net,"sr_mdio_write() phy_id=0x%02x, loc=0x%02x, val=0x%04x",
-+	       phy_id, loc, val);
-+
-+	sr_share_write_word(dev, 1, loc, res);
-+}
-+
-+/*-------------------------------------------------------------------------------------------*/
-+
-+static void sr9700_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *info)
-+{
-+	/* Inherit standard device info */
-+	usbnet_get_drvinfo(net, info);
-+	info->eedump_len = SR_EEPROM_LEN;
-+}
-+
-+static u32 sr9700_get_link(struct net_device *net)
-+{
-+	struct usbnet *dev = netdev_priv(net);
-+	int rc = 0;
-+	u8 value = 0;
-+
-+	/* Get the Link Status directly */
-+	sr_read_reg(dev, NSR, &value);
-+	if(value & NSR_LINKST) {
-+		rc = 1;
-+	}
-+
-+	return rc;
-+}
-+
-+static int sr9700_ioctl(struct net_device *net, struct ifreq *rq, int cmd)
-+{
-+	struct usbnet *dev = netdev_priv(net);
-+
-+	return generic_mii_ioctl(&dev->mii, if_mii(rq), cmd, NULL);
-+}
-+
-+static const struct ethtool_ops sr9700_ethtool_ops = {
-+	.get_drvinfo	= sr9700_get_drvinfo,
-+	.get_link	= sr9700_get_link,
-+	.get_msglevel	= usbnet_get_msglevel,
-+	.set_msglevel	= usbnet_set_msglevel,
-+	.get_eeprom_len	= sr9700_get_eeprom_len,
-+	.get_eeprom	= sr9700_get_eeprom,
-+	.get_settings	= usbnet_get_settings,
-+	.set_settings	= usbnet_set_settings,
-+	.nway_reset	= usbnet_nway_reset,
-+};
-+
-+static void sr9700_set_multicast(struct net_device *net)
-+{
-+	struct usbnet *dev = netdev_priv(net);
-+	/* We use the 20 byte dev->data for our 8 byte filter buffer
-+	 * to avoid allocating memory that is tricky to free later */
-+	u8 *hashes = (u8 *) & dev->data;
-+	u8 rx_ctl = 0x31;	// enable, disable_long, disable_crc
-+
-+	memset(hashes, 0x00, SR_MCAST_SIZE);
-+	hashes[SR_MCAST_SIZE - 1] |= 0x80;	/* broadcast address */
-+
-+        if (net->flags & IFF_PROMISC) {
-+                rx_ctl |= 0x02;
-+        } else if (net->flags & IFF_ALLMULTI ||
-+                   netdev_mc_count(net) > SR_MCAST_MAX) {
-+                rx_ctl |= 0x04;
-+        } else if (!netdev_mc_empty(net)) {
-+                struct netdev_hw_addr *ha;
-+ 
-+                netdev_for_each_mc_addr(ha, net) {
-+                        u32 crc = ether_crc(ETH_ALEN, ha->addr) >> 26;
-+                        hashes[crc >> 3] |= 1 << (crc & 0x7);
-+                }
-+        }
-+
-+	sr_write_async(dev, MAR, SR_MCAST_SIZE, hashes);
-+	sr_write_reg_async(dev, RCR, rx_ctl);
-+}
-+
-+static int sr9700_set_mac_address(struct net_device *net, void *p)
-+{
-+	struct sockaddr *addr = p;
-+	struct usbnet *dev = netdev_priv(net);
-+
-+	if (!is_valid_ether_addr(addr->sa_data)) {
-+		dev_err(&net->dev, "not setting invalid mac address %pM\n",
-+								addr->sa_data);
-+		return -EINVAL;
-+	}
-+
-+	memcpy(net->dev_addr, addr->sa_data, net->addr_len);
-+	sr_write_async(dev, PAR, 6, dev->net->dev_addr);
-+
-+	return 0;
-+}
-+
-+static const struct net_device_ops sr9700_netdev_ops = {
-+	.ndo_open		= usbnet_open,
-+	.ndo_stop		= usbnet_stop,
-+	.ndo_start_xmit		= usbnet_start_xmit,
-+	.ndo_tx_timeout		= usbnet_tx_timeout,
-+	.ndo_change_mtu		= usbnet_change_mtu,
-+	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_do_ioctl 		= sr9700_ioctl,
-+	.ndo_set_rx_mode	= sr9700_set_multicast,
-+	.ndo_set_mac_address	= sr9700_set_mac_address,
-+};
-+
-+static int sr9700_bind(struct usbnet *dev, struct usb_interface *intf)
-+{
-+	int ret;
-+
-+	ret = usbnet_get_endpoints(dev, intf);
-+	if (ret)
-+		goto out;
-+
-+	dev->net->netdev_ops = &sr9700_netdev_ops;
-+	dev->net->ethtool_ops = &sr9700_ethtool_ops;
-+	dev->net->hard_header_len += SR_TX_OVERHEAD;
-+	dev->hard_mtu = dev->net->mtu + dev->net->hard_header_len;
-+	dev->rx_urb_size = 3072;	// bulkin buffer is preferably not less than 3K
-+
-+	dev->mii.dev = dev->net;
-+	dev->mii.mdio_read = sr_mdio_read;
-+	dev->mii.mdio_write = sr_mdio_write;
-+	dev->mii.phy_id_mask = 0x1f;
-+	dev->mii.reg_num_mask = 0x1f;
-+
-+	/* reset the sr9700 */
-+	sr_write_reg(dev, NCR, 1);
-+	udelay(20);
-+
-+	/* read MAC */
-+	if (sr_read(dev, PAR, ETH_ALEN, dev->net->dev_addr) < 0) {
-+		printk(KERN_ERR "Error reading MAC address\n");
-+		ret = -ENODEV;
-+		goto out;
-+	}
-+
-+	/* power up and reset phy */
-+	sr_write_reg(dev, PRR, 1);
-+	mdelay(20);		// at least 10ms, here 20ms for safe
-+	sr_write_reg(dev, PRR, 0);
-+	udelay(2 * 1000);	// at least 1ms, here 2ms for reading right register
-+
-+	/* receive broadcast packets */
-+	sr9700_set_multicast(dev->net);
-+
-+	sr_mdio_write(dev->net, dev->mii.phy_id, MII_BMCR, BMCR_RESET);
-+	sr_mdio_write(dev->net, dev->mii.phy_id, MII_ADVERTISE, ADVERTISE_ALL | ADVERTISE_CSMA | ADVERTISE_PAUSE_CAP);
-+	mii_nway_restart(&dev->mii);
-+
-+out:
-+	return ret;
-+}
-+
-+static int sr9700_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
-+{
-+	int len;
-+	struct sk_buff *sr_skb;
-+
-+	/* format:
-+	   b0: rx status
-+	   b1: packet length (incl crc) low
-+	   b2: packet length (incl crc) high
-+	   b3..n-4: packet data
-+	   bn-3..bn: ethernet crc
-+	 */
-+
-+	if (unlikely(skb->len < SR_RX_OVERHEAD)) {
-+		dev_err(&dev->udev->dev, "unexpected tiny rx frame\n");
-+		return 0;
-+	}
-+
-+	/*
-+	 * Each packet contains multiple skbs
-+	 */
-+	while (skb->len > SR_RX_OVERHEAD)
-+	{
-+		if (skb->data[0] != 0x40)
-+		{
-+			return 0;
-+		}
-+
-+		/* ignore the CRC length */
-+		len = (skb->data[1] | (skb->data[2] << 8)) - 4;
-+
-+		if (len > ETH_FRAME_LEN)
-+		{
-+			return 0;
-+		}
-+
-+		/* the last skb of current packet */
-+		if (skb->len == (len + SR_RX_OVERHEAD))
-+		{
-+			skb_pull( skb, 3 );
-+			skb->len = len;
-+			skb->tail = skb->data + len;
-+			skb->truesize = len + sizeof(struct sk_buff);
-+			return 2;
-+		}
-+
-+		/* skb_clone is used for address align */
-+		sr_skb = skb_clone(skb, GFP_ATOMIC);
-+		if (sr_skb) 
-+		{
-+			sr_skb->len = len;
-+			sr_skb->data = skb->data + 3;
-+			sr_skb->tail = skb->data + len;
-+			sr_skb->truesize = len + sizeof(struct sk_buff);
-+			usbnet_skb_return(dev, sr_skb);	
-+		}
-+		else
-+		{
-+			return 0;
-+		}
-+
-+		skb_pull( skb, len + SR_RX_OVERHEAD );
-+	};
-+	
-+	return 0;
-+}
-+
-+static struct sk_buff *sr9700_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
-+{
-+	int len;
-+
-+	/* format:
-+	   b0: packet length low
-+	   b1: packet length high
-+	   b3..n: packet data
-+	*/
-+
-+	len = skb->len;
-+
-+	if (skb_headroom(skb) < SR_TX_OVERHEAD) {
-+		struct sk_buff *skb2;
-+
-+		skb2 = skb_copy_expand(skb, SR_TX_OVERHEAD, 0, flags);
-+		dev_kfree_skb_any(skb);
-+		skb = skb2;
-+		if (!skb)
-+			return NULL;
-+	}
-+
-+	__skb_push(skb, SR_TX_OVERHEAD);
-+
-+	/* usbnet adds padding if length is a multiple of packet size
-+	   if so, adjust length value in header */
-+	if ((skb->len % dev->maxpacket) == 0)
-+		len++;
-+
-+	skb->data[0] = len;
-+	skb->data[1] = len >> 8;
-+
-+	return skb;
-+}
-+
-+static void sr9700_status(struct usbnet *dev, struct urb *urb)
-+{
-+	int link;
-+	u8 *buf;
-+
-+	/* format:
-+	   b0: net status
-+	   b1: tx status 1
-+	   b2: tx status 2
-+	   b3: rx status
-+	   b4: rx overflow
-+	   b5: rx count
-+	   b6: tx count
-+	   b7: gpr
-+	*/
-+
-+	if (urb->actual_length < 8)
-+		return;
-+
-+	buf = urb->transfer_buffer;
-+
-+	link = !!(buf[0] & 0x40);
-+	if (netif_carrier_ok(dev->net) != link) {
-+		usbnet_link_change(dev, link, 1);
-+		netdev_dbg(dev->net, "Link Status is: %d", link);
-+	}
-+}
-+
-+static int sr9700_link_reset(struct usbnet *dev)
-+{
-+	struct ethtool_cmd ecmd;
-+
-+	mii_check_media(&dev->mii, 1, 1);
-+	mii_ethtool_gset(&dev->mii, &ecmd);
-+
-+	netdev_dbg(dev->net, "link_reset() speed: %d duplex: %d",
-+	       ecmd.speed, ecmd.duplex);
-+
-+	return 0;
-+}
-+
-+static const struct driver_info sr9700_driver_info = {
-+	.description	= "CoreChip SR9700 USB Ethernet",
-+	.flags		= FLAG_ETHER,
-+	.bind		= sr9700_bind,
-+	.rx_fixup	= sr9700_rx_fixup,
-+	.tx_fixup	= sr9700_tx_fixup,
-+	.status		= sr9700_status,
-+	.link_reset	= sr9700_link_reset,
-+	.reset		= sr9700_link_reset,
-+};
-+
-+static const struct usb_device_id products[] = {
-+	{
-+	 USB_DEVICE(0x0fe6, 0x9700),	/* SR9700 device */
-+	 .driver_info = (unsigned long)&sr9700_driver_info,
-+	 },
-+	{},			// END
-+};
-+
-+MODULE_DEVICE_TABLE(usb, products);
-+
-+static struct usb_driver sr9700_usb_driver = {
-+	.name = "sr9700",
-+	.id_table = products,
-+	.probe = usbnet_probe,
-+	.disconnect = usbnet_disconnect,
-+	.suspend = usbnet_suspend,
-+	.resume = usbnet_resume,
-+	.disable_hub_initiated_lpm = 1,
-+};
-+
-+module_usb_driver(sr9700_usb_driver);
-+
-+MODULE_AUTHOR("liujl <liujunliang_ljl@163.com>");
-+MODULE_DESCRIPTION("SR9700 one chip USB 1.1 USB to Ethernet device from http://www.corechip-sz.com/");
-+MODULE_LICENSE("GPL");
-diff --git a/drivers/net/usb/sr9700.h b/drivers/net/usb/sr9700.h
-new file mode 100644
-index 0000000..d9fe82d
---- /dev/null
-+++ b/drivers/net/usb/sr9700.h
-@@ -0,0 +1,152 @@
-+/*
-+ * CoreChip-sz SR9700 one chip USB 1.1 Ethernet Devices
-+ *
-+ * Author : liujl <liujunliang_ljl@163.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * version 2 as published by the Free Software Foundation.
-+ */
-+
-+/* sr9700 spec. register table on android platform */
-+/* Registers */
-+#define	NCR			0x00
-+#define	NSR			0x01
-+#define	TCR			0x02
-+#define	TSR1		0x03
-+#define	TSR2		0x04
-+#define	RCR			0x05
-+#define	RSR			0x06
-+#define	ROCR		0x07
-+#define	BPTR		0x08
-+#define	FCTR		0x09
-+#define	FCR			0x0A
-+#define	EPCR		0x0B
-+#define	EPAR		0x0C
-+#define	EPDR		0x0D	// 0x0D ~ 0x0E
-+#define	WCR			0x0F
-+#define	PAR			0x10
-+#define	MAR			0x16
-+#define	PRR			0x1F
-+#define	TWPAL		0x20
-+#define	TWPAH		0x21
-+#define	TRPAL		0x22
-+#define	TRPAH		0x23
-+#define	RWPAL		0x24
-+#define	RWPAH		0x25
-+#define	RRPAL		0x26
-+#define	RRPAH		0x27
-+#define	VID			0x28
-+#define	PID			0x2A
-+#define	CHIPR		0x2C
-+#define	USBDA		0xF0
-+#define	RXC			0xF1
-+#define	TXC_USBS	0xF2
-+#define	USBC		0xF4
-+
-+/* Bit definition for registers */
-+// Network Control Reg
-+#define	NCR_RST			(1 << 0)
-+#define	NCR_LBK			(3 << 1)
-+#define	NCR_FDX			(1 << 3)
-+#define	NCR_WAKEEN		(1 << 6)
-+// Network Status Reg
-+#define	NSR_RXRDY	(1 << 0)
-+#define	NSR_RXOV	(1 << 1)
-+#define	NSR_TX1END	(1 << 2)
-+#define	NSR_TX2END	(1 << 3)
-+#define	NSR_TXFULL	(1 << 4)
-+#define	NSR_WAKEST	(1 << 5)
-+#define	NSR_LINKST	(1 << 6)
-+#define	NSR_SPEED	(1 << 7)
-+// Tx Control Reg
-+#define	TCR_CRC_DIS		(1 << 1)
-+#define	TCR_PAD_DIS		(1 << 2)
-+#define	TCR_LC_CARE		(1 << 3)
-+#define	TCR_CRS_CARE	(1 << 4)
-+#define	TCR_EXCECM		(1 << 5)
-+#define	TCR_LF_EN		(1 << 6)
-+// Tx Status Reg for Packet 1
-+#define	TSR1_EC		(1 << 2)
-+#define	TSR1_COL	(1 << 3)
-+#define	TSR1_LC		(1 << 4)
-+#define	TSR1_NC		(1 << 5)
-+#define	TSR1_LOC		(1 << 6)
-+#define	TSR1_TLF	(1 << 7)
-+// Tx Status Reg for Packet 2
-+#define	TSR2_EC		(1 << 2)
-+#define	TSR2_COL	(1 << 3)
-+#define	TSR2_LC		(1 << 4)
-+#define	TSR2_NC		(1 << 5)
-+#define	TSR2_LOC		(1 << 6)
-+#define	TSR2_TLF	(1 << 7)
-+// Rx Control Reg
-+#define	RCR_RXEN		(1 << 0)
-+#define	RCR_PRMSC		(1 << 1)
-+#define	RCR_RUNT		(1 << 2)
-+#define	RCR_ALL			(1 << 3)
-+#define	RCR_DIS_CRC		(1 << 4)
-+#define	RCR_DIS_LONG	(1 << 5)
-+// Rx Status Reg
-+#define	RSR_AE		(1 << 2)
-+#define	RSR_MF		(1 << 6)
-+#define	RSR_RF		(1 << 7)
-+// Recv Overflow Counter Reg
-+#define	ROCR_ROC		(0x7F << 0)
-+#define	ROCR_RXFU		(1 << 7)
-+// Back Pressure Threshold Reg
-+#define	BPTR_JPT	(0x0F << 0)
-+#define	BPTR_BPHW	(0x0F << 4)
-+// Flow Control Threshold Reg
-+#define	FCTR_LWOT		(0x0F << 0)
-+#define	FCTR_HWOT		(0x0F << 4)
-+// rx/tx Flow Control Reg
-+#define	FCR_FLCE	(1 << 0)
-+#define	FCR_BKPA	(1 << 4)
-+#define	FCR_TXPEN	(1 << 5)
-+#define	FCR_TXPF	(1 << 6)
-+#define	FCR_TXP0	(1 << 7)
-+// EEPROM & PHY Control Reg
-+#define	EPCR_ERRE		(1 << 0)
-+#define	EPCR_ERPRW		(1 << 1)
-+#define	EPCR_ERPRR		(1 << 2)
-+#define	EPCR_EPOS		(1 << 3)
-+#define	EPCR_WEP		(1 << 4)
-+// EEPROM & PHY Address Reg
-+#define	EPAR_EROA		(0x3F << 0)
-+#define	EPAR_PHY_ADR	(0x03 << 6)
-+// Wakeup Control Reg
-+#define	WCR_MAGICST		(1 << 0)
-+#define	WCR_LINKST		(1 << 2)
-+#define	WCR_MAGICEN		(1 << 3)
-+#define	WCR_LINKEN		(1 << 5)
-+// Phy Reset Reg
-+#define	PRR_PHY_RST		(1 << 0)
-+// USB Device Address Reg
-+#define	USBDA_USBFA	(0x7F << 0)
-+// TX packet Counter & USB Status Reg
-+#define	TXC_USBS_TXC0	(1 << 0)
-+#define	TXC_USBS_TXC1	(1 << 1)
-+#define	TXC_USBS_TXC2	(1 << 2)
-+#define	TXC_USBS_EP1RDY	(1 << 5)
-+#define	TXC_USBS_SUSFLAG	(1 << 6)
-+#define	TXC_USBS_RXFAULT	(1 << 7)
-+// USB Control Reg
-+#define	USBC_EP3NAK	(1 << 4)
-+#define	USBC_EP3ACK	(1 << 5)
-+
-+/* Variables */
-+#define	SR_RD_REGS		0x00
-+#define	SR_WR_REGS		0x01
-+#define	SR_WR_REG		0x03
-+#define	SR_REQ_RD_REG	(USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE)
-+#define	SR_REQ_WR_REG	(USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE)
-+
-+#define	SR_SHARE_TIMEOUT	1000
-+#define	SR_EEPROM_LEN		256
-+#define	SR_MCAST_SIZE		8
-+#define	SR_MCAST_MAX		64
-+#define	SR_TX_OVERHEAD		2	// 2bytes header
-+#define	SR_RX_OVERHEAD		7	// 3bytes header + 4crc tail
-+
-+/*----------------------------------------------------------------------------------------------*/
+* Trivial typo fix in xt_addrtype, from Phil Oester.
 
+* Remove net_ratelimit in the conntrack logging for consistency with other
+  logging subsystem, from Patrick McHardy.
 
---------------------------------------------------
-2013-08-20 
-liujunliang_ljl 
-www.corechip-sz.com
+* Remove unneeded includes from the recently added xt_connlabel support, from
+  Florian Westphal.
+
+* Allow to update conntracks via nfqueue, don't need NFQA_CFG_F_CONNTRACK for
+  this, from Florian Westphal.
+
+* Remove tproxy core, now that we have socket early demux, from Florian
+  Westphal.
+
+* A couple of patches to refactor conntrack event reporting to save a good
+  bunch of lines, from Florian Westphal.
+
+* Fix missing locking in NAT sequence adjustment, it did not manifested in
+  any known bug so far, from Patrick McHardy.
+
+* Change sequence number adjustment variable to 32 bits, to delay the
+  possible early overflow in long standing connections, also from Patrick.
+
+* Comestic cleanups for IPVS, from Dragos Foianu.
+
+* Fix possible null dereference in IPVS in the SH scheduler, from Daniel
+  Borkmann.
+
+* Allow to attach conntrack expectations via nfqueue. Before this patch, you
+  had to use ctnetlink instead, thus, we save the conntrack lookup.
+
+* Export xt_rpfilter and xt_HMARK header files, from Nicolas Dichtel.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 9025c8e253369d324111c041032018955b80dd55:
+
+  drivers/net/ethernet/stmicro/stmmac: don't check resource with devm_ioremap_resource (2013-07-24 23:59:33 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
+
+for you to fetch changes up to 38c67328ac79cb9eaf61b5d4750fe3b9cff0dd15:
+
+  netfilter: export xt_HMARK.h to userland (2013-08-14 10:48:05 +0200)
+
+----------------------------------------------------------------
+Daniel Borkmann (1):
+      ipvs: ip_vs_sh: ip_vs_sh_get_port: check skb_header_pointer for NULL
+
+Dragos Foianu (1):
+      ipvs: fixed spacing at for statements
+
+Florian Westphal (7):
+      netfilter: connlabels: remove unneeded includes
+      netfilter: nf_queue: relax NFQA_CT attribute check
+      netfilter: tproxy: remove nf_tproxy_core, keep tw sk assigned to skb
+      netfilter: tproxy: remove nf_tproxy_core.h
+      netfilter: nf_conntrack: remove duplicate code in ctnetlink
+      netfilter: tproxy: fix build with IP6_NF_IPTABLES=n
+      netfilter: nf_conntrack: don't send destroy events from iterator
+
+Nicolas Dichtel (2):
+      netfilter: export xt_rpfilter.h to userland
+      netfilter: export xt_HMARK.h to userland
+
+Pablo Neira Ayuso (2):
+      netfilter: ctnetlink: refactor ctnetlink_create_expect
+      netfilter: nfnetlink_queue: allow to attach expectations to conntracks
+
+Patrick McHardy (5):
+      netfilter: nf_conntrack: remove net_ratelimit() for LOG_INVALID()
+      netfilter: nf_conntrack: constify sk_buff argument to nf_ct_attach()
+      netfilter: nf_nat: fix locking in nf_nat_seq_adjust()
+      netfilter: nf_nat: change sequence number adjustments to 32 bits
+      netfilter: nf_nat: use per-conntrack locking for sequence number adjustments
+
+Phil Oester (1):
+      netfilter: xt_addrtype: fix trivial typo
+
+ Documentation/networking/tproxy.txt              |    5 +-
+ include/linux/netfilter.h                        |    8 +-
+ include/net/netfilter/nf_conntrack.h             |    9 +-
+ include/net/netfilter/nf_conntrack_l4proto.h     |    7 -
+ include/net/netfilter/nf_nat.h                   |    2 +-
+ include/net/netfilter/nf_nat_helper.h            |    6 +-
+ include/net/netfilter/nf_tproxy_core.h           |  210 -----------------
+ include/net/netfilter/nfnetlink_queue.h          |    8 +
+ include/uapi/linux/netfilter/Kbuild              |    2 +
+ include/uapi/linux/netfilter/nfnetlink_queue.h   |    1 +
+ include/{ => uapi}/linux/netfilter/xt_HMARK.h    |    0
+ include/{ => uapi}/linux/netfilter/xt_rpfilter.h |    0
+ net/ipv4/netfilter/ipt_MASQUERADE.c              |    2 +-
+ net/ipv6/netfilter/ip6t_MASQUERADE.c             |    2 +-
+ net/netfilter/Kconfig                            |   22 +-
+ net/netfilter/Makefile                           |    3 -
+ net/netfilter/core.c                             |    7 +-
+ net/netfilter/ipvs/ip_vs_lblcr.c                 |    8 +-
+ net/netfilter/ipvs/ip_vs_sh.c                    |    6 +
+ net/netfilter/nf_conntrack_core.c                |   69 ++----
+ net/netfilter/nf_conntrack_labels.c              |    4 -
+ net/netfilter/nf_conntrack_netlink.c             |  269 ++++++++++++++--------
+ net/netfilter/nf_conntrack_proto.c               |    4 +-
+ net/netfilter/nf_conntrack_proto_tcp.c           |    4 +-
+ net/netfilter/nf_nat_core.c                      |    6 +-
+ net/netfilter/nf_nat_helper.c                    |   28 ++-
+ net/netfilter/nf_tproxy_core.c                   |   62 -----
+ net/netfilter/nfnetlink_queue_core.c             |   11 +-
+ net/netfilter/nfnetlink_queue_ct.c               |   15 ++
+ net/netfilter/xt_TPROXY.c                        |  169 +++++++++++++-
+ net/netfilter/xt_addrtype.c                      |    2 +-
+ net/netfilter/xt_socket.c                        |   66 +++++-
+ 32 files changed, 513 insertions(+), 504 deletions(-)
+ delete mode 100644 include/net/netfilter/nf_tproxy_core.h
+ rename include/{ => uapi}/linux/netfilter/xt_HMARK.h (100%)
+ rename include/{ => uapi}/linux/netfilter/xt_rpfilter.h (100%)
+ delete mode 100644 net/netfilter/nf_tproxy_core.c
+
