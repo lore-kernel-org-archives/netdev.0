@@ -1,72 +1,60 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH 1/3] net: add a new NETDEV_CHANGEROOM event type
-Date: Tue, 20 Aug 2013 18:10:12 +0200
-Message-ID: <20130820161012.GC1593@minipsycho.brq.redhat.com>
-References: <1377002752-4622-1-git-send-email-f.fainelli@gmail.com>
- <1377002752-4622-2-git-send-email-f.fainelli@gmail.com>
- <1377011818.13829.9.camel@jlt4.sipsolutions.net>
- <CAGVrzcahRhYJM-1KcNDOoekKCetSZCN67hHQ0fgjndehZ=9EUw@mail.gmail.com>
+From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Subject: Re: changing dev->needed_headroom/needed_tailroom?
+Date: Tue, 20 Aug 2013 09:20:13 -0700
+Message-ID: <20130820092013.6ca909e2@nehalam.linuxnetplumber.net>
+References: <1374850210.8248.59.camel@jlt4.sipsolutions.net>
+	<1375433758.24371.20.camel@deadeye.wl.decadent.org.uk>
+	<1375449082.3927.5.camel@edumazet-glaptop>
+	<1375711240.8120.11.camel@jlt4.sipsolutions.net>
+	<CAGVrzcaGV6AqLTAxpM6zMv7_C-LNxp-WNg+J47d7a9S+Ca1bDw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	netdev <netdev@vger.kernel.org>, amwang <amwang@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	kaber <kaber@trash.net>, David Miller <davem@davemloft.net>,
-	vyasevic <vyasevic@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f177.google.com ([74.125.82.177]:62773 "EHLO
-	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751097Ab3HTQKQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 12:10:16 -0400
-Received: by mail-we0-f177.google.com with SMTP id m46so594052wev.22
-        for <netdev@vger.kernel.org>; Tue, 20 Aug 2013 09:10:15 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAGVrzcahRhYJM-1KcNDOoekKCetSZCN67hHQ0fgjndehZ=9EUw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAGVrzcaGV6AqLTAxpM6zMv7_C-LNxp-WNg+J47d7a9S+Ca1bDw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Aug 20, 2013 at 05:30:48PM CEST, f.fainelli@gmail.com wrote:
->2013/8/20 Johannes Berg <johannes@sipsolutions.net>:
->> On Tue, 2013-08-20 at 13:45 +0100, Florian Fainelli wrote:
->>
->>>  /**
->>> + *   dev_set_headroom - Change device needed headroom
->>> + *   @dev: device
->>> + *   @new_headroom: new headroom size
->>> + *
->>> + *   Change the network device headroom space.
->>> + */
->>> +int dev_set_headroom(struct net_device *dev, unsigned short new_headroom)
->>
->> It seems that you need to invoke these under RTNL, might be worth
->> documenting that.
->
->Good point, yes.
->
->>
->> Also, maybe it would be worth doing it in one call? If you need to
->> change both, then you'd end up calling the notifier twice, which is less
->> efficient?
->
->I have mixed feelings about this. I do not expect changing the
->headroom/tailroom to be in a hot-path, and we would need to have a
->name such as dev_set_head_and_tailroom() or something that clearly
->states that it operates on both quantities. Looking at the subsystems
->and drivers, there are quite a lot of users which only set one or the
->other, occasionaly both before registration.
->
->> I suppose you could make them 'int' arguments and reserve -1
+On Tue, 20 Aug 2013 11:00:18 +0100
+Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
 
-Ugh, -1, I don't like this. I think that they should be set separate. Not
-real need to do it in one function.
+> 2013/8/5 Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>:
+> > On Fri, 2013-08-02 at 06:11 -0700, Eric Dumazet wrote:
+> >> On Fri, 2013-08-02 at 10:55 +0200, Ben Hutchings wrote:
+> >>
+> >> > I don't think this is safe when the interface is running (even if
+> >> > carrier is off).  Some functions may read dev->needed_headroom twice and
+> >> > rely on getting the same value each time.
+> >>
+> >> It should be no problem. Remaining unsafe places should be fixed.
+> >
+> > Most interesting would be stack devs, which I hadn't even considered. In
+> > any case, since I can't completely _rely_ on it, it's an optimisation,
+> > the only bugs would be around the double-access and then running
+> > over/under the SKB or so?
+> 
+> As far as I could test this with an Ethernet driver which adjusted its
+> needed_headroom by 64 bytes whenever some hardware feature was
+> enabled/disabled, this expectedly broke bridge and vlans at least.
+> Bridge code does not use the slave ports needed_headroom values, and
+> VLAN devices get the parent device needed_headroom only when creating
+> the vlan device. The good thing is since the needed_headroom space you
+> need is most likely fixed for a given configuration type, you should
+> see a pretty "stable" corruption of your SKB head.
 
->> for no changes, or just require both new values to be given (if doing
->> this at all.)
->
->What I like about keeping them separate is that we can use the
->"native" storage type that is used in struct net_device, and have
->compile-time checking of this.
->-- 
->Florian
+All code must check for needed headroom first, and copy packet
+if space is not available. Since excess headroom is always safe,
+most devices just always use the same worst case headroom.
+
+Even with your changes this will still be necessary since packets will
+be still in flight while features change.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
