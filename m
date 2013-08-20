@@ -1,60 +1,47 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next] openvswitch: check CONFIG_OPENVSWITCH_GRE in makefile
-Date: Tue, 20 Aug 2013 17:20:10 +0800
-Message-ID: <1376990410-21778-1-git-send-email-amwang@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jesse Gross <jesse@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Cong Wang <amwang@redhat.com>
+From: "Florian Fainelli" <f.fainelli@gmail.com>
+Subject: [RFC PATCH] bridge: inherit slave devices needed_headroom
+Date: Tue, 20 Aug 2013 10:21:45 +0100
+Message-ID: <1376990505-15708-1-git-send-email-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, eric.dumazet@gmail.com,
+	vyasevic@redhat.com, davem@davemloft.net,
+	"Florian Fainelli" <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33964 "EHLO mx1.redhat.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3678 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750751Ab3HTJVZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Aug 2013 05:21:25 -0400
+	id S1750795Ab3HTJWV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Aug 2013 05:22:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+Some slave devices may have set a dev->needed_headroom value which is
+different than the default one, most likely in order to prepend a
+hardware descriptor in front of the Ethernet frame to send. Whenever a
+new slave is added to a bridge, ensure that we update the
+needed_headroom value accordingly to account for the slave
+needed_headroom value.
 
-Cc: Jesse Gross <jesse@nicira.com>
-Cc: Pravin B Shelar <pshelar@nicira.com>
-Signed-off-by: Cong Wang <amwang@redhat.com>
-
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
-diff --git a/net/openvswitch/Makefile b/net/openvswitch/Makefile
-index 82e4ee5..4de6dcc 100644
---- a/net/openvswitch/Makefile
-+++ b/net/openvswitch/Makefile
-@@ -10,10 +10,12 @@ openvswitch-y := \
- 	dp_notify.o \
- 	flow.o \
- 	vport.o \
--	vport-gre.o \
- 	vport-internal_dev.o \
- 	vport-netdev.o
+ net/bridge/br_if.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index aa6c9a8..c41d5fb 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -383,6 +383,9 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
  
- ifneq ($(CONFIG_OPENVSWITCH_VXLAN),)
- openvswitch-y += vport-vxlan.o
- endif
-+ifneq ($(CONFIG_OPENVSWITCH_GRE),)
-+openvswitch-y += vport-gre.o
-+endif
-diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
-index 493e977..21d5073 100644
---- a/net/openvswitch/vport-gre.c
-+++ b/net/openvswitch/vport-gre.c
-@@ -16,7 +16,6 @@
-  * 02110-1301, USA
-  */
+ 	netdev_update_features(br->dev);
  
--#ifdef CONFIG_OPENVSWITCH_GRE
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++	if (br->dev->needed_headroom < dev->needed_headroom)
++		br->dev->needed_headroom = dev->needed_headroom;
++
+ 	spin_lock_bh(&br->lock);
+ 	changed_addr = br_stp_recalculate_bridge_id(br);
  
- #include <linux/if.h>
-@@ -271,5 +270,3 @@ const struct vport_ops ovs_gre_vport_ops = {
- 	.get_name	= gre_get_name,
- 	.send		= gre_tnl_send,
- };
--
--#endif /* OPENVSWITCH_GRE */
+-- 
+1.8.1.2
