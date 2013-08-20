@@ -1,77 +1,55 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 03/19] netfilter: nf_conntrack: constify sk_buff argument to nf_ct_attach()
-Date: Tue, 20 Aug 2013 12:54:35 +0200
-Message-ID: <1376996091-3964-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 05/19] netfilter: nf_queue: relax NFQA_CT attribute check
+Date: Tue, 20 Aug 2013 12:54:37 +0200
+Message-ID: <1376996091-3964-6-git-send-email-pablo@netfilter.org>
 References: <1376996091-3964-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:60064 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:60070 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750976Ab3HTKzG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Aug 2013 06:55:06 -0400
+	id S1751010Ab3HTKzJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Aug 2013 06:55:09 -0400
 In-Reply-To: <1376996091-3964-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+From: Florian Westphal <fw@strlen.de>
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Allow modifying attributes of the conntrack associated with a packet
+without first requesting ct data via CFG_F_CONNTRACK or extra
+nfnetlink_conntrack socket.
+
+Also remove unneded rcu_read_lock; the entire function is already
+protected by rcu.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter.h         |    4 ++--
- net/netfilter/core.c              |    7 ++++---
- net/netfilter/nf_conntrack_core.c |    2 +-
- 3 files changed, 7 insertions(+), 6 deletions(-)
+ net/netfilter/nfnetlink_queue_core.c |    4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index de70f7b..f4bbf2c 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -314,8 +314,8 @@ nf_nat_decode_session(struct sk_buff *skb, struct flowi *fl, u_int8_t family)
- #endif /*CONFIG_NETFILTER*/
+diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
+index 971ea14..ec9de12 100644
+--- a/net/netfilter/nfnetlink_queue_core.c
++++ b/net/netfilter/nfnetlink_queue_core.c
+@@ -987,8 +987,7 @@ nfqnl_recv_verdict(struct sock *ctnl, struct sk_buff *skb,
+ 	if (entry == NULL)
+ 		return -ENOENT;
  
- #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
--extern void (*ip_ct_attach)(struct sk_buff *, struct sk_buff *) __rcu;
--extern void nf_ct_attach(struct sk_buff *, struct sk_buff *);
-+extern void (*ip_ct_attach)(struct sk_buff *, const struct sk_buff *) __rcu;
-+extern void nf_ct_attach(struct sk_buff *, const struct sk_buff *);
- extern void (*nf_ct_destroy)(struct nf_conntrack *) __rcu;
+-	rcu_read_lock();
+-	if (nfqa[NFQA_CT] && (queue->flags & NFQA_CFG_F_CONNTRACK))
++	if (nfqa[NFQA_CT])
+ 		ct = nfqnl_ct_parse(entry->skb, nfqa[NFQA_CT], &ctinfo);
  
- struct nf_conn;
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index 2217363..593b16e 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -234,12 +234,13 @@ EXPORT_SYMBOL(skb_make_writable);
- /* This does not belong here, but locally generated errors need it if connection
-    tracking in use: without this, connection may not be in hash table, and hence
-    manufactured ICMP or RST packets will not be associated with it. */
--void (*ip_ct_attach)(struct sk_buff *, struct sk_buff *) __rcu __read_mostly;
-+void (*ip_ct_attach)(struct sk_buff *, const struct sk_buff *)
-+		__rcu __read_mostly;
- EXPORT_SYMBOL(ip_ct_attach);
+ 	if (nfqa[NFQA_PAYLOAD]) {
+@@ -1002,7 +1001,6 @@ nfqnl_recv_verdict(struct sock *ctnl, struct sk_buff *skb,
+ 		if (ct)
+ 			nfqnl_ct_seq_adjust(skb, ct, ctinfo, diff);
+ 	}
+-	rcu_read_unlock();
  
--void nf_ct_attach(struct sk_buff *new, struct sk_buff *skb)
-+void nf_ct_attach(struct sk_buff *new, const struct sk_buff *skb)
- {
--	void (*attach)(struct sk_buff *, struct sk_buff *);
-+	void (*attach)(struct sk_buff *, const struct sk_buff *);
- 
- 	if (skb->nfct) {
- 		rcu_read_lock();
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 0283bae..d32afaf 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1192,7 +1192,7 @@ EXPORT_SYMBOL_GPL(nf_ct_port_nlattr_tuple_size);
- #endif
- 
- /* Used by ipt_REJECT and ip6t_REJECT. */
--static void nf_conntrack_attach(struct sk_buff *nskb, struct sk_buff *skb)
-+static void nf_conntrack_attach(struct sk_buff *nskb, const struct sk_buff *skb)
- {
- 	struct nf_conn *ct;
- 	enum ip_conntrack_info ctinfo;
+ 	if (nfqa[NFQA_MARK])
+ 		entry->skb->mark = ntohl(nla_get_be32(nfqa[NFQA_MARK]));
 -- 
 1.7.10.4
