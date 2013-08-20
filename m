@@ -1,61 +1,28 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH V2] ipv6: handle Redirect ICMP Message with no Redirected Header option
-Date: Tue, 20 Aug 2013 13:50:20 +0200
-Message-ID: <20130820115020.GB3938@order.stressinduktion.org>
-References: <52131725.6000409@cn.fujitsu.com>
+Subject: Re: [PATCH net-next 1/3] net: ipv6: igmp6_event_query: use msecs_to_jiffies
+Date: Tue, 20 Aug 2013 13:55:32 +0200
+Message-ID: <20130820115532.GC3938@order.stressinduktion.org>
+References: <1376994122-3022-1-git-send-email-dborkman@redhat.com> <1376994122-3022-2-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:34569 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:34579 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750983Ab3HTLuW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 07:50:22 -0400
+	with ESMTP id S1750907Ab3HTLzd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 07:55:33 -0400
 Content-Disposition: inline
-In-Reply-To: <52131725.6000409@cn.fujitsu.com>
+In-Reply-To: <1376994122-3022-2-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 20, 2013 at 03:13:41PM +0800, Duan Jiong wrote:
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -1178,6 +1178,28 @@ void ip6_redirect(struct sk_buff *skb, struct net *net, int oif, u32 mark)
->  }
->  EXPORT_SYMBOL_GPL(ip6_redirect);
->  
-> +void ip6_redirect_no_header(struct sk_buff *skb, struct net *net, int oif,
-> +			    u32 mark)
-> +{
-> +	const struct ipv6hdr *iph = (struct ipv6hdr *)skb_network_header(skb);
+On Tue, Aug 20, 2013 at 12:22:00PM +0200, Daniel Borkmann wrote:
+> Use proper API functions to calculate jiffies from milliseconds and
+> not the crude method of dividing HZ by a value. This ensures more
+> accurate values even in the case of strange HZ values. While at it,
+> also simplify code in the mlh2 case by using max().
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-Was there a problem with ipv6_hdr?
-
-> +	const struct rd_msg *msg = (struct rd_msg *)skb_transport_header(skb);
-> +	struct dst_entry *dst;
-> +	struct flowi6 fl6;
-> +
-> +	memset(&fl6, 0, sizeof(fl6));
-> +	fl6.flowi6_oif = oif;
-> +	fl6.flowi6_mark = mark;
-> +	fl6.flowi6_flags = 0;
-> +	fl6.daddr = msg->dest;
-> +	fl6.saddr = iph->daddr;
-> +
-> +	dst = ip6_route_output(net, NULL, &fl6);
-> +	if (!dst->error)
-> +		rt6_do_redirect(dst, NULL, skb);
-> +	dst_release(dst);
-> +}
-> +EXPORT_SYMBOL_GPL(ip6_redirect_no_header);
-> +
->  void ip6_sk_redirect(struct sk_buff *skb, struct sock *sk)
->  {
->  	ip6_redirect(skb, sock_net(sk), sk->sk_bound_dev_if, sk->sk_mark);
-
-Introducing a new function here is the right thing. Maybe you could have
-a look how these redirects could be fed to raw sockets, too?
-
-Thanks,
-
-  Hannes
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
