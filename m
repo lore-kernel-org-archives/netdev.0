@@ -1,76 +1,157 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: bonding + arp monitoring fails if interface is a vlan
-Date: Tue, 20 Aug 2013 12:11:34 +0200
-Message-ID: <521340D6.5080108@redhat.com>
-References: <20130801121142.GA444@www.manty.net> <51FB9EE5.3040907@redhat.com> <CAJk_L2FJyD2X7EPztiVWLBD4NDR_VOehdFEeV+nq7a+sO9+_wA@mail.gmail.com> <CAJk_L2FU6GcHUoC+UdNJoULN9KewoUQAMhapC0k3RcTqNOymnw@mail.gmail.com> <51FF7DC6.7080602@redhat.com> <CAJk_L2FTs0bX_s+ChKY9ZvZqVTagE=LQZpwV48b1RFhgtMsd8w@mail.gmail.com> <5201F99D.2060809@redhat.com> <CAJk_L2FuxrZrgg6_95Ww_0nVaE8Ff=1fmsUk+ghxCQ=LPyVzaQ@mail.gmail.com> <CAJk_L2Ep-HoROtyThk26t8x3HQFy9+5-7k-e4G15Nm_F0KxV-A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Santiago Garcia Mantinan <manty@manty.net>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next] ip6_tunnel: ensure to always have a link local address
+Date: Tue, 20 Aug 2013 12:16:06 +0200
+Message-ID: <1376993766-5723-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22955 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750913Ab3HTKPk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Aug 2013 06:15:40 -0400
-In-Reply-To: <CAJk_L2Ep-HoROtyThk26t8x3HQFy9+5-7k-e4G15Nm_F0KxV-A@mail.gmail.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:48774 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750802Ab3HTKQS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 06:16:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/20/2013 10:05 AM, Santiago Garcia Mantinan wrote:
-> Hi!
-> 
-> Sorry it took me so long to reply back. I've been doing more tests on
-> xor mode and I see that arp monitoring is not working at all. I
-> haven't found any doc that says which modes should be compatible with
-> arp monitoring, maybe xor mode shouldn't be used at all.
-> 
-> My last setup is a Linux with a couple of vlans both interfaces
-> (eth2.1001 and eth2.1002) with IP 192.168.1.1 (no bonding at all) and
-> another Linux machine with a 3.11-rc3 with Nicolay's arp fix for
-> bonding and a bond configured like this:
-> 
-> iface bond0 inet static
->         address 192.168.1.2
->         netmask 255.255.255.0
->         bond-slaves eth0.1001 eth0.1002 eth1.1001 eth1.1002
->         bond-mode balance-xor
->         bond-arp_validate 0
->         bond-arp_interval 2000
->         bond-arp_ip_target 192.168.1.1
-> 
-> A silly switch connects the couple of ethernets of the machine with
-> the bond to the interface of the not bonded machine.
-> 
-> What I saw was that the bonded machine didn't detect the ifconfig down
-> of the interfaces of the not bonded machine at all. That drove me to
-> the hypothesis that the bonded machine was considering its own traffic
-> (there was no traffic but the arp requests of the bonding) as
-> indication that the link was ok.
-> 
-> To test the hypothesis, when the not bonded machine (192.168.1.1)
-> which is the target for arp requests was unplugged and the bonding was
-> seeing all interfaces up (not detecting that the other machine was not
-> responding) I unplugged one of the bonded interfaces and all 4 slaves
-> went to down, then if I replugged it all 4 would go up.
-> 
-> Maybe this is something to be expected due to arp monitoring not
-> working with balance-xor, but I haven't found any doc saying this.
-> 
-> If you need the debug info for this I can send it, but the events show
-> nothing, as there are no event saying that link is lost or anything
-> :-(
-> 
-> Regards.
-> 
-Hi,
-This setup works for me, what might be wrong with your setup is that you connect
-all 4 ports to a "dumb" switch, and you have the same vlans over the real
-devices that are connected so they see each other's packets and the port's
-last_rx gets updated so they stay up.
-I tried your setup with a "smart" switch so the ports couldn't see each other
-and only the one that saw 192.168.1.1 was up, and the moment 192.168.1.1 went
-down - the port went down in the bonding.
+When an Xin6 tunnel is set up, we check other netdevices to inherit the link-
+local address. If none is available, the interface will not have any link-local
+address. RFC4862 expects that each interface has a link local address.
 
-Cheers,
- Nik
+Now than this kind of tunnels supports x-netns, it's easy to fall in this case
+(by creating the tunnel in a netns where ethernet interfaces stand and then
+moving it to a other netns where no ethernet interface is available).
+
+RFC4291, Appendix A suggests two methods: the first is the one currently
+implemented, the second is to generate a unique identifier, so that we can
+always generate the link-local address. Let's use eth_random_addr() to generate
+this interface indentifier.
+
+I remove completly the previous method, hence for the whole life of the
+interface, the link-local address remains the same (previously, it depends on
+which ethernet interfaces were up when the tunnel interface was set up).
+
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/ipv6/addrconf.c   | 56 +++++++++++++--------------------------------------
+ net/ipv6/ip6_tunnel.c |  4 ++++
+ 2 files changed, 18 insertions(+), 42 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index ad12f7c43f25..5125436ca67e 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1814,6 +1814,16 @@ static int addrconf_ifid_gre(u8 *eui, struct net_device *dev)
+ 	return __ipv6_isatap_ifid(eui, *(__be32 *)dev->dev_addr);
+ }
+ 
++static int addrconf_ifid_ip6tnl(u8 *eui, struct net_device *dev)
++{
++	memcpy(eui, dev->perm_addr, 3);
++	memcpy(eui + 5, dev->perm_addr + 3, 3);
++	eui[3] = 0xFF;
++	eui[4] = 0xFE;
++	eui[0] ^= 2;
++	return 0;
++}
++
+ static int ipv6_generate_eui64(u8 *eui, struct net_device *dev)
+ {
+ 	switch (dev->type) {
+@@ -1832,6 +1842,8 @@ static int ipv6_generate_eui64(u8 *eui, struct net_device *dev)
+ 		return addrconf_ifid_eui64(eui, dev);
+ 	case ARPHRD_IEEE1394:
+ 		return addrconf_ifid_ieee1394(eui, dev);
++	case ARPHRD_TUNNEL6:
++		return addrconf_ifid_ip6tnl(eui, dev);
+ 	}
+ 	return -1;
+ }
+@@ -2709,7 +2721,8 @@ static void addrconf_dev_config(struct net_device *dev)
+ 	    (dev->type != ARPHRD_ARCNET) &&
+ 	    (dev->type != ARPHRD_INFINIBAND) &&
+ 	    (dev->type != ARPHRD_IEEE802154) &&
+-	    (dev->type != ARPHRD_IEEE1394)) {
++	    (dev->type != ARPHRD_IEEE1394) &&
++	    (dev->type != ARPHRD_TUNNEL6)) {
+ 		/* Alas, we support only Ethernet autoconfiguration. */
+ 		return;
+ 	}
+@@ -2795,44 +2808,6 @@ ipv6_inherit_linklocal(struct inet6_dev *idev, struct net_device *link_dev)
+ 	return -1;
+ }
+ 
+-static void ip6_tnl_add_linklocal(struct inet6_dev *idev)
+-{
+-	struct net_device *link_dev;
+-	struct net *net = dev_net(idev->dev);
+-
+-	/* first try to inherit the link-local address from the link device */
+-	if (idev->dev->iflink &&
+-	    (link_dev = __dev_get_by_index(net, idev->dev->iflink))) {
+-		if (!ipv6_inherit_linklocal(idev, link_dev))
+-			return;
+-	}
+-	/* then try to inherit it from any device */
+-	for_each_netdev(net, link_dev) {
+-		if (!ipv6_inherit_linklocal(idev, link_dev))
+-			return;
+-	}
+-	pr_debug("init ip6-ip6: add_linklocal failed\n");
+-}
+-
+-/*
+- * Autoconfigure tunnel with a link-local address so routing protocols,
+- * DHCPv6, MLD etc. can be run over the virtual link
+- */
+-
+-static void addrconf_ip6_tnl_config(struct net_device *dev)
+-{
+-	struct inet6_dev *idev;
+-
+-	ASSERT_RTNL();
+-
+-	idev = addrconf_add_dev(dev);
+-	if (IS_ERR(idev)) {
+-		pr_debug("init ip6-ip6: add_dev failed\n");
+-		return;
+-	}
+-	ip6_tnl_add_linklocal(idev);
+-}
+-
+ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+ 			   void *ptr)
+ {
+@@ -2900,9 +2875,6 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+ 			addrconf_gre_config(dev);
+ 			break;
+ #endif
+-		case ARPHRD_TUNNEL6:
+-			addrconf_ip6_tnl_config(dev);
+-			break;
+ 		case ARPHRD_LOOPBACK:
+ 			init_loopback(dev);
+ 			break;
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index cc3bb201b8b0..d6e00a39274c 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -41,6 +41,7 @@
+ #include <linux/netfilter_ipv6.h>
+ #include <linux/slab.h>
+ #include <linux/hash.h>
++#include <linux/etherdevice.h>
+ 
+ #include <asm/uaccess.h>
+ #include <linux/atomic.h>
+@@ -1471,6 +1472,9 @@ static void ip6_tnl_dev_setup(struct net_device *dev)
+ 	dev->flags |= IFF_NOARP;
+ 	dev->addr_len = sizeof(struct in6_addr);
+ 	dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
++	/* This perm addr will be used as interface identifier by IPv6 */
++	dev->addr_assign_type = NET_ADDR_RANDOM;
++	eth_random_addr(dev->perm_addr);
+ }
+ 
+ 
+-- 
+1.8.2.1
