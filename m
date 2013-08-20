@@ -1,69 +1,88 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH 0/3] net: propagate dynamic needed_headroom/tailroom
- changes
-Date: Tue, 20 Aug 2013 15:29:50 +0200
-Message-ID: <20130820132950.GA1593@minipsycho.brq.redhat.com>
-References: <1377002752-4622-1-git-send-email-f.fainelli@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH-SR9700] Merge USB 1.1 Ethernet Adapter SR9700 Device
+ Driver into the Linux Kernel
+Date: Tue, 20 Aug 2013 14:36:41 +0100
+Message-ID: <1377005801.1862.10.camel@bwh-desktop.uk.level5networks.com>
+References: <201308201850095789331@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, amwang@redhat.com,
-	stephen@networkplumber.org, kaber@trash.net, davem@davemloft.net,
-	vyasevic@redhat.com, johannes@sipsolutions.net,
-	eric.dumazet@gmail.com
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f53.google.com ([74.125.82.53]:51445 "EHLO
-	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751049Ab3HTN3z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 09:29:55 -0400
-Received: by mail-wg0-f53.google.com with SMTP id c11so370571wgh.8
-        for <netdev@vger.kernel.org>; Tue, 20 Aug 2013 06:29:54 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1377002752-4622-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: gregkh <gregkh@linuxfoundation.org>,
+	linux-usb <linux-usb@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	sunhecheng <sunhecheng@vip.126.com>
+To: liujunliang_ljl <liujunliang_ljl@163.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201308201850095789331@163.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Aug 20, 2013 at 02:45:49PM CEST, f.fainelli@gmail.com wrote:
->Hi all,
->
->This patchset aims at allowing dynamically changing a given device
->needed_headroom/tailroom space and propagating such events to stacked
->devices such as bridges and vlans.
+On Tue, 2013-08-20 at 18:50 +0800, liujunliang_ljl wrote:
+> Dear Gregkh & all :
+> 
+> 		I am the software engineer Liu Junliang from ShenZhen CoreChips high technology company, on the market of SR9700 chip is designed and owned by us. 
+>         SR9700 is a type of USB to Ethernet Converter and is compatible with USB 1.1 protocol, We want to merge SR9700 device driver into the Linux Kernel. The following is the Linux 3.10.7 version patch for SR9700, Please give us the assessment and support.
+>         Thanks a lot.
 
-You should also add support for other stacked devices, like bonding,
-team, macvlan, ovs-datapath, etc.	
-	
->
->Unless callers use the new helpers (dev_set_headroom/dev_set_tailroom)
->there is no functional change introduced.
->
->I tested this with an out of tree Ethernet driver with both VLANs and
->bridges and the need for a 64-byte headroom to insert a transmit
->status descriptor in front of a SKB.
+As this is a net driver, the relevant maintainer is David Miller and not
+Greg.
 
-Would be nice to add at least one driver which would use your new api.
+There are some style errors here which can be found using
+scripts/checkpatch.pl.  You'll need to fix those and re-submit.  I'll
+point out some more problems inline.
 
-Thanks,
-	Jiri
+> --- /dev/null
+> +++ b/drivers/net/usb/sr9700.c
+[...]
+> +static int sr9700_get_eeprom(struct net_device *net, struct ethtool_eeprom *eeprom, u8 * data)
+> +{
+> +	struct usbnet *dev = netdev_priv(net);
+> +	__le16 *ebuf = (__le16 *) data;
+> +	int i;
+> +
+> +	/* access is 16bit */
+> +	if ((eeprom->offset % 2) || (eeprom->len % 2))
+> +		return -EINVAL;
 
->
->Since I am not familiar with all subsystems/drivers changing the
->needed_headroom/tailroom requirements, I would leave that to them.
->
->Florian Fainelli (3):
->  net: add a new NETDEV_CHANGEROOM event type
->  net: vlan: handle NETDEV_CHANGEROOM events
->  net: bridge: handle NETDEV_CHANGEROOM event
->
-> include/linux/netdevice.h |  3 +++
-> net/8021q/vlan.c          |  7 +++++++
-> net/bridge/br_if.c        | 32 ++++++++++++++++++++++++++++++++
-> net/bridge/br_notify.c    |  5 +++++
-> net/bridge/br_private.h   |  2 ++
-> net/core/dev.c            | 46 ++++++++++++++++++++++++++++++++++++++++++++++
-> 6 files changed, 95 insertions(+)
->
->-- 
->1.8.1.2
->
->
+You're really supposed to handle these cases by shifting as necessary.
+
+> +	for (i = 0; i < eeprom->len / 2; i++) {
+> +		if (sr_read_eeprom_word(dev, eeprom->offset / 2 + i, &ebuf[i]) < 0)
+> +			return -EINVAL;
+
+You should pass up the error code, not substitute -EINVAL.
+
+[...]
+> +static void sr9700_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *info)
+> +{
+> +	/* Inherit standard device info */
+> +	usbnet_get_drvinfo(net, info);
+> +	info->eedump_len = SR_EEPROM_LEN;
+
+You don't need to set eedump_len; the ethtool core will set it after
+calling sr9700_get_eeprom_len().  So you don't need your own
+implementation of get_drvinfo at all.
+
+[...]
+> +static int sr9700_bind(struct usbnet *dev, struct usb_interface *intf)
+> +{
+[...]
+> +	/* read MAC */
+> +	if (sr_read(dev, PAR, ETH_ALEN, dev->net->dev_addr) < 0) {
+> +		printk(KERN_ERR "Error reading MAC address\n");
+> +		ret = -ENODEV;
+> +		goto out;
+> +	}
+[...]
+
+I think this should read the MAC address from EEPROM and copy it to both
+dev_addr to perm_addr.  MAC address changes should not persist if the
+driver is reloaded.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
