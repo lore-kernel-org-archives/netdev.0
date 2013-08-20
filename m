@@ -1,194 +1,68 @@
-From: poma <pomidorabelisima@gmail.com>
-Subject: Re: [PATCH net] skge: dma_sync the whole receive buffer
-Date: Tue, 20 Aug 2013 05:28:09 +0200
-Message-ID: <5212E249.2050203@gmail.com>
-References: <20130810104100.0ae20aa6@nehalam.linuxnetplumber.net> <20130810.132935.1257046025460198490.davem@davemloft.net> <20130810150207.37432299@nehalam.linuxnetplumber.net> <20130813.150955.1471100759610399160.davem@davemloft.net> <20130813180036.3e639789@nehalam.linuxnetplumber.net> <520B59D3.4020103@gmail.com> <20130814092022.494caf2b@nehalam.linuxnetplumber.net> <520BCC72.8040002@gmail.com> <20130815084117.2f48fc58@nehalam.linuxnetplumber.net> <52116B9C.8050003@gmail.com>
+From: Corey Hickey <bugfood-ml@fatooh.org>
+Subject: Re: NAT stops forwarding ACKs after PMTU discovery
+Date: Mon, 19 Aug 2013 21:18:15 -0700
+Message-ID: <5212EE07.2090803@fatooh.org>
+References: <521061B4.1030508@fatooh.org>   <1376839467.21329.36.camel@edumazet-glaptop>   <alpine.DEB.2.00.1308182314050.25515@blackhole.kfki.hu>   <1376870425.4226.25.camel@edumazet-glaptop>   <1376870592.4226.27.camel@edumazet-glaptop> <5211DAA6.1070302@fatooh.org>  <20130819123314.GC3583@cpaasch-mac>   <1376918657.4226.59.camel@edumazet-glaptop>   <20130819134919.GF3583@cpaasch-mac>  <1376920685.4226.61.camel@edumazet-glaptop>  <alpine.DEB.2.00.1308192207130.27869@blackhole.kfki.hu> <1376946527.4226.80.camel@edumazet-glaptop> <alpine.DEB.2.00.1308192330200.28532@blackhole.kfki.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f178.google.com ([209.85.215.178]:63315 "EHLO
-	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751757Ab3HTD2N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 23:28:13 -0400
-Received: by mail-ea0-f178.google.com with SMTP id a15so2652937eae.37
-        for <netdev@vger.kernel.org>; Mon, 19 Aug 2013 20:28:11 -0700 (PDT)
-In-Reply-To: <52116B9C.8050003@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Christoph Paasch <christoph.paasch@uclouvain.be>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.00.1308192330200.28532@blackhole.kfki.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 19.08.2013 02:49, poma wrote:
-> On 15.08.2013 17:41, Stephen Hemminger wrote:
->> On Wed, 14 Aug 2013 20:29:06 +0200
->> poma <pomidorabelisima@gmail.com> wrote:
->>
->>> On 14.08.2013 18:20, Stephen Hemminger wrote:
->>>> On Wed, 14 Aug 2013 12:20:03 +0200
->>>> poma <pomidorabelisima@gmail.com> wrote:
->>>>
->>>>> On 14.08.2013 03:00, Stephen Hemminger wrote:
->>>>>> On Tue, 13 Aug 2013 15:09:55 -0700 (PDT)
->>>>>> David Miller <davem@davemloft.net> wrote:
->>>>>>
->>>>>>> From: Stephen Hemminger <stephen@networkplumber.org>
->>>>>>> Date: Sat, 10 Aug 2013 15:02:07 -0700
->>>>>>>
->>>>>>>> The DMA sync should sync the whole receive buffer, not just
->>>>>>>> part of it. Fixes log messages dma_sync_check.
->>>>>>>>
->>>>>>>> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
->>>>>>>
->>>>>>> Applied, but I really suspect that your "check DMA mapping erro=
-rs"
->>>>>>> patch has added a serious regression.  A regression much worse =
-than
->>>>>>> the bug you were trying to fix with that change.
->>>>>>
->>>>>> Argh. The problem is deeper than that. Device got broken somewhe=
-re between
->>>>>> 3.2 and 3.4. My old Dlink card works on 3.2 but gets DMA errors =
-on 3.4.
->>>>>> The config's are different though so checking that as well.
->>>>>>
->>>>>
->>>>> Can I help you with debugging?
->>>>> DGE-530T is rather solid device.
->>>>
->>>> Don't think it is a hardware problem.
->>>> The failure is when the board access the Receive ring PCI memory a=
-rea.
->>>> This region is allocated with pci_alloc_consistent and therefore s=
-hould
->>>> be available. Two possible issues are driver math issues, or hardw=
-are
->>>> problems with where the region is located. Some of these cards don=
-'t
->>>> really have full 64 bit PCI support.
->>>>
->>>> My board is:
->>>> 05:01.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Ad=
-apter (rev 11)
->>>> 	Subsystem: D-Link System Inc DGE-530T Gigabit Ethernet Adapter
->>>> 	Flags: bus master, 66MHz, medium devsel, latency 32, IRQ 18
->>>> 	Memory at f7d20000 (32-bit, non-prefetchable) [size=3D16K]
->>>> 	I/O ports at c000 [size=3D256]
->>>> 	Expansion ROM at f7d00000 [disabled] [size=3D128K]
->>>> 	Capabilities: [48] Power Management version 2
->>>> 	Capabilities: [50] Vital Product Data
->>>> 	Kernel driver in use: skge
->>>>
->>>>
->>>> What is your config?
->>>>
->>>
->>> 01:09.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Ada=
-pter
->>> (rev 11)
->>> 	Subsystem: D-Link System Inc DGE-530T Gigabit Ethernet Adapter
->>> 	Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 19
->>> 	Memory at fbffc000 (32-bit, non-prefetchable) [size=3D16K]
->>> 	I/O ports at b400 [size=3D256]
->>> 	[virtual] Expansion ROM at ec000000 [disabled] [size=3D128K]
->>> 	Capabilities: [48] Power Management version 2
->>> 	Capabilities: [50] Vital Product Data
->>> 	Kernel driver in use: skge
->>>
->>>
->>> poma
->>>
->>
->> In the course of debugging this, I moved the card to another slot
->> and all the problems went away. I suspect either card insertion or m=
-ore likely
->> the crap consumer motherboards don't have full PCI support on some s=
-lots.
->>
->> There doesn't seem to be anyway to address this in software.
->>
->=20
->=20
-> DGE-530T is further tested in the 3 available slots:
-> 01:06.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adapt=
-er
-> (rev 11)
-> 01:07.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adapt=
-er
-> (rev 11)
-> 01:08.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adapt=
-er
-> (rev 11)
-> And the result is the same as in the slot:
-> 01:09.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adapt=
-er
-> (rev 11)
-> warnings, oopses and kernel crashes.
->=20
-> However DGE-528T(RTL8110s) on the same bus runs without errors:
-> 01:09.0 Ethernet controller: D-Link System Inc DGE-528T Gigabit Ether=
-net
-> Adapter (rev 10)
-> 	Subsystem: D-Link System Inc DGE-528T Gigabit Ethernet Adapter
-> 	Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 19
-> 	I/O ports at cc00 [size=3D256]
-> 	Memory at fbfff000 (32-bit, non-prefetchable) [size=3D256]
-> 	[virtual] Expansion ROM at fbe00000 [disabled] [size=3D128K]
-> 	Capabilities: [dc] Power Management version 2
-> 	Kernel driver in use: r8169
->=20
-> Besides comparing the behavior of these two cards, e.g. NFS upload, I
-> noticed an obvious difference in the data flow.
-> Via DGE-528T transmission is steady, while via DGE-530T the traffic i=
-s
-> at times interrupted and unstable.
-> So it seems that the "WARNING: at lib/dma-debug.c:937 check_unmap=85"
-> isn't just a fun.
->=20
+On 2013-08-19 15:07, Jozsef Kadlecsik wrote:
+> It can be fixed by fixing the middlebox, or disabling SACK by the 
+> TCPOPTSTRIP target, or by relaxing conntrack. For the latter, the next 
+> untested patch may be sufficient:
+> 
+> diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+> index 7dcc376..8b5d783 100644
+> --- a/net/netfilter/nf_conntrack_proto_tcp.c
+> +++ b/net/netfilter/nf_conntrack_proto_tcp.c
+> @@ -649,6 +649,11 @@ static bool tcp_in_window(const struct nf_conn *ct,
+>  		 receiver->td_end, receiver->td_maxend, receiver->td_maxwin,
+>  		 receiver->td_scale);
+>  
+> +	/* Fall back to ACK when SACK is bogus */
+> +	if (!(before(sack, receiver->td_end + 1) &&
+> +	      after(sack, receiver->td_end - MAXACKWINDOW(sender) - 1)))
+> +		sack = ack;
+> +	      
+>  	pr_debug("tcp_in_window: I=%i II=%i III=%i IV=%i\n",
+>  		 before(seq, sender->td_maxend + 1),
+>  		 after(end, sender->td_end - receiver->td_maxwin - 1),
+> 
+> However it is good to cover the issue thus?
 
-In support of the validity of the device I made a test with the
-2.6.32-358.14.1.el6.x86_64.debug kernel.
-And everything worked as it should.
+This didn't quite apply to my kernel tree, but I let patch apply it with
+fuzz=2 and got:
 
-01:08.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adapter
-(rev 11)
-	Subsystem: D-Link System Inc DGE-530T Gigabit Ethernet Adapter
-	Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 18
-	Memory at fbff8000 (32-bit, non-prefetchable) [size=3D16K]
-	I/O ports at cc00 [size=3D256]
-	[virtual] Expansion ROM at fbe00000 [disabled] [size=3D128K]
-	Capabilities: [48] Power Management version 2
-	Capabilities: [50] Vital Product Data
-	Kernel driver in use: skge
-	Kernel modules: skge
-
-filename:
-/lib/modules/2.6.32-358.14.1.el6.x86_64.debug/kernel/drivers/net/skge.k=
-o
-version:        1.13
-license:        GPL
-author:         Stephen Hemminger <shemminger@linux-foundation.org>
-description:    SysKonnect Gigabit Ethernet driver
-srcversion:     ADF6781C2E0D2D895F86279
-alias:          pci:v00001737d00001032sv*sd00000015bc*sc*i*
-alias:          pci:v00001737d00001064sv*sd*bc*sc*i*
-alias:          pci:v00001371d0000434Esv*sd*bc*sc*i*
-alias:          pci:v000011ABd00005005sv*sd*bc*sc*i*
-alias:          pci:v000011ABd00004320sv*sd*bc*sc*i*
-alias:          pci:v00001186d00004B01sv*sd*bc*sc*i*
-alias:          pci:v00001186d00004C00sv*sd*bc*sc*i*
-alias:          pci:v00001148d00004320sv*sd*bc*sc*i*
-alias:          pci:v00001148d00004300sv*sd*bc*sc*i*
-alias:          pci:v000010B7d000080EBsv*sd*bc*sc*i*
-alias:          pci:v000010B7d00001700sv*sd*bc*sc*i*
-depends:
-vermagic:       2.6.32-358.14.1.el6.x86_64.debug SMP mod_unload modvers=
-ions
-parm:           debug:Debug level (0=3Dnone,...,16=3Dall) (int)
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index 2f80107..94b326b 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -653,6 +653,11 @@ static bool tcp_in_window(const struct nf_conn *ct,
+        in_recv_win = !receiver->td_maxwin ||
+                      after(end, sender->td_end - receiver->td_maxwin - 1);
+ 
++       /* Fall back to ACK when SACK is bogus */
++       if (!(before(sack, receiver->td_end + 1) &&
++             after(sack, receiver->td_end - MAXACKWINDOW(sender) - 1)))
++               sack = ack;
++
+        pr_debug("tcp_in_window: I=%i II=%i III=%i IV=%i\n",
+                 before(seq, sender->td_maxend + 1),
+                 (in_recv_win ? 1 : 0),
 
 
-Given all the tests and all written, something isn't right, at all.
-Should I quote Shakespeare. :)
 
+I can confirm, that does indeed work! Thank you. I will continue watching
+this thread for other things to test, if need be.
 
-poma
+-Corey
