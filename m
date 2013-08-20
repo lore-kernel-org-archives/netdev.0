@@ -1,43 +1,85 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 1/3] net: add a new NETDEV_CHANGEROOM event type
-Date: Tue, 20 Aug 2013 17:16:58 +0200
-Message-ID: <1377011818.13829.9.camel@jlt4.sipsolutions.net>
-References: <1377002752-4622-1-git-send-email-f.fainelli@gmail.com>
-	 <1377002752-4622-2-git-send-email-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amwang@redhat.com, jiri@resnulli.us,
-	stephen@networkplumber.org, kaber@trash.net, davem@davemloft.net,
-	vyasevic@redhat.com, eric.dumazet@gmail.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Ferry Huberts <mailings@hupie.com>
+Subject: [PATCH 2/2] net: netem: always adjust now/delay when not reordering
+Date: Tue, 20 Aug 2013 17:11:09 +0200
+Message-ID: <1377011469-26151-2-git-send-email-mailings@hupie.com>
+References: <1377011469-26151-1-git-send-email-mailings@hupie.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:55499 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751592Ab3HTPRF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 11:17:05 -0400
-In-Reply-To: <1377002752-4622-2-git-send-email-f.fainelli@gmail.com>
+Received: from hupie.dyndns.org ([80.101.237.101]:35332 "EHLO hupie.dyndns.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751194Ab3HTPa1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Aug 2013 11:30:27 -0400
+Received: from stinkpad.internal.hupie.com.nl (unknown [188.205.88.52])
+	by hupie.dyndns.org (Postfix) with ESMTP id 40C59485DD4
+	for <netdev@vger.kernel.org>; Tue, 20 Aug 2013 17:11:10 +0200 (CEST)
+In-Reply-To: <1377011469-26151-1-git-send-email-mailings@hupie.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-08-20 at 13:45 +0100, Florian Fainelli wrote:
+From: Ferry Huberts <ferry.huberts@pelagic.nl>
 
->  /**
-> + *	dev_set_headroom - Change device needed headroom
-> + *	@dev: device
-> + *	@new_headroom: new headroom size
-> + *
-> + * 	Change the network device headroom space.
-> + */
-> +int dev_set_headroom(struct net_device *dev, unsigned short new_headroom)
+Not doing this (current behaviour) introduces reordering.
 
-It seems that you need to invoke these under RTNL, might be worth
-documenting that.
+The packet_len_2_sched_time call is the only thing that logically
+depends on q->rate, so move the now/delay adjustment out of the if.
 
-Also, maybe it would be worth doing it in one call? If you need to
-change both, then you'd end up calling the notifier twice, which is less
-efficient? I suppose you could make them 'int' arguments and reserve -1
-for no changes, or just require both new values to be given (if doing
-this at all.)
+Signed-off-by: Ferry Huberts <ferry.huberts@pelagic.nl>
+---
+ net/sched/sch_netem.c | 34 +++++++++++++++++-----------------
+ 1 file changed, 17 insertions(+), 17 deletions(-)
 
-johannes
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index abe5fa6..86c73d2 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -457,6 +457,8 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	if (q->gap == 0 || q->reorder == 0 || /* not doing reordering */
+ 	    q->counter < q->gap - 1 ||	/* inside last reordering gap */
+ 	    q->reorder < get_crandom(&q->reorder_cor)) {
++		struct sk_buff *last;
++
+ 		psched_time_t now;
+ 		psched_tdiff_t delay;
+ 
+@@ -465,24 +467,22 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 
+ 		now = psched_get_time();
+ 
+-		if (q->rate) {
+-			struct sk_buff *last;
+-
+-			if (!skb_queue_empty(&sch->q))
+-				last = skb_peek_tail(&sch->q);
+-			else
+-				last = netem_rb_to_skb(rb_last(&q->t_root));
+-			if (last) {
+-				/*
+-				 * Last packet in queue is reference point (now),
+-				 * calculate this time bonus and subtract
+-				 * from delay.
+-				 */
+-				delay -= netem_skb_cb(last)->time_to_send - now;
+-				delay = max_t(psched_tdiff_t, 0, delay);
+-				now = netem_skb_cb(last)->time_to_send;
+-			}
++		if (!skb_queue_empty(&sch->q))
++			last = skb_peek_tail(&sch->q);
++		else
++			last = netem_rb_to_skb(rb_last(&q->t_root));
++		if (last) {
++			/*
++			 * Last packet in queue is reference point (now),
++			 * calculate this time bonus and subtract
++			 * from delay.
++			 */
++			delay -= netem_skb_cb(last)->time_to_send - now;
++			delay = max_t(psched_tdiff_t, 0, delay);
++			now = netem_skb_cb(last)->time_to_send;
++		}
+ 
++		if (q->rate) {
+ 			delay += packet_len_2_sched_time(skb->len, q);
+ 		}
+ 
+-- 
+1.8.3.1
