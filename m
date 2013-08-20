@@ -1,46 +1,172 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 0/4] Mellanox driver updates 2013-08-19
-Date: Tue, 20 Aug 2013 18:42:45 +0300
-Message-ID: <1377013369-14711-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V1 3/4] net/mlx4_en: Fix handling of dma_map failure
+Date: Tue, 20 Aug 2013 18:42:48 +0300
+Message-ID: <1377013369-14711-4-git-send-email-amirv@mellanox.com>
+References: <1377013369-14711-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:39436 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:58629 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751626Ab3HTPnN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751631Ab3HTPnN (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 20 Aug 2013 11:43:13 -0400
+In-Reply-To: <1377013369-14711-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Result of skb_frag_dma_map() and dma_map_single() wasn't checked.
+Added a check and proper handling in case of failure.
+Moved the mapping to the beginning of mlx4_en_xmit(), before updating
+the ring data structure to make error handling easier.
 
-This small patchset contains 2 fixes to bad handling of error flows in TX
-datapath, and a fix to a bug in mlx4_en_dcbnl_ieee_setpfc() where global pause
-frames were enabled whenever PFC was configured.
-Also added a patch to reduce the scope of some local variables in the moved
-block of code and it's surrounding.
 
-Thanks,
-Amir
-
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
-Changes from V0:
-- Missing new lines + typo's
-- Fixed frags dma leak
-- Use local for ddev
-- New patch (4/4), to reduce scope of some locals
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c | 97 +++++++++++++++++++-----------
+ 1 file changed, 62 insertions(+), 35 deletions(-)
 
-Amir Vadai (3):
-  net/mlx4_en: Notify user when TX ring in error state
-  net/mlx4_en: Fix handling of dma_map failure
-  net/mlx4_en: Reduce scope of local variables in mlx4_en_xmit
-
-Eugenia Emantayev (1):
-  net/mlx4_en: Disable global flow control when PFC enabled
-
- drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c |   3 +-
- drivers/net/ethernet/mellanox/mlx4/en_tx.c     | 116 +++++++++++++++++--------
- 2 files changed, 80 insertions(+), 39 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 0d691e3..c28868b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -588,6 +588,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_en_dev *mdev = priv->mdev;
++	struct device *ddev = priv->ddev;
+ 	struct mlx4_en_tx_ring *ring;
+ 	struct mlx4_en_tx_desc *tx_desc;
+ 	struct mlx4_wqe_data_seg *data;
+@@ -674,6 +675,56 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	tx_info->skb = skb;
+ 	tx_info->nr_txbb = nr_txbb;
+ 
++	if (lso_header_size)
++		data = ((void *)&tx_desc->lso + ALIGN(lso_header_size + 4,
++						      DS_SIZE));
++	else
++		data = &tx_desc->data;
++
++	/* valid only for none inline segments */
++	tx_info->data_offset = (void *)data - (void *)tx_desc;
++
++	tx_info->linear = (lso_header_size < skb_headlen(skb) &&
++			   !is_inline(skb, NULL)) ? 1 : 0;
++
++	data += skb_shinfo(skb)->nr_frags + tx_info->linear - 1;
++
++	if (is_inline(skb, &fragptr)) {
++		tx_info->inl = 1;
++	} else {
++		/* Map fragments */
++		for (i = skb_shinfo(skb)->nr_frags - 1; i >= 0; i--) {
++			frag = &skb_shinfo(skb)->frags[i];
++			dma = skb_frag_dma_map(ddev, frag,
++					       0, skb_frag_size(frag),
++					       DMA_TO_DEVICE);
++			if (dma_mapping_error(ddev, dma))
++				goto tx_drop_unmap;
++
++			data->addr = cpu_to_be64(dma);
++			data->lkey = cpu_to_be32(mdev->mr.key);
++			wmb();
++			data->byte_count = cpu_to_be32(skb_frag_size(frag));
++			--data;
++		}
++
++		/* Map linear part */
++		if (tx_info->linear) {
++			u32 byte_count = skb_headlen(skb) - lso_header_size;
++			dma = dma_map_single(ddev, skb->data +
++					     lso_header_size, byte_count,
++					     PCI_DMA_TODEVICE);
++			if (dma_mapping_error(ddev, dma))
++				goto tx_drop_unmap;
++
++			data->addr = cpu_to_be64(dma);
++			data->lkey = cpu_to_be32(mdev->mr.key);
++			wmb();
++			data->byte_count = cpu_to_be32(byte_count);
++		}
++		tx_info->inl = 0;
++	}
++
+ 	/*
+ 	 * For timestamping add flag to skb_shinfo and
+ 	 * set flag for further reference
+@@ -720,8 +771,6 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		/* Copy headers;
+ 		 * note that we already verified that it is linear */
+ 		memcpy(tx_desc->lso.header, skb->data, lso_header_size);
+-		data = ((void *) &tx_desc->lso +
+-			ALIGN(lso_header_size + 4, DS_SIZE));
+ 
+ 		priv->port_stats.tso_packets++;
+ 		i = ((skb->len - lso_header_size) / skb_shinfo(skb)->gso_size) +
+@@ -733,7 +782,6 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		op_own = cpu_to_be32(MLX4_OPCODE_SEND) |
+ 			((ring->prod & ring->size) ?
+ 			 cpu_to_be32(MLX4_EN_BIT_DESC_OWN) : 0);
+-		data = &tx_desc->data;
+ 		tx_info->nr_bytes = max_t(unsigned int, skb->len, ETH_ZLEN);
+ 		ring->packets++;
+ 
+@@ -742,38 +790,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	netdev_tx_sent_queue(ring->tx_queue, tx_info->nr_bytes);
+ 	AVG_PERF_COUNTER(priv->pstats.tx_pktsz_avg, skb->len);
+ 
+-
+-	/* valid only for none inline segments */
+-	tx_info->data_offset = (void *) data - (void *) tx_desc;
+-
+-	tx_info->linear = (lso_header_size < skb_headlen(skb) && !is_inline(skb, NULL)) ? 1 : 0;
+-	data += skb_shinfo(skb)->nr_frags + tx_info->linear - 1;
+-
+-	if (!is_inline(skb, &fragptr)) {
+-		/* Map fragments */
+-		for (i = skb_shinfo(skb)->nr_frags - 1; i >= 0; i--) {
+-			frag = &skb_shinfo(skb)->frags[i];
+-			dma = skb_frag_dma_map(priv->ddev, frag,
+-					       0, skb_frag_size(frag),
+-					       DMA_TO_DEVICE);
+-			data->addr = cpu_to_be64(dma);
+-			data->lkey = cpu_to_be32(mdev->mr.key);
+-			wmb();
+-			data->byte_count = cpu_to_be32(skb_frag_size(frag));
+-			--data;
+-		}
+-
+-		/* Map linear part */
+-		if (tx_info->linear) {
+-			dma = dma_map_single(priv->ddev, skb->data + lso_header_size,
+-					     skb_headlen(skb) - lso_header_size, PCI_DMA_TODEVICE);
+-			data->addr = cpu_to_be64(dma);
+-			data->lkey = cpu_to_be32(mdev->mr.key);
+-			wmb();
+-			data->byte_count = cpu_to_be32(skb_headlen(skb) - lso_header_size);
+-		}
+-		tx_info->inl = 0;
+-	} else {
++	if (tx_info->inl) {
+ 		build_inline_wqe(tx_desc, skb, real_size, &vlan_tag, tx_ind, fragptr);
+ 		tx_info->inl = 1;
+ 	}
+@@ -813,6 +830,16 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	return NETDEV_TX_OK;
+ 
++tx_drop_unmap:
++	en_err(priv, "DMA mapping error\n");
++
++	for (i++; i < skb_shinfo(skb)->nr_frags; i++) {
++		data++;
++		dma_unmap_page(ddev, (dma_addr_t) be64_to_cpu(data->addr),
++			       be32_to_cpu(data->byte_count),
++			       PCI_DMA_TODEVICE);
++	}
++
+ tx_drop:
+ 	dev_kfree_skb_any(skb);
+ 	priv->stats.tx_dropped++;
 -- 
 1.8.3.4
