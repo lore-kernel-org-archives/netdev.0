@@ -1,58 +1,59 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v3] net: cpsw: Add support for wake-on-lan for
- cpsw
-Date: Tue, 20 Aug 2013 17:40:59 +0400
-Message-ID: <521371EB.9090103@cogentembedded.com>
-References: <1376977097-25296-1-git-send-email-ujhelyi.m@gmail.com>
+From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Subject: [PATCH next] netlink: prevent deadlock in ctrl_dumpfamily()
+Date: Tue, 20 Aug 2013 16:50:33 +0300
+Message-ID: <20130820135033.GA2315@swordfish.minsk.epam.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, mugunthanvnm@ti.com, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Johannes Berg <johannes.berg@intel.com>,
+	Gao feng <gaofeng@cn.fujitsu.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: ujhelyi.m@gmail.com
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1376977097-25296-1-git-send-email-ujhelyi.m@gmail.com>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Commmit 58ad436fcf49810aa006016107f494c9ac9013db
+Author: Johannes Berg <johannes.berg at intel.com>
 
-On 20-08-2013 9:38, ujhelyi.m@gmail.com wrote:
+    genetlink: fix family dump race
 
-> From: Matus Ujhelyi <ujhelyi.m@gmail.com>
+added genl_lock() call to ctrl_dumpfamily(), which potentially
+can deadlock. Suppose the following case:
 
-> Some phy's can be configured to enable wake on lan (e.g. at803x or marvell 88E1318S).
-> There is no way how to enable wol on CPSW with such connected phys. This patch
-> adds this support. It is provided by calling the phy's related code.
+genl_rcv_msg(): !family->parallel_ops -> genl_lock()
+	genl_family_rcv_msg()
+		netlink_dump_start()
+			netlink_dump()
+				ctrl_dumpfamily() --> genl_lock()
 
-> Tested on board with at8030x connected phy. Wol interrupt line is
-> connected to GPIO0 on am335x.
+Take in account possibility of genl_lock() in genl_rcv_msg() and do
+not acquire genl_mutex in ctrl_dumpfamily() for a family that supports
+parallel_ops.
 
-> Signed-off-by: Matus Ujhelyi <ujhelyi.m@gmail.com>
-> ---
->   drivers/net/ethernet/ti/cpsw.c |   24 ++++++++++++++++++++++++
->   1 file changed, 24 insertions(+)
+Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
 
-> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-> index 0fcf212..5d673bf 100644
-> --- a/drivers/net/ethernet/ti/cpsw.c
-> +++ b/drivers/net/ethernet/ti/cpsw.c
-> @@ -1640,6 +1640,28 @@ static int cpsw_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
->   		return -EOPNOTSUPP;
->   }
->
-> +static void cpsw_get_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
-> +{
-> +	struct cpsw_priv *priv = netdev_priv(ndev);
-> +	int slave_no = cpsw_slave_index(priv);
+---
 
-    You should have put an empty line here, not below.
+ net/netlink/genetlink.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-> +	wol->supported = 0;
-> +	wol->wolopts = 0;
-> +
-> +	if (priv->slaves[slave_no].phy)
-> +		phy_ethtool_get_wol(priv->slaves[slave_no].phy, wol);
-> +}
-
-WBR, Sergei
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index f85f8a2..fca3659 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -791,6 +791,12 @@ static int ctrl_dumpfamily(struct sk_buff *skb, struct netlink_callback *cb)
+ 	int fams_to_skip = cb->args[1];
+ 	bool need_locking = chains_to_skip || fams_to_skip;
+ 
++	if (need_locking) {
++		/* genl_mutex could be already locked in genl_rcv_msg() */
++		rt = genl_family_find_byid(cb->nlh->nlmsg_type);
++		need_locking = need_locking && rt->parallel_ops;
++	}
++
+ 	if (need_locking)
+ 		genl_lock();
+ 
