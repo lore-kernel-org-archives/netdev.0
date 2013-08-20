@@ -1,30 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] via-ircc: don't return zero if via_ircc_open() failed
-Date: Tue, 20 Aug 2013 13:27:48 -0700 (PDT)
-Message-ID: <20130820.132748.2038341239691937544.davem@davemloft.net>
-References: <1376686094-28780-1-git-send-email-khoroshilov@ispras.ru>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: About tcp: set timestamps for restored skb-s
+Date: Tue, 20 Aug 2013 13:30:47 -0700
+Message-ID: <1377030647.4226.87.camel@edumazet-glaptop>
+References: <1376786376.21329.20.camel@edumazet-glaptop>
+	 <20130820.130806.2180396135396793576.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: khoroshilov@ispras.ru
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1376686094-28780-1-git-send-email-khoroshilov@ispras.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: avagin@openvz.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:42456 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750938Ab3HTUat (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 16:30:49 -0400
+Received: by mail-pa0-f53.google.com with SMTP id lb1so1161242pab.12
+        for <netdev@vger.kernel.org>; Tue, 20 Aug 2013 13:30:49 -0700 (PDT)
+In-Reply-To: <20130820.130806.2180396135396793576.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Date: Fri, 16 Aug 2013 23:48:14 +0300
+On Tue, 2013-08-20 at 13:08 -0700, David Miller wrote:
 
-> If via_ircc_open() fails, data structures of the driver left uninitialized,
-> but probe (via_init_one()) returns zero. That can lead to null pointer dereference
-> in via_remove_one(), since it does not check drvdata for NULL.
 > 
-> The patch implements proper error code propagation.
+> I applied this before reading this, sorry.
 > 
-> Found by Linux Driver Verification project (linuxtesting.org).
-> 
-> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+> It can be cleaned up in net-next eventually.
 
-Applied, thanks.
+No worries, this was a minor comment, thanks ;)
