@@ -1,55 +1,49 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 05/19] netfilter: nf_queue: relax NFQA_CT attribute check
-Date: Tue, 20 Aug 2013 12:54:37 +0200
-Message-ID: <1376996091-3964-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 02/19] netfilter: nf_conntrack: remove net_ratelimit() for LOG_INVALID()
+Date: Tue, 20 Aug 2013 12:54:34 +0200
+Message-ID: <1376996091-3964-3-git-send-email-pablo@netfilter.org>
 References: <1376996091-3964-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:60070 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751010Ab3HTKzJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Aug 2013 06:55:09 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1376996091-3964-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+From: Patrick McHardy <kaber@trash.net>
 
-Allow modifying attributes of the conntrack associated with a packet
-without first requesting ct data via CFG_F_CONNTRACK or extra
-nfnetlink_conntrack socket.
+Logging of invalid packets has to be explicitly enabled. Rate-limiting these
+messages is inconsistent with other netfilter logging features and makes
+debugging harder.
 
-Also remove unneded rcu_read_lock; the entire function is already
-protected by rcu.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nfnetlink_queue_core.c |    4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ include/net/netfilter/nf_conntrack_l4proto.h |    7 -------
+ 1 file changed, 7 deletions(-)
 
-diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
-index 971ea14..ec9de12 100644
---- a/net/netfilter/nfnetlink_queue_core.c
-+++ b/net/netfilter/nfnetlink_queue_core.c
-@@ -987,8 +987,7 @@ nfqnl_recv_verdict(struct sock *ctnl, struct sk_buff *skb,
- 	if (entry == NULL)
- 		return -ENOENT;
+diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/include/net/netfilter/nf_conntrack_l4proto.h
+index 914d8d9..b411d7b 100644
+--- a/include/net/netfilter/nf_conntrack_l4proto.h
++++ b/include/net/netfilter/nf_conntrack_l4proto.h
+@@ -148,17 +148,10 @@ extern int nf_ct_port_nlattr_tuple_size(void);
+ extern const struct nla_policy nf_ct_port_nla_policy[];
  
--	rcu_read_lock();
--	if (nfqa[NFQA_CT] && (queue->flags & NFQA_CFG_F_CONNTRACK))
-+	if (nfqa[NFQA_CT])
- 		ct = nfqnl_ct_parse(entry->skb, nfqa[NFQA_CT], &ctinfo);
+ #ifdef CONFIG_SYSCTL
+-#ifdef DEBUG_INVALID_PACKETS
+ #define LOG_INVALID(net, proto)				\
+ 	((net)->ct.sysctl_log_invalid == (proto) ||	\
+ 	 (net)->ct.sysctl_log_invalid == IPPROTO_RAW)
+ #else
+-#define LOG_INVALID(net, proto)				\
+-	(((net)->ct.sysctl_log_invalid == (proto) ||	\
+-	  (net)->ct.sysctl_log_invalid == IPPROTO_RAW)	\
+-	 && net_ratelimit())
+-#endif
+-#else
+ static inline int LOG_INVALID(struct net *net, int proto) { return 0; }
+ #endif /* CONFIG_SYSCTL */
  
- 	if (nfqa[NFQA_PAYLOAD]) {
-@@ -1002,7 +1001,6 @@ nfqnl_recv_verdict(struct sock *ctnl, struct sk_buff *skb,
- 		if (ct)
- 			nfqnl_ct_seq_adjust(skb, ct, ctinfo, diff);
- 	}
--	rcu_read_unlock();
- 
- 	if (nfqa[NFQA_MARK])
- 		entry->skb->mark = ntohl(nla_get_be32(nfqa[NFQA_MARK]));
 -- 
 1.7.10.4
+
