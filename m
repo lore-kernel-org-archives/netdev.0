@@ -1,73 +1,155 @@
-From: ujhelyi.m@gmail.com
-Subject: [PATCH net-next v4] net: cpsw: Add support for wake-on-lan for cpsw
-Date: Tue, 20 Aug 2013 07:59:38 +0200
-Message-ID: <1376978378-26096-1-git-send-email-ujhelyi.m@gmail.com>
-Cc: linux-kernel@vger.kernel.org, Matus Ujhelyi <ujhelyi.m@gmail.com>
-To: davem@davemloft.net, mugunthanvnm@ti.com, netdev@vger.kernel.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: ipsec smp scalability and cpu use fairness (softirqs)
+Date: Tue, 20 Aug 2013 08:17:28 +0200
+Message-ID: <20130820061728.GZ26773@secunet.com>
+References: <20130812160142.71737a95@vostro>
+ <CAKTPYJTVhvF=215eS0xriEdUyyCLaC+zzja4zPrG668ALzERyw@mail.gmail.com>
+ <20130813092312.2493354e@vostro>
+ <20130813074614.GM25511@secunet.com>
+ <20130813105757.39fb0ab8@vostro>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Collins <bsderandrew@gmail.com>, netdev@vger.kernel.org
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f171.google.com ([209.85.215.171]:60665 "EHLO
-	mail-ea0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751403Ab3HTF7p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 01:59:45 -0400
+Received: from a.mx.secunet.com ([195.81.216.161]:45222 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751926Ab3HTGRb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Aug 2013 02:17:31 -0400
+Content-Disposition: inline
+In-Reply-To: <20130813105757.39fb0ab8@vostro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matus Ujhelyi <ujhelyi.m@gmail.com>
+On Tue, Aug 13, 2013 at 10:57:57AM +0300, Timo Teras wrote:
+> On Tue, 13 Aug 2013 09:46:14 +0200
+> Steffen Klassert <steffen.klassert@secunet.com> wrote:
+> 
+> > Currently we have only one systemwide workqueue for encryption
+> > and one decryption. So all IPsec packets are send to the same
+> > workqueue, regardless which state they use.
+> > 
+> > I have patches that make it possible to configure a separate
+> > workqueue for each state or to group some states to a specific
+> > workqueue. These patches are still unpublished because they
+> > have not much testing yet, but I could send them after some
+> > polishing for review or testing if you are interested.
+> 
+> Yes, I'd be interested.
+> 
 
-Some phy's can be configured to enable wake on lan (e.g. at803x or marvell 88E1318S).
-There is no way how to enable wol on CPSW with such connected phys. This patch
-adds this support. It is provided by calling the phy's related code.
+I've pushed the patches to
 
-Tested on board with at8030x connected phy. Wol interrupt line is
-connected to GPIO0 on am335x.
+git://git.kernel.org/pub/scm/linux/kernel/git/klassert/linux-stk.git net-next-pcrypt
 
-Signed-off-by: Matus Ujhelyi <ujhelyi.m@gmail.com>
+Steffen Klassert (9):
+      crypto: api - Add crypto_tfm_has_alg helper
+      xfrm: Add a netlink attribute for crypto algorithm drivers
+      esp4: Use the crypto algorithm driver name if present
+      esp6: Use the crypto algorithm driver name if present
+      crypto: Support for multi instance algorithms
+      pcrypt: handle errors from crypto_register_template
+      crypto: pcrypt - Add support for request backlog
+      crypto: pcrypt - Add the padata related informations to the instance context
+      crypto: pcrypt - Support for multiple padata instances
+
+ crypto/algapi.c           |    3 +-
+ crypto/api.c              |   15 ++
+ crypto/pcrypt.c           |  489 +++++++++++++++++++++++++++++++++++----------
+ include/linux/crypto.h    |    7 +
+ include/net/xfrm.h        |    2 +
+ include/uapi/linux/xfrm.h |    5 +
+ net/ipv4/esp4.c           |   33 ++-
+ net/ipv6/esp6.c           |   33 ++-
+ net/xfrm/xfrm_user.c      |    8 +
+ 9 files changed, 482 insertions(+), 113 deletions(-)
+
+
+This is a combined patchset of networking and crypto changes.
+I merged them and pushed it to a git repo so I don't need to bother
+the netdev and the crypto list with this early stage patches.
+
+The networking changes add a posibility to choose the crypto alg driver
+on a per SA basis. I've attach the necessary iproute2 patch to this mail.
+
+The crypto changes are a general pcrypt update. It adds a possibility to
+build multiple instances of pcrypt such that each SA can have it's own
+pcrypt instance. There is one unrelated patch in the patchset:
+
+crypto: pcrypt - Add support for request backlog
+
+It should not interfere with the other patches, it was just to much pain
+to rebase without that patch.
+
+Comments to the patchset and test results are very welcome!
+
+The patch below adds an iproute2 option to configure the crypto driver
+per SA:
+
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Tue, 20 Aug 2013 07:13:51 +0200
+Subject: [PATCH] iproute2: Add a option to configure the crypto driver on per
+ SA basis
+
 ---
- drivers/net/ethernet/ti/cpsw.c |   25 +++++++++++++++++++++++++
- 1 file changed, 25 insertions(+)
+ include/linux/xfrm.h |    5 +++++
+ ip/xfrm_state.c      |    7 +++++++
+ 2 files changed, 12 insertions(+)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 0fcf212..e2a2535 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1640,6 +1640,29 @@ static int cpsw_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
- 		return -EOPNOTSUPP;
- }
- 
-+static void cpsw_get_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
-+{
-+	struct cpsw_priv *priv = netdev_priv(ndev);
-+	int slave_no = cpsw_slave_index(priv);
-+
-+	wol->supported = 0;
-+	wol->wolopts = 0;
-+
-+	if (priv->slaves[slave_no].phy)
-+		phy_ethtool_get_wol(priv->slaves[slave_no].phy, wol);
-+}
-+
-+static int cpsw_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
-+{
-+	struct cpsw_priv *priv = netdev_priv(ndev);
-+	int slave_no = cpsw_slave_index(priv);
-+
-+	if (priv->slaves[slave_no].phy)
-+		return phy_ethtool_set_wol(priv->slaves[slave_no].phy, wol);
-+	else
-+		return -EOPNOTSUPP;
-+}
-+
- static const struct ethtool_ops cpsw_ethtool_ops = {
- 	.get_drvinfo	= cpsw_get_drvinfo,
- 	.get_msglevel	= cpsw_get_msglevel,
-@@ -1653,6 +1676,8 @@ static const struct ethtool_ops cpsw_ethtool_ops = {
- 	.get_sset_count		= cpsw_get_sset_count,
- 	.get_strings		= cpsw_get_strings,
- 	.get_ethtool_stats	= cpsw_get_ethtool_stats,
-+	.get_wol	= cpsw_get_wol,
-+	.set_wol	= cpsw_set_wol,
+diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
+index 341c3c9..4520008 100644
+--- a/include/linux/xfrm.h
++++ b/include/linux/xfrm.h
+@@ -116,6 +116,10 @@ struct xfrm_algo_aead {
+ 	char		alg_key[0];
  };
  
- static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv,
++struct xfrm_algo_driver{
++	char		driver_name[64];
++};
++
+ struct xfrm_stats {
+ 	__u32	replay_window;
+ 	__u32	replay;
+@@ -298,6 +302,7 @@ enum xfrm_attr_type_t {
+ 	XFRMA_TFCPAD,		/* __u32 */
+ 	XFRMA_REPLAY_ESN_VAL,	/* struct xfrm_replay_esn */
+ 	XFRMA_SA_EXTRA_FLAGS,	/* __u32 */
++	XFRMA_ALG_DRIVER,	/* struct xfrm_algo_driver */
+ 	__XFRMA_MAX
+ 
+ #define XFRMA_MAX (__XFRMA_MAX - 1)
+diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
+index 389942c..b7d413d 100644
+--- a/ip/xfrm_state.c
++++ b/ip/xfrm_state.c
+@@ -274,6 +274,7 @@ static int xfrm_state_modify(int cmd, unsigned flags, int argc, char **argv)
+ 		char   			buf[RTA_BUF_SIZE];
+ 	} req;
+ 	struct xfrm_replay_state replay;
++	struct xfrm_algo_driver driver;
+ 	char *idp = NULL;
+ 	char *aeadop = NULL;
+ 	char *ealgop = NULL;
+@@ -290,6 +291,7 @@ static int xfrm_state_modify(int cmd, unsigned flags, int argc, char **argv)
+ 
+ 	memset(&req, 0, sizeof(req));
+ 	memset(&replay, 0, sizeof(replay));
++	memset(&driver, 0, sizeof(driver));
+ 	memset(&ctx, 0, sizeof(ctx));
+ 
+ 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(req.xsinfo));
+@@ -392,6 +394,11 @@ static int xfrm_state_modify(int cmd, unsigned flags, int argc, char **argv)
+ 			xfrm_sctx_parse((char *)&ctx.str, context, &ctx.sctx);
+ 			addattr_l(&req.n, sizeof(req.buf), XFRMA_SEC_CTX,
+ 				  (void *)&ctx, ctx.sctx.len);
++		} else if (strcmp(*argv, "crypto-driver") == 0) {
++			NEXT_ARG();
++			strncpy(driver.driver_name, *argv, sizeof(driver.driver_name));
++			addattr_l(&req.n, sizeof(req.buf), XFRMA_ALG_DRIVER,
++				  (void *)&driver, sizeof(driver));
+ 		} else {
+ 			/* try to assume ALGO */
+ 			int type = xfrm_algotype_getbyname(*argv);
 -- 
 1.7.9.5
