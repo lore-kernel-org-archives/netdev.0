@@ -1,89 +1,194 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 6/6] vhost_net: remove the max pending check
-Date: Tue, 20 Aug 2013 10:48:18 +0800
-Message-ID: <5212D8F2.10307@redhat.com>
-References: <1376630190-5912-1-git-send-email-jasowang@redhat.com>
-	<1376630190-5912-7-git-send-email-jasowang@redhat.com>
-	<20130816100225.GD21821@redhat.com>
+From: poma <pomidorabelisima@gmail.com>
+Subject: Re: [PATCH net] skge: dma_sync the whole receive buffer
+Date: Tue, 20 Aug 2013 05:28:09 +0200
+Message-ID: <5212E249.2050203@gmail.com>
+References: <20130810104100.0ae20aa6@nehalam.linuxnetplumber.net> <20130810.132935.1257046025460198490.davem@davemloft.net> <20130810150207.37432299@nehalam.linuxnetplumber.net> <20130813.150955.1471100759610399160.davem@davemloft.net> <20130813180036.3e639789@nehalam.linuxnetplumber.net> <520B59D3.4020103@gmail.com> <20130814092022.494caf2b@nehalam.linuxnetplumber.net> <520BCC72.8040002@gmail.com> <20130815084117.2f48fc58@nehalam.linuxnetplumber.net> <52116B9C.8050003@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130816100225.GD21821@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f178.google.com ([209.85.215.178]:63315 "EHLO
+	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751757Ab3HTD2N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Aug 2013 23:28:13 -0400
+Received: by mail-ea0-f178.google.com with SMTP id a15so2652937eae.37
+        for <netdev@vger.kernel.org>; Mon, 19 Aug 2013 20:28:11 -0700 (PDT)
+In-Reply-To: <52116B9C.8050003@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/16/2013 06:02 PM, Michael S. Tsirkin wrote:
-> On Fri, Aug 16, 2013 at 01:16:30PM +0800, Jason Wang wrote:
->> We used to limit the max pending DMAs to prevent guest from pinning too many
->> pages. But this could be removed since:
+On 19.08.2013 02:49, poma wrote:
+> On 15.08.2013 17:41, Stephen Hemminger wrote:
+>> On Wed, 14 Aug 2013 20:29:06 +0200
+>> poma <pomidorabelisima@gmail.com> wrote:
 >>
->> - We have the sk_wmem_alloc check in both tun/macvtap to do the same work
->> - This max pending check were almost useless since it was one done when there's
->>   no new buffers coming from guest. Guest can easily exceeds the limitation.
->> - We've already check upend_idx != done_idx and switch to non zerocopy then. So
->>   even if all vq->heads were used, we can still does the packet transmission.
-> We can but performance will suffer.
+>>> On 14.08.2013 18:20, Stephen Hemminger wrote:
+>>>> On Wed, 14 Aug 2013 12:20:03 +0200
+>>>> poma <pomidorabelisima@gmail.com> wrote:
+>>>>
+>>>>> On 14.08.2013 03:00, Stephen Hemminger wrote:
+>>>>>> On Tue, 13 Aug 2013 15:09:55 -0700 (PDT)
+>>>>>> David Miller <davem@davemloft.net> wrote:
+>>>>>>
+>>>>>>> From: Stephen Hemminger <stephen@networkplumber.org>
+>>>>>>> Date: Sat, 10 Aug 2013 15:02:07 -0700
+>>>>>>>
+>>>>>>>> The DMA sync should sync the whole receive buffer, not just
+>>>>>>>> part of it. Fixes log messages dma_sync_check.
+>>>>>>>>
+>>>>>>>> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+>>>>>>>
+>>>>>>> Applied, but I really suspect that your "check DMA mapping erro=
+rs"
+>>>>>>> patch has added a serious regression.  A regression much worse =
+than
+>>>>>>> the bug you were trying to fix with that change.
+>>>>>>
+>>>>>> Argh. The problem is deeper than that. Device got broken somewhe=
+re between
+>>>>>> 3.2 and 3.4. My old Dlink card works on 3.2 but gets DMA errors =
+on 3.4.
+>>>>>> The config's are different though so checking that as well.
+>>>>>>
+>>>>>
+>>>>> Can I help you with debugging?
+>>>>> DGE-530T is rather solid device.
+>>>>
+>>>> Don't think it is a hardware problem.
+>>>> The failure is when the board access the Receive ring PCI memory a=
+rea.
+>>>> This region is allocated with pci_alloc_consistent and therefore s=
+hould
+>>>> be available. Two possible issues are driver math issues, or hardw=
+are
+>>>> problems with where the region is located. Some of these cards don=
+'t
+>>>> really have full 64 bit PCI support.
+>>>>
+>>>> My board is:
+>>>> 05:01.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Ad=
+apter (rev 11)
+>>>> 	Subsystem: D-Link System Inc DGE-530T Gigabit Ethernet Adapter
+>>>> 	Flags: bus master, 66MHz, medium devsel, latency 32, IRQ 18
+>>>> 	Memory at f7d20000 (32-bit, non-prefetchable) [size=3D16K]
+>>>> 	I/O ports at c000 [size=3D256]
+>>>> 	Expansion ROM at f7d00000 [disabled] [size=3D128K]
+>>>> 	Capabilities: [48] Power Management version 2
+>>>> 	Capabilities: [50] Vital Product Data
+>>>> 	Kernel driver in use: skge
+>>>>
+>>>>
+>>>> What is your config?
+>>>>
+>>>
+>>> 01:09.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Ada=
+pter
+>>> (rev 11)
+>>> 	Subsystem: D-Link System Inc DGE-530T Gigabit Ethernet Adapter
+>>> 	Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 19
+>>> 	Memory at fbffc000 (32-bit, non-prefetchable) [size=3D16K]
+>>> 	I/O ports at b400 [size=3D256]
+>>> 	[virtual] Expansion ROM at ec000000 [disabled] [size=3D128K]
+>>> 	Capabilities: [48] Power Management version 2
+>>> 	Capabilities: [50] Vital Product Data
+>>> 	Kernel driver in use: skge
+>>>
+>>>
+>>> poma
+>>>
+>>
+>> In the course of debugging this, I moved the card to another slot
+>> and all the problems went away. I suspect either card insertion or m=
+ore likely
+>> the crap consumer motherboards don't have full PCI support on some s=
+lots.
+>>
+>> There doesn't seem to be anyway to address this in software.
+>>
+>=20
+>=20
+> DGE-530T is further tested in the 3 available slots:
+> 01:06.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adapt=
+er
+> (rev 11)
+> 01:07.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adapt=
+er
+> (rev 11)
+> 01:08.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adapt=
+er
+> (rev 11)
+> And the result is the same as in the slot:
+> 01:09.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adapt=
+er
+> (rev 11)
+> warnings, oopses and kernel crashes.
+>=20
+> However DGE-528T(RTL8110s) on the same bus runs without errors:
+> 01:09.0 Ethernet controller: D-Link System Inc DGE-528T Gigabit Ether=
+net
+> Adapter (rev 10)
+> 	Subsystem: D-Link System Inc DGE-528T Gigabit Ethernet Adapter
+> 	Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 19
+> 	I/O ports at cc00 [size=3D256]
+> 	Memory at fbfff000 (32-bit, non-prefetchable) [size=3D256]
+> 	[virtual] Expansion ROM at fbe00000 [disabled] [size=3D128K]
+> 	Capabilities: [dc] Power Management version 2
+> 	Kernel driver in use: r8169
+>=20
+> Besides comparing the behavior of these two cards, e.g. NFS upload, I
+> noticed an obvious difference in the data flow.
+> Via DGE-528T transmission is steady, while via DGE-530T the traffic i=
+s
+> at times interrupted and unstable.
+> So it seems that the "WARNING: at lib/dma-debug.c:937 check_unmap=85"
+> isn't just a fun.
+>=20
 
-The check were in fact only done when no new buffers submitted from
-guest. So if guest keep sending, the check won't be done.
+In support of the validity of the device I made a test with the
+2.6.32-358.14.1.el6.x86_64.debug kernel.
+And everything worked as it should.
 
-If we really want to do this, we should do it unconditionally. Anyway, I
-will do test to see the result.
->
->> So remove this check completely.
->>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
->> ---
->>  drivers/vhost/net.c |   13 -------------
->>  1 files changed, 0 insertions(+), 13 deletions(-)
->>
->> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
->> index a035a89..ed3f165 100644
->> --- a/drivers/vhost/net.c
->> +++ b/drivers/vhost/net.c
->> @@ -38,8 +38,6 @@ MODULE_PARM_DESC(experimental_zcopytx, "Enable Zero Copy TX;"
->>   * Using this limit prevents one virtqueue from starving others. */
->>  #define VHOST_NET_WEIGHT 0x80000
->>  
->> -/* MAX number of TX used buffers for outstanding zerocopy */
->> -#define VHOST_MAX_PEND 128
->>  #define VHOST_GOODCOPY_LEN 256
->>  
->>  /*
->> @@ -372,17 +370,6 @@ static void handle_tx(struct vhost_net *net)
->>  			break;
->>  		/* Nothing new?  Wait for eventfd to tell us they refilled. */
->>  		if (head == vq->num) {
->> -			int num_pends;
->> -
->> -			/* If more outstanding DMAs, queue the work.
->> -			 * Handle upend_idx wrap around
->> -			 */
->> -			num_pends = likely(nvq->upend_idx >= nvq->done_idx) ?
->> -				    (nvq->upend_idx - nvq->done_idx) :
->> -				    (nvq->upend_idx + UIO_MAXIOV -
->> -				     nvq->done_idx);
->> -			if (unlikely(num_pends > VHOST_MAX_PEND))
->> -				break;
->>  			if (unlikely(vhost_enable_notify(&net->dev, vq))) {
->>  				vhost_disable_notify(&net->dev, vq);
->>  				continue;
->> -- 
->> 1.7.1
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+01:08.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adapter
+(rev 11)
+	Subsystem: D-Link System Inc DGE-530T Gigabit Ethernet Adapter
+	Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 18
+	Memory at fbff8000 (32-bit, non-prefetchable) [size=3D16K]
+	I/O ports at cc00 [size=3D256]
+	[virtual] Expansion ROM at fbe00000 [disabled] [size=3D128K]
+	Capabilities: [48] Power Management version 2
+	Capabilities: [50] Vital Product Data
+	Kernel driver in use: skge
+	Kernel modules: skge
+
+filename:
+/lib/modules/2.6.32-358.14.1.el6.x86_64.debug/kernel/drivers/net/skge.k=
+o
+version:        1.13
+license:        GPL
+author:         Stephen Hemminger <shemminger@linux-foundation.org>
+description:    SysKonnect Gigabit Ethernet driver
+srcversion:     ADF6781C2E0D2D895F86279
+alias:          pci:v00001737d00001032sv*sd00000015bc*sc*i*
+alias:          pci:v00001737d00001064sv*sd*bc*sc*i*
+alias:          pci:v00001371d0000434Esv*sd*bc*sc*i*
+alias:          pci:v000011ABd00005005sv*sd*bc*sc*i*
+alias:          pci:v000011ABd00004320sv*sd*bc*sc*i*
+alias:          pci:v00001186d00004B01sv*sd*bc*sc*i*
+alias:          pci:v00001186d00004C00sv*sd*bc*sc*i*
+alias:          pci:v00001148d00004320sv*sd*bc*sc*i*
+alias:          pci:v00001148d00004300sv*sd*bc*sc*i*
+alias:          pci:v000010B7d000080EBsv*sd*bc*sc*i*
+alias:          pci:v000010B7d00001700sv*sd*bc*sc*i*
+depends:
+vermagic:       2.6.32-358.14.1.el6.x86_64.debug SMP mod_unload modvers=
+ions
+parm:           debug:Debug level (0=3Dnone,...,16=3Dall) (int)
+
+
+Given all the tests and all written, something isn't right, at all.
+Should I quote Shakespeare. :)
+
+
+poma
