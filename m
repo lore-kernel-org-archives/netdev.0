@@ -1,32 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build warning after merge of the net-next tree
-Date: Wed, 21 Aug 2013 11:15:00 -0700 (PDT)
-Message-ID: <20130821.111500.578777610906041340.davem@davemloft.net>
-References: <20130821191041.712893827d8000c6dca8781b@canb.auug.org.au>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/4] jme: lower NAPI weight
+Date: Wed, 21 Aug 2013 22:15:18 +0400
+Message-ID: <521503B6.4010105@cogentembedded.com>
+References: <1377103771-1590-1-git-send-email-mschmidt@redhat.com> <1377103771-1590-2-git-send-email-mschmidt@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, dingtianhong@huawei.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130821191041.712893827d8000c6dca8781b@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>,
+	Guo-Fu Tseng <cooldavid@cooldavid.org>
+To: Michal Schmidt <mschmidt@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f54.google.com ([209.85.215.54]:47383 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752743Ab3HUSPM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 14:15:12 -0400
+Received: by mail-la0-f54.google.com with SMTP id ea20so642546lab.27
+        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 11:15:11 -0700 (PDT)
+In-Reply-To: <1377103771-1590-2-git-send-email-mschmidt@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 21 Aug 2013 19:10:41 +1000
+Hello.
 
-> Hi all,
-> 
-> After merging the net-next tree, today's linux-next build (i386 defconfig
-> and probably others) produced this warning:
-> 
-> net/ipv6/addrconf.c: In function 'addrconf_notify':
-> net/ipv6/addrconf.c:2793:22: warning: 'link_dev' may be used uninitialized in this function [-Wuninitialized]
-> net/ipv6/addrconf.c:2802:21: note: 'link_dev' was declared here
-> 
-> Introduced by commit df8372ca747f ("ipv6: fix checkpatch errors in
-> net/ipv6/addrconf.c").  It looks like here are some missing braces.
+On 08/21/2013 08:49 PM, Michal Schmidt wrote:
 
-Yes, which has since been reverted.
+> Since commit 82dc3c63 netif_napi_add() produces an error message if
+
+    Please also specify that commit's summary line in parens.
+
+> a NAPI poll weight greater than 64 is requested.
+
+> jme requests a quarter of the rx ring size as the NAPI weight.
+> jme's rx ring size is 1 << 9 = 512.
+
+> Use the standard NAPI weight.
+
+> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+> CC: Guo-Fu Tseng <cooldavid@cooldavid.org>
+
+WBR, Sergei
