@@ -1,53 +1,32 @@
-From: Peter Wu <lekensteyn@gmail.com>
-Subject: [PATCH net-next v4] r8169: fix invalid register dump
-Date: Wed, 21 Aug 2013 23:17:11 +0200
-Message-ID: <1377119831-29691-1-git-send-email-lekensteyn@gmail.com>
-References: <20130821205325.GA24054@electric-eye.fr.zoreil.com>
-Cc: nic_swsd@realtek.com, bhutchings@solarflare.com,
-	Francois Romieu <romieu@fr.zoreil.com>, lekensteyn@gmail.com
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH 0/2] SH: fix typos in Ether platform data
+Date: Thu, 22 Aug 2013 02:15:16 +0400
+Message-ID: <201308220215.16463.sergei.shtylyov@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, lethal@linux-sh.org,
+	linux-sh@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f182.google.com ([74.125.82.182]:39431 "EHLO
-	mail-we0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752622Ab3HUVRS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 17:17:18 -0400
-Received: by mail-we0-f182.google.com with SMTP id q59so932484wes.27
-        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 14:17:16 -0700 (PDT)
-In-Reply-To: <20130821205325.GA24054@electric-eye.fr.zoreil.com>
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:57387 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752484Ab3HUWPL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 18:15:11 -0400
+Received: by mail-lb0-f169.google.com with SMTP id u10so1119395lbi.28
+        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 15:15:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For some reason, my PCIe RTL8111E onboard NIC on a GA-Z68X-UD3H-B3
-motherboard reads as FFs when reading from MMIO with a block size
-larger than 7. Therefore change to reading blocks of four bytes.
+Hello.
 
-Ben Hutchings noted that the buffer is large enough to hold all
-registers, so now all registers are read.
+   Shamefully, I have fat fingered in both patches fixing Ether support on SH
+platforms and I didn't bother to compile test them at least with the ARM
+compiler I have at hand (although one of the files turned out to not really be
+compilable by it). Here's 2 patches fixing the typos, they are against David
+Miller's 'net-next.git'.
 
-Signed-off-by: Peter Wu <lekensteyn@gmail.com>
-Acked-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/ethernet/realtek/r8169.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+[1/2] SH7619: fix typo in Ether platform data
+[2/2] SolutionEngine7724: fix typo in Ether platform data
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 93ee49d..c0c9e14 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -1897,9 +1897,13 @@ static void rtl8169_get_regs(struct net_device *dev, struct ethtool_regs *regs,
- 			     void *p)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
-+	u32 __iomem *data = tp->mmio_addr;
-+	u32 *dw = p;
-+	int i;
- 
- 	rtl_lock_work(tp);
--	memcpy_fromio(p, tp->mmio_addr, regs->len);
-+	for (i = 0; i < R8169_REGS_SIZE; i += 4)
-+		memcpy_fromio(dw++, data++, 4);
- 	rtl_unlock_work(tp);
- }
- 
--- 
-1.8.3.4
+WBR, Sergei
