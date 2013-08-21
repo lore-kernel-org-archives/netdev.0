@@ -1,13 +1,11 @@
 From: Libo Chen <libo.chen@huawei.com>
-Subject: [PATCH 6/8] net: xilinx_emaclite: remove unnecessary dev_set_drvdata()
-Date: Wed, 21 Aug 2013 15:02:36 +0800
-Message-ID: <1377068556-51316-1-git-send-email-libo.chen@huawei.com>
+Subject: [PATCH 3/8] net: fec_mpc52xx_phy: remove unnecessary dev_set_drvdata()
+Date: Wed, 21 Aug 2013 15:02:22 +0800
+Message-ID: <1377068542-21164-1-git-send-email-libo.chen@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <michal.simek@xilinx.com>, <renner@efe-gmbh.de>,
-	<gregkh@linuxfoundation.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <lizefan@huawei.com>,
-	<libo.chen@huawei.com>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<lizefan@huawei.com>, <libo.chen@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -18,20 +16,20 @@ clears the driver data to NULL after device_release or on probe failure.
 
 Signed-off-by: Libo Chen <libo.chen@huawei.com>
 ---
- drivers/net/ethernet/xilinx/xilinx_emaclite.c |    1 -
+ drivers/net/ethernet/freescale/fec_mpc52xx_phy.c |    1 -
  1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-index 7c1ccbc..4c619ea 100644
---- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-@@ -1249,7 +1249,6 @@ static int xemaclite_of_remove(struct platform_device *of_dev)
- 	lp->phy_node = NULL;
+diff --git a/drivers/net/ethernet/freescale/fec_mpc52xx_phy.c b/drivers/net/ethernet/freescale/fec_mpc52xx_phy.c
+index eb44797..e052890 100644
+--- a/drivers/net/ethernet/freescale/fec_mpc52xx_phy.c
++++ b/drivers/net/ethernet/freescale/fec_mpc52xx_phy.c
+@@ -127,7 +127,6 @@ static int mpc52xx_fec_mdio_remove(struct platform_device *of)
+ 	struct mpc52xx_fec_mdio_priv *priv = bus->priv;
  
- 	xemaclite_remove_ndev(ndev, of_dev);
+ 	mdiobus_unregister(bus);
 -	dev_set_drvdata(dev, NULL);
- 
- 	return 0;
- }
+ 	iounmap(priv->regs);
+ 	kfree(priv);
+ 	mdiobus_free(bus);
 -- 
 1.7.1
