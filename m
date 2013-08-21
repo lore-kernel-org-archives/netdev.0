@@ -1,46 +1,140 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [PATCH] netns: unix: only allow to find out unix socket in same
-	net namespace
-Date: Wed, 21 Aug 2013 03:42:02 -0700
-Message-ID: <87haejtjet.fsf@xmission.com>
-References: <1377059473-25526-1-git-send-email-gaofeng@cn.fujitsu.com>
-	<87d2p7vcdx.fsf@xmission.com> <5214641C.9030902@cn.fujitsu.com>
-	<87wqnfttdf.fsf@xmission.com> <52146AC2.5070409@cn.fujitsu.com>
+From: Christian Gmeiner <christian.gmeiner@gmail.com>
+Subject: Re: [RFC PATCH 1/3] of: provide a binding for the 'fixed-link' property
+Date: Wed, 21 Aug 2013 12:55:52 +0200
+Message-ID: <CAH9NwWewcDE57g8qgy4aeOeQpfE_RA8hT+cQ9U2_gOFEWKAUDQ@mail.gmail.com>
+References: <1373902450-11857-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <1373902450-11857-2-git-send-email-thomas.petazzoni@free-electrons.com>
+ <20130812063806.GD2324@pengutronix.de> <20130812101649.743c08aa@skate> <20130812083746.GM26614@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: systemd-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
-	"libvir-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <libvir-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	lxc-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <52146AC2.5070409-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org> (Gao feng's message of "Wed, 21
-	Aug 2013 15:22:42 +0800")
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Lior Amsalem <alior@marvell.com>, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org,
+	Rob Herring <rob.herring@calxeda.com>,
+	Florian Fainelli <florian@openwrt.org>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: Sascha Hauer <s.hauer@pengutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f54.google.com ([209.85.216.54]:50031 "EHLO
+	mail-qa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751452Ab3HUK4N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 06:56:13 -0400
+Received: by mail-qa0-f54.google.com with SMTP id bv4so319520qab.6
+        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 03:56:12 -0700 (PDT)
+In-Reply-To: <20130812083746.GM26614@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org> writes:
+--
+Christian Gmeiner, MSc
 
-> right now I only take note of the unix socket /run/systemd/private,
-> but there may have many similar unix sockets, they can exist in any
-> path. the strange problems will still happen.
 
-It could just as easily have been a fifo in the filesystem, and the
-result would have been the same.
+2013/8/12 Sascha Hauer <s.hauer@pengutronix.de>:
+> On Mon, Aug 12, 2013 at 10:16:49AM +0200, Thomas Petazzoni wrote:
+>> Dear Sascha Hauer,
+>>
+>> On Mon, 12 Aug 2013 08:38:06 +0200, Sascha Hauer wrote:
+>>
+>> > > This patch adds:
+>> > >
+>> > >  * A documentation for the Device Tree property "fixed-link".
+>> > >
+>> > >  * A of_phy_register_fixed_link() OF helper, which provided an OF node
+>> > >    that contains a "fixed-link" property, registers the corresponding
+>> > >    fixed PHY.
+>> > >
+>> > >  * Removes the warning on the of_phy_connect_fixed_link() that says
+>> > >    new drivers should not use it, since Grant Likely indicated that
+>> > >    this "fixed-link" property is indeed the way to go.
+>> > >
+>> >
+>> > Any progress with this series?
+>>
+>> I am not sure there really was a consensus yet on what the DT binding
+>> looks like. As soon as there is a consensus, I'm definitely willing to
+>> make progress on this series.
+>>
+>> > We have more and more boards here with exactly the same problem as
+>> > Thomas has. For reasons stated below I don't like this binding, but
+>> > still it would solve my problem.
+>>
+>> Ok.
+>>
+>> > > +Example:
+>> > > +
+>> > > +ethernet@0 {
+>> > > + ...
+>> > > + fixed-link = <1 1 1000 0 0>;
+>> > > + ...
+>> > > +};
+>> >
+>> > I must say I don't like this binding at all for two reasons.
+>>
+>> As I explained, this binding was chosen for this RFC for two reasons:
+>>
+>>  * It's the binding used on PowerPC platforms to represent fixed links.
+>>  * It allows to encode all the informations into a single property,
+>>    which avoids the need for a separate DT node for a "fake PHY", which
+>>    isn't a representation of the hardware.
+>
+> The fake phy is avoided by making the other side of the link what it
+> really is: An ethernet switch. I'm currently not aware of a situation
+> where a fixed link is needed and the other side is not a switch. And I
+> can't think of a situation in which the other side of the other side of
+> the fixed link really is pure 'virtual', I mean there always must be
+> something connected, right?
+>
+>>
+>> > First the positional arguments make it impossible to add optional
+>> > arguments to the link.
+>> >
+>> > Second the other side of the link is most likely a switch. Once this
+>> > switch has its own node in the devicetree it seems like having a phandle
+>> > to the switch here would be better.
+>>
+>> So, in other words, what you're suggesting is something like:
+>>
+>>       ethernet@0 {
+>>               reg = <...>;
+>>               interrupt = <...>;
+>>               phy = <&phy0>;
+>>               phy0: phy@0 {
+>>                       fixed-link;
+>>                       speed = <1000>;
+>>                       full-duplex;
+>>                       ...
+>>               };
+>>       };
+>
+> Yes, this looks good. ePAPR suggests naming the phy property
+> "phy-handle" instead of just "phy", but that's just details. In case the
+> phy really is a switch the phandle could just point to a i2c device instead
+> of the ethernet node.
+>
 
-The network namespace are all about communicating between network
-namespaces and that is what was allowed here.
+I have here a I.MX6 based board where I have the same issue that the
+MAC is directly
+connected to a switch. The switch has 5 phys (5 port 100mbt switch)
+but the phy5 is not
+physically connected to my FEC MAC as my hw guy has chosen to do it without it.
+In general it is not a bad idea and I got networking working in u-boot
+quite easily.
 
-If you don't want a socket or a fifo or any other file to be used by a
-container don't give it access to it.  It really is that simple.
+http://patchwork.ozlabs.org/patch/266558/
 
-Eric
+Now I am interested in a solution and I think that a fixed-phy is the wrong way.
+I like the fixed-link solution more as it models the real world
+better. In my example I
+do not have any phy, but I have a fixed-link.
+
+&fec {
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl_enet_1>;
+        fixed-link = <0 1 100 0 0>;
+        status = "okay";
+};
+
+--
+Christian Gmeiner, MSc
