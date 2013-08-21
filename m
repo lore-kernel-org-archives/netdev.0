@@ -1,75 +1,75 @@
-From: =?UTF-8?q?Vincent=20Stehl=C3=A9?= <vincent.stehle@laposte.net>
-Subject: [PATCH linux-next] ipv6: fix missing braces in ip6_tnl_add_linklocal
-Date: Thu, 22 Aug 2013 00:19:57 +0200
-Message-ID: <1377123597-26515-1-git-send-email-vincent.stehle@laposte.net>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH 0/2] fix generic netlink locking issue(s)
+Date: Wed, 21 Aug 2013 15:53:54 -0700
+Message-ID: <CALnjE+qtGXHkqxfSPWi5nsqA=fLkxijxDLDha=Z+YL=eQxxDmQ@mail.gmail.com>
+References: <1377094083-8122-1-git-send-email-johannes@sipsolutions.net>
+	<52150F87.90207@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Vincent=20Stehl=C3=A9?= <vincent.stehle@laposte.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Ding Tianhong <dingtianhong@huawei.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-next@vger.kernel.org
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	netdev <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog134.obsmtp.com ([74.125.149.83]:40199 "HELO
+	na3sys009aog134.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751963Ab3HUWxz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 18:53:55 -0400
+Received: by mail-qa0-f46.google.com with SMTP id bq6so758615qab.19
+        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 15:53:54 -0700 (PDT)
+In-Reply-To: <52150F87.90207@hartkopp.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Braces have been removed by mistake by commit df8372c 'ipv6: fix checkp=
-atch
-errors in net/ipv6/addrconf.c'.
+This looks like more general problem and not specific to genl_ctrl
+family. I have couple of fixes for issues you are seeing, I will send
+out those patches soon.
 
-This fixes the following compilation warning:
-
-  net/ipv6/addrconf.c: In function =E2=80=98addrconf_notify=E2=80=99:
-  net/ipv6/addrconf.c:2793:22: warning: =E2=80=98link_dev=E2=80=99 may =
-be used uninitialized in this function [-Wmaybe-uninitialized]
-  net/ipv6/addrconf.c:2802:21: note: =E2=80=98link_dev=E2=80=99 was dec=
-lared here
-
-Signed-off-by: Vincent Stehl=C3=A9 <vincent.stehle@laposte.net>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Ding Tianhong <dingtianhong@huawei.com>
----
-
-
-Hi,
-
-This can be seen in e.g. Linux next-20130821.
-
-Best regards,
-
-V.
-
-
- net/ipv6/addrconf.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 980aa98..b2f2e6d 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2803,10 +2803,11 @@ static void ip6_tnl_add_linklocal(struct inet6_=
-dev *idev)
- 	struct net *net =3D dev_net(idev->dev);
-=20
- 	/* first try to inherit the link-local address from the link device *=
-/
--	if (idev->dev->iflink)
-+	if (idev->dev->iflink) {
- 		link_dev =3D __dev_get_by_index(net, idev->dev->iflink);
- 		if (link_dev && !ipv6_inherit_linklocal(idev, link_dev))
- 			return;
-+	}
-=20
- 	/* then try to inherit it from any device */
- 	for_each_netdev(net, link_dev) {
---=20
-1.7.10.4
+On Wed, Aug 21, 2013 at 12:05 PM, Oliver Hartkopp
+<socketcan@hartkopp.net> wrote:
+> On 21.08.2013 16:08, Johannes Berg wrote:
+>> Here's another attempt at fixing the genetlink locking issue,
+>> hopefully better tested this time. Sorry about the mess the
+>> previous version caused.
+>>
+>> I really didn't find a way to "simply" add locking, no matter
+>> which way I turn genetlink is special because it would then use
+>> the same locks "inside" and "outside" the generic netlink family;
+>> "inside" because I'm trying to protect the otherwise unlocked
+>> dump call, and "outside" because it itself is a generic netlink
+>> family so needs to protect things there.
+>>
+>> As a result, I've turned to RCU and (hopefully) made it safe.
+>> The unregistration can get fairly expensive with all the calls
+>> to synchronize_rcu(), but I don't see any better way, and it's
+>> hopefully really rare.
+>>
+>> The only place that now uses RCU is ctrl_dumpfamily(), but it'd
+>> be possible to use it in other places. I didn't want to do it
+>> in this patch, but I also don't see any candidates where that
+>> would really make sense.
+>>
+>> The first patch should obviously go into 3.11, I'll let you
+>> decide about the second. This one might actually be easier to
+>> backport than the original one, but it'd still have to be done
+>> carefully.
+>
+> I applied both patches.
+> The lockdep issue vanished and i still can write emails :-)
+>
+> Thanks Johannes.
+>
+> Tested-by: Oliver Hartkopp <socketcan@hartkopp.net>
+>
+>
+>>
+>> johannes
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
