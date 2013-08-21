@@ -1,96 +1,76 @@
-From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-Subject: Re: [PATCH 2/2] sh_eth: remove 'register_type' field from 'struct sh_eth_plat_data'
-Date: Wed, 21 Aug 2013 02:39:40 +0200
-Message-ID: <20555348.Y63SQY2deS@avalon>
-References: <201308180308.39941.sergei.shtylyov@cogentembedded.com> <2784326.CAqkc6T846@avalon> <5213F548.5040103@cogentembedded.com>
+From: Haojian Zhuang <haojian.zhuang@gmail.com>
+Subject: Re: [PATCH RESEND] can: mcp251x: Replace power callbacks with
+ regulator API
+Date: Wed, 21 Aug 2013 08:46:00 +0800
+Message-ID: <CAN1soZyM8x4cWqqjk4az37Njvgez0teTnKuGa2ZQ4od-3sm6MQ@mail.gmail.com>
+References: <1375963227-6468-1-git-send-email-shc_work@mail.ru>
+	<52049C44.6030902@pengutronix.de>
+	<520EDDA8.6050309@gmail.com>
+	<20130817083014.a01144051b158c34ec7dd9d9@mail.ru>
+	<CAN1soZz68ymkj4x5bWTP-6Qc7zVuVotLoT8nYLrdTd3DQHyFbQ@mail.gmail.com>
+	<52132CD7.50100@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, lethal@linux-sh.org,
-	linux-sh@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <5213F548.5040103@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Alexander Shiyan <shc_work@mail.ru>,
+	Eric Miao <eric.y.miao@gmail.com>, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org, Wolfgang Grandegger <wg@grandegger.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <52132CD7.50100@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sergei,
-
-On Wednesday 21 August 2013 03:01:28 Sergei Shtylyov wrote:
-> On 08/21/2013 02:50 AM, Laurent Pinchart wrote:
-> >>>>> Now that the 'register_type' field of the 'sh_eth' driver's platform
-> >>>>> data is not used by the driver anymore, it's time to remove it and 
-> >>>>> its initializers from the SH platform code. Also  move *enum*
-> >>>>> declaring values for this  field from <linux/sh_eth.h>  to  the  local
-> >>>>> driver's header file as they're only needed by the driver itself 
-> >>>>> now...
-> >>>>> 
-> >>>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> >> 
-> >> [...]
-> >> 
-> >>>>>    /* Driver's parameters */
-> >>>>>    #if defined(CONFIG_CPU_SH4) || defined(CONFIG_ARCH_SHMOBILE)
-> >>>>>    #define SH4_SKB_RX_ALIGN    32
-> >>>>> 
-> >>>>> Index: net-next/include/linux/sh_eth.h
-> >>>>> ===================================================================
-> >>>>> --- net-next.orig/include/linux/sh_eth.h
-> >>>>> +++ net-next/include/linux/sh_eth.h
-> >>>>> @@ -5,17 +5,10 @@
-> >>>>> 
-> >>>>>    #include <linux/if_ether.h>
-> >>>>>    
-> >>>>>    enum {EDMAC_LITTLE_ENDIAN, EDMAC_BIG_ENDIAN};
-> >>>>> 
-> >>>>> -enum {
-> >>>>> -    SH_ETH_REG_GIGABIT,
-> >>>>> -    SH_ETH_REG_FAST_RCAR,
-> >>>>> -    SH_ETH_REG_FAST_SH4,
-> >>>>> -    SH_ETH_REG_FAST_SH3_SH2
-> >>>>> -};
-> >>>>> 
-> >>>>>    struct sh_eth_plat_data {
-> >>>>>    
-> >>>>>        int phy;
-> >>>>>        int edmac_endian;
-> >>>> 
-> >>>> Wouldn't it make sense to move the edmac_endian field to
-> >>>> sh_eth_cpu_data as well ?
-> >>> 
-> >>> No, it depends on the SoC endianness which is determined by power-on pin
-> >>> strapping -- which is board specific.
-> > 
-> > Does SoC endianness affect the ARM core endianness, the ethernet registers
-> > endianness, or both ?
+On Tue, Aug 20, 2013 at 4:46 PM, Marc Kleine-Budde <mkl@pengutronix.de> wrote:
+> On 08/17/2013 06:37 AM, Haojian Zhuang wrote:
+>> On Sat, Aug 17, 2013 at 12:30 PM, Alexander Shiyan <shc_work@mail.ru> wrote:
+>>> On Sat, 17 Aug 2013 10:19:20 +0800
+>>> Haojian Zhuang <haojian.zhuang@gmail.com> wrote:
+>>>
+>>>> On 08/09/2013 03:37 PM, Marc Kleine-Budde wrote:
+>>>>> On 08/08/2013 02:00 PM, Alexander Shiyan wrote:
+>>>>>> Signed-off-by: Alexander Shiyan <shc_work@mail.ru>
+>>>>>> ---
+>>>>>>   arch/arm/mach-pxa/icontrol.c         |  3 --
+>>>>>>   arch/arm/mach-pxa/zeus.c             | 46 ++++++++++----------
+>>>>>
+>>>>> What's pxa's status of DT conversion? Do you (still) accept patches to
+>>>>> board files?
+>>>>>
+>>>>> Marc
+>>>>>
+>>>>
+>>>> Since DT conversion isn't finished, I still accept the board files.
+>>>> But this patch should be split into two parts. One is for pxa, and the
+>>>> other one is for net.
+>>>
+>>> Patch cannot be splitted because this can create hole which break git-bisect.
+>>>
+>>> In any case, I want to create a v2 with a more detailed description, and I
+>>> have a supplementary question for the CAN subsystem maintainers.
+>>> "Transciever power" is not used by any of the boards, can we remove it
+>>> completely? This will greatly simplify driver.
+>>> Thanks.
+>>>
+>>> --
+>>> Alexander Shiyan <shc_work@mail.ru>
+>>
+>> If you want to make the patch go through pxa tree, you need to get the Ack
+>> from CAN maintainer.
 >
-> Both, AFAIK.
+> The current series consists of 3 patches, only the first one touches
+> "arch/arm/mach-pxa", so I'd like the patches to go via linux-can. Can I
+> have your Acked-by for the first patch "[PATCH v2 1/3] can: mcp251x:
+> Replace power callbacks with regulator AP"
 >
-> > If it affects the ARM core endianness only, the kernel needs to be
-> > compiled in little-endian or big-endian mode anyway, and the sh_eth driver
-> > should use cpu_to_le32() unconditionally. If it affects both the ARM core
-> > and the ethernet controller there's not need to care about the endianness,
-> > as it will always be good.
-> 
-> No, it won't unless you're using __raw_{readl|writel}() accessors. The
-> driver doesn't do it. {readl|writel}() and io{read|write}32() that use them
-> always assume LE ordering of memory.
-> 
-> > We only need to care about it if it affects the ethernet controller
-> > registers only, which would seem weird to me.
+> Marc
+> --
+> Pengutronix e.K.                  | Marc Kleine-Budde           |
+> Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+> Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+> Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 >
-> Unfortunately, you are wrong.
 
-Care to explain *why* ? There might be bugs in the driver (such as using the 
-wrong I/O accessors), but I don't see why we need to configure the endianness 
-through platform data.
-
-> >> BTW, I don't think the driver works correctly in the BE case since it
-> >> uses io{read|write}32() to access the registers and those functions
-> >> assume LE ordering on MMIO.
-
--- 
-Regards,
-
-Laurent Pinchart
-
+Acked-by: Haojian Zhuang <haojian.zhuang@gmail.com>
