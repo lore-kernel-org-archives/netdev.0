@@ -1,85 +1,114 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: Re: [PATCH 6/8] net: xilinx_emaclite: remove unnecessary dev_set_drvdata()
-Date: Wed, 21 Aug 2013 09:21:18 +0200
-Message-ID: <52146A6E.5030005@monstr.eu>
-References: <1377068556-51316-1-git-send-email-libo.chen@huawei.com>
-Reply-To: monstr@monstr.eu
+From: Santiago Garcia Mantinan <manty@manty.net>
+Subject: Re: bonding + arp monitoring fails if interface is a vlan
+Date: Wed, 21 Aug 2013 09:39:07 +0200
+Message-ID: <CAJk_L2HHVNg6CBWcTAD5cj_cyau9+m1yM1=yMZa0Rg1KuJD9Ew@mail.gmail.com>
+References: <20130801121142.GA444@www.manty.net>
+	<51FB9EE5.3040907@redhat.com>
+	<CAJk_L2FJyD2X7EPztiVWLBD4NDR_VOehdFEeV+nq7a+sO9+_wA@mail.gmail.com>
+	<CAJk_L2FU6GcHUoC+UdNJoULN9KewoUQAMhapC0k3RcTqNOymnw@mail.gmail.com>
+	<51FF7DC6.7080602@redhat.com>
+	<CAJk_L2FTs0bX_s+ChKY9ZvZqVTagE=LQZpwV48b1RFhgtMsd8w@mail.gmail.com>
+	<5201F99D.2060809@redhat.com>
+	<CAJk_L2FuxrZrgg6_95Ww_0nVaE8Ff=1fmsUk+ghxCQ=LPyVzaQ@mail.gmail.com>
+	<CAJk_L2Ep-HoROtyThk26t8x3HQFy9+5-7k-e4G15Nm_F0KxV-A@mail.gmail.com>
+	<521340D6.5080108@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="xqFx5DVG6V3hTOUi59ffxortln8LoO1oW"
-Cc: davem@davemloft.net, michal.simek@xilinx.com, renner@efe-gmbh.de,
-	gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, lizefan@huawei.com
-To: Libo Chen <libo.chen@huawei.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f177.google.com ([209.85.215.177]:55519 "EHLO
-	mail-ea0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752221Ab3HUHVZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 03:21:25 -0400
-Received: by mail-ea0-f177.google.com with SMTP id f15so33982eak.8
-        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 00:21:24 -0700 (PDT)
-In-Reply-To: <1377068556-51316-1-git-send-email-libo.chen@huawei.com>
+Received: from mail-qc0-f170.google.com ([209.85.216.170]:41927 "EHLO
+	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752144Ab3HUHjK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 03:39:10 -0400
+Received: by mail-qc0-f170.google.com with SMTP id i8so33905qcq.29
+        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 00:39:07 -0700 (PDT)
+In-Reply-To: <521340D6.5080108@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---xqFx5DVG6V3hTOUi59ffxortln8LoO1oW
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Hi!
 
-On 08/21/2013 09:02 AM, Libo Chen wrote:
-> Unnecessary dev_set_drvdata() is removed, because the driver core
-> clears the driver data to NULL after device_release or on probe failure=
-=2E
->=20
-> Signed-off-by: Libo Chen <libo.chen@huawei.com>
-> ---
->  drivers/net/ethernet/xilinx/xilinx_emaclite.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/ne=
-t/ethernet/xilinx/xilinx_emaclite.c
-> index 7c1ccbc..4c619ea 100644
-> --- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-> +++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-> @@ -1249,7 +1249,6 @@ static int xemaclite_of_remove(struct platform_de=
-vice *of_dev)
->  	lp->phy_node =3D NULL;
-> =20
->  	xemaclite_remove_ndev(ndev, of_dev);
-> -	dev_set_drvdata(dev, NULL);
-> =20
->  	return 0;
->  }
->=20
+I think we have to clarify the setup...
 
-Acked-by: Michal Simek <monstr@monstr.eu>
+>> iface bond0 inet static
+>>         address 192.168.1.2
+>>         netmask 255.255.255.0
+>>         bond-slaves eth0.1001 eth0.1002 eth1.1001 eth1.1002
+>>         bond-mode balance-xor
+>>         bond-arp_validate 0
+>>         bond-arp_interval 2000
+>>         bond-arp_ip_target 192.168.1.1
 
-Thanks,
-Michal
+> This setup works for me, what might be wrong with your setup is that you connect
+> all 4 ports to a "dumb" switch,
 
---=20
-Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
-Maintainer of Linux kernel - Xilinx Zynq ARM architecture
-Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
+What I have is three ports, not 4, I have two network cards on the
+bonded machine and one on the not bonded machine, so I have three
+ports. On the not bonded machine I configure the two vlan interfaces
+over the same physical ethernet like this:
+ifconfig eth2.1001 192.168.1.1
+ifconfig eth2.1002 192.168.1.1
 
+> and you have the same vlans over the real
+> devices that are connected so they see each other's packets and the port's
+> last_rx gets updated so they stay up.
 
+I'd like to clarify this a bit, reading the bonding.txt file (the
+howto) specially the arp_all_targets option (I haven't set this on my
+setup) one would think that only a arp reply from at least one of the
+specified targets had to be received in order for the link to be
+considered on good state, not any traffic, specially if the traffic is
+generated by your very own bonding driver. Isn't this like that?
 
---xqFx5DVG6V3hTOUi59ffxortln8LoO1oW
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+What I'm trying to check on the real world scenario is if the gw,
+which is on a remote location, is available, but I can have local
+traffic that could be incrementing the counters.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+> I tried your setup with a "smart" switch so the ports couldn't see each other
+> and only the one that saw 192.168.1.1 was up, and the moment 192.168.1.1 went
+> down - the port went down in the bonding.
 
-iEYEARECAAYFAlIUam4ACgkQykllyylKDCEaVwCfYNvW/3LNhul7Mkxo5Ik2IcYd
-rxwAnROcyW876sL3Z7AAanhqV2hzqnwQ
-=hZmA
------END PGP SIGNATURE-----
+I think that the problem here is not the "dumb" or "smart" switch. I
+believe we are having different setups somehow. Please, if you don't
+understand anything on my setup (two machines, one with the bonding
+config I explained, and the other with one card and the ifconfig
+commands I said up there) just let me know.
 
---xqFx5DVG6V3hTOUi59ffxortln8LoO1oW--
+My first "dumb" switch was the switch of a soho adsl wifi router, then
+I tried a soho "dumb" 8 ports 10/100 switch, then I tried an old
+Cabletron SSR2000 where I had to define the two vlans on the three
+ports and make these ports tagged ports, then I tried on a Enterasys
+B5 (where I also had to specify that this ports had those vlans as
+egress and tagged). On the smart machines the slaves were considered
+to be down when vlans were not configured, as it was dropping all
+traffic, but once the vlans were setup the slaves came up.
+
+The behaviour I get is the same on "dumb" and "smart" switches, when I
+have the eth2.1001 and 1002 interfaces up everything is like expected,
+but then I run:
+ifconfig eth2.1001 0.0.0.0 down
+ifconfig eth2.1002 0.0.0.0 down
+and the bonded machine still sees all the slaves up even though I can
+see on the tcpdump I run on eth2 on the target machine that all 4
+requests are arriving but none of them is being replied.
+
+I have checked the counters you said and indeed they are being
+increased, both in "dumb" and "smart" switches (note that I haven't
+defined any bond on the switch side). I believe that either switch has
+to forward what comes from eth0.1001 (connected to switch port X) to
+eth1.1001 (connected to switch port Y) as they are broadcast messages
+and I haven't defined any bonding, so he has to forward what comes on
+port X to port Y, not doing so would break broadcast for a lot of
+setups. What doesn't make sense to me is the assumption that
+increasing counters when none of the specified targets are replying
+means we have a good link.
+
+I don't know what else to add to clarify what is going on, please, if
+something is not clear ask me.
+
+Thanks for your replies.
+
+Regards.
+-- 
+Manty/BestiaTester -> http://manty.net
