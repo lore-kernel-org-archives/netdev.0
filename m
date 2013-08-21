@@ -1,72 +1,82 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next] ip6_tunnel: ensure to always have a link local
- address
-Date: Wed, 21 Aug 2013 09:40:25 +0200
-Message-ID: <52146EE9.1060101@6wind.com>
-References: <1376993766-5723-1-git-send-email-nicolas.dichtel@6wind.com> <20130820.234818.2230621827416764963.davem@davemloft.net>
-Reply-To: nicolas.dichtel@6wind.com
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2013-08-21
+Date: Wed, 21 Aug 2013 09:42:55 +0200
+Message-ID: <52146F7F.6010001@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f172.google.com ([74.125.82.172]:53480 "EHLO
-	mail-we0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752251Ab3HUHk1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 03:40:27 -0400
-Received: by mail-we0-f172.google.com with SMTP id t60so73493wes.31
-        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 00:40:27 -0700 (PDT)
-In-Reply-To: <20130820.234818.2230621827416764963.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="OBJMXlfAeKdhUlBugQjW11apdbQF8FaiS"
+Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 21/08/2013 08:48, David Miller a =E9crit :
-> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Date: Tue, 20 Aug 2013 12:16:06 +0200
->
->> When an Xin6 tunnel is set up, we check other netdevices to inherit =
-the link-
->> local address. If none is available, the interface will not have any=
- link-local
->> address. RFC4862 expects that each interface has a link local addres=
-s.
->>
->> Now than this kind of tunnels supports x-netns, it's easy to fall in=
- this case
->> (by creating the tunnel in a netns where ethernet interfaces stand a=
-nd then
->> moving it to a other netns where no ethernet interface is available)=
-=2E
->>
->> RFC4291, Appendix A suggests two methods: the first is the one curre=
-ntly
->> implemented, the second is to generate a unique identifier, so that =
-we can
->> always generate the link-local address. Let's use eth_random_addr() =
-to generate
->> this interface indentifier.
->>
->> I remove completly the previous method, hence for the whole life of =
-the
->> interface, the link-local address remains the same (previously, it d=
-epends on
->> which ethernet interfaces were up when the tunnel interface was set =
-up).
->>
->> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->
-> Applied, but this brings up an issue I keep noticing.
->
-> We talk about eth_random_addr() and "uniqueness" together all the
-> time, but the former never implies the latter.
->
-> And we're going to run into situations where any conflicts generated
-> by this random address generater will cause reall failures.
->
-> Therefore we'll have to create a system to prevent them.  Probably
-> using some simple table that keeps track of the addresses we've
-> generated.
->
-Ok, I will look at this.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--OBJMXlfAeKdhUlBugQjW11apdbQF8FaiS
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+Hello David,
+
+this pull-request for net-next consists of a series by Alexander
+Shiyan, he cleans up the mcp251x driver. As the first patch touches
+arch/arm/mach-pxa, it's acked by Haojian Zhuang.
+
+regards,
+Marc
+
+---
+
+The following changes since commit 954c396756e3d31985f7bc6a414a988a4736a7=
+d0:
+
+  net/phy: micrel: Add OF configuration support for ksz9021 (2013-08-21 0=
+0:03:38 -0700)
+
+are available in the git repository at:
+
+  git://gitorious.org/linux-can/linux-can-next.git for-davem
+
+for you to fetch changes up to b1ef05a5a20afe50d4188a5b59579bd140758cf0:
+
+  can: mcp251x: Allow tuning SPI mode and limit maximal SPI speed (2013-0=
+8-21 09:28:29 +0200)
+
+----------------------------------------------------------------
+Alexander Shiyan (3):
+      can: mcp251x: Replace power callbacks with regulator API
+      can: mcp251x: Eliminate irq_flags from driver platform_data
+      can: mcp251x: Allow tuning SPI mode and limit maximal SPI speed
+
+ arch/arm/mach-pxa/icontrol.c         |  3 --
+ arch/arm/mach-pxa/zeus.c             | 46 +++++++++--------
+ drivers/net/can/mcp251x.c            | 98 ++++++++++++++++++------------=
+------
+ include/linux/can/platform/mcp251x.h | 15 +-----
+ 4 files changed, 75 insertions(+), 87 deletions(-)
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--OBJMXlfAeKdhUlBugQjW11apdbQF8FaiS
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlIUb38ACgkQjTAFq1RaXHN45wCfYk34pGy3oaAU8Qro9UNDlCh4
+4BcAn0CaNhb/hcB1T70lrLys6b9Upfqx
+=fXZS
+-----END PGP SIGNATURE-----
+
+--OBJMXlfAeKdhUlBugQjW11apdbQF8FaiS--
