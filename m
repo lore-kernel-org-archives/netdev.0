@@ -1,55 +1,60 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 4/4] qlcnic: use standard NAPI weights
-Date: Wed, 21 Aug 2013 22:19:04 +0400
-Message-ID: <52150498.1090805@cogentembedded.com>
-References: <1377103771-1590-1-git-send-email-mschmidt@redhat.com> <1377103771-1590-5-git-send-email-mschmidt@redhat.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: ADSL/ATM linklayer tc shaping regression fix commits
+	for stable
+Date: Wed, 21 Aug 2013 11:20:23 -0700 (PDT)
+Message-ID: <20130821.112023.744177612387539958.davem@davemloft.net>
+References: <20130820132629.51618797@redhat.com>
+	<20130820151650.GA18016@kroah.com>
+	<20130821140350.2b953007@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
-	linux-driver@qlogic.com
-To: Michal Schmidt <mschmidt@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:34455 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751688Ab3HUSS7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 14:18:59 -0400
-Received: by mail-la0-f42.google.com with SMTP id ep20so643988lab.29
-        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 11:18:57 -0700 (PDT)
-In-Reply-To: <1377103771-1590-5-git-send-email-mschmidt@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bloat-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org
+To: brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <bloat-bounces-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>
+In-Reply-To: <20130821140350.2b953007-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.bufferbloat.net/options/bloat>,
+	<mailto:bloat-request-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.bufferbloat.net/pipermail/bloat>
+List-Post: <mailto:bloat-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>
+List-Help: <mailto:bloat-request-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.bufferbloat.net/listinfo/bloat>,
+	<mailto:bloat-request-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org?subject=subscribe>
+Sender: bloat-bounces-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org
+Errors-To: bloat-bounces-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 08/21/2013 08:49 PM, Michal Schmidt wrote:
+From: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Date: Wed, 21 Aug 2013 14:03:50 +0200
 
-> Since commit 82dc3c63 netif_napi_add() produces an error message if
+> 
+> On Tue, 20 Aug 2013 08:16:50 -0700
+> Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org> wrote:
+>> On Tue, Aug 20, 2013 at 01:26:29PM +0200, Jesper Dangaard Brouer wrote:
+> [...]
+>  
+>> If there are issues with 3.10, that's a different story.
+>> 
+>> > Refactor improvements (v3.11-rc1):
+>> >  commit 130d3d68b52 (net_sched: psched_ratecfg_precompute() improvements)
+> 
+> Needed because it fixes the accuracy of the rate calc.
+> 
+>> > The linklayer ATM/ADSL fix, reached 3.11-rc6:
+>> >  commit 8a8e3d84b17 (net_sched: restore "linklayer atm" handling)
+> 
+> Needed because we broke userspace interface.
+> 
+>> David sends me the networking patches for the stable tree, and if he
+>> thinks these are applicable, then I'll take them.
+> 
+> DaveM, please?  What do you want me to do, submit this req/patches somehow?
+> 
+> (Can see that is not currently on your stable queue via:
+> http://patchwork.ozlabs.org/bundle/davem/stable/?state=*)
 
-    Likewise, summary line is needed.
+I'll put it there, you just have to formally ask me to do it that's
+all.
 
-> a NAPI poll weight greater than 64 is requested.
-
-> qlcnic requests the weight as large as 256 for some of its rings, and
-> smaller values for other rings. For instance in qlcnic_82xx_napi_add()
-> I think the intention was to give the tx+rx ring a bigger weight than
-> to rx-only rings, but it's actually doing the opposite. So I'm assuming
-> the weights do not really matter much.
-
-> Just use the standard NAPI weights for all rings.
-
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
-> CC: Himanshu Madhani <himanshu.madhani@qlogic.com>
-> CC: Rajesh Borundia <rajesh.borundia@qlogic.com>
-> CC: Shahed Shaikh <shahed.shaikh@qlogic.com>
-> CC: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-> CC: Sony Chacko <sony.chacko@qlogic.com>
-> CC: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-> CC: linux-driver@qlogic.com
-
-WBR, Sergei
+Asking Greg to do it directly is a complete waste of time. :-)
