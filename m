@@ -1,63 +1,60 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  10/15] igb: Add macro for size of RETA indirection table
-Date: Wed, 21 Aug 2013 01:23:31 -0700
-Message-ID: <1377073416-7872-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next  14/15] e1000e: Avoid kernel crash during shutdown
+Date: Wed, 21 Aug 2013 01:23:35 -0700
+Message-ID: <1377073416-7872-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1377073416-7872-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Li Zhang <zhlcindy@gmail.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:52393 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:18759 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751699Ab3HUIXw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Aug 2013 04:23:52 -0400
+	id S1752021Ab3HUIYT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Aug 2013 04:24:19 -0400
 In-Reply-To: <1377073416-7872-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
+From: Li Zhang <zhlcindy@gmail.com>
 
-RETA indirection table is used to assign the received data to a CPU
-in order to maintain an efficient distribution of network receive
-processing across multiple CPUs.
+While doing shutdown on the PCI device, the corresponding callback
+function e1000e_shutdown() is trying to clear those correctable
+errors on the upstream P2P bridge. Unfortunately, we don't have
+the upstream P2P bridge under some cases (e.g. PCI-passthrou for
+KVM on Power). That leads to kernel crash eventually.
 
-This patch removes the hard-coded value for the size of the indirection
-table and defines a new macro.
+The patch adds one more check on that to avoid kernel crash.
 
-Signed-off-by: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
+Signed-off-by: Li Zhang <zhlcindy@gmail.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h      | 2 ++
- drivers/net/ethernet/intel/igb/igb_main.c | 2 +-
- 2 files changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 15ea8dc..5a2659b 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -343,6 +343,8 @@ struct hwmon_buff {
- 	};
- #endif
- 
-+#define IGB_RETA_SIZE	128
-+
- /* board specific private data structure */
- struct igb_adapter {
- 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 7f6cf65..1acd9c0 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -3157,7 +3157,7 @@ static void igb_setup_mrqc(struct igb_adapter *adapter)
- 	 * we are generating the results for n and n+2 and then interleaving
- 	 * those with the results with n+1 and n+3.
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 59c0c54..e87e9b0 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -5999,11 +5999,18 @@ static int __e1000_shutdown(struct pci_dev *pdev, bool runtime)
+ 	 * correctable error when the MAC transitions from D0 to D3.  To
+ 	 * prevent this we need to mask off the correctable errors on the
+ 	 * downstream port of the pci-e switch.
++	 *
++	 * We don't have the associated upstream bridge while assigning
++	 * the PCI device into guest. For example, the KVM on power is
++	 * one of the cases.
  	 */
--	for (j = 0; j < 32; j++) {
-+	for (j = 0; j < IGB_RETA_SIZE / 4; j++) {
- 		/* first pass generates n and n+2 */
- 		u32 base = ((j * 0x00040004) + 0x00020000) * num_rx_queues;
- 		u32 reta = (base & 0x07800780) >> (7 - shift);
+ 	if (adapter->flags & FLAG_IS_QUAD_PORT) {
+ 		struct pci_dev *us_dev = pdev->bus->self;
+ 		u16 devctl;
+ 
++		if (!us_dev)
++			return 0;
++
+ 		pcie_capability_read_word(us_dev, PCI_EXP_DEVCTL, &devctl);
+ 		pcie_capability_write_word(us_dev, PCI_EXP_DEVCTL,
+ 					   (devctl & ~PCI_EXP_DEVCTL_CERE));
 -- 
 1.8.3.1
