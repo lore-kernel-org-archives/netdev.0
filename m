@@ -1,62 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next v3 0/9] net: introduce generic type and
- helpers for IP address
-Date: Tue, 20 Aug 2013 23:11:59 -0700 (PDT)
-Message-ID: <20130820.231159.2092592990953992941.davem@davemloft.net>
-References: <1376907278-26377-1-git-send-email-amwang@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 2/2] net: netem: always adjust now/delay when not
+ reordering
+Date: Tue, 20 Aug 2013 23:14:07 -0700
+Message-ID: <1377065647.4226.96.camel@edumazet-glaptop>
+References: <1377030800.4226.89.camel@edumazet-glaptop>
+	 <1377064785-12629-1-git-send-email-mailings@hupie.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: amwang@redhat.com
+To: Ferry Huberts <mailings@hupie.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51976 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752093Ab3HUGMC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 02:12:02 -0400
-In-Reply-To: <1376907278-26377-1-git-send-email-amwang@redhat.com>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:51097 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752115Ab3HUGOJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 02:14:09 -0400
+Received: by mail-pd0-f173.google.com with SMTP id p10so3774pdj.32
+        for <netdev@vger.kernel.org>; Tue, 20 Aug 2013 23:14:08 -0700 (PDT)
+In-Reply-To: <1377064785-12629-1-git-send-email-mailings@hupie.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
-Date: Mon, 19 Aug 2013 18:14:29 +0800
-
-> From: Cong Wang <amwang@redhat.com>
+On Wed, 2013-08-21 at 07:59 +0200, Ferry Huberts wrote:
+> From: Ferry Huberts <ferry.huberts@pelagic.nl>
 > 
-> As IPv6 becomes popular, more and more subsystems begin to support IPv6,
-> therefore we need a generic IP address type, in case of duplicates.
-> Also we will also need some helpers to compare, print, check the generic
-> IP address.
+> Not doing this (current behaviour) introduces reordering.
 > 
-> This patchset introduce a new type union inet_addr as a union of IPv4
-> and IPv6 address, and struct in_addr_gen for inetpeer and bridge mdb,
-> plus some helper functions that will be used by existing code and
-> in the future VXLAN module.
+> The packet_len_2_sched_time call is the only thing that logically
+> depends on q->rate, so move the now/delay adjustment out of the if.
 > 
-> However, due to ABI limit, we still can't convert union nf_inet_addr
-> to union inet_addr.
-> 
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+> How to test:
+> -----------
 
-I still don't want to apply this patch series, and very honestly my
-patience is running very thin.
+I ask again :
 
-Netconsole and netpoll do not need the family field, and they
-absolutely do not need the port field that a sockaddr_in et
-al. provide.
+Did you test a config with both rate limiting and delay.
 
-So you have to get rid of it, and do the same simplification
-everywhere.  So I don't have to tell you to do it again when
-you resubmit this stuff and the next patch I get to has the
-same exact problem.
+Netem primary use is to emulate say a 1Mbits link with a rtt of 50ms
 
-If this patch series doesn't converge upon adding absolutely zero
-overhead where it isn't needed I'm just going to auto-reject these
-patches when you post them, that's how frustrated I am with this
-stuff.
+netem rate 1Mbit delay 50ms
 
-If in the process of commonizing you add stuff where it isn't needed
-then you're doing it wrong.
 
-That's why all these places use a different data structure!  They have
-different needs.  Can you see that?
+Because the "delay 10ms 500ms" is very strange : effective delay is in
+the following range : -490 ms ... 510 ms
+
+Its probably clamped to 0ms ... 510ms
+
+I really doubt this is what you wanted.
