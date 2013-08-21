@@ -1,59 +1,113 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the trivial tree with the net-next tree
-Date: Wed, 21 Aug 2013 14:17:15 +1000
-Message-ID: <20130821141715.a1b18a28965e341531775656@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Wed__21_Aug_2013_14_17_15_+1000_Yu.tMxvqGDXj4q8M"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Masanari Iida <standby24x7@gmail.com>,
-	Manish Chopra <manish.chopra@qlogic.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Jiri Kosina <jkosina@suse.cz>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: [PATCH] netns: unix: only allow to find out unix socket in same net namespace
+Date: Wed, 21 Aug 2013 12:31:13 +0800
+Message-ID: <1377059473-25526-1-git-send-email-gaofeng@cn.fujitsu.com>
+Cc: systemd-devel@lists.freedesktop.org,
+	lxc-devel@lists.sourceforge.net, ebiederm@xmission.com,
+	davem@davemloft.net, Gao feng <gaofeng@cn.fujitsu.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:51967 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751635Ab3HUEaI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Aug 2013 00:30:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Wed__21_Aug_2013_14_17_15_+1000_Yu.tMxvqGDXj4q8M
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Unix sockets are private resources of net namespace,
+allowing one net namespace to access to other netns's unix
+sockets is meaningless.
 
-Hi Jiri,
+I'm researching a problem about shutdown from container,
+if the cotainer shares the same file /run/systemd/private
+with host, when we run shutdown -h xxx in container, the
+shutdown message will be send to the systemd-shutdownd
+through unix socket /run/systemd/private, and because
+systemd-shutdownd is running in host, so finally, the host
+will become shutdown.
 
-Today's linux-next merge of the trivial tree got a conflict in
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c between commit
-068a8d197e00 ("qlcnic: Replace poll mode mailbox interface with interrupt
-based mailbox interface") from the  tree and commit 0b1587b18bfe
-("treewide: Fix typo in printk") from the trivial tree.
+We should make sure unix sockets are per net namespace to
+avoid this problem.
 
-I fixed it up (the former removed the line fixed by the latter, so I used
-that) and can carry the fix as necessary (no action is required).
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+---
+ net/unix/af_unix.c |  8 ++++++--
+ net/unix/diag.c    | 11 ++++++++---
+ 2 files changed, 14 insertions(+), 5 deletions(-)
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Signature=_Wed__21_Aug_2013_14_17_15_+1000_Yu.tMxvqGDXj4q8M
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.20 (GNU/Linux)
-
-iQIcBAEBCAAGBQJSFD9LAAoJEECxmPOUX5FE6NIP/Rp0WZ+gNRLq4BTRU+bRk7Vu
-3A9p3UumTbDR+4O+8PE1NUVvu2mC29FXdVeZpKggzcS1J2dbc2j+3KpUGjS1yy3l
-+AsW3MYFiRxO5+dM8k4BcGbcE8E+83bH9xCI/saHFR7VoV8mod8BUQwLoqkKGTYW
-yJQdCsnYr3aEUbj+nJkOSO97iY83qUangtERX37gxATLguER+Wabtha0RZm/Tmio
-W7tIc7Suemwqcca4wGW9P/EvYPPaQSqceTP92YtgWQWOzSdO/Nzfpga1SrBvGha0
-Fp2EbyMQhpQVZK0G/dSqVuYDB0Ee1drLrhSSZDsT1BiAdKm6aeWGPNiXYBoyq2Ye
-DeOSOHD6wNxB5Rqdl5fQkMTDT6ivq2LVjonrDJAFqaNV2yBsJ3TlPVPSmIB+/wLA
-2ixeKE1nk3WoYuT9gu4mSh3tV1wTU/IoxAA3+VwKrOuOmWb+qpAv7mh4inDkhtBn
-4BK5PPSyeBzlOOfiwWDLO7jn5dx3ceg6t3ugudO9eZKNidy7waoheN27vPV8EO4t
-yUWTKG+Zmpris3AQV+R2ZJbcgNGGm1mwjBU4kTMOtK9hYeJXE/mCdSvHLrXwhV7i
-qzyCsnqAt7sIjmqh5MqINRUZxRtGR8KSOtqdfw4dNKBppx8B4LkrhFco/pIB1jxt
-vOFUYblOsORTtYHF7H6u
-=t1XW
------END PGP SIGNATURE-----
-
---Signature=_Wed__21_Aug_2013_14_17_15_+1000_Yu.tMxvqGDXj4q8M--
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index c4ce243..98e3689 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -295,7 +295,8 @@ static inline struct sock *unix_find_socket_byname(struct net *net,
+ 	return s;
+ }
+ 
+-static struct sock *unix_find_socket_byinode(struct inode *i)
++static struct sock *unix_find_socket_byinode(struct net *net,
++					     struct inode *i)
+ {
+ 	struct sock *s;
+ 
+@@ -304,6 +305,9 @@ static struct sock *unix_find_socket_byinode(struct inode *i)
+ 		    &unix_socket_table[i->i_ino & (UNIX_HASH_SIZE - 1)]) {
+ 		struct dentry *dentry = unix_sk(s)->path.dentry;
+ 
++		if (!net_eq(sock_net(s), net))
++			continue;
++
+ 		if (dentry && dentry->d_inode == i) {
+ 			sock_hold(s);
+ 			goto found;
+@@ -784,7 +788,7 @@ static struct sock *unix_find_other(struct net *net,
+ 		err = -ECONNREFUSED;
+ 		if (!S_ISSOCK(inode->i_mode))
+ 			goto put_fail;
+-		u = unix_find_socket_byinode(inode);
++		u = unix_find_socket_byinode(net, inode);
+ 		if (!u)
+ 			goto put_fail;
+ 
+diff --git a/net/unix/diag.c b/net/unix/diag.c
+index d591091..80ada12 100644
+--- a/net/unix/diag.c
++++ b/net/unix/diag.c
+@@ -218,20 +218,25 @@ done:
+ 	return skb->len;
+ }
+ 
+-static struct sock *unix_lookup_by_ino(int ino)
++static struct sock *unix_lookup_by_ino(struct net *net, int ino)
+ {
+ 	int i;
+ 	struct sock *sk;
+ 
+ 	spin_lock(&unix_table_lock);
+ 	for (i = 0; i < ARRAY_SIZE(unix_socket_table); i++) {
+-		sk_for_each(sk, &unix_socket_table[i])
++		sk_for_each(sk, &unix_socket_table[i]) {
++
++			if (!net_eq(sock_net(sk), net))
++				continue;
++
+ 			if (ino == sock_i_ino(sk)) {
+ 				sock_hold(sk);
+ 				spin_unlock(&unix_table_lock);
+ 
+ 				return sk;
+ 			}
++		}
+ 	}
+ 
+ 	spin_unlock(&unix_table_lock);
+@@ -251,7 +256,7 @@ static int unix_diag_get_exact(struct sk_buff *in_skb,
+ 	if (req->udiag_ino == 0)
+ 		goto out_nosk;
+ 
+-	sk = unix_lookup_by_ino(req->udiag_ino);
++	sk = unix_lookup_by_ino(net, req->udiag_ino);
+ 	err = -ENOENT;
+ 	if (sk == NULL)
+ 		goto out_nosk;
+-- 
+1.8.3.1
