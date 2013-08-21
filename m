@@ -1,49 +1,60 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net] sfc: Fix lookup of default RX MAC filters when steered
- using ethtool
-Date: Thu, 22 Aug 2013 00:44:21 +0100
-Message-ID: <1377128661.634.6.camel@bwh-desktop.uk.level5networks.com>
-References: <1377128568.634.5.camel@bwh-desktop.uk.level5networks.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 60779] New: tcp_fastretrans_alert triggered on tcp_input.c
+Date: Wed, 21 Aug 2013 16:44:39 -0700
+Message-ID: <20130821164439.4441c107@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:33470 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752792Ab3HUXo0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 19:44:26 -0400
-In-Reply-To: <1377128568.634.5.camel@bwh-desktop.uk.level5networks.com>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:61494 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752792Ab3HUXon (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 19:44:43 -0400
+Received: by mail-pd0-f178.google.com with SMTP id w10so1088408pde.23
+        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 16:44:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 385904f819e3 ('sfc: Don't use
-efx_filter_{build,hash,increment}() for default MAC filters') used the
-wrong name to find the index of default RX MAC filters at insertion/
-update time.  This could result in memory corruption and would in any
-case silently fail to update the filter.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/filter.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/sfc/filter.c b/drivers/net/ethernet/sfc/filter.c
-index 2a469b2..30d7442 100644
---- a/drivers/net/ethernet/sfc/filter.c
-+++ b/drivers/net/ethernet/sfc/filter.c
-@@ -675,7 +675,7 @@ s32 efx_filter_insert_filter(struct efx_nic *efx, struct efx_filter_spec *spec,
- 		BUILD_BUG_ON(EFX_FILTER_INDEX_UC_DEF != 0);
- 		BUILD_BUG_ON(EFX_FILTER_INDEX_MC_DEF !=
- 			     EFX_FILTER_MC_DEF - EFX_FILTER_UC_DEF);
--		rep_index = spec->type - EFX_FILTER_INDEX_UC_DEF;
-+		rep_index = spec->type - EFX_FILTER_UC_DEF;
- 		ins_index = rep_index;
- 
- 		spin_lock_bh(&state->lock);
+Begin forwarded message:
+
+Date: Wed, 21 Aug 2013 15:55:49 -0700
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 60779] New: tcp_fastretrans_alert triggered on tcp_input.c
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=60779
+
+            Bug ID: 60779
+           Summary: tcp_fastretrans_alert triggered on tcp_input.c
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.10.7
+          Hardware: x86-64
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+          Assignee: shemminger@linux-foundation.org
+          Reporter: otavio.n.cipriani@gmail.com
+        Regression: No
+
+Created attachment 107276
+  --> https://bugzilla.kernel.org/attachment.cgi?id=107276&action=edit
+Call trace
+
+Unfortunately I do not know how to reproduce the bug. Nothing seems to be
+affected.
+
+The only parameters I changed were:
+net.core.rmem_max = 4194304;
+net.core.wmem_max = 1048576.
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+You are receiving this mail because:
+You are the assignee for the bug.
