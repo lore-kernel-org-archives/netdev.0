@@ -1,23 +1,27 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 2/2] net: can: flexcan: use platform_set_drvdata()
-Date: Wed, 21 Aug 2013 12:17:10 +0200
-Message-ID: <521493A6.6060403@pengutronix.de>
-References: <1377080108-33780-1-git-send-email-libo.chen@huawei.com>
+Subject: Re: [PATCH 1/2] net: can: at91_can: use platform_set_drvdata()
+Date: Wed, 21 Aug 2013 12:16:39 +0200
+Message-ID: <52149387.4060007@pengutronix.de>
+References: <1377080103-33872-1-git-send-email-libo.chen@huawei.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
  protocol="application/pgp-signature";
- boundary="EPcNfbuTS3CgRLoUKAJCCubxpaQwhT96M"
-Cc: wg@grandegger.com, linux-can@vger.kernel.org, davem@davemloft.net,
+ boundary="MmrCVucN58Sg5sl5tHS3ufIQgJPw84An7"
+Cc: wg@grandegger.com, davem@davemloft.net, linux-can@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	lizefan@huawei.com
 To: Libo Chen <libo.chen@huawei.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1377080108-33780-1-git-send-email-libo.chen@huawei.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:36805 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752485Ab3HUKRW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 06:17:22 -0400
+In-Reply-To: <1377080103-33872-1-git-send-email-libo.chen@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---EPcNfbuTS3CgRLoUKAJCCubxpaQwhT96M
+--MmrCVucN58Sg5sl5tHS3ufIQgJPw84An7
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
 
@@ -39,7 +43,7 @@ Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
 Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
---EPcNfbuTS3CgRLoUKAJCCubxpaQwhT96M
+--MmrCVucN58Sg5sl5tHS3ufIQgJPw84An7
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -48,9 +52,9 @@ Content-Disposition: attachment; filename="signature.asc"
 Version: GnuPG v1.4.14 (GNU/Linux)
 Comment: Using GnuPG with Icedove - http://www.enigmail.net/
 
-iEYEARECAAYFAlIUk6YACgkQjTAFq1RaXHO6uQCfZCbhJwSxPHY4i8KKrB+hJq1+
-7zUAniJGhX37xLtM7v5NlcMXZgRpAT7C
-=atNQ
+iEYEARECAAYFAlIUk4cACgkQjTAFq1RaXHOa2gCcDah9fhIKLkT2x09Z3UvnnzlQ
+A48An1o+9xjAdA/sp+RZffnzuruNLuP1
+=HP9z
 -----END PGP SIGNATURE-----
 
---EPcNfbuTS3CgRLoUKAJCCubxpaQwhT96M--
+--MmrCVucN58Sg5sl5tHS3ufIQgJPw84An7--
