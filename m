@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH (net.git) 1/2] stmmac: disable at run-time the EEE if
- not supported
-Date: Tue, 20 Aug 2013 17:04:16 -0700 (PDT)
-Message-ID: <20130820.170416.2028716553359945223.davem@davemloft.net>
-References: <1376894288-31279-1-git-send-email-peppe.cavallaro@st.com>
-	<52126788.4060607@cogentembedded.com>
+Subject: Re: [PATCH 1/2] SH7619: fix Ether support
+Date: Tue, 20 Aug 2013 17:05:23 -0700 (PDT)
+Message-ID: <20130820.170523.1476358382284760995.davem@davemloft.net>
+References: <201308180213.23296.sergei.shtylyov@cogentembedded.com>
+	<201308180215.43063.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, lethal@linux-sh.org,
+	linux-sh@vger.kernel.org
 To: sergei.shtylyov@cogentembedded.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49052 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751404Ab3HUAER (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 20:04:17 -0400
-In-Reply-To: <52126788.4060607@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <201308180215.43063.sergei.shtylyov@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Mon, 19 Aug 2013 22:44:24 +0400
+Date: Sun, 18 Aug 2013 02:15:42 +0400
 
->> @@ -2166,7 +2181,6 @@ static int stmmac_poll(struct napi_struct *napi,
->> int budget)
->>   static void stmmac_tx_timeout(struct net_device *dev)
->>   {
->>   	struct stmmac_priv *priv = netdev_priv(dev);
->> -
->>   	/* Clear Tx resources and restart transmitting again */
+> The 'sh_eth' driver's probe will crash as the platform code is hopelessly behind
+> the platform data -- it passes PHY ID instead of 'struct sh_eth_plat_data *'.
+> Strangely, both commit d88a3ea6fa4c (SH7619 add ethernet controler support) that
+> added the platform code and commit 71557a37adb5 ([netdrvr] sh_eth: Add  SH7619
+> support)  were done  in about  the same time, yet the latter one added 'struct
+> sh_eth_plat_data' and the platform code didn't ever get updated...
 > 
->    Why? This seems unneeded change.
+> Add the proper platform data and fix off-by-one memory resource end error, while
+> at it...
+> 
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Agreed, not only was this code properly styled already, changing it
-is totally unrelated to what this patch is supposed to be doing.
+Applied.
