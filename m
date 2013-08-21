@@ -1,54 +1,65 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/2] SolutionEngine7724: fix Ether support
-Date: Wed, 21 Aug 2013 22:58:47 +0400
-Message-ID: <52150DE7.2060309@cogentembedded.com>
-References: <201308180213.23296.sergei.shtylyov@cogentembedded.com> <201308180219.09528.sergei.shtylyov@cogentembedded.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v3] net/hsr: Add support for the High-availability
+ Seamless Redundancy protocol (HSRv0)
+Date: Wed, 21 Aug 2013 12:01:20 -0700
+Message-ID: <1377111680.1936.45.camel@joe-AO722>
+References: <521504E1.5060309@xdin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, lethal@linux-sh.org,
-	linux-sh@vger.kernel.org, davem@davemloft.net
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Javier Boticario <jboticario@gmail.com>,
+	balferreira <balferreira@googlemail.com>,
+	David Miller <davem@davemloft.net>
+To: Arvid Brodin <arvid.brodin@xdin.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:60755 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752127Ab3HUS6m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 14:58:42 -0400
-Received: by mail-la0-f44.google.com with SMTP id eo20so687410lab.3
-        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 11:58:41 -0700 (PDT)
-In-Reply-To: <201308180219.09528.sergei.shtylyov@cogentembedded.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:46780 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752413Ab3HUTBV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Aug 2013 15:01:21 -0400
+In-Reply-To: <521504E1.5060309@xdin.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Wed, 2013-08-21 at 20:20 +0200, Arvid Brodin wrote:
+> High-availability Seamless Redundancy ("HSR") provides instant failover
+> redundancy for Ethernet networks. It requires a special network topology where
+> all nodes are connected in a ring (each node having two physical network
+> interfaces). It is suited for applications that demand high availability and
+> very short reaction time.
 
-On 08/18/2013 02:19 AM, Sergei Shtylyov wrote:
+Hi Arvid.
 
-> The Ether platform data is behind the declaration of 'struct sh_eth_plat_data'
-> as it's lacking the initializers for the 'register_type' and 'phy_interface'
-> fields -- it means they'll be implicitly and wrongly set to SH_ETH_REG_GIGABIT
-> and PHY_INTERFACE_MODE_NA. Initialize the fields explicitly and fix off-by-one
-> error in the Ether memory resource end, while at it...
+just trivia:
 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> Cc: stable@vger.kernel.org
+> diff --git a/net/hsr/hsr_device.c b/net/hsr/hsr_device.c
+[]
+> +static int hsr_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+[]
+> +	if (likely(res1 == NET_XMIT_SUCCESS || res1 == NET_XMIT_CN ||
+> +		   res2 == NET_XMIT_SUCCESS || res2 == NET_XMIT_CN)) {
 
-> ---
->   arch/sh/boards/mach-se/7724/setup.c |    4 +++-
->   1 file changed, 3 insertions(+), 1 deletion(-)
+This might be faster using | instead of ||
 
-> Index: net/arch/sh/boards/mach-se/7724/setup.c
-> ===================================================================
-> --- net.orig/arch/sh/boards/mach-se/7724/setup.c
-> +++ net/arch/sh/boards/mach-se/7724/setup.c
-[...]
-> @@ -377,6 +377,8 @@ static struct resource sh_eth_resources[
->   static struct sh_eth_plat_data sh_eth_plat = {
->   	.phy = 0x1f, /* SMSC LAN8187 */
->   	.edmac_endian = EDMAC_LITTLE_ENDIAN,
-> +	.register_type = SH_ETH_REG_FAST_SH4,
-> +	.phy_interace = PHY_INTERFACE_MODE_MII,
+[]
 
-     Darn, "interace" here too, this time spotted by myself. Obviously, I did 
-copy&paste the same mistake.
+> diff --git a/net/hsr/hsr_framereg.c b/net/hsr/hsr_framereg.c
+[]
+> +
+> +/* above(a, b) - return 1 if a > b, 0 otherwise.
+> + */
+> +static bool above(u16 a, u16 b)
+> +{
+> +	/* Remove inconsistency where above(a, b) == below(a, b) */
+> +	if ((int) b - a == 32768)
+> +		return 0;
+> +
+> +	return (((s16) (b - a)) < 0);
+> +}
+> +#define below(a, b)		above((b), (a))
+> +#define above_or_eq(a, b)	(!below((a), (b)))
+> +#define below_or_eq(a, b)	(!above((a), (b)))
 
-WBR, Sergei
+These may be overly generic macro names given
+these only take u16.
