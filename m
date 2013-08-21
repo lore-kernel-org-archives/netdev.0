@@ -1,37 +1,108 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next  12/15] e1000e: cleanup whitespace in recent commit
-Date: Wed, 21 Aug 2013 22:04:51 +0400
-Message-ID: <52150143.6030908@cogentembedded.com>
-References: <1377073416-7872-1-git-send-email-jeffrey.t.kirsher@intel.com> <1377073416-7872-13-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: Performance regression 3.11 with macvlan between 2 linux guests
+ (bisected)
+Date: Wed, 21 Aug 2013 14:04:53 -0400
+Message-ID: <52150145.7020801@redhat.com>
+References: <5214B4D4.7020806@de.ibm.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Bruce Allan <bruce.w.allan@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Matthew Rosato <mjrosato@linux.vnet.ibm.com>,
+	Jason Wang <jasowang@redhat.com>
+To: Christian Borntraeger <borntraeger@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f47.google.com ([209.85.215.47]:50711 "EHLO
-	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752928Ab3HUSEq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 14:04:46 -0400
-Received: by mail-la0-f47.google.com with SMTP id eo20so631083lab.34
-        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 11:04:45 -0700 (PDT)
-In-Reply-To: <1377073416-7872-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:20372 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753151Ab3HUSFA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Aug 2013 14:05:00 -0400
+In-Reply-To: <5214B4D4.7020806@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/21/2013 12:23 PM, Jeff Kirsher wrote:
+On 08/21/2013 08:38 AM, Christian Borntraeger wrote:
+> Vlad,
+>
+> the patch
+>
+> commit 3e4f8b787370978733ca6cae452720a4f0c296b8
+> Author: Vlad Yasevich <vyasevic@redhat.com>
+> Date:   Tue Jun 25 16:04:22 2013 -0400
+>
+>      macvtap: Perform GSO on forwarding path.
+>
+> causes a severe performance regression for 2 Linux guests with virtio-net
+> connected via macvlan/vtap doing iperf workload. (2GBit vs. 20Gbit)
+>
+> If I understand the patch correctly, we now check for gso depending on the
+> macvlan features. If the underlying hardware does not support the necessary
+> offloads then we will do segmentation, even if we keep the whole traffic internal
+> between two guests and even if both guests supports LRO,GSO etc.
+> ---snip---
+> [...]
+> +       features = netif_skb_features(skb) & vlan->tap_features;
+> +       if (netif_needs_gso(skb, features)) {
+> +               struct sk_buff *segs = __skb_gso_segment(skb, features, false);
+> [...]
+>
+> ---snip---
+> Shouldnt we take the features of the target device or even better do the gsoing in the
+> target device driver?
 
-> From: Bruce Allan <bruce.w.allan@intel.com>
+A corrected patch has been sent upstream.  We take into consideration 
+the features on the target device that the user/vm has specified.
+If the VM has enabled the TSO flags, then nothing will happen to the
+GSO packet.  However, if the TSO flag is off, segmentation will be 
+performed.
 
-> Commit c96ddb0b moved a define from one file to another but missed using
+-vlad
 
-    Please also specify that commit's summary line in parens.
-
-> proper indentation/whitespace.
-
-> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-
-WBR, Sergei
+>
+> Christian
+>
+> FYI, the underlying HW has:
+>
+> Features for eth0:
+> rx-checksumming: off [fixed]
+> tx-checksumming: off
+> 	tx-checksum-ipv4: off [fixed]
+> 	tx-checksum-ip-generic: off [fixed]
+> 	tx-checksum-ipv6: off [fixed]
+> 	tx-checksum-fcoe-crc: off [fixed]
+> 	tx-checksum-sctp: off [fixed]
+> scatter-gather: off
+> 	tx-scatter-gather: off [fixed]
+> 	tx-scatter-gather-fraglist: off [fixed]
+> tcp-segmentation-offload: off
+> 	tx-tcp-segmentation: off [fixed]
+> 	tx-tcp-ecn-segmentation: off [fixed]
+> 	tx-tcp6-segmentation: off [fixed]
+> udp-fragmentation-offload: off [fixed]
+> generic-segmentation-offload: off [requested on]
+> generic-receive-offload: on
+> large-receive-offload: off [fixed]
+> rx-vlan-offload: off [fixed]
+> tx-vlan-offload: off [fixed]
+> ntuple-filters: off [fixed]
+> receive-hashing: off [fixed]
+> highdma: off [fixed]
+> rx-vlan-filter: on [fixed]
+> vlan-challenged: off [fixed]
+> tx-lockless: off [fixed]
+> netns-local: off [fixed]
+> tx-gso-robust: off [fixed]
+> tx-fcoe-segmentation: off [fixed]
+> tx-gre-segmentation: off [fixed]
+> tx-udp_tnl-segmentation: off [fixed]
+> tx-mpls-segmentation: off [fixed]
+> fcoe-mtu: off [fixed]
+> tx-nocache-copy: off
+> loopback: off [fixed]
+> rx-fcs: off [fixed]
+> rx-all: off [fixed]
+> tx-vlan-stag-hw-insert: off [fixed]
+> rx-vlan-stag-hw-parse: off [fixed]
+> rx-vlan-stag-filter: off [fixed]
+>
