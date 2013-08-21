@@ -1,36 +1,44 @@
-From: Libo Chen <libo.chen@huawei.com>
-Subject: [PATCH 2/8] net: ucc_geth: remove unnecessary dev_set_drvdata()
-Date: Wed, 21 Aug 2013 15:02:18 +0800
-Message-ID: <1377068538-22432-1-git-send-email-libo.chen@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] VMXNET3: Add support for virtual IOMMU
+Date: Wed, 21 Aug 2013 00:02:55 -0700 (PDT)
+Message-ID: <20130821.000255.1258155583733908892.davem@davemloft.net>
+References: <1377020012-1839-1-git-send-email-acking@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <leoli@freescale.com>, <netdev@vger.kernel.org>,
-	<linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
-	<lizefan@huawei.com>, <libo.chen@huawei.com>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: acking@vmware.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1377020012-1839-1-git-send-email-acking@vmware.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Unnecessary dev_set_drvdata() is removed, because the driver core
-clears the driver data to NULL after device_release or on probe failure.
+From: Andy King <acking@vmware.com>
+Date: Tue, 20 Aug 2013 10:33:32 -0700
 
-Signed-off-by: Libo Chen <libo.chen@huawei.com>
----
- drivers/net/ethernet/freescale/ucc_geth.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+> We can't just do virt_to_phys() on memory that we pass to the device and
+> expect it to work in presence of a virtual IOMMU.  We need to add IOMMU
+> mappings for such DMAs to work correctly.  Fix that with
+> pci_alloc_consistent() where possible, or pci_map_single() where the
+> mapping is short-lived or we don't control the allocation (netdev).
+> 
+> Also fix two small bugs:
+> 1) use after free of rq->buf_info in vmxnet3_rq_destroy()
+> 2) a cpu_to_le32() that should have been a cpu_to_le64()
+> 
+> Acked-by: George Zhang <georgezhang@vmware.com>
+> Acked-by: Aditya Sarwade <asarwade@vmware.com>
+> Signed-off-by: Andy King <acking@vmware.com>
 
-diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
-index 533885c..5930c39 100644
---- a/drivers/net/ethernet/freescale/ucc_geth.c
-+++ b/drivers/net/ethernet/freescale/ucc_geth.c
-@@ -3917,7 +3917,6 @@ static int ucc_geth_remove(struct platform_device* ofdev)
- 	unregister_netdev(dev);
- 	free_netdev(dev);
- 	ucc_geth_memclean(ugeth);
--	dev_set_drvdata(device, NULL);
- 
- 	return 0;
- }
--- 
-1.7.1
+Please use dma_alloc_coherent() (or in fact dma_zalloc_coherent()),
+dma_map_single() et al., because they are preferred and in particular
+allow specification of GFP_* flags.
