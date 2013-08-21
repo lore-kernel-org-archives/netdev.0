@@ -1,50 +1,172 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V2 3/5] net/mlx4_en: Notify user when TX ring in error state
-Date: Wed, 21 Aug 2013 10:08:57 +0300
-Message-ID: <1377068939-17561-4-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V2 4/5] net/mlx4_en: Fix handling of dma_map failure
+Date: Wed, 21 Aug 2013 10:08:58 +0300
+Message-ID: <1377068939-17561-5-git-send-email-amirv@mellanox.com>
 References: <1377068939-17561-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:45137 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:40006 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752527Ab3HUHJQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Aug 2013 03:09:16 -0400
+	id S1752533Ab3HUHJR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Aug 2013 03:09:17 -0400
 In-Reply-To: <1377068939-17561-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When hardware gets into error state, must notify user about it.
-When QP in error state no traffic will be tx'ed from the attached
-tx_ring.
+Result of skb_frag_dma_map() and dma_map_single() wasn't checked.
+Added a check and proper handling in case of failure.
+Moved the mapping to the beginning of mlx4_en_xmit(), before updating
+the ring data structure to make error handling easier.
 
-Driver should know how to recover from this unexpected state. I will send later
-on the recovery flow, but having the print shouldn't be delayed.
 
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_tx.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c | 97 +++++++++++++++++++-----------
+ 1 file changed, 62 insertions(+), 35 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 6dcca98..0d691e3 100644
+index 0d691e3..c28868b 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -362,6 +362,15 @@ static void mlx4_en_process_tx_cq(struct net_device *dev, struct mlx4_en_cq *cq)
- 		 */
- 		rmb();
+@@ -588,6 +588,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_en_dev *mdev = priv->mdev;
++	struct device *ddev = priv->ddev;
+ 	struct mlx4_en_tx_ring *ring;
+ 	struct mlx4_en_tx_desc *tx_desc;
+ 	struct mlx4_wqe_data_seg *data;
+@@ -674,6 +675,56 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	tx_info->skb = skb;
+ 	tx_info->nr_txbb = nr_txbb;
  
-+		if (unlikely((cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK) ==
-+			     MLX4_CQE_OPCODE_ERROR)) {
-+			struct mlx4_err_cqe *cqe_err = (struct mlx4_err_cqe *)cqe;
++	if (lso_header_size)
++		data = ((void *)&tx_desc->lso + ALIGN(lso_header_size + 4,
++						      DS_SIZE));
++	else
++		data = &tx_desc->data;
 +
-+			en_err(priv, "CQE error - vendor syndrome: 0x%x syndrome: 0x%x\n",
-+			       cqe_err->vendor_err_syndrome,
-+			       cqe_err->syndrome);
++	/* valid only for none inline segments */
++	tx_info->data_offset = (void *)data - (void *)tx_desc;
++
++	tx_info->linear = (lso_header_size < skb_headlen(skb) &&
++			   !is_inline(skb, NULL)) ? 1 : 0;
++
++	data += skb_shinfo(skb)->nr_frags + tx_info->linear - 1;
++
++	if (is_inline(skb, &fragptr)) {
++		tx_info->inl = 1;
++	} else {
++		/* Map fragments */
++		for (i = skb_shinfo(skb)->nr_frags - 1; i >= 0; i--) {
++			frag = &skb_shinfo(skb)->frags[i];
++			dma = skb_frag_dma_map(ddev, frag,
++					       0, skb_frag_size(frag),
++					       DMA_TO_DEVICE);
++			if (dma_mapping_error(ddev, dma))
++				goto tx_drop_unmap;
++
++			data->addr = cpu_to_be64(dma);
++			data->lkey = cpu_to_be32(mdev->mr.key);
++			wmb();
++			data->byte_count = cpu_to_be32(skb_frag_size(frag));
++			--data;
 +		}
 +
- 		/* Skip over last polled CQE */
- 		new_index = be16_to_cpu(cqe->wqe_index) & size_mask;
++		/* Map linear part */
++		if (tx_info->linear) {
++			u32 byte_count = skb_headlen(skb) - lso_header_size;
++			dma = dma_map_single(ddev, skb->data +
++					     lso_header_size, byte_count,
++					     PCI_DMA_TODEVICE);
++			if (dma_mapping_error(ddev, dma))
++				goto tx_drop_unmap;
++
++			data->addr = cpu_to_be64(dma);
++			data->lkey = cpu_to_be32(mdev->mr.key);
++			wmb();
++			data->byte_count = cpu_to_be32(byte_count);
++		}
++		tx_info->inl = 0;
++	}
++
+ 	/*
+ 	 * For timestamping add flag to skb_shinfo and
+ 	 * set flag for further reference
+@@ -720,8 +771,6 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		/* Copy headers;
+ 		 * note that we already verified that it is linear */
+ 		memcpy(tx_desc->lso.header, skb->data, lso_header_size);
+-		data = ((void *) &tx_desc->lso +
+-			ALIGN(lso_header_size + 4, DS_SIZE));
  
+ 		priv->port_stats.tso_packets++;
+ 		i = ((skb->len - lso_header_size) / skb_shinfo(skb)->gso_size) +
+@@ -733,7 +782,6 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		op_own = cpu_to_be32(MLX4_OPCODE_SEND) |
+ 			((ring->prod & ring->size) ?
+ 			 cpu_to_be32(MLX4_EN_BIT_DESC_OWN) : 0);
+-		data = &tx_desc->data;
+ 		tx_info->nr_bytes = max_t(unsigned int, skb->len, ETH_ZLEN);
+ 		ring->packets++;
+ 
+@@ -742,38 +790,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	netdev_tx_sent_queue(ring->tx_queue, tx_info->nr_bytes);
+ 	AVG_PERF_COUNTER(priv->pstats.tx_pktsz_avg, skb->len);
+ 
+-
+-	/* valid only for none inline segments */
+-	tx_info->data_offset = (void *) data - (void *) tx_desc;
+-
+-	tx_info->linear = (lso_header_size < skb_headlen(skb) && !is_inline(skb, NULL)) ? 1 : 0;
+-	data += skb_shinfo(skb)->nr_frags + tx_info->linear - 1;
+-
+-	if (!is_inline(skb, &fragptr)) {
+-		/* Map fragments */
+-		for (i = skb_shinfo(skb)->nr_frags - 1; i >= 0; i--) {
+-			frag = &skb_shinfo(skb)->frags[i];
+-			dma = skb_frag_dma_map(priv->ddev, frag,
+-					       0, skb_frag_size(frag),
+-					       DMA_TO_DEVICE);
+-			data->addr = cpu_to_be64(dma);
+-			data->lkey = cpu_to_be32(mdev->mr.key);
+-			wmb();
+-			data->byte_count = cpu_to_be32(skb_frag_size(frag));
+-			--data;
+-		}
+-
+-		/* Map linear part */
+-		if (tx_info->linear) {
+-			dma = dma_map_single(priv->ddev, skb->data + lso_header_size,
+-					     skb_headlen(skb) - lso_header_size, PCI_DMA_TODEVICE);
+-			data->addr = cpu_to_be64(dma);
+-			data->lkey = cpu_to_be32(mdev->mr.key);
+-			wmb();
+-			data->byte_count = cpu_to_be32(skb_headlen(skb) - lso_header_size);
+-		}
+-		tx_info->inl = 0;
+-	} else {
++	if (tx_info->inl) {
+ 		build_inline_wqe(tx_desc, skb, real_size, &vlan_tag, tx_ind, fragptr);
+ 		tx_info->inl = 1;
+ 	}
+@@ -813,6 +830,16 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	return NETDEV_TX_OK;
+ 
++tx_drop_unmap:
++	en_err(priv, "DMA mapping error\n");
++
++	for (i++; i < skb_shinfo(skb)->nr_frags; i++) {
++		data++;
++		dma_unmap_page(ddev, (dma_addr_t) be64_to_cpu(data->addr),
++			       be32_to_cpu(data->byte_count),
++			       PCI_DMA_TODEVICE);
++	}
++
+ tx_drop:
+ 	dev_kfree_skb_any(skb);
+ 	priv->stats.tx_dropped++;
 -- 
 1.8.3.4
