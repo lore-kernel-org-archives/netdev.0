@@ -1,66 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 2/2] net: netem: always adjust now/delay when not
- reordering
-Date: Wed, 21 Aug 2013 06:30:24 -0700
-Message-ID: <1377091824.4226.102.camel@edumazet-glaptop>
-References: <1377030800.4226.89.camel@edumazet-glaptop>
-	  <1377064785-12629-1-git-send-email-mailings@hupie.com>
-	 <1377065647.4226.96.camel@edumazet-glaptop> <5214668E.504@hupie.com>
+From: Andy King <acking@vmware.com>
+Subject: Re: [PATCH] VMXNET3: Add support for virtual IOMMU
+Date: Wed, 21 Aug 2013 06:37:34 -0700 (PDT)
+Message-ID: <1944820276.33601674.1377092254160.JavaMail.root@vmware.com>
+References: <1377020012-1839-1-git-send-email-acking@vmware.com>
+	<20130821.000255.1258155583733908892.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ferry Huberts <mailings@hupie.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:39177 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751574Ab3HUNa0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 09:30:26 -0400
-Received: by mail-pd0-f179.google.com with SMTP id v10so452499pde.38
-        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 06:30:25 -0700 (PDT)
-In-Reply-To: <5214668E.504@hupie.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pv-drivers@vmware.com, netdev@vger.kernel.org,
+	Greg KH <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130821.000255.1258155583733908892.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-08-21 at 09:04 +0200, Ferry Huberts wrote:
+Adding Greg, since this will apply to a similar patchset I sent out
+for VMCI.
+
+----- Original Message -----
+> From: Andy King <acking@vmware.com>
+> Date: Tue, 20 Aug 2013 10:33:32 -0700
 > 
-> On 21/08/13 08:14, Eric Dumazet wrote:
-> > On Wed, 2013-08-21 at 07:59 +0200, Ferry Huberts wrote:
-> >> From: Ferry Huberts <ferry.huberts@pelagic.nl>
-> >>
-> >> Not doing this (current behaviour) introduces reordering.
-> >>
-> >> The packet_len_2_sched_time call is the only thing that logically
-> >> depends on q->rate, so move the now/delay adjustment out of the if.
-> >>
-> >> How to test:
-> >> -----------
-> > 
-> > I ask again :
-> > 
-> > Did you test a config with both rate limiting and delay.
-> 
-> (sorry for missing that question)
-> 
-> Just did so and with rate limiting I get no reordering, which is logical
-> looking at the code.
-> 
-> The thing is, the evaluation q->rate is within the 'no-reordering' block
-> and in the current situation you can get reordering (with that 'strange'
-> command). My patch makes sure that no reordering will occur, and
-> effectively 'clamps' the realised delay, which currently isn't done.
+> > We can't just do virt_to_phys() on memory that we pass to the device and
+> > expect it to work in presence of a virtual IOMMU.  We need to add IOMMU
+> > mappings for such DMAs to work correctly.  Fix that with
+> > pci_alloc_consistent() where possible, or pci_map_single() where the
+> > mapping is short-lived or we don't control the allocation (netdev).
+>
+> Please use dma_alloc_coherent() (or in fact dma_zalloc_coherent()),
+> dma_map_single() et al., because they are preferred and in particular
+> allow specification of GFP_* flags
 
+Sorry about that, I'll fix that and send out a new patch.
 
-OK, let me be very clear.
-
-I would like you post the results of regression tests, to make sure that
-you do not add a new regression.
-
-It seems that you want _us_ to check all this for you.
-
-With "rate 1Mbits delay 100ms 10ms", and ping probes sent every 100ms,
-the pong reply of _all_ probes should be between 90ms and 110ms
-
-Is it still the case after your patch ?
-
-Thanks
+Thanks!
+- Andy
