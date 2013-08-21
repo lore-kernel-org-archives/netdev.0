@@ -1,90 +1,85 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: Re: [PATCH-SR9700] Merge USB 1.1 Ethernet Adapter SR9700
- DeviceDriver into the Linux Kernel
-Date: Wed, 21 Aug 2013 04:34:05 -0700
-Message-ID: <1377084845.1936.26.camel@joe-AO722>
-References: <201308201841116403992@163.com>
-	 , <20130820204606.GB26241@electric-eye.fr.zoreil.com>
-	 , <1377032302.2016.75.camel@joe-AO722> <201308211807295009698@163.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH net-next] ip6_tunnel: ensure to always have a link local address
+Date: Wed, 21 Aug 2013 13:37:29 +0200
+Message-ID: <8761uz6zra.fsf@nemi.mork.no>
+References: <1376993766-5723-1-git-send-email-nicolas.dichtel@6wind.com>
+	<20130820.234818.2230621827416764963.davem@davemloft.net>
+	<52146EE9.1060101@6wind.com> <87haej76wz.fsf@nemi.mork.no>
+	<5214958F.1080907@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, gregkh <gregkh@suse.de>,
-	sunhecheng <sunhecheng@vip.126.com>,
-	linux-usb <linux-usb@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: liujunliang_ljl <liujunliang_ljl@163.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201308211807295009698@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:33705 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751459Ab3HULho convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 07:37:44 -0400
+In-Reply-To: <5214958F.1080907@6wind.com> (Nicolas Dichtel's message of "Wed,
+	21 Aug 2013 12:25:19 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-08-21 at 18:07 +0800, liujunliang_ljl wrote:
-> 		Thanks a lot and I have been fixed all the problems mentioned above. please check the following patch and thanks again. 
+Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
 
-Just trivial comments below:
+> Le 21/08/2013 11:02, Bj=C3=B8rn Mork a =C3=A9crit :
+>> Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
+>>> Le 21/08/2013 08:48, David Miller a =C3=A9crit :
+>>>
+>>>> Applied, but this brings up an issue I keep noticing.
+>>>>
+>>>> We talk about eth_random_addr() and "uniqueness" together all the
+>>>> time, but the former never implies the latter.
+>>>>
+>>>> And we're going to run into situations where any conflicts generat=
+ed
+>>>> by this random address generater will cause reall failures.
+>>>>
+>>>> Therefore we'll have to create a system to prevent them.  Probably
+>>>> using some simple table that keeps track of the addresses we've
+>>>> generated.
+>>>>
+>>> Ok, I will look at this.
+>>
+>> Are eth_random_addr() collisions really any different than interface=
+s
+>> having the same address for other reasons?
+> I would tend to say yes, it's different.
+> It's easy for an administrator to fix a configuration for a physical
+> interface, because it's statically configured and there is a limited
+> number of interfaces.
+>
+> For virtual interfaces, they can be dynamically created and destroyed
+> by daemons and we can have a lot of interfaces. Hence it could be har=
+d
+> to fix them.
 
-> diff --git a/drivers/net/usb/sr9700.c b/drivers/net/usb/sr9700.c
-[]
-> +static void sr_write_reg_async(struct usbnet *dev, u8 reg, u8 value)
-> +{
-> +	usbnet_write_cmd_async(dev, SR_WR_REGS, SR_REQ_WR_REG,
-> +					value, reg, NULL, 0);
-> +}
-> +
-> +static int sr_share_read_word(struct usbnet *dev, int phy, u8 reg, __le16 *value)
-> +{
-[]
-> +	netdev_dbg(dev->net, "read shared %d 0x%02x returned 0x%04x, %d\n",
-> +	       phy, reg, *value, ret);
+If they are created by daemons then it should be up to the daemons to
+fix them.  Or?
 
-You have a lot of code that uses inconsistent
-indentation.  Code in drivers/net and drivers/usb/net
-generally prefers to use alignment to parenthesis for
-multi-line statements
+> Trying to avoid these errors at kernel level could be useful.
 
-The first could use
+I strongly believe in fixing configuration issues in userspace if at al=
+l
+possible.  You are setting a new policy every time you implement an
+automatic fix or workaround.  It is so much better to keep that out of
+the kernel, or the next question you will face is "How do I change this
+policy? I want the addresses to be assigned by function Y"
 
-	usbnet_write_cmd_async(dev, SR_WR_REGS, SR_REQ_WR_REG,
-			       value, reg, NULL, 0);
+I see no reason why the daemon creating these interfaces can't also
+fixup any collisions.  Or maybe better: If your daemon create millions
+of interfaces, and cares about unique addresses, then it should
+implement it's own address management.
 
-and the second
+> I've start to write a patch, and to test it I've just run a simple
+> test which generate 1 000 000 of random addresses. I've run it severa=
+l
+> times (maybe not enough ;-)) and I never get a duplicated address...
 
-	netdev_dbg(dev->net, "read shared %d 0x%02x returned 0x%04x, %d\n",
-		   phy, reg, *value, ret);
+Well, there are only 2^46 combinations so you are guaranteed to hit a
+collision if you just generate 70 368 744 177 665 random addresses :-)
 
-Maximal use of 8 space indentation tabs followed by
-minimal spaces.
 
-There are many of these above.
-
-> +static int sr9700_get_eeprom(struct net_device *net, struct ethtool_eeprom *eeprom, u8 *data)
-[]
-> +	for (i = 0; i < eeprom->len / 2; i++)
-> +			ret = sr_read_eeprom_word(dev, eeprom->offset / 2 + i, &ebuf[i]);
-
-One too many tabs for the second line, a few of these...
-
-[]
-
-> +static int sr_mdio_read(struct net_device *netdev, int phy_id, int loc)
-[]
-> +	if (rc == 1)
-> +			return le16_to_cpu(res) | BMSR_LSTATUS;
-> +	else
-> +			return le16_to_cpu(res) & ~BMSR_LSTATUS;
-
-The code below the returns here is unreachable.
-
-> +
-> +	netdev_dbg(dev->net,
-> +	       "sr_mdio_read() phy_id=0x%02x, loc=0x%02x, returns=0x%04x\n",
-> +	       phy_id, loc, le16_to_cpu(res));
-> +
-> +	return le16_to_cpu(res);
-> +}
-
-You might try to use scripts/checkpatch.pl --strict if you
-care about these.  It should flag most of these coding
-style inconsistencies.
+Bj=C3=B8rn
