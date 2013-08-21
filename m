@@ -1,97 +1,106 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next] ip6_tunnel: ensure to always have a link local
- address
-Date: Wed, 21 Aug 2013 14:11:51 +0200
-Message-ID: <5214AE87.7060104@6wind.com>
-References: <1376993766-5723-1-git-send-email-nicolas.dichtel@6wind.com> <20130820.234818.2230621827416764963.davem@davemloft.net> <52146EE9.1060101@6wind.com> <87haej76wz.fsf@nemi.mork.no> <5214958F.1080907@6wind.com> <8761uz6zra.fsf@nemi.mork.no>
-Reply-To: nicolas.dichtel@6wind.com
+From: Christian Borntraeger <borntraeger@de.ibm.com>
+Subject: Performance regression 3.11 with macvlan between 2 linux guests (bisected)
+Date: Wed, 21 Aug 2013 14:38:44 +0200
+Message-ID: <5214B4D4.7020806@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: =?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Matthew Rosato <mjrosato@linux.vnet.ibm.com>,
+	Jason Wang <jasowang@redhat.com>
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f171.google.com ([74.125.82.171]:56132 "EHLO
-	mail-we0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751422Ab3HUMLz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 08:11:55 -0400
-Received: by mail-we0-f171.google.com with SMTP id p57so190701wes.30
-        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 05:11:53 -0700 (PDT)
-In-Reply-To: <8761uz6zra.fsf@nemi.mork.no>
+Received: from e06smtp15.uk.ibm.com ([195.75.94.111]:53081 "EHLO
+	e06smtp15.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751818Ab3HUMiu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 08:38:50 -0400
+Received: from /spool/local
+	by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <borntraeger@de.ibm.com>;
+	Wed, 21 Aug 2013 13:33:05 +0100
+Received: from b06cxnps3075.portsmouth.uk.ibm.com (d06relay10.portsmouth.uk.ibm.com [9.149.109.195])
+	by d06dlp03.portsmouth.uk.ibm.com (Postfix) with ESMTP id 85A501B08066
+	for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 13:38:47 +0100 (BST)
+Received: from d06av11.portsmouth.uk.ibm.com (d06av11.portsmouth.uk.ibm.com [9.149.37.252])
+	by b06cxnps3075.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r7LCcYwY61735062
+	for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 12:38:34 GMT
+Received: from d06av11.portsmouth.uk.ibm.com (localhost [127.0.0.1])
+	by d06av11.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id r7LCcjVj013205
+	for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 06:38:45 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 21/08/2013 13:37, Bj=C3=B8rn Mork a =C3=A9crit :
-> Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
->
->> Le 21/08/2013 11:02, Bj=C3=B8rn Mork a =C3=A9crit :
->>> Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
->>>> Le 21/08/2013 08:48, David Miller a =C3=A9crit :
->>>>
->>>>> Applied, but this brings up an issue I keep noticing.
->>>>>
->>>>> We talk about eth_random_addr() and "uniqueness" together all the
->>>>> time, but the former never implies the latter.
->>>>>
->>>>> And we're going to run into situations where any conflicts genera=
-ted
->>>>> by this random address generater will cause reall failures.
->>>>>
->>>>> Therefore we'll have to create a system to prevent them.  Probabl=
-y
->>>>> using some simple table that keeps track of the addresses we've
->>>>> generated.
->>>>>
->>>> Ok, I will look at this.
->>>
->>> Are eth_random_addr() collisions really any different than interfac=
-es
->>> having the same address for other reasons?
->> I would tend to say yes, it's different.
->> It's easy for an administrator to fix a configuration for a physical
->> interface, because it's statically configured and there is a limited
->> number of interfaces.
->>
->> For virtual interfaces, they can be dynamically created and destroye=
-d
->> by daemons and we can have a lot of interfaces. Hence it could be ha=
-rd
->> to fix them.
->
-> If they are created by daemons then it should be up to the daemons to
-> fix them.  Or?
->
->> Trying to avoid these errors at kernel level could be useful.
->
-> I strongly believe in fixing configuration issues in userspace if at =
-all
-> possible.  You are setting a new policy every time you implement an
-> automatic fix or workaround.  It is so much better to keep that out o=
-f
-> the kernel, or the next question you will face is "How do I change th=
-is
-> policy? I want the addresses to be assigned by function Y"
->
-> I see no reason why the daemon creating these interfaces can't also
-> fixup any collisions.  Or maybe better: If your daemon create million=
-s
-> of interfaces, and cares about unique addresses, then it should
-> implement it's own address management.
-Ok ok, you convince me ;-)
+Vlad,
 
-I will wait David feedback.
+the patch 
 
->
->> I've start to write a patch, and to test it I've just run a simple
->> test which generate 1 000 000 of random addresses. I've run it sever=
-al
->> times (maybe not enough ;-)) and I never get a duplicated address...
->
-> Well, there are only 2^46 combinations so you are guaranteed to hit a
-> collision if you just generate 70 368 744 177 665 random addresses :-=
-)
-Yes, it was just to say that the function which generate these addresse=
-s has a=20
-"good" entropy ;-)
+commit 3e4f8b787370978733ca6cae452720a4f0c296b8
+Author: Vlad Yasevich <vyasevic@redhat.com>
+Date:   Tue Jun 25 16:04:22 2013 -0400
+
+    macvtap: Perform GSO on forwarding path.
+
+causes a severe performance regression for 2 Linux guests with virtio-net
+connected via macvlan/vtap doing iperf workload. (2GBit vs. 20Gbit)
+
+If I understand the patch correctly, we now check for gso depending on the
+macvlan features. If the underlying hardware does not support the necessary
+offloads then we will do segmentation, even if we keep the whole traffic internal
+between two guests and even if both guests supports LRO,GSO etc.
+---snip---
+[...]
++       features = netif_skb_features(skb) & vlan->tap_features;
++       if (netif_needs_gso(skb, features)) {
++               struct sk_buff *segs = __skb_gso_segment(skb, features, false);
+[...]
+
+---snip---
+Shouldnt we take the features of the target device or even better do the gsoing in the
+target device driver?
+
+Christian
+
+FYI, the underlying HW has:
+
+Features for eth0:
+rx-checksumming: off [fixed]
+tx-checksumming: off
+	tx-checksum-ipv4: off [fixed]
+	tx-checksum-ip-generic: off [fixed]
+	tx-checksum-ipv6: off [fixed]
+	tx-checksum-fcoe-crc: off [fixed]
+	tx-checksum-sctp: off [fixed]
+scatter-gather: off
+	tx-scatter-gather: off [fixed]
+	tx-scatter-gather-fraglist: off [fixed]
+tcp-segmentation-offload: off
+	tx-tcp-segmentation: off [fixed]
+	tx-tcp-ecn-segmentation: off [fixed]
+	tx-tcp6-segmentation: off [fixed]
+udp-fragmentation-offload: off [fixed]
+generic-segmentation-offload: off [requested on]
+generic-receive-offload: on
+large-receive-offload: off [fixed]
+rx-vlan-offload: off [fixed]
+tx-vlan-offload: off [fixed]
+ntuple-filters: off [fixed]
+receive-hashing: off [fixed]
+highdma: off [fixed]
+rx-vlan-filter: on [fixed]
+vlan-challenged: off [fixed]
+tx-lockless: off [fixed]
+netns-local: off [fixed]
+tx-gso-robust: off [fixed]
+tx-fcoe-segmentation: off [fixed]
+tx-gre-segmentation: off [fixed]
+tx-udp_tnl-segmentation: off [fixed]
+tx-mpls-segmentation: off [fixed]
+fcoe-mtu: off [fixed]
+tx-nocache-copy: off
+loopback: off [fixed]
+rx-fcs: off [fixed]
+rx-all: off [fixed]
+tx-vlan-stag-hw-insert: off [fixed]
+rx-vlan-stag-hw-parse: off [fixed]
+rx-vlan-stag-filter: off [fixed]
