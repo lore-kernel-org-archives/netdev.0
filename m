@@ -1,153 +1,81 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [PATCH] netns: unix: only allow to find out unix socket in same
-	net namespace
-Date: Tue, 20 Aug 2013 22:30:50 -0700
-Message-ID: <87d2p7vcdx.fsf@xmission.com>
-References: <1377059473-25526-1-git-send-email-gaofeng@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	systemd-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	lxc-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1377059473-25526-1-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org> (Gao
-	feng's message of "Wed, 21 Aug 2013 12:31:13 +0800")
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [PATCH (net.git) 1/2 (v2)] stmmac: disable at run-time the EEE if not supported
+Date: Wed, 21 Aug 2013 07:28:27 +0200
+Message-ID: <1377062908-16543-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog123.obsmtp.com ([207.126.144.155]:37230 "EHLO
+	eu1sys200aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751872Ab3HUFeO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 01:34:14 -0400
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 26223A4
+	for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 05:34:00 +0000 (GMT)
+Received: from mail7.sgp.st.com (unknown [164.129.223.81])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id CF37646F3
+	for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 05:33:29 +0000 (GMT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org> writes:
+This patch is to disable the EEE (so HW and timers)
+for example when the phy communicates that the EEE
+can be supported nomore.
 
-> Unix sockets are private resources of net namespace,
-> allowing one net namespace to access to other netns's unix
-> sockets is meaningless.
+v2: clean the patch removing an useless change
 
-Allowing one net namespace to access another netns's unix socket is
-deliberate behavior.  This is a desired and useful feature, and
-only a misconfiguration of visible files would allow this to be a
-problem.
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   23 +++++++++++++++++---
+ 1 files changed, 19 insertions(+), 4 deletions(-)
 
-> I'm researching a problem about shutdown from container,
-> if the cotainer shares the same file /run/systemd/private
-> with host, when we run shutdown -h xxx in container, the
-> shutdown message will be send to the systemd-shutdownd
-> through unix socket /run/systemd/private, and because
-> systemd-shutdownd is running in host, so finally, the host
-> will become shutdown.
-
-The simple answer is don't do that then.  I can see no reason
-to share /run outside of the container unless you want this kind of
-behavior.
-
-Quite frankly I want this behavior if I am using network namespaces
-to support multiple routing contexts. That is if I am using scripts
-like:
-
-ip netns add other
-ip netns exec other script
-
-I don't want to have to remember to say 
-ip netns orig exec shutdown -h now
-
-There are more compelling uses and there is no cost in supporting this
-in the kernel.
-
-What kind of misconfiguration caused someone to complain about this?
-
-
-> We should make sure unix sockets are per net namespace to
-> avoid this problem.
-
-Nacked-by: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-
-
-> Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-> ---
->  net/unix/af_unix.c |  8 ++++++--
->  net/unix/diag.c    | 11 ++++++++---
->  2 files changed, 14 insertions(+), 5 deletions(-)
->
-> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-> index c4ce243..98e3689 100644
-> --- a/net/unix/af_unix.c
-> +++ b/net/unix/af_unix.c
-> @@ -295,7 +295,8 @@ static inline struct sock *unix_find_socket_byname(struct net *net,
->  	return s;
->  }
->  
-> -static struct sock *unix_find_socket_byinode(struct inode *i)
-> +static struct sock *unix_find_socket_byinode(struct net *net,
-> +					     struct inode *i)
->  {
->  	struct sock *s;
->  
-> @@ -304,6 +305,9 @@ static struct sock *unix_find_socket_byinode(struct inode *i)
->  		    &unix_socket_table[i->i_ino & (UNIX_HASH_SIZE - 1)]) {
->  		struct dentry *dentry = unix_sk(s)->path.dentry;
->  
-> +		if (!net_eq(sock_net(s), net))
-> +			continue;
-> +
->  		if (dentry && dentry->d_inode == i) {
->  			sock_hold(s);
->  			goto found;
-> @@ -784,7 +788,7 @@ static struct sock *unix_find_other(struct net *net,
->  		err = -ECONNREFUSED;
->  		if (!S_ISSOCK(inode->i_mode))
->  			goto put_fail;
-> -		u = unix_find_socket_byinode(inode);
-> +		u = unix_find_socket_byinode(net, inode);
->  		if (!u)
->  			goto put_fail;
->  
-> diff --git a/net/unix/diag.c b/net/unix/diag.c
-> index d591091..80ada12 100644
-> --- a/net/unix/diag.c
-> +++ b/net/unix/diag.c
-> @@ -218,20 +218,25 @@ done:
->  	return skb->len;
->  }
->  
-> -static struct sock *unix_lookup_by_ino(int ino)
-> +static struct sock *unix_lookup_by_ino(struct net *net, int ino)
->  {
->  	int i;
->  	struct sock *sk;
->  
->  	spin_lock(&unix_table_lock);
->  	for (i = 0; i < ARRAY_SIZE(unix_socket_table); i++) {
-> -		sk_for_each(sk, &unix_socket_table[i])
-> +		sk_for_each(sk, &unix_socket_table[i]) {
-> +
-> +			if (!net_eq(sock_net(sk), net))
-> +				continue;
-> +
->  			if (ino == sock_i_ino(sk)) {
->  				sock_hold(sk);
->  				spin_unlock(&unix_table_lock);
->  
->  				return sk;
->  			}
-> +		}
->  	}
->  
->  	spin_unlock(&unix_table_lock);
-> @@ -251,7 +256,7 @@ static int unix_diag_get_exact(struct sk_buff *in_skb,
->  	if (req->udiag_ino == 0)
->  		goto out_nosk;
->  
-> -	sk = unix_lookup_by_ino(req->udiag_ino);
-> +	sk = unix_lookup_by_ino(net, req->udiag_ino);
->  	err = -ENOENT;
->  	if (sk == NULL)
->  		goto out_nosk;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 0a9bb9d..45ca081 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -285,10 +285,25 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
+ 
+ 	/* MAC core supports the EEE feature. */
+ 	if (priv->dma_cap.eee) {
++		int tx_lpi_timer = priv->tx_lpi_timer;
++
+ 		/* Check if the PHY supports EEE */
+-		if (phy_init_eee(priv->phydev, 1))
++		if (phy_init_eee(priv->phydev, 1)) {
++			/* To manage at run-time if the EEE cannot be supported
++			 * anymore (for example becasue the lp caps have been
++			 * changed).
++			 * In that case the driver disable own timers.
++			 */
++			if (priv->eee_active) {
++				pr_debug("stmmac: disable EEE\n");
++				del_timer_sync(&priv->eee_ctrl_timer);
++				priv->hw->mac->set_eee_timer(priv->ioaddr, 0,
++							     tx_lpi_timer);
++			}
++			priv->eee_active = 0;
+ 			goto out;
+-
++		}
++		/* Activate the EEE and start timers */
+ 		if (!priv->eee_active) {
+ 			priv->eee_active = 1;
+ 			init_timer(&priv->eee_ctrl_timer);
+@@ -299,13 +314,13 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
+ 
+ 			priv->hw->mac->set_eee_timer(priv->ioaddr,
+ 						     STMMAC_DEFAULT_LIT_LS,
+-						     priv->tx_lpi_timer);
++						     tx_lpi_timer);
+ 		} else
+ 			/* Set HW EEE according to the speed */
+ 			priv->hw->mac->set_eee_pls(priv->ioaddr,
+ 						   priv->phydev->link);
+ 
+-		pr_info("stmmac: Energy-Efficient Ethernet initialized\n");
++		pr_debug("stmmac: Energy-Efficient Ethernet initialized\n");
+ 
+ 		ret = true;
+ 	}
+-- 
+1.7.4.4
