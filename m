@@ -1,60 +1,75 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 60779] New: tcp_fastretrans_alert triggered on tcp_input.c
-Date: Wed, 21 Aug 2013 16:44:39 -0700
-Message-ID: <20130821164439.4441c107@nehalam.linuxnetplumber.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Pull request: sfc 2013-08-21
+Date: Thu, 22 Aug 2013 00:52:59 +0100
+Message-ID: <1377129179.634.8.camel@bwh-desktop.uk.level5networks.com>
+References: <1377128568.634.5.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="=-mBuocwJdooqPyjlAXw/g"
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-net-drivers <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:61494 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752792Ab3HUXon (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 19:44:43 -0400
-Received: by mail-pd0-f178.google.com with SMTP id w10so1088408pde.23
-        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 16:44:42 -0700 (PDT)
+Received: from webmail.solarflare.com ([12.187.104.25]:33641 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753309Ab3HUXxH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 19:53:07 -0400
+In-Reply-To: <1377128568.634.5.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+--=-mBuocwJdooqPyjlAXw/g
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
+[Re-sending with the proper cc's and a signature.]
 
-Begin forwarded message:
+The following changes since commit 0f7dd1aa8f959216f1faa71513b9d3c1a9065e5a=
+:
 
-Date: Wed, 21 Aug 2013 15:55:49 -0700
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-Subject: [Bug 60779] New: tcp_fastretrans_alert triggered on tcp_input.c
+  Merge tag 'clk-fixes-for-linus' of git://git.linaro.org/people/mturquette=
+/linux (2013-08-16 10:00:18 -0700)
 
+are available in the git repository at:
 
-https://bugzilla.kernel.org/show_bug.cgi?id=60779
+  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc.git sfc-3.11
 
-            Bug ID: 60779
-           Summary: tcp_fastretrans_alert triggered on tcp_input.c
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 3.10.7
-          Hardware: x86-64
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: IPV4
-          Assignee: shemminger@linux-foundation.org
-          Reporter: otavio.n.cipriani@gmail.com
-        Regression: No
+for you to fetch changes up to f3851b0acc5a75bd33c6d344a2e4f920e1622ff0:
 
-Created attachment 107276
-  --> https://bugzilla.kernel.org/attachment.cgi?id=107276&action=edit
-Call trace
+  sfc: Fix lookup of default RX MAC filters when steered using ethtool (201=
+3-08-21 14:18:12 +0100)
 
-Unfortunately I do not know how to reproduce the bug. Nothing seems to be
-affected.
+Just a single fix for 3.11 (and 3.10-stable).
 
-The only parameters I changed were:
-net.core.rmem_max = 4194304;
-net.core.wmem_max = 1048576.
+Ben.
 
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+----------------------------------------------------------------
+Ben Hutchings (1):
+      sfc: Fix lookup of default RX MAC filters when steered using ethtool
+
+ drivers/net/ethernet/sfc/filter.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
+--=-mBuocwJdooqPyjlAXw/g
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+
+iQEcBAABCAAGBQJSFVLbAAoJEGkILBsOca60Hf8H/jcAS1JHvFs+dxhzPFcySexd
+R7iX1pTz0cK3Y17DIq3yoh5uZQIm65Kez++ojNIJOtYLqoMmK3SMt4IUISDC1L/z
+Owa/b0h60A22n05FoirQeaoIr7X842h8DKHVuXAiM2HUpttHNIhCD1lLrurTglj3
+kSMaB8eWfXxI1oMZJ+6YLWvAFmXWObCPbKBotwL4MPLEsAjOXWFlMGhSUTcHkOuP
+xKH3nJljSORAIBjk4nInCQES582rPcOorS3Q+ptmOj0qPEZI9mOq/02LTt1CPvHq
+wG4BL07Gz4gTmBwZOprnCGdbQVeaRoYPz5xfX+7XDHCs1PymxCW+Xt2bWKueAgY=
+=IBNb
+-----END PGP SIGNATURE-----
+
+--=-mBuocwJdooqPyjlAXw/g--
