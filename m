@@ -1,38 +1,32 @@
-From: Libo Chen <libo.chen@huawei.com>
-Subject: [PATCH 4/8] net: sunbmac: remove unnecessary dev_set_drvdata()
-Date: Wed, 21 Aug 2013 15:02:27 +0800
-Message-ID: <1377068547-54816-1-git-send-email-libo.chen@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH (net.git) 2/2] stmmac: remove useless csum flag
+Date: Wed, 21 Aug 2013 00:06:00 -0700 (PDT)
+Message-ID: <20130821.000600.1770175220773794518.davem@davemloft.net>
+References: <1377062908-16543-1-git-send-email-peppe.cavallaro@st.com>
+	<1377062908-16543-2-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <emilio@elopez.com.ar>, <gregkh@linuxfoundation.org>,
-	<wfp5p@virginia.edu>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <lizefan@huawei.com>,
-	<libo.chen@huawei.com>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sonic.zhang@analog.com
+To: peppe.cavallaro@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52559 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752495Ab3HUHGC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 03:06:02 -0400
+In-Reply-To: <1377062908-16543-2-git-send-email-peppe.cavallaro@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Unnecessary dev_set_drvdata() is removed, because the driver core
-clears the driver data to NULL after device_release or on probe failure.
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Date: Wed, 21 Aug 2013 07:28:28 +0200
 
-Signed-off-by: Libo Chen <libo.chen@huawei.com>
----
- drivers/net/ethernet/sun/sunbmac.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+> This patch removes the no_csum_insertion private parameter that is not used anymore
+> and, also,  the "likely" annotation from the condition that is not in a critical path.
+> 
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-diff --git a/drivers/net/ethernet/sun/sunbmac.c b/drivers/net/ethernet/sun/sunbmac.c
-index 0a32ca5..7217ee5 100644
---- a/drivers/net/ethernet/sun/sunbmac.c
-+++ b/drivers/net/ethernet/sun/sunbmac.c
-@@ -1259,8 +1259,6 @@ static int bigmac_sbus_remove(struct platform_device *op)
- 
- 	free_netdev(net_dev);
- 
--	dev_set_drvdata(&op->dev, NULL);
--
- 	return 0;
- }
- 
--- 
-1.7.1
+This is absolutely just a cleanup and therefore not suitable for 'net',
+resubmit your changes targetted to the correct tree, 'net-next'.
+
+Thank you.
