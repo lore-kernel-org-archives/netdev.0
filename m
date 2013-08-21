@@ -1,310 +1,260 @@
-From: poma <pomidorabelisima@gmail.com>
-Subject: Re: [PATCH net] skge: dma_sync the whole receive buffer
-Date: Wed, 21 Aug 2013 18:04:11 +0200
-Message-ID: <5214E4FB.7010208@gmail.com>
-References: <20130810104100.0ae20aa6@nehalam.linuxnetplumber.net> <20130810.132935.1257046025460198490.davem@davemloft.net> <20130810150207.37432299@nehalam.linuxnetplumber.net> <20130813.150955.1471100759610399160.davem@davemloft.net> <20130813180036.3e639789@nehalam.linuxnetplumber.net> <520B59D3.4020103@gmail.com> <20130814092022.494caf2b@nehalam.linuxnetplumber.net> <520BCC72.8040002@gmail.com> <20130815084117.2f48fc58@nehalam.linuxnetplumber.net> <52116B9C.8050003@gmail.com> <5212E249.2050203@gmail.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Potential use-after-free in e1000_clean_tx_irq
+Date: Wed, 21 Aug 2013 20:10:15 +0400
+Message-ID: <CAAeHK+yxpbkSuzRNBis++q002sxW8TWv2f6tStOq5Z7cRBkkAg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f175.google.com ([209.85.215.175]:38956 "EHLO
-	mail-ea0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751696Ab3HUQEQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 12:04:16 -0400
-Received: by mail-ea0-f175.google.com with SMTP id m14so375077eaj.6
-        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 09:04:15 -0700 (PDT)
-In-Reply-To: <5212E249.2050203@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="===============4181752635677439983=="
+Cc: netdev@vger.kernel.org, Alexander Potapenko <glider@google.com>,
+	Evgeniy Stepanov <eugenis@google.com>, Dmitry Vyukov <dvyukov@google.com>,
+	Kostya Serebryany <kcc@google.com>
+To: e1000-devel@lists.sourceforge.net
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On 20.08.2013 05:28, poma wrote:
-> On 19.08.2013 02:49, poma wrote:
->> On 15.08.2013 17:41, Stephen Hemminger wrote:
->>> On Wed, 14 Aug 2013 20:29:06 +0200
->>> poma <pomidorabelisima@gmail.com> wrote:
->>>
->>>> On 14.08.2013 18:20, Stephen Hemminger wrote:
->>>>> On Wed, 14 Aug 2013 12:20:03 +0200
->>>>> poma <pomidorabelisima@gmail.com> wrote:
->>>>>
->>>>>> On 14.08.2013 03:00, Stephen Hemminger wrote:
->>>>>>> On Tue, 13 Aug 2013 15:09:55 -0700 (PDT)
->>>>>>> David Miller <davem@davemloft.net> wrote:
->>>>>>>
->>>>>>>> From: Stephen Hemminger <stephen@networkplumber.org>
->>>>>>>> Date: Sat, 10 Aug 2013 15:02:07 -0700
->>>>>>>>
->>>>>>>>> The DMA sync should sync the whole receive buffer, not just
->>>>>>>>> part of it. Fixes log messages dma_sync_check.
->>>>>>>>>
->>>>>>>>> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
->>>>>>>>
->>>>>>>> Applied, but I really suspect that your "check DMA mapping err=
-ors"
->>>>>>>> patch has added a serious regression.  A regression much worse=
- than
->>>>>>>> the bug you were trying to fix with that change.
->>>>>>>
->>>>>>> Argh. The problem is deeper than that. Device got broken somewh=
-ere between
->>>>>>> 3.2 and 3.4. My old Dlink card works on 3.2 but gets DMA errors=
- on 3.4.
->>>>>>> The config's are different though so checking that as well.
->>>>>>>
->>>>>>
->>>>>> Can I help you with debugging?
->>>>>> DGE-530T is rather solid device.
->>>>>
->>>>> Don't think it is a hardware problem.
->>>>> The failure is when the board access the Receive ring PCI memory =
-area.
->>>>> This region is allocated with pci_alloc_consistent and therefore =
-should
->>>>> be available. Two possible issues are driver math issues, or hard=
-ware
->>>>> problems with where the region is located. Some of these cards do=
-n't
->>>>> really have full 64 bit PCI support.
->>>>>
->>>>> My board is:
->>>>> 05:01.0 Ethernet controller: D-Link System Inc Gigabit Ethernet A=
-dapter (rev 11)
->>>>> 	Subsystem: D-Link System Inc DGE-530T Gigabit Ethernet Adapter
->>>>> 	Flags: bus master, 66MHz, medium devsel, latency 32, IRQ 18
->>>>> 	Memory at f7d20000 (32-bit, non-prefetchable) [size=3D16K]
->>>>> 	I/O ports at c000 [size=3D256]
->>>>> 	Expansion ROM at f7d00000 [disabled] [size=3D128K]
->>>>> 	Capabilities: [48] Power Management version 2
->>>>> 	Capabilities: [50] Vital Product Data
->>>>> 	Kernel driver in use: skge
->>>>>
->>>>>
->>>>> What is your config?
->>>>>
->>>>
->>>> 01:09.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Ad=
-apter
->>>> (rev 11)
->>>> 	Subsystem: D-Link System Inc DGE-530T Gigabit Ethernet Adapter
->>>> 	Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 19
->>>> 	Memory at fbffc000 (32-bit, non-prefetchable) [size=3D16K]
->>>> 	I/O ports at b400 [size=3D256]
->>>> 	[virtual] Expansion ROM at ec000000 [disabled] [size=3D128K]
->>>> 	Capabilities: [48] Power Management version 2
->>>> 	Capabilities: [50] Vital Product Data
->>>> 	Kernel driver in use: skge
->>>>
->>>>
->>>> poma
->>>>
->>>
->>> In the course of debugging this, I moved the card to another slot
->>> and all the problems went away. I suspect either card insertion or =
-more likely
->>> the crap consumer motherboards don't have full PCI support on some =
-slots.
->>>
->>> There doesn't seem to be anyway to address this in software.
->>>
->>
->>
->> DGE-530T is further tested in the 3 available slots:
->> 01:06.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adap=
-ter
->> (rev 11)
->> 01:07.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adap=
-ter
->> (rev 11)
->> 01:08.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adap=
-ter
->> (rev 11)
->> And the result is the same as in the slot:
->> 01:09.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adap=
-ter
->> (rev 11)
->> warnings, oopses and kernel crashes.
->>
->> However DGE-528T(RTL8110s) on the same bus runs without errors:
->> 01:09.0 Ethernet controller: D-Link System Inc DGE-528T Gigabit Ethe=
-rnet
->> Adapter (rev 10)
->> 	Subsystem: D-Link System Inc DGE-528T Gigabit Ethernet Adapter
->> 	Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 19
->> 	I/O ports at cc00 [size=3D256]
->> 	Memory at fbfff000 (32-bit, non-prefetchable) [size=3D256]
->> 	[virtual] Expansion ROM at fbe00000 [disabled] [size=3D128K]
->> 	Capabilities: [dc] Power Management version 2
->> 	Kernel driver in use: r8169
->>
->> Besides comparing the behavior of these two cards, e.g. NFS upload, =
-I
->> noticed an obvious difference in the data flow.
->> Via DGE-528T transmission is steady, while via DGE-530T the traffic =
-is
->> at times interrupted and unstable.
->> So it seems that the "WARNING: at lib/dma-debug.c:937 check_unmap=85=
-"
->> isn't just a fun.
->>
->=20
-> In support of the validity of the device I made a test with the
-> 2.6.32-358.14.1.el6.x86_64.debug kernel.
-> And everything worked as it should.
->=20
-> 01:08.0 Ethernet controller: D-Link System Inc Gigabit Ethernet Adapt=
-er
-> (rev 11)
-> 	Subsystem: D-Link System Inc DGE-530T Gigabit Ethernet Adapter
-> 	Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 18
-> 	Memory at fbff8000 (32-bit, non-prefetchable) [size=3D16K]
-> 	I/O ports at cc00 [size=3D256]
-> 	[virtual] Expansion ROM at fbe00000 [disabled] [size=3D128K]
-> 	Capabilities: [48] Power Management version 2
-> 	Capabilities: [50] Vital Product Data
-> 	Kernel driver in use: skge
-> 	Kernel modules: skge
->=20
-> filename:
-> /lib/modules/2.6.32-358.14.1.el6.x86_64.debug/kernel/drivers/net/skge=
-=2Eko
-> version:        1.13
-> license:        GPL
-> author:         Stephen Hemminger <shemminger@linux-foundation.org>
-> description:    SysKonnect Gigabit Ethernet driver
-> srcversion:     ADF6781C2E0D2D895F86279
-> alias:          pci:v00001737d00001032sv*sd00000015bc*sc*i*
-> alias:          pci:v00001737d00001064sv*sd*bc*sc*i*
-> alias:          pci:v00001371d0000434Esv*sd*bc*sc*i*
-> alias:          pci:v000011ABd00005005sv*sd*bc*sc*i*
-> alias:          pci:v000011ABd00004320sv*sd*bc*sc*i*
-> alias:          pci:v00001186d00004B01sv*sd*bc*sc*i*
-> alias:          pci:v00001186d00004C00sv*sd*bc*sc*i*
-> alias:          pci:v00001148d00004320sv*sd*bc*sc*i*
-> alias:          pci:v00001148d00004300sv*sd*bc*sc*i*
-> alias:          pci:v000010B7d000080EBsv*sd*bc*sc*i*
-> alias:          pci:v000010B7d00001700sv*sd*bc*sc*i*
-> depends:
-> vermagic:       2.6.32-358.14.1.el6.x86_64.debug SMP mod_unload modve=
-rsions
-> parm:           debug:Debug level (0=3Dnone,...,16=3Dall) (int)
->=20
->=20
-> Given all the tests and all written, something isn't right, at all.
-> Should I quote Shakespeare. :)
->=20
+--===============4181752635677439983==
+Content-Type: multipart/alternative; boundary=089e013cc028bab52204e4776829
 
-Additionally, I have researched the history of the event and made a few
-more tests.
-The last kernel that worked flawlessly is from the 3.7.10 series.
-I tested with the 3.7.10-400.fc19.x86_64.debug kernel.
-The first kernel afterwards - the 3.8 series - introduced problems with
-DMA-API, "=85 device driver failed to check map error".
-An example that follows shows the skge module brokenness in its current
-state.
-The only thing that is produced is a timeout.
-The same result was achieved with the 3.11.0-0.rc6.git1.1.fc20.i686 ker=
-nel.
+--089e013cc028bab52204e4776829
+Content-Type: text/plain; charset=ISO-8859-1
 
-[CLIENT]
+Hi,
 
-$ lspci -knn -d 1186:4c00
-01:08.0 Ethernet controller [0200]: D-Link System Inc Gigabit Ethernet
-Adapter [1186:4c00] (rev 11)
-	Subsystem: D-Link System Inc DGE-530T Gigabit Ethernet Adapter [1186:4=
-c00]
-	Kernel driver in use: skge
+I'm working on a memory error detector AddressSanitizer for Linux kernel (
+https://code.google.com/p/address-sanitizer/wiki/AddressSanitizerForKernel),
+which can detect use-after-free and buffer-overflow errors.
+Currently the tool is in very early stage and it can contain bugs.
 
-$ modinfo skge
-filename:
-/lib/modules/3.11.0-0.rc6.git1.1.fc20.x86_64/kernel/drivers/net/etherne=
-t/marvell/skge.ko
-version:        1.14
-license:        GPL
-author:         Stephen Hemminger <shemminger@linux-foundation.org>
-description:    SysKonnect Gigabit Ethernet driver
-srcversion:     BF56B39CFC55B011E27DAB9
-alias:          pci:v00001737d00001032sv*sd00000015bc*sc*i*
-alias:          pci:v00001737d00001064sv*sd*bc*sc*i*
-alias:          pci:v00001371d0000434Esv*sd*bc*sc*i*
-alias:          pci:v000011ABd00005005sv*sd*bc*sc*i*
-alias:          pci:v000011ABd00004320sv*sd*bc*sc*i*
-alias:          pci:v00001186d00004302sv*sd*bc*sc*i*
-alias:          pci:v00001186d00004C00sv*sd*bc*sc*i*
-alias:          pci:v00001186d00004B01sv*sd*bc*sc*i*
-alias:          pci:v00001148d00004320sv*sd*bc*sc*i*
-alias:          pci:v00001148d00004300sv*sd*bc*sc*i*
-alias:          pci:v000010B7d000080EBsv*sd*bc*sc*i*
-alias:          pci:v000010B7d00001700sv*sd*bc*sc*i*
-depends:
-intree:         Y
-vermagic:       3.11.0-0.rc6.git1.1.fc20.x86_64 SMP mod_unload
-signer:         Fedora kernel signing key
-sig_key:        B1:4E:0F:25:52:6B:EE:0B:8B:66:BA:D6:38:99:D2:21:5D:37:E=
-1:C1
-sig_hashalgo:   sha256
-parm:           debug:Debug level (0=3Dnone,...,16=3Dall) (int)
+I was running a system call fuzzer and got some reports:
 
-$ time ssh -vvv <SERVER_IP>
-OpenSSH_6.2p2, OpenSSL 1.0.1e-fips 11 Feb 2013
-debug1: Reading configuration data $HOME/.ssh/config
-debug1: Reading configuration data /etc/ssh/ssh_config
-debug1: /etc/ssh/ssh_config line 51: Applying options for *
-debug2: ssh_connect: needpriv 0
-debug1: Connecting to <SERVER_IP> [<SERVER_IP>] port 22.
-debug1: Connection established.
-debug1: identity file $HOME/.ssh/id_rsa type -1
-debug1: identity file $HOME/.ssh/id_rsa-cert type -1
-debug3: Incorrect RSA1 identifier
-debug3: Could not load "$HOME/.ssh/id_dsa" as a RSA1 public key
-debug1: identity file $HOME/.ssh/id_dsa type 2
-debug1: identity file $HOME/.ssh/id_dsa-cert type -1
-debug1: Enabling compatibility mode for protocol 2.0
-debug1: Local version string SSH-2.0-OpenSSH_6.2
-debug1: Remote protocol version 2.0, remote software version OpenSSH_6.=
-2
-debug1: match: OpenSSH_6.2 pat OpenSSH*
-debug2: fd 3 setting O_NONBLOCK
-debug3: load_hostkeys: loading entries for host "<SERVER_IP>" from file
-"$HOME/.ssh/known_hosts"
-debug3: load_hostkeys: found key type RSA in file $HOME/.ssh/known_host=
-s:1
-debug3: load_hostkeys: loaded 1 keys
-debug3: order_hostkeyalgs: prefer hostkeyalgs:
-ssh-rsa-cert-v01@openssh.com,ssh-rsa-cert-v00@openssh.com,ssh-rsa
-debug1: SSH2_MSG_KEXINIT sent
-Connection to <SERVER_IP> timed out while waiting to read
+[   64.143848]
+=========================================================================
+[   64.144763] ERROR: AddressSanitizer: heap-use-after-free on address
+ffff88002a3dae60
+[   64.145945] Stack trace:
+[   64.146302]   [<ffffffff810dd1f5>] asan_report_error+0x85/0x2c0
+[   64.147112]   [<ffffffff810dc700>] asan_check_region+0x30/0x40
+[   64.147966]   [<ffffffff810dd4b3>] __tsan_read4+0x13/0x20
+[   64.148808]   [<ffffffffa00804d0>] e1000_clean+0x1d0/0x11b0 [e1000]
+[   64.149742]   [<ffffffff817f8e1a>] net_rx_action+0x1aa/0x380
+[   64.150574]   [<ffffffff810ee9d2>] __do_softirq+0x182/0x3a0
+[   64.151391]   [<ffffffff8192629c>] call_softirq+0x1c/0x30
+[   64.152179]   [<ffffffff8108040d>] do_softirq+0x5d/0xc0
+[   64.152926]   [<ffffffff810ed3d7>] local_bh_enable+0x127/0x130
+[   64.153717]   [<ffffffff8185d775>] ip_finish_output+0x365/0x640
+[   64.154653]   [<ffffffff8185fc79>] ip_output+0xb9/0x100
+[   64.155423]   [<ffffffff8185ed1c>] ip_local_out+0x4c/0x60
+[   64.156216]   [<ffffffff818611b3>] ip_send_skb+0x23/0x70
+[   64.156951]   [<ffffffff818a4bf4>] udp_send_skb+0x584/0x6e0
+[   64.157761]   [<ffffffff818a681c>] udp_sendmsg+0x4dc/0xfd0
+[   64.158581]   [<ffffffff818b93e8>] inet_sendmsg+0x108/0x160
+[   64.159401]   [<ffffffff817d0f43>] sock_sendmsg+0x133/0x170
+[   64.160143]   [<ffffffff817d1669>] SYSC_sendto+0x1e9/0x2d0
+[   64.160932]   [<ffffffff817d2329>] SyS_sendto+0x49/0x70
+[   64.161710]   [<ffffffff81826e55>] compat_sys_socketcall+0x305/0x530
+[   64.162634]   [<ffffffff81926335>] sysenter_dispatch+0x7/0x1a
+[   64.163471]   [<ffffffffffffffff>] 0xffffffffffffffff
+[   64.164213] Free stack trace:
+[   64.164660]   [<ffffffff810dc831>] asan_slab_free+0x61/0xb0
+[   64.165466]   [<ffffffff8127f955>] kmem_cache_free+0x55/0x2e0
+[   64.166261]   [<ffffffff817db68b>] kfree_skbmem+0x5b/0xd0
+[   64.167046]   [<ffffffff817e003c>] consume_skb+0x4c/0xd0
+[   64.167811]   [<ffffffff817f3f90>] dev_kfree_skb_any+0x60/0x70
+[   64.168710]   [<ffffffffa007c6ba>]
+e1000_unmap_and_free_tx_resource.isra.45+0xda/0x130 [e1000]
+[   64.169954]   [<ffffffffa00804e9>] e1000_clean+0x1e9/0x11b0 [e1000]
+[   64.170859]   [<ffffffff817f8e1a>] net_rx_action+0x1aa/0x380
+[   64.171685]   [<ffffffff810ee9d2>] __do_softirq+0x182/0x3a0
+[   64.172491]   [<ffffffff8192629c>] call_softirq+0x1c/0x30
+[   64.173276]   [<ffffffff8108040d>] do_softirq+0x5d/0xc0
+[   64.174041]   [<ffffffff810ed3d7>] local_bh_enable+0x127/0x130
+[   64.174868]   [<ffffffff8185d775>] ip_finish_output+0x365/0x640
+[   64.175734]   [<ffffffff8185fc79>] ip_output+0xb9/0x100
+[   64.176518]   [<ffffffff8185ed1c>] ip_local_out+0x4c/0x60
+[   64.177315]   [<ffffffff818611b3>] ip_send_skb+0x23/0x70
+[   64.178087]   [<ffffffff818a4bf4>] udp_send_skb+0x584/0x6e0
+[   64.178910]   [<ffffffff818a681c>] udp_sendmsg+0x4dc/0xfd0
+[   64.179713]   [<ffffffff818b93e8>] inet_sendmsg+0x108/0x160
+[   64.180524]   [<ffffffff817d0f43>] sock_sendmsg+0x133/0x170
+[   64.181332]   [<ffffffff817d1669>] SYSC_sendto+0x1e9/0x2d0
+[   64.182001]   [<ffffffff817d2329>] SyS_sendto+0x49/0x70
+[   64.182771]   [<ffffffff817d238b>] SyS_send+0x3b/0x50
+[   64.183508] Shadow bytes around the buggy address:
+[   64.184258]   ffff88003ba7b570: fa fa fa fa fa fa fa fa fa fa fa fa fa
+fa fa fa
+[   64.185109]   ffff88003ba7b580: fa fa fa fa fa fa fa fa fd fd fd fd fd
+fd fd fd
+[   64.186184]   ffff88003ba7b590: fd fd fd fd fd fd fd fd fd fd fd fd fd
+fd fd fd
+[   64.187257]   ffff88003ba7b5a0: fd fd fd fd fa fa fa fa fa fa fa fa fa
+fa fa fa
+[   64.188442]   ffff88003ba7b5b0: fa fa fa fa fa fa fa fa fa fa fa fa fa
+fa fa fa
+[   64.189520] =>ffff88003ba7b5c0: fd fd fd fd fd fd fd fd fd fd fd
+fd[fd]fd fd fd
+[   64.190600]   ffff88003ba7b5d0: fd fd fd fd fd fd fd fd fd fd fd fd fa
+fa fa fa
+[   64.191676]   ffff88003ba7b5e0: fa fa fa fa fa fa fa fa fa fa fa fa fa
+fa fa fa
+[   64.192730]   ffff88003ba7b5f0: fa fa fa fa fa fa fa fa fa fa fa fa fa
+fa fa fa
+[   64.193822]   ffff88003ba7b600: fa fa fa fa fa fa fa fa fa fa fa fa fa
+fa fa fa
+[   64.194903]   ffff88003ba7b610: fa fa fa fa fa fa fa fa 00 00 00 00 fa
+fa fa fa
+[   64.195954] Shadow byte legend (one shadow byte represents 8 application
+bytes):
+[   64.197039]   Addressable:           00
+[   64.197585]   Partially addressable: 01 02 03 04 05 06 07
+[   64.198407]   Heap redzone:          fa
+[   64.198955]   Freed heap region:     fd
+[   64.199519]
+=========================================================================
 
-real	1m0.133s
-user	0m0.006s
-sys	0m0.036s
+[   64.200424]
+=========================================================================
+[   64.201539] ERROR: AddressSanitizer: heap-use-after-free on address
+ffff88002a3daedc
+[   64.202432] Stack trace:
+[   64.202814]   [<ffffffff810dd1f5>] asan_report_error+0x85/0x2c0
+[   64.203636]   [<ffffffff810dc700>] asan_check_region+0x30/0x40
+[   64.204481]   [<ffffffff810dd4b3>] __tsan_read4+0x13/0x20
+[   64.205267]   [<ffffffff817e001b>] consume_skb+0x2b/0xd0
+[   64.206066]   [<ffffffff817f3f90>] dev_kfree_skb_any+0x60/0x70
+[   64.206923]   [<ffffffffa007c6ba>]
+e1000_unmap_and_free_tx_resource.isra.45+0xda/0x130 [e1000]
+[   64.208144]   [<ffffffffa00804e9>] e1000_clean+0x1e9/0x11b0 [e1000]
+[   64.209067]   [<ffffffff817f8e1a>] net_rx_action+0x1aa/0x380
+[   64.209866]   [<ffffffff810ee9d2>] __do_softirq+0x182/0x3a0
+[   64.210671]   [<ffffffff8192629c>] call_softirq+0x1c/0x30
+[   64.211463]   [<ffffffff8108040d>] do_softirq+0x5d/0xc0
+[   64.212227]   [<ffffffff810ed3d7>] local_bh_enable+0x127/0x130
+[   64.213074]   [<ffffffff8185d775>] ip_finish_output+0x365/0x640
+[   64.213910]   [<ffffffff8185fc79>] ip_output+0xb9/0x100
+[   64.214661]   [<ffffffff8185ed1c>] ip_local_out+0x4c/0x60
+[   64.215451]   [<ffffffff818611b3>] ip_send_skb+0x23/0x70
+[   64.216249]   [<ffffffff818a4bf4>] udp_send_skb+0x584/0x6e0
+[   64.217064]   [<ffffffff818a681c>] udp_sendmsg+0x4dc/0xfd0
+[   64.217838]   [<ffffffff818b93e8>] inet_sendmsg+0x108/0x160
+[   64.218687]   [<ffffffff817d0f43>] sock_sendmsg+0x133/0x170
+[   64.219496]   [<ffffffff817d1669>] SYSC_sendto+0x1e9/0x2d0
+[   64.220297]   [<ffffffff817d2329>] SyS_sendto+0x49/0x70
+[   64.221069]   [<ffffffff81826e55>] compat_sys_socketcall+0x305/0x530
+[   64.222053]   [<ffffffff81926335>] sysenter_dispatch+0x7/0x1a
+[   64.222867]   [<ffffffffffffffff>] 0xffffffffffffffff
+[   64.223592] Free stack trace:
+[   64.224050]   [<ffffffff810dc831>] asan_slab_free+0x61/0xb0
+[   64.224841]   [<ffffffff8127f955>] kmem_cache_free+0x55/0x2e0
+[   64.225559]   [<ffffffff817db68b>] kfree_skbmem+0x5b/0xd0
+[   64.226342]   [<ffffffff817e003c>] consume_skb+0x4c/0xd0
+[   64.227121]   [<ffffffff817f3f90>] dev_kfree_skb_any+0x60/0x70
+[   64.227958]   [<ffffffffa007c6ba>]
+e1000_unmap_and_free_tx_resource.isra.45+0xda/0x130 [e1000]
+[   64.229240]   [<ffffffffa00804e9>] e1000_clean+0x1e9/0x11b0 [e1000]
+[   64.230149]   [<ffffffff817f8e1a>] net_rx_action+0x1aa/0x380
+[   64.230947]   [<ffffffff810ee9d2>] __do_softirq+0x182/0x3a0
+[   64.231706]   [<ffffffff8192629c>] call_softirq+0x1c/0x30
+[   64.232451]   [<ffffffff8108040d>] do_softirq+0x5d/0xc0
+[   64.233219]   [<ffffffff810ed3d7>] local_bh_enable+0x127/0x130
+[   64.234012]   [<ffffffff8185d775>] ip_finish_output+0x365/0x640
+[   64.234842]   [<ffffffff8185fc79>] ip_output+0xb9/0x100
+[   64.235621]   [<ffffffff8185ed1c>] ip_local_out+0x4c/0x60
+[   64.236431]   [<ffffffff818611b3>] ip_send_skb+0x23/0x70
+[   64.237221]   [<ffffffff818a4bf4>] udp_send_skb+0x584/0x6e0
+[   64.237991]   [<ffffffff818a681c>] udp_sendmsg+0x4dc/0xfd0
+[   64.238788]   [<ffffffff818b93e8>] inet_sendmsg+0x108/0x160
+[   64.239604]   [<ffffffff817d0f43>] sock_sendmsg+0x133/0x170
+[   64.240413]   [<ffffffff817d1669>] SYSC_sendto+0x1e9/0x2d0
+[   64.241213]   [<ffffffff817d2329>] SyS_sendto+0x49/0x70
+[   64.241954]   [<ffffffff817d238b>] SyS_send+0x3b/0x50
+[   64.242681] Shadow bytes around the buggy address:
+[   64.243422]   ffff88003ba7b580: fa fa fa fa fa fa fa fa fd fd fd fd fd
+fd fd fd
+[   64.244534]   ffff88003ba7b590: fd fd fd fd fd fd fd fd fd fd fd fd fd
+fd fd fd
+[   64.245615]   ffff88003ba7b5a0: fd fd fd fd fa fa fa fa fa fa fa fa fa
+fa fa fa
+[   64.246691]   ffff88003ba7b5b0: fa fa fa fa fa fa fa fa fa fa fa fa fa
+fa fa fa
+[   64.247768]   ffff88003ba7b5c0: fd fd fd fd fd fd fd fd fd fd fd fd fd
+fd fd fd
+[   64.248886] =>ffff88003ba7b5d0: fd fd fd fd fd fd fd fd fd fd fd[fd]fa
+fa fa fa
+[   64.250001]   ffff88003ba7b5e0: fa fa fa fa fa fa fa fa fa fa fa fa fa
+fa fa fa
+[   64.251084]   ffff88003ba7b5f0: fa fa fa fa fa fa fa fa fa fa fa fa fa
+fa fa fa
+[   64.252162]   ffff88003ba7b600: fa fa fa fa fa fa fa fa fa fa fa fa fa
+fa fa fa
+[   64.253236]   ffff88003ba7b610: fa fa fa fa fa fa fa fa 00 00 00 00 fa
+fa fa fa
+[   64.254312]   ffff88003ba7b620: fa fa fa fa fa fa fa fa fa fa fa fa fa
+fa fa fa
+[   64.255431] Shadow byte legend (one shadow byte represents 8 application
+bytes):
+[   64.256500]   Addressable:           00
+[   64.257083]   Partially addressable: 01 02 03 04 05 06 07
+[   64.257851]   Heap redzone:          fa
+[   64.258397]   Freed heap region:     fd
+[   64.258942]
+=========================================================================
 
-# tcptrack -i enp1s8 port 22
-Client                Server                State        Idle A Speed
+There were more use-after-free reports after these two.
 
- <CLIENT_IP>:53602     <SERVER_IP>:22        ESTABLISHED  1m    0 B/s
+The first use-after-free was caused by accessing 'len' field in
+'buffer_info->skb' in 'e1000_clean_tx_irq' (line 3835).
+Our guess is that 'buffer_info->skb' had been freed in another thread (the
+bottom frames of the stack traces are different) by
+'e1000_unmap_and_free_tx_resource' (line 1972) but wasn't assigned to
+'NULL' yet (line 1973).
 
-[\CLIENT]
-=2E
-=2E
-[SERVER]
+The kernel version is 3.11-rc4 (last commit:
+b7bc9e7d808ba55729bd263b0210cda36965be32).
 
-/var/log/secure
-<DATE> <SERVER> sshd[25248]: Connection closed by <CLIENT_IP> [preauth]
+e100_clean_tx_irq:
+http://lxr.free-electrons.com/source/drivers/net/ethernet/intel/e1000/e1000_main.c#L3835
+e1000_unmap_and_free_tx_resource:
+http://lxr.free-electrons.com/source/drivers/net/ethernet/intel/e1000/e1000_main.c#L1958
 
-[\SERVER]
+Since these reports were caused by a system call fuzzer I don't know how to
+reproduce them.
+
+Could you confirm if this is a real bug?
+
+Thanks!
+
+--089e013cc028bab52204e4776829--
 
 
-Signor Greg you are supposed to be very resourceful guy, especially in
-matters concerning the hardware, so please if you can set aside your
-valuable time and help us finally resolve this issue.
+--===============4181752635677439983==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
+------------------------------------------------------------------------------
+Introducing Performance Central, a new site from SourceForge and 
+AppDynamics. Performance Central is your source for news, insights, 
+analysis and resources for efficient Application Performance Management. 
+Visit us today!
+http://pubads.g.doubleclick.net/gampad/clk?id=48897511&iu=/4140/ostg.clktrk
+--===============4181752635677439983==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-poma
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
 
-
-A complete thread:
-http://www.spinics.net/lists/netdev/msg245381.html
+--===============4181752635677439983==--
