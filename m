@@ -1,50 +1,72 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V2 0/5] Mellanox driver updates 2013-08-19
-Date: Wed, 21 Aug 2013 10:08:54 +0300
-Message-ID: <1377068939-17561-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V2 5/5] net/mlx4_en: Reduce scope of local variables in mlx4_en_xmit
+Date: Wed, 21 Aug 2013 10:08:59 +0300
+Message-ID: <1377068939-17561-6-git-send-email-amirv@mellanox.com>
+References: <1377068939-17561-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:39987 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:45135 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752364Ab3HUHJM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Aug 2013 03:09:12 -0400
+	id S1752524Ab3HUHJQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Aug 2013 03:09:16 -0400
+In-Reply-To: <1377068939-17561-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Some variables could have their scope reduced.
 
-This small patchset contains 2 fixes to bad handling of error flows in TX
-datapath, and a fix to a bug in mlx4_en_dcbnl_ieee_setpfc() where global pause
-frames were enabled whenever PFC was configured.
-Also added a patch to reduce the scope of some local variables in the moved
-block of code and it's surrounding.
-
-Thanks,
-Amir
-
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
-Changes from V1:
-- Split coding style fix from logical fix
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
-Changes from V0:
-- Missing new lines + typo's
-- Fixed frags dma leak
-- Use local for ddev
-- New patch (4/4), to reduce scope of some locals
-
-Amir Vadai (4):
-  net/mlx4_en: Coding style cleanup in mlx4_en_dcbnl_ieee_setpfc()
-  net/mlx4_en: Notify user when TX ring in error state
-  net/mlx4_en: Fix handling of dma_map failure
-  net/mlx4_en: Reduce scope of local variables in mlx4_en_xmit
-
-Eugenia Emantayev (1):
-  net/mlx4_en: Disable global flow control when PFC enabled
-
- drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c |  15 ++--
- drivers/net/ethernet/mellanox/mlx4/en_tx.c     | 116 +++++++++++++++++--------
- 2 files changed, 87 insertions(+), 44 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index c28868b..0698c82 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -592,14 +592,11 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct mlx4_en_tx_ring *ring;
+ 	struct mlx4_en_tx_desc *tx_desc;
+ 	struct mlx4_wqe_data_seg *data;
+-	struct skb_frag_struct *frag;
+ 	struct mlx4_en_tx_info *tx_info;
+-	struct ethhdr *ethh;
+ 	int tx_ind = 0;
+ 	int nr_txbb;
+ 	int desc_size;
+ 	int real_size;
+-	dma_addr_t dma;
+ 	u32 index, bf_index;
+ 	__be32 op_own;
+ 	u16 vlan_tag = 0;
+@@ -694,6 +691,9 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	} else {
+ 		/* Map fragments */
+ 		for (i = skb_shinfo(skb)->nr_frags - 1; i >= 0; i--) {
++			struct skb_frag_struct *frag;
++			dma_addr_t dma;
++
+ 			frag = &skb_shinfo(skb)->frags[i];
+ 			dma = skb_frag_dma_map(ddev, frag,
+ 					       0, skb_frag_size(frag),
+@@ -711,6 +711,8 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		/* Map linear part */
+ 		if (tx_info->linear) {
+ 			u32 byte_count = skb_headlen(skb) - lso_header_size;
++			dma_addr_t dma;
++
+ 			dma = dma_map_single(ddev, skb->data +
+ 					     lso_header_size, byte_count,
+ 					     PCI_DMA_TODEVICE);
+@@ -749,6 +751,8 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	}
+ 
+ 	if (priv->flags & MLX4_EN_FLAG_ENABLE_HW_LOOPBACK) {
++		struct ethhdr *ethh;
++
+ 		/* Copy dst mac address to wqe. This allows loopback in eSwitch,
+ 		 * so that VFs and PF can communicate with each other
+ 		 */
 -- 
 1.8.3.4
