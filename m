@@ -1,91 +1,85 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH] netns: unix: only allow to find out unix socket in same
- net namespace
-Date: Wed, 21 Aug 2013 15:22:42 +0800
-Message-ID: <52146AC2.5070409@cn.fujitsu.com>
-References: <1377059473-25526-1-git-send-email-gaofeng@cn.fujitsu.com> <87d2p7vcdx.fsf@xmission.com> <5214641C.9030902@cn.fujitsu.com> <87wqnfttdf.fsf@xmission.com>
+From: Michal Simek <monstr@monstr.eu>
+Subject: Re: [PATCH 6/8] net: xilinx_emaclite: remove unnecessary dev_set_drvdata()
+Date: Wed, 21 Aug 2013 09:21:18 +0200
+Message-ID: <52146A6E.5030005@monstr.eu>
+References: <1377068556-51316-1-git-send-email-libo.chen@huawei.com>
+Reply-To: monstr@monstr.eu
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, systemd-devel@lists.freedesktop.org,
-	lxc-devel@lists.sourceforge.net, davem@davemloft.net,
-	Linux Containers <containers@lists.linux-foundation.org>,
-	"libvir-list@redhat.com" <libvir-list@redhat.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="xqFx5DVG6V3hTOUi59ffxortln8LoO1oW"
+Cc: davem@davemloft.net, michal.simek@xilinx.com, renner@efe-gmbh.de,
+	gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, lizefan@huawei.com
+To: Libo Chen <libo.chen@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:15510 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752221Ab3HUHVY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Aug 2013 03:21:24 -0400
-In-Reply-To: <87wqnfttdf.fsf@xmission.com>
+Received: from mail-ea0-f177.google.com ([209.85.215.177]:55519 "EHLO
+	mail-ea0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752221Ab3HUHVZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 03:21:25 -0400
+Received: by mail-ea0-f177.google.com with SMTP id f15so33982eak.8
+        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 00:21:24 -0700 (PDT)
+In-Reply-To: <1377068556-51316-1-git-send-email-libo.chen@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/21/2013 03:06 PM, Eric W. Biederman wrote:
-> Gao feng <gaofeng@cn.fujitsu.com> writes:
-> 
->> cc libvirt-list
->>
->> On 08/21/2013 01:30 PM, Eric W. Biederman wrote:
->>> Gao feng <gaofeng@cn.fujitsu.com> writes:
->>>
->>>> Unix sockets are private resources of net namespace,
->>>> allowing one net namespace to access to other netns's unix
->>>> sockets is meaningless.
->>>
->>> Allowing one net namespace to access another netns's unix socket is
->>> deliberate behavior.  This is a desired and useful feature, and
->>> only a misconfiguration of visible files would allow this to be a
->>> problem.
->>>
->>>> I'm researching a problem about shutdown from container,
->>>> if the cotainer shares the same file /run/systemd/private
->>>> with host, when we run shutdown -h xxx in container, the
->>>> shutdown message will be send to the systemd-shutdownd
->>>> through unix socket /run/systemd/private, and because
->>>> systemd-shutdownd is running in host, so finally, the host
->>>> will become shutdown.
->>>
->>> The simple answer is don't do that then.  I can see no reason
->>> to share /run outside of the container unless you want this kind of
->>> behavior.
->>>
->>> Quite frankly I want this behavior if I am using network namespaces
->>> to support multiple routing contexts. That is if I am using scripts
->>> like:
->>>
->>> ip netns add other
->>> ip netns exec other script
->>>
->>> I don't want to have to remember to say 
->>> ip netns orig exec shutdown -h now
->>>
->>> There are more compelling uses and there is no cost in supporting this
->>> in the kernel.
->>>
->>> What kind of misconfiguration caused someone to complain about this?
->>>
->>
->> libvirt lxc allows user to set up a container which shares the same root
->> directory with host.
->>
->> seems like the unix sockets whose sun_path is an abstract socket address
->> are net namespace aware.
->>
->> Should we use "abstract" type of address instead of a file system pathname
->> for systemd in this case?
-> 
-> I suspect libvirt should simply not share /run or any other normally
-> writable directory with the host.  Sharing /run /var/run or even /tmp
-> seems extremely dubious if you want some kind of containment, and
-> without strange things spilling through.
-> 
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--xqFx5DVG6V3hTOUi59ffxortln8LoO1oW
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-right now I only take note of the unix socket /run/systemd/private,
-but there may have many similar unix sockets, they can exist in any
-path. the strange problems will still happen.
+On 08/21/2013 09:02 AM, Libo Chen wrote:
+> Unnecessary dev_set_drvdata() is removed, because the driver core
+> clears the driver data to NULL after device_release or on probe failure=
+=2E
+>=20
+> Signed-off-by: Libo Chen <libo.chen@huawei.com>
+> ---
+>  drivers/net/ethernet/xilinx/xilinx_emaclite.c |    1 -
+>  1 files changed, 0 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/ne=
+t/ethernet/xilinx/xilinx_emaclite.c
+> index 7c1ccbc..4c619ea 100644
+> --- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+> +++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+> @@ -1249,7 +1249,6 @@ static int xemaclite_of_remove(struct platform_de=
+vice *of_dev)
+>  	lp->phy_node =3D NULL;
+> =20
+>  	xemaclite_remove_ndev(ndev, of_dev);
+> -	dev_set_drvdata(dev, NULL);
+> =20
+>  	return 0;
+>  }
+>=20
 
-anyway, I will send a patch to setup a fresh tmpfs for the /run directory of
-container first.
+Acked-by: Michal Simek <monstr@monstr.eu>
 
-Eric, Thanks for your help!
+Thanks,
+Michal
+
+--=20
+Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
+Maintainer of Linux kernel - Xilinx Zynq ARM architecture
+Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
+
+
+
+--xqFx5DVG6V3hTOUi59ffxortln8LoO1oW
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iEYEARECAAYFAlIUam4ACgkQykllyylKDCEaVwCfYNvW/3LNhul7Mkxo5Ik2IcYd
+rxwAnROcyW876sL3Z7AAanhqV2hzqnwQ
+=hZmA
+-----END PGP SIGNATURE-----
+
+--xqFx5DVG6V3hTOUi59ffxortln8LoO1oW--
