@@ -1,48 +1,50 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V2 2/5] net/mlx4_en: Disable global flow control when PFC enabled
-Date: Wed, 21 Aug 2013 10:08:56 +0300
-Message-ID: <1377068939-17561-3-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V2 3/5] net/mlx4_en: Notify user when TX ring in error state
+Date: Wed, 21 Aug 2013 10:08:57 +0300
+Message-ID: <1377068939-17561-4-git-send-email-amirv@mellanox.com>
 References: <1377068939-17561-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:40004 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:45137 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752526Ab3HUHJQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752527Ab3HUHJQ (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 21 Aug 2013 03:09:16 -0400
 In-Reply-To: <1377068939-17561-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eugenia Emantayev <eugenia@mellanox.com>
+When hardware gets into error state, must notify user about it.
+When QP in error state no traffic will be tx'ed from the attached
+tx_ring.
 
-Fix a bug when FC and PFC are enabled/disabled at the same time.
-According to ConnectX-3 Programmer Manual these two features are mutial
-exclusive.  So make sure when enabling PFC to turn off global FC and
-vise versa.  Otherwise it hurts the performance.
+Driver should know how to recover from this unexpected state. I will send later
+on the recovery flow, but having the print shouldn't be delayed.
 
-
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-index f71fba9..b4881b6 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-@@ -170,8 +170,8 @@ static int mlx4_en_dcbnl_ieee_setpfc(struct net_device *dev,
- 			pfc->mbc,
- 			pfc->delay);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 6dcca98..0d691e3 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -362,6 +362,15 @@ static void mlx4_en_process_tx_cq(struct net_device *dev, struct mlx4_en_cq *cq)
+ 		 */
+ 		rmb();
  
--	prof->rx_pause = !!pfc->pfc_en;
--	prof->tx_pause = !!pfc->pfc_en;
-+	prof->rx_pause = !pfc->pfc_en;
-+	prof->tx_pause = !pfc->pfc_en;
- 	prof->rx_ppp = pfc->pfc_en;
- 	prof->tx_ppp = pfc->pfc_en;
++		if (unlikely((cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK) ==
++			     MLX4_CQE_OPCODE_ERROR)) {
++			struct mlx4_err_cqe *cqe_err = (struct mlx4_err_cqe *)cqe;
++
++			en_err(priv, "CQE error - vendor syndrome: 0x%x syndrome: 0x%x\n",
++			       cqe_err->vendor_err_syndrome,
++			       cqe_err->syndrome);
++		}
++
+ 		/* Skip over last polled CQE */
+ 		new_index = be16_to_cpu(cqe->wqe_index) & size_mask;
  
 -- 
 1.8.3.4
