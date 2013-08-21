@@ -1,53 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ip6_tunnel: ensure to always have a link
- local address
-Date: Tue, 20 Aug 2013 23:48:18 -0700 (PDT)
-Message-ID: <20130820.234818.2230621827416764963.davem@davemloft.net>
-References: <1376993766-5723-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [net-next PATCH 1/1] drivers: net: cpsw: remove platform data
+ header file of cpsw
+Date: Tue, 20 Aug 2013 23:50:38 -0700 (PDT)
+Message-ID: <20130820.235038.1393932767512291651.davem@davemloft.net>
+References: <1376914660-20431-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: nicolas.dichtel@6wind.com
+Cc: netdev@vger.kernel.org
+To: mugunthanvnm@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52310 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52345 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752375Ab3HUGsT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 02:48:19 -0400
-In-Reply-To: <1376993766-5723-1-git-send-email-nicolas.dichtel@6wind.com>
+	with ESMTP id S1752547Ab3HUGuj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 02:50:39 -0400
+In-Reply-To: <1376914660-20431-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Tue, 20 Aug 2013 12:16:06 +0200
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Date: Mon, 19 Aug 2013 17:47:40 +0530
 
-> When an Xin6 tunnel is set up, we check other netdevices to inherit the link-
-> local address. If none is available, the interface will not have any link-local
-> address. RFC4862 expects that each interface has a link local address.
+> CPSW driver no longer supports platform register as all the SoCs which has CPSW
+> are supporting DT only booting, so moving cpsw.h header file from platform
+> include to drivers/net/ethernet/ti
 > 
-> Now than this kind of tunnels supports x-netns, it's easy to fall in this case
-> (by creating the tunnel in a netns where ethernet interfaces stand and then
-> moving it to a other netns where no ethernet interface is available).
-> 
-> RFC4291, Appendix A suggests two methods: the first is the one currently
-> implemented, the second is to generate a unique identifier, so that we can
-> always generate the link-local address. Let's use eth_random_addr() to generate
-> this interface indentifier.
-> 
-> I remove completly the previous method, hence for the whole life of the
-> interface, the link-local address remains the same (previously, it depends on
-> which ethernet interfaces were up when the tunnel interface was set up).
-> 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-Applied, but this brings up an issue I keep noticing.
-
-We talk about eth_random_addr() and "uniqueness" together all the
-time, but the former never implies the latter.
-
-And we're going to run into situations where any conflicts generated
-by this random address generater will cause reall failures.
-
-Therefore we'll have to create a system to prevent them.  Probably
-using some simple table that keeps track of the addresses we've
-generated.
+Applied.
