@@ -1,60 +1,38 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 1/2] net: can: at91_can: use platform_set_drvdata()
-Date: Wed, 21 Aug 2013 12:16:39 +0200
-Message-ID: <52149387.4060007@pengutronix.de>
-References: <1377080103-33872-1-git-send-email-libo.chen@huawei.com>
+From: Libo Chen <libo.chen@huawei.com>
+Subject: [PATCH 1/2] net: can: at91_can: use platform_set_drvdata()
+Date: Wed, 21 Aug 2013 18:15:03 +0800
+Message-ID: <1377080103-33872-1-git-send-email-libo.chen@huawei.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="MmrCVucN58Sg5sl5tHS3ufIQgJPw84An7"
-Cc: wg@grandegger.com, davem@davemloft.net, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	lizefan@huawei.com
-To: Libo Chen <libo.chen@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:36805 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752485Ab3HUKRW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 06:17:22 -0400
-In-Reply-To: <1377080103-33872-1-git-send-email-libo.chen@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <linux-can@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<lizefan@huawei.com>, <libo.chen@huawei.com>
+To: <wg@grandegger.com>, <mkl@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---MmrCVucN58Sg5sl5tHS3ufIQgJPw84An7
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Use the wrapper functions for getting and setting the driver data using
+platform_device instead of using dev_set_drvdata() with &pdev->dev,
+so we can directly pass a struct platform_device.
 
-On 08/21/2013 12:15 PM, Libo Chen wrote:
-> Use the wrapper functions for getting and setting the driver data using=
+Signed-off-by: Libo Chen <libo.chen@huawei.com>
+---
+ drivers/net/can/at91_can.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-> platform_device instead of using dev_set_drvdata() with &pdev->dev,
-> so we can directly pass a struct platform_device.
->=20
-> Signed-off-by: Libo Chen <libo.chen@huawei.com>
-
-tnx, applied.
-
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---MmrCVucN58Sg5sl5tHS3ufIQgJPw84An7
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlIUk4cACgkQjTAFq1RaXHOa2gCcDah9fhIKLkT2x09Z3UvnnzlQ
-A48An1o+9xjAdA/sp+RZffnzuruNLuP1
-=HP9z
------END PGP SIGNATURE-----
-
---MmrCVucN58Sg5sl5tHS3ufIQgJPw84An7--
+diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
+index dbbe97a..3b1ff61 100644
+--- a/drivers/net/can/at91_can.c
++++ b/drivers/net/can/at91_can.c
+@@ -1355,7 +1355,7 @@ static int at91_can_probe(struct platform_device *pdev)
+ 	if (at91_is_sam9263(priv))
+ 		dev->sysfs_groups[0] = &at91_sysfs_attr_group;
+ 
+-	dev_set_drvdata(&pdev->dev, dev);
++	platform_set_drvdata(pdev, dev);
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 
+ 	err = register_candev(dev);
+-- 
+1.7.1
