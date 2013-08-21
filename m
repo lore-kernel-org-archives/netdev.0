@@ -1,60 +1,50 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH 3/4] ps3_gelic: lower NAPI weight
-Date: Wed, 21 Aug 2013 18:49:30 +0200
-Message-ID: <1377103771-1590-4-git-send-email-mschmidt@redhat.com>
-References: <1377103771-1590-1-git-send-email-mschmidt@redhat.com>
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Geoff Levand <geoff@infradead.org>
-To: David Miller <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/2] net: netem: always adjust now/delay when not
+ reordering
+Date: Wed, 21 Aug 2013 10:00:17 -0700
+Message-ID: <1377104417.4226.133.camel@edumazet-glaptop>
+References: <1377011469-26151-1-git-send-email-mailings@hupie.com>
+	  <1377011469-26151-2-git-send-email-mailings@hupie.com>
+	  <5214D9F2.90900@stusta.de> <1377099575.4226.120.camel@edumazet-glaptop>
+	 <5214E774.8060400@hupie.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Naab <jn@stusta.de>, netdev@vger.kernel.org,
+	hagen@jauu.net
+To: Ferry Huberts <mailings@hupie.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35063 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752159Ab3HUQuC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Aug 2013 12:50:02 -0400
-In-Reply-To: <1377103771-1590-1-git-send-email-mschmidt@redhat.com>
+Received: from mail-ob0-f173.google.com ([209.85.214.173]:48685 "EHLO
+	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751519Ab3HURAV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 13:00:21 -0400
+Received: by mail-ob0-f173.google.com with SMTP id ta17so1313323obb.18
+        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 10:00:20 -0700 (PDT)
+In-Reply-To: <5214E774.8060400@hupie.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit 82dc3c63 netif_napi_add() produces an error message if
-a NAPI poll weight greater than 64 is requested.
+On Wed, 2013-08-21 at 18:14 +0200, Ferry Huberts wrote:
 
-GELIC_NET_NAPI_WEIGHT is defined to GELIC_NET_RX_DESCRIPTORS,
-which is 128.
+> Well no. We expected no reordering because reordering is not enabled.
 
-Use the standard NAPI weight.
 
-Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
-CC: Geoff Levand <geoff@infradead.org>
----
- drivers/net/ethernet/toshiba/ps3_gelic_net.c | 3 +--
- drivers/net/ethernet/toshiba/ps3_gelic_net.h | 1 -
- 2 files changed, 1 insertion(+), 3 deletions(-)
+Sending packets with random delays happening in the 'network' _will_
+reorder packets at the receiver.
 
-diff --git a/drivers/net/ethernet/toshiba/ps3_gelic_net.c b/drivers/net/ethernet/toshiba/ps3_gelic_net.c
-index ad32af6..9c805e0 100644
---- a/drivers/net/ethernet/toshiba/ps3_gelic_net.c
-+++ b/drivers/net/ethernet/toshiba/ps3_gelic_net.c
-@@ -1466,8 +1466,7 @@ static void gelic_ether_setup_netdev_ops(struct net_device *netdev,
- {
- 	netdev->watchdog_timeo = GELIC_NET_WATCHDOG_TIMEOUT;
- 	/* NAPI */
--	netif_napi_add(netdev, napi,
--		       gelic_net_poll, GELIC_NET_NAPI_WEIGHT);
-+	netif_napi_add(netdev, napi, gelic_net_poll, NAPI_POLL_WEIGHT);
- 	netdev->ethtool_ops = &gelic_ether_ethtool_ops;
- 	netdev->netdev_ops = &gelic_netdevice_ops;
- }
-diff --git a/drivers/net/ethernet/toshiba/ps3_gelic_net.h b/drivers/net/ethernet/toshiba/ps3_gelic_net.h
-index a93df6a..309abb4 100644
---- a/drivers/net/ethernet/toshiba/ps3_gelic_net.h
-+++ b/drivers/net/ethernet/toshiba/ps3_gelic_net.h
-@@ -37,7 +37,6 @@
- #define GELIC_NET_RXBUF_ALIGN           128
- #define GELIC_CARD_RX_CSUM_DEFAULT      1 /* hw chksum */
- #define GELIC_NET_WATCHDOG_TIMEOUT      5*HZ
--#define GELIC_NET_NAPI_WEIGHT           (GELIC_NET_RX_DESCRIPTORS)
- #define GELIC_NET_BROADCAST_ADDR        0xffffffffffffL
- 
- #define GELIC_NET_MC_COUNT_MAX          32 /* multicast address list */
--- 
-1.8.3.1
+The 'reorder' netem attribute is quite limited and not practical,
+because it only queues the packet at the head of the queue instead of
+tail. This is not what happens on the networks.
+
+You want something very special, and this needs a new parameter to netem
+qdisc, or a new qdisc.
+
+If I setup "netem rate 1Mbit delay 1000ms 50ms", and send a burst of 100
+small packets, I expect these _all_ packets reach the destination in
+less than 1050ms.
+
+I do not want packet1 being delivered at t0+1020ms,
+packet2 being delivered at t0+1020+1030ms
+packet100 being delivered at t0+1020+1030++...+ = t0+~100sec
+
+If your patch solves the problem, good, but I see no clear test of this.
