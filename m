@@ -1,28 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] Minor ipv6 mcast cleanups
-Date: Tue, 20 Aug 2013 23:53:25 -0700 (PDT)
-Message-ID: <20130820.235325.202960800450259958.davem@davemloft.net>
-References: <1376994122-3022-1-git-send-email-dborkman@redhat.com>
+From: Libo Chen <libo.chen@huawei.com>
+Subject: [PATCH 1/8] net: fsl_pq_mdio: remove unnecessary dev_set_drvdata()
+Date: Wed, 21 Aug 2013 15:02:13 +0800
+Message-ID: <1377068533-53208-1-git-send-email-libo.chen@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52374 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752100Ab3HUGx0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 02:53:26 -0400
-In-Reply-To: <1376994122-3022-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <timur@freescale.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <lizefan@huawei.com>,
+	<libo.chen@huawei.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Tue, 20 Aug 2013 12:21:59 +0200
+Unnecessary dev_set_drvdata() is removed, because the driver core
+clears the driver data to NULL after device_release or on probe failure.
 
-> Daniel Borkmann (3):
->   net: ipv6: igmp6_event_query: use msecs_to_jiffies
->   net: ipv6: minor: *_start_timer: rather use unsigned long
->   net: ipv6: mcast: minor: use defines for rfc3810/8.1 lengths
+Signed-off-by: Libo Chen <libo.chen@huawei.com>
+---
+ drivers/net/ethernet/freescale/fsl_pq_mdio.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-All applied, thanks Daniel.
+diff --git a/drivers/net/ethernet/freescale/fsl_pq_mdio.c b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
+index b7dcd41..c4f6506 100644
+--- a/drivers/net/ethernet/freescale/fsl_pq_mdio.c
++++ b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
+@@ -468,8 +468,6 @@ static int fsl_pq_mdio_remove(struct platform_device *pdev)
+ 
+ 	mdiobus_unregister(bus);
+ 
+-	dev_set_drvdata(device, NULL);
+-
+ 	iounmap(priv->map);
+ 	mdiobus_free(bus);
+ 
+-- 
+1.7.1
