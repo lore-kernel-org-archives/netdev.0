@@ -1,105 +1,66 @@
-From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-Subject: Re: [PATCH 2/2] sh_eth: remove 'register_type' field from 'struct sh_eth_plat_data'
-Date: Wed, 21 Aug 2013 14:58:25 +0200
-Message-ID: <2054715.7J5PzTuKLW@avalon>
-References: <201308180308.39941.sergei.shtylyov@cogentembedded.com> <20555348.Y63SQY2deS@avalon> <5214B770.5000807@cogentembedded.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 2/2] net: netem: always adjust now/delay when not
+ reordering
+Date: Wed, 21 Aug 2013 06:30:24 -0700
+Message-ID: <1377091824.4226.102.camel@edumazet-glaptop>
+References: <1377030800.4226.89.camel@edumazet-glaptop>
+	  <1377064785-12629-1-git-send-email-mailings@hupie.com>
+	 <1377065647.4226.96.camel@edumazet-glaptop> <5214668E.504@hupie.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, lethal@linux-sh.org,
-	linux-sh@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <5214B770.5000807@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ferry Huberts <mailings@hupie.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:39177 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751574Ab3HUNa0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 09:30:26 -0400
+Received: by mail-pd0-f179.google.com with SMTP id v10so452499pde.38
+        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 06:30:25 -0700 (PDT)
+In-Reply-To: <5214668E.504@hupie.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sergei,
-
-On Wednesday 21 August 2013 16:49:52 Sergei Shtylyov wrote:
-> On 21-08-2013 4:39, Laurent Pinchart wrote:
-> >>>>>>> Now that the 'register_type' field of the 'sh_eth' driver's platform
-> >>>>>>> data is not used by the driver anymore, it's time to remove it and
-> >>>>>>> its initializers from the SH platform code. Also  move *enum*
-> >>>>>>> declaring values for this  field from <linux/sh_eth.h>  to  the 
-> >>>>>>> local driver's header file as they're only needed by the driver
-> >>>>>>> itself now...
-> >>>>>>> 
-> >>>>>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> >>>> 
-> >>>> [...]
-> >>>> 
-> >>>>>>>     /* Driver's parameters */
-> >>>>>>>     #if defined(CONFIG_CPU_SH4) || defined(CONFIG_ARCH_SHMOBILE)
-> >>>>>>>     #define SH4_SKB_RX_ALIGN    32
-> >>>>>>> 
-> >>>>>>> Index: net-next/include/linux/sh_eth.h
-> >>>>>>> ===================================================================
-> >>>>>>> --- net-next.orig/include/linux/sh_eth.h
-> >>>>>>> +++ net-next/include/linux/sh_eth.h
-> >>>>>>> @@ -5,17 +5,10 @@
-> >>>>>>> 
-> >>>>>>>     #include <linux/if_ether.h>
-> >>>>>>>     
-> >>>>>>>     enum {EDMAC_LITTLE_ENDIAN, EDMAC_BIG_ENDIAN};
-> >>>>>>> 
-> >>>>>>> -enum {
-> >>>>>>> -    SH_ETH_REG_GIGABIT,
-> >>>>>>> -    SH_ETH_REG_FAST_RCAR,
-> >>>>>>> -    SH_ETH_REG_FAST_SH4,
-> >>>>>>> -    SH_ETH_REG_FAST_SH3_SH2
-> >>>>>>> -};
-> >>>>>>> 
-> >>>>>>>     struct sh_eth_plat_data {
-> >>>>>>>     
-> >>>>>>>         int phy;
-> >>>>>>>         int edmac_endian;
-> >>>>>> 
-> >>>>>> Wouldn't it make sense to move the edmac_endian field to
-> >>>>>> sh_eth_cpu_data as well ?
-> >>>>> 
-> >>>>> No, it depends on the SoC endianness which is determined by power-on
-> >>>>> pin strapping -- which is board specific.
-> >>> 
-> >>> Does SoC endianness affect the ARM core endianness, the ethernet
-> >>> registers endianness, or both ?
-> >> 
-> >> Both, AFAIK.
-> >> 
-> >>> If it affects the ARM core endianness only, the kernel needs to be
-> >>> compiled in little-endian or big-endian mode anyway, and the sh_eth
-> >>> driver should use cpu_to_le32() unconditionally. If it affects both the
-> >>> ARM core and the ethernet controller there's not need to care about the
-> >>> endianness, as it will always be good.
-> >> 
-> >> No, it won't unless you're using __raw_{readl|writel}() accessors. The
-> >> driver doesn't do it. {readl|writel}() and io{read|write}32() that use
-> >> them always assume LE ordering of memory.
-> >> 
-> >>> We only need to care about it if it affects the ethernet controller
-> >>> registers only, which would seem weird to me.
-> >> 
-> >> Unfortunately, you are wrong.
-> > 
-> > Care to explain *why* ? There might be bugs in the driver (such as using
-> > the wrong I/O accessors), but I don't see why we need to configure the
-> > endianness through platform data.
+On Wed, 2013-08-21 at 09:04 +0200, Ferry Huberts wrote:
 > 
-> Re-read my reply about the power-on pin strapping please. The SoC endianness
-> setting gets read from the external source to the SoC, i.e. it's determined
-> by the board.
+> On 21/08/13 08:14, Eric Dumazet wrote:
+> > On Wed, 2013-08-21 at 07:59 +0200, Ferry Huberts wrote:
+> >> From: Ferry Huberts <ferry.huberts@pelagic.nl>
+> >>
+> >> Not doing this (current behaviour) introduces reordering.
+> >>
+> >> The packet_len_2_sched_time call is the only thing that logically
+> >> depends on q->rate, so move the now/delay adjustment out of the if.
+> >>
+> >> How to test:
+> >> -----------
+> > 
+> > I ask again :
+> > 
+> > Did you test a config with both rate limiting and delay.
+> 
+> (sorry for missing that question)
+> 
+> Just did so and with rate limiting I get no reordering, which is logical
+> looking at the code.
+> 
+> The thing is, the evaluation q->rate is within the 'no-reordering' block
+> and in the current situation you can get reordering (with that 'strange'
+> command). My patch makes sure that no reordering will occur, and
+> effectively 'clamps' the realised delay, which currently isn't done.
 
-Unless that pin doesn't affect the CPU core (in which case I wonder what it's 
-used for), the kernel will need to be compiled for the specified endianness 
-anyway. Endianness conversion can thus be performed with cpu_to_* (if the 
-registers endianness is fixed) or skipped completely (if the registers 
-endianness is also configured by the bootstrap pin) by using raw I/O 
-accessors. Modifications will be need in the sh_eth driver, but I don't see 
-why the driver would need to receive endianness information from platform data 
-or DT.
 
--- 
-Regards,
+OK, let me be very clear.
 
-Laurent Pinchart
+I would like you post the results of regression tests, to make sure that
+you do not add a new regression.
 
+It seems that you want _us_ to check all this for you.
+
+With "rate 1Mbits delay 100ms 10ms", and ping probes sent every 100ms,
+the pong reply of _all_ probes should be between 90ms and 110ms
+
+Is it still the case after your patch ?
+
+Thanks
