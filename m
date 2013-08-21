@@ -1,147 +1,147 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  13/15] e1000e: Add code to check for failure of pci_disable_link_state call
-Date: Wed, 21 Aug 2013 01:23:34 -0700
-Message-ID: <1377073416-7872-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next  02/15] igb: Read register for latch_on without return value
+Date: Wed, 21 Aug 2013 01:23:23 -0700
+Message-ID: <1377073416-7872-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1377073416-7872-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+Cc: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:52393 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:2670 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751993Ab3HUIXy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Aug 2013 04:23:54 -0400
+	id S1751442Ab3HUIXm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Aug 2013 04:23:42 -0400
 In-Reply-To: <1377073416-7872-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
 
-This patch attempts to work around a problem found with some systems where
-the call to pci_diable_link_state_locked() fails.  As a result, ASPM is not,
-in fact, disabled.  Changing disable ASPM code to check if state actually
-is disabled after the call and, if not, try another way to disable it.
+This patch changes register read to "just-read" without returning a value
+for hardware to accurately latch the register value.
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Acked-by: Bruce W. Allan <bruce.w.allan@intel.com>
-Tested-by: Pavel Machek <pavel@ucw.cz>
+Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 85 +++++++++++++++++++++---------
- 1 file changed, 59 insertions(+), 26 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_82575.c |  9 ++++-----
+ drivers/net/ethernet/intel/igb/igb_main.c    | 14 ++++----------
+ drivers/net/ethernet/intel/igb/igb_ptp.c     |  8 ++++----
+ 3 files changed, 12 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index e6d2c0f..59c0c54 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -64,8 +64,6 @@ static int debug = -1;
- module_param(debug, int, 0);
- MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
- 
--static void e1000e_disable_aspm(struct pci_dev *pdev, u16 state);
--
- static const struct e1000_info *e1000_info_tbl[] = {
- 	[board_82571]		= &e1000_82571_info,
- 	[board_82572]		= &e1000_82572_info,
-@@ -6019,38 +6017,73 @@ static int __e1000_shutdown(struct pci_dev *pdev, bool runtime)
- 	return 0;
- }
- 
--#ifdef CONFIG_PCIEASPM
--static void __e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
-+/**
-+ * e1000e_disable_aspm - Disable ASPM states
-+ * @pdev: pointer to PCI device struct
-+ * @state: bit-mask of ASPM states to disable
-+ *
-+ * Some devices *must* have certain ASPM states disabled per hardware errata.
-+ **/
-+static void e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
+index f21a91a..9057d10 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.c
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
+@@ -1320,7 +1320,7 @@ void igb_shutdown_serdes_link_82575(struct e1000_hw *hw)
+  **/
+ static s32 igb_reset_hw_82575(struct e1000_hw *hw)
  {
-+	struct pci_dev *parent = pdev->bus->self;
-+	u16 aspm_dis_mask = 0;
-+	u16 pdev_aspmc, parent_aspmc;
-+
-+	switch (state) {
-+	case PCIE_LINK_STATE_L0S:
-+	case PCIE_LINK_STATE_L0S | PCIE_LINK_STATE_L1:
-+		aspm_dis_mask |= PCI_EXP_LNKCTL_ASPM_L0S;
-+		/* fall-through - can't have L1 without L0s */
-+	case PCIE_LINK_STATE_L1:
-+		aspm_dis_mask |= PCI_EXP_LNKCTL_ASPM_L1;
-+		break;
-+	default:
-+		return;
-+	}
-+
-+	pcie_capability_read_word(pdev, PCI_EXP_LNKCTL, &pdev_aspmc);
-+	pdev_aspmc &= PCI_EXP_LNKCTL_ASPMC;
-+
-+	if (parent) {
-+		pcie_capability_read_word(parent, PCI_EXP_LNKCTL,
-+					  &parent_aspmc);
-+		parent_aspmc &= PCI_EXP_LNKCTL_ASPMC;
-+	}
-+
-+	/* Nothing to do if the ASPM states to be disabled already are */
-+	if (!(pdev_aspmc & aspm_dis_mask) &&
-+	    (!parent || !(parent_aspmc & aspm_dis_mask)))
-+		return;
-+
-+	dev_info(&pdev->dev, "Disabling ASPM %s %s\n",
-+		 (aspm_dis_mask & pdev_aspmc & PCI_EXP_LNKCTL_ASPM_L0S) ?
-+		 "L0s" : "",
-+		 (aspm_dis_mask & pdev_aspmc & PCI_EXP_LNKCTL_ASPM_L1) ?
-+		 "L1" : "");
-+
-+#ifdef CONFIG_PCIEASPM
- 	pci_disable_link_state_locked(pdev, state);
--}
--#else
--static void __e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
--{
--	u16 aspm_ctl = 0;
+-	u32 ctrl, icr;
++	u32 ctrl;
+ 	s32 ret_val;
  
--	if (state & PCIE_LINK_STATE_L0S)
--		aspm_ctl |= PCI_EXP_LNKCTL_ASPM_L0S;
--	if (state & PCIE_LINK_STATE_L1)
--		aspm_ctl |= PCI_EXP_LNKCTL_ASPM_L1;
-+	/* Double-check ASPM control.  If not disabled by the above, the
-+	 * BIOS is preventing that from happening (or CONFIG_PCIEASPM is
-+	 * not enabled); override by writing PCI config space directly.
-+	 */
-+	pcie_capability_read_word(pdev, PCI_EXP_LNKCTL, &pdev_aspmc);
-+	pdev_aspmc &= PCI_EXP_LNKCTL_ASPMC;
-+
-+	if (!(aspm_dis_mask & pdev_aspmc))
-+		return;
-+#endif
+ 	/* Prevent the PCI-E bus from sticking if there is no TLP connection
+@@ -1365,7 +1365,7 @@ static s32 igb_reset_hw_82575(struct e1000_hw *hw)
  
- 	/* Both device and parent should have the same ASPM setting.
- 	 * Disable ASPM in downstream component first and then upstream.
- 	 */
--	pcie_capability_clear_word(pdev, PCI_EXP_LNKCTL, aspm_ctl);
+ 	/* Clear any pending interrupt events. */
+ 	wr32(E1000_IMC, 0xffffffff);
+-	icr = rd32(E1000_ICR);
++	rd32(E1000_ICR);
+ 
+ 	/* Install any alternate MAC address into RAR0 */
+ 	ret_val = igb_check_alt_mac_addr(hw);
+@@ -2103,10 +2103,9 @@ static s32 igb_reset_hw_82580(struct e1000_hw *hw)
+ 	s32 ret_val = 0;
+ 	/* BH SW mailbox bit in SW_FW_SYNC */
+ 	u16 swmbsw_mask = E1000_SW_SYNCH_MB;
+-	u32 ctrl, icr;
++	u32 ctrl;
+ 	bool global_device_reset = hw->dev_spec._82575.global_device_reset;
+ 
 -
--	if (pdev->bus->self)
--		pcie_capability_clear_word(pdev->bus->self, PCI_EXP_LNKCTL,
--					   aspm_ctl);
--}
--#endif
--static void e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
--{
--	dev_info(&pdev->dev, "Disabling ASPM %s %s\n",
--		 (state & PCIE_LINK_STATE_L0S) ? "L0s" : "",
--		 (state & PCIE_LINK_STATE_L1) ? "L1" : "");
-+	pcie_capability_clear_word(pdev, PCI_EXP_LNKCTL, aspm_dis_mask);
+ 	hw->dev_spec._82575.global_device_reset = false;
  
--	__e1000e_disable_aspm(pdev, state);
-+	if (parent)
-+		pcie_capability_clear_word(parent, PCI_EXP_LNKCTL,
-+					   aspm_dis_mask);
- }
+ 	/* due to hw errata, global device reset doesn't always
+@@ -2165,7 +2164,7 @@ static s32 igb_reset_hw_82580(struct e1000_hw *hw)
  
- #ifdef CONFIG_PM
+ 	/* Clear any pending interrupt events. */
+ 	wr32(E1000_IMC, 0xffffffff);
+-	icr = rd32(E1000_ICR);
++	rd32(E1000_ICR);
+ 
+ 	ret_val = igb_reset_mdicnfg_82580(hw);
+ 	if (ret_val)
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index c1d72c0..090ee56 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -3844,7 +3844,6 @@ bool igb_has_link(struct igb_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	bool link_active = false;
+-	s32 ret_val = 0;
+ 
+ 	/* get_link_status is set on LSC (link status) interrupt or
+ 	 * rx sequence error interrupt.  get_link_status will stay
+@@ -3853,16 +3852,11 @@ bool igb_has_link(struct igb_adapter *adapter)
+ 	 */
+ 	switch (hw->phy.media_type) {
+ 	case e1000_media_type_copper:
+-		if (hw->mac.get_link_status) {
+-			ret_val = hw->mac.ops.check_for_link(hw);
+-			link_active = !hw->mac.get_link_status;
+-		} else {
+-			link_active = true;
+-		}
+-		break;
++		if (!hw->mac.get_link_status)
++			return true;
+ 	case e1000_media_type_internal_serdes:
+-		ret_val = hw->mac.ops.check_for_link(hw);
+-		link_active = hw->mac.serdes_has_link;
++		hw->mac.ops.check_for_link(hw);
++		link_active = !hw->mac.get_link_status;
+ 		break;
+ 	default:
+ 	case e1000_media_type_unknown:
+diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
+index 7e8c477..5a54e3d 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ptp.c
++++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
+@@ -97,14 +97,14 @@ static cycle_t igb_ptp_read_82580(const struct cyclecounter *cc)
+ {
+ 	struct igb_adapter *igb = container_of(cc, struct igb_adapter, cc);
+ 	struct e1000_hw *hw = &igb->hw;
++	u32 lo, hi;
+ 	u64 val;
+-	u32 lo, hi, jk;
+ 
+ 	/* The timestamp latches on lowest register read. For the 82580
+ 	 * the lowest register is SYSTIMR instead of SYSTIML.  However we only
+ 	 * need to provide nanosecond resolution, so we just ignore it.
+ 	 */
+-	jk = rd32(E1000_SYSTIMR);
++	rd32(E1000_SYSTIMR);
+ 	lo = rd32(E1000_SYSTIML);
+ 	hi = rd32(E1000_SYSTIMH);
+ 
+@@ -118,13 +118,13 @@ static cycle_t igb_ptp_read_82580(const struct cyclecounter *cc)
+ static void igb_ptp_read_i210(struct igb_adapter *adapter, struct timespec *ts)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+-	u32 sec, nsec, jk;
++	u32 sec, nsec;
+ 
+ 	/* The timestamp latches on lowest register read. For I210/I211, the
+ 	 * lowest register is SYSTIMR. Since we only need to provide nanosecond
+ 	 * resolution, we can ignore it.
+ 	 */
+-	jk = rd32(E1000_SYSTIMR);
++	rd32(E1000_SYSTIMR);
+ 	nsec = rd32(E1000_SYSTIML);
+ 	sec = rd32(E1000_SYSTIMH);
+ 
 -- 
 1.8.3.1
