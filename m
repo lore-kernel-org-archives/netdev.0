@@ -1,45 +1,60 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH RFC net-next] net: epoll support for busy poll
-Date: Wed, 21 Aug 2013 18:09:06 +0300
-Message-ID: <5214D812.3090906@linux.intel.com>
-References: <20130821103954.30607.6819.stgit@ladj378.jer.intel.com> <1377093188.4226.108.camel@edumazet-glaptop>
+From: Johannes Naab <jn@stusta.de>
+Subject: Re: [PATCH 2/2] net: netem: always adjust now/delay when not reordering
+Date: Wed, 21 Aug 2013 17:17:06 +0200
+Message-ID: <5214D9F2.90900@stusta.de>
+References: <1377011469-26151-1-git-send-email-mailings@hupie.com> <1377011469-26151-2-git-send-email-mailings@hupie.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1377093188.4226.108.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: mailings@hupie.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.stusta.mhn.de ([141.84.69.5]:32952 "EHLO
+	mail.stusta.mhn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751618Ab3HUPXx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 11:23:53 -0400
+In-Reply-To: <1377011469-26151-2-git-send-email-mailings@hupie.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 21/08/2013 16:53, Eric Dumazet wrote:
-> On Wed, 2013-08-21 at 13:39 +0300, Eliezer Tamir wrote:
+On 08/20/2013 05:11 PM, Ferry Huberts wrote:
+> From: Ferry Huberts <ferry.huberts@pelagic.nl>
 > 
->>
->> Instead of remembering the napi_id for all the sockets in an epoll,
->> we only track the first socket we see with any unique napi_id.
->> The rational for this is that while there may be many thousands of
->> sockets tracked by a single epoll, we expect to only see a handful
->> of unique napi_ids in most cases.
+> Not doing this (current behaviour) introduces reordering.
 > 
-> This looks buggy assumption to me.
+> The packet_len_2_sched_time call is the only thing that logically
+> depends on q->rate, so move the now/delay adjustment out of the if.
 > 
-> We use epoll() with in the order of millions of fds per epoller, and
-> typically one napi_id per cpu.
-> 
-> With your model, we would have to use nr_cpu epollers and make sure that
-> sockets are properly placed on those epollers by their napi_ids.
+> Signed-off-by: Ferry Huberts <ferry.huberts@pelagic.nl>
+> ---
 
-There is no assumption here on how the user configures epoll.
-All we are doing is reducing the list of sockets monitored
-by an epoll instance to a smaller subset where each NAPI_ID
-appears only once.
+Hi,
 
-The user is free to have an epoll monitor sockets from queues
-associated to any CPU.
+The documentation for netem does explicitly mention the reordering with
+jitter, and gives instructions on how to avoid it. (I have not tested if
+it works as intended).
+
+http://www.linuxfoundation.org/collaborate/workgroups/networking/netem#How_to_reorder_packets_based_on_jitter.3F
+
+Could you test if that fixes your problem already?
+
+
+Assuming that the documentation is right:
+
+For the sake of stability I strongly oppose changing existing and
+documented behavior without opt-in. (Then again I'm not involved in
+kernel development.)
+
+If the documentation turns out to be wrong:
+
+The netem rate extension (with all the reordering changes for that case,
+which are needed for proper rate emulation in that model) was introduced
+in 3.3 by Hagen Paul Pfeifer
+http://marc.info/?l=linux-netdev&m=132215646820338&w=2. You could ping
+him, and try to get his input/Acked-by on your patch. I only did some
+bug fixing in 3.8 http://marc.info/?l=linux-netdev&m=135897762224399&w=2.
+
+Best regards,
+
+Johannes
+-- 
