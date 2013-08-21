@@ -1,47 +1,36 @@
-From: Andy King <acking@vmware.com>
-Subject: Re: [PATCH] VMXNET3: Add support for virtual IOMMU
-Date: Wed, 21 Aug 2013 06:37:34 -0700 (PDT)
-Message-ID: <1944820276.33601674.1377092254160.JavaMail.root@vmware.com>
-References: <1377020012-1839-1-git-send-email-acking@vmware.com>
-	<20130821.000255.1258155583733908892.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC net-next] net: epoll support for busy poll
+Date: Wed, 21 Aug 2013 06:53:08 -0700
+Message-ID: <1377093188.4226.108.camel@edumazet-glaptop>
+References: <20130821103954.30607.6819.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org,
-	Greg KH <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130821.000255.1258155583733908892.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130821103954.30607.6819.stgit@ladj378.jer.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adding Greg, since this will apply to a similar patchset I sent out
-for VMCI.
+On Wed, 2013-08-21 at 13:39 +0300, Eliezer Tamir wrote:
 
------ Original Message -----
-> From: Andy King <acking@vmware.com>
-> Date: Tue, 20 Aug 2013 10:33:32 -0700
 > 
-> > We can't just do virt_to_phys() on memory that we pass to the device and
-> > expect it to work in presence of a virtual IOMMU.  We need to add IOMMU
-> > mappings for such DMAs to work correctly.  Fix that with
-> > pci_alloc_consistent() where possible, or pci_map_single() where the
-> > mapping is short-lived or we don't control the allocation (netdev).
->
-> Please use dma_alloc_coherent() (or in fact dma_zalloc_coherent()),
-> dma_map_single() et al., because they are preferred and in particular
-> allow specification of GFP_* flags
+> Instead of remembering the napi_id for all the sockets in an epoll,
+> we only track the first socket we see with any unique napi_id.
+> The rational for this is that while there may be many thousands of
+> sockets tracked by a single epoll, we expect to only see a handful
+> of unique napi_ids in most cases.
 
-Sorry about that, I'll fix that and send out a new patch.
+This looks buggy assumption to me.
 
-Thanks!
-- Andy
+We use epoll() with in the order of millions of fds per epoller, and
+typically one napi_id per cpu.
+
+With your model, we would have to use nr_cpu epollers and make sure that
+sockets are properly placed on those epollers by their napi_ids.
