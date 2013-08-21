@@ -1,29 +1,59 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH V2] ipv6: handle Redirect ICMP Message with no Redirected Header option
-Date: Wed, 21 Aug 2013 05:04:27 +0200
-Message-ID: <20130821030427.GD20223@order.stressinduktion.org>
-References: <52131725.6000409@cn.fujitsu.com> <20130820115020.GB3938@order.stressinduktion.org> <52142209.6030406@cn.fujitsu.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the trivial tree with the net-next tree
+Date: Wed, 21 Aug 2013 14:17:15 +1000
+Message-ID: <20130821141715.a1b18a28965e341531775656@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:36032 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752045Ab3HUDE3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 23:04:29 -0400
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Wed__21_Aug_2013_14_17_15_+1000_Yu.tMxvqGDXj4q8M"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Masanari Iida <standby24x7@gmail.com>,
+	Manish Chopra <manish.chopra@qlogic.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Jiri Kosina <jkosina@suse.cz>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--Signature=_Wed__21_Aug_2013_14_17_15_+1000_Yu.tMxvqGDXj4q8M
+Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
-In-Reply-To: <52142209.6030406@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-On Wed, Aug 21, 2013 at 10:12:25AM +0800, Duan Jiong wrote:
-> > Introducing a new function here is the right thing. Maybe you could have
-> > a look how these redirects could be fed to raw sockets, too?
-> > 
-> Because of no Redirected Header option, so we don't have enough
-> information to find out the related raw socket. So, there is no need
-> to deal with that condition.
+Hi Jiri,
 
-Ah, of course. I thought we could look up the socket solely by src and
-dst address. I forgot about the protocol.
+Today's linux-next merge of the trivial tree got a conflict in
+drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c between commit
+068a8d197e00 ("qlcnic: Replace poll mode mailbox interface with interrupt
+based mailbox interface") from the  tree and commit 0b1587b18bfe
+("treewide: Fix typo in printk") from the trivial tree.
+
+I fixed it up (the former removed the line fixed by the latter, so I used
+that) and can carry the fix as necessary (no action is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Wed__21_Aug_2013_14_17_15_+1000_Yu.tMxvqGDXj4q8M
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.20 (GNU/Linux)
+
+iQIcBAEBCAAGBQJSFD9LAAoJEECxmPOUX5FE6NIP/Rp0WZ+gNRLq4BTRU+bRk7Vu
+3A9p3UumTbDR+4O+8PE1NUVvu2mC29FXdVeZpKggzcS1J2dbc2j+3KpUGjS1yy3l
++AsW3MYFiRxO5+dM8k4BcGbcE8E+83bH9xCI/saHFR7VoV8mod8BUQwLoqkKGTYW
+yJQdCsnYr3aEUbj+nJkOSO97iY83qUangtERX37gxATLguER+Wabtha0RZm/Tmio
+W7tIc7Suemwqcca4wGW9P/EvYPPaQSqceTP92YtgWQWOzSdO/Nzfpga1SrBvGha0
+Fp2EbyMQhpQVZK0G/dSqVuYDB0Ee1drLrhSSZDsT1BiAdKm6aeWGPNiXYBoyq2Ye
+DeOSOHD6wNxB5Rqdl5fQkMTDT6ivq2LVjonrDJAFqaNV2yBsJ3TlPVPSmIB+/wLA
+2ixeKE1nk3WoYuT9gu4mSh3tV1wTU/IoxAA3+VwKrOuOmWb+qpAv7mh4inDkhtBn
+4BK5PPSyeBzlOOfiwWDLO7jn5dx3ceg6t3ugudO9eZKNidy7waoheN27vPV8EO4t
+yUWTKG+Zmpris3AQV+R2ZJbcgNGGm1mwjBU4kTMOtK9hYeJXE/mCdSvHLrXwhV7i
+qzyCsnqAt7sIjmqh5MqINRUZxRtGR8KSOtqdfw4dNKBppx8B4LkrhFco/pIB1jxt
+vOFUYblOsORTtYHF7H6u
+=t1XW
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__21_Aug_2013_14_17_15_+1000_Yu.tMxvqGDXj4q8M--
