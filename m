@@ -1,50 +1,53 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v3] net/hsr: Add support for the High-availability
- Seamless Redundancy protocol (HSRv0)
-Date: Wed, 21 Aug 2013 12:38:15 -0700
-Message-ID: <1377113895.1936.50.camel@joe-AO722>
-References: <521504E1.5060309@xdin.com> <1377111680.1936.45.camel@joe-AO722>
-	 <52150F95.7060004@cogentembedded.com>
+From: Dinh Nguyen <dinguyen@altera.com>
+Subject: Re: [RFC] phy: micrel: Convert micrel PHY driver to use OF
+Date: Wed, 21 Aug 2013 15:00:48 -0500
+Message-ID: <1377115248.1554.20.camel@linux-builds1>
+References: <1376412156-3899-1-git-send-email-dinguyen@altera.com>
+	 <CACRpkdZkyeA5ExvHQPExNBq5qB1hDHON32TO63BmtVrRxDxhXw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Arvid Brodin <arvid.brodin@xdin.com>,
+Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Dinh Nguyen <dinh.linux@gmail.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Javier Boticario <jboticario@gmail.com>,
-	balferreira <balferreira@googlemail.com>,
-	David Miller <davem@davemloft.net>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+	Richard Cochran <richardcochran@gmail.com>,
+	Felipe Balbi <balbi@ti.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Olof Johansson <olof@lixom.net>,
+	Rob Herring <rob.herring@calxeda.com>
+To: Linus Walleij <linus.walleij@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:39843 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752069Ab3HUTiQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Aug 2013 15:38:16 -0400
-In-Reply-To: <52150F95.7060004@cogentembedded.com>
+Received: from co1ehsobe001.messaging.microsoft.com ([216.32.180.184]:22603
+	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752498Ab3HUUAn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 16:00:43 -0400
+In-Reply-To: <CACRpkdZkyeA5ExvHQPExNBq5qB1hDHON32TO63BmtVrRxDxhXw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-08-21 at 23:05 +0400, Sergei Shtylyov wrote:
-> On 08/21/2013 11:01 PM, Joe Perches wrote:
-> >> High-availability Seamless Redundancy ("HSR") provides instant failover
-> >> redundancy for Ethernet networks. It requires a special network topology where
-> >> all nodes are connected in a ring (each node having two physical network
-> >> interfaces). It is suited for applications that demand high availability and
-> >> very short reaction time.
-
-Hi back.
-
-> >> +	if (likely(res1 == NET_XMIT_SUCCESS || res1 == NET_XMIT_CN ||
-> >> +		   res2 == NET_XMIT_SUCCESS || res2 == NET_XMIT_CN)) {
+On Thu, 2013-08-15 at 21:55 +0200, Linus Walleij wrote:
+> On Tue, Aug 13, 2013 at 6:42 PM,  <dinguyen@altera.com> wrote:
 > 
-> > This might be faster using | instead of ||
+> > From: Dinh Nguyen <dinguyen@altera.com>
+> >
+> > Convert the Micrel PHY driver to use OF. This initial patch is only
+> > the beginning of an idea to convert the PHY driver to device tree.
+> >
+> > Signed-of-by: Dinh Nguyen <dinguyen@altera.com>
 > 
->     Doesn't || use shortcut evaluation in C? I.e. if the 1st == evaluates to 
-> true, other comparisons are not even done.
+> This is full of device tree stuff so please copy it to
+> devicetree@vger.kernel.org.
+> 
+> It seems to add quite a few compatible strings so these should
+> be added to the bindings doc, or is it already?
 
-Yes it does.
+No, there is not a bindings doc yet. I was just trying to see if this is
+the right approach..
 
-But if the 1st 3 comparisons are false and the
-last comparison is true then those 3 tests and 
-jumps are also done which takes additional
-branch predictions paths.  Oring is fast.
+Thanks,
+Dinh
+> 
+> Yours,
+> Linus Walleij
+> 
