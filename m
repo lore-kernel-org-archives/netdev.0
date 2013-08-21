@@ -1,82 +1,48 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2013-08-21
-Date: Wed, 21 Aug 2013 09:42:55 +0200
-Message-ID: <52146F7F.6010001@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="OBJMXlfAeKdhUlBugQjW11apdbQF8FaiS"
-Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"kernel@pengutronix.de" <kernel@pengutronix.de>
-To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next  05/15] igb: Update MTU so that it is always at least a standard frame size
+Date: Wed, 21 Aug 2013 01:23:26 -0700
+Message-ID: <1377073416-7872-6-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1377073416-7872-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:2670 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751981Ab3HUIXq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Aug 2013 04:23:46 -0400
+In-Reply-To: <1377073416-7872-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---OBJMXlfAeKdhUlBugQjW11apdbQF8FaiS
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Hello David,
+This change makes it so that we limit the lower bound for max_frame_size to
+the size of a standard Ethernet frame.  This allows for feature parity with
+other Intel based drivers such as ixgbe.
 
-this pull-request for net-next consists of a series by Alexander
-Shiyan, he cleans up the mcp251x driver. As the first patch touches
-arch/arm/mach-pxa, it's acked by Haojian Zhuang.
-
-regards,
-Marc
-
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
+ drivers/net/ethernet/intel/igb/igb_main.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-The following changes since commit 954c396756e3d31985f7bc6a414a988a4736a7=
-d0:
-
-  net/phy: micrel: Add OF configuration support for ksz9021 (2013-08-21 0=
-0:03:38 -0700)
-
-are available in the git repository at:
-
-  git://gitorious.org/linux-can/linux-can-next.git for-davem
-
-for you to fetch changes up to b1ef05a5a20afe50d4188a5b59579bd140758cf0:
-
-  can: mcp251x: Allow tuning SPI mode and limit maximal SPI speed (2013-0=
-8-21 09:28:29 +0200)
-
-----------------------------------------------------------------
-Alexander Shiyan (3):
-      can: mcp251x: Replace power callbacks with regulator API
-      can: mcp251x: Eliminate irq_flags from driver platform_data
-      can: mcp251x: Allow tuning SPI mode and limit maximal SPI speed
-
- arch/arm/mach-pxa/icontrol.c         |  3 --
- arch/arm/mach-pxa/zeus.c             | 46 +++++++++--------
- drivers/net/can/mcp251x.c            | 98 ++++++++++++++++++------------=
-------
- include/linux/can/platform/mcp251x.h | 15 +-----
- 4 files changed, 75 insertions(+), 87 deletions(-)
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---OBJMXlfAeKdhUlBugQjW11apdbQF8FaiS
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlIUb38ACgkQjTAFq1RaXHN45wCfYk34pGy3oaAU8Qro9UNDlCh4
-4BcAn0CaNhb/hcB1T70lrLys6b9Upfqx
-=fXZS
------END PGP SIGNATURE-----
-
---OBJMXlfAeKdhUlBugQjW11apdbQF8FaiS--
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 94295a0..1a0137d 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -4813,6 +4813,10 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
+ 		return -EINVAL;
+ 	}
+ 
++	/* adjust max frame to be at least the size of a standard frame */
++	if (max_frame < (ETH_FRAME_LEN + ETH_FCS_LEN))
++		max_frame = ETH_FRAME_LEN + ETH_FCS_LEN;
++
+ 	while (test_and_set_bit(__IGB_RESETTING, &adapter->state))
+ 		msleep(1);
+ 
+-- 
+1.8.3.1
