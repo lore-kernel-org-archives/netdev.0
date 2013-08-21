@@ -1,54 +1,61 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v3] net/hsr: Add support for the High-availability Seamless
- Redundancy protocol (HSRv0)
-Date: Wed, 21 Aug 2013 23:05:57 +0400
-Message-ID: <52150F95.7060004@cogentembedded.com>
-References: <521504E1.5060309@xdin.com> <1377111680.1936.45.camel@joe-AO722>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH 0/2] fix generic netlink locking issue(s)
+Date: Wed, 21 Aug 2013 21:05:43 +0200
+Message-ID: <52150F87.90207@hartkopp.net>
+References: <1377094083-8122-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Arvid Brodin <arvid.brodin@xdin.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Javier Boticario <jboticario@gmail.com>,
-	balferreira <balferreira@googlemail.com>,
-	David Miller <davem@davemloft.net>
-To: Joe Perches <joe@perches.com>
+Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:40816 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751969Ab3HUTFw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 15:05:52 -0400
-Received: by mail-lb0-f178.google.com with SMTP id z5so934263lbh.37
-        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 12:05:50 -0700 (PDT)
-In-Reply-To: <1377111680.1936.45.camel@joe-AO722>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:63234 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752377Ab3HUTGN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 15:06:13 -0400
+In-Reply-To: <1377094083-8122-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 21.08.2013 16:08, Johannes Berg wrote:
+> Here's another attempt at fixing the genetlink locking issue,
+> hopefully better tested this time. Sorry about the mess the 
+> previous version caused.
+> 
+> I really didn't find a way to "simply" add locking, no matter
+> which way I turn genetlink is special because it would then use
+> the same locks "inside" and "outside" the generic netlink family;
+> "inside" because I'm trying to protect the otherwise unlocked
+> dump call, and "outside" because it itself is a generic netlink
+> family so needs to protect things there.
+> 
+> As a result, I've turned to RCU and (hopefully) made it safe.
+> The unregistration can get fairly expensive with all the calls
+> to synchronize_rcu(), but I don't see any better way, and it's
+> hopefully really rare.
+> 
+> The only place that now uses RCU is ctrl_dumpfamily(), but it'd
+> be possible to use it in other places. I didn't want to do it
+> in this patch, but I also don't see any candidates where that 
+> would really make sense. 
+> 
+> The first patch should obviously go into 3.11, I'll let you 
+> decide about the second. This one might actually be easier to
+> backport than the original one, but it'd still have to be done
+> carefully.
 
-On 08/21/2013 11:01 PM, Joe Perches wrote:
+I applied both patches.
+The lockdep issue vanished and i still can write emails :-)
 
->> High-availability Seamless Redundancy ("HSR") provides instant failover
->> redundancy for Ethernet networks. It requires a special network topology where
->> all nodes are connected in a ring (each node having two physical network
->> interfaces). It is suited for applications that demand high availability and
->> very short reaction time.
+Thanks Johannes.
 
-> Hi Arvid.
+Tested-by: Oliver Hartkopp <socketcan@hartkopp.net>
 
-> just trivia:
 
->> diff --git a/net/hsr/hsr_device.c b/net/hsr/hsr_device.c
-> []
->> +static int hsr_dev_xmit(struct sk_buff *skb, struct net_device *dev)
-> []
->> +	if (likely(res1 == NET_XMIT_SUCCESS || res1 == NET_XMIT_CN ||
->> +		   res2 == NET_XMIT_SUCCESS || res2 == NET_XMIT_CN)) {
-
-> This might be faster using | instead of ||
-
-    Doesn't || use shortcut evaluation in C? I.e. if the 1st == evaluates to 
-true, other comparisons are not even done.
-
-WBR, Sergei
+> 
+> johannes
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
