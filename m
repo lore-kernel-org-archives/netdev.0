@@ -1,100 +1,58 @@
-From: mailings@hupie.com
-Subject: Re: [PATCH v2 2/2] net: netem: always adjust now/delay when not    
-       reordering
-Date: Wed, 21 Aug 2013 16:02:26 +0200 (CEST)
-Message-ID: <59065.80.101.237.101.1377093746.squirrel@hupie.dyndns.org>
-References: <1377030800.4226.89.camel@edumazet-glaptop>   
-    <1377064785-12629-1-git-send-email-mailings@hupie.com>   
-    <1377065647.4226.96.camel@edumazet-glaptop> <5214668E.504@hupie.com>   
-    <1377091824.4226.102.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Ferry Huberts" <mailings@hupie.com>, netdev@vger.kernel.org
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH 1/2] Revert "genetlink: fix family dump race"
+Date: Wed, 21 Aug 2013 16:08:02 +0200
+Message-ID: <1377094083-8122-2-git-send-email-johannes@sipsolutions.net>
+References: <1377094083-8122-1-git-send-email-johannes@sipsolutions.net>
+Cc: Thomas Graf <tgraf@suug.ch>,
+	Johannes Berg <johannes.berg@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hupie.dyndns.org ([80.101.237.101]:55403 "EHLO hupie.dyndns.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751557Ab3HUOC2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Aug 2013 10:02:28 -0400
-In-Reply-To: <1377091824.4226.102.camel@edumazet-glaptop>
+Received: from s3.sipsolutions.net ([144.76.43.152]:59334 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751591Ab3HUOIK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 10:08:10 -0400
+In-Reply-To: <1377094083-8122-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> On Wed, 2013-08-21 at 09:04 +0200, Ferry Huberts wrote:
->> On 21/08/13 08:14, Eric Dumazet wrote:
->> > On Wed, 2013-08-21 at 07:59 +0200, Ferry Huberts wrote:
->> >> From: Ferry Huberts <ferry.huberts@pelagic.nl>
->> >>
->> >> Not doing this (current behaviour) introduces reordering.
->> >>
->> >> The packet_len_2_sched_time call is the only thing that logically
-depends on q->rate, so move the now/delay adjustment out of the if.
->> >>
->> >> How to test:
->> >> -----------
->> >
->> > I ask again :
->> >
->> > Did you test a config with both rate limiting and delay.
->> (sorry for missing that question)
->> Just did so and with rate limiting I get no reordering, which is
-logical
->> looking at the code.
->> The thing is, the evaluation q->rate is within the 'no-reordering'
-block
->> and in the current situation you can get reordering (with that
-'strange'
->> command). My patch makes sure that no reordering will occur, and
-effectively 'clamps' the realised delay, which currently isn't done.
->
->
-> OK, let me be very clear.
->
-> I would like you post the results of regression tests, to make sure that
-you do not add a new regression.
->
+From: Johannes Berg <johannes.berg@intel.com>
 
-Since I'm new to netdev development and therefore the processes attached
-to it, let me ask where I can find such regression tests?
+This reverts commit 58ad436fcf49810aa006016107f494c9ac9013db.
 
-I'm happy to run them once I know about them... ;-)
+It turns out that the change introduced a potential deadlock
+by causing a locking dependency with netlink's cb_mutex. I
+can't seem to find a way to resolve this without doing major
+changes to the locking, so revert this.
 
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ net/netlink/genetlink.c | 7 -------
+ 1 file changed, 7 deletions(-)
 
-> It seems that you want _us_ to check all this for you.
->
-> With "rate 1Mbits delay 100ms 10ms", and ping probes sent every 100ms,
-the pong reply of _all_ probes should be between 90ms and 110ms
->
-> Is it still the case after your patch ?
->
-
-Yes it is.
-
-In the script I described in the commit message I replaced the line
-  tc qdisc add dev "${fields[1]}" handle 1 root netem delay 10ms 500ms
-with the line (1Mbit gave 'Illegal "rate"')
-  tc qdisc add dev "${fields[1]}" handle 1 root netem rate 1024000 delay
-100ms 10ms
-
-The output then was (tried a 10 times):
-# ./netemreordering
-PING 192.168.160.1 (192.168.160.1) 56(84) bytes of data.
-64 bytes from 192.168.160.1: icmp_seq=1 ttl=254 time=114 ms
-64 bytes from 192.168.160.1: icmp_seq=2 ttl=254 time=109 ms
-64 bytes from 192.168.160.1: icmp_seq=3 ttl=254 time=106 ms
-64 bytes from 192.168.160.1: icmp_seq=4 ttl=254 time=100 ms
-64 bytes from 192.168.160.1: icmp_seq=5 ttl=254 time=111 ms
-64 bytes from 192.168.160.1: icmp_seq=6 ttl=254 time=92.2 ms
-64 bytes from 192.168.160.1: icmp_seq=7 ttl=254 time=99.8 ms
-64 bytes from 192.168.160.1: icmp_seq=8 ttl=254 time=91.4 ms
-64 bytes from 192.168.160.1: icmp_seq=9 ttl=254 time=97.4 ms
-64 bytes from 192.168.160.1: icmp_seq=10 ttl=254 time=95.5 ms
-
---- 192.168.160.1 ping statistics ---
-10 packets transmitted, 10 received, 0% packet loss, time 910ms
-rtt min/avg/max/mdev = 91.413/101.879/114.534/7.723 ms, pipe 2
-
-
-Is this enough?
-Please let me know, I'm happy to oblige.
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index f85f8a2..512718a 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -789,10 +789,6 @@ static int ctrl_dumpfamily(struct sk_buff *skb, struct netlink_callback *cb)
+ 	struct net *net = sock_net(skb->sk);
+ 	int chains_to_skip = cb->args[0];
+ 	int fams_to_skip = cb->args[1];
+-	bool need_locking = chains_to_skip || fams_to_skip;
+-
+-	if (need_locking)
+-		genl_lock();
+ 
+ 	for (i = chains_to_skip; i < GENL_FAM_TAB_SIZE; i++) {
+ 		n = 0;
+@@ -814,9 +810,6 @@ errout:
+ 	cb->args[0] = i;
+ 	cb->args[1] = n;
+ 
+-	if (need_locking)
+-		genl_unlock();
+-
+ 	return skb->len;
+ }
+ 
+-- 
+1.8.4.rc2
