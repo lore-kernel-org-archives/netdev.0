@@ -1,46 +1,104 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  12/15] e1000e: cleanup whitespace in recent commit
-Date: Wed, 21 Aug 2013 01:23:33 -0700
-Message-ID: <1377073416-7872-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next  08/15] igb: Add device support for flashless SKU of i210 device
+Date: Wed, 21 Aug 2013 01:23:29 -0700
+Message-ID: <1377073416-7872-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1377073416-7872-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:29745 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:2670 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751981Ab3HUIXx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Aug 2013 04:23:53 -0400
+	id S1751659Ab3HUIXs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Aug 2013 04:23:48 -0400
 In-Reply-To: <1377073416-7872-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-Commit c96ddb0b moved a define from one file to another but missed using
-proper indentation/whitespace.
+This patch adds the specific device id support for versions of i210 that do
+not have flash installed.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/hw.h | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/igb/e1000_82575.c |  2 ++
+ drivers/net/ethernet/intel/igb/e1000_hw.h    |  2 ++
+ drivers/net/ethernet/intel/igb/igb_ethtool.c | 15 +++++++++++++--
+ drivers/net/ethernet/intel/igb/igb_main.c    |  2 ++
+ 4 files changed, 19 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
-index b799fd9..b7f3843 100644
---- a/drivers/net/ethernet/intel/e1000e/hw.h
-+++ b/drivers/net/ethernet/intel/e1000e/hw.h
-@@ -233,7 +233,8 @@ union e1000_rx_desc_extended {
- #define MAX_PS_BUFFERS 4
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
+index 8d79fac..d398fad 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.c
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
+@@ -483,6 +483,8 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
+ 	case E1000_DEV_ID_I210_FIBER:
+ 	case E1000_DEV_ID_I210_SERDES:
+ 	case E1000_DEV_ID_I210_SGMII:
++	case E1000_DEV_ID_I210_COPPER_FLASHLESS:
++	case E1000_DEV_ID_I210_SERDES_FLASHLESS:
+ 		mac->type = e1000_i210;
+ 		break;
+ 	case E1000_DEV_ID_I211_COPPER:
+diff --git a/drivers/net/ethernet/intel/igb/e1000_hw.h b/drivers/net/ethernet/intel/igb/e1000_hw.h
+index 4329e8c..37a9c06 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_hw.h
++++ b/drivers/net/ethernet/intel/igb/e1000_hw.h
+@@ -67,6 +67,8 @@ struct e1000_hw;
+ #define E1000_DEV_ID_I210_FIBER			0x1536
+ #define E1000_DEV_ID_I210_SERDES		0x1537
+ #define E1000_DEV_ID_I210_SGMII			0x1538
++#define E1000_DEV_ID_I210_COPPER_FLASHLESS	0x157B
++#define E1000_DEV_ID_I210_SERDES_FLASHLESS	0x157C
+ #define E1000_DEV_ID_I211_COPPER		0x1539
+ #define E1000_DEV_ID_I354_BACKPLANE_1GBPS	0x1F40
+ #define E1000_DEV_ID_I354_SGMII			0x1F41
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index 6d861a5..03137e2 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -1335,12 +1335,23 @@ static int igb_reg_test(struct igb_adapter *adapter, u64 *data)
  
- /* Number of packet split data buffers (not including the header buffer) */
--#define PS_PAGE_BUFFERS			(MAX_PS_BUFFERS - 1)
-+#define PS_PAGE_BUFFERS	(MAX_PS_BUFFERS - 1)
+ static int igb_eeprom_test(struct igb_adapter *adapter, u64 *data)
+ {
++	struct e1000_hw *hw = &adapter->hw;
 +
- /* Receive Descriptor - Packet Split */
- union e1000_rx_desc_packet_split {
- 	struct {
+ 	*data = 0;
+ 
+-	/* Validate eeprom on all parts but i211 */
+-	if (adapter->hw.mac.type != e1000_i211) {
++	/* Validate eeprom on all parts but flashless */
++	switch (hw->mac.type) {
++	case e1000_i210:
++	case e1000_i211:
++		if (igb_get_flash_presence_i210(hw)) {
++			if (adapter->hw.nvm.ops.validate(&adapter->hw) < 0)
++				*data = 2;
++		}
++		break;
++	default:
+ 		if (adapter->hw.nvm.ops.validate(&adapter->hw) < 0)
+ 			*data = 2;
++		break;
+ 	}
+ 
+ 	return *data;
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 387864d..a53c77b 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -85,6 +85,8 @@ static DEFINE_PCI_DEVICE_TABLE(igb_pci_tbl) = {
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_I210_FIBER), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_I210_SERDES), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_I210_SGMII), board_82575 },
++	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_I210_COPPER_FLASHLESS), board_82575 },
++	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_I210_SERDES_FLASHLESS), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_I350_COPPER), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_I350_FIBER), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_I350_SERDES), board_82575 },
 -- 
 1.8.3.1
