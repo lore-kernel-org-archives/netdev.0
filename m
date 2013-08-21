@@ -1,55 +1,145 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git) 2/2] stmmac: remove useless csum flag
-Date: Wed, 21 Aug 2013 07:28:28 +0200
-Message-ID: <1377062908-16543-2-git-send-email-peppe.cavallaro@st.com>
-References: <1377062908-16543-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Sonic Zhang <sonic.zhang@analog.com>
+From: Ferry Huberts <mailings@hupie.com>
+Subject: [PATCH v2 2/2] net: netem: always adjust now/delay when not reordering
+Date: Wed, 21 Aug 2013 07:59:45 +0200
+Message-ID: <1377064785-12629-1-git-send-email-mailings@hupie.com>
+References: <1377030800.4226.89.camel@edumazet-glaptop>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:47455 "EHLO
-	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752062Ab3HUFeU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 01:34:20 -0400
-In-Reply-To: <1377062908-16543-1-git-send-email-peppe.cavallaro@st.com>
+Received: from hupie.dyndns.org ([80.101.237.101]:48133 "EHLO hupie.dyndns.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752012Ab3HUF7r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Aug 2013 01:59:47 -0400
+Received: from stinkpad.internal.hupie.com.internal.hupie.com (s529dac66.adsl.online.nl [82.157.172.102])
+	by hupie.dyndns.org (Postfix) with ESMTP id 533DF485E18
+	for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 07:59:46 +0200 (CEST)
+In-Reply-To: <1377030800.4226.89.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes the no_csum_insertion private parameter that is not used anymore
-and, also,  the "likely" annotation from the condition that is not in a critical path.
+From: Ferry Huberts <ferry.huberts@pelagic.nl>
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Cc: Sonic Zhang <sonic.zhang@analog.com>
+Not doing this (current behaviour) introduces reordering.
+
+The packet_len_2_sched_time call is the only thing that logically
+depends on q->rate, so move the now/delay adjustment out of the if.
+
+How to test:
+------------
+- Create a script to ping the default gateway using a queueing discipline:
+cat > ./netemreordering << "EOF"
+fields=( $(route -n | grep -E '^0.0.0.0\b' | awk '{ print $2 " " $NF; }') )
+tc qdisc del dev "${fields[1]}" root
+tc qdisc add dev "${fields[1]}" handle 1 root netem delay 10ms 500ms
+ping -c 10 -i 0.1 -W 18 "${fields[0]}"
+tc qdisc del dev "${fields[1]}" root
+EOF
+chmod 755 ./netemreordering
+- Run the script:
+sudo ./netemreordering
+
+
+Current Behaviour:
+------------------
+PING 10.0.0.1 (10.0.0.1) 56(84) bytes of data.
+64 bytes from 10.0.0.1: icmp_seq=1 ttl=64 time=111 ms
+64 bytes from 10.0.0.1: icmp_seq=3 ttl=64 time=311 ms
+64 bytes from 10.0.0.1: icmp_seq=4 ttl=64 time=201 ms
+64 bytes from 10.0.0.1: icmp_seq=2 ttl=64 time=412 ms
+64 bytes from 10.0.0.1: icmp_seq=8 ttl=64 time=58.1 ms
+64 bytes from 10.0.0.1: icmp_seq=7 ttl=64 time=168 ms
+64 bytes from 10.0.0.1: icmp_seq=5 ttl=64 time=379 ms
+64 bytes from 10.0.0.1: icmp_seq=9 ttl=64 time=171 ms
+64 bytes from 10.0.0.1: icmp_seq=10 ttl=64 time=62.0 ms
+64 bytes from 10.0.0.1: icmp_seq=6 ttl=64 time=491 ms
+
+--- 10.0.0.1 ping statistics ---
+10 packets transmitted, 10 received, 0% packet loss, time 961ms
+rtt min/avg/max/mdev = 58.105/236.707/491.683/144.911 ms, pipe 5
+
+
+Fixed Behaviour:
+----------------
+PING 10.0.0.1 (10.0.0.1) 56(84) bytes of data.
+64 bytes from 10.0.0.1: icmp_seq=1 ttl=64 time=244 ms
+64 bytes from 10.0.0.1: icmp_seq=2 ttl=64 time=135 ms
+64 bytes from 10.0.0.1: icmp_seq=3 ttl=64 time=188 ms
+64 bytes from 10.0.0.1: icmp_seq=4 ttl=64 time=87.7 ms
+64 bytes from 10.0.0.1: icmp_seq=5 ttl=64 time=207 ms
+64 bytes from 10.0.0.1: icmp_seq=6 ttl=64 time=107 ms
+64 bytes from 10.0.0.1: icmp_seq=7 ttl=64 time=199 ms
+64 bytes from 10.0.0.1: icmp_seq=8 ttl=64 time=98.4 ms
+64 bytes from 10.0.0.1: icmp_seq=9 ttl=64 time=61.0 ms
+64 bytes from 10.0.0.1: icmp_seq=10 ttl=64 time=295 ms
+
+--- 10.0.0.1 ping statistics ---
+10 packets transmitted, 10 received, 0% packet loss, time 912ms
+rtt min/avg/max/mdev = 61.002/162.580/295.638/72.336 ms, pipe 3
+
+
+v2:
+- fix checkpatch 'braces' warning
+- add more comments on how to test
+
+Reported-by: Teco Boot <teco@inf-net.nl>
+Signed-off-by: Ferry Huberts <ferry.huberts@pelagic.nl>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac.h      |    1 -
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    3 +--
- 2 files changed, 1 insertions(+), 3 deletions(-)
+ net/sched/sch_netem.c | 35 +++++++++++++++++------------------
+ 1 file changed, 17 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index c922fde..f16a9bd 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -70,7 +70,6 @@ struct stmmac_priv {
- 	struct net_device *dev;
- 	struct device *device;
- 	struct mac_device_info *hw;
--	int no_csum_insertion;
- 	spinlock_t lock;
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index abe5fa6..64e0653 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -457,6 +457,8 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	if (q->gap == 0 || q->reorder == 0 || /* not doing reordering */
+ 	    q->counter < q->gap - 1 ||	/* inside last reordering gap */
+ 	    q->reorder < get_crandom(&q->reorder_cor)) {
++		struct sk_buff *last;
++
+ 		psched_time_t now;
+ 		psched_tdiff_t delay;
  
- 	struct phy_device *phydev ____cacheline_aligned_in_smp;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 45ca081..dbba2c2 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1239,8 +1239,7 @@ static void free_dma_desc_resources(struct stmmac_priv *priv)
-  */
- static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
- {
--	if (likely(priv->plat->force_sf_dma_mode ||
--		   ((priv->plat->tx_coe) && (!priv->no_csum_insertion)))) {
-+	if (priv->plat->force_sf_dma_mode || priv->plat->tx_coe) {
- 		/*
- 		 * In case of GMAC, SF mode can be enabled
- 		 * to perform the TX COE in HW. This depends on:
+@@ -465,26 +467,23 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 
+ 		now = psched_get_time();
+ 
+-		if (q->rate) {
+-			struct sk_buff *last;
+-
+-			if (!skb_queue_empty(&sch->q))
+-				last = skb_peek_tail(&sch->q);
+-			else
+-				last = netem_rb_to_skb(rb_last(&q->t_root));
+-			if (last) {
+-				/*
+-				 * Last packet in queue is reference point (now),
+-				 * calculate this time bonus and subtract
+-				 * from delay.
+-				 */
+-				delay -= netem_skb_cb(last)->time_to_send - now;
+-				delay = max_t(psched_tdiff_t, 0, delay);
+-				now = netem_skb_cb(last)->time_to_send;
+-			}
++		if (!skb_queue_empty(&sch->q))
++			last = skb_peek_tail(&sch->q);
++		else
++			last = netem_rb_to_skb(rb_last(&q->t_root));
++		if (last) {
++			/*
++			 * Last packet in queue is reference point (now),
++			 * calculate this time bonus and subtract
++			 * from delay.
++			 */
++			delay -= netem_skb_cb(last)->time_to_send - now;
++			delay = max_t(psched_tdiff_t, 0, delay);
++			now = netem_skb_cb(last)->time_to_send;
++		}
+ 
++		if (q->rate)
+ 			delay += packet_len_2_sched_time(skb->len, q);
+-		}
+ 
+ 		cb->time_to_send = now + delay;
+ 		cb->tstamp_save = skb->tstamp;
 -- 
-1.7.4.4
+1.8.3.1
