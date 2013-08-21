@@ -1,45 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2013-08-19
-Date: Tue, 20 Aug 2013 17:26:19 -0700 (PDT)
-Message-ID: <20130820.172619.2224001430937589898.davem@davemloft.net>
-References: <20130819185940.GE30753@tuxdriver.com>
+Subject: Re: [PATCH RFC 0/2] Add IPsec virtual tunnel interfaces to IPv6
+Date: Tue, 20 Aug 2013 17:28:18 -0700 (PDT)
+Message-ID: <20130820.172818.250551538126757372.davem@davemloft.net>
+References: <20130819062623.GN26773@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130819185940.GE30753@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49368 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751449Ab3HUA2T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 20:28:19 -0400
+In-Reply-To: <20130819062623.GN26773@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Mon, 19 Aug 2013 14:59:40 -0400
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Mon, 19 Aug 2013 08:26:23 +0200
 
-> This is a batch of fixes intended for the 3.11 stream...
+> This patchset adds support for IPsec virtual tunnel interfaces to IPv6.
 > 
-> Regarding the iwlwifi bits, Johannes says:
+> IPsec virtual tunnel interfaces provide a routable interface for IPsec
+> tunnel endpoints. This does not add any tunnel headers, it uses the
+> generic xfrm tunneling. It just provides an interface for xfrm IPv6
+> tunnels, like the IPv4 side does.
 > 
-> "We revert an rfkill bugfix that unfortunately caused more bugs, shuffle
-> some code to avoid touching the PCIe device before it's enabled and
-> disconnect if firmware fails to do our bidding. I also have Stanislaw's
-> fix to not crash in some channel switch scenarios."
+> It has not much testing yet, I can setup the interface and ping through it.
+> Review and further testing is very wellcome.
 > 
-> As for the mac80211 bits, Johannes says:
-> 
-> "This time, I have one fix from Dan Carpenter for users of
-> nl80211hdr_put(), and one fix from myself fixing a regression with the
-> libertas driver."
-> 
-> Along with the above...
-> 
-> Dan Carpenter fixes some incorrectly placed "address of" operators
-> in hostap that caused copying of junk data.
-> 
-> Jussi Kivilinna corrects zd1201 to use an allocated buffer rather
-> than the stack for a URB operation.
-> 
-> Please let me know if there are problems!
+> I'll send the necessary iproute2 patches in a separate thread.
 
-Pulled, thanks John.
+These changes seem well formed to me.
