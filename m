@@ -1,43 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request net: 2013-08-17b
-Date: Tue, 20 Aug 2013 16:58:05 -0700 (PDT)
-Message-ID: <20130820.165805.1328306127818071916.davem@davemloft.net>
-References: <1376737486-1863-1-git-send-email-ordex@autistici.org>
-	<20130820.165649.385314778551035966.davem@davemloft.net>
+Subject: Re: [PATCH (net.git) 1/2] stmmac: disable at run-time the EEE if
+ not supported
+Date: Tue, 20 Aug 2013 17:04:16 -0700 (PDT)
+Message-ID: <20130820.170416.2028716553359945223.davem@davemloft.net>
+References: <1376894288-31279-1-git-send-email-peppe.cavallaro@st.com>
+	<52126788.4060607@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: ordex@autistici.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48996 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49052 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751541Ab3HTX6G convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 19:58:06 -0400
-In-Reply-To: <20130820.165649.385314778551035966.davem@davemloft.net>
+	with ESMTP id S1751404Ab3HUAER (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 20:04:17 -0400
+In-Reply-To: <52126788.4060607@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: David Miller <davem@davemloft.net>
-Date: Tue, 20 Aug 2013 16:56:49 -0700 (PDT)
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Mon, 19 Aug 2013 22:44:24 +0400
 
-> From: Antonio Quartulli <ordex@autistici.org>
-> Date: Sat, 17 Aug 2013 13:04:44 +0200
->=20
->>   git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-da=
-vem
->  ...
->> Antonio Quartulli (1):
->>       batman-adv: properly end seq_read session
->>=20
->> Linus L=FCssing (1):
->>       batman-adv: check return type of unicast packet preparations
->=20
-> The change by Linus is not in that tree.
->=20
-> When I pulled I only got the seq_rea fix.
+>> @@ -2166,7 +2181,6 @@ static int stmmac_poll(struct napi_struct *napi,
+>> int budget)
+>>   static void stmmac_tx_timeout(struct net_device *dev)
+>>   {
+>>   	struct stmmac_priv *priv = netdev_priv(dev);
+>> -
+>>   	/* Clear Tx resources and restart transmitting again */
+> 
+>    Why? This seems unneeded change.
 
-Nevermind, in fact, I see that only Linus's unicast fix was in there,
-which is what you intended.
-
-Sorry for the false alarm.
+Agreed, not only was this code properly styled already, changing it
+is totally unrelated to what this patch is supposed to be doing.
