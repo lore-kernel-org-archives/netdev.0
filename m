@@ -1,7 +1,7 @@
 From: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
-Subject: [PATCH 1/2] hso: Earlier catch of error condition
-Date: Wed, 21 Aug 2013 01:43:07 -0700
-Message-ID: <1377074587.4530.8.camel@chimera>
+Subject: [PATCH 2/2] hso: Fix stack corruption on some architectures
+Date: Wed, 21 Aug 2013 01:43:19 -0700
+Message-ID: <1377074599.4530.9.camel@chimera>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,40 +12,48 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is no need to get an interface specification if we know it's the
-wrong one. 
+As Sergei Shtylyov explained in the #mipslinux IRC channel: 
+[Mon 2013-08-19 12:28:21 PM PDT] <headless> guys, are you sure it's not "DMA off stack" case?
+[Mon 2013-08-19 12:28:35 PM PDT] <headless> it's a known stack corruptor on non-coherent arches
+[Mon 2013-08-19 12:31:48 PM PDT] <DonkeyHotei> headless: for usb/ehci?
+[Mon 2013-08-19 12:34:11 PM PDT] <DonkeyHotei> headless: explain
+[Mon 2013-08-19 12:35:38 PM PDT] <headless> usb_control_msg() (or other such func) should not use buffer on stack. DMA from/to stack is prohibited
+[Mon 2013-08-19 12:35:58 PM PDT] <headless> and EHCI uses DMA on control xfers (as well as all the others)
 
 Signed-off-by: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
 ---
- drivers/net/usb/hso.c |    9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ drivers/net/usb/hso.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index cba1d46..5fb36ed 100644
+index 5fb36ed..86292e6 100644
 --- a/drivers/net/usb/hso.c
 +++ b/drivers/net/usb/hso.c
-@@ -2886,6 +2886,11 @@ static int hso_probe(struct usb_interface *interface,
- 	struct hso_shared_int *shared_int;
- 	struct hso_device *tmp_dev = NULL;
+@@ -2816,13 +2816,16 @@ exit:
+ static int hso_get_config_data(struct usb_interface *interface)
+ {
+ 	struct usb_device *usbdev = interface_to_usbdev(interface);
+-	u8 config_data[17];
++	u8 *config_data = kmalloc(17, GFP_KERNEL);
+ 	u32 if_num = interface->altsetting->desc.bInterfaceNumber;
+ 	s32 result;
  
-+	if (interface->cur_altsetting->desc.bInterfaceClass != 0xFF) {
-+		dev_err(&interface->dev, "Not our interface\n");
-+		return -ENODEV;
-+	}
-+
- 	if_num = interface->altsetting->desc.bInterfaceNumber;
++	if (!config_data)
++		return -ENOMEM;
+ 	if (usb_control_msg(usbdev, usb_rcvctrlpipe(usbdev, 0),
+ 			    0x86, 0xC0, 0, 0, config_data, 17,
+ 			    USB_CTRL_SET_TIMEOUT) != 0x11) {
++		kfree(config_data);
+ 		return -EIO;
+ 	}
  
- 	/* Get the interface/port specification from either driver_info or from
-@@ -2895,10 +2900,6 @@ static int hso_probe(struct usb_interface *interface,
- 	else
- 		port_spec = hso_get_config_data(interface);
+@@ -2873,6 +2876,7 @@ static int hso_get_config_data(struct usb_interface *interface)
+ 	if (config_data[16] & 0x1)
+ 		result |= HSO_INFO_CRC_BUG;
  
--	if (interface->cur_altsetting->desc.bInterfaceClass != 0xFF) {
--		dev_err(&interface->dev, "Not our interface\n");
--		return -ENODEV;
--	}
- 	/* Check if we need to switch to alt interfaces prior to port
- 	 * configuration */
- 	if (interface->num_altsetting > 1)
++	kfree(config_data);
+ 	return result;
+ }
+ 
 -- 
 1.7.9.5
