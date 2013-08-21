@@ -1,49 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 2/2] net: netem: always adjust now/delay when not
- reordering
-Date: Tue, 20 Aug 2013 23:14:07 -0700
-Message-ID: <1377065647.4226.96.camel@edumazet-glaptop>
-References: <1377030800.4226.89.camel@edumazet-glaptop>
-	 <1377064785-12629-1-git-send-email-mailings@hupie.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 5/7] bcm63xx_enet: replace devm_request_and_ioremap by
+ devm_ioremap_resource
+Date: Tue, 20 Aug 2013 23:22:40 -0700 (PDT)
+Message-ID: <20130820.232240.98227185752652907.davem@davemloft.net>
+References: <1376911241-27720-1-git-send-email-Julia.Lawall@lip6.fr>
+	<1376911241-27720-6-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ferry Huberts <mailings@hupie.com>
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Julia.Lawall@lip6.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:51097 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752115Ab3HUGOJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 02:14:09 -0400
-Received: by mail-pd0-f173.google.com with SMTP id p10so3774pdj.32
-        for <netdev@vger.kernel.org>; Tue, 20 Aug 2013 23:14:08 -0700 (PDT)
-In-Reply-To: <1377064785-12629-1-git-send-email-mailings@hupie.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52081 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752098Ab3HUGWl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 02:22:41 -0400
+In-Reply-To: <1376911241-27720-6-git-send-email-Julia.Lawall@lip6.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-08-21 at 07:59 +0200, Ferry Huberts wrote:
-> From: Ferry Huberts <ferry.huberts@pelagic.nl>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Date: Mon, 19 Aug 2013 13:20:39 +0200
+
+> From: Julia Lawall <Julia.Lawall@lip6.fr>
 > 
-> Not doing this (current behaviour) introduces reordering.
+> Use devm_ioremap_resource instead of devm_request_and_ioremap.
 > 
-> The packet_len_2_sched_time call is the only thing that logically
-> depends on q->rate, so move the now/delay adjustment out of the if.
+> This was done using the semantic patch
+> scripts/coccinelle/api/devm_ioremap_resource.cocci
 > 
-> How to test:
-> -----------
+> The relevant call to platform_get_resource was manually moved down to the
+> call to devm_ioremap_resource.
+> 
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-I ask again :
-
-Did you test a config with both rate limiting and delay.
-
-Netem primary use is to emulate say a 1Mbits link with a rtt of 50ms
-
-netem rate 1Mbit delay 50ms
-
-
-Because the "delay 10ms 500ms" is very strange : effective delay is in
-the following range : -490 ms ... 510 ms
-
-Its probably clamped to 0ms ... 510ms
-
-I really doubt this is what you wanted.
+Applied to net-next, thanks.
