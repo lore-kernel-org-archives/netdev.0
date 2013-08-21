@@ -1,116 +1,56 @@
-From: mailings@hupie.com
-Subject: Re: [PATCH v2 2/2] net: netem: always adjust now/delay when not    
-            reordering
-Date: Wed, 21 Aug 2013 16:10:01 +0200 (CEST)
-Message-ID: <59093.80.101.237.101.1377094201.squirrel@hupie.dyndns.org>
-References: <1377030800.4226.89.camel@edumazet-glaptop>
-    <1377064785-12629-1-git-send-email-mailings@hupie.com>
-    <1377065647.4226.96.camel@edumazet-glaptop> <5214668E.504@hupie.com>
-    <1377091824.4226.102.camel@edumazet-glaptop>
-    <59065.80.101.237.101.1377093746.squirrel@hupie.dyndns.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/2] SH7619: fix Ether support
+Date: Wed, 21 Aug 2013 18:20:54 +0400
+Message-ID: <5214CCC6.8090206@cogentembedded.com>
+References: <201308180213.23296.sergei.shtylyov@cogentembedded.com> <201308180215.43063.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Ferry Huberts" <mailings@hupie.com>, netdev@vger.kernel.org
-To: mailings@hupie.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hupie.dyndns.org ([80.101.237.101]:55532 "EHLO hupie.dyndns.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751557Ab3HUOKD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Aug 2013 10:10:03 -0400
-In-Reply-To: <59065.80.101.237.101.1377093746.squirrel@hupie.dyndns.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: lethal@linux-sh.org, linux-sh@vger.kernel.org, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <201308180215.43063.sergei.shtylyov@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->> On Wed, 2013-08-21 at 09:04 +0200, Ferry Huberts wrote:
->>> On 21/08/13 08:14, Eric Dumazet wrote:
->>> > On Wed, 2013-08-21 at 07:59 +0200, Ferry Huberts wrote:
->>> >> From: Ferry Huberts <ferry.huberts@pelagic.nl>
->>> >>
->>> >> Not doing this (current behaviour) introduces reordering.
->>> >>
->>> >> The packet_len_2_sched_time call is the only thing that logically
-> depends on q->rate, so move the now/delay adjustment out of the if.
->>> >>
->>> >> How to test:
->>> >> -----------
->>> >
->>> > I ask again :
->>> >
->>> > Did you test a config with both rate limiting and delay.
->>> (sorry for missing that question)
->>> Just did so and with rate limiting I get no reordering, which is
-> logical
->>> looking at the code.
->>> The thing is, the evaluation q->rate is within the 'no-reordering'
-> block
->>> and in the current situation you can get reordering (with that
-> 'strange'
->>> command). My patch makes sure that no reordering will occur, and
-> effectively 'clamps' the realised delay, which currently isn't done.
->>
->>
->> OK, let me be very clear.
->>
->> I would like you post the results of regression tests, to make sure that
-> you do not add a new regression.
->>
->
-> Since I'm new to netdev development and therefore the processes attached
-> to it, let me ask where I can find such regression tests?
->
-> I'm happy to run them once I know about them... ;-)
->
->
->> It seems that you want _us_ to check all this for you.
->>
->> With "rate 1Mbits delay 100ms 10ms", and ping probes sent every 100ms,
-> the pong reply of _all_ probes should be between 90ms and 110ms
->>
->> Is it still the case after your patch ?
->>
->
-> Yes it is.
->
-> In the script I described in the commit message I replaced the line
->   tc qdisc add dev "${fields[1]}" handle 1 root netem delay 10ms 500ms
-> with the line (1Mbit gave 'Illegal "rate"')
->   tc qdisc add dev "${fields[1]}" handle 1 root netem rate 1024000 delay
-> 100ms 10ms
->
-> The output then was (tried a 10 times):
-> # ./netemreordering
-> PING 192.168.160.1 (192.168.160.1) 56(84) bytes of data.
-> 64 bytes from 192.168.160.1: icmp_seq=1 ttl=254 time=114 ms
+Hello.
 
-Wow. And of course Murphy would do this.
-This is the _only_ deviation there was and I copy&pasted it...
+On 18-08-2013 2:15, Sergei Shtylyov wrote:
 
-I re-checked and it really is the only one.
-I re-ran 20 more times and all were ok.
-Must have been a busy router I guess.
+> The 'sh_eth' driver's probe will crash as the platform code is hopelessly behind
+> the platform data -- it passes PHY ID instead of 'struct sh_eth_plat_data *'.
+> Strangely, both commit d88a3ea6fa4c (SH7619 add ethernet controler support) that
+> added the platform code and commit 71557a37adb5 ([netdrvr] sh_eth: Add  SH7619
+> support)  were done  in about  the same time, yet the latter one added 'struct
+> sh_eth_plat_data' and the platform code didn't ever get updated...
+>
+> Add the proper platform data and fix off-by-one memory resource end error, while
+> at it...
 
-> 64 bytes from 192.168.160.1: icmp_seq=2 ttl=254 time=109 ms
-> 64 bytes from 192.168.160.1: icmp_seq=3 ttl=254 time=106 ms
-> 64 bytes from 192.168.160.1: icmp_seq=4 ttl=254 time=100 ms
-> 64 bytes from 192.168.160.1: icmp_seq=5 ttl=254 time=111 ms
-> 64 bytes from 192.168.160.1: icmp_seq=6 ttl=254 time=92.2 ms
-> 64 bytes from 192.168.160.1: icmp_seq=7 ttl=254 time=99.8 ms
-> 64 bytes from 192.168.160.1: icmp_seq=8 ttl=254 time=91.4 ms
-> 64 bytes from 192.168.160.1: icmp_seq=9 ttl=254 time=97.4 ms
-> 64 bytes from 192.168.160.1: icmp_seq=10 ttl=254 time=95.5 ms
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Cc: stable@vger.kernel.org
+
+> ---
+>   arch/sh/kernel/cpu/sh2/setup-sh7619.c |   12 ++++++++++--
+>   1 file changed, 10 insertions(+), 2 deletions(-)
+
+> Index: net/arch/sh/kernel/cpu/sh2/setup-sh7619.c
+> ===================================================================
+> --- net.orig/arch/sh/kernel/cpu/sh2/setup-sh7619.c
+> +++ net/arch/sh/kernel/cpu/sh2/setup-sh7619.c
+[...]
+> @@ -110,10 +111,17 @@ static struct platform_device scif2_devi
+>   	},
+>   };
 >
-> --- 192.168.160.1 ping statistics ---
-> 10 packets transmitted, 10 received, 0% packet loss, time 910ms
-> rtt min/avg/max/mdev = 91.413/101.879/114.534/7.723 ms, pipe 2
->
->
-> Is this enough?
-> Please let me know, I'm happy to oblige.
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+> +static struct sh_eth_plat_data eth_platform_data = {
+> +	.phy		= 1,
+> +	.edmac_endian	= EDMAC_LITTLE_ENDIAN,
+> +	.register_type	= SH_ETH_REG_FAST_SH3_SH2,
+> +	.phy_interace	= PHY_INTERFACE_MODE_MII,
+
+    Grr, I forgot to compile test this patch as the kbuild test robot just 
+told me... s/phy_interace/phy_interface/. I'll send a fix today.
+
+WBR, Sergei
+
