@@ -1,56 +1,37 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/2] SH7619: fix Ether support
-Date: Wed, 21 Aug 2013 18:20:54 +0400
-Message-ID: <5214CCC6.8090206@cogentembedded.com>
-References: <201308180213.23296.sergei.shtylyov@cogentembedded.com> <201308180215.43063.sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] be2net: fix disabling TX in be_close()
+Date: Wed, 21 Aug 2013 18:48:43 +0400
+Message-ID: <5214D34B.8080701@cogentembedded.com>
+References: <1377080534-19509-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: lethal@linux-sh.org, linux-sh@vger.kernel.org, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <201308180215.43063.sergei.shtylyov@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Sathya Perla <sathya.perla@emulex.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f48.google.com ([209.85.215.48]:51255 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752294Ab3HUOsh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 10:48:37 -0400
+Received: by mail-la0-f48.google.com with SMTP id er20so417422lab.7
+        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 07:48:35 -0700 (PDT)
+In-Reply-To: <1377080534-19509-1-git-send-email-sathya.perla@emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hello.
 
-On 18-08-2013 2:15, Sergei Shtylyov wrote:
+On 21-08-2013 14:22, Sathya Perla wrote:
 
-> The 'sh_eth' driver's probe will crash as the platform code is hopelessly behind
-> the platform data -- it passes PHY ID instead of 'struct sh_eth_plat_data *'.
-> Strangely, both commit d88a3ea6fa4c (SH7619 add ethernet controler support) that
-> added the platform code and commit 71557a37adb5 ([netdrvr] sh_eth: Add  SH7619
-> support)  were done  in about  the same time, yet the latter one added 'struct
-> sh_eth_plat_data' and the platform code didn't ever get updated...
->
-> Add the proper platform data and fix off-by-one memory resource end error, while
-> at it...
+> commit fba875591 disabled TX in be_close() to protect be_xmit() from
 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> Cc: stable@vger.kernel.org
+    Please also specify that commit's summary line in parens.
 
-> ---
->   arch/sh/kernel/cpu/sh2/setup-sh7619.c |   12 ++++++++++--
->   1 file changed, 10 insertions(+), 2 deletions(-)
+> touching freed up queues in the AER recovery flow.
+> But, TX must be disabled *before* cleaning up TX completions in the
+> close() path, not after. This allows be_tx_compl_clean() to free up
+> all TX-req skbs that were notified to the HW.
 
-> Index: net/arch/sh/kernel/cpu/sh2/setup-sh7619.c
-> ===================================================================
-> --- net.orig/arch/sh/kernel/cpu/sh2/setup-sh7619.c
-> +++ net/arch/sh/kernel/cpu/sh2/setup-sh7619.c
-[...]
-> @@ -110,10 +111,17 @@ static struct platform_device scif2_devi
->   	},
->   };
->
-> +static struct sh_eth_plat_data eth_platform_data = {
-> +	.phy		= 1,
-> +	.edmac_endian	= EDMAC_LITTLE_ENDIAN,
-> +	.register_type	= SH_ETH_REG_FAST_SH3_SH2,
-> +	.phy_interace	= PHY_INTERFACE_MODE_MII,
-
-    Grr, I forgot to compile test this patch as the kbuild test robot just 
-told me... s/phy_interace/phy_interface/. I'll send a fix today.
+> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 
 WBR, Sergei
-
