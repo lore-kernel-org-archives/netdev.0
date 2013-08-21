@@ -1,256 +1,228 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  09/15] igb: Fix get_fw_version function for all parts
-Date: Wed, 21 Aug 2013 01:23:30 -0700
-Message-ID: <1377073416-7872-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next  11/15] igb: Expose RSS indirection table for ethtool
+Date: Wed, 21 Aug 2013 01:23:32 -0700
+Message-ID: <1377073416-7872-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1377073416-7872-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+Cc: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:29745 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:2670 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751986Ab3HUIXt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Aug 2013 04:23:49 -0400
+	id S1751716Ab3HUIXx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Aug 2013 04:23:53 -0400
 In-Reply-To: <1377073416-7872-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
 
-This patch fixes issues found with older parts and older NVM tools in the
-display of the version in ethtool.
+This patch adds the ethtool callbacks necessary to change the RETA
+indirection table from userspace.
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+In order to achieve this, we add the indirection table field (rss_indir_tbl)
+in the board specific data structure (struct igb_adapter) to preserve the
+values across hardware resets.
+
+The indirection table must be initialized with default values in the
+following cases:
+	* at module init time
+	* when the number of RX queues changes.
+For this reason we add a new field (rss_indir_tbl_init) in igb_adapter
+that keeps track of the number of RX queues. Whenever the number of RX
+queues changes, the rss_indir_tbl is modified and initialized with default
+values. The rss_indir_tbl_init is updated accordingly.
+
+Signed-off-by: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_defines.h | 28 +++++----
- drivers/net/ethernet/intel/igb/e1000_nvm.c     | 80 ++++++++++++++++++--------
- drivers/net/ethernet/intel/igb/e1000_nvm.h     |  1 +
- drivers/net/ethernet/intel/igb/igb_main.c      | 28 ++++++---
- 4 files changed, 93 insertions(+), 44 deletions(-)
+ drivers/net/ethernet/intel/igb/igb.h         |  3 +
+ drivers/net/ethernet/intel/igb/igb_ethtool.c | 87 ++++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igb/igb_main.c    | 28 +++------
+ 3 files changed, 97 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
-index 4522198..60559af 100644
---- a/drivers/net/ethernet/intel/igb/e1000_defines.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
-@@ -671,20 +671,26 @@
- #define NVM_INIT_CTRL_4            0x0013
- #define NVM_LED_1_CFG              0x001C
- #define NVM_LED_0_2_CFG            0x001F
--
--/* NVM version defines */
- #define NVM_ETRACK_WORD            0x0042
-+#define NVM_ETRACK_HIWORD          0x0043
- #define NVM_COMB_VER_OFF           0x0083
- #define NVM_COMB_VER_PTR           0x003d
--#define NVM_MAJOR_MASK             0xF000
--#define NVM_MINOR_MASK             0x0FF0
--#define NVM_BUILD_MASK             0x000F
--#define NVM_COMB_VER_MASK          0x00FF
--#define NVM_MAJOR_SHIFT                12
--#define NVM_MINOR_SHIFT                 4
--#define NVM_COMB_VER_SHFT               8
--#define NVM_VER_INVALID            0xFFFF
--#define NVM_ETRACK_SHIFT               16
-+
-+/* NVM version defines */
-+#define NVM_MAJOR_MASK			0xF000
-+#define NVM_MINOR_MASK			0x0FF0
-+#define NVM_IMAGE_ID_MASK		0x000F
-+#define NVM_COMB_VER_MASK		0x00FF
-+#define NVM_MAJOR_SHIFT			12
-+#define NVM_MINOR_SHIFT			4
-+#define NVM_COMB_VER_SHFT		8
-+#define NVM_VER_INVALID			0xFFFF
-+#define NVM_ETRACK_SHIFT		16
-+#define NVM_ETRACK_VALID		0x8000
-+#define NVM_NEW_DEC_MASK		0x0F00
-+#define NVM_HEX_CONV			16
-+#define NVM_HEX_TENS			10
-+
- #define NVM_ETS_CFG			0x003E
- #define NVM_ETS_LTHRES_DELTA_MASK	0x07C0
- #define NVM_ETS_LTHRES_DELTA_SHIFT	6
-diff --git a/drivers/net/ethernet/intel/igb/e1000_nvm.c b/drivers/net/ethernet/intel/igb/e1000_nvm.c
-index 7f9cd7c..a7db7f3 100644
---- a/drivers/net/ethernet/intel/igb/e1000_nvm.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_nvm.c
-@@ -709,11 +709,16 @@ out:
-  **/
- void igb_get_fw_version(struct e1000_hw *hw, struct e1000_fw_version *fw_vers)
- {
--	u16 eeprom_verh, eeprom_verl, comb_verh, comb_verl, comb_offset;
--	u16 fw_version;
-+	u16 eeprom_verh, eeprom_verl, etrack_test, fw_version;
-+	u8 q, hval, rem, result;
-+	u16 comb_verh, comb_verl, comb_offset;
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index 5a2659b..c1fae7a 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -446,6 +446,8 @@ struct igb_adapter {
+ 	struct i2c_algo_bit_data i2c_algo;
+ 	struct i2c_adapter i2c_adap;
+ 	struct i2c_client *i2c_client;
++	u32 rss_indir_tbl_init;
++	u8 rss_indir_tbl[IGB_RETA_SIZE];
+ };
  
- 	memset(fw_vers, 0, sizeof(struct e1000_fw_version));
- 
-+	/* basic eeprom version numbers and bits used vary by part and by tool
-+	 * used to create the nvm images. Check which data format we have.
-+	 */
-+	hw->nvm.ops.read(hw, NVM_ETRACK_HIWORD, 1, &etrack_test);
- 	switch (hw->mac.type) {
- 	case e1000_i211:
- 		igb_read_invm_version(hw, fw_vers);
-@@ -721,30 +726,30 @@ void igb_get_fw_version(struct e1000_hw *hw, struct e1000_fw_version *fw_vers)
- 	case e1000_82575:
- 	case e1000_82576:
- 	case e1000_82580:
--	case e1000_i354:
--	case e1000_i350:
--	case e1000_i210:
-+		/* Use this format, unless EETRACK ID exists,
-+		 * then use alternate format
-+		 */
-+		if ((etrack_test &  NVM_MAJOR_MASK) != NVM_ETRACK_VALID) {
-+			hw->nvm.ops.read(hw, NVM_VERSION, 1, &fw_version);
-+			fw_vers->eep_major = (fw_version & NVM_MAJOR_MASK)
-+					      >> NVM_MAJOR_SHIFT;
-+			fw_vers->eep_minor = (fw_version & NVM_MINOR_MASK)
-+					      >> NVM_MINOR_SHIFT;
-+			fw_vers->eep_build = (fw_version & NVM_IMAGE_ID_MASK);
-+			goto etrack_id;
-+		}
- 		break;
--	default:
--		return;
--	}
--	/* basic eeprom version numbers */
--	hw->nvm.ops.read(hw, NVM_VERSION, 1, &fw_version);
--	fw_vers->eep_major = (fw_version & NVM_MAJOR_MASK) >> NVM_MAJOR_SHIFT;
--	fw_vers->eep_minor = (fw_version & NVM_MINOR_MASK);
--
--	/* etrack id */
--	hw->nvm.ops.read(hw, NVM_ETRACK_WORD, 1, &eeprom_verl);
--	hw->nvm.ops.read(hw, (NVM_ETRACK_WORD + 1), 1, &eeprom_verh);
--	fw_vers->etrack_id = (eeprom_verh << NVM_ETRACK_SHIFT) | eeprom_verl;
--
--	switch (hw->mac.type) {
- 	case e1000_i210:
--	case e1000_i354:
-+		if (!(igb_get_flash_presence_i210(hw))) {
-+			igb_read_invm_version(hw, fw_vers);
-+			return;
-+		}
-+		/* fall through */
- 	case e1000_i350:
- 		/* find combo image version */
- 		hw->nvm.ops.read(hw, NVM_COMB_VER_PTR, 1, &comb_offset);
--		if ((comb_offset != 0x0) && (comb_offset != NVM_VER_INVALID)) {
-+		if ((comb_offset != 0x0) &&
-+		    (comb_offset != NVM_VER_INVALID)) {
- 
- 			hw->nvm.ops.read(hw, (NVM_COMB_VER_OFF + comb_offset
- 					 + 1), 1, &comb_verh);
-@@ -760,15 +765,42 @@ void igb_get_fw_version(struct e1000_hw *hw, struct e1000_fw_version *fw_vers)
- 				fw_vers->or_major =
- 					comb_verl >> NVM_COMB_VER_SHFT;
- 				fw_vers->or_build =
--					((comb_verl << NVM_COMB_VER_SHFT)
--					| (comb_verh >> NVM_COMB_VER_SHFT));
-+					(comb_verl << NVM_COMB_VER_SHFT)
-+					| (comb_verh >> NVM_COMB_VER_SHFT);
- 				fw_vers->or_patch =
- 					comb_verh & NVM_COMB_VER_MASK;
- 			}
- 		}
- 		break;
- 	default:
--		break;
-+		return;
-+	}
-+	hw->nvm.ops.read(hw, NVM_VERSION, 1, &fw_version);
-+	fw_vers->eep_major = (fw_version & NVM_MAJOR_MASK)
-+			      >> NVM_MAJOR_SHIFT;
-+
-+	/* check for old style version format in newer images*/
-+	if ((fw_version & NVM_NEW_DEC_MASK) == 0x0) {
-+		eeprom_verl = (fw_version & NVM_COMB_VER_MASK);
-+	} else {
-+		eeprom_verl = (fw_version & NVM_MINOR_MASK)
-+				>> NVM_MINOR_SHIFT;
-+	}
-+	/* Convert minor value to hex before assigning to output struct
-+	 * Val to be converted will not be higher than 99, per tool output
-+	 */
-+	q = eeprom_verl / NVM_HEX_CONV;
-+	hval = q * NVM_HEX_TENS;
-+	rem = eeprom_verl % NVM_HEX_CONV;
-+	result = hval + rem;
-+	fw_vers->eep_minor = result;
-+
-+etrack_id:
-+	if ((etrack_test &  NVM_MAJOR_MASK) == NVM_ETRACK_VALID) {
-+		hw->nvm.ops.read(hw, NVM_ETRACK_WORD, 1, &eeprom_verl);
-+		hw->nvm.ops.read(hw, (NVM_ETRACK_WORD + 1), 1, &eeprom_verh);
-+		fw_vers->etrack_id = (eeprom_verh << NVM_ETRACK_SHIFT)
-+			| eeprom_verl;
- 	}
- 	return;
+ #define IGB_FLAG_HAS_MSI		(1 << 0)
+@@ -482,6 +484,7 @@ extern int igb_up(struct igb_adapter *);
+ extern void igb_down(struct igb_adapter *);
+ extern void igb_reinit_locked(struct igb_adapter *);
+ extern void igb_reset(struct igb_adapter *);
++extern void igb_write_rss_indir_tbl(struct igb_adapter *);
+ extern int igb_set_spd_dplx(struct igb_adapter *, u32, u8);
+ extern int igb_setup_tx_resources(struct igb_ring *);
+ extern int igb_setup_rx_resources(struct igb_ring *);
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index 03137e2..036221d 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -2784,6 +2784,90 @@ static void igb_ethtool_complete(struct net_device *netdev)
+ 	pm_runtime_put(&adapter->pdev->dev);
  }
-diff --git a/drivers/net/ethernet/intel/igb/e1000_nvm.h b/drivers/net/ethernet/intel/igb/e1000_nvm.h
-index 6bfc0c4..433b741 100644
---- a/drivers/net/ethernet/intel/igb/e1000_nvm.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_nvm.h
-@@ -44,6 +44,7 @@ struct e1000_fw_version {
- 	u32 etrack_id;
- 	u16 eep_major;
- 	u16 eep_minor;
-+	u16 eep_build;
  
- 	u8 invm_major;
- 	u8 invm_minor;
++static u32 igb_get_rxfh_indir_size(struct net_device *netdev)
++{
++	return IGB_RETA_SIZE;
++}
++
++static int igb_get_rxfh_indir(struct net_device *netdev, u32 *indir)
++{
++	struct igb_adapter *adapter = netdev_priv(netdev);
++	int i;
++
++	for (i = 0; i < IGB_RETA_SIZE; i++)
++		indir[i] = adapter->rss_indir_tbl[i];
++
++	return 0;
++}
++
++void igb_write_rss_indir_tbl(struct igb_adapter *adapter)
++{
++	struct e1000_hw *hw = &adapter->hw;
++	u32 reg = E1000_RETA(0);
++	u32 shift = 0;
++	int i = 0;
++
++	switch (hw->mac.type) {
++	case e1000_82575:
++		shift = 6;
++		break;
++	case e1000_82576:
++		/* 82576 supports 2 RSS queues for SR-IOV */
++		if (adapter->vfs_allocated_count)
++			shift = 3;
++		break;
++	default:
++		break;
++	}
++
++	while (i < IGB_RETA_SIZE) {
++		u32 val = 0;
++		int j;
++
++		for (j = 3; j >= 0; j--) {
++			val <<= 8;
++			val |= adapter->rss_indir_tbl[i + j];
++		}
++
++		wr32(reg, val << shift);
++		reg += 4;
++		i += 4;
++	}
++}
++
++static int igb_set_rxfh_indir(struct net_device *netdev, const u32 *indir)
++{
++	struct igb_adapter *adapter = netdev_priv(netdev);
++	struct e1000_hw *hw = &adapter->hw;
++	int i;
++	u32 num_queues;
++
++	num_queues = adapter->rss_queues;
++
++	switch (hw->mac.type) {
++	case e1000_82576:
++		/* 82576 supports 2 RSS queues for SR-IOV */
++		if (adapter->vfs_allocated_count)
++			num_queues = 2;
++		break;
++	default:
++		break;
++	}
++
++	/* Verify user input. */
++	for (i = 0; i < IGB_RETA_SIZE; i++)
++		if (indir[i] > num_queues)
++			return -EINVAL;
++
++
++	for (i = 0; i < IGB_RETA_SIZE; i++)
++		adapter->rss_indir_tbl[i] = indir[i];
++
++	igb_write_rss_indir_tbl(adapter);
++
++	return 0;
++}
++
+ static const struct ethtool_ops igb_ethtool_ops = {
+ 	.get_settings		= igb_get_settings,
+ 	.set_settings		= igb_set_settings,
+@@ -2817,6 +2901,9 @@ static const struct ethtool_ops igb_ethtool_ops = {
+ 	.set_eee		= igb_set_eee,
+ 	.get_module_info	= igb_get_module_info,
+ 	.get_module_eeprom	= igb_get_module_eeprom,
++	.get_rxfh_indir_size	= igb_get_rxfh_indir_size,
++	.get_rxfh_indir		= igb_get_rxfh_indir,
++	.set_rxfh_indir		= igb_set_rxfh_indir,
+ 	.begin			= igb_ethtool_begin,
+ 	.complete		= igb_ethtool_complete,
+ };
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index a53c77b..7f6cf65 100644
+index 1acd9c0..df33c4b 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1931,12 +1931,17 @@ void igb_set_fw_version(struct igb_adapter *adapter)
- 	igb_get_fw_version(hw, &fw);
+@@ -3126,7 +3126,7 @@ static void igb_setup_mrqc(struct igb_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 mrqc, rxcsum;
+-	u32 j, num_rx_queues, shift = 0;
++	u32 j, num_rx_queues;
+ 	static const u32 rsskey[10] = { 0xDA565A6D, 0xC20E5B25, 0x3D256741,
+ 					0xB08FA343, 0xCB2BCAD0, 0xB4307BAE,
+ 					0xA32DCB77, 0x0CF23080, 0x3BB7426A,
+@@ -3139,35 +3139,21 @@ static void igb_setup_mrqc(struct igb_adapter *adapter)
+ 	num_rx_queues = adapter->rss_queues;
  
  	switch (hw->mac.type) {
-+	case e1000_i210:
- 	case e1000_i211:
--		snprintf(adapter->fw_version, sizeof(adapter->fw_version),
--			 "%2d.%2d-%d",
--			 fw.invm_major, fw.invm_minor, fw.invm_img_type);
+-	case e1000_82575:
+-		shift = 6;
 -		break;
--
-+		if (!(igb_get_flash_presence_i210(hw))) {
-+			snprintf(adapter->fw_version,
-+				 sizeof(adapter->fw_version),
-+				 "%2d.%2d-%d",
-+				 fw.invm_major, fw.invm_minor,
-+				 fw.invm_img_type);
-+			break;
-+		}
-+		/* fall through */
+ 	case e1000_82576:
+ 		/* 82576 supports 2 RSS queues for SR-IOV */
+-		if (adapter->vfs_allocated_count) {
+-			shift = 3;
++		if (adapter->vfs_allocated_count)
+ 			num_rx_queues = 2;
+-		}
+ 		break;
  	default:
- 		/* if option is rom valid, display its version too */
- 		if (fw.or_valid) {
-@@ -1946,11 +1951,16 @@ void igb_set_fw_version(struct igb_adapter *adapter)
- 				 fw.eep_major, fw.eep_minor, fw.etrack_id,
- 				 fw.or_major, fw.or_build, fw.or_patch);
- 		/* no option rom */
--		} else {
-+		} else if (fw.etrack_id != 0X0000) {
- 			snprintf(adapter->fw_version,
--				 sizeof(adapter->fw_version),
--				 "%d.%d, 0x%08x",
--				 fw.eep_major, fw.eep_minor, fw.etrack_id);
-+			    sizeof(adapter->fw_version),
-+			    "%d.%d, 0x%08x",
-+			    fw.eep_major, fw.eep_minor, fw.etrack_id);
-+		} else {
-+		snprintf(adapter->fw_version,
-+		    sizeof(adapter->fw_version),
-+		    "%d.%d.%d",
-+		    fw.eep_major, fw.eep_minor, fw.eep_build);
- 		}
  		break;
  	}
+ 
+-	/* Populate the indirection table 4 entries at a time.  To do this
+-	 * we are generating the results for n and n+2 and then interleaving
+-	 * those with the results with n+1 and n+3.
+-	 */
+-	for (j = 0; j < IGB_RETA_SIZE / 4; j++) {
+-		/* first pass generates n and n+2 */
+-		u32 base = ((j * 0x00040004) + 0x00020000) * num_rx_queues;
+-		u32 reta = (base & 0x07800780) >> (7 - shift);
+-
+-		/* second pass generates n+1 and n+3 */
+-		base += 0x00010001 * num_rx_queues;
+-		reta |= (base & 0x07800780) << (1 + shift);
+-
+-		wr32(E1000_RETA(j), reta);
++	if (adapter->rss_indir_tbl_init != num_rx_queues) {
++		for (j = 0; j < IGB_RETA_SIZE; j++)
++			adapter->rss_indir_tbl[j] = (j * num_rx_queues) / IGB_RETA_SIZE;
++		adapter->rss_indir_tbl_init = num_rx_queues;
+ 	}
++	igb_write_rss_indir_tbl(adapter);
+ 
+ 	/* Disable raw packet checksumming so that RSS hash is placed in
+ 	 * descriptor on writeback.  No need to enable TCP/UDP/IP checksum
 -- 
 1.8.3.1
