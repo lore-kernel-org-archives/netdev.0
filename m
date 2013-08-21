@@ -1,101 +1,42 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH V3] ipv6: handle Redirect ICMP Message with no Redirected
- Header option
-Date: Wed, 21 Aug 2013 15:14:12 +0800
-Message-ID: <521468C4.5020700@cn.fujitsu.com>
+From: Libo Chen <libo.chen@huawei.com>
+Subject: [PATCH 0/8] net: remove unnecessary dev_set_drvdata()
+Date: Wed, 21 Aug 2013 15:05:37 +0800
+Message-ID: <1377068737-48616-1-git-send-email-libo.chen@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <mugunthanvnm@ti.com>,
+	<sergei.shtylyov@cogentembedded.com>, <jg1.han@samsung.com>,
+	<leoli@freescale.com>, <gregkh@linuxfoundation.org>,
+	<linuxppc-dev@lists.ozlabs.org>, <lizefan@huawei.com>,
+	<libo.chen@huawei.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:25691 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752343Ab3HUHS6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Aug 2013 03:18:58 -0400
+Received: from szxga01-in.huawei.com ([119.145.14.64]:26230 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752337Ab3HUHTS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 03:19:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Unnecessary dev_set_drvdata() is removed, because the driver core
+clears the driver data to NULL after device_release or on probe failure.
 
-rfc 4861 says the Redirected Header option is optional, so
-the kernel should not drop the Redirect Message that has no
-Redirected Header option. In this patch, the function
-ip6_redirect_no_header() is introduced to deal with that
-condition.
+Libo Chen (8):
+  net: fsl_pq_mdio: remove unnecessary dev_set_drvdata()
+  net: ucc_geth: remove unnecessary dev_set_drvdata()
+  net: fec_mpc52xx_phy: remove unnecessary dev_set_drvdata()
+  net: sunbmac: remove unnecessary dev_set_drvdata()
+  net: sunhme: remove unnecessary dev_set_drvdata()
+  net: xilinx_emaclite: remove unnecessary dev_set_drvdata()
+  net: davinci_mdio: remove unnecessary dev_set_drvdata()
+  net: emac: remove unnecessary dev_set_drvdata()
 
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
----
- Changes for v3:
- 1: replace skb_network_header() with ipv6_hdr()
- 2: replace skb_transport_header() with icmp6_hdr()
-
- include/net/ip6_route.h |    2 ++
- net/ipv6/ndisc.c        |    4 +++-
- net/ipv6/route.c        |   22 ++++++++++++++++++++++
- 3 files changed, 27 insertions(+), 1 deletions(-)
-
-diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-index 260f83f..f667248 100644
---- a/include/net/ip6_route.h
-+++ b/include/net/ip6_route.h
-@@ -135,6 +135,8 @@ extern void ip6_update_pmtu(struct sk_buff *skb, struct net *net, __be32 mtu,
- extern void ip6_sk_update_pmtu(struct sk_buff *skb, struct sock *sk,
- 			       __be32 mtu);
- extern void ip6_redirect(struct sk_buff *skb, struct net *net, int oif, u32 mark);
-+extern void ip6_redirect_no_header(struct sk_buff *skb, struct net *net, int oif,
-+				   u32 mark);
- extern void ip6_sk_redirect(struct sk_buff *skb, struct sock *sk);
- 
- struct netlink_callback;
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 79aa965..04d31c2 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1369,8 +1369,10 @@ static void ndisc_redirect_rcv(struct sk_buff *skb)
- 	if (!ndisc_parse_options(msg->opt, ndoptlen, &ndopts))
- 		return;
- 
--	if (!ndopts.nd_opts_rh)
-+	if (!ndopts.nd_opts_rh) {
-+		ip6_redirect_no_header(skb, dev_net(skb->dev), 0, 0);
- 		return;
-+	}
- 
- 	hdr = (u8 *)ndopts.nd_opts_rh;
- 	hdr += 8;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index b70f897..846f9b1 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1178,6 +1178,28 @@ void ip6_redirect(struct sk_buff *skb, struct net *net, int oif, u32 mark)
- }
- EXPORT_SYMBOL_GPL(ip6_redirect);
- 
-+void ip6_redirect_no_header(struct sk_buff *skb, struct net *net, int oif,
-+			    u32 mark)
-+{
-+	const struct ipv6hdr *iph = ipv6_hdr(skb);
-+	const struct rd_msg *msg = (struct rd_msg *)icmp6_hdr(skb);
-+	struct dst_entry *dst;
-+	struct flowi6 fl6;
-+
-+	memset(&fl6, 0, sizeof(fl6));
-+	fl6.flowi6_oif = oif;
-+	fl6.flowi6_mark = mark;
-+	fl6.flowi6_flags = 0;
-+	fl6.daddr = msg->dest;
-+	fl6.saddr = iph->daddr;
-+
-+	dst = ip6_route_output(net, NULL, &fl6);
-+	if (!dst->error)
-+		rt6_do_redirect(dst, NULL, skb);
-+	dst_release(dst);
-+}
-+EXPORT_SYMBOL_GPL(ip6_redirect_no_header);
-+
- void ip6_sk_redirect(struct sk_buff *skb, struct sock *sk)
- {
- 	ip6_redirect(skb, sock_net(sk), sk->sk_bound_dev_if, sk->sk_mark);
--- 
-1.7.3.1
+ drivers/net/ethernet/freescale/fec_mpc52xx_phy.c |    1 -
+ drivers/net/ethernet/freescale/fsl_pq_mdio.c     |    2 --
+ drivers/net/ethernet/freescale/ucc_geth.c        |    1 -
+ drivers/net/ethernet/ibm/emac/core.c             |    2 --
+ drivers/net/ethernet/sun/sunbmac.c               |    2 --
+ drivers/net/ethernet/sun/sunhme.c                |    2 --
+ drivers/net/ethernet/ti/davinci_mdio.c           |    2 --
+ drivers/net/ethernet/xilinx/xilinx_emaclite.c    |    1 -
+ 8 files changed, 0 insertions(+), 13 deletions(-)
