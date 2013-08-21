@@ -1,104 +1,256 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  08/15] igb: Add device support for flashless SKU of i210 device
-Date: Wed, 21 Aug 2013 01:23:29 -0700
-Message-ID: <1377073416-7872-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next  09/15] igb: Fix get_fw_version function for all parts
+Date: Wed, 21 Aug 2013 01:23:30 -0700
+Message-ID: <1377073416-7872-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1377073416-7872-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:2670 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:29745 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751659Ab3HUIXs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Aug 2013 04:23:48 -0400
+	id S1751986Ab3HUIXt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Aug 2013 04:23:49 -0400
 In-Reply-To: <1377073416-7872-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-This patch adds the specific device id support for versions of i210 that do
-not have flash installed.
+This patch fixes issues found with older parts and older NVM tools in the
+display of the version in ethtool.
 
 Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_82575.c |  2 ++
- drivers/net/ethernet/intel/igb/e1000_hw.h    |  2 ++
- drivers/net/ethernet/intel/igb/igb_ethtool.c | 15 +++++++++++++--
- drivers/net/ethernet/intel/igb/igb_main.c    |  2 ++
- 4 files changed, 19 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_defines.h | 28 +++++----
+ drivers/net/ethernet/intel/igb/e1000_nvm.c     | 80 ++++++++++++++++++--------
+ drivers/net/ethernet/intel/igb/e1000_nvm.h     |  1 +
+ drivers/net/ethernet/intel/igb/igb_main.c      | 28 ++++++---
+ 4 files changed, 93 insertions(+), 44 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index 8d79fac..d398fad 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -483,6 +483,8 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
- 	case E1000_DEV_ID_I210_FIBER:
- 	case E1000_DEV_ID_I210_SERDES:
- 	case E1000_DEV_ID_I210_SGMII:
-+	case E1000_DEV_ID_I210_COPPER_FLASHLESS:
-+	case E1000_DEV_ID_I210_SERDES_FLASHLESS:
- 		mac->type = e1000_i210;
- 		break;
- 	case E1000_DEV_ID_I211_COPPER:
-diff --git a/drivers/net/ethernet/intel/igb/e1000_hw.h b/drivers/net/ethernet/intel/igb/e1000_hw.h
-index 4329e8c..37a9c06 100644
---- a/drivers/net/ethernet/intel/igb/e1000_hw.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_hw.h
-@@ -67,6 +67,8 @@ struct e1000_hw;
- #define E1000_DEV_ID_I210_FIBER			0x1536
- #define E1000_DEV_ID_I210_SERDES		0x1537
- #define E1000_DEV_ID_I210_SGMII			0x1538
-+#define E1000_DEV_ID_I210_COPPER_FLASHLESS	0x157B
-+#define E1000_DEV_ID_I210_SERDES_FLASHLESS	0x157C
- #define E1000_DEV_ID_I211_COPPER		0x1539
- #define E1000_DEV_ID_I354_BACKPLANE_1GBPS	0x1F40
- #define E1000_DEV_ID_I354_SGMII			0x1F41
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index 6d861a5..03137e2 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -1335,12 +1335,23 @@ static int igb_reg_test(struct igb_adapter *adapter, u64 *data)
- 
- static int igb_eeprom_test(struct igb_adapter *adapter, u64 *data)
- {
-+	struct e1000_hw *hw = &adapter->hw;
+diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
+index 4522198..60559af 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_defines.h
++++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
+@@ -671,20 +671,26 @@
+ #define NVM_INIT_CTRL_4            0x0013
+ #define NVM_LED_1_CFG              0x001C
+ #define NVM_LED_0_2_CFG            0x001F
+-
+-/* NVM version defines */
+ #define NVM_ETRACK_WORD            0x0042
++#define NVM_ETRACK_HIWORD          0x0043
+ #define NVM_COMB_VER_OFF           0x0083
+ #define NVM_COMB_VER_PTR           0x003d
+-#define NVM_MAJOR_MASK             0xF000
+-#define NVM_MINOR_MASK             0x0FF0
+-#define NVM_BUILD_MASK             0x000F
+-#define NVM_COMB_VER_MASK          0x00FF
+-#define NVM_MAJOR_SHIFT                12
+-#define NVM_MINOR_SHIFT                 4
+-#define NVM_COMB_VER_SHFT               8
+-#define NVM_VER_INVALID            0xFFFF
+-#define NVM_ETRACK_SHIFT               16
 +
- 	*data = 0;
++/* NVM version defines */
++#define NVM_MAJOR_MASK			0xF000
++#define NVM_MINOR_MASK			0x0FF0
++#define NVM_IMAGE_ID_MASK		0x000F
++#define NVM_COMB_VER_MASK		0x00FF
++#define NVM_MAJOR_SHIFT			12
++#define NVM_MINOR_SHIFT			4
++#define NVM_COMB_VER_SHFT		8
++#define NVM_VER_INVALID			0xFFFF
++#define NVM_ETRACK_SHIFT		16
++#define NVM_ETRACK_VALID		0x8000
++#define NVM_NEW_DEC_MASK		0x0F00
++#define NVM_HEX_CONV			16
++#define NVM_HEX_TENS			10
++
+ #define NVM_ETS_CFG			0x003E
+ #define NVM_ETS_LTHRES_DELTA_MASK	0x07C0
+ #define NVM_ETS_LTHRES_DELTA_SHIFT	6
+diff --git a/drivers/net/ethernet/intel/igb/e1000_nvm.c b/drivers/net/ethernet/intel/igb/e1000_nvm.c
+index 7f9cd7c..a7db7f3 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_nvm.c
++++ b/drivers/net/ethernet/intel/igb/e1000_nvm.c
+@@ -709,11 +709,16 @@ out:
+  **/
+ void igb_get_fw_version(struct e1000_hw *hw, struct e1000_fw_version *fw_vers)
+ {
+-	u16 eeprom_verh, eeprom_verl, comb_verh, comb_verl, comb_offset;
+-	u16 fw_version;
++	u16 eeprom_verh, eeprom_verl, etrack_test, fw_version;
++	u8 q, hval, rem, result;
++	u16 comb_verh, comb_verl, comb_offset;
  
--	/* Validate eeprom on all parts but i211 */
--	if (adapter->hw.mac.type != e1000_i211) {
-+	/* Validate eeprom on all parts but flashless */
-+	switch (hw->mac.type) {
-+	case e1000_i210:
-+	case e1000_i211:
-+		if (igb_get_flash_presence_i210(hw)) {
-+			if (adapter->hw.nvm.ops.validate(&adapter->hw) < 0)
-+				*data = 2;
+ 	memset(fw_vers, 0, sizeof(struct e1000_fw_version));
+ 
++	/* basic eeprom version numbers and bits used vary by part and by tool
++	 * used to create the nvm images. Check which data format we have.
++	 */
++	hw->nvm.ops.read(hw, NVM_ETRACK_HIWORD, 1, &etrack_test);
+ 	switch (hw->mac.type) {
+ 	case e1000_i211:
+ 		igb_read_invm_version(hw, fw_vers);
+@@ -721,30 +726,30 @@ void igb_get_fw_version(struct e1000_hw *hw, struct e1000_fw_version *fw_vers)
+ 	case e1000_82575:
+ 	case e1000_82576:
+ 	case e1000_82580:
+-	case e1000_i354:
+-	case e1000_i350:
+-	case e1000_i210:
++		/* Use this format, unless EETRACK ID exists,
++		 * then use alternate format
++		 */
++		if ((etrack_test &  NVM_MAJOR_MASK) != NVM_ETRACK_VALID) {
++			hw->nvm.ops.read(hw, NVM_VERSION, 1, &fw_version);
++			fw_vers->eep_major = (fw_version & NVM_MAJOR_MASK)
++					      >> NVM_MAJOR_SHIFT;
++			fw_vers->eep_minor = (fw_version & NVM_MINOR_MASK)
++					      >> NVM_MINOR_SHIFT;
++			fw_vers->eep_build = (fw_version & NVM_IMAGE_ID_MASK);
++			goto etrack_id;
 +		}
-+		break;
-+	default:
- 		if (adapter->hw.nvm.ops.validate(&adapter->hw) < 0)
- 			*data = 2;
-+		break;
- 	}
+ 		break;
+-	default:
+-		return;
+-	}
+-	/* basic eeprom version numbers */
+-	hw->nvm.ops.read(hw, NVM_VERSION, 1, &fw_version);
+-	fw_vers->eep_major = (fw_version & NVM_MAJOR_MASK) >> NVM_MAJOR_SHIFT;
+-	fw_vers->eep_minor = (fw_version & NVM_MINOR_MASK);
+-
+-	/* etrack id */
+-	hw->nvm.ops.read(hw, NVM_ETRACK_WORD, 1, &eeprom_verl);
+-	hw->nvm.ops.read(hw, (NVM_ETRACK_WORD + 1), 1, &eeprom_verh);
+-	fw_vers->etrack_id = (eeprom_verh << NVM_ETRACK_SHIFT) | eeprom_verl;
+-
+-	switch (hw->mac.type) {
+ 	case e1000_i210:
+-	case e1000_i354:
++		if (!(igb_get_flash_presence_i210(hw))) {
++			igb_read_invm_version(hw, fw_vers);
++			return;
++		}
++		/* fall through */
+ 	case e1000_i350:
+ 		/* find combo image version */
+ 		hw->nvm.ops.read(hw, NVM_COMB_VER_PTR, 1, &comb_offset);
+-		if ((comb_offset != 0x0) && (comb_offset != NVM_VER_INVALID)) {
++		if ((comb_offset != 0x0) &&
++		    (comb_offset != NVM_VER_INVALID)) {
  
- 	return *data;
+ 			hw->nvm.ops.read(hw, (NVM_COMB_VER_OFF + comb_offset
+ 					 + 1), 1, &comb_verh);
+@@ -760,15 +765,42 @@ void igb_get_fw_version(struct e1000_hw *hw, struct e1000_fw_version *fw_vers)
+ 				fw_vers->or_major =
+ 					comb_verl >> NVM_COMB_VER_SHFT;
+ 				fw_vers->or_build =
+-					((comb_verl << NVM_COMB_VER_SHFT)
+-					| (comb_verh >> NVM_COMB_VER_SHFT));
++					(comb_verl << NVM_COMB_VER_SHFT)
++					| (comb_verh >> NVM_COMB_VER_SHFT);
+ 				fw_vers->or_patch =
+ 					comb_verh & NVM_COMB_VER_MASK;
+ 			}
+ 		}
+ 		break;
+ 	default:
+-		break;
++		return;
++	}
++	hw->nvm.ops.read(hw, NVM_VERSION, 1, &fw_version);
++	fw_vers->eep_major = (fw_version & NVM_MAJOR_MASK)
++			      >> NVM_MAJOR_SHIFT;
++
++	/* check for old style version format in newer images*/
++	if ((fw_version & NVM_NEW_DEC_MASK) == 0x0) {
++		eeprom_verl = (fw_version & NVM_COMB_VER_MASK);
++	} else {
++		eeprom_verl = (fw_version & NVM_MINOR_MASK)
++				>> NVM_MINOR_SHIFT;
++	}
++	/* Convert minor value to hex before assigning to output struct
++	 * Val to be converted will not be higher than 99, per tool output
++	 */
++	q = eeprom_verl / NVM_HEX_CONV;
++	hval = q * NVM_HEX_TENS;
++	rem = eeprom_verl % NVM_HEX_CONV;
++	result = hval + rem;
++	fw_vers->eep_minor = result;
++
++etrack_id:
++	if ((etrack_test &  NVM_MAJOR_MASK) == NVM_ETRACK_VALID) {
++		hw->nvm.ops.read(hw, NVM_ETRACK_WORD, 1, &eeprom_verl);
++		hw->nvm.ops.read(hw, (NVM_ETRACK_WORD + 1), 1, &eeprom_verh);
++		fw_vers->etrack_id = (eeprom_verh << NVM_ETRACK_SHIFT)
++			| eeprom_verl;
+ 	}
+ 	return;
+ }
+diff --git a/drivers/net/ethernet/intel/igb/e1000_nvm.h b/drivers/net/ethernet/intel/igb/e1000_nvm.h
+index 6bfc0c4..433b741 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_nvm.h
++++ b/drivers/net/ethernet/intel/igb/e1000_nvm.h
+@@ -44,6 +44,7 @@ struct e1000_fw_version {
+ 	u32 etrack_id;
+ 	u16 eep_major;
+ 	u16 eep_minor;
++	u16 eep_build;
+ 
+ 	u8 invm_major;
+ 	u8 invm_minor;
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 387864d..a53c77b 100644
+index a53c77b..7f6cf65 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -85,6 +85,8 @@ static DEFINE_PCI_DEVICE_TABLE(igb_pci_tbl) = {
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_I210_FIBER), board_82575 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_I210_SERDES), board_82575 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_I210_SGMII), board_82575 },
-+	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_I210_COPPER_FLASHLESS), board_82575 },
-+	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_I210_SERDES_FLASHLESS), board_82575 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_I350_COPPER), board_82575 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_I350_FIBER), board_82575 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_I350_SERDES), board_82575 },
+@@ -1931,12 +1931,17 @@ void igb_set_fw_version(struct igb_adapter *adapter)
+ 	igb_get_fw_version(hw, &fw);
+ 
+ 	switch (hw->mac.type) {
++	case e1000_i210:
+ 	case e1000_i211:
+-		snprintf(adapter->fw_version, sizeof(adapter->fw_version),
+-			 "%2d.%2d-%d",
+-			 fw.invm_major, fw.invm_minor, fw.invm_img_type);
+-		break;
+-
++		if (!(igb_get_flash_presence_i210(hw))) {
++			snprintf(adapter->fw_version,
++				 sizeof(adapter->fw_version),
++				 "%2d.%2d-%d",
++				 fw.invm_major, fw.invm_minor,
++				 fw.invm_img_type);
++			break;
++		}
++		/* fall through */
+ 	default:
+ 		/* if option is rom valid, display its version too */
+ 		if (fw.or_valid) {
+@@ -1946,11 +1951,16 @@ void igb_set_fw_version(struct igb_adapter *adapter)
+ 				 fw.eep_major, fw.eep_minor, fw.etrack_id,
+ 				 fw.or_major, fw.or_build, fw.or_patch);
+ 		/* no option rom */
+-		} else {
++		} else if (fw.etrack_id != 0X0000) {
+ 			snprintf(adapter->fw_version,
+-				 sizeof(adapter->fw_version),
+-				 "%d.%d, 0x%08x",
+-				 fw.eep_major, fw.eep_minor, fw.etrack_id);
++			    sizeof(adapter->fw_version),
++			    "%d.%d, 0x%08x",
++			    fw.eep_major, fw.eep_minor, fw.etrack_id);
++		} else {
++		snprintf(adapter->fw_version,
++		    sizeof(adapter->fw_version),
++		    "%d.%d.%d",
++		    fw.eep_major, fw.eep_minor, fw.eep_build);
+ 		}
+ 		break;
+ 	}
 -- 
 1.8.3.1
