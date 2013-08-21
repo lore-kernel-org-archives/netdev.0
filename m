@@ -1,34 +1,29 @@
-From: Hyong-Youb Kim <hykim@myri.com>
-Subject: Re: [PATCH net-next] myri10ge: Add support for ndo_busy_poll
-Date: Tue, 20 Aug 2013 19:56:54 -0700 (PDT)
-Message-ID: <Pine.GSO.4.44.1308201952530.11957-100000@creator>
-References: <20130820.150905.44199510198057625.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH V2] ipv6: handle Redirect ICMP Message with no Redirected Header option
+Date: Wed, 21 Aug 2013 05:04:27 +0200
+Message-ID: <20130821030427.GD20223@order.stressinduktion.org>
+References: <52131725.6000409@cn.fujitsu.com> <20130820115020.GB3938@order.stressinduktion.org> <52142209.6030406@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-43-81-194.west.biz.rr.com ([24.43.81.194]:1875 "EHLO
-	myri.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751977Ab3HUC5M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Aug 2013 22:57:12 -0400
-In-Reply-To: <20130820.150905.44199510198057625.davem@davemloft.net>
+Received: from order.stressinduktion.org ([87.106.68.36]:36032 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752045Ab3HUDE3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Aug 2013 23:04:29 -0400
+Content-Disposition: inline
+In-Reply-To: <52142209.6030406@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Aug 21, 2013 at 10:12:25AM +0800, Duan Jiong wrote:
+> > Introducing a new function here is the right thing. Maybe you could have
+> > a look how these redirects could be fed to raw sockets, too?
+> > 
+> Because of no Redirected Header option, so we don't have enough
+> information to find out the related raw socket. So, there is no need
+> to deal with that condition.
 
-On Tue, 20 Aug 2013, David Miller wrote:
-
-> From: Hyong-Youb Kim <hykim@myri.com>
-> Date: Mon, 19 Aug 2013 02:02:19 -0700
->
-> > Add the ndo_busy_poll handler. Use skb_mark_napi_id to mark receive
-[...]
-> > Signed-off-by: Hyong-Youb Kim <hykim@myri.com>
->
-> Applied, but this patch had a ton of trailing whitespace which I had
-> to fix up.
->
-
-Thanks.  About whitespace on empty lines, it is my bad.  Did not run
-checkpatch.  Will do a better job next time.
+Ah, of course. I thought we could look up the socket solely by src and
+dst address. I forgot about the protocol.
