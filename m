@@ -1,48 +1,51 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  04/15] igb: don't allow SR-IOV without MSI-X
-Date: Wed, 21 Aug 2013 01:23:25 -0700
-Message-ID: <1377073416-7872-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1377073416-7872-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch A Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:52393 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751969Ab3HUIXo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Aug 2013 04:23:44 -0400
-In-Reply-To: <1377073416-7872-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
+Subject: [PATCH 1/2] hso: Earlier catch of error condition
+Date: Wed, 21 Aug 2013 01:43:07 -0700
+Message-ID: <1377074587.4530.8.camel@chimera>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: gregkh@linuxfoundation.org, j.dumon@option.com,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mitch A Williams <mitch.a.williams@intel.com>
+There is no need to get an interface specification if we know it's the
+wrong one. 
 
-MSI-X interrupts are required for SR-IOV operation. Check to make sure
-they're enabled before allowing the user to turn on VFs.
-
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ drivers/net/usb/hso.c |    9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 8e7c1b8..94295a0 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -2436,6 +2436,11 @@ static int igb_enable_sriov(struct pci_dev *pdev, int num_vfs)
- 	int err = 0;
- 	int i;
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index cba1d46..5fb36ed 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -2886,6 +2886,11 @@ static int hso_probe(struct usb_interface *interface,
+ 	struct hso_shared_int *shared_int;
+ 	struct hso_device *tmp_dev = NULL;
  
-+	if (!adapter->msix_entries) {
-+		err = -EPERM;
-+		goto out;
++	if (interface->cur_altsetting->desc.bInterfaceClass != 0xFF) {
++		dev_err(&interface->dev, "Not our interface\n");
++		return -ENODEV;
 +	}
 +
- 	if (!num_vfs)
- 		goto out;
- 	else if (old_vfs && old_vfs == num_vfs)
+ 	if_num = interface->altsetting->desc.bInterfaceNumber;
+ 
+ 	/* Get the interface/port specification from either driver_info or from
+@@ -2895,10 +2900,6 @@ static int hso_probe(struct usb_interface *interface,
+ 	else
+ 		port_spec = hso_get_config_data(interface);
+ 
+-	if (interface->cur_altsetting->desc.bInterfaceClass != 0xFF) {
+-		dev_err(&interface->dev, "Not our interface\n");
+-		return -ENODEV;
+-	}
+ 	/* Check if we need to switch to alt interfaces prior to port
+ 	 * configuration */
+ 	if (interface->num_altsetting > 1)
 -- 
-1.8.3.1
+1.7.9.5
