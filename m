@@ -1,61 +1,53 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH next] drivers: net: can: c_can: add type cast from 'unsigned
- int' to 'int'
-Date: Wed, 21 Aug 2013 11:45:02 +0200
-Message-ID: <52148C1E.3020709@pengutronix.de>
-References: <521483CD.8050907@asianux.com>
+From: Richard GENOUD <richard.genoud@gmail.com>
+Subject: sun4i_handle_irq: WARNING at net/ipv4/tcp_input.c:2711
+ tcp_fastretrans_alert
+Date: Wed, 21 Aug 2013 11:47:20 +0200
+Message-ID: <20130821094432.GA28249@lnx-rg>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="MCv54WLWxVEwgIQmRgLhl6DqLgoeFvKv3"
-Cc: wg@grandegger.com, anilkumar@ti.com,
-	Tony Lindgren <tony@atomide.com>, jg1.han@samsung.com,
-	David Miller <davem@davemloft.net>, linux-can@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Chen Gang <gang.chen@asianux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:49749 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751485Ab3HUJpZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 05:45:25 -0400
-In-Reply-To: <521483CD.8050907@asianux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stefan Roese <sr@denx.de>, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Maxime Ripard <maxime.ripard@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---MCv54WLWxVEwgIQmRgLhl6DqLgoeFvKv3
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Hi Maxime, Stephan
 
-On 08/21/2013 11:09 AM, Chen Gang wrote:
-> 'priv->instance' may less than zero, so need a type cast, the related
-> warnings (allmodconfig, "EXTRA_CFLAGS=3D-W"):
->=20
->   drivers/net/can/c_can/c_can_platform.c:198:3: warning: comparison of =
-unsigned expression < 0 is always false [-Wtype-limits]
+I just realise that, *sometimes*, I have some warnings on my cubieboard
+(6 since the 22 of july, and the board is runnning 24/24).
+It has happened also on 3.10 + emac patches.
+Here it is:
+[27224.060000] ------------[ cut here ]------------
+[27224.070000] WARNING: CPU: 0 PID: 0 at net/ipv4/tcp_input.c:2711 tcp_fastretrans_alert+0x717/0x734()
+[27224.080000] CPU: 0 PID: 0 Comm: swapper Not tainted 3.11.0-rc6-00010-g54f11ec #8
+[27224.080000] [<c000f231>] (unwind_backtrace+0x1/0x98) from [<c000e2b7>] (show_stack+0xb/0xc)
+[27224.090000] [<c000e2b7>] (show_stack+0xb/0xc) from [<c0013cd3>] (warn_slowpath_common+0x43/0x5c)
+[27224.100000] [<c0013cd3>] (warn_slowpath_common+0x43/0x5c) from [<c0013d6d>] (warn_slowpath_null+0x11/0x14)
+[27224.110000] [<c0013d6d>] (warn_slowpath_null+0x11/0x14) from [<c015eadf>] (tcp_fastretrans_alert+0x717/0x734)
+[27224.120000] [<c015eadf>] (tcp_fastretrans_alert+0x717/0x734) from [<c015f32b>] (tcp_ack+0x6af/0x984)
+[27224.130000] [<c015f32b>] (tcp_ack+0x6af/0x984) from [<c015fcab>] (tcp_rcv_established+0x93/0x3ec)
+[27224.140000] [<c015fcab>] (tcp_rcv_established+0x93/0x3ec) from [<c0165621>] (tcp_v4_do_rcv+0xa1/0x160)
+[27224.150000] [<c0165621>] (tcp_v4_do_rcv+0xa1/0x160) from [<c0167129>] (tcp_v4_rcv+0x4e9/0x500)
+[27224.160000] [<c0167129>] (tcp_v4_rcv+0x4e9/0x500) from [<c015025d>] (ip_local_deliver_finish+0x79/0x180)
+[27224.170000] [<c015025d>] (ip_local_deliver_finish+0x79/0x180) from [<c01500a1>] (ip_rcv_finish+0xc9/0x20c)
+[27224.180000] [<c01500a1>] (ip_rcv_finish+0xc9/0x20c) from [<c0129493>] (__netif_receive_skb_core+0x287/0x3dc)
+[27224.190000] [<c0129493>] (__netif_receive_skb_core+0x287/0x3dc) from [<c0129a8b>] (process_backlog+0x5b/0xd0)
+[27224.200000] [<c0129a8b>] (process_backlog+0x5b/0xd0) from [<c012bc6f>] (net_rx_action+0x5f/0xe8)
+[27224.200000] [<c012bc6f>] (net_rx_action+0x5f/0xe8) from [<c0015fc9>] (__do_softirq+0x91/0x134)
+[27224.210000] [<c0015fc9>] (__do_softirq+0x91/0x134) from [<c0016251>] (irq_exit+0x59/0x80)
+[27224.220000] [<c0016251>] (irq_exit+0x59/0x80) from [<c000d00d>] (handle_IRQ+0x21/0x54)
+[27224.230000] [<c000d00d>] (handle_IRQ+0x21/0x54) from [<c00083ef>] (sun4i_handle_irq+0x1f/0x30)
+[27224.240000] [<c00083ef>] (sun4i_handle_irq+0x1f/0x30) from [<c000ea1b>] (__irq_svc+0x3b/0x5c)
+[27224.250000] Exception stack(0xc0287f70 to 0xc0287fb8)
+[27224.250000] 7f60:                                     00000000 00000000 00000000 00000000
+[27224.260000] 7f80: c0286000 c02ad7fd 00000001 c02ad7fd c028e084 413fc082 00000000 00000000
+[27224.270000] 7fa0: 01000000 c0287fb8 c000d115 c000d116 40000033 ffffffff
+[27224.270000] [<c000ea1b>] (__irq_svc+0x3b/0x5c) from [<c000d116>] (arch_cpu_idle+0x16/0x1c)
+[27224.280000] [<c000d116>] (arch_cpu_idle+0x16/0x1c) from [<c002e69d>] (cpu_startup_entry+0x35/0xa0)
+[27224.290000] [<c002e69d>] (cpu_startup_entry+0x35/0xa0) from [<c026f75f>] (start_kernel+0x1af/0x1f0)
+[27224.300000] ---[ end trace 15641276e08fba8a ]---
 
-Tnx, I've tweaked the commit message a bit, will send a v2.
-
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---MCv54WLWxVEwgIQmRgLhl6DqLgoeFvKv3
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlIUjB4ACgkQjTAFq1RaXHMYJgCfQAjIqxNerzOQC1llP4LG97ip
-TKsAnRPAUsyfD5kNmQuMxFuWtFLh1mDQ
-=pLp6
------END PGP SIGNATURE-----
-
---MCv54WLWxVEwgIQmRgLhl6DqLgoeFvKv3--
+Best regards,
+Richard
