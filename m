@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 13/32] sfc: Move siena_reset_hw() and
- siena_map_reset_reason() into MCDI module
-Date: Thu, 22 Aug 2013 13:50:32 +0100
-Message-ID: <1377175832.1703.18.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 11/32] sfc: Ensure MCDI buffers, but not lengths,
+ are dword aligned
+Date: Thu, 22 Aug 2013 13:49:51 +0100
+Message-ID: <1377175791.1703.16.camel@bwh-desktop.uk.level5networks.com>
 References: <1377175392.1703.5.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,189 +10,243 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:13888 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:13855 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753614Ab3HVMuf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 08:50:35 -0400
+	with ESMTP id S1753345Ab3HVMty (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 08:49:54 -0400
 In-Reply-To: <1377175392.1703.5.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These implementations should work for EF10 too.  Rename them
-accordingly.
+We currently require that MCDI request and response lengths are
+multiples of 4 bytes, because we will copy dwords in and out of shared
+memory and we want to be sure we won't read or write out of bounds.
+But all we really need to know is that there is sufficient padding for
+that.  Also, we should ensure that buffers are dword-aligned, as on
+some architectures misaligned access will result in data corruption or
+a crash.
+
+Change the buffer type to array-of-efx_dword_t and remove the
+requirement that the lengths are multiples of 4.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/mcdi.c  | 24 ++++++++++++++++++++++--
- drivers/net/ethernet/sfc/mcdi.h  |  4 ++--
- drivers/net/ethernet/sfc/siena.c | 33 ++++++---------------------------
- 3 files changed, 30 insertions(+), 31 deletions(-)
+ drivers/net/ethernet/sfc/mcdi.c | 31 ++++++++++++++++++-------------
+ drivers/net/ethernet/sfc/mcdi.h | 36 +++++++++++++++++++++++-------------
+ drivers/net/ethernet/sfc/ptp.c  | 10 +++++-----
+ 3 files changed, 46 insertions(+), 31 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
-index 3f55b16..4781e02 100644
+index d6d1ff1..3f55b16 100644
 --- a/drivers/net/ethernet/sfc/mcdi.c
 +++ b/drivers/net/ethernet/sfc/mcdi.c
-@@ -1087,7 +1087,7 @@ void efx_mcdi_set_id_led(struct efx_nic *efx, enum efx_led_mode mode)
- 			  __func__, rc);
+@@ -67,7 +67,7 @@ void efx_mcdi_init(struct efx_nic *efx)
  }
  
--int efx_mcdi_reset_port(struct efx_nic *efx)
-+static int efx_mcdi_reset_port(struct efx_nic *efx)
+ static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
+-			    const u8 *inbuf, size_t inlen)
++			    const efx_dword_t *inbuf, size_t inlen)
  {
- 	int rc = efx_mcdi_rpc(efx, MC_CMD_ENTITY_RESET, NULL, 0, NULL, 0, NULL);
- 	if (rc)
-@@ -1096,7 +1096,7 @@ int efx_mcdi_reset_port(struct efx_nic *efx)
- 	return rc;
+ 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
+ 	unsigned pdu = FR_CZ_MC_TREG_SMEM + MCDI_PDU(efx);
+@@ -75,9 +75,10 @@ static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
+ 	unsigned int i;
+ 	efx_dword_t hdr;
+ 	u32 xflags, seqno;
++	unsigned int inlen_dw = DIV_ROUND_UP(inlen, 4);
+ 
+ 	BUG_ON(atomic_read(&mcdi->state) == MCDI_STATE_QUIESCENT);
+-	BUG_ON(inlen & 3 || inlen >= MC_SMEM_PDU_LEN);
++	BUG_ON(inlen > MCDI_CTL_SDU_LEN_MAX_V1);
+ 
+ 	seqno = mcdi->seqno & SEQ_MASK;
+ 	xflags = 0;
+@@ -94,8 +95,8 @@ static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
+ 
+ 	efx_writed(efx, &hdr, pdu);
+ 
+-	for (i = 0; i < inlen; i += 4)
+-		_efx_writed(efx, *((__le32 *)(inbuf + i)), pdu + 4 + i);
++	for (i = 0; i < inlen_dw; i++)
++		efx_writed(efx, &inbuf[i], pdu + 4 + 4 * i);
+ 
+ 	/* Ensure the payload is written out before the header */
+ 	wmb();
+@@ -104,17 +105,19 @@ static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
+ 	_efx_writed(efx, (__force __le32) 0x45789abc, doorbell);
  }
  
--int efx_mcdi_reset_mc(struct efx_nic *efx)
-+static int efx_mcdi_reset_mc(struct efx_nic *efx)
+-static void efx_mcdi_copyout(struct efx_nic *efx, u8 *outbuf, size_t outlen)
++static void
++efx_mcdi_copyout(struct efx_nic *efx, efx_dword_t *outbuf, size_t outlen)
  {
- 	MCDI_DECLARE_BUF(inbuf, MC_CMD_REBOOT_IN_LEN);
+ 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
+ 	unsigned int pdu = FR_CZ_MC_TREG_SMEM + MCDI_PDU(efx);
++	unsigned int outlen_dw = DIV_ROUND_UP(outlen, 4);
+ 	int i;
+ 
+ 	BUG_ON(atomic_read(&mcdi->state) == MCDI_STATE_QUIESCENT);
+-	BUG_ON(outlen & 3 || outlen >= MC_SMEM_PDU_LEN);
++	BUG_ON(outlen > MCDI_CTL_SDU_LEN_MAX_V1);
+ 
+-	for (i = 0; i < outlen; i += 4)
+-		*((__le32 *)(outbuf + i)) = _efx_readd(efx, pdu + 4 + i);
++	for (i = 0; i < outlen_dw; i++)
++		efx_readd(efx, &outbuf[i], pdu + 4 + 4 * i);
+ }
+ 
+ static int efx_mcdi_poll(struct efx_nic *efx)
+@@ -328,7 +331,8 @@ static void efx_mcdi_ev_cpl(struct efx_nic *efx, unsigned int seqno,
+ }
+ 
+ int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd,
+-		 const u8 *inbuf, size_t inlen, u8 *outbuf, size_t outlen,
++		 const efx_dword_t *inbuf, size_t inlen,
++		 efx_dword_t *outbuf, size_t outlen,
+ 		 size_t *outlen_actual)
+ {
+ 	efx_mcdi_rpc_start(efx, cmd, inbuf, inlen);
+@@ -336,8 +340,8 @@ int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd,
+ 				   outbuf, outlen, outlen_actual);
+ }
+ 
+-void efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd, const u8 *inbuf,
+-			size_t inlen)
++void efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd,
++			const efx_dword_t *inbuf, size_t inlen)
+ {
+ 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
+ 
+@@ -354,7 +358,8 @@ void efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd, const u8 *inbuf,
+ }
+ 
+ int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
+-			u8 *outbuf, size_t outlen, size_t *outlen_actual)
++			efx_dword_t *outbuf, size_t outlen,
++			size_t *outlen_actual)
+ {
+ 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
  	int rc;
-@@ -1114,6 +1114,26 @@ int efx_mcdi_reset_mc(struct efx_nic *efx)
- 	return rc;
- }
+@@ -393,7 +398,7 @@ int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
  
-+enum reset_type efx_mcdi_map_reset_reason(enum reset_type reason)
-+{
-+	return RESET_TYPE_RECOVER_OR_ALL;
-+}
-+
-+int efx_mcdi_reset(struct efx_nic *efx, enum reset_type method)
-+{
-+	int rc;
-+
-+	/* Recover from a failed assertion pre-reset */
-+	rc = efx_mcdi_handle_assertion(efx);
-+	if (rc)
-+		return rc;
-+
-+	if (method == RESET_TYPE_WORLD)
-+		return efx_mcdi_reset_mc(efx);
-+	else
-+		return efx_mcdi_reset_port(efx);
-+}
-+
- static int efx_mcdi_wol_filter_set(struct efx_nic *efx, u32 type,
- 				   const u8 *mac, int *id_out)
- {
+ 		if (rc == 0) {
+ 			efx_mcdi_copyout(efx, outbuf,
+-					 min(outlen, mcdi->resplen + 3) & ~0x3);
++					 min(outlen, mcdi->resplen));
+ 			if (outlen_actual != NULL)
+ 				*outlen_actual = resplen;
+ 		} else if (cmd == MC_CMD_REBOOT && rc == -EIO)
 diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
-index 899f094..e62dc04 100644
+index f8ab64f..28657a1 100644
 --- a/drivers/net/ethernet/sfc/mcdi.h
 +++ b/drivers/net/ethernet/sfc/mcdi.h
-@@ -190,8 +190,6 @@ extern int efx_mcdi_nvram_update_finish(struct efx_nic *efx,
- extern int efx_mcdi_nvram_test_all(struct efx_nic *efx);
- extern int efx_mcdi_handle_assertion(struct efx_nic *efx);
- extern void efx_mcdi_set_id_led(struct efx_nic *efx, enum efx_led_mode mode);
--extern int efx_mcdi_reset_port(struct efx_nic *efx);
--extern int efx_mcdi_reset_mc(struct efx_nic *efx);
- extern int efx_mcdi_wol_filter_set_magic(struct efx_nic *efx,
- 					 const u8 *mac, int *id_out);
- extern int efx_mcdi_wol_filter_get_magic(struct efx_nic *efx, int *id_out);
-@@ -203,6 +201,8 @@ extern int efx_mcdi_mac_stats(struct efx_nic *efx, dma_addr_t dma_addr,
- 			      u32 dma_len, int enable, int clear);
- extern int efx_mcdi_mac_reconfigure(struct efx_nic *efx);
- extern bool efx_mcdi_mac_check_fault(struct efx_nic *efx);
-+extern enum reset_type efx_mcdi_map_reset_reason(enum reset_type reason);
-+extern int efx_mcdi_reset(struct efx_nic *efx, enum reset_type method);
+@@ -67,16 +67,18 @@ struct efx_mcdi_mon {
  
- #ifdef CONFIG_SFC_MCDI_MON
- extern int efx_mcdi_mon_probe(struct efx_nic *efx);
-diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
-index 8c91775..6babc8e 100644
---- a/drivers/net/ethernet/sfc/siena.c
-+++ b/drivers/net/ethernet/sfc/siena.c
-@@ -30,7 +30,6 @@
- /* Hardware control for SFC9000 family including SFL9021 (aka Siena). */
+ extern void efx_mcdi_init(struct efx_nic *efx);
  
- static void siena_init_wol(struct efx_nic *efx);
--static int siena_reset_hw(struct efx_nic *efx, enum reset_type method);
+-extern int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd, const u8 *inbuf,
+-			size_t inlen, u8 *outbuf, size_t outlen,
++extern int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd,
++			const efx_dword_t *inbuf, size_t inlen,
++			efx_dword_t *outbuf, size_t outlen,
+ 			size_t *outlen_actual);
  
-
- static void siena_push_irq_moderation(struct efx_channel *channel)
-@@ -178,7 +177,7 @@ static int siena_test_chip(struct efx_nic *efx, struct efx_self_tests *tests)
- 	/* Reset the chip immediately so that it is completely
- 	 * quiescent regardless of what any VF driver does.
- 	 */
--	rc = siena_reset_hw(efx, reset_method);
-+	rc = efx_mcdi_reset(efx, reset_method);
- 	if (rc)
- 		goto out;
+ extern void efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd,
+-			       const u8 *inbuf, size_t inlen);
++			       const efx_dword_t *inbuf, size_t inlen);
+ extern int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
+-			       u8 *outbuf, size_t outlen,
++			       efx_dword_t *outbuf, size_t outlen,
+ 			       size_t *outlen_actual);
  
-@@ -187,7 +186,7 @@ static int siena_test_chip(struct efx_nic *efx, struct efx_self_tests *tests)
- 				       ARRAY_SIZE(siena_register_tests))
- 		? -1 : 1;
++
+ extern int efx_mcdi_poll_reboot(struct efx_nic *efx);
+ extern void efx_mcdi_mode_poll(struct efx_nic *efx);
+ extern void efx_mcdi_mode_event(struct efx_nic *efx);
+@@ -85,14 +87,21 @@ extern void efx_mcdi_process_event(struct efx_channel *channel,
+ 				   efx_qword_t *event);
+ extern void efx_mcdi_sensor_event(struct efx_nic *efx, efx_qword_t *ev);
  
--	rc = siena_reset_hw(efx, reset_method);
-+	rc = efx_mcdi_reset(efx, reset_method);
- out:
- 	rc2 = efx_reset_up(efx, reset_method, rc == 0);
- 	return rc ? rc : rc2;
-@@ -200,11 +199,6 @@ out:
-  **************************************************************************
-  */
++/* We expect that 16- and 32-bit fields in MCDI requests and responses
++ * are appropriately aligned.  Also, on Siena we must copy to the MC
++ * shared memory strictly 32 bits at a time, so add any necessary
++ * padding.
++ */
+ #define MCDI_DECLARE_BUF(_name, _len)					\
+-	u8 _name[ALIGN(_len, 4)]
++	efx_dword_t _name[DIV_ROUND_UP(_len, 4)]
+ #define _MCDI_PTR(_buf, _offset)					\
+ 	((u8 *)(_buf) + (_offset))
+ #define MCDI_PTR(_buf, _field)						\
+ 	_MCDI_PTR(_buf, MC_CMD_ ## _field ## _OFST)
++#define _MCDI_CHECK_ALIGN(_ofst, _align)				\
++	((_ofst) + BUILD_BUG_ON_ZERO((_ofst) & (_align - 1)))
+ #define _MCDI_DWORD(_buf, _field)					\
+-	((efx_dword_t *)MCDI_PTR(_buf, _field))
++	((_buf) + (_MCDI_CHECK_ALIGN(MC_CMD_ ## _field ## _OFST, 4) >> 2))
  
--static enum reset_type siena_map_reset_reason(enum reset_type reason)
--{
--	return RESET_TYPE_RECOVER_OR_ALL;
--}
--
- static int siena_map_reset_flags(u32 *flags)
- {
- 	enum {
-@@ -230,21 +224,6 @@ static int siena_map_reset_flags(u32 *flags)
- 	return -EINVAL;
- }
+ #define MCDI_SET_DWORD(_buf, _field, _value)				\
+ 	EFX_POPULATE_DWORD_1(*_MCDI_DWORD(_buf, _field), EFX_DWORD_0, _value)
+@@ -109,22 +118,23 @@ extern void efx_mcdi_sensor_event(struct efx_nic *efx, efx_qword_t *ev);
+ 		(MC_CMD_ ## _type ## _ ## _field ## _LBN & 0x1f) +	\
+ 		MC_CMD_ ## _type ## _ ## _field ## _WIDTH - 1)
  
--static int siena_reset_hw(struct efx_nic *efx, enum reset_type method)
--{
--	int rc;
--
--	/* Recover from a failed assertion pre-reset */
--	rc = efx_mcdi_handle_assertion(efx);
--	if (rc)
--		return rc;
--
--	if (method == RESET_TYPE_WORLD)
--		return efx_mcdi_reset_mc(efx);
--	else
--		return efx_mcdi_reset_port(efx);
--}
--
- #ifdef CONFIG_EEH
- /* When a PCI device is isolated from the bus, a subsequent MMIO read is
-  * required for the kernel EEH mechanisms to notice. As the Solarflare driver
-@@ -327,7 +306,7 @@ static int siena_probe_nic(struct efx_nic *efx)
- 			  "Host already registered with MCPU\n");
+-#define _MCDI_ARRAY_PTR(_buf, _field, _index)				\
+-	(MCDI_PTR(_buf, _field) +					\
+-	 (_index) * MC_CMD_ ## _field ## _LEN)
++#define _MCDI_ARRAY_PTR(_buf, _field, _index, _align)			\
++	(_MCDI_PTR(_buf, _MCDI_CHECK_ALIGN(MC_CMD_ ## _field ## _OFST, _align))\
++	 + (_index) * _MCDI_CHECK_ALIGN(MC_CMD_ ## _field ## _LEN, _align))
+ #define MCDI_DECLARE_STRUCT_PTR(_name)					\
+-	u8 *_name
+-#define MCDI_ARRAY_STRUCT_PTR _MCDI_ARRAY_PTR
++	efx_dword_t *_name
++#define MCDI_ARRAY_STRUCT_PTR(_buf, _field, _index)			\
++	((efx_dword_t *)_MCDI_ARRAY_PTR(_buf, _field, _index, 4))
+ #define MCDI_VAR_ARRAY_LEN(_len, _field)				\
+ 	min_t(size_t, MC_CMD_ ## _field ## _MAXNUM,			\
+ 	      ((_len) - MC_CMD_ ## _field ## _OFST) / MC_CMD_ ## _field ## _LEN)
+ #define MCDI_ARRAY_WORD(_buf, _field, _index)				\
+ 	(BUILD_BUG_ON_ZERO(MC_CMD_ ## _field ## _LEN != 2) +		\
+ 	 le16_to_cpu(*(__force const __le16 *)				\
+-		     _MCDI_ARRAY_PTR(_buf, _field, _index)))
++		     _MCDI_ARRAY_PTR(_buf, _field, _index, 2)))
+ #define _MCDI_ARRAY_DWORD(_buf, _field, _index)				\
+ 	(BUILD_BUG_ON_ZERO(MC_CMD_ ## _field ## _LEN != 4) +		\
+-	 (efx_dword_t *)_MCDI_ARRAY_PTR(_buf, _field, _index))
++	 (efx_dword_t *)_MCDI_ARRAY_PTR(_buf, _field, _index, 4))
+ #define MCDI_SET_ARRAY_DWORD(_buf, _field, _index, _value)		\
+ 	EFX_SET_DWORD_FIELD(*_MCDI_ARRAY_DWORD(_buf, _field, _index),	\
+ 			    EFX_DWORD_0, _value)
+diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
+index ec2cf4d..5612021 100644
+--- a/drivers/net/ethernet/sfc/ptp.c
++++ b/drivers/net/ethernet/sfc/ptp.c
+@@ -571,9 +571,8 @@ static int efx_ptp_xmit_skb(struct efx_nic *efx, struct sk_buff *skb)
+ 	struct efx_ptp_data *ptp_data = efx->ptp_data;
+ 	struct skb_shared_hwtstamps timestamps;
+ 	int rc = -EIO;
+-	/* MCDI driver requires word aligned lengths */
+-	size_t len = ALIGN(MC_CMD_PTP_IN_TRANSMIT_LEN(skb->len), 4);
+ 	MCDI_DECLARE_BUF(txtime, MC_CMD_PTP_OUT_TRANSMIT_LEN);
++	size_t len;
  
- 	/* Now we can reset the NIC */
--	rc = siena_reset_hw(efx, RESET_TYPE_ALL);
-+	rc = efx_mcdi_reset(efx, RESET_TYPE_ALL);
- 	if (rc) {
- 		netif_err(efx, probe, efx->net_dev, "failed to reset NIC\n");
- 		goto fail3;
-@@ -458,7 +437,7 @@ static void siena_remove_nic(struct efx_nic *efx)
+ 	MCDI_SET_DWORD(ptp_data->txbuf, PTP_IN_OP, MC_CMD_PTP_OP_TRANSMIT);
+ 	MCDI_SET_DWORD(ptp_data->txbuf, PTP_IN_TRANSMIT_LENGTH, skb->len);
+@@ -591,9 +590,10 @@ static int efx_ptp_xmit_skb(struct efx_nic *efx, struct sk_buff *skb)
+ 	skb_copy_from_linear_data(skb,
+ 				  MCDI_PTR(ptp_data->txbuf,
+ 					   PTP_IN_TRANSMIT_PACKET),
+-				  len);
+-	rc = efx_mcdi_rpc(efx, MC_CMD_PTP, ptp_data->txbuf, len, txtime,
+-			  sizeof(txtime), &len);
++				  skb->len);
++	rc = efx_mcdi_rpc(efx, MC_CMD_PTP,
++			  ptp_data->txbuf, MC_CMD_PTP_IN_TRANSMIT_LEN(skb->len),
++			  txtime, sizeof(txtime), &len);
+ 	if (rc != 0)
+ 		goto fail;
  
- 	efx_nic_free_buffer(efx, &efx->irq_status);
- 
--	siena_reset_hw(efx, RESET_TYPE_ALL);
-+	efx_mcdi_reset(efx, RESET_TYPE_ALL);
- 
- 	/* Relinquish the device back to the BMC */
- 	efx_mcdi_drv_attach(efx, false, NULL);
-@@ -688,9 +667,9 @@ const struct efx_nic_type siena_a0_nic_type = {
- #else
- 	.monitor = NULL,
- #endif
--	.map_reset_reason = siena_map_reset_reason,
-+	.map_reset_reason = efx_mcdi_map_reset_reason,
- 	.map_reset_flags = siena_map_reset_flags,
--	.reset = siena_reset_hw,
-+	.reset = efx_mcdi_reset,
- 	.probe_port = siena_probe_port,
- 	.remove_port = siena_remove_port,
- 	.prepare_flush = siena_prepare_flush,
 
 
 -- 
