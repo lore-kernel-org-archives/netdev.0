@@ -1,8 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 16/32] sfc: Make efx_mcdi_init() call
- efx_mcdi_handle_assertion()
-Date: Thu, 22 Aug 2013 13:53:19 +0100
-Message-ID: <1377175999.1703.21.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 17/32] sfc: Make MCDI independent of Siena
+Date: Thu, 22 Aug 2013 13:54:03 +0100
+Message-ID: <1377176043.1703.22.camel@bwh-desktop.uk.level5networks.com>
 References: <1377175392.1703.5.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,82 +9,480 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:13996 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:14021 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753325Ab3HVMxW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 08:53:22 -0400
+	with ESMTP id S1752473Ab3HVMyH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 08:54:07 -0400
 In-Reply-To: <1377175392.1703.5.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This should probably be done during MCDI initialisation for any NIC.
-Change efx_mcdi_init() to return an error code.
+Move the lowest layer (transport) of the current MCDI code to
+per-NIC-type operations.
+
+Introduce a new structure and efx_nic member for MCDI-specific data.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/mcdi.c  | 8 ++++----
- drivers/net/ethernet/sfc/mcdi.h  | 2 +-
- drivers/net/ethernet/sfc/siena.c | 5 +----
- 3 files changed, 6 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/sfc/mcdi.c       | 87 ++++++++++-----------------------
+ drivers/net/ethernet/sfc/mcdi.h       | 21 ++++++++
+ drivers/net/ethernet/sfc/net_driver.h | 20 ++++++++
+ drivers/net/ethernet/sfc/nic.h        | 16 -------
+ drivers/net/ethernet/sfc/siena.c      | 90 +++++++++++++++++++++++++++++++++++
+ 5 files changed, 157 insertions(+), 77 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
-index 5132aba..2b9ef28 100644
+index 2b9ef28..d7d3a8a 100644
 --- a/drivers/net/ethernet/sfc/mcdi.c
 +++ b/drivers/net/ethernet/sfc/mcdi.c
-@@ -50,13 +50,10 @@ static inline struct efx_mcdi_iface *efx_mcdi(struct efx_nic *efx)
- 	return &nic_data->mcdi;
+@@ -24,13 +24,6 @@
+ 
+ #define MCDI_RPC_TIMEOUT       (10 * HZ)
+ 
+-#define MCDI_PDU(efx)							\
+-	(efx_port_num(efx) ? MC_SMEM_P1_PDU_OFST : MC_SMEM_P0_PDU_OFST)
+-#define MCDI_DOORBELL(efx)						\
+-	(efx_port_num(efx) ? MC_SMEM_P1_DOORBELL_OFST : MC_SMEM_P0_DOORBELL_OFST)
+-#define MCDI_STATUS(efx)						\
+-	(efx_port_num(efx) ? MC_SMEM_P1_STATUS_OFST : MC_SMEM_P0_STATUS_OFST)
+-
+ /* A reboot/assertion causes the MCDI status word to be set after the
+  * command word is set or a REBOOT event is sent. If we notice a reboot
+  * via these mechanisms then wait 10ms for the status word to be set. */
+@@ -44,16 +37,18 @@
+ 
+ static inline struct efx_mcdi_iface *efx_mcdi(struct efx_nic *efx)
+ {
+-	struct siena_nic_data *nic_data;
+-	EFX_BUG_ON_PARANOID(efx_nic_rev(efx) < EFX_REV_SIENA_A0);
+-	nic_data = efx->nic_data;
+-	return &nic_data->mcdi;
++	EFX_BUG_ON_PARANOID(!efx->mcdi);
++	return &efx->mcdi->iface;
  }
  
--void efx_mcdi_init(struct efx_nic *efx)
-+int efx_mcdi_init(struct efx_nic *efx)
+ int efx_mcdi_init(struct efx_nic *efx)
+ {
+ 	struct efx_mcdi_iface *mcdi;
+ 
++	efx->mcdi = kzalloc(sizeof(*efx->mcdi), GFP_KERNEL);
++	if (!efx->mcdi)
++		return -ENOMEM;
++
+ 	mcdi = efx_mcdi(efx);
+ 	init_waitqueue_head(&mcdi->wq);
+ 	spin_lock_init(&mcdi->iface_lock);
+@@ -66,16 +61,19 @@ int efx_mcdi_init(struct efx_nic *efx)
+ 	return efx_mcdi_handle_assertion(efx);
+ }
+ 
++void efx_mcdi_fini(struct efx_nic *efx)
++{
++	BUG_ON(efx->mcdi &&
++	       atomic_read(&efx->mcdi->iface.state) != MCDI_STATE_QUIESCENT);
++	kfree(efx->mcdi);
++}
++
+ static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
+ 			    const efx_dword_t *inbuf, size_t inlen)
+ {
+ 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
+-	unsigned pdu = FR_CZ_MC_TREG_SMEM + MCDI_PDU(efx);
+-	unsigned doorbell = FR_CZ_MC_TREG_SMEM + MCDI_DOORBELL(efx);
+-	unsigned int i;
+ 	efx_dword_t hdr;
+ 	u32 xflags, seqno;
+-	unsigned int inlen_dw = DIV_ROUND_UP(inlen, 4);
+ 
+ 	BUG_ON(atomic_read(&mcdi->state) == MCDI_STATE_QUIESCENT);
+ 	BUG_ON(inlen > MCDI_CTL_SDU_LEN_MAX_V1);
+@@ -93,31 +91,18 @@ static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
+ 			     MCDI_HEADER_SEQ, seqno,
+ 			     MCDI_HEADER_XFLAGS, xflags);
+ 
+-	efx_writed(efx, &hdr, pdu);
+-
+-	for (i = 0; i < inlen_dw; i++)
+-		efx_writed(efx, &inbuf[i], pdu + 4 + 4 * i);
+-
+-	/* Ensure the payload is written out before the header */
+-	wmb();
+-
+-	/* ring the doorbell with a distinctive value */
+-	_efx_writed(efx, (__force __le32) 0x45789abc, doorbell);
++	efx->type->mcdi_request(efx, &hdr, 4, inbuf, inlen);
+ }
+ 
+ static void
+ efx_mcdi_copyout(struct efx_nic *efx, efx_dword_t *outbuf, size_t outlen)
+ {
+ 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
+-	unsigned int pdu = FR_CZ_MC_TREG_SMEM + MCDI_PDU(efx);
+-	unsigned int outlen_dw = DIV_ROUND_UP(outlen, 4);
+-	int i;
+ 
+ 	BUG_ON(atomic_read(&mcdi->state) == MCDI_STATE_QUIESCENT);
+ 	BUG_ON(outlen > MCDI_CTL_SDU_LEN_MAX_V1);
+ 
+-	for (i = 0; i < outlen_dw; i++)
+-		efx_readd(efx, &outbuf[i], pdu + 4 + 4 * i);
++	efx->type->mcdi_read_response(efx, outbuf, 4, outlen);
+ }
+ 
+ static int efx_mcdi_poll(struct efx_nic *efx)
+@@ -125,7 +110,6 @@ static int efx_mcdi_poll(struct efx_nic *efx)
+ 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
+ 	unsigned long time, finish;
+ 	unsigned int respseq, respcmd, error;
+-	unsigned int pdu = FR_CZ_MC_TREG_SMEM + MCDI_PDU(efx);
+ 	unsigned int rc, spins;
+ 	efx_dword_t reg;
+ 
+@@ -152,19 +136,14 @@ static int efx_mcdi_poll(struct efx_nic *efx)
+ 		time = jiffies;
+ 
+ 		rmb();
+-		efx_readd(efx, &reg, pdu);
+-
+-		/* All 1's indicates that shared memory is in reset (and is
+-		 * not a valid header). Wait for it to come out reset before
+-		 * completing the command */
+-		if (EFX_DWORD_FIELD(reg, EFX_DWORD_0) != 0xffffffff &&
+-		    EFX_DWORD_FIELD(reg, MCDI_HEADER_RESPONSE))
++		if (efx->type->mcdi_poll_response(efx))
+ 			break;
+ 
+ 		if (time_after(time, finish))
+ 			return -ETIMEDOUT;
+ 	}
+ 
++	efx->type->mcdi_read_response(efx, &reg, 0, 4);
+ 	mcdi->resplen = EFX_DWORD_FIELD(reg, MCDI_HEADER_DATALEN);
+ 	respseq = EFX_DWORD_FIELD(reg, MCDI_HEADER_SEQ);
+ 	respcmd = EFX_DWORD_FIELD(reg, MCDI_HEADER_CODE);
+@@ -179,7 +158,7 @@ static int efx_mcdi_poll(struct efx_nic *efx)
+ 			  respseq, mcdi->seqno);
+ 		rc = EIO;
+ 	} else if (error) {
+-		efx_readd(efx, &reg, pdu + 4);
++		efx->type->mcdi_read_response(efx, &reg, 4, 4);
+ 		switch (EFX_DWORD_FIELD(reg, EFX_DWORD_0)) {
+ #define TRANSLATE_ERROR(name)					\
+ 		case MC_CMD_ERR_ ## name:			\
+@@ -215,17 +194,13 @@ out:
+  */
+ int efx_mcdi_poll_reboot(struct efx_nic *efx)
+ {
+-	unsigned int addr = FR_CZ_MC_TREG_SMEM + MCDI_STATUS(efx);
+-	efx_dword_t reg;
+-	uint32_t value;
+-
+-	if (efx_nic_rev(efx) < EFX_REV_SIENA_A0)
+-		return false;
++	int rc;
+ 
+-	efx_readd(efx, &reg, addr);
+-	value = EFX_DWORD_FIELD(reg, EFX_DWORD_0);
++	if (!efx->mcdi)
++		return 0;
+ 
+-	if (value == 0)
++	rc = efx->type->mcdi_poll_reboot(efx);
++	if (!rc)
+ 		return 0;
+ 
+ 	/* MAC statistics have been cleared on the NIC; clear our copy
+@@ -233,13 +208,7 @@ int efx_mcdi_poll_reboot(struct efx_nic *efx)
+ 	 */
+ 	memset(&efx->mac_stats, 0, sizeof(efx->mac_stats));
+ 
+-	EFX_ZERO_DWORD(reg);
+-	efx_writed(efx, &reg, addr);
+-
+-	if (value == MC_STATUS_DWORD_ASSERT)
+-		return -EINTR;
+-	else
+-		return -EIO;
++	return rc;
+ }
+ 
+ static void efx_mcdi_acquire(struct efx_mcdi_iface *mcdi)
+@@ -345,8 +314,6 @@ void efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd,
+ {
+ 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
+ 
+-	BUG_ON(efx_nic_rev(efx) < EFX_REV_SIENA_A0);
+-
+ 	efx_mcdi_acquire(mcdi);
+ 
+ 	/* Serialise with efx_mcdi_ev_cpl() and efx_mcdi_ev_death() */
+@@ -364,8 +331,6 @@ int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
+ 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
+ 	int rc;
+ 
+-	BUG_ON(efx_nic_rev(efx) < EFX_REV_SIENA_A0);
+-
+ 	if (mcdi->mode == MCDI_MODE_POLL)
+ 		rc = efx_mcdi_poll(efx);
+ 	else
+@@ -426,7 +391,7 @@ void efx_mcdi_mode_poll(struct efx_nic *efx)
  {
  	struct efx_mcdi_iface *mcdi;
  
 -	if (efx_nic_rev(efx) < EFX_REV_SIENA_A0)
--		return;
--
++	if (!efx->mcdi)
+ 		return;
+ 
  	mcdi = efx_mcdi(efx);
- 	init_waitqueue_head(&mcdi->wq);
- 	spin_lock_init(&mcdi->iface_lock);
-@@ -64,6 +61,9 @@ void efx_mcdi_init(struct efx_nic *efx)
- 	mcdi->mode = MCDI_MODE_POLL;
+@@ -450,7 +415,7 @@ void efx_mcdi_mode_event(struct efx_nic *efx)
+ {
+ 	struct efx_mcdi_iface *mcdi;
  
- 	(void) efx_mcdi_poll_reboot(efx);
-+
-+	/* Recover from a failed assertion before probing */
-+	return efx_mcdi_handle_assertion(efx);
- }
+-	if (efx_nic_rev(efx) < EFX_REV_SIENA_A0)
++	if (!efx->mcdi)
+ 		return;
  
- static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
+ 	mcdi = efx_mcdi(efx);
 diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
-index c8f2cd5..6c58dbd 100644
+index 6c58dbd..0bfed2a 100644
 --- a/drivers/net/ethernet/sfc/mcdi.h
 +++ b/drivers/net/ethernet/sfc/mcdi.h
-@@ -65,7 +65,7 @@ struct efx_mcdi_mon {
+@@ -65,7 +65,28 @@ struct efx_mcdi_mon {
  	unsigned int n_attrs;
  };
  
--extern void efx_mcdi_init(struct efx_nic *efx);
-+extern int efx_mcdi_init(struct efx_nic *efx);
++/**
++ * struct efx_mcdi_data - extra state for NICs that implement MCDI
++ * @iface: Interface/protocol state
++ * @hwmon: Hardware monitor state
++ */
++struct efx_mcdi_data {
++	struct efx_mcdi_iface iface;
++#ifdef CONFIG_SFC_MCDI_MON
++	struct efx_mcdi_mon hwmon;
++#endif
++};
++
++#ifdef CONFIG_SFC_MCDI_MON
++static inline struct efx_mcdi_mon *efx_mcdi_mon(struct efx_nic *efx)
++{
++	EFX_BUG_ON_PARANOID(!efx->mcdi);
++	return &efx->mcdi->hwmon;
++}
++#endif
++
+ extern int efx_mcdi_init(struct efx_nic *efx);
++extern void efx_mcdi_fini(struct efx_nic *efx);
  
  extern int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd,
  			const efx_dword_t *inbuf, size_t inlen,
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index bdded38..fb9361f 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -718,6 +718,7 @@ struct vfdi_status;
+  * @selftest_work: Work item for asynchronous self-test
+  * @mtd_list: List of MTDs attached to the NIC
+  * @nic_data: Hardware dependent state
++ * @mcdi: Management-Controller-to-Driver Interface state
+  * @mac_lock: MAC access lock. Protects @port_enabled, @phy_mode,
+  *	efx_monitor() and efx_reconfigure_port()
+  * @port_enabled: Port enabled indicator.
+@@ -847,6 +848,7 @@ struct efx_nic {
+ #endif
+ 
+ 	void *nic_data;
++	struct efx_mcdi_data *mcdi;
+ 
+ 	struct mutex mac_lock;
+ 	struct work_struct mac_work;
+@@ -956,6 +958,17 @@ static inline unsigned int efx_port_num(struct efx_nic *efx)
+  * @test_chip: Test registers.  Should use efx_nic_test_registers(), and is
+  *	expected to reset the NIC.
+  * @test_nvram: Test validity of NVRAM contents
++ * @mcdi_request: Send an MCDI request with the given header and SDU.
++ *	The SDU length may be any value from 0 up to the protocol-
++ *	defined maximum, but its buffer will be padded to a multiple
++ *	of 4 bytes.
++ * @mcdi_poll_response: Test whether an MCDI response is available.
++ * @mcdi_read_response: Read the MCDI response PDU.  The offset will
++ *	be a multiple of 4.  The length may not be, but the buffer
++ *	will be padded so it is safe to round up.
++ * @mcdi_poll_reboot: Test whether the MCDI has rebooted.  If so,
++ *	return an appropriate error code for aborting any current
++ *	request; otherwise return 0.
+  * @revision: Hardware architecture revision
+  * @mem_map_size: Memory BAR mapped size
+  * @txd_ptr_tbl_base: TX descriptor ring base address
+@@ -1004,6 +1017,13 @@ struct efx_nic_type {
+ 	void (*resume_wol)(struct efx_nic *efx);
+ 	int (*test_chip)(struct efx_nic *efx, struct efx_self_tests *tests);
+ 	int (*test_nvram)(struct efx_nic *efx);
++	void (*mcdi_request)(struct efx_nic *efx,
++			     const efx_dword_t *hdr, size_t hdr_len,
++			     const efx_dword_t *sdu, size_t sdu_len);
++	bool (*mcdi_poll_response)(struct efx_nic *efx);
++	void (*mcdi_read_response)(struct efx_nic *efx, efx_dword_t *pdu,
++				   size_t pdu_offset, size_t pdu_len);
++	int (*mcdi_poll_reboot)(struct efx_nic *efx);
+ 
+ 	int revision;
+ 	unsigned int mem_map_size;
+diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
+index 0d38cc2..c699203 100644
+--- a/drivers/net/ethernet/sfc/nic.h
++++ b/drivers/net/ethernet/sfc/nic.h
+@@ -140,28 +140,12 @@ static inline struct falcon_board *falcon_board(struct efx_nic *efx)
+ 
+ /**
+  * struct siena_nic_data - Siena NIC state
+- * @mcdi: Management-Controller-to-Driver Interface
+  * @wol_filter_id: Wake-on-LAN packet filter id
+- * @hwmon: Hardware monitor state
+  */
+ struct siena_nic_data {
+-	struct efx_mcdi_iface mcdi;
+ 	int wol_filter_id;
+-#ifdef CONFIG_SFC_MCDI_MON
+-	struct efx_mcdi_mon hwmon;
+-#endif
+ };
+ 
+-#ifdef CONFIG_SFC_MCDI_MON
+-static inline struct efx_mcdi_mon *efx_mcdi_mon(struct efx_nic *efx)
+-{
+-	struct siena_nic_data *nic_data;
+-	EFX_BUG_ON_PARANOID(efx_nic_rev(efx) < EFX_REV_SIENA_A0);
+-	nic_data = efx->nic_data;
+-	return &nic_data->hwmon;
+-}
+-#endif
+-
+ /*
+  * On the SFC9000 family each port is associated with 1 PCI physical
+  * function (PF) handled by sfc and a configurable number of virtual
 diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
-index b5d5568..3dca771 100644
+index 3dca771..73b511a 100644
 --- a/drivers/net/ethernet/sfc/siena.c
 +++ b/drivers/net/ethernet/sfc/siena.c
-@@ -210,10 +210,7 @@ static int siena_probe_nic(struct efx_nic *efx)
- 	efx_reado(efx, &reg, FR_AZ_CS_DEBUG);
- 	efx->port_num = EFX_OWORD_FIELD(reg, FRF_CZ_CS_PORT_NUM) - 1;
+@@ -274,6 +274,7 @@ fail4:
+ fail3:
+ 	efx_mcdi_drv_attach(efx, false, NULL);
+ fail2:
++	efx_mcdi_fini(efx);
+ fail1:
+ 	kfree(efx->nic_data);
+ 	return rc;
+@@ -367,6 +368,8 @@ static void siena_remove_nic(struct efx_nic *efx)
+ 	/* Tear down the private nic state */
+ 	kfree(efx->nic_data);
+ 	efx->nic_data = NULL;
++
++	efx_mcdi_fini(efx);
+ }
  
--	efx_mcdi_init(efx);
--
--	/* Recover from a failed assertion before probing */
--	rc = efx_mcdi_handle_assertion(efx);
-+	rc = efx_mcdi_init(efx);
- 	if (rc)
- 		goto fail1;
+ static int siena_try_update_nic_stats(struct efx_nic *efx)
+@@ -574,6 +577,89 @@ static void siena_init_wol(struct efx_nic *efx)
+ 	}
+ }
  
++/**************************************************************************
++ *
++ * MCDI
++ *
++ **************************************************************************
++ */
++
++#define MCDI_PDU(efx)							\
++	(efx_port_num(efx) ? MC_SMEM_P1_PDU_OFST : MC_SMEM_P0_PDU_OFST)
++#define MCDI_DOORBELL(efx)						\
++	(efx_port_num(efx) ? MC_SMEM_P1_DOORBELL_OFST : MC_SMEM_P0_DOORBELL_OFST)
++#define MCDI_STATUS(efx)						\
++	(efx_port_num(efx) ? MC_SMEM_P1_STATUS_OFST : MC_SMEM_P0_STATUS_OFST)
++
++static void siena_mcdi_request(struct efx_nic *efx,
++			       const efx_dword_t *hdr, size_t hdr_len,
++			       const efx_dword_t *sdu, size_t sdu_len)
++{
++	unsigned pdu = FR_CZ_MC_TREG_SMEM + MCDI_PDU(efx);
++	unsigned doorbell = FR_CZ_MC_TREG_SMEM + MCDI_DOORBELL(efx);
++	unsigned int i;
++	unsigned int inlen_dw = DIV_ROUND_UP(sdu_len, 4);
++
++	EFX_BUG_ON_PARANOID(hdr_len != 4);
++
++	efx_writed(efx, hdr, pdu);
++
++	for (i = 0; i < inlen_dw; i++)
++		efx_writed(efx, &sdu[i], pdu + hdr_len + 4 * i);
++
++	/* Ensure the request is written out before the doorbell */
++	wmb();
++
++	/* ring the doorbell with a distinctive value */
++	_efx_writed(efx, (__force __le32) 0x45789abc, doorbell);
++}
++
++static bool siena_mcdi_poll_response(struct efx_nic *efx)
++{
++	unsigned int pdu = FR_CZ_MC_TREG_SMEM + MCDI_PDU(efx);
++	efx_dword_t hdr;
++
++	efx_readd(efx, &hdr, pdu);
++
++	/* All 1's indicates that shared memory is in reset (and is
++	 * not a valid hdr). Wait for it to come out reset before
++	 * completing the command
++	 */
++	return EFX_DWORD_FIELD(hdr, EFX_DWORD_0) != 0xffffffff &&
++		EFX_DWORD_FIELD(hdr, MCDI_HEADER_RESPONSE);
++}
++
++static void siena_mcdi_read_response(struct efx_nic *efx, efx_dword_t *outbuf,
++				     size_t offset, size_t outlen)
++{
++	unsigned int pdu = FR_CZ_MC_TREG_SMEM + MCDI_PDU(efx);
++	unsigned int outlen_dw = DIV_ROUND_UP(outlen, 4);
++	int i;
++
++	for (i = 0; i < outlen_dw; i++)
++		efx_readd(efx, &outbuf[i], pdu + offset + 4 * i);
++}
++
++static int siena_mcdi_poll_reboot(struct efx_nic *efx)
++{
++	unsigned int addr = FR_CZ_MC_TREG_SMEM + MCDI_STATUS(efx);
++	efx_dword_t reg;
++	u32 value;
++
++	efx_readd(efx, &reg, addr);
++	value = EFX_DWORD_FIELD(reg, EFX_DWORD_0);
++
++	if (value == 0)
++		return 0;
++
++	EFX_ZERO_DWORD(reg);
++	efx_writed(efx, &reg, addr);
++
++	if (value == MC_STATUS_DWORD_ASSERT)
++		return -EINTR;
++	else
++		return -EIO;
++}
+ 
+ /**************************************************************************
+  *
+@@ -613,6 +699,10 @@ const struct efx_nic_type siena_a0_nic_type = {
+ 	.resume_wol = siena_init_wol,
+ 	.test_chip = siena_test_chip,
+ 	.test_nvram = efx_mcdi_nvram_test_all,
++	.mcdi_request = siena_mcdi_request,
++	.mcdi_poll_response = siena_mcdi_poll_response,
++	.mcdi_read_response = siena_mcdi_read_response,
++	.mcdi_poll_reboot = siena_mcdi_poll_reboot,
+ 
+ 	.revision = EFX_REV_SIENA_A0,
+ 	.mem_map_size = (FR_CZ_MC_TREG_SMEM +
 
 
 -- 
