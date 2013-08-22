@@ -1,20 +1,48 @@
-From: Wajeeha Ahmad <wajeeha@MIT.EDU>
-Subject: (unknown)
-Date: Thu, 22 Aug 2013 09:29:33 +0000
-Message-ID: <091F9F111E5FAE458C62C13351CBB59D14EBAA__28976.7975955785$1377164354$gmane$org@OC11expo28.exchange.mit.edu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Undisclosed recipients:;
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 04/15] igb: don't allow SR-IOV without MSI-X
+Date: Thu, 22 Aug 2013 02:49:40 -0700
+Message-ID: <1377164991-27988-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1377164991-27988-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Mitch A Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dmz-mailsec-scanner-3.mit.edu ([18.9.25.14]:44344 "EHLO
-	dmz-mailsec-scanner-3.mit.edu" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752211Ab3HVJi6 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Aug 2013 05:38:58 -0400
-Subject: 
-Content-Language: en-US
+Received: from mga03.intel.com ([143.182.124.21]:54375 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752807Ab3HVJt5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Aug 2013 05:49:57 -0400
+In-Reply-To: <1377164991-27988-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your Email ID has been picked by the British Telecom Promotions as a lucky Person of a lump sum of 1,000,000.00. To Claim send info To Email: (btcenter003@outlook.com)
+From: Mitch A Williams <mitch.a.williams@intel.com>
+
+MSI-X interrupts are required for SR-IOV operation. Check to make sure
+they're enabled before allowing the user to turn on VFs.
+
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/igb/igb_main.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 8e7c1b8..94295a0 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -2436,6 +2436,11 @@ static int igb_enable_sriov(struct pci_dev *pdev, int num_vfs)
+ 	int err = 0;
+ 	int i;
+ 
++	if (!adapter->msix_entries) {
++		err = -EPERM;
++		goto out;
++	}
++
+ 	if (!num_vfs)
+ 		goto out;
+ 	else if (old_vfs && old_vfs == num_vfs)
+-- 
+1.8.3.1
