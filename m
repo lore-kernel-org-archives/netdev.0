@@ -1,31 +1,57 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v3 0/9] net: introduce generic type and helpers
- for IP address
-Date: Thu, 22 Aug 2013 12:53:28 +0800
-Message-ID: <1377147208.8703.10.camel@cr0>
-References: <1376907278-26377-1-git-send-email-amwang@redhat.com>
-	 <20130820.231159.2092592990953992941.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC PATCH] bridge: inherit slave devices needed_headroom
+Date: Wed, 21 Aug 2013 21:58:29 -0700
+Message-ID: <20130821215829.1d65d38e@nehalam.linuxnetplumber.net>
+References: <1376990505-15708-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	vyasevic@redhat.com, davem@davemloft.net
+To: "Florian Fainelli" <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2821 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752707Ab3HVExf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Aug 2013 00:53:35 -0400
-In-Reply-To: <20130820.231159.2092592990953992941.davem@davemloft.net>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:37092 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752707Ab3HVE6f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 00:58:35 -0400
+Received: by mail-pa0-f47.google.com with SMTP id kl13so1660697pab.6
+        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 21:58:35 -0700 (PDT)
+In-Reply-To: <1376990505-15708-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-08-20 at 23:11 -0700, David Miller wrote:
-> 
-> That's why all these places use a different data structure!  They have
-> different needs.  Can you see that?
-> 
+On Tue, 20 Aug 2013 10:21:45 +0100
+"Florian Fainelli" <f.fainelli@gmail.com> wrote:
 
-No problem, then let's drop this patchset.
-And I will continue to duplicate the code in my VXLAN patchset.
+> Some slave devices may have set a dev->needed_headroom value which is
+> different than the default one, most likely in order to prepend a
+> hardware descriptor in front of the Ethernet frame to send. Whenever a
+> new slave is added to a bridge, ensure that we update the
+> needed_headroom value accordingly to account for the slave
+> needed_headroom value.
+> 
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  net/bridge/br_if.c | 3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+> index aa6c9a8..c41d5fb 100644
+> --- a/net/bridge/br_if.c
+> +++ b/net/bridge/br_if.c
+> @@ -383,6 +383,9 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+>  
+>  	netdev_update_features(br->dev);
+>  
+> +	if (br->dev->needed_headroom < dev->needed_headroom)
+> +		br->dev->needed_headroom = dev->needed_headroom;
+> +
+>  	spin_lock_bh(&br->lock);
+>  	changed_addr = br_stp_recalculate_bridge_id(br);
+>  
 
-Thanks.
+I am okay with this but it only helps locally generated traffic
+which is the minority on most bridge devices. It does nothing for the case
+where one port needs more headroom than the packet received on the
+other port. That is why a device has to always work when it receives
+a packet with less headroom, usually by copying.
