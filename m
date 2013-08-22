@@ -1,93 +1,46 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH RESEND net-next 16/16] sfc: Make efx_mcdi_init() call
- efx_mcdi_handle_assertion()
-Date: Thu, 22 Aug 2013 20:30:13 +0100
-Message-ID: <1377199813.1703.65.camel@bwh-desktop.uk.level5networks.com>
-References: <1377199326.1703.49.camel@bwh-desktop.uk.level5networks.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH ipsec 1/2] xfrm: revert ipv4 mtu determination to dst_mtu
+Date: Thu, 22 Aug 2013 21:53:56 +0200
+Message-ID: <20130822195355.GA4784@order.stressinduktion.org>
+References: <20130822104724.GD26773@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:12577 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754108Ab3HVTaQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 15:30:16 -0400
-In-Reply-To: <1377199326.1703.49.camel@bwh-desktop.uk.level5networks.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:40499 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753819Ab3HVTx5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 15:53:57 -0400
+Content-Disposition: inline
+In-Reply-To: <20130822104724.GD26773@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This should probably be done during MCDI initialisation for any NIC.
-Change efx_mcdi_init() to return an error code.
+In commit 0ea9d5e3e0e03a63b11392f5613378977dae7eca ("xfrm: introduce
+helper for safe determination of mtu") I switched the determination of
+ipv4 mtus from dst_mtu to ip_skb_dst_mtu. This was an error because in
+case of IP_PMTUDISC_PROBE we fall back to the interface mtu, which is
+never correct for ipv4 ipsec.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- drivers/net/ethernet/sfc/mcdi.c  | 8 ++++----
- drivers/net/ethernet/sfc/mcdi.h  | 2 +-
- drivers/net/ethernet/sfc/siena.c | 5 +----
- 3 files changed, 6 insertions(+), 9 deletions(-)
+ include/net/xfrm.h | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
-index 5132aba..2b9ef28 100644
---- a/drivers/net/ethernet/sfc/mcdi.c
-+++ b/drivers/net/ethernet/sfc/mcdi.c
-@@ -50,13 +50,10 @@ static inline struct efx_mcdi_iface *efx_mcdi(struct efx_nic *efx)
- 	return &nic_data->mcdi;
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index ac5b025..65d3529 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1730,8 +1730,6 @@ static inline int xfrm_skb_dst_mtu(struct sk_buff *skb)
+ 
+ 	if (sk && skb->protocol == htons(ETH_P_IPV6))
+ 		return ip6_skb_dst_mtu(skb);
+-	else if (sk && skb->protocol == htons(ETH_P_IP))
+-		return ip_skb_dst_mtu(skb);
+ 	return dst_mtu(skb_dst(skb));
  }
  
--void efx_mcdi_init(struct efx_nic *efx)
-+int efx_mcdi_init(struct efx_nic *efx)
- {
- 	struct efx_mcdi_iface *mcdi;
- 
--	if (efx_nic_rev(efx) < EFX_REV_SIENA_A0)
--		return;
--
- 	mcdi = efx_mcdi(efx);
- 	init_waitqueue_head(&mcdi->wq);
- 	spin_lock_init(&mcdi->iface_lock);
-@@ -64,6 +61,9 @@ void efx_mcdi_init(struct efx_nic *efx)
- 	mcdi->mode = MCDI_MODE_POLL;
- 
- 	(void) efx_mcdi_poll_reboot(efx);
-+
-+	/* Recover from a failed assertion before probing */
-+	return efx_mcdi_handle_assertion(efx);
- }
- 
- static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
-diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
-index c8f2cd5..6c58dbd 100644
---- a/drivers/net/ethernet/sfc/mcdi.h
-+++ b/drivers/net/ethernet/sfc/mcdi.h
-@@ -65,7 +65,7 @@ struct efx_mcdi_mon {
- 	unsigned int n_attrs;
- };
- 
--extern void efx_mcdi_init(struct efx_nic *efx);
-+extern int efx_mcdi_init(struct efx_nic *efx);
- 
- extern int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd,
- 			const efx_dword_t *inbuf, size_t inlen,
-diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
-index b5d5568..3dca771 100644
---- a/drivers/net/ethernet/sfc/siena.c
-+++ b/drivers/net/ethernet/sfc/siena.c
-@@ -210,10 +210,7 @@ static int siena_probe_nic(struct efx_nic *efx)
- 	efx_reado(efx, &reg, FR_AZ_CS_DEBUG);
- 	efx->port_num = EFX_OWORD_FIELD(reg, FRF_CZ_CS_PORT_NUM) - 1;
- 
--	efx_mcdi_init(efx);
--
--	/* Recover from a failed assertion before probing */
--	rc = efx_mcdi_handle_assertion(efx);
-+	rc = efx_mcdi_init(efx);
- 	if (rc)
- 		goto fail1;
- 
-
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.8.3.1
