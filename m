@@ -1,51 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: increase throughput when reordering is
- high
-Date: Wed, 21 Aug 2013 20:52:28 -0700
-Message-ID: <1377143548.4226.134.camel@edumazet-glaptop>
-References: <1377131363-31341-1-git-send-email-ycheng@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, ncardwell@google.com, edumazet@google.com,
-	netdev@vger.kernel.org
-To: Yuchung Cheng <ycheng@google.com>
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH 1/2] genl: Fix genl dumpit() locking.
+Date: Wed, 21 Aug 2013 20:58:02 -0700
+Message-ID: <1377143882-20717-1-git-send-email-pshelar@nicira.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>,
+	Johannes Berg <johannes.berg@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:63590 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752506Ab3HVDwa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 23:52:30 -0400
-Received: by mail-pa0-f49.google.com with SMTP id ld10so1582396pab.8
-        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 20:52:29 -0700 (PDT)
-In-Reply-To: <1377131363-31341-1-git-send-email-ycheng@google.com>
+Received: from na3sys009aog125.obsmtp.com ([74.125.149.153]:57462 "HELO
+	na3sys009aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752790Ab3HVD6K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 23:58:10 -0400
+Received: by mail-pa0-f51.google.com with SMTP id lf1so911250pab.24
+        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 20:58:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-08-21 at 17:29 -0700, Yuchung Cheng wrote:
-> The stack currently detects reordering and avoid spurious
-> retransmission very well. However the throughput is sub-optimal under
-> high reordering because cwnd is increased only if the data is deliverd
-> in order. I.e., FLAG_DATA_ACKED check in tcp_ack().  The more packet
-> are reordered the worse the throughput is.
-> 
-> Therefore when reordering is proven high, cwnd should advance whenever
-> the data is delivered regardless of its ordering. If reordering is low,
-> conservatively advance cwnd only on ordered deliveries in Open state,
-> and retain cwnd in Disordered state (RFC5681).
-> 
-> Using netperf on a qdisc setup of 20Mbps BW and random RTT from 45ms
-> to 55ms (for reordering effect). This change increases TCP throughput
-> by 20 - 25% to near bottleneck BW.
-> 
-> A special case is the stretched ACK with new SACK and/or ECE mark.
-> For example, a receiver may receive an out of order or ECN packet with
-> unacked data buffered because of LRO or delayed ACK. The principle on
-> such an ACK is to advance cwnd on the cummulative acked part first,
-> then reduce cwnd in tcp_fastretrans_alert().
-> 
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> ---
->  net/ipv4/tcp_input.c | 32 ++++++++++++++++++++------------
->  1 file changed, 20 insertions(+), 12 deletions(-)
+In case of genl-family with parallel ops off, dumpif() callback
+is expected to run under genl_lock, But commit def3117493eafd9df
+(genl: Allow concurrent genl callbacks.) changed this behaviour
+where only first dumpit() op was called under genl-lock.
+For subsequent dump, only nlk->cb_lock was taken.
+Following patch fixes it by defining locked dumpit() and done()
+callback which takes care of genl-locking.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+CC: Jesse Gross <jesse@nicira.com>
+CC: Johannes Berg <johannes.berg@intel.com>
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+---
+ net/netlink/genetlink.c |   46 +++++++++++++++++++++++++++++++++++++++++-----
+ 1 files changed, 41 insertions(+), 5 deletions(-)
+
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index f85f8a2..3669039 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -544,6 +544,28 @@ void *genlmsg_put(struct sk_buff *skb, u32 portid, u32 seq,
+ }
+ EXPORT_SYMBOL(genlmsg_put);
+ 
++static int genl_lock_dumpit(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	struct genl_ops *ops = cb->data;
++	int rc;
++
++	genl_lock();
++	rc = ops->dumpit(skb, cb);
++	genl_unlock();
++	return rc;
++}
++
++static int genl_lock_done(struct netlink_callback *cb)
++{
++	struct genl_ops *ops = cb->data;
++	int rc;
++
++	genl_lock();
++	rc = ops->done(cb);
++	genl_unlock();
++	return rc;
++}
++
+ static int genl_family_rcv_msg(struct genl_family *family,
+ 			       struct sk_buff *skb,
+ 			       struct nlmsghdr *nlh)
+@@ -572,15 +594,29 @@ static int genl_family_rcv_msg(struct genl_family *family,
+ 		return -EPERM;
+ 
+ 	if ((nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP) {
+-		struct netlink_dump_control c = {
+-			.dump = ops->dumpit,
+-			.done = ops->done,
+-		};
++		struct netlink_dump_control c;
++		int rc;
+ 
+ 		if (ops->dumpit == NULL)
+ 			return -EOPNOTSUPP;
+ 
+-		return netlink_dump_start(net->genl_sock, skb, nlh, &c);
++		memset(&c, 0, sizeof(c));
++		if (!family->parallel_ops) {
++			genl_unlock();
++			c.data = ops;
++			c.dump = genl_lock_dumpit;
++			if (ops->done)
++				c.done = genl_lock_done;
++		} else {
++			c.dump = ops->dumpit;
++			c.done = ops->done;
++		}
++
++		rc = netlink_dump_start(net->genl_sock, skb, nlh, &c);
++		if (!family->parallel_ops)
++			genl_lock();
++		return rc;
++
+ 	}
+ 
+ 	if (ops->doit == NULL)
+-- 
+1.7.1
