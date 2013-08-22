@@ -1,51 +1,90 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH 1/2] genl: Fix genl dumpit() locking.
-Date: Thu, 22 Aug 2013 11:10:21 -0700
-Message-ID: <CALnjE+rEOMmyFQ0Nx3-O-Cvu8yePVBg7x8vgpGUOAAnYv3KG4Q@mail.gmail.com>
-References: <1377143882-20717-1-git-send-email-pshelar@nicira.com>
-	<1377156980.14110.16.camel@jlt4.sipsolutions.net>
-	<CALnjE+qgZ_UZ4GdiZ4UCzfTLn-OveoHtE28uQZokz2kPD4srXQ@mail.gmail.com>
-	<1377193906.14110.27.camel@jlt4.sipsolutions.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/4] net: ethernet: cpsw: add optional third memory region
+ for CONTROL module
+Date: Thu, 22 Aug 2013 22:12:46 +0400
+Message-ID: <5216549E.1010305@cogentembedded.com>
+References: <1377171448-27924-1-git-send-email-zonque@gmail.com> <1377171448-27924-3-git-send-email-zonque@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog137.obsmtp.com ([74.125.149.18]:36118 "HELO
-	na3sys009aog137.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753388Ab3HVSKW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 14:10:22 -0400
-Received: by mail-qe0-f46.google.com with SMTP id f6so1308840qej.33
-        for <netdev@vger.kernel.org>; Thu, 22 Aug 2013 11:10:21 -0700 (PDT)
-In-Reply-To: <1377193906.14110.27.camel@jlt4.sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, ujhelyi.m@gmail.com,
+	mugunthanvnm@ti.com, vaibhav.bedia@ti.com, d-gerlach@ti.com,
+	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: Daniel Mack <zonque@gmail.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1377171448-27924-3-git-send-email-zonque@gmail.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 22, 2013 at 10:51 AM, Johannes Berg
-<johannes@sipsolutions.net> wrote:
-> On Thu, 2013-08-22 at 10:42 -0700, Pravin Shelar wrote:
->> On Thu, Aug 22, 2013 at 12:36 AM, Johannes Berg
->> <johannes@sipsolutions.net> wrote:
->> > On Wed, 2013-08-21 at 20:58 -0700, Pravin B Shelar wrote:
->> >> In case of genl-family with parallel ops off, dumpif() callback
->> >> is expected to run under genl_lock, But commit def3117493eafd9df
->> >> (genl: Allow concurrent genl callbacks.) changed this behaviour
->> >> where only first dumpit() op was called under genl-lock.
->> >> For subsequent dump, only nlk->cb_lock was taken.
->> >> Following patch fixes it by defining locked dumpit() and done()
->> >> callback which takes care of genl-locking.
->> >
->> > As I've commented over in the other thread, I really think this is the
->> > wrong thing to do. It was never the case that dumpit() was actually
->> > locked under genl_lock(), and adding it doesn't really help anyone.
->> >
->> If you look at commit def3117493eafd9df , it removes assignment of
->> cb_mutex to genl_mutex. Thats how genl-dump operation was called under
->> genl_mutex.
+Hello.
+
+On 08/22/2013 03:37 PM, Daniel Mack wrote:
+
+> At least the AM33xx SoC has a control module register to configure
+> details such as the hardware ethernet interface mode.
+
+> I'm not sure whether all SoCs which feature the cpsw block have such a
+> register, so that third memory region is considered optional for now.
+
+> Signed-off-by: Daniel Mack <zonque@gmail.com>
+> ---
+>   Documentation/devicetree/bindings/net/cpsw.txt |  5 ++++-
+>   drivers/net/ethernet/ti/cpsw.c                 | 22 ++++++++++++++++++++++
+>   2 files changed, 26 insertions(+), 1 deletion(-)
+
+> diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+> index 05d660e..4e5ca54 100644
+> --- a/Documentation/devicetree/bindings/net/cpsw.txt
+> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
+[...]
+> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> index 63feaae..4855d8e 100644
+> --- a/drivers/net/ethernet/ti/cpsw.c
+> +++ b/drivers/net/ethernet/ti/cpsw.c
+[...]
+> @@ -2012,6 +2013,27 @@ static int cpsw_probe(struct platform_device *pdev)
+>   		goto clean_runtime_disable_ret;
+>   	}
 >
-> By the way - why? This just means that netlink will allocate another
-> lock to lock it all, so it's not a very useful change?
->
-This replaces global genl-lock with per-socket lock which allows
-parallel operation in parallel-genl-families and they are not blocked
-due to other unrelated genl-family operations.
+> +	/* If the control memory region is unspecified, continue without it.
+> +	 * If it is specified, but we're unable to reserve it, bail. */
+
+    According to Documentation/CodingStyle, the networking code's preferred 
+style of multi-line comments is this:
+
+/* Bla
+  * bla
+  */
+
+> +	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+> +	if (!res) {
+> +		dev_err(priv->dev, "error getting control i/o resource\n");
+> +		goto no_gmii_sel;
+> +	}
+> +	if (!devm_request_mem_region(&pdev->dev, res->start, resource_size(res),
+> +				     ndev->name)) {
+
+    Not dev_name(&pdev->dev)?
+
+> +		dev_err(priv->dev, "failed request control i/o region\n");
+> +		ret = -ENXIO;
+
+    Rather -EBUSY.
+
+> +		goto clean_runtime_disable_ret;
+> +	}
+> +	priv->gmii_sel_reg = devm_ioremap(&pdev->dev, res->start,
+> +					  resource_size(res));
+> +	if (!priv->gmii_sel_reg) {
+> +		dev_err(priv->dev, "unable to map control i/o region\n");
+> +		goto clean_runtime_disable_ret;
+> +	}
+
+    Why not use devm_ioremap_resource() instead of the above sequence?
+
+> +
+> +no_gmii_sel:
+
+WBR, Sergei
+
