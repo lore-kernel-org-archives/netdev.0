@@ -1,63 +1,147 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 10/15] igb: Add macro for size of RETA indirection table
-Date: Thu, 22 Aug 2013 02:49:46 -0700
-Message-ID: <1377164991-27988-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 13/15] e1000e: Add code to check for failure of pci_disable_link_state call
+Date: Thu, 22 Aug 2013 02:49:49 -0700
+Message-ID: <1377164991-27988-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1377164991-27988-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:48257 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752850Ab3HVJuC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Aug 2013 05:50:02 -0400
+	id S1752857Ab3HVJuF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Aug 2013 05:50:05 -0400
 In-Reply-To: <1377164991-27988-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-RETA indirection table is used to assign the received data to a CPU
-in order to maintain an efficient distribution of network receive
-processing across multiple CPUs.
+This patch attempts to work around a problem found with some systems where
+the call to pci_diable_link_state_locked() fails.  As a result, ASPM is not,
+in fact, disabled.  Changing disable ASPM code to check if state actually
+is disabled after the call and, if not, try another way to disable it.
 
-This patch removes the hard-coded value for the size of the indirection
-table and defines a new macro.
-
-Signed-off-by: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Acked-by: Bruce W. Allan <bruce.w.allan@intel.com>
+Tested-by: Pavel Machek <pavel@ucw.cz>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h      | 2 ++
- drivers/net/ethernet/intel/igb/igb_main.c | 2 +-
- 2 files changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c | 85 +++++++++++++++++++++---------
+ 1 file changed, 59 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 15ea8dc..5a2659b 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -343,6 +343,8 @@ struct hwmon_buff {
- 	};
- #endif
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index e6d2c0f..59c0c54 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -64,8 +64,6 @@ static int debug = -1;
+ module_param(debug, int, 0);
+ MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
  
-+#define IGB_RETA_SIZE	128
+-static void e1000e_disable_aspm(struct pci_dev *pdev, u16 state);
+-
+ static const struct e1000_info *e1000_info_tbl[] = {
+ 	[board_82571]		= &e1000_82571_info,
+ 	[board_82572]		= &e1000_82572_info,
+@@ -6019,38 +6017,73 @@ static int __e1000_shutdown(struct pci_dev *pdev, bool runtime)
+ 	return 0;
+ }
+ 
+-#ifdef CONFIG_PCIEASPM
+-static void __e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
++/**
++ * e1000e_disable_aspm - Disable ASPM states
++ * @pdev: pointer to PCI device struct
++ * @state: bit-mask of ASPM states to disable
++ *
++ * Some devices *must* have certain ASPM states disabled per hardware errata.
++ **/
++static void e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
+ {
++	struct pci_dev *parent = pdev->bus->self;
++	u16 aspm_dis_mask = 0;
++	u16 pdev_aspmc, parent_aspmc;
 +
- /* board specific private data structure */
- struct igb_adapter {
- 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 7f6cf65..1acd9c0 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -3157,7 +3157,7 @@ static void igb_setup_mrqc(struct igb_adapter *adapter)
- 	 * we are generating the results for n and n+2 and then interleaving
- 	 * those with the results with n+1 and n+3.
++	switch (state) {
++	case PCIE_LINK_STATE_L0S:
++	case PCIE_LINK_STATE_L0S | PCIE_LINK_STATE_L1:
++		aspm_dis_mask |= PCI_EXP_LNKCTL_ASPM_L0S;
++		/* fall-through - can't have L1 without L0s */
++	case PCIE_LINK_STATE_L1:
++		aspm_dis_mask |= PCI_EXP_LNKCTL_ASPM_L1;
++		break;
++	default:
++		return;
++	}
++
++	pcie_capability_read_word(pdev, PCI_EXP_LNKCTL, &pdev_aspmc);
++	pdev_aspmc &= PCI_EXP_LNKCTL_ASPMC;
++
++	if (parent) {
++		pcie_capability_read_word(parent, PCI_EXP_LNKCTL,
++					  &parent_aspmc);
++		parent_aspmc &= PCI_EXP_LNKCTL_ASPMC;
++	}
++
++	/* Nothing to do if the ASPM states to be disabled already are */
++	if (!(pdev_aspmc & aspm_dis_mask) &&
++	    (!parent || !(parent_aspmc & aspm_dis_mask)))
++		return;
++
++	dev_info(&pdev->dev, "Disabling ASPM %s %s\n",
++		 (aspm_dis_mask & pdev_aspmc & PCI_EXP_LNKCTL_ASPM_L0S) ?
++		 "L0s" : "",
++		 (aspm_dis_mask & pdev_aspmc & PCI_EXP_LNKCTL_ASPM_L1) ?
++		 "L1" : "");
++
++#ifdef CONFIG_PCIEASPM
+ 	pci_disable_link_state_locked(pdev, state);
+-}
+-#else
+-static void __e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
+-{
+-	u16 aspm_ctl = 0;
+ 
+-	if (state & PCIE_LINK_STATE_L0S)
+-		aspm_ctl |= PCI_EXP_LNKCTL_ASPM_L0S;
+-	if (state & PCIE_LINK_STATE_L1)
+-		aspm_ctl |= PCI_EXP_LNKCTL_ASPM_L1;
++	/* Double-check ASPM control.  If not disabled by the above, the
++	 * BIOS is preventing that from happening (or CONFIG_PCIEASPM is
++	 * not enabled); override by writing PCI config space directly.
++	 */
++	pcie_capability_read_word(pdev, PCI_EXP_LNKCTL, &pdev_aspmc);
++	pdev_aspmc &= PCI_EXP_LNKCTL_ASPMC;
++
++	if (!(aspm_dis_mask & pdev_aspmc))
++		return;
++#endif
+ 
+ 	/* Both device and parent should have the same ASPM setting.
+ 	 * Disable ASPM in downstream component first and then upstream.
  	 */
--	for (j = 0; j < 32; j++) {
-+	for (j = 0; j < IGB_RETA_SIZE / 4; j++) {
- 		/* first pass generates n and n+2 */
- 		u32 base = ((j * 0x00040004) + 0x00020000) * num_rx_queues;
- 		u32 reta = (base & 0x07800780) >> (7 - shift);
+-	pcie_capability_clear_word(pdev, PCI_EXP_LNKCTL, aspm_ctl);
+-
+-	if (pdev->bus->self)
+-		pcie_capability_clear_word(pdev->bus->self, PCI_EXP_LNKCTL,
+-					   aspm_ctl);
+-}
+-#endif
+-static void e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
+-{
+-	dev_info(&pdev->dev, "Disabling ASPM %s %s\n",
+-		 (state & PCIE_LINK_STATE_L0S) ? "L0s" : "",
+-		 (state & PCIE_LINK_STATE_L1) ? "L1" : "");
++	pcie_capability_clear_word(pdev, PCI_EXP_LNKCTL, aspm_dis_mask);
+ 
+-	__e1000e_disable_aspm(pdev, state);
++	if (parent)
++		pcie_capability_clear_word(parent, PCI_EXP_LNKCTL,
++					   aspm_dis_mask);
+ }
+ 
+ #ifdef CONFIG_PM
 -- 
 1.8.3.1
