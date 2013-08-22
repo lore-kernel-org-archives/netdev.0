@@ -1,44 +1,49 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH] net: vlan: inherit addr_assign_type along with dev_addr
-Date: Thu, 22 Aug 2013 14:23:21 +0200
-Message-ID: <1377174201-20236-1-git-send-email-bjorn@mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:52789 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752075Ab3HVMXb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Aug 2013 08:23:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Boris BREZILLON <b.brezillon@overkiz.com>
+Subject: [RFC PATCH] phylib: mdio: handle register/unregister/register sequence
+Date: Thu, 22 Aug 2013 14:33:56 +0200
+Message-ID: <1377174836-10569-1-git-send-email-b.brezillon@overkiz.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Boris BREZILLON <b.brezillon@overkiz.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Mark Brown <broonie@kernel.org>,
+	Nick Bowler <nbowler@elliptictech.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Grant Likely <grant.likely@secretlab.ca>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-A vlan device inheriting a random or set address should reflect
-this in its addr_assign_type.
+Hello,
 
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
- net/8021q/vlan_dev.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+This patch is a proposal to support the register/unregister/register
+sequence on a given mdio bus.
 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 1cd3d2a..995684d 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -581,8 +581,10 @@ static int vlan_dev_init(struct net_device *dev)
- 	/* ipv6 shared card related stuff */
- 	dev->dev_id =3D real_dev->dev_id;
-=20
--	if (is_zero_ether_addr(dev->dev_addr))
-+	if (is_zero_ether_addr(dev->dev_addr)) {
- 		memcpy(dev->dev_addr, real_dev->dev_addr, dev->addr_len);
-+		dev->addr_assign_type =3D real_dev->addr_assign_type;
-+	}
- 	if (is_zero_ether_addr(dev->broadcast))
- 		memcpy(dev->broadcast, real_dev->broadcast, dev->addr_len);
-=20
---=20
-1.7.10.4
+I use the register/unregister/register sequence to add a fallback when the
+of_mdiobus_register (this function calls mdiobus_register with phy_mask
+set to ~0) does not register any phy device (because the device tree does
+not define any phy).
+In this case I call mdiobus_unregister and then call mdiobus_register with
+a phy_mask set to 0 to trigger a full mdio bus scan.
+
+I'm not sure this is the right way to do it (this is why I added RFC in the
+subject).
+
+Could someone help me figuring out what I should use to implement my fallback ?
+
+1) use the register/unregister/register sequence
+2) reimplement the "for (i = 0; i < PHY_MAX_ADDR; i++)" mdiobus_scan loop
+
+Thanks.
+
+Best Regards,
+Boris
+
+Boris BREZILLON (1):
+  phylib: mdio: handle register/unregister/register sequence
+
+ drivers/net/phy/mdio_bus.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+-- 
+1.7.9.5
