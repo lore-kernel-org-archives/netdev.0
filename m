@@ -1,188 +1,164 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 3/4] e1000e: Calculate the desc_len based
-	on adapter type
-Date: Thu, 22 Aug 2013 03:57:24 -0700
-Message-ID: <CAL3LdT4K03_4sWWFuTer0TU4nY_sqbSyjK6ETxF14kijZzmkgQ@mail.gmail.com>
-References: <1369037707-27026-1-git-send-email-weiyang@linux.vnet.ibm.com>
-	<1369037707-27026-4-git-send-email-weiyang@linux.vnet.ibm.com>
+From: Drunkard Zhang <gongfan193@gmail.com>
+Subject: Re: ipvsadm: One-packet scheduling with UDP service is unstable
+Date: Thu, 22 Aug 2013 18:58:33 +0800
+Message-ID: <CAJiejCSdfBKC3c1dqya55R5T0VBCTm3qaM6nL-CY+H0o5hbwoA@mail.gmail.com>
+References: <CAJiejCQPa7V703RwOeWPpbQMJQvfswRn+pvTKFmNdeU05RU3SQ@mail.gmail.com>
+ <alpine.LFD.2.00.1308220925340.1727@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============7431472021615306583=="
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	netdev <netdev@vger.kernel.org>
-To: Wei Yang <weiyang@linux.vnet.ibm.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1369037707-27026-4-git-send-email-weiyang@linux.vnet.ibm.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=UTF-8
+Cc: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.00.1308220925340.1727@ja.ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---===============7431472021615306583==
-Content-Type: multipart/alternative; boundary=001a11c2e2beb63c6b04e487270d
-
---001a11c2e2beb63c6b04e487270d
-Content-Type: text/plain; charset=UTF-8
-
-Validation ran into issues with this patch and because we could not apply
-patch 4 in this series without patch 3, I have had to drop patch 3 & 4 from
-my queue.
-
-Here is what validation had to say about this patch...
-
-Aaron Brown wrote:
-
-This patch introduces a call trace when the interface is up and then
-the mtu is set over 1500, or if the mtu is set above 1500 when the
-interface is down,
-the call trace appears when the interface is brought up.  The trace is
-captured to demsg and /var/log/messages:
----------------------------------------------------
-17:14:52 u1307 kernel: Call Trace:
-17:14:52 u1307 kernel: [<ffffffff813ffaeb>] dump_stack+0x19/0x1e
-17:14:52 u1307 kernel: [<ffffffff8104ae80>] __might_sleep+0xe2/0xe4
-17:14:52 u1307 kernel: [<ffffffff81400e63>] down_read+0x1f/0x31
-17:14:52 u1307 kernel: [<ffffffff8102c1b7>] exit_mm+0x3a/0x164
-17:14:52 u1307 kernel: [<ffffffff8102da09>] do_exit+0x1ef/0x2f7
-17:14:52 u1307 kernel: [<ffffffff81403bce>] oops_end+0x8f/0x94
-17:14:52 u1307 kernel: [<ffffffff81020ca5>] no_context+0x1a4/0x1b3
-17:14:52 u1307 kernel: [<ffffffff81020e6c>] __bad_area_nosemaphore+0x1b8/0x1d8
-17:14:52 u1307 kernel: [<ffffffff81020e9a>] bad_area_nosemaphore+0xe/0x10
-17:14:52 u1307 kernel: [<ffffffff81405a69>] __do_page_fault+0x44f/0x48e
-17:14:52 u1307 kernel: [<ffffffff81004494>] ? print_context_stack+0xa2/0xbe
-17:14:52 u1307 kernel: [<ffffffff81003488>] ? dump_trace+0x282/0x2aa
-17:14:52 u1307 kernel: [<ffffffff81402bf0>] ?
-_raw_spin_unlock_irqrestore+0x1d/0x3a
-17:14:52 u1307 kernel: [<ffffffff81405ab1>] do_page_fault+0x9/0xb
-17:14:52 u1307 kernel: [<ffffffff814031e2>] page_fault+0x22/0x30
-17:14:52 u1307 kernel: [<ffffffffa00238ef>] ?
-e1000_alloc_rx_buffers_ps+0x1d9/0x421 [e1000e]
-17:14:52 u1307 kernel: [<ffffffffa00238a3>] ?
-e1000_alloc_rx_buffers_ps+0x18d/0x421 [e1000e]
-17:14:52 u1307 kernel: [<ffffffffa0022bd6>] e1000_configure+0xe7/0xf0 [e1000e]
-17:14:52 u1307 kernel: [<ffffffffa0022bee>] e1000e_up+0xf/0xe7 [e1000e]
-17:14:52 u1307 kernel: [<ffffffffa00282da>]
-e1000_change_mtu+0x142/0x162 [e1000e]
-17:14:52 u1307 kernel: [<ffffffff8135a98b>] dev_set_mtu+0x3f/0x5e
-17:14:52 u1307 kernel: [<ffffffff81369280>] dev_ifsioc+0xec/0x329
-17:14:52 u1307 kernel: [<ffffffff81369a24>] dev_ioctl+0x309/0x3bd
-17:14:52 u1307 kernel: [<ffffffff81348035>] sock_ioctl+0x21e/0x22b
-17:14:52 u1307 kernel: [<ffffffff810ce1b4>] do_vfs_ioctl+0x28e/0x2aa
-17:14:52 u1307 kernel: [<ffffffff810ce217>] SyS_ioctl+0x47/0x69
-17:14:52 u1307 kernel: [<ffffffff81407b12>] system_call_fastpath+0x16/0x1b
-17:14:52 u1307 kernel: ------------[ cut here ]------------
-17:14:52 u1307 kernel: WARNING: at kernel/softirq.c:160
-local_bh_enable_ip+0x3c/0x9a()
-17:14:52 u1307 kernel: Modules linked in: bridge stp llc nfsd lockd
-exportfs sunrpc e1000e ptp pps_core
-17:14:52 u1307 kernel: CPU: 6 PID: 5289 Comm: ifconfig Tainted: G
-D      3.10.0-rc1_net-next_e1000e_2850dce_regress-11638-gb471f26 #5
-17:14:52 u1307 kernel: Hardware name: Supermicro
-X9SCL/X9SCM/X9SCL/X9SCM, BIOS 2.0b 09/17/2012
-17:14:52 u1307 kernel: ffffffff816e7023 ffff880222b2b808
-ffffffff813ffaeb ffff880222b2b848
-17:14:52 u1307 kernel: ffffffff810287e6 ffffffff81a25188
-0000000000000000 ffff880221f91bc0
-17:14:52 u1307 kernel: ffff880221f91dd8 ffff880221f91f70
-0000000000000000 ffff880222b2b858
--------------------------------------------------------------------------------
-
-The system remains up but unstable, attempts to access the network
-interface causes a hang, attempts to login to a new session on the
-console sometimes hang.
-This is happening with all adapters I've tried so far, 82579, 82578,
-82574, ich10, ich9...
-
-
-
-On Mon, May 20, 2013 at 1:15 AM, Wei Yang <weiyang@linux.vnet.ibm.com>wrote:
-
-> desc_len represents the size of descriptor in rx_ring. There are two kinds
-> of
-> rx descriptors, e1000_rx_desc_packet_split(32 byte) and
-> e1000_rx_desc_extended(16 byte). Different adapter will use different rx
-> descriptors.
+2013/8/22 Julian Anastasov <ja@ssi.bg>:
 >
-> When allocating the dma space for this descriptor in current
-> implementation,
-> the code ignore the descriptor type and take it as
-> e1000_rx_desc_packet_split
-> in any case. This behavior will not effect the function, but will require
-> double size of dma space.
+>         Hello,
 >
-> This patch will calculate the desc_len based on the adapter type.
+> On Tue, 20 Aug 2013, Drunkard Zhang wrote:
 >
-> Tested on T420, which use e1000_rx_desc_extended and works fine.
+>> Need help here, thank you for replying :-)
+>>
+>> I'm setting up a syslog cluster based on IPVS, all UDP datagrams sent
+>> from firewall with fixed source IP and fixed source port, so
+>> pseudo-random balancing based on client IP and port won't working. And
+>> it seems that keepalived is not supporting One-packet scheduling
+>> option, so I did some hacks on it after keepalived started:
+>>
+>> 1. dump LVS rules with ipvsadm -S -n > rules-vs3;
+>> 2. add --ops option;
+>> 3. restore LVS rules with ipvsadm-restore < rules-vs3;
+>> 4. dump the running LVS rules with ipvsadm -S -n
+>>
+>> So, I got two problems here:
+>>
+>> 1. Dumped rules in step 4 above is not usable anymore, the double-dash
+>> in --ops lost, so I can't restore rule with this dump anymore. This
+>> must be a bug.
+>>
+>> 2. The --ops option is not working sometimes you applied the rules,
+>> and in most of times the --ops just not working. To make it work, just
+>> 'ipvsadm-restore < rules-vs3' for plenty of times until it's working.
+>> I haven't find the patterns make it work yet. This is lucky, I can't
+>> get it work on second host at all.
+>>
+>> The "not working" above means the UDP datagrams from one source IP is
+>> sticked to one realserver, it doesn't distribute to other realservers
+>> which --ops designed for.
 >
-> Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
-> ---
->  drivers/net/ethernet/intel/e1000e/netdev.c |    7 ++++++-
->  1 files changed, 6 insertions(+), 1 deletions(-)
+>         Can you try with recent ipvsadm from git:
 >
-> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c
-> b/drivers/net/ethernet/intel/e1000e/netdev.c
-> index 5cb8321..a2e8a53 100644
-> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
-> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-> @@ -2364,7 +2364,12 @@ int e1000e_setup_rx_resources(struct e1000_ring
-> *rx_ring)
->                         goto err_pages;
->         }
+> git clone git://git.kernel.org/pub/scm/utils/kernel/ipvsadm/ipvsadm.git
 >
-> -       desc_len = sizeof(union e1000_rx_desc_packet_split);
-> +       if (adapter->rx_ps_pages) {
-> +               /* this is a 32 byte descriptor */
-> +               desc_len = sizeof(union e1000_rx_desc_packet_split);
-> +       } else {
-> +               desc_len = sizeof(union e1000_rx_desc_extended);
-> +       }
+>         I see related commit that will print -o for
+> the OPS feature:
 >
->         /* Round up to nearest 4K */
->         rx_ring->size = rx_ring->count * desc_len;
-> --
-> 1.7.5.4
+> ===
+> commit 6a03100c189d00e3a8235215392465b5b877ba8f
+> Author: Krzysztof Gajdemski <songo@debian.org.pl>
+> Date:   Thu Mar 21 11:40:06 2013 +0100
 >
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>     ipvsadm: Fix wrong format of -o option in FMT_RULE listing
 >
+>     'ipvsadm -S' listed one-packet scheduling option in wrong format
+>     ('ops' instead of '--ops' or '-o') preventing any service with OPS
+>     feature from restoring using 'ipvsadm -R'.  Now we use '-o' which
+>     works well with save/restore commands.
+>
+>     Signed-off-by: Krzysztof Gajdemski <songo@debian.org.pl>
+>     Signed-off-by: Simon Horman <horms@verge.net.au>
+> ===
+>
+>         Let me know if you still have any problems with OPS.
+> Sending to lvs-devel@vger.kernel.org and
+> lvs-users@linuxvirtualserver.org should be enough for
+> ipvsadm related discussions.
 
+Thanks, this resolved my first problem :D
 
+>> So I wondering if there's some CONFIG_* options that ipvs needs, or
+>> recent development broke the code?
+>
+>         No kernel options should be related to OPS. I assume
+> you are not using the SH scheduler. Make sure the OPS mode
+> is properly applied to the virtual service, check for "ops"
+> in the configuration:
+>
+> cat /proc/net/ip_vs
 
--- 
-Cheers,
-Jeff
+Still no lucky here, ops is set in running config, but it's not like
+that in real world.
 
---001a11c2e2beb63c6b04e487270d--
+vs3 ~ # cat /proc/net/ip_vs
+IP Virtual Server version 1.2.1 (size=1024)
+Prot LocalAddress:Port Scheduler Flags
+  -> RemoteAddress:Port Forward Weight ActiveConn InActConn
+UDP  96A46478:0202 wrr ops
+  -> 96A46459:0202      Route   0      0          0
+  -> 96A46458:0202      Route   0      0          0
+  -> 96A46457:0202      Route   0      0          0
+  -> 96A46456:0202      Route   0      0          0
+  -> 96A46455:0202      Route   0      0          0
+  -> 96A46454:0202      Route   0      0          0
+  -> 96A46453:0202      Route   0      0          0
+  -> 96A46452:0202      Route   0      0          0
+  -> 96A46451:0202      Route   0      0          0
+  -> 96A46450:0202      Route   25     0          1
+  -> 96A4644F:0202      Route   25     0          1
+  -> 96A4644E:0202      Route   25     0          1
+  -> 96A4644D:0202      Route   30     0          2
+  -> 96A4644C:0202      Route   20     0          1
+  -> 96A4644B:0202      Route   20     0          1
+  -> 96A4644A:0202      Route   25     0          1
+  -> 96A46449:0202      Route   20     0          1
+  -> 96A46448:0202      Route   25     0          1
+  -> 96A46447:0202      Route   20     0          1
+  -> 96A46446:0202      Route   20     0          1
+  -> 96A46445:0202      Route   20     0          1
+  -> 96A46444:0202      Route   25     0          1
+  -> 96A46443:0202      Route   15     0          1
+  -> 96A46442:0202      Route   20     0          1
+  -> 96A46441:0202      Route   20     0          1
 
+And the traffic routed to each realserver didn't following weight I
+set, it's routed pretty much one to one. I got 17 udp sources sending
+to 16 different realservers, the others are bonding to another VIP.
 
---===============7431472021615306583==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-Introducing Performance Central, a new site from SourceForge and 
-AppDynamics. Performance Central is your source for news, insights, 
-analysis and resources for efficient Application Performance Management. 
-Visit us today!
-http://pubads.g.doubleclick.net/gampad/clk?id=48897511&iu=/4140/ostg.clktrk
---===============7431472021615306583==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============7431472021615306583==--
+Prot LocalAddress:Port                 CPS    InPPS   OutPPS    InBPS   OutBPS
+  -> RemoteAddress:Port
+UDP  x.x.x.120:514                 0    67622        0 12339373        0
+  -> x.x.x.65:514                  0       29        0     2895        0
+  -> x.x.x.66:514                  0      225        0    21850        0
+  -> x.x.x.67:514                  0     4003        0   586117        0
+  -> x.x.x.68:514                  0     5049        0   781526        0
+  -> x.x.x.69:514                  0      160        0    16163        0
+  -> x.x.x.70:514                  0     6091        0   914365        0
+  -> x.x.x.71:514                  0      757        0    74428        0
+  -> x.x.x.72:514                  0     4716        0   736039        0
+  -> x.x.x.73:514                  0     4167        0   663728        0
+  -> x.x.x.74:514                  0     3800        0   571342        0
+  -> x.x.x.75:514                  0      192        0    19467        0
+  -> x.x.x.76:514                  0    11309        0  1889147        0
+  -> x.x.x.77:514                  0     3052        0   309840        0
+  -> x.x.x.78:514                  0     8336        0  2004194        0
+  -> x.x.x.79:514                  0     7333        0  1747346        0
+  -> x.x.x.80:514                  0     8403        0  2000929        0
+  -> x.x.x.81:514                  0        0        0        0        0
+  -> x.x.x.82:514                  0        0        0        0        0
+  -> x.x.x.83:514                  0        0        0        0        0
+  -> x.x.x.84:514                  0        0        0        0        0
+  -> x.x.x.85:514                  0        0        0        0        0
+  -> x.x.x.86:514                  0        0        0        0        0
+  -> x.x.x.87:514                  0        0        0        0        0
+  -> x.x.x.88:514                  0        0        0        0        0
+  -> x.x.x.89:514                  0        0        0        0        0
