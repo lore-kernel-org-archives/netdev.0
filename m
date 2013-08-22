@@ -1,46 +1,72 @@
-From: Fugang Duan <B38611@freescale.com>
-Subject: [PATCH] net: fec: fix build warning of used uninitialized variable
-Date: Thu, 22 Aug 2013 18:00:37 +0800
-Message-ID: <1377165637-8116-1-git-send-email-B38611@freescale.com>
+From: "=?utf-8?B?bGl1anVubGlhbmdfbGps?=" <liujunliang_ljl@163.com>
+Subject: =?utf-8?B?UmU6IFJlOiBSZTogW1BBVENILVNSOTcwMF0gTWVyZ2UgVVNCIDEuMSBFdGhlcm5ldCBBZGFwdGVyIFNSOTcwMERldmljZURyaXZlciBpbnRvIHRoZSBMaW51eCBLZXJuZWw=?=
+Date: Thu, 22 Aug 2013 17:23:23 +0800
+Message-ID: <201308221723223905126@163.com>
+References: <201308201841116403992@163.com>,
+ <20130820204606.GB26241@electric-eye.fr.zoreil.com>,
+ <1377032302.2016.75.camel@joe-AO722>,
+ <201308211807295009698@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <shawn.guo@linaro.org>,
-	<bhutchings@solarflare.com>, <R49496@freescale.com>,
-	<stephen@networkplumber.org>
-To: <b20596@freescale.com>, <b45643@freescale.com>,
-	<davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from co1ehsobe005.messaging.microsoft.com ([216.32.180.188]:15587
-	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752123Ab3HVKEg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 06:04:36 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "=?utf-8?B?RnJhbmNvaXMgUm9taWV1?=" <romieu@fr.zoreil.com>,
+	"=?utf-8?B?Z3JlZ2to?=" <gregkh@suse.de>,
+	"=?utf-8?B?c3VuaGVjaGVuZw==?=" <sunhecheng@vip.126.com>,
+	"=?utf-8?B?bGludXgtdXNi?=" <linux-usb@vger.kernel.org>,
+	"=?utf-8?B?bmV0ZGV2?=" <netdev@vger.kernel.org>,
+	"=?utf-8?B?bGludXgta2VybmVs?=" <linux-kernel@vger.kernel.org>
+To: "=?utf-8?B?Sm9lIFBlcmNoZXM=?=" <joe@perches.com>,
+	"=?utf-8?B?aG9ybXM=?=" <horms@verge.net.au>,
+	"=?utf-8?B?ZGF2ZW0=?=" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-drivers/net/ethernet/freescale/fec_main.c:838
-warning: 'vlan_tag' may be used uninitialized in this function
-note: 'vlan_tag' was declared here
-
-Compiler with the warning option: -Wuninitialized, the warning
-will be reported.
-
-Signed-off-by: Fugang Duan  <B38611@freescale.com>
----
- drivers/net/ethernet/freescale/fec_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 77ea0db..4ea1555 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -835,7 +835,7 @@ fec_enet_rx(struct net_device *ndev, int budget)
- 	int	pkt_received = 0;
- 	struct	bufdesc_ex *ebdp = NULL;
- 	bool	vlan_packet_rcvd = false;
--	u16	vlan_tag;
-+	u16	vlan_tag = 0;
- 
- #ifdef CONFIG_M532x
- 	flush_cache_all();
--- 
-1.7.1
+RGVhciBhbGwgOg0KDQoJCVRoYW5rcyBhbGwgb2YgeW91IGFib3V0IHlvdXIgYXR0ZW50aW9ucyBh
+bmQgc3VnZ2VzdGlvbnMsIGFuZCBJIHRoaW5rIGZpcnN0bHkgSSBzaG91bGQgcmVhZCB0aGUgZG9j
+dW1lbnRhdGlvbnMgY2FyZWZ1bGx5Lg0KDQoJCWFuZCB0aGVuIGNvbW1pdGluZyB0aGUgcGF0Y2gu
+IA0KDQoJCVRoYW5rcyBhbGwgb2YgeW91IGZvciB5b3VyIGhlbHAgYW5kIHdlbGNvbWUgYWxsIG9m
+IHlvdSB0byBjb21lIHRvIGNoaW5hLg0KDQoJCVRoYW5rcyBhZ2Fpbi4NCg0KDQoNCjIwMTMtMDgt
+MjIgDQoNCg0KDQpsaXVqdW5saWFuZ19samwgDQoNCg0KDQrlj5Hku7bkurrvvJogSm9lIFBlcmNo
+ZXMgDQrlj5HpgIHml7bpl7TvvJogMjAxMy0wOC0yMSAgMTk6MzQ6MTAgDQrmlLbku7bkurrvvJog
+bGl1anVubGlhbmdfbGpsIA0K5oqE6YCB77yaIEZyYW5jb2lzIFJvbWlldTsgZ3JlZ2toOyBzdW5o
+ZWNoZW5nOyBsaW51eC11c2I7IG5ldGRldjsgbGludXgta2VybmVsIA0K5Li76aKY77yaIFJlOiBS
+ZTogW1BBVENILVNSOTcwMF0gTWVyZ2UgVVNCIDEuMSBFdGhlcm5ldCBBZGFwdGVyIFNSOTcwMERl
+dmljZURyaXZlciBpbnRvIHRoZSBMaW51eCBLZXJuZWwgDQogDQpPbiBXZWQsIDIwMTMtMDgtMjEg
+YXQgMTg6MDcgKzA4MDAsIGxpdWp1bmxpYW5nX2xqbCB3cm90ZToNCj4gIFRoYW5rcyBhIGxvdCBh
+bmQgSSBoYXZlIGJlZW4gZml4ZWQgYWxsIHRoZSBwcm9ibGVtcyBtZW50aW9uZWQgYWJvdmUuIHBs
+ZWFzZSBjaGVjayB0aGUgZm9sbG93aW5nIHBhdGNoIGFuZCB0aGFua3MgYWdhaW4uIA0KSnVzdCB0
+cml2aWFsIGNvbW1lbnRzIGJlbG93Og0KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdXNiL3Ny
+OTcwMC5jIGIvZHJpdmVycy9uZXQvdXNiL3NyOTcwMC5jDQpbXQ0KPiArc3RhdGljIHZvaWQgc3Jf
+d3JpdGVfcmVnX2FzeW5jKHN0cnVjdCB1c2JuZXQgKmRldiwgdTggcmVnLCB1OCB2YWx1ZSkNCj4g
+K3sNCj4gKyB1c2JuZXRfd3JpdGVfY21kX2FzeW5jKGRldiwgU1JfV1JfUkVHUywgU1JfUkVRX1dS
+X1JFRywNCj4gKyB2YWx1ZSwgcmVnLCBOVUxMLCAwKTsNCj4gK30NCj4gKw0KPiArc3RhdGljIGlu
+dCBzcl9zaGFyZV9yZWFkX3dvcmQoc3RydWN0IHVzYm5ldCAqZGV2LCBpbnQgcGh5LCB1OCByZWcs
+IF9fbGUxNiAqdmFsdWUpDQo+ICt7DQpbXQ0KPiArIG5ldGRldl9kYmcoZGV2LT5uZXQsICJyZWFk
+IHNoYXJlZCAlZCAweCUwMnggcmV0dXJuZWQgMHglMDR4LCAlZFxuIiwNCj4gKyAgICAgICAgcGh5
+LCByZWcsICp2YWx1ZSwgcmV0KTsNCllvdSBoYXZlIGEgbG90IG9mIGNvZGUgdGhhdCB1c2VzIGlu
+Y29uc2lzdGVudA0KaW5kZW50YXRpb24uICBDb2RlIGluIGRyaXZlcnMvbmV0IGFuZCBkcml2ZXJz
+L3VzYi9uZXQNCmdlbmVyYWxseSBwcmVmZXJzIHRvIHVzZSBhbGlnbm1lbnQgdG8gcGFyZW50aGVz
+aXMgZm9yDQptdWx0aS1saW5lIHN0YXRlbWVudHMNClRoZSBmaXJzdCBjb3VsZCB1c2UNCnVzYm5l
+dF93cml0ZV9jbWRfYXN5bmMoZGV2LCBTUl9XUl9SRUdTLCBTUl9SRVFfV1JfUkVHLA0KICAgICAg
+IHZhbHVlLCByZWcsIE5VTEwsIDApOw0KYW5kIHRoZSBzZWNvbmQNCm5ldGRldl9kYmcoZGV2LT5u
+ZXQsICJyZWFkIHNoYXJlZCAlZCAweCUwMnggcmV0dXJuZWQgMHglMDR4LCAlZFxuIiwNCiAgIHBo
+eSwgcmVnLCAqdmFsdWUsIHJldCk7DQpNYXhpbWFsIHVzZSBvZiA4IHNwYWNlIGluZGVudGF0aW9u
+IHRhYnMgZm9sbG93ZWQgYnkNCm1pbmltYWwgc3BhY2VzLg0KVGhlcmUgYXJlIG1hbnkgb2YgdGhl
+c2UgYWJvdmUuDQo+ICtzdGF0aWMgaW50IHNyOTcwMF9nZXRfZWVwcm9tKHN0cnVjdCBuZXRfZGV2
+aWNlICpuZXQsIHN0cnVjdCBldGh0b29sX2VlcHJvbSAqZWVwcm9tLCB1OCAqZGF0YSkNCltdDQo+
+ICsgZm9yIChpID0gMDsgaSA8IGVlcHJvbS0+bGVuIC8gMjsgaSsrKQ0KPiArIHJldCA9IHNyX3Jl
+YWRfZWVwcm9tX3dvcmQoZGV2LCBlZXByb20tPm9mZnNldCAvIDIgKyBpLCAmZWJ1ZltpXSk7DQpP
+bmUgdG9vIG1hbnkgdGFicyBmb3IgdGhlIHNlY29uZCBsaW5lLCBhIGZldyBvZiB0aGVzZS4uLg0K
+W10NCj4gK3N0YXRpYyBpbnQgc3JfbWRpb19yZWFkKHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYs
+IGludCBwaHlfaWQsIGludCBsb2MpDQpbXQ0KPiArIGlmIChyYyA9PSAxKQ0KPiArIHJldHVybiBs
+ZTE2X3RvX2NwdShyZXMpIHwgQk1TUl9MU1RBVFVTOw0KPiArIGVsc2UNCj4gKyByZXR1cm4gbGUx
+Nl90b19jcHUocmVzKSAmIH5CTVNSX0xTVEFUVVM7DQpUaGUgY29kZSBiZWxvdyB0aGUgcmV0dXJu
+cyBoZXJlIGlzIHVucmVhY2hhYmxlLg0KPiArDQo+ICsgbmV0ZGV2X2RiZyhkZXYtPm5ldCwNCj4g
+KyAgICAgICAgInNyX21kaW9fcmVhZCgpIHBoeV9pZD0weCUwMngsIGxvYz0weCUwMngsIHJldHVy
+bnM9MHglMDR4XG4iLA0KPiArICAgICAgICBwaHlfaWQsIGxvYywgbGUxNl90b19jcHUocmVzKSk7
+DQo+ICsNCj4gKyByZXR1cm4gbGUxNl90b19jcHUocmVzKTsNCj4gK30NCllvdSBtaWdodCB0cnkg
+dG8gdXNlIHNjcmlwdHMvY2hlY2twYXRjaC5wbCAtLXN0cmljdCBpZiB5b3UNCmNhcmUgYWJvdXQg
+dGhlc2UuICBJdCBzaG91bGQgZmxhZyBtb3N0IG9mIHRoZXNlIGNvZGluZw0Kc3R5bGUgaW5jb25z
+aXN0ZW5jaWVzLg0K
