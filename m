@@ -1,110 +1,41 @@
-From: Drunkard Zhang <gongfan193@gmail.com>
-Subject: Re: ipvsadm: One-packet scheduling with UDP service is unstable
-Date: Fri, 23 Aug 2013 07:24:07 +0800
-Message-ID: <CAJiejCT-WemVeAkWoDib2ZXHLRj=Lme3-Lk=prOOVKL=w3vA5A@mail.gmail.com>
-References: <CAJiejCQPa7V703RwOeWPpbQMJQvfswRn+pvTKFmNdeU05RU3SQ@mail.gmail.com>
- <alpine.LFD.2.00.1308220925340.1727@ja.ssi.bg> <CAJiejCSdfBKC3c1dqya55R5T0VBCTm3qaM6nL-CY+H0o5hbwoA@mail.gmail.com>
- <alpine.LFD.2.00.1308221558160.2993@ja.ssi.bg>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH ipsec 2/2] ipv6: set skb->protocol on tcp, raw and
+ ip6_append_data genereated skbs
+Date: Thu, 22 Aug 2013 16:59:37 -0700
+Message-ID: <1377215977.4226.138.camel@edumazet-glaptop>
+References: <20130822104724.GD26773@secunet.com>
+	 <20130822195406.GA4745@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.1308221558160.2993@ja.ssi.bg>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:60257 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754007Ab3HVX7k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 19:59:40 -0400
+Received: by mail-pd0-f172.google.com with SMTP id z10so2562899pdj.31
+        for <netdev@vger.kernel.org>; Thu, 22 Aug 2013 16:59:39 -0700 (PDT)
+In-Reply-To: <20130822195406.GA4745@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2013/8/22 Julian Anastasov <ja@ssi.bg>:
->
->         Hello,
->
-> On Thu, 22 Aug 2013, Drunkard Zhang wrote:
->
->> 2013/8/22 Julian Anastasov <ja@ssi.bg>:
->> >
->> >         No kernel options should be related to OPS. I assume
->> > you are not using the SH scheduler. Make sure the OPS mode
->> > is properly applied to the virtual service, check for "ops"
->> > in the configuration:
->> >
->> > cat /proc/net/ip_vs
->>
->> Still no lucky here, ops is set in running config, but it's not like
->> that in real world.
->>
->> vs3 ~ # cat /proc/net/ip_vs
->> IP Virtual Server version 1.2.1 (size=1024)
->> Prot LocalAddress:Port Scheduler Flags
->>   -> RemoteAddress:Port Forward Weight ActiveConn InActConn
->> UDP  96A46478:0202 wrr ops
->
->>   -> 96A46450:0202      Route   25     0          1
->
->         The OPS connections are accounted in InActConn
-> for a very short period, they live up to 1 jiffie, eg. 10ms.
-> Also, WRR should be reliable for OPS while other
-> schedulers (eg. *LC) are not suitable.
+On Thu, 2013-08-22 at 21:54 +0200, Hannes Frederic Sowa wrote:
+> Currently we don't initialize skb->protocol when transmitting data via
+> tcp, raw(with and without inclhdr) or udp+ufo or appending data directly
+> to the socket transmit queue (via ip6_append_data). This needs to be
+> done so that we can get the correct mtu in the xfrm layer.
+> 
+> Setting of skb->protocol happens only in functions where we also have
+> a transmitting socket and a new skb, so we don't overwrite old values.
+> 
+> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
 
-I noticed this too. While ops working, the InActConn is always
-changing too, if it's fixed, the ops is not working.
+Seems good to me.
 
->> And the traffic routed to each realserver didn't following weight I
->> set, it's routed pretty much one to one. I got 17 udp sources sending
->> to 16 different realservers, the others are bonding to another VIP.
->>
->> Prot LocalAddress:Port                 CPS    InPPS   OutPPS    InBPS   OutBPS
->>   -> RemoteAddress:Port
->> UDP  x.x.x.120:514                 0    67622        0 12339373        0
->>   -> x.x.x.65:514                  0       29        0     2895        0
->>   -> x.x.x.66:514                  0      225        0    21850        0
->
->         Do you see the same problem with ipvsadm -Ln --stats ?
-> ipvsadm -Z may be needed to zero the stats after restoring all
-> rules. "Conns" counter in stats should be according to WRR
-> weights, it shows the scheduler decisions.
-
-After every restore, the stats also zeroed, right? While, ops still not working.
-
-vs3 ~/pkgs # ./ipvsadm -Z
-vs3 ~/pkgs # ./ipvsadm -ln --stats -u [snipped]
-Prot LocalAddress:Port               Conns   InPkts  OutPkts  InBytes OutBytes
-  -> RemoteAddress:Port
-UDP  x.x.x.120:514                 0 12497040        0    2572M        0
-  -> x.x.x.65:514                  0     3975        0   394171        0
-  -> x.x.x.66:514                  0    48466        0  4835716        0
-  -> x.x.x.67:514                  0   407051        0 58479621        0
-  -> x.x.x.68:514                  0   561120        0 85289892        0
-  -> x.x.x.69:514                  0    30958        0  3120506        0
-  -> x.x.x.70:514                  0   645475        0  100552K        0
-  -> x.x.x.71:514                  0   147228        0 14560649        0
-  -> x.x.x.72:514                  0   535693        0 84069390        0
-  -> x.x.x.73:514                  0   564787        0 88165140        0
-  -> x.x.x.74:514                  0   346734        0 53256088        0
-  -> x.x.x.75:514                  0    47232        0  4801578        0
-  -> x.x.x.76:514                  0  1175288        0  192699K        0
-  -> x.x.x.77:514                  0   254915        0 25939720        0
-  -> x.x.x.78:514                  0  2701531        0  652417K        0
-  -> x.x.x.79:514                  0  2426686        0  573897K        0
-  -> x.x.x.80:514                  0  2599901        0  629793K        0
-  -> x.x.x.81:514                  0        0        0        0        0
-  -> x.x.x.82:514                  0        0        0        0        0
-  -> x.x.x.83:514                  0        0        0        0        0
-  -> x.x.x.84:514                  0        0        0        0        0
-  -> x.x.x.85:514                  0        0        0        0        0
-  -> x.x.x.86:514                  0        0        0        0        0
-  -> x.x.x.87:514                  0        0        0        0        0
-  -> x.x.x.88:514                  0        0        0        0        0
-  -> x.x.x.89:514                  0        0        0        0        0
-
->         In your rates listing CPS 0 is confusing, even for OPS.
-> Is it from the new ipvsadm?
-
-Yes, latest git version. When CPS is changing, the ops works, or it's not.
+Acked-by: Eric Dumazet <edumazet@google.com>
