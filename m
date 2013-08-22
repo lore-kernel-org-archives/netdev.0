@@ -1,47 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: increase throughput when reordering is
- high
-Date: Thu, 22 Aug 2013 14:40:17 -0700 (PDT)
-Message-ID: <20130822.144017.1466549111461976435.davem@davemloft.net>
-References: <1377131363-31341-1-git-send-email-ycheng@google.com>
+From: Marek Kierdelewicz <marek@piasta.pl>
+Subject: Re: Can linux kernel bridge forward 802.1q tagged vlan
+ packets?
+Date: Thu, 22 Aug 2013 23:49:41 +0200
+Message-ID: <20130822234941.4affc863@catus>
+References: <20130822224453.ca93782f.skraw@ithnet.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ncardwell@google.com, edumazet@google.com, netdev@vger.kernel.org
-To: ycheng@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53119 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753648Ab3HVVkS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 17:40:18 -0400
-In-Reply-To: <1377131363-31341-1-git-send-email-ycheng@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: Stephan von Krawczynski <skraw@ithnet.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130822224453.ca93782f.skraw@ithnet.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Wed, 21 Aug 2013 17:29:23 -0700
+Hi,
 
-> The stack currently detects reordering and avoid spurious
-> retransmission very well. However the throughput is sub-optimal under
-> high reordering because cwnd is increased only if the data is deliverd
-> in order. I.e., FLAG_DATA_ACKED check in tcp_ack().  The more packet
-> are reordered the worse the throughput is.
-> 
-> Therefore when reordering is proven high, cwnd should advance whenever
-> the data is delivered regardless of its ordering. If reordering is low,
-> conservatively advance cwnd only on ordered deliveries in Open state,
-> and retain cwnd in Disordered state (RFC5681).
-> 
-> Using netperf on a qdisc setup of 20Mbps BW and random RTT from 45ms
-> to 55ms (for reordering effect). This change increases TCP throughput
-> by 20 - 25% to near bottleneck BW.
-> 
-> A special case is the stretched ACK with new SACK and/or ECE mark.
-> For example, a receiver may receive an out of order or ECN packet with
-> unacked data buffered because of LRO or delayed ACK. The principle on
-> such an ACK is to advance cwnd on the cummulative acked part first,
-> then reduce cwnd in tcp_fastretrans_alert().
-> 
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+>My general idea is to bridge tagged vlan packets from a physical
+>interface (intel) to a virtual interface (virtio in qemu) and not
+>losing the tags, so the qemu guest can use vconfig and friends to get
+>some vlan interfaces. Is this possible and are there any additional
+>steps necessary besides the usual bridge configuration?
 
-Applied, your team is doing great work on the TCP stack!
+I'm using this setup with KVM virtualization (Qemu's successor). It
+didn't work with default nic type for guest (realtek I think) as 802.1q
+tags were not preserved properly in one of the directions. I don't
+remember specifics. Anyway using e1000 driver instead of default fixed
+it. Works like a charm.
+
+Best regards,
+Marek Kierdelewicz
