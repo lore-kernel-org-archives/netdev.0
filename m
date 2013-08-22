@@ -1,55 +1,43 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 2/6] af_key: constify lookup tables
-Date: Thu, 22 Aug 2013 13:12:06 +0200
-Message-ID: <1377169931-7302-3-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 3/6] xfrm: Delete hold_timer when destroy policy
+Date: Thu, 22 Aug 2013 13:12:07 +0200
+Message-ID: <1377169931-7302-4-git-send-email-steffen.klassert@secunet.com>
 References: <1377169931-7302-1-git-send-email-steffen.klassert@secunet.com>
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:51100 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:51108 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752852Ab3HVLMe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Aug 2013 07:12:34 -0400
+	id S1752852Ab3HVLMf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Aug 2013 07:12:35 -0400
 In-Reply-To: <1377169931-7302-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mathias Krause <minipli@googlemail.com>
+From: Fan Du <fan.du@windriver.com>
 
-The lookup tables for minimum sizes of extensions and for the pfkey
-handler functions are read only, therefore can be const.
+Both policy timer and hold_timer need to be deleted when destroy policy
 
-Signed-off-by: Mathias Krause <minipli@googlemail.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Fan Du <fan.du@windriver.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/key/af_key.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/xfrm/xfrm_policy.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 4089a21..d49f676 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -338,7 +338,7 @@ static int pfkey_error(const struct sadb_msg *orig, int err, struct sock *sk)
- 	return 0;
- }
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index d8da6b8..f7078eb 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -308,7 +308,7 @@ void xfrm_policy_destroy(struct xfrm_policy *policy)
+ {
+ 	BUG_ON(!policy->walk.dead);
  
--static u8 sadb_ext_min_len[] = {
-+static const u8 sadb_ext_min_len[] = {
- 	[SADB_EXT_RESERVED]		= (u8) 0,
- 	[SADB_EXT_SA]			= (u8) sizeof(struct sadb_sa),
- 	[SADB_EXT_LIFETIME_CURRENT]	= (u8) sizeof(struct sadb_lifetime),
-@@ -2737,7 +2737,7 @@ static int pfkey_spdflush(struct sock *sk, struct sk_buff *skb, const struct sad
+-	if (del_timer(&policy->timer))
++	if (del_timer(&policy->timer) || del_timer(&policy->polq.hold_timer))
+ 		BUG();
  
- typedef int (*pfkey_handler)(struct sock *sk, struct sk_buff *skb,
- 			     const struct sadb_msg *hdr, void * const *ext_hdrs);
--static pfkey_handler pfkey_funcs[SADB_MAX + 1] = {
-+static const pfkey_handler pfkey_funcs[SADB_MAX + 1] = {
- 	[SADB_RESERVED]		= pfkey_reserved,
- 	[SADB_GETSPI]		= pfkey_getspi,
- 	[SADB_UPDATE]		= pfkey_add,
+ 	security_xfrm_policy_free(policy->security);
 -- 
 1.7.9.5
