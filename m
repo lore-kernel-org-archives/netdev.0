@@ -1,7 +1,7 @@
 From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: [PATCH 1/2] genl: Fix genl dumpit() locking.
-Date: Thu, 22 Aug 2013 19:51:05 +0200
-Message-ID: <1377193865.14110.26.camel@jlt4.sipsolutions.net>
+Date: Thu, 22 Aug 2013 19:51:46 +0200
+Message-ID: <1377193906.14110.27.camel@jlt4.sipsolutions.net>
 References: <1377143882-20717-1-git-send-email-pshelar@nicira.com>
 	 <1377156980.14110.16.camel@jlt4.sipsolutions.net>
 	 <CALnjE+qgZ_UZ4GdiZ4UCzfTLn-OveoHtE28uQZokz2kPD4srXQ@mail.gmail.com>
@@ -11,10 +11,10 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>
 To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:35779 "EHLO
+Received: from s3.sipsolutions.net ([144.76.43.152]:35781 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753714Ab3HVRvJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 13:51:09 -0400
+	with ESMTP id S1753431Ab3HVRvu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 13:51:50 -0400
 In-Reply-To: <CALnjE+qgZ_UZ4GdiZ4UCzfTLn-OveoHtE28uQZokz2kPD4srXQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -38,9 +38,8 @@ On Thu, 2013-08-22 at 10:42 -0700, Pravin Shelar wrote:
 > If you look at commit def3117493eafd9df , it removes assignment of
 > cb_mutex to genl_mutex. Thats how genl-dump operation was called under
 > genl_mutex.
-> This patch simply restores that locking.
 
-Huh, ok, so you actually caused all the dump locking bugs in
-nl80211! :-)
+By the way - why? This just means that netlink will allocate another
+lock to lock it all, so it's not a very useful change?
 
 johannes
