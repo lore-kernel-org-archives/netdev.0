@@ -1,52 +1,43 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net-next] tcp: increase throughput when reordering is high
-Date: Wed, 21 Aug 2013 22:18:00 -0400
-Message-ID: <CADVnQy=hSHCba_oE1mPfjPUJ299D-qsH=A64tfNBuzjQ+iQBuQ@mail.gmail.com>
-References: <1377131363-31341-1-git-send-email-ycheng@google.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] netns: unix: only allow to find out unix socket in same
+ net namespace
+Date: Thu, 22 Aug 2013 09:36:35 +0800
+Message-ID: <52156B23.7050208@cn.fujitsu.com>
+References: <1377059473-25526-1-git-send-email-gaofeng@cn.fujitsu.com> <87d2p7vcdx.fsf@xmission.com> <5214641C.9030902@cn.fujitsu.com> <87wqnfttdf.fsf@xmission.com> <52146AC2.5070409@cn.fujitsu.com> <87haejtjet.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Yuchung Cheng <ycheng@google.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, systemd-devel@lists.freedesktop.org,
+	lxc-devel@lists.sourceforge.net, davem@davemloft.net,
+	Linux Containers <containers@lists.linux-foundation.org>,
+	"libvir-list@redhat.com" <libvir-list@redhat.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f179.google.com ([74.125.82.179]:36084 "EHLO
-	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752642Ab3HVCSB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 22:18:01 -0400
-Received: by mail-we0-f179.google.com with SMTP id t58so1085000wes.38
-        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 19:18:00 -0700 (PDT)
-In-Reply-To: <1377131363-31341-1-git-send-email-ycheng@google.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:2128 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752462Ab3HVCUf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Aug 2013 22:20:35 -0400
+In-Reply-To: <87haejtjet.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 21, 2013 at 8:29 PM, Yuchung Cheng <ycheng@google.com> wrote:
-> The stack currently detects reordering and avoid spurious
-> retransmission very well. However the throughput is sub-optimal under
-> high reordering because cwnd is increased only if the data is deliverd
-> in order. I.e., FLAG_DATA_ACKED check in tcp_ack().  The more packet
-> are reordered the worse the throughput is.
->
-> Therefore when reordering is proven high, cwnd should advance whenever
-> the data is delivered regardless of its ordering. If reordering is low,
-> conservatively advance cwnd only on ordered deliveries in Open state,
-> and retain cwnd in Disordered state (RFC5681).
->
-> Using netperf on a qdisc setup of 20Mbps BW and random RTT from 45ms
-> to 55ms (for reordering effect). This change increases TCP throughput
-> by 20 - 25% to near bottleneck BW.
->
-> A special case is the stretched ACK with new SACK and/or ECE mark.
-> For example, a receiver may receive an out of order or ECN packet with
-> unacked data buffered because of LRO or delayed ACK. The principle on
-> such an ACK is to advance cwnd on the cummulative acked part first,
-> then reduce cwnd in tcp_fastretrans_alert().
->
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> ---
->  net/ipv4/tcp_input.c | 32 ++++++++++++++++++++------------
->  1 file changed, 20 insertions(+), 12 deletions(-)
+On 08/21/2013 06:42 PM, Eric W. Biederman wrote:
+> Gao feng <gaofeng@cn.fujitsu.com> writes:
+> 
+>> right now I only take note of the unix socket /run/systemd/private,
+>> but there may have many similar unix sockets, they can exist in any
+>> path. the strange problems will still happen.
+> 
+> It could just as easily have been a fifo in the filesystem, and the
+> result would have been the same.
+> 
+> The network namespace are all about communicating between network
+> namespaces and that is what was allowed here.
+> 
+> If you don't want a socket or a fifo or any other file to be used by a
+> container don't give it access to it.  It really is that simple.
+> 
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+Hmm, I tend to think you are right...
 
-neal
+Thanks!
