@@ -1,47 +1,36 @@
-From: Fugang Duan <B38611@freescale.com>
-Subject: [PATCH] net: fec: fix the error to get the previous BD entry
-Date: Thu, 22 Aug 2013 18:40:36 +0800
-Message-ID: <1377168036-8359-1-git-send-email-B38611@freescale.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Problematic commits in the ipsec tree
+Date: Thu, 22 Aug 2013 12:47:24 +0200
+Message-ID: <20130822104724.GD26773@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <shawn.guo@linaro.org>,
-	<bhutchings@solarflare.com>, <R49496@freescale.com>,
-	<stephen@networkplumber.org>
-To: <b20596@freescale.com>, <b45643@freescale.com>,
-	<davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe001.messaging.microsoft.com ([65.55.88.11]:12202 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752438Ab3HVKog (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 06:44:36 -0400
+Received: from a.mx.secunet.com ([195.81.216.161]:50304 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752494Ab3HVKr0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Aug 2013 06:47:26 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the current BD is the first BD, the previous BD entry
-must be the last BD, not "bdp - 1".
+Hannes,
 
-Add BD entry check to get the previous BD entry correctly.
+I have two problematic commits from you in the ipsec tree. The first one is:
 
-Signed-off-by: Fugang Duan  <B38611@freescale.com>
----
- drivers/net/ethernet/freescale/fec_main.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+commit 0ea9d5e3e (xfrm: introduce helper for safe determination of mtu)
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 4ea1555..4349a9e 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -380,7 +380,10 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 		}
- 	}
- 
--	bdp_pre = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
-+	if (bdp == fep->tx_bd_base)
-+		bdp_pre = bdp + TX_RING_SIZE - 1;
-+	else
-+		bdp_pre = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
- 	if ((id_entry->driver_data & FEC_QUIRK_ERR006358) &&
- 	    !(bdp_pre->cbd_sc & BD_ENET_TX_READY)) {
- 		fep->delay_work.trig_tx = true;
--- 
-1.7.1
+This breakes pmtu discovery for IPv4 because now we use the device mtu
+instead of the reduced IPsec mtu in xfrm4_tunnel_check_size() if a IPv4
+socket is at the skb.
+
+The second is:
+
+commit 844d48746 (xfrm: choose protocol family by skb protocol)
+
+This breaks pmtu discovery for IPv6 too because skb->protocol can be null
+in __xfrm6_output().
+
+We need a solution soon, or I have to revert or remove these commits from
+the ipsec tree.
