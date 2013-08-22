@@ -1,37 +1,26 @@
-From: Eric Wong <normalperson@yhbt.net>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH RFC net-next] net: epoll support for busy poll
-Date: Thu, 22 Aug 2013 20:11:35 +0000
-Message-ID: <20130822201135.GA4088@dcvr.yhbt.net>
+Date: Thu, 22 Aug 2013 13:14:02 -0700 (PDT)
+Message-ID: <20130822.131402.362258965058758270.davem@davemloft.net>
 References: <20130821103954.30607.6819.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Eric Dumazet <erdnetdev@gmail.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net, eilong@broadcom.com,
+	amirv@mellanox.com, erdnetdev@gmail.com, willemb@google.com,
+	eliezer@tamir.org.il
+To: eliezer.tamir@linux.intel.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
 In-Reply-To: <20130821103954.30607.6819.stgit@ladj378.jer.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eliezer Tamir <eliezer.tamir@linux.intel.com> wrote:
-> Performance:
-> using sockperf, Intel X520 NICs,
-> Supermicro 6026TT-BTF systems with E5-2690 Xeon CPUs
-> 100 UDP sockets avg. latency 5.756 (std-dev 0.510)
-> 1k  UDP sockets avg. latency 5.780 (std-dev 0.536)
-> 10k UDP sockets avg. latency 6.269 (std-dev 0.611)
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Date: Wed, 21 Aug 2013 13:39:54 +0300
 
-How does this compare to with normal poll on this system?
+> +	SK_LL_STATE_MISS_2,	/* data came through napi poll twice in a row */
 
-In other words, what advantage is there to using epoll instead of poll
-when busy looping?
+Please rename this to SK_LL_STATE_MISS_MULTI or something like that.
 
-epoll and busy_poll seem to be opposites.  epoll inherently has higher
-latency than normal poll, but provides stable performance with many more
-FDs.
+Thanks.
