@@ -1,24 +1,45 @@
-From: Doris Omar <1735963831@qq.com>
-Subject: Re: Very Urgent!!!
-Date: Wed, 21 Aug 2013 18:12:41 -0700 (PDT)
-Message-ID: <1377133961.28537.YahooMailBasic@web162702.mail.bf1.yahoo.com>
-Reply-To: doris_mrx@qq.com
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: Re: [PATCH V3] ipv6: handle Redirect ICMP Message with no Redirected
+ Header option
+Date: Thu, 22 Aug 2013 09:28:11 +0800
+Message-ID: <5215692B.5090206@cn.fujitsu.com>
+References: <521468C4.5020700@cn.fujitsu.com> <20130821111700.GE20223@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-To: undisclosed recipients:;
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm37-vm4.bullet.mail.bf1.yahoo.com ([72.30.238.204]:29801 "EHLO
-	nm37-vm4.bullet.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752440Ab3HVBT2 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Aug 2013 21:19:28 -0400
+Received: from cn.fujitsu.com ([222.73.24.84]:10774 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752185Ab3HVB2x convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 21:28:53 -0400
+In-Reply-To: <20130821111700.GE20223@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Greetings from BURKINA FASO:
-Let me start by introduce myself,I am Mrs Doris Omar, BILL AND EXCHANGE MANAGER (Bank of Africa) Ouagadougou, Burkina Faso.I am writting you this letter based on the latest development at our bank which I will like to bring to your personal edification. $12,250million transfer claims. this is a legitimate transaction and I agreed to offer you 40% of this money as my foreign partner after confirmation of the fund in your bank account,If you are interested, please get back to me.
-
-Yours faithful,
-Mrs Doris Omar.
+=E4=BA=8E 2013=E5=B9=B408=E6=9C=8821=E6=97=A5 19:17, Hannes Frederic So=
+wa =E5=86=99=E9=81=93:
+> On Wed, Aug 21, 2013 at 03:14:12PM +0800, Duan Jiong wrote:
+>> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+>>
+>> rfc 4861 says the Redirected Header option is optional, so
+>> the kernel should not drop the Redirect Message that has no
+>> Redirected Header option. In this patch, the function
+>> ip6_redirect_no_header() is introduced to deal with that
+>> condition.
+>>
+>> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+>=20
+> Sorry for being so picky about local socket delivery before. You were=
+ right
+> all along.
+>=20
+> I just tested and reviewed this patch and everything is fine:
+>=20
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>=20
+> Just out of curiosity, can you tell because of which devices you did
+> this patch?
+In fact, i did this patch just because i want to learn more about the
+ipv6 implemention.
