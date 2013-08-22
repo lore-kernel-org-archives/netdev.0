@@ -1,256 +1,63 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 09/15] igb: Fix get_fw_version function for all parts
-Date: Thu, 22 Aug 2013 02:49:45 -0700
-Message-ID: <1377164991-27988-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 10/15] igb: Add macro for size of RETA indirection table
+Date: Thu, 22 Aug 2013 02:49:46 -0700
+Message-ID: <1377164991-27988-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1377164991-27988-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+Cc: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:25110 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:48257 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752846Ab3HVJuB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Aug 2013 05:50:01 -0400
+	id S1752850Ab3HVJuC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Aug 2013 05:50:02 -0400
 In-Reply-To: <1377164991-27988-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
 
-This patch fixes issues found with older parts and older NVM tools in the
-display of the version in ethtool.
+RETA indirection table is used to assign the received data to a CPU
+in order to maintain an efficient distribution of network receive
+processing across multiple CPUs.
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+This patch removes the hard-coded value for the size of the indirection
+table and defines a new macro.
+
+Signed-off-by: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_defines.h | 28 +++++----
- drivers/net/ethernet/intel/igb/e1000_nvm.c     | 80 ++++++++++++++++++--------
- drivers/net/ethernet/intel/igb/e1000_nvm.h     |  1 +
- drivers/net/ethernet/intel/igb/igb_main.c      | 28 ++++++---
- 4 files changed, 93 insertions(+), 44 deletions(-)
+ drivers/net/ethernet/intel/igb/igb.h      | 2 ++
+ drivers/net/ethernet/intel/igb/igb_main.c | 2 +-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
-index 4522198..60559af 100644
---- a/drivers/net/ethernet/intel/igb/e1000_defines.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
-@@ -671,20 +671,26 @@
- #define NVM_INIT_CTRL_4            0x0013
- #define NVM_LED_1_CFG              0x001C
- #define NVM_LED_0_2_CFG            0x001F
--
--/* NVM version defines */
- #define NVM_ETRACK_WORD            0x0042
-+#define NVM_ETRACK_HIWORD          0x0043
- #define NVM_COMB_VER_OFF           0x0083
- #define NVM_COMB_VER_PTR           0x003d
--#define NVM_MAJOR_MASK             0xF000
--#define NVM_MINOR_MASK             0x0FF0
--#define NVM_BUILD_MASK             0x000F
--#define NVM_COMB_VER_MASK          0x00FF
--#define NVM_MAJOR_SHIFT                12
--#define NVM_MINOR_SHIFT                 4
--#define NVM_COMB_VER_SHFT               8
--#define NVM_VER_INVALID            0xFFFF
--#define NVM_ETRACK_SHIFT               16
-+
-+/* NVM version defines */
-+#define NVM_MAJOR_MASK			0xF000
-+#define NVM_MINOR_MASK			0x0FF0
-+#define NVM_IMAGE_ID_MASK		0x000F
-+#define NVM_COMB_VER_MASK		0x00FF
-+#define NVM_MAJOR_SHIFT			12
-+#define NVM_MINOR_SHIFT			4
-+#define NVM_COMB_VER_SHFT		8
-+#define NVM_VER_INVALID			0xFFFF
-+#define NVM_ETRACK_SHIFT		16
-+#define NVM_ETRACK_VALID		0x8000
-+#define NVM_NEW_DEC_MASK		0x0F00
-+#define NVM_HEX_CONV			16
-+#define NVM_HEX_TENS			10
-+
- #define NVM_ETS_CFG			0x003E
- #define NVM_ETS_LTHRES_DELTA_MASK	0x07C0
- #define NVM_ETS_LTHRES_DELTA_SHIFT	6
-diff --git a/drivers/net/ethernet/intel/igb/e1000_nvm.c b/drivers/net/ethernet/intel/igb/e1000_nvm.c
-index 7f9cd7c..a7db7f3 100644
---- a/drivers/net/ethernet/intel/igb/e1000_nvm.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_nvm.c
-@@ -709,11 +709,16 @@ out:
-  **/
- void igb_get_fw_version(struct e1000_hw *hw, struct e1000_fw_version *fw_vers)
- {
--	u16 eeprom_verh, eeprom_verl, comb_verh, comb_verl, comb_offset;
--	u16 fw_version;
-+	u16 eeprom_verh, eeprom_verl, etrack_test, fw_version;
-+	u8 q, hval, rem, result;
-+	u16 comb_verh, comb_verl, comb_offset;
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index 15ea8dc..5a2659b 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -343,6 +343,8 @@ struct hwmon_buff {
+ 	};
+ #endif
  
- 	memset(fw_vers, 0, sizeof(struct e1000_fw_version));
- 
-+	/* basic eeprom version numbers and bits used vary by part and by tool
-+	 * used to create the nvm images. Check which data format we have.
-+	 */
-+	hw->nvm.ops.read(hw, NVM_ETRACK_HIWORD, 1, &etrack_test);
- 	switch (hw->mac.type) {
- 	case e1000_i211:
- 		igb_read_invm_version(hw, fw_vers);
-@@ -721,30 +726,30 @@ void igb_get_fw_version(struct e1000_hw *hw, struct e1000_fw_version *fw_vers)
- 	case e1000_82575:
- 	case e1000_82576:
- 	case e1000_82580:
--	case e1000_i354:
--	case e1000_i350:
--	case e1000_i210:
-+		/* Use this format, unless EETRACK ID exists,
-+		 * then use alternate format
-+		 */
-+		if ((etrack_test &  NVM_MAJOR_MASK) != NVM_ETRACK_VALID) {
-+			hw->nvm.ops.read(hw, NVM_VERSION, 1, &fw_version);
-+			fw_vers->eep_major = (fw_version & NVM_MAJOR_MASK)
-+					      >> NVM_MAJOR_SHIFT;
-+			fw_vers->eep_minor = (fw_version & NVM_MINOR_MASK)
-+					      >> NVM_MINOR_SHIFT;
-+			fw_vers->eep_build = (fw_version & NVM_IMAGE_ID_MASK);
-+			goto etrack_id;
-+		}
- 		break;
--	default:
--		return;
--	}
--	/* basic eeprom version numbers */
--	hw->nvm.ops.read(hw, NVM_VERSION, 1, &fw_version);
--	fw_vers->eep_major = (fw_version & NVM_MAJOR_MASK) >> NVM_MAJOR_SHIFT;
--	fw_vers->eep_minor = (fw_version & NVM_MINOR_MASK);
--
--	/* etrack id */
--	hw->nvm.ops.read(hw, NVM_ETRACK_WORD, 1, &eeprom_verl);
--	hw->nvm.ops.read(hw, (NVM_ETRACK_WORD + 1), 1, &eeprom_verh);
--	fw_vers->etrack_id = (eeprom_verh << NVM_ETRACK_SHIFT) | eeprom_verl;
--
--	switch (hw->mac.type) {
- 	case e1000_i210:
--	case e1000_i354:
-+		if (!(igb_get_flash_presence_i210(hw))) {
-+			igb_read_invm_version(hw, fw_vers);
-+			return;
-+		}
-+		/* fall through */
- 	case e1000_i350:
- 		/* find combo image version */
- 		hw->nvm.ops.read(hw, NVM_COMB_VER_PTR, 1, &comb_offset);
--		if ((comb_offset != 0x0) && (comb_offset != NVM_VER_INVALID)) {
-+		if ((comb_offset != 0x0) &&
-+		    (comb_offset != NVM_VER_INVALID)) {
- 
- 			hw->nvm.ops.read(hw, (NVM_COMB_VER_OFF + comb_offset
- 					 + 1), 1, &comb_verh);
-@@ -760,15 +765,42 @@ void igb_get_fw_version(struct e1000_hw *hw, struct e1000_fw_version *fw_vers)
- 				fw_vers->or_major =
- 					comb_verl >> NVM_COMB_VER_SHFT;
- 				fw_vers->or_build =
--					((comb_verl << NVM_COMB_VER_SHFT)
--					| (comb_verh >> NVM_COMB_VER_SHFT));
-+					(comb_verl << NVM_COMB_VER_SHFT)
-+					| (comb_verh >> NVM_COMB_VER_SHFT);
- 				fw_vers->or_patch =
- 					comb_verh & NVM_COMB_VER_MASK;
- 			}
- 		}
- 		break;
- 	default:
--		break;
-+		return;
-+	}
-+	hw->nvm.ops.read(hw, NVM_VERSION, 1, &fw_version);
-+	fw_vers->eep_major = (fw_version & NVM_MAJOR_MASK)
-+			      >> NVM_MAJOR_SHIFT;
++#define IGB_RETA_SIZE	128
 +
-+	/* check for old style version format in newer images*/
-+	if ((fw_version & NVM_NEW_DEC_MASK) == 0x0) {
-+		eeprom_verl = (fw_version & NVM_COMB_VER_MASK);
-+	} else {
-+		eeprom_verl = (fw_version & NVM_MINOR_MASK)
-+				>> NVM_MINOR_SHIFT;
-+	}
-+	/* Convert minor value to hex before assigning to output struct
-+	 * Val to be converted will not be higher than 99, per tool output
-+	 */
-+	q = eeprom_verl / NVM_HEX_CONV;
-+	hval = q * NVM_HEX_TENS;
-+	rem = eeprom_verl % NVM_HEX_CONV;
-+	result = hval + rem;
-+	fw_vers->eep_minor = result;
-+
-+etrack_id:
-+	if ((etrack_test &  NVM_MAJOR_MASK) == NVM_ETRACK_VALID) {
-+		hw->nvm.ops.read(hw, NVM_ETRACK_WORD, 1, &eeprom_verl);
-+		hw->nvm.ops.read(hw, (NVM_ETRACK_WORD + 1), 1, &eeprom_verh);
-+		fw_vers->etrack_id = (eeprom_verh << NVM_ETRACK_SHIFT)
-+			| eeprom_verl;
- 	}
- 	return;
- }
-diff --git a/drivers/net/ethernet/intel/igb/e1000_nvm.h b/drivers/net/ethernet/intel/igb/e1000_nvm.h
-index 6bfc0c4..433b741 100644
---- a/drivers/net/ethernet/intel/igb/e1000_nvm.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_nvm.h
-@@ -44,6 +44,7 @@ struct e1000_fw_version {
- 	u32 etrack_id;
- 	u16 eep_major;
- 	u16 eep_minor;
-+	u16 eep_build;
- 
- 	u8 invm_major;
- 	u8 invm_minor;
+ /* board specific private data structure */
+ struct igb_adapter {
+ 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index a53c77b..7f6cf65 100644
+index 7f6cf65..1acd9c0 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1931,12 +1931,17 @@ void igb_set_fw_version(struct igb_adapter *adapter)
- 	igb_get_fw_version(hw, &fw);
- 
- 	switch (hw->mac.type) {
-+	case e1000_i210:
- 	case e1000_i211:
--		snprintf(adapter->fw_version, sizeof(adapter->fw_version),
--			 "%2d.%2d-%d",
--			 fw.invm_major, fw.invm_minor, fw.invm_img_type);
--		break;
--
-+		if (!(igb_get_flash_presence_i210(hw))) {
-+			snprintf(adapter->fw_version,
-+				 sizeof(adapter->fw_version),
-+				 "%2d.%2d-%d",
-+				 fw.invm_major, fw.invm_minor,
-+				 fw.invm_img_type);
-+			break;
-+		}
-+		/* fall through */
- 	default:
- 		/* if option is rom valid, display its version too */
- 		if (fw.or_valid) {
-@@ -1946,11 +1951,16 @@ void igb_set_fw_version(struct igb_adapter *adapter)
- 				 fw.eep_major, fw.eep_minor, fw.etrack_id,
- 				 fw.or_major, fw.or_build, fw.or_patch);
- 		/* no option rom */
--		} else {
-+		} else if (fw.etrack_id != 0X0000) {
- 			snprintf(adapter->fw_version,
--				 sizeof(adapter->fw_version),
--				 "%d.%d, 0x%08x",
--				 fw.eep_major, fw.eep_minor, fw.etrack_id);
-+			    sizeof(adapter->fw_version),
-+			    "%d.%d, 0x%08x",
-+			    fw.eep_major, fw.eep_minor, fw.etrack_id);
-+		} else {
-+		snprintf(adapter->fw_version,
-+		    sizeof(adapter->fw_version),
-+		    "%d.%d.%d",
-+		    fw.eep_major, fw.eep_minor, fw.eep_build);
- 		}
- 		break;
- 	}
+@@ -3157,7 +3157,7 @@ static void igb_setup_mrqc(struct igb_adapter *adapter)
+ 	 * we are generating the results for n and n+2 and then interleaving
+ 	 * those with the results with n+1 and n+3.
+ 	 */
+-	for (j = 0; j < 32; j++) {
++	for (j = 0; j < IGB_RETA_SIZE / 4; j++) {
+ 		/* first pass generates n and n+2 */
+ 		u32 base = ((j * 0x00040004) + 0x00020000) * num_rx_queues;
+ 		u32 reta = (base & 0x07800780) >> (7 - shift);
 -- 
 1.8.3.1
