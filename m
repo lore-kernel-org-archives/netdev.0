@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 03/32] sfc: Use efx_mcdi_mon() to find efx_mcdi_mon
- structure from efx_nic
-Date: Thu, 22 Aug 2013 13:45:13 +0100
-Message-ID: <1377175513.1703.8.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 04/32] sfc: Move details of a Falcon bug workaround
+ out of ethtool.c
+Date: Thu, 22 Aug 2013 13:45:35 +0100
+Message-ID: <1377175535.1703.9.camel@bwh-desktop.uk.level5networks.com>
 References: <1377175392.1703.5.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,35 +10,167 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:13477 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:13489 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753486Ab3HVMpQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 08:45:16 -0400
+	with ESMTP id S1753486Ab3HVMpi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 08:45:38 -0400
 In-Reply-To: <1377175392.1703.5.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This needs to be done before we separate MCDI from siena_nic_data.
-
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/mcdi_mon.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/sfc/ethtool.c     | 23 ++++-------------------
+ drivers/net/ethernet/sfc/falcon.c      | 26 +++++++++++++++++++++++++-
+ drivers/net/ethernet/sfc/net_driver.h  |  2 ++
+ drivers/net/ethernet/sfc/nic.h         |  1 -
+ drivers/net/ethernet/sfc/workarounds.h |  2 --
+ 5 files changed, 31 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/mcdi_mon.c b/drivers/net/ethernet/sfc/mcdi_mon.c
-index 1d552f0..fe42c3b 100644
---- a/drivers/net/ethernet/sfc/mcdi_mon.c
-+++ b/drivers/net/ethernet/sfc/mcdi_mon.c
-@@ -400,8 +400,7 @@ fail:
+diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
+index 1fc2145..4db37f7 100644
+--- a/drivers/net/ethernet/sfc/ethtool.c
++++ b/drivers/net/ethernet/sfc/ethtool.c
+@@ -709,7 +709,6 @@ static int efx_ethtool_set_pauseparam(struct net_device *net_dev,
+ 	struct efx_nic *efx = netdev_priv(net_dev);
+ 	u8 wanted_fc, old_fc;
+ 	u32 old_adv;
+-	bool reset;
+ 	int rc = 0;
  
- void efx_mcdi_mon_remove(struct efx_nic *efx)
+ 	mutex_lock(&efx->mac_lock);
+@@ -732,24 +731,10 @@ static int efx_ethtool_set_pauseparam(struct net_device *net_dev,
+ 		goto out;
+ 	}
+ 
+-	/* TX flow control may automatically turn itself off if the
+-	 * link partner (intermittently) stops responding to pause
+-	 * frames. There isn't any indication that this has happened,
+-	 * so the best we do is leave it up to the user to spot this
+-	 * and fix it be cycling transmit flow control on this end. */
+-	reset = (wanted_fc & EFX_FC_TX) && !(efx->wanted_fc & EFX_FC_TX);
+-	if (EFX_WORKAROUND_11482(efx) && reset) {
+-		if (efx_nic_rev(efx) == EFX_REV_FALCON_B0) {
+-			/* Recover by resetting the EM block */
+-			falcon_stop_nic_stats(efx);
+-			falcon_drain_tx_fifo(efx);
+-			falcon_reconfigure_xmac(efx);
+-			falcon_start_nic_stats(efx);
+-		} else {
+-			/* Schedule a reset to recover */
+-			efx_schedule_reset(efx, RESET_TYPE_INVISIBLE);
+-		}
+-	}
++	/* Hook for Falcon bug 11482 workaround */
++	if (efx->type->prepare_enable_fc_tx &&
++	    (wanted_fc & EFX_FC_TX) && !(efx->wanted_fc & EFX_FC_TX))
++		efx->type->prepare_enable_fc_tx(efx);
+ 
+ 	old_adv = efx->link_advertising;
+ 	old_fc = efx->wanted_fc;
+diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
+index 71998e7..6b6ac6d 100644
+--- a/drivers/net/ethernet/sfc/falcon.c
++++ b/drivers/net/ethernet/sfc/falcon.c
+@@ -497,7 +497,7 @@ static void falcon_reset_macs(struct efx_nic *efx)
+ 	falcon_setup_xaui(efx);
+ }
+ 
+-void falcon_drain_tx_fifo(struct efx_nic *efx)
++static void falcon_drain_tx_fifo(struct efx_nic *efx)
  {
--	struct siena_nic_data *nic_data = efx->nic_data;
--	struct efx_mcdi_mon *hwmon = &nic_data->hwmon;
-+	struct efx_mcdi_mon *hwmon = efx_mcdi_mon(efx);
- 	unsigned int i;
+ 	efx_oword_t reg;
  
- 	for (i = 0; i < hwmon->n_attrs; i++)
+@@ -678,6 +678,28 @@ static int falcon_reconfigure_port(struct efx_nic *efx)
+ 	return 0;
+ }
+ 
++/* TX flow control may automatically turn itself off if the link
++ * partner (intermittently) stops responding to pause frames. There
++ * isn't any indication that this has happened, so the best we do is
++ * leave it up to the user to spot this and fix it by cycling transmit
++ * flow control on this end.
++ */
++
++static void falcon_a1_prepare_enable_fc_tx(struct efx_nic *efx)
++{
++	/* Schedule a reset to recover */
++	efx_schedule_reset(efx, RESET_TYPE_INVISIBLE);
++}
++
++static void falcon_b0_prepare_enable_fc_tx(struct efx_nic *efx)
++{
++	/* Recover by resetting the EM block */
++	falcon_stop_nic_stats(efx);
++	falcon_drain_tx_fifo(efx);
++	falcon_reconfigure_xmac(efx);
++	falcon_start_nic_stats(efx);
++}
++
+ /**************************************************************************
+  *
+  * PHY access via GMII
+@@ -1798,6 +1820,7 @@ const struct efx_nic_type falcon_a1_nic_type = {
+ 	.set_id_led = falcon_set_id_led,
+ 	.push_irq_moderation = falcon_push_irq_moderation,
+ 	.reconfigure_port = falcon_reconfigure_port,
++	.prepare_enable_fc_tx = falcon_a1_prepare_enable_fc_tx,
+ 	.reconfigure_mac = falcon_reconfigure_xmac,
+ 	.check_mac_fault = falcon_xmac_check_fault,
+ 	.get_wol = falcon_get_wol,
+@@ -1842,6 +1865,7 @@ const struct efx_nic_type falcon_b0_nic_type = {
+ 	.set_id_led = falcon_set_id_led,
+ 	.push_irq_moderation = falcon_push_irq_moderation,
+ 	.reconfigure_port = falcon_reconfigure_port,
++	.prepare_enable_fc_tx = falcon_b0_prepare_enable_fc_tx,
+ 	.reconfigure_mac = falcon_reconfigure_xmac,
+ 	.check_mac_fault = falcon_xmac_check_fault,
+ 	.get_wol = falcon_get_wol,
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index f4c7e6b..bdded38 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -946,6 +946,7 @@ static inline unsigned int efx_port_num(struct efx_nic *efx)
+  * @set_id_led: Set state of identifying LED or revert to automatic function
+  * @push_irq_moderation: Apply interrupt moderation value
+  * @reconfigure_port: Push loopback/power/txdis changes to the MAC and PHY
++ * @prepare_enable_fc_tx: Prepare MAC to enable pause frame TX (may be %NULL)
+  * @reconfigure_mac: Push MAC address, MTU, flow control and filter settings
+  *	to the hardware.  Serialised by the mac_lock.
+  * @check_mac_fault: Check MAC fault state. True if fault present.
+@@ -995,6 +996,7 @@ struct efx_nic_type {
+ 	void (*set_id_led)(struct efx_nic *efx, enum efx_led_mode mode);
+ 	void (*push_irq_moderation)(struct efx_channel *channel);
+ 	int (*reconfigure_port)(struct efx_nic *efx);
++	void (*prepare_enable_fc_tx)(struct efx_nic *efx);
+ 	int (*reconfigure_mac)(struct efx_nic *efx);
+ 	bool (*check_mac_fault)(struct efx_nic *efx);
+ 	void (*get_wol)(struct efx_nic *efx, struct ethtool_wolinfo *wol);
+diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
+index d63c299..a784363 100644
+--- a/drivers/net/ethernet/sfc/nic.h
++++ b/drivers/net/ethernet/sfc/nic.h
+@@ -298,7 +298,6 @@ extern void efx_nic_eventq_read_ack(struct efx_channel *channel);
+ extern bool efx_nic_event_present(struct efx_channel *channel);
+ 
+ /* MAC/PHY */
+-extern void falcon_drain_tx_fifo(struct efx_nic *efx);
+ extern void falcon_reconfigure_mac_wrapper(struct efx_nic *efx);
+ extern bool falcon_xmac_check_fault(struct efx_nic *efx);
+ extern int falcon_reconfigure_xmac(struct efx_nic *efx);
+diff --git a/drivers/net/ethernet/sfc/workarounds.h b/drivers/net/ethernet/sfc/workarounds.h
+index e4dd3a7..dff565a 100644
+--- a/drivers/net/ethernet/sfc/workarounds.h
++++ b/drivers/net/ethernet/sfc/workarounds.h
+@@ -30,8 +30,6 @@
+ /* TX_EV_PKT_ERR can be caused by a dangling TX descriptor
+  * or a PCIe error (bug 11028) */
+ #define EFX_WORKAROUND_10727 EFX_WORKAROUND_ALWAYS
+-/* Transmit flow control may get disabled */
+-#define EFX_WORKAROUND_11482 EFX_WORKAROUND_FALCON_AB
+ /* Truncated IPv4 packets can confuse the TX packet parser */
+ #define EFX_WORKAROUND_15592 EFX_WORKAROUND_FALCON_AB
+ /* Legacy ISR read can return zero once */
 
 
 -- 
