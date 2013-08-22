@@ -1,46 +1,29 @@
-From: Anatolij Gustschin <agust@denx.de>
-Subject: [PATCH net-next 1/2] fs_enet: silence a build warning (unused variable)
-Date: Thu, 22 Aug 2013 21:55:12 +0200
-Message-ID: <1377201313-10420-1-git-send-email-agust@denx.de>
-Cc: davem@davemloft.net, pantelis.antoniou@gmail.com,
-	vbordug@ru.mvista.com, Gerhard Sittig <gsi@denx.de>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next v2 00/15][pull request] Intel Wired LAN Driver
+ Updates
+Date: Thu, 22 Aug 2013 13:01:06 -0700 (PDT)
+Message-ID: <20130822.130106.78502996945274122.davem@davemloft.net>
+References: <1377164991-27988-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	sergei.shtylyov@cogentembedded.com, bhutchings@solarflare.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:45122 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753438Ab3HVTzR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 15:55:17 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:51928 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753742Ab3HVUBK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 16:01:10 -0400
+In-Reply-To: <1377164991-27988-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerhard Sittig <gsi@denx.de>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 22 Aug 2013 02:49:36 -0700
 
-Since commit 720a43efd30f04a0a492c85fb997361c44fbae05
-(drivers:net: Remove unnecessary OOM messages after netdev_alloc_skb)
-there is a build warning:
+> This series contains updates to igb and e1000e.
+ ...
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c: In function 'tx_skb_align_workaround':
-drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c:586:26: warning: unused variable 'fep'
-
-Fix it.
-
-Signed-off-by: Gerhard Sittig <gsi@denx.de>
-Signed-off-by: Anatolij Gustschin <agust@denx.de>
----
- .../net/ethernet/freescale/fs_enet/fs_enet-main.c  |    1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-index 8de53a1..c04eb3a 100644
---- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-@@ -583,7 +583,6 @@ static struct sk_buff *tx_skb_align_workaround(struct net_device *dev,
- 					       struct sk_buff *skb)
- {
- 	struct sk_buff *new_skb;
--	struct fs_enet_private *fep = netdev_priv(dev);
- 
- 	/* Alloc new skb */
- 	new_skb = netdev_alloc_skb(dev, skb->len + 4);
--- 
-1.7.9.5
+Pulled, thanks a lot Jeff.
