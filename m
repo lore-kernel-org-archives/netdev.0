@@ -1,37 +1,44 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH V4] ipv6: handle Redirect ICMP Message with no Redirected Header option
-Date: Thu, 22 Aug 2013 13:48:03 +0200
-Message-ID: <20130822114803.GA30722@order.stressinduktion.org>
-References: <52158E87.7060305@cn.fujitsu.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH] net: vlan: inherit addr_assign_type along with dev_addr
+Date: Thu, 22 Aug 2013 14:23:21 +0200
+Message-ID: <1377174201-20236-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:39513 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753153Ab3HVLsE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 07:48:04 -0400
-Content-Disposition: inline
-In-Reply-To: <52158E87.7060305@cn.fujitsu.com>
+Received: from canardo.mork.no ([148.122.252.1]:52789 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752075Ab3HVMXb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Aug 2013 08:23:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 22, 2013 at 12:07:35PM +0800, Duan Jiong wrote:
-> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-> 
-> rfc 4861 says the Redirected Header option is optional, so
-> the kernel should not drop the Redirect Message that has no
-> Redirected Header option. In this patch, the function
-> ip6_redirect_no_header() is introduced to deal with that
-> condition.
-> 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+A vlan device inheriting a random or set address should reflect
+this in its addr_assign_type.
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+---
+ net/8021q/vlan_dev.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-Sorry for not catching the EXPORT_SYMBOL_GPL before.
-
-Thanks,
-
-  Hannes
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 1cd3d2a..995684d 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -581,8 +581,10 @@ static int vlan_dev_init(struct net_device *dev)
+ 	/* ipv6 shared card related stuff */
+ 	dev->dev_id =3D real_dev->dev_id;
+=20
+-	if (is_zero_ether_addr(dev->dev_addr))
++	if (is_zero_ether_addr(dev->dev_addr)) {
+ 		memcpy(dev->dev_addr, real_dev->dev_addr, dev->addr_len);
++		dev->addr_assign_type =3D real_dev->addr_assign_type;
++	}
+ 	if (is_zero_ether_addr(dev->broadcast))
+ 		memcpy(dev->broadcast, real_dev->broadcast, dev->addr_len);
+=20
+--=20
+1.7.10.4
