@@ -1,47 +1,37 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH] net: usbnet: update addr_assign_type if appropriate
-Date: Thu, 22 Aug 2013 13:45:46 +0200
-Message-ID: <1377171946-19133-1-git-send-email-bjorn@mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Mack <zonque@gmail.com>
+Subject: [PATCH] net: ethernet: davinci_cpdma: export cpdma_chan_get_stats
+Date: Thu, 22 Aug 2013 13:47:00 +0200
+Message-ID: <1377172020-28053-1-git-send-email-zonque@gmail.com>
+Cc: davem@davemloft.net, ujhelyi.m@gmail.com, mugunthanvnm@ti.com,
+	vaibhav.bedia@ti.com, d-gerlach@ti.com,
+	Daniel Mack <zonque@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from svenfoo.org ([82.94.215.22]:46184 "EHLO mail.zonque.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752746Ab3HVLrK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Aug 2013 07:47:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This module generates a common default address on init,
-using eth_random_addr. Set addr_assign_type to let
-userspace know the address is random unless it was
-overridden by the minidriver.
+This is needed when the cpsw driver is built as module.
 
-Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Signed-off-by: Daniel Mack <zonque@gmail.com>
 ---
- drivers/net/usb/usbnet.c |    4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/ethernet/ti/davinci_cpdma.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index e4811d7..74a8e3c 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1629,6 +1629,10 @@ usbnet_probe (struct usb_interface *udev, const =
-struct usb_device_id *prod)
- 		dev->rx_urb_size =3D dev->hard_mtu;
- 	dev->maxpacket =3D usb_maxpacket (dev->udev, dev->out, 1);
-=20
-+	/* let userspace know we have a random address */
-+	if (ether_addr_equal(net->dev_addr, node_id))
-+		net->addr_assign_type =3D NET_ADDR_RANDOM;
-+
- 	if ((dev->driver_info->flags & FLAG_WLAN) !=3D 0)
- 		SET_NETDEV_DEVTYPE(net, &wlan_type);
- 	if ((dev->driver_info->flags & FLAG_WWAN) !=3D 0)
---=20
-1.7.10.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+index 031ebc8..90a7946 100644
+--- a/drivers/net/ethernet/ti/davinci_cpdma.c
++++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+@@ -591,6 +591,7 @@ int cpdma_chan_get_stats(struct cpdma_chan *chan,
+ 	spin_unlock_irqrestore(&chan->lock, flags);
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(cpdma_chan_get_stats);
+ 
+ int cpdma_chan_dump(struct cpdma_chan *chan)
+ {
+-- 
+1.8.3.1
