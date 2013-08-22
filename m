@@ -1,45 +1,75 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: Can linux kernel bridge forward 802.1q tagged vlan
- packets?
-Date: Thu, 22 Aug 2013 15:19:41 -0700
-Message-ID: <20130822151941.301cd36a@nehalam.linuxnetplumber.net>
-References: <20130822224453.ca93782f.skraw@ithnet.com>
-	<20130822234941.4affc863@catus>
+From: Doug Ledford <dledford@redhat.com>
+Subject: [PATCH] net/cxgb3: fix revert error
+Date: Thu, 22 Aug 2013 18:27:59 -0400
+Message-ID: <5216906F.8000000@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: multipart/mixed;
+ boundary="------------010807090809040305090500"
+Cc: Doug Ledford <dledford@redhat.com>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	Jay Fenlason <fenlason@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Divy Le ray <divy@chelsio.com>,
+	Alexey Kardashevskiy <aik@ozlabs.ru>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:18770 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753794Ab3HVW2G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Aug 2013 18:28:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------010807090809040305090500
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org,
-	Stephan von Krawczynski <skraw@ithnet.com>, netdev@vger.kernel.org
-To: Marek Kierdelewicz <marek@piasta.pl>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130822234941.4affc863@catus>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
 
-On Thu, 22 Aug 2013 23:49:41 +0200
-Marek Kierdelewicz <marek@piasta.pl> wrote:
+728e2cc Revert "cxgb3: Check and handle the dma mapping errors"
 
-> Hi,
-> 
-> >My general idea is to bridge tagged vlan packets from a physical
-> >interface (intel) to a virtual interface (virtio in qemu) and not
-> >losing the tags, so the qemu guest can use vconfig and friends to get
-> >some vlan interfaces. Is this possible and are there any additional
-> >steps necessary besides the usual bridge configuration?
-> 
-> I'm using this setup with KVM virtualization (Qemu's successor). It
-> didn't work with default nic type for guest (realtek I think) as 802.1q
-> tags were not preserved properly in one of the directions. I don't
-> remember specifics. Anyway using e1000 driver instead of default fixed
-> it. Works like a charm.
+reverted f83331b cxgb3: Check and handle the dma mapping errors,
+however, in between those two there was also
+be8b678 cxgb3: Correct comparisons and calculations using skb->tail and
+skb-transport_header and
+15dd16c cxgb3: Correct comparisons and calculations using skb->tail and
+skb-transport_header
 
-KVM e1000 Vnic doesn't do VLAN offloading at least in my experience.
-Virtio works fine.
+The author of the revert did not fix up the conflicts in such as way as
+to preserve the other two commits, so they were reverted too.  As they
+correct math issues under certain conditions, they should be retained.
+This puts them back in place.
+
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+---
+ drivers/net/ethernet/chelsio/cxgb3/sge.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/sge.c
+b/drivers/net/ethernet/chelsio/cxgb3/sge.c
+index 9c89dc8..632b318 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/sge.c
+@@ -1599,7 +1599,8 @@ static void write_ofld_wr(struct adapter *adap,
+struct sk_buff *skb,
+ 	flits = skb_transport_offset(skb) / 8;
+ 	sgp = ndesc == 1 ? (struct sg_ent *)&d->flit[flits] : sgl;
+ 	sgl_flits = make_sgl(skb, sgp, skb_transport_header(skb),
+-			     skb->tail - skb->transport_header,
++			     skb_tail_pointer(skb) -
++			     skb_transport_header(skb),
+ 			     adap->pdev);
+ 	if (need_skb_unmap()) {
+ 		setup_deferred_unmapping(skb, adap->pdev, sgp, sgl_flits);
+-- 
+1.8.1.4
+
+
+--------------010807090809040305090500
+Content-Type: text/plain; charset=UTF-8;
+ name="Attached Message Part"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="Attached Message Part"
+
+
+--------------010807090809040305090500--
