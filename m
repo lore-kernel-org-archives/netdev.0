@@ -1,53 +1,129 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 2/2] genetlink: convert family dump code to use RCU
-Date: Thu, 22 Aug 2013 09:17:30 +0200
-Message-ID: <1377155850.14110.15.camel@jlt4.sipsolutions.net>
-References: <1377094083-8122-1-git-send-email-johannes@sipsolutions.net>
-	 <1377094083-8122-3-git-send-email-johannes@sipsolutions.net>
-	 <CALnjE+oqN0NC1xmzTRFXOuMb+4L83JJyo5SGqBTvW-KfefE39g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>
-To: Pravin Shelar <pshelar@nicira.com>
+Subject: [RFC] genetlink: don't allow unloading families while dumping
+Date: Thu, 22 Aug 2013 09:21:49 +0200
+Message-ID: <1377156109-7331-1-git-send-email-johannes@sipsolutions.net>
+Cc: Pravin Shelar <pshelar@nicira.com>, Thomas Graf <tgraf@suug.ch>,
+	Johannes Berg <johannes.berg@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:33980 "EHLO
+Received: from s3.sipsolutions.net ([144.76.43.152]:33991 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753289Ab3HVHRg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 03:17:36 -0400
-In-Reply-To: <CALnjE+oqN0NC1xmzTRFXOuMb+4L83JJyo5SGqBTvW-KfefE39g@mail.gmail.com>
+	with ESMTP id S1753195Ab3HVHVy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 03:21:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-08-21 at 21:32 -0700, Pravin Shelar wrote:
+From: Johannes Berg <johannes.berg@intel.com>
 
-> I send out a fix which fixes genl locking for dump operation and it
-> might fix this issue, Can you try this?
+The netlink code will prevent unloading of a module while
+the module is dumping, to prevent the dump() callback from
+going away and crashing in the next call. However, generic
+netlink just points to its family's dumpit call, which can
+be in a different module, without pointing to that module.
 
-I don't think that fix is correct. I don't have a copy, so let me reply
-here.
+Add a struct module pointer to generic netlink families and
+pass the pointer to netlink_dump_start().
 
-> http://marc.info/?l=linux-netdev&m=137714389705485&w=2
+TODO: move/adjust the documentation
 
-> In case of genl-family with parallel ops off, dumpif() callback
-> is expected to run under genl_lock, 
-> But commit def3117493eafd9df
-> (genl: Allow concurrent genl callbacks.) changed this behaviour
-> where only first dumpit() op was called under genl-lock.
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ include/net/genetlink.h | 21 +++++++++++++++++++--
+ net/netlink/genetlink.c | 10 +++++-----
+ 2 files changed, 24 insertions(+), 7 deletions(-)
 
-I don't think either of those statements are true - dump() has alway
-taken a shortcut in netlink_recvmsg() and doesn't go into genl_rcv(), so
-how could your patch have changed locking? Therefore, it can't have been
-expected either.
-
-> For subsequent dump, only nlk->cb_lock was taken.
-> Following patch fixes it by defining locked dumpit() and done()
-> callback which takes care of genl-locking.
-
-This might help for generic netlink itself, but I'm not convinced that
-it's really useful for other families. I've fixed bugs like in commit
-3a5a423bb958ad22eeccca66c533e85bf69ba10e, which actually made it in
-after your commit, but per above I don't think it was actually a problem
-introduced by your commit.
-
-johannes
+diff --git a/include/net/genetlink.h b/include/net/genetlink.h
+index 93024a4..0bc3a53 100644
+--- a/include/net/genetlink.h
++++ b/include/net/genetlink.h
+@@ -42,6 +42,7 @@ struct genl_info;
+  * @ops_list: list of all assigned operations
+  * @family_list: family list
+  * @mcast_groups: multicast groups list
++ * @module: the module containing this family
+  */
+ struct genl_family {
+ 	unsigned int		id;
+@@ -61,6 +62,7 @@ struct genl_family {
+ 	struct list_head	ops_list;	/* private */
+ 	struct list_head	family_list;	/* private */
+ 	struct list_head	mcast_groups;	/* private */
++	struct module *		module;		/* private */
+ };
+ 
+ /**
+@@ -121,9 +123,24 @@ struct genl_ops {
+ 	struct list_head	ops_list;
+ };
+ 
+-extern int genl_register_family(struct genl_family *family);
+-extern int genl_register_family_with_ops(struct genl_family *family,
++extern int __genl_register_family(struct genl_family *family);
++extern int __genl_register_family_with_ops(struct genl_family *family,
+ 	struct genl_ops *ops, size_t n_ops);
++
++static inline int genl_register_family(struct genl_family *family)
++{
++	family->module = THIS_MODULE;
++	return __genl_register_family(family);
++}
++
++static inline int genl_register_family_with_ops(struct genl_family *family,
++						struct genl_ops *ops,
++						size_t n_ops)
++{
++	family->module = THIS_MODULE;
++	return __genl_register_family_with_ops(family, ops, n_ops);
++}
++
+ extern int genl_unregister_family(struct genl_family *family);
+ extern int genl_register_ops(struct genl_family *, struct genl_ops *ops);
+ extern int genl_unregister_ops(struct genl_family *, struct genl_ops *ops);
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 2fd6dbe..8bab493 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -374,7 +374,7 @@ EXPORT_SYMBOL(genl_unregister_ops);
+  *
+  * Return 0 on success or a negative error code.
+  */
+-int genl_register_family(struct genl_family *family)
++int __genl_register_family(struct genl_family *family)
+ {
+ 	int err = -EINVAL;
+ 
+@@ -430,7 +430,7 @@ errout_locked:
+ errout:
+ 	return err;
+ }
+-EXPORT_SYMBOL(genl_register_family);
++EXPORT_SYMBOL(__genl_register_family);
+ 
+ /**
+  * genl_register_family_with_ops - register a generic netlink family
+@@ -457,12 +457,12 @@ EXPORT_SYMBOL(genl_register_family);
+  *
+  * Return 0 on success or a negative error code.
+  */
+-int genl_register_family_with_ops(struct genl_family *family,
++int __genl_register_family_with_ops(struct genl_family *family,
+ 	struct genl_ops *ops, size_t n_ops)
+ {
+ 	int err, i;
+ 
+-	err = genl_register_family(family);
++	err = __genl_register_family(family);
+ 	if (err)
+ 		return err;
+ 
+@@ -476,7 +476,7 @@ err_out:
+ 	genl_unregister_family(family);
+ 	return err;
+ }
+-EXPORT_SYMBOL(genl_register_family_with_ops);
++EXPORT_SYMBOL(__genl_register_family_with_ops);
+ 
+ /**
+  * genl_unregister_family - unregister generic netlink family
+-- 
+1.8.4.rc2
