@@ -1,36 +1,44 @@
-From: poma <pomidorabelisima@gmail.com>
-Subject: Re: [PATCH net] skge: dma_sync the whole receive buffer
-Date: Thu, 22 Aug 2013 16:46:14 +0200
-Message-ID: <52162436.6080905@gmail.com>
-References: <20130813180036.3e639789@nehalam.linuxnetplumber.net> <520B59D3.4020103@gmail.com> <20130814092022.494caf2b@nehalam.linuxnetplumber.net> <520BCC72.8040002@gmail.com> <20130815084117.2f48fc58@nehalam.linuxnetplumber.net> <52116B9C.8050003@gmail.com> <5212E249.2050203@gmail.com> <5214E4FB.7010208@gmail.com> <20130822004023.GA26938@kroah.com> <521585C9.3040809@gmail.com> <20130822040041.GA4821@kroah.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Greg KH <gregkh@linuxfoundation.org>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] net: sctp_probe: simplify code by using %pISc format specifier
+Date: Thu, 22 Aug 2013 17:12:50 +0200
+Message-ID: <1377184370-13721-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f175.google.com ([209.85.215.175]:61259 "EHLO
-	mail-ea0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752977Ab3HVOqS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 10:46:18 -0400
-Received: by mail-ea0-f175.google.com with SMTP id m14so950939eaj.34
-        for <netdev@vger.kernel.org>; Thu, 22 Aug 2013 07:46:17 -0700 (PDT)
-In-Reply-To: <20130822040041.GA4821@kroah.com>
+Received: from mx1.redhat.com ([209.132.183.28]:31473 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753217Ab3HVPMy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Aug 2013 11:12:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+We can simply use the %pISc format specifier that was recently added
+and thus remove some code that distinguishes between IPv4 and IPv6.
 
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/sctp/probe.c | 9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
 
-    Then out spake brave Horatius,
-    The Captain of the Gate:
-    "To every man upon this earth
-    Death cometh soon or late.
-    And how can man die better
-    Than facing fearful odds,
-    For the ashes of his fathers,
-    And the temples of his Gods."
-
-
-poma
+diff --git a/net/sctp/probe.c b/net/sctp/probe.c
+index e62c225..cd72ae5 100644
+--- a/net/sctp/probe.c
++++ b/net/sctp/probe.c
+@@ -155,13 +155,8 @@ static sctp_disposition_t jsctp_sf_eat_sack(struct net *net,
+ 			if (sp == asoc->peer.primary_path)
+ 				printl("*");
+ 
+-			if (sp->ipaddr.sa.sa_family == AF_INET)
+-				printl("%pI4 ", &sp->ipaddr.v4.sin_addr);
+-			else
+-				printl("%pI6 ", &sp->ipaddr.v6.sin6_addr);
+-
+-			printl("%2u %8u %8u %8u %8u %8u ",
+-			       sp->state, sp->cwnd, sp->ssthresh,
++			printl("%pISc %2u %8u %8u %8u %8u %8u ",
++			       &sp->ipaddr, sp->state, sp->cwnd, sp->ssthresh,
+ 			       sp->flight_size, sp->partial_bytes_acked,
+ 			       sp->pathmtu);
+ 		}
+-- 
+1.7.11.7
