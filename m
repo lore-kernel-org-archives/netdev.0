@@ -1,108 +1,109 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 31/32] sfc: Fix race in completion handling
-Date: Thu, 22 Aug 2013 14:10:12 +0100
-Message-ID: <1377177012.1703.40.camel@bwh-desktop.uk.level5networks.com>
-References: <1377175392.1703.5.camel@bwh-desktop.uk.level5networks.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v6 4/4] igb/igbvf: implement ndo_get_phys_port_id
+Date: Thu, 22 Aug 2013 15:10:19 +0200
+Message-ID: <20130822131019.GB1421@minipsycho.brq.redhat.com>
+References: <1375114612-537-1-git-send-email-jiri@resnulli.us>
+ <1375114612-537-5-git-send-email-jiri@resnulli.us>
+ <1377167950.3939.57.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: aaron.f.brown@intel.com, netdev@vger.kernel.org,
+	davem@davemloft.net, stephen@networkplumber.org,
+	Narendra_K@Dell.com, bhutchings@solarflare.com,
+	or.gerlitz@gmail.com, carolyn.wyborny@intel.com,
+	gregory.v.rose@intel.com, vyasevic@redhat.com, amwang@redhat.com,
+	johannes@sipsolutions.net
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56549 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751729Ab3HVNKP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 09:10:15 -0400
-In-Reply-To: <1377175392.1703.5.camel@bwh-desktop.uk.level5networks.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:47693 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751729Ab3HVNKX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 09:10:23 -0400
+Received: by mail-ee0-f46.google.com with SMTP id c13so907669eek.5
+        for <netdev@vger.kernel.org>; Thu, 22 Aug 2013 06:10:22 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1377167950.3939.57.camel@jtkirshe-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Thu, Aug 22, 2013 at 12:39:10PM CEST, jeffrey.t.kirsher@intel.com wrote:
+>On Mon, 2013-07-29 at 18:16 +0200, Jiri Pirko wrote:
+>> igb driver generated random number which will identify physical port.
+>> This id is available via ndo_get_phys_port_id directly on igb netdev.
+>> Also, id is passed to igbvf using mailbox. After that, it is available
+>> via
+>> ndo_get_phys_port_id on igbvf netdev as well.
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> ---
+>>  drivers/net/ethernet/intel/igb/e1000_mbx.h |  1 +
+>>  drivers/net/ethernet/intel/igb/igb.h       |  3 +++
+>>  drivers/net/ethernet/intel/igb/igb_main.c  | 37
+>> ++++++++++++++++++++++++++++-
+>>  drivers/net/ethernet/intel/igbvf/igbvf.h   |  4 ++++
+>>  drivers/net/ethernet/intel/igbvf/mbx.h     |  1 +
+>>  drivers/net/ethernet/intel/igbvf/netdev.c  | 38
+>> ++++++++++++++++++++++++++++++
+>>  drivers/net/ethernet/intel/igbvf/vf.c      | 34
+>> ++++++++++++++++++++++++++
+>>  drivers/net/ethernet/intel/igbvf/vf.h      |  1 +
+>>  8 files changed, 118 insertions(+), 1 deletion(-)
+>
+>Jiri-
+>
+>Validation ran into a couple of issues with this patch.  Here is what
+>Aaron found when testing this patch...
 
-When we poll for MCDI request completion, we don't hold the interface
-lock while setting the response fields in struct efx_mcdi_iface.
-
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/mcdi.c | 25 ++++++++++---------------
- 1 file changed, 10 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
-index 2c5ee89..1c8bf81 100644
---- a/drivers/net/ethernet/sfc/mcdi.c
-+++ b/drivers/net/ethernet/sfc/mcdi.c
-@@ -112,16 +112,6 @@ static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
- 	efx->type->mcdi_request(efx, hdr, hdr_len, inbuf, inlen);
- }
- 
--static void
--efx_mcdi_copyout(struct efx_nic *efx, efx_dword_t *outbuf, size_t outlen)
--{
--	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
--
--	BUG_ON(atomic_read(&mcdi->state) == MCDI_STATE_QUIESCENT);
--
--	efx->type->mcdi_read_response(efx, outbuf, mcdi->resp_hdr_len, outlen);
--}
--
- static int efx_mcdi_errno(unsigned int mcdi_err)
- {
- 	switch (mcdi_err) {
-@@ -200,9 +190,11 @@ static int efx_mcdi_poll(struct efx_nic *efx)
- 	/* Check for a reboot atomically with respect to efx_mcdi_copyout() */
- 	rc = efx_mcdi_poll_reboot(efx);
- 	if (rc) {
-+		spin_lock_bh(&mcdi->iface_lock);
- 		mcdi->resprc = rc;
- 		mcdi->resp_hdr_len = 0;
- 		mcdi->resp_data_len = 0;
-+		spin_unlock_bh(&mcdi->iface_lock);
- 		return 0;
- 	}
- 
-@@ -231,7 +223,9 @@ static int efx_mcdi_poll(struct efx_nic *efx)
- 			return -ETIMEDOUT;
- 	}
- 
-+	spin_lock_bh(&mcdi->iface_lock);
- 	efx_mcdi_read_response_header(efx);
-+	spin_unlock_bh(&mcdi->iface_lock);
- 
- 	/* Return rc=0 like wait_event_timeout() */
- 	return 0;
-@@ -419,7 +413,7 @@ int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
- 			  "MC command 0x%x inlen %d mode %d timed out\n",
- 			  cmd, (int)inlen, mcdi->mode);
- 	} else {
--		size_t resplen;
-+		size_t hdr_len, data_len;
- 
- 		/* At the very least we need a memory barrier here to ensure
- 		 * we pick up changes from efx_mcdi_ev_cpl(). Protect against
-@@ -427,16 +421,17 @@ int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
- 		 * acquiring the iface_lock. */
- 		spin_lock_bh(&mcdi->iface_lock);
- 		rc = mcdi->resprc;
--		resplen = mcdi->resp_data_len;
-+		hdr_len = mcdi->resp_hdr_len;
-+		data_len = mcdi->resp_data_len;
- 		spin_unlock_bh(&mcdi->iface_lock);
- 
- 		BUG_ON(rc > 0);
- 
- 		if (rc == 0) {
--			efx_mcdi_copyout(efx, outbuf,
--					 min(outlen, mcdi->resp_data_len));
-+			efx->type->mcdi_read_response(efx, outbuf, hdr_len,
-+						      min(outlen, data_len));
- 			if (outlen_actual != NULL)
--				*outlen_actual = resplen;
-+				*outlen_actual = data_len;
- 		} else if (cmd == MC_CMD_REBOOT && rc == -EIO)
- 			; /* Don't reset if MC_CMD_REBOOT returns EIO */
- 		else if (rc == -EIO || rc == -EINTR) {
+Interesting. So since igbvf_refresh_ppid() is called from igbvf_reset()
+and igbvf_probe(), I believed that is enough. Looks like perm_addr
+getting works in similar way. Can you please check if perm_addr is set
+correctly in the same time reading phys_port_id gives -EOPNOTSUPP?
 
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+>
+>Aaron Brown wrote:
+>I think I have to fail this, it seems to have an issue with
+>initialization.  When I first create a vf via sysfs the pys_port_id file
+>is created along with the other sysfs files for the vf, however an
+>attempt to cat out the value returns " Operation not supported".  At
+>this point the vf is still down, if I bring it up (or simply unload /
+>reload the igbvf driver) I can then cat the file successfully and the vf
+>interface phys_port_id matches the phys_port_id of the pf.  This is
+>testing from bare metal, a console session showing this behavior
+>follows:
+>
+>u1304:[0]/sys> find . -iname phys_port_id
+>./devices/pci0000:00/0000:00:01.0/0000:07:00.0/net/eth0/phys_port_id
+>./devices/pci0000:00/0000:00:01.0/0000:07:00.1/net/eth1/phys_port_id
+>./devices/virtual/net/sit0/phys_port_id
+>./devices/virtual/net/lo/phys_port_id
+>u1304:[0]/sys> cat devices/pci0000:00/0000:00:01.0/0000:07:00.0/net/eth0/phys_port_id
+>5ece9fbd9cd51546982e15c1f2c11e25
+>u1304:[0]/sys>
+>
+>So far so good, now make a few vfs and check for new phys_port_id sysfs files.
+>
+>u1304:[0]/sys> find . -iname sriov_numvfs
+>./devices/pci0000:00/0000:00:01.0/0000:07:00.0/sriov_numvfs
+>./devices/pci0000:00/0000:00:01.0/0000:07:00.1/sriov_numvfs
+>u1304:[0]/sys> echo 2 > devices/pci0000:00/0000:00:01.0/0000:07:00.0/sriov_numvfs
+>u1304:[0]/sys> find . -iname phys_port_id                                       ./devices/pci0000:00/0000:00:01.0/0000:07:00.0/net/eth0/phys_port_id
+>./devices/pci0000:00/0000:00:01.0/0000:07:00.1/net/eth1/phys_port_id
+>./devices/pci0000:00/0000:00:01.0/0000:07:10.0/net/eth2/phys_port_id
+>./devices/pci0000:00/0000:00:01.0/0000:07:10.2/net/eth3/phys_port_id
+>./devices/virtual/net/sit0/phys_port_id
+>./devices/virtual/net/lo/phys_port_id
+>u1304:[0]/sys>
+>
+>The first vf is eth2, attempt to cat out it's phys_port_id
+>
+>u1304:[0]/sys> cat ./devices/pci0000:00/0000:00:01.0/0000:07:10.0/net/eth2/phys_port_id
+>cat: ./devices/pci0000:00/0000:00:01.0/0000:07:10.0/net/eth2/phys_port_id: Operation not supported
+>u1304:[0]/sys>
+>
+>But, if I bring the interface up (or unload / load the igbvf driver) I then am able to cat the phys_port_id of the vf and it matches the phys_port_id of the physical interface.
+>
+>u1304:[0]/sys> ifconfig eth2 u1304-2
+>u1304:[0]/sys> cat ./devices/pci0000:00/0000:00:01.0/0000:07:10.0/net/eth2/phys_port_id
+>5ece9fbd9cd51546982e15c1f2c11e25
+>u1304:[0]/sys>
