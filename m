@@ -1,7 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 22/32] sfc: Rework IRQ enable/disable
-Date: Thu, 22 Aug 2013 13:57:08 +0100
-Message-ID: <1377176228.1703.27.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 23/32] sfc: Limit scope of a Falcon A1 IRQ
+ workaround
+Date: Thu, 22 Aug 2013 13:59:31 +0100
+Message-ID: <1377176371.1703.28.camel@bwh-desktop.uk.level5networks.com>
 References: <1377175392.1703.5.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -9,506 +10,87 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56134 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:56215 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753072Ab3HVM5M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 08:57:12 -0400
+	with ESMTP id S1752613Ab3HVM7e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 08:59:34 -0400
 In-Reply-To: <1377175392.1703.5.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are many problems with the current efx_stop_interrupts() and
-efx_start_interrupts():
-
-1. On Siena, it is unsafe to disable the master IRQ enable bit
-(DRV_INT_EN_KER) while any IRQ sources are enabled.
-
-2. On EF10 there is no master IRQ enable bit, so we cannot expect to
-defer IRQs without tearing down event queues.  (Though I don't think
-we will need to keep any event queues around while the device is down,
-as we do for VFDI on Siena.)
-
-3. synchronize_irq() only waits for a running IRQ handler to finish,
-not for any propagation through IRQ controllers.  Therefore an IRQ may
-still be received and handled after efx_stop_interrupts() returns.
-IRQ handlers can then race with channel reallocation.
-
-To fix this:
-
-a. Introduce a software IRQ enable flag.  So long as this is clear,
-IRQ handlers will only acknowledge IRQs and not touch the channel
-structures.
-
-b. Define a new struct efx_msi_context as the context for MSIs.  This
-is never reallocated and is sufficient to find the software enable
-flag and the channel structure.  It also includes the channel/IRQ
-name, which was previously separated out as it must also not be
-reallocated.
-
-c. Split efx_{start,stop}_interrupts() into
-efx_{,soft_}_{enable,disable}_interrupts().  The 'soft' functions
-don't touch the hardware master enable flag (if it exists) and don't
-reinitialise or tear down channels with the keep_eventq flag set.
+We unconditionally acknowledge legacy interrupts just before disabling
+them.  This workaround is needed on Falcon A1 but probably not on
+later chips where the legacy interrupt mechanism is different.  It was
+also originally done after the IRQ handler was removed, not before.
+Restore the original behaviour for Falcon A1 only by doing this
+acknowledgement in the efx_nic_type::fini operation.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/efx.c        | 91 +++++++++++++++++++++++------------
- drivers/net/ethernet/sfc/falcon.c     |  3 ++
- drivers/net/ethernet/sfc/net_driver.h | 24 +++++++--
- drivers/net/ethernet/sfc/nic.c        | 53 ++++++++++----------
- 4 files changed, 112 insertions(+), 59 deletions(-)
+ drivers/net/ethernet/sfc/falcon.c | 4 ++--
+ drivers/net/ethernet/sfc/nic.c    | 7 -------
+ drivers/net/ethernet/sfc/nic.h    | 1 -
+ 3 files changed, 2 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 2b2dba1..a7818d1 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -191,8 +191,8 @@ MODULE_PARM_DESC(debug, "Bitmapped debugging message enable value");
-  *
-  *************************************************************************/
- 
--static void efx_start_interrupts(struct efx_nic *efx, bool may_keep_eventq);
--static void efx_stop_interrupts(struct efx_nic *efx, bool may_keep_eventq);
-+static void efx_soft_enable_interrupts(struct efx_nic *efx);
-+static void efx_soft_disable_interrupts(struct efx_nic *efx);
- static void efx_remove_channel(struct efx_channel *channel);
- static void efx_remove_channels(struct efx_nic *efx);
- static const struct efx_channel_type efx_default_channel_type;
-@@ -520,8 +520,8 @@ static void efx_set_channel_names(struct efx_nic *efx)
- 
- 	efx_for_each_channel(channel, efx)
- 		channel->type->get_name(channel,
--					efx->channel_name[channel->channel],
--					sizeof(efx->channel_name[0]));
-+					efx->msi_context[channel->channel].name,
-+					sizeof(efx->msi_context[0].name));
- }
- 
- static int efx_probe_channels(struct efx_nic *efx)
-@@ -746,7 +746,7 @@ efx_realloc_channels(struct efx_nic *efx, u32 rxq_entries, u32 txq_entries)
- 
- 	efx_device_detach_sync(efx);
- 	efx_stop_all(efx);
--	efx_stop_interrupts(efx, true);
-+	efx_soft_disable_interrupts(efx);
- 
- 	/* Clone channels (where possible) */
- 	memset(other_channel, 0, sizeof(other_channel));
-@@ -796,7 +796,7 @@ out:
- 		}
- 	}
- 
--	efx_start_interrupts(efx, true);
-+	efx_soft_enable_interrupts(efx);
- 	efx_start_all(efx);
- 	netif_device_attach(efx->net_dev);
- 	return rc;
-@@ -1329,23 +1329,17 @@ static int efx_probe_interrupts(struct efx_nic *efx)
- 	return 0;
- }
- 
--/* Enable interrupts, then probe and start the event queues */
--static void efx_start_interrupts(struct efx_nic *efx, bool may_keep_eventq)
-+static void efx_soft_enable_interrupts(struct efx_nic *efx)
- {
- 	struct efx_channel *channel;
- 
- 	BUG_ON(efx->state == STATE_DISABLED);
- 
--	if (efx->eeh_disabled_legacy_irq) {
--		enable_irq(efx->legacy_irq);
--		efx->eeh_disabled_legacy_irq = false;
--	}
--	if (efx->legacy_irq)
--		efx->legacy_irq_enabled = true;
--	efx_nic_enable_interrupts(efx);
-+	efx->irq_soft_enabled = true;
-+	smp_wmb();
- 
- 	efx_for_each_channel(channel, efx) {
--		if (!channel->type->keep_eventq || !may_keep_eventq)
-+		if (!channel->type->keep_eventq)
- 			efx_init_eventq(channel);
- 		efx_start_eventq(channel);
- 	}
-@@ -1353,7 +1347,7 @@ static void efx_start_interrupts(struct efx_nic *efx, bool may_keep_eventq)
- 	efx_mcdi_mode_event(efx);
- }
- 
--static void efx_stop_interrupts(struct efx_nic *efx, bool may_keep_eventq)
-+static void efx_soft_disable_interrupts(struct efx_nic *efx)
- {
- 	struct efx_channel *channel;
- 
-@@ -1362,22 +1356,57 @@ static void efx_stop_interrupts(struct efx_nic *efx, bool may_keep_eventq)
- 
- 	efx_mcdi_mode_poll(efx);
- 
--	efx_nic_disable_interrupts(efx);
--	if (efx->legacy_irq) {
-+	efx->irq_soft_enabled = false;
-+	smp_wmb();
-+
-+	if (efx->legacy_irq)
- 		synchronize_irq(efx->legacy_irq);
--		efx->legacy_irq_enabled = false;
--	}
- 
- 	efx_for_each_channel(channel, efx) {
- 		if (channel->irq)
- 			synchronize_irq(channel->irq);
- 
- 		efx_stop_eventq(channel);
--		if (!channel->type->keep_eventq || !may_keep_eventq)
-+		if (!channel->type->keep_eventq)
- 			efx_fini_eventq(channel);
- 	}
- }
- 
-+static void efx_enable_interrupts(struct efx_nic *efx)
-+{
-+	struct efx_channel *channel;
-+
-+	BUG_ON(efx->state == STATE_DISABLED);
-+
-+	if (efx->eeh_disabled_legacy_irq) {
-+		enable_irq(efx->legacy_irq);
-+		efx->eeh_disabled_legacy_irq = false;
-+	}
-+
-+	efx_nic_enable_interrupts(efx);
-+
-+	efx_for_each_channel(channel, efx) {
-+		if (channel->type->keep_eventq)
-+			efx_init_eventq(channel);
-+	}
-+
-+	efx_soft_enable_interrupts(efx);
-+}
-+
-+static void efx_disable_interrupts(struct efx_nic *efx)
-+{
-+	struct efx_channel *channel;
-+
-+	efx_soft_disable_interrupts(efx);
-+
-+	efx_for_each_channel(channel, efx) {
-+		if (channel->type->keep_eventq)
-+			efx_fini_eventq(channel);
-+	}
-+
-+	efx_nic_disable_interrupts(efx);
-+}
-+
- static void efx_remove_interrupts(struct efx_nic *efx)
- {
- 	struct efx_channel *channel;
-@@ -2160,7 +2189,7 @@ void efx_reset_down(struct efx_nic *efx, enum reset_type method)
- 	EFX_ASSERT_RESET_SERIALISED(efx);
- 
- 	efx_stop_all(efx);
--	efx_stop_interrupts(efx, false);
-+	efx_disable_interrupts(efx);
- 
- 	mutex_lock(&efx->mac_lock);
- 	if (efx->port_initialized && method != RESET_TYPE_INVISIBLE)
-@@ -2199,7 +2228,7 @@ int efx_reset_up(struct efx_nic *efx, enum reset_type method, bool ok)
- 
- 	efx->type->reconfigure_mac(efx);
- 
--	efx_start_interrupts(efx, false);
-+	efx_enable_interrupts(efx);
- 	efx_restore_filters(efx);
- 	efx_sriov_reset(efx);
- 
-@@ -2464,6 +2493,8 @@ static int efx_init_struct(struct efx_nic *efx,
- 		efx->channel[i] = efx_alloc_channel(efx, i, NULL);
- 		if (!efx->channel[i])
- 			goto fail;
-+		efx->msi_context[i].efx = efx;
-+		efx->msi_context[i].index = i;
- 	}
- 
- 	EFX_BUG_ON_PARANOID(efx->type->phys_addr_channels > EFX_MAX_CHANNELS);
-@@ -2516,7 +2547,7 @@ static void efx_pci_remove_main(struct efx_nic *efx)
- 	BUG_ON(efx->state == STATE_READY);
- 	cancel_work_sync(&efx->reset_work);
- 
--	efx_stop_interrupts(efx, false);
-+	efx_disable_interrupts(efx);
- 	efx_nic_fini_interrupt(efx);
- 	efx_fini_port(efx);
- 	efx->type->fini(efx);
-@@ -2538,7 +2569,7 @@ static void efx_pci_remove(struct pci_dev *pci_dev)
- 	/* Mark the NIC as fini, then stop the interface */
- 	rtnl_lock();
- 	dev_close(efx->net_dev);
--	efx_stop_interrupts(efx, false);
-+	efx_disable_interrupts(efx);
- 	rtnl_unlock();
- 
- 	efx_sriov_fini(efx);
-@@ -2640,7 +2671,7 @@ static int efx_pci_probe_main(struct efx_nic *efx)
- 	rc = efx_nic_init_interrupt(efx);
- 	if (rc)
- 		goto fail5;
--	efx_start_interrupts(efx, false);
-+	efx_enable_interrupts(efx);
- 
- 	return 0;
- 
-@@ -2761,7 +2792,7 @@ static int efx_pm_freeze(struct device *dev)
- 		efx_device_detach_sync(efx);
- 
- 		efx_stop_all(efx);
--		efx_stop_interrupts(efx, false);
-+		efx_disable_interrupts(efx);
- 	}
- 
- 	rtnl_unlock();
-@@ -2776,7 +2807,7 @@ static int efx_pm_thaw(struct device *dev)
- 	rtnl_lock();
- 
- 	if (efx->state != STATE_DISABLED) {
--		efx_start_interrupts(efx, false);
-+		efx_enable_interrupts(efx);
- 
- 		mutex_lock(&efx->mac_lock);
- 		efx->phy_op->reconfigure(efx);
-@@ -2879,7 +2910,7 @@ static pci_ers_result_t efx_io_error_detected(struct pci_dev *pdev,
- 		efx_device_detach_sync(efx);
- 
- 		efx_stop_all(efx);
--		efx_stop_interrupts(efx, false);
-+		efx_disable_interrupts(efx);
- 
- 		status = PCI_ERS_RESULT_NEED_RESET;
- 	} else {
 diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
-index f87710e..f8de382 100644
+index f8de382..4492129 100644
 --- a/drivers/net/ethernet/sfc/falcon.c
 +++ b/drivers/net/ethernet/sfc/falcon.c
-@@ -367,6 +367,9 @@ irqreturn_t falcon_legacy_interrupt_a1(int irq, void *dev_id)
- 		   "IRQ %d on CPU %d status " EFX_OWORD_FMT "\n",
- 		   irq, raw_smp_processor_id(), EFX_OWORD_VAL(*int_ker));
+@@ -336,7 +336,7 @@ static void falcon_prepare_flush(struct efx_nic *efx)
+  *
+  * NB most hardware supports MSI interrupts
+  */
+-inline void falcon_irq_ack_a1(struct efx_nic *efx)
++static inline void falcon_irq_ack_a1(struct efx_nic *efx)
+ {
+ 	efx_dword_t reg;
  
-+	if (!likely(ACCESS_ONCE(efx->irq_soft_enabled)))
-+		return IRQ_HANDLED;
-+
- 	/* Check to see if we have a serious error condition */
- 	syserr = EFX_OWORD_FIELD(*int_ker, FSF_AZ_NET_IVEC_FATAL_INT);
- 	if (unlikely(syserr))
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index ad89d7d..7c96372 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -420,6 +420,21 @@ struct efx_channel {
- };
- 
- /**
-+ * struct efx_msi_context - Context for each MSI
-+ * @efx: The associated NIC
-+ * @index: Index of the channel/IRQ
-+ * @name: Name of the channel/IRQ
-+ *
-+ * Unlike &struct efx_channel, this is never reallocated and is always
-+ * safe for the IRQ handler to access.
-+ */
-+struct efx_msi_context {
-+	struct efx_nic *efx;
-+	unsigned int index;
-+	char name[IFNAMSIZ + 6];
-+};
-+
-+/**
-  * struct efx_channel_type - distinguishes traffic and extra channels
-  * @handle_no_channel: Handle failure to allocate an extra channel
-  * @pre_probe: Set up extra state prior to initialisation
-@@ -669,7 +684,6 @@ struct vfdi_status;
-  * @pci_dev: The PCI device
-  * @type: Controller type attributes
-  * @legacy_irq: IRQ number
-- * @legacy_irq_enabled: Are IRQs enabled on NIC (INT_EN_KER register)?
-  * @workqueue: Workqueue for port reconfigures and the HW monitor.
-  *	Work items do not hold and must not acquire RTNL.
-  * @workqueue_name: Name of workqueue
-@@ -686,7 +700,7 @@ struct vfdi_status;
-  * @tx_queue: TX DMA queues
-  * @rx_queue: RX DMA queues
-  * @channel: Channels
-- * @channel_name: Names for channels and their IRQs
-+ * @msi_context: Context for each MSI
-  * @extra_channel_types: Types of extra (non-traffic) channels that
-  *	should be allocated for this NIC
-  * @rxq_entries: Size of receive queues requested by user.
-@@ -709,6 +723,8 @@ struct vfdi_status;
-  * @rx_scatter: Scatter mode enabled for receives
-  * @int_error_count: Number of internal errors seen recently
-  * @int_error_expire: Time at which error count will be expired
-+ * @irq_soft_enabled: Are IRQs soft-enabled? If not, IRQ handler will
-+ *	acknowledge but do nothing else.
-  * @irq_status: Interrupt status buffer
-  * @irq_zero_count: Number of legacy IRQs seen with queue flags == 0
-  * @irq_level: IRQ level/index for IRQs not triggered by an event queue
-@@ -786,7 +802,6 @@ struct efx_nic {
- 	unsigned int port_num;
- 	const struct efx_nic_type *type;
- 	int legacy_irq;
--	bool legacy_irq_enabled;
- 	bool eeh_disabled_legacy_irq;
- 	struct workqueue_struct *workqueue;
- 	char workqueue_name[16];
-@@ -804,7 +819,7 @@ struct efx_nic {
- 	unsigned long reset_pending;
- 
- 	struct efx_channel *channel[EFX_MAX_CHANNELS];
--	char channel_name[EFX_MAX_CHANNELS][IFNAMSIZ + 6];
-+	struct efx_msi_context msi_context[EFX_MAX_CHANNELS];
- 	const struct efx_channel_type *
- 	extra_channel_type[EFX_MAX_EXTRA_CHANNELS];
- 
-@@ -835,6 +850,7 @@ struct efx_nic {
- 	unsigned int_error_count;
- 	unsigned long int_error_expire;
- 
-+	bool irq_soft_enabled;
- 	struct efx_buffer irq_status;
- 	unsigned irq_zero_count;
- 	unsigned irq_level;
+@@ -2343,7 +2343,7 @@ const struct efx_nic_type falcon_a1_nic_type = {
+ 	.remove = falcon_remove_nic,
+ 	.init = falcon_init_nic,
+ 	.dimension_resources = falcon_dimension_resources,
+-	.fini = efx_port_dummy_op_void,
++	.fini = falcon_irq_ack_a1,
+ 	.monitor = falcon_monitor,
+ 	.map_reset_reason = falcon_map_reset_reason,
+ 	.map_reset_flags = falcon_map_reset_flags,
 diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
-index f758333..c17d659 100644
+index c17d659..2d0a584 100644
 --- a/drivers/net/ethernet/sfc/nic.c
 +++ b/drivers/net/ethernet/sfc/nic.c
-@@ -1567,6 +1567,7 @@ irqreturn_t efx_nic_fatal_interrupt(struct efx_nic *efx)
- static irqreturn_t efx_legacy_interrupt(int irq, void *dev_id)
+@@ -1781,7 +1781,6 @@ int efx_nic_init_interrupt(struct efx_nic *efx)
+ void efx_nic_fini_interrupt(struct efx_nic *efx)
  {
- 	struct efx_nic *efx = dev_id;
-+	bool soft_enabled = ACCESS_ONCE(efx->irq_soft_enabled);
- 	efx_oword_t *int_ker = efx->irq_status.addr;
- 	irqreturn_t result = IRQ_NONE;
  	struct efx_channel *channel;
-@@ -1574,12 +1575,6 @@ static irqreturn_t efx_legacy_interrupt(int irq, void *dev_id)
- 	u32 queues;
- 	int syserr;
+-	efx_oword_t reg;
  
--	/* Could this be ours?  If interrupts are disabled then the
--	 * channel state may not be valid.
--	 */
--	if (!efx->legacy_irq_enabled)
--		return result;
--
- 	/* Read the ISR which also ACKs the interrupts */
- 	efx_readd(efx, &reg, FR_BZ_INT_ISR0);
- 	queues = EFX_EXTRACT_DWORD(reg, 0, 31);
-@@ -1595,7 +1590,7 @@ static irqreturn_t efx_legacy_interrupt(int irq, void *dev_id)
- 	}
- 
- 	/* Handle non-event-queue sources */
--	if (queues & (1U << efx->irq_level)) {
-+	if (queues & (1U << efx->irq_level) && soft_enabled) {
- 		syserr = EFX_OWORD_FIELD(*int_ker, FSF_AZ_NET_IVEC_FATAL_INT);
- 		if (unlikely(syserr))
- 			return efx_nic_fatal_interrupt(efx);
-@@ -1607,10 +1602,12 @@ static irqreturn_t efx_legacy_interrupt(int irq, void *dev_id)
- 			efx->irq_zero_count = 0;
- 
- 		/* Schedule processing of any interrupting queues */
--		efx_for_each_channel(channel, efx) {
--			if (queues & 1)
--				efx_schedule_channel_irq(channel);
--			queues >>= 1;
-+		if (likely(soft_enabled)) {
-+			efx_for_each_channel(channel, efx) {
-+				if (queues & 1)
-+					efx_schedule_channel_irq(channel);
-+				queues >>= 1;
-+			}
- 		}
- 		result = IRQ_HANDLED;
- 
-@@ -1623,12 +1620,15 @@ static irqreturn_t efx_legacy_interrupt(int irq, void *dev_id)
- 			result = IRQ_HANDLED;
- 
- 		/* Ensure we schedule or rearm all event queues */
--		efx_for_each_channel(channel, efx) {
--			event = efx_event(channel, channel->eventq_read_ptr);
--			if (efx_event_present(event))
--				efx_schedule_channel_irq(channel);
--			else
--				efx_nic_eventq_read_ack(channel);
-+		if (likely(soft_enabled)) {
-+			efx_for_each_channel(channel, efx) {
-+				event = efx_event(channel,
-+						  channel->eventq_read_ptr);
-+				if (efx_event_present(event))
-+					efx_schedule_channel_irq(channel);
-+				else
-+					efx_nic_eventq_read_ack(channel);
-+			}
- 		}
- 	}
- 
-@@ -1649,8 +1649,8 @@ static irqreturn_t efx_legacy_interrupt(int irq, void *dev_id)
-  */
- static irqreturn_t efx_msi_interrupt(int irq, void *dev_id)
- {
--	struct efx_channel *channel = *(struct efx_channel **)dev_id;
--	struct efx_nic *efx = channel->efx;
-+	struct efx_msi_context *context = dev_id;
-+	struct efx_nic *efx = context->efx;
- 	efx_oword_t *int_ker = efx->irq_status.addr;
- 	int syserr;
- 
-@@ -1658,8 +1658,11 @@ static irqreturn_t efx_msi_interrupt(int irq, void *dev_id)
- 		   "IRQ %d on CPU %d status " EFX_OWORD_FMT "\n",
- 		   irq, raw_smp_processor_id(), EFX_OWORD_VAL(*int_ker));
- 
-+	if (!likely(ACCESS_ONCE(efx->irq_soft_enabled)))
-+		return IRQ_HANDLED;
-+
- 	/* Handle non-event-queue sources */
--	if (channel->channel == efx->irq_level) {
-+	if (context->index == efx->irq_level) {
- 		syserr = EFX_OWORD_FIELD(*int_ker, FSF_AZ_NET_IVEC_FATAL_INT);
- 		if (unlikely(syserr))
- 			return efx_nic_fatal_interrupt(efx);
-@@ -1667,7 +1670,7 @@ static irqreturn_t efx_msi_interrupt(int irq, void *dev_id)
- 	}
- 
- 	/* Schedule processing of the channel */
--	efx_schedule_channel_irq(channel);
-+	efx_schedule_channel_irq(efx->channel[context->index]);
- 
- 	return IRQ_HANDLED;
- }
-@@ -1739,8 +1742,8 @@ int efx_nic_init_interrupt(struct efx_nic *efx)
- 	efx_for_each_channel(channel, efx) {
- 		rc = request_irq(channel->irq, efx_msi_interrupt,
- 				 IRQF_PROBE_SHARED, /* Not shared */
--				 efx->channel_name[channel->channel],
--				 &efx->channel[channel->channel]);
-+				 efx->msi_context[channel->channel].name,
-+				 &efx->msi_context[channel->channel]);
- 		if (rc) {
- 			netif_err(efx, drv, efx->net_dev,
- 				  "failed to hook IRQ %d\n", channel->irq);
-@@ -1769,7 +1772,7 @@ int efx_nic_init_interrupt(struct efx_nic *efx)
- 	efx_for_each_channel(channel, efx) {
- 		if (n_irqs-- == 0)
- 			break;
--		free_irq(channel->irq, &efx->channel[channel->channel]);
-+		free_irq(channel->irq, &efx->msi_context[channel->channel]);
- 	}
-  fail1:
- 	return rc;
-@@ -1787,7 +1790,7 @@ void efx_nic_fini_interrupt(struct efx_nic *efx)
- 
- 	/* Disable MSI/MSI-X interrupts */
+ #ifdef CONFIG_RFS_ACCEL
+ 	free_irq_cpu_rmap(efx->net_dev->rx_cpu_rmap);
+@@ -1792,12 +1791,6 @@ void efx_nic_fini_interrupt(struct efx_nic *efx)
  	efx_for_each_channel(channel, efx)
--		free_irq(channel->irq, &efx->channel[channel->channel]);
-+		free_irq(channel->irq, &efx->msi_context[channel->channel]);
+ 		free_irq(channel->irq, &efx->msi_context[channel->channel]);
  
- 	/* ACK legacy interrupt */
- 	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0)
+-	/* ACK legacy interrupt */
+-	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0)
+-		efx_reado(efx, &reg, FR_BZ_INT_ISR0);
+-	else
+-		falcon_irq_ack_a1(efx);
+-
+ 	/* Disable legacy interrupt */
+ 	if (efx->legacy_irq)
+ 		free_irq(efx->legacy_irq, efx);
+diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
+index 9120e8b..33aa120 100644
+--- a/drivers/net/ethernet/sfc/nic.h
++++ b/drivers/net/ethernet/sfc/nic.h
+@@ -308,7 +308,6 @@ extern void efx_nic_disable_interrupts(struct efx_nic *efx);
+ extern void efx_nic_fini_interrupt(struct efx_nic *efx);
+ extern irqreturn_t efx_nic_fatal_interrupt(struct efx_nic *efx);
+ extern irqreturn_t falcon_legacy_interrupt_a1(int irq, void *dev_id);
+-extern void falcon_irq_ack_a1(struct efx_nic *efx);
+ 
+ static inline int efx_nic_event_test_irq_cpu(struct efx_channel *channel)
+ {
 
 
 -- 
