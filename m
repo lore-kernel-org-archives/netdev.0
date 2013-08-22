@@ -1,34 +1,130 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: question about drivers/net/ethernet/sgi
-Date: Thu, 22 Aug 2013 15:16:17 +0200
-Message-ID: <20130822131617.GZ2163@linux-mips.org>
-References: <alpine.DEB.2.02.1308131742100.2263@hadrien>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [RFC PATCH] phylib: mdio: handle register/unregister/register sequence
+Date: Thu, 22 Aug 2013 14:15:52 +0100
+Message-ID: <CAGVrzcYTudGg-NH+REL3vDe6a5s6bkXRQH1-PFFs-HNEnJ-rTw@mail.gmail.com>
+References: <1377174836-10569-1-git-send-email-b.brezillon@overkiz.com>
+ <CAGVrzcaByva=8xiswcsW1B8G4dL=jY0RdaHKzNqaT_0Lrwbprg@mail.gmail.com> <52160CAC.3040603@overkiz.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: Julia Lawall <julia.lawall@lip6.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([78.24.191.182]:43984 "EHLO
-	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752123Ab3HVNQW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 09:16:22 -0400
-Received: from localhost.localdomain ([127.0.0.1]:46284 "EHLO linux-mips.org"
-        rhost-flags-OK-OK-OK-FAIL) by eddie.linux-mips.org with ESMTP
-        id S6852084Ab3HVNQVC3IY8 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 22 Aug 2013 15:16:21 +0200
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.02.1308131742100.2263@hadrien>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Mark Brown <broonie@kernel.org>,
+	Nick Bowler <nbowler@elliptictech.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: boris brezillon <b.brezillon@overkiz.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52160CAC.3040603@overkiz.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 13, 2013 at 05:43:32PM +0200, Julia Lawall wrote:
+2013/8/22 boris brezillon <b.brezillon@overkiz.com>:
+> Hello Florian,
+>
+> Thanks for your answer.
+>
+>
+> On 22/08/2013 14:43, Florian Fainelli wrote:
+>>
+>> Hello Boris,
+>>
+>> 2013/8/22 Boris BREZILLON <b.brezillon@overkiz.com>:
+>>>
+>>> Hello,
+>>>
+>>> This patch is a proposal to support the register/unregister/register
+>>> sequence on a given mdio bus.
+>>>
+>>> I use the register/unregister/register sequence to add a fallback when
+>>> the
+>>> of_mdiobus_register (this function calls mdiobus_register with phy_mask
+>>> set to ~0) does not register any phy device (because the device tree does
+>>> not define any phy).
+>>> In this case I call mdiobus_unregister and then call mdiobus_register
+>>> with
+>>> a phy_mask set to 0 to trigger a full mdio bus scan.
+>>>
+>>> I'm not sure this is the right way to do it (this is why I added RFC in
+>>> the
+>>> subject).
+>>>
+>>> Could someone help me figuring out what I should use to implement my
+>>> fallback ?
+>>>
+>>> 1) use the register/unregister/register sequence
+>>> 2) reimplement the "for (i = 0; i < PHY_MAX_ADDR; i++)" mdiobus_scan loop
+>>
+>> I think solution 2 is nicer, in that case, would it be enough in your
+>> case to export a function called mdiobus_scan()? You could call at a
+>> time you know PHY devices have a chance of having been probed?
+>
+> mdiobus_scan is already exported:
+> struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr);
+>
+> This function scans the presence of a phy device at a given address.
+>
+> What I need is a loop which scan all the possible address on the given
+> mdio bus:
+>
+> struct phy_device *mdiobus_full_scan(struct mii_bus *bus)
+> {
+>     int i;
+>     for (i = 0; i < PHY_MAX_ADDR; i++) {
+>         if ((bus->phy_mask & (1 << i)) == 0) {
+>             struct phy_device *phydev;
+>
+>             phydev = mdiobus_scan(bus, i);
+>             if (IS_ERR(phydev)) {
+>                 err = PTR_ERR(phydev);
+>                 goto error;
+>             }
+>         }
+>     }
+>     return 0;
+>
+> error:
+>     while (--i >= 0) {
+>
+>         if (bus->phy_map[i])
+>             device_unregister(&bus->phy_map[i]->dev);
+>     }
+> }
+> EXPORT_SYMBOL(mdiobus_full_scan);
+>
+> Since I am the only one who need this kind of functionnality right now, I'm
+> not sure
+> this is a good idea to export a new function.
 
-> The files in drivers/net/ethernet/sgi (meth.c and ioc3-eth.c) both use
-> alloc_skb.  Is there a reason why they do not use netdev_alloc_skb, like
-> most other ethernet drivers?
+A possible other use case for this full-scan is when you do not detect
+a PHY connected to your MDIO bus, and that you did not register a
+fixed PHY early enough for it to have been scanned by the fixed MDIO
+bus emulation. In that case the driver may:
 
-netdev_alloc_skb is such newfangled (2.6.19) interface - and both of these
-drivers date back to the 2.3 days.  So the answer is, nobody bothered so
-far.
+- scan hardware MDIO bus
+- do not find any PHY, register a fixed PHY
+- trigger a fixed MDIO bus full-rescan
+- attach to the discovered fixed PHY
 
-  Ralf
+this is something currently done by the TI CPMAC driver in
+drivers/net/ethernet/ti/cpmac.c (altough fixed_phy_add() is called
+from platform code).
+
+>
+> This behaviour may be implemented in the of_mdiobus_register function:
+> when no dt phy node are found in the mdio bus dt node, we could launch a
+> full
+> scan.
+>
+> What do you think ?
+
+There is an existing kind of "autoscan" feature in
+drivers/of/of_mdio.c, starting with the second foreach_child_node()
+loop, so maybe that specific part could be exported and would achieve
+what you are looking for? It relies on the Ethernet PHY nodes to be
+attached to the MDIO bus node, but I assume this is what ultimately
+happens in your case as well?
+-- 
+Florian
