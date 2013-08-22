@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH RESEND net-next 10/16] sfc: Use proper macros to declare and
- access MCDI arrays
-Date: Thu, 22 Aug 2013 20:28:08 +0100
-Message-ID: <1377199688.1703.59.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH RESEND net-next 11/16] sfc: Ensure MCDI buffers, but not
+ lengths, are dword aligned
+Date: Thu, 22 Aug 2013 20:28:29 +0100
+Message-ID: <1377199709.1703.60.camel@bwh-desktop.uk.level5networks.com>
 References: <1377199326.1703.49.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,111 +10,244 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:29852 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:29867 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753846Ab3HVT2L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 15:28:11 -0400
+	with ESMTP id S1753846Ab3HVT2d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 15:28:33 -0400
 In-Reply-To: <1377199326.1703.49.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A few functions are using heap buffers; change them to use stack
-buffers as we really don't need to resort to the heap for a 252
-byte buffer in process context.
+We currently require that MCDI request and response lengths are
+multiples of 4 bytes, because we will copy dwords in and out of shared
+memory and we want to be sure we won't read or write out of bounds.
+But all we really need to know is that there is sufficient padding for
+that.  Also, we should ensure that buffers are dword-aligned, as on
+some architectures misaligned access will result in data corruption or
+a crash.
 
-MC_CMD_MEMCPY is quite weird in that it can use inline data placed in
-the request buffer after the array of records.  Thus there are two
-variable-length arrays and we can't use the normal accessors for
-the second.  So we have to use _MCDI_PTR() in efx_sriov_memcpy().
+Change the buffer type to array-of-efx_dword_t and remove the
+requirement that the lengths are multiples of 4.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/mcdi.c        | 61 ++++++++++++++++------------------
- drivers/net/ethernet/sfc/mcdi.h        |  3 --
- drivers/net/ethernet/sfc/mcdi_mac.c    |  2 +-
- drivers/net/ethernet/sfc/mcdi_phy.c    | 25 ++++++--------
- drivers/net/ethernet/sfc/ptp.c         | 35 ++++++++++---------
- drivers/net/ethernet/sfc/siena_sriov.c | 53 ++++++++++++++---------------
- 6 files changed, 85 insertions(+), 94 deletions(-)
+ drivers/net/ethernet/sfc/mcdi.c | 31 ++++++++++++++++++-------------
+ drivers/net/ethernet/sfc/mcdi.h | 36 +++++++++++++++++++++++-------------
+ drivers/net/ethernet/sfc/ptp.c  | 10 +++++-----
+ 3 files changed, 46 insertions(+), 31 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
-index d65b562..d6d1ff1 100644
+index d6d1ff1..3f55b16 100644
 --- a/drivers/net/ethernet/sfc/mcdi.c
 +++ b/drivers/net/ethernet/sfc/mcdi.c
-@@ -668,7 +668,7 @@ int efx_mcdi_get_board_cfg(struct efx_nic *efx, u8 *mac_address,
- 			   u16 *fw_subtype_list, u32 *capabilities)
- {
- 	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_BOARD_CFG_OUT_LENMAX);
--	size_t outlen, offset, i;
-+	size_t outlen, i;
- 	int port_num = efx_port_num(efx);
- 	int rc;
- 
-@@ -684,22 +684,21 @@ int efx_mcdi_get_board_cfg(struct efx_nic *efx, u8 *mac_address,
- 		goto fail;
- 	}
- 
--	offset = (port_num)
--		? MC_CMD_GET_BOARD_CFG_OUT_MAC_ADDR_BASE_PORT1_OFST
--		: MC_CMD_GET_BOARD_CFG_OUT_MAC_ADDR_BASE_PORT0_OFST;
- 	if (mac_address)
--		memcpy(mac_address, outbuf + offset, ETH_ALEN);
-+		memcpy(mac_address,
-+		       port_num ?
-+		       MCDI_PTR(outbuf, GET_BOARD_CFG_OUT_MAC_ADDR_BASE_PORT1) :
-+		       MCDI_PTR(outbuf, GET_BOARD_CFG_OUT_MAC_ADDR_BASE_PORT0),
-+		       ETH_ALEN);
- 	if (fw_subtype_list) {
--		/* Byte-swap and truncate or zero-pad as necessary */
--		offset = MC_CMD_GET_BOARD_CFG_OUT_FW_SUBTYPE_LIST_OFST;
- 		for (i = 0;
--		     i < MC_CMD_GET_BOARD_CFG_OUT_FW_SUBTYPE_LIST_MAXNUM;
--		     i++) {
--			fw_subtype_list[i] =
--				(offset + 2 <= outlen) ?
--				le16_to_cpup((__le16 *)(outbuf + offset)) : 0;
--			offset += 2;
--		}
-+		     i < MCDI_VAR_ARRAY_LEN(outlen,
-+					    GET_BOARD_CFG_OUT_FW_SUBTYPE_LIST);
-+		     i++)
-+			fw_subtype_list[i] = MCDI_ARRAY_WORD(
-+				outbuf, GET_BOARD_CFG_OUT_FW_SUBTYPE_LIST, i);
-+		for (; i < MC_CMD_GET_BOARD_CFG_OUT_FW_SUBTYPE_LIST_MAXNUM; i++)
-+			fw_subtype_list[i] = 0;
- 	}
- 	if (capabilities) {
- 		if (port_num)
-@@ -980,7 +979,7 @@ static int efx_mcdi_read_assertion(struct efx_nic *efx)
- {
- 	MCDI_DECLARE_BUF(inbuf, MC_CMD_GET_ASSERTS_IN_LEN);
- 	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_ASSERTS_OUT_LEN);
--	unsigned int flags, index, ofst;
-+	unsigned int flags, index;
- 	const char *reason;
- 	size_t outlen;
- 	int retry;
-@@ -1022,12 +1021,13 @@ static int efx_mcdi_read_assertion(struct efx_nic *efx)
- 		  MCDI_DWORD(outbuf, GET_ASSERTS_OUT_THREAD_OFFS));
- 
- 	/* Print out the registers */
--	ofst = MC_CMD_GET_ASSERTS_OUT_GP_REGS_OFFS_OFST;
--	for (index = 1; index < 32; index++) {
--		netif_err(efx, hw, efx->net_dev, "R%.2d (?): 0x%.8x\n", index,
--			MCDI_DWORD2(outbuf, ofst));
--		ofst += sizeof(efx_dword_t);
--	}
-+	for (index = 0;
-+	     index < MC_CMD_GET_ASSERTS_OUT_GP_REGS_OFFS_NUM;
-+	     index++)
-+		netif_err(efx, hw, efx->net_dev, "R%.2d (?): 0x%.8x\n",
-+			  1 + index,
-+			  MCDI_ARRAY_DWORD(outbuf, GET_ASSERTS_OUT_GP_REGS_OFFS,
-+					   index));
- 
- 	return 0;
+@@ -67,7 +67,7 @@ void efx_mcdi_init(struct efx_nic *efx)
  }
-@@ -1201,34 +1201,31 @@ int efx_mcdi_flush_rxqs(struct 
+ 
+ static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
+-			    const u8 *inbuf, size_t inlen)
++			    const efx_dword_t *inbuf, size_t inlen)
+ {
+ 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
+ 	unsigned pdu = FR_CZ_MC_TREG_SMEM + MCDI_PDU(efx);
+@@ -75,9 +75,10 @@ static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
+ 	unsigned int i;
+ 	efx_dword_t hdr;
+ 	u32 xflags, seqno;
++	unsigned int inlen_dw = DIV_ROUND_UP(inlen, 4);
+ 
+ 	BUG_ON(atomic_read(&mcdi->state) == MCDI_STATE_QUIESCENT);
+-	BUG_ON(inlen & 3 || inlen >= MC_SMEM_PDU_LEN);
++	BUG_ON(inlen > MCDI_CTL_SDU_LEN_MAX_V1);
+ 
+ 	seqno = mcdi->seqno & SEQ_MASK;
+ 	xflags = 0;
+@@ -94,8 +95,8 @@ static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
+ 
+ 	efx_writed(efx, &hdr, pdu);
+ 
+-	for (i = 0; i < inlen; i += 4)
+-		_efx_writed(efx, *((__le32 *)(inbuf + i)), pdu + 4 + i);
++	for (i = 0; i < inlen_dw; i++)
++		efx_writed(efx, &inbuf[i], pdu + 4 + 4 * i);
+ 
+ 	/* Ensure the payload is written out before the header */
+ 	wmb();
+@@ -104,17 +105,19 @@ static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
+ 	_efx_writed(efx, (__force __le32) 0x45789abc, doorbell);
+ }
+ 
+-static void efx_mcdi_copyout(struct efx_nic *efx, u8 *outbuf, size_t outlen)
++static void
++efx_mcdi_copyout(struct efx_nic *efx, efx_dword_t *outbuf, size_t outlen)
+ {
+ 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
+ 	unsigned int pdu = FR_CZ_MC_TREG_SMEM + MCDI_PDU(efx);
++	unsigned int outlen_dw = DIV_ROUND_UP(outlen, 4);
+ 	int i;
+ 
+ 	BUG_ON(atomic_read(&mcdi->state) == MCDI_STATE_QUIESCENT);
+-	BUG_ON(outlen & 3 || outlen >= MC_SMEM_PDU_LEN);
++	BUG_ON(outlen > MCDI_CTL_SDU_LEN_MAX_V1);
+ 
+-	for (i = 0; i < outlen; i += 4)
+-		*((__le32 *)(outbuf + i)) = _efx_readd(efx, pdu + 4 + i);
++	for (i = 0; i < outlen_dw; i++)
++		efx_readd(efx, &outbuf[i], pdu + 4 + 4 * i);
+ }
+ 
+ static int efx_mcdi_poll(struct efx_nic *efx)
+@@ -328,7 +331,8 @@ static void efx_mcdi_ev_cpl(struct efx_nic *efx, unsigned int seqno,
+ }
+ 
+ int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd,
+-		 const u8 *inbuf, size_t inlen, u8 *outbuf, size_t outlen,
++		 const efx_dword_t *inbuf, size_t inlen,
++		 efx_dword_t *outbuf, size_t outlen,
+ 		 size_t *outlen_actual)
+ {
+ 	efx_mcdi_rpc_start(efx, cmd, inbuf, inlen);
+@@ -336,8 +340,8 @@ int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd,
+ 				   outbuf, outlen, outlen_actual);
+ }
+ 
+-void efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd, const u8 *inbuf,
+-			size_t inlen)
++void efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd,
++			const efx_dword_t *inbuf, size_t inlen)
+ {
+ 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
+ 
+@@ -354,7 +358,8 @@ void efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd, const u8 *inbuf,
+ }
+ 
+ int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
+-			u8 *outbuf, size_t outlen, size_t *outlen_actual)
++			efx_dword_t *outbuf, size_t outlen,
++			size_t *outlen_actual)
+ {
+ 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
+ 	int rc;
+@@ -393,7 +398,7 @@ int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
+ 
+ 		if (rc == 0) {
+ 			efx_mcdi_copyout(efx, outbuf,
+-					 min(outlen, mcdi->resplen + 3) & ~0x3);
++					 min(outlen, mcdi->resplen));
+ 			if (outlen_actual != NULL)
+ 				*outlen_actual = resplen;
+ 		} else if (cmd == MC_CMD_REBOOT && rc == -EIO)
+diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
+index f8ab64f..28657a1 100644
+--- a/drivers/net/ethernet/sfc/mcdi.h
++++ b/drivers/net/ethernet/sfc/mcdi.h
+@@ -67,16 +67,18 @@ struct efx_mcdi_mon {
+ 
+ extern void efx_mcdi_init(struct efx_nic *efx);
+ 
+-extern int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd, const u8 *inbuf,
+-			size_t inlen, u8 *outbuf, size_t outlen,
++extern int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd,
++			const efx_dword_t *inbuf, size_t inlen,
++			efx_dword_t *outbuf, size_t outlen,
+ 			size_t *outlen_actual);
+ 
+ extern void efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd,
+-			       const u8 *inbuf, size_t inlen);
++			       const efx_dword_t *inbuf, size_t inlen);
+ extern int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
+-			       u8 *outbuf, size_t outlen,
++			       efx_dword_t *outbuf, size_t outlen,
+ 			       size_t *outlen_actual);
+ 
++
+ extern int efx_mcdi_poll_reboot(struct efx_nic *efx);
+ extern void efx_mcdi_mode_poll(struct efx_nic *efx);
+ extern void efx_mcdi_mode_event(struct efx_nic *efx);
+@@ -85,14 +87,21 @@ extern void efx_mcdi_process_event(struct efx_channel *channel,
+ 				   efx_qword_t *event);
+ extern void efx_mcdi_sensor_event(struct efx_nic *efx, efx_qword_t *ev);
+ 
++/* We expect that 16- and 32-bit fields in MCDI requests and responses
++ * are appropriately aligned.  Also, on Siena we must copy to the MC
++ * shared memory strictly 32 bits at a time, so add any necessary
++ * padding.
++ */
+ #define MCDI_DECLARE_BUF(_name, _len)					\
+-	u8 _name[ALIGN(_len, 4)]
++	efx_dword_t _name[DIV_ROUND_UP(_len, 4)]
+ #define _MCDI_PTR(_buf, _offset)					\
+ 	((u8 *)(_buf) + (_offset))
+ #define MCDI_PTR(_buf, _field)						\
+ 	_MCDI_PTR(_buf, MC_CMD_ ## _field ## _OFST)
++#define _MCDI_CHECK_ALIGN(_ofst, _align)				\
++	((_ofst) + BUILD_BUG_ON_ZERO((_ofst) & (_align - 1)))
+ #define _MCDI_DWORD(_buf, _field)					\
+-	((efx_dword_t *)MCDI_PTR(_buf, _field))
++	((_buf) + (_MCDI_CHECK_ALIGN(MC_CMD_ ## _field ## _OFST, 4) >> 2))
+ 
+ #define MCDI_SET_DWORD(_buf, _field, _value)				\
+ 	EFX_POPULATE_DWORD_1(*_MCDI_DWORD(_buf, _field), EFX_DWORD_0, _value)
+@@ -109,22 +118,23 @@ extern void efx_mcdi_sensor_event(struct efx_nic *efx, efx_qword_t *ev);
+ 		(MC_CMD_ ## _type ## _ ## _field ## _LBN & 0x1f) +	\
+ 		MC_CMD_ ## _type ## _ ## _field ## _WIDTH - 1)
+ 
+-#define _MCDI_ARRAY_PTR(_buf, _field, _index)				\
+-	(MCDI_PTR(_buf, _field) +					\
+-	 (_index) * MC_CMD_ ## _field ## _LEN)
++#define _MCDI_ARRAY_PTR(_buf, _field, _index, _align)			\
++	(_MCDI_PTR(_buf, _MCDI_CHECK_ALIGN(MC_CMD_ ## _field ## _OFST, _align))\
++	 + (_index) * _MCDI_CHECK_ALIGN(MC_CMD_ ## _field ## _LEN, _align))
+ #define MCDI_DECLARE_STRUCT_PTR(_name)					\
+-	u8 *_name
+-#define MCDI_ARRAY_STRUCT_PTR _MCDI_ARRAY_PTR
++	efx_dword_t *_name
++#define MCDI_ARRAY_STRUCT_PTR(_buf, _field, _index)			\
++	((efx_dword_t *)_MCDI_ARRAY_PTR(_buf, _field, _index, 4))
+ #define MCDI_VAR_ARRAY_LEN(_len, _field)				\
+ 	min_t(size_t, MC_CMD_ ## _field ## _MAXNUM,			\
+ 	      ((_len) - MC_CMD_ ## _field ## _OFST) / MC_CMD_ ## _field ## _LEN)
+ #define MCDI_ARRAY_WORD(_buf, _field, _index)				\
+ 	(BUILD_BUG_ON_ZERO(MC_CMD_ ## _field ## _LEN != 2) +		\
+ 	 le16_to_cpu(*(__force const __le16 *)				\
+-		     _MCDI_ARRAY_PTR(_buf, _field, _index)))
++		     _MCDI_ARRAY_PTR(_buf, _field, _index, 2)))
+ #define _MCDI_ARRAY_DWORD(_buf, _field, _index)				\
+ 	(BUILD_BUG_ON_ZERO(MC_CMD_ ## _field ## _LEN != 4) +		\
+-	 (efx_dword_t *)_MCDI_ARRAY_PTR(_buf, _field, _index))
++	 (efx_dword_t *)_MCDI_ARRAY_PTR(_buf, _field, _index, 4))
+ #define MCDI_SET_ARRAY_DWORD(_buf, _field, _index, _value)		\
+ 	EFX_SET_DWORD_FIELD(*_MCDI_ARRAY_DWORD(_buf, _field, _index),	\
+ 			    EFX_DWORD_0, _value)
+diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
+index ec2cf4d..5612021 100644
+--- a/drivers/net/ethernet/sfc/ptp.c
++++ b/drivers/net/ethernet/sfc/ptp.c
+@@ -571,9 +571,8 @@ static int efx_ptp_xmit_skb(struct efx_nic *efx, struct sk_buff *skb)
+ 	struct efx_ptp_data *ptp_data = efx->ptp_data;
+ 	struct skb_shared_hwtstamps timestamps;
+ 	int rc = -EIO;
+-	/* MCDI driver requires word aligned lengths */
+-	size_t len = ALIGN(MC_CMD_PTP_IN_TRANSMIT_LEN(skb->len), 4);
+ 	MCDI_DECLARE_BUF(txtime, MC_CMD_PTP_OUT_TRANSMIT_LEN);
++	size_t len;
+ 
+ 	MCDI_SET_DWORD(ptp_data->txbuf, PTP_IN_OP, MC_CMD_PTP_OP_TRANSMIT);
+ 	MCDI_SET_DWORD(ptp_data->txbuf, PTP_IN_TRANSMIT_LENGTH, skb->len);
+@@ -591,9 +590,10 @@ static int efx_ptp_xmit_skb(struct efx_nic *efx, struct sk_buff *skb)
+ 	skb_copy_from_linear_data(skb,
+ 				  MCDI_PTR(ptp_data->txbuf,
+ 					   PTP_IN_TRANSMIT_PACKET),
+-				  len);
+-	rc = efx_mcdi_rpc(efx, MC_CMD_PTP, ptp_data->txbuf, len, txtime,
+-			  sizeof(txtime), &len);
++				  skb->len);
++	rc = efx_mcdi_rpc(efx, MC_CMD_PTP,
++			  ptp_data->txbuf, MC_CMD_PTP_IN_TRANSMIT_LEN(skb->len),
++			  txtime, sizeof(txtime), &len);
+ 	if (rc != 0)
+ 		goto fail;
+ 
+
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
