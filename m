@@ -1,42 +1,43 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: [PATCH net-next 2/2] qlge: Update version to 1.0.0.33
-Date: Thu, 22 Aug 2013 15:54:12 -0400
-Message-ID: <1377201252-9283-3-git-send-email-jitendra.kalsaria@qlogic.com>
-References: <1377201252-9283-1-git-send-email-jitendra.kalsaria@qlogic.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH 1/2] genl: Fix genl dumpit() locking.
+Date: Thu, 22 Aug 2013 13:31:25 -0700
+Message-ID: <CALnjE+osiw-uPdf8JEX=jG+zwaoypoSQ_A+N-WiVUkxxT63y+g@mail.gmail.com>
+References: <1377143882-20717-1-git-send-email-pshelar@nicira.com>
+	<1377156980.14110.16.camel@jlt4.sipsolutions.net>
+	<CALnjE+qgZ_UZ4GdiZ4UCzfTLn-OveoHtE28uQZokz2kPD4srXQ@mail.gmail.com>
+	<1377193906.14110.27.camel@jlt4.sipsolutions.net>
+	<CALnjE+rEOMmyFQ0Nx3-O-Cvu8yePVBg7x8vgpGUOAAnYv3KG4Q@mail.gmail.com>
+	<1377195534.14110.29.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <ron.mercer@qlogic.com>,
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:47172 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752077Ab3HVUaT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 16:30:19 -0400
-In-Reply-To: <1377201252-9283-1-git-send-email-jitendra.kalsaria@qlogic.com>
+Received: from na3sys009aog129.obsmtp.com ([74.125.149.142]:43953 "HELO
+	na3sys009aog129.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753397Ab3HVUbn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 16:31:43 -0400
+Received: by mail-qe0-f52.google.com with SMTP id a11so1413853qen.39
+        for <netdev@vger.kernel.org>; Thu, 22 Aug 2013 13:31:25 -0700 (PDT)
+In-Reply-To: <1377195534.14110.29.camel@jlt4.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+On Thu, Aug 22, 2013 at 11:18 AM, Johannes Berg
+<johannes@sipsolutions.net> wrote:
+> On Thu, 2013-08-22 at 11:10 -0700, Pravin Shelar wrote:
+>
+>> > By the way - why? This just means that netlink will allocate another
+>> > lock to lock it all, so it's not a very useful change?
+>> >
+>> This replaces global genl-lock with per-socket lock which allows
+>> parallel operation in parallel-genl-families and they are not blocked
+>> due to other unrelated genl-family operations.
+>
+> I don't think so? It replaces the genl lock as cb_mutex with a per
+> *kernel* socket lock, so really just one per network namespace. That's
+> not much of an improvement really.
+>
 
-Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlge/qlge.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge.h b/drivers/net/ethernet/qlogic/qlge/qlge.h
-index 8994337..1a36b9c 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge.h
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge.h
-@@ -18,7 +18,7 @@
-  */
- #define DRV_NAME  	"qlge"
- #define DRV_STRING 	"QLogic 10 Gigabit PCI-E Ethernet Driver "
--#define DRV_VERSION	"v1.00.00.32"
-+#define DRV_VERSION	"1.0.0.33"
- 
- #define WQ_ADDR_ALIGN	0x3	/* 4 byte alignment */
- 
--- 
-1.7.1
+You are thinking abt genl-sock -> nlk -> cb_lock which is not used in
+genl-dump locking if cb_lock is NULL while creating nl socket.
