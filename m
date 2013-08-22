@@ -1,51 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] Revert "genetlink: fix family dump race"
-Date: Thu, 22 Aug 2013 13:26:31 -0700 (PDT)
-Message-ID: <20130822.132631.2273195424430844661.davem@davemloft.net>
-References: <1377094083-8122-1-git-send-email-johannes@sipsolutions.net>
-	<1377094083-8122-2-git-send-email-johannes@sipsolutions.net>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: [PATCH net-next 2/2] qlge: Update version to 1.0.0.33
+Date: Thu, 22 Aug 2013 15:54:12 -0400
+Message-ID: <1377201252-9283-3-git-send-email-jitendra.kalsaria@qlogic.com>
+References: <1377201252-9283-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch, johannes.berg@intel.com
-To: johannes@sipsolutions.net
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <ron.mercer@qlogic.com>,
+	<Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52291 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754383Ab3HVU0c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 16:26:32 -0400
-In-Reply-To: <1377094083-8122-2-git-send-email-johannes@sipsolutions.net>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:47172 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752077Ab3HVUaT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 16:30:19 -0400
+In-Reply-To: <1377201252-9283-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Wed, 21 Aug 2013 16:08:02 +0200
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 
-> From: Johannes Berg <johannes.berg@intel.com>
-> 
-> This reverts commit 58ad436fcf49810aa006016107f494c9ac9013db.
-> 
-> It turns out that the change introduced a potential deadlock
-> by causing a locking dependency with netlink's cb_mutex. I
-> can't seem to find a way to resolve this without doing major
-> changes to the locking, so revert this.
-> 
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qlge/qlge.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-So I've applied this since everyone agrees that we should revert
-this change.
-
-How to deal with the problem we were attempting to solve is still
-under discussion.  It seems that even if we go to RCU we must also
-address to module reference count issue.
-
-I think the existing locking is very messy, and RCU looks a lot
-cleaner and has potential for future improvements to the scalability
-of dumps.
-
-So I'd like to propose that we combine Johannes's RCU conversion
-with some variant of the module reference count fix.
-
-Can you guys work together and come up with something I can apply?
-
-Thanks.
+diff --git a/drivers/net/ethernet/qlogic/qlge/qlge.h b/drivers/net/ethernet/qlogic/qlge/qlge.h
+index 8994337..1a36b9c 100644
+--- a/drivers/net/ethernet/qlogic/qlge/qlge.h
++++ b/drivers/net/ethernet/qlogic/qlge/qlge.h
+@@ -18,7 +18,7 @@
+  */
+ #define DRV_NAME  	"qlge"
+ #define DRV_STRING 	"QLogic 10 Gigabit PCI-E Ethernet Driver "
+-#define DRV_VERSION	"v1.00.00.32"
++#define DRV_VERSION	"1.0.0.33"
+ 
+ #define WQ_ADDR_ALIGN	0x3	/* 4 byte alignment */
+ 
+-- 
+1.7.1
