@@ -1,82 +1,80 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2013-08-22
-Date: Thu, 22 Aug 2013 09:49:08 +0200
-Message-ID: <5215C274.1090200@pengutronix.de>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: ADSL/ATM linklayer tc shaping regression fix commits for stable
+Date: Thu, 22 Aug 2013 10:04:26 +0200
+Message-ID: <20130822100426.39be319d@redhat.com>
+References: <20130820132629.51618797@redhat.com>
+	<20130820151650.GA18016@kroah.com>
+	<20130821140350.2b953007@redhat.com>
+	<20130821.112023.744177612387539958.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="wrLs8lvFPX048hI3MC5N5lwhlxUrbnxqs"
-Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"kernel@pengutronix.de" <kernel@pengutronix.de>
-To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: gregkh@linuxfoundation.org, stable@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	brouer@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20130821.112023.744177612387539958.davem@davemloft.net>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---wrLs8lvFPX048hI3MC5N5lwhlxUrbnxqs
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On Wed, 21 Aug 2013 11:20:23 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-Hello David,
+> From: Jesper Dangaard Brouer <brouer@redhat.com>
+> Date: Wed, 21 Aug 2013 14:03:50 +0200
+> 
+> > 
+> > On Tue, 20 Aug 2013 08:16:50 -0700
+> > Greg Kroah-Hartman <gregkh@linuxfoundation.org> wrote:
+> >> On Tue, Aug 20, 2013 at 01:26:29PM +0200, Jesper Dangaard Brouer wrote:
+> > [...]
+> >  
+> >> If there are issues with 3.10, that's a different story.
+> >> 
+> >> > Refactor improvements (v3.11-rc1):
+> >> >  commit 130d3d68b52 (net_sched: psched_ratecfg_precompute() improvements)
+> > 
+> > Needed because it fixes the accuracy of the rate calc.
+> > 
+> >> > The linklayer ATM/ADSL fix, reached 3.11-rc6:
+> >> >  commit 8a8e3d84b17 (net_sched: restore "linklayer atm" handling)
+> > 
+> > Needed because we broke userspace interface.
+> > 
+> >> David sends me the networking patches for the stable tree, and if he
+> >> thinks these are applicable, then I'll take them.
+> > 
+> > DaveM, please?  What do you want me to do, submit this req/patches somehow?
+> > 
+> > (Can see that is not currently on your stable queue via:
+> > http://patchwork.ozlabs.org/bundle/davem/stable/?state=*)
+> 
+> I'll put it there, you just have to formally ask me to do it that's
+> all.
 
-another pull-request for net-next. It consists of two patches by Libo
-Chen, the at91 and flexcan driver make use of platform_set_drvdata()
-rather than open coding it. Chen Gang improves the error checking in
-the c_can_platform driver's probe function.
+Thanks, I assume that this was formally enough and you are taking the patches.
 
-regards,
-Marc
+So, for future reference:
 
----
+Stable patches for the networking tree, I should:
+1) check http://patchwork.ozlabs.org/bundle/davem/stable/?state=*
+   to see if my patch is already on your stable queue
+2) if not, ask you and cc netdev@vger.kernel.org
+3) you will handle the interaction with Greg and stable@vger.kernel.org
 
-The following changes since commit f8825669b3165bbf4380eabfd641f693d02af8=
-66:
-
-  net: phy: mdio-octeon: use platform_set_drvdata() (2013-08-21 20:51:11 =
--0700)
-
-are available in the git repository at:
-
-  git://gitorious.org/linux-can/linux-can-next.git for-davem
-
-for you to fetch changes up to d75ea942b360690a380da8012a51eaf6a6ebb1b1:
-
-  can: flexcan: use platform_set_drvdata() (2013-08-22 09:40:20 +0200)
-
-----------------------------------------------------------------
-Chen Gang (1):
-      can: c_can: fix error checking of priv->instance in probe()
-
-Libo Chen (2):
-      can: at91_can: use platform_set_drvdata()
-      can: flexcan: use platform_set_drvdata()
-
- drivers/net/can/at91_can.c             | 2 +-
- drivers/net/can/c_can/c_can_platform.c | 2 +-
- drivers/net/can/flexcan.c              | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Correct?
 
 
---wrLs8lvFPX048hI3MC5N5lwhlxUrbnxqs
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+> Asking Greg to do it directly is a complete waste of time. :-)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+I'll remember that.  I was just following Documentation/stable_kernel_rules.txt,
+I guess I should have known better as all my previous stable patches
+have automagically been picked up and processed by you :-)
 
-iEYEARECAAYFAlIVwnQACgkQjTAFq1RaXHPBdgCgl1AT0kuJdtSJessNhsAy1cdx
-XFYAn0jQJgfrV0h+KpXrlPWYe9xomeYG
-=diSe
------END PGP SIGNATURE-----
-
---wrLs8lvFPX048hI3MC5N5lwhlxUrbnxqs--
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
