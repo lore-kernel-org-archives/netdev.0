@@ -1,52 +1,52 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 2/2] ethernet: broadcom: remove unnecessary
- platform_set_drvdata()
-Date: Thu, 22 Aug 2013 10:57:20 +0900
-Message-ID: <001a01ce9eda$efcfdf80$cf6f9e80$%han@samsung.com>
-References: <001901ce9eda$a9351310$fb9f3930$%han@samsung.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next] tcp: increase throughput when reordering is high
+Date: Wed, 21 Aug 2013 22:18:00 -0400
+Message-ID: <CADVnQy=hSHCba_oE1mPfjPUJ299D-qsH=A64tfNBuzjQ+iQBuQ@mail.gmail.com>
+References: <1377131363-31341-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Maxime Bizon' <mbizon@freebox.fr>,
-	'Florian Fainelli' <florian@openwrt.org>,
-	'Jingoo Han' <jg1.han@samsung.com>
-To: "'David S. Miller'" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout3.samsung.com ([203.254.224.33]:55811 "EHLO
-	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751898Ab3HVB5W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 21:57:22 -0400
-Received: from epcpsbgr2.samsung.com
- (u142.gpu120.samsung.co.kr [203.254.230.142])
- by mailout3.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MRW008F0TFKM3E0@mailout3.samsung.com> for
- netdev@vger.kernel.org; Thu, 22 Aug 2013 10:57:21 +0900 (KST)
-In-reply-to: <001901ce9eda$a9351310$fb9f3930$%han@samsung.com>
-Content-language: ko
+Received: from mail-we0-f179.google.com ([74.125.82.179]:36084 "EHLO
+	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752642Ab3HVCSB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 22:18:01 -0400
+Received: by mail-we0-f179.google.com with SMTP id t58so1085000wes.38
+        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 19:18:00 -0700 (PDT)
+In-Reply-To: <1377131363-31341-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver core clears the driver data to NULL after device_release
-or on probe failure. Thus, it is not needed to manually clear the
-device driver data to NULL.
+On Wed, Aug 21, 2013 at 8:29 PM, Yuchung Cheng <ycheng@google.com> wrote:
+> The stack currently detects reordering and avoid spurious
+> retransmission very well. However the throughput is sub-optimal under
+> high reordering because cwnd is increased only if the data is deliverd
+> in order. I.e., FLAG_DATA_ACKED check in tcp_ack().  The more packet
+> are reordered the worse the throughput is.
+>
+> Therefore when reordering is proven high, cwnd should advance whenever
+> the data is delivered regardless of its ordering. If reordering is low,
+> conservatively advance cwnd only on ordered deliveries in Open state,
+> and retain cwnd in Disordered state (RFC5681).
+>
+> Using netperf on a qdisc setup of 20Mbps BW and random RTT from 45ms
+> to 55ms (for reordering effect). This change increases TCP throughput
+> by 20 - 25% to near bottleneck BW.
+>
+> A special case is the stretched ACK with new SACK and/or ECE mark.
+> For example, a receiver may receive an out of order or ECN packet with
+> unacked data buffered because of LRO or delayed ACK. The principle on
+> such an ACK is to advance cwnd on the cummulative acked part first,
+> then reduce cwnd in tcp_fastretrans_alert().
+>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> ---
+>  net/ipv4/tcp_input.c | 32 ++++++++++++++++++++------------
+>  1 file changed, 20 insertions(+), 12 deletions(-)
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
----
- drivers/net/ethernet/broadcom/bcm63xx_enet.c |    1 -
- 1 file changed, 1 deletion(-)
+Acked-by: Neal Cardwell <ncardwell@google.com>
 
-diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-index b1bcd4b..ca963d4 100644
---- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-+++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-@@ -2836,7 +2836,6 @@ static int bcm_enetsw_remove(struct platform_device *pdev)
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	release_mem_region(res->start, resource_size(res));
- 
--	platform_set_drvdata(pdev, NULL);
- 	free_netdev(dev);
- 	return 0;
- }
--- 
-1.7.10.4
+neal
