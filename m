@@ -1,35 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/3] net: tcp_probe: add IPv6 support
-Date: Thu, 22 Aug 2013 13:43:09 -0700 (PDT)
-Message-ID: <20130822.134309.2073296501906078763.davem@davemloft.net>
-References: <1377107280-31091-1-git-send-email-dborkman@redhat.com>
-	<1377107280-31091-4-git-send-email-dborkman@redhat.com>
+From: Stephan von Krawczynski <skraw@ithnet.com>
+Subject: Can linux kernel bridge forward 802.1q tagged vlan packets?
+Date: Thu, 22 Aug 2013 22:44:53 +0200
+Message-ID: <20130822224453.ca93782f.skraw@ithnet.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52494 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752868Ab3HVUnK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 16:43:10 -0400
-In-Reply-To: <1377107280-31091-4-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: bridge@lists.linux-foundation.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Wed, 21 Aug 2013 19:48:00 +0200
+Hello all,
 
-> +	union {
-> +		struct sockaddr		raw;
-> +		struct sockaddr_in	v4;
-> +		struct sockaddr_in6	v6;
-> +	}	src, dst;
+first it seemed a trivial question to me, but since I could not find anybody
+being neither able to answer this question nor giving a short config example
+I'd like to ask here, maybe this is the right place.
+My general idea is to bridge tagged vlan packets from a physical interface
+(intel) to a virtual interface (virtio in qemu) and not losing the tags, so
+the qemu guest can use vconfig and friends to get some vlan interfaces.
+Is this possible and are there any additional steps necessary besides the
+usual bridge configuration?
+What bothers me especially is the vlan filtering done by nics which can
+prevent to even receive the packets from the LAN.
+And on the other side of course can the bridge code forward packets including
+tags so that virtio is able to handle them?
 
-This bloats up the tcp_log structure unnecessarily.  You have
-absolutely no use for the port member, for example.
-
-I know you want to use this so that you can be lazy and only
-use the single printf format specifier.  Here, keeping the
-tcp_log compact is more important.
+-- 
+Regards,
+Stephan
