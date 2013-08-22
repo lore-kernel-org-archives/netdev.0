@@ -1,72 +1,137 @@
-From: "=?utf-8?B?bGl1anVubGlhbmdfbGps?=" <liujunliang_ljl@163.com>
-Subject: =?utf-8?B?UmU6IFJlOiBSZTogW1BBVENILVNSOTcwMF0gTWVyZ2UgVVNCIDEuMSBFdGhlcm5ldCBBZGFwdGVyIFNSOTcwMERldmljZURyaXZlciBpbnRvIHRoZSBMaW51eCBLZXJuZWw=?=
-Date: Thu, 22 Aug 2013 17:23:23 +0800
-Message-ID: <201308221723223905126@163.com>
-References: <201308201841116403992@163.com>,
- <20130820204606.GB26241@electric-eye.fr.zoreil.com>,
- <1377032302.2016.75.camel@joe-AO722>,
- <201308211807295009698@163.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [patch net-next v6 4/4] igb/igbvf: implement
+ ndo_get_phys_port_id
+Date: Thu, 22 Aug 2013 03:39:10 -0700
+Message-ID: <1377167950.3939.57.camel@jtkirshe-mobl>
+References: <1375114612-537-1-git-send-email-jiri@resnulli.us>
+	 <1375114612-537-5-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "=?utf-8?B?RnJhbmNvaXMgUm9taWV1?=" <romieu@fr.zoreil.com>,
-	"=?utf-8?B?Z3JlZ2to?=" <gregkh@suse.de>,
-	"=?utf-8?B?c3VuaGVjaGVuZw==?=" <sunhecheng@vip.126.com>,
-	"=?utf-8?B?bGludXgtdXNi?=" <linux-usb@vger.kernel.org>,
-	"=?utf-8?B?bmV0ZGV2?=" <netdev@vger.kernel.org>,
-	"=?utf-8?B?bGludXgta2VybmVs?=" <linux-kernel@vger.kernel.org>
-To: "=?utf-8?B?Sm9lIFBlcmNoZXM=?=" <joe@perches.com>,
-	"=?utf-8?B?aG9ybXM=?=" <horms@verge.net.au>,
-	"=?utf-8?B?ZGF2ZW0=?=" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-1IQRKySvES9Tlxp9j7Zl"
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	stephen@networkplumber.org, Narendra_K@Dell.com,
+	bhutchings@solarflare.com, or.gerlitz@gmail.com,
+	carolyn.wyborny@intel.com, gregory.v.rose@intel.com,
+	vyasevic@redhat.com, amwang@redhat.com, johannes@sipsolutions.net
+To: Jiri Pirko <jiri@resnulli.us>, aaron.f.brown@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:63337 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752489Ab3HVKjY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Aug 2013 06:39:24 -0400
+In-Reply-To: <1375114612-537-5-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RGVhciBhbGwgOg0KDQoJCVRoYW5rcyBhbGwgb2YgeW91IGFib3V0IHlvdXIgYXR0ZW50aW9ucyBh
-bmQgc3VnZ2VzdGlvbnMsIGFuZCBJIHRoaW5rIGZpcnN0bHkgSSBzaG91bGQgcmVhZCB0aGUgZG9j
-dW1lbnRhdGlvbnMgY2FyZWZ1bGx5Lg0KDQoJCWFuZCB0aGVuIGNvbW1pdGluZyB0aGUgcGF0Y2gu
-IA0KDQoJCVRoYW5rcyBhbGwgb2YgeW91IGZvciB5b3VyIGhlbHAgYW5kIHdlbGNvbWUgYWxsIG9m
-IHlvdSB0byBjb21lIHRvIGNoaW5hLg0KDQoJCVRoYW5rcyBhZ2Fpbi4NCg0KDQoNCjIwMTMtMDgt
-MjIgDQoNCg0KDQpsaXVqdW5saWFuZ19samwgDQoNCg0KDQrlj5Hku7bkurrvvJogSm9lIFBlcmNo
-ZXMgDQrlj5HpgIHml7bpl7TvvJogMjAxMy0wOC0yMSAgMTk6MzQ6MTAgDQrmlLbku7bkurrvvJog
-bGl1anVubGlhbmdfbGpsIA0K5oqE6YCB77yaIEZyYW5jb2lzIFJvbWlldTsgZ3JlZ2toOyBzdW5o
-ZWNoZW5nOyBsaW51eC11c2I7IG5ldGRldjsgbGludXgta2VybmVsIA0K5Li76aKY77yaIFJlOiBS
-ZTogW1BBVENILVNSOTcwMF0gTWVyZ2UgVVNCIDEuMSBFdGhlcm5ldCBBZGFwdGVyIFNSOTcwMERl
-dmljZURyaXZlciBpbnRvIHRoZSBMaW51eCBLZXJuZWwgDQogDQpPbiBXZWQsIDIwMTMtMDgtMjEg
-YXQgMTg6MDcgKzA4MDAsIGxpdWp1bmxpYW5nX2xqbCB3cm90ZToNCj4gIFRoYW5rcyBhIGxvdCBh
-bmQgSSBoYXZlIGJlZW4gZml4ZWQgYWxsIHRoZSBwcm9ibGVtcyBtZW50aW9uZWQgYWJvdmUuIHBs
-ZWFzZSBjaGVjayB0aGUgZm9sbG93aW5nIHBhdGNoIGFuZCB0aGFua3MgYWdhaW4uIA0KSnVzdCB0
-cml2aWFsIGNvbW1lbnRzIGJlbG93Og0KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdXNiL3Ny
-OTcwMC5jIGIvZHJpdmVycy9uZXQvdXNiL3NyOTcwMC5jDQpbXQ0KPiArc3RhdGljIHZvaWQgc3Jf
-d3JpdGVfcmVnX2FzeW5jKHN0cnVjdCB1c2JuZXQgKmRldiwgdTggcmVnLCB1OCB2YWx1ZSkNCj4g
-K3sNCj4gKyB1c2JuZXRfd3JpdGVfY21kX2FzeW5jKGRldiwgU1JfV1JfUkVHUywgU1JfUkVRX1dS
-X1JFRywNCj4gKyB2YWx1ZSwgcmVnLCBOVUxMLCAwKTsNCj4gK30NCj4gKw0KPiArc3RhdGljIGlu
-dCBzcl9zaGFyZV9yZWFkX3dvcmQoc3RydWN0IHVzYm5ldCAqZGV2LCBpbnQgcGh5LCB1OCByZWcs
-IF9fbGUxNiAqdmFsdWUpDQo+ICt7DQpbXQ0KPiArIG5ldGRldl9kYmcoZGV2LT5uZXQsICJyZWFk
-IHNoYXJlZCAlZCAweCUwMnggcmV0dXJuZWQgMHglMDR4LCAlZFxuIiwNCj4gKyAgICAgICAgcGh5
-LCByZWcsICp2YWx1ZSwgcmV0KTsNCllvdSBoYXZlIGEgbG90IG9mIGNvZGUgdGhhdCB1c2VzIGlu
-Y29uc2lzdGVudA0KaW5kZW50YXRpb24uICBDb2RlIGluIGRyaXZlcnMvbmV0IGFuZCBkcml2ZXJz
-L3VzYi9uZXQNCmdlbmVyYWxseSBwcmVmZXJzIHRvIHVzZSBhbGlnbm1lbnQgdG8gcGFyZW50aGVz
-aXMgZm9yDQptdWx0aS1saW5lIHN0YXRlbWVudHMNClRoZSBmaXJzdCBjb3VsZCB1c2UNCnVzYm5l
-dF93cml0ZV9jbWRfYXN5bmMoZGV2LCBTUl9XUl9SRUdTLCBTUl9SRVFfV1JfUkVHLA0KICAgICAg
-IHZhbHVlLCByZWcsIE5VTEwsIDApOw0KYW5kIHRoZSBzZWNvbmQNCm5ldGRldl9kYmcoZGV2LT5u
-ZXQsICJyZWFkIHNoYXJlZCAlZCAweCUwMnggcmV0dXJuZWQgMHglMDR4LCAlZFxuIiwNCiAgIHBo
-eSwgcmVnLCAqdmFsdWUsIHJldCk7DQpNYXhpbWFsIHVzZSBvZiA4IHNwYWNlIGluZGVudGF0aW9u
-IHRhYnMgZm9sbG93ZWQgYnkNCm1pbmltYWwgc3BhY2VzLg0KVGhlcmUgYXJlIG1hbnkgb2YgdGhl
-c2UgYWJvdmUuDQo+ICtzdGF0aWMgaW50IHNyOTcwMF9nZXRfZWVwcm9tKHN0cnVjdCBuZXRfZGV2
-aWNlICpuZXQsIHN0cnVjdCBldGh0b29sX2VlcHJvbSAqZWVwcm9tLCB1OCAqZGF0YSkNCltdDQo+
-ICsgZm9yIChpID0gMDsgaSA8IGVlcHJvbS0+bGVuIC8gMjsgaSsrKQ0KPiArIHJldCA9IHNyX3Jl
-YWRfZWVwcm9tX3dvcmQoZGV2LCBlZXByb20tPm9mZnNldCAvIDIgKyBpLCAmZWJ1ZltpXSk7DQpP
-bmUgdG9vIG1hbnkgdGFicyBmb3IgdGhlIHNlY29uZCBsaW5lLCBhIGZldyBvZiB0aGVzZS4uLg0K
-W10NCj4gK3N0YXRpYyBpbnQgc3JfbWRpb19yZWFkKHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYs
-IGludCBwaHlfaWQsIGludCBsb2MpDQpbXQ0KPiArIGlmIChyYyA9PSAxKQ0KPiArIHJldHVybiBs
-ZTE2X3RvX2NwdShyZXMpIHwgQk1TUl9MU1RBVFVTOw0KPiArIGVsc2UNCj4gKyByZXR1cm4gbGUx
-Nl90b19jcHUocmVzKSAmIH5CTVNSX0xTVEFUVVM7DQpUaGUgY29kZSBiZWxvdyB0aGUgcmV0dXJu
-cyBoZXJlIGlzIHVucmVhY2hhYmxlLg0KPiArDQo+ICsgbmV0ZGV2X2RiZyhkZXYtPm5ldCwNCj4g
-KyAgICAgICAgInNyX21kaW9fcmVhZCgpIHBoeV9pZD0weCUwMngsIGxvYz0weCUwMngsIHJldHVy
-bnM9MHglMDR4XG4iLA0KPiArICAgICAgICBwaHlfaWQsIGxvYywgbGUxNl90b19jcHUocmVzKSk7
-DQo+ICsNCj4gKyByZXR1cm4gbGUxNl90b19jcHUocmVzKTsNCj4gK30NCllvdSBtaWdodCB0cnkg
-dG8gdXNlIHNjcmlwdHMvY2hlY2twYXRjaC5wbCAtLXN0cmljdCBpZiB5b3UNCmNhcmUgYWJvdXQg
-dGhlc2UuICBJdCBzaG91bGQgZmxhZyBtb3N0IG9mIHRoZXNlIGNvZGluZw0Kc3R5bGUgaW5jb25z
-aXN0ZW5jaWVzLg0K
+
+--=-1IQRKySvES9Tlxp9j7Zl
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Mon, 2013-07-29 at 18:16 +0200, Jiri Pirko wrote:
+> igb driver generated random number which will identify physical port.
+> This id is available via ndo_get_phys_port_id directly on igb netdev.
+> Also, id is passed to igbvf using mailbox. After that, it is available
+> via
+> ndo_get_phys_port_id on igbvf netdev as well.
+>=20
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+>  drivers/net/ethernet/intel/igb/e1000_mbx.h |  1 +
+>  drivers/net/ethernet/intel/igb/igb.h       |  3 +++
+>  drivers/net/ethernet/intel/igb/igb_main.c  | 37
+> ++++++++++++++++++++++++++++-
+>  drivers/net/ethernet/intel/igbvf/igbvf.h   |  4 ++++
+>  drivers/net/ethernet/intel/igbvf/mbx.h     |  1 +
+>  drivers/net/ethernet/intel/igbvf/netdev.c  | 38
+> ++++++++++++++++++++++++++++++
+>  drivers/net/ethernet/intel/igbvf/vf.c      | 34
+> ++++++++++++++++++++++++++
+>  drivers/net/ethernet/intel/igbvf/vf.h      |  1 +
+>  8 files changed, 118 insertions(+), 1 deletion(-)
+
+Jiri-
+
+Validation ran into a couple of issues with this patch.  Here is what
+Aaron found when testing this patch...
+
+Aaron Brown wrote:
+I think I have to fail this, it seems to have an issue with
+initialization.  When I first create a vf via sysfs the pys_port_id file
+is created along with the other sysfs files for the vf, however an
+attempt to cat out the value returns " Operation not supported".  At
+this point the vf is still down, if I bring it up (or simply unload /
+reload the igbvf driver) I can then cat the file successfully and the vf
+interface phys_port_id matches the phys_port_id of the pf.  This is
+testing from bare metal, a console session showing this behavior
+follows:
+
+u1304:[0]/sys> find . -iname phys_port_id
+./devices/pci0000:00/0000:00:01.0/0000:07:00.0/net/eth0/phys_port_id
+./devices/pci0000:00/0000:00:01.0/0000:07:00.1/net/eth1/phys_port_id
+./devices/virtual/net/sit0/phys_port_id
+./devices/virtual/net/lo/phys_port_id
+u1304:[0]/sys> cat devices/pci0000:00/0000:00:01.0/0000:07:00.0/net/eth0/ph=
+ys_port_id
+5ece9fbd9cd51546982e15c1f2c11e25
+u1304:[0]/sys>
+
+So far so good, now make a few vfs and check for new phys_port_id sysfs fil=
+es.
+
+u1304:[0]/sys> find . -iname sriov_numvfs
+./devices/pci0000:00/0000:00:01.0/0000:07:00.0/sriov_numvfs
+./devices/pci0000:00/0000:00:01.0/0000:07:00.1/sriov_numvfs
+u1304:[0]/sys> echo 2 > devices/pci0000:00/0000:00:01.0/0000:07:00.0/sriov_=
+numvfs
+u1304:[0]/sys> find . -iname phys_port_id                                  =
+     ./devices/pci0000:00/0000:00:01.0/0000:07:00.0/net/eth0/phys_port_id
+./devices/pci0000:00/0000:00:01.0/0000:07:00.1/net/eth1/phys_port_id
+./devices/pci0000:00/0000:00:01.0/0000:07:10.0/net/eth2/phys_port_id
+./devices/pci0000:00/0000:00:01.0/0000:07:10.2/net/eth3/phys_port_id
+./devices/virtual/net/sit0/phys_port_id
+./devices/virtual/net/lo/phys_port_id
+u1304:[0]/sys>
+
+The first vf is eth2, attempt to cat out it's phys_port_id
+
+u1304:[0]/sys> cat ./devices/pci0000:00/0000:00:01.0/0000:07:10.0/net/eth2/=
+phys_port_id
+cat: ./devices/pci0000:00/0000:00:01.0/0000:07:10.0/net/eth2/phys_port_id: =
+Operation not supported
+u1304:[0]/sys>
+
+But, if I bring the interface up (or unload / load the igbvf driver) I then=
+ am able to cat the phys_port_id of the vf and it matches the phys_port_id =
+of the physical interface.
+
+u1304:[0]/sys> ifconfig eth2 u1304-2
+u1304:[0]/sys> cat ./devices/pci0000:00/0000:00:01.0/0000:07:10.0/net/eth2/=
+phys_port_id
+5ece9fbd9cd51546982e15c1f2c11e25
+u1304:[0]/sys>
+
+--=-1IQRKySvES9Tlxp9j7Zl
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+
+iQIcBAABCgAGBQJSFepOAAoJEOVv75VaS+3OWaIP/i5nTJqu2KGGmusOjWGPh9mD
+p3EUMeNvITANH8Tqlz52hZ8wacvR5U17n2W2D2qITHxjYtOPjbaMCaCLwA2rfIjA
+wOzml9c0pcQDSzarDR0NwELlehFOLvMkE0u0ZjeSXjZ7LndbNB0sevw1qYqif5GD
+j7Pgr/DKL6YfdP1jV7jcbissR/2GsdLxOohND/7jLajgOihEllfWGoJNT++V+q5K
+RBFIly7+Y/+cjH9HbqUh5A03MGUdJxFTIDnPQKzi29ugoyF8lpIRFzIcFHRGcOTO
+d+uANwItyvH8DawybfugwhaaPsW9bSrE3SapW4L2GxeNtNwmNZvvXn/A0DwB18k4
+SyZsIUAU7Eie7uGsI/DkTLf29iUNGzx7q4BIS6DcgVYg8TmJhn88Nf57W/87BOoc
+t6YNnelff5NGAY+xpNidZdmNkute/rhVOeTbr3dGjCrFXNbsErFwQw8TfHHne8Dr
+8Z9tNWxRn3LILxhotdt4RwXAuD5ruQhfvdWk8p0EPvdHJoiX2usRIPGnFFzma2Md
+jETOvOulRokRp9MCvfcOTswhCM5DVTejKE+LxIzl6PqLA4JnnM6IEFJUOEZ9Zq++
+WtFRAZJk+b0/Xr6uJDhoj/Lar2fjRdVej6LSufSdxCGWSYSdKWr9xDbUxSxI8T5n
+pukAIb09jfpRMSAf7jd3
+=1qrB
+-----END PGP SIGNATURE-----
+
+--=-1IQRKySvES9Tlxp9j7Zl--
