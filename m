@@ -1,44 +1,53 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] net: sctp_probe: simplify code by using %pISc format specifier
-Date: Thu, 22 Aug 2013 17:12:50 +0200
-Message-ID: <1377184370-13721-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:31473 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753217Ab3HVPMy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Aug 2013 11:12:54 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [RFC PATCH] phylib: mdio: handle register/unregister/register
+ sequence
+Date: Thu, 22 Aug 2013 08:27:57 -0700
+Message-ID: <20130822152757.GA23163@kroah.com>
+References: <1377174836-10569-1-git-send-email-b.brezillon@overkiz.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Mark Brown <broonie@kernel.org>,
+	Nick Bowler <nbowler@elliptictech.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Boris BREZILLON <b.brezillon@overkiz.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1377174836-10569-1-git-send-email-b.brezillon@overkiz.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We can simply use the %pISc format specifier that was recently added
-and thus remove some code that distinguishes between IPv4 and IPv6.
+On Thu, Aug 22, 2013 at 02:33:56PM +0200, Boris BREZILLON wrote:
+> Hello,
+> 
+> This patch is a proposal to support the register/unregister/register
+> sequence on a given mdio bus.
+> 
+> I use the register/unregister/register sequence to add a fallback when the
+> of_mdiobus_register (this function calls mdiobus_register with phy_mask
+> set to ~0) does not register any phy device (because the device tree does
+> not define any phy).
+> In this case I call mdiobus_unregister and then call mdiobus_register with
+> a phy_mask set to 0 to trigger a full mdio bus scan.
+> 
+> I'm not sure this is the right way to do it (this is why I added RFC in the
+> subject).
+> 
+> Could someone help me figuring out what I should use to implement my fallback ?
+> 
+> 1) use the register/unregister/register sequence
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/sctp/probe.c | 9 ++-------
- 1 file changed, 2 insertions(+), 7 deletions(-)
+That will not work.  Well, you might think it would work, but then
+things randomly start breaking later on.  Try it with the
+KOBJECT_DELAYED_DESTROY build option in linux-next, and watch things go
+"boom" :)
 
-diff --git a/net/sctp/probe.c b/net/sctp/probe.c
-index e62c225..cd72ae5 100644
---- a/net/sctp/probe.c
-+++ b/net/sctp/probe.c
-@@ -155,13 +155,8 @@ static sctp_disposition_t jsctp_sf_eat_sack(struct net *net,
- 			if (sp == asoc->peer.primary_path)
- 				printl("*");
- 
--			if (sp->ipaddr.sa.sa_family == AF_INET)
--				printl("%pI4 ", &sp->ipaddr.v4.sin_addr);
--			else
--				printl("%pI6 ", &sp->ipaddr.v6.sin6_addr);
--
--			printl("%2u %8u %8u %8u %8u %8u ",
--			       sp->state, sp->cwnd, sp->ssthresh,
-+			printl("%pISc %2u %8u %8u %8u %8u %8u ",
-+			       &sp->ipaddr, sp->state, sp->cwnd, sp->ssthresh,
- 			       sp->flight_size, sp->partial_bytes_acked,
- 			       sp->pathmtu);
- 		}
--- 
-1.7.11.7
+The rule is, you should never register a kobject/struct device that you
+have previously unregistered before, as you really don't know if
+unregistering has finished or not.
+
+sorry,
+
+greg k-h
