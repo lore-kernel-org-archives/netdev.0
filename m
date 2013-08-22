@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH RESEND net-next 11/16] sfc: Ensure MCDI buffers, but not
- lengths, are dword aligned
-Date: Thu, 22 Aug 2013 20:28:29 +0100
-Message-ID: <1377199709.1703.60.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH RESEND net-next 12/16] sfc: Add and use MCDI_SET_QWORD() and
+ MCDI_SET_ARRAY_QWORD()
+Date: Thu, 22 Aug 2013 20:28:46 +0100
+Message-ID: <1377199726.1703.61.camel@bwh-desktop.uk.level5networks.com>
 References: <1377199326.1703.49.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,242 +10,180 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:29867 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:29879 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753846Ab3HVT2d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 15:28:33 -0400
+	with ESMTP id S1753846Ab3HVT2t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 15:28:49 -0400
 In-Reply-To: <1377199326.1703.49.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We currently require that MCDI request and response lengths are
-multiples of 4 bytes, because we will copy dwords in and out of shared
-memory and we want to be sure we won't read or write out of bounds.
-But all we really need to know is that there is sufficient padding for
-that.  Also, we should ensure that buffers are dword-aligned, as on
-some architectures misaligned access will result in data corruption or
-a crash.
-
-Change the buffer type to array-of-efx_dword_t and remove the
-requirement that the lengths are multiples of 4.
+No need to keep open-coding the assignment of high and low dwords.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/mcdi.c | 31 ++++++++++++++++++-------------
- drivers/net/ethernet/sfc/mcdi.h | 36 +++++++++++++++++++++++-------------
- drivers/net/ethernet/sfc/ptp.c  | 10 +++++-----
- 3 files changed, 46 insertions(+), 31 deletions(-)
+ drivers/net/ethernet/sfc/mcdi.h        | 23 ++++++++++++++++++++---
+ drivers/net/ethernet/sfc/mcdi_mon.c    |  6 ++----
+ drivers/net/ethernet/sfc/ptp.c         | 13 ++++---------
+ drivers/net/ethernet/sfc/siena_sriov.c | 21 ++++++++-------------
+ 4 files changed, 34 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
-index d6d1ff1..3f55b16 100644
---- a/drivers/net/ethernet/sfc/mcdi.c
-+++ b/drivers/net/ethernet/sfc/mcdi.c
-@@ -67,7 +67,7 @@ void efx_mcdi_init(struct efx_nic *efx)
- }
- 
- static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
--			    const u8 *inbuf, size_t inlen)
-+			    const efx_dword_t *inbuf, size_t inlen)
- {
- 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
- 	unsigned pdu = FR_CZ_MC_TREG_SMEM + MCDI_PDU(efx);
-@@ -75,9 +75,10 @@ static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
- 	unsigned int i;
- 	efx_dword_t hdr;
- 	u32 xflags, seqno;
-+	unsigned int inlen_dw = DIV_ROUND_UP(inlen, 4);
- 
- 	BUG_ON(atomic_read(&mcdi->state) == MCDI_STATE_QUIESCENT);
--	BUG_ON(inlen & 3 || inlen >= MC_SMEM_PDU_LEN);
-+	BUG_ON(inlen > MCDI_CTL_SDU_LEN_MAX_V1);
- 
- 	seqno = mcdi->seqno & SEQ_MASK;
- 	xflags = 0;
-@@ -94,8 +95,8 @@ static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
- 
- 	efx_writed(efx, &hdr, pdu);
- 
--	for (i = 0; i < inlen; i += 4)
--		_efx_writed(efx, *((__le32 *)(inbuf + i)), pdu + 4 + i);
-+	for (i = 0; i < inlen_dw; i++)
-+		efx_writed(efx, &inbuf[i], pdu + 4 + 4 * i);
- 
- 	/* Ensure the payload is written out before the header */
- 	wmb();
-@@ -104,17 +105,19 @@ static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
- 	_efx_writed(efx, (__force __le32) 0x45789abc, doorbell);
- }
- 
--static void efx_mcdi_copyout(struct efx_nic *efx, u8 *outbuf, size_t outlen)
-+static void
-+efx_mcdi_copyout(struct efx_nic *efx, efx_dword_t *outbuf, size_t outlen)
- {
- 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
- 	unsigned int pdu = FR_CZ_MC_TREG_SMEM + MCDI_PDU(efx);
-+	unsigned int outlen_dw = DIV_ROUND_UP(outlen, 4);
- 	int i;
- 
- 	BUG_ON(atomic_read(&mcdi->state) == MCDI_STATE_QUIESCENT);
--	BUG_ON(outlen & 3 || outlen >= MC_SMEM_PDU_LEN);
-+	BUG_ON(outlen > MCDI_CTL_SDU_LEN_MAX_V1);
- 
--	for (i = 0; i < outlen; i += 4)
--		*((__le32 *)(outbuf + i)) = _efx_readd(efx, pdu + 4 + i);
-+	for (i = 0; i < outlen_dw; i++)
-+		efx_readd(efx, &outbuf[i], pdu + 4 + 4 * i);
- }
- 
- static int efx_mcdi_poll(struct efx_nic *efx)
-@@ -328,7 +331,8 @@ static void efx_mcdi_ev_cpl(struct efx_nic *efx, unsigned int seqno,
- }
- 
- int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd,
--		 const u8 *inbuf, size_t inlen, u8 *outbuf, size_t outlen,
-+		 const efx_dword_t *inbuf, size_t inlen,
-+		 efx_dword_t *outbuf, size_t outlen,
- 		 size_t *outlen_actual)
- {
- 	efx_mcdi_rpc_start(efx, cmd, inbuf, inlen);
-@@ -336,8 +340,8 @@ int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd,
- 				   outbuf, outlen, outlen_actual);
- }
- 
--void efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd, const u8 *inbuf,
--			size_t inlen)
-+void efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd,
-+			const efx_dword_t *inbuf, size_t inlen)
- {
- 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
- 
-@@ -354,7 +358,8 @@ void efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd, const u8 *inbuf,
- }
- 
- int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
--			u8 *outbuf, size_t outlen, size_t *outlen_actual)
-+			efx_dword_t *outbuf, size_t outlen,
-+			size_t *outlen_actual)
- {
- 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
- 	int rc;
-@@ -393,7 +398,7 @@ int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
- 
- 		if (rc == 0) {
- 			efx_mcdi_copyout(efx, outbuf,
--					 min(outlen, mcdi->resplen + 3) & ~0x3);
-+					 min(outlen, mcdi->resplen));
- 			if (outlen_actual != NULL)
- 				*outlen_actual = resplen;
- 		} else if (cmd == MC_CMD_REBOOT && rc == -EIO)
 diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
-index f8ab64f..28657a1 100644
+index 28657a1..899f094 100644
 --- a/drivers/net/ethernet/sfc/mcdi.h
 +++ b/drivers/net/ethernet/sfc/mcdi.h
-@@ -67,16 +67,18 @@ struct efx_mcdi_mon {
- 
- extern void efx_mcdi_init(struct efx_nic *efx);
- 
--extern int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd, const u8 *inbuf,
--			size_t inlen, u8 *outbuf, size_t outlen,
-+extern int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd,
-+			const efx_dword_t *inbuf, size_t inlen,
-+			efx_dword_t *outbuf, size_t outlen,
- 			size_t *outlen_actual);
- 
- extern void efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd,
--			       const u8 *inbuf, size_t inlen);
-+			       const efx_dword_t *inbuf, size_t inlen);
- extern int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
--			       u8 *outbuf, size_t outlen,
-+			       efx_dword_t *outbuf, size_t outlen,
- 			       size_t *outlen_actual);
- 
-+
- extern int efx_mcdi_poll_reboot(struct efx_nic *efx);
- extern void efx_mcdi_mode_poll(struct efx_nic *efx);
- extern void efx_mcdi_mode_event(struct efx_nic *efx);
-@@ -85,14 +87,21 @@ extern void efx_mcdi_process_event(struct efx_channel *channel,
- 				   efx_qword_t *event);
+@@ -88,9 +88,9 @@ extern void efx_mcdi_process_event(struct efx_channel *channel,
  extern void efx_mcdi_sensor_event(struct efx_nic *efx, efx_qword_t *ev);
  
-+/* We expect that 16- and 32-bit fields in MCDI requests and responses
-+ * are appropriately aligned.  Also, on Siena we must copy to the MC
-+ * shared memory strictly 32 bits at a time, so add any necessary
-+ * padding.
-+ */
+ /* We expect that 16- and 32-bit fields in MCDI requests and responses
+- * are appropriately aligned.  Also, on Siena we must copy to the MC
+- * shared memory strictly 32 bits at a time, so add any necessary
+- * padding.
++ * are appropriately aligned, but 64-bit fields are only
++ * 32-bit-aligned.  Also, on Siena we must copy to the MC shared
++ * memory strictly 32 bits at a time, so add any necessary padding.
+  */
  #define MCDI_DECLARE_BUF(_name, _len)					\
--	u8 _name[ALIGN(_len, 4)]
-+	efx_dword_t _name[DIV_ROUND_UP(_len, 4)]
- #define _MCDI_PTR(_buf, _offset)					\
- 	((u8 *)(_buf) + (_offset))
- #define MCDI_PTR(_buf, _field)						\
- 	_MCDI_PTR(_buf, MC_CMD_ ## _field ## _OFST)
-+#define _MCDI_CHECK_ALIGN(_ofst, _align)				\
-+	((_ofst) + BUILD_BUG_ON_ZERO((_ofst) & (_align - 1)))
- #define _MCDI_DWORD(_buf, _field)					\
--	((efx_dword_t *)MCDI_PTR(_buf, _field))
-+	((_buf) + (_MCDI_CHECK_ALIGN(MC_CMD_ ## _field ## _OFST, 4) >> 2))
- 
- #define MCDI_SET_DWORD(_buf, _field, _value)				\
+ 	efx_dword_t _name[DIV_ROUND_UP(_len, 4)]
+@@ -107,6 +107,13 @@ extern void efx_mcdi_sensor_event(struct efx_nic *efx, efx_qword_t *ev);
  	EFX_POPULATE_DWORD_1(*_MCDI_DWORD(_buf, _field), EFX_DWORD_0, _value)
-@@ -109,22 +118,23 @@ extern void efx_mcdi_sensor_event(struct efx_nic *efx, efx_qword_t *ev);
- 		(MC_CMD_ ## _type ## _ ## _field ## _LBN & 0x1f) +	\
- 		MC_CMD_ ## _type ## _ ## _field ## _WIDTH - 1)
- 
--#define _MCDI_ARRAY_PTR(_buf, _field, _index)				\
--	(MCDI_PTR(_buf, _field) +					\
--	 (_index) * MC_CMD_ ## _field ## _LEN)
-+#define _MCDI_ARRAY_PTR(_buf, _field, _index, _align)			\
-+	(_MCDI_PTR(_buf, _MCDI_CHECK_ALIGN(MC_CMD_ ## _field ## _OFST, _align))\
-+	 + (_index) * _MCDI_CHECK_ALIGN(MC_CMD_ ## _field ## _LEN, _align))
- #define MCDI_DECLARE_STRUCT_PTR(_name)					\
--	u8 *_name
--#define MCDI_ARRAY_STRUCT_PTR _MCDI_ARRAY_PTR
-+	efx_dword_t *_name
-+#define MCDI_ARRAY_STRUCT_PTR(_buf, _field, _index)			\
-+	((efx_dword_t *)_MCDI_ARRAY_PTR(_buf, _field, _index, 4))
- #define MCDI_VAR_ARRAY_LEN(_len, _field)				\
- 	min_t(size_t, MC_CMD_ ## _field ## _MAXNUM,			\
- 	      ((_len) - MC_CMD_ ## _field ## _OFST) / MC_CMD_ ## _field ## _LEN)
- #define MCDI_ARRAY_WORD(_buf, _field, _index)				\
- 	(BUILD_BUG_ON_ZERO(MC_CMD_ ## _field ## _LEN != 2) +		\
- 	 le16_to_cpu(*(__force const __le16 *)				\
--		     _MCDI_ARRAY_PTR(_buf, _field, _index)))
-+		     _MCDI_ARRAY_PTR(_buf, _field, _index, 2)))
- #define _MCDI_ARRAY_DWORD(_buf, _field, _index)				\
- 	(BUILD_BUG_ON_ZERO(MC_CMD_ ## _field ## _LEN != 4) +		\
--	 (efx_dword_t *)_MCDI_ARRAY_PTR(_buf, _field, _index))
-+	 (efx_dword_t *)_MCDI_ARRAY_PTR(_buf, _field, _index, 4))
- #define MCDI_SET_ARRAY_DWORD(_buf, _field, _index, _value)		\
- 	EFX_SET_DWORD_FIELD(*_MCDI_ARRAY_DWORD(_buf, _field, _index),	\
+ #define MCDI_DWORD(_buf, _field)					\
+ 	EFX_DWORD_FIELD(*_MCDI_DWORD(_buf, _field), EFX_DWORD_0)
++#define MCDI_SET_QWORD(_buf, _field, _value)				\
++	do {								\
++		EFX_POPULATE_DWORD_1(_MCDI_DWORD(_buf, _field)[0],	\
++				     EFX_DWORD_0, (u32)(_value));	\
++		EFX_POPULATE_DWORD_1(_MCDI_DWORD(_buf, _field)[1],	\
++				     EFX_DWORD_0, (u64)(_value) >> 32);	\
++	} while (0)
+ #define MCDI_QWORD(_buf, _field)					\
+ 	(EFX_DWORD_FIELD(_MCDI_DWORD(_buf, _field)[0], EFX_DWORD_0) |	\
+ 	(u64)EFX_DWORD_FIELD(_MCDI_DWORD(_buf, _field)[1], EFX_DWORD_0) << 32)
+@@ -140,6 +147,16 @@ extern void efx_mcdi_sensor_event(struct efx_nic *efx, efx_qword_t *ev);
  			    EFX_DWORD_0, _value)
+ #define MCDI_ARRAY_DWORD(_buf, _field, _index)				\
+ 	EFX_DWORD_FIELD(*_MCDI_ARRAY_DWORD(_buf, _field, _index), EFX_DWORD_0)
++#define _MCDI_ARRAY_QWORD(_buf, _field, _index)				\
++	(BUILD_BUG_ON_ZERO(MC_CMD_ ## _field ## _LEN != 8) +		\
++	 (efx_dword_t *)_MCDI_ARRAY_PTR(_buf, _field, _index, 4))
++#define MCDI_SET_ARRAY_QWORD(_buf, _field, _index, _value)		\
++	do {								\
++		EFX_SET_DWORD_FIELD(_MCDI_ARRAY_QWORD(_buf, _field, _index)[0],\
++				    EFX_DWORD_0, (u32)(_value));	\
++		EFX_SET_DWORD_FIELD(_MCDI_ARRAY_QWORD(_buf, _field, _index)[1],\
++				    EFX_DWORD_0, (u64)(_value) >> 32);	\
++	} while (0)
+ #define MCDI_ARRAY_FIELD(_buf, _field1, _type, _index, _field2)		\
+ 	MCDI_FIELD(MCDI_ARRAY_STRUCT_PTR(_buf, _field1, _index),	\
+ 		   _type ## _TYPEDEF, _field2)
+diff --git a/drivers/net/ethernet/sfc/mcdi_mon.c b/drivers/net/ethernet/sfc/mcdi_mon.c
+index 4e8a138..3179b2b 100644
+--- a/drivers/net/ethernet/sfc/mcdi_mon.c
++++ b/drivers/net/ethernet/sfc/mcdi_mon.c
+@@ -95,10 +95,8 @@ static int efx_mcdi_mon_update(struct efx_nic *efx)
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_READ_SENSORS_IN_LEN);
+ 	int rc;
+ 
+-	MCDI_SET_DWORD(inbuf, READ_SENSORS_IN_DMA_ADDR_LO,
+-		       hwmon->dma_buf.dma_addr & 0xffffffff);
+-	MCDI_SET_DWORD(inbuf, READ_SENSORS_IN_DMA_ADDR_HI,
+-		       (u64)hwmon->dma_buf.dma_addr >> 32);
++	MCDI_SET_QWORD(inbuf, READ_SENSORS_IN_DMA_ADDR,
++		       hwmon->dma_buf.dma_addr);
+ 
+ 	rc = efx_mcdi_rpc(efx, MC_CMD_READ_SENSORS,
+ 			  inbuf, sizeof(inbuf), NULL, 0, NULL);
 diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
-index ec2cf4d..5612021 100644
+index 5612021..d96bfc4 100644
 --- a/drivers/net/ethernet/sfc/ptp.c
 +++ b/drivers/net/ethernet/sfc/ptp.c
-@@ -571,9 +571,8 @@ static int efx_ptp_xmit_skb(struct efx_nic *efx, struct sk_buff *skb)
- 	struct efx_ptp_data *ptp_data = efx->ptp_data;
- 	struct skb_shared_hwtstamps timestamps;
- 	int rc = -EIO;
--	/* MCDI driver requires word aligned lengths */
--	size_t len = ALIGN(MC_CMD_PTP_IN_TRANSMIT_LEN(skb->len), 4);
- 	MCDI_DECLARE_BUF(txtime, MC_CMD_PTP_OUT_TRANSMIT_LEN);
-+	size_t len;
+@@ -533,10 +533,8 @@ static int efx_ptp_synchronize(struct efx_nic *efx, unsigned int num_readings)
+ 	MCDI_SET_DWORD(synch_buf, PTP_IN_OP, MC_CMD_PTP_OP_SYNCHRONIZE);
+ 	MCDI_SET_DWORD(synch_buf, PTP_IN_SYNCHRONIZE_NUMTIMESETS,
+ 		       num_readings);
+-	MCDI_SET_DWORD(synch_buf, PTP_IN_SYNCHRONIZE_START_ADDR_LO,
+-		       (u32)ptp->start.dma_addr);
+-	MCDI_SET_DWORD(synch_buf, PTP_IN_SYNCHRONIZE_START_ADDR_HI,
+-		       (u32)((u64)ptp->start.dma_addr >> 32));
++	MCDI_SET_QWORD(synch_buf, PTP_IN_SYNCHRONIZE_START_ADDR,
++		       ptp->start.dma_addr);
  
- 	MCDI_SET_DWORD(ptp_data->txbuf, PTP_IN_OP, MC_CMD_PTP_OP_TRANSMIT);
- 	MCDI_SET_DWORD(ptp_data->txbuf, PTP_IN_TRANSMIT_LENGTH, skb->len);
-@@ -591,9 +590,10 @@ static int efx_ptp_xmit_skb(struct efx_nic *efx, struct sk_buff *skb)
- 	skb_copy_from_linear_data(skb,
- 				  MCDI_PTR(ptp_data->txbuf,
- 					   PTP_IN_TRANSMIT_PACKET),
--				  len);
--	rc = efx_mcdi_rpc(efx, MC_CMD_PTP, ptp_data->txbuf, len, txtime,
--			  sizeof(txtime), &len);
-+				  skb->len);
-+	rc = efx_mcdi_rpc(efx, MC_CMD_PTP,
-+			  ptp_data->txbuf, MC_CMD_PTP_IN_TRANSMIT_LEN(skb->len),
-+			  txtime, sizeof(txtime), &len);
- 	if (rc != 0)
- 		goto fail;
+ 	/* Clear flag that signals MC ready */
+ 	ACCESS_ONCE(*start) = 0;
+@@ -1378,9 +1376,7 @@ static int efx_phc_adjfreq(struct ptp_clock_info *ptp, s32 delta)
+ 			 (PPB_EXTRA_BITS + MAX_PPB_BITS));
+ 
+ 	MCDI_SET_DWORD(inadj, PTP_IN_OP, MC_CMD_PTP_OP_ADJUST);
+-	MCDI_SET_DWORD(inadj, PTP_IN_ADJUST_FREQ_LO, (u32)adjustment_ns);
+-	MCDI_SET_DWORD(inadj, PTP_IN_ADJUST_FREQ_HI,
+-		       (u32)(adjustment_ns >> 32));
++	MCDI_SET_QWORD(inadj, PTP_IN_ADJUST_FREQ, adjustment_ns);
+ 	MCDI_SET_DWORD(inadj, PTP_IN_ADJUST_SECONDS, 0);
+ 	MCDI_SET_DWORD(inadj, PTP_IN_ADJUST_NANOSECONDS, 0);
+ 	rc = efx_mcdi_rpc(efx, MC_CMD_PTP, inadj, sizeof(inadj),
+@@ -1402,8 +1398,7 @@ static int efx_phc_adjtime(struct ptp_clock_info *ptp, s64 delta)
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_PTP_IN_ADJUST_LEN);
+ 
+ 	MCDI_SET_DWORD(inbuf, PTP_IN_OP, MC_CMD_PTP_OP_ADJUST);
+-	MCDI_SET_DWORD(inbuf, PTP_IN_ADJUST_FREQ_LO, 0);
+-	MCDI_SET_DWORD(inbuf, PTP_IN_ADJUST_FREQ_HI, 0);
++	MCDI_SET_QWORD(inbuf, PTP_IN_ADJUST_FREQ, 0);
+ 	MCDI_SET_DWORD(inbuf, PTP_IN_ADJUST_SECONDS, (u32)delta_ts.tv_sec);
+ 	MCDI_SET_DWORD(inbuf, PTP_IN_ADJUST_NANOSECONDS, (u32)delta_ts.tv_nsec);
+ 	return efx_mcdi_rpc(efx, MC_CMD_PTP, inbuf, sizeof(inbuf),
+diff --git a/drivers/net/ethernet/sfc/siena_sriov.c b/drivers/net/ethernet/sfc/siena_sriov.c
+index 198044f..2587d30 100644
+--- a/drivers/net/ethernet/sfc/siena_sriov.c
++++ b/drivers/net/ethernet/sfc/siena_sriov.c
+@@ -243,7 +243,8 @@ static int efx_sriov_memcpy(struct efx_nic *efx, struct efx_memcpy_req *req,
+ 	MCDI_DECLARE_BUF(inbuf, MCDI_CTL_SDU_LEN_MAX_V1);
+ 	MCDI_DECLARE_STRUCT_PTR(record);
+ 	unsigned int index, used;
+-	u32 from_rid, from_hi, from_lo;
++	u64 from_addr;
++	u32 from_rid;
+ 	int rc;
+ 
+ 	mb();	/* Finish writing source/reading dest before DMA starts */
+@@ -258,14 +259,11 @@ static int efx_sriov_memcpy(struct efx_nic *efx, struct efx_memcpy_req *req,
+ 			       count);
+ 		MCDI_SET_DWORD(record, MEMCPY_RECORD_TYPEDEF_TO_RID,
+ 			       req->to_rid);
+-		MCDI_SET_DWORD(record, MEMCPY_RECORD_TYPEDEF_TO_ADDR_LO,
+-			       (u32)req->to_addr);
+-		MCDI_SET_DWORD(record, MEMCPY_RECORD_TYPEDEF_TO_ADDR_HI,
+-			       (u32)(req->to_addr >> 32));
++		MCDI_SET_QWORD(record, MEMCPY_RECORD_TYPEDEF_TO_ADDR,
++			       req->to_addr);
+ 		if (req->from_buf == NULL) {
+ 			from_rid = req->from_rid;
+-			from_lo = (u32)req->from_addr;
+-			from_hi = (u32)(req->from_addr >> 32);
++			from_addr = req->from_addr;
+ 		} else {
+ 			if (WARN_ON(used + req->length >
+ 				    MCDI_CTL_SDU_LEN_MAX_V1)) {
+@@ -274,18 +272,15 @@ static int efx_sriov_memcpy(struct efx_nic *efx, struct efx_memcpy_req *req,
+ 			}
+ 
+ 			from_rid = MC_CMD_MEMCPY_RECORD_TYPEDEF_RID_INLINE;
+-			from_lo = used;
+-			from_hi = 0;
++			from_addr = used;
+ 			memcpy(_MCDI_PTR(inbuf, used), req->from_buf,
+ 			       req->length);
+ 			used += req->length;
+ 		}
+ 
+ 		MCDI_SET_DWORD(record, MEMCPY_RECORD_TYPEDEF_FROM_RID, from_rid);
+-		MCDI_SET_DWORD(record, MEMCPY_RECORD_TYPEDEF_FROM_ADDR_LO,
+-			       from_lo);
+-		MCDI_SET_DWORD(record, MEMCPY_RECORD_TYPEDEF_FROM_ADDR_HI,
+-			       from_hi);
++		MCDI_SET_QWORD(record, MEMCPY_RECORD_TYPEDEF_FROM_ADDR,
++			       from_addr);
+ 		MCDI_SET_DWORD(record, MEMCPY_RECORD_TYPEDEF_LENGTH,
+ 			       req->length);
  
 
 
