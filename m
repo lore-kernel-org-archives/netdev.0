@@ -1,7 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 30/32] sfc: Add support for MCDI v2
-Date: Thu, 22 Aug 2013 14:09:40 +0100
-Message-ID: <1377176980.1703.39.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 31/32] sfc: Fix race in completion handling
+Date: Thu, 22 Aug 2013 14:10:12 +0100
+Message-ID: <1377177012.1703.40.camel@bwh-desktop.uk.level5networks.com>
 References: <1377175392.1703.5.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -9,410 +9,97 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56532 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:56549 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751729Ab3HVNJo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 09:09:44 -0400
+	with ESMTP id S1751729Ab3HVNKP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 09:10:15 -0400
 In-Reply-To: <1377175392.1703.5.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MCDI v2 adds a second header dword with wider command and length
-fields.  It also defines extra error codes.
 
-Change the fallback error number for unknown MCDI error codes from EIO
-to EPROTO.  EIO is treated as indicating the MCDI transport has failed
-and we need to reset the function, which is rather drastic.
-
-v2 error codes and lengths don't fit into completion events, so for a
-v2-capable transport, always read the response header rather then
-using the event fields.
+When we poll for MCDI request completion, we don't hold the interface
+lock while setting the response fields in struct efx_mcdi_iface.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/falcon.c     |   2 +
- drivers/net/ethernet/sfc/mcdi.c       | 162 ++++++++++++++++++++++++----------
- drivers/net/ethernet/sfc/mcdi.h       |  10 ++-
- drivers/net/ethernet/sfc/net_driver.h |   2 +
- drivers/net/ethernet/sfc/ptp.c        |   5 +-
- drivers/net/ethernet/sfc/siena.c      |   1 +
- 6 files changed, 127 insertions(+), 55 deletions(-)
+ drivers/net/ethernet/sfc/mcdi.c | 25 ++++++++++---------------
+ 1 file changed, 10 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
-index fe83c26..e556a5d 100644
---- a/drivers/net/ethernet/sfc/falcon.c
-+++ b/drivers/net/ethernet/sfc/falcon.c
-@@ -2404,6 +2404,7 @@ const struct efx_nic_type falcon_a1_nic_type = {
- 	.phys_addr_channels = 4,
- 	.timer_period_max =  1 << FRF_AB_TC_TIMER_VAL_WIDTH,
- 	.offload_features = NETIF_F_IP_CSUM,
-+	.mcdi_max_ver = -1,
- };
- 
- const struct efx_nic_type falcon_b0_nic_type = {
-@@ -2481,5 +2482,6 @@ const struct efx_nic_type falcon_b0_nic_type = {
- 				   * channels */
- 	.timer_period_max =  1 << FRF_AB_TC_TIMER_VAL_WIDTH,
- 	.offload_features = NETIF_F_IP_CSUM | NETIF_F_RXHASH | NETIF_F_NTUPLE,
-+	.mcdi_max_ver = -1,
- };
- 
 diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
-index c6c5830..2c5ee89 100644
+index 2c5ee89..1c8bf81 100644
 --- a/drivers/net/ethernet/sfc/mcdi.c
 +++ b/drivers/net/ethernet/sfc/mcdi.c
-@@ -72,26 +72,44 @@ static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
- 			    const efx_dword_t *inbuf, size_t inlen)
- {
- 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
--	efx_dword_t hdr;
-+	efx_dword_t hdr[2];
-+	size_t hdr_len;
- 	u32 xflags, seqno;
- 
- 	BUG_ON(atomic_read(&mcdi->state) == MCDI_STATE_QUIESCENT);
--	BUG_ON(inlen > MCDI_CTL_SDU_LEN_MAX_V1);
- 
- 	seqno = mcdi->seqno & SEQ_MASK;
- 	xflags = 0;
- 	if (mcdi->mode == MCDI_MODE_EVENTS)
- 		xflags |= MCDI_HEADER_XFLAGS_EVREQ;
- 
--	EFX_POPULATE_DWORD_6(hdr,
--			     MCDI_HEADER_RESPONSE, 0,
--			     MCDI_HEADER_RESYNC, 1,
--			     MCDI_HEADER_CODE, cmd,
--			     MCDI_HEADER_DATALEN, inlen,
--			     MCDI_HEADER_SEQ, seqno,
--			     MCDI_HEADER_XFLAGS, xflags);
-+	if (efx->type->mcdi_max_ver == 1) {
-+		/* MCDI v1 */
-+		EFX_POPULATE_DWORD_6(hdr[0],
-+				     MCDI_HEADER_RESPONSE, 0,
-+				     MCDI_HEADER_RESYNC, 1,
-+				     MCDI_HEADER_CODE, cmd,
-+				     MCDI_HEADER_DATALEN, inlen,
-+				     MCDI_HEADER_SEQ, seqno,
-+				     MCDI_HEADER_XFLAGS, xflags);
-+		hdr_len = 4;
-+	} else {
-+		/* MCDI v2 */
-+		BUG_ON(inlen > MCDI_CTL_SDU_LEN_MAX_V2);
-+		EFX_POPULATE_DWORD_6(hdr[0],
-+				     MCDI_HEADER_RESPONSE, 0,
-+				     MCDI_HEADER_RESYNC, 1,
-+				     MCDI_HEADER_CODE, MC_CMD_V2_EXTN,
-+				     MCDI_HEADER_DATALEN, 0,
-+				     MCDI_HEADER_SEQ, seqno,
-+				     MCDI_HEADER_XFLAGS, xflags);
-+		EFX_POPULATE_DWORD_2(hdr[1],
-+				     MC_CMD_V2_EXTN_IN_EXTENDED_CMD, cmd,
-+				     MC_CMD_V2_EXTN_IN_ACTUAL_LEN, inlen);
-+		hdr_len = 8;
-+	}
- 
--	efx->type->mcdi_request(efx, &hdr, 4, inbuf, inlen);
-+	efx->type->mcdi_request(efx, hdr, hdr_len, inbuf, inlen);
+@@ -112,16 +112,6 @@ static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
+ 	efx->type->mcdi_request(efx, hdr, hdr_len, inbuf, inlen);
  }
  
- static void
-@@ -100,9 +118,8 @@ efx_mcdi_copyout(struct efx_nic *efx, efx_dword_t *outbuf, size_t outlen)
- 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
- 
- 	BUG_ON(atomic_read(&mcdi->state) == MCDI_STATE_QUIESCENT);
--	BUG_ON(outlen > MCDI_CTL_SDU_LEN_MAX_V1);
- 
--	efx->type->mcdi_read_response(efx, outbuf, 4, outlen);
-+	efx->type->mcdi_read_response(efx, outbuf, mcdi->resp_hdr_len, outlen);
- }
- 
+-static void
+-efx_mcdi_copyout(struct efx_nic *efx, efx_dword_t *outbuf, size_t outlen)
+-{
+-	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
+-
+-	BUG_ON(atomic_read(&mcdi->state) == MCDI_STATE_QUIESCENT);
+-
+-	efx->type->mcdi_read_response(efx, outbuf, mcdi->resp_hdr_len, outlen);
+-}
+-
  static int efx_mcdi_errno(unsigned int mcdi_err)
-@@ -113,17 +130,63 @@ static int efx_mcdi_errno(unsigned int mcdi_err)
- #define TRANSLATE_ERROR(name)					\
- 	case MC_CMD_ERR_ ## name:				\
- 		return -name;
-+	TRANSLATE_ERROR(EPERM);
- 	TRANSLATE_ERROR(ENOENT);
- 	TRANSLATE_ERROR(EINTR);
-+	TRANSLATE_ERROR(EAGAIN);
- 	TRANSLATE_ERROR(EACCES);
- 	TRANSLATE_ERROR(EBUSY);
- 	TRANSLATE_ERROR(EINVAL);
- 	TRANSLATE_ERROR(EDEADLK);
- 	TRANSLATE_ERROR(ENOSYS);
- 	TRANSLATE_ERROR(ETIME);
-+	TRANSLATE_ERROR(EALREADY);
-+	TRANSLATE_ERROR(ENOSPC);
- #undef TRANSLATE_ERROR
-+	case MC_CMD_ERR_ALLOC_FAIL:
-+		return -ENOBUFS;
-+	case MC_CMD_ERR_MAC_EXIST:
-+		return -EADDRINUSE;
- 	default:
--		return -EIO;
-+		return -EPROTO;
-+	}
-+}
-+
-+static void efx_mcdi_read_response_header(struct efx_nic *efx)
-+{
-+	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
-+	unsigned int respseq, respcmd, error;
-+	efx_dword_t hdr;
-+
-+	efx->type->mcdi_read_response(efx, &hdr, 0, 4);
-+	respseq = EFX_DWORD_FIELD(hdr, MCDI_HEADER_SEQ);
-+	respcmd = EFX_DWORD_FIELD(hdr, MCDI_HEADER_CODE);
-+	error = EFX_DWORD_FIELD(hdr, MCDI_HEADER_ERROR);
-+
-+	if (respcmd != MC_CMD_V2_EXTN) {
-+		mcdi->resp_hdr_len = 4;
-+		mcdi->resp_data_len = EFX_DWORD_FIELD(hdr, MCDI_HEADER_DATALEN);
-+	} else {
-+		efx->type->mcdi_read_response(efx, &hdr, 4, 4);
-+		mcdi->resp_hdr_len = 8;
-+		mcdi->resp_data_len =
-+			EFX_DWORD_FIELD(hdr, MC_CMD_V2_EXTN_IN_ACTUAL_LEN);
-+	}
-+
-+	if (error && mcdi->resp_data_len == 0) {
-+		netif_err(efx, hw, efx->net_dev, "MC rebooted\n");
-+		mcdi->resprc = -EIO;
-+	} else if ((respseq ^ mcdi->seqno) & SEQ_MASK) {
-+		netif_err(efx, hw, efx->net_dev,
-+			  "MC response mismatch tx seq 0x%x rx seq 0x%x\n",
-+			  respseq, mcdi->seqno);
-+		mcdi->resprc = -EIO;
-+	} else if (error) {
-+		efx->type->mcdi_read_response(efx, &hdr, mcdi->resp_hdr_len, 4);
-+		mcdi->resprc =
-+			efx_mcdi_errno(EFX_DWORD_FIELD(hdr, EFX_DWORD_0));
-+	} else {
-+		mcdi->resprc = 0;
- 	}
- }
- 
-@@ -131,15 +194,17 @@ static int efx_mcdi_poll(struct efx_nic *efx)
  {
- 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
- 	unsigned long time, finish;
--	unsigned int respseq, respcmd, error;
- 	unsigned int spins;
--	efx_dword_t reg;
- 	int rc;
- 
+ 	switch (mcdi_err) {
+@@ -200,9 +190,11 @@ static int efx_mcdi_poll(struct efx_nic *efx)
  	/* Check for a reboot atomically with respect to efx_mcdi_copyout() */
  	rc = efx_mcdi_poll_reboot(efx);
--	if (rc)
--		goto out;
-+	if (rc) {
-+		mcdi->resprc = rc;
-+		mcdi->resp_hdr_len = 0;
-+		mcdi->resp_data_len = 0;
-+		return 0;
-+	}
+ 	if (rc) {
++		spin_lock_bh(&mcdi->iface_lock);
+ 		mcdi->resprc = rc;
+ 		mcdi->resp_hdr_len = 0;
+ 		mcdi->resp_data_len = 0;
++		spin_unlock_bh(&mcdi->iface_lock);
+ 		return 0;
+ 	}
  
- 	/* Poll for completion. Poll quickly (once a us) for the 1st jiffy,
- 	 * because generally mcdi responses are fast. After that, back off
-@@ -166,30 +231,7 @@ static int efx_mcdi_poll(struct efx_nic *efx)
+@@ -231,7 +223,9 @@ static int efx_mcdi_poll(struct efx_nic *efx)
  			return -ETIMEDOUT;
  	}
  
--	efx->type->mcdi_read_response(efx, &reg, 0, 4);
--	mcdi->resplen = EFX_DWORD_FIELD(reg, MCDI_HEADER_DATALEN);
--	respseq = EFX_DWORD_FIELD(reg, MCDI_HEADER_SEQ);
--	respcmd = EFX_DWORD_FIELD(reg, MCDI_HEADER_CODE);
--	error = EFX_DWORD_FIELD(reg, MCDI_HEADER_ERROR);
--
--	if (error && mcdi->resplen == 0) {
--		netif_err(efx, hw, efx->net_dev, "MC rebooted\n");
--		rc = -EIO;
--	} else if ((respseq ^ mcdi->seqno) & SEQ_MASK) {
--		netif_err(efx, hw, efx->net_dev,
--			  "MC response mismatch tx seq 0x%x rx seq 0x%x\n",
--			  respseq, mcdi->seqno);
--		rc = -EIO;
--	} else if (error) {
--		efx->type->mcdi_read_response(efx, &reg, 4, 4);
--		rc = efx_mcdi_errno(EFX_DWORD_FIELD(reg, EFX_DWORD_0));
--	} else
--		rc = 0;
--
--out:
--	mcdi->resprc = rc;
--	if (rc)
--		mcdi->resplen = 0;
-+	efx_mcdi_read_response_header(efx);
++	spin_lock_bh(&mcdi->iface_lock);
+ 	efx_mcdi_read_response_header(efx);
++	spin_unlock_bh(&mcdi->iface_lock);
  
  	/* Return rc=0 like wait_event_timeout() */
  	return 0;
-@@ -293,8 +335,14 @@ static void efx_mcdi_ev_cpl(struct efx_nic *efx, unsigned int seqno,
- 				  "MC response mismatch tx seq 0x%x rx "
- 				  "seq 0x%x\n", seqno, mcdi->seqno);
+@@ -419,7 +413,7 @@ int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
+ 			  "MC command 0x%x inlen %d mode %d timed out\n",
+ 			  cmd, (int)inlen, mcdi->mode);
  	} else {
--		mcdi->resprc = efx_mcdi_errno(mcdi_err);
--		mcdi->resplen = datalen;
-+		if (efx->type->mcdi_max_ver >= 2) {
-+			/* MCDI v2 responses don't fit in an event */
-+			efx_mcdi_read_response_header(efx);
-+		} else {
-+			mcdi->resprc = efx_mcdi_errno(mcdi_err);
-+			mcdi->resp_hdr_len = 4;
-+			mcdi->resp_data_len = datalen;
-+		}
+-		size_t resplen;
++		size_t hdr_len, data_len;
  
- 		wake = true;
- 	}
-@@ -310,16 +358,30 @@ int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd,
- 		 efx_dword_t *outbuf, size_t outlen,
- 		 size_t *outlen_actual)
- {
--	efx_mcdi_rpc_start(efx, cmd, inbuf, inlen);
-+	int rc;
-+
-+	rc = efx_mcdi_rpc_start(efx, cmd, inbuf, inlen);
-+	if (rc)
-+		return rc;
- 	return efx_mcdi_rpc_finish(efx, cmd, inlen,
- 				   outbuf, outlen, outlen_actual);
- }
- 
--void efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd,
--			const efx_dword_t *inbuf, size_t inlen)
-+int efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd,
-+		       const efx_dword_t *inbuf, size_t inlen)
- {
- 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
- 
-+	if (efx->type->mcdi_max_ver < 0 ||
-+	     (efx->type->mcdi_max_ver < 2 &&
-+	      cmd > MC_CMD_CMD_SPACE_ESCAPE_7))
-+		return -EINVAL;
-+
-+	if (inlen > MCDI_CTL_SDU_LEN_MAX_V2 ||
-+	    (efx->type->mcdi_max_ver < 2 &&
-+	     inlen > MCDI_CTL_SDU_LEN_MAX_V1))
-+		return -EMSGSIZE;
-+
- 	efx_mcdi_acquire(mcdi);
- 
- 	/* Serialise with efx_mcdi_ev_cpl() and efx_mcdi_ev_death() */
-@@ -328,6 +390,7 @@ void efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd,
- 	spin_unlock_bh(&mcdi->iface_lock);
- 
- 	efx_mcdi_copyin(efx, cmd, inbuf, inlen);
-+	return 0;
- }
- 
- int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
-@@ -364,14 +427,14 @@ int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
+ 		/* At the very least we need a memory barrier here to ensure
+ 		 * we pick up changes from efx_mcdi_ev_cpl(). Protect against
+@@ -427,16 +421,17 @@ int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
  		 * acquiring the iface_lock. */
  		spin_lock_bh(&mcdi->iface_lock);
  		rc = mcdi->resprc;
--		resplen = mcdi->resplen;
-+		resplen = mcdi->resp_data_len;
+-		resplen = mcdi->resp_data_len;
++		hdr_len = mcdi->resp_hdr_len;
++		data_len = mcdi->resp_data_len;
  		spin_unlock_bh(&mcdi->iface_lock);
  
  		BUG_ON(rc > 0);
  
  		if (rc == 0) {
- 			efx_mcdi_copyout(efx, outbuf,
--					 min(outlen, mcdi->resplen));
-+					 min(outlen, mcdi->resp_data_len));
+-			efx_mcdi_copyout(efx, outbuf,
+-					 min(outlen, mcdi->resp_data_len));
++			efx->type->mcdi_read_response(efx, outbuf, hdr_len,
++						      min(outlen, data_len));
  			if (outlen_actual != NULL)
- 				*outlen_actual = resplen;
+-				*outlen_actual = resplen;
++				*outlen_actual = data_len;
  		} else if (cmd == MC_CMD_REBOOT && rc == -EIO)
-@@ -467,7 +530,8 @@ static void efx_mcdi_ev_death(struct efx_nic *efx, int rc)
- 	if (efx_mcdi_complete(mcdi)) {
- 		if (mcdi->mode == MCDI_MODE_EVENTS) {
- 			mcdi->resprc = rc;
--			mcdi->resplen = 0;
-+			mcdi->resp_hdr_len = 0;
-+			mcdi->resp_data_len = 0;
- 			++mcdi->credits;
- 		}
- 	} else {
-diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
-index 9b536d0..0cb0d5a 100644
---- a/drivers/net/ethernet/sfc/mcdi.h
-+++ b/drivers/net/ethernet/sfc/mcdi.h
-@@ -43,7 +43,8 @@ enum efx_mcdi_mode {
-  * @credits: Number of spurious MCDI completion events allowed before we
-  *	trigger a fatal error. Protected by @lock
-  * @resprc: Response error/success code (Linux numbering)
-- * @resplen: Returned payload length
-+ * @resp_hdr_len: Response header length
-+ * @resp_data_len: Response data (SDU or error) length
-  */
- struct efx_mcdi_iface {
- 	atomic_t state;
-@@ -53,7 +54,8 @@ struct efx_mcdi_iface {
- 	unsigned int credits;
- 	unsigned int seqno;
- 	int resprc;
--	size_t resplen;
-+	size_t resp_hdr_len;
-+	size_t resp_data_len;
- };
- 
- struct efx_mcdi_mon {
-@@ -93,8 +95,8 @@ extern int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd,
- 			efx_dword_t *outbuf, size_t outlen,
- 			size_t *outlen_actual);
- 
--extern void efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd,
--			       const efx_dword_t *inbuf, size_t inlen);
-+extern int efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd,
-+			      const efx_dword_t *inbuf, size_t inlen);
- extern int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
- 			       efx_dword_t *outbuf, size_t outlen,
- 			       size_t *outlen_actual);
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 7283cc1..e1deec4 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -1029,6 +1029,7 @@ static inline unsigned int efx_port_num(struct efx_nic *efx)
-  * @timer_period_max: Maximum period of interrupt timer (in ticks)
-  * @offload_features: net_device feature flags for protocol offload
-  *	features implemented in hardware
-+ * @mcdi_max_ver: Maximum MCDI version supported
-  */
- struct efx_nic_type {
- 	int (*probe)(struct efx_nic *efx);
-@@ -1105,6 +1106,7 @@ struct efx_nic_type {
- 	unsigned int phys_addr_channels;
- 	unsigned int timer_period_max;
- 	netdev_features_t offload_features;
-+	int mcdi_max_ver;
- };
- 
- /**************************************************************************
-diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
-index 59e09e1..b386901 100644
---- a/drivers/net/ethernet/sfc/ptp.c
-+++ b/drivers/net/ethernet/sfc/ptp.c
-@@ -538,8 +538,9 @@ static int efx_ptp_synchronize(struct efx_nic *efx, unsigned int num_readings)
- 
- 	/* Clear flag that signals MC ready */
- 	ACCESS_ONCE(*start) = 0;
--	efx_mcdi_rpc_start(efx, MC_CMD_PTP, synch_buf,
--			   MC_CMD_PTP_IN_SYNCHRONIZE_LEN);
-+	rc = efx_mcdi_rpc_start(efx, MC_CMD_PTP, synch_buf,
-+				MC_CMD_PTP_IN_SYNCHRONIZE_LEN);
-+	EFX_BUG_ON_PARANOID(rc);
- 
- 	/* Wait for start from MCDI (or timeout) */
- 	timeout = jiffies + msecs_to_jiffies(MAX_SYNCHRONISE_WAIT_MS);
-diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
-index 6a833d5..fee0d2d 100644
---- a/drivers/net/ethernet/sfc/siena.c
-+++ b/drivers/net/ethernet/sfc/siena.c
-@@ -747,4 +747,5 @@ const struct efx_nic_type siena_a0_nic_type = {
- 	.timer_period_max = 1 << FRF_CZ_TC_TIMER_VAL_WIDTH,
- 	.offload_features = (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 			     NETIF_F_RXHASH | NETIF_F_NTUPLE),
-+	.mcdi_max_ver = 1,
- };
+ 			; /* Don't reset if MC_CMD_REBOOT returns EIO */
+ 		else if (rc == -EIO || rc == -EINTR) {
 
 
 -- 
