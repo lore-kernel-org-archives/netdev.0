@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 09/32] sfc: Introduce and use
- MCDI_CTL_SDU_LEN_MAX_V1 macro for Siena-specific code
-Date: Thu, 22 Aug 2013 13:48:49 +0100
-Message-ID: <1377175729.1703.14.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 10/32] sfc: Use proper macros to declare and access
+ MCDI arrays
+Date: Thu, 22 Aug 2013 13:49:23 +0100
+Message-ID: <1377175763.1703.15.camel@bwh-desktop.uk.level5networks.com>
 References: <1377175392.1703.5.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,66 +10,465 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:13778 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:13824 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752601Ab3HVMsw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 08:48:52 -0400
+	with ESMTP id S1753264Ab3HVMt0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 08:49:26 -0400
 In-Reply-To: <1377175392.1703.5.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The MCDI version 2 protocol supports larger payloads, but will
-not be implemented on Siena.
+A few functions are using heap buffers; change them to use stack
+buffers as we really don't need to resort to the heap for a 252
+byte buffer in process context.
+
+MC_CMD_MEMCPY is quite weird in that it can use inline data placed in
+the request buffer after the array of records.  Thus there are two
+variable-length arrays and we can't use the normal accessors for
+the second.  So we have to use _MCDI_PTR() in efx_sriov_memcpy().
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/mcdi_pcol.h   | 4 +++-
- drivers/net/ethernet/sfc/siena_sriov.c | 7 ++++---
- 2 files changed, 7 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/sfc/mcdi.c        | 61 ++++++++++++++++------------------
+ drivers/net/ethernet/sfc/mcdi.h        |  3 --
+ drivers/net/ethernet/sfc/mcdi_mac.c    |  2 +-
+ drivers/net/ethernet/sfc/mcdi_phy.c    | 25 ++++++--------
+ drivers/net/ethernet/sfc/ptp.c         | 35 ++++++++++---------
+ drivers/net/ethernet/sfc/siena_sriov.c | 53 ++++++++++++++---------------
+ 6 files changed, 85 insertions(+), 94 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/mcdi_pcol.h b/drivers/net/ethernet/sfc/mcdi_pcol.h
-index c5c9747..5f2846c 100644
---- a/drivers/net/ethernet/sfc/mcdi_pcol.h
-+++ b/drivers/net/ethernet/sfc/mcdi_pcol.h
-@@ -100,7 +100,9 @@
- #define MCDI_HEADER_XFLAGS_EVREQ 0x01
+diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
+index d65b562..d6d1ff1 100644
+--- a/drivers/net/ethernet/sfc/mcdi.c
++++ b/drivers/net/ethernet/sfc/mcdi.c
+@@ -668,7 +668,7 @@ int efx_mcdi_get_board_cfg(struct efx_nic *efx, u8 *mac_address,
+ 			   u16 *fw_subtype_list, u32 *capabilities)
+ {
+ 	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_BOARD_CFG_OUT_LENMAX);
+-	size_t outlen, offset, i;
++	size_t outlen, i;
+ 	int port_num = efx_port_num(efx);
+ 	int rc;
  
- /* Maximum number of payload bytes */
--#define MCDI_CTL_SDU_LEN_MAX 0xfc
-+#define MCDI_CTL_SDU_LEN_MAX_V1 0xfc
-+
-+#define MCDI_CTL_SDU_LEN_MAX MCDI_CTL_SDU_LEN_MAX_V1
+@@ -684,22 +684,21 @@ int efx_mcdi_get_board_cfg(struct efx_nic *efx, u8 *mac_address,
+ 		goto fail;
+ 	}
  
- /* The MC can generate events for two reasons:
-  *   - To complete a shared memory request if XFLAGS_EVREQ was set
+-	offset = (port_num)
+-		? MC_CMD_GET_BOARD_CFG_OUT_MAC_ADDR_BASE_PORT1_OFST
+-		: MC_CMD_GET_BOARD_CFG_OUT_MAC_ADDR_BASE_PORT0_OFST;
+ 	if (mac_address)
+-		memcpy(mac_address, outbuf + offset, ETH_ALEN);
++		memcpy(mac_address,
++		       port_num ?
++		       MCDI_PTR(outbuf, GET_BOARD_CFG_OUT_MAC_ADDR_BASE_PORT1) :
++		       MCDI_PTR(outbuf, GET_BOARD_CFG_OUT_MAC_ADDR_BASE_PORT0),
++		       ETH_ALEN);
+ 	if (fw_subtype_list) {
+-		/* Byte-swap and truncate or zero-pad as necessary */
+-		offset = MC_CMD_GET_BOARD_CFG_OUT_FW_SUBTYPE_LIST_OFST;
+ 		for (i = 0;
+-		     i < MC_CMD_GET_BOARD_CFG_OUT_FW_SUBTYPE_LIST_MAXNUM;
+-		     i++) {
+-			fw_subtype_list[i] =
+-				(offset + 2 <= outlen) ?
+-				le16_to_cpup((__le16 *)(outbuf + offset)) : 0;
+-			offset += 2;
+-		}
++		     i < MCDI_VAR_ARRAY_LEN(outlen,
++					    GET_BOARD_CFG_OUT_FW_SUBTYPE_LIST);
++		     i++)
++			fw_subtype_list[i] = MCDI_ARRAY_WORD(
++				outbuf, GET_BOARD_CFG_OUT_FW_SUBTYPE_LIST, i);
++		for (; i < MC_CMD_GET_BOARD_CFG_OUT_FW_SUBTYPE_LIST_MAXNUM; i++)
++			fw_subtype_list[i] = 0;
+ 	}
+ 	if (capabilities) {
+ 		if (port_num)
+@@ -980,7 +979,7 @@ static int efx_mcdi_read_assertion(struct efx_nic *efx)
+ {
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_GET_ASSERTS_IN_LEN);
+ 	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_ASSERTS_OUT_LEN);
+-	unsigned int flags, index, ofst;
++	unsigned int flags, index;
+ 	const char *reason;
+ 	size_t outlen;
+ 	int retry;
+@@ -1022,12 +1021,13 @@ static int efx_mcdi_read_assertion(struct efx_nic *efx)
+ 		  MCDI_DWORD(outbuf, GET_ASSERTS_OUT_THREAD_OFFS));
+ 
+ 	/* Print out the registers */
+-	ofst = MC_CMD_GET_ASSERTS_OUT_GP_REGS_OFFS_OFST;
+-	for (index = 1; index < 32; index++) {
+-		netif_err(efx, hw, efx->net_dev, "R%.2d (?): 0x%.8x\n", index,
+-			MCDI_DWORD2(outbuf, ofst));
+-		ofst += sizeof(efx_dword_t);
+-	}
++	for (index = 0;
++	     index < MC_CMD_GET_ASSERTS_OUT_GP_REGS_OFFS_NUM;
++	     index++)
++		netif_err(efx, hw, efx->net_dev, "R%.2d (?): 0x%.8x\n",
++			  1 + index,
++			  MCDI_ARRAY_DWORD(outbuf, GET_ASSERTS_OUT_GP_REGS_OFFS,
++					   index));
+ 
+ 	return 0;
+ }
+@@ -1201,34 +1201,31 @@ int efx_mcdi_flush_rxqs(struct efx_nic *efx)
+ {
+ 	struct efx_channel *channel;
+ 	struct efx_rx_queue *rx_queue;
+-	__le32 *qid;
++	MCDI_DECLARE_BUF(inbuf,
++			 MC_CMD_FLUSH_RX_QUEUES_IN_LEN(EFX_MAX_CHANNELS));
+ 	int rc, count;
+ 
+ 	BUILD_BUG_ON(EFX_MAX_CHANNELS >
+ 		     MC_CMD_FLUSH_RX_QUEUES_IN_QID_OFST_MAXNUM);
+ 
+-	qid = kmalloc(EFX_MAX_CHANNELS * sizeof(*qid), GFP_KERNEL);
+-	if (qid == NULL)
+-		return -ENOMEM;
+-
+ 	count = 0;
+ 	efx_for_each_channel(channel, efx) {
+ 		efx_for_each_channel_rx_queue(rx_queue, channel) {
+ 			if (rx_queue->flush_pending) {
+ 				rx_queue->flush_pending = false;
+ 				atomic_dec(&efx->rxq_flush_pending);
+-				qid[count++] = cpu_to_le32(
+-					efx_rx_queue_index(rx_queue));
++				MCDI_SET_ARRAY_DWORD(
++					inbuf, FLUSH_RX_QUEUES_IN_QID_OFST,
++					count, efx_rx_queue_index(rx_queue));
++				count++;
+ 			}
+ 		}
+ 	}
+ 
+-	rc = efx_mcdi_rpc(efx, MC_CMD_FLUSH_RX_QUEUES, (u8 *)qid,
+-			  count * sizeof(*qid), NULL, 0, NULL);
++	rc = efx_mcdi_rpc(efx, MC_CMD_FLUSH_RX_QUEUES, inbuf,
++			  MC_CMD_FLUSH_RX_QUEUES_IN_LEN(count), NULL, 0, NULL);
+ 	WARN_ON(rc < 0);
+ 
+-	kfree(qid);
+-
+ 	return rc;
+ }
+ 
+diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
+index 969ecc0..f8ab64f 100644
+--- a/drivers/net/ethernet/sfc/mcdi.h
++++ b/drivers/net/ethernet/sfc/mcdi.h
+@@ -94,9 +94,6 @@ extern void efx_mcdi_sensor_event(struct efx_nic *efx, efx_qword_t *ev);
+ #define _MCDI_DWORD(_buf, _field)					\
+ 	((efx_dword_t *)MCDI_PTR(_buf, _field))
+ 
+-#define MCDI_DWORD2(_buf, _ofst)                                       \
+-	EFX_DWORD_FIELD(*(efx_dword_t *)((u8 *)(_buf) + (_ofst)), EFX_DWORD_0)
+-
+ #define MCDI_SET_DWORD(_buf, _field, _value)				\
+ 	EFX_POPULATE_DWORD_1(*_MCDI_DWORD(_buf, _field), EFX_DWORD_0, _value)
+ #define MCDI_DWORD(_buf, _field)					\
+diff --git a/drivers/net/ethernet/sfc/mcdi_mac.c b/drivers/net/ethernet/sfc/mcdi_mac.c
+index fafdc8e..cf16bf1 100644
+--- a/drivers/net/ethernet/sfc/mcdi_mac.c
++++ b/drivers/net/ethernet/sfc/mcdi_mac.c
+@@ -17,7 +17,7 @@ int efx_mcdi_set_mac(struct efx_nic *efx)
+ 	u32 reject, fcntl;
+ 	MCDI_DECLARE_BUF(cmdbytes, MC_CMD_SET_MAC_IN_LEN);
+ 
+-	memcpy(cmdbytes + MC_CMD_SET_MAC_IN_ADDR_OFST,
++	memcpy(MCDI_PTR(cmdbytes, SET_MAC_IN_ADDR),
+ 	       efx->net_dev->dev_addr, ETH_ALEN);
+ 
+ 	MCDI_SET_DWORD(cmdbytes, SET_MAC_IN_MTU,
+diff --git a/drivers/net/ethernet/sfc/mcdi_phy.c b/drivers/net/ethernet/sfc/mcdi_phy.c
+index 37b6ed9..86c0d21 100644
+--- a/drivers/net/ethernet/sfc/mcdi_phy.c
++++ b/drivers/net/ethernet/sfc/mcdi_phy.c
+@@ -615,17 +615,15 @@ static int efx_mcdi_bist(struct efx_nic *efx, unsigned int bist_mode,
+ 	unsigned int retry, i, count = 0;
+ 	size_t outlen;
+ 	u32 status;
+-	u8 *buf, *ptr;
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_START_BIST_IN_LEN);
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_POLL_BIST_OUT_SFT9001_LEN);
++	u8 *ptr;
+ 	int rc;
+ 
+-	buf = kzalloc(0x100, GFP_KERNEL);
+-	if (buf == NULL)
+-		return -ENOMEM;
+-
+ 	BUILD_BUG_ON(MC_CMD_START_BIST_OUT_LEN != 0);
+-	MCDI_SET_DWORD(buf, START_BIST_IN_TYPE, bist_mode);
+-	rc = efx_mcdi_rpc(efx, MC_CMD_START_BIST, buf, MC_CMD_START_BIST_IN_LEN,
+-			  NULL, 0, NULL);
++	MCDI_SET_DWORD(inbuf, START_BIST_IN_TYPE, bist_mode);
++	rc = efx_mcdi_rpc(efx, MC_CMD_START_BIST,
++			  inbuf, MC_CMD_START_BIST_IN_LEN, NULL, 0, NULL);
+ 	if (rc)
+ 		goto out;
+ 
+@@ -633,11 +631,11 @@ static int efx_mcdi_bist(struct efx_nic *efx, unsigned int bist_mode,
+ 	for (retry = 0; retry < 100; ++retry) {
+ 		BUILD_BUG_ON(MC_CMD_POLL_BIST_IN_LEN != 0);
+ 		rc = efx_mcdi_rpc(efx, MC_CMD_POLL_BIST, NULL, 0,
+-				  buf, 0x100, &outlen);
++				  outbuf, sizeof(outbuf), &outlen);
+ 		if (rc)
+ 			goto out;
+ 
+-		status = MCDI_DWORD(buf, POLL_BIST_OUT_RESULT);
++		status = MCDI_DWORD(outbuf, POLL_BIST_OUT_RESULT);
+ 		if (status != MC_CMD_POLL_BIST_RUNNING)
+ 			goto finished;
+ 
+@@ -654,7 +652,7 @@ finished:
+ 	if (efx->phy_type == PHY_TYPE_SFT9001B &&
+ 	    (bist_mode == MC_CMD_PHY_BIST_CABLE_SHORT ||
+ 	     bist_mode == MC_CMD_PHY_BIST_CABLE_LONG)) {
+-		ptr = MCDI_PTR(buf, POLL_BIST_OUT_SFT9001_CABLE_LENGTH_A);
++		ptr = MCDI_PTR(outbuf, POLL_BIST_OUT_SFT9001_CABLE_LENGTH_A);
+ 		if (status == MC_CMD_POLL_BIST_PASSED &&
+ 		    outlen >= MC_CMD_POLL_BIST_OUT_SFT9001_LEN) {
+ 			for (i = 0; i < 8; i++) {
+@@ -668,8 +666,6 @@ finished:
+ 	rc = count;
+ 
+ out:
+-	kfree(buf);
+-
+ 	return rc;
+ }
+ 
+@@ -785,8 +781,7 @@ static int efx_mcdi_phy_get_module_eeprom(struct efx_nic *efx,
+ 			space_remaining : payload_len;
+ 
+ 		memcpy(user_data,
+-		       outbuf + page_off +
+-		       MC_CMD_GET_PHY_MEDIA_INFO_OUT_DATA_OFST,
++		       MCDI_PTR(outbuf, GET_PHY_MEDIA_INFO_OUT_DATA) + page_off,
+ 		       to_copy);
+ 
+ 		space_remaining -= to_copy;
+diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
+index f79f6fb..ec2cf4d 100644
+--- a/drivers/net/ethernet/sfc/ptp.c
++++ b/drivers/net/ethernet/sfc/ptp.c
+@@ -294,8 +294,7 @@ struct efx_ptp_data {
+ 	struct work_struct pps_work;
+ 	struct workqueue_struct *pps_workwq;
+ 	bool nic_ts_enabled;
+-	u8 txbuf[ALIGN(MC_CMD_PTP_IN_TRANSMIT_LEN(
+-			       MC_CMD_PTP_IN_TRANSMIT_PACKET_MAXNUM), 4)];
++	MCDI_DECLARE_BUF(txbuf, MC_CMD_PTP_IN_TRANSMIT_LENMAX);
+ 	struct efx_ptp_timeset
+ 	timeset[MC_CMD_PTP_OUT_SYNCHRONIZE_TIMESET_MAXNUM];
+ };
+@@ -396,7 +395,8 @@ static void efx_ptp_send_times(struct efx_nic *efx,
+ }
+ 
+ /* Read a timeset from the MC's results and partial process. */
+-static void efx_ptp_read_timeset(u8 *data, struct efx_ptp_timeset *timeset)
++static void efx_ptp_read_timeset(MCDI_DECLARE_STRUCT_PTR(data),
++				 struct efx_ptp_timeset *timeset)
+ {
+ 	unsigned start_ns, end_ns;
+ 
+@@ -425,12 +425,14 @@ static void efx_ptp_read_timeset(u8 *data, struct efx_ptp_timeset *timeset)
+  * busy. A number of readings are taken so that, hopefully, at least one good
+  * synchronisation will be seen in the results.
+  */
+-static int efx_ptp_process_times(struct efx_nic *efx, u8 *synch_buf,
+-				 size_t response_length,
+-				 const struct pps_event_time *last_time)
++static int
++efx_ptp_process_times(struct efx_nic *efx, MCDI_DECLARE_STRUCT_PTR(synch_buf),
++		      size_t response_length,
++		      const struct pps_event_time *last_time)
+ {
+-	unsigned number_readings = (response_length /
+-			       MC_CMD_PTP_OUT_SYNCHRONIZE_TIMESET_LEN);
++	unsigned number_readings =
++		MCDI_VAR_ARRAY_LEN(response_length,
++				   PTP_OUT_SYNCHRONIZE_TIMESET);
+ 	unsigned i;
+ 	unsigned total;
+ 	unsigned ngood = 0;
+@@ -447,8 +449,10 @@ static int efx_ptp_process_times(struct efx_nic *efx, u8 *synch_buf,
+ 	 * appera to be erroneous.
+ 	 */
+ 	for (i = 0; i < number_readings; i++) {
+-		efx_ptp_read_timeset(synch_buf, &ptp->timeset[i]);
+-		synch_buf += MC_CMD_PTP_OUT_SYNCHRONIZE_TIMESET_LEN;
++		efx_ptp_read_timeset(
++			MCDI_ARRAY_STRUCT_PTR(synch_buf,
++					      PTP_OUT_SYNCHRONIZE_TIMESET, i),
++			&ptp->timeset[i]);
+ 	}
+ 
+ 	/* Find the last good host-MC synchronization result. The MC times
+@@ -564,15 +568,15 @@ static int efx_ptp_synchronize(struct efx_nic *efx, unsigned int num_readings)
+ /* Transmit a PTP packet, via the MCDI interface, to the wire. */
+ static int efx_ptp_xmit_skb(struct efx_nic *efx, struct sk_buff *skb)
+ {
+-	u8 *txbuf = efx->ptp_data->txbuf;
++	struct efx_ptp_data *ptp_data = efx->ptp_data;
+ 	struct skb_shared_hwtstamps timestamps;
+ 	int rc = -EIO;
+ 	/* MCDI driver requires word aligned lengths */
+ 	size_t len = ALIGN(MC_CMD_PTP_IN_TRANSMIT_LEN(skb->len), 4);
+ 	MCDI_DECLARE_BUF(txtime, MC_CMD_PTP_OUT_TRANSMIT_LEN);
+ 
+-	MCDI_SET_DWORD(txbuf, PTP_IN_OP, MC_CMD_PTP_OP_TRANSMIT);
+-	MCDI_SET_DWORD(txbuf, PTP_IN_TRANSMIT_LENGTH, skb->len);
++	MCDI_SET_DWORD(ptp_data->txbuf, PTP_IN_OP, MC_CMD_PTP_OP_TRANSMIT);
++	MCDI_SET_DWORD(ptp_data->txbuf, PTP_IN_TRANSMIT_LENGTH, skb->len);
+ 	if (skb_shinfo(skb)->nr_frags != 0) {
+ 		rc = skb_linearize(skb);
+ 		if (rc != 0)
+@@ -585,9 +589,10 @@ static int efx_ptp_xmit_skb(struct efx_nic *efx, struct sk_buff *skb)
+ 			goto fail;
+ 	}
+ 	skb_copy_from_linear_data(skb,
+-				  &txbuf[MC_CMD_PTP_IN_TRANSMIT_PACKET_OFST],
++				  MCDI_PTR(ptp_data->txbuf,
++					   PTP_IN_TRANSMIT_PACKET),
+ 				  len);
+-	rc = efx_mcdi_rpc(efx, MC_CMD_PTP, txbuf, len, txtime,
++	rc = efx_mcdi_rpc(efx, MC_CMD_PTP, ptp_data->txbuf, len, txtime,
+ 			  sizeof(txtime), &len);
+ 	if (rc != 0)
+ 		goto fail;
 diff --git a/drivers/net/ethernet/sfc/siena_sriov.c b/drivers/net/ethernet/sfc/siena_sriov.c
-index 8e46fac..c376e90 100644
+index c376e90..198044f 100644
 --- a/drivers/net/ethernet/sfc/siena_sriov.c
 +++ b/drivers/net/ethernet/sfc/siena_sriov.c
-@@ -248,11 +248,11 @@ static int efx_sriov_memcpy(struct efx_nic *efx, struct efx_memcpy_req *req,
+@@ -240,25 +240,22 @@ static void efx_sriov_usrev(struct efx_nic *efx, bool enabled)
+ static int efx_sriov_memcpy(struct efx_nic *efx, struct efx_memcpy_req *req,
+ 			    unsigned int count)
+ {
+-	u8 *inbuf, *record;
+-	unsigned int used;
++	MCDI_DECLARE_BUF(inbuf, MCDI_CTL_SDU_LEN_MAX_V1);
++	MCDI_DECLARE_STRUCT_PTR(record);
++	unsigned int index, used;
+ 	u32 from_rid, from_hi, from_lo;
+ 	int rc;
+ 
  	mb();	/* Finish writing source/reading dest before DMA starts */
  
- 	used = MC_CMD_MEMCPY_IN_LEN(count);
--	if (WARN_ON(used > MCDI_CTL_SDU_LEN_MAX))
-+	if (WARN_ON(used > MCDI_CTL_SDU_LEN_MAX_V1))
+-	used = MC_CMD_MEMCPY_IN_LEN(count);
+-	if (WARN_ON(used > MCDI_CTL_SDU_LEN_MAX_V1))
++	if (WARN_ON(count > MC_CMD_MEMCPY_IN_RECORD_MAXNUM))
  		return -ENOBUFS;
++	used = MC_CMD_MEMCPY_IN_LEN(count);
  
- 	/* Allocate room for the largest request */
--	inbuf = kzalloc(MCDI_CTL_SDU_LEN_MAX, GFP_KERNEL);
-+	inbuf = kzalloc(MCDI_CTL_SDU_LEN_MAX_V1, GFP_KERNEL);
- 	if (inbuf == NULL)
- 		return -ENOMEM;
+-	/* Allocate room for the largest request */
+-	inbuf = kzalloc(MCDI_CTL_SDU_LEN_MAX_V1, GFP_KERNEL);
+-	if (inbuf == NULL)
+-		return -ENOMEM;
+-
+-	record = inbuf;
+-	MCDI_SET_DWORD(record, MEMCPY_IN_RECORD, count);
+-	while (count-- > 0) {
++	for (index = 0; index < count; index++) {
++		record = MCDI_ARRAY_STRUCT_PTR(inbuf, MEMCPY_IN_RECORD, index);
++		MCDI_SET_DWORD(record, MEMCPY_RECORD_TYPEDEF_NUM_RECORDS,
++			       count);
+ 		MCDI_SET_DWORD(record, MEMCPY_RECORD_TYPEDEF_TO_RID,
+ 			       req->to_rid);
+ 		MCDI_SET_DWORD(record, MEMCPY_RECORD_TYPEDEF_TO_ADDR_LO,
+@@ -279,7 +276,8 @@ static int efx_sriov_memcpy(struct efx_nic *efx, struct efx_memcpy_req *req,
+ 			from_rid = MC_CMD_MEMCPY_RECORD_TYPEDEF_RID_INLINE;
+ 			from_lo = used;
+ 			from_hi = 0;
+-			memcpy(inbuf + used, req->from_buf, req->length);
++			memcpy(_MCDI_PTR(inbuf, used), req->from_buf,
++			       req->length);
+ 			used += req->length;
+ 		}
  
-@@ -270,7 +270,8 @@ static int efx_sriov_memcpy(struct efx_nic *efx, struct efx_memcpy_req *req,
- 			from_lo = (u32)req->from_addr;
- 			from_hi = (u32)(req->from_addr >> 32);
- 		} else {
--			if (WARN_ON(used + req->length > MCDI_CTL_SDU_LEN_MAX)) {
-+			if (WARN_ON(used + req->length >
-+				    MCDI_CTL_SDU_LEN_MAX_V1)) {
- 				rc = -ENOBUFS;
- 				goto out;
+@@ -292,13 +290,10 @@ static int efx_sriov_memcpy(struct efx_nic *efx, struct efx_memcpy_req *req,
+ 			       req->length);
+ 
+ 		++req;
+-		record += MC_CMD_MEMCPY_IN_RECORD_LEN;
+ 	}
+ 
+ 	rc = efx_mcdi_rpc(efx, MC_CMD_MEMCPY, inbuf, used, NULL, 0, NULL);
+ out:
+-	kfree(inbuf);
+-
+ 	mb();	/* Don't write source/read dest before DMA is complete */
+ 
+ 	return rc;
+@@ -685,16 +680,12 @@ static int efx_vfdi_fini_all_queues(struct efx_vf *vf)
+ 	unsigned vf_offset = EFX_VI_BASE + vf->index * efx_vf_size(efx);
+ 	unsigned timeout = HZ;
+ 	unsigned index, rxqs_count;
+-	__le32 *rxqs;
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_FLUSH_RX_QUEUES_IN_LENMAX);
+ 	int rc;
+ 
+ 	BUILD_BUG_ON(VF_MAX_RX_QUEUES >
+ 		     MC_CMD_FLUSH_RX_QUEUES_IN_QID_OFST_MAXNUM);
+ 
+-	rxqs = kmalloc(count * sizeof(*rxqs), GFP_KERNEL);
+-	if (rxqs == NULL)
+-		return VFDI_RC_ENOMEM;
+-
+ 	rtnl_lock();
+ 	siena_prepare_flush(efx);
+ 	rtnl_unlock();
+@@ -709,14 +700,19 @@ static int efx_vfdi_fini_all_queues(struct efx_vf *vf)
+ 					     vf_offset + index);
+ 			efx_writeo(efx, &reg, FR_AZ_TX_FLUSH_DESCQ);
+ 		}
+-		if (test_bit(index, vf->rxq_mask))
+-			rxqs[rxqs_count++] = cpu_to_le32(vf_offset + index);
++		if (test_bit(index, vf->rxq_mask)) {
++			MCDI_SET_ARRAY_DWORD(
++				inbuf, FLUSH_RX_QUEUES_IN_QID_OFST,
++				rxqs_count, vf_offset + index);
++			rxqs_count++;
++		}
+ 	}
+ 
+ 	atomic_set(&vf->rxq_retry_count, 0);
+ 	while (timeout && (vf->rxq_count || vf->txq_count)) {
+-		rc = efx_mcdi_rpc(efx, MC_CMD_FLUSH_RX_QUEUES, (u8 *)rxqs,
+-				  rxqs_count * sizeof(*rxqs), NULL, 0, NULL);
++		rc = efx_mcdi_rpc(efx, MC_CMD_FLUSH_RX_QUEUES, inbuf,
++				  MC_CMD_FLUSH_RX_QUEUES_IN_LEN(rxqs_count),
++				  NULL, 0, NULL);
+ 		WARN_ON(rc < 0);
+ 
+ 		timeout = wait_event_timeout(vf->flush_waitq,
+@@ -726,8 +722,10 @@ static int efx_vfdi_fini_all_queues(struct efx_vf *vf)
+ 		for (index = 0; index < count; ++index) {
+ 			if (test_and_clear_bit(index, vf->rxq_retry_mask)) {
+ 				atomic_dec(&vf->rxq_retry_count);
+-				rxqs[rxqs_count++] =
+-					cpu_to_le32(vf_offset + index);
++				MCDI_SET_ARRAY_DWORD(
++					inbuf, FLUSH_RX_QUEUES_IN_QID_OFST,
++					rxqs_count, vf_offset + index);
++				rxqs_count++;
  			}
+ 		}
+ 	}
+@@ -750,7 +748,6 @@ static int efx_vfdi_fini_all_queues(struct efx_vf *vf)
+ 	}
+ 	efx_sriov_bufs(efx, vf->buftbl_base, NULL,
+ 		       EFX_VF_BUFTBL_PER_VI * efx_vf_size(efx));
+-	kfree(rxqs);
+ 	efx_vfdi_flush_clear(vf);
+ 
+ 	vf->evq0_count = 0;
 
 
 -- 
