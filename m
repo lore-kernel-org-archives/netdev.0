@@ -1,75 +1,108 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Pull request: sfc 2013-08-21
-Date: Thu, 22 Aug 2013 00:52:59 +0100
-Message-ID: <1377129179.634.8.camel@bwh-desktop.uk.level5networks.com>
-References: <1377128568.634.5.camel@bwh-desktop.uk.level5networks.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="=-mBuocwJdooqPyjlAXw/g"
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-net-drivers <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH net-next] tcp: increase throughput when reordering is high
+Date: Wed, 21 Aug 2013 17:29:23 -0700
+Message-ID: <1377131363-31341-1-git-send-email-ycheng@google.com>
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net, ncardwell@google.com, edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:33641 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753309Ab3HUXxH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 19:53:07 -0400
-In-Reply-To: <1377128568.634.5.camel@bwh-desktop.uk.level5networks.com>
+Received: from mail-qa0-f74.google.com ([209.85.216.74]:36355 "EHLO
+	mail-qa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753159Ab3HVA3p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Aug 2013 20:29:45 -0400
+Received: by mail-qa0-f74.google.com with SMTP id hu14so165689qab.3
+        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 17:29:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=-mBuocwJdooqPyjlAXw/g
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+The stack currently detects reordering and avoid spurious
+retransmission very well. However the throughput is sub-optimal under
+high reordering because cwnd is increased only if the data is deliverd
+in order. I.e., FLAG_DATA_ACKED check in tcp_ack().  The more packet
+are reordered the worse the throughput is.
 
-[Re-sending with the proper cc's and a signature.]
+Therefore when reordering is proven high, cwnd should advance whenever
+the data is delivered regardless of its ordering. If reordering is low,
+conservatively advance cwnd only on ordered deliveries in Open state,
+and retain cwnd in Disordered state (RFC5681).
 
-The following changes since commit 0f7dd1aa8f959216f1faa71513b9d3c1a9065e5a=
-:
+Using netperf on a qdisc setup of 20Mbps BW and random RTT from 45ms
+to 55ms (for reordering effect). This change increases TCP throughput
+by 20 - 25% to near bottleneck BW.
 
-  Merge tag 'clk-fixes-for-linus' of git://git.linaro.org/people/mturquette=
-/linux (2013-08-16 10:00:18 -0700)
+A special case is the stretched ACK with new SACK and/or ECE mark.
+For example, a receiver may receive an out of order or ECN packet with
+unacked data buffered because of LRO or delayed ACK. The principle on
+such an ACK is to advance cwnd on the cummulative acked part first,
+then reduce cwnd in tcp_fastretrans_alert().
 
-are available in the git repository at:
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+---
+ net/ipv4/tcp_input.c | 32 ++++++++++++++++++++------------
+ 1 file changed, 20 insertions(+), 12 deletions(-)
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc.git sfc-3.11
-
-for you to fetch changes up to f3851b0acc5a75bd33c6d344a2e4f920e1622ff0:
-
-  sfc: Fix lookup of default RX MAC filters when steered using ethtool (201=
-3-08-21 14:18:12 +0100)
-
-Just a single fix for 3.11 (and 3.10-stable).
-
-Ben.
-
-----------------------------------------------------------------
-Ben Hutchings (1):
-      sfc: Fix lookup of default RX MAC filters when steered using ethtool
-
- drivers/net/ethernet/sfc/filter.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
---=-mBuocwJdooqPyjlAXw/g
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-
-iQEcBAABCAAGBQJSFVLbAAoJEGkILBsOca60Hf8H/jcAS1JHvFs+dxhzPFcySexd
-R7iX1pTz0cK3Y17DIq3yoh5uZQIm65Kez++ojNIJOtYLqoMmK3SMt4IUISDC1L/z
-Owa/b0h60A22n05FoirQeaoIr7X842h8DKHVuXAiM2HUpttHNIhCD1lLrurTglj3
-kSMaB8eWfXxI1oMZJ+6YLWvAFmXWObCPbKBotwL4MPLEsAjOXWFlMGhSUTcHkOuP
-xKH3nJljSORAIBjk4nInCQES582rPcOorS3Q+ptmOj0qPEZI9mOq/02LTt1CPvHq
-wG4BL07Gz4gTmBwZOprnCGdbQVeaRoYPz5xfX+7XDHCs1PymxCW+Xt2bWKueAgY=
-=IBNb
------END PGP SIGNATURE-----
-
---=-mBuocwJdooqPyjlAXw/g--
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index e965cc7..ec492ea 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2485,8 +2485,6 @@ static void tcp_try_to_open(struct sock *sk, int flag, const int prior_unsacked)
+ 
+ 	if (inet_csk(sk)->icsk_ca_state != TCP_CA_CWR) {
+ 		tcp_try_keep_open(sk);
+-		if (inet_csk(sk)->icsk_ca_state != TCP_CA_Open)
+-			tcp_moderate_cwnd(tp);
+ 	} else {
+ 		tcp_cwnd_reduction(sk, prior_unsacked, 0);
+ 	}
+@@ -3128,11 +3126,24 @@ static inline bool tcp_ack_is_dubious(const struct sock *sk, const int flag)
+ 		inet_csk(sk)->icsk_ca_state != TCP_CA_Open;
+ }
+ 
++/* Decide wheather to run the increase function of congestion control. */
+ static inline bool tcp_may_raise_cwnd(const struct sock *sk, const int flag)
+ {
+-	const struct tcp_sock *tp = tcp_sk(sk);
+-	return (!(flag & FLAG_ECE) || tp->snd_cwnd < tp->snd_ssthresh) &&
+-		!tcp_in_cwnd_reduction(sk);
++	if (tcp_in_cwnd_reduction(sk))
++		return false;
++
++	/* If reordering is high then always grow cwnd whenever data is
++	 * delivered regardless of its ordering. Otherwise stay conservative
++	 * and only grow cwnd on in-order delivery in Open state, and retain
++	 * cwnd in Disordered state (RFC5681). A stretched ACK with
++	 * new SACK or ECE mark may first advance cwnd here and later reduce
++	 * cwnd in tcp_fastretrans_alert() based on more states.
++	 */
++	if (tcp_sk(sk)->reordering > sysctl_tcp_reordering)
++		return flag & FLAG_FORWARD_PROGRESS;
++
++	return inet_csk(sk)->icsk_ca_state == TCP_CA_Open &&
++	       flag & FLAG_DATA_ACKED;
+ }
+ 
+ /* Check that window update is acceptable.
+@@ -3352,18 +3363,15 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 	flag |= tcp_clean_rtx_queue(sk, prior_fackets, prior_snd_una, sack_rtt);
+ 	acked -= tp->packets_out;
+ 
++	/* Advance cwnd if state allows */
++	if (tcp_may_raise_cwnd(sk, flag))
++		tcp_cong_avoid(sk, ack, prior_in_flight);
++
+ 	if (tcp_ack_is_dubious(sk, flag)) {
+-		/* Advance CWND, if state allows this. */
+-		if ((flag & FLAG_DATA_ACKED) && tcp_may_raise_cwnd(sk, flag))
+-			tcp_cong_avoid(sk, ack, prior_in_flight);
+ 		is_dupack = !(flag & (FLAG_SND_UNA_ADVANCED | FLAG_NOT_DUP));
+ 		tcp_fastretrans_alert(sk, acked, prior_unsacked,
+ 				      is_dupack, flag);
+-	} else {
+-		if (flag & FLAG_DATA_ACKED)
+-			tcp_cong_avoid(sk, ack, prior_in_flight);
+ 	}
+-
+ 	if (tp->tlp_high_seq)
+ 		tcp_process_tlp_ack(sk, ack, flag);
+ 
+-- 
+1.8.3
