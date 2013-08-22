@@ -1,88 +1,56 @@
-From: Dinh Nguyen <dinguyen@altera.com>
-Subject: Re: [RFC] phy: micrel: Convert micrel PHY driver to use OF
-Date: Thu, 22 Aug 2013 10:30:08 -0500
-Message-ID: <1377185408.30624.13.camel@linux-builds1>
-References: <1376412156-3899-1-git-send-email-dinguyen@altera.com>
-	 <20130822051347.GD5151@quad.lixom.net>
-	 <20130822063448.GS31036@pengutronix.de>
+From: boris brezillon <b.brezillon@overkiz.com>
+Subject: Re: [RFC PATCH] phylib: mdio: handle register/unregister/register
+ sequence
+Date: Thu, 22 Aug 2013 17:38:30 +0200
+Message-ID: <52163076.2010501@overkiz.com>
+References: <1377174836-10569-1-git-send-email-b.brezillon@overkiz.com> <20130822152757.GA23163@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Olof Johansson <olof@lixom.net>, <dinh.linux@gmail.com>,
-	<netdev@vger.kernel.org>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	Felipe Balbi <balbi@ti.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Rob Herring <rob.herring@calxeda.com>,
-	<devicetree@vger.kernel.org>
-To: Sascha Hauer <s.hauer@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from co9ehsobe002.messaging.microsoft.com ([207.46.163.25]:36337
-	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753223Ab3HVPaF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 11:30:05 -0400
-In-Reply-To: <20130822063448.GS31036@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Mark Brown <broonie@kernel.org>,
+	Nick Bowler <nbowler@elliptictech.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130822152757.GA23163@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-08-22 at 08:34 +0200, Sascha Hauer wrote:
-> On Wed, Aug 21, 2013 at 10:13:47PM -0700, Olof Johansson wrote:
-> > (adding devicetree@vger.kernel.org)
-> > 
-> > 
-> > On Tue, Aug 13, 2013 at 11:42:36AM -0500, dinguyen@altera.com wrote:
-> > > ---
-> > > Hello,
-> > > 
-> > > I would like to solicit comments on the need to convert the ethernet PHY
-> > > drivers to use OF/device trees? For the platform that I'm interested in,
-> > > SOCFPGA, it is using the stmicro ethernet driver. It has a Micrel PHY
-> > > on the board. The only way that I know of how to change the skew settings
-> > > for the phy is through a board level initialization.
-> > > 
-> > > One of the ARM maintainers suggested that perhaps refactoring the ethernet
-> > > driver to use device tree would be nice. But that would not help me with
-> > > configuring the PHY settings.
-> > > 
-> > > So a little investigation led me to believe that refactoring the /net/phy
-> > > drivers into a device tree implementation would help greatly. I was thinking
-> > > it could be done like the pinctrl or some of the usb/phy driver.
-> > > 
-> > > Since I am only familiar with the ARM SoC space, I want to make sure that
-> > > this idea is right approach. I can start with the micrel PHY driver
-> > > first, as that is the only HW I have access to.
-> > 
-> > Hi,
-> > 
-> > Sorry for the slow reply here.
-> > 
-> > I don't think this is quite the right approach.
-> > 
-> > What you want to do is to make the phy devices register based on device tree
-> > contents, which also means removing the run function, or rather moving it to
-> > a generic run function in the phy subsystem that acts based on device tree
-> > contents instead of a hard-coded per-board run function.
-> > 
-> > It sounds like defining that binding might end up getting complicated.
-> > I suggest you consider recruiting some of the more seasoned devicetree folks on
-> > this endeavor.
-> > 
-> > It's possible that you'll mostly have per-vendor/phy type properties to tune
-> > the various settings, but it's also likely that you will have some generic and
-> > shared (optional) properties such as gpios for resetting, or regulators for
-> > powering, the phy.
-> 
-> This patch recently was merged:
-> 
-> http://patchwork.ozlabs.org/patch/268661/
-> 
-> It solves exactly the same problem of specifying the skew settings.
+On 22/08/2013 17:27, Greg Kroah-Hartman wrote:
+> On Thu, Aug 22, 2013 at 02:33:56PM +0200, Boris BREZILLON wrote:
+>> Hello,
+>>
+>> This patch is a proposal to support the register/unregister/register
+>> sequence on a given mdio bus.
+>>
+>> I use the register/unregister/register sequence to add a fallback when the
+>> of_mdiobus_register (this function calls mdiobus_register with phy_mask
+>> set to ~0) does not register any phy device (because the device tree does
+>> not define any phy).
+>> In this case I call mdiobus_unregister and then call mdiobus_register with
+>> a phy_mask set to 0 to trigger a full mdio bus scan.
+>>
+>> I'm not sure this is the right way to do it (this is why I added RFC in the
+>> subject).
+>>
+>> Could someone help me figuring out what I should use to implement my fallback ?
+>>
+>> 1) use the register/unregister/register sequence
+> That will not work.  Well, you might think it would work, but then
+> things randomly start breaking later on.  Try it with the
+> KOBJECT_DELAYED_DESTROY build option in linux-next, and watch things go
+> "boom" :)
+>
+> The rule is, you should never register a kobject/struct device that you
+> have previously unregistered before, as you really don't know if
+> unregistering has finished or not.
 
-Thanks for the information. This is great stuff!
+Thanks for your answer.
 
-Dinh
-> 
-> Sascha
-> 
+>
+> sorry,
+>
+> greg k-h
