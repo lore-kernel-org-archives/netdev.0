@@ -1,39 +1,41 @@
 From: Andy Lutomirski <luto@amacapital.net>
-Subject: [PATCH 0/2] Rename nsproxy.pid_ns and fix a related security bug
-Date: Thu, 22 Aug 2013 11:39:14 -0700
-Message-ID: <cover.1377196394.git.luto@amacapital.net>
+Subject: [PATCH 1/2] net: Check the correct namespace when spoofing pid over SCM_RIGHTS
+Date: Thu, 22 Aug 2013 11:39:15 -0700
+Message-ID: <ff9dd301d8c91ec02362d52494b4a640f370bc68.1377196394.git.luto@amacapital.net>
+References: <cover.1377196394.git.luto@amacapital.net>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Andy Lutomirski <luto@amacapital.net>
+	Andy Lutomirski <luto@amacapital.net>, stable@vger.kernel.org
 To: "Eric W. Biederman" <ebiederm@xmission.com>, security@kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1377196394.git.luto@amacapital.net>
+In-Reply-To: <cover.1377196394.git.luto@amacapital.net>
+References: <cover.1377196394.git.luto@amacapital.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In:
+This is a security bug.
 
-    commit 92f28d973cce45ef5823209aab3138eb45d8b349
-    Author: Eric W. Biederman <ebiederm@xmission.com>
-    Date:   Fri Mar 15 01:03:33 2013 -0700
+The follow-up will fix nsproxy to discourage this type of issue from
+happening again.
 
-        scm: Require CAP_SYS_ADMIN over the current pidns to spoof pids.
-
-Eric fell for my bogus claim that nsproxy->pid_ns was the current'
-process's pid ns.  This isn't true.
-
-Let's fix the bug and rename pid_ns so that no one gets this wrong again.
-
+Cc: stable@vger.kernel.org
 Signed-off-by: Andy Lutomirski <luto@amacapital.net>
+---
+ net/core/scm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Andy Lutomirski (2):
-  net: Check the correct namespace when spoofing pid over SCM_RIGHTS
-  Rename nsproxy.pid_ns to nsproxy.pid_ns_for_children
-
- include/linux/nsproxy.h |  6 +++++-
- kernel/fork.c           |  5 +++--
- kernel/nsproxy.c        | 27 ++++++++++++++-------------
- kernel/pid_namespace.c  |  4 ++--
- net/core/scm.c          |  2 +-
- 5 files changed, 25 insertions(+), 19 deletions(-)
-
+diff --git a/net/core/scm.c b/net/core/scm.c
+index 03795d0..b4da80b 100644
+--- a/net/core/scm.c
++++ b/net/core/scm.c
+@@ -54,7 +54,7 @@ static __inline__ int scm_check_creds(struct ucred *creds)
+ 		return -EINVAL;
+ 
+ 	if ((creds->pid == task_tgid_vnr(current) ||
+-	     ns_capable(current->nsproxy->pid_ns->user_ns, CAP_SYS_ADMIN)) &&
++	     ns_capable(task_active_pid_ns(current)->user_ns, CAP_SYS_ADMIN)) &&
+ 	    ((uid_eq(uid, cred->uid)   || uid_eq(uid, cred->euid) ||
+ 	      uid_eq(uid, cred->suid)) || nsown_capable(CAP_SETUID)) &&
+ 	    ((gid_eq(gid, cred->gid)   || gid_eq(gid, cred->egid) ||
 -- 
 1.8.3.1
