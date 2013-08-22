@@ -1,8 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 05/32] sfc: Move more Falcon-specific code and
- definitions into falcon.c
-Date: Thu, 22 Aug 2013 13:46:06 +0100
-Message-ID: <1377175566.1703.10.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 06/32] sfc: Introduce and use MCDI_DECLARE_BUF macro
+Date: Thu, 22 Aug 2013 13:46:34 +0100
+Message-ID: <1377175594.1703.11.camel@bwh-desktop.uk.level5networks.com>
 References: <1377175392.1703.5.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,1312 +9,493 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:13513 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:13555 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753194Ab3HVMqJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 08:46:09 -0400
+	with ESMTP id S1753172Ab3HVMqh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 08:46:37 -0400
 In-Reply-To: <1377175392.1703.5.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In particular, fold in the whole of falcon_xmac.c.
-
-Drop some entirely unused definitions.
+MCDI_DECLARE_BUF declares a variable as an MCDI buffer of the
+requested length, adding any necessary padding.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/Makefile      |   2 +-
- drivers/net/ethernet/sfc/falcon.c      | 537 ++++++++++++++++++++++++++++++++-
- drivers/net/ethernet/sfc/falcon_xmac.c | 362 ----------------------
- drivers/net/ethernet/sfc/nic.h         |  43 +--
- drivers/net/ethernet/sfc/regs.h        | 260 ----------------
- 5 files changed, 538 insertions(+), 666 deletions(-)
- delete mode 100644 drivers/net/ethernet/sfc/falcon_xmac.c
+ drivers/net/ethernet/sfc/mcdi.c        | 52 ++++++++++++++++++----------------
+ drivers/net/ethernet/sfc/mcdi.h        |  3 ++
+ drivers/net/ethernet/sfc/mcdi_mac.c    | 17 +++++++----
+ drivers/net/ethernet/sfc/mcdi_mon.c    |  4 +--
+ drivers/net/ethernet/sfc/mcdi_phy.c    | 26 ++++++++---------
+ drivers/net/ethernet/sfc/ptp.c         | 16 +++++------
+ drivers/net/ethernet/sfc/siena_sriov.c |  4 +--
+ 7 files changed, 66 insertions(+), 56 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/Makefile b/drivers/net/ethernet/sfc/Makefile
-index 945bf06..84f9c96 100644
---- a/drivers/net/ethernet/sfc/Makefile
-+++ b/drivers/net/ethernet/sfc/Makefile
-@@ -1,5 +1,5 @@
- sfc-y			+= efx.o nic.o falcon.o siena.o tx.o rx.o filter.o \
--			   falcon_xmac.o mcdi_mac.o \
-+			   mcdi_mac.o \
- 			   selftest.o ethtool.o qt202x_phy.o mdio_10g.o \
- 			   tenxpress.o txc43128_phy.o falcon_boards.o \
- 			   mcdi.o mcdi_phy.o mcdi_mon.o ptp.o
-diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
-index 6b6ac6d..522850036 100644
---- a/drivers/net/ethernet/sfc/falcon.c
-+++ b/drivers/net/ethernet/sfc/falcon.c
-@@ -26,10 +26,200 @@
- #include "phy.h"
- #include "workarounds.h"
- #include "selftest.h"
-+#include "mdio_10g.h"
+diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
+index 97dd8f18..d65b562 100644
+--- a/drivers/net/ethernet/sfc/mcdi.c
++++ b/drivers/net/ethernet/sfc/mcdi.c
+@@ -606,7 +606,7 @@ void efx_mcdi_process_event(struct efx_channel *channel,
  
- /* Hardware control for SFC4000 (aka Falcon). */
- 
-+/**************************************************************************
-+ *
-+ * MAC stats DMA format
-+ *
-+ **************************************************************************
-+ */
-+
-+#define FALCON_MAC_STATS_SIZE 0x100
-+
-+#define XgRxOctets_offset 0x0
-+#define XgRxOctets_WIDTH 48
-+#define XgRxOctetsOK_offset 0x8
-+#define XgRxOctetsOK_WIDTH 48
-+#define XgRxPkts_offset 0x10
-+#define XgRxPkts_WIDTH 32
-+#define XgRxPktsOK_offset 0x14
-+#define XgRxPktsOK_WIDTH 32
-+#define XgRxBroadcastPkts_offset 0x18
-+#define XgRxBroadcastPkts_WIDTH 32
-+#define XgRxMulticastPkts_offset 0x1C
-+#define XgRxMulticastPkts_WIDTH 32
-+#define XgRxUnicastPkts_offset 0x20
-+#define XgRxUnicastPkts_WIDTH 32
-+#define XgRxUndersizePkts_offset 0x24
-+#define XgRxUndersizePkts_WIDTH 32
-+#define XgRxOversizePkts_offset 0x28
-+#define XgRxOversizePkts_WIDTH 32
-+#define XgRxJabberPkts_offset 0x2C
-+#define XgRxJabberPkts_WIDTH 32
-+#define XgRxUndersizeFCSerrorPkts_offset 0x30
-+#define XgRxUndersizeFCSerrorPkts_WIDTH 32
-+#define XgRxDropEvents_offset 0x34
-+#define XgRxDropEvents_WIDTH 32
-+#define XgRxFCSerrorPkts_offset 0x38
-+#define XgRxFCSerrorPkts_WIDTH 32
-+#define XgRxAlignError_offset 0x3C
-+#define XgRxAlignError_WIDTH 32
-+#define XgRxSymbolError_offset 0x40
-+#define XgRxSymbolError_WIDTH 32
-+#define XgRxInternalMACError_offset 0x44
-+#define XgRxInternalMACError_WIDTH 32
-+#define XgRxControlPkts_offset 0x48
-+#define XgRxControlPkts_WIDTH 32
-+#define XgRxPausePkts_offset 0x4C
-+#define XgRxPausePkts_WIDTH 32
-+#define XgRxPkts64Octets_offset 0x50
-+#define XgRxPkts64Octets_WIDTH 32
-+#define XgRxPkts65to127Octets_offset 0x54
-+#define XgRxPkts65to127Octets_WIDTH 32
-+#define XgRxPkts128to255Octets_offset 0x58
-+#define XgRxPkts128to255Octets_WIDTH 32
-+#define XgRxPkts256to511Octets_offset 0x5C
-+#define XgRxPkts256to511Octets_WIDTH 32
-+#define XgRxPkts512to1023Octets_offset 0x60
-+#define XgRxPkts512to1023Octets_WIDTH 32
-+#define XgRxPkts1024to15xxOctets_offset 0x64
-+#define XgRxPkts1024to15xxOctets_WIDTH 32
-+#define XgRxPkts15xxtoMaxOctets_offset 0x68
-+#define XgRxPkts15xxtoMaxOctets_WIDTH 32
-+#define XgRxLengthError_offset 0x6C
-+#define XgRxLengthError_WIDTH 32
-+#define XgTxPkts_offset 0x80
-+#define XgTxPkts_WIDTH 32
-+#define XgTxOctets_offset 0x88
-+#define XgTxOctets_WIDTH 48
-+#define XgTxMulticastPkts_offset 0x90
-+#define XgTxMulticastPkts_WIDTH 32
-+#define XgTxBroadcastPkts_offset 0x94
-+#define XgTxBroadcastPkts_WIDTH 32
-+#define XgTxUnicastPkts_offset 0x98
-+#define XgTxUnicastPkts_WIDTH 32
-+#define XgTxControlPkts_offset 0x9C
-+#define XgTxControlPkts_WIDTH 32
-+#define XgTxPausePkts_offset 0xA0
-+#define XgTxPausePkts_WIDTH 32
-+#define XgTxPkts64Octets_offset 0xA4
-+#define XgTxPkts64Octets_WIDTH 32
-+#define XgTxPkts65to127Octets_offset 0xA8
-+#define XgTxPkts65to127Octets_WIDTH 32
-+#define XgTxPkts128to255Octets_offset 0xAC
-+#define XgTxPkts128to255Octets_WIDTH 32
-+#define XgTxPkts256to511Octets_offset 0xB0
-+#define XgTxPkts256to511Octets_WIDTH 32
-+#define XgTxPkts512to1023Octets_offset 0xB4
-+#define XgTxPkts512to1023Octets_WIDTH 32
-+#define XgTxPkts1024to15xxOctets_offset 0xB8
-+#define XgTxPkts1024to15xxOctets_WIDTH 32
-+#define XgTxPkts1519toMaxOctets_offset 0xBC
-+#define XgTxPkts1519toMaxOctets_WIDTH 32
-+#define XgTxUndersizePkts_offset 0xC0
-+#define XgTxUndersizePkts_WIDTH 32
-+#define XgTxOversizePkts_offset 0xC4
-+#define XgTxOversizePkts_WIDTH 32
-+#define XgTxNonTcpUdpPkt_offset 0xC8
-+#define XgTxNonTcpUdpPkt_WIDTH 16
-+#define XgTxMacSrcErrPkt_offset 0xCC
-+#define XgTxMacSrcErrPkt_WIDTH 16
-+#define XgTxIpSrcErrPkt_offset 0xD0
-+#define XgTxIpSrcErrPkt_WIDTH 16
-+#define XgDmaDone_offset 0xD4
-+#define XgDmaDone_WIDTH 32
-+
-+#define FALCON_STATS_NOT_DONE 0x00000000
-+#define FALCON_STATS_DONE 0xffffffff
-+
-+#define FALCON_STAT_OFFSET(falcon_stat) EFX_VAL(falcon_stat, offset)
-+#define FALCON_STAT_WIDTH(falcon_stat) EFX_VAL(falcon_stat, WIDTH)
-+
-+/* Retrieve statistic from statistics block */
-+#define FALCON_STAT(efx, falcon_stat, efx_stat) do {		\
-+	if (FALCON_STAT_WIDTH(falcon_stat) == 16)		\
-+		(efx)->mac_stats.efx_stat += le16_to_cpu(	\
-+			*((__force __le16 *)				\
-+			  (efx->stats_buffer.addr +		\
-+			   FALCON_STAT_OFFSET(falcon_stat))));	\
-+	else if (FALCON_STAT_WIDTH(falcon_stat) == 32)		\
-+		(efx)->mac_stats.efx_stat += le32_to_cpu(	\
-+			*((__force __le32 *)				\
-+			  (efx->stats_buffer.addr +		\
-+			   FALCON_STAT_OFFSET(falcon_stat))));	\
-+	else							\
-+		(efx)->mac_stats.efx_stat += le64_to_cpu(	\
-+			*((__force __le64 *)				\
-+			  (efx->stats_buffer.addr +		\
-+			   FALCON_STAT_OFFSET(falcon_stat))));	\
-+	} while (0)
-+
-+/**************************************************************************
-+ *
-+ * Non-volatile configuration
-+ *
-+ **************************************************************************
-+ */
-+
-+/* Board configuration v2 (v1 is obsolete; later versions are compatible) */
-+struct falcon_nvconfig_board_v2 {
-+	__le16 nports;
-+	u8 port0_phy_addr;
-+	u8 port0_phy_type;
-+	u8 port1_phy_addr;
-+	u8 port1_phy_type;
-+	__le16 asic_sub_revision;
-+	__le16 board_revision;
-+} __packed;
-+
-+/* Board configuration v3 extra information */
-+struct falcon_nvconfig_board_v3 {
-+	__le32 spi_device_type[2];
-+} __packed;
-+
-+/* Bit numbers for spi_device_type */
-+#define SPI_DEV_TYPE_SIZE_LBN 0
-+#define SPI_DEV_TYPE_SIZE_WIDTH 5
-+#define SPI_DEV_TYPE_ADDR_LEN_LBN 6
-+#define SPI_DEV_TYPE_ADDR_LEN_WIDTH 2
-+#define SPI_DEV_TYPE_ERASE_CMD_LBN 8
-+#define SPI_DEV_TYPE_ERASE_CMD_WIDTH 8
-+#define SPI_DEV_TYPE_ERASE_SIZE_LBN 16
-+#define SPI_DEV_TYPE_ERASE_SIZE_WIDTH 5
-+#define SPI_DEV_TYPE_BLOCK_SIZE_LBN 24
-+#define SPI_DEV_TYPE_BLOCK_SIZE_WIDTH 5
-+#define SPI_DEV_TYPE_FIELD(type, field)					\
-+	(((type) >> EFX_LOW_BIT(field)) & EFX_MASK32(EFX_WIDTH(field)))
-+
-+#define FALCON_NVCONFIG_OFFSET 0x300
-+
-+#define FALCON_NVCONFIG_BOARD_MAGIC_NUM 0xFA1C
-+struct falcon_nvconfig {
-+	efx_oword_t ee_vpd_cfg_reg;			/* 0x300 */
-+	u8 mac_address[2][8];			/* 0x310 */
-+	efx_oword_t pcie_sd_ctl0123_reg;		/* 0x320 */
-+	efx_oword_t pcie_sd_ctl45_reg;			/* 0x330 */
-+	efx_oword_t pcie_pcs_ctl_stat_reg;		/* 0x340 */
-+	efx_oword_t hw_init_reg;			/* 0x350 */
-+	efx_oword_t nic_stat_reg;			/* 0x360 */
-+	efx_oword_t glb_ctl_reg;			/* 0x370 */
-+	efx_oword_t srm_cfg_reg;			/* 0x380 */
-+	efx_oword_t spare_reg;				/* 0x390 */
-+	__le16 board_magic_num;			/* 0x3A0 */
-+	__le16 board_struct_ver;
-+	__le16 board_checksum;
-+	struct falcon_nvconfig_board_v2 board_v2;
-+	efx_oword_t ee_base_page_reg;			/* 0x3B0 */
-+	struct falcon_nvconfig_board_v3 board_v3;	/* 0x3C0 */
-+} __packed;
-+
-+/*************************************************************************/
-+
- static int falcon_reset_hw(struct efx_nic *efx, enum reset_type method);
-+static void falcon_reconfigure_mac_wrapper(struct efx_nic *efx);
- 
- static const unsigned int
- /* "Large" EEPROM device: Atmel AT25640 or similar
-@@ -418,6 +608,351 @@ falcon_spi_write(struct efx_nic *efx, const struct efx_spi_device *spi,
- 
- /**************************************************************************
-  *
-+ * XMAC operations
-+ *
-+ **************************************************************************
-+ */
-+
-+/* Configure the XAUI driver that is an output from Falcon */
-+static void falcon_setup_xaui(struct efx_nic *efx)
-+{
-+	efx_oword_t sdctl, txdrv;
-+
-+	/* Move the XAUI into low power, unless there is no PHY, in
-+	 * which case the XAUI will have to drive a cable. */
-+	if (efx->phy_type == PHY_TYPE_NONE)
-+		return;
-+
-+	efx_reado(efx, &sdctl, FR_AB_XX_SD_CTL);
-+	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_HIDRVD, FFE_AB_XX_SD_CTL_DRV_DEF);
-+	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_LODRVD, FFE_AB_XX_SD_CTL_DRV_DEF);
-+	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_HIDRVC, FFE_AB_XX_SD_CTL_DRV_DEF);
-+	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_LODRVC, FFE_AB_XX_SD_CTL_DRV_DEF);
-+	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_HIDRVB, FFE_AB_XX_SD_CTL_DRV_DEF);
-+	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_LODRVB, FFE_AB_XX_SD_CTL_DRV_DEF);
-+	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_HIDRVA, FFE_AB_XX_SD_CTL_DRV_DEF);
-+	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_LODRVA, FFE_AB_XX_SD_CTL_DRV_DEF);
-+	efx_writeo(efx, &sdctl, FR_AB_XX_SD_CTL);
-+
-+	EFX_POPULATE_OWORD_8(txdrv,
-+			     FRF_AB_XX_DEQD, FFE_AB_XX_TXDRV_DEQ_DEF,
-+			     FRF_AB_XX_DEQC, FFE_AB_XX_TXDRV_DEQ_DEF,
-+			     FRF_AB_XX_DEQB, FFE_AB_XX_TXDRV_DEQ_DEF,
-+			     FRF_AB_XX_DEQA, FFE_AB_XX_TXDRV_DEQ_DEF,
-+			     FRF_AB_XX_DTXD, FFE_AB_XX_TXDRV_DTX_DEF,
-+			     FRF_AB_XX_DTXC, FFE_AB_XX_TXDRV_DTX_DEF,
-+			     FRF_AB_XX_DTXB, FFE_AB_XX_TXDRV_DTX_DEF,
-+			     FRF_AB_XX_DTXA, FFE_AB_XX_TXDRV_DTX_DEF);
-+	efx_writeo(efx, &txdrv, FR_AB_XX_TXDRV_CTL);
-+}
-+
-+int falcon_reset_xaui(struct efx_nic *efx)
-+{
-+	struct falcon_nic_data *nic_data = efx->nic_data;
-+	efx_oword_t reg;
-+	int count;
-+
-+	/* Don't fetch MAC statistics over an XMAC reset */
-+	WARN_ON(nic_data->stats_disable_count == 0);
-+
-+	/* Start reset sequence */
-+	EFX_POPULATE_OWORD_1(reg, FRF_AB_XX_RST_XX_EN, 1);
-+	efx_writeo(efx, &reg, FR_AB_XX_PWR_RST);
-+
-+	/* Wait up to 10 ms for completion, then reinitialise */
-+	for (count = 0; count < 1000; count++) {
-+		efx_reado(efx, &reg, FR_AB_XX_PWR_RST);
-+		if (EFX_OWORD_FIELD(reg, FRF_AB_XX_RST_XX_EN) == 0 &&
-+		    EFX_OWORD_FIELD(reg, FRF_AB_XX_SD_RST_ACT) == 0) {
-+			falcon_setup_xaui(efx);
-+			return 0;
-+		}
-+		udelay(10);
-+	}
-+	netif_err(efx, hw, efx->net_dev,
-+		  "timed out waiting for XAUI/XGXS reset\n");
-+	return -ETIMEDOUT;
-+}
-+
-+static void falcon_ack_status_intr(struct efx_nic *efx)
-+{
-+	struct falcon_nic_data *nic_data = efx->nic_data;
-+	efx_oword_t reg;
-+
-+	if ((efx_nic_rev(efx) != EFX_REV_FALCON_B0) || LOOPBACK_INTERNAL(efx))
-+		return;
-+
-+	/* We expect xgmii faults if the wireside link is down */
-+	if (!EFX_WORKAROUND_5147(efx) || !efx->link_state.up)
-+		return;
-+
-+	/* We can only use this interrupt to signal the negative edge of
-+	 * xaui_align [we have to poll the positive edge]. */
-+	if (nic_data->xmac_poll_required)
-+		return;
-+
-+	efx_reado(efx, &reg, FR_AB_XM_MGT_INT_MSK);
-+}
-+
-+static bool falcon_xgxs_link_ok(struct efx_nic *efx)
-+{
-+	efx_oword_t reg;
-+	bool align_done, link_ok = false;
-+	int sync_status;
-+
-+	/* Read link status */
-+	efx_reado(efx, &reg, FR_AB_XX_CORE_STAT);
-+
-+	align_done = EFX_OWORD_FIELD(reg, FRF_AB_XX_ALIGN_DONE);
-+	sync_status = EFX_OWORD_FIELD(reg, FRF_AB_XX_SYNC_STAT);
-+	if (align_done && (sync_status == FFE_AB_XX_STAT_ALL_LANES))
-+		link_ok = true;
-+
-+	/* Clear link status ready for next read */
-+	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_COMMA_DET, FFE_AB_XX_STAT_ALL_LANES);
-+	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_CHAR_ERR, FFE_AB_XX_STAT_ALL_LANES);
-+	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_DISPERR, FFE_AB_XX_STAT_ALL_LANES);
-+	efx_writeo(efx, &reg, FR_AB_XX_CORE_STAT);
-+
-+	return link_ok;
-+}
-+
-+static bool falcon_xmac_link_ok(struct efx_nic *efx)
-+{
-+	/*
-+	 * Check MAC's XGXS link status except when using XGMII loopback
-+	 * which bypasses the XGXS block.
-+	 * If possible, check PHY's XGXS link status except when using
-+	 * MAC loopback.
-+	 */
-+	return (efx->loopback_mode == LOOPBACK_XGMII ||
-+		falcon_xgxs_link_ok(efx)) &&
-+		(!(efx->mdio.mmds & (1 << MDIO_MMD_PHYXS)) ||
-+		 LOOPBACK_INTERNAL(efx) ||
-+		 efx_mdio_phyxgxs_lane_sync(efx));
-+}
-+
-+static void falcon_reconfigure_xmac_core(struct efx_nic *efx)
-+{
-+	unsigned int max_frame_len;
-+	efx_oword_t reg;
-+	bool rx_fc = !!(efx->link_state.fc & EFX_FC_RX);
-+	bool tx_fc = !!(efx->link_state.fc & EFX_FC_TX);
-+
-+	/* Configure MAC  - cut-thru mode is hard wired on */
-+	EFX_POPULATE_OWORD_3(reg,
-+			     FRF_AB_XM_RX_JUMBO_MODE, 1,
-+			     FRF_AB_XM_TX_STAT_EN, 1,
-+			     FRF_AB_XM_RX_STAT_EN, 1);
-+	efx_writeo(efx, &reg, FR_AB_XM_GLB_CFG);
-+
-+	/* Configure TX */
-+	EFX_POPULATE_OWORD_6(reg,
-+			     FRF_AB_XM_TXEN, 1,
-+			     FRF_AB_XM_TX_PRMBL, 1,
-+			     FRF_AB_XM_AUTO_PAD, 1,
-+			     FRF_AB_XM_TXCRC, 1,
-+			     FRF_AB_XM_FCNTL, tx_fc,
-+			     FRF_AB_XM_IPG, 0x3);
-+	efx_writeo(efx, &reg, FR_AB_XM_TX_CFG);
-+
-+	/* Configure RX */
-+	EFX_POPULATE_OWORD_5(reg,
-+			     FRF_AB_XM_RXEN, 1,
-+			     FRF_AB_XM_AUTO_DEPAD, 0,
-+			     FRF_AB_XM_ACPT_ALL_MCAST, 1,
-+			     FRF_AB_XM_ACPT_ALL_UCAST, efx->promiscuous,
-+			     FRF_AB_XM_PASS_CRC_ERR, 1);
-+	efx_writeo(efx, &reg, FR_AB_XM_RX_CFG);
-+
-+	/* Set frame length */
-+	max_frame_len = EFX_MAX_FRAME_LEN(efx->net_dev->mtu);
-+	EFX_POPULATE_OWORD_1(reg, FRF_AB_XM_MAX_RX_FRM_SIZE, max_frame_len);
-+	efx_writeo(efx, &reg, FR_AB_XM_RX_PARAM);
-+	EFX_POPULATE_OWORD_2(reg,
-+			     FRF_AB_XM_MAX_TX_FRM_SIZE, max_frame_len,
-+			     FRF_AB_XM_TX_JUMBO_MODE, 1);
-+	efx_writeo(efx, &reg, FR_AB_XM_TX_PARAM);
-+
-+	EFX_POPULATE_OWORD_2(reg,
-+			     FRF_AB_XM_PAUSE_TIME, 0xfffe, /* MAX PAUSE TIME */
-+			     FRF_AB_XM_DIS_FCNTL, !rx_fc);
-+	efx_writeo(efx, &reg, FR_AB_XM_FC);
-+
-+	/* Set MAC address */
-+	memcpy(&reg, &efx->net_dev->dev_addr[0], 4);
-+	efx_writeo(efx, &reg, FR_AB_XM_ADR_LO);
-+	memcpy(&reg, &efx->net_dev->dev_addr[4], 2);
-+	efx_writeo(efx, &reg, FR_AB_XM_ADR_HI);
-+}
-+
-+static void falcon_reconfigure_xgxs_core(struct efx_nic *efx)
-+{
-+	efx_oword_t reg;
-+	bool xgxs_loopback = (efx->loopback_mode == LOOPBACK_XGXS);
-+	bool xaui_loopback = (efx->loopback_mode == LOOPBACK_XAUI);
-+	bool xgmii_loopback = (efx->loopback_mode == LOOPBACK_XGMII);
-+
-+	/* XGXS block is flaky and will need to be reset if moving
-+	 * into our out of XGMII, XGXS or XAUI loopbacks. */
-+	if (EFX_WORKAROUND_5147(efx)) {
-+		bool old_xgmii_loopback, old_xgxs_loopback, old_xaui_loopback;
-+		bool reset_xgxs;
-+
-+		efx_reado(efx, &reg, FR_AB_XX_CORE_STAT);
-+		old_xgxs_loopback = EFX_OWORD_FIELD(reg, FRF_AB_XX_XGXS_LB_EN);
-+		old_xgmii_loopback =
-+			EFX_OWORD_FIELD(reg, FRF_AB_XX_XGMII_LB_EN);
-+
-+		efx_reado(efx, &reg, FR_AB_XX_SD_CTL);
-+		old_xaui_loopback = EFX_OWORD_FIELD(reg, FRF_AB_XX_LPBKA);
-+
-+		/* The PHY driver may have turned XAUI off */
-+		reset_xgxs = ((xgxs_loopback != old_xgxs_loopback) ||
-+			      (xaui_loopback != old_xaui_loopback) ||
-+			      (xgmii_loopback != old_xgmii_loopback));
-+
-+		if (reset_xgxs)
-+			falcon_reset_xaui(efx);
-+	}
-+
-+	efx_reado(efx, &reg, FR_AB_XX_CORE_STAT);
-+	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_FORCE_SIG,
-+			    (xgxs_loopback || xaui_loopback) ?
-+			    FFE_AB_XX_FORCE_SIG_ALL_LANES : 0);
-+	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_XGXS_LB_EN, xgxs_loopback);
-+	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_XGMII_LB_EN, xgmii_loopback);
-+	efx_writeo(efx, &reg, FR_AB_XX_CORE_STAT);
-+
-+	efx_reado(efx, &reg, FR_AB_XX_SD_CTL);
-+	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_LPBKD, xaui_loopback);
-+	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_LPBKC, xaui_loopback);
-+	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_LPBKB, xaui_loopback);
-+	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_LPBKA, xaui_loopback);
-+	efx_writeo(efx, &reg, FR_AB_XX_SD_CTL);
-+}
-+
-+
-+/* Try to bring up the Falcon side of the Falcon-Phy XAUI link */
-+static bool falcon_xmac_link_ok_retry(struct efx_nic *efx, int tries)
-+{
-+	bool mac_up = falcon_xmac_link_ok(efx);
-+
-+	if (LOOPBACK_MASK(efx) & LOOPBACKS_EXTERNAL(efx) & LOOPBACKS_WS ||
-+	    efx_phy_mode_disabled(efx->phy_mode))
-+		/* XAUI link is expected to be down */
-+		return mac_up;
-+
-+	falcon_stop_nic_stats(efx);
-+
-+	while (!mac_up && tries) {
-+		netif_dbg(efx, hw, efx->net_dev, "bashing xaui\n");
-+		falcon_reset_xaui(efx);
-+		udelay(200);
-+
-+		mac_up = falcon_xmac_link_ok(efx);
-+		--tries;
-+	}
-+
-+	falcon_start_nic_stats(efx);
-+
-+	return mac_up;
-+}
-+
-+static bool falcon_xmac_check_fault(struct efx_nic *efx)
-+{
-+	return !falcon_xmac_link_ok_retry(efx, 5);
-+}
-+
-+static int falcon_reconfigure_xmac(struct efx_nic *efx)
-+{
-+	struct falcon_nic_data *nic_data = efx->nic_data;
-+
-+	falcon_reconfigure_xgxs_core(efx);
-+	falcon_reconfigure_xmac_core(efx);
-+
-+	falcon_reconfigure_mac_wrapper(efx);
-+
-+	nic_data->xmac_poll_required = !falcon_xmac_link_ok_retry(efx, 5);
-+	falcon_ack_status_intr(efx);
-+
-+	return 0;
-+}
-+
-+static void falcon_update_stats_xmac(struct efx_nic *efx)
-+{
-+	struct efx_mac_stats *mac_stats = &efx->mac_stats;
-+
-+	/* Update MAC stats from DMAed values */
-+	FALCON_STAT(efx, XgRxOctets, rx_bytes);
-+	FALCON_STAT(efx, XgRxOctetsOK, rx_good_bytes);
-+	FALCON_STAT(efx, XgRxPkts, rx_packets);
-+	FALCON_STAT(efx, XgRxPktsOK, rx_good);
-+	FALCON_STAT(efx, XgRxBroadcastPkts, rx_broadcast);
-+	FALCON_STAT(efx, XgRxMulticastPkts, rx_multicast);
-+	FALCON_STAT(efx, XgRxUnicastPkts, rx_unicast);
-+	FALCON_STAT(efx, XgRxUndersizePkts, rx_lt64);
-+	FALCON_STAT(efx, XgRxOversizePkts, rx_gtjumbo);
-+	FALCON_STAT(efx, XgRxJabberPkts, rx_bad_gtjumbo);
-+	FALCON_STAT(efx, XgRxUndersizeFCSerrorPkts, rx_bad_lt64);
-+	FALCON_STAT(efx, XgRxDropEvents, rx_overflow);
-+	FALCON_STAT(efx, XgRxFCSerrorPkts, rx_bad);
-+	FALCON_STAT(efx, XgRxAlignError, rx_align_error);
-+	FALCON_STAT(efx, XgRxSymbolError, rx_symbol_error);
-+	FALCON_STAT(efx, XgRxInternalMACError, rx_internal_error);
-+	FALCON_STAT(efx, XgRxControlPkts, rx_control);
-+	FALCON_STAT(efx, XgRxPausePkts, rx_pause);
-+	FALCON_STAT(efx, XgRxPkts64Octets, rx_64);
-+	FALCON_STAT(efx, XgRxPkts65to127Octets, rx_65_to_127);
-+	FALCON_STAT(efx, XgRxPkts128to255Octets, rx_128_to_255);
-+	FALCON_STAT(efx, XgRxPkts256to511Octets, rx_256_to_511);
-+	FALCON_STAT(efx, XgRxPkts512to1023Octets, rx_512_to_1023);
-+	FALCON_STAT(efx, XgRxPkts1024to15xxOctets, rx_1024_to_15xx);
-+	FALCON_STAT(efx, XgRxPkts15xxtoMaxOctets, rx_15xx_to_jumbo);
-+	FALCON_STAT(efx, XgRxLengthError, rx_length_error);
-+	FALCON_STAT(efx, XgTxPkts, tx_packets);
-+	FALCON_STAT(efx, XgTxOctets, tx_bytes);
-+	FALCON_STAT(efx, XgTxMulticastPkts, tx_multicast);
-+	FALCON_STAT(efx, XgTxBroadcastPkts, tx_broadcast);
-+	FALCON_STAT(efx, XgTxUnicastPkts, tx_unicast);
-+	FALCON_STAT(efx, XgTxControlPkts, tx_control);
-+	FALCON_STAT(efx, XgTxPausePkts, tx_pause);
-+	FALCON_STAT(efx, XgTxPkts64Octets, tx_64);
-+	FALCON_STAT(efx, XgTxPkts65to127Octets, tx_65_to_127);
-+	FALCON_STAT(efx, XgTxPkts128to255Octets, tx_128_to_255);
-+	FALCON_STAT(efx, XgTxPkts256to511Octets, tx_256_to_511);
-+	FALCON_STAT(efx, XgTxPkts512to1023Octets, tx_512_to_1023);
-+	FALCON_STAT(efx, XgTxPkts1024to15xxOctets, tx_1024_to_15xx);
-+	FALCON_STAT(efx, XgTxPkts1519toMaxOctets, tx_15xx_to_jumbo);
-+	FALCON_STAT(efx, XgTxUndersizePkts, tx_lt64);
-+	FALCON_STAT(efx, XgTxOversizePkts, tx_gtjumbo);
-+	FALCON_STAT(efx, XgTxNonTcpUdpPkt, tx_non_tcpudp);
-+	FALCON_STAT(efx, XgTxMacSrcErrPkt, tx_mac_src_error);
-+	FALCON_STAT(efx, XgTxIpSrcErrPkt, tx_ip_src_error);
-+
-+	/* Update derived statistics */
-+	efx_update_diff_stat(&mac_stats->tx_good_bytes,
-+			     mac_stats->tx_bytes - mac_stats->tx_bad_bytes -
-+			     mac_stats->tx_control * 64);
-+	efx_update_diff_stat(&mac_stats->rx_bad_bytes,
-+			     mac_stats->rx_bytes - mac_stats->rx_good_bytes -
-+			     mac_stats->rx_control * 64);
-+}
-+
-+static void falcon_poll_xmac(struct efx_nic *efx)
-+{
-+	struct falcon_nic_data *nic_data = efx->nic_data;
-+
-+	if (!EFX_WORKAROUND_5147(efx) || !efx->link_state.up ||
-+	    !nic_data->xmac_poll_required)
-+		return;
-+
-+	nic_data->xmac_poll_required = !falcon_xmac_link_ok_retry(efx, 1);
-+	falcon_ack_status_intr(efx);
-+}
-+
-+/**************************************************************************
-+ *
-  * MAC wrapper
-  *
-  **************************************************************************
-@@ -529,7 +1064,7 @@ static void falcon_deconfigure_mac_wrapper(struct efx_nic *efx)
- 	falcon_drain_tx_fifo(efx);
- }
- 
--void falcon_reconfigure_mac_wrapper(struct efx_nic *efx)
-+static void falcon_reconfigure_mac_wrapper(struct efx_nic *efx)
+ void efx_mcdi_print_fwver(struct efx_nic *efx, char *buf, size_t len)
  {
- 	struct efx_link_state *link_state = &efx->link_state;
- 	efx_oword_t reg;
-diff --git a/drivers/net/ethernet/sfc/falcon_xmac.c b/drivers/net/ethernet/sfc/falcon_xmac.c
-deleted file mode 100644
-index 8333865..0000000
---- a/drivers/net/ethernet/sfc/falcon_xmac.c
-+++ /dev/null
-@@ -1,362 +0,0 @@
--/****************************************************************************
-- * Driver for Solarflare Solarstorm network controllers and boards
-- * Copyright 2005-2006 Fen Systems Ltd.
-- * Copyright 2006-2010 Solarflare Communications Inc.
-- *
-- * This program is free software; you can redistribute it and/or modify it
-- * under the terms of the GNU General Public License version 2 as published
-- * by the Free Software Foundation, incorporated herein by reference.
-- */
--
--#include <linux/delay.h>
--#include "net_driver.h"
--#include "efx.h"
--#include "nic.h"
--#include "regs.h"
--#include "io.h"
--#include "mdio_10g.h"
--#include "workarounds.h"
--
--/**************************************************************************
-- *
-- * MAC operations
-- *
-- *************************************************************************/
--
--/* Configure the XAUI driver that is an output from Falcon */
--void falcon_setup_xaui(struct efx_nic *efx)
--{
--	efx_oword_t sdctl, txdrv;
--
--	/* Move the XAUI into low power, unless there is no PHY, in
--	 * which case the XAUI will have to drive a cable. */
--	if (efx->phy_type == PHY_TYPE_NONE)
--		return;
--
--	efx_reado(efx, &sdctl, FR_AB_XX_SD_CTL);
--	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_HIDRVD, FFE_AB_XX_SD_CTL_DRV_DEF);
--	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_LODRVD, FFE_AB_XX_SD_CTL_DRV_DEF);
--	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_HIDRVC, FFE_AB_XX_SD_CTL_DRV_DEF);
--	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_LODRVC, FFE_AB_XX_SD_CTL_DRV_DEF);
--	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_HIDRVB, FFE_AB_XX_SD_CTL_DRV_DEF);
--	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_LODRVB, FFE_AB_XX_SD_CTL_DRV_DEF);
--	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_HIDRVA, FFE_AB_XX_SD_CTL_DRV_DEF);
--	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_LODRVA, FFE_AB_XX_SD_CTL_DRV_DEF);
--	efx_writeo(efx, &sdctl, FR_AB_XX_SD_CTL);
--
--	EFX_POPULATE_OWORD_8(txdrv,
--			     FRF_AB_XX_DEQD, FFE_AB_XX_TXDRV_DEQ_DEF,
--			     FRF_AB_XX_DEQC, FFE_AB_XX_TXDRV_DEQ_DEF,
--			     FRF_AB_XX_DEQB, FFE_AB_XX_TXDRV_DEQ_DEF,
--			     FRF_AB_XX_DEQA, FFE_AB_XX_TXDRV_DEQ_DEF,
--			     FRF_AB_XX_DTXD, FFE_AB_XX_TXDRV_DTX_DEF,
--			     FRF_AB_XX_DTXC, FFE_AB_XX_TXDRV_DTX_DEF,
--			     FRF_AB_XX_DTXB, FFE_AB_XX_TXDRV_DTX_DEF,
--			     FRF_AB_XX_DTXA, FFE_AB_XX_TXDRV_DTX_DEF);
--	efx_writeo(efx, &txdrv, FR_AB_XX_TXDRV_CTL);
--}
--
--int falcon_reset_xaui(struct efx_nic *efx)
--{
--	struct falcon_nic_data *nic_data = efx->nic_data;
--	efx_oword_t reg;
--	int count;
--
--	/* Don't fetch MAC statistics over an XMAC reset */
--	WARN_ON(nic_data->stats_disable_count == 0);
--
--	/* Start reset sequence */
--	EFX_POPULATE_OWORD_1(reg, FRF_AB_XX_RST_XX_EN, 1);
--	efx_writeo(efx, &reg, FR_AB_XX_PWR_RST);
--
--	/* Wait up to 10 ms for completion, then reinitialise */
--	for (count = 0; count < 1000; count++) {
--		efx_reado(efx, &reg, FR_AB_XX_PWR_RST);
--		if (EFX_OWORD_FIELD(reg, FRF_AB_XX_RST_XX_EN) == 0 &&
--		    EFX_OWORD_FIELD(reg, FRF_AB_XX_SD_RST_ACT) == 0) {
--			falcon_setup_xaui(efx);
--			return 0;
--		}
--		udelay(10);
--	}
--	netif_err(efx, hw, efx->net_dev,
--		  "timed out waiting for XAUI/XGXS reset\n");
--	return -ETIMEDOUT;
--}
--
--static void falcon_ack_status_intr(struct efx_nic *efx)
--{
--	struct falcon_nic_data *nic_data = efx->nic_data;
--	efx_oword_t reg;
--
--	if ((efx_nic_rev(efx) != EFX_REV_FALCON_B0) || LOOPBACK_INTERNAL(efx))
--		return;
--
--	/* We expect xgmii faults if the wireside link is down */
--	if (!EFX_WORKAROUND_5147(efx) || !efx->link_state.up)
--		return;
--
--	/* We can only use this interrupt to signal the negative edge of
--	 * xaui_align [we have to poll the positive edge]. */
--	if (nic_data->xmac_poll_required)
--		return;
--
--	efx_reado(efx, &reg, FR_AB_XM_MGT_INT_MSK);
--}
--
--static bool falcon_xgxs_link_ok(struct efx_nic *efx)
--{
--	efx_oword_t reg;
--	bool align_done, link_ok = false;
--	int sync_status;
--
--	/* Read link status */
--	efx_reado(efx, &reg, FR_AB_XX_CORE_STAT);
--
--	align_done = EFX_OWORD_FIELD(reg, FRF_AB_XX_ALIGN_DONE);
--	sync_status = EFX_OWORD_FIELD(reg, FRF_AB_XX_SYNC_STAT);
--	if (align_done && (sync_status == FFE_AB_XX_STAT_ALL_LANES))
--		link_ok = true;
--
--	/* Clear link status ready for next read */
--	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_COMMA_DET, FFE_AB_XX_STAT_ALL_LANES);
--	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_CHAR_ERR, FFE_AB_XX_STAT_ALL_LANES);
--	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_DISPERR, FFE_AB_XX_STAT_ALL_LANES);
--	efx_writeo(efx, &reg, FR_AB_XX_CORE_STAT);
--
--	return link_ok;
--}
--
--static bool falcon_xmac_link_ok(struct efx_nic *efx)
--{
--	/*
--	 * Check MAC's XGXS link status except when using XGMII loopback
--	 * which bypasses the XGXS block.
--	 * If possible, check PHY's XGXS link status except when using
--	 * MAC loopback.
--	 */
--	return (efx->loopback_mode == LOOPBACK_XGMII ||
--		falcon_xgxs_link_ok(efx)) &&
--		(!(efx->mdio.mmds & (1 << MDIO_MMD_PHYXS)) ||
--		 LOOPBACK_INTERNAL(efx) ||
--		 efx_mdio_phyxgxs_lane_sync(efx));
--}
--
--static void falcon_reconfigure_xmac_core(struct efx_nic *efx)
--{
--	unsigned int max_frame_len;
--	efx_oword_t reg;
--	bool rx_fc = !!(efx->link_state.fc & EFX_FC_RX);
--	bool tx_fc = !!(efx->link_state.fc & EFX_FC_TX);
--
--	/* Configure MAC  - cut-thru mode is hard wired on */
--	EFX_POPULATE_OWORD_3(reg,
--			     FRF_AB_XM_RX_JUMBO_MODE, 1,
--			     FRF_AB_XM_TX_STAT_EN, 1,
--			     FRF_AB_XM_RX_STAT_EN, 1);
--	efx_writeo(efx, &reg, FR_AB_XM_GLB_CFG);
--
--	/* Configure TX */
--	EFX_POPULATE_OWORD_6(reg,
--			     FRF_AB_XM_TXEN, 1,
--			     FRF_AB_XM_TX_PRMBL, 1,
--			     FRF_AB_XM_AUTO_PAD, 1,
--			     FRF_AB_XM_TXCRC, 1,
--			     FRF_AB_XM_FCNTL, tx_fc,
--			     FRF_AB_XM_IPG, 0x3);
--	efx_writeo(efx, &reg, FR_AB_XM_TX_CFG);
--
--	/* Configure RX */
--	EFX_POPULATE_OWORD_5(reg,
--			     FRF_AB_XM_RXEN, 1,
--			     FRF_AB_XM_AUTO_DEPAD, 0,
--			     FRF_AB_XM_ACPT_ALL_MCAST, 1,
--			     FRF_AB_XM_ACPT_ALL_UCAST, efx->promiscuous,
--			     FRF_AB_XM_PASS_CRC_ERR, 1);
--	efx_writeo(efx, &reg, FR_AB_XM_RX_CFG);
--
--	/* Set frame length */
--	max_frame_len = EFX_MAX_FRAME_LEN(efx->net_dev->mtu);
--	EFX_POPULATE_OWORD_1(reg, FRF_AB_XM_MAX_RX_FRM_SIZE, max_frame_len);
--	efx_writeo(efx, &reg, FR_AB_XM_RX_PARAM);
--	EFX_POPULATE_OWORD_2(reg,
--			     FRF_AB_XM_MAX_TX_FRM_SIZE, max_frame_len,
--			     FRF_AB_XM_TX_JUMBO_MODE, 1);
--	efx_writeo(efx, &reg, FR_AB_XM_TX_PARAM);
--
--	EFX_POPULATE_OWORD_2(reg,
--			     FRF_AB_XM_PAUSE_TIME, 0xfffe, /* MAX PAUSE TIME */
--			     FRF_AB_XM_DIS_FCNTL, !rx_fc);
--	efx_writeo(efx, &reg, FR_AB_XM_FC);
--
--	/* Set MAC address */
--	memcpy(&reg, &efx->net_dev->dev_addr[0], 4);
--	efx_writeo(efx, &reg, FR_AB_XM_ADR_LO);
--	memcpy(&reg, &efx->net_dev->dev_addr[4], 2);
--	efx_writeo(efx, &reg, FR_AB_XM_ADR_HI);
--}
--
--static void falcon_reconfigure_xgxs_core(struct efx_nic *efx)
--{
--	efx_oword_t reg;
--	bool xgxs_loopback = (efx->loopback_mode == LOOPBACK_XGXS);
--	bool xaui_loopback = (efx->loopback_mode == LOOPBACK_XAUI);
--	bool xgmii_loopback = (efx->loopback_mode == LOOPBACK_XGMII);
--
--	/* XGXS block is flaky and will need to be reset if moving
--	 * into our out of XGMII, XGXS or XAUI loopbacks. */
--	if (EFX_WORKAROUND_5147(efx)) {
--		bool old_xgmii_loopback, old_xgxs_loopback, old_xaui_loopback;
--		bool reset_xgxs;
--
--		efx_reado(efx, &reg, FR_AB_XX_CORE_STAT);
--		old_xgxs_loopback = EFX_OWORD_FIELD(reg, FRF_AB_XX_XGXS_LB_EN);
--		old_xgmii_loopback =
--			EFX_OWORD_FIELD(reg, FRF_AB_XX_XGMII_LB_EN);
--
--		efx_reado(efx, &reg, FR_AB_XX_SD_CTL);
--		old_xaui_loopback = EFX_OWORD_FIELD(reg, FRF_AB_XX_LPBKA);
--
--		/* The PHY driver may have turned XAUI off */
--		reset_xgxs = ((xgxs_loopback != old_xgxs_loopback) ||
--			      (xaui_loopback != old_xaui_loopback) ||
--			      (xgmii_loopback != old_xgmii_loopback));
--
--		if (reset_xgxs)
--			falcon_reset_xaui(efx);
--	}
--
--	efx_reado(efx, &reg, FR_AB_XX_CORE_STAT);
--	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_FORCE_SIG,
--			    (xgxs_loopback || xaui_loopback) ?
--			    FFE_AB_XX_FORCE_SIG_ALL_LANES : 0);
--	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_XGXS_LB_EN, xgxs_loopback);
--	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_XGMII_LB_EN, xgmii_loopback);
--	efx_writeo(efx, &reg, FR_AB_XX_CORE_STAT);
--
--	efx_reado(efx, &reg, FR_AB_XX_SD_CTL);
--	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_LPBKD, xaui_loopback);
--	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_LPBKC, xaui_loopback);
--	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_LPBKB, xaui_loopback);
--	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_LPBKA, xaui_loopback);
--	efx_writeo(efx, &reg, FR_AB_XX_SD_CTL);
--}
--
--
--/* Try to bring up the Falcon side of the Falcon-Phy XAUI link */
--static bool falcon_xmac_link_ok_retry(struct efx_nic *efx, int tries)
--{
--	bool mac_up = falcon_xmac_link_ok(efx);
--
--	if (LOOPBACK_MASK(efx) & LOOPBACKS_EXTERNAL(efx) & LOOPBACKS_WS ||
--	    efx_phy_mode_disabled(efx->phy_mode))
--		/* XAUI link is expected to be down */
--		return mac_up;
--
--	falcon_stop_nic_stats(efx);
--
--	while (!mac_up && tries) {
--		netif_dbg(efx, hw, efx->net_dev, "bashing xaui\n");
--		falcon_reset_xaui(efx);
--		udelay(200);
--
--		mac_up = falcon_xmac_link_ok(efx);
--		--tries;
--	}
--
--	falcon_start_nic_stats(efx);
--
--	return mac_up;
--}
--
--bool falcon_xmac_check_fault(struct efx_nic *efx)
--{
--	return !falcon_xmac_link_ok_retry(efx, 5);
--}
--
--int falcon_reconfigure_xmac(struct efx_nic *efx)
--{
--	struct falcon_nic_data *nic_data = efx->nic_data;
--
--	falcon_reconfigure_xgxs_core(efx);
--	falcon_reconfigure_xmac_core(efx);
--
--	falcon_reconfigure_mac_wrapper(efx);
--
--	nic_data->xmac_poll_required = !falcon_xmac_link_ok_retry(efx, 5);
--	falcon_ack_status_intr(efx);
--
--	return 0;
--}
--
--void falcon_update_stats_xmac(struct efx_nic *efx)
--{
--	struct efx_mac_stats *mac_stats = &efx->mac_stats;
--
--	/* Update MAC stats from DMAed values */
--	FALCON_STAT(efx, XgRxOctets, rx_bytes);
--	FALCON_STAT(efx, XgRxOctetsOK, rx_good_bytes);
--	FALCON_STAT(efx, XgRxPkts, rx_packets);
--	FALCON_STAT(efx, XgRxPktsOK, rx_good);
--	FALCON_STAT(efx, XgRxBroadcastPkts, rx_broadcast);
--	FALCON_STAT(efx, XgRxMulticastPkts, rx_multicast);
--	FALCON_STAT(efx, XgRxUnicastPkts, rx_unicast);
--	FALCON_STAT(efx, XgRxUndersizePkts, rx_lt64);
--	FALCON_STAT(efx, XgRxOversizePkts, rx_gtjumbo);
--	FALCON_STAT(efx, XgRxJabberPkts, rx_bad_gtjumbo);
--	FALCON_STAT(efx, XgRxUndersizeFCSerrorPkts, rx_bad_lt64);
--	FALCON_STAT(efx, XgRxDropEvents, rx_overflow);
--	FALCON_STAT(efx, XgRxFCSerrorPkts, rx_bad);
--	FALCON_STAT(efx, XgRxAlignError, rx_align_error);
--	FALCON_STAT(efx, XgRxSymbolError, rx_symbol_error);
--	FALCON_STAT(efx, XgRxInternalMACError, rx_internal_error);
--	FALCON_STAT(efx, XgRxControlPkts, rx_control);
--	FALCON_STAT(efx, XgRxPausePkts, rx_pause);
--	FALCON_STAT(efx, XgRxPkts64Octets, rx_64);
--	FALCON_STAT(efx, XgRxPkts65to127Octets, rx_65_to_127);
--	FALCON_STAT(efx, XgRxPkts128to255Octets, rx_128_to_255);
--	FALCON_STAT(efx, XgRxPkts256to511Octets, rx_256_to_511);
--	FALCON_STAT(efx, XgRxPkts512to1023Octets, rx_512_to_1023);
--	FALCON_STAT(efx, XgRxPkts1024to15xxOctets, rx_1024_to_15xx);
--	FALCON_STAT(efx, XgRxPkts15xxtoMaxOctets, rx_15xx_to_jumbo);
--	FALCON_STAT(efx, XgRxLengthError, rx_length_error);
--	FALCON_STAT(efx, XgTxPkts, tx_packets);
--	FALCON_STAT(efx, XgTxOctets, tx_bytes);
--	FALCON_STAT(efx, XgTxMulticastPkts, tx_multicast);
--	FALCON_STAT(efx, XgTxBroadcastPkts, tx_broadcast);
--	FALCON_STAT(efx, XgTxUnicastPkts, tx_unicast);
--	FALCON_STAT(efx, XgTxControlPkts, tx_control);
--	FALCON_STAT(efx, XgTxPausePkts, tx_pause);
--	FALCON_STAT(efx, XgTxPkts64Octets, tx_64);
--	FALCON_STAT(efx, XgTxPkts65to127Octets, tx_65_to_127);
--	FALCON_STAT(efx, XgTxPkts128to255Octets, tx_128_to_255);
--	FALCON_STAT(efx, XgTxPkts256to511Octets, tx_256_to_511);
--	FALCON_STAT(efx, XgTxPkts512to1023Octets, tx_512_to_1023);
--	FALCON_STAT(efx, XgTxPkts1024to15xxOctets, tx_1024_to_15xx);
--	FALCON_STAT(efx, XgTxPkts1519toMaxOctets, tx_15xx_to_jumbo);
--	FALCON_STAT(efx, XgTxUndersizePkts, tx_lt64);
--	FALCON_STAT(efx, XgTxOversizePkts, tx_gtjumbo);
--	FALCON_STAT(efx, XgTxNonTcpUdpPkt, tx_non_tcpudp);
--	FALCON_STAT(efx, XgTxMacSrcErrPkt, tx_mac_src_error);
--	FALCON_STAT(efx, XgTxIpSrcErrPkt, tx_ip_src_error);
--
--	/* Update derived statistics */
--	efx_update_diff_stat(&mac_stats->tx_good_bytes,
--			     mac_stats->tx_bytes - mac_stats->tx_bad_bytes -
--			     mac_stats->tx_control * 64);
--	efx_update_diff_stat(&mac_stats->rx_bad_bytes,
--			     mac_stats->rx_bytes - mac_stats->rx_good_bytes -
--			     mac_stats->rx_control * 64);
--}
--
--void falcon_poll_xmac(struct efx_nic *efx)
--{
--	struct falcon_nic_data *nic_data = efx->nic_data;
--
--	if (!EFX_WORKAROUND_5147(efx) || !efx->link_state.up ||
--	    !nic_data->xmac_poll_required)
--		return;
--
--	nic_data->xmac_poll_required = !falcon_xmac_link_ok_retry(efx, 1);
--	falcon_ack_status_intr(efx);
--}
-diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
-index a784363..0d38cc2 100644
---- a/drivers/net/ethernet/sfc/nic.h
-+++ b/drivers/net/ethernet/sfc/nic.h
-@@ -297,12 +297,6 @@ extern int efx_nic_process_eventq(struct efx_channel *channel, int rx_quota);
- extern void efx_nic_eventq_read_ack(struct efx_channel *channel);
- extern bool efx_nic_event_present(struct efx_channel *channel);
+-	u8 outbuf[ALIGN(MC_CMD_GET_VERSION_OUT_LEN, 4)];
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_VERSION_OUT_LEN);
+ 	size_t outlength;
+ 	const __le16 *ver_words;
+ 	int rc;
+@@ -637,8 +637,8 @@ fail:
+ int efx_mcdi_drv_attach(struct efx_nic *efx, bool driver_operating,
+ 			bool *was_attached)
+ {
+-	u8 inbuf[MC_CMD_DRV_ATTACH_IN_LEN];
+-	u8 outbuf[MC_CMD_DRV_ATTACH_OUT_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_DRV_ATTACH_IN_LEN);
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_DRV_ATTACH_OUT_LEN);
+ 	size_t outlen;
+ 	int rc;
  
--/* MAC/PHY */
--extern void falcon_reconfigure_mac_wrapper(struct efx_nic *efx);
--extern bool falcon_xmac_check_fault(struct efx_nic *efx);
--extern int falcon_reconfigure_xmac(struct efx_nic *efx);
--extern void falcon_update_stats_xmac(struct efx_nic *efx);
--
- /* Some statistics are computed as A - B where A and B each increase
-  * linearly with some hardware counter(s) and the counters are read
-  * asynchronously.  If the counters contributing to B are always read
-@@ -347,7 +341,6 @@ extern void siena_prepare_flush(struct efx_nic *efx);
- extern void siena_finish_flush(struct efx_nic *efx);
- extern void falcon_start_nic_stats(struct efx_nic *efx);
- extern void falcon_stop_nic_stats(struct efx_nic *efx);
--extern void falcon_setup_xaui(struct efx_nic *efx);
- extern int falcon_reset_xaui(struct efx_nic *efx);
- extern void
- efx_nic_dimension_resources(struct efx_nic *efx, unsigned sram_lim_qw);
-@@ -370,43 +363,9 @@ extern int efx_nic_test_registers(struct efx_nic *efx,
- extern size_t efx_nic_get_regs_len(struct efx_nic *efx);
- extern void efx_nic_get_regs(struct efx_nic *efx, void *buf);
+@@ -667,7 +667,7 @@ fail:
+ int efx_mcdi_get_board_cfg(struct efx_nic *efx, u8 *mac_address,
+ 			   u16 *fw_subtype_list, u32 *capabilities)
+ {
+-	uint8_t outbuf[MC_CMD_GET_BOARD_CFG_OUT_LENMAX];
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_BOARD_CFG_OUT_LENMAX);
+ 	size_t outlen, offset, i;
+ 	int port_num = efx_port_num(efx);
+ 	int rc;
+@@ -721,7 +721,7 @@ fail:
  
--/**************************************************************************
-- *
-- * Falcon MAC stats
-- *
-- **************************************************************************
-- */
--
--#define FALCON_STAT_OFFSET(falcon_stat) EFX_VAL(falcon_stat, offset)
--#define FALCON_STAT_WIDTH(falcon_stat) EFX_VAL(falcon_stat, WIDTH)
--
--/* Retrieve statistic from statistics block */
--#define FALCON_STAT(efx, falcon_stat, efx_stat) do {		\
--	if (FALCON_STAT_WIDTH(falcon_stat) == 16)		\
--		(efx)->mac_stats.efx_stat += le16_to_cpu(	\
--			*((__force __le16 *)				\
--			  (efx->stats_buffer.addr +		\
--			   FALCON_STAT_OFFSET(falcon_stat))));	\
--	else if (FALCON_STAT_WIDTH(falcon_stat) == 32)		\
--		(efx)->mac_stats.efx_stat += le32_to_cpu(	\
--			*((__force __le32 *)				\
--			  (efx->stats_buffer.addr +		\
--			   FALCON_STAT_OFFSET(falcon_stat))));	\
--	else							\
--		(efx)->mac_stats.efx_stat += le64_to_cpu(	\
--			*((__force __le64 *)				\
--			  (efx->stats_buffer.addr +		\
--			   FALCON_STAT_OFFSET(falcon_stat))));	\
--	} while (0)
--
--#define FALCON_MAC_STATS_SIZE 0x100
--
--#define MAC_DATA_LBN 0
--#define MAC_DATA_WIDTH 32
-+#define EFX_MAX_FLUSH_TIME 5000
+ int efx_mcdi_log_ctrl(struct efx_nic *efx, bool evq, bool uart, u32 dest_evq)
+ {
+-	u8 inbuf[MC_CMD_LOG_CTRL_IN_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_LOG_CTRL_IN_LEN);
+ 	u32 dest = 0;
+ 	int rc;
  
- extern void efx_generate_event(struct efx_nic *efx, unsigned int evq,
- 			       efx_qword_t *event);
+@@ -749,7 +749,7 @@ fail:
  
--extern void falcon_poll_xmac(struct efx_nic *efx);
--
- #endif /* EFX_NIC_H */
-diff --git a/drivers/net/ethernet/sfc/regs.h b/drivers/net/ethernet/sfc/regs.h
-index ade4c4d..27ad348d 100644
---- a/drivers/net/ethernet/sfc/regs.h
-+++ b/drivers/net/ethernet/sfc/regs.h
-@@ -2925,264 +2925,4 @@
- #define FSF_AZ_DRV_GEN_EV_MAGIC_LBN 0
- #define FSF_AZ_DRV_GEN_EV_MAGIC_WIDTH 32
+ int efx_mcdi_nvram_types(struct efx_nic *efx, u32 *nvram_types_out)
+ {
+-	u8 outbuf[MC_CMD_NVRAM_TYPES_OUT_LEN];
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_NVRAM_TYPES_OUT_LEN);
+ 	size_t outlen;
+ 	int rc;
  
--/**************************************************************************
-- *
-- * Falcon MAC stats
-- *
-- **************************************************************************
-- *
-- */
--
--#define GRxGoodOct_offset 0x0
--#define GRxGoodOct_WIDTH 48
--#define GRxBadOct_offset 0x8
--#define GRxBadOct_WIDTH 48
--#define GRxMissPkt_offset 0x10
--#define GRxMissPkt_WIDTH 32
--#define GRxFalseCRS_offset 0x14
--#define GRxFalseCRS_WIDTH 32
--#define GRxPausePkt_offset 0x18
--#define GRxPausePkt_WIDTH 32
--#define GRxBadPkt_offset 0x1C
--#define GRxBadPkt_WIDTH 32
--#define GRxUcastPkt_offset 0x20
--#define GRxUcastPkt_WIDTH 32
--#define GRxMcastPkt_offset 0x24
--#define GRxMcastPkt_WIDTH 32
--#define GRxBcastPkt_offset 0x28
--#define GRxBcastPkt_WIDTH 32
--#define GRxGoodLt64Pkt_offset 0x2C
--#define GRxGoodLt64Pkt_WIDTH 32
--#define GRxBadLt64Pkt_offset 0x30
--#define GRxBadLt64Pkt_WIDTH 32
--#define GRx64Pkt_offset 0x34
--#define GRx64Pkt_WIDTH 32
--#define GRx65to127Pkt_offset 0x38
--#define GRx65to127Pkt_WIDTH 32
--#define GRx128to255Pkt_offset 0x3C
--#define GRx128to255Pkt_WIDTH 32
--#define GRx256to511Pkt_offset 0x40
--#define GRx256to511Pkt_WIDTH 32
--#define GRx512to1023Pkt_offset 0x44
--#define GRx512to1023Pkt_WIDTH 32
--#define GRx1024to15xxPkt_offset 0x48
--#define GRx1024to15xxPkt_WIDTH 32
--#define GRx15xxtoJumboPkt_offset 0x4C
--#define GRx15xxtoJumboPkt_WIDTH 32
--#define GRxGtJumboPkt_offset 0x50
--#define GRxGtJumboPkt_WIDTH 32
--#define GRxFcsErr64to15xxPkt_offset 0x54
--#define GRxFcsErr64to15xxPkt_WIDTH 32
--#define GRxFcsErr15xxtoJumboPkt_offset 0x58
--#define GRxFcsErr15xxtoJumboPkt_WIDTH 32
--#define GRxFcsErrGtJumboPkt_offset 0x5C
--#define GRxFcsErrGtJumboPkt_WIDTH 32
--#define GTxGoodBadOct_offset 0x80
--#define GTxGoodBadOct_WIDTH 48
--#define GTxGoodOct_offset 0x88
--#define GTxGoodOct_WIDTH 48
--#define GTxSglColPkt_offset 0x90
--#define GTxSglColPkt_WIDTH 32
--#define GTxMultColPkt_offset 0x94
--#define GTxMultColPkt_WIDTH 32
--#define GTxExColPkt_offset 0x98
--#define GTxExColPkt_WIDTH 32
--#define GTxDefPkt_offset 0x9C
--#define GTxDefPkt_WIDTH 32
--#define GTxLateCol_offset 0xA0
--#define GTxLateCol_WIDTH 32
--#define GTxExDefPkt_offset 0xA4
--#define GTxExDefPkt_WIDTH 32
--#define GTxPausePkt_offset 0xA8
--#define GTxPausePkt_WIDTH 32
--#define GTxBadPkt_offset 0xAC
--#define GTxBadPkt_WIDTH 32
--#define GTxUcastPkt_offset 0xB0
--#define GTxUcastPkt_WIDTH 32
--#define GTxMcastPkt_offset 0xB4
--#define GTxMcastPkt_WIDTH 32
--#define GTxBcastPkt_offset 0xB8
--#define GTxBcastPkt_WIDTH 32
--#define GTxLt64Pkt_offset 0xBC
--#define GTxLt64Pkt_WIDTH 32
--#define GTx64Pkt_offset 0xC0
--#define GTx64Pkt_WIDTH 32
--#define GTx65to127Pkt_offset 0xC4
--#define GTx65to127Pkt_WIDTH 32
--#define GTx128to255Pkt_offset 0xC8
--#define GTx128to255Pkt_WIDTH 32
--#define GTx256to511Pkt_offset 0xCC
--#define GTx256to511Pkt_WIDTH 32
--#define GTx512to1023Pkt_offset 0xD0
--#define GTx512to1023Pkt_WIDTH 32
--#define GTx1024to15xxPkt_offset 0xD4
--#define GTx1024to15xxPkt_WIDTH 32
--#define GTx15xxtoJumboPkt_offset 0xD8
--#define GTx15xxtoJumboPkt_WIDTH 32
--#define GTxGtJumboPkt_offset 0xDC
--#define GTxGtJumboPkt_WIDTH 32
--#define GTxNonTcpUdpPkt_offset 0xE0
--#define GTxNonTcpUdpPkt_WIDTH 16
--#define GTxMacSrcErrPkt_offset 0xE4
--#define GTxMacSrcErrPkt_WIDTH 16
--#define GTxIpSrcErrPkt_offset 0xE8
--#define GTxIpSrcErrPkt_WIDTH 16
--#define GDmaDone_offset 0xEC
--#define GDmaDone_WIDTH 32
--
--#define XgRxOctets_offset 0x0
--#define XgRxOctets_WIDTH 48
--#define XgRxOctetsOK_offset 0x8
--#define XgRxOctetsOK_WIDTH 48
--#define XgRxPkts_offset 0x10
--#define XgRxPkts_WIDTH 32
--#define XgRxPktsOK_offset 0x14
--#define XgRxPktsOK_WIDTH 32
--#define XgRxBroadcastPkts_offset 0x18
--#define XgRxBroadcastPkts_WIDTH 32
--#define XgRxMulticastPkts_offset 0x1C
--#define XgRxMulticastPkts_WIDTH 32
--#define XgRxUnicastPkts_offset 0x20
--#define XgRxUnicastPkts_WIDTH 32
--#define XgRxUndersizePkts_offset 0x24
--#define XgRxUndersizePkts_WIDTH 32
--#define XgRxOversizePkts_offset 0x28
--#define XgRxOversizePkts_WIDTH 32
--#define XgRxJabberPkts_offset 0x2C
--#define XgRxJabberPkts_WIDTH 32
--#define XgRxUndersizeFCSerrorPkts_offset 0x30
--#define XgRxUndersizeFCSerrorPkts_WIDTH 32
--#define XgRxDropEvents_offset 0x34
--#define XgRxDropEvents_WIDTH 32
--#define XgRxFCSerrorPkts_offset 0x38
--#define XgRxFCSerrorPkts_WIDTH 32
--#define XgRxAlignError_offset 0x3C
--#define XgRxAlignError_WIDTH 32
--#define XgRxSymbolError_offset 0x40
--#define XgRxSymbolError_WIDTH 32
--#define XgRxInternalMACError_offset 0x44
--#define XgRxInternalMACError_WIDTH 32
--#define XgRxControlPkts_offset 0x48
--#define XgRxControlPkts_WIDTH 32
--#define XgRxPausePkts_offset 0x4C
--#define XgRxPausePkts_WIDTH 32
--#define XgRxPkts64Octets_offset 0x50
--#define XgRxPkts64Octets_WIDTH 32
--#define XgRxPkts65to127Octets_offset 0x54
--#define XgRxPkts65to127Octets_WIDTH 32
--#define XgRxPkts128to255Octets_offset 0x58
--#define XgRxPkts128to255Octets_WIDTH 32
--#define XgRxPkts256to511Octets_offset 0x5C
--#define XgRxPkts256to511Octets_WIDTH 32
--#define XgRxPkts512to1023Octets_offset 0x60
--#define XgRxPkts512to1023Octets_WIDTH 32
--#define XgRxPkts1024to15xxOctets_offset 0x64
--#define XgRxPkts1024to15xxOctets_WIDTH 32
--#define XgRxPkts15xxtoMaxOctets_offset 0x68
--#define XgRxPkts15xxtoMaxOctets_WIDTH 32
--#define XgRxLengthError_offset 0x6C
--#define XgRxLengthError_WIDTH 32
--#define XgTxPkts_offset 0x80
--#define XgTxPkts_WIDTH 32
--#define XgTxOctets_offset 0x88
--#define XgTxOctets_WIDTH 48
--#define XgTxMulticastPkts_offset 0x90
--#define XgTxMulticastPkts_WIDTH 32
--#define XgTxBroadcastPkts_offset 0x94
--#define XgTxBroadcastPkts_WIDTH 32
--#define XgTxUnicastPkts_offset 0x98
--#define XgTxUnicastPkts_WIDTH 32
--#define XgTxControlPkts_offset 0x9C
--#define XgTxControlPkts_WIDTH 32
--#define XgTxPausePkts_offset 0xA0
--#define XgTxPausePkts_WIDTH 32
--#define XgTxPkts64Octets_offset 0xA4
--#define XgTxPkts64Octets_WIDTH 32
--#define XgTxPkts65to127Octets_offset 0xA8
--#define XgTxPkts65to127Octets_WIDTH 32
--#define XgTxPkts128to255Octets_offset 0xAC
--#define XgTxPkts128to255Octets_WIDTH 32
--#define XgTxPkts256to511Octets_offset 0xB0
--#define XgTxPkts256to511Octets_WIDTH 32
--#define XgTxPkts512to1023Octets_offset 0xB4
--#define XgTxPkts512to1023Octets_WIDTH 32
--#define XgTxPkts1024to15xxOctets_offset 0xB8
--#define XgTxPkts1024to15xxOctets_WIDTH 32
--#define XgTxPkts1519toMaxOctets_offset 0xBC
--#define XgTxPkts1519toMaxOctets_WIDTH 32
--#define XgTxUndersizePkts_offset 0xC0
--#define XgTxUndersizePkts_WIDTH 32
--#define XgTxOversizePkts_offset 0xC4
--#define XgTxOversizePkts_WIDTH 32
--#define XgTxNonTcpUdpPkt_offset 0xC8
--#define XgTxNonTcpUdpPkt_WIDTH 16
--#define XgTxMacSrcErrPkt_offset 0xCC
--#define XgTxMacSrcErrPkt_WIDTH 16
--#define XgTxIpSrcErrPkt_offset 0xD0
--#define XgTxIpSrcErrPkt_WIDTH 16
--#define XgDmaDone_offset 0xD4
--#define XgDmaDone_WIDTH 32
--
--#define FALCON_STATS_NOT_DONE 0x00000000
--#define FALCON_STATS_DONE 0xffffffff
--
--/**************************************************************************
-- *
-- * Falcon non-volatile configuration
-- *
-- **************************************************************************
-- */
--
--/* Board configuration v2 (v1 is obsolete; later versions are compatible) */
--struct falcon_nvconfig_board_v2 {
--	__le16 nports;
--	u8 port0_phy_addr;
--	u8 port0_phy_type;
--	u8 port1_phy_addr;
--	u8 port1_phy_type;
--	__le16 asic_sub_revision;
--	__le16 board_revision;
--} __packed;
--
--/* Board configuration v3 extra information */
--struct falcon_nvconfig_board_v3 {
--	__le32 spi_device_type[2];
--} __packed;
--
--/* Bit numbers for spi_device_type */
--#define SPI_DEV_TYPE_SIZE_LBN 0
--#define SPI_DEV_TYPE_SIZE_WIDTH 5
--#define SPI_DEV_TYPE_ADDR_LEN_LBN 6
--#define SPI_DEV_TYPE_ADDR_LEN_WIDTH 2
--#define SPI_DEV_TYPE_ERASE_CMD_LBN 8
--#define SPI_DEV_TYPE_ERASE_CMD_WIDTH 8
--#define SPI_DEV_TYPE_ERASE_SIZE_LBN 16
--#define SPI_DEV_TYPE_ERASE_SIZE_WIDTH 5
--#define SPI_DEV_TYPE_BLOCK_SIZE_LBN 24
--#define SPI_DEV_TYPE_BLOCK_SIZE_WIDTH 5
--#define SPI_DEV_TYPE_FIELD(type, field)					\
--	(((type) >> EFX_LOW_BIT(field)) & EFX_MASK32(EFX_WIDTH(field)))
--
--#define FALCON_NVCONFIG_OFFSET 0x300
--
--#define FALCON_NVCONFIG_BOARD_MAGIC_NUM 0xFA1C
--struct falcon_nvconfig {
--	efx_oword_t ee_vpd_cfg_reg;			/* 0x300 */
--	u8 mac_address[2][8];			/* 0x310 */
--	efx_oword_t pcie_sd_ctl0123_reg;		/* 0x320 */
--	efx_oword_t pcie_sd_ctl45_reg;			/* 0x330 */
--	efx_oword_t pcie_pcs_ctl_stat_reg;		/* 0x340 */
--	efx_oword_t hw_init_reg;			/* 0x350 */
--	efx_oword_t nic_stat_reg;			/* 0x360 */
--	efx_oword_t glb_ctl_reg;			/* 0x370 */
--	efx_oword_t srm_cfg_reg;			/* 0x380 */
--	efx_oword_t spare_reg;				/* 0x390 */
--	__le16 board_magic_num;			/* 0x3A0 */
--	__le16 board_struct_ver;
--	__le16 board_checksum;
--	struct falcon_nvconfig_board_v2 board_v2;
--	efx_oword_t ee_base_page_reg;			/* 0x3B0 */
--	struct falcon_nvconfig_board_v3 board_v3;	/* 0x3C0 */
--} __packed;
--
- #endif /* EFX_REGS_H */
+@@ -777,8 +777,8 @@ int efx_mcdi_nvram_info(struct efx_nic *efx, unsigned int type,
+ 			size_t *size_out, size_t *erase_size_out,
+ 			bool *protected_out)
+ {
+-	u8 inbuf[MC_CMD_NVRAM_INFO_IN_LEN];
+-	u8 outbuf[MC_CMD_NVRAM_INFO_OUT_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_NVRAM_INFO_IN_LEN);
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_NVRAM_INFO_OUT_LEN);
+ 	size_t outlen;
+ 	int rc;
+ 
+@@ -806,7 +806,7 @@ fail:
+ 
+ int efx_mcdi_nvram_update_start(struct efx_nic *efx, unsigned int type)
+ {
+-	u8 inbuf[MC_CMD_NVRAM_UPDATE_START_IN_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_NVRAM_UPDATE_START_IN_LEN);
+ 	int rc;
+ 
+ 	MCDI_SET_DWORD(inbuf, NVRAM_UPDATE_START_IN_TYPE, type);
+@@ -828,8 +828,9 @@ fail:
+ int efx_mcdi_nvram_read(struct efx_nic *efx, unsigned int type,
+ 			loff_t offset, u8 *buffer, size_t length)
+ {
+-	u8 inbuf[MC_CMD_NVRAM_READ_IN_LEN];
+-	u8 outbuf[MC_CMD_NVRAM_READ_OUT_LEN(EFX_MCDI_NVRAM_LEN_MAX)];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_NVRAM_READ_IN_LEN);
++	MCDI_DECLARE_BUF(outbuf,
++			 MC_CMD_NVRAM_READ_OUT_LEN(EFX_MCDI_NVRAM_LEN_MAX));
+ 	size_t outlen;
+ 	int rc;
+ 
+@@ -853,7 +854,8 @@ fail:
+ int efx_mcdi_nvram_write(struct efx_nic *efx, unsigned int type,
+ 			   loff_t offset, const u8 *buffer, size_t length)
+ {
+-	u8 inbuf[MC_CMD_NVRAM_WRITE_IN_LEN(EFX_MCDI_NVRAM_LEN_MAX)];
++	MCDI_DECLARE_BUF(inbuf,
++			 MC_CMD_NVRAM_WRITE_IN_LEN(EFX_MCDI_NVRAM_LEN_MAX));
+ 	int rc;
+ 
+ 	MCDI_SET_DWORD(inbuf, NVRAM_WRITE_IN_TYPE, type);
+@@ -879,7 +881,7 @@ fail:
+ int efx_mcdi_nvram_erase(struct efx_nic *efx, unsigned int type,
+ 			 loff_t offset, size_t length)
+ {
+-	u8 inbuf[MC_CMD_NVRAM_ERASE_IN_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_NVRAM_ERASE_IN_LEN);
+ 	int rc;
+ 
+ 	MCDI_SET_DWORD(inbuf, NVRAM_ERASE_IN_TYPE, type);
+@@ -902,7 +904,7 @@ fail:
+ 
+ int efx_mcdi_nvram_update_finish(struct efx_nic *efx, unsigned int type)
+ {
+-	u8 inbuf[MC_CMD_NVRAM_UPDATE_FINISH_IN_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_NVRAM_UPDATE_FINISH_IN_LEN);
+ 	int rc;
+ 
+ 	MCDI_SET_DWORD(inbuf, NVRAM_UPDATE_FINISH_IN_TYPE, type);
+@@ -923,8 +925,8 @@ fail:
+ 
+ static int efx_mcdi_nvram_test(struct efx_nic *efx, unsigned int type)
+ {
+-	u8 inbuf[MC_CMD_NVRAM_TEST_IN_LEN];
+-	u8 outbuf[MC_CMD_NVRAM_TEST_OUT_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_NVRAM_TEST_IN_LEN);
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_NVRAM_TEST_OUT_LEN);
+ 	int rc;
+ 
+ 	MCDI_SET_DWORD(inbuf, NVRAM_TEST_IN_TYPE, type);
+@@ -976,8 +978,8 @@ fail1:
+ 
+ static int efx_mcdi_read_assertion(struct efx_nic *efx)
+ {
+-	u8 inbuf[MC_CMD_GET_ASSERTS_IN_LEN];
+-	u8 outbuf[MC_CMD_GET_ASSERTS_OUT_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_GET_ASSERTS_IN_LEN);
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_ASSERTS_OUT_LEN);
+ 	unsigned int flags, index, ofst;
+ 	const char *reason;
+ 	size_t outlen;
+@@ -1032,7 +1034,7 @@ static int efx_mcdi_read_assertion(struct efx_nic *efx)
+ 
+ static void efx_mcdi_exit_assertion(struct efx_nic *efx)
+ {
+-	u8 inbuf[MC_CMD_REBOOT_IN_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_REBOOT_IN_LEN);
+ 
+ 	/* If the MC is running debug firmware, it might now be
+ 	 * waiting for a debugger to attach, but we just want it to
+@@ -1062,7 +1064,7 @@ int efx_mcdi_handle_assertion(struct efx_nic *efx)
+ 
+ void efx_mcdi_set_id_led(struct efx_nic *efx, enum efx_led_mode mode)
+ {
+-	u8 inbuf[MC_CMD_SET_ID_LED_IN_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_SET_ID_LED_IN_LEN);
+ 	int rc;
+ 
+ 	BUILD_BUG_ON(EFX_LED_OFF != MC_CMD_LED_OFF);
+@@ -1091,7 +1093,7 @@ int efx_mcdi_reset_port(struct efx_nic *efx)
+ 
+ int efx_mcdi_reset_mc(struct efx_nic *efx)
+ {
+-	u8 inbuf[MC_CMD_REBOOT_IN_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_REBOOT_IN_LEN);
+ 	int rc;
+ 
+ 	BUILD_BUG_ON(MC_CMD_REBOOT_OUT_LEN != 0);
+@@ -1110,8 +1112,8 @@ int efx_mcdi_reset_mc(struct efx_nic *efx)
+ static int efx_mcdi_wol_filter_set(struct efx_nic *efx, u32 type,
+ 				   const u8 *mac, int *id_out)
+ {
+-	u8 inbuf[MC_CMD_WOL_FILTER_SET_IN_LEN];
+-	u8 outbuf[MC_CMD_WOL_FILTER_SET_OUT_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_WOL_FILTER_SET_IN_LEN);
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_WOL_FILTER_SET_OUT_LEN);
+ 	size_t outlen;
+ 	int rc;
+ 
+@@ -1151,7 +1153,7 @@ efx_mcdi_wol_filter_set_magic(struct efx_nic *efx,  const u8 *mac, int *id_out)
+ 
+ int efx_mcdi_wol_filter_get_magic(struct efx_nic *efx, int *id_out)
+ {
+-	u8 outbuf[MC_CMD_WOL_FILTER_GET_OUT_LEN];
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_WOL_FILTER_GET_OUT_LEN);
+ 	size_t outlen;
+ 	int rc;
+ 
+@@ -1178,7 +1180,7 @@ fail:
+ 
+ int efx_mcdi_wol_filter_remove(struct efx_nic *efx, int id)
+ {
+-	u8 inbuf[MC_CMD_WOL_FILTER_REMOVE_IN_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_WOL_FILTER_REMOVE_IN_LEN);
+ 	int rc;
+ 
+ 	MCDI_SET_DWORD(inbuf, WOL_FILTER_REMOVE_IN_FILTER_ID, (u32)id);
+diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
+index 3ba2e5b..c881118 100644
+--- a/drivers/net/ethernet/sfc/mcdi.h
++++ b/drivers/net/ethernet/sfc/mcdi.h
+@@ -85,6 +85,9 @@ extern void efx_mcdi_process_event(struct efx_channel *channel,
+ 				   efx_qword_t *event);
+ extern void efx_mcdi_sensor_event(struct efx_nic *efx, efx_qword_t *ev);
+ 
++#define MCDI_DECLARE_BUF(_name, _len)					\
++	u8 _name[ALIGN(_len, 4)]
++
+ #define MCDI_PTR2(_buf, _ofst)						\
+ 	(((u8 *)_buf) + _ofst)
+ #define MCDI_SET_DWORD2(_buf, _ofst, _value)				\
+diff --git a/drivers/net/ethernet/sfc/mcdi_mac.c b/drivers/net/ethernet/sfc/mcdi_mac.c
+index 1003f30..fafdc8e 100644
+--- a/drivers/net/ethernet/sfc/mcdi_mac.c
++++ b/drivers/net/ethernet/sfc/mcdi_mac.c
+@@ -15,7 +15,7 @@
+ int efx_mcdi_set_mac(struct efx_nic *efx)
+ {
+ 	u32 reject, fcntl;
+-	u8 cmdbytes[MC_CMD_SET_MAC_IN_LEN];
++	MCDI_DECLARE_BUF(cmdbytes, MC_CMD_SET_MAC_IN_LEN);
+ 
+ 	memcpy(cmdbytes + MC_CMD_SET_MAC_IN_ADDR_OFST,
+ 	       efx->net_dev->dev_addr, ETH_ALEN);
+@@ -55,7 +55,7 @@ int efx_mcdi_set_mac(struct efx_nic *efx)
+ 
+ bool efx_mcdi_mac_check_fault(struct efx_nic *efx)
+ {
+-	u8 outbuf[MC_CMD_GET_LINK_OUT_LEN];
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_LINK_OUT_LEN);
+ 	size_t outlength;
+ 	int rc;
+ 
+@@ -75,7 +75,7 @@ bool efx_mcdi_mac_check_fault(struct efx_nic *efx)
+ int efx_mcdi_mac_stats(struct efx_nic *efx, dma_addr_t dma_addr,
+ 		       u32 dma_len, int enable, int clear)
+ {
+-	u8 inbuf[MC_CMD_MAC_STATS_IN_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_MAC_STATS_IN_LEN);
+ 	int rc;
+ 	efx_dword_t *cmd_ptr;
+ 	int period = enable ? 1000 : 0;
+@@ -115,16 +115,21 @@ fail:
+ 
+ int efx_mcdi_mac_reconfigure(struct efx_nic *efx)
+ {
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_SET_MCAST_HASH_IN_LEN);
+ 	int rc;
+ 
++	BUILD_BUG_ON(MC_CMD_SET_MCAST_HASH_IN_LEN !=
++		     MC_CMD_SET_MCAST_HASH_IN_HASH0_OFST +
++		     sizeof(efx->multicast_hash));
++
+ 	WARN_ON(!mutex_is_locked(&efx->mac_lock));
+ 
+ 	rc = efx_mcdi_set_mac(efx);
+ 	if (rc != 0)
+ 		return rc;
+ 
++	memcpy(MCDI_PTR(inbuf, SET_MCAST_HASH_IN_HASH0),
++	       efx->multicast_hash.byte, sizeof(efx->multicast_hash));
+ 	return efx_mcdi_rpc(efx, MC_CMD_SET_MCAST_HASH,
+-			    efx->multicast_hash.byte,
+-			    sizeof(efx->multicast_hash),
+-			    NULL, 0, NULL);
++			    inbuf, sizeof(inbuf), NULL, 0, NULL);
+ }
+diff --git a/drivers/net/ethernet/sfc/mcdi_mon.c b/drivers/net/ethernet/sfc/mcdi_mon.c
+index fe42c3b..4e8a138 100644
+--- a/drivers/net/ethernet/sfc/mcdi_mon.c
++++ b/drivers/net/ethernet/sfc/mcdi_mon.c
+@@ -92,7 +92,7 @@ struct efx_mcdi_mon_attribute {
+ static int efx_mcdi_mon_update(struct efx_nic *efx)
+ {
+ 	struct efx_mcdi_mon *hwmon = efx_mcdi_mon(efx);
+-	u8 inbuf[MC_CMD_READ_SENSORS_IN_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_READ_SENSORS_IN_LEN);
+ 	int rc;
+ 
+ 	MCDI_SET_DWORD(inbuf, READ_SENSORS_IN_DMA_ADDR_LO,
+@@ -236,7 +236,7 @@ int efx_mcdi_mon_probe(struct efx_nic *efx)
+ {
+ 	struct efx_mcdi_mon *hwmon = efx_mcdi_mon(efx);
+ 	unsigned int n_attrs, n_temp = 0, n_cool = 0, n_in = 0;
+-	u8 outbuf[MC_CMD_SENSOR_INFO_OUT_LENMAX];
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_SENSOR_INFO_OUT_LENMAX);
+ 	size_t outlen;
+ 	char name[12];
+ 	u32 mask;
+diff --git a/drivers/net/ethernet/sfc/mcdi_phy.c b/drivers/net/ethernet/sfc/mcdi_phy.c
+index 13cb40f..37b6ed9 100644
+--- a/drivers/net/ethernet/sfc/mcdi_phy.c
++++ b/drivers/net/ethernet/sfc/mcdi_phy.c
+@@ -36,7 +36,7 @@ struct efx_mcdi_phy_data {
+ static int
+ efx_mcdi_get_phy_cfg(struct efx_nic *efx, struct efx_mcdi_phy_data *cfg)
+ {
+-	u8 outbuf[MC_CMD_GET_PHY_CFG_OUT_LEN];
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_PHY_CFG_OUT_LEN);
+ 	size_t outlen;
+ 	int rc;
+ 
+@@ -78,7 +78,7 @@ static int efx_mcdi_set_link(struct efx_nic *efx, u32 capabilities,
+ 			     u32 flags, u32 loopback_mode,
+ 			     u32 loopback_speed)
+ {
+-	u8 inbuf[MC_CMD_SET_LINK_IN_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_SET_LINK_IN_LEN);
+ 	int rc;
+ 
+ 	BUILD_BUG_ON(MC_CMD_SET_LINK_OUT_LEN != 0);
+@@ -102,7 +102,7 @@ fail:
+ 
+ static int efx_mcdi_loopback_modes(struct efx_nic *efx, u64 *loopback_modes)
+ {
+-	u8 outbuf[MC_CMD_GET_LOOPBACK_MODES_OUT_LEN];
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_LOOPBACK_MODES_OUT_LEN);
+ 	size_t outlen;
+ 	int rc;
+ 
+@@ -129,8 +129,8 @@ int efx_mcdi_mdio_read(struct efx_nic *efx, unsigned int bus,
+ 			 unsigned int prtad, unsigned int devad, u16 addr,
+ 			 u16 *value_out, u32 *status_out)
+ {
+-	u8 inbuf[MC_CMD_MDIO_READ_IN_LEN];
+-	u8 outbuf[MC_CMD_MDIO_READ_OUT_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_MDIO_READ_IN_LEN);
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_MDIO_READ_OUT_LEN);
+ 	size_t outlen;
+ 	int rc;
+ 
+@@ -157,8 +157,8 @@ int efx_mcdi_mdio_write(struct efx_nic *efx, unsigned int bus,
+ 			  unsigned int prtad, unsigned int devad, u16 addr,
+ 			  u16 value, u32 *status_out)
+ {
+-	u8 inbuf[MC_CMD_MDIO_WRITE_IN_LEN];
+-	u8 outbuf[MC_CMD_MDIO_WRITE_OUT_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_MDIO_WRITE_IN_LEN);
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_MDIO_WRITE_OUT_LEN);
+ 	size_t outlen;
+ 	int rc;
+ 
+@@ -307,7 +307,7 @@ static u32 mcdi_to_ethtool_media(u32 media)
+ static int efx_mcdi_phy_probe(struct efx_nic *efx)
+ {
+ 	struct efx_mcdi_phy_data *phy_data;
+-	u8 outbuf[MC_CMD_GET_LINK_OUT_LEN];
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_LINK_OUT_LEN);
+ 	u32 caps;
+ 	int rc;
+ 
+@@ -472,7 +472,7 @@ void efx_mcdi_phy_check_fcntl(struct efx_nic *efx, u32 lpa)
+ static bool efx_mcdi_phy_poll(struct efx_nic *efx)
+ {
+ 	struct efx_link_state old_state = efx->link_state;
+-	u8 outbuf[MC_CMD_GET_LINK_OUT_LEN];
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_LINK_OUT_LEN);
+ 	int rc;
+ 
+ 	WARN_ON(!mutex_is_locked(&efx->mac_lock));
+@@ -507,7 +507,7 @@ static void efx_mcdi_phy_remove(struct efx_nic *efx)
+ static void efx_mcdi_phy_get_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd)
+ {
+ 	struct efx_mcdi_phy_data *phy_cfg = efx->phy_data;
+-	u8 outbuf[MC_CMD_GET_LINK_OUT_LEN];
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_LINK_OUT_LEN);
+ 	int rc;
+ 
+ 	ecmd->supported =
+@@ -579,7 +579,7 @@ static int efx_mcdi_phy_set_settings(struct efx_nic *efx, struct ethtool_cmd *ec
+ 
+ static int efx_mcdi_phy_test_alive(struct efx_nic *efx)
+ {
+-	u8 outbuf[MC_CMD_GET_PHY_STATE_OUT_LEN];
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_PHY_STATE_OUT_LEN);
+ 	size_t outlen;
+ 	int rc;
+ 
+@@ -744,8 +744,8 @@ static const char *efx_mcdi_phy_test_name(struct efx_nic *efx,
+ static int efx_mcdi_phy_get_module_eeprom(struct efx_nic *efx,
+ 					  struct ethtool_eeprom *ee, u8 *data)
+ {
+-	u8 outbuf[MC_CMD_GET_PHY_MEDIA_INFO_OUT_LENMAX];
+-	u8 inbuf[MC_CMD_GET_PHY_MEDIA_INFO_IN_LEN];
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_PHY_MEDIA_INFO_OUT_LENMAX);
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_GET_PHY_MEDIA_INFO_IN_LEN);
+ 	size_t outlen;
+ 	int rc;
+ 	unsigned int payload_len;
+diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
+index b495394..f79f6fb 100644
+--- a/drivers/net/ethernet/sfc/ptp.c
++++ b/drivers/net/ethernet/sfc/ptp.c
+@@ -311,7 +311,7 @@ static int efx_phc_enable(struct ptp_clock_info *ptp,
+ /* Enable MCDI PTP support. */
+ static int efx_ptp_enable(struct efx_nic *efx)
+ {
+-	u8 inbuf[MC_CMD_PTP_IN_ENABLE_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_PTP_IN_ENABLE_LEN);
+ 
+ 	MCDI_SET_DWORD(inbuf, PTP_IN_OP, MC_CMD_PTP_OP_ENABLE);
+ 	MCDI_SET_DWORD(inbuf, PTP_IN_ENABLE_QUEUE,
+@@ -329,7 +329,7 @@ static int efx_ptp_enable(struct efx_nic *efx)
+  */
+ static int efx_ptp_disable(struct efx_nic *efx)
+ {
+-	u8 inbuf[MC_CMD_PTP_IN_DISABLE_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_PTP_IN_DISABLE_LEN);
+ 
+ 	MCDI_SET_DWORD(inbuf, PTP_IN_OP, MC_CMD_PTP_OP_DISABLE);
+ 	return efx_mcdi_rpc(efx, MC_CMD_PTP, inbuf, sizeof(inbuf),
+@@ -518,7 +518,7 @@ static int efx_ptp_process_times(struct efx_nic *efx, u8 *synch_buf,
+ static int efx_ptp_synchronize(struct efx_nic *efx, unsigned int num_readings)
+ {
+ 	struct efx_ptp_data *ptp = efx->ptp_data;
+-	u8 synch_buf[MC_CMD_PTP_OUT_SYNCHRONIZE_LENMAX];
++	MCDI_DECLARE_BUF(synch_buf, MC_CMD_PTP_OUT_SYNCHRONIZE_LENMAX);
+ 	size_t response_length;
+ 	int rc;
+ 	unsigned long timeout;
+@@ -569,7 +569,7 @@ static int efx_ptp_xmit_skb(struct efx_nic *efx, struct sk_buff *skb)
+ 	int rc = -EIO;
+ 	/* MCDI driver requires word aligned lengths */
+ 	size_t len = ALIGN(MC_CMD_PTP_IN_TRANSMIT_LEN(skb->len), 4);
+-	u8 txtime[MC_CMD_PTP_OUT_TRANSMIT_LEN];
++	MCDI_DECLARE_BUF(txtime, MC_CMD_PTP_OUT_TRANSMIT_LEN);
+ 
+ 	MCDI_SET_DWORD(txbuf, PTP_IN_OP, MC_CMD_PTP_OP_TRANSMIT);
+ 	MCDI_SET_DWORD(txbuf, PTP_IN_TRANSMIT_LENGTH, skb->len);
+@@ -1359,7 +1359,7 @@ static int efx_phc_adjfreq(struct ptp_clock_info *ptp, s32 delta)
+ 						     struct efx_ptp_data,
+ 						     phc_clock_info);
+ 	struct efx_nic *efx = ptp_data->channel->efx;
+-	u8 inadj[MC_CMD_PTP_IN_ADJUST_LEN];
++	MCDI_DECLARE_BUF(inadj, MC_CMD_PTP_IN_ADJUST_LEN);
+ 	s64 adjustment_ns;
+ 	int rc;
+ 
+@@ -1394,7 +1394,7 @@ static int efx_phc_adjtime(struct ptp_clock_info *ptp, s64 delta)
+ 						     phc_clock_info);
+ 	struct efx_nic *efx = ptp_data->channel->efx;
+ 	struct timespec delta_ts = ns_to_timespec(delta);
+-	u8 inbuf[MC_CMD_PTP_IN_ADJUST_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_PTP_IN_ADJUST_LEN);
+ 
+ 	MCDI_SET_DWORD(inbuf, PTP_IN_OP, MC_CMD_PTP_OP_ADJUST);
+ 	MCDI_SET_DWORD(inbuf, PTP_IN_ADJUST_FREQ_LO, 0);
+@@ -1411,8 +1411,8 @@ static int efx_phc_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
+ 						     struct efx_ptp_data,
+ 						     phc_clock_info);
+ 	struct efx_nic *efx = ptp_data->channel->efx;
+-	u8 inbuf[MC_CMD_PTP_IN_READ_NIC_TIME_LEN];
+-	u8 outbuf[MC_CMD_PTP_OUT_READ_NIC_TIME_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_PTP_IN_READ_NIC_TIME_LEN);
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_PTP_OUT_READ_NIC_TIME_LEN);
+ 	int rc;
+ 
+ 	MCDI_SET_DWORD(inbuf, PTP_IN_OP, MC_CMD_PTP_OP_READ_NIC_TIME);
+diff --git a/drivers/net/ethernet/sfc/siena_sriov.c b/drivers/net/ethernet/sfc/siena_sriov.c
+index 90f8d16..8e46fac 100644
+--- a/drivers/net/ethernet/sfc/siena_sriov.c
++++ b/drivers/net/ethernet/sfc/siena_sriov.c
+@@ -197,8 +197,8 @@ static unsigned abs_index(struct efx_vf *vf, unsigned index)
+ static int efx_sriov_cmd(struct efx_nic *efx, bool enable,
+ 			 unsigned *vi_scale_out, unsigned *vf_total_out)
+ {
+-	u8 inbuf[MC_CMD_SRIOV_IN_LEN];
+-	u8 outbuf[MC_CMD_SRIOV_OUT_LEN];
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_SRIOV_IN_LEN);
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_SRIOV_OUT_LEN);
+ 	unsigned vi_scale, vf_total;
+ 	size_t outlen;
+ 	int rc;
 
 
 -- 
