@@ -1,66 +1,34 @@
-From: boris brezillon <b.brezillon@overkiz.com>
-Subject: Re: [RFC PATCH] phylib: mdio: handle register/unregister/register
- sequence
-Date: Thu, 22 Aug 2013 15:14:17 +0200
-Message-ID: <52160EA9.4060801@overkiz.com>
-References: <1377174836-10569-1-git-send-email-b.brezillon@overkiz.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: question about drivers/net/ethernet/sgi
+Date: Thu, 22 Aug 2013 15:16:17 +0200
+Message-ID: <20130822131617.GZ2163@linux-mips.org>
+References: <alpine.DEB.2.02.1308131742100.2263@hadrien>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: Nick Bowler <nbowler@elliptictech.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org,
- Grant Likely <grant.likely@secretlab.ca>, Mark Brown <broonie@kernel.org>,
- netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
- linux-arm-kernel@lists.infradead.org
-To: Boris BREZILLON <b.brezillon@overkiz.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1377174836-10569-1-git-send-email-b.brezillon@overkiz.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eddie.linux-mips.org ([78.24.191.182]:43984 "EHLO
+	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752123Ab3HVNQW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 09:16:22 -0400
+Received: from localhost.localdomain ([127.0.0.1]:46284 "EHLO linux-mips.org"
+        rhost-flags-OK-OK-OK-FAIL) by eddie.linux-mips.org with ESMTP
+        id S6852084Ab3HVNQVC3IY8 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 22 Aug 2013 15:16:21 +0200
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.02.1308131742100.2263@hadrien>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 22/08/2013 14:33, Boris BREZILLON wrote:
-> Hello,
->
-> This patch is a proposal to support the register/unregister/register
-> sequence on a given mdio bus.
+On Tue, Aug 13, 2013 at 05:43:32PM +0200, Julia Lawall wrote:
 
-I forgot to ask, if this limitation was made on purpose ?
-In other terms: no one should ever try to register, unregister and 
-register again
-a given mii_bus structure.
+> The files in drivers/net/ethernet/sgi (meth.c and ioc3-eth.c) both use
+> alloc_skb.  Is there a reason why they do not use netdev_alloc_skb, like
+> most other ethernet drivers?
 
->
-> I use the register/unregister/register sequence to add a fallback when the
-> of_mdiobus_register (this function calls mdiobus_register with phy_mask
-> set to ~0) does not register any phy device (because the device tree does
-> not define any phy).
-> In this case I call mdiobus_unregister and then call mdiobus_register with
-> a phy_mask set to 0 to trigger a full mdio bus scan.
->
-> I'm not sure this is the right way to do it (this is why I added RFC in the
-> subject).
->
-> Could someone help me figuring out what I should use to implement my fallback ?
->
-> 1) use the register/unregister/register sequence
-> 2) reimplement the "for (i = 0; i < PHY_MAX_ADDR; i++)" mdiobus_scan loop
->
-> Thanks.
->
-> Best Regards,
-> Boris
->
-> Boris BREZILLON (1):
->    phylib: mdio: handle register/unregister/register sequence
->
->   drivers/net/phy/mdio_bus.c |    6 ++++--
->   1 file changed, 4 insertions(+), 2 deletions(-)
->
+netdev_alloc_skb is such newfangled (2.6.19) interface - and both of these
+drivers date back to the 2.3 days.  So the answer is, nobody bothered so
+far.
+
+  Ralf
