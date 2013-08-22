@@ -1,90 +1,88 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: Re: [RFC] phy: micrel: Convert micrel PHY driver to use OF
-Date: Wed, 21 Aug 2013 22:13:47 -0700
-Message-ID: <20130822051347.GD5151@quad.lixom.net>
-References: <1376412156-3899-1-git-send-email-dinguyen@altera.com>
+From: Loganaden Velvindron <loganaden@gmail.com>
+Subject: Re: Fwd: RFC 6980 on Security Implications of IPv6 Fragmentation with
+ IPv6 Neighbor Discovery
+Date: Thu, 22 Aug 2013 09:39:45 +0400
+Message-ID: <CAOp4FwTcJX4dy23oZv6bU-+Fe-ZmwXp0WGonXVC_xvqPhpmxFQ@mail.gmail.com>
+References: <20130813221321.AEA1AB1E003@rfc-editor.org>
+	<520B3D81.9070506@gont.com.ar>
+	<20130814230617.GA13066@order.stressinduktion.org>
+	<520C7519.1010000@gont.com.ar>
+	<20130815100407.GA18564@order.stressinduktion.org>
+	<CAOp4FwRx3c3deHXupWg3S0aWe4ZJnCT9ORKCWRvUUuxxt1gneQ@mail.gmail.com>
+	<20130815102507.GA24122@order.stressinduktion.org>
+	<CAOp4FwTPuY9H=w_A7vdwiJv3RqKLWnf+Nk=q8xaa9sN6+g4j1g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dinh.linux@gmail.com, netdev@vger.kernel.org,
-	Richard Cochran <richardcochran@gmail.com>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	Felipe Balbi <balbi@ti.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Rob Herring <rob.herring@calxeda.com>,
-	devicetree@vger.kernel.org
-To: dinguyen@altera.com
+Content-Type: text/plain; charset=ISO-8859-1
+To: Loganaden Velvindron <loganaden@gmail.com>,
+	Fernando Gont <fernando@gont.com.ar>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:50190 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753853Ab3HVFO2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 01:14:28 -0400
-Received: by mail-pb0-f49.google.com with SMTP id xb4so1291036pbc.8
-        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 22:14:28 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1376412156-3899-1-git-send-email-dinguyen@altera.com>
+Received: from mail-we0-f169.google.com ([74.125.82.169]:35086 "EHLO
+	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752465Ab3HVFjq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 01:39:46 -0400
+Received: by mail-we0-f169.google.com with SMTP id t61so1236628wes.0
+        for <netdev@vger.kernel.org>; Wed, 21 Aug 2013 22:39:45 -0700 (PDT)
+In-Reply-To: <CAOp4FwTPuY9H=w_A7vdwiJv3RqKLWnf+Nk=q8xaa9sN6+g4j1g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(adding devicetree@vger.kernel.org)
+On Mon, Aug 19, 2013 at 12:52 AM, Loganaden Velvindron
+<loganaden@gmail.com> wrote:
+> On Thu, Aug 15, 2013 at 2:25 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+>>
+>> On Thu, Aug 15, 2013 at 02:14:46PM +0400, Loganaden Velvindron wrote:
+>> > I'm not sure if you got my previous mails, but I'd like to know a
+>> > couple of things:
+>>
+>> Ah, you asked me off-list. So, for a wider audience, I copy & paste my answers
+>> from the just answered mail. ;)
+>>
+>> > 1) How can I test this diff ?
+>>
+>> Actually, nothing should change at all.
+>>
+>> Myself, I used scapy to construct some packets and send it to a system
+>> with the patched kernel and had some printks sprinkeled in the source
+>> while watching tcpdump.
+>>
+>> > 2) It's developed against which git brach ? linux-next ?
+>>
+>> Yes, I targeted linux-next. But it should apply to older kernels
+>> without too much fuzz as well.
+>>
+>
+> I've tested with linux-next.
+>
+>> > 3) What will/could break with this diff in a production environment ?
+>>
+>> RA messages could get fragmented if a speaker puts lots of options in it. I
+>> hope all RA speakers already spread the options over multiple RAs, but I don't
+>> know. In case the RA is fragmented it will now be dropped silently.
+>>
+>
+> My IPv6 gateway machine runs OpenBSD, and so far, no issues with it.
+> I'm going to test
+> it at work in a couple of hours and report back.
+
+Works fine @ work with cisco routers.
+
+>
+>
+>> Thanks,
+>>
+>>   Hannes
+>>
+>
+>
+>
+> --
+> This message is strictly personal and the opinions expressed do not
+> represent those of my employers, either past or present.
 
 
-On Tue, Aug 13, 2013 at 11:42:36AM -0500, dinguyen@altera.com wrote:
-> From: Dinh Nguyen <dinguyen@altera.com>
-> 
-> Convert the Micrel PHY driver to use OF. This initial patch is only
-> the beginning of an idea to convert the PHY driver to device tree.
-> 
-> Signed-of-by: Dinh Nguyen <dinguyen@altera.com>
-> Cc: netdev@vger.kernel.org
-> Cc: Richard Cochran <richardcochran@gmail.com>
-> Cc: Linus Walleij <linus.walleij@linaro.org>
-> Cc: Felipe Balbi <balbi@ti.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> Cc: Olof Johansson <olof@lixom.net>
-> Cc: Rob Herring <rob.herring@calxeda.com>
-> 
-> ---
-> Hello,
-> 
-> I would like to solicit comments on the need to convert the ethernet PHY
-> drivers to use OF/device trees? For the platform that I'm interested in,
-> SOCFPGA, it is using the stmicro ethernet driver. It has a Micrel PHY
-> on the board. The only way that I know of how to change the skew settings
-> for the phy is through a board level initialization.
-> 
-> One of the ARM maintainers suggested that perhaps refactoring the ethernet
-> driver to use device tree would be nice. But that would not help me with
-> configuring the PHY settings.
-> 
-> So a little investigation led me to believe that refactoring the /net/phy
-> drivers into a device tree implementation would help greatly. I was thinking
-> it could be done like the pinctrl or some of the usb/phy driver.
-> 
-> Since I am only familiar with the ARM SoC space, I want to make sure that
-> this idea is right approach. I can start with the micrel PHY driver
-> first, as that is the only HW I have access to.
 
-Hi,
-
-Sorry for the slow reply here.
-
-I don't think this is quite the right approach.
-
-What you want to do is to make the phy devices register based on device tree
-contents, which also means removing the run function, or rather moving it to
-a generic run function in the phy subsystem that acts based on device tree
-contents instead of a hard-coded per-board run function.
-
-It sounds like defining that binding might end up getting complicated.
-I suggest you consider recruiting some of the more seasoned devicetree folks on
-this endeavor.
-
-It's possible that you'll mostly have per-vendor/phy type properties to tune
-the various settings, but it's also likely that you will have some generic and
-shared (optional) properties such as gpios for resetting, or regulators for
-powering, the phy.
-
-
--Olof
+-- 
+This message is strictly personal and the opinions expressed do not
+represent those of my employers, either past or present.
