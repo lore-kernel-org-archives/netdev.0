@@ -1,7 +1,7 @@
 From: Daniel Mack <zonque@gmail.com>
-Subject: [PATCH v3 2/5] net: ethernet: cpsw: add optional third memory region for CONTROL module
-Date: Fri, 23 Aug 2013 14:08:52 +0200
-Message-ID: <1377259735-20337-3-git-send-email-zonque@gmail.com>
+Subject: [PATCH v3 4/5] net: ethernet: cpsw: add support for hardware interface mode config
+Date: Fri, 23 Aug 2013 14:08:54 +0200
+Message-ID: <1377259735-20337-5-git-send-email-zonque@gmail.com>
 References: <1377259735-20337-1-git-send-email-zonque@gmail.com>
 Cc: bcousson@baylibre.com, nsekhar@ti.com,
 	sergei.shtylyov@cogentembedded.com, davem@davemloft.net,
@@ -11,75 +11,156 @@ Cc: bcousson@baylibre.com, nsekhar@ti.com,
 	Daniel Mack <zonque@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:48146 "EHLO mail.zonque.de"
+Received: from svenfoo.org ([82.94.215.22]:48138 "EHLO mail.zonque.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755388Ab3HWMJG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753950Ab3HWMJG (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 23 Aug 2013 08:09:06 -0400
 In-Reply-To: <1377259735-20337-1-git-send-email-zonque@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-At least the AM33xx SoC has a control module register to configure
-details such as the hardware ethernet interface mode.
+The cpsw currently lacks code to properly set up the hardware interface
+mode on AM33xx. Other platforms might be equally affected.
 
-I'm not sure whether all SoCs which feature the cpsw block have such a
-register, so that third memory region is considered optional for now.
+Usually, the bootloader will configure the control module register, so
+probably that's why such support wasn't needed in the past. In suspend
+mode though, this register is modified, and so it needs reprogramming
+after resume.
+
+This patch adds code that makes use of the previously added and optional
+support for passing the control mode register, and configures the
+correct register bits when the slave is opened.
+
+The AM33xx also has a bit for each slave to configure the RMII reference
+clock direction. Setting it is now supported by a per-slave DT property.
+
+This code path introducted by this patch is currently exclusive for
+am33xx.
 
 Signed-off-by: Daniel Mack <zonque@gmail.com>
 ---
- Documentation/devicetree/bindings/net/cpsw.txt |  5 ++++-
- drivers/net/ethernet/ti/cpsw.c                 | 16 ++++++++++++++++
- 2 files changed, 20 insertions(+), 1 deletion(-)
+ Documentation/devicetree/bindings/net/cpsw.txt |  2 +
+ drivers/net/ethernet/ti/cpsw.c                 | 61 ++++++++++++++++++++++++++
+ drivers/net/ethernet/ti/cpsw.h                 |  1 +
+ 3 files changed, 64 insertions(+)
 
 diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
-index 05d660e..4e5ca54 100644
+index b717458..0895a51 100644
 --- a/Documentation/devicetree/bindings/net/cpsw.txt
 +++ b/Documentation/devicetree/bindings/net/cpsw.txt
-@@ -4,7 +4,10 @@ TI SoC Ethernet Switch Controller Device Tree Bindings
- Required properties:
- - compatible		: Should be "ti,cpsw"
- - reg			: physical base address and size of the cpsw
--			  registers map
-+			  registers map.
-+			  An optional third memory region can be supplied if
-+			  the platform has a control module register to
-+			  configure phy interface details
- - interrupts		: property with a value describing the interrupt
- 			  number
- - interrupt-parent	: The parent interrupt controller
+@@ -34,6 +34,8 @@ Required properties:
+ - phy_id		: Specifies slave phy id
+ - phy-mode		: The interface between the SoC and the PHY (a string
+ 			  that of_get_phy_mode() can understand)
++- ti,rmii-clock-ext	: If present, the driver will configure the RMII
++			  interface to external clock usage
+ - mac-address		: Specifies slave MAC address
+ 
+ Optional properties:
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 1a91aac..bd0b664 100644
+index b194529..b839501 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -372,6 +372,7 @@ struct cpsw_priv {
- 	struct cpsw_platform_data	data;
- 	struct cpsw_ss_regs __iomem	*regs;
- 	struct cpsw_wr_regs __iomem	*wr_regs;
-+	u32 __iomem			*gmii_sel_reg;
- 	u8 __iomem			*hw_stats;
- 	struct cpsw_host_regs __iomem	*host_port_regs;
- 	u32				msg_enable;
-@@ -1999,6 +2000,21 @@ static int cpsw_probe(struct platform_device *pdev)
- 		goto clean_runtime_disable_ret;
- 	}
+@@ -138,6 +138,13 @@ do {								\
+ #define CPSW_CMINTMAX_INTVL	(1000 / CPSW_CMINTMIN_CNT)
+ #define CPSW_CMINTMIN_INTVL	((1000 / CPSW_CMINTMAX_CNT) + 1)
  
-+	/* If the control memory region is unspecified, continue without it.
-+	 * If it is specified, but we're unable to reserve it, bail.
-+	 */
-+	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
-+	if (!res) {
-+		dev_err(priv->dev, "error getting control i/o resource\n");
-+		goto no_gmii_sel;
-+	}
-+	priv->gmii_sel_reg = devm_ioremap_resource(&pdev->dev, res);
-+	if (!priv->gmii_sel_reg) {
-+		dev_err(priv->dev, "unable to map control i/o region\n");
-+		goto clean_runtime_disable_ret;
-+	}
++#define AM33XX_GMII_SEL_MODE_MII	(0)
++#define AM33XX_GMII_SEL_MODE_RMII	(1)
++#define AM33XX_GMII_SEL_MODE_RGMII	(2)
 +
-+no_gmii_sel:
- 	memset(&dma_params, 0, sizeof(dma_params));
- 	memset(&ale_params, 0, sizeof(ale_params));
++#define AM33XX_GMII_SEL_RMII2_IO_CLK_EN	BIT(7)
++#define AM33XX_GMII_SEL_RMII1_IO_CLK_EN	BIT(6)
++
+ #define cpsw_enable_irq(priv)	\
+ 	do {			\
+ 		u32 i;		\
+@@ -980,6 +987,56 @@ static inline void cpsw_add_dual_emac_def_ale_entries(
+ 		priv->host_port, ALE_VLAN, slave->port_vlan);
+ }
  
++static void cpsw_set_phy_interface_mode(struct cpsw_slave *slave,
++					struct cpsw_priv *priv)
++{
++	u32 reg, mask, mode = 0;
++
++	switch (priv->data.hw_type) {
++	case CPSW_TYPE_AM33XX:
++		if (!priv->gmii_sel_reg)
++			break;
++
++		reg = readl(priv->gmii_sel_reg);
++
++		if (slave->phy) {
++			switch (slave->phy->interface) {
++			case PHY_INTERFACE_MODE_MII:
++			default:
++				mode = AM33XX_GMII_SEL_MODE_MII;
++				break;
++			case PHY_INTERFACE_MODE_RMII:
++				mode = AM33XX_GMII_SEL_MODE_RMII;
++				break;
++			case PHY_INTERFACE_MODE_RGMII:
++				mode = AM33XX_GMII_SEL_MODE_RGMII;
++				break;
++			};
++		}
++
++		mask = 0x3 << (slave->slave_num * 2) |
++		       BIT(slave->slave_num + 6);
++		mode <<= slave->slave_num * 2;
++
++		if (slave->data->rmii_clock_external) {
++			if (slave->slave_num == 0)
++				mode |= AM33XX_GMII_SEL_RMII1_IO_CLK_EN;
++			else
++				mode |= AM33XX_GMII_SEL_RMII2_IO_CLK_EN;
++		}
++
++		reg &= ~mask;
++		reg |= mode;
++
++		writel(reg, priv->gmii_sel_reg);
++		break;
++
++	default:
++		break;
++
++	}
++}
++
+ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
+ {
+ 	char name[32];
+@@ -1028,6 +1085,8 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
+ 			 slave->phy->phy_id);
+ 		phy_start(slave->phy);
+ 	}
++
++	cpsw_set_phy_interface_mode(slave, priv);
+ }
+ 
+ static inline void cpsw_add_default_vlan(struct cpsw_priv *priv)
+@@ -1823,6 +1882,8 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 			memcpy(slave_data->mac_addr, mac_addr, ETH_ALEN);
+ 
+ 		slave_data->phy_if = of_get_phy_mode(slave_node);
++		if (of_find_property(slave_node, "ti,rmii-clock-ext", NULL))
++			slave_data->rmii_clock_external = true;
+ 
+ 		if (data->dual_emac) {
+ 			if (of_property_read_u32(slave_node, "dual_emac_res_vlan",
+diff --git a/drivers/net/ethernet/ti/cpsw.h b/drivers/net/ethernet/ti/cpsw.h
+index 96c374a..3baa2350 100644
+--- a/drivers/net/ethernet/ti/cpsw.h
++++ b/drivers/net/ethernet/ti/cpsw.h
+@@ -19,6 +19,7 @@
+ struct cpsw_slave_data {
+ 	char		phy_id[MII_BUS_ID_SIZE];
+ 	int		phy_if;
++	bool		rmii_clock_external;
+ 	u8		mac_addr[ETH_ALEN];
+ 	u16		dual_emac_res_vlan;	/* Reserved VLAN for DualEMAC */
+ };
 -- 
 1.8.3.1
