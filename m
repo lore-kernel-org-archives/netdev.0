@@ -1,81 +1,64 @@
-From: Rui Xiang <rui.xiang@huawei.com>
-Subject: [PATCH 0/2] fs: supply inode uid/gid setting interface
-Date: Fri, 23 Aug 2013 10:48:36 +0800
-Message-ID: <1377226118-43756-1-git-send-email-rui.xiang@huawei.com>
+From: Amos Kong <kongjianjun@gmail.com>
+Subject: Re: [RFC PATCH] bridge: inherit slave devices needed_headroom
+Date: Fri, 23 Aug 2013 10:49:48 +0800
+Message-ID: <CAFeW=pY2xT7DB-Wrpi7MSyri5UD1quR76PR5ziv+YkNmC2L5TQ@mail.gmail.com>
+References: <1376990505-15708-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, <linux-ia64@vger.kernel.org>,
-	<linuxppc-dev@lists.ozlabs.org>, <linux-s390@vger.kernel.org>,
-	<linux-rdma@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-	<v9fs-developer@lists.sourceforge.net>, <linux-mm@kvack.org>,
-	<cgroups@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Rui Xiang <rui.xiang@huawei.com>
-To: <linux-fsdevel@vger.kernel.org>, <viro@zeniv.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	eric.dumazet@gmail.com, Vlad Yasevich <vyasevic@redhat.com>,
+	David Miller <davem@davemloft.net>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:54958 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754583Ab3HWCtt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 22:49:49 -0400
+Received: by mail-wi0-f170.google.com with SMTP id hi8so1594683wib.3
+        for <netdev@vger.kernel.org>; Thu, 22 Aug 2013 19:49:48 -0700 (PDT)
+In-Reply-To: <1376990505-15708-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patchset implements an accessor functions to set uid/gid
-in inode struct. Just finish code clean up.
+On Tue, Aug 20, 2013 at 5:21 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> Some slave devices may have set a dev->needed_headroom value which is
+> different than the default one, most likely in order to prepend a
+> hardware descriptor in front of the Ethernet frame to send. Whenever a
+> new slave is added to a bridge, ensure that we update the
+> needed_headroom value accordingly to account for the slave
+> needed_headroom value.
+>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  net/bridge/br_if.c | 3 +++
+>  1 file changed, 3 insertions(+)
+>
+> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+> index aa6c9a8..c41d5fb 100644
+> --- a/net/bridge/br_if.c
+> +++ b/net/bridge/br_if.c
+> @@ -383,6 +383,9 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+>
+>         netdev_update_features(br->dev);
+>
+> +       if (br->dev->needed_headroom < dev->needed_headroom)
+> +               br->dev->needed_headroom = dev->needed_headroom;
+> +
 
-Rui Xiang (2):
-  fs: implement inode uid/gid setting function
-  fs: use inode_set_user to set uid/gid of inode
+do we need to update 'br->dev->needed_headroom' in br_del_if()?
 
- arch/ia64/kernel/perfmon.c                |  3 +--
- arch/powerpc/platforms/cell/spufs/inode.c |  3 +--
- arch/s390/hypfs/inode.c                   |  3 +--
- drivers/infiniband/hw/qib/qib_fs.c        |  3 +--
- drivers/usb/gadget/f_fs.c                 |  3 +--
- drivers/usb/gadget/inode.c                |  5 +++--
- fs/9p/vfs_inode.c                         |  6 ++----
- fs/adfs/inode.c                           |  3 +--
- fs/affs/inode.c                           |  6 ++----
- fs/afs/inode.c                            |  6 ++----
- fs/anon_inodes.c                          |  3 +--
- fs/autofs4/inode.c                        |  4 ++--
- fs/befs/linuxvfs.c                        |  8 ++++----
- fs/ceph/caps.c                            |  5 +++--
- fs/ceph/inode.c                           |  8 ++++----
- fs/cifs/inode.c                           |  6 ++----
- fs/configfs/inode.c                       |  3 +--
- fs/debugfs/inode.c                        |  3 +--
- fs/devpts/inode.c                         |  7 +++----
- fs/ext2/ialloc.c                          |  3 +--
- fs/ext3/ialloc.c                          |  3 +--
- fs/ext4/ialloc.c                          |  3 +--
- fs/fat/inode.c                            |  6 ++----
- fs/fuse/control.c                         |  3 +--
- fs/fuse/inode.c                           |  4 ++--
- fs/hfs/inode.c                            |  6 ++----
- fs/hfsplus/inode.c                        |  3 +--
- fs/hpfs/inode.c                           |  3 +--
- fs/hpfs/namei.c                           | 12 ++++--------
- fs/hugetlbfs/inode.c                      |  3 +--
- fs/inode.c                                |  7 +++++++
- fs/isofs/inode.c                          |  3 +--
- fs/isofs/rock.c                           |  3 +--
- fs/ncpfs/inode.c                          |  3 +--
- fs/nfs/inode.c                            |  4 ++--
- fs/ntfs/inode.c                           | 12 ++++--------
- fs/ntfs/mft.c                             |  3 +--
- fs/ntfs/super.c                           |  3 +--
- fs/ocfs2/refcounttree.c                   |  3 +--
- fs/omfs/inode.c                           |  3 +--
- fs/pipe.c                                 |  3 +--
- fs/proc/base.c                            | 15 +++++----------
- fs/proc/fd.c                              |  8 ++++----
- fs/proc/inode.c                           |  3 +--
- fs/proc/self.c                            |  3 +--
- fs/stack.c                                |  3 +--
- fs/sysfs/inode.c                          |  3 +--
- fs/xfs/xfs_iops.c                         |  4 ++--
- include/linux/fs.h                        |  1 +
- ipc/mqueue.c                              |  3 +--
- kernel/cgroup.c                           |  3 +--
- mm/shmem.c                                |  3 +--
- net/socket.c                              |  3 +--
- 53 files changed, 94 insertions(+), 142 deletions(-)
+if (br->dev->needed_headroom == dev->needed_headroom)
+    br->dev->needed_headroom = ....;
 
--- 
-1.8.2.2
+
+>         spin_lock_bh(&br->lock);
+>         changed_addr = br_stp_recalculate_bridge_id(br);
+>
+> --
+> 1.8.1.2
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
