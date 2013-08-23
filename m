@@ -1,47 +1,32 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: Re: [PATCH net-next 0/2] qlge: feature update
-Date: Fri, 23 Aug 2013 17:49:00 +0000
-Message-ID: <BECD8E8A1B550B48A1BF97C13991F60E46C758AF@avmb2.qlogic.org>
-References: <20130822.221246.527881072702590889.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RESEND net-next 06/16] sfc: Introduce and use
+ MCDI_DECLARE_BUF macro
+Date: Fri, 23 Aug 2013 11:00:19 -0700 (PDT)
+Message-ID: <20130823.110019.1381689459905978877.davem@davemloft.net>
+References: <1377199609.1703.55.camel@bwh-desktop.uk.level5networks.com>
+	<20130822.220236.2202751653391527307.davem@davemloft.net>
+	<1377253570.2586.15.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Ron Mercer <ron.mercer@qlogic.com>,
-	Dept-NX Linux NIC Driver
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:32831 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755728Ab3HWRtE convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Aug 2013 13:49:04 -0400
-In-Reply-To: <20130822.221246.527881072702590889.davem@davemloft.net>
-Content-Language: en-US
-Content-ID: <AC3635DE60139A4297129899E85C6D1D@qlogic.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41287 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755730Ab3HWSAV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 14:00:21 -0400
+In-Reply-To: <1377253570.2586.15.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/22/13 10:12 PM, "David Miller" <davem@davemloft.net> wrote:
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 23 Aug 2013 11:26:10 +0100
 
->From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
->Date: Thu, 22 Aug 2013 15:54:10 -0400
->
->> This patch series enhance the handling of nested vlan tags in Rx path.
->
->Sorry no module parameters.
->You must make a generic, kernel wide, interface for controlling behavior
->such as this.
->
->Otherwise users will need to learn unique configuration mechanisms
->to control this kind of thing for every single driver and that's
->beyond terrible.
->
->I'm not applying these patches.
+> My intent was to separate refactoring changes with no immediate effect
+> (#6-9) from functional changes (#10-11), making them easier to review.
+> The alignment gets fixed by #11.
 
-I will remove module parameter and will submit it again. Meantime will
-look into making it generic interface to toggle the behavior.
+Ok I didn't see that, I'll keep reviewing this series then.
 
-Thanks,
-    Jiten
+Thanks.
