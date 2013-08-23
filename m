@@ -1,50 +1,60 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 1/2] genl: Fix genl dumpit() locking.
-Date: Fri, 23 Aug 2013 09:29:42 +0200
-Message-ID: <1377242982.14021.8.camel@jlt4.sipsolutions.net>
-References: <1377143882-20717-1-git-send-email-pshelar@nicira.com>
-	 <1377156980.14110.16.camel@jlt4.sipsolutions.net>
-	 <CALnjE+qgZ_UZ4GdiZ4UCzfTLn-OveoHtE28uQZokz2kPD4srXQ@mail.gmail.com>
-	 <1377193906.14110.27.camel@jlt4.sipsolutions.net>
-	 <CALnjE+rEOMmyFQ0Nx3-O-Cvu8yePVBg7x8vgpGUOAAnYv3KG4Q@mail.gmail.com>
-	 <1377195534.14110.29.camel@jlt4.sipsolutions.net>
-	 <CALnjE+osiw-uPdf8JEX=jG+zwaoypoSQ_A+N-WiVUkxxT63y+g@mail.gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH next 1/2] net: can: mscan: add a comment on reg to idx
+ mapping
+Date: Fri, 23 Aug 2013 09:30:55 +0200
+Message-ID: <52170FAF.7040508@pengutronix.de>
+References: <1377208917-16698-1-git-send-email-agust@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>
-To: Pravin Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:38025 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753623Ab3HWH3o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 03:29:44 -0400
-In-Reply-To: <CALnjE+osiw-uPdf8JEX=jG+zwaoypoSQ_A+N-WiVUkxxT63y+g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="lJUxDOIVI5vpTQIIJfVjfB2FwVsDr9rPG"
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Gerhard Sittig <gsi@denx.de>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Anatolij Gustschin <agust@denx.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1377208917-16698-1-git-send-email-agust@denx.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-08-22 at 13:31 -0700, Pravin Shelar wrote:
-> On Thu, Aug 22, 2013 at 11:18 AM, Johannes Berg
-> <johannes@sipsolutions.net> wrote:
-> > On Thu, 2013-08-22 at 11:10 -0700, Pravin Shelar wrote:
-> >
-> >> > By the way - why? This just means that netlink will allocate another
-> >> > lock to lock it all, so it's not a very useful change?
-> >> >
-> >> This replaces global genl-lock with per-socket lock which allows
-> >> parallel operation in parallel-genl-families and they are not blocked
-> >> due to other unrelated genl-family operations.
-> >
-> > I don't think so? It replaces the genl lock as cb_mutex with a per
-> > *kernel* socket lock, so really just one per network namespace. That's
-> > not much of an improvement really.
-> >
-> 
-> You are thinking abt genl-sock -> nlk -> cb_lock which is not used in
-> genl-dump locking if cb_lock is NULL while creating nl socket.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--lJUxDOIVI5vpTQIIJfVjfB2FwVsDr9rPG
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-You're right, this is also done for each userland socket, so each socket
-now gets its own cb_mutex. This would help genl families with
-parallel_ops.
+On 08/23/2013 12:01 AM, Anatolij Gustschin wrote:
+> From: Gerhard Sittig <gsi@denx.de>
+>=20
+> add a comment about the magic of deriving an MSCAN component index
+> from the peripheral's physical address / register offset
+>=20
+> Cc: linux-can@vger.kernel.org
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Gerhard Sittig <gsi@denx.de>
 
-johannes
+Anatolij, I'm missung your S-o-b here. Can you repost both patches?
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--lJUxDOIVI5vpTQIIJfVjfB2FwVsDr9rPG
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlIXD7MACgkQjTAFq1RaXHOZgACfdC2+4nOFrtUl9JOoT7nA7xw6
+RVkAmwSyhkeaIDeMui0VGHghYTYbZbPa
+=Zsbs
+-----END PGP SIGNATURE-----
+
+--lJUxDOIVI5vpTQIIJfVjfB2FwVsDr9rPG--
