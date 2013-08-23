@@ -1,61 +1,91 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH RESEND next 1/2] net: can: mscan: add a comment on reg
- to idx mapping
-Date: Fri, 23 Aug 2013 13:29:06 +0200
-Message-ID: <52174782.6080002@pengutronix.de>
-References: <1377256144-4173-1-git-send-email-agust@denx.de>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Problematic commits in the ipsec tree
+Date: Fri, 23 Aug 2013 13:34:35 +0200
+Message-ID: <20130823113435.GC808@order.stressinduktion.org>
+References: <20130822104724.GD26773@secunet.com> <20130822135342.GC30722@order.stressinduktion.org> <20130823085807.GH26773@secunet.com> <20130823110323.GB808@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="1H2AMXHaxt1NB6iE9Im2p3dGLj8K9Daf6"
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Gerhard Sittig <gsi@denx.de>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Anatolij Gustschin <agust@denx.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1377256144-4173-1-git-send-email-agust@denx.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:41975 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755349Ab3HWLeh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 07:34:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20130823110323.GB808@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---1H2AMXHaxt1NB6iE9Im2p3dGLj8K9Daf6
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On Fri, Aug 23, 2013 at 01:03:23PM +0200, Hannes Frederic Sowa wrote:
+> Hello!
+> 
+> On Fri, Aug 23, 2013 at 10:58:07AM +0200, Steffen Klassert wrote:
+> > On Thu, Aug 22, 2013 at 03:53:42PM +0200, Hannes Frederic Sowa wrote:
+> > > On Thu, Aug 22, 2013 at 12:47:24PM +0200, Steffen Klassert wrote:
+> > > > Hannes,
+> > > > 
+> > > > I have two problematic commits from you in the ipsec tree. The first one is:
+> > > > 
+> > > > commit 0ea9d5e3e (xfrm: introduce helper for safe determination of mtu)
+> > > > 
+> > > > This breakes pmtu discovery for IPv4 because now we use the device mtu
+> > > > instead of the reduced IPsec mtu in xfrm4_tunnel_check_size() if a IPv4
+> > > > socket is at the skb.
+> > > 
+> > > I am currently testing this following patch. It should restore old behavior
+> > > for ipv4 sockets.
+> > > 
+> > > diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+> > > index ac5b025..65d3529 100644
+> > > --- a/include/net/xfrm.h
+> > > +++ b/include/net/xfrm.h
+> > > @@ -1730,8 +1730,6 @@ static inline int xfrm_skb_dst_mtu(struct sk_buff *skb)
+> > >  
+> > >  	if (sk && skb->protocol == htons(ETH_P_IPV6))
+> > >  		return ip6_skb_dst_mtu(skb);
+> > > -	else if (sk && skb->protocol == htons(ETH_P_IP))
+> > > -		return ip_skb_dst_mtu(skb);
+> > >  	return dst_mtu(skb_dst(skb));
+> > >  }
+> > 
+> > This looks still fragile. xfrm_skb_dst_mtu() is called from
+> > __xfrm6_output() and from xfrm4_tunnel_check_size().
+> > We will have the same bug again as soon as somebody thinks that
+> > it is save to call it from xfrm6_tunnel_check_size() too. So I
+> > think it is better not to call it from xfrm4_tunnel_check_size().
+> 
+> Hm, I don't think I can follow you completly here. I searched for allocations
+> of ipv6 skbs (where they originated from a socket) and checked these
+> allocations also initialize the skb->protocol field (the second patch).
+> 
+> I wonder if ip6_skb_dst_mtu was correct all along and if we should just
+> switch to dst_mtu(skb_dst(skb)) in all cases?
 
-On 08/23/2013 01:09 PM, Anatolij Gustschin wrote:
-> From: Gerhard Sittig <gsi@denx.de>
->=20
-> add a comment about the magic of deriving an MSCAN component index
-> from the peripheral's physical address / register offset
->=20
-> Cc: linux-can@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Gerhard Sittig <gsi@denx.de>
-> Signed-off-by: Anatolij Gustschin <agust@denx.de>
+Ok, I got it.
 
-Tnx, both applied to linux-can-next/testing. Will be included in the net
-pull request to Daivd.
+How about just checking in __xfrm6_output if we actually have a packet
+originated from an IPv6 socket so that we only replace the original call to
+ip6_skb_dst_mtu(skb)?
 
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+> 
+> > Also, why do we need xfrm_skb_dst_mtu() at all? When it is called
+> > from __xfrm6_output(), we know that this is IPv6. So we can call
+> > ip6_skb_dst_mtu() directly as it was before your change.
+> 
+> The problem was that ip6_skb_dst_mtu dereferences the ipv6_pinfo socket to
+> check for IPV6_PMTUDISC_PROBE. If IPv4 is encapsulated in IPv6 and the packet
+> originated from the same host (sk != NULL) we call down to ip6_skb_dst_mtu.
+> This function checks that ipv6_pinfo is not NULL, so it worked by accident
+> currently.
+> 
+> My plan would be to check that all IPv4 skb allocations use the correct
+> skb->protocol, too, or if we can use the skb->inner_protocol field to mark
+> packets in the tunnel drivers from which protocol they originated.
 
+Btw. this also let's us refer to the wrong mtu in case of an v4-mapped v6
+socket transmitting over a address family changing tunnel over ipsec.
 
---1H2AMXHaxt1NB6iE9Im2p3dGLj8K9Daf6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Greetings,
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlIXR4IACgkQjTAFq1RaXHPPHwCfYSGVl71/LTq+vdzM3yGy5Wgo
-eOEAoIrraUCmXkU0qcTBXeFG+WpbkB6f
-=Xw/e
------END PGP SIGNATURE-----
-
---1H2AMXHaxt1NB6iE9Im2p3dGLj8K9Daf6--
+  Hannes
