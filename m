@@ -1,40 +1,103 @@
 From: Francesco Fusco <ffusco@redhat.com>
-Subject: [PATCH net-next v2 0/2] ipv4: per-datagram IP_TOS and IP_TTL via sendmsg()
-Date: Fri, 23 Aug 2013 14:19:31 +0200
-Message-ID: <cover.1377257704.git.ffusco@redhat.com>
+Subject: [PATCH net-next v2 1/2] ipv4: IP_TOS and IP_TTL can be specified as ancillary data
+Date: Fri, 23 Aug 2013 14:19:32 +0200
+Message-ID: <aaa7e0af2fe535ea5216e438b5f65db88dcef8b2.1377257704.git.ffusco@redhat.com>
+References: <cover.1377257704.git.ffusco@redhat.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40087 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:23846 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755478Ab3HWMTg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Aug 2013 08:19:36 -0400
+	id S1755478Ab3HWMTh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Aug 2013 08:19:37 -0400
+In-Reply-To: <cover.1377257704.git.ffusco@redhat.com>
+In-Reply-To: <cover.1377257704.git.ffusco@redhat.com>
+References: <cover.1377257704.git.ffusco@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no way to set the IP_TOS field on a per-packet basis in IPv4, while
-IPv6 has such a mechanism. Therefore one has to fall back to the setsockopt()
-in case of IPv4. 
+This patch enables the IP_TTL and IP_TOS values passed from userspace to
+be stored in the ipcm_cookie struct. Three fields are added to the struct:
 
-Using the existing per-socket option is not convenient particularly in the
-situations where multiple threads have to use the same socket data requiring
-per-thread TOS values. In fact this would involve calling setsockopt() before
-sendmsg() every time.
+- the TTL, expressed as __u8.
+  The allowed values are in the [1-255].
+  A value of 0 means that the TTL is not specified.
 
-Francesco Fusco (2):
-  ipv4: IP_TOS and IP_TTL can be specified as ancillary data
-  ipv4: processing ancillary IP_TOS or IP_TTL
+- the TOS, expressed as __s16.
+  The allowed values are in the range [0,255].
+  A value of -1 means that the TOS is not specified.
 
- include/net/inet_sock.h |  3 +++
- include/net/ip.h        | 14 ++++++++++++++
- include/net/route.h     |  1 +
- net/ipv4/icmp.c         |  5 +++++
- net/ipv4/ip_output.c    | 13 ++++++++++---
- net/ipv4/ip_sockglue.c  | 20 +++++++++++++++++++-
- net/ipv4/ping.c         |  4 +++-
- net/ipv4/raw.c          |  4 +++-
- net/ipv4/udp.c          |  4 +++-
- 9 files changed, 61 insertions(+), 7 deletions(-)
+- the priority, expressed as a char and computed when
+  handling the ancillary data.
 
+Signed-off-by: Francesco Fusco <ffusco@redhat.com>
+---
+ v1->v2
+  - changed the icmp_cookie ttl field from __s16 to __u8.
+    A value of 0 means that the TTL has not been specified
+  - to tos field is still __s16. The user can specify
+    values in the range 0-255 included, therefore I use
+    a value of -1 as a flag saying that the value has
+    not been specified
+  - the priority it is now a char instead of a __u32, 
+    which is the return type of rt_tos2priority
+  - improved commit message
+
+ include/net/ip.h       |  3 +++
+ net/ipv4/ip_sockglue.c | 20 +++++++++++++++++++-
+ 2 files changed, 22 insertions(+), 1 deletion(-)
+
+diff --git a/include/net/ip.h b/include/net/ip.h
+index a68f838..84b5476 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -56,6 +56,9 @@ struct ipcm_cookie {
+ 	int			oif;
+ 	struct ip_options_rcu	*opt;
+ 	__u8			tx_flags;
++	__u8			ttl;
++	__s16			tos;
++	char			priority;
+ };
+ 
+ #define IPCB(skb) ((struct inet_skb_parm*)((skb)->cb))
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index d9c4f11..56e3445 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -189,7 +189,7 @@ EXPORT_SYMBOL(ip_cmsg_recv);
+ 
+ int ip_cmsg_send(struct net *net, struct msghdr *msg, struct ipcm_cookie *ipc)
+ {
+-	int err;
++	int err, val;
+ 	struct cmsghdr *cmsg;
+ 
+ 	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
+@@ -215,6 +215,24 @@ int ip_cmsg_send(struct net *net, struct msghdr *msg, struct ipcm_cookie *ipc)
+ 			ipc->addr = info->ipi_spec_dst.s_addr;
+ 			break;
+ 		}
++		case IP_TTL:
++			if (cmsg->cmsg_len != CMSG_LEN(sizeof(int)))
++				return -EINVAL;
++			val = *(int *)CMSG_DATA(cmsg);
++			if (val < 1 || val > 255)
++				return -EINVAL;
++			ipc->ttl = val;
++			break;
++		case IP_TOS:
++			if (cmsg->cmsg_len != CMSG_LEN(sizeof(int)))
++				return -EINVAL;
++			val = *(int *)CMSG_DATA(cmsg);
++			if (val < 0 || val > 255)
++				return -EINVAL;
++			ipc->tos = val;
++			ipc->priority = rt_tos2priority(ipc->tos);
++			break;
++
+ 		default:
+ 			return -EINVAL;
+ 		}
 -- 
 1.8.3.1
