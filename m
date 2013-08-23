@@ -1,75 +1,44 @@
-From: Sekhar Nori <nsekhar@ti.com>
-Subject: Re: [PATCH v2 5/5] ARM: dts: am33xx: adopt to cpsw changes
-Date: Fri, 23 Aug 2013 15:10:34 +0530
-Message-ID: <52172E12.2000908@ti.com>
-References: <1377247417-27386-1-git-send-email-zonque@gmail.com>
- <1377247417-27386-6-git-send-email-zonque@gmail.com>
- <52172B54.8020201@ti.com> <52172CB0.9030204@gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] net/fec: "u32" is more explicit than "unsigned long"
+Date: Fri, 23 Aug 2013 12:49:20 +0300
+Message-ID: <20130823094920.GP31293@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, sergei.shtylyov@cogentembedded.com, d-gerlach@ti.com,
- netdev@vger.kernel.org, vaibhav.bedia@ti.com, devicetree@vger.kernel.org,
- ujhelyi.m@gmail.com, linux-omap@vger.kernel.org, davem@davemloft.net,
- linux-arm-kernel@lists.infradead.org
-To: Daniel Mack <zonque@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <52172CB0.9030204@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Rob Herring <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>,
+	Jim Baxter <jim_baxter@mentor.com>,
+	Fugang Duan <B38611@freescale.com>, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Grant Likely <grant.likely@linaro.org>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 23 August 2013 03:04 PM, Daniel Mack wrote:
-> On 23.08.2013 11:28, Sekhar Nori wrote:
->> On Friday 23 August 2013 02:13 PM, Daniel Mack wrote:
->>> This third memory region just denotes one single register in the CONTROL
->>> module block. The driver uses that in order to set the correct physical
->>> ethernet interface modes.
->>>
->>> Also update the compatible string to make use of the am335x specific
->>> features of the cpsw driver.
->>>
->>> Signed-off-by: Daniel Mack <zonque@gmail.com>
->>> ---
->>>  arch/arm/boot/dts/am33xx.dtsi | 5 +++--
->>>  1 file changed, 3 insertions(+), 2 deletions(-)
->>>
->>> diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
->>> index a785b95..1a1e9dd 100644
->>> --- a/arch/arm/boot/dts/am33xx.dtsi
->>> +++ b/arch/arm/boot/dts/am33xx.dtsi
->>> @@ -446,7 +446,7 @@
->>>  		};
->>>  
->>>  		mac: ethernet@4a100000 {
->>> -			compatible = "ti,cpsw";
->>> +			compatible = "ti,am3352-cpsw";
->>
->> Please keep this as
->>
->> 	compatible = "ti,am3352-cpsw", "ti,cpsw";
->>
->> so users can upgrade the DTB or kernel independently. Apart from this
->> the series looks good to me.
-> 
-> Ok, thanks. Given that this last patch will be merged through another
-> tree, can I just resend it separately, while David takes the rest as it is?
+tmpaddr[] is a six byte array.  We want to set the first four bytes on
+the first line and the remaining two on the next line.  The code assumes
+that "unsigned long" is 32 bits and obviously that's not true on 64 bit
+arches.  It's better to just use u32 instead.
 
-Ideally you could, but there are some bugs in the way compatible string
-in handled and due to this I suspect you need to reorder
-cpsw_of_mtable[] to match correctly. Not sure if the bug has been fixed
-in recent -rcs. Please check if modifying just this patch works and then
-go ahead and post.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+This is a static checker thing and I can't compile this file.
 
-Please Cc Benoit Cousson <bcousson@baylibre.com> on your next submission
-as he is the one who picks up DT patches for OMAP.
-
-Thanks,
-Sekhar
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index fdf9307..422b125 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1100,9 +1100,9 @@ static void fec_get_mac(struct net_device *ndev)
+ 	 * 4) FEC mac registers set by bootloader
+ 	 */
+ 	if (!is_valid_ether_addr(iap)) {
+-		*((unsigned long *) &tmpaddr[0]) =
++		*((u32 *) &tmpaddr[0]) =
+ 			be32_to_cpu(readl(fep->hwp + FEC_ADDR_LOW));
+-		*((unsigned short *) &tmpaddr[4]) =
++		*((u16 *) &tmpaddr[4]) =
+ 			be16_to_cpu(readl(fep->hwp + FEC_ADDR_HIGH) >> 16);
+ 		iap = &tmpaddr[0];
+ 	}
