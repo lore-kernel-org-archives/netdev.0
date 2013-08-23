@@ -1,59 +1,346 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 2/8] i40e: transmit, receive, and napi
-Date: Fri, 23 Aug 2013 11:04:15 -0700 (PDT)
-Message-ID: <20130823.110415.1251655571740007987.davem@davemloft.net>
-References: <1377224142-25160-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1377224142-25160-3-git-send-email-jeffrey.t.kirsher@intel.com>
-	<5217589F.6000602@kpanic.de>
+From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Subject: [PATCH net-next 3/5] qlcnic: dcb: Register DCB AEN handler.
+Date: Fri, 23 Aug 2013 13:38:27 -0400
+Message-ID: <1377279509-18869-4-git-send-email-sucheta.chakraborty@qlogic.com>
+References: <1377279509-18869-1-git-send-email-sucheta.chakraborty@qlogic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	netdev@vger.kernel.org, gospo@redhat.com, shannon.nelson@intel.com,
-	peter.p.waskiewicz.jr@intel.com, e1000-devel@lists.sourceforge.net
-To: sassmann@kpanic.de
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41352 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756125Ab3HWSEQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 14:04:16 -0400
-In-Reply-To: <5217589F.6000602@kpanic.de>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:48834 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754157Ab3HWSHI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 14:07:08 -0400
+In-Reply-To: <1377279509-18869-1-git-send-email-sucheta.chakraborty@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Assmann <sassmann@kpanic.de>
-Date: Fri, 23 Aug 2013 14:42:07 +0200
+o Adapter sends Asynchronous Event Notifications to the driver when
+  there are changes in the switch or adapter DCBX configuration.
+  AEN handler updates the driver DCBX parameters.
 
-> On 23.08.2013 04:15, Jeff Kirsher wrote:
->> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
->> 
->> This patch contains the transmit, receive, and napi routines, as well
->> as ancillary routines.
->> 
->> This file is code that is (will be) shared between the VF and PF
->> drivers.
-> 
-> Just some small nitpicks.
-> 
->> diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
->> new file mode 100644
->> index 0000000..ceafef0
->> --- /dev/null
->> +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-> 
-> [...]
-> 
->> +static void i40e_receive_skb(struct i40e_ring *rx_ring,
->> +			     struct sk_buff *skb, u16 vlan_tag)
->> +{
->> +	struct i40e_vsi *vsi = rx_ring->vsi;
->> +	struct i40e_q_vector *q_vector = rx_ring->q_vector;
->> +	u64 flags = vsi->back->flags;
->> +
->> +	if (vlan_tag & VLAN_VID_MASK)
->> +		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan_tag);
-> 
-> Suggesting __constant_htons instead of htons here.
+Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |  20 ++++
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   3 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c    | 105 ++++++++++++++++++++-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h    |   5 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h     |   1 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     |   3 +
+ .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |   2 +
+ 7 files changed, 137 insertions(+), 2 deletions(-)
 
-We don't suggest that anymore, because it's completely unnecessary
-with the way the macros are implemented.
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+index fc2972c..1e868ee 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+@@ -816,6 +816,7 @@ struct qlcnic_mac_list_s {
+ 
+ #define QLCNIC_C2H_OPCODE_CONFIG_LOOPBACK		0x8f
+ #define QLCNIC_C2H_OPCODE_GET_LINKEVENT_RESPONSE	0x8D
++#define QLCNIC_C2H_OPCODE_GET_DCB_AEN			0x90
+ 
+ #define VPORT_MISS_MODE_DROP		0 /* drop all unmatched */
+ #define VPORT_MISS_MODE_ACCEPT_ALL	1 /* accept all packets */
+@@ -961,6 +962,7 @@ struct qlcnic_ipaddr {
+ #define __QLCNIC_MBX_POLL_ENABLE	12
+ #define __QLCNIC_DIAG_MODE		13
+ #define __QLCNIC_DCB_STATE		14
++#define __QLCNIC_DCB_IN_AEN		15
+ 
+ #define QLCNIC_INTERRUPT_TEST		1
+ #define QLCNIC_LOOPBACK_TEST		2
+@@ -2163,4 +2165,22 @@ static inline int qlcnic_dcb_get_cee_cfg(struct qlcnic_adapter *adapter)
+ 
+ 	return 0;
+ }
++
++static inline void
++qlcnic_dcb_register_aen(struct qlcnic_adapter *adapter, u8 flag)
++{
++	struct qlcnic_dcb *dcb = adapter->dcb;
++
++	if (dcb && dcb->ops->register_aen)
++		dcb->ops->register_aen(adapter, flag);
++}
++
++static inline void qlcnic_dcb_handle_aen(struct qlcnic_adapter *adapter,
++					 void *msg)
++{
++	struct qlcnic_dcb *dcb = adapter->dcb;
++
++	if (dcb && dcb->ops->handle_aen)
++		dcb->ops->handle_aen(adapter, msg);
++}
+ #endif				/* __QLCNIC_H_ */
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+index 9b27ed8..8fce1d3 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+@@ -897,6 +897,9 @@ void __qlcnic_83xx_process_aen(struct qlcnic_adapter *adapter)
+ 		dev_info(&adapter->pdev->dev, "SFP Removed AEN:0x%x.\n",
+ 			 QLCNIC_MBX_RSP(event[0]));
+ 		break;
++	case QLCNIC_MBX_DCBX_CONFIG_CHANGE_EVENT:
++		qlcnic_dcb_handle_aen(adapter, (void *)&event[1]);
++		break;
+ 	default:
+ 		dev_dbg(&adapter->pdev->dev, "Unsupported AEN:0x%x.\n",
+ 			QLCNIC_MBX_RSP(event[0]));
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
+index e43866f..3477818 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
+@@ -10,6 +10,7 @@
+ 
+ #define QLC_DCB_NUM_PARAM		3
+ 
++#define QLC_DCB_AEN_BIT			0x2
+ #define QLC_DCB_FW_VER			0x2
+ #define QLC_DCB_MAX_TC			0x8
+ #define QLC_DCB_MAX_APP			0x8
+@@ -44,6 +45,8 @@
+ #define QLC_82XX_DCB_GET_PRIOMAP_APP(X)	(1 << X)
+ #define QLC_82XX_DCB_PRIO_TC_MAP	(0x76543210)
+ 
++static void qlcnic_dcb_aen_work(struct work_struct *);
++
+ static void __qlcnic_dcb_free(struct qlcnic_adapter *);
+ static int __qlcnic_dcb_attach(struct qlcnic_adapter *);
+ static int __qlcnic_dcb_query_hw_capability(struct qlcnic_adapter *, char *);
+@@ -52,10 +55,13 @@ static void __qlcnic_dcb_get_info(struct qlcnic_adapter *);
+ static int qlcnic_82xx_dcb_get_hw_capability(struct qlcnic_adapter *);
+ static int qlcnic_82xx_dcb_query_cee_param(struct qlcnic_adapter *, char *, u8);
+ static int qlcnic_82xx_dcb_get_cee_cfg(struct qlcnic_adapter *);
++static void qlcnic_82xx_dcb_handle_aen(struct qlcnic_adapter *, void *);
+ 
+ static int qlcnic_83xx_dcb_get_hw_capability(struct qlcnic_adapter *);
+ static int qlcnic_83xx_dcb_query_cee_param(struct qlcnic_adapter *, char *, u8);
+ static int qlcnic_83xx_dcb_get_cee_cfg(struct qlcnic_adapter *);
++static int qlcnic_83xx_dcb_register_aen(struct qlcnic_adapter *, bool);
++static void qlcnic_83xx_dcb_handle_aen(struct qlcnic_adapter *, void *);
+ 
+ struct qlcnic_dcb_capability {
+ 	bool	tsa_capability;
+@@ -102,6 +108,8 @@ static struct qlcnic_dcb_ops qlcnic_83xx_dcb_ops = {
+ 	.get_hw_capability	= qlcnic_83xx_dcb_get_hw_capability,
+ 	.query_cee_param	= qlcnic_83xx_dcb_query_cee_param,
+ 	.get_cee_cfg		= qlcnic_83xx_dcb_get_cee_cfg,
++	.register_aen		= qlcnic_83xx_dcb_register_aen,
++	.handle_aen		= qlcnic_83xx_dcb_handle_aen,
+ };
+ 
+ static struct qlcnic_dcb_ops qlcnic_82xx_dcb_ops = {
+@@ -113,6 +121,7 @@ static struct qlcnic_dcb_ops qlcnic_82xx_dcb_ops = {
+ 	.get_hw_capability	= qlcnic_82xx_dcb_get_hw_capability,
+ 	.query_cee_param	= qlcnic_82xx_dcb_query_cee_param,
+ 	.get_cee_cfg		= qlcnic_82xx_dcb_get_cee_cfg,
++	.handle_aen		= qlcnic_82xx_dcb_handle_aen,
+ };
+ 
+ static u8 qlcnic_dcb_get_num_app(struct qlcnic_adapter *adapter, u32 val)
+@@ -140,6 +149,7 @@ int __qlcnic_register_dcb(struct qlcnic_adapter *adapter)
+ 		return -ENOMEM;
+ 
+ 	adapter->dcb = dcb;
++	dcb->adapter = adapter;
+ 	qlcnic_set_dcb_ops(adapter);
+ 
+ 	return 0;
+@@ -152,6 +162,18 @@ static void __qlcnic_dcb_free(struct qlcnic_adapter *adapter)
+ 	if (!dcb)
+ 		return;
+ 
++	qlcnic_dcb_register_aen(adapter, 0);
++
++	while (test_bit(__QLCNIC_DCB_IN_AEN, &adapter->state))
++		usleep_range(10000, 11000);
++
++	cancel_delayed_work_sync(&dcb->aen_work);
++
++	if (dcb->wq) {
++		destroy_workqueue(dcb->wq);
++		dcb->wq = NULL;
++	}
++
+ 	kfree(dcb->cfg);
+ 	dcb->cfg = NULL;
+ 	kfree(dcb->param);
+@@ -164,6 +186,7 @@ static void __qlcnic_dcb_get_info(struct qlcnic_adapter *adapter)
+ {
+ 	qlcnic_dcb_get_hw_capability(adapter);
+ 	qlcnic_dcb_get_cee_cfg(adapter);
++	qlcnic_dcb_register_aen(adapter, 1);
+ }
+ 
+ static int __qlcnic_dcb_attach(struct qlcnic_adapter *adapter)
+@@ -171,9 +194,20 @@ static int __qlcnic_dcb_attach(struct qlcnic_adapter *adapter)
+ 	struct qlcnic_dcb *dcb = adapter->dcb;
+ 	int err = 0;
+ 
++	INIT_DELAYED_WORK(&dcb->aen_work, qlcnic_dcb_aen_work);
++
++	dcb->wq = create_singlethread_workqueue("qlcnic-dcb");
++	if (!dcb->wq) {
++		dev_err(&adapter->pdev->dev,
++			"DCB workqueue allocation failed. DCB will be disabled\n");
++		return -1;
++	}
++
+ 	dcb->cfg = kzalloc(sizeof(struct qlcnic_dcb_cfg), GFP_ATOMIC);
+-	if (!dcb->cfg)
+-		return -ENOMEM;
++	if (!dcb->cfg) {
++		err = -ENOMEM;
++		goto out_free_wq;
++	}
+ 
+ 	dcb->param = kzalloc(sizeof(struct qlcnic_dcb_mbx_params), GFP_ATOMIC);
+ 	if (!dcb->param) {
+@@ -188,6 +222,10 @@ out_free_cfg:
+ 	kfree(dcb->cfg);
+ 	dcb->cfg = NULL;
+ 
++out_free_wq:
++	destroy_workqueue(dcb->wq);
++	dcb->wq = NULL;
++
+ 	return err;
+ }
+ 
+@@ -368,6 +406,29 @@ static int qlcnic_82xx_dcb_get_cee_cfg(struct qlcnic_adapter *adapter)
+ 	return err;
+ }
+ 
++static void qlcnic_dcb_aen_work(struct work_struct *work)
++{
++	struct qlcnic_adapter *adapter;
++	struct qlcnic_dcb *dcb;
++
++	dcb = container_of(work, struct qlcnic_dcb, aen_work.work);
++	adapter = dcb->adapter;
++
++	qlcnic_dcb_get_cee_cfg(adapter);
++	clear_bit(__QLCNIC_DCB_IN_AEN, &adapter->state);
++}
++
++static void qlcnic_82xx_dcb_handle_aen(struct qlcnic_adapter *adapter,
++				       void *data)
++{
++	struct qlcnic_dcb *dcb = adapter->dcb;
++
++	if (test_and_set_bit(__QLCNIC_DCB_IN_AEN, &adapter->state))
++		return;
++
++	queue_delayed_work(dcb->wq, &dcb->aen_work, 0);
++}
++
+ static int qlcnic_83xx_dcb_get_hw_capability(struct qlcnic_adapter *adapter)
+ {
+ 	struct qlcnic_dcb_capability *cap = &adapter->dcb->cfg->capability;
+@@ -459,3 +520,43 @@ static int qlcnic_83xx_dcb_get_cee_cfg(struct qlcnic_adapter *adapter)
+ 
+ 	return qlcnic_dcb_query_cee_param(adapter, (char *)dcb->param, 0);
+ }
++
++static int qlcnic_83xx_dcb_register_aen(struct qlcnic_adapter *adapter,
++					bool flag)
++{
++	u8 val = (flag ? QLCNIC_CMD_INIT_NIC_FUNC : QLCNIC_CMD_STOP_NIC_FUNC);
++	struct qlcnic_cmd_args cmd;
++	int err;
++
++	err = qlcnic_alloc_mbx_args(&cmd, adapter, val);
++	if (err)
++		return err;
++
++	cmd.req.arg[1] = QLC_DCB_AEN_BIT;
++
++	err = qlcnic_issue_cmd(adapter, &cmd);
++	if (err)
++		dev_err(&adapter->pdev->dev, "Failed to %s DCBX AEN, err %d\n",
++			(flag ? "register" : "unregister"), err);
++
++	qlcnic_free_mbx_args(&cmd);
++
++	return err;
++}
++
++static void qlcnic_83xx_dcb_handle_aen(struct qlcnic_adapter *adapter,
++				       void *data)
++{
++	struct qlcnic_dcb *dcb = adapter->dcb;
++	u32 *val = data;
++
++	if (test_and_set_bit(__QLCNIC_DCB_IN_AEN, &adapter->state))
++		return;
++
++	if (*val & BIT_8)
++		set_bit(__QLCNIC_DCB_STATE, &adapter->state);
++	else
++		clear_bit(__QLCNIC_DCB_STATE, &adapter->state);
++
++	queue_delayed_work(dcb->wq, &dcb->aen_work, 0);
++}
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h
+index d1775d7..6961dac 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h
+@@ -25,10 +25,15 @@ struct qlcnic_dcb_ops {
+ 	void (*get_info) (struct qlcnic_adapter *);
+ 	int (*query_cee_param) (struct qlcnic_adapter *, char *, u8);
+ 	int (*get_cee_cfg) (struct qlcnic_adapter *);
++	int (*register_aen) (struct qlcnic_adapter *, bool);
++	void (*handle_aen) (struct qlcnic_adapter *, void *);
+ };
+ 
+ struct qlcnic_dcb {
+ 	struct qlcnic_dcb_mbx_params	*param;
++	struct qlcnic_adapter		*adapter;
++	struct delayed_work		aen_work;
++	struct workqueue_struct		*wq;
+ 	struct qlcnic_dcb_ops		*ops;
+ 	struct qlcnic_dcb_cfg		*cfg;
+ };
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
+index d2276b8..272c356 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
+@@ -125,6 +125,7 @@ enum qlcnic_regs {
+ #define QLCNIC_MBX_COMP_EVENT		0x8100
+ #define QLCNIC_MBX_REQUEST_EVENT	0x8101
+ #define QLCNIC_MBX_TIME_EXTEND_EVENT	0x8102
++#define QLCNIC_MBX_DCBX_CONFIG_CHANGE_EVENT	0x8110
+ #define QLCNIC_MBX_SFP_INSERT_EVENT	0x8130
+ #define QLCNIC_MBX_SFP_REMOVE_EVENT	0x8131
+ 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+index 89f6dff..8d06f88 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+@@ -1010,6 +1010,9 @@ static void qlcnic_handle_fw_message(int desc_cnt, int index,
+ 			break;
+ 		}
+ 		break;
++	case QLCNIC_C2H_OPCODE_GET_DCB_AEN:
++		qlcnic_dcb_handle_aen(adapter, (void *)&msg);
++		break;
+ 	default:
+ 		break;
+ 	}
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
+index 3c0e02a..2d6faf0 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
+@@ -1286,6 +1286,8 @@ static const int qlcnic_pf_passthru_supp_cmds[] = {
+ 	QLCNIC_CMD_GET_LINK_STATUS,
+ 	QLCNIC_CMD_DCB_QUERY_CAP,
+ 	QLCNIC_CMD_DCB_QUERY_PARAM,
++	QLCNIC_CMD_INIT_NIC_FUNC,
++	QLCNIC_CMD_STOP_NIC_FUNC,
+ };
+ 
+ static const struct qlcnic_sriov_cmd_handler qlcnic_pf_bc_cmd_hdlr[] = {
+-- 
+1.8.1.4
