@@ -1,91 +1,45 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] net: tcp_probe: allow more advanced ingress filtering by mark
-Date: Fri, 23 Aug 2013 16:16:33 +0200
-Message-ID: <1377267393-24604-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Teco Boot <teco@inf-net.nl>
+Subject: netem: the reorder discussion
+Date: Fri, 23 Aug 2013 16:16:43 +0200
+Message-ID: <766825FB-5295-4C5C-ABA0-CC520EFE2EA6@inf-net.nl>
+Mime-Version: 1.0 (Mac OS X Mail 6.5 \(1508\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Netem <netem@lists.linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"core-users@pf.itd.nrl.navy.mil" <core-users@pf.itd.nrl.navy.mil>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Ferry Huberts <mailings@hupie.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1450 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755013Ab3HWOQh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Aug 2013 10:16:37 -0400
+Received: from mail-ee0-f53.google.com ([74.125.83.53]:48379 "EHLO
+	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754818Ab3HWOQx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 10:16:53 -0400
+Received: by mail-ee0-f53.google.com with SMTP id b15so318065eek.26
+        for <netdev@vger.kernel.org>; Fri, 23 Aug 2013 07:16:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, the tcp_probe snooper can either filter packets by a given
-port (handed to the module via module parameter e.g. port=80) or lets
-all TCP traffic pass (port=0, default). When a port is specified, the
-port number is tested against the sk's source/destination port. Thus,
-if one of them matches, the information will be further processed for
-the log.
+I had reorder problems with netem qdisc. I make use of the NRL CORE network emulator, which sets up virtual routers and links, build with network namespaces and netem. Typical CORE config for a n1<-->n2 link with rate (1024Kbps), delay (50ms) and no jitter:
+  qdisc tbf 1: dev n1.eth0.222 root refcnt 2 rate 1024Kbit burst 2999b lat 488.6ms 
+  qdisc netem 10: dev n1.eth0.222 parent 1:1 limit 1000 delay 50.0ms
+  qdisc tbf 1: dev n2.eth0.222 root refcnt 2 rate 1024Kbit burst 2999b lat 488.6ms 
+  qdisc netem 10: dev n2.eth0.222 parent 1:1 limit 1000 delay 50.0ms
 
-As this is quite limited, allow for more advanced filtering possibilities
-which can facilitate debugging/analysis with the help of the tcp_probe
-snooper. Therefore, similarly as added to BPF machine in commit 7e75f93e
-("pkt_sched: ingress socket filter by mark"), add the possibility to
-use skb->mark as a filter.
+I added jitter to this bi-directional link, e.g. 20ms. Now the delay for each packet is 50ms +/- 20ms is 30ms to 70ms.
+However, this has some unexpected results: packets may be reordered. That is because the actual delay is calculated for each packet. Some packets have a larger delay, some have a smaller. If the inter-packet spacing is smaller than the time differences set by netem (up to 2x configured jitter), packets are reordered. In this example with +/20ms, this is the case with packet rate larger than 25pps. Reordering has bad effects on transport protocol throughputs. Reordering is less common on the Internet, so I don't want to emulate such. I don't say there is no reordering, I just say I don't want this netem behavior.
 
-If the mark is not being used otherwise, this allows ingress filtering
-by flow (e.g. in order to track updates from only a single flow, or a
-subset of all flows for a given port) and other things such as dynamic
-logging and reconfiguration without removing/re-inserting the tcp_probe
-module, etc. Simple example:
+The netem guide mentions this unexpected results. It was caused by a change in version 1.1 (2.6.15). For people like me that do not want this, there is a work-around mentioned. However, this doesn't work anymore since somewhere before 2.6.31.
+http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
+https://lists.linux-foundation.org/pipermail/netem/2011-April/001507.html
 
-  insmod net/ipv4/tcp_probe.ko fwmark=8888 full=1
-  ...
-  iptables -A INPUT -i eth4 -t mangle -p tcp --dport 22 \
-           --sport 60952 -j MARK --set-mark 8888
-  [... sampling interval ...]
-  iptables -D INPUT -i eth4 -t mangle -p tcp --dport 22 \
-           --sport 60952 -j MARK --set-mark 8888
+So what to do? The recent patch from Eric Dumazet eliminates jitter_reordering when netem rate is configured. Maybe not the clean approach, but acceptable. Ferry his patch eliminates jitter_reordering. Some people may use reorder by jitter, so this "feature" should not get removed. So Ferry his patch is not accepted. On the other hand, people like me are very confused by current behavior.
 
-The current option to filter by a given port is still being preserved. A
-similar approach could be done for the sctp_probe module as a follow-up.
+What we could do is keep existing features and describe what netem currently does. That is:
+ - netem with delay and jitter may reorder packets, if inter packet spacing is smaller than jitter
+ - reordering caused by delay and jitter can be turned off by using netem rate. rate can be set to very high value is no shaping is wanted.
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/ipv4/tcp_probe.c | 15 +++++++++++----
- 1 file changed, 11 insertions(+), 4 deletions(-)
+Are we OK with this approach?
+Adjust the linux-foundation & man page info? Who can do this?
 
-diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
-index 301a3ef..622a437 100644
---- a/net/ipv4/tcp_probe.c
-+++ b/net/ipv4/tcp_probe.c
-@@ -46,6 +46,10 @@ static unsigned int bufsize __read_mostly = 4096;
- MODULE_PARM_DESC(bufsize, "Log buffer size in packets (4096)");
- module_param(bufsize, uint, 0);
- 
-+static unsigned int fwmark __read_mostly = 0;
-+MODULE_PARM_DESC(fwmark, "skb mark to match (0=no mark)");
-+module_param(fwmark, uint, 0);
-+
- static int full __read_mostly;
- MODULE_PARM_DESC(full, "Full log (1=every ack packet received,  0=only cwnd changes)");
- module_param(full, int, 0);
-@@ -124,9 +128,11 @@ static int jtcp_rcv_established(struct sock *sk, struct sk_buff *skb,
- 	const struct tcp_sock *tp = tcp_sk(sk);
- 	const struct inet_sock *inet = inet_sk(sk);
- 
--	/* Only update if port matches */
--	if ((port == 0 || ntohs(inet->inet_dport) == port ||
--	     ntohs(inet->inet_sport) == port) &&
-+	/* Only update if port or skb mark matches */
-+	if (((port == 0 && fwmark == 0) ||
-+	     ntohs(inet->inet_dport) == port ||
-+	     ntohs(inet->inet_sport) == port ||
-+	     (fwmark > 0 && skb->mark == fwmark)) &&
- 	    (full || tp->snd_cwnd != tcp_probe.lastcwnd)) {
- 
- 		spin_lock(&tcp_probe.lock);
-@@ -284,7 +290,8 @@ static __init int tcpprobe_init(void)
- 	if (ret)
- 		goto err1;
- 
--	pr_info("probe registered (port=%d) bufsize=%u\n", port, bufsize);
-+	pr_info("probe registered (port=%d/fwmark=%u) bufsize=%u\n",
-+		port, fwmark, bufsize);
- 	return 0;
-  err1:
- 	remove_proc_entry(procname, init_net.proc_net);
--- 
-1.7.11.7
+Teco
