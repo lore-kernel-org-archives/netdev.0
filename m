@@ -1,69 +1,100 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH 1/2] genl: Fix genl dumpit() locking.
-Date: Fri, 23 Aug 2013 10:05:10 -0700
-Message-ID: <CALnjE+qnDQazprpm2Y8iiQ8USuY7J3LX1GooYp4xN2JZ5FW9+Q@mail.gmail.com>
-References: <1377206736-18357-1-git-send-email-pshelar@nicira.com>
-	<1377242432.14021.2.camel@jlt4.sipsolutions.net>
+From: Santosh Shilimkar <santosh.shilimkar@ti.com>
+Subject: Re: [PATCH v4 3/5] net: ethernet: cpsw: introduce ti,am3352-cpsw
+ compatible string
+Date: Fri, 23 Aug 2013 13:05:22 -0400
+Message-ID: <52179652.9090704@ti.com>
+References: <1377267365-24057-1-git-send-email-zonque@gmail.com> <1377267365-24057-4-git-send-email-zonque@gmail.com> <52177052.1030308@ti.com> <521791C1.2060803@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jesse Gross <jesse@nicira.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog102.obsmtp.com ([74.125.149.69]:41034 "HELO
-	na3sys009aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755078Ab3HWRFL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 13:05:11 -0400
-Received: by mail-qa0-f47.google.com with SMTP id o19so116100qap.20
-        for <netdev@vger.kernel.org>; Fri, 23 Aug 2013 10:05:11 -0700 (PDT)
-In-Reply-To: <1377242432.14021.2.camel@jlt4.sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Mack <zonque@gmail.com>, <netdev@vger.kernel.org>,
+	<bcousson@baylibre.com>, <nsekhar@ti.com>,
+	<sergei.shtylyov@cogentembedded.com>, <davem@davemloft.net>,
+	<ujhelyi.m@gmail.com>, <vaibhav.bedia@ti.com>, <d-gerlach@ti.com>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>, <devicetree@vger.kernel.org>
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <521791C1.2060803@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 23, 2013 at 12:20 AM, Johannes Berg
-<johannes@sipsolutions.net> wrote:
->
->> @@ -572,15 +594,29 @@ static int genl_family_rcv_msg(struct
->> genl_family *family,
->>                 return -EPERM;
+On Friday 23 August 2013 12:45 PM, Mugunthan V N wrote:
+> On Friday 23 August 2013 07:53 PM, Santosh Shilimkar wrote:
+>> On Friday 23 August 2013 10:16 AM, Daniel Mack wrote:
+>>> In order to support features that are specific to the AM335x IP, we have
+>>> to add hardware types and another compatible string.
+>>>
+>>> Signed-off-by: Daniel Mack <zonque@gmail.com>
+>>> ---
+>>>  Documentation/devicetree/bindings/net/cpsw.txt |  3 ++-
+>>>  drivers/net/ethernet/ti/cpsw.c                 | 32 ++++++++++++++++++++------
+>>>  drivers/net/ethernet/ti/cpsw.h                 |  1 +
+>>>  3 files changed, 28 insertions(+), 8 deletions(-)
+>>>
+>>> diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+>>> index 4e5ca54..b717458 100644
+>>> --- a/Documentation/devicetree/bindings/net/cpsw.txt
+>>> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
+>>> @@ -2,7 +2,8 @@ TI SoC Ethernet Switch Controller Device Tree Bindings
+>>>  ------------------------------------------------------
+>>>  
+>>>  Required properties:
+>>> -- compatible		: Should be "ti,cpsw"
+>>> +- compatible		: Should be "ti,cpsw" for generic cpsw support, or
+>>> +			  "ti,am3352-cpsw" for AM3352 SoCs
+>>>  - reg			: physical base address and size of the cpsw
+>>>  			  registers map.
+>>>  			  An optional third memory region can be supplied if
+>>> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+>>> index 7a25ff4..73c44cb6 100644
+>>> --- a/drivers/net/ethernet/ti/cpsw.c
+>>> +++ b/drivers/net/ethernet/ti/cpsw.c
+>>> @@ -155,6 +155,11 @@ do {								\
+>>>  		((priv->data.dual_emac) ? priv->emac_port :	\
+>>>  		priv->data.active_slave)
+>>>  
+>>> +enum {
+>>> +	CPSW_TYPE_GENERIC,
+>>> +	CPSW_TYPE_AM33XX
+>>> +};
+>>> +
+>>>  static int debug_level;
+>>>  module_param(debug_level, int, 0);
+>>>  MODULE_PARM_DESC(debug_level, "cpsw debug level (NETIF_MSG bits)");
+>>> @@ -1692,17 +1697,36 @@ static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv,
+>>>  	slave->port_vlan = data->dual_emac_res_vlan;
+>>>  }
+>>>  
+>>> +static const struct of_device_id cpsw_of_mtable[] = {
+>>> +	{
+>>> +		.compatible	= "ti,am3352-cpsw",
+>> I didn't notice this earlier, but can't you use the IP version
+>> as a compatible instead of using a SOC name. Whats really SOC specific
+>> on this IP ? Sorry i have missed any earlier discussion on this but
+>> this approach doesn't seem good. Its like adding SOC checks in the
+>> driver subsystem.
 >>
->>         if ((nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP) {
->> -               struct netlink_dump_control c = {
->> -                       .dump = ops->dumpit,
->> -                       .done = ops->done,
->> -               };
->> +               struct netlink_dump_control c;
->> +               int rc;
 >>
->>                 if (ops->dumpit == NULL)
->>                         return -EOPNOTSUPP;
->>
->> -               return netlink_dump_start(net->genl_sock, skb, nlh,
->> &c);
->> +               memset(&c, 0, sizeof(c));
->> +               if (!family->parallel_ops) {
->> +                       genl_unlock();
->> +                       c.data = ops;
->> +                       c.dump = genl_lock_dumpit;
->> +                       if (ops->done)
->> +                               c.done = genl_lock_done;
->> +               } else {
->> +                       c.dump = ops->dumpit;
->> +                       c.done = ops->done;
->> +               }
->> +
->> +               rc = netlink_dump_start(net->genl_sock, skb, nlh, &c);
->> +               if (!family->parallel_ops)
->> +                       genl_lock();
->> +               return rc;
->> +
->
-> I think this piece would be easier to read if you call
-> netlink_dump_start() separately in the two branches. If you also move
-> the "c" variable into the branches then you can keep initializing it
-> with an explicit initializer which would also be more readable IMHO.
->
-ok, I will update patch.
+> But the same IP can be used in different SoC as well where the control
+> register may be different as per the Silicon Integration team's decision?
+> 
+> Ideally there should be a separate control module driver so that it can
+> take care of different SoC related needs.
+> 
+Instead of having one control module driver to address all the requirements
+in various IP's, you could specifically address that in subsystem driver layer.
+SOC guys invariably use control modules for certain functionality since it
+is easy and quick fix. And their is uniformity in the way they are
+implemented for different IP needs.
 
-> Either way, this seems fine. I still think that not assigning cb_mutex
-> wasn't the smartest idea, but I'll reply over in the other thread.
+In this specific case, if the CPSW IP version has some part of the
+functionality implemented using control module that is just harfaware
+choice. Its not mandatory to partition that in two sub-system. Rather
+consider it as a special IP version and treat it accordingly in the
+driver.
+
+Regards,
+Santosh
+
+
