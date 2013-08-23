@@ -1,128 +1,87 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v4 1/5] net: ethernet: cpsw: switch to devres allocations
-Date: Fri, 23 Aug 2013 22:10:54 +0400
-Message-ID: <5217A5AE.6090704@cogentembedded.com>
-References: <1377267365-24057-1-git-send-email-zonque@gmail.com> <1377267365-24057-2-git-send-email-zonque@gmail.com>
+From: Santosh Shilimkar <santosh.shilimkar@ti.com>
+Subject: Re: [PATCH v4 3/5] net: ethernet: cpsw: introduce ti,am3352-cpsw
+ compatible string
+Date: Fri, 23 Aug 2013 14:10:38 -0400
+Message-ID: <5217A59E.4090700@ti.com>
+References: <1377267365-24057-1-git-send-email-zonque@gmail.com>
+ <1377267365-24057-4-git-send-email-zonque@gmail.com>
+ <52177052.1030308@ti.com> <52178E20.5040404@gmail.com>
+ <52179448.1020906@ti.com> <5217974B.5090503@ti.com> <521799A3.7080706@ti.com>
+ <52179AD6.8090406@gmail.com> <52179BDA.50603@ti.com>
+ <52179E44.5030202@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bcousson@baylibre.com, nsekhar@ti.com,
-	davem@davemloft.net, ujhelyi.m@gmail.com, mugunthanvnm@ti.com,
-	vaibhav.bedia@ti.com, d-gerlach@ti.com,
-	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org,
-	devicetree@vger.kernel.org
-To: Daniel Mack <zonque@gmail.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1377267365-24057-2-git-send-email-zonque@gmail.com>
-Sender: linux-omap-owner@vger.kernel.org
+Cc: mugunthanvnm@ti.com, sergei.shtylyov@cogentembedded.com, d-gerlach@ti.com,
+ netdev@vger.kernel.org, vaibhav.bedia@ti.com, Daniel Mack <zonque@gmail.com>,
+ devicetree@vger.kernel.org, bcousson@baylibre.com, ujhelyi.m@gmail.com,
+ linux-omap@vger.kernel.org, davem@davemloft.net,
+ linux-arm-kernel@lists.infradead.org
+To: Sekhar Nori <nsekhar@ti.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <52179E44.5030202@ti.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On 08/23/2013 06:16 PM, Daniel Mack wrote:
+On Friday 23 August 2013 01:39 PM, Sekhar Nori wrote:
+> On 8/23/2013 10:58 PM, Santosh Shilimkar wrote:
+>> On Friday 23 August 2013 01:24 PM, Daniel Mack wrote:
+>>> On 23.08.2013 19:19, Santosh Shilimkar wrote:
+>>>> On Friday 23 August 2013 01:09 PM, Sekhar Nori wrote:
+>>>>> On 8/23/2013 10:26 PM, Santosh Shilimkar wrote:
+>>>
+>>>>>> So just stick the IP version or call it cpsw-v1... cpsw-v2 etc.
+>>>>>
+>>>>> If this could be handled using IP version then the right way would be to
+>>>>> just read the IP version from hardware and use it. No need of DT property.
+>>>>>
+>>>> Thats fine as well but I thought the patch needed additional properties like
+>>>> CM reg-address come from DT and hence the separate compatible. If you can
+>>>> manage without that, thats even better.
+>>>
+>>> We can't, that's the whole point :)
+>>>
+>> I saw that from the patch :)
+>>
+>>> Well, theoretically, we could for now, but that's not a clean solution.
+>>> Again: the problem here is that the control port is separated from the
+>>> cpsw core, and so we have to implement something specific for the AM3352
+>>> SoC. I know that's a violation of clean and generic driver ideas, but
+>>> there's no way we can assume that every cpsw v2 ip block has a control
+>>> port that is compatible to the one found on am335x chips.
+>>>
+>> But there is a possibility that other SOC will just use the same
+>> control module approach. So using a revision IP is just fine. BTW,
+> 
+> But this is misleading because it makes appear like the same compatible
+> can be used on on another SoC like DRA7 which probably has the same
+> version of IP but a different control module implementation, when in
+> practice it cannot.
+> 
+> The fact is we are doing something SoC specific in the driver and we
+> cannot hide that behind IP versions. If really in practice there comes
+> another SoC with the same control module definition then it can always
+> use ti,am3352-cpsw compatible as well. The compatible name does not
+> preclude its usage.
+> 
+My point was the CPSW needs a feature which is implemented using
+control module rather than within the IP itself. Its an implementation
+detail. As such the additional feature makes sense for that IP. O.w
+there was no need to do any monkeying with control module.
 
-> This patch cleans up the allocation and error unwind paths, which
-> allows us to carry less information in struct cpsw_priv and reduce the
-> amount of jump labels in the probe functions.
+E.g
+MMC card detect is a basic functionality, implemented by various types
+like control module, PMIC or MMC IP itself. As such the driver need
+that support and all the implementation details needs to still handled
+to make that part work.
 
-> Signed-off-by: Daniel Mack <zonque@gmail.com>
-> ---
->   drivers/net/ethernet/ti/cpsw.c | 147 +++++++++++++----------------------------
->   1 file changed, 45 insertions(+), 102 deletions(-)
-
-> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-> index 79974e3..849af52 100644
-> --- a/drivers/net/ethernet/ti/cpsw.c
-> +++ b/drivers/net/ethernet/ti/cpsw.c
-[...]
-> @@ -1977,55 +1963,41 @@ static int cpsw_probe(struct platform_device *pdev)
->   	priv->slaves[0].ndev = ndev;
->   	priv->emac_port = 0;
->
-> -	priv->clk = clk_get(&pdev->dev, "fck");
-> +	priv->clk = devm_clk_get(&pdev->dev, "fck");
->   	if (IS_ERR(priv->clk)) {
-> -		dev_err(&pdev->dev, "fck is not found\n");
-> +		dev_err(priv->dev, "fck is not found\n");
->   		ret = -ENODEV;
-> -		goto clean_slave_ret;
-> +		goto clean_runtime_disable_ret;
->   	}
->   	priv->coal_intvl = 0;
->   	priv->bus_freq_mhz = clk_get_rate(priv->clk) / 1000000;
->
-> -	priv->cpsw_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-> -	if (!priv->cpsw_res) {
-> +	ss_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-> +	if (!ss_res) {
-
-    You don't need to check the result of platform_get_resource() if you call
-devm_ioremap_resource() right afterwards -- it will check resource ptr for 
-NULL the first thing. :-)
-
->   		dev_err(priv->dev, "error getting i/o resource\n");
->   		ret = -ENOENT;
-> -		goto clean_clk_ret;
-> +		goto clean_runtime_disable_ret;
->   	}
-> -	if (!request_mem_region(priv->cpsw_res->start,
-> -				resource_size(priv->cpsw_res), ndev->name)) {
-> -		dev_err(priv->dev, "failed request i/o region\n");
-> -		ret = -ENXIO;
-> -		goto clean_clk_ret;
-> -	}
-> -	ss_regs = ioremap(priv->cpsw_res->start, resource_size(priv->cpsw_res));
-> -	if (!ss_regs) {
-> +	ss_regs = devm_ioremap_resource(&pdev->dev, ss_res);
-> +	if (IS_ERR(ss_regs)) {
->   		dev_err(priv->dev, "unable to map i/o region\n");
-
-    Don't need the error message anymore -- devm_ioremap_resource() will print 
-it. And you missed:
-
-		ret = PTR_ERR(ss_regs);
-
-> -		goto clean_cpsw_iores_ret;
-> +		goto clean_runtime_disable_ret;
->   	}
->   	priv->regs = ss_regs;
->   	priv->version = __raw_readl(&priv->regs->id_ver);
->   	priv->host_port = HOST_PORT_NUM;
->
-> -	priv->cpsw_wr_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-> -	if (!priv->cpsw_wr_res) {
-> +	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-> +	if (!res) {
-
-    Same comment about resource check here...
-
->   		dev_err(priv->dev, "error getting i/o resource\n");
->   		ret = -ENOENT;
-> -		goto clean_iomap_ret;
-> -	}
-> -	if (!request_mem_region(priv->cpsw_wr_res->start,
-> -			resource_size(priv->cpsw_wr_res), ndev->name)) {
-> -		dev_err(priv->dev, "failed request i/o region\n");
-> -		ret = -ENXIO;
-> -		goto clean_iomap_ret;
-> +		goto clean_runtime_disable_ret;
->   	}
-> -	wr_regs = ioremap(priv->cpsw_wr_res->start,
-> -				resource_size(priv->cpsw_wr_res));
-> -	if (!wr_regs) {
-> +	priv->wr_regs = devm_ioremap_resource(&pdev->dev, res);
-> +	if (IS_ERR(priv->wr_regs)) {
->   		dev_err(priv->dev, "unable to map i/o region\n");
-
-    And same comments about the unneeded error message and missing 'ret' 
-assignment here...
-
-> -		goto clean_cpsw_wr_iores_ret;
-> +		goto clean_runtime_disable_ret;
->   	}
-> -	priv->wr_regs = wr_regs;
->
->   	memset(&dma_params, 0, sizeof(dma_params));
->   	memset(&ale_params, 0, sizeof(ale_params));
-[...]
-
-WBR, Sergei
-
+Regards,
+Santosh
