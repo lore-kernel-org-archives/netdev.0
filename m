@@ -1,51 +1,51 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: [PATCH v3 0/5] cpsw: support for control module register
-Date: Fri, 23 Aug 2013 14:08:50 +0200
-Message-ID: <1377259735-20337-1-git-send-email-zonque@gmail.com>
-Cc: bcousson@baylibre.com, nsekhar@ti.com,
-	sergei.shtylyov@cogentembedded.com, davem@davemloft.net,
-	ujhelyi.m@gmail.com, mugunthanvnm@ti.com, vaibhav.bedia@ti.com,
-	d-gerlach@ti.com, linux-arm-kernel@lists.infradead.org,
-	linux-omap@vger.kernel.org, devicetree@vger.kernel.org,
-	Daniel Mack <zonque@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:48131 "EHLO mail.zonque.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755381Ab3HWMJG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Aug 2013 08:09:06 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH net-next 10/10] staging: vt6656: inherit addr_assign_type
+ along with dev_addr
+Date: Fri, 23 Aug 2013 15:09:38 +0300
+Message-ID: <20130823120938.GV22811@mwanda>
+References: <1377250513-3662-1-git-send-email-bjorn@mork.no>
+ <1377250513-3662-11-git-send-email-bjorn@mork.no>
+ <20130823100333.GT22811@mwanda> <87y57s3cpa.fsf@nemi.mork.no>
+ <20130823111500.GC4713@mwanda> <87txig3936.fsf@nemi.mork.no>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ Forest Bond <forest@alittletooquiet.net>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <87txig3936.fsf@nemi.mork.no>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-v2 -> v3:
-	* swap "ti,am3352-cpsw" and "ti,cpsw" to work around a matching
-	  bug (reported by Sekhar)
+On Fri, Aug 23, 2013 at 02:06:21PM +0200, Bj=F8rn Mork wrote:
+> Dan Carpenter <dan.carpenter@oracle.com> writes:
+> =
 
-v1 -> v2:
-	* combine devm_request_mem_region() and devm_ioremap() and use
-	  devm_ioremap_resource() (reported by Sergei Shtylyov)
-	* fix multi-line comment style (reported by Sergei Shtylyov)
-	* fix ti,rmii-clock-ext property name (reported by Sekhar)
-	* rebased to net-next (reported by Mugunthan V N, David Miller)
-	* add a new compatible type, and handle AM33xx specific
-	  registers that way (reported by Sekhar)
-	* move gmii_sel_reg modifications to the open routine
-	  (reported by Mugunthan V N)
+> > Ah...  Here is the first patch which adds eth_hw_addr_inherit()
+> >
+> > http://patchwork.ozlabs.org/patch/269365/
+> >
+> > I don't think we've actually set dst->addr_len yet at this point so
+> > it doesn't do the memcpy().  This doesn't work.
+> =
 
+> Ouch.  Yes, I see. The net_device is allocated using kzalloc just a few
+> lines earlier and there is no ether_setup or similar.  Actually, it
+> doesn't look like it ever sets addr_len. Is that right?  Does it work
+> even before this patch?
 
-Daniel Mack (5):
-  net: ethernet: cpsw: switch to devres allocations
-  net: ethernet: cpsw: add optional third memory region for CONTROL
-    module
-  net: ethernet: cpsw: introduce ti,am3352-cpsw compatible string
-  net: ethernet: cpsw: add support for hardware interface mode config
-  ARM: dts: am33xx: adopt to cpsw changes
+Ha ha.  That's a very good question.  I have no idea.
 
- Documentation/devicetree/bindings/net/cpsw.txt |  10 +-
- arch/arm/boot/dts/am33xx.dtsi                  |   5 +-
- drivers/net/ethernet/ti/cpsw.c                 | 254 ++++++++++++++-----------
- drivers/net/ethernet/ti/cpsw.h                 |   2 +
- 4 files changed, 159 insertions(+), 112 deletions(-)
-
--- 
-1.8.3.1
+regards,
+dan carpenter
