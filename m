@@ -1,48 +1,44 @@
-From: Santosh Shilimkar <santosh.shilimkar@ti.com>
-Subject: Re: [PATCH v4 3/5] net: ethernet: cpsw: introduce ti,am3352-cpsw
- compatible string
-Date: Fri, 23 Aug 2013 11:54:45 -0400
-Message-ID: <521785C5.9000903@ti.com>
-References: <1377267365-24057-1-git-send-email-zonque@gmail.com> <1377267365-24057-4-git-send-email-zonque@gmail.com> <52177052.1030308@ti.com> <52177E29.6040103@baylibre.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: netem: the reorder discussion
+Date: Fri, 23 Aug 2013 09:03:58 -0700
+Message-ID: <1377273838.8828.11.camel@edumazet-glaptop>
+References: <766825FB-5295-4C5C-ABA0-CC520EFE2EA6@inf-net.nl>
+	 <1377270756.8828.5.camel@edumazet-glaptop>
+	 <20130823084450.6baf2835@nehalam.linuxnetplumber.net>
+	 <31E9BEA1-3DE2-4DA7-9CEE-6B7C9C99F5EB@inf-net.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Mack <zonque@gmail.com>, <netdev@vger.kernel.org>,
-	<nsekhar@ti.com>, <sergei.shtylyov@cogentembedded.com>,
-	<davem@davemloft.net>, <ujhelyi.m@gmail.com>,
-	<mugunthanvnm@ti.com>, <vaibhav.bedia@ti.com>, <d-gerlach@ti.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>, <devicetree@vger.kernel.org>
-To: Benoit Cousson <bcousson@baylibre.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Ferry Huberts <mailings@hupie.com>,
+	Netem <netem@lists.linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"core-users@pf.itd.nrl.navy.mil" <core-users@pf.itd.nrl.navy.mil>
+To: Teco Boot <teco@inf-net.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:59603 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755681Ab3HWPzQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Aug 2013 11:55:16 -0400
-In-Reply-To: <52177E29.6040103@baylibre.com>
+Received: from mail-ee0-f54.google.com ([74.125.83.54]:61858 "EHLO
+	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753108Ab3HWQEF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 12:04:05 -0400
+Received: by mail-ee0-f54.google.com with SMTP id e53so374227eek.41
+        for <netdev@vger.kernel.org>; Fri, 23 Aug 2013 09:04:04 -0700 (PDT)
+In-Reply-To: <31E9BEA1-3DE2-4DA7-9CEE-6B7C9C99F5EB@inf-net.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 23 August 2013 11:22 AM, Benoit Cousson wrote:
-> Hi Santosh,
-> 
-> [...]
-> 
->>> +static const struct of_device_id cpsw_of_mtable[] = {
->>> +    {
->>> +        .compatible    = "ti,am3352-cpsw",
->> I didn't notice this earlier, but can't you use the IP version
->> as a compatible instead of using a SOC name. Whats really SOC specific
->> on this IP ? Sorry i have missed any earlier discussion on this but
->> this approach doesn't seem good. Its like adding SOC checks in the
->> driver subsystem.
-> 
-> Hehe, welcome to the club!
-> I keep arguing about that as well :-)
-> 
-> I think we should create a Facebook group: "against-the-soc-version-in-the-compatible-string".
-> 
-Indeed !!
+On Fri, 2013-08-23 at 17:53 +0200, Teco Boot wrote:
 
-Regards,
-Santosh
+> Questions that pops out of of my head: What is more important,
+> understandable configuration or keep existing behavior for unmodified
+> configuration? Do we want to reorder, even with configured rate?
+> 
+> My preference: make in understandable, document well and make all
+> sensible options available. 
+
+The day 'rate' support was added, documentation became obsolete.
+
+Its actually hard to have both rate and delay + jitters + reorders or
+not.
+
+If you can fix this properly, patches are welcome, but I suspect you
+wanted to reintroduce the thing that made netem unusable for us.
