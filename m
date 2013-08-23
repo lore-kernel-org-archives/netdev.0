@@ -1,52 +1,125 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -next] ipip: potential race in ip_tunnel_init_net()
-Date: Fri, 23 Aug 2013 11:15:37 +0300
-Message-ID: <20130823081537.GB31293@elgon.mountain>
-References: <20130820.233301.985050199020241179.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130820.233301.985050199020241179.davem@davemloft.net>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Mack <zonque@gmail.com>
+Subject: [PATCH v2 3/5] net: ethernet: cpsw: introduce ti,am3352-cpsw compatible string
+Date: Fri, 23 Aug 2013 10:43:35 +0200
+Message-ID: <1377247417-27386-4-git-send-email-zonque@gmail.com>
+References: <1377247417-27386-1-git-send-email-zonque@gmail.com>
+Cc: nsekhar@ti.com, sergei.shtylyov@cogentembedded.com,
+	davem@davemloft.net, ujhelyi.m@gmail.com, mugunthanvnm@ti.com,
+	vaibhav.bedia@ti.com, d-gerlach@ti.com,
+	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org,
+	devicetree@vger.kernel.org, Daniel Mack <zonque@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from svenfoo.org ([82.94.215.22]:47704 "EHLO mail.zonque.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754974Ab3HWInr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Aug 2013 04:43:47 -0400
+In-Reply-To: <1377247417-27386-1-git-send-email-zonque@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet says that my previous fix for an ERR_PTR dereference
-(ea857f28ab 'ipip: dereferencing an ERR_PTR in ip_tunnel_init_net()')
-could be racy and suggests the following fix instead.
+In order to support features that are specific to the AM335x IP, we have
+to add hardware types and another compatible string.
 
-Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Daniel Mack <zonque@gmail.com>
+---
+ Documentation/devicetree/bindings/net/cpsw.txt |  3 ++-
+ drivers/net/ethernet/ti/cpsw.c                 | 32 ++++++++++++++++++++------
+ drivers/net/ethernet/ti/cpsw.h                 |  1 +
+ 3 files changed, 28 insertions(+), 8 deletions(-)
 
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 24549b4..830de3f 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -854,16 +854,14 @@ int ip_tunnel_init_net(struct net *net, int ip_tnl_net_id,
+diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+index 4e5ca54..b717458 100644
+--- a/Documentation/devicetree/bindings/net/cpsw.txt
++++ b/Documentation/devicetree/bindings/net/cpsw.txt
+@@ -2,7 +2,8 @@ TI SoC Ethernet Switch Controller Device Tree Bindings
+ ------------------------------------------------------
  
- 	rtnl_lock();
- 	itn->fb_tunnel_dev = __ip_tunnel_create(net, ops, &parms);
--	rtnl_unlock();
--
--	if (IS_ERR(itn->fb_tunnel_dev))
--		return PTR_ERR(itn->fb_tunnel_dev);
- 	/* FB netdevice is special: we have one, and only one per netns.
- 	 * Allowing to move it to another netns is clearly unsafe.
- 	 */
--	itn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
-+	if (!IS_ERR(itn->fb_tunnel_dev))
-+		itn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
-+	rtnl_unlock();
+ Required properties:
+-- compatible		: Should be "ti,cpsw"
++- compatible		: Should be "ti,cpsw" for generic cpsw support, or
++			  "ti,am3352-cpsw" for AM3352 SoCs
+ - reg			: physical base address and size of the cpsw
+ 			  registers map.
+ 			  An optional third memory region can be supplied if
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index bd0b664..2e19de0 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -155,6 +155,11 @@ do {								\
+ 		((priv->data.dual_emac) ? priv->emac_port :	\
+ 		priv->data.active_slave)
  
--	return 0;
-+	return PTR_RET(itn->fb_tunnel_dev);
++enum {
++	CPSW_TYPE_GENERIC,
++	CPSW_TYPE_AM33XX
++};
++
+ static int debug_level;
+ module_param(debug_level, int, 0);
+ MODULE_PARM_DESC(debug_level, "cpsw debug level (NETIF_MSG bits)");
+@@ -1692,17 +1697,36 @@ static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv,
+ 	slave->port_vlan = data->dual_emac_res_vlan;
  }
- EXPORT_SYMBOL_GPL(ip_tunnel_init_net);
  
++static const struct of_device_id cpsw_of_mtable[] = {
++	{
++		.compatible	= "ti,cpsw",
++		.data		= (void *) CPSW_TYPE_GENERIC
++	}, {
++		.compatible	= "ti,am3352-cpsw",
++		.data		= (void *) CPSW_TYPE_AM33XX
++	},
++	{ /* sentinel */ },
++};
++MODULE_DEVICE_TABLE(of, cpsw_of_mtable);
++
+ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 			 struct platform_device *pdev)
+ {
+ 	struct device_node *node = pdev->dev.of_node;
++	const struct of_device_id *match;
+ 	struct device_node *slave_node;
++	unsigned long match_data;
+ 	int i = 0, ret;
+ 	u32 prop;
+ 
+-	if (!node)
++	match = of_match_device(cpsw_of_mtable, &pdev->dev);
++
++	if (!node || !match)
+ 		return -EINVAL;
+ 
++	match_data = (unsigned long) match->data;
++	data->hw_type = match_data;
++
+ 	if (of_property_read_u32(node, "slaves", &prop)) {
+ 		pr_err("Missing slaves property in the DT.\n");
+ 		return -EINVAL;
+@@ -2228,12 +2252,6 @@ static const struct dev_pm_ops cpsw_pm_ops = {
+ 	.resume		= cpsw_resume,
+ };
+ 
+-static const struct of_device_id cpsw_of_mtable[] = {
+-	{ .compatible = "ti,cpsw", },
+-	{ /* sentinel */ },
+-};
+-MODULE_DEVICE_TABLE(of, cpsw_of_mtable);
+-
+ static struct platform_driver cpsw_driver = {
+ 	.driver = {
+ 		.name	 = "cpsw",
+diff --git a/drivers/net/ethernet/ti/cpsw.h b/drivers/net/ethernet/ti/cpsw.h
+index eb3e101..96c374a 100644
+--- a/drivers/net/ethernet/ti/cpsw.h
++++ b/drivers/net/ethernet/ti/cpsw.h
+@@ -37,6 +37,7 @@ struct cpsw_platform_data {
+ 	u32	mac_control;	/* Mac control register */
+ 	u16	default_vlan;	/* Def VLAN for ALE lookup in VLAN aware mode*/
+ 	bool	dual_emac;	/* Enable Dual EMAC mode */
++	u32	hw_type;	/* hardware type as specified in 'compatible' */
+ };
+ 
+ #endif /* __CPSW_H__ */
+-- 
+1.8.3.1
