@@ -1,60 +1,38 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH next 1/2] net: can: mscan: add a comment on reg to idx
- mapping
-Date: Fri, 23 Aug 2013 09:30:55 +0200
-Message-ID: <52170FAF.7040508@pengutronix.de>
-References: <1377208917-16698-1-git-send-email-agust@denx.de>
+From: Rui Xiang <rui.xiang@huawei.com>
+Subject: Re: [PATCH 0/2] fs: supply inode uid/gid setting interface
+Date: Fri, 23 Aug 2013 15:32:30 +0800
+Message-ID: <5217100E.6080506@huawei.com>
+References: <1377226118-43756-1-git-send-email-rui.xiang@huawei.com> <20130823041010.GA12296@kroah.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="lJUxDOIVI5vpTQIIJfVjfB2FwVsDr9rPG"
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Gerhard Sittig <gsi@denx.de>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Anatolij Gustschin <agust@denx.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1377208917-16698-1-git-send-email-agust@denx.de>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-fsdevel@vger.kernel.org>, <viro@zeniv.linux.org.uk>,
+        <linux-kernel@vger.kernel.org>, <linux-ia64@vger.kernel.org>,
+        <linuxppc-dev@lists.ozlabs.org>, <linux-s390@vger.kernel.org>,
+        <linux-rdma@vger.kernel.org>, <linux-usb@vger.kernel.org>,
+        <v9fs-developer@lists.sourceforge.net>, <linux-mm@kvack.org>,
+        <cgroups@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20130823041010.GA12296@kroah.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---lJUxDOIVI5vpTQIIJfVjfB2FwVsDr9rPG
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On 08/23/2013 12:01 AM, Anatolij Gustschin wrote:
-> From: Gerhard Sittig <gsi@denx.de>
->=20
-> add a comment about the magic of deriving an MSCAN component index
-> from the peripheral's physical address / register offset
->=20
-> Cc: linux-can@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Gerhard Sittig <gsi@denx.de>
-
-Anatolij, I'm missung your S-o-b here. Can you repost both patches?
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+On 2013/8/23 12:10, Greg KH wrote:
+> On Fri, Aug 23, 2013 at 10:48:36AM +0800, Rui Xiang wrote:
+>> This patchset implements an accessor functions to set uid/gid
+>> in inode struct. Just finish code clean up.
+> 
+> Why?
+> 
+It can introduce a new function to reduce some codes. 
+ Just clean up. 
 
 
---lJUxDOIVI5vpTQIIJfVjfB2FwVsDr9rPG
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Thanks.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlIXD7MACgkQjTAFq1RaXHOZgACfdC2+4nOFrtUl9JOoT7nA7xw6
-RVkAmwSyhkeaIDeMui0VGHghYTYbZbPa
-=Zsbs
------END PGP SIGNATURE-----
-
---lJUxDOIVI5vpTQIIJfVjfB2FwVsDr9rPG--
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
