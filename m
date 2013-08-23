@@ -1,29 +1,65 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH RFC net-next] net: epoll support for busy poll
-Date: Fri, 23 Aug 2013 10:06:15 +0300
-Message-ID: <521709E7.7000302@linux.intel.com>
-References: <20130821103954.30607.6819.stgit@ladj378.jer.intel.com> <20130822.131402.362258965058758270.davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 1/2] genl: Fix genl dumpit() locking.
+Date: Fri, 23 Aug 2013 09:20:32 +0200
+Message-ID: <1377242432.14021.2.camel@jlt4.sipsolutions.net>
+References: <1377206736-18357-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net, eilong@broadcom.com,
-	amirv@mellanox.com, erdnetdev@gmail.com, willemb@google.com,
-	eliezer@tamir.org.il
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130822.131402.362258965058758270.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jesse Gross <jesse@nicira.com>
+To: Pravin B Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([144.76.43.152]:38011 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753350Ab3HWHUk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 03:20:40 -0400
+In-Reply-To: <1377206736-18357-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 22/08/2013 23:14, David Miller wrote:
-> From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-> Date: Wed, 21 Aug 2013 13:39:54 +0300
-> 
->> +	SK_LL_STATE_MISS_2,	/* data came through napi poll twice in a row */
-> 
-> Please rename this to SK_LL_STATE_MISS_MULTI or something like that.
-> 
-> Thanks.
 
-OK
+> @@ -572,15 +594,29 @@ static int genl_family_rcv_msg(struct
+> genl_family *family,
+>                 return -EPERM;
+>  
+>         if ((nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP) {
+> -               struct netlink_dump_control c = {
+> -                       .dump = ops->dumpit,
+> -                       .done = ops->done,
+> -               };
+> +               struct netlink_dump_control c;
+> +               int rc;
+>  
+>                 if (ops->dumpit == NULL)
+>                         return -EOPNOTSUPP;
+>  
+> -               return netlink_dump_start(net->genl_sock, skb, nlh,
+> &c);
+> +               memset(&c, 0, sizeof(c));
+> +               if (!family->parallel_ops) {
+> +                       genl_unlock();
+> +                       c.data = ops;
+> +                       c.dump = genl_lock_dumpit;
+> +                       if (ops->done)
+> +                               c.done = genl_lock_done;
+> +               } else {
+> +                       c.dump = ops->dumpit;
+> +                       c.done = ops->done;
+> +               }
+> +
+> +               rc = netlink_dump_start(net->genl_sock, skb, nlh, &c);
+> +               if (!family->parallel_ops)
+> +                       genl_lock();
+> +               return rc;
+> +
+
+I think this piece would be easier to read if you call
+netlink_dump_start() separately in the two branches. If you also move
+the "c" variable into the branches then you can keep initializing it
+with an explicit initializer which would also be more readable IMHO.
+
+Either way, this seems fine. I still think that not assigning cb_mutex
+wasn't the smartest idea, but I'll reply over in the other thread.
+
+johannes
