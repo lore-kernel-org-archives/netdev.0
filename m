@@ -1,25 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can-next 2013-08-22
-Date: Thu, 22 Aug 2013 20:50:33 -0700 (PDT)
-Message-ID: <20130822.205033.998664661789407121.davem@davemloft.net>
-References: <5215C274.1090200@pengutronix.de>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 0/2] fs: supply inode uid/gid setting interface
+Date: Thu, 22 Aug 2013 21:10:10 -0700
+Message-ID: <20130823041010.GA12296@kroah.com>
+References: <1377226118-43756-1-git-send-email-rui.xiang@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <5215C274.1090200@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-fsdevel@vger.kernel.org, viro@zeniv.linux.org.uk,
+	linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+	linux-rdma@vger.kernel.org, linux-usb@vger.kernel.org,
+	v9fs-developer@lists.sourceforge.net, linux-mm@kvack.org,
+	cgroups@vger.kernel.org, netdev@vger.kernel.org
+To: Rui Xiang <rui.xiang@huawei.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1377226118-43756-1-git-send-email-rui.xiang@huawei.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Thu, 22 Aug 2013 09:49:08 +0200
+On Fri, Aug 23, 2013 at 10:48:36AM +0800, Rui Xiang wrote:
+> This patchset implements an accessor functions to set uid/gid
+> in inode struct. Just finish code clean up.
 
-> another pull-request for net-next. It consists of two patches by Libo
-> Chen, the at91 and flexcan driver make use of platform_set_drvdata()
-> rather than open coding it. Chen Gang improves the error checking in
-> the c_can_platform driver's probe function.
+Why?
 
-Pulled, thanks.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
