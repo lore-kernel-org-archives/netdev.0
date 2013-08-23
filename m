@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next RFC 2/7] i40evf: transmit and receive
-Date: Thu, 22 Aug 2013 21:53:24 -0700
-Message-ID: <1377233609-11627-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next RFC 4/7] i40evf: virtual channel interface
+Date: Thu, 22 Aug 2013 21:53:26 -0700
+Message-ID: <1377233609-11627-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1377233609-11627-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mitch A Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -10,32 +10,40 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:11952 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754551Ab3HWExg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Aug 2013 00:53:36 -0400
+	id S1754565Ab3HWExh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Aug 2013 00:53:37 -0400
 In-Reply-To: <1377233609-11627-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mitch A Williams <mitch.a.williams@intel.com>
 
-This file contains the transmit, receive, and napi functionality.
+This VF driver is dependant upon the PF driver (i40e) for nearly all of
+its hardware configuration. Requests from the VF driver are passed to
+the PF using the hardware's Admin Queue.
 
-This code is shared with the i40e driver. Some functions that are not
-appropriate for VF devices have been removed.
+This patch contains the functionality for communicating with the PF
+driver. Because of the delay inherent in this communcations channel,
+most of the replies from the PF driver are handled asynchronously. The
+exceptions are the "send API version" and "get VF config" messages,
+which   busy-wait because they are done so early during init that
+interrupts are not yet configured.
 
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 1495 +++++++++++++++++++++++++
- 1 file changed, 1495 insertions(+)
- create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+ drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h  | 368 ++++++++++
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 801 +++++++++++++++++++++
+ 2 files changed, 1169 insertions(+)
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
 new file mode 100644
-index 0000000..01128e5
+index 0000000..fd4ff5e
 --- /dev/null
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -0,0 +1,1495 @@
++++ b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
+@@ -0,0 +1,368 @@
 +/*******************************************************************************
 +
 +  Intel Ethernet Controller XL710 Family Linux Driver
@@ -63,1473 +71,1153 @@ index 0000000..01128e5
 +
 +*******************************************************************************/
 +
++#ifndef _I40E_VIRTCHNL_H_
++#define _I40E_VIRTCHNL_H_
++
++#include "i40e_type.h"
++
++/* Description:
++ * This header file describes the VF-PF communication protocol used
++ * by the various i40e drivers.
++ *
++ * Admin queue buffer usage:
++ * desc->opcode is always i40e_aqc_opc_send_msg_to_pf
++ * flags, retval, datalen, and data addr are all used normally.
++ * Firmware copies the cookie fields when sending messages between the PF and
++ * VF, but uses all other fields internally. Due to this limitation, we
++ * must send all messages as "indirect", i.e. using an external buffer.
++ *
++ * All the vsi indexes are relative to the VF. Each VF can have maximum of
++ * three VSIs. All the queue indexes are relative to the VSI.  Each VF can
++ * have a maximum of sixteen queues for all of its VSIs.
++ *
++ * The PF is required to return a status code in v_retval for all messages
++ * except RESET_VF, which does not require any response. The return value is of
++ * i40e_status_code type, defined in the i40e_type.h.
++ *
++ * In general, VF driver initialization should roughly follow the order of these
++ * opcodes. The VF driver must first validate the API version of the PF driver,
++ * then request a reset, then get resources, then configure queues and
++ * interrupts. After these operations are complete, the VF driver may start
++ * its queues, optionally add MAC and VLAN filters, and process traffic.
++ */
++
++/* Opcodes for VF-PF communication. These are placed in the v_opcode field
++ * of the virtchnl_msg structure.
++ */
++enum i40e_virtchnl_ops {
++/* VF sends req. to pf for the following
++ * ops.
++ */
++	I40E_VIRTCHNL_OP_UNKNOWN = 0,
++	I40E_VIRTCHNL_OP_VERSION = 1, /* must ALWAYS be 1 */
++	I40E_VIRTCHNL_OP_RESET_VF,
++	I40E_VIRTCHNL_OP_GET_VF_RESOURCES,
++	I40E_VIRTCHNL_OP_CONFIG_TX_QUEUE,
++	I40E_VIRTCHNL_OP_CONFIG_RX_QUEUE,
++	I40E_VIRTCHNL_OP_CONFIG_VSI_QUEUES,
++	I40E_VIRTCHNL_OP_CONFIG_IRQ_MAP,
++	I40E_VIRTCHNL_OP_ENABLE_QUEUES,
++	I40E_VIRTCHNL_OP_DISABLE_QUEUES,
++	I40E_VIRTCHNL_OP_ADD_ETHER_ADDRESS,
++	I40E_VIRTCHNL_OP_DEL_ETHER_ADDRESS,
++	I40E_VIRTCHNL_OP_ADD_VLAN,
++	I40E_VIRTCHNL_OP_DEL_VLAN,
++	I40E_VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE,
++	I40E_VIRTCHNL_OP_GET_STATS,
++	I40E_VIRTCHNL_OP_FCOE,
++/* PF sends status change events to vfs using
++ * the following op.
++ */
++	I40E_VIRTCHNL_OP_EVENT,
++};
++
++/* Virtual channel message descriptor. This overlays the admin queue
++ * descriptor. All other data is passed in external buffers.
++ */
++
++struct i40e_virtchnl_msg {
++	u8 pad[8];			 /* AQ flags/opcode/len/retval fields */
++	enum i40e_virtchnl_ops v_opcode; /* avoid confusion with desc->opcode */
++	enum i40e_status_code v_retval;  /* ditto for desc->retval */
++	u32 vfid;			 /* used by PF when sending to VF */
++};
++
++/* Message descriptions and data structures.*/
++
++/* I40E_VIRTCHNL_OP_VERSION
++ * VF posts its version number to the PF. PF responds with its version number
++ * in the same format, along with a return code.
++ * Reply from PF has its major/minor versions also in param0 and param1.
++ * If there is a major version mismatch, then the VF cannot operate.
++ * If there is a minor version mismatch, then the VF can operate but should
++ * add a warning to the system log.
++ *
++ * This enum element MUST always be specified as == 1, regardless of other
++ * changes in the API. The PF must always respond to this message without
++ * error regardless of version mismatch.
++ */
++#define I40E_VIRTCHNL_VERSION_MAJOR		1
++#define I40E_VIRTCHNL_VERSION_MINOR		0
++struct i40e_virtchnl_version_info {
++	u32 major;
++	u32 minor;
++};
++
++/* I40E_VIRTCHNL_OP_RESET_VF
++ * VF sends this request to PF with no parameters
++ * PF does NOT respond! VF driver must delay then poll VFGEN_RSTAT register
++ * until reset completion is indicated. The admin queue must be reinitialized
++ * after this operation.
++ *
++ * When reset is complete, PF must ensure that all queues in all VSIs associated
++ * with the VF are stopped, all queue configurations in the HMC are set to 0,
++ * and all MAC and VLAN filters (except the default MAC address) on all VSIs
++ * are cleared.
++ */
++
++/* I40E_VIRTCHNL_OP_GET_VF_RESOURCES
++ * VF sends this request to PF with no parameters
++ * PF responds with an indirect message containing
++ * i40e_virtchnl_vf_resource and one or more
++ * i40e_virtchnl_vsi_resource structures.
++ */
++
++struct i40e_virtchnl_vsi_resource {
++	u16 vsi_id;
++	u16 num_queue_pairs;
++	enum i40e_vsi_type vsi_type;
++	u16 qset_handle;
++	u8 default_mac_addr[I40E_ETH_LENGTH_OF_ADDRESS];
++};
++/* VF offload flags */
++#define I40E_VIRTCHNL_VF_OFFLOAD_L2	0x00000001
++#define I40E_VIRTCHNL_VF_OFFLOAD_FCOE	0x00000004
++#define I40E_VIRTCHNL_VF_OFFLOAD_VLAN	0x00010000
++
++struct i40e_virtchnl_vf_resource {
++	u16 num_vsis;
++	u16 num_queue_pairs;
++	u16 max_vectors;
++	u16 max_mtu;
++
++	u32 vf_offload_flags;
++	u32 max_fcoe_contexts;
++	u32 max_fcoe_filters;
++
++	struct i40e_virtchnl_vsi_resource vsi_res[1];
++};
++
++/* I40E_VIRTCHNL_OP_CONFIG_TX_QUEUE
++ * VF sends this message to set up parameters for one TX queue.
++ * External data buffer contains one instance of i40e_virtchnl_txq_info.
++ * PF configures requested queue and returns a status code.
++ */
++
++/* Tx queue config info */
++struct i40e_virtchnl_txq_info {
++	u16 vsi_id;
++	u16 queue_id;
++	u16 ring_len;		/* number of descriptors, multiple of 8 */
++	u16 headwb_enabled;
++	u64 dma_ring_addr;
++	u64 dma_headwb_addr;
++};
++
++/* I40E_VIRTCHNL_OP_CONFIG_RX_QUEUE
++ * VF sends this message to set up parameters for one RX queue.
++ * External data buffer contains one instance of i40e_virtchnl_rxq_info.
++ * PF configures requested queue and returns a status code.
++ */
++
++/* Rx queue config info */
++struct i40e_virtchnl_rxq_info {
++	u16 vsi_id;
++	u16 queue_id;
++	u32 ring_len;		/* number of descriptors, multiple of 32 */
++	u16 hdr_size;
++	u16 splithdr_enabled;
++	u32 databuffer_size;
++	u32 max_pkt_size;
++	u64 dma_ring_addr;
++	enum i40e_hmc_obj_rx_hsplit_0 rx_split_pos;
++};
++
++/* I40E_VIRTCHNL_OP_CONFIG_VSI_QUEUES
++ * VF sends this message to set parameters for all active TX and RX queues
++ * associated with the specified VSI.
++ * PF configures queues and returns status.
++ * If the number of queues specified is greater than the number of queues
++ * associated with the VSI, an error is returned and no queues are configured.
++ */
++struct i40e_virtchnl_queue_pair_info {
++	/* NOTE: vsi_id and queue_id should be identical for both queues. */
++	struct i40e_virtchnl_txq_info txq;
++	struct i40e_virtchnl_rxq_info rxq;
++};
++
++struct i40e_virtchnl_vsi_queue_config_info {
++	u16 vsi_id;
++	u16 num_queue_pairs;
++	struct i40e_virtchnl_queue_pair_info qpair[1];
++};
++
++/* I40E_VIRTCHNL_OP_CONFIG_IRQ_MAP
++ * VF uses this message to map vectors to queues.
++ * The rxq_map and txq_map fields are bitmaps used to indicate which queues
++ * are to be associated with the specified vector.
++ * The "other" causes are always mapped to vector 0.
++ * PF configures interrupt mapping and returns status.
++ */
++struct i40e_virtchnl_vector_map {
++	u16 vsi_id;
++	u16 vector_id;
++	u16 rxq_map;
++	u16 txq_map;
++	u16 rxitr_idx;
++	u16 txitr_idx;
++};
++
++struct i40e_virtchnl_irq_map_info {
++	u16 num_vectors;
++	struct i40e_virtchnl_vector_map vecmap[1];
++};
++
++/* I40E_VIRTCHNL_OP_ENABLE_QUEUES
++ * I40E_VIRTCHNL_OP_DISABLE_QUEUES
++ * VF sends these message to enable or disable TX/RX queue pairs.
++ * The queues fields are bitmaps indicating which queues to act upon.
++ * (Currently, we only support 16 queues per VF, but we make the field
++ * u32 to allow for expansion.)
++ * PF performs requested action and returns status.
++ */
++struct i40e_virtchnl_queue_select {
++	u16 vsi_id;
++	u16 pad;
++	u32 rx_queues;
++	u32 tx_queues;
++};
++
++/* I40E_VIRTCHNL_OP_ADD_ETHER_ADDRESS
++ * VF sends this message in order to add one or more unicast or multicast
++ * address filters for the specified VSI.
++ * PF adds the filters and returns status.
++ */
++
++/* I40E_VIRTCHNL_OP_DEL_ETHER_ADDRESS
++ * VF sends this message in order to remove one or more unicast or multicast
++ * filters for the specified VSI.
++ * PF removes the filters and returns status.
++ */
++
++struct i40e_virtchnl_ether_addr {
++	u8 addr[I40E_ETH_LENGTH_OF_ADDRESS];
++	u8 pad[2];
++};
++
++struct i40e_virtchnl_ether_addr_list {
++	u16 vsi_id;
++	u16 num_elements;
++	struct i40e_virtchnl_ether_addr list[1];
++};
++
++/* I40E_VIRTCHNL_OP_ADD_VLAN
++ * VF sends this message to add one or more VLAN tag filters for receives.
++ * PF adds the filters and returns status.
++ * If a port VLAN is configured by the PF, this operation will return an
++ * error to the VF.
++ */
++
++/* I40E_VIRTCHNL_OP_DEL_VLAN
++ * VF sends this message to remove one or more VLAN tag filters for receives.
++ * PF removes the filters and returns status.
++ * If a port VLAN is configured by the PF, this operation will return an
++ * error to the VF.
++ */
++
++struct i40e_virtchnl_vlan_filter_list {
++	u16 vsi_id;
++	u16 num_elements;
++	u16 vlan_id[1];
++};
++
++/* I40E_VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE
++ * VF sends VSI id and flags.
++ * PF returns status code in retval.
++ * Note: we assume that broadcast accept mode is always enabled.
++ */
++struct i40e_virtchnl_promisc_info {
++	u16 vsi_id;
++	u16 flags;
++};
++
++#define I40E_FLAG_VF_UNICAST_PROMISC	0x00000001
++#define I40E_FLAG_VF_MULTICAST_PROMISC	0x00000002
++
++/* I40E_VIRTCHNL_OP_GET_STATS
++ * VF sends this message to request stats for the selected VSI. VF uses
++ * the i40e_virtchnl_queue_select struct to specify the VSI. The queue_id
++ * field is ignored by the PF.
++ *
++ * PF replies with struct i40e_eth_stats in an external buffer.
++ */
++
++/* I40E_VIRTCHNL_OP_EVENT
++ * PF sends this message to inform the VF driver of events that may affect it.
++ * No direct response is expected from the VF, though it may generate other
++ * messages in response to this one.
++ */
++enum i40e_virtchnl_event_codes {
++	I40E_VIRTCHNL_EVENT_UNKNOWN = 0,
++	I40E_VIRTCHNL_EVENT_LINK_CHANGE,
++	I40E_VIRTCHNL_EVENT_RESET_IMPENDING,
++	I40E_VIRTCHNL_EVENT_PF_DRIVER_CLOSE,
++};
++#define I40E_PF_EVENT_SEVERITY_INFO		0
++#define I40E_PF_EVENT_SEVERITY_CERTAIN_DOOM	255
++
++struct i40e_virtchnl_pf_event {
++	enum i40e_virtchnl_event_codes event;
++	union {
++		struct {
++			enum i40e_aq_link_speed link_speed;
++			bool link_status;
++		} link_event;
++	} event_data;
++
++	int severity;
++};
++
++/* The following are TBD, not necessary for LAN functionality.
++ * I40E_VIRTCHNL_OP_FCOE
++ */
++
++/* VF reset states - these are written into the RSTAT register:
++ * I40E_VFGEN_RSTAT1 on the PF
++ * I40E_VFGEN_RSTAT on the VF
++ * When the PF initiates a reset, it writes 0
++ * When the reset is complete, it writes 1
++ * When the PF detects that the VF has recovered, it writes 2
++ * VF checks this register periodically to determine if a reset has occurred,
++ * then polls it to know when the reset is complete.
++ * If either the PF or VF reads the register while the hardware
++ * is in a reset state, it will return DEADBEEF, which, when masked
++ * will result in 3.
++ */
++enum i40e_vfr_states {
++	I40E_VFR_INPROGRESS = 0,
++	I40E_VFR_COMPLETED,
++	I40E_VFR_VFACTIVE,
++	I40E_VFR_UNKNOWN,
++};
++
++#endif /* _I40E_VIRTCHNL_H_ */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+new file mode 100644
+index 0000000..6fcc977
+--- /dev/null
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+@@ -0,0 +1,801 @@
++/*******************************************************************************
++
++  Intel Ethernet Controller XL710 Family Linux Driver
++  Copyright(c) 2013 Intel Corporation.
++
++  This program is free software; you can redistribute it and/or modify it
++  under the terms and conditions of the GNU General Public License,
++  version 2, as published by the Free Software Foundation.
++
++  This program is distributed in the hope it will be useful, but WITHOUT
++  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++  more details.
++
++  You should have received a copy of the GNU General Public License along with
++  this program; if not, write to the Free Software Foundation, Inc.,
++  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++
++  The full GNU General Public License is included in this distribution in
++  the file called "COPYING".
++
++  Contact Information:
++  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++
++*******************************************************************************/
++
++#include <linux/types.h>
 +#include "i40evf.h"
++#include "i40e_prototype.h"
 +
-+static inline __le64 build_ctob(u32 td_cmd, u32 td_offset, unsigned int size,
-+				u32 td_tag)
-+{
-+	return cpu_to_le64(I40E_TX_DESC_DTYPE_DATA |
-+			   ((u64)td_cmd  << I40E_TXD_QW1_CMD_SHIFT) |
-+			   ((u64)td_offset << I40E_TXD_QW1_OFFSET_SHIFT) |
-+			   ((u64)size  << I40E_TXD_QW1_TX_BUF_SZ_SHIFT) |
-+			   ((u64)td_tag  << I40E_TXD_QW1_L2TAG1_SHIFT));
-+}
-+
++/* busy wait delay in msec */
++#define I40EVF_BUSY_WAIT_DELAY 10
++#define I40EVF_BUSY_WAIT_COUNT 50
 +
 +/**
-+ * i40e_unmap_tx_resource - Release a Tx buffer
-+ * @ring:      the ring that owns the buffer
-+ * @tx_buffer: the buffer to free
++ * i40evf_send_api_ver
++ * @hw: pointer to the hardware structure
++ *
++ * Send API version admin queue message to the PF. The reply is not checked
++ * in this function. Returns I40E_SUCCESS if the message was successfully
++ * sent, or one of the I40E_ADMIN_QUEUE_ERROR_ statuses if not.
 + **/
-+static inline void i40e_unmap_tx_resource(struct i40e_ring *ring,
-+					  struct i40e_tx_buffer *tx_buffer)
++int i40evf_send_api_ver(struct i40e_hw *hw)
 +{
-+	if (tx_buffer->dma) {
-+		if (tx_buffer->tx_flags & I40E_TX_FLAGS_MAPPED_AS_PAGE)
-+			dma_unmap_page(ring->dev,
-+				       tx_buffer->dma,
-+				       tx_buffer->length,
-+				       DMA_TO_DEVICE);
-+		else
-+			dma_unmap_single(ring->dev,
-+					 tx_buffer->dma,
-+					 tx_buffer->length,
-+					 DMA_TO_DEVICE);
++	struct i40e_virtchnl_version_info vvi;
++	enum i40e_status_code err;
++
++	vvi.major = I40E_VIRTCHNL_VERSION_MAJOR;
++	vvi.minor = I40E_VIRTCHNL_VERSION_MINOR;
++
++	err = i40e_aq_send_msg_to_pf(hw, I40E_VIRTCHNL_OP_VERSION, I40E_SUCCESS,
++				     (u8 *)&vvi, sizeof(vvi), NULL);
++	return err;
++}
++
++/**
++ * i40evf_verify_api_ver
++ * @hw: pointer to the hardware structure
++ *
++ * Compare API versions with the PF. Must be called after admin queue is
++ * initialized. Returns I40E_SUCCESS if API versions match, -EIO if
++ * they do not, or I40E_ERR_ADMIN_QUEUE_NO_WORK if the admin queue is empty.
++ **/
++int i40evf_verify_api_ver(struct i40e_hw *hw)
++{
++	struct i40e_virtchnl_version_info *pf_vvi;
++	struct i40e_arq_event_info event;
++	enum i40e_status_code err;
++
++	event.msg_size = I40EVF_MAX_AQ_BUF_SIZE;
++	event.msg_buf = kzalloc(event.msg_size, GFP_KERNEL);
++	if (!event.msg_buf) {
++		err = -ENOMEM;
++		goto out;
 +	}
-+	tx_buffer->dma = 0;
-+	tx_buffer->time_stamp = 0;
++
++	err = i40e_clean_arq_element(hw, &event, NULL);
++	if (err == I40E_ERR_ADMIN_QUEUE_NO_WORK)
++		goto out_alloc;
++
++	err = (enum i40e_status_code)event.desc.cookie_low;
++	if (err) {
++		err = -EIO;
++		goto out_alloc;
++	}
++
++	if ((enum i40e_virtchnl_ops)event.desc.cookie_high !=
++		I40E_VIRTCHNL_OP_VERSION) {
++		err = -EIO;
++		goto out_alloc;
++	}
++
++	pf_vvi = (struct i40e_virtchnl_version_info *)event.msg_buf;
++	if ((pf_vvi->major != I40E_VIRTCHNL_VERSION_MAJOR) ||
++	    (pf_vvi->minor != I40E_VIRTCHNL_VERSION_MINOR))
++		err = -EIO;
++
++out_alloc:
++	kfree(event.msg_buf);
++out:
++	return err;
 +}
 +
 +/**
-+ * i40e_clean_tx_ring - Free any empty Tx buffers
-+ * @tx_ring: ring to be cleaned
++ * i40evf_send_vf_config_msg
++ * @hw: pointer to the hardware structure
++ *
++ * Send VF configuration request admin queue message to the PF. The reply
++ * is not checked in this function. Returns I40E_SUCCESS if the message was
++ * successfully sent, or one of the I40E_ADMIN_QUEUE_ERROR_ statuses if not.
 + **/
-+void i40e_clean_tx_ring(struct i40e_ring *tx_ring)
++int i40evf_send_vf_config_msg(struct i40e_hw *hw)
 +{
-+	struct i40e_tx_buffer *tx_buffer;
-+	unsigned long bi_size;
-+	u16 i;
++	enum i40e_status_code err;
 +
-+	/* ring already cleared, nothing to do */
-+	if (!tx_ring->tx_bi)
++	err = i40e_aq_send_msg_to_pf(hw, I40E_VIRTCHNL_OP_GET_VF_RESOURCES,
++				  I40E_SUCCESS, NULL, 0, NULL);
++	return  err;
++}
++
++/**
++ * i40evf_get_vf_config
++ * @hw: pointer to the hardware structure
++ * @len: length of buffer
++ *
++ * Get VF configuration from PF and populate hw structure. Must be called after
++ * admin queue is initialized. Busy waits until response is received from PF,
++ * with maximum timeout. Response from PF is returned in the buffer for further
++ * processing by the caller.
++ **/
++int i40evf_get_vf_config(struct i40evf_adapter *adapter)
++{
++	struct i40e_hw *hw = &adapter->hw;
++	struct i40e_arq_event_info event;
++	u16 len;
++	enum i40e_status_code err;
++
++	len =  sizeof(struct i40e_virtchnl_vf_resource) +
++		I40E_MAX_VF_VSI * sizeof(struct i40e_virtchnl_vsi_resource);
++	event.msg_size = len;
++	event.msg_buf = kzalloc(event.msg_size, GFP_KERNEL);
++	if (!event.msg_buf) {
++		err = -ENOMEM;
++		goto out;
++	}
++
++	err = i40e_clean_arq_element(hw, &event, NULL);
++	if (err == I40E_ERR_ADMIN_QUEUE_NO_WORK)
++		goto out_alloc;
++
++	err = (enum i40e_status_code)event.desc.cookie_low;
++	if (err) {
++		dev_err(&adapter->pdev->dev,
++			"%s: Error returned from PF, %d, %d\n", __func__,
++			event.desc.cookie_high,	event.desc.cookie_low);
++		err = -EIO;
++		goto out_alloc;
++	}
++
++	if ((enum i40e_virtchnl_ops)event.desc.cookie_high !=
++		I40E_VIRTCHNL_OP_GET_VF_RESOURCES) {
++		dev_err(&adapter->pdev->dev,
++			"%s: Invalid response from PF, %d, %d\n", __func__,
++			event.desc.cookie_high, event.desc.cookie_low);
++		err = -EIO;
++		goto out_alloc;
++	}
++	memcpy(adapter->vf_res, event.msg_buf, min(event.msg_size, len));
++
++	i40e_vf_parse_hw_config(hw, adapter->vf_res);
++out_alloc:
++	kfree(event.msg_buf);
++out:
++	return err;
++}
++
++/**
++ * i40evf_configure_queues
++ * @adapter: adapter structure
++ *
++ * Request that the PF set up our (previously allocated) queues.
++ **/
++void i40evf_configure_queues(struct i40evf_adapter *adapter)
++{
++	struct i40e_hw *hw = &adapter->hw;
++	struct i40e_virtchnl_vsi_queue_config_info *vqci;
++	struct i40e_virtchnl_queue_pair_info *vqpi;
++	int pairs = adapter->vsi_res->num_queue_pairs;
++	int i, len;
++	enum i40e_status_code err;
++
++	if (adapter->current_op != I40E_VIRTCHNL_OP_UNKNOWN) {
++		/* bail because we already have a command pending */
++		dev_err(&adapter->pdev->dev, "%s: command %d pending\n",
++			__func__, adapter->current_op);
 +		return;
-+
-+	/* Free all the Tx ring sk_buffs */
-+	for (i = 0; i < tx_ring->count; i++) {
-+		tx_buffer = &tx_ring->tx_bi[i];
-+		i40e_unmap_tx_resource(tx_ring, tx_buffer);
-+		if (tx_buffer->skb)
-+			dev_kfree_skb_any(tx_buffer->skb);
-+		tx_buffer->skb = NULL;
 +	}
-+
-+	bi_size = sizeof(struct i40e_tx_buffer) * tx_ring->count;
-+	memset(tx_ring->tx_bi, 0, bi_size);
-+
-+	/* Zero out the descriptor ring */
-+	memset(tx_ring->desc, 0, tx_ring->size);
-+
-+	tx_ring->next_to_use = 0;
-+	tx_ring->next_to_clean = 0;
-+}
-+
-+/**
-+ * i40e_free_tx_resources - Free Tx resources per queue
-+ * @tx_ring: Tx descriptor ring for a specific queue
-+ *
-+ * Free all transmit software resources
-+ **/
-+void i40e_free_tx_resources(struct i40e_ring *tx_ring)
-+{
-+	i40e_clean_tx_ring(tx_ring);
-+	kfree(tx_ring->tx_bi);
-+	tx_ring->tx_bi = NULL;
-+
-+	if (tx_ring->desc) {
-+		dma_free_coherent(tx_ring->dev, tx_ring->size,
-+				  tx_ring->desc, tx_ring->dma);
-+		tx_ring->desc = NULL;
++	adapter->current_op = I40E_VIRTCHNL_OP_CONFIG_VSI_QUEUES;
++	len = sizeof(struct i40e_virtchnl_vsi_queue_config_info) +
++		       (sizeof(struct i40e_virtchnl_queue_pair_info) * pairs);
++	vqci = kzalloc(len, GFP_ATOMIC);
++	if (!vqci) {
++		dev_err(&adapter->pdev->dev, "%s: unable to allocate memory\n",
++			__func__);
++		return;
 +	}
-+}
-+
-+/**
-+ * i40e_get_tx_pending - how many tx descriptors not processed
-+ * @tx_ring: the ring of descriptors
-+ *
-+ * Since there is no access to the ring head register
-+ * in XL710, we need to use our local copies
-+ **/
-+static u32 i40e_get_tx_pending(struct i40e_ring *ring)
-+{
-+	u32 ntu = ((ring->next_to_clean <= ring->next_to_use)
-+			? ring->next_to_use
-+			: ring->next_to_use + ring->count);
-+	return ntu - ring->next_to_clean;
-+}
-+
-+/**
-+ * i40e_check_tx_hang - Is there a hang in the Tx queue
-+ * @tx_ring: the ring of descriptors
-+ **/
-+static bool i40e_check_tx_hang(struct i40e_ring *tx_ring)
-+{
-+	u32 tx_pending = i40e_get_tx_pending(tx_ring);
-+	bool ret = false;
-+
-+	clear_check_for_tx_hang(tx_ring);
-+
-+	/* Check for a hung queue, but be thorough. This verifies
-+	 * that a transmit has been completed since the previous
-+	 * check AND there is at least one packet pending. The
-+	 * ARMED bit is set to indicate a potential hang. The
-+	 * bit is cleared if a pause frame is received to remove
-+	 * false hang detection due to PFC or 802.3x frames. By
-+	 * requiring this to fail twice we avoid races with
-+	 * PFC clearing the ARMED bit and conditions where we
-+	 * run the check_tx_hang logic with a transmit completion
-+	 * pending but without time to complete it yet.
++	vqci->vsi_id = adapter->vsi_res->vsi_id;
++	vqci->num_queue_pairs = pairs;
++	vqpi = vqci->qpair;
++	/* Size check is not needed here - HW max is 16 queue pairs, and we
++	 * can fit info for 31 of them into the AQ buffer before it overflows.
 +	 */
-+	if ((tx_ring->tx_stats.tx_done_old == tx_ring->tx_stats.packets) &&
-+	     tx_pending) {
-+		/* make sure it is true for two checks in a row */
-+		ret = test_and_set_bit(__I40E_HANG_CHECK_ARMED,
-+				       &tx_ring->state);
-+	} else {
-+		/* update completed stats and disarm the hang check */
-+		tx_ring->tx_stats.tx_done_old = tx_ring->tx_stats.packets;
-+		clear_bit(__I40E_HANG_CHECK_ARMED, &tx_ring->state);
++	for (i = 0; i < pairs; i++) {
++		vqpi->txq.vsi_id = vqci->vsi_id;
++		vqpi->txq.queue_id = i;
++		vqpi->txq.ring_len = adapter->tx_rings[i].count;
++		vqpi->txq.dma_ring_addr = adapter->tx_rings[i].dma;
++
++		vqpi->rxq.vsi_id = vqci->vsi_id;
++		vqpi->rxq.queue_id = i;
++		vqpi->rxq.ring_len = adapter->rx_rings[i].count;
++		vqpi->rxq.dma_ring_addr = adapter->rx_rings[i].dma;
++		vqpi->rxq.max_pkt_size = adapter->netdev->mtu
++					+ ETH_HLEN + ETH_FCS_LEN;
++		vqpi->rxq.databuffer_size = adapter->rx_rings[i].rx_buf_len;
++		vqpi++;
 +	}
 +
-+	return ret;
++	err = i40e_aq_send_msg_to_pf(hw, I40E_VIRTCHNL_OP_CONFIG_VSI_QUEUES,
++				  I40E_SUCCESS, (u8 *)vqci, len, NULL);
++	if (err)
++		dev_err(&adapter->pdev->dev, "%s: Unable to send to PF, error %d\n",
++			__func__, err);
++
++	kfree(vqci);
++	adapter->aq_pending |= I40EVF_FLAG_AQ_CONFIGURE_QUEUES;
++	adapter->aq_required &= ~I40EVF_FLAG_AQ_CONFIGURE_QUEUES;
 +}
 +
 +/**
-+ * i40e_clean_tx_irq - Reclaim resources after transmit completes
-+ * @tx_ring:  tx ring to clean
-+ * @budget:   how many cleans we're allowed
++ * i40evf_enable_queues
++ * @adapter: adapter structure
 + *
-+ * Returns true if there's any budget left (e.g. the clean is finished)
++ * Request that the PF enable all of our queues.
 + **/
-+static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
++void i40evf_enable_queues(struct i40evf_adapter *adapter)
 +{
-+	struct i40e_tx_buffer *tx_buf;
-+	struct i40e_tx_desc *tx_desc;
-+	unsigned int total_bytes = 0, total_packets = 0;
-+	u16 i = tx_ring->next_to_clean;
++	struct i40e_hw *hw = &adapter->hw;
++	struct i40e_virtchnl_queue_select vqs;
++	enum i40e_status_code err;
 +
-+	tx_buf = &tx_ring->tx_bi[i];
-+	tx_desc = I40E_TX_DESC(tx_ring, i);
++	if (adapter->current_op != I40E_VIRTCHNL_OP_UNKNOWN) {
++		/* bail because we already have a command pending */
++		dev_err(&adapter->pdev->dev, "%s: command %d pending\n",
++			__func__, adapter->current_op);
++		return;
++	}
++	adapter->current_op = I40E_VIRTCHNL_OP_ENABLE_QUEUES;
++	vqs.vsi_id = adapter->vsi_res->vsi_id;
++	vqs.tx_queues = (1 << adapter->vsi_res->num_queue_pairs) - 1;
++	vqs.rx_queues = vqs.tx_queues;
++	err = i40e_aq_send_msg_to_pf(hw, I40E_VIRTCHNL_OP_ENABLE_QUEUES,
++				  I40E_SUCCESS, (u8 *)&vqs, sizeof(vqs), NULL);
++	if (err)
++		dev_err(&adapter->pdev->dev, "%s: Unable to send to PF, error %d\n",
++			__func__, err);
 +
-+	for (; budget; budget--) {
-+		struct i40e_tx_desc *eop_desc;
++	adapter->aq_pending |= I40EVF_FLAG_AQ_ENABLE_QUEUES;
++	adapter->aq_required &= ~I40EVF_FLAG_AQ_ENABLE_QUEUES;
++}
 +
-+		eop_desc = tx_buf->next_to_watch;
++/**
++ * i40evf_disable_queues
++ * @adapter: adapter structure
++ *
++ * Request that the PF disable all of our queues.
++ **/
++void i40evf_disable_queues(struct i40evf_adapter *adapter)
++{
++	struct i40e_hw *hw = &adapter->hw;
++	struct i40e_virtchnl_queue_select vqs;
++	enum i40e_status_code err;
 +
-+		/* if next_to_watch is not set then there is no work pending */
-+		if (!eop_desc)
-+			break;
++	if (adapter->current_op != I40E_VIRTCHNL_OP_UNKNOWN) {
++		/* bail because we already have a command pending */
++		dev_err(&adapter->pdev->dev, "%s: command %d pending\n",
++			__func__, adapter->current_op);
++		return;
++	}
++	adapter->current_op = I40E_VIRTCHNL_OP_DISABLE_QUEUES;
++	vqs.vsi_id = adapter->vsi_res->vsi_id;
++	vqs.tx_queues = (1 << adapter->vsi_res->num_queue_pairs) - 1;
++	vqs.rx_queues = vqs.tx_queues;
++	err = i40e_aq_send_msg_to_pf(hw, I40E_VIRTCHNL_OP_DISABLE_QUEUES,
++				  I40E_SUCCESS, (u8 *)&vqs, sizeof(vqs), NULL);
++	if (err)
++		dev_err(&adapter->pdev->dev, "%s: Unable to send to PF, error %d\n",
++			__func__, err);
 +
-+		/* if the descriptor isn't done, no work yet to do */
-+		if (!(eop_desc->cmd_type_offset_bsz &
-+		      cpu_to_le32(I40E_TX_DESC_DTYPE_DESC_DONE)))
-+			break;
++	adapter->aq_pending |= I40EVF_FLAG_AQ_DISABLE_QUEUES;
++	adapter->aq_required &= ~I40EVF_FLAG_AQ_DISABLE_QUEUES;
++}
 +
-+		/* count the packet as being completed */
-+		tx_ring->tx_stats.completed++;
-+		tx_buf->next_to_watch = NULL;
-+		tx_buf->time_stamp = 0;
++/**
++ * i40evf_map_queues
++ * @adapter: adapter structure
++ *
++ * Request that the PF map queues to interrupt vectors. Misc causes, including
++ * admin queue, are always mapped to vector 0.
++ **/
++void i40evf_map_queues(struct i40evf_adapter *adapter)
++{
++	struct i40e_hw *hw = &adapter->hw;
++	struct i40e_virtchnl_irq_map_info *vimi;
++	enum i40e_status_code err;
++	int v_idx, q_vectors, len;
++	struct i40e_q_vector *q_vector;
 +
-+		/* set memory barrier before eop_desc is verified */
-+		rmb();
++	if (adapter->current_op != I40E_VIRTCHNL_OP_UNKNOWN) {
++		/* bail because we already have a command pending */
++		dev_err(&adapter->pdev->dev, "%s: command %d pending\n",
++			__func__, adapter->current_op);
++		return;
++	}
++	adapter->current_op = I40E_VIRTCHNL_OP_CONFIG_IRQ_MAP;
 +
-+		do {
-+			i40e_unmap_tx_resource(tx_ring, tx_buf);
++	q_vectors = adapter->num_msix_vectors - NONQ_VECS;
 +
-+			/* clear dtype status */
-+			tx_desc->cmd_type_offset_bsz &=
-+						       ~I40E_TXD_QW1_DTYPE_MASK;
++	len = sizeof(struct i40e_virtchnl_irq_map_info) +
++	      (adapter->num_msix_vectors *
++		sizeof(struct i40e_virtchnl_vector_map));
++	vimi = kzalloc(len, GFP_ATOMIC);
++	if (!vimi) {
++		dev_err(&adapter->pdev->dev, "%s: unable to allocate memory\n",
++			__func__);
++		return;
++	}
 +
-+			if (likely(tx_desc == eop_desc)) {
-+				eop_desc = NULL;
++	vimi->num_vectors = adapter->num_msix_vectors;
++	/* Queue vectors first */
++	for (v_idx = 0; v_idx < q_vectors; v_idx++) {
++		q_vector = adapter->q_vector[v_idx];
++		vimi->vecmap[v_idx].vsi_id = adapter->vsi_res->vsi_id;
++		vimi->vecmap[v_idx].vector_id = v_idx + NONQ_VECS;
++		vimi->vecmap[v_idx].txq_map = q_vector->ring_mask;
++		vimi->vecmap[v_idx].rxq_map = q_vector->ring_mask;
++	}
++	/* Misc vector last - this is only for AdminQ messages */
++	vimi->vecmap[v_idx].vsi_id = adapter->vsi_res->vsi_id;
++	vimi->vecmap[v_idx].vector_id = 0;
++	vimi->vecmap[v_idx].txq_map = 0;
++	vimi->vecmap[v_idx].rxq_map = 0;
 +
-+				dev_kfree_skb_any(tx_buf->skb);
-+				tx_buf->skb = NULL;
++	err = i40e_aq_send_msg_to_pf(hw, I40E_VIRTCHNL_OP_CONFIG_IRQ_MAP,
++				  I40E_SUCCESS, (u8 *)vimi, len, NULL);
++	if (err)
++		dev_err(&adapter->pdev->dev, "%s: Unable to send to PF, error %d\n",
++			__func__, err);
 +
-+				total_bytes += tx_buf->bytecount;
-+				total_packets += tx_buf->gso_segs;
-+			}
++	kfree(vimi);
++	adapter->aq_pending |= I40EVF_FLAG_AQ_MAP_VECTORS;
++	adapter->aq_required &= ~I40EVF_FLAG_AQ_MAP_VECTORS;
++}
 +
-+			tx_buf++;
-+			tx_desc++;
++/**
++ * i40evf_add_ether_addrs
++ * @adapter: adapter structure
++ * @addrs: the MAC address filters to add (contiguous)
++ * @count: number of filters
++ *
++ * Request that the PF add one or more addresses to our filters.
++ **/
++void i40evf_add_ether_addrs(struct i40evf_adapter *adapter)
++{
++	struct i40e_hw *hw = &adapter->hw;
++	struct i40e_virtchnl_ether_addr_list *veal;
++	int len, i = 0, count = 0;
++	enum i40e_status_code err;
++	struct i40evf_mac_filter *f;
++
++	if (adapter->current_op != I40E_VIRTCHNL_OP_UNKNOWN) {
++		/* bail because we already have a command pending */
++		dev_err(&adapter->pdev->dev, "%s: command %d pending\n",
++			__func__, adapter->current_op);
++		return;
++	}
++	adapter->current_op = I40E_VIRTCHNL_OP_ADD_ETHER_ADDRESS;
++	list_for_each_entry(f, &adapter->mac_filter_list, list) {
++		if (f->add)
++			count++;
++	}
++	len = sizeof(struct i40e_virtchnl_ether_addr_list) +
++	      (count * sizeof(struct i40e_virtchnl_ether_addr));
++	if (len > I40EVF_MAX_AQ_BUF_SIZE) {
++		dev_warn(&adapter->pdev->dev, "%s: Too many MAC address changes in one request.\n",
++			__func__);
++		count = (I40EVF_MAX_AQ_BUF_SIZE -
++			 sizeof(struct i40e_virtchnl_ether_addr_list)) /
++			sizeof(struct i40e_virtchnl_ether_addr);
++		len = I40EVF_MAX_AQ_BUF_SIZE;
++	}
++
++	veal = kzalloc(len, GFP_ATOMIC);
++	if (!veal) {
++		dev_err(&adapter->pdev->dev, "%s: unable to allocate memory\n",
++			__func__);
++		return;
++	}
++	veal->vsi_id = adapter->vsi_res->vsi_id;
++	veal->num_elements = count;
++	list_for_each_entry(f, &adapter->mac_filter_list, list) {
++		if (f->add) {
++			memcpy(veal->list[i].addr, f->macaddr, ETH_ALEN);
 +			i++;
-+			if (unlikely(i == tx_ring->count)) {
-+				i = 0;
-+				tx_buf = tx_ring->tx_bi;
-+				tx_desc = I40E_TX_DESC(tx_ring, 0);
-+			}
-+		} while (eop_desc);
++			f->add = false;
++		}
++	}
++	err = i40e_aq_send_msg_to_pf(hw, I40E_VIRTCHNL_OP_ADD_ETHER_ADDRESS,
++				  I40E_SUCCESS, (u8 *)veal, len, NULL);
++	if (err)
++		dev_err(&adapter->pdev->dev, "%s: Unable to send to PF, error %d\n",
++			__func__, err);
++
++	kfree(veal);
++	adapter->aq_pending |= I40EVF_FLAG_AQ_ADD_MAC_FILTER;
++	adapter->aq_required &= ~I40EVF_FLAG_AQ_ADD_MAC_FILTER;
++
++}
++
++/**
++ * i40evf_del_ether_addrs
++ * @adapter: adapter structure
++ * @addrs: the MAC address filters to remove (contiguous)
++ * @count: number of filtes
++ *
++ * Request that the PF remove one or more addresses from our filters.
++ **/
++void i40evf_del_ether_addrs(struct i40evf_adapter *adapter)
++{
++	struct i40e_hw *hw = &adapter->hw;
++	struct i40e_virtchnl_ether_addr_list *veal;
++	int len, i = 0, count = 0;
++	enum i40e_status_code err;
++	struct i40evf_mac_filter *f;
++
++	if (adapter->current_op != I40E_VIRTCHNL_OP_UNKNOWN) {
++		/* bail because we already have a command pending */
++		dev_err(&adapter->pdev->dev, "%s: command %d pending\n",
++			__func__, adapter->current_op);
++		return;
++	}
++	adapter->current_op = I40E_VIRTCHNL_OP_DEL_ETHER_ADDRESS;
++	list_for_each_entry(f, &adapter->mac_filter_list, list) {
++		if (f->remove)
++			count++;
++	}
++	len = sizeof(struct i40e_virtchnl_ether_addr_list) +
++	      (count * sizeof(struct i40e_virtchnl_ether_addr));
++	if (len > I40EVF_MAX_AQ_BUF_SIZE) {
++		dev_warn(&adapter->pdev->dev, "%s: Too many MAC address changes in one request.\n",
++			__func__);
++		count = (I40EVF_MAX_AQ_BUF_SIZE -
++			 sizeof(struct i40e_virtchnl_ether_addr_list)) /
++			sizeof(struct i40e_virtchnl_ether_addr);
++		len = I40EVF_MAX_AQ_BUF_SIZE;
++	}
++	veal = kzalloc(len, GFP_ATOMIC);
++	if (!veal) {
++		dev_err(&adapter->pdev->dev, "%s: unable to allocate memory\n",
++			__func__);
++		return;
++	}
++	veal->vsi_id = adapter->vsi_res->vsi_id;
++	veal->num_elements = count;
++	list_for_each_entry(f, &adapter->mac_filter_list, list) {
++		if (f->remove) {
++			memcpy(veal->list[i].addr, f->macaddr, ETH_ALEN);
++			i++;
++			f->remove = false;
++		}
++	}
++	err = i40e_aq_send_msg_to_pf(hw, I40E_VIRTCHNL_OP_DEL_ETHER_ADDRESS,
++				  I40E_SUCCESS, (u8 *)veal, len, NULL);
++	if (err)
++		dev_err(&adapter->pdev->dev, "%s: Unable to send to PF, error %d\n",
++			__func__, err);
++
++	kfree(veal);
++	adapter->aq_pending |= I40EVF_FLAG_AQ_DEL_MAC_FILTER;
++	adapter->aq_required &= ~I40EVF_FLAG_AQ_DEL_MAC_FILTER;
++}
++
++/**
++ * i40evf_add_vlans
++ * @adapter: adapter structure
++ * @vlans: the VLANs to add
++ * @count: number of VLANs
++ *
++ * Request that the PF add one or more VLAN filters to our VSI.
++ **/
++void i40evf_add_vlans(struct i40evf_adapter *adapter)
++{
++	struct i40e_hw *hw = &adapter->hw;
++	struct i40e_virtchnl_vlan_filter_list *vvfl;
++	int len, i = 0, count = 0;
++	enum i40e_status_code err;
++	struct i40evf_vlan_filter *f;
++
++	if (adapter->current_op != I40E_VIRTCHNL_OP_UNKNOWN) {
++		/* bail because we already have a command pending */
++		dev_err(&adapter->pdev->dev, "%s: command %d pending\n",
++			__func__, adapter->current_op);
++		return;
++	}
++	adapter->current_op = I40E_VIRTCHNL_OP_ADD_VLAN;
++
++	list_for_each_entry(f, &adapter->vlan_filter_list, list) {
++		if (f->add)
++			count++;
 +	}
 +
-+	tx_ring->next_to_clean = i;
-+	tx_ring->tx_stats.bytes += total_bytes;
-+	tx_ring->tx_stats.packets += total_packets;
-+	tx_ring->q_vector->tx.total_bytes += total_bytes;
-+	tx_ring->q_vector->tx.total_packets += total_packets;
-+	if (check_for_tx_hang(tx_ring) && i40e_check_tx_hang(tx_ring)) {
-+		/* schedule immediate reset if we believe we hung */
-+		dev_info(tx_ring->dev, "%s: Detected Tx Unit Hang\n"
-+			"  VSI                  <%d>\n"
-+			"  Tx Queue             <%d>\n"
-+			"  next_to_use          <%x>\n"
-+			"  next_to_clean        <%x>\n",
-+			__func__,
-+			tx_ring->vsi->seid,
-+			tx_ring->queue_index,
-+			tx_ring->next_to_use, i);
-+		dev_info(tx_ring->dev, "tx_bi[next_to_clean]\n"
-+			"  time_stamp           <%lx>\n"
-+			"  jiffies              <%lx>\n",
-+			tx_ring->tx_bi[i].time_stamp, jiffies);
-+
-+		netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
-+
-+		dev_info(tx_ring->dev,
-+			"tx hang detected on queue %d, resetting adapter\n",
-+			tx_ring->queue_index);
-+
-+		tx_ring->netdev->netdev_ops->ndo_tx_timeout(tx_ring->netdev);
-+
-+		/* the adapter is about to reset, no point in enabling stuff */
-+		return true;
++	len = sizeof(struct i40e_virtchnl_vlan_filter_list) +
++	      (count * sizeof(u16));
++	if (len > I40EVF_MAX_AQ_BUF_SIZE) {
++		dev_warn(&adapter->pdev->dev, "%s: Too many VLAN changes in one request.\n",
++			__func__);
++		count = (I40EVF_MAX_AQ_BUF_SIZE -
++			 sizeof(struct i40e_virtchnl_vlan_filter_list)) /
++			sizeof(u16);
++		len = I40EVF_MAX_AQ_BUF_SIZE;
 +	}
-+
-+#define TX_WAKE_THRESHOLD (DESC_NEEDED * 2)
-+	if (unlikely(total_packets && netif_carrier_ok(tx_ring->netdev) &&
-+		     (I40E_DESC_UNUSED(tx_ring) >= TX_WAKE_THRESHOLD))) {
-+		/* Make sure that anybody stopping the queue after this
-+		 * sees the new next_to_clean.
-+		 */
-+		smp_mb();
-+		if (__netif_subqueue_stopped(tx_ring->netdev,
-+					     tx_ring->queue_index) &&
-+		   !test_bit(__I40E_DOWN, &tx_ring->vsi->state)) {
-+			netif_wake_subqueue(tx_ring->netdev,
-+					    tx_ring->queue_index);
-+			++tx_ring->tx_stats.restart_queue;
++	vvfl = kzalloc(len, GFP_ATOMIC);
++	if (!vvfl) {
++		dev_err(&adapter->pdev->dev, "%s: unable to allocate memory\n",
++			__func__);
++		return;
++	}
++	vvfl->vsi_id = adapter->vsi_res->vsi_id;
++	vvfl->num_elements = count;
++	list_for_each_entry(f, &adapter->vlan_filter_list, list) {
++		if (f->add) {
++			vvfl->vlan_id[i] = f->vlan;
++			i++;
++			f->add = false;
 +		}
 +	}
 +
-+	return (budget > 0);
++	err = i40e_aq_send_msg_to_pf(hw, I40E_VIRTCHNL_OP_ADD_VLAN,
++				  I40E_SUCCESS, (u8 *)vvfl, len, NULL);
++	if (err)
++		dev_err(&adapter->pdev->dev, "%s: Unable to send to PF, error %d\n",
++			__func__, err);
++
++	kfree(vvfl);
++	adapter->aq_pending |= I40EVF_FLAG_AQ_ADD_VLAN_FILTER;
++	adapter->aq_required &= ~I40EVF_FLAG_AQ_ADD_VLAN_FILTER;
 +}
 +
 +/**
-+ * i40e_set_new_dynamic_itr - Find new ITR level
-+ * @rc: structure containing ring performance data
++ * i40evf_del_vlans
++ * @adapter: adapter structure
++ * @vlans: the VLANs to remove
++ * @count: number of VLANs
 + *
-+ * Stores a new ITR value based on packets and byte counts during
-+ * the last interrupt.  The advantage of per interrupt computation
-+ * is faster updates and more accurate ITR for the current traffic
-+ * pattern.  Constants in this function were computed based on
-+ * theoretical maximum wire speed and thresholds were set based on
-+ * testing data as well as attempting to minimize response time
-+ * while increasing bulk throughput.
++ * Request that the PF remove one or more VLAN filters from our VSI.
 + **/
-+static void i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
++void i40evf_del_vlans(struct i40evf_adapter *adapter)
 +{
-+	int bytes_per_int;
-+	enum i40e_latency_range new_latency_range = rc->latency_range;
-+	u32 new_itr = rc->itr;
++	struct i40e_hw *hw = &adapter->hw;
++	struct i40e_virtchnl_vlan_filter_list *vvfl;
++	int len, i = 0, count = 0;
++	enum i40e_status_code err;
++	struct i40evf_vlan_filter *f;
 +
-+	if (rc->total_packets == 0 || !rc->itr)
++	if (adapter->current_op != I40E_VIRTCHNL_OP_UNKNOWN) {
++		/* bail because we already have a command pending */
++		dev_err(&adapter->pdev->dev, "%s: command %d pending\n",
++			__func__, adapter->current_op);
 +		return;
++	}
++	adapter->current_op = I40E_VIRTCHNL_OP_DEL_VLAN;
 +
-+	/* simple throttlerate management
-+	 *   0-10MB/s   lowest (100000 ints/s)
-+	 *  10-20MB/s   low    (20000 ints/s)
-+	 *  20-1249MB/s bulk   (8000 ints/s)
-+	 */
-+	bytes_per_int = rc->total_bytes / rc->itr;
-+	switch (rc->itr) {
-+	case I40E_LOWEST_LATENCY:
-+		if (bytes_per_int > 10)
-+			new_latency_range = I40E_LOW_LATENCY;
-+		break;
-+	case I40E_LOW_LATENCY:
-+		if (bytes_per_int > 20)
-+			new_latency_range = I40E_BULK_LATENCY;
-+		else if (bytes_per_int <= 10)
-+			new_latency_range = I40E_LOWEST_LATENCY;
-+		break;
-+	case I40E_BULK_LATENCY:
-+		if (bytes_per_int <= 20)
-+			rc->latency_range = I40E_LOW_LATENCY;
-+		break;
++	list_for_each_entry(f, &adapter->vlan_filter_list, list) {
++		if (f->remove)
++			count++;
 +	}
 +
-+	switch (new_latency_range) {
-+	case I40E_LOWEST_LATENCY:
-+		new_itr = I40E_ITR_100K;
++	len = sizeof(struct i40e_virtchnl_vlan_filter_list) +
++	      (count * sizeof(u16));
++	if (len > I40EVF_MAX_AQ_BUF_SIZE) {
++		dev_warn(&adapter->pdev->dev, "%s: Too many VLAN changes in one request.\n",
++			__func__);
++		count = (I40EVF_MAX_AQ_BUF_SIZE -
++			 sizeof(struct i40e_virtchnl_vlan_filter_list)) /
++			sizeof(u16);
++		len = I40EVF_MAX_AQ_BUF_SIZE;
++	}
++	vvfl = kzalloc(len, GFP_ATOMIC);
++	if (!vvfl) {
++		dev_err(&adapter->pdev->dev, "%s: unable to allocate memory\n",
++			__func__);
++		return;
++	}
++	vvfl->vsi_id = adapter->vsi_res->vsi_id;
++	vvfl->num_elements = count;
++	list_for_each_entry(f, &adapter->vlan_filter_list, list) {
++		if (f->remove) {
++			vvfl->vlan_id[i] = f->vlan;
++			i++;
++			f->remove = false;
++		}
++	}
++
++	err = i40e_aq_send_msg_to_pf(hw, I40E_VIRTCHNL_OP_DEL_VLAN,
++				  I40E_SUCCESS, (u8 *)vvfl, len, NULL);
++	if (err)
++		dev_err(&adapter->pdev->dev, "%s: Unable to send to PF, error %d\n",
++			__func__, err);
++
++	kfree(vvfl);
++	adapter->aq_pending |= I40EVF_FLAG_AQ_DEL_VLAN_FILTER;
++	adapter->aq_required &= ~I40EVF_FLAG_AQ_DEL_VLAN_FILTER;
++}
++
++/**
++ * i40evf_set_promiscuous
++ * @adapter: adapter structure
++ * @flags: bitmask to control unicast/multicast promiscuous.
++ *
++ * Request that the PF enable promiscuous mode for our VSI.
++ **/
++void i40evf_set_promiscuous(struct i40evf_adapter *adapter, int flags)
++{
++	struct i40e_hw *hw = &adapter->hw;
++	struct i40e_virtchnl_promisc_info vpi;
++	enum i40e_status_code err;
++
++	if (adapter->current_op != I40E_VIRTCHNL_OP_UNKNOWN) {
++		/* bail because we already have a command pending */
++		dev_err(&adapter->pdev->dev, "%s: command %d pending\n",
++			__func__, adapter->current_op);
++		return;
++	}
++	adapter->current_op = I40E_VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE;
++	vpi.vsi_id = adapter->vsi_res->vsi_id;
++	vpi.flags = flags;
++	err = i40e_aq_send_msg_to_pf(hw,
++				     I40E_VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE,
++				     I40E_SUCCESS,
++				     (u8 *)&vpi, sizeof(vpi), NULL);
++	if (err)
++		dev_err(&adapter->pdev->dev, "%s: Unable to send to PF, error %d\n",
++			__func__, err);
++}
++
++/**
++ * i40evf_request_stats
++ * @adapter: adapter structure
++ *
++ * Request VSI statistics from PF.
++ **/
++void i40evf_request_stats(struct i40evf_adapter *adapter)
++{
++	struct i40e_hw *hw = &adapter->hw;
++	struct i40e_virtchnl_queue_select vqs;
++	enum i40e_status_code err;
++
++	if (adapter->current_op != I40E_VIRTCHNL_OP_UNKNOWN) {
++		/* no error message, this isn't crucial */
++		return;
++	}
++	adapter->current_op = I40E_VIRTCHNL_OP_GET_STATS;
++	vqs.vsi_id = adapter->vsi_res->vsi_id;
++	/* queue maps are ignored for this message - only the vsi is used */
++	err = i40e_aq_send_msg_to_pf(hw, I40E_VIRTCHNL_OP_GET_STATS,
++				  I40E_SUCCESS, (u8 *)&vqs, sizeof(vqs), NULL);
++	if (err)
++		dev_err(&adapter->pdev->dev, "%s: Unable to send to PF, error %d\n",
++			__func__, err);
++}
++
++/**
++ * i40evf_virtchnl_completion
++ * @adapter: adapter structure
++ * @v_opcode: opcode sent by PF
++ * @v_retval: retval sent by PF
++ * @msg: message sent by PF
++ * @msglen: message length
++ *
++ * Asynchronous completion function for admin queue messages. Rather than busy
++ * wait, we fire off our requests and assume that no errors will be returned.
++ * This function handles the reply messages.
++ **/
++void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
++				enum i40e_virtchnl_ops v_opcode,
++				enum i40e_status_code v_retval,
++				u8 *msg, u16 msglen)
++{
++	struct net_device *netdev = adapter->netdev;
++
++	if (v_opcode == I40E_VIRTCHNL_OP_EVENT) {
++		struct i40e_virtchnl_pf_event *vpe =
++			(struct i40e_virtchnl_pf_event *)msg;
++		switch (vpe->event) {
++		case I40E_VIRTCHNL_EVENT_LINK_CHANGE:
++			adapter->link_up =
++				vpe->event_data.link_event.link_status;
++			if (adapter->link_up && !netif_carrier_ok(netdev)) {
++				dev_info(&adapter->pdev->dev, "NIC Link is Up\n");
++				netif_carrier_on(netdev);
++				netif_tx_wake_all_queues(netdev);
++			} else if (!adapter->link_up) {
++				dev_info(&adapter->pdev->dev, "NIC Link is Down\n");
++				netif_carrier_off(netdev);
++				netif_tx_stop_all_queues(netdev);
++			}
++			break;
++		case I40E_VIRTCHNL_EVENT_RESET_IMPENDING:
++			adapter->state = __I40EVF_RESETTING;
++			schedule_work(&adapter->reset_task);
++			dev_info(&adapter->pdev->dev,
++				 "%s: hardware reset pending\n", __func__);
++			break;
++		default:
++			dev_err(&adapter->pdev->dev,
++				"%s: Unknown event %d from pf\n",
++				__func__, vpe->event);
++			break;
++
++		}
++		return;
++	}
++	if (v_opcode != adapter->current_op) {
++		dev_err(&adapter->pdev->dev, "%s: Pending op is %d, received %d.\n",
++			__func__, adapter->current_op, v_opcode);
++		/* We're probably completely screwed at this point, but clear
++		 * the current op and try to carry on....
++		 */
++		adapter->current_op = I40E_VIRTCHNL_OP_UNKNOWN;
++		return;
++	}
++	if (v_retval != I40E_SUCCESS) {
++		dev_err(&adapter->pdev->dev, "%s: PF returned error %d to our request %d!\n",
++			__func__, v_retval, v_opcode);
++	}
++	switch (v_opcode) {
++	case I40E_VIRTCHNL_OP_GET_STATS: {
++		struct i40e_eth_stats *stats =
++			(struct i40e_eth_stats *)msg;
++		adapter->net_stats.rx_packets = stats->rx_unicast +
++						 stats->rx_multicast +
++						 stats->rx_broadcast;
++		adapter->net_stats.tx_packets = stats->tx_unicast +
++						 stats->tx_multicast +
++						 stats->tx_broadcast;
++		adapter->net_stats.rx_bytes = stats->rx_bytes;
++		adapter->net_stats.tx_bytes = stats->tx_bytes;
++		adapter->net_stats.rx_errors = stats->rx_errors;
++		adapter->net_stats.tx_errors = stats->tx_errors;
++		adapter->net_stats.rx_dropped = stats->rx_missed;
++		adapter->net_stats.tx_dropped = stats->tx_discards;
++		memcpy(&adapter->current_stats, stats,
++		       sizeof(struct i40e_eth_stats));
++		}
 +		break;
-+	case I40E_LOW_LATENCY:
-+		new_itr = I40E_ITR_20K;
++	case I40E_VIRTCHNL_OP_ADD_ETHER_ADDRESS:
++		adapter->aq_pending &= ~(I40EVF_FLAG_AQ_ADD_MAC_FILTER);
 +		break;
-+	case I40E_BULK_LATENCY:
-+		new_itr = I40E_ITR_8K;
++	case I40E_VIRTCHNL_OP_DEL_ETHER_ADDRESS:
++		adapter->aq_pending &= ~(I40EVF_FLAG_AQ_DEL_MAC_FILTER);
++		break;
++	case I40E_VIRTCHNL_OP_ADD_VLAN:
++		adapter->aq_pending &= ~(I40EVF_FLAG_AQ_ADD_VLAN_FILTER);
++		break;
++	case I40E_VIRTCHNL_OP_DEL_VLAN:
++		adapter->aq_pending &= ~(I40EVF_FLAG_AQ_DEL_VLAN_FILTER);
++		break;
++	case I40E_VIRTCHNL_OP_ENABLE_QUEUES:
++		adapter->aq_pending &= ~(I40EVF_FLAG_AQ_ENABLE_QUEUES);
++		/* enable transmits */
++		i40evf_irq_enable(adapter, true);
++		netif_tx_start_all_queues(adapter->netdev);
++		netif_carrier_on(adapter->netdev);
++		break;
++	case I40E_VIRTCHNL_OP_DISABLE_QUEUES:
++		adapter->aq_pending &= ~(I40EVF_FLAG_AQ_DISABLE_QUEUES);
++		break;
++	case I40E_VIRTCHNL_OP_CONFIG_VSI_QUEUES:
++		adapter->aq_pending &= ~(I40EVF_FLAG_AQ_CONFIGURE_QUEUES);
++		break;
++	case I40E_VIRTCHNL_OP_CONFIG_IRQ_MAP:
++		adapter->aq_pending &= ~(I40EVF_FLAG_AQ_MAP_VECTORS);
 +		break;
 +	default:
++		dev_warn(&adapter->pdev->dev, "%s: Received unexpected message %d from PF.\n",
++			__func__, v_opcode);
 +		break;
-+	}
-+
-+	if (new_itr != rc->itr) {
-+		/* do an exponential smoothing */
-+		new_itr = (10 * new_itr * rc->itr) /
-+			  ((9 * new_itr) + rc->itr);
-+		rc->itr = new_itr & I40E_MAX_ITR;
-+	}
-+
-+	rc->total_bytes = 0;
-+	rc->total_packets = 0;
-+}
-+
-+/**
-+ * i40e_update_dynamic_itr - Adjust ITR based on bytes per int
-+ * @q_vector: the vector to adjust
-+ **/
-+static void i40e_update_dynamic_itr(struct i40e_q_vector *q_vector)
-+{
-+	u16 old_itr;
-+	u16 vector = q_vector->vsi->base_vector + q_vector->v_idx;
-+	struct i40e_hw *hw = &q_vector->vsi->back->hw;
-+	u32 reg_addr;
-+
-+	reg_addr = I40E_VFINT_ITRN1(I40E_RX_ITR, vector - 1);
-+	old_itr = q_vector->rx.itr;
-+	i40e_set_new_dynamic_itr(&q_vector->rx);
-+	if (old_itr != q_vector->rx.itr)
-+		wr32(hw, reg_addr, q_vector->rx.itr);
-+
-+	reg_addr = I40E_VFINT_ITRN1(I40E_TX_ITR, vector - 1);
-+	old_itr = q_vector->tx.itr;
-+	i40e_set_new_dynamic_itr(&q_vector->tx);
-+	if (old_itr != q_vector->tx.itr)
-+		wr32(hw, reg_addr, q_vector->tx.itr);
-+
-+	flush(hw);
-+}
-+
-+/**
-+ * i40e_setup_tx_descriptors - Allocate the Tx descriptors
-+ * @tx_ring: the tx ring to set up
-+ *
-+ * Return 0 on success, negative on error
-+ **/
-+int i40e_setup_tx_descriptors(struct i40e_ring *tx_ring)
-+{
-+	struct device *dev = tx_ring->dev;
-+	int bi_size;
-+
-+	if (!dev)
-+		return -ENOMEM;
-+
-+	bi_size = sizeof(struct i40e_tx_buffer) * tx_ring->count;
-+	tx_ring->tx_bi = kzalloc(bi_size, GFP_KERNEL);
-+	if (!tx_ring->tx_bi)
-+		goto err;
-+
-+	/* round up to nearest 4K */
-+	tx_ring->size = tx_ring->count * sizeof(struct i40e_tx_desc);
-+	tx_ring->size = ALIGN(tx_ring->size, 4096);
-+	tx_ring->desc = dma_alloc_coherent(dev, tx_ring->size,
-+					   &tx_ring->dma, GFP_KERNEL);
-+	if (!tx_ring->desc) {
-+		dev_info(dev, "%s: Unable to allocate memory for the Tx descriptor ring, size=%d\n",
-+			 __func__, tx_ring->size);
-+		goto err;
-+	}
-+
-+	tx_ring->next_to_use = 0;
-+	tx_ring->next_to_clean = 0;
-+	return 0;
-+
-+err:
-+	kfree(tx_ring->tx_bi);
-+	tx_ring->tx_bi = NULL;
-+	return -ENOMEM;
-+}
-+
-+/**
-+ * i40e_clean_rx_ring - Free Rx buffers
-+ * @rx_ring: ring to be cleaned
-+ **/
-+void i40e_clean_rx_ring(struct i40e_ring *rx_ring)
-+{
-+	struct device *dev = rx_ring->dev;
-+	struct i40e_rx_buffer *rx_bi;
-+	unsigned long bi_size;
-+	u16 i;
-+
-+	/* ring already cleared, nothing to do */
-+	if (!rx_ring->rx_bi)
-+		return;
-+
-+	/* Free all the Rx ring sk_buffs */
-+	for (i = 0; i < rx_ring->count; i++) {
-+		rx_bi = &rx_ring->rx_bi[i];
-+		if (rx_bi->dma) {
-+			dma_unmap_single(dev,
-+					 rx_bi->dma,
-+					 rx_ring->rx_buf_len,
-+					 DMA_FROM_DEVICE);
-+			rx_bi->dma = 0;
-+		}
-+		if (rx_bi->skb) {
-+			dev_kfree_skb(rx_bi->skb);
-+			rx_bi->skb = NULL;
-+		}
-+		if (rx_bi->page) {
-+			if (rx_bi->page_dma) {
-+				dma_unmap_page(dev,
-+					       rx_bi->page_dma,
-+					       PAGE_SIZE / 2,
-+					       DMA_FROM_DEVICE);
-+				rx_bi->page_dma = 0;
-+			}
-+			__free_page(rx_bi->page);
-+			rx_bi->page = NULL;
-+			rx_bi->page_offset = 0;
-+		}
-+	}
-+
-+	bi_size = sizeof(struct i40e_rx_buffer) * rx_ring->count;
-+	memset(rx_ring->rx_bi, 0, bi_size);
-+
-+	/* Zero out the descriptor ring */
-+	memset(rx_ring->desc, 0, rx_ring->size);
-+
-+	rx_ring->next_to_clean = 0;
-+	rx_ring->next_to_use = 0;
-+}
-+
-+/**
-+ * i40e_free_rx_resources - Free Rx resources
-+ * @rx_ring: ring to clean the resources from
-+ *
-+ * Free all receive software resources
-+ **/
-+void i40e_free_rx_resources(struct i40e_ring *rx_ring)
-+{
-+	i40e_clean_rx_ring(rx_ring);
-+	kfree(rx_ring->rx_bi);
-+	rx_ring->rx_bi = NULL;
-+
-+	if (rx_ring->desc) {
-+		dma_free_coherent(rx_ring->dev, rx_ring->size,
-+				  rx_ring->desc, rx_ring->dma);
-+		rx_ring->desc = NULL;
-+	}
-+}
-+
-+/**
-+ * i40e_setup_rx_descriptors - Allocate Rx descriptors
-+ * @rx_ring: Rx descriptor ring (for a specific queue) to setup
-+ *
-+ * Returns 0 on success, negative on failure
-+ **/
-+int i40e_setup_rx_descriptors(struct i40e_ring *rx_ring)
-+{
-+	struct device *dev = rx_ring->dev;
-+	int bi_size;
-+
-+	bi_size = sizeof(struct i40e_rx_buffer) * rx_ring->count;
-+	rx_ring->rx_bi = kzalloc(bi_size, GFP_KERNEL);
-+	if (!rx_ring->rx_bi)
-+		goto err;
-+
-+	/* Round up to nearest 4K */
-+	rx_ring->size = ring_is_16byte_desc_enabled(rx_ring)
-+		? rx_ring->count * sizeof(union i40e_16byte_rx_desc)
-+		: rx_ring->count * sizeof(union i40e_32byte_rx_desc);
-+	rx_ring->size = ALIGN(rx_ring->size, 4096);
-+	rx_ring->desc = dma_alloc_coherent(dev, rx_ring->size,
-+					   &rx_ring->dma, GFP_KERNEL);
-+
-+	if (!rx_ring->desc) {
-+		dev_info(dev, "%s: Unable to allocate memory for the Rx descriptor ring, size=%d\n",
-+			 __func__, rx_ring->size);
-+		goto err;
-+	}
-+
-+	rx_ring->next_to_clean = 0;
-+	rx_ring->next_to_use = 0;
-+
-+	return 0;
-+err:
-+	kfree(rx_ring->rx_bi);
-+	rx_ring->rx_bi = NULL;
-+	return -ENOMEM;
-+}
-+
-+/**
-+ * i40e_release_rx_desc - Store the new tail and head values
-+ * @rx_ring: ring to bump
-+ * @val: new head index
-+ **/
-+static inline void i40e_release_rx_desc(struct i40e_ring *rx_ring, u32 val)
-+{
-+	rx_ring->next_to_use = val;
-+	/* Force memory writes to complete before letting h/w
-+	 * know there are new descriptors to fetch.  (Only
-+	 * applicable for weak-ordered memory model archs,
-+	 * such as IA-64).
-+	 */
-+	wmb();
-+	writel(val, rx_ring->tail);
-+}
-+
-+/**
-+ * i40e_alloc_rx_buffers - Replace used receive buffers; packet split
-+ * @rx_ring: ring to place buffers on
-+ * @cleaned_count: number of buffers to replace
-+ **/
-+void i40e_alloc_rx_buffers(struct i40e_ring *rx_ring, u16 cleaned_count)
-+{
-+	union i40e_rx_desc *rx_desc;
-+	struct i40e_rx_buffer *bi;
-+	struct sk_buff *skb;
-+	u16 i = rx_ring->next_to_use;
-+
-+	/* do nothing if no valid netdev defined */
-+	if (!rx_ring->netdev || !cleaned_count)
-+		return;
-+
-+	while (cleaned_count--) {
-+		rx_desc = I40E_RX_DESC(rx_ring, i);
-+		bi = &rx_ring->rx_bi[i];
-+		skb = bi->skb;
-+
-+		if (!skb) {
-+			skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
-+							rx_ring->rx_buf_len);
-+			if (!skb) {
-+				rx_ring->rx_stats.alloc_rx_buff_failed++;
-+				goto no_buffers;
-+			}
-+			/* initialize queue mapping */
-+			skb_record_rx_queue(skb, rx_ring->queue_index);
-+			bi->skb = skb;
-+		}
-+
-+		if (!bi->dma) {
-+			bi->dma = dma_map_single(rx_ring->dev,
-+						 skb->data,
-+						 rx_ring->rx_buf_len,
-+						 DMA_FROM_DEVICE);
-+			if (dma_mapping_error(rx_ring->dev, bi->dma)) {
-+				rx_ring->rx_stats.alloc_rx_buff_failed++;
-+				bi->dma = 0;
-+				goto no_buffers;
-+			}
-+		}
-+
-+		if (ring_is_ps_enabled(rx_ring)) {
-+			if (!bi->page) {
-+				bi->page = alloc_page(GFP_ATOMIC);
-+				if (!bi->page) {
-+					rx_ring->rx_stats.alloc_rx_page_failed++;
-+					goto no_buffers;
-+				}
-+			}
-+
-+			if (!bi->page_dma) {
-+				/* use a half page if we're re-using */
-+				bi->page_offset ^= PAGE_SIZE / 2;
-+				bi->page_dma = dma_map_page(rx_ring->dev,
-+							    bi->page,
-+							    bi->page_offset,
-+							    PAGE_SIZE / 2,
-+							    DMA_FROM_DEVICE);
-+				if (dma_mapping_error(rx_ring->dev,
-+						      bi->page_dma)) {
-+					rx_ring->rx_stats.alloc_rx_page_failed++;
-+					bi->page_dma = 0;
-+					goto no_buffers;
-+				}
-+			}
-+
-+			/* Refresh the desc even if buffer_addrs didn't change
-+			 * because each write-back erases this info.
-+			 */
-+			rx_desc->read.pkt_addr = cpu_to_le64(bi->page_dma);
-+			rx_desc->read.hdr_addr = cpu_to_le64(bi->dma);
-+		} else {
-+			rx_desc->read.pkt_addr = cpu_to_le64(bi->dma);
-+			rx_desc->read.hdr_addr = 0;
-+		}
-+		i++;
-+		if (i == rx_ring->count)
-+			i = 0;
-+	}
-+
-+no_buffers:
-+	if (rx_ring->next_to_use != i)
-+		i40e_release_rx_desc(rx_ring, i);
-+}
-+
-+/**
-+ * i40e_receive_skb - Send a completed packet up the stack
-+ * @rx_ring:  rx ring in play
-+ * @skb: packet to send up
-+ * @vlan_tag: vlan tag for packet
-+ **/
-+static void i40e_receive_skb(struct i40e_ring *rx_ring,
-+			     struct sk_buff *skb, u16 vlan_tag)
-+{
-+	struct i40e_vsi *vsi = rx_ring->vsi;
-+	struct i40e_q_vector *q_vector = rx_ring->q_vector;
-+	u64 flags = vsi->back->flags;
-+
-+	if (vlan_tag & VLAN_VID_MASK)
-+		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan_tag);
-+
-+	if (flags & I40E_FLAG_IN_NETPOLL)
-+		netif_rx(skb);
-+	else
-+		napi_gro_receive(&q_vector->napi, skb);
-+}
-+
-+/**
-+ * i40e_rx_checksum - Indicate in skb if hw indicated a good cksum
-+ * @vsi: the VSI we care about
-+ * @skb: skb currently being received and modified
-+ * @rx_status: status value of last descriptor in packet
-+ * @rx_error: error value of last descriptor in packet
-+ **/
-+static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
-+				    struct sk_buff *skb,
-+				    u32 rx_status,
-+				    u32 rx_error)
-+{
-+	skb->ip_summed = CHECKSUM_NONE;
-+
-+	/* Rx csum enabled and ip headers found? */
-+	if (!(vsi->netdev->features & NETIF_F_RXCSUM &&
-+	      rx_status & (1 << I40E_RX_DESC_STATUS_L3L4P_SHIFT)))
-+		return;
-+
-+	/* IP or L4 checksum error */
-+	if (rx_error & ((1 << I40E_RX_DESC_ERROR_IPE_SHIFT) |
-+			(1 << I40E_RX_DESC_ERROR_L4E_SHIFT))) {
-+		vsi->back->hw_csum_rx_error++;
-+		return;
-+	}
-+
-+	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+}
-+
-+/**
-+ * i40e_rx_hash - returns the hash value from the Rx descriptor
-+ * @ring: descriptor ring
-+ * @rx_desc: specific descriptor
-+ **/
-+static inline u32 i40e_rx_hash(struct i40e_ring *ring,
-+			       union i40e_rx_desc *rx_desc)
-+{
-+	if (ring->netdev->features & NETIF_F_RXHASH) {
-+		if ((le32_to_cpu(rx_desc->wb.qword1.status_error_len) >>
-+		    I40E_RX_DESC_STATUS_FLTSTAT_SHIFT) &
-+		    I40E_RX_DESC_FLTSTAT_RSS_HASH)
-+			return le32_to_cpu(rx_desc->wb.qword0.hi_dword.rss);
-+	}
-+	return 0;
-+}
-+
-+/**
-+ * i40e_clean_rx_irq - Reclaim resources after receive completes
-+ * @rx_ring:  rx ring to clean
-+ * @budget:   how many cleans we're allowed
-+ *
-+ * Returns true if there's any budget left (e.g. the clean is finished)
-+ **/
-+static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
-+{
-+	struct i40e_vsi *vsi = rx_ring->vsi;
-+	union i40e_rx_desc *rx_desc;
-+	unsigned int total_rx_bytes = 0, total_rx_packets = 0;
-+	const int current_node = numa_node_id();
-+	u32 rx_error, rx_status;
-+	u16 rx_packet_len, rx_header_len, rx_sph, rx_hbo;
-+	u16 i = rx_ring->next_to_clean;
-+	u16 cleaned_count = I40E_DESC_UNUSED(rx_ring);
-+	u64 qword;
-+
-+	rx_desc = I40E_RX_DESC(rx_ring, i);
-+	qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
-+	rx_status = (qword & I40E_RXD_QW1_STATUS_MASK)
-+				>> I40E_RXD_QW1_STATUS_SHIFT;
-+
-+	while (rx_status & (1 << I40E_RX_DESC_STATUS_DD_SHIFT)) {
-+		union i40e_rx_desc *next_rxd;
-+		struct i40e_rx_buffer *rx_bi;
-+		struct sk_buff *skb;
-+		u16 vlan_tag;
-+		rx_bi = &rx_ring->rx_bi[i];
-+		skb = rx_bi->skb;
-+		prefetch(skb->data);
-+
-+		rx_packet_len = (qword & I40E_RXD_QW1_LENGTH_PBUF_MASK)
-+					      >> I40E_RXD_QW1_LENGTH_PBUF_SHIFT;
-+		rx_header_len = (qword & I40E_RXD_QW1_LENGTH_HBUF_MASK)
-+					      >> I40E_RXD_QW1_LENGTH_HBUF_SHIFT;
-+		rx_sph = (qword & I40E_RXD_QW1_LENGTH_SPH_MASK)
-+					      >> I40E_RXD_QW1_LENGTH_SPH_SHIFT;
-+
-+		rx_error = (qword & I40E_RXD_QW1_ERROR_MASK)
-+					      >> I40E_RXD_QW1_ERROR_SHIFT;
-+		rx_hbo = rx_error & (1 << I40E_RX_DESC_ERROR_HBO_SHIFT);
-+		rx_error &= ~(1 << I40E_RX_DESC_ERROR_HBO_SHIFT);
-+
-+		rx_bi->skb = NULL;
-+
-+		/* This memory barrier is needed to keep us from reading
-+		 * any other fields out of the rx_desc until we know the
-+		 * STATUS_DD bit is set
-+		 */
-+		rmb();
-+
-+		/* Get the header and possibly the whole packet
-+		 * If this is an skb from previous receive dma will be 0
-+		 */
-+		if (rx_bi->dma) {
-+			u16 len;
-+
-+			if (rx_hbo)
-+				len = I40E_RX_HDR_SIZE;
-+			else if (rx_sph)
-+				len = rx_header_len;
-+			else if (rx_packet_len)
-+				len = rx_packet_len;   /* 1buf/no split found */
-+			else
-+				len = rx_header_len;   /* split always mode */
-+
-+			skb_put(skb, len);
-+			dma_unmap_single(rx_ring->dev,
-+					 rx_bi->dma,
-+					 rx_ring->rx_buf_len,
-+					 DMA_FROM_DEVICE);
-+			rx_bi->dma = 0;
-+		}
-+
-+		/* Get the rest of the data if this was a header split */
-+		if (ring_is_ps_enabled(rx_ring) && rx_packet_len) {
-+
-+			skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags,
-+					   rx_bi->page,
-+					   rx_bi->page_offset,
-+					   rx_packet_len);
-+
-+			skb->len += rx_packet_len;
-+			skb->data_len += rx_packet_len;
-+			skb->truesize += rx_packet_len;
-+
-+			if ((page_count(rx_bi->page) == 1) &&
-+			    (page_to_nid(rx_bi->page) == current_node))
-+				get_page(rx_bi->page);
-+			else
-+				rx_bi->page = NULL;
-+
-+			dma_unmap_page(rx_ring->dev,
-+				       rx_bi->page_dma,
-+				       PAGE_SIZE / 2,
-+				       DMA_FROM_DEVICE);
-+			rx_bi->page_dma = 0;
-+		}
-+		I40E_RX_NEXT_DESC_PREFETCH(rx_ring, i, next_rxd);
-+
-+		if (unlikely(
-+		    !(rx_status & (1 << I40E_RX_DESC_STATUS_EOF_SHIFT)))) {
-+			struct i40e_rx_buffer *next_buffer;
-+
-+			next_buffer = &rx_ring->rx_bi[i];
-+
-+			if (ring_is_ps_enabled(rx_ring)) {
-+				rx_bi->skb = next_buffer->skb;
-+				rx_bi->dma = next_buffer->dma;
-+				next_buffer->skb = skb;
-+				next_buffer->dma = 0;
-+			}
-+			rx_ring->rx_stats.non_eop_descs++;
-+			goto next_desc;
-+		}
-+
-+		/* ERR_MASK will only have valid bits if EOP set */
-+		if (unlikely(rx_error & (1 << I40E_RX_DESC_ERROR_RXE_SHIFT))) {
-+			dev_kfree_skb_any(skb);
-+			goto next_desc;
-+		}
-+
-+		skb->rxhash = i40e_rx_hash(rx_ring, rx_desc);
-+		i40e_rx_checksum(vsi, skb, rx_status, rx_error);
-+
-+		/* probably a little skewed due to removing CRC */
-+		total_rx_bytes += skb->len;
-+		total_rx_packets++;
-+
-+		skb->protocol = eth_type_trans(skb, rx_ring->netdev);
-+		vlan_tag = rx_status & (1 << I40E_RX_DESC_STATUS_L2TAG1P_SHIFT)
-+			 ? le16_to_cpu(rx_desc->wb.qword0.lo_dword.l2tag1)
-+			 : 0;
-+		i40e_receive_skb(rx_ring, skb, vlan_tag);
-+
-+		rx_ring->netdev->last_rx = jiffies;
-+		budget--;
-+next_desc:
-+		rx_desc->wb.qword1.status_error_len = 0;
-+		if (!budget)
-+			break;
-+
-+		cleaned_count++;
-+		/* return some buffers to hardware, one at a time is too slow */
-+		if (cleaned_count >= I40E_RX_BUFFER_WRITE) {
-+			i40e_alloc_rx_buffers(rx_ring, cleaned_count);
-+			cleaned_count = 0;
-+		}
-+
-+		/* use prefetched values */
-+		rx_desc = next_rxd;
-+		qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
-+		rx_status = (qword & I40E_RXD_QW1_STATUS_MASK)
-+						>> I40E_RXD_QW1_STATUS_SHIFT;
-+	}
-+
-+	rx_ring->next_to_clean = i;
-+	rx_ring->rx_stats.packets += total_rx_packets;
-+	rx_ring->rx_stats.bytes += total_rx_bytes;
-+	rx_ring->q_vector->rx.total_packets += total_rx_packets;
-+	rx_ring->q_vector->rx.total_bytes += total_rx_bytes;
-+
-+	if (cleaned_count)
-+		i40e_alloc_rx_buffers(rx_ring, cleaned_count);
-+
-+	return (budget > 0);
-+}
-+
-+/**
-+ * i40e_napi_poll - NAPI polling Rx/Tx cleanup routine
-+ * @napi: napi struct with our devices info in it
-+ * @budget: amount of work driver is allowed to do this pass, in packets
-+ *
-+ * This function will clean all queues associated with a q_vector.
-+ *
-+ * Returns the amount of work done
-+ **/
-+int i40e_napi_poll(struct napi_struct *napi, int budget)
-+{
-+	struct i40e_q_vector *q_vector =
-+			       container_of(napi, struct i40e_q_vector, napi);
-+	struct i40e_vsi *vsi = q_vector->vsi;
-+	int budget_per_ring;
-+	int i;
-+	bool clean_complete = true;
-+
-+	if (test_bit(__I40E_DOWN, &vsi->state)) {
-+		napi_complete(napi);
-+		return 0;
-+	}
-+
-+	/* We attempt to distribute budget to each Rx queue fairly, but don't
-+	 * allow the budget to go below 1 because that would exit polling early.
-+	 * Since the actual Tx work is minimal, we can give the Tx a larger
-+	 * budget and be more aggressive about cleaning up the Tx descriptors.
-+	 */
-+	budget_per_ring = max(budget/q_vector->num_ringpairs, 1);
-+	for (i = 0; i < q_vector->num_ringpairs; i++) {
-+		clean_complete &= i40e_clean_tx_irq(q_vector->tx.ring[i],
-+						    vsi->work_limit);
-+		clean_complete &= i40e_clean_rx_irq(q_vector->rx.ring[i],
-+						    budget_per_ring);
-+	}
-+
-+	/* If work not completed, return budget and polling will return */
-+	if (!clean_complete)
-+		return budget;
-+
-+	/* Work is done so exit the polling mode and re-enable the interrupt */
-+	napi_complete(napi);
-+	if (ITR_IS_DYNAMIC(vsi->rx_itr_setting) ||
-+	    ITR_IS_DYNAMIC(vsi->tx_itr_setting))
-+		i40e_update_dynamic_itr(q_vector);
-+
-+	if (!test_bit(__I40E_DOWN, &vsi->state)) {
-+		i40evf_irq_enable_queues(vsi->back, 1 << q_vector->v_idx);
-+	}
-+
-+	return 0;
-+}
-+
-+#define I40E_TXD_CMD (I40E_TX_DESC_CMD_EOP | I40E_TX_DESC_CMD_RS)
-+/**
-+ * i40e_tx_prepare_vlan_flags - prepare generic TX VLAN tagging flags for HW
-+ * @skb:     send buffer
-+ * @tx_ring: ring to send buffer on
-+ * @flags:   the tx flags to be set
-+ *
-+ * Checks the skb and set up correspondingly several generic transmit flags
-+ * related to VLAN tagging for the HW, such as VLAN, DCB, etc.
-+ *
-+ * Returns error code indicate the frame should be dropped upon error and the
-+ * otherwise  returns 0 to indicate the flags has been set properly.
-+ **/
-+static int i40e_tx_prepare_vlan_flags(struct sk_buff *skb,
-+				      struct i40e_ring *tx_ring,
-+				      u32 *flags)
-+{
-+	u32  tx_flags = 0;
-+	__be16 protocol = skb->protocol;
-+
-+	/* if we have a HW VLAN tag being added, default to the HW one */
-+	if (vlan_tx_tag_present(skb)) {
-+		tx_flags |= vlan_tx_tag_get(skb) << I40E_TX_FLAGS_VLAN_SHIFT;
-+		tx_flags |= I40E_TX_FLAGS_HW_VLAN;
-+	/* else if it is a SW VLAN, check the next protocol and store the tag */
-+	} else if (protocol == __constant_htons(ETH_P_8021Q)) {
-+		struct vlan_hdr *vhdr, _vhdr;
-+		vhdr = skb_header_pointer(skb, ETH_HLEN, sizeof(_vhdr), &_vhdr);
-+		if (!vhdr)
-+			return -EINVAL;
-+
-+		protocol = vhdr->h_vlan_encapsulated_proto;
-+		tx_flags |= ntohs(vhdr->h_vlan_TCI) << I40E_TX_FLAGS_VLAN_SHIFT;
-+		tx_flags |= I40E_TX_FLAGS_SW_VLAN;
-+	}
-+
-+	*flags = tx_flags;
-+	return 0;
-+}
-+
-+/**
-+ * i40e_tx_csum - is checksum offload requested
-+ * @tx_ring:  ptr to the ring to send
-+ * @skb:      ptr to the skb we're sending
-+ * @tx_flags: the collected send information
-+ * @protocol: the send protocol
-+ *
-+ * Returns true if checksum offload is requested
-+ **/
-+static bool i40e_tx_csum(struct i40e_ring *tx_ring, struct sk_buff *skb,
-+			 u32 tx_flags, __be16 protocol)
-+{
-+	if ((skb->ip_summed != CHECKSUM_PARTIAL) &&
-+	    !(tx_flags & I40E_TX_FLAGS_TXSW)) {
-+		if (!(tx_flags & I40E_TX_FLAGS_HW_VLAN))
-+			return false;
-+	}
-+
-+	return (skb->ip_summed == CHECKSUM_PARTIAL);
-+}
-+
-+/**
-+ * i40e_tso - set up the tso context descriptor
-+ * @tx_ring:  ptr to the ring to send
-+ * @skb:      ptr to the skb we're sending
-+ * @tx_flags: the collected send information
-+ * @protocol: the send protocol
-+ * @hdr_len:  ptr to the size of the packet header
-+ * @cd_tunneling: ptr to context descriptor bits
-+ *
-+ * Returns 0 if no TSO can happen, 1 if tso is going, or error
-+ **/
-+static int i40e_tso(struct i40e_ring *tx_ring, struct sk_buff *skb,
-+		    u32 tx_flags, __be16 protocol, u8 *hdr_len,
-+		    u64 *cd_type_cmd_tso_mss, u32 *cd_tunneling)
-+{
-+	int err;
-+	u32 cd_cmd, cd_tso_len, cd_mss;
-+	u32 l4len;
-+	struct tcphdr *tcph;
-+	struct iphdr *iph;
-+	struct ipv6hdr *ipv6h;
-+
-+	if (!skb_is_gso(skb))
-+		return 0;
-+
-+	if (skb_header_cloned(skb)) {
-+		err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
-+		if (err)
-+			return err;
-+	}
-+
-+	if (protocol == __constant_htons(ETH_P_IP)) {
-+		iph = skb->encapsulation ? inner_ip_hdr(skb) : ip_hdr(skb);
-+		tcph = skb->encapsulation ? inner_tcp_hdr(skb) : tcp_hdr(skb);
-+		iph->tot_len = 0;
-+		iph->check = 0;
-+		tcph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
-+						 0, IPPROTO_TCP, 0);
-+	} else if (skb_is_gso_v6(skb)) {
-+
-+		ipv6h = skb->encapsulation ? inner_ipv6_hdr(skb)
-+					   : ipv6_hdr(skb);
-+		tcph = skb->encapsulation ? inner_tcp_hdr(skb) : tcp_hdr(skb);
-+		ipv6h->payload_len = 0;
-+		tcph->check = ~csum_ipv6_magic(&ipv6h->saddr, &ipv6h->daddr,
-+					       0, IPPROTO_TCP, 0);
-+	}
-+
-+	l4len = skb->encapsulation ? inner_tcp_hdrlen(skb) : tcp_hdrlen(skb);
-+	*hdr_len = (skb->encapsulation
-+		    ? (skb_inner_transport_header(skb) - skb->data)
-+		    : skb_transport_offset(skb)) + l4len;
-+
-+	/* find the field values */
-+	cd_cmd = I40E_TX_CTX_DESC_TSO;
-+	cd_tso_len = skb->len - *hdr_len;
-+	cd_mss = skb_shinfo(skb)->gso_size;
-+	*cd_type_cmd_tso_mss |= ((u64)cd_cmd	<< I40E_TXD_CTX_QW1_CMD_SHIFT)
-+			     | ((u64)cd_tso_len
-+				<< I40E_TXD_CTX_QW1_TSO_LEN_SHIFT)
-+			     | ((u64)cd_mss     << I40E_TXD_CTX_QW1_MSS_SHIFT);
-+	return 1;
-+}
-+
-+/**
-+ * i40e_tx_enable_csum - Enable Tx checksum offloads
-+ * @skb: send buffer
-+ * @tx_flags: Tx flags currently set
-+ * @td_cmd: Tx descriptor command bits to set
-+ * @td_offset: Tx descriptor header offsets to set
-+ * @cd_tunneling: ptr to context desc bits
-+ **/
-+static void i40e_tx_enable_csum(struct sk_buff *skb, u32 tx_flags,
-+				u32 *td_cmd, u32 *td_offset,
-+				struct i40e_ring *tx_ring,
-+				u32 *cd_tunneling)
-+{
-+	u8 l4_hdr = 0;
-+	u32 network_hdr_len;
-+	struct iphdr *this_ip_hdr;
-+	struct ipv6hdr *this_ipv6_hdr;
-+	unsigned int this_tcp_hdrlen;
-+
-+	if (skb->encapsulation) {
-+		network_hdr_len = skb_inner_network_header_len(skb);
-+		this_ip_hdr = inner_ip_hdr(skb);
-+		this_ipv6_hdr = inner_ipv6_hdr(skb);
-+		this_tcp_hdrlen = inner_tcp_hdrlen(skb);
-+
-+		if (tx_flags & I40E_TX_FLAGS_IPV4) {
-+
-+			if (tx_flags & I40E_TX_FLAGS_TSO) {
-+				*cd_tunneling |= I40E_TX_CTX_EXT_IP_IPV4;
-+				ip_hdr(skb)->check = 0;
-+			} else {
-+				*cd_tunneling |=
-+					 I40E_TX_CTX_EXT_IP_IPV4_NO_CSUM;
-+			}
-+		} else if (tx_flags & I40E_TX_FLAGS_IPV6) {
-+			if (tx_flags & I40E_TX_FLAGS_TSO) {
-+				*cd_tunneling |= I40E_TX_CTX_EXT_IP_IPV6;
-+				ip_hdr(skb)->check = 0;
-+			} else {
-+				*cd_tunneling |=
-+					 I40E_TX_CTX_EXT_IP_IPV4_NO_CSUM;
-+			}
-+		}
-+
-+		/* Now set the ctx descriptor fields */
-+		*cd_tunneling |= (skb_network_header_len(skb) >> 2) <<
-+					I40E_TXD_CTX_QW0_EXT_IPLEN_SHIFT |
-+				   I40E_TXD_CTX_UDP_TUNNELING		 |
-+				   ((skb_inner_network_offset(skb) -
-+					skb_transport_offset(skb)) >> 1) <<
-+				   I40E_TXD_CTX_QW0_NATLEN_SHIFT;
-+
-+	} else {
-+		network_hdr_len = skb_network_header_len(skb);
-+		this_ip_hdr = ip_hdr(skb);
-+		this_ipv6_hdr = ipv6_hdr(skb);
-+		this_tcp_hdrlen = tcp_hdrlen(skb);
-+	}
-+
-+	/* Enable IP checksum offloads */
-+	if (tx_flags & I40E_TX_FLAGS_IPV4) {
-+		l4_hdr = this_ip_hdr->protocol;
-+		/* the stack computes the IP header already, the only time we
-+		 * need the hardware to recompute it is in the case of TSO.
-+		 */
-+		if (tx_flags & I40E_TX_FLAGS_TSO) {
-+			*td_cmd |= I40E_TX_DESC_CMD_IIPT_IPV4_CSUM;
-+			this_ip_hdr->check = 0;
-+		} else {
-+			*td_cmd |= I40E_TX_DESC_CMD_IIPT_IPV4;
-+		}
-+		/* Now set the td_offset for IP header length */
-+		*td_offset = (network_hdr_len >> 2) <<
-+			      I40E_TX_DESC_LENGTH_IPLEN_SHIFT;
-+	} else if (tx_flags & I40E_TX_FLAGS_IPV6) {
-+		l4_hdr = this_ipv6_hdr->nexthdr;
-+		*td_cmd |= I40E_TX_DESC_CMD_IIPT_IPV6;
-+		/* Now set the td_offset for IP header length */
-+		*td_offset = (network_hdr_len >> 2) <<
-+			      I40E_TX_DESC_LENGTH_IPLEN_SHIFT;
-+	}
-+	/* words in MACLEN + dwords in IPLEN + dwords in L4Len */
-+	*td_offset |= (skb_network_offset(skb) >> 1) <<
-+		       I40E_TX_DESC_LENGTH_MACLEN_SHIFT;
-+
-+	/* Enable L4 checksum offloads */
-+	switch (l4_hdr) {
-+	case IPPROTO_TCP:
-+		/* enable checksum offloads */
-+		*td_cmd |= I40E_TX_DESC_CMD_L4T_EOFT_TCP;
-+		*td_offset |= (this_tcp_hdrlen >> 2) <<
-+			       I40E_TX_DESC_LENGTH_L4_FC_LEN_SHIFT;
-+		break;
-+	case IPPROTO_SCTP:
-+		/* enable SCTP checksum offload */
-+		*td_cmd |= I40E_TX_DESC_CMD_L4T_EOFT_SCTP;
-+		*td_offset |= (sizeof(struct sctphdr) >> 2) <<
-+			       I40E_TX_DESC_LENGTH_L4_FC_LEN_SHIFT;
-+		break;
-+	case IPPROTO_UDP:
-+		/* enable UDP checksum offload */
-+		*td_cmd |= I40E_TX_DESC_CMD_L4T_EOFT_UDP;
-+		*td_offset |= (sizeof(struct udphdr) >> 2) <<
-+			       I40E_TX_DESC_LENGTH_L4_FC_LEN_SHIFT;
-+		break;
-+	default:
-+		break;
-+	}
-+}
-+
-+/**
-+ * i40e_create_tx_ctx Build the Tx context descriptor
-+ * @tx_ring:  ring to create the descriptor on
-+ * @cd_type_cmd_tso_mss: Quad Word 1
-+ * @cd_tunneling: Quad Word 0 - bits 0-31
-+ * @cd_l2tag2: Quad Word 0 - bits 32-63
-+ **/
-+static void i40e_create_tx_ctx(struct i40e_ring *tx_ring,
-+			       const u64 cd_type_cmd_tso_mss,
-+			       const u32 cd_tunneling, const u32 cd_l2tag2)
-+{
-+	struct i40e_tx_context_desc *context_desc;
-+
-+	if (!cd_type_cmd_tso_mss && !cd_tunneling && !cd_l2tag2)
-+		return;
-+
-+	/* grab the next descriptor */
-+	context_desc = I40E_TX_CTXTDESC(tx_ring, tx_ring->next_to_use);
-+	tx_ring->next_to_use++;
-+	if (tx_ring->next_to_use == tx_ring->count)
-+		tx_ring->next_to_use = 0;
-+
-+	/* cpu_to_le32 and assign to struct fields */
-+	context_desc->tunneling_params = cpu_to_le32(cd_tunneling);
-+	context_desc->l2tag2 = cpu_to_le32(cd_l2tag2);
-+	context_desc->type_cmd_tso_mss =
-+		cpu_to_le64(cd_type_cmd_tso_mss);
-+
-+}
-+
-+/**
-+ * i40e_tx_map - Build the Tx descriptor
-+ * @tx_ring:  ring to send buffer on
-+ * @skb:      send buffer
-+ * @first:    first buffer info buffer to use
-+ * @tx_flags: collected send information
-+ * @hdr_len:  size of the packet header
-+ * @td_cmd:   the command field in the descriptor
-+ * @td_offset: offset for checksum or crc
-+ **/
-+static void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
-+			struct i40e_tx_buffer *first, u32 tx_flags,
-+			const u8 hdr_len, u32 td_cmd, u32 td_offset)
-+{
-+	struct device *dev = tx_ring->dev;
-+	struct i40e_tx_buffer *tx_bi;
-+	struct i40e_tx_desc *tx_desc;
-+	dma_addr_t dma;
-+	struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[0];
-+	unsigned int data_len = skb->data_len;
-+	unsigned int size = skb_headlen(skb);
-+	u32 buf_offset = 0;
-+	u32 paylen = skb->len - hdr_len;
-+	u16 i = tx_ring->next_to_use;
-+	u16 gso_segs;
-+	u32 td_tag = 0;
-+
-+	dma = dma_map_single(dev, skb->data, size, DMA_TO_DEVICE);
-+	if (dma_mapping_error(dev, dma))
-+		goto dma_error;
-+
-+	if (tx_flags & I40E_TX_FLAGS_HW_VLAN) {
-+		td_cmd |= I40E_TX_DESC_CMD_IL2TAG1;
-+		td_tag = (tx_flags & I40E_TX_FLAGS_VLAN_MASK) >>
-+			 I40E_TX_FLAGS_VLAN_SHIFT;
-+	}
-+
-+	tx_desc = I40E_TX_DESC(tx_ring, i);
-+	for (;;) {
-+		while (size > I40E_MAX_DATA_PER_TXD) {
-+			tx_desc->buffer_addr = cpu_to_le64(dma + buf_offset);
-+			tx_desc->cmd_type_offset_bsz =
-+				build_ctob(td_cmd, td_offset,
-+					   I40E_MAX_DATA_PER_TXD, td_tag);
-+
-+			buf_offset += I40E_MAX_DATA_PER_TXD;
-+			size -= I40E_MAX_DATA_PER_TXD;
-+
-+			tx_desc++;
-+			i++;
-+			if (i == tx_ring->count) {
-+				tx_desc = I40E_TX_DESC(tx_ring, 0);
-+				i = 0;
-+			}
-+		}
-+
-+		tx_bi = &tx_ring->tx_bi[i];
-+		tx_bi->length = buf_offset + size;
-+		tx_bi->tx_flags = tx_flags;
-+		tx_bi->dma = dma;
-+
-+		tx_desc->buffer_addr = cpu_to_le64(dma + buf_offset);
-+		tx_desc->cmd_type_offset_bsz = build_ctob(td_cmd, td_offset,
-+							  size, td_tag);
-+
-+		if (likely(!data_len))
-+			break;
-+
-+		size = skb_frag_size(frag);
-+		data_len -= size;
-+		buf_offset = 0;
-+		tx_flags |= I40E_TX_FLAGS_MAPPED_AS_PAGE;
-+
-+		dma = skb_frag_dma_map(dev, frag, 0, size, DMA_TO_DEVICE);
-+		if (dma_mapping_error(dev, dma))
-+			goto dma_error;
-+
-+		tx_desc++;
-+		i++;
-+		if (i == tx_ring->count) {
-+			tx_desc = I40E_TX_DESC(tx_ring, 0);
-+			i = 0;
-+		}
-+
-+		frag++;
-+	}
-+
-+	tx_desc->cmd_type_offset_bsz |=
-+		       cpu_to_le64((u64)I40E_TXD_CMD << I40E_TXD_QW1_CMD_SHIFT);
-+
-+	i++;
-+	if (i == tx_ring->count)
-+		i = 0;
-+
-+	tx_ring->next_to_use = i;
-+
-+	if (tx_flags & (I40E_TX_FLAGS_TSO | I40E_TX_FLAGS_FSO))
-+		gso_segs = skb_shinfo(skb)->gso_segs;
-+	else
-+		gso_segs = 1;
-+
-+	/* multiply data chunks by size of headers */
-+	tx_bi->bytecount = paylen + (gso_segs * hdr_len);
-+	tx_bi->gso_segs = gso_segs;
-+	tx_bi->skb = skb;
-+
-+	/* set the timestamp and next to watch values */
-+	first->time_stamp = jiffies;
-+	first->next_to_watch = tx_desc;
-+
-+	/* Force memory writes to complete before letting h/w
-+	 * know there are new descriptors to fetch.  (Only
-+	 * applicable for weak-ordered memory model archs,
-+	 * such as IA-64).
-+	 */
-+	wmb();
-+
-+	writel(i, tx_ring->tail);
-+	return;
-+
-+dma_error:
-+	dev_info(dev, "%s: TX DMA map failed\n", __func__);
-+
-+	/* clear dma mappings for failed tx_bi map */
-+	for (;;) {
-+		tx_bi = &tx_ring->tx_bi[i];
-+		i40e_unmap_tx_resource(tx_ring, tx_bi);
-+		if (tx_bi == first)
-+			break;
-+		if (i == 0)
-+			i = tx_ring->count;
-+		i--;
-+	}
-+
-+	dev_kfree_skb_any(skb);
-+
-+	tx_ring->next_to_use = i;
-+}
-+
-+/**
-+ * __i40e_maybe_stop_tx - 2nd level check for tx stop conditions
-+ * @tx_ring: the ring to be checked
-+ * @size:    the size buffer we want to assure is available
-+ *
-+ * Returns -EBUSY if a stop is needed, else 0
-+ **/
-+static inline int __i40e_maybe_stop_tx(struct i40e_ring *tx_ring, int size)
-+{
-+	netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
-+	smp_mb();
-+
-+	/* Check again in a case another CPU has just made room available. */
-+	if (likely(I40E_DESC_UNUSED(tx_ring) < size))
-+		return -EBUSY;
-+
-+	/* A reprieve! - use start_queue because it doesn't call schedule */
-+	netif_start_subqueue(tx_ring->netdev, tx_ring->queue_index);
-+	++tx_ring->tx_stats.restart_queue;
-+	return 0;
-+}
-+
-+/**
-+ * i40e_maybe_stop_tx - 1st level check for tx stop conditions
-+ * @tx_ring: the ring to be checked
-+ * @size:    the size buffer we want to assure is available
-+ *
-+ * Returns 0 if stop is not needed
-+ **/
-+static int i40e_maybe_stop_tx(struct i40e_ring *tx_ring, int size)
-+{
-+	if (likely(I40E_DESC_UNUSED(tx_ring) >= size))
-+		return 0;
-+	return __i40e_maybe_stop_tx(tx_ring, size);
-+}
-+
-+/**
-+ * i40e_xmit_descriptor_count - calculate number of tx descriptors needed
-+ * @skb:     send buffer
-+ * @tx_ring: ring to send buffer on
-+ *
-+ * Returns number of data descriptors needed for this skb. Returns 0 to indicate
-+ * there is not enough descriptors available in this ring since we need at least
-+ * one descriptor.
-+ **/
-+static int i40e_xmit_descriptor_count(struct sk_buff *skb,
-+				      struct i40e_ring *tx_ring)
-+{
-+	int count = 0;
-+#if PAGE_SIZE > I40E_MAX_DATA_PER_TXD
-+	unsigned int f;
-+#endif
-+
-+	/* need: 1 descriptor per page * PAGE_SIZE/I40E_MAX_DATA_PER_TXD,
-+	 *       + 1 desc for skb_head_len/I40E_MAX_DATA_PER_TXD,
-+	 *       + 2 desc gap to keep tail from touching head,
-+	 *       + 1 desc for context descriptor,
-+	 * otherwise try next time
-+	 */
-+#if PAGE_SIZE > I40E_MAX_DATA_PER_TXD
-+	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++)
-+		count += TXD_USE_COUNT(skb_shinfo(skb)->frags[f].size);
-+#else
-+	count += skb_shinfo(skb)->nr_frags;
-+#endif
-+	count += TXD_USE_COUNT(skb_headlen(skb));
-+	if (i40e_maybe_stop_tx(tx_ring, count + 3)) {
-+		tx_ring->tx_stats.tx_busy++;
-+		return 0;
-+	}
-+	return count;
-+}
-+
-+/**
-+ * i40e_xmit_frame_ring - Sends buffer on Tx ring
-+ * @skb:     send buffer
-+ * @tx_ring: ring to send buffer on
-+ *
-+ * Returns NETDEV_TX_OK if sent, else an error code
-+ **/
-+static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
-+					struct i40e_ring *tx_ring)
-+{
-+	struct i40e_tx_buffer *first;
-+	u32 td_cmd = 0;
-+	u32 td_offset = 0;
-+	u64 cd_type_cmd_tso_mss = I40E_TX_DESC_DTYPE_CONTEXT;
-+	u32 cd_tunneling = 0, cd_l2tag2 = 0;
-+	int tso;
-+	u32 tx_flags = 0;
-+	__be16 protocol;
-+	u8 hdr_len = 0;
-+	if (0 == i40e_xmit_descriptor_count(skb, tx_ring))
-+		return NETDEV_TX_BUSY;
-+
-+	/* prepare the xmit flags */
-+	if (i40e_tx_prepare_vlan_flags(skb, tx_ring, &tx_flags))
-+		goto out_drop;
-+
-+	/* obtain protocol of skb */
-+	protocol = skb->protocol;
-+
-+	/* record the location of the first descriptor for this packet */
-+	first = &tx_ring->tx_bi[tx_ring->next_to_use];
-+
-+	/* setup IPv4/IPv6 offloads */
-+	if (protocol == __constant_htons(ETH_P_IP))
-+		tx_flags |= I40E_TX_FLAGS_IPV4;
-+	else if (protocol == __constant_htons(ETH_P_IPV6))
-+		tx_flags |= I40E_TX_FLAGS_IPV6;
-+
-+	tso = i40e_tso(tx_ring, skb, tx_flags, protocol, &hdr_len,
-+		       &cd_type_cmd_tso_mss, &cd_tunneling);
-+
-+	if (tso < 0)
-+		goto out_drop;
-+	else if (tso)
-+		tx_flags |= I40E_TX_FLAGS_TSO;
-+
-+	skb_tx_timestamp(skb);
-+
-+	/* Always offload the checksum, since it's in the data descriptor */
-+	if (i40e_tx_csum(tx_ring, skb, tx_flags, protocol))
-+		tx_flags |= I40E_TX_FLAGS_CSUM;
-+
-+	/* always enable offload insertion */
-+	td_cmd |= I40E_TX_DESC_CMD_ICRC;
-+
-+	if (tx_flags & I40E_TX_FLAGS_CSUM)
-+		i40e_tx_enable_csum(skb, tx_flags, &td_cmd, &td_offset,
-+				    tx_ring, &cd_tunneling);
-+
-+	i40e_create_tx_ctx(tx_ring, cd_type_cmd_tso_mss,
-+			   cd_tunneling, cd_l2tag2);
-+
-+	i40e_tx_map(tx_ring, skb, first, tx_flags, hdr_len,
-+		    td_cmd, td_offset);
-+
-+	i40e_maybe_stop_tx(tx_ring, DESC_NEEDED);
-+
-+	return NETDEV_TX_OK;
-+
-+out_drop:
-+	dev_kfree_skb_any(skb);
-+	return NETDEV_TX_OK;
-+}
-+
-+/**
-+ * i40e_lan_xmit_frame - Selects the correct VSI and Tx queue to send buffer
-+ * @skb:    send buffer
-+ * @netdev: network interface device structure
-+ *
-+ * Returns NETDEV_TX_OK if sent, else an error code
-+ **/
-+netdev_tx_t i40e_lan_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
-+{
-+	struct i40evf_adapter *adapter = netdev_priv(netdev);
-+	struct i40e_ring *tx_ring = &adapter->tx_rings[skb->queue_mapping];
-+
-+	return i40e_xmit_frame_ring(skb, tx_ring);
++	} /* switch v_opcode */
++	adapter->current_op = I40E_VIRTCHNL_OP_UNKNOWN;
 +}
 -- 
 1.8.3.1
