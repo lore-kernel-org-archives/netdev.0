@@ -1,56 +1,50 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v5 4/5] net: ethernet: cpsw: add support for hardware
- interface mode config
-Date: Fri, 23 Aug 2013 23:18:05 +0400
-Message-ID: <5217B56D.1010608@cogentembedded.com>
-References: <1377283987-20040-1-git-send-email-zonque@gmail.com> <1377283987-20040-5-git-send-email-zonque@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next 01/10] net: etherdevice: add address inherit
+ helper
+Date: Fri, 23 Aug 2013 12:24:04 -0700
+Message-ID: <20130823122404.7aebb2c8@nehalam.linuxnetplumber.net>
+References: <1377250513-3662-1-git-send-email-bjorn@mork.no>
+	<1377250513-3662-2-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bcousson@baylibre.com, nsekhar@ti.com,
-	davem@davemloft.net, ujhelyi.m@gmail.com, mugunthanvnm@ti.com,
-	vaibhav.bedia@ti.com, d-gerlach@ti.com,
-	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org,
-	devicetree@vger.kernel.org
-To: Daniel Mack <zonque@gmail.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1377283987-20040-5-git-send-email-zonque@gmail.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?ISO-8859-1?B?Qmr4cm4=?= Mork <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:51804 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754084Ab3HWTYI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 15:24:08 -0400
+Received: by mail-pd0-f177.google.com with SMTP id y10so1039395pdj.22
+        for <netdev@vger.kernel.org>; Fri, 23 Aug 2013 12:24:07 -0700 (PDT)
+In-Reply-To: <1377250513-3662-2-git-send-email-bjorn@mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/23/2013 10:53 PM, Daniel Mack wrote:
+On Fri, 23 Aug 2013 11:35:04 +0200
+Bj=F8rn Mork <bjorn@mork.no> wrote:
 
-> The cpsw currently lacks code to properly set up the hardware interface
-> mode on AM33xx. Other platforms might be equally affected.
+>  /**
+> + * eth_hw_addr_inherit - Copy dev_addr from another net_device
+> + * @dst: pointer to net_device to copy dev_addr to
+> + * @src: pointer to net_device to copy dev_addr from
+> + *
+> + * Copy the Ethernet address from one net_device to another along wi=
+th
+> + * the addr_assign_type.
+> + */
+> +static inline int eth_hw_addr_inherit(struct net_device *dst,
+> +				      struct net_device *src)
+> +{
+> +	if (dst->addr_len !=3D src->addr_len)
+> +		return -EINVAL;
+> +
+> +	dst->addr_assign_type =3D src->addr_assign_type;
+> +	memcpy(dst->dev_addr, src->dev_addr, dst->addr_len);
+> +	return 0;
+> +}
+> +
 
-> Usually, the bootloader will configure the control module register, so
-> probably that's why such support wasn't needed in the past. In suspend
-> mode though, this register is modified, and so it needs reprogramming
-> after resume.
-
-> This patch adds code that makes use of the previously added and optional
-> support for passing the control mode register, and configures the
-> correct register bits when the slave is opened.
-
-> The AM33xx also has a bit for each slave to configure the RMII reference
-> clock direction. Setting it is now supported by a per-slave DT property.
-
-> This code path introducted by this patch is currently exclusive for
-> am33xx.
-
-> Signed-off-by: Daniel Mack <zonque@gmail.com>
-[...]
-
-> @@ -40,4 +41,11 @@ struct cpsw_platform_data {
->   	u32	hw_type;	/* hardware type as specified in 'compatible' */
->   };
->
-> +/* SoC specific definitions for the CONTROL port */
-> +#define AM33XX_GMII_SEL_MODE_MII	(0)
-> +#define AM33XX_GMII_SEL_MODE_RMII	(1)
-> +#define AM33XX_GMII_SEL_MODE_RGMII	(2)
-
-    Parens around decimal literals are hardly needed even in macros.
-
-WBR, Sergei
-
+Since all the other code in this file assumes addr_len =3D=3D ETH_ALEN
+why does this code need to handle variable addresses. Trivial but
+then the memcpy is fixed size and can be optimized.
