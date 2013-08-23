@@ -1,122 +1,37 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 2/6] net: syncookies: export cookie_v4_init_sequence/cookie_v4_check
-Date: Fri, 23 Aug 2013 09:52:05 +0200
-Message-ID: <1377244329-20146-3-git-send-email-kaber@trash.net>
-References: <1377244329-20146-1-git-send-email-kaber@trash.net>
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	mph@one.com, jesper.brouer@gmail.com, as@one.com
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49525 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754444Ab3HWHwM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 03:52:12 -0400
-In-Reply-To: <1377244329-20146-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: [PATCH RESEND V3 net-next 0/3] huawei_cdc_ncm driver introduction
+Date: Fri, 23 Aug 2013 09:56:27 +0200
+Message-ID: <1377244590-8558-1-git-send-email-mrkiko.rs@gmail.com>
+References: <mrkiko.rs@gmail.com>
+Cc: Enrico Mioso <mrkiko.rs@gmail.com>
+To: gregkh@linuxfoundation.org, oliver@neukum.org,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <mrkiko.rs@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Extract the local TCP stack independant parts of tcp_v4_init_sequence()
-and cookie_v4_check() and export them for use by the upcoming SYNPROXY
-target.
+These patches are all related to the new huawei_cdc_ncm driver, supporting 
+devices that use the NCM protocol as a transport layer for other protocols. 
+this is the case of the Huawei E3131 3G modem.
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
----
- include/net/tcp.h     |  4 ++++
- net/ipv4/syncookies.c | 29 ++++++++++++++++++-----------
- 2 files changed, 22 insertions(+), 11 deletions(-)
+In this version - I actually added the driver file! :) I don't know how I ended 
+up forgetting about it, I should have learned git usage better after all this 
+time! Sorry for the time I wasted you.
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 18fc999..63256c6 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -480,9 +480,13 @@ void inet_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb);
- 
- /* From syncookies.c */
- extern __u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
-+extern int __cookie_v4_check(const struct iphdr *iph, const struct tcphdr *th,
-+			     u32 cookie);
- extern struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb, 
- 				    struct ip_options *opt);
- #ifdef CONFIG_SYN_COOKIES
-+extern u32 __cookie_v4_init_sequence(const struct iphdr *iph,
-+				     const struct tcphdr *th, u16 *mssp);
- extern __u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, 
- 				     __u16 *mss);
- #else
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index b05c96e..14a15c4 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -160,26 +160,33 @@ static __u16 const msstab[] = {
-  * Generate a syncookie.  mssp points to the mss, which is returned
-  * rounded down to the value encoded in the cookie.
-  */
--__u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, __u16 *mssp)
-+u32 __cookie_v4_init_sequence(const struct iphdr *iph, const struct tcphdr *th,
-+			      u16 *mssp)
- {
--	const struct iphdr *iph = ip_hdr(skb);
--	const struct tcphdr *th = tcp_hdr(skb);
- 	int mssind;
- 	const __u16 mss = *mssp;
- 
--	tcp_synq_overflow(sk);
--
- 	for (mssind = ARRAY_SIZE(msstab) - 1; mssind ; mssind--)
- 		if (mss >= msstab[mssind])
- 			break;
- 	*mssp = msstab[mssind];
- 
--	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESSENT);
--
- 	return secure_tcp_syn_cookie(iph->saddr, iph->daddr,
- 				     th->source, th->dest, ntohl(th->seq),
- 				     jiffies / (HZ * 60), mssind);
- }
-+EXPORT_SYMBOL_GPL(__cookie_v4_init_sequence);
-+
-+__u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, __u16 *mssp)
-+{
-+	const struct iphdr *iph = ip_hdr(skb);
-+	const struct tcphdr *th = tcp_hdr(skb);
-+
-+	tcp_synq_overflow(sk);
-+	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESSENT);
-+
-+	return __cookie_v4_init_sequence(iph, th, mssp);
-+}
- 
- /*
-  * This (misnamed) value is the age of syncookie which is permitted.
-@@ -192,10 +199,9 @@ __u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, __u16 *mssp)
-  * Check if a ack sequence number is a valid syncookie.
-  * Return the decoded mss if it is, or 0 if not.
-  */
--static inline int cookie_check(struct sk_buff *skb, __u32 cookie)
-+int __cookie_v4_check(const struct iphdr *iph, const struct tcphdr *th,
-+		      u32 cookie)
- {
--	const struct iphdr *iph = ip_hdr(skb);
--	const struct tcphdr *th = tcp_hdr(skb);
- 	__u32 seq = ntohl(th->seq) - 1;
- 	__u32 mssind = check_tcp_syn_cookie(cookie, iph->saddr, iph->daddr,
- 					    th->source, th->dest, seq,
-@@ -204,6 +210,7 @@ static inline int cookie_check(struct sk_buff *skb, __u32 cookie)
- 
- 	return mssind < ARRAY_SIZE(msstab) ? msstab[mssind] : 0;
- }
-+EXPORT_SYMBOL_GPL(__cookie_v4_check);
- 
- static inline struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
- 					   struct request_sock *req,
-@@ -284,7 +291,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 		goto out;
- 
- 	if (tcp_synq_no_recent_overflow(sk) ||
--	    (mss = cookie_check(skb, cookie)) == 0) {
-+	    (mss = __cookie_v4_check(ip_hdr(skb), th, cookie)) == 0) {
- 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESFAILED);
- 		goto out;
- 	}
+Enrico Mioso (3):
+  net: cdc_ncm: Export cdc_ncm_{tx,rx}_fixup functions for re-use
+  net: huawei_cdc_ncm: Introduce the huawei_cdc_ncm driver
+  net: cdc_ncm: remove non-standard NCM device IDs
+
+ drivers/net/usb/Kconfig          |   11 ++
+ drivers/net/usb/Makefile         |    1 +
+ drivers/net/usb/cdc_ncm.c        |   17 +--
+ drivers/net/usb/huawei_cdc_ncm.c |  210 ++++++++++++++++++++++++++++++++++++++
+ include/linux/usb/cdc_ncm.h      |    3 +
+ 5 files changed, 229 insertions(+), 13 deletions(-)
+ create mode 100644 drivers/net/usb/huawei_cdc_ncm.c
+
 -- 
-1.8.1.4
+1.7.10.4
