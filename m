@@ -1,44 +1,40 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] net/fec: "u32" is more explicit than "unsigned long"
-Date: Fri, 23 Aug 2013 12:49:20 +0300
-Message-ID: <20130823094920.GP31293@elgon.mountain>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 1/2] genl: Fix genl dumpit() locking.
+Date: Fri, 23 Aug 2013 11:51:25 +0200
+Message-ID: <1377251485.14021.17.camel@jlt4.sipsolutions.net>
+References: <1377143882-20717-1-git-send-email-pshelar@nicira.com>
+	 <1377156980.14110.16.camel@jlt4.sipsolutions.net>
+	 <CALnjE+qgZ_UZ4GdiZ4UCzfTLn-OveoHtE28uQZokz2kPD4srXQ@mail.gmail.com>
+	 <1377193906.14110.27.camel@jlt4.sipsolutions.net>
+	 <CALnjE+rEOMmyFQ0Nx3-O-Cvu8yePVBg7x8vgpGUOAAnYv3KG4Q@mail.gmail.com>
+	 <1377195534.14110.29.camel@jlt4.sipsolutions.net>
+	 <CALnjE+osiw-uPdf8JEX=jG+zwaoypoSQ_A+N-WiVUkxxT63y+g@mail.gmail.com>
+	 <1377242982.14021.8.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rob Herring <rob.herring@calxeda.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>,
-	Jim Baxter <jim_baxter@mentor.com>,
-	Fugang Duan <B38611@freescale.com>, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Grant Likely <grant.likely@linaro.org>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([144.76.43.152]:38450 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755003Ab3HWJv3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 05:51:29 -0400
+In-Reply-To: <1377242982.14021.8.camel@jlt4.sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-tmpaddr[] is a six byte array.  We want to set the first four bytes on
-the first line and the remaining two on the next line.  The code assumes
-that "unsigned long" is 32 bits and obviously that's not true on 64 bit
-arches.  It's better to just use u32 instead.
+On Fri, 2013-08-23 at 09:29 +0200, Johannes Berg wrote:
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-This is a static checker thing and I can't compile this file.
+> > You are thinking abt genl-sock -> nlk -> cb_lock which is not used in
+> > genl-dump locking if cb_lock is NULL while creating nl socket.
+> 
+> You're right, this is also done for each userland socket, so each socket
+> now gets its own cb_mutex. This would help genl families with
+> parallel_ops.
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index fdf9307..422b125 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1100,9 +1100,9 @@ static void fec_get_mac(struct net_device *ndev)
- 	 * 4) FEC mac registers set by bootloader
- 	 */
- 	if (!is_valid_ether_addr(iap)) {
--		*((unsigned long *) &tmpaddr[0]) =
-+		*((u32 *) &tmpaddr[0]) =
- 			be32_to_cpu(readl(fep->hwp + FEC_ADDR_LOW));
--		*((unsigned short *) &tmpaddr[4]) =
-+		*((u16 *) &tmpaddr[4]) =
- 			be16_to_cpu(readl(fep->hwp + FEC_ADDR_HIGH) >> 16);
- 		iap = &tmpaddr[0];
- 	}
+I'm still missing something. Kernel 3.4 had cb_mutex assign to the
+genl_mutex, but we saw the original crash there, apparently dumpit
+*wasn't* (always) locked with it?
+
+johannes
