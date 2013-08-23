@@ -1,49 +1,52 @@
-From: Sekhar Nori <nsekhar@ti.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
 Subject: Re: [PATCH 3/4] net: ethernet: cpsw: add support for hardware interface
  mode config
-Date: Fri, 23 Aug 2013 11:00:14 +0530
-Message-ID: <5216F366.50609@ti.com>
+Date: Fri, 23 Aug 2013 11:41:14 +0530
+Message-ID: <5216FD02.7030009@ti.com>
 References: <1377171448-27924-1-git-send-email-zonque@gmail.com> <1377171448-27924-4-git-send-email-zonque@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<ujhelyi.m@gmail.com>, <mugunthanvnm@ti.com>,
-	<vaibhav.bedia@ti.com>, <d-gerlach@ti.com>,
+	<ujhelyi.m@gmail.com>, <vaibhav.bedia@ti.com>, <d-gerlach@ti.com>,
 	<linux-arm-kernel@lists.infradead.org>,
 	<linux-omap@vger.kernel.org>, <devicetree@vger.kernel.org>
 To: Daniel Mack <zonque@gmail.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from devils.ext.ti.com ([198.47.26.153]:45542 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754134Ab3HWGLs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 02:11:48 -0400
 In-Reply-To: <1377171448-27924-4-git-send-email-zonque@gmail.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On Thursday 22 August 2013 05:07 PM, Daniel Mack wrote:
 > The cpsw currently lacks code to properly set up the hardware interface
 > mode on AM33xx. Other platforms might be equally affected.
-> 
+>
 > Usually, the bootloader will configure the control module register, so
 > probably that's why such support wasn't needed in the past. In suspend
 > mode though, this register is modified, and so it needs reprogramming
 > after resume.
-> 
+>
 > This patch adds code that makes use of the previously added and optional
 > support for passing the control mode register, and configures the
 > correct register bits from _cpsw_adjust_link().
-> 
+>
 > The AM33xx also has a bit for each slave to configure the RMII reference
 > clock direction. Setting it is now supported by a per-slave DT property.
-> 
+>
 > This code path introducted by this patch is currently exclusive for
 > am33xx.
-> 
+>
 > Signed-off-by: Daniel Mack <zonque@gmail.com>
 > ---
 >  Documentation/devicetree/bindings/net/cpsw.txt |  2 ++
 >  drivers/net/ethernet/ti/cpsw.c                 | 49 ++++++++++++++++++++++++++
 >  include/linux/platform_data/cpsw.h             |  1 +
 >  3 files changed, 52 insertions(+)
-> 
+>
 > diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
 > index 4e5ca54..0ccf01f 100644
 > --- a/Documentation/devicetree/bindings/net/cpsw.txt
@@ -81,20 +84,15 @@ On Thursday 22 August 2013 05:07 PM, Daniel Mack wrote:
 >  	u32			slave_port;
 >  
 > +	if (priv->gmii_sel_reg && of_machine_is_compatible("ti,am33xx")) {
-
-This sounds like the DT version of cpu_is_am335x()! Looks like you need
-to introduce a new compatible "ti,am3352-cpsw" to indicate the AM3352
-specific features of the CPSW IP (yeah, control module is not really
-part of the IP, but by introducing it in the driver, we are treating it
-such anyway. And you can see this register as extension of IP since its
-not shared for any other purpose).
-
 > +		u32 reg = __raw_readl(priv->gmii_sel_reg);
-
-readl() and writel() instead of the __raw_ versions? Even if the
-existing driver uses these, lets not have new code use them.
-
 > +		u32 mode = AM33XX_GMII_SEL_MODE_UNUSED;
+
+If phy interface is other than the below handled case then you will be
+writing UNUSED bit to gmii sel bits which is wrong as it should not be
+used as per hardware design guys. Please refer the following thread in
+U-Boot which had a discussion about the UNUSED bit combination usage.
+http://comments.gmane.org/gmane.comp.boot-loaders.u-boot/166689
+
 > +		u32 mask;
 > +
 > +		if (phy) {
@@ -130,6 +128,12 @@ existing driver uses these, lets not have new code use them.
 > +		__raw_writel(reg, priv->gmii_sel_reg);
 > +	}
 > +
+
+This is not the proper location to add phy interface enable and rmii
+external clock enable. This should be moved to open as this api is
+called from phy poll work queue at constant interval to detect phy link
+changes. The above init has required only once and not to be done regularly.
+
 >  	if (!phy)
 >  		return;
 >  
@@ -138,8 +142,18 @@ existing driver uses these, lets not have new code use them.
 >  
 >  		slave_data->phy_if = of_get_phy_mode(slave_node);
 > +		if (of_find_property(slave_node, "ti,rmii-clock-external",
+> +				     NULL))
+> +			slave_data->rmii_clock_external = true;
+>  
+>  		if (data->dual_emac) {
+>  			if (of_property_read_u32(slave_node, "dual_emac_res_vlan",
+> diff --git a/include/linux/platform_data/cpsw.h b/include/linux/platform_data/cpsw.h
+> index bb3cd58..a29c48b 100644
+> --- a/include/linux/platform_data/cpsw.h
+> +++ b/include/linux/platform_data/cpsw.h
 
-Hey, your documentation says this should be "ti,rmii-clock-ext"
+In net-next this file is moved to drivers/net/ethernet/ti folder itself
+as this driver only supports DT boot.
 
-Thanks,
-Sekhar
+Regards
+Mugunthan V N
