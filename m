@@ -1,79 +1,74 @@
-From: Santosh Shilimkar <santosh.shilimkar@ti.com>
-Subject: Re: [PATCH v4 3/5] net: ethernet: cpsw: introduce ti,am3352-cpsw
- compatible string
-Date: Fri, 23 Aug 2013 10:23:14 -0400
-Message-ID: <52177052.1030308@ti.com>
-References: <1377267365-24057-1-git-send-email-zonque@gmail.com> <1377267365-24057-4-git-send-email-zonque@gmail.com>
+From: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Subject: Re: [PATCH v2 nf-next] netfilter: conntrack: remove the central
+ spinlock
+Date: Fri, 23 Aug 2013 16:42:28 +0200
+Message-ID: <20130823164228.1bc92a48@redhat.com>
+References: <1368068665.13473.81.camel@edumazet-glaptop>
+	<1369244868.3301.343.camel@edumazet-glaptop>
+	<20130524151647.18388e27@redhat.com>
+	<1369403496.3301.401.camel@edumazet-glaptop>
+	<20130527143346.2d19e854@redhat.com>
+	<20130527123656.GA16212@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <bcousson@baylibre.com>,
-	<nsekhar@ti.com>, <sergei.shtylyov@cogentembedded.com>,
-	<davem@davemloft.net>, <ujhelyi.m@gmail.com>,
-	<mugunthanvnm@ti.com>, <vaibhav.bedia@ti.com>, <d-gerlach@ti.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>, <devicetree@vger.kernel.org>
-To: Daniel Mack <zonque@gmail.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1377267365-24057-4-git-send-email-zonque@gmail.com>
-Sender: linux-omap-owner@vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20130527123656.GA16212@localhost>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 23 August 2013 10:16 AM, Daniel Mack wrote:
-> In order to support features that are specific to the AM335x IP, we have
-> to add hardware types and another compatible string.
+Hi Pablo,
+
+On Mon, 27 May 2013 14:36:56 +0200
+Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+
+> On Mon, May 27, 2013 at 02:33:46PM +0200, Jesper Dangaard Brouer wrote:
+> > On Fri, 24 May 2013 06:51:36 -0700
+> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > 
+> > > On Fri, 2013-05-24 at 15:16 +0200, Jesper Dangaard Brouer wrote:
+> > [...cut...]
+> > > > I'm amazed, this patch will actually make it a viable choice to load
+> > > > the conntrack modules on a DDoS based filtering box, and use the
+> > > > conntracks to protect against ACK and SYN+ACK attacks.
+> > > > 
+> > > > Simply by not accepting the ACK or SYN+ACK to create a conntrack
+> > > > entry. Via the command:
+> > > >  sysctl -w net/netfilter/nf_conntrack_tcp_loose=0
+> > > > 
+> > > > A quick test show; now I can run a LISTEN process on the port, and
+> > > > handle an SYN+ACK attack of approx 2580Kpps (and the same for ACK
+> > > > attacks), while running a LISTEN process on the port.
+> > > > 
+> > [...]
+> > > > 
+> > > 
+> > > Wow, this is very interesting !
+> > > 
+> > > Did you test the thing when expectations are possible ? (say ftp
+> > > module loaded)
+> > 
+> > Nope. I'm not sure how to create a test case, that causes an
+> > expectation to be created.
 > 
-> Signed-off-by: Daniel Mack <zonque@gmail.com>
-> ---
->  Documentation/devicetree/bindings/net/cpsw.txt |  3 ++-
->  drivers/net/ethernet/ti/cpsw.c                 | 32 ++++++++++++++++++++------
->  drivers/net/ethernet/ti/cpsw.h                 |  1 +
->  3 files changed, 28 insertions(+), 8 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
-> index 4e5ca54..b717458 100644
-> --- a/Documentation/devicetree/bindings/net/cpsw.txt
-> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
-> @@ -2,7 +2,8 @@ TI SoC Ethernet Switch Controller Device Tree Bindings
->  ------------------------------------------------------
->  
->  Required properties:
-> -- compatible		: Should be "ti,cpsw"
-> +- compatible		: Should be "ti,cpsw" for generic cpsw support, or
-> +			  "ti,am3352-cpsw" for AM3352 SoCs
->  - reg			: physical base address and size of the cpsw
->  			  registers map.
->  			  An optional third memory region can be supplied if
-> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-> index 7a25ff4..73c44cb6 100644
-> --- a/drivers/net/ethernet/ti/cpsw.c
-> +++ b/drivers/net/ethernet/ti/cpsw.c
-> @@ -155,6 +155,11 @@ do {								\
->  		((priv->data.dual_emac) ? priv->emac_port :	\
->  		priv->data.active_slave)
->  
-> +enum {
-> +	CPSW_TYPE_GENERIC,
-> +	CPSW_TYPE_AM33XX
-> +};
-> +
->  static int debug_level;
->  module_param(debug_level, int, 0);
->  MODULE_PARM_DESC(debug_level, "cpsw debug level (NETIF_MSG bits)");
-> @@ -1692,17 +1697,36 @@ static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv,
->  	slave->port_vlan = data->dual_emac_res_vlan;
->  }
->  
-> +static const struct of_device_id cpsw_of_mtable[] = {
-> +	{
-> +		.compatible	= "ti,am3352-cpsw",
-I didn't notice this earlier, but can't you use the IP version
-as a compatible instead of using a SOC name. Whats really SOC specific
-on this IP ? Sorry i have missed any earlier discussion on this but
-this approach doesn't seem good. Its like adding SOC checks in the
-driver subsystem.
+> This is still in my queue, I didn't forget about this. I need to find
+> some spare time to give this a test with expectations enabled and also
+> with conntrackd/state-sync.
 
-Regards,
-Santosh
+What about this patch, what is the status?
+Is it still on you queue, or did it get applied without me noticing?
 
 
+Link for people wanting to read-up on thread:
+ http://thread.gmane.org/gmane.linux.network/268758/
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
