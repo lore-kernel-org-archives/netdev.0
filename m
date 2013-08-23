@@ -1,65 +1,159 @@
-From: Santosh Shilimkar <santosh.shilimkar@ti.com>
-Subject: Re: [PATCH v4 3/5] net: ethernet: cpsw: introduce ti,am3352-cpsw
- compatible string
-Date: Fri, 23 Aug 2013 12:56:40 -0400
-Message-ID: <52179448.1020906@ti.com>
-References: <1377267365-24057-1-git-send-email-zonque@gmail.com>
- <1377267365-24057-4-git-send-email-zonque@gmail.com>
- <52177052.1030308@ti.com> <52178E20.5040404@gmail.com>
+From: "Nelson, Shannon" <shannon.nelson@intel.com>
+Subject: RE: [net-next v2 1/8] i40e: main driver core
+Date: Fri, 23 Aug 2013 17:00:10 +0000
+Message-ID: <FC41C24E35F18A40888AACA1A36F3E416C615C3B@FMSMSX102.amr.corp.intel.com>
+References: <1377224142-25160-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1377224142-25160-2-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20130823.002805.1975660490102085087.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, sergei.shtylyov@cogentembedded.com, d-gerlach@ti.com,
- netdev@vger.kernel.org, nsekhar@ti.com, vaibhav.bedia@ti.com,
- devicetree@vger.kernel.org, bcousson@baylibre.com, ujhelyi.m@gmail.com,
- linux-omap@vger.kernel.org, davem@davemloft.net,
- linux-arm-kernel@lists.infradead.org
-To: Daniel Mack <zonque@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <52178E20.5040404@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: David Miller <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:1924 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754474Ab3HWRAb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 13:00:31 -0400
+In-Reply-To: <20130823.002805.1975660490102085087.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 23 August 2013 12:30 PM, Daniel Mack wrote:
-> On 23.08.2013 16:23, Santosh Shilimkar wrote:
->> On Friday 23 August 2013 10:16 AM, Daniel Mack wrote:
-> 
->>> +static const struct of_device_id cpsw_of_mtable[] = {
->>> +	{
->>> +		.compatible	= "ti,am3352-cpsw",
->>
->> I didn't notice this earlier, but can't you use the IP version
->> as a compatible instead of using a SOC name. Whats really SOC specific
->> on this IP ? Sorry i have missed any earlier discussion on this but
->> this approach doesn't seem good. Its like adding SOC checks in the
->> driver subsystem.
-> 
-> As I already mentioned in the cover letter and in the commit message, I
-> just don't know which criteria makes most sense here.
-> 
-> On a general note, I would say that chances that this exactly IP core
-> with the same version number will appear on some other silicon which
-> doesn't support the control mode register in an AM33xx fashion, is not
-> necessarily negligible.
-> 
-> So what that new compatible string denotes is the cpsw in a version as
-> found on am3352 SoCs, which is actually exactly what it does.
-> 
-> I don't have a strong opinion here, but see your point. I just don't
-> have a better idea on how to treat that.
-> 
-So just stick the IP version or call it cpsw-v1... cpsw-v2 etc.
-That way if in future if someone uses those features, they can use
-this compatible if they don't they use the one which suites that
-SOC.
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Friday, August 23, 2013 12:28 AM
+> To: Kirsher, Jeffrey T
+> Cc: Brandeburg, Jesse; netdev@vger.kernel.org; gospo@redhat.com;
+> sassmann@redhat.com; Nelson, Shannon; Waskiewicz Jr, Peter P; e1000-
+> devel@lists.sourceforge.net
+> Subject: Re: [net-next v2 1/8] i40e: main driver core
 
-Regards,
-Santosh
+Thanks, Dave, for your time and the notes.
+
+> 
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Thu, 22 Aug 2013 19:15:35 -0700
+> 
+> > +enum i40e_status_code i40e_allocate_dma_mem_d(struct i40e_hw *hw,
+> > +					      struct i40e_dma_mem *mem,
+> > +					      u64 size, u32 alignment)
+> > +{
+>  ...
+> > +	mem->va = dma_alloc_coherent(&pf->pdev->dev, mem->size,
+> > +				     &mem->pa, GFP_ATOMIC | __GFP_ZERO);
+> 
+> First, I see no reason to specify GFP_ATOMIC here, code paths that
+> call this thing even have comments above them like:
+> 
+> --------------------
+> + *  Do *NOT* hold the lock when calling this as the memory allocation
+> routines
+> + *  called are not going to be atomic context safe
+> --------------------
+> 
+> Secondly, use dma_zalloc_coherent() if you want __GFP_ZERO.
+
+Sure, we'll adjust.
+
+> 
+> > +static int i40e_get_lump(struct i40e_lump_tracking *pile, u16 needed,
+> u16 id)
+> > +{
+> > +	int i = 0, j = 0;
+> > +	int ret = I40E_ERR_NO_MEMORY;
+> > +
+> > +	if (pile == NULL || needed == 0 || id >= I40E_PILE_VALID_BIT) {
+> > +		pr_info("%s: param err: pile=%p needed=%d id=0x%04x\n",
+> > +		       __func__, pile, needed, id);
+> > +		return I40E_ERR_PARAM;
+> 
+> Since there is absolutely no context passed into these helper routines,
+> the log messages are less useful than they could be.  If you did this
+> right you could use netdev_info() or dev_info() here.
+
+Perhaps we went a little too far in trying for loosely coupled code?  We'll add enough context for dev_info().
+
+> 
+> > +void i40e_pf_reset_stats(struct i40e_pf *pf)
+> > +{
+> > +	memset(&pf->stats, 0, sizeof(struct i40e_hw_port_stats));
+> > +	memset(&pf->stats_offsets, 0, sizeof(struct i40e_hw_port_stats));
+> > +	pf->stat_offsets_loaded = false;
+> > +
+> > +}
+> 
+> Spurious empty line at end of that function.
+
+Obviously we need another pass at catching these little whitespace issues.
+
+> 
+> > +		flush(hw);
+> 
+> I think this brief and common name is asking for namespace collision
+> problems.  Maybe name it i40e_flush or i40e_hw_flush or something like
+> that.
+
+Good call - thanks.
+
+> 
+> > +{
+> > +	int i;
+> > +	struct i40e_pf *pf = vsi->back;
+> 
+> Please order local variable declarations from longest line to shortest.
+
+Will do, on these and the rest.
+
+[...]
+
+> 
+> > +static u8 i40e_dcb_get_num_tc(struct i40e_dcbx_config *dcbcfg)
+> > +{
+> > +	int num_tc = 0, i;
+> > +	/* Scan the ETS Config Priority Table to find
+> > +	 * traffic class enabled for a given priority
+> > +	 * and use the traffic class index to get the
+> > +	 * number of traffic classes enabled
+> > +	 */
+> 
+> Please put an empty line between the local variables and
+> the rest of the function.
+
+Yep.
+
+[...]
+
+> 
+> > +static inline int i40e_prev_power_of_2(int n)
+> > +{
+> > +	int p = n;
+> > +	--p;
+> > +	p |= p >> 1;
+> > +	p |= p >> 2;
+> > +	p |= p >> 4;
+> > +	p |= p >> 8;
+> > +	p |= p >> 16;
+> > +	if (p == (n - 1))
+> > +		return n;  /* it was already a power of 2 */
+> > +	p >>= 1;
+> > +	return ++p;
+> > +}
+> 
+> I think something using rounddown_pow_of_two() would accomplish this.
+> 
+> Perhaps:
+> 
+> 	if (!is_power_of_2(x))
+> 		x = rounddown_pow_of_two(x);
+
+Oh, didn't know about that one, thanks!
+
+sln
