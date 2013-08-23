@@ -1,56 +1,48 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
+From: Daniel Mack <zonque@gmail.com>
 Subject: Re: [PATCH v6 0/5] cpsw: support for control module register
-Date: Sat, 24 Aug 2013 01:08:56 +0530
-Message-ID: <5217BA50.6050609@ti.com>
-References: <1377286330-29663-1-git-send-email-zonque@gmail.com>
+Date: Fri, 23 Aug 2013 21:41:32 +0200
+Message-ID: <5217BAEC.8060602@gmail.com>
+References: <1377286330-29663-1-git-send-email-zonque@gmail.com> <5217BA50.6050609@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
- d-gerlach@ti.com, netdev@vger.kernel.org, nsekhar@ti.com, vaibhav.bedia@ti.com,
- bcousson@baylibre.com, ujhelyi.m@gmail.com, linux-omap@vger.kernel.org,
- davem@davemloft.net, linux-arm-kernel@lists.infradead.org
-To: Daniel Mack <zonque@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1377286330-29663-1-git-send-email-zonque@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, bcousson@baylibre.com, nsekhar@ti.com,
+	sergei.shtylyov@cogentembedded.com, davem@davemloft.net,
+	ujhelyi.m@gmail.com, vaibhav.bedia@ti.com, d-gerlach@ti.com,
+	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f54.google.com ([74.125.83.54]:62788 "EHLO
+	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754474Ab3HWTlg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 15:41:36 -0400
+In-Reply-To: <5217BA50.6050609@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday 24 August 2013 01:02 AM, Daniel Mack wrote:
-> Hi,
->
-> this is the 6th version of my patch set, the version history is below.
->
-> Note that for personal reasons, I won't be able to work on that patch
-> set for two weeks, starting from a few hours from now. If there are any
-> more objections or comments, I'll catch up after that period. Or if
-> anyone wants to make minor changes to my patches and resubmit them,
-> I'd also be fine with that :)
->
-> The compatibility discussion is still ongoing, but I'd rather submit
-> what I got until now, and I'm also still convinced that having
-> ti,am3352-cpsw is the best we can do.
->
->
-> Thanks,
-> Daniel
->
-> v5 -> v6:
-> 	* re-add code to fail if 3rd memory region is given but invalid
-> 	* added Mugunthan's ack on all patches except the one that adds
-> 	  ti,am3352-cpsw
-> 	* remove parens around integer constants
-I am also in your favour of adding ti,am3352-cpsw, but lets get other
-comment. You can add my ack to that patch also if you are submitting
-another version.
+On 23.08.2013 21:38, Mugunthan V N wrote:
+> On Saturday 24 August 2013 01:02 AM, Daniel Mack wrote:
 
-Regards
-Mugunthan V N
+>> v5 -> v6:
+>> 	* re-add code to fail if 3rd memory region is given but invalid
+>> 	* added Mugunthan's ack on all patches except the one that adds
+>> 	  ti,am3352-cpsw
+>> 	* remove parens around integer constants
+> I am also in your favour of adding ti,am3352-cpsw, but lets get other
+> comment. You can add my ack to that patch also if you are submitting
+> another version.
+
+I don't think I'll have a chance to do that before I'm AFK for a while :)
+
+That's also the only reason why I sent a v6 already. I would have
+normally waited for that discussion to settle of course.
+
+But as I said: I'd be fine if anyone adds another patch on top or amends
+mine.
+
+
+Thanks for the reviews again, everyone!
+
+
+Daniel
