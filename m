@@ -1,43 +1,42 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH RFC 2/2] ipv6: Add support for IPsec virtual tunnel
- interfaces
-Date: Fri, 23 Aug 2013 08:12:15 +0200
-Message-ID: <20130823061214.GG26773@secunet.com>
-References: <20130819062623.GN26773@secunet.com>
- <20130819062730.GP26773@secunet.com>
- <5215C1F4.9030609@windriver.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH 3/4] net: ethernet: cpsw: add support for hardware interface
+ mode config
+Date: Fri, 23 Aug 2013 11:44:20 +0530
+Message-ID: <5216FDBC.3010600@ti.com>
+References: <1377171448-27924-1-git-send-email-zonque@gmail.com> <1377171448-27924-4-git-send-email-zonque@gmail.com> <5216F366.50609@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Mack <zonque@gmail.com>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>, <ujhelyi.m@gmail.com>,
+	<vaibhav.bedia@ti.com>, <d-gerlach@ti.com>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>, <devicetree@vger.kernel.org>
+To: Sekhar Nori <nsekhar@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:50598 "EHLO a.mx.secunet.com"
+Received: from arroyo.ext.ti.com ([192.94.94.40]:43339 "EHLO arroyo.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754513Ab3HWGMR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Aug 2013 02:12:17 -0400
-Content-Disposition: inline
-In-Reply-To: <5215C1F4.9030609@windriver.com>
+	id S1754513Ab3HWGOt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Aug 2013 02:14:49 -0400
+In-Reply-To: <5216F366.50609@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 22, 2013 at 03:47:00PM +0800, Fan Du wrote:
->=20
->=20
-> On 2013=E5=B9=B408=E6=9C=8819=E6=97=A5 14:27, Steffen Klassert wrote:
-> >+
-> >+	skb_dst_drop(skb);
-> >+	skb_dst_set_noref(skb, dst);
-> >+
-> >+	ip6tunnel_xmit(skb, dev);
-> >+	if (ndst)
-> >+		ip6_tnl_dst_store(t, ndst);
-> >+	return 0;
-> >+tx_err_link_failure:
-> >+	stats->tx_carrier_errors++;
-> >+	dst_link_failure(skb);
-> >+tx_err_dst_release:
->=20
-> Maybe it's necessary to count stats->tx_errors as well.
+On Friday 23 August 2013 11:00 AM, Sekhar Nori wrote:
+>> @@ -728,6 +736,44 @@ static void _cpsw_adjust_link(struct cpsw_slave *slave,
+>> >  	u32			mac_control = 0;
+>> >  	u32			slave_port;
+>> >  
+>> > +	if (priv->gmii_sel_reg && of_machine_is_compatible("ti,am33xx")) {
+> This sounds like the DT version of cpu_is_am335x()! Looks like you need
+> to introduce a new compatible "ti,am3352-cpsw" to indicate the AM3352
+> specific features of the CPSW IP (yeah, control module is not really
+> part of the IP, but by introducing it in the driver, we are treating it
+> such anyway. And you can see this register as extension of IP since its
+> not shared for any other purpose).
+>
 
-We count it directly after an error return of this function.
+I also agree but it should be ti,am3352-cpsw or ti.am33xx-cpsw?
+
+Regards
+Mugunthan V N
