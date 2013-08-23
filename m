@@ -1,69 +1,75 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH net-next 00/10] set addr_assign_type when inheriting a dev_addr
-Date: Fri, 23 Aug 2013 11:35:03 +0200
-Message-ID: <1377250513-3662-1-git-send-email-bjorn@mork.no>
+From: Sekhar Nori <nsekhar@ti.com>
+Subject: Re: [PATCH v2 5/5] ARM: dts: am33xx: adopt to cpsw changes
+Date: Fri, 23 Aug 2013 15:10:34 +0530
+Message-ID: <52172E12.2000908@ti.com>
+References: <1377247417-27386-1-git-send-email-zonque@gmail.com>
+ <1377247417-27386-6-git-send-email-zonque@gmail.com>
+ <52172B54.8020201@ti.com> <52172CB0.9030204@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
-	Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jouni Malinen <j@w1.fi>,
-	libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org,
-	Forest Bond <forest-B/PTSs0AgtP3p6jHtUh95NHuzzzSOjJt@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mugunthanvnm@ti.com, sergei.shtylyov@cogentembedded.com, d-gerlach@ti.com,
+ netdev@vger.kernel.org, vaibhav.bedia@ti.com, devicetree@vger.kernel.org,
+ ujhelyi.m@gmail.com, linux-omap@vger.kernel.org, davem@davemloft.net,
+ linux-arm-kernel@lists.infradead.org
+To: Daniel Mack <zonque@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <52172CB0.9030204@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Copying the dev_addr from a parent device is an operation
-common to a number of drivers. The addr_assign_type should
-be updated accordingly, either by reusing the value from
-the source device or explicitly indicating that the address
-is stolen by setting addr_assign_type to NET_ADDR_STOLEN.
+On Friday 23 August 2013 03:04 PM, Daniel Mack wrote:
+> On 23.08.2013 11:28, Sekhar Nori wrote:
+>> On Friday 23 August 2013 02:13 PM, Daniel Mack wrote:
+>>> This third memory region just denotes one single register in the CONTROL
+>>> module block. The driver uses that in order to set the correct physical
+>>> ethernet interface modes.
+>>>
+>>> Also update the compatible string to make use of the am335x specific
+>>> features of the cpsw driver.
+>>>
+>>> Signed-off-by: Daniel Mack <zonque@gmail.com>
+>>> ---
+>>>  arch/arm/boot/dts/am33xx.dtsi | 5 +++--
+>>>  1 file changed, 3 insertions(+), 2 deletions(-)
+>>>
+>>> diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
+>>> index a785b95..1a1e9dd 100644
+>>> --- a/arch/arm/boot/dts/am33xx.dtsi
+>>> +++ b/arch/arm/boot/dts/am33xx.dtsi
+>>> @@ -446,7 +446,7 @@
+>>>  		};
+>>>  
+>>>  		mac: ethernet@4a100000 {
+>>> -			compatible = "ti,cpsw";
+>>> +			compatible = "ti,am3352-cpsw";
+>>
+>> Please keep this as
+>>
+>> 	compatible = "ti,am3352-cpsw", "ti,cpsw";
+>>
+>> so users can upgrade the DTB or kernel independently. Apart from this
+>> the series looks good to me.
+> 
+> Ok, thanks. Given that this last patch will be merged through another
+> tree, can I just resend it separately, while David takes the rest as it is?
 
-This patch set adds a helper copying both the dev_addr and
-the addr_assign_type, and use this helper in drivers which
-don't currently set the addr_assign_type. Using NET_ADDR_STOLEN
-might be more appropriate in some of these cases.  Please
-let me know, and I'll update the patch accordingly.
+Ideally you could, but there are some bugs in the way compatible string
+in handled and due to this I suspect you need to reorder
+cpsw_of_mtable[] to match correctly. Not sure if the bug has been fixed
+in recent -rcs. Please check if modifying just this patch works and then
+go ahead and post.
 
+Please Cc Benoit Cousson <bcousson@baylibre.com> on your next submission
+as he is the one who picks up DT patches for OMAP.
 
-Bj=C3=B8rn Mork (10):
-  net: etherdevice: add address inherit helper
-  net: vlan: inherit addr_assign_type along with dev_addr
-  net: dsa: inherit addr_assign_type along with dev_addr
-  net: macvlan: inherit addr_assign_type along with dev_addr
-  net: team: inherit addr_assign_type along with dev_addr
-  net: airo: inherit addr_assign_type along with dev_addr
-  net: hostap: inherit addr_assign_type along with dev_addr
-  net: libertas: inherit addr_assign_type along with dev_addr
-  staging: vt6655: inherit addr_assign_type along with dev_addr
-  staging: vt6656: inherit addr_assign_type along with dev_addr
-
- drivers/net/macvlan.c                     |    2 +-
- drivers/net/team/team.c                   |    2 +-
- drivers/net/wireless/airo.c               |    2 +-
- drivers/net/wireless/hostap/hostap_hw.c   |    2 +-
- drivers/net/wireless/hostap/hostap_main.c |    2 +-
- drivers/net/wireless/libertas/mesh.c      |    2 +-
- drivers/staging/vt6655/hostap.c           |    2 +-
- drivers/staging/vt6655/ioctl.c            |    2 +-
- drivers/staging/vt6655/wpactl.c           |    2 +-
- drivers/staging/vt6656/hostap.c           |    2 +-
- include/linux/etherdevice.h               |   19 +++++++++++++++++++
- net/8021q/vlan_dev.c                      |    2 +-
- net/dsa/slave.c                           |    2 +-
- 13 files changed, 31 insertions(+), 12 deletions(-)
-
---=20
-1.7.10.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Sekhar
