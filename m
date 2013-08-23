@@ -1,69 +1,161 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [patch] net/fec: "u32" is more explicit than "unsigned long"
-Date: Fri, 23 Aug 2013 13:44:29 +0100
-Message-ID: <1377261869.3364.3.camel@bwh-desktop.uk.level5networks.com>
-References: <20130823094920.GP31293@elgon.mountain>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Problematic commits in the ipsec tree
+Date: Fri, 23 Aug 2013 14:49:11 +0200
+Message-ID: <20130823124911.GD808@order.stressinduktion.org>
+References: <20130822104724.GD26773@secunet.com> <20130822135342.GC30722@order.stressinduktion.org> <20130823085807.GH26773@secunet.com> <20130823110323.GB808@order.stressinduktion.org> <20130823113435.GC808@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Fabio Estevam" <fabio.estevam@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>,
-	Jim Baxter <jim_baxter@mentor.com>,
-	Fugang Duan <B38611@freescale.com>, <netdev@vger.kernel.org>,
-	<devicetree@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset=utf-8
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:6773 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753435Ab3HWMoi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 08:44:38 -0400
-In-Reply-To: <20130823094920.GP31293@elgon.mountain>
+Received: from order.stressinduktion.org ([87.106.68.36]:42213 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754483Ab3HWMtM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 08:49:12 -0400
+Content-Disposition: inline
+In-Reply-To: <20130823113435.GC808@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-08-23 at 12:49 +0300, Dan Carpenter wrote:
-> tmpaddr[] is a six byte array.  We want to set the first four bytes on
-> the first line and the remaining two on the next line.  The code assumes
-> that "unsigned long" is 32 bits and obviously that's not true on 64 bit
-> arches.  It's better to just use u32 instead.
+On Fri, Aug 23, 2013 at 01:34:35PM +0200, Hannes Frederic Sowa wrote:
+> On Fri, Aug 23, 2013 at 01:03:23PM +0200, Hannes Frederic Sowa wrote:
+> > Hello!
+> > 
+> > On Fri, Aug 23, 2013 at 10:58:07AM +0200, Steffen Klassert wrote:
+> > > On Thu, Aug 22, 2013 at 03:53:42PM +0200, Hannes Frederic Sowa wrote:
+> > > > On Thu, Aug 22, 2013 at 12:47:24PM +0200, Steffen Klassert wrote:
+> > > > > Hannes,
+> > > > > 
+> > > > > I have two problematic commits from you in the ipsec tree. The first one is:
+> > > > > 
+> > > > > commit 0ea9d5e3e (xfrm: introduce helper for safe determination of mtu)
+> > > > > 
+> > > > > This breakes pmtu discovery for IPv4 because now we use the device mtu
+> > > > > instead of the reduced IPsec mtu in xfrm4_tunnel_check_size() if a IPv4
+> > > > > socket is at the skb.
+> > > > 
+> > > > I am currently testing this following patch. It should restore old behavior
+> > > > for ipv4 sockets.
+> > > > 
+> > > > diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+> > > > index ac5b025..65d3529 100644
+> > > > --- a/include/net/xfrm.h
+> > > > +++ b/include/net/xfrm.h
+> > > > @@ -1730,8 +1730,6 @@ static inline int xfrm_skb_dst_mtu(struct sk_buff *skb)
+> > > >  
+> > > >  	if (sk && skb->protocol == htons(ETH_P_IPV6))
+> > > >  		return ip6_skb_dst_mtu(skb);
+> > > > -	else if (sk && skb->protocol == htons(ETH_P_IP))
+> > > > -		return ip_skb_dst_mtu(skb);
+> > > >  	return dst_mtu(skb_dst(skb));
+> > > >  }
+> > > 
+> > > This looks still fragile. xfrm_skb_dst_mtu() is called from
+> > > __xfrm6_output() and from xfrm4_tunnel_check_size().
+> > > We will have the same bug again as soon as somebody thinks that
+> > > it is save to call it from xfrm6_tunnel_check_size() too. So I
+> > > think it is better not to call it from xfrm4_tunnel_check_size().
+> > 
+> > Hm, I don't think I can follow you completly here. I searched for allocations
+> > of ipv6 skbs (where they originated from a socket) and checked these
+> > allocations also initialize the skb->protocol field (the second patch).
+> > 
+> > I wonder if ip6_skb_dst_mtu was correct all along and if we should just
+> > switch to dst_mtu(skb_dst(skb)) in all cases?
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> ---
-> This is a static checker thing and I can't compile this file.
+> Ok, I got it.
 > 
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-> index fdf9307..422b125 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -1100,9 +1100,9 @@ static void fec_get_mac(struct net_device *ndev)
->  	 * 4) FEC mac registers set by bootloader
->  	 */
->  	if (!is_valid_ether_addr(iap)) {
-> -		*((unsigned long *) &tmpaddr[0]) =
-> +		*((u32 *) &tmpaddr[0]) =
->  			be32_to_cpu(readl(fep->hwp + FEC_ADDR_LOW));
-> -		*((unsigned short *) &tmpaddr[4]) =
-> +		*((u16 *) &tmpaddr[4]) =
->  			be16_to_cpu(readl(fep->hwp + FEC_ADDR_HIGH) >> 16);
->  		iap = &tmpaddr[0];
->  	}
+> How about just checking in __xfrm6_output if we actually have a packet
+> originated from an IPv6 socket so that we only replace the original call to
+> ip6_skb_dst_mtu(skb)?
 
-This code also seems to have CPU vs big-endian byte order the wrong way
-round.  readl() returns bytes in native order whereas we always store
-MAC addresses in network (big-endian) order.  So I think it should be
-doing:
+This could be the replacement for patch 1/2 to reassemble old behaviour
+without touching ip6_skb_dst_mtu if the socket type is not an IPv6 one.
 
-		*((__be32 *) &tmpaddr[0]) =
-			cpu_to_be32(readl(fep->hwp + FEC_ADDR_LOW));
-		*((__be16 *) &tmpaddr[4]) =
-			cpu_to_be16(readl(fep->hwp + FEC_ADDR_HIGH) >> 16);
+I would still like to look if we could correctly handle *_PMTUDISC_PROBE one
+day and fallback to dst_mtu(dst->path) if possible. So I don't know if
+removing xfrm_skb_dst_mtu is good style and would just make churn in the git
+history. What do you think?
 
-Ben.
+[PATCH ipsec 1/2] xfrm: revert ipv4 mtu determination to dst_mtu
 
+In commit 0ea9d5e3e0e03a63b11392f5613378977dae7eca ("xfrm: introduce
+helper for safe determination of mtu") I switched the determination of
+ipv4 mtus from dst_mtu to ip_skb_dst_mtu. This was an error because in
+case of IP_PMTUDISC_PROBE we fall back to the interface mtu, which is
+never correct for ipv4 ipsec.
+
+This patch partly reverts 0ea9d5e3e0e03a63b11392f5613378977dae7eca
+("xfrm: introduce helper for safe determination of mtu").
+
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ include/net/xfrm.h      | 12 ------------
+ net/ipv4/xfrm4_output.c |  2 +-
+ net/ipv6/xfrm6_output.c |  8 +++++---
+ 3 files changed, 6 insertions(+), 16 deletions(-)
+
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index ac5b025..e823786 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -20,7 +20,6 @@
+ #include <net/route.h>
+ #include <net/ipv6.h>
+ #include <net/ip6_fib.h>
+-#include <net/ip6_route.h>
+ #include <net/flow.h>
+ 
+ #include <linux/interrupt.h>
+@@ -1724,15 +1723,4 @@ static inline int xfrm_mark_put(struct sk_buff *skb, const struct xfrm_mark *m)
+ 	return ret;
+ }
+ 
+-static inline int xfrm_skb_dst_mtu(struct sk_buff *skb)
+-{
+-	struct sock *sk = skb->sk;
+-
+-	if (sk && skb->protocol == htons(ETH_P_IPV6))
+-		return ip6_skb_dst_mtu(skb);
+-	else if (sk && skb->protocol == htons(ETH_P_IP))
+-		return ip_skb_dst_mtu(skb);
+-	return dst_mtu(skb_dst(skb));
+-}
+-
+ #endif	/* _NET_XFRM_H */
+diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
+index 80baf4a..baa0f63 100644
+--- a/net/ipv4/xfrm4_output.c
++++ b/net/ipv4/xfrm4_output.c
+@@ -28,7 +28,7 @@ static int xfrm4_tunnel_check_size(struct sk_buff *skb)
+ 	if (!(ip_hdr(skb)->frag_off & htons(IP_DF)) || skb->local_df)
+ 		goto out;
+ 
+-	mtu = xfrm_skb_dst_mtu(skb);
++	mtu = dst_mtu(skb_dst(skb));
+ 	if (skb->len > mtu) {
+ 		if (skb->sk)
+ 			xfrm_local_error(skb, mtu);
+diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+index e092e30..6cd625e 100644
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@ -140,10 +140,12 @@ static int __xfrm6_output(struct sk_buff *skb)
+ {
+ 	struct dst_entry *dst = skb_dst(skb);
+ 	struct xfrm_state *x = dst->xfrm;
+-	int mtu = xfrm_skb_dst_mtu(skb);
++	int mtu;
+ 
+-	if (mtu < IPV6_MIN_MTU)
+-		mtu = IPV6_MIN_MTU;
++	if (skb->protocol == htons(ETH_P_IPV6))
++		mtu = ip6_skb_dst_mtu(skb);
++	else
++		mtu = dst_mtu(skb_dst(skb));
+ 
+ 	if (skb->len > mtu && xfrm6_local_dontfrag(skb)) {
+ 		xfrm6_local_rxpmtu(skb, mtu);
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.8.3.1
