@@ -1,92 +1,77 @@
-From: Santosh Shilimkar <santosh.shilimkar@ti.com>
-Subject: Re: [PATCH v4 3/5] net: ethernet: cpsw: introduce ti,am3352-cpsw
- compatible string
-Date: Fri, 23 Aug 2013 15:54:34 -0400
-Message-ID: <5217BDFA.5040904@ti.com>
-References: <1377267365-24057-1-git-send-email-zonque@gmail.com> <1377267365-24057-4-git-send-email-zonque@gmail.com> <52177052.1030308@ti.com> <52178E20.5040404@gmail.com> <52179448.1020906@ti.com> <5217974B.5090503@ti.com> <521799A3.7080706@ti.com> <52179AD6.8090406@gmail.com> <52179BDA.50603@ti.com> <52179E44.5030202@ti.com> <5217A59E.4090700@ti.com> <5217AA15.7010907@ti.com>
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: Re: travelling...
+Date: Fri, 23 Aug 2013 22:16:48 +0200
+Message-ID: <20130823201648.GC2896@ritirata.org>
+References: <20130823.111308.1720597810013400745.davem@davemloft.net>
+ <20130823182943.GE808@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Sekhar Nori <nsekhar@ti.com>, Daniel Mack <zonque@gmail.com>,
-	<netdev@vger.kernel.org>, <bcousson@baylibre.com>,
-	<sergei.shtylyov@cogentembedded.com>, <davem@davemloft.net>,
-	<ujhelyi.m@gmail.com>, <vaibhav.bedia@ti.com>, <d-gerlach@ti.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>, <devicetree@vger.kernel.org>
-To: Mugunthan V N <mugunthanvnm@ti.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="qtZFehHsKgwS5rPz"
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:50756 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755805Ab3HWTzB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Aug 2013 15:55:01 -0400
-In-Reply-To: <5217AA15.7010907@ti.com>
+Received: from latitanza.investici.org ([82.94.249.234]:49423 "EHLO
+	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756103Ab3HWUTb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 16:19:31 -0400
+Content-Disposition: inline
+In-Reply-To: <20130823182943.GE808@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 23 August 2013 02:29 PM, Mugunthan V N wrote:
-> On Friday 23 August 2013 11:40 PM, Santosh Shilimkar wrote:
->> On Friday 23 August 2013 01:39 PM, Sekhar Nori wrote:
->>> On 8/23/2013 10:58 PM, Santosh Shilimkar wrote:
->>>> On Friday 23 August 2013 01:24 PM, Daniel Mack wrote:
->>>>> On 23.08.2013 19:19, Santosh Shilimkar wrote:
->>>>>> On Friday 23 August 2013 01:09 PM, Sekhar Nori wrote:
->>>>>>> On 8/23/2013 10:26 PM, Santosh Shilimkar wrote:
->>>>>>>> So just stick the IP version or call it cpsw-v1... cpsw-v2 etc.
->>>>>>> If this could be handled using IP version then the right way would be to
->>>>>>> just read the IP version from hardware and use it. No need of DT property.
->>>>>>>
->>>>>> Thats fine as well but I thought the patch needed additional properties like
->>>>>> CM reg-address come from DT and hence the separate compatible. If you can
->>>>>> manage without that, thats even better.
->>>>> We can't, that's the whole point :)
->>>>>
->>>> I saw that from the patch :)
->>>>
->>>>> Well, theoretically, we could for now, but that's not a clean solution.
->>>>> Again: the problem here is that the control port is separated from the
->>>>> cpsw core, and so we have to implement something specific for the AM3352
->>>>> SoC. I know that's a violation of clean and generic driver ideas, but
->>>>> there's no way we can assume that every cpsw v2 ip block has a control
->>>>> port that is compatible to the one found on am335x chips.
->>>>>
->>>> But there is a possibility that other SOC will just use the same
->>>> control module approach. So using a revision IP is just fine. BTW,
->>> But this is misleading because it makes appear like the same compatible
->>> can be used on on another SoC like DRA7 which probably has the same
->>> version of IP but a different control module implementation, when in
->>> practice it cannot.
->>>
->>> The fact is we are doing something SoC specific in the driver and we
->>> cannot hide that behind IP versions. If really in practice there comes
->>> another SoC with the same control module definition then it can always
->>> use ti,am3352-cpsw compatible as well. The compatible name does not
->>> preclude its usage.
->>>
->> My point was the CPSW needs a feature which is implemented using
->> control module rather than within the IP itself. Its an implementation
->> detail. As such the additional feature makes sense for that IP. O.w
->> there was no need to do any monkeying with control module.
->>
->> E.g
->> MMC card detect is a basic functionality, implemented by various types
->> like control module, PMIC or MMC IP itself. As such the driver need
->> that support and all the implementation details needs to still handled
->> to make that part work.
->>
->>
-> 
-> CPSW core as such understands only GMII/MII signals, there is an
-> additional module which converts GMII/MII signals to RGMII/RMII signals
-> respectively which is called as CPRGMII/CPRMII as specified in the
-> AM335x TRM in Figure 14-1. Ethernet Switch Integration.
-> 
-> So to control this sub-module, the control register is used and this has
-> to be configured according to the EVM design like what mode of phy is
-> connected. CPRGMII and CPRMII is no way related to CPSW core.
-> 
-Ok then why are you polluting cpsw driver with that code which
-not realted to CPSW as you said above. You are contradicting what
-you said by supporting the SOC usage in the core CPSW driver.
 
-Regards,
-Santosh
+--qtZFehHsKgwS5rPz
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, Aug 23, 2013 at 08:29:43PM +0200, Hannes Frederic Sowa wrote:
+> On Fri, Aug 23, 2013 at 11:13:08AM -0700, David Miller wrote:
+> >=20
+> > I'm travelling over the weekend so I won't be as responsive as
+> > usual.
+> >=20
+> > I just pushed 'net' to Linus and he pulled it in.  I plan to work
+> > on my next set of -stable submissions this coming Monday.
+> >=20
+> > If a merge of 'net' into 'net-next' would be useful for someone,
+> > now would be a really good time to tell me.
+>=20
+> If it would not take you too much time, it would be nice. I depend on
+> a change in net to make another small patch. :)
+
+If possible I'd need that too in order to send a couple of changes to net-n=
+ext.
+
+Have a nice weekend!
+
+
+--=20
+Antonio Quartulli
+
+=2E.each of us alone is worth nothing..
+Ernesto "Che" Guevara
+
+--qtZFehHsKgwS5rPz
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.20 (GNU/Linux)
+
+iQIcBAEBCAAGBQJSF8MwAAoJEADl0hg6qKeOdLsP/0vhG7K1RRlM4K3h0dRNbGE1
+c/185PiukL2+GoePMU353FxntamC2TYmEkLlBUiyIsuOvn4HTGh784zki1NF6pVZ
+34O0QrLwJtA27fIH5hBu/Ht2hyPxY4hA2aF01dwHmSXgn61A35cleS0blwDfhqKa
+D43C0GhnUJPgW5ofbkJ1w4yPkwQbJEe62/da6sHJSIW1qJ/0uXEEwWC73MmuLlt6
+3eo2/d9EwwTz/3X/WhkQeUseU2c6YAMHwAd34zE9MZBUaI0zmfu20E7Tz8zlbF63
+SXi1iOhRbjVUXsLB8Gx4fM3ghfu7E1+a3xiYjB+WdRDrjrQqGjz7FMHgdUok1Mf1
+TDAki7Et91zhd9FeIZPB2JBKqeYBzXeUqL7Oh8UYnQrKKPyvcCSGt109zKj6ycdB
+RBCF+3M1V3d66FXl3l2gS7U83Gl+bcmEzguB8TWwbt7bgxxKvntmXsxC080GxcPr
+xMbgSN7zkc5A9NsHJWJ1vvQEEcNtOo0EDY426tVUEbtARbWdW9/Y69zyMxudLpC0
+Snq0Tg7mYdDSMMOuDVTya3rihavKc1zABy/ub5jB8IcZOQYYRIybsH6DTgbb6rsD
+vNaRTPVpbvTsaktZ1px5cN1vnLoKq/MBshfmn/HqaYvn6qsD36wvZmEFwdLWS+Zp
+57mmNFlWW/IwrwNJ+Sp4
+=tFvA
+-----END PGP SIGNATURE-----
+
+--qtZFehHsKgwS5rPz--
