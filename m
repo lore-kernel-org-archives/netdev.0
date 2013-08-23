@@ -1,47 +1,40 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: [PATCH RESEND V3 net-next 3/3] net: cdc_ncm: remove non-standard NCM device IDs
-Date: Fri, 23 Aug 2013 09:56:30 +0200
-Message-ID: <1377244590-8558-4-git-send-email-mrkiko.rs@gmail.com>
-References: <mrkiko.rs@gmail.com>
- <1377244590-8558-1-git-send-email-mrkiko.rs@gmail.com>
-Cc: Enrico Mioso <mrkiko.rs@gmail.com>
-To: gregkh@linuxfoundation.org, oliver@neukum.org,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
+From: Li Zefan <lizefan@huawei.com>
+Subject: Re: ADSL/ATM linklayer tc shaping regression fix commits for stable
+Date: Fri, 23 Aug 2013 15:59:58 +0800
+Message-ID: <5217167E.2060904@huawei.com>
+References: <20130821140350.2b953007@redhat.com> <20130821.112023.744177612387539958.davem@davemloft.net> <20130822100426.39be319d@redhat.com> <20130822.012348.1370012681436362922.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <brouer@redhat.com>, <gregkh@linuxfoundation.org>,
+	<stable@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1377244590-8558-1-git-send-email-mrkiko.rs@gmail.com>
+In-Reply-To: <20130822.012348.1370012681436362922.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove device IDs of NCM-like (but not NCM-conformant) devices, that are
-handled by the huawwei_cdc_ncm driver now.
+Hi David,
 
-Signed-off-by: Enrico Mioso <mrkiko.rs@gmail.com>
----
- drivers/net/usb/cdc_ncm.c |   11 -----------
- 1 file changed, 11 deletions(-)
+On 2013/8/22 16:23, David Miller wrote:
+> From: Jesper Dangaard Brouer <brouer@redhat.com>
+> Date: Thu, 22 Aug 2013 10:04:26 +0200
+> 
+>> So, for future reference:
+>>
+>> Stable patches for the networking tree, I should:
+>> 1) check http://patchwork.ozlabs.org/bundle/davem/stable/?state=*
+>>    to see if my patch is already on your stable queue
+>> 2) if not, ask you and cc netdev@vger.kernel.org
+>> 3) you will handle the interaction with Greg and stable@vger.kernel.org
+>>
+>> Correct?
+> 
+> Yes, and that's how it's been with the networking for years.
+> 
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 62686be..31f43f7 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -1236,17 +1236,6 @@ static const struct usb_device_id cdc_devs[] = {
- 	  .driver_info = (unsigned long)&wwan_info,
- 	},
- 
--	/* Huawei NCM devices disguised as vendor specific */
--	{ USB_VENDOR_AND_INTERFACE_INFO(0x12d1, 0xff, 0x02, 0x16),
--	  .driver_info = (unsigned long)&wwan_info,
--	},
--	{ USB_VENDOR_AND_INTERFACE_INFO(0x12d1, 0xff, 0x02, 0x46),
--	  .driver_info = (unsigned long)&wwan_info,
--	},
--	{ USB_VENDOR_AND_INTERFACE_INFO(0x12d1, 0xff, 0x02, 0x76),
--	  .driver_info = (unsigned long)&wwan_info,
--	},
--
- 	/* Infineon(now Intel) HSPA Modem platform */
- 	{ USB_DEVICE_AND_INTERFACE_INFO(0x1519, 0x0443,
- 		USB_CLASS_COMM,
--- 
-1.7.10.4
+How about these two stable requests?
+
+http://article.gmane.org/gmane.linux.kernel.stable/61247/match=weidong
+http://article.gmane.org/gmane.linux.kernel.stable/61248/match=weidong
