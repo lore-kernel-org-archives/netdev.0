@@ -1,108 +1,92 @@
-From: Chris Clark <chris.clark@alcatel-lucent.com>
-Subject: sendto() bug?
-Date: Fri, 23 Aug 2013 13:19:48 -0600 (MDT)
-Message-ID: <alpine.DEB.2.02.1308231257140.10771@optio.utah.ind.alcatel.com>
+From: Santosh Shilimkar <santosh.shilimkar@ti.com>
+Subject: Re: [PATCH v4 3/5] net: ethernet: cpsw: introduce ti,am3352-cpsw
+ compatible string
+Date: Fri, 23 Aug 2013 15:54:34 -0400
+Message-ID: <5217BDFA.5040904@ti.com>
+References: <1377267365-24057-1-git-send-email-zonque@gmail.com> <1377267365-24057-4-git-send-email-zonque@gmail.com> <52177052.1030308@ti.com> <52178E20.5040404@gmail.com> <52179448.1020906@ti.com> <5217974B.5090503@ti.com> <521799A3.7080706@ti.com> <52179AD6.8090406@gmail.com> <52179BDA.50603@ti.com> <52179E44.5030202@ti.com> <5217A59E.4090700@ti.com> <5217AA15.7010907@ti.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Sekhar Nori <nsekhar@ti.com>, Daniel Mack <zonque@gmail.com>,
+	<netdev@vger.kernel.org>, <bcousson@baylibre.com>,
+	<sergei.shtylyov@cogentembedded.com>, <davem@davemloft.net>,
+	<ujhelyi.m@gmail.com>, <vaibhav.bedia@ti.com>, <d-gerlach@ti.com>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>, <devicetree@vger.kernel.org>
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postal2.ind.alcatel.com ([198.206.184.238]:33562 "EHLO
-	ind.alcatel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754093Ab3HWTvH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 15:51:07 -0400
+Received: from arroyo.ext.ti.com ([192.94.94.40]:50756 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755805Ab3HWTzB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Aug 2013 15:55:01 -0400
+In-Reply-To: <5217AA15.7010907@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Friday 23 August 2013 02:29 PM, Mugunthan V N wrote:
+> On Friday 23 August 2013 11:40 PM, Santosh Shilimkar wrote:
+>> On Friday 23 August 2013 01:39 PM, Sekhar Nori wrote:
+>>> On 8/23/2013 10:58 PM, Santosh Shilimkar wrote:
+>>>> On Friday 23 August 2013 01:24 PM, Daniel Mack wrote:
+>>>>> On 23.08.2013 19:19, Santosh Shilimkar wrote:
+>>>>>> On Friday 23 August 2013 01:09 PM, Sekhar Nori wrote:
+>>>>>>> On 8/23/2013 10:26 PM, Santosh Shilimkar wrote:
+>>>>>>>> So just stick the IP version or call it cpsw-v1... cpsw-v2 etc.
+>>>>>>> If this could be handled using IP version then the right way would be to
+>>>>>>> just read the IP version from hardware and use it. No need of DT property.
+>>>>>>>
+>>>>>> Thats fine as well but I thought the patch needed additional properties like
+>>>>>> CM reg-address come from DT and hence the separate compatible. If you can
+>>>>>> manage without that, thats even better.
+>>>>> We can't, that's the whole point :)
+>>>>>
+>>>> I saw that from the patch :)
+>>>>
+>>>>> Well, theoretically, we could for now, but that's not a clean solution.
+>>>>> Again: the problem here is that the control port is separated from the
+>>>>> cpsw core, and so we have to implement something specific for the AM3352
+>>>>> SoC. I know that's a violation of clean and generic driver ideas, but
+>>>>> there's no way we can assume that every cpsw v2 ip block has a control
+>>>>> port that is compatible to the one found on am335x chips.
+>>>>>
+>>>> But there is a possibility that other SOC will just use the same
+>>>> control module approach. So using a revision IP is just fine. BTW,
+>>> But this is misleading because it makes appear like the same compatible
+>>> can be used on on another SoC like DRA7 which probably has the same
+>>> version of IP but a different control module implementation, when in
+>>> practice it cannot.
+>>>
+>>> The fact is we are doing something SoC specific in the driver and we
+>>> cannot hide that behind IP versions. If really in practice there comes
+>>> another SoC with the same control module definition then it can always
+>>> use ti,am3352-cpsw compatible as well. The compatible name does not
+>>> preclude its usage.
+>>>
+>> My point was the CPSW needs a feature which is implemented using
+>> control module rather than within the IP itself. Its an implementation
+>> detail. As such the additional feature makes sense for that IP. O.w
+>> there was no need to do any monkeying with control module.
+>>
+>> E.g
+>> MMC card detect is a basic functionality, implemented by various types
+>> like control module, PMIC or MMC IP itself. As such the driver need
+>> that support and all the implementation details needs to still handled
+>> to make that part work.
+>>
+>>
+> 
+> CPSW core as such understands only GMII/MII signals, there is an
+> additional module which converts GMII/MII signals to RGMII/RMII signals
+> respectively which is called as CPRGMII/CPRMII as specified in the
+> AM335x TRM in Figure 14-1. Ethernet Switch Integration.
+> 
+> So to control this sub-module, the control register is used and this has
+> to be configured according to the EVM design like what mode of phy is
+> connected. CPRGMII and CPRMII is no way related to CPSW core.
+> 
+Ok then why are you polluting cpsw driver with that code which
+not realted to CPSW as you said above. You are contradicting what
+you said by supporting the SOC usage in the core CPSW driver.
 
-I've run across a problem with the sendto() system call that first
-appeared with commit f8126f1d:
-
-=================================================================
-commit f8126f1d5136be1ca1a3536d43ad7a710b5620f8
-Author: David S. Miller <davem@davemloft.net>
-Date:   Fri Jul 13 05:03:45 2012 -0700
-
-    ipv4: Adjust semantics of rt->rt_gateway.
-=================================================================
-
-The issue arises when sendto() is used on a SOCK_RAW IP socket opened
-with the IP_HDRINCL option.  Instead of sending the packet to the
-address given explicitly in the sendto() call, the kernel ignores the
-given dest_addr and ARPs locally for the destination address given in
-the constructed packet's IP header.  Because the IP header's
-destination address is not on a local subnet, the bogus ARP never
-resolves and the packet is never sent.
-
-A subsequent commit addressed a similar problem in netfilter:
-
-=================================================================
-commit 2ad5b9e4bd314fc685086b99e90e5de3bc59e26b
-Author: Eric Dumazet <eric.dumazet@gmail.com>
-Date:   Tue Oct 16 22:33:29 2012 +0000
-
-    netfilter: xt_TEE: don't use destination address found in header
-
-    Torsten Luettgert bisected TEE regression starting with commit
-    f8126f1d5136be1 (ipv4: Adjust semantics of rt->rt_gateway.)
-
-    The problem is that it tries to ARP-lookup the original destination
-    address of the forwarded packet, not the address of the gateway.
-
-    Fix this using FLOWI_FLAG_KNOWN_NH Julian added in commit
-    c92b96553a80c1 (ipv4: Add FLOWI_FLAG_KNOWN_NH), so that known
-    nexthop (info->gw.ip) has preference on resolving.
-=================================================================
-
-In the same vein as 2ad5b9e4, I'm soliciting feedback on something
-similar for raw_sendmsg():
-
-=================================================================
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index dd44e0a..454d9c1 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -571,7 +571,9 @@ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
-        flowi4_init_output(&fl4, ipc.oif, sk->sk_mark, tos,
-                           RT_SCOPE_UNIVERSE,
-                           inet->hdrincl ? IPPROTO_RAW : sk->sk_protocol,
--                          inet_sk_flowi_flags(sk) | FLOWI_FLAG_CAN_SLEEP,
-+                          inet_sk_flowi_flags(sk) | FLOWI_FLAG_CAN_SLEEP
-+                           | ((msg->msg_namelen
-+                               && (tos & RTO_ONLINK)) ? FLOWI_FLAG_KNOWN_NH : 0),
-                           daddr, saddr, 0, 0);
-
-        if (!inet->hdrincl) {
-=================================================================
-
-The thought here is to apply the FLOWI_FLAG_KNOWN_NH flag when:
- (a) The dest_addr is given explicitly (msg->msg_namelen), and
- (b) The socket is in MSG_DONTROUTE mode (tos & RTO_ONLINK).
-
-This change fixes the problem because the FLOWI_FLAG_KNOWN_NH flag
-ends up (very indirectly) triggering the following code in
-rt_set_nexthop() which sets rt->rt_gateway to the address specified in
-the sendto() call, which ultimately causes the packet to be forwarded
-to that address rather than wrongly ARPing locally for the (different,
-remote) address in the IP header:
-
-=================================================================
-        if (unlikely(!cached)) {
-            /* Routes we intend to cache in nexthop exception or
-             * FIB nexthop have the DST_NOCACHE bit clear.
-             * However, if we are unsuccessful at storing this
-             * route into the cache we really need to set it.
-             */
-            rt->dst.flags |= DST_NOCACHE;
-            if (!rt->rt_gateway)
-->              rt->rt_gateway = daddr;
-
-=================================================================
-
-While the diff resolves the particular problem that I encountered, I'm
-soliciting feedback because I'm not sure it is necessary and
-sufficient beyond my particular test case.
-
-Thanks,
-Chris
+Regards,
+Santosh
