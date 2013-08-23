@@ -1,37 +1,51 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH net-next 10/10] staging: vt6656: inherit addr_assign_type
- along with dev_addr
-Date: Fri, 23 Aug 2013 13:03:33 +0300
-Message-ID: <20130823100333.GT22811@mwanda>
-References: <1377250513-3662-1-git-send-email-bjorn@mork.no>
- <1377250513-3662-11-git-send-email-bjorn@mork.no>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH RESEND net-next 06/16] sfc: Introduce and use
+ MCDI_DECLARE_BUF macro
+Date: Fri, 23 Aug 2013 11:26:10 +0100
+Message-ID: <1377253570.2586.15.camel@deadeye.wl.decadent.org.uk>
+References: <1377199326.1703.49.camel@bwh-desktop.uk.level5networks.com>
+	 <1377199609.1703.55.camel@bwh-desktop.uk.level5networks.com>
+	 <20130822.220236.2202751653391527307.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- Forest Bond <forest@alittletooquiet.net>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <1377250513-3662-11-git-send-email-bjorn@mork.no>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:11851 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754313Ab3HWK0O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 06:26:14 -0400
+In-Reply-To: <20130822.220236.2202751653391527307.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 23, 2013 at 11:35:13AM +0200, Bj=F8rn Mork wrote:
-> Cc: Forest Bond <forest@alittletooquiet.net>
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
-> ---
+On Thu, 2013-08-22 at 22:02 -0700, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Thu, 22 Aug 2013 20:26:49 +0100
+> 
+> > MCDI_DECLARE_BUF declares a variable as an MCDI buffer of the
+> > requested length, adding any necessary padding.
+> > 
+> > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> 
+> There really isn't a guarentee that a u8 array is going to
+> aligned appropriately to write dwords there using casts like
+> you do.
 
-The changlog is missing.  Why does this patch help?
+Yes, but this has been wrong for years.
 
-regards,
-dan carpenter
+> Since you're here macro'izing the declaration, take the time to fix it
+> to specify the necessary alignment as well.
+[...]
+
+My intent was to separate refactoring changes with no immediate effect
+(#6-9) from functional changes (#10-11), making them easier to review.
+The alignment gets fixed by #11.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
