@@ -1,377 +1,91 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: [PATCH v4 1/5] net: ethernet: cpsw: switch to devres allocations
-Date: Fri, 23 Aug 2013 16:16:01 +0200
-Message-ID: <1377267365-24057-2-git-send-email-zonque@gmail.com>
-References: <1377267365-24057-1-git-send-email-zonque@gmail.com>
-Cc: bcousson@baylibre.com, nsekhar@ti.com,
-	sergei.shtylyov@cogentembedded.com, davem@davemloft.net,
-	ujhelyi.m@gmail.com, mugunthanvnm@ti.com, vaibhav.bedia@ti.com,
-	d-gerlach@ti.com, linux-arm-kernel@lists.infradead.org,
-	linux-omap@vger.kernel.org, devicetree@vger.kernel.org,
-	Daniel Mack <zonque@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1377267365-24057-1-git-send-email-zonque@gmail.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] net: tcp_probe: allow more advanced ingress filtering by mark
+Date: Fri, 23 Aug 2013 16:16:33 +0200
+Message-ID: <1377267393-24604-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:1450 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755013Ab3HWOQh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Aug 2013 10:16:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch cleans up the allocation and error unwind paths, which
-allows us to carry less information in struct cpsw_priv and reduce the
-amount of jump labels in the probe functions.
+Currently, the tcp_probe snooper can either filter packets by a given
+port (handed to the module via module parameter e.g. port=80) or lets
+all TCP traffic pass (port=0, default). When a port is specified, the
+port number is tested against the sk's source/destination port. Thus,
+if one of them matches, the information will be further processed for
+the log.
 
-Signed-off-by: Daniel Mack <zonque@gmail.com>
+As this is quite limited, allow for more advanced filtering possibilities
+which can facilitate debugging/analysis with the help of the tcp_probe
+snooper. Therefore, similarly as added to BPF machine in commit 7e75f93e
+("pkt_sched: ingress socket filter by mark"), add the possibility to
+use skb->mark as a filter.
+
+If the mark is not being used otherwise, this allows ingress filtering
+by flow (e.g. in order to track updates from only a single flow, or a
+subset of all flows for a given port) and other things such as dynamic
+logging and reconfiguration without removing/re-inserting the tcp_probe
+module, etc. Simple example:
+
+  insmod net/ipv4/tcp_probe.ko fwmark=8888 full=1
+  ...
+  iptables -A INPUT -i eth4 -t mangle -p tcp --dport 22 \
+           --sport 60952 -j MARK --set-mark 8888
+  [... sampling interval ...]
+  iptables -D INPUT -i eth4 -t mangle -p tcp --dport 22 \
+           --sport 60952 -j MARK --set-mark 8888
+
+The current option to filter by a given port is still being preserved. A
+similar approach could be done for the sctp_probe module as a follow-up.
+
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- drivers/net/ethernet/ti/cpsw.c | 147 +++++++++++++----------------------------
- 1 file changed, 45 insertions(+), 102 deletions(-)
+ net/ipv4/tcp_probe.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 79974e3..849af52 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -367,8 +367,6 @@ struct cpsw_priv {
- 	spinlock_t			lock;
- 	struct platform_device		*pdev;
- 	struct net_device		*ndev;
--	struct resource			*cpsw_res;
--	struct resource			*cpsw_wr_res;
- 	struct napi_struct		napi;
- 	struct device			*dev;
- 	struct cpsw_platform_data	data;
-@@ -1712,62 +1710,55 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
+index 301a3ef..622a437 100644
+--- a/net/ipv4/tcp_probe.c
++++ b/net/ipv4/tcp_probe.c
+@@ -46,6 +46,10 @@ static unsigned int bufsize __read_mostly = 4096;
+ MODULE_PARM_DESC(bufsize, "Log buffer size in packets (4096)");
+ module_param(bufsize, uint, 0);
  
- 	if (of_property_read_u32(node, "active_slave", &prop)) {
- 		pr_err("Missing active_slave property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
-+		return -EINVAL;
- 	}
- 	data->active_slave = prop;
++static unsigned int fwmark __read_mostly = 0;
++MODULE_PARM_DESC(fwmark, "skb mark to match (0=no mark)");
++module_param(fwmark, uint, 0);
++
+ static int full __read_mostly;
+ MODULE_PARM_DESC(full, "Full log (1=every ack packet received,  0=only cwnd changes)");
+ module_param(full, int, 0);
+@@ -124,9 +128,11 @@ static int jtcp_rcv_established(struct sock *sk, struct sk_buff *skb,
+ 	const struct tcp_sock *tp = tcp_sk(sk);
+ 	const struct inet_sock *inet = inet_sk(sk);
  
- 	if (of_property_read_u32(node, "cpts_clock_mult", &prop)) {
- 		pr_err("Missing cpts_clock_mult property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
-+		return -EINVAL;
- 	}
- 	data->cpts_clock_mult = prop;
+-	/* Only update if port matches */
+-	if ((port == 0 || ntohs(inet->inet_dport) == port ||
+-	     ntohs(inet->inet_sport) == port) &&
++	/* Only update if port or skb mark matches */
++	if (((port == 0 && fwmark == 0) ||
++	     ntohs(inet->inet_dport) == port ||
++	     ntohs(inet->inet_sport) == port ||
++	     (fwmark > 0 && skb->mark == fwmark)) &&
+ 	    (full || tp->snd_cwnd != tcp_probe.lastcwnd)) {
  
- 	if (of_property_read_u32(node, "cpts_clock_shift", &prop)) {
- 		pr_err("Missing cpts_clock_shift property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
-+		return -EINVAL;
- 	}
- 	data->cpts_clock_shift = prop;
+ 		spin_lock(&tcp_probe.lock);
+@@ -284,7 +290,8 @@ static __init int tcpprobe_init(void)
+ 	if (ret)
+ 		goto err1;
  
--	data->slave_data = kcalloc(data->slaves, sizeof(struct cpsw_slave_data),
--				   GFP_KERNEL);
-+	data->slave_data = devm_kzalloc(&pdev->dev, data->slaves
-+					* sizeof(struct cpsw_slave_data),
-+					GFP_KERNEL);
- 	if (!data->slave_data)
--		return -EINVAL;
-+		return -ENOMEM;
- 
- 	if (of_property_read_u32(node, "cpdma_channels", &prop)) {
- 		pr_err("Missing cpdma_channels property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
-+		return -EINVAL;
- 	}
- 	data->channels = prop;
- 
- 	if (of_property_read_u32(node, "ale_entries", &prop)) {
- 		pr_err("Missing ale_entries property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
-+		return -EINVAL;
- 	}
- 	data->ale_entries = prop;
- 
- 	if (of_property_read_u32(node, "bd_ram_size", &prop)) {
- 		pr_err("Missing bd_ram_size property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
-+		return -EINVAL;
- 	}
- 	data->bd_ram_size = prop;
- 
- 	if (of_property_read_u32(node, "rx_descs", &prop)) {
- 		pr_err("Missing rx_descs property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
-+		return -EINVAL;
- 	}
- 	data->rx_descs = prop;
- 
- 	if (of_property_read_u32(node, "mac_control", &prop)) {
- 		pr_err("Missing mac_control property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
-+		return -EINVAL;
- 	}
- 	data->mac_control = prop;
- 
-@@ -1794,8 +1785,7 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 		parp = of_get_property(slave_node, "phy_id", &lenp);
- 		if ((parp == NULL) || (lenp != (sizeof(void *) * 2))) {
- 			pr_err("Missing slave[%d] phy_id property\n", i);
--			ret = -EINVAL;
--			goto error_ret;
-+			return -EINVAL;
- 		}
- 		mdio_node = of_find_node_by_phandle(be32_to_cpup(parp));
- 		phyid = be32_to_cpup(parp+1);
-@@ -1825,10 +1815,6 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 	}
- 
+-	pr_info("probe registered (port=%d) bufsize=%u\n", port, bufsize);
++	pr_info("probe registered (port=%d/fwmark=%u) bufsize=%u\n",
++		port, fwmark, bufsize);
  	return 0;
--
--error_ret:
--	kfree(data->slave_data);
--	return ret;
- }
- 
- static int cpsw_probe_dual_emac(struct platform_device *pdev,
-@@ -1870,7 +1856,6 @@ static int cpsw_probe_dual_emac(struct platform_device *pdev,
- 	priv_sl2->coal_intvl = 0;
- 	priv_sl2->bus_freq_mhz = priv->bus_freq_mhz;
- 
--	priv_sl2->cpsw_res = priv->cpsw_res;
- 	priv_sl2->regs = priv->regs;
- 	priv_sl2->host_port = priv->host_port;
- 	priv_sl2->host_port_regs = priv->host_port_regs;
-@@ -1914,8 +1899,8 @@ static int cpsw_probe(struct platform_device *pdev)
- 	struct cpsw_priv		*priv;
- 	struct cpdma_params		dma_params;
- 	struct cpsw_ale_params		ale_params;
--	void __iomem			*ss_regs, *wr_regs;
--	struct resource			*res;
-+	void __iomem			*ss_regs;
-+	struct resource			*res, *ss_res;
- 	u32 slave_offset, sliver_offset, slave_size;
- 	int ret = 0, i, k = 0;
- 
-@@ -1951,7 +1936,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 	if (cpsw_probe_dt(&priv->data, pdev)) {
- 		pr_err("cpsw: platform data missing\n");
- 		ret = -ENODEV;
--		goto clean_ndev_ret;
-+		goto clean_runtime_disable_ret;
- 	}
- 	data = &priv->data;
- 
-@@ -1965,11 +1950,12 @@ static int cpsw_probe(struct platform_device *pdev)
- 
- 	memcpy(ndev->dev_addr, priv->mac_addr, ETH_ALEN);
- 
--	priv->slaves = kzalloc(sizeof(struct cpsw_slave) * data->slaves,
--			       GFP_KERNEL);
-+	priv->slaves =
-+		devm_kzalloc(&pdev->dev, sizeof(struct cpsw_slave) * data->slaves,
-+			     GFP_KERNEL);
- 	if (!priv->slaves) {
--		ret = -EBUSY;
--		goto clean_ndev_ret;
-+		ret = -ENOMEM;
-+		goto clean_runtime_disable_ret;
- 	}
- 	for (i = 0; i < data->slaves; i++)
- 		priv->slaves[i].slave_num = i;
-@@ -1977,55 +1963,41 @@ static int cpsw_probe(struct platform_device *pdev)
- 	priv->slaves[0].ndev = ndev;
- 	priv->emac_port = 0;
- 
--	priv->clk = clk_get(&pdev->dev, "fck");
-+	priv->clk = devm_clk_get(&pdev->dev, "fck");
- 	if (IS_ERR(priv->clk)) {
--		dev_err(&pdev->dev, "fck is not found\n");
-+		dev_err(priv->dev, "fck is not found\n");
- 		ret = -ENODEV;
--		goto clean_slave_ret;
-+		goto clean_runtime_disable_ret;
- 	}
- 	priv->coal_intvl = 0;
- 	priv->bus_freq_mhz = clk_get_rate(priv->clk) / 1000000;
- 
--	priv->cpsw_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
--	if (!priv->cpsw_res) {
-+	ss_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	if (!ss_res) {
- 		dev_err(priv->dev, "error getting i/o resource\n");
- 		ret = -ENOENT;
--		goto clean_clk_ret;
-+		goto clean_runtime_disable_ret;
- 	}
--	if (!request_mem_region(priv->cpsw_res->start,
--				resource_size(priv->cpsw_res), ndev->name)) {
--		dev_err(priv->dev, "failed request i/o region\n");
--		ret = -ENXIO;
--		goto clean_clk_ret;
--	}
--	ss_regs = ioremap(priv->cpsw_res->start, resource_size(priv->cpsw_res));
--	if (!ss_regs) {
-+	ss_regs = devm_ioremap_resource(&pdev->dev, ss_res);
-+	if (IS_ERR(ss_regs)) {
- 		dev_err(priv->dev, "unable to map i/o region\n");
--		goto clean_cpsw_iores_ret;
-+		goto clean_runtime_disable_ret;
- 	}
- 	priv->regs = ss_regs;
- 	priv->version = __raw_readl(&priv->regs->id_ver);
- 	priv->host_port = HOST_PORT_NUM;
- 
--	priv->cpsw_wr_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
--	if (!priv->cpsw_wr_res) {
-+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-+	if (!res) {
- 		dev_err(priv->dev, "error getting i/o resource\n");
- 		ret = -ENOENT;
--		goto clean_iomap_ret;
--	}
--	if (!request_mem_region(priv->cpsw_wr_res->start,
--			resource_size(priv->cpsw_wr_res), ndev->name)) {
--		dev_err(priv->dev, "failed request i/o region\n");
--		ret = -ENXIO;
--		goto clean_iomap_ret;
-+		goto clean_runtime_disable_ret;
- 	}
--	wr_regs = ioremap(priv->cpsw_wr_res->start,
--				resource_size(priv->cpsw_wr_res));
--	if (!wr_regs) {
-+	priv->wr_regs = devm_ioremap_resource(&pdev->dev, res);
-+	if (IS_ERR(priv->wr_regs)) {
- 		dev_err(priv->dev, "unable to map i/o region\n");
--		goto clean_cpsw_wr_iores_ret;
-+		goto clean_runtime_disable_ret;
- 	}
--	priv->wr_regs = wr_regs;
- 
- 	memset(&dma_params, 0, sizeof(dma_params));
- 	memset(&ale_params, 0, sizeof(ale_params));
-@@ -2056,12 +2028,12 @@ static int cpsw_probe(struct platform_device *pdev)
- 		slave_size           = CPSW2_SLAVE_SIZE;
- 		sliver_offset        = CPSW2_SLIVER_OFFSET;
- 		dma_params.desc_mem_phys =
--			(u32 __force) priv->cpsw_res->start + CPSW2_BD_OFFSET;
-+			(u32 __force) ss_res->start + CPSW2_BD_OFFSET;
- 		break;
- 	default:
- 		dev_err(priv->dev, "unknown version 0x%08x\n", priv->version);
- 		ret = -ENODEV;
--		goto clean_cpsw_wr_iores_ret;
-+		goto clean_runtime_disable_ret;
- 	}
- 	for (i = 0; i < priv->data.slaves; i++) {
- 		struct cpsw_slave *slave = &priv->slaves[i];
-@@ -2089,7 +2061,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 	if (!priv->dma) {
- 		dev_err(priv->dev, "error initializing dma\n");
- 		ret = -ENOMEM;
--		goto clean_wr_iomap_ret;
-+		goto clean_runtime_disable_ret;
- 	}
- 
- 	priv->txch = cpdma_chan_create(priv->dma, tx_chan_num(0),
-@@ -2124,8 +2096,8 @@ static int cpsw_probe(struct platform_device *pdev)
- 
- 	while ((res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k))) {
- 		for (i = res->start; i <= res->end; i++) {
--			if (request_irq(i, cpsw_interrupt, 0,
--					dev_name(&pdev->dev), priv)) {
-+			if (devm_request_irq(&pdev->dev, i, cpsw_interrupt, 0,
-+					     dev_name(priv->dev), priv)) {
- 				dev_err(priv->dev, "error attaching irq\n");
- 				goto clean_ale_ret;
- 			}
-@@ -2147,7 +2119,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 	if (ret) {
- 		dev_err(priv->dev, "error registering net device\n");
- 		ret = -ENODEV;
--		goto clean_irq_ret;
-+		goto clean_ale_ret;
- 	}
- 
- 	if (cpts_register(&pdev->dev, priv->cpts,
-@@ -2155,44 +2127,27 @@ static int cpsw_probe(struct platform_device *pdev)
- 		dev_err(priv->dev, "error registering cpts device\n");
- 
- 	cpsw_notice(priv, probe, "initialized device (regs %x, irq %d)\n",
--		  priv->cpsw_res->start, ndev->irq);
-+		    ss_res->start, ndev->irq);
- 
- 	if (priv->data.dual_emac) {
- 		ret = cpsw_probe_dual_emac(pdev, priv);
- 		if (ret) {
- 			cpsw_err(priv, probe, "error probe slave 2 emac interface\n");
--			goto clean_irq_ret;
-+			goto clean_ale_ret;
- 		}
- 	}
- 
- 	return 0;
- 
--clean_irq_ret:
--	for (i = 0; i < priv->num_irqs; i++)
--		free_irq(priv->irqs_table[i], priv);
- clean_ale_ret:
- 	cpsw_ale_destroy(priv->ale);
- clean_dma_ret:
- 	cpdma_chan_destroy(priv->txch);
- 	cpdma_chan_destroy(priv->rxch);
- 	cpdma_ctlr_destroy(priv->dma);
--clean_wr_iomap_ret:
--	iounmap(priv->wr_regs);
--clean_cpsw_wr_iores_ret:
--	release_mem_region(priv->cpsw_wr_res->start,
--			   resource_size(priv->cpsw_wr_res));
--clean_iomap_ret:
--	iounmap(priv->regs);
--clean_cpsw_iores_ret:
--	release_mem_region(priv->cpsw_res->start,
--			   resource_size(priv->cpsw_res));
--clean_clk_ret:
--	clk_put(priv->clk);
--clean_slave_ret:
-+clean_runtime_disable_ret:
- 	pm_runtime_disable(&pdev->dev);
--	kfree(priv->slaves);
- clean_ndev_ret:
--	kfree(priv->data.slave_data);
- 	free_netdev(priv->ndev);
- 	return ret;
- }
-@@ -2201,30 +2156,18 @@ static int cpsw_remove(struct platform_device *pdev)
- {
- 	struct net_device *ndev = platform_get_drvdata(pdev);
- 	struct cpsw_priv *priv = netdev_priv(ndev);
--	int i;
- 
- 	if (priv->data.dual_emac)
- 		unregister_netdev(cpsw_get_slave_ndev(priv, 1));
- 	unregister_netdev(ndev);
- 
- 	cpts_unregister(priv->cpts);
--	for (i = 0; i < priv->num_irqs; i++)
--		free_irq(priv->irqs_table[i], priv);
- 
- 	cpsw_ale_destroy(priv->ale);
- 	cpdma_chan_destroy(priv->txch);
- 	cpdma_chan_destroy(priv->rxch);
- 	cpdma_ctlr_destroy(priv->dma);
--	iounmap(priv->regs);
--	release_mem_region(priv->cpsw_res->start,
--			   resource_size(priv->cpsw_res));
--	iounmap(priv->wr_regs);
--	release_mem_region(priv->cpsw_wr_res->start,
--			   resource_size(priv->cpsw_wr_res));
- 	pm_runtime_disable(&pdev->dev);
--	clk_put(priv->clk);
--	kfree(priv->slaves);
--	kfree(priv->data.slave_data);
- 	if (priv->data.dual_emac)
- 		free_netdev(cpsw_get_slave_ndev(priv, 1));
- 	free_netdev(ndev);
+  err1:
+ 	remove_proc_entry(procname, init_net.proc_net);
 -- 
-1.8.3.1
-
+1.7.11.7
