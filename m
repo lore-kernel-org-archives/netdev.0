@@ -1,67 +1,47 @@
-From: Sekhar Nori <nsekhar@ti.com>
-Subject: Re: [PATCH v4 3/5] net: ethernet: cpsw: introduce ti,am3352-cpsw
- compatible string
-Date: Fri, 23 Aug 2013 23:09:16 +0530
-Message-ID: <52179E44.5030202@ti.com>
-References: <1377267365-24057-1-git-send-email-zonque@gmail.com> <1377267365-24057-4-git-send-email-zonque@gmail.com> <52177052.1030308@ti.com> <52178E20.5040404@gmail.com> <52179448.1020906@ti.com> <5217974B.5090503@ti.com> <521799A3.7080706@ti.com> <52179AD6.8090406@gmail.com> <52179BDA.50603@ti.com>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: Re: [PATCH net-next 0/2] qlge: feature update
+Date: Fri, 23 Aug 2013 17:49:00 +0000
+Message-ID: <BECD8E8A1B550B48A1BF97C13991F60E46C758AF@avmb2.qlogic.org>
+References: <20130822.221246.527881072702590889.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Mack <zonque@gmail.com>, <netdev@vger.kernel.org>,
-	<bcousson@baylibre.com>, <sergei.shtylyov@cogentembedded.com>,
-	<davem@davemloft.net>, <ujhelyi.m@gmail.com>,
-	<mugunthanvnm@ti.com>, <vaibhav.bedia@ti.com>, <d-gerlach@ti.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>, <devicetree@vger.kernel.org>
-To: Santosh Shilimkar <santosh.shilimkar@ti.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	Ron Mercer <ron.mercer@qlogic.com>,
+	Dept-NX Linux NIC Driver
+	<Dept_NX_Linux_NIC_Driver@qlogic.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:36493 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755757Ab3HWRjt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Aug 2013 13:39:49 -0400
-In-Reply-To: <52179BDA.50603@ti.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:32831 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755728Ab3HWRtE convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Aug 2013 13:49:04 -0400
+In-Reply-To: <20130822.221246.527881072702590889.davem@davemloft.net>
+Content-Language: en-US
+Content-ID: <AC3635DE60139A4297129899E85C6D1D@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/23/2013 10:58 PM, Santosh Shilimkar wrote:
-> On Friday 23 August 2013 01:24 PM, Daniel Mack wrote:
->> On 23.08.2013 19:19, Santosh Shilimkar wrote:
->>> On Friday 23 August 2013 01:09 PM, Sekhar Nori wrote:
->>>> On 8/23/2013 10:26 PM, Santosh Shilimkar wrote:
->>
->>>>> So just stick the IP version or call it cpsw-v1... cpsw-v2 etc.
->>>>
->>>> If this could be handled using IP version then the right way would be to
->>>> just read the IP version from hardware and use it. No need of DT property.
->>>>
->>> Thats fine as well but I thought the patch needed additional properties like
->>> CM reg-address come from DT and hence the separate compatible. If you can
->>> manage without that, thats even better.
->>
->> We can't, that's the whole point :)
->>
-> I saw that from the patch :)
-> 
->> Well, theoretically, we could for now, but that's not a clean solution.
->> Again: the problem here is that the control port is separated from the
->> cpsw core, and so we have to implement something specific for the AM3352
->> SoC. I know that's a violation of clean and generic driver ideas, but
->> there's no way we can assume that every cpsw v2 ip block has a control
->> port that is compatible to the one found on am335x chips.
->>
-> But there is a possibility that other SOC will just use the same
-> control module approach. So using a revision IP is just fine. BTW,
+On 8/22/13 10:12 PM, "David Miller" <davem@davemloft.net> wrote:
 
-But this is misleading because it makes appear like the same compatible
-can be used on on another SoC like DRA7 which probably has the same
-version of IP but a different control module implementation, when in
-practice it cannot.
+>From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+>Date: Thu, 22 Aug 2013 15:54:10 -0400
+>
+>> This patch series enhance the handling of nested vlan tags in Rx path.
+>
+>Sorry no module parameters.
+>You must make a generic, kernel wide, interface for controlling behavior
+>such as this.
+>
+>Otherwise users will need to learn unique configuration mechanisms
+>to control this kind of thing for every single driver and that's
+>beyond terrible.
+>
+>I'm not applying these patches.
 
-The fact is we are doing something SoC specific in the driver and we
-cannot hide that behind IP versions. If really in practice there comes
-another SoC with the same control module definition then it can always
-use ti,am3352-cpsw compatible as well. The compatible name does not
-preclude its usage.
+I will remove module parameter and will submit it again. Meantime will
+look into making it generic interface to toggle the behavior.
 
 Thanks,
-Sekhar
+    Jiten
