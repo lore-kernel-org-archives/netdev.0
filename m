@@ -1,7 +1,7 @@
 From: Daniel Mack <zonque@gmail.com>
-Subject: [PATCH v3 1/5] net: ethernet: cpsw: switch to devres allocations
-Date: Fri, 23 Aug 2013 14:08:51 +0200
-Message-ID: <1377259735-20337-2-git-send-email-zonque@gmail.com>
+Subject: [PATCH v3 2/5] net: ethernet: cpsw: add optional third memory region for CONTROL module
+Date: Fri, 23 Aug 2013 14:08:52 +0200
+Message-ID: <1377259735-20337-3-git-send-email-zonque@gmail.com>
 References: <1377259735-20337-1-git-send-email-zonque@gmail.com>
 Cc: bcousson@baylibre.com, nsekhar@ti.com,
 	sergei.shtylyov@cogentembedded.com, davem@davemloft.net,
@@ -11,369 +11,75 @@ Cc: bcousson@baylibre.com, nsekhar@ti.com,
 	Daniel Mack <zonque@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:48135 "EHLO mail.zonque.de"
+Received: from svenfoo.org ([82.94.215.22]:48146 "EHLO mail.zonque.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753947Ab3HWMJG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755388Ab3HWMJG (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 23 Aug 2013 08:09:06 -0400
 In-Reply-To: <1377259735-20337-1-git-send-email-zonque@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch cleans up the allocation and error unwind paths, which
-allows us to carry less information in struct cpsw_priv and reduce the
-amount of jump labels in the probe functions.
+At least the AM33xx SoC has a control module register to configure
+details such as the hardware ethernet interface mode.
+
+I'm not sure whether all SoCs which feature the cpsw block have such a
+register, so that third memory region is considered optional for now.
 
 Signed-off-by: Daniel Mack <zonque@gmail.com>
 ---
- drivers/net/ethernet/ti/cpsw.c | 145 +++++++++++++----------------------------
- 1 file changed, 44 insertions(+), 101 deletions(-)
+ Documentation/devicetree/bindings/net/cpsw.txt |  5 ++++-
+ drivers/net/ethernet/ti/cpsw.c                 | 16 ++++++++++++++++
+ 2 files changed, 20 insertions(+), 1 deletion(-)
 
+diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+index 05d660e..4e5ca54 100644
+--- a/Documentation/devicetree/bindings/net/cpsw.txt
++++ b/Documentation/devicetree/bindings/net/cpsw.txt
+@@ -4,7 +4,10 @@ TI SoC Ethernet Switch Controller Device Tree Bindings
+ Required properties:
+ - compatible		: Should be "ti,cpsw"
+ - reg			: physical base address and size of the cpsw
+-			  registers map
++			  registers map.
++			  An optional third memory region can be supplied if
++			  the platform has a control module register to
++			  configure phy interface details
+ - interrupts		: property with a value describing the interrupt
+ 			  number
+ - interrupt-parent	: The parent interrupt controller
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 79974e3..1a91aac 100644
+index 1a91aac..bd0b664 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -367,8 +367,6 @@ struct cpsw_priv {
- 	spinlock_t			lock;
- 	struct platform_device		*pdev;
- 	struct net_device		*ndev;
--	struct resource			*cpsw_res;
--	struct resource			*cpsw_wr_res;
- 	struct napi_struct		napi;
- 	struct device			*dev;
+@@ -372,6 +372,7 @@ struct cpsw_priv {
  	struct cpsw_platform_data	data;
-@@ -1712,62 +1710,55 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 
- 	if (of_property_read_u32(node, "active_slave", &prop)) {
- 		pr_err("Missing active_slave property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
-+		return -EINVAL;
- 	}
- 	data->active_slave = prop;
- 
- 	if (of_property_read_u32(node, "cpts_clock_mult", &prop)) {
- 		pr_err("Missing cpts_clock_mult property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
-+		return -EINVAL;
- 	}
- 	data->cpts_clock_mult = prop;
- 
- 	if (of_property_read_u32(node, "cpts_clock_shift", &prop)) {
- 		pr_err("Missing cpts_clock_shift property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
-+		return -EINVAL;
- 	}
- 	data->cpts_clock_shift = prop;
- 
--	data->slave_data = kcalloc(data->slaves, sizeof(struct cpsw_slave_data),
--				   GFP_KERNEL);
-+	data->slave_data = devm_kzalloc(&pdev->dev, data->slaves
-+					* sizeof(struct cpsw_slave_data),
-+					GFP_KERNEL);
- 	if (!data->slave_data)
--		return -EINVAL;
-+		return -ENOMEM;
- 
- 	if (of_property_read_u32(node, "cpdma_channels", &prop)) {
- 		pr_err("Missing cpdma_channels property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
-+		return -EINVAL;
- 	}
- 	data->channels = prop;
- 
- 	if (of_property_read_u32(node, "ale_entries", &prop)) {
- 		pr_err("Missing ale_entries property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
-+		return -EINVAL;
- 	}
- 	data->ale_entries = prop;
- 
- 	if (of_property_read_u32(node, "bd_ram_size", &prop)) {
- 		pr_err("Missing bd_ram_size property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
-+		return -EINVAL;
- 	}
- 	data->bd_ram_size = prop;
- 
- 	if (of_property_read_u32(node, "rx_descs", &prop)) {
- 		pr_err("Missing rx_descs property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
-+		return -EINVAL;
- 	}
- 	data->rx_descs = prop;
- 
- 	if (of_property_read_u32(node, "mac_control", &prop)) {
- 		pr_err("Missing mac_control property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
-+		return -EINVAL;
- 	}
- 	data->mac_control = prop;
- 
-@@ -1794,8 +1785,7 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 		parp = of_get_property(slave_node, "phy_id", &lenp);
- 		if ((parp == NULL) || (lenp != (sizeof(void *) * 2))) {
- 			pr_err("Missing slave[%d] phy_id property\n", i);
--			ret = -EINVAL;
--			goto error_ret;
-+			return -EINVAL;
- 		}
- 		mdio_node = of_find_node_by_phandle(be32_to_cpup(parp));
- 		phyid = be32_to_cpup(parp+1);
-@@ -1825,10 +1815,6 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 	struct cpsw_ss_regs __iomem	*regs;
+ 	struct cpsw_wr_regs __iomem	*wr_regs;
++	u32 __iomem			*gmii_sel_reg;
+ 	u8 __iomem			*hw_stats;
+ 	struct cpsw_host_regs __iomem	*host_port_regs;
+ 	u32				msg_enable;
+@@ -1999,6 +2000,21 @@ static int cpsw_probe(struct platform_device *pdev)
+ 		goto clean_runtime_disable_ret;
  	}
  
- 	return 0;
--
--error_ret:
--	kfree(data->slave_data);
--	return ret;
- }
- 
- static int cpsw_probe_dual_emac(struct platform_device *pdev,
-@@ -1870,7 +1856,6 @@ static int cpsw_probe_dual_emac(struct platform_device *pdev,
- 	priv_sl2->coal_intvl = 0;
- 	priv_sl2->bus_freq_mhz = priv->bus_freq_mhz;
- 
--	priv_sl2->cpsw_res = priv->cpsw_res;
- 	priv_sl2->regs = priv->regs;
- 	priv_sl2->host_port = priv->host_port;
- 	priv_sl2->host_port_regs = priv->host_port_regs;
-@@ -1914,8 +1899,8 @@ static int cpsw_probe(struct platform_device *pdev)
- 	struct cpsw_priv		*priv;
- 	struct cpdma_params		dma_params;
- 	struct cpsw_ale_params		ale_params;
--	void __iomem			*ss_regs, *wr_regs;
--	struct resource			*res;
-+	void __iomem			*ss_regs;
-+	struct resource			*res, *ss_res;
- 	u32 slave_offset, sliver_offset, slave_size;
- 	int ret = 0, i, k = 0;
- 
-@@ -1951,7 +1936,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 	if (cpsw_probe_dt(&priv->data, pdev)) {
- 		pr_err("cpsw: platform data missing\n");
- 		ret = -ENODEV;
--		goto clean_ndev_ret;
-+		goto clean_runtime_disable_ret;
- 	}
- 	data = &priv->data;
- 
-@@ -1965,11 +1950,12 @@ static int cpsw_probe(struct platform_device *pdev)
- 
- 	memcpy(ndev->dev_addr, priv->mac_addr, ETH_ALEN);
- 
--	priv->slaves = kzalloc(sizeof(struct cpsw_slave) * data->slaves,
--			       GFP_KERNEL);
-+	priv->slaves =
-+		devm_kzalloc(&pdev->dev, sizeof(struct cpsw_slave) * data->slaves,
-+			     GFP_KERNEL);
- 	if (!priv->slaves) {
--		ret = -EBUSY;
--		goto clean_ndev_ret;
-+		ret = -ENOMEM;
-+		goto clean_runtime_disable_ret;
- 	}
- 	for (i = 0; i < data->slaves; i++)
- 		priv->slaves[i].slave_num = i;
-@@ -1977,55 +1963,41 @@ static int cpsw_probe(struct platform_device *pdev)
- 	priv->slaves[0].ndev = ndev;
- 	priv->emac_port = 0;
- 
--	priv->clk = clk_get(&pdev->dev, "fck");
-+	priv->clk = devm_clk_get(&pdev->dev, "fck");
- 	if (IS_ERR(priv->clk)) {
--		dev_err(&pdev->dev, "fck is not found\n");
-+		dev_err(priv->dev, "fck is not found\n");
- 		ret = -ENODEV;
--		goto clean_slave_ret;
-+		goto clean_runtime_disable_ret;
- 	}
- 	priv->coal_intvl = 0;
- 	priv->bus_freq_mhz = clk_get_rate(priv->clk) / 1000000;
- 
--	priv->cpsw_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
--	if (!priv->cpsw_res) {
-+	ss_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	if (!ss_res) {
- 		dev_err(priv->dev, "error getting i/o resource\n");
- 		ret = -ENOENT;
--		goto clean_clk_ret;
-+		goto clean_runtime_disable_ret;
- 	}
--	if (!request_mem_region(priv->cpsw_res->start,
--				resource_size(priv->cpsw_res), ndev->name)) {
--		dev_err(priv->dev, "failed request i/o region\n");
--		ret = -ENXIO;
--		goto clean_clk_ret;
--	}
--	ss_regs = ioremap(priv->cpsw_res->start, resource_size(priv->cpsw_res));
-+	ss_regs = devm_ioremap_resource(&pdev->dev, ss_res);
- 	if (!ss_regs) {
- 		dev_err(priv->dev, "unable to map i/o region\n");
--		goto clean_cpsw_iores_ret;
-+		goto clean_runtime_disable_ret;
- 	}
- 	priv->regs = ss_regs;
- 	priv->version = __raw_readl(&priv->regs->id_ver);
- 	priv->host_port = HOST_PORT_NUM;
- 
--	priv->cpsw_wr_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
--	if (!priv->cpsw_wr_res) {
-+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
++	/* If the control memory region is unspecified, continue without it.
++	 * If it is specified, but we're unable to reserve it, bail.
++	 */
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
 +	if (!res) {
- 		dev_err(priv->dev, "error getting i/o resource\n");
- 		ret = -ENOENT;
--		goto clean_iomap_ret;
--	}
--	if (!request_mem_region(priv->cpsw_wr_res->start,
--			resource_size(priv->cpsw_wr_res), ndev->name)) {
--		dev_err(priv->dev, "failed request i/o region\n");
--		ret = -ENXIO;
--		goto clean_iomap_ret;
++		dev_err(priv->dev, "error getting control i/o resource\n");
++		goto no_gmii_sel;
++	}
++	priv->gmii_sel_reg = devm_ioremap_resource(&pdev->dev, res);
++	if (!priv->gmii_sel_reg) {
++		dev_err(priv->dev, "unable to map control i/o region\n");
 +		goto clean_runtime_disable_ret;
- 	}
--	wr_regs = ioremap(priv->cpsw_wr_res->start,
--				resource_size(priv->cpsw_wr_res));
--	if (!wr_regs) {
-+	priv->wr_regs = devm_ioremap_resource(&pdev->dev, res);
-+	if (!priv->wr_regs) {
- 		dev_err(priv->dev, "unable to map i/o region\n");
--		goto clean_cpsw_wr_iores_ret;
-+		goto clean_runtime_disable_ret;
- 	}
--	priv->wr_regs = wr_regs;
- 
++	}
++
++no_gmii_sel:
  	memset(&dma_params, 0, sizeof(dma_params));
  	memset(&ale_params, 0, sizeof(ale_params));
-@@ -2056,12 +2028,12 @@ static int cpsw_probe(struct platform_device *pdev)
- 		slave_size           = CPSW2_SLAVE_SIZE;
- 		sliver_offset        = CPSW2_SLIVER_OFFSET;
- 		dma_params.desc_mem_phys =
--			(u32 __force) priv->cpsw_res->start + CPSW2_BD_OFFSET;
-+			(u32 __force) ss_res->start + CPSW2_BD_OFFSET;
- 		break;
- 	default:
- 		dev_err(priv->dev, "unknown version 0x%08x\n", priv->version);
- 		ret = -ENODEV;
--		goto clean_cpsw_wr_iores_ret;
-+		goto clean_runtime_disable_ret;
- 	}
- 	for (i = 0; i < priv->data.slaves; i++) {
- 		struct cpsw_slave *slave = &priv->slaves[i];
-@@ -2089,7 +2061,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 	if (!priv->dma) {
- 		dev_err(priv->dev, "error initializing dma\n");
- 		ret = -ENOMEM;
--		goto clean_wr_iomap_ret;
-+		goto clean_runtime_disable_ret;
- 	}
  
- 	priv->txch = cpdma_chan_create(priv->dma, tx_chan_num(0),
-@@ -2124,8 +2096,8 @@ static int cpsw_probe(struct platform_device *pdev)
- 
- 	while ((res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k))) {
- 		for (i = res->start; i <= res->end; i++) {
--			if (request_irq(i, cpsw_interrupt, 0,
--					dev_name(&pdev->dev), priv)) {
-+			if (devm_request_irq(&pdev->dev, i, cpsw_interrupt, 0,
-+					     dev_name(priv->dev), priv)) {
- 				dev_err(priv->dev, "error attaching irq\n");
- 				goto clean_ale_ret;
- 			}
-@@ -2147,7 +2119,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 	if (ret) {
- 		dev_err(priv->dev, "error registering net device\n");
- 		ret = -ENODEV;
--		goto clean_irq_ret;
-+		goto clean_ale_ret;
- 	}
- 
- 	if (cpts_register(&pdev->dev, priv->cpts,
-@@ -2155,44 +2127,27 @@ static int cpsw_probe(struct platform_device *pdev)
- 		dev_err(priv->dev, "error registering cpts device\n");
- 
- 	cpsw_notice(priv, probe, "initialized device (regs %x, irq %d)\n",
--		  priv->cpsw_res->start, ndev->irq);
-+		    ss_res->start, ndev->irq);
- 
- 	if (priv->data.dual_emac) {
- 		ret = cpsw_probe_dual_emac(pdev, priv);
- 		if (ret) {
- 			cpsw_err(priv, probe, "error probe slave 2 emac interface\n");
--			goto clean_irq_ret;
-+			goto clean_ale_ret;
- 		}
- 	}
- 
- 	return 0;
- 
--clean_irq_ret:
--	for (i = 0; i < priv->num_irqs; i++)
--		free_irq(priv->irqs_table[i], priv);
- clean_ale_ret:
- 	cpsw_ale_destroy(priv->ale);
- clean_dma_ret:
- 	cpdma_chan_destroy(priv->txch);
- 	cpdma_chan_destroy(priv->rxch);
- 	cpdma_ctlr_destroy(priv->dma);
--clean_wr_iomap_ret:
--	iounmap(priv->wr_regs);
--clean_cpsw_wr_iores_ret:
--	release_mem_region(priv->cpsw_wr_res->start,
--			   resource_size(priv->cpsw_wr_res));
--clean_iomap_ret:
--	iounmap(priv->regs);
--clean_cpsw_iores_ret:
--	release_mem_region(priv->cpsw_res->start,
--			   resource_size(priv->cpsw_res));
--clean_clk_ret:
--	clk_put(priv->clk);
--clean_slave_ret:
-+clean_runtime_disable_ret:
- 	pm_runtime_disable(&pdev->dev);
--	kfree(priv->slaves);
- clean_ndev_ret:
--	kfree(priv->data.slave_data);
- 	free_netdev(priv->ndev);
- 	return ret;
- }
-@@ -2201,30 +2156,18 @@ static int cpsw_remove(struct platform_device *pdev)
- {
- 	struct net_device *ndev = platform_get_drvdata(pdev);
- 	struct cpsw_priv *priv = netdev_priv(ndev);
--	int i;
- 
- 	if (priv->data.dual_emac)
- 		unregister_netdev(cpsw_get_slave_ndev(priv, 1));
- 	unregister_netdev(ndev);
- 
- 	cpts_unregister(priv->cpts);
--	for (i = 0; i < priv->num_irqs; i++)
--		free_irq(priv->irqs_table[i], priv);
- 
- 	cpsw_ale_destroy(priv->ale);
- 	cpdma_chan_destroy(priv->txch);
- 	cpdma_chan_destroy(priv->rxch);
- 	cpdma_ctlr_destroy(priv->dma);
--	iounmap(priv->regs);
--	release_mem_region(priv->cpsw_res->start,
--			   resource_size(priv->cpsw_res));
--	iounmap(priv->wr_regs);
--	release_mem_region(priv->cpsw_wr_res->start,
--			   resource_size(priv->cpsw_wr_res));
- 	pm_runtime_disable(&pdev->dev);
--	clk_put(priv->clk);
--	kfree(priv->slaves);
--	kfree(priv->data.slave_data);
- 	if (priv->data.dual_emac)
- 		free_netdev(cpsw_get_slave_ndev(priv, 1));
- 	free_netdev(ndev);
 -- 
 1.8.3.1
