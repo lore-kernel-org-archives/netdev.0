@@ -1,48 +1,52 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: Re: [PATCH 3/4] net: ethernet: cpsw: add support for hardware interface
- mode config
-Date: Fri, 23 Aug 2013 10:15:02 +0200
-Message-ID: <52171A06.9040400@gmail.com>
-References: <1377171448-27924-1-git-send-email-zonque@gmail.com> <1377171448-27924-4-git-send-email-zonque@gmail.com> <5216F366.50609@ti.com> <5216FDBC.3010600@ti.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch -next] ipip: potential race in ip_tunnel_init_net()
+Date: Fri, 23 Aug 2013 11:15:37 +0300
+Message-ID: <20130823081537.GB31293@elgon.mountain>
+References: <20130820.233301.985050199020241179.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Sekhar Nori <nsekhar@ti.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, ujhelyi.m@gmail.com, vaibhav.bedia@ti.com,
-	d-gerlach@ti.com, linux-arm-kernel@lists.infradead.org,
-	linux-omap@vger.kernel.org, devicetree@vger.kernel.org
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f53.google.com ([74.125.83.53]:59876 "EHLO
-	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754918Ab3HWIPH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 04:15:07 -0400
-In-Reply-To: <5216FDBC.3010600@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130820.233301.985050199020241179.davem@davemloft.net>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 23.08.2013 08:14, Mugunthan V N wrote:
-> On Friday 23 August 2013 11:00 AM, Sekhar Nori wrote:
->>> @@ -728,6 +736,44 @@ static void _cpsw_adjust_link(struct cpsw_slave *slave,
->>>>  	u32			mac_control = 0;
->>>>  	u32			slave_port;
->>>>  
->>>> +	if (priv->gmii_sel_reg && of_machine_is_compatible("ti,am33xx")) {
->> This sounds like the DT version of cpu_is_am335x()! Looks like you need
->> to introduce a new compatible "ti,am3352-cpsw" to indicate the AM3352
->> specific features of the CPSW IP (yeah, control module is not really
->> part of the IP, but by introducing it in the driver, we are treating it
->> such anyway. And you can see this register as extension of IP since its
->> not shared for any other purpose).
->>
-> 
-> I also agree but it should be ti,am3352-cpsw or ti.am33xx-cpsw?
+Eric Dumazet says that my previous fix for an ERR_PTR dereference
+(ea857f28ab 'ipip: dereferencing an ERR_PTR in ip_tunnel_init_net()')
+could be racy and suggests the following fix instead.
 
-I think the rule is to be as specific as possible, so I'll take
-ti,am3352-cpsw.
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Thank you very much for the review, everyone. I'll respin a new series
-with all issues addressed.
-
-
-Daniel
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index 24549b4..830de3f 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -854,16 +854,14 @@ int ip_tunnel_init_net(struct net *net, int ip_tnl_net_id,
+ 
+ 	rtnl_lock();
+ 	itn->fb_tunnel_dev = __ip_tunnel_create(net, ops, &parms);
+-	rtnl_unlock();
+-
+-	if (IS_ERR(itn->fb_tunnel_dev))
+-		return PTR_ERR(itn->fb_tunnel_dev);
+ 	/* FB netdevice is special: we have one, and only one per netns.
+ 	 * Allowing to move it to another netns is clearly unsafe.
+ 	 */
+-	itn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
++	if (!IS_ERR(itn->fb_tunnel_dev))
++		itn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
++	rtnl_unlock();
+ 
+-	return 0;
++	return PTR_RET(itn->fb_tunnel_dev);
+ }
+ EXPORT_SYMBOL_GPL(ip_tunnel_init_net);
+ 
