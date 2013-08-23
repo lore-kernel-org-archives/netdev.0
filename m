@@ -1,31 +1,58 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 0/2] fs: supply inode uid/gid setting interface
-Date: Thu, 22 Aug 2013 21:10:10 -0700
-Message-ID: <20130823041010.GA12296@kroah.com>
-References: <1377226118-43756-1-git-send-email-rui.xiang@huawei.com>
+From: Stephan von Krawczynski <skraw@ithnet.com>
+Subject: Re: [Bridge] Can linux kernel bridge forward 802.1q tagged vlan
+ packets?
+Date: Fri, 23 Aug 2013 06:22:34 +0200
+Message-ID: <20130823062234.c34a6da6.skraw@ithnet.com>
+References: <20130822224453.ca93782f.skraw@ithnet.com>
+	<20130822234941.4affc863@catus>
+	<20130822151941.301cd36a@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-fsdevel@vger.kernel.org, viro@zeniv.linux.org.uk,
-	linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
-	linux-rdma@vger.kernel.org, linux-usb@vger.kernel.org,
-	v9fs-developer@lists.sourceforge.net, linux-mm@kvack.org,
-	cgroups@vger.kernel.org, netdev@vger.kernel.org
-To: Rui Xiang <rui.xiang@huawei.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1377226118-43756-1-git-send-email-rui.xiang@huawei.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Marek Kierdelewicz <marek@piasta.pl>,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-a02.ithnet.com ([217.64.83.97]:48652 "HELO ithnet.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1753610Ab3HWEWi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Aug 2013 00:22:38 -0400
+In-Reply-To: <20130822151941.301cd36a@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 23, 2013 at 10:48:36AM +0800, Rui Xiang wrote:
-> This patchset implements an accessor functions to set uid/gid
-> in inode struct. Just finish code clean up.
+On Thu, 22 Aug 2013 15:19:41 -0700
+Stephen Hemminger <stephen@networkplumber.org> wrote:
 
-Why?
+> On Thu, 22 Aug 2013 23:49:41 +0200
+> Marek Kierdelewicz <marek@piasta.pl> wrote:
+> 
+> > Hi,
+> > 
+> > >My general idea is to bridge tagged vlan packets from a physical
+> > >interface (intel) to a virtual interface (virtio in qemu) and not
+> > >losing the tags, so the qemu guest can use vconfig and friends to get
+> > >some vlan interfaces. Is this possible and are there any additional
+> > >steps necessary besides the usual bridge configuration?
+> > 
+> > I'm using this setup with KVM virtualization (Qemu's successor). It
+> > didn't work with default nic type for guest (realtek I think) as 802.1q
+> > tags were not preserved properly in one of the directions. I don't
+> > remember specifics. Anyway using e1000 driver instead of default fixed
+> > it. Works like a charm.
+> 
+> KVM e1000 Vnic doesn't do VLAN offloading at least in my experience.
+> Virtio works fine.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Ok guys, here is one of the major questions in this issue:
+
+How did you manage to convince the _host_ interface driver (in my setup "igb"
+from intel) to get the vlan tagged packets from the LAN port. igb has a vlan
+filter function built in and reads _no_ tagged packets at all if the driver
+does not tell it to. And in case of "up-ing" the interface for attachment to a
+bridge it does not configure this vlan filter.
+How is this expected to work?
+
+-- 
+Regards,
+Stephan
