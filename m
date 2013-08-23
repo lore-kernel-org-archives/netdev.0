@@ -1,217 +1,123 @@
-From: "Nelson, Shannon" <shannon.nelson@intel.com>
-Subject: RE: [net-next v2 3/8] i40e: driver ethtool core
-Date: Fri, 23 Aug 2013 18:40:43 +0000
-Message-ID: <FC41C24E35F18A40888AACA1A36F3E416C615D2E@FMSMSX102.amr.corp.intel.com>
-References: <1377224142-25160-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1377224142-25160-4-git-send-email-jeffrey.t.kirsher@intel.com>
- <52179717.20301@kpanic.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Stefan Assmann <sassmann@kpanic.de>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:60325 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754659Ab3HWSkp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 14:40:45 -0400
-In-Reply-To: <52179717.20301@kpanic.de>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Mack <zonque@gmail.com>
+Subject: [PATCH v5 3/5] net: ethernet: cpsw: introduce ti,am3352-cpsw compatible string
+Date: Fri, 23 Aug 2013 20:53:05 +0200
+Message-ID: <1377283987-20040-4-git-send-email-zonque@gmail.com>
+References: <1377283987-20040-1-git-send-email-zonque@gmail.com>
+Cc: bcousson@baylibre.com, nsekhar@ti.com,
+	sergei.shtylyov@cogentembedded.com, davem@davemloft.net,
+	ujhelyi.m@gmail.com, mugunthanvnm@ti.com, vaibhav.bedia@ti.com,
+	d-gerlach@ti.com, linux-arm-kernel@lists.infradead.org,
+	linux-omap@vger.kernel.org, devicetree@vger.kernel.org,
+	Daniel Mack <zonque@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1377283987-20040-1-git-send-email-zonque@gmail.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Stefan Assmann [mailto:sassmann@kpanic.de]
-> Sent: Friday, August 23, 2013 10:09 AM
-> To: Kirsher, Jeffrey T
-> Cc: davem@davemloft.net; Brandeburg, Jesse; netdev@vger.kernel.org;
-> gospo@redhat.com; Nelson, Shannon; Waskiewicz Jr, Peter P; e1000-
-> devel@lists.sourceforge.net
-> Subject: Re: [net-next v2 3/8] i40e: driver ethtool core
-> 
-> On 23.08.2013 04:15, Jeff Kirsher wrote:
-> > From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> >
-> > This patch contains the ethtool interface and implementation.
-> >
-> > The goal in this patch series is minimal functionality while not
-> > including much in the way of "set support."
-> 
-> [...]
-> 
-> > diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-> b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-> 
-> [...]
-> 
-> > +#define I40E_QUEUE_STATS_LEN(n) \
-> > +  ((((struct i40e_netdev_priv *)netdev_priv((n)))->vsi-
-> >num_queue_pairs + \
-> > +    ((struct i40e_netdev_priv *)netdev_priv((n)))->vsi-
-> >num_queue_pairs) * 2)
-> > +#define I40E_GLOBAL_STATS_LEN	ARRAY_SIZE(i40e_gstrings_stats)
-> > +#define I40E_NETDEV_STATS_LEN   ARRAY_SIZE(i40e_gstrings_net_stats)
-> > +#define I40E_VSI_STATS_LEN(n)   (I40E_NETDEV_STATS_LEN + \
-> 
-> Please use tabs for spacing here.
+In order to support features that are specific to the AM335x IP, we have
+to add hardware types and another compatible string.
 
-Yep.
+Signed-off-by: Daniel Mack <zonque@gmail.com>
+---
+ Documentation/devicetree/bindings/net/cpsw.txt |  3 ++-
+ drivers/net/ethernet/ti/cpsw.c                 | 32 ++++++++++++++++++++------
+ drivers/net/ethernet/ti/cpsw.h                 |  1 +
+ 3 files changed, 28 insertions(+), 8 deletions(-)
 
-> 
-> > +				 I40E_QUEUE_STATS_LEN((n)))
-> > +#define I40E_PFC_STATS_LEN ( \
-> > +		(FIELD_SIZEOF(struct i40e_pf, stats.priority_xoff_rx) + \
-> > +		 FIELD_SIZEOF(struct i40e_pf, stats.priority_xon_rx) + \
-> > +		 FIELD_SIZEOF(struct i40e_pf, stats.priority_xoff_tx) + \
-> > +		 FIELD_SIZEOF(struct i40e_pf, stats.priority_xon_tx) + \
-> > +		 FIELD_SIZEOF(struct i40e_pf, stats.priority_xon_2_xoff)) \
-> > +		 / sizeof(u64))
-> > +#define I40E_PF_STATS_LEN(n)    (I40E_GLOBAL_STATS_LEN + \
-> 
-> Here as well.
+diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+index 4e5ca54..b717458 100644
+--- a/Documentation/devicetree/bindings/net/cpsw.txt
++++ b/Documentation/devicetree/bindings/net/cpsw.txt
+@@ -2,7 +2,8 @@ TI SoC Ethernet Switch Controller Device Tree Bindings
+ ------------------------------------------------------
+ 
+ Required properties:
+-- compatible		: Should be "ti,cpsw"
++- compatible		: Should be "ti,cpsw" for generic cpsw support, or
++			  "ti,am3352-cpsw" for AM3352 SoCs
+ - reg			: physical base address and size of the cpsw
+ 			  registers map.
+ 			  An optional third memory region can be supplied if
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 4feba2f..87c2bab 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -155,6 +155,11 @@ do {								\
+ 		((priv->data.dual_emac) ? priv->emac_port :	\
+ 		priv->data.active_slave)
+ 
++enum {
++	CPSW_TYPE_GENERIC,
++	CPSW_TYPE_AM33XX
++};
++
+ static int debug_level;
+ module_param(debug_level, int, 0);
+ MODULE_PARM_DESC(debug_level, "cpsw debug level (NETIF_MSG bits)");
+@@ -1692,17 +1697,36 @@ static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv,
+ 	slave->port_vlan = data->dual_emac_res_vlan;
+ }
+ 
++static const struct of_device_id cpsw_of_mtable[] = {
++	{
++		.compatible	= "ti,am3352-cpsw",
++		.data		= (void *) CPSW_TYPE_AM33XX
++	}, {
++		.compatible	= "ti,cpsw",
++		.data		= (void *) CPSW_TYPE_GENERIC
++	},
++	{ /* sentinel */ },
++};
++MODULE_DEVICE_TABLE(of, cpsw_of_mtable);
++
+ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 			 struct platform_device *pdev)
+ {
+ 	struct device_node *node = pdev->dev.of_node;
++	const struct of_device_id *match;
+ 	struct device_node *slave_node;
++	unsigned long match_data;
+ 	int i = 0, ret;
+ 	u32 prop;
+ 
+-	if (!node)
++	match = of_match_device(cpsw_of_mtable, &pdev->dev);
++
++	if (!node || !match)
+ 		return -EINVAL;
+ 
++	match_data = (unsigned long) match->data;
++	data->hw_type = match_data;
++
+ 	if (of_property_read_u32(node, "slaves", &prop)) {
+ 		pr_err("Missing slaves property in the DT.\n");
+ 		return -EINVAL;
+@@ -2207,12 +2231,6 @@ static const struct dev_pm_ops cpsw_pm_ops = {
+ 	.resume		= cpsw_resume,
+ };
+ 
+-static const struct of_device_id cpsw_of_mtable[] = {
+-	{ .compatible = "ti,cpsw", },
+-	{ /* sentinel */ },
+-};
+-MODULE_DEVICE_TABLE(of, cpsw_of_mtable);
+-
+ static struct platform_driver cpsw_driver = {
+ 	.driver = {
+ 		.name	 = "cpsw",
+diff --git a/drivers/net/ethernet/ti/cpsw.h b/drivers/net/ethernet/ti/cpsw.h
+index eb3e101..96c374a 100644
+--- a/drivers/net/ethernet/ti/cpsw.h
++++ b/drivers/net/ethernet/ti/cpsw.h
+@@ -37,6 +37,7 @@ struct cpsw_platform_data {
+ 	u32	mac_control;	/* Mac control register */
+ 	u16	default_vlan;	/* Def VLAN for ALE lookup in VLAN aware mode*/
+ 	bool	dual_emac;	/* Enable Dual EMAC mode */
++	u32	hw_type;	/* hardware type as specified in 'compatible' */
+ };
+ 
+ #endif /* __CPSW_H__ */
+-- 
+1.8.3.1
 
-Yep.
-
-> 
-> [...]
-> 
-> > +static void i40e_get_regs(struct net_device *netdev, struct
-> ethtool_regs *regs,
-> > +			  void *p)
-> > +{
-> > +	struct i40e_netdev_priv *np = netdev_priv(netdev);
-> > +	struct i40e_pf *pf = np->vsi->back;
-> > +	struct i40e_hw *hw = &pf->hw;
-> > +	u32 *reg_buf = p;
-> > +	int i, j, ri;
-> > +	u32 reg;
-> > +
-> > +	/* Tell ethtool which driver-version-specific regs output we have.
-> > +	 *
-> > +	 * At some point, if we have ethtool doing special formatting of
-> > +	 * this data, it will rely on this version number to know how to
-> > +	 * interpret things.  Hence, this needs to be updated if/when the
-> > +	 * diags register table is changed.
-> > +	 */
-> > +	regs->version = 1;
-> > +
-> > +	/* loop through the diags reg table for what to print */
-> > +	ri = 0;
-> > +	for (i = 0; i40e_reg_list[i].offset != 0; i++) {
-> > +		for (j = 0; j < i40e_reg_list[i].elements; j++) {
-> > +			reg = i40e_reg_list[i].offset
-> > +				+ (j * i40e_reg_list[i].stride);
-> > +			reg_buf[ri++] = rd32(hw, reg);
-> > +		}
-> > +	}
-> > +
-> > +	return;
-> 
-> void function, no return necessary.
-
-Thanks
-
-> 
-> > +}
-> 
-> [...]
-> 
-> > +static void i40e_get_ethtool_stats(struct net_device *netdev,
-> > +				   struct ethtool_stats *stats, u64 *data)
-> > +{
-> > +	struct i40e_netdev_priv *np = netdev_priv(netdev);
-> > +	struct i40e_vsi *vsi = np->vsi;
-> > +	struct i40e_pf *pf = vsi->back;
-> > +	struct rtnl_link_stats64 *net_stats =
-> i40e_get_vsi_stats_struct(vsi);
-> > +	char *p;
-> > +	int i, j;
-> > +
-> > +	i40e_update_stats(vsi);
-> > +
-> > +	i = 0;
-> 
-> This could be avoided by int i = 0 few lines above.
-
-Sure.
-
-> 
-> > +	for (j = 0; j < I40E_NETDEV_STATS_LEN; j++) {
-> > +		p = (char *)net_stats +
-> i40e_gstrings_net_stats[j].stat_offset;
-> > +		data[i++] = (i40e_gstrings_net_stats[j].sizeof_stat ==
-> > +			sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
-> > +	}
-> > +	for (j = 0; j < vsi->num_queue_pairs; j++) {
-> > +		data[i++] = vsi->tx_rings[j].tx_stats.packets;
-> > +		data[i++] = vsi->tx_rings[j].tx_stats.bytes;
-> > +	}
-> > +	for (j = 0; j < vsi->num_queue_pairs; j++) {
-> > +		data[i++] = vsi->rx_rings[j].rx_stats.packets;
-> > +		data[i++] = vsi->rx_rings[j].rx_stats.bytes;
-> > +	}
-> > +	if (vsi == pf->vsi[pf->lan_vsi]) {
-> > +		for (j = 0; j < I40E_GLOBAL_STATS_LEN; j++) {
-> > +			p = (char *)pf + i40e_gstrings_stats[j].stat_offset;
-> > +			data[i++] = (i40e_gstrings_stats[j].sizeof_stat ==
-> > +				   sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
-> > +		}
-> > +		for (j = 0; j < I40E_MAX_USER_PRIORITY; j++) {
-> > +			data[i++] = pf->stats.priority_xon_tx[j];
-> > +			data[i++] = pf->stats.priority_xoff_tx[j];
-> > +		}
-> > +		for (j = 0; j < I40E_MAX_USER_PRIORITY; j++) {
-> > +			data[i++] = pf->stats.priority_xon_rx[j];
-> > +			data[i++] = pf->stats.priority_xoff_rx[j];
-> > +		}
-> > +		for (j = 0; j < I40E_MAX_USER_PRIORITY; j++)
-> > +			data[i++] = pf->stats.priority_xon_2_xoff[j];
-> > +	}
-> > +
-> > +	return;
-> 
-> Another void function.
-
-Yep.
-
-> 
-> [...]
-> 
-> > +static struct ethtool_ops i40e_ethtool_ops = {
-> > +	.get_settings           = i40e_get_settings,
-> > +	.get_drvinfo            = i40e_get_drvinfo,
-> > +	.get_regs_len           = i40e_get_regs_len,
-> > +	.get_regs               = i40e_get_regs,
-> > +	.nway_reset             = i40e_nway_reset,
-> > +	.get_link               = ethtool_op_get_link,
-> > +	.get_wol                = i40e_get_wol,
-> > +	.get_ringparam          = i40e_get_ringparam,
-> > +	.set_ringparam          = i40e_set_ringparam,
-> > +	.get_pauseparam         = i40e_get_pauseparam,
-> > +	.get_msglevel           = i40e_get_msglevel,
-> > +	.set_msglevel           = i40e_set_msglevel,
-> > +	.get_rxnfc              = i40e_get_rxnfc,
-> > +	.set_rxnfc              = i40e_set_rxnfc,
-> > +	.self_test              = i40e_diag_test,
-> > +	.get_strings            = i40e_get_strings,
-> > +	.set_phys_id            = i40e_set_phys_id,
-> > +	.get_sset_count         = i40e_get_sset_count,
-> > +	.get_ethtool_stats      = i40e_get_ethtool_stats,
-> > +	.get_coalesce           = i40e_get_coalesce,
-> > +	.set_coalesce           = i40e_set_coalesce,
-> > +	.get_ts_info            = i40e_get_ts_info,
-> > +};
-> 
-> It would be nice if you could use tabs for spacing here.
-
-Sure.
-
-> 
->   Stefan
