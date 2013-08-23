@@ -1,7 +1,8 @@
 From: Daniel Mack <zonque@gmail.com>
-Subject: [PATCH v4 0/5] cpsw: support for control module register
-Date: Fri, 23 Aug 2013 16:16:00 +0200
-Message-ID: <1377267365-24057-1-git-send-email-zonque@gmail.com>
+Subject: [PATCH v4 5/5] ARM: dts: am33xx: adopt to cpsw changes
+Date: Fri, 23 Aug 2013 16:16:05 +0200
+Message-ID: <1377267365-24057-6-git-send-email-zonque@gmail.com>
+References: <1377267365-24057-1-git-send-email-zonque@gmail.com>
 Cc: bcousson@baylibre.com, nsekhar@ti.com,
 	sergei.shtylyov@cogentembedded.com, davem@davemloft.net,
 	ujhelyi.m@gmail.com, mugunthanvnm@ti.com, vaibhav.bedia@ti.com,
@@ -10,46 +11,48 @@ Cc: bcousson@baylibre.com, nsekhar@ti.com,
 	Daniel Mack <zonque@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:48387 "EHLO mail.zonque.de"
+Received: from svenfoo.org ([82.94.215.22]:48421 "EHLO mail.zonque.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753428Ab3HWOQN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Aug 2013 10:16:13 -0400
+	id S1754753Ab3HWOQR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Aug 2013 10:16:17 -0400
+In-Reply-To: <1377267365-24057-1-git-send-email-zonque@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v3 -> v4:
-	* use IS_ERR() to check for failed devm_ioremap_resource()
-	  calls (reported by Sergei Shtylyov)
+This third memory region just denotes one single register in the CONTROL
+module block. The driver uses that in order to set the correct physical
+ethernet interface modes.
 
-v2 -> v3:
-	* swap "ti,am3352-cpsw" and "ti,cpsw" to work around a matching
-	  bug (reported by Sekhar)
+Also update the compatible string to make use of the am335x specific
+features of the cpsw driver.
 
-v1 -> v2:
-	* combine devm_request_mem_region() and devm_ioremap() and use
-	  devm_ioremap_resource() (reported by Sergei Shtylyov)
-	* fix multi-line comment style (reported by Sergei Shtylyov)
-	* fix ti,rmii-clock-ext property name (reported by Sekhar)
-	* rebased to net-next (reported by Mugunthan V N, David Miller)
-	* add a new compatible type, and handle AM33xx specific
-	  registers that way (reported by Sekhar)
-	* move gmii_sel_reg modifications to the open routine
-	  (reported by Mugunthan V N)
+Signed-off-by: Daniel Mack <zonque@gmail.com>
+---
+ arch/arm/boot/dts/am33xx.dtsi | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-
-Daniel Mack (5):
-  net: ethernet: cpsw: switch to devres allocations
-  net: ethernet: cpsw: add optional third memory region for CONTROL
-    module
-  net: ethernet: cpsw: introduce ti,am3352-cpsw compatible string
-  net: ethernet: cpsw: add support for hardware interface mode config
-  ARM: dts: am33xx: adopt to cpsw changes
-
- Documentation/devicetree/bindings/net/cpsw.txt |  10 +-
- arch/arm/boot/dts/am33xx.dtsi                  |   5 +-
- drivers/net/ethernet/ti/cpsw.c                 | 254 ++++++++++++++-----------
- drivers/net/ethernet/ti/cpsw.h                 |   2 +
- 4 files changed, 159 insertions(+), 112 deletions(-)
-
+diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
+index a785b95..c7b41ae 100644
+--- a/arch/arm/boot/dts/am33xx.dtsi
++++ b/arch/arm/boot/dts/am33xx.dtsi
+@@ -446,7 +446,7 @@
+ 		};
+ 
+ 		mac: ethernet@4a100000 {
+-			compatible = "ti,cpsw";
++			compatible = "ti,am3352-cpsw", "ti,cpsw";
+ 			ti,hwmods = "cpgmac0";
+ 			cpdma_channels = <8>;
+ 			ale_entries = <1024>;
+@@ -459,7 +459,8 @@
+ 			cpts_clock_mult = <0x80000000>;
+ 			cpts_clock_shift = <29>;
+ 			reg = <0x4a100000 0x800
+-			       0x4a101200 0x100>;
++			       0x4a101200 0x100
++			       0x44e10650 0x4>;
+ 			#address-cells = <1>;
+ 			#size-cells = <1>;
+ 			interrupt-parent = <&intc>;
 -- 
 1.8.3.1
