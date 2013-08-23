@@ -1,580 +1,469 @@
 From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-Subject: [PATCH net-next 1/5] qlcnic: dcb: Query adapter DCB capabilities.
-Date: Fri, 23 Aug 2013 13:38:25 -0400
-Message-ID: <1377279509-18869-2-git-send-email-sucheta.chakraborty@qlogic.com>
+Subject: [PATCH net-next 2/5] qlcnic: dcb: Get DCB parameters from the adapter.
+Date: Fri, 23 Aug 2013 13:38:26 -0400
+Message-ID: <1377279509-18869-3-git-send-email-sucheta.chakraborty@qlogic.com>
 References: <1377279509-18869-1-git-send-email-sucheta.chakraborty@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:40403 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:47890 "EHLO
 	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754587Ab3HWSHI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 14:07:08 -0400
+	by vger.kernel.org with ESMTP id S1754659Ab3HWSHJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 14:07:09 -0400
 In-Reply-To: <1377279509-18869-1-git-send-email-sucheta.chakraborty@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o Query adapter DCB capabilities and  populate local data structures
-  with relevant information.
-
-o Add QLCNIC_DCB to Kconfig for enabling/disabling DCB.
+o Populate driver data structures with local, operational, and peer
+  DCB parameters.
 
 Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/Kconfig                |  11 ++
- drivers/net/ethernet/qlogic/qlcnic/Makefile        |   2 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |  50 +++++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |  21 ++
  .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   1 +
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |   5 +
  drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c    |   1 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c    | 213 +++++++++++++++++++++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h    |  32 ++++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c    | 248 +++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h    |   7 +-
  drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h     |   1 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  22 +++
- .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |   6 +
  .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |   1 +
- 12 files changed, 345 insertions(+)
- create mode 100644 drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
- create mode 100644 drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h
+ 7 files changed, 278 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/Kconfig b/drivers/net/ethernet/qlogic/Kconfig
-index 0e17972..f59e6be 100644
---- a/drivers/net/ethernet/qlogic/Kconfig
-+++ b/drivers/net/ethernet/qlogic/Kconfig
-@@ -45,6 +45,17 @@ config QLCNIC_SRIOV
- 	  This allows for virtual function acceleration in virtualized
- 	  environments.
- 
-+config QLCNIC_DCB
-+	bool "QLOGIC QLCNIC 82XX and 83XX family DCB Support"
-+	depends on QLCNIC && DCB
-+	default y
-+	---help---
-+	  This configuration parameter enables DCB support in QLE83XX
-+	  and QLE82XX Converged Ethernet devices. This allows for DCB
-+	  get operations support through rtNetlink interface. Only CEE
-+	  mode of DCB is supported. PG and PFC values are related only
-+	  to Tx.
-+
- config QLGE
- 	tristate "QLogic QLGE 10Gb Ethernet Driver Support"
- 	depends on PCI
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/Makefile b/drivers/net/ethernet/qlogic/qlcnic/Makefile
-index 4b1fb3f..a848d29 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/Makefile
-+++ b/drivers/net/ethernet/qlogic/qlcnic/Makefile
-@@ -11,3 +11,5 @@ qlcnic-y := qlcnic_hw.o qlcnic_main.o qlcnic_init.o \
- 	qlcnic_minidump.o qlcnic_sriov_common.o
- 
- qlcnic-$(CONFIG_QLCNIC_SRIOV) += qlcnic_sriov_pf.o
-+
-+qlcnic-$(CONFIG_QLCNIC_DCB) += qlcnic_dcb.o
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 3f03856..2196279 100644
+index 2196279..fc2972c 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -34,6 +34,7 @@
- #include "qlcnic_hdr.h"
- #include "qlcnic_hw.h"
- #include "qlcnic_83xx_hw.h"
-+#include "qlcnic_dcb.h"
- 
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 3
-@@ -959,6 +960,7 @@ struct qlcnic_ipaddr {
- #define __QLCNIC_SRIOV_CAPABLE		11
- #define __QLCNIC_MBX_POLL_ENABLE	12
- #define __QLCNIC_DIAG_MODE		13
-+#define __QLCNIC_DCB_STATE		14
- 
- #define QLCNIC_INTERRUPT_TEST		1
- #define QLCNIC_LOOPBACK_TEST		2
-@@ -1062,6 +1064,7 @@ struct qlcnic_adapter {
- 	struct delayed_work fw_work;
- 	struct delayed_work idc_aen_work;
- 	struct delayed_work mbx_poll_work;
-+	struct qlcnic_dcb *dcb;
- 
- 	struct qlcnic_filter_hash fhash;
- 	struct qlcnic_filter_hash rx_fhash;
-@@ -2092,4 +2095,51 @@ static inline bool qlcnic_sriov_vf_check(struct qlcnic_adapter *adapter)
- 
- 	return status;
+@@ -2142,4 +2142,25 @@ static inline void qlcnic_dcb_get_info(struct qlcnic_adapter *adapter)
+ 	if (dcb && dcb->ops->get_info)
+ 		dcb->ops->get_info(adapter);
  }
 +
-+static inline int qlcnic_dcb_get_hw_capability(struct qlcnic_adapter *adapter)
-+{
-+	struct qlcnic_dcb *dcb = adapter->dcb;
-+
-+	if (dcb && dcb->ops->get_hw_capability)
-+		return dcb->ops->get_hw_capability(adapter);
-+
-+	return 0;
-+}
-+
-+static inline void qlcnic_dcb_free(struct qlcnic_adapter *adapter)
-+{
-+	struct qlcnic_dcb *dcb = adapter->dcb;
-+
-+	if (dcb && dcb->ops->free)
-+		dcb->ops->free(adapter);
-+}
-+
-+static inline int qlcnic_dcb_attach(struct qlcnic_adapter *adapter)
-+{
-+	struct qlcnic_dcb *dcb = adapter->dcb;
-+
-+	if (dcb && dcb->ops->attach)
-+		return dcb->ops->attach(adapter);
-+
-+	return 0;
-+}
-+
 +static inline int
-+qlcnic_dcb_query_hw_capability(struct qlcnic_adapter *adapter, char *buf)
++qlcnic_dcb_query_cee_param(struct qlcnic_adapter *adapter, char *buf, u8 type)
 +{
 +	struct qlcnic_dcb *dcb = adapter->dcb;
 +
-+	if (dcb && dcb->ops->query_hw_capability)
-+		return dcb->ops->query_hw_capability(adapter, buf);
++	if (dcb && dcb->ops->query_cee_param)
++		return dcb->ops->query_cee_param(adapter, buf, type);
 +
 +	return 0;
 +}
 +
-+static inline void qlcnic_dcb_get_info(struct qlcnic_adapter *adapter)
++static inline int qlcnic_dcb_get_cee_cfg(struct qlcnic_adapter *adapter)
 +{
 +	struct qlcnic_dcb *dcb = adapter->dcb;
 +
-+	if (dcb && dcb->ops->get_info)
-+		dcb->ops->get_info(adapter);
++	if (dcb && dcb->ops->get_cee_cfg)
++		return dcb->ops->get_cee_cfg(adapter);
++
++	return 0;
 +}
  #endif				/* __QLCNIC_H_ */
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index 6c059f9..d6d1b10 100644
+index d6d1b10..9b27ed8 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -67,6 +67,7 @@ static const struct qlcnic_mailbox_metadata qlcnic_83xx_mbx_tbl[] = {
- 	{QLCNIC_CMD_ADD_RCV_RINGS, 130, 26},
+@@ -68,6 +68,7 @@ static const struct qlcnic_mailbox_metadata qlcnic_83xx_mbx_tbl[] = {
  	{QLCNIC_CMD_CONFIG_VPORT, 4, 4},
  	{QLCNIC_CMD_BC_EVENT_SETUP, 2, 1},
-+	{QLCNIC_CMD_DCB_QUERY_CAP, 1, 2},
+ 	{QLCNIC_CMD_DCB_QUERY_CAP, 1, 2},
++	{QLCNIC_CMD_DCB_QUERY_PARAM, 2, 50},
  };
  
  const u32 qlcnic_83xx_ext_reg_tbl[] = {
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-index fb0ef36..a969ac2 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-@@ -635,6 +635,8 @@ int qlcnic_83xx_idc_reattach_driver(struct qlcnic_adapter *adapter)
- 
- 	if (adapter->portnum == 0)
- 		qlcnic_set_drv_version(adapter);
-+
-+	qlcnic_dcb_get_info(adapter);
- 	qlcnic_83xx_idc_attach_driver(adapter);
- 
- 	return 0;
-@@ -2228,6 +2230,9 @@ int qlcnic_83xx_init(struct qlcnic_adapter *adapter, int pci_using_dac)
- 	if (err)
- 		goto disable_mbx_intr;
- 
-+	if (adapter->dcb && qlcnic_dcb_attach(adapter))
-+		qlcnic_clear_dcb_ops(adapter);
-+
- 	/* Periodically monitor device status */
- 	qlcnic_83xx_idc_poll_dev_state(&adapter->fw_work.work);
- 	return 0;
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-index d4f0e95..4af3784 100644
+index 4af3784..bf3b17e 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-@@ -39,6 +39,7 @@ static const struct qlcnic_mailbox_metadata qlcnic_mbx_tbl[] = {
- 	{QLCNIC_CMD_82XX_SET_DRV_VER, 4, 1},
+@@ -40,6 +40,7 @@ static const struct qlcnic_mailbox_metadata qlcnic_mbx_tbl[] = {
  	{QLCNIC_CMD_GET_LED_STATUS, 4, 2},
  	{QLCNIC_CMD_MQ_TX_CONFIG_INTR, 2, 3},
-+	{QLCNIC_CMD_DCB_QUERY_CAP, 1, 2},
+ 	{QLCNIC_CMD_DCB_QUERY_CAP, 1, 2},
++	{QLCNIC_CMD_DCB_QUERY_PARAM, 4, 1},
  };
  
  static inline u32 qlcnic_get_cmd_signature(struct qlcnic_hardware_context *ahw)
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
-new file mode 100644
-index 0000000..121e492
---- /dev/null
+index 121e492..e43866f 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
-@@ -0,0 +1,213 @@
-+/*
-+ * QLogic qlcnic NIC Driver
-+ * Copyright (c)  2009-2013 QLogic Corporation
-+ *
-+ * See LICENSE.qlcnic for copyright and licensing details.
-+ */
+@@ -5,9 +5,14 @@
+  * See LICENSE.qlcnic for copyright and licensing details.
+  */
+ 
++#include <linux/types.h>
+ #include "qlcnic.h"
+ 
++#define QLC_DCB_NUM_PARAM		3
 +
-+#include "qlcnic.h"
++#define QLC_DCB_FW_VER			0x2
+ #define QLC_DCB_MAX_TC			0x8
++#define QLC_DCB_MAX_APP			0x8
+ 
+ #define QLC_DCB_TSA_SUPPORT(V)		(V & 0x1)
+ #define QLC_DCB_ETS_SUPPORT(V)		((V >> 1) & 0x1)
+@@ -15,6 +20,29 @@
+ #define QLC_DCB_MAX_NUM_TC(V)		((V >> 20) & 0xf)
+ #define QLC_DCB_MAX_NUM_ETS_TC(V)	((V >> 24) & 0xf)
+ #define QLC_DCB_MAX_NUM_PFC_TC(V)	((V >> 28) & 0xf)
++#define QLC_DCB_GET_TC_PRIO(X, P)	((X >> (P * 3)) & 0x7)
++#define QLC_DCB_GET_PGID_PRIO(X, P)	((X >> (P * 8)) & 0xff)
++#define QLC_DCB_GET_BWPER_PG(X, P)	((X >> (P * 8)) & 0xff)
++#define QLC_DCB_GET_TSA_PG(X, P)	((X >> (P * 8)) & 0xff)
++#define QLC_DCB_GET_PFC_PRIO(X, P)	(((X >> 24) >> P) & 0x1)
++#define QLC_DCB_GET_PROTO_ID_APP(X)	((X >> 8) & 0xffff)
++#define QLC_DCB_GET_SELECTOR_APP(X)	(X & 0xff)
 +
-+#define QLC_DCB_MAX_TC			0x8
++#define QLC_DCB_LOCAL_PARAM_FWID	0x3
++#define QLC_DCB_OPER_PARAM_FWID		0x1
++#define QLC_DCB_PEER_PARAM_FWID		0x2
 +
-+#define QLC_DCB_TSA_SUPPORT(V)		(V & 0x1)
-+#define QLC_DCB_ETS_SUPPORT(V)		((V >> 1) & 0x1)
-+#define QLC_DCB_VERSION_SUPPORT(V)	((V >> 2) & 0xf)
-+#define QLC_DCB_MAX_NUM_TC(V)		((V >> 20) & 0xf)
-+#define QLC_DCB_MAX_NUM_ETS_TC(V)	((V >> 24) & 0xf)
-+#define QLC_DCB_MAX_NUM_PFC_TC(V)	((V >> 28) & 0xf)
++#define QLC_83XX_DCB_GET_NUMAPP(X)	((X >> 2) & 0xf)
++#define QLC_83XX_DCB_TSA_VALID(X)	(X & 0x1)
++#define QLC_83XX_DCB_PFC_VALID(X)	((X >> 1) & 0x1)
++#define QLC_83XX_DCB_GET_PRIOMAP_APP(X)	(X >> 24)
 +
-+static void __qlcnic_dcb_free(struct qlcnic_adapter *);
-+static int __qlcnic_dcb_attach(struct qlcnic_adapter *);
-+static int __qlcnic_dcb_query_hw_capability(struct qlcnic_adapter *, char *);
-+static void __qlcnic_dcb_get_info(struct qlcnic_adapter *);
-+
-+static int qlcnic_82xx_dcb_get_hw_capability(struct qlcnic_adapter *);
-+
-+static int qlcnic_83xx_dcb_get_hw_capability(struct qlcnic_adapter *);
-+
-+struct qlcnic_dcb_capability {
-+	bool	tsa_capability;
-+	bool	ets_capability;
-+	u8	max_num_tc;
-+	u8	max_ets_tc;
-+	u8	max_pfc_tc;
-+	u8	dcb_capability;
++#define QLC_82XX_DCB_GET_NUMAPP(X)	((X >> 12) & 0xf)
++#define QLC_82XX_DCB_TSA_VALID(X)	((X >> 4) & 0x1)
++#define QLC_82XX_DCB_PFC_VALID(X)	((X >> 5) & 0x1)
++#define QLC_82XX_DCB_GET_PRIOVAL_APP(X)	((X >> 24) & 0x7)
++#define QLC_82XX_DCB_GET_PRIOMAP_APP(X)	(1 << X)
++#define QLC_82XX_DCB_PRIO_TC_MAP	(0x76543210)
+ 
+ static void __qlcnic_dcb_free(struct qlcnic_adapter *);
+ static int __qlcnic_dcb_attach(struct qlcnic_adapter *);
+@@ -22,8 +50,12 @@ static int __qlcnic_dcb_query_hw_capability(struct qlcnic_adapter *, char *);
+ static void __qlcnic_dcb_get_info(struct qlcnic_adapter *);
+ 
+ static int qlcnic_82xx_dcb_get_hw_capability(struct qlcnic_adapter *);
++static int qlcnic_82xx_dcb_query_cee_param(struct qlcnic_adapter *, char *, u8);
++static int qlcnic_82xx_dcb_get_cee_cfg(struct qlcnic_adapter *);
+ 
+ static int qlcnic_83xx_dcb_get_hw_capability(struct qlcnic_adapter *);
++static int qlcnic_83xx_dcb_query_cee_param(struct qlcnic_adapter *, char *, u8);
++static int qlcnic_83xx_dcb_get_cee_cfg(struct qlcnic_adapter *);
+ 
+ struct qlcnic_dcb_capability {
+ 	bool	tsa_capability;
+@@ -34,6 +66,28 @@ struct qlcnic_dcb_capability {
+ 	u8	dcb_capability;
+ };
+ 
++struct qlcnic_dcb_param {
++	u32 hdr_prio_pfc_map[2];
++	u32 prio_pg_map[2];
++	u32 pg_bw_map[2];
++	u32 pg_tsa_map[2];
++	u32 app[QLC_DCB_MAX_APP];
 +};
 +
-+struct qlcnic_dcb_cfg {
-+	struct qlcnic_dcb_capability capability;
-+	u32 version;
++struct qlcnic_dcb_mbx_params {
++	/* 1st local, 2nd operational 3rd remote */
++	struct qlcnic_dcb_param type[3];
++	u32 prio_tc_map;
 +};
 +
-+static struct qlcnic_dcb_ops qlcnic_83xx_dcb_ops = {
-+	.free			= __qlcnic_dcb_free,
-+	.attach			= __qlcnic_dcb_attach,
-+	.query_hw_capability	= __qlcnic_dcb_query_hw_capability,
-+	.get_info		= __qlcnic_dcb_get_info,
-+
-+	.get_hw_capability	= qlcnic_83xx_dcb_get_hw_capability,
++struct qlcnic_82xx_dcb_param_mbx_le {
++	__le32 hdr_prio_pfc_map[2];
++	__le32 prio_pg_map[2];
++	__le32 pg_bw_map[2];
++	__le32 pg_tsa_map[2];
++	__le32 app[QLC_DCB_MAX_APP];
 +};
 +
-+static struct qlcnic_dcb_ops qlcnic_82xx_dcb_ops = {
-+	.free			= __qlcnic_dcb_free,
-+	.attach			= __qlcnic_dcb_attach,
-+	.query_hw_capability	= __qlcnic_dcb_query_hw_capability,
-+	.get_info		= __qlcnic_dcb_get_info,
-+
-+	.get_hw_capability	= qlcnic_82xx_dcb_get_hw_capability,
-+};
-+
-+void qlcnic_set_dcb_ops(struct qlcnic_adapter *adapter)
+ struct qlcnic_dcb_cfg {
+ 	struct qlcnic_dcb_capability capability;
+ 	u32 version;
+@@ -46,6 +100,8 @@ static struct qlcnic_dcb_ops qlcnic_83xx_dcb_ops = {
+ 	.get_info		= __qlcnic_dcb_get_info,
+ 
+ 	.get_hw_capability	= qlcnic_83xx_dcb_get_hw_capability,
++	.query_cee_param	= qlcnic_83xx_dcb_query_cee_param,
++	.get_cee_cfg		= qlcnic_83xx_dcb_get_cee_cfg,
+ };
+ 
+ static struct qlcnic_dcb_ops qlcnic_82xx_dcb_ops = {
+@@ -55,8 +111,18 @@ static struct qlcnic_dcb_ops qlcnic_82xx_dcb_ops = {
+ 	.get_info		= __qlcnic_dcb_get_info,
+ 
+ 	.get_hw_capability	= qlcnic_82xx_dcb_get_hw_capability,
++	.query_cee_param	= qlcnic_82xx_dcb_query_cee_param,
++	.get_cee_cfg		= qlcnic_82xx_dcb_get_cee_cfg,
+ };
+ 
++static u8 qlcnic_dcb_get_num_app(struct qlcnic_adapter *adapter, u32 val)
 +{
 +	if (qlcnic_82xx_check(adapter))
-+		adapter->dcb->ops = &qlcnic_82xx_dcb_ops;
-+	else if (qlcnic_83xx_check(adapter))
-+		adapter->dcb->ops = &qlcnic_83xx_dcb_ops;
++		return QLC_82XX_DCB_GET_NUMAPP(val);
++	else
++		return QLC_83XX_DCB_GET_NUMAPP(val);
 +}
 +
-+int __qlcnic_register_dcb(struct qlcnic_adapter *adapter)
-+{
-+	struct qlcnic_dcb *dcb;
+ void qlcnic_set_dcb_ops(struct qlcnic_adapter *adapter)
+ {
+ 	if (qlcnic_82xx_check(adapter))
+@@ -88,6 +154,8 @@ static void __qlcnic_dcb_free(struct qlcnic_adapter *adapter)
+ 
+ 	kfree(dcb->cfg);
+ 	dcb->cfg = NULL;
++	kfree(dcb->param);
++	dcb->param = NULL;
+ 	kfree(dcb);
+ 	adapter->dcb = NULL;
+ }
+@@ -95,19 +163,32 @@ static void __qlcnic_dcb_free(struct qlcnic_adapter *adapter)
+ static void __qlcnic_dcb_get_info(struct qlcnic_adapter *adapter)
+ {
+ 	qlcnic_dcb_get_hw_capability(adapter);
++	qlcnic_dcb_get_cee_cfg(adapter);
+ }
+ 
+ static int __qlcnic_dcb_attach(struct qlcnic_adapter *adapter)
+ {
+ 	struct qlcnic_dcb *dcb = adapter->dcb;
++	int err = 0;
+ 
+ 	dcb->cfg = kzalloc(sizeof(struct qlcnic_dcb_cfg), GFP_ATOMIC);
+ 	if (!dcb->cfg)
+ 		return -ENOMEM;
+ 
++	dcb->param = kzalloc(sizeof(struct qlcnic_dcb_mbx_params), GFP_ATOMIC);
++	if (!dcb->param) {
++		err = -ENOMEM;
++		goto out_free_cfg;
++	}
 +
-+	dcb = kzalloc(sizeof(struct qlcnic_dcb), GFP_ATOMIC);
-+	if (!dcb)
-+		return -ENOMEM;
-+
-+	adapter->dcb = dcb;
-+	qlcnic_set_dcb_ops(adapter);
-+
-+	return 0;
-+}
-+
-+static void __qlcnic_dcb_free(struct qlcnic_adapter *adapter)
-+{
-+	struct qlcnic_dcb *dcb = adapter->dcb;
-+
-+	if (!dcb)
-+		return;
-+
+ 	qlcnic_dcb_get_info(adapter);
+ 
+ 	return 0;
++out_free_cfg:
 +	kfree(dcb->cfg);
 +	dcb->cfg = NULL;
-+	kfree(dcb);
-+	adapter->dcb = NULL;
-+}
 +
-+static void __qlcnic_dcb_get_info(struct qlcnic_adapter *adapter)
++	return err;
+ }
+ 
+ static int __qlcnic_dcb_query_hw_capability(struct qlcnic_adapter *adapter,
+@@ -189,6 +270,104 @@ static int qlcnic_82xx_dcb_get_hw_capability(struct qlcnic_adapter *adapter)
+ 	return err;
+ }
+ 
++static int qlcnic_82xx_dcb_query_cee_param(struct qlcnic_adapter *adapter,
++					   char *buf, u8 type)
 +{
-+	qlcnic_dcb_get_hw_capability(adapter);
-+}
++	u16 size = sizeof(struct qlcnic_82xx_dcb_param_mbx_le);
++	struct qlcnic_82xx_dcb_param_mbx_le *prsp_le;
++	struct device *dev = &adapter->pdev->dev;
++	dma_addr_t cardrsp_phys_addr;
++	struct qlcnic_dcb_param rsp;
++	struct qlcnic_cmd_args cmd;
++	u64 phys_addr;
++	void *addr;
++	int err, i;
 +
-+static int __qlcnic_dcb_attach(struct qlcnic_adapter *adapter)
-+{
-+	struct qlcnic_dcb *dcb = adapter->dcb;
++	switch (type) {
++	case QLC_DCB_LOCAL_PARAM_FWID:
++	case QLC_DCB_OPER_PARAM_FWID:
++	case QLC_DCB_PEER_PARAM_FWID:
++		break;
++	default:
++		dev_err(dev, "Invalid parameter type %d\n", type);
++		return -EINVAL;
++	}
 +
-+	dcb->cfg = kzalloc(sizeof(struct qlcnic_dcb_cfg), GFP_ATOMIC);
-+	if (!dcb->cfg)
++	addr = dma_alloc_coherent(&adapter->pdev->dev, size, &cardrsp_phys_addr,
++				  GFP_KERNEL);
++	if (addr == NULL)
 +		return -ENOMEM;
 +
-+	qlcnic_dcb_get_info(adapter);
++	prsp_le = addr;
 +
-+	return 0;
-+}
-+
-+static int __qlcnic_dcb_query_hw_capability(struct qlcnic_adapter *adapter,
-+					    char *buf)
-+{
-+	struct qlcnic_cmd_args cmd;
-+	u32 mbx_out;
-+	int err;
-+
-+	err = qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_DCB_QUERY_CAP);
++	err = qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_DCB_QUERY_PARAM);
 +	if (err)
-+		return err;
++		goto out_free_rsp;
++
++	phys_addr = cardrsp_phys_addr;
++	cmd.req.arg[1] = size | (type << 16);
++	cmd.req.arg[2] = MSD(phys_addr);
++	cmd.req.arg[3] = LSD(phys_addr);
 +
 +	err = qlcnic_issue_cmd(adapter, &cmd);
 +	if (err) {
-+		dev_err(&adapter->pdev->dev,
-+			"Failed to query DCBX capability, err %d\n", err);
-+	} else {
-+		mbx_out = cmd.rsp.arg[1];
-+		if (buf)
-+			memcpy(buf, &mbx_out, sizeof(u32));
++		dev_err(dev, "Failed to query DCBX parameter, err %d\n", err);
++		goto out;
 +	}
 +
++	memset(&rsp, 0, sizeof(struct qlcnic_dcb_param));
++	rsp.hdr_prio_pfc_map[0] = le32_to_cpu(prsp_le->hdr_prio_pfc_map[0]);
++	rsp.hdr_prio_pfc_map[1] = le32_to_cpu(prsp_le->hdr_prio_pfc_map[1]);
++	rsp.prio_pg_map[0] = le32_to_cpu(prsp_le->prio_pg_map[0]);
++	rsp.prio_pg_map[1] = le32_to_cpu(prsp_le->prio_pg_map[1]);
++	rsp.pg_bw_map[0] = le32_to_cpu(prsp_le->pg_bw_map[0]);
++	rsp.pg_bw_map[1] = le32_to_cpu(prsp_le->pg_bw_map[1]);
++	rsp.pg_tsa_map[0] = le32_to_cpu(prsp_le->pg_tsa_map[0]);
++	rsp.pg_tsa_map[1] = le32_to_cpu(prsp_le->pg_tsa_map[1]);
++
++	for (i = 0; i < QLC_DCB_MAX_APP; i++)
++		rsp.app[i] = le32_to_cpu(prsp_le->app[i]);
++
++	if (buf)
++		memcpy(buf, &rsp, size);
++out:
++	qlcnic_free_mbx_args(&cmd);
++
++out_free_rsp:
++	dma_free_coherent(&adapter->pdev->dev, size, addr, cardrsp_phys_addr);
++
++	return err;
++}
++
++static int qlcnic_82xx_dcb_get_cee_cfg(struct qlcnic_adapter *adapter)
++{
++	struct qlcnic_dcb_mbx_params *mbx;
++	int err;
++
++	mbx = adapter->dcb->param;
++	if (!mbx)
++		return 0;
++
++	err = qlcnic_dcb_query_cee_param(adapter, (char *)&mbx->type[0],
++					 QLC_DCB_LOCAL_PARAM_FWID);
++	if (err)
++		return err;
++
++	err = qlcnic_dcb_query_cee_param(adapter, (char *)&mbx->type[1],
++					 QLC_DCB_OPER_PARAM_FWID);
++	if (err)
++		return err;
++
++	err = qlcnic_dcb_query_cee_param(adapter, (char *)&mbx->type[2],
++					 QLC_DCB_PEER_PARAM_FWID);
++	if (err)
++		return err;
++
++	mbx->prio_tc_map = QLC_82XX_DCB_PRIO_TC_MAP;
++
++	return err;
++}
++
+ static int qlcnic_83xx_dcb_get_hw_capability(struct qlcnic_adapter *adapter)
+ {
+ 	struct qlcnic_dcb_capability *cap = &adapter->dcb->cfg->capability;
+@@ -211,3 +390,72 @@ static int qlcnic_83xx_dcb_get_hw_capability(struct qlcnic_adapter *adapter)
+ 
+ 	return err;
+ }
++
++static int qlcnic_83xx_dcb_query_cee_param(struct qlcnic_adapter *adapter,
++					   char *buf, u8 idx)
++{
++	struct qlcnic_dcb_mbx_params mbx_out;
++	int err, i, j, k, max_app, size;
++	struct qlcnic_dcb_param *each;
++	struct qlcnic_cmd_args cmd;
++	u32 val;
++	char *p;
++
++	size = 0;
++	memset(&mbx_out, 0, sizeof(struct qlcnic_dcb_mbx_params));
++	memset(buf, 0, sizeof(struct qlcnic_dcb_mbx_params));
++
++	err = qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_DCB_QUERY_PARAM);
++	if (err)
++		return err;
++
++	cmd.req.arg[0] |= QLC_DCB_FW_VER << 29;
++	err = qlcnic_issue_cmd(adapter, &cmd);
++	if (err) {
++		dev_err(&adapter->pdev->dev,
++			"Failed to query DCBX param, err %d\n", err);
++		goto out;
++	}
++
++	mbx_out.prio_tc_map = cmd.rsp.arg[1];
++	p = memcpy(buf, &mbx_out, sizeof(u32));
++	k = 2;
++	p += sizeof(u32);
++
++	for (j = 0; j < QLC_DCB_NUM_PARAM; j++) {
++		each = &mbx_out.type[j];
++
++		each->hdr_prio_pfc_map[0] = cmd.rsp.arg[k++];
++		each->hdr_prio_pfc_map[1] = cmd.rsp.arg[k++];
++		each->prio_pg_map[0] = cmd.rsp.arg[k++];
++		each->prio_pg_map[1] = cmd.rsp.arg[k++];
++		each->pg_bw_map[0] = cmd.rsp.arg[k++];
++		each->pg_bw_map[1] = cmd.rsp.arg[k++];
++		each->pg_tsa_map[0] = cmd.rsp.arg[k++];
++		each->pg_tsa_map[1] = cmd.rsp.arg[k++];
++		val = each->hdr_prio_pfc_map[0];
++
++		max_app = qlcnic_dcb_get_num_app(adapter, val);
++		for (i = 0; i < max_app; i++)
++			each->app[i] = cmd.rsp.arg[i + k];
++
++		size = 16 * sizeof(u32);
++		memcpy(p, &each->hdr_prio_pfc_map[0], size);
++		p += size;
++		if (j == 0)
++			k = 18;
++		else
++			k = 34;
++	}
++out:
 +	qlcnic_free_mbx_args(&cmd);
 +
 +	return err;
 +}
 +
-+static int __qlcnic_dcb_get_capability(struct qlcnic_adapter *adapter, u32 *val)
++static int qlcnic_83xx_dcb_get_cee_cfg(struct qlcnic_adapter *adapter)
 +{
-+	struct qlcnic_dcb_capability *cap = &adapter->dcb->cfg->capability;
-+	u32 mbx_out;
-+	int err;
++	struct qlcnic_dcb *dcb = adapter->dcb;
 +
-+	memset(cap, 0, sizeof(struct qlcnic_dcb_capability));
-+
-+	err = qlcnic_dcb_query_hw_capability(adapter, (char *)val);
-+	if (err)
-+		return err;
-+
-+	mbx_out = *val;
-+	if (QLC_DCB_TSA_SUPPORT(mbx_out))
-+		cap->tsa_capability = true;
-+
-+	if (QLC_DCB_ETS_SUPPORT(mbx_out))
-+		cap->ets_capability = true;
-+
-+	cap->max_num_tc = QLC_DCB_MAX_NUM_TC(mbx_out);
-+	cap->max_ets_tc = QLC_DCB_MAX_NUM_ETS_TC(mbx_out);
-+	cap->max_pfc_tc = QLC_DCB_MAX_NUM_PFC_TC(mbx_out);
-+
-+	if (cap->max_num_tc > QLC_DCB_MAX_TC ||
-+	    cap->max_ets_tc > cap->max_num_tc ||
-+	    cap->max_pfc_tc > cap->max_num_tc) {
-+		dev_err(&adapter->pdev->dev, "Invalid DCB configuration\n");
-+		return -EINVAL;
-+	}
-+
-+	return err;
-+}
-+
-+static int qlcnic_82xx_dcb_get_hw_capability(struct qlcnic_adapter *adapter)
-+{
-+	struct qlcnic_dcb_cfg *cfg = adapter->dcb->cfg;
-+	struct qlcnic_dcb_capability *cap;
-+	u32 mbx_out;
-+	int err;
-+
-+	err = __qlcnic_dcb_get_capability(adapter, &mbx_out);
-+	if (err)
-+		return err;
-+
-+	cap = &cfg->capability;
-+	cap->dcb_capability = DCB_CAP_DCBX_VER_CEE | DCB_CAP_DCBX_LLD_MANAGED;
-+
-+	if (cap->dcb_capability && cap->tsa_capability && cap->ets_capability)
-+		set_bit(__QLCNIC_DCB_STATE, &adapter->state);
-+
-+	return err;
-+}
-+
-+static int qlcnic_83xx_dcb_get_hw_capability(struct qlcnic_adapter *adapter)
-+{
-+	struct qlcnic_dcb_capability *cap = &adapter->dcb->cfg->capability;
-+	u32 mbx_out;
-+	int err;
-+
-+	err = __qlcnic_dcb_get_capability(adapter, &mbx_out);
-+	if (err)
-+		return err;
-+
-+	if (mbx_out & BIT_2)
-+		cap->dcb_capability = DCB_CAP_DCBX_VER_CEE;
-+	if (mbx_out & BIT_3)
-+		cap->dcb_capability |= DCB_CAP_DCBX_VER_IEEE;
-+	if (cap->dcb_capability)
-+		cap->dcb_capability |= DCB_CAP_DCBX_LLD_MANAGED;
-+
-+	if (cap->dcb_capability && cap->tsa_capability && cap->ets_capability)
-+		set_bit(__QLCNIC_DCB_STATE, &adapter->state);
-+
-+	return err;
++	return qlcnic_dcb_query_cee_param(adapter, (char *)dcb->param, 0);
 +}
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h
-new file mode 100644
-index 0000000..45dc1fa
---- /dev/null
+index 45dc1fa..d1775d7 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h
-@@ -0,0 +1,32 @@
-+/*
-+ * QLogic qlcnic NIC Driver
-+ * Copyright (c)  2009-2013 QLogic Corporation
-+ *
-+ * See LICENSE.qlcnic for copyright and licensing details.
-+ */
-+
-+#ifndef __QLCNIC_DCBX_H
-+#define __QLCNIC_DCBX_H
-+
-+void qlcnic_clear_dcb_ops(struct qlcnic_adapter *);
-+
-+#ifdef CONFIG_QLCNIC_DCB
-+int __qlcnic_register_dcb(struct qlcnic_adapter *);
-+#else
-+static inline int __qlcnic_register_dcb(struct qlcnic_adapter *adapter)
-+{ return 0; }
-+#endif
-+
-+struct qlcnic_dcb_ops {
-+	void (*free) (struct qlcnic_adapter *);
-+	int (*attach) (struct qlcnic_adapter *);
-+	int (*query_hw_capability) (struct qlcnic_adapter *, char *);
-+	int (*get_hw_capability) (struct qlcnic_adapter *);
-+	void (*get_info) (struct qlcnic_adapter *);
-+};
-+
-+struct qlcnic_dcb {
-+	struct qlcnic_dcb_ops	*ops;
-+	struct qlcnic_dcb_cfg	*cfg;
-+};
-+#endif
+@@ -23,10 +23,13 @@ struct qlcnic_dcb_ops {
+ 	int (*query_hw_capability) (struct qlcnic_adapter *, char *);
+ 	int (*get_hw_capability) (struct qlcnic_adapter *);
+ 	void (*get_info) (struct qlcnic_adapter *);
++	int (*query_cee_param) (struct qlcnic_adapter *, char *, u8);
++	int (*get_cee_cfg) (struct qlcnic_adapter *);
+ };
+ 
+ struct qlcnic_dcb {
+-	struct qlcnic_dcb_ops	*ops;
+-	struct qlcnic_dcb_cfg	*cfg;
++	struct qlcnic_dcb_mbx_params	*param;
++	struct qlcnic_dcb_ops		*ops;
++	struct qlcnic_dcb_cfg		*cfg;
+ };
+ #endif
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-index 786366c..243018b 100644
+index 243018b..d2276b8 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-@@ -85,6 +85,7 @@ enum qlcnic_regs {
- #define QLCNIC_CMD_GET_TEMP_HDR			0x30
+@@ -86,6 +86,7 @@ enum qlcnic_regs {
  #define QLCNIC_CMD_BC_EVENT_SETUP		0x31
  #define	QLCNIC_CMD_CONFIG_VPORT			0x32
-+#define	QLCNIC_CMD_DCB_QUERY_CAP		0x34
+ #define	QLCNIC_CMD_DCB_QUERY_CAP		0x34
++#define	QLCNIC_CMD_DCB_QUERY_PARAM		0x35
  #define QLCNIC_CMD_GET_MAC_STATS		0x37
  #define QLCNIC_CMD_82XX_SET_DRV_VER		0x38
  #define QLCNIC_CMD_MQ_TX_CONFIG_INTR		0x39
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 8321d1a..343c6a0 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -2121,6 +2121,17 @@ void qlcnic_set_drv_version(struct qlcnic_adapter *adapter)
- 		qlcnic_fw_cmd_set_drv_version(adapter, fw_cmd);
- }
- 
-+static int qlcnic_register_dcb(struct qlcnic_adapter *adapter)
-+{
-+	return __qlcnic_register_dcb(adapter);
-+}
-+
-+void qlcnic_clear_dcb_ops(struct qlcnic_adapter *adapter)
-+{
-+	kfree(adapter->dcb);
-+	adapter->dcb = NULL;
-+}
-+
- static int
- qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- {
-@@ -2217,6 +2228,8 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	INIT_LIST_HEAD(&adapter->mac_list);
- 
-+	qlcnic_register_dcb(adapter);
-+
- 	if (qlcnic_82xx_check(adapter)) {
- 		qlcnic_check_vf(adapter, ent);
- 		adapter->portnum = adapter->ahw->pci_func;
-@@ -2245,6 +2258,10 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 			goto err_out_free_hw;
- 
- 		adapter->flags |= QLCNIC_NEED_FLR;
-+
-+		if (adapter->dcb && qlcnic_dcb_attach(adapter))
-+			qlcnic_clear_dcb_ops(adapter);
-+
- 	} else if (qlcnic_83xx_check(adapter)) {
- 		adapter->max_drv_tx_rings = 1;
- 		qlcnic_83xx_check_vf(adapter, ent);
-@@ -2369,6 +2386,8 @@ static void qlcnic_remove(struct pci_dev *pdev)
- 	qlcnic_cancel_idc_work(adapter);
- 	ahw = adapter->ahw;
- 
-+	qlcnic_dcb_free(adapter);
-+
- 	unregister_netdev(netdev);
- 	qlcnic_sriov_cleanup(adapter);
- 
-@@ -2411,6 +2430,7 @@ static void qlcnic_remove(struct pci_dev *pdev)
- 		destroy_workqueue(adapter->qlcnic_wq);
- 		adapter->qlcnic_wq = NULL;
- 	}
-+
- 	qlcnic_free_adapter_resources(adapter);
- 	kfree(ahw);
- 	free_netdev(netdev);
-@@ -3228,6 +3248,8 @@ qlcnic_attach_work(struct work_struct *work)
- 		return;
- 	}
- attach:
-+	qlcnic_dcb_get_info(adapter);
-+
- 	if (netif_running(netdev)) {
- 		if (qlcnic_up(adapter, netdev))
- 			goto done;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-index 2f79ec5..26f9aa6 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-@@ -538,6 +538,9 @@ static int qlcnic_sriov_setup_vf(struct qlcnic_adapter *adapter,
- 	if (err)
- 		goto err_out_send_channel_term;
- 
-+	if (adapter->dcb && qlcnic_dcb_attach(adapter))
-+		qlcnic_clear_dcb_ops(adapter);
-+
- 	err = qlcnic_setup_netdev(adapter, adapter->netdev, pci_using_dac);
- 	if (err)
- 		goto err_out_send_channel_term;
-@@ -545,6 +548,7 @@ static int qlcnic_sriov_setup_vf(struct qlcnic_adapter *adapter,
- 	pci_set_drvdata(adapter->pdev, adapter);
- 	dev_info(&adapter->pdev->dev, "%s: XGbE port initialized\n",
- 		 adapter->netdev->name);
-+
- 	qlcnic_schedule_work(adapter, qlcnic_sriov_vf_poll_dev_state,
- 			     adapter->ahw->idc.delay);
- 	return 0;
-@@ -1577,6 +1581,8 @@ static int qlcnic_sriov_vf_reinit_driver(struct qlcnic_adapter *adapter)
- 	if (err)
- 		goto err_out_term_channel;
- 
-+	qlcnic_dcb_get_info(adapter);
-+
- 	return 0;
- 
- err_out_term_channel:
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-index eb49cd6..b154048 100644
+index b154048..3c0e02a 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-@@ -1284,6 +1284,7 @@ static const int qlcnic_pf_passthru_supp_cmds[] = {
- 	QLCNIC_CMD_GET_STATISTICS,
+@@ -1285,6 +1285,7 @@ static const int qlcnic_pf_passthru_supp_cmds[] = {
  	QLCNIC_CMD_GET_PORT_CONFIG,
  	QLCNIC_CMD_GET_LINK_STATUS,
-+	QLCNIC_CMD_DCB_QUERY_CAP,
+ 	QLCNIC_CMD_DCB_QUERY_CAP,
++	QLCNIC_CMD_DCB_QUERY_PARAM,
  };
  
  static const struct qlcnic_sriov_cmd_handler qlcnic_pf_bc_cmd_hdlr[] = {
