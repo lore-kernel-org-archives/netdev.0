@@ -1,38 +1,61 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH net-next 10/10] staging: vt6656: inherit addr_assign_type
- along with dev_addr
-Date: Fri, 23 Aug 2013 14:15:00 +0300
-Message-ID: <20130823111500.GC4713@mwanda>
-References: <1377250513-3662-1-git-send-email-bjorn@mork.no>
- <1377250513-3662-11-git-send-email-bjorn@mork.no>
- <20130823100333.GT22811@mwanda> <87y57s3cpa.fsf@nemi.mork.no>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH RESEND next 1/2] net: can: mscan: add a comment on reg
+ to idx mapping
+Date: Fri, 23 Aug 2013 13:29:06 +0200
+Message-ID: <52174782.6080002@pengutronix.de>
+References: <1377256144-4173-1-git-send-email-agust@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- Forest Bond <forest@alittletooquiet.net>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <87y57s3cpa.fsf@nemi.mork.no>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="1H2AMXHaxt1NB6iE9Im2p3dGLj8K9Daf6"
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Gerhard Sittig <gsi@denx.de>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Anatolij Gustschin <agust@denx.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1377256144-4173-1-git-send-email-agust@denx.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ah...  Here is the first patch which adds eth_hw_addr_inherit()
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--1H2AMXHaxt1NB6iE9Im2p3dGLj8K9Daf6
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-http://patchwork.ozlabs.org/patch/269365/
+On 08/23/2013 01:09 PM, Anatolij Gustschin wrote:
+> From: Gerhard Sittig <gsi@denx.de>
+>=20
+> add a comment about the magic of deriving an MSCAN component index
+> from the peripheral's physical address / register offset
+>=20
+> Cc: linux-can@vger.kernel.org
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Gerhard Sittig <gsi@denx.de>
+> Signed-off-by: Anatolij Gustschin <agust@denx.de>
 
-I don't think we've actually set dst->addr_len yet at this point so
-it doesn't do the memcpy().  This doesn't work.
+Tnx, both applied to linux-can-next/testing. Will be included in the net
+pull request to Daivd.
 
-regards,
-dan carpenter
+Marc
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--1H2AMXHaxt1NB6iE9Im2p3dGLj8K9Daf6
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlIXR4IACgkQjTAFq1RaXHPPHwCfYSGVl71/LTq+vdzM3yGy5Wgo
+eOEAoIrraUCmXkU0qcTBXeFG+WpbkB6f
+=Xw/e
+-----END PGP SIGNATURE-----
+
+--1H2AMXHaxt1NB6iE9Im2p3dGLj8K9Daf6--
