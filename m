@@ -1,48 +1,113 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: Re: [PATCH v6 0/5] cpsw: support for control module register
-Date: Fri, 23 Aug 2013 21:41:32 +0200
-Message-ID: <5217BAEC.8060602@gmail.com>
-References: <1377286330-29663-1-git-send-email-zonque@gmail.com> <5217BA50.6050609@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bcousson@baylibre.com, nsekhar@ti.com,
-	sergei.shtylyov@cogentembedded.com, davem@davemloft.net,
-	ujhelyi.m@gmail.com, vaibhav.bedia@ti.com, d-gerlach@ti.com,
-	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org,
-	devicetree@vger.kernel.org
-To: Mugunthan V N <mugunthanvnm@ti.com>
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH v3 1/2] genl: Fix genl dumpit() locking.
+Date: Fri, 23 Aug 2013 12:44:55 -0700
+Message-ID: <1377287095-13245-1-git-send-email-pshelar@nicira.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>,
+	Johannes Berg <johannes.berg@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f54.google.com ([74.125.83.54]:62788 "EHLO
-	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754474Ab3HWTlg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 15:41:36 -0400
-In-Reply-To: <5217BA50.6050609@ti.com>
+Received: from na3sys009aog102.obsmtp.com ([74.125.149.69]:58930 "HELO
+	na3sys009aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754170Ab3HWTpB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 15:45:01 -0400
+Received: by mail-pa0-f44.google.com with SMTP id fz6so1061106pac.3
+        for <netdev@vger.kernel.org>; Fri, 23 Aug 2013 12:45:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23.08.2013 21:38, Mugunthan V N wrote:
-> On Saturday 24 August 2013 01:02 AM, Daniel Mack wrote:
+In case of genl-family with parallel ops off, dumpif() callback
+is expected to run under genl_lock, But commit def3117493eafd9df
+(genl: Allow concurrent genl callbacks.) changed this behaviour
+where only first dumpit() op was called under genl-lock.
+For subsequent dump, only nlk->cb_lock was taken.
+Following patch fixes it by defining locked dumpit() and done()
+callback which takes care of genl-locking.
 
->> v5 -> v6:
->> 	* re-add code to fail if 3rd memory region is given but invalid
->> 	* added Mugunthan's ack on all patches except the one that adds
->> 	  ti,am3352-cpsw
->> 	* remove parens around integer constants
-> I am also in your favour of adding ti,am3352-cpsw, but lets get other
-> comment. You can add my ack to that patch also if you are submitting
-> another version.
+CC: Jesse Gross <jesse@nicira.com>
+CC: Johannes Berg <johannes.berg@intel.com>
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+---
+v2-v3:
+coding style fix.
+v1-v2:
+No change.
+---
+ net/netlink/genetlink.c |   51 ++++++++++++++++++++++++++++++++++++++++++----
+ 1 files changed, 46 insertions(+), 5 deletions(-)
 
-I don't think I'll have a chance to do that before I'm AFK for a while :)
-
-That's also the only reason why I sent a v6 already. I would have
-normally waited for that discussion to settle of course.
-
-But as I said: I'd be fine if anyone adds another patch on top or amends
-mine.
-
-
-Thanks for the reviews again, everyone!
-
-
-Daniel
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index f85f8a2..f09d387 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -544,6 +544,30 @@ void *genlmsg_put(struct sk_buff *skb, u32 portid, u32 seq,
+ }
+ EXPORT_SYMBOL(genlmsg_put);
+ 
++static int genl_lock_dumpit(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	struct genl_ops *ops = cb->data;
++	int rc;
++
++	genl_lock();
++	rc = ops->dumpit(skb, cb);
++	genl_unlock();
++	return rc;
++}
++
++static int genl_lock_done(struct netlink_callback *cb)
++{
++	struct genl_ops *ops = cb->data;
++	int rc = 0;
++
++	if (ops->done) {
++		genl_lock();
++		rc = ops->done(cb);
++		genl_unlock();
++	}
++	return rc;
++}
++
+ static int genl_family_rcv_msg(struct genl_family *family,
+ 			       struct sk_buff *skb,
+ 			       struct nlmsghdr *nlh)
+@@ -572,15 +596,32 @@ static int genl_family_rcv_msg(struct genl_family *family,
+ 		return -EPERM;
+ 
+ 	if ((nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP) {
+-		struct netlink_dump_control c = {
+-			.dump = ops->dumpit,
+-			.done = ops->done,
+-		};
++		int rc;
+ 
+ 		if (ops->dumpit == NULL)
+ 			return -EOPNOTSUPP;
+ 
+-		return netlink_dump_start(net->genl_sock, skb, nlh, &c);
++		if (!family->parallel_ops) {
++			struct netlink_dump_control c = {
++				.data = ops,
++				.dump = genl_lock_dumpit,
++				.done = genl_lock_done,
++			};
++
++			genl_unlock();
++			rc = netlink_dump_start(net->genl_sock, skb, nlh, &c);
++			genl_lock();
++
++		} else {
++			struct netlink_dump_control c = {
++				.dump = ops->dumpit,
++				.done = ops->done,
++			};
++
++			rc = netlink_dump_start(net->genl_sock, skb, nlh, &c);
++		}
++
++		return rc;
+ 	}
+ 
+ 	if (ops->doit == NULL)
+-- 
+1.7.1
