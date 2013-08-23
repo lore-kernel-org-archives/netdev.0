@@ -1,51 +1,40 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH net-next 10/10] staging: vt6656: inherit addr_assign_type
- along with dev_addr
-Date: Fri, 23 Aug 2013 15:09:38 +0300
-Message-ID: <20130823120938.GV22811@mwanda>
-References: <1377250513-3662-1-git-send-email-bjorn@mork.no>
- <1377250513-3662-11-git-send-email-bjorn@mork.no>
- <20130823100333.GT22811@mwanda> <87y57s3cpa.fsf@nemi.mork.no>
- <20130823111500.GC4713@mwanda> <87txig3936.fsf@nemi.mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- Forest Bond <forest@alittletooquiet.net>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <87txig3936.fsf@nemi.mork.no>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+From: Francesco Fusco <ffusco@redhat.com>
+Subject: [PATCH net-next v2 0/2] ipv4: per-datagram IP_TOS and IP_TTL via sendmsg()
+Date: Fri, 23 Aug 2013 14:19:31 +0200
+Message-ID: <cover.1377257704.git.ffusco@redhat.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:40087 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755478Ab3HWMTg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Aug 2013 08:19:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 23, 2013 at 02:06:21PM +0200, Bj=F8rn Mork wrote:
-> Dan Carpenter <dan.carpenter@oracle.com> writes:
-> =
+There is no way to set the IP_TOS field on a per-packet basis in IPv4, while
+IPv6 has such a mechanism. Therefore one has to fall back to the setsockopt()
+in case of IPv4. 
 
-> > Ah...  Here is the first patch which adds eth_hw_addr_inherit()
-> >
-> > http://patchwork.ozlabs.org/patch/269365/
-> >
-> > I don't think we've actually set dst->addr_len yet at this point so
-> > it doesn't do the memcpy().  This doesn't work.
-> =
+Using the existing per-socket option is not convenient particularly in the
+situations where multiple threads have to use the same socket data requiring
+per-thread TOS values. In fact this would involve calling setsockopt() before
+sendmsg() every time.
 
-> Ouch.  Yes, I see. The net_device is allocated using kzalloc just a few
-> lines earlier and there is no ether_setup or similar.  Actually, it
-> doesn't look like it ever sets addr_len. Is that right?  Does it work
-> even before this patch?
+Francesco Fusco (2):
+  ipv4: IP_TOS and IP_TTL can be specified as ancillary data
+  ipv4: processing ancillary IP_TOS or IP_TTL
 
-Ha ha.  That's a very good question.  I have no idea.
+ include/net/inet_sock.h |  3 +++
+ include/net/ip.h        | 14 ++++++++++++++
+ include/net/route.h     |  1 +
+ net/ipv4/icmp.c         |  5 +++++
+ net/ipv4/ip_output.c    | 13 ++++++++++---
+ net/ipv4/ip_sockglue.c  | 20 +++++++++++++++++++-
+ net/ipv4/ping.c         |  4 +++-
+ net/ipv4/raw.c          |  4 +++-
+ net/ipv4/udp.c          |  4 +++-
+ 9 files changed, 61 insertions(+), 7 deletions(-)
 
-regards,
-dan carpenter
+-- 
+1.8.3.1
