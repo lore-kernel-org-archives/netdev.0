@@ -1,721 +1,198 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next RFC 5/7] i40evf: driver core headers
-Date: Thu, 22 Aug 2013 21:53:27 -0700
-Message-ID: <1377233609-11627-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next RFC 7/7] i40evf: add driver to kernel build system
+Date: Thu, 22 Aug 2013 21:53:29 -0700
+Message-ID: <1377233609-11627-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1377233609-11627-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mitch A Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:52936 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:20399 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754478Ab3HWExh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Aug 2013 00:53:37 -0400
+	id S1754478Ab3HWExj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Aug 2013 00:53:39 -0400
 In-Reply-To: <1377233609-11627-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mitch A Williams <mitch.a.williams@intel.com>
 
-This patch contains the main driver header files, containing structures
-and data types specific to the linux driver.
-
-i40e_osdep.h contains some code that helps us adapt our OS agnostic code
-to Linux.
+Modify the existing Kconfig, Makefile, and MAINTAINERS to add the driver
+to the kernel. Add a Kbuild and a readme.
 
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40e_osdep.h |  76 ++++++
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h  | 258 +++++++++++++++++++
- drivers/net/ethernet/intel/i40evf/i40evf.h     | 330 +++++++++++++++++++++++++
- 3 files changed, 664 insertions(+)
- create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_osdep.h
- create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_txrx.h
- create mode 100644 drivers/net/ethernet/intel/i40evf/i40evf.h
+ Documentation/networking/i40evf.txt      | 47 ++++++++++++++++++++++++++++++++
+ MAINTAINERS                              |  4 ++-
+ drivers/net/ethernet/intel/Kconfig       | 19 +++++++++++++
+ drivers/net/ethernet/intel/Makefile      |  1 +
+ drivers/net/ethernet/intel/i40evf/Kbuild | 36 ++++++++++++++++++++++++
+ 5 files changed, 106 insertions(+), 1 deletion(-)
+ create mode 100644 Documentation/networking/i40evf.txt
+ create mode 100644 drivers/net/ethernet/intel/i40evf/Kbuild
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_osdep.h b/drivers/net/ethernet/intel/i40evf/i40e_osdep.h
+diff --git a/Documentation/networking/i40evf.txt b/Documentation/networking/i40evf.txt
 new file mode 100644
-index 0000000..c4ef000
+index 0000000..21e4127
 --- /dev/null
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_osdep.h
-@@ -0,0 +1,76 @@
-+/*******************************************************************************
++++ b/Documentation/networking/i40evf.txt
+@@ -0,0 +1,47 @@
++Linux* Base Driver for Intel(R) Network Connection
++==================================================
 +
-+  Intel Ethernet Controller XL710 Family Linux Driver
-+  Copyright(c) 2013 Intel Corporation.
++Intel XL710 X710 Virtual Function Linux driver.
++Copyright(c) 2013 Intel Corporation.
 +
-+  This program is free software; you can redistribute it and/or modify it
-+  under the terms and conditions of the GNU General Public License,
-+  version 2, as published by the Free Software Foundation.
++Contents
++========
 +
-+  This program is distributed in the hope it will be useful, but WITHOUT
-+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+  more details.
++- Identifying Your Adapter
++- Known Issues/Troubleshooting
++- Support
 +
-+  You should have received a copy of the GNU General Public License along with
-+  this program; if not, write to the Free Software Foundation, Inc.,
-+  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++This file describes the i40evf Linux* Base Driver for the Intel(R) XL710
++X710 Virtual Function.
 +
-+  The full GNU General Public License is included in this distribution in
-+  the file called "COPYING".
++The i40evf driver supports XL710 and X710 virtual function devices that
++can only be activated on kernels with CONFIG_PCI_IOV enabled.
 +
-+  Contact Information:
-+  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++The guest OS loading the i40evf driver must support MSI-X interrupts.
 +
-+*******************************************************************************/
++Identifying Your Adapter
++========================
 +
-+#ifndef _I40E_OSDEP_H_
-+#define _I40E_OSDEP_H_
++For more information on how to identify your adapter, go to the Adapter &
++Driver ID Guide at:
 +
-+#include <linux/types.h>
-+#include <linux/if_ether.h>
-+#include <linux/if_vlan.h>
-+#include <linux/tcp.h>
-+#include <linux/pci.h>
++    http://support.intel.com/support/go/network/adapter/idguide.htm
 +
-+/* File to be the magic between shared code and
-+ * actual OS primitives
-+ */
-+
-+#define hw_dbg(hw, S, A...)	do {} while (0)
-+
-+#define wr32(a, reg, value)	writel((value), ((a)->hw_addr + (reg)))
-+#define rd32(a, reg)		readl((a)->hw_addr + (reg))
-+
-+#define wr64(a, reg, value)	writeq((value), ((a)->hw_addr + (reg)))
-+#define rd64(a, reg)		readq((a)->hw_addr + (reg))
-+#define flush(a)		readl((a)->hw_addr + I40E_VFGEN_RSTAT)
-+
-+/* memory allocation tracking */
-+struct i40e_dma_mem {
-+	void *va;
-+	u64 pa;
-+	u32 size;
-+} __packed;
-+
-+#define i40e_allocate_dma_mem(h, m, unused, s, a) \
-+	i40evf_allocate_dma_mem_d(h, m, s, a)
-+#define i40e_free_dma_mem(h, m) i40evf_free_dma_mem_d(h, m)
-+
-+struct i40e_virt_mem {
-+	void *va;
-+	u32 size;
-+} __packed;
-+#define i40e_allocate_virt_mem(h, m, s) i40evf_allocate_virt_mem_d(h, m, s)
-+#define i40e_free_virt_mem(h, m) i40evf_free_virt_mem_d(h, m)
-+
-+#define i40e_debug(h, m, s, ...)  i40evf_debug_d(h, m, s, ##__VA_ARGS__)
-+extern void i40evf_debug_d(void *hw, u32 mask, char *fmt_str, ...)
-+	__attribute__ ((format(gnu_printf, 3, 4)));
-+
-+#define i40e_memset(a, b, c, d)  memset((a), (b), (c))
-+#define i40e_memcpy(a, b, c, d)  memcpy((a), (b), (c))
++Known Issues/Troubleshooting
++============================
 +
 +
-+#endif /* _I40E_OSDEP_H_ */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
++Support
++=======
++
++For general information, go to the Intel support website at:
++
++    http://support.intel.com
++
++or the Intel Wired Networking project hosted by Sourceforge at:
++
++    http://sourceforge.net/projects/e1000
++
++If an issue is identified with the released source code on the supported
++kernel with a supported adapter, email the specific information related
++to the issue to e1000-devel@lists.sf.net
+diff --git a/MAINTAINERS b/MAINTAINERS
+index ecff64e..6a2e85d 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4300,7 +4300,7 @@ M:	Deepak Saxena <dsaxena@plexity.net>
+ S:	Maintained
+ F:	drivers/char/hw_random/ixp4xx-rng.c
+ 
+-INTEL ETHERNET DRIVERS (e100/e1000/e1000e/igb/igbvf/ixgb/ixgbe/ixgbevf/i40e)
++INTEL ETHERNET DRIVERS (e100/e1000/e1000e/igb/igbvf/ixgb/ixgbe/ixgbevf/i40e/i40evf)
+ M:	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+ M:	Jesse Brandeburg <jesse.brandeburg@intel.com>
+ M:	Bruce Allan <bruce.w.allan@intel.com>
+@@ -4311,6 +4311,7 @@ M:	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+ M:	Alex Duyck <alexander.h.duyck@intel.com>
+ M:	John Ronciak <john.ronciak@intel.com>
+ M:	Tushar Dave <tushar.n.dave@intel.com>
++M:	Mitch Williams <mitch.a.williams@intel.com>
+ L:	e1000-devel@lists.sourceforge.net
+ W:	http://www.intel.com/support/feedback.htm
+ W:	http://e1000.sourceforge.net/
+@@ -4326,6 +4327,7 @@ F:	Documentation/networking/ixgb.txt
+ F:	Documentation/networking/ixgbe.txt
+ F:	Documentation/networking/ixgbevf.txt
+ F:	Documentation/networking/i40e.txt
++F:	Documentation/networking/i40evf.txt
+ F:	drivers/net/ethernet/intel/
+ 
+ INTEL PRO/WIRELESS 2100, 2200BG, 2915ABG NETWORK CONNECTION SUPPORT
+diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+index 149ac85..1d3f4de 100644
+--- a/drivers/net/ethernet/intel/Kconfig
++++ b/drivers/net/ethernet/intel/Kconfig
+@@ -259,4 +259,23 @@ config I40E
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called i40e.
+ 
++config I40EVF
++	tristate "Intel(R) XL710 X710 Virtual Function Ethernet support"
++	depends on PCI_MSI
++	---help---
++	  This driver supports Intel(R) XL710 and X710 virtual functions.
++	  For more information on how to identify your adapter, go to the
++	  Adapter & Driver ID Guide at:
++
++	  <http://support.intel.com/support/network/sb/CS-008441.htm>
++
++	  For general information and support, go to the Intel support
++	  website at:
++
++	  <http://support.intel.com>
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called i40evf.  MSI-X interrupt support is required
++	  for this driver to work correctly.
++
+ endif # NET_VENDOR_INTEL
+diff --git a/drivers/net/ethernet/intel/Makefile b/drivers/net/ethernet/intel/Makefile
+index 5bae933..cdbbca8 100644
+--- a/drivers/net/ethernet/intel/Makefile
++++ b/drivers/net/ethernet/intel/Makefile
+@@ -11,3 +11,4 @@ obj-$(CONFIG_IXGBE) += ixgbe/
+ obj-$(CONFIG_IXGBEVF) += ixgbevf/
+ obj-$(CONFIG_I40E) += i40e/
+ obj-$(CONFIG_IXGB) += ixgb/
++obj-$(CONFIG_I40EVF) += i40evf/
+diff --git a/drivers/net/ethernet/intel/i40evf/Kbuild b/drivers/net/ethernet/intel/i40evf/Kbuild
 new file mode 100644
-index 0000000..784e8e7
+index 0000000..dc0d369
 --- /dev/null
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-@@ -0,0 +1,258 @@
-+/*******************************************************************************
-+
-+  Intel Ethernet Controller XL710 Family Linux Driver
-+  Copyright(c) 2013 Intel Corporation.
-+
-+  This program is free software; you can redistribute it and/or modify it
-+  under the terms and conditions of the GNU General Public License,
-+  version 2, as published by the Free Software Foundation.
-+
-+  This program is distributed in the hope it will be useful, but WITHOUT
-+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+  more details.
-+
-+  You should have received a copy of the GNU General Public License along with
-+  this program; if not, write to the Free Software Foundation, Inc.,
-+  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
-+
-+  The full GNU General Public License is included in this distribution in
-+  the file called "COPYING".
-+
-+  Contact Information:
-+  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+
-+*******************************************************************************/
-+
-+/* Interrupt Throttling and Rate Limiting (storm control) Goodies */
-+
-+#define I40E_MAX_ITR               0x07FF
-+#define I40E_MIN_ITR               0x0001
-+#define I40E_ITR_USEC_RESOLUTION   2
-+#define I40E_MAX_IRATE             0x03F
-+#define I40E_MIN_IRATE             0x001
-+#define I40E_IRATE_USEC_RESOLUTION 4
-+#define I40E_ITR_100K              0x0005
-+#define I40E_ITR_20K               0x0019
-+#define I40E_ITR_8K                0x003E
-+#define I40E_ITR_4K                0x007A
-+#define I40E_ITR_RX_DEF            I40E_ITR_8K
-+#define I40E_ITR_TX_DEF            I40E_ITR_4K
-+#define I40E_ITR_DYNAMIC           0x8000  /* use top bit as a flag */
-+#define I40E_MIN_INT_RATE          250     /* ~= 1000000 / (I40E_MAX_ITR * 2) */
-+#define I40E_MAX_INT_RATE          500000  /* == 1000000 / (I40E_MIN_ITR * 2) */
-+#define I40E_DEFAULT_IRQ_WORK      256
-+#define ITR_TO_REG(setting) ((setting & ~I40E_ITR_DYNAMIC) >> 1)
-+#define ITR_IS_DYNAMIC(setting) (!!(setting & I40E_ITR_DYNAMIC))
-+#define ITR_REG_TO_USEC(itr_reg) (itr_reg << 1)
-+
-+#define I40E_QUEUE_END_OF_LIST 0x7FF
-+
-+#define I40E_ITR_NONE  3
-+#define I40E_RX_ITR    I40E_ITR_NONE
-+#define I40E_TX_ITR    I40E_ITR_NONE
-+#define I40E_PE_ITR    I40E_ITR_NONE
-+/* Supported Rx Buffer Sizes */
-+#define I40E_RXBUFFER_512   512    /* Used for packet split */
-+#define I40E_RXBUFFER_2048  2048
-+#define I40E_RXBUFFER_3072  3072   /* For FCoE MTU of 2158 */
-+#define I40E_RXBUFFER_4096  4096
-+#define I40E_RXBUFFER_8192  8192
-+#define I40E_MAX_RXBUFFER   9728  /* largest size for single descriptor */
-+
-+/* NOTE: netdev_alloc_skb reserves up to 64 bytes, NET_IP_ALIGN means we
-+ * reserve 2 more, and skb_shared_info adds an additional 384 bytes more,
-+ * this adds up to 512 bytes of extra data meaning the smallest allocation
-+ * we could have is 1K.
-+ * i.e. RXBUFFER_512 --> size-1024 slab
-+ */
-+#define I40E_RX_HDR_SIZE  I40E_RXBUFFER_512
-+
-+/* How many Rx Buffers do we bundle into one write to the hardware ? */
-+#define I40E_RX_BUFFER_WRITE	16	/* Must be power of 2 */
-+#define I40E_RX_NEXT_DESC(r, i, n)		\
-+	do {					\
-+		(i)++;				\
-+		if ((i) == (r)->count)		\
-+			i = 0;			\
-+		(n) = I40E_RX_DESC((r), (i));	\
-+	} while (0)
-+
-+#define I40E_RX_NEXT_DESC_PREFETCH(r, i, n)		\
-+	do {						\
-+		I40E_RX_NEXT_DESC((r), (i), (n));	\
-+		prefetch((n));				\
-+	} while (0)
-+
-+#define i40e_rx_desc i40e_32byte_rx_desc
-+
-+#define I40E_MAX_DATA_PER_TXD	16383	/* aka 16kB - 1 */
-+
-+/* Tx Descriptors needed, worst case */
-+#define TXD_USE_COUNT(S) DIV_ROUND_UP((S), I40E_MAX_DATA_PER_TXD)
-+#define DESC_NEEDED ((MAX_SKB_FRAGS * TXD_USE_COUNT(PAGE_SIZE)) + 4)
-+
-+#define I40E_TX_FLAGS_CSUM		(u32)(1)
-+#define I40E_TX_FLAGS_HW_VLAN		(u32)(1 << 1)
-+#define I40E_TX_FLAGS_SW_VLAN		(u32)(1 << 2)
-+#define I40E_TX_FLAGS_TSO		(u32)(1 << 3)
-+#define I40E_TX_FLAGS_IPV4		(u32)(1 << 4)
-+#define I40E_TX_FLAGS_IPV6		(u32)(1 << 5)
-+#define I40E_TX_FLAGS_FCCRC		(u32)(1 << 6)
-+#define I40E_TX_FLAGS_FSO		(u32)(1 << 7)
-+#define I40E_TX_FLAGS_TXSW		(u32)(1 << 8)
-+#define I40E_TX_FLAGS_MAPPED_AS_PAGE	(u32)(1 << 9)
-+#define I40E_TX_FLAGS_VLAN_MASK		0xffff0000
-+#define I40E_TX_FLAGS_VLAN_PRIO_MASK	0xe0000000
-+#define I40E_TX_FLAGS_VLAN_PRIO_SHIFT	29
-+#define I40E_TX_FLAGS_VLAN_SHIFT	16
-+
-+struct i40e_tx_buffer {
-+	struct sk_buff *skb;
-+	dma_addr_t dma;
-+	unsigned long time_stamp;
-+	u16 length;
-+	u32 tx_flags;
-+	struct i40e_tx_desc *next_to_watch;
-+	unsigned int bytecount;
-+	u16 gso_segs;
-+	u8 mapped_as_page;
-+};
-+
-+struct i40e_rx_buffer {
-+	struct sk_buff *skb;
-+	dma_addr_t dma;
-+	struct page *page;
-+	dma_addr_t page_dma;
-+	unsigned int page_offset;
-+};
-+
-+struct i40e_tx_queue_stats {
-+	u64 packets;
-+	u64 bytes;
-+	u64 restart_queue;
-+	u64 tx_busy;
-+	u64 completed;
-+	u64 tx_done_old;
-+};
-+
-+struct i40e_rx_queue_stats {
-+	u64 packets;
-+	u64 bytes;
-+	u64 non_eop_descs;
-+	u64 alloc_rx_page_failed;
-+	u64 alloc_rx_buff_failed;
-+};
-+
-+enum i40e_ring_state_t {
-+	__I40E_TX_FDIR_INIT_DONE,
-+	__I40E_TX_DETECT_HANG,
-+	__I40E_HANG_CHECK_ARMED,
-+	__I40E_RX_PS_ENABLED,
-+	__I40E_RX_LRO_ENABLED,
-+	__I40E_RX_16BYTE_DESC_ENABLED,
-+};
-+
-+#define ring_is_ps_enabled(ring) \
-+	test_bit(__I40E_RX_PS_ENABLED, &(ring)->state)
-+#define set_ring_ps_enabled(ring) \
-+	set_bit(__I40E_RX_PS_ENABLED, &(ring)->state)
-+#define clear_ring_ps_enabled(ring) \
-+	clear_bit(__I40E_RX_PS_ENABLED, &(ring)->state)
-+#define check_for_tx_hang(ring) \
-+	test_bit(__I40E_TX_DETECT_HANG, &(ring)->state)
-+#define set_check_for_tx_hang(ring) \
-+	set_bit(__I40E_TX_DETECT_HANG, &(ring)->state)
-+#define clear_check_for_tx_hang(ring) \
-+	clear_bit(__I40E_TX_DETECT_HANG, &(ring)->state)
-+#define ring_is_lro_enabled(ring) \
-+	test_bit(__I40E_RX_LRO_ENABLED, &(ring)->state)
-+#define set_ring_lro_enabled(ring) \
-+	set_bit(__I40E_RX_LRO_ENABLED, &(ring)->state)
-+#define clear_ring_lro_enabled(ring) \
-+	clear_bit(__I40E_RX_LRO_ENABLED, &(ring)->state)
-+#define ring_is_16byte_desc_enabled(ring) \
-+	test_bit(__I40E_RX_16BYTE_DESC_ENABLED, &(ring)->state)
-+#define set_ring_16byte_desc_enabled(ring) \
-+	set_bit(__I40E_RX_16BYTE_DESC_ENABLED, &(ring)->state)
-+#define clear_ring_16byte_desc_enabled(ring) \
-+	clear_bit(__I40E_RX_16BYTE_DESC_ENABLED, &(ring)->state)
-+
-+/* struct that defines a descriptor ring, associated with a VSI */
-+struct i40e_ring {
-+	void *desc;			/* Descriptor ring memory */
-+	struct device *dev;		/* Used for DMA mapping */
-+	struct net_device *netdev;	/* netdev ring maps to */
-+	union {
-+		struct i40e_tx_buffer *tx_bi;
-+		struct i40e_rx_buffer *rx_bi;
-+	};
-+	unsigned long state;
-+	u16 queue_index;		/* Queue number of ring */
-+	u8 dcb_tc;			/* Traffic class of ring */
-+	u8 __iomem *tail;
-+
-+	u16 count;			/* Number of descriptors */
-+	u16 reg_idx;			/* HW register index of the ring */
-+	u16 rx_hdr_len;
-+	u16 rx_buf_len;
-+	u8  dtype;
-+#define I40E_RX_DTYPE_NO_SPLIT      0
-+#define I40E_RX_DTYPE_SPLIT_ALWAYS  1
-+#define I40E_RX_DTYPE_HEADER_SPLIT  2
-+	u8  hsplit;
-+#define I40E_RX_SPLIT_L2      0x1
-+#define I40E_RX_SPLIT_IP      0x2
-+#define I40E_RX_SPLIT_TCP_UDP 0x4
-+#define I40E_RX_SPLIT_SCTP    0x8
-+
-+	/* used in interrupt processing */
-+	u16 next_to_use;
-+	u16 next_to_clean;
-+
-+	u8 atr_sample_rate;
-+	u8 atr_count;
-+
-+	bool ring_active;		/* is ring online or not */
-+
-+	/* stats structs */
-+	union {
-+		struct i40e_tx_queue_stats tx_stats;
-+		struct i40e_rx_queue_stats rx_stats;
-+	};
-+
-+	unsigned int size;		/* length of descriptor ring in bytes */
-+	dma_addr_t dma;			/* physical address of ring */
-+
-+	struct i40e_vsi *vsi;		/* Backreference to associated VSI */
-+	struct i40e_q_vector *q_vector;	/* Backreference to associated vector */
-+} ____cacheline_internodealigned_in_smp;
-+
-+enum i40e_latency_range {
-+	I40E_LOWEST_LATENCY = 0,
-+	I40E_LOW_LATENCY = 1,
-+	I40E_BULK_LATENCY = 2,
-+};
-+
-+struct i40e_ring_container {
-+#define I40E_MAX_RINGPAIR_PER_VECTOR 8
-+	/* array of pointers to rings */
-+	struct i40e_ring *ring[I40E_MAX_RINGPAIR_PER_VECTOR];
-+	unsigned int total_bytes;	/* total bytes processed this int */
-+	unsigned int total_packets;	/* total packets processed this int */
-+	u16 count;
-+	enum i40e_latency_range latency_range;
-+	u16 itr;
-+};
-+
-+extern void i40e_alloc_rx_buffers(struct i40e_ring *rxr, u16 cleaned_count);
-+extern netdev_tx_t i40e_lan_xmit_frame(struct sk_buff *skb,
-+				       struct net_device *netdev);
-+void i40e_clean_tx_ring(struct i40e_ring *tx_ring);
-+void i40e_clean_rx_ring(struct i40e_ring *rx_ring);
-+extern int i40e_setup_tx_descriptors(struct i40e_ring *tx_ring);
-+extern int i40e_setup_rx_descriptors(struct i40e_ring *rx_ring);
-+extern void i40e_free_tx_resources(struct i40e_ring *tx_ring);
-+extern void i40e_free_rx_resources(struct i40e_ring *rx_ring);
-+extern int i40e_napi_poll(struct napi_struct *napi, int budget);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-new file mode 100644
-index 0000000..48dadbc
---- /dev/null
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -0,0 +1,330 @@
-+/*******************************************************************************
-+
-+  Intel Ethernet Controller XL710 Family Linux Driver
-+  Copyright(c) 2013 Intel Corporation.
-+
-+  This program is free software; you can redistribute it and/or modify it
-+  under the terms and conditions of the GNU General Public License,
-+  version 2, as published by the Free Software Foundation.
-+
-+  This program is distributed in the hope it will be useful, but WITHOUT
-+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+  more details.
-+
-+  You should have received a copy of the GNU General Public License along with
-+  this program; if not, write to the Free Software Foundation, Inc.,
-+  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
-+
-+  The full GNU General Public License is included in this distribution in
-+  the file called "COPYING".
-+
-+  Contact Information:
-+  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+
-+*******************************************************************************/
-+
-+#ifndef _I40EVF_H_
-+#define _I40EVF_H_
-+
-+#include <linux/pci.h>
-+#include <linux/aer.h>
-+#include <linux/netdevice.h>
-+#include <linux/vmalloc.h>
-+#include <linux/interrupt.h>
-+#include <linux/ethtool.h>
-+#include <linux/if_vlan.h>
-+#include <linux/ip.h>
-+#include <linux/tcp.h>
-+#include <linux/sctp.h>
-+#include <linux/ipv6.h>
-+#include <net/ip6_checksum.h>
-+
-+
-+#include "i40e_type.h"
-+#include "i40e_virtchnl.h"
-+#include "i40e_txrx.h"
-+
-+#define DEFAULT_DEBUG_LEVEL_SHIFT 3
-+#define PFX "i40evf: "
-+#define DPRINTK(nlevel, klevel, fmt, args...) \
-+	((void)((NETIF_MSG_##nlevel & adapter->msg_enable) && \
-+	printk(KERN_##klevel PFX "%s: %s: " fmt, adapter->netdev->name, \
-+		__func__ , ## args)))
-+
-+/* dummy struct to make common code less painful */
-+struct i40e_vsi {
-+	struct i40evf_adapter *back;
-+	struct net_device *netdev;
-+	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
-+	u16 seid;
-+	u16 id;
-+	unsigned long state;
-+	int base_vector;
-+	u16 work_limit;
-+	/* high bit set means dynamic, use accessor routines to read/write.
-+	 * hardware only supports 2us resolution for the ITR registers.
-+	 * these values always store the USER setting, and must be converted
-+	 * before programming to a register.
-+	 */
-+	u16 rx_itr_setting;
-+	u16 tx_itr_setting;
-+};
-+
-+/* How many Rx Buffers do we bundle into one write to the hardware ? */
-+#define I40EVF_RX_BUFFER_WRITE	16	/* Must be power of 2 */
-+#define I40EVF_DEFAULT_TXD   512
-+#define I40EVF_DEFAULT_RXD   512
-+#define I40EVF_MAX_TXD       4096
-+#define I40EVF_MIN_TXD       64
-+#define I40EVF_MAX_RXD       4096
-+#define I40EVF_MIN_RXD       64
-+#define I40EVF_REQ_DESCRIPTOR_MULTIPLE  8
-+
-+/* Supported Rx Buffer Sizes */
-+#define I40EVF_RXBUFFER_64    64     /* Used for packet split */
-+#define I40EVF_RXBUFFER_128   128    /* Used for packet split */
-+#define I40EVF_RXBUFFER_256   256    /* Used for packet split */
-+#define I40EVF_RXBUFFER_2048  2048
-+#define I40EVF_MAX_RXBUFFER   16384  /* largest size for single descriptor */
-+
-+#define I40EVF_MAX_AQ_BUF_SIZE    4096
-+#define I40EVF_AQ_LEN             32
-+
-+#define MAXIMUM_ETHERNET_VLAN_SIZE (VLAN_ETH_FRAME_LEN + ETH_FCS_LEN)
-+
-+#define I40E_RX_DESC(R, i) (&(((union i40e_32byte_rx_desc *)((R)->desc))[i]))
-+#define I40E_TX_DESC(R, i) (&(((struct i40e_tx_desc *)((R)->desc))[i]))
-+#define I40E_TX_CTXTDESC(R, i) \
-+	(&(((struct i40e_tx_context_desc *)((R)->desc))[i]))
-+#define MAX_RX_QUEUES 8
-+#define MAX_TX_QUEUES MAX_RX_QUEUES
-+
-+/* MAX_MSIX_Q_VECTORS of these are allocated,
-+ * but we only use one per queue-specific vector.
-+ */
-+struct i40e_q_vector {
-+	struct i40evf_adapter *adapter;
-+	struct i40e_vsi *vsi;
-+	struct napi_struct napi;
-+	unsigned long reg_idx;
-+	struct i40e_ring_container rx;
-+	struct i40e_ring_container tx;
-+	u32 ring_mask;
-+	u8 num_ringpairs;	/* total number of ring pairs in vector */
-+	int v_idx;	  /* vector index in list */
-+	char name[IFNAMSIZ + 9];
-+	cpumask_var_t affinity_mask;
-+};
-+
-+/* Helper macros to switch between ints/sec and what the register uses.
-+ * And yes, it's the same math going both ways.  The lowest value
-+ * supported by all of the i40e hardware is 8.
-+ */
-+#define EITR_INTS_PER_SEC_TO_REG(_eitr) \
-+	((_eitr) ? (1000000000 / ((_eitr) * 256)) : 8)
-+#define EITR_REG_TO_INTS_PER_SEC EITR_INTS_PER_SEC_TO_REG
-+
-+#define I40EVF_DESC_UNUSED(R) \
-+	((((R)->next_to_clean > (R)->next_to_use) ? 0 : (R)->count) + \
-+	(R)->next_to_clean - (R)->next_to_use - 1)
-+
-+#define I40EVF_RX_DESC_ADV(R, i)	    \
-+	(&(((union i40e_adv_rx_desc *)((R).desc))[i]))
-+#define I40EVF_TX_DESC_ADV(R, i)	    \
-+	(&(((union i40e_adv_tx_desc *)((R).desc))[i]))
-+#define I40EVF_TX_CTXTDESC_ADV(R, i)	    \
-+	(&(((struct i40e_adv_tx_context_desc *)((R).desc))[i]))
-+
-+#define I40EVF_MAX_JUMBO_FRAME_SIZE        16128
-+
-+#define OTHER_VECTOR 1
-+#define NONQ_VECS (OTHER_VECTOR)
-+
-+#define MAX_MSIX_Q_VECTORS 4
-+#define MAX_MSIX_COUNT 5
-+
-+#define MIN_MSIX_Q_VECTORS 1
-+#define MIN_MSIX_COUNT (MIN_MSIX_Q_VECTORS + NONQ_VECS)
-+
-+#define I40EVF_QUEUE_END_OF_LIST 0x7FF
-+#define I40EVF_FREE_VECTOR 0x7FFF
-+struct i40evf_mac_filter {
-+	struct list_head list;
-+	u8 macaddr[ETH_ALEN];
-+	bool remove;		/* filter needs to be removed */
-+	bool add;		/* filter needs to be added */
-+};
-+
-+struct i40evf_vlan_filter {
-+	struct list_head list;
-+	u16 vlan;
-+	bool remove;		/* filter needs to be removed */
-+	bool add;		/* filter needs to be added */
-+};
-+
-+/* Driver state. The order of these is important! */
-+enum i40evf_state_t {
-+	__I40EVF_STARTUP,		/* driver loaded, probe complete */
-+	__I40EVF_FAILED,		/* PF communication failed. Fatal. */
-+	__I40EVF_REMOVE,		/* driver is being unloaded */
-+	__I40EVF_INIT_VERSION_CHECK,	/* aq msg sent, awaiting reply */
-+	__I40EVF_INIT_GET_RESOURCES,	/* aq msg sent, awaiting reply */
-+	__I40EVF_INIT_SW,		/* got resources, setting up structs */
-+	/* Below here, watchdog is running */
-+	__I40EVF_DOWN,			/* ready, can be opened */
-+	__I40EVF_TESTING,		/* in ethtool self-test */
-+	__I40EVF_RESETTING,		/* in reset */
-+	__I40EVF_RUNNING		/* opened, working */
-+};
-+/* make common code happy */
-+#define __I40E_DOWN __I40EVF_DOWN
-+
-+/* board specific private data structure */
-+struct i40evf_adapter {
-+	struct timer_list watchdog_timer;
-+	struct vlan_group *vlgrp;
-+	struct work_struct reset_task;
-+	struct work_struct adminq_task;
-+	struct delayed_work init_task;
-+	struct i40e_q_vector *q_vector[MAX_MSIX_Q_VECTORS];
-+	struct list_head vlan_filter_list;
-+	char name[MAX_MSIX_COUNT][IFNAMSIZ + 9];
-+
-+	/* Interrupt Throttle Rate */
-+	u32 itr_setting;
-+	u16 eitr_low;
-+	u16 eitr_high;
-+
-+	/* TX */
-+	struct i40e_ring *tx_rings;	/* One per active queue */
-+	u64 restart_queue;
-+	u64 hw_csum_tx_good;
-+	u64 lsc_int;
-+	u64 hw_tso_ctxt;
-+	u64 hw_tso6_ctxt;
-+	u32 tx_timeout_count;
-+	struct list_head mac_filter_list;
-+#ifdef DEBUG
-+	bool detect_tx_hung;
-+#endif /* DEBUG */
-+
-+	/* RX */
-+	struct i40e_ring *rx_rings;	/* One per active queue */
-+	int txd_count;
-+	int rxd_count;
-+	u64 hw_csum_rx_error;
-+	u64 hw_rx_no_dma_resources;
-+	u64 hw_csum_rx_good;
-+	u64 non_eop_descs;
-+	int num_msix_vectors;
-+	struct msix_entry *msix_entries;
-+
-+	u64 rx_hdr_split;
-+	u32 alloc_rx_page_failed;
-+	u32 alloc_rx_buff_failed;
-+
-+	u32 init_state;
-+	volatile long unsigned int flags;
-+#define I40EVF_FLAG_RX_CSUM_ENABLED              (u32)(1)
-+#define I40EVF_FLAG_RX_1BUF_CAPABLE              (u32)(1 << 1)
-+#define I40EVF_FLAG_RX_PS_CAPABLE                (u32)(1 << 2)
-+#define I40EVF_FLAG_RX_PS_ENABLED                (u32)(1 << 3)
-+#define I40EVF_FLAG_IN_NETPOLL                   (u32)(1 << 4)
-+#define I40EVF_FLAG_IMIR_ENABLED                 (u32)(1 << 5)
-+#define I40EVF_FLAG_MQ_CAPABLE                   (u32)(1 << 6)
-+#define I40EVF_FLAG_NEED_LINK_UPDATE             (u32)(1 << 7)
-+#define I40EVF_FLAG_IN_CRITICAL_TASK             (u32)(1 << 8)
-+/* duplcates for common code */
-+#define I40E_FLAG_FDIR_ATR_ENABLED		 0
-+#define I40E_FLAG_DCB_ENABLED			 0
-+#define I40E_FLAG_IN_NETPOLL			 I40EVF_FLAG_IN_NETPOLL
-+#define I40E_FLAG_RX_CSUM_ENABLED                I40EVF_FLAG_RX_CSUM_ENABLED
-+	/* flags for admin queue service task */
-+	u32 aq_required;
-+	u32 aq_pending;
-+#define I40EVF_FLAG_AQ_ENABLE_QUEUES		(u32)(1)
-+#define I40EVF_FLAG_AQ_DISABLE_QUEUES		(u32)(1 << 1)
-+#define I40EVF_FLAG_AQ_ADD_MAC_FILTER		(u32)(1 << 2)
-+#define I40EVF_FLAG_AQ_ADD_VLAN_FILTER		(u32)(1 << 3)
-+#define I40EVF_FLAG_AQ_DEL_MAC_FILTER		(u32)(1 << 4)
-+#define I40EVF_FLAG_AQ_DEL_VLAN_FILTER		(u32)(1 << 5)
-+#define I40EVF_FLAG_AQ_CONFIGURE_QUEUES		(u32)(1 << 6)
-+#define I40EVF_FLAG_AQ_MAP_VECTORS		(u32)(1 << 7)
-+#define I40EVF_FLAG_AQ_HANDLE_RESET		(u32)(1 << 8)
-+	/* OS defined structs */
-+	struct net_device *netdev;
-+	struct pci_dev *pdev;
-+	struct net_device_stats net_stats;
-+
-+	/* structs defined in i40e_vf.h */
-+	struct i40e_hw hw;
-+
-+	enum i40evf_state_t state;
-+	u64 tx_busy;
-+
-+	struct work_struct watchdog_task;
-+	bool netdev_registered;
-+	bool dev_closed;
-+	bool link_up;
-+	enum i40e_virtchnl_ops current_op;
-+	struct i40e_virtchnl_vf_resource *vf_res; /* incl. all VSIs */
-+	struct i40e_virtchnl_vsi_resource *vsi_res; /* our LAN VSI */
-+	u16 msg_enable;
-+	struct i40e_eth_stats current_stats;
-+	struct i40e_vsi vsi;
-+};
-+
-+struct i40evf_info {
-+	enum i40e_mac_type	mac;
-+	unsigned int		flags;
-+};
-+
-+
-+/* needed by i40evf_ethtool.c */
-+extern char i40evf_driver_name[];
-+extern const char i40evf_driver_version[];
-+
-+extern int i40evf_up(struct i40evf_adapter *adapter);
-+extern void i40evf_down(struct i40evf_adapter *adapter);
-+extern void i40evf_reinit_locked(struct i40evf_adapter *adapter);
-+extern void i40evf_reset(struct i40evf_adapter *adapter);
-+extern void i40evf_set_ethtool_ops(struct net_device *netdev);
-+extern int i40evf_setup_rx_resources(struct i40evf_adapter *,
-+				     struct i40e_ring *);
-+extern int i40evf_setup_tx_resources(struct i40evf_adapter *,
-+				     struct i40e_ring *);
-+extern void i40evf_free_rx_resources(struct i40evf_adapter *,
-+				     struct i40e_ring *);
-+extern void i40evf_free_tx_resources(struct i40evf_adapter *,
-+				     struct i40e_ring *);
-+extern void i40evf_update_stats(struct i40evf_adapter *adapter);
-+extern void i40evf_reset_interrupt_capability(struct i40evf_adapter *adapter);
-+extern int i40evf_init_interrupt_scheme(struct i40evf_adapter *adapter);
-+extern void i40evf_irq_enable_queues(struct i40evf_adapter *adapter, u32 mask);
-+
-+extern void i40e_napi_add_all(struct i40evf_adapter *adapter);
-+extern void i40e_napi_del_all(struct i40evf_adapter *adapter);
-+
-+extern int i40evf_send_api_ver(struct i40e_hw *hw);
-+extern int i40evf_verify_api_ver(struct i40e_hw *hw);
-+extern int i40evf_send_vf_config_msg(struct i40e_hw *hw);
-+extern int i40evf_get_vf_config(struct i40evf_adapter *adapter);
-+extern void i40evf_irq_enable(struct i40evf_adapter *adapter, bool flush);
-+extern void i40evf_configure_queues(struct i40evf_adapter *adapter);
-+extern void i40evf_deconfigure_queues(struct i40evf_adapter *adapter);
-+extern void i40evf_enable_queues(struct i40evf_adapter *adapter);
-+extern void i40evf_disable_queues(struct i40evf_adapter *adapter);
-+extern void i40evf_map_queues(struct i40evf_adapter *adapter);
-+extern void i40evf_add_ether_addrs(struct i40evf_adapter *adapter);
-+extern void i40evf_del_ether_addrs(struct i40evf_adapter *adapter);
-+extern void i40evf_add_vlans(struct i40evf_adapter *adapter);
-+extern void i40evf_del_vlans(struct i40evf_adapter *adapter);
-+extern void i40evf_set_promiscuous(struct i40evf_adapter *adapter, int flags);
-+extern void i40evf_request_stats(struct i40evf_adapter *adapter);
-+extern void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
-+				       enum i40e_virtchnl_ops v_opcode,
-+				       enum i40e_status_code v_retval,
-+				       u8 *msg, u16 msglen);
-+#endif /* _I40EVF_H_ */
++++ b/drivers/net/ethernet/intel/i40evf/Kbuild
+@@ -0,0 +1,36 @@
++################################################################################
++#
++# Intel Ethernet Controller XL710 Family Linux Driver
++# Copyright(c) 2013 Intel Corporation.
++#
++# This program is free software; you can redistribute it and/or modify it
++# under the terms and conditions of the GNU General Public License,
++# version 2, as published by the Free Software Foundation.
++#
++# This program is distributed in the hope it will be useful, but WITHOUT
++# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++# more details.
++#
++# You should have received a copy of the GNU General Public License along with
++# this program; if not, write to the Free Software Foundation, Inc.,
++# 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++#
++# The full GNU General Public License is included in this distribution in
++# the file called "COPYING".
++#
++# Contact Information:
++# e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++# Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++#
++################################################################################
++
++#
++## Makefile for the Intel(R) 40GbE VF driver
++#
++#
++
++obj-$(CONFIG_I40EVF) += i40evf.o
++
++i40evf-objs :=	i40evf_main.o i40evf_ethtool.o i40evf_virtchnl.o \
++		i40e_txrx.o i40e_common.o i40e_adminq.o
 -- 
 1.8.3.1
