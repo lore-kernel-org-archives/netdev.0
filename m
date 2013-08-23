@@ -1,45 +1,62 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] bonding: fix error return code in bond_enslave()
-Date: Fri, 23 Aug 2013 10:45:07 +0800
-Message-ID: <CAPgLHd96k-qncCXzzVogwtmMdaYUDsMShdX52YSLAdbTiN1uEw@mail.gmail.com>
+From: Rui Xiang <rui.xiang@huawei.com>
+Subject: [PATCH 1/2] fs: implement inode uid/gid setting function
+Date: Fri, 23 Aug 2013 10:48:37 +0800
+Message-ID: <1377226118-43756-2-git-send-email-rui.xiang@huawei.com>
+References: <1377226118-43756-1-git-send-email-rui.xiang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: fubar@us.ibm.com, andy@greyhouse.net, nikolay@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f49.google.com ([209.85.214.49]:37723 "EHLO
-	mail-bk0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754728Ab3HWCpJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Aug 2013 22:45:09 -0400
-Received: by mail-bk0-f49.google.com with SMTP id r7so27384bkg.36
-        for <netdev@vger.kernel.org>; Thu, 22 Aug 2013 19:45:08 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>, <linux-ia64@vger.kernel.org>,
+	<linuxppc-dev@lists.ozlabs.org>, <linux-s390@vger.kernel.org>,
+	<linux-rdma@vger.kernel.org>, <linux-usb@vger.kernel.org>,
+	<v9fs-developer@lists.sourceforge.net>, <linux-mm@kvack.org>,
+	<cgroups@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Rui Xiang <rui.xiang@huawei.com>
+To: <linux-fsdevel@vger.kernel.org>, <viro@zeniv.linux.org.uk>
+Return-path: <linux-ia64-owner@vger.kernel.org>
+In-Reply-To: <1377226118-43756-1-git-send-email-rui.xiang@huawei.com>
+Sender: linux-ia64-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Supply a interface inode_set_user  to set uid/gid of inode
+structs.
 
-Fix to return a negative error code in the add bond vlan ids error
-handling case instead of 0, as done elsewhere in this function.
-
-Introduced by commit 1ff412ad7714f6952f76ffd77f0a7f2f563288a1.
-(bonding: change the bond's vlan syncing functions with the standard ones)
-
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Signed-off-by: Rui Xiang <rui.xiang@huawei.com>
 ---
- drivers/net/bonding/bond_main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ fs/inode.c         | 7 +++++++
+ include/linux/fs.h | 1 +
+ 2 files changed, 8 insertions(+)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 4264a76..7407e65 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1603,7 +1603,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 		dev_mc_add(slave_dev, lacpdu_multicast);
- 	}
+diff --git a/fs/inode.c b/fs/inode.c
+index e315c0a..3f90499 100644
+--- a/fs/inode.c
++++ b/fs/inode.c
+@@ -343,6 +343,13 @@ void inc_nlink(struct inode *inode)
+ }
+ EXPORT_SYMBOL(inc_nlink);
  
--	if (vlan_vids_add_by_dev(slave_dev, bond_dev)) {
-+	res = vlan_vids_add_by_dev(slave_dev, bond_dev);
-+	if (res) {
- 		pr_err("%s: Error: Couldn't add bond vlan ids to %s\n",
- 		       bond_dev->name, slave_dev->name);
- 		goto err_close;
++void inode_set_user(struct inode *inode, kuid_t uid, kgid_t gid)
++{
++	inode->i_uid = uid;
++	inode->i_gid = gid;
++}
++EXPORT_SYMBOL(inode_set_user);
++
+ void address_space_init_once(struct address_space *mapping)
+ {
+ 	memset(mapping, 0, sizeof(*mapping));
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+index 729e81b..36ac51b 100644
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -2619,6 +2619,7 @@ void __inode_sub_bytes(struct inode *inode, loff_t bytes);
+ void inode_sub_bytes(struct inode *inode, loff_t bytes);
+ loff_t inode_get_bytes(struct inode *inode);
+ void inode_set_bytes(struct inode *inode, loff_t bytes);
++void inode_set_user(struct inode *inode, kuid_t uid, kgid_t gid);
+ 
+ extern int vfs_readdir(struct file *, filldir_t, void *);
+ extern int iterate_dir(struct file *, struct dir_context *);
+-- 
+1.8.2.2
+
+
