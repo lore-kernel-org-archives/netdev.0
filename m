@@ -1,44 +1,56 @@
-From: <sarveshwar.bandi@emulex.com>
-Subject: [PATCH net] be2net: Check for POST state in suspend-resume sequence
-Date: Fri, 23 Aug 2013 14:59:33 +0530
-Message-ID: <771abba1-2664-4807-9a45-56ca9ede3c74@CMEXHTCAS2.ad.emulex.com>
+From: Sekhar Nori <nsekhar@ti.com>
+Subject: Re: [PATCH v2 5/5] ARM: dts: am33xx: adopt to cpsw changes
+Date: Fri, 23 Aug 2013 14:58:52 +0530
+Message-ID: <52172B54.8020201@ti.com>
+References: <1377247417-27386-1-git-send-email-zonque@gmail.com> <1377247417-27386-6-git-send-email-zonque@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <sergei.shtylyov@cogentembedded.com>,
+	<davem@davemloft.net>, <ujhelyi.m@gmail.com>,
+	<mugunthanvnm@ti.com>, <vaibhav.bedia@ti.com>, <d-gerlach@ti.com>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>, <devicetree@vger.kernel.org>
+To: Daniel Mack <zonque@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:44852 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752663Ab3HWJ2a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 05:28:30 -0400
+Received: from arroyo.ext.ti.com ([192.94.94.40]:51581 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752840Ab3HWJdW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Aug 2013 05:33:22 -0400
+In-Reply-To: <1377247417-27386-6-git-send-email-zonque@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+On Friday 23 August 2013 02:13 PM, Daniel Mack wrote:
+> This third memory region just denotes one single register in the CONTROL
+> module block. The driver uses that in order to set the correct physical
+> ethernet interface modes.
+> 
+> Also update the compatible string to make use of the am335x specific
+> features of the cpsw driver.
+> 
+> Signed-off-by: Daniel Mack <zonque@gmail.com>
+> ---
+>  arch/arm/boot/dts/am33xx.dtsi | 5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
+> index a785b95..1a1e9dd 100644
+> --- a/arch/arm/boot/dts/am33xx.dtsi
+> +++ b/arch/arm/boot/dts/am33xx.dtsi
+> @@ -446,7 +446,7 @@
+>  		};
+>  
+>  		mac: ethernet@4a100000 {
+> -			compatible = "ti,cpsw";
+> +			compatible = "ti,am3352-cpsw";
 
-In suspend-resume sequence, the OS could attempt to initialize the controller
-before it is ready, check for POST state before going ahead.
+Please keep this as
 
-Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c |    4 ++++
- 1 file changed, 4 insertions(+)
+	compatible = "ti,am3352-cpsw", "ti,cpsw";
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 4559c35..3d91a5e 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4373,6 +4373,10 @@ static int be_resume(struct pci_dev *pdev)
- 	pci_set_power_state(pdev, PCI_D0);
- 	pci_restore_state(pdev);
- 
-+	status = be_fw_wait_ready(adapter);
-+	if (status)
-+		return status;
-+
- 	/* tell fw we're ready to fire cmds */
- 	status = be_cmd_fw_init(adapter);
- 	if (status)
--- 
-1.7.9.5
+so users can upgrade the DTB or kernel independently. Apart from this
+the series looks good to me.
+
+Thanks,
+Sekhar
