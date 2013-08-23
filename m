@@ -1,54 +1,34 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH ipsec-next] xfrm: announce deleation of temporary SA
-Date: Fri, 23 Aug 2013 15:46:08 +0200
-Message-ID: <1377265568-10959-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-	davem@davemloft.net
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH -next] bonding: fix error return code in bond_enslave()
+Date: Fri, 23 Aug 2013 15:44:00 +0200
+Message-ID: <52176720.60300@redhat.com>
+References: <CAPgLHd96k-qncCXzzVogwtmMdaYUDsMShdX52YSLAdbTiN1uEw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: fubar@us.ibm.com, andy@greyhouse.net,
+	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: Wei Yongjun <weiyj.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:56059 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754866Ab3HWNqj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 09:46:39 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:62495 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754918Ab3HWNrq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Aug 2013 09:47:46 -0400
+In-Reply-To: <CAPgLHd96k-qncCXzzVogwtmMdaYUDsMShdX52YSLAdbTiN1uEw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Creation of temporary SA are announced by netlink, but there is no notification
-for the deletion.
-This patch fix this asymmetric situation.
+On 08/23/2013 04:45 AM, Wei Yongjun wrote:
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> 
+> Fix to return a negative error code in the add bond vlan ids error
+> handling case instead of 0, as done elsewhere in this function.
+> 
+> Introduced by commit 1ff412ad7714f6952f76ffd77f0a7f2f563288a1.
+> (bonding: change the bond's vlan syncing functions with the standard ones)
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
+Oops, missed the error code. Thanks :-)
 
-Example:
-ip xfrm monitor
-acquire proto esp 
-  sel src 10.22.6.51/32 dst 10.24.6.139/32 proto icmp type 8 code 0 
-  policy src 10.22.6.51/32 dst 10.24.6.139/32 
-    	dir out priority 3843 ptype main 
-    	tmpl src 10.23.6.106 dst 10.23.6.206
-    		proto esp reqid 2147483649 mode tunnel
-Expired src 10.23.6.106 dst 10.23.6.206
-	proto esp spi 0x00000000 reqid 2147483649 mode tunnel
-	replay-window 0 
-	sel src 10.22.6.51/32 dst 10.24.6.139/32 proto icmp type 8 code 0 
-	hard 1
-
- net/xfrm/xfrm_state.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 4f8ace855864..3fd65b73df7e 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -471,7 +471,7 @@ expired:
- 	}
- 
- 	err = __xfrm_state_delete(x);
--	if (!err && x->id.spi)
-+	if (!err)
- 		km_state_expired(x, 1, 0);
- 
- 	xfrm_audit_state_delete(x, err ? 0 : 1,
--- 
-1.8.2.1
+Acked-by: Nikolay Aleksandrov <nikolay@redhat.com>
