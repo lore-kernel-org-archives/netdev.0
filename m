@@ -1,48 +1,72 @@
-From: Benoit Cousson <bcousson@baylibre.com>
-Subject: Re: [PATCH v4 3/5] net: ethernet: cpsw: introduce ti,am3352-cpsw
- compatible string
-Date: Fri, 23 Aug 2013 17:22:17 +0200
-Message-ID: <52177E29.6040103@baylibre.com>
-References: <1377267365-24057-1-git-send-email-zonque@gmail.com> <1377267365-24057-4-git-send-email-zonque@gmail.com> <52177052.1030308@ti.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next] net: tcp_probe: allow more advanced ingress
+ filtering by mark
+Date: Fri, 23 Aug 2013 17:28:21 +0200
+Message-ID: <52177F95.4010005@redhat.com>
+References: <1377267393-24604-1-git-send-email-dborkman@redhat.com> <1377270813.8828.6.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Mack <zonque@gmail.com>, netdev@vger.kernel.org,
-	nsekhar@ti.com, sergei.shtylyov@cogentembedded.com,
-	davem@davemloft.net, ujhelyi.m@gmail.com, mugunthanvnm@ti.com,
-	vaibhav.bedia@ti.com, d-gerlach@ti.com,
-	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org,
-	devicetree@vger.kernel.org
-To: Santosh Shilimkar <santosh.shilimkar@ti.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f169.google.com ([74.125.82.169]:49823 "EHLO
-	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755289Ab3HWPWV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 11:22:21 -0400
-Received: by mail-we0-f169.google.com with SMTP id t61so697293wes.28
-        for <netdev@vger.kernel.org>; Fri, 23 Aug 2013 08:22:20 -0700 (PDT)
-In-Reply-To: <52177052.1030308@ti.com>
+Received: from mx1.redhat.com ([209.132.183.28]:21047 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753330Ab3HWP21 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Aug 2013 11:28:27 -0400
+In-Reply-To: <1377270813.8828.6.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Santosh,
+On 08/23/2013 05:13 PM, Eric Dumazet wrote:
+> On Fri, 2013-08-23 at 16:16 +0200, Daniel Borkmann wrote:
+>> Currently, the tcp_probe snooper can either filter packets by a given
+>> port (handed to the module via module parameter e.g. port=80) or lets
+>> all TCP traffic pass (port=0, default). When a port is specified, the
+>> port number is tested against the sk's source/destination port. Thus,
+>> if one of them matches, the information will be further processed for
+>> the log.
+>>
+>> As this is quite limited, allow for more advanced filtering possibilities
+>> which can facilitate debugging/analysis with the help of the tcp_probe
+>> snooper. Therefore, similarly as added to BPF machine in commit 7e75f93e
+>> ("pkt_sched: ingress socket filter by mark"), add the possibility to
+>> use skb->mark as a filter.
+>>
+>> If the mark is not being used otherwise, this allows ingress filtering
+>> by flow (e.g. in order to track updates from only a single flow, or a
+>> subset of all flows for a given port) and other things such as dynamic
+>> logging and reconfiguration without removing/re-inserting the tcp_probe
+>> module, etc. Simple example:
+>>
+>>    insmod net/ipv4/tcp_probe.ko fwmark=8888 full=1
+>>    ...
+>>    iptables -A INPUT -i eth4 -t mangle -p tcp --dport 22 \
+>>             --sport 60952 -j MARK --set-mark 8888
+>>    [... sampling interval ...]
+>>    iptables -D INPUT -i eth4 -t mangle -p tcp --dport 22 \
+>>             --sport 60952 -j MARK --set-mark 8888
+>>
+>> The current option to filter by a given port is still being preserved. A
+>> similar approach could be done for the sctp_probe module as a follow-up.
+>>
+>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>> ---
+>
+> Well, why not adding ability to load/use a BPF filter instead ? ;)
 
-[...]
+Hehe. ;-)
 
->> +static const struct of_device_id cpsw_of_mtable[] = {
->> +	{
->> +		.compatible	= "ti,am3352-cpsw",
-> I didn't notice this earlier, but can't you use the IP version
-> as a compatible instead of using a SOC name. Whats really SOC specific
-> on this IP ? Sorry i have missed any earlier discussion on this but
-> this approach doesn't seem good. Its like adding SOC checks in the
-> driver subsystem.
+I think this patch is minimal and least intrusive and for observing flows
+the skb->mark would provide an easy job for us of quickly configuring and
+altering a filter during runtime through iptables or other tools.
 
-Hehe, welcome to the club!
-I keep arguing about that as well :-)
+If we would tell the user to load some BPF bytecode first through tool <xyz>,
+we would need an additional interface of injecting this into tcp_probe, and
+the ability to atomically change a filter at run-time. Likely, that the
+biggest use-case would be to filter particular flows in order to observe
+TCP params, I think the whole BPF machinery would be sort of overkill for
+that, although you know I like playing with BPF. ;-)
 
-I think we should create a Facebook group: 
-"against-the-soc-version-in-the-compatible-string".
-
-Regards,
-Benoit
+So I think these 15 lines of code from this patch are less intrusive and
+more clean than the alternative.
