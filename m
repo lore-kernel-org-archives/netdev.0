@@ -1,57 +1,49 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: Problematic commits in the ipsec tree
-Date: Fri, 23 Aug 2013 10:58:07 +0200
-Message-ID: <20130823085807.GH26773@secunet.com>
-References: <20130822104724.GD26773@secunet.com>
- <20130822135342.GC30722@order.stressinduktion.org>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] net: vlan: inherit addr_assign_type along with dev_addr
+Date: Fri, 23 Aug 2013 11:11:40 +0200
+Message-ID: <8738q04vqr.fsf@nemi.mork.no>
+References: <1377174201-20236-1-git-send-email-bjorn@mork.no>
+	<20130822.114920.610022099919624531.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:58875 "EHLO a.mx.secunet.com"
+Received: from canardo.mork.no ([148.122.252.1]:40412 "EHLO canardo.mork.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754947Ab3HWI6K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Aug 2013 04:58:10 -0400
-Content-Disposition: inline
-In-Reply-To: <20130822135342.GC30722@order.stressinduktion.org>
+	id S1754930Ab3HWJME convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 05:12:04 -0400
+In-Reply-To: <20130822.114920.610022099919624531.davem@davemloft.net> (David
+	Miller's message of "Thu, 22 Aug 2013 11:49:20 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 22, 2013 at 03:53:42PM +0200, Hannes Frederic Sowa wrote:
-> On Thu, Aug 22, 2013 at 12:47:24PM +0200, Steffen Klassert wrote:
-> > Hannes,
-> > 
-> > I have two problematic commits from you in the ipsec tree. The first one is:
-> > 
-> > commit 0ea9d5e3e (xfrm: introduce helper for safe determination of mtu)
-> > 
-> > This breakes pmtu discovery for IPv4 because now we use the device mtu
-> > instead of the reduced IPsec mtu in xfrm4_tunnel_check_size() if a IPv4
-> > socket is at the skb.
-> 
-> I am currently testing this following patch. It should restore old behavior
-> for ipv4 sockets.
-> 
-> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-> index ac5b025..65d3529 100644
-> --- a/include/net/xfrm.h
-> +++ b/include/net/xfrm.h
-> @@ -1730,8 +1730,6 @@ static inline int xfrm_skb_dst_mtu(struct sk_buff *skb)
->  
->  	if (sk && skb->protocol == htons(ETH_P_IPV6))
->  		return ip6_skb_dst_mtu(skb);
-> -	else if (sk && skb->protocol == htons(ETH_P_IP))
-> -		return ip_skb_dst_mtu(skb);
->  	return dst_mtu(skb_dst(skb));
->  }
+David Miller <davem@davemloft.net> writes:
 
-This looks still fragile. xfrm_skb_dst_mtu() is called from
-__xfrm6_output() and from xfrm4_tunnel_check_size().
-We will have the same bug again as soon as somebody thinks that
-it is save to call it from xfrm6_tunnel_check_size() too. So I
-think it is better not to call it from xfrm4_tunnel_check_size().
+> From: Bj=C3=B8rn Mork <bjorn@mork.no>
+> Date: Thu, 22 Aug 2013 14:23:21 +0200
+>
+>> A vlan device inheriting a random or set address should reflect
+>> this in its addr_assign_type.
+>>=20
+>> Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+>
+> I think this might deserve a helper function, I'd not be surprised
+> if we do MAC address propagation like this in other situations and
+> they have the same bug.
 
-Also, why do we need xfrm_skb_dst_mtu() at all? When it is called
-from __xfrm6_output(), we know that this is IPv6. So we can call
-ip6_skb_dst_mtu() directly as it was before your change.
+Yes.  Grepping a bit shows that there area few more candidates. Althoug=
+h
+some of these could probably set addr_assign_type to NET_ADDR_STOLEN
+(like the bonding driver does) instead.  Maybe that should depend on th=
+e
+addr_assign_type of the source device?
+
+Never mind. I don't know what this should look like. I'll prepare a
+patch set with a helper, and propose changes to all the candidate
+drivers I can find, leaving it up to the maintainers to object if they
+don't like it.
+
+
+Bj=C3=B8rn
