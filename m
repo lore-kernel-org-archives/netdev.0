@@ -1,14 +1,13 @@
 From: Dong Fang <yp.fangdong@gmail.com>
 Subject: [PATCH] netfilter: avoid array overflow in nf_register_hook
-Date: Fri, 23 Aug 2013 23:04:55 -0400
-Message-ID: <1377313495-16060-1-git-send-email-yp.fangdong@gmail.com>
+Date: Fri, 23 Aug 2013 23:07:31 -0400
+Message-ID: <1377313651-16096-1-git-send-email-yp.fangdong@gmail.com>
 Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	Dong Fang <yp.fangdong@gmail.com>
+	coreteam@netfilter.org, netdev@vger.kernel.org
 To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	davem@davemloft.net
-Return-path: <netfilter-owner@vger.kernel.org>
-Sender: netfilter-owner@vger.kernel.org
+	davem@davemloft.net, yp.fangdong@gmail.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This patch fix the array overflow in nf_register_hook function
