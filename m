@@ -1,54 +1,40 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH net-next 08/10] net: libertas: inherit addr_assign_type
- along with dev_addr
-Date: Fri, 23 Aug 2013 10:52:56 -0400
-Message-ID: <20130823145255.GB15114@tuxdriver.com>
-References: <1377250513-3662-1-git-send-email-bjorn@mork.no>
- <1377250513-3662-9-git-send-email-bjorn@mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, libertas-dev@lists.infradead.org,
-	linux-wireless@vger.kernel.org
-To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:34796 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754625Ab3HWPA0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Aug 2013 11:00:26 -0400
-Content-Disposition: inline
-In-Reply-To: <1377250513-3662-9-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dong Fang <yp.fangdong@gmail.com>
+Subject: [PATCH] netfilter: avoid array overflow in nf_register_hook
+Date: Fri, 23 Aug 2013 23:04:55 -0400
+Message-ID: <1377313495-16060-1-git-send-email-yp.fangdong@gmail.com>
+Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	Dong Fang <yp.fangdong@gmail.com>
+To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	davem@davemloft.net
+Return-path: <netfilter-owner@vger.kernel.org>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 23, 2013 at 11:35:11AM +0200, Bj=F8rn Mork wrote:
-> Cc: "John W. Linville" <linville@tuxdriver.com>
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
-> ---
->  drivers/net/wireless/libertas/mesh.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/wireless/libertas/mesh.c b/drivers/net/wirel=
-ess/libertas/mesh.c
-> index efae07e..6fef746 100644
-> --- a/drivers/net/wireless/libertas/mesh.c
-> +++ b/drivers/net/wireless/libertas/mesh.c
-> @@ -1017,7 +1017,7 @@ static int lbs_add_mesh(struct lbs_private *pri=
-v)
-> =20
->  	mesh_dev->netdev_ops =3D &mesh_netdev_ops;
->  	mesh_dev->ethtool_ops =3D &lbs_ethtool_ops;
-> -	memcpy(mesh_dev->dev_addr, priv->dev->dev_addr, ETH_ALEN);
-> +	eth_hw_addr_inherit(mesh_dev, priv->dev);
-> =20
->  	SET_NETDEV_DEV(priv->mesh_dev, priv->dev->dev.parent);
-> =20
-> --=20
-> 1.7.10.4
->=20
->=20
-Acked-by: "John W. Linville" <linville@tuxdriver.com>
+This patch fix the array overflow in nf_register_hook function
 
---=20
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Signed-off-by: Dong Fang <yp.fangdong@gmail.com>
+---
+ net/netfilter/core.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index 2217363..819eee1 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -68,8 +68,11 @@ static DEFINE_MUTEX(nf_hook_mutex);
+ int nf_register_hook(struct nf_hook_ops *reg)
+ {
+ 	struct nf_hook_ops *elem;
+-	int err;
++	int err = -EINVAL;
+ 
++	if (reg->pf >= NFPROTO_NUMPROTO || reg->hooknum >= NF_MAX_HOOKS)
++		return err;
++
+ 	err = mutex_lock_interruptible(&nf_hook_mutex);
+ 	if (err < 0)
+ 		return err;
+-- 
+1.7.1
+
