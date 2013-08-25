@@ -1,40 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] bonding: fix error return code in bond_enslave()
-Date: Sun, 25 Aug 2013 18:38:48 -0400 (EDT)
-Message-ID: <20130825.183848.1884215579679368408.davem@davemloft.net>
-References: <CAPgLHd96k-qncCXzzVogwtmMdaYUDsMShdX52YSLAdbTiN1uEw@mail.gmail.com>
-	<52176720.60300@redhat.com>
+Subject: Re: [patch -next] ipip: potential race in ip_tunnel_init_net()
+Date: Sun, 25 Aug 2013 18:40:19 -0400 (EDT)
+Message-ID: <20130825.184019.2151038981865894784.davem@davemloft.net>
+References: <20130820.233301.985050199020241179.davem@davemloft.net>
+	<20130823081537.GB31293@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: weiyj.lk@gmail.com, fubar@us.ibm.com, andy@greyhouse.net,
-	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: nikolay@redhat.com
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, eric.dumazet@gmail.com
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52396 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52413 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756416Ab3HYWiu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Aug 2013 18:38:50 -0400
-In-Reply-To: <52176720.60300@redhat.com>
+	with ESMTP id S1756641Ab3HYWkV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Aug 2013 18:40:21 -0400
+In-Reply-To: <20130823081537.GB31293@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Date: Fri, 23 Aug 2013 15:44:00 +0200
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Fri, 23 Aug 2013 11:15:37 +0300
 
-> On 08/23/2013 04:45 AM, Wei Yongjun wrote:
->> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->> 
->> Fix to return a negative error code in the add bond vlan ids error
->> handling case instead of 0, as done elsewhere in this function.
->> 
->> Introduced by commit 1ff412ad7714f6952f76ffd77f0a7f2f563288a1.
->> (bonding: change the bond's vlan syncing functions with the standard ones)
->> 
->> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> Eric Dumazet says that my previous fix for an ERR_PTR dereference
+> (ea857f28ab 'ipip: dereferencing an ERR_PTR in ip_tunnel_init_net()')
+> could be racy and suggests the following fix instead.
 > 
-> Oops, missed the error code. Thanks :-)
-> 
-> Acked-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Applied.
+Applied, thanks Dan.
