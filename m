@@ -1,77 +1,114 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: Understanding/reimplementing forwarding
- acceleration used by Broadcom (ctf)
-Date: Sun, 25 Aug 2013 23:16:37 +0200
-Message-ID: <CACna6rwneYQuiiyhEBR6qc-d-sNns2HO5CzwqET0KZ2Q782+cg@mail.gmail.com>
-References: <CACna6rwaa8xkqpt74aDouHjwgqkomYEtpCO3kTX7eVKBPanNzg@mail.gmail.com>
- <CAKfDRXjYLV1O2jKogpqxGk3tiLtYCQ=mxNZo3=s57Sp0MR0dqQ@mail.gmail.com>
-Reply-To: OpenWrt Development List <openwrt-devel@lists.openwrt.org>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH RFC net-next] net: epoll support for busy
+	poll
+Date: Mon, 26 Aug 2013 00:30:45 +0300
+Message-ID: <CAPcc5PhQGB195pMsMGOEE8BhZTvfXOf+Fh+3PdPbuOS0t1SULQ@mail.gmail.com>
+References: <20130821103954.30607.6819.stgit@ladj378.jer.intel.com>
+	<20130822201135.GA4088@dcvr.yhbt.net>
+	<52170E78.1010704@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Network Development <netdev@vger.kernel.org>
-To: OpenWrt Development List <openwrt-devel@lists.openwrt.org>
-Return-path: <openwrt-devel-bounces@lists.openwrt.org>
-In-Reply-To: <CAKfDRXjYLV1O2jKogpqxGk3tiLtYCQ=mxNZo3=s57Sp0MR0dqQ@mail.gmail.com>
-List-Unsubscribe: <https://lists.openwrt.org/cgi-bin/mailman/options/openwrt-devel>,
- <mailto:openwrt-devel-request@lists.openwrt.org?subject=unsubscribe>
-List-Archive: <http://lists.openwrt.org/pipermail/openwrt-devel/>
-List-Post: <mailto:openwrt-devel@lists.openwrt.org>
-List-Help: <mailto:openwrt-devel-request@lists.openwrt.org?subject=help>
-List-Subscribe: <https://lists.openwrt.org/cgi-bin/mailman/listinfo/openwrt-devel>,
- <mailto:openwrt-devel-request@lists.openwrt.org?subject=subscribe>
-Errors-To: openwrt-devel-bounces@lists.openwrt.org
-Sender: "openwrt-devel" <openwrt-devel-bounces@lists.openwrt.org>
+Content-Type: multipart/mixed; boundary="===============8969186734945925761=="
+Cc: Willem de Bruijn <willemb@google.com>, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, Eilon Greenstein <eilong@broadcom.com>,
+	linux-kernel@vger.kernel.org, Eric Dumazet <erdnetdev@gmail.com>,
+	Eric Wong <normalperson@yhbt.net>, Eliezer Tamir <eliezer@tamir.org.il>,
+	David Miller <davem@davemloft.net>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <52170E78.1010704@linux.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-MjAxMy84LzI0IEtyaXN0aWFuIEV2ZW5zZW4gPGtyaXN0aWFuLmV2ZW5zZW5AZ21haWwuY29tPjoK
-PiBIaSBSYWZhbCwKClRoYW5rcyBLcmlzdGlhbiBmb3IgeW91ciByZXBseSwgdW5mb3J0dW5hdGVs
-eSBJIGNhbid0IG1ha2UgaXQgd29yayB0aGUKd2F5IEkgd2FudCA6KAoKPiBPbiBTYXQsIEF1ZyAy
-NCwgMjAxMyBhdCA1OjE5IFBNLCBSYWZhxYIgTWnFgmVja2kgPHphamVjNUBnbWFpbC5jb20+IHdy
-b3RlOgo+Pgo+PiBJIHdvbmRlciB3aGF0IGRvIHlvdSB0aGluayBhYm91dCB0aGlzIHNvbHV0aW9u
-LiBJcyB0aGlzIHNvbWV0aGluZyB3ZQo+PiBjb3VsZCB0cnkgdG8gaW1wbGVtZW50IG91cnNlbGY/
-IElzIGl0IHdvcnRoIGl0PyBJcyB0aGVyZSBzb21lIGV4aXN0aW5nCj4+IHByb2plY3QgZG9pbmcg
-c2ltaWxhciB0aGluZz8KPgo+IFRoaXMgaXMgYSB2ZXJ5IGludGVyZXN0aW5nIGRpc2NvdmVyeS4g
-SGF2ZSB5b3UgdHJpZWQgdG8gdXNlIGV0YWJsZXMKPiBhbmQgY2hlY2tlZCBob3cgbXVjaCBkYXRh
-IHlvdSBjYW4gcHVzaCB0aHJvdWdoIHRoZSByb3V0ZXI/IEZvcgo+IGV4YW1wbGUsIGhhdmUgb25l
-IG1hY2hpbmUgY29ubmVjdGVkIHRvIHRoZSBMQU4gYW5kIG9uZSB0byB0aGUgV0FOIHBvcnQKPiAo
-cHJvYmFibHkgdXNpbmcgc3RhdGljIElQcyBmb3IgdGhlICJXQU4iIGlzIHRoZSBlYXNpZXN0KS4g
-VXNlIE1BQyBOQVQKPiAoaHR0cDovL2VidGFibGVzLnNvdXJjZWZvcmdlLm5ldC9leGFtcGxlcy9i
-YXNpYy5odG1sI2V4X25hdCkgb24gdGhlCj4gT3BlbldSVCByb3V0ZXIgdG8gc2V0IHRoZSBkZXN0
-aW5hdGlvbiB0byB0aGUgbWFjaGluZSBjb25uZWN0ZWQgdG8gdGhlCj4gV0FOLCBwdXNoIFVEUCB0
-cmFmZmljIGZyb20gYSBjbGllbnQgY29ubmVjdGVkIHRvIHRoZSBMQU4gdG8gc29tZQo+IHJlbW90
-ZSBJUCBhbmQgc2VlIGhvdyBtdWNoIGRhdGEgZmxvd3MgdGhyb3VnaCB0aGUgcm91dGVyLiBVc2Ug
-Zm9yCj4gZXhhbXBsZSBid20tbmcgb24gdGhlIG1hY2hpbmUgY29ubmVjdGVkIHRvIHRoZSBXQU4g
-cG9ydCB0byBzZWUgY3VycmVudAo+IHRocm91Z2hwdXQgKGFsc28gdG8gYXZvaWQgcHV0dGluZyBh
-bnkgYWRkaXRpb25hbCBwcmVzc3VyZSBvbiB0aGUKPiByb3V0ZXIgQ1BVKS4gQmUgYXdhcmUgdGhh
-dCB1bmxlc3MgeW91IGNvbmZpZ3VyZSB0aGUgbWFjaGluZSBjb25uZWN0ZWQKPiB0byB0aGUgV0FO
-IHBvcnQgYXMgYSByb3V0ZXIsIHRoZSBmb3J3YXJkZWQgcGFja2V0cyB3aWxsIGJlIGRpc2NhcmRl
-ZC4KPgo+IElmIHRoaXMgd29ya3MgYW5kIGdpdmVzIGdvb2QgcGVyZm9ybWFuY2UsIGJhc2VkIG9u
-IG15IHVuZGVyc3RhbmRpbmcsCj4geW91IGNvdWxkIGltcGxlbWVudCB0aGlzIGN0ZiBtb2R1bGUg
-YXMgYW4gZXRhYmxlcyBleHRlbnNpb24uCgpJJ3ZlIHRyaWVkIHRvIHNldHVwIG5ldHdvcmsgdGhl
-IHdheSB5b3Ugc3VnZ2VzdGVkLgoKSSBjb25maWd1cmVkIE9wZW5XcnQgcm91dGVyIHRvIHVzZSBz
-dGF0aWMgMTkyLjE2OC41LjIgb24gdGhlIFdBTgppbnRlcmZhY2UgYW5kIHRoZW4gSSBzZXQgMTky
-LjE2OC41LjEgb24gbXkgbW9uaXRvciAoYndtLW5nKSBtYWNoaW5lCmNvbm5lY3RlZCB0byB0aGF0
-IFdBTiBwb3J0LgoKT3BlbldydCB1c2VzIDE5Mi4xNjguMS4xIGJ5IGRlZmF1bHQgb24gTEFOIHBv
-cnRzIGFuZCBteSBzZWNvbmQgKFRYKQptYWNoaW5lIHJlY2VpdmVkIHNvbWUgcmFuZG9tIDE5Mi4x
-NjguMS4xMzEuCgpJIHVzZSBpcGVyZiBvbiBteSAxOTIuMTY4LjEuMTMxIFRYIG1hY2hpbmUsIHNv
-IEkgZGVjaWRlZCB0byB0ZWxsIGlwZXJmCnRvIHVzZSAxOTIuMTY4LjEuMSBhbmQgcmVkaXJlY3Qg
-dGhhdCB0cmFmZmluYyAob24gdGhlIE9wZW5XcnQgcm91dGVyKQp0byB0aGUgV0FOIHBvcnQuIFRv
-IGRvIHRoYXQgSSB0eXBlZDoKZWJ0YWJsZXMgLXQgbmF0IC1BIFBSRVJPVVRJTkcgXAogICAgLWQg
-JChPUEVOV1JUX01BQykgXAogICAgLWkgZXRoMC4xIFwKICAgIC1qIGRuYXQgLS10by1kZXN0aW5h
-dGlvbiAkKE1PTklUT1JfTUFDSElORV9NQUMpCgpldGgwLjEgaW50ZXJmYWNlIGlzIHRoZSBvbmUg
-dXNlZCBmb3IgTEFOIHBvcnRzIGFuZCBicmlkZ2VkIHdpdGggdGhlIGJyLWxhbjoKIyBicmN0bCBz
-aG93CmJyaWRnZSBuYW1lIGJyaWRnZSBpZCBTVFAgZW5hYmxlZCBpbnRlcmZhY2VzCmJyLWxhbiA3
-ZmZmLjIwNGU3ZmFiM2FhOCBubyBldGgwLjEKClRoZW4gSSBzdGFydGVkOgppcGVyZiAtYyAxOTIu
-MTY4LjEuMSAtLXVkcApvbiBteSBUWCBtYWNoaW5lLCBidXQgbm8gUlggdHJhZmZpYyBoYXMgYXBw
-ZWFyZWQgb24gbXkgbW9uaXRvcgooMTkyLjE2OC41LjEpIG1hY2hpbmUgOigKCldoYXQncyB3b3Jz
-ZSwgYWZ0ZXIgZXhlY3V0aW5nIHRoYXQgImVidGFibGUiIGNvbW1hbmQgZXZlbiBkaXJlY3Q6Cmlw
-ZXJmIC1jIDE5Mi4xNjguNS4xIC0tdWRwCmRvZXNuJ3QgZ2VuZXJhdGUgYW55IFJYIG9uIG15IG1v
-bml0b3IgKDE5Mi4xNjguNS4xKSBtYWNoaW5lLiBGbHVzaGluZwotdCBuYXQgbWFrZXMgdGhhdCBk
-aXJlY3QgY29tbWFuZCB3b3JrIGFnYWluLgoKSSBndWVzcyBJIGRpZCBzb21ldGhpbmcgd3Jvbmcg
-aW4gbXkgZWJ0YWJsZXMgcnVsZS4gRG8geW91IGhhdmUgYW55CmlkZWEgd2hhdCBjb3VsZCBpdCBi
-ZT8gSXQncyB0aGUgZmlyc3QgdGltZSBJJ3ZlIGhlYXJkIGFib3V0IGVidGFibGVzCnRvIGJlIGhv
-bmVzdC4KCi0tIApSYWZhxYIKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX18Kb3BlbndydC1kZXZlbCBtYWlsaW5nIGxpc3QKb3BlbndydC1kZXZlbEBsaXN0cy5v
-cGVud3J0Lm9yZwpodHRwczovL2xpc3RzLm9wZW53cnQub3JnL2NnaS1iaW4vbWFpbG1hbi9saXN0
-aW5mby9vcGVud3J0LWRldmVsCg==
+--===============8969186734945925761==
+Content-Type: multipart/alternative; boundary=f46d044281ea449abd04e4cc5a03
+
+--f46d044281ea449abd04e4cc5a03
+Content-Type: text/plain; charset=ISO-8859-1
+
+I'm on vacation, will test and have some inputs later this week when I be
+back.
+
+Amir
+On Aug 23, 2013 10:28 AM, "Eliezer Tamir" <eliezer.tamir@linux.intel.com>
+wrote:
+
+> On 22/08/2013 23:11, Eric Wong wrote:
+> > Eliezer Tamir <eliezer.tamir@linux.intel.com> wrote:
+> >> Performance:
+> >> using sockperf, Intel X520 NICs,
+> >> Supermicro 6026TT-BTF systems with E5-2690 Xeon CPUs
+> >> 100 UDP sockets avg. latency 5.756 (std-dev 0.510)
+> >> 1k  UDP sockets avg. latency 5.780 (std-dev 0.536)
+> >> 10k UDP sockets avg. latency 6.269 (std-dev 0.611)
+> >
+> > How does this compare to with normal poll on this system?
+> >
+> > In other words, what advantage is there to using epoll instead of poll
+> > when busy looping?
+> >
+> > epoll and busy_poll seem to be opposites.  epoll inherently has higher
+> > latency than normal poll, but provides stable performance with many more
+> > FDs.
+>
+> I'm not sure I understand your claim that epoll has a higher latency
+> than poll.
+>
+> Some quick (and very unscientific) testing seem to indicate that
+> while poll is slightly faster than epoll when polling one socket,
+> when polling on three sockets epoll is already slightly faster.
+>
+> (what's the point of using poll if you only need to monitor one
+> socket?)
+>
+> With a larger socket set epoll is a clear winner.
+>
+> Both select and poll on 1k UDP sockets take over 120us on a similar
+> system.
+> Poll on 10 sockets takes about 6.8us, on 100 socket about 16.5us.
+>
+> Note that I'm using a slightly old NIC that has a high HW latency.
+> For comparison, a busy poll on a socket read (using netperf) is about
+> 5.7us.
+>
+> I expect Amir is seeing better numbers, but he's not telling. ;)
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+
+--f46d044281ea449abd04e4cc5a03--
+
+
+--===============8969186734945925761==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+------------------------------------------------------------------------------
+Introducing Performance Central, a new site from SourceForge and 
+AppDynamics. Performance Central is your source for news, insights, 
+analysis and resources for efficient Application Performance Management. 
+Visit us today!
+http://pubads.g.doubleclick.net/gampad/clk?id=48897511&iu=/4140/ostg.clktrk
+--===============8969186734945925761==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
+--===============8969186734945925761==--
