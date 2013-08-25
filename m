@@ -1,8 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 07/16] sfc: Limit scope of a Falcon A1 IRQ
- workaround
-Date: Mon, 26 Aug 2013 00:03:43 +0100
-Message-ID: <1377471823.2586.76.camel@deadeye.wl.decadent.org.uk>
+Subject: [PATCH net-next 08/16] sfc: Stop RX refill before flushing RX queues
+Date: Mon, 26 Aug 2013 00:05:46 +0100
+Message-ID: <1377471946.2586.77.camel@deadeye.wl.decadent.org.uk>
 References: <1377471363.2586.69.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,87 +9,122 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56369 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:56408 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756651Ab3HYXDr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Aug 2013 19:03:47 -0400
+	with ESMTP id S1756213Ab3HYXFu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Aug 2013 19:05:50 -0400
 In-Reply-To: <1377471363.2586.69.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We unconditionally acknowledge legacy interrupts just before disabling
-them.  This workaround is needed on Falcon A1 but probably not on
-later chips where the legacy interrupt mechanism is different.  It was
-also originally done after the IRQ handler was removed, not before.
-Restore the original behaviour for Falcon A1 only by doing this
-acknowledgement in the efx_nic_type::fini operation.
+rx_queue::enabled guards refill, so rename it to reflect that.  Clear
+it at the start of the queue teardown process rather than waiting for
+the RX queue to be flushed.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/falcon.c |    4 ++--
- drivers/net/ethernet/sfc/nic.c    |    7 -------
- drivers/net/ethernet/sfc/nic.h    |    1 -
- 3 files changed, 2 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/sfc/efx.c        |    9 +++++++--
+ drivers/net/ethernet/sfc/net_driver.h |    4 ++--
+ drivers/net/ethernet/sfc/nic.c        |    1 -
+ drivers/net/ethernet/sfc/rx.c         |    8 ++++----
+ 4 files changed, 13 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
-index f8de382..4492129 100644
---- a/drivers/net/ethernet/sfc/falcon.c
-+++ b/drivers/net/ethernet/sfc/falcon.c
-@@ -336,7 +336,7 @@ static void falcon_prepare_flush(struct efx_nic *efx)
-  *
-  * NB most hardware supports MSI interrupts
-  */
--inline void falcon_irq_ack_a1(struct efx_nic *efx)
-+static inline void falcon_irq_ack_a1(struct efx_nic *efx)
- {
- 	efx_dword_t reg;
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index a7818d1..ee9242c 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -248,8 +248,7 @@ static int efx_process_channel(struct efx_channel *channel, int budget)
+ 			efx_channel_get_rx_queue(channel);
  
-@@ -2343,7 +2343,7 @@ const struct efx_nic_type falcon_a1_nic_type = {
- 	.remove = falcon_remove_nic,
- 	.init = falcon_init_nic,
- 	.dimension_resources = falcon_dimension_resources,
--	.fini = efx_port_dummy_op_void,
-+	.fini = falcon_irq_ack_a1,
- 	.monitor = falcon_monitor,
- 	.map_reset_reason = falcon_map_reset_reason,
- 	.map_reset_flags = falcon_map_reset_flags,
+ 		efx_rx_flush_packet(channel);
+-		if (rx_queue->enabled)
+-			efx_fast_push_rx_descriptors(rx_queue);
++		efx_fast_push_rx_descriptors(rx_queue);
+ 	}
+ 
+ 	return spent;
+@@ -647,6 +646,12 @@ static void efx_stop_datapath(struct efx_nic *efx)
+ 	EFX_ASSERT_RESET_SERIALISED(efx);
+ 	BUG_ON(efx->port_enabled);
+ 
++	/* Stop RX refill */
++	efx_for_each_channel(channel, efx) {
++		efx_for_each_channel_rx_queue(rx_queue, channel)
++			rx_queue->refill_enabled = false;
++	}
++
+ 	/* Only perform flush if dma is enabled */
+ 	if (dev->is_busmaster && efx->state != STATE_RECOVERY) {
+ 		rc = efx_nic_flush_queues(efx);
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 7c96372..c9f7989 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -286,7 +286,7 @@ struct efx_rx_page_state {
+  * @buffer: The software buffer ring
+  * @rxd: The hardware descriptor ring
+  * @ptr_mask: The size of the ring minus 1.
+- * @enabled: Receive queue enabled indicator.
++ * @refill_enabled: Enable refill whenever fill level is low
+  * @flush_pending: Set when a RX flush is pending. Has the same lifetime as
+  *	@rxq_flush_pending.
+  * @added_count: Number of buffers added to the receive queue.
+@@ -317,7 +317,7 @@ struct efx_rx_queue {
+ 	struct efx_rx_buffer *buffer;
+ 	struct efx_special_buffer rxd;
+ 	unsigned int ptr_mask;
+-	bool enabled;
++	bool refill_enabled;
+ 	bool flush_pending;
+ 
+ 	unsigned int added_count;
 diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
-index c17d659..2d0a584 100644
+index 2d0a584..deb0ee04 100644
 --- a/drivers/net/ethernet/sfc/nic.c
 +++ b/drivers/net/ethernet/sfc/nic.c
-@@ -1781,7 +1781,6 @@ int efx_nic_init_interrupt(struct efx_nic *efx)
- void efx_nic_fini_interrupt(struct efx_nic *efx)
- {
- 	struct efx_channel *channel;
--	efx_oword_t reg;
+@@ -1204,7 +1204,6 @@ efx_handle_generated_event(struct efx_channel *channel, efx_qword_t *event)
+ 		 * queue. Refill it here */
+ 		efx_fast_push_rx_descriptors(rx_queue);
+ 	} else if (rx_queue && magic == EFX_CHANNEL_MAGIC_RX_DRAIN(rx_queue)) {
+-		rx_queue->enabled = false;
+ 		efx_handle_drain_event(channel);
+ 	} else if (code == _EFX_CHANNEL_MAGIC_TX_DRAIN) {
+ 		efx_handle_drain_event(channel);
+diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+index 6af9cfd..8b482de 100644
+--- a/drivers/net/ethernet/sfc/rx.c
++++ b/drivers/net/ethernet/sfc/rx.c
+@@ -326,6 +326,9 @@ void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue)
+ 	unsigned int fill_level, batch_size;
+ 	int space, rc = 0;
  
- #ifdef CONFIG_RFS_ACCEL
- 	free_irq_cpu_rmap(efx->net_dev->rx_cpu_rmap);
-@@ -1792,12 +1791,6 @@ void efx_nic_fini_interrupt(struct efx_nic *efx)
- 	efx_for_each_channel(channel, efx)
- 		free_irq(channel->irq, &efx->msi_context[channel->channel]);
++	if (!rx_queue->refill_enabled)
++		return;
++
+ 	/* Calculate current fill level, and exit if we don't need to fill */
+ 	fill_level = (rx_queue->added_count - rx_queue->removed_count);
+ 	EFX_BUG_ON_PARANOID(fill_level > rx_queue->efx->rxq_entries);
+@@ -738,9 +741,9 @@ void efx_init_rx_queue(struct efx_rx_queue *rx_queue)
  
--	/* ACK legacy interrupt */
--	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0)
--		efx_reado(efx, &reg, FR_BZ_INT_ISR0);
--	else
--		falcon_irq_ack_a1(efx);
+ 	rx_queue->max_fill = max_fill;
+ 	rx_queue->fast_fill_trigger = trigger;
++	rx_queue->refill_enabled = true;
+ 
+ 	/* Set up RX descriptor ring */
+-	rx_queue->enabled = true;
+ 	efx_nic_init_rx(rx_queue);
+ }
+ 
+@@ -753,9 +756,6 @@ void efx_fini_rx_queue(struct efx_rx_queue *rx_queue)
+ 	netif_dbg(rx_queue->efx, drv, rx_queue->efx->net_dev,
+ 		  "shutting down RX queue %d\n", efx_rx_queue_index(rx_queue));
+ 
+-	/* A flush failure might have left rx_queue->enabled */
+-	rx_queue->enabled = false;
 -
- 	/* Disable legacy interrupt */
- 	if (efx->legacy_irq)
- 		free_irq(efx->legacy_irq, efx);
-diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
-index 9120e8b..33aa120 100644
---- a/drivers/net/ethernet/sfc/nic.h
-+++ b/drivers/net/ethernet/sfc/nic.h
-@@ -308,7 +308,6 @@ extern void efx_nic_disable_interrupts(struct efx_nic *efx);
- extern void efx_nic_fini_interrupt(struct efx_nic *efx);
- extern irqreturn_t efx_nic_fatal_interrupt(struct efx_nic *efx);
- extern irqreturn_t falcon_legacy_interrupt_a1(int irq, void *dev_id);
--extern void falcon_irq_ack_a1(struct efx_nic *efx);
+ 	del_timer_sync(&rx_queue->slow_fill);
+ 	efx_nic_fini_rx(rx_queue);
  
- static inline int efx_nic_event_test_irq_cpu(struct efx_channel *channel)
- {
 
 
 -- 
