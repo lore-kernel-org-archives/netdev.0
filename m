@@ -1,106 +1,77 @@
-From: James Bottomley <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: Re: [systemd-devel] [PATCH] netns: unix: only allow to find out
-	unix socket in same net namespace
-Date: Sun, 25 Aug 2013 18:16:14 +0000
-Message-ID: <1377454566.8757.53.camel@dabdike>
-References: <1377059473-25526-1-git-send-email-gaofeng@cn.fujitsu.com>
-	<87d2p7vcdx.fsf@xmission.com> <5214641C.9030902@cn.fujitsu.com>
-	<87wqnfttdf.fsf@xmission.com> <52146AC2.5070409@cn.fujitsu.com>
-	<CAPXgP120YUEVnFiD0uPnqeO4x=5oRvHL79-cX5CnmEWc3d5mvQ@mail.gmail.com>
-	<1377450974.8757.41.camel@dabdike>
-	<CAPXgP115pEE8jxyCqauoMRWui3Qb0fBzPr9L2_SA411=gfnX3w@mail.gmail.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: Understanding/reimplementing forwarding
+ acceleration used by Broadcom (ctf)
+Date: Sun, 25 Aug 2013 23:16:37 +0200
+Message-ID: <CACna6rwneYQuiiyhEBR6qc-d-sNns2HO5CzwqET0KZ2Q782+cg@mail.gmail.com>
+References: <CACna6rwaa8xkqpt74aDouHjwgqkomYEtpCO3kTX7eVKBPanNzg@mail.gmail.com>
+ <CAKfDRXjYLV1O2jKogpqxGk3tiLtYCQ=mxNZo3=s57Sp0MR0dqQ@mail.gmail.com>
+Reply-To: OpenWrt Development List <openwrt-devel@lists.openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "systemd-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org"
-	<systemd-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>,
-	"libvir-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <libvir-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	"lxc-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org" <lxc-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-To: Kay Sievers <kay-tD+1rO4QERM@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <CAPXgP115pEE8jxyCqauoMRWui3Qb0fBzPr9L2_SA411=gfnX3w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Language: en-US
-Content-ID: <B83A7C3F602DF54A9E95BE551D4F5EA1-ruSsrxOD6xDby3iVrkZq2A@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Network Development <netdev@vger.kernel.org>
+To: OpenWrt Development List <openwrt-devel@lists.openwrt.org>
+Return-path: <openwrt-devel-bounces@lists.openwrt.org>
+In-Reply-To: <CAKfDRXjYLV1O2jKogpqxGk3tiLtYCQ=mxNZo3=s57Sp0MR0dqQ@mail.gmail.com>
+List-Unsubscribe: <https://lists.openwrt.org/cgi-bin/mailman/options/openwrt-devel>,
+ <mailto:openwrt-devel-request@lists.openwrt.org?subject=unsubscribe>
+List-Archive: <http://lists.openwrt.org/pipermail/openwrt-devel/>
+List-Post: <mailto:openwrt-devel@lists.openwrt.org>
+List-Help: <mailto:openwrt-devel-request@lists.openwrt.org?subject=help>
+List-Subscribe: <https://lists.openwrt.org/cgi-bin/mailman/listinfo/openwrt-devel>,
+ <mailto:openwrt-devel-request@lists.openwrt.org?subject=subscribe>
+Errors-To: openwrt-devel-bounces@lists.openwrt.org
+Sender: "openwrt-devel" <openwrt-devel-bounces@lists.openwrt.org>
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2013-08-25 at 19:37 +0200, Kay Sievers wrote:
-> On Sun, Aug 25, 2013 at 7:16 PM, James Bottomley
-> <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> wrote:
-> > On Wed, 2013-08-21 at 11:51 +0200, Kay Sievers wrote:
-> >> On Wed, Aug 21, 2013 at 9:22 AM, Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org> wrote:
-> >> > On 08/21/2013 03:06 PM, Eric W. Biederman wrote:
-> >>
-> >> >> I suspect libvirt should simply not share /run or any other normally
-> >> >> writable directory with the host.  Sharing /run /var/run or even /tmp
-> >> >> seems extremely dubious if you want some kind of containment, and
-> >> >> without strange things spilling through.
-> >>
-> >> Right, /run or /var cannot be shared. It's not only about sockets,
-> >> many other things will also go really wrong that way.
-> >
-> > This is very narrow thinking about what a container might be and will
-> > cause trouble as people start to create novel uses for containers in the
-> > cloud if you try to impose this on our current infrastructure.
-> >
-> > One of the cgroup only container uses we see at Parallels (so no
-> > separate filesystem and no net namespaces) is pure apache load balancer
-> > type shared hosting.  In this scenario, base apache is effectively
-> > brought up in the host environment, but then spawned instances are
-> > resource limited using cgroups according to what the customer has paid.
-> > Obviously all apache instances are sharing /var and /run from the host
-> > (mostly for logging and pid storage and static pages).  The reason some
-> > hosters do this is that it allows much higher density simple web serving
-> > (either static pages from quota limited chroots or dynamic pages limited
-> > by database space constraints) because each "instance" shares so much
-> > from the host.  The service is obviously much more basic than giving
-> > each customer a container running apache, but it's much easier for the
-> > hoster to administer and it serves the customer just as well for a large
-> > cross section of use cases and for those it doesn't serve, the hoster
-> > usually has separate container hosting (for a higher price, of course).
-> 
-> The "container" as we talk about has it's own init, and no, it cannot
-> share /var or /run.
-
-This is what we would call an IaaS container: bringing up init and
-effectively a new OS inside a container is the closest containers come
-to being like hypervisors.  It's the most common use case of Parallels
-containers in the field, so I'm certainly not telling you it's a bad
-idea.
-
-> The stuff you talk about has nothing to do with that, it's not
-> different from all services or a multi-instantiated service on the
-> host sharing the same /run and /var.
-
-I gave you one example: a really simplistic one.  A more sophisticated
-example is a PaaS or SaaS container where you bring the OS up in the
-host but spawn a particular application into its own container (this is
-essentially similar to what Docker does).  Often in this case, you do
-add separate mount and network namespaces to make the application
-isolated and migrateable with its own IP address.  The reason you share
-init and most of the OS from the host is for elasticity and density,
-which are fast becoming a holy grail type quest of cloud orchestration
-systems: if you don't have to bring up the OS from init and you can just
-start the application from a C/R image (orders of magnitude smaller than
-a full system image) and slap on the necessary namespaces as you clone
-it, you have something that comes online in miliseconds which is a feat
-no hypervisor based virtualisation can match.
-
-I'm not saying don't pursue the IaaS case, it's definitely useful ...
-I'm just saying it would be a serious mistake to think that's the only
-use case for containers and we certainly shouldn't adjust Linux to serve
-only that use case.
-
-James
+MjAxMy84LzI0IEtyaXN0aWFuIEV2ZW5zZW4gPGtyaXN0aWFuLmV2ZW5zZW5AZ21haWwuY29tPjoK
+PiBIaSBSYWZhbCwKClRoYW5rcyBLcmlzdGlhbiBmb3IgeW91ciByZXBseSwgdW5mb3J0dW5hdGVs
+eSBJIGNhbid0IG1ha2UgaXQgd29yayB0aGUKd2F5IEkgd2FudCA6KAoKPiBPbiBTYXQsIEF1ZyAy
+NCwgMjAxMyBhdCA1OjE5IFBNLCBSYWZhxYIgTWnFgmVja2kgPHphamVjNUBnbWFpbC5jb20+IHdy
+b3RlOgo+Pgo+PiBJIHdvbmRlciB3aGF0IGRvIHlvdSB0aGluayBhYm91dCB0aGlzIHNvbHV0aW9u
+LiBJcyB0aGlzIHNvbWV0aGluZyB3ZQo+PiBjb3VsZCB0cnkgdG8gaW1wbGVtZW50IG91cnNlbGY/
+IElzIGl0IHdvcnRoIGl0PyBJcyB0aGVyZSBzb21lIGV4aXN0aW5nCj4+IHByb2plY3QgZG9pbmcg
+c2ltaWxhciB0aGluZz8KPgo+IFRoaXMgaXMgYSB2ZXJ5IGludGVyZXN0aW5nIGRpc2NvdmVyeS4g
+SGF2ZSB5b3UgdHJpZWQgdG8gdXNlIGV0YWJsZXMKPiBhbmQgY2hlY2tlZCBob3cgbXVjaCBkYXRh
+IHlvdSBjYW4gcHVzaCB0aHJvdWdoIHRoZSByb3V0ZXI/IEZvcgo+IGV4YW1wbGUsIGhhdmUgb25l
+IG1hY2hpbmUgY29ubmVjdGVkIHRvIHRoZSBMQU4gYW5kIG9uZSB0byB0aGUgV0FOIHBvcnQKPiAo
+cHJvYmFibHkgdXNpbmcgc3RhdGljIElQcyBmb3IgdGhlICJXQU4iIGlzIHRoZSBlYXNpZXN0KS4g
+VXNlIE1BQyBOQVQKPiAoaHR0cDovL2VidGFibGVzLnNvdXJjZWZvcmdlLm5ldC9leGFtcGxlcy9i
+YXNpYy5odG1sI2V4X25hdCkgb24gdGhlCj4gT3BlbldSVCByb3V0ZXIgdG8gc2V0IHRoZSBkZXN0
+aW5hdGlvbiB0byB0aGUgbWFjaGluZSBjb25uZWN0ZWQgdG8gdGhlCj4gV0FOLCBwdXNoIFVEUCB0
+cmFmZmljIGZyb20gYSBjbGllbnQgY29ubmVjdGVkIHRvIHRoZSBMQU4gdG8gc29tZQo+IHJlbW90
+ZSBJUCBhbmQgc2VlIGhvdyBtdWNoIGRhdGEgZmxvd3MgdGhyb3VnaCB0aGUgcm91dGVyLiBVc2Ug
+Zm9yCj4gZXhhbXBsZSBid20tbmcgb24gdGhlIG1hY2hpbmUgY29ubmVjdGVkIHRvIHRoZSBXQU4g
+cG9ydCB0byBzZWUgY3VycmVudAo+IHRocm91Z2hwdXQgKGFsc28gdG8gYXZvaWQgcHV0dGluZyBh
+bnkgYWRkaXRpb25hbCBwcmVzc3VyZSBvbiB0aGUKPiByb3V0ZXIgQ1BVKS4gQmUgYXdhcmUgdGhh
+dCB1bmxlc3MgeW91IGNvbmZpZ3VyZSB0aGUgbWFjaGluZSBjb25uZWN0ZWQKPiB0byB0aGUgV0FO
+IHBvcnQgYXMgYSByb3V0ZXIsIHRoZSBmb3J3YXJkZWQgcGFja2V0cyB3aWxsIGJlIGRpc2NhcmRl
+ZC4KPgo+IElmIHRoaXMgd29ya3MgYW5kIGdpdmVzIGdvb2QgcGVyZm9ybWFuY2UsIGJhc2VkIG9u
+IG15IHVuZGVyc3RhbmRpbmcsCj4geW91IGNvdWxkIGltcGxlbWVudCB0aGlzIGN0ZiBtb2R1bGUg
+YXMgYW4gZXRhYmxlcyBleHRlbnNpb24uCgpJJ3ZlIHRyaWVkIHRvIHNldHVwIG5ldHdvcmsgdGhl
+IHdheSB5b3Ugc3VnZ2VzdGVkLgoKSSBjb25maWd1cmVkIE9wZW5XcnQgcm91dGVyIHRvIHVzZSBz
+dGF0aWMgMTkyLjE2OC41LjIgb24gdGhlIFdBTgppbnRlcmZhY2UgYW5kIHRoZW4gSSBzZXQgMTky
+LjE2OC41LjEgb24gbXkgbW9uaXRvciAoYndtLW5nKSBtYWNoaW5lCmNvbm5lY3RlZCB0byB0aGF0
+IFdBTiBwb3J0LgoKT3BlbldydCB1c2VzIDE5Mi4xNjguMS4xIGJ5IGRlZmF1bHQgb24gTEFOIHBv
+cnRzIGFuZCBteSBzZWNvbmQgKFRYKQptYWNoaW5lIHJlY2VpdmVkIHNvbWUgcmFuZG9tIDE5Mi4x
+NjguMS4xMzEuCgpJIHVzZSBpcGVyZiBvbiBteSAxOTIuMTY4LjEuMTMxIFRYIG1hY2hpbmUsIHNv
+IEkgZGVjaWRlZCB0byB0ZWxsIGlwZXJmCnRvIHVzZSAxOTIuMTY4LjEuMSBhbmQgcmVkaXJlY3Qg
+dGhhdCB0cmFmZmluYyAob24gdGhlIE9wZW5XcnQgcm91dGVyKQp0byB0aGUgV0FOIHBvcnQuIFRv
+IGRvIHRoYXQgSSB0eXBlZDoKZWJ0YWJsZXMgLXQgbmF0IC1BIFBSRVJPVVRJTkcgXAogICAgLWQg
+JChPUEVOV1JUX01BQykgXAogICAgLWkgZXRoMC4xIFwKICAgIC1qIGRuYXQgLS10by1kZXN0aW5h
+dGlvbiAkKE1PTklUT1JfTUFDSElORV9NQUMpCgpldGgwLjEgaW50ZXJmYWNlIGlzIHRoZSBvbmUg
+dXNlZCBmb3IgTEFOIHBvcnRzIGFuZCBicmlkZ2VkIHdpdGggdGhlIGJyLWxhbjoKIyBicmN0bCBz
+aG93CmJyaWRnZSBuYW1lIGJyaWRnZSBpZCBTVFAgZW5hYmxlZCBpbnRlcmZhY2VzCmJyLWxhbiA3
+ZmZmLjIwNGU3ZmFiM2FhOCBubyBldGgwLjEKClRoZW4gSSBzdGFydGVkOgppcGVyZiAtYyAxOTIu
+MTY4LjEuMSAtLXVkcApvbiBteSBUWCBtYWNoaW5lLCBidXQgbm8gUlggdHJhZmZpYyBoYXMgYXBw
+ZWFyZWQgb24gbXkgbW9uaXRvcgooMTkyLjE2OC41LjEpIG1hY2hpbmUgOigKCldoYXQncyB3b3Jz
+ZSwgYWZ0ZXIgZXhlY3V0aW5nIHRoYXQgImVidGFibGUiIGNvbW1hbmQgZXZlbiBkaXJlY3Q6Cmlw
+ZXJmIC1jIDE5Mi4xNjguNS4xIC0tdWRwCmRvZXNuJ3QgZ2VuZXJhdGUgYW55IFJYIG9uIG15IG1v
+bml0b3IgKDE5Mi4xNjguNS4xKSBtYWNoaW5lLiBGbHVzaGluZwotdCBuYXQgbWFrZXMgdGhhdCBk
+aXJlY3QgY29tbWFuZCB3b3JrIGFnYWluLgoKSSBndWVzcyBJIGRpZCBzb21ldGhpbmcgd3Jvbmcg
+aW4gbXkgZWJ0YWJsZXMgcnVsZS4gRG8geW91IGhhdmUgYW55CmlkZWEgd2hhdCBjb3VsZCBpdCBi
+ZT8gSXQncyB0aGUgZmlyc3QgdGltZSBJJ3ZlIGhlYXJkIGFib3V0IGVidGFibGVzCnRvIGJlIGhv
+bmVzdC4KCi0tIApSYWZhxYIKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX18Kb3BlbndydC1kZXZlbCBtYWlsaW5nIGxpc3QKb3BlbndydC1kZXZlbEBsaXN0cy5v
+cGVud3J0Lm9yZwpodHRwczovL2xpc3RzLm9wZW53cnQub3JnL2NnaS1iaW4vbWFpbG1hbi9saXN0
+aW5mby9vcGVud3J0LWRldmVsCg==
