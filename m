@@ -1,7 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 15/16] sfc: Fix race in completion handling
-Date: Mon, 26 Aug 2013 00:33:33 +0100
-Message-ID: <1377473613.2586.84.camel@deadeye.wl.decadent.org.uk>
+Subject: [PATCH net-next 16/16] sfc: Update and improve kernel-doc for
+ efx_mcdi_state & efx_mcdi_iface
+Date: Mon, 26 Aug 2013 00:34:15 +0100
+Message-ID: <1377473655.2586.85.camel@deadeye.wl.decadent.org.uk>
 References: <1377471363.2586.69.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -9,97 +10,73 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:24386 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:24396 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751787Ab3HYXdh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Aug 2013 19:33:37 -0400
+	with ESMTP id S1754505Ab3HYXeT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Aug 2013 19:34:19 -0400
 In-Reply-To: <1377471363.2586.69.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When we poll for MCDI request completion, we don't hold the interface
-lock while setting the response fields in struct efx_mcdi_iface.
-
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/mcdi.c |   25 ++++++++++---------------
- 1 files changed, 10 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/sfc/mcdi.h |   20 +++++++++-----------
+ 1 files changed, 9 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
-index 2c5ee89..1c8bf81 100644
---- a/drivers/net/ethernet/sfc/mcdi.c
-+++ b/drivers/net/ethernet/sfc/mcdi.c
-@@ -112,16 +112,6 @@ static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
- 	efx->type->mcdi_request(efx, hdr, hdr_len, inbuf, inlen);
- }
+diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
+index 0cb0d5a..69586e0 100644
+--- a/drivers/net/ethernet/sfc/mcdi.h
++++ b/drivers/net/ethernet/sfc/mcdi.h
+@@ -11,14 +11,14 @@
+ #define EFX_MCDI_H
  
--static void
--efx_mcdi_copyout(struct efx_nic *efx, efx_dword_t *outbuf, size_t outlen)
--{
--	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
--
--	BUG_ON(atomic_read(&mcdi->state) == MCDI_STATE_QUIESCENT);
--
--	efx->type->mcdi_read_response(efx, outbuf, mcdi->resp_hdr_len, outlen);
--}
--
- static int efx_mcdi_errno(unsigned int mcdi_err)
- {
- 	switch (mcdi_err) {
-@@ -200,9 +190,11 @@ static int efx_mcdi_poll(struct efx_nic *efx)
- 	/* Check for a reboot atomically with respect to efx_mcdi_copyout() */
- 	rc = efx_mcdi_poll_reboot(efx);
- 	if (rc) {
-+		spin_lock_bh(&mcdi->iface_lock);
- 		mcdi->resprc = rc;
- 		mcdi->resp_hdr_len = 0;
- 		mcdi->resp_data_len = 0;
-+		spin_unlock_bh(&mcdi->iface_lock);
- 		return 0;
- 	}
+ /**
+- * enum efx_mcdi_state
++ * enum efx_mcdi_state - MCDI request handling state
+  * @MCDI_STATE_QUIESCENT: No pending MCDI requests. If the caller holds the
+- *	mcdi_lock then they are able to move to MCDI_STATE_RUNNING
++ *	mcdi @iface_lock then they are able to move to %MCDI_STATE_RUNNING
+  * @MCDI_STATE_RUNNING: There is an MCDI request pending. Only the thread that
+  *	moved into this state is allowed to move out of it.
+  * @MCDI_STATE_COMPLETED: An MCDI request has completed, but the owning thread
+  *	has not yet consumed the result. For all other threads, equivalent to
+- *	MCDI_STATE_RUNNING.
++ *	%MCDI_STATE_RUNNING.
+  */
+ enum efx_mcdi_state {
+ 	MCDI_STATE_QUIESCENT,
+@@ -32,25 +32,23 @@ enum efx_mcdi_mode {
+ };
  
-@@ -231,7 +223,9 @@ static int efx_mcdi_poll(struct efx_nic *efx)
- 			return -ETIMEDOUT;
- 	}
- 
-+	spin_lock_bh(&mcdi->iface_lock);
- 	efx_mcdi_read_response_header(efx);
-+	spin_unlock_bh(&mcdi->iface_lock);
- 
- 	/* Return rc=0 like wait_event_timeout() */
- 	return 0;
-@@ -419,7 +413,7 @@ int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
- 			  "MC command 0x%x inlen %d mode %d timed out\n",
- 			  cmd, (int)inlen, mcdi->mode);
- 	} else {
--		size_t resplen;
-+		size_t hdr_len, data_len;
- 
- 		/* At the very least we need a memory barrier here to ensure
- 		 * we pick up changes from efx_mcdi_ev_cpl(). Protect against
-@@ -427,16 +421,17 @@ int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
- 		 * acquiring the iface_lock. */
- 		spin_lock_bh(&mcdi->iface_lock);
- 		rc = mcdi->resprc;
--		resplen = mcdi->resp_data_len;
-+		hdr_len = mcdi->resp_hdr_len;
-+		data_len = mcdi->resp_data_len;
- 		spin_unlock_bh(&mcdi->iface_lock);
- 
- 		BUG_ON(rc > 0);
- 
- 		if (rc == 0) {
--			efx_mcdi_copyout(efx, outbuf,
--					 min(outlen, mcdi->resp_data_len));
-+			efx->type->mcdi_read_response(efx, outbuf, hdr_len,
-+						      min(outlen, data_len));
- 			if (outlen_actual != NULL)
--				*outlen_actual = resplen;
-+				*outlen_actual = data_len;
- 		} else if (cmd == MC_CMD_REBOOT && rc == -EIO)
- 			; /* Don't reset if MC_CMD_REBOOT returns EIO */
- 		else if (rc == -EIO || rc == -EINTR) {
-
+ /**
+- * struct efx_mcdi_iface
+- * @state: Interface state. Waited for by mcdi_wq.
+- * @wq: Wait queue for threads waiting for state != STATE_RUNNING
+- * @iface_lock: Protects @credits, @seqno, @resprc, @resplen
++ * struct efx_mcdi_iface - MCDI protocol context
++ * @state: Request handling state. Waited for by @wq.
+  * @mode: Poll for mcdi completion, or wait for an mcdi_event.
+- *	Serialised by @lock
++ * @wq: Wait queue for threads waiting for @state != %MCDI_STATE_RUNNING
++ * @iface_lock: Serialises access to all the following fields
+  * @seqno: The next sequence number to use for mcdi requests.
+- *	Serialised by @lock
+  * @credits: Number of spurious MCDI completion events allowed before we
+- *	trigger a fatal error. Protected by @lock
++ *     trigger a fatal error
+  * @resprc: Response error/success code (Linux numbering)
+  * @resp_hdr_len: Response header length
+  * @resp_data_len: Response data (SDU or error) length
+  */
+ struct efx_mcdi_iface {
+ 	atomic_t state;
++	enum efx_mcdi_mode mode;
+ 	wait_queue_head_t wq;
+ 	spinlock_t iface_lock;
+-	enum efx_mcdi_mode mode;
+ 	unsigned int credits;
+ 	unsigned int seqno;
+ 	int resprc;
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
