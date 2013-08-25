@@ -1,28 +1,69 @@
-From: "Myrna Cooke" <mgcooke@edu.pe.ca>
-Subject: CAN WE PARTNER?
-Date: Sun, 25 Aug 2013 11:07:52 -0300
-Message-ID: <5219E645020000A500026FF0@gwia-out.peigov>
+From: James Bottomley <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: Re: [systemd-devel] [PATCH] netns: unix: only allow to find out
+	unix socket in same net namespace
+Date: Sun, 25 Aug 2013 17:16:17 +0000
+Message-ID: <1377450974.8757.41.camel@dabdike>
+References: <1377059473-25526-1-git-send-email-gaofeng@cn.fujitsu.com>
+	<87d2p7vcdx.fsf@xmission.com> <5214641C.9030902@cn.fujitsu.com>
+	<87wqnfttdf.fsf@xmission.com> <52146AC2.5070409@cn.fujitsu.com>
+	<CAPXgP120YUEVnFiD0uPnqeO4x=5oRvHL79-cX5CnmEWc3d5mvQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.gov.pe.ca ([198.167.125.137]:58527 "EHLO smtp2.gov.pe.ca"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756465Ab3HYOY7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Aug 2013 10:24:59 -0400
-Received: from gwia-out.peigov ([198.167.37.75]) by smtp2.gov.pe.ca with ESMTP id hXKRFDVx0jeUerPy for <netdev@vger.kernel.org>; Sun, 25 Aug 2013 11:11:14 -0300 (ADT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "systemd-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org"
+	<systemd-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>,
+	"libvir-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <libvir-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	"lxc-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org" <lxc-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+To: Kay Sievers <kay-tD+1rO4QERM@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <CAPXgP120YUEVnFiD0uPnqeO4x=5oRvHL79-cX5CnmEWc3d5mvQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Language: en-US
+Content-ID: <3641D54CA802D74485DF5E2DCDC58C97-ruSsrxOD6xDby3iVrkZq2A@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-I have a transaction for you, for details contact me
-via: mckoenig26@live.com
-Mrs Cecilia Koenig
+On Wed, 2013-08-21 at 11:51 +0200, Kay Sievers wrote:
+> On Wed, Aug 21, 2013 at 9:22 AM, Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org> wrote:
+> > On 08/21/2013 03:06 PM, Eric W. Biederman wrote:
+> 
+> >> I suspect libvirt should simply not share /run or any other normally
+> >> writable directory with the host.  Sharing /run /var/run or even /tmp
+> >> seems extremely dubious if you want some kind of containment, and
+> >> without strange things spilling through.
+> 
+> Right, /run or /var cannot be shared. It's not only about sockets,
+> many other things will also go really wrong that way.
 
+This is very narrow thinking about what a container might be and will
+cause trouble as people start to create novel uses for containers in the
+cloud if you try to impose this on our current infrastructure.
 
--------------------------
+One of the cgroup only container uses we see at Parallels (so no
+separate filesystem and no net namespaces) is pure apache load balancer
+type shared hosting.  In this scenario, base apache is effectively
+brought up in the host environment, but then spawned instances are
+resource limited using cgroups according to what the customer has paid.
+Obviously all apache instances are sharing /var and /run from the host
+(mostly for logging and pid storage and static pages).  The reason some
+hosters do this is that it allows much higher density simple web serving
+(either static pages from quota limited chroots or dynamic pages limited
+by database space constraints) because each "instance" shares so much
+from the host.  The service is obviously much more basic than giving
+each customer a container running apache, but it's much easier for the
+hoster to administer and it serves the customer just as well for a large
+cross section of use cases and for those it doesn't serve, the hoster
+usually has separate container hosting (for a higher price, of course).
 
-Statement of Confidentiality
-
-This message (including attachments) may contain confidential or privileged information intended for a specific individual or organization. If you have received this communication in error, please notify the sender immediately. If you are not the intended recipient, you are not authorized to use, disclose, distribute, copy, print or rely on this email, and should promptly delete this email from your entire computer system.
+James
