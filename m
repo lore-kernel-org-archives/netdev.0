@@ -1,39 +1,57 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH net] net: add cpu_relax to busy poll loop
-Date: Sun, 25 Aug 2013 10:23:46 +0300
-Message-ID: <20130825072346.31655.84970.stgit@ladj378.jer.intel.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: pcie_get_minimum_link returns 0 width
+Date: Sun, 25 Aug 2013 11:21:38 +0000
+Message-ID: <979A8436335E3744ADCD3A9F2A2B68A52AD136BE@SJEXCHMB10.corp.ad.broadcom.com>
+References: <20130825100157.GA16500@lb-tlvb-yuvalmin.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "bhelgaas@google.com" <bhelgaas@google.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "jacob.e.keller@intel.com" <jacob.e.keller@intel.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a cpu_relaxt to sk_busy_loop.
+Hi,
 
-Julie Cummings reported performance issues when hyperthreading is on.
-Arjan van de Ven observed that we should have a cpu_relax() in the
-busy poll loop.
+I tried adding support for the newly added 'pcie_get_minimum_link' into the
+bnx2x driver, but found out the some of my devices started showing width x0.
 
-Reported-by: Julie Cummings <julie.a.cummings@intel.com>
-Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
----
+By adding debug prints, I've found out there were devices up the chain that
+Showed 0 when their PCI_EXP_LNKSTA was read by said function.
+However, when I tried looking via lspci the output claimed the width was x4.
 
- include/net/busy_poll.h |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+lspci -vt output:
+[0000:00]-+-00.0  Intel Corporation 5000P Chipset Memory Controller Hub
+	     +-02.0-[09-12]--+-00.0-[0a-11]--+-00.0-[0b-0d]--
+					     +-01.0-[0e-10]--+-00.0  Broadcom
+					Corporation NetXtreme II BCM57710
+					10-Gigabit PCIe [Everest]
 
-diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
-index 8a358a2..829627d 100644
---- a/include/net/busy_poll.h
-+++ b/include/net/busy_poll.h
-@@ -123,6 +123,7 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
- 			/* local bh are disabled so it is ok to use _BH */
- 			NET_ADD_STATS_BH(sock_net(sk),
- 					 LINUX_MIB_BUSYPOLLRXPACKETS, rc);
-+		cpu_relax();
- 
- 	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
- 		 !need_resched() && !busy_loop_timeout(end_time));
+Where:
+00:02.0 PCI bridge: Intel Corporation 5000 Series Chipset PCI Express x4 Port
+2 (rev 93)
+09:00.0 PCI bridge: Intel Corporation 6311ESB/6321ESB PCI Express Upstream
+Port (rev 01)
+0a:01.0 PCI bridge: Intel Corporation 6311ESB/6321ESB PCI Express
+Downstream Port E2 (rev 01)
+0e:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM57710
+10-Gigabit PCIe [Everest] (rev 01)
+
+The output for "lspci -vvvv | grep LnkSta for all four is:
+LnkSta:	Speed 2.5GT/s, Width x4, TrErr- Train- SlotClk+ DLActive- BWMgmt-
+ABWMgmt-
+
+But added prints inside the function's loop show:
+LnkSta 1041 [000e:00.00]
+LnkSta 0000 [000a:01.00]
+LnkSta 0000 [0009:00.00]
+LnkSta 3041 [0000:02.00]
+(PCI_EXP_LNKSTA value, bus->number, PCI_SLOT, PCI_FUNC)
+
+Thanks,
+Yuval
