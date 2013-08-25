@@ -1,7 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 05/16] sfc: Remove efx_process_channel_now()
-Date: Mon, 26 Aug 2013 00:02:28 +0100
-Message-ID: <1377471748.2586.74.camel@deadeye.wl.decadent.org.uk>
+Subject: [PATCH net-next 06/16] sfc: Rework IRQ enable/disable
+Date: Mon, 26 Aug 2013 00:03:08 +0100
+Message-ID: <1377471788.2586.75.camel@deadeye.wl.decadent.org.uk>
 References: <1377471363.2586.69.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -9,200 +9,506 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56334 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:56354 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756643Ab3HYXCb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Aug 2013 19:02:31 -0400
+	with ESMTP id S1756670Ab3HYXDL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Aug 2013 19:03:11 -0400
 In-Reply-To: <1377471363.2586.69.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-efx_process_channel_now() is unneeded since self-tests can rely on
-normal NAPI polling.  Remove it and all calls to it.
+There are many problems with the current efx_stop_interrupts() and
+efx_start_interrupts():
 
-efx_channel::work_pending and efx_channel_processed() are also
-unneeded (the latter being the same as efx_nic_eventq_read_ack()).
+1. On Siena, it is unsafe to disable the master IRQ enable bit
+(DRV_INT_EN_KER) while any IRQ sources are enabled.
+
+2. On EF10 there is no master IRQ enable bit, so we cannot expect to
+defer IRQs without tearing down event queues.  (Though I don't think
+we will need to keep any event queues around while the device is down,
+as we do for VFDI on Siena.)
+
+3. synchronize_irq() only waits for a running IRQ handler to finish,
+not for any propagation through IRQ controllers.  Therefore an IRQ may
+still be received and handled after efx_stop_interrupts() returns.
+IRQ handlers can then race with channel reallocation.
+
+To fix this:
+
+a. Introduce a software IRQ enable flag.  So long as this is clear,
+IRQ handlers will only acknowledge IRQs and not touch the channel
+structures.
+
+b. Define a new struct efx_msi_context as the context for MSIs.  This
+is never reallocated and is sufficient to find the software enable
+flag and the channel structure.  It also includes the channel/IRQ
+name, which was previously separated out as it must also not be
+reallocated.
+
+c. Split efx_{start,stop}_interrupts() into
+efx_{,soft_}_{enable,disable}_interrupts().  The 'soft' functions
+don't touch the hardware master enable flag (if it exists) and don't
+reinitialise or tear down channels with the keep_eventq flag set.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/efx.c        |   69 +-------------------------------
- drivers/net/ethernet/sfc/efx.h        |    2 -
- drivers/net/ethernet/sfc/net_driver.h |    2 -
- drivers/net/ethernet/sfc/selftest.c   |   11 -----
- 4 files changed, 3 insertions(+), 81 deletions(-)
+ drivers/net/ethernet/sfc/efx.c        |   91 ++++++++++++++++++++++-----------
+ drivers/net/ethernet/sfc/falcon.c     |    3 +
+ drivers/net/ethernet/sfc/net_driver.h |   24 +++++++--
+ drivers/net/ethernet/sfc/nic.c        |   53 ++++++++++---------
+ 4 files changed, 112 insertions(+), 59 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index c729688..2b2dba1 100644
+index 2b2dba1..a7818d1 100644
 --- a/drivers/net/ethernet/sfc/efx.c
 +++ b/drivers/net/ethernet/sfc/efx.c
-@@ -255,23 +255,6 @@ static int efx_process_channel(struct efx_channel *channel, int budget)
- 	return spent;
+@@ -191,8 +191,8 @@ MODULE_PARM_DESC(debug, "Bitmapped debugging message enable value");
+  *
+  *************************************************************************/
+ 
+-static void efx_start_interrupts(struct efx_nic *efx, bool may_keep_eventq);
+-static void efx_stop_interrupts(struct efx_nic *efx, bool may_keep_eventq);
++static void efx_soft_enable_interrupts(struct efx_nic *efx);
++static void efx_soft_disable_interrupts(struct efx_nic *efx);
+ static void efx_remove_channel(struct efx_channel *channel);
+ static void efx_remove_channels(struct efx_nic *efx);
+ static const struct efx_channel_type efx_default_channel_type;
+@@ -520,8 +520,8 @@ static void efx_set_channel_names(struct efx_nic *efx)
+ 
+ 	efx_for_each_channel(channel, efx)
+ 		channel->type->get_name(channel,
+-					efx->channel_name[channel->channel],
+-					sizeof(efx->channel_name[0]));
++					efx->msi_context[channel->channel].name,
++					sizeof(efx->msi_context[0].name));
  }
  
--/* Mark channel as finished processing
-- *
-- * Note that since we will not receive further interrupts for this
-- * channel before we finish processing and call the eventq_read_ack()
-- * method, there is no need to use the interrupt hold-off timers.
-- */
--static inline void efx_channel_processed(struct efx_channel *channel)
--{
--	/* The interrupt handler for this channel may set work_pending
--	 * as soon as we acknowledge the events we've seen.  Make sure
--	 * it's cleared before then. */
--	channel->work_pending = false;
--	smp_wmb();
--
--	efx_nic_eventq_read_ack(channel);
--}
--
- /* NAPI poll handler
-  *
-  * NAPI guarantees serialisation of polls of the same device, which
-@@ -316,58 +299,16 @@ static int efx_poll(struct napi_struct *napi, int budget)
+ static int efx_probe_channels(struct efx_nic *efx)
+@@ -746,7 +746,7 @@ efx_realloc_channels(struct efx_nic *efx, u32 rxq_entries, u32 txq_entries)
  
- 		/* There is no race here; although napi_disable() will
- 		 * only wait for napi_complete(), this isn't a problem
--		 * since efx_channel_processed() will have no effect if
-+		 * since efx_nic_eventq_read_ack() will have no effect if
- 		 * interrupts have already been disabled.
- 		 */
- 		napi_complete(napi);
--		efx_channel_processed(channel);
-+		efx_nic_eventq_read_ack(channel);
+ 	efx_device_detach_sync(efx);
+ 	efx_stop_all(efx);
+-	efx_stop_interrupts(efx, true);
++	efx_soft_disable_interrupts(efx);
+ 
+ 	/* Clone channels (where possible) */
+ 	memset(other_channel, 0, sizeof(other_channel));
+@@ -796,7 +796,7 @@ out:
+ 		}
  	}
  
- 	return spent;
+-	efx_start_interrupts(efx, true);
++	efx_soft_enable_interrupts(efx);
+ 	efx_start_all(efx);
+ 	netif_device_attach(efx->net_dev);
+ 	return rc;
+@@ -1329,23 +1329,17 @@ static int efx_probe_interrupts(struct efx_nic *efx)
+ 	return 0;
  }
  
--/* Process the eventq of the specified channel immediately on this CPU
-- *
-- * Disable hardware generated interrupts, wait for any existing
-- * processing to finish, then directly poll (and ack ) the eventq.
-- * Finally reenable NAPI and interrupts.
-- *
-- * This is for use only during a loopback self-test.  It must not
-- * deliver any packets up the stack as this can result in deadlock.
-- */
--void efx_process_channel_now(struct efx_channel *channel)
--{
--	struct efx_nic *efx = channel->efx;
--
--	BUG_ON(channel->channel >= efx->n_channels);
--	BUG_ON(!channel->enabled);
--	BUG_ON(!efx->loopback_selftest);
--
--	/* Disable interrupts and wait for ISRs to complete */
--	efx_nic_disable_interrupts(efx);
--	if (efx->legacy_irq) {
--		synchronize_irq(efx->legacy_irq);
--		efx->legacy_irq_enabled = false;
+-/* Enable interrupts, then probe and start the event queues */
+-static void efx_start_interrupts(struct efx_nic *efx, bool may_keep_eventq)
++static void efx_soft_enable_interrupts(struct efx_nic *efx)
+ {
+ 	struct efx_channel *channel;
+ 
+ 	BUG_ON(efx->state == STATE_DISABLED);
+ 
+-	if (efx->eeh_disabled_legacy_irq) {
+-		enable_irq(efx->legacy_irq);
+-		efx->eeh_disabled_legacy_irq = false;
 -	}
--	if (channel->irq)
--		synchronize_irq(channel->irq);
--
--	/* Wait for any NAPI processing to complete */
--	napi_disable(&channel->napi_str);
--
--	/* Poll the channel */
--	efx_process_channel(channel, channel->eventq_mask + 1);
--
--	/* Ack the eventq. This may cause an interrupt to be generated
--	 * when they are reenabled */
--	efx_channel_processed(channel);
--
--	napi_enable(&channel->napi_str);
 -	if (efx->legacy_irq)
 -		efx->legacy_irq_enabled = true;
 -	efx_nic_enable_interrupts(efx);
--}
--
- /* Create event queue
-  * Event queue memory allocations are done only once.  If the channel
-  * is reset, the memory buffer will be reused; this guards against
-@@ -407,11 +348,7 @@ static void efx_start_eventq(struct efx_channel *channel)
- 	netif_dbg(channel->efx, ifup, channel->efx->net_dev,
- 		  "chan %d start event queue\n", channel->channel);
++	efx->irq_soft_enabled = true;
++	smp_wmb();
  
--	/* The interrupt handler for this channel may set work_pending
--	 * as soon as we enable it.  Make sure it's cleared before
--	 * then.  Similarly, make sure it sees the enabled flag set.
--	 */
--	channel->work_pending = false;
-+	/* Make sure the NAPI handler sees the enabled flag set */
- 	channel->enabled = true;
- 	smp_wmb();
- 
-diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
-index bdb30bb..09e633a 100644
---- a/drivers/net/ethernet/sfc/efx.h
-+++ b/drivers/net/ethernet/sfc/efx.h
-@@ -109,7 +109,6 @@ static inline void efx_filter_rfs_expire(struct efx_channel *channel) {}
- /* Channels */
- extern int efx_channel_dummy_op_int(struct efx_channel *channel);
- extern void efx_channel_dummy_op_void(struct efx_channel *channel);
--extern void efx_process_channel_now(struct efx_channel *channel);
- extern int
- efx_realloc_channels(struct efx_nic *efx, u32 rxq_entries, u32 txq_entries);
- 
-@@ -155,7 +154,6 @@ static inline void efx_schedule_channel(struct efx_channel *channel)
- 	netif_vdbg(channel->efx, intr, channel->efx->net_dev,
- 		   "channel %d scheduling NAPI poll on CPU%d\n",
- 		   channel->channel, raw_smp_processor_id());
--	channel->work_pending = true;
- 
- 	napi_schedule(&channel->napi_str);
+ 	efx_for_each_channel(channel, efx) {
+-		if (!channel->type->keep_eventq || !may_keep_eventq)
++		if (!channel->type->keep_eventq)
+ 			efx_init_eventq(channel);
+ 		efx_start_eventq(channel);
+ 	}
+@@ -1353,7 +1347,7 @@ static void efx_start_interrupts(struct efx_nic *efx, bool may_keep_eventq)
+ 	efx_mcdi_mode_event(efx);
  }
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index ea64cd8..ad89d7d 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -361,7 +361,6 @@ enum efx_rx_alloc_method {
-  * @irq_moderation: IRQ moderation value (in hardware ticks)
-  * @napi_dev: Net device used with NAPI
-  * @napi_str: NAPI control structure
-- * @work_pending: Is work pending via NAPI?
-  * @eventq: Event queue buffer
-  * @eventq_mask: Event queue pointer mask
-  * @eventq_read_ptr: Event queue read pointer
-@@ -393,7 +392,6 @@ struct efx_channel {
- 	unsigned int irq_moderation;
- 	struct net_device *napi_dev;
- 	struct napi_struct napi_str;
--	bool work_pending;
- 	struct efx_special_buffer eventq;
- 	unsigned int eventq_mask;
- 	unsigned int eventq_read_ptr;
-diff --git a/drivers/net/ethernet/sfc/selftest.c b/drivers/net/ethernet/sfc/selftest.c
-index 2069f51..716cff9 100644
---- a/drivers/net/ethernet/sfc/selftest.c
-+++ b/drivers/net/ethernet/sfc/selftest.c
-@@ -447,14 +447,7 @@ static int efx_begin_loopback(struct efx_tx_queue *tx_queue)
- static int efx_poll_loopback(struct efx_nic *efx)
+ 
+-static void efx_stop_interrupts(struct efx_nic *efx, bool may_keep_eventq)
++static void efx_soft_disable_interrupts(struct efx_nic *efx)
  {
- 	struct efx_loopback_state *state = efx->loopback_selftest;
--	struct efx_channel *channel;
+ 	struct efx_channel *channel;
  
--	/* NAPI polling is not enabled, so process channels
--	 * synchronously */
--	efx_for_each_channel(channel, efx) {
--		if (channel->work_pending)
--			efx_process_channel_now(channel);
+@@ -1362,22 +1356,57 @@ static void efx_stop_interrupts(struct efx_nic *efx, bool may_keep_eventq)
+ 
+ 	efx_mcdi_mode_poll(efx);
+ 
+-	efx_nic_disable_interrupts(efx);
+-	if (efx->legacy_irq) {
++	efx->irq_soft_enabled = false;
++	smp_wmb();
++
++	if (efx->legacy_irq)
+ 		synchronize_irq(efx->legacy_irq);
+-		efx->legacy_irq_enabled = false;
 -	}
- 	return atomic_read(&state->rx_good) == state->packet_count;
+ 
+ 	efx_for_each_channel(channel, efx) {
+ 		if (channel->irq)
+ 			synchronize_irq(channel->irq);
+ 
+ 		efx_stop_eventq(channel);
+-		if (!channel->type->keep_eventq || !may_keep_eventq)
++		if (!channel->type->keep_eventq)
+ 			efx_fini_eventq(channel);
+ 	}
  }
  
-@@ -586,10 +579,6 @@ static int efx_wait_for_link(struct efx_nic *efx)
- 			mutex_lock(&efx->mac_lock);
- 			efx->type->monitor(efx);
- 			mutex_unlock(&efx->mac_lock);
--		} else {
--			struct efx_channel *channel = efx_get_channel(efx, 0);
--			if (channel->work_pending)
--				efx_process_channel_now(channel);
- 		}
++static void efx_enable_interrupts(struct efx_nic *efx)
++{
++	struct efx_channel *channel;
++
++	BUG_ON(efx->state == STATE_DISABLED);
++
++	if (efx->eeh_disabled_legacy_irq) {
++		enable_irq(efx->legacy_irq);
++		efx->eeh_disabled_legacy_irq = false;
++	}
++
++	efx_nic_enable_interrupts(efx);
++
++	efx_for_each_channel(channel, efx) {
++		if (channel->type->keep_eventq)
++			efx_init_eventq(channel);
++	}
++
++	efx_soft_enable_interrupts(efx);
++}
++
++static void efx_disable_interrupts(struct efx_nic *efx)
++{
++	struct efx_channel *channel;
++
++	efx_soft_disable_interrupts(efx);
++
++	efx_for_each_channel(channel, efx) {
++		if (channel->type->keep_eventq)
++			efx_fini_eventq(channel);
++	}
++
++	efx_nic_disable_interrupts(efx);
++}
++
+ static void efx_remove_interrupts(struct efx_nic *efx)
+ {
+ 	struct efx_channel *channel;
+@@ -2160,7 +2189,7 @@ void efx_reset_down(struct efx_nic *efx, enum reset_type method)
+ 	EFX_ASSERT_RESET_SERIALISED(efx);
+ 
+ 	efx_stop_all(efx);
+-	efx_stop_interrupts(efx, false);
++	efx_disable_interrupts(efx);
+ 
+ 	mutex_lock(&efx->mac_lock);
+ 	if (efx->port_initialized && method != RESET_TYPE_INVISIBLE)
+@@ -2199,7 +2228,7 @@ int efx_reset_up(struct efx_nic *efx, enum reset_type method, bool ok)
+ 
+ 	efx->type->reconfigure_mac(efx);
+ 
+-	efx_start_interrupts(efx, false);
++	efx_enable_interrupts(efx);
+ 	efx_restore_filters(efx);
+ 	efx_sriov_reset(efx);
+ 
+@@ -2464,6 +2493,8 @@ static int efx_init_struct(struct efx_nic *efx,
+ 		efx->channel[i] = efx_alloc_channel(efx, i, NULL);
+ 		if (!efx->channel[i])
+ 			goto fail;
++		efx->msi_context[i].efx = efx;
++		efx->msi_context[i].index = i;
+ 	}
+ 
+ 	EFX_BUG_ON_PARANOID(efx->type->phys_addr_channels > EFX_MAX_CHANNELS);
+@@ -2516,7 +2547,7 @@ static void efx_pci_remove_main(struct efx_nic *efx)
+ 	BUG_ON(efx->state == STATE_READY);
+ 	cancel_work_sync(&efx->reset_work);
+ 
+-	efx_stop_interrupts(efx, false);
++	efx_disable_interrupts(efx);
+ 	efx_nic_fini_interrupt(efx);
+ 	efx_fini_port(efx);
+ 	efx->type->fini(efx);
+@@ -2538,7 +2569,7 @@ static void efx_pci_remove(struct pci_dev *pci_dev)
+ 	/* Mark the NIC as fini, then stop the interface */
+ 	rtnl_lock();
+ 	dev_close(efx->net_dev);
+-	efx_stop_interrupts(efx, false);
++	efx_disable_interrupts(efx);
+ 	rtnl_unlock();
+ 
+ 	efx_sriov_fini(efx);
+@@ -2640,7 +2671,7 @@ static int efx_pci_probe_main(struct efx_nic *efx)
+ 	rc = efx_nic_init_interrupt(efx);
+ 	if (rc)
+ 		goto fail5;
+-	efx_start_interrupts(efx, false);
++	efx_enable_interrupts(efx);
+ 
+ 	return 0;
+ 
+@@ -2761,7 +2792,7 @@ static int efx_pm_freeze(struct device *dev)
+ 		efx_device_detach_sync(efx);
+ 
+ 		efx_stop_all(efx);
+-		efx_stop_interrupts(efx, false);
++		efx_disable_interrupts(efx);
+ 	}
+ 
+ 	rtnl_unlock();
+@@ -2776,7 +2807,7 @@ static int efx_pm_thaw(struct device *dev)
+ 	rtnl_lock();
+ 
+ 	if (efx->state != STATE_DISABLED) {
+-		efx_start_interrupts(efx, false);
++		efx_enable_interrupts(efx);
  
  		mutex_lock(&efx->mac_lock);
+ 		efx->phy_op->reconfigure(efx);
+@@ -2879,7 +2910,7 @@ static pci_ers_result_t efx_io_error_detected(struct pci_dev *pdev,
+ 		efx_device_detach_sync(efx);
+ 
+ 		efx_stop_all(efx);
+-		efx_stop_interrupts(efx, false);
++		efx_disable_interrupts(efx);
+ 
+ 		status = PCI_ERS_RESULT_NEED_RESET;
+ 	} else {
+diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
+index f87710e..f8de382 100644
+--- a/drivers/net/ethernet/sfc/falcon.c
++++ b/drivers/net/ethernet/sfc/falcon.c
+@@ -367,6 +367,9 @@ irqreturn_t falcon_legacy_interrupt_a1(int irq, void *dev_id)
+ 		   "IRQ %d on CPU %d status " EFX_OWORD_FMT "\n",
+ 		   irq, raw_smp_processor_id(), EFX_OWORD_VAL(*int_ker));
+ 
++	if (!likely(ACCESS_ONCE(efx->irq_soft_enabled)))
++		return IRQ_HANDLED;
++
+ 	/* Check to see if we have a serious error condition */
+ 	syserr = EFX_OWORD_FIELD(*int_ker, FSF_AZ_NET_IVEC_FATAL_INT);
+ 	if (unlikely(syserr))
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index ad89d7d..7c96372 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -420,6 +420,21 @@ struct efx_channel {
+ };
+ 
+ /**
++ * struct efx_msi_context - Context for each MSI
++ * @efx: The associated NIC
++ * @index: Index of the channel/IRQ
++ * @name: Name of the channel/IRQ
++ *
++ * Unlike &struct efx_channel, this is never reallocated and is always
++ * safe for the IRQ handler to access.
++ */
++struct efx_msi_context {
++	struct efx_nic *efx;
++	unsigned int index;
++	char name[IFNAMSIZ + 6];
++};
++
++/**
+  * struct efx_channel_type - distinguishes traffic and extra channels
+  * @handle_no_channel: Handle failure to allocate an extra channel
+  * @pre_probe: Set up extra state prior to initialisation
+@@ -669,7 +684,6 @@ struct vfdi_status;
+  * @pci_dev: The PCI device
+  * @type: Controller type attributes
+  * @legacy_irq: IRQ number
+- * @legacy_irq_enabled: Are IRQs enabled on NIC (INT_EN_KER register)?
+  * @workqueue: Workqueue for port reconfigures and the HW monitor.
+  *	Work items do not hold and must not acquire RTNL.
+  * @workqueue_name: Name of workqueue
+@@ -686,7 +700,7 @@ struct vfdi_status;
+  * @tx_queue: TX DMA queues
+  * @rx_queue: RX DMA queues
+  * @channel: Channels
+- * @channel_name: Names for channels and their IRQs
++ * @msi_context: Context for each MSI
+  * @extra_channel_types: Types of extra (non-traffic) channels that
+  *	should be allocated for this NIC
+  * @rxq_entries: Size of receive queues requested by user.
+@@ -709,6 +723,8 @@ struct vfdi_status;
+  * @rx_scatter: Scatter mode enabled for receives
+  * @int_error_count: Number of internal errors seen recently
+  * @int_error_expire: Time at which error count will be expired
++ * @irq_soft_enabled: Are IRQs soft-enabled? If not, IRQ handler will
++ *	acknowledge but do nothing else.
+  * @irq_status: Interrupt status buffer
+  * @irq_zero_count: Number of legacy IRQs seen with queue flags == 0
+  * @irq_level: IRQ level/index for IRQs not triggered by an event queue
+@@ -786,7 +802,6 @@ struct efx_nic {
+ 	unsigned int port_num;
+ 	const struct efx_nic_type *type;
+ 	int legacy_irq;
+-	bool legacy_irq_enabled;
+ 	bool eeh_disabled_legacy_irq;
+ 	struct workqueue_struct *workqueue;
+ 	char workqueue_name[16];
+@@ -804,7 +819,7 @@ struct efx_nic {
+ 	unsigned long reset_pending;
+ 
+ 	struct efx_channel *channel[EFX_MAX_CHANNELS];
+-	char channel_name[EFX_MAX_CHANNELS][IFNAMSIZ + 6];
++	struct efx_msi_context msi_context[EFX_MAX_CHANNELS];
+ 	const struct efx_channel_type *
+ 	extra_channel_type[EFX_MAX_EXTRA_CHANNELS];
+ 
+@@ -835,6 +850,7 @@ struct efx_nic {
+ 	unsigned int_error_count;
+ 	unsigned long int_error_expire;
+ 
++	bool irq_soft_enabled;
+ 	struct efx_buffer irq_status;
+ 	unsigned irq_zero_count;
+ 	unsigned irq_level;
+diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
+index f758333..c17d659 100644
+--- a/drivers/net/ethernet/sfc/nic.c
++++ b/drivers/net/ethernet/sfc/nic.c
+@@ -1567,6 +1567,7 @@ irqreturn_t efx_nic_fatal_interrupt(struct efx_nic *efx)
+ static irqreturn_t efx_legacy_interrupt(int irq, void *dev_id)
+ {
+ 	struct efx_nic *efx = dev_id;
++	bool soft_enabled = ACCESS_ONCE(efx->irq_soft_enabled);
+ 	efx_oword_t *int_ker = efx->irq_status.addr;
+ 	irqreturn_t result = IRQ_NONE;
+ 	struct efx_channel *channel;
+@@ -1574,12 +1575,6 @@ static irqreturn_t efx_legacy_interrupt(int irq, void *dev_id)
+ 	u32 queues;
+ 	int syserr;
+ 
+-	/* Could this be ours?  If interrupts are disabled then the
+-	 * channel state may not be valid.
+-	 */
+-	if (!efx->legacy_irq_enabled)
+-		return result;
+-
+ 	/* Read the ISR which also ACKs the interrupts */
+ 	efx_readd(efx, &reg, FR_BZ_INT_ISR0);
+ 	queues = EFX_EXTRACT_DWORD(reg, 0, 31);
+@@ -1595,7 +1590,7 @@ static irqreturn_t efx_legacy_interrupt(int irq, void *dev_id)
+ 	}
+ 
+ 	/* Handle non-event-queue sources */
+-	if (queues & (1U << efx->irq_level)) {
++	if (queues & (1U << efx->irq_level) && soft_enabled) {
+ 		syserr = EFX_OWORD_FIELD(*int_ker, FSF_AZ_NET_IVEC_FATAL_INT);
+ 		if (unlikely(syserr))
+ 			return efx_nic_fatal_interrupt(efx);
+@@ -1607,10 +1602,12 @@ static irqreturn_t efx_legacy_interrupt(int irq, void *dev_id)
+ 			efx->irq_zero_count = 0;
+ 
+ 		/* Schedule processing of any interrupting queues */
+-		efx_for_each_channel(channel, efx) {
+-			if (queues & 1)
+-				efx_schedule_channel_irq(channel);
+-			queues >>= 1;
++		if (likely(soft_enabled)) {
++			efx_for_each_channel(channel, efx) {
++				if (queues & 1)
++					efx_schedule_channel_irq(channel);
++				queues >>= 1;
++			}
+ 		}
+ 		result = IRQ_HANDLED;
+ 
+@@ -1623,12 +1620,15 @@ static irqreturn_t efx_legacy_interrupt(int irq, void *dev_id)
+ 			result = IRQ_HANDLED;
+ 
+ 		/* Ensure we schedule or rearm all event queues */
+-		efx_for_each_channel(channel, efx) {
+-			event = efx_event(channel, channel->eventq_read_ptr);
+-			if (efx_event_present(event))
+-				efx_schedule_channel_irq(channel);
+-			else
+-				efx_nic_eventq_read_ack(channel);
++		if (likely(soft_enabled)) {
++			efx_for_each_channel(channel, efx) {
++				event = efx_event(channel,
++						  channel->eventq_read_ptr);
++				if (efx_event_present(event))
++					efx_schedule_channel_irq(channel);
++				else
++					efx_nic_eventq_read_ack(channel);
++			}
+ 		}
+ 	}
+ 
+@@ -1649,8 +1649,8 @@ static irqreturn_t efx_legacy_interrupt(int irq, void *dev_id)
+  */
+ static irqreturn_t efx_msi_interrupt(int irq, void *dev_id)
+ {
+-	struct efx_channel *channel = *(struct efx_channel **)dev_id;
+-	struct efx_nic *efx = channel->efx;
++	struct efx_msi_context *context = dev_id;
++	struct efx_nic *efx = context->efx;
+ 	efx_oword_t *int_ker = efx->irq_status.addr;
+ 	int syserr;
+ 
+@@ -1658,8 +1658,11 @@ static irqreturn_t efx_msi_interrupt(int irq, void *dev_id)
+ 		   "IRQ %d on CPU %d status " EFX_OWORD_FMT "\n",
+ 		   irq, raw_smp_processor_id(), EFX_OWORD_VAL(*int_ker));
+ 
++	if (!likely(ACCESS_ONCE(efx->irq_soft_enabled)))
++		return IRQ_HANDLED;
++
+ 	/* Handle non-event-queue sources */
+-	if (channel->channel == efx->irq_level) {
++	if (context->index == efx->irq_level) {
+ 		syserr = EFX_OWORD_FIELD(*int_ker, FSF_AZ_NET_IVEC_FATAL_INT);
+ 		if (unlikely(syserr))
+ 			return efx_nic_fatal_interrupt(efx);
+@@ -1667,7 +1670,7 @@ static irqreturn_t efx_msi_interrupt(int irq, void *dev_id)
+ 	}
+ 
+ 	/* Schedule processing of the channel */
+-	efx_schedule_channel_irq(channel);
++	efx_schedule_channel_irq(efx->channel[context->index]);
+ 
+ 	return IRQ_HANDLED;
+ }
+@@ -1739,8 +1742,8 @@ int efx_nic_init_interrupt(struct efx_nic *efx)
+ 	efx_for_each_channel(channel, efx) {
+ 		rc = request_irq(channel->irq, efx_msi_interrupt,
+ 				 IRQF_PROBE_SHARED, /* Not shared */
+-				 efx->channel_name[channel->channel],
+-				 &efx->channel[channel->channel]);
++				 efx->msi_context[channel->channel].name,
++				 &efx->msi_context[channel->channel]);
+ 		if (rc) {
+ 			netif_err(efx, drv, efx->net_dev,
+ 				  "failed to hook IRQ %d\n", channel->irq);
+@@ -1769,7 +1772,7 @@ int efx_nic_init_interrupt(struct efx_nic *efx)
+ 	efx_for_each_channel(channel, efx) {
+ 		if (n_irqs-- == 0)
+ 			break;
+-		free_irq(channel->irq, &efx->channel[channel->channel]);
++		free_irq(channel->irq, &efx->msi_context[channel->channel]);
+ 	}
+  fail1:
+ 	return rc;
+@@ -1787,7 +1790,7 @@ void efx_nic_fini_interrupt(struct efx_nic *efx)
+ 
+ 	/* Disable MSI/MSI-X interrupts */
+ 	efx_for_each_channel(channel, efx)
+-		free_irq(channel->irq, &efx->channel[channel->channel]);
++		free_irq(channel->irq, &efx->msi_context[channel->channel]);
+ 
+ 	/* ACK legacy interrupt */
+ 	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0)
 
 
 -- 
