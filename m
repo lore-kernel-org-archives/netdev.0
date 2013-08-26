@@ -1,45 +1,41 @@
-From: Richard Godbee <richard@godbee.net>
-Subject: [PATCH] iproute2: iproute.c: fix usage() spacing problems
-Date: Sun, 25 Aug 2013 22:19:11 -0400
-Message-ID: <1377483553-23626-1-git-send-email-richard@godbee.net>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from p3plsmtpa06-04.prod.phx3.secureserver.net ([173.201.192.105]:52223
-	"EHLO p3plsmtpa06-04.prod.phx3.secureserver.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755195Ab3HZC1r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Aug 2013 22:27:47 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "=?utf-8?B?bGl1anVubGlhbmdfbGps?=" <liujunliang_ljl@163.com>
+Subject: =?utf-8?B?UmU6IFJlOiBSZTogW1BBVENIXSBVU0IyTkVUIDogU1I5NzAwIDogT25lIGNoaXAgVVNCIDEuMSBVU0IyTkVUU1I5NzAwRGV2aWNlIERyaXZlciBTdXBwb3J0?=
+Date: Mon, 26 Aug 2013 10:28:14 +0800
+Message-ID: <201308261028125159851@163.com>
+References: <1377343560-10524-1-git-send-email-liujunliang_ljl@163.com>,
+ <1377368111.1757.2.camel@joe-AO722>,
+ <201308261014331251822@163.com>,
+ <1377483571.1782.25.camel@joe-AO722>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "=?utf-8?B?ZGF2ZW0=?=" <davem@davemloft.net>,
+	"=?utf-8?B?aG9ybXM=?=" <horms@verge.net.au>,
+	"=?utf-8?B?cm9taWV1?=" <romieu@fr.zoreil.com>,
+	"=?utf-8?B?Z3JlZ2to?=" <gregkh@linuxfoundation.org>,
+	"=?utf-8?B?bmV0ZGV2?=" <netdev@vger.kernel.org>,
+	"=?utf-8?B?bGludXgtdXNi?=" <linux-usb@vger.kernel.org>,
+	"=?utf-8?B?bGludXgta2VybmVs?=" <linux-kernel@vger.kernel.org>,
+	"=?utf-8?B?c3VuaGVjaGVuZw==?=" <sunhecheng@vip.126.com>
+To: "=?utf-8?B?Sm9lIFBlcmNoZXM=?=" <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fix two spacing problems around square brackets in usage text.
-
-Signed-off-by: Richard Godbee <richard@godbee.net>
----
- ip/iproute.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/ip/iproute.c b/ip/iproute.c
-index b069f1e..25a56d1 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -63,7 +63,7 @@ static void usage(void)
- 	fprintf(stderr, "       ip route restore\n");
- 	fprintf(stderr, "       ip route showdump\n");
- 	fprintf(stderr, "       ip route get ADDRESS [ from ADDRESS iif STRING ]\n");
--	fprintf(stderr, "                            [ oif STRING ]  [ tos TOS ]\n");
-+	fprintf(stderr, "                            [ oif STRING ] [ tos TOS ]\n");
- 	fprintf(stderr, "                            [ mark NUMBER ]\n");
- 	fprintf(stderr, "       ip route { add | del | change | append | replace } ROUTE\n");
- 	fprintf(stderr, "SELECTOR := [ root PREFIX ] [ match PREFIX ] [ exact PREFIX ]\n");
-@@ -76,7 +76,7 @@ static void usage(void)
- 	fprintf(stderr, "INFO_SPEC := NH OPTIONS FLAGS [ nexthop NH ]...\n");
- 	fprintf(stderr, "NH := [ via ADDRESS ] [ dev STRING ] [ weight NUMBER ] NHFLAGS\n");
- 	fprintf(stderr, "OPTIONS := FLAGS [ mtu NUMBER ] [ advmss NUMBER ]\n");
--	fprintf(stderr, "           [ rtt TIME ] [ rttvar TIME ] [reordering NUMBER ]\n");
-+	fprintf(stderr, "           [ rtt TIME ] [ rttvar TIME ] [ reordering NUMBER ]\n");
- 	fprintf(stderr, "           [ window NUMBER] [ cwnd NUMBER ] [ initcwnd NUMBER ]\n");
- 	fprintf(stderr, "           [ ssthresh NUMBER ] [ realms REALM ] [ src ADDRESS ]\n");
- 	fprintf(stderr, "           [ rto_min TIME ] [ hoplimit NUMBER ] [ initrwnd NUMBER ]\n");
--- 
-1.8.2.2
+RGVhciBhbGwgOg0KDQoJCVRoYW5rcyBhIGxvdC4NCg0KDQoyMDEzLTA4LTI2IA0KDQoNCg0KbGl1
+anVubGlhbmdfbGpsIA0KDQoNCg0K5Y+R5Lu25Lq677yaIEpvZSBQZXJjaGVzIA0K5Y+R6YCB5pe2
+6Ze077yaIDIwMTMtMDgtMjYgIDEwOjE5OjM1IA0K5pS25Lu25Lq677yaIGxpdWp1bmxpYW5nX2xq
+bCANCuaKhOmAge+8miBkYXZlbTsgaG9ybXM7IHJvbWlldTsgZ3JlZ2toOyBuZXRkZXY7IGxpbnV4
+LXVzYjsgbGludXgta2VybmVsOyBzdW5oZWNoZW5nIA0K5Li76aKY77yaIFJlOiBSZTogW1BBVENI
+XSBVU0IyTkVUIDogU1I5NzAwIDogT25lIGNoaXAgVVNCIDEuMSBVU0IyTkVUU1I5NzAwRGV2aWNl
+IERyaXZlciBTdXBwb3J0IA0KIA0KT24gTW9uLCAyMDEzLTA4LTI2IGF0IDEwOjE0ICswODAwLCBs
+aXVqdW5saWFuZ19samwgd3JvdGU6DQo+IGRvIHlvdSBuZWVkIG1lIHRvIG1lcmdlIHRoZSBwYXRj
+aCBhbmQgcmUtc2VuZCBpdCBhZ2Fpbi4NCkkgZG8gbm90Lg0KPiBBbmQgd2hpY2ggdmVyc2lvbiBv
+ZiBrZXJuZWwgd2lsbCByZWxlYXNlIHRoaXMgZHJpdmVyLg0KTm8gaWRlYS4NClRoYXQncyB1cCB0
+byBEYXZpZCBNaWxsZXIgb3IgR3JlZyBLSCB0byBwaWNrDQp1cCB0aGUgZHJpdmVyIGFuZCBtYXli
+ZSB0YWtlIHRoZSBmb2xsb3ctb24NCnBhdGNoIEkgc2VudC4NCkkganVzdCBzZW50IHRoZSBwYXRj
+aCBiZWNhdXNlIHlvdSBzZWVtZWQgdG8NCmhhdmUgYSBiaXQgb2YgZGlmZmljdWx0eSBpbnRlZ3Jh
+dGluZyB0aGUNCnN1Z2dlc3Rpb25zIG90aGVycyB3ZXJlIGdpdmluZyB5b3UuDQo+IFRoYW5rcyBh
+IGxvdCBhbmQgYXBvbG9naXppbmcgZm9yIG1ha2luZyB5b3UgdHJvdWJsZS4NCk9oLCBubyB3b3Jy
+aWVzLiAgSXQgd2FzIGEgdHJpZmxlLg0KY2hlZXJzLCBKb2UNCi4NCg==
