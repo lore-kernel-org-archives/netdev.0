@@ -1,108 +1,29 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH v4 3/5] net: ethernet: cpsw: introduce ti,am3352-cpsw
- compatible string
-Date: Mon, 26 Aug 2013 11:29:43 +0530
-Message-ID: <521AEECF.8060606@ti.com>
-References: <1377267365-24057-1-git-send-email-zonque@gmail.com>
- <1377267365-24057-4-git-send-email-zonque@gmail.com>
- <52177052.1030308@ti.com> <52178E20.5040404@gmail.com>
- <52179448.1020906@ti.com> <5217974B.5090503@ti.com> <521799A3.7080706@ti.com>
- <52179AD6.8090406@gmail.com> <52179BDA.50603@ti.com>
- <52179E44.5030202@ti.com> <5217A59E.4090700@ti.com> <5217AA15.7010907@ti.com>
- <5217BDFA.5040904@ti.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH RFC net-next] net: epoll support for busy poll
+Date: Mon, 26 Aug 2013 09:03:46 +0300
+Message-ID: <521AEFC2.9010201@linux.intel.com>
+References: <20130821103954.30607.6819.stgit@ladj378.jer.intel.com> <20130822201135.GA4088@dcvr.yhbt.net> <52170E78.1010704@linux.intel.com> <CAPcc5PhQGB195pMsMGOEE8BhZTvfXOf+Fh+3PdPbuOS0t1SULQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
- d-gerlach@ti.com, netdev@vger.kernel.org, Sekhar Nori <nsekhar@ti.com>,
- vaibhav.bedia@ti.com, Daniel Mack <zonque@gmail.com>, bcousson@baylibre.com,
- ujhelyi.m@gmail.com, linux-omap@vger.kernel.org, davem@davemloft.net,
- linux-arm-kernel@lists.infradead.org
-To: Santosh Shilimkar <santosh.shilimkar@ti.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <5217BDFA.5040904@ti.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: Eliezer Tamir <eliezer@tamir.org.il>,
+	Willem de Bruijn <willemb@google.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Eric Wong <normalperson@yhbt.net>, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Amir Vadai <amirv@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAPcc5PhQGB195pMsMGOEE8BhZTvfXOf+Fh+3PdPbuOS0t1SULQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 24 August 2013 01:24 AM, Santosh Shilimkar wrote:
-> On Friday 23 August 2013 02:29 PM, Mugunthan V N wrote:
->> On Friday 23 August 2013 11:40 PM, Santosh Shilimkar wrote:
->>> On Friday 23 August 2013 01:39 PM, Sekhar Nori wrote:
->>>> On 8/23/2013 10:58 PM, Santosh Shilimkar wrote:
->>>>> On Friday 23 August 2013 01:24 PM, Daniel Mack wrote:
->>>>>> On 23.08.2013 19:19, Santosh Shilimkar wrote:
->>>>>>> On Friday 23 August 2013 01:09 PM, Sekhar Nori wrote:
->>>>>>>> On 8/23/2013 10:26 PM, Santosh Shilimkar wrote:
->>>>>>>>> So just stick the IP version or call it cpsw-v1... cpsw-v2 etc.
->>>>>>>> If this could be handled using IP version then the right way would be to
->>>>>>>> just read the IP version from hardware and use it. No need of DT property.
->>>>>>>>
->>>>>>> Thats fine as well but I thought the patch needed additional properties like
->>>>>>> CM reg-address come from DT and hence the separate compatible. If you can
->>>>>>> manage without that, thats even better.
->>>>>> We can't, that's the whole point :)
->>>>>>
->>>>> I saw that from the patch :)
->>>>>
->>>>>> Well, theoretically, we could for now, but that's not a clean solution.
->>>>>> Again: the problem here is that the control port is separated from the
->>>>>> cpsw core, and so we have to implement something specific for the AM3352
->>>>>> SoC. I know that's a violation of clean and generic driver ideas, but
->>>>>> there's no way we can assume that every cpsw v2 ip block has a control
->>>>>> port that is compatible to the one found on am335x chips.
->>>>>>
->>>>> But there is a possibility that other SOC will just use the same
->>>>> control module approach. So using a revision IP is just fine. BTW,
->>>> But this is misleading because it makes appear like the same compatible
->>>> can be used on on another SoC like DRA7 which probably has the same
->>>> version of IP but a different control module implementation, when in
->>>> practice it cannot.
->>>>
->>>> The fact is we are doing something SoC specific in the driver and we
->>>> cannot hide that behind IP versions. If really in practice there comes
->>>> another SoC with the same control module definition then it can always
->>>> use ti,am3352-cpsw compatible as well. The compatible name does not
->>>> preclude its usage.
->>>>
->>> My point was the CPSW needs a feature which is implemented using
->>> control module rather than within the IP itself. Its an implementation
->>> detail. As such the additional feature makes sense for that IP. O.w
->>> there was no need to do any monkeying with control module.
->>>
->>> E.g
->>> MMC card detect is a basic functionality, implemented by various types
->>> like control module, PMIC or MMC IP itself. As such the driver need
->>> that support and all the implementation details needs to still handled
->>> to make that part work.
->>>
->>>
->> CPSW core as such understands only GMII/MII signals, there is an
->> additional module which converts GMII/MII signals to RGMII/RMII signals
->> respectively which is called as CPRGMII/CPRMII as specified in the
->> AM335x TRM in Figure 14-1. Ethernet Switch Integration.
->>
->> So to control this sub-module, the control register is used and this has
->> to be configured according to the EVM design like what mode of phy is
->> connected. CPRGMII and CPRMII is no way related to CPSW core.
->>
-> Ok then why are you polluting cpsw driver with that code which
-> not realted to CPSW as you said above. You are contradicting what
-> you said by supporting the SOC usage in the core CPSW driver.
-This patch series is not from me and because of the reason I mentioned
-about control module driver, so that cpsw driver can make use control
-module apis to select phy mode and control module driver takes care of
-SoC specific register offsets and definitions, but now it is not
-possible as it is not acceptable in mainline. So other way is to keep
-these in driver itself as it is done in this patch series with SoC
-compatibilities.
+On 26/08/2013 00:30, Amir Vadai wrote:
+> I'm on vacation, will test and have some inputs later this week when I be
+> back.
+> 
+Hello Amir,
 
-Regards
-Mugunthan V N
+Ping me when you get back and I will send you my latest so you can
+play with it.
