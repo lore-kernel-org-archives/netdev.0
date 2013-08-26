@@ -1,86 +1,45 @@
-From: Jiri Pirko <jiri@resnulli.us>
+From: Veaceslav Falico <vfalico@redhat.com>
 Subject: Re: [PATCH net-next 1/8] net: move netdev_upper to netdevice.h
-Date: Mon, 26 Aug 2013 19:38:44 +0200
-Message-ID: <20130826173844.GA1437@minipsycho.orion>
+Date: Mon, 26 Aug 2013 20:10:32 +0200
+Message-ID: <20130826181032.GA29952@redhat.com>
 References: <1377534533-6944-1-git-send-email-vfalico@redhat.com>
  <1377534533-6944-2-git-send-email-vfalico@redhat.com>
  <20130826164115.GA1413@minipsycho.brq.redhat.com>
  <20130826165535.GG1992@redhat.com>
+ <20130826173844.GA1437@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>,
 	Alexander Duyck <alexander.h.duyck@intel.com>,
 	Cong Wang <amwang@redhat.com>
-To: Veaceslav Falico <vfalico@redhat.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f177.google.com ([209.85.215.177]:44365 "EHLO
-	mail-ea0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752022Ab3HZRis (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 13:38:48 -0400
-Received: by mail-ea0-f177.google.com with SMTP id f15so1768040eak.36
-        for <netdev@vger.kernel.org>; Mon, 26 Aug 2013 10:38:46 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:16153 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752520Ab3HZSLw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Aug 2013 14:11:52 -0400
 Content-Disposition: inline
-In-Reply-To: <20130826165535.GG1992@redhat.com>
+In-Reply-To: <20130826173844.GA1437@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Aug 26, 2013 at 06:55:35PM CEST, vfalico@redhat.com wrote:
->On Mon, Aug 26, 2013 at 06:41:15PM +0200, Jiri Pirko wrote:
->>Mon, Aug 26, 2013 at 06:28:46PM CEST, vfalico@redhat.com wrote:
->...snip...
->>>+struct netdev_upper {
->>>+	struct net_device *dev;
->>>+	bool master;
->>>+	struct list_head list;
->>>+	struct rcu_head rcu;
->>>+	struct list_head search_list;
->>>+};
->>>+
->>
->>
->>I like your patchset.  However I'm not entirely comfortable with exposing
->>this struct. I would love to have it "under control" in net/core/dev.c
+On Mon, Aug 26, 2013 at 07:38:44PM +0200, Jiri Pirko wrote:
+>I was imagine something like:
 >
->I've taken this approach first, however the change to non-bonding stuff
->became a bit too big to justify the (only) bonding use.
+>struct list_head *iter;
+>struct net_device *dev, *upper;
 >
->bonding only reads from it, and there are already primitives in dev.c to
->modify it, so if they will be used for it it's still the dev.c who controls
->it (if someone writes directly to it - it's a bug, and can be NAKed).
+>netdev_for_each_upper_dev(dev, upper, iter) {
 >
->>
->>I'm thinking of some getter/iterator for this use. It can work by
->>type as well so you would be able to remove the checks from bonding
->>code.
+>}
 >
->There are 3 checks in bonding - looking for vlan devs, for a specific dev
->and for a specific ip address. list_for_each_entry() fits here perfectly
->for each case, otherwise the best way to do this would be to
+>This macro can be easily implented using netdev_upper_get_next_dev()
+>from dev.c
 >
->while ((next_dev = netdev_upper_get_next_dev(dev, next_dev)))
+>Not much of added overhead other than netdev_upper_get_next_dev calls
+>(without any search when using list_head iter).
 
-I was imagine something like:
+Great idea, didn't think of it.
 
-struct list_head *iter;
-struct net_device *dev, *upper;
-
-netdev_for_each_upper_dev(dev, upper, iter) {
-
-}
-
-This macro can be easily implented using netdev_upper_get_next_dev()
-from dev.c
-
-Not much of added overhead other than netdev_upper_get_next_dev calls
-(without any search when using list_head iter).
-	
->
->or something like that, which adds quite a bit of overhead (looking for the
->previous dev and then returning the next one on each iteration), and looks
->ugly.
->
->So, given that it's a plain list actually, and any modification to this
->list can (and should be) done via functions from dev.c, while reading can
->be done with standard list_for_each_entry(_rcu)(), I think it's better to
->expose it this way.
+Thanks a lot, will try implement it and send v2.
