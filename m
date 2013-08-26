@@ -1,54 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC 0/6] SYNPROXY target v2
-Date: Mon, 26 Aug 2013 16:24:49 -0400 (EDT)
-Message-ID: <20130826.162449.1876700852280042769.davem@davemloft.net>
-References: <1377244329-20146-1-git-send-email-kaber@trash.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] tcp: TSO packets automatic sizing
+Date: Mon, 26 Aug 2013 13:28:09 -0700
+Message-ID: <1377548889.8828.130.camel@edumazet-glaptop>
+References: <1377304192.8828.43.camel@edumazet-glaptop>
+	 <1377491162.8828.116.camel@edumazet-glaptop>
+	 <CAK6E8=dkp2soUUrv_gP5soBCqe7mf7KNY-iO-FoS0J4Pi4zXpg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, mph@one.com, jesper.brouer@gmail.com,
-	as@one.com
-To: kaber@trash.net
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Van Jacobson <vanj@google.com>,
+	Tom Herbert <therbert@google.com>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41400 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751653Ab3HZUYw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 16:24:52 -0400
-In-Reply-To: <1377244329-20146-1-git-send-email-kaber@trash.net>
+Received: from mail-oa0-f53.google.com ([209.85.219.53]:50379 "EHLO
+	mail-oa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751529Ab3HZU2N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 16:28:13 -0400
+Received: by mail-oa0-f53.google.com with SMTP id k18so4210167oag.12
+        for <netdev@vger.kernel.org>; Mon, 26 Aug 2013 13:28:12 -0700 (PDT)
+In-Reply-To: <CAK6E8=dkp2soUUrv_gP5soBCqe7mf7KNY-iO-FoS0J4Pi4zXpg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Fri, 23 Aug 2013 09:52:03 +0200
+On Mon, 2013-08-26 at 12:09 -0700, Yuchung Cheng wrote:
 
-> The following patches contain the current version of the SYNPROXY target.
-> Changes this the last posting are:
+> init write of 10MSS now looks good, but the delay still shows up if 9
+> < write-size < 10 MSS...
 > 
-> - use sysctl_ip_default_ttl instead of hardcoding 64
+> I use packetdrill to do write(14599) bytes of MSS 1460
 > 
-> - use MAX_TCP_HEADER instead of LL_MAX_HEADER
+> 0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+> 0.000 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+> 0.000 bind(3, ..., ...) = 0
+> 0.000 listen(3, 1) = 0
 > 
-> - add some comments requested by Jesper regarding ack_seq initialization
->   in the server's SYN packet
+> 0.100 < S 299245565:299245565(0) win 32792 <mss
+> 1460,sackOK,nop,nop,nop,wscale 7>
+> 0.100 > S. 0:0(0) ack 299245566 <mss 1460,nop,nop,sackOK,nop,wscale 6>
+> 0.200 < . 1:1(0) ack 1 win 257
+> 0.200 accept(3, ..., ...) = 4
+> +.000 write(4, ..., 13141) = 13141
+> +3 %{ print "done" }%
 > 
-> - use consume_skb() instead of kfree_skb() in the synproxy hook
+> and tcpdump shows
 > 
-> - remove a fixme and add explicit check for "-p tcp" in the SYNPROXY rule
->   in the IPv6 version
-> 
-> - some whitespace fixes
-> 
-> - a larger number of fixes for properly handling retransmissions and
->   out of order packets, please see the changelog included in patch 6/6
->   for details.
->   
->   I've kept those in a seperate patch for now to ease review, we'll do
->   some more extensive testing on monday and I'll fold the changes in
->   their respective patches before the final submission.
-> 
-> Comments welcome.
+> 31.819958 IP cli > srv: S 299245565:299245565(0) win 32792 <mss 1460,sackOK,nop,
+> nop,nop,wscale 7>
+> 000034 IP srv > cli: S 203810874:203810874(0) ack 299245566 win 29200
+> <mss 1460,nop,nop,sackOK,nop,wscale 6>
+> 099966 IP cli > srv: . ack 1 win 257
+> 000079 IP srv > cli: . 1:2921(2920) ack 1 win 457
+> 000010 IP srv > cli: . 2921:5841(2920) ack 1 win 457
+> 000005 IP srv > cli: . 5841:8761(2920) ack 1 win 457
+> 000004 IP srv > cli: . 8761:11681(2920) ack 1 win 457
+> 199659 IP srv > cli: . 11681:13141(1460) ack 1 win 457
+> ...
 
-No objections to the non-netfilter portions:
+It works correctly here, I wonder what's happening on your host.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+lpq83:~# tcpdump -p -n -s 0 -i any port 8080 -ttt
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on any, link-type LINUX_SLL (Linux cooked), capture size 65535 bytes
+000000 IP 192.0.2.1.42148 > 192.168.0.1.8080: S 299245565:299245565(0) win 32792 <mss 1460,sackOK,nop,nop,nop,wscale 7>
+000042 IP 192.168.0.1.8080 > 192.0.2.1.42148: S 223873324:223873324(0) ack 299245566 win 29200 <mss 1460,nop,nop,sackOK,nop,wscale 6>
+099946 IP 192.0.2.1.42148 > 192.168.0.1.8080: . ack 1 win 257
+000087 IP 192.168.0.1.8080 > 192.0.2.1.42148: . 1:2921(2920) ack 1 win 457
+000006 IP 192.168.0.1.8080 > 192.0.2.1.42148: . 2921:5841(2920) ack 1 win 457
+000004 IP 192.168.0.1.8080 > 192.0.2.1.42148: . 5841:8761(2920) ack 1 win 457
+000004 IP 192.168.0.1.8080 > 192.0.2.1.42148: . 8761:11681(2920) ack 1 win 457
+000005 IP 192.168.0.1.8080 > 192.0.2.1.42148: . 11681:13141(1460) ack 1 win 457
+000002 IP 192.168.0.1.8080 > 192.0.2.1.42148: P 13141:13142(1) ack 1 win 457
