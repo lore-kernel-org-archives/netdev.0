@@ -1,174 +1,80 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH net-next 1/3] xen-netback: remove page tracking facility
-Date: Mon, 26 Aug 2013 12:59:37 +0100
-Message-ID: <1377518379-26503-2-git-send-email-wei.liu2@citrix.com>
-References: <1377518379-26503-1-git-send-email-wei.liu2@citrix.com>
+From: boris brezillon <b.brezillon@overkiz.com>
+Subject: Re: [PATCH] net/cadence/macb: fix kernel Oops if no PHY were discovered
+ during probe
+Date: Mon, 26 Aug 2013 14:01:37 +0200
+Message-ID: <521B43A1.7060406@overkiz.com>
+References: <1377372065-8938-1-git-send-email-b.brezillon@overkiz.com> <521B1B56.8060903@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <xen-devel@lists.xen.org>, <ian.campbell@citrix.com>,
-	<msw@amazon.com>, <konrad.wilk@oracle.com>, <annie.li@oracle.com>,
-	Wei Liu <wei.liu2@citrix.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:49890 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756052Ab3HZL7l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 07:59:41 -0400
-In-Reply-To: <1377518379-26503-1-git-send-email-wei.liu2@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Bo Shen <voice.shen@atmel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <521B1B56.8060903@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The data flow from DomU to DomU on the same host in current copying
-scheme with tracking facility:
+Hello Bo,
 
-       copy
-DomU --------> Dom0          DomU
- |                            ^
- |____________________________|
-             copy
+On 26/08/2013 11:09, Bo Shen wrote:
+> Hi Boris,
+>
+> On 08/25/2013 03:21 AM, Boris BREZILLON wrote:
+>> Test the presence of a PHY device before printing attached PHY
+>> informations.
+>>
+>> Signed-off-by: Boris BREZILLON <b.brezillon@overkiz.com>
+>> ---
+>>   drivers/net/ethernet/cadence/macb.c |    6 ++++--
+>>   1 file changed, 4 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/cadence/macb.c 
+>> b/drivers/net/ethernet/cadence/macb.c
+>> index e866608..fd3b67f 100644
+>> --- a/drivers/net/ethernet/cadence/macb.c
+>> +++ b/drivers/net/ethernet/cadence/macb.c
+>> @@ -1868,8 +1868,10 @@ static int __init macb_probe(struct 
+>> platform_device *pdev)
+>>               dev->irq, dev->dev_addr);
+>>
+>>       phydev = bp->phy_dev;
+>> -    netdev_info(dev, "attached PHY driver [%s] (mii_bus:phy_addr=%s, 
+>> irq=%d)\n",
+>> -            phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
+>> +    if (phydev)
+>> +        netdev_info(dev, "attached PHY driver [%s] 
+>> (mii_bus:phy_addr=%s, irq=%d)\n",
+>> +                phydev->drv->name, dev_name(&phydev->dev),
+>> +                phydev->irq);
+>
+> Actually no need this check, if PHY is attached failed, the macb 
+> driver probe will fail, then it won't show this message.
 
-The page in Dom0 is a page with valid MFN. So we can always copy from
-page Dom0, thus removing the need for a tracking facility.
+You're right (thanks for pointing this out).
+Indeed this is a bug I introduced in this patch series ( 
+https://lkml.org/lkml/2013/8/22/381).
 
-       copy           copy
-DomU --------> Dom0 -------> DomU
+In macb_mii_init function, the err field may be set to 0 (instead of the 
+default -ENXIO value) if no PHY
+is discovered.
+As macb_mii_probe return code is not copied to err, this result in a 0 
+return even if macb_mii_probe
+failed.
 
-Simple iperf test shows no performance regression (obviously we copy
-twice either way):
+Nicolas, forget about this patch, I'll fix this in the appropriate patch 
+series (except if you plan to add
+dynamic MAC/PHY association, and treat missing PHY during probe process 
+as an acceptable result :-)).
 
-  W/  tracking: ~5.3Gb/s
-  W/o tracking: ~5.4Gb/s
+Best Regards,
 
-Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
-Acked-by: Matt Wilson <msw@amazon.com>
----
- drivers/net/xen-netback/netback.c |   77 +------------------------------------
- 1 file changed, 2 insertions(+), 75 deletions(-)
+Boris BREZILLON
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 64828de..91f163d 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -95,21 +95,6 @@ struct netbk_rx_meta {
- 
- #define MAX_BUFFER_OFFSET PAGE_SIZE
- 
--/* extra field used in struct page */
--union page_ext {
--	struct {
--#if BITS_PER_LONG < 64
--#define IDX_WIDTH   8
--#define GROUP_WIDTH (BITS_PER_LONG - IDX_WIDTH)
--		unsigned int group:GROUP_WIDTH;
--		unsigned int idx:IDX_WIDTH;
--#else
--		unsigned int group, idx;
--#endif
--	} e;
--	void *mapping;
--};
--
- struct xen_netbk {
- 	wait_queue_head_t wq;
- 	struct task_struct *task;
-@@ -214,45 +199,6 @@ static inline unsigned long idx_to_kaddr(struct xen_netbk *netbk,
- 	return (unsigned long)pfn_to_kaddr(idx_to_pfn(netbk, idx));
- }
- 
--/* extra field used in struct page */
--static inline void set_page_ext(struct page *pg, struct xen_netbk *netbk,
--				unsigned int idx)
--{
--	unsigned int group = netbk - xen_netbk;
--	union page_ext ext = { .e = { .group = group + 1, .idx = idx } };
--
--	BUILD_BUG_ON(sizeof(ext) > sizeof(ext.mapping));
--	pg->mapping = ext.mapping;
--}
--
--static int get_page_ext(struct page *pg,
--			unsigned int *pgroup, unsigned int *pidx)
--{
--	union page_ext ext = { .mapping = pg->mapping };
--	struct xen_netbk *netbk;
--	unsigned int group, idx;
--
--	group = ext.e.group - 1;
--
--	if (group < 0 || group >= xen_netbk_group_nr)
--		return 0;
--
--	netbk = &xen_netbk[group];
--
--	idx = ext.e.idx;
--
--	if ((idx < 0) || (idx >= MAX_PENDING_REQS))
--		return 0;
--
--	if (netbk->mmap_pages[idx] != pg)
--		return 0;
--
--	*pgroup = group;
--	*pidx = idx;
--
--	return 1;
--}
--
- /*
-  * This is the amount of packet we copy rather than map, so that the
-  * guest can't fiddle with the contents of the headers while we do
-@@ -453,12 +399,6 @@ static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
- {
- 	struct gnttab_copy *copy_gop;
- 	struct netbk_rx_meta *meta;
--	/*
--	 * These variables are used iff get_page_ext returns true,
--	 * in which case they are guaranteed to be initialized.
--	 */
--	unsigned int uninitialized_var(group), uninitialized_var(idx);
--	int foreign = get_page_ext(page, &group, &idx);
- 	unsigned long bytes;
- 
- 	/* Data must not cross a page boundary. */
-@@ -494,20 +434,9 @@ static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
- 
- 		copy_gop = npo->copy + npo->copy_prod++;
- 		copy_gop->flags = GNTCOPY_dest_gref;
--		if (foreign) {
--			struct xen_netbk *netbk = &xen_netbk[group];
--			struct pending_tx_info *src_pend;
-+		copy_gop->source.domid = DOMID_SELF;
-+		copy_gop->source.u.gmfn = virt_to_mfn(page_address(page));
- 
--			src_pend = &netbk->pending_tx_info[idx];
--
--			copy_gop->source.domid = src_pend->vif->domid;
--			copy_gop->source.u.ref = src_pend->req.gref;
--			copy_gop->flags |= GNTCOPY_source_gref;
--		} else {
--			void *vaddr = page_address(page);
--			copy_gop->source.domid = DOMID_SELF;
--			copy_gop->source.u.gmfn = virt_to_mfn(vaddr);
--		}
- 		copy_gop->source.offset = offset;
- 		copy_gop->dest.domid = vif->domid;
- 
-@@ -1047,7 +976,6 @@ static struct page *xen_netbk_alloc_page(struct xen_netbk *netbk,
- 	page = alloc_page(GFP_KERNEL|__GFP_COLD);
- 	if (!page)
- 		return NULL;
--	set_page_ext(page, netbk, pending_idx);
- 	netbk->mmap_pages[pending_idx] = page;
- 	return page;
- }
-@@ -1155,7 +1083,6 @@ static struct gnttab_copy *xen_netbk_get_requests(struct xen_netbk *netbk,
- 		first->req.offset = 0;
- 		first->req.size = dst_offset;
- 		first->head = start_idx;
--		set_page_ext(page, netbk, head_idx);
- 		netbk->mmap_pages[head_idx] = page;
- 		frag_set_pending_idx(&frags[shinfo->nr_frags], head_idx);
- 	}
--- 
-1.7.10.4
+>
+>>       return 0;
+>>
+>>
+>
+> Best Regards,
+> Bo Shen
