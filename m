@@ -1,38 +1,148 @@
 From: Rob Herring <robherring2@gmail.com>
-Subject: [PATCH 01/11] net: calxedaxgmac: remove NETIF_F_FRAGLIST setting
-Date: Mon, 26 Aug 2013 17:45:16 -0500
-Message-ID: <1377557126-10716-1-git-send-email-robherring2@gmail.com>
+Subject: [PATCH 04/11] net: calxedaxgmac: fix possible skb free before tx complete
+Date: Mon, 26 Aug 2013 17:45:19 -0500
+Message-ID: <1377557126-10716-4-git-send-email-robherring2@gmail.com>
+References: <1377557126-10716-1-git-send-email-robherring2@gmail.com>
 Cc: Andreas Herrmann <andreas.herrmann@calxeda.com>,
 	Lennert Buytenhek <buytenh@wantstofly.org>,
 	Rob Herring <rob.herring@calxeda.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:49038 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752430Ab3HZWpz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 18:45:55 -0400
+In-Reply-To: <1377557126-10716-1-git-send-email-robherring2@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Rob Herring <rob.herring@calxeda.com>
 
-The xgmac does not actually handle frag lists, so this option should not
-be set. It does not appear to have had any impact though.
+The TX completion code may have freed an skb before the entire sg list
+was transmitted. The DMA unmap calls for the fragments could also get
+skipped. Now set the skb pointer on every entry in the ring, not just
+the head of the sg list. We then use the FS (first segment) bit in the
+descriptors to determine skb head vs. fragment.
 
-Reported-by: Lennert Buytenhek <buytenh@wantstofly.org>
+This also fixes similar bug in xgmac_free_tx_skbufs where clean-up of
+a sg list that wraps at the end of the ring buffer would not get
+unmapped.
+
 Signed-off-by: Rob Herring <rob.herring@calxeda.com>
 ---
- drivers/net/ethernet/calxeda/xgmac.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/calxeda/xgmac.c | 55 ++++++++++++++++--------------------
+ 1 file changed, 24 insertions(+), 31 deletions(-)
 
 diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
-index 7cb148c..71f6720 100644
+index df7e3e2..64854ad 100644
 --- a/drivers/net/ethernet/calxeda/xgmac.c
 +++ b/drivers/net/ethernet/calxeda/xgmac.c
-@@ -1759,7 +1759,7 @@ static int xgmac_probe(struct platform_device *pdev)
- 	if (device_can_wakeup(priv->device))
- 		priv->wolopts = WAKE_MAGIC;	/* Magic Frame as default */
+@@ -470,6 +470,11 @@ static inline int desc_get_tx_ls(struct xgmac_dma_desc *p)
+ 	return le32_to_cpu(p->flags) & TXDESC_LAST_SEG;
+ }
  
--	ndev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA;
-+	ndev->hw_features = NETIF_F_SG | NETIF_F_HIGHDMA;
- 	if (readl(priv->base + XGMAC_DMA_HW_FEATURE) & DMA_HW_FEAT_TXCOESEL)
- 		ndev->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 				     NETIF_F_RXCSUM;
++static inline int desc_get_tx_fs(struct xgmac_dma_desc *p)
++{
++	return le32_to_cpu(p->flags) & TXDESC_FIRST_SEG;
++}
++
+ static inline u32 desc_get_buf_addr(struct xgmac_dma_desc *p)
+ {
+ 	return le32_to_cpu(p->buf1_addr);
+@@ -796,7 +801,7 @@ static void xgmac_free_rx_skbufs(struct xgmac_priv *priv)
+ 
+ static void xgmac_free_tx_skbufs(struct xgmac_priv *priv)
+ {
+-	int i, f;
++	int i;
+ 	struct xgmac_dma_desc *p;
+ 
+ 	if (!priv->tx_skbuff)
+@@ -807,16 +812,15 @@ static void xgmac_free_tx_skbufs(struct xgmac_priv *priv)
+ 			continue;
+ 
+ 		p = priv->dma_tx + i;
+-		dma_unmap_single(priv->device, desc_get_buf_addr(p),
+-				 desc_get_buf_len(p), DMA_TO_DEVICE);
+-
+-		for (f = 0; f < skb_shinfo(priv->tx_skbuff[i])->nr_frags; f++) {
+-			p = priv->dma_tx + i++;
++		if (desc_get_tx_fs(p))
++			dma_unmap_single(priv->device, desc_get_buf_addr(p),
++					 desc_get_buf_len(p), DMA_TO_DEVICE);
++		else
+ 			dma_unmap_page(priv->device, desc_get_buf_addr(p),
+ 				       desc_get_buf_len(p), DMA_TO_DEVICE);
+-		}
+ 
+-		dev_kfree_skb_any(priv->tx_skbuff[i]);
++		if (desc_get_tx_ls(p))
++			dev_kfree_skb_any(priv->tx_skbuff[i]);
+ 		priv->tx_skbuff[i] = NULL;
+ 	}
+ }
+@@ -853,8 +857,6 @@ static void xgmac_free_dma_desc_rings(struct xgmac_priv *priv)
+  */
+ static void xgmac_tx_complete(struct xgmac_priv *priv)
+ {
+-	int i;
+-
+ 	while (dma_ring_cnt(priv->tx_head, priv->tx_tail, DMA_TX_RING_SZ)) {
+ 		unsigned int entry = priv->tx_tail;
+ 		struct sk_buff *skb = priv->tx_skbuff[entry];
+@@ -864,33 +866,24 @@ static void xgmac_tx_complete(struct xgmac_priv *priv)
+ 		if (desc_get_owner(p))
+ 			break;
+ 
+-		/* Verify tx error by looking at the last segment */
+-		if (desc_get_tx_ls(p))
+-			desc_get_tx_status(priv, p);
+-
+ 		netdev_dbg(priv->dev, "tx ring: curr %d, dirty %d\n",
+ 			priv->tx_head, priv->tx_tail);
+ 
+-		dma_unmap_single(priv->device, desc_get_buf_addr(p),
+-				 desc_get_buf_len(p), DMA_TO_DEVICE);
+-
+-		priv->tx_skbuff[entry] = NULL;
+-		priv->tx_tail = dma_ring_incr(entry, DMA_TX_RING_SZ);
+-
+-		if (!skb) {
+-			continue;
+-		}
+-
+-		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+-			entry = priv->tx_tail = dma_ring_incr(priv->tx_tail,
+-							      DMA_TX_RING_SZ);
+-			p = priv->dma_tx + priv->tx_tail;
+-
++		if (desc_get_tx_fs(p))
++			dma_unmap_single(priv->device, desc_get_buf_addr(p),
++					 desc_get_buf_len(p), DMA_TO_DEVICE);
++		else
+ 			dma_unmap_page(priv->device, desc_get_buf_addr(p),
+ 				       desc_get_buf_len(p), DMA_TO_DEVICE);
++
++		/* Check tx error on the last segment */
++		if (desc_get_tx_ls(p)) {
++			desc_get_tx_status(priv, p);
++			dev_kfree_skb(skb);
+ 		}
+ 
+-		dev_kfree_skb(skb);
++		priv->tx_skbuff[entry] = NULL;
++		priv->tx_tail = dma_ring_incr(entry, DMA_TX_RING_SZ);
+ 	}
+ 
+ 	if (dma_ring_space(priv->tx_head, priv->tx_tail, DMA_TX_RING_SZ) >
+@@ -1110,7 +1103,7 @@ static netdev_tx_t xgmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 		entry = dma_ring_incr(entry, DMA_TX_RING_SZ);
+ 		desc = priv->dma_tx + entry;
+-		priv->tx_skbuff[entry] = NULL;
++		priv->tx_skbuff[entry] = skb;
+ 
+ 		desc_set_buf_addr_and_size(desc, paddr, len);
+ 		if (i < (nfrags - 1))
 -- 
 1.8.1.2
