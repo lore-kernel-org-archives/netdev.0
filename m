@@ -1,45 +1,56 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: Re: [PATCH] USB2NET : SR9700 : One chip USB 1.1 USB2NET
- SR9700Device Driver Support
-Date: Sun, 25 Aug 2013 19:19:31 -0700
-Message-ID: <1377483571.1782.25.camel@joe-AO722>
-References: <1377343560-10524-1-git-send-email-liujunliang_ljl@163.com>
-	 , <1377368111.1757.2.camel@joe-AO722> <201308261014331251822@163.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: TSO packets automatic sizing
+Date: Sun, 25 Aug 2013 19:22:39 -0700
+Message-ID: <1377483759.8828.104.camel@edumazet-glaptop>
+References: <1377304192.8828.43.camel@edumazet-glaptop>
+	 <CADVnQymvQz67k1_f4rRJxPVUFWL=rM5vnT-ZO1VPSxN-E0uzDA@mail.gmail.com>
+	 <1377370594.8828.72.camel@edumazet-glaptop>
+	 <CAK6E8=f0S5SSr5vEN2L-J69aNPC78W9qbGT3Wp5z-65AGp+ZRA@mail.gmail.com>
+	 <1377477425.8828.101.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem <davem@davemloft.net>, horms <horms@verge.net.au>,
-	romieu <romieu@fr.zoreil.com>,
-	gregkh <gregkh@linuxfoundation.org>,
-	netdev <netdev@vger.kernel.org>,
-	linux-usb <linux-usb@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	sunhecheng <sunhecheng@vip.126.com>
-To: liujunliang_ljl <liujunliang_ljl@163.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201308261014331251822@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Neal Cardwell <ncardwell@google.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Van Jacobson <vanj@google.com>,
+	Tom Herbert <therbert@google.com>
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:33199 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755712Ab3HZCWl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Aug 2013 22:22:41 -0400
+Received: by mail-pd0-f177.google.com with SMTP id y10so2831031pdj.8
+        for <netdev@vger.kernel.org>; Sun, 25 Aug 2013 19:22:41 -0700 (PDT)
+In-Reply-To: <1377477425.8828.101.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-08-26 at 10:14 +0800, liujunliang_ljl wrote:
-> do you need me to merge the patch and re-send it again.
+On Sun, 2013-08-25 at 17:37 -0700, Eric Dumazet wrote:
+> On Sun, 2013-08-25 at 15:01 -0700, Yuchung Cheng wrote:
+> 
+> > Any idea to get rid of this undesirable extra RTT delay?
+> 
+> Its probably a bug in the push code.
 
-I do not.
+For exact write/send of a multiple of MSS, I think following patch
+should fix the bug.
 
-> And which version of kernel will release this driver.
+If we filled a packet, we must send it.
 
-No idea.
+For the other problem, I think its related to Nagle.
 
-That's up to David Miller or Greg KH to pick
-up the driver and maybe take the follow-on
-patch I sent.
-
-I just sent the patch because you seemed to
-have a bit of difficulty integrating the
-suggestions others were giving you.
-
-> Thanks a lot and apologizing for making you trouble.
-
-Oh, no worries.  It was a trifle.
-
-cheers, Joe
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index ab64eea..dd326f4 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1187,7 +1187,8 @@ new_segment:
+ 
+ 			from += copy;
+ 			copied += copy;
+-			if ((seglen -= copy) == 0 && iovlen == 0)
++			seglen -= copy;
++			if (seglen == 0 && iovlen == 0 && skb->len < max)
+ 				goto out;
+ 
+ 			if (skb->len < max || (flags & MSG_OOB) || unlikely(tp->repair))
