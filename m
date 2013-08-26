@@ -1,97 +1,76 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH ipsec 1/2] xfrm: revert ipv4 mtu determination to dst_mtu
-Date: Mon, 26 Aug 2013 12:31:19 +0200
-Message-ID: <20130826103119.GA30465@order.stressinduktion.org>
+Subject: [PATCH 2/2] ipv6: set skb->protocol on tcp, raw and ip6_append_data genereated skbs
+Date: Mon, 26 Aug 2013 12:31:23 +0200
+Message-ID: <20130826103123.GA30508@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: steffen.klassert@secunet.com
+Cc: steffen.klassert@secunet.com, eric.dumazet@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:46546 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:46549 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752540Ab3HZKbV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 06:31:21 -0400
+	with ESMTP id S1752540Ab3HZKbZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 06:31:25 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In commit 0ea9d5e3e0e03a63b11392f5613378977dae7eca ("xfrm: introduce
-helper for safe determination of mtu") I switched the determination of
-ipv4 mtus from dst_mtu to ip_skb_dst_mtu. This was an error because in
-case of IP_PMTUDISC_PROBE we fall back to the interface mtu, which is
-never correct for ipv4 ipsec.
+Currently we don't initialize skb->protocol when transmitting data via
+tcp, raw(with and without inclhdr) or udp+ufo or appending data directly
+to the socket transmit queue (via ip6_append_data). This needs to be
+done so that we can get the correct mtu in the xfrm layer.
 
-This patch partly reverts 0ea9d5e3e0e03a63b11392f5613378977dae7eca
-("xfrm: introduce helper for safe determination of mtu").
+Setting of skb->protocol happens only in functions where we also have
+a transmitting socket and a new skb, so we don't overwrite old values.
 
 Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/net/xfrm.h      | 12 ------------
- net/ipv4/xfrm4_output.c |  2 +-
- net/ipv6/xfrm6_output.c |  8 +++++---
- 3 files changed, 6 insertions(+), 16 deletions(-)
+ net/ipv6/ip6_output.c | 3 +++
+ net/ipv6/raw.c        | 1 +
+ 2 files changed, 4 insertions(+)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index ac5b025..e823786 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -20,7 +20,6 @@
- #include <net/route.h>
- #include <net/ipv6.h>
- #include <net/ip6_fib.h>
--#include <net/ip6_route.h>
- #include <net/flow.h>
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 6e3ddf8..e7ceb6c 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -238,6 +238,7 @@ int ip6_xmit(struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
+ 	hdr->saddr = fl6->saddr;
+ 	hdr->daddr = *first_hop;
  
- #include <linux/interrupt.h>
-@@ -1724,15 +1723,4 @@ static inline int xfrm_mark_put(struct sk_buff *skb, const struct xfrm_mark *m)
- 	return ret;
- }
++	skb->protocol = htons(ETH_P_IPV6);
+ 	skb->priority = sk->sk_priority;
+ 	skb->mark = sk->sk_mark;
  
--static inline int xfrm_skb_dst_mtu(struct sk_buff *skb)
--{
--	struct sock *sk = skb->sk;
--
--	if (sk && skb->protocol == htons(ETH_P_IPV6))
--		return ip6_skb_dst_mtu(skb);
--	else if (sk && skb->protocol == htons(ETH_P_IP))
--		return ip_skb_dst_mtu(skb);
--	return dst_mtu(skb_dst(skb));
--}
--
- #endif	/* _NET_XFRM_H */
-diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
-index 80baf4a..baa0f63 100644
---- a/net/ipv4/xfrm4_output.c
-+++ b/net/ipv4/xfrm4_output.c
-@@ -28,7 +28,7 @@ static int xfrm4_tunnel_check_size(struct sk_buff *skb)
- 	if (!(ip_hdr(skb)->frag_off & htons(IP_DF)) || skb->local_df)
- 		goto out;
+@@ -1057,6 +1058,7 @@ static inline int ip6_ufo_append_data(struct sock *sk,
+ 		/* initialize protocol header pointer */
+ 		skb->transport_header = skb->network_header + fragheaderlen;
  
--	mtu = xfrm_skb_dst_mtu(skb);
-+	mtu = dst_mtu(skb_dst(skb));
- 	if (skb->len > mtu) {
- 		if (skb->sk)
- 			xfrm_local_error(skb, mtu);
-diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
-index e092e30..6cd625e 100644
---- a/net/ipv6/xfrm6_output.c
-+++ b/net/ipv6/xfrm6_output.c
-@@ -140,10 +140,12 @@ static int __xfrm6_output(struct sk_buff *skb)
- {
- 	struct dst_entry *dst = skb_dst(skb);
- 	struct xfrm_state *x = dst->xfrm;
--	int mtu = xfrm_skb_dst_mtu(skb);
-+	int mtu;
++		skb->protocol = htons(ETH_P_IPV6);
+ 		skb->ip_summed = CHECKSUM_PARTIAL;
+ 		skb->csum = 0;
+ 	}
+@@ -1359,6 +1361,7 @@ alloc_new_skb:
+ 			/*
+ 			 *	Fill in the control structures
+ 			 */
++			skb->protocol = htons(ETH_P_IPV6);
+ 			skb->ip_summed = CHECKSUM_NONE;
+ 			skb->csum = 0;
+ 			/* reserve for fragmentation and ipsec header */
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index c45f7a5..cdaed47 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -628,6 +628,7 @@ static int rawv6_send_hdrinc(struct sock *sk, void *from, int length,
+ 		goto error;
+ 	skb_reserve(skb, hlen);
  
--	if (mtu < IPV6_MIN_MTU)
--		mtu = IPV6_MIN_MTU;
-+	if (skb->protocol == htons(ETH_P_IPV6))
-+		mtu = ip6_skb_dst_mtu(skb);
-+	else
-+		mtu = dst_mtu(skb_dst(skb));
- 
- 	if (skb->len > mtu && xfrm6_local_dontfrag(skb)) {
- 		xfrm6_local_rxpmtu(skb, mtu);
++	skb->protocol = htons(ETH_P_IPV6);
+ 	skb->priority = sk->sk_priority;
+ 	skb->mark = sk->sk_mark;
+ 	skb_dst_set(skb, &rt->dst);
 -- 
 1.8.3.1
