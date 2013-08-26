@@ -1,276 +1,105 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net-next] tcp: TSO packets automatic sizing
-Date: Sun, 25 Aug 2013 21:26:02 -0700
-Message-ID: <1377491162.8828.116.camel@edumazet-glaptop>
-References: <1377304192.8828.43.camel@edumazet-glaptop>
+From: "Gupta, Pekon" <pekon@ti.com>
+Subject: RE: [PATCH v4 3/5] net: ethernet: cpsw: introduce ti,am3352-cpsw
+ compatible string
+Date: Mon, 26 Aug 2013 05:22:54 +0000
+Message-ID: <20980858CB6D3A4BAE95CA194937D5E73E9FA84F@DBDE04.ent.ti.com>
+References: <1377267365-24057-1-git-send-email-zonque@gmail.com>
+ <1377267365-24057-4-git-send-email-zonque@gmail.com>
+ <52177052.1030308@ti.com> <52178E20.5040404@gmail.com>
+ <52179448.1020906@ti.com> <52179AA5.3060408@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Van Jacobson <vanj@google.com>,
-	Tom Herbert <therbert@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:55912 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755605Ab3HZE0E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 00:26:04 -0400
-Received: by mail-pa0-f41.google.com with SMTP id bj1so2955075pad.28
-        for <netdev@vger.kernel.org>; Sun, 25 Aug 2013 21:26:03 -0700 (PDT)
-In-Reply-To: <1377304192.8828.43.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+ "sergei.shtylyov@cogentembedded.com" <sergei.shtylyov@cogentembedded.com>,
+ "Gerlach,
+ Dave" <d-gerlach@ti.com>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "Bedia, Vaibhav" <vaibhav.bedia@ti.com>,
+ "ujhelyi.m@gmail.com" <ujhelyi.m@gmail.com>,
+ "linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
+ "davem@davemloft.net" <davem@davemloft.net>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
+To: "N, Mugunthan V" <mugunthanvnm@ti.com>, "Shilimkar, Santosh"
+ <santosh.shilimkar@ti.com>,
+ "bcousson@baylibre.com" <bcousson@baylibre.com>,
+ Daniel Mack <zonque@gmail.com>, "Nori, Sekhar" <nsekhar@ti.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <52179AA5.3060408@ti.com>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
-
-After hearing many people over past years complaining against TSO being
-bursty or even buggy, we are proud to present automatic sizing of TSO
-packets.
-
-One part of the problem is that tcp_tso_should_defer() uses an heuristic
-relying on upcoming ACKS instead of a timer, but more generally, having
-big TSO packets makes little sense for low rates, as it tends to create
-micro bursts on the network, and general consensus is to reduce the
-buffering amount.
-
-This patch introduces a per socket sk_pacing_rate, that approximates
-the current sending rate, and allows us to size the TSO packets so
-that we try to send one packet every ms.
-
-This field could be set by other transports.
-
-Patch has no impact for high speed flows, where having large TSO packets
-makes sense to reach line rate.
-
-For other flows, this helps better packet scheduling and ACK clocking.
-
-This patch increases performance of TCP flows in lossy environments.
-
-A new sysctl (tcp_min_tso_segs) is added, to specify the
-minimal size of a TSO packet (default being 2).
-
-A follow-up patch will provide a new packet scheduler (FQ), using
-sk_pacing_rate as an input to perform optional per flow pacing.
-
-This explains why we chose to set sk_pacing_rate to twice the current
-rate, allowing 'slow start' ramp up.
-
-sk_pacing_rate = 2 * cwnd * mss / srtt
- 
-v2: Neal Cardwell reported a suspect deferring of last two segments on
-initial write of 10 MSS, I had to change tcp_tso_should_defer() to take
-into account tp->xmit_size_goal_segs 
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: Van Jacobson <vanj@google.com>
-Cc: Tom Herbert <therbert@google.com>
----
- Documentation/networking/ip-sysctl.txt |    9 ++++++
- include/net/sock.h                     |    2 +
- include/net/tcp.h                      |    1 
- net/ipv4/sysctl_net_ipv4.c             |   10 +++++++
- net/ipv4/tcp.c                         |   28 +++++++++++++++++---
- net/ipv4/tcp_input.c                   |   31 ++++++++++++++++++++++-
- net/ipv4/tcp_output.c                  |    2 -
- 7 files changed, 76 insertions(+), 7 deletions(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index debfe85..ce5bb43 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -482,6 +482,15 @@ tcp_syn_retries - INTEGER
- tcp_timestamps - BOOLEAN
- 	Enable timestamps as defined in RFC1323.
- 
-+tcp_min_tso_segs - INTEGER
-+	Minimal number of segments per TSO frame.
-+	Since linux-3.12, TCP does an automatic sizing of TSO frames,
-+	depending on flow rate, instead of filling 64Kbytes packets.
-+	For specific usages, it's possible to force TCP to build big
-+	TSO frames. Note that TCP stack might split too big TSO packets
-+	if available window is too small.
-+	Default: 2
-+
- tcp_tso_win_divisor - INTEGER
- 	This allows control over what percentage of the congestion window
- 	can be consumed by a single TSO frame.
-diff --git a/include/net/sock.h b/include/net/sock.h
-index e4bbcbf..6ba2e7b 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -232,6 +232,7 @@ struct cg_proto;
-   *	@sk_napi_id: id of the last napi context to receive data for sk
-   *	@sk_ll_usec: usecs to busypoll when there is no data
-   *	@sk_allocation: allocation mode
-+  *	@sk_pacing_rate: Pacing rate (if supported by transport/packet scheduler)
-   *	@sk_sndbuf: size of send buffer in bytes
-   *	@sk_flags: %SO_LINGER (l_onoff), %SO_BROADCAST, %SO_KEEPALIVE,
-   *		   %SO_OOBINLINE settings, %SO_TIMESTAMPING settings
-@@ -361,6 +362,7 @@ struct sock {
- 	kmemcheck_bitfield_end(flags);
- 	int			sk_wmem_queued;
- 	gfp_t			sk_allocation;
-+	u32			sk_pacing_rate; /* bytes per second */
- 	netdev_features_t	sk_route_caps;
- 	netdev_features_t	sk_route_nocaps;
- 	int			sk_gso_type;
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 09cb5c1..73fcd7c 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -281,6 +281,7 @@ extern int sysctl_tcp_early_retrans;
- extern int sysctl_tcp_limit_output_bytes;
- extern int sysctl_tcp_challenge_ack_limit;
- extern unsigned int sysctl_tcp_notsent_lowat;
-+extern int sysctl_tcp_min_tso_segs;
- 
- extern atomic_long_t tcp_memory_allocated;
- extern struct percpu_counter tcp_sockets_allocated;
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 8ed7c32..540279f 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -29,6 +29,7 @@
- static int zero;
- static int one = 1;
- static int four = 4;
-+static int gso_max_segs = GSO_MAX_SEGS;
- static int tcp_retr1_max = 255;
- static int ip_local_port_range_min[] = { 1, 1 };
- static int ip_local_port_range_max[] = { 65535, 65535 };
-@@ -761,6 +762,15 @@ static struct ctl_table ipv4_table[] = {
- 		.extra2		= &four,
- 	},
- 	{
-+		.procname	= "tcp_min_tso_segs",
-+		.data		= &sysctl_tcp_min_tso_segs,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+		.extra2		= &gso_max_segs,
-+	},
-+	{
- 		.procname	= "udp_mem",
- 		.data		= &sysctl_udp_mem,
- 		.maxlen		= sizeof(sysctl_udp_mem),
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index ab64eea..e1714ee 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -283,6 +283,8 @@
- 
- int sysctl_tcp_fin_timeout __read_mostly = TCP_FIN_TIMEOUT;
- 
-+int sysctl_tcp_min_tso_segs __read_mostly = 2;
-+
- struct percpu_counter tcp_orphan_count;
- EXPORT_SYMBOL_GPL(tcp_orphan_count);
- 
-@@ -785,12 +787,28 @@ static unsigned int tcp_xmit_size_goal(struct sock *sk, u32 mss_now,
- 	xmit_size_goal = mss_now;
- 
- 	if (large_allowed && sk_can_gso(sk)) {
--		xmit_size_goal = ((sk->sk_gso_max_size - 1) -
--				  inet_csk(sk)->icsk_af_ops->net_header_len -
--				  inet_csk(sk)->icsk_ext_hdr_len -
--				  tp->tcp_header_len);
-+		u32 gso_size, hlen;
-+
-+		/* Maybe we should/could use sk->sk_prot->max_header here ? */
-+		hlen = inet_csk(sk)->icsk_af_ops->net_header_len +
-+		       inet_csk(sk)->icsk_ext_hdr_len +
-+		       tp->tcp_header_len;
-+
-+		/* Goal is to send at least one packet per ms,
-+		 * not one big TSO packet every 100 ms.
-+		 * This preserves ACK clocking and is consistent
-+		 * with tcp_tso_should_defer() heuristic.
-+		 */
-+		gso_size = sk->sk_pacing_rate / (2 * MSEC_PER_SEC);
-+		gso_size = max_t(u32, gso_size,
-+				 sysctl_tcp_min_tso_segs * mss_now);
-+
-+		xmit_size_goal = min_t(u32, gso_size,
-+				       sk->sk_gso_max_size - 1 - hlen);
- 
--		/* TSQ : try to have two TSO segments in flight */
-+		/* TSQ : try to have at least two segments in flight
-+		 * (one in NIC TX ring, another in Qdisc)
-+		 */
- 		xmit_size_goal = min_t(u32, xmit_size_goal,
- 				       sysctl_tcp_limit_output_bytes >> 1);
- 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index ec492ea..3d63db7 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -688,6 +688,33 @@ static void tcp_rtt_estimator(struct sock *sk, const __u32 mrtt)
- 	}
- }
- 
-+/* Set sk_pacing_rate to allow proper sizing of TSO packets.
-+ * Note: TCP stack does not yet implement pacing.
-+ * FQ packet scheduler can be used to implement cheap but effective
-+ * TCP pacing, to smooth the burst on large writes when packets
-+ * in flight is significantly lower than cwnd (or rwin)
-+ */
-+static void tcp_update_pacing_rate(struct sock *sk)
-+{
-+	const struct tcp_sock *tp = tcp_sk(sk);
-+	u64 rate;
-+
-+	/* set sk_pacing_rate to 200 % of current rate (mss * cwnd / rtt) */
-+	rate = (u64)tp->mss_cache * 8 * 2 * USEC_PER_SEC;
-+
-+	rate *= max(tp->snd_cwnd, tp->packets_out);
-+
-+	do_div(rate, jiffies_to_usecs(tp->srtt));
-+
-+	/* Correction for small srtt : minimum srtt being 8 (1 jiffy),
-+	 * be conservative and assume rtt = 1/(8*HZ) instead of 1/HZ s
-+	 * We probably need usec resolution in the future.
-+	 */
-+	if (tp->srtt <= 8 + 2)
-+		rate <<= 3;
-+	sk->sk_pacing_rate = min_t(u64, rate, ~0U);
-+}
-+
- /* Calculate rto without backoff.  This is the second half of Van Jacobson's
-  * routine referred to above.
-  */
-@@ -3278,7 +3305,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 	u32 ack_seq = TCP_SKB_CB(skb)->seq;
- 	u32 ack = TCP_SKB_CB(skb)->ack_seq;
- 	bool is_dupack = false;
--	u32 prior_in_flight;
-+	u32 prior_in_flight, prior_cwnd = tp->snd_cwnd, prior_rtt = tp->srtt;
- 	u32 prior_fackets;
- 	int prior_packets = tp->packets_out;
- 	const int prior_unsacked = tp->packets_out - tp->sacked_out;
-@@ -3383,6 +3410,8 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 
- 	if (icsk->icsk_pending == ICSK_TIME_RETRANS)
- 		tcp_schedule_loss_probe(sk);
-+	if (tp->srtt != prior_rtt || tp->snd_cwnd != prior_cwnd)
-+		tcp_update_pacing_rate(sk);
- 	return 1;
- 
- no_queue:
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 884efff..e63ae4c 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1631,7 +1631,7 @@ static bool tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb)
- 
- 	/* If a full-sized TSO skb can be sent, do it. */
- 	if (limit >= min_t(unsigned int, sk->sk_gso_max_size,
--			   sk->sk_gso_max_segs * tp->mss_cache))
-+			   tp->xmit_size_goal_segs * tp->mss_cache))
- 		goto send_now;
- 
- 	/* Middle in queue won't get any more data, full sendable already? */
+PiANCj4gT24gRnJpZGF5IDIzIEF1Z3VzdCAyMDEzIDEwOjI2IFBNLCBTYW50b3NoIFNoaWxpbWth
+ciB3cm90ZToNCj4gPiBPbiBGcmlkYXkgMjMgQXVndXN0IDIwMTMgMTI6MzAgUE0sIERhbmllbCBN
+YWNrIHdyb3RlOg0KPiA+PiBPbiAyMy4wOC4yMDEzIDE2OjIzLCBTYW50b3NoIFNoaWxpbWthciB3
+cm90ZToNCj4gPj4+IE9uIEZyaWRheSAyMyBBdWd1c3QgMjAxMyAxMDoxNiBBTSwgRGFuaWVsIE1h
+Y2sgd3JvdGU6DQo+ID4+Pj4gK3N0YXRpYyBjb25zdCBzdHJ1Y3Qgb2ZfZGV2aWNlX2lkIGNwc3df
+b2ZfbXRhYmxlW10gPSB7DQo+ID4+Pj4gKwl7DQo+ID4+Pj4gKwkJLmNvbXBhdGlibGUJPSAidGks
+YW0zMzUyLWNwc3ciLA0KPiA+Pj4gSSBkaWRuJ3Qgbm90aWNlIHRoaXMgZWFybGllciwgYnV0IGNh
+bid0IHlvdSB1c2UgdGhlIElQIHZlcnNpb24NCj4gPj4+IGFzIGEgY29tcGF0aWJsZSBpbnN0ZWFk
+IG9mIHVzaW5nIGEgU09DIG5hbWUuIFdoYXRzIHJlYWxseSBTT0Mgc3BlY2lmaWMNCj4gPj4+IG9u
+IHRoaXMgSVAgPyBTb3JyeSBpIGhhdmUgbWlzc2VkIGFueSBlYXJsaWVyIGRpc2N1c3Npb24gb24g
+dGhpcyBidXQNCj4gPj4+IHRoaXMgYXBwcm9hY2ggZG9lc24ndCBzZWVtIGdvb2QuIEl0cyBsaWtl
+IGFkZGluZyBTT0MgY2hlY2tzIGluIHRoZQ0KPiA+Pj4gZHJpdmVyIHN1YnN5c3RlbS4NCj4gPj4g
+QXMgSSBhbHJlYWR5IG1lbnRpb25lZCBpbiB0aGUgY292ZXIgbGV0dGVyIGFuZCBpbiB0aGUgY29t
+bWl0IG1lc3NhZ2UsIEkNCj4gPj4ganVzdCBkb24ndCBrbm93IHdoaWNoIGNyaXRlcmlhIG1ha2Vz
+IG1vc3Qgc2Vuc2UgaGVyZS4NCj4gPj4NCj4gPj4gT24gYSBnZW5lcmFsIG5vdGUsIEkgd291bGQg
+c2F5IHRoYXQgY2hhbmNlcyB0aGF0IHRoaXMgZXhhY3RseSBJUCBjb3JlDQo+ID4+IHdpdGggdGhl
+IHNhbWUgdmVyc2lvbiBudW1iZXIgd2lsbCBhcHBlYXIgb24gc29tZSBvdGhlciBzaWxpY29uIHdo
+aWNoDQo+ID4+IGRvZXNuJ3Qgc3VwcG9ydCB0aGUgY29udHJvbCBtb2RlIHJlZ2lzdGVyIGluIGFu
+IEFNMzN4eCBmYXNoaW9uLCBpcyBub3QNCj4gPj4gbmVjZXNzYXJpbHkgbmVnbGlnaWJsZS4NCj4g
+Pj4NCj4gPj4gU28gd2hhdCB0aGF0IG5ldyBjb21wYXRpYmxlIHN0cmluZyBkZW5vdGVzIGlzIHRo
+ZSBjcHN3IGluIGEgdmVyc2lvbiBhcw0KPiA+PiBmb3VuZCBvbiBhbTMzNTIgU29Dcywgd2hpY2gg
+aXMgYWN0dWFsbHkgZXhhY3RseSB3aGF0IGl0IGRvZXMuDQo+ID4+DQo+ID4+IEkgZG9uJ3QgaGF2
+ZSBhIHN0cm9uZyBvcGluaW9uIGhlcmUsIGJ1dCBzZWUgeW91ciBwb2ludC4gSSBqdXN0IGRvbid0
+DQo+ID4+IGhhdmUgYSBiZXR0ZXIgaWRlYSBvbiBob3cgdG8gdHJlYXQgdGhhdC4NCj4gPj4NCj4g
+PiBTbyBqdXN0IHN0aWNrIHRoZSBJUCB2ZXJzaW9uIG9yIGNhbGwgaXQgY3Bzdy12MS4uLiBjcHN3
+LXYyIGV0Yy4NCj4gPiBUaGF0IHdheSBpZiBpbiBmdXR1cmUgaWYgc29tZW9uZSB1c2VzIHRob3Nl
+IGZlYXR1cmVzLCB0aGV5IGNhbiB1c2UNCj4gPiB0aGlzIGNvbXBhdGlibGUgaWYgdGhleSBkb24n
+dCB0aGV5IHVzZSB0aGUgb25lIHdoaWNoIHN1aXRlcyB0aGF0DQo+ID4gU09DLg0KPiA+DQo+IFdl
+IGNhbm5vdCBtYXAgY29udHJvbCBtb2R1bGUgcmVnaXN0ZXIgd2l0aCBDUFNXIElQIHZlcnNpb24g
+YXMgYm90aCBjb21lcw0KPiBmcm9tIGRpZmZlcmVudCBkZXNpZ24gdGVhbSBhbmQgQ1BTVyBpcCB2
+ZXJzaW9uIGNhbiBiZSBzYW1lIGFjcm9zcyBTb0MNCj4gYW5kIGdtaWkgc2VsIHJlZ2lzdGVyIGRl
+ZmluaXRpb24gY2FuIGJlIGRpZmZlcmVudC4gQ29udHJvbCBtb2R1bGUNCj4gZGVmaW5lcyBtYXkg
+dmFyeSBpbiBkaWZmZXJlbnQgU29DIGFzIHBlciBTb0MgcmVxdWlyZW1lbnRzLg0KPiANCj4gQWRk
+aW5nIFBla29uIEd1cHRhIHdobyBoYWQgd29ya2VkIGluIFNpbGljb24gdGVhbSBiZWZvcmUuDQo+
+IA0KW1Bla29uXTogTXkgb3BpbmlvbiBoZXJlLi4NClVuaWZvcm1pdHkgaW4gY29udHJvbCBtb2R1
+bGUgY2Fubm90IGJlIGd1YXJhbnRlZWQsIG5laXRoZXIgaW4gcmVnaXN0ZXINCm9mZnNldHMgbm9y
+IHRoZWlyIGZ1bmN0aW9uYWxpdHkuIFVuaWZvcm1pdHkgaXMgdXN1YWxseSBtYWludGFpbmVkIHRp
+bGwgdGhlDQpwb2ludCBzYW1lIHBlcnNvbiBpcyB3cml0aW5nIHRoZSBzcGVjLCBvciBpdOKAmXMg
+YSBkZXJpdmF0aXZlIGRldmljZS4NCkNvbnRyb2wtbW9kdWxlIHNob3VsZCBub3QgYmUgY2F0ZWdv
+cml6ZWQgYXMgSVAsIGluc3RlYWQgaXTigJlzIGEgZ3JvdXAgb2YNCm1pc2NlbGxhbmVvdXMgbG9n
+aWMgdXN1YWxseSBjb25zaXN0aW5nIG9mIGZvbGxvd2luZzoNCihhKSBTb0MgYnVnLWZpeGVzIGFj
+cm9zcyBzaWxpY29uIHJldmlzaW9ucy4NCihiKSBTb0Mgc3BlY2lmaWMgbG9naWMgbGlrZSBkZXZp
+Y2VfdHlwZSwgSlRBRy1JRC4NCihjKSBJUCBidWcgZml4ZXMgd2hpY2ggY291bGQgbm90IGJlIGFj
+Y29tbW9kYXRlZCBpbiBJUCBhZGRyZXNzLW1hcC4NCihkKSBJUCBsb2dpYyB3aGljaCBkZXBlbmRz
+IG9uIFNvQyBjb25maWd1cmF0aW9ucy4NCg0KRHVlIHRvIHRoaXMgdW4tZGV0ZXJtaW5pc3RpYyBj
+b21wb3NpdGlvbiBvZiBjb250cm9sLW1vZHVsZSwgaGF2aW5nIA0KYSBkZWRpY2F0ZWQgZHJpdmVy
+IGZvciBjb250cm9sIG1vZHVsZSBtaWdodCBub3Qgd29yayBlaXRoZXIsIGFzIGl0DQpoYXMgdG8g
+YmUgdXBkYXRlZCB8IHJlLXdyaXR0ZW4gZm9yIGV2ZXJ5IG5ldyBkZXZpY2UuDQoNClNvLCBGb2xs
+b3dpbmcgY2FuIGJlIHVzZWQgYXMgZ3VpZGVsaW5lIHRvIGRldGVybWluZSBjb21wYXRpYmlsaXR5
+DQpzdHJpbmcgZm9yIERUIGJpbmRpbmdzLi4NCi0gSWYgYmluZGluZyBtYXBzIHRvIChhKSBhbmQg
+KGMpLCAuaS5lLiwgYnVnLWZpeGVzIGZvciBTb0Mgb3IgSVAsIA0KIHRoZW4gaXRzIG1vc3QgbGlr
+ZWx5IHRoYXQgdGhlc2Ugd291bGQgY2hhbmdlIGVpdGhlciBpbiBuZXh0IHNpbGljb24NCiByZXZp
+c2lvbiBvciBpbiBuZXh0IGRldmljZXMuIEhlbmNlIHN1Y2ggYmluZGluZ3Mgc2hvdWxkIHVzZSAq
+bm90Kg0KIHVzZSBJUCBjb21wYXRpYmlsaXR5IHN0cmluZ3MsIHRoZXkgX21heV8gdXNlIFNvQy1u
+YW1lIGJhc2VkDQogY29tcGF0aWJpbGl0eSBzdHJpbmcuDQoNCi0gRWxzZSBpZiBiaW5kaW5nIG1h
+cHMgdG8gKGIpLC5pLmUuLCBTb0Mgc3BlY2lmaWMgY29uZmlndXJhdGlvbnMuDQogdGhlbiB0aGVp
+ciBvZmZzZXRzIGFuZCBmdW5jdGlvbmFsaXR5IHNob3VsZCByZW1haW4gc2FtZSBhY3Jvc3MgdGhl
+DQogZmFtaWx5IG9mIGRldmljZXMgYXQtbGVhc3QsIHNvIGl0IHNob3VsZCB1c2UgU29DLW5hbWUg
+YmFzZWQNCiBjb21wYXRpYmlsaXR5IHN0cmluZy4NCi0gQW5kIGlmIGJpbmRpbmcgbWFwcyB0byAo
+ZCksIC5pLmUuLCBJUCBmZWF0dXJlIGJ1dCBkZXBlbmRpbmcgb24gU29DDQogVGhlbiBpdCBjYW4g
+dXNlIElQIGJhc2VkIGNvbXBhdGliaWxpdHkgc3RyaW5nLCBhbG9uZyB3aXRoIElQIHZlcnNpb24u
+DQoNCihzYW1lIGFwcHJvYWNoIGNhbiBiZSB1c2VkIGZvciBDUFNXIGJpbmRpbmcgdXNlZCBoZXJl
+LA0KDQp3aXRoIHJlZ2FyZHMsIHBla29uDQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fXwpsaW51eC1hcm0ta2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1hcm0t
+a2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcKaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFp
+bG1hbi9saXN0aW5mby9saW51eC1hcm0ta2VybmVsCg==
