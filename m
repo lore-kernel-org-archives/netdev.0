@@ -1,49 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESEND V3 net-next 2/3] net: huawei_cdc_ncm: Introduce
- the huawei_cdc_ncm driver
-Date: Mon, 26 Aug 2013 17:09:22 -0400 (EDT)
-Message-ID: <20130826.170922.2228024390320689580.davem@davemloft.net>
-References: <1377549913.1877.12.camel@joe-AO722>
-	<20130826.165831.112649899191508957.davem@davemloft.net>
-	<1377551155.1877.18.camel@joe-AO722>
+Subject: Re: travelling...
+Date: Mon, 26 Aug 2013 17:10:58 -0400 (EDT)
+Message-ID: <20130826.171058.1874177104912449242.davem@davemloft.net>
+References: <20130823.111308.1720597810013400745.davem@davemloft.net>
+	<20130823182943.GE808@order.stressinduktion.org>
+	<20130823201648.GC2896@ritirata.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mrkiko.rs@gmail.com, gregkh@linuxfoundation.org, oliver@neukum.org,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1377551155.1877.18.camel@joe-AO722>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: ordex@autistici.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42094 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751712Ab3HZVLA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 17:11:00 -0400
+In-Reply-To: <20130823201648.GC2896@ritirata.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Mon, 26 Aug 2013 14:05:55 -0700
+From: Antonio Quartulli <ordex@autistici.org>
+Date: Fri, 23 Aug 2013 22:16:48 +0200
 
-> On Mon, 2013-08-26 at 16:58 -0400, David Miller wrote:
->> From: Joe Perches <joe@perches.com>
->> Date: Mon, 26 Aug 2013 13:45:13 -0700
+> On Fri, Aug 23, 2013 at 08:29:43PM +0200, Hannes Frederic Sowa wrote:
+>> On Fri, Aug 23, 2013 at 11:13:08AM -0700, David Miller wrote:
+>> > 
+>> > I'm travelling over the weekend so I won't be as responsive as
+>> > usual.
+>> > 
+>> > I just pushed 'net' to Linus and he pulled it in.  I plan to work
+>> > on my next set of -stable submissions this coming Monday.
+>> > 
+>> > If a merge of 'net' into 'net-next' would be useful for someone,
+>> > now would be a really good time to tell me.
 >> 
->> > I think the premise of local variable
->> > declaration by line length is flawed.
->> 
->> I disagree.
->> 
->> > It can't work when local variables are
->> > dependent on initialization order as
->> > above.
->> 
->> Move the initialization below the declarations.
+>> If it would not take you too much time, it would be nice. I depend on
+>> a change in net to make another small patch. :)
 > 
-> So all initializations should be on separate
-> lines from declarations?
+> If possible I'd need that too in order to send a couple of changes to net-next.
 
-No, you can often make it work out when the initialization
-occurs on the same time.
-
-Like everything else in life, you evaluate it on a case by
-case basis.
-
-Don't try to over-simplify things and act as if they are black
-and white when they aren't.
+Ok, that's two requests so I did merge net into net-next just now.
