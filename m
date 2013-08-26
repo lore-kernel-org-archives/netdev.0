@@ -1,53 +1,129 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next 0/8] bonding: remove vlan special handling
-Date: Mon, 26 Aug 2013 18:28:45 +0200
-Message-ID: <1377534533-6944-1-git-send-email-vfalico@redhat.com>
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <amwang@redhat.com>,
-	Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH net-next 6/8] bonding: split alb_send_learning_packets()
+Date: Mon, 26 Aug 2013 18:28:51 +0200
+Message-ID: <1377534533-6944-7-git-send-email-vfalico@redhat.com>
+References: <1377534533-6944-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4048 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44553 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757183Ab3HZQ2z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Aug 2013 12:28:55 -0400
+	id S1757190Ab3HZQ24 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Aug 2013 12:28:56 -0400
+In-Reply-To: <1377534533-6944-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The aim of this patchset is to remove bondings' own vlan handling as much
-as possible and replace it with the netdev upper device functionality.
+Create alb_send_lp_vid(), which will handle the skb/lp creation, vlan
+tagging and sending, and use it in alb_send_learning_packets().
 
-This is achieved by exporting the netdev_upper structure and thus permiting
-bonding to work directly with its upper devices. The only non-bonding
-change is the exporting of netdev_upper, and the only special treatment of
-vlans left is in the rlb mode.
-
-This patchset solves several issues with bonding, simplifies it overall,
-RCUify further and exports netdev_upper for any other users which might
-also want to get rid of its own vlan_lists.
-
-I'm testing it continuously currently, no issues found, will update on
-anything.
+This way all the logic remains in alb_send_learning_packets(), which
+becomes a lot more cleaner and easier to understand.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Jiri Pirko <jiri@resnulli.us>
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
-CC: Cong Wang <amwang@redhat.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-
 ---
- drivers/net/bonding/bond_alb.c  |   74 ++++++------
- drivers/net/bonding/bond_alb.h  |    2 -
- drivers/net/bonding/bond_main.c |  243 ++++++++-------------------------------
- drivers/net/bonding/bonding.h   |   20 ++-
- include/linux/netdevice.h       |    8 ++
- net/core/dev.c                  |    8 --
- 6 files changed, 103 insertions(+), 252 deletions(-)
+ drivers/net/bonding/bond_alb.c |   59 +++++++++++++++++++++++----------------
+ 1 files changed, 35 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 3a5db7b..3ca3c85 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -971,35 +971,53 @@ static void rlb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
+ 
+ /*********************** tlb/rlb shared functions *********************/
+ 
+-static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
++static void alb_send_lp_vid(struct slave *slave, u8 mac_addr[],
++			    u16 vid)
+ {
+-	struct bonding *bond = bond_get_bond_by_slave(slave);
+ 	struct learning_pkt pkt;
++	struct sk_buff *skb;
+ 	int size = sizeof(struct learning_pkt);
+-	int i;
++	char *data;
+ 
+ 	memset(&pkt, 0, size);
+ 	memcpy(pkt.mac_dst, mac_addr, ETH_ALEN);
+ 	memcpy(pkt.mac_src, mac_addr, ETH_ALEN);
+ 	pkt.type = cpu_to_be16(ETH_P_LOOP);
+ 
+-	for (i = 0; i < MAX_LP_BURST; i++) {
+-		struct sk_buff *skb;
+-		char *data;
++	skb = dev_alloc_skb(size);
++	if (!skb)
++		return;
+ 
+-		skb = dev_alloc_skb(size);
++	data = skb_put(skb, size);
++	memcpy(data, &pkt, size);
++
++	skb_reset_mac_header(skb);
++	skb->network_header = skb->mac_header + ETH_HLEN;
++	skb->protocol = pkt.type;
++	skb->priority = TC_PRIO_CONTROL;
++	skb->dev = slave->dev;
++
++	if (vid) {
++		skb = vlan_put_tag(skb, htons(ETH_P_8021Q), vid);
+ 		if (!skb) {
++			pr_err("%s: Error: failed to insert VLAN tag\n",
++			       slave->bond->dev->name);
+ 			return;
+ 		}
++	}
+ 
+-		data = skb_put(skb, size);
+-		memcpy(data, &pkt, size);
++	dev_queue_xmit(skb);
++}
+ 
+-		skb_reset_mac_header(skb);
+-		skb->network_header = skb->mac_header + ETH_HLEN;
+-		skb->protocol = pkt.type;
+-		skb->priority = TC_PRIO_CONTROL;
+-		skb->dev = slave->dev;
++
++static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
++{
++	struct bonding *bond = bond_get_bond_by_slave(slave);
++	u16 vlan_id;
++	int i;
++
++	for (i = 0; i < MAX_LP_BURST; i++) {
++		vlan_id = 0;
+ 
+ 		if (bond_vlan_used(bond)) {
+ 			struct vlan_entry *vlan;
+@@ -1008,20 +1026,13 @@ static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
+ 					      bond->alb_info.current_alb_vlan);
+ 
+ 			bond->alb_info.current_alb_vlan = vlan;
+-			if (!vlan) {
+-				kfree_skb(skb);
++			if (!vlan)
+ 				continue;
+-			}
+ 
+-			skb = vlan_put_tag(skb, htons(ETH_P_8021Q), vlan->vlan_id);
+-			if (!skb) {
+-				pr_err("%s: Error: failed to insert VLAN tag\n",
+-				       bond->dev->name);
+-				continue;
+-			}
++			vlan_id = vlan->vlan_id;
+ 		}
+ 
+-		dev_queue_xmit(skb);
++		alb_send_lp_vid(slave, mac_addr, vlan_id);
+ 	}
+ }
+ 
+-- 
+1.7.1
