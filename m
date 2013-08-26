@@ -1,80 +1,67 @@
-From: boris brezillon <b.brezillon@overkiz.com>
-Subject: Re: [PATCH] net/cadence/macb: fix kernel Oops if no PHY were discovered
- during probe
-Date: Mon, 26 Aug 2013 14:01:37 +0200
-Message-ID: <521B43A1.7060406@overkiz.com>
-References: <1377372065-8938-1-git-send-email-b.brezillon@overkiz.com> <521B1B56.8060903@atmel.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 07/16] sfc: Limit scope of a Falcon A1 IRQ workaround
+Date: Mon, 26 Aug 2013 16:31:37 +0400
+Message-ID: <521B4AA9.9000906@cogentembedded.com>
+References: <1377471363.2586.69.camel@deadeye.wl.decadent.org.uk> <1377471823.2586.76.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Bo Shen <voice.shen@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <521B1B56.8060903@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f52.google.com ([209.85.215.52]:43740 "EHLO
+	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756671Ab3HZMbm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 08:31:42 -0400
+Received: by mail-la0-f52.google.com with SMTP id ev20so2316235lab.11
+        for <netdev@vger.kernel.org>; Mon, 26 Aug 2013 05:31:41 -0700 (PDT)
+In-Reply-To: <1377471823.2586.76.camel@deadeye.wl.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Bo,
+Hello.
 
-On 26/08/2013 11:09, Bo Shen wrote:
-> Hi Boris,
+On 26-08-2013 3:03, Ben Hutchings wrote:
+
+> We unconditionally acknowledge legacy interrupts just before disabling
+> them.  This workaround is needed on Falcon A1 but probably not on
+> later chips where the legacy interrupt mechanism is different.  It was
+> also originally done after the IRQ handler was removed, not before.
+> Restore the original behaviour for Falcon A1 only by doing this
+> acknowledgement in the efx_nic_type::fini operation.
+
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> ---
+>   drivers/net/ethernet/sfc/falcon.c |    4 ++--
+>   drivers/net/ethernet/sfc/nic.c    |    7 -------
+>   drivers/net/ethernet/sfc/nic.h    |    1 -
+>   3 files changed, 2 insertions(+), 10 deletions(-)
+
+> diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
+> index f8de382..4492129 100644
+> --- a/drivers/net/ethernet/sfc/falcon.c
+> +++ b/drivers/net/ethernet/sfc/falcon.c
+> @@ -336,7 +336,7 @@ static void falcon_prepare_flush(struct efx_nic *efx)
+>    *
+>    * NB most hardware supports MSI interrupts
+>    */
+> -inline void falcon_irq_ack_a1(struct efx_nic *efx)
+> +static inline void falcon_irq_ack_a1(struct efx_nic *efx)
+
+    Does inline make sense still when this now is referenced indirectly?
+
+>   {
+>   	efx_dword_t reg;
 >
-> On 08/25/2013 03:21 AM, Boris BREZILLON wrote:
->> Test the presence of a PHY device before printing attached PHY
->> informations.
->>
->> Signed-off-by: Boris BREZILLON <b.brezillon@overkiz.com>
->> ---
->>   drivers/net/ethernet/cadence/macb.c |    6 ++++--
->>   1 file changed, 4 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/cadence/macb.c 
->> b/drivers/net/ethernet/cadence/macb.c
->> index e866608..fd3b67f 100644
->> --- a/drivers/net/ethernet/cadence/macb.c
->> +++ b/drivers/net/ethernet/cadence/macb.c
->> @@ -1868,8 +1868,10 @@ static int __init macb_probe(struct 
->> platform_device *pdev)
->>               dev->irq, dev->dev_addr);
->>
->>       phydev = bp->phy_dev;
->> -    netdev_info(dev, "attached PHY driver [%s] (mii_bus:phy_addr=%s, 
->> irq=%d)\n",
->> -            phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
->> +    if (phydev)
->> +        netdev_info(dev, "attached PHY driver [%s] 
->> (mii_bus:phy_addr=%s, irq=%d)\n",
->> +                phydev->drv->name, dev_name(&phydev->dev),
->> +                phydev->irq);
->
-> Actually no need this check, if PHY is attached failed, the macb 
-> driver probe will fail, then it won't show this message.
+> @@ -2343,7 +2343,7 @@ const struct efx_nic_type falcon_a1_nic_type = {
+>   	.remove = falcon_remove_nic,
+>   	.init = falcon_init_nic,
+>   	.dimension_resources = falcon_dimension_resources,
+> -	.fini = efx_port_dummy_op_void,
+> +	.fini = falcon_irq_ack_a1,
+>   	.monitor = falcon_monitor,
+>   	.map_reset_reason = falcon_map_reset_reason,
+>   	.map_reset_flags = falcon_map_reset_flags,
 
-You're right (thanks for pointing this out).
-Indeed this is a bug I introduced in this patch series ( 
-https://lkml.org/lkml/2013/8/22/381).
-
-In macb_mii_init function, the err field may be set to 0 (instead of the 
-default -ENXIO value) if no PHY
-is discovered.
-As macb_mii_probe return code is not copied to err, this result in a 0 
-return even if macb_mii_probe
-failed.
-
-Nicolas, forget about this patch, I'll fix this in the appropriate patch 
-series (except if you plan to add
-dynamic MAC/PHY association, and treat missing PHY during probe process 
-as an acceptable result :-)).
-
-Best Regards,
-
-Boris BREZILLON
-
->
->>       return 0;
->>
->>
->
-> Best Regards,
-> Bo Shen
+WBR, Sergei
