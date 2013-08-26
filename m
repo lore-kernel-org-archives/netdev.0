@@ -1,69 +1,45 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH net,stable] net: usb: Add HP hs2434 device to ZLP exception table
-Date: Mon, 26 Aug 2013 03:10:38 +0200
-Message-ID: <87zjs5s1dd.fsf@nemi.mork.no>
-References: <20130825182913.2865aa1a8cefe329ab9c7a85@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: Re: [PATCH] USB2NET : SR9700 : One chip USB 1.1 USB2NET
+ SR9700Device Driver Support
+Date: Sun, 25 Aug 2013 19:19:31 -0700
+Message-ID: <1377483571.1782.25.camel@joe-AO722>
+References: <1377343560-10524-1-git-send-email-liujunliang_ljl@163.com>
+	 , <1377368111.1757.2.camel@joe-AO722> <201308261014331251822@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-To: Rob Gardner <robmatic-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20130825182913.2865aa1a8cefe329ab9c7a85-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (Rob
-	Gardner's message of "Sun, 25 Aug 2013 18:29:13 -0600")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: davem <davem@davemloft.net>, horms <horms@verge.net.au>,
+	romieu <romieu@fr.zoreil.com>,
+	gregkh <gregkh@linuxfoundation.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	sunhecheng <sunhecheng@vip.126.com>
+To: liujunliang_ljl <liujunliang_ljl@163.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201308261014331251822@163.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rob Gardner <robmatic-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+On Mon, 2013-08-26 at 10:14 +0800, liujunliang_ljl wrote:
+> do you need me to merge the patch and re-send it again.
 
-> From 018343ce2e679d97283fb51da25c43aa876d087a Mon Sep 17 00:00:00 200=
-1
-> From: Rob Gardner <robmatic-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Sun, 25 Aug 2013 16:02:23 -0600
-> Subject: [PATCH net,stable] net: usb: Add HP hs2434 device to ZLP exc=
-eption table
->
-> This patch adds another entry (HP hs2434 Mobile Broadband) to the lis=
-t
-> of exceptional devices that require a zero length packet in order to
-> function properly. This list was added in commit 844e88f0. The hs2434
-> is manufactured by Sierra Wireless, who also produces the MC7710,
-> which the ZLP exception list was created for in the first place. So
-> hopefully it is just this one producer's devices that will need this
-> workaround.
->
-> Tested on a DM1-4310NR HP notebook, which does not function without t=
-his
-> change.
->
-> Signed-off-by: Rob Gardner <robmatic-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+I do not.
 
-Acked-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+> And which version of kernel will release this driver.
 
-Thanks a lot for doing this!
+No idea.
 
+That's up to David Miller or Greg KH to pick
+up the driver and maybe take the follow-on
+patch I sent.
 
-As I warned about in http://www.spinics.net/lists/netdev/msg223742.html
-I am now going to reconsider what do do about this issue. There are onl=
-y
-two devices in the exception list so far, but I would like to note that
-this represents 100% of the Sierra Wireless MBIM devices we *know* are
-tested with this driver.
+I just sent the patch because you seemed to
+have a bit of difficulty integrating the
+suggestions others were giving you.
 
-Testing for this firmware bug and verifying the workaround on a new
-device is currently hard, requiring more skills than most end users can
-be expected to have. I therefore find it very likely that we will miss
-(or quite possible have missed already) a number of devices which shoul=
-d
-have been in this exception list. I believe we have to do something
-about this.
+> Thanks a lot and apologizing for making you trouble.
 
-Ideas are welcome.
+Oh, no worries.  It was a trifle.
 
-
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+cheers, Joe
