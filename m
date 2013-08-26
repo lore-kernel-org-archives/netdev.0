@@ -1,105 +1,79 @@
-From: "Gupta, Pekon" <pekon@ti.com>
-Subject: RE: [PATCH v4 3/5] net: ethernet: cpsw: introduce ti,am3352-cpsw
- compatible string
-Date: Mon, 26 Aug 2013 05:22:54 +0000
-Message-ID: <20980858CB6D3A4BAE95CA194937D5E73E9FA84F@DBDE04.ent.ti.com>
-References: <1377267365-24057-1-git-send-email-zonque@gmail.com>
- <1377267365-24057-4-git-send-email-zonque@gmail.com>
- <52177052.1030308@ti.com> <52178E20.5040404@gmail.com>
- <52179448.1020906@ti.com> <52179AA5.3060408@ti.com>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: Re: [GLIBC Patch v2] inet: avoid redefinition of some structs in kernel
+Date: Mon, 26 Aug 2013 01:26:04 -0400
+Message-ID: <201308260126.06626.vapier@gentoo.org>
+References: <1376558891-26221-1-git-send-email-amwang@redhat.com> <1376558891-26221-2-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
- "sergei.shtylyov@cogentembedded.com" <sergei.shtylyov@cogentembedded.com>,
- "Gerlach,
- Dave" <d-gerlach@ti.com>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "Bedia, Vaibhav" <vaibhav.bedia@ti.com>,
- "ujhelyi.m@gmail.com" <ujhelyi.m@gmail.com>,
- "linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
- "davem@davemloft.net" <davem@davemloft.net>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: "N, Mugunthan V" <mugunthanvnm@ti.com>, "Shilimkar, Santosh"
- <santosh.shilimkar@ti.com>,
- "bcousson@baylibre.com" <bcousson@baylibre.com>,
- Daniel Mack <zonque@gmail.com>, "Nori, Sekhar" <nsekhar@ti.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <52179AA5.3060408@ti.com>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart35333509.o562GfR97c";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Thomas Backlund <tmb@mageia.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	"Carlos O'Donell" <carlos@redhat.com>
+To: libc-alpha@sourceware.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.gentoo.org ([140.211.166.183]:42261 "EHLO smtp.gentoo.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755409Ab3HZF0A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Aug 2013 01:26:00 -0400
+In-Reply-To: <1376558891-26221-2-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiANCj4gT24gRnJpZGF5IDIzIEF1Z3VzdCAyMDEzIDEwOjI2IFBNLCBTYW50b3NoIFNoaWxpbWth
-ciB3cm90ZToNCj4gPiBPbiBGcmlkYXkgMjMgQXVndXN0IDIwMTMgMTI6MzAgUE0sIERhbmllbCBN
-YWNrIHdyb3RlOg0KPiA+PiBPbiAyMy4wOC4yMDEzIDE2OjIzLCBTYW50b3NoIFNoaWxpbWthciB3
-cm90ZToNCj4gPj4+IE9uIEZyaWRheSAyMyBBdWd1c3QgMjAxMyAxMDoxNiBBTSwgRGFuaWVsIE1h
-Y2sgd3JvdGU6DQo+ID4+Pj4gK3N0YXRpYyBjb25zdCBzdHJ1Y3Qgb2ZfZGV2aWNlX2lkIGNwc3df
-b2ZfbXRhYmxlW10gPSB7DQo+ID4+Pj4gKwl7DQo+ID4+Pj4gKwkJLmNvbXBhdGlibGUJPSAidGks
-YW0zMzUyLWNwc3ciLA0KPiA+Pj4gSSBkaWRuJ3Qgbm90aWNlIHRoaXMgZWFybGllciwgYnV0IGNh
-bid0IHlvdSB1c2UgdGhlIElQIHZlcnNpb24NCj4gPj4+IGFzIGEgY29tcGF0aWJsZSBpbnN0ZWFk
-IG9mIHVzaW5nIGEgU09DIG5hbWUuIFdoYXRzIHJlYWxseSBTT0Mgc3BlY2lmaWMNCj4gPj4+IG9u
-IHRoaXMgSVAgPyBTb3JyeSBpIGhhdmUgbWlzc2VkIGFueSBlYXJsaWVyIGRpc2N1c3Npb24gb24g
-dGhpcyBidXQNCj4gPj4+IHRoaXMgYXBwcm9hY2ggZG9lc24ndCBzZWVtIGdvb2QuIEl0cyBsaWtl
-IGFkZGluZyBTT0MgY2hlY2tzIGluIHRoZQ0KPiA+Pj4gZHJpdmVyIHN1YnN5c3RlbS4NCj4gPj4g
-QXMgSSBhbHJlYWR5IG1lbnRpb25lZCBpbiB0aGUgY292ZXIgbGV0dGVyIGFuZCBpbiB0aGUgY29t
-bWl0IG1lc3NhZ2UsIEkNCj4gPj4ganVzdCBkb24ndCBrbm93IHdoaWNoIGNyaXRlcmlhIG1ha2Vz
-IG1vc3Qgc2Vuc2UgaGVyZS4NCj4gPj4NCj4gPj4gT24gYSBnZW5lcmFsIG5vdGUsIEkgd291bGQg
-c2F5IHRoYXQgY2hhbmNlcyB0aGF0IHRoaXMgZXhhY3RseSBJUCBjb3JlDQo+ID4+IHdpdGggdGhl
-IHNhbWUgdmVyc2lvbiBudW1iZXIgd2lsbCBhcHBlYXIgb24gc29tZSBvdGhlciBzaWxpY29uIHdo
-aWNoDQo+ID4+IGRvZXNuJ3Qgc3VwcG9ydCB0aGUgY29udHJvbCBtb2RlIHJlZ2lzdGVyIGluIGFu
-IEFNMzN4eCBmYXNoaW9uLCBpcyBub3QNCj4gPj4gbmVjZXNzYXJpbHkgbmVnbGlnaWJsZS4NCj4g
-Pj4NCj4gPj4gU28gd2hhdCB0aGF0IG5ldyBjb21wYXRpYmxlIHN0cmluZyBkZW5vdGVzIGlzIHRo
-ZSBjcHN3IGluIGEgdmVyc2lvbiBhcw0KPiA+PiBmb3VuZCBvbiBhbTMzNTIgU29Dcywgd2hpY2gg
-aXMgYWN0dWFsbHkgZXhhY3RseSB3aGF0IGl0IGRvZXMuDQo+ID4+DQo+ID4+IEkgZG9uJ3QgaGF2
-ZSBhIHN0cm9uZyBvcGluaW9uIGhlcmUsIGJ1dCBzZWUgeW91ciBwb2ludC4gSSBqdXN0IGRvbid0
-DQo+ID4+IGhhdmUgYSBiZXR0ZXIgaWRlYSBvbiBob3cgdG8gdHJlYXQgdGhhdC4NCj4gPj4NCj4g
-PiBTbyBqdXN0IHN0aWNrIHRoZSBJUCB2ZXJzaW9uIG9yIGNhbGwgaXQgY3Bzdy12MS4uLiBjcHN3
-LXYyIGV0Yy4NCj4gPiBUaGF0IHdheSBpZiBpbiBmdXR1cmUgaWYgc29tZW9uZSB1c2VzIHRob3Nl
-IGZlYXR1cmVzLCB0aGV5IGNhbiB1c2UNCj4gPiB0aGlzIGNvbXBhdGlibGUgaWYgdGhleSBkb24n
-dCB0aGV5IHVzZSB0aGUgb25lIHdoaWNoIHN1aXRlcyB0aGF0DQo+ID4gU09DLg0KPiA+DQo+IFdl
-IGNhbm5vdCBtYXAgY29udHJvbCBtb2R1bGUgcmVnaXN0ZXIgd2l0aCBDUFNXIElQIHZlcnNpb24g
-YXMgYm90aCBjb21lcw0KPiBmcm9tIGRpZmZlcmVudCBkZXNpZ24gdGVhbSBhbmQgQ1BTVyBpcCB2
-ZXJzaW9uIGNhbiBiZSBzYW1lIGFjcm9zcyBTb0MNCj4gYW5kIGdtaWkgc2VsIHJlZ2lzdGVyIGRl
-ZmluaXRpb24gY2FuIGJlIGRpZmZlcmVudC4gQ29udHJvbCBtb2R1bGUNCj4gZGVmaW5lcyBtYXkg
-dmFyeSBpbiBkaWZmZXJlbnQgU29DIGFzIHBlciBTb0MgcmVxdWlyZW1lbnRzLg0KPiANCj4gQWRk
-aW5nIFBla29uIEd1cHRhIHdobyBoYWQgd29ya2VkIGluIFNpbGljb24gdGVhbSBiZWZvcmUuDQo+
-IA0KW1Bla29uXTogTXkgb3BpbmlvbiBoZXJlLi4NClVuaWZvcm1pdHkgaW4gY29udHJvbCBtb2R1
-bGUgY2Fubm90IGJlIGd1YXJhbnRlZWQsIG5laXRoZXIgaW4gcmVnaXN0ZXINCm9mZnNldHMgbm9y
-IHRoZWlyIGZ1bmN0aW9uYWxpdHkuIFVuaWZvcm1pdHkgaXMgdXN1YWxseSBtYWludGFpbmVkIHRp
-bGwgdGhlDQpwb2ludCBzYW1lIHBlcnNvbiBpcyB3cml0aW5nIHRoZSBzcGVjLCBvciBpdOKAmXMg
-YSBkZXJpdmF0aXZlIGRldmljZS4NCkNvbnRyb2wtbW9kdWxlIHNob3VsZCBub3QgYmUgY2F0ZWdv
-cml6ZWQgYXMgSVAsIGluc3RlYWQgaXTigJlzIGEgZ3JvdXAgb2YNCm1pc2NlbGxhbmVvdXMgbG9n
-aWMgdXN1YWxseSBjb25zaXN0aW5nIG9mIGZvbGxvd2luZzoNCihhKSBTb0MgYnVnLWZpeGVzIGFj
-cm9zcyBzaWxpY29uIHJldmlzaW9ucy4NCihiKSBTb0Mgc3BlY2lmaWMgbG9naWMgbGlrZSBkZXZp
-Y2VfdHlwZSwgSlRBRy1JRC4NCihjKSBJUCBidWcgZml4ZXMgd2hpY2ggY291bGQgbm90IGJlIGFj
-Y29tbW9kYXRlZCBpbiBJUCBhZGRyZXNzLW1hcC4NCihkKSBJUCBsb2dpYyB3aGljaCBkZXBlbmRz
-IG9uIFNvQyBjb25maWd1cmF0aW9ucy4NCg0KRHVlIHRvIHRoaXMgdW4tZGV0ZXJtaW5pc3RpYyBj
-b21wb3NpdGlvbiBvZiBjb250cm9sLW1vZHVsZSwgaGF2aW5nIA0KYSBkZWRpY2F0ZWQgZHJpdmVy
-IGZvciBjb250cm9sIG1vZHVsZSBtaWdodCBub3Qgd29yayBlaXRoZXIsIGFzIGl0DQpoYXMgdG8g
-YmUgdXBkYXRlZCB8IHJlLXdyaXR0ZW4gZm9yIGV2ZXJ5IG5ldyBkZXZpY2UuDQoNClNvLCBGb2xs
-b3dpbmcgY2FuIGJlIHVzZWQgYXMgZ3VpZGVsaW5lIHRvIGRldGVybWluZSBjb21wYXRpYmlsaXR5
-DQpzdHJpbmcgZm9yIERUIGJpbmRpbmdzLi4NCi0gSWYgYmluZGluZyBtYXBzIHRvIChhKSBhbmQg
-KGMpLCAuaS5lLiwgYnVnLWZpeGVzIGZvciBTb0Mgb3IgSVAsIA0KIHRoZW4gaXRzIG1vc3QgbGlr
-ZWx5IHRoYXQgdGhlc2Ugd291bGQgY2hhbmdlIGVpdGhlciBpbiBuZXh0IHNpbGljb24NCiByZXZp
-c2lvbiBvciBpbiBuZXh0IGRldmljZXMuIEhlbmNlIHN1Y2ggYmluZGluZ3Mgc2hvdWxkIHVzZSAq
-bm90Kg0KIHVzZSBJUCBjb21wYXRpYmlsaXR5IHN0cmluZ3MsIHRoZXkgX21heV8gdXNlIFNvQy1u
-YW1lIGJhc2VkDQogY29tcGF0aWJpbGl0eSBzdHJpbmcuDQoNCi0gRWxzZSBpZiBiaW5kaW5nIG1h
-cHMgdG8gKGIpLC5pLmUuLCBTb0Mgc3BlY2lmaWMgY29uZmlndXJhdGlvbnMuDQogdGhlbiB0aGVp
-ciBvZmZzZXRzIGFuZCBmdW5jdGlvbmFsaXR5IHNob3VsZCByZW1haW4gc2FtZSBhY3Jvc3MgdGhl
-DQogZmFtaWx5IG9mIGRldmljZXMgYXQtbGVhc3QsIHNvIGl0IHNob3VsZCB1c2UgU29DLW5hbWUg
-YmFzZWQNCiBjb21wYXRpYmlsaXR5IHN0cmluZy4NCi0gQW5kIGlmIGJpbmRpbmcgbWFwcyB0byAo
-ZCksIC5pLmUuLCBJUCBmZWF0dXJlIGJ1dCBkZXBlbmRpbmcgb24gU29DDQogVGhlbiBpdCBjYW4g
-dXNlIElQIGJhc2VkIGNvbXBhdGliaWxpdHkgc3RyaW5nLCBhbG9uZyB3aXRoIElQIHZlcnNpb24u
-DQoNCihzYW1lIGFwcHJvYWNoIGNhbiBiZSB1c2VkIGZvciBDUFNXIGJpbmRpbmcgdXNlZCBoZXJl
-LA0KDQp3aXRoIHJlZ2FyZHMsIHBla29uDQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fXwpsaW51eC1hcm0ta2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1hcm0t
-a2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcKaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFp
-bG1hbi9saXN0aW5mby9saW51eC1hcm0ta2VybmVsCg==
+--nextPart35333509.o562GfR97c
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Thursday 15 August 2013 05:28:11 Cong Wang wrote:
+> From: Carlos O'Donell <carlos@redhat.com>
+>=20
+> - Synchronize linux's `include/uapi/linux/in6.h'
+>   with glibc's `inet/netinet/in.h'.
+> - Synchronize glibc's `inet/netinet/in.h with linux's
+>   `include/uapi/linux/in6.h'.
+> - Allow including the headers in either other.
+> - First header included defines the structures and macros.
+>=20
+> Notes:
+> - You want netinet/in.h to include bits/in.h as early as possible,
+>   but it needs in_addr so define in_addr early.
+> - You want bits/in.h included as early as possible so you can use
+>   the linux specific code to define __USE_KERNEL_DEFS based on
+>   the _UAPI_* macro definition and use those to cull in.h.
+> - glibc was missing IPPROTO_MH, added here.
+
+can we get something better documented here in a central location ?  having=
+=20
+the names laid out in a git commit message and in a few leaf headers does n=
+ot=20
+lend itself to being easily discoverable.
+=2Dmike
+
+--nextPart35333509.o562GfR97c
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.17 (GNU/Linux)
+
+iQIcBAABAgAGBQJSGubuAAoJEEFjO5/oN/WBtwUP/AprWa3qus+KcUn0gKi8Ud/1
+YW4WvJgxfJyrN9bFHdsab6uTebcuuxcxlW63Kxyi1J+X+JW6bvGXSVWE96UV7UtX
+2si1HcsG4NkT2t8hQWWJ4BQ1xMRxWrgvzuRzY6EqCy8gGtM5QusUXPwuGR7p5kMg
+g4+0+7nFTKWfsvHTfWf/T3tJrieLWRoo1pRjLiklENXaIHBJyit1PPgK3znE5FvV
+1XhUdgUOctj/hDRc149Zd1WfUuhXoXglbLMpzg8a6iWAx5K5nRvu/ZI/rx2I1Ou0
+WMKl6odQAn0FbKBSAeL+EiL6WkJWbq/7sTqq00EJ4+SJapAfyl0h8x9eWyAlSrWM
+mfEARXNudE56wGsOy2W00blIRjednd6U0dE16SAX989/ajUqbv08XRxp1ecUmv3u
+JCvQSG8nHjxUez5dTR5dUPUWnvHK8M7QkVsdbZlFQaw0fWTHzUH/zqL/7r4bzi9E
+1p6BMZlbCItuXXEBwMvMTD39WscpHlBZwj9SsuOkeGOLVprsdKN4h29N8JYXdkfr
+dJkH6fqX2yKq3mr1syi9AVCq3RHUr5/25tSfX+S5cEomVIccC+FCn1y4nUzrlYi1
+Gv3bjwFwQ8KnH5ANYXo7AQcOCKcSkqlWxlhwaCTp7+nK5crKA39EyF4IYVTL46Jm
+VJdxnLCOdKHv2SID7MV0
+=mSra
+-----END PGP SIGNATURE-----
+
+--nextPart35333509.o562GfR97c--
