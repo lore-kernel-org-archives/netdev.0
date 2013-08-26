@@ -1,40 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: sendto() bug?
-Date: Mon, 26 Aug 2013 16:15:19 -0400 (EDT)
-Message-ID: <20130826.161519.800608483815988746.davem@davemloft.net>
-References: <alpine.DEB.2.02.1308231257140.10771@optio.utah.ind.alcatel.com>
-	<alpine.LFD.2.00.1308241105220.1641@ja.ssi.bg>
-	<alpine.DEB.2.02.1308261319370.23968@optio.utah.ind.alcatel.com>
+Subject: Re: [PATCH net-next] {ipv4,xfrm}: Introduce xfrm_tunnel_notifier
+ for xfrm tunnel mode callback
+Date: Mon, 26 Aug 2013 16:21:35 -0400 (EDT)
+Message-ID: <20130826.162135.1765443562851401512.davem@davemloft.net>
+References: <1377240424-11758-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, netdev@vger.kernel.org
-To: chris.clark@alcatel-lucent.com
+Cc: steffen.klassert@secunet.com, saurabh.mohan@vyatta.com,
+	herbert@gondor.hengli.com.au, netdev@vger.kernel.org
+To: fan.du@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41309 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41365 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751852Ab3HZUPV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 16:15:21 -0400
-In-Reply-To: <alpine.DEB.2.02.1308261319370.23968@optio.utah.ind.alcatel.com>
+	with ESMTP id S1752043Ab3HZUVh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 16:21:37 -0400
+In-Reply-To: <1377240424-11758-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chris Clark <chris.clark@alcatel-lucent.com>
-Date: Mon, 26 Aug 2013 14:14:21 -0600 (MDT)
+From: Fan Du <fan.du@windriver.com>
+Date: Fri, 23 Aug 2013 14:47:04 +0800
 
-> On Sat, 24 Aug 2013, Julian Anastasov wrote:
->> On Fri, 23 Aug 2013, Chris Clark wrote:
->> > In the same vein as 2ad5b9e4, I'm soliciting feedback on something
->> > similar for raw_sendmsg():
-> [snip]
+> Some thoughts on IPv4 VTI implementation:
 > 
->> 	So, something like
->> (inet->hdrincl ? FLOWI_FLAG_KNOWN_NH : 0) ?
+> The connection between VTI receiving part and xfrm tunnel mode input process
+> is hardly a "xfrm_tunnel", xfrm_tunnel is used in places where, e.g ipip/sit
+> and xfrm4_tunnel, acts like a true "tunnel" device.
 > 
+> In addition, IMHO, VTI doesn't need vti_err to do something meaningful, as all
+> VTI needs is just a notifier to be called whenever xfrm_input ingress a packet
+> to update statistics.
 > 
-> Many thanks.  This patch indeed appears to resolve the problem:
+> So this patch introduce xfrm_tunnel_notifier and meanwhile wipe out vti_erri
+> code.
+> 
+> Signed-off-by: Fan Du <fan.du@windriver.com>
 
-Someone please submit this properly with a clean, well formed, commit
-message and signoffs.
+I don't understand why VTI doesn't need to propagate a PMTU update via
+ipv4_update_pmtu().  Why is it different from a real xfrm_tunnel?
+
+Your changelog has to explain this better and in more detail.
 
 Thanks.
