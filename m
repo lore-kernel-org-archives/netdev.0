@@ -1,45 +1,82 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next 1/8] net: move netdev_upper to netdevice.h
-Date: Mon, 26 Aug 2013 20:10:32 +0200
-Message-ID: <20130826181032.GA29952@redhat.com>
-References: <1377534533-6944-1-git-send-email-vfalico@redhat.com>
- <1377534533-6944-2-git-send-email-vfalico@redhat.com>
- <20130826164115.GA1413@minipsycho.brq.redhat.com>
- <20130826165535.GG1992@redhat.com>
- <20130826173844.GA1437@minipsycho.orion>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: pcie_get_minimum_link returns 0 width
+Date: Mon, 26 Aug 2013 18:27:29 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB58565A7F3B@ORSMSX104.amr.corp.intel.com>
+References: <20130825100157.GA16500@lb-tlvb-yuvalmin.il.broadcom.com>
+ <979A8436335E3744ADCD3A9F2A2B68A52AD136BE@SJEXCHMB10.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <amwang@redhat.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16153 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752520Ab3HZSLw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Aug 2013 14:11:52 -0400
-Content-Disposition: inline
-In-Reply-To: <20130826173844.GA1437@minipsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "bhelgaas@google.com" <bhelgaas@google.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Yuval Mintz <yuvalmin@broadcom.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <979A8436335E3744ADCD3A9F2A2B68A52AD136BE@SJEXCHMB10.corp.ad.broadcom.com>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 26, 2013 at 07:38:44PM +0200, Jiri Pirko wrote:
->I was imagine something like:
->
->struct list_head *iter;
->struct net_device *dev, *upper;
->
->netdev_for_each_upper_dev(dev, upper, iter) {
->
->}
->
->This macro can be easily implented using netdev_upper_get_next_dev()
->from dev.c
->
->Not much of added overhead other than netdev_upper_get_next_dev calls
->(without any search when using list_head iter).
+> -----Original Message-----
+> From: Yuval Mintz [mailto:yuvalmin@broadcom.com]
+> Sent: Sunday, August 25, 2013 4:22 AM
+> To: Keller, Jacob E
+> Cc: bhelgaas@google.com; linux-pci@vger.kernel.org;
+> netdev@vger.kernel.org
+> Subject: pcie_get_minimum_link returns 0 width
+> 
+> Hi,
+> 
+> I tried adding support for the newly added 'pcie_get_minimum_link' into
+> the
+> bnx2x driver, but found out the some of my devices started showing
+> width x0.
+> 
+> By adding debug prints, I've found out there were devices up the chain
+> that
+> Showed 0 when their PCI_EXP_LNKSTA was read by said function.
+> However, when I tried looking via lspci the output claimed the width was
+> x4.
+> 
+> lspci -vt output:
+> [0000:00]-+-00.0  Intel Corporation 5000P Chipset Memory Controller
+> Hub
+> 	     +-02.0-[09-12]--+-00.0-[0a-11]--+-00.0-[0b-0d]--
+> 					     +-01.0-[0e-10]--+-00.0
+> Broadcom
+> 					Corporation NetXtreme II
+> BCM57710
+> 					10-Gigabit PCIe [Everest]
+> 
+> Where:
+> 00:02.0 PCI bridge: Intel Corporation 5000 Series Chipset PCI Express x4
+> Port
+> 2 (rev 93)
+> 09:00.0 PCI bridge: Intel Corporation 6311ESB/6321ESB PCI Express
+> Upstream
+> Port (rev 01)
+> 0a:01.0 PCI bridge: Intel Corporation 6311ESB/6321ESB PCI Express
+> Downstream Port E2 (rev 01)
+> 0e:00.0 Ethernet controller: Broadcom Corporation NetXtreme II
+> BCM57710
+> 10-Gigabit PCIe [Everest] (rev 01)
+> 
+> The output for "lspci -vvvv | grep LnkSta for all four is:
+> LnkSta:	Speed 2.5GT/s, Width x4, TrErr- Train- SlotClk+ DLActive-
+> BWMgmt-
+> ABWMgmt-
+> 
+> But added prints inside the function's loop show:
+> LnkSta 1041 [000e:00.00]
+> LnkSta 0000 [000a:01.00]
+> LnkSta 0000 [0009:00.00]
+> LnkSta 3041 [0000:02.00]
+> (PCI_EXP_LNKSTA value, bus->number, PCI_SLOT, PCI_FUNC)
+> 
+> Thanks,
+> Yuval
 
-Great idea, didn't think of it.
+Interesting... It looks like the entire LnkSta  read failed for the two in the middle..  I don't know how much I can help on this issue because I don't have a machine that exhibits this symptom.. Any suggestions?
 
-Thanks a lot, will try implement it and send v2.
+Regards,
+Jake
