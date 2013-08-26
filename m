@@ -1,25 +1,38 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH RFC 0/6] SYNPROXY target v2
-Date: Tue, 27 Aug 2013 00:42:51 +0200
-Message-ID: <20130826224251.GA4644@localhost>
-References: <1377244329-20146-1-git-send-email-kaber@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	mph@one.com, jesper.brouer@gmail.com, as@one.com
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1377244329-20146-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Rob Herring <robherring2@gmail.com>
+Subject: [PATCH 01/11] net: calxedaxgmac: remove NETIF_F_FRAGLIST setting
+Date: Mon, 26 Aug 2013 17:45:16 -0500
+Message-ID: <1377557126-10716-1-git-send-email-robherring2@gmail.com>
+Cc: Andreas Herrmann <andreas.herrmann@calxeda.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Rob Herring <rob.herring@calxeda.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Patrick!
+From: Rob Herring <rob.herring@calxeda.com>
 
-On Fri, Aug 23, 2013 at 09:52:03AM +0200, Patrick McHardy wrote:
-> The following patches contain the current version of the SYNPROXY target.
+The xgmac does not actually handle frag lists, so this option should not
+be set. It does not appear to have had any impact though.
 
-I've been looking at my mailbox and patchwork but I couldn't find the
-userspace iptables patches, could you post them?
+Reported-by: Lennert Buytenhek <buytenh@wantstofly.org>
+Signed-off-by: Rob Herring <rob.herring@calxeda.com>
+---
+ drivers/net/ethernet/calxeda/xgmac.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks!
+diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
+index 7cb148c..71f6720 100644
+--- a/drivers/net/ethernet/calxeda/xgmac.c
++++ b/drivers/net/ethernet/calxeda/xgmac.c
+@@ -1759,7 +1759,7 @@ static int xgmac_probe(struct platform_device *pdev)
+ 	if (device_can_wakeup(priv->device))
+ 		priv->wolopts = WAKE_MAGIC;	/* Magic Frame as default */
+ 
+-	ndev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA;
++	ndev->hw_features = NETIF_F_SG | NETIF_F_HIGHDMA;
+ 	if (readl(priv->base + XGMAC_DMA_HW_FEATURE) & DMA_HW_FEAT_TXCOESEL)
+ 		ndev->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+ 				     NETIF_F_RXCSUM;
+-- 
+1.8.1.2
