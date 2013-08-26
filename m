@@ -1,51 +1,50 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH] net/cadence/macb: fix kernel Oops if no PHY were discovered
- during probe
-Date: Mon, 26 Aug 2013 09:43:56 +0200
-Message-ID: <521B073C.3070204@atmel.com>
-References: <1377372065-8938-1-git-send-email-b.brezillon@overkiz.com>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [PATCH v6 2/5] net: ethernet: cpsw: add optional third memory
+ region for CONTROL module
+Date: Mon, 26 Aug 2013 02:04:23 -0700
+Message-ID: <20130826090422.GB7656@atomide.com>
+References: <1377286330-29663-1-git-send-email-zonque@gmail.com>
+ <1377286330-29663-3-git-send-email-zonque@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Boris BREZILLON <b.brezillon@overkiz.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1377372065-8938-1-git-send-email-b.brezillon@overkiz.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bcousson@baylibre.com, nsekhar@ti.com,
+	sergei.shtylyov@cogentembedded.com, davem@davemloft.net,
+	ujhelyi.m@gmail.com, mugunthanvnm@ti.com, vaibhav.bedia@ti.com,
+	d-gerlach@ti.com, linux-arm-kernel@lists.infradead.org,
+	linux-omap@vger.kernel.org, devicetree@vger.kernel.org
+To: Daniel Mack <zonque@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mho-02-ewr.mailhop.org ([204.13.248.72]:27912 "EHLO
+	mho-02-ewr.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751391Ab3HZJEa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 05:04:30 -0400
+Content-Disposition: inline
+In-Reply-To: <1377286330-29663-3-git-send-email-zonque@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 24/08/2013 21:21, Boris BREZILLON :
-> Test the presence of a PHY device before printing attached PHY
-> informations.
->
-> Signed-off-by: Boris BREZILLON <b.brezillon@overkiz.com>
+* Daniel Mack <zonque@gmail.com> [130823 12:39]:
+> At least the AM33xx SoC has a control module register to configure
+> details such as the hardware ethernet interface mode.
+> 
+> I'm not sure whether all SoCs which feature the cpsw block have such a
+> register, so that third memory region is considered optional for now.
 
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+Assuming you're talking about omap SCM registers here..
 
-> ---
->   drivers/net/ethernet/cadence/macb.c |    6 ++++--
->   1 file changed, 4 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index e866608..fd3b67f 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -1868,8 +1868,10 @@ static int __init macb_probe(struct platform_device *pdev)
->   		    dev->irq, dev->dev_addr);
->
->   	phydev = bp->phy_dev;
-> -	netdev_info(dev, "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
-> -		    phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
-> +	if (phydev)
-> +		netdev_info(dev, "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
-> +			    phydev->drv->name, dev_name(&phydev->dev),
-> +			    phydev->irq);
->
->   	return 0;
->
->
+This should be in a separate driver module so the control module
+parts can eventually be children of the SCM driver as they are
+really separate devices on the bus. See how the USB PHY parts were done
+for example.
 
+What do these control module registers do? If it's just multiplexing
+and pinconf, then you can use pinctrl-single,bits most likely for it and
+access it using the named modes.
 
--- 
-Nicolas Ferre
+However, if the register also contains comparators and control for
+regulators, you should only use pinctrl-single for the multiplexing
+and pinconf parts.
+
+Regards,
+
+Tony
