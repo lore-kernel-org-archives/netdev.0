@@ -1,48 +1,311 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH v6 2/5] net: ethernet: cpsw: add optional third memory
- region for CONTROL module
-Date: Tue, 27 Aug 2013 00:19:00 +0530
-Message-ID: <521BA31C.1010504@ti.com>
-References: <1377286330-29663-1-git-send-email-zonque@gmail.com> <1377286330-29663-3-git-send-email-zonque@gmail.com> <20130826090422.GB7656@atomide.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH v2 net-next] tcp: TSO packets automatic sizing
+Date: Mon, 26 Aug 2013 12:09:59 -0700
+Message-ID: <CAK6E8=dkp2soUUrv_gP5soBCqe7mf7KNY-iO-FoS0J4Pi4zXpg@mail.gmail.com>
+References: <1377304192.8828.43.camel@edumazet-glaptop> <1377491162.8828.116.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Mack <zonque@gmail.com>, <netdev@vger.kernel.org>,
-	<bcousson@baylibre.com>, <nsekhar@ti.com>,
-	<sergei.shtylyov@cogentembedded.com>, <davem@davemloft.net>,
-	<ujhelyi.m@gmail.com>, <vaibhav.bedia@ti.com>, <d-gerlach@ti.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>, <devicetree@vger.kernel.org>
-To: Tony Lindgren <tony@atomide.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <20130826090422.GB7656@atomide.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Van Jacobson <vanj@google.com>,
+	Tom Herbert <therbert@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f177.google.com ([209.85.214.177]:34542 "EHLO
+	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751683Ab3HZTKU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 15:10:20 -0400
+Received: by mail-ob0-f177.google.com with SMTP id f8so3644765obp.22
+        for <netdev@vger.kernel.org>; Mon, 26 Aug 2013 12:10:19 -0700 (PDT)
+In-Reply-To: <1377491162.8828.116.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 26 August 2013 02:34 PM, Tony Lindgren wrote:
-> * Daniel Mack <zonque@gmail.com> [130823 12:39]:
->> At least the AM33xx SoC has a control module register to configure
->> details such as the hardware ethernet interface mode.
->>
->> I'm not sure whether all SoCs which feature the cpsw block have such a
->> register, so that third memory region is considered optional for now.
-> Assuming you're talking about omap SCM registers here..
+On Sun, Aug 25, 2013 at 9:26 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
 >
-> This should be in a separate driver module so the control module
-> parts can eventually be children of the SCM driver as they are
-> really separate devices on the bus. See how the USB PHY parts were done
-> for example.
+> After hearing many people over past years complaining against TSO being
+> bursty or even buggy, we are proud to present automatic sizing of TSO
+> packets.
 >
-> What do these control module registers do? If it's just multiplexing
-> and pinconf, then you can use pinctrl-single,bits most likely for it and
-> access it using the named modes.
+> One part of the problem is that tcp_tso_should_defer() uses an heuristic
+> relying on upcoming ACKS instead of a timer, but more generally, having
+> big TSO packets makes little sense for low rates, as it tends to create
+> micro bursts on the network, and general consensus is to reduce the
+> buffering amount.
 >
-> However, if the register also contains comparators and control for
-> regulators, you should only use pinctrl-single for the multiplexing
-> and pinconf parts.
+> This patch introduces a per socket sk_pacing_rate, that approximates
+> the current sending rate, and allows us to size the TSO packets so
+> that we try to send one packet every ms.
 >
-I will take a look into usb control module driver and will try to adopt
-the driver here also.
+> This field could be set by other transports.
+>
+> Patch has no impact for high speed flows, where having large TSO packets
+> makes sense to reach line rate.
+>
+> For other flows, this helps better packet scheduling and ACK clocking.
+>
+> This patch increases performance of TCP flows in lossy environments.
+>
+> A new sysctl (tcp_min_tso_segs) is added, to specify the
+> minimal size of a TSO packet (default being 2).
+>
+> A follow-up patch will provide a new packet scheduler (FQ), using
+> sk_pacing_rate as an input to perform optional per flow pacing.
+>
+> This explains why we chose to set sk_pacing_rate to twice the current
+> rate, allowing 'slow start' ramp up.
+>
+> sk_pacing_rate = 2 * cwnd * mss / srtt
+>
+> v2: Neal Cardwell reported a suspect deferring of last two segments on
+> initial write of 10 MSS, I had to change tcp_tso_should_defer() to take
+> into account tp->xmit_size_goal_segs
+init write of 10MSS now looks good, but the delay still shows up if 9
+< write-size < 10 MSS...
 
-Regards
-Mugunthan V N
+I use packetdrill to do write(14599) bytes of MSS 1460
+
+0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+0.000 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+0.000 bind(3, ..., ...) = 0
+0.000 listen(3, 1) = 0
+
+0.100 < S 299245565:299245565(0) win 32792 <mss
+1460,sackOK,nop,nop,nop,wscale 7>
+0.100 > S. 0:0(0) ack 299245566 <mss 1460,nop,nop,sackOK,nop,wscale 6>
+0.200 < . 1:1(0) ack 1 win 257
+0.200 accept(3, ..., ...) = 4
++.000 write(4, ..., 13141) = 13141
++3 %{ print "done" }%
+
+and tcpdump shows
+
+31.819958 IP cli > srv: S 299245565:299245565(0) win 32792 <mss 1460,sackOK,nop,
+nop,nop,wscale 7>
+000034 IP srv > cli: S 203810874:203810874(0) ack 299245566 win 29200
+<mss 1460,nop,nop,sackOK,nop,wscale 6>
+099966 IP cli > srv: . ack 1 win 257
+000079 IP srv > cli: . 1:2921(2920) ack 1 win 457
+000010 IP srv > cli: . 2921:5841(2920) ack 1 win 457
+000005 IP srv > cli: . 5841:8761(2920) ack 1 win 457
+000004 IP srv > cli: . 8761:11681(2920) ack 1 win 457
+199659 IP srv > cli: . 11681:13141(1460) ack 1 win 457
+...
+
+
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Van Jacobson <vanj@google.com>
+> Cc: Tom Herbert <therbert@google.com>
+> ---
+>  Documentation/networking/ip-sysctl.txt |    9 ++++++
+>  include/net/sock.h                     |    2 +
+>  include/net/tcp.h                      |    1
+>  net/ipv4/sysctl_net_ipv4.c             |   10 +++++++
+>  net/ipv4/tcp.c                         |   28 +++++++++++++++++---
+>  net/ipv4/tcp_input.c                   |   31 ++++++++++++++++++++++-
+>  net/ipv4/tcp_output.c                  |    2 -
+>  7 files changed, 76 insertions(+), 7 deletions(-)
+>
+> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> index debfe85..ce5bb43 100644
+> --- a/Documentation/networking/ip-sysctl.txt
+> +++ b/Documentation/networking/ip-sysctl.txt
+> @@ -482,6 +482,15 @@ tcp_syn_retries - INTEGER
+>  tcp_timestamps - BOOLEAN
+>         Enable timestamps as defined in RFC1323.
+>
+> +tcp_min_tso_segs - INTEGER
+> +       Minimal number of segments per TSO frame.
+> +       Since linux-3.12, TCP does an automatic sizing of TSO frames,
+> +       depending on flow rate, instead of filling 64Kbytes packets.
+> +       For specific usages, it's possible to force TCP to build big
+> +       TSO frames. Note that TCP stack might split too big TSO packets
+> +       if available window is too small.
+> +       Default: 2
+> +
+>  tcp_tso_win_divisor - INTEGER
+>         This allows control over what percentage of the congestion window
+>         can be consumed by a single TSO frame.
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index e4bbcbf..6ba2e7b 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -232,6 +232,7 @@ struct cg_proto;
+>    *    @sk_napi_id: id of the last napi context to receive data for sk
+>    *    @sk_ll_usec: usecs to busypoll when there is no data
+>    *    @sk_allocation: allocation mode
+> +  *    @sk_pacing_rate: Pacing rate (if supported by transport/packet scheduler)
+>    *    @sk_sndbuf: size of send buffer in bytes
+>    *    @sk_flags: %SO_LINGER (l_onoff), %SO_BROADCAST, %SO_KEEPALIVE,
+>    *               %SO_OOBINLINE settings, %SO_TIMESTAMPING settings
+> @@ -361,6 +362,7 @@ struct sock {
+>         kmemcheck_bitfield_end(flags);
+>         int                     sk_wmem_queued;
+>         gfp_t                   sk_allocation;
+> +       u32                     sk_pacing_rate; /* bytes per second */
+>         netdev_features_t       sk_route_caps;
+>         netdev_features_t       sk_route_nocaps;
+>         int                     sk_gso_type;
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index 09cb5c1..73fcd7c 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -281,6 +281,7 @@ extern int sysctl_tcp_early_retrans;
+>  extern int sysctl_tcp_limit_output_bytes;
+>  extern int sysctl_tcp_challenge_ack_limit;
+>  extern unsigned int sysctl_tcp_notsent_lowat;
+> +extern int sysctl_tcp_min_tso_segs;
+>
+>  extern atomic_long_t tcp_memory_allocated;
+>  extern struct percpu_counter tcp_sockets_allocated;
+> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+> index 8ed7c32..540279f 100644
+> --- a/net/ipv4/sysctl_net_ipv4.c
+> +++ b/net/ipv4/sysctl_net_ipv4.c
+> @@ -29,6 +29,7 @@
+>  static int zero;
+>  static int one = 1;
+>  static int four = 4;
+> +static int gso_max_segs = GSO_MAX_SEGS;
+>  static int tcp_retr1_max = 255;
+>  static int ip_local_port_range_min[] = { 1, 1 };
+>  static int ip_local_port_range_max[] = { 65535, 65535 };
+> @@ -761,6 +762,15 @@ static struct ctl_table ipv4_table[] = {
+>                 .extra2         = &four,
+>         },
+>         {
+> +               .procname       = "tcp_min_tso_segs",
+> +               .data           = &sysctl_tcp_min_tso_segs,
+> +               .maxlen         = sizeof(int),
+> +               .mode           = 0644,
+> +               .proc_handler   = proc_dointvec_minmax,
+> +               .extra1         = &zero,
+> +               .extra2         = &gso_max_segs,
+> +       },
+> +       {
+>                 .procname       = "udp_mem",
+>                 .data           = &sysctl_udp_mem,
+>                 .maxlen         = sizeof(sysctl_udp_mem),
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index ab64eea..e1714ee 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -283,6 +283,8 @@
+>
+>  int sysctl_tcp_fin_timeout __read_mostly = TCP_FIN_TIMEOUT;
+>
+> +int sysctl_tcp_min_tso_segs __read_mostly = 2;
+> +
+>  struct percpu_counter tcp_orphan_count;
+>  EXPORT_SYMBOL_GPL(tcp_orphan_count);
+>
+> @@ -785,12 +787,28 @@ static unsigned int tcp_xmit_size_goal(struct sock *sk, u32 mss_now,
+>         xmit_size_goal = mss_now;
+>
+>         if (large_allowed && sk_can_gso(sk)) {
+> -               xmit_size_goal = ((sk->sk_gso_max_size - 1) -
+> -                                 inet_csk(sk)->icsk_af_ops->net_header_len -
+> -                                 inet_csk(sk)->icsk_ext_hdr_len -
+> -                                 tp->tcp_header_len);
+> +               u32 gso_size, hlen;
+> +
+> +               /* Maybe we should/could use sk->sk_prot->max_header here ? */
+> +               hlen = inet_csk(sk)->icsk_af_ops->net_header_len +
+> +                      inet_csk(sk)->icsk_ext_hdr_len +
+> +                      tp->tcp_header_len;
+> +
+> +               /* Goal is to send at least one packet per ms,
+> +                * not one big TSO packet every 100 ms.
+> +                * This preserves ACK clocking and is consistent
+> +                * with tcp_tso_should_defer() heuristic.
+> +                */
+> +               gso_size = sk->sk_pacing_rate / (2 * MSEC_PER_SEC);
+> +               gso_size = max_t(u32, gso_size,
+> +                                sysctl_tcp_min_tso_segs * mss_now);
+> +
+> +               xmit_size_goal = min_t(u32, gso_size,
+> +                                      sk->sk_gso_max_size - 1 - hlen);
+>
+> -               /* TSQ : try to have two TSO segments in flight */
+> +               /* TSQ : try to have at least two segments in flight
+> +                * (one in NIC TX ring, another in Qdisc)
+> +                */
+>                 xmit_size_goal = min_t(u32, xmit_size_goal,
+>                                        sysctl_tcp_limit_output_bytes >> 1);
+>
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index ec492ea..3d63db7 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -688,6 +688,33 @@ static void tcp_rtt_estimator(struct sock *sk, const __u32 mrtt)
+>         }
+>  }
+>
+> +/* Set sk_pacing_rate to allow proper sizing of TSO packets.
+> + * Note: TCP stack does not yet implement pacing.
+> + * FQ packet scheduler can be used to implement cheap but effective
+> + * TCP pacing, to smooth the burst on large writes when packets
+> + * in flight is significantly lower than cwnd (or rwin)
+> + */
+> +static void tcp_update_pacing_rate(struct sock *sk)
+> +{
+> +       const struct tcp_sock *tp = tcp_sk(sk);
+> +       u64 rate;
+> +
+> +       /* set sk_pacing_rate to 200 % of current rate (mss * cwnd / rtt) */
+> +       rate = (u64)tp->mss_cache * 8 * 2 * USEC_PER_SEC;
+> +
+> +       rate *= max(tp->snd_cwnd, tp->packets_out);
+> +
+> +       do_div(rate, jiffies_to_usecs(tp->srtt));
+> +
+> +       /* Correction for small srtt : minimum srtt being 8 (1 jiffy),
+> +        * be conservative and assume rtt = 1/(8*HZ) instead of 1/HZ s
+> +        * We probably need usec resolution in the future.
+> +        */
+> +       if (tp->srtt <= 8 + 2)
+> +               rate <<= 3;
+> +       sk->sk_pacing_rate = min_t(u64, rate, ~0U);
+> +}
+> +
+>  /* Calculate rto without backoff.  This is the second half of Van Jacobson's
+>   * routine referred to above.
+>   */
+> @@ -3278,7 +3305,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+>         u32 ack_seq = TCP_SKB_CB(skb)->seq;
+>         u32 ack = TCP_SKB_CB(skb)->ack_seq;
+>         bool is_dupack = false;
+> -       u32 prior_in_flight;
+> +       u32 prior_in_flight, prior_cwnd = tp->snd_cwnd, prior_rtt = tp->srtt;
+>         u32 prior_fackets;
+>         int prior_packets = tp->packets_out;
+>         const int prior_unsacked = tp->packets_out - tp->sacked_out;
+> @@ -3383,6 +3410,8 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+>
+>         if (icsk->icsk_pending == ICSK_TIME_RETRANS)
+>                 tcp_schedule_loss_probe(sk);
+> +       if (tp->srtt != prior_rtt || tp->snd_cwnd != prior_cwnd)
+> +               tcp_update_pacing_rate(sk);
+>         return 1;
+>
+>  no_queue:
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 884efff..e63ae4c 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -1631,7 +1631,7 @@ static bool tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb)
+>
+>         /* If a full-sized TSO skb can be sent, do it. */
+>         if (limit >= min_t(unsigned int, sk->sk_gso_max_size,
+> -                          sk->sk_gso_max_segs * tp->mss_cache))
+> +                          tp->xmit_size_goal_segs * tp->mss_cache))
+>                 goto send_now;
+>
+>         /* Middle in queue won't get any more data, full sendable already? */
+>
+>
