@@ -1,65 +1,36 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 1/8] net: move netdev_upper to netdevice.h
-Date: Mon, 26 Aug 2013 18:41:15 +0200
-Message-ID: <20130826164115.GA1413@minipsycho.brq.redhat.com>
-References: <1377534533-6944-1-git-send-email-vfalico@redhat.com>
- <1377534533-6944-2-git-send-email-vfalico@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC 2/2] ipv6: Add support for IPsec virtual tunnel
+ interfaces
+Date: Mon, 26 Aug 2013 09:51:45 -0700
+Message-ID: <1377535905.8828.122.camel@edumazet-glaptop>
+References: <20130819062623.GN26773@secunet.com>
+	 <20130819062730.GP26773@secunet.com>
+	 <1377535058.11709.21.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <amwang@redhat.com>
-To: Veaceslav Falico <vfalico@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f50.google.com ([74.125.83.50]:40517 "EHLO
-	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752086Ab3HZQlT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 12:41:19 -0400
-Received: by mail-ee0-f50.google.com with SMTP id d51so1731079eek.37
-        for <netdev@vger.kernel.org>; Mon, 26 Aug 2013 09:41:18 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1377534533-6944-2-git-send-email-vfalico@redhat.com>
+Received: from mail-pb0-f53.google.com ([209.85.160.53]:39130 "EHLO
+	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752576Ab3HZQvr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 12:51:47 -0400
+Received: by mail-pb0-f53.google.com with SMTP id up15so3658634pbc.12
+        for <netdev@vger.kernel.org>; Mon, 26 Aug 2013 09:51:46 -0700 (PDT)
+In-Reply-To: <1377535058.11709.21.camel@dcbw.foobar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Aug 26, 2013 at 06:28:46PM CEST, vfalico@redhat.com wrote:
->So that any device can work with it to see its upper/master devices. It is
->rcu'd and rtnl_lock protected, so one should either hold the rtnl_lock() or
->to use the _rcu() functions for it.
->
->CC: "David S. Miller" <davem@davemloft.net>
->CC: Eric Dumazet <edumazet@google.com>
->CC: Jiri Pirko <jiri@resnulli.us>
->CC: Alexander Duyck <alexander.h.duyck@intel.com>
->CC: Cong Wang <amwang@redhat.com>
->Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
->---
-> include/linux/netdevice.h |    8 ++++++++
-> net/core/dev.c            |    8 --------
-> 2 files changed, 8 insertions(+), 8 deletions(-)
->
->diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->index 077363d..8cc7f43 100644
->--- a/include/linux/netdevice.h
->+++ b/include/linux/netdevice.h
->@@ -2764,6 +2764,14 @@ extern int		netdev_tstamp_prequeue;
-> extern int		weight_p;
-> extern int		bpf_jit_enable;
+On Mon, 2013-08-26 at 11:37 -0500, Dan Williams wrote:
+> On Mon, 2013-08-19 at 08:27 +0200, Steffen Klassert wrote:
+> > This patch adds IPv6  support for IPsec virtual tunnel interfaces
+> > (vti). IPsec virtual tunnel interfaces provide a routable interface
+> > for IPsec tunnel endpoints.
 > 
->+struct netdev_upper {
->+	struct net_device *dev;
->+	bool master;
->+	struct list_head list;
->+	struct rcu_head rcu;
->+	struct list_head search_list;
->+};
->+
+> Are new ioctls for this kind of thing kosher?  Or should it be using
+> netlink instead?
 
-
-I like your patchset.  However I'm not entirely comfortable with exposing
-this struct. I would love to have it "under control" in net/core/dev.c
-
-I'm thinking of some getter/iterator for this use. It can work by
-type as well so you would be able to remove the checks from bonding
-code.
+Please don't copy paste 1000 lines of patch, if you only had one
+comment.
