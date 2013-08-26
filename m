@@ -1,46 +1,155 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESEND V3 net-next 2/3] net: huawei_cdc_ncm: Introduce
- the huawei_cdc_ncm driver
-Date: Mon, 26 Aug 2013 16:31:25 -0400 (EDT)
-Message-ID: <20130826.163125.1134768821551948034.davem@davemloft.net>
-References: <mrkiko.rs@gmail.com>
-	<1377244590-8558-1-git-send-email-mrkiko.rs@gmail.com>
-	<1377244590-8558-3-git-send-email-mrkiko.rs@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, oliver@neukum.org,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: mrkiko.rs@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1377244590-8558-3-git-send-email-mrkiko.rs@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH net-next v1 4/9] bonding: make bond_arp_send_all use upper device list
+Date: Mon, 26 Aug 2013 22:32:37 +0200
+Message-ID: <1377549162-7522-5-git-send-email-vfalico@redhat.com>
+References: <1377549162-7522-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:6170 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751998Ab3HZUcc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Aug 2013 16:32:32 -0400
+In-Reply-To: <1377549162-7522-1-git-send-email-vfalico@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Date: Fri, 23 Aug 2013 09:56:29 +0200
+Currently, bond_arp_send_all() is aware only of vlans, which breaks
+configurations like bond <- bridge (or any other 'upper' device) with IP
+(which is quite a common scenario for virt setups).
 
-> +	if ((on && atomic_add_return(1, &drvstate->pmcount) == 1) || (!on && atomic_dec_and_test(&drvstate->pmcount))) {
+To fix this we convert the bond_arp_send_all() to first verify if the rt
+device is the bond itself, and if not - to go through its list of upper
+devices to see if any of them match the route device for the target. If the
+match is a vlan device - we also save its vlan_id and tag it in
+bond_arp_send().
 
-These line significantly exceeds 80 columns.
+Also, clean the function a bit to be more readable.
 
-> +		subdriver = usb_cdc_wdm_register(ctx->control,
-> +						 &usbnet_dev->status->desc,
-> +						 256, /* CDC-WMC r1.1 requires wMaxCommand to be "at least 256 decimal (0x100)" */
-> +						 huawei_cdc_ncm_wdm_manage_power);
+v1: use netdev_for_each_upper_dev()
 
-Likewise.
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+---
+ drivers/net/bonding/bond_main.c |   84 ++++++++++++++------------------------
+ 1 files changed, 31 insertions(+), 53 deletions(-)
 
-> +	if (intf == ctx->control && drvstate->subdriver && drvstate->subdriver->suspend)
-
-Likewise.
-
-> +	int ret = 0;
-> +	struct usbnet *usbnet_dev = usb_get_intfdata(intf);
-> +	struct huawei_cdc_ncm_state *drvstate = (void *)&usbnet_dev->data;
-> +	struct cdc_ncm_ctx *ctx = drvstate->ctx;
-> +	bool callsub = (intf == ctx->control && drvstate->subdriver && drvstate->subdriver->resume); /* should we call subdriver's resume? ? */
-
-Likewise, and order local function variable declarations by line
-length, longest to shortest.
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 7407e65..40eb250 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2444,30 +2444,16 @@ static void bond_arp_send(struct net_device *slave_dev, int arp_op, __be32 dest_
+ 
+ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+ {
+-	int i, vlan_id;
+-	__be32 *targets = bond->params.arp_targets;
+-	struct vlan_entry *vlan;
+-	struct net_device *vlan_dev = NULL;
++	struct net_device *upper;
++	struct list_head *iter;
+ 	struct rtable *rt;
++	__be32 *targets = bond->params.arp_targets, addr;
++	int i, vlan_id;
+ 
+-	for (i = 0; (i < BOND_MAX_ARP_TARGETS); i++) {
+-		__be32 addr;
+-		if (!targets[i])
+-			break;
++	for (i = 0; i < BOND_MAX_ARP_TARGETS && targets[i]; i++) {
+ 		pr_debug("basa: target %pI4\n", &targets[i]);
+-		if (!bond_vlan_used(bond)) {
+-			pr_debug("basa: empty vlan: arp_send\n");
+-			addr = bond_confirm_addr(bond->dev, targets[i], 0);
+-			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
+-				      addr, 0);
+-			continue;
+-		}
+ 
+-		/*
+-		 * If VLANs are configured, we do a route lookup to
+-		 * determine which VLAN interface would be used, so we
+-		 * can tag the ARP with the proper VLAN tag.
+-		 */
++		/* Find out through which dev should the packet go */
+ 		rt = ip_route_output(dev_net(bond->dev), targets[i], 0,
+ 				     RTO_ONLINK, 0);
+ 		if (IS_ERR(rt)) {
+@@ -2478,47 +2464,39 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+ 			continue;
+ 		}
+ 
+-		/*
+-		 * This target is not on a VLAN
+-		 */
+-		if (rt->dst.dev == bond->dev) {
+-			ip_rt_put(rt);
+-			pr_debug("basa: rtdev == bond->dev: arp_send\n");
+-			addr = bond_confirm_addr(bond->dev, targets[i], 0);
+-			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
+-				      addr, 0);
+-			continue;
+-		}
+-
+ 		vlan_id = 0;
+-		list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
+-			rcu_read_lock();
+-			vlan_dev = __vlan_find_dev_deep(bond->dev,
+-							htons(ETH_P_8021Q),
+-							vlan->vlan_id);
+-			rcu_read_unlock();
+-			if (vlan_dev == rt->dst.dev) {
+-				vlan_id = vlan->vlan_id;
+-				pr_debug("basa: vlan match on %s %d\n",
+-				       vlan_dev->name, vlan_id);
+-				break;
+-			}
+-		}
+ 
+-		if (vlan_id && vlan_dev) {
+-			ip_rt_put(rt);
+-			addr = bond_confirm_addr(vlan_dev, targets[i], 0);
+-			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
+-				      addr, vlan_id);
+-			continue;
++		/* bond device itself */
++		if (rt->dst.dev == bond->dev)
++			goto found;
++
++		/* search for upper device, like vlan/bridge/team/etc */
++		rcu_read_lock();
++		netdev_for_each_upper_dev(bond->dev, upper, iter) {
++			if (upper == rt->dst.dev) {
++				/* if it's a vlan - get its VID */
++				if (is_vlan_dev(rt->dst.dev))
++					vlan_id = vlan_dev_vlan_id(rt->dst.dev);
++
++				rcu_read_unlock();
++				goto found;
++			}
+ 		}
++		rcu_read_unlock();
+ 
+-		if (net_ratelimit()) {
++		/* Not our device - skip */
++		if (net_ratelimit())
+ 			pr_warning("%s: no path to arp_ip_target %pI4 via rt.dev %s\n",
+ 				   bond->dev->name, &targets[i],
+ 				   rt->dst.dev ? rt->dst.dev->name : "NULL");
+-		}
+ 		ip_rt_put(rt);
++		continue;
++
++found:
++		addr = bond_confirm_addr(rt->dst.dev, targets[i], 0);
++		ip_rt_put(rt);
++		bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
++			      addr, vlan_id);
+ 	}
+ }
+ 
+-- 
+1.7.1
