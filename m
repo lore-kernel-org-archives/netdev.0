@@ -1,59 +1,45 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next v1 0/9] bonding: remove vlan special handling
-Date: Mon, 26 Aug 2013 22:32:33 +0200
-Message-ID: <1377549162-7522-1-git-send-email-vfalico@redhat.com>
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <amwang@redhat.com>,
-	Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH net-next v1 6/9] bonding: use vlan_uses_dev() in __bond_release_one()
+Date: Mon, 26 Aug 2013 22:32:39 +0200
+Message-ID: <1377549162-7522-7-git-send-email-vfalico@redhat.com>
+References: <1377549162-7522-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61496 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:13381 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752298Ab3HZUce (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Aug 2013 16:32:34 -0400
+	id S1751740Ab3HZUdR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Aug 2013 16:33:17 -0400
+In-Reply-To: <1377549162-7522-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v1: Per Jiri's advice, remove the exported netdev_upper struct to keep it
-    inside dev.c only, and instead implement a macro to iterate over the
-    list and return only net_device *.
+We always hold the rtnl_lock() in __bond_release_one(), so use
+vlan_uses_dev() instead of bond_vlan_used().
 
-The aim of this patchset is to remove bondings' own vlan handling as much
-as possible and replace it with the netdev upper device functionality.
-
-This is achieved by adding a helper function to upper dev list handling -
-netdev_upper_get_next_dev(dev, iter), which returns the next device after
-the list_head **iter, and sets *iter to the next list_head *. This patchset
-also adds netdev_for_each_upper_dev(dev, upper, iter), which iterates
-through the whole dev->upper_dev_list, setting upper to the net_device.
-The only special treatment of vlans remains in rlb code.
-
-This patchset solves several issues with bonding, simplifies it overall,
-RCUify further and exports upper list functions for any other users which
-might also want to get rid of its own vlan_lists.
-
-I'm testing it continuously currently, no issues found, will update on
-anything.
+v1: no change
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Jiri Pirko <jiri@resnulli.us>
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
-CC: Cong Wang <amwang@redhat.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-
 ---
- drivers/net/bonding/bond_alb.c  |   75 ++++++------
- drivers/net/bonding/bond_alb.h  |    2 -
- drivers/net/bonding/bond_main.c |  244 ++++++++-------------------------------
- drivers/net/bonding/bonding.h   |   21 +++-
- include/linux/netdevice.h       |   10 ++
- net/core/dev.c                  |   25 ++++
- 6 files changed, 133 insertions(+), 244 deletions(-)
+ drivers/net/bonding/bond_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index dbac1ce..aaf14a0 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1954,7 +1954,7 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 		bond_set_carrier(bond);
+ 		eth_hw_addr_random(bond_dev);
+ 
+-		if (bond_vlan_used(bond)) {
++		if (vlan_uses_dev(bond_dev)) {
+ 			pr_warning("%s: Warning: clearing HW address of %s while it still has VLANs.\n",
+ 				   bond_dev->name, bond_dev->name);
+ 			pr_warning("%s: When re-adding slaves, make sure the bond's HW address matches its VLANs'.\n",
+-- 
+1.7.1
