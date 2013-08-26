@@ -1,91 +1,157 @@
-From: boris brezillon <b.brezillon@overkiz.com>
-Subject: Re: [PATCH v2 2/2] ARM: at91/dt: define phy available on sama5d3
- mother board
-Date: Mon, 26 Aug 2013 15:33:59 +0200
-Message-ID: <521B5947.6050009@overkiz.com>
-References: <1377520431-21807-1-git-send-email-b.brezillon@overkiz.com> <1377520540-21884-1-git-send-email-b.brezillon@overkiz.com> <521B5648.3020608@cogentembedded.com>
+From: Serge Hallyn <serge.hallyn@ubuntu.com>
+Subject: Re: [systemd-devel] [PATCH] netns: unix: only allow to find out unix
+ socket in same net namespace
+Date: Mon, 26 Aug 2013 08:53:37 -0500
+Message-ID: <20130826135337.GA9030@tp>
+References: <5214641C.9030902@cn.fujitsu.com>
+ <87wqnfttdf.fsf@xmission.com>
+ <52146AC2.5070409@cn.fujitsu.com>
+ <CAPXgP120YUEVnFiD0uPnqeO4x=5oRvHL79-cX5CnmEWc3d5mvQ@mail.gmail.com>
+ <1377450974.8757.41.camel@dabdike>
+ <CAPXgP115pEE8jxyCqauoMRWui3Qb0fBzPr9L2_SA411=gfnX3w@mail.gmail.com>
+ <1377454566.8757.53.camel@dabdike>
+ <521AAA23.9050604@cn.fujitsu.com>
+ <1377487159.2341.4.camel@dabdike>
+ <521ACCEF.4050101@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Rob Herring <rob.herring@calxeda.com>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Stephen Warren <swarren@wwwdotorg.org>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: James Bottomley <jbottomley@parallels.com>,
+	"systemd-devel@lists.freedesktop.org"
+	<systemd-devel@lists.freedesktop.org>,
+	"libvir-list@redhat.com" <libvir-list@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux Containers <containers@lists.linux-foundation.org>,
+	Kay Sievers <kay@vrfy.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"lxc-devel@lists.sourceforge.net" <lxc-devel@lists.sourceforge.net>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Gao feng <gaofeng@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5.mo3.mail-out.ovh.net ([87.98.178.36]:50396 "EHLO
-	mo3.mail-out.ovh.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756568Ab3HZNee (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 09:34:34 -0400
-Received: from mail402.ha.ovh.net (b6.ovh.net [213.186.33.56])
-	by mo3.mail-out.ovh.net (Postfix) with SMTP id A006FFF9110
-	for <netdev@vger.kernel.org>; Mon, 26 Aug 2013 15:34:33 +0200 (CEST)
-In-Reply-To: <521B5648.3020608@cogentembedded.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:52300 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751895Ab3HZNxz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 09:53:55 -0400
+Content-Disposition: inline
+In-Reply-To: <521ACCEF.4050101@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Sergei,
+Quoting Gao feng (gaofeng@cn.fujitsu.com):
+> On 08/26/2013 11:19 AM, James Bottomley wrote:
+> > On Mon, 2013-08-26 at 09:06 +0800, Gao feng wrote:
+> >> On 08/26/2013 02:16 AM, James Bottomley wrote:
+> >>> On Sun, 2013-08-25 at 19:37 +0200, Kay Sievers wrote:
+> >>>> On Sun, Aug 25, 2013 at 7:16 PM, James Bottomley
+> >>>> <jbottomley@parallels.com> wrote:
+> >>>>> On Wed, 2013-08-21 at 11:51 +0200, Kay Sievers wrote:
+> >>>>>> On Wed, Aug 21, 2013 at 9:22 AM, Gao feng <gaofeng@cn.fujitsu.com> wrote:
+> >>>>>>> On 08/21/2013 03:06 PM, Eric W. Biederman wrote:
+> >>>>>>
+> >>>>>>>> I suspect libvirt should simply not share /run or any other normally
+> >>>>>>>> writable directory with the host.  Sharing /run /var/run or even /tmp
+> >>>>>>>> seems extremely dubious if you want some kind of containment, and
+> >>>>>>>> without strange things spilling through.
+> >>>>>>
+> >>>>>> Right, /run or /var cannot be shared. It's not only about sockets,
+> >>>>>> many other things will also go really wrong that way.
+> >>>>>
+> >>>>> This is very narrow thinking about what a container might be and will
+> >>>>> cause trouble as people start to create novel uses for containers in the
+> >>>>> cloud if you try to impose this on our current infrastructure.
+> >>>>>
+> >>>>> One of the cgroup only container uses we see at Parallels (so no
+> >>>>> separate filesystem and no net namespaces) is pure apache load balancer
+> >>>>> type shared hosting.  In this scenario, base apache is effectively
+> >>>>> brought up in the host environment, but then spawned instances are
+> >>>>> resource limited using cgroups according to what the customer has paid.
+> >>>>> Obviously all apache instances are sharing /var and /run from the host
+> >>>>> (mostly for logging and pid storage and static pages).  The reason some
+> >>>>> hosters do this is that it allows much higher density simple web serving
+> >>>>> (either static pages from quota limited chroots or dynamic pages limited
+> >>>>> by database space constraints) because each "instance" shares so much
+> >>>>> from the host.  The service is obviously much more basic than giving
+> >>>>> each customer a container running apache, but it's much easier for the
+> >>>>> hoster to administer and it serves the customer just as well for a large
+> >>>>> cross section of use cases and for those it doesn't serve, the hoster
+> >>>>> usually has separate container hosting (for a higher price, of course).
+> >>>>
+> >>>> The "container" as we talk about has it's own init, and no, it cannot
+> >>>> share /var or /run.
+> >>>
+> >>> This is what we would call an IaaS container: bringing up init and
+> >>> effectively a new OS inside a container is the closest containers come
+> >>> to being like hypervisors.  It's the most common use case of Parallels
+> >>> containers in the field, so I'm certainly not telling you it's a bad
+> >>> idea.
+> >>>
+> >>>> The stuff you talk about has nothing to do with that, it's not
+> >>>> different from all services or a multi-instantiated service on the
+> >>>> host sharing the same /run and /var.
+> >>>
+> >>> I gave you one example: a really simplistic one.  A more sophisticated
+> >>> example is a PaaS or SaaS container where you bring the OS up in the
+> >>> host but spawn a particular application into its own container (this is
+> >>> essentially similar to what Docker does).  Often in this case, you do
+> >>> add separate mount and network namespaces to make the application
+> >>> isolated and migrateable with its own IP address.  The reason you share
+> >>> init and most of the OS from the host is for elasticity and density,
+> >>> which are fast becoming a holy grail type quest of cloud orchestration
+> >>> systems: if you don't have to bring up the OS from init and you can just
+> >>> start the application from a C/R image (orders of magnitude smaller than
+> >>> a full system image) and slap on the necessary namespaces as you clone
+> >>> it, you have something that comes online in miliseconds which is a feat
+> >>> no hypervisor based virtualisation can match.
+> >>>
+> >>> I'm not saying don't pursue the IaaS case, it's definitely useful ...
+> >>> I'm just saying it would be a serious mistake to think that's the only
+> >>> use case for containers and we certainly shouldn't adjust Linux to serve
+> >>> only that use case.
+> >>>
+> >>
+> >> The feature you said above VS contianer-reboot-host bug, I prefer to
+> >> fix
+> >> the bug.
+> > 
+> > What bug?
+> > 
+> >>  and this feature can be achieved even container unshares /run
+> >> directory
+> >> with host by default, for libvirt, user can set the container
+> >> configuration to
+> >> make the container shares the /run directory with host.
+> >>
+> >> I would like to say, the reboot from container bug is more urgent and
+> >> need
+> >> to be fixed.
+> > 
+> > Are you talking about the old bug where trying to reboot an lxc
+> > container from within it would reboot the entire system? 
+> 
+> Yes, we are discussing this problem in this whole thread.
+> 
+>  If so, OpenVZ
+> > has never suffered from that problem and I thought it was fixed
+> > upstream.  I've not tested lxc tools, but the latest vzctl from the
+> > openvz website will bring up a container on the vanilla 3.9 kernel
+> > (provided you have USER_NS compiled in) can also be used to reboot the
+> > container, so I see no reason it wouldn't work for lxc as well.
+> > 
+> 
+> I'm using libvirt lxc not lxc-tools.
+> Not all of users enable user namespace, I trust these container management
+> tools can have right/proper setting which inhibit this reboot-problem occur.
+> but I don't think this reboot-problem won't happen in any configuration.
 
-On 26/08/2013 15:21, Sergei Shtylyov wrote:
-> Hello.
->
-> On 26-08-2013 16:35, Boris BREZILLON wrote:
->
->> This patch describe the phy used on atmel sama5d3 mother board:
->>   - phy address
->>   - phy interrupt pin
->
->> Signed-off-by: Boris BREZILLON <b.brezillon@overkiz.com>
->> ---
->>   arch/arm/boot/dts/sama5d3xmb.dtsi |    8 ++++++++
->>   1 file changed, 8 insertions(+)
->
->> diff --git a/arch/arm/boot/dts/sama5d3xmb.dtsi 
->> b/arch/arm/boot/dts/sama5d3xmb.dtsi
->> index 8a9e05d..e9521d5 100644
->> --- a/arch/arm/boot/dts/sama5d3xmb.dtsi
->> +++ b/arch/arm/boot/dts/sama5d3xmb.dtsi
->> @@ -81,6 +81,14 @@
->>
->>               macb1: ethernet@f802c000 {
->>                   phy-mode = "rmii";
->> +
->> +                #address-cells = <1>;
->> +                #size-cells = <0>;
->> +                phy0: ethernet-phy@0 {
->
->    Address part of the node name doesn't match the "reg" property.
+On any recent kernel, reboot syscall from inside a non-init pid-ns will
+not reboot the host.  If from within a non-init pid-ns you are managing
+to reboot the host, then you have a problem with how userspace is set
+up.  The container is being allowed to request init on the host to
+do the reboot - ie by sharing /dev/initctl inode with the host, or by
+being in same net namespace as upstart on the host.
 
-Indeed, I based my definition on arch/arc/boot/dts/angel4.dts where phy 
-is registered like this :
+The fact that it's possible to create such containers is not a bug.
 
-             phy0: ethernet-phy@0 {
-                 reg = <1>;
-             };
+(On older kernels, you have to drop CAP_SYS_BOOT to prevent use of
+reboot system call, as all lxc-like programs did.)
 
-I think it's buggy there too, because I checked other dts files and they 
-all put the same address
-after @ and in reg register.
-
-I'll fix this fot the next version.
-
-Thanks
-
-Best Regards,
-Boris
-
-
-
->
->> +                    interrupt-parent = <&pioE>;
->> +                    interrupts = <30 IRQ_TYPE_EDGE_FALLING>;
->> +                    reg = <1>;
->> +                };
->
-> WBR, Sergei
->
+-serge
