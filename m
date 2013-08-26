@@ -1,61 +1,43 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next v1 3/9] bonding: use netdev_upper list in bond_vlan_used
-Date: Mon, 26 Aug 2013 22:32:36 +0200
-Message-ID: <1377549162-7522-4-git-send-email-vfalico@redhat.com>
-References: <1377549162-7522-1-git-send-email-vfalico@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH net-next 0/8] bonding: remove vlan special handling
+Date: Mon, 26 Aug 2013 22:33:47 +0200
+Message-ID: <20130826203347.GA26371@redhat.com>
+References: <1377534533-6944-1-git-send-email-vfalico@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61715 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51799 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751653Ab3HZUeW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Aug 2013 16:34:22 -0400
-In-Reply-To: <1377549162-7522-1-git-send-email-vfalico@redhat.com>
+	id S1751739Ab3HZUfG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Aug 2013 16:35:06 -0400
+Content-Disposition: inline
+In-Reply-To: <1377534533-6944-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert bond_vlan_used() to traverse the upper device list to see if we
-have any vlans above us. It's protected by rcu, and in case we are holding
-rtnl_lock we should call vlan_uses_dev() instead - it's faster.
+On Mon, Aug 26, 2013 at 06:28:45PM +0200, Veaceslav Falico wrote:
+>The aim of this patchset is to remove bondings' own vlan handling as much
+>as possible and replace it with the netdev upper device functionality.
+>
+>This is achieved by exporting the netdev_upper structure and thus permiting
+>bonding to work directly with its upper devices. The only non-bonding
+>change is the exporting of netdev_upper, and the only special treatment of
+>vlans left is in the rlb mode.
+>
+>This patchset solves several issues with bonding, simplifies it overall,
+>RCUify further and exports netdev_upper for any other users which might
+>also want to get rid of its own vlan_lists.
+>
+>I'm testing it continuously currently, no issues found, will update on
+>anything.
 
-v1: use netdev_for_each_upper_dev()
-
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
- drivers/net/bonding/bonding.h |   15 ++++++++++++++-
- 1 files changed, 14 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 4bf52d5..9392e00 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -267,9 +267,22 @@ struct bonding {
- #endif /* CONFIG_DEBUG_FS */
- };
- 
-+/* if we hold rtnl_lock() - call vlan_uses_dev() */
- static inline bool bond_vlan_used(struct bonding *bond)
- {
--	return !list_empty(&bond->vlan_list);
-+	struct net_device *upper;
-+	struct list_head *iter;
-+
-+	rcu_read_lock();
-+	netdev_for_each_upper_dev(bond->dev, upper, iter) {
-+		if (upper->priv_flags & IFF_802_1Q_VLAN) {
-+			rcu_read_unlock();
-+			return true;
-+		}
-+	}
-+	rcu_read_unlock();
-+
-+	return false;
- }
- 
- #define bond_slave_get_rcu(dev) \
--- 
-1.7.1
+Self-NAK on the whole series, changed the upper device management approach,
+as suggested by Jiri, and sent the new version.
