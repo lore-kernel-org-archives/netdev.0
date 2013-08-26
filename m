@@ -1,129 +1,43 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next 6/8] bonding: split alb_send_learning_packets()
-Date: Mon, 26 Aug 2013 18:28:51 +0200
-Message-ID: <1377534533-6944-7-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next 5/8] bonding: use vlan_uses_dev() in __bond_release_one()
+Date: Mon, 26 Aug 2013 18:28:50 +0200
+Message-ID: <1377534533-6944-6-git-send-email-vfalico@redhat.com>
 References: <1377534533-6944-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44553 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:31379 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757190Ab3HZQ24 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Aug 2013 12:28:56 -0400
+	id S1752130Ab3HZQ2z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Aug 2013 12:28:55 -0400
 In-Reply-To: <1377534533-6944-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Create alb_send_lp_vid(), which will handle the skb/lp creation, vlan
-tagging and sending, and use it in alb_send_learning_packets().
-
-This way all the logic remains in alb_send_learning_packets(), which
-becomes a lot more cleaner and easier to understand.
+We always hold the rtnl_lock() in __bond_release_one(), so use
+vlan_uses_dev() instead of bond_vlan_used().
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_alb.c |   59 +++++++++++++++++++++++----------------
- 1 files changed, 35 insertions(+), 24 deletions(-)
+ drivers/net/bonding/bond_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 3a5db7b..3ca3c85 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -971,35 +971,53 @@ static void rlb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index f3787a2..9af37e6 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1954,7 +1954,7 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 		bond_set_carrier(bond);
+ 		eth_hw_addr_random(bond_dev);
  
- /*********************** tlb/rlb shared functions *********************/
- 
--static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
-+static void alb_send_lp_vid(struct slave *slave, u8 mac_addr[],
-+			    u16 vid)
- {
--	struct bonding *bond = bond_get_bond_by_slave(slave);
- 	struct learning_pkt pkt;
-+	struct sk_buff *skb;
- 	int size = sizeof(struct learning_pkt);
--	int i;
-+	char *data;
- 
- 	memset(&pkt, 0, size);
- 	memcpy(pkt.mac_dst, mac_addr, ETH_ALEN);
- 	memcpy(pkt.mac_src, mac_addr, ETH_ALEN);
- 	pkt.type = cpu_to_be16(ETH_P_LOOP);
- 
--	for (i = 0; i < MAX_LP_BURST; i++) {
--		struct sk_buff *skb;
--		char *data;
-+	skb = dev_alloc_skb(size);
-+	if (!skb)
-+		return;
- 
--		skb = dev_alloc_skb(size);
-+	data = skb_put(skb, size);
-+	memcpy(data, &pkt, size);
-+
-+	skb_reset_mac_header(skb);
-+	skb->network_header = skb->mac_header + ETH_HLEN;
-+	skb->protocol = pkt.type;
-+	skb->priority = TC_PRIO_CONTROL;
-+	skb->dev = slave->dev;
-+
-+	if (vid) {
-+		skb = vlan_put_tag(skb, htons(ETH_P_8021Q), vid);
- 		if (!skb) {
-+			pr_err("%s: Error: failed to insert VLAN tag\n",
-+			       slave->bond->dev->name);
- 			return;
- 		}
-+	}
- 
--		data = skb_put(skb, size);
--		memcpy(data, &pkt, size);
-+	dev_queue_xmit(skb);
-+}
- 
--		skb_reset_mac_header(skb);
--		skb->network_header = skb->mac_header + ETH_HLEN;
--		skb->protocol = pkt.type;
--		skb->priority = TC_PRIO_CONTROL;
--		skb->dev = slave->dev;
-+
-+static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
-+{
-+	struct bonding *bond = bond_get_bond_by_slave(slave);
-+	u16 vlan_id;
-+	int i;
-+
-+	for (i = 0; i < MAX_LP_BURST; i++) {
-+		vlan_id = 0;
- 
- 		if (bond_vlan_used(bond)) {
- 			struct vlan_entry *vlan;
-@@ -1008,20 +1026,13 @@ static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
- 					      bond->alb_info.current_alb_vlan);
- 
- 			bond->alb_info.current_alb_vlan = vlan;
--			if (!vlan) {
--				kfree_skb(skb);
-+			if (!vlan)
- 				continue;
--			}
- 
--			skb = vlan_put_tag(skb, htons(ETH_P_8021Q), vlan->vlan_id);
--			if (!skb) {
--				pr_err("%s: Error: failed to insert VLAN tag\n",
--				       bond->dev->name);
--				continue;
--			}
-+			vlan_id = vlan->vlan_id;
- 		}
- 
--		dev_queue_xmit(skb);
-+		alb_send_lp_vid(slave, mac_addr, vlan_id);
- 	}
- }
- 
+-		if (bond_vlan_used(bond)) {
++		if (vlan_uses_dev(bond_dev)) {
+ 			pr_warning("%s: Warning: clearing HW address of %s while it still has VLANs.\n",
+ 				   bond_dev->name, bond_dev->name);
+ 			pr_warning("%s: When re-adding slaves, make sure the bond's HW address matches its VLANs'.\n",
 -- 
 1.7.1
