@@ -1,79 +1,108 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: Re: [GLIBC Patch v2] inet: avoid redefinition of some structs in kernel
-Date: Mon, 26 Aug 2013 01:26:04 -0400
-Message-ID: <201308260126.06626.vapier@gentoo.org>
-References: <1376558891-26221-1-git-send-email-amwang@redhat.com> <1376558891-26221-2-git-send-email-amwang@redhat.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH v4 3/5] net: ethernet: cpsw: introduce ti,am3352-cpsw
+ compatible string
+Date: Mon, 26 Aug 2013 11:29:43 +0530
+Message-ID: <521AEECF.8060606@ti.com>
+References: <1377267365-24057-1-git-send-email-zonque@gmail.com>
+ <1377267365-24057-4-git-send-email-zonque@gmail.com>
+ <52177052.1030308@ti.com> <52178E20.5040404@gmail.com>
+ <52179448.1020906@ti.com> <5217974B.5090503@ti.com> <521799A3.7080706@ti.com>
+ <52179AD6.8090406@gmail.com> <52179BDA.50603@ti.com>
+ <52179E44.5030202@ti.com> <5217A59E.4090700@ti.com> <5217AA15.7010907@ti.com>
+ <5217BDFA.5040904@ti.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart35333509.o562GfR97c";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Thomas Backlund <tmb@mageia.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	"Carlos O'Donell" <carlos@redhat.com>
-To: libc-alpha@sourceware.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:42261 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755409Ab3HZF0A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Aug 2013 01:26:00 -0400
-In-Reply-To: <1376558891-26221-2-git-send-email-amwang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devicetree@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
+ d-gerlach@ti.com, netdev@vger.kernel.org, Sekhar Nori <nsekhar@ti.com>,
+ vaibhav.bedia@ti.com, Daniel Mack <zonque@gmail.com>, bcousson@baylibre.com,
+ ujhelyi.m@gmail.com, linux-omap@vger.kernel.org, davem@davemloft.net,
+ linux-arm-kernel@lists.infradead.org
+To: Santosh Shilimkar <santosh.shilimkar@ti.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <5217BDFA.5040904@ti.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
---nextPart35333509.o562GfR97c
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
+On Saturday 24 August 2013 01:24 AM, Santosh Shilimkar wrote:
+> On Friday 23 August 2013 02:29 PM, Mugunthan V N wrote:
+>> On Friday 23 August 2013 11:40 PM, Santosh Shilimkar wrote:
+>>> On Friday 23 August 2013 01:39 PM, Sekhar Nori wrote:
+>>>> On 8/23/2013 10:58 PM, Santosh Shilimkar wrote:
+>>>>> On Friday 23 August 2013 01:24 PM, Daniel Mack wrote:
+>>>>>> On 23.08.2013 19:19, Santosh Shilimkar wrote:
+>>>>>>> On Friday 23 August 2013 01:09 PM, Sekhar Nori wrote:
+>>>>>>>> On 8/23/2013 10:26 PM, Santosh Shilimkar wrote:
+>>>>>>>>> So just stick the IP version or call it cpsw-v1... cpsw-v2 etc.
+>>>>>>>> If this could be handled using IP version then the right way would be to
+>>>>>>>> just read the IP version from hardware and use it. No need of DT property.
+>>>>>>>>
+>>>>>>> Thats fine as well but I thought the patch needed additional properties like
+>>>>>>> CM reg-address come from DT and hence the separate compatible. If you can
+>>>>>>> manage without that, thats even better.
+>>>>>> We can't, that's the whole point :)
+>>>>>>
+>>>>> I saw that from the patch :)
+>>>>>
+>>>>>> Well, theoretically, we could for now, but that's not a clean solution.
+>>>>>> Again: the problem here is that the control port is separated from the
+>>>>>> cpsw core, and so we have to implement something specific for the AM3352
+>>>>>> SoC. I know that's a violation of clean and generic driver ideas, but
+>>>>>> there's no way we can assume that every cpsw v2 ip block has a control
+>>>>>> port that is compatible to the one found on am335x chips.
+>>>>>>
+>>>>> But there is a possibility that other SOC will just use the same
+>>>>> control module approach. So using a revision IP is just fine. BTW,
+>>>> But this is misleading because it makes appear like the same compatible
+>>>> can be used on on another SoC like DRA7 which probably has the same
+>>>> version of IP but a different control module implementation, when in
+>>>> practice it cannot.
+>>>>
+>>>> The fact is we are doing something SoC specific in the driver and we
+>>>> cannot hide that behind IP versions. If really in practice there comes
+>>>> another SoC with the same control module definition then it can always
+>>>> use ti,am3352-cpsw compatible as well. The compatible name does not
+>>>> preclude its usage.
+>>>>
+>>> My point was the CPSW needs a feature which is implemented using
+>>> control module rather than within the IP itself. Its an implementation
+>>> detail. As such the additional feature makes sense for that IP. O.w
+>>> there was no need to do any monkeying with control module.
+>>>
+>>> E.g
+>>> MMC card detect is a basic functionality, implemented by various types
+>>> like control module, PMIC or MMC IP itself. As such the driver need
+>>> that support and all the implementation details needs to still handled
+>>> to make that part work.
+>>>
+>>>
+>> CPSW core as such understands only GMII/MII signals, there is an
+>> additional module which converts GMII/MII signals to RGMII/RMII signals
+>> respectively which is called as CPRGMII/CPRMII as specified in the
+>> AM335x TRM in Figure 14-1. Ethernet Switch Integration.
+>>
+>> So to control this sub-module, the control register is used and this has
+>> to be configured according to the EVM design like what mode of phy is
+>> connected. CPRGMII and CPRMII is no way related to CPSW core.
+>>
+> Ok then why are you polluting cpsw driver with that code which
+> not realted to CPSW as you said above. You are contradicting what
+> you said by supporting the SOC usage in the core CPSW driver.
+This patch series is not from me and because of the reason I mentioned
+about control module driver, so that cpsw driver can make use control
+module apis to select phy mode and control module driver takes care of
+SoC specific register offsets and definitions, but now it is not
+possible as it is not acceptable in mainline. So other way is to keep
+these in driver itself as it is done in this patch series with SoC
+compatibilities.
 
-On Thursday 15 August 2013 05:28:11 Cong Wang wrote:
-> From: Carlos O'Donell <carlos@redhat.com>
->=20
-> - Synchronize linux's `include/uapi/linux/in6.h'
->   with glibc's `inet/netinet/in.h'.
-> - Synchronize glibc's `inet/netinet/in.h with linux's
->   `include/uapi/linux/in6.h'.
-> - Allow including the headers in either other.
-> - First header included defines the structures and macros.
->=20
-> Notes:
-> - You want netinet/in.h to include bits/in.h as early as possible,
->   but it needs in_addr so define in_addr early.
-> - You want bits/in.h included as early as possible so you can use
->   the linux specific code to define __USE_KERNEL_DEFS based on
->   the _UAPI_* macro definition and use those to cull in.h.
-> - glibc was missing IPPROTO_MH, added here.
-
-can we get something better documented here in a central location ?  having=
-=20
-the names laid out in a git commit message and in a few leaf headers does n=
-ot=20
-lend itself to being easily discoverable.
-=2Dmike
-
---nextPart35333509.o562GfR97c
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.17 (GNU/Linux)
-
-iQIcBAABAgAGBQJSGubuAAoJEEFjO5/oN/WBtwUP/AprWa3qus+KcUn0gKi8Ud/1
-YW4WvJgxfJyrN9bFHdsab6uTebcuuxcxlW63Kxyi1J+X+JW6bvGXSVWE96UV7UtX
-2si1HcsG4NkT2t8hQWWJ4BQ1xMRxWrgvzuRzY6EqCy8gGtM5QusUXPwuGR7p5kMg
-g4+0+7nFTKWfsvHTfWf/T3tJrieLWRoo1pRjLiklENXaIHBJyit1PPgK3znE5FvV
-1XhUdgUOctj/hDRc149Zd1WfUuhXoXglbLMpzg8a6iWAx5K5nRvu/ZI/rx2I1Ou0
-WMKl6odQAn0FbKBSAeL+EiL6WkJWbq/7sTqq00EJ4+SJapAfyl0h8x9eWyAlSrWM
-mfEARXNudE56wGsOy2W00blIRjednd6U0dE16SAX989/ajUqbv08XRxp1ecUmv3u
-JCvQSG8nHjxUez5dTR5dUPUWnvHK8M7QkVsdbZlFQaw0fWTHzUH/zqL/7r4bzi9E
-1p6BMZlbCItuXXEBwMvMTD39WscpHlBZwj9SsuOkeGOLVprsdKN4h29N8JYXdkfr
-dJkH6fqX2yKq3mr1syi9AVCq3RHUr5/25tSfX+S5cEomVIccC+FCn1y4nUzrlYi1
-Gv3bjwFwQ8KnH5ANYXo7AQcOCKcSkqlWxlhwaCTp7+nK5crKA39EyF4IYVTL46Jm
-VJdxnLCOdKHv2SID7MV0
-=mSra
------END PGP SIGNATURE-----
-
---nextPart35333509.o562GfR97c--
+Regards
+Mugunthan V N
