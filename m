@@ -1,7 +1,7 @@
 From: Rob Herring <robherring2@gmail.com>
-Subject: [PATCH 11/11] net: calxedaxgmac: fix xgmac_xmit DMA mapping error handling
-Date: Mon, 26 Aug 2013 17:45:26 -0500
-Message-ID: <1377557126-10716-11-git-send-email-robherring2@gmail.com>
+Subject: [PATCH 05/11] net: calxedaxgmac: update ring buffer tx_head after barriers
+Date: Mon, 26 Aug 2013 17:45:20 -0500
+Message-ID: <1377557126-10716-5-git-send-email-robherring2@gmail.com>
 References: <1377557126-10716-1-git-send-email-robherring2@gmail.com>
 Cc: Andreas Herrmann <andreas.herrmann@calxeda.com>,
 	Lennert Buytenhek <buytenh@wantstofly.org>,
@@ -14,78 +14,31 @@ List-Id: netdev.vger.kernel.org
 
 From: Rob Herring <rob.herring@calxeda.com>
 
-On a DMA mapping error in xgmac_xmit, we should simply free the skb and
-return NETDEV_TX_OK rather than -EIO. In the case of errors in mapping
-frags, we need to undo everything that has been setup.
+Ensure that the descriptor writes are visible before the ring buffer head
+is updated. Since writel is a barrier, we can simply update the head after
+the writel.
 
-Reported-by: Andreas Herrmann <andreas.herrmann@calxeda.com>
+Reported-by: Lennert Buytenhek <buytenh@wantstofly.org>
 Signed-off-by: Rob Herring <rob.herring@calxeda.com>
 ---
- drivers/net/ethernet/calxeda/xgmac.c | 31 ++++++++++++++++++++++++++-----
- 1 file changed, 26 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/calxeda/xgmac.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
-index f149c08..0022887 100644
+index 64854ad..f630855 100644
 --- a/drivers/net/ethernet/calxeda/xgmac.c
 +++ b/drivers/net/ethernet/calxeda/xgmac.c
-@@ -466,6 +466,13 @@ static inline void desc_set_tx_owner(struct xgmac_dma_desc *p, u32 flags)
- 	p->flags = cpu_to_le32(tmpflags);
- }
+@@ -1121,9 +1121,10 @@ static netdev_tx_t xgmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	wmb();
+ 	desc_set_tx_owner(first, desc_flags | TXDESC_FIRST_SEG);
  
-+static inline void desc_clear_tx_owner(struct xgmac_dma_desc *p)
-+{
-+	u32 tmpflags = le32_to_cpu(p->flags);
-+	tmpflags &= TXDESC_END_RING;
-+	p->flags = cpu_to_le32(tmpflags);
-+}
++	writel(1, priv->base + XGMAC_DMA_TX_POLL);
 +
- static inline int desc_get_tx_ls(struct xgmac_dma_desc *p)
- {
- 	return le32_to_cpu(p->flags) & TXDESC_LAST_SEG;
-@@ -1103,7 +1110,7 @@ static netdev_tx_t xgmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 	paddr = dma_map_single(priv->device, skb->data, len, DMA_TO_DEVICE);
- 	if (dma_mapping_error(priv->device, paddr)) {
- 		dev_kfree_skb(skb);
--		return -EIO;
-+		return NETDEV_TX_OK;
- 	}
- 	priv->tx_skbuff[entry] = skb;
- 	desc_set_buf_addr_and_size(desc, paddr, len);
-@@ -1115,10 +1122,8 @@ static netdev_tx_t xgmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	priv->tx_head = dma_ring_incr(entry, DMA_TX_RING_SZ);
  
- 		paddr = skb_frag_dma_map(priv->device, frag, 0, len,
- 					 DMA_TO_DEVICE);
--		if (dma_mapping_error(priv->device, paddr)) {
--			dev_kfree_skb(skb);
--			return -EIO;
--		}
-+		if (dma_mapping_error(priv->device, paddr))
-+			goto dma_err;
- 
- 		entry = dma_ring_incr(entry, DMA_TX_RING_SZ);
- 		desc = priv->dma_tx + entry;
-@@ -1154,6 +1159,22 @@ static netdev_tx_t xgmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 			netif_wake_queue(dev);
- 	}
- 	return NETDEV_TX_OK;
-+
-+dma_err:
-+	entry = priv->tx_head;
-+	for ( ; i > 0; i--) {
-+		entry = dma_ring_incr(entry, DMA_TX_RING_SZ);
-+		desc = priv->dma_tx + entry;
-+		priv->tx_skbuff[entry] = NULL;
-+		dma_unmap_page(priv->device, desc_get_buf_addr(desc),
-+			       desc_get_buf_len(desc), DMA_TO_DEVICE);
-+		desc_clear_tx_owner(desc);
-+	}
-+	desc = first;
-+	dma_unmap_single(priv->device, desc_get_buf_addr(desc),
-+			 desc_get_buf_len(desc), DMA_TO_DEVICE);
-+	dev_kfree_skb(skb);
-+	return NETDEV_TX_OK;
- }
- 
- static int xgmac_rx(struct xgmac_priv *priv, int limit)
+-	writel(1, priv->base + XGMAC_DMA_TX_POLL);
+ 	if (dma_ring_space(priv->tx_head, priv->tx_tail, DMA_TX_RING_SZ) <
+ 	    MAX_SKB_FRAGS)
+ 		netif_stop_queue(dev);
 -- 
 1.8.1.2
