@@ -1,7 +1,7 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next v1 1/9] net: add netdev_upper_get_next_dev(dev, iter)
-Date: Mon, 26 Aug 2013 22:32:34 +0200
-Message-ID: <1377549162-7522-2-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next v1 2/9] net: add netdev_for_each_upper_dev()
+Date: Mon, 26 Aug 2013 22:32:35 +0200
+Message-ID: <1377549162-7522-3-git-send-email-vfalico@redhat.com>
 References: <1377549162-7522-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>,
@@ -11,17 +11,19 @@ Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47765 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:49264 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752425Ab3HZUcd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Aug 2013 16:32:33 -0400
+	id S1752442Ab3HZUcf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Aug 2013 16:32:35 -0400
 In-Reply-To: <1377549162-7522-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This function returns the next dev in the dev->upper_dev_list after the
-struct list_head **iter position, and updates *iter accordingly. Returns
-NULL if there are no devices left.
+The new macro netdev_for_each_upper_dev(dev, upper, iter) iterates through
+the dev->upper_dev_list starting from the first element, using the
+netdev_upper_get_next_dev(dev, &iter).
+
+Must be called under RCU read lock.
 
 v1: new patch
 
@@ -32,44 +34,29 @@ CC: Alexander Duyck <alexander.h.duyck@intel.com>
 CC: Cong Wang <amwang@redhat.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- net/core/dev.c |   25 +++++++++++++++++++++++++
- 1 files changed, 25 insertions(+), 0 deletions(-)
+ include/linux/netdevice.h |   10 ++++++++++
+ 1 files changed, 10 insertions(+), 0 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 1ed2b66..566e99a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4477,6 +4477,31 @@ struct net_device *netdev_master_upper_dev_get(struct net_device *dev)
- }
- EXPORT_SYMBOL(netdev_master_upper_dev_get);
- 
-+/* netdev_upper_get_next_dev - Get the next dev from upper list
-+ * @dev: device
-+ * @iter: list_head ** of the current position
-+ *
-+ * Gets the next device from the dev's upper list, starting from iter
-+ * position. The caller must hold RCU read lock.
-+ */
-+struct net_device *netdev_upper_get_next_dev(struct net_device *dev,
-+					     struct list_head **iter)
-+{
-+	struct netdev_upper *upper;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 077363d..85590b6 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2767,6 +2767,16 @@ extern int		bpf_jit_enable;
+ extern bool netdev_has_upper_dev(struct net_device *dev,
+ 				 struct net_device *upper_dev);
+ extern bool netdev_has_any_upper_dev(struct net_device *dev);
++extern struct net_device *netdev_upper_get_next_dev(struct net_device *dev,
++						    struct list_head **iter);
 +
-+	WARN_ON_ONCE(!rcu_read_lock_held());
++/* iterate through upper list, must be called under RCU read lock */
++#define netdev_for_each_upper_dev(dev, upper, iter) \
++	for (iter = &(dev)->upper_dev_list, \
++	     upper = netdev_upper_get_next_dev(dev, &(iter)); \
++	     upper; \
++	     upper = netdev_upper_get_next_dev(dev, &(iter)))
 +
-+	upper = list_entry_rcu((*iter)->next, struct netdev_upper, list);
-+
-+	if (&upper->list == &dev->upper_dev_list)
-+		return NULL;
-+
-+	*iter = &upper->list;
-+
-+	return upper->dev;
-+}
-+EXPORT_SYMBOL(netdev_upper_get_next_dev);
-+
- /**
-  * netdev_master_upper_dev_get_rcu - Get master upper device
-  * @dev: device
+ extern struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
+ extern struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
+ extern int netdev_upper_dev_link(struct net_device *dev,
 -- 
 1.7.1
