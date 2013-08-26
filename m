@@ -1,68 +1,105 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: Re: pcie_get_minimum_link returns 0 width
-Date: Mon, 26 Aug 2013 16:05:18 -0600
-Message-ID: <CAErSpo4NmL0RWcBompuweHNYmhNmLXU_21_gvaqfDEzi+HBp5g@mail.gmail.com>
-References: <20130825100157.GA16500@lb-tlvb-yuvalmin.il.broadcom.com> <979A8436335E3744ADCD3A9F2A2B68A52AD136BE@SJEXCHMB10.corp.ad.broadcom.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v2 nf-next] netfilter: conntrack: remove the central
+ spinlock
+Date: Tue, 27 Aug 2013 00:28:45 +0200
+Message-ID: <20130826222844.GA19478@localhost>
+References: <1368068665.13473.81.camel@edumazet-glaptop>
+ <1369244868.3301.343.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "jacob.e.keller@intel.com" <jacob.e.keller@intel.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Yuval Mintz <yuvalmin@broadcom.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <979A8436335E3744ADCD3A9F2A2B68A52AD136BE@SJEXCHMB10.corp.ad.broadcom.com>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Jesper Dangaard Brouer <jbrouer@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1369244868.3301.343.camel@edumazet-glaptop>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 25, 2013 at 5:21 AM, Yuval Mintz <yuvalmin@broadcom.com> wrote:
-> Hi,
->
-> I tried adding support for the newly added 'pcie_get_minimum_link' into the
-> bnx2x driver, but found out the some of my devices started showing width x0.
->
-> By adding debug prints, I've found out there were devices up the chain that
-> Showed 0 when their PCI_EXP_LNKSTA was read by said function.
-> However, when I tried looking via lspci the output claimed the width was x4.
+Hi Eric,
 
-I don't see a 'pcie_get_minimum_link()' function in my current tree
-(git://git.kernel.org/pub/scm/linux/kernel/git/helgaas/pci.git "next"
-branch).  Maybe seeing your patch (with the debug prints) would give
-me a hook for somewhere to start looking.
+Several comments on the expectation side.
 
-Can you figure out why lspci shows the correct value and this kernel
-interface does not?  The current lspci source is in
-git://git.kernel.org/pub/scm/utils/pciutils/pciutils.git and the
-relevant code is probably in cap_express_link() here:
-http://git.kernel.org/cgit/utils/pciutils/pciutils.git/tree/ls-caps.c#n750
+On Wed, May 22, 2013 at 10:47:48AM -0700, Eric Dumazet wrote:
+[...]
+>diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+>index 0283bae..c0823b9 100644
+>--- a/net/netfilter/nf_conntrack_core.c
+>+++ b/net/netfilter/nf_conntrack_core.c
+[...]
+> @@ -196,6 +247,47 @@ clean_from_lists(struct nf_conn *ct)
+>        nf_ct_remove_expectations(ct);
 
-> lspci -vt output:
-> [0000:00]-+-00.0  Intel Corporation 5000P Chipset Memory Controller Hub
->              +-02.0-[09-12]--+-00.0-[0a-11]--+-00.0-[0b-0d]--
->                                              +-01.0-[0e-10]--+-00.0  Broadcom
->                                         Corporation NetXtreme II BCM57710
->                                         10-Gigabit PCIe [Everest]
->
-> Where:
-> 00:02.0 PCI bridge: Intel Corporation 5000 Series Chipset PCI Express x4 Port
-> 2 (rev 93)
-> 09:00.0 PCI bridge: Intel Corporation 6311ESB/6321ESB PCI Express Upstream
-> Port (rev 01)
-> 0a:01.0 PCI bridge: Intel Corporation 6311ESB/6321ESB PCI Express
-> Downstream Port E2 (rev 01)
-> 0e:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM57710
-> 10-Gigabit PCIe [Everest] (rev 01)
->
-> The output for "lspci -vvvv | grep LnkSta for all four is:
-> LnkSta: Speed 2.5GT/s, Width x4, TrErr- Train- SlotClk+ DLActive- BWMgmt-
-> ABWMgmt-
->
-> But added prints inside the function's loop show:
-> LnkSta 1041 [000e:00.00]
-> LnkSta 0000 [000a:01.00]
-> LnkSta 0000 [0009:00.00]
-> LnkSta 3041 [0000:02.00]
-> (PCI_EXP_LNKSTA value, bus->number, PCI_SLOT, PCI_FUNC)
->
-> Thanks,
-> Yuval
->
+With this patch, we hold the conntrack lock when calling
+clean_from_lists but I think that's not enough.
+nf_conntrack_expect_lock spinlock protection is missing here.
+
+> }
+[...]
+> @@ -820,39 +930,41 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
+>  				 ecache ? ecache->expmask : 0,
+>  			     GFP_ATOMIC);
+>  
+> -	spin_lock_bh(&nf_conntrack_lock);
+> -	exp = nf_ct_find_expectation(net, zone, tuple);
+> -	if (exp) {
+> -		pr_debug("conntrack: expectation arrives ct=%p exp=%p\n",
+> -			 ct, exp);
+> -		/* Welcome, Mr. Bond.  We've been expecting you... */
+> -		__set_bit(IPS_EXPECTED_BIT, &ct->status);
+> -		ct->master = exp->master;
+> -		if (exp->helper) {
+> -			help = nf_ct_helper_ext_add(ct, exp->helper,
+> -						    GFP_ATOMIC);
+> -			if (help)
+> -				rcu_assign_pointer(help->helper, exp->helper);
+> -		}
+> +	local_bh_disable();
+> +	if (net->ct.expect_count) {
+> +		spin_lock(&nf_conntrack_expect_lock);
+
+I also think we have a possible race for expected conntracks. The
+problem is that expectations don't bump the refcount of the master
+conntrack.
+
+> +		exp = nf_ct_find_expectation(net, zone, tuple);
+
+... Now that we have independent locks for conntrack and expectation
+lists, a packet may match an expectation while another CPU is walking
+through the nf_ct_delete_from_lists bits using exp->master as input.
+
+> +		if (exp) {
+> +			pr_debug("conntrack: expectation arrives ct=%p exp=%p\n",
+> +				 ct, exp);
+> +			/* Welcome, Mr. Bond.  We've been expecting you... */
+> +			__set_bit(IPS_EXPECTED_BIT, &ct->status);
+> +			ct->master = exp->master;
+
+Then, ct->master points to the (vanished) conntrack.
+
+> +			if (exp->helper) {
+> +				help = nf_ct_helper_ext_add(ct, exp->helper,
+> +							    GFP_ATOMIC);
+> +				if (help)
+> +					rcu_assign_pointer(help->helper, exp->helper);
+> +			}
+>  
+>  #ifdef CONFIG_NF_CONNTRACK_MARK
+> -		ct->mark = exp->master->mark;
+> +			ct->mark = exp->master->mark;
+>  #endif
+>  #ifdef CONFIG_NF_CONNTRACK_SECMARK
+> -		ct->secmark = exp->master->secmark;
+> +			ct->secmark = exp->master->secmark;
+>  #endif
+> -		nf_conntrack_get(&ct->master->ct_general);
+> -		NF_CT_STAT_INC(net, expect_new);
+> -	} else {
+> +			nf_conntrack_get(&ct->master->ct_general);
+
+So this needs to adjust the refcounting logic for expectations, to
+bump it earlier, during the expectation insertion.
+
+Regards.
