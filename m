@@ -1,319 +1,197 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH next 6/6] be2net: implement ethtool set/get_channel hooks
-Date: Tue, 27 Aug 2013 16:57:35 +0530
-Message-ID: <1377602855-13920-7-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH next 4/6] be2net: Fix be_cmd_if_create() to use MBOX if MCCQ is not created
+Date: Tue, 27 Aug 2013 16:57:33 +0530
+Message-ID: <1377602855-13920-5-git-send-email-sathya.perla@emulex.com>
 References: <1377602855-13920-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:30133 "EHLO
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:30131 "EHLO
 	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753296Ab3H0LX5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 07:23:57 -0400
+	with ESMTP id S1753282Ab3H0LXx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 07:23:53 -0400
 In-Reply-To: <1377602855-13920-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Support is provided only for combined channels. When SR-IOV is not
-enabled, BE3 supports upto 16 channels and Lancer-R/SH-R support upto
-32 channels.
+Currently the IF_CREATE FW cmd is issued only *after* MCCQ is created as
+it was coded to only use MCCQ. By fixing this, cmd_if_create() can be
+called before MCCQ is created and the same routine for VF provisioning
+can be called after.
+This allows for consolidating all the queue create routines by moving
+the be_cmd_if_create() call above all queue create calls in be_setup().
 
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h         |   17 +++--
- drivers/net/ethernet/emulex/benet/be_ethtool.c |   25 ++++++
- drivers/net/ethernet/emulex/benet/be_main.c    |   94 +++++++++++++++++------
- 3 files changed, 104 insertions(+), 32 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c |  109 +++++++++++++++++++++------
+ 1 files changed, 85 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 8b41635..ace5050 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -99,16 +99,17 @@ static inline char *nic_name(struct pci_dev *pdev)
- #define MCC_Q_LEN		128	/* total size not to exceed 8 pages */
- #define MCC_CQ_LEN		256
- 
--#define BE3_MAX_RSS_QS		8
- #define BE2_MAX_RSS_QS		4
--#define BE3_MAX_TX_QS		8
--#define MAX_RSS_QS		BE3_MAX_RSS_QS
--#define MAX_RX_QS		(MAX_RSS_QS + 1) /* RSS qs + 1 def Rx */
--#define MAX_EVT_QS		MAX_RSS_QS
-+#define BE3_MAX_RSS_QS		16
-+#define BE3_MAX_TX_QS		16
-+#define BE3_MAX_EVT_QS		16
-+
-+#define MAX_RX_QS		32
-+#define MAX_EVT_QS		32
-+#define MAX_TX_QS		32
- 
--#define MAX_TX_QS		8
- #define MAX_ROCE_EQS		5
--#define MAX_MSIX_VECTORS	(MAX_RSS_QS + MAX_ROCE_EQS) /* RSS qs + RoCE */
-+#define MAX_MSIX_VECTORS	32
- #define MIN_MSIX_VECTORS	1
- #define BE_TX_BUDGET		256
- #define BE_NAPI_WEIGHT		64
-@@ -701,6 +702,8 @@ extern int be_load_fw(struct be_adapter *adapter, u8 *func);
- extern bool be_is_wol_supported(struct be_adapter *adapter);
- extern bool be_pause_supported(struct be_adapter *adapter);
- extern u32 be_get_fw_log_level(struct be_adapter *adapter);
-+int be_update_queues(struct be_adapter *adapter);
-+int be_poll(struct napi_struct *napi, int budget);
- 
- /*
-  * internal function to initialize-cleanup roce device.
-diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index 4f8c941..b440a1f 100644
---- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
-+++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -1119,6 +1119,29 @@ static int be_set_rxnfc(struct net_device *netdev, struct ethtool_rxnfc *cmd)
- 	return status;
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 5458a43..70d5db0 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -633,6 +633,12 @@ static inline struct be_sge *nonembedded_sgl(struct be_mcc_wrb *wrb)
+ 	return &wrb->payload.sgl[0];
  }
  
-+static void be_get_channels(struct net_device *netdev,
-+			    struct ethtool_channels *ch)
++static inline void fill_wrb_tags(struct be_mcc_wrb *wrb,
++				 unsigned long addr)
 +{
-+	struct be_adapter *adapter = netdev_priv(netdev);
-+
-+	ch->combined_count = adapter->num_evt_qs;
-+	ch->max_combined = be_max_qs(adapter);
++	wrb->tag0 = addr & 0xFFFFFFFF;
++	wrb->tag1 = upper_32_bits(addr);
 +}
-+
-+static int be_set_channels(struct net_device  *netdev,
-+			   struct ethtool_channels *ch)
-+{
-+	struct be_adapter *adapter = netdev_priv(netdev);
-+
-+	if (ch->rx_count || ch->tx_count || ch->other_count ||
-+	    !ch->combined_count || ch->combined_count > be_max_qs(adapter))
-+		return -EINVAL;
-+
-+	adapter->cfg_num_qs = ch->combined_count;
-+
-+	return be_update_queues(adapter);
-+}
-+
- const struct ethtool_ops be_ethtool_ops = {
- 	.get_settings = be_get_settings,
- 	.get_drvinfo = be_get_drvinfo,
-@@ -1145,4 +1168,6 @@ const struct ethtool_ops be_ethtool_ops = {
- 	.self_test = be_self_test,
- 	.get_rxnfc = be_get_rxnfc,
- 	.set_rxnfc = be_set_rxnfc,
-+	.get_channels = be_get_channels,
-+	.set_channels = be_set_channels
- };
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index b08459d..50116f8 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1913,6 +1913,7 @@ static void be_evt_queues_destroy(struct be_adapter *adapter)
- 		if (eqo->q.created) {
- 			be_eq_clean(eqo);
- 			be_cmd_q_destroy(adapter, &eqo->q, QTYPE_EQ);
-+			netif_napi_del(&eqo->napi);
- 		}
- 		be_queue_free(adapter, &eqo->q);
- 	}
-@@ -1928,6 +1929,8 @@ static int be_evt_queues_create(struct be_adapter *adapter)
- 				    adapter->cfg_num_qs);
  
- 	for_all_evt_queues(adapter, eqo, i) {
-+		netif_napi_add(adapter->netdev, &eqo->napi, be_poll,
-+			       BE_NAPI_WEIGHT);
- 		eqo->adapter = adapter;
- 		eqo->tx_budget = BE_TX_BUDGET;
- 		eqo->idx = i;
-@@ -2021,12 +2024,6 @@ static int be_tx_qs_create(struct be_adapter *adapter)
- 	int status, i;
+ /* Don't touch the hdr after it's prepared */
+ /* mem will be NULL for embedded commands */
+@@ -641,17 +647,12 @@ static void be_wrb_cmd_hdr_prepare(struct be_cmd_req_hdr *req_hdr,
+ 				struct be_mcc_wrb *wrb, struct be_dma_mem *mem)
+ {
+ 	struct be_sge *sge;
+-	unsigned long addr = (unsigned long)req_hdr;
+-	u64 req_addr = addr;
  
- 	adapter->num_tx_qs = min(adapter->num_evt_qs, be_max_txqs(adapter));
--	if (adapter->num_tx_qs != MAX_TX_QS) {
--		rtnl_lock();
--		netif_set_real_num_tx_queues(adapter->netdev,
--			adapter->num_tx_qs);
--		rtnl_unlock();
--	}
- 
- 	for_all_tx_queues(adapter, txo, i) {
- 		cq = &txo->cq;
-@@ -2087,13 +2084,6 @@ static int be_rx_cqs_create(struct be_adapter *adapter)
- 	if (adapter->num_rx_qs > 1)
- 		adapter->num_rx_qs++;
- 
--	if (adapter->num_rx_qs != MAX_RX_QS) {
--		rtnl_lock();
--		netif_set_real_num_rx_queues(adapter->netdev,
--					     adapter->num_rx_qs);
--		rtnl_unlock();
--	}
+ 	req_hdr->opcode = opcode;
+ 	req_hdr->subsystem = subsystem;
+ 	req_hdr->request_length = cpu_to_le32(cmd_len - sizeof(*req_hdr));
+ 	req_hdr->version = 0;
 -
- 	adapter->big_page_size = (1 << get_order(rx_frag_size)) * PAGE_SIZE;
- 	for_all_rx_queues(adapter, rxo, i) {
- 		rxo->adapter = adapter;
-@@ -2244,7 +2234,7 @@ static bool be_process_tx(struct be_adapter *adapter, struct be_tx_obj *txo,
- 	return (work_done < budget); /* Done */
- }
- 
--static int be_poll(struct napi_struct *napi, int budget)
-+int be_poll(struct napi_struct *napi, int budget)
- {
- 	struct be_eq_obj *eqo = container_of(napi, struct be_eq_obj, napi);
- 	struct be_adapter *adapter = eqo->adapter;
-@@ -2356,6 +2346,7 @@ static void be_msix_disable(struct be_adapter *adapter)
- 	if (msix_enabled(adapter)) {
- 		pci_disable_msix(adapter->pdev);
- 		adapter->num_msix_vec = 0;
-+		adapter->num_msix_roce_vec = 0;
- 	}
- }
- 
-@@ -2771,14 +2762,19 @@ static void be_clear_queues(struct be_adapter *adapter)
- 	be_evt_queues_destroy(adapter);
- }
- 
--static int be_clear(struct be_adapter *adapter)
-+static void be_cancel_worker(struct be_adapter *adapter)
- {
--	int i;
+-	wrb->tag0 = req_addr & 0xFFFFFFFF;
+-	wrb->tag1 = upper_32_bits(req_addr);
 -
- 	if (adapter->flags & BE_FLAGS_WORKER_SCHEDULED) {
- 		cancel_delayed_work_sync(&adapter->work);
- 		adapter->flags &= ~BE_FLAGS_WORKER_SCHEDULED;
- 	}
-+}
-+
-+static int be_clear(struct be_adapter *adapter)
-+{
-+	int i;
-+
-+	be_cancel_worker(adapter);
- 
- 	if (sriov_enabled(adapter))
- 		be_vf_clear(adapter);
-@@ -2982,7 +2978,7 @@ static void BEx_get_resources(struct be_adapter *adapter,
- 					   BE3_MAX_RSS_QS : BE2_MAX_RSS_QS;
- 	res->max_rx_qs = res->max_rss_qs + 1;
- 
--	res->max_evt_qs = be_physfn(adapter) ? MAX_EVT_QS : 1;
-+	res->max_evt_qs = be_physfn(adapter) ? BE3_MAX_EVT_QS : 1;
- 
- 	res->if_cap_flags = BE_IF_CAP_FLAGS_WANT;
- 	if (!(adapter->function_caps & BE_FUNCTION_CAPS_RSS))
-@@ -3108,8 +3104,15 @@ static int be_mac_setup(struct be_adapter *adapter)
- 	return 0;
++	fill_wrb_tags(wrb, (ulong) req_hdr);
+ 	wrb->payload_length = cmd_len;
+ 	if (mem) {
+ 		wrb->embedded |= (1 & MCC_WRB_SGE_CNT_MASK) <<
+@@ -705,6 +706,78 @@ static struct be_mcc_wrb *wrb_from_mccq(struct be_adapter *adapter)
+ 	return wrb;
  }
  
-+static void be_schedule_worker(struct be_adapter *adapter)
++static bool use_mcc(struct be_adapter *adapter)
 +{
-+	schedule_delayed_work(&adapter->work, msecs_to_jiffies(1000));
-+	adapter->flags |= BE_FLAGS_WORKER_SCHEDULED;
++	return adapter->mcc_obj.q.created;
 +}
 +
- static int be_setup_queues(struct be_adapter *adapter)
- {
-+	struct net_device *netdev = adapter->netdev;
- 	int status;
- 
- 	status = be_evt_queues_create(adapter);
-@@ -3128,12 +3131,56 @@ static int be_setup_queues(struct be_adapter *adapter)
- 	if (status)
- 		goto err;
- 
-+	status = netif_set_real_num_rx_queues(netdev, adapter->num_rx_qs);
-+	if (status)
-+		goto err;
-+
-+	status = netif_set_real_num_tx_queues(netdev, adapter->num_tx_qs);
-+	if (status)
-+		goto err;
-+
- 	return 0;
- err:
- 	dev_err(&adapter->pdev->dev, "queue_setup failed\n");
- 	return status;
- }
- 
-+int be_update_queues(struct be_adapter *adapter)
++/* Must be used only in process context */
++static int be_cmd_lock(struct be_adapter *adapter)
 +{
-+	struct net_device *netdev = adapter->netdev;
-+	int status;
++	if (use_mcc(adapter)) {
++		spin_lock_bh(&adapter->mcc_lock);
++		return 0;
++	} else {
++		return mutex_lock_interruptible(&adapter->mbox_lock);
++	}
++}
 +
-+	if (netif_running(netdev))
-+		be_close(netdev);
++/* Must be used only in process context */
++static void be_cmd_unlock(struct be_adapter *adapter)
++{
++	if (use_mcc(adapter))
++		spin_unlock_bh(&adapter->mcc_lock);
++	else
++		return mutex_unlock(&adapter->mbox_lock);
++}
 +
-+	be_cancel_worker(adapter);
++static struct be_mcc_wrb *be_cmd_copy(struct be_adapter *adapter,
++				      struct be_mcc_wrb *wrb)
++{
++	struct be_mcc_wrb *dest_wrb;
 +
-+	/* If any vectors have been shared with RoCE we cannot re-program
-+	 * the MSIx table.
-+	 */
-+	if (!adapter->num_msix_roce_vec)
-+		be_msix_disable(adapter);
-+
-+	be_clear_queues(adapter);
-+
-+	if (!msix_enabled(adapter)) {
-+		status = be_msix_enable(adapter);
-+		if (status)
-+			return status;
++	if (use_mcc(adapter)) {
++		dest_wrb = wrb_from_mccq(adapter);
++		if (!dest_wrb)
++			return NULL;
++	} else {
++		dest_wrb = wrb_from_mbox(adapter);
 +	}
 +
-+	status = be_setup_queues(adapter);
++	memcpy(dest_wrb, wrb, sizeof(*wrb));
++	if (wrb->embedded & cpu_to_le32(MCC_WRB_EMBEDDED_MASK))
++		fill_wrb_tags(dest_wrb, (ulong) embedded_payload(wrb));
++
++	return dest_wrb;
++}
++
++/* Must be used only in process context */
++static int be_cmd_notify_wait(struct be_adapter *adapter,
++			      struct be_mcc_wrb *wrb)
++{
++	struct be_mcc_wrb *dest_wrb;
++	int status;
++
++	status = be_cmd_lock(adapter);
 +	if (status)
 +		return status;
 +
-+	be_schedule_worker(adapter);
++	dest_wrb = be_cmd_copy(adapter, wrb);
++	if (!dest_wrb)
++		return -EBUSY;
 +
-+	if (netif_running(netdev))
-+		status = be_open(netdev);
++	if (use_mcc(adapter))
++		status = be_mcc_notify_wait(adapter);
++	else
++		status = be_mbox_notify_wait(adapter);
 +
++	if (!status)
++		memcpy(wrb, dest_wrb, sizeof(*wrb));
++
++	be_cmd_unlock(adapter);
 +	return status;
 +}
 +
- static int be_setup(struct be_adapter *adapter)
- {
- 	struct device *dev = &adapter->pdev->dev;
-@@ -3163,7 +3210,10 @@ static int be_setup(struct be_adapter *adapter)
- 	if (status)
- 		goto err;
- 
-+	/* Updating real_num_tx/rx_queues() requires rtnl_lock() */
-+	rtnl_lock();
- 	status = be_setup_queues(adapter);
-+	rtnl_unlock();
- 	if (status)
- 		goto err;
- 
-@@ -3202,8 +3252,7 @@ static int be_setup(struct be_adapter *adapter)
- 	if (!status && be_pause_supported(adapter))
- 		adapter->phy.fc_autoneg = 1;
- 
--	schedule_delayed_work(&adapter->work, msecs_to_jiffies(1000));
--	adapter->flags |= BE_FLAGS_WORKER_SCHEDULED;
-+	be_schedule_worker(adapter);
- 	return 0;
- err:
- 	be_clear(adapter);
-@@ -3769,8 +3818,6 @@ static const struct net_device_ops be_netdev_ops = {
- static void be_netdev_init(struct net_device *netdev)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
--	struct be_eq_obj *eqo;
--	int i;
- 
- 	netdev->hw_features |= NETIF_F_SG | NETIF_F_TSO | NETIF_F_TSO6 |
- 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_RXCSUM |
-@@ -3793,9 +3840,6 @@ static void be_netdev_init(struct net_device *netdev)
- 	netdev->netdev_ops = &be_netdev_ops;
- 
- 	SET_ETHTOOL_OPS(netdev, &be_ethtool_ops);
--
--	for_all_evt_queues(adapter, eqo, i)
--		netif_napi_add(netdev, &eqo->napi, be_poll, BE_NAPI_WEIGHT);
+ /* Tell fw we're about to start firing cmds by writing a
+  * special pattern across the wrb hdr; uses mbox
+  */
+@@ -1290,44 +1363,32 @@ err:
  }
  
- static void be_unmap_pci_bars(struct be_adapter *adapter)
+ /* Create an rx filtering policy configuration on an i/f
+- * Uses MCCQ
++ * Will use MBOX only if MCCQ has not been created.
+  */
+ int be_cmd_if_create(struct be_adapter *adapter, u32 cap_flags, u32 en_flags,
+ 		     u32 *if_handle, u32 domain)
+ {
+-	struct be_mcc_wrb *wrb;
++	struct be_mcc_wrb wrb = {0};
+ 	struct be_cmd_req_if_create *req;
+ 	int status;
+ 
+-	spin_lock_bh(&adapter->mcc_lock);
+-
+-	wrb = wrb_from_mccq(adapter);
+-	if (!wrb) {
+-		status = -EBUSY;
+-		goto err;
+-	}
+-	req = embedded_payload(wrb);
+-
++	req = embedded_payload(&wrb);
+ 	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
+-		OPCODE_COMMON_NTWK_INTERFACE_CREATE, sizeof(*req), wrb, NULL);
++		OPCODE_COMMON_NTWK_INTERFACE_CREATE, sizeof(*req), &wrb, NULL);
+ 	req->hdr.domain = domain;
+ 	req->capability_flags = cpu_to_le32(cap_flags);
+ 	req->enable_flags = cpu_to_le32(en_flags);
+-
+ 	req->pmac_invalid = true;
+ 
+-	status = be_mcc_notify_wait(adapter);
++	status = be_cmd_notify_wait(adapter, &wrb);
+ 	if (!status) {
+-		struct be_cmd_resp_if_create *resp = embedded_payload(wrb);
++		struct be_cmd_resp_if_create *resp = embedded_payload(&wrb);
+ 		*if_handle = le32_to_cpu(resp->interface_id);
+ 
+ 		/* Hack to retrieve VF's pmac-id on BE3 */
+ 		if (BE3_chip(adapter) && !be_physfn(adapter))
+ 			adapter->pmac_id[0] = le32_to_cpu(resp->pmac_id);
+ 	}
+-
+-err:
+-	spin_unlock_bh(&adapter->mcc_lock);
+ 	return status;
+ }
+ 
 -- 
 1.7.1
