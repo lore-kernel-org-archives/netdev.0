@@ -1,43 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2013-08-23
-Date: Tue, 27 Aug 2013 15:55:52 -0400 (EDT)
-Message-ID: <20130827.155552.747451190932124237.davem@davemloft.net>
-References: <20130823162044.GD15114@tuxdriver.com>
+Subject: Re: [PATCH next 0/6] be2net patch set
+Date: Tue, 27 Aug 2013 15:57:31 -0400 (EDT)
+Message-ID: <20130827.155731.2077033463857211702.davem@davemloft.net>
+References: <1377602855-13920-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130823162044.GD15114@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59324 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752333Ab3H0T5d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 15:57:33 -0400
+In-Reply-To: <1377602855-13920-1-git-send-email-sathya.perla@emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 23 Aug 2013 12:20:44 -0400
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Tue, 27 Aug 2013 16:57:29 +0530
 
-> This is one more set of fixes intended for the 3.11 stream...
+> This series includes code refactoring patches needed to cleanly implement
+> ethtool set-channels features. Pls apply. Thanks.
 > 
-> For the mac80211 bits, Johannes says:
+> Sathya Perla (5):
+>   be2net: use EQ_CREATEv2 for SH-R
+>   be2net: refactor be_get_resources() code
+>   be2net: Fix be_cmd_if_create() to use MBOX if MCCQ is not created
+>   be2net: refactor be_setup() to consolidate queue creation routines
+>   be2net: implement ethtool set/get_channel hooks
 > 
-> "I have three more patches for the 3.11 stream: Felix's fix for the
-> fairly visible brcmsmac crash, a fix from Simon for an IBSS join bug I
-> found and a fix for a channel context bug in IBSS I'd introduced."
-> 
-> Along with those...
-> 
-> Sujith Manoharan makes a minor change to not use a PLL hang workaroun
-> for AR9550.  This one-liner fixes a couple of bugs reported in the Red Hat
-> bugzilla.
-> 
-> Helmut Schaa addresses an ath9k_htc bug that mangles frame headers
-> during Tx.  This fix is small, tested by the bug reported and isolated
-> to ath9k_htc.
-> 
-> Stanislaw Gruszka reverts a recent iwl4965 change that broke rfkill
-> notification to user space.
-> 
-> Please let me know if there are problems!
+> Vasundhara Volam (1):
+>   be2net: Fixup profile management routines
 
-Pulled, thanks John.
+Series applied, thanks.
