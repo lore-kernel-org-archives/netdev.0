@@ -1,197 +1,89 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH next 4/6] be2net: Fix be_cmd_if_create() to use MBOX if MCCQ is not created
-Date: Tue, 27 Aug 2013 16:57:33 +0530
-Message-ID: <1377602855-13920-5-git-send-email-sathya.perla@emulex.com>
-References: <1377602855-13920-1-git-send-email-sathya.perla@emulex.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v1 5/9] bonding: convert bond_has_this_ip() to
+ use upper devices
+Date: Tue, 27 Aug 2013 13:25:29 +0200
+Message-ID: <20130827112529.GA4732@minipsycho.brq.redhat.com>
+References: <1377549162-7522-1-git-send-email-vfalico@redhat.com>
+ <1377549162-7522-6-git-send-email-vfalico@redhat.com>
+ <20130826205338.GA3723@minipsycho.orion>
+ <20130827111648.GB24836@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:30131 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753282Ab3H0LXx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 07:23:53 -0400
-In-Reply-To: <1377602855-13920-1-git-send-email-sathya.perla@emulex.com>
+Received: from mail-ea0-f176.google.com ([209.85.215.176]:38341 "EHLO
+	mail-ea0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753021Ab3H0LZd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 07:25:33 -0400
+Received: by mail-ea0-f176.google.com with SMTP id q16so2169068ead.7
+        for <netdev@vger.kernel.org>; Tue, 27 Aug 2013 04:25:32 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20130827111648.GB24836@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently the IF_CREATE FW cmd is issued only *after* MCCQ is created as
-it was coded to only use MCCQ. By fixing this, cmd_if_create() can be
-called before MCCQ is created and the same routine for VF provisioning
-can be called after.
-This allows for consolidating all the queue create routines by moving
-the be_cmd_if_create() call above all queue create calls in be_setup().
+Tue, Aug 27, 2013 at 01:16:48PM CEST, vfalico@redhat.com wrote:
+>On Mon, Aug 26, 2013 at 10:53:38PM +0200, Jiri Pirko wrote:
+>>Mon, Aug 26, 2013 at 10:32:38PM CEST, vfalico@redhat.com wrote:
+>...snip...
+>>>+	rcu_read_lock();
+>>>+	netdev_for_each_upper_dev(bond->dev, upper, iter) {
+>>>+		if (ip == bond_confirm_addr(upper, 0, ip)) {
+>>>+			ret = true;
+>>>+			break;
+>>>+		}
+>>
+>>You need the same recursion __vlan_find_dev_deep() is doing. If you do
+>>not do that, you will miss anything over the first upper level.
+>
+>Good point, and it's true for other uses also - bond_arp_send_all(), for
+>example, will also miss anything that's higher than the first upper level.
+>
+>I can't think of a use case scenario when we would need only the first
+>upper level - so maybe we should either make netdev_for_each_upper_dev()
+>recursive by default (I don't know how it can be done easily, tbh, without
+>modifying the existing code), or add something like:
+>
+>diff --git a/net/core/dev.c b/net/core/dev.c
+>index 566e99a..4a4468f 100644
+>--- a/net/core/dev.c
+>+++ b/net/core/dev.c
+>@@ -4387,6 +4387,31 @@ static void __append_search_uppers(struct list_head *search_list,
+> 	}
+> }
+>+struct net_device *netdev_upper_recursive_do_rcu(struct net_device *dev,
+>+						 struct net_device *orig_dev,
+>+						 bool (*f)(struct net_device *,
+>+							   struct net_device *))
+>+{
+>+	struct netdev_upper *upper;
+>+	struct net_device *ret = NULL;
+>+
+>+	list_for_each_entry_rcu(upper, &dev->upper_dev_list, list) {
+>+		if (f(orig_dev, upper->dev)) {
+>+			ret = upper->dev;
+>+			break;
+>+		}
+>+
+>+		if (!list_empty(&upper->dev->upper_dev_list)) {
+>+			ret = netdev_upper_recursive_do_rcu(upper->dev,
+>+							    orig_dev, f);
+>+			if (ret)
+>+				break;
+>+		}
+>+	}
+>+
+>+	return ret;
+>+}
+>+
+> static bool __netdev_search_upper_dev(struct net_device *dev,
+> 				      struct net_device *upper_dev)
+> {
+>
+>How do you think?
 
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_cmds.c |  109 +++++++++++++++++++++------
- 1 files changed, 85 insertions(+), 24 deletions(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 5458a43..70d5db0 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -633,6 +633,12 @@ static inline struct be_sge *nonembedded_sgl(struct be_mcc_wrb *wrb)
- 	return &wrb->payload.sgl[0];
- }
- 
-+static inline void fill_wrb_tags(struct be_mcc_wrb *wrb,
-+				 unsigned long addr)
-+{
-+	wrb->tag0 = addr & 0xFFFFFFFF;
-+	wrb->tag1 = upper_32_bits(addr);
-+}
- 
- /* Don't touch the hdr after it's prepared */
- /* mem will be NULL for embedded commands */
-@@ -641,17 +647,12 @@ static void be_wrb_cmd_hdr_prepare(struct be_cmd_req_hdr *req_hdr,
- 				struct be_mcc_wrb *wrb, struct be_dma_mem *mem)
- {
- 	struct be_sge *sge;
--	unsigned long addr = (unsigned long)req_hdr;
--	u64 req_addr = addr;
- 
- 	req_hdr->opcode = opcode;
- 	req_hdr->subsystem = subsystem;
- 	req_hdr->request_length = cpu_to_le32(cmd_len - sizeof(*req_hdr));
- 	req_hdr->version = 0;
--
--	wrb->tag0 = req_addr & 0xFFFFFFFF;
--	wrb->tag1 = upper_32_bits(req_addr);
--
-+	fill_wrb_tags(wrb, (ulong) req_hdr);
- 	wrb->payload_length = cmd_len;
- 	if (mem) {
- 		wrb->embedded |= (1 & MCC_WRB_SGE_CNT_MASK) <<
-@@ -705,6 +706,78 @@ static struct be_mcc_wrb *wrb_from_mccq(struct be_adapter *adapter)
- 	return wrb;
- }
- 
-+static bool use_mcc(struct be_adapter *adapter)
-+{
-+	return adapter->mcc_obj.q.created;
-+}
-+
-+/* Must be used only in process context */
-+static int be_cmd_lock(struct be_adapter *adapter)
-+{
-+	if (use_mcc(adapter)) {
-+		spin_lock_bh(&adapter->mcc_lock);
-+		return 0;
-+	} else {
-+		return mutex_lock_interruptible(&adapter->mbox_lock);
-+	}
-+}
-+
-+/* Must be used only in process context */
-+static void be_cmd_unlock(struct be_adapter *adapter)
-+{
-+	if (use_mcc(adapter))
-+		spin_unlock_bh(&adapter->mcc_lock);
-+	else
-+		return mutex_unlock(&adapter->mbox_lock);
-+}
-+
-+static struct be_mcc_wrb *be_cmd_copy(struct be_adapter *adapter,
-+				      struct be_mcc_wrb *wrb)
-+{
-+	struct be_mcc_wrb *dest_wrb;
-+
-+	if (use_mcc(adapter)) {
-+		dest_wrb = wrb_from_mccq(adapter);
-+		if (!dest_wrb)
-+			return NULL;
-+	} else {
-+		dest_wrb = wrb_from_mbox(adapter);
-+	}
-+
-+	memcpy(dest_wrb, wrb, sizeof(*wrb));
-+	if (wrb->embedded & cpu_to_le32(MCC_WRB_EMBEDDED_MASK))
-+		fill_wrb_tags(dest_wrb, (ulong) embedded_payload(wrb));
-+
-+	return dest_wrb;
-+}
-+
-+/* Must be used only in process context */
-+static int be_cmd_notify_wait(struct be_adapter *adapter,
-+			      struct be_mcc_wrb *wrb)
-+{
-+	struct be_mcc_wrb *dest_wrb;
-+	int status;
-+
-+	status = be_cmd_lock(adapter);
-+	if (status)
-+		return status;
-+
-+	dest_wrb = be_cmd_copy(adapter, wrb);
-+	if (!dest_wrb)
-+		return -EBUSY;
-+
-+	if (use_mcc(adapter))
-+		status = be_mcc_notify_wait(adapter);
-+	else
-+		status = be_mbox_notify_wait(adapter);
-+
-+	if (!status)
-+		memcpy(wrb, dest_wrb, sizeof(*wrb));
-+
-+	be_cmd_unlock(adapter);
-+	return status;
-+}
-+
- /* Tell fw we're about to start firing cmds by writing a
-  * special pattern across the wrb hdr; uses mbox
-  */
-@@ -1290,44 +1363,32 @@ err:
- }
- 
- /* Create an rx filtering policy configuration on an i/f
-- * Uses MCCQ
-+ * Will use MBOX only if MCCQ has not been created.
-  */
- int be_cmd_if_create(struct be_adapter *adapter, u32 cap_flags, u32 en_flags,
- 		     u32 *if_handle, u32 domain)
- {
--	struct be_mcc_wrb *wrb;
-+	struct be_mcc_wrb wrb = {0};
- 	struct be_cmd_req_if_create *req;
- 	int status;
- 
--	spin_lock_bh(&adapter->mcc_lock);
--
--	wrb = wrb_from_mccq(adapter);
--	if (!wrb) {
--		status = -EBUSY;
--		goto err;
--	}
--	req = embedded_payload(wrb);
--
-+	req = embedded_payload(&wrb);
- 	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
--		OPCODE_COMMON_NTWK_INTERFACE_CREATE, sizeof(*req), wrb, NULL);
-+		OPCODE_COMMON_NTWK_INTERFACE_CREATE, sizeof(*req), &wrb, NULL);
- 	req->hdr.domain = domain;
- 	req->capability_flags = cpu_to_le32(cap_flags);
- 	req->enable_flags = cpu_to_le32(en_flags);
--
- 	req->pmac_invalid = true;
- 
--	status = be_mcc_notify_wait(adapter);
-+	status = be_cmd_notify_wait(adapter, &wrb);
- 	if (!status) {
--		struct be_cmd_resp_if_create *resp = embedded_payload(wrb);
-+		struct be_cmd_resp_if_create *resp = embedded_payload(&wrb);
- 		*if_handle = le32_to_cpu(resp->interface_id);
- 
- 		/* Hack to retrieve VF's pmac-id on BE3 */
- 		if (BE3_chip(adapter) && !be_physfn(adapter))
- 			adapter->pmac_id[0] = le32_to_cpu(resp->pmac_id);
- 	}
--
--err:
--	spin_unlock_bh(&adapter->mcc_lock);
- 	return status;
- }
- 
--- 
-1.7.1
+I do not like this. How about to put all levels to upper_dev list and
+mark those who are not direct (not level1) ? Then we can use single list
+for all purposes.
