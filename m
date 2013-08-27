@@ -1,33 +1,31 @@
 From: Fan Du <fan.du@windriver.com>
 Subject: Re: [PATCH net-next] {ipv4,xfrm}: Introduce xfrm_tunnel_notifier
  for xfrm tunnel mode callback
-Date: Tue, 27 Aug 2013 09:29:40 +0800
-Message-ID: <521C0104.2070906@windriver.com>
-References: <1377240424-11758-1-git-send-email-fan.du@windriver.com> <20130826.162135.1765443562851401512.davem@davemloft.net>
+Date: Tue, 27 Aug 2013 09:40:37 +0800
+Message-ID: <521C0395.8040607@windriver.com>
+References: <1377240424-11758-1-git-send-email-fan.du@windriver.com> <20130826113559.GM26773@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <steffen.klassert@secunet.com>, <saurabh.mohan@vyatta.com>,
-	<herbert@gondor.hengli.com.au>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: <saurabh.mohan@vyatta.com>, <herbert@gondor.hengli.com.au>,
+	<davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail7.windriver.com ([128.224.252.3]:44747 "EHLO
-	mail7.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752694Ab3H0B32 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 21:29:28 -0400
-In-Reply-To: <20130826.162135.1765443562851401512.davem@davemloft.net>
+Received: from mail1.windriver.com ([147.11.146.13]:60377 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752425Ab3H0BkU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 21:40:20 -0400
+In-Reply-To: <20130826113559.GM26773@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Dave
+Hi, Steffen
 
-Thanks for your reply :)
+Thanks for your attention :)
 
-On 2013=E5=B9=B408=E6=9C=8827=E6=97=A5 04:21, David Miller wrote:
-> From: Fan Du<fan.du@windriver.com>
-> Date: Fri, 23 Aug 2013 14:47:04 +0800
->
+On 2013=E5=B9=B408=E6=9C=8826=E6=97=A5 19:35, Steffen Klassert wrote:
+> On Fri, Aug 23, 2013 at 02:47:04PM +0800, Fan Du wrote:
 >> Some thoughts on IPv4 VTI implementation:
 >>
 >> The connection between VTI receiving part and xfrm tunnel mode input=
@@ -45,39 +43,18 @@ s a packet
 >> So this patch introduce xfrm_tunnel_notifier and meanwhile wipe out =
 vti_erri
 >> code.
->>
->> Signed-off-by: Fan Du<fan.du@windriver.com>
 >
-> I don't understand why VTI doesn't need to propagate a PMTU update vi=
-a
-> ipv4_update_pmtu().  Why is it different from a real xfrm_tunnel?
-   ^^^^^^^^^^^^^^^^
+> Btw. who calls vti_err()? I don't see a hook which would call the vti
+> error handler. I'm still not absolutely sure whether we need it or no=
+t,
+> but we should either remove it or add a hook to call it.
 
-A IPsec protected packet is first handled by protocol handlers, e.g AH/=
-ESP,
-to check packet authentication or encryption rightness. PMTU update is =
-taken
-care of in this stage by protocol error handler.
+Yes, nobody calls vti_err. Maybe the vti_err comes from ipip_err as com=
+ments in
+the file header said ip_vti.c cloned from ipip.c.
 
-Then the packet is rearranged properly depending on whether it's transp=
-ort
-mode or tunnel mode packed by mode "input" handler. The VTI handler cod=
-e
-takes effects in this stage in tunnel mode only. So it neither need pro=
-pagate
-PMTU, as it has already been done if necessary, nor the VTI handler is
-qualified as a xfrm_tunnel.
-
-IMHO, xfrm_tunnel is protocol layer specific only, which denotes a meth=
-od
-how IPPROTO_IPIP inner packet is handled, while as VTI reform XFRM poli=
-cy into
-a routable net device. That's the difference between them.
-
->
-> Your changelog has to explain this better and in more detail.
-> Thanks.
->
+I have describe my statement in the reply for Dave's question. Please r=
+eview.
 
 --=20
 =E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
