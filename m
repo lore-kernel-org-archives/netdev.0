@@ -1,40 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 3/4] ps3_gelic: lower NAPI weight
-Date: Tue, 27 Aug 2013 15:00:20 -0400 (EDT)
-Message-ID: <20130827.150020.2001378358561747135.davem@davemloft.net>
-References: <1377103771-1590-4-git-send-email-mschmidt@redhat.com>
-	<1377118988.8674.82.camel@smoke>
-	<5217667F.5010207@redhat.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [PATCH net-next] drivers:net: Convert
+ dma_alloc_coherent(...__GFP_ZERO) to dma_zalloc_coherent
+Date: Tue, 27 Aug 2013 12:34:33 -0700
+Message-ID: <20130827123433.00002cb7@unknown>
+References: <dbbfc5e66dba7d2b63549d218407fb0c4031f2ed.1363367992.git.joe@perches.com>
+	<1377582323.2658.10.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: geoff@infradead.org, netdev@vger.kernel.org, edumazet@google.com,
-	sergei.shtylyov@cogentembedded.com
-To: mschmidt@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58498 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753835Ab3H0TAY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 15:00:24 -0400
-In-Reply-To: <5217667F.5010207@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<e1000-devel@lists.sourceforge.net>,
+	<linux-wireless@vger.kernel.org>, <b43-dev@lists.infradead.org>,
+	<users@rt2x00.serialmonkey.com>, jesse.brandeburg@intel.com
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1377582323.2658.10.camel@joe-AO722>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michal Schmidt <mschmidt@redhat.com>
-Date: Fri, 23 Aug 2013 15:41:19 +0200
+On Mon, 26 Aug 2013 22:45:23 -0700
+Joe Perches <joe@perches.com> wrote:
 
-> Since commit 82dc3c63 ("net: introduce NAPI_POLL_WEIGHT")
-> netif_napi_add() produces an error message if a NAPI poll weight
-> greater than 64 is requested.
+> __GFP_ZERO is an uncommon flag and perhaps is better
+> not used.  static inline dma_zalloc_coherent exists
+> so convert the uses of dma_alloc_coherent with __GFP_ZERO
+> to the more common kernel style with zalloc.
 > 
-> GELIC_NET_NAPI_WEIGHT is defined to GELIC_NET_RX_DESCRIPTORS,
-> which is 128.
+> Remove memset from the static inline dma_zalloc_coherent
+> and add just one use of __GFP_ZERO instead.
 > 
-> Use the standard NAPI weight.
+> Trivially reduces the size of the existing uses of
+> dma_zalloc_coherent.
 > 
-> v2: proper reference to the related commit
+> Realign arguments as appropriate.
 > 
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
-> Acked-by: Geoff Levand <geoff@infradead.org>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Applied.
+e1000 and ixgb bits:
+
+Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
