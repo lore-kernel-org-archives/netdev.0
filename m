@@ -1,59 +1,57 @@
-From: Saurabh Mohan <saurabh.mohan@vyatta.com>
-Subject: RE: [PATCH net-next] {ipv4,xfrm}: Introduce xfrm_tunnel_notifier
- for xfrm tunnel mode callback
-Date: Mon, 26 Aug 2013 18:52:42 -0700
-Message-ID: <1902752B0C92F943AB7EA9EE13E2DEEC126DB580C0@HQ1-EXCH02.corp.brocade.com>
-References: <1377240424-11758-1-git-send-email-fan.du@windriver.com>
+From: Qin Chuanyu <qinchuanyu@huawei.com>
+Subject: =?UTF-8?B?SXMgZmFsbGJhY2sgdmhvc3RfbmV0IHRvIHFlbXUgZm9yIGxpdmUgbWk=?=
+ =?UTF-8?B?Z3JhdGUgYXZhaWxhYmxl77yf?=
+Date: Tue, 27 Aug 2013 11:32:31 +0800
+Message-ID: <521C1DCF.5090202@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Fan Du <fan.du@windriver.com>,
-	"steffen.klassert@secunet.com" <steffen.klassert@secunet.com>,
-	"herbert@gondor.hengli.com.au" <herbert@gondor.hengli.com.au>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <kvm@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<qianhuibin@huawei.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>, <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:46196 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751391Ab3H0CIS convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Aug 2013 22:08:18 -0400
-Received: from pps.filterd (m0000700 [127.0.0.1])
-	by mx0b-000f0801.pphosted.com (8.14.5/8.14.5) with SMTP id r7R121NG026622
-	for <netdev@vger.kernel.org>; Mon, 26 Aug 2013 18:52:45 -0700
-Received: from hq1wp-exchub01.corp.brocade.com ([144.49.131.13])
-	by mx0b-000f0801.pphosted.com with ESMTP id 1eg933rf19-4
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 26 Aug 2013 18:52:45 -0700
-In-Reply-To: <1377240424-11758-1-git-send-email-fan.du@windriver.com>
-Content-Language: en-US
+Received: from szxga02-in.huawei.com ([119.145.14.65]:5841 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752047Ab3H0Ddt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 23:33:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi all
 
+I am participating in a project which try to port vhost_net on Xen=E3=80=
+=82
 
-> -----Original Message-----
-> From: Fan Du [mailto:fan.du@windriver.com]
-> Sent: Thursday, August 22, 2013 11:47 PM
-> To: steffen.klassert@secunet.com; Saurabh Mohan;
-> herbert@gondor.hengli.com.au
-> Cc: davem@davemloft.net; netdev@vger.kernel.org
-> Subject: [PATCH net-next] {ipv4,xfrm}: Introduce xfrm_tunnel_notifier for
-> xfrm tunnel mode callback
-> 
-> Some thoughts on IPv4 VTI implementation:
-> 
-> The connection between VTI receiving part and xfrm tunnel mode input
-> process is hardly a "xfrm_tunnel", xfrm_tunnel is used in places where, e.g
-> ipip/sit and xfrm4_tunnel, acts like a true "tunnel" device.
-> 
-> In addition, IMHO, VTI doesn't need vti_err to do something meaningful, as
-> all VTI needs is just a notifier to be called whenever xfrm_input ingress a
-> packet to update statistics.
-> 
-> So this patch introduce xfrm_tunnel_notifier and meanwhile wipe out
-> vti_erri code.
-> 
-> Signed-off-by: Fan Du <fan.du@windriver.com>
-Looks good. Thanks.
-Reviewed-by: Saurabh Mohan <saurabh.mohan@vyatta.com>
+By change the memory copy and notify mechanism =EF=BC=8Ccurrently virti=
+o-net=20
+with vhost_net could run on Xen with good performance=E3=80=82TCP recei=
+ve=20
+throughput of single vnic from 2.77Gbps up to 6Gps=E3=80=82In VM receiv=
+e=20
+side=EF=BC=8CI instead grant_copy with grant_map + memcopy=EF=BC=8Cit e=
+fficiently=20
+reduce the cost of grant_table spin_lock of dom0=EF=BC=8CSo the hole se=
+rver TCP=20
+performance from 5.33Gps up to 9.5Gps=E3=80=82
+
+Now I am consider the live migrate of vhost_net on Xen=EF=BC=8Cvhost_ne=
+t use=20
+vhost_log for live migrate on Kvm=EF=BC=8Cbut qemu on Xen havn't manage=
+ the=20
+hole memory of VM=EF=BC=8CSo I am trying to fallback datapath from vhos=
+t_net to=20
+qemu when doing live migrate =EF=BC=8Cand fallback datapath from qemu t=
+o
+vhost_net again after vm migrate to new server=E3=80=82
+
+My question is=EF=BC=9A
+	why didn't vhost_net do the same fallback operation for live migrate o=
+n=20
+KVM=EF=BC=8Cbut use vhost_log to mark the dirty page=EF=BC=9F
+	Is there any mechanism fault for the idea of fallback datapath from=20
+vhost_net to qemu for live migrate=EF=BC=9F
+
+any question about the detail of vhost_net on Xen is welcome=E3=80=82
+
+Thanks
