@@ -1,35 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 1/2] ipv4: IP_TOS and IP_TTL can be
- specified as ancillary data
-Date: Tue, 27 Aug 2013 14:56:49 -0400 (EDT)
-Message-ID: <20130827.145649.1682045616049011855.davem@davemloft.net>
-References: <cover.1377257704.git.ffusco@redhat.com>
-	<cover.1377257704.git.ffusco@redhat.com>
-	<aaa7e0af2fe535ea5216e438b5f65db88dcef8b2.1377257704.git.ffusco@redhat.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [patch] net/fec: "u32" is more explicit than "unsigned long"
+Date: Tue, 27 Aug 2013 21:59:10 +0300
+Message-ID: <20130827185909.GM6329@mwanda>
+References: <20130823094920.GP31293@elgon.mountain>
+ <1377261869.3364.3.camel@bwh-desktop.uk.level5networks.com>
+ <20130827.145144.478588680902912563.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ffusco@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: bhutchings@solarflare.com, grant.likely@linaro.org,
+	rob.herring@calxeda.com, fabio.estevam@freescale.com,
+	Frank.Li@freescale.com, jim_baxter@mentor.com,
+	B38611@freescale.com, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58429 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753298Ab3H0S4w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 14:56:52 -0400
-In-Reply-To: <aaa7e0af2fe535ea5216e438b5f65db88dcef8b2.1377257704.git.ffusco@redhat.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:46703 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753808Ab3H0S7f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 14:59:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20130827.145144.478588680902912563.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francesco Fusco <ffusco@redhat.com>
-Date: Fri, 23 Aug 2013 14:19:32 +0200
+On Tue, Aug 27, 2013 at 02:51:44PM -0400, David Miller wrote:
+> 
+> Dan please resubmit with Ben's suggested changes, thanks.
 
->   - changed the icmp_cookie ttl field from __s16 to __u8.
->     A value of 0 means that the TTL has not been specified
+Yes.  Of course.  Sorry for that, I'll resend tomorrow.
 
-Sorry, I have to ask you to change the ttl field type back to __s16
-and use "-1" to mean not-specified.
-
-Zero is a valid TTL setting and it means to not allow the
-packet to leave this host.
-
-Please make this change and resubmit, thanks.
+regards,
+dan carpenter
