@@ -1,127 +1,42 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 4/8] net: syncookies: export cookie_v4_init_sequence/cookie_v4_check
-Date: Wed, 28 Aug 2013 00:53:34 +0200
-Message-ID: <1377644018-15685-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/8] netfilter: nf_defrag_ipv6.o included twice
+Date: Wed, 28 Aug 2013 00:53:32 +0200
+Message-ID: <1377644018-15685-3-git-send-email-pablo@netfilter.org>
 References: <1377644018-15685-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:44052 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:44061 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753501Ab3H0WyA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Aug 2013 18:54:00 -0400
+	id S1753466Ab3H0WyG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Aug 2013 18:54:06 -0400
 In-Reply-To: <1377644018-15685-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+From: Nathan Hintz <nlhintz@hotmail.com>
 
-Extract the local TCP stack independant parts of tcp_v4_init_sequence()
-and cookie_v4_check() and export them for use by the upcoming SYNPROXY
-target.
+'nf_defrag_ipv6' is built as a separate module; it shouldn't be
+included in the 'nf_conntrack_ipv6' module as well.
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-Acked-by: David S. Miller <davem@davemloft.net>
-Tested-by: Martin Topholm <mph@one.com>
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Nathan Hintz <nlhintz@hotmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/tcp.h     |    4 ++++
- net/ipv4/syncookies.c |   29 ++++++++++++++++++-----------
- 2 files changed, 22 insertions(+), 11 deletions(-)
+ net/ipv6/netfilter/Makefile |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 09cb5c1..8e2b636 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -476,9 +476,13 @@ void inet_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb);
+diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
+index 2d11fcc..ad13bf0 100644
+--- a/net/ipv6/netfilter/Makefile
++++ b/net/ipv6/netfilter/Makefile
+@@ -14,7 +14,7 @@ obj-$(CONFIG_NF_NAT_IPV6) += ip6table_nat.o
+ nf_conntrack_ipv6-y  :=  nf_conntrack_l3proto_ipv6.o nf_conntrack_proto_icmpv6.o
  
- /* From syncookies.c */
- extern __u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
-+extern int __cookie_v4_check(const struct iphdr *iph, const struct tcphdr *th,
-+			     u32 cookie);
- extern struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb, 
- 				    struct ip_options *opt);
- #ifdef CONFIG_SYN_COOKIES
-+extern u32 __cookie_v4_init_sequence(const struct iphdr *iph,
-+				     const struct tcphdr *th, u16 *mssp);
- extern __u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, 
- 				     __u16 *mss);
- #else
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index b05c96e..14a15c4 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -160,26 +160,33 @@ static __u16 const msstab[] = {
-  * Generate a syncookie.  mssp points to the mss, which is returned
-  * rounded down to the value encoded in the cookie.
-  */
--__u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, __u16 *mssp)
-+u32 __cookie_v4_init_sequence(const struct iphdr *iph, const struct tcphdr *th,
-+			      u16 *mssp)
- {
--	const struct iphdr *iph = ip_hdr(skb);
--	const struct tcphdr *th = tcp_hdr(skb);
- 	int mssind;
- 	const __u16 mss = *mssp;
+ # l3 independent conntrack
+-obj-$(CONFIG_NF_CONNTRACK_IPV6) += nf_conntrack_ipv6.o nf_defrag_ipv6.o
++obj-$(CONFIG_NF_CONNTRACK_IPV6) += nf_conntrack_ipv6.o
  
--	tcp_synq_overflow(sk);
--
- 	for (mssind = ARRAY_SIZE(msstab) - 1; mssind ; mssind--)
- 		if (mss >= msstab[mssind])
- 			break;
- 	*mssp = msstab[mssind];
- 
--	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESSENT);
--
- 	return secure_tcp_syn_cookie(iph->saddr, iph->daddr,
- 				     th->source, th->dest, ntohl(th->seq),
- 				     jiffies / (HZ * 60), mssind);
- }
-+EXPORT_SYMBOL_GPL(__cookie_v4_init_sequence);
-+
-+__u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, __u16 *mssp)
-+{
-+	const struct iphdr *iph = ip_hdr(skb);
-+	const struct tcphdr *th = tcp_hdr(skb);
-+
-+	tcp_synq_overflow(sk);
-+	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESSENT);
-+
-+	return __cookie_v4_init_sequence(iph, th, mssp);
-+}
- 
- /*
-  * This (misnamed) value is the age of syncookie which is permitted.
-@@ -192,10 +199,9 @@ __u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, __u16 *mssp)
-  * Check if a ack sequence number is a valid syncookie.
-  * Return the decoded mss if it is, or 0 if not.
-  */
--static inline int cookie_check(struct sk_buff *skb, __u32 cookie)
-+int __cookie_v4_check(const struct iphdr *iph, const struct tcphdr *th,
-+		      u32 cookie)
- {
--	const struct iphdr *iph = ip_hdr(skb);
--	const struct tcphdr *th = tcp_hdr(skb);
- 	__u32 seq = ntohl(th->seq) - 1;
- 	__u32 mssind = check_tcp_syn_cookie(cookie, iph->saddr, iph->daddr,
- 					    th->source, th->dest, seq,
-@@ -204,6 +210,7 @@ static inline int cookie_check(struct sk_buff *skb, __u32 cookie)
- 
- 	return mssind < ARRAY_SIZE(msstab) ? msstab[mssind] : 0;
- }
-+EXPORT_SYMBOL_GPL(__cookie_v4_check);
- 
- static inline struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
- 					   struct request_sock *req,
-@@ -284,7 +291,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 		goto out;
- 
- 	if (tcp_synq_no_recent_overflow(sk) ||
--	    (mss = cookie_check(skb, cookie)) == 0) {
-+	    (mss = __cookie_v4_check(ip_hdr(skb), th, cookie)) == 0) {
- 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESFAILED);
- 		goto out;
- 	}
+ nf_nat_ipv6-y		:= nf_nat_l3proto_ipv6.o nf_nat_proto_icmpv6.o
+ obj-$(CONFIG_NF_NAT_IPV6) += nf_nat_ipv6.o
 -- 
 1.7.10.4
