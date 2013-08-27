@@ -1,57 +1,170 @@
-From: Qin Chuanyu <qinchuanyu@huawei.com>
-Subject: =?UTF-8?B?SXMgZmFsbGJhY2sgdmhvc3RfbmV0IHRvIHFlbXUgZm9yIGxpdmUgbWk=?=
- =?UTF-8?B?Z3JhdGUgYXZhaWxhYmxl77yf?=
-Date: Tue, 27 Aug 2013 11:32:31 +0800
-Message-ID: <521C1DCF.5090202@huawei.com>
+From: Loganaden Velvindron <loganaden@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: drop fragmented ndisc packets by default
+ (RFC 6980)
+Date: Tue, 27 Aug 2013 07:40:21 +0400
+Message-ID: <CAOp4FwRWze=HG-8bp8R5nicC0b=R1ZRc6e6+fseXvn==gLqn0w@mail.gmail.com>
+References: <20130826233651.GA9183@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <kvm@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<qianhuibin@huawei.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>, <jasowang@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev <netdev@vger.kernel.org>,
+	Fernando Gont <fernando@gont.com.ar>, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:5841 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752047Ab3H0Ddt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 23:33:49 -0400
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:44606 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751896Ab3H0DkY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 23:40:24 -0400
+Received: by mail-wi0-f174.google.com with SMTP id c10so678162wiw.1
+        for <netdev@vger.kernel.org>; Mon, 26 Aug 2013 20:40:22 -0700 (PDT)
+In-Reply-To: <20130826233651.GA9183@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all
+On Tue, Aug 27, 2013 at 3:36 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> This patch implements RFC6980: Drop fragmented ndisc packets by
+> default. If a fragmented ndisc packet is received the user is informed
+> that it is possible to disable the check.
+>
 
-I am participating in a project which try to port vhost_net on Xen=E3=80=
-=82
+It's similar to the older patch except that now it's under a sysctl ?
 
-By change the memory copy and notify mechanism =EF=BC=8Ccurrently virti=
-o-net=20
-with vhost_net could run on Xen with good performance=E3=80=82TCP recei=
-ve=20
-throughput of single vnic from 2.77Gbps up to 6Gps=E3=80=82In VM receiv=
-e=20
-side=EF=BC=8CI instead grant_copy with grant_map + memcopy=EF=BC=8Cit e=
-fficiently=20
-reduce the cost of grant_table spin_lock of dom0=EF=BC=8CSo the hole se=
-rver TCP=20
-performance from 5.33Gps up to 9.5Gps=E3=80=82
 
-Now I am consider the live migrate of vhost_net on Xen=EF=BC=8Cvhost_ne=
-t use=20
-vhost_log for live migrate on Kvm=EF=BC=8Cbut qemu on Xen havn't manage=
- the=20
-hole memory of VM=EF=BC=8CSo I am trying to fallback datapath from vhos=
-t_net to=20
-qemu when doing live migrate =EF=BC=8Cand fallback datapath from qemu t=
-o
-vhost_net again after vm migrate to new server=E3=80=82
+> Cc: Fernando Gont <fernando@gont.com.ar>
+> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+>  Documentation/networking/ip-sysctl.txt |  6 ++++++
+>  include/linux/ipv6.h                   |  1 +
+>  include/uapi/linux/ipv6.h              |  1 +
+>  net/ipv6/addrconf.c                    | 10 ++++++++++
+>  net/ipv6/ndisc.c                       | 17 +++++++++++++++++
+>  5 files changed, 35 insertions(+)
+>
+> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> index debfe85..a2be556 100644
+> --- a/Documentation/networking/ip-sysctl.txt
+> +++ b/Documentation/networking/ip-sysctl.txt
+> @@ -1349,6 +1349,12 @@ mldv2_unsolicited_report_interval - INTEGER
+>         MLDv2 report retransmit will take place.
+>         Default: 1000 (1 second)
+>
+> +suppress_frag_ndisc - INTEGER
+> +       Control RFC 6980 (Security Implications of IPv6 Fragmentation
+> +       with IPv6 Neighbor Discovery) behavior:
+> +       1 - (default) discard fragmented neighbor discovery packets
+> +       0 - allow fragmented neighbor discovery packets
+> +
+>  icmp/*:
+>  ratelimit - INTEGER
+>         Limit the maximal rates for sending ICMPv6 packets.
+> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+> index 9ac5047..28ea384 100644
+> --- a/include/linux/ipv6.h
+> +++ b/include/linux/ipv6.h
+> @@ -50,6 +50,7 @@ struct ipv6_devconf {
+>         __s32           accept_dad;
+>         __s32           force_tllao;
+>         __s32           ndisc_notify;
+> +       __s32           suppress_frag_ndisc;
+>         void            *sysctl;
+>  };
+>
+> diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+> index d07ac69..593b0e3 100644
+> --- a/include/uapi/linux/ipv6.h
+> +++ b/include/uapi/linux/ipv6.h
+> @@ -162,6 +162,7 @@ enum {
+>         DEVCONF_NDISC_NOTIFY,
+>         DEVCONF_MLDV1_UNSOLICITED_REPORT_INTERVAL,
+>         DEVCONF_MLDV2_UNSOLICITED_REPORT_INTERVAL,
+> +       DEVCONF_SUPPRESS_FRAG_NDISC,
+>         DEVCONF_MAX
+>  };
+>
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 2d6d179..a7183fc 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -204,6 +204,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+>         .accept_source_route    = 0,    /* we do not accept RH0 by default. */
+>         .disable_ipv6           = 0,
+>         .accept_dad             = 1,
+> +       .suppress_frag_ndisc    = 1,
+>  };
+>
+>  static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+> @@ -241,6 +242,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+>         .accept_source_route    = 0,    /* we do not accept RH0 by default. */
+>         .disable_ipv6           = 0,
+>         .accept_dad             = 1,
+> +       .suppress_frag_ndisc    = 1,
+>  };
+>
+>  /* IPv6 Wildcard Address and Loopback Address defined by RFC2553 */
+> @@ -4188,6 +4190,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+>         array[DEVCONF_ACCEPT_DAD] = cnf->accept_dad;
+>         array[DEVCONF_FORCE_TLLAO] = cnf->force_tllao;
+>         array[DEVCONF_NDISC_NOTIFY] = cnf->ndisc_notify;
+> +       array[DEVCONF_SUPPRESS_FRAG_NDISC] = cnf->suppress_frag_ndisc;
+>  }
+>
+>  static inline size_t inet6_ifla6_size(void)
+> @@ -5002,6 +5005,13 @@ static struct addrconf_sysctl_table
+>                         .proc_handler   = proc_dointvec
+>                 },
+>                 {
+> +                       .procname       = "suppress_frag_ndisc",
+> +                       .data           = &ipv6_devconf.suppress_frag_ndisc,
+> +                       .maxlen         = sizeof(int),
+> +                       .mode           = 0644,
+> +                       .proc_handler   = proc_dointvec
+> +               },
+> +               {
+>                         /* sentinel */
+>                 }
+>         },
+> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+> index 04d31c2..41720fe 100644
+> --- a/net/ipv6/ndisc.c
+> +++ b/net/ipv6/ndisc.c
+> @@ -1519,10 +1519,27 @@ static void pndisc_redo(struct sk_buff *skb)
+>         kfree_skb(skb);
+>  }
+>
+> +static bool ndisc_suppress_frag_ndisc(struct sk_buff *skb)
+> +{
+> +       struct inet6_dev *idev = __in6_dev_get(skb->dev);
+> +
+> +       if (!idev)
+> +               return true;
+> +       if (IP6CB(skb)->flags & IP6SKB_FRAGMENTED &&
+> +           idev->cnf.suppress_frag_ndisc) {
+> +               net_warn_ratelimited("Received fragmented ndisc packet. Carefully consider disabling suppress_frag_ndisc.\n");
+> +               return true;
+> +       }
+> +       return false;
+> +}
+> +
+>  int ndisc_rcv(struct sk_buff *skb)
+>  {
+>         struct nd_msg *msg;
+>
+> +       if (ndisc_suppress_frag_ndisc(skb))
+> +               return 0;
+> +
+>         if (skb_linearize(skb))
+>                 return 0;
+>
+> --
+> 1.8.3.1
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-My question is=EF=BC=9A
-	why didn't vhost_net do the same fallback operation for live migrate o=
-n=20
-KVM=EF=BC=8Cbut use vhost_log to mark the dirty page=EF=BC=9F
-	Is there any mechanism fault for the idea of fallback datapath from=20
-vhost_net to qemu for live migrate=EF=BC=9F
 
-any question about the detail of vhost_net on Xen is welcome=E3=80=82
 
-Thanks
+-- 
+This message is strictly personal and the opinions expressed do not
+represent those of my employers, either past or present.
