@@ -1,72 +1,48 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next v3] net: sctp: sctp_verify_init: clean up mandatory checks and add comment
-Date: Tue, 27 Aug 2013 16:53:52 +0200
-Message-ID: <1377615232-11412-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:15749 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752339Ab3H0Oxz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Aug 2013 10:53:55 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Brooks <arb@sat.dundee.ac.uk>
+Subject: Re: niu lock-up (Transmit timed out, resetting) and NETDEV WATCHDOG
+Date: Tue, 27 Aug 2013 16:01:25 +0100
+Message-ID: <CAHOfOo2jn==97EQ4ka7CdBf9UGfEhtZrs-22YB+HgV=8Z0FqUg@mail.gmail.com>
+References: <CAHOfOo21+hSwFrXZuoMppcivcOonhx-m1p-yyZsm6c5UCh0joQ@mail.gmail.com>
+ <CAHOfOo0kdByd3T0LL4tBpy-aFtJS6bRK7D=rPc6Si0iv03CLKQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+To: Linux Net-Dev Mailing List <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHOfOo0kdByd3T0LL4tBpy-aFtJS6bRK7D=rPc6Si0iv03CLKQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add a comment related to RFC4960 explaning why we do not check for initial
-TSN, and while at it, remove yoda notation checks and clean up code from
-checks of mandatory conditions. That's probably just really minor, but makes
-reviewing easier.
+Hi
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
----
- v1->v2: update comment as Neil suggested
- v2->v3: fix stupid typo in comment in range spotted by Sergei
+> On 26 March 2013 13:44, Andrew Brooks <arb@sat.dundee.ac.uk> wrote:
+>> Using niu driver for this card: Oracle/SUN Multithreaded 10-Gigabit
+>> Ethernet Network Controller and after a period the interface will hang
+>> with errors every 5 seconds
+>> "niu: xxx: eth2: Transmit timed out, resetting"
 
- net/sctp/sm_make_chunk.c | 26 ++++++++++++--------------
- 1 file changed, 12 insertions(+), 14 deletions(-)
+Here's more information about the problem:
+When the interface hangs we see these messages from the driver:
 
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 01e9783..e1c1531 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -2240,25 +2240,23 @@ int sctp_verify_init(struct net *net, const struct sctp_association *asoc,
- 		     struct sctp_chunk **errp)
- {
- 	union sctp_params param;
--	int has_cookie = 0;
-+	bool has_cookie = false;
- 	int result;
- 
--	/* Verify stream values are non-zero. */
--	if ((0 == peer_init->init_hdr.num_outbound_streams) ||
--	    (0 == peer_init->init_hdr.num_inbound_streams) ||
--	    (0 == peer_init->init_hdr.init_tag) ||
--	    (SCTP_DEFAULT_MINWINDOW > ntohl(peer_init->init_hdr.a_rwnd))) {
--
-+	/* Check for missing mandatory parameters. Note: Initial TSN is
-+	 * also mandatory, but is not checked here since the valid range
-+	 * is 0..2**32-1. RFC4960, section 3.3.3.
-+	 */
-+	if (peer_init->init_hdr.num_outbound_streams == 0 ||
-+	    peer_init->init_hdr.num_inbound_streams == 0 ||
-+	    peer_init->init_hdr.init_tag == 0 ||
-+	    ntohl(peer_init->init_hdr.a_rwnd) < SCTP_DEFAULT_MINWINDOW)
- 		return sctp_process_inv_mandatory(asoc, chunk, errp);
--	}
- 
--	/* Check for missing mandatory parameters.  */
- 	sctp_walk_params(param, peer_init, init_hdr.params) {
--
--		if (SCTP_PARAM_STATE_COOKIE == param.p->type)
--			has_cookie = 1;
--
--	} /* for (loop through all parameters) */
-+		if (param.p->type == SCTP_PARAM_STATE_COOKIE)
-+			has_cookie = true;
-+	}
- 
- 	/* There is a possibility that a parameter length was bad and
- 	 * in that case we would have stoped walking the parameters.
--- 
-1.7.11.7
+[3408740.816032] niu: niu_interrupt() ldg[ffff8807141d16d0](18)
+v0[8000000000] v1[0] v2[0]
+[3408740.816036] niu 0000:09:00.0: eth2: niu_txchan_intr() cs[b860b860000c000]
+[3408740.816038] niu 0000:09:00.0: eth2: niu_poll_core() v0[0000008000000000]
+[3408740.816040] niu 0000:09:00.0: eth2: niu_tx_work() pkt_cnt[0] cons[119]
+[3408740.816042] niu: niu_interrupt() ldg[ffff8807141d16d0](18)
+v0[8000000000] v1[0] v2[0]
+[3408740.820004] [sched_delayed] sched: RT throttling activated
+[3408740.824021] niu 0000:09:00.0: eth2: Disable interrupts
+[3408740.824044] niu 0000:09:00.0: eth2: Disable RX MAC
+[3408740.824048] niu 0000:09:00.0: eth2: Disable IPP
+[3408740.824054] niu 0000:09:00.0: eth2: Stop TX channels
+[3408740.824641] niu 0000:09:00.0: eth2: Stop RX channels
+[3408740.824652] niu 0000:09:00.0: eth2: Reset TX channels
+[3408740.825212] niu 0000:09:00.0: eth2: Reset RX channels
+[3408740.825999] niu 0000:09:00.0: eth2: Initialize TXC
+[3408740.826002] niu 0000:09:00.0: eth2: Initialize TX channels
+
+However the interface doesn't recover :-(
+Are there any clues there?
+
+Thanks!
