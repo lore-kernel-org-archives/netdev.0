@@ -1,69 +1,71 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Is fallback vhost_net to =?utf-8?Q?qem?=
- =?utf-8?Q?u_for_live_migrate_available=EF=BC=9F?=
-Date: Tue, 27 Aug 2013 07:19:35 +0300
-Message-ID: <20130827041935.GA7263@redhat.com>
-References: <521C1DCF.5090202@huawei.com>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: Re: [trivial PATCH] treewide: Fix printks with 0x%#
+Date: Tue, 27 Aug 2013 01:39:25 -0400
+Message-ID: <201308270139.29838.vapier@gentoo.org>
+References: <1374778405.1957.21.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jasowang@redhat.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
-	qianhuibin@huawei.com
-To: Qin Chuanyu <qinchuanyu@huawei.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <521C1DCF.5090202@huawei.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart2301473.EoAcj9NbxQ";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Kosina <trivial@kernel.org>,
+ "James E.J. Bottomley" <jejb@parisc-linux.org>,
+ Helge Deller <deller@gmx.de>,
+ John Stultz <john.stultz@linaro.org>,
+ Thomas Gleixner <tglx@linutronix.de>,
+ Daniele Venzano <venza@brownhat.org>,
+ Andi Kleen <andi@firstfloor.org>,
+ Jaroslav Kysela <perex@perex.cz>,
+ Takashi Iwai <tiwai@suse.de>,
+ linux-parisc@vger.kernel.org,
+ linux-kernel@vger.kernel.org,
+ netdev@vger.kernel.org,
+ linux-mm@kvack.org,
+ "alsa-devel" <alsa-devel@alsa-project.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1374778405.1957.21.camel@joe-AO722>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 27, 2013 at 11:32:31AM +0800, Qin Chuanyu wrote:
-> Hi all
->=20
-> I am participating in a project which try to port vhost_net on Xen=E3=
-=80=82
->=20
-> By change the memory copy and notify mechanism =EF=BC=8Ccurrently
-> virtio-net with vhost_net could run on Xen with good
-> performance=E3=80=82TCP receive throughput of single vnic from 2.77Gb=
-ps up
-> to 6Gps=E3=80=82In VM receive side=EF=BC=8CI instead grant_copy with =
-grant_map +
-> memcopy=EF=BC=8Cit efficiently reduce the cost of grant_table spin_lo=
-ck of
-> dom0=EF=BC=8CSo the hole server TCP performance from 5.33Gps up to 9.=
-5Gps=E3=80=82
->=20
-> Now I am consider the live migrate of vhost_net on Xen=EF=BC=8Cvhost_=
-net
-> use vhost_log for live migrate on Kvm=EF=BC=8Cbut qemu on Xen havn't =
-manage
-> the hole memory of VM=EF=BC=8CSo I am trying to fallback datapath fro=
-m
-> vhost_net to qemu when doing live migrate =EF=BC=8Cand fallback datap=
-ath
-> from qemu to
-> vhost_net again after vm migrate to new server=E3=80=82
->=20
-> My question is=EF=BC=9A
-> 	why didn't vhost_net do the same fallback operation for live
-> migrate on KVM=EF=BC=8Cbut use vhost_log to mark the dirty page=EF=BC=
-=9F
-> 	Is there any mechanism fault for the idea of fallback datapath from
-> vhost_net to qemu for live migrate=EF=BC=9F
->=20
-> any question about the detail of vhost_net on Xen is welcome=E3=80=82
->=20
-> Thanks
->=20
+--nextPart2301473.EoAcj9NbxQ
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 
-It should work, in practice.
+On Thursday 25 July 2013 14:53:25 Joe Perches wrote:
+> Using 0x%# emits 0x0x.  Only one is necessary.
 
-However, one issue with this approach that I see is that you
-are running two instances of virtio-net on the host:
-qemu and vhost-net, doubling your security surface
-for guest to host attack.
+sounds like a job for checkpatch.pl :)
+-mike
 
-I don't exactly see why does it matter that qemu doesn't manage
-the whole memory of a VM - vhost only needs to log
-memory writes that it performs.
+--nextPart2301473.EoAcj9NbxQ
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.17 (GNU/Linux)
+
+iQIcBAABAgAGBQJSHDuRAAoJEEFjO5/oN/WB9eAP/17Fsge8+iHzu8tiC05a4O7x
+rFgbaVSjlB4OEKMva3jKJPcdIwNjokS0rW6HfCLVVx9AbJC+Y+O21B95DCfD8ZCG
+7LECoepLtCh/pjtblxB9vevhjFVhqLtxVB68+kRziZ659QJZn93TWWO6eYa1hYlF
+NcqeX4cn5irE1eFLb5ghoSdPtGD0PIA4a/3WKoYg62wcx4xSR8UKzdTRTke7Zsfz
+Uscb1S6+XTTp7+hYGyDBUHp60DSmnN4m6MG6XMZKDGxAv2FfpF6h1tBTJu/ubpVg
+bGin+f0QRfVnIOMIzx5T9crH0JCfCmthnaFhs9+aEnqoPEQVTtqY577mV+k9tPY9
+ygB77cIfcePVENVYoOOLn5CjxQjZ9oaRG0acnBNWepoFS5ywKW4xO1H5k2LPY9o3
+Ivq0Dk0Elt3LVLhMtp4IH1GSrFlr9Rsc5+OU60suo9MlHFHobdt3YewUse8BUdQY
+4JqLrAKsvc6OYI/iALy72b7ecPyKi0hcfojOICoDzMd1m7v2AEJ19OIft2RtGij+
+b3WP2GvURB3lYst9eUUSn6Ga9QGtt/nbDtm+aHzPkBn1Y+KxoWJGL/rDtBPQhON6
+AfXoHYKx6BoB0zoOqdXa//MKQ33YTMuehll3Jk0wdg0PLjyO1zPjCSSHB+q1ur8t
+aqPDySYINMZvN6N/MT3N
+=EMNA
+-----END PGP SIGNATURE-----
+
+--nextPart2301473.EoAcj9NbxQ--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
