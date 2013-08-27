@@ -1,81 +1,65 @@
-From: Lucas Stach <l.stach@pengutronix.de>
-Subject: Re: [PATCH] net: fec: add the initial to set the physical mac
- address
-Date: Tue, 27 Aug 2013 16:18:54 +0200
-Message-ID: <1377613134.4246.12.camel@weser.hi.pengutronix.de>
-References: <1377170269-8988-1-git-send-email-B38611@freescale.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v2] net: sctp: sctp_verify_init: clean up mandatory
+ checks and add comment
+Date: Tue, 27 Aug 2013 18:23:30 +0400
+Message-ID: <521CB662.3050903@cogentembedded.com>
+References: <1377612363-10779-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: b20596@freescale.com, b45643@freescale.com, davem@davemloft.net,
-	netdev@vger.kernel.org, shawn.guo@linaro.org,
-	bhutchings@solarflare.com, R49496@freescale.com,
-	stephen@networkplumber.org
-To: Fugang Duan <B38611@freescale.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:46463 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752086Ab3H0OWM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 10:22:12 -0400
-In-Reply-To: <1377170269-8988-1-git-send-email-B38611@freescale.com>
+Received: from mail-la0-f52.google.com ([209.85.215.52]:54826 "EHLO
+	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753062Ab3H0OXf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 10:23:35 -0400
+Received: by mail-la0-f52.google.com with SMTP id ev20so3461436lab.25
+        for <netdev@vger.kernel.org>; Tue, 27 Aug 2013 07:23:34 -0700 (PDT)
+In-Reply-To: <1377612363-10779-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Donnerstag, den 22.08.2013, 19:17 +0800 schrieb Fugang Duan:
-> For imx6slx evk platform, the fec driver cannot work since there
-> have no valid mac address set in physical mac registers.
-> 
-> For imx serial platform, fec/enet IPs both need the physical MAC
-> address initial, otherwise it cannot work.
-> 
-> After acquiring the valid MAC address from devices tree/pfuse/
-> kernel command line/random mac address, and then set it to the
-> physical MAC address registers.
-> 
-Yeah, we have also seen that we need to set this explicitly. The strange
-thing is that I recall this used to work without calling
-fec_set_mac_address() explicitly, so either the netdev core was calling
-it at some point, or our userspace was. I didn't got around to
-investigate this further.
-So anyway:
-Reviewed-by: Lucas Stach <l.stach@pengutronix.de>
+Hello.
 
-> Signed-off-by: Fugang Duan  <B38611@freescale.com>
+On 27-08-2013 18:06, Daniel Borkmann wrote:
+
+> Add a comment related to RFC4960 explaning why we do not check for initial
+> TSN, and while at it, remove yoda notation checks and clean up code from
+> checks of mandatory conditions. That's probably just really minor, but makes
+> reviewing easier.
+
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 > ---
->  drivers/net/ethernet/freescale/fec_main.c |    9 ++++++---
->  1 files changed, 6 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-> index 4349a9e..9b5e08c 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -1867,10 +1867,12 @@ fec_set_mac_address(struct net_device *ndev, void *p)
->  	struct fec_enet_private *fep = netdev_priv(ndev);
->  	struct sockaddr *addr = p;
->  
-> -	if (!is_valid_ether_addr(addr->sa_data))
-> -		return -EADDRNOTAVAIL;
-> +	if (p) {
-> +		if (!is_valid_ether_addr(addr->sa_data))
-> +			return -EADDRNOTAVAIL;
->  
-> -	memcpy(ndev->dev_addr, addr->sa_data, ndev->addr_len);
-> +		memcpy(ndev->dev_addr, addr->sa_data, ndev->addr_len);
-> +	}
->  
->  	writel(ndev->dev_addr[3] | (ndev->dev_addr[2] << 8) |
->  		(ndev->dev_addr[1] << 16) | (ndev->dev_addr[0] << 24),
-> @@ -1969,6 +1971,7 @@ static int fec_enet_init(struct net_device *ndev)
->  
->  	/* Get the Ethernet address */
->  	fec_get_mac(ndev);
-> +	fec_set_mac_address(ndev, NULL);
->  
->  	/* Set receive and transmit descriptor base. */
->  	fep->rx_bd_base = cbd_base;
+>   v1->v2: update comment as Neil suggested
 
--- 
-Pengutronix e.K.                           | Lucas Stach                 |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-5076 |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+>   net/sctp/sm_make_chunk.c | 26 ++++++++++++--------------
+>   1 file changed, 12 insertions(+), 14 deletions(-)
+
+> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+> index 01e9783..e1c1531 100644
+> --- a/net/sctp/sm_make_chunk.c
+> +++ b/net/sctp/sm_make_chunk.c
+> @@ -2240,25 +2240,23 @@ int sctp_verify_init(struct net *net, const struct sctp_association *asoc,
+>   		     struct sctp_chunk **errp)
+>   {
+>   	union sctp_params param;
+> -	int has_cookie = 0;
+> +	bool has_cookie = false;
+>   	int result;
+>
+> -	/* Verify stream values are non-zero. */
+> -	if ((0 == peer_init->init_hdr.num_outbound_streams) ||
+> -	    (0 == peer_init->init_hdr.num_inbound_streams) ||
+> -	    (0 == peer_init->init_hdr.init_tag) ||
+> -	    (SCTP_DEFAULT_MINWINDOW > ntohl(peer_init->init_hdr.a_rwnd))) {
+> -
+> +	/* Check for missing mandatory parameters. Note: Initial TSN is
+> +	 * also mandatory, but is not checked here since the valid range
+> +	 * is 0..2**(32-1). RFC4960, section 3.3.3.
+
+    I don't think you really meant 2**(32-1) == 2**31. Previously you wrote 
+2**32-1.
+
+WBR, Sergei
