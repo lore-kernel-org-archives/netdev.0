@@ -1,56 +1,65 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next RFC 6/7] i40evf: init code and hardware support
-Date: Tue, 27 Aug 2013 14:44:08 -0400 (EDT)
-Message-ID: <20130827.144408.632457019633507990.davem@davemloft.net>
-References: <1377233609-11627-7-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1377625357.13272.54.camel@bwh-desktop.uk.level5networks.com>
-	<CALWPMBHKfzvLpi9J+tqeFtmOzPANXw5ozdiXhSku_sQtVGg5yg@mail.gmail.com>
+Subject: Re: [patch] net/fec: "u32" is more explicit than "unsigned long"
+Date: Tue, 27 Aug 2013 14:51:44 -0400 (EDT)
+Message-ID: <20130827.145144.478588680902912563.davem@davemloft.net>
+References: <20130823094920.GP31293@elgon.mountain>
+	<1377261869.3364.3.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, jeffrey.t.kirsher@intel.com,
-	mitch.a.williams@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: john.ronciak@gmail.com
+Cc: dan.carpenter@oracle.com, grant.likely@linaro.org,
+	rob.herring@calxeda.com, fabio.estevam@freescale.com,
+	Frank.Li@freescale.com, jim_baxter@mentor.com,
+	B38611@freescale.com, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58228 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58363 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752338Ab3H0SoL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 14:44:11 -0400
-In-Reply-To: <CALWPMBHKfzvLpi9J+tqeFtmOzPANXw5ozdiXhSku_sQtVGg5yg@mail.gmail.com>
+	with ESMTP id S1752353Ab3H0Svr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 14:51:47 -0400
+In-Reply-To: <1377261869.3364.3.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Ronciak <john.ronciak@gmail.com>
-Date: Tue, 27 Aug 2013 11:39:03 -0700
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 23 Aug 2013 13:44:29 +0100
 
->> I wonder why this is thought to be necessary.  I've never heard of
->> copyright assignment conditions being accepted in the Linux kernel.
+> On Fri, 2013-08-23 at 12:49 +0300, Dan Carpenter wrote:
+>> tmpaddr[] is a six byte array.  We want to set the first four bytes on
+>> the first line and the remaining two on the next line.  The code assumes
+>> that "unsigned long" is 32 bits and obviously that's not true on 64 bit
+>> arches.  It's better to just use u32 instead.
+>> 
+>> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>> ---
+>> This is a static checker thing and I can't compile this file.
+>> 
+>> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+>> index fdf9307..422b125 100644
+>> --- a/drivers/net/ethernet/freescale/fec_main.c
+>> +++ b/drivers/net/ethernet/freescale/fec_main.c
+>> @@ -1100,9 +1100,9 @@ static void fec_get_mac(struct net_device *ndev)
+>>  	 * 4) FEC mac registers set by bootloader
+>>  	 */
+>>  	if (!is_valid_ether_addr(iap)) {
+>> -		*((unsigned long *) &tmpaddr[0]) =
+>> +		*((u32 *) &tmpaddr[0]) =
+>>  			be32_to_cpu(readl(fep->hwp + FEC_ADDR_LOW));
+>> -		*((unsigned short *) &tmpaddr[4]) =
+>> +		*((u16 *) &tmpaddr[4]) =
+>>  			be16_to_cpu(readl(fep->hwp + FEC_ADDR_HIGH) >> 16);
+>>  		iap = &tmpaddr[0];
+>>  	}
 > 
->> Some Linux drivers are dual-licenced under a permissive licence and GPL,
->> and all contributions to them presumably also have to be dual-licenced.
->> It seems like that would allow you to retain the ability to reuse the
->> core hardware code on other operating systems and under proprietary
->> licences, even with copyrightable contributions from others.
+> This code also seems to have CPU vs big-endian byte order the wrong way
+> round.  readl() returns bytes in native order whereas we always store
+> MAC addresses in network (big-endian) order.  So I think it should be
+> doing:
 > 
-> The problem here is that it's a legal issue.  The Intel lawyers (and I've
-> heard form other companies on this as well) say that just because we
-> release code under a dual license does not mean that any changes (patches)
-> that come back are also under a dual license.  That cannot be assumed.  So
-> all changes would require us to ask that the patches in question are being
-> supplied under the same dual license.  This can get unmanageable fairly
-> quickly.  There is also long term tracking of those requests/responses.  So
-> using a dual license isn't the same thing unfortunately.
+> 		*((__be32 *) &tmpaddr[0]) =
+> 			cpu_to_be32(readl(fep->hwp + FEC_ADDR_LOW));
+> 		*((__be16 *) &tmpaddr[4]) =
+> 			cpu_to_be16(readl(fep->hwp + FEC_ADDR_HIGH) >> 16);
 
-I think it's pretty anti-social to not accept changes made outside of
-your group.
-
-I don't want Intel ethernet drivers to go the way of ACPI where nobody
-outside of you guys can make changes to the code.
-
-I guarentee I will want to make changes to your drivers if an interface
-is changed and I have to touch your code to keep the tree building when
-a function signature changes.
-
-To say that I am upset about this would be an understatement, it blocks
-normal smooth development of networking infrastructure.
+Dan please resubmit with Ben's suggested changes, thanks.
