@@ -1,62 +1,37 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: Is fallback vhost_net to =?utf-8?Q?qem?=
- =?utf-8?Q?u_for_live_migrate_available=EF=BC=9F?=
-Date: Tue, 27 Aug 2013 10:41:52 +0100
-Message-ID: <20130827094152.GA1625@zion.uk.xensource.com>
-References: <521C1DCF.5090202@huawei.com>
- <20130827041935.GA7263@redhat.com>
- <521C4F96.8000103@huawei.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next v1 1/9] net: add netdev_upper_get_next_dev(dev,
+ iter)
+Date: Tue, 27 Aug 2013 12:42:15 +0200
+Message-ID: <20130827104215.GA24836@redhat.com>
+References: <1377549162-7522-1-git-send-email-vfalico@redhat.com>
+ <1377549162-7522-2-git-send-email-vfalico@redhat.com>
+ <20130826205748.GB3723@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, <jasowang@redhat.com>,
-	<kvm@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<qianhuibin@huawei.com>, <wangfuhai@huawei.com>,
-	<wei.liu2@citrix.com>
-To: Qin Chuanyu <qinchuanyu@huawei.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Cong Wang <amwang@redhat.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:6552 "EHLO SMTP02.CITRIX.COM"
+Received: from mx1.redhat.com ([209.132.183.28]:44841 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753238Ab3H0JwU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Aug 2013 05:52:20 -0400
+	id S1752776Ab3H0Kne (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Aug 2013 06:43:34 -0400
 Content-Disposition: inline
-In-Reply-To: <521C4F96.8000103@huawei.com>
+In-Reply-To: <20130826205748.GB3723@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46irst of all, good job, Chuanyu. :-)
+On Mon, Aug 26, 2013 at 10:57:48PM +0200, Jiri Pirko wrote:
+>Mon, Aug 26, 2013 at 10:32:34PM CEST, vfalico@redhat.com wrote:
+...snip...
+>>+struct net_device *netdev_upper_get_next_dev(struct net_device *dev,
+>>+					     struct list_head **iter)
+>
+>		This should be probably rather named
+>		"netdev_upper_get_next_dev_rcu" That way it is clear
+>		right away. Also if you introduce non-rcu variant in
+>		future, you won't introduce confusion :)
 
-On Tue, Aug 27, 2013 at 03:04:54PM +0800, Qin Chuanyu wrote:
-[...]
-> >.
-> >
-> Thanks for your reply.
->=20
-> In fact=EF=BC=8CI am not sure that whether vhost_log could work on Xe=
-n live
-> migrate or not. Yes=EF=BC=8Cvhost_sync_dirty_bitmap work well on Kvm=EF=
-=BC=8Cbut
-> vhost_net havn't run on Xen before=EF=BC=8Calthough the method
-> vhost_dev_sync_region -> memory_region_set_dirty ->
-> xen_modified_memory call sequence exist.
->=20
-
-=46or Xen-specific questions you might have better luck posting to
-xen-devel@lists.xenproject.org.
-
-And I think this project is interesting enough and of benificial to Xen
-community as well. Could you CC Xen-devel@ for future updates?
-
-Thanks
-Wei.
-
-> Have you considered the scene that vhost_migration_log code running
-> on Xen=EF=BC=9F If yes=EF=BC=8Cit sames much easier then fallback dat=
-apath from
-> vhost_net to qemu for live migrate.
->=20
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Agreed, it will be easier, will do in v2.
