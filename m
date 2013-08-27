@@ -1,62 +1,63 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: sendto() bug?
-Date: Tue, 27 Aug 2013 09:02:16 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1308270901120.1731@ja.ssi.bg>
-References: <alpine.DEB.2.02.1308231257140.10771@optio.utah.ind.alcatel.com> <alpine.LFD.2.00.1308241105220.1641@ja.ssi.bg> <alpine.DEB.2.02.1308261319370.23968@optio.utah.ind.alcatel.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [trivial PATCH] treewide: Fix printks with 0x%#
+Date: Mon, 26 Aug 2013 23:00:47 -0700
+Message-ID: <1377583247.2658.13.camel@joe-AO722>
+References: <1374778405.1957.21.camel@joe-AO722>
+	 <201308270139.29838.vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Chris Clark <chris.clark@alcatel-lucent.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:53898 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752299Ab3H0F7K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Aug 2013 01:59:10 -0400
-In-Reply-To: <alpine.DEB.2.02.1308261319370.23968@optio.utah.ind.alcatel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Kosina <trivial@kernel.org>,
+	"James E.J. Bottomley" <jejb@parisc-linux.org>,
+	Helge Deller <deller@gmx.de>,
+	John Stultz <john.stultz@linaro.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Daniele Venzano <venza@brownhat.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	Jaroslav Kysela <perex@perex.cz>, Takashi Iwai <tiwai@suse.de>,
+	linux-parisc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-mm@kvack.org,
+	alsa-devel <alsa-devel@alsa-project.org>
+To: Mike Frysinger <vapier@gentoo.org>
+Return-path: <linux-parisc-owner@vger.kernel.org>
+In-Reply-To: <201308270139.29838.vapier@gentoo.org>
+Sender: linux-parisc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-	Hello,
-
-On Mon, 26 Aug 2013, Chris Clark wrote:
-
-> On Sat, 24 Aug 2013, Julian Anastasov wrote:
-> > On Fri, 23 Aug 2013, Chris Clark wrote:
-> > > In the same vein as 2ad5b9e4, I'm soliciting feedback on something
-> > > similar for raw_sendmsg():
-> [snip]
+On Tue, 2013-08-27 at 01:39 -0400, Mike Frysinger wrote:
+> On Thursday 25 July 2013 14:53:25 Joe Perches wrote:
+> > Using 0x%# emits 0x0x.  Only one is necessary.
 > 
-> > 	So, something like
-> > (inet->hdrincl ? FLOWI_FLAG_KNOWN_NH : 0) ?
-> 
-> 
-> Many thanks.  This patch indeed appears to resolve the problem:
-> 
-> diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-> index dd44e0a..61e60d6 100644
-> --- a/net/ipv4/raw.c
-> +++ b/net/ipv4/raw.c
-> @@ -571,7 +571,8 @@ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
->  	flowi4_init_output(&fl4, ipc.oif, sk->sk_mark, tos,
->  			   RT_SCOPE_UNIVERSE,
->  			   inet->hdrincl ? IPPROTO_RAW : sk->sk_protocol,
-> -			   inet_sk_flowi_flags(sk) | FLOWI_FLAG_CAN_SLEEP,
-> +			   inet_sk_flowi_flags(sk) | FLOWI_FLAG_CAN_SLEEP |
-> +			    (inet->hdrincl ? FLOWI_FLAG_KNOWN_NH : 0),
+> sounds like a job for checkpatch.pl :)
 
-	Looks good,
+Here.  Submit it yourself...
+---
+ scripts/checkpatch.pl | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-Suggested-by: Julian Anastasov <ja@ssi.bg>
+diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+index 9ba4fc4..520f8e7 100755
+--- a/scripts/checkpatch.pl
++++ b/scripts/checkpatch.pl
+@@ -3869,6 +3869,18 @@ sub process {
+ 			}
+ 		}
+ 
++# check for formats with "0x%#"
++		if ($line =~ /"X*"/) {
++			my $fmt = get_quoted_string($line, $rawline);
++			if ($fmt =~ /0x%#/) {
++				if (WARN("REDUNDANT_HEX",
++					 "Redundant hex prefix 0x format\n" . $herecurr) &&
++				    $fix) {
++					$fixed[$linenr - 1] =~ s/0x%#/%#/g;
++				}
++			}
++		}
++
+ # Check for misused memsets
+ 		if ($^V && $^V ge 5.10.0 &&
+ 		    defined $stat &&
 
->  			   daddr, saddr, 0, 0);
-> 
->  	if (!inet->hdrincl) {
-> 
-> 
-> Chris
 
-Regards
 
---
-Julian Anastasov <ja@ssi.bg>
